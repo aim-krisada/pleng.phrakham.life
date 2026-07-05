@@ -65,17 +65,19 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress } =
     for (const n of notes) {
       const dur = n.beats * spb
       if (n.midi != null) {
+        // stop slightly early so repeated same-pitch notes articulate clearly
+        const soundDur = Math.max(0.08, dur - 0.07)
         const osc = ctx.createOscillator()
         const gain = ctx.createGain()
         osc.type = 'triangle'
         osc.frequency.value = 440 * 2 ** ((n.midi - 69) / 12)
         gain.gain.setValueAtTime(0, t)
-        gain.gain.linearRampToValueAtTime(0.35, t + 0.02)
-        gain.gain.setValueAtTime(0.35, t + Math.max(0.02, dur - 0.06))
-        gain.gain.linearRampToValueAtTime(0, t + dur - 0.005)
+        gain.gain.linearRampToValueAtTime(0.35, t + 0.015)
+        gain.gain.setValueAtTime(0.35, t + Math.max(0.015, soundDur - 0.05))
+        gain.gain.linearRampToValueAtTime(0, t + soundDur)
         osc.connect(gain).connect(ctx.destination)
         osc.start(t)
-        osc.stop(t + dur)
+        osc.stop(t + soundDur + 0.01)
         endTimes.push(osc)
       }
       t += dur
