@@ -1,0 +1,85 @@
+<script setup>
+import { computed } from 'vue'
+import { parseNotes, groupNotes } from '../lib/notation.js'
+
+const props = defineProps({ notes: { type: String, default: '' } })
+const groups = computed(() => groupNotes(parseNotes(props.notes)))
+</script>
+
+<template>
+  <span class="note-row">
+    <span
+      v-for="(g, gi) in groups"
+      :key="gi"
+      :class="['note-group', g.group ? 'g-' + g.group : '']"
+    >
+      <span v-for="(t, ti) in g.tokens" :key="ti" class="nt">
+        <template v-if="t.type === 'note'">
+          <span class="dots-hi">{{ '•'.repeat(t.high) || ' ' }}</span>
+          <span :class="['num', 'u' + t.underlines]">{{ t.accidental === '#' ? '♯' : t.accidental === 'b' ? '♭' : '' }}{{ t.pitch }}{{ t.dotted ? ' ·' : '' }}</span>
+          <span class="dots-lo">{{ '•'.repeat(t.low) || ' ' }}</span>
+        </template>
+        <template v-else-if="t.type === 'ext'">
+          <span class="dots-hi">&nbsp;</span>
+          <span class="num">–</span>
+          <span class="dots-lo">&nbsp;</span>
+        </template>
+        <template v-else>
+          <span class="dots-hi">&nbsp;</span>
+          <span class="num">{{ t.text }}</span>
+          <span class="dots-lo">&nbsp;</span>
+        </template>
+      </span>
+    </span>
+  </span>
+</template>
+
+<style scoped>
+.note-row { display: inline-flex; align-items: flex-start; }
+.note-group { display: inline-flex; position: relative; }
+.nt {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 1.05em;
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  line-height: 1.05;
+}
+.dots-hi, .dots-lo {
+  display: block;
+  font-size: 0.55em;
+  height: 1.1em;
+  line-height: 1.1em;
+  letter-spacing: -1px;
+}
+.num { display: block; padding: 0 1px; }
+.num.u1 { border-bottom: 1.5px solid currentColor; }
+.num.u2 { border-bottom: 4px double currentColor; }
+/* slur/tie arc above the group */
+.g-slur::before {
+  content: '';
+  position: absolute;
+  top: -0.05em;
+  left: 12%;
+  right: 12%;
+  height: 0.45em;
+  border-top: 1.5px solid currentColor;
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+}
+/* triplet: bracket + "3" above the group */
+.g-triplet::before {
+  content: '3';
+  position: absolute;
+  top: -0.75em;
+  left: 10%;
+  right: 10%;
+  font-size: 0.6em;
+  text-align: center;
+  border-top: 1px solid currentColor;
+  border-left: 1px solid currentColor;
+  border-right: 1px solid currentColor;
+  height: 0.9em;
+  line-height: 0.6em;
+}
+</style>

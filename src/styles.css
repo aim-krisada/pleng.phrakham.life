@@ -1,0 +1,125 @@
+:root {
+  --blue: #2b6cb0;
+  --teal: #319795;
+  --red: #c53030;
+  --ink: #2d3748;
+  --muted: #718096;
+  --line: #e2e8f0;
+  --bg: #f7fafc;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', 'Noto Sans Thai', Tahoma, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.6;
+}
+
+a { color: var(--blue); text-decoration: none; }
+
+.container { max-width: 860px; margin: 0 auto; padding: 16px; }
+
+header.topbar {
+  background: var(--blue);
+  color: #fff;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+header.topbar .brand { font-weight: 700; font-size: 18px; color: #fff; }
+header.topbar nav a { color: #cfe3f7; margin-right: 12px; }
+header.topbar nav a.router-link-active { color: #fff; font-weight: 600; }
+
+button, .btn {
+  background: var(--teal);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 15px;
+  cursor: pointer;
+  font-family: inherit;
+}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary { background: #edf2f7; color: var(--ink); }
+button.danger { background: var(--red); }
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: 15px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.muted { color: var(--muted); font-size: 14px; }
+
+/* ---------- Song sheet ---------- */
+.song-line {
+  margin-bottom: 20px;
+  white-space: nowrap;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.segment { display: inline-block; vertical-align: top; margin-right: 6px; }
+.segment .chord {
+  display: block;
+  font-weight: 700;
+  color: var(--red);
+  min-height: 22px;
+  font-family: 'Courier New', monospace;
+  font-size: 15px;
+}
+.segment .note {
+  display: block;
+  color: var(--blue);
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  min-height: 22px;
+  font-size: 15px;
+}
+.segment .lyric { display: block; font-size: 17px; }
+.bar-line {
+  display: inline-block;
+  vertical-align: top;
+  color: #cbd5e0;
+  font-weight: 700;
+  margin: 0 8px;
+  padding-top: 22px;
+  font-family: monospace;
+  font-size: 18px;
+}
+.sheet-mode-lyrics .bar-line { padding-top: 0; }
+.section-marker {
+  display: inline-block;
+  vertical-align: top;
+  color: var(--muted);
+  font-weight: 700;
+  margin-right: 10px;
+  padding-top: 44px;
+}
+.sheet-mode-lyrics .section-marker { padding-top: 0; }
+
+/* ---------- Print (A4) ---------- */
+@media print {
+  @page { margin: 0; }
+  body { background: #fff; padding: 15mm 20mm; }
+  .no-print { display: none !important; }
+  .card { border: none; padding: 0; }
+  .song-line { overflow-x: visible; break-inside: avoid; }
+}
