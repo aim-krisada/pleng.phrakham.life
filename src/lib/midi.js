@@ -7,6 +7,20 @@ const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 6
   'F#': 66, Gb: 66, G: 67, 'G#': 68, Ab: 68, A: 69, 'A#': 70, Bb: 70, B: 71 }
 const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11] // semitone offsets for degrees 1-7
 
+// Standard Italian tempo markings with representative BPM values
+export const TEMPO_MARKS = [
+  { value: 40, label: 'Grave ♩=40 (ช้าหนักแน่น)' },
+  { value: 50, label: 'Largo ♩=50 (ช้ามาก)' },
+  { value: 60, label: 'Larghetto ♩=60 (ค่อนข้างช้า)' },
+  { value: 70, label: 'Adagio ♩=70 (ช้า สง่างาม)' },
+  { value: 92, label: 'Andante ♩=92 (เดินสบาย)' },
+  { value: 108, label: 'Moderato ♩=108 (ปานกลาง)' },
+  { value: 116, label: 'Allegretto ♩=116 (ค่อนข้างเร็ว)' },
+  { value: 132, label: 'Allegro ♩=132 (เร็ว สดใส)' },
+  { value: 160, label: 'Vivace ♩=160 (เร็ว มีชีวิตชีวา)' },
+  { value: 184, label: 'Presto ♩=184 (เร็วมาก)' },
+]
+
 let ctx = null
 let stopFlag = { stopped: false }
 

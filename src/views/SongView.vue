@@ -1,10 +1,10 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { KEYS } from '../lib/chords.js'
-import { playSong, stopPlayback } from '../lib/midi.js'
+import { playSong, stopPlayback, TEMPO_MARKS } from '../lib/midi.js'
 import SongSheet from '../components/SongSheet.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 
@@ -17,6 +17,14 @@ const chordSystem = ref('letter') // letter | roman
 const displayKey = ref('')
 const playing = ref(false)
 const loop = ref(false)
+const tempo = ref(92)
+
+const tempoOptions = computed(() => {
+  const base = song.value?.content?.bpm
+    ? [{ value: song.value.content.bpm, label: `ตามเพลง ♩=${song.value.content.bpm}` }]
+    : []
+  return [...base, ...TEMPO_MARKS]
+})
 
 onMounted(async () => {
   const id = route.params.id
@@ -32,6 +40,7 @@ onMounted(async () => {
     song.value = data
   }
   displayKey.value = song.value.content.key
+  tempo.value = song.value.content.bpm || 92
 })
 
 onUnmounted(stopPlayback)
@@ -48,7 +57,7 @@ async function togglePlay() {
   }
   playing.value = true
   await playSong(song.value.content, {
-    bpm: song.value.content.bpm || 80,
+    bpm: Number(tempo.value) || song.value.content.bpm || 92,
     loop: loop.value,
   })
   playing.value = false
@@ -78,6 +87,10 @@ async function togglePlay() {
       <button :class="playing ? 'danger' : ''" @click="togglePlay">
         {{ playing ? '⏹ หยุด' : '▶ ฟังทำนอง' }}
       </button>
+      <label style="display: inline-flex; align-items: center; gap: 4px">
+        ความเร็ว:
+        <ComboSelect v-model="tempo" :options="tempoOptions" allow-custom width="210px" />
+      </label>
       <label style="display: inline-flex; align-items: center; gap: 4px">
         <input v-model="loop" type="checkbox" /> วนซ้ำ
       </label>
