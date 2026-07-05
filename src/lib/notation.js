@@ -11,35 +11,50 @@
 //   ( )  = slur/tie around a group  ·  { } = triplet around a group
 // Old data like "5. .5 2 1 3" parses unchanged.
 
-const NOTE_RE = /^(#|b)?(\.*)([0-7])('*)(_{0,2})(\.)?$/
-
+// Character-level lexer — spaces between notes are OPTIONAL ("123" = "1 2 3").
+// A '.' directly before a digit is that digit's low-octave dot; a '.' at the
+// end of a note (not followed by a digit) is an augmentation dot.
 export function parseNotes(str) {
   if (!str) return []
-  const parts = str
-    .replace(/([({])/g, ' $1 ')
-    .replace(/([)}])/g, ' $1 ')
-    .trim()
-    .split(/\s+/)
+  const s = str
   const tokens = []
-  for (const p of parts) {
-    if (p === '-') { tokens.push({ type: 'ext' }); continue }
-    if (p === '(') { tokens.push({ type: 'open', group: 'slur' }); continue }
-    if (p === ')') { tokens.push({ type: 'close', group: 'slur' }); continue }
-    if (p === '{') { tokens.push({ type: 'open', group: 'triplet' }); continue }
-    if (p === '}') { tokens.push({ type: 'close', group: 'triplet' }); continue }
-    const m = NOTE_RE.exec(p)
-    if (m) {
-      tokens.push({
-        type: 'note',
-        accidental: m[1] || '',
-        low: m[2].length,
-        pitch: m[3],
-        high: m[4].length,
-        underlines: m[5].length,
-        dotted: !!m[6],
-      })
+  let i = 0
+  while (i < s.length) {
+    const c = s[i]
+    if (c === ' ' || c === '\t' || c === '|') { i++; continue }
+    if (c === '-' || c === '–') { tokens.push({ type: 'ext' }); i++; continue }
+    if (c === '(') { tokens.push({ type: 'open', group: 'slur' }); i++; continue }
+    if (c === ')') { tokens.push({ type: 'close', group: 'slur' }); i++; continue }
+    if (c === '{') { tokens.push({ type: 'open', group: 'triplet' }); i++; continue }
+    if (c === '}') { tokens.push({ type: 'close', group: 'triplet' }); i++; continue }
+    // try to read one note: [#b] [.]* digit [']* [_]{0,2} [.augmentation]?
+    let j = i
+    let accidental = ''
+    if (s[j] === '#' || s[j] === 'b') { accidental = s[j]; j++ }
+    let low = 0
+    while (s[j] === '.') { low++; j++ }
+    if (s[j] >= '0' && s[j] <= '7') {
+      const pitch = s[j]
+      j++
+      let high = 0
+      while (s[j] === "'") { high++; j++ }
+      let underlines = 0
+      while (s[j] === '_' && underlines < 2) { underlines++; j++ }
+      let dotted = false
+      if (s[j] === '.') {
+        // dots followed by a digit belong to the NEXT note (low-octave dots)
+        let k = j
+        while (s[k] === '.') k++
+        const beforeDigit = s[k] >= '0' && s[k] <= '7'
+        if (!beforeDigit || k - j >= 2) { dotted = true; j++ }
+      }
+      tokens.push({ type: 'note', accidental, low, pitch, high, underlines, dotted })
+      i = j
     } else {
-      tokens.push({ type: 'raw', text: p })
+      // consumed prefix without a digit, or an unknown character → unreadable
+      const end = Math.max(j + 1, i + 1)
+      tokens.push({ type: 'raw', text: s.slice(i, end) })
+      i = end
     }
   }
   return tokens

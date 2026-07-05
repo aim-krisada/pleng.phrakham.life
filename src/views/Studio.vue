@@ -7,6 +7,7 @@ import { songHaystack } from '../lib/songSearch.js'
 import { diffSongRows } from '../lib/diff.js'
 import { playSong, stopPlayback } from '../lib/midi.js'
 import SongSheet from '../components/SongSheet.vue'
+import NoteRow from '../components/NoteRow.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 
 // ---------- auth + role ----------
@@ -120,16 +121,20 @@ const previewContent = computed(() => ({
   lines: lines.value.map(serializeLine),
 }))
 
-// beats per bar vs. time signature
+// beats per bar vs. time signature — honest: unreadable input is an error, never a pass
 const expBeats = computed(() => expectedBeats(opts.timeSignature))
-function barBeats(bar) {
-  return bar.segments.reduce((sum, s) => sum + beatCount(parseNotes(s.note)), 0)
-}
 function barStatus(bar) {
-  const got = barBeats(bar)
-  if (expBeats.value == null || got === 0) return { text: got ? `${fmt(got)}` : '', ok: true }
+  const tokens = bar.segments.flatMap((s) => parseNotes(s.note))
+  const hasText = bar.segments.some((s) => s.note.trim())
+  if (!hasText) return { text: 'ว่าง', ok: true }
+  const rawTokens = tokens.filter((t) => t.type === 'raw')
+  if (rawTokens.length) {
+    return { text: `อ่านไม่ได้: ${rawTokens.map((t) => t.text).join(' ')}`, ok: false }
+  }
+  const got = beatCount(tokens)
+  if (expBeats.value == null) return { text: fmt(got), ok: true }
   const ok = Math.abs(got - expBeats.value) < 0.01
-  return { text: `${fmt(got)}/${fmt(expBeats.value)}`, ok }
+  return { text: `${fmt(got)}/${fmt(expBeats.value)} จังหวะ`, ok }
 }
 function fmt(n) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
@@ -578,6 +583,14 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
             </span>
             <button class="secondary tiny" @click="removeBar(line, bi)">✕</button>
           </div>
+          <!-- live render of this bar, exactly as the song sheet will show it -->
+          <div class="bar-preview">
+            <span v-for="(seg, si) in bar.segments" :key="'p' + si" class="segment">
+              <span class="chord">{{ seg.chord }}&nbsp;</span>
+              <span class="note"><NoteRow :notes="seg.note" />&nbsp;</span>
+              <span class="lyric">{{ seg.lyric }}&nbsp;</span>
+            </span>
+          </div>
           <div v-for="(seg, si) in bar.segments" :key="si" class="seg-row">
             <input v-model="seg.chord" placeholder="คอร์ด" class="seg-chord" />
             <input v-model="seg.note" placeholder="โน้ต" class="seg-note" @focus="noteFocus" />
@@ -676,6 +689,14 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
   font-size: 13px;
   margin-bottom: 6px;
   gap: 6px;
+}
+.bar-preview {
+  min-height: 58px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  white-space: nowrap;
+  overflow-x: auto;
 }
 .seg-row { display: flex; gap: 4px; margin-bottom: 4px; align-items: center; }
 .seg-chord { width: 64px; color: var(--red); font-weight: 700; }
