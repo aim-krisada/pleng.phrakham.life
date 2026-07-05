@@ -4,23 +4,50 @@ import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats } from '../lib/notation.js'
 import { songHaystack } from '../lib/songSearch.js'
+import { diffSongRows } from '../lib/diff.js'
 import { playSong, stopPlayback } from '../lib/midi.js'
 import SongSheet from '../components/SongSheet.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 
-// ---------- auth ----------
+// ---------- auth + role ----------
 const session = ref(null)
+const profile = ref(null) // { role, display_name }
+const legacy = ref(false) // true when draft tables are not installed yet
 const email = ref('')
 const password = ref('')
 const authError = ref('')
 
+const isApprover = computed(() => legacy.value || profile.value?.role === 'approver')
+
 onMounted(async () => {
   const { data } = await supabase.auth.getSession()
   session.value = data.session
-  supabase.auth.onAuthStateChange((_e, s) => (session.value = s))
+  supabase.auth.onAuthStateChange((_e, s) => {
+    session.value = s
+    loadProfile()
+  })
   loadSongList()
+  loadProfile()
 })
 onUnmounted(stopPlayback)
+
+async function loadProfile() {
+  profile.value = null
+  if (!session.value) return
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('role, display_name')
+    .eq('id', session.value.user.id)
+    .single()
+  if (error) {
+    if (error.code === '42P01' || error.code === 'PGRST205') legacy.value = true
+    else profile.value = { role: 'editor', display_name: session.value.user.email }
+  } else {
+    profile.value = data
+  }
+  loadDrafts()
+  loadProfilesMap()
+}
 
 async function login() {
   authError.value = ''
@@ -34,9 +61,7 @@ async function logout() {
   await supabase.auth.signOut()
 }
 
-// ---------- editing model ----------
-// Stored format: line = flat items (marker?, segments, bar separators)
-// Editing format: line = { marker, bars: [{ segments: [{chord,note,lyric}] }] }
+// ---------- editing model (lines -> bars -> segments) ----------
 function newSegment() {
   return { chord: '', note: '', lyric: '' }
 }
@@ -60,7 +85,7 @@ function deserializeLine(items) {
     }
   }
   line.bars.push(bar)
-  line.bars = line.bars.filter((b) => b.segments.length) // drop empties from trailing bars
+  line.bars = line.bars.filter((b) => b.segments.length)
   if (!line.bars.length) line.bars = [newBar()]
   return line
 }
@@ -78,6 +103,9 @@ function serializeLine(line) {
 }
 
 const editingId = ref(null)
+const currentDraftId = ref(null)
+const reviewingDraft = ref(null)
+const reviewComment = ref('')
 const pickerId = ref('')
 const meta = reactive({ number: null, title_th: '', title_en: '' })
 const opts = reactive({ key: 'C', timeSignature: '4/4', bpm: null })
@@ -151,7 +179,7 @@ function removeLine(li) {
   if (!lines.value.length) lines.value.push(newLine())
 }
 
-// ---------- load / save ----------
+// ---------- song list / picker ----------
 const songList = ref([])
 
 async function loadSongList() {
@@ -177,7 +205,15 @@ async function loadSong(id) {
   if (!id) return resetForm()
   const { data, error } = await supabase.from('songs').select('*').eq('id', id).single()
   if (error || !data) return
+  applyRow(data)
   editingId.value = data.id
+  currentDraftId.value = null
+  reviewingDraft.value = null
+  saveMsg.value = ''
+  loadRevisions()
+}
+
+function applyRow(data) {
   meta.number = data.number
   meta.title_th = data.title_th
   meta.title_en = data.title_en
@@ -186,11 +222,12 @@ async function loadSong(id) {
   opts.bpm = data.content.bpm ?? null
   lines.value = (data.content.lines || []).map(deserializeLine)
   if (!lines.value.length) lines.value = [newLine()]
-  saveMsg.value = ''
 }
 
 function resetForm() {
   editingId.value = null
+  currentDraftId.value = null
+  reviewingDraft.value = null
   meta.number = null
   meta.title_th = ''
   meta.title_en = ''
@@ -199,16 +236,96 @@ function resetForm() {
   opts.bpm = null
   lines.value = [newLine()]
   saveMsg.value = ''
+  revisions.value = []
 }
 
-async function save() {
-  saveMsg.value = ''
-  const row = {
-    number: meta.number || null,
-    title_th: meta.title_th.trim(),
-    title_en: meta.title_en?.trim() || null,
-    content: JSON.parse(JSON.stringify(previewContent.value)),
+// ---------- drafts ----------
+const myDrafts = ref([])
+const pendingDrafts = ref([])
+const profilesMap = ref({})
+
+async function loadProfilesMap() {
+  if (legacy.value || !session.value) return
+  const { data } = await supabase.from('profiles').select('id, display_name')
+  profilesMap.value = Object.fromEntries((data ?? []).map((p) => [p.id, p.display_name]))
+}
+
+async function loadDrafts() {
+  myDrafts.value = []
+  pendingDrafts.value = []
+  if (legacy.value || !session.value) return
+  const { data, error } = await supabase
+    .from('song_drafts')
+    .select('*')
+    .order('updated_at', { ascending: false })
+  if (error) {
+    if (error.code === '42P01' || error.code === 'PGRST205') legacy.value = true
+    return
   }
+  const uid = session.value.user.id
+  myDrafts.value = (data ?? []).filter((d) => d.author_id === uid && d.status !== 'approved')
+  pendingDrafts.value = (data ?? []).filter((d) => d.status === 'pending')
+}
+
+function loadDraft(d) {
+  applyRow(d)
+  editingId.value = d.song_id
+  currentDraftId.value = d.id
+  reviewingDraft.value = isApprover.value && d.status === 'pending' ? d : null
+  reviewComment.value = d.review_comment || ''
+  saveMsg.value = d.status === 'rejected' && d.review_comment ? '↩ ถูกส่งกลับ: ' + d.review_comment : ''
+  loadRevisions()
+}
+
+const draftRow = () => ({
+  song_id: editingId.value,
+  number: meta.number || null,
+  title_th: meta.title_th.trim(),
+  title_en: meta.title_en?.trim() || null,
+  content: JSON.parse(JSON.stringify(previewContent.value)),
+})
+
+async function saveDraft(status) {
+  saveMsg.value = ''
+  const row = draftRow()
+  if (!row.title_th) {
+    saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
+    return
+  }
+  row.status = status
+  // reuse an existing own draft for this song if we did not start from one
+  if (!currentDraftId.value && editingId.value) {
+    const { data } = await supabase
+      .from('song_drafts')
+      .select('id')
+      .eq('author_id', session.value.user.id)
+      .eq('song_id', editingId.value)
+      .in('status', ['draft', 'pending', 'rejected'])
+      .limit(1)
+    if (data?.[0]) currentDraftId.value = data[0].id
+  }
+  let error
+  if (currentDraftId.value) {
+    ;({ error } = await supabase.from('song_drafts').update(row).eq('id', currentDraftId.value))
+  } else {
+    const res = await supabase.from('song_drafts').insert(row).select('id').single()
+    error = res.error
+    if (res.data) currentDraftId.value = res.data.id
+  }
+  saveMsg.value = error
+    ? '❌ บันทึกไม่สำเร็จ: ' + error.message
+    : status === 'pending'
+      ? '📨 ส่งตรวจแล้ว — รอผู้อนุมัติ'
+      : '💾 บันทึกร่างแล้ว (ยังไม่เผยแพร่)'
+  loadDrafts()
+}
+
+// ---------- publish (approver) ----------
+async function saveDirect() {
+  saveMsg.value = ''
+  const row = draftRow()
+  delete row.song_id
+  delete row.status
   if (!row.title_th) {
     saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
     return
@@ -222,10 +339,91 @@ async function save() {
     error = res.error
     if (res.data) editingId.value = res.data.id
   }
-  saveMsg.value = error ? '❌ บันทึกไม่สำเร็จ: ' + error.message : '✅ บันทึกแล้ว'
-  if (!error) loadSongList()
+  saveMsg.value = error ? '❌ บันทึกไม่สำเร็จ: ' + error.message : '✅ เผยแพร่แล้ว'
+  if (!error) {
+    loadSongList()
+    loadRevisions()
+  }
 }
 
+async function approve() {
+  const d = reviewingDraft.value
+  await saveDirect()
+  if (saveMsg.value.startsWith('❌') || saveMsg.value.startsWith('⚠️')) return
+  await supabase
+    .from('song_drafts')
+    .update({ status: 'approved', song_id: editingId.value, review_comment: reviewComment.value || null })
+    .eq('id', d.id)
+  saveMsg.value = '✅ อนุมัติและเผยแพร่แล้ว'
+  reviewingDraft.value = null
+  currentDraftId.value = null
+  loadDrafts()
+}
+
+async function reject() {
+  const d = reviewingDraft.value
+  const { error } = await supabase
+    .from('song_drafts')
+    .update({ status: 'rejected', review_comment: reviewComment.value || null })
+    .eq('id', d.id)
+  saveMsg.value = error ? '❌ ' + error.message : '↩ ส่งกลับให้ผู้เขียนแก้แล้ว'
+  reviewingDraft.value = null
+  currentDraftId.value = null
+  loadDrafts()
+}
+
+async function deleteSong() {
+  if (!editingId.value) return
+  if (!window.confirm(`ลบเพลง "${meta.title_th}" ออกจากรายการเพลงถาวร?`)) return
+  const { error } = await supabase.from('songs').delete().eq('id', editingId.value)
+  saveMsg.value = error ? '❌ ลบไม่สำเร็จ: ' + error.message : '🗑️ ลบแล้ว'
+  if (!error) {
+    resetForm()
+    pickerId.value = ''
+    loadSongList()
+  }
+}
+
+function save() {
+  if (legacy.value || (isApprover.value && !reviewingDraft.value)) return saveDirect()
+  return saveDraft(reviewingDraft.value ? 'pending' : 'draft')
+}
+
+// ---------- history ----------
+const revisions = ref([])
+const showHistory = ref(false)
+
+async function loadRevisions() {
+  revisions.value = []
+  if (legacy.value || !session.value || !editingId.value) return
+  const { data, error } = await supabase
+    .from('song_revisions')
+    .select('*')
+    .eq('song_id', editingId.value)
+    .order('id', { ascending: false })
+    .limit(30)
+  if (!error) revisions.value = data ?? []
+}
+
+function revName(rev) {
+  return profilesMap.value[rev.editor_id] || 'ไม่ทราบชื่อ'
+}
+function revDiff(rev) {
+  return diffSongRows(rev.old_row, rev.new_row)
+}
+async function restore(rev) {
+  if (!rev.new_row) return
+  if (!window.confirm('ย้อนเพลงกลับไปเป็นเวอร์ชันนี้?')) return
+  const r = rev.new_row
+  const { error } = await supabase
+    .from('songs')
+    .update({ number: r.number, title_th: r.title_th, title_en: r.title_en, content: r.content })
+    .eq('id', editingId.value)
+  saveMsg.value = error ? '❌ ' + error.message : '⏪ ย้อนเวอร์ชันแล้ว'
+  if (!error) loadSong(editingId.value)
+}
+
+// ---------- misc ----------
 function downloadJson() {
   const data = { ...meta, content: JSON.parse(JSON.stringify(previewContent.value)) }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -236,7 +434,6 @@ function downloadJson() {
   URL.revokeObjectURL(a.href)
 }
 
-// ---------- playback ----------
 async function playAll() {
   if (playing.value) {
     stopPlayback()
@@ -250,12 +447,11 @@ async function playAll() {
 async function playLine(li) {
   stopPlayback()
   playing.value = true
-  await playSong(
-    { key: opts.key, lines: [serializeLine(lines.value[li])] },
-    { bpm: opts.bpm || 80 }
-  )
+  await playSong({ key: opts.key, lines: [serializeLine(lines.value[li])] }, { bpm: opts.bpm || 80 })
   playing.value = false
 }
+
+const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', rejected: 'ถูกส่งกลับ', approved: 'อนุมัติแล้ว' }
 </script>
 
 <template>
@@ -263,7 +459,10 @@ async function playLine(li) {
     <!-- auth bar -->
     <div class="card no-print">
       <template v-if="session">
-        <span>👤 {{ session.user.email }}</span>
+        <span>
+          👤 {{ profile?.display_name || session.user.email }}
+          <span v-if="profile" class="role-badge">{{ profile.role === 'approver' ? 'ผู้อนุมัติ' : 'ผู้ช่วยคีย์เพลง' }}</span>
+        </span>
         <button class="secondary" style="margin-left: 10px" @click="logout">ออกจากระบบ</button>
       </template>
       <template v-else>
@@ -279,8 +478,42 @@ async function playLine(li) {
       </template>
     </div>
 
-    <!-- song picker: same search as the catalog (title / number / lyrics / notes / key) -->
-    <div class="card">
+    <!-- review queue (approver) + my drafts (everyone logged in) -->
+    <div v-if="session && !legacy && (pendingDrafts.length || myDrafts.length)" class="card no-print">
+      <template v-if="isApprover && pendingDrafts.length">
+        <strong>📨 รออนุมัติ ({{ pendingDrafts.length }})</strong>
+        <div v-for="d in pendingDrafts" :key="d.id" class="draft-row">
+          <a href="#" @click.prevent="loadDraft(d)">
+            {{ d.number != null ? d.number + '. ' : '' }}{{ d.title_th }}
+          </a>
+          <span class="muted"> — โดย {{ profilesMap[d.author_id] || '?' }} · {{ new Date(d.updated_at).toLocaleString('th-TH') }}</span>
+        </div>
+        <hr v-if="myDrafts.length" style="border: none; border-top: 1px solid var(--line)" />
+      </template>
+      <template v-if="myDrafts.length">
+        <strong>📝 งานร่างของฉัน</strong>
+        <div v-for="d in myDrafts" :key="d.id" class="draft-row">
+          <a href="#" @click.prevent="loadDraft(d)">
+            {{ d.number != null ? d.number + '. ' : '' }}{{ d.title_th }}
+          </a>
+          <span :class="['status-chip', 's-' + d.status]">{{ STATUS_TH[d.status] }}</span>
+        </div>
+      </template>
+    </div>
+
+    <!-- review banner -->
+    <div v-if="reviewingDraft" class="card review-banner no-print">
+      <strong>🔍 กำลังตรวจฉบับร่างของ {{ profilesMap[reviewingDraft.author_id] || '?' }}</strong>
+      <span class="muted"> — แก้ไขในฟอร์มด้านล่างได้ก่อนอนุมัติ</span>
+      <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center">
+        <button @click="approve">✅ อนุมัติและเผยแพร่</button>
+        <button class="danger" @click="reject">↩ ส่งกลับให้แก้</button>
+        <input v-model="reviewComment" placeholder="ความเห็นถึงผู้เขียน (ถ้ามี)" style="flex: 1; min-width: 200px" />
+      </div>
+    </div>
+
+    <!-- song picker -->
+    <div class="card no-print">
       <label style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap">
         เลือกเพลง:
         <ComboSelect
@@ -325,7 +558,7 @@ async function playLine(li) {
       <span class="muted" style="margin-left: 6px">แตะช่องโน้ตก่อน แล้วจิ้มสัญลักษณ์</span>
     </div>
 
-    <!-- line editor: bars within lines, beat check per bar -->
+    <!-- line editor -->
     <div v-for="(line, li) in lines" :key="li" class="card">
       <div class="muted" style="margin-bottom: 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center">
         <strong>บรรทัด {{ li + 1 }}</strong>
@@ -360,13 +593,46 @@ async function playLine(li) {
 
     <!-- actions -->
     <div class="card" style="margin-top: 12px">
-      <button :disabled="!session" @click="save">💾 บันทึกขึ้นระบบ</button>
+      <template v-if="!session || legacy || isApprover">
+        <button :disabled="!session" @click="save">💾 {{ reviewingDraft ? 'บันทึกร่างที่ตรวจอยู่' : 'บันทึกขึ้นระบบ' }}</button>
+      </template>
+      <template v-else>
+        <button @click="saveDraft('draft')">💾 บันทึกร่าง</button>
+        <button style="margin-left: 8px" @click="saveDraft('pending')">📨 ส่งตรวจ</button>
+      </template>
       <button :class="playing ? 'danger' : ''" style="margin-left: 8px" @click="playAll">
         {{ playing ? '⏹ หยุด' : '▶ ฟังทั้งเพลง' }}
       </button>
       <button class="secondary" style="margin-left: 8px" @click="downloadJson">⬇️ ดาวน์โหลด JSON</button>
+      <button
+        v-if="isApprover && session && editingId && !reviewingDraft"
+        class="danger"
+        style="margin-left: 8px"
+        @click="deleteSong"
+      >
+        🗑️ ลบเพลงนี้
+      </button>
       <span v-if="!session" class="muted" style="margin-left: 8px">(ต้องเข้าสู่ระบบก่อนจึงบันทึกได้)</span>
       <p v-if="saveMsg" style="margin: 8px 0 0">{{ saveMsg }}</p>
+    </div>
+
+    <!-- history -->
+    <div v-if="session && !legacy && editingId && revisions.length" class="card no-print">
+      <button class="secondary" @click="showHistory = !showHistory">
+        🕘 ประวัติการแก้ไข ({{ revisions.length }}) {{ showHistory ? '▲' : '▼' }}
+      </button>
+      <template v-if="showHistory">
+        <div v-for="rev in revisions" :key="rev.id" class="rev-row">
+          <div>
+            <strong>{{ revName(rev) }}</strong>
+            <span class="muted"> · {{ new Date(rev.created_at).toLocaleString('th-TH') }}</span>
+            <button v-if="isApprover && rev.new_row" class="secondary tiny" style="margin-left: 8px" @click="restore(rev)">⏪ ย้อนมาเวอร์ชันนี้</button>
+          </div>
+          <ul class="muted" style="margin: 4px 0 0 18px">
+            <li v-for="(d, i) in revDiff(rev)" :key="i">{{ d }}</li>
+          </ul>
+        </div>
+      </template>
     </div>
 
     <!-- live preview -->
@@ -416,4 +682,19 @@ async function playLine(li) {
 .seg-note { width: 120px; color: var(--blue); font-family: 'Courier New', monospace; font-weight: 700; }
 .seg-lyric { width: 110px; }
 .tiny { padding: 2px 8px; font-size: 12px; }
+.role-badge {
+  background: #e6fffa;
+  color: #234e52;
+  border-radius: 10px;
+  padding: 2px 10px;
+  font-size: 13px;
+  margin-left: 6px;
+}
+.draft-row { margin-top: 6px; }
+.status-chip { border-radius: 10px; padding: 1px 10px; font-size: 12px; margin-left: 8px; }
+.s-draft { background: #edf2f7; }
+.s-pending { background: #fefcbf; }
+.s-rejected { background: #fed7d7; }
+.review-banner { background: #fffbeb; border-color: #f6e05e; }
+.rev-row { border-top: 1px solid var(--line); padding: 8px 0; margin-top: 8px; }
 </style>
