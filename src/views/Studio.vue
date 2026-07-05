@@ -8,6 +8,7 @@ import { diffSongRows } from '../lib/diff.js'
 import { playSong, stopPlayback } from '../lib/midi.js'
 import SongSheet from '../components/SongSheet.vue'
 import NoteRow from '../components/NoteRow.vue'
+import NoteBoxes from '../components/NoteBoxes.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 
 // ---------- auth + role ----------
@@ -141,17 +142,18 @@ function fmt(n) {
 }
 
 // ---------- symbol palette ----------
-const PALETTE = ['1', '2', '3', '4', '5', '6', '7', '0', '-', '.', "'", '_', '(', ')', '{', '}', '#', 'b', '␣']
+const PALETTE = ['1', '2', '3', '4', '5', '6', '7', '0', '-', '.', "'", '_', '(', ')', '{', '}', '#', 'b']
 let activeInput = null
-function noteFocus(e) {
-  activeInput = e.target
+function editorFocusIn(e) {
+  if (e.target.classList?.contains('note-box') && e.target.tagName === 'INPUT') {
+    activeInput = e.target
+  }
 }
 function insertSym(sym) {
-  if (!activeInput) return
-  const s = sym === '␣' ? ' ' : sym
+  if (!activeInput || !activeInput.isConnected) return
   const start = activeInput.selectionStart ?? activeInput.value.length
   const end = activeInput.selectionEnd ?? start
-  activeInput.setRangeText(s, start, end, 'end')
+  activeInput.setRangeText(sym, start, end, 'end')
   activeInput.dispatchEvent(new Event('input', { bubbles: true }))
   activeInput.focus()
 }
@@ -560,11 +562,13 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       >
         {{ sym }}
       </button>
-      <span class="muted" style="margin-left: 6px">แตะช่องโน้ตก่อน แล้วจิ้มสัญลักษณ์</span>
+      <span class="muted" style="margin-left: 6px">
+        1 ช่อง = 1 โน้ต · Enter/เว้นวรรค = ช่องถัดไป · ลูกศร ← → เลื่อนช่อง · แตะช่องแล้วจิ้มสัญลักษณ์ได้
+      </span>
     </div>
 
     <!-- line editor -->
-    <div v-for="(line, li) in lines" :key="li" class="card">
+    <div v-for="(line, li) in lines" :key="li" class="card" @focusin="editorFocusIn">
       <div class="muted" style="margin-bottom: 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center">
         <strong>บรรทัด {{ li + 1 }}</strong>
         <label style="display: inline-flex; align-items: center; gap: 4px">
@@ -593,7 +597,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
           </div>
           <div v-for="(seg, si) in bar.segments" :key="si" class="seg-row">
             <input v-model="seg.chord" placeholder="คอร์ด" class="seg-chord" />
-            <input v-model="seg.note" placeholder="โน้ต" class="seg-note" @focus="noteFocus" />
+            <NoteBoxes v-model="seg.note" />
             <input v-model="seg.lyric" placeholder="เนื้อร้อง" class="seg-lyric" />
             <button class="secondary tiny" @click="removeSegment(bar, si)">✕</button>
           </div>
