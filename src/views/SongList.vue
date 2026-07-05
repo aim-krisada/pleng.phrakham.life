@@ -3,50 +3,14 @@ import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 
+import { filterSongs, snippet } from '../lib/songSearch.js'
+
 const songs = ref([])
 const query = ref('')
 const loading = ref(true)
 const dbError = ref(false)
 
-function lyricsText(content) {
-  return (content.lines || [])
-    .flat()
-    .filter((i) => i.type === 'segment')
-    .map((i) => i.lyric)
-    .join(' ')
-}
-
-function notesText(content) {
-  return (content.lines || [])
-    .flat()
-    .filter((i) => i.type === 'segment')
-    .map((i) => i.note)
-    .join(' ')
-    .replace(/[.\-]/g, '')
-    .replace(/\s+/g, ' ')
-}
-
-function snippet(content) {
-  return lyricsText(content).slice(0, 60)
-}
-
-const filtered = computed(() => {
-  const q = query.value.trim().toLowerCase()
-  if (!q) return songs.value
-  return songs.value.filter((s) => {
-    const hay = [
-      String(s.number ?? ''),
-      s.title_th,
-      s.title_en ?? '',
-      s.content.key ?? '',
-      lyricsText(s.content),
-      notesText(s.content),
-    ]
-      .join(' ')
-      .toLowerCase()
-    return hay.includes(q)
-  })
-})
+const filtered = computed(() => filterSongs(songs.value, query.value))
 
 onMounted(async () => {
   const { data, error } = await supabase

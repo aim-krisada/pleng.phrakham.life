@@ -45,6 +45,34 @@ export function parseNotes(str) {
   return tokens
 }
 
+// Duration of a token list in quarter-note beats.
+// Plain digit = 1 beat · underline halves · dot ×1.5 · '-' = +1 beat · triplet group = 2/3.
+export function beatCount(tokens) {
+  let total = 0
+  for (const g of groupNotes(tokens)) {
+    let sub = 0
+    for (const t of g.tokens) {
+      if (t.type === 'note') {
+        let d = 1 / 2 ** t.underlines
+        if (t.dotted) d *= 1.5
+        sub += d
+      } else if (t.type === 'ext') {
+        sub += 1
+      }
+    }
+    if (g.group === 'triplet') sub = (sub * 2) / 3
+    total += sub
+  }
+  return total
+}
+
+// Expected quarter-note beats per bar for a "n/d" time signature (e.g. 6/8 -> 3).
+export function expectedBeats(timeSignature) {
+  const m = /^(\d+)\s*\/\s*(\d+)$/.exec(timeSignature || '')
+  if (!m) return null
+  return (Number(m[1]) * 4) / Number(m[2])
+}
+
 // Group slur/triplet spans: returns [{ group: null|'slur'|'triplet', tokens: [...] }]
 export function groupNotes(tokens) {
   const out = []

@@ -37,24 +37,28 @@ export function semitonesBetween(fromKey, toKey) {
   return (b - a + 12) % 12
 }
 
-// Semitone offset from key root -> scale degree (major scale)
-const DEGREE_BY_OFFSET = { 0: '1', 2: '2', 4: '3', 5: '4', 7: '5', 9: '6', 11: '7' }
-const CHROMATIC_BY_OFFSET = { 1: 'b2', 3: 'b3', 6: 'b5', 8: 'b6', 10: 'b7' }
+// Semitone offset from key root -> Roman-numeral scale degree (major scale).
+// Roman numerals keep the chord row visually distinct from the melody's Arabic numbers.
+const ROMAN_BY_OFFSET = { 0: 'I', 2: 'II', 4: 'III', 5: 'IV', 7: 'V', 9: 'VI', 11: 'VII' }
+const CHROMATIC_ROMAN = { 1: 'bII', 3: 'bIII', 6: 'bV', 8: 'bVI', 10: 'bVII' }
 
-// "B7" in key E -> "57"; "C#m" in key E -> "6m"
-export function chordToNumber(chord, key) {
+// "B7" in key E -> "V7"; "C#m" in key E -> "VIm"
+export function chordToRoman(chord, key) {
   const p = parseChord(chord)
   const k = noteIndex(key)
   if (!p || k === -1) return chord
   const offset = (p.rootIndex - k + 12) % 12
-  const degree = DEGREE_BY_OFFSET[offset] ?? CHROMATIC_BY_OFFSET[offset] ?? '?'
+  const degree = ROMAN_BY_OFFSET[offset] ?? CHROMATIC_ROMAN[offset] ?? '?'
   return degree + p.suffix
 }
 
 // Display a chord under the chosen system, transposed from originalKey to displayKey
 export function displayChord(chord, { system, originalKey, displayKey }) {
   if (!chord) return ''
-  if (system === 'number') return chordToNumber(chord, originalKey)
+  if (system === 'roman') return chordToRoman(chord, originalKey)
   const semis = semitonesBetween(originalKey, displayKey)
   return semis === 0 ? chord : transposeChord(chord, semis, displayKey)
 }
+
+// Common time signatures, most-used first; the input also accepts any custom n/d.
+export const TIME_SIGNATURES = ['4/4', '3/4', '2/4', '6/8', '2/2', '3/2', '6/4', '9/8', '12/8', '5/4', '7/8']
