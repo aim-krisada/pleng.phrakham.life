@@ -108,6 +108,20 @@ that renders identically.
 4. Print: stack verses by stanza (1B).
 5. Migration tool + review flagging for the YS 2014 batch.
 
+## Syllable input convention (Thai)
+
+Thai has no spaces between syllables, so the author marks them the same way the
+YS 2014 book already does (e.g. "อ - รุณ"):
+- **space** = new word (`พระ เจ้า` = 2 syllables, 2 notes)
+- **hyphen `-`** = next syllable continues the SAME word (`ส-ถิตย์` = 2 syllables of
+  one word, 2 notes) — rendered with a connecting hyphen so it reads as one word
+- **one syllable = one attack note.** A syllable held over several notes (เอื้อน) is
+  a slur on the melody (held notes take no syllable — bug 015), not an extra slot.
+
+Tokenizing a verse's lyric line on spaces AND hyphens gives the syllable slots; the
+count must equal `syllableSlots(stanza)` or the song is flagged for manual review
+(never guess). Edge cases beyond this (clusters, special finals) deferred.
+
 ## Open questions
 - Do this BEFORE the YS 2014 ~100-song batch (recommended — avoids re-keying).
 - Per-syllable highlight replaces the current segment-level highlight — confirm.
