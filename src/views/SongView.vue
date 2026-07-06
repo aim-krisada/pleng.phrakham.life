@@ -75,7 +75,7 @@ async function togglePlay() {
       </select>
       <select v-model="chordSystem" :disabled="mode === 'lyrics'" aria-label="ระบบคอร์ด">
         <option value="letter">คอร์ดตัวอักษร</option>
-        <option value="roman">คอร์ดโรมัน (I IV V)</option>
+        <option value="roman">คอร์ดโรมัน (I ii V7)</option>
       </select>
       <label v-if="chordSystem === 'letter' && mode === 'full'" style="display: inline-flex; align-items: center; gap: 4px">
         คีย์:

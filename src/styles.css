@@ -147,8 +147,8 @@ button, .btn {
   color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 9px 16px;
-  font-size: 0.95rem;
+  padding: 7px 14px;
+  font-size: 1.06rem; /* same text size as phrakham.life (consistency) */
   font-family: inherit;
   cursor: pointer;
   min-height: 40px;
@@ -173,8 +173,8 @@ button:active { opacity: 0.85; }
 
 input, select, textarea {
   font-family: inherit;
-  font-size: 0.95rem;
-  padding: 9px 10px;
+  font-size: 1.06rem; /* same as phrakham.life; >=16px also stops iOS zoom-on-focus */
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -190,7 +190,7 @@ input, select, textarea {
   margin-bottom: 12px;
 }
 
-.muted { color: var(--muted); font-size: 0.85rem; }
+.muted { color: var(--muted); font-size: 0.9rem; }
 
 /* ---------- song sheet (functional colours preserved) ---------- */
 .song-line {

@@ -42,13 +42,17 @@ export function semitonesBetween(fromKey, toKey) {
 const ROMAN_BY_OFFSET = { 0: 'I', 2: 'II', 4: 'III', 5: 'IV', 7: 'V', 9: 'VI', 11: 'VII' }
 const CHROMATIC_ROMAN = { 1: 'bII', 3: 'bIII', 6: 'bV', 8: 'bVI', 10: 'bVII' }
 
-// "B7" in key E -> "V7"; "C#m" in key E -> "VIm"
+// Case-sensitive Roman numeral convention (Open Music Theory; Laitz, "The
+// Complete Musician"): UPPERCASE = major (I, IV, V7), lowercase = minor
+// (ii, vi7 — the "m" is dropped since case already says it), vii° = diminished.
 export function chordToRoman(chord, key) {
   const p = parseChord(chord)
   const k = noteIndex(key)
   if (!p || k === -1) return chord
   const offset = (p.rootIndex - k + 12) % 12
   const degree = ROMAN_BY_OFFSET[offset] ?? CHROMATIC_ROMAN[offset] ?? '?'
+  if (/^dim/.test(p.suffix)) return degree.toLowerCase() + '°' + p.suffix.slice(3)
+  if (/^m(?!aj)/.test(p.suffix)) return degree.toLowerCase() + p.suffix.slice(1)
   return degree + p.suffix
 }
 
