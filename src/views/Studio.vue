@@ -11,57 +11,24 @@ import NoteRow from '../components/NoteRow.vue'
 import NoteBoxes from '../components/NoteBoxes.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 
-// ---------- auth + role ----------
-const session = ref(null)
-const profile = ref(null) // { role, display_name }
-const legacy = ref(false) // true when draft tables are not installed yet
-const email = ref('')
-const password = ref('')
-const authError = ref('')
+// ---------- auth + role (shared with the navbar profile tool) ----------
+import { session, profile, legacy, initAuth } from '../store.js'
 
 const isApprover = computed(() => legacy.value || profile.value?.role === 'approver')
 
 onMounted(async () => {
-  const { data } = await supabase.auth.getSession()
-  session.value = data.session
-  supabase.auth.onAuthStateChange((_e, s) => {
-    session.value = s
-    loadProfile()
-  })
+  await initAuth()
   loadSongList()
-  loadProfile()
+  loadDrafts()
+  loadProfilesMap()
 })
 onUnmounted(stopPlayback)
 
-async function loadProfile() {
-  profile.value = null
-  if (!session.value) return
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('role, display_name')
-    .eq('id', session.value.user.id)
-    .single()
-  if (error) {
-    if (error.code === '42P01' || error.code === 'PGRST205') legacy.value = true
-    else profile.value = { role: 'editor', display_name: session.value.user.email }
-  } else {
-    profile.value = data
-  }
+// login/logout happen in the navbar — refresh Studio data when auth changes
+watch(session, () => {
   loadDrafts()
   loadProfilesMap()
-}
-
-async function login() {
-  authError.value = ''
-  const { error } = await supabase.auth.signInWithPassword({
-    email: email.value,
-    password: password.value,
-  })
-  if (error) authError.value = 'เข้าสู่ระบบไม่สำเร็จ: ' + error.message
-}
-async function logout() {
-  await supabase.auth.signOut()
-}
+})
 
 // ---------- editing model (lines -> bars -> segments) ----------
 function newSegment() {
@@ -466,26 +433,12 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 
 <template>
   <div>
-    <!-- auth bar -->
-    <div class="card no-print">
-      <template v-if="session">
-        <span>
-          👤 {{ profile?.display_name || session.user.email }}
-          <span v-if="profile" class="role-badge">{{ profile.role === 'approver' ? 'ผู้อนุมัติ' : 'ผู้ช่วยคีย์เพลง' }}</span>
-        </span>
-        <button class="secondary" style="margin-left: 10px" @click="logout">ออกจากระบบ</button>
-      </template>
-      <template v-else>
-        <form style="display: flex; gap: 8px; flex-wrap: wrap" @submit.prevent="login">
-          <input v-model="email" type="email" placeholder="อีเมลทีมงาน" aria-label="อีเมลทีมงาน" required />
-          <input v-model="password" type="password" placeholder="รหัสผ่าน" aria-label="รหัสผ่าน" required />
-          <button type="submit">เข้าสู่ระบบ</button>
-        </form>
-        <p class="muted" style="margin: 8px 0 0">
-          ไม่ได้เป็นทีมงานก็ใช้หน้านี้คีย์เพลงได้ — แล้วกด "ดาวน์โหลด JSON" ส่งให้ทีมงานนำเข้าระบบ
-        </p>
-        <p v-if="authError" style="color: var(--red); margin: 8px 0 0">{{ authError }}</p>
-      </template>
+    <!-- not signed in: gentle hint (login lives in the navbar profile button) -->
+    <div v-if="!session" class="card no-print">
+      <p class="muted" style="margin: 0">
+        ทีมงาน: กด "เข้าสู่ระบบ" ที่มุมขวาบนก่อน จึงจะบันทึกเพลงได้ ·
+        คนทั่วไปก็ใช้หน้านี้คีย์เพลงได้เลย — เสร็จแล้วกด "ดาวน์โหลด JSON" ส่งให้ทีมงาน
+      </p>
     </div>
 
     <!-- review queue (approver) + my drafts (everyone logged in) -->

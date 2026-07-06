@@ -1,9 +1,12 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { initAuth } from './store.js'
 import SiteFooter from './components/SiteFooter.vue'
 import DownloadTool from './components/DownloadTool.vue'
+import ProfileTool from './components/ProfileTool.vue'
 
+initAuth()
 const menuOpen = ref(false)
 const route = useRoute()
 watch(() => route.path, () => (menuOpen.value = false)) // close menu after navigating
@@ -13,6 +16,7 @@ watch(() => route.path, () => (menuOpen.value = false)) // close menu after navi
   <header class="topbar no-print">
     <router-link to="/" class="brand">เพลง.พระคำ.ชีวิต</router-link>
     <DownloadTool />
+    <ProfileTool />
     <button
       class="nav-toggle"
       :aria-expanded="menuOpen"
