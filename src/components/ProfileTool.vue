@@ -1,12 +1,13 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { session, profile, legacy, recovering, login, logout, updatePassword } from '../store.js'
+import { session, profile, legacy, recovering, login, logout, updatePassword, requestPasswordReset } from '../store.js'
 
 // Top-right account control, GitHub/Supabase style:
 // logged out -> "เข้าสู่ระบบ" opens a small dropdown form (works from any page)
 // logged in  -> letter avatar opens name + role + logout
 // recovering -> a password-reset link opened the app; show "set new password"
 const open = ref(false)
+const forgot = ref(false) // login panel showing the "forgot password" email form
 const email = ref('')
 const password = ref('')
 const newPassword = ref('')
@@ -16,6 +17,19 @@ const okMsg = ref('')
 
 // A reset link fires PASSWORD_RECOVERY -> pop the panel open automatically.
 watch(recovering, (on) => { if (on) open.value = true }, { immediate: true })
+
+// New-password strength rules — every rule must pass before saving.
+const pwRules = computed(() => {
+  const p = newPassword.value
+  return [
+    { ok: p.length >= 16, label: 'ยาวอย่างน้อย 16 ตัวอักษร' },
+    { ok: /[a-z]/.test(p), label: 'มีตัวพิมพ์เล็กอังกฤษ (a–z)' },
+    { ok: /[A-Z]/.test(p), label: 'มีตัวพิมพ์ใหญ่อังกฤษ (A–Z)' },
+    { ok: /[0-9]/.test(p), label: 'มีตัวเลข (0–9)' },
+    { ok: /[^A-Za-z0-9]/.test(p), label: 'มีอักขระพิเศษ เช่น ! @ # $ %' },
+  ]
+})
+const pwStrong = computed(() => pwRules.value.every((r) => r.ok))
 
 const displayName = computed(
   () => profile.value?.display_name || session.value?.user?.email || ''
@@ -45,8 +59,8 @@ async function doLogout() {
 }
 
 async function submitNewPassword() {
-  if (newPassword.value.length < 8) {
-    errMsg.value = 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร'
+  if (!pwStrong.value) {
+    errMsg.value = 'รหัสผ่านยังไม่ผ่านเกณฑ์ทุกข้อ'
     return
   }
   busy.value = true
@@ -59,6 +73,30 @@ async function submitNewPassword() {
     newPassword.value = ''
     okMsg.value = 'ตั้งรหัสผ่านใหม่เรียบร้อย เข้าสู่ระบบแล้ว'
   }
+}
+
+async function submitForgot() {
+  busy.value = true
+  errMsg.value = ''
+  okMsg.value = ''
+  const error = await requestPasswordReset(email.value)
+  busy.value = false
+  if (error) {
+    errMsg.value = 'ส่งลิงก์ไม่สำเร็จ — ตรวจอีเมลอีกครั้ง'
+  } else {
+    okMsg.value = 'ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลแล้ว เปิดอีเมลแล้วกดลิงก์'
+  }
+}
+
+function toForgot() {
+  forgot.value = true
+  errMsg.value = ''
+  okMsg.value = ''
+}
+function toLogin() {
+  forgot.value = false
+  errMsg.value = ''
+  okMsg.value = ''
 }
 </script>
 
@@ -88,11 +126,15 @@ async function submitNewPassword() {
             v-model="newPassword"
             type="password"
             autocomplete="new-password"
-            minlength="8"
             required
           />
         </label>
-        <button type="submit" class="submit" :disabled="busy">
+        <ul class="pw-rules" aria-label="เกณฑ์รหัสผ่าน">
+          <li v-for="r in pwRules" :key="r.label" :class="{ ok: r.ok }">
+            <span aria-hidden="true">{{ r.ok ? '✓' : '○' }}</span> {{ r.label }}
+          </li>
+        </ul>
+        <button type="submit" class="submit" :disabled="busy || !pwStrong">
           {{ busy ? 'กำลังบันทึก…' : 'บันทึกรหัสผ่าน' }}
         </button>
         <p v-if="errMsg" class="err">{{ errMsg }}</p>
@@ -105,6 +147,19 @@ async function submitNewPassword() {
         </div>
         <button @click="doLogout">ออกจากระบบ</button>
       </template>
+      <form v-else-if="forgot" class="login-form" @submit.prevent="submitForgot">
+        <strong style="color: var(--brand)">ลืมรหัสผ่าน</strong>
+        <label>
+          อีเมล
+          <input v-model="email" type="email" autocomplete="username" required />
+        </label>
+        <button type="submit" class="submit" :disabled="busy">
+          {{ busy ? 'กำลังส่ง…' : 'ส่งลิงก์รีเซ็ตรหัสผ่าน' }}
+        </button>
+        <p v-if="errMsg" class="err">{{ errMsg }}</p>
+        <p v-if="okMsg" class="ok">{{ okMsg }}</p>
+        <button type="button" class="linkish" @click="toLogin">← กลับไปเข้าสู่ระบบ</button>
+      </form>
       <form v-else class="login-form" @submit.prevent="submit">
         <label>
           อีเมล
@@ -118,6 +173,7 @@ async function submitNewPassword() {
           {{ busy ? 'กำลังเข้า…' : 'เข้าสู่ระบบ' }}
         </button>
         <p v-if="errMsg" class="err">{{ errMsg }}</p>
+        <button type="button" class="linkish" @click="toForgot">ลืมรหัสผ่าน?</button>
         <p class="muted" style="margin: 4px 0 0">
           สำหรับทีมงาน — คนทั่วไปใช้เว็บได้ทุกอย่างโดยไม่ต้องเข้าสู่ระบบ
         </p>
@@ -156,4 +212,17 @@ async function submitNewPassword() {
 .login-form .submit { width: 100%; }
 .err { color: var(--red); font-size: 0.85rem; margin: 4px 0 0; }
 .ok { color: var(--brand); font-size: 0.85rem; margin: 4px 0 0; }
+.pw-rules { list-style: none; margin: 2px 0 0; padding: 0; font-size: 0.8rem; }
+.pw-rules li { color: var(--muted); display: flex; gap: 6px; align-items: baseline; }
+.pw-rules li.ok { color: var(--brand); }
+.linkish {
+  background: none;
+  border: none;
+  color: var(--brand);
+  text-decoration: underline;
+  font-size: 0.82rem;
+  padding: 2px 0;
+  cursor: pointer;
+  align-self: flex-start;
+}
 </style>

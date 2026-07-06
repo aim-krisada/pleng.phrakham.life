@@ -57,3 +57,12 @@ export async function updatePassword(password) {
   if (!error) recovering.value = false
   return error
 }
+
+export async function requestPasswordReset(email) {
+  // redirectTo lands back on this origin as #access_token=…&type=recovery,
+  // which initAuth's PASSWORD_RECOVERY handler turns into the set-password form.
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname,
+  })
+  return error
+}
