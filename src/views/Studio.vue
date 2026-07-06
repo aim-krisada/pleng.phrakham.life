@@ -160,6 +160,18 @@ function removeBar(line, bi) {
   line.bars.splice(bi, 1)
   if (!line.bars.length) line.bars.push(newBar())
 }
+// Reorder bars within a line (dir -1 = left, +1 = right). Undo is handled by the
+// debounced snapshot watcher, so no explicit history call is needed.
+function moveBar(line, bi, dir) {
+  const to = bi + dir
+  if (to < 0 || to >= line.bars.length) return
+  const [b] = line.bars.splice(bi, 1)
+  line.bars.splice(to, 0, b)
+}
+// Insert a fresh empty bar right after bar bi (then move it with ◀ ▶ if needed).
+function insertBar(line, bi) {
+  line.bars.splice(bi + 1, 0, newBar())
+}
 function addSegment(bar) {
   bar.segments.push(newSegment())
 }
@@ -692,7 +704,12 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
             <span :style="{ color: barStatus(li, bi).ok ? 'var(--muted)' : 'var(--red)', fontWeight: barStatus(li, bi).ok ? 400 : 700 }">
               ห้อง {{ bi + 1 }} <template v-if="barStatus(li, bi).text">· {{ barStatus(li, bi).text }} {{ barStatus(li, bi).ok ? '✓' : '❌' }}</template>
             </span>
-            <button class="secondary tiny" @click="removeBar(line, bi)">✕</button>
+            <span class="bar-tools">
+              <button class="secondary tiny" aria-label="ย้ายห้องไปทางซ้าย" :disabled="bi === 0" @click="moveBar(line, bi, -1)">◀</button>
+              <button class="secondary tiny" aria-label="ย้ายห้องไปทางขวา" :disabled="bi === line.bars.length - 1" @click="moveBar(line, bi, 1)">▶</button>
+              <button class="secondary tiny" aria-label="แทรกห้องใหม่ต่อจากห้องนี้" @click="insertBar(line, bi)">＋</button>
+              <button class="secondary tiny" aria-label="ลบห้องนี้" @click="removeBar(line, bi)">✕</button>
+            </span>
           </div>
           <!-- live render of this bar, exactly as the song sheet will show it -->
           <div class="bar-preview">
@@ -821,6 +838,9 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
   margin-bottom: 6px;
   gap: 6px;
 }
+.bar-head > span:first-child { flex: 1; min-width: 0; }
+.bar-tools { display: flex; gap: 3px; flex-shrink: 0; }
+.bar-tools .tiny { padding: 4px 6px; }
 .bar-preview {
   min-height: 58px;
   border-bottom: 1px solid var(--line);
