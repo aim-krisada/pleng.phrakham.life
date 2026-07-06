@@ -145,7 +145,7 @@ const COMBOS = [
       </div>
       <p>
         บนแผ่นเพลงจริงสองตัวนี้จะอยู่คนละฝั่งของเส้นกั้นห้อง:
-        <span class="tie-demo"><NoteRow notes="3~" /><span class="bar-line" style="padding-top: 0">|</span><NoteRow notes="~3 - -" /></span>
+        <span class="tie-demo"><NoteRow notes="3~" /><span class="bar-line" style="height: 34px; margin-top: 2px" aria-hidden="true"></span><NoteRow notes="~3 - -" /></span>
       </p>
       <p class="muted">
         แบบเดียวกับหนังสือเพลงตอนตัดบรรทัด และตอนกดฟังทำนอง เสียงจะลากยาวต่อเนื่องไม่ดีดซ้ำ

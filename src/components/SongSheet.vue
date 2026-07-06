@@ -27,7 +27,7 @@ function chordText(chord) {
           <span v-if="mode === 'full'" class="note"><NoteRow :notes="item.note" />&nbsp;</span>
           <span class="lyric">{{ item.lyric }}&nbsp;</span>
         </span>
-        <span v-else-if="item.type === 'bar' && mode === 'full'" class="bar-line">|</span>
+        <span v-else-if="item.type === 'bar' && mode === 'full'" class="bar-line" aria-hidden="true"></span>
         <span v-else-if="item.type === 'marker'" class="section-marker">{{ item.label }}</span>
         <span v-else-if="item.type === 'label'" class="line-label">{{ item.text }}</span>
       </template>

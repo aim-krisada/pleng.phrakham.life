@@ -209,17 +209,17 @@ input, select, textarea {
   font-size: 15px;
 }
 .segment .lyric { display: block; font-size: 17px; }
+/* bar line: a real full-height rule (border so it also prints), spanning the
+   chord + note rows down to the lyrics — not a floating "|" glyph */
 .bar-line {
   display: inline-block;
   vertical-align: top;
-  color: #b3a894;
-  font-weight: 700;
-  margin: 0 8px;
-  padding-top: 22px;
-  font-family: monospace;
-  font-size: 18px;
+  width: 0;
+  border-left: 2px solid #8a7a62;
+  height: 52px;
+  margin: 16px 10px 0;
 }
-.sheet-mode-lyrics .bar-line { padding-top: 0; }
+.sheet-mode-lyrics .bar-line { display: none; }
 .section-marker {
   display: inline-block;
   vertical-align: top;
