@@ -92,7 +92,7 @@ export function stopPlayback() {
 
 // Play the melody; resolves when done or stopped. Returns false when the device
 // blocks audio (e.g. iOS with the silent switch on / autoplay policy).
-export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote } = {}) {
+export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   // iOS unlock: play a 1-sample silent buffer synchronously inside the user gesture
   try {
@@ -106,7 +106,9 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   if (ctx.state !== 'running') return false
   stopFlag = { stopped: false }
   const myFlag = stopFlag
-  const notes = songToNotes(content)
+  let notes = songToNotes(content)
+  // play only a section (line range) when asked (feature 003)
+  if (range) notes = notes.filter((n) => n.li >= range.fromLi && n.li <= range.toLi)
   if (!notes.length) return true
   const spb = 60 / bpm // seconds per beat
 

@@ -22,7 +22,21 @@ const tempo = ref(92)
 
 // follow-along: which segment is sounding + a text-size control (bug 014)
 const playingSeg = ref(null)
+const playingSection = ref(null) // 'all' | section index | null (feature 003)
 const sheetWrap = ref(null)
+
+// Sections from the content: each line that begins with a {type:'section'} item
+// starts a section spanning to the line before the next section (feature 003).
+const sections = computed(() => {
+  const lines = song.value?.content?.lines || []
+  const secs = []
+  lines.forEach((line, li) => {
+    const s = Array.isArray(line) ? line.find((it) => it.type === 'section') : null
+    if (s) secs.push({ name: s.name, fromLi: li, toLi: lines.length - 1 })
+  })
+  for (let i = 0; i < secs.length - 1; i++) secs[i].toLi = secs[i + 1].fromLi - 1
+  return secs
+})
 const fontScale = ref(1) // rem multiplier for the sheet
 function bumpFont(d) {
   fontScale.value = Math.min(2.2, Math.max(0.8, Math.round((fontScale.value + d) * 10) / 10))
@@ -69,21 +83,38 @@ onUnmounted(() => {
   currentSong.value = null
 })
 
-async function togglePlay() {
-  if (playing.value) {
-    stopPlayback()
-    playing.value = false
-    playingSeg.value = null
-    return
-  }
+let playGen = 0
+function stopPlay() {
+  playGen++
+  stopPlayback()
+  playing.value = false
+  playingSection.value = null
+  playingSeg.value = null
+}
+async function startPlay(range, key) {
+  stopPlayback() // stop any current playback first
+  const gen = ++playGen
   playing.value = true
+  playingSection.value = key
   await playSong(song.value.content, {
     bpm: Number(tempo.value) || song.value.content.bpm || 92,
     loop: loop.value,
+    range,
     onNote: (n) => { playingSeg.value = { li: n.li, si: n.si } },
   })
-  playing.value = false
-  playingSeg.value = null
+  if (gen === playGen) { // still the active play (not superseded/stopped)
+    playing.value = false
+    playingSection.value = null
+    playingSeg.value = null
+  }
+}
+function togglePlay() {
+  if (playing.value) stopPlay()
+  else startPlay(undefined, 'all')
+}
+function playSection(idx) {
+  const s = sections.value[idx]
+  if (s) startPlay({ fromLi: s.fromLi, toLi: s.toLi }, idx)
 }
 </script>
 
@@ -135,6 +166,20 @@ async function togglePlay() {
         · {{ song.content.timeSignature }}
         <template v-if="song.content.bpm"> · ♩= {{ song.content.bpm }}</template>
       </p>
+      <div v-if="sections.length" class="section-bar no-print" role="group" aria-label="เล่นเป็นท่อน">
+        <button class="section-chip" :class="{ active: playingSection === 'all' }" @click="togglePlay">
+          ▶ ทั้งเพลง
+        </button>
+        <button
+          v-for="(s, i) in sections"
+          :key="i"
+          class="section-chip"
+          :class="{ active: playingSection === i }"
+          @click="playSection(i)"
+        >
+          {{ s.name }}
+        </button>
+      </div>
       <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: fontScale + 'rem' }">
         <SongSheet
           :content="song.content"

@@ -246,8 +246,31 @@ input, select, textarea {
   margin: 1em 0.6em 0;
 }
 .sheet-mode-lyrics .bar-line { display: none; }
+/* section heading (ร้อง 1 / รับ) — its own full-width row above the section's bars */
+.section-label {
+  flex-basis: 100%;
+  color: var(--brand);
+  font-weight: 700;
+  font-size: 0.95em;
+  margin: 2px 0 4px;
+}
 .font-ctl { display: inline-flex; gap: 3px; }
 .font-ctl button { min-width: 42px; min-height: 40px; padding: 6px 10px; }
+/* section chips — play the whole song or just one verse/refrain (feature 003) */
+.section-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; }
+.section-chip {
+  background: none;
+  border: 1px solid var(--brand);
+  color: var(--brand);
+  border-radius: 16px;
+  padding: 5px 14px;
+  font-size: 0.9rem;
+  min-height: 34px;
+  cursor: pointer;
+}
+.section-chip.active { background: var(--brand); color: #fff; }
+@media (hover: hover) { .section-chip:hover { background: var(--cream-hover); } }
+@media (hover: hover) { .section-chip.active:hover { background: var(--brand); } }
 .section-marker {
   display: inline-block;
   vertical-align: top;

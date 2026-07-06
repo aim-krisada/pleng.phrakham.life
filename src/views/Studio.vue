@@ -38,14 +38,15 @@ function newBar() {
   return { segments: [newSegment()] }
 }
 function newLine() {
-  return { marker: '', cont: false, label: '', bars: [newBar()] }
+  return { marker: '', cont: false, label: '', section: '', bars: [newBar()] }
 }
 
 function deserializeLine(items) {
-  const line = { marker: '', cont: false, label: '', bars: [] }
+  const line = { marker: '', cont: false, label: '', section: '', bars: [] }
   let bar = { segments: [] }
   for (const it of items) {
     if (it.type === 'continue') line.cont = true
+    else if (it.type === 'section') line.section = it.name || ''
     else if (it.type === 'label') line.label = it.text || ''
     else if (it.type === 'marker') line.marker = it.label || '***'
     else if (it.type === 'bar') {
@@ -63,6 +64,7 @@ function deserializeLine(items) {
 
 function serializeLine(line) {
   const items = []
+  if (line.section?.trim()) items.push({ type: 'section', name: line.section.trim() })
   if (line.cont) items.push({ type: 'continue' })
   if (line.marker) items.push({ type: 'marker', label: line.marker })
   line.bars.forEach((b, i) => {
@@ -674,6 +676,12 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     <div v-for="(line, li) in lines" :key="li" class="card" :class="{ 'line-active': li === activeLine }" @focusin="editorFocusIn($event, li)">
       <div class="muted" style="margin-bottom: 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center">
         <strong>บรรทัด {{ li + 1 }}</strong>
+        <input
+          v-model="line.section"
+          placeholder="ท่อน เช่น ร้อง 1, รับ"
+          aria-label="ชื่อท่อน (เว้นว่าง = ต่อจากท่อนก่อน)"
+          style="width: 150px; min-height: 32px; padding: 4px 8px; font-size: 0.85rem"
+        />
         <label style="display: inline-flex; align-items: center; gap: 4px">
           <input type="checkbox" :checked="!!line.marker" @change="line.marker = $event.target.checked ? '***' : ''" />
           ท่อนฮุก ***

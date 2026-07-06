@@ -39,6 +39,9 @@ const renderLines = computed(() =>
       } else if (item.type === 'bar') {
         flush()
         bar = { type: 'bar', barLine: true, segments: [] }
+      } else if (item.type === 'section') {
+        flush()
+        parts.push({ type: 'section', name: item.name })
       } else if (item.type === 'marker') {
         flush()
         parts.push({ type: 'marker', label: item.label })
@@ -61,7 +64,8 @@ function isPlaying(li, si) {
   <div :class="mode === 'lyrics' ? 'sheet-mode-lyrics' : ''">
     <div v-for="(line, li) in renderLines" :key="li" class="song-line">
       <template v-for="(part, pi) in line" :key="pi">
-        <span v-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
+        <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}</span>
+        <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
         <span v-else-if="part.type === 'label'" class="line-label">{{ part.text }}</span>
         <span v-else class="bar-group">
           <span v-if="part.barLine && mode === 'full'" class="bar-line" aria-hidden="true"></span>
