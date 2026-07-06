@@ -4,11 +4,26 @@ import { supabase } from './supabase.js'
 // Song currently open in the viewer — drives the navbar download tool.
 export const currentSong = ref(null)
 
+// Supabase email links (recovery / invite / email change) land as
+// #access_token=…&type=X. Read the type synchronously at load, before supabase-js
+// parses and strips the fragment — the hash router would otherwise treat it as a
+// bogus route. App.vue redirects home for any of these.
+const linkType = (() => {
+  try {
+    return new URLSearchParams(window.location.hash.slice(1)).get('type')
+  } catch {
+    return null
+  }
+})()
+
 // ---- shared auth state (navbar profile tool + Studio both read this) ----
 export const session = ref(null)
 export const profile = ref(null) // { role, display_name }
 export const legacy = ref(false) // true when the draft tables are not installed
-export const recovering = ref(false) // true after a password-reset link opens the app
+// recovery link OR first-time invite both need the user to set a password.
+export const recovering = ref(linkType === 'recovery' || linkType === 'invite')
+export const inviteMode = ref(linkType === 'invite') // tweaks the wording only
+export const emailChanged = ref(linkType === 'email_change')
 
 let inited = false
 export async function initAuth() {
@@ -18,9 +33,7 @@ export async function initAuth() {
   session.value = data.session
   supabase.auth.onAuthStateChange((event, s) => {
     session.value = s
-    // Reset link lands as #access_token=…&type=recovery; supabase-js parses it
-    // and fires this event. Show the "set new password" form instead of a
-    // normal logged-in state.
+    // Belt-and-suspenders for reset links (invite is caught by linkType above).
     if (event === 'PASSWORD_RECOVERY') recovering.value = true
     loadProfile()
   })
@@ -64,5 +77,23 @@ export async function requestPasswordReset(email) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: window.location.origin + window.location.pathname,
   })
+  return error
+}
+
+// Rename self via the security-definer RPC (db/003) — display_name only, never role.
+export async function updateDisplayName(name) {
+  const { error } = await supabase.rpc('update_my_display_name', { new_name: name })
+  if (!error) await loadProfile()
+  return error
+}
+
+// Change own email. Supabase sends a confirmation link to the new address (and,
+// if "Secure email change" is on, the old one too); the change applies only after
+// it is clicked. redirectTo brings them back here as type=email_change.
+export async function updateEmail(email) {
+  const { error } = await supabase.auth.updateUser(
+    { email },
+    { emailRedirectTo: window.location.origin + window.location.pathname },
+  )
   return error
 }

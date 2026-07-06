@@ -1,22 +1,30 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { session, profile, legacy, recovering, login, logout, updatePassword, requestPasswordReset } from '../store.js'
+import {
+  session, profile, legacy, recovering, inviteMode, emailChanged,
+  login, logout, updatePassword, requestPasswordReset, updateDisplayName, updateEmail,
+} from '../store.js'
 
 // Top-right account control, GitHub/Supabase style:
 // logged out -> "เข้าสู่ระบบ" opens a small dropdown form (works from any page)
-// logged in  -> letter avatar opens name + role + logout
-// recovering -> a password-reset link opened the app; show "set new password"
+// logged in  -> letter avatar opens name + role + edit profile + logout
+// recovering -> a reset/invite link opened the app; show "set password"
 const open = ref(false)
 const forgot = ref(false) // login panel showing the "forgot password" email form
+const editing = ref(false) // logged-in panel showing the edit-profile form
 const email = ref('')
 const password = ref('')
 const newPassword = ref('')
+const nameInput = ref('')
+const emailInput = ref('')
 const busy = ref(false)
 const errMsg = ref('')
 const okMsg = ref('')
+const editErr = ref('')
+const editOk = ref('')
 
-// A reset link fires PASSWORD_RECOVERY -> pop the panel open automatically.
-watch(recovering, (on) => { if (on) open.value = true }, { immediate: true })
+// A reset/invite/email-change link should pop the panel open automatically.
+watch([recovering, emailChanged], ([r, e]) => { if (r || e) open.value = true }, { immediate: true })
 
 // New-password strength rules — every rule must pass before saving.
 const pwRules = computed(() => {
@@ -98,6 +106,44 @@ function toLogin() {
   errMsg.value = ''
   okMsg.value = ''
 }
+
+function openEdit() {
+  nameInput.value = profile.value?.display_name || ''
+  emailInput.value = session.value?.user?.email || ''
+  editErr.value = ''
+  editOk.value = ''
+  editing.value = true
+}
+
+async function saveName() {
+  const name = nameInput.value.trim()
+  if (!name) {
+    editErr.value = 'กรุณาใส่ชื่อ'
+    return
+  }
+  busy.value = true
+  editErr.value = ''
+  editOk.value = ''
+  const error = await updateDisplayName(name)
+  busy.value = false
+  if (error) editErr.value = 'บันทึกชื่อไม่สำเร็จ'
+  else editOk.value = 'บันทึกชื่อเรียบร้อย'
+}
+
+async function saveEmail() {
+  const next = emailInput.value.trim()
+  if (next === (session.value?.user?.email || '')) {
+    editErr.value = 'อีเมลเดิม — ยังไม่มีการเปลี่ยน'
+    return
+  }
+  busy.value = true
+  editErr.value = ''
+  editOk.value = ''
+  const error = await updateEmail(next)
+  busy.value = false
+  if (error) editErr.value = 'เปลี่ยนอีเมลไม่สำเร็จ — ตรวจอีเมลอีกครั้ง'
+  else editOk.value = 'ส่งลิงก์ยืนยันไปที่อีเมลใหม่แล้ว กดลิงก์ก่อนอีเมลจึงจะเปลี่ยนจริง'
+}
 </script>
 
 <template>
@@ -118,8 +164,13 @@ function toLogin() {
     </button>
 
     <div v-if="open" class="pk-tool-menu profile-menu">
+      <p v-if="emailChanged" class="ok" style="margin: 0 0 8px">
+        ยืนยันอีเมลเรียบร้อยแล้ว ✓
+      </p>
       <form v-if="recovering" class="login-form" @submit.prevent="submitNewPassword">
-        <strong style="color: var(--brand)">ตั้งรหัสผ่านใหม่</strong>
+        <strong style="color: var(--brand)">
+          {{ inviteMode ? 'ตั้งรหัสผ่านครั้งแรก' : 'ตั้งรหัสผ่านใหม่' }}
+        </strong>
         <label>
           รหัสผ่านใหม่
           <input
@@ -145,7 +196,32 @@ function toLogin() {
           <strong>{{ displayName }}</strong>
           <span v-if="roleTh" class="role-chip">{{ roleTh }}</span>
         </div>
-        <button @click="doLogout">ออกจากระบบ</button>
+        <template v-if="editing">
+          <form class="login-form" @submit.prevent="saveName">
+            <label>
+              ชื่อที่แสดง
+              <input v-model="nameInput" type="text" autocomplete="name" required />
+            </label>
+            <button type="submit" class="submit" :disabled="busy">บันทึกชื่อ</button>
+          </form>
+          <form class="login-form" style="margin-top: 10px" @submit.prevent="saveEmail">
+            <label>
+              อีเมล
+              <input v-model="emailInput" type="email" autocomplete="email" required />
+            </label>
+            <button type="submit" class="submit" :disabled="busy">เปลี่ยนอีเมล</button>
+            <p class="muted" style="margin: 2px 0 0">
+              จะส่งลิงก์ยืนยันไปที่อีเมลใหม่ ต้องกดลิงก์ก่อนอีเมลจึงเปลี่ยนจริง
+            </p>
+          </form>
+          <p v-if="editErr" class="err">{{ editErr }}</p>
+          <p v-if="editOk" class="ok">{{ editOk }}</p>
+          <button type="button" class="linkish" @click="editing = false">← กลับ</button>
+        </template>
+        <div v-else class="menu-actions">
+          <button @click="openEdit">แก้ไขโปรไฟล์</button>
+          <button @click="doLogout">ออกจากระบบ</button>
+        </div>
       </template>
       <form v-else-if="forgot" class="login-form" @submit.prevent="submitForgot">
         <strong style="color: var(--brand)">ลืมรหัสผ่าน</strong>
@@ -207,6 +283,8 @@ function toLogin() {
   font-size: 12px;
 }
 .profile-menu > button { width: 100%; text-align: center; }
+.menu-actions { display: flex; flex-direction: column; gap: 8px; }
+.menu-actions button { width: 100%; text-align: center; }
 .login-form { display: flex; flex-direction: column; gap: 8px; }
 .login-form label { display: flex; flex-direction: column; gap: 2px; font-size: 0.85rem; color: var(--muted); }
 .login-form .submit { width: 100%; }

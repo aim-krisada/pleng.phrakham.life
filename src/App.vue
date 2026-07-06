@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { initAuth, recovering } from './store.js'
+import { initAuth, recovering, emailChanged } from './store.js'
 import SiteFooter from './components/SiteFooter.vue'
 import DownloadTool from './components/DownloadTool.vue'
 import ProfileTool from './components/ProfileTool.vue'
@@ -11,10 +11,14 @@ const menuOpen = ref(false)
 const route = useRoute()
 const router = useRouter()
 watch(() => route.path, () => (menuOpen.value = false)) // close menu after navigating
-// A reset link lands as #access_token=…; hash-router sees a bogus route and blanks
-// the page. Once supabase parses it (PASSWORD_RECOVERY), send the app back home so
-// the reset form in the header shows over the normal catalog.
-watch(recovering, (on) => { if (on) router.replace('/') })
+// Supabase email links land as #access_token=…; the hash-router sees a bogus route
+// and blanks the page. For any of them, send the app back home — the header panel
+// (set-password, or the email-changed note) then shows over the normal catalog.
+watch(
+  [recovering, emailChanged],
+  ([r, e]) => { if (r || e) router.replace('/') },
+  { immediate: true },
+)
 </script>
 
 <template>
