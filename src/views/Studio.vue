@@ -94,11 +94,18 @@ const pickerId = ref('')
 const meta = reactive({ number: null, title_th: '', title_en: '' })
 const opts = reactive({ key: 'C', timeSignature: '4/4', bpm: null })
 
-// melodies + play order (v2)
+// melodies + play order (v2). An arrangement row stores its words as a `syllables`
+// array (one token per syllable-bearing note) so the per-note lyric boxes under the
+// melody can bind slot-by-slot; the bulk textarea joins/splits the same array.
 const stanzas = ref([{ id: 'A', lines: [newLine()] }])
 const activeStanza = ref(0)
-const arrangement = ref([{ stanza: 'A', label: '', lyric: '', key: '' }])
+const arrangement = ref([{ stanza: 'A', label: '', syllables: [], key: '' }])
 const migrateWarnings = ref([]) // set when a v1 song is auto-split on load (author reviews)
+
+// verse lens: which arrangement row's words to show under the active stanza's notes
+// (-1 = hidden). Lets the author type each syllable right under its note — the old
+// "words with the melody" feel, now per syllable (a blank box marks a missing word).
+const lensChoice = ref(-1)
 
 const saveMsg = ref('')
 const playing = ref(false)
@@ -122,7 +129,7 @@ const previewContent = computed(() => ({
   arrangement: arrangement.value.map((r) => ({
     stanza: r.stanza,
     label: r.label?.trim() || '',
-    syllables: splitSyllables(r.lyric),
+    syllables: r.syllables.map((t) => (t || '').trim()),
     ...(r.key ? { key: r.key } : {}),
   })),
 }))
@@ -135,6 +142,56 @@ const resolvedPreview = computed(() => ({
 
 // valid chords only, diatonic chords of the current key listed first
 const chordOpts = computed(() => chordOptions(opts.key))
+
+// ---------- verse lens (words under the notes) ----------
+// arrangement rows that link the stanza currently being edited
+const lensRowsForActiveStanza = computed(() =>
+  arrangement.value.map((r, i) => ({ i, r })).filter((x) => x.r.stanza === activeStanzaId.value),
+)
+const lensOptions = computed(() => [
+  { value: -1, label: '— ซ่อนเนื้อ —' },
+  ...lensRowsForActiveStanza.value.map((x) => ({
+    value: x.i,
+    label: 'ข้อ ' + (x.i + 1) + (x.r.label ? ' (' + x.r.label + ')' : ''),
+  })),
+])
+const lensRow = computed(() => (lensChoice.value >= 0 ? arrangement.value[lensChoice.value] : null))
+const lensActive = computed(() => !!lensRow.value && lensRow.value.stanza === activeStanzaId.value)
+// global syllable-slot index where each segment of the active stanza starts, so a
+// per-note box binds to lensRow.syllables[start + k]. Keyed "li-bi-si".
+const slotStarts = computed(() => {
+  const map = {}
+  const s = stanzas.value[activeStanza.value]
+  if (!s) return map
+  let idx = 0
+  s.lines.forEach((line, li) =>
+    line.bars.forEach((bar, bi) =>
+      bar.segments.forEach((seg, si) => {
+        map[`${li}-${bi}-${si}`] = idx
+        idx += syllableSlots(seg.note || '')
+      }),
+    ),
+  )
+  return map
+})
+function segSlotCount(note) {
+  return syllableSlots(note || '')
+}
+function sylAt(row, i) {
+  return row?.syllables[i] || ''
+}
+// write one syllable slot; pad gaps with '' and trim trailing blanks to stay tidy
+function setSyl(row, i, val) {
+  const arr = row.syllables
+  while (arr.length <= i) arr.push('')
+  arr[i] = val.trim()
+  while (arr.length && arr[arr.length - 1] === '') arr.pop()
+}
+// point the lens at the first row that uses the active stanza (or hide it)
+function resetLens() {
+  lensChoice.value = arrangement.value.findIndex((r) => r.stanza === activeStanzaId.value)
+}
+watch(activeStanzaId, resetLens)
 
 // ---------- stanza (melody) operations ----------
 function nextStanzaId() {
@@ -163,10 +220,11 @@ function removeStanza(idx) {
   stanzas.value.splice(idx, 1)
   arrangement.value = arrangement.value.filter((r) => r.stanza !== id)
   if (!arrangement.value.length) {
-    arrangement.value = [{ stanza: stanzas.value[0].id, label: '', lyric: '', key: '' }]
+    arrangement.value = [{ stanza: stanzas.value[0].id, label: '', syllables: [], key: '' }]
   }
   activeStanza.value = Math.min(activeStanza.value, stanzas.value.length - 1)
   activeLine.value = 0
+  resetLens()
 }
 
 // ---------- arrangement (verses/refrains) operations ----------
@@ -186,21 +244,23 @@ function stanzaSlots(id) {
 // syllables must equal the stanza's syllable slots, else the row is flagged.
 function rowStatus(row) {
   const need = stanzaSlots(row.stanza)
-  const got = splitSyllables(row.lyric).length
+  const got = row.syllables.filter((t) => t && t.trim()).length
   return { need, got, ok: got === need }
 }
 function addRow() {
-  arrangement.value.push({ stanza: activeStanzaId.value || stanzas.value[0].id, label: '', lyric: '', key: '' })
+  arrangement.value.push({ stanza: activeStanzaId.value || stanzas.value[0].id, label: '', syllables: [], key: '' })
 }
 function removeRow(i) {
   arrangement.value.splice(i, 1)
   if (!arrangement.value.length) addRow()
+  resetLens()
 }
 function moveRow(i, dir) {
   const to = i + dir
   if (to < 0 || to >= arrangement.value.length) return
   const [r] = arrangement.value.splice(i, 1)
   arrangement.value.splice(to, 0, r)
+  resetLens()
 }
 const stanzaIdOptions = computed(() => stanzas.value.map((s) => ({ value: s.id, label: 'ท่อน ' + s.id })))
 const rowKeyOptions = computed(() => [{ value: '', label: 'คีย์เดิม' }, ...KEYS.map((k) => ({ value: k, label: k }))])
@@ -354,15 +414,16 @@ function applyRow(data) {
   arrangement.value = (content.arrangement || []).map((r) => ({
     stanza: r.stanza,
     label: r.label || '',
-    lyric: joinSyllables(r.syllables || []),
+    syllables: [...(r.syllables || [])],
     key: r.key || '',
   }))
   if (!arrangement.value.length) {
-    arrangement.value = [{ stanza: stanzas.value[0].id, label: '', lyric: '', key: '' }]
+    arrangement.value = [{ stanza: stanzas.value[0].id, label: '', syllables: [], key: '' }]
   }
   activeStanza.value = 0
   activeLine.value = 0
   migrateWarnings.value = warnings
+  resetLens()
 }
 
 function resetForm() {
@@ -376,12 +437,13 @@ function resetForm() {
   opts.timeSignature = '4/4'
   opts.bpm = null
   stanzas.value = [{ id: 'A', lines: [newLine()] }]
-  arrangement.value = [{ stanza: 'A', label: '', lyric: '', key: '' }]
+  arrangement.value = [{ stanza: 'A', label: '', syllables: [], key: '' }]
   activeStanza.value = 0
   activeLine.value = 0
   migrateWarnings.value = []
   saveMsg.value = ''
   revisions.value = []
+  resetLens()
   nextTick(resetHistory)
 }
 
@@ -685,6 +747,7 @@ function applyState(snap) {
   stanzas.value = s.stanzas
   arrangement.value = s.arrangement
   activeStanza.value = Math.min(s.activeStanza ?? 0, s.stanzas.length - 1)
+  resetLens()
   nextTick(() => (applyingHistory = false))
 }
 const canUndo = computed(() => histPos.value > 0)
@@ -843,10 +906,21 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       <button class="secondary tiny" @click="addStanza">+ ท่อนทำนอง</button>
     </div>
 
+    <!-- verse lens: overlay a chosen ข้อ's words under this stanza's notes -->
+    <div v-if="lensRowsForActiveStanza.length" class="lens-bar no-print">
+      <label style="display: inline-flex; align-items: center; gap: 6px">
+        👁 ดูเนื้อคู่โน้ต:
+        <select v-model.number="lensChoice" aria-label="เลือกข้อเนื้อร้องมาแสดงใต้โน้ต">
+          <option v-for="o in lensOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+        </select>
+      </label>
+      <span v-if="lensActive" class="muted">— พิมพ์พยางค์ในช่องใต้โน้ตได้เลย · ช่องแดง = ยังไม่มีคำ</span>
+    </div>
+
     <!-- editing hint (the symbol palette lives in the bottom dock) -->
     <p class="muted no-print" style="margin: 0 0 10px">
       1 ช่อง = 1 โน้ต · Enter/เว้นวรรค = ช่องถัดไป · ลูกศร ← → เลื่อนช่อง ·
-      แตะช่องโน้ตแล้วจิ้มสัญลักษณ์จากแถบล่างจอได้ · เนื้อร้องใส่ที่ "ลำดับเพลง" ด้านล่าง
+      แตะช่องโน้ตแล้วจิ้มสัญลักษณ์จากแถบล่างจอได้ · เนื้อร้องพิมพ์ใต้โน้ต (เลือกข้อด้านบน) หรือที่ "ลำดับเพลง" ด้านล่าง
       <router-link class="pk-info" style="margin-left: 6px" :to="{ path: '/guide', hash: '#notation' }" aria-label="คู่มือโน้ตตัวเลข">i</router-link>
     </p>
 
@@ -907,6 +981,17 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
           <div v-for="(seg, si) in bar.segments" :key="si" class="seg-row">
             <ComboSelect v-model="seg.chord" :options="chordOpts" placeholder="คอร์ด" aria-label="เลือกคอร์ด" width="120px" />
             <NoteBoxes v-model="seg.note" />
+            <span v-if="lensActive && segSlotCount(seg.note)" class="syl-boxes">
+              <input
+                v-for="k in segSlotCount(seg.note)"
+                :key="k"
+                class="syl-box"
+                :class="{ 'syl-empty': !sylAt(lensRow, slotStarts[`${li}-${bi}-${si}`] + k - 1) }"
+                :value="sylAt(lensRow, slotStarts[`${li}-${bi}-${si}`] + k - 1)"
+                :aria-label="`พยางค์ที่ ${slotStarts[`${li}-${bi}-${si}`] + k}`"
+                @input="setSyl(lensRow, slotStarts[`${li}-${bi}-${si}`] + k - 1, $event.target.value)"
+              />
+            </span>
             <button class="secondary tiny" aria-label="ลบช่องนี้" @click="removeSegment(bar, si)">✕</button>
           </div>
           <button class="secondary tiny" @click="addSegment(bar)">+ คอร์ดใหม่ในห้องนี้</button>
@@ -917,19 +1002,20 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     <button class="secondary" @click="addLine">+ เพิ่มบรรทัด</button>
 
     <!-- ===== arrangement: play order + words per verse ===== -->
-    <h3 class="section-title" style="margin-top: 22px">📜 ลำดับเพลง — เลือกท่อนทำนอง ใส่เนื้อร้องแต่ละเที่ยว</h3>
+    <h3 class="section-title" style="margin-top: 22px">📜 ลำดับเพลง — เลือกท่อนทำนอง ใส่เนื้อร้องแต่ละข้อ</h3>
     <p class="muted no-print" style="margin: 0 0 10px">
       เนื้อร้อง: เว้นวรรค = คำใหม่ · ยัติภังค์ "-" = พยางค์ต่อในคำเดียว (เช่น ส-ถิตย์) ·
-      1 พยางค์ = 1 โน้ตที่เคาะ (เอื้อนใส่ที่ทำนองด้วยสเลอร์ ไม่นับพยางค์ใหม่)
+      1 พยางค์ = 1 โน้ตที่เคาะ (เอื้อนใส่ที่ทำนองด้วยสเลอร์ ไม่นับพยางค์ใหม่) ·
+      หรือพิมพ์ทีละพยางค์ใต้โน้ตด้านบนก็ได้
     </p>
     <div class="card">
       <div v-for="(row, ri) in arrangement" :key="ri" class="arr-row">
         <div class="arr-head">
           <span class="muted" style="min-width: 22px">{{ ri + 1 }}.</span>
           <ComboSelect v-model="row.stanza" :options="stanzaIdOptions" aria-label="เลือกท่อนทำนอง" width="100px" />
-          <input v-model="row.label" placeholder="ชื่อเที่ยว เช่น ร้อง 1, รับ" aria-label="ชื่อเที่ยว" class="arr-label" />
+          <input v-model="row.label" placeholder="ชื่อข้อ เช่น ร้อง 1, รับ" aria-label="ชื่อข้อ" class="arr-label" />
           <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem">คีย์:
-            <ComboSelect v-model="row.key" :options="rowKeyOptions" aria-label="เปลี่ยนคีย์เที่ยวนี้" width="100px" />
+            <ComboSelect v-model="row.key" :options="rowKeyOptions" aria-label="เปลี่ยนคีย์ข้อนี้" width="100px" />
           </label>
           <span
             class="arr-count"
@@ -940,18 +1026,19 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
           <span class="arr-tools">
             <button class="secondary tiny" aria-label="ย้ายขึ้น" :disabled="ri === 0" @click="moveRow(ri, -1)">▲</button>
             <button class="secondary tiny" aria-label="ย้ายลง" :disabled="ri === arrangement.length - 1" @click="moveRow(ri, 1)">▼</button>
-            <button class="secondary tiny" aria-label="ลบเที่ยวนี้" @click="removeRow(ri)">✕</button>
+            <button class="secondary tiny" aria-label="ลบข้อนี้" @click="removeRow(ri)">✕</button>
           </span>
         </div>
         <textarea
-          v-model="row.lyric"
+          :value="joinSyllables(row.syllables)"
           rows="2"
           class="arr-lyric"
-          placeholder="เนื้อร้องของเที่ยวนี้ — 1 พยางค์ต่อ 1 โน้ต"
+          placeholder="เนื้อร้องของข้อนี้ — 1 พยางค์ต่อ 1 โน้ต"
           aria-label="เนื้อร้อง"
+          @input="row.syllables = splitSyllables($event.target.value)"
         ></textarea>
       </div>
-      <button class="secondary" @click="addRow">+ เพิ่มเที่ยว</button>
+      <button class="secondary" @click="addRow">+ เพิ่มข้อ</button>
     </div>
 
     <!-- secondary actions -->
@@ -1110,6 +1197,19 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 }
 .seg-row { display: flex; gap: 4px; margin-bottom: 6px; align-items: center; flex-wrap: wrap; }
 .seg-row :deep(.combo input) { color: var(--chord-red); font-weight: 700; }
+/* verse lens: syllable inputs sitting under a segment's notes */
+.lens-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }
+.syl-boxes { display: inline-flex; gap: 3px; flex-wrap: wrap; align-items: center; }
+.syl-box {
+  width: 54px;
+  padding: 3px 4px;
+  text-align: center;
+  font-size: 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  min-height: 30px;
+}
+.syl-box.syl-empty { border-color: var(--red); background: #fff5f5; }
 /* arrangement rows */
 .arr-row {
   border: 1px dashed var(--line);

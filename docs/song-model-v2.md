@@ -154,6 +154,15 @@ logged-in human).** Built in `Studio.vue`:
 - Playback: `playStanza` (active melody, editor highlight) · `playFull` (resolved
   arrangement, no editor highlight since resolved line indices ≠ editor bars) ·
   `playLine` unchanged.
+- **Verse lens** (added after พี่เอม's first test — notes and words felt too far apart):
+  a "👁 ดูเนื้อคู่โน้ต" selector picks one ข้อ and renders a text box **per
+  syllable-bearing note, right under the notes** in the melody editor. Typing fills the
+  ข้อ's `syllables[slot]`; a blank box is red, so a verse that's short shows exactly
+  which note has no word (solved the "120/125 but where?" problem). The arrangement
+  textarea and the boxes edit the same `syllables` array (join/split), so bulk-paste and
+  fine-align both work. Arrangement rows now store `syllables[]` (not a joined string).
+  "เที่ยว" renamed to "ข้อ" throughout. Browser-verified: 125 boxes on song #1, 22 red
+  gaps, editing a box updates the count + textarea live, hide/show + reverse sync work.
 - **STILL CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
   human to save a v2 draft → reopen → publish. song_revisions + git make it revertable.
 
