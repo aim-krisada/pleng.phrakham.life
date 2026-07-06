@@ -22,9 +22,8 @@ const groups = computed(() => groupNotes(parseNotes(props.notes)))
           <!-- octave dots stay centred on the DIGIT; the augmentation dot sits
                beside it (absolute) so it never pushes the octave dots off-centre -->
           <span class="dots-hi">{{ '•'.repeat(t.high) || ' ' }}</span>
-          <span :class="['num', 'u' + t.underlines]">{{ t.accidental === '#' ? '♯' : t.accidental === 'b' ? '♭' : '' }}{{ t.pitch }}</span>
+          <span :class="['num', 'u' + t.underlines]">{{ t.accidental === '#' ? '♯' : t.accidental === 'b' ? '♭' : '' }}{{ t.pitch }}<span v-if="t.dotted" class="aug" aria-hidden="true">•</span></span>
           <span class="dots-lo">{{ '•'.repeat(t.low) || ' ' }}</span>
-          <span v-if="t.dotted" class="aug" aria-hidden="true">·</span>
         </template>
         <template v-else-if="t.type === 'ext'">
           <span class="dots-hi">&nbsp;</span>
@@ -62,19 +61,20 @@ const groups = computed(() => groupNotes(parseNotes(props.notes)))
   line-height: 1.1em;
   letter-spacing: -1px;
 }
-.num { display: block; padding: 0 1px; }
+.num { display: block; padding: 0 1px; position: relative; }
 /* underlines stretch across the whole token so adjacent underlined notes join
    into one continuous line, the way the hymnbook beams eighth notes */
 .num.u1, .num.u2 { align-self: stretch; text-align: center; }
 .num.u1 { border-bottom: 1.5px solid currentColor; }
 .num.u2 { border-bottom: 4px double currentColor; }
-/* augmentation dot: mid-height, just right of the digit (never above/below it) */
+/* augmentation dot: same size as the octave dots, sitting on the digit's
+   baseline just to its right (absolute so it never shifts the octave dots) */
 .aug {
   position: absolute;
-  right: -0.4em;
-  top: 50%;
-  transform: translateY(-58%);
-  font-size: 1em;
+  left: 100%;
+  bottom: 0.12em;
+  margin-left: 0.1em;
+  font-size: 0.55em;
   line-height: 1;
 }
 /* tie across a bar: half-arc opening right (start) / closing from left (end) */
