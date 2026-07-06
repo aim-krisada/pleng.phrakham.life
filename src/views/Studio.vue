@@ -38,14 +38,15 @@ function newBar() {
   return { segments: [newSegment()] }
 }
 function newLine() {
-  return { marker: '', bars: [newBar()] }
+  return { marker: '', cont: false, bars: [newBar()] }
 }
 
 function deserializeLine(items) {
-  const line = { marker: '', bars: [] }
+  const line = { marker: '', cont: false, bars: [] }
   let bar = { segments: [] }
   for (const it of items) {
-    if (it.type === 'marker') line.marker = it.label || '***'
+    if (it.type === 'continue') line.cont = true
+    else if (it.type === 'marker') line.marker = it.label || '***'
     else if (it.type === 'bar') {
       line.bars.push(bar)
       bar = { segments: [] }
@@ -61,6 +62,7 @@ function deserializeLine(items) {
 
 function serializeLine(line) {
   const items = []
+  if (line.cont) items.push({ type: 'continue' })
   if (line.marker) items.push({ type: 'marker', label: line.marker })
   line.bars.forEach((b, i) => {
     if (i > 0) items.push({ type: 'bar' })
@@ -92,20 +94,38 @@ const previewContent = computed(() => ({
 // valid chords only, diatonic chords of the current key listed first
 const chordOpts = computed(() => chordOptions(opts.key))
 
-// beats per bar vs. time signature — honest: unreadable input is an error, never a pass
+// beats per bar vs. time signature — honest: unreadable input is an error, never a pass.
+// A line marked "cont" continues the previous line's last bar: those two bars are
+// counted as ONE bar (the sheet just broke it at the line end).
 const expBeats = computed(() => expectedBeats(opts.timeSignature))
-function barStatus(bar) {
-  const tokens = bar.segments.flatMap((s) => parseNotes(s.note))
-  const hasText = bar.segments.some((s) => s.note.trim())
+function barTokensAt(li, bi) {
+  return lines.value[li]?.bars[bi]?.segments.flatMap((s) => parseNotes(s.note)) ?? []
+}
+function barStatus(li, bi) {
+  const line = lines.value[li]
+  const bar = line.bars[bi]
+  let tokens = bar.segments.flatMap((s) => parseNotes(s.note))
+  let hasText = bar.segments.some((s) => s.note.trim())
+  let joined = false
+  if (bi === 0 && line.cont && li > 0) {
+    const prev = lines.value[li - 1]
+    tokens = [...barTokensAt(li - 1, prev.bars.length - 1), ...tokens]
+    joined = true
+  } else if (bi === line.bars.length - 1 && lines.value[li + 1]?.cont) {
+    tokens = [...tokens, ...barTokensAt(li + 1, 0)]
+    joined = true
+  }
+  if (joined) hasText = tokens.length > 0
+  const pre = joined ? '⤷ ' : ''
   if (!hasText) return { text: 'ว่าง', ok: true }
   const rawTokens = tokens.filter((t) => t.type === 'raw')
   if (rawTokens.length) {
-    return { text: `อ่านไม่ได้: ${rawTokens.map((t) => t.text).join(' ')}`, ok: false }
+    return { text: `${pre}อ่านไม่ได้: ${rawTokens.map((t) => t.text).join(' ')}`, ok: false }
   }
   const got = beatCount(tokens)
-  if (expBeats.value == null) return { text: fmt(got), ok: true }
+  if (expBeats.value == null) return { text: pre + fmt(got), ok: true }
   const ok = Math.abs(got - expBeats.value) < 0.01
-  return { text: `${fmt(got)}/${fmt(expBeats.value)} จังหวะ`, ok }
+  return { text: `${pre}${fmt(got)}/${fmt(expBeats.value)} จังหวะ`, ok }
 }
 function fmt(n) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
@@ -653,6 +673,10 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
           <input type="checkbox" :checked="!!line.marker" @change="line.marker = $event.target.checked ? '***' : ''" />
           ท่อนฮุก ***
         </label>
+        <label v-if="li > 0" style="display: inline-flex; align-items: center; gap: 4px">
+          <input v-model="line.cont" type="checkbox" />
+          ⤷ ต่อห้องจากบรรทัดก่อน
+        </label>
         <button class="secondary" @click="playLine(li)">▶ ฟังบรรทัดนี้</button>
         <button class="secondary" @click="copyLine(li)">คัดลอกโครง</button>
         <button class="danger" @click="removeLine(li)">ลบบรรทัด</button>
@@ -666,8 +690,8 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
           :data-bar="`${li}-${bi}`"
         >
           <div class="bar-head">
-            <span :style="{ color: barStatus(bar).ok ? 'var(--muted)' : 'var(--red)', fontWeight: barStatus(bar).ok ? 400 : 700 }">
-              ห้อง {{ bi + 1 }} <template v-if="barStatus(bar).text">· {{ barStatus(bar).text }} {{ barStatus(bar).ok ? '✓' : '❌' }}</template>
+            <span :style="{ color: barStatus(li, bi).ok ? 'var(--muted)' : 'var(--red)', fontWeight: barStatus(li, bi).ok ? 400 : 700 }">
+              ห้อง {{ bi + 1 }} <template v-if="barStatus(li, bi).text">· {{ barStatus(li, bi).text }} {{ barStatus(li, bi).ok ? '✓' : '❌' }}</template>
             </span>
             <button class="secondary tiny" @click="removeBar(line, bi)">✕</button>
           </div>
