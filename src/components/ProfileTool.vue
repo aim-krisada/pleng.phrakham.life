@@ -1,15 +1,21 @@
 <script setup>
-import { ref, computed } from 'vue'
-import { session, profile, legacy, login, logout } from '../store.js'
+import { ref, computed, watch } from 'vue'
+import { session, profile, legacy, recovering, login, logout, updatePassword } from '../store.js'
 
 // Top-right account control, GitHub/Supabase style:
 // logged out -> "เข้าสู่ระบบ" opens a small dropdown form (works from any page)
 // logged in  -> letter avatar opens name + role + logout
+// recovering -> a password-reset link opened the app; show "set new password"
 const open = ref(false)
 const email = ref('')
 const password = ref('')
+const newPassword = ref('')
 const busy = ref(false)
 const errMsg = ref('')
+const okMsg = ref('')
+
+// A reset link fires PASSWORD_RECOVERY -> pop the panel open automatically.
+watch(recovering, (on) => { if (on) open.value = true }, { immediate: true })
 
 const displayName = computed(
   () => profile.value?.display_name || session.value?.user?.email || ''
@@ -37,6 +43,23 @@ async function doLogout() {
   open.value = false
   await logout()
 }
+
+async function submitNewPassword() {
+  if (newPassword.value.length < 8) {
+    errMsg.value = 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร'
+    return
+  }
+  busy.value = true
+  errMsg.value = ''
+  const error = await updatePassword(newPassword.value)
+  busy.value = false
+  if (error) {
+    errMsg.value = 'ตั้งรหัสผ่านใหม่ไม่สำเร็จ — ลองกดลิงก์ในอีเมลอีกครั้ง'
+  } else {
+    newPassword.value = ''
+    okMsg.value = 'ตั้งรหัสผ่านใหม่เรียบร้อย เข้าสู่ระบบแล้ว'
+  }
+}
 </script>
 
 <template>
@@ -57,7 +80,25 @@ async function doLogout() {
     </button>
 
     <div v-if="open" class="pk-tool-menu profile-menu">
-      <template v-if="session">
+      <form v-if="recovering" class="login-form" @submit.prevent="submitNewPassword">
+        <strong style="color: var(--brand)">ตั้งรหัสผ่านใหม่</strong>
+        <label>
+          รหัสผ่านใหม่
+          <input
+            v-model="newPassword"
+            type="password"
+            autocomplete="new-password"
+            minlength="8"
+            required
+          />
+        </label>
+        <button type="submit" class="submit" :disabled="busy">
+          {{ busy ? 'กำลังบันทึก…' : 'บันทึกรหัสผ่าน' }}
+        </button>
+        <p v-if="errMsg" class="err">{{ errMsg }}</p>
+        <p v-if="okMsg" class="ok">{{ okMsg }}</p>
+      </form>
+      <template v-else-if="session">
         <div class="who">
           <strong>{{ displayName }}</strong>
           <span v-if="roleTh" class="role-chip">{{ roleTh }}</span>
@@ -114,4 +155,5 @@ async function doLogout() {
 .login-form label { display: flex; flex-direction: column; gap: 2px; font-size: 0.85rem; color: var(--muted); }
 .login-form .submit { width: 100%; }
 .err { color: var(--red); font-size: 0.85rem; margin: 4px 0 0; }
+.ok { color: var(--brand); font-size: 0.85rem; margin: 4px 0 0; }
 </style>

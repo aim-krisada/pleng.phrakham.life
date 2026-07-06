@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { initAuth } from './store.js'
+import { useRoute, useRouter } from 'vue-router'
+import { initAuth, recovering } from './store.js'
 import SiteFooter from './components/SiteFooter.vue'
 import DownloadTool from './components/DownloadTool.vue'
 import ProfileTool from './components/ProfileTool.vue'
@@ -9,7 +9,12 @@ import ProfileTool from './components/ProfileTool.vue'
 initAuth()
 const menuOpen = ref(false)
 const route = useRoute()
+const router = useRouter()
 watch(() => route.path, () => (menuOpen.value = false)) // close menu after navigating
+// A reset link lands as #access_token=…; hash-router sees a bogus route and blanks
+// the page. Once supabase parses it (PASSWORD_RECOVERY), send the app back home so
+// the reset form in the header shows over the normal catalog.
+watch(recovering, (on) => { if (on) router.replace('/') })
 </script>
 
 <template>

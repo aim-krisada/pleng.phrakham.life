@@ -8,6 +8,7 @@ export const currentSong = ref(null)
 export const session = ref(null)
 export const profile = ref(null) // { role, display_name }
 export const legacy = ref(false) // true when the draft tables are not installed
+export const recovering = ref(false) // true after a password-reset link opens the app
 
 let inited = false
 export async function initAuth() {
@@ -15,8 +16,12 @@ export async function initAuth() {
   inited = true
   const { data } = await supabase.auth.getSession()
   session.value = data.session
-  supabase.auth.onAuthStateChange((_e, s) => {
+  supabase.auth.onAuthStateChange((event, s) => {
     session.value = s
+    // Reset link lands as #access_token=…&type=recovery; supabase-js parses it
+    // and fires this event. Show the "set new password" form instead of a
+    // normal logged-in state.
+    if (event === 'PASSWORD_RECOVERY') recovering.value = true
     loadProfile()
   })
   await loadProfile()
@@ -45,4 +50,10 @@ export async function login(email, password) {
 
 export async function logout() {
   await supabase.auth.signOut()
+}
+
+export async function updatePassword(password) {
+  const { error } = await supabase.auth.updateUser({ password })
+  if (!error) recovering.value = false
+  return error
 }
