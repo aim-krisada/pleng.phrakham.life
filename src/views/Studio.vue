@@ -2,7 +2,7 @@
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxBearing } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds } from '../lib/notation.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { diffSongRows } from '../lib/diff.js'
@@ -154,10 +154,11 @@ const resolvedPreview = computed(() => ({
   lines: resolveContent(previewContent.value),
 }))
 
-// valid chords only, diatonic chords of the current key listed first
+// valid chords only, diatonic chords of the current key listed first. chordOptions
+// already leads with a "— ไม่มีคอร์ด —" entry (value ''), so the picker reuses it —
+// picking that clears/merges a chord at a note (no duplicate "no chord" row).
 const chordOpts = computed(() => chordOptions(opts.key))
-// same list plus a "no chord" choice — picking it clears/merges a chord at a note
-const chordPickOpts = computed(() => [{ value: '', label: '— ไม่มีคอร์ด —', search: 'ไม่มี none clear' }, ...chordOpts.value])
+const chordPickOpts = chordOpts
 
 // ---------- verse lens (words under the notes) ----------
 // arrangement rows that link the stanza currently being edited
@@ -193,12 +194,15 @@ const slotStarts = computed(() => {
 function segSlotCount(note) {
   return syllableSlots(note || '')
 }
-// One lyric cell per note box of a segment: { slot } for an attack note (a word box),
-// { slot: null } for a held '-' / rest / bar box (an empty spacer) — so each word lines
-// up under its note even when held notes sit in the middle.
+// One lyric cell per note box of a segment. EVERY note gets its own box: an attack
+// note bears a word (red when empty = missing word); a held '-' / rest box gets an
+// optional box too (blank is fine — it just holds the sustain). Only ( ) { } brackets
+// are spacers (slot: null), so each word still lines up under its note.
 function sylCells(li, bi, si, note) {
   let slot = slotStarts.value[`${li}-${bi}-${si}`] ?? 0
-  return noteBoxBearing(note).map((bear) => (bear ? { slot: slot++ } : { slot: null }))
+  return noteBoxKinds(note).map((kind) =>
+    kind === 'struct' ? { slot: null } : { slot: slot++, held: kind === 'held' },
+  )
 }
 // total notes the active stanza bears, and any syllables typed BEYOND that — shown as
 // note-less boxes so an overflow (more words than notes) is visible, never dropped.
@@ -403,13 +407,70 @@ function stanzaSlots(id) {
   }
   return n
 }
-// live word-count check per arrangement row (like barStatus): the number of typed
-// syllables must equal the stanza's syllable slots, else the row is flagged.
+// live word-count check per arrangement row (like barStatus). Every note box has a
+// lyric slot, but only ATTACK notes require a word — held/rest boxes may stay blank.
+// So we count words present on attack slots against the number of attack notes.
 function rowStatus(row) {
-  const need = stanzaSlots(row.stanza)
-  const got = row.syllables.filter((t) => t && t.trim()).length
+  const s = stanzas.value.find((x) => x.id === row.stanza)
+  if (!s) return { need: 0, got: 0, ok: true }
+  let idx = 0
+  let need = 0
+  let got = 0
+  for (const line of s.lines)
+    for (const bar of line.bars)
+      for (const seg of bar.segments)
+        for (const kind of noteBoxKinds(seg.note || '')) {
+          if (kind === 'struct') continue
+          if (kind === 'attack') {
+            need++
+            if ((row.syllables[idx] || '').trim()) got++
+          }
+          idx++
+        }
   return { need, got, ok: got === need }
 }
+// ---------- bulk lyric textarea <-> per-note slots (melody-aware) ----------
+// The textarea is the "type the words" view: one word per ATTACK note. The per-note
+// boxes above expose every slot (incl. held). These map between the two: words land on
+// attack slots, held slots stay blank; reading back shows only the attack words. Keeps
+// the paste-a-verse workflow 1:1 with the sung syllables even though held notes now
+// have their own boxes.
+function stanzaKindList(stanzaId) {
+  const s = stanzas.value.find((x) => x.id === stanzaId)
+  const out = []
+  if (!s) return out
+  for (const line of s.lines)
+    for (const bar of line.bars)
+      for (const seg of bar.segments)
+        for (const kind of noteBoxKinds(seg.note || '')) {
+          if (kind !== 'struct') out.push(kind)
+        }
+  return out
+}
+function wordsToSyllables(words, stanzaId) {
+  const kinds = stanzaKindList(stanzaId)
+  const out = []
+  let w = 0
+  for (const k of kinds) out.push(k === 'attack' ? (words[w++] ?? '') : '')
+  while (w < words.length) out.push(words[w++]) // extra words → overflow slots
+  while (out.length && out[out.length - 1] === '') out.pop()
+  return out
+}
+function syllablesToWords(syllables, stanzaId) {
+  const kinds = stanzaKindList(stanzaId)
+  const out = []
+  syllables.forEach((t, i) => {
+    if (kinds[i] === undefined || kinds[i] === 'attack') out.push(t)
+  })
+  return out
+}
+function rowLyricText(row) {
+  return joinSyllables(syllablesToWords(row.syllables, row.stanza))
+}
+function setRowLyricText(row, text) {
+  row.syllables = wordsToSyllables(splitSyllables(text), row.stanza)
+}
+
 function addRow() {
   arrangement.value.push({ stanza: activeStanzaId.value || stanzas.value[0].id, label: '', syllables: [], key: '' })
 }
@@ -500,12 +561,11 @@ function moveBar(line, bi, dir) {
   const [b] = line.bars.splice(bi, 1)
   line.bars.splice(to, 0, b)
 }
-// Insert a fresh empty bar right after bar bi (then move it with ◀ ▶ if needed).
-function insertBar(line, bi) {
-  line.bars.splice(bi + 1, 0, newBar())
-}
-function addSegment(bar) {
-  bar.segments.push(newSegment())
+// Duplicate bar bi: drop an exact copy (chords + notes) right after it. Faster than
+// re-keying a repeated bar; tweak the copy afterwards.
+function duplicateBar(line, bi) {
+  const copy = JSON.parse(JSON.stringify(line.bars[bi]))
+  line.bars.splice(bi + 1, 0, copy)
 }
 function removeSegment(bar, si) {
   bar.segments.splice(si, 1)
@@ -1047,8 +1107,18 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       </ul>
     </div>
 
+    <!-- plain-language overview: the two ways to enter a song + the 3 steps -->
+    <div class="card no-print how-to">
+      <strong>📖 ทำเพลงยังไง? มี 2 วิธีใส่โน้ต/คำ</strong>
+      <ol style="margin: 6px 0 8px 18px; padding: 0">
+        <li><b>พิมพ์ทีละตัว</b> — แตะช่อง แล้วพิมพ์ทีละโน้ต/ทีละคำ (1 ช่อง = 1 โน้ต)</li>
+        <li><b>ก๊อบ–วาง</b> — คัดลอกเนื้อทั้งท่อนมาวางในกล่องใหญ่ แล้วจัดให้ตรงช่องด้วยการ <b>เว้นวรรค</b> (ขึ้นช่องใหม่) และปุ่ม <b>◀ ▶</b> (แทรก/ลบช่องให้เลื่อนไปตรงโน้ต)</li>
+      </ol>
+      <span class="muted">ทำ 3 ขั้น: ① ใส่ทำนอง (ท่อน) ด้านล่าง → ② เอาท่อนมาเรียงใน “ลำดับเพลง” → ③ พิมพ์เนื้อร้องของแต่ละข้อ</span>
+    </div>
+
     <!-- ===== melodies (stanzas): edit each once ===== -->
-    <h3 class="section-title">🎵 ทำนอง (ท่อน) — คีย์ครั้งเดียว ใช้ซ้ำในหลายเที่ยว</h3>
+    <h3 class="section-title">🎵 ขั้นที่ 1 · ใส่ทำนอง (ท่อน) — พิมพ์โน้ตครั้งเดียว ใช้ซ้ำได้ทุกข้อ</h3>
     <div class="stanza-tabs no-print">
       <button
         v-for="(s, si) in stanzas"
@@ -1077,13 +1147,13 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
           <option v-for="o in lensOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
         </select>
       </label>
-      <span v-if="lensActive" class="muted">— พิมพ์พยางค์ในช่องใต้โน้ตได้เลย · ช่องแดง = ยังไม่มีคำ</span>
+      <span v-if="lensActive" class="muted">— พิมพ์คำร้องในช่องใต้โน้ตได้เลย · ช่องสีแดง = ยังไม่ได้ใส่คำ · ช่องเส้นประ = โน้ตลากเสียง (เว้นว่างได้ หรือใส่ “-”)</span>
     </div>
 
     <!-- editing hint (the symbol palette lives in the bottom dock) -->
     <p class="muted no-print" style="margin: 0 0 10px">
-      1 ช่อง = 1 โน้ต · Enter/เว้นวรรค = ช่องถัดไป · ลูกศร ← → เลื่อนช่อง ·
-      แตะช่องโน้ตแล้วจิ้มสัญลักษณ์จากแถบล่างจอได้ · เนื้อร้องพิมพ์ใต้โน้ต (เลือกข้อด้านบน) หรือที่ "ลำดับเพลง" ด้านล่าง
+      พิมพ์โน้ตในช่อง — <b>1 ช่อง = 1 โน้ต</b> · กด <b>Enter</b> หรือ <b>เว้นวรรค</b> เพื่อขึ้นช่องถัดไป · กด <b>← →</b> เลื่อนช่อง ·
+      อยากได้จุด/ขีด/เครื่องหมายอื่น แตะช่องแล้วจิ้มปุ่มจากแถบล่างจอ · ส่วนเนื้อร้องพิมพ์ได้ที่ “ลำดับเพลง” (ขั้นที่ 2) หรือใต้โน้ตตรงนี้ (เลือกข้อด้านบน)
       <router-link class="pk-info" style="margin-left: 6px" :to="{ path: '/guide', hash: '#notation' }" aria-label="คู่มือโน้ตตัวเลข">i</router-link>
     </p>
 
@@ -1093,8 +1163,8 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
         <strong>บรรทัด {{ li + 1 }}</strong>
         <input
           v-model="line.section"
-          placeholder="ท่อนย่อย (ไม่จำเป็น)"
-          aria-label="ชื่อท่อนย่อยในทำนอง (ปกติเว้นว่าง — ชื่อท่อนใส่ที่ลำดับเพลง)"
+          placeholder="ชื่อบรรทัด (เว้นว่างได้)"
+          aria-label="ชื่อกำกับบรรทัดนี้ (ปกติเว้นว่าง — ชื่อท่อนไปตั้งที่ลำดับเพลง)"
           style="width: 150px; min-height: 32px; padding: 4px 8px; font-size: 0.85rem"
         />
         <label style="display: inline-flex; align-items: center; gap: 4px">
@@ -1134,7 +1204,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
             <span class="bar-tools">
               <button class="secondary tiny" aria-label="ย้ายห้องไปทางซ้าย" :disabled="bi === 0" @click="moveBar(line, bi, -1)">◀</button>
               <button class="secondary tiny" aria-label="ย้ายห้องไปทางขวา" :disabled="bi === line.bars.length - 1" @click="moveBar(line, bi, 1)">▶</button>
-              <button class="secondary tiny" aria-label="แทรกห้องใหม่ต่อจากห้องนี้" @click="insertBar(line, bi)">＋</button>
+              <button class="secondary tiny" aria-label="ทำสำเนาห้องนี้เป็นห้องถัดไป" title="ทำสำเนาห้องนี้ (คัดลอกเป็นห้องถัดไป)" @click="duplicateBar(line, bi)">⧉</button>
               <button class="secondary tiny" aria-label="ลบห้องนี้" @click="removeBar(line, bi)">✕</button>
             </span>
           </div>
@@ -1163,6 +1233,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
                     aria-label="เลือกคอร์ด"
                     width="120px"
                     class="chord-pick"
+                    autofocus
                     @update:model-value="applyChordAt(bar, si, p - 1, $event)"
                   />
                   <button
@@ -1184,10 +1255,11 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
                     </span>
                     <input
                       class="syl-box"
-                      :class="{ 'syl-empty': !sylAt(lensRow, cell.slot) }"
+                      :class="{ 'syl-empty': !cell.held && !sylAt(lensRow, cell.slot), 'syl-held': cell.held }"
                       :value="sylAt(lensRow, cell.slot)"
                       :data-slot="cell.slot"
-                      :aria-label="`พยางค์ที่ ${cell.slot + 1}`"
+                      :placeholder="cell.held ? '-' : ''"
+                      :aria-label="cell.held ? `โน้ตลากเสียง ช่องที่ ${cell.slot + 1} (เว้นว่างได้)` : `พยางค์ที่ ${cell.slot + 1}`"
                       @focus="focusedSlot = cell.slot"
                       @blur="focusedSlot = -1"
                       @keydown="onSylKey($event, cell.slot)"
@@ -1199,7 +1271,6 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
               </span>
               <button class="secondary tiny seg-del" aria-label="ลบช่องคอร์ดนี้" @click="removeSegment(bar, si)">✕ ลบ</button>
             </div>
-            <button class="secondary tiny seg-add" @click="addSegment(bar)">+ คอร์ด</button>
           </div>
         </div>
         <button class="secondary" style="align-self: center" @click="addBar(line)">+ ห้อง</button>
@@ -1239,21 +1310,21 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       <div v-if="paraOpen" style="margin-top: 8px">
         <p class="muted" style="margin: 0 0 6px">เว้นวรรค = พยางค์ใหม่ · "-" = ต่อคำเดิม · แก้ตรงนี้แล้วกล่องใต้โน้ตขยับตาม</p>
         <textarea
-          :value="joinSyllables(lensRow.syllables)"
+          :value="rowLyricText(lensRow)"
           rows="4"
           class="arr-lyric"
           aria-label="เนื้อร้องแบบย่อหน้า"
-          @input="lensRow.syllables = splitSyllables($event.target.value)"
+          @input="setRowLyricText(lensRow, $event.target.value)"
         ></textarea>
       </div>
     </div>
 
     <!-- ===== arrangement: play order + words per verse ===== -->
-    <h3 class="section-title" style="margin-top: 22px">📜 ลำดับเพลง — เลือกท่อนทำนอง ใส่เนื้อร้องแต่ละข้อ</h3>
+    <h3 class="section-title" style="margin-top: 22px">📜 ขั้นที่ 2 · ลำดับเพลง — เอาท่อนมาเรียง แล้วพิมพ์เนื้อร้องแต่ละข้อ</h3>
     <p class="muted no-print" style="margin: 0 0 10px">
-      เนื้อร้อง: เว้นวรรค = คำใหม่ · ยัติภังค์ "-" = พยางค์ต่อในคำเดียว (เช่น ส-ถิตย์) ·
-      1 พยางค์ = 1 โน้ตที่เคาะ (เอื้อนใส่ที่ทำนองด้วยสเลอร์ ไม่นับพยางค์ใหม่) ·
-      หรือพิมพ์ทีละพยางค์ใต้โน้ตด้านบนก็ได้
+      พิมพ์เนื้อร้องลงกล่อง: <b>เว้นวรรค = ขึ้นคำใหม่</b> (ตรงกับโน้ต 1 ตัว) ·
+      อยากให้ 2 พยางค์อยู่คำเดียวกันใส่ขีด <b>"-"</b> คั่น เช่น ส-ถิตย์ ·
+      โน้ตที่ลากเสียงยาว (เอื้อน) ไม่ต้องมีคำ · จะพิมพ์ทีละคำใต้โน้ตด้านบนก็ได้
     </p>
     <div class="card">
       <div v-for="(row, ri) in arrangement" :key="ri" class="arr-row">
@@ -1277,12 +1348,12 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
           </span>
         </div>
         <textarea
-          :value="joinSyllables(row.syllables)"
+          :value="rowLyricText(row)"
           rows="2"
           class="arr-lyric"
           placeholder="เนื้อร้องของข้อนี้ — 1 พยางค์ต่อ 1 โน้ต"
           aria-label="เนื้อร้อง"
-          @input="row.syllables = splitSyllables($event.target.value)"
+          @input="setRowLyricText(row, $event.target.value)"
         ></textarea>
       </div>
       <button class="secondary" @click="addRow">+ เพิ่มข้อ</button>
@@ -1474,7 +1545,9 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 .chord-btn.chord-add:hover { opacity: 1; }
 .chord-pick { position: absolute; left: 0; top: 0; z-index: 20; }
 .seg-del { align-self: flex-start; color: var(--muted); padding: 2px 8px; }
-.seg-add { align-self: center; }
+/* plain-language "how to" overview card */
+.how-to { background: var(--cream); border-color: var(--brand); }
+.how-to ol { line-height: 1.5; }
 .lens-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }
 /* syllable boxes sit in the row under the note boxes — same 46px width + 3px gap as
    NoteBoxes so each word lines up under its note. nowrap keeps the columns aligned. */
@@ -1491,6 +1564,9 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
   min-height: 30px;
 }
 .syl-box.syl-empty { border-color: var(--red); background: #fff5f5; }
+/* held '-' / rest box: optional, so a blank one is calm (dashed, faint) — never red */
+.syl-box.syl-held { border-style: dashed; background: #fafafa; color: var(--muted); }
+.syl-box.syl-held::placeholder { color: var(--line); }
 .syl-box.syl-overflow { border-color: var(--red); background: #fff0f0; color: var(--red); }
 .overflow-strip { border-color: var(--red); background: #fff7f7; }
 /* ◀ ▶ align tools float above the focused syllable box, no layout shift */

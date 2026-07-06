@@ -1,4 +1,4 @@
-import { syllableSlots } from './notation.js'
+import { syllableSlots, attackSlots, noteBoxKinds } from './notation.js'
 
 export function isV2(content) {
   return !!(content && Array.isArray(content.stanzas))
@@ -42,12 +42,19 @@ export function migrateToV2(content) {
   const stanzaLines = (content.lines || []).map((line) =>
     line.map((item) => {
       if (item.type !== 'segment') return { ...item }
-      const slots = syllableSlots(item.note || '')
+      // v1 words split by syllable go onto ATTACK boxes; held/rest boxes get a blank
+      // slot so every note box has its own lyric cell (words stay aligned to notes).
+      const kinds = noteBoxKinds(item.note || '')
       const syls = splitSyllables(item.lyric)
-      if (syls.length !== slots) {
-        warnings.push({ note: item.note, lyric: item.lyric, slots, got: syls.length })
+      const need = attackSlots(item.note || '')
+      if (syls.length !== need) {
+        warnings.push({ note: item.note, lyric: item.lyric, slots: need, got: syls.length })
       }
-      for (let i = 0; i < slots; i++) syllables.push(syls[i] ?? '')
+      let w = 0
+      for (const k of kinds) {
+        if (k === 'struct') continue
+        syllables.push(k === 'attack' ? (syls[w++] ?? '') : '')
+      }
       const { lyric, ...melodyOnly } = item
       return melodyOnly
     }),

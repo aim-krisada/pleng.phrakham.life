@@ -116,48 +116,46 @@ export function groupNotes(tokens) {
   return out
 }
 
-// How many syllables a melody bears = number of ATTACK notes. A note takes no new
-// syllable when it is a held continuation: a rest (0), a '-' extension, an explicit
-// tie (~) of the same pitch, or a same-pitch note under a slur (a melisma/เอื้อน).
-// This is the count of lyric slots for one note string (song model v2 alignment).
-export function syllableSlots(noteString) {
-  let count = 0
-  for (const g of groupNotes(parseNotes(noteString))) {
-    let prevKey = null
-    for (const t of g.tokens) {
-      if (t.type !== 'note') continue // 'ext' (-) extends, never a new syllable
-      if (t.pitch === '0') { prevKey = null; continue } // rest: no syllable
-      const key = (t.accidental || '') + t.pitch + (t.high - t.low)
-      const held = (t.tieEnd && prevKey === key) || (g.group === 'slur' && prevKey === key)
-      if (!held) count++
-      prevKey = key
-    }
-  }
-  return count
-}
-
-// Per note-BOX (whitespace token, as the Studio editor shows them) flag: does this box
-// bear a syllable? Same held/rest logic as syllableSlots, but returned box-by-box so the
-// lyric editor can place a word box under each ATTACK note and an empty spacer under a
-// held '-' / rest / bar-structure box (so words stay aligned to their notes). Assumes the
-// editor convention of one note per box; a box with several notes counts only its first.
-export function noteBoxBearing(noteString) {
+// Per note-BOX (whitespace token, as the Studio editor shows them) classification —
+// this is what the lyric editor uses to put a box under EVERY note. Each box is:
+//   'attack' — a note that starts a new syllable (needs a word)
+//   'held'   — a held continuation that carries no NEW word but still gets its own
+//              lyric box (optional/blank): a '-' extension, a rest (0), an explicit
+//              tie (~) of the same pitch, or a same-pitch note under a slur (เอื้อน)
+//   'struct' — a ( ) { } bracket: pure structure, no lyric box (an aligned spacer)
+// Assumes the editor convention of one note per box; a box with several notes is
+// classified by its first note.
+export function noteBoxKinds(noteString) {
   const t = (noteString || '').trim()
   const boxes = t ? t.split(/\s+/) : ['']
   const out = []
   let prevKey = null
   let slur = false
   for (const b of boxes) {
-    if (b === '(') { slur = true; prevKey = null; out.push(false); continue }
-    if (b === ')') { slur = false; prevKey = null; out.push(false); continue }
-    if (b === '{' || b === '}') { prevKey = null; out.push(false); continue }
-    if (b === '-' || b === '–') { out.push(false); continue } // extension, holds prev
+    if (b === '(') { slur = true; prevKey = null; out.push('struct'); continue }
+    if (b === ')') { slur = false; prevKey = null; out.push('struct'); continue }
+    if (b === '{' || b === '}') { prevKey = null; out.push('struct'); continue }
+    if (b === '-' || b === '–') { out.push('held'); continue } // extension, holds prev
     const note = parseNotes(b).find((x) => x.type === 'note')
-    if (!note || note.pitch === '0') { out.push(false); prevKey = null; continue } // raw/rest
+    if (!note) { out.push('struct'); prevKey = null; continue } // unreadable → spacer
+    if (note.pitch === '0') { out.push('held'); prevKey = null; continue } // rest: box, no word
     const key = (note.accidental || '') + note.pitch + (note.high - note.low)
     const held = (note.tieEnd && prevKey === key) || (slur && prevKey === key)
-    out.push(!held)
+    out.push(held ? 'held' : 'attack')
     prevKey = key
   }
   return out
+}
+
+// Lyric SLOTS a melody bears = every box that shows a lyric box (attack + held). This
+// is the length of the syllable array (song model v2 alignment) — one entry per note
+// box, so held notes get their own (usually blank) slot and words stay under notes.
+export function syllableSlots(noteString) {
+  return noteBoxKinds(noteString).filter((k) => k !== 'struct').length
+}
+
+// Words a melody REQUIRES = attack notes only (held/rest boxes may stay blank). Used
+// for the "enough words?" check so blank held boxes are never flagged as missing.
+export function attackSlots(noteString) {
+  return noteBoxKinds(noteString).filter((k) => k === 'attack').length
 }

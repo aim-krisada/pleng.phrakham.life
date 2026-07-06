@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 
 // Type-to-filter dropdown, keyboard-operable (WCAG 2.1.1):
 // ArrowDown/Up move the highlight, Enter picks, Esc closes.
@@ -12,6 +12,7 @@ const props = defineProps({
   ariaLabel: { type: String, default: '' },
   allowCustom: { type: Boolean, default: false },
   width: { type: String, default: '160px' },
+  autofocus: { type: Boolean, default: false }, // open + focus on mount (inline pickers)
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -84,6 +85,10 @@ function onKeydown(e) {
     text.value = selectedLabel.value
   }
 }
+const inputEl = ref(null)
+onMounted(() => {
+  if (props.autofocus) inputEl.value?.focus()
+})
 const listEl = ref(null)
 function scrollToHi() {
   const el = listEl.value?.children[hi.value]
@@ -94,6 +99,7 @@ function scrollToHi() {
 <template>
   <span class="combo" :style="{ width }">
     <input
+      ref="inputEl"
       v-model="text"
       role="combobox"
       :aria-expanded="open"

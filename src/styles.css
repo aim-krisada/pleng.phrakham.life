@@ -245,9 +245,10 @@ input, select, textarea {
   height: 3.25em;
   margin: 1em 0.6em 0;
 }
-/* end-of-song: a thin line then a thick line (final double barline ‖) */
+/* end-of-song final barline ‖ — a thin line then a thick line, with a clear gap
+   between them so it reads as TWO strokes, not one fat line */
 .bar-final {
-  width: 3px;
+  width: 5px;
   border-left: 2px solid #8a7a62;
   border-right: 4px solid #8a7a62;
 }
@@ -264,6 +265,13 @@ input, select, textarea {
 .repeat-mark .rep-bar {
   display: inline-block;
   width: 4px;
+  align-self: stretch;
+  background: #8a7a62;
+}
+/* the thin partner line of the repeat barline (thick + thin = two strokes ‖) */
+.repeat-mark .rep-thin {
+  display: inline-block;
+  width: 2px;
   align-self: stretch;
   background: #8a7a62;
 }

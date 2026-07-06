@@ -82,7 +82,7 @@ export function chordOptions(key) {
       : [deg(0, ''), deg(2, 'm'), deg(4, 'm'), deg(5, ''), deg(7, ''), deg(7, '7'), deg(9, 'm'), deg(11, 'dim')]
   const rest = ALL_ROOTS.flatMap((r) => QUALITIES.map((q) => r + q)).filter((c) => !diatonic.includes(c))
   return [
-    { value: '', label: '— ไม่มีคอร์ด —' },
+    { value: '', label: '— ไม่มีคอร์ด —', search: 'ไม่มี ไม่ none clear ลบ' },
     ...diatonic.map((c) => ({ value: c, label: `${c} (คีย์ ${key})` })),
     ...rest.map((c) => ({ value: c, label: c })),
   ]
