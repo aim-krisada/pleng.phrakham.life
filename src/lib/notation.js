@@ -27,8 +27,10 @@ export function parseNotes(str) {
     if (c === ')') { tokens.push({ type: 'close', group: 'slur' }); i++; continue }
     if (c === '{') { tokens.push({ type: 'open', group: 'triplet' }); i++; continue }
     if (c === '}') { tokens.push({ type: 'close', group: 'triplet' }); i++; continue }
-    // try to read one note: [#b] [.]* digit [']* [_]{0,2} [.augmentation]?
+    // try to read one note: [~tie-end] [#b] [.]* digit [']* [_]{0,2} [.aug]? [~tie-start]
     let j = i
+    let tieEnd = false
+    if (s[j] === '~') { tieEnd = true; j++ }
     let accidental = ''
     if (s[j] === '#' || s[j] === 'b') { accidental = s[j]; j++ }
     let low = 0
@@ -48,7 +50,9 @@ export function parseNotes(str) {
         const beforeDigit = s[k] >= '0' && s[k] <= '7'
         if (!beforeDigit || k - j >= 2) { dotted = true; j++ }
       }
-      tokens.push({ type: 'note', accidental, low, pitch, high, underlines, dotted })
+      let tieStart = false
+      if (s[j] === '~') { tieStart = true; j++ }
+      tokens.push({ type: 'note', accidental, low, pitch, high, underlines, dotted, tieStart, tieEnd })
       i = j
     } else {
       // consumed prefix without a digit, or an unknown character → unreadable

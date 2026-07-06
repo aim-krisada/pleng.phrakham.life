@@ -112,9 +112,11 @@ function fmt(n) {
 }
 
 // ---------- symbol palette ----------
-const PALETTE = ['1', '2', '3', '4', '5', '6', '7', '0', '-', '.', "'", '_', '(', ')', '{', '}', '#', 'b']
+const PALETTE = ['1', '2', '3', '4', '5', '6', '7', '0', '-', '.', "'", '_', '~', '(', ')', '{', '}', '#', 'b']
 let activeInput = null
-function editorFocusIn(e) {
+const activeLine = ref(0) // line the user last touched — target of the floating ▶
+function editorFocusIn(e, li) {
+  if (li != null) activeLine.value = li
   if (e.target.classList?.contains('note-box') && e.target.tagName === 'INPUT') {
     activeInput = e.target
   }
@@ -318,6 +320,15 @@ async function saveDirect() {
   }
   saveMsg.value = error ? '❌ บันทึกไม่สำเร็จ: ' + error.message : '✅ เผยแพร่แล้ว'
   if (!error) {
+    // publishing from one's own draft closes that draft
+    if (currentDraftId.value && !reviewingDraft.value) {
+      await supabase
+        .from('song_drafts')
+        .update({ status: 'approved', song_id: editingId.value })
+        .eq('id', currentDraftId.value)
+      currentDraftId.value = null
+      loadDrafts()
+    }
     loadSongList()
     loadRevisions()
   }
@@ -411,6 +422,7 @@ function downloadJson() {
   URL.revokeObjectURL(a.href)
 }
 
+const AUDIO_BLOCKED_MSG = '🔇 อุปกรณ์ปิดเสียงอยู่ — ตรวจปุ่มปิดเสียง/โหมดเงียบของเครื่อง แล้วลองใหม่'
 async function playAll() {
   if (playing.value) {
     stopPlayback()
@@ -418,21 +430,38 @@ async function playAll() {
     return
   }
   playing.value = true
-  await playSong(previewContent.value, { bpm: opts.bpm || 80 })
+  const ok = await playSong(previewContent.value, { bpm: opts.bpm || 80 })
+  if (ok === false) saveMsg.value = AUDIO_BLOCKED_MSG
   playing.value = false
 }
 async function playLine(li) {
-  stopPlayback()
+  if (playing.value) {
+    stopPlayback()
+    playing.value = false
+    return
+  }
   playing.value = true
-  await playSong({ key: opts.key, lines: [serializeLine(lines.value[li])] }, { bpm: opts.bpm || 80 })
+  const ok = await playSong({ key: opts.key, lines: [serializeLine(lines.value[li])] }, { bpm: opts.bpm || 80 })
+  if (ok === false) saveMsg.value = AUDIO_BLOCKED_MSG
   playing.value = false
+}
+
+// ---------- floating toolbar + sheet overlay ----------
+const showSheet = ref(false)
+const primaryLabel = computed(() =>
+  reviewingDraft.value ? '✅ อนุมัติ' : isApprover.value ? '✅ เผยแพร่' : '📨 ส่งตรวจ'
+)
+function primaryAction() {
+  if (reviewingDraft.value) return approve()
+  if (isApprover.value) return saveDirect()
+  return saveDraft('pending')
 }
 
 const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', rejected: 'ถูกส่งกลับ', approved: 'อนุมัติแล้ว' }
 </script>
 
 <template>
-  <div>
+  <div style="padding-bottom: 84px">
     <!-- not signed in: gentle hint (login lives in the navbar profile button) -->
     <div v-if="!session" class="card no-print">
       <p class="muted" style="margin: 0">
@@ -525,7 +554,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     </div>
 
     <!-- line editor -->
-    <div v-for="(line, li) in lines" :key="li" class="card" @focusin="editorFocusIn">
+    <div v-for="(line, li) in lines" :key="li" class="card" :class="{ 'line-active': li === activeLine }" @focusin="editorFocusIn($event, li)">
       <div class="muted" style="margin-bottom: 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center">
         <strong>บรรทัด {{ li + 1 }}</strong>
         <label style="display: inline-flex; align-items: center; gap: 4px">
@@ -565,16 +594,9 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     </div>
     <button class="secondary" @click="addLine">+ เพิ่มบรรทัด</button>
 
-    <!-- actions -->
+    <!-- secondary actions -->
     <div class="card" style="margin-top: 12px">
-      <template v-if="!session || legacy || isApprover">
-        <button :disabled="!session" @click="save">💾 {{ reviewingDraft ? 'บันทึกร่างที่ตรวจอยู่' : 'บันทึกขึ้นระบบ' }}</button>
-      </template>
-      <template v-else>
-        <button @click="saveDraft('draft')">💾 บันทึกร่าง</button>
-        <button style="margin-left: 8px" @click="saveDraft('pending')">📨 ส่งตรวจ</button>
-      </template>
-      <button :class="playing ? 'danger' : ''" style="margin-left: 8px" @click="playAll">
+      <button :class="playing ? 'danger' : 'secondary'" @click="playAll">
         {{ playing ? '⏹ หยุด' : '▶ ฟังทั้งเพลง' }}
       </button>
       <button class="secondary" style="margin-left: 8px" @click="downloadJson">⬇️ ดาวน์โหลด JSON</button>
@@ -586,8 +608,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       >
         🗑️ ลบเพลงนี้
       </button>
-      <span v-if="!session" class="muted" style="margin-left: 8px">(ต้องเข้าสู่ระบบก่อนจึงบันทึกได้)</span>
-      <p v-if="saveMsg" style="margin: 8px 0 0">{{ saveMsg }}</p>
+      <span v-if="!session" class="muted" style="margin-left: 8px">(เข้าสู่ระบบที่มุมขวาบนก่อนจึงบันทึกได้)</span>
     </div>
 
     <!-- history -->
@@ -615,6 +636,27 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       <h2 style="color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
       <p class="muted">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
       <SongSheet :content="previewContent" mode="full" chord-system="letter" :display-key="opts.key" />
+    </div>
+
+    <!-- floating toolbar: the everyday tools reachable from any scroll position -->
+    <p v-if="saveMsg" class="float-msg no-print" role="status">{{ saveMsg }}</p>
+    <div class="float-bar no-print" role="toolbar" aria-label="เครื่องมือหลัก">
+      <button v-if="session && !legacy" class="secondary" @click="saveDraft('draft')">💾 ร่าง</button>
+      <button :disabled="!session" @click="primaryAction">{{ primaryLabel }}</button>
+      <button class="secondary" @click="playLine(activeLine)">
+        {{ playing ? '⏹ หยุด' : `▶ บรรทัด ${activeLine + 1}` }}
+      </button>
+      <button class="secondary" @click="showSheet = true">👁 แผ่นเพลง</button>
+    </div>
+
+    <!-- full sheet overlay -->
+    <div v-if="showSheet" class="sheet-overlay no-print" role="dialog" aria-label="แผ่นเพลง" @click.self="showSheet = false" @keydown.esc="showSheet = false">
+      <div class="sheet-panel">
+        <button class="secondary" style="float: right" aria-label="ปิดแผ่นเพลง" @click="showSheet = false">✕ ปิด</button>
+        <h2 style="margin-top: 0; color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
+        <p class="muted">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
+        <SongSheet :content="previewContent" mode="full" chord-system="letter" :display-key="opts.key" />
+      </div>
     </div>
   </div>
 </template>
@@ -679,4 +721,56 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 .s-rejected { background: #fed7d7; }
 .review-banner { background: #fffbeb; border-color: #f6e05e; }
 .rev-row { border-top: 1px solid var(--line); padding: 8px 0; margin-top: 8px; }
+.line-active { border-color: var(--brand); }
+/* floating toolbar (save/play/sheet from any scroll position) */
+.float-bar {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  max-width: calc(100vw - 16px);
+}
+.float-msg {
+  position: fixed;
+  bottom: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  background: var(--ink);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 10px;
+  max-width: 92vw;
+  margin: 0;
+}
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(45, 42, 38, 0.55);
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px 8px;
+  overflow: auto;
+}
+.sheet-panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 920px;
+  width: 100%;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+}
 </style>

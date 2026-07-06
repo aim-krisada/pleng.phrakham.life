@@ -47,7 +47,14 @@ export function songToNotes(content) {
               let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
               if (t.accidental === '#') midi += 1
               if (t.accidental === 'b') midi -= 1
-              notes.push({ midi, beats: tokenBeats(t, f) })
+              const last = notes[notes.length - 1]
+              if (t.tieEnd && last && last.midi === midi && last.tieOpen) {
+                // tied continuation of the same pitch: extend, do not re-attack
+                last.beats += tokenBeats(t, f)
+                last.tieOpen = !!t.tieStart
+              } else {
+                notes.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart })
+              }
             }
           } else if (t.type === 'ext' && notes.length) {
             notes[notes.length - 1].beats += 1 * f
@@ -63,14 +70,24 @@ export function stopPlayback() {
   stopFlag.stopped = true
 }
 
-// Play the melody; resolves when done or stopped. onProgress(i, total) is optional.
+// Play the melody; resolves when done or stopped. Returns false when the device
+// blocks audio (e.g. iOS with the silent switch on / autoplay policy).
 export async function playSong(content, { bpm = 80, loop = false, onProgress } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
+  // iOS unlock: play a 1-sample silent buffer synchronously inside the user gesture
+  try {
+    const b = ctx.createBuffer(1, 1, 22050)
+    const src = ctx.createBufferSource()
+    src.buffer = b
+    src.connect(ctx.destination)
+    src.start(0)
+  } catch { /* not fatal */ }
   await ctx.resume()
+  if (ctx.state !== 'running') return false
   stopFlag = { stopped: false }
   const myFlag = stopFlag
   const notes = songToNotes(content)
-  if (!notes.length) return
+  if (!notes.length) return true
   const spb = 60 / bpm // seconds per beat
 
   do {
@@ -102,10 +119,11 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress } =
     while (Date.now() - start < totalMs) {
       if (myFlag.stopped) {
         endTimes.forEach((o) => { try { o.stop() } catch {} })
-        return
+        return true
       }
       onProgress?.(Date.now() - start, totalMs)
       await new Promise((r) => setTimeout(r, 100))
     }
   } while (loop && !myFlag.stopped)
+  return true
 }
