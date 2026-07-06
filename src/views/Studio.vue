@@ -1118,7 +1118,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     </div>
 
     <!-- ===== melodies (stanzas): edit each once ===== -->
-    <h3 class="section-title">🎵 ขั้นที่ 1 · ใส่ทำนอง (ท่อน) — พิมพ์โน้ตครั้งเดียว ใช้ซ้ำได้ทุกข้อ</h3>
+    <h3 class="section-title">🎵 ทำนอง (ท่อน) — คีย์ครั้งเดียว ใช้ซ้ำในหลายข้อ</h3>
     <div class="stanza-tabs no-print">
       <button
         v-for="(s, si) in stanzas"
@@ -1153,7 +1153,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     <!-- editing hint (the symbol palette lives in the bottom dock) -->
     <p class="muted no-print" style="margin: 0 0 10px">
       พิมพ์โน้ตในช่อง — <b>1 ช่อง = 1 โน้ต</b> · กด <b>Enter</b> หรือ <b>เว้นวรรค</b> เพื่อขึ้นช่องถัดไป · กด <b>← →</b> เลื่อนช่อง ·
-      อยากได้จุด/ขีด/เครื่องหมายอื่น แตะช่องแล้วจิ้มปุ่มจากแถบล่างจอ · ส่วนเนื้อร้องพิมพ์ได้ที่ “ลำดับเพลง” (ขั้นที่ 2) หรือใต้โน้ตตรงนี้ (เลือกข้อด้านบน)
+      อยากได้จุด/ขีด/เครื่องหมายอื่น แตะช่องแล้วจิ้มปุ่มจากแถบล่างจอ · ส่วนเนื้อร้องพิมพ์ได้ที่ “ลำดับเพลง” ด้านล่าง หรือใต้โน้ตตรงนี้ (เลือกข้อด้านบน)
       <router-link class="pk-info" style="margin-left: 6px" :to="{ path: '/guide', hash: '#notation' }" aria-label="คู่มือโน้ตตัวเลข">i</router-link>
     </p>
 
@@ -1320,7 +1320,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     </div>
 
     <!-- ===== arrangement: play order + words per verse ===== -->
-    <h3 class="section-title" style="margin-top: 22px">📜 ขั้นที่ 2 · ลำดับเพลง — เอาท่อนมาเรียง แล้วพิมพ์เนื้อร้องแต่ละข้อ</h3>
+    <h3 class="section-title" style="margin-top: 22px">📜 ลำดับเพลง — เลือกท่อนมาเรียง แล้วพิมพ์เนื้อร้องแต่ละข้อ</h3>
     <p class="muted no-print" style="margin: 0 0 10px">
       พิมพ์เนื้อร้องลงกล่อง: <b>เว้นวรรค = ขึ้นคำใหม่</b> (ตรงกับโน้ต 1 ตัว) ·
       อยากให้ 2 พยางค์อยู่คำเดียวกันใส่ขีด <b>"-"</b> คั่น เช่น ส-ถิตย์ ·
