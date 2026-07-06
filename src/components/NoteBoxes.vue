@@ -47,16 +47,30 @@ function focusBox(i) {
   })
 }
 
+// A #/b typed (or tapped) AFTER the digit is auto-moved to its correct place
+// in front of it: "4#" -> "#4", ".4b" -> "b.4", "~4#" -> "~#4"
+function fixAccidental(v) {
+  const chars = v.split('')
+  const digitIdx = chars.findIndex((c) => c >= '0' && c <= '7')
+  if (digitIdx === -1) return v
+  const accIdx = chars.findIndex((c, idx) => (c === '#' || c === 'b') && idx > digitIdx)
+  if (accIdx === -1) return v
+  const acc = chars.splice(accIdx, 1)[0]
+  const insertAt = chars[0] === '~' ? 1 : 0
+  chars.splice(insertAt, 0, acc)
+  return chars.join('')
+}
+
 function onInput(i, e) {
   const v = e.target.value
   if (/\s/.test(v)) {
     // pasted text with spaces -> split into boxes
-    const parts = v.split(/\s+/).filter(Boolean)
+    const parts = v.split(/\s+/).filter(Boolean).map(fixAccidental)
     boxes.value.splice(i, 1, ...(parts.length ? parts : ['']))
     sync()
     focusBox(i + Math.max(parts.length - 1, 0))
   } else {
-    boxes.value[i] = v
+    boxes.value[i] = fixAccidental(v)
     sync()
   }
 }

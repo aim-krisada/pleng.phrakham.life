@@ -575,7 +575,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 </script>
 
 <template>
-  <div style="padding-bottom: 84px">
+  <div style="padding-bottom: 150px">
     <!-- not signed in: gentle hint (login lives in the navbar profile button) -->
     <div v-if="!session" class="card no-print">
       <p class="muted" style="margin: 0">
@@ -651,21 +651,12 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       </div>
     </div>
 
-    <!-- symbol palette (sticky) -->
-    <div class="card palette no-print">
-      <button
-        v-for="sym in PALETTE"
-        :key="sym"
-        class="secondary pal-btn"
-        @mousedown.prevent="insertSym(sym)"
-      >
-        {{ sym }}
-      </button>
-      <span class="muted" style="margin-left: 6px">
-        1 ช่อง = 1 โน้ต · Enter/เว้นวรรค = ช่องถัดไป · ลูกศร ← → เลื่อนช่อง · แตะช่องแล้วจิ้มสัญลักษณ์ได้
-      </span>
-      <router-link class="pk-info" :to="{ path: '/guide', hash: '#notation' }" aria-label="คู่มือโน้ตตัวเลข">i</router-link>
-    </div>
+    <!-- editing hint (the symbol palette lives in the bottom dock) -->
+    <p class="muted no-print" style="margin: 0 0 10px">
+      1 ช่อง = 1 โน้ต · Enter/เว้นวรรค = ช่องถัดไป · ลูกศร ← → เลื่อนช่อง ·
+      แตะช่องโน้ตแล้วจิ้มสัญลักษณ์จากแถบล่างจอได้
+      <router-link class="pk-info" style="margin-left: 6px" :to="{ path: '/guide', hash: '#notation' }" aria-label="คู่มือโน้ตตัวเลข">i</router-link>
+    </p>
 
     <!-- line editor -->
     <div v-for="(line, li) in lines" :key="li" class="card" :class="{ 'line-active': li === activeLine }" @focusin="editorFocusIn($event, li)">
@@ -768,19 +759,31 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       <SongSheet :content="previewContent" mode="full" chord-system="letter" :display-key="opts.key" />
     </div>
 
-    <!-- floating toolbar: the everyday tools reachable from any scroll position -->
-    <p v-if="saveMsg" class="float-msg no-print" role="status">{{ saveMsg }}</p>
-    <div class="float-bar no-print" role="toolbar" aria-label="เครื่องมือหลัก">
-      <button class="secondary" :disabled="!canUndo" aria-label="เลิกทำ (Ctrl+Z)" title="เลิกทำ (Ctrl+Z)" @click="undo">↩</button>
-      <button class="secondary" :disabled="!canRedo" aria-label="ทำซ้ำ (Ctrl+Shift+Z)" title="ทำซ้ำ (Ctrl+Shift+Z)" @click="redo">↪</button>
-      <button v-if="session && !legacy" class="secondary" @click="saveDraft('draft')">💾 ร่าง</button>
-      <button :disabled="!session" @click="primaryAction">{{ primaryLabel }}</button>
-      <button v-if="playing" class="danger" @click="stopAll">⏹ หยุด</button>
-      <template v-else>
-        <button class="secondary" @click="playLine(activeLine)">▶ บรรทัด {{ activeLine + 1 }}</button>
-        <button class="secondary" @click="playAll">▶ ทั้งเพลง</button>
-      </template>
-      <button class="secondary" @click="showSheet = true">👁 แผ่นเพลง</button>
+    <!-- bottom dock: symbol palette + everyday tools, always in reach -->
+    <div class="float-dock no-print">
+      <p v-if="saveMsg" class="float-msg" role="status">{{ saveMsg }}</p>
+      <div class="palette-row" role="toolbar" aria-label="สัญลักษณ์โน้ต">
+        <button
+          v-for="sym in PALETTE"
+          :key="sym"
+          class="secondary pal-btn"
+          @mousedown.prevent="insertSym(sym)"
+        >
+          {{ sym }}
+        </button>
+      </div>
+      <div class="float-bar" role="toolbar" aria-label="เครื่องมือหลัก">
+        <button class="secondary" :disabled="!canUndo" aria-label="เลิกทำ (Ctrl+Z)" title="เลิกทำ (Ctrl+Z)" @click="undo">↩</button>
+        <button class="secondary" :disabled="!canRedo" aria-label="ทำซ้ำ (Ctrl+Shift+Z)" title="ทำซ้ำ (Ctrl+Shift+Z)" @click="redo">↪</button>
+        <button v-if="session && !legacy" class="secondary" @click="saveDraft('draft')">💾 ร่าง</button>
+        <button :disabled="!session" @click="primaryAction">{{ primaryLabel }}</button>
+        <button v-if="playing" class="danger" @click="stopAll">⏹ หยุด</button>
+        <template v-else>
+          <button class="secondary" @click="playLine(activeLine)">▶ บรรทัด {{ activeLine + 1 }}</button>
+          <button class="secondary" @click="playAll">▶ ทั้งเพลง</button>
+        </template>
+        <button class="secondary" @click="showSheet = true">👁 แผ่นเพลง</button>
+      </div>
     </div>
 
     <!-- full sheet overlay -->
@@ -796,22 +799,13 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 </template>
 
 <style scoped>
-.palette {
-  position: sticky;
-  top: 8px;
-  z-index: 20;
-  padding: 8px 10px;
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  align-items: center;
-}
 .pal-btn {
   min-width: 34px;
   padding: 6px 0;
   font-family: 'Courier New', monospace;
   font-weight: 700;
   font-size: 16px;
+  flex: 0 0 auto;
 }
 .bar-box {
   border: 1px dashed var(--line);
@@ -861,13 +855,32 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
   background: var(--cream);
   box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.15);
 }
-/* floating toolbar (save/play/sheet from any scroll position) */
-.float-bar {
+/* bottom dock: palette row + action row, fixed so tools follow every scroll */
+.float-dock {
   position: fixed;
-  bottom: 14px;
+  bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100vw - 12px);
+}
+.palette-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  max-width: 100%;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.float-bar {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -877,14 +890,9 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
   border-radius: 14px;
   padding: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  max-width: calc(100vw - 16px);
+  max-width: 100%;
 }
 .float-msg {
-  position: fixed;
-  bottom: 76px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 90;
   background: var(--ink);
   color: #fff;
   padding: 8px 16px;
