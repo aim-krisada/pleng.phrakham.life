@@ -628,7 +628,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
         />
       </label>
       <button class="secondary" style="margin-left: 8px" @click="pickerId = ''; resetForm()">เริ่มเพลงใหม่</button>
-      <a href="#/guide" class="muted" style="margin-left: 12px">📖 คู่มือโน้ตตัวเลข</a>
+      <router-link class="pk-info" style="margin-left: 12px" :to="{ path: '/guide' }" aria-label="คู่มือ" title="คู่มือ">i</router-link>
     </div>
 
     <!-- metadata -->
