@@ -45,6 +45,13 @@ Preview tools: `preview_start "dev"` (config in `.claude/launch.json`).
 
 ## Parallel sessions on one PC → git worktree
 
+**Design goal (พี่เอม):** the whole workflow is built so several Claude Code sessions
+can run **in parallel on one PC** without stepping on each other. Design every task to
+be self-contained so it can go in its own worktree/branch. Practical rules:
+- **1 task = 1 worktree = 1 branch = 1 dev-server port** — never two sessions in the same working dir.
+- Keep work isolated: no shared mutable scratch that two sessions write at once; sessions meet only at `git merge`.
+- Each `feature NNN` / `bug NNN` should stand alone so it can be picked up in a fresh session with no cross-talk.
+
 One task = one worktree = one branch (no live file clashes; merge via normal git):
 
 ```sh
