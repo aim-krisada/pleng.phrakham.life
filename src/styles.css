@@ -52,8 +52,10 @@ header.topbar .brand {
   font-size: 1.15rem;
   color: var(--brand);
   text-decoration: none;
-  margin-right: auto;
 }
+/* family standard: text menu hugs the left after the brand; tools (download +
+   login) pushed to the far right, login last. */
+.topbar-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 button.nav-toggle {
   display: none;
   background: transparent;
@@ -78,7 +80,8 @@ nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
 
 @media (max-width: 767.98px) {
   button.nav-toggle { display: inline-flex; align-items: center; justify-content: center; }
-  nav.site-nav { display: none; width: 100%; flex-direction: column; align-items: stretch; }
+  /* order:5 drops the menu below the top row (brand · tools · hamburger) when open */
+  nav.site-nav { display: none; order: 5; width: 100%; flex-direction: column; align-items: stretch; }
   nav.site-nav.open { display: flex; }
   nav.site-nav a { padding: 12px; border-top: 1px solid var(--line); border-radius: 0; }
 }

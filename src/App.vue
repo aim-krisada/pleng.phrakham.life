@@ -24,8 +24,17 @@ watch(
 <template>
   <header class="topbar no-print">
     <router-link to="/" class="brand">เพลง.พระคำ.ชีวิต</router-link>
-    <DownloadTool />
-    <ProfileTool />
+    <nav class="site-nav" :class="{ open: menuOpen }" aria-label="เมนูหลัก">
+      <router-link to="/">รายการเพลง</router-link>
+      <router-link to="/studio">ห้องทำเพลง</router-link>
+      <router-link to="/guide">คู่มือ</router-link>
+      <router-link to="/about">เกี่ยวกับเรา</router-link>
+      <a href="https://phrakham.life">พระคำ.ชีวิต</a>
+    </nav>
+    <div class="topbar-tools">
+      <DownloadTool />
+      <ProfileTool />
+    </div>
     <button
       class="nav-toggle"
       :aria-expanded="menuOpen"
@@ -38,13 +47,6 @@ watch(
         <line x1="3" y1="18" x2="21" y2="18" />
       </svg>
     </button>
-    <nav class="site-nav" :class="{ open: menuOpen }" aria-label="เมนูหลัก">
-      <router-link to="/">รายการเพลง</router-link>
-      <router-link to="/studio">ห้องทำเพลง</router-link>
-      <router-link to="/guide">คู่มือ</router-link>
-      <router-link to="/about">เกี่ยวกับเรา</router-link>
-      <a href="https://phrakham.life">พระคำ.ชีวิต</a>
-    </nav>
   </header>
   <main class="container">
     <router-view />

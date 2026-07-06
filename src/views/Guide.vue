@@ -173,7 +173,7 @@ const COMBOS = [
       </ul>
       <h3>ตัวอย่างรวมทุกสัญลักษณ์</h3>
       <p class="muted"><code>5. .5_ .5_ .6  |  (1' 7) 6  |  {3 2 1}  |  2 - - -  ‖</code></p>
-      <p style="font-size: 20px"><NoteRow notes="5. .5_ .5_ .6" /> &nbsp;|&nbsp; <NoteRow notes="(1' 7) 6" /> &nbsp;|&nbsp; <NoteRow notes="{3 2 1}" /> &nbsp;|&nbsp; <NoteRow notes="2 - - -" /> &nbsp;‖</p>
+      <p style="font-size: 20px"><NoteRow notes="5. .5_ .5_ .6" /><span class="bar-line" style="height: 34px; margin-top: 2px" aria-hidden="true"></span><NoteRow notes="(1' 7) 6" /><span class="bar-line" style="height: 34px; margin-top: 2px" aria-hidden="true"></span><NoteRow notes="{3 2 1}" /><span class="bar-line" style="height: 34px; margin-top: 2px" aria-hidden="true"></span><NoteRow notes="2 - - -" /><span class="bar-line" style="height: 34px; margin-top: 2px; margin-right: 0" aria-hidden="true"></span><span class="bar-line" style="height: 34px; margin-top: 2px; margin-left: 3px" aria-hidden="true"></span></p>
     </div>
 
     <div class="card" id="howto">

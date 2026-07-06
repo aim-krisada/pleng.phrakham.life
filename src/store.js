@@ -97,3 +97,19 @@ export async function updateEmail(email) {
   )
   return error
 }
+
+// Change own password while logged in. updateUser() alone would let anyone on an
+// open session reset the password, so we re-authenticate with the current one
+// first (OWASP: verify current password before change). Returns 'wrong-current'
+// if the old password fails, or the update error, or null on success.
+export async function changePassword(currentPassword, newPassword) {
+  const emailAddr = session.value?.user?.email
+  if (!emailAddr) return { message: 'no-session' }
+  const { error: reauth } = await supabase.auth.signInWithPassword({
+    email: emailAddr,
+    password: currentPassword,
+  })
+  if (reauth) return { message: 'wrong-current' }
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  return error
+}

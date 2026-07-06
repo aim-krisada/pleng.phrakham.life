@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import {
   session, profile, legacy, recovering, inviteMode, emailChanged,
-  login, logout, updatePassword, requestPasswordReset, updateDisplayName, updateEmail,
+  login, logout, updatePassword, requestPasswordReset, updateDisplayName, updateEmail, changePassword,
 } from '../store.js'
 
 // Top-right account control, GitHub/Supabase style:
@@ -17,11 +17,15 @@ const password = ref('')
 const newPassword = ref('')
 const nameInput = ref('')
 const emailInput = ref('')
+const currentPassword = ref('')
+const showPw = ref(false)
 const busy = ref(false)
 const errMsg = ref('')
 const okMsg = ref('')
 const editErr = ref('')
 const editOk = ref('')
+const pwErr = ref('')
+const pwOk = ref('')
 
 // A reset/invite/email-change link should pop the panel open automatically.
 watch([recovering, emailChanged], ([r, e]) => { if (r || e) open.value = true }, { immediate: true })
@@ -110,8 +114,13 @@ function toLogin() {
 function openEdit() {
   nameInput.value = profile.value?.display_name || ''
   emailInput.value = session.value?.user?.email || ''
+  currentPassword.value = ''
+  newPassword.value = ''
+  showPw.value = false
   editErr.value = ''
   editOk.value = ''
+  pwErr.value = ''
+  pwOk.value = ''
   editing.value = true
 }
 
@@ -143,6 +152,31 @@ async function saveEmail() {
   busy.value = false
   if (error) editErr.value = 'เปลี่ยนอีเมลไม่สำเร็จ — ตรวจอีเมลอีกครั้ง'
   else editOk.value = 'ส่งลิงก์ยืนยันไปที่อีเมลใหม่แล้ว กดลิงก์ก่อนอีเมลจึงจะเปลี่ยนจริง'
+}
+
+async function submitChangePassword() {
+  if (!currentPassword.value) {
+    pwErr.value = 'กรุณาใส่รหัสผ่านปัจจุบัน'
+    return
+  }
+  if (!pwStrong.value) {
+    pwErr.value = 'รหัสผ่านใหม่ยังไม่ผ่านเกณฑ์ทุกข้อ'
+    return
+  }
+  busy.value = true
+  pwErr.value = ''
+  pwOk.value = ''
+  const error = await changePassword(currentPassword.value, newPassword.value)
+  busy.value = false
+  if (error?.message === 'wrong-current') {
+    pwErr.value = 'รหัสผ่านปัจจุบันไม่ถูกต้อง'
+  } else if (error) {
+    pwErr.value = 'เปลี่ยนรหัสผ่านไม่สำเร็จ'
+  } else {
+    currentPassword.value = ''
+    newPassword.value = ''
+    pwOk.value = 'เปลี่ยนรหัสผ่านเรียบร้อย'
+  }
 }
 </script>
 
@@ -216,6 +250,38 @@ async function saveEmail() {
           </form>
           <p v-if="editErr" class="err">{{ editErr }}</p>
           <p v-if="editOk" class="ok">{{ editOk }}</p>
+          <form class="login-form" style="margin-top: 10px" @submit.prevent="submitChangePassword">
+            <label>
+              รหัสผ่านปัจจุบัน
+              <input v-model="currentPassword" type="password" autocomplete="current-password" required />
+            </label>
+            <label>
+              รหัสผ่านใหม่
+              <span class="pw-field">
+                <input
+                  v-model="newPassword"
+                  :type="showPw ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  required
+                />
+                <button
+                  type="button"
+                  class="pw-eye"
+                  :aria-label="showPw ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'"
+                  :aria-pressed="showPw"
+                  @click="showPw = !showPw"
+                >{{ showPw ? '🙈' : '👁' }}</button>
+              </span>
+            </label>
+            <ul class="pw-rules" aria-label="เกณฑ์รหัสผ่าน">
+              <li v-for="r in pwRules" :key="r.label" :class="{ ok: r.ok }">
+                <span aria-hidden="true">{{ r.ok ? '✓' : '○' }}</span> {{ r.label }}
+              </li>
+            </ul>
+            <button type="submit" class="submit" :disabled="busy || !pwStrong">เปลี่ยนรหัสผ่าน</button>
+            <p v-if="pwErr" class="err">{{ pwErr }}</p>
+            <p v-if="pwOk" class="ok">{{ pwOk }}</p>
+          </form>
           <button type="button" class="linkish" @click="editing = false">← กลับ</button>
         </template>
         <div v-else class="menu-actions">
@@ -290,6 +356,22 @@ async function saveEmail() {
 .login-form .submit { width: 100%; }
 .err { color: var(--red); font-size: 0.85rem; margin: 4px 0 0; }
 .ok { color: var(--brand); font-size: 0.85rem; margin: 4px 0 0; }
+.pw-field { position: relative; display: block; }
+.pw-field input { width: 100%; padding-right: 40px; }
+.pw-eye {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 6px;
+  min-width: 32px;
+  min-height: 32px;
+}
 .pw-rules { list-style: none; margin: 2px 0 0; padding: 0; font-size: 0.8rem; }
 .pw-rules li { color: var(--muted); display: flex; gap: 6px; align-items: baseline; }
 .pw-rules li.ok { color: var(--brand); }
