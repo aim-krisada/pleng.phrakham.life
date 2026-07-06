@@ -54,9 +54,9 @@ header.topbar .brand {
   text-decoration: none;
   margin-right: auto;
 }
-.nav-toggle {
+button.nav-toggle {
   display: none;
-  background: none;
+  background: transparent;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 8px 10px;
@@ -65,6 +65,7 @@ header.topbar .brand {
   min-width: 44px;
   min-height: 44px;
 }
+button.nav-toggle:active { background: var(--cream-hover); opacity: 1; }
 nav.site-nav { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 nav.site-nav a {
   color: var(--ink);
@@ -73,11 +74,10 @@ nav.site-nav a {
   border-radius: 8px;
   display: inline-block;
 }
-nav.site-nav a:hover { background: var(--cream-hover); }
 nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
 
 @media (max-width: 767.98px) {
-  .nav-toggle { display: inline-flex; align-items: center; justify-content: center; }
+  button.nav-toggle { display: inline-flex; align-items: center; justify-content: center; }
   nav.site-nav { display: none; width: 100%; flex-direction: column; align-items: stretch; }
   nav.site-nav.open { display: flex; }
   nav.site-nav a { padding: 12px; border-top: 1px solid var(--line); border-radius: 0; }
@@ -98,7 +98,6 @@ nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
   justify-content: center;
   border-radius: 8px;
 }
-.pk-tool-btn:hover { background: rgba(0, 0, 0, 0.06); }
 .pk-tool-menu {
   position: absolute;
   top: calc(100% + 6px);
@@ -123,7 +122,6 @@ nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
   cursor: pointer;
   white-space: nowrap;
 }
-.pk-tool-menu button:hover { background: var(--cream-hover); }
 
 /* contextual help (i) button */
 .pk-info {
@@ -142,7 +140,6 @@ nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
   font-style: italic;
   font-family: Georgia, serif;
 }
-.pk-info:hover { background: var(--brand); color: #fff; }
 
 /* ---------- buttons / inputs ---------- */
 button, .btn {
@@ -156,12 +153,23 @@ button, .btn {
   cursor: pointer;
   min-height: 40px;
 }
-button:hover { background: #6d360f; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 button.secondary { background: var(--cream); color: var(--ink); border: 1px solid var(--line); }
-button.secondary:hover { background: var(--cream-hover); }
 button.danger { background: var(--red); }
-button.danger:hover { background: #9c2d21; }
+/* hover effects only on devices with a real pointer — on touch screens iOS
+   keeps :hover "stuck" after a tap, which froze the hamburger in brown */
+@media (hover: hover) {
+  button:hover { background: #6d360f; }
+  button.secondary:hover { background: var(--cream-hover); }
+  button.danger:hover { background: #9c2d21; }
+  button.nav-toggle:hover { background: var(--cream-hover); }
+  nav.site-nav a:hover { background: var(--cream-hover); }
+  .pk-tool-btn:hover { background: rgba(0, 0, 0, 0.06); }
+  .pk-tool-menu button:hover { background: var(--cream-hover); }
+  .pk-info:hover { background: var(--brand); color: #fff; }
+  .song-card:hover { background: var(--cream-hover); }
+}
+button:active { opacity: 0.85; }
 
 input, select, textarea {
   font-family: inherit;
