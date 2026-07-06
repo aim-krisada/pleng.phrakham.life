@@ -30,19 +30,25 @@ function tokenBeats(t, tripletFactor) {
   return d * tripletFactor
 }
 
-// Flatten a song's content into [{ midi:number|null, beats:number }] (midi null = rest)
+// Flatten a song's content into [{ midi, beats, li, bi }] (midi null = rest).
+// li/bi = source line and bar indices, used to highlight the playing bar.
 export function songToNotes(content) {
   const root = KEY_MIDI[content.key] ?? 60
   const notes = []
-  for (const line of content.lines || []) {
+  ;(content.lines || []).forEach((line, li) => {
+    let bi = 0
     for (const item of line) {
+      if (item.type === 'bar') {
+        bi++
+        continue
+      }
       if (item.type !== 'segment' || !item.note) continue
       for (const g of groupNotes(parseNotes(item.note))) {
         const f = g.group === 'triplet' ? 2 / 3 : 1
         for (const t of g.tokens) {
           if (t.type === 'note') {
             if (t.pitch === '0') {
-              notes.push({ midi: null, beats: tokenBeats(t, f) })
+              notes.push({ midi: null, beats: tokenBeats(t, f), li, bi })
             } else {
               let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
               if (t.accidental === '#') midi += 1
@@ -53,7 +59,7 @@ export function songToNotes(content) {
                 last.beats += tokenBeats(t, f)
                 last.tieOpen = !!t.tieStart
               } else {
-                notes.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart })
+                notes.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, li, bi })
               }
             }
           } else if (t.type === 'ext' && notes.length) {
@@ -62,7 +68,7 @@ export function songToNotes(content) {
         }
       }
     }
-  }
+  })
   return notes
 }
 
@@ -72,7 +78,7 @@ export function stopPlayback() {
 
 // Play the melody; resolves when done or stopped. Returns false when the device
 // blocks audio (e.g. iOS with the silent switch on / autoplay policy).
-export async function playSong(content, { bpm = 80, loop = false, onProgress } = {}) {
+export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   // iOS unlock: play a 1-sample silent buffer synchronously inside the user gesture
   try {
@@ -113,13 +119,24 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress } =
       }
       t += dur
     }
-    // wait until the scheduled end (checking the stop flag)
+    // wait until the scheduled end, checking the stop flag and reporting the
+    // note currently sounding (for follow-along highlight)
     const totalMs = (t - ctx.currentTime) * 1000
     const start = Date.now()
+    let noteIdx = -1
+    let cumMs = 0
+    const noteEndsMs = notes.map((n) => (cumMs += n.beats * spb * 1000))
     while (Date.now() - start < totalMs) {
       if (myFlag.stopped) {
         endTimes.forEach((o) => { try { o.stop() } catch {} })
         return true
+      }
+      const elapsed = Date.now() - start - 80
+      let idx = noteIdx < 0 ? 0 : noteIdx
+      while (idx < notes.length - 1 && elapsed >= noteEndsMs[idx]) idx++
+      if (idx !== noteIdx) {
+        noteIdx = idx
+        onNote?.(notes[idx])
       }
       onProgress?.(Date.now() - start, totalMs)
       await new Promise((r) => setTimeout(r, 100))

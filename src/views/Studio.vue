@@ -423,27 +423,47 @@ function downloadJson() {
 }
 
 const AUDIO_BLOCKED_MSG = '🔇 อุปกรณ์ปิดเสียงอยู่ — ตรวจปุ่มปิดเสียง/โหมดเงียบของเครื่อง แล้วลองใหม่'
-async function playAll() {
-  if (playing.value) {
-    stopPlayback()
-    playing.value = false
-    return
-  }
-  playing.value = true
-  const ok = await playSong(previewContent.value, { bpm: opts.bpm || 80 })
-  if (ok === false) saveMsg.value = AUDIO_BLOCKED_MSG
+const playingBar = ref(null) // "li-bi" of the bar currently sounding
+let playSeq = 0 // invalidates stale playbacks so `playing` can't flip out of sync
+
+function stopAll() {
+  stopPlayback()
+  playSeq++
   playing.value = false
+  playingBar.value = null
 }
-async function playLine(li) {
-  if (playing.value) {
-    stopPlayback()
-    playing.value = false
-    return
+
+function followBar(liOffset) {
+  return (n) => {
+    const key = `${n.li + liOffset}-${n.bi}`
+    if (playingBar.value === key) return
+    playingBar.value = key
+    const el = document.querySelector(`[data-bar="${key}"]`)
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    if (r.top < 90 || r.bottom > window.innerHeight - 110) {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
   }
+}
+
+async function runPlay(content, liOffset) {
+  if (playing.value) return stopAll()
+  const id = ++playSeq
   playing.value = true
-  const ok = await playSong({ key: opts.key, lines: [serializeLine(lines.value[li])] }, { bpm: opts.bpm || 80 })
+  const ok = await playSong(content, { bpm: opts.bpm || 80, onNote: followBar(liOffset) })
   if (ok === false) saveMsg.value = AUDIO_BLOCKED_MSG
-  playing.value = false
+  if (id === playSeq) {
+    playing.value = false
+    playingBar.value = null
+  }
+}
+
+function playAll() {
+  return runPlay(previewContent.value, 0)
+}
+function playLine(li) {
+  return runPlay({ key: opts.key, lines: [serializeLine(lines.value[li])] }, li)
 }
 
 // ---------- floating toolbar + sheet overlay ----------
@@ -566,7 +586,13 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
         <button class="danger" @click="removeLine(li)">ลบบรรทัด</button>
       </div>
       <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch">
-        <div v-for="(bar, bi) in line.bars" :key="bi" class="bar-box">
+        <div
+          v-for="(bar, bi) in line.bars"
+          :key="bi"
+          class="bar-box"
+          :class="{ 'bar-playing': playingBar === `${li}-${bi}` }"
+          :data-bar="`${li}-${bi}`"
+        >
           <div class="bar-head">
             <span :style="{ color: barStatus(bar).ok ? 'var(--muted)' : 'var(--red)', fontWeight: barStatus(bar).ok ? 400 : 700 }">
               ห้อง {{ bi + 1 }} <template v-if="barStatus(bar).text">· {{ barStatus(bar).text }} {{ barStatus(bar).ok ? '✓' : '❌' }}</template>
@@ -643,9 +669,11 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     <div class="float-bar no-print" role="toolbar" aria-label="เครื่องมือหลัก">
       <button v-if="session && !legacy" class="secondary" @click="saveDraft('draft')">💾 ร่าง</button>
       <button :disabled="!session" @click="primaryAction">{{ primaryLabel }}</button>
-      <button class="secondary" @click="playLine(activeLine)">
-        {{ playing ? '⏹ หยุด' : `▶ บรรทัด ${activeLine + 1}` }}
-      </button>
+      <button v-if="playing" class="danger" @click="stopAll">⏹ หยุด</button>
+      <template v-else>
+        <button class="secondary" @click="playLine(activeLine)">▶ บรรทัด {{ activeLine + 1 }}</button>
+        <button class="secondary" @click="playAll">▶ ทั้งเพลง</button>
+      </template>
       <button class="secondary" @click="showSheet = true">👁 แผ่นเพลง</button>
     </div>
 
@@ -722,6 +750,11 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 .review-banner { background: #fffbeb; border-color: #f6e05e; }
 .rev-row { border-top: 1px solid var(--line); padding: 8px 0; margin-top: 8px; }
 .line-active { border-color: var(--brand); }
+.bar-playing {
+  border: 1.5px solid var(--brand);
+  background: var(--cream);
+  box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.15);
+}
 /* floating toolbar (save/play/sheet from any scroll position) */
 .float-bar {
   position: fixed;
