@@ -132,19 +132,35 @@ count must equal `syllableSlots(stanza)` or the song is flagged for manual revie
   v1→v2 round-trips exactly for cleanly-aligned songs, flags mismatches for review,
   preserves the "ส-ถิตย์" hyphen convention.
 
-**Next up — step 2: Studio v2 authoring (NOT started).** The big piece. Plan:
-- Reuse the existing bar/segment editor by making `lines` a computed that points at
-  the active stanza's lines (`stanzas[activeStanza].lines`), so the bar-editing code
-  is untouched. Add stanza tabs + an Arrangement panel (rows: pick stanza, label,
-  lyric text, optional key). Hide the per-segment lyric field in stanza mode.
-- `previewContent` builds v2; `applyRow`/load: if v2 load directly, if v1 call
-  `migrateToV2` (this is the "Claude seeds, พี่เปา fixes" flow — auto-split syllables
-  then the author corrects). Serialize verse lyric via `splitSyllables`.
-- Update `snapshotState`/`applyState` (undo) and play (`resolveContent(previewContent)`).
-- **CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
+**Step 2 — Studio v2 authoring: DONE (browser-verified; DB save/publish pending a
+logged-in human).** Built in `Studio.vue`:
+- The bar/segment editor is unchanged — it edits the active stanza via a writable
+  `lines` computed (`stanzas[activeStanza].lines`). Verified: switching tabs keeps
+  each stanza's bars isolated (A=35 bars, B=1 bar, no cross-corruption).
+- **Stanza tabs** (A, B…) with add/delete; deleting a stanza that an arrangement row
+  uses prompts, then drops those rows.
+- **Arrangement panel** — rows of {stanza picker, label, key, live syllable-count
+  indicator, lyric textarea} with add/remove/reorder. Count = `splitSyllables(lyric)`
+  vs `stanzaSlots(stanza)`, coloured/flagged like `barStatus`.
+- Per-segment lyric field removed (stanza = melody only); `serializeLine` drops empty
+  lyrics so stanza JSON stays clean.
+- `previewContent` builds v2; `resolvedPreview = resolveContent(previewContent)` feeds
+  the sheet + full-song play. `applyRow` runs every load through `migrateToV2` (v2
+  passes through; v1 auto-splits + surfaces mismatch warnings in a banner). Verified on
+  real song #1: 35 bars into stanza A, lyrics split into the arrangement row, 19 real
+  alignment mismatches flagged for review.
+- `snapshotState`/`applyState` (undo) now carry stanzas + arrangement + activeStanza —
+  verified undo/redo restores the lyric edits.
+- Playback: `playStanza` (active melody, editor highlight) · `playFull` (resolved
+  arrangement, no editor highlight since resolved line indices ≠ editor bars) ·
+  `playLine` unchanged.
+- **STILL CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
   human to save a v2 draft → reopen → publish. song_revisions + git make it revertable.
-- Then step 3 (per-syllable highlight, replaces segment-level), step 4 (print stacking
-  = paper-saving 1B).
+
+**Next up — step 3 (per-syllable highlight, replaces segment-level for v2; v1 falls
+back), then step 4 (print stacking = paper-saving 1B).** Step-3 plan is de-risked: the
+attack-note order from `songToNotes` already aligns 1:1 with `syllableSlots`, so it
+needs only a global syllable index on played notes + per-syllable spans in `SongSheet`.
 
 Decisions locked: screen = spelled-out follow-along (not book-stacked); print = stacked
 (paper-saving); highlight will move to per-syllable; do all this BEFORE batch-keying

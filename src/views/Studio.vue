@@ -2,7 +2,8 @@
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, syllableSlots } from '../lib/notation.js'
+import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { diffSongRows } from '../lib/diff.js'
 import { playSong, stopPlayback } from '../lib/midi.js'
@@ -30,7 +31,11 @@ watch(session, () => {
   loadProfilesMap()
 })
 
-// ---------- editing model (lines -> bars -> segments) ----------
+// ---------- editing model (song model v2) ----------
+// A song is a set of MELODIES (stanzas, entered once, no lyrics) plus an
+// ARRANGEMENT (play order — each row links a stanza and supplies only its words).
+// The bar/segment editor below is unchanged: it edits the ACTIVE stanza's lines via
+// the `lines` computed, so all the existing line/bar/segment code keeps working.
 function newSegment() {
   return { chord: '', note: '', lyric: '' }
 }
@@ -62,6 +67,8 @@ function deserializeLine(items) {
   return line
 }
 
+// A stanza is a melody — segments carry no lyric (the arrangement supplies words),
+// so an empty lyric is dropped from the serialized item to keep the v2 JSON clean.
 function serializeLine(line) {
   const items = []
   if (line.section?.trim()) items.push({ type: 'section', name: line.section.trim() })
@@ -70,7 +77,9 @@ function serializeLine(line) {
   line.bars.forEach((b, i) => {
     if (i > 0) items.push({ type: 'bar' })
     for (const s of b.segments) {
-      items.push({ type: 'segment', chord: s.chord, note: s.note, lyric: s.lyric })
+      const seg = { type: 'segment', chord: s.chord, note: s.note }
+      if (s.lyric) seg.lyric = s.lyric
+      items.push(seg)
     }
   })
   if (line.label?.trim()) items.push({ type: 'label', text: line.label.trim() })
@@ -84,19 +93,117 @@ const reviewComment = ref('')
 const pickerId = ref('')
 const meta = reactive({ number: null, title_th: '', title_en: '' })
 const opts = reactive({ key: 'C', timeSignature: '4/4', bpm: null })
-const lines = ref([newLine()])
+
+// melodies + play order (v2)
+const stanzas = ref([{ id: 'A', lines: [newLine()] }])
+const activeStanza = ref(0)
+const arrangement = ref([{ stanza: 'A', label: '', lyric: '', key: '' }])
+const migrateWarnings = ref([]) // set when a v1 song is auto-split on load (author reviews)
+
 const saveMsg = ref('')
 const playing = ref(false)
 
+// the bar/segment editor operates on the ACTIVE stanza's lines through this computed
+const lines = computed({
+  get: () => stanzas.value[activeStanza.value]?.lines ?? [],
+  set: (v) => {
+    const s = stanzas.value[activeStanza.value]
+    if (s) s.lines = v
+  },
+})
+const activeStanzaId = computed(() => stanzas.value[activeStanza.value]?.id ?? '')
+
 const previewContent = computed(() => ({
+  version: 2,
   key: opts.key,
   timeSignature: opts.timeSignature,
   bpm: opts.bpm || undefined,
-  lines: lines.value.map(serializeLine),
+  stanzas: stanzas.value.map((s) => ({ id: s.id, lines: s.lines.map(serializeLine) })),
+  arrangement: arrangement.value.map((r) => ({
+    stanza: r.stanza,
+    label: r.label?.trim() || '',
+    syllables: splitSyllables(r.lyric),
+    ...(r.key ? { key: r.key } : {}),
+  })),
+}))
+
+// The sheet + playback read v1-shaped `lines`, so resolve the arrangement first.
+const resolvedPreview = computed(() => ({
+  ...previewContent.value,
+  lines: resolveContent(previewContent.value),
 }))
 
 // valid chords only, diatonic chords of the current key listed first
 const chordOpts = computed(() => chordOptions(opts.key))
+
+// ---------- stanza (melody) operations ----------
+function nextStanzaId() {
+  const used = new Set(stanzas.value.map((s) => s.id))
+  for (let c = 65; c <= 90; c++) {
+    const l = String.fromCharCode(c)
+    if (!used.has(l)) return l
+  }
+  return 'A' + stanzas.value.length
+}
+function addStanza() {
+  stanzas.value.push({ id: nextStanzaId(), lines: [newLine()] })
+  activeStanza.value = stanzas.value.length - 1
+  activeLine.value = 0
+}
+function selectStanza(idx) {
+  activeStanza.value = idx
+  activeLine.value = 0
+}
+function removeStanza(idx) {
+  if (stanzas.value.length <= 1) return
+  const id = stanzas.value[idx].id
+  if (arrangement.value.some((r) => r.stanza === id)) {
+    if (!window.confirm(`ท่อนทำนอง ${id} ถูกใช้ในลำดับเพลงอยู่ — ลบทำนองและแถวที่ใช้มันด้วย?`)) return
+  }
+  stanzas.value.splice(idx, 1)
+  arrangement.value = arrangement.value.filter((r) => r.stanza !== id)
+  if (!arrangement.value.length) {
+    arrangement.value = [{ stanza: stanzas.value[0].id, label: '', lyric: '', key: '' }]
+  }
+  activeStanza.value = Math.min(activeStanza.value, stanzas.value.length - 1)
+  activeLine.value = 0
+}
+
+// ---------- arrangement (verses/refrains) operations ----------
+// syllable slots a stanza's melody bears = sum of syllable-bearing notes across it.
+function stanzaSlots(id) {
+  const s = stanzas.value.find((x) => x.id === id)
+  if (!s) return 0
+  let n = 0
+  for (const line of s.lines) {
+    for (const bar of line.bars) {
+      for (const seg of bar.segments) n += syllableSlots(seg.note || '')
+    }
+  }
+  return n
+}
+// live word-count check per arrangement row (like barStatus): the number of typed
+// syllables must equal the stanza's syllable slots, else the row is flagged.
+function rowStatus(row) {
+  const need = stanzaSlots(row.stanza)
+  const got = splitSyllables(row.lyric).length
+  return { need, got, ok: got === need }
+}
+function addRow() {
+  arrangement.value.push({ stanza: activeStanzaId.value || stanzas.value[0].id, label: '', lyric: '', key: '' })
+}
+function removeRow(i) {
+  arrangement.value.splice(i, 1)
+  if (!arrangement.value.length) addRow()
+}
+function moveRow(i, dir) {
+  const to = i + dir
+  if (to < 0 || to >= arrangement.value.length) return
+  const [r] = arrangement.value.splice(i, 1)
+  arrangement.value.splice(to, 0, r)
+}
+const stanzaIdOptions = computed(() => stanzas.value.map((s) => ({ value: s.id, label: 'ท่อน ' + s.id })))
+const rowKeyOptions = computed(() => [{ value: '', label: 'คีย์เดิม' }, ...KEYS.map((k) => ({ value: k, label: k }))])
 
 // beats per bar vs. time signature — honest: unreadable input is an error, never a pass.
 // A line marked "cont" continues the previous line's last bar: those two bars are
@@ -154,7 +261,7 @@ function insertSym(sym) {
   activeInput.focus()
 }
 
-// ---------- line/bar/segment operations ----------
+// ---------- line/bar/segment operations (act on the active stanza) ----------
 function addBar(line) {
   line.bars.push(newBar())
 }
@@ -186,7 +293,6 @@ function addLine() {
 }
 function copyLine(li) {
   const copy = JSON.parse(JSON.stringify(lines.value[li]))
-  copy.bars.forEach((b) => b.segments.forEach((s) => (s.lyric = '')))
   lines.value.splice(li + 1, 0, copy)
 }
 function removeLine(li) {
@@ -229,15 +335,34 @@ async function loadSong(id) {
   nextTick(resetHistory)
 }
 
+// Load a stored song into the editor. v2 songs load directly; v1 songs are migrated
+// to v2 on the way in (Claude seeds the syllable split, the author fixes) — any
+// segment whose words don't line up with its notes is flagged for manual review.
 function applyRow(data) {
   meta.number = data.number
   meta.title_th = data.title_th
   meta.title_en = data.title_en
-  opts.key = data.content.key || 'C'
-  opts.timeSignature = data.content.timeSignature || '4/4'
-  opts.bpm = data.content.bpm ?? null
-  lines.value = (data.content.lines || []).map(deserializeLine)
-  if (!lines.value.length) lines.value = [newLine()]
+  const { content, warnings } = migrateToV2(data.content)
+  opts.key = content.key || 'C'
+  opts.timeSignature = content.timeSignature || '4/4'
+  opts.bpm = content.bpm ?? null
+  stanzas.value = (content.stanzas || []).map((s) => ({
+    id: s.id,
+    lines: (s.lines || []).map(deserializeLine),
+  }))
+  if (!stanzas.value.length) stanzas.value = [{ id: 'A', lines: [newLine()] }]
+  arrangement.value = (content.arrangement || []).map((r) => ({
+    stanza: r.stanza,
+    label: r.label || '',
+    lyric: joinSyllables(r.syllables || []),
+    key: r.key || '',
+  }))
+  if (!arrangement.value.length) {
+    arrangement.value = [{ stanza: stanzas.value[0].id, label: '', lyric: '', key: '' }]
+  }
+  activeStanza.value = 0
+  activeLine.value = 0
+  migrateWarnings.value = warnings
 }
 
 function resetForm() {
@@ -250,7 +375,11 @@ function resetForm() {
   opts.key = 'C'
   opts.timeSignature = '4/4'
   opts.bpm = null
-  lines.value = [newLine()]
+  stanzas.value = [{ id: 'A', lines: [newLine()] }]
+  arrangement.value = [{ stanza: 'A', label: '', lyric: '', key: '' }]
+  activeStanza.value = 0
+  activeLine.value = 0
+  migrateWarnings.value = []
   saveMsg.value = ''
   revisions.value = []
   nextTick(resetHistory)
@@ -486,11 +615,15 @@ function followBar(liOffset) {
   }
 }
 
-async function runPlay(content, liOffset) {
+// follow = highlight editor bars (only valid when the played lines ARE the editor's
+// active-stanza lines). Full-song play walks the resolved arrangement, whose line
+// indices don't map to editor bars, so it plays without highlight.
+async function runPlay(content, liOffset, follow = true) {
   if (playing.value) return stopAll()
   const id = ++playSeq
   playing.value = true
-  const ok = await playSong(content, { bpm: opts.bpm || 80, onNote: followBar(liOffset) })
+  const onNote = follow ? followBar(liOffset) : undefined
+  const ok = await playSong(content, { bpm: opts.bpm || 80, onNote })
   if (ok === false) saveMsg.value = AUDIO_BLOCKED_MSG
   if (id === playSeq) {
     playing.value = false
@@ -498,22 +631,33 @@ async function runPlay(content, liOffset) {
   }
 }
 
-function playAll() {
-  return runPlay(previewContent.value, 0)
+function playStanza() {
+  const s = stanzas.value[activeStanza.value]
+  return runPlay({ key: opts.key, timeSignature: opts.timeSignature, lines: s.lines.map(serializeLine) }, 0, true)
+}
+function playFull() {
+  return runPlay(resolvedPreview.value, 0, false)
 }
 function playLine(li) {
-  return runPlay({ key: opts.key, lines: [serializeLine(lines.value[li])] }, li)
+  return runPlay({ key: opts.key, lines: [serializeLine(lines.value[li])] }, li, true)
 }
 
 // ---------- undo / redo ----------
-// Debounced JSON snapshots of the whole editing state (meta + opts + lines).
+// Debounced JSON snapshots of the whole editing state (meta + opts + stanzas +
+// arrangement + which stanza is active).
 const history = ref([])
 const histPos = ref(-1)
 let applyingHistory = false
 let histTimer = null
 
 function snapshotState() {
-  return JSON.stringify({ meta: { ...meta }, opts: { ...opts }, lines: lines.value })
+  return JSON.stringify({
+    meta: { ...meta },
+    opts: { ...opts },
+    stanzas: stanzas.value,
+    arrangement: arrangement.value,
+    activeStanza: activeStanza.value,
+  })
 }
 function commitSnapshot() {
   const snap = snapshotState()
@@ -538,7 +682,9 @@ function applyState(snap) {
   const s = JSON.parse(snap)
   Object.assign(meta, s.meta)
   Object.assign(opts, s.opts)
-  lines.value = s.lines
+  stanzas.value = s.stanzas
+  arrangement.value = s.arrangement
+  activeStanza.value = Math.min(s.activeStanza ?? 0, s.stanzas.length - 1)
   nextTick(() => (applyingHistory = false))
 }
 const canUndo = computed(() => histPos.value > 0)
@@ -665,21 +811,53 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       </div>
     </div>
 
+    <!-- migrate notice: v1 song auto-split into v2, some rows need a human check -->
+    <div v-if="migrateWarnings.length" class="card no-print migrate-note">
+      <strong>⚠️ แปลงจากรูปแบบเดิม (v1) — ตรวจ {{ migrateWarnings.length }} จุดที่พยางค์ไม่พอดีโน้ต</strong>
+      <ul class="muted" style="margin: 6px 0 0 18px">
+        <li v-for="(w, i) in migrateWarnings" :key="i">
+          โน้ต "{{ w.note }}" ต้องการ {{ w.slots }} พยางค์ แต่เนื้อ "{{ w.lyric }}" มี {{ w.got }} — แก้ในลำดับเพลงด้านล่าง
+        </li>
+      </ul>
+    </div>
+
+    <!-- ===== melodies (stanzas): edit each once ===== -->
+    <h3 class="section-title">🎵 ทำนอง (ท่อน) — คีย์ครั้งเดียว ใช้ซ้ำในหลายเที่ยว</h3>
+    <div class="stanza-tabs no-print">
+      <button
+        v-for="(s, si) in stanzas"
+        :key="s.id"
+        class="stanza-tab"
+        :class="{ active: si === activeStanza }"
+        @click="selectStanza(si)"
+      >
+        ท่อน {{ s.id }}
+        <span
+          v-if="stanzas.length > 1"
+          class="stanza-x"
+          role="button"
+          aria-label="ลบท่อนทำนองนี้"
+          @click.stop="removeStanza(si)"
+        >✕</span>
+      </button>
+      <button class="secondary tiny" @click="addStanza">+ ท่อนทำนอง</button>
+    </div>
+
     <!-- editing hint (the symbol palette lives in the bottom dock) -->
     <p class="muted no-print" style="margin: 0 0 10px">
       1 ช่อง = 1 โน้ต · Enter/เว้นวรรค = ช่องถัดไป · ลูกศร ← → เลื่อนช่อง ·
-      แตะช่องโน้ตแล้วจิ้มสัญลักษณ์จากแถบล่างจอได้
+      แตะช่องโน้ตแล้วจิ้มสัญลักษณ์จากแถบล่างจอได้ · เนื้อร้องใส่ที่ "ลำดับเพลง" ด้านล่าง
       <router-link class="pk-info" style="margin-left: 6px" :to="{ path: '/guide', hash: '#notation' }" aria-label="คู่มือโน้ตตัวเลข">i</router-link>
     </p>
 
-    <!-- line editor -->
-    <div v-for="(line, li) in lines" :key="li" class="card" :class="{ 'line-active': li === activeLine }" @focusin="editorFocusIn($event, li)">
+    <!-- line editor (edits the ACTIVE stanza) -->
+    <div v-for="(line, li) in lines" :key="`${activeStanzaId}-${li}`" class="card" :class="{ 'line-active': li === activeLine }" @focusin="editorFocusIn($event, li)">
       <div class="muted" style="margin-bottom: 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center">
         <strong>บรรทัด {{ li + 1 }}</strong>
         <input
           v-model="line.section"
-          placeholder="ท่อน เช่น ร้อง 1, รับ"
-          aria-label="ชื่อท่อน (เว้นว่าง = ต่อจากท่อนก่อน)"
+          placeholder="ท่อนย่อย (ไม่จำเป็น)"
+          aria-label="ชื่อท่อนย่อยในทำนอง (ปกติเว้นว่าง — ชื่อท่อนใส่ที่ลำดับเพลง)"
           style="width: 150px; min-height: 32px; padding: 4px 8px; font-size: 0.85rem"
         />
         <label style="display: inline-flex; align-items: center; gap: 4px">
@@ -724,13 +902,11 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
             <span v-for="(seg, si) in bar.segments" :key="'p' + si" class="segment">
               <span class="chord">{{ seg.chord }}&nbsp;</span>
               <span class="note"><NoteRow :notes="seg.note" />&nbsp;</span>
-              <span class="lyric">{{ seg.lyric }}&nbsp;</span>
             </span>
           </div>
           <div v-for="(seg, si) in bar.segments" :key="si" class="seg-row">
             <ComboSelect v-model="seg.chord" :options="chordOpts" placeholder="คอร์ด" aria-label="เลือกคอร์ด" width="120px" />
             <NoteBoxes v-model="seg.note" />
-            <input v-model="seg.lyric" placeholder="เนื้อร้อง" aria-label="เนื้อร้อง" class="seg-lyric" />
             <button class="secondary tiny" aria-label="ลบช่องนี้" @click="removeSegment(bar, si)">✕</button>
           </div>
           <button class="secondary tiny" @click="addSegment(bar)">+ คอร์ดใหม่ในห้องนี้</button>
@@ -740,9 +916,47 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     </div>
     <button class="secondary" @click="addLine">+ เพิ่มบรรทัด</button>
 
+    <!-- ===== arrangement: play order + words per verse ===== -->
+    <h3 class="section-title" style="margin-top: 22px">📜 ลำดับเพลง — เลือกท่อนทำนอง ใส่เนื้อร้องแต่ละเที่ยว</h3>
+    <p class="muted no-print" style="margin: 0 0 10px">
+      เนื้อร้อง: เว้นวรรค = คำใหม่ · ยัติภังค์ "-" = พยางค์ต่อในคำเดียว (เช่น ส-ถิตย์) ·
+      1 พยางค์ = 1 โน้ตที่เคาะ (เอื้อนใส่ที่ทำนองด้วยสเลอร์ ไม่นับพยางค์ใหม่)
+    </p>
+    <div class="card">
+      <div v-for="(row, ri) in arrangement" :key="ri" class="arr-row">
+        <div class="arr-head">
+          <span class="muted" style="min-width: 22px">{{ ri + 1 }}.</span>
+          <ComboSelect v-model="row.stanza" :options="stanzaIdOptions" aria-label="เลือกท่อนทำนอง" width="100px" />
+          <input v-model="row.label" placeholder="ชื่อเที่ยว เช่น ร้อง 1, รับ" aria-label="ชื่อเที่ยว" class="arr-label" />
+          <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem">คีย์:
+            <ComboSelect v-model="row.key" :options="rowKeyOptions" aria-label="เปลี่ยนคีย์เที่ยวนี้" width="100px" />
+          </label>
+          <span
+            class="arr-count"
+            :style="{ color: rowStatus(row).ok ? 'var(--muted)' : 'var(--red)', fontWeight: rowStatus(row).ok ? 400 : 700 }"
+          >
+            {{ rowStatus(row).got }}/{{ rowStatus(row).need }} พยางค์ {{ rowStatus(row).ok ? '✓' : '❌' }}
+          </span>
+          <span class="arr-tools">
+            <button class="secondary tiny" aria-label="ย้ายขึ้น" :disabled="ri === 0" @click="moveRow(ri, -1)">▲</button>
+            <button class="secondary tiny" aria-label="ย้ายลง" :disabled="ri === arrangement.length - 1" @click="moveRow(ri, 1)">▼</button>
+            <button class="secondary tiny" aria-label="ลบเที่ยวนี้" @click="removeRow(ri)">✕</button>
+          </span>
+        </div>
+        <textarea
+          v-model="row.lyric"
+          rows="2"
+          class="arr-lyric"
+          placeholder="เนื้อร้องของเที่ยวนี้ — 1 พยางค์ต่อ 1 โน้ต"
+          aria-label="เนื้อร้อง"
+        ></textarea>
+      </div>
+      <button class="secondary" @click="addRow">+ เพิ่มเที่ยว</button>
+    </div>
+
     <!-- secondary actions -->
     <div class="card" style="margin-top: 12px">
-      <button :class="playing ? 'danger' : 'secondary'" @click="playAll">
+      <button :class="playing ? 'danger' : 'secondary'" @click="playFull">
         {{ playing ? '⏹ หยุด' : '▶ ฟังทั้งเพลง' }}
       </button>
       <button class="secondary" style="margin-left: 8px" @click="downloadJson">⬇️ ดาวน์โหลด JSON</button>
@@ -781,7 +995,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       <h3 style="margin-top: 0">ตัวอย่างแผ่นเพลง</h3>
       <h2 style="color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
       <p class="muted">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
-      <SongSheet :content="previewContent" mode="full" chord-system="letter" :display-key="opts.key" />
+      <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
     </div>
 
     <!-- bottom dock: symbol palette + everyday tools, always in reach -->
@@ -804,8 +1018,8 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
         <button :disabled="!session" @click="primaryAction">{{ primaryLabel }}</button>
         <button v-if="playing" class="danger" @click="stopAll">⏹ หยุด</button>
         <template v-else>
-          <button class="secondary" @click="playLine(activeLine)">▶ บรรทัด {{ activeLine + 1 }}</button>
-          <button class="secondary" @click="playAll">▶ ทั้งเพลง</button>
+          <button class="secondary" @click="playStanza">▶ ท่อน {{ activeStanzaId }}</button>
+          <button class="secondary" @click="playFull">▶ ทั้งเพลง</button>
         </template>
         <button class="secondary" @click="showSheet = true">👁 แผ่นเพลง</button>
       </div>
@@ -817,7 +1031,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
         <button class="secondary" style="float: right" aria-label="ปิดแผ่นเพลง" @click="showSheet = false">✕ ปิด</button>
         <h2 style="margin-top: 0; color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
         <p class="muted">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
-        <SongSheet :content="previewContent" mode="full" chord-system="letter" :display-key="opts.key" />
+        <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
       </div>
     </div>
   </div>
@@ -832,6 +1046,41 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
   font-size: 16px;
   flex: 0 0 auto;
 }
+.section-title {
+  margin: 6px 0 8px;
+  color: var(--brand);
+}
+.stanza-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.stanza-tab {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px 10px 0 0;
+  padding: 6px 12px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.stanza-tab.active {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--cream);
+}
+.stanza-x {
+  font-size: 11px;
+  color: var(--muted);
+  border-radius: 50%;
+  padding: 0 4px;
+}
+.stanza-x:hover { color: var(--red); }
 .bar-box {
   border: 1px dashed var(--line);
   border-radius: 8px;
@@ -852,7 +1101,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 .bar-tools { display: flex; gap: 3px; flex-shrink: 0; }
 .bar-tools .tiny { padding: 4px 6px; }
 .bar-preview {
-  min-height: 58px;
+  min-height: 40px;
   border-bottom: 1px solid var(--line);
   margin-bottom: 6px;
   padding-bottom: 4px;
@@ -861,7 +1110,30 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 }
 .seg-row { display: flex; gap: 4px; margin-bottom: 6px; align-items: center; flex-wrap: wrap; }
 .seg-row :deep(.combo input) { color: var(--chord-red); font-weight: 700; }
-.seg-lyric { flex: 1 1 140px; min-width: 120px; }
+/* arrangement rows */
+.arr-row {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+.arr-head {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.arr-label { flex: 1 1 150px; min-width: 120px; min-height: 32px; padding: 4px 8px; }
+.arr-count { font-size: 13px; white-space: nowrap; }
+.arr-tools { display: flex; gap: 3px; flex-shrink: 0; margin-left: auto; }
+.arr-lyric {
+  width: 100%;
+  min-height: 46px;
+  padding: 6px 8px;
+  font-size: 1rem;
+  resize: vertical;
+}
 /* small buttons still meet the 24x24 target size (WCAG 2.2 2.5.8) */
 .tiny { padding: 4px 10px; font-size: 13px; min-height: 28px; min-width: 28px; }
 .role-badge {
@@ -878,6 +1150,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 .s-pending { background: #fefcbf; }
 .s-rejected { background: #fed7d7; }
 .review-banner { background: #fffbeb; border-color: #f6e05e; }
+.migrate-note { background: #fffbeb; border-color: #f6e05e; }
 .rev-row { border-top: 1px solid var(--line); padding: 8px 0; margin-top: 8px; }
 .line-active { border-color: var(--brand); }
 .bar-playing {
