@@ -16,7 +16,7 @@ const groups = computed(() => groupNotes(parseNotes(props.notes)))
       <span
         v-for="(t, ti) in g.tokens"
         :key="ti"
-        :class="['nt', t.type === 'note' && t.dotted ? 'dotted' : '', t.tieStart ? 'tie-start' : '', t.tieEnd ? 'tie-end' : '']"
+        :class="['nt', t.type === 'note' && t.dotted ? 'dotted' : '', t.type === 'note' && t.accidental ? 'has-acc' : '', t.tieStart ? 'tie-start' : '', t.tieEnd ? 'tie-end' : '']"
       >
         <template v-if="t.type === 'note'">
           <!-- octave dots stay centred on the DIGIT; the augmentation dot sits
@@ -63,18 +63,22 @@ const groups = computed(() => groupNotes(parseNotes(props.notes)))
   letter-spacing: -1px;
 }
 .num { display: block; padding: 0 1px; position: relative; }
-/* underlines stretch across the whole token so adjacent underlined notes join
-   into one continuous line, the way the hymnbook beams eighth notes */
-.num.u1, .num.u2 { align-self: stretch; text-align: center; }
 .num.u1 { border-bottom: 1.5px solid currentColor; }
 .num.u2 { border-bottom: 4px double currentColor; }
-/* accidental: smaller than the digit, floated to its upper-left (book style) */
+/* Independent eighth notes keep a visible gap between their underlines
+   (each syllable its own line). ONLY inside a slur/triplet group (เสียงเอื้อน)
+   do the underlines stretch and join into one continuous line, like the book. */
+.g-slur .num.u1, .g-slur .num.u2,
+.g-triplet .num.u1, .g-triplet .num.u2 { align-self: stretch; text-align: center; }
+/* accidental: smaller than the digit, floating at its upper-left WITHOUT
+   widening the digit column — so octave dots stay exactly under the digit */
 .acc {
+  position: absolute;
   font-size: 0.62em;
-  position: relative;
-  top: -0.55em;
-  margin-right: 0.06em;
+  top: -0.5em;
+  left: -0.85em;
 }
+.nt.has-acc { margin-left: 0.55em; }
 /* fermata: small arc with a centre dot floating above the note */
 .fermata {
   position: absolute;
