@@ -5,6 +5,7 @@ import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { KEYS } from '../lib/chords.js'
 import { playSong, stopPlayback, TEMPO_MARKS } from '../lib/midi.js'
+import { currentSong } from '../store.js'
 import SongSheet from '../components/SongSheet.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 
@@ -41,13 +42,13 @@ onMounted(async () => {
   }
   displayKey.value = song.value.content.key
   tempo.value = song.value.content.bpm || 92
+  currentSong.value = song.value // enables the navbar download tool
 })
 
-onUnmounted(stopPlayback)
-
-function printSheet() {
-  window.print()
-}
+onUnmounted(() => {
+  stopPlayback()
+  currentSong.value = null
+})
 
 async function togglePlay() {
   if (playing.value) {
@@ -68,11 +69,11 @@ async function togglePlay() {
   <p v-if="notFound">ไม่พบเพลงนี้ — <router-link to="/">กลับหน้ารายการเพลง</router-link></p>
   <div v-else-if="song">
     <div class="card no-print" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
-      <select v-model="mode">
+      <select v-model="mode" aria-label="รูปแบบการแสดงเพลง">
         <option value="full">เนื้อ + คอร์ด + โน้ต</option>
         <option value="lyrics">เนื้อร้องล้วน</option>
       </select>
-      <select v-model="chordSystem" :disabled="mode === 'lyrics'">
+      <select v-model="chordSystem" :disabled="mode === 'lyrics'" aria-label="ระบบคอร์ด">
         <option value="letter">คอร์ดตัวอักษร</option>
         <option value="roman">คอร์ดโรมัน (I IV V)</option>
       </select>
@@ -81,6 +82,7 @@ async function togglePlay() {
         <ComboSelect
           v-model="displayKey"
           :options="KEYS.map((k) => ({ value: k, label: k + (k === song.content.key ? ' (ต้นฉบับ)' : '') }))"
+          aria-label="เลือกคีย์เพลง"
           width="120px"
         />
       </label>
@@ -89,16 +91,16 @@ async function togglePlay() {
       </button>
       <label style="display: inline-flex; align-items: center; gap: 4px">
         ความเร็ว:
-        <ComboSelect v-model="tempo" :options="tempoOptions" allow-custom width="210px" />
+        <ComboSelect v-model="tempo" :options="tempoOptions" allow-custom aria-label="เลือกความเร็ว" width="210px" />
       </label>
       <label style="display: inline-flex; align-items: center; gap: 4px">
         <input v-model="loop" type="checkbox" /> วนซ้ำ
       </label>
-      <button class="secondary" @click="printSheet">🖨️ พิมพ์ A4</button>
+      <router-link class="pk-info" :to="{ path: '/guide', hash: '#howto-song' }" aria-label="วิธีใช้หน้านี้">i</router-link>
     </div>
 
     <div class="card">
-      <h2 style="margin-top: 0; color: var(--blue)">
+      <h2 style="margin-top: 0; color: var(--brand)">
         {{ song.number != null ? song.number + '. ' : '' }}{{ song.title_th }}
       </h2>
       <p class="muted">

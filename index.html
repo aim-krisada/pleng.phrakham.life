@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="คลังเพลงนมัสการ — เนื้อร้อง คอร์ด และโน้ตตัวเลข สำหรับคริสตจักร ใช้ฟรี" />
     <title>เพลง.พระคำ.ชีวิต — คลังเพลงนมัสการ</title>
+    <!-- Self-hosted subset Noto fonts (same files as phrakham.life) — no external
+         requests. Relative paths so both the custom domain and the github.io
+         project path resolve them. -->
+    <link rel="preload" as="font" type="font/woff2" href="fonts/NotoSansThai-Regular.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="fonts/NotoSans-Regular.woff2" crossorigin />
+    <style>
+      @font-face{font-family:'Noto Sans';font-style:normal;font-weight:400;font-display:swap;src:url('fonts/NotoSans-Regular.woff2') format('woff2');unicode-range:U+0000-024F,U+0300-036F,U+2000-206F,U+2190-2193,U+266A-266D,U+FEFF,U+FFFD}
+      @font-face{font-family:'Noto Sans';font-style:normal;font-weight:700;font-display:swap;src:url('fonts/NotoSans-Bold.woff2') format('woff2');unicode-range:U+0000-024F,U+0300-036F,U+2000-206F,U+2190-2193,U+266A-266D,U+FEFF,U+FFFD}
+      @font-face{font-family:'Noto Sans Thai';font-style:normal;font-weight:400;font-display:swap;src:url('fonts/NotoSansThai-Regular.woff2') format('woff2');unicode-range:U+0E00-0E7F,U+200B-200D,U+25CC,U+2018-201F,U+2026}
+      @font-face{font-family:'Noto Sans Thai';font-style:normal;font-weight:700;font-display:swap;src:url('fonts/NotoSansThai-Bold.woff2') format('woff2');unicode-range:U+0E00-0E7F,U+200B-200D,U+25CC,U+2018-201F,U+2026}
+    </style>
   </head>
   <body>
     <div id="app"></div>

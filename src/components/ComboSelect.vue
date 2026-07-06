@@ -1,12 +1,15 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 
-// Type-to-filter dropdown. options: [{ value, label, search? }] or plain strings.
+// Type-to-filter dropdown, keyboard-operable (WCAG 2.1.1):
+// ArrowDown/Up move the highlight, Enter picks, Esc closes.
+// options: [{ value, label, search? }] or plain strings.
 // allowCustom lets the typed text itself become the value (e.g. custom time signature).
 const props = defineProps({
   modelValue: { type: [String, Number], default: '' },
   options: { type: Array, required: true },
   placeholder: { type: String, default: '' },
+  ariaLabel: { type: String, default: '' },
   allowCustom: { type: Boolean, default: false },
   width: { type: String, default: '160px' },
 })
@@ -14,6 +17,9 @@ const emit = defineEmits(['update:modelValue'])
 
 const open = ref(false)
 const text = ref('')
+const hi = ref(-1) // highlighted option index
+const listId = `combo-${Math.random().toString(36).slice(2, 8)}`
+
 const norm = computed(() =>
   props.options.map((o) => (typeof o === 'object' ? o : { value: o, label: String(o) }))
 )
@@ -27,15 +33,18 @@ const filtered = computed(() => {
   if (!q || q === selectedLabel.value.toLowerCase()) return norm.value
   return norm.value.filter((o) => (o.search ?? o.label).toLowerCase().includes(q))
 })
+watch(filtered, () => { if (hi.value >= filtered.value.length) hi.value = filtered.value.length - 1 })
 
 function onFocus() {
   open.value = true
   text.value = ''
+  hi.value = -1
 }
 function pick(o) {
   emit('update:modelValue', o.value)
   text.value = o.label
   open.value = false
+  hi.value = -1
 }
 function onBlur() {
   // delay so a click on an option lands first
@@ -52,12 +61,33 @@ function onBlur() {
     }
   }, 150)
 }
-function onEnter() {
-  if (filtered.value.length >= 1 && !props.allowCustom) pick(filtered.value[0])
-  else if (props.allowCustom && text.value.trim()) {
-    emit('update:modelValue', text.value.trim())
+function onKeydown(e) {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    if (!open.value) return onFocus()
+    hi.value = Math.min(hi.value + 1, filtered.value.length - 1)
+    scrollToHi()
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    hi.value = Math.max(hi.value - 1, 0)
+    scrollToHi()
+  } else if (e.key === 'Enter') {
+    e.preventDefault()
+    if (hi.value >= 0 && filtered.value[hi.value]) pick(filtered.value[hi.value])
+    else if (filtered.value.length >= 1 && !props.allowCustom) pick(filtered.value[0])
+    else if (props.allowCustom && text.value.trim()) {
+      emit('update:modelValue', text.value.trim())
+      open.value = false
+    }
+  } else if (e.key === 'Escape') {
     open.value = false
+    text.value = selectedLabel.value
   }
+}
+const listEl = ref(null)
+function scrollToHi() {
+  const el = listEl.value?.children[hi.value]
+  el?.scrollIntoView({ block: 'nearest' })
 }
 </script>
 
@@ -65,17 +95,25 @@ function onEnter() {
   <span class="combo" :style="{ width }">
     <input
       v-model="text"
+      role="combobox"
+      :aria-expanded="open"
+      :aria-controls="listId"
+      :aria-label="ariaLabel || placeholder || 'เลือกตัวเลือก'"
+      :aria-activedescendant="hi >= 0 ? `${listId}-${hi}` : undefined"
+      autocomplete="off"
       :placeholder="placeholder"
       @focus="onFocus"
       @blur="onBlur"
-      @keydown.enter.prevent="onEnter"
-      @keydown.esc="open = false; text = selectedLabel"
+      @keydown="onKeydown"
     />
-    <div v-if="open && filtered.length" class="combo-list">
+    <div v-if="open && filtered.length" :id="listId" ref="listEl" class="combo-list" role="listbox">
       <div
-        v-for="o in filtered"
+        v-for="(o, i) in filtered"
+        :id="`${listId}-${i}`"
         :key="o.value"
-        :class="['combo-item', o.value === modelValue ? 'active' : '']"
+        role="option"
+        :aria-selected="o.value === modelValue"
+        :class="['combo-item', o.value === modelValue ? 'active' : '', i === hi ? 'hi' : '']"
         @mousedown.prevent="pick(o)"
       >
         {{ o.label }}
@@ -92,15 +130,15 @@ function onEnter() {
   z-index: 30;
   top: 100%;
   left: 0;
-  right: 0;
+  min-width: 100%;
   max-height: 260px;
   overflow-y: auto;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 8px;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
-.combo-item { padding: 7px 10px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.combo-item:hover { background: #edf2f7; }
-.combo-item.active { background: #e6fffa; font-weight: 600; }
+.combo-item { padding: 8px 10px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.combo-item:hover, .combo-item.hi { background: var(--cream-hover); }
+.combo-item.active { background: var(--cream); font-weight: 700; color: var(--brand); }
 </style>

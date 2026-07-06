@@ -32,7 +32,9 @@ onMounted(async () => {
     <div class="card no-print">
       <input
         v-model="query"
+        type="search"
         style="width: 100%"
+        aria-label="ค้นหาเพลง"
         placeholder="ค้นหา: ชื่อเพลง หมายเลข เนื้อร้อง คีย์ หรือโน้ตตัวเลข (เช่น 5 5 6 1)"
       />
       <p v-if="dbError" class="muted" style="margin: 8px 0 0">

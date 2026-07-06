@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { supabase } from '../supabase.js'
-import { KEYS, TIME_SIGNATURES } from '../lib/chords.js'
+import { KEYS, TIME_SIGNATURES, chordOptions } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats } from '../lib/notation.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { diffSongRows } from '../lib/diff.js'
@@ -121,6 +121,9 @@ const previewContent = computed(() => ({
   bpm: opts.bpm || undefined,
   lines: lines.value.map(serializeLine),
 }))
+
+// valid chords only, diatonic chords of the current key listed first
+const chordOpts = computed(() => chordOptions(opts.key))
 
 // beats per bar vs. time signature — honest: unreadable input is an error, never a pass
 const expBeats = computed(() => expectedBeats(opts.timeSignature))
@@ -474,8 +477,8 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       </template>
       <template v-else>
         <form style="display: flex; gap: 8px; flex-wrap: wrap" @submit.prevent="login">
-          <input v-model="email" type="email" placeholder="อีเมลทีมงาน" required />
-          <input v-model="password" type="password" placeholder="รหัสผ่าน" required />
+          <input v-model="email" type="email" placeholder="อีเมลทีมงาน" aria-label="อีเมลทีมงาน" required />
+          <input v-model="password" type="password" placeholder="รหัสผ่าน" aria-label="รหัสผ่าน" required />
           <button type="submit">เข้าสู่ระบบ</button>
         </form>
         <p class="muted" style="margin: 8px 0 0">
@@ -537,17 +540,17 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     <!-- metadata -->
     <div class="card">
       <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
-        <input v-model.number="meta.number" type="number" placeholder="เลขเพลง" style="width: 90px" />
-        <input v-model="meta.title_th" placeholder="ชื่อเพลง (ไทย)" style="flex: 1; min-width: 180px" />
-        <input v-model="meta.title_en" placeholder="ชื่อเพลง (อังกฤษ ถ้ามี)" style="flex: 1; min-width: 160px" />
+        <input v-model.number="meta.number" type="number" placeholder="เลขเพลง" aria-label="เลขเพลง" style="width: 90px" />
+        <input v-model="meta.title_th" placeholder="ชื่อเพลง (ไทย)" aria-label="ชื่อเพลงภาษาไทย" style="flex: 1; min-width: 180px" />
+        <input v-model="meta.title_en" placeholder="ชื่อเพลง (อังกฤษ ถ้ามี)" aria-label="ชื่อเพลงภาษาอังกฤษ" style="flex: 1; min-width: 160px" />
         <label style="display: inline-flex; align-items: center; gap: 4px">คีย์:
-          <ComboSelect v-model="opts.key" :options="KEYS" width="80px" />
+          <ComboSelect v-model="opts.key" :options="KEYS" aria-label="คีย์เพลง" width="80px" />
         </label>
         <label style="display: inline-flex; align-items: center; gap: 4px">จังหวะ:
-          <ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom width="90px" />
+          <ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom aria-label="จังหวะของเพลง" width="90px" />
         </label>
         <label style="display: inline-flex; align-items: center; gap: 4px">♩=
-          <input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" style="width: 75px" />
+          <input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" aria-label="ความเร็วเพลง BPM" style="width: 75px" />
         </label>
       </div>
     </div>
@@ -565,6 +568,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       <span class="muted" style="margin-left: 6px">
         1 ช่อง = 1 โน้ต · Enter/เว้นวรรค = ช่องถัดไป · ลูกศร ← → เลื่อนช่อง · แตะช่องแล้วจิ้มสัญลักษณ์ได้
       </span>
+      <router-link class="pk-info" :to="{ path: '/guide', hash: '#notation' }" aria-label="คู่มือโน้ตตัวเลข">i</router-link>
     </div>
 
     <!-- line editor -->
@@ -596,10 +600,10 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
             </span>
           </div>
           <div v-for="(seg, si) in bar.segments" :key="si" class="seg-row">
-            <input v-model="seg.chord" placeholder="คอร์ด" class="seg-chord" />
+            <ComboSelect v-model="seg.chord" :options="chordOpts" placeholder="คอร์ด" aria-label="เลือกคอร์ด" width="86px" />
             <NoteBoxes v-model="seg.note" />
-            <input v-model="seg.lyric" placeholder="เนื้อร้อง" class="seg-lyric" />
-            <button class="secondary tiny" @click="removeSegment(bar, si)">✕</button>
+            <input v-model="seg.lyric" placeholder="เนื้อร้อง" aria-label="เนื้อร้อง" class="seg-lyric" />
+            <button class="secondary tiny" aria-label="ลบช่องนี้" @click="removeSegment(bar, si)">✕</button>
           </div>
           <button class="secondary tiny" @click="addSegment(bar)">+ คอร์ดใหม่ในห้องนี้</button>
         </div>
@@ -655,7 +659,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     <!-- live preview -->
     <div class="card">
       <h3 style="margin-top: 0">ตัวอย่างแผ่นเพลง</h3>
-      <h2 style="color: var(--blue)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
+      <h2 style="color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
       <p class="muted">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
       <SongSheet :content="previewContent" mode="full" chord-system="letter" :display-key="opts.key" />
     </div>
@@ -702,14 +706,14 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
   white-space: nowrap;
   overflow-x: auto;
 }
-.seg-row { display: flex; gap: 4px; margin-bottom: 4px; align-items: center; }
-.seg-chord { width: 64px; color: var(--red); font-weight: 700; }
-.seg-note { width: 120px; color: var(--blue); font-family: 'Courier New', monospace; font-weight: 700; }
+.seg-row { display: flex; gap: 4px; margin-bottom: 6px; align-items: center; flex-wrap: wrap; }
+.seg-row :deep(.combo input) { color: var(--chord-red); font-weight: 700; }
 .seg-lyric { width: 110px; }
-.tiny { padding: 2px 8px; font-size: 12px; }
+/* small buttons still meet the 24x24 target size (WCAG 2.2 2.5.8) */
+.tiny { padding: 4px 10px; font-size: 13px; min-height: 28px; min-width: 28px; }
 .role-badge {
-  background: #e6fffa;
-  color: #234e52;
+  background: var(--cream);
+  color: var(--brand);
   border-radius: 10px;
   padding: 2px 10px;
   font-size: 13px;

@@ -1,75 +1,190 @@
 :root {
-  --blue: #2b6cb0;
-  --teal: #319795;
-  --red: #c53030;
-  --ink: #2d3748;
-  --muted: #718096;
-  --line: #e2e8f0;
-  --bg: #f7fafc;
+  /* Warm Study Room — same tokens as phrakham.life2 (see memory/pleng-ui-sop) */
+  --brand: #8b4513;
+  --ink: #2d2a26;
+  --muted: #757575;      /* 4.6:1 on white — AA */
+  --cream: #faf6f0;
+  --cream-hover: #f7f1e8;
+  --line: #e0d6c8;
+  --bg: #ffffff;
+  --footer-ink: #7a6a4e; /* 5:1 */
+  --stamp-ink: #827356;  /* 4.63:1 */
+  /* functional notation colours (kept per พี่เอม 6-Jul-2026) */
+  --chord-red: #c0392b;  /* 5.2:1 on white */
+  --note-blue: #2b6cb0;  /* 5.0:1 on white */
+  --red: #c0392b;
 }
 
 * { box-sizing: border-box; }
 
+html { scroll-behavior: smooth; }
+
 body {
   margin: 0;
-  font-family: 'Segoe UI', 'Noto Sans Thai', Tahoma, sans-serif;
+  font-family: 'Noto Sans', 'Noto Sans Thai', system-ui, -apple-system, 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--ink);
-  line-height: 1.6;
+  font-size: 1.06rem;
+  line-height: 1.8;
 }
 
-a { color: var(--blue); text-decoration: none; }
+a { color: var(--brand); }
+h1, h2, h3 { color: var(--brand); line-height: 1.4; }
 
-.container { max-width: 860px; margin: 0 auto; padding: 16px; }
+/* Visible focus everywhere (WCAG 2.4.7 / 2.4.11) */
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); width: 18px; height: 18px; }
 
+.container { max-width: 900px; margin: 0 auto; padding: 16px; }
+
+/* ---------- header / nav ---------- */
 header.topbar {
-  background: var(--blue);
-  color: #fff;
-  padding: 10px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  padding: 8px 16px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   flex-wrap: wrap;
 }
-header.topbar .brand { font-weight: 700; font-size: 18px; color: #fff; }
-header.topbar nav a { color: #cfe3f7; margin-right: 12px; }
-header.topbar nav a.router-link-active { color: #fff; font-weight: 600; }
+header.topbar .brand {
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--brand);
+  text-decoration: none;
+  margin-right: auto;
+}
+.nav-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--ink);
+  min-width: 44px;
+  min-height: 44px;
+}
+nav.site-nav { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+nav.site-nav a {
+  color: var(--ink);
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: inline-block;
+}
+nav.site-nav a:hover { background: var(--cream-hover); }
+nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
 
+@media (max-width: 767.98px) {
+  .nav-toggle { display: inline-flex; align-items: center; justify-content: center; }
+  nav.site-nav { display: none; width: 100%; flex-direction: column; align-items: stretch; }
+  nav.site-nav.open { display: flex; }
+  nav.site-nav a { padding: 12px; border-top: 1px solid var(--line); border-radius: 0; }
+}
+
+/* navbar tools (download) — mirrors phrakham.life2 .pk-tool */
+.pk-tool { position: relative; display: flex; align-items: center; }
+.pk-tool-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 10px;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+.pk-tool-btn:hover { background: rgba(0, 0, 0, 0.06); }
+.pk-tool-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  padding: 0.35rem 0;
+  z-index: 2000;
+  min-width: 220px;
+}
+.pk-tool-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--ink);
+  padding: 0.6rem 1rem;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pk-tool-menu button:hover { background: var(--cream-hover); }
+
+/* contextual help (i) button */
+.pk-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--brand);
+  color: var(--brand);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-style: italic;
+  font-family: Georgia, serif;
+}
+.pk-info:hover { background: var(--brand); color: #fff; }
+
+/* ---------- buttons / inputs ---------- */
 button, .btn {
-  background: var(--teal);
+  background: var(--brand);
   color: #fff;
   border: none;
-  border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 15px;
-  cursor: pointer;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 0.95rem;
   font-family: inherit;
+  cursor: pointer;
+  min-height: 40px;
 }
+button:hover { background: #6d360f; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
-button.secondary { background: #edf2f7; color: var(--ink); }
+button.secondary { background: var(--cream); color: var(--ink); border: 1px solid var(--line); }
+button.secondary:hover { background: var(--cream-hover); }
 button.danger { background: var(--red); }
+button.danger:hover { background: #9c2d21; }
 
 input, select, textarea {
   font-family: inherit;
-  font-size: 15px;
-  padding: 8px 10px;
+  font-size: 0.95rem;
+  padding: 9px 10px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 8px;
   background: #fff;
   color: var(--ink);
+  min-height: 40px;
 }
 
 .card {
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 16px;
   margin-bottom: 12px;
 }
 
-.muted { color: var(--muted); font-size: 14px; }
+.muted { color: var(--muted); font-size: 0.85rem; }
 
-/* ---------- Song sheet ---------- */
+/* ---------- song sheet (functional colours preserved) ---------- */
 .song-line {
   margin-bottom: 20px;
   white-space: nowrap;
@@ -80,14 +195,14 @@ input, select, textarea {
 .segment .chord {
   display: block;
   font-weight: 700;
-  color: var(--red);
+  color: var(--chord-red);
   min-height: 22px;
   font-family: 'Courier New', monospace;
   font-size: 15px;
 }
 .segment .note {
   display: block;
-  color: var(--blue);
+  color: var(--note-blue);
   font-weight: 700;
   font-family: 'Courier New', monospace;
   min-height: 22px;
@@ -97,7 +212,7 @@ input, select, textarea {
 .bar-line {
   display: inline-block;
   vertical-align: top;
-  color: #cbd5e0;
+  color: #b3a894;
   font-weight: 700;
   margin: 0 8px;
   padding-top: 22px;
@@ -115,11 +230,27 @@ input, select, textarea {
 }
 .sheet-mode-lyrics .section-marker { padding-top: 0; }
 
-/* ---------- Print (A4) ---------- */
+/* ---------- footer: 2 centred lines like phrakham.life2 ---------- */
+footer.site-footer {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding: 0.6rem 1rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--footer-ink);
+}
+footer.site-footer a { color: var(--footer-ink); }
+.pk-build { font-size: 0.85em; color: var(--stamp-ink); white-space: nowrap; }
+
+/* ---------- print (A4) ---------- */
 @media print {
   @page { margin: 0; }
   body { background: #fff; padding: 15mm 20mm; }
-  .no-print { display: none !important; }
+  .no-print, footer.site-footer, header.topbar { display: none !important; }
   .card { border: none; padding: 0; }
   .song-line { overflow-x: visible; break-inside: avoid; }
 }

@@ -111,13 +111,13 @@ function addBox() {
   font-family: 'Courier New', monospace;
   font-weight: 700;
   font-size: 15px;
-  color: var(--blue);
+  color: var(--note-blue);
   background: #f7fafc;
   border: 1px solid var(--line);
   border-radius: 5px;
   padding: 7px 2px;
 }
-.note-box:focus { background: #fff; border-color: var(--teal); outline: none; }
+.note-box:focus { background: #fff; border-color: var(--brand); outline: none; }
 .note-box.add {
   width: 30px;
   color: var(--muted);

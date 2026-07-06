@@ -62,3 +62,24 @@ export function displayChord(chord, { system, originalKey, displayKey }) {
 
 // Common time signatures, most-used first; the input also accepts any custom n/d.
 export const TIME_SIGNATURES = ['4/4', '3/4', '2/4', '6/8', '2/2', '3/2', '6/4', '9/8', '12/8', '5/4', '7/8']
+
+// Valid chord list for the Studio chord picker — diatonic chords of the song's
+// key come first (what a worship song almost always uses), then everything else.
+const ALL_ROOTS = [...new Set([...SHARP_SCALE, ...FLAT_SCALE])]
+const QUALITIES = ['', 'm', '7', 'm7', 'maj7', 'sus4', 'sus2', 'dim', '6', 'm6', '9', 'add9']
+
+export function chordOptions(key) {
+  const k = noteIndex(key)
+  const scale = FLAT_KEYS.has(key) ? FLAT_SCALE : SHARP_SCALE
+  const deg = (offset, suffix) => scale[(k + offset) % 12] + suffix
+  const diatonic =
+    k === -1
+      ? []
+      : [deg(0, ''), deg(2, 'm'), deg(4, 'm'), deg(5, ''), deg(7, ''), deg(7, '7'), deg(9, 'm'), deg(11, 'dim')]
+  const rest = ALL_ROOTS.flatMap((r) => QUALITIES.map((q) => r + q)).filter((c) => !diatonic.includes(c))
+  return [
+    { value: '', label: '— ไม่มีคอร์ด —' },
+    ...diatonic.map((c) => ({ value: c, label: `${c} (คีย์ ${key})` })),
+    ...rest.map((c) => ({ value: c, label: c })),
+  ]
+}
