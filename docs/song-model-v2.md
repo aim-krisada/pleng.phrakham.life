@@ -122,6 +122,34 @@ Tokenizing a verse's lyric line on spaces AND hyphens gives the syllable slots; 
 count must equal `syllableSlots(stanza)` or the song is flagged for manual review
 (never guess). Edge cases beyond this (clusters, special finals) deferred.
 
+## Hand-off status (6-Jul-2026)
+
+**Done, verified, live** (this describes reality, not a plan):
+- Step 1 — `notation.js syllableSlots()` + `songModel.js resolveContent()`; reader
+  (`SongView`/`SongSheet`) and playback (`midi.js`) render/play BOTH v1 `lines` and
+  v2 `stanzas+arrangement`. No change to existing songs.
+- Step 5 core — `songModel.js migrateToV2()` + `splitSyllables`/`joinSyllables`;
+  v1→v2 round-trips exactly for cleanly-aligned songs, flags mismatches for review,
+  preserves the "ส-ถิตย์" hyphen convention.
+
+**Next up — step 2: Studio v2 authoring (NOT started).** The big piece. Plan:
+- Reuse the existing bar/segment editor by making `lines` a computed that points at
+  the active stanza's lines (`stanzas[activeStanza].lines`), so the bar-editing code
+  is untouched. Add stanza tabs + an Arrangement panel (rows: pick stanza, label,
+  lyric text, optional key). Hide the per-segment lyric field in stanza mode.
+- `previewContent` builds v2; `applyRow`/load: if v2 load directly, if v1 call
+  `migrateToV2` (this is the "Claude seeds, พี่เปา fixes" flow — auto-split syllables
+  then the author corrects). Serialize verse lyric via `splitSyllables`.
+- Update `snapshotState`/`applyState` (undo) and play (`resolveContent(previewContent)`).
+- **CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
+  human to save a v2 draft → reopen → publish. song_revisions + git make it revertable.
+- Then step 3 (per-syllable highlight, replaces segment-level), step 4 (print stacking
+  = paper-saving 1B).
+
+Decisions locked: screen = spelled-out follow-along (not book-stacked); print = stacked
+(paper-saving); highlight will move to per-syllable; do all this BEFORE batch-keying
+the ~100-song YS 2014 hymnbook (avoid re-keying).
+
 ## Open questions
 - Do this BEFORE the YS 2014 ~100-song batch (recommended — avoids re-keying).
 - Per-syllable highlight replaces the current segment-level highlight — confirm.
