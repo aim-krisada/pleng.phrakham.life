@@ -163,6 +163,12 @@ logged-in human).** Built in `Studio.vue`:
   fine-align both work. Arrangement rows now store `syllables[]` (not a joined string).
   "เที่ยว" renamed to "ข้อ" throughout. Browser-verified: 125 boxes on song #1, 22 red
   gaps, editing a box updates the count + textarea live, hide/show + reverse sync work.
+- **Slot shift tools** (พี่เอม's idea — one missing syllable mid-verse shifts every later
+  word off its note): focusing a syllable box pops ◀ ▶ above it. ▶ opens a blank at that
+  slot and ripples the rest of the ข้อ right; ◀ drops the slot and ripples left — both
+  across the whole verse (past bars/lines), so re-aligning is one click, not a retype.
+  Tools show only on the focused box (`@mousedown.prevent` keeps focus through the click).
+  Browser-verified: push/pull ripple the tail and keep focus, count stays consistent.
 - **STILL CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
   human to save a v2 draft → reopen → publish. song_revisions + git make it revertable.
 

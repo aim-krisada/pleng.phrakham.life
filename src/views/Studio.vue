@@ -187,6 +187,27 @@ function setSyl(row, i, val) {
   arr[i] = val.trim()
   while (arr.length && arr[arr.length - 1] === '') arr.pop()
 }
+
+// ---------- align helpers (shift the whole verse to re-align with the notes) ----------
+// A missing/extra syllable in the middle shifts every later word off its note. These
+// insert/remove one slot and RIPPLE the rest across the whole ข้อ (past bars & lines).
+const focusedSlot = ref(-1) // global slot index whose ◀ ▶ tools are shown
+function slotIdx(li, bi, si, k) {
+  return (slotStarts.value[`${li}-${bi}-${si}`] ?? 0) + k - 1
+}
+// ▶ push: open a blank at slot i, everything from i shifts right
+function pushSlot(i) {
+  if (!lensRow.value) return
+  const arr = lensRow.value.syllables
+  while (arr.length < i) arr.push('')
+  arr.splice(i, 0, '')
+}
+// ◀ pull: drop slot i, everything after it shifts left
+function pullSlot(i) {
+  if (!lensRow.value) return
+  const arr = lensRow.value.syllables
+  if (i < arr.length) arr.splice(i, 1)
+}
 // point the lens at the first row that uses the active stanza (or hide it)
 function resetLens() {
   lensChoice.value = arrangement.value.findIndex((r) => r.stanza === activeStanzaId.value)
@@ -982,15 +1003,21 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
             <ComboSelect v-model="seg.chord" :options="chordOpts" placeholder="คอร์ด" aria-label="เลือกคอร์ด" width="120px" />
             <NoteBoxes v-model="seg.note" />
             <span v-if="lensActive && segSlotCount(seg.note)" class="syl-boxes">
-              <input
-                v-for="k in segSlotCount(seg.note)"
-                :key="k"
-                class="syl-box"
-                :class="{ 'syl-empty': !sylAt(lensRow, slotStarts[`${li}-${bi}-${si}`] + k - 1) }"
-                :value="sylAt(lensRow, slotStarts[`${li}-${bi}-${si}`] + k - 1)"
-                :aria-label="`พยางค์ที่ ${slotStarts[`${li}-${bi}-${si}`] + k}`"
-                @input="setSyl(lensRow, slotStarts[`${li}-${bi}-${si}`] + k - 1, $event.target.value)"
-              />
+              <span v-for="k in segSlotCount(seg.note)" :key="k" class="syl-slot">
+                <span v-if="focusedSlot === slotIdx(li, bi, si, k)" class="slot-tools">
+                  <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(slotIdx(li, bi, si, k))">◀</button>
+                  <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(slotIdx(li, bi, si, k))">▶</button>
+                </span>
+                <input
+                  class="syl-box"
+                  :class="{ 'syl-empty': !sylAt(lensRow, slotIdx(li, bi, si, k)) }"
+                  :value="sylAt(lensRow, slotIdx(li, bi, si, k))"
+                  :aria-label="`พยางค์ที่ ${slotIdx(li, bi, si, k) + 1}`"
+                  @focus="focusedSlot = slotIdx(li, bi, si, k)"
+                  @blur="focusedSlot = -1"
+                  @input="setSyl(lensRow, slotIdx(li, bi, si, k), $event.target.value)"
+                />
+              </span>
             </span>
             <button class="secondary tiny" aria-label="ลบช่องนี้" @click="removeSegment(bar, si)">✕</button>
           </div>
@@ -1200,6 +1227,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 /* verse lens: syllable inputs sitting under a segment's notes */
 .lens-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }
 .syl-boxes { display: inline-flex; gap: 3px; flex-wrap: wrap; align-items: center; }
+.syl-slot { position: relative; display: inline-flex; }
 .syl-box {
   width: 54px;
   padding: 3px 4px;
@@ -1210,6 +1238,24 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
   min-height: 30px;
 }
 .syl-box.syl-empty { border-color: var(--red); background: #fff5f5; }
+/* ◀ ▶ align tools float above the focused syllable box, no layout shift */
+.slot-tools {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  margin-bottom: 3px;
+  padding: 2px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 5;
+  white-space: nowrap;
+}
+.slot-btn { min-width: 30px; min-height: 26px; padding: 2px 6px; font-size: 12px; }
 /* arrangement rows */
 .arr-row {
   border: 1px dashed var(--line);
