@@ -31,25 +31,29 @@ function tokenBeats(t, tripletFactor) {
   return d * tripletFactor
 }
 
-// Flatten a song's content into [{ midi, beats, li, bi }] (midi null = rest).
-// li/bi = source line and bar indices, used to highlight the playing bar.
+// Flatten a song's content into [{ midi, beats, li, bi, si }] (midi null = rest).
+// li/bi = line and bar indices; si = segment index within the line (counts every
+// segment item, matching SongSheet) — used for follow-along highlight + auto-scroll.
 export function songToNotes(content) {
   const root = KEY_MIDI[content.key] ?? 60
   const notes = []
   ;(content.lines || []).forEach((line, li) => {
     let bi = 0
+    let si = -1
     for (const item of line) {
       if (item.type === 'bar') {
         bi++
         continue
       }
-      if (item.type !== 'segment' || !item.note) continue
+      if (item.type !== 'segment') continue
+      si++
+      if (!item.note) continue
       for (const g of groupNotes(parseNotes(item.note))) {
         const f = g.group === 'triplet' ? 2 / 3 : 1
         for (const t of g.tokens) {
           if (t.type === 'note') {
             if (t.pitch === '0') {
-              notes.push({ midi: null, beats: tokenBeats(t, f), li, bi })
+              notes.push({ midi: null, beats: tokenBeats(t, f), li, bi, si })
             } else {
               let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
               if (t.accidental === '#') midi += 1
@@ -60,7 +64,7 @@ export function songToNotes(content) {
                 last.beats += tokenBeats(t, f)
                 last.tieOpen = !!t.tieStart
               } else {
-                notes.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, li, bi })
+                notes.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, li, bi, si })
               }
             }
           } else if (t.type === 'ext' && notes.length) {

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
@@ -19,6 +19,25 @@ const displayKey = ref('')
 const playing = ref(false)
 const loop = ref(false)
 const tempo = ref(92)
+
+// follow-along: which segment is sounding + a text-size control (bug 014)
+const playingSeg = ref(null)
+const sheetWrap = ref(null)
+const fontScale = ref(1) // rem multiplier for the sheet
+function bumpFont(d) {
+  fontScale.value = Math.min(2.2, Math.max(0.8, Math.round((fontScale.value + d) * 10) / 10))
+}
+
+// Keep the sounding segment in view without the user scrolling (the real ask:
+// big text stays usable because the page follows playback).
+watch(playingSeg, async (seg) => {
+  if (!seg || !sheetWrap.value) return
+  await nextTick()
+  const el = sheetWrap.value.querySelector(`[data-seg="${seg.li}-${seg.si}"]`)
+  if (!el) return
+  const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  el.scrollIntoView({ block: 'nearest', inline: 'center', behavior: smooth ? 'smooth' : 'auto' })
+})
 
 const tempoOptions = computed(() => {
   const base = song.value?.content?.bpm
@@ -54,14 +73,17 @@ async function togglePlay() {
   if (playing.value) {
     stopPlayback()
     playing.value = false
+    playingSeg.value = null
     return
   }
   playing.value = true
   await playSong(song.value.content, {
     bpm: Number(tempo.value) || song.value.content.bpm || 92,
     loop: loop.value,
+    onNote: (n) => { playingSeg.value = { li: n.li, si: n.si } },
   })
   playing.value = false
+  playingSeg.value = null
 }
 </script>
 
@@ -96,6 +118,10 @@ async function togglePlay() {
       <label style="display: inline-flex; align-items: center; gap: 4px">
         <input v-model="loop" type="checkbox" /> วนซ้ำ
       </label>
+      <span class="font-ctl" role="group" aria-label="ขนาดตัวอักษร">
+        <button class="secondary tiny" aria-label="ตัวอักษรเล็กลง" :disabled="fontScale <= 0.8" @click="bumpFont(-0.1)">ก−</button>
+        <button class="secondary tiny" aria-label="ตัวอักษรใหญ่ขึ้น" :disabled="fontScale >= 2.2" @click="bumpFont(0.1)">ก+</button>
+      </span>
       <router-link class="pk-info" :to="{ path: '/guide', hash: '#howto-song' }" aria-label="วิธีใช้หน้านี้">i</router-link>
     </div>
 
@@ -109,12 +135,15 @@ async function togglePlay() {
         · {{ song.content.timeSignature }}
         <template v-if="song.content.bpm"> · ♩= {{ song.content.bpm }}</template>
       </p>
-      <SongSheet
-        :content="song.content"
-        :mode="mode"
-        :chord-system="chordSystem"
-        :display-key="displayKey"
-      />
+      <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: fontScale + 'rem' }">
+        <SongSheet
+          :content="song.content"
+          :mode="mode"
+          :chord-system="chordSystem"
+          :display-key="displayKey"
+          :playing-seg="playingSeg"
+        />
+      </div>
     </div>
   </div>
 </template>

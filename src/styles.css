@@ -202,24 +202,35 @@ input, select, textarea {
   overflow-x: auto;
   padding-bottom: 4px;
 }
+/* Sizes are in em so the song sheet scales as one unit with the ก−/ก+ control
+   (the .sheet-scale wrapper sets font-size). 1rem base = the original px sizes. */
 .segment { display: inline-block; vertical-align: top; margin-right: 6px; }
 .segment .chord {
   display: block;
   font-weight: 700;
   color: var(--chord-red);
-  min-height: 22px;
+  min-height: 1.375em;
   font-family: 'Courier New', monospace;
-  font-size: 15px;
+  font-size: 0.94em;
 }
 .segment .note {
   display: block;
   color: var(--note-blue);
   font-weight: 700;
   font-family: 'Courier New', monospace;
-  min-height: 22px;
-  font-size: 15px;
+  min-height: 1.375em;
+  font-size: 0.94em;
 }
-.segment .lyric { display: block; font-size: 17px; }
+.segment .lyric { display: block; font-size: 1.06em; }
+/* bug 010: spread the melody numbers across the segment width (set by the wider
+   lyric) instead of packing them left with a trailing gap. Song sheet only. */
+.song-line .segment .note .note-row { display: flex; width: 100%; justify-content: space-around; }
+/* follow-along highlight: the segment (notes + lyric + chord) sounding now */
+.segment.seg-playing {
+  background: rgba(139, 69, 19, 0.13);
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px rgba(139, 69, 19, 0.13);
+}
 /* bar line: a real full-height rule (border so it also prints), spanning the
    chord + note rows down to the lyrics — not a floating "|" glyph */
 .bar-line {
@@ -227,10 +238,12 @@ input, select, textarea {
   vertical-align: top;
   width: 0;
   border-left: 2px solid #8a7a62;
-  height: 52px;
-  margin: 16px 10px 0;
+  height: 3.25em;
+  margin: 1em 0.6em 0;
 }
 .sheet-mode-lyrics .bar-line { display: none; }
+.font-ctl { display: inline-flex; gap: 3px; }
+.font-ctl button { min-width: 42px; min-height: 40px; padding: 6px 10px; }
 .section-marker {
   display: inline-block;
   vertical-align: top;
