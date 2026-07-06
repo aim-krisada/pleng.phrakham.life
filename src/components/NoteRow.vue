@@ -21,8 +21,9 @@ const groups = computed(() => groupNotes(parseNotes(props.notes)))
         <template v-if="t.type === 'note'">
           <!-- octave dots stay centred on the DIGIT; the augmentation dot sits
                beside it (absolute) so it never pushes the octave dots off-centre -->
+          <span v-if="t.fermata" class="fermata" aria-hidden="true"></span>
           <span class="dots-hi">{{ '•'.repeat(t.high) || ' ' }}</span>
-          <span :class="['num', 'u' + t.underlines]">{{ t.accidental === '#' ? '♯' : t.accidental === 'b' ? '♭' : '' }}{{ t.pitch }}<span v-if="t.dotted" class="aug" aria-hidden="true">•</span></span>
+          <span :class="['num', 'u' + t.underlines]"><span v-if="t.accidental" class="acc">{{ t.accidental === '#' ? '♯' : '♭' }}</span>{{ t.pitch }}<span v-if="t.dotted" class="aug" aria-hidden="true">•</span></span>
           <span class="dots-lo">{{ '•'.repeat(t.low) || ' ' }}</span>
         </template>
         <template v-else-if="t.type === 'ext'">
@@ -67,6 +68,36 @@ const groups = computed(() => groupNotes(parseNotes(props.notes)))
 .num.u1, .num.u2 { align-self: stretch; text-align: center; }
 .num.u1 { border-bottom: 1.5px solid currentColor; }
 .num.u2 { border-bottom: 4px double currentColor; }
+/* accidental: smaller than the digit, floated to its upper-left (book style) */
+.acc {
+  font-size: 0.62em;
+  position: relative;
+  top: -0.55em;
+  margin-right: 0.06em;
+}
+/* fermata: small arc with a centre dot floating above the note */
+.fermata {
+  position: absolute;
+  top: -0.35em;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0.75em;
+  height: 0.4em;
+  border: 1.5px solid currentColor;
+  border-bottom: none;
+  border-radius: 0.75em 0.75em 0 0 / 0.5em 0.5em 0 0;
+}
+.fermata::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0.03em;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 3px;
+  background: currentColor;
+  border-radius: 50%;
+}
 /* augmentation dot: same size as the octave dots, sitting on the digit's
    baseline just to its right (absolute so it never shifts the octave dots) */
 .aug {

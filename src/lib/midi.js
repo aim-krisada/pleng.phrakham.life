@@ -27,6 +27,7 @@ let stopFlag = { stopped: false }
 function tokenBeats(t, tripletFactor) {
   let d = 1 / 2 ** t.underlines
   if (t.dotted) d *= 1.5
+  if (t.fermata) d *= 1.75 // fermata: hold longer (playback only; bar counting ignores it)
   return d * tripletFactor
 }
 

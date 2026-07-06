@@ -38,14 +38,15 @@ function newBar() {
   return { segments: [newSegment()] }
 }
 function newLine() {
-  return { marker: '', cont: false, bars: [newBar()] }
+  return { marker: '', cont: false, label: '', bars: [newBar()] }
 }
 
 function deserializeLine(items) {
-  const line = { marker: '', cont: false, bars: [] }
+  const line = { marker: '', cont: false, label: '', bars: [] }
   let bar = { segments: [] }
   for (const it of items) {
     if (it.type === 'continue') line.cont = true
+    else if (it.type === 'label') line.label = it.text || ''
     else if (it.type === 'marker') line.marker = it.label || '***'
     else if (it.type === 'bar') {
       line.bars.push(bar)
@@ -70,6 +71,7 @@ function serializeLine(line) {
       items.push({ type: 'segment', chord: s.chord, note: s.note, lyric: s.lyric })
     }
   })
+  if (line.label?.trim()) items.push({ type: 'label', text: line.label.trim() })
   return items
 }
 
@@ -132,7 +134,7 @@ function fmt(n) {
 }
 
 // ---------- symbol palette ----------
-const PALETTE = ['1', '2', '3', '4', '5', '6', '7', '0', '-', '.', "'", '_', '~', '(', ')', '{', '}', '#', 'b']
+const PALETTE = ['1', '2', '3', '4', '5', '6', '7', '0', '-', '.', "'", '_', '~', '^', '(', ')', '{', '}', '#', 'b']
 let activeInput = null
 const activeLine = ref(0) // line the user last touched — target of the floating ▶
 function editorFocusIn(e, li) {
@@ -677,6 +679,12 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
           <input v-model="line.cont" type="checkbox" />
           ⤷ ต่อห้องจากบรรทัดก่อน
         </label>
+        <input
+          v-model="line.label"
+          placeholder="ป้าย เช่น Fine, D.C. al Fine"
+          aria-label="ข้อความกำกับท้ายบรรทัด"
+          style="width: 190px; min-height: 32px; padding: 4px 8px; font-size: 0.85rem"
+        />
         <button class="secondary" @click="playLine(li)">▶ ฟังบรรทัดนี้</button>
         <button class="secondary" @click="copyLine(li)">คัดลอกโครง</button>
         <button class="danger" @click="removeLine(li)">ลบบรรทัด</button>

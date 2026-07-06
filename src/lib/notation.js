@@ -51,8 +51,13 @@ export function parseNotes(str) {
         if (!beforeDigit || k - j >= 2) { dotted = true; j++ }
       }
       let tieStart = false
-      if (s[j] === '~') { tieStart = true; j++ }
-      tokens.push({ type: 'note', accidental, low, pitch, high, underlines, dotted, tieStart, tieEnd })
+      let fermata = false
+      while (s[j] === '~' || s[j] === '^') {
+        if (s[j] === '~') tieStart = true
+        else fermata = true
+        j++
+      }
+      tokens.push({ type: 'note', accidental, low, pitch, high, underlines, dotted, tieStart, tieEnd, fermata })
       i = j
     } else {
       // consumed prefix without a digit, or an unknown character → unreadable

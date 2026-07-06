@@ -29,6 +29,7 @@ function chordText(chord) {
         </span>
         <span v-else-if="item.type === 'bar' && mode === 'full'" class="bar-line">|</span>
         <span v-else-if="item.type === 'marker'" class="section-marker">{{ item.label }}</span>
+        <span v-else-if="item.type === 'label'" class="line-label">{{ item.text }}</span>
       </template>
     </div>
   </div>

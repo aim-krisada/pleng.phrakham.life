@@ -229,6 +229,19 @@ input, select, textarea {
   padding-top: 44px;
 }
 .sheet-mode-lyrics .section-marker { padding-top: 0; }
+/* directive text like "Fine" / "D.C. al Fine" — raised, small italic at its position */
+.line-label {
+  display: inline-block;
+  vertical-align: top;
+  font-size: 0.82em;
+  font-style: italic;
+  font-weight: 600;
+  color: var(--ink);
+  padding-top: 2px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.sheet-mode-lyrics .line-label { padding-top: 0; }
 
 /* ---------- footer: 2 centred lines like phrakham.life2 ---------- */
 footer.site-footer {
