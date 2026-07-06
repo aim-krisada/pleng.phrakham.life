@@ -139,7 +139,7 @@ on conflict (number) do update
 Write this to a temp file OUTSIDE the repo (e.g. your scratchpad), run it, then delete it.
 It checks every bar's beats against the time signature and every segment's syllable count.
 ```js
-import { parseNotes, beatCount, expectedBeats, syllableSlots } from './src/lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, attackSlots } from './src/lib/notation.js'
 import fs from 'node:fs'
 const song = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
 const c = song.content, exp = expectedBeats(c.timeSignature)
@@ -151,7 +151,7 @@ const c = song.content, exp = expectedBeats(c.timeSignature)
     if (exp != null && Math.abs(beats - exp) > 0.01)
       console.log(`line ${li+1} bar ${bi+1}: ${beats} beats (expected ${exp})`)
     bar.forEach(s => {
-      const need = syllableSlots(s.note), got = (s.lyric||'').split(/[\s-]+/).filter(Boolean).length
+      const need = attackSlots(s.note), got = (s.lyric||'').split(/[\s-]+/).filter(Boolean).length
       if (got && got !== need) console.log(`  seg "${s.note}": ${got} syllables vs ${need} notes`)
     })
   }
