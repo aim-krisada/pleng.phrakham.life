@@ -63,6 +63,9 @@ const groups = computed(() => groupNotes(parseNotes(props.notes)))
   letter-spacing: -1px;
 }
 .num { display: block; padding: 0 1px; }
+/* underlines stretch across the whole token so adjacent underlined notes join
+   into one continuous line, the way the hymnbook beams eighth notes */
+.num.u1, .num.u2 { align-self: stretch; text-align: center; }
 .num.u1 { border-bottom: 1.5px solid currentColor; }
 .num.u2 { border-bottom: 4px double currentColor; }
 /* augmentation dot: mid-height, just right of the digit (never above/below it) */
