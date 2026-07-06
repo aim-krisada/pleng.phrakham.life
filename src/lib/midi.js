@@ -50,22 +50,31 @@ export function songToNotes(content) {
       if (!item.note) continue
       for (const g of groupNotes(parseNotes(item.note))) {
         const f = g.group === 'triplet' ? 2 / 3 : 1
+        let prevMidi = null // last pitched note in THIS group (for slur-over-same-pitch)
         for (const t of g.tokens) {
           if (t.type === 'note') {
             if (t.pitch === '0') {
               notes.push({ midi: null, beats: tokenBeats(t, f), li, bi, si })
+              prevMidi = null
             } else {
               let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
               if (t.accidental === '#') midi += 1
               if (t.accidental === 'b') midi -= 1
               const last = notes[notes.length - 1]
-              if (t.tieEnd && last && last.midi === midi && last.tieOpen) {
-                // tied continuation of the same pitch: extend, do not re-attack
+              const explicitTie = t.tieEnd && last && last.midi === midi && last.tieOpen
+              // A slur arc over two notes of the SAME pitch is a tie: hold the note,
+              // do NOT re-attack the later one, but keep counting its beats. A slur
+              // over DIFFERENT pitches (เอื้อน) still plays every note. (bug 015)
+              const slurTie = g.group === 'slur' && prevMidi === midi && last && last.midi === midi
+              if (explicitTie) {
                 last.beats += tokenBeats(t, f)
                 last.tieOpen = !!t.tieStart
+              } else if (slurTie) {
+                last.beats += tokenBeats(t, f)
               } else {
                 notes.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, li, bi, si })
               }
+              prevMidi = midi
             }
           } else if (t.type === 'ext' && notes.length) {
             notes[notes.length - 1].beats += 1 * f
