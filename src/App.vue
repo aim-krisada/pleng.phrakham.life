@@ -34,6 +34,7 @@ watch(() => route.path, () => (menuOpen.value = false)) // close menu after navi
       <router-link to="/studio">ห้องทำเพลง</router-link>
       <router-link to="/guide">คู่มือ</router-link>
       <router-link to="/about">เกี่ยวกับเรา</router-link>
+      <a href="https://phrakham.life">พระคำ.ชีวิต</a>
     </nav>
   </header>
   <main class="container">

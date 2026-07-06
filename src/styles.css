@@ -39,7 +39,7 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); width:
 
 /* ---------- header / nav ---------- */
 header.topbar {
-  background: var(--bg);
+  background: #f8f9fa; /* family standard: same light-grey bar as phrakham.life's navbar */
   border-bottom: 1px solid var(--line);
   padding: 8px 16px;
   display: flex;
@@ -57,7 +57,7 @@ header.topbar .brand {
 button.nav-toggle {
   display: none;
   background: transparent;
-  border: 1px solid var(--line);
+  border: none; /* family standard: plain icon like phrakham.life's toggler */
   border-radius: 8px;
   padding: 8px 10px;
   cursor: pointer;
