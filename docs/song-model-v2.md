@@ -175,6 +175,12 @@ logged-in human).** Built in `Studio.vue`:
   (inserts the break there); Enter splits on any space already in the box, else just
   advances. Browser-verified: "พระเจ้า" + space after "พระ" → [พระ][เจ้า] with the tail
   rippled and the trailing blank absorbed, count +1, focus on the next box.
+- **Readable editor layout** (พี่เอม's 2nd-test refinements): bars now stack one per row
+  (full width) instead of side-by-side, so a whole bar reads as one horizontal line and
+  the next bar sits below it. The per-bar live preview renders notes **and** the chosen
+  verse's words together through the real render path (NoteRow + the sheet's
+  chord/note/lyric classes) — so it doubles as a render-engine check. Verified: preview
+  shows "…พระเจ้า เป็น ความ" under the notes, bars share one X and stack down the page.
 - **STILL CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
   human to save a v2 draft → reopen → publish. song_revisions + git make it revertable.
 

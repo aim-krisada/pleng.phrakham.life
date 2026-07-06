@@ -180,6 +180,13 @@ function segSlotCount(note) {
 function sylAt(row, i) {
   return row?.syllables[i] || ''
 }
+// the selected verse's words for one segment, joined for the live bar preview (so the
+// preview shows notes + lyrics through the real render path — NoteRow + sheet classes)
+function previewLyric(li, bi, si, seg) {
+  if (!lensRow.value) return ''
+  const start = slotStarts.value[`${li}-${bi}-${si}`] ?? 0
+  return joinSyllables(lensRow.value.syllables.slice(start, start + syllableSlots(seg.note || '')))
+}
 // write one syllable slot; pad gaps with '' and trim trailing blanks to stay tidy
 function setSyl(row, i, val) {
   const arr = row.syllables
@@ -1010,7 +1017,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
         <button class="secondary" @click="copyLine(li)">คัดลอกโครง</button>
         <button class="danger" @click="removeLine(li)">ลบบรรทัด</button>
       </div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch">
+      <div style="display: flex; flex-direction: column; gap: 8px; align-items: stretch">
         <div
           v-for="(bar, bi) in line.bars"
           :key="bi"
@@ -1029,11 +1036,13 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
               <button class="secondary tiny" aria-label="ลบห้องนี้" @click="removeBar(line, bi)">✕</button>
             </span>
           </div>
-          <!-- live render of this bar, exactly as the song sheet will show it -->
+          <!-- live render of this bar, exactly as the song sheet will show it —
+               notes + the chosen verse's words, through the real render path -->
           <div class="bar-preview">
             <span v-for="(seg, si) in bar.segments" :key="'p' + si" class="segment">
               <span class="chord">{{ seg.chord }}&nbsp;</span>
               <span class="note"><NoteRow :notes="seg.note" />&nbsp;</span>
+              <span v-if="lensActive" class="lyric">{{ previewLyric(li, bi, si, seg) }}&nbsp;</span>
             </span>
           </div>
           <div v-for="(seg, si) in bar.segments" :key="si" class="seg-row">
@@ -1238,9 +1247,9 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
   border: 1px dashed var(--line);
   border-radius: 8px;
   padding: 8px;
-  /* grow to fill the row so wide screens don't waste space on the right (bug 013) */
-  flex: 1 1 300px;
-  min-width: 240px;
+  /* one bar per row, full width, so a bar reads as a single horizontal line and the
+     next bar sits below it (easier to read words + notes than side-by-side bars) */
+  width: 100%;
 }
 .bar-head {
   display: flex;
@@ -1254,7 +1263,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 .bar-tools { display: flex; gap: 3px; flex-shrink: 0; }
 .bar-tools .tiny { padding: 4px 6px; }
 .bar-preview {
-  min-height: 40px;
+  min-height: 58px;
   border-bottom: 1px solid var(--line);
   margin-bottom: 6px;
   padding-bottom: 4px;
