@@ -220,6 +220,15 @@ logged-in human).** Built in `Studio.vue`:
   3. *End-of-song barline* — a per-line "‖ จบเพลง" toggle serializes `{type:'end'}` and
      SongSheet renders a final double barline (thin + thick). Also: the verse lens now
      auto-selects the first ข้อ when a song loads.
+- **Repeat + volta — phase A (render only)** — a bar can now carry `repeatStart` (‖:),
+  `repeatEnd` (:‖) and `volta` (1st/2nd ending). Serialized as `{type:'repeat-start'}`,
+  `{type:'repeat-end'}`, `{type:'volta',num}` in the line stream (resolveContent passes
+  them through). Editor: a per-bar "repeat-row" with two checkboxes + a "ห้องจบ" select.
+  SongSheet draws the repeat barlines (thick bar + two dots, dots on the correct side)
+  and a "1." / "2." volta tag. Verified: toggles render `.rep-start` / `.rep-end` /
+  `.volta-tag`. **Phase B still TODO — playback (midi.js) plays straight through; it does
+  not yet loop the repeat or skip the 1st ending on the 2nd pass.** Visual polish of the
+  dots/bracket needs a human eye (can't screenshot in this env).
 - **STILL CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
   human to save a v2 draft → reopen → publish. song_revisions + git make it revertable.
 

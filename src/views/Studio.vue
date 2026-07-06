@@ -38,8 +38,13 @@ watch(session, () => {
 function newSegment() {
   return { chord: '', note: '', lyric: '' }
 }
+// A bar can carry repeat marks: repeatStart '‖:' (loop back to here), repeatEnd ':‖'
+// (jump back to the last repeatStart), and volta 1/2 (this bar is the 1st / 2nd ending).
+function barShell() {
+  return { segments: [], repeatStart: false, repeatEnd: false, volta: 0 }
+}
 function newBar() {
-  return { segments: [newSegment()] }
+  return { ...barShell(), segments: [newSegment()] }
 }
 function newLine() {
   return { marker: '', cont: false, label: '', section: '', end: false, bars: [newBar()] }
@@ -47,16 +52,19 @@ function newLine() {
 
 function deserializeLine(items) {
   const line = { marker: '', cont: false, label: '', section: '', end: false, bars: [] }
-  let bar = { segments: [] }
+  let bar = barShell()
   for (const it of items) {
     if (it.type === 'continue') line.cont = true
     else if (it.type === 'section') line.section = it.name || ''
     else if (it.type === 'label') line.label = it.text || ''
     else if (it.type === 'end') line.end = true
     else if (it.type === 'marker') line.marker = it.label || '***'
+    else if (it.type === 'repeat-start') bar.repeatStart = true
+    else if (it.type === 'repeat-end') bar.repeatEnd = true
+    else if (it.type === 'volta') bar.volta = it.num || 0
     else if (it.type === 'bar') {
       line.bars.push(bar)
-      bar = { segments: [] }
+      bar = barShell()
     } else if (it.type === 'segment') {
       bar.segments.push({ chord: it.chord || '', note: it.note || '', lyric: it.lyric || '' })
     }
@@ -75,12 +83,16 @@ function serializeLine(line) {
   if (line.cont) items.push({ type: 'continue' })
   if (line.marker) items.push({ type: 'marker', label: line.marker })
   line.bars.forEach((b, i) => {
-    if (i > 0) items.push({ type: 'bar' })
+    // a repeat-start IS the left barline; otherwise a plain barline between bars
+    if (b.repeatStart) items.push({ type: 'repeat-start' })
+    else if (i > 0) items.push({ type: 'bar' })
+    if (b.volta) items.push({ type: 'volta', num: b.volta })
     for (const s of b.segments) {
       const seg = { type: 'segment', chord: s.chord, note: s.note }
       if (s.lyric) seg.lyric = s.lyric
       items.push(seg)
     }
+    if (b.repeatEnd) items.push({ type: 'repeat-end' })
   })
   if (line.label?.trim()) items.push({ type: 'label', text: line.label.trim() })
   if (line.end) items.push({ type: 'end' })
@@ -1126,6 +1138,17 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
               <button class="secondary tiny" aria-label="ลบห้องนี้" @click="removeBar(line, bi)">✕</button>
             </span>
           </div>
+          <div class="repeat-row no-print">
+            <label><input v-model="bar.repeatStart" type="checkbox" /> ‖: เริ่มเล่นซ้ำ</label>
+            <label><input v-model="bar.repeatEnd" type="checkbox" /> :‖ วนกลับ</label>
+            <label>ห้องจบ:
+              <select v-model.number="bar.volta">
+                <option :value="0">— ไม่ใช่ —</option>
+                <option :value="1">รอบแรก (จบ 1)</option>
+                <option :value="2">รอบสอง (จบ 2)</option>
+              </select>
+            </label>
+          </div>
           <!-- one column per note: chord on top, note box, then the syllable box
                directly under its note (edit everything here — no duplicate preview) -->
           <div class="seg-strip">
@@ -1411,6 +1434,16 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 .bar-head > span:first-child { flex: 1; min-width: 0; }
 .bar-tools { display: flex; gap: 3px; flex-shrink: 0; }
 .bar-tools .tiny { padding: 4px 6px; }
+.repeat-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.repeat-row label { display: inline-flex; align-items: center; gap: 4px; }
 /* one bar = a strip of note-columns (chord / notes / syllable) that reads left to
    right; segments wrap only if the bar is very long */
 .seg-strip { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }

@@ -251,7 +251,53 @@ input, select, textarea {
   border-left: 2px solid #8a7a62;
   border-right: 4px solid #8a7a62;
 }
-.sheet-mode-lyrics .bar-line { display: none; }
+/* repeat marks: a thick barline + two dots (dots on the right = start ‖:, on the
+   left = end :‖). volta tag = a small "1." / "2." above the ending bars. */
+.repeat-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  vertical-align: top;
+  height: 3.25em;
+  margin: 1em 0.5em 0;
+}
+.repeat-mark .rep-bar {
+  display: inline-block;
+  width: 4px;
+  align-self: stretch;
+  background: #8a7a62;
+}
+.repeat-mark .rep-dots {
+  display: inline-block;
+  width: 5px;
+  align-self: stretch;
+  position: relative;
+}
+.repeat-mark .rep-dots::before,
+.repeat-mark .rep-dots::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #8a7a62;
+}
+.repeat-mark .rep-dots::before { top: 38%; }
+.repeat-mark .rep-dots::after { top: 55%; }
+.volta-tag {
+  align-self: flex-start;
+  color: var(--brand);
+  font-weight: 700;
+  font-size: 0.8em;
+  border-top: 1.5px solid var(--brand);
+  border-left: 1.5px solid var(--brand);
+  padding: 0 4px;
+  margin: 0 0 0 2px;
+}
+.sheet-mode-lyrics .bar-line,
+.sheet-mode-lyrics .repeat-mark,
+.sheet-mode-lyrics .bar-final { display: none; }
 /* section heading (ร้อง 1 / รับ) — its own full-width row above the section's bars */
 .section-label {
   flex-basis: 100%;

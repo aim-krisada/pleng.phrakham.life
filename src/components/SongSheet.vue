@@ -45,6 +45,15 @@ const renderLines = computed(() =>
       } else if (item.type === 'end') {
         flush()
         parts.push({ type: 'end' })
+      } else if (item.type === 'repeat-start') {
+        flush()
+        parts.push({ type: 'repeat-start' })
+      } else if (item.type === 'repeat-end') {
+        flush()
+        parts.push({ type: 'repeat-end' })
+      } else if (item.type === 'volta') {
+        flush()
+        parts.push({ type: 'volta', num: item.num })
       } else if (item.type === 'marker') {
         flush()
         parts.push({ type: 'marker', label: item.label })
@@ -71,6 +80,9 @@ function isPlaying(li, si) {
         <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
         <span v-else-if="part.type === 'label'" class="line-label">{{ part.text }}</span>
         <span v-else-if="part.type === 'end'" v-show="mode === 'full'" class="bar-line bar-final" aria-hidden="true"></span>
+        <span v-else-if="part.type === 'repeat-start'" v-show="mode === 'full'" class="repeat-mark rep-start" aria-label="เริ่มเล่นซ้ำ"><i class="rep-bar" /><i class="rep-dots" /></span>
+        <span v-else-if="part.type === 'repeat-end'" v-show="mode === 'full'" class="repeat-mark rep-end" aria-label="วนกลับไปเล่นซ้ำ"><i class="rep-dots" /><i class="rep-bar" /></span>
+        <span v-else-if="part.type === 'volta'" v-show="mode === 'full'" class="volta-tag">{{ part.num }}.</span>
         <span v-else class="bar-group">
           <span v-if="part.barLine && mode === 'full'" class="bar-line" aria-hidden="true"></span>
           <span
