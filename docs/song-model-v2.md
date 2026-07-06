@@ -169,6 +169,12 @@ logged-in human).** Built in `Studio.vue`:
   across the whole verse (past bars/lines), so re-aligning is one click, not a retype.
   Tools show only on the focused box (`@mousedown.prevent` keeps focus through the click).
   Browser-verified: push/pull ripple the tail and keep focus, count stays consistent.
+- **Space/Enter auto-split** in a syllable box: a box holding more than one syllable
+  (e.g. migration kept "พระเจ้า" as one) splits into one-per-box — first stays, the rest
+  ripple into the following notes — then focus advances. Space splits at the caret
+  (inserts the break there); Enter splits on any space already in the box, else just
+  advances. Browser-verified: "พระเจ้า" + space after "พระ" → [พระ][เจ้า] with the tail
+  rippled and the trailing blank absorbed, count +1, focus on the next box.
 - **STILL CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
   human to save a v2 draft → reopen → publish. song_revisions + git make it revertable.
 

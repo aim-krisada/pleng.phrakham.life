@@ -208,6 +208,43 @@ function pullSlot(i) {
   const arr = lensRow.value.syllables
   if (i < arr.length) arr.splice(i, 1)
 }
+// Space/Enter inside a syllable box: split a multi-syllable box (e.g. "พระเจ้า" typed
+// as one) into one syllable per box — the first stays here, the rest ripple into the
+// following notes — then move focus on. Space splits at the caret; Enter splits on any
+// space already in the box, else just advances. Feels like the note-box entry.
+async function focusSlot(target) {
+  focusedSlot.value = target
+  await nextTick()
+  const el = document.querySelector(`[data-slot="${target}"]`)
+  if (el) {
+    el.focus()
+    const n = el.value.length
+    el.setSelectionRange?.(n, n)
+  }
+}
+function distribute(i, val) {
+  if (!lensRow.value) return
+  const arr = lensRow.value.syllables
+  const tokens = val.split(/\s+/).filter(Boolean)
+  while (arr.length <= i) arr.push('')
+  if (tokens.length <= 1) {
+    arr[i] = tokens[0] ?? ''
+    return focusSlot(i + 1) // nothing to split — just advance
+  }
+  arr[i] = tokens[0]
+  for (let j = tokens.length - 1; j >= 1; j--) arr.splice(i + 1, 0, tokens[j])
+  return focusSlot(i + tokens.length) // continue past the words we just placed
+}
+function onSylKey(e, i) {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    distribute(i, e.target.value)
+  } else if (e.key === ' ') {
+    e.preventDefault()
+    const c = e.target.selectionStart ?? e.target.value.length
+    distribute(i, e.target.value.slice(0, c) + ' ' + e.target.value.slice(c))
+  }
+}
 // point the lens at the first row that uses the active stanza (or hide it)
 function resetLens() {
   lensChoice.value = arrangement.value.findIndex((r) => r.stanza === activeStanzaId.value)
@@ -1012,9 +1049,11 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
                   class="syl-box"
                   :class="{ 'syl-empty': !sylAt(lensRow, slotIdx(li, bi, si, k)) }"
                   :value="sylAt(lensRow, slotIdx(li, bi, si, k))"
+                  :data-slot="slotIdx(li, bi, si, k)"
                   :aria-label="`พยางค์ที่ ${slotIdx(li, bi, si, k) + 1}`"
                   @focus="focusedSlot = slotIdx(li, bi, si, k)"
                   @blur="focusedSlot = -1"
+                  @keydown="onSylKey($event, slotIdx(li, bi, si, k))"
                   @input="setSyl(lensRow, slotIdx(li, bi, si, k), $event.target.value)"
                 />
               </span>
