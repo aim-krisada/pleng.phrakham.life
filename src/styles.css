@@ -196,12 +196,16 @@ input, select, textarea {
 .muted { color: var(--muted); font-size: 0.9rem; }
 
 /* ---------- song sheet (functional colours preserved) ---------- */
+/* wrap at bar boundaries instead of a horizontal scroll bar (bug 016) */
 .song-line {
   margin-bottom: 20px;
-  white-space: nowrap;
-  overflow-x: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   padding-bottom: 4px;
 }
+/* a bar stays together on one row — only whole bars wrap to the next line */
+.bar-group { display: inline-flex; align-items: flex-start; }
 /* Sizes are in em so the song sheet scales as one unit with the ก−/ก+ control
    (the .sheet-scale wrapper sets font-size). 1rem base = the original px sizes. */
 .segment { display: inline-block; vertical-align: top; margin-right: 6px; }

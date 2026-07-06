@@ -19,12 +19,36 @@ function chordText(chord) {
   })
 }
 
-// Tag each segment with its index within the line (counts every segment item, the
-// same way midi.js songToNotes does) so playback highlight + auto-scroll can target it.
+// Group each line into bar-units so the line can WRAP at bar boundaries (no
+// horizontal scroll) instead of overflowing — a bar never splits across rows.
+// Segments carry si (index within the line) for playback highlight + auto-scroll.
 const renderLines = computed(() =>
   (props.content.lines || []).map((line) => {
+    const parts = []
     let si = -1
-    return line.map((item) => (item.type === 'segment' ? { ...item, si: ++si } : item))
+    let bar = null
+    const flush = () => {
+      if (bar && bar.segments.length) parts.push(bar)
+      bar = null
+    }
+    for (const item of line) {
+      if (item.type === 'segment') {
+        si++
+        if (!bar) bar = { type: 'bar', barLine: false, segments: [] }
+        bar.segments.push({ ...item, si })
+      } else if (item.type === 'bar') {
+        flush()
+        bar = { type: 'bar', barLine: true, segments: [] }
+      } else if (item.type === 'marker') {
+        flush()
+        parts.push({ type: 'marker', label: item.label })
+      } else if (item.type === 'label') {
+        flush()
+        parts.push({ type: 'label', text: item.text })
+      }
+    }
+    flush()
+    return parts
   }),
 )
 
@@ -36,20 +60,23 @@ function isPlaying(li, si) {
 <template>
   <div :class="mode === 'lyrics' ? 'sheet-mode-lyrics' : ''">
     <div v-for="(line, li) in renderLines" :key="li" class="song-line">
-      <template v-for="(item, ii) in line" :key="ii">
-        <span
-          v-if="item.type === 'segment'"
-          class="segment"
-          :class="{ 'seg-playing': isPlaying(li, item.si) }"
-          :data-seg="`${li}-${item.si}`"
-        >
-          <span v-if="mode === 'full'" class="chord">{{ chordText(item.chord) }}&nbsp;</span>
-          <span v-if="mode === 'full'" class="note"><NoteRow :notes="item.note" />&nbsp;</span>
-          <span class="lyric">{{ item.lyric }}&nbsp;</span>
+      <template v-for="(part, pi) in line" :key="pi">
+        <span v-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
+        <span v-else-if="part.type === 'label'" class="line-label">{{ part.text }}</span>
+        <span v-else class="bar-group">
+          <span v-if="part.barLine && mode === 'full'" class="bar-line" aria-hidden="true"></span>
+          <span
+            v-for="seg in part.segments"
+            :key="seg.si"
+            class="segment"
+            :class="{ 'seg-playing': isPlaying(li, seg.si) }"
+            :data-seg="`${li}-${seg.si}`"
+          >
+            <span v-if="mode === 'full'" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
+            <span v-if="mode === 'full'" class="note"><NoteRow :notes="seg.note" />&nbsp;</span>
+            <span class="lyric">{{ seg.lyric }}&nbsp;</span>
+          </span>
         </span>
-        <span v-else-if="item.type === 'bar' && mode === 'full'" class="bar-line" aria-hidden="true"></span>
-        <span v-else-if="item.type === 'marker'" class="section-marker">{{ item.label }}</span>
-        <span v-else-if="item.type === 'label'" class="line-label">{{ item.text }}</span>
       </template>
     </div>
   </div>
