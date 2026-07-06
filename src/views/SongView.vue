@@ -5,6 +5,7 @@ import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { KEYS } from '../lib/chords.js'
 import { playSong, stopPlayback, TEMPO_MARKS } from '../lib/midi.js'
+import { resolveContent } from '../lib/songModel.js'
 import { currentSong } from '../store.js'
 import SongSheet from '../components/SongSheet.vue'
 import ComboSelect from '../components/ComboSelect.vue'
@@ -25,10 +26,16 @@ const playingSeg = ref(null)
 const playingSection = ref(null) // 'all' | section index | null (feature 003)
 const sheetWrap = ref(null)
 
-// Sections from the content: each line that begins with a {type:'section'} item
-// starts a section spanning to the line before the next section (feature 003).
+// Resolve v1 (content.lines) or v2 (stanzas + arrangement) into renderable content.
+// Both the sheet and playback read this, so v2 songs render and play like v1.
+const resolved = computed(() =>
+  song.value ? { ...song.value.content, lines: resolveContent(song.value.content) } : null,
+)
+
+// Sections from the resolved content: each line that begins with a {type:'section'}
+// item starts a section spanning to the line before the next section (feature 003).
 const sections = computed(() => {
-  const lines = song.value?.content?.lines || []
+  const lines = resolved.value?.lines || []
   const secs = []
   lines.forEach((line, li) => {
     const s = Array.isArray(line) ? line.find((it) => it.type === 'section') : null
@@ -96,8 +103,8 @@ async function startPlay(range, key) {
   const gen = ++playGen
   playing.value = true
   playingSection.value = key
-  await playSong(song.value.content, {
-    bpm: Number(tempo.value) || song.value.content.bpm || 92,
+  await playSong(resolved.value, {
+    bpm: Number(tempo.value) || resolved.value.bpm || 92,
     loop: loop.value,
     range,
     onNote: (n) => { playingSeg.value = { li: n.li, si: n.si } },
@@ -182,7 +189,7 @@ function playSection(idx) {
       </div>
       <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: fontScale + 'rem' }">
         <SongSheet
-          :content="song.content"
+          :content="resolved"
           :mode="mode"
           :chord-system="chordSystem"
           :display-key="displayKey"

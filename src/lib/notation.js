@@ -115,3 +115,23 @@ export function groupNotes(tokens) {
   }
   return out
 }
+
+// How many syllables a melody bears = number of ATTACK notes. A note takes no new
+// syllable when it is a held continuation: a rest (0), a '-' extension, an explicit
+// tie (~) of the same pitch, or a same-pitch note under a slur (a melisma/เอื้อน).
+// This is the count of lyric slots for one note string (song model v2 alignment).
+export function syllableSlots(noteString) {
+  let count = 0
+  for (const g of groupNotes(parseNotes(noteString))) {
+    let prevKey = null
+    for (const t of g.tokens) {
+      if (t.type !== 'note') continue // 'ext' (-) extends, never a new syllable
+      if (t.pitch === '0') { prevKey = null; continue } // rest: no syllable
+      const key = (t.accidental || '') + t.pitch + (t.high - t.low)
+      const held = (t.tieEnd && prevKey === key) || (g.group === 'slur' && prevKey === key)
+      if (!held) count++
+      prevKey = key
+    }
+  }
+  return count
+}
