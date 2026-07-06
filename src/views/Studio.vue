@@ -2,7 +2,7 @@
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, syllableSlots } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxBearing } from '../lib/notation.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { diffSongRows } from '../lib/diff.js'
@@ -42,16 +42,17 @@ function newBar() {
   return { segments: [newSegment()] }
 }
 function newLine() {
-  return { marker: '', cont: false, label: '', section: '', bars: [newBar()] }
+  return { marker: '', cont: false, label: '', section: '', end: false, bars: [newBar()] }
 }
 
 function deserializeLine(items) {
-  const line = { marker: '', cont: false, label: '', section: '', bars: [] }
+  const line = { marker: '', cont: false, label: '', section: '', end: false, bars: [] }
   let bar = { segments: [] }
   for (const it of items) {
     if (it.type === 'continue') line.cont = true
     else if (it.type === 'section') line.section = it.name || ''
     else if (it.type === 'label') line.label = it.text || ''
+    else if (it.type === 'end') line.end = true
     else if (it.type === 'marker') line.marker = it.label || '***'
     else if (it.type === 'bar') {
       line.bars.push(bar)
@@ -82,6 +83,7 @@ function serializeLine(line) {
     }
   })
   if (line.label?.trim()) items.push({ type: 'label', text: line.label.trim() })
+  if (line.end) items.push({ type: 'end' })
   return items
 }
 
@@ -179,6 +181,13 @@ const slotStarts = computed(() => {
 function segSlotCount(note) {
   return syllableSlots(note || '')
 }
+// One lyric cell per note box of a segment: { slot } for an attack note (a word box),
+// { slot: null } for a held '-' / rest / bar box (an empty spacer) — so each word lines
+// up under its note even when held notes sit in the middle.
+function sylCells(li, bi, si, note) {
+  let slot = slotStarts.value[`${li}-${bi}-${si}`] ?? 0
+  return noteBoxBearing(note).map((bear) => (bear ? { slot: slot++ } : { slot: null }))
+}
 // total notes the active stanza bears, and any syllables typed BEYOND that — shown as
 // note-less boxes so an overflow (more words than notes) is visible, never dropped.
 const activeSlotTotal = computed(() => stanzaSlots(activeStanzaId.value))
@@ -257,9 +266,14 @@ function onSylKey(e, i) {
     e.preventDefault()
     distribute(i, el.value)
   } else if (e.key === ' ') {
+    // Space inserts a syllable break at the caret: text before stays here, text after
+    // (even empty) moves to a new box and everything ripples right — so a space at the
+    // very start pushes the whole syllable right (bug: it used to do nothing).
     e.preventDefault()
     const c = el.selectionStart ?? el.value.length
-    distribute(i, el.value.slice(0, c) + ' ' + el.value.slice(c))
+    arr[i] = el.value.slice(0, c)
+    arr.splice(i + 1, 0, el.value.slice(c))
+    focusSlot(i + 1, 0)
   } else if (e.key === 'Backspace') {
     if (i > 0 && (el.selectionStart ?? 0) === 0 && (el.selectionEnd ?? 0) === 0) {
       e.preventDefault()
@@ -1079,6 +1093,10 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
           <input v-model="line.cont" type="checkbox" />
           ⤷ ต่อห้องจากบรรทัดก่อน
         </label>
+        <label style="display: inline-flex; align-items: center; gap: 4px">
+          <input v-model="line.end" type="checkbox" />
+          ‖ จบเพลง
+        </label>
         <input
           v-model="line.label"
           placeholder="ป้าย เช่น Fine, D.C. al Fine"
@@ -1134,23 +1152,26 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
                 </span>
               </div>
               <NoteBoxes v-model="seg.note" />
-              <span v-if="lensActive && segSlotCount(seg.note)" class="syl-boxes">
-                <span v-for="k in segSlotCount(seg.note)" :key="k" class="syl-slot">
-                  <span v-if="focusedSlot === slotIdx(li, bi, si, k)" class="slot-tools">
-                    <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(slotIdx(li, bi, si, k))">◀</button>
-                    <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(slotIdx(li, bi, si, k))">▶</button>
-                  </span>
-                  <input
-                    class="syl-box"
-                    :class="{ 'syl-empty': !sylAt(lensRow, slotIdx(li, bi, si, k)) }"
-                    :value="sylAt(lensRow, slotIdx(li, bi, si, k))"
-                    :data-slot="slotIdx(li, bi, si, k)"
-                    :aria-label="`พยางค์ที่ ${slotIdx(li, bi, si, k) + 1}`"
-                    @focus="focusedSlot = slotIdx(li, bi, si, k)"
-                    @blur="focusedSlot = -1"
-                    @keydown="onSylKey($event, slotIdx(li, bi, si, k))"
-                    @input="setSyl(lensRow, slotIdx(li, bi, si, k), $event.target.value)"
-                  />
+              <span v-if="lensActive" class="syl-boxes">
+                <span v-for="(cell, bx) in sylCells(li, bi, si, seg.note)" :key="bx" class="syl-slot">
+                  <template v-if="cell.slot !== null">
+                    <span v-if="focusedSlot === cell.slot" class="slot-tools">
+                      <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(cell.slot)">◀</button>
+                      <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(cell.slot)">▶</button>
+                    </span>
+                    <input
+                      class="syl-box"
+                      :class="{ 'syl-empty': !sylAt(lensRow, cell.slot) }"
+                      :value="sylAt(lensRow, cell.slot)"
+                      :data-slot="cell.slot"
+                      :aria-label="`พยางค์ที่ ${cell.slot + 1}`"
+                      @focus="focusedSlot = cell.slot"
+                      @blur="focusedSlot = -1"
+                      @keydown="onSylKey($event, cell.slot)"
+                      @input="setSyl(lensRow, cell.slot, $event.target.value)"
+                    />
+                  </template>
+                  <span v-else class="syl-spacer" aria-hidden="true"></span>
                 </span>
               </span>
               <button class="secondary tiny seg-del" aria-label="ลบช่องคอร์ดนี้" @click="removeSegment(bar, si)">✕ ลบ</button>
@@ -1426,6 +1447,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
    NoteBoxes so each word lines up under its note. nowrap keeps the columns aligned. */
 .syl-boxes { display: inline-flex; gap: 3px; flex-wrap: nowrap; align-items: center; }
 .syl-slot { position: relative; display: inline-flex; }
+.syl-spacer { display: inline-block; width: 46px; }
 .syl-box {
   width: 46px;
   padding: 6px 2px;

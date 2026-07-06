@@ -208,6 +208,18 @@ logged-in human).** Built in `Studio.vue`:
   change). The cells are 46px so a chord sits above its note. Verified on song #1: "+"
   on note 3 splits E[.5. .5_] + A[.5 .6] with syllables still aligned, and clearing A
   merges the notes back to one segment. Replaces the per-segment ComboSelect.
+- **Three fixes from the 4th test:**
+  1. *Words aligned under held/rest notes* — `notation.js noteBoxBearing()` gives a
+     syllable-bearing flag per note box; the lyric row now renders a word box under each
+     ATTACK note and an empty spacer under a held `-` / rest, so on "2 - - 1" the 2nd word
+     sits under the "1" (was mis-left-aligned under the first "-"). Verified dx=0. This
+     retires the earlier "middle rest/held" known-limit.
+  2. *Space pushes the syllable right* — Space now inserts a break at the caret (text
+     before stays, text after — even empty — moves to a new box and ripples), so a Space
+     at the very start of a box pushes that whole word right (used to do nothing).
+  3. *End-of-song barline* — a per-line "‖ จบเพลง" toggle serializes `{type:'end'}` and
+     SongSheet renders a final double barline (thin + thick). Also: the verse lens now
+     auto-selects the first ข้อ when a song loads.
 - **STILL CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
   human to save a v2 draft → reopen → publish. song_revisions + git make it revertable.
 

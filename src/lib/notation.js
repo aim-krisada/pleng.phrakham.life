@@ -135,3 +135,29 @@ export function syllableSlots(noteString) {
   }
   return count
 }
+
+// Per note-BOX (whitespace token, as the Studio editor shows them) flag: does this box
+// bear a syllable? Same held/rest logic as syllableSlots, but returned box-by-box so the
+// lyric editor can place a word box under each ATTACK note and an empty spacer under a
+// held '-' / rest / bar-structure box (so words stay aligned to their notes). Assumes the
+// editor convention of one note per box; a box with several notes counts only its first.
+export function noteBoxBearing(noteString) {
+  const t = (noteString || '').trim()
+  const boxes = t ? t.split(/\s+/) : ['']
+  const out = []
+  let prevKey = null
+  let slur = false
+  for (const b of boxes) {
+    if (b === '(') { slur = true; prevKey = null; out.push(false); continue }
+    if (b === ')') { slur = false; prevKey = null; out.push(false); continue }
+    if (b === '{' || b === '}') { prevKey = null; out.push(false); continue }
+    if (b === '-' || b === '–') { out.push(false); continue } // extension, holds prev
+    const note = parseNotes(b).find((x) => x.type === 'note')
+    if (!note || note.pitch === '0') { out.push(false); prevKey = null; continue } // raw/rest
+    const key = (note.accidental || '') + note.pitch + (note.high - note.low)
+    const held = (note.tieEnd && prevKey === key) || (slur && prevKey === key)
+    out.push(!held)
+    prevKey = key
+  }
+  return out
+}

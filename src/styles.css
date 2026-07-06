@@ -245,6 +245,12 @@ input, select, textarea {
   height: 3.25em;
   margin: 1em 0.6em 0;
 }
+/* end-of-song: a thin line then a thick line (final double barline ‖) */
+.bar-final {
+  width: 3px;
+  border-left: 2px solid #8a7a62;
+  border-right: 4px solid #8a7a62;
+}
 .sheet-mode-lyrics .bar-line { display: none; }
 /* section heading (ร้อง 1 / รับ) — its own full-width row above the section's bars */
 .section-label {
