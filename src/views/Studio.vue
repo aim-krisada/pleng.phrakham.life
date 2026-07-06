@@ -142,6 +142,8 @@ const resolvedPreview = computed(() => ({
 
 // valid chords only, diatonic chords of the current key listed first
 const chordOpts = computed(() => chordOptions(opts.key))
+// same list plus a "no chord" choice — picking it clears/merges a chord at a note
+const chordPickOpts = computed(() => [{ value: '', label: '— ไม่มีคอร์ด —', search: 'ไม่มี none clear' }, ...chordOpts.value])
 
 // ---------- verse lens (words under the notes) ----------
 // arrangement rows that link the stanza currently being edited
@@ -281,6 +283,52 @@ function resetLens() {
   lensChoice.value = arrangement.value.findIndex((r) => r.stanza === activeStanzaId.value)
 }
 watch(activeStanzaId, resetLens)
+
+// ---------- chord at a note box ----------
+// A chord lives on a segment (it covers all that segment's notes). To let the author
+// set/insert a chord right above ANY note, note box p of a segment gets a chord cell:
+// p===0 shows/edits the segment's own chord; p>0 splits the segment there into a new
+// segment that starts with the picked chord. Clearing the chord on a later segment's
+// first note merges it back (removes the chord change).
+const editingChord = ref(null) // { li, bi, si, p }
+function noteBoxCount(note) {
+  const t = (note || '').trim()
+  return t ? t.split(/\s+/).length : 1
+}
+function chordEditing(li, bi, si, p) {
+  const e = editingChord.value
+  return e && e.li === li && e.bi === bi && e.si === si && e.p === p
+}
+function openChord(li, bi, si, p) {
+  editingChord.value = chordEditing(li, bi, si, p) ? null : { li, bi, si, p }
+}
+function applyChordAt(bar, si, p, chord) {
+  const seg = bar.segments[si]
+  if (p === 0) {
+    if (!chord && si > 0) {
+      // clearing a later segment's chord merges its notes back into the previous one
+      const prev = bar.segments[si - 1]
+      prev.note = [prev.note, seg.note].filter((x) => x && x.trim()).join(' ')
+      bar.segments.splice(si, 1)
+    } else {
+      seg.chord = chord
+    }
+  } else if (chord) {
+    // split the segment at note p; the tail becomes a new segment with this chord
+    const toks = (seg.note || '').split(/\s+/).filter(Boolean)
+    seg.note = toks.slice(0, p).join(' ')
+    bar.segments.splice(si + 1, 0, { chord, note: toks.slice(p).join(' '), lyric: '' })
+  }
+  editingChord.value = null
+}
+function onChordOutside(e) {
+  if (!e.target.closest?.('.chord-cell')) editingChord.value = null
+}
+watch(editingChord, (v) => {
+  if (v) setTimeout(() => document.addEventListener('mousedown', onChordOutside), 0)
+  else document.removeEventListener('mousedown', onChordOutside)
+})
+onUnmounted(() => document.removeEventListener('mousedown', onChordOutside))
 
 // ---------- stanza (melody) operations ----------
 function nextStanzaId() {
@@ -1064,7 +1112,27 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
                directly under its note (edit everything here — no duplicate preview) -->
           <div class="seg-strip">
             <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col">
-              <ComboSelect v-model="seg.chord" :options="chordOpts" placeholder="คอร์ด" aria-label="เลือกคอร์ด" width="110px" />
+              <div class="chord-row">
+                <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell">
+                  <ComboSelect
+                    v-if="chordEditing(li, bi, si, p - 1)"
+                    :model-value="p - 1 === 0 ? seg.chord : ''"
+                    :options="p - 1 === 0 ? chordPickOpts : chordOpts"
+                    placeholder="คอร์ด"
+                    aria-label="เลือกคอร์ด"
+                    width="120px"
+                    class="chord-pick"
+                    @update:model-value="applyChordAt(bar, si, p - 1, $event)"
+                  />
+                  <button
+                    v-else
+                    class="chord-btn"
+                    :class="p - 1 === 0 && seg.chord ? 'chord-set' : 'chord-add'"
+                    :aria-label="p - 1 === 0 ? 'คอร์ดของช่วงนี้' : 'ใส่คอร์ดที่โน้ตนี้'"
+                    @click="openChord(li, bi, si, p - 1)"
+                  >{{ p - 1 === 0 && seg.chord ? seg.chord : '+' }}</button>
+                </span>
+              </div>
               <NoteBoxes v-model="seg.note" />
               <span v-if="lensActive && segSlotCount(seg.note)" class="syl-boxes">
                 <span v-for="k in segSlotCount(seg.note)" :key="k" class="syl-slot">
@@ -1328,6 +1396,29 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 .seg-col { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .seg-col :deep(.combo input) { color: var(--chord-red); font-weight: 700; }
 .seg-col :deep(.note-boxes) { flex-wrap: nowrap; }
+/* chord row: one cell above each note box (same 46px + 3px gap so it lines up) */
+.chord-row { display: flex; gap: 3px; flex-wrap: nowrap; min-height: 28px; }
+.chord-cell { position: relative; width: 46px; }
+.chord-btn {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  min-height: 26px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-weight: 700;
+}
+.chord-btn.chord-set { color: var(--chord-red); background: var(--cream); border: 1px solid var(--line); z-index: 2; }
+.chord-btn.chord-add {
+  color: var(--muted);
+  background: transparent;
+  border: 1px dashed var(--line);
+  font-weight: 400;
+  opacity: 0.5;
+}
+.chord-btn.chord-add:hover { opacity: 1; }
+.chord-pick { position: absolute; left: 0; top: 0; z-index: 20; }
 .seg-del { align-self: flex-start; color: var(--muted); padding: 2px 8px; }
 .seg-add { align-self: center; }
 .lens-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }

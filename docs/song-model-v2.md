@@ -201,6 +201,13 @@ logged-in human).** Built in `Studio.vue`:
   button. Known limit: syllable boxes left-align to note boxes, so a rest/held note in the
   MIDDLE of a segment can nudge alignment (rare; trailing-held aligns correctly).
   Chord entry stays the per-segment ComboSelect for now; chord-at-note-box is a later step.
+- **Chord-at-note-box (step 4, part 2)** — each note box now has a chord cell above it:
+  the segment's first note shows its chord, later notes show a faint "+". Picking a chord
+  on a "+" splits the segment there into a new one that starts with that chord; picking
+  "— ไม่มีคอร์ด —" on a later segment's first note merges it back (removes the chord
+  change). The cells are 46px so a chord sits above its note. Verified on song #1: "+"
+  on note 3 splits E[.5. .5_] + A[.5 .6] with syllables still aligned, and clearing A
+  merges the notes back to one segment. Replaces the per-segment ComboSelect.
 - **STILL CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
   human to save a v2 draft → reopen → publish. song_revisions + git make it revertable.
 
