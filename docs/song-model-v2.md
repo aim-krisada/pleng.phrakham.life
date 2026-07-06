@@ -193,6 +193,14 @@ logged-in human).** Built in `Studio.vue`:
   - a collapsible **paragraph editor** ("แก้เนื้อแบบย่อหน้า") edits the selected ข้อ as
     free text, two-way synced with the boxes — the "edit like a paragraph" path.
   - decision: no Thai auto-splitter — text-box-style space/hyphen editing is enough.
+- **2-row column layout (step 4, part 1)** — the duplicate render preview above each bar
+  was removed; the bar editor is now one WYSIWYG-ish surface: per segment a column of
+  chord / note boxes / syllable boxes, with each syllable box the same 46px width as its
+  note box so the word sits directly under its note (verified: dx=0 across a 4-note
+  segment). Bars still stack one per row. Full pretty render stays on the "👁 แผ่นเพลง"
+  button. Known limit: syllable boxes left-align to note boxes, so a rest/held note in the
+  MIDDLE of a segment can nudge alignment (rare; trailing-held aligns correctly).
+  Chord entry stays the per-segment ComboSelect for now; chord-at-note-box is a later step.
 - **STILL CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
   human to save a v2 draft → reopen → publish. song_revisions + git make it revertable.
 

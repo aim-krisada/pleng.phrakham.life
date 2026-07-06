@@ -8,7 +8,6 @@ import { songHaystack } from '../lib/songSearch.js'
 import { diffSongRows } from '../lib/diff.js'
 import { playSong, stopPlayback } from '../lib/midi.js'
 import SongSheet from '../components/SongSheet.vue'
-import NoteRow from '../components/NoteRow.vue'
 import NoteBoxes from '../components/NoteBoxes.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 
@@ -189,13 +188,6 @@ const overflowSlots = computed(() => {
 })
 function sylAt(row, i) {
   return row?.syllables[i] || ''
-}
-// the selected verse's words for one segment, joined for the live bar preview (so the
-// preview shows notes + lyrics through the real render path — NoteRow + sheet classes)
-function previewLyric(li, bi, si, seg) {
-  if (!lensRow.value) return ''
-  const start = slotStarts.value[`${li}-${bi}-${si}`] ?? 0
-  return joinSyllables(lensRow.value.syllables.slice(start, start + syllableSlots(seg.note || '')))
 }
 // write one syllable slot; pad gaps with '' and trim trailing blanks to stay tidy
 function setSyl(row, i, val) {
@@ -1068,40 +1060,35 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
               <button class="secondary tiny" aria-label="ลบห้องนี้" @click="removeBar(line, bi)">✕</button>
             </span>
           </div>
-          <!-- live render of this bar, exactly as the song sheet will show it —
-               notes + the chosen verse's words, through the real render path -->
-          <div class="bar-preview">
-            <span v-for="(seg, si) in bar.segments" :key="'p' + si" class="segment">
-              <span class="chord">{{ seg.chord }}&nbsp;</span>
-              <span class="note"><NoteRow :notes="seg.note" />&nbsp;</span>
-              <span v-if="lensActive" class="lyric">{{ previewLyric(li, bi, si, seg) }}&nbsp;</span>
-            </span>
-          </div>
-          <div v-for="(seg, si) in bar.segments" :key="si" class="seg-row">
-            <ComboSelect v-model="seg.chord" :options="chordOpts" placeholder="คอร์ด" aria-label="เลือกคอร์ด" width="120px" />
-            <NoteBoxes v-model="seg.note" />
-            <span v-if="lensActive && segSlotCount(seg.note)" class="syl-boxes">
-              <span v-for="k in segSlotCount(seg.note)" :key="k" class="syl-slot">
-                <span v-if="focusedSlot === slotIdx(li, bi, si, k)" class="slot-tools">
-                  <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(slotIdx(li, bi, si, k))">◀</button>
-                  <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(slotIdx(li, bi, si, k))">▶</button>
+          <!-- one column per note: chord on top, note box, then the syllable box
+               directly under its note (edit everything here — no duplicate preview) -->
+          <div class="seg-strip">
+            <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col">
+              <ComboSelect v-model="seg.chord" :options="chordOpts" placeholder="คอร์ด" aria-label="เลือกคอร์ด" width="110px" />
+              <NoteBoxes v-model="seg.note" />
+              <span v-if="lensActive && segSlotCount(seg.note)" class="syl-boxes">
+                <span v-for="k in segSlotCount(seg.note)" :key="k" class="syl-slot">
+                  <span v-if="focusedSlot === slotIdx(li, bi, si, k)" class="slot-tools">
+                    <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(slotIdx(li, bi, si, k))">◀</button>
+                    <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(slotIdx(li, bi, si, k))">▶</button>
+                  </span>
+                  <input
+                    class="syl-box"
+                    :class="{ 'syl-empty': !sylAt(lensRow, slotIdx(li, bi, si, k)) }"
+                    :value="sylAt(lensRow, slotIdx(li, bi, si, k))"
+                    :data-slot="slotIdx(li, bi, si, k)"
+                    :aria-label="`พยางค์ที่ ${slotIdx(li, bi, si, k) + 1}`"
+                    @focus="focusedSlot = slotIdx(li, bi, si, k)"
+                    @blur="focusedSlot = -1"
+                    @keydown="onSylKey($event, slotIdx(li, bi, si, k))"
+                    @input="setSyl(lensRow, slotIdx(li, bi, si, k), $event.target.value)"
+                  />
                 </span>
-                <input
-                  class="syl-box"
-                  :class="{ 'syl-empty': !sylAt(lensRow, slotIdx(li, bi, si, k)) }"
-                  :value="sylAt(lensRow, slotIdx(li, bi, si, k))"
-                  :data-slot="slotIdx(li, bi, si, k)"
-                  :aria-label="`พยางค์ที่ ${slotIdx(li, bi, si, k) + 1}`"
-                  @focus="focusedSlot = slotIdx(li, bi, si, k)"
-                  @blur="focusedSlot = -1"
-                  @keydown="onSylKey($event, slotIdx(li, bi, si, k))"
-                  @input="setSyl(lensRow, slotIdx(li, bi, si, k), $event.target.value)"
-                />
               </span>
-            </span>
-            <button class="secondary tiny" aria-label="ลบช่องนี้" @click="removeSegment(bar, si)">✕</button>
+              <button class="secondary tiny seg-del" aria-label="ลบช่องคอร์ดนี้" @click="removeSegment(bar, si)">✕ ลบ</button>
+            </div>
+            <button class="secondary tiny seg-add" @click="addSegment(bar)">+ คอร์ด</button>
           </div>
-          <button class="secondary tiny" @click="addSegment(bar)">+ คอร์ดใหม่ในห้องนี้</button>
         </div>
         <button class="secondary" style="align-self: center" @click="addBar(line)">+ ห้อง</button>
       </div>
@@ -1112,7 +1099,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
          over-count is visible and fixable, never silently dropped -->
     <div v-if="overflowSlots.length" class="card overflow-strip no-print">
       <strong style="color: var(--red)">⚠ เกินโน้ต {{ overflowSlots.length }} พยางค์ — ไม่มีโน้ตรองรับ (ดึงกลับ ◀ หรือลบทิ้ง)</strong>
-      <div class="syl-boxes" style="margin-top: 8px">
+      <div class="syl-boxes" style="margin-top: 8px; flex-wrap: wrap">
         <span v-for="i in overflowSlots" :key="i" class="syl-slot">
           <span v-if="focusedSlot === i" class="slot-tools">
             <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(i)">◀</button>
@@ -1335,27 +1322,26 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 .bar-head > span:first-child { flex: 1; min-width: 0; }
 .bar-tools { display: flex; gap: 3px; flex-shrink: 0; }
 .bar-tools .tiny { padding: 4px 6px; }
-.bar-preview {
-  min-height: 58px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 6px;
-  padding-bottom: 4px;
-  white-space: nowrap;
-  overflow-x: auto;
-}
-.seg-row { display: flex; gap: 4px; margin-bottom: 6px; align-items: center; flex-wrap: wrap; }
-.seg-row :deep(.combo input) { color: var(--chord-red); font-weight: 700; }
-/* verse lens: syllable inputs sitting under a segment's notes */
+/* one bar = a strip of note-columns (chord / notes / syllable) that reads left to
+   right; segments wrap only if the bar is very long */
+.seg-strip { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+.seg-col { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.seg-col :deep(.combo input) { color: var(--chord-red); font-weight: 700; }
+.seg-col :deep(.note-boxes) { flex-wrap: nowrap; }
+.seg-del { align-self: flex-start; color: var(--muted); padding: 2px 8px; }
+.seg-add { align-self: center; }
 .lens-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }
-.syl-boxes { display: inline-flex; gap: 3px; flex-wrap: wrap; align-items: center; }
+/* syllable boxes sit in the row under the note boxes — same 46px width + 3px gap as
+   NoteBoxes so each word lines up under its note. nowrap keeps the columns aligned. */
+.syl-boxes { display: inline-flex; gap: 3px; flex-wrap: nowrap; align-items: center; }
 .syl-slot { position: relative; display: inline-flex; }
 .syl-box {
-  width: 54px;
-  padding: 3px 4px;
+  width: 46px;
+  padding: 6px 2px;
   text-align: center;
   font-size: 0.95rem;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 5px;
   min-height: 30px;
 }
 .syl-box.syl-empty { border-color: var(--red); background: #fff5f5; }
