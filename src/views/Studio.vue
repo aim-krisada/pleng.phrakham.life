@@ -720,7 +720,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
             </span>
           </div>
           <div v-for="(seg, si) in bar.segments" :key="si" class="seg-row">
-            <ComboSelect v-model="seg.chord" :options="chordOpts" placeholder="คอร์ด" aria-label="เลือกคอร์ด" width="86px" />
+            <ComboSelect v-model="seg.chord" :options="chordOpts" placeholder="คอร์ด" aria-label="เลือกคอร์ด" width="120px" />
             <NoteBoxes v-model="seg.note" />
             <input v-model="seg.lyric" placeholder="เนื้อร้อง" aria-label="เนื้อร้อง" class="seg-lyric" />
             <button class="secondary tiny" aria-label="ลบช่องนี้" @click="removeSegment(bar, si)">✕</button>
@@ -828,7 +828,9 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
   border: 1px dashed var(--line);
   border-radius: 8px;
   padding: 8px;
-  min-width: 150px;
+  /* grow to fill the row so wide screens don't waste space on the right (bug 013) */
+  flex: 1 1 300px;
+  min-width: 240px;
 }
 .bar-head {
   display: flex;
@@ -851,7 +853,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 }
 .seg-row { display: flex; gap: 4px; margin-bottom: 6px; align-items: center; flex-wrap: wrap; }
 .seg-row :deep(.combo input) { color: var(--chord-red); font-weight: 700; }
-.seg-lyric { width: 110px; }
+.seg-lyric { flex: 1 1 140px; min-width: 120px; }
 /* small buttons still meet the 24x24 target size (WCAG 2.2 2.5.8) */
 .tiny { padding: 4px 10px; font-size: 13px; min-height: 28px; min-width: 28px; }
 .role-badge {
