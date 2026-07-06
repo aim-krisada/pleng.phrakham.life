@@ -181,6 +181,18 @@ logged-in human).** Built in `Studio.vue`:
   verse's words together through the real render path (NoteRow + the sheet's
   chord/note/lyric classes) — so it doubles as a render-engine check. Verified: preview
   shows "…พระเจ้า เป็น ความ" under the notes, bars share one X and stack down the page.
+- **Text-box-like syllable editing + nothing lost** (พี่เอม's 3rd test — the lyric is
+  really one continuous string; insert/delete of space/hyphen is the whole job):
+  - a syllable box now edits like a text field — Space/Enter split at the caret,
+    **Backspace at the start merges into the previous box, Delete at the end pulls the
+    next in** — all rippling the whole verse across bars.
+  - the ripple used to drop a syllable once it passed the last note. Now overflow
+    (more words than notes) renders as note-less red boxes in an **"เกินโน้ต N พยางค์"**
+    strip — visible and fixable, never silently dropped. Verified: 130 words on a
+    125-note stanza → 5 overflow boxes holding the exact tail tokens.
+  - a collapsible **paragraph editor** ("แก้เนื้อแบบย่อหน้า") edits the selected ข้อ as
+    free text, two-way synced with the boxes — the "edit like a paragraph" path.
+  - decision: no Thai auto-splitter — text-box-style space/hyphen editing is enough.
 - **STILL CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
   human to save a v2 draft → reopen → publish. song_revisions + git make it revertable.
 

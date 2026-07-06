@@ -106,6 +106,7 @@ const migrateWarnings = ref([]) // set when a v1 song is auto-split on load (aut
 // (-1 = hidden). Lets the author type each syllable right under its note — the old
 // "words with the melody" feel, now per syllable (a blank box marks a missing word).
 const lensChoice = ref(-1)
+const paraOpen = ref(false) // paragraph (free-text) editor for the selected ข้อ
 
 const saveMsg = ref('')
 const playing = ref(false)
@@ -177,6 +178,15 @@ const slotStarts = computed(() => {
 function segSlotCount(note) {
   return syllableSlots(note || '')
 }
+// total notes the active stanza bears, and any syllables typed BEYOND that — shown as
+// note-less boxes so an overflow (more words than notes) is visible, never dropped.
+const activeSlotTotal = computed(() => stanzaSlots(activeStanzaId.value))
+const overflowSlots = computed(() => {
+  if (!lensActive.value) return []
+  const out = []
+  for (let i = activeSlotTotal.value; i < lensRow.value.syllables.length; i++) out.push(i)
+  return out
+})
 function sylAt(row, i) {
   return row?.syllables[i] || ''
 }
@@ -219,13 +229,13 @@ function pullSlot(i) {
 // as one) into one syllable per box — the first stays here, the rest ripple into the
 // following notes — then move focus on. Space splits at the caret; Enter splits on any
 // space already in the box, else just advances. Feels like the note-box entry.
-async function focusSlot(target) {
+async function focusSlot(target, caret) {
   focusedSlot.value = target
   await nextTick()
   const el = document.querySelector(`[data-slot="${target}"]`)
   if (el) {
     el.focus()
-    const n = el.value.length
+    const n = caret == null ? el.value.length : Math.min(caret, el.value.length)
     el.setSelectionRange?.(n, n)
   }
 }
@@ -242,14 +252,36 @@ function distribute(i, val) {
   for (let j = tokens.length - 1; j >= 1; j--) arr.splice(i + 1, 0, tokens[j])
   return focusSlot(i + tokens.length) // continue past the words we just placed
 }
+// Make a syllable box feel like a text field: Space (or Enter) splits at the caret,
+// Backspace at the very start merges into the previous box, Delete at the very end
+// pulls the next box in — all rippling the whole verse, nothing dropped.
 function onSylKey(e, i) {
+  const el = e.target
+  const arr = lensRow.value?.syllables
+  if (!arr) return
   if (e.key === 'Enter') {
     e.preventDefault()
-    distribute(i, e.target.value)
+    distribute(i, el.value)
   } else if (e.key === ' ') {
     e.preventDefault()
-    const c = e.target.selectionStart ?? e.target.value.length
-    distribute(i, e.target.value.slice(0, c) + ' ' + e.target.value.slice(c))
+    const c = el.selectionStart ?? el.value.length
+    distribute(i, el.value.slice(0, c) + ' ' + el.value.slice(c))
+  } else if (e.key === 'Backspace') {
+    if (i > 0 && (el.selectionStart ?? 0) === 0 && (el.selectionEnd ?? 0) === 0) {
+      e.preventDefault()
+      const prevLen = (arr[i - 1] ?? '').length
+      arr[i - 1] = (arr[i - 1] ?? '') + (arr[i] ?? '')
+      arr.splice(i, 1)
+      focusSlot(i - 1, prevLen)
+    }
+  } else if (e.key === 'Delete') {
+    if (i + 1 < arr.length && (el.selectionStart ?? 0) === el.value.length && (el.selectionEnd ?? 0) === el.value.length) {
+      e.preventDefault()
+      const curLen = el.value.length
+      arr[i] = (arr[i] ?? '') + (arr[i + 1] ?? '')
+      arr.splice(i + 1, 1)
+      focusSlot(i, curLen)
+    }
   }
 }
 // point the lens at the first row that uses the active stanza (or hide it)
@@ -1076,6 +1108,47 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     </div>
     <button class="secondary" @click="addLine">+ เพิ่มบรรทัด</button>
 
+    <!-- overflow: syllables typed past the last note — shown as note-less boxes so an
+         over-count is visible and fixable, never silently dropped -->
+    <div v-if="overflowSlots.length" class="card overflow-strip no-print">
+      <strong style="color: var(--red)">⚠ เกินโน้ต {{ overflowSlots.length }} พยางค์ — ไม่มีโน้ตรองรับ (ดึงกลับ ◀ หรือลบทิ้ง)</strong>
+      <div class="syl-boxes" style="margin-top: 8px">
+        <span v-for="i in overflowSlots" :key="i" class="syl-slot">
+          <span v-if="focusedSlot === i" class="slot-tools">
+            <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(i)">◀</button>
+            <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(i)">▶</button>
+          </span>
+          <input
+            class="syl-box syl-overflow"
+            :data-slot="i"
+            :value="sylAt(lensRow, i)"
+            :aria-label="`พยางค์เกินที่ ${i + 1}`"
+            @focus="focusedSlot = i"
+            @blur="focusedSlot = -1"
+            @keydown="onSylKey($event, i)"
+            @input="setSyl(lensRow, i, $event.target.value)"
+          />
+        </span>
+      </div>
+    </div>
+
+    <!-- paragraph editor for the chosen ข้อ (collapsible) — edit lyrics as free text -->
+    <div v-if="lensActive" class="card no-print" style="margin-top: 10px">
+      <button class="secondary" @click="paraOpen = !paraOpen">
+        📝 แก้เนื้อแบบย่อหน้า (ข้อที่เลือก) {{ paraOpen ? '▲' : '▼' }}
+      </button>
+      <div v-if="paraOpen" style="margin-top: 8px">
+        <p class="muted" style="margin: 0 0 6px">เว้นวรรค = พยางค์ใหม่ · "-" = ต่อคำเดิม · แก้ตรงนี้แล้วกล่องใต้โน้ตขยับตาม</p>
+        <textarea
+          :value="joinSyllables(lensRow.syllables)"
+          rows="4"
+          class="arr-lyric"
+          aria-label="เนื้อร้องแบบย่อหน้า"
+          @input="lensRow.syllables = splitSyllables($event.target.value)"
+        ></textarea>
+      </div>
+    </div>
+
     <!-- ===== arrangement: play order + words per verse ===== -->
     <h3 class="section-title" style="margin-top: 22px">📜 ลำดับเพลง — เลือกท่อนทำนอง ใส่เนื้อร้องแต่ละข้อ</h3>
     <p class="muted no-print" style="margin: 0 0 10px">
@@ -1286,6 +1359,8 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
   min-height: 30px;
 }
 .syl-box.syl-empty { border-color: var(--red); background: #fff5f5; }
+.syl-box.syl-overflow { border-color: var(--red); background: #fff0f0; color: var(--red); }
+.overflow-strip { border-color: var(--red); background: #fff7f7; }
 /* ◀ ▶ align tools float above the focused syllable box, no layout shift */
 .slot-tools {
   position: absolute;
