@@ -173,7 +173,7 @@ const COMBOS = [
       </ul>
       <h3>ตัวอย่างรวมทุกสัญลักษณ์</h3>
       <p class="muted"><code>5. .5_ .5_ .6  |  (1' 7) 6  |  {3 2 1}  |  2 - - -  ‖</code></p>
-      <p style="font-size: 20px"><NoteRow notes="5. .5_ .5_ .6" /><span class="bar-line" style="height: 34px; margin-top: 2px" aria-hidden="true"></span><NoteRow notes="(1' 7) 6" /><span class="bar-line" style="height: 34px; margin-top: 2px" aria-hidden="true"></span><NoteRow notes="{3 2 1}" /><span class="bar-line" style="height: 34px; margin-top: 2px" aria-hidden="true"></span><NoteRow notes="2 - - -" /><span class="bar-line" style="height: 34px; margin-top: 2px; margin-right: 0" aria-hidden="true"></span><span class="bar-line" style="height: 34px; margin-top: 2px; margin-left: 3px" aria-hidden="true"></span></p>
+      <p class="symbol-demo"><NoteRow notes="5. .5_ .5_ .6" /><span class="bar-line demo-bar" aria-hidden="true"></span><NoteRow notes="(1' 7) 6" /><span class="bar-line demo-bar" aria-hidden="true"></span><NoteRow notes="{3 2 1}" /><span class="bar-line demo-bar" aria-hidden="true"></span><NoteRow notes="2 - - -" /><span class="bar-line demo-bar demo-bar-end" aria-hidden="true"></span><span class="bar-line demo-bar demo-bar-final" aria-hidden="true"></span></p>
     </div>
 
     <div class="card" id="howto">
@@ -239,4 +239,10 @@ const COMBOS = [
   color: var(--note-blue);
   padding: 10px 6px 0;
 }
+/* Combined-symbols example: bars auto-match the note-row height (align-items:
+   stretch) so they sit flush like the real sheet instead of floating short. */
+.symbol-demo { font-size: 20px; display: flex; align-items: stretch; flex-wrap: wrap; }
+.symbol-demo .demo-bar { height: auto; align-self: stretch; margin: 0 10px; }
+.symbol-demo .demo-bar-end { margin-right: 0; }   /* end double bar sits tight */
+.symbol-demo .demo-bar-final { margin-left: 3px; }
 </style>
