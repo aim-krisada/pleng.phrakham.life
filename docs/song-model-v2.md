@@ -150,7 +150,21 @@ Decisions locked: screen = spelled-out follow-along (not book-stacked); print = 
 (paper-saving); highlight will move to per-syllable; do all this BEFORE batch-keying
 the ~100-song YS 2014 hymnbook (avoid re-keying).
 
-## Open questions
-- Do this BEFORE the YS 2014 ~100-song batch (recommended — avoids re-keying).
-- Per-syllable highlight replaces the current segment-level highlight — confirm.
-- Blank/pickup slots and multi-note melisma UI in the arrangement panel: nail in step 2.
+## Open questions — resolved 6-Jul-2026
+
+All three cleared before starting step 2 (พี่เอม):
+
+- **Sequencing** — build v2 (steps 2-4) BEFORE the YS 2014 ~100-song batch. Keying v1
+  first then changing the model = re-keying all 100 twice. Locked.
+- **Per-syllable highlight** — YES, replaces segment-level, but only for **v2** songs;
+  **v1 falls back to segment-level** (a v1 segment holds one lyric string, so it can't
+  align 1:1 to notes). The swap itself is **step 3** work — step 2 only has to make the
+  model carry the syllable slots so step 3 can address them.
+- **Blank/pickup/melisma UI** — no special UI needed in the arrangement panel:
+  - *Melisma (เอื้อน)* is a **melody** concern — a slur in the stanza's notation, and
+    slurred notes already take no syllable slot. The author just types fewer syllables.
+  - *Pickup (anacrusis)* is an ordinary attack note — it takes a slot like any other.
+  - *Blank slot* (`""`, rare) needs only a **live syllable-count indicator per
+    arrangement row** — `splitSyllables(input).length` vs `syllableSlots(stanza)`,
+    shown like `barStatus` (`8/8 ✓` / `7/8 ⚠`). A mismatch flags the row for review
+    (same principle as `migrateToV2` — never guess).
