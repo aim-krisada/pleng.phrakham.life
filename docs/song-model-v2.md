@@ -226,9 +226,15 @@ logged-in human).** Built in `Studio.vue`:
   them through). Editor: a per-bar "repeat-row" with two checkboxes + a "ห้องจบ" select.
   SongSheet draws the repeat barlines (thick bar + two dots, dots on the correct side)
   and a "1." / "2." volta tag. Verified: toggles render `.rep-start` / `.rep-end` /
-  `.volta-tag`. **Phase B still TODO — playback (midi.js) plays straight through; it does
-  not yet loop the repeat or skip the 1st ending on the 2nd pass.** Visual polish of the
-  dots/bracket needs a human eye (can't screenshot in this env).
+  `.volta-tag`. Visual polish of the dots/bracket needs a human eye (can't screenshot).
+- **Repeat + volta — phase B (playback)** — `midi.js songToNotes()` now groups each line
+  into bars (with the repeat/volta flags), runs `expandRepeats()` to produce the real
+  play order, then flattens to notes. `expandRepeats`: play to a `:‖`, jump back to the
+  last `‖:` (or song start), play twice; with voltas the 1st ending plays only on pass 1
+  and the 2nd ending replaces it on pass 2. Node-verified play order (bar indices):
+  simple repeat `A‖: B:‖ C` → 0,1,0,1,2; volta `A‖: B C(v1):‖ D(v2) E` → 0,1,2,0,1,3,4;
+  no-repeat → 0,1,2 (unchanged); end-only → 0,1,0,1,2. Note/tie/slur handling unchanged
+  (scoped to each bar). Limit: 2 passes max (1st/2nd endings); 3+ endings not handled.
 - **STILL CANNOT be auto-verified**: the DB save/draft/publish path needs a logged-in
   human to save a v2 draft → reopen → publish. song_revisions + git make it revertable.
 

@@ -31,36 +31,77 @@ function tokenBeats(t, tripletFactor) {
   return d * tripletFactor
 }
 
+// Walk bars honouring repeat marks: play to a repeat-end ':‖', jump back to the last
+// repeat-start '‖:' (or the song start), and play again — twice by default. With voltas,
+// the 1st ending (volta 1) is played only on the 1st pass; on the 2nd pass its bars are
+// skipped and the 2nd ending (volta 2) is played instead. Returns the bars in play order.
+function expandRepeats(bars) {
+  const out = []
+  let i = 0
+  let repStart = -1
+  let pass = 1
+  let guard = 0
+  while (i < bars.length && guard++ < 100000) {
+    const bar = bars[i]
+    if (bar.repeatStart && i !== repStart) {
+      repStart = i // entering a new repeated section from the front
+      pass = 1
+    }
+    if (bar.volta && bar.volta !== pass) {
+      i++ // this ending belongs to a different pass — skip it
+      continue
+    }
+    out.push(bar)
+    if (bar.repeatEnd && pass < 2) {
+      pass++
+      i = repStart >= 0 ? repStart : 0
+      continue
+    }
+    i++
+  }
+  return out
+}
+
 // Flatten a song's content into [{ midi, beats, li, bi, si }] (midi null = rest).
 // li/bi = line and bar indices; si = segment index within the line (counts every
 // segment item, matching SongSheet) — used for follow-along highlight + auto-scroll.
+// Repeat/volta marks are expanded so playback actually loops.
 export function songToNotes(content) {
   const root = KEY_MIDI[content.key] ?? 60
-  const notes = []
+  // 1. group each line's notes into bars, tagging repeat/volta flags per bar
+  const bars = []
   ;(content.lines || []).forEach((line, li) => {
     let bi = 0
     let si = -1
+    let bar = { notes: [], repeatStart: false, repeatEnd: false, volta: 0 }
+    const flushBar = () => bars.push(bar)
     for (const item of line) {
+      if (item.type === 'repeat-start') { bar.repeatStart = true; continue }
+      if (item.type === 'repeat-end') { bar.repeatEnd = true; continue }
+      if (item.type === 'volta') { bar.volta = item.num || 0; continue }
       if (item.type === 'bar') {
+        flushBar()
         bi++
+        bar = { notes: [], repeatStart: false, repeatEnd: false, volta: 0 }
         continue
       }
       if (item.type !== 'segment') continue
       si++
       if (!item.note) continue
+      const bn = bar.notes
       for (const g of groupNotes(parseNotes(item.note))) {
         const f = g.group === 'triplet' ? 2 / 3 : 1
         let prevMidi = null // last pitched note in THIS group (for slur-over-same-pitch)
         for (const t of g.tokens) {
           if (t.type === 'note') {
             if (t.pitch === '0') {
-              notes.push({ midi: null, beats: tokenBeats(t, f), li, bi, si })
+              bn.push({ midi: null, beats: tokenBeats(t, f), li, bi, si })
               prevMidi = null
             } else {
               let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
               if (t.accidental === '#') midi += 1
               if (t.accidental === 'b') midi -= 1
-              const last = notes[notes.length - 1]
+              const last = bn[bn.length - 1]
               const explicitTie = t.tieEnd && last && last.midi === midi && last.tieOpen
               // A slur arc over two notes of the SAME pitch is a tie: hold the note,
               // do NOT re-attack the later one, but keep counting its beats. A slur
@@ -72,17 +113,21 @@ export function songToNotes(content) {
               } else if (slurTie) {
                 last.beats += tokenBeats(t, f)
               } else {
-                notes.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, li, bi, si })
+                bn.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, li, bi, si })
               }
               prevMidi = midi
             }
-          } else if (t.type === 'ext' && notes.length) {
-            notes[notes.length - 1].beats += 1 * f
+          } else if (t.type === 'ext' && bn.length) {
+            bn[bn.length - 1].beats += 1 * f
           }
         }
       }
     }
+    flushBar()
   })
+  // 2. expand repeats into play order, 3. flatten to a note list
+  const notes = []
+  for (const bar of expandRepeats(bars)) for (const n of bar.notes) notes.push(n)
   return notes
 }
 
