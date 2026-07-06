@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats } from '../lib/notation.js'
@@ -190,6 +190,7 @@ async function loadSong(id) {
   reviewingDraft.value = null
   saveMsg.value = ''
   loadRevisions()
+  nextTick(resetHistory)
 }
 
 function applyRow(data) {
@@ -216,6 +217,7 @@ function resetForm() {
   lines.value = [newLine()]
   saveMsg.value = ''
   revisions.value = []
+  nextTick(resetHistory)
 }
 
 // ---------- drafts ----------
@@ -254,6 +256,7 @@ function loadDraft(d) {
   reviewComment.value = d.review_comment || ''
   saveMsg.value = d.status === 'rejected' && d.review_comment ? '↩ ถูกส่งกลับ: ' + d.review_comment : ''
   loadRevisions()
+  nextTick(resetHistory)
 }
 
 const draftRow = () => ({
@@ -466,6 +469,75 @@ function playLine(li) {
   return runPlay({ key: opts.key, lines: [serializeLine(lines.value[li])] }, li)
 }
 
+// ---------- undo / redo ----------
+// Debounced JSON snapshots of the whole editing state (meta + opts + lines).
+const history = ref([])
+const histPos = ref(-1)
+let applyingHistory = false
+let histTimer = null
+
+function snapshotState() {
+  return JSON.stringify({ meta: { ...meta }, opts: { ...opts }, lines: lines.value })
+}
+function commitSnapshot() {
+  const snap = snapshotState()
+  if (history.value[histPos.value] === snap) return
+  history.value.splice(histPos.value + 1) // typing after undo drops the redo tail
+  history.value.push(snap)
+  if (history.value.length > 100) history.value.shift()
+  histPos.value = history.value.length - 1
+}
+watch(snapshotState, () => {
+  if (applyingHistory) return
+  clearTimeout(histTimer)
+  histTimer = setTimeout(commitSnapshot, 400)
+})
+function resetHistory() {
+  clearTimeout(histTimer)
+  history.value = [snapshotState()]
+  histPos.value = 0
+}
+function applyState(snap) {
+  applyingHistory = true
+  const s = JSON.parse(snap)
+  Object.assign(meta, s.meta)
+  Object.assign(opts, s.opts)
+  lines.value = s.lines
+  nextTick(() => (applyingHistory = false))
+}
+const canUndo = computed(() => histPos.value > 0)
+const canRedo = computed(() => histPos.value < history.value.length - 1)
+function undo() {
+  clearTimeout(histTimer)
+  commitSnapshot()
+  if (histPos.value > 0) {
+    histPos.value--
+    applyState(history.value[histPos.value])
+  }
+}
+function redo() {
+  if (histPos.value < history.value.length - 1) {
+    histPos.value++
+    applyState(history.value[histPos.value])
+  }
+}
+function onUndoKeys(e) {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return
+  const k = e.key.toLowerCase()
+  if (k === 'z') {
+    e.preventDefault()
+    e.shiftKey ? redo() : undo()
+  } else if (k === 'y') {
+    e.preventDefault()
+    redo()
+  }
+}
+onMounted(() => {
+  window.addEventListener('keydown', onUndoKeys)
+  resetHistory()
+})
+onUnmounted(() => window.removeEventListener('keydown', onUndoKeys))
+
 // ---------- floating toolbar + sheet overlay ----------
 const showSheet = ref(false)
 const primaryLabel = computed(() =>
@@ -667,6 +739,8 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     <!-- floating toolbar: the everyday tools reachable from any scroll position -->
     <p v-if="saveMsg" class="float-msg no-print" role="status">{{ saveMsg }}</p>
     <div class="float-bar no-print" role="toolbar" aria-label="เครื่องมือหลัก">
+      <button class="secondary" :disabled="!canUndo" aria-label="เลิกทำ (Ctrl+Z)" title="เลิกทำ (Ctrl+Z)" @click="undo">↩</button>
+      <button class="secondary" :disabled="!canRedo" aria-label="ทำซ้ำ (Ctrl+Shift+Z)" title="ทำซ้ำ (Ctrl+Shift+Z)" @click="redo">↪</button>
       <button v-if="session && !legacy" class="secondary" @click="saveDraft('draft')">💾 ร่าง</button>
       <button :disabled="!session" @click="primaryAction">{{ primaryLabel }}</button>
       <button v-if="playing" class="danger" @click="stopAll">⏹ หยุด</button>
