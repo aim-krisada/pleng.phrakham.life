@@ -1,19 +1,19 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { initAuth, recovering, emailChanged } from './store.js'
 import SiteFooter from './components/SiteFooter.vue'
-import DownloadTool from './components/DownloadTool.vue'
-import ProfileTool from './components/ProfileTool.vue'
+import AppHeader from './components/AppHeader.vue'
 
 initAuth()
-const menuOpen = ref(false)
 const route = useRoute()
 const router = useRouter()
-// Studio owns its own top bar (its shell header carries site nav + login), so the
-// global navbar steps back on that route — like a focused Google-Docs workspace.
+// Studio renders its own richer shell header (catalog · file/manage menus · mode
+// toggle), so the site-wide AppHeader steps back on that route.
 const isStudio = computed(() => route.path === '/studio')
-watch(() => route.path, () => (menuOpen.value = false)) // close menu after navigating
+const pageTitle = computed(
+  () => ({ '/': 'รายการเพลง', '/guide': 'คู่มือ', '/about': 'เกี่ยวกับเรา' })[route.path] || '',
+)
 // Supabase email links land as #access_token=…; the hash-router sees a bogus route
 // and blanks the page. For any of them, send the app back home — the header panel
 // (set-password, or the email-changed note) then shows over the normal catalog.
@@ -25,32 +25,7 @@ watch(
 </script>
 
 <template>
-  <header v-if="!isStudio" class="topbar no-print">
-    <router-link to="/" class="brand">เพลง.พระคำ.ชีวิต</router-link>
-    <nav class="site-nav" :class="{ open: menuOpen }" aria-label="เมนูหลัก">
-      <router-link to="/">รายการเพลง</router-link>
-      <router-link to="/studio">ห้องทำเพลง</router-link>
-      <router-link to="/guide">คู่มือ</router-link>
-      <router-link to="/about">เกี่ยวกับเรา</router-link>
-      <a href="https://phrakham.life">พระคำ.ชีวิต</a>
-    </nav>
-    <div class="topbar-tools">
-      <DownloadTool />
-      <ProfileTool />
-    </div>
-    <button
-      class="nav-toggle"
-      :aria-expanded="menuOpen"
-      aria-label="เปิด/ปิดเมนู"
-      @click="menuOpen = !menuOpen"
-    >
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-        <line x1="3" y1="6" x2="21" y2="6" />
-        <line x1="3" y1="12" x2="21" y2="12" />
-        <line x1="3" y1="18" x2="21" y2="18" />
-      </svg>
-    </button>
-  </header>
+  <AppHeader v-if="!isStudio" :title="pageTitle" />
   <main class="container" :class="{ 'studio-wide': isStudio }">
     <router-view />
   </main>
