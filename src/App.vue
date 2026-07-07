@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { initAuth, recovering, emailChanged } from './store.js'
 import SiteFooter from './components/SiteFooter.vue'
@@ -10,6 +10,9 @@ initAuth()
 const menuOpen = ref(false)
 const route = useRoute()
 const router = useRouter()
+// Studio owns its own top bar (its shell header carries site nav + login), so the
+// global navbar steps back on that route — like a focused Google-Docs workspace.
+const isStudio = computed(() => route.path === '/studio')
 watch(() => route.path, () => (menuOpen.value = false)) // close menu after navigating
 // Supabase email links land as #access_token=…; the hash-router sees a bogus route
 // and blanks the page. For any of them, send the app back home — the header panel
@@ -22,7 +25,7 @@ watch(
 </script>
 
 <template>
-  <header class="topbar no-print">
+  <header v-if="!isStudio" class="topbar no-print">
     <router-link to="/" class="brand">เพลง.พระคำ.ชีวิต</router-link>
     <nav class="site-nav" :class="{ open: menuOpen }" aria-label="เมนูหลัก">
       <router-link to="/">รายการเพลง</router-link>

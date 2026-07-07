@@ -10,6 +10,7 @@ import { playSong, stopPlayback } from '../lib/midi.js'
 import SongSheet from '../components/SongSheet.vue'
 import NoteBoxes from '../components/NoteBoxes.vue'
 import ComboSelect from '../components/ComboSelect.vue'
+import ProfileTool from '../components/ProfileTool.vue'
 
 // ---------- auth + role (shared with the navbar profile tool) ----------
 import { session, profile, legacy, initAuth } from '../store.js'
@@ -1018,10 +1019,89 @@ function primaryAction() {
 }
 
 const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', rejected: 'ถูกส่งกลับ', approved: 'อนุมัติแล้ว' }
+
+// ---------- studio shell (phase 1: header chrome + edit/sheet mode) ----------
+// The redesign wraps the EXISTING editor in a Google-Docs-style shell. Phase 1 = the
+// single-row top bar (site menu · title · file menu · mode toggle · login) and the
+// edit⇄sheet mode. The parts rail / catalog drawer come in phase 2.
+const openMenu = ref(null) // 'site' | 'file' | 'mode' | null — only one open at a time
+const viewMode = ref('edit') // 'edit' = the editor · 'sheet' = read/print the whole sheet
+function toggleMenu(m) {
+  openMenu.value = openMenu.value === m ? null : m
+}
+function setMode(m) {
+  viewMode.value = m
+  openMenu.value = null
+}
+function fileNew() {
+  openMenu.value = null
+  viewMode.value = 'edit'
+  pickerId.value = ''
+  resetForm()
+}
+function scrollToCard(id) {
+  openMenu.value = null
+  viewMode.value = 'edit'
+  nextTick(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+function printSheet() {
+  window.print()
+}
 </script>
 
 <template>
   <div style="padding-bottom: 150px">
+    <!-- ===== Studio shell header (phase 1) — Studio owns the top on this route ===== -->
+    <header class="studio-bar no-print">
+      <div class="sb-menu">
+        <button class="sb-brand" :aria-expanded="openMenu === 'site'" aria-haspopup="true" @click.stop="toggleMenu('site')">
+          เพลง.พระคำ.ชีวิต
+          <svg class="chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+        <div v-if="openMenu === 'site'" class="sb-dropdown" role="menu">
+          <router-link to="/" role="menuitem">รายการเพลง</router-link>
+          <router-link to="/studio" role="menuitem">ทำเพลง</router-link>
+          <router-link to="/guide" role="menuitem">คู่มือ</router-link>
+          <router-link to="/about" role="menuitem">เกี่ยวกับเรา</router-link>
+          <a href="https://phrakham.life" role="menuitem">พระคำ.ชีวิต ↗</a>
+        </div>
+      </div>
+      <span class="sb-sep" aria-hidden="true"></span>
+      <input v-model="meta.title_th" class="sb-title" placeholder="ชื่อเพลง" aria-label="ชื่อเพลง" />
+      <div class="sb-menu">
+        <button class="sb-text" :aria-expanded="openMenu === 'file'" aria-haspopup="true" @click.stop="toggleMenu('file')">เพลง</button>
+        <div v-if="openMenu === 'file'" class="sb-dropdown" role="menu">
+          <button class="sb-item" role="menuitem" @click="fileNew">สร้างเพลงใหม่ <span class="sb-k">New</span></button>
+          <button class="sb-item" role="menuitem" @click="scrollToCard('pk-picker')">เลือกเพลงเพื่อแก้… <span class="sb-k">Open</span></button>
+          <button class="sb-item" role="menuitem" @click="scrollToCard('pk-meta')">ตั้งค่าเพลง <span class="sb-k">Properties</span></button>
+        </div>
+      </div>
+      <div class="sb-menu">
+        <button class="sb-text sb-mode" :aria-expanded="openMenu === 'mode'" aria-haspopup="true" @click.stop="toggleMenu('mode')">
+          <svg v-if="viewMode === 'sheet'" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M4 10V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1" /><circle cx="8" cy="18" r="2" /><path d="M10 18v-5l4-1v4" /><circle cx="12" cy="16" r="2" /></svg>
+          <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+          <span class="sb-mode-label">{{ viewMode === 'sheet' ? 'แผ่นเพลง' : 'แก้ไข' }}</span>
+          <svg class="chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+        <div v-if="openMenu === 'mode'" class="sb-dropdown sb-mode-menu" role="menu">
+          <button class="sb-item sb-mode-item" role="menuitemradio" :aria-checked="viewMode === 'edit'" @click="setMode('edit')">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+            <span class="mt"><b>แก้ไข</b><small>แก้เพลงโดยตรง</small></span>
+            <span v-if="viewMode === 'edit'" class="sb-chk">✓</span>
+          </button>
+          <button class="sb-item sb-mode-item" role="menuitemradio" :aria-checked="viewMode === 'sheet'" @click="setMode('sheet')">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M4 10V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1" /><circle cx="8" cy="18" r="2" /><path d="M10 18v-5l4-1v4" /><circle cx="12" cy="16" r="2" /></svg>
+            <span class="mt"><b>แผ่นเพลง</b><small>ดู / พิมพ์แผ่นเพลง</small></span>
+            <span v-if="viewMode === 'sheet'" class="sb-chk">✓</span>
+          </button>
+        </div>
+      </div>
+      <div class="sb-login"><ProfileTool /></div>
+    </header>
+    <div v-if="openMenu" class="sb-backdrop no-print" aria-hidden="true" @click="openMenu = null"></div>
+
+    <!-- ===== edit workspace (everything below is the existing editor, unchanged) ===== -->
+    <div v-show="viewMode === 'edit'">
     <!-- not signed in: gentle hint (login lives in the navbar profile button) -->
     <div v-if="!session" class="card no-print">
       <p class="muted" style="margin: 0">
@@ -1065,7 +1145,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     </div>
 
     <!-- song picker -->
-    <div class="card no-print">
+    <div id="pk-picker" class="card no-print">
       <label style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap">
         เลือกเพลง:
         <ComboSelect
@@ -1080,7 +1160,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
     </div>
 
     <!-- metadata -->
-    <div class="card">
+    <div id="pk-meta" class="card">
       <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
         <input v-model.number="meta.number" type="number" placeholder="เลขเพลง" aria-label="เลขเพลง" style="width: 90px" />
         <input v-model="meta.title_th" placeholder="ชื่อเพลง (ไทย)" aria-label="ชื่อเพลงภาษาไทย" style="flex: 1; min-width: 180px" />
@@ -1402,9 +1482,24 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
       <p class="muted">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
       <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
     </div>
+    </div>
+    <!-- ===== end edit workspace ===== -->
+
+    <!-- ===== sheet mode: read / print the whole song ===== -->
+    <div v-show="viewMode === 'sheet'" class="sheet-workspace">
+      <div class="card">
+        <div class="sheet-head no-print">
+          <h2 style="margin: 0; color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
+          <button class="secondary" style="margin-left: auto" @click="printSheet">🖨 พิมพ์</button>
+        </div>
+        <h2 class="only-print" style="color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
+        <p class="muted">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
+        <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
+      </div>
+    </div>
 
     <!-- bottom dock: symbol palette + everyday tools, always in reach -->
-    <div class="float-dock no-print">
+    <div v-show="viewMode === 'edit'" class="float-dock no-print">
       <p v-if="saveMsg" class="float-msg" role="status">{{ saveMsg }}</p>
       <div class="palette-row" role="toolbar" aria-label="สัญลักษณ์โน้ต">
         <button
@@ -1699,5 +1794,107 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
   width: 100%;
   max-height: calc(100vh - 40px);
   overflow: auto;
+}
+
+/* ===== studio shell header (phase 1) ===== */
+.studio-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8f9fa;
+  border-bottom: 1px solid var(--line);
+  /* bleed to the container edges so the bar spans full width and reads as a top chrome */
+  margin: -16px -16px 12px;
+  padding: 8px 12px;
+}
+.sb-menu { position: relative; display: inline-flex; }
+.sb-brand,
+.sb-text {
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1rem;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.sb-brand { color: var(--brand); font-weight: 700; white-space: nowrap; }
+@media (hover: hover) {
+  .sb-brand:hover,
+  .sb-text:hover { background: rgba(0, 0, 0, 0.06); }
+}
+.sb-sep { width: 1px; align-self: stretch; background: var(--line); min-height: 22px; }
+.sb-title {
+  flex: 1;
+  min-width: 60px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  min-height: 36px;
+}
+.sb-title:hover { border-color: var(--line); }
+.sb-title:focus { border-color: var(--brand); background: #fff; outline: none; }
+.sb-mode-label { font-weight: 600; }
+.chev { opacity: 0.55; }
+.sb-login { display: inline-flex; align-items: center; }
+.sb-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 234px;
+  max-width: calc(100vw - 20px);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
+  padding: 6px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+}
+.sb-dropdown.sb-mode-menu { left: auto; right: 0; } /* mode sits at the right — align to its edge */
+.sb-dropdown a,
+.sb-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: var(--ink);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  font: inherit;
+  font-size: 0.98rem;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  min-height: 40px;
+}
+@media (hover: hover) {
+  .sb-dropdown a:hover,
+  .sb-item:hover { background: var(--cream-hover); }
+}
+.sb-k { margin-left: auto; color: var(--muted); font-size: 0.8rem; }
+.sb-mode-item { align-items: flex-start; }
+.sb-mode-item .mt { display: flex; flex-direction: column; line-height: 1.25; }
+.sb-mode-item .mt small { color: var(--muted); font-size: 0.8rem; }
+.sb-chk { margin-left: auto; color: var(--brand); font-weight: 700; }
+.sb-backdrop { position: fixed; inset: 0; z-index: 40; }
+.sheet-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.only-print { display: none; }
+@media print {
+  .only-print { display: block; }
 }
 </style>
