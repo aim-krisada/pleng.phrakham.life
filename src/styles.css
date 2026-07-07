@@ -204,6 +204,7 @@ nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
   gap: 5px;
 }
 .sb-mode-label { font-weight: 600; }
+.sb-mode { border: 1px solid var(--line); }
 .chev { opacity: 0.55; }
 .sb-sep { width: 1px; align-self: stretch; background: var(--line); min-height: 22px; }
 .shell-title { font-weight: 700; font-size: 1.05rem; color: var(--ink); }

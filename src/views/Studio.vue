@@ -1247,25 +1247,15 @@ const panelTitle = computed(
           <button v-if="isApprover && session && editingId && !reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="manageDelete"><Icon name="x" /> ลบเพลง</button>
         </div>
       </div>
-      <div class="sb-menu">
-        <button class="sb-text sb-mode" :aria-expanded="openMenu === 'mode'" aria-haspopup="true" @click.stop="toggleMenu('mode')">
-          <Icon :name="viewMode === 'sheet' ? 'file-music' : 'pencil'" />
-          <span class="sb-mode-label">{{ viewMode === 'sheet' ? 'แผ่นเพลง' : 'แก้ไข' }}</span>
-          <Icon name="chevron-down" :size="14" class="chev" />
-        </button>
-        <div v-if="openMenu === 'mode'" class="sb-dropdown sb-mode-menu" role="menu">
-          <button class="sb-item sb-mode-item" role="menuitemradio" :aria-checked="viewMode === 'edit'" @click="setMode('edit')">
-            <Icon name="pencil" />
-            <span class="mt"><b>แก้ไข</b><small>แก้เพลงโดยตรง</small></span>
-            <span v-if="viewMode === 'edit'" class="sb-chk">✓</span>
-          </button>
-          <button class="sb-item sb-mode-item" role="menuitemradio" :aria-checked="viewMode === 'sheet'" @click="setMode('sheet')">
-            <Icon name="file-music" />
-            <span class="mt"><b>แผ่นเพลง</b><small>ดู / พิมพ์แผ่นเพลง</small></span>
-            <span v-if="viewMode === 'sheet'" class="sb-chk">✓</span>
-          </button>
-        </div>
-      </div>
+      <!-- single mode toggle: shows the ACTION (what you'll switch to), not the current mode -->
+      <button
+        class="sb-text sb-mode"
+        :title="viewMode === 'sheet' ? 'แก้ไขเพลงนี้' : 'ดูแบบแผ่นเพลง'"
+        @click="setMode(viewMode === 'sheet' ? 'edit' : 'sheet')"
+      >
+        <Icon :name="viewMode === 'sheet' ? 'pencil' : 'eye'" />
+        <span class="sb-mode-label">{{ viewMode === 'sheet' ? 'แก้ไข' : 'ดู' }}</span>
+      </button>
     </Teleport>
 
     <!-- ===== edit workspace: parts rail + the existing editor (unchanged) ===== -->
