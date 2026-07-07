@@ -38,8 +38,10 @@ export function parseNotes(str) {
     if (s[j] >= '0' && s[j] <= '7') {
       const pitch = s[j]
       j++
+      // accept straight ' plus the curly apostrophes iOS "smart punctuation"
+      // substitutes (‘ ’) and the prime ′ — all mean "up one octave"
       let high = 0
-      while (s[j] === "'") { high++; j++ }
+      while (s[j] === "'" || s[j] === '‘' || s[j] === '’' || s[j] === '′') { high++; j++ }
       let underlines = 0
       while (s[j] === '_' && underlines < 2) { underlines++; j++ }
       let dotted = false
