@@ -1048,15 +1048,61 @@ function scrollToCard(id) {
 function printSheet() {
   window.print()
 }
+
+// ---------- studio shell (phase 2: parts rail / catalog drawer) ----------
+// The rail is the song's table of contents: ทำนอง (stanzas) · เนื้อร้อง (arrangement
+// rows / ข้อ) · ลำดับเพลง. Desktop = a sticky left column (📖 collapses it); mobile =
+// a slide-in drawer (📖 opens it). Clicking an item selects + scrolls to it.
+const railHidden = ref(false) // desktop: collapse the rail to full-width content
+const drawerOpen = ref(false) // mobile: slide-in drawer
+function isMobileView() {
+  return window.matchMedia('(max-width: 760px)').matches
+}
+function toggleCatalog() {
+  if (isMobileView()) drawerOpen.value = !drawerOpen.value
+  else railHidden.value = !railHidden.value
+}
+function closeDrawer() {
+  drawerOpen.value = false
+}
+function scrollToEl(id, block = 'start') {
+  nextTick(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block }))
+}
+function railSelectStanza(i) {
+  viewMode.value = 'edit'
+  selectStanza(i)
+  closeDrawer()
+  scrollToEl('pk-editor')
+}
+function railSelectRow(i) {
+  viewMode.value = 'edit'
+  const row = arrangement.value[i]
+  const s = stanzas.value.findIndex((x) => x.id === row.stanza)
+  if (s >= 0) selectStanza(s)
+  closeDrawer()
+  scrollToEl('arr-row-' + i, 'center')
+}
+function railGoArrange() {
+  viewMode.value = 'edit'
+  closeDrawer()
+  scrollToEl('pk-arrange')
+}
+function rowLabel(row, i) {
+  return row.label?.trim() || 'ข้อ ' + (i + 1)
+}
 </script>
 
 <template>
   <div style="padding-bottom: 150px">
     <!-- ===== Studio shell header (phase 1) — Studio owns the top on this route ===== -->
     <header class="studio-bar no-print">
+      <button class="sb-cat" aria-label="สารบัญส่วนของเพลง (ทำนอง·เนื้อ·ลำดับ)" title="สารบัญเพลง — ทำนอง·เนื้อ·ลำดับ" @click.stop="toggleCatalog">
+        <Icon name="list-music" :size="20" />
+      </button>
       <div class="sb-menu">
-        <button class="sb-brand" :aria-expanded="openMenu === 'site'" aria-haspopup="true" @click.stop="toggleMenu('site')">
-          เพลง.พระคำ.ชีวิต
+        <button class="sb-brand" :aria-expanded="openMenu === 'site'" aria-haspopup="true" aria-label="เมนูเว็บ" @click.stop="toggleMenu('site')">
+          <Icon name="menu" :size="20" class="sb-brand-icon" />
+          <span class="sb-brand-text">เพลง.พระคำ.ชีวิต</span>
           <Icon name="chevron-down" :size="14" class="chev" />
         </button>
         <div v-if="openMenu === 'site'" class="sb-dropdown" role="menu">
@@ -1100,8 +1146,35 @@ function printSheet() {
     </header>
     <div v-if="openMenu" class="sb-backdrop no-print" aria-hidden="true" @click="openMenu = null"></div>
 
-    <!-- ===== edit workspace (everything below is the existing editor, unchanged) ===== -->
-    <div v-show="viewMode === 'edit'">
+    <!-- ===== edit workspace: parts rail + the existing editor (unchanged) ===== -->
+    <div v-show="viewMode === 'edit'" class="studio-app" :class="{ 'rail-hidden': railHidden }">
+      <nav id="studioRail" class="rail" :class="{ open: drawerOpen }" aria-label="ส่วนของเพลง">
+        <div class="rail-mhead">
+          <span><Icon name="list-music" :size="18" /> ส่วนของเพลง</span>
+          <button class="rail-x" aria-label="ปิด" @click="closeDrawer"><Icon name="x" :size="16" /></button>
+        </div>
+        <div class="rail-group">ทำนอง</div>
+        <button
+          v-for="(s, si) in stanzas"
+          :key="s.id"
+          class="rail-row mel"
+          :class="{ sel: si === activeStanza }"
+          @click="railSelectStanza(si)"
+        >
+          <Icon name="music" :size="17" /> ท่อน {{ s.id }}
+        </button>
+        <button class="rail-row add" @click="addStanza(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มทำนอง</button>
+        <div class="rail-group">เนื้อร้อง</div>
+        <button v-for="(row, ri) in arrangement" :key="ri" class="rail-row lyr" @click="railSelectRow(ri)">
+          <Icon name="file-text" :size="17" /> {{ rowLabel(row, ri) }}
+        </button>
+        <button class="rail-row add" @click="addRow(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มเนื้อ</button>
+        <div class="rail-sep"></div>
+        <div class="rail-group">ขั้นสูง</div>
+        <button class="rail-row arr" @click="railGoArrange"><Icon name="list-ordered" :size="17" /> ลำดับเพลง</button>
+      </nav>
+      <div class="rail-backdrop" :class="{ open: drawerOpen }" aria-hidden="true" @click="closeDrawer"></div>
+      <div class="content">
     <!-- not signed in: gentle hint (login lives in the navbar profile button) -->
     <div v-if="!session" class="card no-print">
       <p class="muted" style="margin: 0">
@@ -1198,7 +1271,7 @@ function printSheet() {
     </div>
 
     <!-- ===== melodies (stanzas): edit each once ===== -->
-    <h3 class="section-title">🎵 ทำนอง (ท่อน) — คีย์ครั้งเดียว ใช้ซ้ำในหลายข้อ</h3>
+    <h3 id="pk-editor" class="section-title">🎵 ทำนอง (ท่อน) — คีย์ครั้งเดียว ใช้ซ้ำในหลายข้อ</h3>
     <div class="stanza-tabs no-print">
       <button
         v-for="(s, si) in stanzas"
@@ -1400,14 +1473,14 @@ function printSheet() {
     </div>
 
     <!-- ===== arrangement: play order + words per verse ===== -->
-    <h3 class="section-title" style="margin-top: 22px">📜 ลำดับเพลง — เลือกท่อนมาเรียง แล้วพิมพ์เนื้อร้องแต่ละข้อ</h3>
+    <h3 id="pk-arrange" class="section-title" style="margin-top: 22px">📜 ลำดับเพลง — เลือกท่อนมาเรียง แล้วพิมพ์เนื้อร้องแต่ละข้อ</h3>
     <p class="muted no-print" style="margin: 0 0 10px">
       พิมพ์เนื้อร้องลงกล่อง: <b>เว้นวรรค = ขึ้นคำใหม่</b> (ตรงกับโน้ต 1 ตัว) ·
       อยากให้ 2 พยางค์อยู่คำเดียวกันใส่ขีด <b>"-"</b> คั่น เช่น ส-ถิตย์ ·
       โน้ตที่ลากเสียงยาว (เอื้อน) ไม่ต้องมีคำ · จะพิมพ์ทีละคำใต้โน้ตด้านบนก็ได้
     </p>
     <div class="card">
-      <div v-for="(row, ri) in arrangement" :key="ri" class="arr-row">
+      <div v-for="(row, ri) in arrangement" :key="ri" :id="'arr-row-' + ri" class="arr-row">
         <div class="arr-head">
           <span class="muted" style="min-width: 22px">{{ ri + 1 }}.</span>
           <ComboSelect v-model="row.stanza" :options="stanzaIdOptions" aria-label="เลือกท่อนทำนอง" width="100px" />
@@ -1482,6 +1555,8 @@ function printSheet() {
       <p class="muted">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
       <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
     </div>
+      </div>
+      <!-- /content -->
     </div>
     <!-- ===== end edit workspace ===== -->
 
@@ -1847,7 +1922,21 @@ function printSheet() {
 .sb-title:focus { border-color: var(--brand); background: #fff; outline: none; }
 .sb-mode-label { font-weight: 600; }
 .chev { opacity: 0.55; }
+.sb-brand-icon { display: none; }
 .sb-login { display: inline-flex; align-items: center; }
+/* mobile: keep the top bar on one row — brand collapses to a menu icon, mode shows
+   icon-only, the title ellipsizes, so nothing overflows the narrow screen */
+@media (max-width: 760px) {
+  .studio-bar { gap: 4px; padding: 8px; }
+  .sb-brand-icon { display: inline-flex; }
+  .sb-brand-text,
+  .sb-brand .chev { display: none; }
+  .sb-brand { color: var(--ink); }
+  .sb-sep { display: none; }
+  .sb-mode-label { display: none; }
+  .sb-title { font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sb-text { padding: 6px; }
+}
 .sb-dropdown {
   position: absolute;
   top: calc(100% + 6px);
@@ -1895,6 +1984,116 @@ function printSheet() {
 .sb-mode-item .mt small { color: var(--muted); font-size: 0.8rem; }
 .sb-chk { margin-left: auto; color: var(--brand); font-weight: 700; }
 .sb-backdrop { position: fixed; inset: 0; z-index: 40; }
+.sb-cat {
+  background: transparent;
+  border: none;
+  color: var(--brand);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+}
+@media (hover: hover) {
+  .sb-cat:hover { background: rgba(0, 0, 0, 0.06); }
+}
+
+/* ===== parts rail (phase 2) ===== */
+.studio-app { display: flex; gap: 16px; align-items: flex-start; }
+.content { flex: 1; min-width: 0; }
+.rail {
+  flex: 0 0 214px;
+  width: 214px;
+  position: sticky;
+  top: 58px;
+  align-self: flex-start;
+  max-height: calc(100dvh - 74px);
+  overflow: auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px;
+}
+.studio-app.rail-hidden .rail { display: none; }
+.rail-mhead { display: none; }
+.rail-group { font-size: 12px; color: var(--muted); font-weight: 700; padding: 8px 8px 4px; }
+.rail-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.98rem;
+  padding: 8px 9px;
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 38px;
+}
+.rail-row .icn { color: var(--muted); }
+.rail-row.mel .icn { color: var(--note-blue); }
+.rail-row.lyr .icn { color: #6b4fb0; }
+.rail-row.arr .icn { color: #b5771a; }
+.rail-row.add { color: var(--muted); }
+.rail-row.sel { background: var(--cream); border: 1px solid var(--line); font-weight: 700; }
+@media (hover: hover) {
+  .rail-row:hover { background: rgba(139, 69, 19, 0.08); }
+}
+.rail-sep { border-top: 1px solid var(--line); margin: 6px 4px; }
+.rail-backdrop { display: none; }
+
+@media (max-width: 760px) {
+  .studio-app { display: block; }
+  .rail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    width: 82%;
+    max-width: 300px;
+    z-index: 80;
+    border-radius: 0;
+    max-height: none;
+    transform: translateX(-102%);
+    transition: transform 0.22s ease;
+  }
+  .rail.open { transform: none; }
+  .studio-app.rail-hidden .rail { display: block; } /* drawer visibility is via .open, not collapse */
+  .rail-mhead {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 4px 8px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+  .rail-mhead > span { display: inline-flex; align-items: center; gap: 6px; }
+  .rail-x {
+    margin-left: auto;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 4px 8px;
+    min-height: 32px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .rail-backdrop.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(30, 20, 5, 0.4);
+    z-index: 75;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail { transition: none; }
+}
 .sheet-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .only-print { display: none; }
 @media print {
