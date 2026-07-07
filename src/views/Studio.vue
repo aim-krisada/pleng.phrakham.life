@@ -1195,6 +1195,29 @@ function printSheet() {
 // a slide-in drawer (📖 opens it). Clicking an item selects + scrolls to it.
 const railHidden = ref(false) // desktop: collapse the rail to full-width content
 const drawerOpen = ref(false) // mobile: slide-in drawer
+
+// clean-editor affordances: the busy per-line / per-bar controls are tucked away so
+// the strip reads like the wireframe. They are HIDDEN, not removed — one tap reveals
+// them. lineOptsOpen = which line index shows its settings; barMenuOpen = "li-bi" of
+// the bar whose tools popover is open (only one at a time).
+const lineOptsOpen = ref(-1)
+const barMenuOpen = ref('')
+function toggleLineOpts(li) {
+  lineOptsOpen.value = lineOptsOpen.value === li ? -1 : li
+}
+function toggleBarMenu(li, bi) {
+  const k = `${li}-${bi}`
+  barMenuOpen.value = barMenuOpen.value === k ? '' : k
+}
+// the per-bar ⋯ tools popover closes when clicking anywhere outside it
+function onBarMenuOutside(e) {
+  if (!e.target.closest?.('.ed-bar-more-wrap')) barMenuOpen.value = ''
+}
+watch(barMenuOpen, (v) => {
+  if (v) setTimeout(() => document.addEventListener('mousedown', onBarMenuOutside), 0)
+  else document.removeEventListener('mousedown', onBarMenuOutside)
+})
+onUnmounted(() => document.removeEventListener('mousedown', onBarMenuOutside))
 function isMobileView() {
   return window.matchMedia('(max-width: 760px)').matches
 }
@@ -1463,126 +1486,173 @@ const panelTitle = computed(
       <router-link class="pk-info" style="margin-left: 6px" :to="{ path: '/guide', hash: '#notation' }" aria-label="คู่มือโน้ตตัวเลข">i</router-link>
     </p>
 
-    <!-- line editor (edits the ACTIVE stanza) -->
-    <div v-for="(line, li) in lines" :key="`${activeStanzaId}-${li}`" class="card" :class="{ 'line-active': li === activeLine }" @focusin="editorFocusIn($event, li)">
-      <div class="muted" style="margin-bottom: 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center">
-        <strong>บรรทัด {{ li + 1 }}</strong>
+    <!-- line editor (edits the ACTIVE stanza) — clean strip like the wireframe: the
+         busy per-line / per-bar controls are tucked behind ⋯ so the notes read first,
+         but every one of them is still here (revealed on tap, never removed) -->
+    <div
+      v-for="(line, li) in lines"
+      :key="`${activeStanzaId}-${li}`"
+      class="ed-line"
+      :class="{ 'line-active': li === activeLine }"
+      @focusin="editorFocusIn($event, li)"
+    >
+      <div class="ed-line-head no-print">
+        <strong class="ed-line-no">บรรทัด {{ li + 1 }}</strong>
+        <span v-if="line.section" class="ed-line-tag">{{ line.section }}</span>
+        <span v-if="line.marker" class="ed-line-tag">*** ฮุก</span>
+        <span v-if="line.cont" class="ed-line-tag">⤷ ต่อห้อง</span>
+        <span v-if="line.end" class="ed-line-tag">‖ จบเพลง</span>
+        <span v-if="line.label" class="ed-line-tag">{{ line.label }}</span>
+        <span class="ed-line-actions">
+          <button class="ed-mini" title="ฟังบรรทัดนี้" aria-label="ฟังบรรทัดนี้" @click="playLine(li)"><Icon name="play" :size="14" /></button>
+          <button
+            class="ed-mini"
+            :class="{ on: lineOptsOpen === li }"
+            title="ตั้งค่าบรรทัด"
+            aria-label="ตั้งค่าบรรทัด (ชื่อ · ฮุก · ต่อห้อง · จบเพลง · ป้าย · สำเนา · ลบ)"
+            :aria-expanded="lineOptsOpen === li"
+            @click="toggleLineOpts(li)"
+          >⋯</button>
+        </span>
+      </div>
+      <!-- collapsible line settings: name · ฮุก · ต่อห้อง · จบเพลง · ป้าย · สำเนา · ลบ -->
+      <div v-if="lineOptsOpen === li" class="ed-line-opts no-print">
         <input
           v-model="line.section"
           placeholder="ชื่อบรรทัด (เว้นว่างได้)"
           aria-label="ชื่อกำกับบรรทัดนี้ (ปกติเว้นว่าง — ชื่อท่อนไปตั้งที่ลำดับเพลง)"
-          style="width: 150px; min-height: 32px; padding: 4px 8px; font-size: 0.85rem"
+          class="ed-opt-input"
         />
-        <label style="display: inline-flex; align-items: center; gap: 4px">
-          <input type="checkbox" :checked="!!line.marker" @change="line.marker = $event.target.checked ? '***' : ''" />
-          ท่อนฮุก ***
+        <label class="ed-opt-check">
+          <input type="checkbox" :checked="!!line.marker" @change="line.marker = $event.target.checked ? '***' : ''" /> ท่อนฮุก ***
         </label>
-        <label v-if="li > 0" style="display: inline-flex; align-items: center; gap: 4px">
-          <input v-model="line.cont" type="checkbox" />
-          ⤷ ต่อห้องจากบรรทัดก่อน
+        <label v-if="li > 0" class="ed-opt-check">
+          <input v-model="line.cont" type="checkbox" /> ⤷ ต่อห้องจากบรรทัดก่อน
         </label>
-        <label style="display: inline-flex; align-items: center; gap: 4px">
-          <input v-model="line.end" type="checkbox" />
-          ‖ จบเพลง
+        <label class="ed-opt-check">
+          <input v-model="line.end" type="checkbox" /> ‖ จบเพลง
         </label>
         <input
           v-model="line.label"
           placeholder="ป้าย เช่น Fine, D.C. al Fine"
           aria-label="ข้อความกำกับท้ายบรรทัด"
-          style="width: 190px; min-height: 32px; padding: 4px 8px; font-size: 0.85rem"
+          class="ed-opt-input"
         />
-        <button class="secondary" @click="playLine(li)">▶ ฟังบรรทัดนี้</button>
-        <button class="secondary" @click="copyLine(li)">คัดลอกโครง</button>
-        <button class="danger" @click="removeLine(li)">ลบบรรทัด</button>
+        <button class="secondary tiny" @click="copyLine(li)">คัดลอกโครง</button>
+        <button class="danger tiny" @click="removeLine(li)">ลบบรรทัด</button>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 8px; align-items: stretch">
-        <div
-          v-for="(bar, bi) in line.bars"
-          :key="bi"
-          class="bar-box"
-          :class="{ 'bar-playing': playingBar === `${li}-${bi}` }"
-          :data-bar="`${li}-${bi}`"
-        >
-          <div class="bar-head">
-            <span :style="{ color: barStatus(li, bi).ok ? 'var(--muted)' : 'var(--red)', fontWeight: barStatus(li, bi).ok ? 400 : 700 }">
-              ห้อง {{ bi + 1 }} <template v-if="barStatus(li, bi).text">· {{ barStatus(li, bi).text }} {{ barStatus(li, bi).ok ? '✓' : '❌' }}</template>
-            </span>
-            <span class="bar-tools">
-              <button class="secondary tiny" aria-label="ย้ายห้องไปทางซ้าย" :disabled="bi === 0" @click="moveBar(line, bi, -1)">◀</button>
-              <button class="secondary tiny" aria-label="ย้ายห้องไปทางขวา" :disabled="bi === line.bars.length - 1" @click="moveBar(line, bi, 1)">▶</button>
-              <button class="secondary tiny" aria-label="ทำสำเนาห้องนี้เป็นห้องถัดไป" title="ทำสำเนาห้องนี้ (คัดลอกเป็นห้องถัดไป)" @click="duplicateBar(line, bi)">⧉</button>
-              <button class="secondary tiny" aria-label="ลบห้องนี้" @click="removeBar(line, bi)">✕</button>
-            </span>
-          </div>
-          <div class="repeat-row no-print">
-            <label><input v-model="bar.repeatStart" type="checkbox" /> ‖: เริ่มเล่นซ้ำ</label>
-            <label><input v-model="bar.repeatEnd" type="checkbox" /> :‖ วนกลับ</label>
-            <label>ห้องจบ:
-              <select v-model.number="bar.volta">
-                <option :value="0">— ไม่ใช่ —</option>
-                <option :value="1">รอบแรก (จบ 1)</option>
-                <option :value="2">รอบสอง (จบ 2)</option>
-              </select>
-            </label>
-          </div>
-          <!-- one column per note: chord on top, note box, then the syllable box
-               directly under its note (edit everything here — no duplicate preview) -->
-          <div class="seg-strip">
-            <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col">
-              <div class="chord-row">
-                <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell">
-                  <ComboSelect
-                    v-if="chordEditing(li, bi, si, p - 1)"
-                    :model-value="p - 1 === 0 ? seg.chord : ''"
-                    :options="p - 1 === 0 ? chordPickOpts : chordOpts"
-                    placeholder="คอร์ด"
-                    aria-label="เลือกคอร์ด"
-                    width="120px"
-                    class="chord-pick"
-                    autofocus
-                    @update:model-value="applyChordAt(bar, si, p - 1, $event)"
-                  />
-                  <button
-                    v-else
-                    class="chord-btn"
-                    :class="p - 1 === 0 && seg.chord ? 'chord-set' : 'chord-add'"
-                    :aria-label="p - 1 === 0 ? 'คอร์ดของช่วงนี้' : 'ใส่คอร์ดที่โน้ตนี้'"
-                    @click="openChord(li, bi, si, p - 1)"
-                  >{{ p - 1 === 0 && seg.chord ? seg.chord : '+' }}</button>
-                </span>
-              </div>
-              <NoteBoxes v-model="seg.note" />
-              <span v-if="lensActive" class="syl-boxes">
-                <span v-for="(cell, bx) in sylCells(li, bi, si, seg.note)" :key="bx" class="syl-slot">
-                  <template v-if="cell.slot !== null">
-                    <span v-if="focusedSlot === cell.slot" class="slot-tools">
-                      <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(cell.slot)">◀</button>
-                      <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(cell.slot)">▶</button>
-                    </span>
-                    <input
-                      class="syl-box"
-                      :class="{ 'syl-empty': !cell.held && !sylAt(lensRow, cell.slot), 'syl-held': cell.held }"
-                      :value="sylAt(lensRow, cell.slot)"
-                      :data-slot="cell.slot"
-                      :placeholder="cell.held ? '-' : ''"
-                      :aria-label="cell.held ? `โน้ตลากเสียง ช่องที่ ${cell.slot + 1} (เว้นว่างได้)` : `พยางค์ที่ ${cell.slot + 1}`"
-                      @focus="focusedSlot = cell.slot"
-                      @blur="focusedSlot = -1"
-                      @keydown="onSylKey($event, cell.slot)"
-                      @input="setSyl(lensRow, cell.slot, $event.target.value)"
+      <!-- the strip: bars flow left→right with a drawn barline between them -->
+      <div class="ed-strip">
+        <template v-for="(bar, bi) in line.bars" :key="bi">
+          <span v-if="bi > 0" class="ed-barline" aria-hidden="true"></span>
+          <div
+            class="ed-bar"
+            :class="{ 'bar-playing': playingBar === `${li}-${bi}` }"
+            :data-bar="`${li}-${bi}`"
+          >
+            <!-- one column per note: chord on top, note box, then the syllable box
+                 directly under its note (edit everything here — no duplicate preview) -->
+            <div class="seg-strip">
+              <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col">
+                <div class="chord-row">
+                  <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell">
+                    <ComboSelect
+                      v-if="chordEditing(li, bi, si, p - 1)"
+                      :model-value="p - 1 === 0 ? seg.chord : ''"
+                      :options="p - 1 === 0 ? chordPickOpts : chordOpts"
+                      placeholder="คอร์ด"
+                      aria-label="เลือกคอร์ด"
+                      width="120px"
+                      class="chord-pick"
+                      autofocus
+                      @update:model-value="applyChordAt(bar, si, p - 1, $event)"
                     />
-                  </template>
-                  <span v-else class="syl-spacer" aria-hidden="true"></span>
+                    <button
+                      v-else
+                      class="chord-btn"
+                      :class="p - 1 === 0 && seg.chord ? 'chord-set' : 'chord-add'"
+                      :aria-label="p - 1 === 0 ? 'คอร์ดของช่วงนี้' : 'ใส่คอร์ดที่โน้ตนี้'"
+                      @click="openChord(li, bi, si, p - 1)"
+                    >{{ p - 1 === 0 && seg.chord ? seg.chord : '+' }}</button>
+                  </span>
+                </div>
+                <NoteBoxes v-model="seg.note" />
+                <span v-if="lensActive" class="syl-boxes">
+                  <span v-for="(cell, bx) in sylCells(li, bi, si, seg.note)" :key="bx" class="syl-slot">
+                    <template v-if="cell.slot !== null">
+                      <span v-if="focusedSlot === cell.slot" class="slot-tools">
+                        <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(cell.slot)">◀</button>
+                        <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(cell.slot)">▶</button>
+                      </span>
+                      <input
+                        class="syl-box"
+                        :class="{ 'syl-empty': !cell.held && !sylAt(lensRow, cell.slot), 'syl-held': cell.held }"
+                        :value="sylAt(lensRow, cell.slot)"
+                        :data-slot="cell.slot"
+                        :placeholder="cell.held ? '-' : ''"
+                        :aria-label="cell.held ? `โน้ตลากเสียง ช่องที่ ${cell.slot + 1} (เว้นว่างได้)` : `พยางค์ที่ ${cell.slot + 1}`"
+                        @focus="focusedSlot = cell.slot"
+                        @blur="focusedSlot = -1"
+                        @keydown="onSylKey($event, cell.slot)"
+                        @input="setSyl(lensRow, cell.slot, $event.target.value)"
+                      />
+                    </template>
+                    <span v-else class="syl-spacer" aria-hidden="true"></span>
+                  </span>
                 </span>
+                <button class="secondary tiny seg-del" aria-label="ลบช่องคอร์ดนี้" @click="removeSegment(bar, si)">✕</button>
+              </div>
+            </div>
+            <!-- bar foot: beat status + repeat/volta marks + ⋯ tools popover -->
+            <div class="ed-bar-foot no-print">
+              <span class="ed-bar-status" :class="{ bad: !barStatus(li, bi).ok }">
+                <template v-if="barStatus(li, bi).text">{{ barStatus(li, bi).text }} {{ barStatus(li, bi).ok ? '✓' : '❌' }}</template>
+                <template v-else>ห้อง {{ bi + 1 }}</template>
               </span>
-              <button class="secondary tiny seg-del" aria-label="ลบช่องคอร์ดนี้" @click="removeSegment(bar, si)">✕ ลบ</button>
+              <span v-if="bar.repeatStart" class="ed-bar-mark" title="เริ่มเล่นซ้ำ">‖:</span>
+              <span v-if="bar.repeatEnd" class="ed-bar-mark" title="วนกลับ">:‖</span>
+              <span v-if="bar.volta" class="ed-bar-mark" :title="bar.volta === 1 ? 'ห้องจบรอบแรก' : 'ห้องจบรอบสอง'">{{ bar.volta }}.</span>
+              <span class="ed-bar-more-wrap">
+                <button
+                  class="ed-mini"
+                  :class="{ on: barMenuOpen === `${li}-${bi}` }"
+                  :aria-expanded="barMenuOpen === `${li}-${bi}`"
+                  aria-label="เครื่องมือห้องนี้ (ย้าย · สำเนา · ลบ · เล่นซ้ำ · ห้องจบ)"
+                  title="เครื่องมือห้อง"
+                  @click.stop="toggleBarMenu(li, bi)"
+                >⋯</button>
+                <div v-if="barMenuOpen === `${li}-${bi}`" class="ed-bar-menu" role="menu">
+                  <div class="ed-bar-menu-row">
+                    <button class="secondary tiny" aria-label="ย้ายห้องไปทางซ้าย" :disabled="bi === 0" @click="moveBar(line, bi, -1)">◀ ซ้าย</button>
+                    <button class="secondary tiny" aria-label="ย้ายห้องไปทางขวา" :disabled="bi === line.bars.length - 1" @click="moveBar(line, bi, 1)">ขวา ▶</button>
+                  </div>
+                  <div class="ed-bar-menu-row">
+                    <button class="secondary tiny" title="ทำสำเนาห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)">⧉ สำเนา</button>
+                    <button class="danger tiny" aria-label="ลบห้องนี้" @click="removeBar(line, bi)">✕ ลบห้อง</button>
+                  </div>
+                  <label class="ed-bar-menu-check"><input v-model="bar.repeatStart" type="checkbox" /> ‖: เริ่มเล่นซ้ำ</label>
+                  <label class="ed-bar-menu-check"><input v-model="bar.repeatEnd" type="checkbox" /> :‖ วนกลับ</label>
+                  <label class="ed-bar-menu-check">ห้องจบ:
+                    <select v-model.number="bar.volta">
+                      <option :value="0">— ไม่ใช่ —</option>
+                      <option :value="1">รอบแรก (จบ 1)</option>
+                      <option :value="2">รอบสอง (จบ 2)</option>
+                    </select>
+                  </label>
+                </div>
+              </span>
             </div>
           </div>
-        </div>
-        <button class="secondary" style="align-self: center" @click="addBar(line)">+ ห้อง</button>
+        </template>
+        <button class="ed-addbar" title="เพิ่มห้อง" aria-label="เพิ่มห้อง" @click="addBar(line)"><Icon name="plus" :size="14" /> ห้อง</button>
       </div>
     </div>
-    <button class="secondary" @click="addLine">+ เพิ่มบรรทัด</button>
+    <!-- live word-count for the ข้อ being shown under the notes (like the wireframe) -->
+    <div v-if="lensActive" class="ed-count no-print" :class="{ bad: !rowStatus(lensRow).ok }">
+      {{ rowStatus(lensRow).ok ? '✓' : '⚠' }} {{ rowStatus(lensRow).got }}/{{ rowStatus(lensRow).need }} คำ
+      {{ rowStatus(lensRow).ok ? '· ลงพอดี' : '· ยังไม่ครบ' }}
+    </div>
+    <button class="ed-addline" @click="addLine"><Icon name="plus" :size="14" /> เพิ่มบรรทัด</button>
 
     <!-- overflow: syllables typed past the last note — shown as note-less boxes so an
          over-count is visible and fixable, never silently dropped -->
@@ -2581,6 +2651,105 @@ const panelTitle = computed(
 .panel-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 @media (max-width: 560px) {
   .panel-grid { grid-template-columns: 1fr; }
+}
+/* ===== clean editing strip (matches the wireframe) ===== */
+.ed-line {
+  background: #fffdf8;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.ed-line.line-active { border-color: var(--brand); }
+.ed-line-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.ed-line-no { font-size: 0.82rem; color: var(--muted); font-weight: 700; }
+.ed-line-tag {
+  font-size: 0.72rem;
+  color: var(--brand);
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1px 7px;
+}
+.ed-line-actions { margin-left: auto; display: inline-flex; gap: 4px; }
+.ed-mini.on { background: var(--cream); border-color: var(--brand); color: var(--brand); }
+.ed-line-opts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 8px 4px 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px dashed var(--line);
+}
+.ed-opt-input {
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  flex: 1 1 150px;
+  min-width: 130px;
+}
+.ed-opt-check { display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+/* the strip: note-columns flow left→right, wrapping only when very long */
+.ed-strip { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.ed-barline { align-self: stretch; width: 0; border-left: 2px solid var(--muted); margin: 4px 0; min-height: 44px; }
+.ed-bar { display: flex; flex-direction: column; gap: 6px; border-radius: 8px; padding: 4px 2px 2px; }
+.ed-bar .seg-strip { gap: 10px; flex-wrap: nowrap; }
+.ed-bar.bar-playing { background: var(--cream); box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.15); }
+.ed-bar-foot { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.ed-bar-status { color: var(--muted); }
+.ed-bar-status.bad { color: var(--red); font-weight: 700; }
+.ed-bar-mark { font-family: 'Courier New', monospace; font-weight: 700; color: var(--brand); font-size: 12px; }
+.ed-bar-more-wrap { position: relative; margin-left: auto; }
+.ed-bar-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  min-width: 210px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(60, 40, 10, 0.18);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ed-bar-menu-row { display: flex; gap: 6px; }
+.ed-bar-menu-row .tiny { flex: 1; }
+.ed-bar-menu-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.ed-addbar,
+.ed-addline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 6px 12px;
+  min-height: 34px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+}
+.ed-addbar { align-self: center; }
+.ed-addline { margin: 2px 0 6px; }
+@media (hover: hover) {
+  .ed-addbar:hover,
+  .ed-addline:hover { background: var(--cream); color: var(--brand); border-color: var(--brand); }
+}
+.ed-count { font-size: 0.9rem; color: #2f7d4f; margin: 2px 0 8px; font-weight: 600; }
+.ed-count.bad { color: var(--red); }
+/* the ✕ seg-del is quiet until you hover / focus its column */
+.seg-col .seg-del { opacity: 0; transition: opacity 0.12s; }
+.seg-col:hover .seg-del,
+.seg-col:focus-within .seg-del { opacity: 1; }
+@media (hover: none) {
+  .seg-col .seg-del { opacity: 1; }
 }
 .sheet-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .only-print { display: none; }
