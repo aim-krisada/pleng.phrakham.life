@@ -20,22 +20,23 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
         :class="['nt', t.type === 'note' && t.dotted ? 'dotted' : '', t.type === 'note' && t.accidental ? 'has-acc' : '', t.tieStart ? 'tie-start' : '', t.tieEnd ? 'tie-end' : '']"
       >
         <template v-if="t.type === 'note'">
-          <!-- octave dots stay centred on the DIGIT; the augmentation dot sits
-               beside it (absolute) so it never pushes the octave dots off-centre -->
+          <!-- octave dots stay centred on the DIGIT; more than one dot stacks
+               VERTICALLY (like the book) growing away from the digit. The
+               augmentation dot sits beside it (absolute) so it never nudges them. -->
           <span v-if="t.fermata" class="fermata" aria-hidden="true"></span>
-          <span class="dots-hi">{{ '•'.repeat(t.high) || ' ' }}</span>
+          <span class="dots-hi" aria-hidden="true"><span v-for="k in t.high" :key="k" class="odot"></span></span>
           <span :class="['num', 'u' + t.underlines]"><span v-if="t.accidental" class="acc">{{ ACC_GLYPH[t.accidental] }}</span>{{ t.pitch }}<span v-if="t.dotted" class="aug" aria-hidden="true">•</span></span>
-          <span class="dots-lo">{{ '•'.repeat(t.low) || ' ' }}</span>
+          <span class="dots-lo" aria-hidden="true"><span v-for="k in t.low" :key="k" class="odot"></span></span>
         </template>
         <template v-else-if="t.type === 'ext'">
-          <span class="dots-hi">&nbsp;</span>
+          <span class="dots-hi"></span>
           <span class="num">–</span>
-          <span class="dots-lo">&nbsp;</span>
+          <span class="dots-lo"></span>
         </template>
         <template v-else>
-          <span class="dots-hi">&nbsp;</span>
+          <span class="dots-hi"></span>
           <span class="num">{{ t.text }}</span>
-          <span class="dots-lo">&nbsp;</span>
+          <span class="dots-lo"></span>
         </template>
       </span>
     </span>
@@ -56,13 +57,24 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
   line-height: 1.05;
 }
 .nt.dotted { margin-right: 0.45em; }
-.dots-hi, .dots-lo {
-  display: block;
-  font-size: 0.55em;
-  height: 1.1em;
-  line-height: 1.1em;
-  letter-spacing: -1px;
+/* fixed-height spacer above/below the digit — reserves room for ONE dot level so
+   every note (0, 1 or 2 dots) keeps the same height and the digits stay aligned */
+.dots-hi, .dots-lo { display: block; height: 0.46em; position: relative; }
+/* CSS-drawn octave dots, stacked vertically away from the digit. A 2nd dot fits
+   inside the reserved height, so a two-octave note never shifts the row. */
+.odot {
+  position: absolute; left: 50%;
+  width: 0.16em; height: 0.16em;
+  margin-left: -0.08em;
+  border-radius: 50%;
+  background: currentColor;
 }
+.dots-hi .odot { bottom: 0.08em; }
+.dots-hi .odot:nth-child(2) { bottom: 0.30em; }
+.dots-hi .odot:nth-child(3) { bottom: 0.52em; }
+.dots-lo .odot { top: 0.08em; }
+.dots-lo .odot:nth-child(2) { top: 0.30em; }
+.dots-lo .odot:nth-child(3) { top: 0.52em; }
 .num { display: block; padding: 0 1px; position: relative; }
 .num.u1 { border-bottom: 1.5px solid currentColor; }
 .num.u2 { border-bottom: 4px double currentColor; }
