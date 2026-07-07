@@ -1095,6 +1095,52 @@ const edLyrOptions = computed(() => [
   { value: -1, label: '— ซ่อนเนื้อ —' },
   ...lensRowsForActiveStanza.value.map((x) => ({ value: x.i, label: rowLabel(x.r, x.i) })),
 ])
+
+// ---------- studio shell (phase 4: menus/panels + read-row) ----------
+// Set-once / occasional things live in menus now (เพลง = New/Open/Properties,
+// จัดการ = drafts/history/download/delete) opened as panels, so the editor page
+// stays as clean as the wireframe.
+const activePanel = ref(null) // 'open' | 'properties' | 'history' | 'drafts'
+function openPanel(p) {
+  openMenu.value = null
+  viewMode.value = 'edit'
+  if (p === 'history') loadRevisions()
+  activePanel.value = p
+}
+function closePanel() {
+  activePanel.value = null
+}
+function manageDownload() {
+  openMenu.value = null
+  downloadJson()
+}
+function manageDelete() {
+  openMenu.value = null
+  deleteSong()
+}
+// read-row: the active ท่อน rendered in real sheet style with the selected ข้อ's
+// words (พี่เปา reads a sheet more easily than the boxes). Built by resolving a mini
+// song of just this (stanza, verse) pair — same engine as the full sheet.
+const readRowContent = computed(() => {
+  const s = stanzas.value[activeStanza.value]
+  if (!s) return { key: opts.key, timeSignature: opts.timeSignature, lines: [] }
+  const mini = {
+    version: 2,
+    key: opts.key,
+    timeSignature: opts.timeSignature,
+    stanzas: [{ id: s.id, lines: s.lines.map(serializeLine) }],
+    arrangement: [
+      { stanza: s.id, label: '', syllables: lensActive.value ? lensRow.value.syllables.map((t) => (t || '').trim()) : [] },
+    ],
+  }
+  return { ...mini, lines: resolveContent(mini) }
+})
+const panelTitle = computed(
+  () =>
+    ({ open: 'เลือกเพลงเพื่อแก้', properties: 'ตั้งค่าเพลง', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ' })[
+      activePanel.value
+    ] || '',
+)
 </script>
 
 <template>
@@ -1124,8 +1170,17 @@ const edLyrOptions = computed(() => [
         <button class="sb-text" :aria-expanded="openMenu === 'file'" aria-haspopup="true" @click.stop="toggleMenu('file')">เพลง</button>
         <div v-if="openMenu === 'file'" class="sb-dropdown" role="menu">
           <button class="sb-item" role="menuitem" @click="fileNew"><Icon name="file-plus" /> สร้างเพลงใหม่ <span class="sb-k">New</span></button>
-          <button class="sb-item" role="menuitem" @click="scrollToCard('pk-picker')"><Icon name="folder-open" /> เลือกเพลงเพื่อแก้… <span class="sb-k">Open</span></button>
-          <button class="sb-item" role="menuitem" @click="scrollToCard('pk-meta')"><Icon name="settings" /> ตั้งค่าเพลง <span class="sb-k">Properties</span></button>
+          <button class="sb-item" role="menuitem" @click="openPanel('open')"><Icon name="folder-open" /> เลือกเพลงเพื่อแก้… <span class="sb-k">Open</span></button>
+          <button class="sb-item" role="menuitem" @click="openPanel('properties')"><Icon name="settings" /> ตั้งค่าเพลง <span class="sb-k">Properties</span></button>
+        </div>
+      </div>
+      <div class="sb-menu">
+        <button class="sb-text" :aria-expanded="openMenu === 'manage'" aria-haspopup="true" @click.stop="toggleMenu('manage')">จัดการ</button>
+        <div v-if="openMenu === 'manage'" class="sb-dropdown" role="menu">
+          <button v-if="session && !legacy" class="sb-item" role="menuitem" @click="openPanel('drafts')"><Icon name="file-text" /> งานร่าง / รอตรวจ</button>
+          <button v-if="session && !legacy && editingId" class="sb-item" role="menuitem" @click="openPanel('history')"><Icon name="undo-2" /> ประวัติการแก้ไข</button>
+          <button class="sb-item" role="menuitem" @click="manageDownload"><Icon name="download" /> ดาวน์โหลด JSON</button>
+          <button v-if="isApprover && session && editingId && !reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="manageDelete"><Icon name="x" /> ลบเพลง</button>
         </div>
       </div>
       <div class="sb-menu">
@@ -1180,38 +1235,7 @@ const edLyrOptions = computed(() => [
       </nav>
       <div class="rail-backdrop" :class="{ open: drawerOpen }" aria-hidden="true" @click="closeDrawer"></div>
       <div class="content">
-    <!-- not signed in: gentle hint (login lives in the navbar profile button) -->
-    <div v-if="!session" class="card no-print">
-      <p class="muted" style="margin: 0">
-        ทีมงาน: กด "เข้าสู่ระบบ" ที่มุมขวาบนก่อน จึงจะบันทึกเพลงได้ ·
-        คนทั่วไปก็ใช้หน้านี้คีย์เพลงได้เลย — เสร็จแล้วกด "ดาวน์โหลด JSON" ส่งให้ทีมงาน
-      </p>
-    </div>
-
-    <!-- review queue (approver) + my drafts (everyone logged in) -->
-    <div v-if="session && !legacy && (pendingDrafts.length || myDrafts.length)" class="card no-print">
-      <template v-if="isApprover && pendingDrafts.length">
-        <strong>📨 รออนุมัติ ({{ pendingDrafts.length }})</strong>
-        <div v-for="d in pendingDrafts" :key="d.id" class="draft-row">
-          <a href="#" @click.prevent="loadDraft(d)">
-            {{ d.number != null ? d.number + '. ' : '' }}{{ d.title_th }}
-          </a>
-          <span class="muted"> — โดย {{ profilesMap[d.author_id] || '?' }} · {{ new Date(d.updated_at).toLocaleString('th-TH') }}</span>
-        </div>
-        <hr v-if="myDrafts.length" style="border: none; border-top: 1px solid var(--line)" />
-      </template>
-      <template v-if="myDrafts.length">
-        <strong>📝 งานร่างของฉัน</strong>
-        <div v-for="d in myDrafts" :key="d.id" class="draft-row">
-          <a href="#" @click.prevent="loadDraft(d)">
-            {{ d.number != null ? d.number + '. ' : '' }}{{ d.title_th }}
-          </a>
-          <span :class="['status-chip', 's-' + d.status]">{{ STATUS_TH[d.status] }}</span>
-        </div>
-      </template>
-    </div>
-
-    <!-- review banner -->
+    <!-- review banner (contextual — while an approver is reviewing a draft) -->
     <div v-if="reviewingDraft" class="card review-banner no-print">
       <strong>🔍 กำลังตรวจฉบับร่างของ {{ profilesMap[reviewingDraft.author_id] || '?' }}</strong>
       <span class="muted"> — แก้ไขในฟอร์มด้านล่างได้ก่อนอนุมัติ</span>
@@ -1222,38 +1246,7 @@ const edLyrOptions = computed(() => [
       </div>
     </div>
 
-    <!-- song picker -->
-    <div id="pk-picker" class="card no-print">
-      <label style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap">
-        เลือกเพลง:
-        <ComboSelect
-          v-model="pickerId"
-          :options="pickerOptions"
-          placeholder="พิมพ์ค้นหา: ชื่อ เลข เนื้อร้อง โน้ต…"
-          width="300px"
-        />
-      </label>
-      <button class="secondary" style="margin-left: 8px" @click="pickerId = ''; resetForm()">เริ่มเพลงใหม่</button>
-      <router-link class="pk-info" style="margin-left: 12px" :to="{ path: '/guide' }" aria-label="คู่มือ" title="คู่มือ">i</router-link>
-    </div>
-
-    <!-- metadata -->
-    <div id="pk-meta" class="card">
-      <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
-        <input v-model.number="meta.number" type="number" placeholder="เลขเพลง" aria-label="เลขเพลง" style="width: 90px" />
-        <input v-model="meta.title_th" placeholder="ชื่อเพลง (ไทย)" aria-label="ชื่อเพลงภาษาไทย" style="flex: 1; min-width: 180px" />
-        <input v-model="meta.title_en" placeholder="ชื่อเพลง (อังกฤษ ถ้ามี)" aria-label="ชื่อเพลงภาษาอังกฤษ" style="flex: 1; min-width: 160px" />
-        <label style="display: inline-flex; align-items: center; gap: 4px">คีย์:
-          <ComboSelect v-model="opts.key" :options="KEYS" aria-label="คีย์เพลง" width="80px" />
-        </label>
-        <label style="display: inline-flex; align-items: center; gap: 4px">จังหวะ:
-          <ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom aria-label="จังหวะของเพลง" width="90px" />
-        </label>
-        <label style="display: inline-flex; align-items: center; gap: 4px">♩=
-          <input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" aria-label="ความเร็วเพลง BPM" style="width: 75px" />
-        </label>
-      </div>
-    </div>
+    <!-- picker → "เพลง › Open" panel · metadata → "เพลง › Properties" panel (below) -->
 
     <!-- migrate notice: v1 song auto-split into v2, some rows need a human check -->
     <div v-if="migrateWarnings.length" class="card no-print migrate-note">
@@ -1265,21 +1258,8 @@ const edLyrOptions = computed(() => [
       </ul>
     </div>
 
-    <!-- plain-language overview: the two ways to enter a song + the 3 steps -->
-    <div class="card no-print how-to">
-      <strong>📖 ทำเพลงยังไง? มี 2 วิธีใส่โน้ต/คำ</strong>
-      <ol style="margin: 6px 0 8px 18px; padding: 0">
-        <li><b>พิมพ์ทีละตัว</b> — แตะช่อง แล้วพิมพ์ทีละโน้ต/ทีละคำ (1 ช่อง = 1 โน้ต)</li>
-        <li><b>ก๊อบ–วาง</b> — คัดลอกเนื้อทั้งท่อนมาวางในกล่องใหญ่ แล้วจัดให้ตรงช่องด้วยการ <b>เว้นวรรค</b> (ขึ้นช่องใหม่) และปุ่ม <b>◀ ▶</b> (แทรก/ลบช่องให้เลื่อนไปตรงโน้ต)</li>
-      </ol>
-      <span class="muted">ทำ 3 ขั้น: ① ใส่ทำนอง (ท่อน) ด้านล่าง → ② เอาท่อนมาเรียงใน “ลำดับเพลง” → ③ พิมพ์เนื้อร้องของแต่ละข้อ</span>
-    </div>
-
-    <!-- ===== melodies (stanzas): edit each once ===== -->
-    <h3 id="pk-editor" class="section-title">🎵 ทำนอง (ท่อน) — คีย์ครั้งเดียว ใช้ซ้ำในหลายข้อ</h3>
-    <!-- editor breadcrumb: the melody × verse pair being edited (one clean row —
-         replaces the old stanza tabs + lens selector, matches the wireframe) -->
-    <div class="ed-breadcrumb no-print">
+    <!-- ===== editor: breadcrumb (ท่อน × ข้อ) → read row → edit boxes ===== -->
+    <div id="pk-editor" class="ed-breadcrumb no-print">
       <span class="ed-pair">
         <Icon name="music" :size="17" class="ic-mel" />
         <span class="ed-cap">ท่อน</span>
@@ -1305,6 +1285,13 @@ const edLyrOptions = computed(() => [
     <p v-if="lensActive" class="muted no-print" style="margin: 0 0 8px">
       พิมพ์คำร้องในช่องใต้โน้ต · ช่องสีแดง = ยังไม่ได้ใส่คำ · ช่องเส้นประ = โน้ตลากเสียง (เว้นว่างได้ หรือใส่ “-”)
     </p>
+
+    <!-- read row: the active ท่อน (with the selected ข้อ's words) in real sheet style
+         — พี่เปา reads this more easily than the boxes -->
+    <div class="card read-row-card">
+      <div class="read-row-label no-print"><Icon name="eye" :size="15" /> อ่าน (แบบแผ่นเพลง)</div>
+      <SongSheet :content="readRowContent" mode="full" chord-system="letter" :display-key="opts.key" />
+    </div>
 
     <!-- editing hint (the symbol palette lives in the bottom dock) -->
     <p class="muted no-print" style="margin: 0 0 10px">
@@ -1515,49 +1502,7 @@ const edLyrOptions = computed(() => [
       <button class="secondary" @click="addRow">+ เพิ่มข้อ</button>
     </div>
 
-    <!-- secondary actions -->
-    <div class="card" style="margin-top: 12px">
-      <button :class="playing ? 'danger' : 'secondary'" @click="playFull">
-        {{ playing ? '⏹ หยุด' : '▶ ฟังทั้งเพลง' }}
-      </button>
-      <button class="secondary" style="margin-left: 8px" @click="downloadJson">⬇️ ดาวน์โหลด JSON</button>
-      <button
-        v-if="isApprover && session && editingId && !reviewingDraft"
-        class="danger"
-        style="margin-left: 8px"
-        @click="deleteSong"
-      >
-        🗑️ ลบเพลงนี้
-      </button>
-      <span v-if="!session" class="muted" style="margin-left: 8px">(เข้าสู่ระบบที่มุมขวาบนก่อนจึงบันทึกได้)</span>
-    </div>
-
-    <!-- history -->
-    <div v-if="session && !legacy && editingId && revisions.length" class="card no-print">
-      <button class="secondary" @click="showHistory = !showHistory">
-        🕘 ประวัติการแก้ไข ({{ revisions.length }}) {{ showHistory ? '▲' : '▼' }}
-      </button>
-      <template v-if="showHistory">
-        <div v-for="rev in revisions" :key="rev.id" class="rev-row">
-          <div>
-            <strong>{{ revName(rev) }}</strong>
-            <span class="muted"> · {{ new Date(rev.created_at).toLocaleString('th-TH') }}</span>
-            <button v-if="isApprover && rev.new_row" class="secondary tiny" style="margin-left: 8px" @click="restore(rev)">⏪ ย้อนมาเวอร์ชันนี้</button>
-          </div>
-          <ul class="muted" style="margin: 4px 0 0 18px">
-            <li v-for="(d, i) in revDiff(rev)" :key="i">{{ d }}</li>
-          </ul>
-        </div>
-      </template>
-    </div>
-
-    <!-- live preview -->
-    <div class="card">
-      <h3 style="margin-top: 0">ตัวอย่างแผ่นเพลง</h3>
-      <h2 style="color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
-      <p class="muted">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
-      <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
-    </div>
+    <!-- (play ทั้งเพลง = dock · ดาวน์โหลด/ลบ/ประวัติ = "จัดการ" menu · preview = read-row + 🎼 mode) -->
       </div>
       <!-- /content -->
     </div>
@@ -1610,6 +1555,69 @@ const edLyrOptions = computed(() => [
         <h2 style="margin-top: 0; color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
         <p class="muted">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
         <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
+      </div>
+    </div>
+
+    <!-- ===== menu panels: Open / Properties / History / Drafts ===== -->
+    <div v-if="activePanel" class="panel-overlay no-print" role="dialog" aria-modal="true" @click.self="closePanel">
+      <div class="panel-box">
+        <div class="panel-head">
+          <strong>{{ panelTitle }}</strong>
+          <button class="secondary panel-x" aria-label="ปิด" @click="closePanel"><Icon name="x" :size="16" /></button>
+        </div>
+
+        <!-- Open: pick a song to edit -->
+        <div v-if="activePanel === 'open'">
+          <label style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">เลือกเพลง:
+            <ComboSelect v-model="pickerId" :options="pickerOptions" placeholder="พิมพ์ค้นหา: ชื่อ เลข เนื้อร้อง โน้ต…" width="320px" />
+          </label>
+          <p class="muted" style="margin: 10px 0 0">เลือกจากรายการเพื่อเปิดมาแก้ · หรือ “สร้างเพลงใหม่” ในเมนู เพลง</p>
+        </div>
+
+        <!-- Properties: song metadata -->
+        <div v-else-if="activePanel === 'properties'" class="panel-grid">
+          <label>เลขเพลง<input v-model.number="meta.number" type="number" placeholder="เลขเพลง" /></label>
+          <label>ชื่อเพลง (ไทย)<input v-model="meta.title_th" placeholder="ชื่อเพลง (ไทย)" /></label>
+          <label>ชื่อเพลง (อังกฤษ)<input v-model="meta.title_en" placeholder="ถ้ามี" /></label>
+          <label>คีย์<ComboSelect v-model="opts.key" :options="KEYS" width="100%" /></label>
+          <label>จังหวะ<ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom width="100%" /></label>
+          <label>ความเร็ว (BPM)<input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" /></label>
+        </div>
+
+        <!-- History -->
+        <div v-else-if="activePanel === 'history'">
+          <p v-if="!revisions.length" class="muted">ยังไม่มีประวัติ (บันทึกเพลงก่อน)</p>
+          <div v-for="rev in revisions" :key="rev.id" class="rev-row">
+            <div>
+              <strong>{{ revName(rev) }}</strong>
+              <span class="muted"> · {{ new Date(rev.created_at).toLocaleString('th-TH') }}</span>
+              <button v-if="isApprover && rev.new_row" class="secondary tiny" style="margin-left: 8px" @click="restore(rev)">⏪ ย้อนมาเวอร์ชันนี้</button>
+            </div>
+            <ul class="muted" style="margin: 4px 0 0 18px">
+              <li v-for="(d, i) in revDiff(rev)" :key="i">{{ d }}</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Drafts / review queue -->
+        <div v-else-if="activePanel === 'drafts'">
+          <p v-if="!pendingDrafts.length && !myDrafts.length" class="muted">ยังไม่มีงานร่างหรือรายการรอตรวจ</p>
+          <template v-if="isApprover && pendingDrafts.length">
+            <strong>📨 รออนุมัติ ({{ pendingDrafts.length }})</strong>
+            <div v-for="d in pendingDrafts" :key="d.id" class="draft-row">
+              <a href="#" @click.prevent="loadDraft(d); closePanel()">{{ d.number != null ? d.number + '. ' : '' }}{{ d.title_th }}</a>
+              <span class="muted"> — โดย {{ profilesMap[d.author_id] || '?' }}</span>
+            </div>
+            <hr v-if="myDrafts.length" style="border: none; border-top: 1px solid var(--line); margin: 10px 0" />
+          </template>
+          <template v-if="myDrafts.length">
+            <strong>📝 งานร่างของฉัน</strong>
+            <div v-for="d in myDrafts" :key="d.id" class="draft-row">
+              <a href="#" @click.prevent="loadDraft(d); closePanel()">{{ d.number != null ? d.number + '. ' : '' }}{{ d.title_th }}</a>
+              <span :class="['status-chip', 's-' + d.status]">{{ STATUS_TH[d.status] }}</span>
+            </div>
+          </template>
+        </div>
       </div>
     </div>
   </div>
@@ -2156,6 +2164,42 @@ const edLyrOptions = computed(() => [
 @media (hover: hover) {
   .ed-mini:hover,
   .ed-play:hover { background: var(--cream-hover); }
+}
+/* read row (phase 4): the pair in sheet style, above the edit boxes */
+.read-row-card { background: #fffdf8; padding: 10px 12px; }
+.read-row-label { font-size: 0.82rem; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; margin-bottom: 6px; }
+.read-row-label .icn { color: var(--muted); }
+/* จัดการ menu danger item */
+.sb-danger { color: var(--red); }
+.sb-danger .icn { color: var(--red); }
+/* menu panels (Open / Properties / History / Drafts) */
+.panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(45, 42, 38, 0.5);
+  z-index: 95;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 60px 12px 20px;
+  overflow: auto;
+}
+.panel-box {
+  background: #fff;
+  border-radius: 14px;
+  padding: 18px 20px;
+  max-width: 560px;
+  width: 100%;
+  box-shadow: 0 16px 44px rgba(60, 40, 10, 0.28);
+}
+.panel-head { display: flex; align-items: center; margin-bottom: 12px; }
+.panel-head strong { font-size: 1.1rem; color: var(--brand); }
+.panel-x { margin-left: auto; padding: 6px 8px; display: inline-flex; }
+.panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.panel-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; color: var(--muted); }
+.panel-grid label input { color: var(--ink); }
+@media (max-width: 560px) {
+  .panel-grid { grid-template-columns: 1fr; }
 }
 .sheet-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .only-print { display: none; }
