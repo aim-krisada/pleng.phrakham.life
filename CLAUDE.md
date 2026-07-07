@@ -30,6 +30,7 @@ Preview tools: `preview_start "dev"` (config in `.claude/launch.json`).
 - `src/lib/` — `notation.js` (parse โน้ตตัวเลข), `songModel.js` (v1/v2 model), `chords.js` (transpose), `songSearch.js`, `midi.js`, `diff.js`
 - `src/store.js`, `src/supabase.js`, `src/router.js`
 - `docs/song-model-v2.md` — **design doc for the v2 song model (read before touching notation/model)**
+- `docs/lessons.md` — **build lessons & conventions (permission model · one shared ShellBar · verify-fallback · commit-checkpoint · phased-on-branch) — read before non-trivial UI/architecture work**
 
 ## Domain
 
