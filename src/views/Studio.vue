@@ -11,6 +11,7 @@ import SongSheet from '../components/SongSheet.vue'
 import NoteBoxes from '../components/NoteBoxes.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 import Icon from '../components/Icon.vue'
+import SongViewer from '../components/SongViewer.vue'
 
 // ---------- auth + role (shared with the navbar profile tool) ----------
 import { useRoute } from 'vue-router'
@@ -1201,6 +1202,12 @@ const readRowContent = computed(() => {
   }
   return { ...mini, lines: resolveContent(mini) }
 })
+// the current song shaped for the read/listen viewer (view mode)
+const viewerSong = computed(() => ({
+  number: meta.number,
+  title_th: meta.title_th,
+  content: previewContent.value,
+}))
 const panelTitle = computed(
   () =>
     ({ open: 'เลือกเพลงเพื่อแก้', properties: 'ตั้งค่าเพลง', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ' })[
@@ -1569,13 +1576,9 @@ const panelTitle = computed(
     <!-- ===== sheet mode: read / print the whole song ===== -->
     <div v-show="viewMode === 'sheet'" class="sheet-workspace">
       <div class="card">
-        <div class="sheet-head no-print">
-          <h2 style="margin: 0; color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
-          <button class="secondary" style="margin-left: auto" @click="printSheet">🖨 พิมพ์</button>
-        </div>
-        <h2 class="only-print" style="color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
-        <p class="muted">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
-        <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
+        <h2 style="margin: 0 0 2px; color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
+        <p class="muted" style="margin: 0 0 12px">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
+        <SongViewer :song="viewerSong" />
       </div>
     </div>
 
