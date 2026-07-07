@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { KEYS } from '../lib/chords.js'
-import { playSong, stopPlayback, TEMPO_MARKS } from '../lib/midi.js'
+import { playSong, stopPlayback, setTranspose, keyTranspose, TEMPO_MARKS } from '../lib/midi.js'
 import { resolveContent } from '../lib/songModel.js'
 import { currentSong } from '../store.js'
 import SongSheet from '../components/SongSheet.vue'
@@ -103,12 +103,14 @@ async function startPlay(range, key) {
   const gen = ++playGen
   playing.value = true
   playingSection.value = key
-  // Play in the user's chosen key: notation is movable-do, so rooting songToNotes
-  // at displayKey transposes the whole melody to match the on-screen transpose.
-  await playSong({ ...resolved.value, key: displayKey.value || resolved.value.key }, {
+  // Play in the user's chosen key. The melody is scheduled at the original key and
+  // shifted by `transpose` semitones via detune, so changing the key while playing
+  // re-tunes the upcoming notes live (see the displayKey watcher below).
+  await playSong(resolved.value, {
     bpm: Number(tempo.value) || resolved.value.bpm || 92,
     loop: loop.value,
     range,
+    transpose: keyTranspose(song.value.content.key, displayKey.value || song.value.content.key),
     onNote: (n) => { playingSeg.value = { li: n.li, si: n.si } },
   })
   if (gen === playGen) { // still the active play (not superseded/stopped)
@@ -117,6 +119,11 @@ async function startPlay(range, key) {
     playingSeg.value = null
   }
 }
+// Live key change: while the melody is playing, re-tune upcoming notes to the new
+// key without restarting (notes already sounding finish in the old key).
+watch(displayKey, (k) => {
+  if (playing.value) setTranspose(keyTranspose(song.value.content.key, k || song.value.content.key))
+})
 function togglePlay() {
   if (playing.value) stopPlay()
   else startPlay(undefined, 'all')
