@@ -1212,11 +1212,6 @@ const panelTitle = computed(
 <template>
   <div style="padding-bottom: 150px">
     <!-- Studio teleports its contextual controls into the app-wide ShellBar -->
-    <Teleport to="#shell-left">
-      <button v-if="editing" class="sb-cat" aria-label="สารบัญส่วนของเพลง (ทำนอง·เนื้อ·ลำดับ)" title="สารบัญเพลง — ทำนอง·เนื้อ·ลำดับ" @click.stop="toggleCatalog">
-        <Icon name="list-music" :size="20" />
-      </button>
-    </Teleport>
     <Teleport to="#shell-title">
       <span class="sb-sep" aria-hidden="true"></span>
       <input v-if="editing" v-model="meta.title_th" class="sb-title" placeholder="ชื่อเพลง" aria-label="ชื่อเพลง" />
@@ -1320,6 +1315,9 @@ const panelTitle = computed(
 
     <!-- ===== editor: breadcrumb (ท่อน × ข้อ) → read row → edit boxes ===== -->
     <div id="pk-editor" class="ed-breadcrumb no-print">
+      <button class="ed-cat" aria-label="สารบัญเพลง (ทำนอง·เนื้อ·ลำดับ)" title="สารบัญเพลง — ทำนอง·เนื้อ·ลำดับ" @click.stop="toggleCatalog">
+        <Icon name="list-music" :size="18" />
+      </button>
       <span class="ed-pair">
         <Icon name="music" :size="17" class="ic-mel" />
         <span class="ed-cap">ท่อน</span>
@@ -2244,9 +2242,23 @@ const panelTitle = computed(
   cursor: pointer;
 }
 .ed-nolyr { font-size: 0.85rem; }
+.ed-cat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--brand);
+  border-radius: 8px;
+  padding: 6px;
+  min-width: 34px;
+  min-height: 34px;
+  cursor: pointer;
+}
 @media (hover: hover) {
   .ed-mini:hover,
-  .ed-play:hover { background: var(--cream-hover); }
+  .ed-play:hover,
+  .ed-cat:hover { background: var(--cream-hover); }
 }
 /* read row (phase 4): the pair in sheet style, above the edit boxes */
 .read-row-card { background: #fffdf8; padding: 10px 12px; }
