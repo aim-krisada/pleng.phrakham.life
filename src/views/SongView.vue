@@ -103,7 +103,9 @@ async function startPlay(range, key) {
   const gen = ++playGen
   playing.value = true
   playingSection.value = key
-  await playSong(resolved.value, {
+  // Play in the user's chosen key: notation is movable-do, so rooting songToNotes
+  // at displayKey transposes the whole melody to match the on-screen transpose.
+  await playSong({ ...resolved.value, key: displayKey.value || resolved.value.key }, {
     bpm: Number(tempo.value) || resolved.value.bpm || 92,
     loop: loop.value,
     range,
