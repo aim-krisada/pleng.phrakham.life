@@ -41,6 +41,11 @@ function onFocus() {
   text.value = ''
   hi.value = -1
 }
+// After picking, mousedown.prevent keeps focus on the input, so clicking it again
+// fires no `focus` event and the list wouldn't reopen. Reopen on click instead.
+function onClick() {
+  if (!open.value) onFocus()
+}
 function pick(o) {
   emit('update:modelValue', o.value)
   text.value = o.label
@@ -109,6 +114,7 @@ function scrollToHi() {
       autocomplete="off"
       :placeholder="placeholder"
       @focus="onFocus"
+      @click="onClick"
       @blur="onBlur"
       @keydown="onKeydown"
     />
