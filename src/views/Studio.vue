@@ -11,6 +11,7 @@ import SongSheet from '../components/SongSheet.vue'
 import NoteBoxes from '../components/NoteBoxes.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 import ProfileTool from '../components/ProfileTool.vue'
+import Icon from '../components/Icon.vue'
 
 // ---------- auth + role (shared with the navbar profile tool) ----------
 import { session, profile, legacy, initAuth } from '../store.js'
@@ -1056,14 +1057,14 @@ function printSheet() {
       <div class="sb-menu">
         <button class="sb-brand" :aria-expanded="openMenu === 'site'" aria-haspopup="true" @click.stop="toggleMenu('site')">
           เพลง.พระคำ.ชีวิต
-          <svg class="chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+          <Icon name="chevron-down" :size="14" class="chev" />
         </button>
         <div v-if="openMenu === 'site'" class="sb-dropdown" role="menu">
-          <router-link to="/" role="menuitem">รายการเพลง</router-link>
-          <router-link to="/studio" role="menuitem">ทำเพลง</router-link>
-          <router-link to="/guide" role="menuitem">คู่มือ</router-link>
-          <router-link to="/about" role="menuitem">เกี่ยวกับเรา</router-link>
-          <a href="https://phrakham.life" role="menuitem">พระคำ.ชีวิต ↗</a>
+          <router-link to="/" role="menuitem"><Icon name="library" /> รายการเพลง</router-link>
+          <router-link to="/studio" role="menuitem"><Icon name="pencil" /> ทำเพลง</router-link>
+          <router-link to="/guide" role="menuitem"><Icon name="book-open" /> คู่มือ</router-link>
+          <router-link to="/about" role="menuitem"><Icon name="info" /> เกี่ยวกับเรา</router-link>
+          <a href="https://phrakham.life" role="menuitem"><Icon name="globe" /> พระคำ.ชีวิต <span class="sb-k">↗</span></a>
         </div>
       </div>
       <span class="sb-sep" aria-hidden="true"></span>
@@ -1071,26 +1072,25 @@ function printSheet() {
       <div class="sb-menu">
         <button class="sb-text" :aria-expanded="openMenu === 'file'" aria-haspopup="true" @click.stop="toggleMenu('file')">เพลง</button>
         <div v-if="openMenu === 'file'" class="sb-dropdown" role="menu">
-          <button class="sb-item" role="menuitem" @click="fileNew">สร้างเพลงใหม่ <span class="sb-k">New</span></button>
-          <button class="sb-item" role="menuitem" @click="scrollToCard('pk-picker')">เลือกเพลงเพื่อแก้… <span class="sb-k">Open</span></button>
-          <button class="sb-item" role="menuitem" @click="scrollToCard('pk-meta')">ตั้งค่าเพลง <span class="sb-k">Properties</span></button>
+          <button class="sb-item" role="menuitem" @click="fileNew"><Icon name="file-plus" /> สร้างเพลงใหม่ <span class="sb-k">New</span></button>
+          <button class="sb-item" role="menuitem" @click="scrollToCard('pk-picker')"><Icon name="folder-open" /> เลือกเพลงเพื่อแก้… <span class="sb-k">Open</span></button>
+          <button class="sb-item" role="menuitem" @click="scrollToCard('pk-meta')"><Icon name="settings" /> ตั้งค่าเพลง <span class="sb-k">Properties</span></button>
         </div>
       </div>
       <div class="sb-menu">
         <button class="sb-text sb-mode" :aria-expanded="openMenu === 'mode'" aria-haspopup="true" @click.stop="toggleMenu('mode')">
-          <svg v-if="viewMode === 'sheet'" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M4 10V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1" /><circle cx="8" cy="18" r="2" /><path d="M10 18v-5l4-1v4" /><circle cx="12" cy="16" r="2" /></svg>
-          <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+          <Icon :name="viewMode === 'sheet' ? 'file-music' : 'pencil'" />
           <span class="sb-mode-label">{{ viewMode === 'sheet' ? 'แผ่นเพลง' : 'แก้ไข' }}</span>
-          <svg class="chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+          <Icon name="chevron-down" :size="14" class="chev" />
         </button>
         <div v-if="openMenu === 'mode'" class="sb-dropdown sb-mode-menu" role="menu">
           <button class="sb-item sb-mode-item" role="menuitemradio" :aria-checked="viewMode === 'edit'" @click="setMode('edit')">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+            <Icon name="pencil" />
             <span class="mt"><b>แก้ไข</b><small>แก้เพลงโดยตรง</small></span>
             <span v-if="viewMode === 'edit'" class="sb-chk">✓</span>
           </button>
           <button class="sb-item sb-mode-item" role="menuitemradio" :aria-checked="viewMode === 'sheet'" @click="setMode('sheet')">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M4 10V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1" /><circle cx="8" cy="18" r="2" /><path d="M10 18v-5l4-1v4" /><circle cx="12" cy="16" r="2" /></svg>
+            <Icon name="file-music" />
             <span class="mt"><b>แผ่นเพลง</b><small>ดู / พิมพ์แผ่นเพลง</small></span>
             <span v-if="viewMode === 'sheet'" class="sb-chk">✓</span>
           </button>
@@ -1882,10 +1882,13 @@ function printSheet() {
   width: 100%;
   min-height: 40px;
 }
-@media (hover: hover) {
-  .sb-dropdown a:hover,
-  .sb-item:hover { background: var(--cream-hover); }
-}
+/* clearly visible highlight (cream-hover was too faint) — a warm brand tint that
+   works on hover AND keyboard focus */
+.sb-dropdown a:hover,
+.sb-item:hover,
+.sb-dropdown a:focus-visible,
+.sb-item:focus-visible { background: rgba(139, 69, 19, 0.1); outline: none; }
+.sb-dropdown .icn { color: var(--brand); }
 .sb-k { margin-left: auto; color: var(--muted); font-size: 0.8rem; }
 .sb-mode-item { align-items: flex-start; }
 .sb-mode-item .mt { display: flex; flex-direction: column; line-height: 1.25; }
