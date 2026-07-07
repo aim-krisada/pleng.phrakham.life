@@ -1042,6 +1042,114 @@ function primaryAction() {
   return saveDraft('pending')
 }
 
+// ---------- customizable dock (wireframe) ----------
+// The note-symbol keys stay FIXED (like a keyboard). The ACTION buttons are the user's
+// pick — add / remove / reorder via ⚙, saved to localStorage. Desktop: drag the whole
+// bar by its ⋮⋮ grip. Mobile: pinned to the bottom, horizontal-scroll (grip hidden).
+const DOCK_STORE = 'pleng.dockTools'
+const DOCK_IDS = ['undo', 'redo', 'play', 'playAll', 'stop', 'draft', 'send', 'download']
+const DOCK_DEFAULT = ['undo', 'redo', 'play', 'stop', 'draft', 'send', 'download']
+// each action carries a `visible` guard so a saved set only ever shows what applies to
+// the current login / role / playback state
+const dockRegistry = computed(() => ({
+  undo: { icon: 'undo-2', label: 'ย้อน', run: undo, disabled: !canUndo.value, visible: true },
+  redo: { icon: 'redo-2', label: 'ทำซ้ำ', run: redo, disabled: !canRedo.value, visible: true },
+  play: { icon: 'play', label: 'ฟังท่อน ' + activeStanzaId.value, run: playStanza, visible: !playing.value },
+  playAll: { icon: 'play', label: 'ฟังทั้งเพลง', run: playFull, visible: !playing.value },
+  stop: { icon: 'square', label: 'หยุด', run: stopAll, visible: playing.value, danger: true },
+  draft: { icon: 'save', label: 'บันทึกร่าง', run: () => saveDraft('draft'), visible: !!session.value && !legacy.value },
+  send: { icon: 'send', label: primaryLabel.value, run: primaryAction, visible: !!session.value, prime: true },
+  download: { icon: 'download', label: 'ดาวน์โหลด JSON', run: downloadJson, visible: true },
+}))
+function loadDockTools() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DOCK_STORE) || 'null')
+    if (Array.isArray(raw) && raw.length) return raw.filter((id) => DOCK_IDS.includes(id))
+  } catch {
+    /* ignore bad/absent storage */
+  }
+  return DOCK_DEFAULT.slice()
+}
+const dockTools = ref(loadDockTools())
+watch(
+  dockTools,
+  (v) => {
+    try {
+      localStorage.setItem(DOCK_STORE, JSON.stringify(v))
+    } catch {
+      /* storage may be unavailable — keep it in-memory */
+    }
+  },
+  { deep: true },
+)
+// the buttons actually rendered: the saved order, minus any not applicable right now
+const dockShown = computed(() =>
+  dockTools.value.map((id) => ({ id, ...dockRegistry.value[id] })).filter((t) => t.icon && t.visible),
+)
+const dockCustOpen = ref(false)
+const dockAddable = computed(() => DOCK_IDS.filter((id) => !dockTools.value.includes(id)))
+function dockMove(id, d) {
+  const a = dockTools.value.slice()
+  const i = a.indexOf(id)
+  const j = i + d
+  if (i < 0 || j < 0 || j >= a.length) return
+  ;[a[i], a[j]] = [a[j], a[i]]
+  dockTools.value = a
+}
+function dockRemove(id) {
+  dockTools.value = dockTools.value.filter((x) => x !== id)
+}
+function dockAdd(id) {
+  if (!dockTools.value.includes(id)) dockTools.value = [...dockTools.value, id]
+}
+function dockReset() {
+  dockTools.value = DOCK_DEFAULT.slice()
+}
+
+// desktop: drag the whole bar by its ⋮⋮ grip (pointer capture). Mobile keeps it pinned
+// (the grip is hidden and the bottom-bar CSS wins with !important).
+const dockEl = ref(null)
+const dockPos = ref(null) // {left, top} once moved, else null = default bottom-center
+const dockStyle = computed(() =>
+  dockPos.value
+    ? { left: dockPos.value.left + 'px', top: dockPos.value.top + 'px', right: 'auto', bottom: 'auto', transform: 'none' }
+    : {},
+)
+let dockDrag = false
+let dockOX = 0
+let dockOY = 0
+let dockW = 0
+let dockH = 0
+function dockDragStart(e) {
+  if (window.matchMedia('(max-width: 760px)').matches) return
+  e.preventDefault()
+  const el = dockEl.value
+  if (!el) return
+  const r = el.getBoundingClientRect()
+  dockOX = e.clientX - r.left
+  dockOY = e.clientY - r.top
+  dockW = r.width
+  dockH = r.height
+  dockPos.value = { left: r.left, top: r.top }
+  dockDrag = true
+  try {
+    e.target.setPointerCapture(e.pointerId)
+  } catch {
+    /* older browsers — no capture, drag still tracks on the grip */
+  }
+}
+function dockDragMove(e) {
+  if (!dockDrag) return
+  e.preventDefault()
+  dockPos.value = {
+    left: Math.max(4, Math.min(window.innerWidth - dockW - 4, e.clientX - dockOX)),
+    top: Math.max(4, Math.min(window.innerHeight - dockH - 4, e.clientY - dockOY)),
+  }
+}
+function dockDragEnd() {
+  dockDrag = false
+}
+
 const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', rejected: 'ถูกส่งกลับ', approved: 'อนุมัติแล้ว' }
 
 // ---------- studio shell (phase 1: header chrome + edit/sheet mode) ----------
@@ -1572,8 +1680,9 @@ const panelTitle = computed(
       </div>
     </div>
 
-    <!-- bottom dock: symbol palette + everyday tools, always in reach -->
-    <div v-show="viewMode === 'edit'" class="float-dock no-print">
+    <!-- bottom dock: fixed note-key palette + a customizable action bar (⚙ add/remove/
+         reorder · saved locally) · draggable by its ⋮⋮ grip on desktop, pinned on mobile -->
+    <div v-show="viewMode === 'edit'" ref="dockEl" class="float-dock no-print" :style="dockStyle">
       <p v-if="saveMsg" class="float-msg" role="status">{{ saveMsg }}</p>
       <div class="palette-row" role="toolbar" aria-label="สัญลักษณ์โน้ต">
         <button
@@ -1586,19 +1695,62 @@ const panelTitle = computed(
         </button>
       </div>
       <div class="float-bar" role="toolbar" aria-label="เครื่องมือหลัก">
-        <button class="secondary" :disabled="!canUndo" aria-label="เลิกทำ (Ctrl+Z)" title="เลิกทำ (Ctrl+Z)" @click="undo">↩</button>
-        <button class="secondary" :disabled="!canRedo" aria-label="ทำซ้ำ (Ctrl+Shift+Z)" title="ทำซ้ำ (Ctrl+Shift+Z)" @click="redo">↪</button>
-        <template v-if="session">
-          <button v-if="!legacy" class="secondary" @click="saveDraft('draft')">💾 ร่าง</button>
-          <button @click="primaryAction">{{ primaryLabel }}</button>
+        <span
+          class="dock-grip"
+          title="ลากเพื่อย้ายแถบ (จอใหญ่)"
+          aria-hidden="true"
+          @pointerdown="dockDragStart"
+          @pointermove="dockDragMove"
+          @pointerup="dockDragEnd"
+          @pointercancel="dockDragEnd"
+        >⋮⋮</span>
+        <button
+          v-for="t in dockShown"
+          :key="t.id"
+          class="secondary dock-tool"
+          :class="{ prime: t.prime, danger: t.danger }"
+          :disabled="t.disabled"
+          :title="t.label"
+          :aria-label="t.label"
+          @click="t.run"
+        >
+          <Icon :name="t.icon" :size="16" /><span class="dock-tool-label">{{ t.label }}</span>
+        </button>
+        <button
+          class="secondary dock-cust-btn"
+          :class="{ on: dockCustOpen }"
+          aria-label="ปรับแถบเครื่องมือ (เพิ่ม/เอาออก/เลื่อน)"
+          title="ปรับแถบเครื่องมือ"
+          :aria-expanded="dockCustOpen"
+          @click.stop="dockCustOpen = !dockCustOpen"
+        ><Icon name="settings" :size="16" /></button>
+      </div>
+      <!-- ⚙ customize panel: add / remove / reorder the action buttons (no drag needed) -->
+      <div v-if="dockCustOpen" class="dock-cust no-print">
+        <div class="dock-cust-title">ปรับแถบเครื่องมือ</div>
+        <p class="dock-cust-hint">กดเพิ่ม / เอาออก / เลื่อน · คีย์สัญลักษณ์โน้ตด้านบนตายตัว</p>
+        <div class="dock-cust-group">แสดงอยู่</div>
+        <div v-for="(id, i) in dockTools" :key="id" class="dock-crow">
+          <Icon :name="dockRegistry[id].icon" :size="15" />
+          <span class="dock-crow-name">{{ dockRegistry[id].label }}</span>
+          <span class="dock-crow-btns">
+            <button class="secondary tiny" aria-label="เลื่อนขึ้น" :disabled="i === 0" @click="dockMove(id, -1)">▲</button>
+            <button class="secondary tiny" aria-label="เลื่อนลง" :disabled="i === dockTools.length - 1" @click="dockMove(id, 1)">▼</button>
+            <button class="secondary tiny" aria-label="เอาออก" @click="dockRemove(id)">✕</button>
+          </span>
+        </div>
+        <template v-if="dockAddable.length">
+          <div class="dock-cust-group">เพิ่มได้</div>
+          <div v-for="id in dockAddable" :key="id" class="dock-crow">
+            <Icon :name="dockRegistry[id].icon" :size="15" />
+            <span class="dock-crow-name">{{ dockRegistry[id].label }}</span>
+            <span class="dock-crow-btns"><button class="secondary tiny" aria-label="เพิ่ม" @click="dockAdd(id)">＋</button></span>
+          </div>
         </template>
-        <button v-else @click="downloadJson">⬇ ดาวน์โหลด JSON</button>
-        <button v-if="playing" class="danger" @click="stopAll">⏹ หยุด</button>
-        <template v-else>
-          <button class="secondary" @click="playStanza">▶ ท่อน {{ activeStanzaId }}</button>
-          <button class="secondary" @click="playFull">▶ ทั้งเพลง</button>
-        </template>
-        <button class="secondary" @click="showSheet = true">👁 แผ่นเพลง</button>
+        <div class="dock-cust-foot">
+          <button class="secondary" @click="dockReset">คืนค่าเริ่มต้น</button>
+          <button @click="dockCustOpen = false">เสร็จ</button>
+        </div>
       </div>
     </div>
 
@@ -1923,6 +2075,138 @@ const panelTitle = computed(
   border-radius: 10px;
   max-width: 92vw;
   margin: 0;
+}
+/* ===== customizable dock (wireframe) ===== */
+.dock-grip {
+  cursor: grab;
+  color: var(--muted);
+  padding: 4px 6px;
+  user-select: none;
+  font-size: 15px;
+  letter-spacing: -3px;
+  touch-action: none;
+  border-radius: 6px;
+  align-self: center;
+}
+.dock-grip:active {
+  cursor: grabbing;
+}
+@media (hover: hover) {
+  .dock-grip:hover {
+    background: var(--cream);
+  }
+}
+.dock-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.dock-tool.prime {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+}
+.dock-tool.danger {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+.dock-cust-btn.on {
+  background: var(--cream);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+/* ⚙ panel: floats just above the dock so it never pushes the bar off-screen */
+.dock-cust {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 132px;
+  z-index: 95;
+  width: 320px;
+  max-width: calc(100vw - 20px);
+  max-height: 56vh;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.dock-cust-title {
+  font-weight: 600;
+  font-size: 1rem;
+}
+.dock-cust-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 2px 0 8px;
+}
+.dock-cust-group {
+  font-size: 12px;
+  color: var(--brand);
+  font-weight: 700;
+  margin: 8px 0 4px;
+}
+.dock-crow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.dock-crow:last-child {
+  border-bottom: none;
+}
+.dock-crow-name {
+  flex: 1;
+}
+.dock-crow-btns {
+  display: flex;
+  gap: 4px;
+}
+.dock-crow-btns .tiny {
+  min-width: 30px;
+  padding: 4px 8px;
+}
+.dock-cust-foot {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.dock-cust-foot button:last-child {
+  margin-left: auto;
+}
+/* mobile: pin the whole dock to the bottom edge, full width, scroll the action bar;
+   the !important beats any dragged inline position so it can't get lost off-screen */
+@media (max-width: 760px) {
+  .float-dock {
+    left: 0 !important;
+    right: 0;
+    top: auto !important;
+    bottom: 0 !important;
+    transform: none !important;
+    width: 100%;
+    max-width: none;
+    align-items: stretch;
+    gap: 0;
+  }
+  .float-dock .palette-row {
+    border-radius: 0;
+  }
+  .float-dock .float-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    border-radius: 0;
+  }
+  .dock-grip {
+    display: none;
+  }
+  .dock-cust {
+    bottom: 150px;
+  }
 }
 .sheet-overlay {
   position: fixed;
