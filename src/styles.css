@@ -36,6 +36,8 @@ h1, h2, h3 { color: var(--brand); line-height: 1.4; }
 input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); width: 18px; height: 18px; }
 
 .container { max-width: 900px; margin: 0 auto; padding: 16px; }
+/* the Studio shell is a wider, Google-Docs-style workspace (rail + editor) */
+.container.studio-wide { max-width: 1160px; }
 
 /* ---------- header / nav ---------- */
 header.topbar {

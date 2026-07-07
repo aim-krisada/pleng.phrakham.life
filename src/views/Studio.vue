@@ -1090,6 +1090,11 @@ function railGoArrange() {
 function rowLabel(row, i) {
   return row.label?.trim() || 'ข้อ ' + (i + 1)
 }
+// verse options for the breadcrumb's ข้อ selector (clean labels, no "ข้อ ข้อ" doubling)
+const edLyrOptions = computed(() => [
+  { value: -1, label: '— ซ่อนเนื้อ —' },
+  ...lensRowsForActiveStanza.value.map((x) => ({ value: x.i, label: rowLabel(x.r, x.i) })),
+])
 </script>
 
 <template>
@@ -1272,36 +1277,34 @@ function rowLabel(row, i) {
 
     <!-- ===== melodies (stanzas): edit each once ===== -->
     <h3 id="pk-editor" class="section-title">🎵 ทำนอง (ท่อน) — คีย์ครั้งเดียว ใช้ซ้ำในหลายข้อ</h3>
-    <div class="stanza-tabs no-print">
-      <button
-        v-for="(s, si) in stanzas"
-        :key="s.id"
-        class="stanza-tab"
-        :class="{ active: si === activeStanza }"
-        @click="selectStanza(si)"
-      >
-        ท่อน {{ s.id }}
-        <span
-          v-if="stanzas.length > 1"
-          class="stanza-x"
-          role="button"
-          aria-label="ลบท่อนทำนองนี้"
-          @click.stop="removeStanza(si)"
-        >✕</span>
-      </button>
-      <button class="secondary tiny" @click="addStanza">+ ท่อนทำนอง</button>
-    </div>
-
-    <!-- verse lens: overlay a chosen ข้อ's words under this stanza's notes -->
-    <div v-if="lensRowsForActiveStanza.length" class="lens-bar no-print">
-      <label style="display: inline-flex; align-items: center; gap: 6px">
-        👁 ดูเนื้อคู่โน้ต:
-        <select v-model.number="lensChoice" aria-label="เลือกข้อเนื้อร้องมาแสดงใต้โน้ต">
-          <option v-for="o in lensOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+    <!-- editor breadcrumb: the melody × verse pair being edited (one clean row —
+         replaces the old stanza tabs + lens selector, matches the wireframe) -->
+    <div class="ed-breadcrumb no-print">
+      <span class="ed-pair">
+        <Icon name="music" :size="17" class="ic-mel" />
+        <span class="ed-cap">ท่อน</span>
+        <select class="pick" :value="activeStanza" aria-label="เลือกท่อนทำนอง" @change="selectStanza(+$event.target.value)">
+          <option v-for="(s, si) in stanzas" :key="s.id" :value="si">{{ s.id }}</option>
         </select>
-      </label>
-      <span v-if="lensActive" class="muted">— พิมพ์คำร้องในช่องใต้โน้ตได้เลย · ช่องสีแดง = ยังไม่ได้ใส่คำ · ช่องเส้นประ = โน้ตลากเสียง (เว้นว่างได้ หรือใส่ “-”)</span>
+        <button class="ed-mini" title="เพิ่มท่อนทำนอง" aria-label="เพิ่มท่อนทำนอง" @click="addStanza"><Icon name="plus" :size="14" /></button>
+        <button v-if="stanzas.length > 1" class="ed-mini" title="ลบท่อนนี้" aria-label="ลบท่อนทำนองนี้" @click="removeStanza(activeStanza)"><Icon name="x" :size="14" /></button>
+        <span class="ed-x" aria-hidden="true">×</span>
+        <Icon name="file-text" :size="17" class="ic-lyr" />
+        <select
+          v-if="lensRowsForActiveStanza.length"
+          v-model.number="lensChoice"
+          class="pick"
+          aria-label="เลือกข้อเนื้อร้องมาแสดงใต้โน้ต"
+        >
+          <option v-for="o in edLyrOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+        </select>
+        <span v-else class="muted ed-nolyr">(ยังไม่มีข้อ — เพิ่มใน “ลำดับเพลง”)</span>
+      </span>
+      <button class="ed-play" title="ฟังท่อนนี้" aria-label="ฟังท่อนนี้" @click="playStanza"><Icon name="play" :size="16" /></button>
     </div>
+    <p v-if="lensActive" class="muted no-print" style="margin: 0 0 8px">
+      พิมพ์คำร้องในช่องใต้โน้ต · ช่องสีแดง = ยังไม่ได้ใส่คำ · ช่องเส้นประ = โน้ตลากเสียง (เว้นว่างได้ หรือใส่ “-”)
+    </p>
 
     <!-- editing hint (the symbol palette lives in the bottom dock) -->
     <p class="muted no-print" style="margin: 0 0 10px">
@@ -2093,6 +2096,66 @@ function rowLabel(row, i) {
 }
 @media (prefers-reduced-motion: reduce) {
   .rail { transition: none; }
+}
+/* editor breadcrumb (phase 3): the ทำนอง × ข้อ pair being edited */
+.ed-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: #fffdf8;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin: 0 0 10px;
+}
+.ed-pair { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; }
+.ed-pair .ic-mel { color: var(--note-blue); }
+.ed-pair .ic-lyr { color: #6b4fb0; }
+.ed-x { color: var(--muted); }
+.pick {
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--brand);
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 8px;
+  min-height: 34px;
+  cursor: pointer;
+}
+.ed-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 7px;
+  padding: 4px;
+  min-width: 30px;
+  min-height: 30px;
+  cursor: pointer;
+}
+.ed-play {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--brand);
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-width: 38px;
+  min-height: 34px;
+  cursor: pointer;
+}
+.ed-nolyr { font-size: 0.85rem; }
+@media (hover: hover) {
+  .ed-mini:hover,
+  .ed-play:hover { background: var(--cream-hover); }
 }
 .sheet-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .only-print { display: none; }

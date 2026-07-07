@@ -51,7 +51,7 @@ watch(
       </svg>
     </button>
   </header>
-  <main class="container">
+  <main class="container" :class="{ 'studio-wide': isStudio }">
     <router-view />
   </main>
   <SiteFooter />
