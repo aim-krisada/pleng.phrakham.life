@@ -227,6 +227,28 @@ const COMBOS = [
         <li>ไม่มีบัญชีก็ช่วยได้: คีย์เพลงเสร็จแล้วกด "ดาวน์โหลด JSON" ส่งไฟล์ให้ทีมงาน</li>
       </ul>
     </div>
+
+    <div class="card">
+      <h3 style="margin-top: 0">แหล่งอ้างอิง</h3>
+      <p class="muted" style="margin-bottom: 0">
+        เนื้อหาวิธีอ่านโน้ตตัวเลขในหน้านี้ อ้างอิงตามหลักสากลจาก:
+      </p>
+      <ul class="muted refs">
+        <li>
+          <strong>ระบบโน้ตตัวเลข (โน้ตตัวเลข / เจี่ยนผู่ 簡譜):</strong>
+          "Numbered musical notation", Wikipedia —
+          <a href="https://en.wikipedia.org/wiki/Numbered_musical_notation" target="_blank" rel="noopener">
+            en.wikipedia.org/wiki/Numbered_musical_notation</a>
+          (กฎเรื่องตัวเลข-ขั้นเสียง · จุดช่วงเสียง · เส้นเขบ็ต/การรวมคาน · เครื่องหมายชาร์ป-แฟลต-เนเชอรัล ·
+          สลัวร์-ไท · เครื่องหมายกำหนดจังหวะ · ความเป็นมา)
+        </li>
+        <li>
+          <strong>ทฤษฎีคอร์ดโรมัน:</strong>
+          Open Music Theory (ตำราเปิดระดับมหาวิทยาลัย) ·
+          The Complete Musician — Steven G. Laitz (Oxford University Press)
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -259,4 +281,7 @@ const COMBOS = [
 .symbol-demo .demo-bar { height: auto; align-self: stretch; margin: 0 10px; }
 .symbol-demo .demo-bar-end { margin-right: 0; }   /* end double bar sits tight */
 .symbol-demo .demo-bar-final { margin-left: 3px; }
+.refs { margin: 8px 0 0; padding-left: 20px; }
+.refs li { margin-bottom: 8px; }
+.refs a { word-break: break-word; }
 </style>
