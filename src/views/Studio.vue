@@ -2204,8 +2204,15 @@ const panelTitle = computed(
   .dock-grip {
     display: none;
   }
+  /* mobile: icon-only action buttons to save space (label stays as aria-label/title) */
+  .dock-tool-label {
+    display: none;
+  }
+  .float-bar .dock-tool {
+    padding: 10px 12px;
+  }
   .dock-cust {
-    bottom: 150px;
+    bottom: 110px;
   }
 }
 .sheet-overlay {
