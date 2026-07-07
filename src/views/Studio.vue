@@ -10,12 +10,11 @@ import { playSong, stopPlayback } from '../lib/midi.js'
 import SongSheet from '../components/SongSheet.vue'
 import NoteBoxes from '../components/NoteBoxes.vue'
 import ComboSelect from '../components/ComboSelect.vue'
-import ProfileTool from '../components/ProfileTool.vue'
 import Icon from '../components/Icon.vue'
 
 // ---------- auth + role (shared with the navbar profile tool) ----------
 import { useRoute } from 'vue-router'
-import { session, profile, legacy, initAuth } from '../store.js'
+import { session, profile, legacy, initAuth, shellMenu } from '../store.js'
 
 const route = useRoute()
 const isApprover = computed(() => legacy.value || profile.value?.role === 'approver')
@@ -1048,7 +1047,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 // The redesign wraps the EXISTING editor in a Google-Docs-style shell. Phase 1 = the
 // single-row top bar (site menu · title · file menu · mode toggle · login) and the
 // edit⇄sheet mode. The parts rail / catalog drawer come in phase 2.
-const openMenu = ref(null) // 'site' | 'file' | 'mode' | null — only one open at a time
+const openMenu = shellMenu // shared with the app-wide ShellBar (one menu open at a time)
 const viewMode = ref('sheet') // 'edit' = the editor · 'sheet' = read/print the whole sheet
 function toggleMenu(m) {
   openMenu.value = openMenu.value === m ? null : m
@@ -1212,26 +1211,18 @@ const panelTitle = computed(
 
 <template>
   <div style="padding-bottom: 150px">
-    <!-- ===== Studio shell header (phase 1) — Studio owns the top on this route ===== -->
-    <header class="studio-bar no-print">
+    <!-- Studio teleports its contextual controls into the app-wide ShellBar -->
+    <Teleport to="#shell-left">
       <button v-if="editing" class="sb-cat" aria-label="สารบัญส่วนของเพลง (ทำนอง·เนื้อ·ลำดับ)" title="สารบัญเพลง — ทำนอง·เนื้อ·ลำดับ" @click.stop="toggleCatalog">
         <Icon name="list-music" :size="20" />
       </button>
-      <div class="sb-menu">
-        <router-link to="/" class="sb-brand" aria-label="หน้าแรก · รายการเพลง">เพลง.พระคำ.ชีวิต</router-link>
-        <button class="sb-caret" :aria-expanded="openMenu === 'site'" aria-haspopup="true" aria-label="เมนู" @click.stop="toggleMenu('site')">
-          <Icon name="chevron-down" :size="16" />
-        </button>
-        <div v-if="openMenu === 'site'" class="sb-dropdown" role="menu">
-          <router-link to="/studio" role="menuitem"><Icon name="pencil" /> ทำเพลง</router-link>
-          <router-link to="/guide" role="menuitem"><Icon name="book-open" /> คู่มือ</router-link>
-          <router-link to="/about" role="menuitem"><Icon name="info" /> เกี่ยวกับเรา</router-link>
-          <a href="https://phrakham.life" role="menuitem"><Icon name="globe" /> พระคำ.ชีวิต <span class="sb-k">↗</span></a>
-        </div>
-      </div>
+    </Teleport>
+    <Teleport to="#shell-title">
       <span class="sb-sep" aria-hidden="true"></span>
       <input v-if="editing" v-model="meta.title_th" class="sb-title" placeholder="ชื่อเพลง" aria-label="ชื่อเพลง" />
       <span v-else class="sb-title-static">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || 'เพลง' }}</span>
+    </Teleport>
+    <Teleport to="#shell-menus">
       <div v-if="editing" class="sb-menu">
         <button class="sb-text" :aria-expanded="openMenu === 'file'" aria-haspopup="true" @click.stop="toggleMenu('file')">เพลง</button>
         <div v-if="openMenu === 'file'" class="sb-dropdown" role="menu">
@@ -1273,9 +1264,7 @@ const panelTitle = computed(
           </button>
         </div>
       </div>
-      <div class="sb-login"><ProfileTool /></div>
-    </header>
-    <div v-if="openMenu" class="sb-backdrop no-print" aria-hidden="true" @click="openMenu = null"></div>
+    </Teleport>
 
     <!-- ===== edit workspace: parts rail + the existing editor (unchanged) ===== -->
     <div v-show="viewMode === 'edit'" class="studio-app" :class="{ 'rail-hidden': railHidden }">

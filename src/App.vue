@@ -3,7 +3,7 @@ import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { initAuth, recovering, emailChanged } from './store.js'
 import SiteFooter from './components/SiteFooter.vue'
-import AppHeader from './components/AppHeader.vue'
+import ShellBar from './components/ShellBar.vue'
 
 initAuth()
 const route = useRoute()
@@ -26,7 +26,7 @@ watch(
 </script>
 
 <template>
-  <AppHeader v-if="!isStudio" :title="pageTitle" />
+  <ShellBar :title="pageTitle" />
   <main class="container" :class="{ 'studio-wide': isStudio }">
     <router-view />
   </main>

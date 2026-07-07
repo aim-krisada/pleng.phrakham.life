@@ -4,6 +4,10 @@ import { supabase } from './supabase.js'
 // Song currently open in the viewer — drives the navbar download tool.
 export const currentSong = ref(null)
 
+// Which shell-bar menu is open ('site' | 'file' | 'manage' | 'mode' | null). Shared so
+// the app-wide ShellBar and a page's teleported menus are one open-at-a-time system.
+export const shellMenu = ref(null)
+
 // Supabase email links (recovery / invite / email change) land as
 // #access_token=…&type=X. Read the type synchronously at load, before supabase-js
 // parses and strips the fragment — the hash router would otherwise treat it as a
