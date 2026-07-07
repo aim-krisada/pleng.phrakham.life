@@ -1101,14 +1101,21 @@ const edLyrOptions = computed(() => [
 // จัดการ = drafts/history/download/delete) opened as panels, so the editor page
 // stays as clean as the wireframe.
 const activePanel = ref(null) // 'open' | 'properties' | 'history' | 'drafts'
+const pendingPick = ref('') // Open dialog: the song chosen, applied only on "เปิดเพลง"
 function openPanel(p) {
   openMenu.value = null
   viewMode.value = 'edit'
   if (p === 'history') loadRevisions()
+  if (p === 'open') pendingPick.value = pickerId.value
   activePanel.value = p
 }
 function closePanel() {
   activePanel.value = null
+}
+// Open dialog OK: apply the pick (the pickerId watcher loads it; '' = เพลงใหม่)
+function confirmOpen() {
+  pickerId.value = pendingPick.value
+  closePanel()
 }
 function manageDownload() {
   openMenu.value = null
@@ -1566,22 +1573,29 @@ const panelTitle = computed(
           <button class="secondary panel-x" aria-label="ปิด" @click="closePanel"><Icon name="x" :size="16" /></button>
         </div>
 
-        <!-- Open: pick a song to edit -->
+        <!-- Open: pick a song to edit (applied on "เปิดเพลง", not on select) -->
         <div v-if="activePanel === 'open'">
           <label style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">เลือกเพลง:
-            <ComboSelect v-model="pickerId" :options="pickerOptions" placeholder="พิมพ์ค้นหา: ชื่อ เลข เนื้อร้อง โน้ต…" width="320px" />
+            <ComboSelect v-model="pendingPick" :options="pickerOptions" placeholder="พิมพ์ค้นหา: ชื่อ เลข เนื้อร้อง โน้ต…" width="320px" />
           </label>
-          <p class="muted" style="margin: 10px 0 0">เลือกจากรายการเพื่อเปิดมาแก้ · หรือ “สร้างเพลงใหม่” ในเมนู เพลง</p>
+          <p class="muted" style="margin: 10px 0 0">เลือกเพลงจากรายการ แล้วกด “เปิดเพลง” · หรือเลือก “— เพลงใหม่ —” เพื่อเริ่มเพลงเปล่า</p>
+          <div class="panel-foot">
+            <button class="secondary" @click="closePanel">ยกเลิก</button>
+            <button @click="confirmOpen">เปิดเพลง</button>
+          </div>
         </div>
 
-        <!-- Properties: song metadata -->
-        <div v-else-if="activePanel === 'properties'" class="panel-grid">
-          <label>เลขเพลง<input v-model.number="meta.number" type="number" placeholder="เลขเพลง" /></label>
-          <label>ชื่อเพลง (ไทย)<input v-model="meta.title_th" placeholder="ชื่อเพลง (ไทย)" /></label>
-          <label>ชื่อเพลง (อังกฤษ)<input v-model="meta.title_en" placeholder="ถ้ามี" /></label>
-          <label>คีย์<ComboSelect v-model="opts.key" :options="KEYS" width="100%" /></label>
-          <label>จังหวะ<ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom width="100%" /></label>
-          <label>ความเร็ว (BPM)<input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" /></label>
+        <!-- Properties: song metadata (changes apply live; undo covers them) -->
+        <div v-else-if="activePanel === 'properties'">
+          <div class="panel-grid">
+            <label>เลขเพลง<input v-model.number="meta.number" type="number" placeholder="เลขเพลง" /></label>
+            <label>ชื่อเพลง (ไทย)<input v-model="meta.title_th" placeholder="ชื่อเพลง (ไทย)" /></label>
+            <label>ชื่อเพลง (อังกฤษ)<input v-model="meta.title_en" placeholder="ถ้ามี" /></label>
+            <label>คีย์<ComboSelect v-model="opts.key" :options="KEYS" width="100%" /></label>
+            <label>จังหวะ<ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom width="100%" /></label>
+            <label>ความเร็ว (BPM)<input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" /></label>
+          </div>
+          <div class="panel-foot"><button @click="closePanel">เสร็จ</button></div>
         </div>
 
         <!-- History -->
@@ -1597,6 +1611,7 @@ const panelTitle = computed(
               <li v-for="(d, i) in revDiff(rev)" :key="i">{{ d }}</li>
             </ul>
           </div>
+          <div class="panel-foot"><button class="secondary" @click="closePanel">ปิด</button></div>
         </div>
 
         <!-- Drafts / review queue -->
@@ -1617,6 +1632,7 @@ const panelTitle = computed(
               <span :class="['status-chip', 's-' + d.status]">{{ STATUS_TH[d.status] }}</span>
             </div>
           </template>
+          <div class="panel-foot"><button class="secondary" @click="closePanel">ปิด</button></div>
         </div>
       </div>
     </div>
@@ -2198,6 +2214,7 @@ const panelTitle = computed(
 .panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .panel-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; color: var(--muted); }
 .panel-grid label input { color: var(--ink); }
+.panel-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 @media (max-width: 560px) {
   .panel-grid { grid-template-columns: 1fr; }
 }
