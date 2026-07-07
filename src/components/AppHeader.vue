@@ -2,9 +2,8 @@
 // Site-wide shell header — the same brand-dropdown + login chrome as the Studio bar,
 // so every page reads as one app. Pages pass an optional title and may fill the
 // right slot (defaults to download + login tools).
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { session } from '../store.js'
 import ProfileTool from './ProfileTool.vue'
 import DownloadTool from './DownloadTool.vue'
 import Icon from './Icon.vue'
@@ -12,7 +11,6 @@ import Icon from './Icon.vue'
 defineProps({ title: { type: String, default: '' } })
 const siteOpen = ref(false)
 const route = useRoute()
-const canEdit = computed(() => !!session.value) // only editors see "ทำเพลง"
 </script>
 
 <template>
@@ -29,7 +27,7 @@ const canEdit = computed(() => !!session.value) // only editors see "ทำเ�
         <Icon name="chevron-down" :size="16" />
       </button>
       <div v-if="siteOpen" class="sb-dropdown" role="menu" @click="siteOpen = false">
-        <router-link v-if="canEdit" to="/studio" role="menuitem" :class="{ here: route.path === '/studio' }"><Icon name="pencil" /> ทำเพลง</router-link>
+        <router-link to="/studio" role="menuitem" :class="{ here: route.path === '/studio' }"><Icon name="pencil" /> ทำเพลง</router-link>
         <router-link to="/guide" role="menuitem" :class="{ here: route.path === '/guide' }"><Icon name="book-open" /> คู่มือ</router-link>
         <router-link to="/about" role="menuitem" :class="{ here: route.path === '/about' }"><Icon name="info" /> เกี่ยวกับเรา</router-link>
         <a href="https://phrakham.life" role="menuitem"><Icon name="globe" /> พระคำ.ชีวิต <span class="sb-k">↗</span></a>

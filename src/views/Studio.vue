@@ -19,24 +19,25 @@ import { session, profile, legacy, initAuth } from '../store.js'
 
 const route = useRoute()
 const isApprover = computed(() => legacy.value || profile.value?.role === 'approver')
-// A song surface: logged-in team members may edit; everyone else views (sheet only).
-const canEdit = computed(() => !!session.value)
-const editing = computed(() => canEdit.value && viewMode.value === 'edit')
+// Three tiers: ANYONE may view AND edit (keeping their work as their own JSON —
+// download / upload). Logging in unlocks saving into the system (drafts/review);
+// being an approver unlocks publishing to the song list + delete/restore.
+const loggedIn = computed(() => !!session.value)
+const editing = computed(() => viewMode.value === 'edit')
 
 onMounted(async () => {
   await initAuth()
   loadSongList()
   loadDrafts()
   loadProfilesMap()
-  // open the routed song (view by default); a fresh /studio is a new song to create
+  // a routed song opens in view; a bare /studio is a new song to create (anyone)
   if (route.params.id) {
     await loadSong(route.params.id)
     viewMode.value = 'sheet'
   } else {
-    viewMode.value = canEdit.value ? 'edit' : 'sheet'
+    viewMode.value = 'edit'
   }
 })
-// navigating between songs, or losing the session, keeps the surface honest
 watch(
   () => route.params.id,
   async (id) => {
@@ -46,9 +47,6 @@ watch(
     }
   },
 )
-watch(canEdit, (v) => {
-  if (!v) viewMode.value = 'sheet'
-})
 onUnmounted(stopPlayback)
 
 // login/logout happen in the navbar — refresh Studio data when auth changes
@@ -1155,6 +1153,34 @@ function manageDownload() {
   openMenu.value = null
   downloadJson()
 }
+// bring back a previously downloaded JSON to keep editing (the anonymous "save")
+function manageUpload() {
+  openMenu.value = null
+  const inp = document.createElement('input')
+  inp.type = 'file'
+  inp.accept = 'application/json,.json'
+  inp.onchange = async () => {
+    const file = inp.files && inp.files[0]
+    if (!file) return
+    try {
+      const data = JSON.parse(await file.text())
+      applyRow({
+        number: data.number ?? null,
+        title_th: data.title_th || '',
+        title_en: data.title_en || '',
+        content: data.content || data,
+      })
+      editingId.value = null
+      currentDraftId.value = null
+      viewMode.value = 'edit'
+      saveMsg.value = '📂 โหลดไฟล์ JSON แล้ว — แก้ต่อได้เลย'
+      nextTick(resetHistory)
+    } catch {
+      saveMsg.value = '❌ ไฟล์ JSON ไม่ถูกต้อง'
+    }
+  }
+  inp.click()
+}
 function manageDelete() {
   openMenu.value = null
   deleteSong()
@@ -1197,7 +1223,7 @@ const panelTitle = computed(
           <Icon name="chevron-down" :size="16" />
         </button>
         <div v-if="openMenu === 'site'" class="sb-dropdown" role="menu">
-          <router-link v-if="canEdit" to="/studio" role="menuitem"><Icon name="pencil" /> ทำเพลง</router-link>
+          <router-link to="/studio" role="menuitem"><Icon name="pencil" /> ทำเพลง</router-link>
           <router-link to="/guide" role="menuitem"><Icon name="book-open" /> คู่มือ</router-link>
           <router-link to="/about" role="menuitem"><Icon name="info" /> เกี่ยวกับเรา</router-link>
           <a href="https://phrakham.life" role="menuitem"><Icon name="globe" /> พระคำ.ชีวิต <span class="sb-k">↗</span></a>
@@ -1206,7 +1232,7 @@ const panelTitle = computed(
       <span class="sb-sep" aria-hidden="true"></span>
       <input v-if="editing" v-model="meta.title_th" class="sb-title" placeholder="ชื่อเพลง" aria-label="ชื่อเพลง" />
       <span v-else class="sb-title-static">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || 'เพลง' }}</span>
-      <div v-if="canEdit" class="sb-menu">
+      <div v-if="editing" class="sb-menu">
         <button class="sb-text" :aria-expanded="openMenu === 'file'" aria-haspopup="true" @click.stop="toggleMenu('file')">เพลง</button>
         <div v-if="openMenu === 'file'" class="sb-dropdown" role="menu">
           <button class="sb-item" role="menuitem" @click="fileNew"><Icon name="file-plus" /> สร้างเพลงใหม่ <span class="sb-k">New</span></button>
@@ -1215,16 +1241,20 @@ const panelTitle = computed(
           <button class="sb-item" role="menuitem" @click="openPanel('properties')"><Icon name="settings" /> ตั้งค่าเพลง <span class="sb-k">Properties</span></button>
         </div>
       </div>
-      <div v-if="canEdit" class="sb-menu">
+      <div v-if="editing" class="sb-menu">
         <button class="sb-text" :aria-expanded="openMenu === 'manage'" aria-haspopup="true" @click.stop="toggleMenu('manage')">จัดการ</button>
         <div v-if="openMenu === 'manage'" class="sb-dropdown" role="menu">
-          <button v-if="session && !legacy" class="sb-item" role="menuitem" @click="openPanel('drafts')"><Icon name="file-text" /> งานร่าง / รอตรวจ</button>
-          <button v-if="session && !legacy && editingId" class="sb-item" role="menuitem" @click="openPanel('history')"><Icon name="undo-2" /> ประวัติการแก้ไข</button>
           <button class="sb-item" role="menuitem" @click="manageDownload"><Icon name="download" /> ดาวน์โหลด JSON</button>
+          <button class="sb-item" role="menuitem" @click="manageUpload"><Icon name="folder-open" /> อัปโหลด JSON</button>
+          <template v-if="session && !legacy">
+            <div class="sep"></div>
+            <button class="sb-item" role="menuitem" @click="openPanel('drafts')"><Icon name="file-text" /> งานร่าง / รอตรวจ</button>
+            <button v-if="editingId" class="sb-item" role="menuitem" @click="openPanel('history')"><Icon name="undo-2" /> ประวัติการแก้ไข</button>
+          </template>
           <button v-if="isApprover && session && editingId && !reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="manageDelete"><Icon name="x" /> ลบเพลง</button>
         </div>
       </div>
-      <div v-if="canEdit" class="sb-menu">
+      <div class="sb-menu">
         <button class="sb-text sb-mode" :aria-expanded="openMenu === 'mode'" aria-haspopup="true" @click.stop="toggleMenu('mode')">
           <Icon :name="viewMode === 'sheet' ? 'file-music' : 'pencil'" />
           <span class="sb-mode-label">{{ viewMode === 'sheet' ? 'แผ่นเพลง' : 'แก้ไข' }}</span>
@@ -1578,8 +1608,11 @@ const panelTitle = computed(
       <div class="float-bar" role="toolbar" aria-label="เครื่องมือหลัก">
         <button class="secondary" :disabled="!canUndo" aria-label="เลิกทำ (Ctrl+Z)" title="เลิกทำ (Ctrl+Z)" @click="undo">↩</button>
         <button class="secondary" :disabled="!canRedo" aria-label="ทำซ้ำ (Ctrl+Shift+Z)" title="ทำซ้ำ (Ctrl+Shift+Z)" @click="redo">↪</button>
-        <button v-if="session && !legacy" class="secondary" @click="saveDraft('draft')">💾 ร่าง</button>
-        <button :disabled="!session" @click="primaryAction">{{ primaryLabel }}</button>
+        <template v-if="session">
+          <button v-if="!legacy" class="secondary" @click="saveDraft('draft')">💾 ร่าง</button>
+          <button @click="primaryAction">{{ primaryLabel }}</button>
+        </template>
+        <button v-else @click="downloadJson">⬇ ดาวน์โหลด JSON</button>
         <button v-if="playing" class="danger" @click="stopAll">⏹ หยุด</button>
         <template v-else>
           <button class="secondary" @click="playStanza">▶ ท่อน {{ activeStanzaId }}</button>
@@ -2230,9 +2263,10 @@ const panelTitle = computed(
 .read-row-card { background: #fffdf8; padding: 10px 12px; }
 .read-row-label { font-size: 0.82rem; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; margin-bottom: 6px; }
 .read-row-label .icn { color: var(--muted); }
-/* จัดการ menu danger item */
+/* จัดการ menu danger item + divider */
 .sb-danger { color: var(--red); }
 .sb-danger .icn { color: var(--red); }
+.sb-dropdown .sep { border-top: 1px solid var(--line); margin: 4px 6px; }
 /* menu panels (Open / Properties / History / Drafts) */
 .panel-overlay {
   position: fixed;
