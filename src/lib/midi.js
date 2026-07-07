@@ -101,19 +101,18 @@ export function songToNotes(content) {
               let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
               if (t.accidental === '#') midi += 1
               if (t.accidental === 'b') midi -= 1
+              // natural (n) = no shift — the digit's diatonic pitch
               const last = bn[bn.length - 1]
-              const explicitTie = t.tieEnd && last && last.midi === midi && last.tieOpen
               // A slur arc over two notes of the SAME pitch is a tie: hold the note,
               // do NOT re-attack the later one, but keep counting its beats. A slur
               // over DIFFERENT pitches (เอื้อน) still plays every note. (bug 015)
+              // Explicit ~ ties are merged after flatten (mergeTies) so they work
+              // ACROSS bar lines too, not just within one bar.
               const slurTie = g.group === 'slur' && prevMidi === midi && last && last.midi === midi
-              if (explicitTie) {
-                last.beats += tokenBeats(t, f)
-                last.tieOpen = !!t.tieStart
-              } else if (slurTie) {
+              if (slurTie) {
                 last.beats += tokenBeats(t, f)
               } else {
-                bn.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, li, bi, si })
+                bn.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, tieEnd: !!t.tieEnd, li, bi, si })
               }
               prevMidi = midi
             }
@@ -125,10 +124,28 @@ export function songToNotes(content) {
     }
     flushBar()
   })
-  // 2. expand repeats into play order, 3. flatten to a note list
+  // 2. expand repeats into play order, 3. flatten to a note list, 4. merge ties
   const notes = []
   for (const bar of expandRepeats(bars)) for (const n of bar.notes) notes.push(n)
-  return notes
+  return mergeTies(notes)
+}
+
+// Merge explicit ties (~) in final play order: a note flagged tieEnd whose pitch
+// matches the immediately-preceding note left open (tieOpen) is a HELD continuation —
+// fold its beats into that note and drop it, so the pitch rings on instead of being
+// re-attacked. Works across bar lines and repeats (fixes tie replaying its own note).
+function mergeTies(notes) {
+  const out = []
+  for (const n of notes) {
+    const prev = out[out.length - 1]
+    if (n.tieEnd && prev && prev.midi != null && prev.midi === n.midi && prev.tieOpen) {
+      prev.beats += n.beats
+      prev.tieOpen = n.tieOpen // let a chain of ties keep extending
+    } else {
+      out.push(n)
+    }
+  }
+  return out
 }
 
 export function stopPlayback() {

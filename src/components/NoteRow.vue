@@ -4,6 +4,7 @@ import { parseNotes, groupNotes } from '../lib/notation.js'
 
 const props = defineProps({ notes: { type: String, default: '' } })
 const groups = computed(() => groupNotes(parseNotes(props.notes)))
+const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
 </script>
 
 <template>
@@ -23,7 +24,7 @@ const groups = computed(() => groupNotes(parseNotes(props.notes)))
                beside it (absolute) so it never pushes the octave dots off-centre -->
           <span v-if="t.fermata" class="fermata" aria-hidden="true"></span>
           <span class="dots-hi">{{ '•'.repeat(t.high) || ' ' }}</span>
-          <span :class="['num', 'u' + t.underlines]"><span v-if="t.accidental" class="acc">{{ t.accidental === '#' ? '♯' : '♭' }}</span>{{ t.pitch }}<span v-if="t.dotted" class="aug" aria-hidden="true">•</span></span>
+          <span :class="['num', 'u' + t.underlines]"><span v-if="t.accidental" class="acc">{{ ACC_GLYPH[t.accidental] }}</span>{{ t.pitch }}<span v-if="t.dotted" class="aug" aria-hidden="true">•</span></span>
           <span class="dots-lo">{{ '•'.repeat(t.low) || ' ' }}</span>
         </template>
         <template v-else-if="t.type === 'ext'">

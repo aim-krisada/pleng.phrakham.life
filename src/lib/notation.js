@@ -1,7 +1,7 @@
 // Numbered-notation (โน้ตตัวเลข / jianpu) token parser.
 //
 // Note string syntax, tokens separated by spaces:
-//   [#|b] [.]* digit [']* [_]{0,2} [.]?
+//   [#|b|n] [.]* digit [']* [_]{0,2} [.]?   (n = natural ♮ — no pitch shift)
 //   .5   = low octave (one dot below per leading .)
 //   5'   = high octave (one dot above per ')
 //   5_   = eighth note (1 underline) · 5__ = sixteenth (2 underlines)
@@ -32,7 +32,7 @@ export function parseNotes(str) {
     let tieEnd = false
     if (s[j] === '~') { tieEnd = true; j++ }
     let accidental = ''
-    if (s[j] === '#' || s[j] === 'b') { accidental = s[j]; j++ }
+    if (s[j] === '#' || s[j] === 'b' || s[j] === 'n') { accidental = s[j]; j++ }
     let low = 0
     while (s[j] === '.') { low++; j++ }
     if (s[j] >= '0' && s[j] <= '7') {
