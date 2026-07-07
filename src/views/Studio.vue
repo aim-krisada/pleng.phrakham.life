@@ -1040,6 +1040,15 @@ function fileNew() {
   pickerId.value = ''
   resetForm()
 }
+// Close: leave the current song (clear the editor). Confirm if an existing song is
+// open so an accidental click can't discard unsaved edits.
+function fileClose() {
+  openMenu.value = null
+  if (editingId.value && !window.confirm('ออกจากเพลงนี้? การแก้ที่ยังไม่ได้บันทึกจะหาย')) return
+  viewMode.value = 'edit'
+  pickerId.value = ''
+  resetForm()
+}
 function scrollToCard(id) {
   openMenu.value = null
   viewMode.value = 'edit'
@@ -1178,6 +1187,7 @@ const panelTitle = computed(
         <div v-if="openMenu === 'file'" class="sb-dropdown" role="menu">
           <button class="sb-item" role="menuitem" @click="fileNew"><Icon name="file-plus" /> สร้างเพลงใหม่ <span class="sb-k">New</span></button>
           <button class="sb-item" role="menuitem" @click="openPanel('open')"><Icon name="folder-open" /> เลือกเพลงเพื่อแก้… <span class="sb-k">Open</span></button>
+          <button class="sb-item" role="menuitem" @click="fileClose"><Icon name="x" /> ออกจากเพลงนี้ <span class="sb-k">Close</span></button>
           <button class="sb-item" role="menuitem" @click="openPanel('properties')"><Icon name="settings" /> ตั้งค่าเพลง <span class="sb-k">Properties</span></button>
         </div>
       </div>
