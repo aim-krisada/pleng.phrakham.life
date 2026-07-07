@@ -14,15 +14,40 @@ import ProfileTool from '../components/ProfileTool.vue'
 import Icon from '../components/Icon.vue'
 
 // ---------- auth + role (shared with the navbar profile tool) ----------
+import { useRoute } from 'vue-router'
 import { session, profile, legacy, initAuth } from '../store.js'
 
+const route = useRoute()
 const isApprover = computed(() => legacy.value || profile.value?.role === 'approver')
+// A song surface: logged-in team members may edit; everyone else views (sheet only).
+const canEdit = computed(() => !!session.value)
+const editing = computed(() => canEdit.value && viewMode.value === 'edit')
 
 onMounted(async () => {
   await initAuth()
   loadSongList()
   loadDrafts()
   loadProfilesMap()
+  // open the routed song (view by default); a fresh /studio is a new song to create
+  if (route.params.id) {
+    await loadSong(route.params.id)
+    viewMode.value = 'sheet'
+  } else {
+    viewMode.value = canEdit.value ? 'edit' : 'sheet'
+  }
+})
+// navigating between songs, or losing the session, keeps the surface honest
+watch(
+  () => route.params.id,
+  async (id) => {
+    if (id) {
+      await loadSong(id)
+      viewMode.value = 'sheet'
+    }
+  },
+)
+watch(canEdit, (v) => {
+  if (!v) viewMode.value = 'sheet'
 })
 onUnmounted(stopPlayback)
 
@@ -1026,7 +1051,7 @@ const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', reject
 // single-row top bar (site menu · title · file menu · mode toggle · login) and the
 // edit⇄sheet mode. The parts rail / catalog drawer come in phase 2.
 const openMenu = ref(null) // 'site' | 'file' | 'mode' | null — only one open at a time
-const viewMode = ref('edit') // 'edit' = the editor · 'sheet' = read/print the whole sheet
+const viewMode = ref('sheet') // 'edit' = the editor · 'sheet' = read/print the whole sheet
 function toggleMenu(m) {
   openMenu.value = openMenu.value === m ? null : m
 }
@@ -1163,7 +1188,7 @@ const panelTitle = computed(
   <div style="padding-bottom: 150px">
     <!-- ===== Studio shell header (phase 1) — Studio owns the top on this route ===== -->
     <header class="studio-bar no-print">
-      <button class="sb-cat" aria-label="สารบัญส่วนของเพลง (ทำนอง·เนื้อ·ลำดับ)" title="สารบัญเพลง — ทำนอง·เนื้อ·ลำดับ" @click.stop="toggleCatalog">
+      <button v-if="editing" class="sb-cat" aria-label="สารบัญส่วนของเพลง (ทำนอง·เนื้อ·ลำดับ)" title="สารบัญเพลง — ทำนอง·เนื้อ·ลำดับ" @click.stop="toggleCatalog">
         <Icon name="list-music" :size="20" />
       </button>
       <div class="sb-menu">
@@ -1181,8 +1206,9 @@ const panelTitle = computed(
         </div>
       </div>
       <span class="sb-sep" aria-hidden="true"></span>
-      <input v-model="meta.title_th" class="sb-title" placeholder="ชื่อเพลง" aria-label="ชื่อเพลง" />
-      <div class="sb-menu">
+      <input v-if="editing" v-model="meta.title_th" class="sb-title" placeholder="ชื่อเพลง" aria-label="ชื่อเพลง" />
+      <span v-else class="sb-title-static">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || 'เพลง' }}</span>
+      <div v-if="canEdit" class="sb-menu">
         <button class="sb-text" :aria-expanded="openMenu === 'file'" aria-haspopup="true" @click.stop="toggleMenu('file')">เพลง</button>
         <div v-if="openMenu === 'file'" class="sb-dropdown" role="menu">
           <button class="sb-item" role="menuitem" @click="fileNew"><Icon name="file-plus" /> สร้างเพลงใหม่ <span class="sb-k">New</span></button>
@@ -1191,7 +1217,7 @@ const panelTitle = computed(
           <button class="sb-item" role="menuitem" @click="openPanel('properties')"><Icon name="settings" /> ตั้งค่าเพลง <span class="sb-k">Properties</span></button>
         </div>
       </div>
-      <div class="sb-menu">
+      <div v-if="canEdit" class="sb-menu">
         <button class="sb-text" :aria-expanded="openMenu === 'manage'" aria-haspopup="true" @click.stop="toggleMenu('manage')">จัดการ</button>
         <div v-if="openMenu === 'manage'" class="sb-dropdown" role="menu">
           <button v-if="session && !legacy" class="sb-item" role="menuitem" @click="openPanel('drafts')"><Icon name="file-text" /> งานร่าง / รอตรวจ</button>
@@ -1200,7 +1226,7 @@ const panelTitle = computed(
           <button v-if="isApprover && session && editingId && !reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="manageDelete"><Icon name="x" /> ลบเพลง</button>
         </div>
       </div>
-      <div class="sb-menu">
+      <div v-if="canEdit" class="sb-menu">
         <button class="sb-text sb-mode" :aria-expanded="openMenu === 'mode'" aria-haspopup="true" @click.stop="toggleMenu('mode')">
           <Icon :name="viewMode === 'sheet' ? 'file-music' : 'pencil'" />
           <span class="sb-mode-label">{{ viewMode === 'sheet' ? 'แผ่นเพลง' : 'แก้ไข' }}</span>
@@ -1957,6 +1983,7 @@ const panelTitle = computed(
 }
 .sb-title:hover { border-color: var(--line); }
 .sb-title:focus { border-color: var(--brand); background: #fff; outline: none; }
+.sb-title-static { flex: 1; min-width: 0; font-weight: 700; font-size: 1.05rem; color: var(--ink); padding: 4px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-mode-label { font-weight: 600; }
 .chev { opacity: 0.55; }
 .sb-brand-icon { display: none; }

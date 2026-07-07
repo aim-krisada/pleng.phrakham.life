@@ -16,19 +16,17 @@ const route = useRoute()
 <template>
   <header class="shell-bar no-print">
     <div class="sb-menu">
+      <router-link to="/" class="sb-brand" aria-label="หน้าแรก · รายการเพลง">เพลง.พระคำ.ชีวิต</router-link>
       <button
-        class="sb-brand"
+        class="sb-caret"
         :aria-expanded="siteOpen"
         aria-haspopup="true"
-        aria-label="เมนูเว็บ"
+        aria-label="เมนู"
         @click.stop="siteOpen = !siteOpen"
       >
-        <Icon name="menu" :size="20" class="sb-brand-icon" />
-        <span class="sb-brand-text">เพลง.พระคำ.ชีวิต</span>
-        <Icon name="chevron-down" :size="14" class="chev" />
+        <Icon name="chevron-down" :size="16" />
       </button>
       <div v-if="siteOpen" class="sb-dropdown" role="menu" @click="siteOpen = false">
-        <router-link to="/" role="menuitem" :class="{ here: route.path === '/' }"><Icon name="library" /> รายการเพลง</router-link>
         <router-link to="/studio" role="menuitem" :class="{ here: route.path === '/studio' }"><Icon name="pencil" /> ทำเพลง</router-link>
         <router-link to="/guide" role="menuitem" :class="{ here: route.path === '/guide' }"><Icon name="book-open" /> คู่มือ</router-link>
         <router-link to="/about" role="menuitem" :class="{ here: route.path === '/about' }"><Icon name="info" /> เกี่ยวกับเรา</router-link>
@@ -56,28 +54,34 @@ const route = useRoute()
   border-bottom: 1px solid var(--line);
   padding: 8px 16px;
 }
-.sb-menu { position: relative; display: inline-flex; }
+.sb-menu { position: relative; display: inline-flex; align-items: center; }
 .sb-brand {
-  background: transparent;
-  border: none;
   color: var(--brand);
-  font: inherit;
   font-size: 1.1rem;
   font-weight: 700;
+  text-decoration: none;
   padding: 6px 8px;
   border-radius: 8px;
-  cursor: pointer;
   min-height: 40px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
   white-space: nowrap;
 }
-@media (hover: hover) {
-  .sb-brand:hover { background: rgba(0, 0, 0, 0.06); }
+.sb-caret {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
 }
-.sb-brand-icon { display: none; }
-.chev { opacity: 0.55; }
+@media (hover: hover) {
+  .sb-brand:hover,
+  .sb-caret:hover { background: rgba(0, 0, 0, 0.06); }
+}
 .sb-sep { width: 1px; align-self: stretch; background: var(--line); min-height: 22px; }
 .shell-title { font-weight: 700; font-size: 1.05rem; color: var(--ink); }
 .shell-right { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
@@ -114,12 +118,9 @@ const route = useRoute()
 .sb-k { margin-left: auto; color: var(--muted); font-size: 0.8rem; }
 .sb-backdrop { position: fixed; inset: 0; z-index: 40; }
 @media (max-width: 760px) {
-  .shell-bar { gap: 6px; }
-  .sb-brand-icon { display: inline-flex; }
-  .sb-brand-text,
-  .sb-brand .chev { display: none; }
-  .sb-brand { color: var(--ink); }
+  .shell-bar { gap: 4px; }
+  .sb-brand { font-size: 0.98rem; }
   .sb-sep { display: none; }
-  .shell-title { font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .shell-title { font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 }
 </style>
