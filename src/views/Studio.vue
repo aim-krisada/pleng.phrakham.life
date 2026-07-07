@@ -1192,14 +1192,12 @@ const panelTitle = computed(
         <Icon name="list-music" :size="20" />
       </button>
       <div class="sb-menu">
-        <button class="sb-brand" :aria-expanded="openMenu === 'site'" aria-haspopup="true" aria-label="เมนูเว็บ" @click.stop="toggleMenu('site')">
-          <Icon name="menu" :size="20" class="sb-brand-icon" />
-          <span class="sb-brand-text">เพลง.พระคำ.ชีวิต</span>
-          <Icon name="chevron-down" :size="14" class="chev" />
+        <router-link to="/" class="sb-brand" aria-label="หน้าแรก · รายการเพลง">เพลง.พระคำ.ชีวิต</router-link>
+        <button class="sb-caret" :aria-expanded="openMenu === 'site'" aria-haspopup="true" aria-label="เมนู" @click.stop="toggleMenu('site')">
+          <Icon name="chevron-down" :size="16" />
         </button>
         <div v-if="openMenu === 'site'" class="sb-dropdown" role="menu">
-          <router-link to="/" role="menuitem"><Icon name="library" /> รายการเพลง</router-link>
-          <router-link to="/studio" role="menuitem"><Icon name="pencil" /> ทำเพลง</router-link>
+          <router-link v-if="canEdit" to="/studio" role="menuitem"><Icon name="pencil" /> ทำเพลง</router-link>
           <router-link to="/guide" role="menuitem"><Icon name="book-open" /> คู่มือ</router-link>
           <router-link to="/about" role="menuitem"><Icon name="info" /> เกี่ยวกับเรา</router-link>
           <a href="https://phrakham.life" role="menuitem"><Icon name="globe" /> พระคำ.ชีวิต <span class="sb-k">↗</span></a>
@@ -1948,7 +1946,7 @@ const panelTitle = computed(
   margin: -16px -16px 12px;
   padding: 8px 12px;
 }
-.sb-menu { position: relative; display: inline-flex; }
+.sb-menu { position: relative; display: inline-flex; align-items: center; }
 .sb-brand,
 .sb-text {
   background: transparent;
@@ -1964,9 +1962,21 @@ const panelTitle = computed(
   align-items: center;
   gap: 5px;
 }
-.sb-brand { color: var(--brand); font-weight: 700; white-space: nowrap; }
+.sb-brand { color: var(--brand); font-weight: 700; white-space: nowrap; text-decoration: none; }
+.sb-caret {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+}
 @media (hover: hover) {
   .sb-brand:hover,
+  .sb-caret:hover,
   .sb-text:hover { background: rgba(0, 0, 0, 0.06); }
 }
 .sb-sep { width: 1px; align-self: stretch; background: var(--line); min-height: 22px; }
@@ -1992,13 +2002,11 @@ const panelTitle = computed(
    icon-only, the title ellipsizes, so nothing overflows the narrow screen */
 @media (max-width: 760px) {
   .studio-bar { gap: 4px; padding: 8px; }
-  .sb-brand-icon { display: inline-flex; }
-  .sb-brand-text,
-  .sb-brand .chev { display: none; }
-  .sb-brand { color: var(--ink); }
+  .sb-brand { font-size: 0.98rem; }
   .sb-sep { display: none; }
   .sb-mode-label { display: none; }
-  .sb-title { font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sb-title,
+  .sb-title-static { font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sb-text { padding: 6px; }
 }
 .sb-dropdown {
