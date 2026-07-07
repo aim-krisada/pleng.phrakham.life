@@ -66,10 +66,10 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
 .num { display: block; padding: 0 1px; position: relative; }
 .num.u1 { border-bottom: 1.5px solid currentColor; }
 .num.u2 { border-bottom: 4px double currentColor; }
-/* Independent eighth notes keep a visible gap between their underlines
-   (each syllable its own line). ONLY inside a slur/triplet group (เสียงเอื้อน)
-   do the underlines stretch and join into one continuous line, like the book. */
-.g-slur .num.u1, .g-slur .num.u2,
+/* Every eighth/sixteenth note keeps its OWN separate underline so each note reads
+   as its own เขบ็ต — a slur (เอื้อน) is only the arc above and must NOT join the
+   underlines (a long connected underline means something else). Triplets still
+   stretch their underlines to sit under the bracketed group. */
 .g-triplet .num.u1, .g-triplet .num.u2 { align-self: stretch; text-align: center; }
 /* accidental: smaller than the digit, floating at its upper-left WITHOUT
    widening the digit column — so octave dots stay exactly under the digit */
