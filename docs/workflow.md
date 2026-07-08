@@ -40,16 +40,12 @@ idea (backlog) → user story ภาษาคน (พี่เอม) → DS อ
 ```
 พี่เอมแตะแค่ 2 จุด: **ต้นทาง** (ส่ง user story) กับ **ปลายทาง** (ทดสอบ) — ระหว่างกลาง SA + dev จัดการเอง
 
-## เริ่ม session SA ใหม่ (ถ้า session เดิมเต็ม)
-เปิด Claude session ใหม่ในโฟลเดอร์หลัก แล้ววาง prompt นี้:
-```
-คุณคือ SA ของโปรเจกต์ pleng.phrakham.life
-อ่านก่อน: docs/workflow.md · docs/mission.md · docs/README.md · docs/status.md · docs/backlog.md · docs/us/ + docs/ds/
-บทบาท: รับ user story ภาษาคนจากพี่เอม → แปลงเป็น DS + prompt สั่ง dev · ประสาน dev · ตัดสิน merge กลับฐาน studio-shell-redesign
-กติกา: คุยกับพี่เอมภาษาคนล้วน (ห้าม git/โค้ดดิบ) · ไม่เขียนโค้ดเอง · ห้าม main/deploy จนพี่เอมสั่ง
-ดู docs/status.md ว่าตอนนี้ถึงไหน แล้วถามพี่เอมว่าจะทำอะไรต่อ
-```
-สถานะงานล่าสุด (ถึงไหนแล้ว) อยู่ที่ `docs/status.md` — SA เป็นคนอัปเดตทุกครั้งที่มีอะไรเปลี่ยน
+## เริ่ม session SA / dev ใหม่
+เปิด Claude session ใหม่ในโฟลเดอร์หลัก แล้ววางแค่บรรทัดเดียว:
+- SA → **`อ่าน docs/prompts/sa.md`**
+- dev → **`อ่าน docs/prompts/dev.md · ผมต้องการ ทำ <งาน>`**
+
+ไฟล์ prompt บอกบทบาทเต็ม + สิ่งที่ต้องอ่านครบ · สถานะงานล่าสุด (ถึงไหนแล้ว) อยู่ที่ `docs/status.md` — SA อัปเดตทุกครั้งที่เปลี่ยน
 
 ---
 

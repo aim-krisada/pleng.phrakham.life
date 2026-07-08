@@ -9,6 +9,7 @@
 แต่ละไฟล์ US มี:
 - **Worktree / branch** · **คู่ DS** · **สถานะ** (spec → building → merged → tested)
 - **โยงกลับ mission** — ข้อไหนใน `docs/mission.md` ที่ story นี้รับใช้ (traceability ของ ISO 29110)
-- **Story** — *ในฐานะ&lt;ผู้ใช้&gt; ฉันต้องการ&lt;สิ่งที่ทำ&gt; เพื่อ&lt;คุณค่า&gt;*
+- **เล่าเป็นภาษาคน** — สำหรับพี่เอมอ่าน+approve · ระดับ ม.ต้น + flow of argument (สถานการณ์ → ปัญหา → สิ่งที่อยากได้ → ประโยชน์) · **นี่คือส่วนที่พี่เอมอนุมัติเป็นหลัก**
+- **Story** — *ในฐานะ&lt;ผู้ใช้&gt; ฉันต้องการ&lt;สิ่งที่ทำ&gt; เพื่อ&lt;คุณค่า&gt;* (สรุปสั้นจากด้านบน)
 - **Acceptance Criteria (AC)** — checklist (เป็นฐานของ unit test + การทดสอบของ tester)
 - **นอกขอบเขต** · (**ที่มา** backlog id ถ้ามี)
