@@ -76,9 +76,11 @@ function stopPlay() {
   playingSection.value = null
   playingSeg.value = null
 }
+let lastRange // remember what is playing so a live key change can re-play the same part
 async function startPlay(range, key) {
   stopPlayback()
   const gen = ++playGen
+  lastRange = range
   playing.value = true
   playingSection.value = key
   // play in the CHOSEN key (displayKey), not the song's original — otherwise the
@@ -105,6 +107,11 @@ function playSection(idx) {
   const s = sections.value[idx]
   if (s) startPlay({ fromLi: s.fromLi, toLi: s.toLi }, idx)
 }
+// live key change: if a new key is picked WHILE playing, re-play the same part in it
+// immediately (the "เปลี่ยนคีย์แล้วได้ยินเปลี่ยนทันที" feel). Not playing = next play uses it.
+watch(displayKey, () => {
+  if (playing.value) startPlay(lastRange, playingSection.value)
+})
 function printSheet() {
   window.print()
 }
