@@ -1310,33 +1310,10 @@ function manageDelete() {
   openMenu.value = null
   deleteSong()
 }
-// per-line sheet preview: ONE line rendered in real sheet style, shown right above the
-// note boxes for that same line — you see the finished sheet at the exact spot you edit
-// (was one big block at the top; the full sheet now lives behind the 🎼 button). Words
-// come from the selected ข้อ, sliced to just this line's syllable slots.
-function lineSheetContent(li) {
-  const s = stanzas.value[activeStanza.value]
-  const line = s?.lines[li]
-  if (!line) return { key: opts.key, timeSignature: opts.timeSignature, lines: [] }
-  // this line's words = the active verse sliced from where this line starts (each earlier
-  // line's slots shift the start) for as many syllable slots as this line bears
-  let start = 0
-  for (let i = 0; i < li; i++)
-    for (const bar of s.lines[i].bars) for (const seg of bar.segments) start += syllableSlots(seg.note || '')
-  let count = 0
-  for (const bar of line.bars) for (const seg of bar.segments) count += syllableSlots(seg.note || '')
-  const syllables = lensActive.value
-    ? lensRow.value.syllables.slice(start, start + count).map((t) => (t || '').trim())
-    : []
-  const mini = {
-    version: 2,
-    key: opts.key,
-    timeSignature: opts.timeSignature,
-    stanzas: [{ id: activeStanzaId.value, lines: [serializeLine(line)] }],
-    arrangement: [{ stanza: activeStanzaId.value, label: '', syllables }],
-  }
-  return { ...mini, lines: resolveContent(mini) }
-}
+// NOTE: the editor strip itself is the read+edit surface (note boxes + a lyric box under
+// each note, aligned). We tried a separate per-line sheet preview above it (US-D05) but it
+// duplicated the strip and pushed the boxes off-screen — removed per พี่เอม. Full-song
+// sheet is still the 🎼 mode button.
 const panelTitle = computed(
   () =>
     ({ open: 'เลือกเพลงเพื่อแก้', properties: 'ตั้งค่าเพลง', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ' })[
@@ -1560,12 +1537,10 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         <button class="secondary tiny" @click="copyLine(li)">คัดลอกโครง</button>
         <button class="danger tiny" @click="removeLine(li)">ลบบรรทัด</button>
       </div>
-      <!-- this line rendered as a real sheet, right above where you edit it (อ่าน) -->
-      <div class="card ed-line-sheet no-print">
-        <div class="ed-line-sheet-label"><Icon name="eye" :size="14" /> อ่าน (แบบแผ่นเพลง)</div>
-        <SongSheet :content="lineSheetContent(li)" mode="full" chord-system="letter" :display-key="opts.key" />
-      </div>
-      <!-- the strip: bars flow left→right with a drawn barline between them -->
+      <!-- the strip: bars flow left→right with a drawn barline between them. This IS the
+           read+edit surface — note boxes (ripple) with a lyric box under each note (ripple),
+           aligned in one column, chords on top. No separate sheet preview (would duplicate
+           this and overflow the screen). -->
       <div class="ed-strip">
         <template v-for="(bar, bi) in line.bars" :key="bi">
           <span v-if="bi > 0" class="ed-barline" aria-hidden="true"></span>
@@ -2630,9 +2605,6 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   .ed-cat:hover { background: var(--cream-hover); }
 }
 /* read row (phase 4): the pair in sheet style, above the edit boxes */
-.ed-line-sheet { background: #fffdf8; padding: 8px 12px; margin-bottom: 10px; overflow-x: auto; }
-.ed-line-sheet-label { font-size: 0.8rem; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; margin-bottom: 4px; }
-.ed-line-sheet-label .icn { color: var(--muted); }
 /* จัดการ menu danger item + divider */
 .sb-danger { color: var(--red); }
 .sb-danger .icn { color: var(--red); }
