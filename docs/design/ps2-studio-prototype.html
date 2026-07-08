@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>เพลง.พระคำ.ชีวิต — prototype ps2 (โหมดแก้ไข)</title></head><body>
+<style>
+  :root{
+    --cream:#FBF7EF; --card:#fff; --ink:#2E2A25; --brand:#8A5320; --brand2:#A9701F;
+    --muted:#6E655A; --line:#E9E0D0; --line2:#D8CDB8; --note:#2C6DB0; --chord:#B0443E;
+    --sel:#F4EAD6; --selbd:#C79A57; --ok:#2F7D4F; --danger:#B0413E; --hot:#FAEDD8;
+  }
+  *{box-sizing:border-box}
+  .pt{font-family:"Noto Sans Thai","Leelawadee UI","Sarabun",system-ui,sans-serif; color:var(--ink); background:var(--cream); min-height:100dvh; line-height:1.5; padding-bottom:150px;}
+  .pt button{font:inherit}
+  .wrap{max-width:1240px; margin:0 auto; padding:0 14px;}
+  .topstick{position:sticky; top:0; z-index:30; background:var(--cream); border-bottom:1px solid var(--line);}
+  .bar{display:flex; align-items:center; gap:8px; padding:9px 14px; max-width:1240px; margin:0 auto; flex-wrap:wrap;}
+  .brand{display:inline-flex; align-items:center; gap:5px; color:var(--brand); font-weight:700; font-size:15px; background:none; border:0; cursor:pointer; padding:5px 6px; border-radius:8px;}
+  .brand:hover{background:rgba(90,60,20,.08);}
+  .vsep{width:1px; align-self:stretch; min-height:22px; background:var(--line2);}
+  .titlewrap{display:inline-flex; align-items:center; gap:2px; border:1px solid transparent; border-radius:8px; padding:2px;}
+  .titlewrap:focus-within{border-color:var(--brand); background:#fff;}
+  #songTitle{font-size:16px; font-weight:700; padding:3px 6px; border-radius:6px; outline:none; max-width:44vw; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; cursor:text;}
+  #songTitle:hover{background:rgba(90,60,20,.06);}
+  .caret{width:26px; height:30px; border:0; background:none; cursor:pointer; color:var(--muted); border-radius:6px; display:inline-flex; align-items:center; justify-content:center;}
+  .caret:hover{background:rgba(90,60,20,.09);}
+  .openbtn{display:inline-flex; align-items:center; gap:6px; font-size:14px; background:var(--card); border:1px solid var(--line2); color:var(--ink); border-radius:9px; padding:7px 12px; cursor:pointer;}
+  .openbtn:hover{background:var(--cream);}
+  .seg{display:inline-flex; border:1px solid var(--line2); border-radius:10px; overflow:hidden; background:var(--card);}
+  .seg button{display:inline-flex; align-items:center; gap:6px; font-size:14px; padding:7px 13px; background:none; border:0; cursor:pointer; color:var(--muted); border-right:1px solid var(--line);}
+  .seg button:last-child{border-right:0;}
+  .seg button.on{background:var(--brand); color:#fff; font-weight:600;}
+  .login{display:inline-flex; align-items:center; gap:6px; font-size:13px; border:1px solid var(--line2); border-radius:9px; padding:7px 12px; background:var(--card); cursor:pointer; color:var(--ink);}
+  .icobtn{width:38px; height:38px; border:1px solid var(--line2); background:var(--card); border-radius:9px; cursor:pointer; color:var(--ink); display:inline-flex; align-items:center; justify-content:center;}
+  .icobtn:hover{background:var(--cream);}
+  .icobtn.act{background:var(--sel); border-color:var(--selbd); color:var(--brand);}
+  .grow{flex:1;}
+  .desk-hide{display:none;}
+  .mobrow{display:none;}
+  .rowbreak{display:none;}
+  .backdrop{position:fixed; inset:0; background:rgba(30,20,5,.28); z-index:60; display:none;}
+  .backdrop.on{display:block;}
+  .pop{position:absolute; z-index:70; background:var(--card); border:1px solid var(--line2); border-radius:14px; box-shadow:0 14px 40px rgba(60,40,10,.22); padding:8px;}
+  .pop.hidden,.menu.hidden{display:none;}
+  .search{width:100%; font:inherit; font-size:14px; padding:10px 12px; border:1px solid var(--line2); border-radius:9px; margin-bottom:6px; color:var(--ink);}
+  .search:focus{outline:2px solid var(--brand); outline-offset:1px;}
+  .olist{max-height:280px; overflow:auto;}
+  .orow{display:flex; align-items:center; gap:8px; padding:9px 10px; border-radius:8px; cursor:pointer; font-size:14px; min-height:26px;}
+  .orow:hover,.orow.hi{background:var(--sel);}
+  .orow .k{margin-left:auto; font-size:11px; color:var(--muted); border:1px solid var(--line2); border-radius:5px; padding:1px 7px;}
+  .empty{padding:12px 10px; color:var(--muted); font-size:13px;}
+  .ofoot{border-top:1px solid var(--line); margin-top:4px; padding:9px 10px 4px; display:flex; align-items:center; gap:7px; color:var(--brand); font-size:14px; cursor:pointer; font-weight:600;}
+  .newbtn{display:flex; align-items:center; justify-content:center; gap:7px; width:100%; font:inherit; font-size:14px; font-weight:600; color:var(--brand); background:var(--sel); border:1px solid var(--selbd); border-radius:9px; padding:11px; cursor:pointer; margin-bottom:8px;}
+  .newbtn:hover{background:#efe0c4;}
+  .opensep{font-size:11px; color:var(--muted); text-align:center; margin:0 0 8px;}
+  .pophead{display:none; align-items:center; gap:8px; padding:2px 4px 10px; border-bottom:1px solid var(--line); margin-bottom:10px;}
+  .pophead b{font-size:17px; color:var(--brand); font-weight:700;}
+  .menu{position:absolute; z-index:70; background:var(--card); border:1px solid var(--line2); border-radius:12px; box-shadow:0 12px 34px rgba(60,40,10,.2); padding:6px; min-width:212px;}
+  .mi{display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; font-size:14px; cursor:pointer; min-height:26px;}
+  .mi:hover{background:var(--cream);}
+  .mi.danger{color:var(--danger);}
+  .mi .k{margin-left:auto; font-size:11px; color:var(--muted);}
+  .msep{border-top:1px solid var(--line); margin:5px 6px;}
+  .mgroup{font-size:11px; color:var(--muted); font-weight:700; padding:7px 9px 3px;}
+  #lineMenu .mi.freq{display:none;}
+  .view{display:none; padding:16px 0;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:14px;}
+  .eyebrow{font-size:11px; letter-spacing:.05em; color:var(--brand); font-weight:700; margin:0 0 8px;}
+  .studio{display:flex; gap:14px; align-items:flex-start;}
+  .studio.railhidden .rail{display:none;}
+  .rail{flex:0 0 220px; width:220px; position:sticky; top:76px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:8px; max-height:calc(100dvh - 96px); overflow:auto;}
+  .content{flex:1; min-width:0;}
+  .railhead{display:flex; align-items:center; gap:8px; padding:2px 4px 8px; border-bottom:1px solid var(--line); margin-bottom:6px;}
+  .railtitle{font-weight:700; font-size:14px; color:var(--brand); display:inline-flex; align-items:center; gap:6px;}
+  .railhead #railClose{display:none; margin-left:auto;}
+  .navgroup{font-size:11px; color:var(--muted); font-weight:700; padding:8px 8px 4px;}
+  .navrow{display:flex; align-items:center; gap:9px; padding:8px 9px; border-radius:8px; cursor:pointer; font-size:14px;}
+  .navrow:hover{background:var(--cream);}
+  .navrow.sel{background:var(--sel); border:1px solid var(--selbd); font-weight:600;}
+  .navrow [data-ic]{color:var(--note);}
+  .navrow.add{color:var(--muted);} .navrow.add [data-ic]{color:var(--muted);}
+  .navsep{border-top:1px solid var(--line); margin:6px 4px;}
+  .ed{border:1.5px solid var(--selbd); background:#fffdf8;}
+  .edhead{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-bottom:10px; border-bottom:1px solid var(--line); margin-bottom:12px;}
+  .edname{font-weight:700; font-size:15px;}
+  .partsbtn{display:inline-flex; align-items:center; gap:6px; font:inherit; font-size:15px; font-weight:700; color:var(--ink); background:var(--sel); border:1px solid var(--selbd); border-radius:9px; padding:6px 11px; cursor:pointer;}
+  .partsbtn:hover{background:#efe0c4;} .partsbtn [data-ic]{color:var(--brand);}
+  .chipbtn{display:inline-flex; align-items:center; gap:5px; font-size:13px; background:var(--card); border:1px solid var(--line2); border-radius:8px; padding:6px 10px; cursor:pointer; color:var(--brand);}
+  .chipbtn:hover{background:var(--cream);}
+  .chipbtn.act{background:var(--sel); border-color:var(--selbd);}
+  .legend{display:none; grid-template-columns:repeat(auto-fit,minmax(158px,1fr)); gap:6px 16px; background:#FCFAF4; border:1px solid var(--line); border-radius:10px; padding:11px 13px; margin-bottom:12px;}
+  .legend.on{display:grid;}
+  .lg{display:flex; align-items:baseline; gap:9px; font-size:13px;}
+  .lg b{font-family:"Courier New",monospace; color:var(--note); min-width:34px; font-weight:700;}
+  /* bar block (editor) */
+  .seg.lay button{font-size:12px; padding:5px 9px;}
+  #edBars.flow{display:flex; flex-wrap:wrap; gap:10px; align-items:flex-start;}
+  #edBars.flow .ebar{margin-bottom:0;}
+  .ebar{border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px; background:#fff;}
+  .ebhead{display:flex; align-items:center; gap:7px; margin-bottom:8px; font-size:13px; color:var(--muted);}
+  .ecols{display:flex; gap:6px; flex-wrap:wrap; align-items:flex-start;}
+  .ecol{display:flex; flex-direction:column; align-items:center; gap:5px;}
+  .chsel{width:54px; height:24px; font:inherit; font-size:12px; text-align:center; text-align-last:center; border:1px solid var(--line2); border-radius:5px; background:#fff; color:var(--muted); cursor:pointer;}
+  .chsel.has{color:var(--chord); font-weight:700; border-color:var(--selbd);}
+  .chsel:focus{outline:2px solid var(--brand); outline-offset:1px;}
+  .egl{height:46px; display:flex; align-items:flex-end; justify-content:center;}
+  .ncode{width:52px; text-align:center; font-family:"Courier New",monospace; font-weight:700; font-size:14px; color:var(--note); background:#F2F6FB; border:1px solid var(--line2); border-radius:6px; padding:6px 0;}
+  .ncode:focus{outline:2px solid var(--brand); outline-offset:1px;}
+  .wbox{width:52px; height:30px; text-align:center; font:inherit; font-size:14px; border:1px solid var(--line2); border-radius:6px; color:var(--ink);}
+  .wbox.held{border-style:dashed; color:var(--muted); background:#FAFAF7;}
+  .ebadd{align-self:center; color:var(--muted); border:1px dashed var(--line2); background:none; border-radius:6px; padding:6px 9px; cursor:pointer; font-size:13px;}
+  .cleanbar{margin-top:2px; padding:12px 12px 8px; background:#FCFAF4; border:1px dashed var(--line2); border-radius:8px; overflow-x:auto;}
+  .cleanbar .plabel{font-size:11px; color:var(--muted); margin-bottom:4px;}
+  .para{border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-top:12px;}
+  .parahd{display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer; font-size:14px; font-weight:600; color:var(--brand); background:#FCFAF4;}
+  .parabd{display:none; padding:11px 12px;}
+  .parabd.on{display:block;}
+  .parabd textarea{width:100%; font:inherit; font-size:14px; min-height:60px; border:1px solid var(--line2); border-radius:8px; padding:9px; color:var(--ink); line-height:1.9;}
+  .hintline{font-size:12px; color:var(--muted); margin:8px 0 0;}
+  .savebar{position:sticky; top:80px; z-index:20; display:flex; justify-content:flex-end; margin-bottom:-6px; pointer-events:none;}
+  .savebar .savestat{background:#EEF6EE; border:1px solid #cbe3cb; border-radius:20px; padding:4px 12px; box-shadow:0 3px 10px rgba(60,40,10,.1);}
+  .savestat{font-size:12.5px; color:var(--ok); display:inline-flex; align-items:center; gap:5px;}
+  .btn2{display:inline-flex; align-items:center; gap:6px; font:inherit; font-size:14px; background:var(--card); border:1px solid var(--line2); border-radius:9px; padding:8px 13px; cursor:pointer; color:var(--ink);}
+  .btn2:hover{background:var(--cream);}
+  .btn2.send{background:var(--brand); color:#fff; border-color:var(--brand); font-weight:600;}
+  .btn2.send:hover{background:var(--brand2);}
+  .btn2.danger2{background:var(--danger); color:#fff; border-color:var(--danger); font-weight:600;}
+  .icobtn.danger-ic{color:var(--danger); border-color:var(--line2);}
+  .icobtn.danger-ic:hover{background:#fdecec; border-color:var(--danger);}
+  .cfm{position:fixed; left:50%; top:40%; transform:translate(-50%,-50%); z-index:80; background:#fff; border:1px solid var(--line2); border-radius:14px; box-shadow:0 20px 50px rgba(60,40,10,.28); padding:18px 20px; width:300px; max-width:calc(100vw - 24px);}
+  .cfm.hidden{display:none;}
+  .cfm-msg{font-size:16px; font-weight:700;}
+  .cfm-sub{font-size:13px; color:var(--muted); margin:4px 0 14px;}
+  .cfm-btns{display:flex; gap:8px; justify-content:flex-end;}
+  .tip{font-size:12.5px; color:var(--muted); background:#FCFAF4; border:1px solid var(--line); border-radius:8px; padding:9px 11px; margin:0 0 12px;}
+  .tip.hidden{display:none;}
+  .tiplink{display:inline-flex; align-items:center; gap:5px; color:var(--brand); font-weight:600; text-decoration:none; margin-top:7px;}
+  .tiplink:hover{text-decoration:underline;}
+  .sechead{font-weight:700; color:var(--brand); margin:14px 0 6px; font-size:14px;}
+  .sline{padding:8px 10px; border-radius:10px; margin-bottom:4px; transition:background .2s; overflow-x:auto;}
+  .sline.cur{background:#FDF6EA;}
+  #view-sing .jcol,#view-sing .sline{cursor:pointer;}
+  #view-sing .jcol.hot{background:var(--hot); border-radius:6px;}
+  #view-sing .jcol.hot .jword{color:var(--brand); font-weight:700;}
+  #view-sing .jcol.hot .jdig{color:var(--brand2);}
+  /* jianpu render */
+  .jline{display:flex; align-items:flex-end; gap:11px; position:relative; font-family:"Courier New",monospace; padding-top:8px;}
+  .jline.mini{gap:0; padding-top:0;}
+  .jcol{display:inline-flex; flex-direction:column; align-items:center; line-height:1; position:relative;}
+  .jchord{font-family:"Noto Sans Thai",sans-serif; color:var(--chord); font-weight:700; font-size:12px; height:15px;}
+  .jup,.jdn{height:7px; display:flex; gap:3px; align-items:center; justify-content:center;}
+  .jup b,.jdn b{width:4px; height:4px; border-radius:50%; background:var(--note); display:block;}
+  .jdig{font-size:22px; color:var(--note); font-weight:700; display:flex; align-items:flex-end;}
+  .jaug{width:4px; height:4px; border-radius:50%; background:var(--note); margin:0 0 4px 2px;}
+  .jbeams{display:flex; flex-direction:column; gap:2px; width:16px; margin-top:3px; min-height:1px;}
+  .jbeams i{height:0; border-top:2px solid var(--note);}
+  .jdash{font-size:22px; color:var(--note); align-self:flex-start; margin-top:2px;}
+  .jbar{width:0; border-left:2px solid var(--muted); align-self:stretch; margin:6px 2px 0;}
+  .jword{font-family:"Noto Sans Thai",sans-serif; font-size:14px; margin-top:6px; color:var(--ink); min-width:20px; text-align:center;}
+  .jarc{position:absolute; border:2px solid var(--note); border-bottom:none; border-radius:70% 70% 0 0; pointer-events:none;}
+  /* dock */
+  .dock{position:fixed; left:50%; transform:translateX(-50%); bottom:16px; z-index:50; background:var(--card); border:1px solid var(--line2); border-radius:15px; box-shadow:0 12px 30px rgba(60,40,10,.2); padding:9px 11px; display:none; align-items:center; gap:7px; flex-wrap:wrap; max-width:calc(100vw - 20px);}
+  .dock.on{display:flex;}
+  .dbtn{display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:14px; min-height:38px; min-width:38px; padding:0 12px; background:var(--card); border:1px solid var(--line2); border-radius:9px; cursor:pointer; color:var(--ink); font-family:"Courier New",monospace; font-weight:700;}
+  .dbtn.lbl{font-family:inherit; font-weight:600;}
+  .dbtn:hover{background:var(--cream);}
+  .dbtn.prime{background:var(--brand); color:#fff; border-color:var(--brand); padding:0 18px;}
+  .ddim{font-size:12px; color:var(--muted); padding:0 4px;}
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:90px; z-index:80; background:var(--ink); color:#fff; padding:9px 16px; border-radius:20px; font-size:13px; opacity:0; transition:opacity .25s; pointer-events:none;}
+  .toast.on{opacity:.94;}
+  .drawer{position:fixed; top:0; left:0; height:100dvh; width:82%; max-width:310px; background:var(--card); z-index:75; transform:translateX(-104%); transition:transform .22s; padding:14px; overflow:auto; box-shadow:0 0 40px rgba(60,40,10,.2);}
+  .drawer.on{transform:none;}
+  :focus-visible{outline:2px solid var(--brand); outline-offset:2px;}
+  @media (max-width:760px){
+    .desk-hide{display:inline-flex;}
+    .desk-only{display:none !important;}
+    .bar{gap:7px; padding:8px 12px; flex-wrap:wrap; row-gap:8px;}
+    .bar>.grow{display:none;}
+    .brand{order:1;}
+    .titlewrap{order:2; flex:1 1 auto; min-width:0;}
+    #songTitle{max-width:none; flex:1; min-width:0;}
+    .icobtn.desk-hide{order:3;}
+    .rowbreak{order:4; display:block; flex-basis:100%; height:0;}
+    .openbtn{order:5;}
+    #segMain{order:6; flex:1;}
+    #segMain button{flex:1; justify-content:center; padding:8px 4px;}
+    #segMain .mlabel{display:none;}
+    .mobrow{display:flex; padding:0 12px 9px; max-width:1000px; margin:0 auto;}
+    .mobrow .seg{width:100%;}
+    .mobrow .seg button{flex:1; justify-content:center; flex-direction:column; gap:2px; font-size:11px; padding:7px 4px;}
+    .dock{left:0; right:0; bottom:0; transform:none; width:100%; max-width:none; border-radius:15px 15px 0 0; justify-content:flex-start; overflow-x:auto; flex-wrap:nowrap;}
+    .toast{bottom:80px;}
+    .pop.sheet{position:fixed; inset:0; top:0 !important; left:0 !important; width:100% !important; max-width:none; height:100dvh; border-radius:0; padding:14px; display:flex; flex-direction:column;}
+    .pop.sheet .pophead{display:flex;}
+    .pop.sheet .search{font-size:16px; padding:13px 14px;}
+    .pop.sheet .olist{flex:1; max-height:none;}
+    .pop.sheet .orow{padding:13px 10px; font-size:15px;}
+    #lineMenu .mi.freq{display:flex;}
+    .studio{display:block;}
+    .rail{position:fixed; top:0; left:0; height:100dvh; width:82%; max-width:300px; z-index:76; transform:translateX(-104%); transition:transform .22s; border-radius:0; max-height:none;}
+    .rail.open{transform:none;}
+    .railhead #railClose{display:inline-flex;}
+    .studio.railhidden .rail{display:block;}
+  }
+  .brandfav{width:18px;height:18px;border-radius:3px;object-fit:cover;flex:0 0 auto;}
+</style>
+
+<div class="pt">
+  <div class="topstick">
+    <div class="bar">
+      <button class="brand" id="brandBtn" aria-haspopup="true"><span class="brandname">เพลง.พระคำ.ชีวิต</span> <span data-ic="chevron-down" aria-hidden="true"></span></button>
+      <span class="vsep desk-only" aria-hidden="true"></span>
+      <span class="titlewrap">
+        <span id="songTitle" contenteditable="true" spellcheck="false" role="textbox" aria-label="ชื่อเพลง (คลิกเพื่อแก้)">พระเจ้าเป็นความรัก</span>
+        <button class="caret" id="titleMenuBtn" aria-haspopup="true" aria-label="เมนูเพลงนี้"><span data-ic="chevron-down" aria-hidden="true"></span></button>
+      </span>
+      <span class="grow"></span>
+      <button class="openbtn" id="openBtn" aria-label="เพลง"><span data-ic="file-music" aria-hidden="true"></span> <span class="desk-only">เพลง</span> <span data-ic="chevron-down" class="desk-only" aria-hidden="true"></span></button>
+      <div class="seg" id="segMain" role="tablist" aria-label="โหมด">
+        <button data-mode="sing" aria-label="ฝึกร้อง"><span data-ic="mic" aria-hidden="true"></span> <span class="mlabel">ฝึกร้อง</span></button>
+        <button data-mode="sheet" aria-label="แผ่นเพลง"><span data-ic="music" aria-hidden="true"></span> <span class="mlabel">แผ่นเพลง</span></button>
+        <button data-mode="edit" class="on" aria-label="แก้ไข"><span data-ic="pencil" aria-hidden="true"></span> <span class="mlabel">แก้ไข</span></button>
+      </div>
+      <button class="login desk-only"><span data-ic="user" aria-hidden="true"></span> เข้าสู่ระบบ</button>
+      <button class="icobtn desk-hide" id="loginM" aria-label="เข้าสู่ระบบ"><span data-ic="user" aria-hidden="true"></span></button>
+      <span class="rowbreak" aria-hidden="true"></span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="view" id="view-edit">
+      <div class="studio">
+        <nav class="rail" id="rail" aria-label="องค์ประกอบเพลง">
+          <div class="railhead"><span class="railtitle"><span data-ic="square-chevron-left" aria-hidden="true"></span> องค์ประกอบเพลง</span><button class="icobtn" id="railClose" aria-label="ปิด" style="width:30px;height:30px"><span data-ic="x" aria-hidden="true"></span></button></div>
+          <div class="navgroup">ทำนอง (ท่อน)</div>
+          <div class="navrow" data-mel="ท่อน A"><span data-ic="music-2" aria-hidden="true"></span> ท่อน A</div>
+          <div class="navrow" data-mel="ท่อน B"><span data-ic="music-2" aria-hidden="true"></span> ท่อน B (รับ)</div>
+          <div class="navrow add"><span data-ic="plus" aria-hidden="true"></span> เพิ่มทำนอง</div>
+          <div class="navgroup">เนื้อร้อง (ข้อ)</div>
+          <div class="navrow" data-verse="ข้อ 1"><span data-ic="text-initial" aria-hidden="true"></span> ข้อ 1</div>
+          <div class="navrow" data-verse="ข้อ 2"><span data-ic="text-initial" aria-hidden="true"></span> ข้อ 2</div>
+          <div class="navrow" data-verse="ข้อ 3"><span data-ic="text-initial" aria-hidden="true"></span> ข้อ 3</div>
+          <div class="navrow" data-verse="รับ"><span data-ic="text-initial" aria-hidden="true"></span> รับ</div>
+          <div class="navrow add"><span data-ic="plus" aria-hidden="true"></span> เพิ่มข้อ</div>
+          <div class="navsep"></div>
+          <div class="navrow add"><span data-ic="repeat" aria-hidden="true"></span> ลำดับการร้อง (จัดเรียง)</div>
+        </nav>
+        <div class="content">
+        <div class="savebar"><span class="savestat"><span data-ic="check" aria-hidden="true"></span> บันทึกร่างแล้ว</span></div>
+      <div class="card ed">
+        <div class="edhead">
+          <button class="partsbtn" id="partsBtn" title="เปิด/ปิด องค์ประกอบเพลง (แถบซ้าย)"><span data-ic="square-chevron-left" aria-hidden="true"></span> <span id="partsLabel">ท่อน A · ข้อ 1</span></button>
+          <button class="icobtn" id="edHelp" style="width:28px;height:28px" aria-label="วิธีใช้โต๊ะแก้"><span data-ic="info" aria-hidden="true"></span></button>
+          <button class="icobtn" id="symHelp" style="width:28px;height:28px" title="ความหมายสัญลักษณ์โน้ต" aria-label="ความหมายสัญลักษณ์"><span data-ic="help" aria-hidden="true"></span></button>
+          <span class="grow"></span>
+          <div class="seg lay" id="layToggle" role="group" aria-label="เค้าโครงห้อง"><button data-lay="stack" class="on">1 ห้อง/แถว</button><button data-lay="flow">ต่อกัน</button></div>
+          <button class="chipbtn" id="showAllBtn" title="แสดง/ซ่อน การ render ทั้งเพลง"><span data-ic="music" aria-hidden="true"></span> ดูผลทั้งเพลง</button>
+          <button class="icobtn" aria-label="ฟังทั้งเพลง"><span data-ic="play" aria-hidden="true"></span></button>
+          <span class="desk-only" style="display:inline-flex;gap:4px">
+            <button class="icobtn quickstruct" aria-label="ทำเครื่องหมายท่อนฮุก" title="ท่อนฮุก"><span data-ic="hook" aria-hidden="true"></span></button>
+            <button class="icobtn quickstruct" aria-label="ซ้ำ ‖: :‖" title="ซ้ำ"><span data-ic="repeat" aria-hidden="true"></span></button>
+            <button class="icobtn quickstruct" aria-label="คัดลอกบรรทัด" title="คัดลอกบรรทัด"><span data-ic="copy" aria-hidden="true"></span></button>
+            <button class="icobtn danger-ic" id="qDelete" aria-label="ลบบรรทัด" title="ลบบรรทัด"><span data-ic="trash" aria-hidden="true"></span></button>
+          </span>
+          <button class="icobtn" id="lineMoreBtn" aria-label="เพิ่มเติม (โครงเพลง)"><span data-ic="dots" aria-hidden="true"></span></button>
+        </div>
+        <div class="legend" id="legend">
+          <div class="lg"><b>1–7</b> ระดับเสียง (โด เร มี…)</div>
+          <div class="lg"><b>5'</b> จุดบน = เสียงสูงทบ</div>
+          <div class="lg"><b>.5</b> จุดล่าง = เสียงต่ำทบ</div>
+          <div class="lg"><b>5_</b> ขีดใต้ = เขบ็ต (ครึ่งจังหวะ)</div>
+          <div class="lg"><b>5.</b> จุดขวา = จุดเพิ่มครึ่ง</div>
+          <div class="lg"><b>6~ 6</b> เส้นโค้ง = ลากคำเดียว (เอื้อน)</div>
+          <div class="lg"><b>–</b> ลากเสียงค้าง</div>
+          <div class="lg"><b>|</b> เส้นแบ่งห้อง</div>
+        </div>
+        <div class="tip hidden" id="edTip">พิมพ์โค้ดในช่อง (เช่น <b>.5</b> <b>6_</b> <b>6~</b>) → โน้ต jianpu จริงขึ้นเหนือช่องทันที · แต่ละห้องกด <span data-ic="music" style="vertical-align:-2px" aria-hidden="true"></span> ดูผล เพื่อเห็นแบบแผ่นเพลง (หรือกด "ดูผลทั้งเพลง" ที่หัว) · ความหมายสัญลักษณ์กด <b>?</b> ข้างๆ<br><a class="tiplink" id="helpLink" href="#"><span data-ic="book-open" style="vertical-align:-3px" aria-hidden="true"></span> เปิดคู่มือฉบับเต็ม (วิธีเขียนโน้ต + ตัวอย่าง) →</a></div>
+        <div id="edBars"></div>
+        <div class="para">
+          <div class="parahd" id="paraHd"><span data-ic="align-left" aria-hidden="true"></span> พิมพ์เนื้อทั้งข้อรวดเดียว <span class="grow"></span><span data-ic="chevron-down" id="paraCaret" aria-hidden="true"></span></div>
+          <div class="parabd" id="paraBd">
+            <div class="hintline" style="margin:0 0 7px">เว้นวรรค = พยางค์ใหม่ · "-" = ต่อคำเดิม · แก้ที่นี่ ช่องคำด้านบนขยับตาม</div>
+            <textarea>พระ เจ้า เป็น รัก ให้</textarea>
+          </div>
+        </div>
+      </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-sheet">
+      <div class="card"><div class="eyebrow">แผ่นเพลง (พร้อมพิมพ์ A4)</div><div id="sheetBody"></div></div>
+    </div>
+
+    <div class="view" id="view-sing">
+      <div class="card"><div class="eyebrow">ฝึกร้อง — กด ▶ → ไฮไลต์ไล่ทีละโน้ต (B006) · จอเลื่อนตาม · ปุ่มหยุดติดจอเสมอ (B016) · แตะบรรทัด/โน้ตเพื่อกระโดด</div><div id="singBody"></div></div>
+    </div>
+  </div>
+
+  <div class="dock" id="dockSing">
+    <button class="dbtn lbl prime" id="playToggle"><span data-ic="play" id="playIcon" aria-hidden="true"></span> <span id="playLabel">เล่น</span></button>
+    <span class="vsep" aria-hidden="true"></span>
+    <button class="dbtn lbl" aria-label="ตัวอักษรเล็กลง">ก−</button>
+    <button class="dbtn lbl" aria-label="ตัวอักษรใหญ่ขึ้น">ก+</button>
+    <button class="dbtn" aria-label="คีย์/ความเร็ว"><span data-ic="settings" aria-hidden="true"></span></button>
+    <span class="ddim" id="playState">พร้อมเล่น</span>
+  </div>
+
+  <div class="backdrop" id="backdrop"></div>
+  <div class="pop hidden" id="openPop" role="dialog" aria-label="เพลง" style="width:320px;">
+    <div class="pophead"><b>เพลง</b><span class="grow"></span><button class="icobtn" id="openClose" aria-label="ปิด"><span data-ic="x" aria-hidden="true"></span></button></div>
+    <button class="newbtn" id="newSong"><span data-ic="plus" aria-hidden="true"></span> สร้างเพลงใหม่</button>
+    <div class="opensep">— หรือเปิดเพลงที่มีอยู่ —</div>
+    <input class="search" id="openSearch" type="text" placeholder="พิมพ์ชื่อ / เลข / เนื้อร้อง…" aria-label="ค้นหาเพลง" autocomplete="off">
+    <div class="olist" id="openList"></div>
+  </div>
+  <div class="menu hidden" id="titleMenu" role="menu">
+    <div class="mgroup">เพลงนี้</div>
+    <div class="mi" role="menuitem"><span data-ic="settings" aria-hidden="true"></span> ตั้งค่าเพลง (คีย์ / จังหวะ / หมวด)</div>
+    <div class="mi" role="menuitem"><span data-ic="x" aria-hidden="true"></span> ออกจากเพลงนี้</div>
+    <div class="msep"></div>
+    <div class="mi danger" role="menuitem"><span data-ic="trash" aria-hidden="true"></span> ลบเพลง <span class="k">ผู้อนุมัติ</span></div>
+  </div>
+  <div class="menu hidden" id="brandMenu" role="menu">
+    <div class="mi" role="menuitem"><span data-ic="list-music" aria-hidden="true"></span> รายการเพลง</div>
+    <div class="mi" role="menuitem"><span data-ic="book-open" aria-hidden="true"></span> คู่มือ</div>
+    <div class="mi" role="menuitem"><span data-ic="info" aria-hidden="true"></span> เกี่ยวกับเรา</div>
+    <div class="msep"></div>
+    <div class="mi" role="menuitem"><img class="brandfav" src="data:image/x-icon;base64,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Tv8uOkz/LjpM/y46TP8uOEr/LzlL/y86TP8wO0v/MDxN/zA8Sv8wO0j/LzxM/y46Sv8tNkT/LDI9/y0zQf8rLC7/Kywv/ywtL/8tLS//LS0v/y0tL/8rLS//Kywv/ystL/8rLTD/Kywv/ywsLP8rKyr/Kykp/yopKP8qKSn/LCkp/yspKf8rKiv/Kysr/ywsLf8sKyz/LCss/ysqK/8sKiv/LCsr/ysrK/8sKyv/Kyss/ysrLP8sKyz/Kyoq/youN/8rMDj/Ki83/ywxOf8tMTf/LC8z/zAyNf8uMjX/LS4y/ywuMf8uLzL/LC0u/ywxOP8oPVT/KDRD/yoyPP8pOUn/KEJc/yg5TP8tMzz/MzY8/zA0Ov8yNjz/MzY8/y4wNf8tNT7/LjtJ/y07TP8rOkv/LTtN/y09UP8sPE7/KS88/yowPv8qMUH/KTNC/yozRf8rOU//KjlO/yk4TP8rOU3/KTdI/ys4SP8rPE7/K0Zj/yhGZv8oP1v/LERh/yg/XP8nPVf/KEJf/ypGY/8rQlv/KT5U/yo+Uv8rQlv/KkNf/yg/Wf8pQl3/KTpQ/yg4Tf8pOlD/KDxT/yg2SP8oMD7/KTFB/ykwQP8pMkP/KDRH/yk1SP8oN03/KDhO/yg6VP8nPFn/Jz5b/yhAW/8oQl//KUZk/yhAXf9afJ//Q2SH/yhDYP8oRGD/KEVi/yhDYP8oQV7/KUVj/ylEYP8pQ2D/K0dk/ylCXP8pQVr/KkVh/ylEYf8pO1L/Kj1V/yk0Rf8oNUf/KTVJ/yk2Sv8pNUv/KThQ/yk6Uv8pPlf/KD1Y/yhAXf8oQV7/KUJg/ylFYv8qRWP/U2+M/6vP8f9/rt3/N1d3/ypLa/8pSGf/KUlq/yhGZP8qR2b/Kkho/ypKaf8rS2r/K0pq/y1Nbf8rS2v/Kkdl/ypDYP8pQFr/iLXe/4+53/+Rud3/irHU/3uevv9lhaT/T2uI/zVQbf8pRGL/Kkdm/ytJaf8rTG//RGSD/4Sivv+qzev/sdX1/4S36v+Hu+j/bZOy/z9mi/8uVn3/LVJ1/y1Rc/8tUXX/OmCE/0xwkf9fgqP/Yoao/2KIq/9nj7P/bJS3/2qVu/+Owvf/n877/6bT/P+i0fv/n834/5vL9/+hz/f/rNf6/6fS7/+11OX/y93o/9/t9f/J6fv/rNHw/6zP8v+y1Pf/ibzv/47C9f/A5vz/8fz+/9vs9f+w0+n/pcvn/6/T7/+42ff/tdj3/6DJ7f+fx+7/n8ft/6HJ7v+fx+3/ncXt/5nK+/+czP3/ptP+/6fU/v+q1v3/qNX8/6zX/f+v2f3/tt/9/9Px/f/3/v7/+/7+/970/v+42/v/ncTw/7LU9/+QwvX/lcj6/9Xx/v/7/v7/8fz+/8bo/P+x1vf/rtP2/7PX+f+32vv/n8fx/5/H8/+bw+//mMDt/5vB7v+Vven/u+H+/6PS/v+n1P//rtn+/7Pd/v+t2P7/rtn+/7ng/v+/5P7/zO7+//P9/v/9/v7/5vj+/7ne/v+oz/j/stX4/5jI+v+Yyvz/3vX///7+/v/x/P7/xef+/63U/P+12Pz/sNX7/7HW+/+cxfL/n8j0/6PK9f+jyvT/osnz/5/F8P/N7f//ueD+/67a//+v2///td7//7jf/v+44P//veP//8bp/v/K7f//7/3+//39/f/2/f7/yun+/7HV/f+pz/f/hLry/6PS/f/i+P///v7+//L9/v/L6v//t9v+/7rd/v+32/3/rdT6/53G8/+ky/j/n8fz/5nC7/+Vvun/lr/r/5G63P+hyOf/nMbp/6HK7P+n0PD/str6/77k///H6f//yuz//9Hw///k+v7/+fz9//z+/v/W8f//ttr9/4uz3P9Tf6r/qNb9/+T4/v/+/v7/7Pv//8fp//+73v//veD//7/g/v+o0Pv/oMr3/53H9f+ex/T/m8Pw/5K96/+lzPb/RGB//0ljhP9IZof/R2eJ/0hpiv9KbpD/VXyf/2qSt/+Aqcz/p8zo/8Tk9//m9v3/9fz//8zn+P+HrdH/TnOa/0pwlf9wm8H/1e35//z////q+/7/y+v//73h/v+22/7/rtT4/5zE6/+Rt97/h6vQ/32gw/90lbr/bI2x/2WEpv9EYH//SGeH/0hrjP9JbY//TG6S/01vlv9PcZn/T3Sc/1B2nv9UfKb/VX6p/1uHs/9sm8L/U32o/1N7pP9chqz/WYOr/050m/9WfaX/c5y//3acv/9oj7T/VXqf/0ppjP9BXX3/PVh3/z1Vcf86Umz/PFBr/zlMZf83SV//N0dc/0dlhf9LbZH/TXGV/09zmP9PdZv/UHeg/1J6pf9Ufqj/VX+q/1aArf9WgK7/V4Kt/1mEsP9Xg6//W4iz/1yIsv9Zh67/T3Wf/01ym/9OcZr/S2+W/0dskP9GaIv/RGOD/0RggP9AXHz/Pll4/zxVcf86Umv/Ok5m/zhKY/84SF7/S26R/1F3n/9UfKX/VXym/1R+qf9ZhK7/WIKv/1qEsf9gjbr/YI+9/2CNvf9ch7b/Woe2/12LuP9qmsP/ZJW//1+Ntv9Tfqj/TXag/0xznv9KcJj/Sm6T/0dqjv9EZ4r/RmOE/0Jff/8/XHv/Plh2/zxUcf86UWv/OU1n/zhJYv9TeKH/WYCs/1mCrv9ahLD/W4az/1uHtv9cibj/XIq5/2OVxP9ll8j/ZZjG/2GRwP9gkL//aJvJ/2yfyv9rnsj/Z5nC/2CQuf9Sf6r/T3ei/053oP9QeKD/VHue/0lukv9IaY3/RGKD/0Jffv8/W3r/PVd1/ztTb/85UGn/N0tk/1R9p/9Yg67/WYWx/1yItf9ejLr/X429/2GQwf9lk8b/aJvM/2mdzv9pnM7/ZZfI/2iby/9xptP/b6TQ/2mdy/9kmMb/Z5rE/2OVvv9gkbr/Woiy/1WCq/9Ufab/UHif/0tyl/9HaY3/Q2GD/0Fdfv89WXj/PFVz/zlQbP84TGb/VX+q/1mEsf9aiLf/XIq4/2CPv/9hj7//YpHB/2eXyv9qms7/a57R/22f0/9rndH/bKDS/3Kp2P92qtf/bKHQ/2mezf90qNH/b6TM/26jyv9qncb/Wom1/1iFsP9Wgar/UXqh/0pxlv9FZ4v/QmCC/0Fdff88V3X/OVJu/zlOaP9Vga7/W4e2/12Lu/9ejb3/YZDC/2KTxf9ll8r/Z5vP/2md0f9qndL/bJ/U/26i1/9wo9j/cKbY/2+m1/9to9P/ap/P/22hz/9wptD/darS/3uv1f9gkr7/XIy4/1mIs/9Tf6n/TXad/0hskP9CZIf/Ql+B/z5Zef86VHH/OE9r/1aEsv9biLj/W4u7/12Ov/9ik8X/ZpjN/2qe1P9rn9f/baHX/26h2P9votn/cKTb/3Kn3P9wpdr/b6TY/22h1f9oms3/aJvL/2yi0P9yqNP/cKTP/2CUwv9cjrv/Woq2/1WCrf9PeaL/SXCX/0RojP9AYYT/Pl1+/zpWdf85UG3/Voa1/1mKuv9djb3/YJHD/2OXy/9pndL/baLZ/26m3P9wp93/cafe/3Ko3v9yqd//dazi/3Wr4P9xp9z/bqPa/2qg1v9qndP/ZprN/2GW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pv9BZI7/Nk1r/zRGXv8wPlL/MDtP/y85S/8vN0f/LjZF/y41Q/8uNEH/LjRA/y4zQf8vNUT/LzRC/y41RP8vOEn/MDxP/zA9Uv8wPVH/MUBY/y02Rv8uN0f/LjhH/y43SP8uN0f/LjdG/y00Qv8tNED/LjNA/y40Qf8uMz//LjI+/y40Qf8uNEP/LjVG/y02SP8uN0j/LjhJ/y84SP8wOkz/MkJa/z1Zff9QfrX/WpTV/1CGw/9EbZ3/OVJz/zA9Uv8vOEv/LzhL/y84Sf8vOUv/LzpN/y85Tf8vOEr/LjdJ/y43R/8uNkb/LjVE/y81RP8vNkb/LjVD/y4zQf8uM0D/LjI+/y4xPP8uMTz/LjE8/yotNf8qLTX/Ki01/yotNP8rLjb/Ky42/ywvN/8sLzn/LDA7/ysxPf8sMT7/LDE+/ywxPv8tMkD/LDNC/ywzQ/8tM0P/LDNE/y0zQv8uM0L/LjND/y00Q/8wO0//PWaS/zdVev8vOUz/LTVF/y41Rv8uNkj/LjZJ/y41R/8uNUb/LTRE/y00Qv8tMj//LTI+/ywyPP8tMz//LjRA/y0yQP8uNEL/LTVD/ywyQf8tMT7/LDA7/ywvOv8tMDv/LS85/yw3Rv8sN0j/LDdH/yw2R/8sNUP/LDVD/yw1RP8tNkf/LThI/y86Sv8uOUr/LDhJ/yw3SP8tN0j/LTdJ/yw4SP8uOUr/LTZG/y00Qv8uNkT/LTZF/yw1RP8sNUT/MT9U/zA7T/8tOEf/LThJ/y03R/8uN0j/LTVF/y00Q/8sNET/LjRE/y42Rv8uNkX/LTM//ywyPf8tMz7/LDE3/ywwNv8sMTv/LDM+/ywzPv8rMDj/LDA5/ysvOP8rLzn/LDA7/ywxO/8sMjv/LDI8/y0zO/8tMz7/LTM+/y0yPP8tMj3/LTI9/y00Pv8tND//LDM+/y00QP8tND//LDQ//y00QP8tND//LjQ9/y0zO/8sMzz/LTM8/y0yO/8tMjv/LTE6/y0yPf8tMz7/LjU//y42Qv8uNUH/LTVA/y02Qv8uNkL/LzZC/y83Qv8vN0L/LzlE/zE6R/8xO0j/MTxJ/zE7SP8vO0j/MTtI/y86SP8uOEX/LjZB/y0yO/8sMTr/LTI7/yoqK/8qKiv/Kisr/ysrK/8sKyz/LCws/ywrLP8sKyz/LCss/ysqK/8qKyv/Kisr/yorLP8qKyz/Kiss/yorLP8rKyv/Kysq/ysqKf8rKyv/Kykq/yopKP8pKSn/Kyop/ywqKf8rKij/Kigo/yopKf8rKin/Kyoq/ywrK/8sKiv/LCoq/ywqK/8rKSr/LCkq/yspKf8rKin/Kyop/ysqKf8rKin/Kyoq/ysqKv8rKir/Kiop/ysqKf8rKSn/Kikp/yosMf8qKy//KSsu/yssLv8sLC7/LCwu/ywsLf8rKy3/Kyos/ywrLP8sLC3/Kywt/yoqK/8rKyv/Kyss/ywqLP8rKyv/Kyop/yopKv8qN0b/KDtN/ykwOP8qLDD/Kywv/ysuMv8pMDr/KDxP/yk9Uv8qLTP/Kywt/y4tL/8sLC7/LCwu/ywsL/8tLS//LSwu/ywqLf8qKy7/Ky4x/youNf8rMjr/LDQ+/y03Q/8uOkf/MUBP/y9AUv8uPlD/LkFT/ykwPf8rM0H/LDVE/ykzQ/8pNEX/KzZF/yw2Rv8sNkb/LThI/zA6R/8wO0f/LzdB/y4zPf8sMjz/LTQ9/y82P/8wOEH/LTM7/y05SP8rR2b/KEBe/yc9WP8nO1T/KT5X/ydAXP8nR2r/J0Ni/yc+Wv8rQlv/LkFX/zNBUf8yP03/MjxJ/zI8Sf80P03/Mj9P/zBAUv8sPlH/LEJX/y9GXv8uRF//Kz5W/yg6UP8oOVD/KDVK/yk5UP8pOE3/JzNE/yguO/8oLzz/KjA9/yowPv8pMUH/KTNC/yozRP8qNEf/KztQ/yk5Tv8pOE7/KTpR/yk9Vv8qPFT/JzdL/yg2SP8qOUz/KkFZ/ylEYP8pR2f/KEVl/yhBXv8oPVj/Mk5v/ytEY/8nP1r/KD9a/yhBXf8oRGH/KUhm/ylHZf8qQ17/KEFb/yhAWf8qRmL/K0dk/ylCXv8pQVz/KD1W/yhCXf8qQFr/KDhM/yk6UP8oOU7/KD5X/yg+Vv8pOU7/KThL/ygwPv8oMED/KTE//ykwP/8pMUH/KDNE/yg0R/8pNUj/KDVJ/yc2S/8nN0//KDdM/yg5UP8oPVn/Jj1a/yc+XP8nPlr/Jz9a/yhBXP8pRWL/KkVj/ylDYP8rQFz/X4ev/0hskP8oQF3/J0Fc/yhDX/8oRWP/KERh/ydDYP8oQl//Jz9c/yhBXP8pRmT/KUZj/yg/Wf8pQV7/K0dl/ypEYP8oPlX/KkNd/ylDX/8qSGb/KUNg/yg8VP8oOE7/KTxU/ygwPv8oMUH/KDJD/ykyQ/8pMkT/KTJE/ygzR/8pNUr/KTdN/yk3Tf8oOlH/KDlQ/yg7Vf8oPFf/Jz5a/yg/W/8oP1v/KEFe/yhDX/8pRWP/KUZk/ylCX/9Yco//kLvj/3GfzP84V3j/KUZl/yhHZf8oRWH/KEVi/yhEYv8oRGL/KEVi/ypJav8qR2X/KUNg/ypIZv8rSWj/K0hm/ylBXP8qRWH/K0hl/ytJZ/8pRmT/KkNe/ypAWv8qQFr/KkBa/yk2Sf8oNkn/KTdK/yg2S/8qOE3/KDZL/yg1Sv8pOE//KDhP/yo8Vf8oPVb/KUBa/yg+WP8oP1r/KENg/yhCX/8oQmD/KkNh/ylFYv8qRmT/KUNg/0tnhP+ryeT/pczz/4Gz4v9zn8v/MFBw/ytMa/8qS2z/LE1w/ypJa/8pSGj/KUdm/ylFYv8qSGf/Kkho/ylKav8rTm//K0xr/yxNbv8tT3H/LExr/ytKav8rS2v/KUZk/ytEYf8pQV3/KEFb/4Os0P+Grs//iK3O/4itzP+Dp8f/dZe3/2F/n/9JZIH/PFNu/zZOaf8ySWX/LEVh/ylCX/8pQ2H/KUdn/ypIaP8qSGj/LE1v/zJRcv89Wnf/cY+t/7fY8v+qzev/r9T3/3+z5f+Lv/D/g7Te/05zlv85XX7/MFZ7/y1Uev8tVXr/LVN2/y1RdP8sUXT/LVF0/zBVef8zV3n/NVZz/zxdfv8+Xn//PmCC/0Blif9AZ4v/Q22S/0Vukv9Fb5b/RnSc/47C9f+Uxvb/msr4/6LQ+v+fzvj/ns34/53M9v+dzPX/msfu/5G53P+Bp8j/d5q5/2yPq/9jg5//YYCb/2aDnf9viqT/fpqz/5Oxx/+pyuT/rtHv/6TI6v+szvH/udr7/4C06P+HvPD/kMTz/7Pc+P+tzeH/nLXL/4Kfuv9rjqz/Yoal/2GFpP9pjKz/dJe4/4Gkxf+LsM//m7/f/5zC4/+exef/n8bo/5/F5v+gxuf/ocjp/6XL7P+jy+z/nsbq/4u/9f+Zyfv/ptP8/6XS/P+p1Pz/qtb8/6rV+/+j0fr/ns75/6TR+f+hz/j/qNT4/6HR9P+43vT/z+r1/+Hx9v/t9fj/7Pn7/87s+/+x2Pb/s9f1/7HT9v+ix+//u9v7/4C16v+Pwfb/mcr5/7fh/f/f9v3/9v3+/+/5+//Q6/f/ut30/67U7/+r0uz/q9Lw/7bY9/+r0PP/s9j4/5zF7f+bxe3/m8Pu/5rC7P+dxO3/n8fw/53G7v+exe7/m8Pt/5jI+f+Xyfv/oM/9/6TR/f+m0/7/pdP9/6fU/P+m1P3/otD7/6nW/P+s1/z/s9z9/6/a/P+95P3/2fT9//P9/v/7/v7/+f7+/+T4/f/J6P3/udv6/6HH8f+bwuz/vNv8/4a67/+Txfr/m837/8rr/f/u+/7//P7+//b9/v/X8f3/u+D7/7DW9v+q0PL/sNX2/7vc+/+83vz/uNv7/6XL8v+bw/D/ocn0/5rD7/+bw/D/mcDt/5rA7v+awe7/l7/r/6/Z/v+ay/z/oM/+/6XS/v+p1f7/rNj+/6/a/v+v2v7/rNf9/6vX/v+v2v7/s9z+/73j/v++5P7/2PT+//D9/v/8/v7//P79/+n5/v/F5v7/q9P8/6XN9/+iyfP/vNz8/4y/8/+Uxvr/ns78/83u/v/y/P7//v7+//j9/v/d9f7/xef+/7bb/P+t0vj/sNT6/6fO+P+u1Pr/rdL6/6HJ8/+cxfH/nMby/5rD7/+awu7/mMDs/5zD7/+awe3/l77q/8fo//+z3P7/otH+/6fU/v+q1v//sNr+/7Te/v+y3P7/rNj+/6rX/v+43/7/u+L+/8fp/v/A5v7/0vH//+38///8/v7//P39//P8/v/T7/7/ud7+/6vS+v+jyfP/u9z8/5LF+P+ay/3/otH+/9Tx///4/f7//v7+//j9/v/a8/7/v+P+/7DX/f+t1Pz/vd79/7fa/P+83v3/qM/4/5nD8P+cxvL/o8v2/6bM9v+r0Pr/qc/4/6nN9/+jyfP/m8Lt/8zs///H6f//rtn+/6zY//+w3P//rdn//7Xe//+23/7/t9/+/7Xe/v+64f//vOP+/8bp/v/I6///zfD//+r8///7/v3//f39//r+/f/h9v7/weL+/6zT+/+s0Pj/r9P6/4O68/+Zyv3/qdf+/9bz///5/v7//f39//f9/f/d9f//w+X+/7nd/v+22v7/w+L+/73f/f+83v7/sNb8/53G8/+jyvb/pcz4/6DH8/+awu//lb7s/5fA6/+PuOX/lL3o/7/l/v/O7f//vuP+/7Pe//+34P//tuD//7jg/v+23/7/uuH+/7vi//++5P//v+X//7/l///N7f//zu///+T6///5/v7//f7+//z+/v/p+v7/yen+/7ba/v+r0Pn/m8Tw/1qPwv+Owfb/rtv+/9n0///5/v7//v7+//b9/v/c9f//xeb//7fc//+32///ttv+/6/V/P+22v3/pM33/57I9f+ex/X/oMj1/5zF8v+bxPH/msLv/5O96f+Qu+j/qM74/2uVvf+DrdT/hrDX/4ay2v+Ktdz/j7rg/5bC5f+izO//s9r6/7/k/v/G6f//zez//8vs/v/R7///z+/+/974///r+fz/+/3+//3+/v/w/P7/z+3//7nc/v+v0/j/aJC5/0Vrj/96qdb/sdz9/9j0/v/6/v7//v7+//P9/v/W8v//w+f+/77h//+/4P//v+H+/8Lj/v+32v7/osz4/6HL+P+eyPX/ncf1/6HK9/+iyvX/nMTx/5W/7v+aw/D/sNX9/0Rffv9HYYL/SmSF/0hkhf9IZof/SGeI/0hoif9Jaov/S3CT/1Z/o/9rlrz/ha7U/5rE5/+z2PL/yef3/9Tw+//b8vv/9fz+//z+///w+/7/1O77/7LU8P9xmcD/Sm+V/0htkf9TfaT/mcTm/9bx+//4/v///v////L9/v/X8/7/xuf//7rf/v+83/7/t9v+/7XZ/f+z2Pr/qdD3/6fN9P+mzPH/o8fu/5/E6v+Zv+b/krjj/42z3/+Frdj/gajT/0Neff9HYoL/SGWG/0hniP9Iaov/R2qM/0lrjf9KbZD/S26R/0xvkv9Ocpf/TXGW/050mv9ehq//aJK8/3qkyf+PtdX/osPe/6zK4v+bvNj/e6LH/1uDrP9QdZ3/UXie/1J6of9OdZz/U3yk/3+nyP+10+b/zOLw/8rk9P+42vD/psvq/5a83v+LsNL/fKHG/3KVuv9pjK//XoCk/1d3mf9Pbo7/SWWE/0Ree/9AWXX/PVRu/ztRaP86TWL/OEhe/0Nffv9HZYX/SGiJ/0hrjf9KbpD/SW2Q/0xvk/9NcJb/TnCY/05ym/9QdJz/UHWe/1B3n/9ReaL/U3ul/1R9qP9WgKv/WoWw/3Cdw/9ij7f/Unyn/1N8pv9Zgqv/Z5K2/1+Msv9Te6L/TXOb/1B0nP9Yf6f/W4Go/1uApv9XeqD/UXaZ/0xukf9IZ4n/RWKD/0Jeff8/W3r/PVh3/z5XdP88VW//OVJt/ztQa/87Tmj/Oktk/zhKYP83SF3/NkZc/0Vigv9IaYr/SmyQ/0twkv9NcpX/TXGV/05zl/9PdZz/UHag/1F4ov9Te6X/U32m/1R9p/9Ufqr/VX+r/1V/rP9VgKz/V4Ks/1iEr/9YhLD/VoKt/1qHsv9bh7H/Xoq0/1uJsP9Ufqb/TXGc/05xm/9OcZr/TnCa/0xwl/9JbZP/RmuO/0Zoi/9FZYb/RGKC/0Ngf/9CXn7/P1t7/z5Zef89VnT/O1Rv/zlSbP86T2j/Ok1m/zhKYv83SF//N0dd/0loif9LbpH/TnKY/091m/9Rd57/U3ig/1J5ov9Se6T/V4Kr/1R+qv9WgKv/V4Gt/1iDr/9ZhbL/Woe1/1uGtf9ahLL/WYWx/1mEsf9ZhLL/W4ez/2GQuv9fjrj/XYu1/1qHsP9Vgan/Tnaf/0x0nf9Mc53/THGb/0pwl/9JbpT/SGyR/0dqjf9EZ4n/RWSG/0Zjg/9DYID/QV18/z9bev8+WXf/PVVy/ztTbv86Umv/OVBn/zlNZv85SmP/OElf/0tukP9PdJz/VHqk/1V9qP9Wfaj/Vn2o/1V/qv9WgKv/W4ew/1iDsP9ZhLL/W4Wz/2COu/9llcL/YZLA/2KRwP9fjLv/XYi3/1uIt/9ah7b/YZC+/22dx/9omcP/Z5jB/2SUvP9dirP/U32o/013ov9MdqH/S3Ke/0pxmv9Lb5b/SW6S/0hrj/9FaY3/RGaK/0Zkhv9EYoL/QV9//0BdfP8+Wnn/Plh2/z1VdP87U3D/OVBq/zlOaP85S2X/N0hh/1F1nf9WfKX/Wn+s/1mBrf9Zgq7/WYOv/1mEsP9ahLP/Woa1/1uHtv9bibj/W4m5/2GSwf9klsb/Y5XG/2SXxf9klcP/X469/16Nvf9hksD/Z5rH/2qeyf9pncf/b6HJ/2eZwv9jlL3/ZJK6/1OAq/9PeaT/Tnag/011nf9NdZ3/T3Wc/1B3mv9JbpP/R2uQ/0dojP9GZIb/QmGB/0Jffv9AXXz/Plp5/z1Xdf88VHL/O1Jt/zlQaf84TWb/N0pj/1N6pP9Wf6r/WYKu/1iDr/9ahbH/W4e0/12Jt/9dirj/XYq6/1+MvP9gjr7/YI+//2WXyP9om8v/Z5rL/2eayv9mmcn/YpPC/2OTw/9rnsv/bqLP/26hzv9soMv/aJvG/2WYxP9ilcD/XY25/1iIs/9Wg67/U32p/1N+qP9Rfaf/U3+m/12Gq/9Pdpz/THKX/0lvkv9Hao3/RWSG/0JggP9CXn7/P1t7/z1Zdv88VnT/PFRx/zpRa/84TWf/OEtk/1J8pv9Xgaz/WYOv/1iFsv9ahrP/XIm2/12Muv9fjbz/YI2+/2CPwP9kk8X/ZZXI/2iay/9qnc7/ap3P/2mdz/9om83/ZZbI/2eYyv9wpNL/cqfU/3Cl0v9uos//aZzM/2WZyP9pncj/aZ3G/2eZwf9om8L/Z5jA/1+Ouf9bibP/VYKs/1R/qP9SfKX/UXmf/051m/9Jb5T/R2mN/0Njhf9CYIH/QFx9/z5aef88WHb/PFRy/zlSbf84Tmn/OExl/1N9p/9Ygq7/WoSx/1mHtv9aiLf/XIq4/1+Ovf9hj8D/YY6+/2KQwP9klMb/Z5fK/2mZzf9rnc//bJ/S/2yg0/9rndD/apzQ/2qcz/9xptb/cqnX/3Sp1/92qtT/a5/O/2idzP9xpND/dKjQ/3Clzf9socn/b6TK/2yfx/9fj7r/WIay/1eEsP9Wgaz/VH6n/1J7of9NdZv/SW6T/0ZojP9DYoX/Ql+A/0FcfP8+Wnj/O1Z0/zlSbv85T2r/Ok1n/1R/qv9Yg6//Woa1/1uJuf9cirn/Xoy8/2CQwP9hkML/YJDB/2GSwv9mlsn/Z5nN/2ibzv9pm8//apzR/2yf0/9tn9T/bp/V/26g1P9wptf/cajY/3Gn1/9wpdT/bKHQ/2qfz/9soc//cabR/3Cmz/9to8z/cqjP/3aq0P9pm8T/Wou4/1qJtf9ah7L/V4Su/1N+qP9PeaD/S3KY/0hskP9EZYj/QmGD/0JfgP8/W3v/PFd2/zpTcf85UG3/OE5p/1SBrf9ZhLP/XIm4/12Lu/9djLz/Xo6+/2CPwf9jkcT/Y5TH/2aYy/9nms7/aJ3Q/2uf0/9pndL/a57T/2ue1P9soNX/b6PY/3Gk2f9wpdj/cKbY/26m2P9vpdb/bKLT/2uf0P9pnc3/bKHO/3Cn0f9wptD/eq/V/3yw1v9wpMz/XY68/1yNuf9cjLf/WIiy/1SCrP9QfKT/THWc/0luk/9FaIz/QmSG/0Jggv9AXX7/PVh4/zpVc/85UW//N09q/1WDsP9ZhrX/XIm4/1yKuv9cjLz/Xo/A/2KSw/9jlMf/ZpjN/2md0f9pn9T/a5/W/2yg1v9soNf/bqDX/26h2P9uo9j/cKTb/3Gm2/9xpdr/b6TZ/2+l2P9wpNf/baLU/2mczv9nmsv/aJzL/2+k0f9xqNT/eK7W/3Sp0v9rn8v/XpC//12OvP9cjbn/WYm0/1WDrv9Sfqj/Tnig/0tymP9Fa4//Q2eL/0Fjhf8/X4D/PVx9/ztXdf85UnD/OE9r/1WDsf9Yh7b/WYm4/1qLu/9cjL3/X5DC/2KUyP9lmMz/aJzR/2yf1v9totn/baPa/2+k2v9vpdv/b6Xb/3Cl2/9wpdz/cabd/3Sp3v90qd7/cafc/3Cl2f9uotj/ap/V/2id0v9pm9D/ZpnM/2abzP9mnMz/Z5zN/2ebyv9hlcT/XpC//1uPvP9bjbn/Wom1/1aDrv9Sfqj/Tneh/0pymv9GbZT/Q2iN/0Bkhv8/YIH/PV1+/ztZeP85VHL/OFBt/1aFtP9Yibn/Wou8/12Nvv9fkMD/YZPG/2KWy/9lms//a57U/22i2v9updz/b6fd/3Cn3v9zqN//cqjf/3Op3/9zqd//c6rh/3at4/92rOL/dqvh/3Ko3f9wptz/b6Tb/2yi2P9qntT/bKDV/2ebz/9lmMz/YZXJ/2CUx/9ekcL/XY+//1yOvf9ajLn/WIi0/1WDrv9Sfqn/Tnii/0lymv9GbpX/Q2mP/0Jmiv8/YoP/P11+/zxZef86VHL/OFBt/1eHuP9ai73/XY3A/16Qwv9gksT/YZbK/2Sazv9rn9T/bqPY/2+m3P9wqd7/cqrg/3Kq4f9yq+L/c6zi/3Wt4/92reP/eK/l/3uw5/97sOf/ebDl/3et4v90q+H/cajf/3Cm2/9to9j/aJ/V/2md0v9nm9D/ZZrN/2GVyf9fk8T/XJDC/1qOv/9ai7r/Voez/1KCrf9QfKj/THij/0pynP9Gbpj/RGuS/0NojP8/Y4X/Pl9+/ztZef85VHP/OFBt/1eIuv9ajL7/Xo7B/1+SxP9flcj/Y5nO/2ae0/9so9r/bqfd/3Cp3/90rOH/da3k/3Wt5P92reT/d67k/3mw5v96sef/fLLp/32z6v99s+r/fLLp/3qx5/92ruX/c6zj/3Cp3/9tpdv/aaDW/2mf1f9ontT/ZpzR/2GYzf9flcj/XZHE/1uPwP9ai7z/VYa1/1KDrf9PfKj/S3ij/0hznf9Gb5n/RGuV/0Npjf9AZIj/PV+B/ztaev85VHP/OFBu/1iKvP9aj8D/XZHD/1+VyP9gmM3/ZJvS/2ig1/9spNv/b6je/3Kq4P93reT/dq/m/3au5f93sOf/erHo/3u06/99tez/f7bt/3+27P9+tev/fLPq/3yz6v95sej/dq/m/3Os4/9tp93/aaLY/2ig1/9qodj/aZ/X/2ac0v9gmcz/XZXI/1uQw/9ajL//VYi4/1GCsP9PfKr/S3ik/0hznP9Fb5j/Q2uV/0Nojv8/ZIj/O1+A/zpae/85Vnb/N1Fw/1mMvv9akML/XJPG/1+Xy/9im9H/Zp/W/2uk2/9tp93/cKrf/3Or4/91reX/drDn/3ix6P96s+r/fbXs/3647v+AuO//f7ju/3+37v+At+7/f7ft/3+17P97s+r/ebLp/3av5/9xquH/bKXc/2ul2/9tpt3/bKXb/2mg1/9knND/X5fM/1uSyP9ajcH/V4m6/1OEtP9Pf63/S3qm/0l1n/9Fb5j/QmuV/0BnkP8+Y4j/O1+B/zlcfP86WHf/OVVz/1mPwP9cksX/XZTJ/2Ca0P9mn9X/aqPa/2ym3P9vquD/cqvi/3Kt5f91sOb/ebLp/3q06/99tu7/f7jv/4G68f+BuvH/gbrx/4G68f+BuvH/gbrx/4G57/9/uO7/frbu/3u06/93sOj/cq3k/3Gs4/9xq+L/b6jf/2mj2v9lntT/YprP/1+Wyf9bkcT/WIy//1WGt/9QgrH/THyq/0l3o/9GcZv/Q2yX/z5okP8+ZIn/O1+C/zhcfP85WXj/OFV0/1mSxf9dlcr/XpfM/2Oc0/9ootn/bKbc/22o3v9wq+H/cq7k/3Sw5v94suj/fbbt/3+47f+AufD/grvy/4O78v+DvPP/hL30/4S99P+FvvT/hL3z/4O88/+DvPL/gbrx/3637/98te3/erPr/3iy6f90reX/cKrf/2qm2/9nodj/Y5zS/2CYzf9dlcj/WY/B/1eJvP9ShLT/T3+u/0t5pv9GdJ7/RG6Z/0Bqkv8+Z4v/O2CD/zldfv84WXn/OFZ1/1yVyf9el87/X5rQ/2Sf1v9qpNr/bKfd/22p4P9xrOP/c6/l/3ey6f97tev/frnu/4G68f+Cu/L/hL30/4W/9v+Gv/b/hr/2/4fA9v+HwPf/hr/2/4a/9f+Fv/T/g730/4G78f+AufD/frfu/3q06/92r+b/cqvh/22o3v9opNr/Zp/W/2Ob0f9elsv/WZLE/1aMvf9Th7n/UIKx/0x9qf9Id6H/RXGc/0Jslf8/aI3/PGKG/zpegP85Wnr/OVZ1/16Xzf9gmtH/Y53U/2ah2P9qp93/banh/2+s4/9ysOb/drPq/3m27P9+ue//grzy/4O+9P+Fv/b/hsH3/4fD+P+Iw/n/icP5/4nD+f+Jw/n/icP4/4nC+P+Iwvf/h8D2/4W99P+DvPP/gLnw/3u17P92sef/c63k/2+q4P9rp9z/ZqLY/2We1f9gms//W5TI/1aPwv9Sirv/UIW2/02Arf9JeaT/RnKd/0Jtlv8/aZH/PGSL/ztfgv85W3z/OFd2/1+Yz/9jndT/ZaHX/2ek2v9qqN//bqvj/3Gv5/92tOr/ebbs/3247/+DvfP/hb/2/4fD+P+JxPn/i8X7/4vG+/+Mx/v/jcf8/43H/f+Mx/z/jMf7/4zG+/+Lxfr/icP5/4jB9/+GwPX/hL3z/3658P94tOr/c6/m/3Cs4v9sqN7/Z6Ta/2Sf1v9hm9H/XZbL/1mQw/9Ti73/Uoa4/0+CsP9JfKf/RnWf/0Nul/9AapL/PWaN/zxgg/85XHv/N1d2/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==" alt="" width="18" height="18"> พระคำ.ชีวิต <span class="k">↗</span></div>
+  </div>
+  <div class="menu hidden" id="lineMenu" role="menu">
+    <div class="mgroup">โครงเพลงของบรรทัดนี้</div>
+    <div class="mi freq" role="menuitem"><span data-ic="hook" aria-hidden="true"></span> ทำเครื่องหมาย "ท่อนฮุก"</div>
+    <div class="mi freq" role="menuitem"><span data-ic="repeat" aria-hidden="true"></span> ซ้ำ ‖: … :‖</div>
+    <div class="mi freq" role="menuitem"><span data-ic="copy" aria-hidden="true"></span> คัดลอกบรรทัด</div>
+    <div class="mi" role="menuitem"><span data-ic="flag" aria-hidden="true"></span> ป้าย Fine / D.C. al Fine</div>
+    <div class="msep"></div>
+    <div class="mi danger freq needsCfm" role="menuitem"><span data-ic="trash" aria-hidden="true"></span> ลบบรรทัด</div>
+  </div>
+  <div class="cfm hidden" id="confirmDlg" role="dialog" aria-modal="true">
+    <div class="cfm-msg" id="cfmMsg">ลบบรรทัดนี้?</div>
+    <div class="cfm-sub">ลบแล้วกู้คืนไม่ได้</div>
+    <div class="cfm-btns"><button class="btn2" id="cfmNo">ยกเลิก</button><button class="btn2 danger2" id="cfmYes"><span data-ic="trash" aria-hidden="true"></span> ลบ</button></div>
+  </div>
+  <div class="drawer" id="drawer">
+    <div style="display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:8px">
+      <span style="font-weight:700;color:var(--brand)">เพลง.พระคำ.ชีวิต</span><span class="grow"></span>
+      <button class="icobtn" id="drawerClose" aria-label="ปิด"><span data-ic="x" aria-hidden="true"></span></button>
+    </div>
+    <div class="mgroup">ไปหน้า</div>
+    <div class="mi"><span data-ic="list-music" aria-hidden="true"></span> รายการเพลง</div>
+    <div class="mi"><span data-ic="book-open" aria-hidden="true"></span> คู่มือ</div>
+    <div class="mi"><span data-ic="info" aria-hidden="true"></span> เกี่ยวกับเรา</div>
+    <div class="mi"><img class="brandfav" src="data:image/x-icon;base64,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Tv8uOkz/LjpM/y46TP8uOEr/LzlL/y86TP8wO0v/MDxN/zA8Sv8wO0j/LzxM/y46Sv8tNkT/LDI9/y0zQf8rLC7/Kywv/ywtL/8tLS//LS0v/y0tL/8rLS//Kywv/ystL/8rLTD/Kywv/ywsLP8rKyr/Kykp/yopKP8qKSn/LCkp/yspKf8rKiv/Kysr/ywsLf8sKyz/LCss/ysqK/8sKiv/LCsr/ysrK/8sKyv/Kyss/ysrLP8sKyz/Kyoq/youN/8rMDj/Ki83/ywxOf8tMTf/LC8z/zAyNf8uMjX/LS4y/ywuMf8uLzL/LC0u/ywxOP8oPVT/KDRD/yoyPP8pOUn/KEJc/yg5TP8tMzz/MzY8/zA0Ov8yNjz/MzY8/y4wNf8tNT7/LjtJ/y07TP8rOkv/LTtN/y09UP8sPE7/KS88/yowPv8qMUH/KTNC/yozRf8rOU//KjlO/yk4TP8rOU3/KTdI/ys4SP8rPE7/K0Zj/yhGZv8oP1v/LERh/yg/XP8nPVf/KEJf/ypGY/8rQlv/KT5U/yo+Uv8rQlv/KkNf/yg/Wf8pQl3/KTpQ/yg4Tf8pOlD/KDxT/yg2SP8oMD7/KTFB/ykwQP8pMkP/KDRH/yk1SP8oN03/KDhO/yg6VP8nPFn/Jz5b/yhAW/8oQl//KUZk/yhAXf9afJ//Q2SH/yhDYP8oRGD/KEVi/yhDYP8oQV7/KUVj/ylEYP8pQ2D/K0dk/ylCXP8pQVr/KkVh/ylEYf8pO1L/Kj1V/yk0Rf8oNUf/KTVJ/yk2Sv8pNUv/KThQ/yk6Uv8pPlf/KD1Y/yhAXf8oQV7/KUJg/ylFYv8qRWP/U2+M/6vP8f9/rt3/N1d3/ypLa/8pSGf/KUlq/yhGZP8qR2b/Kkho/ypKaf8rS2r/K0pq/y1Nbf8rS2v/Kkdl/ypDYP8pQFr/iLXe/4+53/+Rud3/irHU/3uevv9lhaT/T2uI/zVQbf8pRGL/Kkdm/ytJaf8rTG//RGSD/4Sivv+qzev/sdX1/4S36v+Hu+j/bZOy/z9mi/8uVn3/LVJ1/y1Rc/8tUXX/OmCE/0xwkf9fgqP/Yoao/2KIq/9nj7P/bJS3/2qVu/+Owvf/n877/6bT/P+i0fv/n834/5vL9/+hz/f/rNf6/6fS7/+11OX/y93o/9/t9f/J6fv/rNHw/6zP8v+y1Pf/ibzv/47C9f/A5vz/8fz+/9vs9f+w0+n/pcvn/6/T7/+42ff/tdj3/6DJ7f+fx+7/n8ft/6HJ7v+fx+3/ncXt/5nK+/+czP3/ptP+/6fU/v+q1v3/qNX8/6zX/f+v2f3/tt/9/9Px/f/3/v7/+/7+/970/v+42/v/ncTw/7LU9/+QwvX/lcj6/9Xx/v/7/v7/8fz+/8bo/P+x1vf/rtP2/7PX+f+32vv/n8fx/5/H8/+bw+//mMDt/5vB7v+Vven/u+H+/6PS/v+n1P//rtn+/7Pd/v+t2P7/rtn+/7ng/v+/5P7/zO7+//P9/v/9/v7/5vj+/7ne/v+oz/j/stX4/5jI+v+Yyvz/3vX///7+/v/x/P7/xef+/63U/P+12Pz/sNX7/7HW+/+cxfL/n8j0/6PK9f+jyvT/osnz/5/F8P/N7f//ueD+/67a//+v2///td7//7jf/v+44P//veP//8bp/v/K7f//7/3+//39/f/2/f7/yun+/7HV/f+pz/f/hLry/6PS/f/i+P///v7+//L9/v/L6v//t9v+/7rd/v+32/3/rdT6/53G8/+ky/j/n8fz/5nC7/+Vvun/lr/r/5G63P+hyOf/nMbp/6HK7P+n0PD/str6/77k///H6f//yuz//9Hw///k+v7/+fz9//z+/v/W8f//ttr9/4uz3P9Tf6r/qNb9/+T4/v/+/v7/7Pv//8fp//+73v//veD//7/g/v+o0Pv/oMr3/53H9f+ex/T/m8Pw/5K96/+lzPb/RGB//0ljhP9IZof/R2eJ/0hpiv9KbpD/VXyf/2qSt/+Aqcz/p8zo/8Tk9//m9v3/9fz//8zn+P+HrdH/TnOa/0pwlf9wm8H/1e35//z////q+/7/y+v//73h/v+22/7/rtT4/5zE6/+Rt97/h6vQ/32gw/90lbr/bI2x/2WEpv9EYH//SGeH/0hrjP9JbY//TG6S/01vlv9PcZn/T3Sc/1B2nv9UfKb/VX6p/1uHs/9sm8L/U32o/1N7pP9chqz/WYOr/050m/9WfaX/c5y//3acv/9oj7T/VXqf/0ppjP9BXX3/PVh3/z1Vcf86Umz/PFBr/zlMZf83SV//N0dc/0dlhf9LbZH/TXGV/09zmP9PdZv/UHeg/1J6pf9Ufqj/VX+q/1aArf9WgK7/V4Kt/1mEsP9Xg6//W4iz/1yIsv9Zh67/T3Wf/01ym/9OcZr/S2+W/0dskP9GaIv/RGOD/0RggP9AXHz/Pll4/zxVcf86Umv/Ok5m/zhKY/84SF7/S26R/1F3n/9UfKX/VXym/1R+qf9ZhK7/WIKv/1qEsf9gjbr/YI+9/2CNvf9ch7b/Woe2/12LuP9qmsP/ZJW//1+Ntv9Tfqj/TXag/0xznv9KcJj/Sm6T/0dqjv9EZ4r/RmOE/0Jff/8/XHv/Plh2/zxUcf86UWv/OU1n/zhJYv9TeKH/WYCs/1mCrv9ahLD/W4az/1uHtv9cibj/XIq5/2OVxP9ll8j/ZZjG/2GRwP9gkL//aJvJ/2yfyv9rnsj/Z5nC/2CQuf9Sf6r/T3ei/053oP9QeKD/VHue/0lukv9IaY3/RGKD/0Jffv8/W3r/PVd1/ztTb/85UGn/N0tk/1R9p/9Yg67/WYWx/1yItf9ejLr/X429/2GQwf9lk8b/aJvM/2mdzv9pnM7/ZZfI/2iby/9xptP/b6TQ/2mdy/9kmMb/Z5rE/2OVvv9gkbr/Woiy/1WCq/9Ufab/UHif/0tyl/9HaY3/Q2GD/0Fdfv89WXj/PFVz/zlQbP84TGb/VX+q/1mEsf9aiLf/XIq4/2CPv/9hj7//YpHB/2eXyv9qms7/a57R/22f0/9rndH/bKDS/3Kp2P92qtf/bKHQ/2mezf90qNH/b6TM/26jyv9qncb/Wom1/1iFsP9Wgar/UXqh/0pxlv9FZ4v/QmCC/0Fdff88V3X/OVJu/zlOaP9Vga7/W4e2/12Lu/9ejb3/YZDC/2KTxf9ll8r/Z5vP/2md0f9qndL/bJ/U/26i1/9wo9j/cKbY/2+m1/9to9P/ap/P/22hz/9wptD/darS/3uv1f9gkr7/XIy4/1mIs/9Tf6n/TXad/0hskP9CZIf/Ql+B/z5Zef86VHH/OE9r/1aEsv9biLj/W4u7/12Ov/9ik8X/ZpjN/2qe1P9rn9f/baHX/26h2P9votn/cKTb/3Kn3P9wpdr/b6TY/22h1f9oms3/aJvL/2yi0P9yqNP/cKTP/2CUwv9cjrv/Woq2/1WCrf9PeaL/SXCX/0RojP9AYYT/Pl1+/zpWdf85UG3/Voa1/1mKuv9djb3/YJHD/2OXy/9pndL/baLZ/26m3P9wp93/cafe/3Ko3v9yqd//dazi/3Wr4P9xp9z/bqPa/2qg1v9qndP/ZprN/2GW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pv9BZI7/Nk1r/zRGXv8wPlL/MDtP/y85S/8vN0f/LjZF/y41Q/8uNEH/LjRA/y4zQf8vNUT/LzRC/y41RP8vOEn/MDxP/zA9Uv8wPVH/MUBY/y02Rv8uN0f/LjhH/y43SP8uN0f/LjdG/y00Qv8tNED/LjNA/y40Qf8uMz//LjI+/y40Qf8uNEP/LjVG/y02SP8uN0j/LjhJ/y84SP8wOkz/MkJa/z1Zff9QfrX/WpTV/1CGw/9EbZ3/OVJz/zA9Uv8vOEv/LzhL/y84Sf8vOUv/LzpN/y85Tf8vOEr/LjdJ/y43R/8uNkb/LjVE/y81RP8vNkb/LjVD/y4zQf8uM0D/LjI+/y4xPP8uMTz/LjE8/yotNf8qLTX/Ki01/yotNP8rLjb/Ky42/ywvN/8sLzn/LDA7/ysxPf8sMT7/LDE+/ywxPv8tMkD/LDNC/ywzQ/8tM0P/LDNE/y0zQv8uM0L/LjND/y00Q/8wO0//PWaS/zdVev8vOUz/LTVF/y41Rv8uNkj/LjZJ/y41R/8uNUb/LTRE/y00Qv8tMj//LTI+/ywyPP8tMz//LjRA/y0yQP8uNEL/LTVD/ywyQf8tMT7/LDA7/ywvOv8tMDv/LS85/yw3Rv8sN0j/LDdH/yw2R/8sNUP/LDVD/yw1RP8tNkf/LThI/y86Sv8uOUr/LDhJ/yw3SP8tN0j/LTdJ/yw4SP8uOUr/LTZG/y00Qv8uNkT/LTZF/yw1RP8sNUT/MT9U/zA7T/8tOEf/LThJ/y03R/8uN0j/LTVF/y00Q/8sNET/LjRE/y42Rv8uNkX/LTM//ywyPf8tMz7/LDE3/ywwNv8sMTv/LDM+/ywzPv8rMDj/LDA5/ysvOP8rLzn/LDA7/ywxO/8sMjv/LDI8/y0zO/8tMz7/LTM+/y0yPP8tMj3/LTI9/y00Pv8tND//LDM+/y00QP8tND//LDQ//y00QP8tND//LjQ9/y0zO/8sMzz/LTM8/y0yO/8tMjv/LTE6/y0yPf8tMz7/LjU//y42Qv8uNUH/LTVA/y02Qv8uNkL/LzZC/y83Qv8vN0L/LzlE/zE6R/8xO0j/MTxJ/zE7SP8vO0j/MTtI/y86SP8uOEX/LjZB/y0yO/8sMTr/LTI7/yoqK/8qKiv/Kisr/ysrK/8sKyz/LCws/ywrLP8sKyz/LCss/ysqK/8qKyv/Kisr/yorLP8qKyz/Kiss/yorLP8rKyv/Kysq/ysqKf8rKyv/Kykq/yopKP8pKSn/Kyop/ywqKf8rKij/Kigo/yopKf8rKin/Kyoq/ywrK/8sKiv/LCoq/ywqK/8rKSr/LCkq/yspKf8rKin/Kyop/ysqKf8rKin/Kyoq/ysqKv8rKir/Kiop/ysqKf8rKSn/Kikp/yosMf8qKy//KSsu/yssLv8sLC7/LCwu/ywsLf8rKy3/Kyos/ywrLP8sLC3/Kywt/yoqK/8rKyv/Kyss/ywqLP8rKyv/Kyop/yopKv8qN0b/KDtN/ykwOP8qLDD/Kywv/ysuMv8pMDr/KDxP/yk9Uv8qLTP/Kywt/y4tL/8sLC7/LCwu/ywsL/8tLS//LSwu/ywqLf8qKy7/Ky4x/youNf8rMjr/LDQ+/y03Q/8uOkf/MUBP/y9AUv8uPlD/LkFT/ykwPf8rM0H/LDVE/ykzQ/8pNEX/KzZF/yw2Rv8sNkb/LThI/zA6R/8wO0f/LzdB/y4zPf8sMjz/LTQ9/y82P/8wOEH/LTM7/y05SP8rR2b/KEBe/yc9WP8nO1T/KT5X/ydAXP8nR2r/J0Ni/yc+Wv8rQlv/LkFX/zNBUf8yP03/MjxJ/zI8Sf80P03/Mj9P/zBAUv8sPlH/LEJX/y9GXv8uRF//Kz5W/yg6UP8oOVD/KDVK/yk5UP8pOE3/JzNE/yguO/8oLzz/KjA9/yowPv8pMUH/KTNC/yozRP8qNEf/KztQ/yk5Tv8pOE7/KTpR/yk9Vv8qPFT/JzdL/yg2SP8qOUz/KkFZ/ylEYP8pR2f/KEVl/yhBXv8oPVj/Mk5v/ytEY/8nP1r/KD9a/yhBXf8oRGH/KUhm/ylHZf8qQ17/KEFb/yhAWf8qRmL/K0dk/ylCXv8pQVz/KD1W/yhCXf8qQFr/KDhM/yk6UP8oOU7/KD5X/yg+Vv8pOU7/KThL/ygwPv8oMED/KTE//ykwP/8pMUH/KDNE/yg0R/8pNUj/KDVJ/yc2S/8nN0//KDdM/yg5UP8oPVn/Jj1a/yc+XP8nPlr/Jz9a/yhBXP8pRWL/KkVj/ylDYP8rQFz/X4ev/0hskP8oQF3/J0Fc/yhDX/8oRWP/KERh/ydDYP8oQl//Jz9c/yhBXP8pRmT/KUZj/yg/Wf8pQV7/K0dl/ypEYP8oPlX/KkNd/ylDX/8qSGb/KUNg/yg8VP8oOE7/KTxU/ygwPv8oMUH/KDJD/ykyQ/8pMkT/KTJE/ygzR/8pNUr/KTdN/yk3Tf8oOlH/KDlQ/yg7Vf8oPFf/Jz5a/yg/W/8oP1v/KEFe/yhDX/8pRWP/KUZk/ylCX/9Yco//kLvj/3GfzP84V3j/KUZl/yhHZf8oRWH/KEVi/yhEYv8oRGL/KEVi/ypJav8qR2X/KUNg/ypIZv8rSWj/K0hm/ylBXP8qRWH/K0hl/ytJZ/8pRmT/KkNe/ypAWv8qQFr/KkBa/yk2Sf8oNkn/KTdK/yg2S/8qOE3/KDZL/yg1Sv8pOE//KDhP/yo8Vf8oPVb/KUBa/yg+WP8oP1r/KENg/yhCX/8oQmD/KkNh/ylFYv8qRmT/KUNg/0tnhP+ryeT/pczz/4Gz4v9zn8v/MFBw/ytMa/8qS2z/LE1w/ypJa/8pSGj/KUdm/ylFYv8qSGf/Kkho/ylKav8rTm//K0xr/yxNbv8tT3H/LExr/ytKav8rS2v/KUZk/ytEYf8pQV3/KEFb/4Os0P+Grs//iK3O/4itzP+Dp8f/dZe3/2F/n/9JZIH/PFNu/zZOaf8ySWX/LEVh/ylCX/8pQ2H/KUdn/ypIaP8qSGj/LE1v/zJRcv89Wnf/cY+t/7fY8v+qzev/r9T3/3+z5f+Lv/D/g7Te/05zlv85XX7/MFZ7/y1Uev8tVXr/LVN2/y1RdP8sUXT/LVF0/zBVef8zV3n/NVZz/zxdfv8+Xn//PmCC/0Blif9AZ4v/Q22S/0Vukv9Fb5b/RnSc/47C9f+Uxvb/msr4/6LQ+v+fzvj/ns34/53M9v+dzPX/msfu/5G53P+Bp8j/d5q5/2yPq/9jg5//YYCb/2aDnf9viqT/fpqz/5Oxx/+pyuT/rtHv/6TI6v+szvH/udr7/4C06P+HvPD/kMTz/7Pc+P+tzeH/nLXL/4Kfuv9rjqz/Yoal/2GFpP9pjKz/dJe4/4Gkxf+LsM//m7/f/5zC4/+exef/n8bo/5/F5v+gxuf/ocjp/6XL7P+jy+z/nsbq/4u/9f+Zyfv/ptP8/6XS/P+p1Pz/qtb8/6rV+/+j0fr/ns75/6TR+f+hz/j/qNT4/6HR9P+43vT/z+r1/+Hx9v/t9fj/7Pn7/87s+/+x2Pb/s9f1/7HT9v+ix+//u9v7/4C16v+Pwfb/mcr5/7fh/f/f9v3/9v3+/+/5+//Q6/f/ut30/67U7/+r0uz/q9Lw/7bY9/+r0PP/s9j4/5zF7f+bxe3/m8Pu/5rC7P+dxO3/n8fw/53G7v+exe7/m8Pt/5jI+f+Xyfv/oM/9/6TR/f+m0/7/pdP9/6fU/P+m1P3/otD7/6nW/P+s1/z/s9z9/6/a/P+95P3/2fT9//P9/v/7/v7/+f7+/+T4/f/J6P3/udv6/6HH8f+bwuz/vNv8/4a67/+Txfr/m837/8rr/f/u+/7//P7+//b9/v/X8f3/u+D7/7DW9v+q0PL/sNX2/7vc+/+83vz/uNv7/6XL8v+bw/D/ocn0/5rD7/+bw/D/mcDt/5rA7v+awe7/l7/r/6/Z/v+ay/z/oM/+/6XS/v+p1f7/rNj+/6/a/v+v2v7/rNf9/6vX/v+v2v7/s9z+/73j/v++5P7/2PT+//D9/v/8/v7//P79/+n5/v/F5v7/q9P8/6XN9/+iyfP/vNz8/4y/8/+Uxvr/ns78/83u/v/y/P7//v7+//j9/v/d9f7/xef+/7bb/P+t0vj/sNT6/6fO+P+u1Pr/rdL6/6HJ8/+cxfH/nMby/5rD7/+awu7/mMDs/5zD7/+awe3/l77q/8fo//+z3P7/otH+/6fU/v+q1v//sNr+/7Te/v+y3P7/rNj+/6rX/v+43/7/u+L+/8fp/v/A5v7/0vH//+38///8/v7//P39//P8/v/T7/7/ud7+/6vS+v+jyfP/u9z8/5LF+P+ay/3/otH+/9Tx///4/f7//v7+//j9/v/a8/7/v+P+/7DX/f+t1Pz/vd79/7fa/P+83v3/qM/4/5nD8P+cxvL/o8v2/6bM9v+r0Pr/qc/4/6nN9/+jyfP/m8Lt/8zs///H6f//rtn+/6zY//+w3P//rdn//7Xe//+23/7/t9/+/7Xe/v+64f//vOP+/8bp/v/I6///zfD//+r8///7/v3//f39//r+/f/h9v7/weL+/6zT+/+s0Pj/r9P6/4O68/+Zyv3/qdf+/9bz///5/v7//f39//f9/f/d9f//w+X+/7nd/v+22v7/w+L+/73f/f+83v7/sNb8/53G8/+jyvb/pcz4/6DH8/+awu//lb7s/5fA6/+PuOX/lL3o/7/l/v/O7f//vuP+/7Pe//+34P//tuD//7jg/v+23/7/uuH+/7vi//++5P//v+X//7/l///N7f//zu///+T6///5/v7//f7+//z+/v/p+v7/yen+/7ba/v+r0Pn/m8Tw/1qPwv+Owfb/rtv+/9n0///5/v7//v7+//b9/v/c9f//xeb//7fc//+32///ttv+/6/V/P+22v3/pM33/57I9f+ex/X/oMj1/5zF8v+bxPH/msLv/5O96f+Qu+j/qM74/2uVvf+DrdT/hrDX/4ay2v+Ktdz/j7rg/5bC5f+izO//s9r6/7/k/v/G6f//zez//8vs/v/R7///z+/+/974///r+fz/+/3+//3+/v/w/P7/z+3//7nc/v+v0/j/aJC5/0Vrj/96qdb/sdz9/9j0/v/6/v7//v7+//P9/v/W8v//w+f+/77h//+/4P//v+H+/8Lj/v+32v7/osz4/6HL+P+eyPX/ncf1/6HK9/+iyvX/nMTx/5W/7v+aw/D/sNX9/0Rffv9HYYL/SmSF/0hkhf9IZof/SGeI/0hoif9Jaov/S3CT/1Z/o/9rlrz/ha7U/5rE5/+z2PL/yef3/9Tw+//b8vv/9fz+//z+///w+/7/1O77/7LU8P9xmcD/Sm+V/0htkf9TfaT/mcTm/9bx+//4/v///v////L9/v/X8/7/xuf//7rf/v+83/7/t9v+/7XZ/f+z2Pr/qdD3/6fN9P+mzPH/o8fu/5/E6v+Zv+b/krjj/42z3/+Frdj/gajT/0Neff9HYoL/SGWG/0hniP9Iaov/R2qM/0lrjf9KbZD/S26R/0xvkv9Ocpf/TXGW/050mv9ehq//aJK8/3qkyf+PtdX/osPe/6zK4v+bvNj/e6LH/1uDrP9QdZ3/UXie/1J6of9OdZz/U3yk/3+nyP+10+b/zOLw/8rk9P+42vD/psvq/5a83v+LsNL/fKHG/3KVuv9pjK//XoCk/1d3mf9Pbo7/SWWE/0Ree/9AWXX/PVRu/ztRaP86TWL/OEhe/0Nffv9HZYX/SGiJ/0hrjf9KbpD/SW2Q/0xvk/9NcJb/TnCY/05ym/9QdJz/UHWe/1B3n/9ReaL/U3ul/1R9qP9WgKv/WoWw/3Cdw/9ij7f/Unyn/1N8pv9Zgqv/Z5K2/1+Msv9Te6L/TXOb/1B0nP9Yf6f/W4Go/1uApv9XeqD/UXaZ/0xukf9IZ4n/RWKD/0Jeff8/W3r/PVh3/z5XdP88VW//OVJt/ztQa/87Tmj/Oktk/zhKYP83SF3/NkZc/0Vigv9IaYr/SmyQ/0twkv9NcpX/TXGV/05zl/9PdZz/UHag/1F4ov9Te6X/U32m/1R9p/9Ufqr/VX+r/1V/rP9VgKz/V4Ks/1iEr/9YhLD/VoKt/1qHsv9bh7H/Xoq0/1uJsP9Ufqb/TXGc/05xm/9OcZr/TnCa/0xwl/9JbZP/RmuO/0Zoi/9FZYb/RGKC/0Ngf/9CXn7/P1t7/z5Zef89VnT/O1Rv/zlSbP86T2j/Ok1m/zhKYv83SF//N0dd/0loif9LbpH/TnKY/091m/9Rd57/U3ig/1J5ov9Se6T/V4Kr/1R+qv9WgKv/V4Gt/1iDr/9ZhbL/Woe1/1uGtf9ahLL/WYWx/1mEsf9ZhLL/W4ez/2GQuv9fjrj/XYu1/1qHsP9Vgan/Tnaf/0x0nf9Mc53/THGb/0pwl/9JbpT/SGyR/0dqjf9EZ4n/RWSG/0Zjg/9DYID/QV18/z9bev8+WXf/PVVy/ztTbv86Umv/OVBn/zlNZv85SmP/OElf/0tukP9PdJz/VHqk/1V9qP9Wfaj/Vn2o/1V/qv9WgKv/W4ew/1iDsP9ZhLL/W4Wz/2COu/9llcL/YZLA/2KRwP9fjLv/XYi3/1uIt/9ah7b/YZC+/22dx/9omcP/Z5jB/2SUvP9dirP/U32o/013ov9MdqH/S3Ke/0pxmv9Lb5b/SW6S/0hrj/9FaY3/RGaK/0Zkhv9EYoL/QV9//0BdfP8+Wnn/Plh2/z1VdP87U3D/OVBq/zlOaP85S2X/N0hh/1F1nf9WfKX/Wn+s/1mBrf9Zgq7/WYOv/1mEsP9ahLP/Woa1/1uHtv9bibj/W4m5/2GSwf9klsb/Y5XG/2SXxf9klcP/X469/16Nvf9hksD/Z5rH/2qeyf9pncf/b6HJ/2eZwv9jlL3/ZJK6/1OAq/9PeaT/Tnag/011nf9NdZ3/T3Wc/1B3mv9JbpP/R2uQ/0dojP9GZIb/QmGB/0Jffv9AXXz/Plp5/z1Xdf88VHL/O1Jt/zlQaf84TWb/N0pj/1N6pP9Wf6r/WYKu/1iDr/9ahbH/W4e0/12Jt/9dirj/XYq6/1+MvP9gjr7/YI+//2WXyP9om8v/Z5rL/2eayv9mmcn/YpPC/2OTw/9rnsv/bqLP/26hzv9soMv/aJvG/2WYxP9ilcD/XY25/1iIs/9Wg67/U32p/1N+qP9Rfaf/U3+m/12Gq/9Pdpz/THKX/0lvkv9Hao3/RWSG/0JggP9CXn7/P1t7/z1Zdv88VnT/PFRx/zpRa/84TWf/OEtk/1J8pv9Xgaz/WYOv/1iFsv9ahrP/XIm2/12Muv9fjbz/YI2+/2CPwP9kk8X/ZZXI/2iay/9qnc7/ap3P/2mdz/9om83/ZZbI/2eYyv9wpNL/cqfU/3Cl0v9uos//aZzM/2WZyP9pncj/aZ3G/2eZwf9om8L/Z5jA/1+Ouf9bibP/VYKs/1R/qP9SfKX/UXmf/051m/9Jb5T/R2mN/0Njhf9CYIH/QFx9/z5aef88WHb/PFRy/zlSbf84Tmn/OExl/1N9p/9Ygq7/WoSx/1mHtv9aiLf/XIq4/1+Ovf9hj8D/YY6+/2KQwP9klMb/Z5fK/2mZzf9rnc//bJ/S/2yg0/9rndD/apzQ/2qcz/9xptb/cqnX/3Sp1/92qtT/a5/O/2idzP9xpND/dKjQ/3Clzf9socn/b6TK/2yfx/9fj7r/WIay/1eEsP9Wgaz/VH6n/1J7of9NdZv/SW6T/0ZojP9DYoX/Ql+A/0FcfP8+Wnj/O1Z0/zlSbv85T2r/Ok1n/1R/qv9Yg6//Woa1/1uJuf9cirn/Xoy8/2CQwP9hkML/YJDB/2GSwv9mlsn/Z5nN/2ibzv9pm8//apzR/2yf0/9tn9T/bp/V/26g1P9wptf/cajY/3Gn1/9wpdT/bKHQ/2qfz/9soc//cabR/3Cmz/9to8z/cqjP/3aq0P9pm8T/Wou4/1qJtf9ah7L/V4Su/1N+qP9PeaD/S3KY/0hskP9EZYj/QmGD/0JfgP8/W3v/PFd2/zpTcf85UG3/OE5p/1SBrf9ZhLP/XIm4/12Lu/9djLz/Xo6+/2CPwf9jkcT/Y5TH/2aYy/9nms7/aJ3Q/2uf0/9pndL/a57T/2ue1P9soNX/b6PY/3Gk2f9wpdj/cKbY/26m2P9vpdb/bKLT/2uf0P9pnc3/bKHO/3Cn0f9wptD/eq/V/3yw1v9wpMz/XY68/1yNuf9cjLf/WIiy/1SCrP9QfKT/THWc/0luk/9FaIz/QmSG/0Jggv9AXX7/PVh4/zpVc/85UW//N09q/1WDsP9ZhrX/XIm4/1yKuv9cjLz/Xo/A/2KSw/9jlMf/ZpjN/2md0f9pn9T/a5/W/2yg1v9soNf/bqDX/26h2P9uo9j/cKTb/3Gm2/9xpdr/b6TZ/2+l2P9wpNf/baLU/2mczv9nmsv/aJzL/2+k0f9xqNT/eK7W/3Sp0v9rn8v/XpC//12OvP9cjbn/WYm0/1WDrv9Sfqj/Tnig/0tymP9Fa4//Q2eL/0Fjhf8/X4D/PVx9/ztXdf85UnD/OE9r/1WDsf9Yh7b/WYm4/1qLu/9cjL3/X5DC/2KUyP9lmMz/aJzR/2yf1v9totn/baPa/2+k2v9vpdv/b6Xb/3Cl2/9wpdz/cabd/3Sp3v90qd7/cafc/3Cl2f9uotj/ap/V/2id0v9pm9D/ZpnM/2abzP9mnMz/Z5zN/2ebyv9hlcT/XpC//1uPvP9bjbn/Wom1/1aDrv9Sfqj/Tneh/0pymv9GbZT/Q2iN/0Bkhv8/YIH/PV1+/ztZeP85VHL/OFBt/1aFtP9Yibn/Wou8/12Nvv9fkMD/YZPG/2KWy/9lms//a57U/22i2v9updz/b6fd/3Cn3v9zqN//cqjf/3Op3/9zqd//c6rh/3at4/92rOL/dqvh/3Ko3f9wptz/b6Tb/2yi2P9qntT/bKDV/2ebz/9lmMz/YZXJ/2CUx/9ekcL/XY+//1yOvf9ajLn/WIi0/1WDrv9Sfqn/Tnii/0lymv9GbpX/Q2mP/0Jmiv8/YoP/P11+/zxZef86VHL/OFBt/1eHuP9ai73/XY3A/16Qwv9gksT/YZbK/2Sazv9rn9T/bqPY/2+m3P9wqd7/cqrg/3Kq4f9yq+L/c6zi/3Wt4/92reP/eK/l/3uw5/97sOf/ebDl/3et4v90q+H/cajf/3Cm2/9to9j/aJ/V/2md0v9nm9D/ZZrN/2GVyf9fk8T/XJDC/1qOv/9ai7r/Voez/1KCrf9QfKj/THij/0pynP9Gbpj/RGuS/0NojP8/Y4X/Pl9+/ztZef85VHP/OFBt/1eIuv9ajL7/Xo7B/1+SxP9flcj/Y5nO/2ae0/9so9r/bqfd/3Cp3/90rOH/da3k/3Wt5P92reT/d67k/3mw5v96sef/fLLp/32z6v99s+r/fLLp/3qx5/92ruX/c6zj/3Cp3/9tpdv/aaDW/2mf1f9ontT/ZpzR/2GYzf9flcj/XZHE/1uPwP9ai7z/VYa1/1KDrf9PfKj/S3ij/0hznf9Gb5n/RGuV/0Npjf9AZIj/PV+B/ztaev85VHP/OFBu/1iKvP9aj8D/XZHD/1+VyP9gmM3/ZJvS/2ig1/9spNv/b6je/3Kq4P93reT/dq/m/3au5f93sOf/erHo/3u06/99tez/f7bt/3+27P9+tev/fLPq/3yz6v95sej/dq/m/3Os4/9tp93/aaLY/2ig1/9qodj/aZ/X/2ac0v9gmcz/XZXI/1uQw/9ajL//VYi4/1GCsP9PfKr/S3ik/0hznP9Fb5j/Q2uV/0Nojv8/ZIj/O1+A/zpae/85Vnb/N1Fw/1mMvv9akML/XJPG/1+Xy/9im9H/Zp/W/2uk2/9tp93/cKrf/3Or4/91reX/drDn/3ix6P96s+r/fbXs/3647v+AuO//f7ju/3+37v+At+7/f7ft/3+17P97s+r/ebLp/3av5/9xquH/bKXc/2ul2/9tpt3/bKXb/2mg1/9knND/X5fM/1uSyP9ajcH/V4m6/1OEtP9Pf63/S3qm/0l1n/9Fb5j/QmuV/0BnkP8+Y4j/O1+B/zlcfP86WHf/OVVz/1mPwP9cksX/XZTJ/2Ca0P9mn9X/aqPa/2ym3P9vquD/cqvi/3Kt5f91sOb/ebLp/3q06/99tu7/f7jv/4G68f+BuvH/gbrx/4G68f+BuvH/gbrx/4G57/9/uO7/frbu/3u06/93sOj/cq3k/3Gs4/9xq+L/b6jf/2mj2v9lntT/YprP/1+Wyf9bkcT/WIy//1WGt/9QgrH/THyq/0l3o/9GcZv/Q2yX/z5okP8+ZIn/O1+C/zhcfP85WXj/OFV0/1mSxf9dlcr/XpfM/2Oc0/9ootn/bKbc/22o3v9wq+H/cq7k/3Sw5v94suj/fbbt/3+47f+AufD/grvy/4O78v+DvPP/hL30/4S99P+FvvT/hL3z/4O88/+DvPL/gbrx/3637/98te3/erPr/3iy6f90reX/cKrf/2qm2/9nodj/Y5zS/2CYzf9dlcj/WY/B/1eJvP9ShLT/T3+u/0t5pv9GdJ7/RG6Z/0Bqkv8+Z4v/O2CD/zldfv84WXn/OFZ1/1yVyf9el87/X5rQ/2Sf1v9qpNr/bKfd/22p4P9xrOP/c6/l/3ey6f97tev/frnu/4G68f+Cu/L/hL30/4W/9v+Gv/b/hr/2/4fA9v+HwPf/hr/2/4a/9f+Fv/T/g730/4G78f+AufD/frfu/3q06/92r+b/cqvh/22o3v9opNr/Zp/W/2Ob0f9elsv/WZLE/1aMvf9Th7n/UIKx/0x9qf9Id6H/RXGc/0Jslf8/aI3/PGKG/zpegP85Wnr/OVZ1/16Xzf9gmtH/Y53U/2ah2P9qp93/banh/2+s4/9ysOb/drPq/3m27P9+ue//grzy/4O+9P+Fv/b/hsH3/4fD+P+Iw/n/icP5/4nD+f+Jw/n/icP4/4nC+P+Iwvf/h8D2/4W99P+DvPP/gLnw/3u17P92sef/c63k/2+q4P9rp9z/ZqLY/2We1f9gms//W5TI/1aPwv9Sirv/UIW2/02Arf9JeaT/RnKd/0Jtlv8/aZH/PGSL/ztfgv85W3z/OFd2/1+Yz/9jndT/ZaHX/2ek2v9qqN//bqvj/3Gv5/92tOr/ebbs/3247/+DvfP/hb/2/4fD+P+JxPn/i8X7/4vG+/+Mx/v/jcf8/43H/f+Mx/z/jMf7/4zG+/+Lxfr/icP5/4jB9/+GwPX/hL3z/3658P94tOr/c6/m/3Cs4v9sqN7/Z6Ta/2Sf1v9hm9H/XZbL/1mQw/9Ti73/Uoa4/0+CsP9JfKf/RnWf/0Nul/9AapL/PWaN/zxgg/85XHv/N1d2/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==" alt="" width="18" height="18"> พระคำ.ชีวิต ↗</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+  var ICONS={
+    menu:'<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
+    'chevron-down':'<path d="m6 9 6 6 6-6"/>',
+    'folder-open':'<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
+    mic:'<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
+    'file-text':'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+    pencil:'<path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>',
+    user:'<circle cx="12" cy="12" r="10"/><path d="M18 20a6 6 0 0 0-12 0"/><circle cx="12" cy="10" r="4"/>',
+    info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+    eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    play:'<polygon points="6 3 20 12 6 21 6 3"/>',
+    pause:'<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+    dots:'<circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/><circle cx="5" cy="12" r="1.4"/>',
+    settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>',
+    plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+    x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    library:'<path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/>',
+    book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>',
+    'book-open':'<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3Z"/>',
+    globe:'<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/>',
+    undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    download:'<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>',
+    'align-left':'<line x1="21" x2="3" y1="6" y2="6"/><line x1="15" x2="3" y1="12" y2="12"/><line x1="17" x2="3" y1="18" y2="18"/>',
+    square:'<rect width="18" height="18" x="3" y="3" rx="2"/>',
+    flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+    repeat:'<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+    copy:'<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+    star:'<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+    hook:'<circle cx="16" cy="4" r="2"/><path d="M16 6v8a5 5 0 0 1-10 0v-1"/><path d="M6 12l-2.5 2 2.5 2"/>',
+    'square-chevron-left':'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="m14 16-4-4 4-4"/>',
+    layers:'<path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>',
+    trash:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+    'music-2':'<circle cx="8" cy="18" r="4"/><path d="M12 18V2l7 4"/>',
+    'text-initial':'<path d="M15 5h6"/><path d="M15 12h6"/><path d="M15 19h6"/><path d="m3 19 4-13 4 13"/><path d="M4.5 15h5"/>',
+    help:'<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+    check:'<path d="M20 6 9 17l-5-5"/>',
+    send:'<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/>',
+    music:'<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    'list-music':'<path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/>',
+    'file-music':'<path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M4 10V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1"/><circle cx="8" cy="18" r="2"/><path d="M10 18v-5l4-1v4"/>',
+    bible:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 7v5"/><path d="M9.5 9.5h5"/>'
+  };
+  function hydrate(root){(root||document).querySelectorAll('[data-ic]').forEach(function(el){
+    if(el.dataset.done)return; var n=el.getAttribute('data-ic'); if(!ICONS[n])return;
+    el.dataset.done=1; el.style.display='inline-flex';
+    el.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+ICONS[n]+'</svg>';
+  });}
+  var $=function(id){return document.getElementById(id);};
+
+  /* ---------- jianpu parse + render ---------- */
+  function parseTok(str){
+    var o={low:0,high:0,under:0,aug:false,tieEnd:false,tieStart:false,rest:false,pitch:''}, i=0;
+    if(str[i]==='~'){o.tieEnd=true;i++;}
+    while(str[i]==='.'){o.low++;i++;}
+    o.pitch=str[i]||''; i++;
+    while(str[i]==="'"||str[i]==='’'||str[i]==='‘'){o.high++;i++;}
+    while(str[i]==='_'){o.under++;i++;}
+    if(str[i]==='.'){o.aug=true;i++;}
+    if(str[i]==='~'){o.tieStart=true;i++;}
+    if(o.pitch==='0')o.rest=true;
+    return o;
+  }
+  function dots(n){var s='';for(var k=0;k<n;k++)s+='<b></b>';return s;}
+  function glyphHTML(tok,word,chord){
+    var o=parseTok(tok);
+    var beams='';for(var k=0;k<o.under;k++)beams+='<i></i>';
+    var h='<span class="jcol"'+(o.tieStart?' data-ts="1"':'')+(o.tieEnd?' data-te="1"':'')+'>';
+    if(chord!==undefined)h+='<span class="jchord">'+(chord||'')+'</span>';
+    h+='<span class="jup">'+dots(o.high)+'</span>';
+    h+='<span class="jdig">'+(o.rest?'0':o.pitch)+(o.aug?'<span class="jaug"></span>':'')+'</span>';
+    h+='<span class="jbeams">'+beams+'</span>';
+    h+='<span class="jdn">'+dots(o.low)+'</span>';
+    if(word!==undefined)h+='<span class="jword">'+(word||'')+'</span>';
+    h+='</span>';
+    return h;
+  }
+  function isAttack(tok){ if(tok==='-'||tok==='–')return false; var o=parseTok(tok); return !o.tieEnd && !o.rest; }
+  // notes string may embed [Chord] before a note; words align to attack notes
+  function renderLine(notes,words,withWords){
+    var toks=notes.trim().split(/\s+/), html='', ai=0, pendingChord;
+    toks.forEach(function(t){
+      var m=/^\[([^\]]+)\](.*)$/.exec(t);
+      if(m){ pendingChord=m[1]; if(!m[2])return; t=m[2]; }
+      if(t==='|'){ html+='<span class="jbar"></span>'; return; }
+      if(t==='-'||t==='–'){ html+='<span class="jcol"><span class="jchord"></span><span class="jup"></span><span class="jdash">–</span><span class="jbeams"></span><span class="jdn"></span>'+(withWords?'<span class="jword"></span>':'')+'</span>'; return; }
+      var w, ch=pendingChord; pendingChord=undefined;
+      if(withWords){ w = isAttack(t)? (words[ai++]||'') : ''; }
+      html+=glyphHTML(t, withWords?w:undefined, ch===undefined?'':ch);
+    });
+    return html;
+  }
+  function paintTies(root){
+    root.querySelectorAll('.jline').forEach(function(line){
+      line.querySelectorAll('.jarc').forEach(function(a){a.remove();});
+      var lr=line.getBoundingClientRect();
+      line.querySelectorAll('.jcol[data-ts]').forEach(function(col){
+        var nx=col.nextElementSibling;
+        while(nx && !nx.classList.contains('jcol')) nx=nx.nextElementSibling;
+        if(!nx)return;
+        var a=col.getBoundingClientRect(), b=nx.getBoundingClientRect();
+        var left=a.left-lr.left+a.width/2-3, right=b.left-lr.left+b.width/2+3;
+        var arc=document.createElement('div'); arc.className='jarc';
+        arc.style.left=left+'px'; arc.style.top='0px'; arc.style.height='11px'; arc.style.width=Math.max(12,right-left)+'px';
+        line.appendChild(arc);
+      });
+    });
+  }
+
+  /* ---------- data ---------- */
+  var SONGS=[
+    {n:'พระเจ้าเป็นความรัก',k:'E'},{n:'31. ข้าจะถวายสิ่งใดดี',k:'A'},
+    {n:'84. ข้าจะยกยอสรรเสริญพระองค์',k:'C'},{n:'เอ้า แห่งใดๆ',k:'C'},
+    {n:'12. สรรเสริญพระเจ้าผู้ทรงฤทธิ์',k:'G'},{n:'พระเยซูเข้าสู่ใจข้า',k:'D'}
+  ];
+  var CHORDS=['','C','D','E','F','G','A','B','Am','Bm','Em','Dm','C#m','F#m','G#m','A#m','B7','A7','E7','D7','G7'];
+  // v2 model: ทำนอง (stanza = melody, no lyrics) + ข้อ (verse = words per attack note)
+  var curMel='ท่อน A', curVerse='ข้อ 1';
+  var STANZA_BARS={
+    'ท่อน A':[
+      {name:'ห้อง 1', notes:[{c:'E',code:'.5'},{code:'.5'},{code:'.6'}]},
+      {name:'ห้อง 2', notes:[{c:'C#m',code:'1'},{code:'-'},{code:'.6'}]},
+      {name:'ห้อง 3', notes:[{c:'F#m',code:'2_'},{code:'2_'},{code:'2_'},{code:'2_'}]},
+      {name:'ห้อง 4', notes:[{c:'B7',code:'2'},{code:'1'},{code:'3~'}]},
+      {name:'ห้อง 5', notes:[{c:'E',code:'~3'},{code:'-'},{code:'2'},{code:'3'}]}
+    ],
+    'ท่อน B':[
+      {name:'ห้อง 1', notes:[{c:'A',code:'6.'},{code:'5'},{code:'6'},{code:'1'}]},
+      {name:'ห้อง 2', notes:[{c:'C#m',code:'2'},{code:'-'},{code:'.6'}]},
+      {name:'ห้อง 3', notes:[{c:'B7',code:'2'},{code:'3'},{code:'2'},{code:'1'}]}
+    ]
+  };
+  var VERSE_WORDS={
+    'ข้อ 1':['พระ','เจ้า','เป็น','ความ','รัก','ให้','ข้า','พัก','ใน','ทุ่ง','หญ้า','ริม','ฝั่ง','น้ำ'],
+    'ข้อ 2':['เต','รี','ยม','มี','ภัย','ไม่','แปร','เปลี่ยน','ไป','ใน','โลก','นี้','พระ','คุณ'],
+    'ข้อ 3':['ข้า','ที่','มืด','มน','ร่วม','ผ่าน','พ้น','แต่','ละ','วัน','พระ','เจ้า','เป็น','ความ'],
+    'รับ':['สรร','เสริญ','พระ','นาม','ทรง','ฤทธิ์','เกริก','ก้อง','ทั่ว','แดน','ดิน','ถวาย','เกียรติ','พระองค์']
+  };
+  var EDBARS=[];
+  function buildBars(){
+    var stz=STANZA_BARS[curMel]||STANZA_BARS['ท่อน A'];
+    var words=(VERSE_WORDS[curVerse]||[]).slice(), wi=0;
+    EDBARS=stz.map(function(bar){return {name:bar.name, boxes:bar.notes.map(function(n){
+      var box={c:n.c, code:n.code, w:''}; if(isAttack(n.code)) box.w=words[wi++]||''; return box;})};});
+  }
+  var SONG=[
+    {sec:'ร้อง 1'},
+    {notes:'[E].5 .5 .5 .6', words:['พระ','เจ้า','เป็น','ความ']},
+    {notes:'[C#m]1 - - .6 1', words:['รัก','ให้','ข้า']},
+    {notes:'[F#m]2_ 2_ 2_ 2_', words:['ทุ่ง','หญ้า','ริม','ฝั่ง']},
+    {notes:'[B7]2 1 3~ ~3', words:['น้ำ','ทรง','ช่วย']},
+    {sec:'รับ'},
+    {notes:'[A]6. 5 6 1 3', words:['ละ','วัน','พระ','เจ้า','เป็น']},
+    {notes:'[C#m].5 6 5 3', words:['ปัก','รัก','ษา','ใน']},
+    {notes:'[B7]2 2 3 2', words:['ความ','พระ','คุณ','อัน']},
+    {notes:'[E]1 - - .6 1', words:['อุ','ดม','เพื่อ']},
+    {sec:'ร้อง 2'},
+    {notes:'[E].5 .5 .5 .6', words:['เต','รี','ยม','มี']},
+    {notes:'[C#m]1 - - .6 1', words:['ภัย','ไม่','แปร']},
+    {notes:'[F#m]2_ 2_ 2_ 2_', words:['เปลี่ยน','ไป','ใน','โลก']}
+  ];
+
+  /* ---------- editor render ---------- */
+  var barShow={}, layout='stack';
+  function edSpec(bar){
+    var notes=bar.boxes.map(function(b){return (b.c?'['+b.c+']':'')+b.code;}).join(' ');
+    var words=bar.boxes.filter(function(b){return isAttack(b.code);}).map(function(b){return b.w;});
+    return {notes:notes,words:words};
+  }
+  function renderEditor(){
+    var host=$('edBars'); host.className=(layout==='flow'?'flow':''); host.innerHTML='';
+    EDBARS.forEach(function(bar,bi){
+      var el=document.createElement('div'); el.className='ebar'; var vis=!!barShow[bi];
+      var head='<div class="ebhead"><b style="color:var(--ink)">'+bar.name+'</b>'+
+        '<button class="icobtn" style="width:30px;height:28px" aria-label="ฟังห้องนี้"><span data-ic="play" aria-hidden="true"></span></button>'+
+        '<button class="chipbtn barEye'+(vis?' act':'')+'" data-bi="'+bi+'">'+(vis?'<span data-ic="pencil" aria-hidden="true"></span> แก้ต่อ':'<span data-ic="music" aria-hidden="true"></span> ดูผล')+'</button>'+
+        '<span class="grow"></span><span style="color:var(--ok);font-size:12px">4/4 ✓</span></div>';
+      if(vis){
+        var spec=edSpec(bar);
+        el.innerHTML=head+'<div class="cleanbar"><div class="plabel">ผลแบบแผ่นเพลง</div><div class="jline">'+renderLine(spec.notes,spec.words,true)+'</div></div>';
+      } else {
+        var cols=bar.boxes.map(function(b,ci){
+          var held=!isAttack(b.code);
+          var chsel='<select class="chsel'+(b.c?' has':'')+'" data-b="'+bi+'" data-c="'+ci+'" aria-label="คอร์ด">'+CHORDS.map(function(ch){return '<option value="'+ch+'"'+(ch===(b.c||'')?' selected':'')+'>'+(ch||'+')+'</option>';}).join('')+'</select>';
+          return '<div class="ecol">'+chsel+
+            '<div class="egl">'+(b.code==='-'||b.code==='–'?'<span class="jdash">–</span>':glyphHTML(b.code,undefined,undefined))+'</div>'+
+            '<input class="ncode" data-b="'+bi+'" data-c="'+ci+'" value="'+b.code+'" aria-label="โค้ดโน้ต">'+
+            '<input class="wbox'+(held?' held':'')+'" data-b="'+bi+'" data-c="'+ci+'" value="'+(b.w||'')+'" '+(held?'placeholder="-"':'')+' aria-label="คำใต้โน้ต"></div>';
+        }).join('');
+        el.innerHTML=head+'<div class="ecols">'+cols+'<button class="ebadd">+ ช่อง</button></div>';
+      }
+      host.appendChild(el);
+    });
+    hydrate(host); paintTies(host);
+    host.querySelectorAll('.ncode').forEach(function(inp){
+      inp.addEventListener('input',function(){
+        var b=+inp.getAttribute('data-b'), c=+inp.getAttribute('data-c');
+        EDBARS[b].boxes[c].code=inp.value;
+        var gl=inp.previousElementSibling;
+        gl.innerHTML=(inp.value==='-'||inp.value==='–')?'<span class="jdash">–</span>':glyphHTML(inp.value,undefined,undefined);
+        inp.nextElementSibling.classList.toggle('held',!isAttack(inp.value));
+      });
+    });
+    host.querySelectorAll('.wbox').forEach(function(inp){
+      inp.addEventListener('input',function(){var b=+inp.getAttribute('data-b'),c=+inp.getAttribute('data-c'); EDBARS[b].boxes[c].w=inp.value;});
+    });
+    host.querySelectorAll('.chsel').forEach(function(sel){
+      sel.addEventListener('change',function(){var b=+sel.getAttribute('data-b'),c=+sel.getAttribute('data-c'); EDBARS[b].boxes[c].c=sel.value||undefined; sel.classList.toggle('has',!!sel.value);});
+    });
+    host.querySelectorAll('.barEye').forEach(function(btn){
+      btn.addEventListener('click',function(){var bi=+btn.getAttribute('data-bi'); barShow[bi]=!barShow[bi]; renderEditor();});
+    });
+    updateMaster();
+  }
+  function allShown(){return EDBARS.every(function(_,i){return !!barShow[i];});}
+  function updateMaster(){var b=$('showAllBtn'),on=allShown(); b.classList.toggle('act',on); b.innerHTML=(on?'<span data-ic="pencil"></span> กลับไปแก้ทั้งเพลง':'<span data-ic="music"></span> ดูผลทั้งเพลง'); hydrate(b);}
+  $('showAllBtn').addEventListener('click',function(){var on=allShown(); EDBARS.forEach(function(_,i){barShow[i]=!on;}); renderEditor();});
+  $('layToggle').addEventListener('click',function(e){var b=e.target.closest('button'); if(!b)return; layout=b.getAttribute('data-lay'); this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);}); renderEditor();});
+
+  /* ---------- sheet + sing render ---------- */
+  function renderSong(host,tagAsLines){
+    var h=''; SONG.forEach(function(r,i){
+      if(r.sec){h+='<div class="sechead">'+r.sec+'</div>'; return;}
+      var cls=tagAsLines?'sline':'';
+      h+='<div class="'+cls+'"'+(tagAsLines?' data-i="'+i+'"':'')+'><div class="jline">'+renderLine(r.notes,r.words,true)+'</div></div>';
+    });
+    host.innerHTML=h; hydrate(host); paintTies(host);
+  }
+
+  /* ---------- mode ---------- */
+  var state={mode:'edit'};
+  function setMode(m){
+    state.mode=m; stopPlay();
+    ['edit','sheet','sing'].forEach(function(x){$('view-'+x).style.display=(x===m)?'block':'none';});
+    $('dockSing').classList.toggle('on',m==='sing');
+    $('segMain').querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-mode')===m);});
+    if(m==='sheet') renderSong($('sheetBody'),false);
+    if(m==='sing') renderSong($('singBody'),true);
+    window.scrollTo({top:0});
+  }
+  $('segMain').addEventListener('click',function(e){var b=e.target.closest('button'); if(b)setMode(b.getAttribute('data-mode'));});
+
+  /* ---------- toast + menus ---------- */
+  var tmr; function toast(msg){var t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(tmr);tmr=setTimeout(function(){t.classList.remove('on');},1600);}
+  var backdrop=$('backdrop');
+  function closeAll(){['openPop','titleMenu','brandMenu','lineMenu','confirmDlg'].forEach(function(id){$(id).classList.add('hidden');});$('drawer').classList.remove('on');$('rail').classList.remove('open');backdrop.classList.remove('on');}
+  var pendingYes=null;
+  function askConfirm(msg,onYes){closeAll();$('cfmMsg').textContent=msg;pendingYes=onYes;$('confirmDlg').classList.remove('hidden');backdrop.classList.add('on');}
+  function place(el,anchor,align){var r=anchor.getBoundingClientRect();el.style.top=(r.bottom+6)+'px';var w=el.offsetWidth||260;var left=(align==='right')?(r.right-w):r.left;left=Math.max(8,Math.min(window.innerWidth-w-8,left));el.style.left=left+'px';}
+  function openPop(el,anchor,align){closeAll();el.classList.remove('hidden');place(el,anchor,align);backdrop.classList.add('on');}
+
+  var hiIdx=0, filtered=SONGS.slice();
+  function drawList(){
+    var q=$('openSearch').value.trim();
+    filtered=q?SONGS.filter(function(s){return s.n.indexOf(q)>=0;}):SONGS.slice();
+    if(hiIdx>=filtered.length)hiIdx=filtered.length-1; if(hiIdx<0)hiIdx=0;
+    if(!filtered.length){$('openList').innerHTML='<div class="empty">ไม่พบเพลงที่ตรง — ลองคำอื่น หรือสร้างเพลงใหม่</div>';return;}
+    $('openList').innerHTML=filtered.map(function(s,i){return '<div class="orow'+(i===hiIdx?' hi':'')+'" data-i="'+i+'">'+s.n+'<span class="k">Key '+s.k+'</span></div>';}).join('');
+    $('openList').querySelectorAll('.orow').forEach(function(row){
+      row.addEventListener('mouseenter',function(){hiIdx=+row.getAttribute('data-i');markHi();});
+      row.addEventListener('click',function(){choose(+row.getAttribute('data-i'));});
+    });
+  }
+  function markHi(){$('openList').querySelectorAll('.orow').forEach(function(r,i){r.classList.toggle('hi',i===hiIdx);});}
+  function choose(i){var s=filtered[i];if(!s)return;$('songTitle').textContent=s.n;closeAll();toast('เปิด "'+s.n+'" แล้ว');}
+  $('openBtn').addEventListener('click',function(e){e.stopPropagation();hiIdx=0;$('openSearch').value='';
+    var mob=window.matchMedia('(max-width:760px)').matches, p=$('openPop');
+    closeAll(); p.classList.toggle('sheet',mob);
+    if(mob){p.style.top='';p.style.left='';p.classList.remove('hidden');backdrop.classList.add('on');}
+    else{p.classList.remove('hidden');place(p,$('openBtn'),'right');backdrop.classList.add('on');}
+    drawList();setTimeout(function(){$('openSearch').focus();},30);});
+  $('openClose').addEventListener('click',closeAll);
+  $('openSearch').addEventListener('input',function(){hiIdx=0;drawList();});
+  $('openSearch').addEventListener('keydown',function(e){
+    if(e.key==='ArrowDown'){e.preventDefault();hiIdx=Math.min(filtered.length-1,hiIdx+1);markHi();sc();}
+    else if(e.key==='ArrowUp'){e.preventDefault();hiIdx=Math.max(0,hiIdx-1);markHi();sc();}
+    else if(e.key==='Enter'){e.preventDefault();choose(hiIdx);}
+  });
+  function sc(){var el=$('openList').querySelector('.orow.hi');if(el)el.scrollIntoView({block:'nearest'});}
+  $('newSong').addEventListener('click',function(){closeAll();$('songTitle').textContent='เพลงใหม่';setMode('edit');toast('สร้างเพลงใหม่');});
+
+  // title: click text = edit inline; caret = menu
+  var titleEl=$('songTitle');
+  titleEl.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();titleEl.blur();}});
+  titleEl.addEventListener('blur',function(){toast('เปลี่ยนชื่อเพลงแล้ว');});
+  $('titleMenuBtn').addEventListener('click',function(e){e.stopPropagation();openPop($('titleMenu'),$('titleMenuBtn'),'left');});
+  $('brandBtn').addEventListener('click',function(e){e.stopPropagation();openPop($('brandMenu'),$('brandBtn'),'left');});
+  $('lineMoreBtn').addEventListener('click',function(e){e.stopPropagation();openPop($('lineMenu'),$('lineMoreBtn'),'right');});
+  $('drawerClose').addEventListener('click',closeAll);
+  backdrop.addEventListener('click',closeAll);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();});
+  document.querySelectorAll('.menu:not(#partsMenu) .mi, .drawer .mi').forEach(function(mi){mi.addEventListener('click',function(){var t=mi.textContent.trim();
+    if(mi.classList.contains('needsCfm')){askConfirm('ลบบรรทัดนี้?',function(){toast('ลบบรรทัดแล้ว');});return;}
+    closeAll();toast(t);});});
+  $('qDelete').addEventListener('click',function(e){e.stopPropagation();askConfirm('ลบบรรทัดนี้?',function(){toast('ลบบรรทัดแล้ว');});});
+  $('cfmNo').addEventListener('click',function(){$('confirmDlg').classList.add('hidden');backdrop.classList.remove('on');pendingYes=null;});
+  $('cfmYes').addEventListener('click',function(){$('confirmDlg').classList.add('hidden');backdrop.classList.remove('on');var f=pendingYes;pendingYes=null;if(f)f();});
+  // องค์ประกอบเพลง (left rail) — เลือก ทำนอง/ข้อ → เนื้อหาตรงกลางเปลี่ยน + rail ไฮไลต์ตรงกัน
+  function isMob(){return window.matchMedia('(max-width:760px)').matches;}
+  function applyParts(){buildBars(); barShow={}; updParts(); renderEditor(); var ta=$('paraBd').querySelector('textarea'); if(ta) ta.value=(VERSE_WORDS[curVerse]||[]).join(' ');}
+  function updParts(){$('partsLabel').textContent=curMel+' · '+curVerse;
+    $('rail').querySelectorAll('[data-mel]').forEach(function(el){el.classList.toggle('sel',el.getAttribute('data-mel')===curMel);});
+    $('rail').querySelectorAll('[data-verse]').forEach(function(el){el.classList.toggle('sel',el.getAttribute('data-verse')===curVerse);});}
+  $('partsBtn').addEventListener('click',function(e){e.stopPropagation();
+    if(isMob()){closeAll();$('rail').classList.add('open');backdrop.classList.add('on');}
+    else{document.querySelector('.studio').classList.toggle('railhidden');}});
+  $('railClose').addEventListener('click',closeAll);
+  $('rail').querySelectorAll('.navrow').forEach(function(row){row.addEventListener('click',function(e){e.stopPropagation();
+    var mel=row.getAttribute('data-mel'), v=row.getAttribute('data-verse');
+    if(!mel&&!v){toast(row.textContent.trim()); if(isMob())closeAll(); return;}
+    if(mel)curMel=mel; if(v)curVerse=v; applyParts(); if(isMob())closeAll();});});
+  updParts();
+  document.querySelectorAll('.quickstruct').forEach(function(b){b.addEventListener('click',function(){toast(b.getAttribute('aria-label'));});});
+
+  $('symHelp').addEventListener('click',function(e){e.stopPropagation();$('legend').classList.toggle('on');this.classList.toggle('act');});
+  $('edHelp').addEventListener('click',function(){$('edTip').classList.toggle('hidden');this.classList.toggle('act');});
+  $('helpLink').addEventListener('click',function(e){e.preventDefault();toast('ไปหน้าคู่มือ (Guide)');});
+  $('paraHd').addEventListener('click',function(){var on=$('paraBd').classList.toggle('on');var s=$('paraCaret').querySelector('svg');if(s)s.style.transform=on?'rotate(180deg)':'';});
+
+  /* ---------- play / auto-scroll ---------- */
+  var playInt=null, playIdx=0, pausedUntil=0;
+  function noteCols(){return Array.prototype.slice.call($('singBody').querySelectorAll('.jcol'));}
+  function clearHot(){$('singBody').querySelectorAll('.jcol.hot').forEach(function(e){e.classList.remove('hot');});$('singBody').querySelectorAll('.sline.cur').forEach(function(e){e.classList.remove('cur');});}
+  function setPlayUI(on){var pi=$('playIcon');pi.setAttribute('data-ic',on?'pause':'play');pi.dataset.done='';hydrate(pi.parentNode);$('playLabel').textContent=on?'หยุด':'เล่น';$('playState').textContent=on?'กำลังเล่น… ไฮไลต์ไล่ทีละโน้ต · เลื่อนจอเองได้':'พร้อมเล่น';}
+  function showAt(i,doScroll){var N=noteCols();if(!N.length)return;clearHot();playIdx=((i%N.length)+N.length)%N.length;var el=N[playIdx];el.classList.add('hot');var line=el.closest('.sline');if(line){line.classList.add('cur');if(doScroll&&Date.now()>pausedUntil)line.scrollIntoView({block:'center',behavior:'smooth'});}}
+  function tick(){showAt(playIdx,true);playIdx++;}
+  function startPlay(){if(playInt)return;setPlayUI(true);tick();playInt=setInterval(tick,600);}
+  function stopPlay(){if(playInt){clearInterval(playInt);playInt=null;}setPlayUI(false);clearHot();playIdx=0;}
+  $('playToggle').addEventListener('click',function(){playInt?stopPlay():startPlay();});
+  ['wheel','touchmove'].forEach(function(ev){window.addEventListener(ev,function(){if(playInt)pausedUntil=Date.now()+3500;},{passive:true});});
+  $('singBody').addEventListener('click',function(e){var N=noteCols();var col=e.target.closest('.jcol');if(col){var i=N.indexOf(col);if(i>=0){showAt(i,true);playIdx=i+1;}return;}var line=e.target.closest('.sline');if(line){var j=N.indexOf(line.querySelector('.jcol'));if(j>=0){showAt(j,true);playIdx=j+1;}}});
+
+  window.addEventListener('resize',function(){paintTies($('edBars'));if(state.mode==='sheet')paintTies($('sheetBody'));if(state.mode==='sing')paintTies($('singBody'));});
+  buildBars(); renderEditor(); setMode('edit'); hydrate(document);
+})();
+</script></body></html>
