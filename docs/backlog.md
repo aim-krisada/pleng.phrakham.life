@@ -31,3 +31,4 @@ idea ไหนจะทำจริง → ยกขึ้นเป็น user s
 | B020 | bug | mobile: แถบ/dock ล่างไม่ติดขอบล่างจอ | img `B020-mobile-dock-sticky.png` | idea | ps2 (mobile) |
 | B021 | feature | เลือก show/hide dock (แถบเครื่องมือล่าง) ได้ | ผู้ใช้กดซ่อน/แสดง dock (คีย์โน้ต + ปุ่ม) เพื่อเพิ่มพื้นที่จอ · เกี่ยวกลุ่ม IA (B009) | idea | ps2 (editor/shell) |
 | B022 | feature | ปรับ transparency พื้นหลัง dock (คีย์โน้ต) ได้ | ตั้งความโปร่งของแถบ dock เพื่อเห็นเนื้อ/โน้ตด้านหลังขณะพิมพ์ · เกี่ยว B021 (dock) · กลุ่ม ② IA/dock | idea | ps2 (editor/shell) |
+| B023 | bug | footer ไม่ติดขอบล่างจอเมื่อเนื้อหาสั้น | หน้ารายการเพลงที่มีเพลงน้อย → เส้นคั่นบน + `© 2026 เพลง.พระคำ.ชีวิต · pleng.phrakham.life · ซอฟต์แวร์: GNU GPL v3` + บรรทัดวันที่/commit ลอยกลางจอ มีที่ว่างข้างล่างเยอะ · อยากให้ footer ติด**ขอบล่างสุดของจอเสมอ** (sticky footer — content สั้นก็ดันลงล่าง) · img `B023-footer-stick-bottom.png` (2026-07-08) | idea | ps2 (responsive/shell) |
