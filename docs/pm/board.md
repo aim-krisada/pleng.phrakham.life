@@ -6,7 +6,8 @@
 อัปเดตล่าสุด: 2026-07-08 · PM session รอบที่ 1
 
 > ▶ **RESUME (PM session ใหม่ อ่านนี่ก่อน):** สวมบท PM ต่อ → อ่าน `docs/pm/pm.md` (ไม้ต่อครบ) + memory `pleng-pm-role` + ไฟล์นี้
-> **โฟกัสตอนนี้:** ✅ ยิง **B033 (คีย์ 2 แถว → dock 3 แถว) + B034 (ปุ่มหุบ toggle)** เข้า `dev-ps4-shell` แล้ว (`fix-ps4-shell-dock.md`) → **รอ dev แก้ใน wt-shell + report** → PM ตรวจ DoD + merge · (B031+B030 = คลื่น 2)
+> **โฟกัสตอนนี้:** ✅ **คลื่น 1 (shell + StudioDock) merged เข้าฐานแล้ว** — B033/B034 fixed · unit 81/81 · build ผ่าน · P'Aim accept (LAN test มือถือจริง)
+> **ถัดไป:** **คลื่น 2 (editor rebase)** = รื้อ editor ตาม prototype (B035) + ลบท่อน (B032) + unify แถบบน edit (B031/B003) + mount dock ใน sing/print (B030) + D7 · แยกอีก: highlight (B029) · เรื่องค้างเดิม ③ sync docs · ① DA · ② lint เข้าฐาน
 > **ถัดไป:** editor redesign คลื่น 2 (ครอบ B032/B035) + highlight (B029) = build ตาม `ps2-studio-prototype.html` · เรื่องค้างเดิม (③ sync docs status ps4 · ① DA 3 เรื่อง · ② lint เข้าฐาน) ทำต่อได้เมื่อพร้อม
 
 **Legend:** ✅ ยืนยันตรง 3 แหล่ง · ⚠️ ต้องเคลียร์/ตัดสิน · ⏳ ยังไม่รายงาน
@@ -31,7 +32,7 @@ dev ps4-shell เสร็จ → P'Aim ลองใช้เอง (= gate real
 
 heads-up: **N1** dock จะซ้อนตอนคลื่น 2 (ต้องยก StudioDock ขึ้นระดับ Studio) · **N2** infra: เปิด `localhost:5311` (ไม่ใช่ 127.0.0.1 · IPv6)
 **ยังไม่ build (ไม่ใช่บั๊ก):** B029 highlight · B032+B035 editor redesign = คลื่น 2
-**สถานะ:** ✅ P'Aim เคาะ B033 = คีย์ 2 แถว + แถวเครื่องมือ = **dock 3 แถว** · **ยิง B033+B034 เข้า `dev-ps4-shell` แล้ว** (`fix-ps4-shell-dock.md`) → รอ dev แก้ใน `wt-shell` + อัปเดต `reports/wt-shell.md` → PM ตรวจ DoD + จัด merge
+**สถานะ:** ✅ **คลื่น 1 merged เข้าฐาน `studio-shell-redesign`** (dev `0652087` · PM ตรวจ DoD: unit 81/81 + build ผ่าน + P'Aim accept LAN test) · B033/B034 = done · wt-shell worktree ค้างไว้ให้ทดสอบ (5311/5321) — ลบตอนเริ่มคลื่น 2
 → รวบเป็น brief ส่ง sa-ps3 (review + ยืนยัน + สเปกแก้)
 
 ## สายงาน (roster + สถานะ verify)
