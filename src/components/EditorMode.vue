@@ -31,7 +31,7 @@ const props = defineProps({
 const emit = defineEmits(['change', 'save'])
 
 // ---------- auth + role (gating comes from the store via props.tier · DS-02) ----------
-import { session, legacy, shellMenu } from '../store.js'
+import { session, legacy, shellMenu, saveDraftRow } from '../store.js'
 
 // derive the two flags the editor already reads from the single tier source, so the rest
 // of the editor body is untouched (isApprover / loggedIn keep their meaning)
@@ -763,14 +763,9 @@ async function saveDraft(status) {
       .limit(1)
     if (data?.[0]) currentDraftId.value = data[0].id
   }
-  let error
-  if (currentDraftId.value) {
-    ;({ error } = await supabase.from('song_drafts').update(row).eq('id', currentDraftId.value))
-  } else {
-    const res = await supabase.from('song_drafts').insert(row).select('id').single()
-    error = res.error
-    if (res.data) currentDraftId.value = res.data.id
-  }
+  // the store owns the Supabase write (DS-D01); the editor owns which draft it edits
+  const { id, error } = await saveDraftRow(row, currentDraftId.value)
+  if (id) currentDraftId.value = id
   saveMsg.value = error
     ? '❌ บันทึกไม่สำเร็จ: ' + error.message
     : status === 'pending'
@@ -1368,6 +1363,11 @@ const songOut = computed(() => ({
   content: previewContent.value,
 }))
 watch(songOut, (s) => emit('change', s), { immediate: true })
+
+// Surfaced for US-D01 unit tests (save a draft · reopen an existing draft to continue).
+// These are the same functions the dock button / drafts panel call — exposing them lets
+// the AC be asserted without reaching through teleported chrome.
+defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewContent })
 </script>
 
 <template>
