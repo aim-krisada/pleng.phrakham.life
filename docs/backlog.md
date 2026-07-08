@@ -14,5 +14,6 @@ idea ไหนจะทำจริง → ยกขึ้นเป็น user s
 | id | ชนิด | สรุป | ที่มา / รายละเอียด | สถานะ | โยงไป |
 |---|---|---|---|---|---|
 | B001 | feature | ปุ่มลอยมุมล่างขวา เลื่อนขึ้น/ลง | reuse โค้ดจาก phrakham.life · ภาพ: `backlog-assets/B001-scroll-buttons.png` (2026-07-08) | idea | — |
+| B004 | ปรับปรุง | print-polish (นอกไฟล์ WT-B) | 3 งานจาก handoff WT-B: (1) ชื่อไฟล์ PDF = ชื่อเพลง (เซ็ต `document.title` ตอนพิมพ์) (2) ส่ง `:song-title` เข้า `SongSheet` footer (3) "หน้า X ของ Y" + margin กันเนื้อทับ footer ผ่าน `@page` ใน `src/styles.css` · snippet ครบใน `docs/reports/wt-b-print.md` · **เจ้าของ = WT-0** (ปุ่มพิมพ์อยู่โหมดแผ่น = `Studio.vue` + `styles.css`) · ทำรอบ print-polish | picked | WT-0 |
 | B003 | ปรับปรุง | ตัดเมนู "เลือกเพลงเพื่อแก้…" ที่ซ้ำในโหมดแก้ | หลัง US-05 มีปุ่ม "เปิดเพลง" ที่ shell ทุกโหมดแล้ว → เมนูของ `EditorMode` ซ้ำ · ตัดออกตอน WT-D แตะ `EditorMode.vue` (ไม่กระทบการใช้งาน โหลดได้ทั้งสองทาง) | picked | WT-D (EditorMode) |
 | B002 | ปรับปรุง | เปลี่ยนชื่อโหมด: ดู→**ฝึกร้อง** · แผ่น→**แผ่นเพลง** · แก้→**แก้ไข** | ภาพ: `backlog-assets/B002-mode-labels.png` · **✅ พี่เอมเคาะ 2026-07-08: ฝึกร้อง · แผ่นเพลง · แก้ไข** (เหตุผล: "พิมพ์"/"ทำเพลง" เป็น action/ซ้ำเมนูเว็บ → ใช้ชื่อโหมดที่ชัด) · รวมเข้า **wt0-followups US-05** (แถบปุ่มโหมดเดียวกัน) | done | WT-0 US-05 (merged) |
