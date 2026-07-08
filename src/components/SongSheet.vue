@@ -9,7 +9,10 @@ const props = defineProps({
   chordSystem: { type: String, default: 'letter' }, // 'letter' | 'number'
   displayKey: { type: String, default: '' }, // transpose target; '' = original
   playingSeg: { type: Object, default: null }, // { li, si } currently sounding
+  songTitle: { type: String, default: '' }, // for the printed page header/footer (US-B02)
 })
+
+const SITE = 'เพลง.พระคำ.ชีวิต'
 
 function chordText(chord) {
   return displayChord(chord, {
@@ -74,6 +77,16 @@ function isPlaying(li, si) {
 
 <template>
   <div :class="mode === 'lyrics' ? 'sheet-mode-lyrics' : ''">
+    <!-- print-only running header/footer (US-B02). Hidden on screen; on paper it
+         repeats on every page (position: fixed). Center "หน้า X ของ Y" is left to
+         the page-level @page counter (shared print CSS · WT-0) since a page count
+         can't be derived in-component. -->
+    <div class="print-head" aria-hidden="true">{{ SITE }}<template v-if="songTitle"> - {{ songTitle }}</template></div>
+    <div class="print-foot" aria-hidden="true">
+      <span class="pf-left">{{ SITE }}</span>
+      <span class="pf-center"></span>
+      <span class="pf-right">{{ songTitle }}</span>
+    </div>
     <div v-for="(line, li) in renderLines" :key="li" class="song-line">
       <template v-for="(part, pi) in line" :key="pi">
         <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}</span>
@@ -101,3 +114,43 @@ function isPlaying(li, si) {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* On screen the running header/footer are hidden; they only exist for print (US-B02).
+   `position: fixed` makes them repeat on every printed page in Chrome/Edge. */
+.print-head,
+.print-foot {
+  display: none;
+}
+@media print {
+  .print-head {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-weight: 700;
+    font-size: 10pt;
+    color: #000;
+  }
+  .print-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    font-size: 9pt;
+    color: #444;
+  }
+  .print-foot .pf-center {
+    flex: 1;
+    text-align: center;
+  }
+  .print-foot .pf-right {
+    text-align: right;
+  }
+}
+</style>

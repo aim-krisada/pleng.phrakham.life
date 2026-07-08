@@ -73,6 +73,24 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(wrapper.findAll('[contenteditable="true"]').length).toBe(0)
   })
 
+  it('US-B02: print header shows "เพลง.พระคำ.ชีวิต - <ชื่อเพลง>"', () => {
+    const wrapper = mountSheet({ songTitle: 'พระเจ้าเป็นความรัก' })
+    expect(wrapper.find('.print-head').text()).toBe('เพลง.พระคำ.ชีวิต - พระเจ้าเป็นความรัก')
+  })
+
+  it('US-B02: print footer = site (left) · ชื่อเพลง (right); center reserved for page no.', () => {
+    const wrapper = mountSheet({ songTitle: 'พระเจ้าเป็นความรัก' })
+    expect(wrapper.find('.print-foot .pf-left').text()).toBe('เพลง.พระคำ.ชีวิต')
+    expect(wrapper.find('.print-foot .pf-right').text()).toBe('พระเจ้าเป็นความรัก')
+    expect(wrapper.find('.print-foot .pf-center').text()).toBe('') // filled by @page counter (WT-0)
+  })
+
+  it('US-B02: with no songTitle the header degrades to just the site name', () => {
+    const wrapper = mountSheet() // no songTitle
+    expect(wrapper.find('.print-head').text()).toBe('เพลง.พระคำ.ชีวิต')
+    expect(wrapper.find('.print-foot .pf-right').text()).toBe('')
+  })
+
   it('empty song does not throw and renders no lines', () => {
     const wrapper = mount(SongSheet, {
       props: { content: { key: 'C', timeSignature: '4/4', lines: [] }, mode: 'full' },
