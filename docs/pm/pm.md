@@ -20,6 +20,7 @@
 - **ก่อนจ่ายบั๊กทุกครั้ง:** git-verify ว่า dev ส่งมอบ *อะไรจริง* — `git diff --stat studio-shell-redesign..<branch>` — กัน "สั่งแก้ของที่ยังไม่ได้ build" (บทเรียน 8 ก.ค.)
 - **SA ใช้เพื่อ *ตรวจงานเทียบดีไซน์* (review) ไม่ใช่เขียนสเปกซ้ำ** · defect ชัด → PM ยิง dev ตรง (ประหยัด token) · PM ตรวจ DoD หลัง dev แก้
 - **ทุก brief สั่ง dev: ระบุให้เปิด server `--host` + ใส่ Network URL (`http://<IP>:<port>`) ในรายงาน** เสมอ ให้พี่เอม/พี่เปาทดสอบมือถือจริงได้ (ข้อกำหนดถาวร · ดู `docs/workflow.md`)
+- **รายงานกลับ = session-agnostic (อย่า hardcode ชื่อ PM session ใน prompt!)** — PM หมุนสายไปเรื่อยๆ ถ้าใส่ชื่อสายเก่า สายที่สั่งไปจะตอบผิดสาย (เกิดจริง 9 ก.ค.: dev รายงานกลับ `pm ต้นแบบ pl2` ที่เลิกใช้ · P'Aim ต้อง copy เอง) → ทุก brief บอก dev/SA ให้ **(1) เขียน `docs/reports/<branch>.md` · (2) เพิ่มบรรทัดใน `board.md` 📥 PM inbox · (3) ping "PM session ปัจจุบัน" ที่ระบุใน `board.md` §🎯** · PM สายไหนก็อ่าน inbox เจอ ไม่ตกหล่น
 
 ## กติกา
 - คุยกับ P'Aim = ภาษาคนล้วน ระดับ ม.ต้น · เทคนิคไปอยู่ในไฟล์

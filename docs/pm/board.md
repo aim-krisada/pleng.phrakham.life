@@ -3,7 +3,18 @@
 กระดานที่ PM "ยืนยันแล้ว" ด้วย triangulation: **standup ของ session ↔ เอกสาร ↔ git/เทสต์จริง**
 (ไม้ต่อสำหรับ PM session หน้า — อ่านไฟล์นี้แล้วรู้ว่ากระดานตรงกับความจริงถึงไหน)
 
-อัปเดตล่าสุด: 2026-07-08 · PM session รอบที่ 1
+อัปเดตล่าสุด: 2026-07-09 · PM session = **debug pl2 round 1**
+
+## 🎯 PM session ปัจจุบัน (routing — สำคัญ)
+**สายที่ PM สั่งงาน = รายงานกลับ "PM session ปัจจุบัน" ที่ระบุตรงนี้** (PM หมุน session ไปเรื่อยๆ · อย่า hardcode ชื่อสายในprompt)
+- **ตอนนี้ = `debug pl2 round 1`** (แทน `pm ต้นแบบ pl2` ที่เลิกใช้แล้ว)
+- **วิธีรายงานเสร็จของ dev/SA (session-agnostic):** (1) เขียน `docs/reports/<branch>.md` · (2) เพิ่มบรรทัดใน 📥 inbox ล่าง · (3) ping PM session ปัจจุบัน (ชื่อด้านบน) · ถ้า PM สายนั้นปิด → PM สายใหม่อ่าน inbox เจอเอง
+- **เวลา PM หมุนสายใหม่:** อัปเดตชื่อบรรทัดนี้ทันที
+
+## 📥 PM inbox (สายเสร็จ → รอ PM ตรวจ DoD)
+| สาย/branch | commit | สถานะ | PM |
+|---|---|---|---|
+| dock-core `wt-dock` | `5269399` | ✅ เสร็จ · DoD objective ผ่าน (test 113/113 · build) · **รอ P'Aim accept LAN test** (5315) แล้ว merge | debug pl2 r1 กำลังตรวจ |
 
 > ▶ **RESUME (PM session ใหม่ อ่านนี่ก่อน):** สวมบท PM ต่อ → อ่าน `docs/pm/pm.md` (ไม้ต่อครบ) + memory `pleng-pm-role` + ไฟล์นี้
 > **โฟกัสตอนนี้:** ✅ **คลื่น 1 (shell + StudioDock) merged เข้าฐานแล้ว** — B033/B034 fixed · unit 81/81 · build ผ่าน · P'Aim accept (LAN test มือถือจริง)
