@@ -1,51 +1,44 @@
 # สถานะปัจจุบัน — เพลง.พระคำ.ชีวิต
 
-กระดานบอก "ตอนนี้ถึงไหนแล้ว" ให้ SA session ใหม่ (หรือพี่เอม) เห็นภาพเร็ว — **SA อัปเดตทุกครั้งที่มีอะไรเปลี่ยน**
-สถานะ: spec (เขียน US/DS แล้ว) → dev+test → merge → tester
+กระดานบอก "ตอนนี้ถึงไหนแล้ว" · **SA อัปเดตทุกครั้งที่มีอะไรเปลี่ยน**
+สถานะ: spec → dev+test → merge → tester
 
-## WT-0 ฐาน · branch `wt0-foundation` · port 5301
+## ✅ WT-0 ฐาน — เสร็จ + merge แล้ว (`9a60886`)
 | US | spec | dev+test | merge | tester |
 |---|:--:|:--:|:--:|:--:|
-| US-01 surface เดียว 3 มุมมอง | ✅ | ⬜ | ⬜ | ⬜ |
-| US-02 สิทธิ์ที่ "การเก็บ" | ✅ | ⬜ | ⬜ | ⬜ |
-| US-03 เชิญเท่านั้น | ✅ | ⬜ | ⬜ | ⬜ |
-| US-04 สัญญาจุดต่อ (contract) | ✅ | ⬜ | ⬜ | ⬜ |
+| US-01 surface เดียว 3 มุมมอง | ✅ | ✅ | ✅ | ⬜ |
+| US-02 สิทธิ์ที่ "การเก็บ" | ✅ | ✅ | ✅ | ⬜ |
+| US-03 เชิญเท่านั้น | ✅ | ✅ | ✅ | ⬜ |
+| US-04 สัญญาจุดต่อ (contract) | ✅ | ✅ | ✅ | ⬜ |
 
-## WT-A ร้อง · branch `wt-a-sing` · port 5302
+`Studio.vue` เป็น thin shell · `EditorMode.vue` แยกออก · store gating (`tier`/`canStore`/`canApprove`) · contract (props `song`/`tier`/`active`, events `change`/`save`) · vitest 12/12 · build ✅
+**หมายเหตุ:** WT-0 แตะ `SongViewer.vue`+`midi.js` (คืน live key re-tune + หยุดเล่นตอนสลับโหมด) — A/B/C/D branch จากฐานใหม่นี้ได้ live-key ไปเลย
+
+## 🆕 WT-0 follow-up (จาก review) · branch `wt0-followups` · port 5301
+| US | spec | dev+test | merge | tester |
+|---|:--:|:--:|:--:|:--:|
+| US-05 เปิด/เลือกเพลงทุกโหมด (#3) | ✅ | ⬜ | ⬜ | ⬜ |
+| US-06 ปุ่มพิมพ์ในโหมดแผ่น (#4-ปุ่ม) | ✅ | ⬜ | ⬜ | ⬜ |
+
+## WT-A ร้อง · branch `wt-a-sing` · port 5302  (พร้อมเริ่ม — ฐาน merge แล้ว)
 | US | spec | dev+test | merge | tester |
 |---|:--:|:--:|:--:|:--:|
 | US-A01 เล่นตามคาราโอเกะ | ✅ | ⬜ | ⬜ | ⬜ |
-| US-A02 ปรับคีย์/ความเร็ว/วนซ้ำ | ✅ | ⬜ | ⬜ | ⬜ |
-| US-A03 อ่านง่าย (ฟอนต์/เนื้อ/ท่อน) | ✅ | ⬜ | ⬜ | ⬜ |
+| US-A02 คีย์/ความเร็ว/วนซ้ำ (live key ทำแล้วโดย WT-0) | ✅ | ⬜ | ⬜ | ⬜ |
+| US-A03 อ่านง่าย | ✅ | ⬜ | ⬜ | ⬜ |
+| US-A04 tempo สดตอนเล่น (#5 · ใหม่) | ✅ | ⬜ | ⬜ | ⬜ |
 
-## WT-B พิมพ์ · branch `wt-b-print` · port 5303
-| US | spec | dev+test | merge | tester |
-|---|:--:|:--:|:--:|:--:|
-| US-B01 ดูแผ่นเพลงเต็ม | ✅ | ⬜ | ⬜ | ⬜ |
-| US-B02 พิมพ์ A4 สวย | ✅ | ⬜ | ⬜ | ⬜ |
-
-## WT-C JSON · branch `wt-c-json` · port 5304
-| US | spec | dev+test | merge | tester |
-|---|:--:|:--:|:--:|:--:|
-| US-C01 ดาวน์โหลด JSON | ✅ | ⬜ | ⬜ | ⬜ |
-| US-C02 อัปโหลด on-demand | ✅ | ⬜ | ⬜ | ⬜ |
-| US-C03 ส่งขออนุมัติทางอีเมล | ✅ | ⬜ | ⬜ | ⬜ |
-| US-C04 ตรวจไฟล์ JSON | ✅ | ⬜ | ⬜ | ⬜ |
-
-## WT-D ทำเพลง→คลัง · branch `wt-d-editor-library` · port 5305
-| US | spec | dev+test | merge | tester |
-|---|:--:|:--:|:--:|:--:|
-| US-D01 บันทึกร่าง | ✅ | ⬜ | ⬜ | ⬜ |
-| US-D02 ส่งตรวจ | ✅ | ⬜ | ⬜ | ⬜ |
-| US-D03 อนุมัติ/ตีกลับ/ลบ/ย้อน | ✅ | ⬜ | ⬜ | ⬜ |
-| US-D04 หมวด+เลขในหมวด (model change) | ✅ | ⬜ | ⬜ | ⬜ |
+## WT-B พิมพ์ · `wt-b-print` · 5303 | WT-C JSON · `wt-c-json` · 5304 | WT-D ทำเพลง→คลัง · `wt-d-editor-library` · 5305
+ทุก US spec ✅ · dev/merge/tester ⬜ (พร้อมเริ่มหลัง WT-0 merge — ซึ่งเสร็จแล้ว)
+- WT-B: US-B01, US-B02 (เพิ่ม footer/print-format · ปุ่มพิมพ์ = WT-0 US-06)
+- WT-C: US-C01..04
+- WT-D: US-D01..04 (เริ่มได้ · แตะ `store.js`/`songModel.js` — เป็น epic เดียวที่แตะ จึงปลอดภัย)
 
 ## ถัดไป (next actions)
-- [ ] พี่เอมอ่าน/approve US (ทุก epic เขียนรูปมาตรฐานแล้ว)
-- [ ] เริ่ม **WT-0 ก่อน** (ส่ง dev ด้วย `docs/prompts/dev.md`) → merge → แล้ว A/B/C/D ขนานได้
-- [ ] ลำดับ merge: WT-0 → (A · B · C ขนาน) · D ทำหลัง WT-0 เพราะแตะ `store.js`/`songModel.js`
+- [ ] จ่าย dev: **A/B/C ขนานได้เลย** (5302/5303/5304) · **wt0-followups** (5301, #3+#4-ปุ่ม) · **D** (5305)
+- [ ] เคาะ **B002** ชื่อโหมด (ฝึกร้อง · แผ่นเพลง · แก้ไข — SA แนะ) พร้อม US-05 (เพราะแตะแถบโหมดเหมือนกัน)
 
 ## หมายเหตุ
 - ฐาน = `studio-shell-redesign` (ยังไม่ขึ้น `main`)
-- **collision ที่ต้องระวัง:** `store.js` (WT-0 + WT-D) · `songModel.js` (WT-D + WT-C เรียกใช้) · print CSS ให้ scoped ใน SongSheet (WT-B) — รายละเอียดใน DS ของแต่ละงาน
-- backlog รอทำ: B001 (ปุ่มเลื่อนขึ้น/ลง) — `docs/backlog.md`
+- collision: `store.js` (WT-0+WT-D) · `songModel.js` (WT-D · WT-C เรียกใช้) · print CSS scoped ใน SongSheet (WT-B) · `Studio.vue` = WT-0 เท่านั้น (รวม wt0-followups)
+- workflow เพิ่ม (จากบทเรียน WT-0): dev ค้าง server ไว้ + ใส่ URL ตรวจท้ายรายงาน · bug "ได้ยิน" พิสูจน์ด้วยหูก่อนแก้

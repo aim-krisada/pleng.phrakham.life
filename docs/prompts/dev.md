@@ -21,3 +21,5 @@ npm run dev -- --port <port>
 - ฐานขยับระหว่างทาง → `git rebase studio-shell-redesign` (ไฟล์ไม่ทับกัน conflict แทบไม่มี)
 - เสร็จ: **เขียนรายงานเป็นไฟล์ `docs/reports/<branch>.md`** (ทำอะไรต่อ US · ไฟล์ที่แก้ · ผล AC/unit test · วิธี tester ลอง · ข้อสังเกต · พร้อม merge ไหม — แม่แบบใน `docs/reports/README.md`) แล้ว **commit** → **รอ SA อ่านจาก git แล้วสั่ง merge** (อย่า merge เอง)
 - ก่อน commit เช็ก `git branch --show-current`
+- **อย่าปิด dev server ตอนจบ** — ค้างที่พอร์ตประจำงานให้พี่เอม/tester ตรวจได้ทันที (ปิดตอน merge/เปลี่ยนงาน) · **ใส่ URL ตรวจงานท้ายรายงาน** (เช่น `http://localhost:5302`)
+- **bug ที่ "ได้ยิน" (เสียง) ต้องพิสูจน์ด้วยหู / ให้ tester ลอง / ใส่ตัวชี้วัดบนจอ ก่อนแก้** — อย่าวินิจฉัยจาก proxy บนจอ (เช่นคอร์ดที่ transpose อยู่แล้ว) — บทเรียนจริงจาก WT-0

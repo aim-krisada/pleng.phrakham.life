@@ -9,8 +9,8 @@
 - **ระวัง:** ถ้าใส่ print CSS ใน `styles.css` (global) จะทับกับ WT-0/อื่นได้ → **ให้ใส่ print CSS แบบ scoped ใน `SongSheet.vue`** เพื่อเลี่ยงการชน
 
 ## design
-- `@media print`: ซ่อน shell/controls · จัด A4 · คุม `page-break-inside: avoid` ไม่ให้ตัดกลางท่อน
-- ปุ่มพิมพ์เรียก `window.print()` · เลือกคีย์ก่อนพิมพ์ (reuse `chords.js` transpose)
+- `@media print`: ซ่อน shell/controls · จัด A4 · คุม `page-break-inside: avoid` ไม่ให้ตัดกลางท่อน · **footer/หัวกระดาษ** (เช่น `pleng.phrakham.life`) ผ่าน slot หรือ print CSS
+- **ปุ่มกดพิมพ์อยู่ที่ WT-0 (`Studio.vue` toolbar โหมดแผ่น = US-06)** เรียก `window.print()` · WT-B รับผิดชอบ *หน้าตาเวลาพิมพ์* · เลือกคีย์ก่อนพิมพ์ (reuse `chords.js` transpose)
 
 ## test
 - **manual:** print preview A4 ไม่ตกขอบ · ไม่ตัดกลางท่อน

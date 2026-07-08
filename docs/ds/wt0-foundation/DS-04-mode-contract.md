@@ -8,8 +8,9 @@
 
 ## สัญญาจุดต่อ (contract) — ทุก worktree ยึดตามนี้
 **props เข้าโหมด**
-- `song` : object — เพลงปัจจุบัน (v2 model)
+- `song` : object — เพลงปัจจุบัน (v2 row `{id,number,title_th,title_en,content}`)
 - `tier` : `'anon' | 'editor' | 'approver'`
+- `active` : boolean — โหมดนี้กำลังโชว์อยู่ไหม (**WT-0 เพิ่มจริงตอน build** — ใช้คุม chrome ที่ teleport เข้า ShellBar ไม่ให้โผล่ซ้อนตอนไม่ active)
 
 **events ออกจากโหมด**
 - `change(song)` — เพลงถูกแก้ (Studio เก็บ state กลาง ไว้สลับโหมดไม่หาย)

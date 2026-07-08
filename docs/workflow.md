@@ -65,3 +65,5 @@ npm run dev -- --port <port>
 - ถ้าฐาน (`studio-shell-redesign`) ขยับระหว่างทาง → `git rebase studio-shell-redesign` ในสาขาตัวเอง (ไฟล์ไม่ทับกัน จึงแทบไม่มี conflict)
 - เสร็จแล้ว: commit + รายงานว่าแก้ไฟล์ไหนบ้าง → **รอพี่เอมสั่ง merge กลับฐาน** (SA เป็นคนรวม)
 - ก่อน commit เช็ก `git branch --show-current` เสมอ (dir หลักใช้ร่วมหลาย session)
+- **อย่าปิด dev server ตอนจบงาน** — ค้างรันที่พอร์ตประจำงาน (ตามตาราง) ให้พี่เอม/tester เปิดตรวจได้ทันที · ปิดเฉพาะตอน merge เสร็จ/เปลี่ยนงาน
+- **ท้ายรายงาน (`docs/reports/<branch>.md`) ใส่ URL ตรวจงานเสมอ** (เช่น `http://localhost:5301`)

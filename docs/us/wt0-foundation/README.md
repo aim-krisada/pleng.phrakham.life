@@ -11,3 +11,7 @@
 - `US-02-store-permission.md` — สิทธิ์อยู่ที่ "การเก็บ"
 - `US-03-invite-only-auth.md` — เข้าระบบแบบเชิญเท่านั้น
 - `US-04-mode-contract.md` — สัญญาจุดต่อ (contract) = "กำแพง+ประตู" ทำให้ครบ A/B/C/D ถึงขนานได้
+
+**US-01..04 = เสร็จ + merge แล้ว** (`9a60886`, 2026-07-08). follow-up จาก review (branch `wt0-followups` · port 5301):
+- `US-05-open-song-shell.md` — เปิด/เลือกเพลงได้ทุกโหมด (review #3)
+- `US-06-sheet-print-button.md` — ปุ่มพิมพ์ในโหมดแผ่น (review #4)
