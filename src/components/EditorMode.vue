@@ -1108,15 +1108,10 @@ function scrollToCard(id) {
 const railHidden = ref(false) // desktop: collapse the rail to full-width content
 const drawerOpen = ref(false) // mobile: slide-in drawer
 
-// clean-editor affordances: the busy per-line / per-bar controls are tucked away so
-// the strip reads like the wireframe. They are HIDDEN, not removed — one tap reveals
-// them. lineOptsOpen = which line index shows its settings; barMenuOpen = "li-bi" of
-// the bar whose tools popover is open (only one at a time).
-const lineOptsOpen = ref(-1)
+// clean-editor affordances: the busy per-bar controls are tucked away so the strip reads
+// like the wireframe. barMenuOpen = "li-bi" of the bar whose tools popover is open (only
+// one at a time). (Line structure moved to the header edhead — US E3.)
 const barMenuOpen = ref('')
-function toggleLineOpts(li) {
-  lineOptsOpen.value = lineOptsOpen.value === li ? -1 : li
-}
 function toggleBarMenu(li, bi) {
   const k = `${li}-${bi}`
   barMenuOpen.value = barMenuOpen.value === k ? '' : k
@@ -1153,9 +1148,14 @@ function railSelectRow(i) {
   viewMode.value = 'edit'
   const row = arrangement.value[i]
   const s = stanzas.value.findIndex((x) => x.id === row.stanza)
-  if (s >= 0) selectStanza(s)
+  if (s >= 0) selectStanza(s) // resets the lens via the activeStanzaId watcher…
   closeDrawer()
-  scrollToEl('arr-row-' + i, 'center')
+  // …so set THIS verse as the lens after the reset flushes (master-detail sync: picking a
+  // ข้อ in the rail shows its words under the notes + scrolls to the notes, not far below)
+  nextTick(() => {
+    lensChoice.value = i
+    scrollToEl('pk-editor')
+  })
 }
 function railGoArrange() {
   viewMode.value = 'edit'
@@ -1170,6 +1170,110 @@ const edLyrOptions = computed(() => [
   { value: -1, label: '— ซ่อนเนื้อ —' },
   ...lensRowsForActiveStanza.value.map((x) => ({ value: x.i, label: rowLabel(x.r, x.i) })),
 ])
+
+// ---------- edit header (edhead — prototype ps2 §③) ----------
+// The header is a BREADCRUMB that opens the rail (the rail is the only navigation — no
+// duplicate ท่อน/ข้อ dropdowns: B031/B003/E1) + in-context help + layout/preview toggles
+// + line-level quick structure. Everything structural is line-level; a bar keeps only its
+// ▶ + ดูผล (US E3). The model still stores repeat/volta per bar (v2) — UI just sets lines.
+const showTip = ref(false) // (i) how-to blurb (was always-on; now on demand like the proto)
+const showLegend = ref(false) // (?) symbol legend
+const barLayout = ref('stack') // 'stack' = 1 ห้อง/แถว · 'flow' = ห้องต่อกัน (B035)
+const lineMoreOpen = ref(false) // ⋯ advanced settings for the active line (Fine/D.C. · ต่อห้อง · ชื่อ)
+
+// breadcrumb text: "ท่อน A · ข้อ 1" — shows position only; selecting happens in the rail
+const crumbLabel = computed(() => {
+  const mel = 'ท่อน ' + activeStanzaId.value
+  return lensActive.value ? mel + ' · ' + rowLabel(lensRow.value, lensChoice.value) : mel
+})
+
+// quick structure acts on the ACTIVE line (the one last focused; selectStanza resets to 0)
+function curLine() {
+  return lines.value[activeLine.value] || null
+}
+function qHook() {
+  const l = curLine()
+  if (l) l.marker = l.marker ? '' : '***'
+}
+// "ซ้ำ" wraps the whole active line in repeat marks — the model keeps them per bar (‖: on
+// the first bar, :‖ on the last), toggling off if the line is already wrapped.
+function qRepeat() {
+  const l = curLine()
+  if (!l || !l.bars.length) return
+  const first = l.bars[0]
+  const last = l.bars[l.bars.length - 1]
+  const on = first.repeatStart && last.repeatEnd
+  first.repeatStart = !on
+  last.repeatEnd = !on
+}
+function qCopyLine() {
+  copyLine(activeLine.value)
+}
+function qDeleteLine() {
+  if (!curLine()) return
+  if (!window.confirm(`ลบบรรทัด ${activeLine.value + 1} ทั้งบรรทัด?`)) return
+  removeLine(activeLine.value)
+  activeLine.value = Math.min(activeLine.value, lines.value.length - 1)
+  lineMoreOpen.value = false
+}
+const curLineHook = computed(() => !!curLine()?.marker)
+const curLineRepeat = computed(() => {
+  const l = curLine()
+  return !!(l && l.bars.length && l.bars[0].repeatStart && l.bars[l.bars.length - 1].repeatEnd)
+})
+function toggleLineMore() {
+  lineMoreOpen.value = !lineMoreOpen.value
+}
+function onLineMoreOutside(e) {
+  if (!e.target.closest?.('.ed-more-wrap')) lineMoreOpen.value = false
+}
+watch(lineMoreOpen, (v) => {
+  if (v) setTimeout(() => document.addEventListener('mousedown', onLineMoreOutside), 0)
+  else document.removeEventListener('mousedown', onLineMoreOutside)
+})
+onUnmounted(() => document.removeEventListener('mousedown', onLineMoreOutside))
+
+// ---------- whole-song preview (ดูผลทั้งเพลง) + per-bar ดูผล (B035) ----------
+// Each bar flips between the edit grid and a clean jianpu render (ดูผล — REPLACES the grid,
+// never stacks a second row). The header master flips every bar of the active stanza at
+// once; its label is authoritative — it reflects whether all bars are currently rendered.
+const shownBars = ref({}) // key "li-bi" -> true when that bar shows its render
+function barShown(li, bi) {
+  return !!shownBars.value[`${li}-${bi}`]
+}
+function toggleBarShown(li, bi) {
+  const k = `${li}-${bi}`
+  shownBars.value = { ...shownBars.value, [k]: !shownBars.value[k] }
+}
+function allBarKeys() {
+  const out = []
+  lines.value.forEach((line, li) => line.bars.forEach((_, bi) => out.push(`${li}-${bi}`)))
+  return out
+}
+const allShown = computed(() => {
+  const keys = allBarKeys()
+  return keys.length > 0 && keys.every((k) => shownBars.value[k])
+})
+function toggleShowAll() {
+  const on = !allShown.value
+  const next = {}
+  if (on) for (const k of allBarKeys()) next[k] = true
+  shownBars.value = next
+}
+// a bar's clean render: a one-line, one-bar content object the SongSheet can draw. Words
+// come from the lens verse (if shown) so the render matches what the singer sees.
+function barContent(li, bi) {
+  const line = lines.value[li]
+  if (!line || !line.bars[bi]) return { key: opts.key, lines: [] }
+  const one = { ...line, bars: [line.bars[bi]], cont: false }
+  const serial = serializeLine(one)
+  return { version: 2, key: opts.key, timeSignature: opts.timeSignature, lines: [serial] }
+}
+// dropping the lens/stanza switch also clears any stale per-bar renders so the fresh
+// stanza starts in edit mode (indices would otherwise point at the wrong bars)
+watch([activeStanza, lines], () => {
+  shownBars.value = {}
+})
 
 // ---------- studio shell (phase 4: menus/panels) ----------
 // Set-once / occasional things live in menus now (เพลง = New/Open/Properties,
@@ -1318,20 +1422,17 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
           <button class="rail-x" aria-label="ปิด" @click="closeDrawer"><Icon name="x" :size="16" /></button>
         </div>
         <div class="rail-group">ทำนอง</div>
-        <button
-          v-for="(s, si) in stanzas"
-          :key="s.id"
-          class="rail-row mel"
-          :class="{ sel: si === activeStanza }"
-          @click="railSelectStanza(si)"
-        >
-          <Icon name="music" :size="17" /> ท่อน {{ s.id }}
-        </button>
+        <!-- each row = a select button + a delete (B032) — a wrapper, so no nested buttons -->
+        <div v-for="(s, si) in stanzas" :key="s.id" class="rail-rowwrap mel" :class="{ sel: si === activeStanza }">
+          <button class="rail-row" @click="railSelectStanza(si)"><Icon name="music" :size="17" /> ท่อน {{ s.id }}</button>
+          <button v-if="stanzas.length > 1" class="rail-del" title="ลบทำนองนี้" aria-label="ลบท่อนทำนองนี้" @click.stop="removeStanza(si)"><Icon name="trash-2" :size="14" /></button>
+        </div>
         <button class="rail-row add" @click="addStanza(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มทำนอง</button>
         <div class="rail-group">เนื้อร้อง</div>
-        <button v-for="(row, ri) in arrangement" :key="ri" class="rail-row lyr" @click="railSelectRow(ri)">
-          <Icon name="file-text" :size="17" /> {{ rowLabel(row, ri) }}
-        </button>
+        <div v-for="(row, ri) in arrangement" :key="ri" class="rail-rowwrap lyr" :class="{ sel: ri === lensChoice }">
+          <button class="rail-row" @click="railSelectRow(ri)"><Icon name="file-text" :size="17" /> {{ rowLabel(row, ri) }}</button>
+          <button v-if="arrangement.length > 1" class="rail-del" title="ลบข้อนี้" aria-label="ลบข้อเนื้อร้องนี้" @click.stop="removeRow(ri)"><Icon name="trash-2" :size="14" /></button>
+        </div>
         <button class="rail-row add" @click="addRow(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มเนื้อ</button>
         <div class="rail-sep"></div>
         <div class="rail-group">ขั้นสูง</div>
@@ -1362,42 +1463,60 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       </ul>
     </div>
 
-    <!-- ===== editor: breadcrumb (ท่อน × ข้อ) → read row → edit boxes ===== -->
-    <div id="pk-editor" class="ed-breadcrumb no-print">
-      <button class="ed-cat" aria-label="สารบัญเพลง (ทำนอง·เนื้อ·ลำดับ)" title="สารบัญเพลง — ทำนอง·เนื้อ·ลำดับ" @click.stop="toggleCatalog">
-        <Icon name="list-music" :size="18" />
+    <!-- ===== edit header (edhead) — ps2 prototype §③: breadcrumb OPENS the rail (the rail
+         is the only navigation, no duplicate ท่อน/ข้อ dropdowns · B031/B003/E1) · in-context
+         help · layout / whole-song-preview toggles · line-level quick structure ===== -->
+    <div id="pk-editor" class="edhead no-print">
+      <button
+        class="ed-crumb"
+        aria-label="เปิดแถบองค์ประกอบเพลง (ทำนอง·เนื้อ·ลำดับ)"
+        title="องค์ประกอบเพลง — เลือกท่อน/ข้อจากแถบซ้าย"
+        @click.stop="toggleCatalog"
+      >
+        <Icon name="panel-left-open" :size="17" /> <span class="ed-crumb-t">{{ crumbLabel }}</span>
       </button>
-      <span class="ed-pair">
-        <Icon name="music" :size="17" class="ic-mel" />
-        <span class="ed-cap">ท่อน</span>
-        <select class="pick" :value="activeStanza" aria-label="เลือกท่อนทำนอง" @change="selectStanza(+$event.target.value)">
-          <option v-for="(s, si) in stanzas" :key="s.id" :value="si">{{ s.id }}</option>
-        </select>
-        <button class="ed-mini" title="เพิ่มท่อนทำนอง" aria-label="เพิ่มท่อนทำนอง" @click="addStanza"><Icon name="plus" :size="14" /></button>
-        <button v-if="stanzas.length > 1" class="ed-mini" title="ลบท่อนนี้" aria-label="ลบท่อนทำนองนี้" @click="removeStanza(activeStanza)"><Icon name="x" :size="14" /></button>
-        <span class="ed-x" aria-hidden="true">×</span>
-        <Icon name="file-text" :size="17" class="ic-lyr" />
-        <select
-          v-if="lensRowsForActiveStanza.length"
-          v-model.number="lensChoice"
-          class="pick"
-          aria-label="เลือกข้อเนื้อร้องมาแสดงใต้โน้ต"
-        >
-          <option v-for="o in edLyrOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
-        </select>
-        <span v-else class="muted ed-nolyr">(ยังไม่มีข้อ — เพิ่มใน “ลำดับเพลง”)</span>
+      <button class="ed-ico" :class="{ on: showTip }" title="วิธีใช้โต๊ะแก้" aria-label="วิธีใช้โต๊ะแก้" @click="showTip = !showTip"><Icon name="info" :size="16" /></button>
+      <button class="ed-ico" :class="{ on: showLegend }" title="ความหมายสัญลักษณ์โน้ต" aria-label="ความหมายสัญลักษณ์โน้ต" @click="showLegend = !showLegend"><Icon name="circle-help" :size="16" /></button>
+      <span class="ed-grow"></span>
+      <div class="ed-lay" role="group" aria-label="เค้าโครงห้อง">
+        <button :class="{ on: barLayout === 'stack' }" :aria-pressed="barLayout === 'stack'" @click="barLayout = 'stack'">1 ห้อง/แถว</button>
+        <button :class="{ on: barLayout === 'flow' }" :aria-pressed="barLayout === 'flow'" @click="barLayout = 'flow'">ต่อกัน</button>
+      </div>
+      <button class="ed-chip" :class="{ act: allShown }" title="แสดง/ซ่อน โน้ตแบบแผ่นเพลงทั้งเพลง" @click="toggleShowAll">
+        <Icon :name="allShown ? 'pencil' : 'music'" :size="15" /> {{ allShown ? 'กลับไปแก้ทั้งเพลง' : 'ดูผลทั้งเพลง' }}
+      </button>
+      <button class="ed-ico" title="ฟังท่อนนี้" aria-label="ฟังท่อนนี้" @click="playStanza"><Icon name="play" :size="16" /></button>
+      <span class="ed-quick desk-only" aria-label="โครงเพลงด่วน (บรรทัดที่กำลังแก้)">
+        <button class="ed-ico" :class="{ on: curLineHook }" title="ทำเครื่องหมายท่อนฮุกให้บรรทัดที่กำลังแก้" aria-label="ท่อนฮุก" @click="qHook"><Icon name="anchor" :size="16" /></button>
+        <button class="ed-ico" :class="{ on: curLineRepeat }" title="เล่นซ้ำบรรทัดที่กำลังแก้ ‖: :‖" aria-label="เล่นซ้ำบรรทัด" @click="qRepeat"><Icon name="repeat" :size="16" /></button>
+        <button class="ed-ico" title="คัดลอกบรรทัดที่กำลังแก้" aria-label="คัดลอกบรรทัด" @click="qCopyLine"><Icon name="copy" :size="16" /></button>
+        <button class="ed-ico danger-ic" title="ลบบรรทัดที่กำลังแก้" aria-label="ลบบรรทัด" @click="qDeleteLine"><Icon name="trash-2" :size="16" /></button>
       </span>
-      <button class="ed-play" title="ฟังท่อนนี้" aria-label="ฟังท่อนนี้" @click="playStanza"><Icon name="play" :size="16" /></button>
+      <span class="ed-more-wrap">
+        <button class="ed-ico" :class="{ on: lineMoreOpen }" :aria-expanded="lineMoreOpen" title="เพิ่มเติม — ชื่อบรรทัด · ต่อห้อง · จบเพลง · ป้าย (Fine/D.C.)" aria-label="เพิ่มเติม" @click.stop="toggleLineMore"><Icon name="ellipsis" :size="16" /></button>
+        <div v-if="lineMoreOpen && curLine()" class="ed-more-menu" role="menu">
+          <div class="ed-more-title">บรรทัด {{ activeLine + 1 }}</div>
+          <input v-model="curLine().section" class="ed-opt-input" placeholder="ชื่อบรรทัด (เว้นว่างได้)" aria-label="ชื่อกำกับบรรทัดนี้" />
+          <label v-if="activeLine > 0" class="ed-opt-check"><input v-model="curLine().cont" type="checkbox" /> ⤷ ต่อห้องจากบรรทัดก่อน</label>
+          <label class="ed-opt-check"><input v-model="curLine().end" type="checkbox" /> ‖ จบเพลง (Fine)</label>
+          <input v-model="curLine().label" class="ed-opt-input" placeholder="ป้าย เช่น Fine, D.C. al Fine" aria-label="ข้อความกำกับท้ายบรรทัด" />
+        </div>
+      </span>
     </div>
+    <!-- (?) legend + (i) how-to — in-context help, hidden until asked (prototype) -->
+    <div v-if="showLegend" class="ed-legend no-print">
+      <span><b>1–7</b> ระดับเสียง</span><span><b>5'</b> จุดบน=สูงทบ</span><span><b>.5</b> จุดล่าง=ต่ำทบ</span>
+      <span><b>5_</b> ขีดใต้=เขบ็ต</span><span><b>5.</b> จุดขวา=เพิ่มครึ่ง</span><span><b>6~6</b> โค้ง=เอื้อน</span>
+      <span><b>–</b> ลากเสียง</span><span><b>|</b> เส้นแบ่งห้อง</span>
+    </div>
+    <p v-if="showTip" class="muted no-print ed-tip">
+      พิมพ์โน้ตในช่อง — <b>1 ช่อง = 1 โน้ต</b> · กด <b>Enter</b>/<b>เว้นวรรค</b> ขึ้นช่องถัดไป · <b>← →</b> เลื่อนช่อง ·
+      จุด/ขีด/เครื่องหมายอื่นแตะช่องแล้วจิ้มปุ่มแถบล่าง · แต่ละห้องกด “ดูผล” เห็นแบบแผ่นเพลง ·
+      เนื้อร้องพิมพ์ที่ “ลำดับเพลง” ด้านล่าง หรือใต้โน้ต (เลือกข้อจากแถบซ้าย)
+      <router-link class="pk-info" style="margin-left: 6px" :to="{ path: '/guide', hash: '#notation' }" aria-label="คู่มือโน้ตตัวเลข">เปิดคู่มือ →</router-link>
+    </p>
     <p v-if="lensActive" class="muted no-print" style="margin: 0 0 8px">
       พิมพ์คำร้องในช่องใต้โน้ต · ช่องสีแดง = ยังไม่ได้ใส่คำ · ช่องเส้นประ = โน้ตลากเสียง (เว้นว่างได้ หรือใส่ “-”)
-    </p>
-
-    <!-- editing hint (the symbol palette lives in the bottom dock) -->
-    <p class="muted no-print" style="margin: 0 0 10px">
-      พิมพ์โน้ตในช่อง — <b>1 ช่อง = 1 โน้ต</b> · กด <b>Enter</b> หรือ <b>เว้นวรรค</b> เพื่อขึ้นช่องถัดไป · กด <b>← →</b> เลื่อนช่อง ·
-      อยากได้จุด/ขีด/เครื่องหมายอื่น แตะช่องแล้วจิ้มปุ่มจากแถบล่างจอ · ส่วนเนื้อร้องพิมพ์ได้ที่ “ลำดับเพลง” ด้านล่าง หรือใต้โน้ตตรงนี้ (เลือกข้อด้านบน)
-      <router-link class="pk-info" style="margin-left: 6px" :to="{ path: '/guide', hash: '#notation' }" aria-label="คู่มือโน้ตตัวเลข">i</router-link>
     </p>
 
     <!-- line editor (edits the ACTIVE stanza) — clean strip like the wireframe: the
@@ -1419,42 +1538,11 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         <span v-if="line.label" class="ed-line-tag">{{ line.label }}</span>
         <span class="ed-line-actions">
           <button class="ed-mini" title="ฟังบรรทัดนี้" aria-label="ฟังบรรทัดนี้" @click="playLine(li)"><Icon name="play" :size="14" /></button>
-          <button
-            class="ed-mini"
-            :class="{ on: lineOptsOpen === li }"
-            title="ตั้งค่าบรรทัด"
-            aria-label="ตั้งค่าบรรทัด (ชื่อ · ฮุก · ต่อห้อง · จบเพลง · ป้าย · สำเนา · ลบ)"
-            :aria-expanded="lineOptsOpen === li"
-            @click="toggleLineOpts(li)"
-          >⋯</button>
         </span>
       </div>
-      <!-- collapsible line settings: name · ฮุก · ต่อห้อง · จบเพลง · ป้าย · สำเนา · ลบ -->
-      <div v-if="lineOptsOpen === li" class="ed-line-opts no-print">
-        <input
-          v-model="line.section"
-          placeholder="ชื่อบรรทัด (เว้นว่างได้)"
-          aria-label="ชื่อกำกับบรรทัดนี้ (ปกติเว้นว่าง — ชื่อท่อนไปตั้งที่ลำดับเพลง)"
-          class="ed-opt-input"
-        />
-        <label class="ed-opt-check">
-          <input type="checkbox" :checked="!!line.marker" @change="line.marker = $event.target.checked ? '***' : ''" /> ท่อนฮุก ***
-        </label>
-        <label v-if="li > 0" class="ed-opt-check">
-          <input v-model="line.cont" type="checkbox" /> ⤷ ต่อห้องจากบรรทัดก่อน
-        </label>
-        <label class="ed-opt-check">
-          <input v-model="line.end" type="checkbox" /> ‖ จบเพลง
-        </label>
-        <input
-          v-model="line.label"
-          placeholder="ป้าย เช่น Fine, D.C. al Fine"
-          aria-label="ข้อความกำกับท้ายบรรทัด"
-          class="ed-opt-input"
-        />
-        <button class="secondary tiny" @click="copyLine(li)">คัดลอกโครง</button>
-        <button class="danger tiny" @click="removeLine(li)">ลบบรรทัด</button>
-      </div>
+      <!-- line structure (ชื่อ · ฮุก · ต่อห้อง · จบเพลง · ป้าย · สำเนา · ลบ) now lives in the
+           header quick-struct + ⋯, acting on the focused line — US E3 "all structure is
+           line-level in the header; a bar keeps only ▶ + ดูผล". The tags above echo state. -->
       <!-- the strip: bars flow left→right with a drawn barline between them. This IS the
            read+edit surface — note boxes (ripple) with a lyric box under each note (ripple),
            aligned in one column, chords on top. No separate sheet preview (would duplicate
@@ -2140,6 +2228,35 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 .rail-row.arr .icn { color: #b5771a; }
 .rail-row.add { color: var(--muted); }
 .rail-row.sel { background: var(--cream); border: 1px solid var(--line); font-weight: 700; }
+/* a row + its delete button (B032). The whole wrapper carries mel/lyr colour + sel state */
+.rail-rowwrap { display: flex; align-items: center; border-radius: 8px; }
+.rail-rowwrap .rail-row { flex: 1; min-width: 0; }
+.rail-rowwrap.mel .icn { color: var(--note-blue); }
+.rail-rowwrap.lyr .icn { color: #6b4fb0; }
+.rail-rowwrap.sel { background: var(--cream); border: 1px solid var(--line); }
+.rail-rowwrap.sel .rail-row { font-weight: 700; }
+.rail-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  border-radius: 7px;
+  padding: 4px;
+  min-width: 30px;
+  min-height: 30px;
+  margin-right: 3px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.rail-rowwrap:hover .rail-del,
+.rail-rowwrap:focus-within .rail-del { opacity: 1; }
+.rail-del:hover { color: var(--red); background: #fff0ef; }
+@media (hover: none) {
+  .rail-del { opacity: 1; }
+}
 @media (hover: hover) {
   .rail-row:hover { background: rgba(139, 69, 19, 0.08); }
 }
@@ -2194,34 +2311,116 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 @media (prefers-reduced-motion: reduce) {
   .rail { transition: none; }
 }
-/* editor breadcrumb (phase 3): the ทำนอง × ข้อ pair being edited */
-.ed-breadcrumb {
+/* ===== edit header (edhead — ps2 §③) ===== */
+.edhead {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   background: #fffdf8;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 8px 10px;
+  padding: 7px 9px;
   margin: 0 0 10px;
 }
-.ed-pair { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; }
-.ed-pair .ic-mel { color: var(--note-blue); }
-.ed-pair .ic-lyr { color: #6b4fb0; }
-.ed-x { color: var(--muted); }
-.pick {
-  font: inherit;
-  font-size: 1rem;
-  font-weight: 700;
+/* breadcrumb button — opens the rail, shows "ท่อน A · ข้อ 1" (position only, not a menu) */
+.ed-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--cream);
+  border: 1px solid var(--line);
   color: var(--brand);
+  font: inherit;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 6px 11px;
+  min-height: 34px;
+  cursor: pointer;
+  max-width: 100%;
+}
+.ed-crumb-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ed-grow { flex: 1 1 8px; }
+/* generic header icon button (24×24 target · WCAG 2.5.8) */
+.ed-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 5px;
+  min-width: 32px;
+  min-height: 32px;
+  cursor: pointer;
+}
+.ed-ico.on { background: var(--cream); border-color: var(--brand); color: var(--brand); }
+.ed-ico.danger-ic { color: var(--red); }
+/* layout segmented control: 1 ห้อง/แถว ⇄ ต่อกัน */
+.ed-lay { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.ed-lay button {
+  background: #fff;
+  border: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  min-height: 32px;
+  cursor: pointer;
+}
+.ed-lay button + button { border-left: 1px solid var(--line); }
+.ed-lay button.on { background: var(--cream); color: var(--brand); font-weight: 700; }
+/* whole-song preview chip */
+.ed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-height: 32px;
+  cursor: pointer;
+}
+.ed-chip.act { background: var(--cream); border-color: var(--brand); color: var(--brand); font-weight: 700; }
+.ed-quick { display: inline-flex; gap: 4px; }
+/* ⋯ line-more popover (advanced settings for the active line) */
+.ed-more-wrap { position: relative; display: inline-flex; }
+.ed-more-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  min-width: 240px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(60, 40, 10, 0.18);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-more-title { font-weight: 700; color: var(--brand); font-size: 0.85rem; }
+/* in-context help: (?) legend + (i) tip */
+.ed-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
   background: var(--cream);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 5px 8px;
-  min-height: 34px;
-  cursor: pointer;
+  padding: 8px 12px;
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: var(--ink);
 }
+.ed-legend b { color: var(--brand); font-family: 'Courier New', monospace; }
+.ed-tip { margin: 0 0 10px; }
 .ed-mini {
   display: inline-flex;
   align-items: center;
@@ -2235,38 +2434,18 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   min-height: 30px;
   cursor: pointer;
 }
-.ed-play {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  border: 1px solid var(--line);
-  color: var(--brand);
-  border-radius: 8px;
-  padding: 6px 10px;
-  min-width: 38px;
-  min-height: 34px;
-  cursor: pointer;
-}
-.ed-nolyr { font-size: 0.85rem; }
-.ed-cat {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  border: 1px solid var(--line);
-  color: var(--brand);
-  border-radius: 8px;
-  padding: 6px;
-  min-width: 34px;
-  min-height: 34px;
-  cursor: pointer;
-}
 @media (hover: hover) {
-  .ed-mini:hover,
-  .ed-play:hover,
-  .ed-cat:hover { background: var(--cream-hover); }
+  .ed-ico:hover,
+  .ed-crumb:hover,
+  .ed-chip:hover,
+  .ed-mini:hover { background: var(--cream-hover); }
+}
+/* mobile: quick-struct collapses into ⋯; keep the header from overflowing */
+@media (max-width: 760px) {
+  .desk-only { display: none; }
+  .edhead { gap: 5px; padding: 6px; }
+  .ed-lay button { padding: 6px 8px; font-size: 0.8rem; }
+  .ed-chip { padding: 6px 8px; font-size: 0.82rem; }
 }
 /* read row (phase 4): the pair in sheet style, above the edit boxes */
 /* จัดการ menu danger item + divider */
