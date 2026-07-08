@@ -36,8 +36,13 @@
 
 > B001 รวมเข้า `wt-fix` แล้ว (ไม่แยก `wt-b001`) · ใช้ `pk-scrollnav.js` ร่วมกับ พระคำ.ชีวิต เป๊ะ · report: `docs/reports/wt-fix-summary.md`
 
-## 🔮 Sprint 3 (ps3) — "สร้างตาม design ที่เคาะ"
-**Spec พร้อมแล้ว:** US `docs/us/ps3-{shell,editor,viewer,highlight}.md` + DS `docs/ds/ps3-*` · design = `docs/design/ps2-studio-prototype.html` · **4 epic:** ① Shell(②·ทำก่อน) → ② Editor(③+I5+WT-D รอบ2·คอขวด) · ③ Viewer(④) · ④ Highlight(B006·v2)
+## 🔮 Sprint 3 (ps3) — "ออกแบบต่อให้จบ · จัดการทุก backlog"
+**เป้า (P'Aim 8 ก.ค.):** เคาะ design **ทุก backlog ที่เหลือ**ให้จบก่อน แล้ว **build ทีเดียวใน ps4** (เลี่ยงเปลือง token ตอน build)
+**ยังต้องออกแบบ (ไล่ใน `docs/backlog.md` ทุกตัวที่ยัง idea/ออกแบบ—SA):** B021 dock show/hide · B022 dock โปร่ง · B023 footer ล่าง · B024 customizable dock/control bar · B025 dock expand-up เปลืองที่ · + ที่เหลือทั้งตาราง
+**Build-ready แล้ว (②③④ → ทำใน ps4):** US/DS `docs/us|ds/ps3-{shell,editor,viewer,highlight}.md` + prototype `docs/design/ps2-studio-prototype.html`
+
+### 🔨 Sprint 4 (ps4) — build ตาม design ที่เคาะครบ
+- **4 epic:** ① Shell(②·"ปรับ ShellBar.vue เดิม"·ทำก่อน · port 5311) → ② Editor(③+I5+WT-D รอบ2·คอขวด · 5312) · ③ Viewer(④·5313) · ④ Highlight(B006·v2·5314)
 - shell/เมนูใหม่ + fold integration **I1** (navbar) + **I5** (editor JSON + B003) เข้าโครงใหม่
 - editor UX (③) · viewer (B016/B006/B021)
 - **WT-D รอบ 2:** D02 ส่งตรวจ · D03 อนุมัติ · D04 หมวด+เลข
