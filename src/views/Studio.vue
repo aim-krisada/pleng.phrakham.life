@@ -4,11 +4,12 @@
 // All editing lives in EditorMode; reading lives in SongViewer / SongSheet. A/B/C/D can
 // evolve their own mode file without touching this shell (that is the whole point of
 // DS-04's contract: every mode takes { song, tier } and emits change / save).
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
+import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
 import { tier, initAuth, shellMenu } from '../store.js'
 import Icon from '../components/Icon.vue'
@@ -71,6 +72,17 @@ watch(
 // mounted (v-show), so their own onUnmounted stop never fires on a switch — the shell
 // stops any sound when you leave a mode. midi is a single global player, so one call does it.
 watch(mode, () => stopPlayback())
+
+// Name the browser tab after the open song, so ANY print path (our button OR Ctrl+P)
+// gets the right PDF filename — the print dialog suggests document.title. Restore the
+// site's own title when leaving the surface. (US-I2: same "เพลง.พระคำ.ชีวิต - ชื่อ" base.)
+const SITE_TITLE = document.title
+watch(
+  liveSong,
+  (s) => { document.title = s ? songBasename(s) : SITE_TITLE },
+  { immediate: true },
+)
+onUnmounted(() => { document.title = SITE_TITLE })
 
 // the editor pushes every edit up here → previews follow + no work is lost on a switch
 function onChange(song) {
@@ -149,9 +161,10 @@ function openPicked() {
   router.push('/song/' + id) // watcher loads it + preserves the current mode
 }
 
-// ---------- print (US-06) ----------
-// The 🖨 button in the แผ่น toolbar just triggers the browser print dialog; the printed
-// page layout (A4 · footer) is owned by SongSheet's @media print (WT-B / US-B02).
+// ---------- print (US-06 / US-I3) ----------
+// Just open the print dialog. The filename comes from document.title (set to the song
+// on load, above); the page layout — centered title + running footer — is owned by
+// SongSheet + lib/printChrome.js. Tell users to switch off the browser's own headers.
 function printSheet() {
   window.print()
 }
@@ -224,8 +237,8 @@ function printSheet() {
         </button>
       </div>
       <div class="card">
-        <h2 class="sheet-title">{{ titleText }}</h2>
-        <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" />
+        <h2 class="sheet-title no-print">{{ titleText }}</h2>
+        <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" :song-title="titleText" />
       </div>
     </div>
 
@@ -296,8 +309,10 @@ function printSheet() {
   }
 }
 .sheet-title {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   color: var(--brand);
+  text-align: center;
+  font-size: 1.5rem;
 }
 
 /* shell song picker (US-05) — teleported into the shared ShellBar */

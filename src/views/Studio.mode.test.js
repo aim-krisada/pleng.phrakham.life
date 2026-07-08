@@ -35,7 +35,7 @@ import EditorMode from '../components/EditorMode.vue'
 
 const stubs = {
   SongViewer: { name: 'SongViewer', props: ['song'], template: '<div class="stub-viewer" />' },
-  SongSheet: { name: 'SongSheet', props: ['content'], template: '<div class="stub-sheet" />' },
+  SongSheet: { name: 'SongSheet', props: ['content', 'songTitle'], template: '<div class="stub-sheet" />' },
   EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active'], emits: ['change', 'save'], template: '<div class="stub-editor" />' },
   Icon: true,
 }
@@ -93,6 +93,20 @@ describe('Studio shell — three modes on one surface (US-01)', () => {
     modeButtons()[0].click()
     await nextTick()
     expect(wrapper.findComponent(SongViewer).props('song')).toMatchObject({ number: 7, title_th: 'เพลงทดสอบ' })
+  })
+
+  it('แผ่น mode shows the song title centered at the top of the sheet (US-I3)', async () => {
+    const wrapper = mount(Studio, { global: { stubs } })
+    await nextTick()
+    wrapper.findComponent(EditorMode).vm.$emit('change', {
+      id: null, number: 7, title_th: 'เพลงทดสอบ', title_en: '',
+      content: { version: 2, key: 'C', timeSignature: '4/4', stanzas: [], arrangement: [] },
+    })
+    await nextTick()
+    modeButtons()[1].click() // แผ่น
+    await nextTick()
+    // title prints in the sheet body (<h2>), NOT passed into SongSheet's footer
+    expect(wrapper.find('.sheet-title').text()).toBe('7. เพลงทดสอบ')
   })
 
   it('gating flows from the store into every mode via the tier prop (DS-02/DS-04)', async () => {

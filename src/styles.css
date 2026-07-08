@@ -534,8 +534,14 @@ footer.site-footer a { color: var(--footer-ink); }
 
 /* ---------- print (A4) ---------- */
 @media print {
-  @page { margin: 0; }
-  body { background: #fff; padding: 15mm 20mm; }
+  /* Page margins live on @page so they apply to EVERY printed page (body padding pads
+     only page 1 top + last page bottom, which let content overlap the footer on
+     multi-page prints). The bottom margin reserves the band for the running footer —
+     the footer content itself (site · page X of Y · date) is injected as @page margin
+     boxes by lib/printChrome.js so all three share one baseline + size (US-I3).
+     Turn OFF the browser's own "Headers and footers" for a clean sheet. */
+  @page { margin: 15mm 16mm 16mm; }
+  body { background: #fff; }
   .no-print, footer.site-footer, header.topbar { display: none !important; }
   .card { border: none; padding: 0; }
   .song-line { overflow-x: visible; break-inside: avoid; }

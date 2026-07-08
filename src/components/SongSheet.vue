@@ -9,10 +9,12 @@ const props = defineProps({
   chordSystem: { type: String, default: 'letter' }, // 'letter' | 'number'
   displayKey: { type: String, default: '' }, // transpose target; '' = original
   playingSeg: { type: Object, default: null }, // { li, si } currently sounding
-  songTitle: { type: String, default: '' }, // for the printed page header/footer (US-B02)
+  songTitle: { type: String, default: '' }, // prints as the centered heading above the song
 })
 
-const SITE = 'เพลง.พระคำ.ชีวิต'
+// The running FOOTER (site · page X of Y · date) is drawn as @page margin boxes by
+// lib/printChrome.js (injected on print) so all three items share one size + baseline.
+// This component only owns the sheet BODY + the printed title heading above it.
 
 function chordText(chord) {
   return displayChord(chord, {
@@ -94,15 +96,10 @@ function isPlaying(li, si) {
 
 <template>
   <div :class="mode === 'lyrics' ? 'sheet-mode-lyrics' : ''">
-    <!-- print-only running footer (US-B02). Hidden on screen; on paper it repeats on
-         every page (position: fixed), inset from the paper edge so it prints cleanly.
-         Center "หน้า X ของ Y" is left to the page-level @page counter (shared print
-         CSS · WT-0) since a page count can't be derived in-component. -->
-    <div class="print-foot" aria-hidden="true">
-      <span class="pf-left">{{ SITE }}</span>
-      <span class="pf-center"></span>
-      <span class="pf-right">{{ songTitle }}</span>
-    </div>
+    <!-- Printed title — centered, above the song, on paper only (on screen the shell
+         bar / Studio heading already show it). Owned here so it prints from ANY mode
+         that renders the sheet (ดู or แผ่น), which is why P'Aim's ดู-mode print had none. -->
+    <h1 v-if="songTitle" class="sheet-print-title">{{ songTitle }}</h1>
     <div v-for="(grp, gi) in renderGroups" :key="gi" class="song-section">
     <div v-for="row in grp.lines" :key="row.li" class="song-line">
       <template v-for="(part, pi) in row.parts" :key="pi">
@@ -146,31 +143,19 @@ function isPlaying(li, si) {
     break-inside: avoid;
   }
 }
-/* On screen the running footer is hidden; it only exists for print (US-B02).
-   `position: fixed` makes it repeat on every printed page in Chrome/Edge. */
-.print-foot {
+/* Printed title heading — hidden on screen (the shell bar shows the title there),
+   shown centered above the song on paper only. */
+.sheet-print-title {
   display: none;
 }
 @media print {
-  .print-foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: fixed;
-    /* inset from the paper edge so the text isn't cramped in the corner / clipped
-       by the printer's non-printable margin — prints noticeably cleaner */
-    bottom: 10mm;
-    left: 16mm;
-    right: 16mm;
-    font-size: 9pt;
-    color: #444;
-  }
-  .print-foot .pf-center {
-    flex: 1;
+  .sheet-print-title {
+    display: block;
     text-align: center;
-  }
-  .print-foot .pf-right {
-    text-align: right;
+    font-size: 16pt;
+    font-weight: 700;
+    color: #000;
+    margin: 0 0 6mm;
   }
 }
 </style>
