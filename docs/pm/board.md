@@ -6,7 +6,7 @@
 อัปเดตล่าสุด: 2026-07-08 · PM session รอบที่ 1
 
 > ▶ **RESUME (PM session ใหม่ อ่านนี่ก่อน):** สวมบท PM ต่อ → อ่าน `docs/pm/pm.md` (ไม้ต่อครบ) + memory `pleng-pm-role` + ไฟล์นี้
-> **โฟกัสตอนนี้:** ps4-shell **คลื่น 1 (shell+dock) เสร็จ + P'Aim ทดสอบแล้ว** → **รอ sa-ps3 ตรวจ** (ผลลง `docs/pm/review-ps4-shell-wave1-report.md`) → **PM รวบยิง `dev-ps4-shell` แก้ 4 บั๊กจริง** (B030/B031/B033/B034)
+> **โฟกัสตอนนี้:** sa-ps3 ตรวจคลื่น 1 เสร็จ (repro จริง · `review-ps4-shell-wave1-report.md`) → 4 บั๊กแยกเป็น **B034 พร้อมยิง dev · B033 รอ P'Aim เคาะทิศดีไซน์ · B031+B030 ยกไปคลื่น 2** → รอ P'Aim เคาะ B033 แล้วยิง **B033+B034** เข้า `dev-ps4-shell` (StudioDock รอบเดียว)
 > **ถัดไป:** editor redesign คลื่น 2 (ครอบ B032/B035) + highlight (B029) = build ตาม `ps2-studio-prototype.html` · เรื่องค้างเดิม (③ sync docs status ps4 · ① DA 3 เรื่อง · ② lint เข้าฐาน) ทำต่อได้เมื่อพร้อม
 
 **Legend:** ✅ ยืนยันตรง 3 แหล่ง · ⚠️ ต้องเคลียร์/ตัดสิน · ⏳ ยังไม่รายงาน
@@ -21,10 +21,17 @@ dev ps4-shell เสร็จ → P'Aim ลองใช้เอง (= gate real
 | dock (ร่วม) | ❌ | B030 (ฝึกร้อง ไม่แสดง) · B033 เลื่อนคีย์ไม่ได้ · B034 toggle ซ่อน/แสดงเสีย — StudioDock (wave1) มีปัญหาหลายจุด |
 
 **⚠️ scope ยืนยัน (git):** dev ps4-shell = **คลื่น 1 = shell + StudioDock เท่านั้น** → แยกผลเป็น 2 กลุ่ม:
-- **บั๊กจริง (คลื่น 1):** B030 · B031 · B033 · B034 → รอ sa-ps3 ยืนยัน แล้ว PM ยิง dev
-- **ยังไม่ build (ไม่ใช่บั๊ก · คลื่นถัดไป):** B029 (highlight) · B032+B035 (editor redesign คลื่น 2)
+**✅ sa-ps3 ตรวจแล้ว (repro จริง port 5311) — verdict:**
+| id | verdict | รุนแรง | ทำที่ไหน |
+|---|---|---|---|
+| B034 | บั๊กจริง (toggle หุบเสีย desktop) | **สูง** | **dev คลื่น 1 (wt-shell) แก้ได้เลย · ชัด** |
+| B033 | บั๊กจริง (21 คีย์แออัด · ไม่ scroll) | **สูง** | **รอ P'Aim เคาะทิศ** (scroll / ลดคีย์ / 2 แถว) → dev |
+| B031 | บั๊กจริง (แถบบน edit ไม่มี "เพลง ▾") | กลาง | คลื่น 2 (editor rebase · unify + B003) |
+| B030 | ไม่ใช่บั๊ก (dock sing/print ยังไม่ mount) | — | คลื่น 2 |
 
-**สถานะ:** ส่ง brief ตรวจ (scoped คลื่น 1) เข้า sa-ps3 แล้ว (`review-ps4-shell-wave1.md`) · รอ report ที่ `review-ps4-shell-wave1-report.md` → PM รวบยิง dev
+heads-up: **N1** dock จะซ้อนตอนคลื่น 2 (ต้องยก StudioDock ขึ้นระดับ Studio) · **N2** infra: เปิด `localhost:5311` (ไม่ใช่ 127.0.0.1 · IPv6)
+**ยังไม่ build (ไม่ใช่บั๊ก):** B029 highlight · B032+B035 editor redesign = คลื่น 2
+**สถานะ:** รอ P'Aim เคาะทิศ B033 → PM ยิง **B033+B034** เข้า `dev-ps4-shell` (StudioDock ไฟล์เดียว รอบเดียว)
 → รวบเป็น brief ส่ง sa-ps3 (review + ยืนยัน + สเปกแก้)
 
 ## สายงาน (roster + สถานะ verify)
