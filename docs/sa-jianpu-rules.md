@@ -23,6 +23,12 @@ B009 IA เมนู · B012 controls โครงเพลง · B005 แก้
 
 > ⚠️ เดิม session นี้เคยเสนอรับ "กลุ่ม ก. (ตัวเล็ก)" — แต่พองานเป็นสาย "กฎทำเพลง" ตัวเล็กพวกนี้เป็น **UI = ธีม ps3sa** เลยยกให้ ps3sa · ถ้าจะให้ sa-jianpu-rules ช่วยแบ่งเบา ค่อยเคลมทีหลัง
 
+## ✅ Handshake ยืนยันขอบเขต (8 ก.ค. · กับ ps3sa)
+- **sa-jianpu-rules เป็นเจ้าของ:** `us|ds/ps3-editor-rules` · `us|ds/ps3-double-dot` · `src/lib/notationLint.js` · ไฟล์นี้ · แถว **B026/B027** ใน backlog · บรรทัด B026/B027 ใน status
+- **ps3sa เป็นเจ้าของ:** `design/ps3-dock-prototype.html` · `us|ds/ps3-dock` · `us|ds/ps3-{shell,editor,viewer,highlight}` · backlog แถว B003/B005/B006/B007/B008/B009/B010/B011/B012/B016/B017/B021/B022/B023/B024/B025 · status บรรทัด UI/design
+- **verified ไม่ทับกัน** (footprint sa-jianpu-rules = แค่ B026/B027 + ไฟล์ตัวเอง) · `ps3-editor-rules.md` ≠ `ps3-editor.md` (คนละไฟล์)
+- ⚠️ **heads-up ตอน build ps4 (ยังไม่ตอนนี้):** B027 (จุดคู่) จะแตะโค้ด **shared**: `notation.js` · `midi.js` · `NoteRow.vue` · `Guide.vue` — ทับกับงาน editor ของ ps3sa ได้ → ค่อยจัดลำดับ/worktree ตอน ps4 (เฟส design นี้ยังไม่ชน)
+
 ## กติกากันชน (สำคัญ)
 1. แต่ละ session แก้เฉพาะ **ไฟล์ US/DS ของ item ที่ตัวเองรับ** — คนละ item = คนละไฟล์ = ไม่ชน
 2. ไฟล์ shared (`backlog.md` · `status.md` · ไฟล์นี้) → **targeted edit เฉพาะแถว/บรรทัดของตัวเอง** (ห้าม rewrite ทั้งไฟล์) · เช็ก git ก่อนแก้ · `git add <file>` เจาะจง (ไม่ใช่ `-A`) · commit บ่อย
