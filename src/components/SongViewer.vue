@@ -6,7 +6,7 @@
 // mode instead of loading by route.
 import { ref, computed, onUnmounted, watch, nextTick } from 'vue'
 import { KEYS } from '../lib/chords.js'
-import { playSong, stopPlayback, setTranspose, keyTranspose, TEMPO_MARKS } from '../lib/midi.js'
+import { playSong, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS } from '../lib/midi.js'
 import { resolveContent } from '../lib/songModel.js'
 import SongSheet from './SongSheet.vue'
 import Icon from './Icon.vue'
@@ -26,6 +26,7 @@ const playing = ref(false)
 const loop = ref(false)
 const tempo = ref(props.song?.content?.bpm || 92)
 const playingSeg = ref(null)
+const playingSyl = ref(null) // { li, si, syk } — the syllable+note sounding now (B006)
 const playingSection = ref(null) // 'all' | section index | null
 const sheetWrap = ref(null)
 const fontScale = ref(1)
@@ -97,6 +98,7 @@ function stopPlay() {
   playing.value = false
   playingSection.value = null
   playingSeg.value = null
+  playingSyl.value = null
 }
 async function startPlay(range, key, startIndex = 0) {
   stopPlayback()
@@ -116,6 +118,9 @@ async function startPlay(range, key, startIndex = 0) {
     startIndex,
     onNote: (n, idx) => {
       playingSeg.value = { li: n.li, si: n.si }
+      // move the per-syllable highlight only on a sung attack (n.syk set); rests and
+      // held/melisma notes carry none, so the current word stays lit through the hold.
+      if (n.syk != null) playingSyl.value = { li: n.li, si: n.si, syk: n.syk }
       playedIndex.value = idx
     },
   })
@@ -124,6 +129,7 @@ async function startPlay(range, key, startIndex = 0) {
     playing.value = false
     playingSection.value = null
     playingSeg.value = null
+    playingSyl.value = null
     pausedIndex.value = 0
   }
 }
@@ -155,6 +161,16 @@ watch(tempo, () => {
 })
 function printSheet() {
   window.print()
+}
+// tap a syllable/note in the sheet → jump playback there (US H1). Find the note's index
+// in the (unfiltered) play order and start the whole song from it, in the current key.
+function onSeek({ li, si, syk }) {
+  const notes = songToNotes(resolved.value)
+  let idx = notes.findIndex((n) => n.li === li && n.si === si && n.syk === syk)
+  if (idx < 0) idx = notes.findIndex((n) => n.li === li && n.si === si) // rest/blank slot
+  if (idx < 0) return
+  pausedIndex.value = idx
+  startPlay(undefined, 'all', idx)
 }
 onUnmounted(stopPlayback)
 </script>
@@ -210,7 +226,7 @@ onUnmounted(stopPlayback)
     </div>
 
     <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: fontScale + 'rem' }">
-      <SongSheet :content="resolved" :mode="mode" :chord-system="chordSystem" :display-key="displayKey" :playing-seg="playingSeg" :song-title="printTitle" />
+      <SongSheet :content="resolved" :mode="mode" :chord-system="chordSystem" :display-key="displayKey" :playing-seg="playingSeg" :playing-syl="playingSyl" interactive :song-title="printTitle" @seek="onSeek" />
     </div>
   </div>
 </template>

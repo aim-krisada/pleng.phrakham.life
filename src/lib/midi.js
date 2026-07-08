@@ -74,9 +74,13 @@ function expandRepeats(bars) {
   return out
 }
 
-// Flatten a song's content into [{ midi, beats, li, bi, si }] (midi null = rest).
+// Flatten a song's content into [{ midi, beats, li, bi, si, syk }] (midi null = rest).
 // li/bi = line and bar indices; si = segment index within the line (counts every
-// segment item, matching SongSheet) — used for follow-along highlight + auto-scroll.
+// segment item, matching SongSheet). syk = the syllable-slot index WITHIN the segment
+// of the attack that sounds this note (undefined for rests / held-continuation notes)
+// — this is what drives per-syllable follow-along highlight (B006). A slot counts every
+// note box except brackets, so it lines up 1:1 with SongSheet's per-syllable spans and
+// each NoteRow digit (a held '-' or a melisma keeps its slot but takes no new word).
 // Repeat/volta marks are expanded so playback actually loops.
 export function songToNotes(content) {
   const root = KEY_MIDI[content.key] ?? 60
@@ -101,13 +105,18 @@ export function songToNotes(content) {
       si++
       if (!item.note) continue
       const bn = bar.notes
+      // syllable-slot index within this segment: every note box (a note, a rest, or a
+      // '-' extension) advances it; brackets don't. This matches syllableSlots() so the
+      // slot a played attack carries points at the same per-syllable span in SongSheet.
+      let slot = -1
       for (const g of groupNotes(parseNotes(item.note))) {
         const f = g.group === 'triplet' ? 2 / 3 : 1
         let prevMidi = null // last pitched note in THIS group (for slur-over-same-pitch)
         for (const t of g.tokens) {
           if (t.type === 'note') {
+            slot++
             if (t.pitch === '0') {
-              bn.push({ midi: null, beats: tokenBeats(t, f), li, bi, si })
+              bn.push({ midi: null, beats: tokenBeats(t, f), li, bi, si }) // rest: no syllable
               prevMidi = null
             } else {
               let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
@@ -122,14 +131,16 @@ export function songToNotes(content) {
               // ACROSS bar lines too, not just within one bar.
               const slurTie = g.group === 'slur' && prevMidi === midi && last && last.midi === midi
               if (slurTie) {
-                last.beats += tokenBeats(t, f)
+                last.beats += tokenBeats(t, f) // melisma: this slot holds no new word
               } else {
-                bn.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, tieEnd: !!t.tieEnd, li, bi, si })
+                // an attack: carry its slot so the highlight lands on this syllable
+                bn.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, tieEnd: !!t.tieEnd, li, bi, si, syk: slot })
               }
               prevMidi = midi
             }
-          } else if (t.type === 'ext' && bn.length) {
-            bn[bn.length - 1].beats += 1 * f
+          } else if (t.type === 'ext') {
+            slot++ // a '-' box holds the previous syllable — its own (blank) slot
+            if (bn.length) bn[bn.length - 1].beats += 1 * f
           }
         }
       }
