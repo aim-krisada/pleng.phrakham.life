@@ -956,6 +956,12 @@ function playFull() {
 function playLine(li) {
   return runPlay({ key: opts.key, lines: [serializeLine(lines.value[li])] }, li, true)
 }
+function playBar(li, bi) {
+  const line = lines.value[li]
+  if (!line || !line.bars[bi]) return
+  const one = { ...line, bars: [line.bars[bi]], cont: false }
+  return runPlay({ key: opts.key, timeSignature: opts.timeSignature, lines: [serializeLine(one)] }, li, false)
+}
 
 // ---------- undo / redo ----------
 // Debounced JSON snapshots of the whole editing state (meta + opts + stanzas +
@@ -1557,7 +1563,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
           >
             <!-- one column per note: chord on top, note box, then the syllable box
                  directly under its note (edit everything here — no duplicate preview) -->
-            <div class="seg-strip">
+            <div v-if="!barShown(li, bi)" class="seg-strip">
               <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col">
                 <div class="chord-row">
                   <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell">
@@ -1608,7 +1614,12 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
                 <button class="secondary tiny seg-del" aria-label="ลบช่องคอร์ดนี้" @click="removeSegment(bar, si)">✕</button>
               </div>
             </div>
-            <!-- bar foot: beat status + repeat/volta marks + ⋯ tools popover -->
+            <!-- ดูผล: the same bar drawn clean (jianpu render) — REPLACES the edit grid, not
+                 stacked. Words come from the lens verse so it matches the singer's sheet. -->
+            <div v-else class="ed-bar-render" @click="toggleBarShown(li, bi)" title="แตะเพื่อกลับไปแก้">
+              <SongSheet :content="barContent(li, bi)" mode="full" chord-system="letter" :display-key="opts.key" />
+            </div>
+            <!-- bar foot: beat status + repeat/volta marks + ▶ฟัง + ดูผล + ⋯ tools popover -->
             <div class="ed-bar-foot no-print">
               <span class="ed-bar-status" :class="{ bad: !barStatus(li, bi).ok }">
                 <template v-if="barStatus(li, bi).text">{{ barStatus(li, bi).text }} {{ barStatus(li, bi).ok ? '✓' : '❌' }}</template>
@@ -1617,6 +1628,10 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
               <span v-if="bar.repeatStart" class="ed-bar-mark" title="เริ่มเล่นซ้ำ">‖:</span>
               <span v-if="bar.repeatEnd" class="ed-bar-mark" title="วนกลับ">:‖</span>
               <span v-if="bar.volta" class="ed-bar-mark" :title="bar.volta === 1 ? 'ห้องจบรอบแรก' : 'ห้องจบรอบสอง'">{{ bar.volta }}.</span>
+              <span class="ed-bar-acts">
+                <button class="ed-mini" title="ฟังห้องนี้" aria-label="ฟังห้องนี้" @click="playBar(li, bi)"><Icon name="play" :size="14" /></button>
+                <button class="ed-mini" :class="{ on: barShown(li, bi) }" :aria-pressed="barShown(li, bi)" title="ดูผล — สลับ แก้ ⇄ แผ่นเพลง (ห้องนี้)" aria-label="ดูผลห้องนี้" @click="toggleBarShown(li, bi)"><Icon name="music" :size="14" /></button>
+              </span>
               <span class="ed-bar-more-wrap">
                 <button
                   class="ed-mini"
@@ -2539,7 +2554,20 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 .ed-bar-status { color: var(--muted); }
 .ed-bar-status.bad { color: var(--red); font-weight: 700; }
 .ed-bar-mark { font-family: 'Courier New', monospace; font-weight: 700; color: var(--brand); font-size: 12px; }
-.ed-bar-more-wrap { position: relative; margin-left: auto; }
+.ed-bar-acts { display: inline-flex; gap: 4px; margin-left: auto; }
+.ed-bar-more-wrap { position: relative; }
+/* ดูผล render: the clean bar drawn in place of the edit grid (tap to go back to editing) */
+.ed-bar-render {
+  border: 1px dashed var(--brand);
+  border-radius: 8px;
+  background: #fffdf5;
+  padding: 8px 10px;
+  cursor: pointer;
+  min-height: 44px;
+}
+@media (hover: hover) {
+  .ed-bar-render:hover { background: var(--cream); }
+}
 .ed-bar-menu {
   position: absolute;
   top: calc(100% + 4px);
