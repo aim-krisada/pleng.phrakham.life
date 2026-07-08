@@ -30,3 +30,4 @@ idea ไหนจะทำจริง → ยกขึ้นเป็น user s
 | B018 | bug | เนื้อหาตกขอบ (overflow) | img `B018-overflow.png` — ระบุจุดตอนทำ | idea | ps2 (responsive) |
 | B020 | bug | mobile: แถบ/dock ล่างไม่ติดขอบล่างจอ | img `B020-mobile-dock-sticky.png` | idea | ps2 (mobile) |
 | B021 | feature | เลือก show/hide dock (แถบเครื่องมือล่าง) ได้ | ผู้ใช้กดซ่อน/แสดง dock (คีย์โน้ต + ปุ่ม) เพื่อเพิ่มพื้นที่จอ · เกี่ยวกลุ่ม IA (B009) | idea | ps2 (editor/shell) |
+| B022 | feature | ปรับ transparency พื้นหลัง dock (คีย์โน้ต) ได้ | ตั้งความโปร่งของแถบ dock เพื่อเห็นเนื้อ/โน้ตด้านหลังขณะพิมพ์ · เกี่ยว B021 (dock) · กลุ่ม ② IA/dock | idea | ps2 (editor/shell) |
