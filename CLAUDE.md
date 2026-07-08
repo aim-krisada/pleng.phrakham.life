@@ -38,11 +38,13 @@ Preview tools: `preview_start "dev"` (config in `.claude/launch.json`).
   **v2:** separates **melody (stanza)** from **words (verse/refrain linked to a stanza)**, one syllable per syllable-bearing note. See `docs/song-model-v2.md`.
 - Notation: numbers = scale degrees; `.` above/below = octave; `-`/`~` = held/tie; `|` = bar.
 
-## Work convention (folders are gitignored — local scratch per device)
+## Work convention (docs-driven — read `docs/README.md` first)
 
-- New work → `features/feature NNN/` · bugs → `bugs/bug NNN/`. Each holds a `.txt` (Thai brief) + screenshots.
-- To start a task, just say e.g. **"ทำ bug 016"** → read `bugs/bug 016/*.txt` + images, then work.
-- Current WIP: feature 003 v2 (linked stanzas, repeat/volta playback) — see git log.
+- **Orientation, every session:** `docs/README.md` = project map (folders + key files). `docs/mission.md` = purpose + 3-tier permission model + worktree plan.
+- **Flow (ISO 29110-5-4, light):** `docs/backlog.md` (single idea inbox) → `docs/us/<epic>.md` (user story + AC) → `docs/ds/<epic>.md` (design spec) → code. Everything traces back to the mission.
+- **New idea from P'Aim (image + text):** file it into `docs/backlog.md` with an id + save the image under `docs/backlog-assets/`.
+- **Base branch for all current work = `studio-shell-redesign`** (NOT merged to `main`; `main` auto-deploys — never merge/deploy without P'Aim's go).
+- Old `features/` + `bugs/` scratch folders were archived to `OneDrive/4 Personal/claude/pleng/scratch-archive/` (no longer in the repo).
 
 ## Parallel sessions on one PC → git worktree
 
@@ -53,12 +55,11 @@ be self-contained so it can go in its own worktree/branch. Practical rules:
 - Keep work isolated: no shared mutable scratch that two sessions write at once; sessions meet only at `git merge`.
 - Each `feature NNN` / `bug NNN` should stand alone so it can be picked up in a fresh session with no cross-talk.
 
-One task = one worktree = one branch (no live file clashes; merge via normal git):
+One task = one worktree = one branch (no live file clashes; merge via normal git). Branch from the base `studio-shell-redesign`, not `main`:
 
 ```sh
-git worktree add ../pleng-feat-003 -b feature-003
-git worktree add ../pleng-bug-016  -b bug-016
-npm run dev -- --port 5174          # give each worktree its own port
-git worktree remove ../pleng-feat-003   # when done
+git worktree add ../pleng-wt0 -b wt0-foundation studio-shell-redesign
+npm run dev -- --port 5301               # give each worktree its own port
+git worktree remove ../pleng-wt0         # when done
 ```
-Open a separate Claude Code window per worktree. Merge branches back to `main` when done.
+Open a separate Claude Code window per worktree. Merge branches back to the base `studio-shell-redesign` when done; `main` only on P'Aim's explicit go (it auto-deploys).
