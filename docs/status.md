@@ -1,83 +1,50 @@
-# สถานะปัจจุบัน — เพลง.พระคำ.ชีวิต
+# Sprint ledger / สถานะ — เพลง.พระคำ.ชีวิต
 
-กระดานบอก "ตอนนี้ถึงไหนแล้ว" · **SA อัปเดตทุกครั้งที่มีอะไรเปลี่ยน**
-สถานะ: spec → dev+test → merge → tester
+**ฐาน:** `studio-shell-redesign` (ยังไม่แตะ `main`) · **SA อัปเดตทุกครั้งที่เปลี่ยน**
+**เล่นตัวรวมล่าสุด:** `npm run dev` ที่ dir หลัก → http://localhost:5173
 
-## ✅ WT-0 ฐาน — เสร็จ + merge แล้ว (`9a60886`)
-| US | spec | dev+test | merge | tester |
-|---|:--:|:--:|:--:|:--:|
-| US-01 surface เดียว 3 มุมมอง | ✅ | ✅ | ✅ | ⬜ |
-| US-02 สิทธิ์ที่ "การเก็บ" | ✅ | ✅ | ✅ | ⬜ |
-| US-03 เชิญเท่านั้น | ✅ | ✅ | ✅ | ⬜ |
-| US-04 สัญญาจุดต่อ (contract) | ✅ | ✅ | ✅ | ⬜ |
+---
 
-`Studio.vue` เป็น thin shell · `EditorMode.vue` แยกออก · store gating (`tier`/`canStore`/`canApprove`) · contract (props `song`/`tier`/`active`, events `change`/`save`) · vitest 12/12 · build ✅
-**หมายเหตุ:** WT-0 แตะ `SongViewer.vue`+`midi.js` (คืน live key re-tune + หยุดเล่นตอนสลับโหมด) — A/B/C/D branch จากฐานใหม่นี้ได้ live-key ไปเลย
+## ✅ Sprint 1 (ps1) — เสร็จ + merge ครบ
+1 SA + 4 dev (WT-A–D) + WT-0 (foundation + followups) · **unit 61/61 · build ✅**
 
-## ✅ WT-0 follow-up — เสร็จ + merge แล้ว (`wt0-followups` · port 5301 ค้างให้ tester)
-| งาน | spec | dev+test | merge | tester |
-|---|:--:|:--:|:--:|:--:|
-| US-05 เปิด/เลือกเพลงทุกโหมด (#3) | ✅ | ✅ | ✅ | ⬜ (5301) |
-| US-06 ปุ่มพิมพ์ในโหมดแผ่น (#4-ปุ่ม) | ✅ | ✅ | ✅ | ⬜ (5301) |
-| B002 ชื่อโหมด ฝึกร้อง·แผ่นเพลง·แก้ไข | ✅ | ✅ | ✅ | ⬜ (5301) |
+| epic | ส่งมอบ |
+|---|---|
+| WT-0 + followups | Studio = shell · 3 โหมด **ฝึกร้อง/แผ่นเพลง/แก้ไข** · สิทธิ์ 3 tier · เปิดเพลงทุกโหมด · ปุ่มพิมพ์ |
+| WT-A ร้อง | คาราโอเกะ เล่น/หยุด-ต่อ · คีย์/tempo สด/วนซ้ำ · ฟอนต์/เลือกท่อน |
+| WT-B พิมพ์ | แผ่น A4 · footer · ไม่ตัดกลางท่อน |
+| WT-C JSON | ดาวน์โหลด/อัปโหลด/ตรวจไฟล์ · lib กลาง (`jsonIO`, `songName`) |
+| WT-D รอบ 1 | บันทึกร่าง (store action) · editor แผ่นเดียว |
 
-unit 16/16 · แตะ `Studio.vue` ไฟล์เดียว · **ค้าง observation:** เมนูเปิดเพลงซ้ำในโหมดแก้ → B003 (ให้ WT-D เก็บ)
+รายงาน dev ทุกตัว: `docs/reports/` · spec: `docs/us/` + `docs/ds/`
 
-## ✅ WT-A ร้อง — เสร็จ + merge แล้ว (`wt-a-sing` · port 5302)
-| US | spec | dev+test | merge | tester |
-|---|:--:|:--:|:--:|:--:|
-| US-A01 เล่นตามคาราโอเกะ (+ pause/resume) | ✅ | ✅ | ✅ | ⬜ (ฟังหู) |
-| US-A02 คีย์/ความเร็ว/วนซ้ำ | ✅ | ✅ | ✅ | ⬜ |
-| US-A03 อ่านง่าย | ✅ | ✅ | ✅ | ⬜ |
-| US-A04 tempo สดตอนเล่น | ✅ | ✅ | ✅ | ⬜ (ฟังหู) |
-unit 61/61 · แก้ latent bug (ผูกคีย์กับ identity เพลง) · **ไฮไลต์ระดับคำ/โน้ต = B006 (งานแยก ไม่บล็อก)**
+---
 
-## ✅ WT-B พิมพ์ — เสร็จ + merge แล้ว (`wt-b-print` · port 5303)
-| US | spec | dev+test | merge | tester |
-|---|:--:|:--:|:--:|:--:|
-| US-B01 ดูแผ่นเพลงเต็ม | ✅ | ✅ | ✅ | ⬜ (5303) |
-| US-B02 พิมพ์ A4 (footer · ไม่ตัดกลางท่อน · ซ่อน UI) | ✅ | ✅ | ✅ | ⬜ (5303) |
+## 🔜 Sprint 2 (ps2) — แผน
 
-แตะ `SongSheet.vue` ไฟล์เดียว · unit 24/24 · build ✅ · **ค้าง print-polish นอกไฟล์ WT-B → B004 (WT-0)** + design decision #4 (คีย์ร่วม/ที่พิมพ์ — รอ P'Aim เคาะ)
+### A. dev-ready (spec พร้อม จ่ายได้เลย)
+| งาน | branch | port | US |
+|---|---|---|---|
+| ต่อสาย integration (JSON/พิมพ์/คู่มือ/ชื่อไฟล์) | `wt0-integration` | 5301 | `docs/us/wt0-integration/` US-I1..I5 |
+| WT-D รอบ 2 (ส่งตรวจ/อนุมัติ/หมวด+เลข) | `wt-d-round2` | 5305 | `docs/us/wt-d-editor-library/` US-D02/D03/D04 |
 
-## ✅ WT-C JSON — เสร็จ + merge แล้ว (`wt-c-json` · port 5304)
-| US | spec | dev+test | merge | tester |
-|---|:--:|:--:|:--:|:--:|
-| US-C01 ดาวน์โหลด JSON | ✅ | ✅ | ✅ | ⬜ |
-| US-C02 อัปโหลด on-demand | ✅ | ✅ | ✅ | ⬜ |
-| US-C03 เสนอเพลง (= คู่มือ ไม่ใช่โค้ด → US-I4) | ✅ | ✅ | ✅ | — |
-| US-C04 ตรวจไฟล์ | ✅ | ✅ | ✅ | ⬜ |
-lib ใหม่ `jsonIO.js` + `songName.js` · unit 45/45 · **การต่อสายใน shell/editor → sprint `wt0-integration`**
+### B. SA ออกแบบก่อนจ่าย (ps2 SA ทำก่อน แล้วเขียน US/DS)
+- **B005** รวม "จุดแก้เนื้อร้อง 2 ที่" (textarea ลำดับเพลง vs กล่องพยางค์)
+- **B006** ไฮไลต์คาราโอเกะระดับคำ/โน้ต (ผูก v1 เอื้อน / v2) — dev แนะ worktree ใหม่
+- **B001** ปุ่มเลื่อนขึ้น/ลง (reuse phrakham.life) — เล็ก เขียน US ได้เลย
 
-## 🔶 WT-D ทำเพลง→คลัง — รอบ 1 merge แล้ว (`wt-d-editor-library` · 5305 · สาขาคงไว้ทำรอบ 2)
-| US | spec | dev+test | merge | tester |
-|---|:--:|:--:|:--:|:--:|
-| US-D01 บันทึกร่าง (แยกเป็น store action) | ✅ | ✅ | ✅ | ⬜ |
-| US-D05 editor แผ่นเดียว (ใหม่ · เอา preview ซ้ำออก) | ✅ | ✅ | ✅ | ⬜ |
-| US-D02 ส่งตรวจ · US-D03 อนุมัติ · US-D04 หมวด+เลข | ✅ | ⬜ | ⬜ | ⬜ (รอบ 2) |
-unit 49/49 · **WT-D merged → US-I5 (integration EditorMode) + B003 ปลดล็อกแล้ว**
+### C. ค้าง P'Aim เคาะ (ก่อน dev เริ่มจุดที่เกี่ยว)
+- **WT-B #4 คีย์ตอนพิมพ์** — SA แนะ "คีย์เดียวใช้ร่วมทุกโหมด (แบบ A)" · รอเคาะ A/B
+- **อีเมลทีม** สำหรับคู่มือ C03 (US-I4)
 
-## 🔜 sprint ถัดไป: WT-0 integration (`wt0-integration` · port 5301)
-| US | ทำได้เลย? | เรื่อง |
-|---|:--:|---|
-| US-I1 | ✅ | currentSong → ปุ่ม navbar โผล่ |
-| US-I2 | ✅ | SSOT ชื่อไฟล์ `เพลง.พระคำ.ชีวิต - <ชื่อเพลง>` |
-| US-I3 | ✅ | print footer ชื่อเพลง + หน้า X ของ Y (B004) |
-| US-I4 | ✅ | คู่มือ C03 ใน Guide.vue |
-| US-I5 | ⚠️ รอ WT-D | upload validate + downloadJson lib + ตัดเมนูซ้ำ (B003) |
+---
 
-## ถัดไป (next actions) — 🎉 ทุก epic ตั้งต้น merge ครบ (unit 61/61 · build ✅ · ยังไม่แตะ main)
-**งานสร้างที่เหลือ:**
-- [ ] wt0-integration (5301): US-I1–I5 พร้อมทำทั้งหมด
-- [ ] WT-D รอบ 2 (5305): US-D02 ส่งตรวจ · US-D03 อนุมัติ · US-D04 หมวด+เลข
+## วิธีเปิด ps2 (fresh Claude sessions — แนะนำ)
+- **SA:** วาง `อ่าน docs/prompts/sa.md`
+- **dev:** วาง `อ่าน docs/prompts/dev.md · ผมต้องการ ทำ <งาน> เริ่มจาก <US>`
+- ทุก session อ่าน git = SSOT: `docs/README.md` → `mission.md` → `workflow.md` → `status.md` (ไฟล์นี้)
 
-**โจทย์ SA (design ก่อนจ่าย):**
-- [ ] B005 รวม "จุดแก้เนื้อร้อง 2 ที่" · B006 ไฮไลต์ระดับคำ/โน้ต (ผูก v1/v2)
-
-**ค้างเคาะ P'Aim:** WT-B #4 คีย์ตอนพิมพ์ (A/B) · อีเมลทีม C03 · B001 ปุ่มเลื่อน
-**tester (พี่เปา):** ยังไม่ได้ลองหลาย epic (server ค้าง 5301–5305)
-
-## หมายเหตุ
-- ฐาน = `studio-shell-redesign` (ยังไม่ขึ้น `main`)
-- collision: `store.js` (WT-0+WT-D) · `songModel.js` (WT-D · WT-C เรียกใช้) · print CSS scoped ใน SongSheet (WT-B) · `Studio.vue` = WT-0 เท่านั้น (รวม wt0-followups)
-- workflow เพิ่ม (จากบทเรียน WT-0): dev ค้าง server ไว้ + ใส่ URL ตรวจท้ายรายงาน · bug "ได้ยิน" พิสูจน์ด้วยหูก่อนแก้
+## เก็บกวาด (ค้างจาก ps1)
+- โฟลเดอร์บนดิสก์ที่ dev server ps1 ยังจับล็อกอยู่ (git ไม่ track แล้ว): `pleng-wt-b-print` · `pleng-wt-c-json` · `pleng-wt-d-editor-library`
+  → **ปิด session dev ps1 (b/c/d) แล้วลบโฟลเดอร์** (ของ a/wt0-followups เก็บให้แล้ว)
+- tester (พี่เปา) ยังไม่ได้ลองหลาย epic — ลองที่ 5173 (ตัวรวม) ได้เลย
