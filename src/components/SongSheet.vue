@@ -9,7 +9,10 @@ const props = defineProps({
   chordSystem: { type: String, default: 'letter' }, // 'letter' | 'number'
   displayKey: { type: String, default: '' }, // transpose target; '' = original
   playingSeg: { type: Object, default: null }, // { li, si } currently sounding
+  songTitle: { type: String, default: '' }, // for the printed page header/footer (US-B02)
 })
+
+const SITE = 'เพลง.พระคำ.ชีวิต'
 
 function chordText(chord) {
   return displayChord(chord, {
@@ -67,6 +70,23 @@ const renderLines = computed(() =>
   }),
 )
 
+// Group consecutive lines into ท่อน (a new group starts at each section label) so a
+// whole ท่อน can be kept together across page breaks when printing (US-B02: "ไม่ตัด
+// กลางท่อน"). Keeps each line's original index (li) for playback highlight / data-seg.
+const renderGroups = computed(() => {
+  const groups = []
+  let cur = null
+  renderLines.value.forEach((parts, li) => {
+    const startsSection = parts.length && parts[0].type === 'section'
+    if (startsSection || !cur) {
+      cur = { lines: [] }
+      groups.push(cur)
+    }
+    cur.lines.push({ li, parts })
+  })
+  return groups
+})
+
 function isPlaying(li, si) {
   return props.playingSeg && props.playingSeg.li === li && props.playingSeg.si === si
 }
@@ -74,8 +94,18 @@ function isPlaying(li, si) {
 
 <template>
   <div :class="mode === 'lyrics' ? 'sheet-mode-lyrics' : ''">
-    <div v-for="(line, li) in renderLines" :key="li" class="song-line">
-      <template v-for="(part, pi) in line" :key="pi">
+    <!-- print-only running footer (US-B02). Hidden on screen; on paper it repeats on
+         every page (position: fixed), inset from the paper edge so it prints cleanly.
+         Center "หน้า X ของ Y" is left to the page-level @page counter (shared print
+         CSS · WT-0) since a page count can't be derived in-component. -->
+    <div class="print-foot" aria-hidden="true">
+      <span class="pf-left">{{ SITE }}</span>
+      <span class="pf-center"></span>
+      <span class="pf-right">{{ songTitle }}</span>
+    </div>
+    <div v-for="(grp, gi) in renderGroups" :key="gi" class="song-section">
+    <div v-for="row in grp.lines" :key="row.li" class="song-line">
+      <template v-for="(part, pi) in row.parts" :key="pi">
         <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}</span>
         <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
         <span v-else-if="part.type === 'label'" class="line-label">{{ part.text }}</span>
@@ -89,8 +119,8 @@ function isPlaying(li, si) {
             v-for="seg in part.segments"
             :key="seg.si"
             class="segment"
-            :class="{ 'seg-playing': isPlaying(li, seg.si) }"
-            :data-seg="`${li}-${seg.si}`"
+            :class="{ 'seg-playing': isPlaying(row.li, seg.si) }"
+            :data-seg="`${row.li}-${seg.si}`"
           >
             <span v-if="mode === 'full'" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
             <span v-if="mode === 'full'" class="note"><NoteRow :notes="seg.note" />&nbsp;</span>
@@ -99,5 +129,48 @@ function isPlaying(li, si) {
         </span>
       </template>
     </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+/* The ท่อน wrapper is invisible to on-screen layout (display: contents) so nothing
+   changes in the ดู view; only when printing does it become a block that must not be
+   split across pages (US-B02: "ไม่ตัดกลางท่อน"). */
+.song-section {
+  display: contents;
+}
+@media print {
+  .song-section {
+    display: block;
+    break-inside: avoid;
+  }
+}
+/* On screen the running footer is hidden; it only exists for print (US-B02).
+   `position: fixed` makes it repeat on every printed page in Chrome/Edge. */
+.print-foot {
+  display: none;
+}
+@media print {
+  .print-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: fixed;
+    /* inset from the paper edge so the text isn't cramped in the corner / clipped
+       by the printer's non-printable margin — prints noticeably cleaner */
+    bottom: 10mm;
+    left: 16mm;
+    right: 16mm;
+    font-size: 9pt;
+    color: #444;
+  }
+  .print-foot .pf-center {
+    flex: 1;
+    text-align: center;
+  }
+  .print-foot .pf-right {
+    text-align: right;
+  }
+}
+</style>
