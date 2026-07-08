@@ -97,10 +97,11 @@ const titleText = computed(() => {
   return (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
 })
 
+// B002 (P'Aim-approved names): ฝึกร้อง · แผ่นเพลง · แก้ไข (ids stay view/sheet/edit)
 const MODES = [
-  { id: 'view', label: 'ดู', icon: 'eye', title: 'ดู (ร้องตาม)' },
-  { id: 'sheet', label: 'แผ่น', icon: 'file-text', title: 'แผ่นเพลง (ไว้พิมพ์)' },
-  { id: 'edit', label: 'แก้', icon: 'pencil', title: 'แก้ไข' },
+  { id: 'view', label: 'ฝึกร้อง', icon: 'eye', title: 'ฝึกร้อง (ร้องตาม)' },
+  { id: 'sheet', label: 'แผ่นเพลง', icon: 'file-text', title: 'แผ่นเพลง (ไว้พิมพ์)' },
+  { id: 'edit', label: 'แก้ไข', icon: 'pencil', title: 'แก้ไข' },
 ]
 
 // ---------- shell song picker (US-05) ----------
