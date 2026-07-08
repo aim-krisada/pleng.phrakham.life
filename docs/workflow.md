@@ -21,6 +21,9 @@
 **หัวใจ 3 ข้อ:** 1 งาน = 1 สำเนา (worktree) + 1 ชุดไฟล์ของตัวเอง + 1 ช่องพรีวิว (port) — เจอกันแค่ตอน merge
 
 ## ช่องพรีวิว (port) ประจำแต่ละงาน — เปิดดูขนานกันได้
+
+> **📱 ข้อกำหนด (ทุกงาน · P'Aim 2026-07-09):** เปิด dev server ด้วย **`--host` เสมอ** เพื่อให้พี่เอม/พี่เปา **ทดสอบบนมือถือจริงได้** — มือถือ+PC ต่อ WiFi วงเดียวกัน → เปิด `http://<IP-เครื่อง>:<port>` (URL แบบ "Network" ที่ vite พิมพ์ตอนรัน) · ครั้งแรกอาจต้องกด Allow ที่ Windows Firewall
+
 | งาน | localhost |
 |---|---|
 | ออกแบบ/คุยกับพี่เอม (session SA) | http://localhost:5173 |
@@ -56,7 +59,7 @@ idea (backlog) → user story ภาษาคน (พี่เอม) → DS อ
 git worktree add ../pleng-<ชื่อ> -b <branch> studio-shell-redesign
 cd ../pleng-<ชื่อ>
 npm install
-npm run dev -- --port <port>
+npm run dev -- --host --port <port> --strictPort   # --host = บังคับ (เปิดให้มือถือ/พี่เปา ต่อผ่าน WiFi)
 ```
 
 กติกาขณะทำ (git best practice ให้ขนานไม่ชน):
@@ -66,4 +69,4 @@ npm run dev -- --port <port>
 - เสร็จแล้ว: commit + รายงานว่าแก้ไฟล์ไหนบ้าง → **รอพี่เอมสั่ง merge กลับฐาน** (SA เป็นคนรวม)
 - ก่อน commit เช็ก `git branch --show-current` เสมอ (dir หลักใช้ร่วมหลาย session)
 - **อย่าปิด dev server ตอนจบงาน** — ค้างรันที่พอร์ตประจำงาน (ตามตาราง) ให้พี่เอม/tester เปิดตรวจได้ทันที · ปิดเฉพาะตอน merge เสร็จ/เปลี่ยนงาน
-- **ท้ายรายงาน (`docs/reports/<branch>.md`) ใส่ URL ตรวจงานเสมอ** (เช่น `http://localhost:5301`)
+- **ท้ายรายงาน (`docs/reports/<branch>.md`) ใส่ URL ตรวจงานเสมอ ทั้ง `localhost` และ Network** — ก๊อป URL แบบ `http://<IP-เครื่อง>:<port>` ที่ vite พิมพ์ตอน `--host` มาด้วย ให้พี่เอม/พี่เปาเปิดบนมือถือได้ทันที
