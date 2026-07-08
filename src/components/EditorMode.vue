@@ -1547,7 +1547,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
            read+edit surface — note boxes (ripple) with a lyric box under each note (ripple),
            aligned in one column, chords on top. No separate sheet preview (would duplicate
            this and overflow the screen). -->
-      <div class="ed-strip">
+      <div class="ed-strip" :class="'lay-' + barLayout">
         <template v-for="(bar, bi) in line.bars" :key="bi">
           <span v-if="bi > 0" class="ed-barline" aria-hidden="true"></span>
           <div
@@ -2522,8 +2522,15 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   min-width: 130px;
 }
 .ed-opt-check { display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--muted); }
-/* the strip: note-columns flow left→right, wrapping only when very long */
+/* the strip: bars laid out per the layout toggle (B035).
+   lay-stack = 1 ห้อง/แถว (each bar its own full-width row) · lay-flow = ห้องต่อกัน (side by
+   side, wrapping only when very long). stack is the default (matches the prototype). */
 .ed-strip { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.ed-strip.lay-flow { flex-direction: row; }
+.ed-strip.lay-stack { flex-direction: column; align-items: stretch; gap: 8px; }
+.ed-strip.lay-stack .ed-barline { display: none; } /* 1 bar/row — no vertical barline needed */
+.ed-strip.lay-stack .ed-bar { width: 100%; }
+.ed-strip.lay-stack .ed-addbar { align-self: flex-start; }
 .ed-barline { align-self: stretch; width: 0; border-left: 2px solid var(--muted); margin: 4px 0; min-height: 44px; }
 .ed-bar { display: flex; flex-direction: column; gap: 6px; border-radius: 8px; padding: 4px 2px 2px; }
 .ed-bar .seg-strip { gap: 10px; flex-wrap: nowrap; }
