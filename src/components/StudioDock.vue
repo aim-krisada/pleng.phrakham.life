@@ -235,7 +235,10 @@ function reset() { order.value = defaultOrder.value }
 const dockPos = ref(null) // {left, top} once moved; null = default bottom-center
 const dockStyle = computed(() =>
   dockPos.value && !mobile.value
-    ? { left: dockPos.value.left + 'px', top: dockPos.value.top + 'px', right: 'auto', bottom: 'auto', transform: 'none' }
+    // position: fixed is REQUIRED — .sd-dock is otherwise static (positioned by the
+    // fixed .sd-wrap), so left/top alone would not move it. left/top are viewport
+    // coords from getBoundingClientRect, which fixed positioning matches exactly.
+    ? { position: 'fixed', left: dockPos.value.left + 'px', top: dockPos.value.top + 'px', right: 'auto', bottom: 'auto', transform: 'none' }
     : {},
 )
 let drag = false, oX = 0, oY = 0, dW = 0, dH = 0
