@@ -9,6 +9,13 @@
 > **โฟกัสตอนนี้:** ✅ **คลื่น 1 (shell + StudioDock) merged เข้าฐานแล้ว** — B033/B034 fixed · unit 81/81 · build ผ่าน · P'Aim accept (LAN test มือถือจริง)
 > **✅ คลื่น 2 + 3 เสร็จ (9 ก.ค.):** 3 สาย (E-editor / V-viewer / H-highlight) build overnight → **PM รวมเข้าฐานครบ** (merge เรียง editor→viewer→highlight · เคลียร์ conflict Icon/SongViewer/SongSheet/play.test มือ) · **unit 110/110 · build ผ่าน · verify เบราว์เซอร์:** editor รื้อใหม่+dock 3แถว · ฝึกร้อง control bar+ไฮไลต์รายพยางค์ 250 span · ไม่มี console error
 > **ถัดไป:** (1) **P'Aim ทดสอบ + เคาะ design ที่ 3 สาย flag** (ดูส่วนล่าง) · (2) **N1** dock ซ้อน 2 instance (โชว์ตัวเดียว · ไม่ใช่บั๊กผู้ใช้) = cleanup ยก StudioDock ขึ้น Studio เมื่อว่าง · (3) เรื่องค้างเดิม ③ sync docs · ① DA · ② lint เข้าฐาน
+>
+> ▶ **รอบ real-use debug #1 (9 ก.ค. · session "pm ต้นแบบ pl2"):** P'Aim ลองใช้จริง → เก็บบั๊กที่ `docs/pm/realuse-bugs.md` (หลักฐานภาพ `docs/pm/realuse-assets/`)
+> · ✅ **PM แก้ตรง (จิ๋ว):** B036 favicon (`13e5714`) · B037 dock drag desktop (`ddcb63f`, `.sd-dock` static) · icon ท่อนฮุก→fishing-hook (`eac9783`)
+> · 🚚 **รอจ่าย batch (ยังไม่ส่ง — P'Aim อยากรวบ):** B038 auto-scroll ต้องตรงพยางค์→H-highlight · B039 เมนู download ค้าง + B041 ลบปุ่มพิมพ์ซ้ำ→V-viewer
+> · 🧩 **dock-core (ใหญ่):** FAB ปุ่มลอยตอนยุบ + รวม StudioDock เป็น instance เดียว (=N1) · brief=`docs/pm/brief-dock-core.md` · **spawn_task chip หย่อนแล้ว** (P'Aim กดเปิด session `dev-dock-core` · branch `wt-dock` · port 5315) · desktop ก่อน
+> · เคาะแล้ว: 5 โหมดแสดงผล (เก็บ "เนื้อ+โน้ต") · loop→backlog B040 (V3) · design 1a fishing-hook · highlight โทนสี OK
+> · **ค้างรอ P'Aim:** เล่นหาบั๊กเพิ่ม (รอบ #2) แล้วเคาะจังหวะจ่าย B038/B039/B041
 
 ## 🎨 design ที่ dev flag รอ P'Aim เคาะ (wave 2 · ไม่บล็อก)
 - **Editor:** ~~ไอคอน "ท่อนฮุก" ใช้ ⚓ (anchor · Lucide ไม่มี hook) โอเคไหม~~ → ✅ **เคาะแล้ว (9 ก.ค.): ใช้ `fishing-hook`** (มีจริงในชุด Lucide เต็ม · PM แก้ตรง commit `eac9783`) · ยังเหลือ: ราย "ห้อง" ยังเก็บ ⋯ (ย้าย/สำเนา/ลบ/volta) — ซ่อนลึกกว่านี้ไหม
