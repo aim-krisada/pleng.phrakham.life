@@ -231,8 +231,8 @@ const COMBOS = [
             <li>คีย์เพลงให้เสร็จ</li>
             <li>กด <strong>"ดาวน์โหลด JSON"</strong> — ได้ไฟล์สำเนางานของคุณ
               (เว็บไม่ได้เก็บงานไว้ให้ เปิดกลับมาแก้ต่อได้ด้วย "อัปโหลด JSON")</li>
-            <li>ส่งอีเมลถึงทีม <strong>พร้อมแนบไฟล์ JSON</strong> ที่ได้มา
-              <!-- TODO(P'Aim): ใส่อีเมลทีมจริง แล้วแทนที่ข้อความ placeholder นี้ --></li>
+            <li>ส่งอีเมลถึงทีมที่ <a href="mailto:pleng@phrakham.life">pleng@phrakham.life</a>
+              <strong>พร้อมแนบไฟล์ JSON</strong> ที่ได้มา</li>
             <li>ทีมตรวจแล้วนำขึ้นคลังให้</li>
           </ol>
         </li>
