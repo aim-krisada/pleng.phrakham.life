@@ -29,3 +29,4 @@ idea ไหนจะทำจริง → ยกขึ้นเป็น user s
 | B017 | ปรับปรุง | mobile: ใช้ icon แทนคำ "เข้าสู่ระบบ" | ประหยัดที่บนแถบ mobile · img `B017-mobile-login-icon.png` | idea | ps2 (shell/mobile) |
 | B018 | bug | เนื้อหาตกขอบ (overflow) | img `B018-overflow.png` — ระบุจุดตอนทำ | idea | ps2 (responsive) |
 | B020 | bug | mobile: แถบ/dock ล่างไม่ติดขอบล่างจอ | img `B020-mobile-dock-sticky.png` | idea | ps2 (mobile) |
+| B021 | feature | เลือก show/hide dock (แถบเครื่องมือล่าง) ได้ | ผู้ใช้กดซ่อน/แสดง dock (คีย์โน้ต + ปุ่ม) เพื่อเพิ่มพื้นที่จอ · เกี่ยวกลุ่ม IA (B009) | idea | ps2 (editor/shell) |
