@@ -5,17 +5,20 @@
 // evolve their own mode file without touching this shell (that is the whole point of
 // DS-04's contract: every mode takes { song, tier } and emits change / save).
 import { ref, computed, watch, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent } from '../lib/songModel.js'
+import { songHaystack } from '../lib/songSearch.js'
 import { stopPlayback } from '../lib/midi.js'
-import { tier, initAuth } from '../store.js'
+import { tier, initAuth, shellMenu } from '../store.js'
 import Icon from '../components/Icon.vue'
+import ComboSelect from '../components/ComboSelect.vue'
 import SongViewer from '../components/SongViewer.vue'
 import SongSheet from '../components/SongSheet.vue'
 import EditorMode from '../components/EditorMode.vue'
 
 const route = useRoute()
+const router = useRouter()
 
 // three views on one surface: ดู (ร้องตาม) · แผ่น (พิมพ์) · แก้ (แก้ไข)
 const mode = ref('view')
@@ -42,6 +45,7 @@ async function loadSong(id) {
 
 onMounted(async () => {
   initAuth()
+  loadSongList()
   if (route.params.id) {
     await loadSong(route.params.id)
     mode.value = 'view' // a routed song opens in a reading view (US-01 AC1)
@@ -52,13 +56,14 @@ onMounted(async () => {
     mode.value = 'edit'
   }
 })
+// Switching songs while the shell stays mounted (the "เปิดเพลง" picker, or browser
+// back/forward) keeps the CURRENT mode — US-05: a reader in ดู/แผ่น must not be
+// bounced out, and picking a song must not jump into แก้. A fresh routed entry from a
+// link still opens in ดู via onMounted above (that component mounts anew).
 watch(
   () => route.params.id,
   async (id) => {
-    if (id) {
-      await loadSong(id)
-      mode.value = 'view'
-    }
+    if (id) await loadSong(id)
   },
 )
 
@@ -97,6 +102,48 @@ const MODES = [
   { id: 'sheet', label: 'แผ่น', icon: 'file-text', title: 'แผ่นเพลง (ไว้พิมพ์)' },
   { id: 'edit', label: 'แก้', icon: 'pencil', title: 'แก้ไข' },
 ]
+
+// ---------- shell song picker (US-05) ----------
+// "เปิด/เลือกเพลง" lives on the shell (not inside the editor) so it works in EVERY mode:
+// a reader in ดู/แผ่น can jump to another song without first entering แก้. Picking a song
+// navigates to /song/:id — the route watcher above loads it while KEEPING the current mode.
+const songList = ref([])
+async function loadSongList() {
+  const { data } = await supabase
+    .from('songs')
+    .select('id, number, title_th, title_en, content')
+    .order('number', { ascending: true })
+  songList.value = data ?? []
+}
+// searchable options (ชื่อ · เลข · เนื้อร้อง · โน้ต — same haystack as the catalog page)
+const pickerOptions = computed(() =>
+  songList.value.map((s) => ({
+    value: s.id,
+    label: (s.number != null ? s.number + '. ' : '') + s.title_th,
+    search: songHaystack(s),
+  })),
+)
+
+// the open-song menu shares the app-wide one-menu-at-a-time state (shellMenu)
+const openMenu = shellMenu
+const pendingPick = ref('') // the song chosen in the picker, opened only on "เปิดเพลง"
+function toggleOpenMenu() {
+  openMenu.value = openMenu.value === 'open-song' ? null : 'open-song'
+  if (openMenu.value === 'open-song') pendingPick.value = liveSong.value?.id ?? ''
+}
+function openPicked() {
+  const id = pendingPick.value
+  openMenu.value = null
+  if (!id || id === liveSong.value?.id) return
+  router.push('/song/' + id) // watcher loads it + preserves the current mode
+}
+
+// ---------- print (US-06) ----------
+// The 🖨 button in the แผ่น toolbar just triggers the browser print dialog; the printed
+// page layout (A4 · footer) is owned by SongSheet's @media print (WT-B / US-B02).
+function printSheet() {
+  window.print()
+}
 </script>
 
 <template>
@@ -111,6 +158,27 @@ const MODES = [
       </template>
     </Teleport>
     <Teleport to="#shell-menus">
+      <!-- เปิด/เลือกเพลง — on the shell so it works in every mode (US-05) -->
+      <div class="sb-menu">
+        <button
+          class="sb-text sb-open-btn"
+          :aria-expanded="openMenu === 'open-song'"
+          aria-haspopup="true"
+          @click.stop="toggleOpenMenu"
+        >
+          <Icon name="folder-open" :size="16" /><span class="sb-open-label">เปิดเพลง</span>
+        </button>
+        <div v-if="openMenu === 'open-song'" class="sb-dropdown sb-open-panel" @click.stop>
+          <ComboSelect
+            v-model="pendingPick"
+            :options="pickerOptions"
+            placeholder="พิมพ์ค้นหา: ชื่อ เลข เนื้อร้อง โน้ต…"
+            aria-label="ค้นหาเพลงเพื่อเปิด"
+            width="100%"
+          />
+          <button class="sb-open-go" @click="openPicked">เปิดเพลง</button>
+        </div>
+      </div>
       <span class="sb-modes" role="group" aria-label="เลือกมุมมอง">
         <button
           v-for="m in MODES"
@@ -134,6 +202,11 @@ const MODES = [
 
     <!-- ===== แผ่น — print sheet (WT-B owns SongSheet) ===== -->
     <div v-show="mode === 'sheet'" class="sheet-workspace">
+      <div class="sheet-toolbar no-print">
+        <button class="sheet-print-btn" title="พิมพ์แผ่นเพลง" @click="printSheet">
+          <Icon name="printer" :size="16" /><span>พิมพ์</span>
+        </button>
+      </div>
       <div class="card">
         <h2 class="sheet-title">{{ titleText }}</h2>
         <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" />
@@ -210,8 +283,60 @@ const MODES = [
   margin: 0 0 8px;
   color: var(--brand);
 }
+
+/* shell song picker (US-05) — teleported into the shared ShellBar */
+.sb-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.sb-open-panel {
+  min-width: 300px;
+  gap: 8px;
+}
+.sb-open-go {
+  align-self: flex-end;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font: inherit;
+  font-weight: 700;
+  min-height: 36px;
+  cursor: pointer;
+}
+.sb-open-go:hover {
+  filter: brightness(1.05);
+}
+
+/* print toolbar in โหมดแผ่น (US-06) — the button itself never prints */
+.sheet-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.sheet-print-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  color: var(--brand);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font: inherit;
+  font-weight: 700;
+  min-height: 36px;
+  cursor: pointer;
+}
+.sheet-print-btn:hover {
+  background: var(--cream);
+}
+
 @media (max-width: 760px) {
-  .sb-mode-label {
+  .sb-mode-label,
+  .sb-open-label {
     display: none;
   }
   .sb-title-static {
