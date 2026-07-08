@@ -2,10 +2,11 @@
 
 เอกสารนี้ = "อะไรอยู่ตรงไหน" สำหรับ Claude Code session ใหม่ (เครื่องไหนก็ได้) ให้ทำงานต่อได้ทันที
 
-## เปิด session ใหม่ อ่าน 3 อย่างนี้ก่อน
+## เปิด session ใหม่ อ่านพวกนี้ก่อน
 1. `docs/mission.md` — เรากำลังสร้างอะไร เพื่อใคร (พันธกิจ + สิทธิ์ 3 tier + แผนที่ worktree)
 2. `docs/README.md` (ไฟล์นี้) — โครงโฟลเดอร์ + ไฟล์สำคัญ + กติกา git
-3. งานที่จะทำ: `docs/backlog.md` (idea ดิบ) หรือ `docs/us/<epic>.md` + `docs/ds/<epic>.md` (งานที่มี spec แล้ว)
+3. `docs/workflow.md` — วิธีทำงานรวม (บทบาท SA/dev · worktree ขนาน · port ประจำแต่ละงาน)
+4. งานที่จะทำ: `docs/backlog.md` (idea ดิบ) หรือ `docs/us/<epic>.md` + `docs/ds/<epic>.md` (งานที่มี spec แล้ว)
 
 ## สายการทำงาน (ISO 29110-5-4 แบบเบา)
 ```
