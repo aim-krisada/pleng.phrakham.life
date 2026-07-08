@@ -296,7 +296,9 @@ nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
   .sb-text:hover { background: rgba(0, 0, 0, 0.06); }
 }
 @media (max-width: 760px) {
-  .shell-bar { gap: 4px; padding: 8px; }
+  /* S4 — two rows, no hamburger: row 1 = brand ▾ · ชื่อเพลง ▾ · 👤 ;
+     row 2 = the contextual menus (เพลง ▾ + โหมดไอคอนล้วน) full-width below. */
+  .shell-bar { gap: 4px 6px; padding: 8px; flex-wrap: wrap; }
   .sb-brand { font-size: 0.98rem; }
   .sb-sep { display: none; }
   .sb-mode-label { display: none; }
@@ -304,6 +306,17 @@ nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
   .sb-title-static,
   .shell-title { font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sb-text { padding: 6px; }
+  /* flex-basis 0 (not auto) so the title's content width doesn't force it onto its own
+     row — brand + title + login stay together on row 1, title truncates in between */
+  .shell-title-wrap { flex: 1 1 0; min-width: 0; }
+  /* order:10 drops #shell-menus below the (order:0) brand/title/login row */
+  .shell-menus {
+    order: 10;
+    flex-basis: 100%;
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+  }
 }
 
 /* ---------- buttons / inputs ---------- */

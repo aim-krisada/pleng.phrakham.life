@@ -62,26 +62,25 @@ const openBtn = () => document.querySelector('#shell-menus .sb-open-btn')
 const modeBtns = () => [...document.querySelectorAll('#shell-menus .sb-mode-btn')]
 const isEditActive = (w) => w.findComponent(EditorMode).props('active')
 
-describe('Studio shell — เปิด/เลือกเพลง on the shell (US-05)', () => {
-  it('the "เปิดเพลง" button is present in all three modes', async () => {
+describe('Studio shell — "เพลง ▾" panel on the shell (US-05 / S2)', () => {
+  it('the "เพลง ▾" button shows in อ่าน/แผ่น; in แก้ไข the editor owns the menu (no dup, B003)', async () => {
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
     const [view, sheet, edit] = modeBtns()
     view.click(); await nextTick(); expect(openBtn()).toBeTruthy()
     sheet.click(); await nextTick(); expect(openBtn()).toBeTruthy()
-    edit.click(); await nextTick(); expect(openBtn()).toBeTruthy()
+    edit.click(); await nextTick(); expect(openBtn()).toBeFalsy()
   })
 
-  it('picking a song navigates to /song/:id (opens it), only on "เปิดเพลง"', async () => {
+  it('จิ้มเพลง = เปิดเลย — picking a song navigates to /song/:id immediately (no OK button)', async () => {
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
-    openBtn().click(); await nextTick() // open the picker dropdown
-    // choose a song — but nothing loads until the button is pressed
+    modeBtns()[0].click(); await nextTick() // ดู (so the "เพลง ▾" button is present)
+    openBtn().click(); await nextTick() // open the panel
+    expect(document.querySelector('.sb-open-go')).toBeFalsy() // there is no OK button anymore
     w.findComponent({ name: 'ComboSelect' }).vm.$emit('update:modelValue', 'song-42')
     await nextTick()
-    expect(h.push).not.toHaveBeenCalled()
-    document.querySelector('.sb-open-go').click(); await nextTick()
-    expect(h.push).toHaveBeenCalledWith('/song/song-42')
+    expect(h.push).toHaveBeenCalledWith('/song/song-42') // opened on pick, no extra click
   })
 
   it('opening a song from ดู stays in ดู — never jumps into แก้', async () => {
@@ -92,8 +91,6 @@ describe('Studio shell — เปิด/เลือกเพลง on the shell
 
     openBtn().click(); await nextTick()
     w.findComponent({ name: 'ComboSelect' }).vm.$emit('update:modelValue', 'song-7')
-    await nextTick()
-    document.querySelector('.sb-open-go').click()
     await nextTick(); await nextTick() // let the route watcher run
     expect(h.route.params.id).toBe('song-7') // the song did switch
     expect(isEditActive(w)).toBe(false) // …and the mode was preserved (still ดู)

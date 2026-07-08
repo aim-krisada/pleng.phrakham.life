@@ -4,6 +4,7 @@ import {
   session, profile, legacy, recovering, inviteMode, emailChanged,
   login, logout, updatePassword, requestPasswordReset, updateDisplayName, updateEmail, changePassword,
 } from '../store.js'
+import Icon from './Icon.vue'
 
 // Top-right account control, GitHub/Supabase style:
 // logged out -> "เข้าสู่ระบบ" opens a small dropdown form (works from any page)
@@ -192,9 +193,9 @@ async function submitChangePassword() {
     >
       <span class="avatar">{{ initial }}</span>
     </button>
-    <!-- logged out: sign-in button -->
-    <button v-else class="secondary signin-btn" :aria-expanded="open" @click="open = !open">
-      เข้าสู่ระบบ
+    <!-- logged out: sign-in button — icon + label on desktop, icon-only on mobile (S4) -->
+    <button v-else class="secondary signin-btn" :aria-expanded="open" aria-label="เข้าสู่ระบบ" @click="open = !open">
+      <Icon name="circle-user" :size="18" /><span class="signin-label">เข้าสู่ระบบ</span>
     </button>
 
     <div v-if="open" class="pk-tool-menu profile-menu">
@@ -337,7 +338,12 @@ async function submitChangePassword() {
   font-weight: 700;
   font-size: 15px;
 }
-.signin-btn { min-height: 40px; }
+.signin-btn { min-height: 40px; display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 760px) {
+  /* S4: login collapses to a person icon on mobile */
+  .signin-label { display: none; }
+  .signin-btn { padding: 8px; }
+}
 .profile-menu { padding: 0.8rem 1rem; min-width: 250px; }
 .who { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
 .role-chip {
