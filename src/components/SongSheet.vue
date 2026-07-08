@@ -77,11 +77,10 @@ function isPlaying(li, si) {
 
 <template>
   <div :class="mode === 'lyrics' ? 'sheet-mode-lyrics' : ''">
-    <!-- print-only running header/footer (US-B02). Hidden on screen; on paper it
-         repeats on every page (position: fixed). Center "หน้า X ของ Y" is left to
-         the page-level @page counter (shared print CSS · WT-0) since a page count
-         can't be derived in-component. -->
-    <div class="print-head" aria-hidden="true">{{ SITE }}<template v-if="songTitle"> - {{ songTitle }}</template></div>
+    <!-- print-only running footer (US-B02). Hidden on screen; on paper it repeats on
+         every page (position: fixed), inset from the paper edge so it prints cleanly.
+         Center "หน้า X ของ Y" is left to the page-level @page counter (shared print
+         CSS · WT-0) since a page count can't be derived in-component. -->
     <div class="print-foot" aria-hidden="true">
       <span class="pf-left">{{ SITE }}</span>
       <span class="pf-center"></span>
@@ -116,32 +115,22 @@ function isPlaying(li, si) {
 </template>
 
 <style scoped>
-/* On screen the running header/footer are hidden; they only exist for print (US-B02).
-   `position: fixed` makes them repeat on every printed page in Chrome/Edge. */
-.print-head,
+/* On screen the running footer is hidden; it only exists for print (US-B02).
+   `position: fixed` makes it repeat on every printed page in Chrome/Edge. */
 .print-foot {
   display: none;
 }
 @media print {
-  .print-head {
-    display: block;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    text-align: center;
-    font-weight: 700;
-    font-size: 10pt;
-    color: #000;
-  }
   .print-foot {
     display: flex;
     align-items: center;
     justify-content: space-between;
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    /* inset from the paper edge so the text isn't cramped in the corner / clipped
+       by the printer's non-printable margin — prints noticeably cleaner */
+    bottom: 10mm;
+    left: 16mm;
+    right: 16mm;
     font-size: 9pt;
     color: #444;
   }

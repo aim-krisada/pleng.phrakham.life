@@ -10,15 +10,28 @@
 **พี่เอมขอ:** หัวกระดาษ = `เพลง.พระคำ.ชีวิต - <ชื่อเพลง>` · footer 3 ช่อง = ซ้าย `เพลง.พระคำ.ชีวิต` · กลาง `หน้า X ของ Y` · ขวา `<ชื่อเพลง>`
 
 **ทำแล้ว (ในไฟล์ WT-B เท่านั้น — `SongSheet.vue` scoped):**
-- เพิ่ม prop `songTitle` + render **หัวกระดาษ** (`เพลง.พระคำ.ชีวิต - ชื่อเพลง`) และ **footer** (ซ้าย=ชื่อเว็บ · ขวา=ชื่อเพลง) แบบ print-only (`@media print` + `position: fixed` → ซ้ำทุกหน้าใน Chrome/Edge) · scoped ทั้งหมด ไม่แตะ CSS กลาง
-- unit test 3 เคสยืนยันข้อความหัว/ท้าย + degrade เมื่อไม่มีชื่อเพลง
+- เพิ่ม prop `songTitle` + render **footer** print-only (`@media print` + `position: fixed` → ซ้ำทุกหน้าใน Chrome/Edge) · ซ้าย = `เพลง.พระคำ.ชีวิต` · ขวา = `ชื่อเพลง` · scoped ทั้งหมด ไม่แตะ CSS กลาง
+- **[รอบ 2 · จากพี่เอมตอนพิมพ์จริง]** เอา **หัวกลางด้านบนออก** (ด้านบนไม่ต้องมี) · **ขยับ footer เข้ามาจากขอบ** (`bottom: 10mm; left/right: 16mm`) ให้พิมพ์แล้วไม่ติดขอบ/ไม่โดนตัด
+- unit test ยืนยัน: ไม่มี header ด้านบน · footer ซ้าย/ขวา · degrade เมื่อไม่มีชื่อเพลง
 
-**ยังไม่ได้ทำ — ต้องพึ่งไฟล์ WT-0 (จึงยังไม่แตะ เพราะจะชนกับ US-06 ที่แก้ `Studio.vue` อยู่):**
-1. **ส่ง `songTitle` เข้าแผ่นพิมพ์** — โหมด "แผ่น" อยู่ใน `Studio.vue` (WT-0) · ต้องเพิ่ม `:song-title="titleText"` ตอน mount `SongSheet` → หัว/ท้ายถึงจะมีชื่อเพลงจริง
-2. **`หน้า X ของ Y` (ช่องกลาง)** — เลขหน้านับได้เฉพาะผ่าน `@page` margin box (`counter(page)`/`counter(pages)`) ซึ่งเป็น **CSS ระดับหน้ากระดาษในไฟล์กลาง `src/styles.css` (WT-0)** · in-component นับหน้าไม่ได้ · เงื่อนไข: พิมพ์ด้วย Chrome/Edge + ปิด "Headers and footers" ในกล่องพิมพ์
-3. **หลายหน้าไม่ให้เนื้อทับหัว/ท้าย** — ต้องตั้ง `@page { margin }` (ไฟล์กลาง WT-0); ตอนนี้ `styles.css` ตั้ง `@page { margin: 0 }` ทำให้หัว/ท้ายชัวร์เฉพาะเพลง **หน้าเดียว** (เคสส่วนใหญ่)
+**ยังไม่ได้ทำ — ต้องพึ่งไฟล์ worktree อื่น (จึงยังไม่แตะ):**
+1. **ชื่อไฟล์ PDF = `เพลง.พระคำ.ชีวิต — <ชื่อเพลง>.pdf`** — ชื่อไฟล์ที่ Chrome ตั้งให้ = `document.title` ซึ่งค้างที่ค่า index.html (`… — คลังเพลงนมัสการ`) · แก้ที่ **ตัวสั่งพิมพ์**: `SongViewer.printSheet()` (WT-A) — ตั้ง `document.title` ก่อน `window.print()` แล้วคืนค่าใน `afterprint`
+   ```js
+   function printSheet() {
+     const prev = document.title
+     document.title = 'เพลง.พระคำ.ชีวิต — ' + (props.song.title_th || 'แผ่นเพลง')
+     addEventListener('afterprint', () => (document.title = prev), { once: true })
+     window.print()
+   }
+   ```
+2. **ให้ชื่อเพลงโผล่ที่ footer จริง** — ตัวที่ mount `SongSheet` ตอนพิมพ์ยังไม่ส่ง `songTitle`:
+   - `SongViewer.vue` (WT-A) → `<SongSheet … :song-title="song.title_th" />`
+   - `Studio.vue` โหมดแผ่น (WT-0) → `<SongSheet … :song-title="titleText" />`
+   - หมายเหตุ: `currentSong` (store) ในสาขานี้ **ไม่ถูก set ที่ไหนเลย** → SongSheet ดึงชื่อจาก store เองไม่ได้ ต้องส่งผ่าน prop
+3. **`หน้า X ของ Y` (ช่องกลาง)** — นับหน้าได้เฉพาะผ่าน `@page` margin box (`counter(page)`/`counter(pages)`) = CSS ระดับหน้ากระดาษในไฟล์กลาง `src/styles.css` (WT-0) · in-component นับไม่ได้ · เงื่อนไข: พิมพ์ด้วย Chrome/Edge + ปิด "Headers and footers" ในกล่องพิมพ์
+4. **หลายหน้าไม่ให้เนื้อทับ footer** — ตั้ง `@page { margin }` (ไฟล์กลาง WT-0); ตอนนี้ `@page { margin: 0 }` → footer ชัวร์เฉพาะเพลง **หน้าเดียว** (เคสส่วนใหญ่)
 
-**คำแนะนำถึง SA:** จุด 1–3 คือ CSS ระดับหน้ากระดาษ + prop ที่ผูกกับ `Studio.vue`/`styles.css` ของ WT-0 → ควรให้ WT-0 ทำ (หรืออนุญาตให้ WT-B แตะ `styles.css`+`Studio.vue` ชั่วคราวแล้วประสาน US-06)
+**คำแนะนำถึง SA:** จุด 1–2 เป็นการแก้ 1–2 บรรทัดในไฟล์ WT-A (`SongViewer.vue`) เป็นหลัก + WT-0 (`Studio.vue`) · จุด 3–4 อยู่ในไฟล์กลาง `styles.css` (WT-0) → ให้ WT-A/WT-0 ทำ หรืออนุญาต WT-B แตะชั่วคราวแล้วประสาน
 
 ---
 

@@ -73,9 +73,9 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(wrapper.findAll('[contenteditable="true"]').length).toBe(0)
   })
 
-  it('US-B02: print header shows "เพลง.พระคำ.ชีวิต - <ชื่อเพลง>"', () => {
+  it('US-B02: no top page header is rendered (พี่เอม: ด้านบนไม่ต้องมี)', () => {
     const wrapper = mountSheet({ songTitle: 'พระเจ้าเป็นความรัก' })
-    expect(wrapper.find('.print-head').text()).toBe('เพลง.พระคำ.ชีวิต - พระเจ้าเป็นความรัก')
+    expect(wrapper.find('.print-head').exists()).toBe(false)
   })
 
   it('US-B02: print footer = site (left) · ชื่อเพลง (right); center reserved for page no.', () => {
@@ -85,9 +85,9 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(wrapper.find('.print-foot .pf-center').text()).toBe('') // filled by @page counter (WT-0)
   })
 
-  it('US-B02: with no songTitle the header degrades to just the site name', () => {
+  it('US-B02: with no songTitle the footer-right is empty (awaits Studio wiring)', () => {
     const wrapper = mountSheet() // no songTitle
-    expect(wrapper.find('.print-head').text()).toBe('เพลง.พระคำ.ชีวิต')
+    expect(wrapper.find('.print-foot .pf-left').text()).toBe('เพลง.พระคำ.ชีวิต')
     expect(wrapper.find('.print-foot .pf-right').text()).toBe('')
   })
 
