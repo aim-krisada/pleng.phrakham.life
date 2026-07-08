@@ -1253,7 +1253,7 @@ const edLyrOptions = computed(() => [
   ...lensRowsForActiveStanza.value.map((x) => ({ value: x.i, label: rowLabel(x.r, x.i) })),
 ])
 
-// ---------- studio shell (phase 4: menus/panels + read-row) ----------
+// ---------- studio shell (phase 4: menus/panels) ----------
 // Set-once / occasional things live in menus now (เพลง = New/Open/Properties,
 // จัดการ = drafts/history/download/delete) opened as panels, so the editor page
 // stays as clean as the wireframe.
@@ -1734,7 +1734,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       <button class="secondary" @click="addRow">+ เพิ่มข้อ</button>
     </div>
 
-    <!-- (play ทั้งเพลง = dock · ดาวน์โหลด/ลบ/ประวัติ = "จัดการ" menu · preview = read-row + 🎼 mode) -->
+    <!-- (play ทั้งเพลง = dock · ดาวน์โหลด/ลบ/ประวัติ = "จัดการ" menu · แผ่นเต็ม = 🎼 mode) -->
       </div>
       <!-- /content -->
     </div>
