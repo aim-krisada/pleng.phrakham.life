@@ -23,10 +23,10 @@
 ## 🔜 Sprint 2 (ps2) — "ออกแบบ + เก็บ bug"
 **เป้า:** ได้ design ที่พี่เอมเคาะ (เมนู/editor/viewer) + เก็บ bug & หนี้ integration อิสระ · จบสปรินต์เมื่อ design เคาะ + fix ขึ้น
 
-**A) SA ออกแบบ (หัวใจ · ทำ wireframe/spec เสนอ → พี่เอมเคาะ → แตกเป็น US ให้ ps3):**
-- **② เมนู/IA (desktop+mobile):** B007 ตัดทำเพลง · B003 ตัดเลือกเพลงซ้ำ · B008 เปิดเพลงกดเดียว · B009 จัดเมนู/hamburger/icon-only · B017 login icon (mobile) · B021 show/hide dock
-- **③ editor UX:** B005 แก้เนื้อหลายที่ (3 จุด) · B010 legend สัญลักษณ์ · B011 checkbox จบเพลง (ห้องท้าย) · B012 controls หัวบรรทัด
-- **④ viewer:** B016 เลื่อน+หยุดได้ · B006 ไฮไลต์รายโน้ต (ผูก v1/v2)
+**A) SA ออกแบบ (หัวใจ · prototype กดได้ `docs/design/ps2-studio-prototype.html` · decisions `docs/design/ps2-edit-design.md`):**
+- **② เมนู/IA:** ✅ **เคาะ + commit** (`4c7a519`) — B007/B003/B008/B009/B017 เข้าหมด · (B021 dock = ps3)
+- **③ editor UX:** ✅ **เคาะ + commit** (`4c7a519`) — B005/B010/B011/B012 เข้าหมด · rail องค์ประกอบ · 4 ชั้น · auto-save · โครงเพลงระดับบรรทัด
+- **④ viewer:** 🔵 **กำลังขัด** — B016 เลื่อน+หยุด · B006 ไฮไลต์รายโน้ต (ผูก v2)
 
 **B) dev เก็บขนานระหว่าง SA ออกแบบ (low-risk · ไม่ต้อง design · ไม่แตะเมนู):**
 | งาน | branch | port | สถานะ |
@@ -43,7 +43,7 @@
 - ⚠️ **คอขวด `EditorMode.vue`** — ③ + I5 + WT-D รอบ2 แตะไฟล์เดียว → **"สาย editor เดียว" ทำเรียงกัน ไม่ขนาน**
 
 ### ค้าง P'Aim เคาะ (ต้นทาง ps2)
-- **WT-B #4 คีย์ตอนพิมพ์** — SA แนะ "คีย์เดียวใช้ร่วมทุกโหมด (แบบ A)" · รอเคาะ A/B
+- ~~**WT-B #4 คีย์ตอนพิมพ์**~~ ✅ **เคาะ A** (คีย์เดียวใช้ร่วมทุกโหมด — ทรานสโพสที่ไหน พิมพ์ก็ตาม, WYSIWYG) 8 ก.ค. 69
 - ~~**อีเมลทีม** สำหรับคู่มือ C03~~ ✅ เคาะ `pleng@phrakham.life` (Namecheap alias info@ → forward Gmail · ตั้งเสร็จ 8 ก.ค. 69)
 
 ---
