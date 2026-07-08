@@ -72,13 +72,31 @@ describe('StudioDock — shared dock engine (ps3-dock)', () => {
     expect(toolLabels(w)).not.toContain('ย้อน')
   })
 
-  it('collapse toggles the class + persists per mode (D4)', async () => {
+  it('collapse toggles the class + persists per mode, and expands back (D4 / B034)', async () => {
     const w = mountDock()
     await nextTick()
     await w.find('.sd-ctl[aria-label="หุบแถบเครื่องมือ"]').trigger('click')
     await nextTick()
     expect(w.find('.sd-dock').classes()).toContain('sd-collapsed')
     expect(localStorage.getItem('pleng.dock.collapsed.edit')).toBe('1')
+    // B034: the same control now expands again (previously it only ever collapsed, so a
+    // collapsed desktop dock got stuck)
+    await w.find('.sd-ctl[aria-label="กางแถบเครื่องมือ"]').trigger('click')
+    await nextTick()
+    expect(w.find('.sd-dock').classes()).not.toContain('sd-collapsed')
+    expect(localStorage.getItem('pleng.dock.collapsed.edit')).toBe('0')
+  })
+
+  it('renders the palette as multiple rows when given an array of rows (B033)', async () => {
+    const w = mountDock({ paletteKeys: [['1', '2', '3'], ['.', '#']] })
+    await nextTick()
+    const rows = w.findAll('.sd-keys .sd-key-row')
+    expect(rows.length).toBe(2)
+    expect(rows[0].findAll('.sd-key').length).toBe(3)
+    expect(rows[1].findAll('.sd-key').length).toBe(2)
+    // still emits the individual key on press
+    await rows[1].findAll('.sd-key')[1].trigger('mousedown')
+    expect(w.emitted('insert').at(-1)).toEqual(['#'])
   })
 
   it('transparency slider writes --dock-alpha + localStorage (D5, shared across modes)', async () => {

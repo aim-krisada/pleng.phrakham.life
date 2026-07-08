@@ -554,7 +554,12 @@ function fmt(n) {
 }
 
 // ---------- symbol palette ----------
-const PALETTE = ['1', '2', '3', '4', '5', '6', '7', '0', '-', '.', "'", '_', '~', '^', '(', ')', '{', '}', '#', 'b', 'n']
+// B033: two rows so the 21 jianpu keys are big enough to tap on mobile — row 1 = numbers
+// / rest / dash / tie, row 2 = dots / octave / brackets / accidentals (P'Aim-approved).
+const PALETTE = [
+  ['1', '2', '3', '4', '5', '6', '7', '0', '-', '~'],
+  ['.', "'", '_', '^', '(', ')', '{', '}', '#', 'b', 'n'],
+]
 let activeInput = null
 const activeLine = ref(0) // line the user last touched — target of the floating ▶
 function editorFocusIn(e, li) {

@@ -66,5 +66,28 @@
 5. **คีย์ jianpu 21 ตัวบนมือถือแคบ** จะเล็กมาก (ยืดแชร์บรรทัดเดียวตาม DS "ไม่ตกบรรทัด") — ถ้า P'Aim ว่าเล็กไป อาจต้องคุยเรื่องลดชุดคีย์เริ่มต้น (คนละเรื่องกับ dock engine)
 
 ## พร้อม merge ไหม
-**พร้อม** — โครง Shell + StudioDock ทำครบ AC เท่าที่ขอบเขตคลื่น 1 (ไม่แตะ editor เกินถอด dock) ครอบได้ · unit 80/80 ผ่าน · ตรวจเบราว์เซอร์แล้ว · ไม่แตะไฟล์สาย B (notation/midi/NoteRow/SongSheet/viewer-print content)
+**พร้อม** — โครง Shell + StudioDock ทำครบ AC เท่าที่ขอบเขตคลื่น 1 (ไม่แตะ editor เกินถอด dock) ครอบได้ · unit 81/81 ผ่าน · ตรวจเบราว์เซอร์แล้ว · ไม่แตะไฟล์สาย B (notation/midi/NoteRow/SongSheet/viewer-print content)
 ที่เหลือเป็นงาน **คลื่น 2 (editor rebase)** ตามที่ prompt กันไว้: registry sing/print + D7 · B003 ให้สุด · S3 ▾ เดี่ยวข้างชื่อในโหมดอ่าน
+
+---
+
+## รอบแก้บั๊ก (สั่งโดย PM · brief: `docs/pm/fix-ps4-shell-dock.md`) — 2026-07-08
+
+### B034 — ปุ่มหุบ dock กดแล้วกางกลับไม่ได้ (desktop) · ✅ แก้แล้ว
+- **ต้นเหตุ:** ปุ่มหุบเรียก `collapse()` เสมอ + `@click.stop` บัง `onDockClick` → ตอนหุบ (ปุ่มนี้เหลือปุ่มเดียว) กดซ้ำ = หุบซ้ำ ค้าง
+- **แก้:** ทำปุ่มเป็น **toggle** (`toggleCollapse` — ตอน collapsed → `expand()`) + สลับไอคอน/label เป็น "กางแถบ" (`panel-bottom-open`) ตอนหุบ ให้รู้ว่ากดกางได้
+- **ตรวจ (desktop 1280):** หุบ → เหลือปุ่มเดียว "กางแถบเครื่องมือ" → กด → กางคืน คีย์ครบ 21 · localStorage `pleng.dock.collapsed.edit` 1↔0
+
+### B033 — คีย์โน้ต 21 ตัวยัดแถวเดียว เล็ก/กดยาก · ✅ แก้แล้ว
+- **แก้:** dock เป็น **3 แถว** ตามที่ P'Aim เคาะ — คีย์ 2 แถว + แถวเครื่องมือเดิม
+  - แถว 1: `1 2 3 4 5 6 7 0 – ~`  · แถว 2: `. ' _ ^ ( ) { } # b n`  (ครบ 21 · ปุ่มใหญ่ขึ้น)
+  - `StudioDock` รับ `paletteKeys` ได้ทั้งแบบ flat (1 แถว) และ array-of-rows (หลายแถว) — `.sd-keys` เป็นคอลัมน์ของ `.sd-key-row` (แต่ละแถว flex share บรรทัดเดียว) · คีย์ height 40 (เดสก์ท็อป+มือถือ), font 16
+  - `EditorMode.PALETTE` เปลี่ยนเป็น 2 แถวตามการจัดกลุ่ม (ตัวเลข/พัก/ขีด/ไท — จุด/อ็อกเทฟ/วงเล็บ/#b n)
+- **ตรวจ:** row1=10 ตัว, row2=11 ตัว, รวม 21 ตรงเป๊ะ · จิ้มคีย์ยัง emit ตัวเดียวถูกต้อง
+
+### ไฟล์ที่แตะ (รอบแก้)
+- `src/components/StudioDock.vue` — toggle หุบ/กาง (B034) + เรนเดอร์คีย์หลายแถว (B033)
+- `src/components/EditorMode.vue` — `PALETTE` เป็น 2 แถว (dock data · ไม่แตะ logic แก้เพลง)
+- `src/components/StudioDock.test.js` — เพิ่มเทสต์ expand-back (B034) + palette หลายแถว (B033)
+
+**unit หลังแก้: 81/81 ผ่าน · ตรวจเบราว์เซอร์ desktop+mobile แล้ว · dev server ค้างที่ http://localhost:5311**

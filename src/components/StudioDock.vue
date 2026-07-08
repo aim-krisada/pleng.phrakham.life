@@ -80,7 +80,14 @@ const shown = computed(() =>
   order.value.map((id) => byId.value[id]).filter((t) => t && t.icon && t.visible !== false),
 )
 const addable = computed(() => props.tools.filter((t) => !order.value.includes(t.id)))
-const showKeys = computed(() => props.mode === 'edit' && props.paletteKeys.length > 0 && !collapsed.value)
+// B033: paletteKeys may be a flat array (one row) OR an array of rows. Edit mode sends
+// 2 rows so the 21 jianpu keys aren't crammed onto one line (tiny/untappable on mobile).
+const keyRows = computed(() => {
+  const p = props.paletteKeys
+  if (!p.length) return []
+  return Array.isArray(p[0]) ? p : [p]
+})
+const showKeys = computed(() => props.mode === 'edit' && keyRows.value.length > 0 && !collapsed.value)
 
 // ---------- dynamic overflow (D3) — priority+ ----------
 // Measure the real row: buttons that don't fit fold into a ⋯ popover (never wrap, never
@@ -153,7 +160,11 @@ function onViewportChange() { syncMobile(); nextTick(fit) }
 // ---------- collapse / expand ----------
 function collapse() { collapsed.value = true; closePop() }
 function expand() { collapsed.value = false }
-// desktop: clicking the thin collapsed bar re-opens it (mobile uses the tab instead)
+// B034: the collapse control is the ONLY button left on the thin collapsed bar, so it
+// must gang both ways — collapse when open, expand when collapsed (its @click.stop
+// otherwise swallows the onDockClick that used to be the only way back on desktop).
+function toggleCollapse() { collapsed.value ? expand() : collapse() }
+// desktop: clicking the thin collapsed bar re-opens it too (mobile uses the tab instead)
 function onDockClick() { if (collapsed.value && !mobile.value) expand() }
 
 // ---------- popovers (overflow · transparency · customize) — one at a time ----------
@@ -227,14 +238,17 @@ function runTool(t) { if (!t.disabled) t.run?.() }
       :style="[dockStyle, { '--dock-alpha': alpha }]"
       @click="onDockClick"
     >
-      <!-- fixed jianpu keyboard (edit only) — stretches/shrinks to one line, never wraps -->
+      <!-- fixed jianpu keyboard (edit only) — one or more rows; each row shares its line
+           (keys stretch/shrink, never wrap) so more keys just mean a bigger tap target -->
       <div v-if="showKeys" class="sd-keys" role="toolbar" aria-label="สัญลักษณ์โน้ต">
-        <button
-          v-for="k in paletteKeys"
-          :key="k"
-          class="sd-key"
-          @mousedown.prevent="emit('insert', k)"
-        >{{ k }}</button>
+        <div v-for="(row, ri) in keyRows" :key="ri" class="sd-key-row">
+          <button
+            v-for="k in row"
+            :key="k"
+            class="sd-key"
+            @mousedown.prevent="emit('insert', k)"
+          >{{ k }}</button>
+        </div>
       </div>
 
       <div ref="toolsEl" class="sd-tools" role="toolbar" aria-label="เครื่องมือ">
@@ -291,10 +305,10 @@ function runTool(t) { if (!t.disabled) t.run?.() }
           ><Icon name="sliders-horizontal" :size="18" /></button>
           <button
             class="sd-tbtn sd-ctl"
-            aria-label="หุบแถบเครื่องมือ"
-            title="หุบแถบ"
-            @click.stop="collapse"
-          ><Icon name="panel-top-close" :size="18" /></button>
+            :aria-label="collapsed ? 'กางแถบเครื่องมือ' : 'หุบแถบเครื่องมือ'"
+            :title="collapsed ? 'กางแถบ' : 'หุบแถบ'"
+            @click.stop="toggleCollapse"
+          ><Icon :name="collapsed ? 'panel-bottom-open' : 'panel-top-close'" :size="18" /></button>
         </span>
       </div>
 
@@ -412,21 +426,26 @@ function runTool(t) { if (!t.disabled) t.run?.() }
   width: 100%;
   transition: transform 0.22s ease;
 }
-/* jianpu keyboard: one line always — flex share, no wrap, no scroll */
+/* jianpu keyboard: stacked rows; within a row keys share the line (no wrap, no scroll) */
 .sd-keys {
   display: flex;
-  flex-wrap: nowrap;
+  flex-direction: column;
   gap: 4px;
   padding-bottom: 8px;
   margin-bottom: 8px;
   border-bottom: 1px solid var(--line);
+}
+.sd-key-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
   justify-content: center;
 }
 .sd-key {
   flex: 1 1 0;
   min-width: 0;
-  max-width: 46px;
-  height: 36px;
+  max-width: 56px;
+  height: 40px;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -434,7 +453,7 @@ function runTool(t) { if (!t.disabled) t.run?.() }
   color: var(--ink);
   font-family: 'Courier New', monospace;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 16px;
   min-height: 0;
   cursor: pointer;
 }
@@ -529,7 +548,8 @@ function runTool(t) { if (!t.disabled) t.run?.() }
 /* ---------- mobile ---------- */
 .sd-dock.sd-m { max-width: 100%; border-radius: 14px 14px 0 0; }
 .sd-dock.sd-m .sd-keys { gap: 3px; }
-.sd-dock.sd-m .sd-key { height: 34px; font-size: 14px; }
+.sd-dock.sd-m .sd-key-row { gap: 3px; }
+.sd-dock.sd-m .sd-key { height: 40px; font-size: 16px; max-width: none; }
 .sd-dock.sd-m .sd-tools { gap: 5px; }
 .sd-dock.sd-m .sd-tbtn { flex: 0 0 40px; width: 40px; height: 40px; }
 .sd-dock.sd-m .sd-tbtn.wide { flex: 0 0 auto; width: auto; padding: 0 8px; }
