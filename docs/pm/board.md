@@ -7,8 +7,13 @@
 
 > ▶ **RESUME (PM session ใหม่ อ่านนี่ก่อน):** สวมบท PM ต่อ → อ่าน `docs/pm/pm.md` (ไม้ต่อครบ) + memory `pleng-pm-role` + ไฟล์นี้
 > **โฟกัสตอนนี้:** ✅ **คลื่น 1 (shell + StudioDock) merged เข้าฐานแล้ว** — B033/B034 fixed · unit 81/81 · build ผ่าน · P'Aim accept (LAN test มือถือจริง)
-> **ถัดไป — คลื่น 2 (ขนาน · overnight):** 3 สายแยก worktree/port ตามแผน SA → **E-editor** (5312 · B035/B032/B031/B003/I5) · **V-viewer** (5313 · B024/B016) · **H-highlight** (5314 · B006/B029) · brief: `docs/pm/wave2-parallel.md` · แต่ละสาย commit branch ตัวเอง **ไม่ merge**
-> **เช้าพรุ่งนี้ — คลื่น 3 (PM รวม):** review 3 สาย → เคลียร์ conflict ไฟล์ร่วม (StudioDock/NoteRow/Studio.vue) → **B030** (ยก StudioDock ขึ้น Studio + mount ทุกโหมด + N1) → ทดสอบรวม → merge เข้าฐาน · เรื่องค้างเดิม ③ sync docs · ① DA · ② lint เข้าฐาน
+> **✅ คลื่น 2 + 3 เสร็จ (9 ก.ค.):** 3 สาย (E-editor / V-viewer / H-highlight) build overnight → **PM รวมเข้าฐานครบ** (merge เรียง editor→viewer→highlight · เคลียร์ conflict Icon/SongViewer/SongSheet/play.test มือ) · **unit 110/110 · build ผ่าน · verify เบราว์เซอร์:** editor รื้อใหม่+dock 3แถว · ฝึกร้อง control bar+ไฮไลต์รายพยางค์ 250 span · ไม่มี console error
+> **ถัดไป:** (1) **P'Aim ทดสอบ + เคาะ design ที่ 3 สาย flag** (ดูส่วนล่าง) · (2) **N1** dock ซ้อน 2 instance (โชว์ตัวเดียว · ไม่ใช่บั๊กผู้ใช้) = cleanup ยก StudioDock ขึ้น Studio เมื่อว่าง · (3) เรื่องค้างเดิม ③ sync docs · ① DA · ② lint เข้าฐาน
+
+## 🎨 design ที่ dev flag รอ P'Aim เคาะ (wave 2 · ไม่บล็อก)
+- **Editor:** ไอคอน "ท่อนฮุก" ใช้ ⚓ (anchor · Lucide ไม่มี hook) โอเคไหม · ราย "ห้อง" ยังเก็บ ⋯ (ย้าย/สำเนา/ลบ/volta) — ซ่อนลึกกว่านี้ไหม
+- **Viewer:** แสดงผล **5 แบบ** (ตาม prototype · US มี 4) · คงปุ่ม "พิมพ์" ใน dock ฝึกร้อง · loop ยังเป็น toggle (วนซ้ำท่อน = V3 อนาคต)
+- **Highlight:** สีคาราโอเกะ (คำ=พื้นน้ำตาลตัวขาว · โน้ต=พื้นจางเลข brand) ปรับโทนได้ · auto-scroll ระดับ segment (ไม่ถี่รายพยางค์)
 > **ถัดไป:** editor redesign คลื่น 2 (ครอบ B032/B035) + highlight (B029) = build ตาม `ps2-studio-prototype.html` · เรื่องค้างเดิม (③ sync docs status ps4 · ① DA 3 เรื่อง · ② lint เข้าฐาน) ทำต่อได้เมื่อพร้อม
 
 **Legend:** ✅ ยืนยันตรง 3 แหล่ง · ⚠️ ต้องเคลียร์/ตัดสิน · ⏳ ยังไม่รายงาน

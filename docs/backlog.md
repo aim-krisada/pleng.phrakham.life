@@ -11,6 +11,8 @@ idea ไหนจะทำจริง → ยกขึ้นเป็น user s
 
 **สถานะ:** `idea` (ยังไม่เริ่ม) → `picked` (เลือกทำ) → `in-US` (มี user story แล้ว ใส่ลิงก์) → `done`
 
+> **✅ merged wave 2 (2026-07-09) — done, อยู่ในฐานแล้ว:** B035 · B032 · B031 · B003 · I5 (editor) · B024 · B016 (viewer) · B006 · B029 (highlight) — unit 110/110 · verify เบราว์เซอร์ · รายละเอียด `docs/pm/board.md` · เหลือ **N1** (dock ซ้อน · cleanup) + design ที่ dev flag รอ P'Aim เคาะ
+
 | id | ชนิด | สรุป | ที่มา / รายละเอียด | สถานะ | โยงไป |
 |---|---|---|---|---|---|
 | B001 | feature | ปุ่มลอยมุมล่างขวา เลื่อนขึ้น/ลง | reuse โค้ดจาก phrakham.life · ภาพ: `backlog-assets/B001-scroll-buttons.png` (2026-07-08) · **✅ merged `wt-fix` → base** (`pk-scrollnav.js` ร่วม พระคำฯ) · ✅ tester ยืนยันมือถือจริงแล้ว | done | wt-fix (merged) |
