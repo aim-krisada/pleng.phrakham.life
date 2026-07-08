@@ -1,15 +1,16 @@
 <script setup>
 // The read/listen surface for one song — same engine as the old SongView (play,
-// transpose, tempo, loop, font size, full/lyrics, play-by-section + follow-along
-// highlight = the karaoke feel), but a control bar restyled to match the Studio shell.
-// Takes a `song` ({ number, title_th, content }) so it can live inside Studio's view
-// mode instead of loading by route.
-import { ref, computed, onUnmounted, watch, nextTick } from 'vue'
+// transpose, tempo, loop, font size, display layers, play-by-section + follow-along
+// highlight = the karaoke feel). The control bar is now the shared <StudioDock> in
+// "sing" mode (ps3-viewer B024): display / chord / key / tempo are dropdowns, and the
+// dock owns the collapse / transparency / customize / overflow engine. Takes a `song`
+// ({ number, title_th, content }) so it can live inside Studio's ดู mode.
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { KEYS } from '../lib/chords.js'
 import { playSong, stopPlayback, setTranspose, keyTranspose, TEMPO_MARKS } from '../lib/midi.js'
 import { resolveContent } from '../lib/songModel.js'
 import SongSheet from './SongSheet.vue'
-import Icon from './Icon.vue'
+import StudioDock from './StudioDock.vue'
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
 // view-only for everyone, so it is accepted but not used to gate anything — there are
@@ -19,8 +20,33 @@ const props = defineProps({
   tier: { type: String, default: 'guest' },
 })
 
-const mode = ref('full') // full = โน้ต+คอร์ด+เนื้อ · lyrics = เนื้อล้วน (karaoke)
+// ---------- display layers (B024 "แสดงผล" menu) ----------
+// One preset picks which of chord / note / lyric show. Mirrors the ps3-dock prototype's
+// 5-way แสดงผล menu; SongSheet takes the three booleans so each preset renders exactly.
+const DISPLAY_OPTS = [
+  { value: 'all', label: 'ครบ (เนื้อ+คอร์ด+โน้ต)', chord: true, note: true, lyric: true },
+  { value: 'chord', label: 'เนื้อ+คอร์ด', chord: true, note: false, lyric: true },
+  { value: 'note', label: 'เนื้อ+โน้ต', chord: false, note: true, lyric: true },
+  { value: 'lyric', label: 'เนื้อล้วน', chord: false, note: false, lyric: true },
+  { value: 'noteonly', label: 'โน้ตล้วน', chord: false, note: true, lyric: false },
+]
+const display = ref('all')
+const displayDef = computed(() => DISPLAY_OPTS.find((o) => o.value === display.value) || DISPLAY_OPTS[0])
+// chord system: ตัวอักษร (letter) / เลขนัชวิลล์ (roman) / ซ่อนคอร์ด (hide the whole layer)
+const CHORD_OPTS = [
+  { value: 'letter', label: 'คอร์ดตัวอักษร (A B C)' },
+  { value: 'roman', label: 'เลขนัชวิลล์ (1 4 5)' },
+  { value: 'hidden', label: 'ซ่อนคอร์ด' },
+]
 const chordSystem = ref('letter')
+// effective layer visibility handed to SongSheet
+const showChord = computed(() => displayDef.value.chord && chordSystem.value !== 'hidden')
+const showNote = computed(() => displayDef.value.note)
+const showLyric = computed(() => displayDef.value.lyric)
+const sheetChordSystem = computed(() => (chordSystem.value === 'roman' ? 'roman' : 'letter'))
+// coarse mode kept for SongSheet's lyrics-only layout fallback / compat
+const sheetMode = computed(() => (showLyric.value && !showNote.value && !showChord.value ? 'lyrics' : 'full'))
+
 const displayKey = ref(props.song?.content?.key || 'C')
 const playing = ref(false)
 const loop = ref(false)
@@ -53,6 +79,10 @@ const sections = computed(() => {
   for (let i = 0; i < secs.length - 1; i++) secs[i].toLi = secs[i + 1].fromLi - 1
   return secs
 })
+// key options — the original key is marked so the singer can find "home"
+const keyOptions = computed(() =>
+  KEYS.map((k) => ({ value: k, label: k + (k === props.song?.content?.key ? ' (ต้นฉบับ)' : '') })),
+)
 const tempoOptions = computed(() => {
   const base = props.song?.content?.bpm
     ? [{ value: props.song.content.bpm, label: `ตามเพลง ♩=${props.song.content.bpm}` }]
@@ -76,9 +106,19 @@ watch(
   },
 )
 
-// follow-along: keep the sounding segment in view (the karaoke scroll)
+// ---------- follow-along scroll (B016) ----------
+// Keep the sounding segment in view (the karaoke scroll). When the user scrolls by hand
+// (wheel / touch), auto-scroll steps aside for ~3.5s so it doesn't yank the page back —
+// programmatic scrollIntoView fires 'scroll' but NOT 'wheel'/'touchmove', so listening to
+// those only catches real gestures.
+const SCROLL_PAUSE_MS = 3500
+let pausedScrollUntil = 0
+function onUserScroll() {
+  if (playing.value) pausedScrollUntil = Date.now() + SCROLL_PAUSE_MS
+}
 watch(playingSeg, async (seg) => {
   if (!seg || !sheetWrap.value) return
+  if (Date.now() < pausedScrollUntil) return // singer is reading elsewhere — don't snap back
   await nextTick()
   const el = sheetWrap.value.querySelector(`[data-seg="${seg.li}-${seg.si}"]`)
   if (!el) return
@@ -156,45 +196,78 @@ watch(tempo, () => {
 function printSheet() {
   window.print()
 }
-onUnmounted(stopPlayback)
+
+// ---------- the shared dock in "sing" mode (B024) ----------
+// Each def is data StudioDock renders; menu tools carry their options + onPick so the
+// dropdown writes straight back to this component's state. Default order leads with
+// play,chord,tempo so mobile shows those three first (B024). key/tempo carry a badge
+// (the current คีย์ / BPM) so their value shows without opening the menu.
+const SING_DEFAULT = ['play', 'chord', 'tempo', 'key', 'display', 'loop', 'fdown', 'fup', 'print']
+const singTools = computed(() => [
+  {
+    id: 'play',
+    icon: playing.value ? 'square' : 'play',
+    label: playing.value ? 'หยุด' : 'ฟังเพลง',
+    run: togglePlay,
+    prime: true,
+  },
+  {
+    id: 'chord',
+    icon: 'guitar',
+    label: 'คอร์ด',
+    menu: true,
+    value: chordSystem.value,
+    options: CHORD_OPTS,
+    onPick: (v) => (chordSystem.value = v),
+  },
+  {
+    id: 'tempo',
+    icon: 'gauge',
+    label: 'ความเร็ว',
+    menu: true,
+    badge: String(tempo.value),
+    value: tempo.value,
+    options: tempoOptions.value,
+    onPick: (v) => (tempo.value = v),
+  },
+  {
+    id: 'key',
+    icon: 'key-round',
+    label: 'คีย์',
+    menu: true,
+    badge: displayKey.value,
+    value: displayKey.value,
+    options: keyOptions.value,
+    onPick: (v) => (displayKey.value = v),
+  },
+  {
+    id: 'display',
+    icon: 'layers',
+    label: 'แสดงผล',
+    menu: true,
+    value: display.value,
+    options: DISPLAY_OPTS,
+    onPick: (v) => (display.value = v),
+  },
+  { id: 'loop', icon: 'repeat', label: 'วนซ้ำ', run: () => (loop.value = !loop.value), prime: loop.value },
+  { id: 'fdown', icon: 'a-arrow-down', label: 'ตัวเล็กลง', run: () => bumpFont(-0.1), disabled: fontScale.value <= 0.8 },
+  { id: 'fup', icon: 'a-arrow-up', label: 'ตัวใหญ่ขึ้น', run: () => bumpFont(0.1), disabled: fontScale.value >= 2.2 },
+  { id: 'print', icon: 'printer', label: 'พิมพ์', run: printSheet },
+])
+
+onMounted(() => {
+  window.addEventListener('wheel', onUserScroll, { passive: true })
+  window.addEventListener('touchmove', onUserScroll, { passive: true })
+})
+onUnmounted(() => {
+  window.removeEventListener('wheel', onUserScroll)
+  window.removeEventListener('touchmove', onUserScroll)
+  stopPlayback()
+})
 </script>
 
 <template>
   <div>
-    <!-- control bar (restyled to match the shell) -->
-    <div class="vw-bar no-print">
-      <button class="vw-play" :class="{ playing }" @click="togglePlay">
-        <Icon :name="playing ? 'square' : 'play'" :size="15" />
-        {{ playing ? 'หยุด' : 'ฟังเพลง' }}
-      </button>
-      <span class="vw-field" title="คีย์ (ย้ายคีย์)">
-        <Icon name="music" :size="15" />
-        <select v-model="displayKey" aria-label="เลือกคีย์">
-          <option v-for="k in KEYS" :key="k" :value="k">{{ k }}{{ k === song.content.key ? ' •' : '' }}</option>
-        </select>
-      </span>
-      <span class="vw-field" title="ความเร็ว">
-        <span class="vw-note" aria-hidden="true">♩</span>
-        <select v-model="tempo" aria-label="ความเร็ว">
-          <option v-for="t in tempoOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
-        </select>
-      </span>
-      <label class="vw-check"><input v-model="loop" type="checkbox" /> วนซ้ำ</label>
-      <span class="vw-seg" role="group" aria-label="ขนาดตัวอักษร">
-        <button aria-label="เล็กลง" :disabled="fontScale <= 0.8" @click="bumpFont(-0.1)">ก−</button>
-        <button aria-label="ใหญ่ขึ้น" :disabled="fontScale >= 2.2" @click="bumpFont(0.1)">ก+</button>
-      </span>
-      <span class="vw-seg" role="group" aria-label="รูปแบบ">
-        <button :class="{ on: mode === 'full' }" @click="mode = 'full'">เต็ม</button>
-        <button :class="{ on: mode === 'lyrics' }" @click="mode = 'lyrics'">เนื้อล้วน</button>
-      </span>
-      <span v-if="mode === 'full'" class="vw-seg" role="group" aria-label="ระบบคอร์ด">
-        <button :class="{ on: chordSystem === 'letter' }" @click="chordSystem = 'letter'">A B C</button>
-        <button :class="{ on: chordSystem === 'roman' }" @click="chordSystem = 'roman'">I IV V</button>
-      </span>
-      <button class="vw-icon" title="พิมพ์" aria-label="พิมพ์" @click="printSheet"><Icon name="printer" :size="17" /></button>
-    </div>
-
     <!-- play a single section (ท่อน) — chips -->
     <div v-if="sections.length" class="section-bar no-print" role="group" aria-label="เล่นเป็นท่อน">
       <button class="section-chip" :class="{ active: playingSection === 'all' }" @click="togglePlay">▶ ทั้งเพลง</button>
@@ -210,88 +283,47 @@ onUnmounted(stopPlayback)
     </div>
 
     <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: fontScale + 'rem' }">
-      <SongSheet :content="resolved" :mode="mode" :chord-system="chordSystem" :display-key="displayKey" :playing-seg="playingSeg" :song-title="printTitle" />
+      <SongSheet
+        :content="resolved"
+        :mode="sheetMode"
+        :chord-system="sheetChordSystem"
+        :show-chord="showChord"
+        :show-note="showNote"
+        :show-lyric="showLyric"
+        :display-key="displayKey"
+        :playing-seg="playingSeg"
+        :song-title="printTitle"
+      />
     </div>
+
+    <!-- control bar = the shared studio dock (sing mode). It owns collapse / transparency /
+         customize / overflow; the play button here is the sticky ▶⇄⏸ that stays reachable
+         while the singer scrolls (B016). -->
+    <StudioDock mode="sing" :tools="singTools" :default-tools="SING_DEFAULT" />
   </div>
 </template>
 
 <style scoped>
-.vw-bar {
+.section-bar {
   display: flex;
-  align-items: center;
-  gap: 8px;
   flex-wrap: wrap;
-  background: #fffdf8;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 8px 10px;
+  gap: 8px;
   margin-bottom: 14px;
 }
-.vw-play {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--brand);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-weight: 600;
-  cursor: pointer;
-  min-height: 38px;
-}
-.vw-play.playing { background: var(--red); }
-.vw-field {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+.section-chip {
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 2px 8px;
-  min-height: 38px;
-}
-.vw-field .icn { color: var(--muted); }
-.vw-note { color: var(--muted); font-family: Georgia, serif; }
-.vw-field select {
-  border: none;
-  background: transparent;
-  padding: 4px 2px;
-  min-height: auto;
-  font-weight: 600;
-  color: var(--brand);
-  font-size: 0.95rem;
-  cursor: pointer;
-}
-.vw-check { display: inline-flex; align-items: center; gap: 5px; font-size: 0.9rem; color: var(--muted); }
-.vw-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.vw-seg button {
-  background: #fff;
-  border: none;
-  padding: 8px 12px;
+  border-radius: 999px;
+  padding: 6px 14px;
   cursor: pointer;
   color: var(--ink);
-  min-height: 38px;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
+  min-height: 34px;
 }
-.vw-seg button + button { border-left: 1px solid var(--line); }
-.vw-seg button.on { background: var(--cream); color: var(--brand); font-weight: 700; }
-.vw-seg button:disabled { opacity: 0.4; cursor: default; }
-.vw-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  border: 1px solid var(--line);
-  color: var(--brand);
-  border-radius: 8px;
-  min-width: 38px;
-  min-height: 38px;
-  cursor: pointer;
-}
+.section-chip.active { background: var(--brand); color: #fff; border-color: var(--brand); }
 @media (hover: hover) {
-  .vw-seg button:not(.on):not(:disabled):hover,
-  .vw-icon:hover,
-  .vw-field:hover { background: var(--cream-hover); }
+  .section-chip:not(.active):hover { background: var(--cream-hover); }
 }
+/* leave room so the fixed dock never covers the last line of the song */
+.sheet-scale { padding-bottom: 96px; }
 </style>

@@ -120,3 +120,69 @@ describe('StudioDock — shared dock engine (ps3-dock)', () => {
     expect(spy).not.toHaveBeenCalled()
   })
 })
+
+// D7 (wave 2): menu tools open a dropdown of options; the button carries a badge + caret.
+describe('StudioDock — menu / dropdown tools (D7)', () => {
+  const pick = vi.fn()
+  const menuTools = () => [
+    { id: 'key', icon: 'key-round', label: 'คีย์', menu: true, badge: 'E', value: 'E',
+      options: [{ value: 'E', label: 'E (ต้นฉบับ)' }, { value: 'G', label: 'G' }], onPick: pick },
+    { id: 'loop', icon: 'repeat', label: 'วนซ้ำ', menu: true, multi: true, selected: ['v1'],
+      options: [{ value: 'v1', label: 'ร้อง 1' }, { value: 'v2', label: 'ร้อง 2' }], onPick: pick },
+  ]
+  const mountMenu = () =>
+    mount(StudioDock, {
+      props: { mode: 'sing', tools: menuTools(), defaultTools: ['key', 'loop'], paletteKeys: [] },
+      global: { stubs: { Icon: true } },
+      attachTo: document.body,
+    })
+  beforeEach(() => pick.mockClear())
+
+  it('renders a badge + caret and opens the option list on click', async () => {
+    const w = mountMenu()
+    await nextTick()
+    const keyBtn = w.find('.sd-tbtn[data-tool="key"]')
+    expect(keyBtn.find('.sd-badge').text()).toBe('E')
+    expect(w.find('.sd-pop-menu').exists()).toBe(false)
+    await keyBtn.trigger('click')
+    await nextTick()
+    expect(w.find('.sd-pop-menu').exists()).toBe(true)
+    expect(w.findAll('.sd-menu-row').length).toBe(2)
+    expect(keyBtn.attributes('aria-expanded')).toBe('true')
+  })
+
+  it('single-select calls onPick with the option value and closes the menu', async () => {
+    const w = mountMenu()
+    await nextTick()
+    await w.find('.sd-tbtn[data-tool="key"]').trigger('click')
+    await nextTick()
+    const gRow = w.findAll('.sd-menu-row').find((r) => r.find('.sd-menu-lb').text() === 'G')
+    await gRow.trigger('click')
+    await nextTick()
+    expect(pick).toHaveBeenCalledWith('G')
+    expect(w.find('.sd-pop-menu').exists()).toBe(false) // single-select auto-closes
+  })
+
+  it('marks the current single-select value with ●', async () => {
+    const w = mountMenu()
+    await nextTick()
+    await w.find('.sd-tbtn[data-tool="key"]').trigger('click')
+    await nextTick()
+    const rows = w.findAll('.sd-menu-row')
+    const current = rows.find((r) => r.attributes('aria-checked') === 'true')
+    expect(current.find('.sd-menu-lb').text()).toBe('E (ต้นฉบับ)')
+  })
+
+  it('multi-select toggles via onPick and keeps the menu open', async () => {
+    const w = mountMenu()
+    await nextTick()
+    await w.find('.sd-tbtn[data-tool="loop"]').trigger('click')
+    await nextTick()
+    const rows = w.findAll('.sd-menu-row')
+    // the pre-selected option is checked
+    expect(rows.find((r) => r.find('.sd-menu-lb').text() === 'ร้อง 1').attributes('aria-checked')).toBe('true')
+    await rows.find((r) => r.find('.sd-menu-lb').text() === 'ร้อง 2').trigger('click')
+    expect(pick).toHaveBeenCalledWith('v2')
+    expect(w.find('.sd-pop-menu').exists()).toBe(true) // multi stays open for more picks
+  })
+})
