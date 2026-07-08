@@ -1,6 +1,7 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { displayChord } from '../lib/chords.js'
+import { SITE_NAME } from '../lib/songName.js'
 import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
@@ -9,10 +10,22 @@ const props = defineProps({
   chordSystem: { type: String, default: 'letter' }, // 'letter' | 'number'
   displayKey: { type: String, default: '' }, // transpose target; '' = original
   playingSeg: { type: Object, default: null }, // { li, si } currently sounding
-  songTitle: { type: String, default: '' }, // for the printed page header/footer (US-B02)
 })
 
-const SITE = 'เพลง.พระคำ.ชีวิต'
+// Printed footer (US-I3): site name (left · SSOT from songName.js) · page "X ของ Y"
+// (center · drawn by the @page counter in styles.css) · "พิมพ์เมื่อ <วันที่>" (right).
+// The song TITLE is intentionally NOT here — it prints centered at the TOP of the
+// sheet (Studio's <h2>), per P'Aim. Date is Thai Buddhist-era, last two year digits.
+const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+function thaiPrintDate(d) {
+  const beYear = String((d.getFullYear() + 543) % 100).padStart(2, '0')
+  return `พิมพ์เมื่อ ${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${beYear}`
+}
+// Stamp the date fresh right before each print (so an all-day-open tab prints today's date).
+const printedAt = ref(thaiPrintDate(new Date()))
+const refreshDate = () => { printedAt.value = thaiPrintDate(new Date()) }
+onMounted(() => window.addEventListener('beforeprint', refreshDate))
+onBeforeUnmount(() => window.removeEventListener('beforeprint', refreshDate))
 
 function chordText(chord) {
   return displayChord(chord, {
@@ -94,14 +107,15 @@ function isPlaying(li, si) {
 
 <template>
   <div :class="mode === 'lyrics' ? 'sheet-mode-lyrics' : ''">
-    <!-- print-only running footer (US-B02). Hidden on screen; on paper it repeats on
+    <!-- print-only running footer (US-I3). Hidden on screen; on paper it repeats on
          every page (position: fixed), inset from the paper edge so it prints cleanly.
-         Center "หน้า X ของ Y" is left to the page-level @page counter (shared print
-         CSS · WT-0) since a page count can't be derived in-component. -->
+         Left = site name · right = "พิมพ์เมื่อ <วันที่>". Center "หน้า X ของ Y" is left
+         empty here — the page-level @page counter (styles.css) fills it, since a page
+         count can't be derived in-component. -->
     <div class="print-foot" aria-hidden="true">
-      <span class="pf-left">{{ SITE }}</span>
+      <span class="pf-left">{{ SITE_NAME }}</span>
       <span class="pf-center"></span>
-      <span class="pf-right">{{ songTitle }}</span>
+      <span class="pf-right">{{ printedAt }}</span>
     </div>
     <div v-for="(grp, gi) in renderGroups" :key="gi" class="song-section">
     <div v-for="row in grp.lines" :key="row.li" class="song-line">
@@ -154,16 +168,19 @@ function isPlaying(li, si) {
 @media print {
   .print-foot {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     position: fixed;
-    /* inset from the paper edge so the text isn't cramped in the corner / clipped
-       by the printer's non-printable margin — prints noticeably cleaner */
-    bottom: 10mm;
+    /* Sit on the same baseline as the @page "หน้า X ของ Y" counter, which is centred
+       in the 20mm bottom margin (≈10mm up). Same font-size/colour as that counter so
+       the three footer items read as one line (fixes the "ตัวหนังสือคนละขนาด" look). */
+    bottom: 8.5mm;
     left: 16mm;
     right: 16mm;
     font-size: 9pt;
+    line-height: 1;
     color: #444;
+    font-family: 'Noto Sans Thai', 'Noto Sans', sans-serif;
   }
   .print-foot .pf-center {
     flex: 1;

@@ -95,7 +95,7 @@ describe('Studio shell — three modes on one surface (US-01)', () => {
     expect(wrapper.findComponent(SongViewer).props('song')).toMatchObject({ number: 7, title_th: 'เพลงทดสอบ' })
   })
 
-  it('แผ่น mode passes the current song title into SongSheet (US-I3 print footer)', async () => {
+  it('แผ่น mode shows the song title centered at the top of the sheet (US-I3)', async () => {
     const wrapper = mount(Studio, { global: { stubs } })
     await nextTick()
     wrapper.findComponent(EditorMode).vm.$emit('change', {
@@ -105,7 +105,8 @@ describe('Studio shell — three modes on one surface (US-01)', () => {
     await nextTick()
     modeButtons()[1].click() // แผ่น
     await nextTick()
-    expect(wrapper.findComponent(SongSheet).props('songTitle')).toBe('7. เพลงทดสอบ')
+    // title prints in the sheet body (<h2>), NOT passed into SongSheet's footer
+    expect(wrapper.find('.sheet-title').text()).toBe('7. เพลงทดสอบ')
   })
 
   it('gating flows from the store into every mode via the tier prop (DS-02/DS-04)', async () => {

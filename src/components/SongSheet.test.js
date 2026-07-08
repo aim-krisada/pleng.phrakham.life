@@ -73,22 +73,22 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(wrapper.findAll('[contenteditable="true"]').length).toBe(0)
   })
 
-  it('US-B02: no top page header is rendered (พี่เอม: ด้านบนไม่ต้องมี)', () => {
-    const wrapper = mountSheet({ songTitle: 'พระเจ้าเป็นความรัก' })
+  it('US-I3: no top page header is rendered (พี่เอม: ชื่อเพลงอยู่ในเนื้อ ไม่ใช่ header)', () => {
+    const wrapper = mountSheet()
     expect(wrapper.find('.print-head').exists()).toBe(false)
   })
 
-  it('US-B02: print footer = site (left) · ชื่อเพลง (right); center reserved for page no.', () => {
-    const wrapper = mountSheet({ songTitle: 'พระเจ้าเป็นความรัก' })
+  it('US-I3: print footer = site name (left) · "พิมพ์เมื่อ ..." (right); center left for @page page no.', () => {
+    const wrapper = mountSheet()
     expect(wrapper.find('.print-foot .pf-left').text()).toBe('เพลง.พระคำ.ชีวิต')
-    expect(wrapper.find('.print-foot .pf-right').text()).toBe('พระเจ้าเป็นความรัก')
-    expect(wrapper.find('.print-foot .pf-center').text()).toBe('') // filled by @page counter (WT-0)
+    // right = Thai Buddhist-era print date, e.g. "พิมพ์เมื่อ 8 ก.ค. 69"
+    expect(wrapper.find('.print-foot .pf-right').text()).toMatch(/^พิมพ์เมื่อ \d{1,2} .+ \d{2}$/)
+    expect(wrapper.find('.print-foot .pf-center').text()).toBe('') // filled by @page counter (styles.css)
   })
 
-  it('US-B02: with no songTitle the footer-right is empty (awaits Studio wiring)', () => {
-    const wrapper = mountSheet() // no songTitle
-    expect(wrapper.find('.print-foot .pf-left').text()).toBe('เพลง.พระคำ.ชีวิต')
-    expect(wrapper.find('.print-foot .pf-right').text()).toBe('')
+  it('US-I3: the song title is NOT in the footer (it prints at the top of the sheet)', () => {
+    const wrapper = mountSheet()
+    expect(wrapper.find('.print-foot').text()).not.toContain('พระเจ้าเป็นความรัก')
   })
 
   it('US-B02: consecutive lines group under one ท่อน wrapper (kept together on print)', () => {

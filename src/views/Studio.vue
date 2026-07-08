@@ -9,6 +9,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
+import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
 import { tier, initAuth, shellMenu } from '../store.js'
 import Icon from '../components/Icon.vue'
@@ -149,10 +150,20 @@ function openPicked() {
   router.push('/song/' + id) // watcher loads it + preserves the current mode
 }
 
-// ---------- print (US-06) ----------
-// The 🖨 button in the แผ่น toolbar just triggers the browser print dialog; the printed
-// page layout (A4 · footer) is owned by SongSheet's @media print (WT-B / US-B02).
+// ---------- print (US-06 / US-I2 filename) ----------
+// The 🖨 button in the แผ่น toolbar triggers the browser print dialog. The browser
+// suggests document.title as the PDF filename, so set it to the shared song basename
+// first (same "เพลง.พระคำ.ชีวิต - ชื่อเพลง" the JSON download + navbar PDF use), then
+// restore the site title afterwards. The page layout (A4 · footer) is owned by
+// SongSheet's @media print + the @page rules in styles.css (US-I3).
 function printSheet() {
+  const prev = document.title
+  document.title = songBasename(liveSong.value)
+  const restore = () => {
+    document.title = prev
+    window.removeEventListener('afterprint', restore)
+  }
+  window.addEventListener('afterprint', restore)
   window.print()
 }
 </script>
@@ -225,7 +236,7 @@ function printSheet() {
       </div>
       <div class="card">
         <h2 class="sheet-title">{{ titleText }}</h2>
-        <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" :song-title="titleText" />
+        <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" />
       </div>
     </div>
 
@@ -296,8 +307,10 @@ function printSheet() {
   }
 }
 .sheet-title {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   color: var(--brand);
+  text-align: center;
+  font-size: 1.5rem;
 }
 
 /* shell song picker (US-05) — teleported into the shared ShellBar */

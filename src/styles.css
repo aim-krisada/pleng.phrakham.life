@@ -542,8 +542,13 @@ footer.site-footer a { color: var(--footer-ink); }
      box, not from inside a component; SongSheet's own footer leaves its center empty
      for exactly this. (Chrome/Edge + "Headers and footers" off in the print dialog.) */
   @page {
-    margin: 14mm 16mm 18mm;
-    @bottom-center { content: "หน้า " counter(page) " ของ " counter(pages); }
+    margin: 16mm 16mm 20mm;
+    @bottom-center {
+      content: "หน้า " counter(page) " ของ " counter(pages);
+      font-family: 'Noto Sans Thai', 'Noto Sans', sans-serif;
+      font-size: 9pt;
+      color: #444;
+    }
   }
   body { background: #fff; }
   .no-print, footer.site-footer, header.topbar { display: none !important; }
