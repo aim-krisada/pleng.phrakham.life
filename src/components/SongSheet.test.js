@@ -91,6 +91,24 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(wrapper.find('.print-foot .pf-right').text()).toBe('')
   })
 
+  it('US-B02: consecutive lines group under one ท่อน wrapper (kept together on print)', () => {
+    // ท่อน 1 spans TWO source lines (2nd line has no section marker); ร้องรับ is a 3rd.
+    const c = {
+      key: 'C',
+      timeSignature: '4/4',
+      lines: [
+        [{ type: 'section', name: 'ท่อน 1' }, { type: 'segment', chord: 'C', note: '1', lyric: 'ก' }],
+        [{ type: 'segment', chord: 'G', note: '2', lyric: 'ข' }],
+        [{ type: 'section', name: 'ร้องรับ' }, { type: 'segment', chord: 'F', note: '4', lyric: 'ค' }],
+      ],
+    }
+    const wrapper = mount(SongSheet, { props: { content: c, mode: 'full' } })
+    const groups = wrapper.findAll('.song-section')
+    expect(groups.length).toBe(2) // ท่อน 1 (2 lines) + ร้องรับ (1 line)
+    expect(groups[0].findAll('.song-line').length).toBe(2)
+    expect(groups[1].findAll('.song-line').length).toBe(1)
+  })
+
   it('empty song does not throw and renders no lines', () => {
     const wrapper = mount(SongSheet, {
       props: { content: { key: 'C', timeSignature: '4/4', lines: [] }, mode: 'full' },
