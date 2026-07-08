@@ -37,6 +37,7 @@
 > B001 รวมเข้า `wt-fix` แล้ว (ไม่แยก `wt-b001`) · ใช้ `pk-scrollnav.js` ร่วมกับ พระคำ.ชีวิต เป๊ะ · report: `docs/reports/wt-fix-summary.md`
 
 ## 🔮 Sprint 3 (ps3) — "สร้างตาม design ที่เคาะ"
+**Spec พร้อมแล้ว:** US `docs/us/ps3-{shell,editor,viewer,highlight}.md` + DS `docs/ds/ps3-*` · design = `docs/design/ps2-studio-prototype.html` · **4 epic:** ① Shell(②·ทำก่อน) → ② Editor(③+I5+WT-D รอบ2·คอขวด) · ③ Viewer(④) · ④ Highlight(B006·v2)
 - shell/เมนูใหม่ + fold integration **I1** (navbar) + **I5** (editor JSON + B003) เข้าโครงใหม่
 - editor UX (③) · viewer (B016/B006/B021)
 - **WT-D รอบ 2:** D02 ส่งตรวจ · D03 อนุมัติ · D04 หมวด+เลข
