@@ -44,6 +44,13 @@
 - **collapsed + ตำแหน่ง = ค่าเดียวร่วมทุกโหมด** (localStorage ไม่ผูก mode แล้ว) · **tool order ยังแยกต่อโหมด** (ปุ่มต่างกัน) — dock เป็น instance เดิมตอนสลับโหมด → หุบ/ตำแหน่ง live ตรงกันทุกโหมด
 - **ปุ่มพิมพ์ของโหมดแผ่น ย้ายเข้า dock** (ไปในทิศเดียวกับ B041 "ลบปุ่มพิมพ์ซ้ำ") · ลบ `.sheet-toolbar` เดิม → **ขอ P'Aim เคาะ** (ดูข้อสังเกตท้าย)
 
+### D8 — config API แบบ generic (ตาม design-constraint ของ PM · กันรื้อ B043)
+- dock config รองรับ **control ที่ไม่ใช่ปุ่ม** ผ่าน tool def แบบใหม่: `{ id, type:'custom', component, props }` → StudioDock render `<component :is>` แทนปุ่ม · dock ไม่รู้ว่าเป็นอะไร **หน้าเป็นเจ้าของ control เอง** (เดินสายผ่าน `props`)
+- ผลลัพธ์: อนาคต **transport bar (B043)** — progress + marker ท่อน + play/pause/prev/next — หน้าฝึกร้อง config ใส่ dock เดียวนี้ได้เลย **ไม่ต้องแตะ StudioDock** = ไม่ชนกับงานนี้
+- **ยังไม่ได้ build transport bar** (ตามที่ PM สั่ง) — ทำแค่รู "escape hatch" ให้พร้อม · custom control ไหลผ่าน overflow/ตั้งค่าปุ่ม เหมือน tool ปกติ · ผู้ให้ควรส่ง `component` เป็น `markRaw(...)`
+- มีเทสต์ยืนยัน custom control render ผ่าน `<component :is>` (ไม่ใช่ปุ่ม) + props ถึงจริง
+- **หมายเหตุ (ให้ B043 คิดต่อ):** ถ้า transport bar ต้อง "ปักไว้ไม่ให้ยุบเข้า ⋯" อาจต้องเพิ่ม flag `pinned` ทีหลัง — รอบนี้ยังไม่ทำ (ไม่มี control จริงมาเทสต์)
+
 ## ไฟล์ที่แก้
 - `src/components/StudioDock.vue` — FAB + ปุ่มหลอม + tap/drag threshold + จำตำแหน่ง bar/fab (ร่วมทุกโหมด) + guard `fit()` กัน crash ตอน unmount
 - `src/components/Icon.vue` — เพิ่ม `dock-grip-collapse`/`dock-grip-expand` + รองรับ per-icon `VIEWBOX`
@@ -63,7 +70,7 @@
 7. ไม่มี console error
 
 ## เทสต์ + build
-- `npm test` → **112/112 เขียว** (เพิ่ม 3 เคส: tap→หุบ+FAB→กาง, ลากเกิน threshold ไม่ toggle, jitter ต่ำกว่า threshold = แตะ)
+- `npm test` → **113/113 เขียว** (เพิ่ม 4 เคส: tap→หุบ+FAB→กาง, ลากเกิน threshold ไม่ toggle, jitter ต่ำกว่า threshold = แตะ, custom control D8 render)
 - `npm run build` → ผ่าน (คำเตือน fonts เดิม ไม่เกี่ยว)
 
 ## DoD

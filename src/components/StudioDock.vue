@@ -20,6 +20,12 @@
 //   — clicking opens a dropdown of `options`; single-select marks `value` and calls
 //   onPick then closes; multi marks each of `selected` and calls onPick per toggle (stays
 //   open). The button shows a caret; `badge` (e.g. คีย์/BPM) rides beside the icon.
+// Custom controls (D8): a def may instead carry { id, type:'custom', component, props? }
+//   and StudioDock renders <component :is> in place of a button — the escape hatch for
+//   non-button controls (slider · progress · a whole transport bar, e.g. B043). The dock
+//   stays blind to the control; the PAGE owns it, wiring its own state through `props`, so
+//   new controls need no change here. Pass `component` as markRaw(...) to skip needless
+//   reactivity. It flows through the same overflow/customize machinery as any tool.
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
 
@@ -88,7 +94,7 @@ function syncMobile() { mobile.value = mq ? mq.matches : false }
 // ---------- which buttons show ----------
 // the saved order, minus anything not applicable right now (visible===false)
 const shown = computed(() =>
-  order.value.map((id) => byId.value[id]).filter((t) => t && t.icon && t.visible !== false),
+  order.value.map((id) => byId.value[id]).filter((t) => t && (t.icon || t.type === 'custom') && t.visible !== false),
 )
 const addable = computed(() => props.tools.filter((t) => !order.value.includes(t.id)))
 // B033: paletteKeys may be a flat array (one row) OR an array of rows. Edit mode sends
@@ -383,24 +389,36 @@ function runTool(t) {
           @pointercancel="combinedUp"
         ><Icon name="dock-grip-collapse" :size="24" /></button>
 
-        <button
-          v-for="t in primary"
-          :key="t.id"
-          class="sd-tbtn hideoncol"
-          :class="{ danger: t.danger, prime: t.prime, wide: t.badge || t.menu }"
-          :disabled="t.disabled"
-          :title="t.label"
-          :aria-label="t.label"
-          :data-tool="t.id"
-          :aria-haspopup="t.menu ? 'menu' : undefined"
-          :aria-expanded="t.menu ? (menuId === t.id) : undefined"
-          :data-menu-btn="t.menu ? t.id : undefined"
-          @click.stop="runTool(t)"
-        >
-          <Icon :name="t.icon" :size="18" />
-          <b v-if="t.badge" class="sd-badge">{{ t.badge }}</b>
-          <Icon v-if="t.menu" name="chevron-down" :size="14" class="sd-caret" />
-        </button>
+        <template v-for="t in primary" :key="t.id">
+          <!-- custom control (D8): a page can drop a non-button control (slider · progress ·
+               transport bar) into the dock purely by config — { type:'custom', component,
+               props }. StudioDock stays blind to what it is; the page owns it, so future
+               controls (e.g. B043 transport) need no change here. -->
+          <component
+            :is="t.component"
+            v-if="t.type === 'custom'"
+            class="sd-custom hideoncol"
+            :data-tool="t.id"
+            v-bind="t.props || {}"
+          />
+          <button
+            v-else
+            class="sd-tbtn hideoncol"
+            :class="{ danger: t.danger, prime: t.prime, wide: t.badge || t.menu }"
+            :disabled="t.disabled"
+            :title="t.label"
+            :aria-label="t.label"
+            :data-tool="t.id"
+            :aria-haspopup="t.menu ? 'menu' : undefined"
+            :aria-expanded="t.menu ? (menuId === t.id) : undefined"
+            :data-menu-btn="t.menu ? t.id : undefined"
+            @click.stop="runTool(t)"
+          >
+            <Icon :name="t.icon" :size="18" />
+            <b v-if="t.badge" class="sd-badge">{{ t.badge }}</b>
+            <Icon v-if="t.menu" name="chevron-down" :size="14" class="sd-caret" />
+          </button>
+        </template>
 
         <!-- right-hand controls: overflow · transparency · customize · collapse -->
         <span class="sd-rc">
@@ -443,22 +461,25 @@ function runTool(t) {
       <div v-if="pop === 'overflow'" class="sd-pop" role="menu" @click.stop>
         <h4>ปุ่มเพิ่มเติม</h4>
         <div class="sd-ov">
-          <button
-            v-for="t in overflow"
-            :key="t.id"
-            class="sd-tbtn"
-            :class="{ danger: t.danger, prime: t.prime, wide: t.badge }"
-            :disabled="t.disabled"
-            :aria-label="t.label"
-            :title="t.label"
-            :data-tool="t.id"
-            :data-menu-btn="t.menu ? t.id : undefined"
-            @click.stop="t.menu ? runTool(t) : (runTool(t), closePop())"
-          >
-            <Icon :name="t.icon" :size="18" />
-            <b v-if="t.badge" class="sd-badge">{{ t.badge }}</b>
-            <span class="sd-ov-label">{{ t.label }}</span>
-          </button>
+          <template v-for="t in overflow" :key="t.id">
+            <!-- a custom control that spilled here renders itself; it owns its own label -->
+            <component :is="t.component" v-if="t.type === 'custom'" :data-tool="t.id" v-bind="t.props || {}" />
+            <button
+              v-else
+              class="sd-tbtn"
+              :class="{ danger: t.danger, prime: t.prime, wide: t.badge }"
+              :disabled="t.disabled"
+              :aria-label="t.label"
+              :title="t.label"
+              :data-tool="t.id"
+              :data-menu-btn="t.menu ? t.id : undefined"
+              @click.stop="t.menu ? runTool(t) : (runTool(t), closePop())"
+            >
+              <Icon :name="t.icon" :size="18" />
+              <b v-if="t.badge" class="sd-badge">{{ t.badge }}</b>
+              <span class="sd-ov-label">{{ t.label }}</span>
+            </button>
+          </template>
         </div>
       </div>
 
@@ -624,6 +645,8 @@ function runTool(t) {
 .sd-tbtn.danger { color: var(--red); }
 .sd-tbtn.prime { background: var(--brand); color: #fff; border-color: var(--brand); }
 .sd-tbtn.wide { flex: 0 0 auto; width: auto; min-width: 44px; padding: 0 9px; gap: 3px; }
+/* custom control (D8): the page owns its look; just keep it aligned in the row */
+.sd-custom { flex: 0 0 auto; display: inline-flex; align-items: center; }
 .sd-badge { font-size: 12px; font-weight: 700; }
 .sd-caret { color: var(--muted); margin-left: -1px; }
 .sd-ctl { color: var(--muted); }

@@ -156,6 +156,30 @@ describe('StudioDock — shared dock engine (ps3-dock)', () => {
   })
 })
 
+// D8: custom controls — a page drops a non-button control (slider/progress/transport bar)
+// into the dock purely by config, and StudioDock renders it via <component :is>.
+describe('StudioDock — custom controls (D8)', () => {
+  const Transport = { name: 'Transport', props: ['label'], template: '<div class="my-transport">{{ label }}</div>' }
+  it('renders a custom-type tool through <component :is>, not as a button', async () => {
+    const w = mount(StudioDock, {
+      props: {
+        mode: 'sing',
+        tools: [{ id: 'transport', type: 'custom', component: Transport, props: { label: 'TRANSPORT' } }],
+        defaultTools: ['transport'],
+        paletteKeys: [],
+      },
+      global: { stubs: { Icon: true } },
+      attachTo: document.body,
+    })
+    await nextTick()
+    const custom = w.find('.sd-custom[data-tool="transport"]')
+    expect(custom.exists()).toBe(true)
+    expect(custom.text()).toBe('TRANSPORT') // props reached the injected control
+    // it is NOT wrapped in a plain tool button
+    expect(w.find('.sd-tbtn[data-tool="transport"]').exists()).toBe(false)
+  })
+})
+
 // D7 (wave 2): menu tools open a dropdown of options; the button carries a badge + caret.
 describe('StudioDock — menu / dropdown tools (D7)', () => {
   const pick = vi.fn()
