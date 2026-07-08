@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>เพลง.พระคำ.ชีวิต — prototype ps2 (โหมดแก้ไข)</title></head><body>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>เพลง.พระคำ.ชีวิต — prototype ps2 (②③④)</title></head><body>
 <style>
   :root{
     --cream:#FBF7EF; --card:#fff; --ink:#2E2A25; --brand:#8A5320; --brand2:#A9701F;
@@ -143,6 +143,7 @@
   /* jianpu render */
   .jline{display:flex; align-items:flex-end; gap:11px; position:relative; font-family:"Courier New",monospace; padding-top:8px;}
   .jline.mini{gap:0; padding-top:0;}
+  .jline.flow{flex-wrap:wrap; row-gap:18px;}
   .jcol{display:inline-flex; flex-direction:column; align-items:center; line-height:1; position:relative;}
   .jchord{font-family:"Noto Sans Thai",sans-serif; color:var(--chord); font-weight:700; font-size:12px; height:15px;}
   .jup,.jdn{height:7px; display:flex; gap:3px; align-items:center; justify-content:center;}
@@ -163,6 +164,23 @@
   .dbtn:hover{background:var(--cream);}
   .dbtn.prime{background:var(--brand); color:#fff; border-color:var(--brand); padding:0 18px;}
   .ddim{font-size:12px; color:var(--muted); padding:0 4px;}
+  .dgrp{display:inline-flex; align-items:center; gap:4px;}
+  .dlbl{font-size:12px; color:var(--muted); margin-right:2px;}
+  .dval{font-family:"Courier New",monospace; font-weight:700; font-size:14px; min-width:28px; text-align:center; color:var(--ink);}
+  .dbtn.dsm{min-width:30px; padding:0 8px;}
+  .dbtn.active{background:var(--sel); border-color:var(--selbd); color:var(--brand);}
+  .moreBtn{display:none;}
+  .secchips{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;}
+  .chip2{font:inherit; font-size:13px; background:var(--card); border:1px solid var(--line2); border-radius:16px; padding:5px 13px; cursor:pointer; color:var(--brand);}
+  .chip2:hover{background:var(--sel);}
+  .dsel{font:inherit; font-size:14px; font-weight:700; background:var(--card); border:1px solid var(--line2); border-radius:8px; padding:6px; color:var(--ink); cursor:pointer;}
+  .looppop{position:fixed; left:50%; bottom:78px; transform:translateX(-50%); z-index:55; width:280px; max-width:calc(100vw - 20px); background:#fff; border:1px solid var(--line2); border-radius:14px; box-shadow:0 12px 34px rgba(60,40,10,.2); padding:12px;}
+  .looppop.hidden{display:none;}
+  .lp-head{font-size:14px; font-weight:700; margin-bottom:8px;}
+  .lp-list{display:flex; flex-direction:column; gap:2px; max-height:210px; overflow:auto;}
+  .lp-item{display:flex; align-items:center; gap:9px; padding:8px; border-radius:8px; font-size:14px; cursor:pointer;}
+  .lp-item:hover{background:var(--cream);} .lp-item input{width:17px; height:17px; accent-color:var(--brand);}
+  .lp-foot{display:flex; gap:8px; justify-content:space-between; margin-top:10px;}
   .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:90px; z-index:80; background:var(--ink); color:#fff; padding:9px 16px; border-radius:20px; font-size:13px; opacity:0; transition:opacity .25s; pointer-events:none;}
   .toast.on{opacity:.94;}
   .drawer{position:fixed; top:0; left:0; height:100dvh; width:82%; max-width:310px; background:var(--card); z-index:75; transform:translateX(-104%); transition:transform .22s; padding:14px; overflow:auto; box-shadow:0 0 40px rgba(60,40,10,.2);}
@@ -185,7 +203,10 @@
     .mobrow{display:flex; padding:0 12px 9px; max-width:1000px; margin:0 auto;}
     .mobrow .seg{width:100%;}
     .mobrow .seg button{flex:1; justify-content:center; flex-direction:column; gap:2px; font-size:11px; padding:7px 4px;}
-    .dock{left:0; right:0; bottom:0; transform:none; width:100%; max-width:none; border-radius:15px 15px 0 0; justify-content:flex-start; overflow-x:auto; flex-wrap:nowrap;}
+    .dock{left:0; right:0; bottom:0; transform:none; width:100%; max-width:none; border-radius:15px 15px 0 0; justify-content:center; flex-wrap:wrap; row-gap:8px;}
+    #dockSing .dv-sec{display:none;}
+    #dockSing.expanded .dv-sec{display:inline-flex;}
+    #dockSing .moreBtn{display:inline-flex;}
     .toast{bottom:80px;}
     .pop.sheet{position:fixed; inset:0; top:0 !important; left:0 !important; width:100% !important; max-width:none; height:100dvh; border-radius:0; padding:14px; display:flex; flex-direction:column;}
     .pop.sheet .pophead{display:flex;}
@@ -290,17 +311,26 @@
     </div>
 
     <div class="view" id="view-sing">
-      <div class="card"><div class="eyebrow">ฝึกร้อง — กด ▶ → ไฮไลต์ไล่ทีละโน้ต (B006) · จอเลื่อนตาม · ปุ่มหยุดติดจอเสมอ (B016) · แตะบรรทัด/โน้ตเพื่อกระโดด</div><div id="singBody"></div></div>
+      <div class="card"><div class="eyebrow">ฝึกร้อง — กด ▶ → ไฮไลต์ไล่ทีละโน้ต (B006) · จอเลื่อนตาม · ปุ่มหยุดติดจอเสมอ (B016) · แตะบรรทัด/โน้ตเพื่อกระโดด</div><div class="secchips" id="secChips"></div><div id="singBody"></div></div>
     </div>
   </div>
 
   <div class="dock" id="dockSing">
     <button class="dbtn lbl prime" id="playToggle"><span data-ic="play" id="playIcon" aria-hidden="true"></span> <span id="playLabel">เล่น</span></button>
     <span class="vsep" aria-hidden="true"></span>
-    <button class="dbtn lbl" aria-label="ตัวอักษรเล็กลง">ก−</button>
-    <button class="dbtn lbl" aria-label="ตัวอักษรใหญ่ขึ้น">ก+</button>
-    <button class="dbtn" aria-label="คีย์/ความเร็ว"><span data-ic="settings" aria-hidden="true"></span></button>
-    <span class="ddim" id="playState">พร้อมเล่น</span>
+    <select class="dsel dv-sec" id="dispSel" aria-label="แสดงผล"><option>เนื้อ + คอร์ด + โน้ต</option><option>เนื้อ + คอร์ด</option><option>เนื้อล้วน</option><option>โน้ตล้วน</option></select>
+    <select class="dsel" id="chordSel" aria-label="คอร์ด"><option>คอร์ดตัวอักษร</option><option>ตัวเลข (นัชวิลล์)</option><option>ซ่อนคอร์ด</option></select>
+    <span class="dgrp dv-sec"><span class="dlbl">คีย์</span><select class="dsel" id="keySel" aria-label="คีย์"><option>C</option><option>C#</option><option>D</option><option>Eb</option><option selected>E (ต้นฉบับ)</option><option>F</option><option>F#</option><option>G</option><option>Ab</option><option>A</option><option>Bb</option><option>B</option></select></span>
+    <span class="dgrp"><span class="dlbl">ความเร็ว</span><select class="dsel" id="tempoSel" aria-label="ความเร็ว"><option selected>ตามเพลง ♩=84</option><option>Grave ♩=40 (ช้าหนักแน่น)</option><option>Largo ♩=50 (ช้ามาก)</option><option>Larghetto ♩=60 (ค่อนข้างช้า)</option><option>Adagio ♩=70 (ช้า สง่างาม)</option><option>Andante ♩=92 (เดินสบาย)</option><option>Moderato ♩=110 (ปานกลาง)</option><option>Allegro ♩=130 (เร็ว สดใส)</option><option>Vivace ♩=150 (มีชีวิตชีวา)</option><option>Presto ♩=180 (เร็วมาก)</option></select></span>
+    <button class="dbtn dv-sec" id="loopBtn" aria-label="เลือกท่อน/ข้อ วนซ้ำ" title="เลือกท่อน/ข้อ วนซ้ำ"><span data-ic="repeat" aria-hidden="true"></span></button>
+    <button class="dbtn lbl dv-sec" id="fDown" aria-label="ตัวอักษรเล็กลง">ก−</button>
+    <button class="dbtn lbl dv-sec" id="fUp" aria-label="ตัวอักษรใหญ่ขึ้น">ก+</button>
+    <button class="dbtn lbl moreBtn" id="moreBtn"><span data-ic="chevron-up" id="moreIcon" aria-hidden="true"></span> เพิ่มเติม</button>
+  </div>
+  <div class="looppop hidden" id="loopPop" role="dialog" aria-label="เลือกท่อน/ข้อ วนซ้ำ">
+    <div class="lp-head">เลือกท่อน/ข้อ ที่จะร้องวนซ้ำ</div>
+    <div class="lp-list" id="loopList"></div>
+    <div class="lp-foot"><button class="btn2" id="loopClear">ล้าง</button><button class="btn2 send" id="loopApply"><span data-ic="repeat" aria-hidden="true"></span> วนซ้ำที่เลือก</button></div>
   </div>
 
   <div class="backdrop" id="backdrop"></div>
@@ -359,6 +389,7 @@
   var ICONS={
     menu:'<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
     'chevron-down':'<path d="m6 9 6 6 6-6"/>',
+    'chevron-up':'<path d="m18 15-6-6-6 6"/>',
     'folder-open':'<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
     mic:'<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
     'file-text':'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/>',
@@ -576,10 +607,14 @@
 
   /* ---------- sheet + sing render ---------- */
   function renderSong(host,tagAsLines){
-    var h=''; SONG.forEach(function(r,i){
-      if(r.sec){h+='<div class="sechead">'+r.sec+'</div>'; return;}
+    var h='', groups=[], cur=null;
+    SONG.forEach(function(r){ if(r.sec){cur={sec:r.sec,lines:[]}; groups.push(cur);} else if(cur){cur.lines.push(r);} });
+    groups.forEach(function(g,gi){
+      h+='<div class="sechead" data-sec="'+g.sec+'">'+g.sec+'</div>';
+      var notes=g.lines.map(function(l){return l.notes;}).join(' | ');
+      var words=[]; g.lines.forEach(function(l){words=words.concat(l.words);});
       var cls=tagAsLines?'sline':'';
-      h+='<div class="'+cls+'"'+(tagAsLines?' data-i="'+i+'"':'')+'><div class="jline">'+renderLine(r.notes,r.words,true)+'</div></div>';
+      h+='<div class="'+cls+'"'+(tagAsLines?' data-sec="'+g.sec+'"':'')+'><div class="jline flow">'+renderLine(notes,words,true)+'</div></div>';
     });
     host.innerHTML=h; hydrate(host); paintTies(host);
   }
@@ -592,7 +627,7 @@
     $('dockSing').classList.toggle('on',m==='sing');
     $('segMain').querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-mode')===m);});
     if(m==='sheet') renderSong($('sheetBody'),false);
-    if(m==='sing') renderSong($('singBody'),true);
+    if(m==='sing'){ renderSong($('singBody'),true); buildSecChips(); }
     window.scrollTo({top:0});
   }
   $('segMain').addEventListener('click',function(e){var b=e.target.closest('button'); if(b)setMode(b.getAttribute('data-mode'));});
@@ -600,7 +635,7 @@
   /* ---------- toast + menus ---------- */
   var tmr; function toast(msg){var t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(tmr);tmr=setTimeout(function(){t.classList.remove('on');},1600);}
   var backdrop=$('backdrop');
-  function closeAll(){['openPop','titleMenu','brandMenu','lineMenu','confirmDlg'].forEach(function(id){$(id).classList.add('hidden');});$('drawer').classList.remove('on');$('rail').classList.remove('open');backdrop.classList.remove('on');}
+  function closeAll(){['openPop','titleMenu','brandMenu','lineMenu','confirmDlg','loopPop'].forEach(function(id){$(id).classList.add('hidden');});$('drawer').classList.remove('on');$('rail').classList.remove('open');backdrop.classList.remove('on');}
   var pendingYes=null;
   function askConfirm(msg,onYes){closeAll();$('cfmMsg').textContent=msg;pendingYes=onYes;$('confirmDlg').classList.remove('hidden');backdrop.classList.add('on');}
   function place(el,anchor,align){var r=anchor.getBoundingClientRect();el.style.top=(r.bottom+6)+'px';var w=el.offsetWidth||260;var left=(align==='right')?(r.right-w):r.left;left=Math.max(8,Math.min(window.innerWidth-w-8,left));el.style.left=left+'px';}
@@ -678,14 +713,29 @@
   var playInt=null, playIdx=0, pausedUntil=0;
   function noteCols(){return Array.prototype.slice.call($('singBody').querySelectorAll('.jcol'));}
   function clearHot(){$('singBody').querySelectorAll('.jcol.hot').forEach(function(e){e.classList.remove('hot');});$('singBody').querySelectorAll('.sline.cur').forEach(function(e){e.classList.remove('cur');});}
-  function setPlayUI(on){var pi=$('playIcon');pi.setAttribute('data-ic',on?'pause':'play');pi.dataset.done='';hydrate(pi.parentNode);$('playLabel').textContent=on?'หยุด':'เล่น';$('playState').textContent=on?'กำลังเล่น… ไฮไลต์ไล่ทีละโน้ต · เลื่อนจอเองได้':'พร้อมเล่น';}
-  function showAt(i,doScroll){var N=noteCols();if(!N.length)return;clearHot();playIdx=((i%N.length)+N.length)%N.length;var el=N[playIdx];el.classList.add('hot');var line=el.closest('.sline');if(line){line.classList.add('cur');if(doScroll&&Date.now()>pausedUntil)line.scrollIntoView({block:'center',behavior:'smooth'});}}
+  function setPlayUI(on){var pi=$('playIcon');pi.setAttribute('data-ic',on?'pause':'play');pi.dataset.done='';hydrate(pi.parentNode);$('playLabel').textContent=on?'หยุด':'เล่น';}
+  function showAt(i,doScroll){var N=noteCols();if(!N.length)return;clearHot();playIdx=((i%N.length)+N.length)%N.length;var el=N[playIdx];el.classList.add('hot');if(doScroll&&Date.now()>pausedUntil)el.scrollIntoView({block:'center',behavior:'smooth'});}
   function tick(){showAt(playIdx,true);playIdx++;}
   function startPlay(){if(playInt)return;setPlayUI(true);tick();playInt=setInterval(tick,600);}
   function stopPlay(){if(playInt){clearInterval(playInt);playInt=null;}setPlayUI(false);clearHot();playIdx=0;}
   $('playToggle').addEventListener('click',function(){playInt?stopPlay():startPlay();});
   ['wheel','touchmove'].forEach(function(ev){window.addEventListener(ev,function(){if(playInt)pausedUntil=Date.now()+3500;},{passive:true});});
   $('singBody').addEventListener('click',function(e){var N=noteCols();var col=e.target.closest('.jcol');if(col){var i=N.indexOf(col);if(i>=0){showAt(i,true);playIdx=i+1;}return;}var line=e.target.closest('.sline');if(line){var j=N.indexOf(line.querySelector('.jcol'));if(j>=0){showAt(j,true);playIdx=j+1;}}});
+  // ④ viewer controls
+  function buildSecChips(){var host=$('secChips'); if(!host)return; var h=''; SONG.forEach(function(r){if(r.sec)h+='<button class="chip2" data-sec="'+r.sec+'">'+r.sec+'</button>';}); host.innerHTML=h;
+    host.querySelectorAll('.chip2').forEach(function(b){b.addEventListener('click',function(){var el=$('singBody').querySelector('.sechead[data-sec="'+b.getAttribute('data-sec')+'"]'); if(el)el.scrollIntoView({block:'start',behavior:'smooth'});});});}
+  $('keySel').addEventListener('change',function(){toast('คีย์ '+this.value);});
+  $('tempoSel').addEventListener('change',function(){toast('ความเร็ว '+this.value);});
+  $('dispSel').addEventListener('change',function(){toast('แสดงผล: '+this.value);});
+  $('chordSel').addEventListener('change',function(){toast('คอร์ด: '+this.value);});
+  $('moreBtn').addEventListener('click',function(e){e.stopPropagation();var on=$('dockSing').classList.toggle('expanded');$('moreIcon').setAttribute('data-ic',on?'chevron-down':'chevron-up');$('moreIcon').dataset.done='';hydrate(this);this.lastChild.textContent=on?' ย่อ':' เพิ่มเติม';});
+  function buildLoopList(){var host=$('loopList'); var h=''; SONG.forEach(function(r){if(r.sec)h+='<label class="lp-item"><input type="checkbox" data-sec="'+r.sec+'"> '+r.sec+'</label>';}); host.innerHTML=h;}
+  $('loopBtn').addEventListener('click',function(e){e.stopPropagation(); var p=$('loopPop'); if(p.classList.contains('hidden')){buildLoopList(); p.classList.remove('hidden');} else p.classList.add('hidden');});
+  $('loopPop').addEventListener('click',function(e){e.stopPropagation();});
+  $('loopClear').addEventListener('click',function(){$('loopList').querySelectorAll('input').forEach(function(c){c.checked=false;});});
+  $('loopApply').addEventListener('click',function(){var sel=[];$('loopList').querySelectorAll('input:checked').forEach(function(c){sel.push(c.getAttribute('data-sec'));});$('loopPop').classList.add('hidden');$('loopBtn').classList.toggle('active',sel.length>0);toast(sel.length?'วนซ้ำ: '+sel.join(', '):'ปิดวนซ้ำ');});
+  $('fUp').addEventListener('click',function(){toast('ขยายตัวอักษร');});
+  $('fDown').addEventListener('click',function(){toast('ลดตัวอักษร');});
 
   window.addEventListener('resize',function(){paintTies($('edBars'));if(state.mode==='sheet')paintTies($('sheetBody'));if(state.mode==='sing')paintTies($('singBody'));});
   buildBars(); renderEditor(); setMode('edit'); hydrate(document);
