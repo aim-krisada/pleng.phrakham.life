@@ -14,7 +14,8 @@
 ## 📥 PM inbox (สายเสร็จ → รอ PM ตรวจ DoD)
 | สาย/branch | commit | สถานะ | PM |
 |---|---|---|---|
-| dock-core `wt-dock` | `5269399` | ✅ เสร็จ · DoD objective ผ่าน (test 113/113 · build) · **รอ P'Aim accept LAN test** (5315) แล้ว merge | debug pl2 r1 กำลังตรวจ |
+| dock-core `wt-dock` | `75d5b7c` | ✅ เสร็จ (+D8 generic config API) · **DoD re-verified ที่ 75d5b7c: test 113/113 · build ผ่าน · scope ตรง ไม่แตะ SongSheet** · **รอ P'Aim accept LAN (5315)** + เคาะ 2 (ปุ่มพิมพ์→dock · มือถือคงเดิม) → merge · gate ปลดล็อก B038/39/41 | debug pl2 r1 ✅ ตรวจแล้ว |
+| B043 SA `wt-b043-sa` | (docs) | ✅ design เสร็จ (US+DS+wireframe `docs/design/b043-sing-repeat.html`) · **รอ P'Aim เคาะ 6 decision** (A สำคัญสุด: แผ่เต็ม **A1** [เสี่ยงต่ำ·ไม่แตะ SongSheet·SA แนะเริ่ม] vs ย่อบนจอ **A2** [แตะ SongSheet+print]) → แตก dev รวม batch viewer (B038/B042) | debug pl2 r1 |
 
 > ▶ **RESUME (PM session ใหม่ อ่านนี่ก่อน):** สวมบท PM ต่อ → อ่าน `docs/pm/pm.md` (ไม้ต่อครบ) + memory `pleng-pm-role` + ไฟล์นี้
 > **โฟกัสตอนนี้:** ✅ **คลื่น 1 (shell + StudioDock) merged เข้าฐานแล้ว** — B033/B034 fixed · unit 81/81 · build ผ่าน · P'Aim accept (LAN test มือถือจริง)
