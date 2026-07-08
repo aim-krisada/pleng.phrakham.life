@@ -20,30 +20,30 @@
 
 ---
 
-## 🔜 Sprint 2 (ps2) — แผนจัดลำดับ (3 ระลอก)
+## 🔜 Sprint 2 (ps2) — "ออกแบบ + เก็บ bug"
+**เป้า:** ได้ design ที่พี่เอมเคาะ (เมนู/editor/viewer) + เก็บ bug & หนี้ integration อิสระ · จบสปรินต์เมื่อ design เคาะ + fix ขึ้น
 
-### ระลอก A — ทำได้เลย ขนานกัน (ไม่ต้อง design · low-risk) → จ่าย dev ทันที
-| งาน | branch | port | หมายเหตุ |
-|---|---|---|---|
-| integration ที่ไม่แตะเมนู: I2 ชื่อไฟล์ SSOT · I3 print footer/@page · I4 คู่มือ C03 | `wt0-int-a` | 5301 | I4 ต้องได้อีเมลทีมก่อน |
-| bug: B018 ตกขอบ · B020 dock mobile ไม่ติดขอบ | `wt-fix` | 5306 | isolated |
-| B001 ปุ่มเลื่อนขึ้น/ลง | `wt-b001` | 5307 | reuse phrakham.life |
-
-### ระลอก B — SA ออกแบบก่อน → P'Aim เคาะ (หัวใจ ps2 · กันแก้ซ้ำ)
-ทำ wireframe/spec เสนอ แล้วค่อยแตกเป็น US:
+**A) SA ออกแบบ (หัวใจ · ทำ wireframe/spec เสนอ → พี่เอมเคาะ → แตกเป็น US ให้ ps3):**
 - **② เมนู/IA (desktop+mobile):** B007 ตัดทำเพลง · B003 ตัดเลือกเพลงซ้ำ · B008 เปิดเพลงกดเดียว · B009 จัดเมนู/hamburger/icon-only · B017 login icon (mobile) · B021 show/hide dock
-- **③ editor UX:** B005 แก้เนื้อ 2 ที่ · B010 legend สัญลักษณ์ · B011 checkbox จบเพลง (ห้องท้าย) · B012 controls หัวบรรทัด
+- **③ editor UX:** B005 แก้เนื้อหลายที่ (3 จุด) · B010 legend สัญลักษณ์ · B011 checkbox จบเพลง (ห้องท้าย) · B012 controls หัวบรรทัด
 - **④ viewer:** B016 เลื่อน+หยุดได้ · B006 ไฮไลต์รายโน้ต (ผูก v1/v2)
 
-### ระลอก C — dev สร้างตาม design ที่เคาะ (หลัง B)
+**B) dev เก็บขนานระหว่าง SA ออกแบบ (low-risk · ไม่ต้อง design · ไม่แตะเมนู):**
+| งาน | branch | port | หมายเหตุ |
+|---|---|---|---|
+| integration อิสระ: I2 ชื่อไฟล์ SSOT · I3 print footer/@page · I4 คู่มือ C03 | `wt0-int-a` | 5301 | I4 ต้องได้อีเมลทีมก่อน |
+| bug: B018 ตกขอบ · B020 dock mobile | `wt-fix` | 5306 | isolated |
+| B001 ปุ่มเลื่อนขึ้น/ลง | `wt-b001` | 5307 | reuse phrakham.life |
+
+## 🔮 Sprint 3 (ps3) — "สร้างตาม design ที่เคาะ"
 - shell/เมนูใหม่ + fold integration **I1** (navbar) + **I5** (editor JSON + B003) เข้าโครงใหม่
 - editor UX (③) · viewer (B016/B006/B021)
 - **WT-D รอบ 2:** D02 ส่งตรวจ · D03 อนุมัติ · D04 หมวด+เลข
-- ⚠️ **คอขวด `EditorMode.vue`** — ③ + I5 + WT-D รอบ2 แตะไฟล์เดียว → ต้องเป็น **"สาย editor เดียว" ทำเรียงกัน ไม่ขนาน**
+- ⚠️ **คอขวด `EditorMode.vue`** — ③ + I5 + WT-D รอบ2 แตะไฟล์เดียว → **"สาย editor เดียว" ทำเรียงกัน ไม่ขนาน**
 
-### ค้าง P'Aim เคาะ (ก่อนระลอกที่เกี่ยว)
+### ค้าง P'Aim เคาะ (ต้นทาง ps2)
 - **WT-B #4 คีย์ตอนพิมพ์** — SA แนะ "คีย์เดียวใช้ร่วมทุกโหมด (แบบ A)" · รอเคาะ A/B
-- **อีเมลทีม** สำหรับคู่มือ C03 (I4 · ระลอก A)
+- **อีเมลทีม** สำหรับคู่มือ C03 (ps2-B)
 
 ---
 
