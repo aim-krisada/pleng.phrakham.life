@@ -1,0 +1,15 @@
+# US-03 — เข้าระบบแบบเชิญเท่านั้น
+
+**Worktree:** WT-0 · **Branch:** `wt0-foundation` · **คู่ DS:** `ds/wt0-foundation/DS-03-invite-only-auth.md`
+**สถานะ:** spec (รอ dev)
+**โยง mission:** invite-only · คุมว่าใครเป็น editor/approver
+
+## Story
+ในฐานะ **เจ้าของระบบ** ฉันต้องการให้สมัครเองไม่ได้ ต้องถูกเชิญ เพื่อคุมว่าใครเป็น editor / approver
+
+## Acceptance Criteria
+- [ ] หน้า login **ไม่มีปุ่มสมัคร** — บัญชีสร้างโดยเจ้าของผ่าน Supabase เท่านั้น
+- [ ] role (editor / approver) อ่านจาก session — DS ระบุแหล่งเก็บที่แน่นอน
+
+## นอกขอบเขต
+- หน้าจัดการผู้ใช้ในแอป (ถ้าจะมี = งานแยกภายหลัง)

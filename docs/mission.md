@@ -31,11 +31,13 @@
 
 | worktree | ขอบเขต | ไฟล์ที่เป็นเจ้าของ | US/DS |
 |---|---|---|---|
-| **WT-0 ฐาน** | สิทธิ์ 3 tier · โหมด ดู/แผ่น/แก้ · แกะ editor ออกเป็นไฟล์ · เขียนสัญญาจุดต่อ | `Studio.vue` `store.js` `supabase.js` `ShellBar.vue` `EditorMode.vue` (ใหม่) | `foundation` |
-| **WT-A ร้อง/คาราโอเกะ** | ดู + ฝึกร้อง (ทุก tier) | `SongViewer.vue` `midi.js` | `sing` |
-| **WT-B พิมพ์แผ่นเพลง** | พิมพ์ A4 (ทุก tier) | `SongSheet.vue` + print CSS | `print` |
-| **WT-C JSON พกพา** | upload/download JSON + ส่งอีเมลขออนุมัติ | `lib/jsonIO.js` (ใหม่) `DownloadTool.vue` | `json` |
-| **WT-D ทำเพลง→คลัง** | ร่าง / ส่งตรวจ / อนุมัติ | `EditorMode.vue` + store flow | `editor-library` |
+| **WT-0 ฐาน** | สิทธิ์ 3 tier · โหมด ดู/แผ่น/แก้ · แกะ editor ออกเป็นไฟล์ · เขียนสัญญาจุดต่อ | `Studio.vue` `store.js` `supabase.js` `ShellBar.vue` `EditorMode.vue` (ใหม่) | `wt0-foundation/` |
+| **WT-A ร้อง/คาราโอเกะ** | ดู + ฝึกร้อง (ทุก tier) | `SongViewer.vue` `midi.js` | `wt-a-sing/` |
+| **WT-B พิมพ์แผ่นเพลง** | พิมพ์ A4 (ทุก tier) | `SongSheet.vue` + print CSS | `wt-b-print/` |
+| **WT-C JSON พกพา** | upload/download JSON + ส่งอีเมลขออนุมัติ | `lib/jsonIO.js` (ใหม่) `DownloadTool.vue` | `wt-c-json/` |
+| **WT-D ทำเพลง→คลัง** | ร่าง / ส่งตรวจ / อนุมัติ | `EditorMode.vue` + store flow | `wt-d-editor-library/` |
+
+(แต่ละ epic = 1 โฟลเดอร์ใน `docs/us/` และ `docs/ds/` · ข้างในแยก 1 story = 1 ไฟล์)
 
 **กติกาการทำขนาน**
 - **WT-0 ต้องเสร็จก่อน** (สร้าง "กำแพง + ประตู" = แกะไฟล์ + สัญญาจุดต่อ) → merge กลับฐาน
