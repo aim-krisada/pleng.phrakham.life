@@ -16,8 +16,8 @@
 > · 🧩 **dock-core (ใหญ่):** FAB ปุ่มลอยตอนยุบ + รวม StudioDock เป็น instance เดียว (=N1) · brief=`docs/pm/brief-dock-core.md` · **spawn_task chip หย่อนแล้ว** (P'Aim กดเปิด session `dev-dock-core` · branch `wt-dock` · port 5315) · desktop ก่อน
 > · เคาะแล้ว: 5 โหมดแสดงผล (เก็บ "เนื้อ+โน้ต") · loop→backlog B040 (V3) · design 1a fishing-hook · highlight โทนสี OK
 > · **แผน dispatch (collision-aware · P'Aim ยืนยัน 9 ก.ค. = งานหลัก PM):** จัดลำดับตามไฟล์ที่แตะ กันชน `SongViewer.vue`
->   - 🟢 **ขนานตอนนี้:** dock-core (รัน · แตะ StudioDock/Studio/EditorMode/SongViewer-mount) + **B043 SA** (chip `task_140f3eca` หย่อนแล้ว · เขียนแค่ docs = ไม่ชน)
->   - 🟡 **รอ dock-core merge ก่อน แล้วยิงทีเดียว 1 session:** B038 + B039 + B041 + B042 (แตะ `SongViewer.vue`/`DownloadTool.vue` · B038/41/42 ชน dock-core ที่ SongViewer → ต้องรอ)
+>   - 🟢 **ขนานตอนนี้:** dock-core (รัน · แตะ StudioDock/Studio/EditorMode/SongViewer-mount) + **B043 SA** (chip `task_140f3eca` หย่อนแล้ว · เขียนแค่ docs = ไม่ชน · **ขอบเขตขยาย = music-player transport bar · ยุบ B042 เข้ามาแล้ว**)
+>   - 🟡 **รอ dock-core merge ก่อน แล้วยิงทีเดียว 1 session:** B038 + B039 + B041 (แตะ `SongViewer.vue`/`DownloadTool.vue` · B038/41 ชน dock-core ที่ SongViewer → ต้องรอ) · ~~B042~~ ย้ายไป B043 (SA)
 > · **กฎใหม่ (P'Aim 9 ก.ค.):** PM = จัดงาน+ส่งงานอย่างเดียว **ไม่โค้ดเอง** (ให้ขนานเร็ว) · ดู memory `pleng-pm-role`
 > · **ค้างรอ P'Aim:** เล่นหาบั๊กเพิ่ม (รอบ #2) · dock-core + B043 SA เสร็จเมื่อไหร่ PM ตรวจ DoD/พาdesign ให้ P'Aim review
 
