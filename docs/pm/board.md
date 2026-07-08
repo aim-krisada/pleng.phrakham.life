@@ -11,7 +11,8 @@
 > **ถัดไป:** (1) **P'Aim ทดสอบ + เคาะ design ที่ 3 สาย flag** (ดูส่วนล่าง) · (2) **N1** dock ซ้อน 2 instance (โชว์ตัวเดียว · ไม่ใช่บั๊กผู้ใช้) = cleanup ยก StudioDock ขึ้น Studio เมื่อว่าง · (3) เรื่องค้างเดิม ③ sync docs · ① DA · ② lint เข้าฐาน
 
 ## 🎨 design ที่ dev flag รอ P'Aim เคาะ (wave 2 · ไม่บล็อก)
-- **Editor:** ไอคอน "ท่อนฮุก" ใช้ ⚓ (anchor · Lucide ไม่มี hook) โอเคไหม · ราย "ห้อง" ยังเก็บ ⋯ (ย้าย/สำเนา/ลบ/volta) — ซ่อนลึกกว่านี้ไหม
+- **Editor:** ~~ไอคอน "ท่อนฮุก" ใช้ ⚓ (anchor · Lucide ไม่มี hook) โอเคไหม~~ → ✅ **เคาะแล้ว (9 ก.ค.): ใช้ `fishing-hook`** (มีจริงในชุด Lucide เต็ม · PM แก้ตรง commit `eac9783`) · ยังเหลือ: ราย "ห้อง" ยังเก็บ ⋯ (ย้าย/สำเนา/ลบ/volta) — ซ่อนลึกกว่านี้ไหม
+  > **กฎถาวร (P'Aim 9 ก.ค.):** ทุกโปรเจกต์หาไอคอนจาก `OneDrive/.../references/svg-icon-lucide/icons/` (1,745 ตัว) ก่อน อย่าเดาว่า Lucide ไม่มี — ดู memory `reference_lucide_icons`
 - **Viewer:** แสดงผล **5 แบบ** (ตาม prototype · US มี 4) · คงปุ่ม "พิมพ์" ใน dock ฝึกร้อง · loop ยังเป็น toggle (วนซ้ำท่อน = V3 อนาคต)
 - **Highlight:** สีคาราโอเกะ (คำ=พื้นน้ำตาลตัวขาว · โน้ต=พื้นจางเลข brand) ปรับโทนได้ · auto-scroll ระดับ segment (ไม่ถี่รายพยางค์)
 > **ถัดไป:** editor redesign คลื่น 2 (ครอบ B032/B035) + highlight (B029) = build ตาม `ps2-studio-prototype.html` · เรื่องค้างเดิม (③ sync docs status ps4 · ① DA 3 เรื่อง · ② lint เข้าฐาน) ทำต่อได้เมื่อพร้อม
