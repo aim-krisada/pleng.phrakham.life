@@ -13,9 +13,17 @@
   --chord-red: #c0392b;  /* 5.2:1 on white */
   --note-blue: #2b6cb0;  /* 5.0:1 on white */
   --red: #c0392b;
+  /* aliases the shared pk-scrollnav.js (B001) reads for theming */
+  --pk-accent: var(--brand);
+  --pk-cream: var(--cream);
 }
 
 * { box-sizing: border-box; }
+
+/* B001 — the shared pk-scrollnav.js sits at z-index 1020 (to clear phrakham's navbar).
+   In pleng the editor dock is z-index 90, so pin the scroll buttons below it — on the
+   mobile editor the full-width dock then covers them instead of the two fighting. */
+.pk-scrollnav { z-index: 30 !important; }
 
 html { scroll-behavior: smooth; }
 

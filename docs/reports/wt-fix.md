@@ -7,13 +7,14 @@
 
 - **B018 (bug) เนื้อหาตกขอบ:** ✅ พาเนล “เปิดเพลง” (`.sb-open-panel`, กว้าง 300px, จัดชิดซ้ายใต้ปุ่มที่อยู่ค่อนไปทางขวาของแถบ) ล้นขอบขวาจอบนมือถือ → บนจอ ≤760px เปลี่ยนเป็น “แผ่นเต็มความกว้าง” (fixed) เว้นขอบซ้าย/ขวา 8px วางใต้แถบบนพอดี จึงล้นไม่ได้ทุกความกว้าง
 - **B020 (bug) dock ล่างไม่ติดขอบจอ (มือถือ):** ✅ สาเหตุ = viewport ไม่มี `viewport-fit=cover` + ไม่มีการเผื่อ safe-area → บนมือถือมีติ่ง/เส้นบ้าน (home indicator) แถบ `bottom:0` เลยไปหยุดเหนือแถบนั้น เกิดช่องว่างใต้ dock · แก้: ใส่ `viewport-fit=cover` + เผื่อ `env(safe-area-inset-bottom)` ที่พื้นหลังแถบล่างของ dock
-- **B001 (feature) ปุ่มขึ้นบนสุด/ลงล่างสุด:** ✅ ปุ่มลอยมุมล่างขวา **วงกลม 2 อัน (↑/↓)** — คัดลอก transparent behavior จาก `.post-nav-float` ของ พระคำ.ชีวิต เป๊ะ: **พักที่ opacity 0.5 ตลอด · ชัดเต็ม (1) ตอน hover · transition 0.2s** (ไม่มี idle timer) · **↑ = ไปบนสุด · ↓ = ไปล่างสุด** แบบ smooth · โผล่เฉพาะหน้าที่เลื่อนได้ · หรี่ปุ่มปลายทางที่ไปต่อไม่ได้ · ไม่พิมพ์ · fixed + safe-area
+- **B001 (feature) ปุ่มขึ้นบนสุด/ลงล่างสุด:** ✅ **ใช้ไฟล์เดียวกับ พระคำ.ชีวิต เป๊ะ** — `assets/pk-scrollnav.js` (จาก `C:\gl\krisada\phrakham.life2`) ที่เขียนไว้ให้ portable ลง pleng ได้เลย · ก๊อปมาไว้ `src/lib/pk-scrollnav.js` (ไม่แก้เนื้อไฟล์) แล้ว import ใน `main.js` · behavior จริงแบบ Samsung Internet: ปุ่มวงกลม 44px พื้นครีมโปร่ง+blur · **ชัดตอนเลื่อน แล้วหรี่ลง (opacity 0.28) หลังหยุด 1.2 วิ** · ▲ โผล่เมื่อเลื่อนลงพ้น 300px · ▼ ซ่อนเมื่อถึงล่างสุด · ↑=บนสุด ↓=ล่างสุด smooth · ธีมดึงจาก `--brand`/`--cream` ของ pleng ผ่าน `--pk-accent`/`--pk-cream`
 
 ## ไฟล์ที่แก้
 
-- `src/components/ScrollButtons.vue` — **ใหม่** · คอมโพเนนต์ปุ่มเลื่อน self-contained (SVG chevron ในตัว, ไม่แตะ `Icon.vue`)
-- `src/components/ScrollButtons.test.js` — **ใหม่** · unit test (ซ่อนเมื่อหน้าไม่ยาว · คลิกเลื่อน ~1 จอ · หรี่ ↑ บนสุด / ↓ ล่างสุด)
-- `src/App.vue` — mount `<ScrollButtons />` ระดับแอป (ทุกหน้า)
+- `src/lib/pk-scrollnav.js` — **ใหม่ · ก๊อปตรงจาก พระคำ.ชีวิต** (`phrakham.life2/assets/pk-scrollnav.js`, ไม่แก้เนื้อใน) = SSOT ปุ่มเลื่อนร่วม 2 เว็บ
+- `src/lib/pk-scrollnav.test.js` — **ใหม่** · unit test (mount 2 ปุ่มวงกลม · ป้ายไทย · คลิก ↑→บนสุด / ↓→ล่างสุด)
+- `src/main.js` — `import './lib/pk-scrollnav.js'` (ไฟล์ self-mount) + `router.afterEach` ยิง `resize` หลังเปลี่ยนหน้า (SPA ไม่มี event เอง ไฟล์เลยเช็กความสูงหน้าใหม่)
+- `src/styles.css` — alias `--pk-accent`/`--pk-cream` → token ของ pleng + override `.pk-scrollnav { z-index: 30 }` (ให้อยู่ใต้ dock 90 ไม่ทับกันบนมือถือโหมดแก้)
 - `src/views/Studio.vue` — B018: วัดขอบล่างแถบจริงตอนเปิด (แถบสูงไม่คงที่เพราะปุ่ม “เข้าสู่ระบบ” ตกบรรทัดตอนยังไม่ล็อกอิน) + CSS มือถือทำพาเนลเป็นแผ่น fixed เว้นขอบ
 - `src/components/EditorMode.vue` — B020: เผื่อ `env(safe-area-inset-bottom)` ที่ `.float-bar` (มือถือ) ให้พื้นหลังขาวเต็มถึงขอบจอ ปุ่มพ้นติ่ง
 - `index.html` — B020: เพิ่ม `viewport-fit=cover` ใน meta viewport
@@ -35,8 +36,8 @@
 ## ข้อสังเกต / คำถามถึง SA
 
 - **B020 ต้องยืนยันบนเครื่องจริง:** safe-area/`viewport-fit` เห็นผลจริงเฉพาะมือถือมีติ่ง (iPhone รุ่นใหม่) — emulator/เดสก์ท็อป safe-area=0 จึงเห็นแค่ว่า “ไม่ถอยหลัง” ขอพี่เปา/พี่เอมลองบนมือถือจริงยืนยันอีกที ถ้ายังมีช่องว่าง (เช่น Android แถบล่าง dynamic) มีแผนสำรอง = ผูก `visualViewport` แบบ FAB ของ phrakham.life
-- **B001 ขอบเขต:** ตอนนี้โผล่ **ทุกหน้า** ที่เลื่อนได้ (รวมโหมดแก้บนเดสก์ท็อป — ไม่ชนเพราะ dock อยู่กลางล่าง, ปุ่มอยู่ขวาล่าง) · บนมือถือโหมดแก้ dock กินเต็มความกว้าง ปุ่มเลื่อนอยู่ใต้ dock (z ต่ำกว่า) จึงถูกบัง = ไม่รก · ถ้า SA อยากจำกัดเฉพาะหน้าอ่าน บอกได้ ปรับ mount ที่ `App.vue` จุดเดียว
-- **B001 first-paint:** ปุ่มโผล่ครั้งแรกอาศัย `ResizeObserver` (เนื้อหา route มาแบบ async) — ทำงานทันทีบนแท็บจริง; แท็บ preview อัตโนมัติ throttle callback เลยต้องเลื่อน 1 ทีปุ่มถึงโผล่ (artifact ของ preview ไม่ใช่ของจริง)
+- **B001 ขอบเขต:** ไฟล์ร่วม self-mount **ทุกหน้า** ที่เลื่อนได้ · บนมือถือโหมดแก้ dock กินเต็มความกว้าง ปุ่มเลื่อน z-index 30 อยู่ใต้ dock (90) จึงถูกบัง = ไม่ทับกัน · บนเดสก์ท็อป dock เป็น pill กลางล่าง ปุ่มอยู่ขวาล่าง ไม่ชน · ถ้า SA อยากจำกัดเฉพาะหน้าอ่าน ปรับที่ import ใน `main.js`
+- **B001 อยากให้ตรวจบนมือถือจริง:** พฤติกรรมโผล่/หรี่ตามการเลื่อน + smooth scroll ดูได้ชัดสุดบนมือถือ (แท็บ preview อัตโนมัติ throttle `requestAnimationFrame` เลยจำลองการเลื่อนไม่ครบ — เป็น artifact ของ preview ไม่ใช่ของไฟล์ ซึ่ง ship อยู่บน พระคำ.ชีวิต จริงแล้ว)
 
 ## พร้อม merge ไหม
 
