@@ -5,13 +5,8 @@
 //   validateSong / parseSongText / importSong — US-C02 + US-C04 (file → song)
 // Pure logic only — no store/Supabase/network here, so an upload never touches the
 // shared library (on-demand, as US-C02 requires).
-import { songBasename, songName } from './songName.js'
+import { songBasename } from './songName.js'
 import { migrateToV2 } from './songModel.js'
-
-// US-C03 — where an external maker's "submit for approval" email is addressed.
-// Central constant: change this one line to point at a different team inbox.
-// TODO(P'Aim): confirm the real team address (interim: pleng@phrakham.life).
-export const TEAM_EMAIL = 'pleng@phrakham.life'
 
 // The serialisable shape of a song: exactly what we write to a .json file.
 // Round-trips — JSON.parse(JSON.stringify(exportSong(song))) deep-equals this.
@@ -97,30 +92,4 @@ export async function importSong(file) {
     return { ok: false, error: 'อ่านไฟล์ไม่สำเร็จ' }
   }
   return parseSongText(text)
-}
-
-// ---- US-C03 submit for approval by email (external makers, nothing stored) -------
-
-// Build the mailto: link for "propose this song to the library". Prefills the
-// subject + body: which song, and — because mailto cannot attach a file — a clear
-// reminder to attach the JSON the user just downloaded. Pure/testable; opening it
-// is submitForApproval()'s job.
-export function buildSubmitMailto(song, email = TEAM_EMAIL) {
-  const name = songName(song)
-  const file = songFilename(song)
-  const subject = `ขอเสนอเพลงเข้าคลัง: ${name}`
-  const body =
-    'ถึงทีมเพลง.พระคำ.ชีวิต\n\n' +
-    `ขอเสนอเพลง "${name}" เข้าคลังครับ/ค่ะ\n\n` +
-    `⚠️ กรุณาแนบไฟล์ "${file}" ที่เพิ่งดาวน์โหลด มากับอีเมลนี้ด้วย\n` +
-    '(ระบบแนบไฟล์ให้อัตโนมัติไม่ได้ ต้องแนบเอง)\n'
-  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-}
-
-// Run the two-step submit: (1) download the JSON so the user has the file to attach,
-// (2) open their email client with the prefilled message. Side-effecting; stores
-// nothing (US-C03 is entirely out-of-system).
-export function submitForApproval(song, email = TEAM_EMAIL) {
-  downloadSong(song)
-  window.location.href = buildSubmitMailto(song, email)
 }

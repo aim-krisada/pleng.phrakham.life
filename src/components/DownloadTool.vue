@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { currentSong } from '../store.js'
-import { downloadSong, submitForApproval } from '../lib/jsonIO.js'
+import { downloadSong } from '../lib/jsonIO.js'
 import { songBasename } from '../lib/songName.js'
 
 // Top-right navbar download tool (like phrakham.life2's) — shown only while a
@@ -27,14 +27,6 @@ function downloadJson() {
   open.value = false
   downloadSong(currentSong.value)
 }
-
-// US-C03: external makers propose a song to the library by email. Downloads the
-// JSON and opens a prefilled email (the reminder to attach the file lives in the
-// message body — mailto cannot attach it automatically). Stores nothing.
-function submitApproval() {
-  open.value = false
-  submitForApproval(currentSong.value)
-}
 </script>
 
 <template>
@@ -55,7 +47,6 @@ function submitApproval() {
     <div v-if="open" class="pk-tool-menu" role="menu">
       <button role="menuitem" @click="printPdf">🖨️ พิมพ์ / บันทึกเป็น PDF (A4)</button>
       <button role="menuitem" @click="downloadJson">⬇️ ดาวน์โหลดข้อมูลเพลง (JSON)</button>
-      <button role="menuitem" @click="submitApproval">✉️ ส่งเพลงนี้ขออนุมัติเข้าคลัง</button>
     </div>
   </div>
 </template>
