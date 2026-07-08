@@ -123,6 +123,20 @@ export async function updateEmail(email) {
   return error
 }
 
+// ---- draft persistence (DS-D01) ----
+// The editor builds the draft row and owns which draft it is editing (currentDraftId);
+// the store owns the single Supabase write so "save a draft" is one place, one testable
+// action. Without an existingId this is a new draft (insert → returns its new id); with
+// one it updates that draft in place. Callers set row.status ('draft' | 'pending').
+export async function saveDraftRow(row, existingId) {
+  if (existingId) {
+    const { error } = await supabase.from('song_drafts').update(row).eq('id', existingId)
+    return { id: existingId, error }
+  }
+  const { data, error } = await supabase.from('song_drafts').insert(row).select('id').single()
+  return { id: data?.id ?? null, error }
+}
+
 // Change own password while logged in. updateUser() alone would let anyone on an
 // open session reset the password, so we re-authenticate with the current one
 // first (OWASP: verify current password before change). Returns 'wrong-current'

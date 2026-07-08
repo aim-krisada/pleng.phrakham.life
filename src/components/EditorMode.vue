@@ -31,7 +31,7 @@ const props = defineProps({
 const emit = defineEmits(['change', 'save'])
 
 // ---------- auth + role (gating comes from the store via props.tier · DS-02) ----------
-import { session, legacy, shellMenu } from '../store.js'
+import { session, legacy, shellMenu, saveDraftRow } from '../store.js'
 
 // derive the two flags the editor already reads from the single tier source, so the rest
 // of the editor body is untouched (isApprover / loggedIn keep their meaning)
@@ -763,14 +763,9 @@ async function saveDraft(status) {
       .limit(1)
     if (data?.[0]) currentDraftId.value = data[0].id
   }
-  let error
-  if (currentDraftId.value) {
-    ;({ error } = await supabase.from('song_drafts').update(row).eq('id', currentDraftId.value))
-  } else {
-    const res = await supabase.from('song_drafts').insert(row).select('id').single()
-    error = res.error
-    if (res.data) currentDraftId.value = res.data.id
-  }
+  // the store owns the Supabase write (DS-D01); the editor owns which draft it edits
+  const { id, error } = await saveDraftRow(row, currentDraftId.value)
+  if (id) currentDraftId.value = id
   saveMsg.value = error
     ? '❌ บันทึกไม่สำเร็จ: ' + error.message
     : status === 'pending'
@@ -1258,7 +1253,7 @@ const edLyrOptions = computed(() => [
   ...lensRowsForActiveStanza.value.map((x) => ({ value: x.i, label: rowLabel(x.r, x.i) })),
 ])
 
-// ---------- studio shell (phase 4: menus/panels + read-row) ----------
+// ---------- studio shell (phase 4: menus/panels) ----------
 // Set-once / occasional things live in menus now (เพลง = New/Open/Properties,
 // จัดการ = drafts/history/download/delete) opened as panels, so the editor page
 // stays as clean as the wireframe.
@@ -1315,23 +1310,10 @@ function manageDelete() {
   openMenu.value = null
   deleteSong()
 }
-// read-row: the active ท่อน rendered in real sheet style with the selected ข้อ's
-// words (พี่เปา reads a sheet more easily than the boxes). Built by resolving a mini
-// song of just this (stanza, verse) pair — same engine as the full sheet.
-const readRowContent = computed(() => {
-  const s = stanzas.value[activeStanza.value]
-  if (!s) return { key: opts.key, timeSignature: opts.timeSignature, lines: [] }
-  const mini = {
-    version: 2,
-    key: opts.key,
-    timeSignature: opts.timeSignature,
-    stanzas: [{ id: s.id, lines: s.lines.map(serializeLine) }],
-    arrangement: [
-      { stanza: s.id, label: '', syllables: lensActive.value ? lensRow.value.syllables.map((t) => (t || '').trim()) : [] },
-    ],
-  }
-  return { ...mini, lines: resolveContent(mini) }
-})
+// NOTE: the editor strip itself is the read+edit surface (note boxes + a lyric box under
+// each note, aligned). We tried a separate per-line sheet preview above it (US-D05) but it
+// duplicated the strip and pushed the boxes off-screen — removed per พี่เอม. Full-song
+// sheet is still the 🎼 mode button.
 const panelTitle = computed(
   () =>
     ({ open: 'เลือกเพลงเพื่อแก้', properties: 'ตั้งค่าเพลง', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ' })[
@@ -1368,6 +1350,11 @@ const songOut = computed(() => ({
   content: previewContent.value,
 }))
 watch(songOut, (s) => emit('change', s), { immediate: true })
+
+// Surfaced for US-D01 unit tests (save a draft · reopen an existing draft to continue).
+// These are the same functions the dock button / drafts panel call — exposing them lets
+// the AC be asserted without reaching through teleported chrome.
+defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewContent })
 </script>
 
 <template>
@@ -1488,13 +1475,6 @@ watch(songOut, (s) => emit('change', s), { immediate: true })
       พิมพ์คำร้องในช่องใต้โน้ต · ช่องสีแดง = ยังไม่ได้ใส่คำ · ช่องเส้นประ = โน้ตลากเสียง (เว้นว่างได้ หรือใส่ “-”)
     </p>
 
-    <!-- read row: the active ท่อน (with the selected ข้อ's words) in real sheet style
-         — พี่เปา reads this more easily than the boxes -->
-    <div class="card read-row-card">
-      <div class="read-row-label no-print"><Icon name="eye" :size="15" /> อ่าน (แบบแผ่นเพลง)</div>
-      <SongSheet :content="readRowContent" mode="full" chord-system="letter" :display-key="opts.key" />
-    </div>
-
     <!-- editing hint (the symbol palette lives in the bottom dock) -->
     <p class="muted no-print" style="margin: 0 0 10px">
       พิมพ์โน้ตในช่อง — <b>1 ช่อง = 1 โน้ต</b> · กด <b>Enter</b> หรือ <b>เว้นวรรค</b> เพื่อขึ้นช่องถัดไป · กด <b>← →</b> เลื่อนช่อง ·
@@ -1557,7 +1537,10 @@ watch(songOut, (s) => emit('change', s), { immediate: true })
         <button class="secondary tiny" @click="copyLine(li)">คัดลอกโครง</button>
         <button class="danger tiny" @click="removeLine(li)">ลบบรรทัด</button>
       </div>
-      <!-- the strip: bars flow left→right with a drawn barline between them -->
+      <!-- the strip: bars flow left→right with a drawn barline between them. This IS the
+           read+edit surface — note boxes (ripple) with a lyric box under each note (ripple),
+           aligned in one column, chords on top. No separate sheet preview (would duplicate
+           this and overflow the screen). -->
       <div class="ed-strip">
         <template v-for="(bar, bi) in line.bars" :key="bi">
           <span v-if="bi > 0" class="ed-barline" aria-hidden="true"></span>
@@ -1751,7 +1734,7 @@ watch(songOut, (s) => emit('change', s), { immediate: true })
       <button class="secondary" @click="addRow">+ เพิ่มข้อ</button>
     </div>
 
-    <!-- (play ทั้งเพลง = dock · ดาวน์โหลด/ลบ/ประวัติ = "จัดการ" menu · preview = read-row + 🎼 mode) -->
+    <!-- (play ทั้งเพลง = dock · ดาวน์โหลด/ลบ/ประวัติ = "จัดการ" menu · แผ่นเต็ม = 🎼 mode) -->
       </div>
       <!-- /content -->
     </div>
@@ -2622,9 +2605,6 @@ watch(songOut, (s) => emit('change', s), { immediate: true })
   .ed-cat:hover { background: var(--cream-hover); }
 }
 /* read row (phase 4): the pair in sheet style, above the edit boxes */
-.read-row-card { background: #fffdf8; padding: 10px 12px; }
-.read-row-label { font-size: 0.82rem; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; margin-bottom: 6px; }
-.read-row-label .icn { color: var(--muted); }
 /* จัดการ menu danger item + divider */
 .sb-danger { color: var(--red); }
 .sb-danger .icn { color: var(--red); }
