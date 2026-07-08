@@ -8,6 +8,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent } from '../lib/songModel.js'
+import { stopPlayback } from '../lib/midi.js'
 import { tier, initAuth } from '../store.js'
 import Icon from '../components/Icon.vue'
 import SongViewer from '../components/SongViewer.vue'
@@ -60,6 +61,11 @@ watch(
     }
   },
 )
+
+// Each mode may play audio (ดู listen-along · แก้ preview). The mode components stay
+// mounted (v-show), so their own onUnmounted stop never fires on a switch — the shell
+// stops any sound when you leave a mode. midi is a single global player, so one call does it.
+watch(mode, () => stopPlayback())
 
 // the editor pushes every edit up here → previews follow + no work is lost on a switch
 function onChange(song) {

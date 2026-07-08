@@ -46,5 +46,14 @@
 
 > ตรวจงาน WT-0 ได้ที่ **http://localhost:5301** (dev ค้าง server ไว้ให้แล้ว)
 
+## Feedback รอบตรวจ (พี่เอม) — การแบ่งงาน dev vs SA
+พี่เอมลอง surface แล้วเจอ 4 เรื่อง · แยกเป็น "regression ของ WT-0 (dev แก้เอง)" กับ "งานออกแบบ/ของ worktree อื่น (SA จ่ายงาน)":
+
+1. **หน้าดู เปลี่ยน key real-time** — **✅ ยังทำงานปกติในบิลด์ปัจจุบัน** (dev verify แล้ว: E→G ได้คอร์ด E·C#m·F#m·B7 → G·Em·Am·D7 ทันที ผ่าน `SongViewer` key selector) · น่าจะเป็น cache/บิลด์เก่า — ลอง Ctrl+Shift+R
+   - *latent bug ที่พบระหว่างทาง (→ SA เผื่อจ่าย WT-A):* `SongViewer` มี `watch(() => props.song)` รีเซ็ต `displayKey` กลับคีย์ต้นฉบับทุกครั้งที่ object เพลงเปลี่ยน · ถ้าผู้ใช้เลือกคีย์ไว้แล้วมีการแก้เพลง (object เปลี่ยน) คีย์ที่เลือกจะถูกล้าง · แก้ที่ `SongViewer.vue` (ไฟล์ของ WT-A) ไม่ใช่ WT-0
+2. **เล่นเพลงอยู่ แล้วสลับหน้า เพลงไม่หยุด** — **✅ dev แก้แล้ว (regression ของ WT-0)** · เกิดเพราะโหมดถูก mount ค้างด้วย `v-show` → `onUnmounted(stopPlayback)` ของโหมดไม่ทำงานตอนสลับ · แก้ใน `Studio.vue`: `watch(mode, () => stopPlayback())` (midi เป็น player global ตัวเดียว สั่งครั้งเดียวหยุดหมด) · verify: pre-fix เสียงค้าง "หยุด" · post-fix รีเซ็ต (หมายเหตุ: เบราว์เซอร์ automate เล่นเสียงจริงไม่ได้เพราะ autoplay policy — ยืนยันหลักจากโค้ด midi.js:208 ที่ `stopPlayback` ทำให้ loop คืนค่า)
+3. **เมนู "เพลง/จัดการ" เห็นแค่โหมดแก้ ไม่ consistent → หน้าดู/แผ่นเลือกเพลงใหม่ไม่ได้** — **→ SA ตัดสิน (design/IA)** · ปัจจุบันเมนูอยู่ใน `EditorMode` (teleport เฉพาะตอน active) · ประเด็นพี่เอมถูก: **"เปิด/เลือกเพลง" ควรเป็นระดับ shell (ใช้ได้ทุกโหมด)** ส่วน **"จัดการ" (ร่าง/เผยแพร่/ลบ) เป็นระดับ editor** · กระทบ US-01/DS-01 (surface contract) + อาจต้องมี US ใหม่ · **ข้อเสนอ dev:** ย้าย "เปิดเพลง" (+ ค้นหา) ขึ้น shell ใน `Studio.vue` (WT-0 เป็นเจ้าของ) ให้ปุ่มโผล่ทุกโหมด · คง "จัดการ" ไว้ใน editor · รอ SA เขียน US/DS แล้วจ่ายกลับ WT-0
+4. **หน้าแผ่นควรมีปุ่ม print + อนาคตจัด print format (เช่นใส่ footer pleng.phrakham.life)** — **→ SA จ่าย WT-B (+ ส่วน shell เล็กน้อย)** · `SongSheet` = ไฟล์ของ WT-B · print engine + format (header/footer, กระดาษ A4) = scope WT-B โดยตรง · toolbar หน้าแผ่นใน `Studio.vue` (ปุ่ม 🖨) = WT-0 ใส่ได้ · **ข้อเสนอ dev:** WT-0 เพิ่มปุ่มพิมพ์พื้นฐานในหน้าแผ่น · WT-B ทำ print-format ที่ `SongSheet` (`@media print` + slot footer) · รอ SA แยก US/DS
+
 ## พร้อม merge ไหม
 **พร้อม** — AC ครบทั้ง 4 US · unit + build + ลองจริงผ่าน · contract วางเป็น "กำแพง+ประตู" ให้ A/B/C/D เริ่มขนานได้ (แก้เฉพาะไฟล์โหมดตัวเอง ไม่ชน `Studio.vue`)
