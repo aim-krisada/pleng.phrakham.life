@@ -10,12 +10,11 @@ const scrollable = ref(false)
 const atTop = ref(true)
 const atBottom = ref(false)
 
-// how far one press moves — most of a screen, keeping a little overlap for context
-function step() {
-  return Math.max(200, Math.round(window.innerHeight * 0.85))
-}
-function scrollByScreens(dir) {
-  window.scrollBy({ top: dir * step(), left: 0, behavior: 'smooth' })
+// ↑ jumps to the very top, ↓ to the very bottom (like phrakham.life) — one press to
+// each end, not screen-by-screen.
+function scrollToEnd(dir) {
+  const bottom = document.documentElement.scrollHeight
+  window.scrollTo({ top: dir < 0 ? 0 : bottom, left: 0, behavior: 'smooth' })
 }
 
 // A page counts as scrollable only if there is a meaningful amount below the fold;
@@ -60,9 +59,9 @@ onBeforeUnmount(() => {
     <button
       class="scroll-fab-btn"
       :disabled="atTop"
-      aria-label="เลื่อนขึ้น"
-      title="เลื่อนขึ้น"
-      @click="scrollByScreens(-1)"
+      aria-label="ขึ้นบนสุด"
+      title="ขึ้นบนสุด"
+      @click="scrollToEnd(-1)"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6" /></svg>
     </button>
@@ -70,9 +69,9 @@ onBeforeUnmount(() => {
     <button
       class="scroll-fab-btn"
       :disabled="atBottom"
-      aria-label="เลื่อนลง"
-      title="เลื่อนลง"
-      @click="scrollByScreens(1)"
+      aria-label="ลงล่างสุด"
+      title="ลงล่างสุด"
+      @click="scrollToEnd(1)"
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
     </button>

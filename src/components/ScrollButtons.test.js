@@ -12,7 +12,7 @@ function setPage({ scrollHeight, innerHeight = 800, scrollY = 0 }) {
 }
 
 beforeEach(() => {
-  window.scrollBy = vi.fn()
+  window.scrollTo = vi.fn()
 })
 
 describe('ScrollButtons (B001)', () => {
@@ -23,7 +23,7 @@ describe('ScrollButtons (B001)', () => {
     expect(w.find('.scroll-fab').isVisible()).toBe(false)
   })
 
-  it('shows when the page is scrollable and jumps ~one screen', async () => {
+  it('shows when scrollable and jumps to the top / bottom of the page', async () => {
     setPage({ scrollHeight: 5000, scrollY: 1000 })
     const w = mount(ScrollButtons)
     await nextTick()
@@ -31,10 +31,10 @@ describe('ScrollButtons (B001)', () => {
 
     const [up, down] = w.findAll('.scroll-fab-btn')
     await down.trigger('click')
-    expect(window.scrollBy).toHaveBeenCalledWith(expect.objectContaining({ top: Math.round(800 * 0.85) }))
+    expect(window.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 5000 })) // scrollHeight = bottom
 
     await up.trigger('click')
-    expect(window.scrollBy).toHaveBeenCalledWith(expect.objectContaining({ top: -Math.round(800 * 0.85) }))
+    expect(window.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }))
   })
 
   it('disables ↑ at the top and ↓ at the bottom', async () => {
