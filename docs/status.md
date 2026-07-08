@@ -29,11 +29,12 @@
 - **④ viewer:** B016 เลื่อน+หยุดได้ · B006 ไฮไลต์รายโน้ต (ผูก v1/v2)
 
 **B) dev เก็บขนานระหว่าง SA ออกแบบ (low-risk · ไม่ต้อง design · ไม่แตะเมนู):**
-| งาน | branch | port | หมายเหตุ |
+| งาน | branch | port | สถานะ |
 |---|---|---|---|
-| integration อิสระ: I2 ชื่อไฟล์ SSOT · I3 print footer/@page · I4 คู่มือ C03 | `wt0-int-a` | 5301 | I4 ต้องได้อีเมลทีมก่อน |
-| bug: B018 ตกขอบ · B020 dock mobile | `wt-fix` | 5306 | isolated |
-| B001 ปุ่มเลื่อนขึ้น/ลง | `wt-b001` | 5307 | reuse phrakham.life |
+| integration อิสระ: I2 ชื่อไฟล์ SSOT · I3 print footer/@page · I4 คู่มือ C03 | `wt0-int-a` | 5301 | 🔵 กำลังทำ · I4 ต้องได้อีเมลทีมก่อน |
+| bug+feature: **B018 ตกขอบ · B020 dock mobile · B001 ปุ่มเลื่อน** | `wt-fix` | 5306 | ✅ **merged เข้า base** (unit 63/63 · build ✅ · SA รีวิว diff+conflict แล้ว) · ⏳ ฝาก tester ลอง B020+B001 บนมือถือจริงก่อนปิดสนิท |
+
+> B001 รวมเข้า `wt-fix` แล้ว (ไม่แยก `wt-b001`) · ใช้ `pk-scrollnav.js` ร่วมกับ พระคำ.ชีวิต เป๊ะ · report: `docs/reports/wt-fix-summary.md`
 
 ## 🔮 Sprint 3 (ps3) — "สร้างตาม design ที่เคาะ"
 - shell/เมนูใหม่ + fold integration **I1** (navbar) + **I5** (editor JSON + B003) เข้าโครงใหม่
