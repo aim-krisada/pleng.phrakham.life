@@ -13,7 +13,13 @@
 //   message      : a transient status line floated above the dock (e.g. save result)
 // A tool def: { id, label, icon, run, disabled?, visible?, danger?, prime?, badge? }
 //   visible=false hides it right now (e.g. "หยุด" only while playing) — a saved layout
-//   still only ever renders what applies. Wave 2 adds menu/multi (dropdowns · D7).
+//   still only ever renders what applies.
+// Menu tools (D7, wave 2): a def may instead carry
+//   { menu:true, options:[{value,label}]|['label',…], value, badge?, onPick(value),
+//     multi?:true, selected?:[value,…] }
+//   — clicking opens a dropdown of `options`; single-select marks `value` and calls
+//   onPick then closes; multi marks each of `selected` and calls onPick per toggle (stays
+//   open). The button shows a caret; `badge` (e.g. คีย์/BPM) rides beside the icon.
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
 
@@ -167,13 +173,44 @@ function toggleCollapse() { collapsed.value ? expand() : collapse() }
 // desktop: clicking the thin collapsed bar re-opens it too (mobile uses the tab instead)
 function onDockClick() { if (collapsed.value && !mobile.value) expand() }
 
-// ---------- popovers (overflow · transparency · customize) — one at a time ----------
-const pop = ref(null) // 'overflow' | 'trans' | 'cust' | null
+// ---------- popovers (overflow · transparency · customize · menu) — one at a time ----------
+const pop = ref(null) // 'overflow' | 'trans' | 'cust' | 'menu' | null
 function togglePop(kind) { pop.value = pop.value === kind ? null : kind }
-function closePop() { pop.value = null }
+function closePop() { pop.value = null; menuId.value = null }
 function onEsc(e) { if (e.key === 'Escape') closePop() }
 function onOutside(e) {
-  if (!e.target.closest?.('.sd-pop') && !e.target.closest?.('.sd-ctl')) closePop()
+  // a menu tool button (.sd-tbtn) is neither .sd-pop nor .sd-ctl; keep the open menu when
+  // the click lands on ITS button (that button's own handler toggles it) so it doesn't
+  // close-then-reopen on every re-click
+  if (e.target.closest?.('.sd-pop') || e.target.closest?.('.sd-ctl')) return
+  if (menuId.value && e.target.closest?.(`[data-menu-btn="${menuId.value}"]`)) return
+  closePop()
+}
+
+// ---------- menu / dropdown tools (D7) ----------
+// Hold the tool ID, not the object: the parent's tool list is a computed that rebuilds a
+// fresh def on every state change, so an open menu must re-read the LIVE def (its value /
+// selected / badge) by id rather than pin a stale snapshot.
+const menuId = ref(null)
+const menuTool = computed(() => (menuId.value ? byId.value[menuId.value] : null))
+const menuOptions = computed(() =>
+  (menuTool.value?.options || []).map((o) => (typeof o === 'string' ? { value: o, label: o } : o)),
+)
+function isMenu(t) { return !!t?.menu }
+function isPicked(v) {
+  const t = menuTool.value
+  if (!t) return false
+  return t.multi ? (t.selected || []).includes(v) : t.value === v
+}
+function openMenu(t) {
+  if (menuId.value === t.id && pop.value === 'menu') { closePop(); return }
+  menuId.value = t.id
+  pop.value = 'menu'
+}
+function pickOption(o) {
+  const t = menuTool.value
+  t?.onPick?.(o.value)
+  if (!t?.multi) closePop()
 }
 watch(pop, (v) => {
   if (v) setTimeout(() => document.addEventListener('mousedown', onOutside), 0)
@@ -223,8 +260,12 @@ function dragMove(e) {
 }
 function dragEnd() { drag = false }
 
-// a tool button was pressed
-function runTool(t) { if (!t.disabled) t.run?.() }
+// a tool button was pressed: a menu tool opens its dropdown, a plain tool runs
+function runTool(t) {
+  if (t.disabled) return
+  if (t.menu) openMenu(t)
+  else t.run?.()
+}
 </script>
 
 <template>
@@ -268,14 +309,19 @@ function runTool(t) { if (!t.disabled) t.run?.() }
           v-for="t in primary"
           :key="t.id"
           class="sd-tbtn hideoncol"
-          :class="{ danger: t.danger, prime: t.prime, wide: t.badge }"
+          :class="{ danger: t.danger, prime: t.prime, wide: t.badge || t.menu }"
           :disabled="t.disabled"
           :title="t.label"
           :aria-label="t.label"
+          :data-tool="t.id"
+          :aria-haspopup="t.menu ? 'menu' : undefined"
+          :aria-expanded="t.menu ? (menuId === t.id) : undefined"
+          :data-menu-btn="t.menu ? t.id : undefined"
           @click.stop="runTool(t)"
         >
           <Icon :name="t.icon" :size="18" />
           <b v-if="t.badge" class="sd-badge">{{ t.badge }}</b>
+          <Icon v-if="t.menu" name="chevron-down" :size="14" class="sd-caret" />
         </button>
 
         <!-- right-hand controls: overflow · transparency · customize · collapse -->
@@ -325,7 +371,9 @@ function runTool(t) { if (!t.disabled) t.run?.() }
             :disabled="t.disabled"
             :aria-label="t.label"
             :title="t.label"
-            @click.stop="runTool(t); closePop()"
+            :data-tool="t.id"
+            :data-menu-btn="t.menu ? t.id : undefined"
+            @click.stop="t.menu ? runTool(t) : (runTool(t), closePop())"
           >
             <Icon :name="t.icon" :size="18" />
             <b v-if="t.badge" class="sd-badge">{{ t.badge }}</b>
@@ -375,6 +423,22 @@ function runTool(t) { if (!t.disabled) t.run?.() }
           <button class="sd-foot-btn secondary" @click="reset">คืนค่าเริ่มต้น</button>
           <button class="sd-foot-btn" @click="closePop">เสร็จ</button>
         </div>
+      </div>
+
+      <!-- menu (D7): a tool's dropdown of options — single-select closes, multi stays open -->
+      <div v-if="pop === 'menu' && menuTool" class="sd-pop sd-pop-menu" role="menu" :aria-label="menuTool.label" @click.stop>
+        <h4>{{ menuTool.label }}</h4>
+        <button
+          v-for="o in menuOptions"
+          :key="o.value"
+          class="sd-menu-row"
+          :role="menuTool.multi ? 'menuitemcheckbox' : 'menuitemradio'"
+          :aria-checked="isPicked(o.value)"
+          @click.stop="pickOption(o)"
+        >
+          <span class="sd-menu-ck" aria-hidden="true">{{ isPicked(o.value) ? (menuTool.multi ? '✓' : '●') : '' }}</span>
+          <span class="sd-menu-lb">{{ o.label }}</span>
+        </button>
       </div>
     </div>
 
@@ -481,6 +545,7 @@ function runTool(t) { if (!t.disabled) t.run?.() }
 .sd-tbtn.prime { background: var(--brand); color: #fff; border-color: var(--brand); }
 .sd-tbtn.wide { flex: 0 0 auto; width: auto; min-width: 44px; padding: 0 9px; gap: 3px; }
 .sd-badge { font-size: 12px; font-weight: 700; }
+.sd-caret { color: var(--muted); margin-left: -1px; }
 .sd-ctl { color: var(--muted); }
 .sd-grip {
   cursor: grab;
@@ -523,6 +588,27 @@ function runTool(t) { if (!t.disabled) t.run?.() }
 .sd-ov-label { font-size: 11px; color: var(--muted); }
 .sd-range { width: 100%; }
 .sd-mini { font-size: 11px; color: var(--muted); text-align: center; margin-top: 4px; }
+/* menu (D7): a plain option list; the current pick is ● (single) / ✓ (multi) */
+.sd-pop-menu { min-width: 200px; max-width: min(300px, calc(100vw - 24px)); max-height: 60vh; overflow: auto; }
+.sd-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ink);
+  font: inherit;
+  min-height: 36px;
+}
+@media (hover: hover) { .sd-menu-row:hover { background: var(--cream); } }
+.sd-menu-row[aria-checked='true'] { color: var(--brand); font-weight: 700; }
+.sd-menu-ck { flex: 0 0 16px; text-align: center; color: var(--brand); }
+.sd-menu-lb { flex: 1; }
 .sd-cust-group { font-size: 12px; color: var(--brand); font-weight: 700; margin: 8px 0 4px; }
 .sd-crow { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); }
 .sd-crow:last-of-type { border-bottom: none; }

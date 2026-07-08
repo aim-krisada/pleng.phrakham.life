@@ -5,12 +5,26 @@ import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
   content: { type: Object, required: true }, // { key, timeSignature, lines }
-  mode: { type: String, default: 'full' }, // 'full' | 'lyrics'
-  chordSystem: { type: String, default: 'letter' }, // 'letter' | 'number'
+  mode: { type: String, default: 'full' }, // 'full' | 'lyrics' — coarse fallback (see layer flags)
+  chordSystem: { type: String, default: 'letter' }, // 'letter' | 'roman'
   displayKey: { type: String, default: '' }, // transpose target; '' = original
   playingSeg: { type: Object, default: null }, // { li, si } currently sounding
   songTitle: { type: String, default: '' }, // prints as the centered heading above the song
+  // Independent layer flags (B024 "แสดงผล" menu). null = fall back to `mode` so every
+  // existing caller (print · editor preview · plain viewer) keeps its behaviour untouched;
+  // the sing dock passes explicit booleans to get the finer presets (เนื้อ+คอร์ด, โน้ตล้วน …).
+  showChord: { type: Boolean, default: null },
+  showNote: { type: Boolean, default: null },
+  showLyric: { type: Boolean, default: null },
 })
+
+// Resolve each layer: an explicit flag wins; otherwise derive from the coarse `mode`
+// (full = chord+note+lyric · lyrics = lyric only) — the pre-B024 contract.
+const sc = computed(() => (props.showChord != null ? props.showChord : props.mode === 'full'))
+const sn = computed(() => (props.showNote != null ? props.showNote : props.mode === 'full'))
+const sl = computed(() => (props.showLyric != null ? props.showLyric : true))
+// Lyrics-only layout (centered, roomier) kicks in when just the words show.
+const lyricsOnly = computed(() => sl.value && !sn.value && !sc.value)
 
 // The running FOOTER (site · page X of Y · date) is drawn as @page margin boxes by
 // lib/printChrome.js (injected on print) so all three items share one size + baseline.
@@ -95,7 +109,7 @@ function isPlaying(li, si) {
 </script>
 
 <template>
-  <div :class="mode === 'lyrics' ? 'sheet-mode-lyrics' : ''">
+  <div :class="lyricsOnly ? 'sheet-mode-lyrics' : ''">
     <!-- Printed title — centered, above the song, on paper only (on screen the shell
          bar / Studio heading already show it). Owned here so it prints from ANY mode
          that renders the sheet (ดู or แผ่น), which is why P'Aim's ดู-mode print had none. -->
@@ -106,12 +120,12 @@ function isPlaying(li, si) {
         <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}</span>
         <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
         <span v-else-if="part.type === 'label'" class="line-label">{{ part.text }}</span>
-        <span v-else-if="part.type === 'end'" v-show="mode === 'full'" class="bar-line bar-final" aria-hidden="true"></span>
-        <span v-else-if="part.type === 'repeat-start'" v-show="mode === 'full'" class="repeat-mark rep-start" aria-label="เริ่มเล่นซ้ำ"><i class="rep-bar" /><i class="rep-thin" /><i class="rep-dots" /></span>
-        <span v-else-if="part.type === 'repeat-end'" v-show="mode === 'full'" class="repeat-mark rep-end" aria-label="วนกลับไปเล่นซ้ำ"><i class="rep-dots" /><i class="rep-thin" /><i class="rep-bar" /></span>
-        <span v-else-if="part.type === 'volta'" v-show="mode === 'full'" class="volta-tag">{{ part.num }}.</span>
+        <span v-else-if="part.type === 'end'" v-show="sn" class="bar-line bar-final" aria-hidden="true"></span>
+        <span v-else-if="part.type === 'repeat-start'" v-show="sn" class="repeat-mark rep-start" aria-label="เริ่มเล่นซ้ำ"><i class="rep-bar" /><i class="rep-thin" /><i class="rep-dots" /></span>
+        <span v-else-if="part.type === 'repeat-end'" v-show="sn" class="repeat-mark rep-end" aria-label="วนกลับไปเล่นซ้ำ"><i class="rep-dots" /><i class="rep-thin" /><i class="rep-bar" /></span>
+        <span v-else-if="part.type === 'volta'" v-show="sn" class="volta-tag">{{ part.num }}.</span>
         <span v-else class="bar-group">
-          <span v-if="part.barLine && mode === 'full'" class="bar-line" aria-hidden="true"></span>
+          <span v-if="part.barLine && sn" class="bar-line" aria-hidden="true"></span>
           <span
             v-for="seg in part.segments"
             :key="seg.si"
@@ -119,9 +133,9 @@ function isPlaying(li, si) {
             :class="{ 'seg-playing': isPlaying(row.li, seg.si) }"
             :data-seg="`${row.li}-${seg.si}`"
           >
-            <span v-if="mode === 'full'" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
-            <span v-if="mode === 'full'" class="note"><NoteRow :notes="seg.note" />&nbsp;</span>
-            <span class="lyric">{{ seg.lyric }}&nbsp;</span>
+            <span v-if="sc" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
+            <span v-if="sn" class="note"><NoteRow :notes="seg.note" />&nbsp;</span>
+            <span v-if="sl" class="lyric">{{ seg.lyric }}&nbsp;</span>
           </span>
         </span>
       </template>

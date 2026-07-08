@@ -1,8 +1,10 @@
 // The ดู surface must play in the SELECTED key, and changing the key WHILE playing must
-// re-tune from the current position (live), NOT restart. Mock the audio engine and assert
-// the transpose handed to playSong / setTranspose.
+// re-tune from the current position (live), NOT restart. It also drives every control
+// through the shared studio dock (sing mode, B024): play/stop, the key/tempo/display
+// dropdowns, loop, and the font buttons. Mock the audio engine and assert what reaches
+// playSong / setTranspose.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
 const { playSongSpy, setTransposeSpy } = vi.hoisted(() => ({
@@ -18,7 +20,7 @@ vi.mock('../lib/midi.js', () => {
     stopPlayback: () => {},
     setTranspose: setTransposeSpy,
     keyTranspose: (from, to) => (KEY_MIDI[to] ?? 60) - (KEY_MIDI[from] ?? 60),
-    TEMPO_MARKS: [{ value: 92, label: 'Andante' }, { value: 120, label: 'Allegro' }],
+    TEMPO_MARKS: [{ value: 92, label: 'Andante ♩=92' }, { value: 120, label: 'Allegro ♩=120' }],
   }
 })
 
@@ -55,19 +57,33 @@ const sectionSong = {
   },
 }
 
-// stub SongSheet but surface the follow-along highlight it receives, so a test can
-// assert the highlight moved to the currently-sounding note.
+// stub SongSheet but surface the follow-along highlight + layer flags it receives, so
+// tests can assert the highlight moved and the display preset propagated.
 const SongSheetStub = {
   name: 'SongSheet',
-  props: ['content', 'mode', 'chordSystem', 'displayKey', 'playingSeg'],
+  props: ['content', 'mode', 'chordSystem', 'displayKey', 'playingSeg', 'showChord', 'showNote', 'showLyric', 'songTitle'],
   template: '<div class="sheet" :data-seg="playingSeg ? playingSeg.li + \'-\' + playingSeg.si : \'\'"></div>',
 }
-const mountViewer = () => mount(SongViewer, { props: { song }, global: { stubs: { SongSheet: SongSheetStub, Icon: true } } })
-const keySelect = (w) => w.find('select[aria-label="เลือกคีย์"]')
+const mountViewer = (p = song) =>
+  mount(SongViewer, { props: { song: p }, global: { stubs: { SongSheet: SongSheetStub, Icon: true } }, attachTo: document.body })
+
+// dock helpers (sing mode) — buttons carry a stable data-tool id
+const tool = (w, id) => w.find(`.sd-tbtn[data-tool="${id}"]`)
+const playBtn = (w) => tool(w, 'play')
+const sheet = (w) => w.findComponent({ name: 'SongSheet' })
+async function pickMenu(w, id, label) {
+  await tool(w, id).trigger('click') // open the dropdown
+  await nextTick()
+  const row = w.findAll('.sd-menu-row').find((r) => r.find('.sd-menu-lb').text() === label)
+  if (!row) throw new Error(`menu option "${label}" not found in tool "${id}"`)
+  await row.trigger('click')
+  await nextTick()
+}
 const lastPlay = () => playSongSpy.mock.calls.at(-1)
 const lastOpts = () => lastPlay()[1]
 
 beforeEach(() => {
+  localStorage.clear()
   playSongSpy.mockClear()
   setTransposeSpy.mockClear()
 })
@@ -76,8 +92,8 @@ describe('SongViewer playback key', () => {
   it('pick key THEN play → schedules original key + transpose (E→G = +3 semitones)', async () => {
     const w = mountViewer()
     await nextTick()
-    await keySelect(w).setValue('G')
-    await w.find('.vw-play').trigger('click')
+    await pickMenu(w, 'key', 'G')
+    await playBtn(w).trigger('click')
     await nextTick()
     expect(playSongSpy).toHaveBeenCalled()
     expect(lastPlay()[0].key).toBe('E') // base pitch stays the original key…
@@ -87,12 +103,10 @@ describe('SongViewer playback key', () => {
   it('change key WHILE playing → live re-tune (setTranspose), NOT a restart', async () => {
     const w = mountViewer()
     await nextTick()
-    w.find('.vw-play').trigger('click') // start (E, transpose 0)
+    await playBtn(w).trigger('click') // start (E, transpose 0)
     playSongSpy.mockClear()
 
-    keySelect(w).element.value = 'D'
-    keySelect(w).trigger('change') // change key mid-playback (E→D = -2)
-    await nextTick()
+    await pickMenu(w, 'key', 'D') // change key mid-playback (E→D = -2)
 
     expect(setTransposeSpy).toHaveBeenCalledWith(-2) // re-tuned live
     expect(playSongSpy).not.toHaveBeenCalled() // did NOT restart
@@ -103,17 +117,17 @@ describe('SongViewer play / stop / resume (US-A01)', () => {
   it('press play → starts playback from the top (startIndex 0), button shows หยุด', async () => {
     const w = mountViewer()
     await nextTick()
-    w.find('.vw-play').trigger('click')
+    await playBtn(w).trigger('click')
     await nextTick()
     expect(playSongSpy).toHaveBeenCalledTimes(1)
     expect(lastOpts().startIndex).toBe(0)
-    expect(w.find('.vw-play').text()).toContain('หยุด')
+    expect(playBtn(w).attributes('aria-label')).toBe('หยุด') // one sticky toggle button
   })
 
   it('highlight follows the currently-sounding note', async () => {
     const w = mountViewer()
     await nextTick()
-    w.find('.vw-play').trigger('click')
+    await playBtn(w).trigger('click')
     lastOpts().onNote({ li: 1, si: 3 }, 2) // engine reports the sounding note
     await nextTick()
     expect(w.find('.sheet').attributes('data-seg')).toBe('1-3')
@@ -122,12 +136,13 @@ describe('SongViewer play / stop / resume (US-A01)', () => {
   it('stop then play → RESUMES from where it stopped, not from the top', async () => {
     const w = mountViewer()
     await nextTick()
-    w.find('.vw-play').trigger('click') // play
+    await playBtn(w).trigger('click') // play
     lastOpts().onNote({ li: 2, si: 0 }, 5) // reached note index 5
-    w.find('.vw-play').trigger('click') // stop (records position 5)
-    expect(w.find('.vw-play').text()).toContain('ฟังเพลง')
+    await playBtn(w).trigger('click') // stop (records position 5)
+    await nextTick()
+    expect(playBtn(w).attributes('aria-label')).toBe('ฟังเพลง')
     playSongSpy.mockClear()
-    w.find('.vw-play').trigger('click') // play again → resume
+    await playBtn(w).trigger('click') // play again → resume
     expect(lastOpts().startIndex).toBe(5)
   })
 
@@ -138,23 +153,19 @@ describe('SongViewer play / stop / resume (US-A01)', () => {
     })
     expect(w.props('tier')).toBe('editor')
     expect(w.emitted('save')).toBeUndefined()
-    // no save/edit affordance in the control bar
+    // no save/edit affordance anywhere in the reading surface
     expect(w.html()).not.toContain('บันทึก')
   })
 })
 
 describe('SongViewer live tempo (US-A04)', () => {
-  const tempoSelect = (w) => w.find('select[aria-label="ความเร็ว"]')
-
   it('change tempo WHILE playing → re-schedule from the current note at the new bpm, NOT from the top', async () => {
     const w = mountViewer()
     await nextTick()
-    w.find('.vw-play').trigger('click') // play from top at 92
+    await playBtn(w).trigger('click') // play from top at 92
     lastOpts().onNote({ li: 1, si: 0 }, 4) // engine reached note index 4
     playSongSpy.mockClear()
-    tempoSelect(w).element.value = '120'
-    await tempoSelect(w).trigger('change') // speed up mid-playback
-    await nextTick()
+    await pickMenu(w, 'tempo', 'Allegro ♩=120') // speed up mid-playback
     expect(playSongSpy).toHaveBeenCalledTimes(1) // re-scheduled once
     expect(lastOpts().startIndex).toBe(4) // continued from note 4…
     expect(lastOpts().bpm).toBe(120) // …at the new tempo
@@ -163,55 +174,81 @@ describe('SongViewer live tempo (US-A04)', () => {
   it('changing tempo BEFORE playing just applies to the next play', async () => {
     const w = mountViewer()
     await nextTick()
-    tempoSelect(w).element.value = '120'
-    await tempoSelect(w).trigger('change')
+    await pickMenu(w, 'tempo', 'Allegro ♩=120')
     expect(playSongSpy).not.toHaveBeenCalled() // not playing → no (re)start
-    w.find('.vw-play').trigger('click')
+    await playBtn(w).trigger('click')
     expect(lastOpts().bpm).toBe(120)
     expect(lastOpts().startIndex).toBe(0) // a fresh play starts from the top
+  })
+
+  it('the tempo button shows the current BPM as a badge', async () => {
+    const w = mountViewer()
+    await nextTick()
+    expect(tool(w, 'tempo').find('.sd-badge').text()).toBe('92')
+    await pickMenu(w, 'tempo', 'Allegro ♩=120')
+    expect(tool(w, 'tempo').find('.sd-badge').text()).toBe('120')
   })
 })
 
 describe('SongViewer key / tempo / loop / readability (US-A02, US-A03)', () => {
-  it('loop checkbox → playback loops the selection (US-A02)', async () => {
+  it('loop toggle → playback loops the selection (US-A02)', async () => {
     const w = mountViewer()
     await nextTick()
-    await w.find('.vw-check input[type="checkbox"]').setValue(true)
-    w.find('.vw-play').trigger('click')
+    await tool(w, 'loop').trigger('click') // turn วนซ้ำ on
+    await playBtn(w).trigger('click')
     expect(lastOpts().loop).toBe(true)
   })
 
   it('key / tempo / loop are viewer-local and never mutate the source song (US-A02)', async () => {
     const w = mountViewer()
     await nextTick()
-    await keySelect(w).setValue('G')
-    await w.find('.vw-check input[type="checkbox"]').setValue(true)
+    await pickMenu(w, 'key', 'G')
+    await tool(w, 'loop').trigger('click')
     // the original song content is untouched — transpose is temporary display only
     expect(song.content.key).toBe('E')
     expect(w.props('song').content.key).toBe('E')
+  })
+
+  it('the key button shows the current key as a badge (US-A03 "โชว์ค่า")', async () => {
+    const w = mountViewer()
+    await nextTick()
+    expect(tool(w, 'key').find('.sd-badge').text()).toBe('E') // original
+    await pickMenu(w, 'key', 'G')
+    expect(tool(w, 'key').find('.sd-badge').text()).toBe('G')
   })
 
   it('ก+ / ก− change the reading font size (US-A03)', async () => {
     const w = mountViewer()
     await nextTick()
     const style = () => w.find('.sheet-scale').attributes('style') || ''
-    await w.find('button[aria-label="ใหญ่ขึ้น"]').trigger('click')
+    await tool(w, 'fup').trigger('click')
     expect(style()).toContain('font-size: 1.1rem')
-    await w.find('button[aria-label="เล็กลง"]').trigger('click')
-    await w.find('button[aria-label="เล็กลง"]').trigger('click')
+    await tool(w, 'fdown').trigger('click')
+    await tool(w, 'fdown').trigger('click')
     expect(style()).toContain('font-size: 0.9rem')
   })
 
-  it('เนื้อล้วน toggle switches the sheet to lyrics-only mode (US-A03)', async () => {
+  it('แสดงผล → เนื้อล้วน switches the sheet to lyrics-only layers (US-A03)', async () => {
     const w = mountViewer()
     await nextTick()
-    const lyricsBtn = w.findAll('.vw-seg button').find((b) => b.text() === 'เนื้อล้วน')
-    await lyricsBtn.trigger('click')
-    expect(w.findComponent({ name: 'SongSheet' }).props('mode')).toBe('lyrics')
+    await pickMenu(w, 'display', 'เนื้อล้วน')
+    expect(sheet(w).props('showLyric')).toBe(true)
+    expect(sheet(w).props('showNote')).toBe(false)
+    expect(sheet(w).props('showChord')).toBe(false)
+    expect(sheet(w).props('mode')).toBe('lyrics')
+  })
+
+  it('คอร์ด → ซ่อนคอร์ด hides the chord layer even in a full display (B024)', async () => {
+    const w = mountViewer()
+    await nextTick()
+    expect(sheet(w).props('showChord')).toBe(true) // default: ครบ + ตัวอักษร
+    await pickMenu(w, 'chord', 'ซ่อนคอร์ด')
+    expect(sheet(w).props('showChord')).toBe(false)
+    expect(sheet(w).props('showNote')).toBe(true) // note layer untouched
   })
 
   it('section chip plays that ท่อน from its start (US-A03)', async () => {
-    const w = mount(SongViewer, { props: { song: sectionSong }, global: { stubs: { SongSheet: SongSheetStub, Icon: true } } })
+    const w = mountViewer(sectionSong)
     await nextTick()
     const chips = w.findAll('.section-chip')
     expect(chips.length).toBe(2) // ทั้งเพลง + one section
@@ -221,16 +258,36 @@ describe('SongViewer key / tempo / loop / readability (US-A02, US-A03)', () => {
   })
 })
 
+describe('SongViewer follow-along scroll pause (B016)', () => {
+  it('a manual scroll pauses auto-scroll so the next highlight does not snap the page back', async () => {
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {})
+    const w = mountViewer()
+    await nextTick()
+    await playBtn(w).trigger('click')
+    // first sounding note → auto-scroll brings it into view (watcher awaits a tick first)
+    lastOpts().onNote({ li: 0, si: 0 }, 0)
+    await flushPromises()
+    expect(scrollSpy).toHaveBeenCalledTimes(1)
+    // the singer scrolls by hand → auto-scroll steps aside for ~3.5s
+    window.dispatchEvent(new Event('wheel'))
+    scrollSpy.mockClear()
+    lastOpts().onNote({ li: 0, si: 1 }, 1)
+    await flushPromises()
+    expect(scrollSpy).not.toHaveBeenCalled() // page stays where the singer left it
+    scrollSpy.mockRestore()
+  })
+})
+
 describe('SongViewer song-identity re-sync (latent bug, DS-A04)', () => {
   it('editing the song (same number) keeps the chosen key; loading a different song resets it', async () => {
     const w = mountViewer()
     await nextTick()
-    await keySelect(w).setValue('G') // listener transposes to G
+    await pickMenu(w, 'key', 'G') // listener transposes to G
     // the editor re-emits the SAME song (number 1) with edited content
     await w.setProps({ song: { ...song, content: { ...song.content, key: 'E' } } })
-    expect(keySelect(w).element.value).toBe('G') // an edit must NOT wipe the chosen key
+    expect(tool(w, 'key').find('.sd-badge').text()).toBe('G') // an edit must NOT wipe the chosen key
     // a genuinely different song loads
     await w.setProps({ song: { number: 2, title_th: 'x', content: { ...song.content, key: 'A' } } })
-    expect(keySelect(w).element.value).toBe('A') // now reset to the new song's key
+    expect(tool(w, 'key').find('.sd-badge').text()).toBe('A') // now reset to the new song's key
   })
 })
