@@ -1493,7 +1493,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       </button>
       <button class="ed-ico" title="ฟังท่อนนี้" aria-label="ฟังท่อนนี้" @click="playStanza"><Icon name="play" :size="16" /></button>
       <span class="ed-quick desk-only" aria-label="โครงเพลงด่วน (บรรทัดที่กำลังแก้)">
-        <button class="ed-ico" :class="{ on: curLineHook }" title="ทำเครื่องหมายท่อนฮุกให้บรรทัดที่กำลังแก้" aria-label="ท่อนฮุก" @click="qHook"><Icon name="anchor" :size="16" /></button>
+        <button class="ed-ico" :class="{ on: curLineHook }" title="ทำเครื่องหมายท่อนฮุกให้บรรทัดที่กำลังแก้" aria-label="ท่อนฮุก" @click="qHook"><Icon name="fishing-hook" :size="16" /></button>
         <button class="ed-ico" :class="{ on: curLineRepeat }" title="เล่นซ้ำบรรทัดที่กำลังแก้ ‖: :‖" aria-label="เล่นซ้ำบรรทัด" @click="qRepeat"><Icon name="repeat" :size="16" /></button>
         <button class="ed-ico" title="คัดลอกบรรทัดที่กำลังแก้" aria-label="คัดลอกบรรทัด" @click="qCopyLine"><Icon name="copy" :size="16" /></button>
         <button class="ed-ico danger-ic" title="ลบบรรทัดที่กำลังแก้" aria-label="ลบบรรทัด" @click="qDeleteLine"><Icon name="trash-2" :size="16" /></button>
