@@ -40,22 +40,22 @@ describe('exportSong (DS-C01 round-trip)', () => {
 })
 
 describe('songFilename (shared basename + .json, matches PDF name)', () => {
-  it('is the shared song basename with a .json extension', () => {
-    // same "12. ชื่อเพลง" the Save-as-PDF dialog uses (core: songName.js)
-    expect(songFilename(song)).toBe('12. พระเจ้าดีต่อฉัน.json')
+  it('is the shared "SITE_NAME - title" basename with a .json extension (US-I2)', () => {
+    // exactly the name the Save-as-PDF dialog uses (core: songName.js) — no number
+    expect(songFilename(song)).toBe('เพลง.พระคำ.ชีวิต - พระเจ้าดีต่อฉัน.json')
   })
 
-  it('falls back to the English title when no Thai title', () => {
-    expect(songFilename({ title_en: 'God is good' })).toBe('God is good.json')
+  it('falls back to "แผ่นเพลง" when no Thai title (title_en is not used for filenames)', () => {
+    expect(songFilename({ title_en: 'God is good' })).toBe('เพลง.พระคำ.ชีวิต - แผ่นเพลง.json')
   })
 
   it('strips filesystem-illegal characters', () => {
-    expect(songFilename({ title_th: 'a/b:c*?' })).toBe('abc.json')
+    expect(songFilename({ title_th: 'a/b:c*?' })).toBe('เพลง.พระคำ.ชีวิต - abc.json')
   })
 
   it('never yields an empty name', () => {
-    expect(songFilename({ title_th: '   ' })).toBe('เพลง.json')
-    expect(songFilename({})).toBe('เพลง.json')
+    expect(songFilename({ title_th: '   ' })).toBe('เพลง.พระคำ.ชีวิต - แผ่นเพลง.json')
+    expect(songFilename({})).toBe('เพลง.พระคำ.ชีวิต - แผ่นเพลง.json')
   })
 })
 

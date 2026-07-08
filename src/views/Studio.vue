@@ -225,7 +225,7 @@ function printSheet() {
       </div>
       <div class="card">
         <h2 class="sheet-title">{{ titleText }}</h2>
-        <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" />
+        <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" :song-title="titleText" />
       </div>
     </div>
 

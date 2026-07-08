@@ -534,8 +534,18 @@ footer.site-footer a { color: var(--footer-ink); }
 
 /* ---------- print (A4) ---------- */
 @media print {
-  @page { margin: 0; }
-  body { background: #fff; padding: 15mm 20mm; }
+  /* Page margins live on @page (not body padding) so they apply to EVERY printed
+     page — body padding only pads the top of page 1 + bottom of the last page, which
+     let content overlap the running footer on multi-page prints (US-I3). The bottom
+     margin (18mm) reserves the band the running footer sits in.
+     @bottom-center draws "หน้า X ของ Y" — a page count can only come from the page
+     box, not from inside a component; SongSheet's own footer leaves its center empty
+     for exactly this. (Chrome/Edge + "Headers and footers" off in the print dialog.) */
+  @page {
+    margin: 14mm 16mm 18mm;
+    @bottom-center { content: "หน้า " counter(page) " ของ " counter(pages); }
+  }
+  body { background: #fff; }
   .no-print, footer.site-footer, header.topbar { display: none !important; }
   .card { border: none; padding: 0; }
   .song-line { overflow-x: visible; break-inside: avoid; }
