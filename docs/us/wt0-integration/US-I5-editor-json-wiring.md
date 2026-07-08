@@ -1,7 +1,7 @@
 # US-I5 — ต่อ JSON ในโหมดแก้ (upload validate + downloadJson + ตัดเมนูซ้ำ)
 
 **Worktree:** WT-0 integration · **Branch:** `wt0-integration` · **Port:** 5301 · **คู่ DS:** `ds/wt0-integration/DS-I5-editor-json-wiring.md`
-**สถานะ:** spec · **⚠️ รอ WT-D merge ก่อน** (แตะ `EditorMode.vue` = ไฟล์ WT-D) · **ที่มา:** report WT-C ข้อ 2ข + B003
+**สถานะ:** spec · **พร้อมทำ — WT-D merged แล้ว (`EditorMode` ว่าง)** · **ที่มา:** report WT-C ข้อ 2ข + B003
 
 ## User Story
 **ในฐานะ** คนทำเพลงในโหมดแก้
