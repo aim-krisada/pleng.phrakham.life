@@ -28,7 +28,9 @@ function closeMenus() {
         <Icon name="chevron-down" :size="16" />
       </button>
       <div v-if="shellMenu === 'site'" class="sb-dropdown" role="menu" @click="closeMenus">
-        <router-link to="/studio" role="menuitem" :class="{ here: route.path === '/studio' }"><Icon name="pencil" /> ทำเพลง</router-link>
+        <!-- B007: the site menu = pages only. "ทำเพลง" is gone — song creation lives on
+             the "เพลง ▾" panel + the แก้ไข mode, not as a site page. -->
+        <router-link to="/" role="menuitem" :class="{ here: route.path === '/' }"><Icon name="list-music" /> รายการเพลง</router-link>
         <router-link to="/guide" role="menuitem" :class="{ here: route.path === '/guide' }"><Icon name="book-open" /> คู่มือ</router-link>
         <router-link to="/about" role="menuitem" :class="{ here: route.path === '/about' }"><Icon name="info" /> เกี่ยวกับเรา</router-link>
         <a href="https://phrakham.life" role="menuitem"><Icon name="globe" /> พระคำ.ชีวิต <span class="sb-k">↗</span></a>

@@ -11,7 +11,7 @@ import { migrateToV2, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
-import { tier, initAuth, shellMenu } from '../store.js'
+import { tier, initAuth, shellMenu, currentSong } from '../store.js'
 import Icon from '../components/Icon.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 import SongViewer from '../components/SongViewer.vue'
@@ -23,6 +23,10 @@ const router = useRouter()
 
 // three views on one surface: ดู (ร้องตาม) · แผ่น (พิมพ์) · แก้ (แก้ไข)
 const mode = ref('view')
+// bumped to force a fresh (blank) EditorMode when "สร้างเพลงใหม่" is used from the
+// "เพลง ▾" panel — remounting is the clean way to reset the editor from the shell
+// without reaching into its internal state (S2 create-new).
+const editorNonce = ref(0)
 
 // central song state — lifted to the shell so switching modes never loses work (US-01).
 //   loadedSong : the raw DB row · changes only on load · hands the editor a song to (re)load
@@ -79,10 +83,18 @@ watch(mode, () => stopPlayback())
 const SITE_TITLE = document.title
 watch(
   liveSong,
-  (s) => { document.title = s ? songBasename(s) : SITE_TITLE },
+  (s) => {
+    document.title = s ? songBasename(s) : SITE_TITLE
+    // I1: the open song is the store SSOT for the navbar (title + DownloadTool) — every
+    // mode + the editor feed liveSong, so this stays in sync as the song/title changes.
+    currentSong.value = s
+  },
   { immediate: true },
 )
-onUnmounted(() => { document.title = SITE_TITLE })
+onUnmounted(() => {
+  document.title = SITE_TITLE
+  currentSong.value = null
+})
 
 // the editor pushes every edit up here → previews follow + no work is lost on a switch
 function onChange(song) {
@@ -110,9 +122,10 @@ const titleText = computed(() => {
 })
 
 // B002 (P'Aim-approved names): ฝึกร้อง · แผ่นเพลง · แก้ไข (ids stay view/sheet/edit)
+// S1 icons (Lucide): ฝึกร้อง=mic · แผ่นเพลง=music · แก้ไข=pencil
 const MODES = [
-  { id: 'view', label: 'ฝึกร้อง', icon: 'eye', title: 'ฝึกร้อง (ร้องตาม)' },
-  { id: 'sheet', label: 'แผ่นเพลง', icon: 'file-text', title: 'แผ่นเพลง (ไว้พิมพ์)' },
+  { id: 'view', label: 'ฝึกร้อง', icon: 'mic', title: 'ฝึกร้อง (ร้องตาม)' },
+  { id: 'sheet', label: 'แผ่นเพลง', icon: 'music', title: 'แผ่นเพลง (ไว้พิมพ์)' },
   { id: 'edit', label: 'แก้ไข', icon: 'pencil', title: 'แก้ไข' },
 ]
 
@@ -137,28 +150,38 @@ const pickerOptions = computed(() =>
   })),
 )
 
-// the open-song menu shares the app-wide one-menu-at-a-time state (shellMenu)
+// the "เพลง ▾" menu shares the app-wide one-menu-at-a-time state (shellMenu)
 const openMenu = shellMenu
-const pendingPick = ref('') // the song chosen in the picker, opened only on "เปิดเพลง"
 // B018: on a phone the panel is a viewport-inset sheet (see CSS) anchored just under
-// the shell bar. The bar height varies (the login button wraps when logged out), so we
-// read its real bottom on open instead of hard-coding a value that would overlap or gap.
+// the shell bar. The bar height varies (2-row on mobile · login wraps), so we read its
+// real bottom on open instead of hard-coding a value that would overlap or gap.
 const panelTop = ref(56)
-function toggleOpenMenu() {
-  openMenu.value = openMenu.value === 'open-song' ? null : 'open-song'
-  if (openMenu.value === 'open-song') {
-    pendingPick.value = liveSong.value?.id ?? ''
+function toggleSongMenu() {
+  openMenu.value = openMenu.value === 'song' ? null : 'song'
+  if (openMenu.value === 'song') {
     nextTick(() => {
       const bar = document.querySelector('.shell-bar')
       if (bar) panelTop.value = Math.round(bar.getBoundingClientRect().bottom)
     })
   }
 }
-function openPicked() {
-  const id = pendingPick.value
+// S2: create-new from the panel → a blank editor. Remount EditorMode (nonce) so it
+// resets cleanly, drop the loaded song, and switch to แก้ไข. Navigate to a bare /studio
+// when we were on /song/:id so the URL matches "no song open".
+function createNew() {
+  openMenu.value = null
+  loadedSong.value = null
+  liveSong.value = null
+  editorNonce.value++
+  mode.value = 'edit'
+  if (route.params.id) router.push('/studio')
+}
+// S2: จิ้มเพลง = เปิดเลย (no OK button). ComboSelect emits the id on click/Enter; we open
+// it right away, keeping the current mode (US-05). Same-song pick just closes the panel.
+function openSong(id) {
   openMenu.value = null
   if (!id || id === liveSong.value?.id) return
-  router.push('/song/' + id) // watcher loads it + preserves the current mode
+  router.push('/song/' + id)
 }
 
 // ---------- print (US-06 / US-I3) ----------
@@ -182,30 +205,39 @@ function printSheet() {
       </template>
     </Teleport>
     <Teleport to="#shell-menus">
-      <!-- เปิด/เลือกเพลง — on the shell so it works in every mode (US-05) -->
-      <div class="sb-menu">
+      <!-- "เพลง ▾" (S2) — one panel: สร้างเพลงใหม่ (top) + ค้นหา/เปิด. Shown in อ่าน/แผ่น
+           modes; in แก้ไข the editor teleports its own richer "เพลง"/"จัดการ" menus, so this
+           button steps aside (no duplicate — moves toward B003). -->
+      <div v-if="mode !== 'edit'" class="sb-menu">
         <button
           class="sb-text sb-open-btn"
-          :aria-expanded="openMenu === 'open-song'"
+          :aria-expanded="openMenu === 'song'"
           aria-haspopup="true"
-          @click.stop="toggleOpenMenu"
+          @click.stop="toggleSongMenu"
         >
-          <Icon name="folder-open" :size="16" /><span class="sb-open-label">เปิดเพลง</span>
+          <Icon name="file-music" :size="16" /><span class="sb-open-label">เพลง</span><Icon name="chevron-down" :size="14" class="chev" />
         </button>
         <div
-          v-if="openMenu === 'open-song'"
-          class="sb-dropdown sb-open-panel"
+          v-if="openMenu === 'song'"
+          class="sb-dropdown sb-song-panel"
           :style="{ '--sb-panel-top': panelTop + 'px' }"
+          role="menu"
           @click.stop
+          @keydown.esc="openMenu = null"
         >
+          <button class="sb-song-new" @click="createNew">
+            <Icon name="file-plus" :size="18" /> สร้างเพลงใหม่
+          </button>
+          <div class="sb-song-sep"><span>หรือเปิดเพลงที่มีอยู่</span></div>
           <ComboSelect
-            v-model="pendingPick"
+            :model-value="''"
             :options="pickerOptions"
             placeholder="พิมพ์ค้นหา: ชื่อ เลข เนื้อร้อง โน้ต…"
-            aria-label="ค้นหาเพลงเพื่อเปิด"
+            aria-label="ค้นหาเพลงเพื่อเปิด — จิ้มเพลงเพื่อเปิดทันที"
             width="100%"
+            autofocus
+            @update:model-value="openSong"
           />
-          <button class="sb-open-go" @click="openPicked">เปิดเพลง</button>
         </div>
       </div>
       <span class="sb-modes" role="group" aria-label="เลือกมุมมอง">
@@ -246,6 +278,7 @@ function printSheet() {
          in-progress state survives every mode switch. -->
     <EditorMode
       v-show="mode === 'edit'"
+      :key="editorNonce"
       :song="loadedSong"
       :tier="tier"
       :active="mode === 'edit'"
@@ -315,30 +348,53 @@ function printSheet() {
   font-size: 1.5rem;
 }
 
-/* shell song picker (US-05) — teleported into the shared ShellBar */
+/* "เพลง ▾" panel (S2) — teleported into the shared ShellBar */
 .sb-open-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
 }
-.sb-open-panel {
+.sb-song-panel {
   min-width: 300px;
   gap: 8px;
 }
-.sb-open-go {
-  align-self: flex-end;
+/* ＋สร้างเพลงใหม่ — the prominent primary action at the top of the panel */
+.sb-song-new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
   background: var(--brand);
   color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 8px 16px;
+  padding: 10px 12px;
   font: inherit;
   font-weight: 700;
-  min-height: 36px;
+  min-height: 40px;
   cursor: pointer;
 }
-.sb-open-go:hover {
+.sb-song-new:hover {
   filter: brightness(1.05);
+}
+.sb-song-new .icn {
+  color: #fff;
+}
+/* "หรือเปิดเพลงที่มีอยู่" divider */
+.sb-song-sep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 2px 0;
+}
+.sb-song-sep::before,
+.sb-song-sep::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
 }
 
 /* print toolbar in โหมดแผ่น (US-06) — the button itself never prints */
@@ -373,10 +429,9 @@ function printSheet() {
   .sb-title-static {
     font-size: 1rem;
   }
-  /* B018: the 300px panel left-anchored at a mid-bar button overflowed the right edge.
-     On a phone, break it out to a viewport-inset sheet under the bar — it can no longer
-     run off either edge, whatever the button's x position. */
-  .sb-open-panel {
+  /* B008/B018: on a phone the panel is a viewport-inset sheet under the bar — full-width,
+     can't run off either edge, whatever the button's x position. */
+  .sb-song-panel {
     position: fixed;
     top: var(--sb-panel-top, 56px);
     left: 8px;
