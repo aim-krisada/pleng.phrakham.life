@@ -2260,6 +2260,9 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
     overflow-x: auto;
     justify-content: flex-start;
     border-radius: 0;
+    /* B020: fill the home-indicator band with the bar's own background so the dock
+       reads as stuck to the true screen edge, while the buttons clear the indicator. */
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   }
   .dock-grip {
     display: none;

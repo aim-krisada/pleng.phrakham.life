@@ -4,7 +4,7 @@
 // All editing lives in EditorMode; reading lives in SongViewer / SongSheet. A/B/C/D can
 // evolve their own mode file without touching this shell (that is the whole point of
 // DS-04's contract: every mode takes { song, tier } and emits change / save).
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent } from '../lib/songModel.js'
@@ -128,9 +128,19 @@ const pickerOptions = computed(() =>
 // the open-song menu shares the app-wide one-menu-at-a-time state (shellMenu)
 const openMenu = shellMenu
 const pendingPick = ref('') // the song chosen in the picker, opened only on "เปิดเพลง"
+// B018: on a phone the panel is a viewport-inset sheet (see CSS) anchored just under
+// the shell bar. The bar height varies (the login button wraps when logged out), so we
+// read its real bottom on open instead of hard-coding a value that would overlap or gap.
+const panelTop = ref(56)
 function toggleOpenMenu() {
   openMenu.value = openMenu.value === 'open-song' ? null : 'open-song'
-  if (openMenu.value === 'open-song') pendingPick.value = liveSong.value?.id ?? ''
+  if (openMenu.value === 'open-song') {
+    pendingPick.value = liveSong.value?.id ?? ''
+    nextTick(() => {
+      const bar = document.querySelector('.shell-bar')
+      if (bar) panelTop.value = Math.round(bar.getBoundingClientRect().bottom)
+    })
+  }
 }
 function openPicked() {
   const id = pendingPick.value
@@ -169,7 +179,12 @@ function printSheet() {
         >
           <Icon name="folder-open" :size="16" /><span class="sb-open-label">เปิดเพลง</span>
         </button>
-        <div v-if="openMenu === 'open-song'" class="sb-dropdown sb-open-panel" @click.stop>
+        <div
+          v-if="openMenu === 'open-song'"
+          class="sb-dropdown sb-open-panel"
+          :style="{ '--sb-panel-top': panelTop + 'px' }"
+          @click.stop
+        >
           <ComboSelect
             v-model="pendingPick"
             :options="pickerOptions"
@@ -342,6 +357,18 @@ function printSheet() {
   }
   .sb-title-static {
     font-size: 1rem;
+  }
+  /* B018: the 300px panel left-anchored at a mid-bar button overflowed the right edge.
+     On a phone, break it out to a viewport-inset sheet under the bar — it can no longer
+     run off either edge, whatever the button's x position. */
+  .sb-open-panel {
+    position: fixed;
+    top: var(--sb-panel-top, 56px);
+    left: 8px;
+    right: 8px;
+    min-width: 0;
+    max-width: none;
+    width: auto;
   }
 }
 </style>
