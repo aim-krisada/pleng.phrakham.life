@@ -81,7 +81,9 @@ async function startPlay(range, key) {
   const gen = ++playGen
   playing.value = true
   playingSection.value = key
-  await playSong(resolved.value, {
+  // play in the CHOSEN key (displayKey), not the song's original — otherwise the
+  // on-screen chords transpose but the sound stays in the original key (bug).
+  await playSong({ ...resolved.value, key: displayKey.value }, {
     bpm: Number(tempo.value) || resolved.value.bpm || 92,
     loop: loop.value,
     range,
