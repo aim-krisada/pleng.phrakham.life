@@ -54,15 +54,19 @@ const tempoOptions = computed(() => {
   return [...base, ...TEMPO_MARKS]
 })
 
-// re-sync when the song changes (Studio switches songs)
+// Re-sync ONLY when the song IDENTITY changes (a different song loads). Keying the watch
+// on the whole object would fire on every edit the editor re-emits (a new object with the
+// same song) and wipe the listener's chosen key/tempo mid-practice — a latent bug WT-0
+// flagged for WT-A. `number` is the song's identity; edits keep it, a new song changes it.
 watch(
-  () => props.song,
-  (s) => {
-    if (s?.content) {
-      displayKey.value = s.content.key || 'C'
-      tempo.value = s.content.bpm || 92
-      pausedIndex.value = 0 // a different song → resume from its start, not the old position
-    }
+  () => props.song?.number,
+  () => {
+    const c = props.song?.content
+    if (!c) return
+    stopPlay() // a genuinely different song → don't keep playing the old one's position
+    displayKey.value = c.key || 'C'
+    tempo.value = c.bpm || 92
+    pausedIndex.value = 0 // resume from the new song's start, not the old position
   },
 )
 
@@ -80,6 +84,7 @@ function bumpFont(d) {
   fontScale.value = Math.min(2.2, Math.max(0.8, Math.round((fontScale.value + d) * 10) / 10))
 }
 let playGen = 0
+let currentRange // the range of the active playback (undefined = whole song) — for live-tempo re-schedule
 function stopPlay() {
   playGen++
   stopPlayback()
@@ -90,6 +95,7 @@ function stopPlay() {
 async function startPlay(range, key, startIndex = 0) {
   stopPlayback()
   const gen = ++playGen
+  currentRange = range
   playing.value = true
   playingSection.value = key
   // Play in the chosen key. The melody is scheduled at the ORIGINAL key and shifted
@@ -133,6 +139,13 @@ function playSection(idx) {
 // restart — playback continues from where you are. Not playing = next play uses it.
 watch(displayKey, (k) => {
   if (playing.value) setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
+})
+// live tempo change (US-A04): unlike key (which rides on detune, seamless), tempo can't be
+// re-tuned in place — re-schedule the notes still ahead at the new bpm, continuing from the
+// current note (a tiny seam is accepted per DS-A04). NOT a jump back to the top. Not
+// playing → the new tempo simply applies to the next play.
+watch(tempo, () => {
+  if (playing.value) startPlay(currentRange, playingSection.value, playedIndex.value)
 })
 function printSheet() {
   window.print()
