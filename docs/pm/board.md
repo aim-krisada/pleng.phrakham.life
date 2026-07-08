@@ -6,7 +6,7 @@
 อัปเดตล่าสุด: 2026-07-08 · PM session รอบที่ 1
 
 > ▶ **RESUME (PM session ใหม่ อ่านนี่ก่อน):** สวมบท PM ต่อ → อ่าน `docs/pm/pm.md` (ไม้ต่อครบ) + memory `pleng-pm-role` + ไฟล์นี้
-> **โฟกัสตอนนี้:** sa-ps3 ตรวจคลื่น 1 เสร็จ (repro จริง · `review-ps4-shell-wave1-report.md`) → 4 บั๊กแยกเป็น **B034 พร้อมยิง dev · B033 รอ P'Aim เคาะทิศดีไซน์ · B031+B030 ยกไปคลื่น 2** → รอ P'Aim เคาะ B033 แล้วยิง **B033+B034** เข้า `dev-ps4-shell` (StudioDock รอบเดียว)
+> **โฟกัสตอนนี้:** ✅ ยิง **B033 (คีย์ 2 แถว → dock 3 แถว) + B034 (ปุ่มหุบ toggle)** เข้า `dev-ps4-shell` แล้ว (`fix-ps4-shell-dock.md`) → **รอ dev แก้ใน wt-shell + report** → PM ตรวจ DoD + merge · (B031+B030 = คลื่น 2)
 > **ถัดไป:** editor redesign คลื่น 2 (ครอบ B032/B035) + highlight (B029) = build ตาม `ps2-studio-prototype.html` · เรื่องค้างเดิม (③ sync docs status ps4 · ① DA 3 เรื่อง · ② lint เข้าฐาน) ทำต่อได้เมื่อพร้อม
 
 **Legend:** ✅ ยืนยันตรง 3 แหล่ง · ⚠️ ต้องเคลียร์/ตัดสิน · ⏳ ยังไม่รายงาน
@@ -31,7 +31,7 @@ dev ps4-shell เสร็จ → P'Aim ลองใช้เอง (= gate real
 
 heads-up: **N1** dock จะซ้อนตอนคลื่น 2 (ต้องยก StudioDock ขึ้นระดับ Studio) · **N2** infra: เปิด `localhost:5311` (ไม่ใช่ 127.0.0.1 · IPv6)
 **ยังไม่ build (ไม่ใช่บั๊ก):** B029 highlight · B032+B035 editor redesign = คลื่น 2
-**สถานะ:** รอ P'Aim เคาะทิศ B033 → PM ยิง **B033+B034** เข้า `dev-ps4-shell` (StudioDock ไฟล์เดียว รอบเดียว)
+**สถานะ:** ✅ P'Aim เคาะ B033 = คีย์ 2 แถว + แถวเครื่องมือ = **dock 3 แถว** · **ยิง B033+B034 เข้า `dev-ps4-shell` แล้ว** (`fix-ps4-shell-dock.md`) → รอ dev แก้ใน `wt-shell` + อัปเดต `reports/wt-shell.md` → PM ตรวจ DoD + จัด merge
 → รวบเป็น brief ส่ง sa-ps3 (review + ยืนยัน + สเปกแก้)
 
 ## สายงาน (roster + สถานะ verify)
