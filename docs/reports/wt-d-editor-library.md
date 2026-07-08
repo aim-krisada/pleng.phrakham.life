@@ -1,6 +1,6 @@
 # รายงาน — wt-d-editor-library (WT-D ทำเพลง→คลัง)
 
-**รอบ:** 1 — US-D01 (ทำ/แก้เพลง บันทึกร่างในระบบ)
+**รอบ:** 1 — US-D01 (บันทึกร่าง) + US-D05 (ตัวอย่างแผ่นแทรกรายบรรทัด)
 **สถานะ:** เสร็จ · พร้อมให้ SA review + merge
 
 ## ทำอะไรไปบ้าง (ต่อ US)
@@ -11,11 +11,19 @@
 
 > พฤติกรรมส่วนใหญ่มีอยู่แล้วจากฐาน WT-0 — งานรอบนี้คือ **จัดโครงให้ตรง DS-D01 (store owns the write) + เขียน unit test ตาม AC** เพื่อยืนยันว่าครบจริง
 
+- **US-D05: ✅** (คำขอใหม่จากพี่เอม 2026-07-08 · UX ภายใน editor — WT-D เป็นเจ้าของไฟล์)
+  - เดิม: ตัวอย่างแผ่นเป็น **ก้อนเดียวบนสุด** แยกจากจุดแก้ → เอาออก
+  - ใหม่: **แต่ละบรรทัดมีตัวอย่างแผ่นของบรรทัดนั้นเองอยู่เหนือช่องโน้ต** อัปเดตสดขณะพิมพ์ · คำร้องตัดเฉพาะพยางค์ของบรรทัดนั้นจากข้อที่เลือก
+  - ดูแผ่นเต็มทั้งเพลง = ปุ่มโหมด "แผ่น" (🎼) เหมือนเดิม
+  - **ตรวจในเบราว์เซอร์แล้ว (5305):** พิมพ์ `1 3 5 3` → ตัวอย่างแผ่นเหนือช่องขึ้น `1 3 5 3` สดๆ · ไม่มี error ใน console
+
 ## ไฟล์ที่แก้ (เฉพาะไฟล์ที่ WT-D เป็นเจ้าของ)
 - `src/store.js` — เพิ่ม action `saveDraftRow(row, existingId)` (insert เมื่อร่างใหม่ / update เมื่อร่างเดิม · คืน `{id, error}`)
 - `src/components/EditorMode.vue` — `saveDraft()` เรียก `saveDraftRow` แทน insert/update ตรงๆ (ลดโค้ดซ้ำ · พฤติกรรมเท่าเดิม) · เพิ่ม `defineExpose` (`saveDraft`/`loadDraft`/`meta`/`editingId`/`currentDraftId`/`previewContent`) ให้ unit test เข้าถึง AC ได้โดยไม่ต้องไล่ผ่าน chrome ที่ teleport
 - `src/store.draft.test.js` — **ใหม่** · unit ของ store action
 - `src/components/EditorMode.draft.test.js` — **ใหม่** · unit ระดับ component (save draft + reopen)
+
+- `src/components/EditorMode.vue` (US-D05) — เอา `read-row-card` ก้อนบนออก · เพิ่ม `lineSheetContent(li)` สร้างแผ่นของบรรทัดเดียว (ตัดพยางค์ตาม slot ของบรรทัด) · แทรก `<SongSheet>` เหนือช่องโน้ตในแต่ละบรรทัด · CSS `.ed-line-sheet`
 
 *ไม่แตะ `Studio.vue` · ไม่แตะ `songModel.js` (สงวนไว้รอบ US-D04 หมวด+เลข)*
 

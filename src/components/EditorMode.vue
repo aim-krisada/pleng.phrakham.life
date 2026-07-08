@@ -1310,23 +1310,33 @@ function manageDelete() {
   openMenu.value = null
   deleteSong()
 }
-// read-row: the active ท่อน rendered in real sheet style with the selected ข้อ's
-// words (พี่เปา reads a sheet more easily than the boxes). Built by resolving a mini
-// song of just this (stanza, verse) pair — same engine as the full sheet.
-const readRowContent = computed(() => {
+// per-line sheet preview: ONE line rendered in real sheet style, shown right above the
+// note boxes for that same line — you see the finished sheet at the exact spot you edit
+// (was one big block at the top; the full sheet now lives behind the 🎼 button). Words
+// come from the selected ข้อ, sliced to just this line's syllable slots.
+function lineSheetContent(li) {
   const s = stanzas.value[activeStanza.value]
-  if (!s) return { key: opts.key, timeSignature: opts.timeSignature, lines: [] }
+  const line = s?.lines[li]
+  if (!line) return { key: opts.key, timeSignature: opts.timeSignature, lines: [] }
+  // this line's words = the active verse sliced from where this line starts (each earlier
+  // line's slots shift the start) for as many syllable slots as this line bears
+  let start = 0
+  for (let i = 0; i < li; i++)
+    for (const bar of s.lines[i].bars) for (const seg of bar.segments) start += syllableSlots(seg.note || '')
+  let count = 0
+  for (const bar of line.bars) for (const seg of bar.segments) count += syllableSlots(seg.note || '')
+  const syllables = lensActive.value
+    ? lensRow.value.syllables.slice(start, start + count).map((t) => (t || '').trim())
+    : []
   const mini = {
     version: 2,
     key: opts.key,
     timeSignature: opts.timeSignature,
-    stanzas: [{ id: s.id, lines: s.lines.map(serializeLine) }],
-    arrangement: [
-      { stanza: s.id, label: '', syllables: lensActive.value ? lensRow.value.syllables.map((t) => (t || '').trim()) : [] },
-    ],
+    stanzas: [{ id: activeStanzaId.value, lines: [serializeLine(line)] }],
+    arrangement: [{ stanza: activeStanzaId.value, label: '', syllables }],
   }
   return { ...mini, lines: resolveContent(mini) }
-})
+}
 const panelTitle = computed(
   () =>
     ({ open: 'เลือกเพลงเพื่อแก้', properties: 'ตั้งค่าเพลง', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ' })[
@@ -1488,13 +1498,6 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       พิมพ์คำร้องในช่องใต้โน้ต · ช่องสีแดง = ยังไม่ได้ใส่คำ · ช่องเส้นประ = โน้ตลากเสียง (เว้นว่างได้ หรือใส่ “-”)
     </p>
 
-    <!-- read row: the active ท่อน (with the selected ข้อ's words) in real sheet style
-         — พี่เปา reads this more easily than the boxes -->
-    <div class="card read-row-card">
-      <div class="read-row-label no-print"><Icon name="eye" :size="15" /> อ่าน (แบบแผ่นเพลง)</div>
-      <SongSheet :content="readRowContent" mode="full" chord-system="letter" :display-key="opts.key" />
-    </div>
-
     <!-- editing hint (the symbol palette lives in the bottom dock) -->
     <p class="muted no-print" style="margin: 0 0 10px">
       พิมพ์โน้ตในช่อง — <b>1 ช่อง = 1 โน้ต</b> · กด <b>Enter</b> หรือ <b>เว้นวรรค</b> เพื่อขึ้นช่องถัดไป · กด <b>← →</b> เลื่อนช่อง ·
@@ -1556,6 +1559,11 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         />
         <button class="secondary tiny" @click="copyLine(li)">คัดลอกโครง</button>
         <button class="danger tiny" @click="removeLine(li)">ลบบรรทัด</button>
+      </div>
+      <!-- this line rendered as a real sheet, right above where you edit it (อ่าน) -->
+      <div class="card ed-line-sheet no-print">
+        <div class="ed-line-sheet-label"><Icon name="eye" :size="14" /> อ่าน (แบบแผ่นเพลง)</div>
+        <SongSheet :content="lineSheetContent(li)" mode="full" chord-system="letter" :display-key="opts.key" />
       </div>
       <!-- the strip: bars flow left→right with a drawn barline between them -->
       <div class="ed-strip">
@@ -2622,9 +2630,9 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   .ed-cat:hover { background: var(--cream-hover); }
 }
 /* read row (phase 4): the pair in sheet style, above the edit boxes */
-.read-row-card { background: #fffdf8; padding: 10px 12px; }
-.read-row-label { font-size: 0.82rem; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; margin-bottom: 6px; }
-.read-row-label .icn { color: var(--muted); }
+.ed-line-sheet { background: #fffdf8; padding: 8px 12px; margin-bottom: 10px; overflow-x: auto; }
+.ed-line-sheet-label { font-size: 0.8rem; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+.ed-line-sheet-label .icn { color: var(--muted); }
 /* จัดการ menu danger item + divider */
 .sb-danger { color: var(--red); }
 .sb-danger .icn { color: var(--red); }
