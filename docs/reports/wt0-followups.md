@@ -54,3 +54,12 @@
 **พร้อม** — แตะ `Studio.vue` ไฟล์เดียว (ของ WT-0 เท่านั้น) ไม่ชนกับ A/B/C/D · unit 16/16 · build ผ่าน · ตรวจจริงผ่าน
 
 **URL ตรวจงาน:** <http://localhost:5301>
+
+## สำหรับ SA — สถานะ git + ขั้นตอนต่อ
+- **สาขา:** `wt0-followups` · 2 commits: `feat(studio) US-05+US-06` · `feat(studio) B002 rename`
+- **rebase แล้ว** บน `studio-shell-redesign` ล่าสุด (รวม commit `31da53d` "B002 approved" ของ SA เข้ามาแล้ว) → `git diff studio-shell-redesign..HEAD` เหลือแค่ 4 ไฟล์ของงานนี้ (`Studio.vue` + 2 test + report นี้) · คาดว่า merge ได้ clean
+- **ขั้นตอน SA:**
+  1. `git merge wt0-followups` เข้า `studio-shell-redesign`
+  2. อัปเดต `docs/status.md`: US-05 / US-06 → `dev+test ✅` · เพิ่มแถว B002 (หรือโยงใต้ US-05)
+  3. ให้ tester (พี่เปา) ลองที่พอร์ต 5301
+- **1 เรื่องรอ SA ตัดสิน:** เมนูเปิดเพลงซ้ำในโหมดแก้ (ดู "ข้อสังเกต" ด้านบน) — จะให้ WT-D เก็บทีหลังไหม
