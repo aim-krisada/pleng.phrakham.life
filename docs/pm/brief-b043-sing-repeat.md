@@ -32,6 +32,12 @@
 - **ห้ามเขียนโค้ดจนกว่า P'Aim จะเคาะ design** — งานนี้กำกวมสูง ออกแบบผิด = รื้อแพง
 - เสร็จ design แล้ว **บอก PM (session "pm ต้นแบบ pl2")** เอา design ให้ P'Aim review → อนุมัติ → ค่อยแตกงาน dev (สายเดิมต่อเป็น dev ได้)
 
+## สถาปัตยกรรม — transport bar สร้างบน "dock library กลาง" (P'Aim 9 ก.ค.)
+- **แถบ transport (progress+marker+play/pause/prev/next) จะอยู่ใน dock/แถบควบคุมกลาง** (StudioDock) ที่สาย **dock-core เป็นเจ้าของ** (กำลังทำ unify + ออกแบบให้ config ต่อหน้าได้ · ดู `docs/pm/brief-dock-core.md` §เป้าหมายสถาปัตยกรรม)
+- **DS ต้องระบุ:** หน้าฝึกร้อง **config** อะไรลง dock library บ้าง (transport controls + progress/marker) · ต้องการ control ชนิดใหม่อะไรที่ core ยังไม่มี (เช่น progress/slider/custom slot) → บอกให้ชัด เพื่อ **นัดกับ dock-core** ว่า core เพิ่มให้ หรือหน้าฝึกร้อง inject เอง
+- **เป้าหมาย routing:** ถ้า dock library generic พอ → **dev หน้าฝึกร้องทำเองได้** (แค่ config) · ถ้าต้องแก้ core → เป็นงานของ dock-core (กระทบทุกหน้า) · PM จะจัดลำดับตามผลออกแบบนี้
+
 ## Note เรื่องขนาน (PM คุมชน)
 - งานนี้เขียนแค่ `docs/us/` + `docs/ds/` + wireframe = **ไม่แตะโค้ด → ไม่ชนใคร** ทำขนานกับ dock-core / batch ฝึกร้องได้เต็มที่
-- เกี่ยวกับ B038 (auto-scroll ตรงพยางค์) + B042 (เล่นต่อ/เริ่มใหม่) — DS ควรเผื่อให้สอดคล้อง (playback order เดียวกัน)
+- เกี่ยวกับ B038 (auto-scroll ตรงพยางค์) — DS ควรเผื่อให้สอดคล้อง (playback order เดียวกัน)
+- **DS ระบุให้ชัดว่าต้องการอะไรจาก dock library** → PM เอาไปนัดลำดับกับ dock-core (กันชน StudioDock)

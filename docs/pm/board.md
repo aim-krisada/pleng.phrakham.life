@@ -19,6 +19,7 @@
 >   - 🟢 **ขนานตอนนี้:** dock-core (รัน · แตะ StudioDock/Studio/EditorMode/SongViewer-mount) + **B043 SA** (chip `task_140f3eca` หย่อนแล้ว · เขียนแค่ docs = ไม่ชน · **ขอบเขตขยาย = music-player transport bar · ยุบ B042 เข้ามาแล้ว**)
 >   - 🟡 **รอ dock-core merge ก่อน แล้วยิงทีเดียว 1 session:** B038 + B039 + B041 (แตะ `SongViewer.vue`/`DownloadTool.vue` · B038/41 ชน dock-core ที่ SongViewer → ต้องรอ) · ~~B042~~ ย้ายไป B043 (SA)
 > · **กฎใหม่ (P'Aim 9 ก.ค.):** PM = จัดงาน+ส่งงานอย่างเดียว **ไม่โค้ดเอง** (ให้ขนานเร็ว) · ดู memory `pleng-pm-role`
+> · **สถาปัตยกรรม (P'Aim 9 ก.ค.):** dock/แถบควบคุม = **ของกลางเจ้าของเดียว = dock-core** · เป้าหมาย = ทำเป็น **library กลาง config ต่อหน้าได้** (generic รับ control ที่ไม่ใช่แค่ปุ่ม) · ถ้าสำเร็จ → transport bar ของ B043 หน้าฝึกร้อง **config เองได้ ส่งสายฝึกร้องทำ ไม่ชน** · ถ้าไม่ → เป็นงาน dock-core (กระทบทุกหน้า) · แจ้ง dock-core เป็น design-constraint แล้ว
 > · **ค้างรอ P'Aim:** เล่นหาบั๊กเพิ่ม (รอบ #2) · dock-core + B043 SA เสร็จเมื่อไหร่ PM ตรวจ DoD/พาdesign ให้ P'Aim review
 
 ## 🎨 design ที่ dev flag รอ P'Aim เคาะ (wave 2 · ไม่บล็อก)

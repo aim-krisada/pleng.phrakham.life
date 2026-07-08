@@ -39,11 +39,16 @@ chevrons-down-up:  <path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>
 ```
 วิธีหลอม: ทำ viewBox กว้างขึ้น (เช่น `0 0 34 24`) เอา grip ไว้ซ้ายตามพิกัดเดิม (x≈9,15) + chevron เลื่อนขวา `translate(14,0)` (หรือปรับตามตาที่สวย). เพิ่มเป็น 2 entry ใน `Icon.vue` เช่น `dock-grip-expand` / `dock-grip-collapse` (ตั้งชื่อตามจริง). **พิกัด/ระยะห่าง/ขนาด = ปรับได้ตามสายตา** (P'Aim อยากได้ core นี้ไว้ปรับต่อ).
 
-## Scope B — Unify to one dock instance (N1)
+## Scope B — Unify to one dock instance (N1) + ออกแบบเป็น library กลาง config ต่อหน้าได้
 - ยก `<StudioDock>` ขึ้นไป mount **ครั้งเดียวที่ `Studio.vue`** (แทนที่จะ mount แยกใน `EditorMode.vue` + `SongViewer.vue`)
 - Studio ส่ง prop `mode` (`edit`/`sing`/`print`) + ชุด tools ตามโหมดปัจจุบันเข้า dock เดียวนั้น
 - ผลลัพธ์: dock ตัวเดียว state เดียว → ลาก/ยุบ/ตำแหน่ง สอดคล้องกันทุกโหมด (ปุ่มลอยจำตำแหน่งข้ามโหมดได้)
 - ระวัง: EditorMode ใช้ `emit('insert', k)` (แป้นโน้ต) + tools เฉพาะโหมด — ต้องเดินสายผ่าน Studio ให้ครบ ไม่ให้ฟีเจอร์เดิมหาย
+
+### 🎯 เป้าหมายสถาปัตยกรรม (P'Aim 9 ก.ค. — สำคัญ · กันรื้อทีหลัง)
+- ออกแบบ StudioDock ให้เป็น **library กลางที่แต่ละหน้า config ชุดควบคุมของตัวเองได้** (generic) — ตอนนี้รับ `:tools`/`:mode` อยู่แล้ว, ทำให้ยืดหยุ่นพอที่หน้าใหม่จะ **inject control ของตัวเอง** โดยไม่ต้องแก้ core
+- **สำคัญ:** อย่า hardcode ให้รับแค่ "ปุ่ม" — อนาคตหน้าฝึกร้อง (B043) จะใส่ **transport bar** (progress bar + marker ท่อน + play/pause/prev/next = control ที่ไม่ใช่ปุ่มธรรมดา) ลง dock เดียวกันนี้ · ถ้า config API รองรับ control ชนิดอื่น (slider/progress/custom slot) ได้ → **หน้าฝึกร้อง config เองได้ ส่งให้สายฝึกร้องทำ ไม่ต้องแตะ StudioDock ของคุณ = ไม่ชน**
+- **ยังไม่ต้อง build transport bar ตอนนี้** — แค่ทำให้ core generic รองรับ (เช่น รับ custom component ผ่าน slot/config) เพื่อให้ B043 ต่อยอดได้โดยไม่รื้อ · ดู `docs/pm/brief-b043-sing-repeat.md`
 
 ## ไฟล์ที่เกี่ยวข้อง
 - `src/components/StudioDock.vue` (หลัก — FAB + drag + collapse)
