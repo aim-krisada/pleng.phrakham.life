@@ -20,6 +20,11 @@ vi.mock('../lib/midi.js', () => {
   }
 })
 
+// jsdom lacks these two browser APIs the follow-along scroll uses; stub them so the
+// highlight watcher doesn't throw an unhandled rejection during the run.
+window.matchMedia = window.matchMedia || (() => ({ matches: false }))
+Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function () {}
+
 import SongViewer from './SongViewer.vue'
 
 const song = {
@@ -34,9 +39,17 @@ const song = {
   },
 }
 
-const mountViewer = () => mount(SongViewer, { props: { song }, global: { stubs: { SongSheet: true, Icon: true } } })
+// stub SongSheet but surface the follow-along highlight it receives, so a test can
+// assert the highlight moved to the currently-sounding note.
+const SongSheetStub = {
+  name: 'SongSheet',
+  props: ['content', 'mode', 'chordSystem', 'displayKey', 'playingSeg'],
+  template: '<div class="sheet" :data-seg="playingSeg ? playingSeg.li + \'-\' + playingSeg.si : \'\'"></div>',
+}
+const mountViewer = () => mount(SongViewer, { props: { song }, global: { stubs: { SongSheet: SongSheetStub, Icon: true } } })
 const keySelect = (w) => w.find('select[aria-label="เลือกคีย์"]')
 const lastPlay = () => playSongSpy.mock.calls.at(-1)
+const lastOpts = () => lastPlay()[1]
 
 beforeEach(() => {
   playSongSpy.mockClear()
@@ -67,5 +80,49 @@ describe('SongViewer playback key', () => {
 
     expect(setTransposeSpy).toHaveBeenCalledWith(-2) // re-tuned live
     expect(playSongSpy).not.toHaveBeenCalled() // did NOT restart
+  })
+})
+
+describe('SongViewer play / stop / resume (US-A01)', () => {
+  it('press play → starts playback from the top (startIndex 0), button shows หยุด', async () => {
+    const w = mountViewer()
+    await nextTick()
+    w.find('.vw-play').trigger('click')
+    await nextTick()
+    expect(playSongSpy).toHaveBeenCalledTimes(1)
+    expect(lastOpts().startIndex).toBe(0)
+    expect(w.find('.vw-play').text()).toContain('หยุด')
+  })
+
+  it('highlight follows the currently-sounding note', async () => {
+    const w = mountViewer()
+    await nextTick()
+    w.find('.vw-play').trigger('click')
+    lastOpts().onNote({ li: 1, si: 3 }, 2) // engine reports the sounding note
+    await nextTick()
+    expect(w.find('.sheet').attributes('data-seg')).toBe('1-3')
+  })
+
+  it('stop then play → RESUMES from where it stopped, not from the top', async () => {
+    const w = mountViewer()
+    await nextTick()
+    w.find('.vw-play').trigger('click') // play
+    lastOpts().onNote({ li: 2, si: 0 }, 5) // reached note index 5
+    w.find('.vw-play').trigger('click') // stop (records position 5)
+    expect(w.find('.vw-play').text()).toContain('ฟังเพลง')
+    playSongSpy.mockClear()
+    w.find('.vw-play').trigger('click') // play again → resume
+    expect(lastOpts().startIndex).toBe(5)
+  })
+
+  it('accepts the tier contract prop and never emits save (view-only, AC3)', () => {
+    const w = mount(SongViewer, {
+      props: { song, tier: 'editor' },
+      global: { stubs: { SongSheet: SongSheetStub, Icon: true } },
+    })
+    expect(w.props('tier')).toBe('editor')
+    expect(w.emitted('save')).toBeUndefined()
+    // no save/edit affordance in the control bar
+    expect(w.html()).not.toContain('บันทึก')
   })
 })

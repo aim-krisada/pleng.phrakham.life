@@ -11,7 +11,13 @@ import { resolveContent } from '../lib/songModel.js'
 import SongSheet from './SongSheet.vue'
 import Icon from './Icon.vue'
 
-const props = defineProps({ song: { type: Object, required: true } })
+// `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
+// view-only for everyone, so it is accepted but not used to gate anything — there are
+// no save/edit affordances here regardless of tier (US-A01 AC3).
+const props = defineProps({
+  song: { type: Object, required: true },
+  tier: { type: String, default: 'guest' },
+})
 
 const mode = ref('full') // full = โน้ต+คอร์ด+เนื้อ · lyrics = เนื้อล้วน (karaoke)
 const chordSystem = ref('letter')
@@ -23,6 +29,10 @@ const playingSeg = ref(null)
 const playingSection = ref(null) // 'all' | section index | null
 const sheetWrap = ref(null)
 const fontScale = ref(1)
+// pause/resume (US-A01 "เล่นต่อ"): playedIndex = note index currently sounding;
+// pausedIndex = where the last stop happened, so the next play continues from there.
+const playedIndex = ref(0)
+const pausedIndex = ref(0)
 
 const resolved = computed(() =>
   props.song ? { ...props.song.content, lines: resolveContent(props.song.content) } : null,
@@ -51,6 +61,7 @@ watch(
     if (s?.content) {
       displayKey.value = s.content.key || 'C'
       tempo.value = s.content.bpm || 92
+      pausedIndex.value = 0 // a different song → resume from its start, not the old position
     }
   },
 )
@@ -76,7 +87,7 @@ function stopPlay() {
   playingSection.value = null
   playingSeg.value = null
 }
-async function startPlay(range, key) {
+async function startPlay(range, key, startIndex = 0) {
   stopPlayback()
   const gen = ++playGen
   playing.value = true
@@ -90,21 +101,30 @@ async function startPlay(range, key) {
     loop: loop.value,
     range,
     transpose: keyTranspose(props.song.content.key, displayKey.value || props.song.content.key),
-    onNote: (n) => {
+    startIndex,
+    onNote: (n, idx) => {
       playingSeg.value = { li: n.li, si: n.si }
+      playedIndex.value = idx
     },
   })
   if (gen === playGen) {
+    // reached the natural end (not a pause) → next play starts from the top
     playing.value = false
     playingSection.value = null
     playingSeg.value = null
+    pausedIndex.value = 0
   }
 }
 function togglePlay() {
-  if (playing.value) stopPlay()
-  else startPlay(undefined, 'all')
+  if (playing.value) {
+    pausedIndex.value = playedIndex.value // remember position so the next play continues
+    stopPlay()
+  } else {
+    startPlay(undefined, 'all', pausedIndex.value) // resume from where we stopped (0 = fresh)
+  }
 }
 function playSection(idx) {
+  pausedIndex.value = 0 // a section is always played from its start
   const s = sections.value[idx]
   if (s) startPlay({ fromLi: s.fromLi, toLi: s.toLi }, idx)
 }
