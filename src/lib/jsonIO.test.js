@@ -2,8 +2,9 @@
 // reading it back yields the same data (this is the promise US-C02 relies on to
 // reopen the file). Also covers the meaningful-filename rule.
 import { describe, it, expect } from 'vitest'
-import { exportSong, songFilename, validateSong, parseSongText, importSong } from './jsonIO.js'
+import { exportSong, songFilename, validateSong, parseSongText, importSong, buildSubmitMailto, TEAM_EMAIL } from './jsonIO.js'
 import { isV2 } from './songModel.js'
+import { songName } from './songName.js'
 
 const song = {
   id: 42, // extra viewer-only field that must NOT leak into the file
@@ -126,5 +127,25 @@ describe('importSong (DS-C02 — read a File, no store/DB)', () => {
     const r = await importSong({ text: async () => { throw new Error('io') } })
     expect(r.ok).toBe(false)
     expect(typeof r.error).toBe('string')
+  })
+})
+
+describe('buildSubmitMailto (DS-C03 — prefilled approval email)', () => {
+  it('addresses the team inbox by default', () => {
+    expect(buildSubmitMailto(song).startsWith(`mailto:${TEAM_EMAIL}?`)).toBe(true)
+  })
+
+  it('lets the caller override the recipient', () => {
+    expect(buildSubmitMailto(song, 'x@y.com').startsWith('mailto:x@y.com?')).toBe(true)
+  })
+
+  it('encodes subject + body with the song name and the attach-file reminder', () => {
+    const url = buildSubmitMailto(song)
+    const params = new URLSearchParams(url.slice(url.indexOf('?') + 1))
+    expect(params.get('subject')).toContain(songName(song))
+    const body = params.get('body')
+    expect(body).toContain(songName(song))
+    expect(body).toContain(songFilename(song)) // "…title.json" — the file to attach
+    expect(body).toMatch(/แนบไฟล์/) // explicit reminder (mailto can't attach)
   })
 })

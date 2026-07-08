@@ -1,6 +1,6 @@
 # รายงาน — wt-c-json (WT-C JSON พกพา)
-**รอบ:** 3 — US-C01 + ชื่อไฟล์ JSON=PDF (คำขอพี่เอม) + US-C02 อัปโหลด + US-C04 validate
-**สถานะ:** lib เสร็จ (C01/C02/C04) · การต่อสาย UI อัปโหลดรอ WT-0
+**รอบ:** 4 — WT-C ครบทุก US: C01 ดาวน์โหลด · C02 อัปโหลด · C03 ส่งอีเมลขออนุมัติ · C04 validate (+ ชื่อไฟล์ JSON=PDF)
+**สถานะ:** lib + ปุ่มใน DownloadTool เสร็จครบ C01–C04 · การต่อสายในโหมดแก้ไข (manageUpload / currentSong) รอ WT-0
 
 ## ทำอะไรไปบ้าง (ต่อ US)
 - **US-C01 ดาวน์โหลดเพลงเป็น JSON: ✅**
@@ -15,20 +15,21 @@
 - **US-C02 อัปโหลด JSON มาเปิด (on-demand): ✅ (lib)** — `importSong(file)` / `parseSongText(text)` / `validateSong(obj)` ใน `jsonIO.js` · อ่านไฟล์ → validate → คืน song object · **ไม่เรียก store/DB** (pure logic, on-demand ล้วน) · round-trip กับ C01 ครบ
 - **US-C04 ตรวจไฟล์ก่อนเปิด: ✅ (lib · มาคู่ C02)** — validate โครงเพลง (v1/v2) ก่อนเปิด · v1 → แปลงเป็น v2 อัตโนมัติ (ผ่าน `songModel.migrateToV2` เรียกใช้เฉย ไม่แก้) · ไฟล์เสีย/ไม่ใช่เพลง → คืน `error` เป็นข้อความภาษาคน ไม่ throw/crash
 - **การต่อสาย UI อัปโหลด = รอ WT-0** — เมนู "จัดการ → อัปโหลด JSON" (`manageUpload`) อยู่ใน `EditorMode.vue` (ไฟล์ WT-0) ยังใช้ parse inline เดิม (error รวมๆ ว่า "ไฟล์ JSON ไม่ถูกต้อง") · ขอ WT-0 เปลี่ยนมาเรียก `jsonIO.importSong` จะได้ validate + error ภาษาคนตาม C04 (ดูข้อสังเกต)
-- US-C03 (ส่งอีเมลขออนุมัติ): ⬜ (ยังไม่เริ่ม)
+- **US-C03 ส่งเพลงขออนุมัติทางอีเมล: ✅** — เพิ่มปุ่ม "✉️ ส่งเพลงนี้ขออนุมัติเข้าคลัง" ใน DownloadTool · กดแล้ว (1) ดาวน์โหลด JSON ให้ (2) เปิดอีเมล (`mailto:`) ถึงทีม พร้อมหัวข้อ/เนื้อความตั้งต้น + คำเตือน "กรุณาแนบไฟล์ที่เพิ่งดาวน์โหลด" (mailto แนบไฟล์เองไม่ได้) · **ไม่เก็บอะไรในระบบ** · อีเมลทีม = ค่าคงที่ `TEAM_EMAIL` จุดเดียว (ตอนนี้ `pleng@phrakham.life` — ⚠️ รอพี่เอมยืนยันอีเมลจริง)
 
-## ไฟล์ที่แก้ (อยู่ในขอบเขต DS-C01/C02/C04 + core lib ใหม่)
+## ไฟล์ที่แก้ (อยู่ในขอบเขต DS-C01–C04 + core lib ใหม่)
 - `src/lib/songName.js` — **ใหม่** · core lib ตั้งชื่อเพลง (reuse ได้)
-- `src/lib/jsonIO.js` — **ใหม่** · export/download (C01) + import/validate (C02/C04) · pure ไม่แตะ store/DB
-- `src/components/DownloadTool.vue` — ปุ่มดาวน์โหลด JSON เรียก `downloadSong` · ปุ่มพิมพ์ตั้งชื่อ PDF ด้วย `songBasename`
+- `src/lib/jsonIO.js` — **ใหม่** · export/download (C01) + import/validate (C02/C04) + submit-email (C03) · pure ไม่แตะ store/DB (ยกเว้นตัวสั่งงานที่เปิด mailto/ดาวน์โหลด)
+- `src/components/DownloadTool.vue` — 3 ปุ่ม: ดาวน์โหลด JSON · พิมพ์ PDF (ตั้งชื่อด้วย `songBasename`) · ส่งขออนุมัติ (`submitForApproval`)
 - `src/lib/songName.test.js`, `src/lib/jsonIO.test.js` — **ใหม่** · unit test
 
 ## ผลทดสอบ
-- **unit:** ทั้งชุด 33/33 ผ่าน (songName 5 · jsonIO 16 [export/filename/validate/parse/import] · ที่มีอยู่เดิม 12) · `npm run build` ผ่าน
+- **unit:** ทั้งชุด 36/36 ผ่าน (songName 5 · jsonIO 19 [export/filename/validate/parse/import/mailto] · ที่มีอยู่เดิม 12) · `npm run build` ผ่าน
 - **end-to-end (จริงบนแอปที่รัน · import lib จริงในบันเดิล):**
   - C01: กดดาวน์โหลด JSON → ไฟล์ `12. พระเจ้าดีต่อฉัน.json` · กดพิมพ์ → `document.title` = `12. พระเจ้าดีต่อฉัน` ตอน print แล้วคืนชื่อเว็บ
   - C02 round-trip: `exportSong` → text → `parseSongText` → ได้เพลงเดิมเป๊ะ
   - C04: ไฟล์ v1 → แปลงเป็น v2 (`isV2` = true) · JSON เสีย → `"ไฟล์นี้ไม่ใช่ JSON ที่อ่านได้ (โครงสร้างเสีย)"` · JSON ไม่ใช่เพลง → `"ไฟล์นี้ไม่มีเนื้อเพลง/ทำนอง..."` · ไม่มีไฟล์ → `"ไม่พบไฟล์"` (ทุกเคสไม่ crash)
+  - C03: เมนู DownloadTool มีปุ่ม "✉️ ส่งเพลงนี้ขออนุมัติเข้าคลัง" · `buildSubmitMailto` → `mailto:pleng@phrakham.life` หัวข้อ "ขอเสนอเพลงเข้าคลัง: <ชื่อ>" เนื้อความมีชื่อเพลง + ชื่อไฟล์ `.json` + คำเตือนแนบไฟล์ · *การเปิดโปรแกรมอีเมลจริง = ทดสอบด้วยมือ (ตาม DS-C03)*
 - **วิธี tester ลอง:** เปิด `http://localhost:5304` → โหมดแก้ไข เมนู "จัดการ → ดาวน์โหลด JSON" (ดูชื่อไฟล์) → "อัปโหลด JSON" เอาไฟล์กลับมาเปิด · refresh แล้วหาย (ยืนยันไม่เก็บ) · *หมายเหตุ: ปุ่มอัปโหลดตอนนี้ยังใช้โค้ดเดิมของ WT-0 · lib validate ใหม่จะเห็นผลเมื่อ WT-0 ต่อสาย*
 
 ## ⚠️ ข้อเสนอแนะถึง SA — ออกแบบ library กลางตั้งชื่อไฟล์ (คำขอพี่เอม)
@@ -53,8 +54,9 @@
 - **infra:** เจอ vite ค้าง (orphan) ของ session อื่นจองพอร์ต `[::1]:5304` ทำให้ `localhost:5304` วิ่งผิดเซิร์ฟเวอร์ — เคลียร์แล้ว 5304 เป็นของ WT-C ตัวเดียว
 
 ## พร้อม merge ไหม
-**พร้อม** สำหรับ lib C01/C02/C04 · ไฟล์ทั้งหมดอยู่ในขอบเขต (jsonIO.js + songName.js + DownloadTool.vue) ไม่ชน worktree อื่น · unit 33/33 + build + end-to-end ผ่าน
-- ค้างรอ **WT-0** 2 จุด (ไม่บล็อก merge โค้ด WT-C): ต่อสาย `importSong` เข้า `manageUpload` · เซ็ต `currentSong` ให้ปุ่ม navbar โผล่
+**พร้อม** — WT-C ครบทั้ง 4 US (C01–C04) · ไฟล์ทั้งหมดอยู่ในขอบเขต (jsonIO.js + songName.js + DownloadTool.vue) ไม่ชน worktree อื่น · unit 36/36 + build + end-to-end ผ่าน
+- ค้างรอ **พี่เอม:** ยืนยันอีเมลทีมจริง (`TEAM_EMAIL` ใน jsonIO.js · ตอนนี้ `pleng@phrakham.life`) — แก้บรรทัดเดียว
+- ค้างรอ **WT-0** 2 จุด (ไม่บล็อก merge โค้ด WT-C): ต่อสาย `importSong` เข้า `manageUpload` · เซ็ต `currentSong` ให้ปุ่ม navbar (ดาวน์โหลด/ส่งขออนุมัติ) โผล่
 - ค้างรอ **SA** เคาะ format + โครง library กลางตั้งชื่อไฟล์ (หัวข้อ ⚠️ ด้านบน)
 
 **URL ตรวจงาน:** http://localhost:5304 (ค้าง server ไว้ให้แล้ว)
