@@ -14,7 +14,7 @@
 - **Editor:** ~~ไอคอน "ท่อนฮุก" ใช้ ⚓ (anchor · Lucide ไม่มี hook) โอเคไหม~~ → ✅ **เคาะแล้ว (9 ก.ค.): ใช้ `fishing-hook`** (มีจริงในชุด Lucide เต็ม · PM แก้ตรง commit `eac9783`) · ยังเหลือ: ราย "ห้อง" ยังเก็บ ⋯ (ย้าย/สำเนา/ลบ/volta) — ซ่อนลึกกว่านี้ไหม
   > **กฎถาวร (P'Aim 9 ก.ค.):** ทุกโปรเจกต์หาไอคอนจาก `OneDrive/.../references/svg-icon-lucide/icons/` (1,745 ตัว) ก่อน อย่าเดาว่า Lucide ไม่มี — ดู memory `reference_lucide_icons`
 - **Viewer:** แสดงผล **5 แบบ** (ตาม prototype · US มี 4) · คงปุ่ม "พิมพ์" ใน dock ฝึกร้อง · loop ยังเป็น toggle (วนซ้ำท่อน = V3 อนาคต)
-- **Highlight:** สีคาราโอเกะ (คำ=พื้นน้ำตาลตัวขาว · โน้ต=พื้นจางเลข brand) ปรับโทนได้ · auto-scroll ระดับ segment (ไม่ถี่รายพยางค์)
+- **Highlight:** ~~สีคาราโอเกะ (คำ=พื้นน้ำตาลตัวขาว · โน้ต=พื้นจางเลข brand)~~ → ✅ **เคาะแล้ว (9 ก.ค.): โทนสี OK** · ~~auto-scroll ระดับ segment~~ → ❌ **P'Aim ไม่รับ: ต้องเลื่อนตรงพยางค์จริง** (สังเกตว่าตอนนี้ไม่ตรง) = **B038 จ่าย H-highlight** (เปลี่ยน scroll ให้เล็ง `playingSyl`/`[data-syl]` แทน `playingSeg`)
 > **ถัดไป:** editor redesign คลื่น 2 (ครอบ B032/B035) + highlight (B029) = build ตาม `ps2-studio-prototype.html` · เรื่องค้างเดิม (③ sync docs status ps4 · ① DA 3 เรื่อง · ② lint เข้าฐาน) ทำต่อได้เมื่อพร้อม
 
 **Legend:** ✅ ยืนยันตรง 3 แหล่ง · ⚠️ ต้องเคลียร์/ตัดสิน · ⏳ ยังไม่รายงาน
