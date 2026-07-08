@@ -32,7 +32,7 @@
 | งาน | branch | port | สถานะ |
 |---|---|---|---|
 | integration อิสระ: I2 ชื่อไฟล์ SSOT · I3 print (title กลางบน + footer @page 3 ช่องเท่ากัน) · I4 คู่มือ C03 | `wt0-int-a` | 5301 | ✅ **merged เข้า base** (unit 70/70 · **P'Aim ยืนยัน PDF จริง**) · อีเมลทีม `pleng@phrakham.life` ใส่คู่มือ + forwarding ตั้งเสร็จ · report: `docs/reports/wt0-integration.md` |
-| bug+feature: **B018 ตกขอบ · B020 dock mobile · B001 ปุ่มเลื่อน** | `wt-fix` | 5306 | ✅ **merged เข้า base** (unit 63/63 · build ✅ · SA รีวิว diff+conflict แล้ว) · ⏳ ฝาก tester ลอง B020+B001 บนมือถือจริงก่อนปิดสนิท |
+| bug+feature: **B018 ตกขอบ · B020 dock mobile · B001 ปุ่มเลื่อน** | `wt-fix` | 5306 | ✅ **ปิดสนิท** (merged · unit 63/63 · **tester ยืนยัน B020+B001 มือถือจริงแล้ว 8 ก.ค.**) · เก็บกวาด: ปิด session + `git worktree remove ../pleng-wt-fix` |
 
 > B001 รวมเข้า `wt-fix` แล้ว (ไม่แยก `wt-b001`) · ใช้ `pk-scrollnav.js` ร่วมกับ พระคำ.ชีวิต เป๊ะ · report: `docs/reports/wt-fix-summary.md`
 

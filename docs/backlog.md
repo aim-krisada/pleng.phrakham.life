@@ -13,7 +13,7 @@ idea ไหนจะทำจริง → ยกขึ้นเป็น user s
 
 | id | ชนิด | สรุป | ที่มา / รายละเอียด | สถานะ | โยงไป |
 |---|---|---|---|---|---|
-| B001 | feature | ปุ่มลอยมุมล่างขวา เลื่อนขึ้น/ลง | reuse โค้ดจาก phrakham.life · ภาพ: `backlog-assets/B001-scroll-buttons.png` (2026-07-08) · **✅ merged `wt-fix` → base** (`pk-scrollnav.js` ร่วม พระคำฯ) · ⏳ tester ลองมือถือจริง | done | wt-fix (merged) |
+| B001 | feature | ปุ่มลอยมุมล่างขวา เลื่อนขึ้น/ลง | reuse โค้ดจาก phrakham.life · ภาพ: `backlog-assets/B001-scroll-buttons.png` (2026-07-08) · **✅ merged `wt-fix` → base** (`pk-scrollnav.js` ร่วม พระคำฯ) · ✅ tester ยืนยันมือถือจริงแล้ว | done | wt-fix (merged) |
 | B002 | ปรับปรุง | เปลี่ยนชื่อโหมด: ดู→**ฝึกร้อง** · แผ่น→**แผ่นเพลง** · แก้→**แก้ไข** | ภาพ: `backlog-assets/B002-mode-labels.png` · **✅ พี่เอมเคาะ 2026-07-08** (เหตุผล: "พิมพ์"/"ทำเพลง" เป็น action/ซ้ำเมนูเว็บ → ใช้ชื่อโหมดที่ชัด) · รวมเข้า wt0-followups US-05 | done | WT-0 US-05 (merged) |
 | B003 | ปรับปรุง | ตัดเมนู "เลือกเพลงเพื่อแก้…" ที่ซ้ำในโหมดแก้ | หลัง US-05 มีปุ่ม "เปิดเพลง" ที่ shell ทุกโหมดแล้ว → เมนูของ `EditorMode` ซ้ำ · ตัดออกตอน WT-D แตะ `EditorMode.vue` (โหลดได้ทั้งสองทาง) | in-US | US-I5 (รอ WT-D) |
 | B004 | ปรับปรุง | print-polish (นอกไฟล์ WT-B) | 3 งานจาก handoff WT-B: (1) ชื่อไฟล์ PDF (2) ส่ง `:song-title` เข้า `SongSheet` footer (3) "หน้า X ของ Y" + margin ผ่าน `@page` ใน `src/styles.css` · snippet ใน `docs/reports/wt-b-print.md` · เจ้าของ = WT-0 | in-US | US-I2 + US-I3 |
@@ -28,7 +28,7 @@ idea ไหนจะทำจริง → ยกขึ้นเป็น user s
 | B016 | ปรับปรุง | เล่นเพลงแล้วเลื่อนขึ้น/ลงเองได้ + ปุ่มหยุดกดได้เสมอ | ตอนนี้จอ auto-scroll ลงเรื่อยๆ กดหยุดไม่ได้ → ปุ่มหยุด sticky/เข้าถึงได้ + ผู้ใช้เลื่อนเองได้ | idea | ps2 (viewer) |
 | B017 | ปรับปรุง | mobile: ใช้ icon แทนคำ "เข้าสู่ระบบ" | ประหยัดที่บนแถบ mobile · img `B017-mobile-login-icon.png` | idea | ps2 (shell/mobile) |
 | B018 | bug | เนื้อหาตกขอบ (overflow) | img `B018-overflow.png` · พาเนล "เปิดเพลง" ตกขอบขวามือถือ → แผ่นเต็มกว้าง fixed ใต้แถบ · **✅ merged `wt-fix` → base** | done | wt-fix (merged) |
-| B020 | bug | mobile: แถบ/dock ล่างไม่ติดขอบล่างจอ | img `B020-mobile-dock-sticky.png` · `viewport-fit=cover` + `env(safe-area-inset-bottom)` · **✅ merged `wt-fix` → base** · ⏳ tester ยืนยันมือถือมีติ่งจริง | done | wt-fix (merged) |
+| B020 | bug | mobile: แถบ/dock ล่างไม่ติดขอบล่างจอ | img `B020-mobile-dock-sticky.png` · `viewport-fit=cover` + `env(safe-area-inset-bottom)` · **✅ merged `wt-fix` → base** · ✅ tester ยืนยันมือถือจริงแล้ว | done | wt-fix (merged) |
 | B021 | feature | เลือก show/hide dock (แถบเครื่องมือล่าง) ได้ | ผู้ใช้กดซ่อน/แสดง dock (คีย์โน้ต + ปุ่ม) เพื่อเพิ่มพื้นที่จอ · เกี่ยวกลุ่ม IA (B009) | idea | ps2 (editor/shell) |
 | B022 | feature | ปรับ transparency พื้นหลัง dock (คีย์โน้ต) ได้ | ตั้งความโปร่งของแถบ dock เพื่อเห็นเนื้อ/โน้ตด้านหลังขณะพิมพ์ · เกี่ยว B021 (dock) · กลุ่ม ② IA/dock | idea | ps2 (editor/shell) |
 | B023 | bug | footer ไม่ติดขอบล่างจอเมื่อเนื้อหาสั้น | หน้ารายการเพลงที่มีเพลงน้อย → เส้นคั่นบน + `© 2026 เพลง.พระคำ.ชีวิต · pleng.phrakham.life · ซอฟต์แวร์: GNU GPL v3` + บรรทัดวันที่/commit ลอยกลางจอ มีที่ว่างข้างล่างเยอะ · อยากให้ footer ติด**ขอบล่างสุดของจอเสมอ** (sticky footer — content สั้นก็ดันลงล่าง) · img `B023-footer-stick-bottom.png` (2026-07-08) | idea | ps2 (responsive/shell) |
