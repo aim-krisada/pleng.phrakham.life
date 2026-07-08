@@ -38,8 +38,8 @@
 
 ## 🔮 Sprint 3 (ps3) — "ออกแบบต่อให้จบ · จัดการทุก backlog"
 **เป้า (P'Aim 8 ก.ค.):** เคาะ design **ทุก backlog ที่เหลือ**ให้จบก่อน แล้ว **build ทีเดียวใน ps4** (เลี่ยงเปลือง token ตอน build)
-**ยังต้องออกแบบ (ไล่ใน `docs/backlog.md` ทุกตัวที่ยัง idea/ออกแบบ—SA):** B021 dock show/hide · B022 dock โปร่ง · B023 footer ล่าง · B024 customizable dock/control bar · B025 dock expand-up เปลืองที่ · + ที่เหลือทั้งตาราง
-**Build-ready แล้ว (②③④ → ทำใน ps4):** US/DS `docs/us|ds/ps3-{shell,editor,viewer,highlight}.md` + prototype `docs/design/ps2-studio-prototype.html`
+**✅ ออกแบบครบแล้ว (SA · 8 ก.ค.):** **dock ร่วม 3 โหมด** — B021 หุบ/กาง · B022 โปร่ง(สไลเดอร์) · B024 control bar + customizable · B025 มือถือปุ่มกด `⋯` (dynamic overflow) → US/DS `ps3-dock` + prototype กดได้ `docs/design/ps3-dock-prototype.html` (verified 3 โหมด) · **B023 footer** P'Aim แก้เอง (done) · ที่เหลือ (B003/05/06/07/08/09/10/11/12/16/17) เคาะไปแล้วตั้งแต่ ps2/ps3 — ดู `backlog.md` (sync แล้ว)
+**Build-ready แล้ว (→ ทำใน ps4):** US/DS `docs/us|ds/ps3-{shell,editor,viewer,highlight,dock}.md` + prototypes `ps2-studio-prototype.html` (②③④) + `ps3-dock-prototype.html` (dock 3 โหมด)
 **เพิ่ม design-ready 8 ก.ค. (SA · US+DS เขียนแล้ว · ✅ P'Aim approved 8 ก.ค. · รอ build ps4 · ยังไม่ dev):**
 - **B026 กฎ lint editor** (`ps3-editor-rules`) — **7 กฎ** (วิจัยจาก Wikipedia jianpu + โค้ด plugin MuseScore): R1 ♮ ใช้ผิด · R2 จังหวะไม่ครบ · R3 อ่านไม่ได้ · R4 เอื้อนแยกช่อง · R5 ไทคนละเสียง · R6 ตัวหยุดมี #/จุด · R7 #3/b4/#7/b1 · **spike R1-R3 อยู่ `src/lib/notationLint.js` บน main แล้ว** (เทสต์ 21) → ps4 เติม R4-R7 + ต่อ editor (คอขวด EditorMode)
 - **B027 โน้ตจุดคู่** (`ps3-double-dot`) — `5..` = ×1.75 · เล็ก จบในตัว (notation/midi/NoteRow/Guide) ไม่มี migration
@@ -47,7 +47,7 @@
 ### 🔨 Sprint 4 (ps4) — build ตาม design ที่เคาะครบ
 - **4 epic:** ① Shell(②·"ปรับ ShellBar.vue เดิม"·ทำก่อน · port 5311) → ② Editor(③+I5+WT-D รอบ2·คอขวด · 5312) · ③ Viewer(④·5313) · ④ Highlight(B006·v2·5314)
 - shell/เมนูใหม่ + fold integration **I1** (navbar) + **I5** (editor JSON + B003) เข้าโครงใหม่
-- editor UX (③) · viewer (B016/B006/B021)
+- editor UX (③) · viewer (B016/B006) · **dock ร่วม `StudioDock.vue`** (B021/22/24/25 · ยก dock engine จาก `EditorMode.vue` ออกเป็นคอมโพเนนต์ร่วม 3 โหมด · US/DS `ps3-dock`)
 - **WT-D รอบ 2:** D02 ส่งตรวจ · D03 อนุมัติ · D04 หมวด+เลข
 - ⚠️ **คอขวด `EditorMode.vue`** — ③ + I5 + WT-D รอบ2 แตะไฟล์เดียว → **"สาย editor เดียว" ทำเรียงกัน ไม่ขนาน**
 

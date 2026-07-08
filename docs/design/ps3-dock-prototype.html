@@ -1,0 +1,344 @@
+<style>
+:root{
+  --bg:#faf9f5; --panel:#ffffff; --ink:#2b2a27; --muted:#6f6e69; --line:#e6e4dc;
+  --accent:#8a5a2b; --accent-bg:#f3e8db; --danger:#b3261e; --ok:#1d7a54;
+  --dock-alpha:0.92; --dock-bg:255,255,255;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#1c1b19;--panel:#262521;--ink:#ece9e2;--muted:#a3a19a;--line:#3a3833;
+    --accent:#d69a5c;--accent-bg:#3a2c1c;--danger:#e5645c;--ok:#4fbf90;--dock-bg:38,37,33;}
+}
+*{box-sizing:border-box}
+.topctl{font-family:system-ui,sans-serif;margin:0 0 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.topctl .lbl{font-size:13px;color:var(--muted)}
+.seg{display:inline-flex;border:.5px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--muted);padding:6px 12px;font-size:13px;cursor:pointer}
+.seg button.on{background:var(--accent-bg);color:var(--accent);font-weight:500}
+.stage{font-family:system-ui,'Segoe UI',sans-serif;color:var(--ink);background:var(--bg);
+  min-height:560px;border:.5px solid var(--line);border-radius:14px;overflow:hidden;position:relative;padding-bottom:158px}
+.viewbar{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:.5px solid var(--line);
+  background:var(--panel);font-size:13px;color:var(--muted);flex-wrap:wrap}
+.viewbar b{color:var(--ink);font-weight:500}
+.doc{padding:16px 18px}
+.doc h3{margin:.2rem 0 1rem;font-size:15px;font-weight:500}
+.chips{display:none;gap:8px;margin:0 0 14px;flex-wrap:wrap}
+.chips button{border:.5px solid var(--line);background:transparent;color:var(--accent);border-radius:20px;padding:5px 14px;font-size:13px;cursor:pointer}
+.cell{border:.5px solid var(--line);border-radius:10px;background:var(--panel);padding:10px 12px;margin:0 0 10px;max-width:520px}
+.cell .cap{font-size:11px;color:var(--muted);margin-bottom:4px}
+.cell .lyr{font-size:16px}
+.cell .num{font-size:15px;color:var(--accent);letter-spacing:2px}
+.hint{font-size:12px;color:var(--muted);margin:14px 0 0;max-width:520px}
+
+/* ---------- DOCK ---------- */
+.dockwrap{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;pointer-events:none;padding:0 10px 12px}
+.dock{pointer-events:auto;background:rgba(var(--dock-bg),var(--dock-alpha));border:.5px solid var(--line);
+  border-radius:14px;box-shadow:0 6px 22px rgba(0,0,0,.14);backdrop-filter:blur(6px);
+  padding:8px;max-width:640px;width:100%;transition:transform .22s ease}
+.keys{display:flex;flex-wrap:nowrap;gap:4px;padding-bottom:8px;margin-bottom:8px;border-bottom:.5px solid var(--line);justify-content:center}
+.key{flex:1 1 0;min-width:0;max-width:46px;height:36px;border:.5px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);
+  font-size:15px;cursor:pointer}
+.key:hover{background:var(--accent-bg)}
+.tools{display:flex;align-items:center;gap:6px}
+.tbtn{flex:0 0 44px;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:.5px solid var(--line);
+  border-radius:11px;background:transparent;color:var(--ink);cursor:pointer;position:relative}
+.tbtn:hover{background:var(--accent-bg);border-color:var(--accent)}
+.tbtn.danger{color:var(--danger)} .tbtn.ok{color:var(--ok)}
+.tbtn.ctl{color:var(--muted)}
+.tbtn.wide{flex:0 0 auto;width:auto;min-width:44px;padding:0 9px;gap:3px}
+.tbtn .bdg{font-size:12px;font-weight:500}
+.tbtn .crt{opacity:.55;display:inline-flex;margin-left:-1px}
+.grip{cursor:grab;color:var(--muted);width:26px;flex:0 0 auto;display:flex;justify-content:center}
+.rc{margin-left:auto;display:flex;align-items:center;gap:6px;flex:0 0 auto}
+/* tooltip (desktop) */
+.tbtn::after{content:attr(data-tip);position:absolute;bottom:52px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:var(--bg);font-size:12px;padding:4px 8px;border-radius:6px;white-space:nowrap;
+  opacity:0;pointer-events:none;transition:opacity .12s}
+.tbtn:hover::after{opacity:.95}
+.dock.collapsed .keys,.dock.collapsed .tools .hideoncol{display:none}
+.dock.collapsed{padding:6px 8px}
+
+/* popovers */
+.pop{position:absolute;bottom:158px;background:var(--panel);border:.5px solid var(--line);border-radius:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.18);padding:12px;font-size:13px;z-index:20;pointer-events:auto}
+.pop h4{margin:0 0 8px;font-size:13px;font-weight:500;color:var(--muted)}
+.pop label{display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer}
+.pop .ov{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pop .ov .tbtn{width:100%}
+.pop.menu{min-width:210px;max-width:300px}
+.pop .opt{display:flex;gap:8px;align-items:center;width:100%;text-align:left;border:0;background:transparent;color:var(--ink);
+  padding:7px 8px;font-size:14px;cursor:pointer;border-radius:8px}
+.pop .opt:hover{background:var(--accent-bg)}
+.pop .opt .ck{width:16px;color:var(--accent)}
+.pop .opt .cur{color:var(--accent);margin-left:auto}
+.mini{font-size:11px;color:var(--muted);text-align:center;margin-top:4px}
+.pop.wide{left:12px;right:12px}
+input[type=range]{width:150px}
+
+/* ---------- MOBILE ---------- */
+.dock.m{max-width:100%}
+.dock.m .grip{display:none}
+.dock.m .tools{gap:5px}
+.dock.m .keys{gap:3px;justify-content:center}
+.dock.m .key{height:34px;font-size:14px}
+.dock.m .tbtn{flex:0 0 40px;width:40px;height:40px}
+.dock.m .tbtn.wide{flex:0 0 auto;width:auto;padding:0 8px}
+.dock.m.collapsed{transform:translateY(120%)}
+.tab{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;pointer-events:auto;display:none;
+  width:52px;height:34px;align-items:center;justify-content:center;border:.5px solid var(--line);border-radius:11px;
+  background:rgba(var(--dock-bg),.96);color:var(--muted);box-shadow:0 6px 18px rgba(0,0,0,.16);cursor:pointer}
+.tab.show{display:inline-flex}
+.framed{max-width:390px;margin:0 auto}
+</style>
+
+<div class="topctl">
+  <span class="lbl">โหมด:</span>
+  <span class="seg"><button id="mEdit" class="on">✎ แก้ไข</button><button id="mSing">🎤 ฝึกร้อง</button><button id="mPrint">🖨 พิมพ์</button></span>
+  <span class="lbl" style="margin-left:6px">จอ:</span>
+  <span class="seg"><button id="vDesk" class="on">🖥 เดสก์ท็อป</button><button id="vMob">📱 มือถือ</button></span>
+</div>
+
+<div class="stage" id="stage">
+  <div class="viewbar">
+    <b id="modeName">โหมดแก้ไข</b> · เพลงตัวอย่าง · <span>ท่อน A · ข้อ 1</span>
+  </div>
+  <div class="doc">
+    <div class="chips" id="chips"><button>ร้อง 1</button><button>รับ (ฮุก)</button><button>ร้อง 2</button></div>
+    <h3 id="docHead">ห้องโน้ต (เลื่อนลงเพื่อดู dock ทับเนื้อ)</h3>
+    <div class="cell"><div class="cap">คอร์ด · โน้ต · โค้ด · คำ</div><div class="num">1 · 2 · 3 –</div><div class="lyr">พระ‑เจ้า‑ทรง‑</div></div>
+    <div class="cell"><div class="cap">คอร์ด · โน้ต · โค้ด · คำ</div><div class="num">5 · 5 · 6 5</div><div class="lyr">รัก‑เรา‑เหลือ‑ล้น</div></div>
+    <div class="cell"><div class="cap">คอร์ด · โน้ต · โค้ด · คำ</div><div class="num">3 · 2 · 1 ~</div><div class="lyr">ตลอด‑ไป‑นิ‑รันดร์</div></div>
+    <p class="hint" id="hint">ลองสลับ ✎/🎤 ด้านบน · กดหูจับหุบ dock · ปุ่มโปร่ง · ตั้งค่าปุ่ม · บนมือถือลอง ⋯ และหุบ dock</p>
+  </div>
+
+  <div class="tab" id="tab" title="เปิดแถบเครื่องมือ">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 15h18"/><path d="m9 10 3-3 3 3"/></svg>
+  </div>
+
+  <div class="dockwrap">
+    <div class="dock" id="dock">
+      <div class="keys" id="keys"></div>
+      <div class="tools" id="tools"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var P={
+    'undo-2':'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
+    'redo-2':'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/>',
+    'play':'<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>',
+    'circle-play':'<path d="M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z"/><circle cx="12" cy="12" r="10"/>',
+    'square':'<rect width="18" height="18" x="3" y="3" rx="2"/>',
+    'send':'<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+    'badge-check':'<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/>',
+    'download':'<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>',
+    'panel-top-close':'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="m9 16 3-3 3 3"/>',
+    'ellipsis':'<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+    'blend':'<circle cx="9" cy="9" r="7"/><circle cx="15" cy="15" r="7"/>',
+    'sliders-horizontal':'<path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/>',
+    'grip-vertical':'<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
+    'layers':'<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>',
+    'guitar':'<path d="m11.9 12.1 4.514-4.514"/><path d="M20.1 2.3a1 1 0 0 0-1.4 0l-1.114 1.114A2 2 0 0 0 17 4.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 17.828 7h1.344a2 2 0 0 0 1.414-.586L21.7 5.3a1 1 0 0 0 0-1.4z"/><path d="m6 16 2 2"/><path d="M8.23 9.85A3 3 0 0 1 11 8a5 5 0 0 1 5 5 3 3 0 0 1-1.85 2.77l-.92.38A2 2 0 0 0 12 18a4 4 0 0 1-4 4 6 6 0 0 1-6-6 4 4 0 0 1 4-4 2 2 0 0 0 1.85-1.23z"/>',
+    'key-round':'<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>',
+    'gauge':'<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+    'repeat':'<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+    'a-arrow-down':'<path d="m14 12 4 4 4-4"/><path d="M18 16V7"/><path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/><path d="M3.304 13h6.392"/>',
+    'a-arrow-up':'<path d="m14 11 4-4 4 4"/><path d="M18 16V7"/><path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/><path d="M3.304 13h6.392"/>',
+    'pause':'<rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/>',
+    'chevron-down':'<path d="m6 9 6 6 6-6"/>',
+    'printer':'<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/>'
+  };
+  function ic(n,s){s=s||22;return '<svg viewBox="0 0 24 24" width="'+s+'" height="'+s+'" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+P[n]+'</svg>';}
+
+  var TOOLSETS={
+    edit:[
+      {id:'undo',label:'ย้อน',icon:'undo-2'},
+      {id:'redo',label:'ทำซ้ำ',icon:'redo-2'},
+      {id:'play',label:'ฟังท่อนนี้',icon:'play'},
+      {id:'playAll',label:'ฟังทั้งเพลง',icon:'circle-play'},
+      {id:'stop',label:'หยุด',icon:'square',cls:'danger'},
+      {id:'send',label:'ส่งตรวจ',icon:'send'},
+      {id:'approve',label:'อนุมัติ',icon:'badge-check',cls:'ok'},
+      {id:'download',label:'ดาวน์โหลด JSON',icon:'download'}
+    ],
+    sing:[
+      {id:'play',label:'เล่น / พัก',icon:'play'},
+      {id:'chord',label:'คอร์ด',icon:'guitar',menu:true,value:0,options:['คอร์ดตัวอักษร','เลขนัชวิลล์','ซ่อนคอร์ด']},
+      {id:'tempo',label:'ความเร็ว',icon:'gauge',menu:true,value:5,badge:'92',options:['ตามเพลง ♩=84','Grave ♩=40','Largo ♩=50','Larghetto ♩=60','Adagio ♩=70','Andante ♩=92','Moderato ♩=110','Allegro ♩=130','Vivace ♩=150','Presto ♩=180']},
+      {id:'key',label:'คีย์',icon:'key-round',menu:true,value:4,badge:'E',options:['C','C#','D','Eb','E (ต้นฉบับ)','F','F#','G','Ab','A','Bb','B']},
+      {id:'display',label:'แสดงผล',icon:'layers',menu:true,value:0,options:['ครบ (เนื้อ+คอร์ด+โน้ต)','เนื้อ+คอร์ด','เนื้อ+โน้ต','เนื้อล้วน','โน้ตล้วน']},
+      {id:'loop',label:'วนซ้ำ',icon:'repeat',menu:true,multi:true,sel:{},options:['ร้อง 1','รับ (ฮุก)','ร้อง 2','ทั้งเพลง']},
+      {id:'fdown',label:'ฟอนต์เล็กลง',icon:'a-arrow-down'},
+      {id:'fup',label:'ฟอนต์ใหญ่ขึ้น',icon:'a-arrow-up'}
+    ],
+    print:[
+      {id:'print',label:'พิมพ์ / บันทึก PDF',icon:'printer'},
+      {id:'display',label:'แสดงผล',icon:'layers',menu:true,value:0,options:['ครบ (เนื้อ+คอร์ด+โน้ต)','เนื้อ+คอร์ด','เนื้อ+โน้ต','เนื้อล้วน','โน้ตล้วน']},
+      {id:'chord',label:'คอร์ด',icon:'guitar',menu:true,value:0,options:['คอร์ดตัวอักษร','เลขนัชวิลล์','ซ่อนคอร์ด']},
+      {id:'key',label:'คีย์',icon:'key-round',menu:true,value:4,badge:'E',options:['C','C#','D','Eb','E (ต้นฉบับ)','F','F#','G','Ab','A','Bb','B']},
+      {id:'fdown',label:'ฟอนต์เล็กลง',icon:'a-arrow-down'},
+      {id:'fup',label:'ฟอนต์ใหญ่ขึ้น',icon:'a-arrow-up'}
+    ]
+  };
+  var orders={edit:TOOLSETS.edit.map(function(t){return t.id;}),sing:TOOLSETS.sing.map(function(t){return t.id;}),print:TOOLSETS.print.map(function(t){return t.id;})};
+  var hidden={edit:{},sing:{},print:{}};
+  var st={mode:'edit',forceMobile:false,collapsed:false,alpha:0.92,pop:null};
+  var byId={};
+
+  var stage=document.getElementById('stage'),dock=document.getElementById('dock'),
+      keys=document.getElementById('keys'),tools=document.getElementById('tools'),tab=document.getElementById('tab');
+
+  function isMobile(){return st.forceMobile||window.matchMedia('(max-width:600px)').matches;}
+  function TS(){return TOOLSETS[st.mode];}
+  function rebuildById(){byId={};TS().forEach(function(t){byId[t.id]=t;});}
+
+  var KEYS=['1','2','3','4','5','6','7','˙','–','~','|'];
+  function drawKeys(){keys.innerHTML=KEYS.map(function(k){return '<button class="key">'+k+'</button>';}).join('');}
+
+  function ctlBtn(icon,tip,cls,fn){
+    var b=document.createElement('button');
+    b.className='tbtn ctl '+(cls||''); b.setAttribute('data-tip',tip); b.setAttribute('aria-label',tip);
+    b.innerHTML=ic(icon); b.onclick=fn; return b;
+  }
+  function toolBtn(t){
+    var b=document.createElement('button');
+    b.className='tbtn '+(t.cls||'')+(t.badge?' wide':'');
+    var badge=t.badge?'<b class="bdg">'+t.badge+'</b>':'';
+    var caret=t.menu?'<span class="crt">'+ic('chevron-down',14)+'</span>':'';
+    b.innerHTML=ic(t.icon)+badge+caret;
+    b.setAttribute('data-tip',t.label); b.setAttribute('aria-label',t.label);
+    b.onclick=function(){ if(t.menu) openMenu(t,b); else flash(t.label); };
+    return b;
+  }
+  function flash(msg){var h=document.getElementById('hint');h.textContent='กด: '+msg;setTimeout(function(){h.textContent='(mockup) ลองปุ่มอื่นต่อได้เลย';},1100);}
+  function updateBadge(t){
+    if(t.id==='key'){t.badge=t.options[t.value].split(' ')[0];}
+    else if(t.id==='tempo'){var mm=t.options[t.value].match(/=(\d+)/);t.badge=mm?mm[1]:'';}
+  }
+
+  function build(m,primary,overflow){
+    tools.innerHTML='';
+    if(!m){var g=document.createElement('span');g.className='grip';g.innerHTML=ic('grip-vertical',20);tools.appendChild(g);}
+    primary.forEach(function(id){tools.appendChild(toolBtn(byId[id]));});
+    var rc=document.createElement('span');rc.className='rc';
+    if(overflow.length){var of=overflow.slice();rc.appendChild(ctlBtn('ellipsis','ดูเพิ่ม','',function(){togglePop('overflow',of);}));}
+    rc.appendChild(ctlBtn('blend','ปรับความโปร่ง','',function(){togglePop('trans');}));
+    if(!m){rc.appendChild(ctlBtn('sliders-horizontal','ตั้งค่าปุ่ม','',function(){togglePop('cust');}));}
+    rc.appendChild(ctlBtn('panel-top-close','หุบแถบ','',collapse));
+    tools.appendChild(rc);
+  }
+  // deterministic overflow test: sum the real width of every child + gaps, compare to the row.
+  // (offsetWidth ignores the margin-left:auto on .rc, so this is the true required width — no scrollWidth guessing)
+  function overflowing(){
+    var kids=tools.children, g=parseFloat(getComputedStyle(tools).gap)||6, total=0;
+    for(var i=0;i<kids.length;i++) total+=kids[i].offsetWidth;
+    if(kids.length>1) total+=g*(kids.length-1);
+    return total > tools.clientWidth+1;
+  }
+  function render(){
+    rebuildById();
+    var m=isMobile();
+    dock.classList.toggle('m',m);
+    dock.style.setProperty('--dock-alpha',st.alpha);
+    var NAME={edit:'โหมดแก้ไข',sing:'โหมดฝึกร้อง',print:'โหมดพิมพ์'};
+    var HEAD={edit:'ห้องโน้ต (เลื่อนลงเพื่อดู dock ทับเนื้อ)',sing:'ฝึกร้องตามเพลง — เลื่อนดู dock ทับเนื้อ',print:'ตัวอย่างแผ่น A4 — dock พิมพ์ (ตอนสั่งพิมพ์จริง dock จะซ่อน)'};
+    document.getElementById('modeName').textContent=NAME[st.mode];
+    document.getElementById('docHead').textContent=HEAD[st.mode];
+    document.getElementById('chips').style.display=st.mode==='sing'?'flex':'none';
+    if(st.mode==='edit'){keys.style.display='';drawKeys();}else{keys.style.display='none';keys.innerHTML='';}
+    var vis=orders[st.mode].filter(function(id){return !hidden[st.mode][id];});
+    var prim=vis.slice(), of=[];
+    build(m,prim,of);
+    // only trim when we actually know the row width; width 0/unlaid → show all, ResizeObserver re-runs later
+    if(tools.clientWidth>50){
+      var guard=0;
+      while(overflowing() && prim.length>0 && guard++<40){
+        of.unshift(prim.pop()); build(m,prim,of);
+      }
+    }
+    tab.classList.toggle('show', m&&st.collapsed);
+  }
+
+  function collapse(){st.collapsed=true;dock.classList.add('collapsed');if(isMobile())tab.classList.add('show');closePop();}
+  tab.onclick=function(){st.collapsed=false;dock.classList.remove('collapsed');tab.classList.remove('show');};
+  dock.addEventListener('click',function(){if(st.collapsed&&!isMobile()){st.collapsed=false;dock.classList.remove('collapsed');}});
+
+  function closePop(){if(st.pop){st.pop.remove();st.pop=null;}}
+  function togglePop(kind,data){
+    var open=st.pop&&st.pop.dataset.kind===kind&&kind!=='menu'; closePop(); if(open)return;
+    var el=document.createElement('div'); el.className='pop'; el.dataset.kind=kind;
+    if(kind==='trans'){
+      el.className='pop wide'; el.dataset.kind='trans';
+      el.innerHTML='<h4>ความโปร่งของแถบ</h4>';
+      var r=document.createElement('input');r.type='range';r.min='40';r.max='100';r.step='1';r.value=Math.round(st.alpha*100);r.style.width='100%';
+      r.oninput=function(){st.alpha=r.value/100;dock.style.setProperty('--dock-alpha',st.alpha);mn.textContent=r.value+'%';};
+      el.appendChild(r);var mn=document.createElement('div');mn.className='mini';mn.textContent=Math.round(st.alpha*100)+'%';el.appendChild(mn);
+    } else if(kind==='cust'){
+      el.innerHTML='<h4>เลือกปุ่มที่จะโชว์บนแถบ</h4>';
+      orders[st.mode].forEach(function(id){var t=byId[id];
+        var lb=document.createElement('label');var cb=document.createElement('input');cb.type='checkbox';cb.checked=!hidden[st.mode][id];
+        cb.onchange=function(){hidden[st.mode][id]=!cb.checked;render();positionPop(el,'cust');};
+        lb.appendChild(cb);var sp=document.createElement('span');sp.innerHTML=ic(t.icon,16)+' '+t.label;lb.appendChild(sp);el.appendChild(lb);});
+      var mn=document.createElement('div');mn.className='mini';mn.textContent='(ในของจริง: ลากสลับลำดับได้ด้วย)';el.appendChild(mn);
+    } else if(kind==='overflow'){
+      el.innerHTML='<h4>ปุ่มเพิ่มเติม</h4><div class="ov"></div>';
+      var ov=el.querySelector('.ov');
+      data.forEach(function(id){ov.appendChild(toolBtn(byId[id]));});
+    }
+    stage.appendChild(el); st.pop=el; positionPop(el,kind);
+  }
+  function positionPop(el,kind){
+    var m=isMobile();
+    el.style.bottom='158px';
+    if(kind==='trans'){el.style.left='12px';el.style.right='12px';}
+    else if(m){el.style.left='12px';el.style.right='12px';}
+    else{el.style.left='auto';el.style.right='16px';}
+  }
+
+  function openMenu(t,btn){
+    var same=st.pop&&st.pop.dataset.kind==='menu'&&st.pop.dataset.tool===t.id; closePop(); if(same)return;
+    var el=document.createElement('div'); el.className='pop menu'; el.dataset.kind='menu'; el.dataset.tool=t.id;
+    el.innerHTML='<h4>'+t.label+'</h4>';
+    t.options.forEach(function(opt,i){
+      var row=document.createElement('button'); row.className='opt';
+      var on=t.multi?!!(t.sel&&t.sel[i]):(t.value===i);
+      row.innerHTML=(t.multi?'<span class="ck">'+(on?'✓':'')+'</span>':'')+opt+(!t.multi&&on?'<span class="cur">●</span>':'');
+      row.onclick=function(){
+        if(t.multi){t.sel=t.sel||{};t.sel[i]=!t.sel[i];row.querySelector('.ck').textContent=t.sel[i]?'✓':'';}
+        else{t.value=i;updateBadge(t);closePop();render();}
+      };
+      el.appendChild(row);
+    });
+    stage.appendChild(el); st.pop=el;
+    var m=isMobile(); el.style.bottom='158px';
+    if(m){el.style.left='12px';el.style.right='12px';}
+    else{var sr=stage.getBoundingClientRect(),br=btn.getBoundingClientRect();
+      var left=Math.min(br.left-sr.left, sr.width-260); el.style.left=Math.max(12,left)+'px'; el.style.right='auto';}
+  }
+
+  document.getElementById('mEdit').onclick=function(){setMode('edit');};
+  document.getElementById('mSing').onclick=function(){setMode('sing');};
+  document.getElementById('mPrint').onclick=function(){setMode('print');};
+  function setMode(mode){
+    st.mode=mode;st.collapsed=false;dock.classList.remove('collapsed');tab.classList.remove('show');closePop();
+    document.getElementById('mEdit').classList.toggle('on',mode==='edit');
+    document.getElementById('mSing').classList.toggle('on',mode==='sing');
+    document.getElementById('mPrint').classList.toggle('on',mode==='print');
+    render();
+  }
+  document.getElementById('vDesk').onclick=function(){setView(false);};
+  document.getElementById('vMob').onclick=function(){setView(true);};
+  function setView(mob){
+    st.forceMobile=mob;st.collapsed=false;dock.classList.remove('collapsed');tab.classList.remove('show');closePop();
+    document.getElementById('vDesk').classList.toggle('on',!mob);
+    document.getElementById('vMob').classList.toggle('on',mob);
+    stage.classList.toggle('framed',mob);
+    render();
+  }
+  window.addEventListener('resize',render);
+  render();
+  // recompute once the iframe/dock actually has a real width (fixes buttons wrongly hidden in ⋯ at first paint)
+  if(window.ResizeObserver){var lastW=0;new ResizeObserver(function(){var w=Math.round(tools.clientWidth);if(w&&w!==lastW){lastW=w;render();}}).observe(dock);}
+})();
+</script>
