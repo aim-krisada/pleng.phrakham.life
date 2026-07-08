@@ -2,8 +2,21 @@
 import { computed } from 'vue'
 import { parseNotes, groupNotes } from '../lib/notation.js'
 
-const props = defineProps({ notes: { type: String, default: '' } })
-const groups = computed(() => groupNotes(parseNotes(props.notes)))
+const props = defineProps({
+  notes: { type: String, default: '' },
+  // slot index (within this segment) of the note sounding now, or -1 for none. Counts
+  // every rendered digit/dash left-to-right — the same slot midi.js puts on each attack
+  // — so the played note lights up in step with its syllable (B006).
+  active: { type: Number, default: -1 },
+})
+// flatten groups but stamp each rendered token with its running slot index so the
+// template can match `active` without re-counting across the nested v-for.
+const groups = computed(() => {
+  const gs = groupNotes(parseNotes(props.notes))
+  let idx = -1
+  for (const g of gs) for (const t of g.tokens) t.idx = ++idx
+  return gs
+})
 const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
 </script>
 
@@ -17,7 +30,7 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
       <span
         v-for="(t, ti) in g.tokens"
         :key="ti"
-        :class="['nt', t.type === 'note' && t.dotted ? 'dotted' : '', t.type === 'note' && t.accidental ? 'has-acc' : '', t.tieStart ? 'tie-start' : '', t.tieEnd ? 'tie-end' : '']"
+        :class="['nt', t.type === 'note' && t.dotted ? 'dotted' : '', t.type === 'note' && t.accidental ? 'has-acc' : '', t.tieStart ? 'tie-start' : '', t.tieEnd ? 'tie-end' : '', t.idx === active ? 'nt-playing' : '']"
       >
         <template v-if="t.type === 'note'">
           <!-- octave dots stay centred on the DIGIT; more than one dot stacks
@@ -57,6 +70,13 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
   line-height: 1.05;
 }
 .nt.dotted { margin-right: 0.45em; }
+/* the digit sounding right now — brand-tinted with a soft pill so the eye tracks the
+   melody note by note (B006). Background on the digit itself keeps it above the row. */
+.nt-playing .num {
+  color: var(--brand, #8b4513);
+  background: rgba(139, 69, 19, 0.16);
+  border-radius: 5px;
+}
 /* fixed-height spacer above/below the digit — reserves room for ONE dot level so
    every note (0, 1 or 2 dots) keeps the same height and the digits stay aligned */
 .dots-hi, .dots-lo { display: block; height: 0.46em; position: relative; }

@@ -20,6 +20,12 @@ vi.mock('../lib/midi.js', () => {
     stopPlayback: () => {},
     setTranspose: setTransposeSpy,
     keyTranspose: (from, to) => (KEY_MIDI[to] ?? 60) - (KEY_MIDI[from] ?? 60),
+    // a fixed 3-note play order so onSeek can look up an index by (li, si, syk)
+    songToNotes: () => [
+      { li: 0, si: 0, syk: 0, midi: 60 },
+      { li: 0, si: 0, syk: 1, midi: 62 },
+      { li: 0, si: 1, syk: 0, midi: 64 },
+    ],
     TEMPO_MARKS: [{ value: 92, label: 'Andante ♩=92' }, { value: 120, label: 'Allegro ♩=120' }],
   }
 })
@@ -61,8 +67,12 @@ const sectionSong = {
 // tests can assert the highlight moved and the display preset propagated.
 const SongSheetStub = {
   name: 'SongSheet',
-  props: ['content', 'mode', 'chordSystem', 'displayKey', 'playingSeg', 'showChord', 'showNote', 'showLyric', 'songTitle'],
-  template: '<div class="sheet" :data-seg="playingSeg ? playingSeg.li + \'-\' + playingSeg.si : \'\'"></div>',
+  props: ['content', 'mode', 'chordSystem', 'displayKey', 'playingSeg', 'playingSyl', 'interactive', 'showChord', 'showNote', 'showLyric', 'songTitle'],
+  emits: ['seek'],
+  template:
+    '<div class="sheet" :data-seg="playingSeg ? playingSeg.li + \'-\' + playingSeg.si : \'\'"' +
+    ' :data-syl="playingSyl ? playingSyl.li + \'-\' + playingSyl.si + \'-\' + playingSyl.syk : \'\'"' +
+    ' @click="$emit(\'seek\', { li: 0, si: 1, syk: 0 })"></div>',
 }
 const mountViewer = (p = song) =>
   mount(SongViewer, { props: { song: p }, global: { stubs: { SongSheet: SongSheetStub, Icon: true } }, attachTo: document.body })
@@ -131,6 +141,35 @@ describe('SongViewer play / stop / resume (US-A01)', () => {
     lastOpts().onNote({ li: 1, si: 3 }, 2) // engine reports the sounding note
     await nextTick()
     expect(w.find('.sheet').attributes('data-seg')).toBe('1-3')
+  })
+
+  it('B006: a sung attack (syk set) advances the per-syllable highlight', async () => {
+    const w = mountViewer()
+    await nextTick()
+    await playBtn(w).trigger('click')
+    lastOpts().onNote({ li: 2, si: 1, syk: 3 }, 7) // engine reports an attack + its slot
+    await nextTick()
+    expect(w.find('.sheet').attributes('data-syl')).toBe('2-1-3')
+  })
+
+  it('B006: a rest/held note (no syk) leaves the current word lit', async () => {
+    const w = mountViewer()
+    await nextTick()
+    await playBtn(w).trigger('click')
+    lastOpts().onNote({ li: 0, si: 0, syk: 0 }, 0) // sung a word
+    lastOpts().onNote({ li: 0, si: 1 }, 1) // then a rest — no syk
+    await nextTick()
+    expect(w.find('.sheet').attributes('data-syl')).toBe('0-0-0') // word stayed lit
+  })
+
+  it('B006: tapping the sheet jumps playback to that note index (US H1)', async () => {
+    const w = mountViewer()
+    await nextTick()
+    await playBtn(w).trigger('click')
+    playSongSpy.mockClear()
+    await w.find('.sheet').trigger('click') // stub emits seek {li:0, si:1, syk:0} → index 2
+    expect(playSongSpy).toHaveBeenCalledTimes(1)
+    expect(lastOpts().startIndex).toBe(2)
   })
 
   it('stop then play → RESUMES from where it stopped, not from the top', async () => {

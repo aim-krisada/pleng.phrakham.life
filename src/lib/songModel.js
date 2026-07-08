@@ -96,7 +96,12 @@ export function resolveContent(content) {
       for (const item of line) {
         if (item.type === 'segment') {
           const n = syllableSlots(item.note || '')
-          outLine.push({ ...item, lyric: joinSyllables(syls.slice(si, si + n)) })
+          const slots = syls.slice(si, si + n)
+          // `lyric` (joined) drives v1-style render / print / lyrics-only; `syllables`
+          // (the raw per-slot tokens, blanks kept) lets SongSheet render one span per
+          // syllable-bearing note for the B006 per-syllable highlight. si stays aligned
+          // 1:1 with midi.js's per-segment slot count (both count every non-bracket box).
+          outLine.push({ ...item, lyric: joinSyllables(slots), syllables: slots })
           si += n
         } else {
           outLine.push({ ...item })

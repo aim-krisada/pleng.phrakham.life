@@ -9,6 +9,8 @@ const props = defineProps({
   chordSystem: { type: String, default: 'letter' }, // 'letter' | 'roman'
   displayKey: { type: String, default: '' }, // transpose target; '' = original
   playingSeg: { type: Object, default: null }, // { li, si } currently sounding
+  playingSyl: { type: Object, default: null }, // { li, si, syk } syllable+note sounding now (B006)
+  interactive: { type: Boolean, default: false }, // tap a syllable/note to jump there (reader)
   songTitle: { type: String, default: '' }, // prints as the centered heading above the song
   // Independent layer flags (B024 "แสดงผล" menu). null = fall back to `mode` so every
   // existing caller (print · editor preview · plain viewer) keeps its behaviour untouched;
@@ -17,6 +19,7 @@ const props = defineProps({
   showNote: { type: Boolean, default: null },
   showLyric: { type: Boolean, default: null },
 })
+const emit = defineEmits(['seek'])
 
 // Resolve each layer: an explicit flag wins; otherwise derive from the coarse `mode`
 // (full = chord+note+lyric · lyrics = lyric only) — the pre-B024 contract.
@@ -106,6 +109,21 @@ const renderGroups = computed(() => {
 function isPlaying(li, si) {
   return props.playingSeg && props.playingSeg.li === li && props.playingSeg.si === si
 }
+// which note-slot in this segment is sounding now (for NoteRow), or -1
+function activeNote(li, si) {
+  const p = props.playingSyl
+  return p && p.li === li && p.si === si && p.syk != null ? p.syk : -1
+}
+// per-syllable highlight (v2 only): the exact word sounding now
+function isSyl(li, si, k) {
+  const p = props.playingSyl
+  return !!(p && p.li === li && p.si === si && p.syk === k)
+}
+// tap to jump: emit the address of the syllable/note tapped so the reader restarts
+// playback there (US H1 "แตะ = กระโดด"). syk defaults to the segment's first slot.
+function seek(li, si, syk = 0) {
+  if (props.interactive) emit('seek', { li, si, syk })
+}
 </script>
 
 <template>
@@ -130,12 +148,27 @@ function isPlaying(li, si) {
             v-for="seg in part.segments"
             :key="seg.si"
             class="segment"
-            :class="{ 'seg-playing': isPlaying(row.li, seg.si) }"
+            :class="{ 'seg-playing': isPlaying(row.li, seg.si) && !seg.syllables, 'seg-tap': interactive }"
             :data-seg="`${row.li}-${seg.si}`"
+            @click="seek(row.li, seg.si)"
           >
             <span v-if="sc" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
-            <span v-if="sn" class="note"><NoteRow :notes="seg.note" />&nbsp;</span>
-            <span v-if="sl" class="lyric">{{ seg.lyric }}&nbsp;</span>
+            <span v-if="sn" class="note"><NoteRow :notes="seg.note" :active="activeNote(row.li, seg.si)" />&nbsp;</span>
+            <!-- v2: one span per syllable-bearing note -> highlight walks note by note
+                 (B006). v1 (no syllables array): the whole lyric as before. -->
+            <template v-if="sl">
+              <span v-if="seg.syllables" class="lyric lyric-syl">
+                <span
+                  v-for="(w, k) in seg.syllables"
+                  :key="k"
+                  class="syl"
+                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
+                  :data-syl="`${row.li}-${seg.si}-${k}`"
+                  @click.stop="seek(row.li, seg.si, k)"
+                >{{ w || ' ' }}</span>
+              </span>
+              <span v-else class="lyric">{{ seg.lyric }}&nbsp;</span>
+            </template>
           </span>
         </span>
       </template>
@@ -145,6 +178,32 @@ function isPlaying(li, si) {
 </template>
 
 <style scoped>
+/* per-syllable lyric row (v2): spread the words across the segment the same way the
+   note row spreads its digits, so each word sits under its note. */
+.lyric-syl {
+  display: flex;
+  width: 100%;
+  justify-content: space-around;
+}
+.syl {
+  white-space: pre;
+  border-radius: 4px;
+  padding: 0 0.1em;
+  transition: background-color 0.12s, color 0.12s;
+}
+/* the word sounding right now — the karaoke step (B006) */
+.syl-playing {
+  background: var(--brand, #8b4513);
+  color: #fff;
+  font-weight: 700;
+}
+/* reader tap targets: a light hover hint that a syllable/segment can be jumped to */
+.seg-tap { cursor: pointer; }
+@media (hover: hover) {
+  .seg-tap:hover .syl { background: rgba(139, 69, 19, 0.08); }
+  .seg-tap .syl:hover { background: rgba(139, 69, 19, 0.18); }
+  .seg-tap .syl-playing:hover { background: var(--brand, #8b4513); }
+}
 /* The ท่อน wrapper is invisible to on-screen layout (display: contents) so nothing
    changes in the ดู view; only when printing does it become a block that must not be
    split across pages (US-B02: "ไม่ตัดกลางท่อน"). */
