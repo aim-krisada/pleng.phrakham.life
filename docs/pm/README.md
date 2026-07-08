@@ -6,6 +6,29 @@
 PM เป็น **คนละ session** กับ SA/DA/dev → มองไม่เห็นแชตของแต่ละคน อ่านได้แค่ **git**
 โฟลเดอร์นี้จึงเป็น "กระดานนัดพบ" ให้ทุก session รายงานสถานะให้ PM ผ่านไฟล์
 
+## กรอบงาน: ISO 29110-5-4 (Agile/VSE) + Scrum
+โปรเจกต์อิง **ISO/IEC 29110-5-4:2025 (แนวทาง Agile สำหรับทีมเล็ก/VSE) + Scrum** — สิ่งที่ทีมทำอยู่แล้ว map ตรงกับมาตรฐาน:
+
+| Scrum | ISO 29110-5-4 | ของเราอยู่ไหน |
+|---|---|---|
+| Product Backlog | (input) | `docs/backlog.md` |
+| Sprint | — | ps1…ps4 (`docs/status.md`) |
+| Requirement + AC | **SI.2** | `docs/us/` |
+| Design | **SI.3** | `docs/ds/` |
+| Code + unit test (CI เขียว) | **SI.4** | branch + GitHub Actions + `npm test` |
+| Test Report / Sprint Review | **SI.5** | `docs/reports/` + tester (พี่เปา) + พี่เอมรับงาน |
+| Delivery | **SI.6** | merge `main` → deploy (git history / tag) |
+| **Daily Standup** | monitoring | **`docs/pm/standup-*.md` ← โฟลเดอร์นี้** |
+| Retrospective | process improvement | `docs/lessons.md` |
+
+**บทบาท (Scrum):** พี่เอม = **Product Owner** (จัดลำดับ backlog · รับงาน · สั่ง merge main/deploy) ·
+SA/DA/dev sessions = **Development Team** · Claude (คนละ session) = **Scrum Master + PM** (คุมลำดับ · กันชน · facilitate · เฝ้า DoD + traceability)
+
+**หัวใจ 29110 ที่ PM เฝ้า:**
+- **Traceability** — ทุกงานสาวกลับได้ตามสาย `backlog id → US(SI.2) → DS(SI.3) → code(SI.4) → report(SI.5)` ทุก commit/branch อ้าง id ของ item
+- **DoD gate** — ไม่ครบ AC + unit test ไม่เขียว → ไม่ merge เข้าฐาน · ไม่ผ่าน tester + พี่เอมรับ → ไม่ขึ้น `main`
+- **Config management** — ฐาน `studio-shell-redesign` · 1 งาน = 1 branch/worktree · `main` = ของจริง (protected โดยพฤตินัย: deploy ต่อเมื่อพี่เอมสั่ง)
+
 ## 1 ไฟล์ = 1 "สายงาน" (ไม่ใช่ 1 session)
 เขียน standup ลง **`docs/pm/standup-<slug>.md`** โดย `<slug>` ผูกกับ **สายงาน/ธีม** ไม่ใช่ session
 เช่น `sa-jianpu-rules` · `ps3sa` · `sa-<ธีม>` · `da` · `dev-ps4-shell`
