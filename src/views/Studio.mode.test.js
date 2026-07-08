@@ -6,7 +6,7 @@ import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
 // no routed id → the shell should open a brand-new song straight in the editor
-vi.mock('vue-router', () => ({ useRoute: () => ({ params: {} }) }))
+vi.mock('vue-router', () => ({ useRoute: () => ({ params: {} }), useRouter: () => ({ push() {} }) }))
 
 // chainable Supabase stub — every query resolves empty; nothing hits the network
 vi.mock('../supabase.js', () => {
