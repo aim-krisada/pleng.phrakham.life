@@ -7,6 +7,13 @@ const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 6
   'F#': 66, Gb: 66, G: 67, 'G#': 68, Ab: 68, A: 69, 'A#': 70, Bb: 70, B: 71 }
 const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11] // semitone offsets for degrees 1-7
 
+// Semitone offset to transpose a melody from one key to another. Matches how
+// songToNotes roots pitches at KEY_MIDI, so it picks the nearest register
+// (E -> C goes down 4, not up 8). Used for live key changes during playback.
+export function keyTranspose(fromKey, toKey) {
+  return (KEY_MIDI[toKey] ?? 60) - (KEY_MIDI[fromKey] ?? 60)
+}
+
 // Standard Italian tempo markings with representative BPM values
 export const TEMPO_MARKS = [
   { value: 40, label: 'Grave ♩=40 (ช้าหนักแน่น)' },
@@ -23,6 +30,11 @@ export const TEMPO_MARKS = [
 
 let ctx = null
 let stopFlag = { stopped: false }
+// Oscillators scheduled for the current playback, each with its start time, plus
+// the transpose (semitones) currently applied. Lets setTranspose() re-tune every
+// note that hasn't sounded yet when the user changes key mid-playback.
+let liveOscs = []
+let liveTranspose = 0
 
 function tokenBeats(t, tripletFactor) {
   let d = 1 / 2 ** t.underlines
@@ -150,11 +162,32 @@ function mergeTies(notes) {
 
 export function stopPlayback() {
   stopFlag.stopped = true
+  liveOscs = []
+}
+
+// Change the transpose live — e.g. when the user picks a new key while the melody
+// is playing. Notes already sounding finish in the old key; every note not yet
+// started is re-tuned to the new key exactly at its onset, so the switch is
+// seamless. Semitones are applied via each oscillator's detune (100 cents = 1
+// semitone), leaving the base pitch (original key) untouched.
+export function setTranspose(semitones) {
+  liveTranspose = semitones
+  if (!ctx) return
+  const cents = semitones * 100
+  const now = ctx.currentTime
+  for (const o of liveOscs) {
+    if (o.startTime > now) {
+      try {
+        o.osc.detune.cancelScheduledValues(o.startTime)
+        o.osc.detune.setValueAtTime(cents, o.startTime)
+      } catch { /* osc already finished */ }
+    }
+  }
 }
 
 // Play the melody; resolves when done or stopped. Returns false when the device
 // blocks audio (e.g. iOS with the silent switch on / autoplay policy).
-export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range } = {}) {
+export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, transpose = 0 } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   // iOS unlock: play a 1-sample silent buffer synchronously inside the user gesture
   try {
@@ -168,6 +201,7 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   if (ctx.state !== 'running') return false
   stopFlag = { stopped: false }
   const myFlag = stopFlag
+  liveTranspose = transpose // starting key offset; setTranspose() updates it live
   let notes = songToNotes(content)
   // play only a section (line range) when asked (feature 003)
   if (range) notes = notes.filter((n) => n.li >= range.fromLi && n.li <= range.toLi)
@@ -177,6 +211,7 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   do {
     let t = ctx.currentTime + 0.08
     const endTimes = []
+    liveOscs = [] // reset per pass so a mid-play key change re-tunes this pass's notes
     for (const n of notes) {
       const dur = n.beats * spb
       if (n.midi != null) {
@@ -185,7 +220,10 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
         const osc = ctx.createOscillator()
         const gain = ctx.createGain()
         osc.type = 'triangle'
+        // Base pitch is the ORIGINAL key; transpose rides on detune so it can be
+        // changed live without rescheduling (100 cents = 1 semitone).
         osc.frequency.value = 440 * 2 ** ((n.midi - 69) / 12)
+        osc.detune.value = liveTranspose * 100
         gain.gain.setValueAtTime(0, t)
         gain.gain.linearRampToValueAtTime(0.35, t + 0.015)
         gain.gain.setValueAtTime(0.35, t + Math.max(0.015, soundDur - 0.05))
@@ -194,6 +232,7 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
         osc.start(t)
         osc.stop(t + soundDur + 0.01)
         endTimes.push(osc)
+        liveOscs.push({ osc, startTime: t })
       }
       t += dur
     }

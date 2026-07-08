@@ -1,16 +1,24 @@
-// The ดู surface must play in the SELECTED key — both when you pick a key THEN press
-// play, and when you change the key WHILE it is already playing (the real-time feel the
-// reviewer expected). Mock the audio engine and assert the key handed to playSong.
+// The ดู surface must play in the SELECTED key, and changing the key WHILE playing must
+// re-tune from the current position (live), NOT restart. Mock the audio engine and assert
+// the transpose handed to playSong / setTranspose.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
-const { playSongSpy } = vi.hoisted(() => ({ playSongSpy: vi.fn(() => Promise.resolve(true)) }))
-vi.mock('../lib/midi.js', () => ({
-  playSong: playSongSpy,
-  stopPlayback: () => {},
-  TEMPO_MARKS: [{ value: 92, label: 'Andante' }],
+const { playSongSpy, setTransposeSpy } = vi.hoisted(() => ({
+  playSongSpy: vi.fn(() => Promise.resolve(true)),
+  setTransposeSpy: vi.fn(),
 }))
+vi.mock('../lib/midi.js', () => {
+  const KEY_MIDI = { C: 60, Db: 61, D: 62, Eb: 63, E: 64, F: 65, Gb: 66, G: 67, Ab: 68, A: 69, Bb: 70, B: 71 }
+  return {
+    playSong: playSongSpy,
+    stopPlayback: () => {},
+    setTranspose: setTransposeSpy,
+    keyTranspose: (from, to) => (KEY_MIDI[to] ?? 60) - (KEY_MIDI[from] ?? 60),
+    TEMPO_MARKS: [{ value: 92, label: 'Andante' }],
+  }
+})
 
 import SongViewer from './SongViewer.vue'
 
@@ -28,34 +36,36 @@ const song = {
 
 const mountViewer = () => mount(SongViewer, { props: { song }, global: { stubs: { SongSheet: true, Icon: true } } })
 const keySelect = (w) => w.find('select[aria-label="เลือกคีย์"]')
-const lastKey = () => playSongSpy.mock.calls.at(-1)[0].key
+const lastPlay = () => playSongSpy.mock.calls.at(-1)
 
-beforeEach(() => playSongSpy.mockClear())
+beforeEach(() => {
+  playSongSpy.mockClear()
+  setTransposeSpy.mockClear()
+})
 
 describe('SongViewer playback key', () => {
-  it('pick key THEN play → plays in the selected key (G, not original E)', async () => {
+  it('pick key THEN play → schedules original key + transpose (E→G = +3 semitones)', async () => {
     const w = mountViewer()
     await nextTick()
     await keySelect(w).setValue('G')
     await w.find('.vw-play').trigger('click')
     await nextTick()
     expect(playSongSpy).toHaveBeenCalled()
-    expect(lastKey()).toBe('G')
+    expect(lastPlay()[0].key).toBe('E') // base pitch stays the original key…
+    expect(lastPlay()[1].transpose).toBe(3) // …and the shift rides on transpose
   })
 
-  it('change key WHILE playing → re-plays in the new key in real time (D)', async () => {
+  it('change key WHILE playing → live re-tune (setTranspose), NOT a restart', async () => {
     const w = mountViewer()
     await nextTick()
-    // start play, then flip the key BEFORE awaiting — so `playing` is still true when the
-    // key changes (the play→false transition runs on a later microtask). This mirrors the
-    // reviewer's flow: press play, then twist the key and expect the sound to follow.
-    w.find('.vw-play').trigger('click')
-    expect(lastKey()).toBe('E')
+    w.find('.vw-play').trigger('click') // start (E, transpose 0)
     playSongSpy.mockClear()
+
     keySelect(w).element.value = 'D'
-    keySelect(w).trigger('change')
+    keySelect(w).trigger('change') // change key mid-playback (E→D = -2)
     await nextTick()
-    expect(playSongSpy).toHaveBeenCalled()
-    expect(lastKey()).toBe('D')
+
+    expect(setTransposeSpy).toHaveBeenCalledWith(-2) // re-tuned live
+    expect(playSongSpy).not.toHaveBeenCalled() // did NOT restart
   })
 })
