@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { currentSong } from '../store.js'
+import { downloadSong } from '../lib/jsonIO.js'
 
 // Top-right navbar download tool (like phrakham.life2's) — shown only while a
 // song is open in the viewer.
@@ -13,14 +14,7 @@ function printPdf() {
 
 function downloadJson() {
   open.value = false
-  const s = currentSong.value
-  const data = { number: s.number, title_th: s.title_th, title_en: s.title_en, content: s.content }
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = (s.title_th || 'song') + '.json'
-  a.click()
-  URL.revokeObjectURL(a.href)
+  downloadSong(currentSong.value)
 }
 </script>
 
