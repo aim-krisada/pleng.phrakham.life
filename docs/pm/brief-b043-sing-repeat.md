@@ -22,7 +22,12 @@
 ## Design inputs / requirements (จาก P'Aim 9 ก.ค. — ต้องออกแบบเผื่อ)
 1. **รวม "ปุ่มท่อน" เดิมเข้ากับ transport เป็นระบบเดียว** — ตอนนี้มีแถบชิป `▶ ทั้งเพลง · ร้อง1 · รับ · ร้อง2` (SongViewer `sections` computed จาก `{type:'section'}` · เล่นเป็นท่อน) · **อย่าทำ 2 UI ขนาน** (ชิป + progress-bar-marker = ซ้ำซ้อน) · ท่อนพวกนี้ = marker บน progress bar อันเดียวกัน (แตะ=กระโดดเล่น · ⏮/⏭=ท่อนก่อน/ถัดไป · multi-select=เลือกวน)
 2. **เผื่อเพลงที่ไม่มีโครงท่อน (v1 แบน)** — section chips โผล่**เฉพาะเพลงที่มี `arrangement`** (v2: ร้อง/รับ) · เพลง v1 (`content.lines` แบน เช่นเพลง 1 "พระเจ้าเป็นความรัก") → `songModel.js` แปลงเป็น stanza เดียว label ว่าง → **ไม่มี tag ให้เลือก** · DS ต้องระบุ fallback (เล่นทั้งเพลงเฉยๆ? / ชวนผู้ใช้ไปเพิ่มโครงท่อนในหน้าแก้ไข?) · downstream: เติมโครงท่อนเพลงเก่าทั้งคลัง = งาน DA แยก
-3. **layout convention ของแถบควบคุม (P'Aim 9 ก.ค.):**
+4. **⭐ รื้อ control ฝึกร้องทั้งหมด → music control ใน bottom sticky dock (P'Aim 9 ก.ค. · img `docs/pm/realuse-assets/sing-redesign-annotated.png`):**
+   - ตอนนี้หน้าฝึกร้องมี **การ์ดควบคุมก้อนใหญ่ด้านบน** (ฟังเพลง · tempo · วนซ้ำ · ก-/ก+ · เต็ม/เนื้อล้วน · ABC/IVV · พิมพ์) กินที่จอ
+   - P'Aim: **"ควรออกแบบใหม่หมด เป็น Music control ด้านล่าง ใช้ sticky mobile dock key"** → ย้าย control ทั้งหมดจากการ์ดบน → **แถบ dock ล่าง (sticky)** = ตัวเดียวกับ dock-core library · transport bar (progress+marker+play/pause) + display/chord/key/tempo อยู่ใน dock ล่างนี้ทั้งหมด
+   - **ย้าย download เข้า dock ด้วย** (note 2 · คืนที่แถบบน)
+   - = B043 ไม่ใช่แค่ "เพิ่ม tag/repeat" แต่ **ยกเครื่อง control ฝึกร้องทั้งหน้า** ให้เป็น music-player ใน bottom dock · **config ลง dock-core library** (ดู brief-dock-core §เป้าหมายสถาปัตยกรรม)
+5. **layout convention ของแถบควบคุม (P'Aim 9 ก.ค.):**
    - **⋯ "ดูเพิ่ม" อยู่ขวาสุดของกลุ่มปุ่มเครื่องมือเสมอ** (ธรรมเนียม overflow) · ตอนนี้มีปุ่ม (blend/sliders/หุบ) อยู่ขวาของ ⋯ = ผิด → เรียง `[grip] [tools…] [⋯]` แล้วปุ่มระบบ dock (หุบ) แยกออก (ยิ่ง dock-core ทำปุ่มลอยรวม หุบจะออกจากแถบ ⋯ เป็นตัวท้ายพอดี)
    - **แถบ = แนวนอน** (ปุ่มคุมอ่านซ้าย→ขวา เหมือน music player) · **เมนูที่ ⋯ กางออก = แนวตั้ง + ไอคอน+ชื่อ** (ตอนนี้ไอคอนล้วนต้องเดา → overflow ควรมีชื่อกำกับ อ่านง่าย เพิ่มรายการได้เยอะ)
    - เป็น convention ของ **dock library กลาง** → ใช้ทุกโหมด (edit/sing/print) เหมือนกัน · SA เขียนเป็น spec, dock-core implement ตอนทำ library
