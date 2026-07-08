@@ -6,7 +6,7 @@
 // mode instead of loading by route.
 import { ref, computed, onUnmounted, watch, nextTick } from 'vue'
 import { KEYS } from '../lib/chords.js'
-import { playSong, stopPlayback, TEMPO_MARKS } from '../lib/midi.js'
+import { playSong, stopPlayback, setTranspose, keyTranspose, TEMPO_MARKS } from '../lib/midi.js'
 import { resolveContent } from '../lib/songModel.js'
 import SongSheet from './SongSheet.vue'
 import Icon from './Icon.vue'
@@ -81,10 +81,15 @@ async function startPlay(range, key) {
   const gen = ++playGen
   playing.value = true
   playingSection.value = key
+  // Play in the chosen key. The melody is scheduled at the ORIGINAL key and shifted
+  // by `transpose` semitones via detune, so changing the key while playing re-tunes
+  // the upcoming notes live from where you are (see the displayKey watcher below) —
+  // not a restart.
   await playSong(resolved.value, {
     bpm: Number(tempo.value) || resolved.value.bpm || 92,
     loop: loop.value,
     range,
+    transpose: keyTranspose(props.song.content.key, displayKey.value || props.song.content.key),
     onNote: (n) => {
       playingSeg.value = { li: n.li, si: n.si }
     },
@@ -103,6 +108,12 @@ function playSection(idx) {
   const s = sections.value[idx]
   if (s) startPlay({ fromLi: s.fromLi, toLi: s.toLi }, idx)
 }
+// live key change: pick a new key WHILE playing → re-tune the upcoming notes to it
+// from the current position (notes already sounding finish in the old key). Not a
+// restart — playback continues from where you are. Not playing = next play uses it.
+watch(displayKey, (k) => {
+  if (playing.value) setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
+})
 function printSheet() {
   window.print()
 }
