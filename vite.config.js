@@ -26,4 +26,8 @@ export default defineConfig({
     __BUILD_COMMIT__: JSON.stringify(info.commit),
     __BUILD_TIME__: JSON.stringify(info.time),
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+  },
 })

@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { supabase } from './supabase.js'
 
 // Song currently open in the viewer — drives the navbar download tool.
@@ -28,6 +28,27 @@ export const legacy = ref(false) // true when the draft tables are not installed
 export const recovering = ref(linkType === 'recovery' || linkType === 'invite')
 export const inviteMode = ref(linkType === 'invite') // tweaks the wording only
 export const emailChanged = ref(linkType === 'email_change')
+
+// ---- permission tiers (single source of truth · DS-02) ----
+// The line that matters is "can you STORE into the shared library", not "can you edit":
+// ANYONE may open and edit a song (keeping their work as their own JSON). Logging in
+// unlocks saving drafts / sending for review; being an approver unlocks publishing to
+// the public list + delete / restore. Every mode reads gating from these three getters
+// instead of poking at `session` / `profile` on its own.
+//   tier       : 'anon' | 'editor' | 'approver'
+//   canStore   : editor+   — may save a draft / send for review
+//   canApprove : approver  — may publish / delete / restore
+// `legacy` (draft tables not installed) is treated as approver so a bare Supabase still
+// edits + publishes directly, exactly as before.
+export const tier = computed(() =>
+  !session.value
+    ? 'anon'
+    : legacy.value || profile.value?.role === 'approver'
+      ? 'approver'
+      : 'editor',
+)
+export const canStore = computed(() => tier.value !== 'anon')
+export const canApprove = computed(() => tier.value === 'approver')
 
 let inited = false
 export async function initAuth() {
