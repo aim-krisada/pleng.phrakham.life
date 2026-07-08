@@ -38,9 +38,10 @@ describe('exportSong (DS-C01 round-trip)', () => {
   })
 })
 
-describe('songFilename (DS-C01 meaningful name)', () => {
-  it('prefixes the number and uses the Thai title', () => {
-    expect(songFilename(song)).toBe('12 พระเจ้าดีต่อฉัน.json')
+describe('songFilename (shared basename + .json, matches PDF name)', () => {
+  it('is the shared song basename with a .json extension', () => {
+    // same "12. ชื่อเพลง" the Save-as-PDF dialog uses (core: songName.js)
+    expect(songFilename(song)).toBe('12. พระเจ้าดีต่อฉัน.json')
   })
 
   it('falls back to the English title when no Thai title', () => {
@@ -51,8 +52,8 @@ describe('songFilename (DS-C01 meaningful name)', () => {
     expect(songFilename({ title_th: 'a/b:c*?' })).toBe('abc.json')
   })
 
-  it('falls back to song.json when nothing usable', () => {
-    expect(songFilename({ title_th: '   ' })).toBe('song.json')
-    expect(songFilename({})).toBe('song.json')
+  it('never yields an empty name', () => {
+    expect(songFilename({ title_th: '   ' })).toBe('เพลง.json')
+    expect(songFilename({})).toBe('เพลง.json')
   })
 })

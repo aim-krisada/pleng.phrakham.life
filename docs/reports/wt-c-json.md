@@ -1,32 +1,43 @@
 # รายงาน — wt-c-json (WT-C JSON พกพา)
-**รอบ:** 1 — เริ่ม epic WT-C จาก US-C01
+**รอบ:** 2 — US-C01 + รวมรูปแบบชื่อไฟล์ JSON ให้ตรงกับ PDF (คำขอพี่เอม)
 **สถานะ:** เสร็จ (เฉพาะ US-C01)
 
 ## ทำอะไรไปบ้าง (ต่อ US)
 - **US-C01 ดาวน์โหลดเพลงเป็น JSON: ✅**
-  - รวม logic การแปลง "เพลง ↔ ไฟล์ JSON" ไว้ที่ `src/lib/jsonIO.js` (ไฟล์ใหม่) ตาม DS-C01
-  - `exportSong(song)` → คืน object เฉพาะฟิลด์พกพา (`number/title_th/title_en/content`) ตัด field ที่เป็นของ viewer เท่านั้น (เช่น `id`) ออก → round-trip ครบ (คู่กับ US-C02)
-  - `songFilename(song)` → ชื่อไฟล์สื่อความ: มีเลขเพลงนำหน้า + ชื่อไทย (fallback ชื่ออังกฤษ → `song`), ตัดอักขระที่ Windows ห้ามในชื่อไฟล์ (`\ / : * ? " < > |`)
-  - `downloadSong(song)` → สร้าง Blob + ดาวน์โหลด (ห่อ DOM ไว้บาง ๆ, logic ที่เทสต์ได้อยู่ใน exportSong/songFilename)
-  - ต่อสาย `DownloadTool.vue` (ปุ่มดาวน์โหลดบน navbar) ให้เรียก `downloadSong` แทนโค้ด inline เดิม
-- US-C02 / C03 / C04: ⬜ (ยังไม่เริ่ม — จะทำต่อในรอบถัดไป)
+  - รวม logic "เพลง ↔ ไฟล์ JSON" ไว้ที่ `src/lib/jsonIO.js` (ใหม่): `exportSong` (เฉพาะฟิลด์พกพา `number/title_th/title_en/content` ตัดฟิลด์ของ viewer เช่น `id` → round-trip ครบ), `downloadSong` (Blob + ดาวน์โหลด)
+  - ต่อสาย `DownloadTool.vue` ให้เรียก `downloadSong`
+- **เพิ่ม (คำขอพี่เอม รอบนี้): ชื่อไฟล์ JSON = รูปแบบเดียวกับ PDF**
+  - แยก "แกนตั้งชื่อเพลง" ออกเป็น core lib ใหม่ `src/lib/songName.js` — `songName(song)` = `"12. ชื่อเพลง"` (รูปแบบเดียวกับที่หน้ารายการเพลงแสดง), `songBasename(song)` = ตัวเดียวกันแต่ตัดอักขระที่ตั้งชื่อไฟล์ไม่ได้ออก
+  - ดาวน์โหลด JSON → ใช้ `songBasename(song) + '.json'`
+  - บันทึกเป็น PDF → `printPdf()` เซ็ต `document.title = songBasename(song)` ก่อน `window.print()` (เบราว์เซอร์ใช้ค่านี้เป็นชื่อไฟล์ที่แนะนำในกล่องบันทึก) แล้วคืนชื่อเว็บกลับตอน `afterprint`
+  - ผล: เพลงเลข 12 → JSON = `12. พระเจ้าดีต่อฉัน.json`, PDF = `12. พระเจ้าดีต่อฉัน.pdf` (ฐานชื่อเดียวกัน มาจาก lib เดียวกัน)
+- US-C02 / C03 / C04: ⬜ (ยังไม่เริ่ม)
 
-## ไฟล์ที่แก้ (อยู่ในขอบเขต DS-C01 เท่านั้น)
-- `src/lib/jsonIO.js` — **ใหม่** · โมดูลกลาง export/download (+ ที่ US-C02/C04 จะเติม import/validate)
-- `src/lib/jsonIO.test.js` — **ใหม่** · unit test
-- `src/components/DownloadTool.vue` — เปลี่ยน `downloadJson()` จาก inline มาเรียก `jsonIO.downloadSong` (ปุ่ม/UI เหมือนเดิม)
+## ไฟล์ที่แก้ (อยู่ในขอบเขต DS-C01 + core lib ใหม่)
+- `src/lib/songName.js` — **ใหม่** · core lib ตั้งชื่อเพลง (reuse ได้)
+- `src/lib/jsonIO.js` — **ใหม่** · export/download · `songFilename` เรียก `songBasename`
+- `src/components/DownloadTool.vue` — ปุ่มดาวน์โหลด JSON เรียก `downloadSong` · ปุ่มพิมพ์ตั้งชื่อ PDF ด้วย `songBasename`
+- `src/lib/songName.test.js`, `src/lib/jsonIO.test.js` — **ใหม่** · unit test
 
 ## ผลทดสอบ
-- **unit:** ผ่าน — `jsonIO.test.js` 7 เคส (round-trip, เก็บเฉพาะ field พกพา, normalize เพลงว่างเป็น null/'' ไม่ใช่ undefined, ชื่อไฟล์ 4 เคส) · ชุดรวมทั้งโปรเจกต์ 19/19 ผ่าน · `npm run build` ผ่าน
-- **end-to-end (จริงบนแอปที่รัน):** กดปุ่มดาวน์โหลด JSON จริงบน DownloadTool → ได้ไฟล์ชื่อ `7 ทดสอบดาวน์โหลด.json` (มีเลขนำหน้า, ตัด `/` ออกแล้ว), เนื้อในมีแค่ field พกพา, ตัด `id` ออก, parse กลับได้เท่าเดิม
-- **วิธี tester ลอง:** เปิด `http://localhost:5304` → เปิดเพลง → เมนู "จัดการ → ดาวน์โหลด JSON" (โหมดแก้ไข) → เปิดไฟล์ที่ได้ เห็นข้อมูลครบ ชื่อไฟล์อิงชื่อเพลง
+- **unit:** ทั้งชุด 24/24 ผ่าน (songName 5 · jsonIO 7 · ที่มีอยู่เดิม 12) · `npm run build` ผ่าน
+- **end-to-end (จริงบนแอปที่รัน):** กดดาวน์โหลด JSON → ไฟล์ `12. พระเจ้าดีต่อฉัน.json` · กดพิมพ์ → `document.title` เปลี่ยนเป็น `12. พระเจ้าดีต่อฉัน` ตอนเรียก print แล้วคืนชื่อเว็บหลังปิดกล่อง · ชื่อฐานตรงกันทั้งสองทาง
+- **วิธี tester ลอง:** เปิด `http://localhost:5304` → เปิดเพลง → โหมดแก้ไข เมนู "จัดการ → ดาวน์โหลด JSON" (ดูชื่อไฟล์) · ปุ่มพิมพ์บน DownloadTool (ดูชื่อที่กล่องบันทึก PDF แนะนำ)
 
-## ข้อสังเกต / คำถามถึง SA
-- **ปุ่มดาวน์โหลดบน navbar (DownloadTool) ยังไม่โผล่เองในเชลล์** เพราะ `store.currentSong` ไม่เคยถูกเซ็ตที่ไหนเลย (ไม่มีจุด `currentSong.value = …` ในโค้ด) → `v-if="currentSong"` เป็น false เสมอ. นี่คือ **จุดต่อของ WT-0** (DS-C01 ระบุว่า "mount ปุ่มที่ไหน = ของ WT-0", WT-C เป็นเจ้าของแค่เนื้อในปุ่ม). ผมทดสอบ end-to-end โดยเซ็ต `currentSong` เอง ปุ่มทำงานถูกต้อง. **ขอ WT-0 ต่อสาย `currentSong` ตอนเปิดเพลงในโหมดดู** ปุ่ม navbar ถึงจะใช้ได้จริงกับ tester. ระหว่างนี้ทางดาวน์โหลดที่ใช้ได้คือเมนู "จัดการ" ในโหมดแก้ไข (โค้ด inline ของ EditorMode ซึ่งเป็นไฟล์ของ WT-0 — ผมไม่แตะ)
-- `EditorMode.vue` ก็มี `downloadJson` inline ของตัวเอง (เป็นไฟล์ WT-0). ถ้าอยากให้ทุกปุ่มใช้ `jsonIO` ชุดเดียว ให้ WT-0/WT-D เปลี่ยนมาเรียก `jsonIO.downloadSong` ด้วย (ผมไม่แตะไฟล์ worktree อื่น)
-- **เรื่อง infra (ไม่เกี่ยวโค้ด):** พบ vite ค้าง (orphan) ของ session อื่นจองพอร์ต `[::1]:5304` (IPv6) อยู่ ทำให้ `localhost:5304` วิ่งไปเซิร์ฟเวอร์ผิด — เคลียร์ให้แล้ว ตอนนี้ 5304 เป็นของ WT-C ตัวเดียว
+## ข้อเสนอแนะถึง SA (คำขอพี่เอม: ทำ core lib ที่ reuse ได้)
+**เสนอ:** ยก `src/lib/songName.js` เป็น "แกนตั้งชื่อเพลงกลาง" ของทั้งโปรเจกต์ — ทุกจุดที่บันทึก/ส่งออกเพลงควรเรียก lib นี้จุดเดียว ชื่อไฟล์จะได้เหมือนกันทุกที่
+**ตอนนี้ยังมีจุดที่ตั้งชื่อเอง (ไฟล์ของ worktree อื่น ผมไม่แตะ):**
+- `EditorMode.vue` (WT-0) มี `downloadJson` inline ของตัวเอง (ชื่อไฟล์ `title + '.json'` ไม่มีเลข) → ควรเปลี่ยนมาเรียก `jsonIO.downloadSong` / `songName`
+- ปุ่ม/CSS พิมพ์ในโหมดแผ่น (WT-B) ถ้ามีการตั้งชื่อ PDF ก็ควรใช้ `songBasename` ตัวเดียวกัน
+- WT-D (ทำเพลง→คลัง) ถ้ามี export ก็ reuse ได้
+**ทำไม:** ผู้ใช้ดาวน์โหลด JSON กับบันทึก PDF เพลงเดียวกัน ควรได้ชื่อไฟล์เหมือนกัน · ถ้ากระจายโค้ดตั้งชื่อไว้หลายที่ เดี๋ยวเพี้ยนกัน · lib เดียว = แก้ format ที่เดียวมีผลทุกปุ่ม
+**ขอ SA เคาะ:** (1) รับ `songName.js` เป็น SSOT ของชื่อไฟล์ไหม (2) ถ้าใช่ สั่ง WT-0 ให้ `EditorMode` มาเรียก lib นี้ (เป็นไฟล์ WT-0 ผมแตะไม่ได้)
+
+## ข้อสังเกตอื่น
+- **ปุ่มดาวน์โหลดบน navbar (DownloadTool) ยังไม่โผล่เองในเชลล์** เพราะ `store.currentSong` ไม่เคยถูกเซ็ต (ไม่มี `currentSong.value = …` ในโค้ด) → `v-if` เป็น false เสมอ · จุดต่อนี้เป็นของ **WT-0** (DS-C01 ระบุไว้) · ผมทดสอบโดยเซ็ต currentSong เอง ปุ่มทำงานถูก · ขอ WT-0 ต่อสายตอนเปิดเพลง ปุ่ม navbar ถึงใช้ได้จริง · ระหว่างนี้ทางที่ใช้ได้คือเมนู "จัดการ" ในโหมดแก้ไข
+- **infra:** เจอ vite ค้าง (orphan) ของ session อื่นจองพอร์ต `[::1]:5304` ทำให้ `localhost:5304` วิ่งผิดเซิร์ฟเวอร์ — เคลียร์แล้ว 5304 เป็นของ WT-C ตัวเดียว
 
 ## พร้อม merge ไหม
-**พร้อม** สำหรับ US-C01 (ไฟล์อยู่ในขอบเขต DS, ไม่ชนไฟล์ worktree อื่น, unit + build + end-to-end ผ่าน). แต่ปุ่ม navbar จะโชว์จริงต่อเมื่อ WT-0 ต่อสาย `currentSong` — ประเด็นนี้ฝากถึง WT-0 (ไม่บล็อกการ merge โค้ด WT-C)
+**พร้อม** สำหรับ US-C01 (+ รูปแบบชื่อไฟล์ JSON/PDF ตรงกัน) · ไฟล์ทั้งหมดอยู่ในขอบเขต ไม่ชน worktree อื่น · unit + build + end-to-end ผ่าน · ข้อเสนอ core lib รอ SA เคาะ (ไม่บล็อกการ merge WT-C)
 
 **URL ตรวจงาน:** http://localhost:5304 (ค้าง server ไว้ให้แล้ว)
