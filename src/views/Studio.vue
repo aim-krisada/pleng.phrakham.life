@@ -17,6 +17,7 @@ import ComboSelect from '../components/ComboSelect.vue'
 import SongViewer from '../components/SongViewer.vue'
 import SongSheet from '../components/SongSheet.vue'
 import EditorMode from '../components/EditorMode.vue'
+import StudioDock from '../components/StudioDock.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -191,6 +192,22 @@ function openSong(id) {
 function printSheet() {
   window.print()
 }
+
+// ---------- the ONE shared dock (dock-core / N1) ----------
+// The dock used to be mounted twice (inside EditorMode + SongViewer), so each mode kept
+// its own collapsed/position and they drifted apart (P'Aim noticed). Now it is mounted
+// ONCE, here. Each mode component emits its dock config up via @dock; the sheet mode's
+// print tool is owned here. `activeDock` picks the config for the current mode, and the
+// single <StudioDock> stays the same instance across mode switches — so collapse state and
+// the dragged position (shared localStorage keys in StudioDock) feel identical everywhere.
+const editDock = ref(null) // { tools, defaultTools, paletteKeys, message, onInsert }
+const viewDock = ref(null) // { tools, defaultTools }
+const sheetDock = { tools: [{ id: 'print', icon: 'printer', label: 'พิมพ์', run: printSheet, prime: true }], defaultTools: ['print'] }
+// StudioDock's `mode` namespaces its saved tool layout + shows the jianpu keys on 'edit'.
+const dockMode = computed(() => (mode.value === 'edit' ? 'edit' : mode.value === 'sheet' ? 'print' : 'sing'))
+const activeDock = computed(() =>
+  mode.value === 'edit' ? editDock.value : mode.value === 'sheet' ? sheetDock : viewDock.value,
+)
 </script>
 
 <template>
@@ -257,17 +274,12 @@ function printSheet() {
 
     <!-- ===== ดู — reading / sing-along view (WT-A owns SongViewer) ===== -->
     <div v-show="mode === 'view'">
-      <SongViewer v-if="viewerSong" :song="viewerSong" />
+      <SongViewer v-if="viewerSong" :song="viewerSong" @dock="viewDock = $event" />
       <p v-else class="muted" style="padding: 16px">ยังไม่มีเพลงให้แสดง — ไปที่ “แก้” เพื่อเริ่มสร้างเพลง</p>
     </div>
 
-    <!-- ===== แผ่น — print sheet (WT-B owns SongSheet) ===== -->
+    <!-- ===== แผ่น — print sheet (WT-B owns SongSheet) · พิมพ์ = the shared dock (N1) ===== -->
     <div v-show="mode === 'sheet'" class="sheet-workspace">
-      <div class="sheet-toolbar no-print">
-        <button class="sheet-print-btn" title="พิมพ์แผ่นเพลง" @click="printSheet">
-          <Icon name="printer" :size="16" /><span>พิมพ์</span>
-        </button>
-      </div>
       <div class="card">
         <h2 class="sheet-title no-print">{{ titleText }}</h2>
         <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" :song-title="titleText" />
@@ -284,6 +296,18 @@ function printSheet() {
       :active="mode === 'edit'"
       @change="onChange"
       @save="onSave"
+      @dock="editDock = $event"
+    />
+
+    <!-- the ONE shared dock — same instance across ทำนอง/ฝึกร้อง/พิมพ์ (dock-core / N1) -->
+    <StudioDock
+      v-if="activeDock"
+      :mode="dockMode"
+      :tools="activeDock.tools"
+      :default-tools="activeDock.defaultTools"
+      :palette-keys="activeDock.paletteKeys || []"
+      :message="activeDock.message || ''"
+      @insert="activeDock.onInsert?.($event)"
     />
   </div>
 </template>
@@ -397,28 +421,10 @@ function printSheet() {
   background: var(--line);
 }
 
-/* print toolbar in โหมดแผ่น (US-06) — the button itself never prints */
-.sheet-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 10px;
-}
-.sheet-print-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #fff;
-  color: var(--brand);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 7px 14px;
-  font: inherit;
-  font-weight: 700;
-  min-height: 36px;
-  cursor: pointer;
-}
-.sheet-print-btn:hover {
-  background: var(--cream);
+/* โหมดแผ่น (US-06): พิมพ์ is now the shared dock's print tool (N1). Leave room so the
+   fixed dock never covers the last staff line. */
+.sheet-workspace {
+  padding-bottom: 88px;
 }
 
 @media (max-width: 760px) {

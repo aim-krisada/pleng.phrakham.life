@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wt-dock — สถานะ ยุบ / กาง</title>
+<style>
+  :root { --ink:#2b2320; --muted:#8a7f78; --line:#e4ddd6; --cream:#faf6f1; --brand:#b6763f; }
+  body { font-family: system-ui, "Segoe UI", sans-serif; background:#f3ede6; color:var(--ink); margin:0; padding:28px; }
+  h1 { font-size:1.2rem; }
+  p.note { color:var(--muted); max-width:640px; }
+  .row { display:flex; gap:40px; flex-wrap:wrap; align-items:flex-start; margin-top:24px; }
+  .case { background:#efe7de; border:1px solid var(--line); border-radius:16px; padding:28px; min-width:340px; position:relative; }
+  .case h2 { font-size:.95rem; margin:0 0 18px; color:var(--brand); }
+  .icn { display:block; }
+  /* expanded dock bar */
+  .dock { display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--line);
+          border-radius:14px; box-shadow:0 6px 22px rgba(0,0,0,.14); padding:8px; }
+  .handle { display:inline-flex; align-items:center; justify-content:center; height:44px; padding:0 4px; color:var(--muted); cursor:grab; }
+  .tbtn { width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center;
+          border:1px solid var(--line); border-radius:11px; background:transparent; color:var(--ink); }
+  .tbtn.prime { background:var(--brand); color:#fff; border-color:var(--brand); }
+  /* collapsed FAB */
+  .fab { width:48px; height:48px; display:inline-flex; align-items:center; justify-content:center;
+         border:1px solid var(--line); border-radius:50%; background:#fff; color:var(--ink);
+         box-shadow:0 6px 20px rgba(0,0,0,.18); cursor:grab; }
+  .cap { color:var(--muted); font-size:.85rem; margin-top:14px; }
+</style>
+</head>
+<body>
+  <h1>wt-dock — ปุ่มลอย FAB + ปุ่มจับหลอม (glyph จริงจากแอป)</h1>
+  <p class="note">ภาพแทน screenshot (เครื่องมือ screenshot ของ preview ค้าง) — เป็น SVG glyph + สไตล์จริงที่คอมโพเนนต์ render.
+     ดูสดได้ที่ <b>http://10.215.141.98:5315</b></p>
+
+  <div class="row">
+    <div class="case">
+      <h2>กางอยู่ — แตะปุ่มจับ = หุบ · ลาก = ย้ายแถบ</h2>
+      <div class="dock">
+        <span class="handle" title="แตะเพื่อหุบ · ลากเพื่อย้าย">
+          <svg class="icn" width="24" height="24" viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
+            <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
+            <g transform="translate(14,0)"><path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/></g>
+          </svg>
+        </span>
+        <button class="tbtn"><svg class="icn" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button>
+        <button class="tbtn"><svg class="icn" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg></button>
+        <button class="tbtn prime"><svg class="icn" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/></svg></button>
+      </div>
+      <div class="cap">ปุ่มจับ = จุด 6 จุด (ลากได้) + ลูกศรหุบเข้า (กดเพื่อหุบ)</div>
+    </div>
+
+    <div class="case">
+      <h2>ยุบอยู่ — ปุ่มกลมลอยปุ่มเดียว · แตะ = กาง · ลาก = ย้าย</h2>
+      <div style="height:44px"></div>
+      <button class="fab" title="แตะเพื่อกาง · ลากเพื่อย้าย">
+        <svg class="icn" width="26" height="26" viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
+          <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
+          <g transform="translate(14,0)"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></g>
+        </svg>
+      </button>
+      <div class="cap">ปุ่มจับ + ลูกศรกางออก (กดเพื่อกาง) — แบบ iOS AssistiveTouch</div>
+    </div>
+  </div>
+</body>
+</html>

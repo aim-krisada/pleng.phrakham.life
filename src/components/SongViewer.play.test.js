@@ -36,6 +36,21 @@ window.matchMedia = window.matchMedia || (() => ({ matches: false }))
 Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function () {}
 
 import SongViewer from './SongViewer.vue'
+import StudioDock from './StudioDock.vue'
+
+// dock-core / N1: SongViewer no longer mounts its own dock — it emits the "sing" tool set
+// upward and Studio feeds the ONE shared <StudioDock>. This harness reproduces that wiring
+// so the tests can still drive the controls through the real dock DOM. `song`/`tier` are
+// harness props so w.props('song') / w.setProps({ song }) keep working as before.
+const Harness = {
+  components: { SongViewer, StudioDock },
+  props: { song: { type: Object, required: true }, tier: { type: String, default: 'guest' } },
+  data: () => ({ dock: null }),
+  template: `<div>
+    <SongViewer :song="song" :tier="tier" @dock="dock = $event" />
+    <StudioDock v-if="dock" mode="sing" :tools="dock.tools" :default-tools="dock.defaultTools" />
+  </div>`,
+}
 
 const song = {
   number: 1,
@@ -75,7 +90,7 @@ const SongSheetStub = {
     ' @click="$emit(\'seek\', { li: 0, si: 1, syk: 0 })"></div>',
 }
 const mountViewer = (p = song) =>
-  mount(SongViewer, { props: { song: p }, global: { stubs: { SongSheet: SongSheetStub, Icon: true } }, attachTo: document.body })
+  mount(Harness, { props: { song: p }, global: { stubs: { SongSheet: SongSheetStub, Icon: true } }, attachTo: document.body })
 
 // dock helpers (sing mode) — buttons carry a stable data-tool id
 const tool = (w, id) => w.find(`.sd-tbtn[data-tool="${id}"]`)

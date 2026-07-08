@@ -32,10 +32,16 @@ const props = defineProps({
 })
 const emit = defineEmits(['insert'])
 
-// ---------- persisted layout (per mode; alpha is shared across modes) ----------
+// ---------- persisted layout ----------
+// Tool ORDER is per-mode (each mode offers a different button set). Everything about the
+// dock's "body" — collapsed, transparency, and the dragged position of both the bar and
+// the floating button — is SHARED across modes (dock-core / N1): one dock instance, one
+// remembered spot, so collapse/expand + position feel identical in ทำนอง/ฝึกร้อง/พิมพ์.
 const LS_ORDER = computed(() => `pleng.dock.${props.mode}.tools`)
-const LS_COLLAPSED = computed(() => `pleng.dock.collapsed.${props.mode}`)
+const LS_COLLAPSED = 'pleng.dock.collapsed'
 const LS_ALPHA = 'pleng.dock.alpha'
+const LS_BARPOS = 'pleng.dock.barpos'
+const LS_FABPOS = 'pleng.dock.fabpos'
 
 const allIds = computed(() => props.tools.map((t) => t.id))
 const byId = computed(() => Object.fromEntries(props.tools.map((t) => [t.id, t])))
@@ -58,12 +64,11 @@ watch(order, (v) => {
 }, { deep: true })
 
 // ---------- collapse (D4) · transparency (D5) ----------
-const collapsed = ref(false)
-watch(() => props.mode, () => {
-  collapsed.value = localStorage.getItem(LS_COLLAPSED.value) === '1'
-}, { immediate: true })
+// collapsed is shared across modes now (single instance), so it loads ONCE and no longer
+// re-reads on every mode switch — switching ทำนอง⇄ฝึกร้อง keeps the dock as you left it.
+const collapsed = ref(localStorage.getItem(LS_COLLAPSED) === '1')
 watch(collapsed, (v) => {
-  try { localStorage.setItem(LS_COLLAPSED.value, v ? '1' : '0') } catch { /* ignore */ }
+  try { localStorage.setItem(LS_COLLAPSED, v ? '1' : '0') } catch { /* ignore */ }
 })
 
 const alpha = ref(0.92)
@@ -121,6 +126,9 @@ async function fit() {
   fitting = true
   overflowCount.value = 0
   await nextTick()
+  // the component can unmount during the await (fast mode switches / test teardown) —
+  // bail rather than dereference a now-null ref
+  if (!toolsEl.value) { fitting = false; return }
   const rowW = toolsEl.value.clientWidth
   // guard: width 0 / not laid out yet → show all; the ResizeObserver re-runs once real
   // width arrives (the original "measured at width 0 → hid everything" bug)
@@ -165,13 +173,10 @@ function onViewportChange() { syncMobile(); nextTick(fit) }
 
 // ---------- collapse / expand ----------
 function collapse() { collapsed.value = true; closePop() }
-function expand() { collapsed.value = false }
-// B034: the collapse control is the ONLY button left on the thin collapsed bar, so it
-// must gang both ways — collapse when open, expand when collapsed (its @click.stop
-// otherwise swallows the onDockClick that used to be the only way back on desktop).
+function expand() { collapsed.value = false; nextTick(clampBarPos) }
+// B034: the collapse control gangs both ways — collapse when open, expand when collapsed.
+// On desktop this is the fused grip+chevron button (tap); on mobile the sd-ctl / sd-tab.
 function toggleCollapse() { collapsed.value ? expand() : collapse() }
-// desktop: clicking the thin collapsed bar re-opens it too (mobile uses the tab instead)
-function onDockClick() { if (collapsed.value && !mobile.value) expand() }
 
 // ---------- popovers (overflow · transparency · customize · menu) — one at a time ----------
 const pop = ref(null) // 'overflow' | 'trans' | 'cust' | 'menu' | null
@@ -231,37 +236,92 @@ function remove(id) { order.value = order.value.filter((x) => x !== id) }
 function add(id) { if (!order.value.includes(id)) order.value = [...order.value, id] }
 function reset() { order.value = defaultOrder.value }
 
-// ---------- drag the whole bar by its grip (desktop only) ----------
-const dockPos = ref(null) // {left, top} once moved; null = default bottom-center
+// ---------- fused grip+collapse button: tap toggles, press-drag moves (desktop) ----------
+// ONE control (the grip+chevron glyph) serves both states, iOS-AssistiveTouch style:
+//   expanded  → it is the in-dock handle: tap = หุบ, drag = move the whole bar
+//   collapsed → it IS the only thing on screen: a round floating button (FAB); tap = กาง,
+//               drag = move the button anywhere
+// pointer down→up with < DRAG_THRESHOLD px of travel = a tap (toggle); past the threshold
+// it becomes a drag (no toggle) — so a move never accidentally gaps/collapses the dock.
+const DRAG_THRESHOLD = 5 // px
+const fabEl = ref(null)
+
+// dragged positions (viewport coords, top-left). null = default CSS spot. BOTH are shared
+// across modes (persisted) so the dock/button stay put when you switch view.
+const dockPos = ref(loadPos(LS_BARPOS)) // the whole bar (expanded)
+const fabPos = ref(loadPos(LS_FABPOS))  // the floating button (collapsed)
+function loadPos(key) {
+  try {
+    const p = JSON.parse(localStorage.getItem(key) || 'null')
+    if (p && typeof p.left === 'number' && typeof p.top === 'number') return p
+  } catch { /* ignore */ }
+  return null
+}
+watch(dockPos, (v) => { try { v ? localStorage.setItem(LS_BARPOS, JSON.stringify(v)) : localStorage.removeItem(LS_BARPOS) } catch { /* ignore */ } }, { deep: true })
+watch(fabPos, (v) => { try { v ? localStorage.setItem(LS_FABPOS, JSON.stringify(v)) : localStorage.removeItem(LS_FABPOS) } catch { /* ignore */ } }, { deep: true })
+
+// position: fixed is REQUIRED — .sd-dock is otherwise static (positioned by the fixed
+// .sd-wrap), so left/top alone would not move it. Coords come from getBoundingClientRect,
+// which fixed positioning matches exactly.
 const dockStyle = computed(() =>
   dockPos.value && !mobile.value
-    // position: fixed is REQUIRED — .sd-dock is otherwise static (positioned by the
-    // fixed .sd-wrap), so left/top alone would not move it. left/top are viewport
-    // coords from getBoundingClientRect, which fixed positioning matches exactly.
     ? { position: 'fixed', left: dockPos.value.left + 'px', top: dockPos.value.top + 'px', right: 'auto', bottom: 'auto', transform: 'none' }
     : {},
 )
-let drag = false, oX = 0, oY = 0, dW = 0, dH = 0
-function dragStart(e) {
-  if (mobile.value) return
-  e.preventDefault()
-  const el = dockEl.value
-  if (!el) return
-  const r = el.getBoundingClientRect()
-  oX = e.clientX - r.left; oY = e.clientY - r.top; dW = r.width; dH = r.height
-  dockPos.value = { left: r.left, top: r.top }
-  drag = true
-  try { e.target.setPointerCapture(e.pointerId) } catch { /* no capture — still tracks on grip */ }
-}
-function dragMove(e) {
-  if (!drag) return
-  e.preventDefault()
-  dockPos.value = {
-    left: Math.max(4, Math.min(window.innerWidth - dW - 4, e.clientX - oX)),
-    top: Math.max(4, Math.min(window.innerHeight - dH - 4, e.clientY - oY)),
+const fabStyle = computed(() =>
+  fabPos.value
+    ? { left: fabPos.value.left + 'px', top: fabPos.value.top + 'px', right: 'auto', bottom: 'auto', transform: 'none' }
+    : {},
+)
+
+function clampToViewport(pos, w, h) {
+  return {
+    left: Math.max(4, Math.min(window.innerWidth - w - 4, pos.left)),
+    top: Math.max(4, Math.min(window.innerHeight - h - 4, pos.top)),
   }
 }
-function dragEnd() { drag = false }
+// after expanding, the wide bar may not fit where the small FAB sat — pull it back on-screen
+function clampBarPos() {
+  if (!dockPos.value || mobile.value || !dockEl.value) return
+  const r = dockEl.value.getBoundingClientRect()
+  dockPos.value = clampToViewport(dockPos.value, r.width, r.height)
+}
+
+let pdown = false, moved = false, sX = 0, sY = 0, oX = 0, oY = 0, dW = 0, dH = 0, startLeft = 0, startTop = 0
+function combinedDown(e) {
+  if (mobile.value) return
+  e.preventDefault()
+  pdown = true; moved = false
+  sX = e.clientX; sY = e.clientY
+  // Capture the grab offset + the element's box NOW (at press), not after the threshold —
+  // otherwise the grab point jumps by the first move's distance when the drag kicks in.
+  const el = collapsed.value ? fabEl.value : dockEl.value
+  if (el) {
+    const r = el.getBoundingClientRect()
+    oX = sX - r.left; oY = sY - r.top; dW = r.width; dH = r.height; startLeft = r.left; startTop = r.top
+  }
+  try { e.target.setPointerCapture(e.pointerId) } catch { /* no capture — pointer still tracks */ }
+}
+function combinedMove(e) {
+  if (!pdown) return
+  const dx = e.clientX - sX, dy = e.clientY - sY
+  if (!moved && dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+    moved = true
+    // pin the element to explicit fixed coords at its current spot, then track the pointer
+    ;(collapsed.value ? fabPos : dockPos).value = { left: startLeft, top: startTop }
+  }
+  if (moved) { e.preventDefault(); doDrag(e) }
+}
+function combinedUp() {
+  if (!pdown) return
+  pdown = false
+  if (!moved) toggleCollapse() // a clean tap (no drag) → กาง/หุบ
+  moved = false
+}
+function doDrag(e) {
+  const target = collapsed.value ? fabPos : dockPos
+  target.value = clampToViewport({ left: e.clientX - oX, top: e.clientY - oY }, dW, dH)
+}
 
 // a tool button was pressed: a menu tool opens its dropdown, a plain tool runs
 function runTool(t) {
@@ -275,12 +335,27 @@ function runTool(t) {
   <div class="sd-wrap no-print">
     <p v-if="message" class="sd-msg" role="status">{{ message }}</p>
 
+    <!-- collapsed on desktop → the dock becomes ONE round floating button (FAB). Tap to
+         กาง; press-drag to move it anywhere. Mobile keeps the slide-off + pull-up tab. -->
+    <button
+      v-if="collapsed && !mobile"
+      ref="fabEl"
+      class="sd-fab"
+      :style="fabStyle"
+      aria-label="กางแถบเครื่องมือ"
+      title="แตะเพื่อกางแถบ · ลากเพื่อย้าย"
+      @pointerdown="combinedDown"
+      @pointermove="combinedMove"
+      @pointerup="combinedUp"
+      @pointercancel="combinedUp"
+    ><Icon name="dock-grip-expand" :size="26" /></button>
+
     <div
+      v-show="!(collapsed && !mobile)"
       ref="dockEl"
       class="sd-dock"
       :class="{ 'sd-m': mobile, 'sd-collapsed': collapsed }"
       :style="[dockStyle, { '--dock-alpha': alpha }]"
-      @click="onDockClick"
     >
       <!-- fixed jianpu keyboard (edit only) — one or more rows; each row shares its line
            (keys stretch/shrink, never wrap) so more keys just mean a bigger tap target -->
@@ -296,17 +371,17 @@ function runTool(t) {
       </div>
 
       <div ref="toolsEl" class="sd-tools" role="toolbar" aria-label="เครื่องมือ">
-        <!-- drag handle (desktop) -->
-        <span
+        <!-- fused grip+collapse handle (desktop): tap = หุบ, drag = ย้ายทั้งแถบ (B037) -->
+        <button
           v-if="!mobile"
-          class="sd-grip hideoncol"
-          title="ลากเพื่อย้ายแถบ"
-          aria-hidden="true"
-          @pointerdown="dragStart"
-          @pointermove="dragMove"
-          @pointerup="dragEnd"
-          @pointercancel="dragEnd"
-        ><Icon name="grip-vertical" :size="18" /></span>
+          class="sd-combined hideoncol"
+          aria-label="หุบแถบเครื่องมือ"
+          title="แตะเพื่อหุบแถบ · ลากเพื่อย้าย"
+          @pointerdown="combinedDown"
+          @pointermove="combinedMove"
+          @pointerup="combinedUp"
+          @pointercancel="combinedUp"
+        ><Icon name="dock-grip-collapse" :size="24" /></button>
 
         <button
           v-for="t in primary"
@@ -352,7 +427,9 @@ function runTool(t) {
             title="ตั้งค่าปุ่ม"
             @click.stop="togglePop('cust')"
           ><Icon name="sliders-horizontal" :size="18" /></button>
+          <!-- mobile keeps a tap-only collapse control; desktop uses the fused handle -->
           <button
+            v-if="mobile"
             class="sd-tbtn sd-ctl"
             :aria-label="collapsed ? 'กางแถบเครื่องมือ' : 'หุบแถบเครื่องมือ'"
             :title="collapsed ? 'กางแถบ' : 'หุบแถบ'"
@@ -550,16 +627,46 @@ function runTool(t) {
 .sd-badge { font-size: 12px; font-weight: 700; }
 .sd-caret { color: var(--muted); margin-left: -1px; }
 .sd-ctl { color: var(--muted); }
-.sd-grip {
-  cursor: grab;
-  color: var(--muted);
-  width: 26px;
+/* fused grip+collapse handle inside the expanded bar (desktop) */
+.sd-combined {
   flex: 0 0 auto;
-  display: flex;
+  height: 44px;
+  min-height: 0;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: grab;
   touch-action: none;
 }
-.sd-grip:active { cursor: grabbing; }
+.sd-combined:active { cursor: grabbing; }
+@media (hover: hover) { .sd-combined:hover { color: var(--ink); } }
+/* the collapsed FAB — one round floating button, iOS-AssistiveTouch style */
+.sd-fab {
+  pointer-events: auto;
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 48px;
+  min-height: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  cursor: grab;
+  touch-action: none;
+}
+.sd-fab:active { cursor: grabbing; }
+@media (hover: hover) { .sd-fab:hover { border-color: var(--brand); color: var(--brand); } }
 .sd-rc { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 
 /* collapsed: hide keys + everything but the (re-open) bar */

@@ -72,19 +72,54 @@ describe('StudioDock — shared dock engine (ps3-dock)', () => {
     expect(toolLabels(w)).not.toContain('ย้อน')
   })
 
-  it('collapse toggles the class + persists per mode, and expands back (D4 / B034)', async () => {
+  // dock-core: desktop collapse/expand is the fused grip+chevron handle — a clean tap
+  // (pointerdown→up, no travel) toggles; collapsed state is now SHARED across modes.
+  it('a tap on the fused handle collapses + persists (shared key), FAB expands back', async () => {
     const w = mountDock()
     await nextTick()
-    await w.find('.sd-ctl[aria-label="หุบแถบเครื่องมือ"]').trigger('click')
+    const handle = w.find('.sd-combined')
+    await handle.trigger('pointerdown', { clientX: 10, clientY: 10, pointerId: 1 })
+    await handle.trigger('pointerup', { clientX: 10, clientY: 10, pointerId: 1 })
     await nextTick()
     expect(w.find('.sd-dock').classes()).toContain('sd-collapsed')
-    expect(localStorage.getItem('pleng.dock.collapsed.edit')).toBe('1')
-    // B034: the same control now expands again (previously it only ever collapsed, so a
-    // collapsed desktop dock got stuck)
-    await w.find('.sd-ctl[aria-label="กางแถบเครื่องมือ"]').trigger('click')
+    // shared across modes now (not pleng.dock.collapsed.edit)
+    expect(localStorage.getItem('pleng.dock.collapsed')).toBe('1')
+    // collapsed desktop → the bar is a round floating button (FAB); tapping it expands
+    const fab = w.find('.sd-fab')
+    expect(fab.exists()).toBe(true)
+    await fab.trigger('pointerdown', { clientX: 10, clientY: 10, pointerId: 1 })
+    await fab.trigger('pointerup', { clientX: 10, clientY: 10, pointerId: 1 })
     await nextTick()
     expect(w.find('.sd-dock').classes()).not.toContain('sd-collapsed')
-    expect(localStorage.getItem('pleng.dock.collapsed.edit')).toBe('0')
+    expect(localStorage.getItem('pleng.dock.collapsed')).toBe('0')
+    expect(w.find('.sd-fab').exists()).toBe(false)
+  })
+
+  // the threshold that separates "แตะ" from "ลาก": a press that travels past ~5px is a
+  // move, so it must NOT toggle collapse (the accidental-collapse trap P'Aim hit).
+  it('a press that drags past the threshold moves, it does not toggle collapse', async () => {
+    const w = mountDock()
+    await nextTick()
+    const handle = w.find('.sd-combined')
+    await handle.trigger('pointerdown', { clientX: 10, clientY: 10, pointerId: 1 })
+    await handle.trigger('pointermove', { clientX: 60, clientY: 40, pointerId: 1 })
+    await handle.trigger('pointerup', { clientX: 60, clientY: 40, pointerId: 1 })
+    await nextTick()
+    // still expanded (it was a drag, not a tap) …
+    expect(w.find('.sd-dock').classes()).not.toContain('sd-collapsed')
+    // … and the bar took an explicit fixed position (it was moved)
+    expect(w.find('.sd-dock').attributes('style')).toContain('position: fixed')
+  })
+
+  it('a tiny jitter under the threshold still counts as a tap (collapses)', async () => {
+    const w = mountDock()
+    await nextTick()
+    const handle = w.find('.sd-combined')
+    await handle.trigger('pointerdown', { clientX: 10, clientY: 10, pointerId: 1 })
+    await handle.trigger('pointermove', { clientX: 12, clientY: 11, pointerId: 1 }) // <5px
+    await handle.trigger('pointerup', { clientX: 12, clientY: 11, pointerId: 1 })
+    await nextTick()
+    expect(w.find('.sd-dock').classes()).toContain('sd-collapsed')
   })
 
   it('renders the palette as multiple rows when given an array of rows (B033)', async () => {

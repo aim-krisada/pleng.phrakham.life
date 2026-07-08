@@ -59,6 +59,18 @@ const ICONS = {
   layers: '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>',
   'a-arrow-down': '<path d="m14 12 4 4 4-4"/><path d="M18 16V7"/><path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/><path d="M3.304 13h6.392"/>',
   'a-arrow-up': '<path d="m14 11 4-4 4 4"/><path d="M18 16V7"/><path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/><path d="M3.304 13h6.392"/>',
+  // ---- dock combined glyph (dock-core / N1) — grip-vertical (= "ลากได้") fused with a
+  // chevron (= สถานะ กาง/หุบ) in ONE wide glyph so the floating collapse button (FAB) and
+  // the in-dock handle read as a single draggable control. viewBox is 0 0 34 24 (see
+  // VIEWBOX below): grip keeps its native x≈9/15, the chevron is shifted right +14.
+  'dock-grip-expand': '<circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/><g transform="translate(14,0)"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></g>',
+  'dock-grip-collapse': '<circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/><g transform="translate(14,0)"><path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/></g>',
+}
+// Most icons share Lucide's 24×24 canvas; a few (the fused dock glyph) are wider. Any
+// name absent here falls back to '0 0 24 24'.
+const VIEWBOX = {
+  'dock-grip-expand': '0 0 34 24',
+  'dock-grip-collapse': '0 0 34 24',
 }
 </script>
 
@@ -67,7 +79,7 @@ const ICONS = {
     class="icn"
     :width="size"
     :height="size"
-    viewBox="0 0 24 24"
+    :viewBox="VIEWBOX[name] || '0 0 24 24'"
     fill="none"
     stroke="currentColor"
     stroke-width="2"
