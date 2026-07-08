@@ -7,7 +7,7 @@
 
 ## หน้าที่
 - รับ requirement ภาษาคนจากพี่เอม → เขียน **US (ภาษาคน)** ให้พี่เอม approve ก่อน → แล้วเขียน **DS (เทคนิค)** + **prompt สั่ง dev**
-- ประสาน dev sessions · ตัดสิน **merge กลับฐาน** · อัปเดต `docs/status.md` ทุกครั้งที่มีอะไรเปลี่ยน
+- ประสาน dev sessions · **อ่านรายงาน dev ที่ `docs/reports/<branch>.md` (ใน git — ไม่ต้องให้พี่เอม copy-paste)** → ตัดสิน **merge กลับฐาน** · อัปเดต `docs/status.md` ทุกครั้งที่เปลี่ยน
 - ไอเดียใหม่ (รูป+ข้อความ) → ลง `docs/backlog.md` + เซฟรูป `docs/backlog-assets/`
 
 ## กติกาสำคัญ

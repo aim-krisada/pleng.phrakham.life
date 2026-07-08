@@ -19,5 +19,5 @@ npm run dev -- --port <port>
 - ทำครบ **Acceptance Criteria** ของแต่ละ US + เขียน **unit test** ตาม AC
 - commit ในสาขาตัวเอง · **ห้าม merge `main` · ห้าม deploy**
 - ฐานขยับระหว่างทาง → `git rebase studio-shell-redesign` (ไฟล์ไม่ทับกัน conflict แทบไม่มี)
-- เสร็จ: รายงานว่าแก้ไฟล์ไหน + ผล test → **รอ SA สั่ง merge** (อย่า merge เอง)
+- เสร็จ: **เขียนรายงานเป็นไฟล์ `docs/reports/<branch>.md`** (ทำอะไรต่อ US · ไฟล์ที่แก้ · ผล AC/unit test · วิธี tester ลอง · ข้อสังเกต · พร้อม merge ไหม — แม่แบบใน `docs/reports/README.md`) แล้ว **commit** → **รอ SA อ่านจาก git แล้วสั่ง merge** (อย่า merge เอง)
 - ก่อน commit เช็ก `git branch --show-current`
