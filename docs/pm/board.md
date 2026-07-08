@@ -17,6 +17,12 @@ dev ps4-shell เสร็จ → P'Aim ลองใช้เอง (= gate real
 | แผ่นเพลง | ✅ ผ่าน | — |
 | แก้ไข | ❌ 4 บั๊ก | **B031** แถบเมนูวางไม่เหมือนอีก 2 โหมด · **B032** ไม่มีปุ่ม "ลบท่อน" · **B033** dock key เลื่อนไม่ได้ · **B034** dock ซ่อนแล้วโชว์กลับไม่ได้ |
 | dock (ร่วม) | ❌ | B030 (ฝึกร้อง ไม่แสดง) · B033 เลื่อนคีย์ไม่ได้ · B034 toggle ซ่อน/แสดงเสีย — StudioDock (wave1) มีปัญหาหลายจุด |
+
+**⚠️ scope ยืนยัน (git):** dev ps4-shell = **คลื่น 1 = shell + StudioDock เท่านั้น** → แยกผลเป็น 2 กลุ่ม:
+- **บั๊กจริง (คลื่น 1):** B030 · B031 · B033 · B034 → รอ sa-ps3 ยืนยัน แล้ว PM ยิง dev
+- **ยังไม่ build (ไม่ใช่บั๊ก · คลื่นถัดไป):** B029 (highlight) · B032+B035 (editor redesign คลื่น 2)
+
+**สถานะ:** ส่ง brief ตรวจ (scoped คลื่น 1) เข้า sa-ps3 แล้ว (`review-ps4-shell-wave1.md`) · รอ report ที่ `review-ps4-shell-wave1-report.md` → PM รวบยิง dev
 → รวบเป็น brief ส่ง sa-ps3 (review + ยืนยัน + สเปกแก้)
 
 ## สายงาน (roster + สถานะ verify)
