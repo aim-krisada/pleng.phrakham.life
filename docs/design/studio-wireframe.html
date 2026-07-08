@@ -1,0 +1,479 @@
+<meta charset="utf-8">
+<title>Studio wireframe — responsive master-detail</title>
+<style>
+  :root{
+    --cream:#FBF7EF; --card:#FFFFFF; --ink:#2E2A25; --brand:#8A5320; --brand2:#A9701F;
+    --muted:#6E655A; --line:#E9E0D0; --line2:#D8CDB8; --note:#2C6DB0; --chord:#B0443E;
+    --sel:#F4EAD6; --selbd:#C79A57; --pro:#6B4FB0; --ok:#2F7D4F; --warn:#B5771A; --danger:#B0413E;
+  }
+  *{box-sizing:border-box}
+  .wf{font-family:"Noto Sans Thai","Leelawadee UI","Sarabun",system-ui,-apple-system,sans-serif;
+    color:var(--ink); background:var(--cream); max-width:1040px; margin:0 auto; padding:0 12px 120px; line-height:1.5;}
+  .eyebrow{font-size:11px; letter-spacing:.05em; color:var(--brand); font-weight:700; margin:0 0 8px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin:10px 0;}
+  .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .btn{font:inherit; font-size:14px; background:#fff; border:1px solid var(--line2); border-radius:8px; padding:7px 12px; cursor:pointer; color:var(--ink); display:inline-flex; align-items:center; gap:6px;}
+  .btn:hover{background:var(--cream);} .btn:focus-visible{outline:2px solid var(--brand); outline-offset:2px;}
+  /* topbar */
+  .topstick{position:sticky; top:0; z-index:30; background:var(--cream);}
+  .titlebar{background:var(--cream); padding:10px 0 8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; border-bottom:1px solid var(--line);}
+  .menubar{display:flex; align-items:center; gap:10px; padding:0 0 8px; border-bottom:1px solid var(--line); margin-bottom:6px; flex-wrap:wrap;}
+  .menubar .tabs{margin:0;}
+  .mbsep{width:1px; align-self:stretch; min-height:22px; background:var(--line2);}
+  .menubtn{display:inline-flex; font-size:18px; padding:6px 10px;}
+  @media (min-width:761px){ .wf.rail-hidden .rail{display:none;} }
+  .brand{display:inline-flex; align-items:center; gap:5px; color:var(--brand); font-weight:700; cursor:pointer; text-decoration:none; font-size:15px;}
+  .brand:hover{opacity:.8;}
+  .login{margin-left:auto; font-size:13px; border:0.5px solid var(--line2); border-radius:8px; padding:5px 12px; cursor:pointer; background:#fff; color:var(--ink);}
+  .filemenu-wrap{position:relative;}
+  .mobile-only{display:none;}
+  .title{font-size:17px; font-weight:700; border:1px solid transparent; border-radius:6px; padding:2px 6px;}
+  .title:hover{border-color:var(--line2);} .title:focus{outline:none; border-color:var(--brand); background:#fff;}
+  /* app shell */
+  .app{display:flex; gap:14px; align-items:flex-start; margin-top:10px;}
+  .rail{flex:0 0 236px; width:236px; position:sticky; top:54px; align-self:flex-start; height:calc(100dvh - 72px); overflow:auto; background:#fff; border:1px solid var(--line); border-radius:12px; padding:8px;}
+  .content{flex:1; min-width:0;}
+  .tabs{display:flex; gap:4px; margin:0;}
+  .tab{font:inherit; font-size:14px; background:transparent; border:none; border-radius:8px; padding:6px 10px; cursor:pointer; color:var(--muted); display:inline-flex; align-items:center; gap:6px;}
+  .tab:hover{background:var(--cream);} .tab.sel{background:var(--sel); color:var(--brand); font-weight:600;}
+  .menutext{font:inherit; font-size:14px; background:transparent; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; color:var(--ink); display:inline-flex; align-items:center; gap:5px;}
+  .menutext:hover{background:rgba(60,40,10,.09);}
+  .menutext:focus-visible{outline:2px solid var(--brand); outline-offset:2px;}
+  .mi2{align-items:flex-start; gap:12px;}
+  .mi2 .ic{margin-top:2px;}
+  .mi2 .mtxt{display:flex; flex-direction:column; gap:1px;}
+  .mi2 .mtxt b{font-weight:600;}
+  .mi2 .mtxt small{color:var(--muted); font-size:12px;}
+  .mi2 .chk{margin-left:auto; color:var(--brand); font-weight:700;}
+  .modemenu{width:240px;}
+  .navgroup{font-size:11px; color:var(--muted); font-weight:700; padding:8px 8px 4px;}
+  .navrow{display:flex; align-items:center; gap:9px; padding:8px 9px; border-radius:7px; cursor:pointer; font-size:14px;}
+  .navrow:hover{background:var(--cream);} .navrow .k{margin-left:auto; color:var(--muted); font-size:11px;}
+  .navrow.sel{background:var(--sel); border:1px solid var(--selbd); font-weight:600;}
+  .navrow.sub{padding-left:22px;} .navrow .sub2{font-size:11px; color:var(--muted);} .navrow .dots{margin-left:auto; color:var(--muted);}
+  .mel .ic{color:var(--note);} .lyr .ic{color:var(--pro);} .arrn .ic{color:var(--warn);}
+  .sep{border-top:1px solid var(--line); margin:6px 4px;}
+  .menu{position:absolute; top:calc(100% + 6px); left:0; width:250px; max-width:calc(100vw - 20px); background:#fff; border:1px solid var(--line2); border-radius:12px; padding:6px; box-shadow:0 10px 30px rgba(60,40,10,.16); z-index:40;}
+  .menu.menu-right{left:auto; right:0;}
+  .menu.hidden{display:none;}
+  .mi{display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; font-size:14px; cursor:pointer;}
+  .mi:hover{background:var(--cream);}
+  .mi .k{margin-left:auto; color:var(--muted); font-size:12px;}
+  .backdrop{display:none;}
+  /* editor */
+  .ed{border:2px solid var(--selbd); background:#fffdf8;}
+  .ed-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid var(--line);}
+  .pairname{font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .pick{font:inherit; font-size:15px; font-weight:700; color:var(--brand); background:var(--sel); border:1px solid var(--selbd); border-radius:8px; padding:4px 8px; cursor:pointer;}
+  .pick:focus-visible{outline:2px solid var(--brand); outline-offset:1px;}
+  .iconbtn{width:34px; height:32px; border:1px solid var(--line2); background:#fff; border-radius:8px; cursor:pointer; font-size:15px; color:var(--ink); display:inline-flex; align-items:center; justify-content:center;}
+  .sublabel{font-size:11px; color:var(--muted); margin:2px 0 4px;}
+  .readrow{display:flex; gap:2px; flex-wrap:wrap; align-items:flex-end; background:#FCFAF4; border:1px solid var(--line); border-radius:8px; padding:8px 6px; margin-bottom:12px;}
+  .rcol{display:flex; flex-direction:column; align-items:center; min-width:30px;}
+  .rchord{font-size:11px; color:var(--chord); height:14px; font-weight:700;}
+  .rnote{font-family:"Courier New",monospace; font-weight:700; font-size:16px; color:var(--note); padding:1px 4px;}
+  .rnote.held{color:var(--muted);}
+  .rly{font-size:13px; color:var(--ink); padding:1px 4px;}
+  .rbar{align-self:stretch; border-left:2px solid var(--muted); margin:14px 4px 0; width:0;}
+  .strip{display:flex; gap:6px; flex-wrap:wrap; align-items:flex-end;}
+  .col{display:flex; flex-direction:column; align-items:center; gap:4px;}
+  .nbox{width:44px; text-align:center; font-family:"Courier New",monospace; font-weight:700; font-size:15px; color:var(--note); background:#F2F6FB; border:1px solid var(--line2); border-radius:6px; padding:7px 0;}
+  .nbox.held{color:var(--muted); background:#F5F2EC;}
+  .wbox{width:44px; height:30px; text-align:center; font:inherit; font-size:14px; border:1px solid var(--line2); border-radius:6px; color:var(--ink);}
+  .wbox.held{border-style:dashed; color:var(--muted); background:#FAFAF7;} .wbox.empty{border-color:var(--danger); background:#fff5f5;}
+  .barline{width:0; border-left:2px solid var(--muted); align-self:stretch; margin:16px 3px 0;}
+  .count{margin-top:10px; font-size:13px; display:inline-flex; align-items:center; gap:5px;}
+  .count.ok{color:var(--ok);} .count.bad{color:var(--danger);}
+  .hint{font-size:12px; color:var(--muted); margin-top:8px;}
+  /* arrangement */
+  .arow{display:flex; align-items:center; gap:8px; padding:7px 2px; border-bottom:1px solid var(--line); font-size:14px;}
+  .arow:last-child{border-bottom:none;} .arow .n{color:var(--muted); width:16px;} .grip{color:var(--muted);}
+  .tag{font-size:13px; background:#fff; border:1px solid var(--line2); border-radius:7px; padding:3px 9px;}
+  .tag.mel{color:var(--note);} .tag.lyr{color:var(--pro);}
+  .st{margin-left:auto; font-size:12px; color:var(--ok);}
+  .cover{margin-top:10px; background:#EEF6EE; color:var(--ok); border-radius:8px; padding:7px 11px; font-size:13px;}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px;}
+  .grid label{font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:3px;}
+  .grid input{font:inherit; font-size:14px; padding:7px 8px; border:1px solid var(--line2); border-radius:8px; color:var(--ink);}
+  /* dock */
+  .dock{position:fixed; left:50%; transform:translateX(-50%); bottom:12px; z-index:50; background:#fff; border:1px solid var(--line2); border-radius:14px; padding:8px 10px; box-shadow:0 10px 28px rgba(60,40,10,.18); display:flex; gap:6px; flex-wrap:wrap; max-width:calc(100vw - 20px);}
+  .dock .btn{padding:6px 10px;} .dock .prime{background:var(--brand); color:#fff; border-color:var(--brand);}
+  #dockTools{display:inline-flex; gap:6px; flex-wrap:wrap;}
+  .dockgrip{cursor:grab; color:var(--muted); padding:4px 7px; user-select:none; font-size:16px; letter-spacing:-3px; touch-action:none; border-radius:6px;}
+  .dockgrip:hover{background:var(--cream);} .dockgrip:active{cursor:grabbing;}
+  .btn.brand{border:none; background:transparent; padding:6px 8px; color:var(--brand); font-weight:700; font-size:15px;}
+  .btn.brand:hover{background:rgba(60,40,10,.09); opacity:1;}
+  .btn.brand:focus-visible{outline:2px solid var(--brand); outline-offset:2px;}
+  button, select, .navrow, .leaf, .mi, .chip, .tab{min-height:26px;}
+  .crow .cbtns .btn, .iconbtn, .dockgrip{min-width:26px; min-height:26px;}
+  input, textarea, select, .col, .syl-slot, .bar-box, .arow, .card{scroll-margin-top:66px;}
+  select:focus-visible, input:focus-visible, textarea:focus-visible, .navrow:focus-visible, .leaf:focus-visible, .mi:focus-visible, .chip:focus-visible{outline:2px solid var(--brand); outline-offset:2px;}
+  .custpanel{position:fixed; left:50%; transform:translateX(-50%); bottom:74px; z-index:49; width:344px; max-width:calc(100vw - 20px); background:#fff; border:1px solid var(--line2); border-radius:14px; padding:12px; box-shadow:0 12px 30px rgba(60,40,10,.2); max-height:56vh; overflow:auto;}
+  .custpanel.hidden{display:none;}
+  .crow{display:flex; align-items:center; gap:8px; padding:7px 2px; border-bottom:1px solid var(--line); font-size:14px;}
+  .crow:last-child{border-bottom:none;}
+  .crow .cbtns{margin-left:auto; display:flex; gap:4px;}
+  .crow .cbtns .btn{padding:4px 8px; min-width:30px;}
+  .crow .btn[disabled]{opacity:.35; cursor:default;}
+  .ic{font-style:normal; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;}
+  .ic svg{display:block;} .navrow .ic,.mi .ic{width:18px; height:18px;}
+  @media (max-width:760px){
+    .menubtn{display:inline-flex;}
+    .brand{display:none;}
+    .desktop-only{display:none !important;}
+    .mobile-only{display:block;}
+    .dock{left:0 !important; right:0; transform:none !important; top:auto !important; bottom:0 !important; width:100%; max-width:none; border-radius:14px 14px 0 0; flex-wrap:nowrap; overflow-x:auto; justify-content:flex-start; box-shadow:0 -6px 20px rgba(60,40,10,.15);}
+    .custpanel{bottom:70px;}
+    .titlebar .title{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; order:0;}
+    .titlebar .login{order:1; margin-left:0; padding:6px 8px; font-size:17px;}
+    .menubtn{order:2; margin-left:6px;}
+    .tab{padding:7px 14px; font-size:17px;}
+    .rail{position:fixed; top:0; left:0; height:100dvh; width:84%; max-width:320px; z-index:70; border-radius:0; max-height:none; transform:translateX(-102%); transition:transform .22s ease;}
+    .rail.open{transform:none;}
+    .backdrop.open{display:block; position:fixed; inset:0; background:rgba(30,20,5,.4); z-index:65;}
+  }
+  @media (prefers-reduced-motion:reduce){ .rail{transition:none;} }
+</style>
+
+<div class="wf">
+  <header class="topstick">
+  <div class="titlebar">
+    <div class="filemenu-wrap mobile-only" id="globalWrap">
+      <button class="menutext menubtn" id="globalBtn" aria-haspopup="true" aria-expanded="false" aria-label="เมนู"><span class="ic" data-ic="menu" data-sz="22"></span></button>
+      <div class="menu hidden" id="globalMenu" role="menu">
+        <div class="navgroup">เพลง.พระคำ.ชีวิต (เว็บ)</div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="library"></span> รายการเพลง</div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="pencil"></span> ทำเพลง</div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="book-open"></span> คู่มือ</div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="info"></span> เกี่ยวกับเรา</div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="globe"></span> พระคำ.ชีวิต <span class="k">↗</span></div>
+        <div class="sep"></div>
+        <div class="navgroup">เพลงนี้</div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="file-plus"></span> สร้างเพลงใหม่ <span class="k">New</span></div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="folder-open"></span> เลือกเพลงเพื่อแก้… <span class="k">Open</span></div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="x"></span> ออกจากเพลงนี้ <span class="k">Close</span></div>
+        <div class="mi" data-view="properties" role="menuitem"><span class="ic" data-ic="settings"></span> ตั้งค่าเพลง <span class="k">Properties</span></div>
+      </div>
+    </div>
+    <div class="filemenu-wrap desktop-only" id="brandWrap">
+      <button class="btn brand" id="brandBtn" aria-haspopup="true" aria-expanded="false">เพลง.พระคำ.ชีวิต ▾</button>
+      <div class="menu hidden" id="siteMenu" role="menu">
+        <div class="mi" role="menuitem"><span class="ic" data-ic="library"></span> รายการเพลง</div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="pencil"></span> ทำเพลง</div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="book-open"></span> คู่มือ</div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="info"></span> เกี่ยวกับเรา</div>
+        <div class="sep"></div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="globe"></span> พระคำ.ชีวิต <span class="k">↗</span></div>
+      </div>
+    </div>
+    <span style="color:var(--line2)" class="desktop-only">|</span>
+    <span class="title" id="songTitle" contenteditable="true" spellcheck="false" role="textbox" aria-label="ชื่อเพลง">พระเยซูเข้าสู่ใจข้า</span>
+    <span class="mbsep desktop-only"></span>
+    <div class="filemenu-wrap desktop-only">
+      <button class="menutext" id="fileBtn" aria-haspopup="true" aria-expanded="false">เพลง</button>
+      <div class="menu hidden" id="fileMenu" role="menu">
+        <div class="mi" role="menuitem"><span class="ic" data-ic="file-plus"></span> สร้างเพลงใหม่ <span class="k">New</span></div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="folder-open"></span> เลือกเพลงเพื่อแก้… <span class="k">Open</span></div>
+        <div class="mi" role="menuitem"><span class="ic" data-ic="x"></span> ออกจากเพลงนี้ <span class="k">Close</span></div>
+        <div class="sep"></div>
+        <div class="mi" data-view="properties" role="menuitem"><span class="ic" data-ic="settings"></span> ตั้งค่าเพลง <span class="k">Properties</span></div>
+      </div>
+    </div>
+    <div class="filemenu-wrap" id="modeWrap">
+      <button class="menutext modebtn" id="modeBtn" aria-haspopup="true" aria-expanded="false"><span class="ic" id="modeIcon"></span><span class="desktop-only" id="modeLabel">แก้ไข</span> <span style="color:var(--muted)">▾</span></button>
+      <div class="menu menu-right hidden modemenu" id="modeMenu" role="menu">
+        <div class="mi mi2" data-mode="edit" role="menuitemradio"><span class="ic" data-ic="pencil"></span><span class="mtxt"><b>แก้ไข</b><small>แก้เพลงโดยตรง</small></span><span class="chk">✓</span></div>
+        <div class="mi mi2" data-mode="sheet" role="menuitemradio"><span class="ic" data-ic="file-music"></span><span class="mtxt"><b>แผ่นเพลง</b><small>ดู / พิมพ์แผ่นเพลง</small></span><span class="chk"></span></div>
+      </div>
+    </div>
+    <span class="login" role="button" aria-label="เข้าสู่ระบบ"><span class="ic mobile-only" data-ic="circle-user" data-sz="20" aria-hidden="true"></span><span class="desktop-only">เข้าสู่ระบบ</span></span>
+  </div>
+  </header>
+
+  <div class="app">
+    <div class="backdrop" id="backdrop"></div>
+    <!-- ONE navigation = file ops + song parts -->
+    <nav class="rail" id="rail" aria-label="ส่วนของเพลง">
+      <div class="mobile-only">
+        <div style="display:flex;align-items:center;gap:8px;padding:2px 4px 8px;border-bottom:1px solid var(--line);margin-bottom:6px">
+          <span style="font-weight:700;display:inline-flex;align-items:center;gap:6px"><span class="ic" data-ic="list-music" data-sz="19"></span> ส่วนของเพลง</span>
+          <button class="btn" id="railClose" style="margin-left:auto;padding:4px 10px" aria-label="ปิด"><span class="ic" data-ic="x" data-sz="16"></span></button>
+        </div>
+      </div>
+      <div class="navgroup">ทำนอง</div>
+      <div id="navMel"></div>
+      <div class="navgroup">เนื้อร้อง</div>
+      <div id="navLyr"></div>
+      <div class="sep"></div>
+      <div class="navgroup">ขั้นสูง</div>
+      <div id="navArr"></div>
+    </nav>
+
+    <div class="content">
+      <div id="mainView"></div>
+    </div>
+  </div>
+
+  <div class="dock" id="dock" aria-label="แถบเครื่องมือ">
+    <span class="dockgrip desktop-only" id="dockGrip" title="ลากเพื่อย้ายแถบ (จอใหญ่)" aria-hidden="true">⋮⋮</span>
+    <button class="btn" title="สัญลักษณ์โน้ต">1</button>
+    <button class="btn">–</button>
+    <button class="btn" aria-label="สัญลักษณ์อื่น">…</button>
+    <span class="mbsep"></span>
+    <span id="dockTools"></span>
+    <button class="btn" id="custBtn" aria-label="ปรับแถบเครื่องมือ" title="ปรับแถบเครื่องมือ"><span class="ic" data-ic="settings"></span></button>
+  </div>
+  <div class="custpanel hidden" id="custPanel"></div>
+</div>
+
+<script>
+(function(){
+  if(!document.querySelector('meta[name="viewport"]')){var mv=document.createElement('meta');mv.name='viewport';mv.content='width=device-width, initial-scale=1';(document.head||document.documentElement).appendChild(mv);}
+  // ---- inline line-icon set (Lucide paths · self-contained, no CDN) ----
+  var ICONS={
+    menu:'<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
+    music:'<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    'file-text':'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
+    'list-music':'<path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/>',
+    library:'<path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/>',
+    pencil:'<path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>',
+    'book-open':'<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3Z"/>',
+    info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+    globe:'<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+    'file-plus':'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 18v-6"/>',
+    'folder-open':'<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
+    x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    settings:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/>',
+    play:'<polygon points="6 3 20 12 6 21 6 3"/>',
+    'list-ordered':'<path d="M10 12h11"/><path d="M10 18h11"/><path d="M10 6h11"/><path d="M4 10h2"/><path d="M4 6h1v4"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',
+    eye:'<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0Z"/><circle cx="12" cy="12" r="3"/>',
+    'circle-user':'<circle cx="12" cy="12" r="10"/><path d="M18 20a6 6 0 0 0-12 0"/><circle cx="12" cy="10" r="4"/>',
+    'undo-2':'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/>',
+    'redo-2':'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5 5.5 5.5 0 0 0 9.5 20H13"/>',
+    send:'<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/>',
+    save:'<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
+    download:'<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>',
+    maximize:'<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
+    plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+    'file-music':'<path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M4 10V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1"/><circle cx="8" cy="18" r="2"/><path d="M10 18v-5l4-1v4"/><circle cx="12" cy="16" r="2"/>'
+  };
+  function svgIcon(name,size){var p=ICONS[name];if(!p)return'';size=size||18;
+    return '<svg viewBox="0 0 24 24" width="'+size+'" height="'+size+'" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';}
+  function ic(name,size){return '<span class="ic" data-ic="'+name+'"'+(size?' data-sz="'+size+'"':'')+'></span>';}
+  function hydrateIcons(root){(root||document).querySelectorAll('[data-ic]').forEach(function(el){
+    var n=el.getAttribute('data-ic'); el.innerHTML=svgIcon(n, +el.getAttribute('data-sz')||18);});}
+  var melodies={
+    A:{name:"เนื้อร้อง",chords:{0:"C",2:"G"},notes:["3","-","5","|","2","-","-","1"]},
+    B:{name:"ร้องรับ",chords:{0:"F"},notes:["1","1","1","1","|","6","-","-"]}
+  };
+  var lyrics={
+    v1:{name:"ข้อ 1",words:["พระ","เย","ซู","เข้า"]}, v2:{name:"ข้อ 2",words:["พระ","เย","ซู","โปรด"]},
+    v3:{name:"ข้อ 3",words:["พระ","เย","ซู","เปลี่ยน"]}, v4:{name:"ข้อ 4",words:["พระ","เย","ซู","ห้าม"]},
+    chorus:{name:"ร้องรับ",words:["บัด","นี้","ขอ","พระ","องค์"]}
+  };
+  var melOrder=["A","B"], lyrOrder=["v1","v2","v3","v4","chorus"];
+  var seq=[["A","v1"],["B","chorus"],["A","v2"],["B","chorus"],["A","v3"],["B","chorus"],["A","v4"],["B","chorus"]];
+  var state={mel:"A",lyr:"v1",view:"editor",tab:"edit",orderMode:"auto"};
+  function attacks(n){var c=0;n.forEach(function(x){if(x!=="|"&&x!=="-")c++;});return c;}
+  function catRow(name,num){
+    return '<div style="display:flex;gap:8px;align-items:center">'+
+      '<input value="'+name+'" style="flex:1;min-width:0;padding:7px 8px;border:1px solid var(--line2);border-radius:8px;font:inherit;font-size:14px" aria-label="ชื่อหมวด">'+
+      '<span style="color:var(--muted);font-size:13px">เลข</span>'+
+      '<input value="'+num+'" style="width:60px;padding:7px 8px;border:1px solid var(--line2);border-radius:8px;font:inherit;font-size:14px;text-align:center" aria-label="เลขในหมวด">'+
+      '<button class="btn" aria-label="ลบหมวด" style="padding:6px 10px">'+ic('x',15)+'</button></div>';
+  }
+  var isMobile=function(){return window.matchMedia("(max-width:760px)").matches;};
+
+  function renderNav(){
+    var mel=document.getElementById("navMel"); mel.innerHTML="";
+    melOrder.forEach(function(id){
+      var m=melodies[id], d=document.createElement("div");
+      d.className="navrow sub mel"+(state.view==="editor"&&state.mel===id?" sel":"");
+      d.innerHTML=ic('music')+' '+m.name+'<span class="dots">⋯</span>';
+      d.onclick=function(){state.mel=id;state.view="editor";afterNav();};
+      mel.appendChild(d);
+    });
+    var am=document.createElement("div"); am.className="navrow sub"; am.style.color="var(--muted)"; am.innerHTML=ic('plus')+' เพิ่มทำนอง'; mel.appendChild(am);
+    var ly=document.getElementById("navLyr"); ly.innerHTML="";
+    lyrOrder.forEach(function(id){
+      var l=lyrics[id], d=document.createElement("div");
+      d.className="navrow sub lyr"+(state.view==="editor"&&state.lyr===id?" sel":"");
+      d.innerHTML=ic('file-text')+' '+l.name+'<span class="dots">⋯</span>';
+      d.onclick=function(){state.lyr=id;state.view="editor";afterNav();};
+      ly.appendChild(d);
+    });
+    var al=document.createElement("div"); al.className="navrow sub"; al.style.color="var(--muted)"; al.innerHTML=ic('plus')+' เพิ่มเนื้อ'; ly.appendChild(al);
+    var ar=document.getElementById("navArr"); ar.innerHTML="";
+    var d=document.createElement("div"); d.className="navrow arrn"+(state.view==="order"?" sel":"");
+    d.innerHTML=ic('list-ordered')+' ลำดับการร้อง <span class="sub2">·'+(state.orderMode==="auto"?"อัตโนมัติ":"จัดเอง")+'</span>';
+    d.onclick=function(){state.view="order";afterNav();};
+    ar.appendChild(d);
+    // properties row highlight
+    document.querySelectorAll('[data-view="properties"]').forEach(function(el){el.classList.toggle("sel",state.view==="properties");});
+  }
+
+  function cols(m,l,editable){
+    var out="", wi=0;
+    m.notes.forEach(function(n,idx){
+      if(n==="|"){ out+= editable?'<span class="barline"></span>':'<span class="rbar"></span>'; return; }
+      var ch=m.chords[idx]!==undefined?m.chords[idx]:"";
+      var held=(n==="-"), word="", wc="wbox";
+      if(held){wc+=" held";} else { if(l&&wi<l.words.length){word=l.words[wi];} else if(!held){wc+=" empty";} wi++; }
+      if(editable){
+        out+='<span class="col"><span class="rchord">'+ch+'</span><span class="nbox'+(held?" held":"")+'">'+(held?"–":n)+'</span>'+
+          '<input class="'+wc+'" value="'+word+'" '+(held?'placeholder="-"':'')+' aria-label="คำใต้โน้ต"></span>';
+      } else {
+        out+='<span class="rcol"><span class="rchord">'+ch+'</span><span class="rnote'+(held?" held":"")+'">'+(held?"–":n)+'</span><span class="rly">'+(held?"–":(word||" "))+'</span></span>';
+      }
+    });
+    return out;
+  }
+
+  function renderMain(){
+    var host=document.getElementById("mainView");
+    if(state.view==="properties"){
+      host.innerHTML='<div class="card"><div class="eyebrow">ตั้งค่าเพลง (Properties)</div><div class="grid">'+
+        '<label>คีย์<input value="C"></label><label>จังหวะ<input value="4/4"></label>'+
+        '<label>ความเร็ว (BPM)<input value="92"></label><label style="grid-column:1/-1">ชื่อเพลง (อังกฤษ)<input value="Jesus, Come Into My Heart"></label></div>'+
+        '<div class="eyebrow" style="margin-top:14px">หมวด และ เลขในหมวด <span style="font-weight:400;color:var(--muted)">— เลขไม่ซ้ำในแต่ละหมวด (เพลงเดียวอยู่หลายหมวดได้)</span></div>'+
+        '<div style="display:flex;flex-direction:column;gap:8px">'+
+          catRow("ยุวชน","4")+catRow("อนุชน","12")+
+          '<button class="btn" style="align-self:flex-start;font-size:13px">'+ic('plus',15)+' เพิ่มหมวด</button>'+
+        '</div></div>';
+      return;
+    }
+    if(state.view==="order"){
+      var auto=(state.orderMode==="auto"), rows="";
+      seq.forEach(function(p,i){
+        rows+='<div class="arow">'+(auto?'':'<span class="grip">⋮⋮</span>')+'<span class="n">'+(i+1)+'</span>'+
+          '<span class="tag lyr"><span class="ic" data-ic="file-text" data-sz="14" style="vertical-align:-2px"></span> '+lyrics[p[1]].name+'</span><span class="sub2" style="color:var(--muted)">(ทำนอง '+melodies[p[0]].name+')</span>'+
+          (auto?'':'<span class="st" style="color:var(--danger);cursor:pointer">'+ic('x',15)+'</span>')+'</div>';
+      });
+      host.innerHTML='<div class="card"><div class="ed-head" style="padding-bottom:8px"><span class="eyebrow" style="margin:0">ลำดับการร้อง</span>'+
+        '<span style="margin-left:auto;display:flex;gap:5px"><button class="tab '+(auto?"sel":"")+'" onclick="__setOrder(\'auto\')">อัตโนมัติ</button><button class="tab '+(auto?"":"sel")+'" onclick="__setOrder(\'custom\')">จัดเอง</button></span></div>'+
+        '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">'+(auto?'แอปเรียงให้เอง: แต่ละข้อ → รับ · กด "จัดเอง" ถ้าอยากปรับ (intro/bridge/บรรเลง/ข้ามรับ)':'ลากจัดลำดับ · เพิ่ม/ลบสเต็ป · เริ่มจากลำดับอัตโนมัติให้แล้ว')+'</div>'+
+        rows+(auto?'':'<button class="btn" style="margin-top:8px">'+ic('plus',15)+' เพิ่มสเต็ป</button>')+'</div>';
+      return;
+    }
+    var m=melodies[state.mel], l=lyrics[state.lyr];
+    var need=attacks(m.notes), ok=(l.words.length===need), diff=l.words.length-need;
+    var strip=function(n,p){return n.indexOf(p)===0?n.slice(p.length):n;};
+    var mo=melOrder.map(function(id){return '<option value="'+id+'"'+(id===state.mel?' selected':'')+'>'+melodies[id].name+'</option>';}).join("");
+    var lo=lyrOrder.map(function(id){return '<option value="'+id+'"'+(id===state.lyr?' selected':'')+'>'+strip(lyrics[id].name,"ข้อ ")+'</option>';}).join("");
+    host.innerHTML='<div class="card ed"><div class="eyebrow" style="color:var(--brand2)">โต๊ะแก้ไข (Editor) — เลือกคู่ที่แก้ได้ตรงนี้เลย</div>'+
+      '<div class="ed-head"><button class="iconbtn" onclick="__toggleCatalog()" aria-label="ซ่อน/แสดง สารบัญเพลง (ทำนอง·เนื้อ·ลำดับ)" title="สารบัญเพลง — ทำนอง·เนื้อ·ลำดับ">'+ic('list-music',19)+'</button><span class="pairname"><span class="ic" data-ic="music" style="color:var(--note)"></span> ทำนอง <select class="pick" onchange="__setMel(this.value)" aria-label="เลือกทำนอง">'+mo+'</select> <span style="color:var(--muted)">×</span> <span class="ic" data-ic="file-text" style="color:var(--pro)"></span> ข้อ <select class="pick" onchange="__setLyr(this.value)" aria-label="เลือกข้อ">'+lo+'</select></span>'+
+      '<button class="iconbtn" style="margin-left:auto" aria-label="ฟัง">'+ic('play')+'</button></div>'+
+      '<div class="sublabel"><span class="ic" data-ic="eye" data-sz="14" style="vertical-align:-2px"></span> อ่าน (แบบแผ่นเพลง) — พี่เปา</div><div class="readrow">'+cols(m,l,false)+'</div>'+
+      '<div class="sublabel"><span class="ic" data-ic="pencil" data-sz="14" style="vertical-align:-2px"></span> แก้ไข — พิมพ์คำใต้โน้ต (ช่องเส้นประ = ลากเสียง)</div><div class="strip">'+cols(m,l,true)+'</div>'+
+      '<div class="count '+(ok?"ok":"bad")+'">'+(ok?"✓ ":"⚠ ")+l.words.length+"/"+need+" คำ "+(ok?"· ลงพอดี":(diff>0?"· เกิน "+diff:"· ขาด "+(-diff)))+'</div></div>';
+  }
+
+  function renderSheet(){
+    var host=document.getElementById("mainView"), blocks="";
+    seq.forEach(function(p,i){
+      var m=melodies[p[0]], l=lyrics[p[1]], nl="", ll="", wi=0;
+      m.notes.forEach(function(n){
+        if(n==="|"){nl+=" | "; ll+="&nbsp;&nbsp; "; return;}
+        var held=(n==="-"), word=held?"–":(wi<l.words.length?l.words[wi]:""); if(!held)wi++;
+        nl+=(held?"–":n)+" "; ll+=word+" ";
+      });
+      blocks+='<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--brand);font-weight:700">'+(i+1)+'. '+l.name+'</div>'+
+        '<div style="font-family:\'Courier New\',monospace;color:var(--note);font-size:15px;letter-spacing:1px">'+nl+'</div>'+
+        '<div style="font-size:14px">'+ll+'</div></div>';
+    });
+    host.innerHTML='<div class="card"><div class="ed-head" style="padding-bottom:8px"><span class="eyebrow" style="margin:0">แผ่นเพลงทั้งเพลง (พร้อมพิมพ์/ฉาย)</span><button class="btn" style="margin-left:auto">'+ic('maximize',16)+' เต็มจอ</button></div>'+blocks+'</div>';
+  }
+  function renderMode(){
+    var m=state.tab, mi=document.getElementById('modeIcon'), ml=document.getElementById('modeLabel');
+    if(mi)mi.innerHTML=svgIcon((m==='sheet')?'file-music':'pencil');
+    if(ml)ml.textContent=(m==='sheet')?'แผ่นเพลง':'แก้ไข';
+    document.querySelectorAll('#modeMenu .mi2').forEach(function(el){el.querySelector('.chk').textContent=(el.getAttribute('data-mode')===m)?'✓':'';});
+  }
+  function render(){ renderNav(); renderMode(); if(state.tab==="sheet"){renderSheet();}else{renderMain();}
+    document.querySelectorAll('.navrow,.leaf,.mi,.chip,.arow').forEach(function(el){el.tabIndex=0; el.setAttribute('role','button');});
+    hydrateIcons(document); }
+  function afterNav(){ state.tab="edit"; closeAllMenus(); render(); if(isMobile()) closeDrawer(); }
+  function openDrawer(){ document.getElementById("rail").classList.add("open"); document.getElementById("backdrop").classList.add("open"); }
+  function closeDrawer(){ document.getElementById("rail").classList.remove("open"); document.getElementById("backdrop").classList.remove("open"); }
+
+  window.__toggleCatalog=function(){ if(isMobile()){openDrawer();} else {document.querySelector('.wf').classList.toggle('rail-hidden');} };
+  document.getElementById("backdrop").onclick=closeDrawer;
+  document.getElementById("railClose").onclick=closeDrawer;
+  var fileBtn=document.getElementById("fileBtn"), fileMenu=document.getElementById("fileMenu");
+  var brandBtn=document.getElementById("brandBtn"), siteMenu=document.getElementById("siteMenu");
+  var modeBtn=document.getElementById("modeBtn"), modeMenu=document.getElementById("modeMenu");
+  var globalBtn=document.getElementById("globalBtn"), globalMenu=document.getElementById("globalMenu");
+  var MENUS=[[fileMenu,fileBtn],[siteMenu,brandBtn],[modeMenu,modeBtn],[globalMenu,globalBtn]];
+  function closeAllMenus(){MENUS.forEach(function(x){x[0].classList.add("hidden");x[1].setAttribute("aria-expanded","false");});}
+  function toggleMenu(menu,btn){var wasHidden=menu.classList.contains("hidden");closeAllMenus();if(wasHidden){menu.classList.remove("hidden");btn.setAttribute("aria-expanded","true");}}
+  fileBtn.onclick=function(e){e.stopPropagation();toggleMenu(fileMenu,fileBtn);};
+  brandBtn.onclick=function(e){e.stopPropagation();toggleMenu(siteMenu,brandBtn);};
+  modeBtn.onclick=function(e){e.stopPropagation();toggleMenu(modeMenu,modeBtn);};
+  globalBtn.onclick=function(e){e.stopPropagation();toggleMenu(globalMenu,globalBtn);};
+  MENUS.forEach(function(x){x[0].addEventListener("click",function(e){e.stopPropagation();});});
+  document.addEventListener("click",closeAllMenus);
+  document.querySelectorAll("#modeMenu .mi2").forEach(function(el){el.onclick=function(){state.tab=el.getAttribute("data-mode");closeAllMenus();render();};});
+  document.querySelectorAll('[data-view="properties"]').forEach(function(el){el.onclick=function(){state.view="properties";afterNav();};});
+  window.__setMel=function(v){state.mel=v;state.view="editor";render();};
+  window.__setLyr=function(v){state.lyr=v;state.view="editor";render();};
+  window.__setOrder=function(m){state.orderMode=m;render();};
+
+  // ---- customizable toolbar (buttons only: add / remove / move) ----
+  var TOOLS={undo:{l:'ย้อน',i:'undo-2'},redo:{l:'ทำซ้ำ',i:'redo-2'},play:{l:'ฟัง',i:'play'},send:{l:'ส่งตรวจ',i:'send',p:true},draft:{l:'บันทึกร่าง',i:'save'},download:{l:'ดาวน์โหลด',i:'download'},sheetbtn:{l:'แผ่นเพลง',i:'eye'}};
+  var DEF=['undo','redo','play','send'], shownTools=DEF.slice();
+  function renderDock(){
+    var host=document.getElementById('dockTools'); host.innerHTML='';
+    shownTools.forEach(function(id){var t=TOOLS[id];if(!t)return;var b=document.createElement('button');b.className='btn'+(t.p?' prime':'');b.innerHTML=svgIcon(t.i,18);b.title=t.l;b.setAttribute('aria-label',t.l);host.appendChild(b);});
+  }
+  function renderCust(){
+    var p=document.getElementById('custPanel');
+    var h='<div style="font-size:15px;font-weight:600">ปรับแถบเครื่องมือ</div><div style="font-size:12px;color:var(--muted);margin:2px 0 8px">กดเพิ่ม / เอาออก / ย้าย (ไม่ต้องลาก)</div>';
+    h+='<div style="font-size:12px;color:var(--brand);font-weight:700;margin:4px 0">แสดงอยู่</div>';
+    shownTools.forEach(function(id,i){var t=TOOLS[id];
+      h+='<div class="crow"><span style="width:22px;display:inline-flex;justify-content:center">'+svgIcon(t.i,16)+'</span>'+t.l+'<span class="cbtns">'+
+        '<button class="btn" aria-label="ขึ้น" onclick="__mv(\''+id+'\',-1)"'+(i===0?' disabled':'')+'>▲</button>'+
+        '<button class="btn" aria-label="ลง" onclick="__mv(\''+id+'\',1)"'+(i===shownTools.length-1?' disabled':'')+'>▼</button>'+
+        '<button class="btn" aria-label="เอาออก" onclick="__rm(\''+id+'\')">✕</button></span></div>';
+    });
+    var avail=Object.keys(TOOLS).filter(function(id){return shownTools.indexOf(id)<0;});
+    if(avail.length){h+='<div style="font-size:12px;color:var(--brand);font-weight:700;margin:10px 0 4px">เพิ่มได้</div>';
+      avail.forEach(function(id){var t=TOOLS[id];h+='<div class="crow"><span style="width:22px;display:inline-flex;justify-content:center">'+svgIcon(t.i,16)+'</span>'+t.l+'<span class="cbtns"><button class="btn" aria-label="เพิ่ม" onclick="__add(\''+id+'\')">＋</button></span></div>';});
+    }
+    h+='<div style="margin-top:12px;display:flex;gap:8px"><button class="btn" onclick="__reset()">คืนค่าเริ่มต้น</button><button class="btn" style="margin-left:auto" onclick="__closeCust()">เสร็จ</button></div>';
+    p.innerHTML=h;
+  }
+  window.__mv=function(id,d){var i=shownTools.indexOf(id),j=i+d;if(j<0||j>=shownTools.length)return;var t=shownTools[i];shownTools[i]=shownTools[j];shownTools[j]=t;renderDock();renderCust();};
+  window.__rm=function(id){shownTools=shownTools.filter(function(x){return x!==id;});renderDock();renderCust();};
+  window.__add=function(id){if(shownTools.indexOf(id)<0)shownTools.push(id);renderDock();renderCust();};
+  window.__reset=function(){shownTools=DEF.slice();renderDock();renderCust();};
+  window.__closeCust=function(){document.getElementById('custPanel').classList.add('hidden');};
+  document.getElementById('custBtn').onclick=function(e){e.stopPropagation();var p=document.getElementById('custPanel');var hid=p.classList.toggle('hidden');if(!hid)renderCust();};
+
+  // desktop: drag the toolbar by its grip (pointer capture = robust)
+  (function(){
+    var grip=document.getElementById('dockGrip'), dock=document.getElementById('dock');
+    if(!grip||!dock)return;
+    var drag=false, ox=0, oy=0, w=0, h=0;
+    grip.addEventListener('pointerdown',function(e){
+      if(window.matchMedia('(max-width:760px)').matches)return;
+      e.preventDefault();
+      var r=dock.getBoundingClientRect();
+      ox=e.clientX-r.left; oy=e.clientY-r.top; w=r.width; h=r.height;
+      dock.style.left=r.left+'px'; dock.style.top=r.top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+      drag=true;
+      try{grip.setPointerCapture(e.pointerId);}catch(_){}
+    });
+    grip.addEventListener('pointermove',function(e){
+      if(!drag)return; e.preventDefault();
+      dock.style.left=Math.max(4,Math.min(window.innerWidth-w-4, e.clientX-ox))+'px';
+      dock.style.top=Math.max(4,Math.min(window.innerHeight-h-4, e.clientY-oy))+'px';
+    });
+    function stop(){drag=false;}
+    grip.addEventListener('pointerup',stop);
+    grip.addEventListener('pointercancel',stop);
+  })();
+
+  renderDock();
+  render();
+})();
+</script>
