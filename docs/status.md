@@ -14,11 +14,14 @@
 `Studio.vue` เป็น thin shell · `EditorMode.vue` แยกออก · store gating (`tier`/`canStore`/`canApprove`) · contract (props `song`/`tier`/`active`, events `change`/`save`) · vitest 12/12 · build ✅
 **หมายเหตุ:** WT-0 แตะ `SongViewer.vue`+`midi.js` (คืน live key re-tune + หยุดเล่นตอนสลับโหมด) — A/B/C/D branch จากฐานใหม่นี้ได้ live-key ไปเลย
 
-## 🆕 WT-0 follow-up (จาก review) · branch `wt0-followups` · port 5301
-| US | spec | dev+test | merge | tester |
+## ✅ WT-0 follow-up — เสร็จ + merge แล้ว (`wt0-followups` · port 5301 ค้างให้ tester)
+| งาน | spec | dev+test | merge | tester |
 |---|:--:|:--:|:--:|:--:|
-| US-05 เปิด/เลือกเพลงทุกโหมด (#3) | ✅ | ⬜ | ⬜ | ⬜ |
-| US-06 ปุ่มพิมพ์ในโหมดแผ่น (#4-ปุ่ม) | ✅ | ⬜ | ⬜ | ⬜ |
+| US-05 เปิด/เลือกเพลงทุกโหมด (#3) | ✅ | ✅ | ✅ | ⬜ (5301) |
+| US-06 ปุ่มพิมพ์ในโหมดแผ่น (#4-ปุ่ม) | ✅ | ✅ | ✅ | ⬜ (5301) |
+| B002 ชื่อโหมด ฝึกร้อง·แผ่นเพลง·แก้ไข | ✅ | ✅ | ✅ | ⬜ (5301) |
+
+unit 16/16 · แตะ `Studio.vue` ไฟล์เดียว · **ค้าง observation:** เมนูเปิดเพลงซ้ำในโหมดแก้ → B003 (ให้ WT-D เก็บ)
 
 ## WT-A ร้อง · branch `wt-a-sing` · port 5302  (พร้อมเริ่ม — ฐาน merge แล้ว)
 | US | spec | dev+test | merge | tester |
@@ -35,8 +38,9 @@
 - WT-D: US-D01..04 (เริ่มได้ · แตะ `store.js`/`songModel.js` — เป็น epic เดียวที่แตะ จึงปลอดภัย)
 
 ## ถัดไป (next actions)
-- [ ] จ่าย dev: **A/B/C ขนานได้เลย** (5302/5303/5304) · **wt0-followups** (5301, #3+#4-ปุ่ม) · **D** (5305)
-- [ ] เคาะ **B002** ชื่อโหมด (ฝึกร้อง · แผ่นเพลง · แก้ไข — SA แนะ) พร้อม US-05 (เพราะแตะแถบโหมดเหมือนกัน)
+- [ ] A/B/C/D กำลังรันอยู่ (5302–5305) · wt0-followups เสร็จ+merge แล้ว (5301 ค้างให้ tester)
+- [ ] tester (พี่เปา) ลอง 5301: เปิดเพลงทุกโหมด · ปุ่มพิมพ์ · ชื่อโหมดใหม่ → ผ่านแล้วเก็บ worktree
+- [ ] B003 (เมนูเปิดเพลงซ้ำในโหมดแก้) → ฝาก WT-D ตัด "เลือกเพลงเพื่อแก้…" ออกจาก `EditorMode`
 
 ## หมายเหตุ
 - ฐาน = `studio-shell-redesign` (ยังไม่ขึ้น `main`)
