@@ -11,7 +11,13 @@ import { resolveContent } from '../lib/songModel.js'
 import SongSheet from './SongSheet.vue'
 import Icon from './Icon.vue'
 
-const props = defineProps({ song: { type: Object, required: true } })
+// `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
+// view-only for everyone, so it is accepted but not used to gate anything — there are
+// no save/edit affordances here regardless of tier (US-A01 AC3).
+const props = defineProps({
+  song: { type: Object, required: true },
+  tier: { type: String, default: 'guest' },
+})
 
 const mode = ref('full') // full = โน้ต+คอร์ด+เนื้อ · lyrics = เนื้อล้วน (karaoke)
 const chordSystem = ref('letter')
@@ -23,6 +29,10 @@ const playingSeg = ref(null)
 const playingSection = ref(null) // 'all' | section index | null
 const sheetWrap = ref(null)
 const fontScale = ref(1)
+// pause/resume (US-A01 "เล่นต่อ"): playedIndex = note index currently sounding;
+// pausedIndex = where the last stop happened, so the next play continues from there.
+const playedIndex = ref(0)
+const pausedIndex = ref(0)
 
 const resolved = computed(() =>
   props.song ? { ...props.song.content, lines: resolveContent(props.song.content) } : null,
@@ -44,14 +54,19 @@ const tempoOptions = computed(() => {
   return [...base, ...TEMPO_MARKS]
 })
 
-// re-sync when the song changes (Studio switches songs)
+// Re-sync ONLY when the song IDENTITY changes (a different song loads). Keying the watch
+// on the whole object would fire on every edit the editor re-emits (a new object with the
+// same song) and wipe the listener's chosen key/tempo mid-practice — a latent bug WT-0
+// flagged for WT-A. `number` is the song's identity; edits keep it, a new song changes it.
 watch(
-  () => props.song,
-  (s) => {
-    if (s?.content) {
-      displayKey.value = s.content.key || 'C'
-      tempo.value = s.content.bpm || 92
-    }
+  () => props.song?.number,
+  () => {
+    const c = props.song?.content
+    if (!c) return
+    stopPlay() // a genuinely different song → don't keep playing the old one's position
+    displayKey.value = c.key || 'C'
+    tempo.value = c.bpm || 92
+    pausedIndex.value = 0 // resume from the new song's start, not the old position
   },
 )
 
@@ -69,6 +84,7 @@ function bumpFont(d) {
   fontScale.value = Math.min(2.2, Math.max(0.8, Math.round((fontScale.value + d) * 10) / 10))
 }
 let playGen = 0
+let currentRange // the range of the active playback (undefined = whole song) — for live-tempo re-schedule
 function stopPlay() {
   playGen++
   stopPlayback()
@@ -76,9 +92,10 @@ function stopPlay() {
   playingSection.value = null
   playingSeg.value = null
 }
-async function startPlay(range, key) {
+async function startPlay(range, key, startIndex = 0) {
   stopPlayback()
   const gen = ++playGen
+  currentRange = range
   playing.value = true
   playingSection.value = key
   // Play in the chosen key. The melody is scheduled at the ORIGINAL key and shifted
@@ -90,21 +107,30 @@ async function startPlay(range, key) {
     loop: loop.value,
     range,
     transpose: keyTranspose(props.song.content.key, displayKey.value || props.song.content.key),
-    onNote: (n) => {
+    startIndex,
+    onNote: (n, idx) => {
       playingSeg.value = { li: n.li, si: n.si }
+      playedIndex.value = idx
     },
   })
   if (gen === playGen) {
+    // reached the natural end (not a pause) → next play starts from the top
     playing.value = false
     playingSection.value = null
     playingSeg.value = null
+    pausedIndex.value = 0
   }
 }
 function togglePlay() {
-  if (playing.value) stopPlay()
-  else startPlay(undefined, 'all')
+  if (playing.value) {
+    pausedIndex.value = playedIndex.value // remember position so the next play continues
+    stopPlay()
+  } else {
+    startPlay(undefined, 'all', pausedIndex.value) // resume from where we stopped (0 = fresh)
+  }
 }
 function playSection(idx) {
+  pausedIndex.value = 0 // a section is always played from its start
   const s = sections.value[idx]
   if (s) startPlay({ fromLi: s.fromLi, toLi: s.toLi }, idx)
 }
@@ -113,6 +139,13 @@ function playSection(idx) {
 // restart — playback continues from where you are. Not playing = next play uses it.
 watch(displayKey, (k) => {
   if (playing.value) setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
+})
+// live tempo change (US-A04): unlike key (which rides on detune, seamless), tempo can't be
+// re-tuned in place — re-schedule the notes still ahead at the new bpm, continuing from the
+// current note (a tiny seam is accepted per DS-A04). NOT a jump back to the top. Not
+// playing → the new tempo simply applies to the next play.
+watch(tempo, () => {
+  if (playing.value) startPlay(currentRange, playingSection.value, playedIndex.value)
 })
 function printSheet() {
   window.print()

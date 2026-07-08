@@ -187,7 +187,7 @@ export function setTranspose(semitones) {
 
 // Play the melody; resolves when done or stopped. Returns false when the device
 // blocks audio (e.g. iOS with the silent switch on / autoplay policy).
-export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, transpose = 0 } = {}) {
+export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, transpose = 0, startIndex = 0 } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   // iOS unlock: play a 1-sample silent buffer synchronously inside the user gesture
   try {
@@ -205,6 +205,9 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   let notes = songToNotes(content)
   // play only a section (line range) when asked (feature 003)
   if (range) notes = notes.filter((n) => n.li >= range.fromLi && n.li <= range.toLi)
+  // resume (US-A01 "เล่นต่อ"): skip the notes already played so a pause/play continues
+  // from where you stopped instead of restarting. index is into this (range-filtered) list.
+  if (startIndex > 0) notes = notes.slice(startIndex)
   if (!notes.length) return true
   const spb = 60 / bpm // seconds per beat
 
@@ -253,7 +256,9 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
       while (idx < notes.length - 1 && elapsed >= noteEndsMs[idx]) idx++
       if (idx !== noteIdx) {
         noteIdx = idx
-        onNote?.(notes[idx])
+        // second arg = absolute index in the range-filtered list, so the viewer can
+        // remember where a pause happened and resume via startIndex.
+        onNote?.(notes[idx], startIndex + idx)
       }
       onProgress?.(Date.now() - start, totalMs)
       await new Promise((r) => setTimeout(r, 100))
