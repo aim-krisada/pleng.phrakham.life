@@ -31,7 +31,7 @@
 **B) dev เก็บขนานระหว่าง SA ออกแบบ (low-risk · ไม่ต้อง design · ไม่แตะเมนู):**
 | งาน | branch | port | สถานะ |
 |---|---|---|---|
-| integration อิสระ: I2 ชื่อไฟล์ SSOT · I3 print footer/@page · I4 คู่มือ C03 | `wt0-int-a` | 5301 | 🔵 กำลังทำ · I4 ต้องได้อีเมลทีมก่อน |
+| integration อิสระ: I2 ชื่อไฟล์ SSOT · I3 print (title กลางบน + footer @page 3 ช่องเท่ากัน) · I4 คู่มือ C03 | `wt0-int-a` | 5301 | ✅ **merged เข้า base** (unit 70/70 · **P'Aim ยืนยัน PDF จริง**) · อีเมลทีม `pleng@phrakham.life` ใส่คู่มือ + forwarding ตั้งเสร็จ · report: `docs/reports/wt0-integration.md` |
 | bug+feature: **B018 ตกขอบ · B020 dock mobile · B001 ปุ่มเลื่อน** | `wt-fix` | 5306 | ✅ **merged เข้า base** (unit 63/63 · build ✅ · SA รีวิว diff+conflict แล้ว) · ⏳ ฝาก tester ลอง B020+B001 บนมือถือจริงก่อนปิดสนิท |
 
 > B001 รวมเข้า `wt-fix` แล้ว (ไม่แยก `wt-b001`) · ใช้ `pk-scrollnav.js` ร่วมกับ พระคำ.ชีวิต เป๊ะ · report: `docs/reports/wt-fix-summary.md`
@@ -44,7 +44,7 @@
 
 ### ค้าง P'Aim เคาะ (ต้นทาง ps2)
 - **WT-B #4 คีย์ตอนพิมพ์** — SA แนะ "คีย์เดียวใช้ร่วมทุกโหมด (แบบ A)" · รอเคาะ A/B
-- **อีเมลทีม** สำหรับคู่มือ C03 (ps2-B)
+- ~~**อีเมลทีม** สำหรับคู่มือ C03~~ ✅ เคาะ `pleng@phrakham.life` (Namecheap alias info@ → forward Gmail · ตั้งเสร็จ 8 ก.ค. 69)
 
 ---
 
