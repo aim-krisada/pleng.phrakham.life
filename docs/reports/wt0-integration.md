@@ -1,7 +1,17 @@
 # รายงาน — wt0-integration (WT-0 integration/polish)
 
-**รอบ:** รอบแรก US-I2/I3/I4 + **รอบ 2: print-polish ตาม feedback P'Aim (จาก PDF จริง)**
-**สถานะ:** เสร็จ
+**รอบ:** US-I2/I3/I4 → รอบ 2 (print-polish) → **รอบ 3: รื้อ print ใหม่จาก PDF จริง (P'Aim)**
+**สถานะ:** เสร็จ (รอ P'Aim พิมพ์จริงยืนยันหน้าตาบนกระดาษ)
+
+## รอบ 3 — รื้อระบบพิมพ์ ตาม PDF จริงที่ P'Aim ส่งมา
+เปิด PDF จริงแล้วเห็น 3 ปัญหา (เช็คจากหน้าจอไม่เจอ — ต้องดูไฟล์พิมพ์):
+- (1) **มี header ของ browser** (วันที่บนซ้าย + ชื่อเว็บบนกลาง) · (2) **ไม่มีชื่อเพลงเหนือเนื้อ** (P'Aim พิมพ์จากโหมด "ดู" ซึ่งเดิมไม่มี title ตอนพิมพ์) · (3) **footer ตัวหนังสือคนละขนาด/คนละระนาบ** (เลขหน้าเป็น `@page` counter แต่ site+วันที่เป็น div `position:fixed` = คนละกลไก)
+
+**วิธีแก้ (ออกแบบใหม่ให้ footer เป็นกลไกเดียว + title พิมพ์ได้ทุกโหมด):**
+- **footer = `@page` margin box ทั้ง 3 ช่อง** → `src/lib/printChrome.js` (ใหม่) inject `<style>` ตอน `beforeprint`: `@bottom-left`=ชื่อเว็บ (SSOT) · `@bottom-center`=`หน้า X ของ Y` (counter) · `@bottom-right`=`พิมพ์เมื่อ …` · **font-size 9pt เท่ากันทั้ง 3 → ระนาบเดียว ขนาดเท่ากัน** (แก้ปัญหา 3) · ลบ div `position:fixed` ใน SongSheet ทิ้ง · init ครั้งเดียวใน `App.vue` → **ใช้ได้ทั้งปุ่มพิมพ์และ Ctrl+P**
+- **ชื่อเพลงเหนือเนื้อ** — ย้ายมาไว้ใน `SongSheet` (`h1.sheet-print-title` print-only) รับ prop `songTitle` · ส่งจากทั้ง `Studio` (โหมดแผ่น) และ `SongViewer` (โหมดดู) → **พิมพ์จากโหมดไหนก็มีชื่อเพลง** (แก้ปัญหา 2) · h2 บนจอในโหมดแผ่นตั้ง `no-print` กันซ้ำ
+- **ชื่อไฟล์** — `Studio` ตั้ง `document.title = songBasename(song)` ตั้งแต่ตอนโหลดเพลง (คืนค่าเว็บตอนออก) → **Ctrl+P ก็ได้ชื่อไฟล์ถูก** ไม่ต้องกดผ่านปุ่มเรา (รอบ 2 แก้เฉพาะปุ่ม → P'Aim กด Ctrl+P เลยยังได้ชื่อเว็บ)
+- **header (ปัญหา 1)** — ส่วนบน (วันที่/ชื่อเว็บ) = **header ของ browser เอง** เว็บสั่งปิดด้วย CSS ไม่ได้ · ต้อง **ปิด "หัวกระดาษและท้ายกระดาษ" (Headers and footers)** ในกล่องพิมพ์ (บอกในคู่มือแล้ว) · เมื่อปิดแล้ว บนสุดจะเหลือแค่ชื่อเพลง
 
 ## รอบ 2 — แก้ PDF ตามที่ P'Aim สั่ง (8 ก.ค. 69)
 P'Aim ทดสอบพิมพ์ PDF จริงแล้วเจอ: (ก) ชื่อไฟล์ยังผิด (ได้ชื่อเว็บ "คลังเพลงนมัสการ" แทนชื่อเพลง) เพราะปุ่ม "พิมพ์" ในโหมดแผ่นไม่ได้ตั้ง `document.title` · (ข) ฟอนต์ footer คนละขนาด · (ค) สั่ง layout ใหม่ 4 ข้อ
@@ -31,40 +41,37 @@ P'Aim ทดสอบพิมพ์ PDF จริงแล้วเจอ: (ก
   - ขยายบรรทัด "ไม่มีบัญชีก็ช่วยได้" เป็นลิสต์ 4 ขั้น (คีย์เพลง → ดาวน์โหลด JSON → ส่งอีเมลแนบไฟล์ → ทีมตรวจนำขึ้นคลัง)
   - อีเมลทีม = ยังไม่ hardcode · ใส่ `<!-- TODO(P'Aim) -->` ไว้ตรงขั้นส่งอีเมล รอ P'Aim ให้อีเมลจริง
 
-## ไฟล์ที่แก้
-- `src/lib/songName.js` — เพิ่ม `SITE_NAME`, เขียน `songBasename` ใหม่ (SSOT, ไม่มีเลข)
-- `src/views/Studio.vue` — `printSheet()` ตั้ง `document.title = songBasename` (แก้ชื่อไฟล์) · `.sheet-title` กลาง · (เลิกส่ง `:song-title` แล้ว — ชื่อเพลงอยู่ในเนื้อ)
-- `src/components/SongSheet.vue` — footer ใหม่: ซ้าย=`SITE_NAME` (import) · ขวา="พิมพ์เมื่อ …" (วันที่ไทย) · เลิกใช้ prop `songTitle`
-- `src/styles.css` — `@page margin 16/16/20mm` + `@bottom-center` counter สไตล์ 9pt (font เท่ากับ footer)
-- `src/views/Guide.vue` — ลิสต์ 4 ขั้น C03 + TODO อีเมลทีม · เพิ่ม tip ปิด Headers and footers
-- `src/lib/songName.test.js` — test `songBasename` format ใหม่ + `SITE_NAME`
-- `src/lib/jsonIO.test.js` — test `songFilename` ตรง SSOT ใหม่
-- `src/views/Studio.mode.test.js` — test โหมดแผ่นโชว์ชื่อเพลงกลางบน (`.sheet-title`)
-- `src/components/SongSheet.test.js` — test footer ใหม่ (site ซ้าย · "พิมพ์เมื่อ…" ขวา · ชื่อเพลงไม่อยู่ footer)
+## ไฟล์ที่แก้ (รวมทุกรอบ)
+- `src/lib/songName.js` — `SITE_NAME` + `songBasename` SSOT (ไม่มีเลข)
+- `src/lib/printChrome.js` **(ใหม่)** — running footer เป็น `@page` margin box (inject ตอนพิมพ์) + `thaiPrintDate`
+- `src/App.vue` — `initPrintChrome()` ครั้งเดียว (ทำงานทั้งปุ่มพิมพ์ + Ctrl+P)
+- `src/views/Studio.vue` — `document.title = songBasename(song)` ตอนโหลดเพลง (แก้ชื่อไฟล์ทุกทาง) · ส่ง `:song-title` เข้า SongSheet · h2 บนจอ `no-print`
+- `src/components/SongSheet.vue` — `h1.sheet-print-title` (ชื่อเพลง print-only เหนือเนื้อ) · ลบ div footer `position:fixed` ทิ้ง (ย้ายไป printChrome)
+- `src/components/SongViewer.vue` — ส่ง `:song-title` เข้า SongSheet → โหมด "ดู" พิมพ์แล้วมีชื่อเพลง
+- `src/styles.css` — `@page margin 15/16/16mm` (footer content ย้ายไป printChrome)
+- `src/views/Guide.vue` — ลิสต์ 4 ขั้น C03 + tip ปิด Headers and footers
+- tests: `songName.test.js` · `jsonIO.test.js` · `printChrome.test.js` (ใหม่) · `SongSheet.test.js` · `Studio.mode.test.js`
 
 ## ผลทดสอบ
-- **unit:** ผ่านทั้งหมด **61/61** (`npm test`) — ครอบ AC: `songBasename` = "เพลง.พระคำ.ชีวิต - พระเจ้าเป็นความรัก" · ตัด `/ : * ?` · title ว่าง → "…- แผ่นเพลง" · `title_en` ไม่ใช้ตั้งชื่อไฟล์ · `songName` ยังได้ "N. ชื่อ" · footer ขวา = "พิมพ์เมื่อ …" (regex) · ชื่อเพลงไม่อยู่ footer · โหมดแผ่นโชว์ชื่อเพลงกลางบน
+- **unit:** ผ่าน **68/68** (`npm test`) — รวม `thaiPrintDate` = "พิมพ์เมื่อ 8 ก.ค. 69" · `footerCss` มี 3 margin box + counter + font-size 9pt ×3 · SongSheet พิมพ์ชื่อเพลงเป็นหัว · ไม่มี div footer แล้ว · `songBasename` SSOT ครบ
 - **พิสูจน์บนเว็บสด (port 5301):**
-  - **ชื่อไฟล์** เพลงจริง #1: ปุ่มพิมพ์โหมดแผ่นตั้ง `document.title = "เพลง.พระคำ.ชีวิต - พระเจ้าเป็นความรัก"` แล้ว restore กลับหลังพิมพ์ · JSON = ชื่อเดียวกัน + `.json`
-  - **ชื่อเพลงกลางบน:** `.sheet-title` = "1. พระเจ้าเป็นความรัก" · `text-align: center`
-  - **footer:** ซ้าย="เพลง.พระคำ.ชีวิต" · กลาง=ว่าง (counter เติม) · ขวา="พิมพ์เมื่อ 8 ก.ค. 69"
-  - **counter:** กฎ `@page @bottom-center` + `font-size:9pt` โหลดใน stylesheet จริง
-  - US-I4 หน้าคู่มือ: ลิสต์ 4 ขั้น + tip Headers/footers
+  - **ชื่อไฟล์** โหลดเพลง #1 → `document.title = "เพลง.พระคำ.ชีวิต - พระเจ้าเป็นความรัก"` ทันที (Ctrl+P ก็ได้ชื่อถูก)
+  - **ชื่อเพลงเหนือเนื้อ** โหมด "ดู": `.sheet-print-title` = "1. พระเจ้าเป็นความรัก" (print-only, บนจอ `display:none`)
+  - **footer** dispatch `beforeprint` → inject `<style>` มี `@bottom-left/center/right` · `font-size:9pt` ×3 (เท่ากัน) · counter + วันที่ + ชื่อเว็บครบ · `afterprint` → ลบออก
   - ไม่มี console error
-- **วิธี tester ลอง (ดูด้วยตาในกล่องพิมพ์จริง):**
-  1. เปิด <http://localhost:5301> → เลือกเพลง → โหมด "แผ่นเพลง" → กด "พิมพ์"
-  2. ในกล่องพิมพ์ **ปิด "Headers and footers"** (Chrome/Edge)
-  3. ตรวจ: ชื่อเพลงกลาง-บนเหนือโน้ต · ล่างซ้าย=`เพลง.พระคำ.ชีวิต` · ล่างกลาง=`หน้า X ของ Y` · ล่างขวา=`พิมพ์เมื่อ 8 ก.ค. 69` · ฟอนต์ footer เท่ากันทั้ง 3 · ชื่อไฟล์ตอน Save PDF = `เพลง.พระคำ.ชีวิต - <ชื่อเพลง>` · เนื้อไม่ทับ footer เวลาหลายหน้า
+- **⚠️ ยังพิสูจน์ตัวพิมพ์จริงบนกระดาษไม่ได้** (preview screenshot โหมด print ไม่ได้) — ต้องให้ P'Aim/tester พิมพ์จริง
+- **วิธี tester ลอง (ในกล่องพิมพ์จริง):**
+  1. เปิด <http://localhost:5301> → เลือกเพลง → กด "พิมพ์" (หรือ Ctrl+P)
+  2. **ปิด "หัวกระดาษและท้ายกระดาษ" (Headers and footers)** ในกล่องพิมพ์ ← สำคัญ (ลบ header วันที่/ชื่อเว็บของ browser)
+  3. ตรวจ: บนสุด=ชื่อเพลงกลาง · ล่างซ้าย=`เพลง.พระคำ.ชีวิต` · ล่างกลาง=`หน้า X ของ Y` · ล่างขวา=`พิมพ์เมื่อ 8 ก.ค. 69` (3 อันขนาด/ระนาบเดียวกัน) · ชื่อไฟล์ตอน Save PDF = `เพลง.พระคำ.ชีวิต - <ชื่อเพลง>`
   4. **US-I4:** เมนู "คู่มือ" → "คีย์เพลงใหม่ (ห้องทำเพลง)" → ลิสต์ 4 ขั้น + tip พิมพ์
 
 ## ข้อสังเกต / คำถามถึง SA
 - **อีเมลทีม (US-I4)** ยังเป็น TODO — รอ P'Aim ให้อีเมลจริง (คอมเมนต์ `TODO(P'Aim)` ฝังใน `Guide.vue`)
-- **วันที่พิมพ์** อ่านจากนาฬิกาเครื่อง (refresh ตอน `beforeprint`) — ตรงกับวันที่พิมพ์จริงเสมอ
-- **ต้องปิด "Headers and footers"** ในกล่องพิมพ์ (browser วาด header ของมันเองซ้อนไม่ได้) — ใส่ไว้ในคู่มือแล้ว · เป็นข้อจำกัดของ browser คุมจาก CSS ไม่ได้
-- **แตะ `SongSheet.vue`** (ไฟล์ WT-B ที่ปิดงานแล้ว) เพราะ P'Aim สั่ง layout footer ใหม่ตรงๆ — ตอนนี้ SSOT ชื่อเว็บใช้ `SITE_NAME` จาก `songName.js` แล้ว (เลิก hardcode)
+- **header ของ browser (วันที่/ชื่อเว็บ บนสุด)** — เว็บสั่งปิดด้วย CSS ไม่ได้ (browser feature) · ต้องปิด "Headers and footers" ในกล่องพิมพ์ · แต่ตอนนี้ตั้ง `document.title` เป็นชื่อเพลงแล้ว ถึงเผลอไม่ปิด header กลางบนก็เป็นชื่อเพลง (ไม่ใช่ "คลังเพลงนมัสการ")
+- **แตะไฟล์ WT-A (`SongViewer.vue`) + WT-B (`SongSheet.vue`)** — ปิดงาน merged แล้ว ไม่มี session อื่นจับ · P'Aim สั่ง print layout ใหม่ตรงๆ
 
 ## พร้อม merge ไหม
-**ใช่** — AC ครบ + feedback P'Aim จบ, unit 61/61 ผ่าน, ไฟล์ไม่ทับ worktree อื่น (US-I5/EditorMode ไม่แตะ)
-เหลือแค่ P'Aim เคาะอีเมลทีมของ US-I4 (เติมทีหลังได้ ไม่บล็อก merge) และลองพิมพ์จริงยืนยันหน้าตา
+**เกือบ** — โค้ด + unit 68/68 ผ่าน แต่ **ขอ P'Aim พิมพ์จริง 1 ครั้ง** (ปิด Headers and footers) ยืนยันหน้าตาก่อน merge · อีเมลทีม US-I4 เติมทีหลังได้
 
 **URL ตรวจงาน:** <http://localhost:5301> (dev server ค้างรันไว้)

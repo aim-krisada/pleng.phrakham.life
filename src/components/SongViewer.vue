@@ -37,6 +37,12 @@ const pausedIndex = ref(0)
 const resolved = computed(() =>
   props.song ? { ...props.song.content, lines: resolveContent(props.song.content) } : null,
 )
+// Title shown as the centered heading when this reading view is printed (Ctrl+P / PDF).
+const printTitle = computed(() => {
+  const s = props.song
+  if (!s) return ''
+  return (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
+})
 const sections = computed(() => {
   const lines = resolved.value?.lines || []
   const secs = []
@@ -204,7 +210,7 @@ onUnmounted(stopPlayback)
     </div>
 
     <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: fontScale + 'rem' }">
-      <SongSheet :content="resolved" :mode="mode" :chord-system="chordSystem" :display-key="displayKey" :playing-seg="playingSeg" />
+      <SongSheet :content="resolved" :mode="mode" :chord-system="chordSystem" :display-key="displayKey" :playing-seg="playingSeg" :song-title="printTitle" />
     </div>
   </div>
 </template>

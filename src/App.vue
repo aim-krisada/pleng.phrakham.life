@@ -2,10 +2,14 @@
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { initAuth, recovering, emailChanged } from './store.js'
+import { initPrintChrome } from './lib/printChrome.js'
 import SiteFooter from './components/SiteFooter.vue'
 import ShellBar from './components/ShellBar.vue'
 
 initAuth()
+// Running print footer (site · page X of Y · date) injected on every print — one place
+// so it works from any page, Save-as-PDF button or Ctrl+P alike.
+initPrintChrome()
 const route = useRoute()
 const router = useRouter()
 // The song surface (Studio) renders its own richer shell header (catalog · file/
