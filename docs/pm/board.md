@@ -15,7 +15,7 @@
 | สาย/branch | commit | สถานะ | PM |
 |---|---|---|---|
 | dock-core `wt-dock` | `75d5b7c` | ⚠️ **P'Aim ลองจริง 9 ก.ค. → ยังไม่ผ่าน · dock-core รอบ 2 (5 fix ก่อน merge)** — DoD objective ผ่าน (113/113·build) แต่ real-use เจอ: **(1)** ยุบแล้วปุ่มลอยควรอยู่ที่จุดที่กด ไม่กระโดด · **(2)** ปุ่มยุบสีเด่นกว่านี้ (WCAG 2.2 AA) · **(3)** ⋯ ขวาสุดทุกโหมด · **(4)** transparency ใช้ไม่ได้ (regression?—dock-core แตะโค้ด) · **(5)** ปุ่ม "แสดงผล" ไม่โชว์ค่าที่เลือก + ฟอนต์ "ตัวใหญ่ขึ้น" หาย/ไม่ตรงแผงปรับแต่ง (img `realuse-assets/dock-customize-mismatch.png`) → ส่งกลับ dock-core · re-verify → merge · gate B038/39/41 ยังจ่อ | debug pl2 r1 |
-| B043 SA `wt-b043-sa` | (docs) | ✅ design เสร็จ (US+DS+wireframe `docs/design/b043-sing-repeat.html`) · **รอ P'Aim เคาะ 6 decision** (A สำคัญสุด: แผ่เต็ม **A1** [เสี่ยงต่ำ·ไม่แตะ SongSheet·SA แนะเริ่ม] vs ย่อบนจอ **A2** [แตะ SongSheet+print]) → แตก dev รวม batch viewer (B038/B042) | debug pl2 r1 |
+| B043 SA `wt-b043-sa` | (docs) | 🔄 design กำลัง iterate — folded PM #4 (music dock) + **selection model ใหม่ = Gmail-style** (click select/unselect · all/none · transport ตาม selection · ไม่เลือก=play all · ตอบ "ฝึกท่อนเดียว" ในตัว) · transport = **core reusable** เสียบ dock ผ่าน D8 · play/pause ไม่มี bg · **decision โต 6→8** (A แผ่เต็ม/ย่อ สำคัญสุด · +G ปุ่มนอก ⋯ · +H marker vs scrub) · **⚠️ dev ต้องหลัง dock-core merge + ประสาน** (แตะ SongViewer+StudioDock+DownloadTool) · รอ P'Aim เปิด wireframe เคาะ | debug pl2 r1 |
 
 > ▶ **RESUME (PM session ใหม่ อ่านนี่ก่อน):** สวมบท PM ต่อ → อ่าน `docs/pm/pm.md` (ไม้ต่อครบ) + memory `pleng-pm-role` + ไฟล์นี้
 > **โฟกัสตอนนี้:** ✅ **คลื่น 1 (shell + StudioDock) merged เข้าฐานแล้ว** — B033/B034 fixed · unit 81/81 · build ผ่าน · P'Aim accept (LAN test มือถือจริง)
