@@ -270,13 +270,15 @@ def to_sql(number, title, content, warnings, category=DEFAULT_CATEGORY):
     if warnings:
         head += "-- REVIEW in Studio after loading (Claude seeds, P'Pao fixes):\n"
         head += ''.join(f"--   * {w}\n" for w in warnings)
-    # verified left to the column default (false) on insert; NOT touched on update, so a
-    # song P'Pao later marks verified=true is not reset by a re-run.
+    # verified=false on BOTH insert and conflict-update (P'Aim 9-Jul): a re-import
+    # overwrites content = a fresh seed = must be re-checked, so prior verification is
+    # intentionally reset.
     return (head +
-            "insert into public.songs (category, number, title_th, title_en, content)\n"
-            f"values ('{category}', {number}, '{esc}', null, $json${j}$json$::jsonb)\n"
+            "insert into public.songs (category, number, title_th, title_en, content, verified)\n"
+            f"values ('{category}', {number}, '{esc}', null, $json${j}$json$::jsonb, false)\n"
             "on conflict (category, number) do update\n"
-            "  set title_th = excluded.title_th, title_en = excluded.title_en, content = excluded.content;\n")
+            "  set title_th = excluded.title_th, title_en = excluded.title_en,\n"
+            "      content = excluded.content, verified = false;\n")
 
 def build_song(pdf, docx, debug=False):
     """Parse one PDF+DOCX pair → {number,title_th,title_en,content,_warnings}."""

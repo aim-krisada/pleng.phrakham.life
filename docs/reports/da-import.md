@@ -148,7 +148,7 @@
 ## 10. ผลรวม
 - **แปลงสำเร็จ 120/120 เพลง · error 0 · ครบคู่ PDF+DOCX** (Python 3.14-64 · `tools/batch_all.py`)
 - **`tools/import-all-120.sql`** (ในrepo · schema prep + 120 upsert ใน `begin…commit` · มี `-- REVIEW` ต่อเพลง)
-- **schema ใหม่ (P'Aim เคาะ 9 ก.ค.):** เพิ่ม `category text` (=`anuchon` code · frontend map เป็น "อนุชน") + `verified boolean default false` (seed=ยังไม่ตรวจ · พี่เปา filter หาเพลงต้องเกลา) · **คีย์ = `(category, number)` คู่กัน** (เลข 1 อนุชน ≠ เลข 1 ยุวชน อนาคต) → SQL drop unique เดิมบน `number` แล้วสร้าง unique `(category, number)` · upsert `on conflict (category, number)` · ทั้งหมด idempotent (P'Aim run ซ้ำได้)
+- **schema ใหม่ (P'Aim เคาะ 9 ก.ค.):** เพิ่ม `category text` (=`anuchon` code · frontend map เป็น "อนุชน") + `verified boolean default false` (seed=ยังไม่ตรวจ · พี่เปา filter หาเพลงต้องเกลา) · **คีย์ = `(category, number)` คู่กัน** (เลข 1 อนุชน ≠ เลข 1 ยุวชน อนาคต) → SQL drop unique เดิมบน `number` แล้วสร้าง unique `(category, number)` · upsert `on conflict (category, number)` · **verified=false ทั้งตอน insert และ update** (import ทับ = เนื้อใหม่ = รีเซ็ตเป็นยังไม่ตรวจ · P'Aim เคาะ) · ทั้งหมด idempotent (run ซ้ำได้)
 - JSON 120 ไฟล์ + `risk.json` เก็บ OneDrive `song-data/da-import-output/` (ใหญ่ · ไม่เข้า git)
 - ทุกเพลงได้ key (ไม่มีเพลง key หาย) · dedup ทำนองซ้ำ · เนื้อ pad ลงโน้ต (แอป render ได้ทุกเพลง)
 
