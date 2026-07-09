@@ -1,7 +1,18 @@
 # Deploy plan — studio redesign → production (main)
 
-**เป้า:** เอาแอปใหม่ (studio redesign · base `studio-shell-redesign`) ขึ้น production (`main` → GitHub Pages auto-deploy) แบบ **clean force** โดย**ไม่ทิ้งงานที่มีบน main**
-**สถานะ:** ⏳ รอ B043 + edit-fix รอบนี้เสร็จก่อน · **ห้าม deploy จน P'Aim สั่ง go** (never-publish-without-confirm)
+**เป้า:** เอาแอปใหม่ (studio redesign · base `studio-shell-redesign`) ขึ้น production (`main` → GitHub Pages auto-deploy)
+**สถานะ:** ✅ **deploy รอบ 1 สำเร็จแล้ว (9 ก.ค. · `70335d5`)** — reconcile main→base ทำแล้ว → **รอบต่อไป main fast-forward ได้เลย (ไม่ต้อง force)** ตราบใดไม่มี commit ลง main ตรงๆ
+
+## 🎯 แผน "deploy ทีเดียวตอนรอบนี้จบ" (P'Aim เคาะ 9 ก.ค.)
+churn น้อย · ยังไม่มีใครใช้ รอได้ · ได้ของครบชุด. **deploy เมื่อครบ 5 ข้อ:**
+1. algorithm (ค้นเนื้อ B052 / จุดคู่ B027 / lint B026) — ✅ บนฐาน
+2. B055 แก้จังหวะข้ามห้อง — ✅ บนฐาน
+3. B056 จบเพลง — 🔨 dev → merge
+4. Import 120 เพลง — 🔨 DA gen → P'Aim run SQL (**data อิสระ ไม่บล็อก code deploy**)
+5. 99/100 + verify-set — 🔨 DA
+- **ไม่รวมรอบนี้:** mobile pass (Android ยังไม่เริ่ม) = รอบหน้า
+- **ลำดับ:** ครบ 5 → ฐานนิ่ง (test+build เขียว) → PM เปิด localhost ให้ P'Aim verify → **P'Aim สั่ง go** → deploy ทีเดียว (main FF) → รายงาน version จริง (bundle stamp) ตาม feedback_deploy_no_shortcut
+- **ห้าม deploy จน P'Aim สั่ง go** (never-publish-without-confirm)
 
 ## ⚠️ ประเด็นหลัก: main กับ base diverged
 - `git rev-list --left-right --count main...studio-shell-redesign` = **main 8 / base 225**
