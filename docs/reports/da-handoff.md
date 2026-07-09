@@ -1,5 +1,6 @@
 # DA import — ไม้ต่อ (handoff) สำหรับ DA session ใหม่
 
+**สถานะ: ✅ งาน DA import ครบแล้ว** (120 เพลงขึ้นฐานจริง) · **dedup ท่อนซ้ำ = ทำที่ SongSheet display (ทาง B) ไม่ใช่ data** (PM เคาะ) → DA ไม่ต้องแก้ data เพิ่ม
 **อ่านคู่กัน:** `docs/reports/da-import.md` (รายงานเต็ม ทุก step) · `docs/pm/import-arrangement-spec.md` (ground truth การจัดข้อ) · memory `pleng-da-import-parser`
 
 ## 1. เสร็จแล้ว (ขึ้นฐานจริงแล้ว ✅)
@@ -11,18 +12,11 @@
   ⚠️ **repeat-6-simple.sql อาจยังไม่ได้ run** — เช็กกับ P'Aim (query `review_flags` เพลง 2/36/66/69/74/117)
 - **cleanup ค้าง:** มีแถวเก่า 1 แถว number=NULL "เอ๊า แห่งใดๆ" (id `7333b9c1-a0e0-40f6-be65-99868acdcbeb`) กลายเป็น anuchon → P'Aim ลบ
 
-## 2. กำลังทำ (ค้าง · งานหลักของ session ใหม่) — dedup ทาง A
-**ปัญหา (SongSheet dev เจอ · เพลง 77):** ท่อนที่ทำนองซ้ำหลายรอบถูกอัดเป็น stanza ก้อนเดียวที่มีโน้ตซ้ำ → หน้าแผ่นเพลงโชว์โน้ตซ้ำ
-**ทาง A (P'Aim เคาะ):** ท่อนซ้ำ = **1 stanza (ทำนอง) + arrangement หลาย row** (แต่ละ row = เนื้อ 1 ชุด) → B059 dedup โชว์โน้ตครั้งเดียว
-
-⚠️ **ยังไม่แตะ data — รอ PM เคลียร์ก่อน** (ถามไปแล้ว): เพลง 77 = **3 บรรทัดทำนองเหมือนกัน · เนื้อต่อเนื่องไล่ลง (para 16/19/22)** = **เคส "AABA ต่อเนื่อง" ที่ dev เตือนว่าอย่ารวม** ไม่ใช่ "stacked lyric rows" (แบบ 99/100) · 2 ทางแก้:
-- (A) import-side: รวมบรรทัด **ทำนอง identical ติดกัน** → 1 line + arrangement rows (B0 ต่างจาก B1/B2 แค่ pickup `0` ต้อง normalize)
-- (B) SongSheet-side: B059 print dedup บรรทัด identical (ไม่แตะ data)
-→ **รอ PM ตอบว่าใครทำ (data หรือ SongSheet) + ยืนยันกฎ "identical melody เท่านั้น"** ก่อนลงมือ · **ประสาน SongSheet dev (เขาทำ B062 เส้นโค้ง · อย่าชน)**
-
-**สัญญาณแยกเคส:** reuse (รวมได้) = **เนื้อ 2+ แถว stacked ใต้ทำนองเดียว** (99/100 line1) · ต่อเนื่องไล่ลง (อย่ารวม) = แต่ละบรรทัด 1 เนื้อ อ่านบนลงล่าง (เว้นแต่ทำนอง identical เป๊ะ → อาจรวมได้ ถ้า PM เคาะ)
-
-**งานชัดที่ทำได้เลยถ้า PM ไฟเขียว:** เคส stacked จริง (99/100 + 6 SIMPLE) ที่ตอนนี้ spell-out โน้ตซ้ำ → เปลี่ยนเป็น 1 stanza + หลาย row
+## 2. dedup ท่อนซ้ำ (เพลง 77) — ✅ ปิดแล้ว: ทำที่ SongSheet ไม่ใช่ data
+**ปัญหา (SongSheet dev เจอ · เพลง 77):** ท่อนรับทำนองซ้ำ 3 บรรทัด (B1=B2 เป๊ะ · B0 ต่างแค่ pickup) → หน้าแผ่นเพลงโชว์โน้ตซ้ำ
+**PM เคาะ (ทาง B):** เพลง 77 = **"ทำนองซ้ำ · เนื้อต่อเนื่องไล่ลง" (ไม่ใช่ round ซ้ำ)** → **data ปัจจุบันถูกแล้ว (ต่อเนื่อง) อย่าแตะ** · ถ้า model เป็น reuse (A) จะติดป้ายร้อง1/2/3 ผิด semantic (playback/highlight เพี้ยน)
+→ **dedup = เรื่อง display ล้วน = SongSheet dev ทำ** (rule: รวมบรรทัดทำนอง **identical + ติดกัน** → โน้ตครั้งเดียว + เนื้อ stacked · normalize pickup ก่อนเทียบ · AABA ทำนองไม่ identical/ไม่ติดกัน = ไม่รวม)
+**→ DA ไม่ต้องแก้ data · งาน import ครบ** · (บทเรียน: เปิด data ดูก่อน แยก "ต่อเนื่อง" ออกจาก "round ซ้ำ" ได้ → กันแก้ผิด semantic)
 
 ## 3. 10 COMPLEX repeat (ยังไม่ทำ)
 20,25,40,53,61,72,73,80,85,88 = repeat ซ้อน/หลายอันในท่อน · คง flag `repeat` · geometry เต็ม (อ่าน `‖::‖`/volta จากภาพ) = งานต่อยอด ถ้า P'Aim อยากได้
