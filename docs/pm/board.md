@@ -19,8 +19,9 @@
 3. **DA** (หมุน session ใหม่ · context เต็ม → อ่าน `docs/reports/da-handoff.md` + `docs/pm/prompt-da-resume.md`) — 🔨 **dedup ทาง A** (แก้โมเดล import: ท่อนซ้ำหลายรอบ=1 stanza+arrangement · เริ่มเพลง 77 · อย่ารวม AABA)
 4. **mobile pass** (Android) — ยังไม่เริ่ม (P'Aim: Android งง) · `prompt-android-mobile.md`
 
-**⏳ รอ P'Aim verify (pre-deploy):** print เพลง 77 (B059 PDF จริง) · speed LAN 5395 (B064) · preview LAN 5390 (B061 สูงบนแท็บเล็ต) · run repeat-6-simple.sql
-**Next:** catalog+B062+DA-dedup เสร็จ → verify → **deploy รอบ 3 ทีเดียว**
+**✅ P'Aim verify ผ่านหมด (10 ก.ค. · server ฐาน `192.168.1.124:5400` --host):** print 77 (แผ่นเพลงหนังสือ PDF) ✅ · speed B064 ✅ · preview B061 แท็บเล็ต ✅ · **pre-deploy gate เคลียร์** · เหลือ run `repeat-6-simple.sql` (P'Aim จะทำ) · **dedup B067 = 217 เทสต์ + audit 120 ผ่าน**
+**Next (PM ใหม่):** **catalog สายเดียวที่เหลือ → merge → deploy รอบ 3 ทีเดียว** (main FF · deploy-plan.md · report version จริง) · B062/B068 เส้นโค้ง + 10 COMPLEX repeat = รอบ data ถัดไป (DA ใหม่)
+**หมุน session (10 ก.ค.):** DA ✅ปิด (import ครบ · `da-handoff.md` + `prompt-da-resume.md` สำหรับรอบ data) · SongSheet ✅ปิด · **PM หมุน** ("อ่าน docs/pm/pm.md") · dev server verify `:5400` ยังรัน (PM ใหม่ปิดได้)
 **Deferred/backlog:** B044/B046 sheet spacing · 10 COMPLEX repeat (พี่เปาตั้งมือ) · B066 tempo (ปล่อย 92) · mobile · editor-ux 3 ธง (draft theme col · verified RLS · B061 tablet height)
 **Deploy:** ✅✅✅ **รอบ 2 สำเร็จ (9 ก.ค. ค่ำ · P'Aim สั่ง "deploy") — รอบนี้จบสมบูรณ์** — main FF `70335d5→b44edbf` (ไม่ force) · Actions `29031193038` = success · **live bundle stamp `b44edbf` = ยืนยัน** · ได้ของครบ: ค้นเนื้อ B052 · จุดคู่ B027 · lint B026 · B055 pickup · B056 จบเพลง · editor/dock/sing · **คลัง 120 เพลง live (Supabase 121 rows · spot-check field ครบ)** · ฐาน 196 test + build · **ไม่รวมรอบนี้: mobile pass (รอบหน้า) · พี่เปา review 41 เพลงติดธง · auto-repeat 16 (option B)** · [รอบ 1] `70335d5` (reconcile 8 commit main)
 **GitHub:** ใช้ `C:\Users\aimkr\OneDrive\4 Personal\claude\.env` → `GITHUB_TOKEN_PLENG` (`source .env` ก่อน gh/git · repo public)
