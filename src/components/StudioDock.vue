@@ -49,16 +49,9 @@ const LS_ALPHA = 'pleng.dock.alpha'
 const LS_BARPOS = 'pleng.dock.barpos'
 const LS_FABPOS = 'pleng.dock.fabpos'
 
-// ความโปร่ง (transparency) is a dock-OWNED tool, hidden by default (real-use r4-B): the
-// user adds it via ตั้งค่าปุ่ม like any other button, and it opens the alpha slider (see
-// runTool). It joins the tool UNIVERSE so customize can add/remove/reorder it, but it is
-// never in the DEFAULT order. (ตั้งค่าปุ่ม ⚙ + ⋯ stay built-in controls, always at the end.)
-const BLEND_TOOL = { id: '__blend', icon: 'blend', label: 'ความโปร่ง' }
-const allTools = computed(() => [...props.tools, BLEND_TOOL])
-const allIds = computed(() => allTools.value.map((t) => t.id))
-const byId = computed(() => Object.fromEntries(allTools.value.map((t) => [t.id, t])))
-// a mode with no explicit defaultTools shows only its OWN tools — never the dock's extras
-const defaultOrder = computed(() => (props.defaultTools ? props.defaultTools.slice() : props.tools.map((t) => t.id)))
+const allIds = computed(() => props.tools.map((t) => t.id))
+const byId = computed(() => Object.fromEntries(props.tools.map((t) => [t.id, t])))
+const defaultOrder = computed(() => (props.defaultTools ? props.defaultTools.slice() : allIds.value.slice()))
 
 function loadOrder() {
   try {
@@ -103,8 +96,7 @@ function syncMobile() { mobile.value = mq ? mq.matches : false }
 const shown = computed(() =>
   order.value.map((id) => byId.value[id]).filter((t) => t && (t.icon || t.type === 'custom') && t.visible !== false),
 )
-// includes the dock's own optional tools (e.g. ความโปร่ง) so customize can add them
-const addable = computed(() => allTools.value.filter((t) => !order.value.includes(t.id)))
+const addable = computed(() => props.tools.filter((t) => !order.value.includes(t.id)))
 // B033: paletteKeys may be a flat array (one row) OR an array of rows. Edit mode sends
 // 2 rows so the 21 jianpu keys aren't crammed onto one line (tiny/untappable on mobile).
 const keyRows = computed(() => {
@@ -211,8 +203,6 @@ function onOutside(e) {
   // the click lands on ITS button (that button's own handler toggles it) so it doesn't
   // close-then-reopen on every re-click
   if (e.target.closest?.('.sd-pop') || e.target.closest?.('.sd-ctl')) return
-  // the blend tool button toggles the trans popover itself — don't close-then-reopen
-  if (e.target.closest?.('[data-tool="__blend"]')) return
   if (menuId.value && e.target.closest?.(`[data-menu-btn="${menuId.value}"]`)) return
   closePop()
 }
@@ -373,11 +363,9 @@ function doDrag(e) {
   target.value = clampToViewport({ left: e.clientX - oX, top: e.clientY - oY }, dW, dH)
 }
 
-// a tool button was pressed: blend opens the alpha slider, a menu tool opens its dropdown,
-// a plain tool runs
+// a tool button was pressed: a menu tool opens its dropdown, a plain tool runs
 function runTool(t) {
   if (t.disabled) return
-  if (t.id === '__blend') return togglePop('trans')
   if (t.menu) openMenu(t)
   else t.run?.()
 }
@@ -457,7 +445,7 @@ function runTool(t) {
             :aria-label="t.label"
             :data-tool="t.id"
             :aria-haspopup="t.menu ? 'menu' : undefined"
-            :aria-expanded="t.menu ? (menuId === t.id) : t.id === '__blend' ? pop === 'trans' : undefined"
+            :aria-expanded="t.menu ? (menuId === t.id) : undefined"
             :data-menu-btn="t.menu ? t.id : undefined"
             @click.stop="runTool(t)"
           >
@@ -467,10 +455,16 @@ function runTool(t) {
           </button>
         </template>
 
-        <!-- right-hand controls: customize · overflow · (mobile collapse). ⋯ "ดูเพิ่ม" sits
-             RIGHTMOST of the tool row in every mode (real-use #3). ความโปร่ง is no longer
-             built-in here — it's an add-it-yourself tool now (r4-B). -->
+        <!-- right-hand controls: transparency · customize · overflow · (mobile collapse).
+             ⋯ "ดูเพิ่ม" sits RIGHTMOST of the tool row in every mode (real-use #3). -->
         <span class="sd-rc">
+          <button
+            class="sd-tbtn sd-ctl hideoncol"
+            :aria-expanded="pop === 'trans'"
+            aria-label="ปรับความโปร่งของแถบ"
+            title="ความโปร่ง"
+            @click.stop="togglePop('trans')"
+          ><Icon name="blend" :size="18" /></button>
           <button
             v-if="!mobile"
             class="sd-tbtn sd-ctl hideoncol"
@@ -515,7 +509,7 @@ function runTool(t) {
               :title="t.label"
               :data-tool="t.id"
               :data-menu-btn="t.menu ? t.id : undefined"
-              @click.stop="t.menu || t.id === '__blend' ? runTool(t) : (runTool(t), closePop())"
+              @click.stop="t.menu ? runTool(t) : (runTool(t), closePop())"
             >
               <Icon :name="t.icon" :size="18" />
               <b v-if="t.badge" class="sd-badge">{{ t.badge }}</b>
