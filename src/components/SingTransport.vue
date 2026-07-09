@@ -33,9 +33,14 @@ const props = defineProps({
   //     action:  actionLabel, onAction()
   //     slider:  min, max, value, onInput(v), display? }
   settings: { type: Array, default: () => [] },
-  // dock-chrome hooks injected by StudioDock (top-region contract)
+  // dock-chrome hooks injected by StudioDock (top-region contract): the grip drives the
+  // dock's own collapse/drag machinery (tap = หุบ, press-drag = ย้ายทั้งแถบ · B037) so the
+  // whole player moves as one, and transparency rides dock-alpha.
   dockCollapsed: { type: Boolean, default: false },
   dockAlpha: { type: Number, default: 0.92 },
+  gripDown: { type: Function, default: null },
+  gripMove: { type: Function, default: null },
+  gripUp: { type: Function, default: null },
 })
 const emit = defineEmits([
   'toggle-play', 'prev', 'next', 'toggle-loop', 'seek', 'jump', 'toggle-section', 'set-all',
@@ -80,12 +85,32 @@ function closeAll() { openPanel.value = null; openMenu.value = null }
 function toggleMenu(id) { openMenu.value = openMenu.value === id ? null : id; openPanel.value = null }
 function pickMenu(s, o) { s.onPick(o.value); openMenu.value = null }
 function onKey(e) { if (e.key === 'Escape') closeAll() }
+
+// viewport: desktop grip drags the dock (pointer handlers from StudioDock); mobile grip
+// just taps to หุบ (dragging the sheet on a phone fights page scroll — B037 kept it off).
+const mobile = ref(false)
+let mq = null
+function syncMobile() { mobile.value = mq ? mq.matches : false }
 function onOutside(e) {
   if (e.target.closest?.('.mp-panel') || e.target.closest?.('.mp-dd') || e.target.closest?.('.mp-more') || e.target.closest?.('.mp-pbtn') || e.target.closest?.('.mp-seltrig') || e.target.closest?.('.mp-sheet')) return
   closeAll()
 }
-onMounted(() => { window.addEventListener('keydown', onKey); document.addEventListener('mousedown', onOutside) })
-onUnmounted(() => { window.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onOutside) })
+onMounted(() => {
+  window.addEventListener('keydown', onKey)
+  document.addEventListener('mousedown', onOutside)
+  mq = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 760px)') : null
+  syncMobile()
+  mq?.addEventListener?.('change', syncMobile)
+  // matchMedia 'change' can be missed on programmatic viewport resizes (same guard as
+  // StudioDock), so also re-sync on plain resize.
+  window.addEventListener('resize', syncMobile)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKey)
+  document.removeEventListener('mousedown', onOutside)
+  mq?.removeEventListener?.('change', syncMobile)
+  window.removeEventListener('resize', syncMobile)
+})
 
 // ---------- 📌 pin (§4c) — key/ความเร็ว/แสดงผล are on the bar by default so it isn't empty ----------
 const PIN_KEY = 'pleng.dock.sing.pins'
@@ -143,15 +168,28 @@ watch([openPanel, openMenu], async () => {
 
 <template>
   <div ref="rootEl" class="mp">
-    <!-- ===== row 1: หุบ grip + progress + dots + time (+ ☰ เลือกท่อน) ===== -->
+    <!-- ===== row 1: grip (OUTSIDE the frame) + [ progress + dots + time (+ ☰) ] ===== -->
     <div class="mp-r1">
+      <!-- desktop: tap = หุบ, press-drag = ย้ายทั้งแถบ (dock machinery via injected handlers) -->
       <button
+        v-if="!mobile"
+        class="mp-grip mp-grip-drag"
+        aria-label="ลากเพื่อย้าย · แตะเพื่อหุบ"
+        title="ลากเพื่อย้าย · แตะเพื่อหุบ"
+        @pointerdown="gripDown && gripDown($event)"
+        @pointermove="gripMove && gripMove($event)"
+        @pointerup="gripUp && gripUp($event)"
+        @pointercancel="gripUp && gripUp($event)"
+      ><Icon name="dock-grip-collapse" :size="22" /></button>
+      <!-- mobile: tap = หุบ (no drag) -->
+      <button
+        v-else
         class="mp-grip"
         aria-label="หุบแถบ"
         title="หุบแถบเครื่องเล่น"
         @click="emit('dock-collapse')"
       ><Icon name="dock-grip-collapse" :size="22" /></button>
-      <div class="mp-tl">
+      <div class="mp-tl mp-framed">
         <div class="mp-tlhead">
           <span class="mp-tllbl">แถบเล่น — ลากหาตำแหน่ง · จุด = ท่อน</span>
           <button
@@ -355,19 +393,17 @@ watch([openPanel, openMenu], async () => {
 <style scoped>
 .mp { width: 100%; position: relative; }
 
-/* ===== row 1: grip + timeline ===== */
+/* ===== row 1: grip (outside the frame) + framed timeline ===== */
 .mp-r1 {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 6px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 5px 8px 3px 4px;
   margin-bottom: 8px;
 }
 .mp-grip {
   flex: 0 0 auto;
-  width: 30px;
+  width: 28px;
+  height: 40px;
   min-height: 0;
   border: 0;
   background: transparent;
@@ -378,7 +414,11 @@ watch([openPanel, openMenu], async () => {
   border-radius: 8px;
   cursor: pointer;
 }
+.mp-grip-drag { cursor: grab; touch-action: none; }
+.mp-grip-drag:active { cursor: grabbing; }
 @media (hover: hover) { .mp-grip:hover { color: var(--ink); background: var(--cream); } }
+/* the frame lives on the timeline itself now, so the grip sits OUTSIDE it (P'Aim) */
+.mp-framed { border: 1px solid var(--line); border-radius: 10px; padding: 5px 9px 3px; }
 .mp-tl { flex: 1; min-width: 0; }
 .mp-tlhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .mp-tllbl { font-size: 10.5px; color: var(--muted); }
@@ -447,9 +487,11 @@ watch([openPanel, openMenu], async () => {
 .mp-dd {
   position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 30;
   background: #fff; border: 1px solid var(--line); border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); padding: 5px; min-width: 170px; max-height: 50vh; overflow: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); padding: 5px;
+  /* width fits the longest option (no mid-word wrap); the popup clamp keeps it on-screen */
+  width: max-content; min-width: 150px; max-width: calc(100vw - 24px); max-height: 50vh; overflow: auto;
 }
-.mp-ddrow { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 0; background: transparent; border-radius: 8px; cursor: pointer; text-align: left; color: var(--ink); font: inherit; font-size: 13px; min-height: 0; }
+.mp-ddrow { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 0; background: transparent; border-radius: 8px; cursor: pointer; text-align: left; color: var(--ink); font: inherit; font-size: 13px; min-height: 0; white-space: nowrap; }
 @media (hover: hover) { .mp-ddrow:hover { background: var(--cream); } }
 .mp-ddrow[aria-checked='true'] { color: var(--brand); font-weight: 700; }
 .mp-ddck { flex: 0 0 14px; text-align: center; color: var(--brand); }

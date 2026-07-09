@@ -285,10 +285,6 @@ function setAll(on) {
   selectedSecs.value = on ? new Set(tags.value.map((t) => t.name)) : new Set()
   afterSelectionChange()
 }
-function stepKey(d) {
-  const i = KEYS.indexOf(displayKey.value)
-  displayKey.value = KEYS[(i + d + KEYS.length) % KEYS.length]
-}
 // live key change: re-tune the notes still ahead (seamless, not a restart)
 watch(displayKey, (k) => {
   if (playing.value) setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
@@ -313,8 +309,8 @@ const settingDescs = computed(() => [
     options: CHORD_OPTS, onPick: (v) => (chordSystem.value = v),
   },
   {
-    id: 'key', icon: 'key-round', label: 'คีย์', kind: 'stepper', display: displayKey.value,
-    onPrev: () => stepKey(-1), onNext: () => stepKey(1),
+    id: 'key', icon: 'key-round', label: 'คีย์', kind: 'menu', value: displayKey.value, badge: displayKey.value,
+    options: keyOptions.value, onPick: (v) => (displayKey.value = v),
   },
   {
     id: 'tempo', icon: 'gauge', label: 'ความเร็ว', kind: 'menu', value: tempo.value, badge: String(tempo.value),

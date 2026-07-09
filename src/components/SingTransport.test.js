@@ -180,9 +180,14 @@ describe('⚙ settings panel (§4c)', () => {
     expect(w.emitted('dock-alpha')[0]).toEqual([0.6])
   })
 
-  it('the grip emits dock-collapse', async () => {
-    const w = mountT()
-    await w.find('.mp-grip').trigger('click')
-    expect(w.emitted('dock-collapse')).toHaveLength(1)
+  it('the desktop grip wires the injected dock drag/collapse handlers (tap = หุบ via combinedUp, drag = move)', async () => {
+    const gripDown = vi.fn(), gripUp = vi.fn()
+    const w = mountT({ gripDown, gripUp })
+    const grip = w.find('.mp-grip-drag')
+    expect(grip.exists()).toBe(true) // jsdom = desktop (no matchMedia) → the draggable grip
+    await grip.trigger('pointerdown')
+    await grip.trigger('pointerup')
+    expect(gripDown).toHaveBeenCalledTimes(1)
+    expect(gripUp).toHaveBeenCalledTimes(1)
   })
 })

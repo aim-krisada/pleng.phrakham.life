@@ -421,6 +421,9 @@ function runTool(t) {
           v-bind="t.props || {}"
           :dock-collapsed="collapsed"
           :dock-alpha="alpha"
+          :grip-down="combinedDown"
+          :grip-move="combinedMove"
+          :grip-up="combinedUp"
           @dock-collapse="toggleCollapse"
           @dock-alpha="alpha = $event"
         />
@@ -801,7 +804,9 @@ function runTool(t) {
 .sd-range { width: 100%; }
 .sd-mini { font-size: 11px; color: var(--muted); text-align: center; margin-top: 4px; }
 /* menu (D7): a plain option list; the current pick is ● (single) / ✓ (multi) */
-.sd-pop-menu { min-width: 200px; max-width: min(300px, calc(100vw - 24px)); max-height: 60vh; overflow: auto; }
+/* width fits the longest option (no mid-word wrap, e.g. long tempo labels); clampPopover
+   keeps it on-screen (real-use B043 §5 · core rule for every mode) */
+.sd-pop-menu { width: max-content; min-width: 180px; max-width: calc(100vw - 24px); max-height: 60vh; overflow: auto; }
 .sd-menu-row {
   display: flex;
   align-items: center;
@@ -816,6 +821,7 @@ function runTool(t) {
   color: var(--ink);
   font: inherit;
   min-height: 36px;
+  white-space: nowrap;
 }
 @media (hover: hover) { .sd-menu-row:hover { background: var(--cream); } }
 .sd-menu-row[aria-checked='true'] { color: var(--brand); font-weight: 700; }

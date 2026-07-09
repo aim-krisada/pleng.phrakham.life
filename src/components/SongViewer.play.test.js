@@ -121,7 +121,7 @@ describe('SongViewer playback key', () => {
   it('step key up THEN play → schedules original key + transpose (E→F = +1)', async () => {
     const w = mountViewer()
     await nextTick()
-    await stepper(w, 'key', 'next') // E → F
+    await pickSelect(w, 'key', 'F') // E → F
     await playBtn(w).trigger('click')
     await nextTick()
     expect(playSongSpy).toHaveBeenCalled()
@@ -134,7 +134,7 @@ describe('SongViewer playback key', () => {
     await nextTick()
     await playBtn(w).trigger('click') // start (E, transpose 0)
     playSongSpy.mockClear()
-    await stepper(w, 'key', 'prev') // E → Eb (−1) mid-playback
+    await pickSelect(w, 'key', 'Eb') // E → Eb (−1) mid-playback
     expect(setTransposeSpy).toHaveBeenCalledWith(-1)
     expect(playSongSpy).not.toHaveBeenCalled() // did NOT restart
   })
@@ -249,19 +249,18 @@ describe('SongViewer key / tempo / loop / readability (US-A02, US-A03)', () => {
   it('key / tempo / loop are viewer-local and never mutate the source song (US-A02)', async () => {
     const w = mountViewer()
     await nextTick()
-    await stepper(w, 'key', 'next')
+    await pickSelect(w, 'key', 'G')
     await loopBtn(w).trigger('click')
     expect(song.content.key).toBe('E')
     expect(w.props('song').content.key).toBe('E')
   })
 
-  it('the settings panel shows the current key on the stepper', async () => {
+  it('the key control shows the current key as a badge on the bar (dropdown)', async () => {
     const w = mountViewer()
     await nextTick()
-    await openSettings(w)
-    expect(row(w, 'key').find('.mp-stpv').text()).toBe('E')
-    await stepper(w, 'key', 'next')
-    expect(row(w, 'key').find('.mp-stpv').text()).toBe('F')
+    expect(w.find('.mp-pins [data-setting="key"] .mp-pbadge').text()).toBe('E')
+    await pickSelect(w, 'key', 'F')
+    expect(w.find('.mp-pins [data-setting="key"] .mp-pbadge').text()).toBe('F')
   })
 
   it('the reading font size comes from the global store (Aa top-nav tool, not the dock)', async () => {
@@ -354,12 +353,10 @@ describe('SongViewer song-identity re-sync (DS-A04)', () => {
   it('editing the song (same number) keeps the chosen key; loading a different song resets it', async () => {
     const w = mountViewer()
     await nextTick()
-    await stepper(w, 'key', 'next') // E → F
+    await pickSelect(w, 'key', 'F') // E → F
     await w.setProps({ song: { ...song, content: { ...song.content, key: 'E' } } })
-    await openSettings(w)
-    expect(row(w, 'key').find('.mp-stpv').text()).toBe('F') // an edit must NOT wipe the chosen key
+    expect(w.find('.mp-pins [data-setting="key"] .mp-pbadge').text()).toBe('F') // an edit must NOT wipe the chosen key
     await w.setProps({ song: { number: 2, title_th: 'x', content: { ...song.content, key: 'A' } } })
-    await openSettings(w)
-    expect(row(w, 'key').find('.mp-stpv').text()).toBe('A') // reset to the new song's key
+    expect(w.find('.mp-pins [data-setting="key"] .mp-pbadge').text()).toBe('A') // reset to the new song's key
   })
 })
