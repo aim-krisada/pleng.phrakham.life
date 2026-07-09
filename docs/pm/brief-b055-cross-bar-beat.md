@@ -1,4 +1,10 @@
-# brief — B055 (ด่วน) แจ้งเตือนจังหวะข้ามห้อง/บรรทัด (false red)
+# brief — สาย editor-urgent-fixes (ด่วน) = B055 + B056
+
+> **สายนี้ทำ 2 งานในโหมดแก้ไข (EditorMode.vue เหมือนกัน = ต้องสายเดียว กันชน):** B055 (จังหวะข้ามห้อง) + B056 (เครื่องหมายจบเพลง) · ทำ B055 ก่อน (ด่วนกว่า) แล้วต่อ B056 ในสาย/worktree เดียวกัน
+
+---
+
+## B055 — แจ้งเตือนจังหวะข้ามห้อง/บรรทัด (false red)
 
 **สาย:** dev · worktree ใหม่จากฐาน `studio-shell-redesign` · 1 worktree = 1 branch = 1 port · **ด่วน (P'Aim)**
 **ที่มา:** P'Aim 9 ก.ค. ค่ำ (transcript "แจ้งเตือนห้อง 1/2" · G:\My Drive\0-google-drive-temp)
@@ -29,4 +35,18 @@
 - unit test: beatCount/validation ข้ามห้อง (pickup + cross-line) · `vitest --exclude '**/.claude/**'` เขียว + build ผ่าน · ไม่ทำ beat-check เดิมพัง
 
 ## รายงานกลับ (session-agnostic)
-`docs/reports/wt-b055.md` + board §📥 inbox + ping PM ตาม board §🎯 · commit อังกฤษ · ห้าม merge main/deploy · เช็ก branch ก่อน commit
+`docs/reports/wt-b055.md` (รวม B056) + board §📥 inbox + ping PM ตาม board §🎯 · commit อังกฤษ · ห้าม merge main/deploy · เช็ก branch ก่อน commit
+
+---
+
+## B056 — เพิ่มเครื่องหมาย "จบเพลง" (ไม่ใช่แค่จบรอบ 1/2)
+
+**ที่มา:** P'Aim 9 ก.ค. ค่ำ · **ปัญหา:** หน้าแก้ไข "ห้องจบ" ให้เลือกแค่ **จบรอบแรก / จบรอบ 2** (volta 1./2. = สื่อว่ามีย้อนซ้ำ) · แต่ **บางเพลงไม่มีย้อน** → ควรมี **เครื่องหมาย "จบเพลง" เฉยๆ** (final barline / Fine · ไม่สื่อว่ามี repeat)
+
+**สอบในโค้ด (จุดเริ่ม):**
+- `EditorMode.vue` — line มี field `end` (newLine: `end: false` ~บรรทัด 76/80/1292) + volta/ending controls (repeatStart `‖:` / repeatEnd `:‖` / ending 1-2 · comment ~บรรทัด 67) · ดูว่า "จบรอบ 1/2" set อะไร แล้วเพิ่มตัวเลือก "จบเพลง" (plain end · ไม่ผูก repeat)
+- เกี่ยว backlog **B011** ("จบเพลง" ระดับบรรทัด/ท่อน) + **B012** (Fine/D.C.) — อาจ reuse
+
+**โจทย์:** ในตัวเลือกห้องจบ เพิ่ม **"จบเพลง"** (นอกจาก จบรอบ1 / จบรอบ2) · เลือกแล้ว = final barline ธรรมดา ไม่ทำให้ระบบคิดว่ามีย้อน · render + model (v2) เก็บถูก · **ขอ P'Aim ยืนยัน UX** (คำ/ไอคอน) ถ้าจำเป็น
+
+**verify:** เปิดในเบราว์เซอร์ · เพลงไม่มีย้อน เลือก "จบเพลง" → ไม่มี volta/ย้อนหลอน · unit + build เขียว · **ไม่กระทบ B055**
