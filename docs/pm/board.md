@@ -24,7 +24,7 @@
 **🟢 In-flight (จ่ายแล้ว · 9 ก.ค. เย็น-ค่ำ):**
 - **DA** — ✅ classification + field-split เสร็จ · ✅✅ **import SQL FINAL = `3b2cde1` · PM git-verified** (ชื่อสะอาด 0 วงเล็บ · +theme/book_refs jsonb/scripture idempotent · 120 upsert · on-conflict อัปเดตครบ · category/verified/(category,number) คงเดิม) → **🚦 GATE 3 final: P'Aim run `tools/import-all-120.sql` ครั้งเดียวจบ** (project vlpuvaofbzdawgjjpgfu · backup มีแล้ว) · ตัวเก่า 99b8438/65a0375 ยกเลิก · ⏳ ค้าง: ชื่อจริงเล่ม ล/ย/สอ (P'Aim รวบรวม · ล=เล่มเล็ก·ย=เยอรมัน) → map frontend ทีหลัง (ไม่บล็อก)
 - **mobile pass** — Android (`prompt-android-mobile.md`) · PM ย้ายไป Android เมื่อ P'Aim เปิดสาย · triage-first · tablet-primary
-- **3 สาย algorithm ขนาน (chip หย่อนแล้ว):** B027 จุดคู่ `task_3ff85c07` (wt-b027 · 5350) · B026 lint R4-R7 `task_4447ef73` (wt-b026) · B052 search-เนื้อ `task_b45edb7f` (wt-b052) · **กันชน:** คนละไฟล์ (notation/lint/search) · Guide.vue=B027 เจ้าเดียว · **merge order: B027 ก่อน B026** (lint อ่าน beatCount) · B052 อิสระ merge ได้เลย
+- **3 สาย algorithm ขนาน — ✅✅ MERGED เข้าฐานครบ (9 ก.ค. ค่ำ):** B027 จุดคู่ (merge `8a853f4`) → B026 lint R4-R7 (merge `8a16419`) → B052 search-เนื้อ+fuzzy · เรียง B027 ก่อน B026 ตามแผน · **ฐานหลัง merge: vitest 188 · notationLint(node) 51/51 (R1-R7) · build ผ่าน** · conflict เดียว=board (เคลียร์) · **งานต่อ UI (ยังไม่ทำ · กันชน mobile):** เสียบ lint เข้า EditorMode (B026) · กล่องค้นหา searchSongs เข้า SongList (B052) · จุดคู่ใช้ได้เลยในโหมดแก้ไข
 
 ---
 
