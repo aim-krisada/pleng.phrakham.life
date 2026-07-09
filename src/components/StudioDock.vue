@@ -410,7 +410,7 @@ function runTool(t) {
       v-show="!(collapsed && !mobile)"
       ref="dockEl"
       class="sd-dock"
-      :class="{ 'sd-m': mobile, 'sd-collapsed': collapsed, 'sd-fit': topTools.length && !rowTools.length }"
+      :class="{ 'sd-m': mobile, 'sd-collapsed': collapsed }"
       :style="[dockStyle, { '--dock-alpha': alpha }]"
     >
       <!-- full-width top region (D8 region:'top') — a whole music-player transport band
@@ -675,14 +675,18 @@ function runTool(t) {
   width: 100%;
   transition: transform 0.22s ease;
 }
-/* a pure music dock hugs its actual button row (P'Aim real-use r2 #2) instead of always
-   stretching to 700 — few buttons = short, many = long — with a min so the progress bar
-   stays usable. Desktop only; mobile keeps the full-width bottom bar. */
-.sd-dock.sd-fit:not(.sd-m) {
+/* CORE (P'Aim real-use r3): the dock hugs its ACTUAL content in EVERY mode — few buttons
+   (แผ่นเพลง = just 🖨) = short, many (ฝึกร้อง / แก้ไข) = long — instead of always stretching
+   to 700. min-width keeps a music progress bar / note keys usable; overflow (D3) still folds
+   anything past 700 into ⋯. Desktop only; mobile keeps the full-width bottom bar. */
+.sd-dock:not(.sd-m) {
   width: fit-content;
-  min-width: 340px;
+  min-width: 300px;
   max-width: min(700px, calc(100vw - 20px));
 }
+/* keep the note keys tappable when a DESKTOP fit-content dock would otherwise squish them
+   (mobile keeps min-width:0 so 21 keys still fit a narrow full-width row) */
+.sd-dock:not(.sd-m) .sd-key { min-width: 30px; }
 /* jianpu keyboard: stacked rows; within a row keys share the line (no wrap, no scroll) */
 .sd-keys {
   display: flex;
