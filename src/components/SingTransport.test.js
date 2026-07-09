@@ -180,6 +180,22 @@ describe('⚙ settings panel (§4c)', () => {
     expect(w.emitted('dock-alpha')[0]).toEqual([0.6])
   })
 
+  it('▲▼ in the panel reorders the pinned controls on the bar (D6-style · persists)', async () => {
+    const mk = (id) => ({ id, icon: 'layers', label: id, kind: 'menu', value: 'a', badge: 'a', options: [{ value: 'a', label: 'a' }], onPick: () => {} })
+    const w = mountT({ settings: [mk('key'), mk('tempo'), mk('display')] })
+    // default pins key,tempo,display → that bar order
+    const barIds = () => w.findAll('.mp-pins [data-setting]').map((e) => e.attributes('data-setting'))
+    expect(barIds()).toEqual(['key', 'tempo', 'display'])
+    await w.find('.mp-more').trigger('click')
+    await nextTick()
+    // move 'key' one to the right (the ▼ = second .mp-mv in its row)
+    const mv = w.findAll('.mp-panel [data-setting="key"] .mp-mv')
+    await mv[1].trigger('click')
+    await nextTick()
+    expect(barIds()).toEqual(['tempo', 'key', 'display'])
+    expect(JSON.parse(localStorage.getItem('pleng.dock.sing.pins'))).toEqual(['tempo', 'key', 'display'])
+  })
+
   it('the desktop grip wires the injected dock drag/collapse handlers (tap = หุบ via combinedUp, drag = move)', async () => {
     const gripDown = vi.fn(), gripUp = vi.fn()
     const w = mountT({ gripDown, gripUp })

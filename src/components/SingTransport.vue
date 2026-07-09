@@ -124,9 +124,21 @@ function loadPins() {
   return DEFAULT_PINS.slice()
 }
 function isPinned(id) { return pins.value.includes(id) }
+function savePins() { try { localStorage.setItem(PIN_KEY, JSON.stringify(pins.value)) } catch { /* ignore */ } }
 function togglePin(id) {
   pins.value = isPinned(id) ? pins.value.filter((x) => x !== id) : [...pins.value, id]
-  try { localStorage.setItem(PIN_KEY, JSON.stringify(pins.value)) } catch { /* ignore */ }
+  savePins()
+}
+// reorder a pinned control on the bar (D6-style ▲▼ · the pin order IS the bar order)
+const pinIndex = (id) => pins.value.indexOf(id)
+function movePin(id, delta) {
+  const a = pins.value.slice()
+  const i = a.indexOf(id)
+  const j = i + delta
+  if (i < 0 || j < 0 || j >= a.length) return
+  ;[a[i], a[j]] = [a[j], a[i]]
+  pins.value = a
+  savePins()
 }
 
 // transparency (ความโปร่ง) is dock chrome, not a song setting — SingTransport owns its
@@ -349,6 +361,23 @@ watch([openPanel, openMenu], async () => {
             <button class="mp-stp" @click="s.onAction()">{{ s.actionLabel || 'เปิด' }}</button>
           </template>
         </span>
+        <!-- reorder on the bar (only for pinned controls · the pin order = bar order) -->
+        <button
+          v-if="isPinned(s.id)"
+          class="mp-mv"
+          :disabled="pinIndex(s.id) === 0"
+          aria-label="เลื่อนซ้ายบนแถบ"
+          title="เลื่อนไปทางซ้าย"
+          @click.stop="movePin(s.id, -1)"
+        >▲</button>
+        <button
+          v-if="isPinned(s.id)"
+          class="mp-mv"
+          :disabled="pinIndex(s.id) === pins.length - 1"
+          aria-label="เลื่อนขวาบนแถบ"
+          title="เลื่อนไปทางขวา"
+          @click.stop="movePin(s.id, 1)"
+        >▼</button>
         <button
           class="mp-pin"
           :class="{ on: isPinned(s.id) }"
@@ -439,7 +468,9 @@ watch([openPanel, openMenu], async () => {
 .mp-markers { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
 .mp-mk {
   position: absolute; top: 50%; transform: translate(-50%, -50%);
-  width: 11px; height: 11px; border-radius: 50%;
+  /* box-sizing + min-height:0 so the global button min-height can't stretch the dot into
+     an ellipse — it must stay a true circle (width === height · P'Aim real-use r2 #4) */
+  box-sizing: border-box; width: 12px; height: 12px; min-height: 0; border-radius: 50%;
   background: #fff; border: 1.5px solid var(--brand); padding: 0; cursor: pointer; z-index: 2;
 }
 .mp-mk.hook { background: var(--cream); }
@@ -518,6 +549,9 @@ watch([openPanel, openMenu], async () => {
 .mp-slval { font-size: 11px; color: var(--muted); min-width: 30px; }
 .mp-pin { border: 0; background: transparent; cursor: pointer; font-size: 14px; filter: grayscale(1); opacity: 0.4; flex: 0 0 auto; border-radius: 6px; padding: 2px 4px; }
 .mp-pin.on { filter: none; opacity: 1; }
+.mp-mv { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 6px; min-height: 0; padding: 1px 5px; font-size: 11px; cursor: pointer; flex: 0 0 auto; }
+.mp-mv:disabled { opacity: 0.35; cursor: default; }
+@media (hover: hover) { .mp-mv:not(:disabled):hover { border-color: var(--brand); color: var(--brand); } }
 
 /* ===== ☰ selector (desktop popover; mobile bottom sheet) ===== */
 .mp-selmask { position: fixed; inset: 0; background: transparent; z-index: 24; }

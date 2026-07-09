@@ -188,10 +188,13 @@ function onViewportChange() { syncMobile(); nextTick(fit) }
 
 // ---------- collapse / expand ----------
 function collapse() {
-  // Drop the FAB right where the collapse button is (real-use #1) — it must NOT teleport to
-  // a corner, or the user has to hunt for it. Center the 48px FAB on the handle's spot.
-  if (!mobile.value && handleEl.value) {
-    const r = handleEl.value.getBoundingClientRect()
+  // Drop the FAB right where the collapse control is (real-use #1) — it must NOT teleport to
+  // a corner, or the user has to hunt for it. Center the 48px FAB on that spot. The anchor is
+  // the in-dock handle (edit/print) OR, for a music dock, the top-region control's own grip
+  // (lastGripEl, captured on press) so the player collapses in-place too (B043 real-use r2).
+  const anchor = handleEl.value || lastGripEl
+  if (!mobile.value && anchor) {
+    const r = anchor.getBoundingClientRect()
     fabPos.value = clampToViewport({ left: r.left + r.width / 2 - 24, top: r.top + r.height / 2 - 24 }, 48, 48)
   }
   collapsed.value = true
@@ -337,9 +340,13 @@ function clampBarPos() {
 }
 
 let pdown = false, moved = false, sX = 0, sY = 0, oX = 0, oY = 0, dW = 0, dH = 0, startLeft = 0, startTop = 0
+// the element that started the current press — the in-dock handle OR a top-region grip
+// (B043). collapse() drops the FAB here so it lands where the finger was (collapse-in-place).
+let lastGripEl = null
 function combinedDown(e) {
   if (mobile.value) return
   e.preventDefault()
+  lastGripEl = e.currentTarget
   pdown = true; moved = false
   sX = e.clientX; sY = e.clientY
   // Capture the grab offset + the element's box NOW (at press), not after the threshold —
@@ -403,7 +410,7 @@ function runTool(t) {
       v-show="!(collapsed && !mobile)"
       ref="dockEl"
       class="sd-dock"
-      :class="{ 'sd-m': mobile, 'sd-collapsed': collapsed }"
+      :class="{ 'sd-m': mobile, 'sd-collapsed': collapsed, 'sd-fit': topTools.length && !rowTools.length }"
       :style="[dockStyle, { '--dock-alpha': alpha }]"
     >
       <!-- full-width top region (D8 region:'top') — a whole music-player transport band
@@ -667,6 +674,14 @@ function runTool(t) {
   max-width: 700px;
   width: 100%;
   transition: transform 0.22s ease;
+}
+/* a pure music dock hugs its actual button row (P'Aim real-use r2 #2) instead of always
+   stretching to 700 — few buttons = short, many = long — with a min so the progress bar
+   stays usable. Desktop only; mobile keeps the full-width bottom bar. */
+.sd-dock.sd-fit:not(.sd-m) {
+  width: fit-content;
+  min-width: 340px;
+  max-width: min(700px, calc(100vw - 20px));
 }
 /* jianpu keyboard: stacked rows; within a row keys share the line (no wrap, no scroll) */
 .sd-keys {
