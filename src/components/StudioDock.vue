@@ -238,6 +238,30 @@ watch(pop, (v) => {
 })
 onUnmounted(() => document.removeEventListener('mousedown', onOutside))
 
+// ---------- keep any open popover on-screen (real-use r4-A) ----------
+// One reusable clamp for EVERY dock popover (customize · D7 dropdowns · ⋯ overflow), in
+// every mode: after it renders, measure it and shift it back inside the viewport + 8px.
+// The dock can be dragged anywhere, so a popover anchored above it can spill off the top /
+// side (the reported customize-panel bug). Same idea as dragMove's viewport clamp.
+function clampPopover() {
+  const el = dockEl.value?.querySelector('.sd-pop')
+  if (!el) return
+  el.style.transform = '' // reset before measuring so we read the natural position
+  const r = el.getBoundingClientRect()
+  const m = 8
+  let dx = 0, dy = 0
+  if (r.right > window.innerWidth - m) dx = window.innerWidth - m - r.right
+  if (r.left + dx < m) dx = m - (r.left + dx)
+  if (r.bottom > window.innerHeight - m) dy = window.innerHeight - m - r.bottom
+  if (r.top + dy < m) dy = m - (r.top + dy)
+  el.style.transform = dx || dy ? `translate(${dx}px, ${dy}px)` : ''
+}
+watch([pop, menuId], async () => {
+  if (!pop.value) return
+  await nextTick()
+  clampPopover()
+})
+
 // ---------- customize (D6) ----------
 function move(id, d) {
   const a = order.value.slice()
