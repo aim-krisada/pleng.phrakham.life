@@ -1,8 +1,11 @@
-# brief — Editor UX v2 (B060 ตั้งค่า inline + B061 preview jianpu สด) · ให้พี่เปาแก้เพลงคล่อง
+# brief — Editor UX v2 (เจ้าของ EditorMode.vue ทั้งหมด) · ให้พี่เปาแก้เพลงคล่อง
 
 **สาย:** dev · worktree ใหม่จากฐาน `studio-shell-redesign` · 1 worktree = 1 branch = 1 port
-**ที่มา:** พี่เปา (ผ่าน P'Aim) 9 ก.ค. ค่ำ · แตะ `EditorMode.vue` เป็นหลัก
-**⚠️ กันชน:** **จ่ายหลังสาย catalog (wt-catalog) merge เท่านั้น** (ทั้งคู่แตะ EditorMode.vue · อย่าขนาน — บทเรียน c) · ไม่ชน B059 (SongSheet) / songSearch
+**ที่มา:** พี่เปา (ผ่าน P'Aim) 9 ก.ค. ค่ำ · **สายนี้ = เจ้าของ `EditorMode.vue` คนเดียว**
+**⚠️ กันชน (P'Aim เร่ง 9 ก.ค. — แยกตามไฟล์ ให้ขนานได้):** **สายนี้เป็นเจ้าของ `EditorMode.vue` ทั้งหมด** · **สาย catalog = `SongList.vue` เท่านั้น** (ย้ายปุ่ม "ตรวจแล้ว" มาสายนี้) → ขนานกันได้ ไม่ชน · ไม่แตะ SongSheet/SongViewer (B059) · songSearch (B058) · NoteRow (read-only)
+
+## รวมงานในสายนี้ (6)
+1. **B061** preview jianpu สด inline · 2. **B060** ตั้งค่าเพลง inline · 3. **delete-line-mobile** (ปุ่มลบบรรทัดโผล่แท็บเล็ต) · 4. **B063** ย้ายห้องข้ามบรรทัด · 5. **ปุ่ม "✓ ตรวจแล้ว"** (verified=true · RLS team write · ย้ายจาก catalog มาที่นี่) · 6. **rename "ห้องยก"** เป็นคำที่ง่ายกว่า (default **"ห้องต่อกัน"** · tooltip "จังหวะไม่เต็ม แต่นับรวมกับห้องที่ต่อกัน เช่น เริ่มกลางห้อง" · ปรับตาม P'Aim) — ทุกที่ที่ขึ้น "ห้องยก" (chip `↻` + checkbox)
 
 ## B061 — preview jianpu สด (real-time inline) [หัวใจ]
 **ปัญหา:** ปุ่ม "ดูผลทั้งเพลง" ต้องกดถึงเห็น = ไม่ตอบโจทย์พี่เปา
