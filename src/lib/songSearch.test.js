@@ -6,6 +6,7 @@ import {
   searchSongs,
   scoreSong,
   lyricsText,
+  notesText,
   snippet,
   fuzzyBudget,
   fuzzyDistance,
@@ -42,6 +43,31 @@ const v2 = {
   },
 }
 
+// v2 song from the DA import batch: melody in stanzas[].lines[] (v1-shaped item
+// arrays), with octave dots / holds / underscores on the note strings — the exact
+// shape 'notesText' must strip to plain scale degrees for note search.
+const v2imported = {
+  number: 100,
+  title_th: 'บทเพลงนำเข้า',
+  content: {
+    version: 2,
+    key: 'E',
+    stanzas: [
+      {
+        id: 'A',
+        lines: [
+          [
+            { type: 'segment', chord: 'E', note: '.5. .5_ .6' },
+            { type: 'bar' },
+            { type: 'segment', chord: "C#m", note: "1' - .3_" },
+          ],
+        ],
+      },
+    ],
+    arrangement: [{ stanza: 'A', label: '', syllables: ['ร้อง', 'เพลง', 'ใหม่'] }],
+  },
+}
+
 const catalog = [v1, v2]
 
 describe('lyricsText — v1 and v2', () => {
@@ -56,6 +82,33 @@ describe('lyricsText — v1 and v2', () => {
 
   it('snippet works for a v2 song (was blank before B052)', () => {
     expect(snippet(v2.content)).toContain('ความ รัก')
+  })
+})
+
+describe('notesText — v1 and v2', () => {
+  it('reads v1 flat-line notes', () => {
+    expect(notesText(v1.content)).toBe('1 2 3 5')
+  })
+
+  it('reads v2 stanza notes, stripping octave dots / holds / accidentals', () => {
+    // '.5. .5_ .6' -> '5 5 6', "1' - .3_" -> '1 3'
+    expect(notesText(v2imported.content)).toBe('5 5 6 1 3')
+  })
+
+  it('reads notes across a multi-note v2 stanza segment', () => {
+    expect(notesText(v2.content)).toBe('1 2 3')
+  })
+})
+
+describe('search by notes (B058) — v2 songs are note-searchable', () => {
+  const notesCatalog = [v1, v2imported]
+
+  it('finds a v2 song by a note sequence', () => {
+    expect(filterSongs(notesCatalog, '5 5 6 1')).toEqual([v2imported])
+  })
+
+  it('still finds a v1 song by its notes', () => {
+    expect(filterSongs(notesCatalog, '1 2 3 5')).toEqual([v1])
   })
 })
 

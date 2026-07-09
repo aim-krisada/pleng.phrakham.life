@@ -51,13 +51,19 @@ export function lyricsText(content) {
 }
 
 export function notesText(content) {
-  return (content?.lines || [])
+  // v2: melody lives in stanzas (each stanza's lines are v1-shaped item arrays);
+  // v1: melody is on the flat top-level lines. Both are arrays of lines of items.
+  const lines = Array.isArray(content?.stanzas)
+    ? content.stanzas.flatMap((s) => s.lines || [])
+    : content?.lines || []
+  return lines
     .flat()
     .filter((i) => i.type === 'segment')
     .map((i) => i.note)
     .join(' ')
     .replace(/[.\-_'(){}#b]/g, '')
     .replace(/\s+/g, ' ')
+    .trim()
 }
 
 export function snippet(content, len = 60) {
