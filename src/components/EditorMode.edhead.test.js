@@ -69,11 +69,14 @@ describe('edhead — prototype-aligned edit header', () => {
     expect(w.find('.ed-crumb').text()).toContain('ท่อน A')
   })
 
-  it('B035: layout toggle flips the strip stack ⇄ flow', async () => {
+  it('B048: layout defaults to ต่อกัน and toggles to 1 ห้อง/แถว', async () => {
     const w = mountEd()
     await nextTick()
     const strip = w.find('.ed-strip')
-    expect(strip.classes()).toContain('lay-stack') // default = 1 ห้อง/แถว (matches prototype)
+    expect(strip.classes()).toContain('lay-flow') // B048: default = ต่อกัน (ห้องต่อกัน)
+    const stackBtn = w.findAll('.ed-lay button').find((b) => b.text() === '1 ห้อง/แถว')
+    await stackBtn.trigger('click')
+    expect(w.find('.ed-strip').classes()).toContain('lay-stack')
     const flowBtn = w.findAll('.ed-lay button').find((b) => b.text() === 'ต่อกัน')
     await flowBtn.trigger('click')
     expect(w.find('.ed-strip').classes()).toContain('lay-flow')
@@ -114,6 +117,57 @@ describe('edhead — prototype-aligned edit header', () => {
     expect(items.some((it) => it.type === 'marker')).toBe(true) // ฮุก → marker
     expect(items.some((it) => it.type === 'repeat-start')).toBe(true) // ซ้ำ → wraps line
     expect(items.some((it) => it.type === 'repeat-end')).toBe(true)
+  })
+
+  // B050/B051 — the "ดูผลทั้งเพลง" preview renders REAL SongSheet (not stubbed) so we can
+  // assert the words show and the section head is not repeated per bar.
+  const WORDED = {
+    id: 's2',
+    number: 4,
+    title_th: 'เพลงมีเนื้อ',
+    title_en: '',
+    content: {
+      version: 2,
+      key: 'C',
+      timeSignature: '4/4',
+      // one line, section "ท่อนขึ้น", two bars of 4 attack notes each = 8 slots
+      stanzas: [
+        {
+          id: 'A',
+          lines: [[{ type: 'section', name: 'ท่อนขึ้น' }, { type: 'segment', chord: 'C', note: '1 2 3 4' }, { type: 'bar' }, { type: 'segment', chord: 'G', note: '5 6 7 1' }]],
+        },
+      ],
+      arrangement: [
+        { stanza: 'A', label: 'ร้อง 1', syllables: ['สรร', 'เส', 'ริญ', 'พระ', 'เจ้า', 'ผู้', 'ทรง', 'ฤทธิ์'] },
+      ],
+    },
+  }
+  function mountWorded() {
+    return mount(EditorMode, {
+      props: { song: WORDED, tier: 'approver', active: true },
+      attachTo: document.body,
+      global: { stubs: { Icon: true, 'router-link': true, StudioDock: true, ComboSelect: true } }, // SongSheet REAL
+    })
+  }
+
+  it('B050: ดูผลทั้งเพลง shows the selected verse words, not notes alone', async () => {
+    const w = mountWorded()
+    await nextTick()
+    await w.find('.ed-chip').trigger('click') // flip whole song to render
+    await nextTick()
+    const syls = w.findAll('.ed-bar-render .syl').map((s) => s.text())
+    // every syllable of ร้อง 1 lands under a note (8 words across the two bars)
+    expect(syls).toEqual(['สรร', 'เส', 'ริญ', 'พระ', 'เจ้า', 'ผู้', 'ทรง', 'ฤทธิ์'])
+  })
+
+  it('B051: the section head shows once per line, not on every bar', async () => {
+    const w = mountWorded()
+    await nextTick()
+    await w.find('.ed-chip').trigger('click')
+    await nextTick()
+    const heads = w.findAll('.ed-bar-render .section-label')
+    expect(heads.length).toBe(1) // two bars, but "♦ ท่อนขึ้น" appears only on the first
+    expect(heads[0].text()).toContain('ท่อนขึ้น')
   })
 
   it('B032: each verse row offers a delete, and it removes the ข้อ', async () => {
