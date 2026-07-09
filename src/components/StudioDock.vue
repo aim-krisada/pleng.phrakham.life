@@ -20,6 +20,12 @@
 //   — clicking opens a dropdown of `options`; single-select marks `value` and calls
 //   onPick then closes; multi marks each of `selected` and calls onPick per toggle (stays
 //   open). The button shows a caret; `badge` (e.g. คีย์/BPM) rides beside the icon.
+// Custom controls (D8): a def may instead carry { id, type:'custom', component, props? }
+//   and StudioDock renders <component :is> in place of a button — the escape hatch for
+//   non-button controls (slider · progress · a whole transport bar, e.g. B043). The dock
+//   stays blind to the control; the PAGE owns it, wiring its own state through `props`, so
+//   new controls need no change here. Pass `component` as markRaw(...) to skip needless
+//   reactivity. It flows through the same overflow/customize machinery as any tool.
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
 
@@ -32,10 +38,16 @@ const props = defineProps({
 })
 const emit = defineEmits(['insert'])
 
-// ---------- persisted layout (per mode; alpha is shared across modes) ----------
+// ---------- persisted layout ----------
+// Tool ORDER is per-mode (each mode offers a different button set). Everything about the
+// dock's "body" — collapsed, transparency, and the dragged position of both the bar and
+// the floating button — is SHARED across modes (dock-core / N1): one dock instance, one
+// remembered spot, so collapse/expand + position feel identical in ทำนอง/ฝึกร้อง/พิมพ์.
 const LS_ORDER = computed(() => `pleng.dock.${props.mode}.tools`)
-const LS_COLLAPSED = computed(() => `pleng.dock.collapsed.${props.mode}`)
+const LS_COLLAPSED = 'pleng.dock.collapsed'
 const LS_ALPHA = 'pleng.dock.alpha'
+const LS_BARPOS = 'pleng.dock.barpos'
+const LS_FABPOS = 'pleng.dock.fabpos'
 
 const allIds = computed(() => props.tools.map((t) => t.id))
 const byId = computed(() => Object.fromEntries(props.tools.map((t) => [t.id, t])))
@@ -58,12 +70,11 @@ watch(order, (v) => {
 }, { deep: true })
 
 // ---------- collapse (D4) · transparency (D5) ----------
-const collapsed = ref(false)
-watch(() => props.mode, () => {
-  collapsed.value = localStorage.getItem(LS_COLLAPSED.value) === '1'
-}, { immediate: true })
+// collapsed is shared across modes now (single instance), so it loads ONCE and no longer
+// re-reads on every mode switch — switching ทำนอง⇄ฝึกร้อง keeps the dock as you left it.
+const collapsed = ref(localStorage.getItem(LS_COLLAPSED) === '1')
 watch(collapsed, (v) => {
-  try { localStorage.setItem(LS_COLLAPSED.value, v ? '1' : '0') } catch { /* ignore */ }
+  try { localStorage.setItem(LS_COLLAPSED, v ? '1' : '0') } catch { /* ignore */ }
 })
 
 const alpha = ref(0.92)
@@ -83,7 +94,7 @@ function syncMobile() { mobile.value = mq ? mq.matches : false }
 // ---------- which buttons show ----------
 // the saved order, minus anything not applicable right now (visible===false)
 const shown = computed(() =>
-  order.value.map((id) => byId.value[id]).filter((t) => t && t.icon && t.visible !== false),
+  order.value.map((id) => byId.value[id]).filter((t) => t && (t.icon || t.type === 'custom') && t.visible !== false),
 )
 const addable = computed(() => props.tools.filter((t) => !order.value.includes(t.id)))
 // B033: paletteKeys may be a flat array (one row) OR an array of rows. Edit mode sends
@@ -121,6 +132,9 @@ async function fit() {
   fitting = true
   overflowCount.value = 0
   await nextTick()
+  // the component can unmount during the await (fast mode switches / test teardown) —
+  // bail rather than dereference a now-null ref
+  if (!toolsEl.value) { fitting = false; return }
   const rowW = toolsEl.value.clientWidth
   // guard: width 0 / not laid out yet → show all; the ResizeObserver re-runs once real
   // width arrives (the original "measured at width 0 → hid everything" bug)
@@ -164,14 +178,20 @@ onUnmounted(() => {
 function onViewportChange() { syncMobile(); nextTick(fit) }
 
 // ---------- collapse / expand ----------
-function collapse() { collapsed.value = true; closePop() }
-function expand() { collapsed.value = false }
-// B034: the collapse control is the ONLY button left on the thin collapsed bar, so it
-// must gang both ways — collapse when open, expand when collapsed (its @click.stop
-// otherwise swallows the onDockClick that used to be the only way back on desktop).
+function collapse() {
+  // Drop the FAB right where the collapse button is (real-use #1) — it must NOT teleport to
+  // a corner, or the user has to hunt for it. Center the 48px FAB on the handle's spot.
+  if (!mobile.value && handleEl.value) {
+    const r = handleEl.value.getBoundingClientRect()
+    fabPos.value = clampToViewport({ left: r.left + r.width / 2 - 24, top: r.top + r.height / 2 - 24 }, 48, 48)
+  }
+  collapsed.value = true
+  closePop()
+}
+function expand() { collapsed.value = false; nextTick(clampBarPos) }
+// B034: the collapse control gangs both ways — collapse when open, expand when collapsed.
+// On desktop this is the fused grip+chevron button (tap); on mobile the sd-ctl / sd-tab.
 function toggleCollapse() { collapsed.value ? expand() : collapse() }
-// desktop: clicking the thin collapsed bar re-opens it too (mobile uses the tab instead)
-function onDockClick() { if (collapsed.value && !mobile.value) expand() }
 
 // ---------- popovers (overflow · transparency · customize · menu) — one at a time ----------
 const pop = ref(null) // 'overflow' | 'trans' | 'cust' | 'menu' | null
@@ -231,37 +251,93 @@ function remove(id) { order.value = order.value.filter((x) => x !== id) }
 function add(id) { if (!order.value.includes(id)) order.value = [...order.value, id] }
 function reset() { order.value = defaultOrder.value }
 
-// ---------- drag the whole bar by its grip (desktop only) ----------
-const dockPos = ref(null) // {left, top} once moved; null = default bottom-center
+// ---------- fused grip+collapse button: tap toggles, press-drag moves (desktop) ----------
+// ONE control (the grip+chevron glyph) serves both states, iOS-AssistiveTouch style:
+//   expanded  → it is the in-dock handle: tap = หุบ, drag = move the whole bar
+//   collapsed → it IS the only thing on screen: a round floating button (FAB); tap = กาง,
+//               drag = move the button anywhere
+// pointer down→up with < DRAG_THRESHOLD px of travel = a tap (toggle); past the threshold
+// it becomes a drag (no toggle) — so a move never accidentally gaps/collapses the dock.
+const DRAG_THRESHOLD = 5 // px
+const fabEl = ref(null)
+const handleEl = ref(null) // the fused grip+collapse button (so the FAB can drop where it was)
+
+// dragged positions (viewport coords, top-left). null = default CSS spot. BOTH are shared
+// across modes (persisted) so the dock/button stay put when you switch view.
+const dockPos = ref(loadPos(LS_BARPOS)) // the whole bar (expanded)
+const fabPos = ref(loadPos(LS_FABPOS))  // the floating button (collapsed)
+function loadPos(key) {
+  try {
+    const p = JSON.parse(localStorage.getItem(key) || 'null')
+    if (p && typeof p.left === 'number' && typeof p.top === 'number') return p
+  } catch { /* ignore */ }
+  return null
+}
+watch(dockPos, (v) => { try { v ? localStorage.setItem(LS_BARPOS, JSON.stringify(v)) : localStorage.removeItem(LS_BARPOS) } catch { /* ignore */ } }, { deep: true })
+watch(fabPos, (v) => { try { v ? localStorage.setItem(LS_FABPOS, JSON.stringify(v)) : localStorage.removeItem(LS_FABPOS) } catch { /* ignore */ } }, { deep: true })
+
+// position: fixed is REQUIRED — .sd-dock is otherwise static (positioned by the fixed
+// .sd-wrap), so left/top alone would not move it. Coords come from getBoundingClientRect,
+// which fixed positioning matches exactly.
 const dockStyle = computed(() =>
   dockPos.value && !mobile.value
-    // position: fixed is REQUIRED — .sd-dock is otherwise static (positioned by the
-    // fixed .sd-wrap), so left/top alone would not move it. left/top are viewport
-    // coords from getBoundingClientRect, which fixed positioning matches exactly.
     ? { position: 'fixed', left: dockPos.value.left + 'px', top: dockPos.value.top + 'px', right: 'auto', bottom: 'auto', transform: 'none' }
     : {},
 )
-let drag = false, oX = 0, oY = 0, dW = 0, dH = 0
-function dragStart(e) {
-  if (mobile.value) return
-  e.preventDefault()
-  const el = dockEl.value
-  if (!el) return
-  const r = el.getBoundingClientRect()
-  oX = e.clientX - r.left; oY = e.clientY - r.top; dW = r.width; dH = r.height
-  dockPos.value = { left: r.left, top: r.top }
-  drag = true
-  try { e.target.setPointerCapture(e.pointerId) } catch { /* no capture — still tracks on grip */ }
-}
-function dragMove(e) {
-  if (!drag) return
-  e.preventDefault()
-  dockPos.value = {
-    left: Math.max(4, Math.min(window.innerWidth - dW - 4, e.clientX - oX)),
-    top: Math.max(4, Math.min(window.innerHeight - dH - 4, e.clientY - oY)),
+const fabStyle = computed(() =>
+  fabPos.value
+    ? { left: fabPos.value.left + 'px', top: fabPos.value.top + 'px', right: 'auto', bottom: 'auto', transform: 'none' }
+    : {},
+)
+
+function clampToViewport(pos, w, h) {
+  return {
+    left: Math.max(4, Math.min(window.innerWidth - w - 4, pos.left)),
+    top: Math.max(4, Math.min(window.innerHeight - h - 4, pos.top)),
   }
 }
-function dragEnd() { drag = false }
+// after expanding, the wide bar may not fit where the small FAB sat — pull it back on-screen
+function clampBarPos() {
+  if (!dockPos.value || mobile.value || !dockEl.value) return
+  const r = dockEl.value.getBoundingClientRect()
+  dockPos.value = clampToViewport(dockPos.value, r.width, r.height)
+}
+
+let pdown = false, moved = false, sX = 0, sY = 0, oX = 0, oY = 0, dW = 0, dH = 0, startLeft = 0, startTop = 0
+function combinedDown(e) {
+  if (mobile.value) return
+  e.preventDefault()
+  pdown = true; moved = false
+  sX = e.clientX; sY = e.clientY
+  // Capture the grab offset + the element's box NOW (at press), not after the threshold —
+  // otherwise the grab point jumps by the first move's distance when the drag kicks in.
+  const el = collapsed.value ? fabEl.value : dockEl.value
+  if (el) {
+    const r = el.getBoundingClientRect()
+    oX = sX - r.left; oY = sY - r.top; dW = r.width; dH = r.height; startLeft = r.left; startTop = r.top
+  }
+  try { e.target.setPointerCapture(e.pointerId) } catch { /* no capture — pointer still tracks */ }
+}
+function combinedMove(e) {
+  if (!pdown) return
+  const dx = e.clientX - sX, dy = e.clientY - sY
+  if (!moved && dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+    moved = true
+    // pin the element to explicit fixed coords at its current spot, then track the pointer
+    ;(collapsed.value ? fabPos : dockPos).value = { left: startLeft, top: startTop }
+  }
+  if (moved) { e.preventDefault(); doDrag(e) }
+}
+function combinedUp() {
+  if (!pdown) return
+  pdown = false
+  if (!moved) toggleCollapse() // a clean tap (no drag) → กาง/หุบ
+  moved = false
+}
+function doDrag(e) {
+  const target = collapsed.value ? fabPos : dockPos
+  target.value = clampToViewport({ left: e.clientX - oX, top: e.clientY - oY }, dW, dH)
+}
 
 // a tool button was pressed: a menu tool opens its dropdown, a plain tool runs
 function runTool(t) {
@@ -275,12 +351,27 @@ function runTool(t) {
   <div class="sd-wrap no-print">
     <p v-if="message" class="sd-msg" role="status">{{ message }}</p>
 
+    <!-- collapsed on desktop → the dock becomes ONE round floating button (FAB). Tap to
+         กาง; press-drag to move it anywhere. Mobile keeps the slide-off + pull-up tab. -->
+    <button
+      v-if="collapsed && !mobile"
+      ref="fabEl"
+      class="sd-fab"
+      :style="fabStyle"
+      aria-label="กางแถบเครื่องมือ"
+      title="แตะเพื่อกางแถบ · ลากเพื่อย้าย"
+      @pointerdown="combinedDown"
+      @pointermove="combinedMove"
+      @pointerup="combinedUp"
+      @pointercancel="combinedUp"
+    ><Icon name="dock-grip-expand" :size="26" /></button>
+
     <div
+      v-show="!(collapsed && !mobile)"
       ref="dockEl"
       class="sd-dock"
       :class="{ 'sd-m': mobile, 'sd-collapsed': collapsed }"
       :style="[dockStyle, { '--dock-alpha': alpha }]"
-      @click="onDockClick"
     >
       <!-- fixed jianpu keyboard (edit only) — one or more rows; each row shares its line
            (keys stretch/shrink, never wrap) so more keys just mean a bigger tap target -->
@@ -296,47 +387,53 @@ function runTool(t) {
       </div>
 
       <div ref="toolsEl" class="sd-tools" role="toolbar" aria-label="เครื่องมือ">
-        <!-- drag handle (desktop) -->
-        <span
-          v-if="!mobile"
-          class="sd-grip hideoncol"
-          title="ลากเพื่อย้ายแถบ"
-          aria-hidden="true"
-          @pointerdown="dragStart"
-          @pointermove="dragMove"
-          @pointerup="dragEnd"
-          @pointercancel="dragEnd"
-        ><Icon name="grip-vertical" :size="18" /></span>
-
+        <!-- fused grip+collapse handle (desktop): tap = หุบ, drag = ย้ายทั้งแถบ (B037) -->
         <button
-          v-for="t in primary"
-          :key="t.id"
-          class="sd-tbtn hideoncol"
-          :class="{ danger: t.danger, prime: t.prime, wide: t.badge || t.menu }"
-          :disabled="t.disabled"
-          :title="t.label"
-          :aria-label="t.label"
-          :data-tool="t.id"
-          :aria-haspopup="t.menu ? 'menu' : undefined"
-          :aria-expanded="t.menu ? (menuId === t.id) : undefined"
-          :data-menu-btn="t.menu ? t.id : undefined"
-          @click.stop="runTool(t)"
-        >
-          <Icon :name="t.icon" :size="18" />
-          <b v-if="t.badge" class="sd-badge">{{ t.badge }}</b>
-          <Icon v-if="t.menu" name="chevron-down" :size="14" class="sd-caret" />
-        </button>
+          v-if="!mobile"
+          ref="handleEl"
+          class="sd-combined hideoncol"
+          aria-label="หุบแถบเครื่องมือ"
+          title="แตะเพื่อหุบแถบ · ลากเพื่อย้าย"
+          @pointerdown="combinedDown"
+          @pointermove="combinedMove"
+          @pointerup="combinedUp"
+          @pointercancel="combinedUp"
+        ><Icon name="dock-grip-collapse" :size="24" /></button>
 
-        <!-- right-hand controls: overflow · transparency · customize · collapse -->
-        <span class="sd-rc">
+        <template v-for="t in primary" :key="t.id">
+          <!-- custom control (D8): a page can drop a non-button control (slider · progress ·
+               transport bar) into the dock purely by config — { type:'custom', component,
+               props }. StudioDock stays blind to what it is; the page owns it, so future
+               controls (e.g. B043 transport) need no change here. -->
+          <component
+            :is="t.component"
+            v-if="t.type === 'custom'"
+            class="sd-custom hideoncol"
+            :data-tool="t.id"
+            v-bind="t.props || {}"
+          />
           <button
-            v-if="overflow.length"
-            class="sd-tbtn sd-ctl hideoncol"
-            :aria-expanded="pop === 'overflow'"
-            aria-label="ดูปุ่มเพิ่มเติม"
-            title="ดูเพิ่ม"
-            @click.stop="togglePop('overflow')"
-          ><Icon name="ellipsis" :size="18" /></button>
+            v-else
+            class="sd-tbtn hideoncol"
+            :class="{ danger: t.danger, prime: t.prime, wide: t.badge || t.menu }"
+            :disabled="t.disabled"
+            :title="t.label"
+            :aria-label="t.label"
+            :data-tool="t.id"
+            :aria-haspopup="t.menu ? 'menu' : undefined"
+            :aria-expanded="t.menu ? (menuId === t.id) : undefined"
+            :data-menu-btn="t.menu ? t.id : undefined"
+            @click.stop="runTool(t)"
+          >
+            <Icon :name="t.icon" :size="18" />
+            <b v-if="t.badge" class="sd-badge">{{ t.badge }}</b>
+            <Icon v-if="t.menu" name="chevron-down" :size="14" class="sd-caret" />
+          </button>
+        </template>
+
+        <!-- right-hand controls: transparency · customize · overflow · (mobile collapse).
+             ⋯ "ดูเพิ่ม" sits RIGHTMOST of the tool row in every mode (real-use #3). -->
+        <span class="sd-rc">
           <button
             class="sd-tbtn sd-ctl hideoncol"
             :aria-expanded="pop === 'trans'"
@@ -353,6 +450,16 @@ function runTool(t) {
             @click.stop="togglePop('cust')"
           ><Icon name="sliders-horizontal" :size="18" /></button>
           <button
+            v-if="overflow.length"
+            class="sd-tbtn sd-ctl hideoncol"
+            :aria-expanded="pop === 'overflow'"
+            aria-label="ดูปุ่มเพิ่มเติม"
+            title="ดูเพิ่ม"
+            @click.stop="togglePop('overflow')"
+          ><Icon name="ellipsis" :size="18" /></button>
+          <!-- mobile keeps a tap-only collapse control; desktop uses the fused handle -->
+          <button
+            v-if="mobile"
             class="sd-tbtn sd-ctl"
             :aria-label="collapsed ? 'กางแถบเครื่องมือ' : 'หุบแถบเครื่องมือ'"
             :title="collapsed ? 'กางแถบ' : 'หุบแถบ'"
@@ -366,22 +473,25 @@ function runTool(t) {
       <div v-if="pop === 'overflow'" class="sd-pop" role="menu" @click.stop>
         <h4>ปุ่มเพิ่มเติม</h4>
         <div class="sd-ov">
-          <button
-            v-for="t in overflow"
-            :key="t.id"
-            class="sd-tbtn"
-            :class="{ danger: t.danger, prime: t.prime, wide: t.badge }"
-            :disabled="t.disabled"
-            :aria-label="t.label"
-            :title="t.label"
-            :data-tool="t.id"
-            :data-menu-btn="t.menu ? t.id : undefined"
-            @click.stop="t.menu ? runTool(t) : (runTool(t), closePop())"
-          >
-            <Icon :name="t.icon" :size="18" />
-            <b v-if="t.badge" class="sd-badge">{{ t.badge }}</b>
-            <span class="sd-ov-label">{{ t.label }}</span>
-          </button>
+          <template v-for="t in overflow" :key="t.id">
+            <!-- a custom control that spilled here renders itself; it owns its own label -->
+            <component :is="t.component" v-if="t.type === 'custom'" :data-tool="t.id" v-bind="t.props || {}" />
+            <button
+              v-else
+              class="sd-tbtn"
+              :class="{ danger: t.danger, prime: t.prime, wide: t.badge }"
+              :disabled="t.disabled"
+              :aria-label="t.label"
+              :title="t.label"
+              :data-tool="t.id"
+              :data-menu-btn="t.menu ? t.id : undefined"
+              @click.stop="t.menu ? runTool(t) : (runTool(t), closePop())"
+            >
+              <Icon :name="t.icon" :size="18" />
+              <b v-if="t.badge" class="sd-badge">{{ t.badge }}</b>
+              <span class="sd-ov-label">{{ t.label }}</span>
+            </button>
+          </template>
         </div>
       </div>
 
@@ -487,9 +597,16 @@ function runTool(t) {
   border: 1px solid var(--line);
   border-radius: 14px;
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.14);
-  backdrop-filter: blur(6px);
+  /* Blur tracks opacity (real-use r3): most transparent (alpha 0.40) → ~0px so the
+     song shows through crisp; most opaque (1.0) → the full 6px frost. max(0px, …)
+     guards float drift at the 0.40 floor. */
+  backdrop-filter: blur(max(0px, calc((var(--dock-alpha, 0.92) - 0.4) / 0.6 * 6px)));
+  -webkit-backdrop-filter: blur(max(0px, calc((var(--dock-alpha, 0.92) - 0.4) / 0.6 * 6px)));
   padding: 8px;
-  max-width: 640px;
+  /* 700px fits the full default ฝึกร้อง set (play·chord·tempo·key·แสดงผล·วนซ้ำ·ก−·ก+·พิมพ์)
+     on desktop so the font buttons don't fall into ⋯ (real-use #5b). Mobile overrides to
+     100% below; overflow (D3) still catches anything the user adds beyond this. */
+  max-width: 700px;
   width: 100%;
   transition: transform 0.22s ease;
 }
@@ -547,19 +664,53 @@ function runTool(t) {
 .sd-tbtn.danger { color: var(--red); }
 .sd-tbtn.prime { background: var(--brand); color: #fff; border-color: var(--brand); }
 .sd-tbtn.wide { flex: 0 0 auto; width: auto; min-width: 44px; padding: 0 9px; gap: 3px; }
+/* custom control (D8): the page owns its look; just keep it aligned in the row */
+.sd-custom { flex: 0 0 auto; display: inline-flex; align-items: center; }
 .sd-badge { font-size: 12px; font-weight: 700; }
 .sd-caret { color: var(--muted); margin-left: -1px; }
 .sd-ctl { color: var(--muted); }
-.sd-grip {
-  cursor: grab;
-  color: var(--muted);
-  width: 26px;
+/* fused grip+collapse handle inside the expanded bar (desktop) */
+.sd-combined {
   flex: 0 0 auto;
-  display: flex;
+  height: 44px;
+  min-height: 0;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: grab;
   touch-action: none;
 }
-.sd-grip:active { cursor: grabbing; }
+.sd-combined:active { cursor: grabbing; }
+@media (hover: hover) { .sd-combined:hover { color: var(--ink); } }
+/* the collapsed FAB — one round floating button, iOS-AssistiveTouch style */
+.sd-fab {
+  pointer-events: auto;
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 48px;
+  min-height: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* prominent brand fill so it's easy to spot (real-use #2). White glyph on --brand
+     (#b6763f) ≈ 3.7:1 — passes WCAG 2.2 AA non-text contrast (1.4.11, ≥ 3:1). */
+  border: 1px solid var(--brand);
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  cursor: grab;
+  touch-action: none;
+}
+.sd-fab:active { cursor: grabbing; }
+@media (hover: hover) { .sd-fab:hover { filter: brightness(1.06); } }
 .sd-rc { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 
 /* collapsed: hide keys + everything but the (re-open) bar */

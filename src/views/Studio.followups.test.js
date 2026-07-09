@@ -97,13 +97,14 @@ describe('Studio shell — "เพลง ▾" panel on the shell (US-05 / S2)', 
   })
 })
 
-describe('Studio shell — print button in โหมดแผ่น (US-06)', () => {
-  it('the sheet toolbar has a print button that calls window.print()', async () => {
+describe('Studio shell — print in โหมดแผ่น (US-06)', () => {
+  it('the shared dock exposes a print tool that calls window.print() (N1)', async () => {
     const spy = vi.spyOn(window, 'print').mockImplementation(() => {})
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
     modeBtns()[1].click(); await nextTick() // switch to แผ่น
-    const btn = w.find('.sheet-workspace .sheet-print-btn')
+    // print moved into the ONE shared <StudioDock> (dock-core / N1), no separate toolbar
+    const btn = w.find('.sd-tools .sd-tbtn[data-tool="print"]')
     expect(btn.exists()).toBe(true)
     await btn.trigger('click')
     expect(spy).toHaveBeenCalled()

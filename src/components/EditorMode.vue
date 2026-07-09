@@ -11,7 +11,6 @@ import SongSheet from './SongSheet.vue'
 import NoteBoxes from './NoteBoxes.vue'
 import ComboSelect from './ComboSelect.vue'
 import Icon from './Icon.vue'
-import StudioDock from './StudioDock.vue'
 
 // ---------- mode contract (DS-04) ----------
 // EditorMode is the "แก้ไข" surface, extracted whole from Studio.vue. The shell owns
@@ -29,7 +28,7 @@ const props = defineProps({
   tier: { type: String, default: 'anon' },
   active: { type: Boolean, default: false },
 })
-const emit = defineEmits(['change', 'save'])
+const emit = defineEmits(['change', 'save', 'dock'])
 
 // ---------- auth + role (gating comes from the store via props.tier · DS-02) ----------
 import { session, legacy, shellMenu, saveDraftRow } from '../store.js'
@@ -1073,6 +1072,17 @@ const editDockTools = computed(() => [
   { id: 'download', icon: 'download', label: 'ดาวน์โหลด JSON', run: downloadJson },
 ])
 
+// dock-core / N1: the dock is mounted ONCE by Studio (no longer here). Push this mode's
+// dock config up whenever it changes — the edit tool set, the jianpu key rows, the status
+// message, and the note-insert handler (so pressing a key routes back into the focused
+// note box). Studio feeds all this into the single shared <StudioDock> while แก้ไข is on.
+watch(
+  () => ({ tools: editDockTools.value, message: saveMsg.value }),
+  ({ tools, message }) =>
+    emit('dock', { tools, message, defaultTools: DOCK_DEFAULT, paletteKeys: PALETTE, onInsert: insertSym }),
+  { immediate: true },
+)
+
 const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', rejected: 'ถูกส่งกลับ', approved: 'อนุมัติแล้ว' }
 
 // ---------- studio shell (phase 1: header chrome + edit/sheet mode) ----------
@@ -1761,17 +1771,8 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
     </div>
     <!-- ===== end edit workspace ===== -->
 
-    <!-- bottom dock: the shared <StudioDock> (ps4 คลื่น 1). It owns the engine
-         (dynamic overflow · หุบ/กาง · ความโปร่ง · ตั้งค่าปุ่ม · ลากย้าย); here we pass the
-         jianpu key row, the edit tool set, and the status message. -->
-    <StudioDock
-      mode="edit"
-      :tools="editDockTools"
-      :default-tools="DOCK_DEFAULT"
-      :palette-keys="PALETTE"
-      :message="saveMsg"
-      @insert="insertSym"
-    />
+    <!-- bottom dock lives on Studio now (dock-core / N1): a single shared <StudioDock>
+         mounted once. This mode emits its dock config up via @dock instead of mounting. -->
 
     <!-- full sheet overlay -->
     <div v-if="showSheet" class="sheet-overlay no-print" role="dialog" aria-label="แผ่นเพลง" @click.self="showSheet = false" @keydown.esc="showSheet = false">

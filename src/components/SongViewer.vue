@@ -10,7 +10,6 @@ import { KEYS } from '../lib/chords.js'
 import { playSong, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS } from '../lib/midi.js'
 import { resolveContent } from '../lib/songModel.js'
 import SongSheet from './SongSheet.vue'
-import StudioDock from './StudioDock.vue'
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
 // view-only for everyone, so it is accepted but not used to gate anything — there are
@@ -19,16 +18,20 @@ const props = defineProps({
   song: { type: Object, required: true },
   tier: { type: String, default: 'guest' },
 })
+// dock-core / N1: the dock is mounted once by Studio; this surface emits its "sing" tool
+// set upward instead of mounting its own <StudioDock>.
+const emit = defineEmits(['dock'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 // One preset picks which of chord / note / lyric show. Mirrors the ps3-dock prototype's
 // 5-way แสดงผล menu; SongSheet takes the three booleans so each preset renders exactly.
+// `short` = the current-value badge shown on the dock button (like คีย์ E / ความเร็ว 84)
 const DISPLAY_OPTS = [
-  { value: 'all', label: 'ครบ (เนื้อ+คอร์ด+โน้ต)', chord: true, note: true, lyric: true },
-  { value: 'chord', label: 'เนื้อ+คอร์ด', chord: true, note: false, lyric: true },
-  { value: 'note', label: 'เนื้อ+โน้ต', chord: false, note: true, lyric: true },
-  { value: 'lyric', label: 'เนื้อล้วน', chord: false, note: false, lyric: true },
-  { value: 'noteonly', label: 'โน้ตล้วน', chord: false, note: true, lyric: false },
+  { value: 'all', label: 'ครบ (เนื้อ+คอร์ด+โน้ต)', short: 'ครบ', chord: true, note: true, lyric: true },
+  { value: 'chord', label: 'เนื้อ+คอร์ด', short: 'คอร์ด', chord: true, note: false, lyric: true },
+  { value: 'note', label: 'เนื้อ+โน้ต', short: 'โน้ต', chord: false, note: true, lyric: true },
+  { value: 'lyric', label: 'เนื้อล้วน', short: 'เนื้อ', chord: false, note: false, lyric: true },
+  { value: 'noteonly', label: 'โน้ตล้วน', short: 'โน้ตล้วน', chord: false, note: true, lyric: false },
 ]
 const display = ref('all')
 const displayDef = computed(() => DISPLAY_OPTS.find((o) => o.value === display.value) || DISPLAY_OPTS[0])
@@ -251,6 +254,7 @@ const singTools = computed(() => [
     icon: 'layers',
     label: 'แสดงผล',
     menu: true,
+    badge: displayDef.value.short, // show the chosen preset like คีย์/ความเร็ว do (real-use #5)
     value: display.value,
     options: DISPLAY_OPTS,
     onPick: (v) => (display.value = v),
@@ -260,6 +264,8 @@ const singTools = computed(() => [
   { id: 'fup', icon: 'a-arrow-up', label: 'ตัวใหญ่ขึ้น', run: () => bumpFont(0.1), disabled: fontScale.value >= 2.2 },
   { id: 'print', icon: 'printer', label: 'พิมพ์', run: printSheet },
 ])
+// push the sing tool set up to Studio's single dock whenever it changes (play/loop/key/…)
+watch(singTools, (tools) => emit('dock', { tools, defaultTools: SING_DEFAULT }), { immediate: true })
 
 onMounted(() => {
   window.addEventListener('wheel', onUserScroll, { passive: true })
@@ -316,10 +322,8 @@ function onSeek({ li, si, syk }) {
       />
     </div>
 
-    <!-- control bar = the shared studio dock (sing mode). It owns collapse / transparency /
-         customize / overflow; the play button here is the sticky ▶⇄⏸ that stays reachable
-         while the singer scrolls (B016). -->
-    <StudioDock mode="sing" :tools="singTools" :default-tools="SING_DEFAULT" />
+    <!-- control bar lives on Studio now (dock-core / N1): one shared <StudioDock>. This
+         surface emits its "sing" tool set via @dock; the sticky ▶⇄⏸ still rides that dock. -->
   </div>
 </template>
 
