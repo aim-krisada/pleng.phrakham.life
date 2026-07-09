@@ -54,6 +54,7 @@ be self-contained so it can go in its own worktree/branch. Practical rules:
 - **1 task = 1 worktree = 1 branch = 1 dev-server port** — never two sessions in the same working dir.
 - Keep work isolated: no shared mutable scratch that two sessions write at once; sessions meet only at `git merge`.
 - Each `feature NNN` / `bug NNN` should stand alone so it can be picked up in a fresh session with no cross-talk.
+- **The main dir is NOT pinned to `main` — another session can switch its branch under you.** Always run `git branch --show-current` before `git add`/`git commit` in the main dir. Do `main`-targeted fixes (guide, notation, small bugs) in a worktree that tracks `main` — never commit them in the shared main dir. (Learned 2026-07-07: a commit landed on `studio-shell-redesign` instead of `main` this way.)
 
 One task = one worktree = one branch (no live file clashes; merge via normal git). Branch from the base `studio-shell-redesign`, not `main`:
 
@@ -63,3 +64,13 @@ npm run dev -- --port 5301               # give each worktree its own port
 git worktree remove ../pleng-wt0         # when done
 ```
 Open a separate Claude Code window per worktree. Merge branches back to the base `studio-shell-redesign` when done; `main` only on P'Aim's explicit go (it auto-deploys).
+
+**Verifying from a worktree:** the `preview_*` tools attach to the *primary* working dir,
+not your worktree — they will NOT show your worktree's changes. Verify instead by:
+1. `node` tests importing `src/lib/*` (e.g. `parseNotes`, `songToNotes`) for pure logic.
+2. `curl http://localhost:<port>/src/....vue` against the worktree's own `npm run dev` —
+   a `200` with your text present = it compiles and the change is in.
+3. after deploy, poll the live JS bundle for the commit hash (build stamps `__BUILD_COMMIT__`).
+
+`preview_screenshot` is flaky (often times out); prefer `preview_inspect` / DOM queries via
+`preview_eval` for precise checks (colours, positions, alignment) even when it does work.
