@@ -30,6 +30,11 @@ EXPECT = {'4/4': 4, '3/4': 3, '6/8': 3, '2/4': 2, '4/8': 2, '12/8': 6, '9/8': 4.
 THEMES = ['กิตติคุณ', 'รักปรารถนา', 'มอบถวาย', 'คริสตจักร', 'ประสบการณ์', 'พระคัมภีร์', 'อาณาจักร', 'ความสุขแห่งความรอด']
 BOOKREF = re.compile(r'([ก-ฮ]{1,3})\s*\.\s*(\d+)')
 
+# Songs whose refrain is sung after EVERY verse (P'Aim ground truth; the printed page
+# shows the refrain only once so it can't be inferred from the source — see song 109 vs
+# 57 which are structurally identical). Manual until a general rule is found for the 120.
+REFRAIN_EVERY_VERSE = {109}
+
 def parse_title_meta(header):
     """From the DOCX header lines → (clean_title, theme, book_refs, scripture).
     Splits the parenthetical clutter out of the title: theme (8 topics), book cross-
@@ -477,21 +482,35 @@ def build_song(pdf, docx, debug=False):
         syls = align_syllables(flat(sid), split_syls(body), tag, warnings)
         arrangement.append({'stanza': sid, 'label': label, 'syllables': syls})
 
-    verse_no = 0
+    # build the play sequence in SOURCE ORDER: each entry = (kind, stanza_id, lyric_lines)
+    seq = []
     for b in printed_blocks:
-        if b['kind'] == 'refrain':
-            add_row(b['stanza'], 'รับ', b['lyrics'], 'รับ')
-        else:
-            verse_no += 1
-            add_row(b['stanza'], f'ร้อง {verse_no}', b['lyrics'], f'ร้อง{verse_no}')
+        seq.append(('refrain' if b['kind'] == 'refrain' else 'verse', b['stanza'], b['lyrics']))
     for blk in extra_blocks:
         if blk['refrain'] and refrain_id is not None:
-            add_row(refrain_id, 'รับ', blk['lines'], 'รับX')
+            seq.append(('refrain', refrain_id, blk['lines']))
+        else:
+            if len(set(verse_ids)) > 1:
+                warnings.append(f'ข้อเนื้อล้วน + หลายทำนองข้อ — map ลงทำนองข้อแรก ({default_verse_id}); verify')
+            seq.append(('verse', default_verse_id, blk['lines']))
+
+    # REFRAIN_EVERY_VERSE: some songs sing the refrain after EVERY verse (e.g. 109). The
+    # printed page shows the refrain once, so this can't be derived from the source — it
+    # is a per-song ground-truth override (P'Aim). Auto-gen of the full 120 still needs a
+    # general rule; until then such songs are listed here explicitly.
+    if number in REFRAIN_EVERY_VERSE:
+        refr = next(((sid, ll) for k, sid, ll in seq if k == 'refrain'), None)
+        if refr:
+            seq = [e for v in [e for e in seq if e[0] == 'verse'] for e in (v, ('refrain', refr[0], refr[1]))]
+        warnings.append('refrain repeated after every verse (per-song override; general rule for 120 pending)')
+
+    verse_no = 0
+    for kind, sid, lyric_lines in seq:
+        if kind == 'refrain':
+            add_row(sid, 'รับ', lyric_lines, 'รับ')
         else:
             verse_no += 1
-            if len(set(verse_ids)) > 1:
-                warnings.append(f'ร้อง {verse_no}: หลายทำนองข้อ + ข้อเนื้อล้วน — map ลงทำนองข้อแรก ({default_verse_id}); verify')
-            add_row(default_verse_id, f'ร้อง {verse_no}', blk['lines'], f'ร้อง{verse_no}')
+            add_row(sid, f'ร้อง {verse_no}', lyric_lines, f'ร้อง{verse_no}')
 
     content = {'version': 2, 'key': key, 'timeSignature': ts,
                'stanzas': stanzas, 'arrangement': arrangement}
