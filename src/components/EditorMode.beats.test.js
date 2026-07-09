@@ -90,7 +90,7 @@ describe('B055 — beat check counts across bars', () => {
 
     // pickup bars 2 + 2 = 4 → both valid
     expect(isBad(bar(0, 0))).toBe(false)
-    expect(statusOf(bar(0, 0)).textContent).toContain('ห้องยก')
+    expect(statusOf(bar(0, 0)).textContent).toContain('ห้องต่อกัน')
     expect(isBad(bar(0, 2))).toBe(false)
     // the full middle bar is unaffected
     expect(isBad(bar(0, 1))).toBe(false)
@@ -103,7 +103,7 @@ describe('B055 — beat check counts across bars', () => {
     expect(isBad(bar)).toBe(true)
   })
 
-  it('offers the ↻ ห้องยก quick toggle on a short bar', async () => {
+  it('offers the ↻ ห้องต่อกัน quick toggle on a short bar', async () => {
     const wrapper = mountEditor()
     await nextTick()
     const bar = wrapper.element.querySelector('.ed-bar[data-bar="1-0"]')
