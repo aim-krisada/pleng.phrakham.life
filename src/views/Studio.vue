@@ -11,7 +11,7 @@ import { migrateToV2, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
-import { tier, initAuth, shellMenu, currentSong } from '../store.js'
+import { tier, initAuth, shellMenu, currentSong, readingFontScale } from '../store.js'
 import Icon from '../components/Icon.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 import SongViewer from '../components/SongViewer.vue'
@@ -282,7 +282,12 @@ const activeDock = computed(() =>
     <div v-show="mode === 'sheet'" class="sheet-workspace">
       <div class="card">
         <h2 class="sheet-title no-print">{{ titleText }}</h2>
-        <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" :song-title="titleText" />
+        <!-- the top-nav "Aa" reader size (store.readingFontScale) scales แผ่นเพลง on screen
+             too (B043 · was only wired in ฝึกร้อง). Reset to 1rem for print so the A4 sheet
+             keeps its fixed layout regardless of the on-screen reading size. -->
+        <div class="sheet-read-scale" :style="{ fontSize: readingFontScale + 'rem' }">
+          <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" :song-title="titleText" />
+        </div>
       </div>
     </div>
 
@@ -425,6 +430,11 @@ const activeDock = computed(() =>
    fixed dock never covers the last staff line. */
 .sheet-workspace {
   padding-bottom: 88px;
+}
+/* Aa scales the sheet on screen; print keeps the fixed A4 size (protect pagination) */
+.sheet-read-scale { font-size: inherit; }
+@media print {
+  .sheet-read-scale { font-size: 1rem !important; }
 }
 
 @media (max-width: 760px) {

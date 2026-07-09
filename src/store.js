@@ -1,8 +1,27 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { supabase } from './supabase.js'
 
 // Song currently open in the viewer — drives the navbar download tool.
 export const currentSong = ref(null)
+
+// ---- reader text size (B043 · shared with phrakham.life's Aa control) ----
+// A global reading-font scale for the song surfaces, driven by the "Aa" tool in the
+// shared top nav (ShellBar) so the reader controls text size from one place — not the
+// dock. Steps 0.8–2.2 (80%–220%), persisted so the choice survives reloads.
+const FS_KEY = 'pleng.readingFontScale'
+const clampFs = (v) => Math.min(2.2, Math.max(0.8, Math.round(v * 10) / 10))
+export const readingFontScale = ref((() => {
+  try {
+    const v = parseFloat(localStorage.getItem(FS_KEY))
+    if (v >= 0.8 && v <= 2.2) return v
+  } catch { /* ignore */ }
+  return 1
+})())
+watch(readingFontScale, (v) => {
+  try { localStorage.setItem(FS_KEY, String(v)) } catch { /* ignore */ }
+})
+export function bumpFontScale(d) { readingFontScale.value = clampFs(readingFontScale.value + d) }
+export function resetFontScale() { readingFontScale.value = 1 }
 
 // Which shell-bar menu is open ('site' | 'file' | 'manage' | 'mode' | null). Shared so
 // the app-wide ShellBar and a page's teleported menus are one open-at-a-time system.

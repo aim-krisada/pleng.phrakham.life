@@ -7,6 +7,7 @@ import { useRoute } from 'vue-router'
 import { shellMenu } from '../store.js'
 import ProfileTool from './ProfileTool.vue'
 import DownloadTool from './DownloadTool.vue'
+import FontTool from './FontTool.vue'
 import Icon from './Icon.vue'
 
 defineProps({ title: { type: String, default: '' } })
@@ -40,7 +41,7 @@ function closeMenus() {
       <template v-if="title"><span class="sb-sep" aria-hidden="true"></span><span class="shell-title">{{ title }}</span></template>
     </div>
     <div id="shell-menus" class="shell-menus"></div>
-    <div class="sb-right"><slot name="right"><DownloadTool /><ProfileTool /></slot></div>
+    <div class="sb-right"><slot name="right"><FontTool /><DownloadTool /><ProfileTool /></slot></div>
     <div v-if="shellMenu" class="sb-backdrop" aria-hidden="true" @click="closeMenus"></div>
   </header>
 </template>

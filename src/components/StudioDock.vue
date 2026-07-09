@@ -26,6 +26,9 @@
 //   stays blind to the control; the PAGE owns it, wiring its own state through `props`, so
 //   new controls need no change here. Pass `component` as markRaw(...) to skip needless
 //   reactivity. It flows through the same overflow/customize machinery as any tool.
+//   Add `region:'top'` (B043) to render it FULL-WIDTH above the button row instead — its
+//   own band, exempt from the overflow/customize machinery (a music-player transport is
+//   too wide to fold into ⋯). The dock stays blind; the page owns the whole band.
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
 
@@ -49,8 +52,14 @@ const LS_ALPHA = 'pleng.dock.alpha'
 const LS_BARPOS = 'pleng.dock.barpos'
 const LS_FABPOS = 'pleng.dock.fabpos'
 
-const allIds = computed(() => props.tools.map((t) => t.id))
-const byId = computed(() => Object.fromEntries(props.tools.map((t) => [t.id, t])))
+// full-width top-region controls (region:'top') live OUTSIDE the button row's order/
+// overflow/customize machinery — the page owns the whole band. Everything else is a
+// "row tool" and flows through order/shown/overflow as before.
+const isTop = (t) => t.type === 'custom' && t.region === 'top'
+const rowTools = computed(() => props.tools.filter((t) => !isTop(t)))
+const topTools = computed(() => props.tools.filter((t) => isTop(t) && t.visible !== false))
+const allIds = computed(() => rowTools.value.map((t) => t.id))
+const byId = computed(() => Object.fromEntries(rowTools.value.map((t) => [t.id, t])))
 const defaultOrder = computed(() => (props.defaultTools ? props.defaultTools.slice() : allIds.value.slice()))
 
 function loadOrder() {
@@ -96,7 +105,7 @@ function syncMobile() { mobile.value = mq ? mq.matches : false }
 const shown = computed(() =>
   order.value.map((id) => byId.value[id]).filter((t) => t && (t.icon || t.type === 'custom') && t.visible !== false),
 )
-const addable = computed(() => props.tools.filter((t) => !order.value.includes(t.id)))
+const addable = computed(() => rowTools.value.filter((t) => !order.value.includes(t.id)))
 // B033: paletteKeys may be a flat array (one row) OR an array of rows. Edit mode sends
 // 2 rows so the 21 jianpu keys aren't crammed onto one line (tiny/untappable on mobile).
 const keyRows = computed(() => {
@@ -179,10 +188,13 @@ function onViewportChange() { syncMobile(); nextTick(fit) }
 
 // ---------- collapse / expand ----------
 function collapse() {
-  // Drop the FAB right where the collapse button is (real-use #1) — it must NOT teleport to
-  // a corner, or the user has to hunt for it. Center the 48px FAB on the handle's spot.
-  if (!mobile.value && handleEl.value) {
-    const r = handleEl.value.getBoundingClientRect()
+  // Drop the FAB right where the collapse control is (real-use #1) — it must NOT teleport to
+  // a corner, or the user has to hunt for it. Center the 48px FAB on that spot. The anchor is
+  // the in-dock handle (edit/print) OR, for a music dock, the top-region control's own grip
+  // (lastGripEl, captured on press) so the player collapses in-place too (B043 real-use r2).
+  const anchor = handleEl.value || lastGripEl
+  if (!mobile.value && anchor) {
+    const r = anchor.getBoundingClientRect()
     fabPos.value = clampToViewport({ left: r.left + r.width / 2 - 24, top: r.top + r.height / 2 - 24 }, 48, 48)
   }
   collapsed.value = true
@@ -328,9 +340,13 @@ function clampBarPos() {
 }
 
 let pdown = false, moved = false, sX = 0, sY = 0, oX = 0, oY = 0, dW = 0, dH = 0, startLeft = 0, startTop = 0
+// the element that started the current press — the in-dock handle OR a top-region grip
+// (B043). collapse() drops the FAB here so it lands where the finger was (collapse-in-place).
+let lastGripEl = null
 function combinedDown(e) {
   if (mobile.value) return
   e.preventDefault()
+  lastGripEl = e.currentTarget
   pdown = true; moved = false
   sX = e.clientX; sY = e.clientY
   // Capture the grab offset + the element's box NOW (at press), not after the threshold —
@@ -397,6 +413,29 @@ function runTool(t) {
       :class="{ 'sd-m': mobile, 'sd-collapsed': collapsed }"
       :style="[dockStyle, { '--dock-alpha': alpha }]"
     >
+      <!-- full-width top region (D8 region:'top') — a whole music-player transport band
+           above the button row. The dock stays blind; the page owns it via props. -->
+      <div v-if="topTools.length" class="sd-top hideoncol">
+        <!-- inject dock-chrome hooks (collapse + transparency) so a top-region control can
+             render those affordances INSIDE its own layout (B043 puts หุบ + ความโปร่ง in the
+             music player, not the dock's own chrome row). -->
+        <component
+          :is="t.component"
+          v-for="t in topTools"
+          :key="t.id"
+          class="sd-topctl"
+          :data-tool="t.id"
+          v-bind="t.props || {}"
+          :dock-collapsed="collapsed"
+          :dock-alpha="alpha"
+          :grip-down="combinedDown"
+          :grip-move="combinedMove"
+          :grip-up="combinedUp"
+          @dock-collapse="toggleCollapse"
+          @dock-alpha="alpha = $event"
+        />
+      </div>
+
       <!-- fixed jianpu keyboard (edit only) — one or more rows; each row shares its line
            (keys stretch/shrink, never wrap) so more keys just mean a bigger tap target -->
       <div v-if="showKeys" class="sd-keys" role="toolbar" aria-label="สัญลักษณ์โน้ต">
@@ -410,7 +449,9 @@ function runTool(t) {
         </div>
       </div>
 
-      <div ref="toolsEl" class="sd-tools" role="toolbar" aria-label="เครื่องมือ">
+      <!-- a pure music dock (top region only, no button tools) hides the dock's own chrome
+           row — the top-region control renders its own หุบ + ความโปร่ง (B043). -->
+      <div v-if="rowTools.length || !topTools.length" ref="toolsEl" class="sd-tools" role="toolbar" aria-label="เครื่องมือ">
         <!-- fused grip+collapse handle (desktop): tap = หุบ, drag = ย้ายทั้งแถบ (B037) -->
         <button
           v-if="!mobile"
@@ -466,7 +507,7 @@ function runTool(t) {
             @click.stop="togglePop('trans')"
           ><Icon name="blend" :size="18" /></button>
           <button
-            v-if="!mobile"
+            v-if="!mobile && rowTools.length"
             class="sd-tbtn sd-ctl hideoncol"
             :aria-expanded="pop === 'cust'"
             aria-label="ตั้งค่าปุ่มบนแถบ (เพิ่ม/เอาออก/เลื่อน)"
@@ -634,6 +675,18 @@ function runTool(t) {
   width: 100%;
   transition: transform 0.22s ease;
 }
+/* CORE (P'Aim real-use r3): the dock hugs its ACTUAL content in EVERY mode — few buttons
+   (แผ่นเพลง = just 🖨) = short, many (ฝึกร้อง / แก้ไข) = long — instead of always stretching
+   to 700. min-width keeps a music progress bar / note keys usable; overflow (D3) still folds
+   anything past 700 into ⋯. Desktop only; mobile keeps the full-width bottom bar. */
+.sd-dock:not(.sd-m) {
+  width: fit-content;
+  min-width: 300px;
+  max-width: min(700px, calc(100vw - 20px));
+}
+/* keep the note keys tappable when a DESKTOP fit-content dock would otherwise squish them
+   (mobile keeps min-width:0 so 21 keys still fit a narrow full-width row) */
+.sd-dock:not(.sd-m) .sd-key { min-width: 30px; }
 /* jianpu keyboard: stacked rows; within a row keys share the line (no wrap, no scroll) */
 .sd-keys {
   display: flex;
@@ -666,6 +719,9 @@ function runTool(t) {
   cursor: pointer;
 }
 @media (hover: hover) { .sd-key:hover { background: var(--cream); } }
+/* full-width top band (D8 region:'top') — its own row above the tools (B043 transport) */
+.sd-top { width: 100%; margin-bottom: 8px; }
+.sd-topctl { display: block; width: 100%; }
 .sd-tools { display: flex; align-items: center; gap: 6px; }
 .sd-tbtn {
   flex: 0 0 44px;
@@ -767,7 +823,9 @@ function runTool(t) {
 .sd-range { width: 100%; }
 .sd-mini { font-size: 11px; color: var(--muted); text-align: center; margin-top: 4px; }
 /* menu (D7): a plain option list; the current pick is ● (single) / ✓ (multi) */
-.sd-pop-menu { min-width: 200px; max-width: min(300px, calc(100vw - 24px)); max-height: 60vh; overflow: auto; }
+/* width fits the longest option (no mid-word wrap, e.g. long tempo labels); clampPopover
+   keeps it on-screen (real-use B043 §5 · core rule for every mode) */
+.sd-pop-menu { width: max-content; min-width: 180px; max-width: calc(100vw - 24px); max-height: 60vh; overflow: auto; }
 .sd-menu-row {
   display: flex;
   align-items: center;
@@ -782,6 +840,7 @@ function runTool(t) {
   color: var(--ink);
   font: inherit;
   min-height: 36px;
+  white-space: nowrap;
 }
 @media (hover: hover) { .sd-menu-row:hover { background: var(--cream); } }
 .sd-menu-row[aria-checked='true'] { color: var(--brand); font-weight: 700; }
