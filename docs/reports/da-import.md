@@ -1,9 +1,9 @@
 # DA import — 120 เพลงชุดใหม่ (v2 · upsert · ทับของเก่า)
 
 **สาย:** DA · branch `da-import` (ฐาน `studio-shell-redesign`) · **ไม่แตะโค้ด UI**
-**สถานะ:** ✅ Step 1 (GATE 1) · ✅ Step 2 (GATE 2 ผ่าน · pilot 5 เพลงเข้าฐาน) · ✅ Step 3 (แปลงครบ 120) — **✅ gen 120 final (engine แก้แล้ว + 99/100 volta + lint) — รอ P.Aim run import-all-120.sql · พี่เปา review 41 เพลงติดธง
+**สถานะ (ล่าสุด — §3.6):** ✅ gen 120 final (arrangement engine ที่แก้แล้ว + 99/100 volta hand-build + notationLint) → **รอ P'Aim run `tools/import-all-120.sql` · พี่เปา review 41 เพลงติดธง (79 auto ok)**
 
-> §1–§5 = Step 1 (วิเคราะห์ source) · §6–§9 = Step 2 (parser+pilot+backup) · **§10–§13 = Step 3 (120 + risk table + วิธี run)** ← ล่าสุด
+> §1–5 = Step 1 · §6–9 = Step 2 · §10–13 = Step 3 (120) · §3.1–3.6 = field-split + verse/refrain engine + verify-set + final 120 ← **ล่าสุด §3.6**
 
 ---
 
