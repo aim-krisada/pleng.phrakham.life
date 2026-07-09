@@ -188,6 +188,66 @@ def docx_blocks(path):
             header.append(t.strip())
     return header, blocks
 
+def docx_structure(path):
+    """Structure-aware DOCX read for the verse/refrain model:
+      header  — [title, key line, …]
+      staves  — one per PRINTED note line: the lyric line sitting under that melody line
+                (blank line ends a stave's lyrics; = the verse-1/refrain-1 words)
+      extra   — lyric-only blocks AFTER the printed melody (verse 2/3, refrain 2…), each
+                {lines:[…], refrain:bool}; blank lines separate blocks; footnotes dropped
+    Additional verses are printed lyric-only (often 2-column, tab-separated) below the
+    single printed melody — this recovers them so they become their own arrangement rows."""
+    doc = Document(path)
+    NOTECHARS = set("01234567.-♯♮♭║:()0,~ \t")
+    def txt(p):
+        return ''.join((n.text or '') if n.tag == qn('w:t') else ('\t' if n.tag == qn('w:tab') else '')
+                        for n in p._p.iter())
+    def is_note(t):
+        lo = [c for c in t if c not in NOTECHARS]
+        return sum(c.isdigit() for c in t) >= 4 and len(lo) <= 1 and not any(THAI(c) for c in t)
+    def is_chord(t):
+        return bool(re.search(r'[A-G][#♯b♭m0-9/]', t)) and not any(THAI(c) for c in t)
+    is_thai = lambda t: any(THAI(c) for c in t)
+    is_refrain = lambda t: t.lstrip().startswith('(รับ)') or t.lstrip().startswith('รับ') or t.lstrip().startswith('(สร้อย)')
+    is_footnote = lambda t: t.lstrip().startswith('(*') or t.lstrip().startswith('*')
+
+    paras = [txt(p) for p in doc.paragraphs]
+    note_idx = [i for i, t in enumerate(paras) if is_note(t)]
+    header = [t.strip() for t in paras[:note_idx[0]] if t.strip() and not is_chord(t)] if note_idx else []
+
+    staves = []
+    last_end = note_idx[0] if note_idx else 0
+    for ni in note_idx:
+        lyrics = []
+        j = ni + 1
+        while j < len(paras):
+            t = paras[j]
+            if not t.strip(): break                     # blank ends this stave's lyrics
+            if is_note(paras[j]) or is_chord(t): break    # next stave begins
+            if is_thai(t): lyrics.append(t.strip())
+            j += 1
+        staves.append(lyrics)
+        last_end = max(last_end, j)
+
+    # extra lyric-only blocks after the printed melody, split on blank lines
+    extra, block = [], []
+    for t in paras[last_end:]:
+        if not t.strip():
+            if block: extra.append(block); block = []
+            continue
+        if not is_thai(t) or is_chord(t) or is_note(t):    # English translation / stray
+            if block: extra.append(block); block = []
+            break
+        block.append(t)
+    if block: extra.append(block)
+    extra_blocks = []
+    for blk in extra:
+        if is_footnote(blk[0]): continue
+        # join 2-column (tab) lines into one line per melody line
+        lines = [re.sub(r'\s+', ' ', ln.replace('\t', ' ')).strip() for ln in blk]
+        extra_blocks.append({'lines': lines, 'refrain': is_refrain(blk[0])})
+    return header, staves, extra_blocks
+
 def split_syls(lyric):
     """Segment a Thai lyric line into syllables aligned to notes.
     Respects the author's explicit spaces (word/phrase breaks) and hyphens (same-word
@@ -351,37 +411,65 @@ def build_song(pdf, docx, debug=False):
     if not chord_seq: warnings.append('no chords found — key defaulted; verify')
     if header_key and header_key != key:
         warnings.append(f'header key "{header_key}" != stored sounding key "{key}" (from chords; movable-do). Numbers still reference do; transpose uses "{key}". Verify tonic.')
-    if len(systems) != len(blocks):
-        warnings.append(f'PDF systems ({len(systems)}) != DOCX staff lines ({len(blocks)}) — pairing by order may drift')
+    # --- v2 structure: group PRINTED melody lines into a verse stanza + refrain stanza,
+    # then reuse those stanzas for every verse/refrain (incl. lyric-only extra verses).
+    _, staves, extra_blocks = docx_structure(docx)
+    if len(systems) != len(staves):
+        warnings.append(f'PDF systems ({len(systems)}) != DOCX staves ({len(staves)}) — structure may drift; verify')
 
-    # build stanzas (dedup identical melody) + arrangement rows
-    stanzas, key_to_id, arrangement = [], {}, []
-    next_id = ord('A')
+    # melody (line items) for each printed system
+    sys_items = []
     for i, sysm in enumerate(systems):
         items, w = notes_to_line_items(sysm['notes'], sysm['chords'], sysm.get('bars_x', []), ts)
         for msg in w: warnings.append(f'system {i+1}: {msg}')
         if sysm['markers']:
             warnings.append(f"system {i+1}: repeat/volta markers {sysm['markers']} — NEEDS manual repeat/volta")
-        melody_key = json.dumps(items, ensure_ascii=False)
-        if melody_key not in key_to_id:
-            sid = chr(next_id); next_id += 1
-            key_to_id[melody_key] = sid
-            stanzas.append({'id': sid, 'lines': [items]})
-        sid = key_to_id[melody_key]
-        attacks = attack_count(items)
-        lyric_lines = blocks[i]['lyrics'] if i < len(blocks) else []
-        if not lyric_lines: lyric_lines = ['']
-        for ll in lyric_lines:
-            label, body = strip_label(ll)
-            toks = split_syls(body)
-            # A lyric "line" with far more syllables than the melody has attack notes is
-            # a stacked extra-verse block (verse 2/3 lyric-only text that the DOCX dumps
-            # after the last staff). Don't bloat this row — flag it for manual placement.
-            if attacks and len(toks) > attacks + 6 and len(toks) > attacks * 1.6:
-                warnings.append(f'system {i+1}: extra/overflow verse text ({len(toks)} syllables vs {attacks} notes) NOT auto-placed — add as its own ข้อ manually')
-                continue
-            syls = align_syllables(items, toks, i + 1, warnings)
-            arrangement.append({'stanza': sid, 'label': label, 'syllables': syls})
+        sys_items.append(items)
+
+    def stave_refrain(i):
+        return i < len(staves) and staves[i] and (staves[i][0].lstrip().startswith('(รับ)')
+                                                  or staves[i][0].lstrip().startswith('รับ'))
+    refrain_idxs_all = [i for i in range(len(systems)) if stave_refrain(i)]
+    refrain_start = refrain_idxs_all[0] if refrain_idxs_all else None
+    # a clean verse+refrain song = one (รับ) then refrain runs to the end. Otherwise flag.
+    if refrain_start is not None and any(not stave_refrain(i) and staves[i] and staves[i][0].lstrip()[:1].isdigit()
+                                         for i in range(refrain_start + 1, len(systems))):
+        warnings.append('complex structure (verse melody printed again after รับ) — verify arrangement')
+
+    verse_idxs = list(range(refrain_start if refrain_start is not None else len(systems)))
+    refrain_idxs = list(range(refrain_start, len(systems))) if refrain_start is not None else []
+
+    stanzas, arrangement = [], []
+    verse_stanza = {'id': 'A', 'lines': [sys_items[i] for i in verse_idxs]}
+    stanzas.append(verse_stanza)
+    refrain_stanza = None
+    if refrain_idxs:
+        rs = {'id': 'B', 'lines': [sys_items[i] for i in refrain_idxs]}
+        if json.dumps(rs['lines'], ensure_ascii=False) == json.dumps(verse_stanza['lines'], ensure_ascii=False):
+            refrain_stanza = verse_stanza          # identical melody → reuse
+        else:
+            refrain_stanza = rs; stanzas.append(rs)
+
+    def flat(stz): return [it for line in stz['lines'] for it in line]
+    def add_row(stz, label, lyric_lines, tag):
+        first = lyric_lines[0] if lyric_lines else ''
+        _, first_body = strip_label(first)
+        body = ' '.join([first_body] + list(lyric_lines[1:]))
+        syls = align_syllables(flat(stz), split_syls(body), tag, warnings)
+        arrangement.append({'stanza': stz['id'], 'label': label, 'syllables': syls})
+
+    def stave_lyrics(idxs):
+        return [staves[i][0] for i in idxs if i < len(staves) and staves[i]]
+    verse_no = 1
+    add_row(verse_stanza, f'ร้อง {verse_no}', stave_lyrics(verse_idxs), 'ร้อง1')
+    verse_no += 1
+    if refrain_stanza is not None:
+        add_row(refrain_stanza, 'รับ', stave_lyrics(refrain_idxs), 'รับ1')
+    for blk in extra_blocks:
+        if blk['refrain'] and refrain_stanza is not None:
+            add_row(refrain_stanza, 'รับ', blk['lines'], 'รับX')
+        else:
+            add_row(verse_stanza, f'ร้อง {verse_no}', blk['lines'], f'ร้อง{verse_no}'); verse_no += 1
 
     content = {'version': 2, 'key': key, 'timeSignature': ts,
                'stanzas': stanzas, 'arrangement': arrangement}

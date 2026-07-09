@@ -189,3 +189,31 @@
 - คงเดิม: `category='anuchon'` · `verified=false` (reset ตอนทับ) · key `(category, number)` · begin…commit · `-- REVIEW` ต่อเพลง · risk table §11 ไม่เปลี่ยน
 - **เพลงที่ theme หาไม่เจอ** → ใส่ warning `theme not found` (ให้ตั้งมือ) · จากการตรวจ = 120/120 เจอครบ
 - ⏳ ค้าง: ชื่อจริงของเล่ม (ล/ย/สอ/…) รอ P'Aim ยืนยัน → map ที่ frontend (ไม่บล็อก import · book code พอแล้ว)
+
+---
+
+# Step 3.2 — แก้ arrangement (verse/refrain reuse) · HOLD import-all · per-song workflow
+
+**P'Aim ตรวจเจอ:** พยางค์ลงโน้ตตรง แต่ **โครง "ข้อ" (verse/refrain ↔ ทำนอง) ผิด** — melody dedup พลาด (หัวใจ v2). แก้แล้วด้วย reference case เพลง 77.
+
+## ปัญหาเดิม (per-line-stanza)
+parser เก่าถือ **1 บรรทัดโน้ต = 1 stanza** แล้ว dedup เฉพาะบรรทัดที่เหมือนเป๊ะ → เพลง 77 ออกมา A,B,A,C,D,E,F,G ซ้ำ 10+ แถว label เพี้ยน · ทำนอง "รับ" ไม่ถูกรวม · ข้อ 2/3 (เนื้อล้วน) หล่นหาย
+
+## แก้เป็น verse/refrain block model
+- อ่าน DOCX แบบรู้โครง (`docx_structure`): แยก **staves (บรรทัดที่พิมพ์ทำนอง)** ออกจาก **บล็อกเนื้อล้วนท้ายเพลง** (ข้อ 2/3, รับ 2 — คั่นด้วยบรรทัดว่าง · เนื้อ 2 คอลัมน์ต่อกัน · ตัด footnote)
+- **จับจุด "(รับ)"** = ที่ทำนองรับเริ่ม → รวมบรรทัดก่อนหน้าเป็น **stanza ข้อ (A)** + บรรทัดรับเป็น **stanza รับ (B)** (dedup: รับ 2 ครั้งใช้ B ตัวเดียว)
+- **arrangement** = ผูก stanza ที่ใช้ซ้ำ + เนื้อข้อนั้น + label (ร้อง 1/2/3 · รับ) · ข้อเนื้อล้วน → reuse stanza ข้อ
+
+## เพลง 77 (reference · ตรงกับ ground truth ของ P'Aim = 3 ข้อ + 2 รับ ทำนองรับเดียวกัน)
+```
+stanzas: A (ทำนองข้อ 4 บรรทัด) · B (ทำนองรับ 4 บรรทัด)
+arrangement: ร้อง 1→A · รับ→B · ร้อง 2→A · ร้อง 3→A · รับ→B     (เดิม = 8 stanza / 10+ แถว)
+```
+ข้อ 2 "พระเยซูผู้ช่วย…" + ข้อ 3 "สิทธชน…" **ใช้ทำนอง A ซ้ำ** (โน้ต `3 5_ 5_ 5 3` เดียวกัน) · resolveContent ผ่าน 20 บรรทัด · sylSlotMis=0
+- ไฟล์: `tools/samples/077.json` + **`tools/samples/077.sql`** (schema + 1 เพลง · run standalone ได้)
+
+## workflow ใหม่ (P'Aim) — นำเข้าทีละเพลง
+1. run `tools/samples/077.sql` (1 เพลง) → เปิดในแอปดู **การจัดข้อ** (ร้อง 1/2/3 + รับ ใช้ทำนองถูกไหม)
+2. feedback → DA ปรับ logic → เพลงถัดไป
+- **HOLD `import-all-120.sql`** (regenerate ด้วย model ใหม่แล้ว · ทั้ง 120 ไม่ crash · แต่ยังไม่ verify โครงรายเพลง — อย่าเพิ่ง run ทั้งชุด)
+- ยังเหลือ: melisma/เอื้อน (พยางค์ < โน้ต = flag ทุกเพลง · render ได้ · เกลา slur ทีหลัง) · เพลง through-composed (เช่น 1) ที่ verse ซ้ำหลังรับ = โครงยังไม่เป๊ะ → ตรวจรายเพลง
