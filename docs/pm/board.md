@@ -3,20 +3,25 @@
 กระดานที่ PM "ยืนยันแล้ว" ด้วย triangulation: **standup ของ session ↔ เอกสาร ↔ git/เทสต์จริง**
 (ไม้ต่อสำหรับ PM session หน้า — อ่านไฟล์นี้แล้วรู้ว่ากระดานตรงกับความจริงถึงไหน)
 
-อัปเดตล่าสุด: 2026-07-09 · PM session = **debug pl2 round 1**
+อัปเดตล่าสุด: 2026-07-10 · PM session = **debug pl2 round 1 (กำลังหมุนใหม่ — context เต็ม)**
 
-## 🔚 HANDOFF — end of `debug pl2 round 1` (2026-07-09 บ่าย-เย็น) → PM session ใหม่อ่านนี่
-**สิ่งแรกที่ PM ใหม่ทำ:** อัปเดต §🎯 ข้างล่างเป็นชื่อสายตัวเอง · แล้ว **แจ้ง 4 สายที่รันอยู่ให้ ping ชื่อใหม่** (ไม่งั้นมัน ping `debug pl2 round 1` ที่ปิดแล้ว — แต่ทุกสายเขียน `docs/reports/*` + §📥 inbox ด้วย จะไม่ตกหล่น · `search_session_transcripts`/`list_sessions` หาสายได้)
+## 🔚 HANDOFF (2026-07-10 · PM session เต็ม → PM ใหม่อ่านนี่ก่อน)
+**PM ใหม่:** อ่าน `docs/pm/pm.md` + memory `pleng-pm-role` + ไม้ต่อนี้ · อัปเดต §🎯 เป็นชื่อสายตัวเอง · ทุกสายเขียน report+§📥 inbox ด้วย ไม่ตกหล่น · `list_sessions`/`search_session_transcripts` หาสายได้
 
-**4 สายที่กำลังเดิน (ขนาน · ไม่ชนกัน):**
-1. **B043 sing-dev** `wt-b043-dev` @ `eda09a5` — ✅ **เฟส 1 เสร็จ+PM verified (143/143)** · **รอ P'Aim/พี่เปา accept ผ่าน LAN** (`http://192.168.1.124:5323/` · PC พี่เอมต้องเปิด server + WiFi "3BB 3") เน้น **auto-scroll ตามพยางค์ (ต้องมือถือจริง)** → accept แล้ว **PM merge เข้าฐาน** → dev ทำ **เฟส 2** (A2 แผ่นย่อ + B044/B046 spacing + ⚙-optional · แตะ SongSheet · verify PDF จริง) · dev ค้างถาม: dropdown ลากด้วยไหม (optional)
-2. **edit-dev** `wt-edit-fix` @ `eff938f` — ✅ **round 1 เสร็จ+PM verified (115/115) · merge อิสระได้** (แตะแค่ EditorMode · ไม่ชน B043/SongSheet) · B048/B050/B051 fixed · **รอ P'Aim accept/merge** · **B049** (arrangement ไม่ตรง prototype) = design decision ค้าง (PM แนะเข้าทาง B005 ที่เคาะแล้ว)
-3. **DA import** `da-import` (chip `task_a194aafa`) — เพิ่งเริ่ม · brief `brief-da-import.md` · 120 เพลง v2/upsert/ทับ · **จะหยุดที่ GATE 1** (วิเคราะห์ PDF vs DOCX) → PM/P'Aim เคาะ · **P'Aim run SQL เอง** (DA เขียน DB ไม่ได้ · สำรองก่อน)
-4. **พี่เปา tester** — setup เสร็จ · read-only clone (public repo · แก้ repo ไม่ได้) · report → OneDrive `pleng2-pow-bug-report/reports/` (ซิงก์กลับ) · **PM ใหม่: พอ P'Aim บอก "พี่เปาส่ง report แล้ว" → อ่านโฟลเดอร์นั้น → verify เทียบ repo → backlog → จ่าย dev กันชน**
+**ฐาน `studio-shell-redesign` = 214 เทสต์เขียว + build** · **deploy รอบ 2 = `b44edbf` (live)** · ⚠️ **ฐานล้ำ prod เยอะแล้ว (merge เพียบหลัง deploy) → deploy รอบ 3 ค้าง** (main FF ได้ · reconcile ไว้แล้ว · deploy-plan.md)
 
-**เข้าฐานแล้ว session นี้:** dock-core + dock-polish + **B043 เฟส 1 (merge `ca32508`)** + **edit-dev รอบ 1 (merge `316d02d`)** · **ฐานหลัง merge: 145/145 test + build ผ่าน** (verify `--exclude '**/.claude/**'`)
-**กลยุทธ์ใหม่ (P'Aim 9 ก.ค. เย็น):** **desktop ให้นิ่งก่อน แล้วค่อยแก้ mobile (tablet/phone) ตาม** — เหตุ: ผู้ใช้จริงส่วนใหญ่ใช้ tablet · ลำดับ build/debug = desktop ก่อน (ง่ายกว่า) แล้ว adapt responsive · ⚠️ B043 auto-scroll ตามพยางค์ = tablet-primary → "รับ 100%" ต้องรอรอบ tablet
-**ค้างรอ P'Aim เคาะ:** (c) B049 = **อธิบายให้ P'Aim แล้ว (ตัดช่อง "ลำดับเพลง" ก้อนใหญ่ · เข้าทาง B005)** รอสั่งจ่าย edit-dev · (e) dropdown ลากไหม · ~~(a)(b)~~ ✅ merged · ~~(d) DA GATE 1~~ ✅ → Step 2
+**✅ MERGED เข้าฐานวันนี้:** editor-ux v2 (6 งาน · `5495e32`) · B058 note-search-v2 · B059 songbook sheet · B064 บั๊ก speed · B065 barline · (ก่อนหน้า: B027/B026/B052 · B055 · B056 · edit-dev · B043 ph1 · dock-core/polish)
+**✅ DA import ครบ:** 120 เพลง LIVE (P'Aim run backup/import/set-review-flags แล้ว · **repeat-6-simple.sql อาจยังไม่ run**) · review_flags ในฐาน (repeat16/lint6/words28)
+
+**🟢 สายที่กำลังเดิน (ขนาน · แยกตามไฟล์ ไม่ชน):**
+1. **catalog** chip `task_c9916c3c` (wt-catalog · **SongList.vue เท่านั้น**) — filter ยังไม่ตรวจ/ธีม + ป้าย ⚠️(review_flags) + ✓ · ⏸️ **paused · P'Aim resume**
+2. **SongSheet/render** dev `local_d2a1bb38` (wt-songbook · SongSheet/songModel/NoteRow) — 🔨 **B062 เส้นโค้งเอื้อน (CSS→SVG path)** · (B059/B065 merged แล้ว)
+3. **DA** (หมุน session ใหม่ · context เต็ม → อ่าน `docs/reports/da-handoff.md` + `docs/pm/prompt-da-resume.md`) — 🔨 **dedup ทาง A** (แก้โมเดล import: ท่อนซ้ำหลายรอบ=1 stanza+arrangement · เริ่มเพลง 77 · อย่ารวม AABA)
+4. **mobile pass** (Android) — ยังไม่เริ่ม (P'Aim: Android งง) · `prompt-android-mobile.md`
+
+**⏳ รอ P'Aim verify (pre-deploy):** print เพลง 77 (B059 PDF จริง) · speed LAN 5395 (B064) · preview LAN 5390 (B061 สูงบนแท็บเล็ต) · run repeat-6-simple.sql
+**Next:** catalog+B062+DA-dedup เสร็จ → verify → **deploy รอบ 3 ทีเดียว**
+**Deferred/backlog:** B044/B046 sheet spacing · 10 COMPLEX repeat (พี่เปาตั้งมือ) · B066 tempo (ปล่อย 92) · mobile · editor-ux 3 ธง (draft theme col · verified RLS · B061 tablet height)
 **Deploy:** ✅✅✅ **รอบ 2 สำเร็จ (9 ก.ค. ค่ำ · P'Aim สั่ง "deploy") — รอบนี้จบสมบูรณ์** — main FF `70335d5→b44edbf` (ไม่ force) · Actions `29031193038` = success · **live bundle stamp `b44edbf` = ยืนยัน** · ได้ของครบ: ค้นเนื้อ B052 · จุดคู่ B027 · lint B026 · B055 pickup · B056 จบเพลง · editor/dock/sing · **คลัง 120 เพลง live (Supabase 121 rows · spot-check field ครบ)** · ฐาน 196 test + build · **ไม่รวมรอบนี้: mobile pass (รอบหน้า) · พี่เปา review 41 เพลงติดธง · auto-repeat 16 (option B)** · [รอบ 1] `70335d5` (reconcile 8 commit main)
 **GitHub:** ใช้ `C:\Users\aimkr\OneDrive\4 Personal\claude\.env` → `GITHUB_TOKEN_PLENG` (`source .env` ก่อน gh/git · repo public)
 **บทเรียน routing:** ให้ทุกคนส่งงานมาที่ PM สายเดียว · PM กระจายถูกสายเอง (P'Aim เคยส่ง edit-review ผิดเข้า B043 · PM ดักได้)
