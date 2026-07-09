@@ -114,7 +114,7 @@ def parse_pdf_melody(pdf_path, debug=False):
                     elif t == '.':
                         if notes and notes[-1]['tok'] not in ('-',) and c['x0'] > notes[-1].get('x1', 0) - 2 and c['x0'] - notes[-1]['x'] < 12:
                             notes[-1]['tok'] += '.'
-                    elif t and ord(t) == 0xF0BD:          # printed barline glyph (music font)
+                    elif len(t) == 1 and ord(t) == 0xF0BD:          # printed barline glyph (music font)
                         bars_x.append(c['x0'])
                     elif t == chr(0x2551):               # double/repeat/end barline
                         bars_x.append(c['x0']); markers.append((c['x0'], t))
@@ -250,14 +250,8 @@ def to_sql(number, title, content, warnings):
             "on conflict (number) do update\n"
             "  set title_th = excluded.title_th, title_en = excluded.title_en, content = excluded.content;\n")
 
-def main():
-    args = [a for a in sys.argv[1:] if not a.startswith('-')]
-    pdf, docx = args[0], args[1]
-    out = None
-    if '-o' in sys.argv: out = sys.argv[sys.argv.index('-o') + 1]
-    debug = '--debug' in sys.argv
-    sys.stdout.reconfigure(encoding='utf-8')
-
+def build_song(pdf, docx, debug=False):
+    """Parse one PDF+DOCX pair → {number,title_th,title_en,content,_warnings}."""
     systems = parse_pdf_melody(pdf, debug=debug)
     header, blocks = docx_blocks(docx)
 
@@ -303,19 +297,35 @@ def main():
             key_to_id[melody_key] = sid
             stanzas.append({'id': sid, 'lines': [items]})
         sid = key_to_id[melody_key]
+        attacks = attack_count(items)
         lyric_lines = blocks[i]['lyrics'] if i < len(blocks) else []
         if not lyric_lines: lyric_lines = ['']
         for ll in lyric_lines:
             label, body = strip_label(ll)
-            syls = align_syllables(items, split_syls(body), i + 1, warnings)
+            toks = split_syls(body)
+            # A lyric "line" with far more syllables than the melody has attack notes is
+            # a stacked extra-verse block (verse 2/3 lyric-only text that the DOCX dumps
+            # after the last staff). Don't bloat this row — flag it for manual placement.
+            if attacks and len(toks) > attacks + 6 and len(toks) > attacks * 1.6:
+                warnings.append(f'system {i+1}: extra/overflow verse text ({len(toks)} syllables vs {attacks} notes) NOT auto-placed — add as its own ข้อ manually')
+                continue
+            syls = align_syllables(items, toks, i + 1, warnings)
             arrangement.append({'stanza': sid, 'label': label, 'syllables': syls})
 
     content = {'version': 2, 'key': key, 'timeSignature': ts,
                'stanzas': stanzas, 'arrangement': arrangement}
     if header_key and header_key != key:
         content['headerKey'] = header_key      # do-reference from the songbook, for note only
-    doc_out = {'number': number, 'title_th': title, 'title_en': None,
-               'content': content, '_warnings': warnings}
+    return {'number': number, 'title_th': title, 'title_en': None,
+            'content': content, '_warnings': warnings}
+
+def main():
+    args = [a for a in sys.argv[1:] if not a.startswith('-')]
+    pdf, docx = args[0], args[1]
+    out = sys.argv[sys.argv.index('-o') + 1] if '-o' in sys.argv else None
+    sys.stdout.reconfigure(encoding='utf-8')
+    doc_out = build_song(pdf, docx, debug='--debug' in sys.argv)
+    number, title, content, warnings = doc_out['number'], doc_out['title_th'], doc_out['content'], doc_out['_warnings']
     text = json.dumps(doc_out, ensure_ascii=False, indent=2)
     if out:
         open(out, 'w', encoding='utf-8').write(text)
@@ -331,36 +341,33 @@ def main():
         print('\n--- WARNINGS ---', file=sys.stderr)
         for w in warnings: print(' *', w, file=sys.stderr)
 
+def box_kinds(items):
+    """Per note-box kind (attack/held/struct) across a system — mirrors notation.js."""
+    kinds, prev, slur = [], None, False
+    for it in items:
+        if it['type'] != 'segment': continue
+        for box in it['note'].split():
+            if box in ('(', ')'): slur = (box == '('); prev = None; kinds.append('struct'); continue
+            if box in ('{', '}'): prev = None; kinds.append('struct'); continue
+            if box in ('-', '–'): kinds.append('held'); continue
+            m = re.match(r"([#bn]?)(\.*)([0-7])('*)", box)
+            if not m: prev = None; kinds.append('struct'); continue
+            acc, low, pitch, high = m.groups()
+            if pitch == '0': prev = None; kinds.append('held'); continue
+            k = acc + pitch + str(len(high) - len(low))
+            kinds.append('held' if (slur and prev == k) else 'attack'); prev = k
+    return kinds
+
+def attack_count(items):
+    return sum(1 for k in box_kinds(items) if k == 'attack')
+
 def align_syllables(items, syls, sysno, warnings):
     """Place syllables onto syllable-bearing note boxes (attack=word, held/rest=blank)."""
-    from subprocess import run
-    # replicate notation.noteBoxKinds in python (attack/held/struct)
-    out, w = [], 0
-    attacks = 0
-    prev = None; slur = False
-    def kind(box):
-        nonlocal prev, slur
-        if box in ('(', ')'): slur = (box == '('); prev = None; return 'struct'
-        if box in ('{', '}'): prev = None; return 'struct'
-        if box in ('-', '–'): return 'held'
-        m = re.match(r"([#bn]?)(\.*)([0-7])('*)", box)
-        if not m: prev = None; return 'struct'
-        acc, low, pitch, high = m.groups()
-        if pitch == '0': prev = None; return 'held'
-        k = acc + pitch + str(len(high) - len(low))
-        held = (slur and prev == k)
-        prev = k
-        return 'held' if held else 'attack'
-    boxes = []
-    for it in items:
-        if it['type'] == 'segment':
-            boxes += it['note'].split()
-    for b in boxes:
-        kd = kind(b)
+    out, w, attacks = [], 0, 0
+    for kd in box_kinds(items):
         if kd == 'struct': continue
         if kd == 'attack':
-            out.append(syls[w] if w < len(syls) else '')
-            w += 1; attacks += 1
+            out.append(syls[w] if w < len(syls) else ''); w += 1; attacks += 1
         else:
             out.append('')
     if syls and w != len(syls):
