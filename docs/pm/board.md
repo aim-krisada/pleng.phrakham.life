@@ -5,9 +5,26 @@
 
 อัปเดตล่าสุด: 2026-07-09 · PM session = **debug pl2 round 1**
 
+## 🔚 HANDOFF — end of `debug pl2 round 1` (2026-07-09 บ่าย-เย็น) → PM session ใหม่อ่านนี่
+**สิ่งแรกที่ PM ใหม่ทำ:** อัปเดต §🎯 ข้างล่างเป็นชื่อสายตัวเอง · แล้ว **แจ้ง 4 สายที่รันอยู่ให้ ping ชื่อใหม่** (ไม่งั้นมัน ping `debug pl2 round 1` ที่ปิดแล้ว — แต่ทุกสายเขียน `docs/reports/*` + §📥 inbox ด้วย จะไม่ตกหล่น · `search_session_transcripts`/`list_sessions` หาสายได้)
+
+**4 สายที่กำลังเดิน (ขนาน · ไม่ชนกัน):**
+1. **B043 sing-dev** `wt-b043-dev` @ `eda09a5` — ✅ **เฟส 1 เสร็จ+PM verified (143/143)** · **รอ P'Aim/พี่เปา accept ผ่าน LAN** (`http://192.168.1.124:5323/` · PC พี่เอมต้องเปิด server + WiFi "3BB 3") เน้น **auto-scroll ตามพยางค์ (ต้องมือถือจริง)** → accept แล้ว **PM merge เข้าฐาน** → dev ทำ **เฟส 2** (A2 แผ่นย่อ + B044/B046 spacing + ⚙-optional · แตะ SongSheet · verify PDF จริง) · dev ค้างถาม: dropdown ลากด้วยไหม (optional)
+2. **edit-dev** `wt-edit-fix` @ `eff938f` — ✅ **round 1 เสร็จ+PM verified (115/115) · merge อิสระได้** (แตะแค่ EditorMode · ไม่ชน B043/SongSheet) · B048/B050/B051 fixed · **รอ P'Aim accept/merge** · **B049** (arrangement ไม่ตรง prototype) = design decision ค้าง (PM แนะเข้าทาง B005 ที่เคาะแล้ว)
+3. **DA import** `da-import` (chip `task_a194aafa`) — เพิ่งเริ่ม · brief `brief-da-import.md` · 120 เพลง v2/upsert/ทับ · **จะหยุดที่ GATE 1** (วิเคราะห์ PDF vs DOCX) → PM/P'Aim เคาะ · **P'Aim run SQL เอง** (DA เขียน DB ไม่ได้ · สำรองก่อน)
+4. **พี่เปา tester** — setup เสร็จ · read-only clone (public repo · แก้ repo ไม่ได้) · report → OneDrive `pleng2-pow-bug-report/reports/` (ซิงก์กลับ) · **PM ใหม่: พอ P'Aim บอก "พี่เปาส่ง report แล้ว" → อ่านโฟลเดอร์นั้น → verify เทียบ repo → backlog → จ่าย dev กันชน**
+
+**เข้าฐานแล้ว session นี้:** dock-core + dock-polish (merged · FAB/unify/D8/transparency/popup-clamp/fit-content-core/font-top-nav)
+**ค้างรอ P'Aim เคาะ:** (a) accept B043 เฟส 1 (b) accept+merge edit-dev (c) B049 direction (d) DA GATE 1 (ทีหลัง) (e) dropdown ลากไหม
+**Deploy:** `deploy-plan.md` — ⚠️ **main มี 8 commit ที่ base ไม่มี** (notationLint/Guide/CLAUDE.md/SongView) → **ต้อง reconcile ก่อน clean-force** ไม่งั้นงานหาย · **ยังไม่ deploy จน P'Aim สั่ง**
+**GitHub:** ใช้ `C:\Users\aimkr\OneDrive\4 Personal\claude\.env` → `GITHUB_TOKEN_PLENG` (`source .env` ก่อน gh/git · repo public)
+**บทเรียน routing:** ให้ทุกคนส่งงานมาที่ PM สายเดียว · PM กระจายถูกสายเอง (P'Aim เคยส่ง edit-review ผิดเข้า B043 · PM ดักได้)
+
+---
+
 ## 🎯 PM session ปัจจุบัน (routing — สำคัญ)
 **สายที่ PM สั่งงาน = รายงานกลับ "PM session ปัจจุบัน" ที่ระบุตรงนี้** (PM หมุน session ไปเรื่อยๆ · อย่า hardcode ชื่อสายในprompt)
-- **ตอนนี้ = `debug pl2 round 1`** (แทน `pm ต้นแบบ pl2` ที่เลิกใช้แล้ว)
+- **ตอนนี้ = `debug pl2 round 1`** ⚠️ **(PM ใหม่: เปลี่ยนเป็นชื่อสายตัวเอง)** · แทน `pm ต้นแบบ pl2` ที่เลิกใช้แล้ว
 - **วิธีรายงานเสร็จของ dev/SA (session-agnostic):** (1) เขียน `docs/reports/<branch>.md` · (2) เพิ่มบรรทัดใน 📥 inbox ล่าง · (3) ping PM session ปัจจุบัน (ชื่อด้านบน) · ถ้า PM สายนั้นปิด → PM สายใหม่อ่าน inbox เจอเอง
 - **เวลา PM หมุนสายใหม่:** อัปเดตชื่อบรรทัดนี้ทันที
 
