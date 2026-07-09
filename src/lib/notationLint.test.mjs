@@ -64,5 +64,75 @@ check('lintLine: bar 1 (#4 n4) has NO natural warning',
 check('lintLine: bar indices present on every finding',
   line.every((f) => typeof f.bar === 'number'))
 
+// --- R4: slur (เอื้อน) must open+close inside one bar ---
+check('R4: ( with no ) → slur-crosses-bar',
+  has(lintBar('( 1 2'), 'slur-crosses-bar'))
+check('R4: ) with no ( → slur-crosses-bar',
+  has(lintBar('1 2 )'), 'slur-crosses-bar'))
+check('R4: balanced ( 1 2 ) → no slur warning',
+  !has(lintBar('( 1 2 )'), 'slur-crosses-bar'))
+check('R4: nested balanced (( 1 2 )) → no slur warning',
+  !has(lintBar('(( 1 2 ))'), 'slur-crosses-bar'))
+check('R4: severity is WARNING',
+  lintBar('( 1').find((f) => f.code === 'slur-crosses-bar')?.severity === SEVERITY.WARNING)
+check('R4: triplet {} does not trigger the slur rule',
+  !has(lintBar('{ 1 2 3'), 'slur-crosses-bar'))
+check('R4: lintLine catches a slur split across a barline',
+  has(lintLine('( 1 2 | 3 )'), 'slur-crosses-bar'))
+
+// --- R5: tie (~) between different pitches ---
+check('R5: 1~ ~2 (tie to a different degree) → tie-cross-pitch',
+  has(lintBar('1~ ~2'), 'tie-cross-pitch'))
+check('R5: 1~ ~1 (same pitch tie) → no warning',
+  !has(lintBar('1~ ~1'), 'tie-cross-pitch'))
+check("R5: 1~ ~1' (tie across octave) → tie-cross-pitch",
+  has(lintBar("1~ ~1'"), 'tie-cross-pitch'))
+check('R5: severity is WARNING',
+  lintBar('1~ ~2').find((f) => f.code === 'tie-cross-pitch')?.severity === SEVERITY.WARNING)
+check('R5: #1~ ~1 (same degree, inherited accidental) → no warning',
+  !has(lintBar('#1~ ~1'), 'tie-cross-pitch'))
+check('R5: no tie marks (1 2) → no warning',
+  !has(lintBar('1 2'), 'tie-cross-pitch'))
+
+// --- R6: rest (0) carrying accidental / octave dot / augmentation dot ---
+check('R6: #0 (rest with sharp) → rest-decorated',
+  has(lintBar('#0'), 'rest-decorated'))
+check('R6: n0 (rest with natural) → rest-decorated',
+  has(lintBar('n0'), 'rest-decorated'))
+check('R6: 0. (dotted rest) → rest-decorated',
+  has(lintBar('0.'), 'rest-decorated'))
+check('R6: .0 (low-octave rest) → rest-decorated',
+  has(lintBar('.0'), 'rest-decorated'))
+check("R6: 0' (high-octave rest) → rest-decorated",
+  has(lintBar("0'"), 'rest-decorated'))
+check('R6: plain rest 0 → no warning',
+  !has(lintBar('0'), 'rest-decorated'))
+check('R6: severity is WARNING',
+  lintBar('#0').find((f) => f.code === 'rest-decorated')?.severity === SEVERITY.WARNING)
+
+// --- R7: #3 / b4 / #7 / b1 — accidentals that are really a plain neighbour ---
+check('R7: #3 → accidental-not-in-scale',
+  has(lintBar('#3'), 'accidental-not-in-scale'))
+check('R7: b4 → accidental-not-in-scale',
+  has(lintBar('b4'), 'accidental-not-in-scale'))
+check('R7: #7 → accidental-not-in-scale',
+  has(lintBar('#7'), 'accidental-not-in-scale'))
+check('R7: b1 → accidental-not-in-scale',
+  has(lintBar('b1'), 'accidental-not-in-scale'))
+check("R7: #7' (any octave) still flagged",
+  has(lintBar("#7'"), 'accidental-not-in-scale'))
+check('R7: real accidental #4 → no warning',
+  !has(lintBar('#4'), 'accidental-not-in-scale'))
+check('R7: real accidental b3 → no warning',
+  !has(lintBar('b3'), 'accidental-not-in-scale'))
+check('R7: plain degree 3 → no warning',
+  !has(lintBar('3'), 'accidental-not-in-scale'))
+check('R7: severity is WARNING',
+  lintBar('#3').find((f) => f.code === 'accidental-not-in-scale')?.severity === SEVERITY.WARNING)
+
+// --- combined clean bar (all R1-R7 quiet) ---
+check('clean bar with slur, valid tie, real accidental → no findings',
+  lintBar('( #4 4 ) 1~ ~1', { timeSignature: '4/4' }).length === 0)
+
 console.log(`\nnotationLint: ${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
