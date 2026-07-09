@@ -66,8 +66,12 @@ function newSegment() {
 }
 // A bar can carry repeat marks: repeatStart '‖:' (loop back to here), repeatEnd ':‖'
 // (jump back to the last repeatStart), and volta 1/2 (this bar is the 1st / 2nd ending).
+// `pickup` (ห้องยก / anacrusis) marks a bar that is intentionally short because its
+// beats are completed by another partial bar — a stanza-opening pickup paired with the
+// short final bar, or a bar split across a line. Flagged bars are validated as a GROUP
+// (their beats must sum to a whole number of bars), never red individually (B055).
 function barShell() {
-  return { segments: [], repeatStart: false, repeatEnd: false, volta: 0 }
+  return { segments: [], repeatStart: false, repeatEnd: false, volta: 0, pickup: false }
 }
 function newBar() {
   return { ...barShell(), segments: [newSegment()] }
@@ -87,6 +91,7 @@ function deserializeLine(items) {
     else if (it.type === 'marker') line.marker = it.label || '***'
     else if (it.type === 'repeat-start') bar.repeatStart = true
     else if (it.type === 'repeat-end') bar.repeatEnd = true
+    else if (it.type === 'pickup') bar.pickup = true
     else if (it.type === 'volta') bar.volta = it.num || 0
     else if (it.type === 'bar') {
       line.bars.push(bar)
@@ -112,6 +117,7 @@ function serializeLine(line) {
     // a repeat-start IS the left barline; otherwise a plain barline between bars
     if (b.repeatStart) items.push({ type: 'repeat-start' })
     else if (i > 0) items.push({ type: 'bar' })
+    if (b.pickup) items.push({ type: 'pickup' })
     if (b.volta) items.push({ type: 'volta', num: b.volta })
     for (const s of b.segments) {
       const seg = { type: 'segment', chord: s.chord, note: s.note }
@@ -522,19 +528,36 @@ const expBeats = computed(() => expectedBeats(opts.timeSignature))
 function barTokensAt(li, bi) {
   return lines.value[li]?.bars[bi]?.segments.flatMap((s) => parseNotes(s.note)) ?? []
 }
+// Total beats across every bar the user flagged as ห้องยก (pickup) in the ACTIVE stanza.
+// A pickup (stanza-opening short bar) plus its complementary short final bar should sum
+// to a whole number of full bars — so we validate the flagged bars together, not each
+// one against the full bar length. Covers non-adjacent pairs (first↔last) that the
+// line-level `cont` join can't express (B055).
+const pickupTotal = computed(() => {
+  let sum = 0
+  for (const ln of lines.value) {
+    for (const b of ln.bars) {
+      if (b.pickup) sum += beatCount(b.segments.flatMap((s) => parseNotes(s.note)))
+    }
+  }
+  return sum
+})
 function barStatus(li, bi) {
   const line = lines.value[li]
   const bar = line.bars[bi]
   let tokens = bar.segments.flatMap((s) => parseNotes(s.note))
   let hasText = bar.segments.some((s) => s.note.trim())
   let joined = false
-  if (bi === 0 && line.cont && li > 0) {
-    const prev = lines.value[li - 1]
-    tokens = [...barTokensAt(li - 1, prev.bars.length - 1), ...tokens]
-    joined = true
-  } else if (bi === line.bars.length - 1 && lines.value[li + 1]?.cont) {
-    tokens = [...tokens, ...barTokensAt(li + 1, 0)]
-    joined = true
+  // an explicit pickup bar is counted with its group, not joined to a neighbour
+  if (!bar.pickup) {
+    if (bi === 0 && line.cont && li > 0) {
+      const prev = lines.value[li - 1]
+      tokens = [...barTokensAt(li - 1, prev.bars.length - 1), ...tokens]
+      joined = true
+    } else if (bi === line.bars.length - 1 && lines.value[li + 1]?.cont && !lines.value[li + 1].bars[0]?.pickup) {
+      tokens = [...tokens, ...barTokensAt(li + 1, 0)]
+      joined = true
+    }
   }
   if (joined) hasText = tokens.length > 0
   const pre = joined ? '⤷ ' : ''
@@ -545,8 +568,21 @@ function barStatus(li, bi) {
   }
   const got = beatCount(tokens)
   if (expBeats.value == null) return { text: pre + fmt(got), ok: true }
+  // ห้องยก: valid when the flagged bars together fill a whole number of bars.
+  if (bar.pickup) {
+    const sum = pickupTotal.value
+    const mult = sum / expBeats.value
+    const ok = sum > 0.01 && Math.abs(mult - Math.round(mult)) < 0.01
+    const text = ok
+      ? `⤷ ห้องยก ${fmt(got)} จังหวะ`
+      : `⤷ ห้องยก ${fmt(got)} — รวมห้องยก ${fmt(sum)}/${fmt(expBeats.value)}`
+    return { text, ok, pickup: true }
+  }
   const ok = Math.abs(got - expBeats.value) < 0.01
-  return { text: `${pre}${fmt(got)}/${fmt(expBeats.value)} จังหวะ`, ok }
+  // a bar that is merely short (not empty, not full) can be a pickup/continuation —
+  // surface the quick ห้องยก toggle right here so the fix is discoverable (B055).
+  const short = !joined && got > 0.01 && got < expBeats.value - 0.01
+  return { text: `${pre}${fmt(got)}/${fmt(expBeats.value)} จังหวะ`, ok, short }
 }
 function fmt(n) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
@@ -1663,6 +1699,22 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
                 <template v-if="barStatus(li, bi).text">{{ barStatus(li, bi).text }} {{ barStatus(li, bi).ok ? '✓' : '❌' }}</template>
                 <template v-else>ห้อง {{ bi + 1 }}</template>
               </span>
+              <!-- B055: a short bar can be a ห้องยก (pickup) whose beats finish in another
+                   partial bar — offer the one-tap toggle right where the ❌ shows -->
+              <button
+                v-if="barStatus(li, bi).short"
+                class="ed-bar-pickup"
+                title="ห้องยก — จังหวะไม่เต็มห้องเพราะไปต่อกับห้องยกอีกห้อง (นับรวมจังหวะให้)"
+                aria-label="ทำเครื่องหมายห้องยก (จังหวะข้ามห้อง)"
+                @click="bar.pickup = true"
+              >↻ ห้องยก</button>
+              <button
+                v-else-if="bar.pickup"
+                class="ed-bar-pickup on"
+                title="ห้องยก (นับรวมจังหวะกับห้องยกอื่น) — แตะเพื่อยกเลิก"
+                aria-label="ยกเลิกห้องยก"
+                @click="bar.pickup = false"
+              >↻ ห้องยก</button>
               <span v-if="bar.repeatStart" class="ed-bar-mark" title="เริ่มเล่นซ้ำ">‖:</span>
               <span v-if="bar.repeatEnd" class="ed-bar-mark" title="วนกลับ">:‖</span>
               <span v-if="bar.volta" class="ed-bar-mark" :title="bar.volta === 1 ? 'ห้องจบรอบแรก' : 'ห้องจบรอบสอง'">{{ bar.volta }}.</span>
@@ -1688,6 +1740,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
                     <button class="secondary tiny" title="ทำสำเนาห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)">⧉ สำเนา</button>
                     <button class="danger tiny" aria-label="ลบห้องนี้" @click="removeBar(line, bi)">✕ ลบห้อง</button>
                   </div>
+                  <label class="ed-bar-menu-check"><input v-model="bar.pickup" type="checkbox" /> ↻ ห้องยก (จังหวะไม่เต็ม — นับรวมกับห้องยกอื่น)</label>
                   <label class="ed-bar-menu-check"><input v-model="bar.repeatStart" type="checkbox" /> ‖: เริ่มเล่นซ้ำ</label>
                   <label class="ed-bar-menu-check"><input v-model="bar.repeatEnd" type="checkbox" /> :‖ วนกลับ</label>
                   <label class="ed-bar-menu-check">ห้องจบ:
@@ -2578,6 +2631,20 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 .ed-bar-status { color: var(--muted); }
 .ed-bar-status.bad { color: var(--red); font-weight: 700; }
 .ed-bar-mark { font-family: 'Courier New', monospace; font-weight: 700; color: var(--brand); font-size: 12px; }
+/* B055: ห้องยก (pickup) quick toggle — a small chip beside the beat status */
+.ed-bar-pickup {
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 7px;
+  border: 1px solid var(--brand);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--brand);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ed-bar-pickup:hover { background: var(--cream-hover); }
+.ed-bar-pickup.on { background: var(--brand); color: #fff; }
 .ed-bar-acts { display: inline-flex; gap: 4px; margin-left: auto; }
 .ed-bar-more-wrap { position: relative; }
 /* ดูผล render: the clean bar drawn in place of the edit grid (tap to go back to editing) */
