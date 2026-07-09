@@ -63,9 +63,10 @@ function chordText(chord) {
 // Segments carry si (index within the line) for playback highlight + auto-scroll.
 const renderLines = computed(() =>
   (props.content.lines || []).map((line) => {
-    // `_stanzaFirst` is set by resolveContent (v2). v1 / undefined = treat as first so
-    // notes always show — songbook mode only ever hides a genuine stanza repeat.
-    const first = line._stanzaFirst !== false
+    // `_melodyFirst` is set by resolveContent (v2): false = this line repeats a melody (a
+    // reused stanza, or the line just above it), so the songbook shows its words only. v1 /
+    // undefined = treat as first so notes always show — only genuine repeats are collapsed.
+    const first = line._melodyFirst !== false
     const parts = []
     let si = -1
     let bar = null

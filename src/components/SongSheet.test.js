@@ -108,7 +108,7 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(groups[1].findAll('.song-line').length).toBe(1)
   })
 
-  // B059 — songbook layout: a line whose stanza was already printed (_stanzaFirst=false)
+  // B059 — songbook layout: a line whose stanza was already printed (_melodyFirst=false)
   // shows lyrics only; the first use of each stanza still shows note + chord.
   const songbookContent = {
     key: 'C',
@@ -119,14 +119,14 @@ describe('SongSheet — full print sheet (US-B01)', () => {
           { type: 'section', name: 'ข้อ 1' },
           { type: 'segment', chord: 'C', note: '1', lyric: 'หนึ่ง', syllables: ['หนึ่ง'] },
         ],
-        { _stanza: 'V', _stanzaFirst: true },
+        { _stanza: 'V', _melodyFirst: true },
       ),
       Object.assign(
         [
           { type: 'section', name: 'ข้อ 2' },
           { type: 'segment', chord: 'C', note: '1', lyric: 'สอง', syllables: ['สอง'] },
         ],
-        { _stanza: 'V', _stanzaFirst: false },
+        { _stanza: 'V', _melodyFirst: false },
       ),
     ],
   }
@@ -151,16 +151,16 @@ describe('SongSheet — full print sheet (US-B01)', () => {
       lines: [
         Object.assign(
           [{ type: 'section', name: 'ข้อ 1' }, { type: 'segment', chord: 'C', note: '1', lyric: 'ก', syllables: ['ก'] }, { type: 'segment', chord: 'G', note: '5', lyric: '', syllables: [''] }],
-          { _stanza: 'V', _stanzaFirst: true },
+          { _stanza: 'V', _melodyFirst: true },
         ),
         // reused verse: a real word + a wordless (held-note) tail — the tail must vanish
         Object.assign(
           [{ type: 'section', name: 'ข้อ 2' }, { type: 'segment', chord: 'C', note: '1', lyric: 'ข', syllables: ['ข'] }],
-          { _stanza: 'V', _stanzaFirst: false },
+          { _stanza: 'V', _melodyFirst: false },
         ),
         Object.assign(
           [{ type: 'segment', chord: 'G', note: '5', lyric: '', syllables: [''] }],
-          { _stanza: 'V', _stanzaFirst: false },
+          { _stanza: 'V', _melodyFirst: false },
         ),
       ],
     }
