@@ -145,6 +145,32 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(lines[1].find('.section-label').text()).toBe('♦ ข้อ 2')
   })
 
+  it('B059: songbook hides a reused verse\'s melody-only (wordless) line', () => {
+    const c = {
+      key: 'C', timeSignature: '4/4',
+      lines: [
+        Object.assign(
+          [{ type: 'section', name: 'ข้อ 1' }, { type: 'segment', chord: 'C', note: '1', lyric: 'ก', syllables: ['ก'] }, { type: 'segment', chord: 'G', note: '5', lyric: '', syllables: [''] }],
+          { _stanza: 'V', _stanzaFirst: true },
+        ),
+        // reused verse: a real word + a wordless (held-note) tail — the tail must vanish
+        Object.assign(
+          [{ type: 'section', name: 'ข้อ 2' }, { type: 'segment', chord: 'C', note: '1', lyric: 'ข', syllables: ['ข'] }],
+          { _stanza: 'V', _stanzaFirst: false },
+        ),
+        Object.assign(
+          [{ type: 'segment', chord: 'G', note: '5', lyric: '', syllables: [''] }],
+          { _stanza: 'V', _stanzaFirst: false },
+        ),
+      ],
+    }
+    const wrapper = mount(SongSheet, { props: { content: c, mode: 'full', songbook: true } })
+    // 3 source lines, but the wordless reused line is v-show=false (not visible)
+    const shown = wrapper.findAll('.song-line').filter((l) => l.isVisible())
+    expect(shown.length).toBe(2)
+    expect(shown[1].find('.section-label').text()).toBe('♦ ข้อ 2')
+  })
+
   it('B059: songbook OFF (sing view) keeps note + chord on every verse', () => {
     const wrapper = mount(SongSheet, { props: { content: songbookContent, mode: 'full' } })
     const lines = wrapper.findAll('.song-line')
@@ -152,6 +178,20 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(lines[0].find('.note').exists()).toBe(true)
     expect(lines[1].find('.note').exists()).toBe(true)
     expect(lines[1].find('.chord').exists()).toBe(true)
+  })
+
+  // B065 — when the chord layer is hidden but notes show (เนื้อ+โน้ต / โน้ตล้วน) the root
+  // gets `sheet-no-chord`, which zeroes the barline's chord-row top offset so the digits
+  // stop spilling above the barline. With chords shown the class must be absent.
+  it('B065: sheet-no-chord class only when notes show without chords', () => {
+    const noteOnly = mount(SongSheet, { props: { content, mode: 'full', showNote: true, showChord: false, showLyric: true } })
+    expect(noteOnly.classes()).toContain('sheet-no-chord')
+
+    const withChord = mount(SongSheet, { props: { content, mode: 'full' } }) // chord shown → no class
+    expect(withChord.classes()).not.toContain('sheet-no-chord')
+
+    const lyricsOnly = mount(SongSheet, { props: { content, mode: 'full', showNote: false, showChord: false, showLyric: true } })
+    expect(lyricsOnly.classes()).not.toContain('sheet-no-chord') // no notes → no barlines → no need
   })
 
   it('empty song does not throw and renders no lines', () => {
