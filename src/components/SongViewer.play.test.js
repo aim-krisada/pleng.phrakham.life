@@ -46,9 +46,11 @@ const Harness = {
   components: { SongViewer, StudioDock },
   props: { song: { type: Object, required: true }, tier: { type: String, default: 'guest' } },
   data: () => ({ dock: null }),
+  // show ALL sing tools on the bar (not just SING_DEFAULT) so tests can reach any tool by
+  // id regardless of the default order/subset (r4-C dropped 'chord' from the default).
   template: `<div>
     <SongViewer :song="song" :tier="tier" @dock="dock = $event" />
-    <StudioDock v-if="dock" mode="sing" :tools="dock.tools" :default-tools="dock.defaultTools" />
+    <StudioDock v-if="dock" mode="sing" :tools="dock.tools" :default-tools="dock.tools.map(t => t.id)" />
   </div>`,
 }
 

@@ -134,10 +134,11 @@ describe('StudioDock — shared dock engine (ps3-dock)', () => {
     expect(w.emitted('insert').at(-1)).toEqual(['#'])
   })
 
-  it('transparency slider writes --dock-alpha + localStorage (D5, shared across modes)', async () => {
-    const w = mountDock()
+  it('the blend tool opens the alpha slider; it writes --dock-alpha + localStorage (D5)', async () => {
+    // blend is now an add-it-yourself tool (r4-B) — mount it onto the bar for this test
+    const w = mountDock({ defaultTools: ['undo', '__blend'] })
     await nextTick()
-    await w.find('.sd-ctl[aria-label="ปรับความโปร่งของแถบ"]').trigger('click')
+    await w.find('.sd-tbtn[data-tool="__blend"]').trigger('click')
     await nextTick()
     const range = w.find('.sd-range')
     range.element.value = '50'
@@ -145,6 +146,22 @@ describe('StudioDock — shared dock engine (ps3-dock)', () => {
     await nextTick()
     expect(localStorage.getItem('pleng.dock.alpha')).toBe('0.5')
     expect(w.find('.sd-dock').attributes('style')).toContain('--dock-alpha: 0.5')
+  })
+
+  // r4-B: ความโปร่ง is no longer a permanent built-in — it defaults OFF and the user adds
+  // it from ตั้งค่าปุ่ม like any other tool.
+  it('blend (ความโปร่ง) is hidden by default but addable via ตั้งค่าปุ่ม (r4-B)', async () => {
+    const w = mountDock()
+    await nextTick()
+    expect(w.find('.sd-tbtn[data-tool="__blend"]').exists()).toBe(false) // off by default
+    await w.find('.sd-ctl[aria-label^="ตั้งค่าปุ่ม"]').trigger('click')
+    await nextTick()
+    const blendRow = w.findAll('.sd-crow').find((r) => r.find('.sd-crow-name').text() === 'ความโปร่ง')
+    expect(blendRow).toBeTruthy() // it appears in the "เพิ่มได้" list
+    await blendRow.find('[aria-label="เพิ่ม"]').trigger('click')
+    await nextTick()
+    expect(w.find('.sd-tbtn[data-tool="__blend"]').exists()).toBe(true) // now on the bar
+    expect(JSON.parse(localStorage.getItem('pleng.dock.edit.tools'))).toContain('__blend')
   })
 
   it('a disabled tool does not fire its run handler', async () => {

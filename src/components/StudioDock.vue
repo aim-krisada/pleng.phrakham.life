@@ -49,9 +49,16 @@ const LS_ALPHA = 'pleng.dock.alpha'
 const LS_BARPOS = 'pleng.dock.barpos'
 const LS_FABPOS = 'pleng.dock.fabpos'
 
-const allIds = computed(() => props.tools.map((t) => t.id))
-const byId = computed(() => Object.fromEntries(props.tools.map((t) => [t.id, t])))
-const defaultOrder = computed(() => (props.defaultTools ? props.defaultTools.slice() : allIds.value.slice()))
+// ความโปร่ง (transparency) is a dock-OWNED tool, hidden by default (real-use r4-B): the
+// user adds it via ตั้งค่าปุ่ม like any other button, and it opens the alpha slider (see
+// runTool). It joins the tool UNIVERSE so customize can add/remove/reorder it, but it is
+// never in the DEFAULT order. (ตั้งค่าปุ่ม ⚙ + ⋯ stay built-in controls, always at the end.)
+const BLEND_TOOL = { id: '__blend', icon: 'blend', label: 'ความโปร่ง' }
+const allTools = computed(() => [...props.tools, BLEND_TOOL])
+const allIds = computed(() => allTools.value.map((t) => t.id))
+const byId = computed(() => Object.fromEntries(allTools.value.map((t) => [t.id, t])))
+// a mode with no explicit defaultTools shows only its OWN tools — never the dock's extras
+const defaultOrder = computed(() => (props.defaultTools ? props.defaultTools.slice() : props.tools.map((t) => t.id)))
 
 function loadOrder() {
   try {
@@ -96,7 +103,8 @@ function syncMobile() { mobile.value = mq ? mq.matches : false }
 const shown = computed(() =>
   order.value.map((id) => byId.value[id]).filter((t) => t && (t.icon || t.type === 'custom') && t.visible !== false),
 )
-const addable = computed(() => props.tools.filter((t) => !order.value.includes(t.id)))
+// includes the dock's own optional tools (e.g. ความโปร่ง) so customize can add them
+const addable = computed(() => allTools.value.filter((t) => !order.value.includes(t.id)))
 // B033: paletteKeys may be a flat array (one row) OR an array of rows. Edit mode sends
 // 2 rows so the 21 jianpu keys aren't crammed onto one line (tiny/untappable on mobile).
 const keyRows = computed(() => {
@@ -203,6 +211,8 @@ function onOutside(e) {
   // the click lands on ITS button (that button's own handler toggles it) so it doesn't
   // close-then-reopen on every re-click
   if (e.target.closest?.('.sd-pop') || e.target.closest?.('.sd-ctl')) return
+  // the blend tool button toggles the trans popover itself — don't close-then-reopen
+  if (e.target.closest?.('[data-tool="__blend"]')) return
   if (menuId.value && e.target.closest?.(`[data-menu-btn="${menuId.value}"]`)) return
   closePop()
 }
@@ -237,6 +247,30 @@ watch(pop, (v) => {
   else document.removeEventListener('mousedown', onOutside)
 })
 onUnmounted(() => document.removeEventListener('mousedown', onOutside))
+
+// ---------- keep any open popover on-screen (real-use r4-A) ----------
+// One reusable clamp for EVERY dock popover (customize · D7 dropdowns · ⋯ overflow), in
+// every mode: after it renders, measure it and shift it back inside the viewport + 8px.
+// The dock can be dragged anywhere, so a popover anchored above it can spill off the top /
+// side (the reported customize-panel bug). Same idea as dragMove's viewport clamp.
+function clampPopover() {
+  const el = dockEl.value?.querySelector('.sd-pop')
+  if (!el) return
+  el.style.transform = '' // reset before measuring so we read the natural position
+  const r = el.getBoundingClientRect()
+  const m = 8
+  let dx = 0, dy = 0
+  if (r.right > window.innerWidth - m) dx = window.innerWidth - m - r.right
+  if (r.left + dx < m) dx = m - (r.left + dx)
+  if (r.bottom > window.innerHeight - m) dy = window.innerHeight - m - r.bottom
+  if (r.top + dy < m) dy = m - (r.top + dy)
+  el.style.transform = dx || dy ? `translate(${dx}px, ${dy}px)` : ''
+}
+watch([pop, menuId], async () => {
+  if (!pop.value) return
+  await nextTick()
+  clampPopover()
+})
 
 // ---------- customize (D6) ----------
 function move(id, d) {
@@ -339,9 +373,11 @@ function doDrag(e) {
   target.value = clampToViewport({ left: e.clientX - oX, top: e.clientY - oY }, dW, dH)
 }
 
-// a tool button was pressed: a menu tool opens its dropdown, a plain tool runs
+// a tool button was pressed: blend opens the alpha slider, a menu tool opens its dropdown,
+// a plain tool runs
 function runTool(t) {
   if (t.disabled) return
+  if (t.id === '__blend') return togglePop('trans')
   if (t.menu) openMenu(t)
   else t.run?.()
 }
@@ -421,7 +457,7 @@ function runTool(t) {
             :aria-label="t.label"
             :data-tool="t.id"
             :aria-haspopup="t.menu ? 'menu' : undefined"
-            :aria-expanded="t.menu ? (menuId === t.id) : undefined"
+            :aria-expanded="t.menu ? (menuId === t.id) : t.id === '__blend' ? pop === 'trans' : undefined"
             :data-menu-btn="t.menu ? t.id : undefined"
             @click.stop="runTool(t)"
           >
@@ -431,16 +467,10 @@ function runTool(t) {
           </button>
         </template>
 
-        <!-- right-hand controls: transparency · customize · overflow · (mobile collapse).
-             ⋯ "ดูเพิ่ม" sits RIGHTMOST of the tool row in every mode (real-use #3). -->
+        <!-- right-hand controls: customize · overflow · (mobile collapse). ⋯ "ดูเพิ่ม" sits
+             RIGHTMOST of the tool row in every mode (real-use #3). ความโปร่ง is no longer
+             built-in here — it's an add-it-yourself tool now (r4-B). -->
         <span class="sd-rc">
-          <button
-            class="sd-tbtn sd-ctl hideoncol"
-            :aria-expanded="pop === 'trans'"
-            aria-label="ปรับความโปร่งของแถบ"
-            title="ความโปร่ง"
-            @click.stop="togglePop('trans')"
-          ><Icon name="blend" :size="18" /></button>
           <button
             v-if="!mobile"
             class="sd-tbtn sd-ctl hideoncol"
@@ -485,7 +515,7 @@ function runTool(t) {
               :title="t.label"
               :data-tool="t.id"
               :data-menu-btn="t.menu ? t.id : undefined"
-              @click.stop="t.menu ? runTool(t) : (runTool(t), closePop())"
+              @click.stop="t.menu || t.id === '__blend' ? runTool(t) : (runTool(t), closePop())"
             >
               <Icon :name="t.icon" :size="18" />
               <b v-if="t.badge" class="sd-badge">{{ t.badge }}</b>

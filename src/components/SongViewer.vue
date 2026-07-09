@@ -211,7 +211,10 @@ function printSheet() {
 // dropdown writes straight back to this component's state. Default order leads with
 // play,chord,tempo so mobile shows those three first (B024). key/tempo carry a badge
 // (the current คีย์ / BPM) so their value shows without opening the menu.
-const SING_DEFAULT = ['play', 'chord', 'tempo', 'key', 'display', 'loop', 'fdown', 'fup', 'print']
+// default order (P'Aim real-use r4-C): play › วนซ้ำ › คีย์ › ความเร็ว › ขนาดฟอนต์ › แสดงผล › พิมพ์.
+// 'chord' is dropped from the default (still in singTools — addable via ตั้งค่าปุ่ม). This
+// order is the SSOT for B043's music dock too.
+const SING_DEFAULT = ['play', 'loop', 'key', 'tempo', 'fdown', 'fup', 'display', 'print']
 const singTools = computed(() => [
   {
     id: 'play',
