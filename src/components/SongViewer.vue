@@ -25,12 +25,13 @@ const emit = defineEmits(['dock'])
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 // One preset picks which of chord / note / lyric show. Mirrors the ps3-dock prototype's
 // 5-way แสดงผล menu; SongSheet takes the three booleans so each preset renders exactly.
+// `short` = the current-value badge shown on the dock button (like คีย์ E / ความเร็ว 84)
 const DISPLAY_OPTS = [
-  { value: 'all', label: 'ครบ (เนื้อ+คอร์ด+โน้ต)', chord: true, note: true, lyric: true },
-  { value: 'chord', label: 'เนื้อ+คอร์ด', chord: true, note: false, lyric: true },
-  { value: 'note', label: 'เนื้อ+โน้ต', chord: false, note: true, lyric: true },
-  { value: 'lyric', label: 'เนื้อล้วน', chord: false, note: false, lyric: true },
-  { value: 'noteonly', label: 'โน้ตล้วน', chord: false, note: true, lyric: false },
+  { value: 'all', label: 'ครบ (เนื้อ+คอร์ด+โน้ต)', short: 'ครบ', chord: true, note: true, lyric: true },
+  { value: 'chord', label: 'เนื้อ+คอร์ด', short: 'คอร์ด', chord: true, note: false, lyric: true },
+  { value: 'note', label: 'เนื้อ+โน้ต', short: 'โน้ต', chord: false, note: true, lyric: true },
+  { value: 'lyric', label: 'เนื้อล้วน', short: 'เนื้อ', chord: false, note: false, lyric: true },
+  { value: 'noteonly', label: 'โน้ตล้วน', short: 'โน้ตล้วน', chord: false, note: true, lyric: false },
 ]
 const display = ref('all')
 const displayDef = computed(() => DISPLAY_OPTS.find((o) => o.value === display.value) || DISPLAY_OPTS[0])
@@ -253,6 +254,7 @@ const singTools = computed(() => [
     icon: 'layers',
     label: 'แสดงผล',
     menu: true,
+    badge: displayDef.value.short, // show the chosen preset like คีย์/ความเร็ว do (real-use #5)
     value: display.value,
     options: DISPLAY_OPTS,
     onPick: (v) => (display.value = v),

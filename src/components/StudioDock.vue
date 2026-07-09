@@ -178,7 +178,16 @@ onUnmounted(() => {
 function onViewportChange() { syncMobile(); nextTick(fit) }
 
 // ---------- collapse / expand ----------
-function collapse() { collapsed.value = true; closePop() }
+function collapse() {
+  // Drop the FAB right where the collapse button is (real-use #1) — it must NOT teleport to
+  // a corner, or the user has to hunt for it. Center the 48px FAB on the handle's spot.
+  if (!mobile.value && handleEl.value) {
+    const r = handleEl.value.getBoundingClientRect()
+    fabPos.value = clampToViewport({ left: r.left + r.width / 2 - 24, top: r.top + r.height / 2 - 24 }, 48, 48)
+  }
+  collapsed.value = true
+  closePop()
+}
 function expand() { collapsed.value = false; nextTick(clampBarPos) }
 // B034: the collapse control gangs both ways — collapse when open, expand when collapsed.
 // On desktop this is the fused grip+chevron button (tap); on mobile the sd-ctl / sd-tab.
@@ -251,6 +260,7 @@ function reset() { order.value = defaultOrder.value }
 // it becomes a drag (no toggle) — so a move never accidentally gaps/collapses the dock.
 const DRAG_THRESHOLD = 5 // px
 const fabEl = ref(null)
+const handleEl = ref(null) // the fused grip+collapse button (so the FAB can drop where it was)
 
 // dragged positions (viewport coords, top-left). null = default CSS spot. BOTH are shared
 // across modes (persisted) so the dock/button stay put when you switch view.
@@ -380,6 +390,7 @@ function runTool(t) {
         <!-- fused grip+collapse handle (desktop): tap = หุบ, drag = ย้ายทั้งแถบ (B037) -->
         <button
           v-if="!mobile"
+          ref="handleEl"
           class="sd-combined hideoncol"
           aria-label="หุบแถบเครื่องมือ"
           title="แตะเพื่อหุบแถบ · ลากเพื่อย้าย"
@@ -420,16 +431,9 @@ function runTool(t) {
           </button>
         </template>
 
-        <!-- right-hand controls: overflow · transparency · customize · collapse -->
+        <!-- right-hand controls: transparency · customize · overflow · (mobile collapse).
+             ⋯ "ดูเพิ่ม" sits RIGHTMOST of the tool row in every mode (real-use #3). -->
         <span class="sd-rc">
-          <button
-            v-if="overflow.length"
-            class="sd-tbtn sd-ctl hideoncol"
-            :aria-expanded="pop === 'overflow'"
-            aria-label="ดูปุ่มเพิ่มเติม"
-            title="ดูเพิ่ม"
-            @click.stop="togglePop('overflow')"
-          ><Icon name="ellipsis" :size="18" /></button>
           <button
             class="sd-tbtn sd-ctl hideoncol"
             :aria-expanded="pop === 'trans'"
@@ -445,6 +449,14 @@ function runTool(t) {
             title="ตั้งค่าปุ่ม"
             @click.stop="togglePop('cust')"
           ><Icon name="sliders-horizontal" :size="18" /></button>
+          <button
+            v-if="overflow.length"
+            class="sd-tbtn sd-ctl hideoncol"
+            :aria-expanded="pop === 'overflow'"
+            aria-label="ดูปุ่มเพิ่มเติม"
+            title="ดูเพิ่ม"
+            @click.stop="togglePop('overflow')"
+          ><Icon name="ellipsis" :size="18" /></button>
           <!-- mobile keeps a tap-only collapse control; desktop uses the fused handle -->
           <button
             v-if="mobile"
@@ -587,7 +599,10 @@ function runTool(t) {
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.14);
   backdrop-filter: blur(6px);
   padding: 8px;
-  max-width: 640px;
+  /* 700px fits the full default ฝึกร้อง set (play·chord·tempo·key·แสดงผล·วนซ้ำ·ก−·ก+·พิมพ์)
+     on desktop so the font buttons don't fall into ⋯ (real-use #5b). Mobile overrides to
+     100% below; overflow (D3) still catches anything the user adds beyond this. */
+  max-width: 700px;
   width: 100%;
   transition: transform 0.22s ease;
 }
@@ -680,16 +695,18 @@ function runTool(t) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--line);
+  /* prominent brand fill so it's easy to spot (real-use #2). White glyph on --brand
+     (#b6763f) ≈ 3.7:1 — passes WCAG 2.2 AA non-text contrast (1.4.11, ≥ 3:1). */
+  border: 1px solid var(--brand);
   border-radius: 50%;
-  background: #fff;
-  color: var(--ink);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
   cursor: grab;
   touch-action: none;
 }
 .sd-fab:active { cursor: grabbing; }
-@media (hover: hover) { .sd-fab:hover { border-color: var(--brand); color: var(--brand); } }
+@media (hover: hover) { .sd-fab:hover { filter: brightness(1.06); } }
 .sd-rc { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 
 /* collapsed: hide keys + everything but the (re-open) bar */
