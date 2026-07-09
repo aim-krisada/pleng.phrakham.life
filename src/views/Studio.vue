@@ -286,7 +286,9 @@ const activeDock = computed(() =>
              too (B043 · was only wired in ฝึกร้อง). Reset to 1rem for print so the A4 sheet
              keeps its fixed layout regardless of the on-screen reading size. -->
         <div class="sheet-read-scale" :style="{ fontSize: readingFontScale + 'rem' }">
-          <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" :song-title="titleText" />
+          <!-- B059: แผ่นเพลง prints like a hymn book — each melody once, reused verses as
+               lyrics only (songbook). ฝึกร้อง (SongViewer) keeps notes on every verse. -->
+          <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" :song-title="titleText" songbook />
         </div>
       </div>
     </div>
