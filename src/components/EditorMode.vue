@@ -1194,7 +1194,7 @@ const edLyrOptions = computed(() => [
 // ▶ + ดูผล (US E3). The model still stores repeat/volta per bar (v2) — UI just sets lines.
 const showTip = ref(false) // (i) how-to blurb (was always-on; now on demand like the proto)
 const showLegend = ref(false) // (?) symbol legend
-const barLayout = ref('stack') // 'stack' = 1 ห้อง/แถว · 'flow' = ห้องต่อกัน (B035)
+const barLayout = ref('flow') // default = ห้องต่อกัน (B048) · 'stack' = 1 ห้อง/แถว · 'flow' = ต่อกัน (B035)
 const lineMoreOpen = ref(false) // ⋯ advanced settings for the active line (Fine/D.C. · ต่อห้อง · ชื่อ)
 
 // breadcrumb text: "ท่อน A · ข้อ 1" — shows position only; selecting happens in the rail
@@ -1281,8 +1281,36 @@ function toggleShowAll() {
 function barContent(li, bi) {
   const line = lines.value[li]
   if (!line || !line.bars[bi]) return { key: opts.key, lines: [] }
-  const one = { ...line, bars: [line.bars[bi]], cont: false }
+  const isFirst = bi === 0
+  const isLast = bi === line.bars.length - 1
+  // Each bar renders as its own mini-sheet, so line-level heads/tails must NOT repeat:
+  // section + hook marker show only on the first bar, จบเพลง/ป้าย only on the last —
+  // otherwise the "♦ ร้อง 1" head stamps every box (B051).
+  const one = {
+    ...line,
+    bars: [line.bars[bi]],
+    cont: false,
+    section: isFirst ? line.section : '',
+    marker: isFirst ? line.marker : '',
+    end: isLast ? line.end : false,
+    label: isLast ? line.label : '',
+  }
   const serial = serializeLine(one)
+  // Show the selected verse's words under the notes so the preview matches the sung
+  // sheet (B050) — a melody stanza carries no lyric of its own, so pull this bar's
+  // slice from the lens row at its global slot offset (same mapping as resolveContent).
+  if (lensActive.value && lensRow.value) {
+    let slot = slotStarts.value[`${li}-${bi}-0`] ?? 0
+    for (const item of serial) {
+      if (item.type === 'segment') {
+        const n = syllableSlots(item.note || '')
+        const slots = lensRow.value.syllables.slice(slot, slot + n)
+        item.lyric = joinSyllables(slots)
+        item.syllables = slots
+        slot += n
+      }
+    }
+  }
   return { version: 2, key: opts.key, timeSignature: opts.timeSignature, lines: [serial] }
 }
 // dropping the lens/stanza switch also clears any stale per-bar renders so the fresh
