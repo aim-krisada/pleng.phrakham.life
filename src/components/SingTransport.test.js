@@ -115,38 +115,74 @@ describe('selector — Gmail list', () => {
 })
 
 describe('⚙ settings panel (§4c)', () => {
+  const panel = (w, id) => w.find(`.mp-panel [data-setting="${id}"]`)
+
   it('every control has a home in the panel, adjustable inline', async () => {
     const w = mountT()
     await w.find('.mp-more').trigger('click')
     await nextTick()
-    expect(w.find('[data-setting="display"] select').exists()).toBe(true)
-    expect(w.find('[data-setting="key"] .mp-stpv').text()).toBe('C')
-    expect(w.find('[data-setting="print"] .mp-stp').text()).toBe('เปิด')
+    expect(panel(w, 'display').find('select').exists()).toBe(true)
+    expect(panel(w, 'key').find('.mp-stpv').text()).toBe('C')
+    expect(panel(w, 'print').find('.mp-stp').text()).toBe('เปิด')
+    // transparency (ความโปร่ง) is a dock-chrome control that lives in the panel too
+    expect(panel(w, 'alpha').find('input[type="range"]').exists()).toBe(true)
   })
 
   it('a menu select calls the descriptor onPick', async () => {
     const onPick = vi.fn()
-    const w = mountT({ settings: [{ id: 'display', icon: '🎵', label: 'แสดงผล', kind: 'menu', value: 'all', options: [{ value: 'all', label: 'ครบ' }, { value: 'lyric', label: 'เนื้อ' }], onPick }] })
+    const w = mountT({ settings: [{ id: 'display', icon: 'layers', label: 'แสดงผล', kind: 'menu', value: 'all', options: [{ value: 'all', label: 'ครบ' }, { value: 'lyric', label: 'เนื้อ' }], onPick }] })
     await w.find('.mp-more').trigger('click')
     await nextTick()
-    await w.find('[data-setting="display"] select').setValue('lyric')
+    await panel(w, 'display').find('select').setValue('lyric')
     expect(onPick).toHaveBeenCalledWith('lyric')
   })
 
-  it('📌 pin promotes a control to the always-visible strip + persists', async () => {
+  it('key / tempo / display are pinned on the bar by default (bar not empty)', () => {
     const w = mountT()
+    expect(w.find('.mp-pins [data-setting="key"]').exists()).toBe(true)
+    expect(w.find('.mp-pins [data-setting="display"]').exists()).toBe(true)
+  })
+
+  it('📌 pin promotes a non-default control to the bar strip + persists', async () => {
+    const w = mountT()
+    expect(w.find('.mp-pins [data-setting="print"]').exists()).toBe(false)
     await w.find('.mp-more').trigger('click')
     await nextTick()
-    await w.find('[data-setting="key"] .mp-pin').trigger('click')
+    await panel(w, 'print').find('.mp-pin').trigger('click')
     await nextTick()
-    // the pinned strip now carries a key chip
-    expect(w.find('.mp-pinned [data-setting="key"]').exists()).toBe(true)
-    expect(JSON.parse(localStorage.getItem('pleng.dock.sing.pins'))).toContain('key')
+    expect(w.find('.mp-pins [data-setting="print"]').exists()).toBe(true)
+    expect(JSON.parse(localStorage.getItem('pleng.dock.sing.pins'))).toContain('print')
   })
 
   it('reloads pinned controls from localStorage', async () => {
-    localStorage.setItem('pleng.dock.sing.pins', JSON.stringify(['key']))
+    localStorage.setItem('pleng.dock.sing.pins', JSON.stringify(['print']))
     const w = mountT()
-    expect(w.find('.mp-pinned [data-setting="key"]').exists()).toBe(true)
+    expect(w.find('.mp-pins [data-setting="print"]').exists()).toBe(true)
+    expect(w.find('.mp-pins [data-setting="key"]').exists()).toBe(false)
+  })
+
+  it('a pinned menu opens a dropdown on the bar and picks a value', async () => {
+    const onPick = vi.fn()
+    const w = mountT({ settings: [{ id: 'display', icon: 'layers', label: 'แสดงผล', kind: 'menu', value: 'all', badge: 'ครบ', options: [{ value: 'all', label: 'ครบ' }, { value: 'lyric', label: 'เนื้อ' }], onPick }] })
+    await w.find('.mp-pins [data-setting="display"] .mp-pbtn').trigger('click')
+    await nextTick()
+    const rows = w.findAll('.mp-pins [data-setting="display"] .mp-ddrow')
+    expect(rows.length).toBe(2)
+    await rows[1].trigger('click')
+    expect(onPick).toHaveBeenCalledWith('lyric')
+  })
+
+  it('the transparency slider drives the dock alpha (dock-chrome hook)', async () => {
+    const w = mountT()
+    await w.find('.mp-more').trigger('click')
+    await nextTick()
+    await panel(w, 'alpha').find('input[type="range"]').setValue(60)
+    expect(w.emitted('dock-alpha')[0]).toEqual([0.6])
+  })
+
+  it('the grip emits dock-collapse', async () => {
+    const w = mountT()
+    await w.find('.mp-grip').trigger('click')
+    expect(w.emitted('dock-collapse')).toHaveLength(1)
   })
 })

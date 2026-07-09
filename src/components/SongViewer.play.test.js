@@ -95,7 +95,8 @@ const sheet = (w) => w.findComponent({ name: 'SongSheet' })
 async function openSettings(w) {
   if (!w.find('.mp-panel').exists()) { await gear(w).trigger('click'); await nextTick() }
 }
-const row = (w, id) => w.find(`[data-setting="${id}"]`)
+// scope to the ⚙ panel — [data-setting] also matches the compact pinned controls on the bar
+const row = (w, id) => w.find(`.mp-panel [data-setting="${id}"]`)
 async function pickSelect(w, id, value) {
   await openSettings(w)
   await row(w, id).find('select').setValue(value)

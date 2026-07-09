@@ -305,30 +305,32 @@ function printSheet() { window.print() }
 function downloadJson() { if (currentSong.value) downloadSong(currentSong.value) }
 
 // ---------- the ⚙ settings panel controls (§4c) — every control, inline ----------
+// icons = Lucide names (rendered via <Icon>), badge = the current value shown on the bar
+const CHORD_BADGE = { letter: 'ABC', roman: '145', hidden: '—' }
 const settingDescs = computed(() => [
   {
-    id: 'display', icon: '🎵', label: 'แสดงผล', kind: 'menu', value: display.value,
+    id: 'display', icon: 'layers', label: 'แสดงผล', kind: 'menu', value: display.value, badge: displayDef.value.short,
     options: DISPLAY_OPTS.map((o) => ({ value: o.value, label: o.label })), onPick: (v) => (display.value = v),
   },
   {
-    id: 'chord', icon: '𝄞', label: 'คอร์ด', kind: 'menu', value: chordSystem.value,
+    id: 'chord', icon: 'guitar', label: 'คอร์ด', kind: 'menu', value: chordSystem.value, badge: CHORD_BADGE[chordSystem.value],
     options: CHORD_OPTS, onPick: (v) => (chordSystem.value = v),
   },
   {
-    id: 'key', icon: '🎼', label: 'คีย์', kind: 'stepper', display: displayKey.value,
+    id: 'key', icon: 'key-round', label: 'คีย์', kind: 'stepper', display: displayKey.value,
     onPrev: () => stepKey(-1), onNext: () => stepKey(1),
   },
   {
-    id: 'tempo', icon: '🐢', label: 'ความเร็ว', kind: 'menu', value: tempo.value,
+    id: 'tempo', icon: 'gauge', label: 'ความเร็ว', kind: 'menu', value: tempo.value, badge: String(tempo.value),
     options: tempoOptions.value, onPick: (v) => (tempo.value = Number(v)),
   },
   {
-    id: 'font', icon: 'A', label: 'ขนาดตัวอักษร', kind: 'stepper', prevLabel: 'A−', nextLabel: 'A+',
+    id: 'font', icon: 'a-arrow-up', label: 'ขนาดตัวอักษร', kind: 'stepper', prevLabel: 'A−', nextLabel: 'A+',
     onPrev: () => bumpFont(-0.1), onNext: () => bumpFont(0.1),
     prevDisabled: fontScale.value <= 0.8, nextDisabled: fontScale.value >= 2.2,
   },
-  { id: 'download', icon: '⬇', label: 'ดาวน์โหลด (JSON)', kind: 'action', actionLabel: 'บันทึก', onAction: downloadJson },
-  { id: 'print', icon: '🖨', label: 'พิมพ์ / PDF', kind: 'action', actionLabel: 'เปิด', onAction: printSheet },
+  { id: 'download', icon: 'download', label: 'ดาวน์โหลด (JSON)', kind: 'action', actionLabel: 'บันทึก', onAction: downloadJson },
+  { id: 'print', icon: 'printer', label: 'พิมพ์ / PDF', kind: 'action', actionLabel: 'เปิด', onAction: printSheet },
 ])
 
 // ---------- the sing dock = one full-width transport (D8 region:'top', dock-core) ----------

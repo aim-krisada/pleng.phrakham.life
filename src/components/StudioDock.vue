@@ -409,6 +409,9 @@ function runTool(t) {
       <!-- full-width top region (D8 region:'top') — a whole music-player transport band
            above the button row. The dock stays blind; the page owns it via props. -->
       <div v-if="topTools.length" class="sd-top hideoncol">
+        <!-- inject dock-chrome hooks (collapse + transparency) so a top-region control can
+             render those affordances INSIDE its own layout (B043 puts หุบ + ความโปร่ง in the
+             music player, not the dock's own chrome row). -->
         <component
           :is="t.component"
           v-for="t in topTools"
@@ -416,6 +419,10 @@ function runTool(t) {
           class="sd-topctl"
           :data-tool="t.id"
           v-bind="t.props || {}"
+          :dock-collapsed="collapsed"
+          :dock-alpha="alpha"
+          @dock-collapse="toggleCollapse"
+          @dock-alpha="alpha = $event"
         />
       </div>
 
@@ -432,7 +439,9 @@ function runTool(t) {
         </div>
       </div>
 
-      <div ref="toolsEl" class="sd-tools" role="toolbar" aria-label="เครื่องมือ">
+      <!-- a pure music dock (top region only, no button tools) hides the dock's own chrome
+           row — the top-region control renders its own หุบ + ความโปร่ง (B043). -->
+      <div v-if="rowTools.length || !topTools.length" ref="toolsEl" class="sd-tools" role="toolbar" aria-label="เครื่องมือ">
         <!-- fused grip+collapse handle (desktop): tap = หุบ, drag = ย้ายทั้งแถบ (B037) -->
         <button
           v-if="!mobile"

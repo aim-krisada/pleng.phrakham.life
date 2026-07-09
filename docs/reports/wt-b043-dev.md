@@ -50,6 +50,15 @@
 - **transparency:** ยังอยู่ที่ปุ่ม blend ของ dock (ทำงานได้) — ยังไม่ย้ายเข้า ⚙ panel เพราะ alpha เป็น state ของ StudioDock (custom control เอื้อมไม่ถึง) → ถ้าต้องการใน panel = งาน dock-core เล็ก (เปิด alpha ออกมาให้ page ขับ) ทำช่วง merge/เฟส 2 ได้
 - **download navbar เดิม:** ยังโชว์ที่หัว (shared ทุกหน้า) + เพิ่มใน ⚙ panel ด้วย → ซ้ำเฉพาะ sing mode · ถ้าจะเอาออกจากหัวเฉพาะ studio = follow-up เล็ก
 
+## ปรับ layout ตาม P'Aim art-direct (รอบ 2 · หลัง real-use)
+P'Aim ลองแล้วบาร์โล่ง ("เหลือ ▶/🔁 · หา icon ไม่เจอ") + อยาก layout เครื่องเล่นเพลง 2 แถวชัด → ปรับ:
+- **2 แถวชัด** (อ้าง `ref-music-player-play.jpg`): **แถวบน** (กรอบ) = ปุ่มหุบ/grip ซ้ายสุด + progress bar เต็มกว้าง + เวลา (+ ☰ เลือกท่อน) · **แถวล่าง** = **⚙ ซ้ายสุด** → ⏮ ▶/⏸ ⏭ → 🔁 → ปุ่มที่ปัก
+- **default pin บนบาร์ (แก้บาร์โล่ง):** transport + **คีย์ + ความเร็ว + แสดงผล** (compact icon+badge · คีย์=stepper ◀E▶ · ความเร็ว/แสดงผล=เมนู badge+dropdown) · ที่เหลือ (คอร์ด/ฟอนต์/ดาวน์โหลด/พิมพ์/**ความโปร่ง**) อยู่ในแผง ⚙ ปรับ inline + ปักเพิ่มได้
+- **ความโปร่ง (transparency) ย้ายเข้าแผง ⚙ แล้ว** — StudioDock ส่ง hook `dock-alpha`/`dock-collapse` ให้ top-region control (dock ยัง generic) · slider ในแผงขับ alpha ของ dock จริง (ยืนยัน 0.92→0.55)
+- **หุบ/collapse** ย้ายมาที่ grip แถวบนของเครื่องเล่น (dock ซ่อนแถบ chrome เดิมของตัวเองเมื่อเป็น music dock ล้วน)
+- verify เบราว์เซอร์: 2 แถวถูก · grip แถวบน · ⚙ ซ้ายสุด · default pin display/key/tempo โผล่บนบาร์ (มี badge ครบ/C/127) · dropdown ปุ่มปัก + เลือกได้ (display→เนื้อ) · transparency slider ขับ dock จริง · เล่นจริง dot/ไฮไลต์เดิน · ไม่มี console error
+- test 138/138 · build ✅
+
 ## DoD เฟส 1
 - [x] music dock ครบ (transport/scroll-target/selector/settings panel)
 - [x] transport อยู่ใน StudioDock (core · D8 region:'top')
