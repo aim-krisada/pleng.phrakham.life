@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>B043 — ฝึกร้อง: music-player dock + tag ท่อน + วนซ้ำ (wireframe)</title>
+<style>
+:root{
+  --bg:#faf9f5; --panel:#ffffff; --ink:#2b2a27; --muted:#6f6e69; --line:#e6e4dc;
+  --accent:#8a5a2b; --accent-bg:#f3e8db; --danger:#b3261e; --ok:#1d7a54;
+  --hl:#f6d9a8; --hl-word:#8a5a2b; --dock-alpha:0.96; --dock-bg:255,255,255;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#1c1b19;--panel:#262521;--ink:#ece9e2;--muted:#a3a19a;--line:#3a3833;
+    --accent:#d69a5c;--accent-bg:#3a2c1c;--danger:#e5645c;--ok:#4fbf90;
+    --hl:#5a4327;--hl-word:#f0c890;--dock-bg:38,37,33;}
+}
+*{box-sizing:border-box}
+body{font-family:system-ui,'Segoe UI',sans-serif;background:var(--bg);color:var(--ink);margin:0;padding:18px 14px 40px;line-height:1.5}
+.wrap{max-width:760px;margin:0 auto}
+h1{font-size:19px;font-weight:600;margin:0 0 2px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+.note{font-size:12.5px;color:var(--muted);background:var(--panel);border:.5px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:9px 12px;margin:0 0 12px}
+.note b{color:var(--ink)}
+.demoswitch{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted);margin:0 0 14px;flex-wrap:wrap}
+.demoswitch button{border:.5px solid var(--line);background:var(--panel);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12.5px;cursor:pointer}
+.demoswitch button.on{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}
+
+/* phone frame to make the "bottom sticky dock" read as mobile */
+.stage{background:var(--bg);border:.5px solid var(--line);border-radius:18px;overflow:hidden;position:relative;
+  height:620px;display:flex;flex-direction:column;max-width:400px;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.topbar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:.5px solid var(--line);background:var(--panel);font-size:13px}
+.topbar .name{font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .ham{border:.5px solid var(--line);background:transparent;border-radius:8px;width:32px;height:30px;color:var(--muted);cursor:pointer;font-size:15px}
+.topbar .tnote{font-size:10px;color:var(--ok)}
+.scrollarea{flex:1;overflow-y:auto;padding:12px 14px 8px}
+
+/* ---- section blocks (compact: hook shown ONCE) ---- */
+.sec{border:.5px solid var(--line);border-radius:12px;background:var(--panel);padding:9px 11px 11px;margin:0 0 11px;position:relative;transition:border-color .15s,box-shadow .15s}
+.sec.playing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
+.sec.refrain{background:linear-gradient(0deg,var(--panel),var(--panel)),repeating-linear-gradient(135deg,var(--accent-bg) 0 6px,transparent 6px 12px)}
+.sec.picked-on{outline:2px solid var(--ok);outline-offset:-1px}
+.sechead{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+/* tag = a clickable SELECT toggle (P'Aim: make selection obvious) */
+.tag{font-size:11.5px;font-weight:600;color:var(--accent);background:var(--accent-bg);border-radius:20px;padding:3px 11px 3px 8px;border:1px solid transparent;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.tag .cb{font-size:12px}
+.tag:hover{border-color:var(--accent)}
+.tag.hookmark{background:transparent;border:1px dashed var(--accent)}
+.sec.picked-on .tag{background:var(--ok);color:#fff;border-color:var(--ok)}
+.sec.picked-on .tag.hookmark{background:var(--ok)}
+.pass{font-size:11px;color:var(--muted);margin-left:auto;opacity:0;transition:opacity .2s}
+.sec.playing .pass{opacity:1}
+.num{font-size:14px;color:var(--accent);letter-spacing:1px;font-variant-numeric:tabular-nums;line-height:1.25}
+.lyr{font-size:15px;margin-top:0}   /* B044: tighter note↔lyric gap (spec noted, separate bug) */
+.syl{padding:0 2px;border-radius:4px}
+.syl.on{background:var(--hl);color:var(--hl-word);font-weight:600}
+/* true play-order ribbon (teaching device) */
+
+/* ================= BOTTOM STICKY MUSIC DOCK ================= */
+.dock{background:rgba(var(--dock-bg),var(--dock-alpha));border-top:.5px solid var(--line);backdrop-filter:blur(8px);
+  padding:9px 14px calc(9px + env(safe-area-inset-bottom));box-shadow:0 -4px 18px rgba(0,0,0,.08);position:relative}
+/* progress + section markers = the timeline (markers ARE the tags) */
+.seekrow{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.seek{position:relative;flex:1;height:26px;display:flex;align-items:center;cursor:pointer}
+.track{position:absolute;left:0;right:0;height:4px;background:var(--line);border-radius:3px;top:50%;transform:translateY(-50%)}
+.fill{position:absolute;left:0;height:4px;background:var(--accent);border-radius:3px;top:50%;transform:translateY(-50%);width:0}
+.dot{position:absolute;width:12px;height:12px;background:var(--accent);border:2px solid var(--panel);border-radius:50%;top:50%;transform:translate(-50%,-50%);left:0;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.mk{position:absolute;top:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:var(--panel);border:1.5px solid var(--accent);cursor:pointer;z-index:2}
+.mk.hook{border-style:solid;background:var(--accent-bg)}
+.mk.active{background:var(--accent)}
+.mk.picked{border-color:var(--ok);background:var(--ok)}
+/* framed timeline (progress = ตำแหน่ง/scrub · marker = จุดเล็ก) */
+.timeline{border:.5px solid var(--line);border-radius:10px;padding:6px 9px 3px;margin-bottom:8px;background:rgba(var(--dock-bg),.5)}
+.tlhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:1px;flex-wrap:wrap}
+.tllbl{font-size:10.5px;color:var(--muted)}
+.seltrig{border:.5px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600}
+.seltrig:hover{border-color:var(--accent);color:var(--accent)}
+.seltrig b{color:var(--ok)}
+/* selection sheet: scrollable Gmail list (ท่อนเยอะไม่เบียด · progress bar ไม่แบกภาระเลือก) */
+.sheetmask{position:absolute;inset:0;background:rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .2s;z-index:30}
+.sheetmask.open{opacity:1;pointer-events:auto}
+.selsheet{position:absolute;left:0;right:0;bottom:0;background:var(--panel);border-top:.5px solid var(--line);border-radius:16px 16px 0 0;
+  box-shadow:0 -8px 30px rgba(0,0,0,.25);transform:translateY(100%);transition:transform .24s ease;z-index:31;max-height:72%;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
+.selsheet.open{transform:translateY(0)}
+.sshead{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px;font-size:15px}
+.ssclose{border:0;background:transparent;color:var(--muted);font-size:16px;cursor:pointer}
+.ssall{display:flex;align-items:center;gap:8px;padding:0 14px 8px;border-bottom:.5px solid var(--line);flex-wrap:wrap}
+.ssallbtn{border:.5px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:5px 12px;font-size:12.5px;cursor:pointer}
+.ssallbtn:hover{border-color:var(--accent);color:var(--accent)}
+.sshint{font-size:11px;color:var(--muted);margin-left:auto}
+.sslist{overflow-y:auto;padding:6px}
+.ssrow{display:flex;align-items:center;gap:12px;padding:12px 12px;border-radius:10px;cursor:pointer;font-size:15px}
+.ssrow:hover{background:var(--accent-bg)}
+.ssrow .cx{width:22px;height:22px;border:1.5px solid var(--muted);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;flex:0 0 22px}
+.ssrow.on .cx{background:var(--ok);border-color:var(--ok)}
+.ssrow.on{color:var(--ok);font-weight:600}
+.ssrow .hk{font-size:10.5px;color:var(--accent);border:.5px dashed var(--accent);border-radius:10px;padding:0 7px;margin-left:auto}
+/* transport row */
+.transport{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:9px}
+.mbtn{width:40px;height:40px;border:0;background:transparent;color:var(--ink);cursor:pointer;font-size:19px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;position:relative}
+.mbtn:hover{background:var(--accent-bg)}
+.mbtn.play{width:52px;height:52px;color:var(--accent);font-size:27px}   /* ปุ่มอย่างเดียว ไม่มีพื้นวงกลม */
+.mbtn.on{color:var(--accent);background:var(--accent-bg)}
+.mbtn .bdg{position:absolute;top:-2px;right:-2px;background:var(--accent);color:#fff;font-size:10px;font-weight:600;border-radius:9px;min-width:16px;height:16px;display:none;align-items:center;justify-content:center;padding:0 3px}
+.mbtn.on .bdg{display:flex}
+.mbtn.more{margin-left:auto}   /* ⚙ settings, pinned right (dock convention #3) */
+.mbtn.prevnext{margin-right:0}
+.tip{position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);font-size:11px;padding:3px 7px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s}
+.mbtn:hover .tip{opacity:.95}
+.selhint{text-align:center;font-size:11px;color:var(--muted);margin-top:6px}
+/* ⚙ settings panel — vertical, icon+label + inline controls (dock convention #3 + #6c) */
+.more{position:absolute;bottom:64px;right:12px;background:var(--panel);border:.5px solid var(--line);border-radius:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.2);padding:6px;min-width:200px;display:none;flex-direction:column;gap:1px;z-index:10}
+.more.open{display:flex}
+.more button{display:flex;align-items:center;gap:11px;border:0;background:transparent;color:var(--ink);padding:9px 10px;font-size:13.5px;text-align:left;cursor:pointer;border-radius:8px;width:100%}
+.more button:hover{background:var(--accent-bg)}
+.more .mi{width:20px;text-align:center;color:var(--accent);flex:0 0 20px}
+.more .val{margin-left:auto;color:var(--muted);font-size:12px}
+.more .div{height:.5px;background:var(--line);margin:5px 2px}
+/* ⚙ settings panel (PM #6c) */
+.panel{min-width:270px;padding:8px}
+.panel .ptitle{font-size:11px;color:var(--muted);padding:2px 4px 7px}
+.prow{display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:8px}
+.prow:hover{background:var(--accent-bg)}
+.prow .pl{font-size:13px;flex:1;min-width:70px}
+.prow .pc{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--ink)}
+.prow .pc b{font-weight:600}
+.prow .stp{border:.5px solid var(--line);background:transparent;color:var(--ink);border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer}
+.prow .stp:hover{border-color:var(--accent);color:var(--accent)}
+.prow input[type=range]{width:96px;accent-color:var(--accent)}
+.pin{border:0;background:transparent;cursor:pointer;font-size:14px;filter:grayscale(1);opacity:.4;flex:0 0 auto;border-radius:6px;padding:2px 4px}
+.pin.on{filter:none;opacity:1}
+.pin:hover{background:var(--line)}
+.pnote{font-size:10.5px;color:var(--ok);padding:2px 4px 4px 30px}
+
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin:14px 2px 0;max-width:760px;margin-left:auto;margin-right:auto}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:20px;height:12px;border-radius:4px;border:.5px solid var(--line);display:inline-block}
+.decisions{margin-top:20px;font-size:13px;max-width:760px;margin-left:auto;margin-right:auto}
+.decisions h2{font-size:15px;margin:0 0 8px}
+.decisions li{margin-bottom:6px}
+.decisions b{color:var(--accent)}
+.scope{font-size:12px;color:var(--muted);max-width:760px;margin:10px auto 0;border:.5px dashed var(--line);border-radius:8px;padding:8px 12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>B043 — ฝึกร้อง: ยกเครื่องเป็น Music-player dock ล่าง</h1>
+  <p class="sub">wireframe กดได้ · SA design (รอ P'Aim เคาะ) · คู่กับ <code>docs/us/ds sing-repeat.md</code></p>
+
+  <div class="note">
+    <b>ตามคำสั่ง P'Aim (real-use 9 ก.ค.):</b> ย้าย control ฝึกร้องทั้งหมดจากการ์ดบนหัว →
+    <b>แถบ dock ล่าง sticky แบบ music player</b>. <b>แถบ progress = timeline</b> ที่มี <b>marker ท่อน</b>
+    (เลือกได้แบบ Gmail): แตะ marker = เลือก/ยกเลิก · ปุ่มแม่ <b>All/None</b> · <b>▶/⏮/⏭/🔁 ทำงานกับที่เลือก</b> (ไม่เลือก=ทั้งเพลง) ·
+    control อื่นทั้งหมดอยู่ใน <b>⚙ แผงตั้งค่า</b> (ปรับ inline ได้แม้ไม่ปักขึ้นแถบ — เช่น slider ความโปร่ง · 📌 = ปัก/ถอน).
+  </div>
+
+  <div class="demoswitch">
+    ลองเพลง:
+    <button id="dv2" class="on">เพลงมีท่อน (ร้อง/รับ)</button>
+    <button id="dvM">ท่อนเยอะ (ทดสอบรายการเลื่อน)</button>
+    <button id="dv1">เพลงเก่าไม่มีท่อน (v1)</button>
+    <span>· กด ▶ ดู dot วิ่ง · กด "☰ เลือกท่อน" เปิดรายการ (ท่อนเยอะเลื่อนได้) · 🔁 = วน</span>
+  </div>
+
+  <div class="stage">
+    <!-- top bar: name gets full width; controls moved OUT to bottom dock -->
+    <div class="topbar">
+      <button class="ham" title="เมนู (B045 — แยก)">☰</button>
+      <span class="name" id="songname">เพลง.พระคำ.ชีวิต · 1. พระเจ้าเป็นความรัก</span>
+      <span class="tnote">controls ย้ายลงล่าง ↓</span>
+    </div>
+
+    <div class="scrollarea">
+      <div id="song"></div>
+    </div>
+
+    <!-- ===== bottom sticky music dock ===== -->
+    <div class="dock">
+      <!-- framed timeline: progress = ตำแหน่ง + ลาก scrub · marker = จุดเล็ก (ไม่แบกภาระเลือก) -->
+      <div class="timeline">
+        <div class="tlhead">
+          <span class="tllbl">แถบเล่น — ลากหาตำแหน่ง · จุด = ท่อน</span>
+          <button class="seltrig" id="selTrig" title="เลือกท่อนที่จะซ้อม">☰ เลือกท่อน <b id="selCnt">·</b></button>
+        </div>
+        <div class="seekrow" id="seekrow">
+          <span id="tCur">0:00</span>
+          <div class="seek" id="seek">
+            <div class="track"></div><div class="fill" id="fill"></div>
+            <div class="dot" id="dot"></div>
+            <span id="markers"></span>
+          </div>
+          <span id="tTot">1:12</span>
+        </div>
+      </div>
+      <div class="selhint" id="selHint">แถบล่าง = ตำแหน่ง/ลากหา · กด "☰ เลือกท่อน" เปิดรายการเลือก (ท่อนเยอะก็เลื่อนได้) · ไม่เลือก = ทั้งเพลง</div>
+      <div class="transport">
+        <button class="mbtn prevnext" id="btnPrev" title="ท่อนก่อน">⏮<span class="tip">ท่อนก่อน</span></button>
+        <button class="mbtn play" id="btnPlay">▶<span class="tip">เล่น / พัก</span></button>
+        <button class="mbtn prevnext" id="btnNext" title="ท่อนถัดไป">⏭<span class="tip">ท่อนถัดไป</span></button>
+        <button class="mbtn" id="btnLoop">🔁<span class="tip">วนซ้ำ (เปิด/ปิด)</span></button>
+        <button class="mbtn more" id="btnMore">⚙<span class="tip">ตั้งค่า (บ้านของทุกปุ่ม)</span></button>
+      </div>
+      <!-- ⚙ settings panel (PM #6c): บ้านของทุก control · ปรับ inline ได้แม้ไม่ปัก · 📌 = ปัก/ถอนจากแถบ -->
+      <div class="more panel" id="moreMenu">
+        <div class="ptitle">ตั้งค่า — ปรับได้ที่นี่เลย · 📌 = ปักขึ้นแถบ</div>
+        <div class="prow"><span class="mi">🎵</span><span class="pl">แสดงผล</span><span class="pc"><b>เนื้อ+โน้ต ▾</b></span><button class="pin on">📌</button></div>
+        <div class="prow"><span class="mi">𝄞</span><span class="pl">คอร์ด</span><span class="pc"><b>A B C ▾</b></span><button class="pin">📌</button></div>
+        <div class="prow"><span class="mi">🎼</span><span class="pl">คีย์</span><span class="pc"><button class="stp">◀</button><b>E</b><button class="stp">▶</button></span><button class="pin on">📌</button></div>
+        <div class="prow"><span class="mi">🐢</span><span class="pl">ความเร็ว</span><span class="pc"><b>♩=84 ▾</b></span><button class="pin on">📌</button></div>
+        <div class="prow"><span class="mi">A</span><span class="pl">ขนาดตัวอักษร</span><span class="pc"><button class="stp">A−</button><button class="stp">A+</button></span><button class="pin">📌</button></div>
+        <div class="prow"><span class="mi">🎚</span><span class="pl">ความโปร่งแถบ</span><span class="pc"><input type="range" id="alphaSld" min="60" max="100" value="96"></span><button class="pin">📌</button></div>
+        <div class="pnote">↑ ปรับความโปร่งได้ตรงนี้ตลอด — ไม่ต้องปักขึ้นแถบ (โจทย์ P'Aim)</div>
+        <div class="div"></div>
+        <div class="prow"><span class="mi">⬇</span><span class="pl">ดาวน์โหลด</span><span class="pc"><button class="stp">เปิด</button></span><button class="pin">📌</button></div>
+        <div class="prow"><span class="mi">🖨</span><span class="pl">พิมพ์ / PDF</span><span class="pc"><button class="stp">เปิด</button></span><button class="pin">📌</button></div>
+      </div>
+    </div>
+
+    <!-- selection sheet (PM: ท่อนเยอะล้นจอ → รายการเลื่อนได้ แยกจาก progress bar) -->
+    <div class="sheetmask" id="sheetMask"></div>
+    <div class="selsheet" id="selSheet">
+      <div class="sshead">
+        <b>เลือกท่อนที่จะซ้อม</b>
+        <button class="ssclose" id="ssClose">✕</button>
+      </div>
+      <div class="ssall">
+        <button class="ssallbtn" data-all="1">☑ ทั้งหมด</button>
+        <button class="ssallbtn" data-all="0">☐ ไม่เลือก</button>
+        <span class="sshint">ไม่เลือก = เล่นทั้งเพลง</span>
+      </div>
+      <div class="sslist" id="ssList"><!-- rows injected · เลื่อนได้ ท่อนเยอะไม่เบียด --></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><span class="sw" style="background:var(--hl)"></span> พยางค์ที่กำลังร้อง</span>
+    <span><span class="sw" style="background:repeating-linear-gradient(135deg,var(--accent-bg) 0 5px,transparent 5px 10px)"></span> ท่อนรับ (โชว์ครั้งเดียว)</span>
+    <span><span class="sw" style="border-color:var(--ok)"></span> ท่อนที่เลือกวน</span>
+  </div>
+
+  <div class="scope">
+    <b>ขอบเขต B043:</b> tag ท่อน + เลือกวน (รายการเลื่อนได้ · ท่อนเยอะไม่เบียด) + ยกเครื่อง control ฝึกร้อง → music dock ล่าง (config ลง dock-core) + download เข้า dock ·
+    <b>แยกออก:</b> spacing โน้ต↔เนื้อ/ห้อง = <b>B044</b> · hamburger มือถือ = <b>B045</b> (wireframe โชว์ ☰ ให้เห็นตำแหน่งเฉย ๆ)
+  </div>
+
+  <div class="decisions">
+    <h2>Decisions — เคาะครบแล้ว (P'Aim 9 ก.ค.)</h2>
+    <ul>
+      <li><b>✅ A = A2</b> (แผ่นย่อ · รับโชว์ครั้งเดียว · เล่นวนกลับ) · dev แตะ SongSheet + verify print PDF จริง</li>
+      <li><b>✅ B = เอา</b> ป้าย "รอบ N" · <b>✅ G = ตามเสนอ</b> (⏮ ▶ ⏭ 🔁 + ☰เลือกท่อน บนแถบ · ที่เหลือใน ⚙)</li>
+      <li><b>✅ H = ทั้งสอง</b> (scrub + แตะจุดกระโดด) · <b>✅ D</b> ตามลำดับในเพลง+ยุบรอยต่อ</li>
+      <li><b>✅ C = ไม่จำ</b> (เปลี่ยนเพลง = ล้าง selection · เริ่มใหม่ทุกเพลง) · <b>✅ F = เงียบ</b> (v1 ไม่มีท่อน = เล่นทั้งเพลง ไม่มีคำใบ้) · <b>E</b> ตัด (marker=เลือก/กระโดด แยกชัดแล้ว)</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// ---- two demo songs (song-model-v2 shape) ----
+const SONGS = {
+  v2: {
+    name:'เพลง.พระคำ.ชีวิต · 12. สรรเสริญพระนาม',
+    stanzas:{ A:{num:['5 5 6','5 3 -','2 3 4','3 - -']}, B:{num:['1ʹ 1ʹ 7','6 5 -']} },
+    arrangement:[
+      {stanza:'A',label:'ร้อง 1',syl:['ข้า','จะ','ยก','ยอ','สรร','เสริญ','พระ','องค์','ตลอด','ไป']},
+      {stanza:'B',label:'รับ',   syl:['สรร','เสริญ','พระ','นาม','บริ','สุทธิ์']},
+      {stanza:'A',label:'ร้อง 2',syl:['พระ','องค์','ทรง','รัก','ไม่','มี','วัน','สิ้น','สุด','เลย']},
+      {stanza:'B',label:'รับ',   syl:['สรร','เสริญ','พระ','นาม','บริ','สุทธิ์']}
+    ]
+  },
+  v1: {
+    name:'เพลง.พระคำ.ชีวิต · 1. พระเจ้าเป็นความรัก',
+    stanzas:{ A:{num:['3 3 4 5','5 4 3 -','2 2 3 4','3 - - -']} },
+    arrangement:[ {stanza:'A',label:'',syl:['พระ','เจ้า','เป็น','ความ','รัก','ยิ่ง','ใหญ่','เหลือ','ล้น','ใจ','ข้า','ฯ']} ]
+  },
+  // many sections → the scrollable selector earns its keep (PM concern)
+  many: {
+    name:'เพลง.พระคำ.ชีวิต · 84. บทเพลงยาว (หลายท่อน)',
+    stanzas:{ A:{num:['5 5 6','5 3 -','2 3 4','3 - -']}, B:{num:['1ʹ 1ʹ 7','6 5 -']}, C:{num:['3 4 5','2 - -']} },
+    arrangement:[
+      {stanza:'A',label:'อินโทร',syl:['ล—','ลา','ลา','ล—','ลา','ลา','ล—','ลา']},
+      {stanza:'A',label:'ร้อง 1',syl:['ท่อน','ที่','หนึ่ง','นะ','ครับ','พี่','เอม','ครับ']},
+      {stanza:'B',label:'รับ',   syl:['สรร','เสริญ','พระ','นาม','บริ','สุทธิ์']},
+      {stanza:'A',label:'ร้อง 2',syl:['ท่อน','ที่','สอง','นะ','ครับ','พี่','เอม','ครับ']},
+      {stanza:'B',label:'รับ',   syl:['สรร','เสริญ','พระ','นาม','บริ','สุทธิ์']},
+      {stanza:'C',label:'เชื่อม',syl:['สะ','พาน','เชื่อม','ท่อน','เพลง']},
+      {stanza:'A',label:'ร้อง 3',syl:['ท่อน','ที่','สาม','นะ','ครับ','พี่','เอม','ครับ']},
+      {stanza:'B',label:'รับ',   syl:['สรร','เสริญ','พระ','นาม','บริ','สุทธิ์']},
+      {stanza:'C',label:'ท้าย',  syl:['ปิด','ท้าย','เพลง','นะ','ครับ']}
+    ]
+  }
+};
+
+let SONG, SECS, selected=new Set(), mode='v2';
+function sections(song){
+  const seen={},out=[];
+  song.arrangement.forEach((e,i)=>{
+    if(!e.label){ e._secIdx=-1; return; }
+    const id=e.stanza+'|'+e.syl.join('');
+    if(seen[id]==null){ seen[id]=out.length; out.push({label:e.label,stanza:e.stanza,syl:e.syl,idList:[i]}); }
+    else out[seen[id]].idList.push(i);
+    e._secIdx=seen[id];
+  });
+  return out;
+}
+const isHook = s => s.idList.length>1;
+
+// timeline = every arrangement occurrence (รับ appears twice) — markers sit on this
+function timeline(){
+  return SONG.arrangement.map((e,i)=>({i, secIdx:e._secIdx, label:e.label||'ทั้งเพลง', len:e.syl.length}));
+}
+function playOrder(){
+  let seq=timeline();
+  if(SECS.length && selected.size){
+    const w=new Set([...selected]);
+    seq=seq.filter(x=>x.secIdx>=0 && w.has(SECS[x.secIdx].label));
+    seq=seq.filter((x,idx)=>idx===0||x.secIdx!==seq[idx-1].secIdx);
+    if(seq.length>1 && seq[0].secIdx===seq[seq.length-1].secIdx) seq=seq.slice(1);
+  }
+  const cnt={},tot={};
+  seq.forEach(x=>tot[x.secIdx]=(tot[x.secIdx]||0)+1);
+  seq.forEach(x=>{cnt[x.secIdx]=(cnt[x.secIdx]||0)+1;x.pass=cnt[x.secIdx];x.tot=tot[x.secIdx];});
+  return seq;
+}
+
+// ---- render ----
+const songEl=document.getElementById('song'), markersEl=document.getElementById('markers'),
+      seekrow=document.getElementById('seekrow'), fill=document.getElementById('fill'), dot=document.getElementById('dot'),
+      tTot=document.getElementById('tTot'), songname=document.getElementById('songname');
+
+function bodyOf(s){
+  const notes=SONG.stanzas[s.stanza].num; let slot=0,body='';
+  notes.forEach(line=>{
+    let lyr='';
+    line.split(' ').forEach(n=>{
+      const held=(n==='-');
+      lyr += held ? `<span class="syl">&nbsp;</span>` : `<span class="syl" data-syl="${slot}">${s.syl[slot]||''}</span> `;
+      if(!held) slot++;
+    });
+    body+=`<div class="num">${line}</div><div class="lyr">${lyr}</div>`;
+  });
+  return body;
+}
+function renderSong(){
+  SONG=SONGS[mode]; SECS=sections(SONG); selected.clear();
+  songname.textContent=SONG.name;
+  songEl.innerHTML='';
+  document.getElementById('selTrig').style.display = SECS.length ? '' : 'none';
+  if(!SECS.length){
+    document.getElementById('btnPrev').style.display='none'; document.getElementById('btnNext').style.display='none';
+    // F = เงียบ: v1 ไม่มีท่อน → เล่นทั้งเพลงปกติ ไม่มีคำใบ้/ไม่มี marker
+    songEl.innerHTML=`<div class="sec"><div class="sechead"><span class="tag" style="cursor:default">ทั้งเพลง</span><span class="pass"></span></div>${bodyOf({stanza:'A',syl:SONG.arrangement[0].syl})}</div>`;
+  } else {
+    document.getElementById('btnPrev').style.display=''; document.getElementById('btnNext').style.display='';
+    SECS.forEach((s,si)=>{
+      const div=document.createElement('div');
+      div.className='sec'+(isHook(s)?' refrain':''); div.dataset.sec=si;
+      // tag is a clickable SELECT toggle (P'Aim: make selection obvious)
+      div.innerHTML=`<div class="sechead">
+        <span class="tag${isHook(s)?' hookmark':''}" data-sec="${si}"><span class="cb">☐</span>${s.label}${isHook(s)?' · ฮุก':''}</span>
+        <span class="pass"></span></div>${bodyOf(s)}`;
+      songEl.appendChild(div);
+    });
+  }
+  renderMarkers(); renderList(); refreshSel(); resetPos();
+}
+// markers = small position dots (no labels · ไม่แบกภาระเลือก) · แตะ = กระโดด (jump/scrub)
+function renderMarkers(){
+  markersEl.innerHTML='';
+  const tl=timeline(); if(tl.length<=1 || !SECS.length){ tTot.textContent='0:48'; return; }
+  const N=tl.length;
+  tl.forEach((x,i)=>{
+    const m=document.createElement('span');
+    m.className='mk'+(SECS[x.secIdx]&&isHook(SECS[x.secIdx])?' hook':''); m.dataset.step=i; m.dataset.sec=x.secIdx;
+    m.style.left=(i/N*100)+'%'; m.title=x.label+' — แตะกระโดด';
+    m.addEventListener('click',(e)=>{e.stopPropagation();jumpTo(i);});
+    markersEl.appendChild(m);
+  });
+  tTot.textContent='1:12';
+}
+// ---- selection: scrollable section list (PM: ท่อนเยอะไม่เบียด) + body tags ----
+let loopOn=false;
+const btnLoop=document.getElementById('btnLoop'), selTrig=document.getElementById('selTrig'),
+      selCnt=document.getElementById('selCnt'), selSheet=document.getElementById('selSheet'),
+      sheetMask=document.getElementById('sheetMask'), ssList=document.getElementById('ssList');
+function toggleSec(secIdx){ // toggle a section by label (from list row OR body tag)
+  const label=SECS[secIdx].label;
+  if(selected.has(label)) selected.delete(label); else selected.add(label);
+  refreshSel();
+}
+// body tag = a visible select toggle too (few sections)
+songEl.addEventListener('click',(e)=>{ const t=e.target.closest('.tag[data-sec]'); if(t) toggleSec(+t.dataset.sec); });
+function renderList(){ // the scrollable Gmail-style selector
+  ssList.innerHTML='';
+  SECS.forEach((s,si)=>{
+    const on=selected.has(s.label);
+    const row=document.createElement('div');
+    row.className='ssrow'+(on?' on':''); row.dataset.sec=si;
+    row.innerHTML=`<span class="cx">${on?'✓':''}</span><span>${s.label}</span>${isHook(s)?'<span class="hk">ฮุก</span>':''}`;
+    row.addEventListener('click',()=>toggleSec(si));
+    ssList.appendChild(row);
+  });
+}
+function refreshSel(){
+  const n=selected.size, total=SECS.length;
+  selCnt.textContent = n===0 ? '·' : (n===total ? 'ทั้งหมด' : n+'/'+total);
+  document.querySelectorAll('.mk').forEach(m=>{
+    m.classList.toggle('picked', SECS[+m.dataset.sec] && selected.has(SECS[+m.dataset.sec].label));
+  });
+  document.querySelectorAll('.sec[data-sec]').forEach(el=>{
+    const on=SECS[+el.dataset.sec] && selected.has(SECS[+el.dataset.sec].label);
+    el.classList.toggle('picked-on', on);
+    const cb=el.querySelector('.tag .cb'); if(cb) cb.textContent = on ? '☑' : '☐';
+  });
+  document.querySelectorAll('.ssrow').forEach(r=>{
+    const on=selected.has(SECS[+r.dataset.sec].label);
+    r.classList.toggle('on', on); r.querySelector('.cx').textContent = on?'✓':'';
+  });
+}
+// 🔁 = loop on/off (applies to whatever plays — selection or whole song)
+btnLoop.addEventListener('click',()=>{ loopOn=!loopOn; btnLoop.classList.toggle('on',loopOn); });
+// selection sheet open/close
+function openSheet(){ selSheet.classList.add('open'); sheetMask.classList.add('open'); }
+function closeSheet(){ selSheet.classList.remove('open'); sheetMask.classList.remove('open'); }
+selTrig.addEventListener('click',openSheet);
+document.getElementById('ssClose').addEventListener('click',closeSheet);
+sheetMask.addEventListener('click',closeSheet);
+function setAll(on){ selected.clear(); if(on) SECS.forEach(s=>selected.add(s.label)); refreshSel(); }
+document.querySelectorAll('.ssallbtn').forEach(b=>b.addEventListener('click',()=>setAll(b.dataset.all==='1')));
+// scrub: click anywhere on the bar = seek (H) — markers stopPropagation so they jump precisely
+document.getElementById('seek').addEventListener('click',(e)=>{
+  const r=e.currentTarget.getBoundingClientRect(); const frac=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+  const ord=playOrder(); jumpToOrder(Math.min(ord.length-1,Math.floor(frac*ord.length)));
+});
+function jumpTo(step){ const ord=playOrder(); let i=ord.findIndex(x=>x.i===step); jumpToOrder(i<0?0:i); }
+function jumpToOrder(i){ stepPtr=Math.max(0,i); sylPtr=0; if(playing) tickSoon(); else updateSeek(); }
+
+// ---- playback simulation ----
+let timer=null, playing=false, seq=[], stepPtr=0, sylPtr=0;
+const btnPlay=document.getElementById('btnPlay');
+function clearHi(){
+  document.querySelectorAll('.syl.on').forEach(e=>e.classList.remove('on'));
+  document.querySelectorAll('.sec.playing').forEach(e=>e.classList.remove('playing'));
+  document.querySelectorAll('.mk.active').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.pass').forEach(e=>e.textContent='');
+}
+function resetPos(){ stepPtr=0;sylPtr=0; fill.style.width='0%'; dot.style.left='0%'; document.getElementById('tCur').textContent='0:00'; }
+function stop(){ playing=false; clearTimeout(timer); btnPlay.textContent='▶'; }
+function tickSoon(){ clearTimeout(timer); tick(); }
+function updateSeek(){
+  const seqn=playOrder(); const totalSteps=seqn.length||1;
+  const frac=Math.min(1,(stepPtr + (sylPtr/Math.max(1,(SECS[seqn[Math.min(stepPtr,totalSteps-1)]?.secIdx]?.syl.length||1))))/totalSteps);
+  fill.style.width=(frac*100)+'%'; dot.style.left=(frac*100)+'%';
+  const sec=Math.round(frac*72); document.getElementById('tCur').textContent='0:'+String(sec).padStart(2,'0');
+}
+function tick(){
+  if(!playing) return;
+  seq=playOrder();
+  if(stepPtr>=seq.length){ if(loopOn){stepPtr=0;sylPtr=0;} else {stop();clearHi();resetPos();return;} }
+  const step=seq[stepPtr]; clearHi();
+  const flat = step.secIdx<0;
+  const secEl = flat ? document.querySelector('.sec') : document.querySelector(`.sec[data-sec="${step.secIdx}"]`);
+  const total = flat ? SONG.arrangement[0].syl.length : SECS[step.secIdx].syl.length;
+  if(secEl){
+    secEl.classList.add('playing');
+    if(!flat && step.tot>1) secEl.querySelector('.pass').textContent='รอบ '+step.pass+'/'+step.tot;
+    const sylEl=secEl.querySelector(`.syl[data-syl="${sylPtr}"]`);
+    if(sylEl){sylEl.classList.add('on');sylEl.scrollIntoView({block:'nearest',behavior:'smooth'});}
+  }
+  // light the timeline marker for THIS occurrence (unique per step)
+  if(!flat) document.querySelector(`.mk[data-step="${step.i}"]`)?.classList.add('active');
+  updateSeek();
+  sylPtr++; if(sylPtr>=total){ sylPtr=0; stepPtr++; }
+  timer=setTimeout(tick,400);
+}
+btnPlay.addEventListener('click',()=>{ if(playing){stop();return;} playing=true;btnPlay.textContent='⏸';tick(); });
+document.getElementById('btnPrev').addEventListener('click',()=>{ if(stepPtr>0){stepPtr--;sylPtr=0;tickSoon();} });
+document.getElementById('btnNext').addEventListener('click',()=>{ seq=playOrder(); if(stepPtr<seq.length-1){stepPtr++;sylPtr=0;tickSoon();} });
+
+// ---- ⚙ settings panel (PM #6c) ----
+const moreMenu=document.getElementById('moreMenu');
+document.getElementById('btnMore').addEventListener('click',(e)=>{e.stopPropagation();moreMenu.classList.toggle('open');});
+document.addEventListener('click',(e)=>{ if(!moreMenu.contains(e.target)&&e.target.id!=='btnMore') moreMenu.classList.remove('open'); });
+// 📌 pin/unpin from the panel (visual demo)
+moreMenu.querySelectorAll('.pin').forEach(p=>p.addEventListener('click',(e)=>{e.stopPropagation();p.classList.toggle('on');}));
+// transparency slider adjusts the real dock alpha — proves "adjust inline, no pin needed"
+document.getElementById('alphaSld').addEventListener('input',(e)=>{
+  document.documentElement.style.setProperty('--dock-alpha', e.target.value/100);
+});
+
+// ---- demo switch ----
+const DEMOS={dv2:'v2',dvM:'many',dv1:'v1'};
+Object.entries(DEMOS).forEach(([id,m])=>document.getElementById(id).addEventListener('click',()=>{
+  if(mode===m) return; mode=m; closeSheet();
+  Object.keys(DEMOS).forEach(x=>document.getElementById(x).classList.toggle('on', x===id));
+  stop(); renderSong();
+}));
+
+renderSong();
+</script>
+</body>
+</html>
