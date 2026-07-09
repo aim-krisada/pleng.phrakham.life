@@ -8,7 +8,7 @@
 ## 🔚 HANDOFF (2026-07-10 · PM session เต็ม → PM ใหม่อ่านนี่ก่อน)
 **PM ใหม่:** อ่าน `docs/pm/pm.md` + memory `pleng-pm-role` + ไม้ต่อนี้ · อัปเดต §🎯 เป็นชื่อสายตัวเอง · ทุกสายเขียน report+§📥 inbox ด้วย ไม่ตกหล่น · `list_sessions`/`search_session_transcripts` หาสายได้
 
-**ฐาน `studio-shell-redesign` = 217 เทสต์เขียว + build** (หลัง catalog merge `d672647`) · **deploy รอบ 2 = `b44edbf` (live)** · ⚠️ **ฐานล้ำ prod เยอะแล้ว → deploy รอบ 3 พร้อมยิง** (catalog = สายสุดท้ายเข้าฐานแล้ว · main FF ได้ · reconcile ไว้แล้ว · deploy-plan.md · **รอ P'Aim LAN accept catalog + สั่ง deploy**)
+**ฐาน `studio-shell-redesign` = 217 เทสต์เขียว + build** (หลัง catalog merge `d672647`) · ✅✅✅ **deploy รอบ 3 สำเร็จ (10 ก.ค. · P'Aim สั่ง "deploy ได้เลย") — live = `bbb3757`** (main FF `b44edbf→bbb3757` ไม่ force · Actions run `29055806403` success · **live bundle stamp `bbb3757` ยืนยัน short+full hash**) · ได้ catalog (filter+ป้าย ⚠️/✓) + งานสะสมทั้งหมดขึ้น prod · repeat-6-simple.sql = P'Aim run แล้ว
 
 **✅ MERGED เข้าฐานวันนี้:** editor-ux v2 (6 งาน · `5495e32`) · B058 note-search-v2 · B059 songbook sheet · B064 บั๊ก speed · B065 barline · (ก่อนหน้า: B027/B026/B052 · B055 · B056 · edit-dev · B043 ph1 · dock-core/polish)
 **✅ DA import ครบ:** 120 เพลง LIVE (P'Aim run backup/import/set-review-flags แล้ว · **repeat-6-simple.sql อาจยังไม่ run**) · review_flags ในฐาน (repeat16/lint6/words28)
@@ -20,7 +20,7 @@
 4. **mobile pass** (Android) — ยังไม่เริ่ม (P'Aim: Android งง) · `prompt-android-mobile.md`
 
 **✅ P'Aim verify ผ่านหมด (10 ก.ค. · server ฐาน `192.168.1.124:5400` --host):** print 77 (แผ่นเพลงหนังสือ PDF) ✅ · speed B064 ✅ · preview B061 แท็บเล็ต ✅ · **pre-deploy gate เคลียร์** · เหลือ run `repeat-6-simple.sql` (P'Aim จะทำ) · **dedup B067 = 217 เทสต์ + audit 120 ผ่าน**
-**Next (PM รอบ a · 10 ก.ค.):** ✅ catalog merged (`d672647`) → **เหลือขั้นเดียว: P'Aim LAN accept catalog + สั่ง "deploy" → ยิงรอบ 3 ทีเดียว** (main FF · deploy-plan.md · report version จริงหลัง deploy) · B062/B068 เส้นโค้ง + 10 COMPLEX repeat = รอบ data ถัดไป (DA ใหม่)
+**Next (PM รอบ a · 10 ก.ค.):** ✅✅✅ **deploy รอบ 3 จบ (live `bbb3757`)** — catalog + งานสะสมทั้งหมดขึ้น prod แล้ว · **งาน sprint นี้เคลียร์หมด** · เหลือรอบถัดไป (ไม่เร่ง): B062/B068 เส้นโค้งเอื้อน (รอ DA encode tie) · 10 COMPLEX repeat (พี่เปาตั้ง Studio) · mobile pass Android · พี่เปา review 41 เพลงติดธง · **cleanup:** wt-catalog ลบได้ · dev server :5400 ปิดได้ (แต่ยังรันไว้เผื่อ P'Aim ดู)
 **หมุน session (10 ก.ค.):** DA ✅ปิด (import ครบ · `da-handoff.md` + `prompt-da-resume.md` สำหรับรอบ data) · SongSheet ✅ปิด · **PM หมุน** ("อ่าน docs/pm/pm.md") · dev server verify `:5400` ยังรัน (PM ใหม่ปิดได้)
 **Deferred/backlog:** B044/B046 sheet spacing · 10 COMPLEX repeat (พี่เปาตั้งมือ) · B066 tempo (ปล่อย 92) · mobile · editor-ux 3 ธง (draft theme col · verified RLS · B061 tablet height)
 **Deploy:** ✅✅✅ **รอบ 2 สำเร็จ (9 ก.ค. ค่ำ · P'Aim สั่ง "deploy") — รอบนี้จบสมบูรณ์** — main FF `70335d5→b44edbf` (ไม่ force) · Actions `29031193038` = success · **live bundle stamp `b44edbf` = ยืนยัน** · ได้ของครบ: ค้นเนื้อ B052 · จุดคู่ B027 · lint B026 · B055 pickup · B056 จบเพลง · editor/dock/sing · **คลัง 120 เพลง live (Supabase 121 rows · spot-check field ครบ)** · ฐาน 196 test + build · **ไม่รวมรอบนี้: mobile pass (รอบหน้า) · พี่เปา review 41 เพลงติดธง · auto-repeat 16 (option B)** · [รอบ 1] `70335d5` (reconcile 8 commit main)
