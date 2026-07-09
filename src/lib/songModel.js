@@ -85,9 +85,16 @@ export function resolveContent(content) {
   const byId = {}
   for (const s of content.stanzas) byId[s.id] = s
   const out = []
+  // Track which stanza (melody) has already been printed once. The songbook sheet (B059)
+  // prints the melody only on a stanza's FIRST occurrence; later verses that reuse the same
+  // stanza render as lyrics only. Tagging here — the one place that knows stanza identity —
+  // keeps the flag in sync with the expanded lines. The sing view ignores it (notes every verse).
+  const seenStanza = new Set()
   for (const entry of content.arrangement || []) {
     const stanza = byId[entry.stanza]
     if (!stanza) continue
+    const stanzaFirst = !seenStanza.has(entry.stanza)
+    seenStanza.add(entry.stanza)
     const syls = entry.syllables || []
     let si = 0
     ;(stanza.lines || []).forEach((line, li) => {
@@ -107,6 +114,10 @@ export function resolveContent(content) {
           outLine.push({ ...item })
         }
       }
+      // Line-level metadata for the songbook sheet — carried as non-index array props so
+      // every existing consumer (v1 render, midi, print) still iterates the items untouched.
+      outLine._stanza = entry.stanza
+      outLine._stanzaFirst = stanzaFirst
       out.push(outLine)
     })
   }

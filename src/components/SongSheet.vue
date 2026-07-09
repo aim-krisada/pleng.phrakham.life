@@ -18,6 +18,11 @@ const props = defineProps({
   showChord: { type: Boolean, default: null },
   showNote: { type: Boolean, default: null },
   showLyric: { type: Boolean, default: null },
+  // Songbook layout (B059): print each melody (stanza) once. The first verse that uses a
+  // stanza shows note+chord+lyric; later verses that reuse the same stanza show lyrics only
+  // (verse number + words), like a printed hymn book. Off = every line keeps its own layers
+  // (the ฝึกร้อง/sing view + editor preview never set this, so notes stay on every verse).
+  songbook: { type: Boolean, default: false },
 })
 const emit = defineEmits(['seek'])
 
@@ -28,6 +33,13 @@ const sn = computed(() => (props.showNote != null ? props.showNote : props.mode 
 const sl = computed(() => (props.showLyric != null ? props.showLyric : true))
 // Lyrics-only layout (centered, roomier) kicks in when just the words show.
 const lyricsOnly = computed(() => sl.value && !sn.value && !sc.value)
+
+// Per-line layer gates. In songbook mode a line that reuses an already-printed stanza
+// (resolveContent tags it `_stanzaFirst === false`) drops its note + chord rows and prints
+// as lyrics only. Everywhere else the global layer flags apply to every line unchanged.
+function noteOn(first) { return sn.value && (!props.songbook || first) }
+function chordOn(first) { return sc.value && (!props.songbook || first) }
+function lineLyricsOnly(first) { return sl.value && !noteOn(first) && !chordOn(first) }
 
 // The running FOOTER (site · page X of Y · date) is drawn as @page margin boxes by
 // lib/printChrome.js (injected on print) so all three items share one size + baseline.
@@ -46,6 +58,9 @@ function chordText(chord) {
 // Segments carry si (index within the line) for playback highlight + auto-scroll.
 const renderLines = computed(() =>
   (props.content.lines || []).map((line) => {
+    // `_stanzaFirst` is set by resolveContent (v2). v1 / undefined = treat as first so
+    // notes always show — songbook mode only ever hides a genuine stanza repeat.
+    const first = line._stanzaFirst !== false
     const parts = []
     let si = -1
     let bar = null
@@ -85,7 +100,7 @@ const renderLines = computed(() =>
       }
     }
     flush()
-    return parts
+    return { parts, first }
   }),
 )
 
@@ -95,13 +110,13 @@ const renderLines = computed(() =>
 const renderGroups = computed(() => {
   const groups = []
   let cur = null
-  renderLines.value.forEach((parts, li) => {
+  renderLines.value.forEach(({ parts, first }, li) => {
     const startsSection = parts.length && parts[0].type === 'section'
     if (startsSection || !cur) {
       cur = { lines: [] }
       groups.push(cur)
     }
-    cur.lines.push({ li, parts })
+    cur.lines.push({ li, parts, first })
   })
   return groups
 })
@@ -133,17 +148,17 @@ function seek(li, si, syk = 0) {
          that renders the sheet (ดู or แผ่น), which is why P'Aim's ดู-mode print had none. -->
     <h1 v-if="songTitle" class="sheet-print-title">{{ songTitle }}</h1>
     <div v-for="(grp, gi) in renderGroups" :key="gi" class="song-section">
-    <div v-for="row in grp.lines" :key="row.li" class="song-line">
+    <div v-for="row in grp.lines" :key="row.li" class="song-line" :class="{ 'song-line-lyrics': lineLyricsOnly(row.first) }">
       <template v-for="(part, pi) in row.parts" :key="pi">
         <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}</span>
         <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
         <span v-else-if="part.type === 'label'" class="line-label">{{ part.text }}</span>
-        <span v-else-if="part.type === 'end'" v-show="sn" class="bar-line bar-final" aria-hidden="true"></span>
-        <span v-else-if="part.type === 'repeat-start'" v-show="sn" class="repeat-mark rep-start" aria-label="เริ่มเล่นซ้ำ"><i class="rep-bar" /><i class="rep-thin" /><i class="rep-dots" /></span>
-        <span v-else-if="part.type === 'repeat-end'" v-show="sn" class="repeat-mark rep-end" aria-label="วนกลับไปเล่นซ้ำ"><i class="rep-dots" /><i class="rep-thin" /><i class="rep-bar" /></span>
-        <span v-else-if="part.type === 'volta'" v-show="sn" class="volta-tag">{{ part.num }}.</span>
+        <span v-else-if="part.type === 'end'" v-show="noteOn(row.first)" class="bar-line bar-final" aria-hidden="true"></span>
+        <span v-else-if="part.type === 'repeat-start'" v-show="noteOn(row.first)" class="repeat-mark rep-start" aria-label="เริ่มเล่นซ้ำ"><i class="rep-bar" /><i class="rep-thin" /><i class="rep-dots" /></span>
+        <span v-else-if="part.type === 'repeat-end'" v-show="noteOn(row.first)" class="repeat-mark rep-end" aria-label="วนกลับไปเล่นซ้ำ"><i class="rep-dots" /><i class="rep-thin" /><i class="rep-bar" /></span>
+        <span v-else-if="part.type === 'volta'" v-show="noteOn(row.first)" class="volta-tag">{{ part.num }}.</span>
         <span v-else class="bar-group">
-          <span v-if="part.barLine && sn" class="bar-line" aria-hidden="true"></span>
+          <span v-if="part.barLine && noteOn(row.first)" class="bar-line" aria-hidden="true"></span>
           <span
             v-for="seg in part.segments"
             :key="seg.si"
@@ -152,12 +167,15 @@ function seek(li, si, syk = 0) {
             :data-seg="`${row.li}-${seg.si}`"
             @click="seek(row.li, seg.si)"
           >
-            <span v-if="sc" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
-            <span v-if="sn" class="note"><NoteRow :notes="seg.note" :active="activeNote(row.li, seg.si)" />&nbsp;</span>
+            <span v-if="chordOn(row.first)" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
+            <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :active="activeNote(row.li, seg.si)" />&nbsp;</span>
             <!-- v2: one span per syllable-bearing note -> highlight walks note by note
                  (B006). v1 (no syllables array): the whole lyric as before. -->
             <template v-if="sl">
-              <span v-if="seg.syllables" class="lyric lyric-syl">
+              <!-- syllable spans spread under the notes (karaoke alignment). A songbook
+                   reused-verse line has no notes, so fall back to the joined lyric text —
+                   words keep their spaces and read as a plain hymn-book verse. -->
+              <span v-if="seg.syllables && !lineLyricsOnly(row.first)" class="lyric lyric-syl">
                 <span
                   v-for="(w, k) in seg.syllables"
                   :key="k"

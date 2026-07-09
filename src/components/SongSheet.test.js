@@ -108,6 +108,52 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(groups[1].findAll('.song-line').length).toBe(1)
   })
 
+  // B059 — songbook layout: a line whose stanza was already printed (_stanzaFirst=false)
+  // shows lyrics only; the first use of each stanza still shows note + chord.
+  const songbookContent = {
+    key: 'C',
+    timeSignature: '4/4',
+    lines: [
+      Object.assign(
+        [
+          { type: 'section', name: 'ข้อ 1' },
+          { type: 'segment', chord: 'C', note: '1', lyric: 'หนึ่ง', syllables: ['หนึ่ง'] },
+        ],
+        { _stanza: 'V', _stanzaFirst: true },
+      ),
+      Object.assign(
+        [
+          { type: 'section', name: 'ข้อ 2' },
+          { type: 'segment', chord: 'C', note: '1', lyric: 'สอง', syllables: ['สอง'] },
+        ],
+        { _stanza: 'V', _stanzaFirst: false },
+      ),
+    ],
+  }
+
+  it('B059: songbook prints the melody once — reused verse shows lyrics only', () => {
+    const wrapper = mount(SongSheet, { props: { content: songbookContent, mode: 'full', songbook: true } })
+    const lines = wrapper.findAll('.song-line')
+    expect(lines.length).toBe(2)
+    // first use of stanza V → note + chord present
+    expect(lines[0].find('.note').exists()).toBe(true)
+    expect(lines[0].find('.chord').exists()).toBe(true)
+    // reused verse → NO note / NO chord, but the words + verse label are still there
+    expect(lines[1].find('.note').exists()).toBe(false)
+    expect(lines[1].find('.chord').exists()).toBe(false)
+    expect(lines[1].find('.lyric').text()).toContain('สอง')
+    expect(lines[1].find('.section-label').text()).toBe('♦ ข้อ 2')
+  })
+
+  it('B059: songbook OFF (sing view) keeps note + chord on every verse', () => {
+    const wrapper = mount(SongSheet, { props: { content: songbookContent, mode: 'full' } })
+    const lines = wrapper.findAll('.song-line')
+    // both verses keep their notes — the ฝึกร้อง surface never collapses reuses
+    expect(lines[0].find('.note').exists()).toBe(true)
+    expect(lines[1].find('.note').exists()).toBe(true)
+    expect(lines[1].find('.chord').exists()).toBe(true)
+  })
+
   it('empty song does not throw and renders no lines', () => {
     const wrapper = mount(SongSheet, {
       props: { content: { key: 'C', timeSignature: '4/4', lines: [] }, mode: 'full' },
