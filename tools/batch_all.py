@@ -69,7 +69,7 @@ def main():
             continue
         json.dump(doc, open(os.path.join(outdir, 'json', f'{n:03d}.json'), 'w', encoding='utf-8'),
                   ensure_ascii=False, indent=2)
-        sql_parts.append(to_sql(doc['number'], doc['title_th'], doc['content'], doc['_warnings']) + '\n')
+        sql_parts.append(to_sql(doc) + '\n')
         flags, heavy = classify(doc)
         risk.append({'number': n, 'title': doc['title_th'], 'key': doc['content']['key'],
                      'ts': doc['content']['timeSignature'],

@@ -1,7 +1,10 @@
 {
   "number": 1,
-  "title_th": "พระเจ้าเป็นความรัก (กิตติคุณ)",
+  "title_th": "พระเจ้าเป็นความรัก",
   "title_en": null,
+  "theme": "กิตติคุณ",
+  "book_refs": [],
+  "scripture": "บพส.23:2",
   "content": {
     "version": 2,
     "key": "E",

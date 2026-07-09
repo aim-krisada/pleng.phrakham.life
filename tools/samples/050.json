@@ -1,7 +1,19 @@
 {
   "number": 50,
-  "title_th": "ทรงนำเชลยกลับถิ่น  (ล.60) (คริสตจักร)",
+  "title_th": "ทรงนำเชลยกลับถิ่น",
   "title_en": null,
+  "theme": "คริสตจักร",
+  "book_refs": [
+    {
+      "book": "ล",
+      "no": 60
+    },
+    {
+      "book": "บพส",
+      "no": 126
+    }
+  ],
+  "scripture": null,
   "content": {
     "version": 2,
     "key": "F",

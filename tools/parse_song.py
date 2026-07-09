@@ -25,6 +25,30 @@ THAI = lambda ch: '฀' <= ch <= '๿'
 ACC = {'♯': '#', '♮': 'n', '♭': 'b'}
 EXPECT = {'4/4': 4, '3/4': 3, '6/8': 3, '2/4': 2, '4/8': 2, '12/8': 6, '9/8': 4.5, '2/2': 4, '3/8': 1.5, '6/4': 6}
 
+# The 8 topical themes (a layer-2 sub-category under `category`); can appear on the
+# title line OR the key line. Book cross-refs = a Thai abbrev + "." + number.
+THEMES = ['กิตติคุณ', 'รักปรารถนา', 'มอบถวาย', 'คริสตจักร', 'ประสบการณ์', 'พระคัมภีร์', 'อาณาจักร', 'ความสุขแห่งความรอด']
+BOOKREF = re.compile(r'([ก-ฮ]{1,3})\s*\.\s*(\d+)')
+
+def parse_title_meta(header):
+    """From the DOCX header lines → (clean_title, theme, book_refs, scripture).
+    Splits the parenthetical clutter out of the title: theme (8 topics), book cross-
+    refs [{book,no}] (Thai code kept; frontend maps to real name), and a scripture ref."""
+    raw = re.sub(r'^\d+\s+', '', header[0]) if header else ''
+    scan = raw + ' ' + (header[1] if len(header) > 1 else '')
+    theme = next((t for t in THEMES if t in scan), None)
+    book_refs, scripture = [], None
+    seen = set()
+    for p in re.findall(r'\(([^)]*)\)', scan):
+        if re.search(r'\d+\s*:\s*\d+', p):            # a scripture ref (chapter:verse)
+            if scripture is None: scripture = re.sub(r'\s+', ' ', p).strip()
+        else:
+            for b, n in BOOKREF.findall(p):           # book cross-refs
+                if (b, n) not in seen:
+                    seen.add((b, n)); book_refs.append({'book': b, 'no': int(n)})
+    clean = re.sub(r'\s+', ' ', re.sub(r'\([^)]*\)', '', raw)).strip()
+    return clean, theme, book_refs, scripture
+
 # ----------------------------------------------------------------- PDF melody
 
 def cluster_rows(chars, tol=3):
@@ -248,6 +272,12 @@ def schema_sql():
         "-- PER category, so (category, number) is the real key (เลข 1 อนุชน != เลข 1 ยุวชน).\n"
         "alter table public.songs add column if not exists category text not null default 'anuchon';\n"
         "alter table public.songs add column if not exists verified boolean not null default false;\n"
+        "-- split-out title metadata (P'Aim 9-Jul): title_th is now the clean title;\n"
+        "-- theme = 1 of 8 topics (layer-2 sub-category); book_refs = cross-refs to other\n"
+        "-- hymnals [{book: <thai code>, no: N}]; scripture = a bible reference or null.\n"
+        "alter table public.songs add column if not exists theme text;\n"
+        "alter table public.songs add column if not exists book_refs jsonb not null default '[]'::jsonb;\n"
+        "alter table public.songs add column if not exists scripture text;\n"
         "-- drop the old single-column unique on (number) so (category, number) can coexist:\n"
         "do $$\n"
         "declare c text;\n"
@@ -263,9 +293,17 @@ def schema_sql():
         "-- ------------------------------------------------------------------------\n\n"
     )
 
-def to_sql(number, title, content, warnings, category=DEFAULT_CATEGORY):
+def _sqlstr(v):
+    return "null" if v is None else "'" + str(v).replace("'", "''") + "'"
+
+def to_sql(doc, category=DEFAULT_CATEGORY):
+    number, title = doc['number'], doc['title_th']
+    content, warnings = doc['content'], doc['_warnings']
     j = json.dumps(content, ensure_ascii=False)
     esc = title.replace("'", "''")
+    theme = _sqlstr(doc.get('theme'))
+    refs = json.dumps(doc.get('book_refs') or [], ensure_ascii=False)
+    scripture = _sqlstr(doc.get('scripture'))
     head = f"-- Seed song #{number} [{category}] — upsert by (category, number); overwrites\n"
     if warnings:
         head += "-- REVIEW in Studio after loading (Claude seeds, P'Pao fixes):\n"
@@ -274,11 +312,12 @@ def to_sql(number, title, content, warnings, category=DEFAULT_CATEGORY):
     # overwrites content = a fresh seed = must be re-checked, so prior verification is
     # intentionally reset.
     return (head +
-            "insert into public.songs (category, number, title_th, title_en, content, verified)\n"
-            f"values ('{category}', {number}, '{esc}', null, $json${j}$json$::jsonb, false)\n"
+            "insert into public.songs (category, number, title_th, title_en, content, verified, theme, book_refs, scripture)\n"
+            f"values ('{category}', {number}, '{esc}', null, $json${j}$json$::jsonb, false, {theme}, $refs${refs}$refs$::jsonb, {scripture})\n"
             "on conflict (category, number) do update\n"
             "  set title_th = excluded.title_th, title_en = excluded.title_en,\n"
-            "      content = excluded.content, verified = false;\n")
+            "      content = excluded.content, verified = false,\n"
+            "      theme = excluded.theme, book_refs = excluded.book_refs, scripture = excluded.scripture;\n")
 
 def build_song(pdf, docx, debug=False):
     """Parse one PDF+DOCX pair → {number,title_th,title_en,content,_warnings}."""
@@ -287,7 +326,9 @@ def build_song(pdf, docx, debug=False):
 
     # metadata from docx header
     warnings = []
-    title = re.sub(r'^\d+\s+', '', header[0]) if header else os.path.basename(docx)
+    title, theme, book_refs, scripture = parse_title_meta(header)
+    if not title: title = os.path.basename(docx)
+    if theme is None: warnings.append('theme not found in title/key line — set manually')
     number = int(re.match(r'^(\d+)', os.path.basename(docx)).group(1))
     key, ts = None, None
     for h in header:
@@ -347,6 +388,7 @@ def build_song(pdf, docx, debug=False):
     if header_key and header_key != key:
         content['headerKey'] = header_key      # do-reference from the songbook, for note only
     return {'number': number, 'title_th': title, 'title_en': None,
+            'theme': theme, 'book_refs': book_refs, 'scripture': scripture,
             'content': content, '_warnings': warnings}
 
 def main():
@@ -355,13 +397,13 @@ def main():
     out = sys.argv[sys.argv.index('-o') + 1] if '-o' in sys.argv else None
     sys.stdout.reconfigure(encoding='utf-8')
     doc_out = build_song(pdf, docx, debug='--debug' in sys.argv)
-    number, title, content, warnings = doc_out['number'], doc_out['title_th'], doc_out['content'], doc_out['_warnings']
+    warnings = doc_out['_warnings']
     text = json.dumps(doc_out, ensure_ascii=False, indent=2)
     if out:
         open(out, 'w', encoding='utf-8').write(text)
         if out.endswith('.json'):
             sql = out[:-5] + '.sql'
-            open(sql, 'w', encoding='utf-8').write(schema_sql() + to_sql(number, title, content, warnings))
+            open(sql, 'w', encoding='utf-8').write(schema_sql() + to_sql(doc_out))
             print('wrote', out, '+', os.path.basename(sql))
         else:
             print('wrote', out)

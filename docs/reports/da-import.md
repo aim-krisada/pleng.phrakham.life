@@ -176,3 +176,16 @@
 ## 13. 🚦 GATE 3 — รอ P'Aim
 - P'Aim ตัดสิน: (ก) ลงครบ 120 เลย (seed ทั้งเล่ม แล้วเกลาทีหลัง) · หรือ (ข) ลงกลุ่มสะอาด 32 ก่อน
 - DA เขียน DB ไม่ได้ → **P'Aim run SQL เอง** · เสร็จแล้วปิดงาน DA import (หรือรอบเกลามือ = งานพี่เปาใน Studio)
+
+---
+
+# Step 3.1 — field-split เข้า import (P'Aim เคาะ classification 1/2/3)
+
+**อัปเดต `import-all-120.sql` (final · แทนเวอร์ชัน 99b8438) ตามที่ P'Aim เคาะ** — ดูวิเคราะห์เต็มใน `docs/reports/da-classification.md`
+
+- **`title_th` = ชื่อสะอาด** (ตัดวงเล็บออกหมด · เช่น `พระเจ้าเป็นความรัก`)
+- เพิ่ม column (idempotent): **`theme text`** (8 ธีมไทยตรงๆ · attribute ชั้น 2 ใต้ category) · **`book_refs jsonb`** (`[{"book":"ล","no":282},…]` · book = code ไทย · frontend map ชื่อจริงทีหลัง) · **`scripture text`** (เช่น `บพส.23:2` · null ถ้าไม่มี)
+- backfill ครบ 120 ใน insert เดียว (theme 120/120 · refs 92 เพลง · scripture 44 เพลง) · on-conflict update ทุก field
+- คงเดิม: `category='anuchon'` · `verified=false` (reset ตอนทับ) · key `(category, number)` · begin…commit · `-- REVIEW` ต่อเพลง · risk table §11 ไม่เปลี่ยน
+- **เพลงที่ theme หาไม่เจอ** → ใส่ warning `theme not found` (ให้ตั้งมือ) · จากการตรวจ = 120/120 เจอครบ
+- ⏳ ค้าง: ชื่อจริงของเล่ม (ล/ย/สอ/…) รอ P'Aim ยืนยัน → map ที่ frontend (ไม่บล็อก import · book code พอแล้ว)

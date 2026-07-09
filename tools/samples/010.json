@@ -1,7 +1,10 @@
 {
   "number": 10,
-  "title_th": "แม้โลกนี้มีความทุกข์ตรม  (กิตติคุณ)",
+  "title_th": "แม้โลกนี้มีความทุกข์ตรม",
   "title_en": null,
+  "theme": "กิตติคุณ",
+  "book_refs": [],
+  "scripture": null,
   "content": {
     "version": 2,
     "key": "B",
