@@ -318,3 +318,13 @@ arrangement: ร้อง 1→A · รับ→B · ร้อง 2→A · ร้
 2. run **`tools/import-all-120.sql`** ครั้งเดียว (schema prep + 120 upsert · REVIEW ต่อเพลง · 16 เพลงมีธง "ตั้ง repeat ในแอป")
 3. พี่เปา review — เริ่มจาก 41 เพลงติดธง (repeat/lint/drift) · 79 ที่เหลือ auto ok
 - ต่อยอด (ถ้าเอา): auto-detect repeat+volta จาก **geometry ภาพ** (~18 เพลง · แทน hand-build/manual)
+
+---
+
+# Step 3.7 — review flags ในฐาน (แอปโชว์ป้าย ⚠️) → `tools/set-review-flags.sql`
+
+ธง 41 เพลง (เดิมอยู่แค่ SQL comment/report · แอปอ่านไม่ได้) → เก็บลงฐานให้ dev อ่านโชว์ป้าย + filter
+- **field (ตกลงตาม PM):** `review_flags jsonb default '[]'` · code = `repeat` | `lint` | `words` (1 เพลงมีได้หลาย code)
+- `tools/set-review-flags.sql` = run **หลัง** import-all-120 · idempotent (`add column if not exists` + update 41 เพลง) · มี `select` ตรวจท้าย
+- code: **repeat** (16 · ตั้งซ้ำในแอป) · **lint** (6 · notationLint อ่านโน้ตไม่ออก) · **words** (28 · systems≠เนื้อ ตรวจคำ)
+- dev สาย catalog อ่าน `review_flags` โชว์ ⚠️ + filter "เพลงมีปัญหา"
