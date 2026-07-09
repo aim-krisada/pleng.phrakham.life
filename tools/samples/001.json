@@ -58,56 +58,36 @@
               "note": "2_ 3_"
             },
             {
-              "type": "segment",
-              "chord": "G#m",
-              "note": "5. 6_ 5"
-            },
-            {
               "type": "bar"
             },
             {
               "type": "segment",
-              "chord": "",
-              "note": "3"
+              "chord": "G#m",
+              "note": "5. 6_ 5 3"
+            },
+            {
+              "type": "bar"
             },
             {
               "type": "segment",
               "chord": "F#m",
-              "note": "2. 3_ 2"
+              "note": "2. 3_ 2 1"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1"
             },
             {
               "type": "segment",
               "chord": "A",
-              "note": ".6. .5_ .6"
+              "note": ".6. .5_ .6 1_ 3_"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1_ 3_"
             },
             {
               "type": "segment",
               "chord": "B",
-              "note": "2 - -"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "-"
+              "note": "2 - - -"
             }
           ]
         ]
@@ -122,64 +102,44 @@
               "note": "2_ 3_"
             },
             {
-              "type": "segment",
-              "chord": "G#m",
-              "note": "5. 6_ 5"
-            },
-            {
               "type": "bar"
             },
             {
               "type": "segment",
-              "chord": "",
-              "note": "3"
+              "chord": "G#m",
+              "note": "5. 6_ 5 3"
+            },
+            {
+              "type": "bar"
             },
             {
               "type": "segment",
               "chord": "F#m",
-              "note": "2. 3_ 2"
+              "note": "2. 3_ 2 1"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1"
             },
             {
               "type": "segment",
               "chord": "A",
-              "note": ".6. .5_ .6"
+              "note": ".6. .5_ .6 1"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1"
             },
             {
               "type": "segment",
               "chord": "B",
-              "note": "2 - -"
+              "note": "2 - - 1"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1"
             },
             {
               "type": "segment",
               "chord": "E",
               "note": "1 - -"
-            },
-            {
-              "type": "bar"
             }
           ]
         ]
@@ -194,30 +154,23 @@
               "note": "3_ 5_"
             },
             {
-              "type": "segment",
-              "chord": "C#m",
-              "note": "6 - 6_ 7_"
-            },
-            {
               "type": "bar"
             },
             {
               "type": "segment",
-              "chord": "",
-              "note": "6_ 5_"
+              "chord": "C#m",
+              "note": "6 - 6_ 7_ 6_ 5_"
+            },
+            {
+              "type": "bar"
             },
             {
               "type": "segment",
               "chord": "G#m",
-              "note": "3 - -"
+              "note": "3 - - 3_ 2_"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "3_ 2_"
             },
             {
               "type": "segment",
@@ -227,23 +180,15 @@
             {
               "type": "segment",
               "chord": "B",
-              "note": "2"
+              "note": "2 1_ 2_"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1_ 2_"
             },
             {
               "type": "segment",
               "chord": "E",
               "note": "3 - -"
-            },
-            {
-              "type": "bar"
             }
           ]
         ]
@@ -258,6 +203,9 @@
               "note": "6_ 7_"
             },
             {
+              "type": "bar"
+            },
+            {
               "type": "segment",
               "chord": "C#m",
               "note": "1. 1_"
@@ -265,15 +213,10 @@
             {
               "type": "segment",
               "chord": "G#m",
-              "note": "7"
+              "note": "7 5"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "5"
             },
             {
               "type": "segment",
@@ -283,41 +226,23 @@
             {
               "type": "segment",
               "chord": "E",
-              "note": "5"
+              "note": "5 3"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "3"
             },
             {
               "type": "segment",
               "chord": "F#",
-              "note": "2. 1_ 2"
+              "note": "2. 1_ 2 6"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "6"
             },
             {
               "type": "segment",
               "chord": "B",
-              "note": "5 - -"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "-"
+              "note": "5 - - -"
             }
           ]
         ]
@@ -332,69 +257,44 @@
               "note": "2_ 3_"
             },
             {
-              "type": "segment",
-              "chord": "G#m",
-              "note": "5. 6_ 5"
-            },
-            {
               "type": "bar"
             },
             {
               "type": "segment",
-              "chord": "",
-              "note": "3"
+              "chord": "G#m",
+              "note": "5. 6_ 5 3"
+            },
+            {
+              "type": "bar"
             },
             {
               "type": "segment",
               "chord": "F#m",
-              "note": "2. 3_ 2"
+              "note": "2. 3_ 2 1"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1"
             },
             {
               "type": "segment",
               "chord": "A",
-              "note": ".6. .5_ .6"
+              "note": ".6. .5_ .6 1"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1"
             },
             {
               "type": "segment",
               "chord": "B",
-              "note": "2 - -"
+              "note": "2 - - 1"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1"
             },
             {
               "type": "segment",
               "chord": "E",
-              "note": "1 - -"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "-"
+              "note": "1 - - -"
             }
           ]
         ]
@@ -610,16 +510,10 @@
     ]
   },
   "_warnings": [
-    "system 1: last bar 3.0 beats (expected 4)",
     "system 1: 14 syllables vs 15 attack notes",
-    "system 2: last bar 1.0 beats (expected 4)",
-    "system 3: last bar 3.0 beats (expected 4)",
     "system 3: 14 syllables vs 15 attack notes",
     "system 5: 17 syllables vs 16 attack notes",
-    "system 6: last bar 1.0 beats (expected 4)",
-    "system 7: last bar 3.0 beats (expected 4)",
     "system 7: 14 syllables vs 15 attack notes",
-    "system 8: last bar 1.0 beats (expected 4)",
     "system 8: 18 syllables vs 17 attack notes"
   ]
 }

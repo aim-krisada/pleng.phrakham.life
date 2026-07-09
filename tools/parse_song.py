@@ -83,12 +83,10 @@ def group_chords(chars):
     return [(tk['x0'], tk['text'].strip()) for tk in toks if re.match(r'^[A-G]', tk['text'].strip())]
 
 def dur(tok):
+    """Quarter-note beats for one note token (fallback beat-count barring only)."""
     if tok == '-': return 1.0
-    m = re.match(r"[.#bn]*\.?\d('*)(_*)(\.?)", tok)  # rough; compute from marks below
-    u = tok.count('_'); base = 0.5 ** u
-    if tok.endswith('.') and not tok.endswith("'."): base *= 1.5
-    # a trailing '.' after digit/underline = augmentation; leading '.' = low octave (no dur effect)
-    if re.search(r"\d'?_*\.$", tok): base = (0.5 ** u) * 1.5
+    u = tok.count('_'); base = 0.5 ** u          # each underline halves
+    if re.search(r"\d'?_*\.$", tok): base *= 1.5  # trailing '.' = augmentation dot (×1.5)
     return base
 
 def parse_pdf_melody(pdf_path, debug=False):
@@ -102,7 +100,7 @@ def parse_pdf_melody(pdf_path, debug=False):
                 curves = [c for c in page.curves if top - 20 <= c['top'] <= bottom + 20]
                 rects = page.rects
                 notes, pending = [], ''
-                markers = []
+                markers, bars_x = [], []
                 for c in row['chars']:
                     t = c['text']
                     if t in ACC: pending = ACC[t]; continue
@@ -116,19 +114,27 @@ def parse_pdf_melody(pdf_path, debug=False):
                     elif t == '.':
                         if notes and notes[-1]['tok'] not in ('-',) and c['x0'] > notes[-1].get('x1', 0) - 2 and c['x0'] - notes[-1]['x'] < 12:
                             notes[-1]['tok'] += '.'
-                    elif t in '║:':
+                    elif t and ord(t) == 0xF0BD:          # printed barline glyph (music font)
+                        bars_x.append(c['x0'])
+                    elif t == chr(0x2551):               # double/repeat/end barline
+                        bars_x.append(c['x0']); markers.append((c['x0'], t))
+                    elif t == ':':                       # repeat colon
                         markers.append((c['x0'], t))
-                # chord row above
-                chords = []
+                # chord row above — REQUIRED. A real melody staff always has a chord
+                # line above it; rows without one are page footers ("100.1"), verse-only
+                # pages, or the English translation → skip (they are not melody).
+                chords = None
                 for above in reversed(rows[:ri]):
                     if above['top'] <= top - 45: break
                     if any(c['text'] in 'ABCDEFG' for c in above['chars']):
                         chords = group_chords(above['chars']); break
+                if chords is None:
+                    continue
                 systems.append({'chords': chords, 'notes': notes, 'markers': markers,
-                                'top': top, 'page': page.page_number})
+                                'bars_x': bars_x, 'top': top, 'page': page.page_number})
                 if debug:
                     print(f"[p{page.page_number} top={top:.0f}] " + ' '.join(n['tok'] for n in notes))
-                    print("    chords:", [(round(x), t) for x, t in chords], "markers:", markers)
+                    print("    chords:", [(round(x), t) for x, t in chords], "bars:", [round(b) for b in bars_x], "markers:", markers)
     return systems
 
 # --------------------------------------------------------------- DOCX lyrics
@@ -188,39 +194,61 @@ def strip_label(lyric):
 
 # --------------------------------------------------------------- assemble v2
 
-def notes_to_line_items(notes, chords, ts):
-    """Split a system's notes into [{segment}|{bar}] items: chords by x, bars by beats."""
+def notes_to_line_items(notes, chords, bars_x, ts):
+    """Split a system's notes into [{segment}|{bar}] items. Bars come from the PRINTED
+    barline glyphs (bars_x) — this captures pickups and irregular bars exactly; falls
+    back to beat-count only if a line prints no barlines. Chords split segments by x."""
     exp = EXPECT.get(ts)
-    # assign each note the chord whose x it is closest to at/after
+    bars_x = sorted(bars_x)
     def chord_at(nx):
         best = None
         for cx, ct in chords:
-            if cx <= nx + 8:
-                if best is None or cx > best[0]: best = (cx, ct)
+            if cx <= nx + 8 and (best is None or cx > best[0]): best = (cx, ct)
         return best[1] if best else ''
-    items, seg, beats, warn = [], None, 0.0, []
-    last_chord = None
+    def bar_index(nx):
+        return sum(1 for bx in bars_x if bx < nx)
+    items, seg, warn = [], None, []
+    last_chord, cur_bar = None, (bar_index(notes[0]['x']) if notes else 0)
     def flush_seg():
         nonlocal seg
-        if seg and seg['note']:
+        if seg and seg['note'].strip():
             items.append({'type': 'segment', 'chord': seg['chord'], 'note': seg['note'].strip()})
         seg = None
-    for i, n in enumerate(notes):
-        ch = chord_at(n['x'])
-        newchord = (ch != last_chord)
-        if seg is None or newchord:
-            flush_seg()
-            seg = {'chord': ch if newchord else '', 'note': ''}
-            last_chord = ch
-        seg['note'] += ' ' + n['tok']
-        beats += dur(n['tok'])
-        if exp and abs(beats - exp) < 0.01:
-            flush_seg(); items.append({'type': 'bar'}); beats = 0.0
-            last_chord = ch  # keep chord across bar unless it changes
-    flush_seg()
-    if exp and beats > 0.01:
-        warn.append(f'last bar {round(beats,2)} beats (expected {exp})')
+    if bars_x:                                   # split by printed barlines
+        for n in notes:
+            bi = bar_index(n['x'])
+            if bi != cur_bar:
+                flush_seg(); items.append({'type': 'bar'}); cur_bar = bi; last_chord = None
+            ch = chord_at(n['x']); newchord = (ch != last_chord and ch != '')
+            if seg is None or newchord:
+                flush_seg(); seg = {'chord': ch if newchord else '', 'note': ''}; last_chord = ch
+            seg['note'] += ' ' + n['tok']
+        flush_seg()
+    else:                                        # fallback: beat-count barring
+        beats = 0.0
+        for n in notes:
+            ch = chord_at(n['x']); newchord = (ch != last_chord)
+            if seg is None or newchord:
+                flush_seg(); seg = {'chord': ch if newchord else '', 'note': ''}; last_chord = ch
+            seg['note'] += ' ' + n['tok']; beats += dur(n['tok'])
+            if exp and beats >= exp - 0.01:
+                flush_seg(); items.append({'type': 'bar'}); beats = max(0.0, beats - exp); seg = {'chord': '', 'note': ''}
+        flush_seg()
+        warn.append('no printed barlines — bars inferred by beat count (verify)')
     return items, warn
+
+def to_sql(number, title, content, warnings):
+    j = json.dumps(content, ensure_ascii=False)
+    esc = title.replace("'", "''")
+    head = f"-- Seed song #{number} — run in Supabase SQL Editor (upsert by number; overwrites)\n"
+    if warnings:
+        head += "-- REVIEW in Studio after loading (Claude seeds, P'Pao fixes):\n"
+        head += ''.join(f"--   * {w}\n" for w in warnings)
+    return (head +
+            "insert into public.songs (number, title_th, title_en, content)\n"
+            f"values ({number}, '{esc}', null, $json${j}$json$::jsonb)\n"
+            "on conflict (number) do update\n"
+            "  set title_th = excluded.title_th, title_en = excluded.title_en, content = excluded.content;\n")
 
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('-')]
@@ -244,13 +272,20 @@ def main():
         mt = re.search(r'(\d+\s*/\s*\d+)', h)
         if mt and ts is None: ts = mt.group(1).replace(' ', '')
     if ts is None: ts = '4/4'; warnings.append('time signature not found — defaulted 4/4')
-    if key is None: key = 'C'; warnings.append('key not found in header — defaulted C')
+    header_key = key
 
-    # movable-do check: numbers reference `key`, but printed guitar chords may be in a
-    # different sounding key. Flag when the chord roots imply a key the header didn't state.
-    chord_roots = {t[0] for s in systems for _, t in s['chords']}
-    if chord_roots and key and key not in chord_roots and not any(key in t for s in systems for _, t in s['chords']):
-        warnings.append(f'key "{key}" (from header) not among chord roots {sorted(chord_roots)} — likely movable-do (numbers=do reference, chords in sounding key); confirm which key to store')
+    # DECISION (P'Aim 9-Jul): store `key` = the SOUNDING key of the chords (drives
+    # transpose + playback), NOT the header's do-reference. Tonic ≈ the final chord's
+    # root (songs end on the tonic); fall back to the first chord. Keep header key as a
+    # note when it differs (e.g. song 10: header "C", chords in B).
+    def chord_root(t):
+        m = re.match(r'([A-G])([#b]?)', t)
+        return (m.group(1) + m.group(2)) if m else None
+    chord_seq = [chord_root(t) for s in systems for _, t in s['chords'] if chord_root(t)]
+    key = (chord_seq[-1] if chord_seq else None) or header_key or 'C'
+    if not chord_seq: warnings.append('no chords found — key defaulted; verify')
+    if header_key and header_key != key:
+        warnings.append(f'header key "{header_key}" != stored sounding key "{key}" (from chords; movable-do). Numbers still reference do; transpose uses "{key}". Verify tonic.')
     if len(systems) != len(blocks):
         warnings.append(f'PDF systems ({len(systems)}) != DOCX staff lines ({len(blocks)}) — pairing by order may drift')
 
@@ -258,7 +293,7 @@ def main():
     stanzas, key_to_id, arrangement = [], {}, []
     next_id = ord('A')
     for i, sysm in enumerate(systems):
-        items, w = notes_to_line_items(sysm['notes'], sysm['chords'], ts)
+        items, w = notes_to_line_items(sysm['notes'], sysm['chords'], sysm.get('bars_x', []), ts)
         for msg in w: warnings.append(f'system {i+1}: {msg}')
         if sysm['markers']:
             warnings.append(f"system {i+1}: repeat/volta markers {sysm['markers']} — NEEDS manual repeat/volta")
@@ -277,12 +312,19 @@ def main():
 
     content = {'version': 2, 'key': key, 'timeSignature': ts,
                'stanzas': stanzas, 'arrangement': arrangement}
+    if header_key and header_key != key:
+        content['headerKey'] = header_key      # do-reference from the songbook, for note only
     doc_out = {'number': number, 'title_th': title, 'title_en': None,
                'content': content, '_warnings': warnings}
     text = json.dumps(doc_out, ensure_ascii=False, indent=2)
     if out:
         open(out, 'w', encoding='utf-8').write(text)
-        print('wrote', out)
+        if out.endswith('.json'):
+            sql = out[:-5] + '.sql'
+            open(sql, 'w', encoding='utf-8').write(to_sql(number, title, content, warnings))
+            print('wrote', out, '+', os.path.basename(sql))
+        else:
+            print('wrote', out)
     else:
         print(text)
     if warnings:

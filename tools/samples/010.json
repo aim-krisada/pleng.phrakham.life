@@ -4,7 +4,7 @@
   "title_en": null,
   "content": {
     "version": 2,
-    "key": "C",
+    "key": "B",
     "timeSignature": "4/4",
     "stanzas": [
       {
@@ -17,51 +17,36 @@
               "note": "1_ 2_"
             },
             {
-              "type": "segment",
-              "chord": "B",
-              "note": "3. 3_ 3"
-            },
-            {
               "type": "bar"
             },
             {
               "type": "segment",
-              "chord": "",
-              "note": "3"
+              "chord": "B",
+              "note": "3. 3_ 3 3"
+            },
+            {
+              "type": "bar"
             },
             {
               "type": "segment",
               "chord": "F#",
-              "note": "5 - -"
+              "note": "5 - - 6_ 7_"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "6_ 7_"
             },
             {
               "type": "segment",
               "chord": "G#m",
-              "note": "1. 1_ 1_ 1_"
+              "note": "1. 1_ 1_ 1_ 2_ 1_"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "2_ 1_"
             },
             {
               "type": "segment",
               "chord": "F#",
               "note": "7 - -"
-            },
-            {
-              "type": "bar"
             }
           ]
         ]
@@ -76,56 +61,36 @@
               "note": "5_ 5_"
             },
             {
-              "type": "segment",
-              "chord": "E",
-              "note": "6 6 6_ 6_"
-            },
-            {
               "type": "bar"
             },
             {
               "type": "segment",
-              "chord": "",
-              "note": "7_ 1_"
+              "chord": "E",
+              "note": "6 6 6_ 6_ 7_ 1_"
+            },
+            {
+              "type": "bar"
             },
             {
               "type": "segment",
               "chord": "B",
-              "note": "5 1 -"
+              "note": "5 1 - 5_ 4_"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "5_ 4_"
             },
             {
               "type": "segment",
               "chord": "F#",
-              "note": "3 5 -"
+              "note": "3 5 - .7"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": ".7"
             },
             {
               "type": "segment",
               "chord": "B",
-              "note": "1 - -"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "-"
+              "note": "1 - - -"
             }
           ]
         ]
@@ -176,22 +141,7 @@
               "note": "5_ 5_"
             },
             {
-              "type": "segment",
-              "chord": "E",
-              "note": "6_ 6_ 6_ 7_"
-            },
-            {
-              "type": "segment",
-              "chord": "B",
-              "note": "1"
-            },
-            {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "5_ 5_"
             },
             {
               "type": "segment",
@@ -201,15 +151,28 @@
             {
               "type": "segment",
               "chord": "B",
-              "note": "1"
+              "note": "1 5_ 5_"
             },
             {
               "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "E",
+              "note": "6_ 6_ 6_ 7_"
+            },
+            {
+              "type": "segment",
+              "chord": "B",
+              "note": "1"
             },
             {
               "type": "segment",
               "chord": "E",
               "note": "7_ 6_"
+            },
+            {
+              "type": "bar"
             },
             {
               "type": "segment",
@@ -219,23 +182,15 @@
             {
               "type": "segment",
               "chord": "F#",
-              "note": "2_ 2_"
+              "note": "2_ 2_ 3"
             },
             {
               "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "3"
             },
             {
               "type": "segment",
               "chord": "B",
               "note": "1 - -"
-            },
-            {
-              "type": "bar"
             }
           ]
         ]
@@ -350,13 +305,12 @@
           ""
         ]
       }
-    ]
+    ],
+    "headerKey": "C"
   },
   "_warnings": [
-    "key \"C\" (from header) not among chord roots ['B', 'D', 'E', 'F', 'G'] — likely movable-do (numbers=do reference, chords in sounding key); confirm which key to store",
+    "header key \"C\" != stored sounding key \"B\" (from chords; movable-do). Numbers still reference do; transpose uses \"B\". Verify tonic.",
     "system 1: 15 syllables vs 16 attack notes",
-    "system 2: last bar 1.0 beats (expected 4)",
-    "system 3: last bar 3.0 beats (expected 4)",
     "system 3: 14 syllables vs 16 attack notes",
     "system 4: 20 syllables vs 22 attack notes"
   ]
