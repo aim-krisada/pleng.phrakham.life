@@ -229,8 +229,12 @@ def docx_structure(path):
         staves.append(lyrics)
         last_end = max(last_end, j)
 
-    # extra lyric-only blocks after the printed melody, split on blank lines
+    # extra lyric-only blocks after the printed melody. A block ends at a blank line OR
+    # at the next verse-number / (รับ) marker (verses 3 and 4 may sit with no blank line
+    # between them, so blank-splitting alone merges them).
     extra, block = [], []
+    def new_block(t):
+        return bool(re.match(r'\s*\d+\.', t)) or t.lstrip().startswith('(รับ)') or t.lstrip().startswith('รับ')
     for t in paras[last_end:]:
         if not t.strip():
             if block: extra.append(block); block = []
@@ -238,6 +242,8 @@ def docx_structure(path):
         if not is_thai(t) or is_chord(t) or is_note(t):    # English translation / stray
             if block: extra.append(block); block = []
             break
+        if block and new_block(t):
+            extra.append(block); block = []
         block.append(t)
     if block: extra.append(block)
     extra_blocks = []
@@ -426,50 +432,66 @@ def build_song(pdf, docx, debug=False):
             warnings.append(f"system {i+1}: repeat/volta markers {sysm['markers']} — NEEDS manual repeat/volta")
         sys_items.append(items)
 
-    def stave_refrain(i):
-        return i < len(staves) and staves[i] and (staves[i][0].lstrip().startswith('(รับ)')
-                                                  or staves[i][0].lstrip().startswith('รับ'))
-    refrain_idxs_all = [i for i in range(len(systems)) if stave_refrain(i)]
-    refrain_start = refrain_idxs_all[0] if refrain_idxs_all else None
-    # a clean verse+refrain song = one (รับ) then refrain runs to the end. Otherwise flag.
-    if refrain_start is not None and any(not stave_refrain(i) and staves[i] and staves[i][0].lstrip()[:1].isdigit()
-                                         for i in range(refrain_start + 1, len(systems))):
-        warnings.append('complex structure (verse melody printed again after รับ) — verify arrangement')
+    # Split the PRINTED staves into marker-delimited blocks: a stave starting "N." opens
+    # a verse block, "(รับ)" opens a refrain block, other staves continue the block. This
+    # separates songs that print each verse's own melody (→ several verse stanzas, e.g.
+    # 111) from songs that print one melody with the extra verses as lyric-only (→ one
+    # reused verse stanza, e.g. 103).
+    def stave_marker(i):
+        if i >= len(staves) or not staves[i]: return None
+        t = staves[i][0].lstrip()
+        if t.startswith('(รับ)') or t.startswith('รับ') or t.startswith('(สร้อย)'): return 'refrain'
+        return 'verse' if re.match(r'\d+\.', t) else None
 
-    verse_idxs = list(range(refrain_start if refrain_start is not None else len(systems)))
-    refrain_idxs = list(range(refrain_start, len(systems))) if refrain_start is not None else []
+    printed_blocks, cur = [], None
+    for i in range(len(systems)):
+        mk = stave_marker(i)
+        if cur is None or mk is not None:
+            cur = {'kind': 'refrain' if mk == 'refrain' else 'verse', 'sys': [], 'lyrics': []}
+            printed_blocks.append(cur)
+        cur['sys'].append(i)
+        if i < len(staves) and staves[i]: cur['lyrics'].append(staves[i][0])
 
-    stanzas, arrangement = [], []
-    verse_stanza = {'id': 'A', 'lines': [sys_items[i] for i in verse_idxs]}
-    stanzas.append(verse_stanza)
-    refrain_stanza = None
-    if refrain_idxs:
-        rs = {'id': 'B', 'lines': [sys_items[i] for i in refrain_idxs]}
-        if json.dumps(rs['lines'], ensure_ascii=False) == json.dumps(verse_stanza['lines'], ensure_ascii=False):
-            refrain_stanza = verse_stanza          # identical melody → reuse
-        else:
-            refrain_stanza = rs; stanzas.append(rs)
+    # melody → stanza, deduped (identical printed melodies share one stanza)
+    stanzas, melody_to_id, arrangement = [], {}, []
+    def stanza_for(sys_idxs):
+        lines = [sys_items[i] for i in sys_idxs]
+        mkey = json.dumps(lines, ensure_ascii=False)
+        if mkey not in melody_to_id:
+            sid = chr(ord('A') + len(stanzas))
+            melody_to_id[mkey] = sid
+            stanzas.append({'id': sid, 'lines': lines})
+        return melody_to_id[mkey]
+    for b in printed_blocks:
+        b['stanza'] = stanza_for(b['sys'])
+    by_id = {s['id']: s for s in stanzas}
+    verse_ids = [b['stanza'] for b in printed_blocks if b['kind'] == 'verse']
+    refrain_id = next((b['stanza'] for b in printed_blocks if b['kind'] == 'refrain'), None)
+    default_verse_id = verse_ids[0] if verse_ids else (stanzas[0]['id'] if stanzas else 'A')
 
-    def flat(stz): return [it for line in stz['lines'] for it in line]
-    def add_row(stz, label, lyric_lines, tag):
+    def flat(sid): return [it for line in by_id[sid]['lines'] for it in line]
+    def add_row(sid, label, lyric_lines, tag):
         first = lyric_lines[0] if lyric_lines else ''
         _, first_body = strip_label(first)
         body = ' '.join([first_body] + list(lyric_lines[1:]))
-        syls = align_syllables(flat(stz), split_syls(body), tag, warnings)
-        arrangement.append({'stanza': stz['id'], 'label': label, 'syllables': syls})
+        syls = align_syllables(flat(sid), split_syls(body), tag, warnings)
+        arrangement.append({'stanza': sid, 'label': label, 'syllables': syls})
 
-    def stave_lyrics(idxs):
-        return [staves[i][0] for i in idxs if i < len(staves) and staves[i]]
-    verse_no = 1
-    add_row(verse_stanza, f'ร้อง {verse_no}', stave_lyrics(verse_idxs), 'ร้อง1')
-    verse_no += 1
-    if refrain_stanza is not None:
-        add_row(refrain_stanza, 'รับ', stave_lyrics(refrain_idxs), 'รับ1')
-    for blk in extra_blocks:
-        if blk['refrain'] and refrain_stanza is not None:
-            add_row(refrain_stanza, 'รับ', blk['lines'], 'รับX')
+    verse_no = 0
+    for b in printed_blocks:
+        if b['kind'] == 'refrain':
+            add_row(b['stanza'], 'รับ', b['lyrics'], 'รับ')
         else:
-            add_row(verse_stanza, f'ร้อง {verse_no}', blk['lines'], f'ร้อง{verse_no}'); verse_no += 1
+            verse_no += 1
+            add_row(b['stanza'], f'ร้อง {verse_no}', b['lyrics'], f'ร้อง{verse_no}')
+    for blk in extra_blocks:
+        if blk['refrain'] and refrain_id is not None:
+            add_row(refrain_id, 'รับ', blk['lines'], 'รับX')
+        else:
+            verse_no += 1
+            if len(set(verse_ids)) > 1:
+                warnings.append(f'ร้อง {verse_no}: หลายทำนองข้อ + ข้อเนื้อล้วน — map ลงทำนองข้อแรก ({default_verse_id}); verify')
+            add_row(default_verse_id, f'ร้อง {verse_no}', blk['lines'], f'ร้อง{verse_no}')
 
     content = {'version': 2, 'key': key, 'timeSignature': ts,
                'stanzas': stanzas, 'arrangement': arrangement}

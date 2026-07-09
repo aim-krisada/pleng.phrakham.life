@@ -1,0 +1,382 @@
+{
+  "number": 99,
+  "title_th": "ศาสนาสอนว่าพระเยซูเจ้าเรากินไม่ได้",
+  "title_en": null,
+  "theme": "คริสตจักร",
+  "book_refs": [
+    {
+      "book": "ล",
+      "no": 259
+    }
+  ],
+  "scripture": null,
+  "content": {
+    "version": 2,
+    "key": "F",
+    "timeSignature": "4/4",
+    "stanzas": [
+      {
+        "id": "A",
+        "lines": [
+          [
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3 3 3 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": "1 2 1 .6"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": ".5 .6 .5 .3"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F/A",
+              "note": ".5 - - -"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": ".6 1 1 .6"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F/A",
+              "note": ".5 1 1 1"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "G",
+              "note": "2 2 2 3"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "2 - - -"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": "2 .6 .7 1 .6"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F/A",
+              "note": ".5 1 1 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "3 3 2 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "1 - - -"
+            }
+          ]
+        ]
+      },
+      {
+        "id": "B",
+        "lines": [
+          [
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3 5 - 6"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F/A",
+              "note": "3. 2_ 1 -"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": ".6 1 2 1"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3 5 6 5"
+            }
+          ]
+        ]
+      },
+      {
+        "id": "C",
+        "lines": [
+          [
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3 5 - 6"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Dm",
+              "note": "3. 2_ 1 -"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "G",
+              "note": "2 2 - 3"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "2 - - -"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "G",
+              "note": "3 3 -"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "1 - - -"
+            }
+          ]
+        ]
+      }
+    ],
+    "arrangement": [
+      {
+        "stanza": "A",
+        "label": "ร้อง 1",
+        "syllables": [
+          "ศา",
+          "ส",
+          "นา",
+          "สอน",
+          "ว่า",
+          "พระ",
+          "เย",
+          "ซู",
+          "เจ้า",
+          "เรา",
+          "กิน",
+          "ไม่",
+          "ได้",
+          "",
+          "",
+          "",
+          "เพียง",
+          "น",
+          "มั",
+          "ส",
+          "การ",
+          "ทำ",
+          "พิ",
+          "ธี",
+          "ประ",
+          "พฤ",
+          "ติ",
+          "ดี",
+          "ร่ำ",
+          "",
+          "",
+          "",
+          "ไป",
+          "วัน",
+          "นี้",
+          "ผู้",
+          "ที่",
+          "กิน",
+          "เรา",
+          "เขา",
+          "จะ",
+          "เข้ม",
+          "แข็ง",
+          "ใน",
+          "วิญ",
+          "ญาณ",
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "stanza": "B",
+        "label": "รับ",
+        "syllables": [
+          "ร้อง",
+          "เรียก",
+          "",
+          "“",
+          "โอ",
+          "พระ",
+          "-เย",
+          "",
+          "ซู",
+          "”",
+          "เรา",
+          "ทั้ง",
+          "หลาย",
+          "รัก",
+          "ชี",
+          "วิต"
+        ]
+      },
+      {
+        "stanza": "C",
+        "label": "รับ",
+        "syllables": [
+          "รับ",
+          "สุข",
+          "",
+          "พระ",
+          "คำ",
+          "เป็น",
+          "อยู่",
+          "",
+          "ชี",
+          "วิ",
+          "",
+          "ต",
+          "น่า",
+          "",
+          "",
+          "",
+          "รัก",
+          "ชี",
+          "",
+          "วิ",
+          "ต",
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "stanza": "A",
+        "label": "ร้อง 2",
+        "syllables": [
+          "ยุค",
+          "สุด",
+          "ปลาย",
+          "นี้",
+          "ชี",
+          "วิต",
+          "สัง",
+          "คม",
+          "มนุษย์",
+          "สุด",
+          "ตก",
+          "ต่ำ",
+          "ให้",
+          "",
+          "",
+          "",
+          "ท่าน",
+          "รู้",
+          "สึก",
+          "ดุจ",
+          "จม",
+          "ลึก",
+          "ใน",
+          "คลื่น",
+          "ลม",
+          "โหม",
+          "กระ",
+          "หน่ำ",
+          "เร็ว",
+          "",
+          "",
+          "",
+          "ไว",
+          "เข้า",
+          "สู่",
+          "ชี",
+          "วิต",
+          "คริส",
+          "ต",
+          "จักร",
+          "พระ",
+          "วิญ",
+          "ญาณ",
+          "ตรัส",
+          "ไว้",
+          "“",
+          "",
+          "",
+          ""
+        ]
+      }
+    ]
+  },
+  "_warnings": [
+    "system 2: repeat/volta markers [(461.45, ':')] — NEEDS manual repeat/volta",
+    "system 5: repeat/volta markers [(454.61, ':')] — NEEDS manual repeat/volta",
+    "system ร้อง1: 41 syllables vs 40 attack notes",
+    "system รับ: 17 syllables vs 14 attack notes",
+    "system รับ: 18 syllables vs 14 attack notes",
+    "system ร้อง2: 54 syllables vs 40 attack notes"
+  ]
+}

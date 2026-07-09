@@ -1,0 +1,754 @@
+{
+  "number": 109,
+  "title_th": "เวลาก่อสร้างพระวิหาร",
+  "title_en": null,
+  "theme": "คริสตจักร",
+  "book_refs": [
+    {
+      "book": "ล",
+      "no": 232
+    },
+    {
+      "book": "ย",
+      "no": 397
+    }
+  ],
+  "scripture": "ฮาฆี 1:4-6ก,8,12-14,2:4,7,9",
+  "content": {
+    "version": 2,
+    "key": "B",
+    "timeSignature": "6/8",
+    "stanzas": [
+      {
+        "id": "A",
+        "lines": [
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": ".5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": ".5 .6_"
+            },
+            {
+              "type": "segment",
+              "chord": "D",
+              "note": ".6 1_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": "1."
+            },
+            {
+              "type": "segment",
+              "chord": "D",
+              "note": ".6 .3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": ".5 .5_"
+            },
+            {
+              "type": "segment",
+              "chord": "D",
+              "note": ".6 .6_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": ".3. .3"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": ".5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": "3 3_"
+            },
+            {
+              "type": "segment",
+              "chord": "C#",
+              "note": "3 2_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F#m",
+              "note": "1. .6 .7_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "B",
+              "note": "1 1_ 2 3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "E",
+              "note": "2. 2"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": ".5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": ".5 .6_"
+            },
+            {
+              "type": "segment",
+              "chord": "D",
+              "note": ".6 1_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": "1."
+            },
+            {
+              "type": "segment",
+              "chord": "D",
+              "note": ".6 .3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": ".5 .5_"
+            },
+            {
+              "type": "segment",
+              "chord": "D",
+              "note": ".6 .6_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": ".3. .3"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": ".3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "B",
+              "note": ".2 .3_ .#4 .5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "B",
+              "note": ".6_ 2 2 1_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "E",
+              "note": ".7."
+            },
+            {
+              "type": "segment",
+              "chord": "B",
+              "note": ".6."
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "E",
+              "note": ".5. .5"
+            }
+          ]
+        ]
+      },
+      {
+        "id": "B",
+        "lines": [
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": ".5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": "3. 3 .5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": "3. 3 2_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "D",
+              "note": "1 1_ 2_ 1_ .6_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": ".5. .5"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": ".5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "E",
+              "note": ".5 .4_ .4 .6_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": ".6 .5_ .5 1_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "B",
+              "note": "1 1_ .6_ .7_ 1_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "E",
+              "note": "2. 2"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": ".5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": "3. 3 .5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": "3. 3 2_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "D",
+              "note": "1 1_ 2 #2_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C#m",
+              "note": "3. 3"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F#",
+              "note": "3 3_ 4 3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "B",
+              "note": "3 2_ .6 1_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": "5 3_"
+            },
+            {
+              "type": "segment",
+              "chord": "E",
+              "note": "2 1_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "A",
+              "note": "1. 1"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "Building",
+              "note": "1 4 -"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "6 1 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "- 1 4"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "2 4 7"
+            },
+            {
+              "type": "bar"
+            }
+          ]
+        ]
+      }
+    ],
+    "arrangement": [
+      {
+        "stanza": "A",
+        "label": "ร้อง 1",
+        "syllables": [
+          "เว",
+          "ลา",
+          "ก่อ",
+          "สร้าง",
+          "พระ",
+          "วิ",
+          "หาร",
+          "บัด",
+          "นี้",
+          "ถึง",
+          "ครบ",
+          "กำ",
+          "หนด",
+          "คริส",
+          "ต",
+          "จักร",
+          "ทุก",
+          "ท้อง",
+          "ถิ่น",
+          "ต้อง",
+          "ก่อ",
+          "ร่าง",
+          "สร้าง",
+          "สม",
+          "บูรณ์",
+          "หมด",
+          "จด",
+          "อย่า",
+          "มัว",
+          "หวง",
+          "รัก",
+          "บ้าน",
+          "ตน",
+          "เอง",
+          "ให้",
+          "บ้าน",
+          "พระ",
+          "เจ้า",
+          "ร้าง",
+          "เปล่า",
+          "พี่",
+          "น้อง",
+          "รีบ",
+          "ลุก",
+          "ขึ้น",
+          "ก่อ",
+          "สร้าง",
+          "คริส",
+          "ต",
+          "จักร",
+          "พระ",
+          "เจ้า",
+          ".",
+          ""
+        ]
+      },
+      {
+        "stanza": "B",
+        "label": "รับ",
+        "syllables": [
+          "เข้ม",
+          "แข็ง",
+          "เข้ม",
+          "แข็ง",
+          "ทุก",
+          "คน",
+          "ก่อ",
+          "สร้าง",
+          "ทำ",
+          "การ",
+          "พระ",
+          "เจ้า",
+          "สถิต",
+          "อยู่",
+          "ด้วย",
+          "กับ",
+          "เรา",
+          "รา",
+          "ศี",
+          "เปี่ยม",
+          "พระ",
+          "วิ",
+          "หาร",
+          "เข้ม",
+          "แข็ง",
+          "เข้ม",
+          "แข็ง",
+          "ร่วม",
+          "จิต",
+          "ร่วม",
+          "ใจ",
+          "ประ",
+          "สาน",
+          "ทั่ว",
+          "โลก",
+          "จะ",
+          "เห็น",
+          "วิ",
+          "หาร",
+          "พระ",
+          "เจ้า",
+          "รา",
+          "ศี",
+          "แพรว",
+          "พราว",
+          "ยา",
+          "วนา",
+          "น.",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "stanza": "A",
+        "label": "ร้อง 2",
+        "syllables": [
+          "จง",
+          "ฟัง",
+          "ดำ",
+          "รัส",
+          "“",
+          "พวก",
+          "เจ้า",
+          "จง",
+          "ตรวจ",
+          "ดู",
+          "การ",
+          "ประ",
+          "พฤ",
+          "ติ",
+          "ของ",
+          "ตน",
+          "หว่าน",
+          "มาก",
+          "แต่",
+          "เก็บ",
+          "ได้",
+          "น้อย",
+          "เพราะ",
+          "ขาด",
+          "การ",
+          "สรร",
+          "เสริญ",
+          "ร้อน",
+          "รน",
+          "เพื่อ",
+          "เรา",
+          "เจ้า",
+          "จง",
+          "ขึ้น",
+          "ภู",
+          "เขา",
+          "นำ",
+          "ไม้",
+          "กลับ",
+          "มา",
+          "ทุก",
+          "คน",
+          "ใจ",
+          "เดียว",
+          "ก่อ",
+          "สร้าง",
+          "วิ",
+          "หาร",
+          "เรา",
+          "รา",
+          "ศี",
+          "เบื้อง",
+          "บน",
+          "”"
+        ]
+      },
+      {
+        "stanza": "A",
+        "label": "ร้อง 3",
+        "syllables": [
+          "ปุ",
+          "โร",
+          "หิต",
+          "ที่",
+          "ทรง",
+          "เลือก",
+          "จง",
+          "นอบ",
+          "น้อม",
+          "พระ",
+          "เจ้า",
+          "โดย",
+          "พลัน",
+          "พระ",
+          "องค์",
+          "สถิต",
+          "อยู่",
+          "ด้วย",
+          "แม้",
+          "ชาว",
+          "โลก",
+          "ชัง",
+          "ก็",
+          "ไม่",
+          "หวั่น",
+          "ให้",
+          "เรา",
+          "มา",
+          "ร่วม",
+          "กัน",
+          "ทำ",
+          "การ",
+          "วิญ",
+          "ญาณ",
+          "เร่ง",
+          "เร้า",
+          "ร้อน",
+          "รน",
+          "ท่าม",
+          "กลาง",
+          "เรา",
+          "จง",
+          "อย่า",
+          "ให้",
+          "ใคร",
+          "ละ",
+          "เลย",
+          "สัก",
+          "คน",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "stanza": "A",
+        "label": "ร้อง 4",
+        "syllables": [
+          "จอม",
+          "พล",
+          "พระ",
+          "ยะ",
+          "โฮ",
+          "วา",
+          "ตรัส",
+          "“",
+          "วิ",
+          "หาร",
+          "ต้อง",
+          "เปี่ยม",
+          "รา",
+          "ศี",
+          "สิ่ง",
+          "ที่",
+          "ทุก",
+          "ชาติ",
+          "ปรา",
+          "รถ",
+          "นา",
+          "ต้อง",
+          "มา",
+          "ถึง",
+          "เร็ว",
+          "วัน",
+          "นี้",
+          "รัศ",
+          "มี",
+          "วิ",
+          "หาร",
+          "หลัง",
+          "นี้",
+          "ต้อง",
+          "ยิ่ง",
+          "ยวด",
+          "กว่า",
+          "หลัง",
+          "เก่า",
+          "เรา",
+          "ร่วม",
+          "รับ",
+          "รา",
+          "ศี",
+          "สุข",
+          "ใจ",
+          "เหนือ",
+          "กว่า",
+          "คาด",
+          "เดา",
+          "”",
+          "",
+          "",
+          ""
+        ]
+      }
+    ],
+    "headerKey": "Bb"
+  },
+  "_warnings": [
+    "header key \"Bb\" != stored sounding key \"B\" (from chords; movable-do). Numbers still reference do; transpose uses \"B\". Verify tonic.",
+    "PDF systems (9) != DOCX staves (8) — structure may drift; verify",
+    "system 9: no printed barlines — bars inferred by beat count (verify)",
+    "system 9: repeat/volta markers [(265.48712, ':'), (351.15256, ':')] — NEEDS manual repeat/volta",
+    "system ร้อง1: 53 syllables vs 54 attack notes",
+    "system รับ: 48 syllables vs 68 attack notes",
+    "system ร้อง3: 49 syllables vs 54 attack notes",
+    "system ร้อง4: 51 syllables vs 54 attack notes"
+  ]
+}
