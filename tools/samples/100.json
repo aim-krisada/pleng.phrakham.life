@@ -436,52 +436,6 @@
           "",
           ""
         ]
-      },
-      {
-        "stanza": "F",
-        "label": "ร้อง 2",
-        "syllables": [
-          "อา",
-          "ศัย",
-          "ต้น",
-          "ไม้",
-          "แห่ง",
-          "ชี",
-          "วิต",
-          "สด",
-          "ใหม่",
-          "ผล",
-          "เลิศ",
-          "",
-          "",
-          "",
-          "หล่อ",
-          "",
-          ""
-        ]
-      },
-      {
-        "stanza": "F",
-        "label": "ร้อง 3",
-        "syllables": [
-          "มี",
-          "น้ำ",
-          "แห่ง",
-          "ชี",
-          "วิต",
-          "หลั่ง",
-          "ไหล",
-          "ใน",
-          "ข้า",
-          "หลั่ง",
-          "ไหล",
-          "",
-          "",
-          "",
-          "สืบ",
-          "",
-          ""
-        ]
       }
     ]
   },
@@ -494,7 +448,7 @@
     "system 4: 14 syllables vs 15 attack notes",
     "system 5: repeat/volta markers [(417.48, ':')] — NEEDS manual repeat/volta",
     "system 5: 11 syllables vs 12 attack notes",
-    "system 6: 48 syllables vs 12 attack notes",
-    "system 6: 48 syllables vs 12 attack notes"
+    "system 6: extra/overflow verse text (48 syllables vs 12 notes) NOT auto-placed — add as its own ข้อ manually",
+    "system 6: extra/overflow verse text (48 syllables vs 12 notes) NOT auto-placed — add as its own ข้อ manually"
   ]
 }

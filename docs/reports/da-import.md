@@ -147,7 +147,8 @@
 
 ## 10. ผลรวม
 - **แปลงสำเร็จ 120/120 เพลง · error 0 · ครบคู่ PDF+DOCX** (Python 3.14-64 · `tools/batch_all.py`)
-- **`tools/import-all-120.sql`** (ในrepo · 120 upsert ใน `begin…commit` · มี `-- REVIEW` ต่อเพลงยกทุก warning)
+- **`tools/import-all-120.sql`** (ในrepo · schema prep + 120 upsert ใน `begin…commit` · มี `-- REVIEW` ต่อเพลง)
+- **schema ใหม่ (P'Aim เคาะ 9 ก.ค.):** เพิ่ม `category text` (=`anuchon` code · frontend map เป็น "อนุชน") + `verified boolean default false` (seed=ยังไม่ตรวจ · พี่เปา filter หาเพลงต้องเกลา) · **คีย์ = `(category, number)` คู่กัน** (เลข 1 อนุชน ≠ เลข 1 ยุวชน อนาคต) → SQL drop unique เดิมบน `number` แล้วสร้าง unique `(category, number)` · upsert `on conflict (category, number)` · ทั้งหมด idempotent (P'Aim run ซ้ำได้)
 - JSON 120 ไฟล์ + `risk.json` เก็บ OneDrive `song-data/da-import-output/` (ใหญ่ · ไม่เข้า git)
 - ทุกเพลงได้ key (ไม่มีเพลง key หาย) · dedup ทำนองซ้ำ · เนื้อ pad ลงโน้ต (แอป render ได้ทุกเพลง)
 
@@ -167,9 +168,10 @@
 
 ## 12. วิธี run (P'Aim) + ⚠️ คำเตือน
 1. **ยืนยันโปรเจกต์ Supabase = `vlpuvaofbzdawgjjpgfu`** ก่อนทุกครั้ง (import เขียน DB จริง = เว็บ live เปลี่ยนทันที)
-2. `tools/backup-songs.sql` — สำรอง (P'Aim run แล้วรอบ pilot · run ซ้ำได้ `if not exists`)
-3. **เลือกได้:** run `tools/import-all-120.sql` ทั้งหมด · **หรือ** ค่อย ๆ ลงเฉพาะกลุ่มสะอาด 32 เพลงก่อน (คัด block `-- Seed song #N` ที่ต้องการ) แล้วเกลากลุ่มเสี่ยงทีหลัง
-4. เปิดแอป → เพลงที่มี `-- REVIEW` ให้พี่เปาเปิดใน Studio เกลาตามธง
+2. `tools/backup-songs.sql` — สำรอง (P'Aim run แล้วรอบ pilot · run ก่อน schema change · run ซ้ำได้)
+3. `tools/import-all-120.sql` — **มี schema prep อยู่หัวไฟล์** (add `category`/`verified` + สลับ unique เป็น `(category, number)`) แล้วตามด้วย 120 upsert · **เลือกได้:** run ทั้งไฟล์ · **หรือ** run แค่ส่วน schema prep + คัด block `-- Seed song #N` เฉพาะกลุ่มสะอาด 32 เพลงก่อน
+4. **⚠️ เพลงเดิมในฐาน (ที่ยังไม่มี category)** → หลัง `ALTER … default 'anuchon'` จะกลายเป็น `anuchon` ทั้งหมด · ถูกต้องถ้าเพลงเดิมเป็นอนุชน · ถ้ามีหมวดอื่นปน → บอก DA/แก้เอง
+5. เปิดแอป → เพลงที่มี `-- REVIEW` ให้พี่เปาเปิดใน Studio เกลา แล้วตั้ง `verified=true`
 
 ## 13. 🚦 GATE 3 — รอ P'Aim
 - P'Aim ตัดสิน: (ก) ลงครบ 120 เลย (seed ทั้งเล่ม แล้วเกลาทีหลัง) · หรือ (ข) ลงกลุ่มสะอาด 32 ก่อน

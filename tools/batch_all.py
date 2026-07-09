@@ -10,7 +10,7 @@ Uses build_song() from parse_song.py (same logic verified on the 5 pilots).
 """
 import sys, os, re, glob, json, collections
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from parse_song import build_song, to_sql
+from parse_song import build_song, to_sql, schema_sql
 
 def classify(doc):
     """Bucket a song's warnings into risk flags for the summary table."""
@@ -47,12 +47,16 @@ def main():
     missing = sorted((set(pdfs) | set(docxs)) - set(numbers))
     sql_parts = [
         "-- ============================================================================\n"
-        "-- IMPORT: all 120 songs (v2 seeds) — upsert by number, OVERWRITES existing.\n"
+        "-- IMPORT: all 120 songs (v2 seeds), category='anuchon' (อนุชน), verified=false.\n"
+        "-- Upsert by (category, number) — OVERWRITES an existing anuchon song of that no.\n"
         "-- ⚠️  RUN tools/backup-songs.sql FIRST. This writes the LIVE DB → the website\n"
         "--     updates immediately. CONFIRM the Supabase project = vlpuvaofbzdawgjjpgfu.\n"
+        "-- NOTE: after the ALTER, any pre-existing song with no category becomes 'anuchon'\n"
+        "--       (correct if those were anuchon songs; if some belong to another category,\n"
+        "--       fix them before/after — flag to P'Aim).\n"
         "-- Seeds: open each song in Studio afterward to repair the -- REVIEW spots.\n"
         "-- ============================================================================\n\n"
-        "begin;\n\n"
+        "begin;\n\n" + schema_sql()
     ]
     risk = []
     errors = []

@@ -237,17 +237,45 @@ def notes_to_line_items(notes, chords, bars_x, ts):
         warn.append('no printed barlines — bars inferred by beat count (verify)')
     return items, warn
 
-def to_sql(number, title, content, warnings):
+DEFAULT_CATEGORY = 'anuchon'   # this batch = หมวด "อนุชน"; frontend maps code→ชื่อไทย
+
+def schema_sql():
+    """Idempotent schema prep — songs keyed by (category, number), + verified flag.
+    Run ONCE before the upserts. Safe to re-run."""
+    return (
+        "-- --- schema prep (idempotent) ------------------------------------------\n"
+        "-- category = key code (frontend maps 'anuchon' -> 'อนุชน'); number is unique\n"
+        "-- PER category, so (category, number) is the real key (เลข 1 อนุชน != เลข 1 ยุวชน).\n"
+        "alter table public.songs add column if not exists category text not null default 'anuchon';\n"
+        "alter table public.songs add column if not exists verified boolean not null default false;\n"
+        "-- drop the old single-column unique on (number) so (category, number) can coexist:\n"
+        "do $$\n"
+        "declare c text;\n"
+        "begin\n"
+        "  select con.conname into c from pg_constraint con\n"
+        "  join pg_attribute a on a.attrelid = con.conrelid and a.attnum = any(con.conkey)\n"
+        "  where con.conrelid = 'public.songs'::regclass and con.contype = 'u'\n"
+        "    and array_length(con.conkey, 1) = 1 and a.attname = 'number';\n"
+        "  if c is not null then execute format('alter table public.songs drop constraint %I', c); end if;\n"
+        "end $$;\n"
+        "create unique index if not exists songs_category_number_key\n"
+        "  on public.songs (category, number);\n"
+        "-- ------------------------------------------------------------------------\n\n"
+    )
+
+def to_sql(number, title, content, warnings, category=DEFAULT_CATEGORY):
     j = json.dumps(content, ensure_ascii=False)
     esc = title.replace("'", "''")
-    head = f"-- Seed song #{number} — run in Supabase SQL Editor (upsert by number; overwrites)\n"
+    head = f"-- Seed song #{number} [{category}] — upsert by (category, number); overwrites\n"
     if warnings:
         head += "-- REVIEW in Studio after loading (Claude seeds, P'Pao fixes):\n"
         head += ''.join(f"--   * {w}\n" for w in warnings)
+    # verified left to the column default (false) on insert; NOT touched on update, so a
+    # song P'Pao later marks verified=true is not reset by a re-run.
     return (head +
-            "insert into public.songs (number, title_th, title_en, content)\n"
-            f"values ({number}, '{esc}', null, $json${j}$json$::jsonb)\n"
-            "on conflict (number) do update\n"
+            "insert into public.songs (category, number, title_th, title_en, content)\n"
+            f"values ('{category}', {number}, '{esc}', null, $json${j}$json$::jsonb)\n"
+            "on conflict (category, number) do update\n"
             "  set title_th = excluded.title_th, title_en = excluded.title_en, content = excluded.content;\n")
 
 def build_song(pdf, docx, debug=False):
@@ -331,7 +359,7 @@ def main():
         open(out, 'w', encoding='utf-8').write(text)
         if out.endswith('.json'):
             sql = out[:-5] + '.sql'
-            open(sql, 'w', encoding='utf-8').write(to_sql(number, title, content, warnings))
+            open(sql, 'w', encoding='utf-8').write(schema_sql() + to_sql(number, title, content, warnings))
             print('wrote', out, '+', os.path.basename(sql))
         else:
             print('wrote', out)
