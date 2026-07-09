@@ -21,11 +21,16 @@ const themes = computed(() =>
   [...new Set(songs.value.map((s) => s.theme).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th')),
 )
 
-// a song is "flagged" when DA's review_flags array has entries. The column is added by
-// the DA stream; until then it is simply absent (undefined) → no ⚠️ badge shows. When
-// the field lands, add `review_flags` to the select below and the badges light up.
+// a song is "flagged" when DA's review_flags array has entries (codes: repeat / lint /
+// words). Kept defensive (Array.isArray) so an older row without the column just shows
+// no ⚠️ badge. The tooltip spells out which kinds so the reviewer knows what to look for.
+const FLAG_LABEL = { repeat: 'ตั้งจุดซ้ำ (repeat)', lint: 'โน้ตอาจผิด (lint)', words: 'เนื้อ≠โน้ต' }
 function flagCount(s) {
   return Array.isArray(s.review_flags) ? s.review_flags.length : 0
+}
+function flagTitle(s) {
+  const kinds = (s.review_flags || []).map((f) => FLAG_LABEL[f] || f)
+  return kinds.length ? 'ต้องตรวจ: ' + kinds.join(' · ') : ''
 }
 
 const filtered = computed(() => {
@@ -38,7 +43,7 @@ const filtered = computed(() => {
 onMounted(async () => {
   const { data, error } = await supabase
     .from('songs')
-    .select('id, number, title_th, title_en, content, theme, verified, book_refs')
+    .select('id, number, title_th, title_en, content, theme, verified, book_refs, review_flags')
     .order('number', { ascending: true })
   if (error || !data || data.length === 0) {
     dbError.value = !!error
@@ -87,7 +92,7 @@ onMounted(async () => {
       <div class="song-card-head">
         <strong class="song-title">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</strong>
         <span class="head-tags">
-          <span v-if="flagCount(s)" class="badge warn" title="มีจุดที่ต้องตรวจ (DA ติดธง)">⚠️ ต้องตรวจ</span>
+          <span v-if="flagCount(s)" class="badge warn" :title="flagTitle(s)">⚠️ ต้องตรวจ</span>
           <span v-if="s.verified" class="badge ok" title="ตรวจแล้ว">✓ ตรวจแล้ว</span>
           <span class="key-chip">Key {{ s.content.key }}</span>
         </span>

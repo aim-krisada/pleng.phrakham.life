@@ -155,9 +155,6 @@ const paraOpen = ref(false) // paragraph (free-text) editor for the selected ข
 
 const saveMsg = ref('')
 const playing = ref(false)
-// review state (B054): whether this song has been checked over by a reviewer (พี่เปา).
-// Lives on songs.verified; the catalog uses it for the "ยังไม่ตรวจ" filter + ✓ badge.
-const verified = ref(false)
 
 // the bar/segment editor operates on the ACTIVE stanza's lines through this computed
 const lines = computed({
@@ -716,7 +713,6 @@ function applyRow(data) {
   activeStanza.value = 0
   activeLine.value = 0
   migrateWarnings.value = warnings
-  verified.value = !!data.verified
   resetLens()
 }
 
@@ -735,7 +731,6 @@ function resetForm() {
   activeStanza.value = 0
   activeLine.value = 0
   migrateWarnings.value = []
-  verified.value = false
   saveMsg.value = ''
   revisions.value = []
   resetLens()
@@ -880,38 +875,6 @@ async function reject() {
   reviewingDraft.value = null
   currentDraftId.value = null
   loadDrafts()
-}
-
-// ---------- review sign-off (B054) ----------
-// A reviewer (พี่เปา) opens a flagged song, fixes it, then marks it ตรวจแล้ว so it drops
-// out of the catalog's "ยังไม่ตรวจ" filter and gets the ✓ badge. Writes songs.verified
-// directly (RLS: team write · must be logged in). Toggles back off if pressed again.
-async function toggleVerified() {
-  openMenu.value = null
-  if (!editingId.value) {
-    saveMsg.value = '⚠️ บันทึก/เผยแพร่เพลงก่อน จึงจะทำเครื่องหมายตรวจแล้วได้'
-    return
-  }
-  const next = !verified.value
-  // RLS on songs allows UPDATE only for role=approver (db/002). A logged-in editor's
-  // write silently touches 0 rows (PostgREST returns []), so ask for the row back and
-  // treat "no row" as "not permitted" — never a false success.
-  const { data, error } = await supabase
-    .from('songs')
-    .update({ verified: next })
-    .eq('id', editingId.value)
-    .select('id')
-  if (error) {
-    saveMsg.value = '❌ อัปเดตสถานะไม่สำเร็จ: ' + error.message
-    return
-  }
-  if (!data || data.length === 0) {
-    saveMsg.value = '🔒 ทำเครื่องหมายไม่สำเร็จ — ต้องเป็นผู้อนุมัติ (approver) หรือขอสิทธิ์จากทีม'
-    return
-  }
-  verified.value = next
-  saveMsg.value = next ? '✓ ทำเครื่องหมายว่าตรวจแล้ว' : '↩ ยกเลิกเครื่องหมายตรวจแล้ว'
-  loadSongList()
 }
 
 async function deleteSong() {
@@ -1521,12 +1484,6 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         <div v-if="openMenu === 'manage'" class="sb-dropdown" role="menu">
           <button class="sb-item" role="menuitem" @click="manageDownload"><Icon name="download" /> ดาวน์โหลด JSON</button>
           <button class="sb-item" role="menuitem" @click="manageUpload"><Icon name="folder-open" /> อัปโหลด JSON</button>
-          <template v-if="loggedIn && editingId">
-            <div class="sep"></div>
-            <button class="sb-item" role="menuitem" @click="toggleVerified">
-              <Icon :name="verified ? 'badge-check' : 'check'" /> {{ verified ? 'ยกเลิกเครื่องหมายตรวจแล้ว' : 'ทำเครื่องหมายว่าตรวจแล้ว ✓' }}
-            </button>
-          </template>
           <template v-if="loggedIn && !legacy">
             <div class="sep"></div>
             <button class="sb-item" role="menuitem" @click="openPanel('drafts')"><Icon name="file-text" /> งานร่าง / รอตรวจ</button>
