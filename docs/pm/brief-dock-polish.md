@@ -8,10 +8,10 @@
 - **ทำเป็น core reusable:** ใช้กับ **ทุก popup ใน dock** — customize panel · dropdown menu (D7 คีย์/แสดงผล/ความเร็ว) · ⋯ overflow · ทุกโหมด
 - spec: หลังเปิด popup วัด `getBoundingClientRect()` → ถ้าล้นขอบ (บน/ล่าง/ซ้าย/ขวา) ปรับตำแหน่งให้อยู่ในจอ + margin ~8px (flip ขึ้น/ลง หรือ shift เข้า) — แนวเดียวกับ `dragMove` clamp ที่มีอยู่แล้ว
 
-## B. (core · StudioDock) ความโปร่ง (blend) = ซ่อน default · เพิ่มเองได้
-- ตอนนี้ blend (ความโปร่ง) เป็น built-in ติดแถบเสมอ (ไม่อยู่ในลิสต์ customize)
-- P'Aim: **ความโปร่ง ไม่โชว์ default** ต้องกด "เพิ่ม" เอง → ทำ blend เป็น control ที่ customize เพิ่ม/เอาออกได้ (เหมือน tools อื่น) · default = ไม่อยู่ในแถบ
-- (setting/customize ⚙ ยังเป็น built-in ท้ายเสมอ)
+## B. ~~(core) blend ซ่อน/เพิ่มได้~~ → ❌ **ยกเลิก · แทนด้วยโมเดล "แผงตั้งค่า" (SA ออกแบบแยก)**
+- **เหตุผล (P'Aim 9 ก.ค.):** ถ้าซ่อน transparency แล้วต้องปักกลับมาบนแถบเพื่อตั้งค่า แล้วเอาออก = ไม่สมเหตุสมผล (setting ที่ใช้นานๆ ที)
+- **โมเดลใหม่:** แยก **แถบ = ปุ่มลัดที่ปัก** ออกจาก **แผงตั้งค่า(⚙) = บ้านของทุก setting ปรับได้แม้ไม่ปักบนแถบ** · transparency อยู่ในแผงตั้งค่า ปรับได้ตลอด
+- **→ ไป B043 SA ออกแบบ** (เป็น dock-core concept · dev ทำทีหลัง) · **dock-core รอบนี้ข้าม B · ทำแค่ A + C**
 
 ## C. (SongViewer config) เรียง default dock ฝึกร้องใหม่
 - img `realuse-assets/sing-dock-reorder.png` · order P'Aim (ซ้าย→ขวา): **play › repeat › key › speed › font › layer › print › setting**

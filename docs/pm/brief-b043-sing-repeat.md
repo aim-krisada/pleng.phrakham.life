@@ -27,6 +27,11 @@
    - P'Aim: **"ควรออกแบบใหม่หมด เป็น Music control ด้านล่าง ใช้ sticky mobile dock key"** → ย้าย control ทั้งหมดจากการ์ดบน → **แถบ dock ล่าง (sticky)** = ตัวเดียวกับ dock-core library · transport bar (progress+marker+play/pause) + display/chord/key/tempo อยู่ใน dock ล่างนี้ทั้งหมด
    - **ย้าย download เข้า dock ด้วย** (note 2 · คืนที่แถบบน)
    - = B043 ไม่ใช่แค่ "เพิ่ม tag/repeat" แต่ **ยกเครื่อง control ฝึกร้องทั้งหน้า** ให้เป็น music-player ใน bottom dock · **config ลง dock-core library** (ดู brief-dock-core §เป้าหมายสถาปัตยกรรม)
+6c. **⭐ โมเดล "แผงตั้งค่า" — แถบ ≠ ที่ตั้งค่า (P'Aim 9 ก.ค. · core dock concept):**
+   - **ปัญหา:** setting ที่ใช้นานๆ ที (เช่น transparency) ถ้าซ่อนจากแถบแล้วต้องปักกลับมาเพื่อตั้ง แล้วเอาออก = ไม่สมเหตุสมผล
+   - **โมเดล 2 ชั้น:** (1) **แถบ dock** = ปุ่มลัดที่ปักไว้ (customize เลือก · ของใช้บ่อย) · (2) **แผงตั้งค่า ⚙** = บ้านของ **ทุก control/setting** ปรับได้ตรงนั้น **แม้ไม่ได้ปักบนแถบ** (เช่น slider transparency อยู่ในแผง ปรับได้ตลอด)
+   - เป็น **core dock concept** (ใช้ทุกโหมด) · SA ออกแบบ (แผงมีอะไรบ้าง · ปรับ inline ยังไง · ปัก/ถอนจากแผง) → dock-core (StudioDock) implement · B043 music dock ใช้โมเดลนี้
+   - แทน request B เดิมของ dock-polish (ยกเลิกแล้ว)
 6b. **⭐ Selection model = Gmail-style (P'Aim 9 ก.ค. · แทน "โหมดเลือกวน toggle" เดิม DS §3):**
    - marker ท่อน = **selectable เสมอ** · click = select/unselect (ไม่ต้องเข้าโหมดพิเศษ) · มี **select-all / unselect-all** (checkbox dropdown All/None แบบ Gmail · img `realuse-assets/gmail-select-all-none.png`)
    - **ไม่เลือกอะไร = play all ปกติ** (default)
