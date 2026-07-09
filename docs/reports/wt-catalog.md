@@ -1,7 +1,7 @@
 # report — catalog + review UI (B053 + B054) · `wt-catalog`
 
 **branch:** `wt-catalog` (ฐาน `studio-shell-redesign` @ `3d6f607`) · **port:** 5370 (`--host`)
-**LAN:** `http://<PC-ip>:5370/` (P'Aim/พี่เปา ทดสอบบนมือถือ)
+**LAN:** `http://192.168.1.124:5370/` (P'Aim/พี่เปา ทดสอบบนมือถือ)
 **ไฟล์ที่แตะ:** `src/views/SongList.vue` · `src/components/EditorMode.vue` เท่านั้น
 **ไม่แตะ:** `songSearch.js` (สาย B058) · `store.js`/`supabase.js` (ไม่ต้องแก้)
 
