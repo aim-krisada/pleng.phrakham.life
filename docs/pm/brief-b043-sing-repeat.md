@@ -27,7 +27,13 @@
    - P'Aim: **"ควรออกแบบใหม่หมด เป็น Music control ด้านล่าง ใช้ sticky mobile dock key"** → ย้าย control ทั้งหมดจากการ์ดบน → **แถบ dock ล่าง (sticky)** = ตัวเดียวกับ dock-core library · transport bar (progress+marker+play/pause) + display/chord/key/tempo อยู่ใน dock ล่างนี้ทั้งหมด
    - **ย้าย download เข้า dock ด้วย** (note 2 · คืนที่แถบบน)
    - = B043 ไม่ใช่แค่ "เพิ่ม tag/repeat" แต่ **ยกเครื่อง control ฝึกร้องทั้งหน้า** ให้เป็น music-player ใน bottom dock · **config ลง dock-core library** (ดู brief-dock-core §เป้าหมายสถาปัตยกรรม)
-6. **transport = core reusable component (P'Aim 9 ก.ค. · หลังดู wireframe):**
+6b. **⭐ Selection model = Gmail-style (P'Aim 9 ก.ค. · แทน "โหมดเลือกวน toggle" เดิม DS §3):**
+   - marker ท่อน = **selectable เสมอ** · click = select/unselect (ไม่ต้องเข้าโหมดพิเศษ) · มี **select-all / unselect-all** (checkbox dropdown All/None แบบ Gmail · img `realuse-assets/gmail-select-all-none.png`)
+   - **ไม่เลือกอะไร = play all ปกติ** (default)
+   - **music control ทำงานกับ "ที่เลือก":** ▶ เล่น · ⏸ หยุด · 🔁 loop · ⏮/⏭ = เดินตาม selection (ถ้าไม่เลือก = ทั้งเพลง)
+   - **ตอบ "ฝึกท่อนเดียว/รับ" ในตัว:** select ท่อนนั้น → ▶ (+🔁 ถ้าอยากวน) = ซ้อมเฉพาะท่อนนั้น (ไม่ต้อง long-press/shortcut แยก)
+   - speed/chord/display = ยัง **global** (ไม่ใช่ per-section) · อยู่ใน music dock เหมือนกัน · SA ระบุ ⏮/⏭ เดินใน selection หรือทุกท่อน (decision H เกี่ยวข้อง)
+7. **transport = core reusable component (P'Aim 9 ก.ค. · หลังดู wireframe):**
    - P'Aim: "อยากทำเป็น core เพราะอาจต้องใช้ที่อื่นด้วย" → transport bar (progress+marker+play/pause/prev/next) **ไม่ใช่ widget เฉพาะหน้าฝึกร้อง** แต่เป็น **component core reusable** ที่หน้าอื่น reuse ได้ · build เป็น custom control เสียบเข้า dock-core library ผ่าน D8 config API (`tool type:'custom'`) — นี่คือ "รวมกับ dock key ยังไง" (2.3): transport อยู่**ใน** dock เอง เป็น control ชนิด custom
    - **ปุ่ม play/pause ไม่มี background** ให้ดูเหมือน ⏮/⏭ (icon-only เสมอกัน · เลิกปุ่มเติมสีน้ำตาลแบบเดิม)
 7. **layout convention ของแถบควบคุม (P'Aim 9 ก.ค.):**
