@@ -1,4 +1,4 @@
-import { syllableSlots, attackSlots, noteBoxKinds } from './notation.js'
+import { syllableSlots, attackSlots, noteBoxKinds, parseNotes, beatCount, expectedBeats } from './notation.js'
 
 export function isV2(content) {
   return !!(content && Array.isArray(content.stanzas))
@@ -80,15 +80,44 @@ export function migrateToV2(content) {
 // notes, prefixed by a {type:'section'} label — so the existing SongSheet render,
 // section chips, follow-along and play-by-section all work with no changes.
 // Syllables map 1:1 to the syllable-bearing notes of the stanza, consumed in order.
+// Melody signature of a source stanza line, for the songbook's "print each melody once"
+// (B059-refine). It is the note tokens split into bars (chords + segmentation ignored, so a
+// phrase notated with a different chord-split still matches), with a LEADING PICKUP BAR
+// dropped — an anacrusis (a first bar shorter than a full measure) is how the same refrain
+// phrase enters differently on its first vs later rounds, so we normalise it away before
+// comparing. `expBeats` = expectedBeats(timeSignature); null skips pickup normalisation.
+export function melodyLineSignature(line, expBeats) {
+  const bars = []
+  let cur = []
+  for (const item of line || []) {
+    if (item.type === 'segment') cur.push(...String(item.note || '').split(/\s+/).filter(Boolean))
+    else if (item.type === 'bar') { bars.push(cur); cur = [] }
+  }
+  bars.push(cur)
+  let groups = bars.filter((b) => b.length)
+  // drop a single leading pickup bar (shorter than a full measure) so "0 1 | 1 1 1 1 1 2 …"
+  // matches the same phrase entered on the downbeat as "1 1 1 1 1 2 | …"
+  if (groups.length > 1 && expBeats) {
+    const firstBeats = beatCount(parseNotes(groups[0].join(' ')))
+    if (firstBeats > 0 && firstBeats < expBeats - 1e-6) groups = groups.slice(1)
+  }
+  return groups.map((b) => b.join(' ')).join(' | ')
+}
+
 export function resolveContent(content) {
   if (!content || !Array.isArray(content.stanzas)) return content?.lines || []
   const byId = {}
   for (const s of content.stanzas) byId[s.id] = s
   const out = []
-  // Track which stanza (melody) has already been printed once. The songbook sheet (B059)
-  // prints the melody only on a stanza's FIRST occurrence; later verses that reuse the same
-  // stanza render as lyrics only. Tagging here — the one place that knows stanza identity —
-  // keeps the flag in sync with the expanded lines. The sing view ignores it (notes every verse).
+  const expBeats = expectedBeats(content.timeSignature)
+  // The songbook prints each melody line's notes ONCE; a later line renders as lyrics only
+  // (stacked in place) when it repeats a melody. Two rules, both tagged here where the melody
+  // is expanded (the sing view ignores the flag → notes on every line):
+  //   (a) stanza reuse — a whole stanza sung again (verse 2, 3, a repeated refrain).
+  //   (b) adjacent repeat — the SAME melody line twice in a row within one rendition (a
+  //       refrain phrase sung with several lyric couplets). ADJACENT only, so an AABA verse
+  //       whose 1st and 3rd lines share a tune (not adjacent) is never collapsed → its words
+  //       stay in reading order.
   const seenStanza = new Set()
   for (const entry of content.arrangement || []) {
     const stanza = byId[entry.stanza]
@@ -97,9 +126,11 @@ export function resolveContent(content) {
     seenStanza.add(entry.stanza)
     const syls = entry.syllables || []
     let si = 0
+    let prevSig = null // previous line's melody signature, within this entry only
     ;(stanza.lines || []).forEach((line, li) => {
       const outLine = []
       if (li === 0 && entry.label) outLine.push({ type: 'section', name: entry.label })
+      const sig = melodyLineSignature(line, expBeats)
       for (const item of line) {
         if (item.type === 'segment') {
           const n = syllableSlots(item.note || '')
@@ -114,10 +145,13 @@ export function resolveContent(content) {
           outLine.push({ ...item })
         }
       }
-      // Line-level metadata for the songbook sheet — carried as non-index array props so
-      // every existing consumer (v1 render, midi, print) still iterates the items untouched.
+      // Show this line's melody unless the stanza is a reuse (a) or it repeats the line just
+      // above it (b). Line-level metadata carried as non-index array props so every existing
+      // consumer (v1 render, midi, print) still iterates the items untouched.
+      const melodyFirst = stanzaFirst && sig !== prevSig
+      prevSig = sig
       outLine._stanza = entry.stanza
-      outLine._stanzaFirst = stanzaFirst
+      outLine._melodyFirst = melodyFirst
       out.push(outLine)
     })
   }
