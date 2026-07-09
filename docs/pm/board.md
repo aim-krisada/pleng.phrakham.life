@@ -22,7 +22,7 @@
 **บทเรียน routing:** ให้ทุกคนส่งงานมาที่ PM สายเดียว · PM กระจายถูกสายเอง (P'Aim เคยส่ง edit-review ผิดเข้า B043 · PM ดักได้)
 
 **🟢 In-flight (จ่ายแล้ว · 9 ก.ค. เย็น-ค่ำ):**
-- **DA** — GATE 3 (import 120 รอ P'Aim run · SQL `99b8438` verified) + งานวิเคราะห์วงเล็บชื่อเพลง (theme/cross-ref → proposal)
+- **DA** — ✅ classification เสร็จ (`da-classification.md` · 8 ธีม · book codes ล/ย=G/สอ=SY... · scripture) · **P'Aim เคาะ 1/2/3 = regen import ใส่ field-split** (title สะอาด + theme + book_refs jsonb + scripture · book=code ชื่อจริงทีหลัง) → **GATE 3 final · P'Aim HOLD ยังไม่ run จน DA regen เสร็จ** (99b8438 ยกเลิก) · ข้อ 4 ชื่อเล่มจริง P'Aim กำลังถาม (ล=เล่มเล็ก·ย=เยอรมัน)
 - **mobile pass** — Android (`prompt-android-mobile.md`) · PM ย้ายไป Android เมื่อ P'Aim เปิดสาย · triage-first · tablet-primary
 - **3 สาย algorithm ขนาน (chip หย่อนแล้ว):** B027 จุดคู่ `task_3ff85c07` (wt-b027 · 5350) · B026 lint R4-R7 `task_4447ef73` (wt-b026) · B052 search-เนื้อ `task_b45edb7f` (wt-b052) · **กันชน:** คนละไฟล์ (notation/lint/search) · Guide.vue=B027 เจ้าเดียว · **merge order: B027 ก่อน B026** (lint อ่าน beatCount) · B052 อิสระ merge ได้เลย
 
