@@ -12,6 +12,11 @@ import sys, os, re, glob, json, collections
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from parse_song import build_song, to_sql, schema_sql
 
+# Songs with stacked lyrics (2+ rounds per printed melody line) = repeat/volta songs.
+# 99 & 100 are hand-built with correct volta; the rest import their base structure with a
+# flag to set the repeat in the app (don't auto-parse the mangled repeat symbols).
+REPEAT_SONGS = {2, 20, 25, 36, 40, 53, 61, 66, 69, 72, 73, 74, 80, 85, 88, 99, 100, 117}
+
 def classify(doc):
     """Bucket a song's warnings into risk flags for the summary table."""
     ws = doc['_warnings']
@@ -61,16 +66,26 @@ def main():
     risk = []
     errors = []
     for n in numbers:
-        try:
-            doc = build_song(pdfs[n], docxs[n])
-        except Exception as e:
-            errors.append((n, repr(e)))
-            print(f'  #{n} ERROR {e!r}')
-            continue
+        # 99 & 100 are repeat + 1st/2nd-ending (volta) songs hand-built (spelled-out play
+        # order) — the parser can't derive their repeat from the mangled DOCX text, so use
+        # the vetted samples. See tools/build_repeat_songs.py.
+        prebuilt = f'tools/samples/{n:03d}.json'
+        if n in (99, 100) and os.path.exists(prebuilt):
+            doc = json.load(open(prebuilt, encoding='utf-8'))
+        else:
+            try:
+                doc = build_song(pdfs[n], docxs[n])
+            except Exception as e:
+                errors.append((n, repr(e)))
+                print(f'  #{n} ERROR {e!r}')
+                continue
+        if n in REPEAT_SONGS and n not in (99, 100):
+            doc['_warnings'].insert(0, 'เพลงมีเล่นซ้ำ/จบ 2 แบบ (volta) — โครงพื้นฐานเท่านั้น · ตั้ง repeat ในแอปเอง (auto-parse สัญลักษณ์ไม่ได้)')
         json.dump(doc, open(os.path.join(outdir, 'json', f'{n:03d}.json'), 'w', encoding='utf-8'),
                   ensure_ascii=False, indent=2)
         sql_parts.append(to_sql(doc) + '\n')
         flags, heavy = classify(doc)
+        flags['needs_repeat'] = 1 if (n in REPEAT_SONGS and n not in (99, 100)) else 0
         risk.append({'number': n, 'title': doc['title_th'], 'key': doc['content']['key'],
                      'ts': doc['content']['timeSignature'],
                      'stanzas': len(doc['content']['stanzas']),

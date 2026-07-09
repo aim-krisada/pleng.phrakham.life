@@ -1,7 +1,7 @@
 # DA import — 120 เพลงชุดใหม่ (v2 · upsert · ทับของเก่า)
 
 **สาย:** DA · branch `da-import` (ฐาน `studio-shell-redesign`) · **ไม่แตะโค้ด UI**
-**สถานะ:** ✅ Step 1 (GATE 1) · ✅ Step 2 (GATE 2 ผ่าน · pilot 5 เพลงเข้าฐาน) · ✅ Step 3 (แปลงครบ 120) — **🚦 GATE 3: รอ P'Aim run `import-all-120.sql` (เขียน DB จริง = เว็บ live)**
+**สถานะ:** ✅ Step 1 (GATE 1) · ✅ Step 2 (GATE 2 ผ่าน · pilot 5 เพลงเข้าฐาน) · ✅ Step 3 (แปลงครบ 120) — **✅ gen 120 final (engine แก้แล้ว + 99/100 volta + lint) — รอ P.Aim run import-all-120.sql · พี่เปา review 41 เพลงติดธง
 
 > §1–§5 = Step 1 (วิเคราะห์ source) · §6–§9 = Step 2 (parser+pilot+backup) · **§10–§13 = Step 3 (120 + risk table + วิธี run)** ← ล่าสุด
 
@@ -293,3 +293,28 @@ arrangement: ร้อง 1→A · รับ→B · ร้อง 2→A · ร้
 3. (ไม่แนะ) blanket auto-expand — เสี่ยงผิดเยอะ
 
 **99 ลองแล้ว:** สัญลักษณ์มั่ว (`::` กระจาย) → auto กางไม่ได้เชื่อถือ · = ต้อง hand-build/manual เหมือน 100
+
+---
+
+# Step 3.6 — gen ครบ 120 (final · engine ที่แก้แล้ว + 99/100 volta + lint) 🚦 GATE final
+
+**P'Aim เคาะเดินหน้า 120** → `tools/import-all-120.sql` (final · แทนตัวเก่า) · 120/120 · error 0 · field-split ครบ (title สะอาด/theme/book_refs/scripture/category=anuchon/verified=false/key (category,number))
+
+## สรุปคุณภาพ (79 auto-ok · 41 ติดธง — ธงบอกพี่เปาว่าดูอะไรก่อน)
+| กลุ่ม | จำนวน | ทำไง | เพลง |
+|---|---|---|---|
+| ✅ **auto ok** (ไม่ติดธงหนัก) | **79** | ใช้ได้ · เกลาเอื้อนเล็กน้อย | — |
+| 🔁 **ต้องตั้ง repeat ในแอป** (เล่นซ้ำ/จบ2แบบ) | **16** | โครงพื้นฐาน+verified=false · ตั้ง repeat ในแอป (ไม่ auto-parse สัญลักษณ์มั่ว) | 2,20,25,36,40,53,61,66,69,72,73,74,80,85,88,117 |
+| ✅ **99/100** (มีซ้ำ) | 2 | **hand-build volta ถูกแล้ว** | 99,100 |
+| 🔴 **lint แดง** (notationLint: อ่านโน้ตไม่ออก) | **6** | ตรวจโน้ต | 49,64,73,92,109,111 |
+| ⚠️ **systems≠เนื้อ** (คำอาจลงผิดบรรทัด) | **28** | ตรวจคำ | 2,5,7,8,20,26,48,49,51,52,56,74,75,76,81,82,83,85,89,90,101,102,103,107,109,111,117,119 |
+
+- **notationLint (B057)** รันตอน gen (R1-R7 · จับจังหวะไม่ครบ/สัญลักษณ์ผิดแบบเพลง 100) → 6 เพลง lint แดง (unreadable token) ใส่ธงไว้
+- เอื้อน (พยางค์<โน้ต) = แทบทุกเพลง · render ได้ · เกลา slur ใน Studio (ไม่นับเป็นบล็อก)
+- รวมต้องตรวจมือ (union ธง) = **41 เพลง** · อีก 79 auto ok
+
+## วิธี run (final)
+1. ยืนยัน project **vlpuvaofbzdawgjjpgfu** · run `tools/backup-songs.sql`
+2. run **`tools/import-all-120.sql`** ครั้งเดียว (schema prep + 120 upsert · REVIEW ต่อเพลง · 16 เพลงมีธง "ตั้ง repeat ในแอป")
+3. พี่เปา review — เริ่มจาก 41 เพลงติดธง (repeat/lint/drift) · 79 ที่เหลือ auto ok
+- ต่อยอด (ถ้าเอา): auto-detect repeat+volta จาก **geometry ภาพ** (~18 เพลง · แทน hand-build/manual)
