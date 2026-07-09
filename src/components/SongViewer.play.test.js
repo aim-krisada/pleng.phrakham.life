@@ -360,3 +360,37 @@ describe('SongViewer song-identity re-sync (DS-A04)', () => {
     expect(w.find('.mp-pins [data-setting="key"] .mp-pbadge').text()).toBe('A') // reset to the new song's key
   })
 })
+
+// B064: editing the SAME song's stored bpm/key (แก้ไข → publish) must reach ฝึกร้อง.
+// The stored tempo/key lived in local refs that only re-synced on a song-identity change,
+// so an edited speed/key never showed. Re-sync when the stored value itself changes.
+describe('SongViewer edit-then-sing re-sync (B064)', () => {
+  const bpmSong = { number: 1, title_th: 'x', content: { ...song.content, bpm: 80 } }
+
+  it('editing the same song bpm → ฝึกร้อง plays at the new speed', async () => {
+    const w = mountViewer(bpmSong)
+    await nextTick()
+    await playBtn(w).trigger('click')
+    expect(lastOpts().bpm).toBe(80) // original stored speed
+    await playBtn(w).trigger('click') // pause
+    await w.setProps({ song: { ...bpmSong, content: { ...bpmSong.content, bpm: 140 } } })
+    await playBtn(w).trigger('click')
+    expect(lastOpts().bpm).toBe(140) // the edited speed reaches the reader
+  })
+
+  it('a lyric-only edit (bpm unchanged) keeps the listener’s chosen tempo (DS-A04)', async () => {
+    const w = mountViewer(bpmSong)
+    await nextTick()
+    await pickSelect(w, 'tempo', '120') // listener picks a tempo
+    await w.setProps({ song: { ...bpmSong, content: { ...bpmSong.content, key: bpmSong.content.key } } })
+    await playBtn(w).trigger('click')
+    expect(lastOpts().bpm).toBe(120) // unchanged bpm → chosen tempo survives the edit
+  })
+
+  it('editing the same song key → ฝึกร้อง shows the new key', async () => {
+    const w = mountViewer()
+    await nextTick()
+    await w.setProps({ song: { ...song, content: { ...song.content, key: 'G' } } }) // E → G edit
+    expect(w.find('.mp-pins [data-setting="key"] .mp-pbadge').text()).toBe('G')
+  })
+})
