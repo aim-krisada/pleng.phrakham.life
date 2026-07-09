@@ -170,6 +170,19 @@ describe('edhead — prototype-aligned edit header', () => {
     expect(heads[0].text()).toContain('ท่อนขึ้น')
   })
 
+  it('B049/E4: ลำดับเพลง keeps arrangement rows but drops the per-row lyric textarea', async () => {
+    const w = mountEd()
+    await nextTick()
+    // arrangement rows stay (stanza select + reorder ▲▼ + ✎ select + ✕) so multi-verse
+    // songs are still buildable — E4 only removes the redundant lyric entry, not the section
+    expect(w.findAll('.arr-row').length).toBe(2)
+    // ...but NO per-row lyric textarea inside a row anymore
+    expect(w.findAll('.arr-row textarea').length).toBe(0)
+    // lyric entry still available via the collapsible "แก้เนื้อแบบย่อหน้า (ข้อที่เลือก)" panel
+    const paraBtn = w.findAll('button').find((b) => b.text().includes('แก้เนื้อแบบย่อหน้า'))
+    expect(paraBtn).toBeTruthy()
+  })
+
   it('B032: each verse row offers a delete, and it removes the ข้อ', async () => {
     const w = mountEd()
     await nextTick()

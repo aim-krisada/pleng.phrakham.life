@@ -1502,7 +1502,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       <strong>⚠️ แปลงจากรูปแบบเดิม (v1) — ตรวจ {{ migrateWarnings.length }} จุดที่พยางค์ไม่พอดีโน้ต</strong>
       <ul class="muted" style="margin: 6px 0 0 18px">
         <li v-for="(w, i) in migrateWarnings" :key="i">
-          โน้ต "{{ w.note }}" ต้องการ {{ w.slots }} พยางค์ แต่เนื้อ "{{ w.lyric }}" มี {{ w.got }} — แก้ในลำดับเพลงด้านล่าง
+          โน้ต "{{ w.note }}" ต้องการ {{ w.slots }} พยางค์ แต่เนื้อ "{{ w.lyric }}" มี {{ w.got }} — แก้ในกล่องใต้โน้ต หรือแผง “📝 แก้เนื้อแบบย่อหน้า”
         </li>
       </ul>
     </div>
@@ -1556,7 +1556,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
     <p v-if="showTip" class="muted no-print ed-tip">
       พิมพ์โน้ตในช่อง — <b>1 ช่อง = 1 โน้ต</b> · กด <b>Enter</b>/<b>เว้นวรรค</b> ขึ้นช่องถัดไป · <b>← →</b> เลื่อนช่อง ·
       จุด/ขีด/เครื่องหมายอื่นแตะช่องแล้วจิ้มปุ่มแถบล่าง · แต่ละห้องกด “ดูผล” เห็นแบบแผ่นเพลง ·
-      เนื้อร้องพิมพ์ที่ “ลำดับเพลง” ด้านล่าง หรือใต้โน้ต (เลือกข้อจากแถบซ้าย)
+      เนื้อร้องพิมพ์ในกล่องใต้โน้ต หรือแผง “📝 แก้เนื้อแบบย่อหน้า” (เลือกข้อจากแถบซ้าย)
       <router-link class="pk-info" style="margin-left: 6px" :to="{ path: '/guide', hash: '#notation' }" aria-label="คู่มือโน้ตตัวเลข">เปิดคู่มือ →</router-link>
     </p>
     <p v-if="lensActive" class="muted no-print" style="margin: 0 0 8px">
@@ -1754,11 +1754,10 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
     </div>
 
     <!-- ===== arrangement: play order + words per verse ===== -->
-    <h3 id="pk-arrange" class="section-title" style="margin-top: 22px">📜 ลำดับเพลง — เลือกท่อนมาเรียง แล้วพิมพ์เนื้อร้องแต่ละข้อ</h3>
+    <h3 id="pk-arrange" class="section-title" style="margin-top: 22px">📜 ลำดับเพลง — เลือกท่อนทำนองมาเรียงเป็นข้อ</h3>
     <p class="muted no-print" style="margin: 0 0 10px">
-      พิมพ์เนื้อร้องลงกล่อง: <b>เว้นวรรค = ขึ้นคำใหม่</b> (ตรงกับโน้ต 1 ตัว) ·
-      อยากให้ 2 พยางค์อยู่คำเดียวกันใส่ขีด <b>"-"</b> คั่น เช่น ส-ถิตย์ ·
-      โน้ตที่ลากเสียงยาว (เอื้อน) ไม่ต้องมีคำ · จะพิมพ์ทีละคำใต้โน้ตด้านบนก็ได้
+      แต่ละข้อ = เลือก<b>ท่อนทำนอง</b>ที่ใช้ · ตั้งชื่อ/คีย์ · จัดลำดับด้วย ▲▼ ·
+      <b>เนื้อร้องพิมพ์ในกล่องใต้โน้ต</b> หรือแผง <b>“📝 แก้เนื้อแบบย่อหน้า”</b> ด้านบน (กด ✎ เพื่อเลือกข้อ)
     </p>
     <div class="card">
       <div v-for="(row, ri) in arrangement" :key="ri" :id="'arr-row-' + ri" class="arr-row">
@@ -1778,17 +1777,13 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
           <span class="arr-tools">
             <button class="secondary tiny" aria-label="ย้ายขึ้น" :disabled="ri === 0" @click="moveRow(ri, -1)">▲</button>
             <button class="secondary tiny" aria-label="ย้ายลง" :disabled="ri === arrangement.length - 1" @click="moveRow(ri, 1)">▼</button>
+            <button class="secondary tiny" aria-label="เลือกข้อนี้เพื่อพิมพ์เนื้อ" @click="lensChoice = ri">✎</button>
             <button class="secondary tiny" aria-label="ลบข้อนี้" @click="removeRow(ri)">✕</button>
           </span>
         </div>
-        <textarea
-          :value="rowLyricText(row)"
-          rows="2"
-          class="arr-lyric"
-          placeholder="เนื้อร้องของข้อนี้ — 1 พยางค์ต่อ 1 โน้ต"
-          aria-label="เนื้อร้อง"
-          @input="setRowLyricText(row, $event.target.value)"
-        ></textarea>
+        <!-- E4/B049: the per-row lyric textarea is CUT — words are typed under the notes
+             (per-syllable) or in the "📝 แก้เนื้อแบบย่อหน้า" panel above (both edit the
+             selected ข้อ). This row now only arranges the verse: ท่อน · ชื่อ · คีย์ · ลำดับ. -->
       </div>
       <button class="secondary" @click="addRow">+ เพิ่มข้อ</button>
     </div>
