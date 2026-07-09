@@ -83,6 +83,37 @@
           [
             {
               "type": "segment",
+              "chord": "F",
+              "note": "3 3 3 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": "1 2 1 .6"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": ".5 .6 .5 .3"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F/A",
+              "note": ".5 - - -"
+            }
+          ],
+          [
+            {
+              "type": "segment",
               "chord": "Bb",
               "note": "2 .6 .7 1 .6"
             },
@@ -146,12 +177,7 @@
               "chord": "F",
               "note": "3 5 6 5"
             }
-          ]
-        ]
-      },
-      {
-        "id": "C",
-        "lines": [
+          ],
           [
             {
               "type": "segment",
@@ -181,6 +207,37 @@
               "type": "segment",
               "chord": "C",
               "note": "2 - - -"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3 5 - 6"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F/A",
+              "note": "3. 2_ 1 -"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": ".6 1 2 1"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3 5 6 5"
             }
           ],
           [
@@ -244,6 +301,23 @@
           "",
           "",
           "ไป",
+          "พี่",
+          "น้อง",
+          "ที่",
+          "รัก",
+          "ฟัง",
+          "พระ",
+          "องค์",
+          "ตรัส",
+          "“",
+          "เรา",
+          "เป็น",
+          "ทิพย์",
+          "",
+          "",
+          "",
+          "อา",
+          "หาร",
           "วัน",
           "นี้",
           "ผู้",
@@ -256,7 +330,6 @@
           "แข็ง",
           "ใน",
           "วิญ",
-          "ญาณ",
           "",
           "",
           ""
@@ -281,34 +354,44 @@
           "หลาย",
           "รัก",
           "ชี",
-          "วิต"
-        ]
-      },
-      {
-        "stanza": "C",
-        "label": "รับ",
-        "syllables": [
+          "วิต",
+          "คริส",
+          "ต",
+          "",
+          "จักร",
           "รับ",
           "สุข",
-          "",
           "พระ",
+          "",
           "คำ",
           "เป็น",
+          "",
           "อยู่",
-          "",
           "ชี",
-          "วิ",
           "",
+          "",
+          "",
+          "วิ",
           "ต",
+          "",
           "น่า",
-          "",
-          "",
-          "",
           "รัก",
-          "ชี",
+          "เรา",
+          "รัก",
           "",
-          "วิ",
-          "ต",
+          "พี่",
+          "น้อง",
+          "ถ้วน",
+          "หน้า",
+          "พระ",
+          "องค์",
+          "อา",
+          "เมน",
+          "ฮา",
+          "ลี",
+          "",
+          "ลู",
+          "ยา",
           "",
           "",
           ""
@@ -363,7 +446,23 @@
           "ญาณ",
           "ตรัส",
           "ไว้",
+          "",
+          "",
+          "",
           "“",
+          "มี",
+          "ที่",
+          "นี่",
+          "แห่ง",
+          "เดียว",
+          "ไม่",
+          "ต้อง",
+          "เที่ยว",
+          "เสาะ",
+          "หา",
+          "สุข",
+          "ที่",
+          "ใด",
           "",
           "",
           ""
@@ -372,11 +471,9 @@
     ]
   },
   "_warnings": [
-    "system 2: repeat/volta markers [(461.45, ':')] — NEEDS manual repeat/volta",
-    "system 5: repeat/volta markers [(454.61, ':')] — NEEDS manual repeat/volta",
-    "system ร้อง1: 41 syllables vs 40 attack notes",
-    "system รับ: 17 syllables vs 14 attack notes",
-    "system รับ: 18 syllables vs 14 attack notes",
-    "system ร้อง2: 54 syllables vs 40 attack notes"
+    "system verse: 55 syllables vs 53 attack notes",
+    "system refrain: 49 syllables vs 42 attack notes",
+    "system ร้อง2: 54 syllables vs 53 attack notes",
+    "repeat + 1st/2nd ending (volta) spelled out to linear play order — verify"
   ]
 }

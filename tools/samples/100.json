@@ -95,6 +95,45 @@
           [
             {
               "type": "segment",
+              "chord": "",
+              "note": "3_ 3_. 3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "G",
+              "note": "3 .5 - .6"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "G",
+              "note": "1 1 3 -"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "D",
+              "note": "0 3 3. #2_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Em",
+              "note": "3 2 1 -"
+            }
+          ],
+          [
+            {
+              "type": "segment",
               "chord": "Am",
               "note": "2 2 - 4"
             },
@@ -210,6 +249,45 @@
             {
               "type": "segment",
               "chord": "",
+              "note": "1 2 3"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "4 4 4 4"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Cm",
+              "note": "4 - 1 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "G",
+              "note": "3 3 3 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Em",
+              "note": "1 -"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
               "note": "1 3"
             },
             {
@@ -288,6 +366,25 @@
           "ต",
           "นำ",
           "พา",
+          "ขอ",
+          "สรร",
+          "เสริญ",
+          "พระ",
+          "",
+          "เจ้า",
+          "โดย",
+          "ไม่",
+          "หยุด",
+          "",
+          "",
+          "ยั้ง",
+          "เพราะ",
+          "ทรง",
+          "เป็น",
+          "อยู่",
+          "ภาย",
+          "",
+          "ใน",
           "ไม่",
           "",
           "พราก",
@@ -337,8 +434,24 @@
           "",
           "",
           "",
+          "เพียง",
+          "เปิด",
+          "ปาก",
+          "ท่าน",
+          "จะ",
+          "ลิ้ม",
+          "รส",
+          "พลัน",
+          "พระ",
+          "",
+          "องค์",
+          "ทรง",
+          "อุ",
+          "ดม",
+          "อนันต์",
           "ทรง",
           "เตรียม",
+          "",
           "การ",
           "หล่อ",
           "เลี้ยง",
@@ -349,6 +462,7 @@
           "-ศ",
           "-จรรย์",
           ".",
+          "",
           "",
           "",
           "",
@@ -397,17 +511,36 @@
           "ไป",
           "อา",
           "ศัย",
-          "",
           "ต้น",
           "ไม้",
-          "",
           "แห่ง",
           "",
           "ชี",
+          "วิต",
+          "เลิศ",
+          "กว่า",
+          "",
+          "",
+          "ปรับ",
+          "ใช้",
+          "ได้",
+          "ทุก",
+          "เว",
+          "ลา",
+          "",
+          "เป็น",
+          "ทิพย์",
+          "",
+          "อา",
+          "หาร",
+          "",
+          "โอ",
+          "",
+          "ชา",
           "",
           "",
           "",
-          "วิต"
+          ""
         ]
       },
       {
@@ -450,30 +583,45 @@
           "ข้า",
           "ใน",
           "ข้า",
-          "",
           "มี",
           "ธาร",
-          "",
           "น้ำ",
           "",
           "ชี",
+          "วิต",
+          "ศักดิ์",
+          "สิทธิ์",
+          "",
+          "",
+          "ทรง",
+          "เป็น",
+          "น้ำ",
+          "พุ",
+          "ชี",
+          "วิต",
+          "",
+          "หลั่ง",
+          "ไหล",
+          "",
+          "สืบ",
+          "ไป",
+          "",
+          "เป็น",
+          "",
+          "นิตย์",
           "",
           "",
           "",
-          "วิต"
+          ""
         ]
       }
     ]
   },
   "_warnings": [
-    "system 2: no printed barlines — bars inferred by beat count (verify)",
-    "system 2: repeat/volta markers [(418.98, ':')] — NEEDS manual repeat/volta",
-    "system 3: no printed barlines — bars inferred by beat count (verify)",
-    "system 4: repeat/volta markers [(73.92, ':')] — NEEDS manual repeat/volta",
-    "system 5: repeat/volta markers [(417.48, ':')] — NEEDS manual repeat/volta",
-    "system ร้อง1: 35 syllables vs 34 attack notes",
-    "system รับ: 38 syllables vs 39 attack notes",
-    "system ร้อง2: 48 syllables vs 34 attack notes",
-    "system ร้อง3: 48 syllables vs 34 attack notes"
+    "system verse: 50 syllables vs 49 attack notes",
+    "system refrain: 52 syllables vs 54 attack notes",
+    "system ร้อง2: 48 syllables vs 49 attack notes",
+    "system ร้อง3: 48 syllables vs 49 attack notes",
+    "repeat + 1st/2nd ending (volta) spelled out to linear play order — verify"
   ]
 }
