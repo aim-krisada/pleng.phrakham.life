@@ -31,8 +31,11 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
            (B062). preserveAspectRatio=none stretches the curve to the group width while
            non-scaling-stroke keeps the line weight even — so it never breaks into pieces
            the way the old CSS pseudo-arc did once a group grew past a couple of notes. -->
-      <svg v-if="g.group === 'slur'" class="slur-arc" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M1,11 Q50,-4 99,11" />
+      <svg v-if="g.group === 'slur'" class="slur-arc" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+        <!-- engraved slur: a FILLED lens (two Béziers) — tapered to fine points at the
+             ends, thickest at the apex — the way a slur is drawn in real notation, not a
+             uniform-width line. Endpoints sit low near the digits; apex arcs above. -->
+        <path d="M5,33 C26,3 74,3 95,33 C74,17 26,17 5,33 Z" />
       </svg>
       <span
         v-for="(t, ti) in g.tokens"
@@ -42,11 +45,14 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
         <!-- tie across a bar (B062): each side draws a smooth SVG half-arc that rises to
              the segment edge, so the two halves in adjacent segments meet over the bar
              line into one curve (replaces the old CSS border-radius hooks). -->
-        <svg v-if="t.tieStart" class="tie-arc tie-start-arc" viewBox="0 0 10 12" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M0,11 Q9,11 10,1" />
+        <svg v-if="t.tieStart" class="tie-arc tie-start-arc" viewBox="0 0 10 40" preserveAspectRatio="none" aria-hidden="true">
+          <!-- left half of an engraved tie: fine point at the held note, cut square at
+               the bar edge (full thickness) so it butts the next segment's end-half -->
+          <path d="M0,31 C3,9 7,5 10,5 L10,16 C7,18 3,26 0,31 Z" />
         </svg>
-        <svg v-if="t.tieEnd" class="tie-arc tie-end-arc" viewBox="0 0 10 12" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M0,1 Q1,11 10,11" />
+        <svg v-if="t.tieEnd" class="tie-arc tie-end-arc" viewBox="0 0 10 40" preserveAspectRatio="none" aria-hidden="true">
+          <!-- right half: full thickness at the bar edge, tapering to a point at the note -->
+          <path d="M10,31 C7,9 3,5 0,5 L0,16 C3,18 7,26 10,31 Z" />
         </svg>
         <template v-if="t.type === 'note'">
           <!-- octave dots stay centred on the DIGIT; more than one dot stacks
@@ -168,7 +174,9 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
   position: absolute;
   top: -0.15em;
   left: 8%;
-  right: 8%;
+  /* explicit width — an <svg> replaced element ignores left+right and falls back to its
+     viewBox-ratio intrinsic width, so the arc must be sized to span the group directly */
+  width: 84%;
   height: 0.5em;
   overflow: visible;
   pointer-events: none;
@@ -186,13 +194,12 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
 }
 .tie-start-arc { left: 60%; }
 .tie-end-arc { right: 60%; }
+/* engraved slur/tie = a filled tapered shape (thin ends, thick middle), so the curve
+   reads like real notation rather than a flat constant-width line */
 .slur-arc path,
 .tie-arc path {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5px;
-  vector-effect: non-scaling-stroke;
-  stroke-linecap: round;
+  fill: currentColor;
+  stroke: none;
 }
 /* triplet: bracket + "3" above the group */
 .g-triplet::before {

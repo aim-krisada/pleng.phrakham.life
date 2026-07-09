@@ -7,9 +7,11 @@
 ---
 
 ## ทำอะไร
-เปลี่ยนเส้นเอื้อน/ไท จาก **CSS pseudo-arc** (`.g-slur::before`, `.nt.tie-start::after`, `.nt.tie-end::before`) → เป็น **SVG path โค้งเรียบ**
-- **slur `( )`** = `<svg class="slur-arc" preserveAspectRatio="none">` 1 อันต่อ 1 กลุ่ม · `path` เดียวโค้งคลุมทั้งกลุ่ม · ยืดตามความกว้างกลุ่ม + `vector-effect:non-scaling-stroke` (เส้นหนาเท่าเดิมทุกความยาว) → **ไม่ขาดเป็นท่อนอีก ไม่ว่ากลุ่มยาวแค่ไหน**
-- **tie `~`** = SVG half-arc 2 ข้าง (`.tie-start-arc` ขึ้นไปทางขวา · `.tie-end-arc` ขึ้นมาจากซ้าย) แทน CSS hook เดิม
+เปลี่ยนเส้นเอื้อน/ไท จาก **CSS pseudo-arc** (`.g-slur::before`, `.nt.tie-start::after`, `.nt.tie-end::before`) → เป็น **SVG โค้งแบบ engraving จริง**
+- **อิงหลัก music engraving (ไม่ลอกภาพ Word ที่วาดไม่เป๊ะ):** โค้งเป็น **รูปทรงเติมสี (filled lens) ปลายเรียวแหลม หนาตรงกลาง** — 2 Bézier ประกบ (แทนเส้นขีดหนาเท่ากันแบบมือใหม่)
+- **slur `( )`** = `<svg class="slur-arc" preserveAspectRatio="none">` 1 อันต่อ 1 กลุ่ม · path เดียวคลุมทั้งกลุ่ม (กว้าง 84% ของกลุ่ม) → **ไม่ขาดเป็นท่อน ไม่ว่ายาวแค่ไหน**
+- **visual consistency:** ความหนา apex = คงที่ **~2.1px ทุกความยาว** (viewBox แกน Y สูง 40 map→0.5em ตายตัว · แกน X เท่านั้นที่ยืด) · tie ก็ ~2.2px → **slur กับ tie หนาเท่ากัน เป็นระบบเดียว** · slur ยาว = โค้งแบนลงตามธรรมชาติ (ถูกตามหลัก engraving)
+- **tie `~`** = SVG half-arc เติมสีเรียว 2 ข้าง (`.tie-start-arc`/`.tie-end-arc`) · ตัดตรงขอบห้อง (หนาเต็ม) ให้ 2 ครึ่งชนกัน
 
 ## หลักฐาน (offline · dev server + โน้ตจำลอง)
 ภาพ: `docs/reports/assets/b062-slur.png` (โหมดแผ่นเพลง จอ 900px)
