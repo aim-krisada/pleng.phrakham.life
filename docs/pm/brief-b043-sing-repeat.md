@@ -27,7 +27,10 @@
    - P'Aim: **"ควรออกแบบใหม่หมด เป็น Music control ด้านล่าง ใช้ sticky mobile dock key"** → ย้าย control ทั้งหมดจากการ์ดบน → **แถบ dock ล่าง (sticky)** = ตัวเดียวกับ dock-core library · transport bar (progress+marker+play/pause) + display/chord/key/tempo อยู่ใน dock ล่างนี้ทั้งหมด
    - **ย้าย download เข้า dock ด้วย** (note 2 · คืนที่แถบบน)
    - = B043 ไม่ใช่แค่ "เพิ่ม tag/repeat" แต่ **ยกเครื่อง control ฝึกร้องทั้งหน้า** ให้เป็น music-player ใน bottom dock · **config ลง dock-core library** (ดู brief-dock-core §เป้าหมายสถาปัตยกรรม)
-5. **layout convention ของแถบควบคุม (P'Aim 9 ก.ค.):**
+6. **transport = core reusable component (P'Aim 9 ก.ค. · หลังดู wireframe):**
+   - P'Aim: "อยากทำเป็น core เพราะอาจต้องใช้ที่อื่นด้วย" → transport bar (progress+marker+play/pause/prev/next) **ไม่ใช่ widget เฉพาะหน้าฝึกร้อง** แต่เป็น **component core reusable** ที่หน้าอื่น reuse ได้ · build เป็น custom control เสียบเข้า dock-core library ผ่าน D8 config API (`tool type:'custom'`) — นี่คือ "รวมกับ dock key ยังไง" (2.3): transport อยู่**ใน** dock เอง เป็น control ชนิด custom
+   - **ปุ่ม play/pause ไม่มี background** ให้ดูเหมือน ⏮/⏭ (icon-only เสมอกัน · เลิกปุ่มเติมสีน้ำตาลแบบเดิม)
+7. **layout convention ของแถบควบคุม (P'Aim 9 ก.ค.):**
    - **⋯ "ดูเพิ่ม" อยู่ขวาสุดของกลุ่มปุ่มเครื่องมือเสมอ** (ธรรมเนียม overflow) · ตอนนี้มีปุ่ม (blend/sliders/หุบ) อยู่ขวาของ ⋯ = ผิด → เรียง `[grip] [tools…] [⋯]` แล้วปุ่มระบบ dock (หุบ) แยกออก (ยิ่ง dock-core ทำปุ่มลอยรวม หุบจะออกจากแถบ ⋯ เป็นตัวท้ายพอดี)
    - **แถบ = แนวนอน** (ปุ่มคุมอ่านซ้าย→ขวา เหมือน music player) · **เมนูที่ ⋯ กางออก = แนวตั้ง + ไอคอน+ชื่อ** (ตอนนี้ไอคอนล้วนต้องเดา → overflow ควรมีชื่อกำกับ อ่านง่าย เพิ่มรายการได้เยอะ)
    - เป็น convention ของ **dock library กลาง** → ใช้ทุกโหมด (edit/sing/print) เหมือนกัน · SA เขียนเป็น spec, dock-core implement ตอนทำ library
