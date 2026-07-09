@@ -597,7 +597,11 @@ function runTool(t) {
   border: 1px solid var(--line);
   border-radius: 14px;
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.14);
-  backdrop-filter: blur(6px);
+  /* Blur tracks opacity (real-use r3): most transparent (alpha 0.40) → ~0px so the
+     song shows through crisp; most opaque (1.0) → the full 6px frost. max(0px, …)
+     guards float drift at the 0.40 floor. */
+  backdrop-filter: blur(max(0px, calc((var(--dock-alpha, 0.92) - 0.4) / 0.6 * 6px)));
+  -webkit-backdrop-filter: blur(max(0px, calc((var(--dock-alpha, 0.92) - 0.4) / 0.6 * 6px)));
   padding: 8px;
   /* 700px fits the full default ฝึกร้อง set (play·chord·tempo·key·แสดงผล·วนซ้ำ·ก−·ก+·พิมพ์)
      on desktop so the font buttons don't fall into ⋯ (real-use #5b). Mobile overrides to
