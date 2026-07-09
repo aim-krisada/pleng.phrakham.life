@@ -27,11 +27,27 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
       :key="gi"
       :class="['note-group', g.group ? 'g-' + g.group : '']"
     >
+      <!-- slur (เอื้อน) = ONE continuous SVG arc over the whole group, at any length
+           (B062). preserveAspectRatio=none stretches the curve to the group width while
+           non-scaling-stroke keeps the line weight even — so it never breaks into pieces
+           the way the old CSS pseudo-arc did once a group grew past a couple of notes. -->
+      <svg v-if="g.group === 'slur'" class="slur-arc" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M1,11 Q50,-4 99,11" />
+      </svg>
       <span
         v-for="(t, ti) in g.tokens"
         :key="ti"
         :class="['nt', t.type === 'note' && t.dots ? 'dotted' : '', t.type === 'note' && t.dots === 2 ? 'dbldot' : '', t.type === 'note' && t.accidental ? 'has-acc' : '', t.tieStart ? 'tie-start' : '', t.tieEnd ? 'tie-end' : '', t.idx === active ? 'nt-playing' : '']"
       >
+        <!-- tie across a bar (B062): each side draws a smooth SVG half-arc that rises to
+             the segment edge, so the two halves in adjacent segments meet over the bar
+             line into one curve (replaces the old CSS border-radius hooks). -->
+        <svg v-if="t.tieStart" class="tie-arc tie-start-arc" viewBox="0 0 10 12" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0,11 Q9,11 10,1" />
+        </svg>
+        <svg v-if="t.tieEnd" class="tie-arc tie-end-arc" viewBox="0 0 10 12" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0,1 Q1,11 10,11" />
+        </svg>
         <template v-if="t.type === 'note'">
           <!-- octave dots stay centred on the DIGIT; more than one dot stacks
                VERTICALLY (like the book) growing away from the digit. The
@@ -146,34 +162,37 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
   font-size: 0.55em;
   line-height: 1;
 }
-/* tie across a bar: half-arc opening right (start) / closing from left (end) */
-.nt.tie-start::after,
-.nt.tie-end::before {
-  content: '';
+/* slur (เอื้อน) — one SVG arc spanning the whole group, stretched to its width.
+   vector-effect keeps the stroke even no matter how wide the group gets. */
+.slur-arc {
   position: absolute;
-  top: 0.05em;
+  top: -0.15em;
+  left: 8%;
+  right: 8%;
+  height: 0.5em;
+  overflow: visible;
+  pointer-events: none;
+}
+/* tie across a bar — SVG half-arc rising to the segment edge. Overflows its 1em note
+   box toward the boundary so the start-half (right of the held note) and the end-half
+   (left of the next note) line up over the bar line. */
+.tie-arc {
+  position: absolute;
+  top: 0.02em;
   width: 1em;
   height: 0.5em;
-  border-top: 1.5px solid currentColor;
+  overflow: visible;
+  pointer-events: none;
 }
-.nt.tie-start::after {
-  left: 60%;
-  border-top-left-radius: 100% 200%;
-}
-.nt.tie-end::before {
-  right: 60%;
-  border-top-right-radius: 100% 200%;
-}
-/* slur/tie arc above the group */
-.g-slur::before {
-  content: '';
-  position: absolute;
-  top: -0.05em;
-  left: 12%;
-  right: 12%;
-  height: 0.45em;
-  border-top: 1.5px solid currentColor;
-  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+.tie-start-arc { left: 60%; }
+.tie-end-arc { right: 60%; }
+.slur-arc path,
+.tie-arc path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
 }
 /* triplet: bracket + "3" above the group */
 .g-triplet::before {
