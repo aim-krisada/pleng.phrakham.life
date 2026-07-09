@@ -175,6 +175,47 @@ export function stopPlayback() {
   liveOscs = []
 }
 
+// Group section occurrences by label → the "selection tags" (B043 §1). The timeline
+// has every occurrence (รับ twice); a tag is one entry per distinct label, carrying all
+// its ranges. Selecting the tag "รับ" lights every range that shares that label.
+//   sections : [{ name, fromLi, toLi }, …]  (one per occurrence, in song order)
+//   → [{ name, ranges:[{fromLi,toLi}, …] }]  (grouped, first-seen order)
+export function sectionTags(sections) {
+  const by = new Map()
+  for (const s of sections || []) {
+    if (!by.has(s.name)) by.set(s.name, { name: s.name, ranges: [] })
+    by.get(s.name).ranges.push({ fromLi: s.fromLi, toLi: s.toLi })
+  }
+  return [...by.values()]
+}
+
+// Build the play order from the section occurrences + the set of selected labels
+// (B043 §3b · decision D = song order + seam collapse). Returns undefined when nothing
+// is selected → the caller plays the whole song (behaviour identical to no order at all).
+//   - keep every occurrence whose label is selected, in song order
+//   - collapse a run of the SAME label back-to-back into one range
+//   - collapse the loop seam: if the first and last kept ranges share a label, drop the
+//     first so a loop reads {ร้อง2 → รับ} not {รับ → ร้อง2 → รับ}
+export function effectiveOrder(sections, selectedNames) {
+  if (!selectedNames || !selectedNames.size) return undefined
+  const picked = (sections || []).filter((s) => selectedNames.has(s.name))
+  const collapsed = picked.filter((s, i) => i === 0 || s.name !== picked[i - 1].name)
+  if (collapsed.length > 1 && collapsed[0].name === collapsed[collapsed.length - 1].name) collapsed.shift()
+  return collapsed.map((s) => ({ name: s.name, fromLi: s.fromLi, toLi: s.toLi }))
+}
+
+// The exact note list a play will use — the SSOT the viewer shares with playSong so the
+// progress dot, markers, scrub and ⏮/⏭ all measure against the same sequence.
+//   order : [{fromLi,toLi}, …] — concatenate each range's notes in order (B043 selection)
+//   range : {fromLi,toLi}      — a single section (legacy play-by-section)
+//   neither → the whole song
+export function buildPlayNotes(content, { order, range } = {}) {
+  const all = songToNotes(content)
+  if (order && order.length) return order.flatMap((r) => all.filter((n) => n.li >= r.fromLi && n.li <= r.toLi))
+  if (range) return all.filter((n) => n.li >= range.fromLi && n.li <= range.toLi)
+  return all
+}
+
 // Change the transpose live — e.g. when the user picks a new key while the melody
 // is playing. Notes already sounding finish in the old key; every note not yet
 // started is re-tuned to the new key exactly at its onset, so the switch is
@@ -197,7 +238,7 @@ export function setTranspose(semitones) {
 
 // Play the melody; resolves when done or stopped. Returns false when the device
 // blocks audio (e.g. iOS with the silent switch on / autoplay policy).
-export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, transpose = 0, startIndex = 0 } = {}) {
+export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, order, transpose = 0, startIndex = 0 } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   // iOS unlock: play a 1-sample silent buffer synchronously inside the user gesture
   try {
@@ -212,9 +253,9 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   stopFlag = { stopped: false }
   const myFlag = stopFlag
   liveTranspose = transpose // starting key offset; setTranspose() updates it live
-  let notes = songToNotes(content)
-  // play only a section (line range) when asked (feature 003)
-  if (range) notes = notes.filter((n) => n.li >= range.fromLi && n.li <= range.toLi)
+  // `order` (B043 selection = many ranges) OR `range` (one section) OR the whole song —
+  // buildPlayNotes is the SSOT the viewer also uses for the dot/markers/scrub/⏮⏭.
+  let notes = buildPlayNotes(content, { order, range })
   // resume (US-A01 "เล่นต่อ"): skip the notes already played so a pause/play continues
   // from where you stopped instead of restarting. index is into this (range-filtered) list.
   if (startIndex > 0) notes = notes.slice(startIndex)

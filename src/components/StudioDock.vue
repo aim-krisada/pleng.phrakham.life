@@ -26,6 +26,9 @@
 //   stays blind to the control; the PAGE owns it, wiring its own state through `props`, so
 //   new controls need no change here. Pass `component` as markRaw(...) to skip needless
 //   reactivity. It flows through the same overflow/customize machinery as any tool.
+//   Add `region:'top'` (B043) to render it FULL-WIDTH above the button row instead — its
+//   own band, exempt from the overflow/customize machinery (a music-player transport is
+//   too wide to fold into ⋯). The dock stays blind; the page owns the whole band.
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
 
@@ -49,8 +52,14 @@ const LS_ALPHA = 'pleng.dock.alpha'
 const LS_BARPOS = 'pleng.dock.barpos'
 const LS_FABPOS = 'pleng.dock.fabpos'
 
-const allIds = computed(() => props.tools.map((t) => t.id))
-const byId = computed(() => Object.fromEntries(props.tools.map((t) => [t.id, t])))
+// full-width top-region controls (region:'top') live OUTSIDE the button row's order/
+// overflow/customize machinery — the page owns the whole band. Everything else is a
+// "row tool" and flows through order/shown/overflow as before.
+const isTop = (t) => t.type === 'custom' && t.region === 'top'
+const rowTools = computed(() => props.tools.filter((t) => !isTop(t)))
+const topTools = computed(() => props.tools.filter((t) => isTop(t) && t.visible !== false))
+const allIds = computed(() => rowTools.value.map((t) => t.id))
+const byId = computed(() => Object.fromEntries(rowTools.value.map((t) => [t.id, t])))
 const defaultOrder = computed(() => (props.defaultTools ? props.defaultTools.slice() : allIds.value.slice()))
 
 function loadOrder() {
@@ -96,7 +105,7 @@ function syncMobile() { mobile.value = mq ? mq.matches : false }
 const shown = computed(() =>
   order.value.map((id) => byId.value[id]).filter((t) => t && (t.icon || t.type === 'custom') && t.visible !== false),
 )
-const addable = computed(() => props.tools.filter((t) => !order.value.includes(t.id)))
+const addable = computed(() => rowTools.value.filter((t) => !order.value.includes(t.id)))
 // B033: paletteKeys may be a flat array (one row) OR an array of rows. Edit mode sends
 // 2 rows so the 21 jianpu keys aren't crammed onto one line (tiny/untappable on mobile).
 const keyRows = computed(() => {
@@ -397,6 +406,19 @@ function runTool(t) {
       :class="{ 'sd-m': mobile, 'sd-collapsed': collapsed }"
       :style="[dockStyle, { '--dock-alpha': alpha }]"
     >
+      <!-- full-width top region (D8 region:'top') — a whole music-player transport band
+           above the button row. The dock stays blind; the page owns it via props. -->
+      <div v-if="topTools.length" class="sd-top hideoncol">
+        <component
+          :is="t.component"
+          v-for="t in topTools"
+          :key="t.id"
+          class="sd-topctl"
+          :data-tool="t.id"
+          v-bind="t.props || {}"
+        />
+      </div>
+
       <!-- fixed jianpu keyboard (edit only) — one or more rows; each row shares its line
            (keys stretch/shrink, never wrap) so more keys just mean a bigger tap target -->
       <div v-if="showKeys" class="sd-keys" role="toolbar" aria-label="สัญลักษณ์โน้ต">
@@ -466,7 +488,7 @@ function runTool(t) {
             @click.stop="togglePop('trans')"
           ><Icon name="blend" :size="18" /></button>
           <button
-            v-if="!mobile"
+            v-if="!mobile && rowTools.length"
             class="sd-tbtn sd-ctl hideoncol"
             :aria-expanded="pop === 'cust'"
             aria-label="ตั้งค่าปุ่มบนแถบ (เพิ่ม/เอาออก/เลื่อน)"
@@ -666,6 +688,9 @@ function runTool(t) {
   cursor: pointer;
 }
 @media (hover: hover) { .sd-key:hover { background: var(--cream); } }
+/* full-width top band (D8 region:'top') — its own row above the tools (B043 transport) */
+.sd-top { width: 100%; margin-bottom: 8px; }
+.sd-topctl { display: block; width: 100%; }
 .sd-tools { display: flex; align-items: center; gap: 6px; }
 .sd-tbtn {
   flex: 0 0 44px;

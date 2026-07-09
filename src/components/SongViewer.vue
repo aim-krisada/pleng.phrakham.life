@@ -1,15 +1,24 @@
 <script setup>
 // The read/listen surface for one song — same engine as the old SongView (play,
 // transpose, tempo, loop, font size, display layers, play-by-section + follow-along
-// highlight = the karaoke feel). The control bar is now the shared <StudioDock> in
-// "sing" mode (ps3-viewer B024): display / chord / key / tempo are dropdowns, and the
-// dock owns the collapse / transparency / customize / overflow engine. Takes a `song`
-// ({ number, title_th, content }) so it can live inside Studio's ดู mode.
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+// highlight = the karaoke feel). B043 reshapes the controls into a bottom "music player":
+// the shared <StudioDock> hosts ONE full-width custom control, <SingTransport> (progress +
+// section markers + ⏮ ▶/⏸ ⏭ 🔁 + ⚙ settings panel + ☰ section selector). All the song
+// controls (display/chord/key/tempo/font/download/print) live in that ⚙ panel, adjustable
+// inline. This component owns the state; SingTransport is a page-agnostic core control.
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, markRaw } from 'vue'
 import { KEYS } from '../lib/chords.js'
-import { playSong, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS } from '../lib/midi.js'
+import {
+  playSong, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
+  effectiveOrder, buildPlayNotes,
+} from '../lib/midi.js'
 import { resolveContent } from '../lib/songModel.js'
+import { downloadSong } from '../lib/jsonIO.js'
+import { currentSong } from '../store.js'
 import SongSheet from './SongSheet.vue'
+import SingTransport from './SingTransport.vue'
+
+const SingTransportRaw = markRaw(SingTransport)
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
 // view-only for everyone, so it is accepted but not used to gate anything — there are
@@ -23,9 +32,6 @@ const props = defineProps({
 const emit = defineEmits(['dock'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
-// One preset picks which of chord / note / lyric show. Mirrors the ps3-dock prototype's
-// 5-way แสดงผล menu; SongSheet takes the three booleans so each preset renders exactly.
-// `short` = the current-value badge shown on the dock button (like คีย์ E / ความเร็ว 84)
 const DISPLAY_OPTS = [
   { value: 'all', label: 'ครบ (เนื้อ+คอร์ด+โน้ต)', short: 'ครบ', chord: true, note: true, lyric: true },
   { value: 'chord', label: 'เนื้อ+คอร์ด', short: 'คอร์ด', chord: true, note: false, lyric: true },
@@ -35,19 +41,16 @@ const DISPLAY_OPTS = [
 ]
 const display = ref('all')
 const displayDef = computed(() => DISPLAY_OPTS.find((o) => o.value === display.value) || DISPLAY_OPTS[0])
-// chord system: ตัวอักษร (letter) / เลขนัชวิลล์ (roman) / ซ่อนคอร์ด (hide the whole layer)
 const CHORD_OPTS = [
   { value: 'letter', label: 'คอร์ดตัวอักษร (A B C)' },
   { value: 'roman', label: 'เลขนัชวิลล์ (1 4 5)' },
   { value: 'hidden', label: 'ซ่อนคอร์ด' },
 ]
 const chordSystem = ref('letter')
-// effective layer visibility handed to SongSheet
 const showChord = computed(() => displayDef.value.chord && chordSystem.value !== 'hidden')
 const showNote = computed(() => displayDef.value.note)
 const showLyric = computed(() => displayDef.value.lyric)
 const sheetChordSystem = computed(() => (chordSystem.value === 'roman' ? 'roman' : 'letter'))
-// coarse mode kept for SongSheet's lyrics-only layout fallback / compat
 const sheetMode = computed(() => (showLyric.value && !showNote.value && !showChord.value ? 'lyrics' : 'full'))
 
 const displayKey = ref(props.song?.content?.key || 'C')
@@ -56,23 +59,27 @@ const loop = ref(false)
 const tempo = ref(props.song?.content?.bpm || 92)
 const playingSeg = ref(null)
 const playingSyl = ref(null) // { li, si, syk } — the syllable+note sounding now (B006)
-const playingSection = ref(null) // 'all' | section index | null
 const sheetWrap = ref(null)
 const fontScale = ref(1)
 // pause/resume (US-A01 "เล่นต่อ"): playedIndex = note index currently sounding;
 // pausedIndex = where the last stop happened, so the next play continues from there.
+// posIndex = the playhead the dot/markers read (moves on play, seek, jump, ⏮/⏭).
 const playedIndex = ref(0)
 const pausedIndex = ref(0)
+const posIndex = ref(0)
+// B043 §3a — which ท่อน (by label) are selected. Empty = play the whole song. Local,
+// temporary state like key/tempo (decision C = ไม่จำ · cleared when the song changes).
+const selectedSecs = ref(new Set())
 
 const resolved = computed(() =>
   props.song ? { ...props.song.content, lines: resolveContent(props.song.content) } : null,
 )
-// Title shown as the centered heading when this reading view is printed (Ctrl+P / PDF).
 const printTitle = computed(() => {
   const s = props.song
   if (!s) return ''
   return (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
 })
+// section OCCURRENCES (one per {type:'section'} marker) → the timeline markers
 const sections = computed(() => {
   const lines = resolved.value?.lines || []
   const secs = []
@@ -83,7 +90,21 @@ const sections = computed(() => {
   for (let i = 0; i < secs.length - 1; i++) secs[i].toLi = secs[i + 1].fromLi - 1
   return secs
 })
-// key options — the original key is marked so the singer can find "home"
+// labels that appear more than once = a hook/รับ (drives the "ฮุก" tag + dot style)
+const hookNames = computed(() => {
+  const count = {}
+  for (const s of sections.value) count[s.name] = (count[s.name] || 0) + 1
+  return new Set(Object.keys(count).filter((n) => count[n] > 1))
+})
+// distinct labels for the selector list, first-seen order
+const tags = computed(() => {
+  const seen = new Set()
+  const out = []
+  for (const s of sections.value) {
+    if (!seen.has(s.name)) { seen.add(s.name); out.push({ name: s.name, isHook: hookNames.value.has(s.name) }) }
+  }
+  return out
+})
 const keyOptions = computed(() =>
   KEYS.map((k) => ({ value: k, label: k + (k === props.song?.content?.key ? ' (ต้นฉบับ)' : '') })),
 )
@@ -94,86 +115,131 @@ const tempoOptions = computed(() => {
   return [...base, ...TEMPO_MARKS]
 })
 
-// Re-sync ONLY when the song IDENTITY changes (a different song loads). Keying the watch
-// on the whole object would fire on every edit the editor re-emits (a new object with the
-// same song) and wipe the listener's chosen key/tempo mid-practice — a latent bug WT-0
-// flagged for WT-A. `number` is the song's identity; edits keep it, a new song changes it.
+// ---------- the play sequence: SSOT shared with the audio engine ----------
+// order = the selected ท่อน as ranges (undefined = whole song). buildPlayNotes gives the
+// exact note list playSong will use, so the dot/markers/scrub/⏮⏭ measure the same thing.
+const order = computed(() => effectiveOrder(sections.value, selectedSecs.value))
+const playNotes = computed(() => (resolved.value ? buildPlayNotes(resolved.value, { order: order.value }) : []))
+const totalNotes = computed(() => playNotes.value.length)
+const totalSec = computed(() => {
+  const beats = playNotes.value.reduce((a, n) => a + (n.beats || 0), 0)
+  return (beats * 60) / (Number(tempo.value) || 92)
+})
+const frac = computed(() =>
+  totalNotes.value > 1 ? Math.max(0, Math.min(1, posIndex.value / (totalNotes.value - 1))) : 0,
+)
+// one dot per section occurrence in the current play order (name changes = a new marker)
+const markers = computed(() => {
+  const notes = playNotes.value
+  const total = notes.length || 1
+  const secs = sections.value
+  const out = []
+  let prev = null
+  notes.forEach((n, i) => {
+    const s = secs.find((x) => n.li >= x.fromLi && n.li <= x.toLi)
+    const name = s ? s.name : null
+    if (name && name !== prev) {
+      out.push({ name, frac: i / total, startIndex: i, isHook: hookNames.value.has(name), active: false, picked: selectedSecs.value.has(name) })
+    }
+    prev = name
+  })
+  out.forEach((m, k) => {
+    const end = k + 1 < out.length ? out[k + 1].startIndex : total
+    m.active = playing.value && posIndex.value >= m.startIndex && posIndex.value < end
+  })
+  return out
+})
+function markerIdxAt(idx) {
+  const ms = markers.value
+  let cur = 0
+  for (let i = 0; i < ms.length; i++) { if (ms[i].startIndex <= idx) cur = i; else break }
+  return cur
+}
+
+// Re-sync ONLY when the song IDENTITY changes (a different song loads) — keeping the
+// listener's chosen key/tempo across edits of the same song (DS-A04). Also clears the
+// section selection (decision C = ไม่จำ · each song starts fresh).
 watch(
   () => props.song?.number,
   () => {
     const c = props.song?.content
     if (!c) return
-    stopPlay() // a genuinely different song → don't keep playing the old one's position
+    stopPlay()
     displayKey.value = c.key || 'C'
     tempo.value = c.bpm || 92
-    pausedIndex.value = 0 // resume from the new song's start, not the old position
+    pausedIndex.value = 0
+    posIndex.value = 0
+    selectedSecs.value = new Set()
   },
 )
 
-// ---------- follow-along scroll (B016) ----------
-// Keep the sounding segment in view (the karaoke scroll). When the user scrolls by hand
-// (wheel / touch), auto-scroll steps aside for ~3.5s so it doesn't yank the page back —
-// programmatic scrollIntoView fires 'scroll' but NOT 'wheel'/'touchmove', so listening to
-// those only catches real gestures.
+// ---------- follow-along scroll (B016 + B038) ----------
+// Keep the sounding SYLLABLE in view (B038: aim at the exact [data-syl], not the whole
+// segment). When the user scrolls by hand, auto-scroll steps aside ~3.5s.
 const SCROLL_PAUSE_MS = 3500
 let pausedScrollUntil = 0
 function onUserScroll() {
   if (playing.value) pausedScrollUntil = Date.now() + SCROLL_PAUSE_MS
 }
-watch(playingSeg, async (seg) => {
-  if (!seg || !sheetWrap.value) return
+async function scrollToPlaying() {
+  if (!sheetWrap.value) return
   if (Date.now() < pausedScrollUntil) return // singer is reading elsewhere — don't snap back
   await nextTick()
-  const el = sheetWrap.value.querySelector(`[data-seg="${seg.li}-${seg.si}"]`)
+  const syl = playingSyl.value
+  const seg = playingSeg.value
+  // B038: prefer the exact syllable span; fall back to the segment (lyrics-only / v1)
+  const sel = syl
+    ? `[data-syl="${syl.li}-${syl.si}-${syl.syk}"]`
+    : seg
+      ? `[data-seg="${seg.li}-${seg.si}"]`
+      : null
+  if (!sel) return
+  const el = sheetWrap.value.querySelector(sel)
   if (!el) return
   const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
   el.scrollIntoView({ block: 'nearest', inline: 'center', behavior: smooth ? 'smooth' : 'auto' })
-})
+}
+watch(playingSyl, scrollToPlaying)
+watch(playingSeg, (seg) => { if (!playingSyl.value) scrollToPlaying(seg) })
 
 function bumpFont(d) {
   fontScale.value = Math.min(2.2, Math.max(0.8, Math.round((fontScale.value + d) * 10) / 10))
 }
 let playGen = 0
-let currentRange // the range of the active playback (undefined = whole song) — for live-tempo re-schedule
 function stopPlay() {
   playGen++
   stopPlayback()
   playing.value = false
-  playingSection.value = null
   playingSeg.value = null
   playingSyl.value = null
 }
-async function startPlay(range, key, startIndex = 0) {
+// Play the current order (selection, or the whole song) from a note index. All playback
+// paths route through here so `order` stays the single source of what plays.
+async function startPlay(startIndex = 0) {
   stopPlayback()
   const gen = ++playGen
-  currentRange = range
   playing.value = true
-  playingSection.value = key
-  // Play in the chosen key. The melody is scheduled at the ORIGINAL key and shifted
-  // by `transpose` semitones via detune, so changing the key while playing re-tunes
-  // the upcoming notes live from where you are (see the displayKey watcher below) —
-  // not a restart.
+  posIndex.value = startIndex
   await playSong(resolved.value, {
     bpm: Number(tempo.value) || resolved.value.bpm || 92,
     loop: loop.value,
-    range,
+    order: order.value,
     transpose: keyTranspose(props.song.content.key, displayKey.value || props.song.content.key),
     startIndex,
     onNote: (n, idx) => {
       playingSeg.value = { li: n.li, si: n.si }
-      // move the per-syllable highlight only on a sung attack (n.syk set); rests and
-      // held/melisma notes carry none, so the current word stays lit through the hold.
       if (n.syk != null) playingSyl.value = { li: n.li, si: n.si, syk: n.syk }
       playedIndex.value = idx
+      posIndex.value = idx
     },
   })
   if (gen === playGen) {
     // reached the natural end (not a pause) → next play starts from the top
     playing.value = false
-    playingSection.value = null
     playingSeg.value = null
     playingSyl.value = null
     pausedIndex.value = 0
+    posIndex.value = 0
   }
 }
 function togglePlay() {
@@ -181,94 +247,119 @@ function togglePlay() {
     pausedIndex.value = playedIndex.value // remember position so the next play continues
     stopPlay()
   } else {
-    startPlay(undefined, 'all', pausedIndex.value) // resume from where we stopped (0 = fresh)
+    startPlay(pausedIndex.value) // resume from where we stopped (0 = fresh)
   }
 }
-function playSection(idx) {
-  pausedIndex.value = 0 // a section is always played from its start
-  const s = sections.value[idx]
-  if (s) startPlay({ fromLi: s.fromLi, toLi: s.toLi }, idx)
+// move the playhead to a note index: while playing → jump the audio there; paused → just
+// park the dot so ▶ resumes from it.
+function seekToIndex(idx) {
+  const clamped = Math.max(0, Math.min(Math.max(0, totalNotes.value - 1), Math.round(idx)))
+  pausedIndex.value = clamped
+  posIndex.value = clamped
+  if (playing.value) startPlay(clamped)
 }
-// live key change: pick a new key WHILE playing → re-tune the upcoming notes to it
-// from the current position (notes already sounding finish in the old key). Not a
-// restart — playback continues from where you are. Not playing = next play uses it.
+// ⏮/⏭ walk the section markers in the current play order (decision H). ⏮ from the first
+// marker lands on 0 (= กลับต้น, B042).
+function prevSection() {
+  const cur = markerIdxAt(posIndex.value)
+  seekToIndex(cur > 0 ? markers.value[cur - 1].startIndex : 0)
+}
+function nextSection() {
+  const cur = markerIdxAt(posIndex.value)
+  const nx = markers.value[cur + 1]
+  if (nx) seekToIndex(nx.startIndex)
+}
+function onSeekBar(f) { seekToIndex(f * Math.max(1, totalNotes.value - 1)) }
+function onJump(startIndex) { seekToIndex(startIndex) }
+// selection changed → the play set is different; stop so the next ▶ plays the new set
+// from its start (avoids the dot/audio drifting out of sync mid-play).
+function afterSelectionChange() {
+  if (playing.value) stopPlay()
+  pausedIndex.value = 0
+  posIndex.value = 0
+}
+function toggleSection(name) {
+  const next = new Set(selectedSecs.value)
+  if (next.has(name)) next.delete(name)
+  else next.add(name)
+  selectedSecs.value = next
+  afterSelectionChange()
+}
+function setAll(on) {
+  selectedSecs.value = on ? new Set(tags.value.map((t) => t.name)) : new Set()
+  afterSelectionChange()
+}
+function stepKey(d) {
+  const i = KEYS.indexOf(displayKey.value)
+  displayKey.value = KEYS[(i + d + KEYS.length) % KEYS.length]
+}
+// live key change: re-tune the notes still ahead (seamless, not a restart)
 watch(displayKey, (k) => {
   if (playing.value) setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
 })
-// live tempo change (US-A04): unlike key (which rides on detune, seamless), tempo can't be
-// re-tuned in place — re-schedule the notes still ahead at the new bpm, continuing from the
-// current note (a tiny seam is accepted per DS-A04). NOT a jump back to the top. Not
-// playing → the new tempo simply applies to the next play.
+// live tempo change: re-schedule the notes ahead at the new bpm, continuing from here
 watch(tempo, () => {
-  if (playing.value) startPlay(currentRange, playingSection.value, playedIndex.value)
+  if (playing.value) startPlay(playedIndex.value)
 })
-function printSheet() {
-  window.print()
-}
+function printSheet() { window.print() }
+function downloadJson() { if (currentSong.value) downloadSong(currentSong.value) }
 
-// ---------- the shared dock in "sing" mode (B024) ----------
-// Each def is data StudioDock renders; menu tools carry their options + onPick so the
-// dropdown writes straight back to this component's state. Default order leads with
-// play,chord,tempo so mobile shows those three first (B024). key/tempo carry a badge
-// (the current คีย์ / BPM) so their value shows without opening the menu.
-// default order (P'Aim real-use r4-C): play › วนซ้ำ › คีย์ › ความเร็ว › ขนาดฟอนต์ › แสดงผล › พิมพ์.
-// 'chord' is dropped from the default (still in singTools — addable via ตั้งค่าปุ่ม). This
-// order is the SSOT for B043's music dock too.
-const SING_DEFAULT = ['play', 'loop', 'key', 'tempo', 'fdown', 'fup', 'display', 'print']
-const singTools = computed(() => [
+// ---------- the ⚙ settings panel controls (§4c) — every control, inline ----------
+const settingDescs = computed(() => [
   {
-    id: 'play',
-    icon: playing.value ? 'square' : 'play',
-    label: playing.value ? 'หยุด' : 'ฟังเพลง',
-    run: togglePlay,
-    prime: true,
+    id: 'display', icon: '🎵', label: 'แสดงผล', kind: 'menu', value: display.value,
+    options: DISPLAY_OPTS.map((o) => ({ value: o.value, label: o.label })), onPick: (v) => (display.value = v),
   },
   {
-    id: 'chord',
-    icon: 'guitar',
-    label: 'คอร์ด',
-    menu: true,
-    value: chordSystem.value,
-    options: CHORD_OPTS,
-    onPick: (v) => (chordSystem.value = v),
+    id: 'chord', icon: '𝄞', label: 'คอร์ด', kind: 'menu', value: chordSystem.value,
+    options: CHORD_OPTS, onPick: (v) => (chordSystem.value = v),
   },
   {
-    id: 'tempo',
-    icon: 'gauge',
-    label: 'ความเร็ว',
-    menu: true,
-    badge: String(tempo.value),
-    value: tempo.value,
-    options: tempoOptions.value,
-    onPick: (v) => (tempo.value = v),
+    id: 'key', icon: '🎼', label: 'คีย์', kind: 'stepper', display: displayKey.value,
+    onPrev: () => stepKey(-1), onNext: () => stepKey(1),
   },
   {
-    id: 'key',
-    icon: 'key-round',
-    label: 'คีย์',
-    menu: true,
-    badge: displayKey.value,
-    value: displayKey.value,
-    options: keyOptions.value,
-    onPick: (v) => (displayKey.value = v),
+    id: 'tempo', icon: '🐢', label: 'ความเร็ว', kind: 'menu', value: tempo.value,
+    options: tempoOptions.value, onPick: (v) => (tempo.value = Number(v)),
   },
   {
-    id: 'display',
-    icon: 'layers',
-    label: 'แสดงผล',
-    menu: true,
-    badge: displayDef.value.short, // show the chosen preset like คีย์/ความเร็ว do (real-use #5)
-    value: display.value,
-    options: DISPLAY_OPTS,
-    onPick: (v) => (display.value = v),
+    id: 'font', icon: 'A', label: 'ขนาดตัวอักษร', kind: 'stepper', prevLabel: 'A−', nextLabel: 'A+',
+    onPrev: () => bumpFont(-0.1), onNext: () => bumpFont(0.1),
+    prevDisabled: fontScale.value <= 0.8, nextDisabled: fontScale.value >= 2.2,
   },
-  { id: 'loop', icon: 'repeat', label: 'วนซ้ำ', run: () => (loop.value = !loop.value), prime: loop.value },
-  { id: 'fdown', icon: 'a-arrow-down', label: 'ตัวเล็กลง', run: () => bumpFont(-0.1), disabled: fontScale.value <= 0.8 },
-  { id: 'fup', icon: 'a-arrow-up', label: 'ตัวใหญ่ขึ้น', run: () => bumpFont(0.1), disabled: fontScale.value >= 2.2 },
-  { id: 'print', icon: 'printer', label: 'พิมพ์', run: printSheet },
+  { id: 'download', icon: '⬇', label: 'ดาวน์โหลด (JSON)', kind: 'action', actionLabel: 'บันทึก', onAction: downloadJson },
+  { id: 'print', icon: '🖨', label: 'พิมพ์ / PDF', kind: 'action', actionLabel: 'เปิด', onAction: printSheet },
 ])
-// push the sing tool set up to Studio's single dock whenever it changes (play/loop/key/…)
-watch(singTools, (tools) => emit('dock', { tools, defaultTools: SING_DEFAULT }), { immediate: true })
+
+// ---------- the sing dock = one full-width transport (D8 region:'top', dock-core) ----------
+const singDockTools = computed(() => [
+  {
+    id: 'transport',
+    type: 'custom',
+    region: 'top',
+    component: SingTransportRaw,
+    props: {
+      playing: playing.value,
+      loop: loop.value,
+      frac: frac.value,
+      totalSec: totalSec.value,
+      markers: markers.value,
+      tags: tags.value,
+      selected: selectedSecs.value,
+      hasSections: sections.value.length > 0,
+      settings: settingDescs.value,
+      onTogglePlay: togglePlay,
+      onPrev: prevSection,
+      onNext: nextSection,
+      onToggleLoop: () => (loop.value = !loop.value),
+      onSeek: onSeekBar,
+      onJump,
+      onToggleSection: toggleSection,
+      onSetAll: setAll,
+    },
+  },
+])
+watch(singDockTools, (tools) => emit('dock', { tools, defaultTools: ['transport'] }), { immediate: true })
 
 onMounted(() => {
   window.addEventListener('wheel', onUserScroll, { passive: true })
@@ -281,33 +372,20 @@ onUnmounted(() => {
 })
 
 // tap a syllable/note in the sheet → jump playback there (US H1). Find the note's index
-// in the (unfiltered) play order and start the whole song from it, in the current key.
+// in the CURRENT play order and start from it, in the current key.
 function onSeek({ li, si, syk }) {
-  const notes = songToNotes(resolved.value)
+  const notes = playNotes.value
   let idx = notes.findIndex((n) => n.li === li && n.si === si && n.syk === syk)
   if (idx < 0) idx = notes.findIndex((n) => n.li === li && n.si === si) // rest/blank slot
   if (idx < 0) return
   pausedIndex.value = idx
-  startPlay(undefined, 'all', idx)
+  posIndex.value = idx
+  startPlay(idx)
 }
 </script>
 
 <template>
   <div>
-    <!-- play a single section (ท่อน) — chips -->
-    <div v-if="sections.length" class="section-bar no-print" role="group" aria-label="เล่นเป็นท่อน">
-      <button class="section-chip" :class="{ active: playingSection === 'all' }" @click="togglePlay">▶ ทั้งเพลง</button>
-      <button
-        v-for="(s, i) in sections"
-        :key="i"
-        class="section-chip"
-        :class="{ active: playingSection === i }"
-        @click="playSection(i)"
-      >
-        {{ s.name }}
-      </button>
-    </div>
-
     <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: fontScale + 'rem' }">
       <SongSheet
         :content="resolved"
@@ -325,32 +403,13 @@ function onSeek({ li, si, syk }) {
       />
     </div>
 
-    <!-- control bar lives on Studio now (dock-core / N1): one shared <StudioDock>. This
-         surface emits its "sing" tool set via @dock; the sticky ▶⇄⏸ still rides that dock. -->
+    <!-- control bar lives on Studio now (dock-core / N1): one shared <StudioDock> hosting
+         the <SingTransport> music player. This surface emits its "sing" tool set via @dock. -->
   </div>
 </template>
 
 <style scoped>
-.section-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-.section-chip {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 6px 14px;
-  cursor: pointer;
-  color: var(--ink);
-  font-size: 0.9rem;
-  min-height: 34px;
-}
-.section-chip.active { background: var(--brand); color: #fff; border-color: var(--brand); }
-@media (hover: hover) {
-  .section-chip:not(.active):hover { background: var(--cream-hover); }
-}
-/* leave room so the fixed dock never covers the last line of the song */
-.sheet-scale { padding-bottom: 96px; }
+/* leave room so the fixed dock (transport band is taller than a plain toolbar) never
+   covers the last line of the song */
+.sheet-scale { padding-bottom: 150px; }
 </style>
