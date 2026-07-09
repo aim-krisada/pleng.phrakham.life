@@ -136,8 +136,28 @@ const currentDraftId = ref(null)
 const reviewingDraft = ref(null)
 const reviewComment = ref('')
 const pickerId = ref('')
-const meta = reactive({ number: null, title_th: '', title_en: '' })
+const meta = reactive({ number: null, title_th: '', title_en: '', category: 'anuchon', theme: '' })
 const opts = reactive({ key: 'C', timeSignature: '4/4', bpm: null })
+
+// verified flag of the loaded song (songs.verified) — surfaced as the "✓ ตรวจแล้ว" toggle
+const verified = ref(false)
+
+// B060: song settings live inline now (no "เพลง ▾" menu needed). ธีม = the 8 themes the
+// library uses (from the songs.theme column); หมวด = the book/collection code (anuchon =
+// ไทยอนุชน 120 · docs/pm/book-codes.md). Both are set-and-forget dropdowns so พี่เปา can
+// fill them without fear of leaving the page.
+const THEMES = [
+  'กิตติคุณ',
+  'ความสุขแห่งความรอด',
+  'คริสตจักร',
+  'ประสบการณ์',
+  'พระคัมภีร์',
+  'มอบถวาย',
+  'รักปรารถนา',
+  'อาณาจักร',
+]
+const themeOptions = [{ value: '', label: '— ไม่ระบุธีม —' }, ...THEMES.map((t) => ({ value: t, label: t }))]
+const CATEGORY_OPTIONS = [{ value: 'anuchon', label: 'ไทยอนุชน 120 (anuchon)' }]
 
 // melodies + play order (v2). An arrangement row stores its words as a `syllables`
 // array (one token per syllable-bearing note) so the per-note lyric boxes under the
@@ -574,8 +594,8 @@ function barStatus(li, bi) {
     const mult = sum / expBeats.value
     const ok = sum > 0.01 && Math.abs(mult - Math.round(mult)) < 0.01
     const text = ok
-      ? `⤷ ห้องยก ${fmt(got)} จังหวะ`
-      : `⤷ ห้องยก ${fmt(got)} — รวมห้องยก ${fmt(sum)}/${fmt(expBeats.value)}`
+      ? `⤷ ห้องต่อกัน ${fmt(got)} จังหวะ`
+      : `⤷ ห้องต่อกัน ${fmt(got)} — รวมห้องต่อกัน ${fmt(sum)}/${fmt(expBeats.value)}`
     return { text, ok, pickup: true }
   }
   const ok = Math.abs(got - expBeats.value) < 0.01
@@ -620,13 +640,38 @@ function removeBar(line, bi) {
   line.bars.splice(bi, 1)
   if (!line.bars.length) line.bars.push(newBar())
 }
-// Reorder bars within a line (dir -1 = left, +1 = right). Undo is handled by the
+// Reorder bars (dir -1 = left, +1 = right). Within a line it swaps neighbours; at a line
+// edge it HOPS to the adjacent line (B063): the last bar moving right lands at the start
+// of the next line, the first bar moving left lands at the end of the previous line — so a
+// bar keyed in the wrong line can be walked over without cut/paste. Undo is handled by the
 // debounced snapshot watcher, so no explicit history call is needed.
-function moveBar(line, bi, dir) {
+function moveBar(li, bi, dir) {
+  const line = lines.value[li]
+  if (!line) return
   const to = bi + dir
-  if (to < 0 || to >= line.bars.length) return
-  const [b] = line.bars.splice(bi, 1)
-  line.bars.splice(to, 0, b)
+  if (to >= 0 && to < line.bars.length) {
+    const [b] = line.bars.splice(bi, 1)
+    line.bars.splice(to, 0, b)
+    return
+  }
+  // past the edge → hop to the neighbouring line. Leaving a line empty would break the
+  // "every line has ≥1 bar" invariant, so drop a fresh empty bar in its place (like
+  // removeBar). The ⋯ popover is keyed by "li-bi", now stale, so close it.
+  if (dir > 0 && bi === line.bars.length - 1) {
+    const next = lines.value[li + 1]
+    if (!next) return
+    const [b] = line.bars.splice(bi, 1)
+    next.bars.unshift(b)
+    if (!line.bars.length) line.bars.push(newBar())
+    barMenuOpen.value = ''
+  } else if (dir < 0 && bi === 0) {
+    const prev = lines.value[li - 1]
+    if (!prev) return
+    const [b] = line.bars.splice(bi, 1)
+    prev.bars.push(b)
+    if (!line.bars.length) line.bars.push(newBar())
+    barMenuOpen.value = ''
+  }
 }
 // Duplicate bar bi: drop an exact copy (chords + notes) right after it. Faster than
 // re-keying a repeated bar; tweak the copy afterwards.
@@ -692,6 +737,10 @@ function applyRow(data) {
   meta.number = data.number
   meta.title_th = data.title_th
   meta.title_en = data.title_en
+  // category/theme/verified exist on published songs (not on draft rows) — default when absent
+  meta.category = data.category ?? 'anuchon'
+  meta.theme = data.theme ?? ''
+  verified.value = data.verified ?? false
   const { content, warnings } = migrateToV2(data.content)
   opts.key = content.key || 'C'
   opts.timeSignature = content.timeSignature || '4/4'
@@ -723,6 +772,9 @@ function resetForm() {
   meta.number = null
   meta.title_th = ''
   meta.title_en = ''
+  meta.category = 'anuchon'
+  meta.theme = ''
+  verified.value = false
   opts.key = 'C'
   opts.timeSignature = '4/4'
   opts.bpm = null
@@ -821,6 +873,10 @@ async function saveDirect() {
   const row = draftRow()
   delete row.song_id
   delete row.status
+  // category/theme are columns on `songs` (not on `song_drafts`) — set them only on the
+  // published write. draftRow() stays lean so saving a draft never touches these columns.
+  row.category = meta.category || 'anuchon'
+  row.theme = meta.theme || null
   if (!row.title_th) {
     saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
     return
@@ -892,6 +948,26 @@ async function deleteSong() {
 function save() {
   if (legacy.value || (isApprover.value && !reviewingDraft.value)) return saveDirect()
   return saveDraft(reviewingDraft.value ? 'pending' : 'draft')
+}
+
+// "✓ ตรวจแล้ว": mark this song as human-checked (songs.verified). The catalog reads this
+// flag to show which of the 120 imported songs พี่เปา has already reviewed. Toggles, so a
+// mistaken tick can be undone. Writes straight to `songs` (RLS: team/approver write) — the
+// song must already be saved, so editingId is required.
+async function markVerified() {
+  if (!editingId.value) {
+    saveMsg.value = '⚠️ บันทึก/เผยแพร่เพลงก่อน จึงกด “ตรวจแล้ว” ได้'
+    return
+  }
+  const next = !verified.value
+  const { error } = await supabase.from('songs').update({ verified: next }).eq('id', editingId.value)
+  if (error) {
+    saveMsg.value = '❌ ทำเครื่องหมายไม่สำเร็จ: ' + error.message
+    return
+  }
+  verified.value = next
+  saveMsg.value = next ? '✓ ทำเครื่องหมาย “ตรวจแล้ว”' : '↩ ยกเลิก “ตรวจแล้ว”'
+  loadSongList()
 }
 
 // ---------- history ----------
@@ -1349,6 +1425,41 @@ function barContent(li, bi) {
   }
   return { version: 2, key: opts.key, timeSignature: opts.timeSignature, lines: [serial] }
 }
+// B061: the live inline preview above each line's edit strip — the SAME jianpu the sheet
+// draws (octave dots · held dashes · ties), rendered from the current line as you type, no
+// button. Reuses serializeLine + the shown verse's words exactly like barContent, but for
+// the whole line at once so it reads like the printed sheet. Read-only; the boxes below stay
+// the edit surface. livePreview lets a small screen turn the strip off (default on).
+const livePreview = ref(true)
+const settingsOpen = ref(true) // B060: inline song-settings card, open by default
+function lineHasNotes(li) {
+  const line = lines.value[li]
+  return !!line && line.bars.some((b) => b.segments.some((s) => (s.note || '').trim()))
+}
+function lineContent(li) {
+  const line = lines.value[li]
+  if (!line) return { version: 2, key: opts.key, timeSignature: opts.timeSignature, lines: [] }
+  const serial = serializeLine(line)
+  // segment items in `serial` follow model bar/segment order, so zip them with the line's
+  // (bi, si) coords to pull each segment's words from the shown verse at its global slot.
+  if (lensActive.value && lensRow.value) {
+    const coords = []
+    line.bars.forEach((bar, bi) => bar.segments.forEach((_, si) => coords.push([bi, si])))
+    let ci = 0
+    for (const item of serial) {
+      if (item.type !== 'segment') continue
+      const [bi, si] = coords[ci++] ?? []
+      if (bi == null) continue
+      const start = slotStarts.value[`${li}-${bi}-${si}`] ?? 0
+      const n = syllableSlots(item.note || '')
+      const slots = lensRow.value.syllables.slice(start, start + n)
+      item.lyric = joinSyllables(slots)
+      item.syllables = slots
+    }
+  }
+  return { version: 2, key: opts.key, timeSignature: opts.timeSignature, lines: [serial] }
+}
+
 // dropping the lens/stanza switch also clears any stale per-bar renders so the fresh
 // stanza starts in edit mode (indices would otherwise point at the wrong bars)
 watch([activeStanza, lines], () => {
@@ -1520,6 +1631,39 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       </nav>
       <div class="rail-backdrop" :class="{ open: drawerOpen }" aria-hidden="true" @click="closeDrawer"></div>
       <div class="content">
+    <!-- B060: song settings inline. These used to hide in the "เพลง ▾ ▸ ตั้งค่า" menu, which
+         พี่เปา avoided (afraid a menu would switch the page). Now every field sits right on
+         the sheet being edited. "✓ ตรวจแล้ว" marks the song human-checked (catalog reads it). -->
+    <div id="pk-settings" class="card ed-settings no-print">
+      <div class="ed-settings-head">
+        <button class="ed-settings-toggle" :aria-expanded="settingsOpen" @click="settingsOpen = !settingsOpen">
+          <Icon name="settings" :size="16" /> ตั้งค่าเพลง
+          <Icon name="chevron-down" :size="15" :class="{ 'ed-chev-open': settingsOpen }" />
+        </button>
+        <span class="ed-grow"></span>
+        <button
+          v-if="loggedIn"
+          class="ed-verify"
+          :class="{ on: verified }"
+          :aria-pressed="verified"
+          :title="verified ? 'ตรวจแล้ว — กดเพื่อยกเลิก' : 'ทำเครื่องหมายว่าตรวจเพลงนี้แล้ว'"
+          @click="markVerified"
+        >
+          <Icon :name="verified ? 'badge-check' : 'check'" :size="15" /> {{ verified ? 'ตรวจแล้ว' : 'ตรวจแล้ว?' }}
+        </button>
+      </div>
+      <div v-if="settingsOpen" class="ed-settings-grid">
+        <label>เลขเพลง<input v-model.number="meta.number" type="number" placeholder="เลขเพลง" /></label>
+        <label>ชื่อเพลง (ไทย)<input v-model="meta.title_th" placeholder="ชื่อเพลง (ไทย)" /></label>
+        <label>ชื่อเพลง (อังกฤษ)<input v-model="meta.title_en" placeholder="ถ้ามี" /></label>
+        <label>คีย์<ComboSelect v-model="opts.key" :options="KEYS" width="100%" /></label>
+        <label>จังหวะ<ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom width="100%" /></label>
+        <label>ความเร็ว (BPM)<input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" /></label>
+        <label>ธีม<ComboSelect v-model="meta.theme" :options="themeOptions" width="100%" /></label>
+        <label>หมวด<ComboSelect v-model="meta.category" :options="CATEGORY_OPTIONS" allow-custom width="100%" /></label>
+      </div>
+    </div>
+
     <!-- review banner (contextual — while an approver is reviewing a draft) -->
     <div v-if="reviewingDraft" class="card review-banner no-print">
       <strong>🔍 กำลังตรวจฉบับร่างของ {{ profilesMap[reviewingDraft.author_id] || '?' }}</strong>
@@ -1565,8 +1709,11 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       <button class="ed-chip" :class="{ act: allShown }" title="แสดง/ซ่อน โน้ตแบบแผ่นเพลงทั้งเพลง" @click="toggleShowAll">
         <Icon :name="allShown ? 'pencil' : 'music'" :size="15" /> {{ allShown ? 'กลับไปแก้ทั้งเพลง' : 'ดูผลทั้งเพลง' }}
       </button>
+      <button class="ed-chip" :class="{ act: livePreview }" :aria-pressed="livePreview" title="แสดงตัวอย่างโน้ตสดเหนือแต่ละบรรทัด (อัปเดตขณะพิมพ์)" @click="livePreview = !livePreview">
+        <Icon name="eye" :size="15" /> ตัวอย่างสด
+      </button>
       <button class="ed-ico" title="ฟังท่อนนี้" aria-label="ฟังท่อนนี้" @click="playStanza"><Icon name="play" :size="16" /></button>
-      <span class="ed-quick desk-only" aria-label="โครงเพลงด่วน (บรรทัดที่กำลังแก้)">
+      <span class="ed-quick" aria-label="โครงเพลงด่วน (บรรทัดที่กำลังแก้)">
         <button class="ed-ico" :class="{ on: curLineHook }" title="ทำเครื่องหมายท่อนฮุกให้บรรทัดที่กำลังแก้" aria-label="ท่อนฮุก" @click="qHook"><Icon name="fishing-hook" :size="16" /></button>
         <button class="ed-ico" :class="{ on: curLineRepeat }" title="เล่นซ้ำบรรทัดที่กำลังแก้ ‖: :‖" aria-label="เล่นซ้ำบรรทัด" @click="qRepeat"><Icon name="repeat" :size="16" /></button>
         <button class="ed-ico" title="คัดลอกบรรทัดที่กำลังแก้" aria-label="คัดลอกบรรทัด" @click="qCopyLine"><Icon name="copy" :size="16" /></button>
@@ -1628,6 +1775,12 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
           >‖ จบเพลง</button>
           <button class="ed-mini" title="ฟังบรรทัดนี้" aria-label="ฟังบรรทัดนี้" @click="playLine(li)"><Icon name="play" :size="14" /></button>
         </span>
+      </div>
+      <!-- B061: live jianpu preview of this line — the SAME render the sheet draws, updating
+           as you type (read-only; the edit boxes are below). Skipped while the line is still
+           empty so a blank preview never shows. Toggle off via "ตัวอย่างสด" in the header. -->
+      <div v-if="livePreview && lineHasNotes(li)" class="ed-line-live no-print" aria-label="ตัวอย่างโน้ตบรรทัดนี้ (อ่านอย่างเดียว)">
+        <SongSheet :content="lineContent(li)" mode="full" chord-system="letter" :display-key="opts.key" />
       </div>
       <!-- line structure (ชื่อ · ฮุก · ต่อห้อง · จบเพลง · ป้าย · สำเนา · ลบ) now lives in the
            header quick-struct + ⋯, acting on the focused line — US E3 "all structure is
@@ -1713,17 +1866,17 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
               <button
                 v-if="barStatus(li, bi).short"
                 class="ed-bar-pickup"
-                title="ห้องยก — จังหวะไม่เต็มห้องเพราะไปต่อกับห้องยกอีกห้อง (นับรวมจังหวะให้)"
-                aria-label="ทำเครื่องหมายห้องยก (จังหวะข้ามห้อง)"
+                title="ห้องต่อกัน — จังหวะไม่เต็ม แต่นับรวมกับห้องที่ต่อกัน เช่น เริ่มกลางห้อง"
+                aria-label="ทำเครื่องหมายห้องต่อกัน (จังหวะข้ามห้อง)"
                 @click="bar.pickup = true"
-              >↻ ห้องยก</button>
+              >↻ ห้องต่อกัน</button>
               <button
                 v-else-if="bar.pickup"
                 class="ed-bar-pickup on"
-                title="ห้องยก (นับรวมจังหวะกับห้องยกอื่น) — แตะเพื่อยกเลิก"
-                aria-label="ยกเลิกห้องยก"
+                title="ห้องต่อกัน (นับรวมจังหวะกับห้องที่ต่อกัน) — แตะเพื่อยกเลิก"
+                aria-label="ยกเลิกห้องต่อกัน"
                 @click="bar.pickup = false"
-              >↻ ห้องยก</button>
+              >↻ ห้องต่อกัน</button>
               <span v-if="bar.repeatStart" class="ed-bar-mark" title="เริ่มเล่นซ้ำ">‖:</span>
               <span v-if="bar.repeatEnd" class="ed-bar-mark" title="วนกลับ">:‖</span>
               <span v-if="bar.volta" class="ed-bar-mark" :title="bar.volta === 1 ? 'ห้องจบรอบแรก' : 'ห้องจบรอบสอง'">{{ bar.volta }}.</span>
@@ -1742,14 +1895,14 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
                 >⋯</button>
                 <div v-if="barMenuOpen === `${li}-${bi}`" class="ed-bar-menu" role="menu">
                   <div class="ed-bar-menu-row">
-                    <button class="secondary tiny" aria-label="ย้ายห้องไปทางซ้าย" :disabled="bi === 0" @click="moveBar(line, bi, -1)">◀ ซ้าย</button>
-                    <button class="secondary tiny" aria-label="ย้ายห้องไปทางขวา" :disabled="bi === line.bars.length - 1" @click="moveBar(line, bi, 1)">ขวา ▶</button>
+                    <button class="secondary tiny" aria-label="ย้ายห้องไปทางซ้าย (สุดขอบ = ไปบรรทัดก่อน)" :disabled="bi === 0 && li === 0" @click="moveBar(li, bi, -1)">◀ ซ้าย</button>
+                    <button class="secondary tiny" aria-label="ย้ายห้องไปทางขวา (สุดขอบ = ไปบรรทัดถัดไป)" :disabled="bi === line.bars.length - 1 && li === lines.length - 1" @click="moveBar(li, bi, 1)">ขวา ▶</button>
                   </div>
                   <div class="ed-bar-menu-row">
                     <button class="secondary tiny" title="ทำสำเนาห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)">⧉ สำเนา</button>
                     <button class="danger tiny" aria-label="ลบห้องนี้" @click="removeBar(line, bi)">✕ ลบห้อง</button>
                   </div>
-                  <label class="ed-bar-menu-check"><input v-model="bar.pickup" type="checkbox" /> ↻ ห้องยก (จังหวะไม่เต็ม — นับรวมกับห้องยกอื่น)</label>
+                  <label class="ed-bar-menu-check" title="จังหวะไม่เต็ม แต่นับรวมกับห้องที่ต่อกัน เช่น เริ่มกลางห้อง"><input v-model="bar.pickup" type="checkbox" /> ↻ ห้องต่อกัน (จังหวะไม่เต็ม — นับรวมกับห้องที่ต่อกัน)</label>
                   <label class="ed-bar-menu-check"><input v-model="bar.repeatStart" type="checkbox" /> ‖: เริ่มเล่นซ้ำ</label>
                   <label class="ed-bar-menu-check"><input v-model="bar.repeatEnd" type="checkbox" /> :‖ วนกลับ</label>
                   <label class="ed-bar-menu-check">ห้องจบ:
@@ -2541,10 +2694,11 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   .ed-chip:hover,
   .ed-mini:hover { background: var(--cream-hover); }
 }
-/* mobile: quick-struct collapses into ⋯; keep the header from overflowing */
+/* mobile: quick-struct (ฮุก·ซ้ำ·สำเนา·ลบบรรทัด) stays reachable on tablet/phone — the
+   header just wraps to more rows; tighten spacing so it doesn't overflow */
 @media (max-width: 760px) {
-  .desk-only { display: none; }
   .edhead { gap: 5px; padding: 6px; }
+  .ed-quick { flex-wrap: wrap; }
   .ed-lay button { padding: 6px 8px; font-size: 0.8rem; }
   .ed-chip { padding: 6px 8px; font-size: 0.82rem; }
 }
@@ -2592,6 +2746,65 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   margin-bottom: 10px;
 }
 .ed-line.line-active { border-color: var(--brand); }
+/* B061: live jianpu preview strip above the edit boxes — a tinted read-only render that
+   updates as you type. Scrolls horizontally on its own so a long line never widens the page. */
+.ed-line-live {
+  background: #fffdf5;
+  border: 1px dashed var(--brand);
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+}
+/* B060: inline song-settings card */
+.ed-settings { padding: 10px 12px; margin-bottom: 12px; }
+.ed-settings-head { display: flex; align-items: center; gap: 8px; }
+.ed-settings-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: var(--brand);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 2px;
+  min-height: 34px;
+}
+.ed-chev-open { transform: rotate(180deg); }
+.ed-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 12px;
+  margin-top: 10px;
+}
+.ed-settings-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+.ed-settings-grid label input {
+  color: var(--ink);
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+/* "✓ ตรวจแล้ว" toggle — ghost until ticked, then green (checked/verified) */
+.ed-verify {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+  border-radius: 999px;
+  padding: 5px 12px;
+  min-height: 32px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ed-verify:hover { border-color: var(--brand); color: var(--brand); }
+.ed-verify.on { background: #2f7d4f; border-color: #2f7d4f; color: #fff; }
 .ed-line-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 .ed-line-no { font-size: 0.82rem; color: var(--muted); font-weight: 700; }
 .ed-line-tag {
