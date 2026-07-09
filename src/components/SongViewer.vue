@@ -198,6 +198,19 @@ watch(
     selectedSecs.value = new Set()
   },
 )
+// B064: the SAME song's stored tempo/key can change via an edit+publish (แก้ไข → ฝึกร้อง).
+// Those local snapshots (tempo/displayKey) only re-synced on a song-identity change, so an
+// edited bpm/key never reached ฝึกร้อง. Re-sync when the STORED value itself changes —
+// editing bpm/key is an explicit intent to change them. DS-A04 still holds: a lyric-only
+// edit leaves content.bpm/key untouched, so these don't fire and the listener's pick sticks.
+watch(
+  () => props.song?.content?.bpm,
+  (b) => { if (b) tempo.value = b },
+)
+watch(
+  () => props.song?.content?.key,
+  (k) => { if (k) displayKey.value = k },
+)
 
 // ---------- follow-along scroll (B016 + B038) ----------
 // Keep the sounding SYLLABLE in view (B038: aim at the exact [data-syl], not the whole
