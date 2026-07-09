@@ -17,7 +17,7 @@
 **เข้าฐานแล้ว session นี้:** dock-core + dock-polish + **B043 เฟส 1 (merge `ca32508`)** + **edit-dev รอบ 1 (merge `316d02d`)** · **ฐานหลัง merge: 145/145 test + build ผ่าน** (verify `--exclude '**/.claude/**'`)
 **กลยุทธ์ใหม่ (P'Aim 9 ก.ค. เย็น):** **desktop ให้นิ่งก่อน แล้วค่อยแก้ mobile (tablet/phone) ตาม** — เหตุ: ผู้ใช้จริงส่วนใหญ่ใช้ tablet · ลำดับ build/debug = desktop ก่อน (ง่ายกว่า) แล้ว adapt responsive · ⚠️ B043 auto-scroll ตามพยางค์ = tablet-primary → "รับ 100%" ต้องรอรอบ tablet
 **ค้างรอ P'Aim เคาะ:** (c) B049 = **อธิบายให้ P'Aim แล้ว (ตัดช่อง "ลำดับเพลง" ก้อนใหญ่ · เข้าทาง B005)** รอสั่งจ่าย edit-dev · (e) dropdown ลากไหม · ~~(a)(b)~~ ✅ merged · ~~(d) DA GATE 1~~ ✅ → Step 2
-**Deploy:** `deploy-plan.md` — ⚠️ **main มี 8 commit ที่ base ไม่มี** (notationLint/Guide/CLAUDE.md/SongView) → **ต้อง reconcile ก่อน clean-force** ไม่งั้นงานหาย · **ยังไม่ deploy จน P'Aim สั่ง**
+**Deploy:** ✅✅ **DEPLOYED TO PRODUCTION (9 ก.ค. เย็น · P'Aim สั่ง "ขึ้นเลย")** — reconcile `main`→base สำเร็จ (merge `70335d5` · กู้ 8 commit ครบ: notationLint เข้าฐาน=แก้ risk B · Guide rewrites · CLAUDE.md playbook · midi/SongView = ฐานใหม่ supersede ไม่ทิ้งงาน) · main fast-forward `7d64a5c→70335d5` (ไม่ force) · Actions run `29014245918` = **success** · **live bundle stamp `70335d5` = ยืนยัน version จริงบนเว็บ** · test 146 vitest + 21 notationLint(node) + build · ⚠️ mobile/tablet ยังไม่ปรับ (pass พรุ่งนี้บน Android) · ⚠️ DB ยัง 8 เพลง (import 120 ยังไม่ run — DA regen SQL อยู่)
 **GitHub:** ใช้ `C:\Users\aimkr\OneDrive\4 Personal\claude\.env` → `GITHUB_TOKEN_PLENG` (`source .env` ก่อน gh/git · repo public)
 **บทเรียน routing:** ให้ทุกคนส่งงานมาที่ PM สายเดียว · PM กระจายถูกสายเอง (P'Aim เคยส่ง edit-review ผิดเข้า B043 · PM ดักได้)
 
