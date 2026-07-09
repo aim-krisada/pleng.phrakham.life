@@ -111,22 +111,28 @@ def build(number):
             'book_refs': refs, 'scripture': scripture, 'content': content, '_warnings': warns}
 
 def main():
-    upd = ['-- Auto-expanded repeat/volta content for the 16 repeat songs (P Aim option B).',
-           '-- Run AFTER import-all-120.sql. Updates content only; verified stays false and',
-           '-- review_flags keep "repeat" (พี่เปา eyeballs). SIMPLE 6 reliable; COMPLEX 10 best-effort.',
+    # DECISION (P'Aim): auto-expand ONLY the 6 SIMPLE songs (1 repeat/block, verified on
+    # 66). The 10 COMPLEX multi-repeat songs keep their import-all-120 base + `repeat`
+    # review flag for a human Studio pass — shipping a wrong auto-expansion is worse than
+    # a flagged base. Full geometry-based repeat reading is deferred.
+    upd = ['-- Auto-expanded repeat/volta content for the 6 SIMPLE repeat songs (P Aim).',
+           '-- Run AFTER import-all-120.sql. content only; verified stays false; review_flags',
+           '-- keep "repeat". The 10 COMPLEX songs are intentionally NOT here (manual in Studio).',
            '', 'begin;']
     for n in REPEAT_16:
         doc = build(n)
         json.dump(doc, open(f'tools/samples/{n:03d}.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
-        j = json.dumps(doc['content'], ensure_ascii=False)
-        upd.append(f"update public.songs set content = $json${j}$json$::jsonb "
-                   f"where category = 'anuchon' and number = {n};")
         c = doc['content']
-        print(f"#{n:3} {'SIMPLE ' if n in SIMPLE else 'complex'} st={len(c['stanzas'])} "
-              f"arr={[a['label'] for a in c['arrangement']]}")
+        tag = 'SIMPLE ' if n in SIMPLE else 'complex'
+        if n in SIMPLE:
+            j = json.dumps(c, ensure_ascii=False)
+            upd.append(f"update public.songs set content = $json${j}$json$::jsonb "
+                       f"where category = 'anuchon' and number = {n};")
+        print(f"#{n:3} {tag} st={len(c['stanzas'])} arr={[a['label'] for a in c['arrangement']]}"
+              + ('' if n in SIMPLE else '   (not shipped — keep flag)'))
     upd.append('commit;')
-    open('tools/repeat-16.sql', 'w', encoding='utf-8').write('\n'.join(upd) + '\n')
-    print('\nwrote tools/repeat-16.sql (16 content updates)')
+    open('tools/repeat-6-simple.sql', 'w', encoding='utf-8').write('\n'.join(upd) + '\n')
+    print('\nwrote tools/repeat-6-simple.sql (6 SIMPLE content updates)')
 
 if __name__ == '__main__':
     main()

@@ -120,101 +120,6 @@
               "chord": "D",
               "note": "1 - - -"
             }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "D",
-              "note": "1 -"
-            },
-            {
-              "type": "segment",
-              "chord": "F#m",
-              "note": "5 -"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "Bm",
-              "note": "1 - - 2_ 3_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "G",
-              "note": "4 -"
-            },
-            {
-              "type": "segment",
-              "chord": "D",
-              "note": "3 -"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "A",
-              "note": "2 - -"
-            }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "",
-              "note": ".5"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "G",
-              "note": ".6 -"
-            },
-            {
-              "type": "segment",
-              "chord": "A",
-              "note": ".7 -"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "Bm",
-              "note": "1 -"
-            },
-            {
-              "type": "segment",
-              "chord": "G",
-              "note": "2 3 4"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "D",
-              "note": "3 -"
-            },
-            {
-              "type": "segment",
-              "chord": "A",
-              "note": "2 -"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "D",
-              "note": "1 - - -"
-            }
           ]
         ]
       },
@@ -416,40 +321,6 @@
           "พลี",
           "",
           "",
-          "",
-          ".",
-          "",
-          "ข้า",
-          "",
-          "ไม่",
-          "",
-          "",
-          "อาจ",
-          "เมิน",
-          "หน้า",
-          "",
-          "จาก",
-          "",
-          "พระ",
-          "",
-          "",
-          "องค์",
-          "เมื่อ",
-          "",
-          "ข้า",
-          "",
-          "ซา",
-          "",
-          "บ",
-          "ซ่าน",
-          "ใน",
-          "รัก",
-          "",
-          "นิ",
-          "",
-          "รันดร์",
-          "",
-          "",
           ""
         ]
       },
@@ -557,50 +428,15 @@
           "องค์",
           "",
           "",
-          "",
-          "เคย",
-          "",
-          "กัง",
-          "",
-          "วล",
-          "",
-          "",
-          "อนิจ",
-          "จัง",
-          "กาล",
-          "",
-          "ก่อน",
-          "",
-          "โลก",
-          "",
-          "",
-          "นี้",
-          "ไม่",
-          "",
-          "มี",
-          "",
-          "รัก",
-          "",
-          "ใด",
-          "ให้",
-          "ข้า",
-          "อา",
-          "",
-          "วรณ์",
-          "",
-          "จวบ",
-          "",
-          "",
           ""
         ]
       }
     ]
   },
   "_warnings": [
-    "เพลงมีเล่นซ้ำ/จบ 2 แบบ — กางอัตโนมัติ (best-effort) · ตรวจ/เกลาใน Studio",
-    "COMPLEX (repeat หลายอันในท่อน) — auto อาจไม่ตรง · ตั้ง repeat ในแอป",
-    "system verse: 39 syllables vs 36 attack notes",
-    "system refrain: 40 syllables vs 39 attack notes",
-    "system x: 91 syllables vs 36 attack notes"
+    "system 2: repeat/volta markers [(439.1, ':')] — NEEDS manual repeat/volta",
+    "system ร้อง1: 19 syllables vs 18 attack notes",
+    "system รับ: 40 syllables vs 39 attack notes",
+    "system ร้อง2: 91 syllables vs 18 attack notes"
   ]
 }

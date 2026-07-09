@@ -93,78 +93,6 @@
               "chord": "G#/D#",
               "note": "0"
             }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "E",
-              "note": "5. 4_ 3_ 1_ 2_ 3_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "G#m",
-              "note": ".5 - - 0"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "C#m",
-              "note": "1. 2_ 3_ 4_ 5_ 6_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "F#m",
-              "note": "2 -"
-            },
-            {
-              "type": "segment",
-              "chord": "B",
-              "note": "- 0"
-            }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "F#m",
-              "note": "4. 3_ 2_ .7_ 1_ 2_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "B",
-              "note": ".5 - - 0"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "B",
-              "note": ".7. 1_ 2_ 3_ 1_ 2_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "E",
-              "note": "1 - -"
-            },
-            {
-              "type": "segment",
-              "chord": "G#/D#",
-              "note": "0"
-            }
           ]
         ]
       },
@@ -252,146 +180,6 @@
       {
         "id": "C",
         "lines": [
-          [
-            {
-              "type": "segment",
-              "chord": "E",
-              "note": "5. 4_ 3_ 1_ 2_ 3_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "G#m",
-              "note": "5 b7"
-            },
-            {
-              "type": "segment",
-              "chord": "C#",
-              "note": "6 3"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "F#m",
-              "note": "2_ 3_ 4_ 6_"
-            },
-            {
-              "type": "segment",
-              "chord": "B",
-              "note": "5 .7"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "E",
-              "note": "1 - - 0"
-            }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "D",
-              "note": "3 - 4"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "Bm",
-              "note": "5 - 1"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "Em",
-              "note": "4 - 3"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "A",
-              "note": "2 - -"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "A",
-              "note": ".7 - 1"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "A",
-              "note": "2 - .5"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "G",
-              "note": "6 - 5"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "D",
-              "note": "5 - -"
-            }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "D",
-              "note": "3 - 4"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "D",
-              "note": "5 - 1"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "A",
-              "note": "7 - 6"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "B",
-              "note": "5 -"
-            },
-            {
-              "type": "segment",
-              "chord": "Em",
-              "note": "4"
-            }
-          ],
           [
             {
               "type": "segment",
@@ -760,46 +548,6 @@
           "ใหญ่",
           "",
           "",
-          "",
-          "ข้า",
-          "ขอ",
-          "รัก",
-          "พระ",
-          "องค์",
-          "สุด",
-          "ใจ",
-          "",
-          "",
-          "",
-          "มิ",
-          "ใช่",
-          "สิ่ง",
-          "ประ",
-          "ทาน",
-          "ใด",
-          "ๆ",
-          "",
-          "",
-          "",
-          "ไม่",
-          "มี",
-          "ใคร",
-          "อาจ",
-          "มา",
-          "เปรียบ",
-          "ปาน",
-          "",
-          "",
-          "",
-          "ใน",
-          "รัก",
-          "นั้น",
-          "ข้า",
-          "สุข",
-          "สำ",
-          "ราญ",
-          "",
-          "",
           ""
         ]
       },
@@ -877,62 +625,6 @@
           "",
           "นัก",
           ".",
-          "",
-          "รัก",
-          "พระ",
-          "",
-          "",
-          "องค์",
-          "",
-          "เอง",
-          "ทรง",
-          "",
-          "เลิศ",
-          "ล้ำ",
-          "",
-          "มิ",
-          "ใช่",
-          "",
-          "รัก",
-          "สิ่ง",
-          "ทรง",
-          "กระ",
-          "ทำ",
-          "สิ่ง",
-          "ใด",
-          "ไม่",
-          "อาจ",
-          "เปรียบ",
-          "เทียบ",
-          "ได้",
-          "รัก",
-          "พระ",
-          "องค์",
-          "ให้",
-          "ข้า",
-          "ชื่น",
-          "",
-          "",
-          "",
-          "ใจ",
-          "",
-          ".",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
           "",
           "",
           "",
@@ -1070,58 +762,21 @@
           "วง",
           "",
           "",
-          "",
-          "ใน",
-          "พระ",
-          "เย",
-          "ซู",
-          "เรา",
-          "รัก",
-          "พระ",
-          "",
-          "",
-          "",
-          "องค์",
-          "พระ",
-          "องค์",
-          "ทรง",
-          "เป็น",
-          "สุด",
-          "ที่",
-          "",
-          "",
-          "",
-          "รัก",
-          "ยาม",
-          "ใจ",
-          "เรา",
-          "รัก",
-          "ใน",
-          "พระ",
-          "",
-          "",
-          "",
-          "องค์",
-          "เปี่ยม",
-          "หวาน",
-          "ชื่น",
-          "รื่น",
-          "รมย์",
-          "พำ",
-          "",
-          "",
           ""
         ]
       }
-    ]
+    ],
+    "headerKey": "E"
   },
   "_warnings": [
-    "เพลงมีเล่นซ้ำ/จบ 2 แบบ — กางอัตโนมัติ (best-effort) · ตรวจ/เกลาใน Studio",
-    "COMPLEX (repeat หลายอันในท่อน) — auto อาจไม่ตรง · ตั้ง repeat ในแอป",
-    "system verse: 57 syllables vs 56 attack notes",
-    "system refrain: 35 syllables vs 23 attack notes",
-    "system verse: 58 syllables vs 78 attack notes",
-    "system refrain: 36 syllables vs 43 attack notes",
-    "system x: 65 syllables vs 56 attack notes"
+    "header key \"E\" != stored sounding key \"D\" (from chords; movable-do). Numbers still reference do; transpose uses \"D\". Verify tonic.",
+    "PDF systems (12) != DOCX staves (11) — structure may drift; verify",
+    "system 3: no printed barlines — bars inferred by beat count (verify)",
+    "system 8: repeat/volta markers [(369.24, '║')] — NEEDS manual repeat/volta",
+    "ข้อเนื้อล้วน + หลายทำนองข้อ — map ลงทำนองข้อแรก (A); verify",
+    "system รับ: 35 syllables vs 23 attack notes",
+    "system ร้อง2: 29 syllables vs 39 attack notes",
+    "system รับ: 36 syllables vs 43 attack notes",
+    "system ร้อง3: 65 syllables vs 28 attack notes"
   ]
 }

@@ -179,114 +179,6 @@
             {
               "type": "segment",
               "chord": "",
-              "note": ".5_. .5_"
-            },
-            {
-              "type": "segment",
-              "chord": "A",
-              "note": "1_."
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "3_ 5_. 3_ 1"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1_ 1_"
-            },
-            {
-              "type": "segment",
-              "chord": "D",
-              "note": "1_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": ".6_ .6_ .6_ .6."
-            },
-            {
-              "type": "bar"
-            }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1_"
-            },
-            {
-              "type": "segment",
-              "chord": "A",
-              "note": "1."
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": ".5_ .5 1"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "E",
-              "note": ".7 -"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": ".7 .5_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": ".5_"
-            },
-            {
-              "type": "segment",
-              "chord": "A",
-              "note": "1_. 1_ 1_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "2_ 1"
-            }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1_ .7_ .6_. .6_ .6_ .5_ .4 .3_ .4_ .5 .3 .2 .2 .1 - .1"
-            }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "",
               "note": ".3_. .3_ .2_."
             },
             {
@@ -388,51 +280,7 @@
           "ไป",
           "ทุก",
           "เมื่อ",
-          "แม้",
-          "ล้อม",
-          "รอบ",
-          "ลำ",
-          "บาก",
-          "เพียง",
-          "ใด",
-          "ข้า",
-          "จะ",
-          "ไม่",
-          "ระ",
-          "ย่อ",
-          "ท้อ",
-          "ใจ",
-          "เพราะ",
-          "รู้",
-          "ข้า",
-          "เชื่อ",
-          "ผู้",
-          "ใด",
-          "ไม่",
-          "",
-          "ว่า",
-          "ข้า",
-          "จะ",
-          "เป็น",
-          "หรือ",
-          "ตาย",
-          "ขอ",
-          "มี",
-          "ใจ",
-          "กล้า",
-          "ใน",
-          "ทุก",
-          "สิ่ง",
-          "ทรง",
-          "สำ",
-          "แดง",
-          "ใหญ่",
-          "ขึ้น",
-          "แท้",
-          "จริง",
-          ".",
           "เพื่อ",
-          "",
           "รู้",
           "จัก",
           "พระ",
@@ -445,15 +293,19 @@
           "เชื่อ",
           "",
           "",
-          "",
           ""
         ]
       }
-    ]
+    ],
+    "headerKey": "B"
   },
   "_warnings": [
-    "เพลงมีเล่นซ้ำ/จบ 2 แบบ — กางอัตโนมัติ (best-effort) · ตรวจ/เกลาใน Studio",
-    "COMPLEX (repeat หลายอันในท่อน) — auto อาจไม่ตรง · ตั้ง repeat ในแอป",
-    "system verse: 109 syllables vs 111 attack notes"
+    "header key \"B\" != stored sounding key \"D\" (from chords; movable-do). Numbers still reference do; transpose uses \"D\". Verify tonic.",
+    "system 1: no printed barlines — bars inferred by beat count (verify)",
+    "system 2: no printed barlines — bars inferred by beat count (verify)",
+    "system 3: repeat/volta markers [(432.48, '║')] — NEEDS manual repeat/volta",
+    "system 4: no printed barlines — bars inferred by beat count (verify)",
+    "system 5: no printed barlines — bars inferred by beat count (verify)",
+    "system ร้อง1: 67 syllables vs 68 attack notes"
   ]
 }

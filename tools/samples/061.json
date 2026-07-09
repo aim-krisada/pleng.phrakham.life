@@ -92,81 +92,6 @@
               "chord": "C",
               "note": "1 0 0 0 1 5_. 5_ 1 0"
             }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "C",
-              "note": "1_. 2_ 3_ 2_ 1_ .6_ 1_ 2_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "C",
-              "note": "1 0 0 0"
-            }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "C",
-              "note": "5_. 6_ 1_ 6_ 5_ 3_ 5_ 6_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "C",
-              "note": "5 0 0 0"
-            }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "F",
-              "note": "1_. 1_ 6_ 5_"
-            },
-            {
-              "type": "segment",
-              "chord": "G",
-              "note": "6_ 5_ 0"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "C",
-              "note": "3_. 5_ 3_ 2_"
-            },
-            {
-              "type": "segment",
-              "chord": "Am",
-              "note": "3_ 1_ 0"
-            }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "Dm",
-              "note": "1_. 2_ 3_ 2_"
-            },
-            {
-              "type": "segment",
-              "chord": "F/G",
-              "note": "1_ .6_ 1_ 2_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "C",
-              "note": "1 0 0 0 1 5_. 5_ 1 0"
-            }
           ]
         ]
       }
@@ -227,72 +152,17 @@
           "",
           "",
           ".",
-          "ร่วม",
-          "ประ",
-          "ชุม",
-          "",
-          "ทุก",
-          "บ่อย",
-          "จะ",
-          "ไม่",
-          "ท้อ",
-          "ใจ",
-          "ชื่น",
-          "ชม",
-          "ประ",
-          "",
-          "",
-          "",
-          "ชุม",
-          "ใช่",
-          "กลัด",
-          "กลุ้ม",
-          "ฝืน",
-          "ใจ",
-          "ทุก",
-          "คน",
-          "รับ",
-          "",
-          "",
-          "",
-          "การ",
-          "โหม",
-          "ไฟ",
-          "เร่า",
-          "ร้อน",
-          "ทั่ว",
-          "",
-          "ใน",
-          "ร่าง",
-          "กาย",
-          "มาตร",
-          "แม้น",
-          "ภา",
-          "",
-          "วะ",
-          "เข็ญ",
-          "ใจ",
-          "สัก",
-          "เพียง",
-          "ใด",
-          "ไม่",
-          "ย่อ",
-          "ท้อ",
-          "",
-          "",
-          "",
-          ".",
           "",
           "",
           "",
           ""
         ]
       }
-    ]
+    ],
+    "headerKey": "D"
   },
   "_warnings": [
-    "เพลงมีเล่นซ้ำ/จบ 2 แบบ — กางอัตโนมัติ (best-effort) · ตรวจ/เกลาใน Studio",
-    "COMPLEX (repeat หลายอันในท่อน) — auto อาจไม่ตรง · ตั้ง repeat ในแอป",
-    "system verse: 83 syllables vs 86 attack notes"
+    "header key \"D\" != stored sounding key \"C\" (from chords; movable-do). Numbers still reference do; transpose uses \"C\". Verify tonic.",
+    "system ร้อง1: 40 syllables vs 43 attack notes"
   ]
 }

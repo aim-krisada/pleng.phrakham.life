@@ -353,11 +353,10 @@ arrangement: ร้อง 1→A · รับ→B · ร้อง 2→A · ร้
 
 ---
 
-# Step 3.9 — auto-repeat ครบ 16 เพลง (P'Aim เร่ง · best-effort + flag) → `tools/repeat-16.sql`
+# Step 3.9 — auto-repeat: 6 SIMPLE เท่านั้น (P'Aim/PM เคาะ · ยึดหลักฐาน) → `tools/repeat-6-simple.sql`
 
-**P'Aim เคาะ: ทำครบ 16 เลย ไม่ต้อง pilot · ผิดค่อยแก้ (พี่เปาเห็น flag `repeat` ในหน้าแก้)**
+**เคาะสุดท้าย:** auto เฉพาะ **6 SIMPLE** · **10 COMPLEX คง flag `repeat` ตั้งมือใน Studio** (auto ผิด = แย่กว่า flagged)
 
-- `tools/build_repeat_songs.py` (generalize จาก 99/100) กางทั้ง 16 เพลง repeat → **16/16 โหลด resolveContent OK**
-- **`tools/repeat-16.sql`** = update `content` 16 เพลง (run **หลัง** import-all-120 · verified ยัง false · review_flags คง `repeat`)
-- **6 SIMPLE (2,36,66,69,74,117) = แม่น** (verify 66 กับภาพแล้ว) · **10 COMPLEX = best-effort** (repeat ซ้อน · auto อาจไม่ตรง · flag `repeat` ให้พี่เปาเกลา — ไม่ปล่อยพัง แค่โครงอาจต้องปรับ)
-- ลำดับ run: backup → import-all-120.sql → set-review-flags.sql → **repeat-16.sql**
+- `tools/build_repeat_songs.py` → **`tools/repeat-6-simple.sql`** = update `content` **6 เพลง** (2,36,66,69,74,117 · verify 66 กับภาพแล้ว) · run **หลัง** import-all-120 · verified ยัง false · review_flags คง `repeat`
+- **10 COMPLEX** (20,25,40,53,61,72,73,80,85,88) = โครงพื้นฐานจาก import-all-120 + flag `repeat` → พี่เปาตั้ง repeat ในแอป (catalog ป้าย ⚠️) · geometry เต็มไว้ทีหลังถ้าจำเป็น
+- **ลำดับ run สุดท้าย (P'Aim run 4 ไฟล์):** backup-songs.sql → import-all-120.sql → set-review-flags.sql → **repeat-6-simple.sql** · ยืนยัน project vlpuvaofbzdawgjjpgfu

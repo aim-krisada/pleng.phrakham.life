@@ -155,84 +155,6 @@
             {
               "type": "segment",
               "chord": "",
-              "note": "5_ 3_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "C",
-              "note": "1_ 1_ 1_ 2_ 3_ 4_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "C",
-              "note": "5_ 5_ 5_ 3_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "F",
-              "note": "6_ 6_ 6_. 5_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "F",
-              "note": "6_. 5_ 6_ 7_ 1_ 2_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "C",
-              "note": "3."
-            }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1_ 5_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "",
-              "note": "1. 5_ 3_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "G",
-              "note": "5. 2_ 3_"
-            },
-            {
-              "type": "bar"
-            },
-            {
-              "type": "segment",
-              "chord": "C",
-              "note": "1 0_"
-            }
-          ],
-          [
-            {
-              "type": "segment",
-              "chord": "",
               "note": "6_"
             },
             {
@@ -274,6 +196,50 @@
               "type": "segment",
               "chord": "C",
               "note": "5_ 3_ 1_. 3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "G",
+              "note": "2_"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "1"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "1. 3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "G",
+              "note": "2. 6_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "5_ 3_ 3_. 1_"
             },
             {
               "type": "bar"
@@ -346,35 +312,6 @@
           "",
           "พระ",
           "เจ้า",
-          "ส",
-          "ง่า",
-          "รา",
-          "ศี",
-          "เปรม",
-          "ปรีดิ์",
-          "ชื่น",
-          "ฉ่ำ",
-          "ทรง",
-          "เพิ่ม",
-          "กำ",
-          "ลัง",
-          "ทั้ง",
-          "ทรง",
-          "หนุน",
-          "นำ",
-          "เฝ้า",
-          "รอ",
-          "คอย",
-          "เฝ้า",
-          "รอ",
-          "คอย",
-          "เฝ้า",
-          "รอ",
-          "คอย",
-          "เฝ้า",
-          "รอ",
-          "คอย",
-          ".",
           "จะ",
           "ทรง",
           "นำ",
@@ -386,7 +323,6 @@
           "คอย",
           "รอ",
           "คอย",
-          "",
           "เฝ้า",
           "รอ",
           "คอย",
@@ -394,10 +330,18 @@
           "พระ",
           "เย",
           "ซู",
-          "",
-          "",
-          "",
-          "",
+          "รอ",
+          "คอย",
+          "รอ",
+          "คอย",
+          "เฝ้า",
+          "รอ",
+          "คอย",
+          "องค์",
+          "พระ",
+          "เย",
+          "ซู",
+          ".",
           "",
           "",
           "",
@@ -410,8 +354,9 @@
     ]
   },
   "_warnings": [
-    "เพลงมีเล่นซ้ำ/จบ 2 แบบ — กางอัตโนมัติ (best-effort) · ตรวจ/เกลาใน Studio",
-    "COMPLEX (repeat หลายอันในท่อน) — auto อาจไม่ตรง · ตั้ง repeat ในแอป",
-    "system verse: 94 syllables vs 105 attack notes"
+    "system 1: repeat/volta markers [(62.328, '║')] — NEEDS manual repeat/volta",
+    "system 2: repeat/volta markers [(287.09, '║')] — NEEDS manual repeat/volta",
+    "system 5: repeat/volta markers [(304.03, '║')] — NEEDS manual repeat/volta",
+    "system ร้อง1: 77 syllables vs 84 attack notes"
   ]
 }
