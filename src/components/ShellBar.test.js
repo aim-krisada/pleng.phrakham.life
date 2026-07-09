@@ -12,6 +12,7 @@ import { shellMenu } from '../store.js'
 const stubs = {
   ProfileTool: true,
   DownloadTool: true,
+  FontTool: true,
   Icon: true,
   RouterLink: { template: '<a><slot /></a>' },
 }

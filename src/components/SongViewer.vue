@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { resolveContent } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
-import { currentSong } from '../store.js'
+import { currentSong, readingFontScale } from '../store.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
 
@@ -60,7 +60,6 @@ const tempo = ref(props.song?.content?.bpm || 92)
 const playingSeg = ref(null)
 const playingSyl = ref(null) // { li, si, syk } — the syllable+note sounding now (B006)
 const sheetWrap = ref(null)
-const fontScale = ref(1)
 // pause/resume (US-A01 "เล่นต่อ"): playedIndex = note index currently sounding;
 // pausedIndex = where the last stop happened, so the next play continues from there.
 // posIndex = the playhead the dot/markers read (moves on play, seek, jump, ⏮/⏭).
@@ -202,9 +201,6 @@ async function scrollToPlaying() {
 watch(playingSyl, scrollToPlaying)
 watch(playingSeg, (seg) => { if (!playingSyl.value) scrollToPlaying(seg) })
 
-function bumpFont(d) {
-  fontScale.value = Math.min(2.2, Math.max(0.8, Math.round((fontScale.value + d) * 10) / 10))
-}
 let playGen = 0
 function stopPlay() {
   playGen++
@@ -324,11 +320,7 @@ const settingDescs = computed(() => [
     id: 'tempo', icon: 'gauge', label: 'ความเร็ว', kind: 'menu', value: tempo.value, badge: String(tempo.value),
     options: tempoOptions.value, onPick: (v) => (tempo.value = Number(v)),
   },
-  {
-    id: 'font', icon: 'a-arrow-up', label: 'ขนาดตัวอักษร', kind: 'stepper', prevLabel: 'A−', nextLabel: 'A+',
-    onPrev: () => bumpFont(-0.1), onNext: () => bumpFont(0.1),
-    prevDisabled: fontScale.value <= 0.8, nextDisabled: fontScale.value >= 2.2,
-  },
+  // ขนาดตัวอักษร (font) now lives in the top nav "Aa" tool (FontTool), not the dock — P'Aim.
   { id: 'download', icon: 'download', label: 'ดาวน์โหลด (JSON)', kind: 'action', actionLabel: 'บันทึก', onAction: downloadJson },
   { id: 'print', icon: 'printer', label: 'พิมพ์ / PDF', kind: 'action', actionLabel: 'เปิด', onAction: printSheet },
 ])
@@ -388,7 +380,7 @@ function onSeek({ li, si, syk }) {
 
 <template>
   <div>
-    <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: fontScale + 'rem' }">
+    <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: readingFontScale + 'rem' }">
       <SongSheet
         :content="resolved"
         :mode="sheetMode"

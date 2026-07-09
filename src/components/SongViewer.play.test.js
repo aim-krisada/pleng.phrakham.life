@@ -264,15 +264,17 @@ describe('SongViewer key / tempo / loop / readability (US-A02, US-A03)', () => {
     expect(row(w, 'key').find('.mp-stpv').text()).toBe('F')
   })
 
-  it('ก+ / ก− change the reading font size (US-A03)', async () => {
+  it('the reading font size comes from the global store (Aa top-nav tool, not the dock)', async () => {
+    const { readingFontScale } = await import('../store.js')
+    readingFontScale.value = 1
     const w = mountViewer()
     await nextTick()
     const style = () => w.find('.sheet-scale').attributes('style') || ''
-    await stepper(w, 'font', 'next')
-    expect(style()).toContain('font-size: 1.1rem')
-    await stepper(w, 'font', 'prev')
-    await stepper(w, 'font', 'prev')
-    expect(style()).toContain('font-size: 0.9rem')
+    expect(style()).toContain('font-size: 1rem')
+    readingFontScale.value = 1.4
+    await nextTick()
+    expect(style()).toContain('font-size: 1.4rem')
+    readingFontScale.value = 1 // restore for other tests
   })
 
   it('แสดงผล → เนื้อล้วน switches the sheet to lyrics-only layers (US-A03)', async () => {

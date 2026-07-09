@@ -11,7 +11,7 @@
 //   row 2:          [⚙ ตั้งค่า] + ⏮ ▶/⏸ ⏭ + 🔁 + pinned quick controls (คีย์/ความเร็ว/แสดงผล)
 //   ⚙ panel: every control adjustable inline (คอร์ด/ฟอนต์/ดาวน์โหลด/พิมพ์/ความโปร่ง) + 📌 pin
 // The play/pause button is icon-only (no background) — P'Aim directive.
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import Icon from './Icon.vue'
 
 const props = defineProps({
@@ -113,11 +113,36 @@ const alphaSetting = computed(() => ({
   onInput: (v) => emit('dock-alpha', v / 100),
 }))
 const allSettings = computed(() => [...props.settings, alphaSetting.value])
-const pinnedSettings = computed(() => allSettings.value.filter((s) => isPinned(s.id)))
+// order the bar controls by the PIN order (คีย์ → ความเร็ว → แสดงผล), not the panel order
+const pinnedSettings = computed(() => pins.value.map((id) => allSettings.value.find((s) => s.id === id)).filter(Boolean))
+
+// ---------- keep every popup fully on-screen (reuse dock-polish clamp · P'Aim req A) ----------
+// The ⚙ panel / pinned dropdown / selector open UPWARD from the bottom dock and can spill off
+// the top or a side edge. After one opens, measure it and translate it back inside the
+// viewport + 8px so it is never cut off (same idea StudioDock uses for its own popovers).
+const rootEl = ref(null)
+function clampEl(el) {
+  if (!el) return
+  el.style.transform = '' // reset before measuring so we read the natural position
+  const r = el.getBoundingClientRect()
+  const m = 8
+  let dx = 0, dy = 0
+  if (r.right > window.innerWidth - m) dx = window.innerWidth - m - r.right
+  if (r.left + dx < m) dx = m - (r.left + dx)
+  if (r.bottom > window.innerHeight - m) dy = window.innerHeight - m - r.bottom
+  if (r.top + dy < m) dy = m - (r.top + dy)
+  el.style.transform = dx || dy ? `translate(${dx}px, ${dy}px)` : ''
+}
+watch([openPanel, openMenu], async () => {
+  await nextTick()
+  const root = rootEl.value
+  if (!root) return
+  for (const sel of ['.mp-panel', '.mp-dd', '.mp-sheet']) clampEl(root.querySelector(sel))
+})
 </script>
 
 <template>
-  <div class="mp">
+  <div ref="rootEl" class="mp">
     <!-- ===== row 1: หุบ grip + progress + dots + time (+ ☰ เลือกท่อน) ===== -->
     <div class="mp-r1">
       <button
