@@ -27,7 +27,7 @@ create unique index if not exists songs_category_number_key
 -- REVIEW in Studio after loading (Claude seeds, P'Pao fixes):
 --   * header key "C" != stored sounding key "A" (from chords; movable-do). Numbers still reference do; transpose uses "A". Verify tonic.
 --   * system ร้อง1: 35 syllables vs 36 attack notes
---   * system รับ1: 39 syllables vs 42 attack notes
+--   * system รับ: 39 syllables vs 42 attack notes
 --   * system ร้อง2: 33 syllables vs 36 attack notes
 --   * system ร้อง3: 34 syllables vs 36 attack notes
 insert into public.songs (category, number, title_th, title_en, content, verified, theme, book_refs, scripture)

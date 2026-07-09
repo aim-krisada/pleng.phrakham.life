@@ -859,7 +859,7 @@
   "_warnings": [
     "header key \"C\" != stored sounding key \"D\" (from chords; movable-do). Numbers still reference do; transpose uses \"D\". Verify tonic.",
     "system ร้อง1: 59 syllables vs 75 attack notes",
-    "system รับ1: 65 syllables vs 84 attack notes",
+    "system รับ: 65 syllables vs 84 attack notes",
     "system ร้อง2: 56 syllables vs 75 attack notes",
     "system ร้อง3: 59 syllables vs 75 attack notes",
     "system รับX: 63 syllables vs 84 attack notes"

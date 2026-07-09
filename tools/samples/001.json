@@ -48,12 +48,7 @@
               "chord": "E",
               "note": "3 - -"
             }
-          ]
-        ]
-      },
-      {
-        "id": "B",
-        "lines": [
+          ],
           [
             {
               "type": "segment",
@@ -92,12 +87,43 @@
               "chord": "B",
               "note": "2 - - -"
             }
-          ]
-        ]
-      },
-      {
-        "id": "C",
-        "lines": [
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "E",
+              "note": ".5. .5_ .5 .6"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C#m",
+              "note": "1 - - .6_ 1_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F#m",
+              "note": "2_ 2_ 2_ 2_"
+            },
+            {
+              "type": "segment",
+              "chord": "B",
+              "note": "2 1_ 3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "E",
+              "note": "3 - -"
+            }
+          ],
           [
             {
               "type": "segment",
@@ -148,7 +174,7 @@
         ]
       },
       {
-        "id": "D",
+        "id": "B",
         "lines": [
           [
             {
@@ -193,12 +219,7 @@
               "chord": "E",
               "note": "3 - -"
             }
-          ]
-        ]
-      },
-      {
-        "id": "E",
-        "lines": [
+          ],
           [
             {
               "type": "segment",
@@ -247,12 +268,43 @@
               "chord": "B",
               "note": "5 - - -"
             }
-          ]
-        ]
-      },
-      {
-        "id": "F",
-        "lines": [
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "E",
+              "note": ".5. .5_ .5 .6"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C#m",
+              "note": "1 - - .6_ 1_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F#m",
+              "note": "2_ 2_ 2_ 2_"
+            },
+            {
+              "type": "segment",
+              "chord": "B",
+              "note": "2 1_ 3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "E",
+              "note": "3 - -"
+            }
+          ],
           [
             {
               "type": "segment",
@@ -306,7 +358,7 @@
     "arrangement": [
       {
         "stanza": "A",
-        "label": "",
+        "label": "ร้อง 1",
         "syllables": [
           "พระ",
           "เจ้า",
@@ -324,16 +376,9 @@
           "ริม",
           "ฝั่ง",
           "น้ำ",
-          "",
-          "",
-          ""
-        ]
-      },
-      {
-        "stanza": "B",
-        "label": "",
-        "syllables": [
           "ทรง",
+          "",
+          "",
           "ช่วย",
           "นำ",
           "สำ",
@@ -349,23 +394,17 @@
           "แต่",
           "ละ",
           "วัน",
-          "",
-          "",
-          ""
-        ]
-      },
-      {
-        "stanza": "A",
-        "label": "",
-        "syllables": [
           "พระ",
+          "",
+          "",
+          "",
           "เจ้า",
           "เป็น",
           "ความ",
           "รัก",
-          "",
-          "",
           "ทรง",
+          "",
+          "",
           "ปก",
           "ปัก",
           "รัก",
@@ -374,17 +413,10 @@
           "ความ",
           "ทุกข์",
           "ตรม",
-          "",
-          "",
-          ""
-        ]
-      },
-      {
-        "stanza": "C",
-        "label": "",
-        "syllables": [
           "พระ",
           "คุณ",
+          "",
+          "",
           "อัน",
           "อุ",
           "ดม",
@@ -398,16 +430,18 @@
           "ภัย",
           "ไม่",
           "แปร",
-          "",
-          "",
           "เปลี่ยน",
           "ไป",
+          "",
+          "",
+          "",
+          "",
           "",
           ""
         ]
       },
       {
-        "stanza": "D",
+        "stanza": "B",
         "label": "รับ",
         "syllables": [
           "ใน",
@@ -430,13 +464,8 @@
           "ทุก",
           "เว",
           "",
-          ""
-        ]
-      },
-      {
-        "stanza": "E",
-        "label": "",
-        "syllables": [
+          "",
+          "ลา",
           "พระ",
           "เจ้า",
           "ทรง",
@@ -451,23 +480,17 @@
           "ดำ",
           "เนิน",
           "ชี",
+          "",
+          "",
+          "",
           "วา",
-          "",
-          "",
-          ""
-        ]
-      },
-      {
-        "stanza": "A",
-        "label": "",
-        "syllables": [
           "พระ",
           "เจ้า",
           "เป็น",
           "ความ",
+          "",
+          "",
           "รัก",
-          "",
-          "",
           "ให้",
           "ข้า",
           "พัก",
@@ -479,13 +502,6 @@
           "น้ำ",
           "",
           "",
-          ""
-        ]
-      },
-      {
-        "stanza": "F",
-        "label": "",
-        "syllables": [
           "ความ",
           "อิ่ม",
           "หนำ",
@@ -513,10 +529,7 @@
     ]
   },
   "_warnings": [
-    "system 1: 14 syllables vs 15 attack notes",
-    "system 3: 14 syllables vs 15 attack notes",
-    "system 5: 17 syllables vs 16 attack notes",
-    "system 7: 14 syllables vs 15 attack notes",
-    "system 8: 18 syllables vs 17 attack notes"
+    "system ร้อง1: 61 syllables vs 63 attack notes",
+    "system รับ: 64 syllables vs 63 attack notes"
   ]
 }
