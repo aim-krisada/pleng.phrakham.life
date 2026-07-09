@@ -180,6 +180,20 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(lines[1].find('.chord').exists()).toBe(true)
   })
 
+  // B065 — when the chord layer is hidden but notes show (เนื้อ+โน้ต / โน้ตล้วน) the root
+  // gets `sheet-no-chord`, which zeroes the barline's chord-row top offset so the digits
+  // stop spilling above the barline. With chords shown the class must be absent.
+  it('B065: sheet-no-chord class only when notes show without chords', () => {
+    const noteOnly = mount(SongSheet, { props: { content, mode: 'full', showNote: true, showChord: false, showLyric: true } })
+    expect(noteOnly.classes()).toContain('sheet-no-chord')
+
+    const withChord = mount(SongSheet, { props: { content, mode: 'full' } }) // chord shown → no class
+    expect(withChord.classes()).not.toContain('sheet-no-chord')
+
+    const lyricsOnly = mount(SongSheet, { props: { content, mode: 'full', showNote: false, showChord: false, showLyric: true } })
+    expect(lyricsOnly.classes()).not.toContain('sheet-no-chord') // no notes → no barlines → no need
+  })
+
   it('empty song does not throw and renders no lines', () => {
     const wrapper = mount(SongSheet, {
       props: { content: { key: 'C', timeSignature: '4/4', lines: [] }, mode: 'full' },

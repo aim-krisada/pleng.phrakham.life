@@ -153,7 +153,7 @@ function seek(li, si, syk = 0) {
 </script>
 
 <template>
-  <div :class="lyricsOnly ? 'sheet-mode-lyrics' : ''">
+  <div :class="[lyricsOnly ? 'sheet-mode-lyrics' : '', sn && !sc ? 'sheet-no-chord' : '']">
     <!-- Printed title — centered, above the song, on paper only (on screen the shell
          bar / Studio heading already show it). Owned here so it prints from ANY mode
          that renders the sheet (ดู or แผ่น), which is why P'Aim's ดู-mode print had none. -->
@@ -236,6 +236,15 @@ function seek(li, si, syk = 0) {
   background: var(--brand, #8b4513);
   color: #fff;
   font-weight: 700;
+}
+/* B065 — with a chord row above, the barline/repeat marks carry margin-top:1em to drop
+   past that row onto the note line. When the chord layer is hidden (เนื้อ+โน้ต / โน้ตล้วน)
+   there is no chord row, so that 1em pushed the barline BELOW the notes and the digits
+   spilled above it. Remove the top offset so the barline starts at the note row instead. */
+.sheet-no-chord :deep(.bar-line),
+.sheet-no-chord :deep(.bar-final),
+.sheet-no-chord :deep(.repeat-mark) {
+  margin-top: 0;
 }
 /* reader tap targets: a light hover hint that a syllable/segment can be jumped to */
 .seg-tap { cursor: pointer; }
