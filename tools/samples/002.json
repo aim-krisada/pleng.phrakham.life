@@ -1,0 +1,299 @@
+{
+  "number": 2,
+  "title_th": "ของขวัญ",
+  "title_en": null,
+  "theme": "กิตติคุณ",
+  "book_refs": [],
+  "scripture": null,
+  "content": {
+    "version": 2,
+    "key": "C",
+    "timeSignature": "4/4",
+    "stanzas": [
+      {
+        "id": "A",
+        "lines": [
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "5"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Am",
+              "note": "1 - 0_ 2 1_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Em",
+              "note": "7 - - 5_ 7_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "6 -"
+            },
+            {
+              "type": "segment",
+              "chord": "G",
+              "note": "0_ 7 1_ 2_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "5 -"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "1_ 2_ 3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "5_ 3. 0_ 1_ 2_ 3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Am",
+              "note": "2_ 1_ .6_ .6 0_ 6_ 5_ 3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Dm",
+              "note": "2_ 2. 0_ 3_ 2_ 3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "G",
+              "note": "5_ 5."
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "5"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Am",
+              "note": "1 - 0_ 2 1_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Em",
+              "note": "7 - - 5_ 7_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "6 -"
+            },
+            {
+              "type": "segment",
+              "chord": "G",
+              "note": "0_ 7 1_ 2_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "5 -"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "0 5_ 6_ 5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "3_ 3."
+            },
+            {
+              "type": "segment",
+              "chord": "E",
+              "note": "0_ 2_ 3_ 2_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Am",
+              "note": "1 .6_ .6 0_ 1_ 2_ 3_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Dm",
+              "note": "2_ 1_ 1_ 2_"
+            },
+            {
+              "type": "segment",
+              "chord": "G",
+              "note": "5_ 3_ 3_ 2_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "1 - -"
+            }
+          ]
+        ]
+      }
+    ],
+    "arrangement": [
+      {
+        "stanza": "A",
+        "label": "ร้อง 1",
+        "syllables": [
+          "จะ",
+          "เป็น",
+          "",
+          "",
+          "ของ",
+          "ท่าน",
+          "ได้",
+          "",
+          "",
+          "อย่าง",
+          "ไร",
+          "ของ",
+          "",
+          "",
+          "ท่าน",
+          "ได้",
+          "อย่าง",
+          "ไร",
+          "",
+          "?",
+          "ของ",
+          "ขวัญ",
+          "จาก",
+          "พระ",
+          "",
+          "เจ้า",
+          "ท่าน",
+          "ได้",
+          "รับ",
+          "หรือ",
+          "เปล่า",
+          "?",
+          "",
+          "ไม่",
+          "เห็น",
+          "ด้วย",
+          "ตา",
+          "เปล่า",
+          "",
+          "รู้",
+          "ได้",
+          "ด้วย",
+          "ใจ",
+          "เรา",
+          "เพื่อน",
+          "ที่",
+          "",
+          "",
+          "รัก",
+          "ของ",
+          "เรา",
+          "",
+          "",
+          "เคย",
+          "นึก",
+          "บ้าง",
+          "",
+          "",
+          "หรือ",
+          "เปล่า",
+          "?",
+          "กุ",
+          "",
+          "",
+          "มาร",
+          "ที่",
+          "ราง",
+          "หญ้า",
+          "เพื่อ",
+          "",
+          "ท่าน",
+          "พระ",
+          "องค์",
+          "มา",
+          "ของ",
+          "ขวัญ",
+          "",
+          "ประ",
+          "เสริฐ",
+          "นี้",
+          "รอ",
+          "คอย",
+          "ท่าน",
+          "รับ",
+          "เอา",
+          "เพราะ",
+          "ทรง",
+          "เตรียม",
+          "ไว้",
+          "",
+          ""
+        ]
+      }
+    ]
+  },
+  "_warnings": [
+    "เพลงมีเล่นซ้ำ/จบ 2 แบบ — กางอัตโนมัติ (best-effort) · ตรวจ/เกลาใน Studio",
+    "system verse: 78 syllables vs 69 attack notes"
+  ]
+}

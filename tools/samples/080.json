@@ -1,0 +1,417 @@
+{
+  "number": 80,
+  "title_th": "ยิศราเอลจงฟังเถิด",
+  "title_en": null,
+  "theme": "พระคัมภีร์",
+  "book_refs": [],
+  "scripture": "พบญ.6:4-9",
+  "content": {
+    "version": 2,
+    "key": "F",
+    "timeSignature": "4/4",
+    "stanzas": [
+      {
+        "id": "A",
+        "lines": [
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "0_ 5_ 5_ 5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": "6 7_. 6_"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "5 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3. 5_ 3_. 2_ 1"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "2. 3_ 5_. 3_ 5"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "5"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "3_ 5_ 2 1"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": ".6 1_. 2_"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3_ 2_ 1_ .5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": ".6 1_. 2_"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "3 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "1 -"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": ".6 .5_. .6_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "1 -"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "2 1_. 2_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3 -"
+            },
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": ".6 .6"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3_ 5_ 6_ 5_"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "3 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "1 -"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "0_ 5_ 5_ 5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": "6 7_. 6_"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "5 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3. 5_ 3_. 2_ 1"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "2. 3_ 5_. 3_ 5"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "5"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "3_ 5_ 2 1"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": ".6 1_. 2_"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3_ 2_ 1_ .5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": ".6 1_. 2_"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "3 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "1 -"
+            }
+          ],
+          [
+            {
+              "type": "segment",
+              "chord": "",
+              "note": "0_ 5_ 5_ 5_"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "Bb",
+              "note": "6 7_. 6_"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "5 2"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "F",
+              "note": "3. 5_ 3_. 2_ 1"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "2. 3_ 5_. 3_ 5"
+            },
+            {
+              "type": "bar"
+            },
+            {
+              "type": "segment",
+              "chord": "C",
+              "note": "5"
+            }
+          ]
+        ]
+      }
+    ],
+    "arrangement": [
+      {
+        "stanza": "A",
+        "label": "ร้อง 1",
+        "syllables": [
+          "",
+          "เจ้า",
+          "ทั้ง",
+          "หลาย",
+          "จะ",
+          "นั่ง",
+          "อยู่",
+          "ใน",
+          "เรือน",
+          "หรือ",
+          "เดิน",
+          "ใน",
+          "หน",
+          "ทาง",
+          "หรือ",
+          "นอน",
+          "ลง",
+          "ตื่น",
+          "ขึ้น",
+          "จง",
+          "พร",
+          "ร",
+          "-ณ",
+          "-นา",
+          "ตาม",
+          "เอา",
+          "ถ้อย",
+          "คำ",
+          "พัน",
+          "ไว้",
+          "ที่",
+          "มือ",
+          "จา",
+          "รึก",
+          "ที่",
+          "หว่าง",
+          "คิ้ว",
+          "",
+          "ยิ",
+          "ศ",
+          "รา",
+          "เอ",
+          "",
+          "ล",
+          "จง",
+          "ฟัง",
+          "เถิด",
+          "",
+          "ยะ",
+          "-โฮ",
+          "วา",
+          "พระ",
+          "เจ้า",
+          "ของ",
+          "เรา",
+          "เป็น",
+          "เอก",
+          "",
+          "",
+          "จง",
+          "เขียน",
+          "ถ้อย",
+          "คำ",
+          "เหล่า",
+          "นี้",
+          "ไว้",
+          "ที่",
+          "เสา",
+          "เรือน",
+          "บ้าน",
+          "ของ",
+          "เจ้า",
+          "และ",
+          "ที่",
+          "ประ",
+          "ตู",
+          "เมือง",
+          "จง",
+          "เขียน",
+          "ถ้อย",
+          "คำ",
+          "เหล่า",
+          "นี้",
+          "ไว้",
+          "ที่",
+          "เสา",
+          "เรือน",
+          "ของ",
+          "เจ้า",
+          "และ",
+          "ที่",
+          "ประ",
+          "ตู",
+          "เมือง",
+          ".",
+          "",
+          "",
+          "จง",
+          "รัก",
+          "พระ",
+          "เจ้า",
+          "ของ",
+          "เจ้า",
+          "ด้วย",
+          "สุด",
+          "ใจ",
+          "สุด",
+          "จิต",
+          "สุด",
+          "กำ",
+          "ลัง",
+          "ถ้อย",
+          "คำ",
+          "เหล่า",
+          "นี้",
+          ""
+        ]
+      }
+    ]
+  },
+  "_warnings": [
+    "เพลงมีเล่นซ้ำ/จบ 2 แบบ — กางอัตโนมัติ (best-effort) · ตรวจ/เกลาใน Studio",
+    "COMPLEX (repeat หลายอันในท่อน) — auto อาจไม่ตรง · ตั้ง repeat ในแอป",
+    "system verse: 107 syllables vs 108 attack notes"
+  ]
+}

@@ -350,3 +350,14 @@ arrangement: ร้อง 1→A · รับ→B · ร้อง 2→A · ร้
 **เหตุที่ COMPLEX ยาก:** เพลงมี `‖::‖` หลายอันในท่อนเดียว (เช่น 40) → ต้องอ่าน**ตำแหน่ง `‖::‖` จาก geometry** ถึงจะรู้ขอบเขต repeat แต่ละอัน (งานใหญ่ + สัญลักษณ์บางเพลงผิดแบบ 100 = ยังต้องคนตรวจ)
 
 **แนะนำ (F60+):** auto กาง **6 เพลง SIMPLE** (พี่เปา verify 66 + สุ่มอีก 2 ในแอปก่อน) → ปล่อยครบ 6 · **10 เพลง COMPLEX คง flag `repeat` ให้คนตั้งใน Studio** (review_flags มีแล้ว · เสี่ยงต่ำกว่า auto ผิด) · 99/100 hand-build เสร็จแล้ว
+
+---
+
+# Step 3.9 — auto-repeat ครบ 16 เพลง (P'Aim เร่ง · best-effort + flag) → `tools/repeat-16.sql`
+
+**P'Aim เคาะ: ทำครบ 16 เลย ไม่ต้อง pilot · ผิดค่อยแก้ (พี่เปาเห็น flag `repeat` ในหน้าแก้)**
+
+- `tools/build_repeat_songs.py` (generalize จาก 99/100) กางทั้ง 16 เพลง repeat → **16/16 โหลด resolveContent OK**
+- **`tools/repeat-16.sql`** = update `content` 16 เพลง (run **หลัง** import-all-120 · verified ยัง false · review_flags คง `repeat`)
+- **6 SIMPLE (2,36,66,69,74,117) = แม่น** (verify 66 กับภาพแล้ว) · **10 COMPLEX = best-effort** (repeat ซ้อน · auto อาจไม่ตรง · flag `repeat` ให้พี่เปาเกลา — ไม่ปล่อยพัง แค่โครงอาจต้องปรับ)
+- ลำดับ run: backup → import-all-120.sql → set-review-flags.sql → **repeat-16.sql**
