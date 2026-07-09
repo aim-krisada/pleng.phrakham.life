@@ -1,7 +1,7 @@
 // Melody playback with the Web Audio API — no external library.
 // Converts notation tokens (movable do) + key + BPM into scheduled oscillator notes.
 
-import { parseNotes, groupNotes } from './notation.js'
+import { parseNotes, groupNotes, DOT_FACTOR } from './notation.js'
 
 const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 65,
   'F#': 66, Gb: 66, G: 67, 'G#': 68, Ab: 68, A: 69, 'A#': 70, Bb: 70, B: 71 }
@@ -37,7 +37,7 @@ let liveTranspose = 0
 
 function tokenBeats(t, tripletFactor) {
   let d = 1 / 2 ** t.underlines
-  if (t.dotted) d *= 1.5
+  d *= DOT_FACTOR[t.dots] ?? 1 // . ×1.5 · .. ×1.75
   if (t.fermata) d *= 1.75 // fermata: hold longer (playback only; bar counting ignores it)
   return d * tripletFactor
 }

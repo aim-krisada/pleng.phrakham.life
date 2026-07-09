@@ -5,7 +5,7 @@
 //   .5   = low octave (one dot below per leading .)
 //   5'   = high octave (one dot above per ')
 //   5_   = eighth note (1 underline) · 5__ = sixteenth (2 underlines)
-//   5.   = dotted note (augmentation dot)
+//   5.   = dotted note (augmentation dot, ×1.5) · 5.. = double-dotted (×1.75)
 //   -    = extend previous note one beat
 //   0    = rest
 //   ( )  = slur/tie around a group  ·  { } = triplet around a group
@@ -44,14 +44,22 @@ export function parseNotes(str) {
       while (s[j] === "'" || s[j] === '‘' || s[j] === '’' || s[j] === '′') { high++; j++ }
       let underlines = 0
       while (s[j] === '_' && underlines < 2) { underlines++; j++ }
-      let dotted = false
+      // Augmentation dots: `.` = ×1.5, `..` = ×1.75 (jianpu "two dots = +¾").
+      // A run of dots is ambiguous — a dot LEADING the next digit is that digit's
+      // low-octave mark, not this note's augmentation. Rule: at the token end take up
+      // to two augmentation dots; before a digit keep the legacy split (one aug dot,
+      // the rest low-octave) so old data like "5..5" (dotted-5 then low .5) is unchanged.
+      let dots = 0
       if (s[j] === '.') {
-        // dots followed by a digit belong to the NEXT note (low-octave dots)
         let k = j
         while (s[k] === '.') k++
+        const run = k - j
         const beforeDigit = s[k] >= '0' && s[k] <= '7'
-        if (!beforeDigit || k - j >= 2) { dotted = true; j++ }
+        if (!beforeDigit) { dots = Math.min(run, 2); j += dots } // 5. →1 · 5.. →2 (extra → raw)
+        else if (run >= 2) { dots = 1; j += 1 } // 5..5 → dotted 5 then low-octave .5
+        // run === 1 before a digit → 0 aug dots; that dot is the next note's low octave
       }
+      const dotted = dots > 0
       let tieStart = false
       let fermata = false
       while (s[j] === '~' || s[j] === '^') {
@@ -59,7 +67,7 @@ export function parseNotes(str) {
         else fermata = true
         j++
       }
-      tokens.push({ type: 'note', accidental, low, pitch, high, underlines, dotted, tieStart, tieEnd, fermata })
+      tokens.push({ type: 'note', accidental, low, pitch, high, underlines, dots, dotted, tieStart, tieEnd, fermata })
       i = j
     } else {
       // consumed prefix without a digit, or an unknown character → unreadable
@@ -71,8 +79,13 @@ export function parseNotes(str) {
   return tokens
 }
 
+// Augmentation-dot duration multiplier, indexed by dot count: 0 → ×1, 1 → ×1.5,
+// 2 → ×1.75 (each added dot adds half the previous — jianpu "two dots = +¾").
+// Single source of truth shared by beatCount (bar math) and midi's tokenBeats (playback).
+export const DOT_FACTOR = [1, 1.5, 1.75]
+
 // Duration of a token list in quarter-note beats.
-// Plain digit = 1 beat · underline halves · dot ×1.5 · '-' = +1 beat · triplet group = 2/3.
+// Plain digit = 1 beat · underline halves · dot ×1.5 · double-dot ×1.75 · '-' = +1 beat · triplet group = 2/3.
 export function beatCount(tokens) {
   let total = 0
   for (const g of groupNotes(tokens)) {
@@ -80,7 +93,7 @@ export function beatCount(tokens) {
     for (const t of g.tokens) {
       if (t.type === 'note') {
         let d = 1 / 2 ** t.underlines
-        if (t.dotted) d *= 1.5
+        d *= DOT_FACTOR[t.dots] ?? 1
         sub += d
       } else if (t.type === 'ext') {
         sub += 1

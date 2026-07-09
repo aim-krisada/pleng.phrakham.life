@@ -30,7 +30,7 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
       <span
         v-for="(t, ti) in g.tokens"
         :key="ti"
-        :class="['nt', t.type === 'note' && t.dotted ? 'dotted' : '', t.type === 'note' && t.accidental ? 'has-acc' : '', t.tieStart ? 'tie-start' : '', t.tieEnd ? 'tie-end' : '', t.idx === active ? 'nt-playing' : '']"
+        :class="['nt', t.type === 'note' && t.dots ? 'dotted' : '', t.type === 'note' && t.dots === 2 ? 'dbldot' : '', t.type === 'note' && t.accidental ? 'has-acc' : '', t.tieStart ? 'tie-start' : '', t.tieEnd ? 'tie-end' : '', t.idx === active ? 'nt-playing' : '']"
       >
         <template v-if="t.type === 'note'">
           <!-- octave dots stay centred on the DIGIT; more than one dot stacks
@@ -38,7 +38,7 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
                augmentation dot sits beside it (absolute) so it never nudges them. -->
           <span v-if="t.fermata" class="fermata" aria-hidden="true"></span>
           <span class="dots-hi" aria-hidden="true"><span v-for="k in t.high" :key="k" class="odot"></span></span>
-          <span :class="['num', 'u' + t.underlines]"><span v-if="t.accidental" class="acc">{{ ACC_GLYPH[t.accidental] }}</span>{{ t.pitch }}<span v-if="t.dotted" class="aug" aria-hidden="true">•</span></span>
+          <span :class="['num', 'u' + t.underlines]"><span v-if="t.accidental" class="acc">{{ ACC_GLYPH[t.accidental] }}</span>{{ t.pitch }}<span v-if="t.dots" class="aug" aria-hidden="true">{{ '•'.repeat(t.dots) }}</span></span>
           <span class="dots-lo" aria-hidden="true"><span v-for="k in t.low" :key="k" class="odot"></span></span>
         </template>
         <template v-else-if="t.type === 'ext'">
@@ -70,6 +70,7 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
   line-height: 1.05;
 }
 .nt.dotted { margin-right: 0.45em; }
+.nt.dbldot { margin-right: 0.7em; } /* two aug dots need a touch more room */
 /* the digit sounding right now — brand-tinted with a soft pill so the eye tracks the
    melody note by note (B006). Background on the digit itself keeps it above the row. */
 .nt-playing .num {
