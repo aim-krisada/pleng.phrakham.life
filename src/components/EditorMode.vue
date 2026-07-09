@@ -1573,12 +1573,12 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         <button class="ed-ico danger-ic" title="ลบบรรทัดที่กำลังแก้" aria-label="ลบบรรทัด" @click="qDeleteLine"><Icon name="trash-2" :size="16" /></button>
       </span>
       <span class="ed-more-wrap">
-        <button class="ed-ico" :class="{ on: lineMoreOpen }" :aria-expanded="lineMoreOpen" title="เพิ่มเติม — ชื่อบรรทัด · ต่อห้อง · จบเพลง · ป้าย (Fine/D.C.)" aria-label="เพิ่มเติม" @click.stop="toggleLineMore"><Icon name="ellipsis" :size="16" /></button>
+        <button class="ed-ico" :class="{ on: lineMoreOpen }" :aria-expanded="lineMoreOpen" title="เพิ่มเติม — ชื่อบรรทัด · ต่อห้อง · ป้าย (Fine/D.C.)" aria-label="เพิ่มเติม" @click.stop="toggleLineMore"><Icon name="ellipsis" :size="16" /></button>
         <div v-if="lineMoreOpen && curLine()" class="ed-more-menu" role="menu">
           <div class="ed-more-title">บรรทัด {{ activeLine + 1 }}</div>
           <input v-model="curLine().section" class="ed-opt-input" placeholder="ชื่อบรรทัด (เว้นว่างได้)" aria-label="ชื่อกำกับบรรทัดนี้" />
           <label v-if="activeLine > 0" class="ed-opt-check"><input v-model="curLine().cont" type="checkbox" /> ⤷ ต่อห้องจากบรรทัดก่อน</label>
-          <label class="ed-opt-check"><input v-model="curLine().end" type="checkbox" /> ‖ จบเพลง (Fine)</label>
+          <!-- B056: "จบเพลง" ยกออกไปเป็นปุ่มเห็นชัดในหัวแต่ละบรรทัด (ed-line-end) แล้ว -->
           <input v-model="curLine().label" class="ed-opt-input" placeholder="ป้าย เช่น Fine, D.C. al Fine" aria-label="ข้อความกำกับท้ายบรรทัด" />
         </div>
       </span>
@@ -1614,9 +1614,18 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         <span v-if="line.section" class="ed-line-tag">{{ line.section }}</span>
         <span v-if="line.marker" class="ed-line-tag">*** ฮุก</span>
         <span v-if="line.cont" class="ed-line-tag">⤷ ต่อห้อง</span>
-        <span v-if="line.end" class="ed-line-tag">‖ จบเพลง</span>
         <span v-if="line.label" class="ed-line-tag">{{ line.label }}</span>
         <span class="ed-line-actions">
+          <!-- B056: "จบเพลง" — ปุ่มเห็นชัดต่อบรรทัด (ยกออกจาก ⋯) · เปิด = เส้นจบเพลง (final
+               barline) สำหรับเพลงที่ไม่มีย้อนซ้ำ · ไม่ผูก repeat/volta -->
+          <button
+            class="ed-line-end"
+            :class="{ on: line.end }"
+            :aria-pressed="line.end"
+            title="จบเพลง — ทำเส้นจบเพลง (สำหรับเพลงที่ไม่มีย้อนซ้ำ)"
+            aria-label="ทำเครื่องหมายจบเพลงที่บรรทัดนี้"
+            @click="line.end = !line.end"
+          >‖ จบเพลง</button>
           <button class="ed-mini" title="ฟังบรรทัดนี้" aria-label="ฟังบรรทัดนี้" @click="playLine(li)"><Icon name="play" :size="14" /></button>
         </span>
       </div>
@@ -2593,7 +2602,21 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   border-radius: 6px;
   padding: 1px 7px;
 }
-.ed-line-actions { margin-left: auto; display: inline-flex; gap: 4px; }
+.ed-line-actions { margin-left: auto; display: inline-flex; gap: 4px; align-items: center; }
+/* B056: จบเพลง per-line toggle — ghost when off, filled when the line ends the song */
+.ed-line-end {
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ed-line-end:hover { border-color: var(--brand); color: var(--brand); }
+.ed-line-end.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .ed-mini.on { background: var(--cream); border-color: var(--brand); color: var(--brand); }
 .ed-line-opts {
   display: flex;

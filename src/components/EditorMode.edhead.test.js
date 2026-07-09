@@ -192,4 +192,37 @@ describe('edhead — prototype-aligned edit header', () => {
     await del.trigger('click')
     expect(w.findAll('.rail-rowwrap.lyr').length).toBe(1)
   })
+
+  // B056 — "จบเพลง" (final barline, for songs with no repeat) is lifted OUT of the buried
+  // ⋯ menu into a visible per-line toggle in each line's head.
+  it('B056: each line head shows a visible จบเพลง toggle (no menu needed)', async () => {
+    const w = mountEd()
+    await nextTick()
+    const toggles = w.findAll('.ed-line-end')
+    expect(toggles.length).toBe(1) // one per line
+    expect(toggles[0].text()).toContain('จบเพลง')
+    expect(toggles[0].attributes('aria-pressed')).toBe('false') // off by default
+  })
+
+  it('B056: toggling จบเพลง sets a plain end marker (final barline, no repeat) and round-trips', async () => {
+    const w = mountEd()
+    await nextTick()
+    await w.find('.ed-line-end').trigger('click')
+    await nextTick()
+    expect(w.find('.ed-line-end').attributes('aria-pressed')).toBe('true')
+    const items = w.emitted('change').at(-1)[0].content.stanzas[0].lines[0]
+    expect(items.some((it) => it.type === 'end')).toBe(true)
+    // plain song-end must NOT imply a repeat/volta
+    expect(items.some((it) => it.type === 'volta' || it.type === 'repeat-start' || it.type === 'repeat-end')).toBe(false)
+  })
+
+  it('B056: the จบเพลง checkbox is gone from the ⋯ line menu', async () => {
+    const w = mountEd()
+    await nextTick()
+    await w.find('button[aria-label="เพิ่มเติม"]').trigger('click')
+    await nextTick()
+    const menu = w.find('.ed-more-menu')
+    expect(menu.exists()).toBe(true)
+    expect(menu.text()).not.toContain('จบเพลง')
+  })
 })
