@@ -40,6 +40,11 @@ const lyricsOnly = computed(() => sl.value && !sn.value && !sc.value)
 function noteOn(first) { return sn.value && (!props.songbook || first) }
 function chordOn(first) { return sc.value && (!props.songbook || first) }
 function lineLyricsOnly(first) { return sl.value && !noteOn(first) && !chordOn(first) }
+// A reused verse's melody-only line (no words) prints as an empty gap — hide it, unless it
+// carries a section heading. Only ever hides lines that are lyrics-only to begin with.
+function isEmptyLyricLine(row) {
+  return lineLyricsOnly(row.first) && !row.hasText && !(row.parts[0] && row.parts[0].type === 'section')
+}
 
 // The running FOOTER (site · page X of Y · date) is drawn as @page margin boxes by
 // lib/printChrome.js (injected on print) so all three items share one size + baseline.
@@ -100,7 +105,13 @@ const renderLines = computed(() =>
       }
     }
     flush()
-    return { parts, first }
+    // hasText = any real word on this line. A melody-only line (held notes / เอื้อน with
+    // blank syllables) has none — in the songbook it prints as an empty gap, so we drop it
+    // from reused (lyrics-only) verses. First-use lines keep it (they still show the notes).
+    const hasText = parts.some(
+      (p) => p.segments && p.segments.some((s) => (s.lyric || '').trim() || (s.syllables || []).some((w) => (w || '').trim())),
+    )
+    return { parts, first, hasText }
   }),
 )
 
@@ -110,13 +121,13 @@ const renderLines = computed(() =>
 const renderGroups = computed(() => {
   const groups = []
   let cur = null
-  renderLines.value.forEach(({ parts, first }, li) => {
+  renderLines.value.forEach(({ parts, first, hasText }, li) => {
     const startsSection = parts.length && parts[0].type === 'section'
     if (startsSection || !cur) {
       cur = { lines: [] }
       groups.push(cur)
     }
-    cur.lines.push({ li, parts, first })
+    cur.lines.push({ li, parts, first, hasText })
   })
   return groups
 })
@@ -148,7 +159,7 @@ function seek(li, si, syk = 0) {
          that renders the sheet (ดู or แผ่น), which is why P'Aim's ดู-mode print had none. -->
     <h1 v-if="songTitle" class="sheet-print-title">{{ songTitle }}</h1>
     <div v-for="(grp, gi) in renderGroups" :key="gi" class="song-section">
-    <div v-for="row in grp.lines" :key="row.li" class="song-line" :class="{ 'song-line-lyrics': lineLyricsOnly(row.first) }">
+    <div v-for="row in grp.lines" :key="row.li" v-show="!isEmptyLyricLine(row)" class="song-line" :class="{ 'song-line-lyrics': lineLyricsOnly(row.first) }">
       <template v-for="(part, pi) in row.parts" :key="pi">
         <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}</span>
         <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
@@ -196,6 +207,17 @@ function seek(li, si, syk = 0) {
 </template>
 
 <style scoped>
+/* Songbook reused-verse lines have no notes, so the note-row spacing (margin-bottom 20px)
+   leaves them floating far apart. Pull them into a tight lyric block, like a hymn book. */
+.song-line-lyrics {
+  margin-bottom: 2px;
+  padding-bottom: 0;
+  line-height: 1.35;
+}
+.song-line-lyrics .lyric {
+  font-size: 1em;
+  line-height: 1.35;
+}
 /* per-syllable lyric row (v2): spread the words across the segment the same way the
    note row spreads its digits, so each word sits under its note. */
 .lyric-syl {

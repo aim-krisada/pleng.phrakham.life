@@ -145,6 +145,32 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(lines[1].find('.section-label').text()).toBe('♦ ข้อ 2')
   })
 
+  it('B059: songbook hides a reused verse\'s melody-only (wordless) line', () => {
+    const c = {
+      key: 'C', timeSignature: '4/4',
+      lines: [
+        Object.assign(
+          [{ type: 'section', name: 'ข้อ 1' }, { type: 'segment', chord: 'C', note: '1', lyric: 'ก', syllables: ['ก'] }, { type: 'segment', chord: 'G', note: '5', lyric: '', syllables: [''] }],
+          { _stanza: 'V', _stanzaFirst: true },
+        ),
+        // reused verse: a real word + a wordless (held-note) tail — the tail must vanish
+        Object.assign(
+          [{ type: 'section', name: 'ข้อ 2' }, { type: 'segment', chord: 'C', note: '1', lyric: 'ข', syllables: ['ข'] }],
+          { _stanza: 'V', _stanzaFirst: false },
+        ),
+        Object.assign(
+          [{ type: 'segment', chord: 'G', note: '5', lyric: '', syllables: [''] }],
+          { _stanza: 'V', _stanzaFirst: false },
+        ),
+      ],
+    }
+    const wrapper = mount(SongSheet, { props: { content: c, mode: 'full', songbook: true } })
+    // 3 source lines, but the wordless reused line is v-show=false (not visible)
+    const shown = wrapper.findAll('.song-line').filter((l) => l.isVisible())
+    expect(shown.length).toBe(2)
+    expect(shown[1].find('.section-label').text()).toBe('♦ ข้อ 2')
+  })
+
   it('B059: songbook OFF (sing view) keeps note + chord on every verse', () => {
     const wrapper = mount(SongSheet, { props: { content: songbookContent, mode: 'full' } })
     const lines = wrapper.findAll('.song-line')
