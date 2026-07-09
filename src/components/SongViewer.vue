@@ -114,22 +114,42 @@ const tempoOptions = computed(() => {
   return [...base, ...TEMPO_MARKS]
 })
 
-// ---------- the play sequence: SSOT shared with the audio engine ----------
-// order = the selected ท่อน as ranges (undefined = whole song). buildPlayNotes gives the
-// exact note list playSong will use, so the dot/markers/scrub/⏮⏭ measure the same thing.
+// ---------- what PLAYS: the selection order (SSOT shared with the audio engine) ----------
+// order = the selected ท่อน as ranges (undefined = whole song). playNotes = exactly what
+// playSong schedules; posIndex is an index into it.
 const order = computed(() => effectiveOrder(sections.value, selectedSecs.value))
 const playNotes = computed(() => (resolved.value ? buildPlayNotes(resolved.value, { order: order.value }) : []))
 const totalNotes = computed(() => playNotes.value.length)
+
+// ---------- the TIMELINE axis = the WHOLE song (P'Aim real-use r3) ----------
+// The progress bar + section dots ALWAYS show every occurrence of the whole song; selecting
+// a ท่อน only tints the chosen dots green (picked) — it never collapses the timeline. The
+// playhead is mapped onto this full-song axis so it moves through the selected block(s) in
+// place even though playback only schedules the selection.
+const fullNotes = computed(() => (resolved.value ? buildPlayNotes(resolved.value, {}) : []))
+const fullTotal = computed(() => fullNotes.value.length)
+// selection-play index → full-song index (drives the dot + snaps scrub/tap into the selection)
+const playFullIdx = computed(() => {
+  const fn = fullNotes.value
+  return playNotes.value.map((n) => {
+    let i = fn.findIndex((m) => m.li === n.li && m.si === n.si && m.syk === n.syk)
+    if (i < 0) i = fn.findIndex((m) => m.li === n.li && m.si === n.si)
+    return i < 0 ? 0 : i
+  })
+})
+// during full playback posIndex IS the full index; during a selection, map it (findIndex
+// would collapse repeats, so only map when a selection is active).
+const posFullIndex = computed(() => (order.value ? (playFullIdx.value[posIndex.value] ?? 0) : posIndex.value))
 const totalSec = computed(() => {
-  const beats = playNotes.value.reduce((a, n) => a + (n.beats || 0), 0)
+  const beats = fullNotes.value.reduce((a, n) => a + (n.beats || 0), 0)
   return (beats * 60) / (Number(tempo.value) || 92)
 })
 const frac = computed(() =>
-  totalNotes.value > 1 ? Math.max(0, Math.min(1, posIndex.value / (totalNotes.value - 1))) : 0,
+  fullTotal.value > 1 ? Math.max(0, Math.min(1, posFullIndex.value / (fullTotal.value - 1))) : 0,
 )
-// one dot per section occurrence in the current play order (name changes = a new marker)
+// one dot per section occurrence of the WHOLE song · selected = green (picked)
 const markers = computed(() => {
-  const notes = playNotes.value
+  const notes = fullNotes.value
   const total = notes.length || 1
   const secs = sections.value
   const out = []
@@ -144,16 +164,23 @@ const markers = computed(() => {
   })
   out.forEach((m, k) => {
     const end = k + 1 < out.length ? out[k + 1].startIndex : total
-    m.active = playing.value && posIndex.value >= m.startIndex && posIndex.value < end
+    m.active = playing.value && posFullIndex.value >= m.startIndex && posFullIndex.value < end
   })
   return out
 })
-function markerIdxAt(idx) {
-  const ms = markers.value
-  let cur = 0
-  for (let i = 0; i < ms.length; i++) { if (ms[i].startIndex <= idx) cur = i; else break }
-  return cur
+// a full-song index → the nearest reachable note in the current play order (identity when
+// nothing is selected; snaps into the selection otherwise, so scrub/tap stay inside it)
+function fullToPlayIndex(fullIdx) {
+  if (!order.value) return fullIdx
+  const pfi = playFullIdx.value
+  let best = 0, bd = Infinity
+  for (let k = 0; k < pfi.length; k++) {
+    const d = Math.abs(pfi[k] - fullIdx)
+    if (d < bd) { bd = d; best = k }
+  }
+  return best
 }
+function seekFull(fullIdx) { seekToIndex(fullToPlayIndex(fullIdx)) }
 
 // Re-sync ONLY when the song IDENTITY changes (a different song loads) — keeping the
 // listener's chosen key/tempo across edits of the same song (DS-A04). Also clears the
@@ -254,19 +281,28 @@ function seekToIndex(idx) {
   posIndex.value = clamped
   if (playing.value) startPlay(clamped)
 }
-// ⏮/⏭ walk the section markers in the current play order (decision H). ⏮ from the first
-// marker lands on 0 (= กลับต้น, B042).
+// ⏮/⏭ walk the section dots. When a selection is active they step through the SELECTED
+// (green) dots (decision H = เดินใน selection); otherwise through every dot. ⏮ from the
+// first lands on its start (= กลับต้น, B042).
+function reachableMarkers() { return markers.value.filter((m) => !order.value || m.picked) }
+function markerAtPos() {
+  const ms = reachableMarkers()
+  let cur = 0
+  for (let i = 0; i < ms.length; i++) { if (ms[i].startIndex <= posFullIndex.value) cur = i; else break }
+  return { ms, cur }
+}
 function prevSection() {
-  const cur = markerIdxAt(posIndex.value)
-  seekToIndex(cur > 0 ? markers.value[cur - 1].startIndex : 0)
+  const { ms, cur } = markerAtPos()
+  seekFull(cur > 0 ? ms[cur - 1].startIndex : (ms[0]?.startIndex ?? 0))
 }
 function nextSection() {
-  const cur = markerIdxAt(posIndex.value)
-  const nx = markers.value[cur + 1]
-  if (nx) seekToIndex(nx.startIndex)
+  const { ms, cur } = markerAtPos()
+  const nx = ms[cur + 1]
+  if (nx) seekFull(nx.startIndex)
 }
-function onSeekBar(f) { seekToIndex(f * Math.max(1, totalNotes.value - 1)) }
-function onJump(startIndex) { seekToIndex(startIndex) }
+// scrub + tap-marker seek on the full-song axis (§H); seekFull snaps into the selection
+function onSeekBar(f) { seekFull(Math.round(f * Math.max(1, fullTotal.value - 1))) }
+function onJump(startIndex) { seekFull(startIndex) }
 // selection changed → the play set is different; stop so the next ▶ plays the new set
 // from its start (avoids the dot/audio drifting out of sync mid-play).
 function afterSelectionChange() {

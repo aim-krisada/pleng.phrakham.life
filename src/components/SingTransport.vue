@@ -158,9 +158,7 @@ const pinnedSettings = computed(() => pins.value.map((id) => allSettings.value.f
 // the top or a side edge. After one opens, measure it and translate it back inside the
 // viewport + 8px so it is never cut off (same idea StudioDock uses for its own popovers).
 const rootEl = ref(null)
-function clampEl(el) {
-  if (!el) return
-  el.style.transform = '' // reset before measuring so we read the natural position
+function clampOffset(el) {
   const r = el.getBoundingClientRect()
   const m = 8
   let dx = 0, dy = 0
@@ -168,13 +166,37 @@ function clampEl(el) {
   if (r.left + dx < m) dx = m - (r.left + dx)
   if (r.bottom > window.innerHeight - m) dy = window.innerHeight - m - r.bottom
   if (r.top + dy < m) dy = m - (r.top + dy)
-  el.style.transform = dx || dy ? `translate(${dx}px, ${dy}px)` : ''
+  return { x: dx, y: dy }
 }
+// a small dropdown keeps the old imperative clamp (never dragged)
+function clampEl(el) {
+  if (!el) return
+  el.style.transform = ''
+  const o = clampOffset(el)
+  el.style.transform = o.x || o.y ? `translate(${o.x}px, ${o.y}px)` : ''
+}
+
+// the big popups (⚙ panel · selector) are DRAGGABLE (P'Aim real-use r3 #1): a reactive
+// offset both clamps them on-screen when they open AND lets the user drag them by the
+// header out of the way. Desktop only; the mobile selector stays a bottom sheet.
+const popOffset = ref({ x: 0, y: 0 })
+const popStyle = computed(() => ({ transform: `translate(${popOffset.value.x}px, ${popOffset.value.y}px)` }))
+let popDrag = false, pdX = 0, pdY = 0, poX = 0, poY = 0
+function popDown(e) {
+  if (mobile.value) return
+  popDrag = true; pdX = e.clientX; pdY = e.clientY; poX = popOffset.value.x; poY = popOffset.value.y
+  try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* pointer still tracks */ }
+}
+function popMove(e) { if (popDrag) popOffset.value = { x: poX + (e.clientX - pdX), y: poY + (e.clientY - pdY) } }
+function popUp() { popDrag = false }
 watch([openPanel, openMenu], async () => {
+  popOffset.value = { x: 0, y: 0 } // reset so we measure the natural position
   await nextTick()
   const root = rootEl.value
   if (!root) return
-  for (const sel of ['.mp-panel', '.mp-dd', '.mp-sheet']) clampEl(root.querySelector(sel))
+  clampEl(root.querySelector('.mp-dd'))
+  const big = root.querySelector('.mp-panel') || (!mobile.value ? root.querySelector('.mp-sheet') : null)
+  if (big) popOffset.value = clampOffset(big)
 })
 </script>
 
@@ -337,8 +359,15 @@ watch([openPanel, openMenu], async () => {
     </div>
 
     <!-- ===== ⚙ settings panel — every control, adjustable inline even unpinned (§4c) ===== -->
-    <div v-if="openPanel === 'settings'" class="mp-panel" @click.stop>
-      <div class="mp-ptitle">ตั้งค่า — ปรับได้ที่นี่เลย · 📌 = ปักขึ้นแถบ</div>
+    <div v-if="openPanel === 'settings'" class="mp-panel" :style="popStyle" @click.stop>
+      <div
+        class="mp-ptitle mp-drag"
+        title="ลากเพื่อย้ายแผง"
+        @pointerdown="popDown"
+        @pointermove="popMove"
+        @pointerup="popUp"
+        @pointercancel="popUp"
+      >⠿ ตั้งค่า — ปรับได้ที่นี่เลย · 📌 = ปักขึ้นแถบ</div>
       <div v-for="s in allSettings" :key="s.id" class="mp-prow" :data-setting="s.id">
         <span class="mp-mi"><Icon :name="s.icon" :size="16" /></span>
         <span class="mp-pl">{{ s.label }}</span>
@@ -391,10 +420,17 @@ watch([openPanel, openMenu], async () => {
 
     <!-- ===== ☰ section selector — Gmail list + All/None (mobile = bottom sheet) ===== -->
     <div v-if="openPanel === 'select'" class="mp-selmask" @click="closeAll"></div>
-    <div v-if="openPanel === 'select'" class="mp-sheet" @click.stop>
-      <div class="mp-sshead">
-        <b>เลือกท่อนที่จะซ้อม</b>
-        <button class="mp-ssclose" aria-label="ปิด" @click="closeAll"><Icon name="x" :size="16" /></button>
+    <div v-if="openPanel === 'select'" class="mp-sheet" :style="popStyle" @click.stop>
+      <div
+        class="mp-sshead mp-drag"
+        title="ลากเพื่อย้ายรายการ"
+        @pointerdown="popDown"
+        @pointermove="popMove"
+        @pointerup="popUp"
+        @pointercancel="popUp"
+      >
+        <b>⠿ เลือกท่อนที่จะซ้อม</b>
+        <button class="mp-ssclose" aria-label="ปิด" @click="closeAll" @pointerdown.stop><Icon name="x" :size="16" /></button>
       </div>
       <div class="mp-ssall">
         <button class="mp-ssallbtn" @click="emit('set-all', true)">☑ ทั้งหมด</button>
@@ -535,6 +571,9 @@ watch([openPanel, openMenu], async () => {
   padding: 8px; min-width: 280px; max-width: calc(100vw - 24px); max-height: 60vh; overflow: auto; z-index: 25;
 }
 .mp-ptitle { font-size: 11px; color: var(--muted); padding: 2px 4px 7px; }
+/* draggable popup headers (desktop) — a grab handle to move the panel/sheet out of the way */
+.mp-drag { touch-action: none; }
+@media (hover: hover) { .mp-drag { cursor: move; } }
 .mp-prow { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-radius: 8px; }
 @media (hover: hover) { .mp-prow:hover { background: var(--cream); } }
 .mp-mi { width: 20px; display: inline-flex; justify-content: center; color: var(--brand); flex: 0 0 20px; }
