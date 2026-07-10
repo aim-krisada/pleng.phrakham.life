@@ -6,7 +6,7 @@
 ---
 
 ## ▶ RESUME (สถานะสดที่ git-verify แล้ว)
-- **ฐาน `studio-shell-redesign` HEAD = `e3fcb08`** = **264 เทสต์เขียว + build ผ่าน** (commit หลัง `eedc205` เป็นเอกสารล้วน ไม่กระทบเทสต์ · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
+- **ฐาน `studio-shell-redesign` HEAD = `5f6dc82`** = **268 เทสต์เขียว + build ผ่าน** (note-search-verify merged · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
 - ⚠️ **บทเรียนซ้ำ (pm4 10 ก.ค.):** main dir ถูกสลับไป branch `sa-dockkey-print-edit` ใต้มือ (แม้ spawn_task ใช้ auto-worktree) → commit เอกสาร 5 อันหลุดไปลง branch นั้น · กู้ด้วย `git switch studio-shell-redesign && git merge --ff-only sa-dockkey-print-edit` (เส้นตรง = FF สะอาด) · **เช็ก `git branch --show-current` ก่อน commit เสมอ**
 - **live = `1535e1f` (deploy รอบ 5)** · ✅ **P'Aim เคาะ "ปล่อยไว้" (10 ก.ค.) — ไม่ rollback** (ของขึ้น = 264-test-green ไม่พัง)
 - verify ฐานรวม: `npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'`
@@ -28,7 +28,7 @@
 | **fix-favicon-footer** (bug1 ไอคอนแบรนด์ + bug2 footer ติดล่าง) | `task_5bf7aeb4` | ShellBar / styles.css+App.vue | `brief-bugs-favicon-footer.md` | 🔨 จ่ายแล้ว |
 | **sa-dockkey-print-edit** (descriptor พิมพ์/แก้ · docs) | `task_9d603bb7` | docs/ds เท่านั้น | `brief-dockkey-sa-print-edit.md` | ✅ เสร็จ → inbox (รอ PM ตรวจ+merge docs) |
 | **fix-editor-preview-final** (พรีวิว "ดูผลทั้งเพลง": ล็อกบรรทัดไม่ reflow + ไทข้ามห้องซ้อน 2 เส้น) | `task_49330996` | EditorMode + SongSheet | `brief-fix-editor-preview.md` | 🔨 จ่ายแล้ว |
-| **note-search-verify** (ตรวจผลค้นโน้ต sequence เพลง 1/29/43 + มี/ไม่มีเว้นวรรค) | `task_a69020e0` | songSearch.js | `brief-note-search-verify.md` | 🔨 จ่ายแล้ว |
+| **note-search-verify** (ตรวจผลค้นโน้ต sequence เพลง 1/29/43 + มี/ไม่มีเว้นวรรค) | `task_a69020e0` | songSearch.js | `brief-note-search-verify.md` | ✅✅ **MERGED `5f6dc82`** (เจอบั๊กจริง: fuzzy fallthrough → match หลอก · แก้ให้ note query = exact-sequence · ผลค้น = เพลง 1 เดียว · 268 test) |
 
 **คิว phase 2 (หลัง 3 สายเข้าฐาน):** เสียบ ITEMS_PRINT/ITEMS_EDIT (จาก SA) เข้า DockKey core → dock ครบ 3 หน้า (= เป้า P'Aim ข้อ 4.1)
 **หลักฐานบั๊ก (ISO traceability):** `docs/pm/realuse-assets/bug-favicon-brand-icon.*` + `bug-footer-bottom.*`
@@ -49,6 +49,7 @@
 - mobile pass (Android · P'Aim ยัง "งง" · `prompt-android-mobile.md`) · tablet-primary
 - editor-ux 3 ธง: draft ไม่มีคอลัมน์ theme/หมวด (draft ไม่ round-trip) · verified RLS=approver · B061 preview สูงบนแท็บเล็ต
 - B062 ข้อค้าง: cross-bar tie บน print = แก้แล้วใน B069 (songsheet-finish) · Q5 auto-scroll = HOLD (desktop-only ภายหลัง)
+- **ค้นโน้ต match ข้ามท่อน** (note-search-verify Q): ตอนนี้ยุบทั้งเพลงเป็นสตริงเดียว = ลำดับข้ามขอบเขตท่อน/บรรทัดได้ · ถ้าอยากบังคับ match ภายในบรรทัด/ท่อนเดียว = งานแยก (รอ P'Aim เคาะ · ไม่เร่ง)
 
 ## ✅ เข้าฐานแล้ว (สรุปสั้น · 8-10 ก.ค. · รายละเอียด → archive)
 responsive overhaul S0-S4 · B062 slur/tie render · B068 ties data (import-ties.sql run แล้ว) · editor-ux v2 (6 งาน) · dock-core/polish · B043 sing dock ph1 · **B045 top-bar cleanup** · **songsheet-finish (B069 cross-bar tie + B004 print + B044 spacing · P'Aim print PDF ผ่าน)** · songviewer-refs · catalog review UI · B053 book refs · B057 lint R8/R9 · B047 sticky footer · B052/B058 search + **note-search-spaceless** · B027 จุดคู่ · B026 lint R4-R7 · B055/B056 editor · B059/B064/B065/B067 · **system-font-switch (ตัวหนังสือมีหัว/ไม่มีหัว รายคน · `eedc205`)** · **DockKey design docs (`83c0b4f`)** · **DA import 120 เพลง LIVE**
