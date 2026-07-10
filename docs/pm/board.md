@@ -6,8 +6,17 @@
 ---
 
 ## ▶ RESUME (สถานะสดที่ git-verify แล้ว)
-- **ฐาน `studio-shell-redesign` HEAD = `1245325`** = **288 เทสต์เขียว + build ผ่าน** (merged วันนี้: note-search · preview · B073 · B075 · MP3 lib+dock · favicon-footer · search-555(B074) · SA editor-ux docs · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
-- ✅ **พร้อม deploy รอบ 6 (ยกเว้น DockKey phase2 ที่ยัง build):** ของ user-facing ที่ merged = ตัวหนังสือมีหัว/ไม่มีหัว · ค้นหาโน้ต+555 · พรีวิว · undo · MP3(dock ฝึกร้อง) · favicon+footer · (B073 อยู่ live แล้ว) — **รอ P'Aim เคาะ: deploy เลย หรือรอ DockKey**
+- **ฐาน `studio-shell-redesign` HEAD = `97e735b`** = **288 เทสต์เขียว + build ผ่าน** (merged วันนี้: note-search · preview · B073 · B075 · MP3 lib+dock · favicon-footer · search-555(B074) · SA editor-ux docs · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
+- 🎉 **DEPLOY รอบ 6 = LIVE (verified bundle stamp `1a3aa65`)** · **main === base แล้ว** (align เสร็จ · divergence หาย · รอบหน้า clean FF)
+
+## 🔚 EOD HANDOFF (2026-07-10 ค่ำ · pm4 · PM session หน้าอ่านนี่)
+**live = deploy รอบ 6** (ตัวหนังสือมีหัว/ไม่มีหัว · ค้นโน้ต+555 · พรีวิว · undo · MP3 dock ฝึกร้อง · favicon+footer · B073) · **ฐาน = `97e735b` · main = base**
+**🟢 2 สายใหญ่ยัง build (→ deploy รอบ 7):**
+1. **dockkey-dev phase 2** (`local_e15710b1...`) — DockKey dock ครบ 3 หน้า (แผ่นเพลง+แก้ไข) + ยก MP3 เข้า DockKey · P'Aim accept หน้าฝึกร้องแล้ว · **gate = P'Aim LAN 3 หน้าก่อน merge** · brief `brief-dockkey-phase2.md`
+2. **editor-section-ux-dev** (`task_5d47b107`) — เปลือกจัดลำดับท่อนง่ายขึ้น (P'Aim เคาะ mockup) · **เน้นหนัก: ของเดิมห้าม regress** · brief `brief-editor-section-ux-dev.md`
+**⚠️ 2 สายนี้แตะ `EditorMode.vue` เหมือนกัน (คนละส่วน: DockKey=dock · section-ux=rail/arrangement) → PM ต้องเรียงคิว merge + resolve**
+**🎯 รอ P'Aim (ไม่บล็อก):** B028 audit log (3 Qs) · i18n · สิทธิ์ลบเพลง · พี่เปา review 41 เพลง + verify undo/นับจังหวะบน live
+**💡 backlog ใหม่:** ป้าย "ทำไม match" ในผลค้นหา (จาก search-555 branch) · ค้นโน้ตข้ามท่อน (note-search Q)
 - 🎉🚀 **DEPLOY รอบ 6 (P'Aim "go รอบ 6" 10 ก.ค.):** **align main=base** (reset --hard + force-with-lease · แก้ divergence B073-solo ถาวร → main กลับเป็น ancestor ของ base) → **main `b538701`→`1a3aa65`** (Actions `29100068128`) · build ผ่าน · ได้ของครบ: ตัวหนังสือมีหัว/ไม่มีหัว · ค้นหาโน้ต+555 · พรีวิว · undo · **MP3(dock ฝึกร้อง)** · favicon+footer · B073 · SA design docs · **ไม่มี DockKey/โครงเพลง (ยัง build)**
 - [รอบ 5 `1535e1f`] · [B073 เดี่ยว `b538701` = ถูกกลืนใน align รอบ 6]
 - ⚠️ **บทเรียนซ้ำ (pm4 10 ก.ค.):** main dir ถูกสลับไป branch `sa-dockkey-print-edit` ใต้มือ (แม้ spawn_task ใช้ auto-worktree) → commit เอกสาร 5 อันหลุดไปลง branch นั้น · กู้ด้วย `git switch studio-shell-redesign && git merge --ff-only sa-dockkey-print-edit` (เส้นตรง = FF สะอาด) · **เช็ก `git branch --show-current` ก่อน commit เสมอ**
