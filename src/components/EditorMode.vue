@@ -1587,7 +1587,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
           <button class="sb-item" role="menuitem" @click="fileNew"><Icon name="file-plus" /> สร้างเพลงใหม่ <span class="sb-k">New</span></button>
           <button class="sb-item" role="menuitem" @click="openPanel('open')"><Icon name="folder-open" /> เลือกเพลงเพื่อแก้… <span class="sb-k">Open</span></button>
           <button class="sb-item" role="menuitem" @click="fileClose"><Icon name="x" /> ออกจากเพลงนี้ <span class="sb-k">Close</span></button>
-          <button class="sb-item" role="menuitem" @click="openPanel('properties')"><Icon name="settings" /> ตั้งค่าเพลง <span class="sb-k">Properties</span></button>
+          <!-- "ตั้งค่าเพลง" เอาออกจากเมนู (P'Aim 10 ก.ค.) — ซ้ำกับการ์ด inline #pk-settings (B060) -->
         </div>
       </div>
       <div v-if="editing" class="sb-menu">
