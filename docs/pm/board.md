@@ -62,6 +62,7 @@ responsive overhaul S0-S4 · B062 slur/tie render · B068 ties data (import-ties
 | สาย/branch | commit | สถานะ |
 |---|---|---|
 | **SA B028 audit-log** `sa-b028-audit-log` | docs only (ยังไม่ push) | ✅ DS เสร็จ · **รอ P'Aim เคาะ 3 คำถาม** ก่อน dev (ดู §🎯 รอ P'Aim) |
+| **DockKey core + ฝึกร้อง** `dockkey-dev` | `778138a` | ✅ เสร็จ · engine กลาง `DockKey.vue` + ฝึกร้องป้อน ITEMS_SING · vitest 272 · build ผ่าน · verify ✓ · รายงาน `docs/reports/dockkey-dev.md` · **engine แยกไฟล์ใหม่ (ไม่ยกเครื่อง StudioDock ที่ shared 3 โหมด) — phase 2 ค่อยย้าย edit/print มาบน core** · 3 จุดรอ P'Aim เคาะ (default เลือกท่อน / download-print / collapse มือถือ) |
 | _(3 สายคลื่น 60 นาที)_ | — | 🔨 กำลังทำ (ดู §🟢 กำลังทำ) — จะเข้า inbox เมื่อรายงานเสร็จ |
 
 **GitHub:** `C:\Users\aimkr\OneDrive\4 Personal\claude\.env` → `GITHUB_TOKEN_PLENG` (`source .env` ก่อน · repo public) · Supabase = `SUPABASE_*_PLENG`
