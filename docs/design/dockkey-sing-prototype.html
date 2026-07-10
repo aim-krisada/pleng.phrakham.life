@@ -318,6 +318,20 @@ function clampPops(){
     if(r.top+dy<fr.top+m)dy=fr.top+m-(r.top+dy); if(r.bottom+dy>fr.bottom-m)dy=fr.bottom-m-r.bottom;
     if(dx||dy)el.style.transform=`translate(${Math.round(dx)}px,${Math.round(dy)}px)`;});
 }
+// [CORE] ยุบ/กาง อยู่ที่เดิม (collapse-in-place) — grip ไม่กระโดด · ทั้ง 3 หน้าใช้ร่วม
+function transitionInPlace(toCollapsed,panel){
+  const a=$('#host').querySelector('[data-act="grip"]'); const og=a?a.getBoundingClientRect():null;
+  S.collapsed=toCollapsed; S.openPanel=panel||null; S.openMenu=null; S.pos=null; render();
+  if(!og)return;
+  const d=$('#host').querySelector('.dock'); const ng=$('#host').querySelector('[data-act="grip"]').getBoundingClientRect();
+  S.pos={x:og.left-ng.left,y:og.top-ng.top};                 // จัดให้ grip ตัวใหม่ทับตำแหน่ง grip ตัวเดิม
+  d.style.transform=`translate(${S.pos.x}px,${S.pos.y}px)`;
+  const fr=$('#frame').getBoundingClientRect(),dr=d.getBoundingClientRect(),m=6; let ddx=0,ddy=0;  // กันหลุดกรอบ (กางแล้วกว้างขึ้น)
+  if(dr.left<fr.left+m)ddx=fr.left+m-dr.left; if(dr.right>fr.right-m)ddx=fr.right-m-dr.right;
+  if(dr.top<fr.top+m)ddy=fr.top+m-dr.top; if(dr.bottom>fr.bottom-m)ddy=fr.bottom-m-dr.bottom;
+  if(ddx||ddy){S.pos={x:S.pos.x+ddx,y:S.pos.y+ddy};d.style.transform=`translate(${S.pos.x}px,${S.pos.y}px)`}
+  clampPops();
+}
 
 /* ---------- events ---------- */
 function act(a){
@@ -325,7 +339,7 @@ function act(a){
   if(a==='close'){S.openPanel=S.openMenu=null;return render()}
   if(a==='play'){S.playing=!S.playing;return render()}
   if(a==='gear'){S.openPanel=S.openPanel==='gear'?null:'gear';S.openMenu=null;return render()}
-  if(a==='expandset'){S.collapsed=false;S.openPanel='gear';S.openMenu=null;S.pos=null;return render()}
+  if(a==='expandset'){transitionInPlace(false,'gear');return}
   if(a==='fontreset'){S.fontPct=100;return render()}
   if(a==='select'){S.openPanel=S.openPanel==='select'?null:'select';S.openMenu=null;return render()}
   if(a.startsWith('vp:')){S.mobile=a.slice(3)==='mobile';S.pos=null;return render()}
@@ -376,7 +390,7 @@ document.addEventListener('pointermove',e=>{
 });
 document.addEventListener('pointerup',()=>{
   if(!gp)return;
-  if(!gp.moved){ S.collapsed=!S.collapsed; S.openPanel=S.openMenu=null; if(!S.collapsed)S.pos=null; render(); }
+  if(!gp.moved){ transitionInPlace(!S.collapsed); }   // แตะ = ยุบ/กาง อยู่ที่เดิม (ไม่กระโดด)
   gp=null;
 });
 function scrub(bar,e){

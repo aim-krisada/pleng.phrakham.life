@@ -6,7 +6,8 @@
 ---
 
 ## 1 · แนวคิด — library กลาง 1 ตัว, ทุกหน้าส่งแค่ "รายการปุ่ม"
-`DockKey` = engine กลางที่หน้าไหนก็เอาไปใช้ซ้ำได้ · แต่ละหน้า (ฝึกร้อง/แผ่นเพลง/แก้ไข) **ส่งแค่ array ของ descriptor** เข้ามา · engine จัดวาง/ย่อ/แผงตั้งค่า/pin/clamp ให้เอง → ต่างกันแค่ data ไม่ใช่โค้ด (ต่อยอด `StudioDock.vue` เดิม + เพิ่มระบบพิกัด row/col)
+`DockKey` = **core engine กลางตัวเดียว** ที่หน้าไหนก็เอาไปใช้ซ้ำได้ · แต่ละหน้า (ฝึกร้อง/แผ่นเพลง/แก้ไข) **ส่งแค่ array ของ descriptor** เข้ามา · **core จัดการทุกอย่างเอง** (วาง row/col · cap เติมเต็ม · ยุบ/กาง collapse-in-place · ลาก · แผงตั้งค่า+pin · clamp) → **3 หน้าใช้ core เดียวกัน ต่างแค่ data ไม่ใช่โค้ด** (ต่อยอด `StudioDock.vue` เดิม + เพิ่มระบบพิกัด row/col)
+> prototype `dockkey-sing-prototype.html` = แยกชัด: **core** (`itemHtml`/`buildRows`/`render`/drag/`transitionInPlace`/gear-panel) + **data** (`ITEMS_SING`) · แผ่นเพลง/แก้ไข = เพิ่ม `ITEMS_PRINT`/`ITEMS_EDIT` ป้อน core เดิม
 
 ### ระบบพิกัด (จากไฟล์)
 - **row** นับจากล่างขึ้นบน: แถวล่างสุด = 1, เหนือขึ้นไป = 2, 3, …
@@ -91,7 +92,7 @@ I3  row1 = core คงที่ (grip ชิดซ้าย · setting ชิด
 I4  อะไรที่ไม่ default บนแถบ → ต้องอยู่ในหน้า Setting เสมอ · ปักแล้วยังอยู่ในนั้น (ที่ถอน/จัดลำดับ)
 I5  popover/แผง CLAMP ไม่ล้นขอบ +8px — ไม่มีข้อยกเว้น
 I6  cap = เติมเต็มความกว้างที่ 44px (จอ 320px ≥6 · 392px ≈7 · desktop ≈14) — WCAG 2.2 AA
-I7  ยุบ = เหลือ [grip][setting] ทุกหน้า · grip ลาก/แตะกาง · setting แตะกางพร้อมเปิดตั้งค่า
+I7  ยุบ = เหลือ [grip][setting] ทุกหน้า · grip ลาก/แตะกาง · setting แตะกางพร้อมเปิดตั้งค่า · **ยุบ/กาง อยู่ที่เดิม ไม่กระโดด (collapse-in-place: grip ค้างตำแหน่งเดิม · กางแล้วกว้างเกินก็เลื่อนเข้ากรอบขั้นต่ำ)** · **ลาก grip ได้ทั้งยุบ+กาง (transform-based · คุมในกรอบ)**
 I8  เปิดทีละ 1 · Esc/แตะนอก = ปิด · tap ≥ 44px · aria-label ทุกปุ่ม
 ```
 
