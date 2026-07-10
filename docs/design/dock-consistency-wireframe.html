@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dock consistency — โครง slot เดียว 3 โหมด (SA)</title>
+<style>
+  :root{
+    --brand:#b6763f; --cream:#f6efe6; --ink:#2b2320; --muted:#8a7f76;
+    --line:#e0d6c8; --paper:#fffdf9; --ok:#1d7a54; --warn:#c0803a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:#faf6f0;color:var(--ink);line-height:1.5;padding:24px 16px 80px}
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+  h2{font-size:17px;margin:34px 0 6px;border-bottom:2px solid var(--brand);padding-bottom:4px}
+  h3{font-size:13px;margin:22px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  code{background:var(--cream);padding:0 4px;border-radius:4px;font-size:.92em}
+
+  /* ---- mock dock ---- */
+  .dock{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.1);padding:8px;display:inline-block}
+  .dock.full{display:block}
+  .drow{display:flex;align-items:center;gap:6px}
+  .drow+.drow{margin-top:6px}
+  .slot{width:34px;height:34px;min-width:34px;border:1px solid var(--line);border-radius:9px;background:transparent;
+       display:inline-flex;align-items:center;justify-content:center;font-size:15px;color:var(--ink)}
+  .slot.plain{border:0}
+  .slot.brand{color:var(--brand);border-color:transparent;font-size:19px}
+  .slot.grip{color:var(--muted);font-size:16px;letter-spacing:-2px;cursor:grab;border:1px dashed var(--brand)}
+  .slot.gear{color:var(--muted);border:1px dashed var(--brand)}
+  .slot.w2{width:74px;min-width:74px;font-size:12px;gap:3px}
+  .slot.wide{border:0;font-size:12px;color:var(--muted)}
+  .tl{flex:1;height:34px;border:1px dashed var(--muted);border-radius:9px;position:relative;display:flex;align-items:center;padding:0 8px;background:repeating-linear-gradient(45deg,transparent 0 6px,rgba(182,118,63,.05) 6px 12px)}
+  .tl .track{position:absolute;left:8px;right:8px;height:4px;background:var(--line);border-radius:3px}
+  .tl .fill{position:absolute;left:8px;width:34%;height:4px;background:var(--brand);border-radius:3px}
+  .tl .knob{position:absolute;left:36%;width:11px;height:11px;background:var(--brand);border:2px solid #fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .tl .lab{position:absolute;right:8px;font-size:9px;color:var(--muted)}
+  .spring{flex:1}
+  .keys{display:flex;gap:3px;padding-bottom:7px;margin-bottom:7px;border-bottom:1px solid var(--line)}
+  .key{flex:1;min-width:26px;height:28px;border:1px solid var(--line);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:monospace;font-weight:700;font-size:13px}
+
+  .flag{display:inline-block;font-size:11px;background:#e7f4ee;color:var(--ok);border:1px solid #bfe0d0;border-radius:6px;padding:1px 6px;margin:3px 3px 0 0}
+  .flag.q{background:#fdeee0;color:var(--warn);border-color:#eecdaa}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:var(--cream);font-weight:600}
+  td.el{white-space:nowrap;font-weight:600;color:var(--brand)}
+  .rule{background:var(--cream);border-left:3px solid var(--brand);padding:8px 12px;border-radius:0 8px 8px 0;margin:8px 0;font-size:13px}
+  .rule b{color:var(--brand)}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0}
+  .card h4{margin:0 0 10px;font-size:13px;color:var(--brand)}
+  .legend{font-size:12px;color:var(--muted);margin:6px 0 0}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Dock — โครง "ช่องไอคอน" เดียว ทุกโหมด</h1>
+  <p class="sub">SA · จากที่ P'Aim เคาะ (10 ก.ค.) · เบสโค้ดเดียว · ต่างกันแค่เพิ่ม/ลด element · docs เท่านั้น ยังไม่ใช่ของจริง</p>
+
+  <!-- ================= THE RULE ================= -->
+  <h2>1 · กติกาเดียว (dock grammar)</h2>
+  <div class="rule">R1 · <b>grip</b> = ซ้ายสุด · <b>⚙ เฟือง</b> = ขวาสุด — ทั้งคู่อยู่ <b>แถวล่างสุดเสมอ</b> ทุกโหมด</div>
+  <div class="rule">R2 · ระหว่าง 2 มุมนี้ = <b>ปุ่มตามต้องใช้</b> (จัดกลาง) · ปุ่มเยอะเกิน → <b>ขึ้นบรรทัดใหม่ข้างบน</b> (ไม่ยัดเข้า ⋯)</div>
+  <div class="rule">R3 · ทุกอย่างนับเป็น <b>"ช่อง" (slot)</b> ขนาดเท่ากัน — ปุ่มปกติ = 1 ช่อง · <b>timeline = 1 ไอคอนยาว</b> · <b>เลือกท่อน = 1 ปุ่มกว้าง 2 ช่อง</b></div>
+  <div class="rule">R4 · <b>ล็อคจำนวนช่อง/บรรทัด</b> — มือถือ ≈ 6 · เดสก์ท็อป ≈ 12 (เกิน = ขึ้นบรรทัด) → จัด layout ง่าย โค้ดกลางเดียว</div>
+  <div class="rule">R5 · <b>แผงเฟือง = แบบหน้าฝึกร้องเป๊ะ</b> — เลื่อนลำดับได้ + 📌 pin ได้ = บ้านเดียวของทุกปุ่ม (pin แล้วขึ้นแถบ · ถอนแล้วกลับเข้าแผง)</div>
+  <div class="rule">R6 · <b>grip</b> แตะ = ยุบ/กาง · ลาก = ย้ายทั้งแถบ (เหมือนเดิม)</div>
+
+  <h3>โครง (มือถือ ล็อค 6 ช่อง/บรรทัด)</h3>
+  <div class="card">
+    <div class="dock full">
+      <div class="drow"><span class="spring"></span><span class="slot">▲</span><span class="slot">▲</span><span class="spring"></span><span class="legend" style="margin-left:8px">← ล้นก็เพิ่มบรรทัดขึ้นบน</span></div>
+      <div class="drow">
+        <span class="slot grip">⁝⁝</span>
+        <span class="spring"></span>
+        <span class="slot">●</span><span class="slot">●</span><span class="slot">●</span><span class="slot">●</span>
+        <span class="spring"></span>
+        <span class="slot gear">⚙</span>
+      </div>
+    </div>
+    <p class="legend">แถวล่าง = grip (ซ้าย) + ปุ่มกลาง + ⚙ (ขวา) · grip/⚙ ไม่ขยับ ต่อให้เพิ่มบรรทัด</p>
+  </div>
+
+  <!-- ================= 3 MODES ================= -->
+  <h2>2 · 3 โหมด — โครงเดียว ต่างแค่ element</h2>
+
+  <div class="card">
+    <h4>🎤 ฝึกร้อง — timeline(1 ยาว) + transport + เลือกท่อน(2 ช่อง) + Aa</h4>
+    <div class="dock full">
+      <div class="drow">
+        <span class="tl"><span class="track"></span><span class="fill"></span><span class="knob"></span><span class="lab">3:12</span></span>
+      </div>
+      <div class="drow">
+        <span class="slot grip">⁝⁝</span>
+        <span class="spring"></span>
+        <span class="slot plain">◀</span><span class="slot brand plain">▶</span><span class="slot plain">▶</span><span class="slot plain">🔁</span>
+        <span class="slot w2">☰ ท่อน</span><span class="slot">Aa</span>
+        <span class="spring"></span>
+        <span class="slot gear">⋯</span><span class="slot gear">⚙</span>
+      </div>
+    </div>
+    <p class="legend">timeline = ไอคอนยาว อยู่ในกริดปกติ (แชร์แถวได้ ถ้าไม่พอก็ขึ้นแถวเอง) · เลือกท่อน = ปุ่มกว้าง 2 ช่อง · เกิน 6 ช่อง = ปุ่มท้ายพับเข้า ⋯</p>
+  </div>
+
+  <div class="cols">
+    <div class="card">
+      <h4>📄 แผ่นเพลง — ปุ่มเดียว</h4>
+      <div class="dock full">
+        <div class="drow">
+          <span class="slot grip">⁝⁝</span>
+          <span class="spring"></span>
+          <span class="slot w2">🖨 พิมพ์</span>
+          <span class="spring"></span>
+          <span class="slot gear">⚙</span>
+        </div>
+      </div>
+      <p class="legend">โครงเดิมเป๊ะ · แค่ element กลางเหลือปุ่มเดียว · ความโปร่ง อยู่ในแผง ⚙</p>
+    </div>
+
+    <div class="card">
+      <h4>✏️ แก้ไข — tools + แถวคีย์โน้ต</h4>
+      <div class="dock full">
+        <div class="keys">
+          <span class="key">1</span><span class="key">2</span><span class="key">3</span><span class="key">5</span><span class="key">6</span><span class="key">|</span><span class="key">-</span>
+        </div>
+        <div class="drow">
+          <span class="slot grip">⁝⁝</span>
+          <span class="spring"></span>
+          <span class="slot">↶</span><span class="slot">↷</span><span class="slot">▶</span><span class="slot">⛭</span>
+          <span class="spring"></span>
+          <span class="slot gear">⋯</span><span class="slot gear">⚙</span>
+        </div>
+      </div>
+      <p class="legend">แถวคีย์ jianpu = แถวพิเศษเต็มกว้าง (เฉพาะแก้ไข) วางเหนือโครง · โครง grip/⚙ เหมือนกัน</p>
+    </div>
+  </div>
+
+  <!-- ================= GEAR PANEL ================= -->
+  <h2>3 · แผงเฟือง ⚙ (แบบฝึกร้อง — ทุกโหมด)</h2>
+  <div class="card" style="max-width:340px">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">⠿ ตั้งค่า — ปรับได้ที่นี่เลย · 📌 = ปักขึ้นแถบ</div>
+    <table>
+      <tr><td class="el">🎸 คอร์ด</td><td>[เมนู]</td><td>▲ ▼</td><td>📌</td></tr>
+      <tr><td class="el">⏱ ความเร็ว</td><td>◀ 90 ▶</td><td>▲ ▼</td><td>📌</td></tr>
+      <tr><td class="el">◑ ความโปร่ง</td><td>—slider—</td><td></td><td>📌</td></tr>
+      <tr><td class="el">🖨 พิมพ์</td><td>[เปิด]</td><td></td><td>📌</td></tr>
+    </table>
+    <p class="legend">เลื่อนลำดับ ▲▼ = ลำดับบนแถบ · 📌 = ขึ้น/ลงแถบ · การ pin ถูกจำกัดด้วยจำนวนช่อง/บรรทัด (เต็มก็ขึ้นบรรทัดใหม่)</p>
+  </div>
+
+  <!-- ================= WHAT CHANGES ================= -->
+  <h2>4 · เทียบของเดิม — เปลี่ยนอะไร</h2>
+  <table>
+    <tr><th>องค์ประกอบ</th><th>เดิม (ต่างกัน 3 โหมด)</th><th>ใหม่ (โครงเดียว)</th></tr>
+    <tr><td class="el">grip</td><td>ฝึกร้องบนซ้าย · print/edit ซ้ายแถว</td><td>ซ้ายสุด แถวล่าง เสมอ</td></tr>
+    <tr><td class="el">⚙ ตั้งค่า</td><td>ฝึกร้องล่างซ้าย · print/edit ไม่มี ⚙ (3 ปุ่มขวา)</td><td>ขวาสุด แถวล่าง เสมอ · เป็นบ้านเดียว</td></tr>
+    <tr><td class="el">ปุ่มล้น</td><td>ยัดเข้า ⋯ popover</td><td>คง ⋯ (วางก่อน ⚙) · element เต็มกว้างขึ้นแถวเอง</td></tr>
+    <tr><td class="el">timeline</td><td>~200px แชร์แถวกับ ☰</td><td>1 ไอคอนยาว อยู่ในกริดปกติ (แชร์แถวได้)</td></tr>
+    <tr><td class="el">เลือกท่อน</td><td>ปุ่มบนแถว timeline</td><td>ปุ่มกว้าง 2 ช่อง อยู่ในกริดปกติ</td></tr>
+    <tr><td class="el">โค้ด</td><td>chrome 2 ชุด (SingTransport + StudioDock)</td><td>โครง slot เดียว · ต่างแค่ list ของ element</td></tr>
+  </table>
+
+  <!-- ================= DECIDED ================= -->
+  <h2>5 · เคาะแล้ว (P'Aim 10 ก.ค.)</h2>
+  <p><span class="flag">✓ A</span> จำนวนช่อง/บรรทัด: มือถือ <b>6</b> · เดสก์ท็อป <b>12</b></p>
+  <p><span class="flag">✓ B</span> เก็บปุ่ม <b>⋯</b> ไว้ — ปุ่มล้น cap พับเข้า ⋯ (วางก่อน ⚙ บนแถวล่าง)</p>
+  <p><span class="flag">✓ C</span> timeline อยู่ใน<b>กริดปกติ</b>ได้ (แชร์แถวกับปุ่มถ้าพอ · ไม่พอก็ขึ้นแถวเอง)</p>
+  <p class="legend">→ AC เขียนแล้วใน <code>docs/ds/dock-consistency.md §3</code> · พร้อมจ่าย dev · ไอคอนในภาพเป็นตัวแทน ของจริงใช้ Lucide</p>
+</div>
+</body>
+</html>

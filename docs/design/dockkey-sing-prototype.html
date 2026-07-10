@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DockKey — หน้าฝึกร้อง (library reference)</title>
+<style>
+  :root{--brand:#8b4513;--ink:#2d2a26;--muted:#757575;--cream:#faf6f0;--line:#e0d6c8;--red:#c0392b;--ok:#1d7a54;--touch-min:44px}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:#e9e0d2;color:var(--ink);line-height:1.5;padding:20px 14px 70px}
+  .wrap{max-width:940px;margin:0 auto}
+  h1{font-size:21px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 12px}
+  .warn{font-size:12px;color:#7a4a12;background:#f6e7d2;border:1px solid #e6cfa8;border-radius:8px;padding:6px 10px;margin-bottom:14px}
+  .warn b{color:#5c3608}
+  .tools{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:transparent;padding:8px 14px;font:inherit;font-size:13px;color:var(--muted);cursor:pointer}
+  .seg button.on{background:var(--brand);color:#fff}
+  .hint{font-size:12px;color:var(--muted)}
+  .grid-note{font-size:11px;color:var(--muted);margin-top:8px}
+
+  .frame{position:relative;margin:0 auto;background:linear-gradient(#fffdf9,#f4eee2);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,.16);transition:max-width .25s}
+  .frame.mobile{max-width:392px;height:580px}
+  .frame.desk{max-width:820px;height:470px}
+  .reader{padding:20px 22px;height:100%;overflow:auto}
+  .reader h3{margin:0 0 12px;font-size:17px;color:var(--brand)}
+  .ln{color:#6b5f4e;transition:font-size .12s}
+  .ln .cd{color:var(--red);font-weight:700;font-size:.8em;margin-right:2px}
+  .ln .nt{color:#2b6cb0;font-size:.72em;vertical-align:top;margin-right:1px}
+
+  .ico{display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .dockhost{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;padding:0 10px 12px;pointer-events:none}
+  .dock{pointer-events:auto;background:rgba(255,255,255,var(--a,.96));border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 22px rgba(0,0,0,.14);padding:8px;width:100%;backdrop-filter:blur(6px);position:relative}
+  .frame.desk .dock{max-width:700px}
+  .r{display:flex;align-items:center;gap:6px}
+  .r.spread{justify-content:space-between}
+  .r+.r{margin-top:8px}
+  .sp{flex:1}
+  .dock.mini{width:auto;display:inline-flex;gap:8px;padding:7px 9px}
+
+  .btn{width:var(--touch-min);height:var(--touch-min);min-width:var(--touch-min);padding:0;border:0;background:transparent;color:var(--ink);display:inline-flex;align-items:center;justify-content:center;border-radius:10px;cursor:pointer;flex:0 0 auto}
+  .btn .ico{width:20px;height:20px}
+  .btn:hover{background:var(--cream)}
+  .btn.on{color:var(--brand);background:var(--cream)}
+  .btn.tglbar:not(.on){color:var(--muted)}         /* วนซ้ำ ปิด = เทา · เปิด = น้ำตาล+พื้นครีม (ชัดว่า on/off) */
+  .tgl{width:42px;height:24px;border-radius:12px;border:0;background:#c9c0b3;position:relative;cursor:pointer;padding:0;flex:0 0 auto;transition:background .15s}
+  .tgl.on{background:var(--brand)}
+  .tgl-k{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+  .tgl.on .tgl-k{left:20px}
+  .play{width:50px;height:50px;color:var(--brand);border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
+  .play .ico{width:28px;height:28px}
+  .grip{color:var(--muted);cursor:grab;touch-action:none}
+  .grip .ico{width:22px;height:22px}
+  .gear{color:var(--muted)}
+  .gear.on{color:var(--brand);background:var(--cream)}
+  .pbtn{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:10px;padding:0 8px;height:var(--touch-min);cursor:pointer;flex:0 0 auto}
+  .pbtn:hover{border-color:var(--brand)}
+  .pbtn.on{border-color:var(--brand);color:var(--brand)}
+  .pbtn .ico{width:17px;height:17px}
+  .pbadge{font-size:12.5px;font-weight:700}
+  .pcaret{width:13px;height:13px;color:var(--muted)}
+  .aa{font-size:15px;font-weight:700;letter-spacing:-.3px}
+  .sel{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:0 10px;font-size:12px;font-weight:600;height:var(--touch-min);cursor:pointer;flex:1 1 0;min-width:0}
+  .sel:hover,.sel.on{border-color:var(--brand);color:var(--brand)}
+  .sel .ico{width:15px;height:15px;flex:0 0 auto}
+  .sel b{color:var(--brand)}
+  .pinwrap{position:relative;display:inline-flex;flex:0 0 auto}
+  .pslidewrap{align-items:center;gap:5px;padding:0 8px;border:1px solid var(--line);border-radius:10px;height:var(--touch-min);color:var(--muted)}
+  .pslider{width:74px;accent-color:var(--brand)}
+
+  .seek{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:3 1 0;min-width:0}
+  .bar{position:relative;flex:1;height:26px;display:flex;align-items:center;cursor:pointer;touch-action:none;min-width:50px}
+  .trk{position:absolute;left:0;right:0;height:4px;background:var(--line);border-radius:3px;top:50%;transform:translateY(-50%)}
+  .fil{position:absolute;left:0;height:4px;background:var(--brand);border-radius:3px;top:50%;transform:translateY(-50%)}
+  .kn{position:absolute;width:16px;height:16px;background:var(--brand);border:3px solid #fff;border-radius:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,.35);pointer-events:none;z-index:3}
+  .seg{position:absolute;height:5px;top:50%;transform:translateY(-50%);border-radius:3px;background:var(--line);pointer-events:none;transition:height .1s}
+  .seg.on{background:var(--brand)}                 /* ท่อนที่เลือก = เส้นน้ำตาลชัด (ตัวหลัก) */
+  .seg.cur{height:9px}                              /* ท่อนที่กำลังเล่น = สูงขึ้น */
+  .mk{position:absolute;width:9px;height:9px;border:1px solid rgba(139,69,19,.35);background:transparent;border-radius:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:2}  /* วงกลม = ลายเส้นจางๆ อ้างอิงต้นท่อน */
+  .keyb{flex:0 0 auto}
+
+  .pop{position:absolute;bottom:calc(100% + 8px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:30}
+  .dd{left:0;min-width:150px;padding:5px}
+  .ddrow{display:flex;align-items:center;gap:8px;width:100%;padding:8px;border:0;background:transparent;border-radius:8px;cursor:pointer;text-align:left;color:var(--ink);font:inherit;font-size:13px;white-space:nowrap}
+  .ddrow:hover{background:var(--cream)}
+  .ddrow.on{color:var(--brand);font-weight:700}
+  .ddck{width:14px;text-align:center;color:var(--brand)}
+  .fontdd{left:0;min-width:220px;padding:12px}
+  .fontrow{display:flex;align-items:center;gap:10px}
+  .fontrow input{flex:1;accent-color:var(--brand)}
+  .fs-sm{font-size:13px}.fs-lg{font-size:22px;font-weight:700}
+  .fontval{font-size:11px;color:var(--muted)}
+  .fontfoot{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+  .fontreset{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer;min-height:32px}
+  .fontreset:hover:not(:disabled){border-color:var(--brand);color:var(--brand)}
+  .fontreset:disabled{opacity:.4;cursor:default}
+  .fonttitle{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .panel{right:0;left:auto;min-width:290px;max-width:330px;padding:8px}
+  .ptitle{font-size:11px;color:var(--muted);padding:2px 4px 8px}
+  .prow{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:8px}
+  .prow:hover{background:var(--cream)}
+  .mi{width:20px;display:inline-flex;justify-content:center;color:var(--brand);flex:0 0 20px}
+  .mi .ico{width:16px;height:16px}
+  .pl{font-size:13px;flex:1;white-space:nowrap}
+  .pc{display:flex;align-items:center;gap:5px}
+  .msel{font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+  .msel .ico{width:12px;height:12px;color:var(--muted)}
+  .mselect{font:inherit;font-size:12.5px;padding:5px 24px 5px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;max-width:132px;min-height:34px;
+    appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23757575' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center}
+  .mselect:hover{border-color:var(--brand)}
+  .prange{width:60px;accent-color:var(--brand)}
+  .slval{font-size:11px;color:var(--muted);min-width:32px}
+  .mv{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer}
+  .mv:disabled{opacity:.35;cursor:default}
+  .pin{border:0;background:transparent;font-size:14px;filter:grayscale(1);opacity:.4;cursor:pointer;padding:2px 4px}
+  .pin.on{filter:none;opacity:1}
+  .selpanel{left:0;right:auto;width:290px;display:flex;flex-direction:column}
+  .sshead{padding:10px 12px 6px;font-weight:700}
+  .ssall{display:flex;gap:8px;padding:0 12px 8px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .ssbtn{border:1px solid var(--line);background:transparent;border-radius:8px;padding:5px 12px;font:inherit;font-size:12px;cursor:pointer}
+  .ssbtn:hover{border-color:var(--brand);color:var(--brand)}
+  .sshint{font-size:11px;color:var(--muted);align-self:center}
+  .sslist{padding:6px;max-height:52vh;overflow:auto}  /* สูงตามจอ — scroll เฉพาะตอนท่อนเยอะเกินจอจริง (ไม่ล็อกเตี้ย) */
+  .ssrow{display:flex;align-items:center;gap:12px;width:100%;padding:9px 12px;border:0;background:transparent;border-radius:10px;cursor:pointer;font:inherit;font-size:14px;color:var(--ink);text-align:left}
+  .ssrow:hover{background:var(--cream)}
+  .cx{width:22px;height:22px;flex:0 0 22px;border:1.5px solid var(--muted);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff}
+  .cx .ico{width:14px;height:14px}
+  .ssrow.on .cx{background:var(--ok);border-color:var(--ok)}
+  .ssrow.on{color:var(--ok);font-weight:600}
+  .ssname{flex:1}
+  .hk{font-size:10px;color:var(--brand);border:1px dashed var(--brand);border-radius:10px;padding:0 7px}
+  .mask{position:absolute;inset:0;z-index:20;background:transparent}
+  .fab{width:48px;height:48px;border-radius:50%;background:var(--brand);color:#fff;border:1px solid var(--brand);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.28);cursor:grab;pointer-events:auto}
+  .fab .ico{width:24px;height:24px}
+  .colnum{position:absolute;top:-16px;left:0;right:0;display:flex;gap:6px;font-size:9px;color:#bbb;pointer-events:none}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></symbol>
+  <symbol id="i-sb" viewBox="0 0 24 24"><path d="M17.971 4.285A2 2 0 0 1 21 6v12a2 2 0 0 1-3.029 1.715l-9.997-5.998a2 2 0 0 1-.003-3.432z"/><path d="M3 20V4"/></symbol>
+  <symbol id="i-sf" viewBox="0 0 24 24"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-guitar" viewBox="0 0 24 24"><path d="m11.9 12.1 4.514-4.514"/><path d="M20.1 2.3a1 1 0 0 0-1.4 0l-1.114 1.114A2 2 0 0 0 17 4.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 17.828 7h1.344a2 2 0 0 0 1.414-.586L21.7 5.3a1 1 0 0 0 0-1.4z"/><path d="m6 16 2 2"/><path d="M8.23 9.85A3 3 0 0 1 11 8a5 5 0 0 1 5 5 3 3 0 0 1-1.85 2.77l-.92.38A2 2 0 0 0 12 18a4 4 0 0 1-4 4 6 6 0 0 1-6-6 4 4 0 0 1 4-4 2 2 0 0 0 1.85-1.23z"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M16 5H3"/><path d="M11 12H3"/><path d="M11 19H3"/><path d="M21 16V5"/><circle cx="18" cy="16" r="3"/></symbol>
+  <symbol id="i-cv" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+  <symbol id="i-blend" viewBox="0 0 24 24"><circle cx="9" cy="9" r="7"/><circle cx="15" cy="15" r="7"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M4 12a8 8 0 0 1 8-8"/><path d="M4 12a8 8 0 0 0 8 8"/></symbol>
+</defs></svg>
+
+<div class="wrap">
+  <h1>DockKey — หน้าฝึกร้อง</h1>
+  <p class="sub">SA · reference ตัวแรกของ library กลาง · จัดตามข้อกำหนด <code>dockey.docx</code> (row นับจากล่าง · col จากซ้าย) · ยังไม่ต่อฐานข้อมูล</p>
+  <div class="warn"><b>ผังตามไฟล์:</b> แถว 1 (ล่าง) = Grip · Back · Play · Fwd · Aa · ⚙ · แถว 2 = ไทม์ไลน์(1–3) · คีย์(4) · เลือกท่อน(5–6) · repeat/คอร์ด/ความเร็ว/เลเยอร์ = อยู่ใน ⚙ ปักได้ · แถวกระจายเต็มความกว้าง (มือถือ ~7 · เดสก์ท็อป ~14 ที่ 44px) · ยุบ→[grip][⚙]</div>
+
+  <div class="tools">
+    <span class="seg" id="vpSeg"><button data-act="vp:mobile" class="on">📱 มือถือ (cap 6)</button><button data-act="vp:desk">🖥 เดสก์ท็อป (cap 14)</button></span>
+    <span class="hint" id="hint"></span>
+  </div>
+  <div class="frame mobile" id="frame"><div class="reader" id="reader"></div><div class="dockhost" id="host"></div></div>
+  <p class="grid-note" id="gridnote"></p>
+</div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+function ic(n,s){return `<svg class="ico" width="${s}" height="${s}" viewBox="0 0 24 24" style="width:${s}px;height:${s}px"><use href="#i-${n}"/></svg>`}
+const KEYS=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const TEMPOS=[['ช้ามาก',60],['ช้า',75],['ปานกลาง',90],['เร็ว',110],['เร็วมาก',130]];
+const CHORDS=['กีตาร์','อูคูเลเล่','เปียโน','ตัวเลข'];
+const DISPLAYS=['คอร์ด+โน้ต','คอร์ดอย่างเดียว','โน้ตอย่างเดียว','เนื้อล้วน'];
+
+// ===== DockKey library — item registry (หน้าฝึกร้องส่ง list นี้เข้า engine) =====
+// place.anchor: left | right | rightOf:<id> | leftOf:<id> | row2   · default: onDock | inSetting
+const ITEMS_SING = [
+  {id:'grip',    kind:'grip', name:'ย้าย/ย่อ',      place:{anchor:'left',       row:1}, showWhen:'always'},
+  {id:'back',    kind:'btn',  name:'ท่อนก่อน', icon:'sb',  place:{anchor:'rightOf:grip', row:1}},
+  {id:'play',    kind:'play', name:'เล่น/หยุด',      place:{anchor:'rightOf:back', row:1}},
+  {id:'forward', kind:'btn',  name:'ท่อนถัดไป', icon:'sf', place:{anchor:'rightOf:play', row:1}},
+  {id:'scale',   kind:'aa',   name:'ขนาดตัวอักษร',   place:{anchor:'leftOf:setting', row:1}, permanent:true},
+  {id:'setting', kind:'gear', name:'ตั้งค่า',        place:{anchor:'right',      row:1}, showWhen:'always'},
+  {id:'timeslide',kind:'timeline', name:'ไทม์ไลน์',  place:{row:2, col:1, span:3}},
+  {id:'key',     kind:'menu', name:'คีย์', icon:'key', opts:KEYS, get:()=>S.key, set:v=>S.key=v, badge:()=>S.key, place:{row:2, col:4, span:1}},
+  {id:'tuan',    kind:'sel',  name:'เลือกท่อน', icon:'list', place:{row:2, col:5, span:2}},
+  // optional — default อยู่ใน Setting · ปักได้
+  {id:'repeat',  kind:'toggle', name:'วนซ้ำ', icon:'repeat', state:'loop', default:'inSetting', pinnable:true},
+  {id:'chord',   kind:'menu', name:'คอร์ด', icon:'guitar', opts:CHORDS, get:()=>S.chord, set:v=>S.chord=v, badge:()=>'', default:'inSetting', pinnable:true},
+  {id:'speed',   kind:'menu', name:'ความเร็ว', icon:'gauge', opts:TEMPOS.map(t=>t[0]+' ('+t[1]+')'), get:()=>tempoLabel(), set:v=>S.tempo=+v.match(/\((\d+)\)/)[1], badge:()=>S.tempo, default:'inSetting', pinnable:true},
+  {id:'layer',   kind:'menu', name:'แสดงผล', icon:'layers', opts:DISPLAYS, get:()=>S.display, set:v=>S.display=v, badge:()=>'', default:'inSetting', pinnable:true},
+  {id:'alpha',   kind:'slider', name:'โปร่งใส', icon:'blend', default:'inSetting', pinnable:true},
+];
+function tempoLabel(){const t=TEMPOS.find(x=>x[1]===S.tempo);return (t?t[0]:'')+' ('+S.tempo+')'}
+const byId=id=>ITEMS_SING.find(x=>x.id===id);
+const OPTIONAL=['repeat','chord','speed','layer','alpha']; // อยู่ในหน้า Setting
+const SECTIONS=[{name:'ท่อน 1'},{name:'ท่อน 2'},{name:'ฮุก',hook:true},{name:'ท่อน 3'},{name:'จบ'}];
+const MK=i=>(i+0.5)/SECTIONS.length*100;  // จุดกลางท่อน (%) — วงกลม + snap
+const SNAP=0.06;                            // แตะใกล้วงกลมในระยะนี้ = ดูดเข้าท่อน
+
+const S={
+  mobile:true, playing:false, loop:false, collapsed:false,
+  alpha:.96, frac:.38, fontPct:100, chord:'กีตาร์', key:'C', tempo:90, display:'คอร์ด+โน้ต',
+  openPanel:null, openMenu:null, pos:null,
+  pins:[],  // optional ids ที่ปักขึ้นแถบ (default = ยังไม่ปัก)
+  sections:SECTIONS,
+  selected:new Set(SECTIONS.map(s=>s.name)),  // default = เลือกทุกท่อน (เล่นทั้งเพลง 1 รอบ)
+};
+
+/* ---------- reader bg ---------- */
+function renderReader(){
+  const fs=S.fontPct/100;
+  const L=(cd,nt,tx)=>`<div class="ln" style="font-size:${fs*1.02}rem"><span class="cd">${cd}</span><span class="nt">${nt}</span>${tx}</div>`;
+  $('#reader').innerHTML=`<h3>พระเจ้าทรงเป็นความรัก</h3>`+
+    L('C','5','พระเจ้าทรงเป็นความรัก')+L('G','3','ทรงสร้างสรรพสิ่งด้วยพระหัตถ์')+
+    L('Am','6','ข้าขอสรรเสริญพระองค์')+L('F','1','ตลอดกาลนิรันดร์')+
+    `<div class="ln" style="font-size:${fs*1.02}rem;color:var(--brand);font-weight:600">— ฮุก —</div>`+
+    L('C','5','ฮาเลลูยา ฮาเลลูยา')+L('G','2','พระองค์ทรงเป็นขึ้นมา')+
+    (S.mobile?'':L('Am','6','ทรงครองราชย์เหนือสิ้นทั้งปวง')+L('F','1','สรรเสริญพระนามพระองค์'));
+}
+
+/* ---------- render one item ---------- */
+function itemHtml(it){
+  switch(it.kind){
+    case 'grip': return `<button class="btn grip" data-act="grip" title="แตะ=ยุบ · ลาก=ย้าย">${ic('grip',22)}</button>`;
+    case 'gear': return `<button class="btn gear ${S.openPanel==='gear'?'on':''}" data-act="gear" title="ตั้งค่า">${ic('gear',20)}</button>`;
+    case 'play': return `<button class="play" data-act="play" title="${S.playing?'หยุด':'เล่น'}">${ic(S.playing?'pause':'play',28)}</button>`;
+    case 'btn':  return `<button class="btn" data-act="noop" title="${it.name}">${ic(it.icon,20)}</button>`;
+    case 'toggle': return `<button class="btn tglbar ${S[it.state]?'on':''}" data-act="tog:${it.id}" role="switch" aria-checked="${!!S[it.state]}" title="${it.name} ${S[it.state]?'(เปิด)':'(ปิด)'}">${ic(it.icon,19)}</button>`;
+    case 'aa': { const open=S.openMenu==='font';  // แค่ "Aa" (ตัวเลข % ไปโชว์ในป๊อปอัพ) — กันปุ่มกว้างจน ⚙ หลุดขอบ
+      return `<span class="pinwrap"><button class="pbtn ${open?'on':''}" data-act="menu:font" title="ขนาดตัวอักษร ${S.fontPct}%" aria-label="ขนาดตัวอักษร"><span class="aa">Aa</span></button>${open?fontPop():''}</span>`; }
+    case 'menu': { const open=S.openMenu===it.id, b=it.badge&&it.badge();
+      return `<span class="pinwrap ${it.place&&it.place.row===2?'keyb':''}"><button class="pbtn ${open?'on':''}" data-act="menu:${it.id}" title="${it.name}">${ic(it.icon,17)}${b?`<b class="pbadge">${b}</b>`:''}${ic('cv',13)}</button>${open?ddPop(it):''}</span>`; }
+    case 'sel': return `<button class="sel ${S.openPanel==='select'?'on':''}" data-act="select" title="เลือกท่อน">${ic('list',15)}${S.mobile?'ท่อน':'เลือกท่อน'} <b>${S.selected.size}/${S.sections.length}</b></button>`;
+    case 'slider': return `<span class="pinwrap pslidewrap" title="${it.name}">${ic('blend',16)}<input class="pslider" type="range" min="40" max="100" value="${Math.round(S.alpha*100)}" data-act="alpha"></span>`;
+    case 'timeline': { // เส้นท่อน (ช่องแบ่ง=ขอบท่อน): เลือก=น้ำตาลทึบ · ไม่เลือก=เทา · ท่อนที่หัวอยู่=สูงขึ้น · snap เงียบๆ (ไม่มีวงกลมท่อนแล้ว)
+      const n=S.sections.length, cur=Math.min(n-1,Math.floor(S.frac*n));
+      const segs=S.sections.map((s,i)=>{const on=S.selected.has(s.name);
+        return `<span class="seg ${on?'on':''} ${i===cur?'cur':''}" style="left:${i/n*100}%;width:calc(${100/n}% - 3px)"></span>`;}).join('');
+      return `<span class="seek"><span class="bar" data-seek>${segs}<span class="kn" style="left:${S.frac*100}%"></span></span><span>3:12</span></span>`; }
+    case 'more': return `<button class="btn gear ${S.openMenu==='overflow'?'on':''}" data-act="menu:overflow" title="ดูเพิ่ม">${ic('dots',18)}</button>`;
+  }
+  return '';
+}
+function fontPop(){return `<div class="pop fontdd" data-pop><div class="fonttitle">ขนาดตัวอักษร</div><div class="fontrow"><span class="fs-sm">A</span><input type="range" min="80" max="220" step="10" value="${S.fontPct}" data-act="font"><span class="fs-lg">A</span></div><div class="fontfoot"><span class="fontval">${S.fontPct}%</span><button class="fontreset" data-act="fontreset" ${S.fontPct===100?'disabled':''}>↺ 100%</button></div></div>`}
+function ddPop(it){const cur=it.get();return `<div class="pop dd" data-pop>${it.opts.map(o=>`<button class="ddrow ${o===cur?'on':''}" data-act="pick:${it.id}:${o}"><span class="ddck">${o===cur?'●':''}</span>${o}</button>`).join('')}</div>`}
+function gearPanel(){
+  const rows=OPTIONAL.map(id=>{
+    const it=byId(id); const pinned=S.pins.includes(id); const i=S.pins.indexOf(id);
+    let ctl='';
+    if(it.kind==='menu') ctl=`<select class="mselect" data-act="pickpanel:${id}" aria-label="${it.name}">${it.opts.map(o=>`<option value="${o}" ${o===it.get()?'selected':''}>${o}</option>`).join('')}</select>`;
+    else if(it.kind==='toggle') ctl=`<button class="tgl ${S[it.state]?'on':''}" data-act="tog:${id}" role="switch" aria-checked="${!!S[it.state]}" aria-label="${it.name}"><span class="tgl-k"></span></button>`;
+    else if(it.kind==='slider') ctl=`<input class="prange" type="range" min="40" max="100" value="${Math.round(S.alpha*100)}" data-act="alpha"><span class="slval">${Math.round(S.alpha*100)}%</span>`;
+    return `<div class="prow"><span class="mi">${ic(it.icon,16)}</span><span class="pl">${it.name}</span><span class="pc">${ctl}</span>`+
+      `<button class="mv" data-act="mv:${id}:-1" ${pinned&&i>0?'':'disabled'}>▲</button><button class="mv" data-act="mv:${id}:1" ${pinned&&i>-1&&i<S.pins.length-1?'':'disabled'}>▼</button>`+
+      `<button class="pin ${pinned?'on':''}" data-act="pin:${id}" title="ปัก/ถอนขึ้นแถบ">📌</button></div>`;
+  }).join('');
+  return `<div class="pop panel" data-pop>${rows}</div>`;
+}
+function selPanel(){
+  return `<div class="pop selpanel" data-pop><div class="sshead">⠿ เลือกท่อนที่จะซ้อม</div>
+    <div class="ssall"><button class="ssbtn" data-act="setall:1">☑ ทั้งหมด</button><button class="ssbtn" data-act="setall:0">☐ ไม่เลือก</button><span class="sshint">ไม่เลือก=ทั้งเพลง</span></div>
+    <div class="sslist">${S.sections.map(s=>{const on=S.selected.has(s.name);return `<button class="ssrow ${on?'on':''}" data-act="sec:${s.name}"><span class="cx">${on?ic('check',14):''}</span><span class="ssname">${s.name}</span>${s.hook?'<span class="hk">ฮุก</span>':''}</button>`}).join('')}</div></div>`;
+}
+function overflowPop(over){return `<div class="pop dd" data-pop style="right:0;left:auto">${over.map(id=>{const it=byId(id);return `<button class="ddrow" data-act="pin:${id}">${ic(it.icon,18)} ${it.name}</button>`}).join('')}</div>`}
+
+/* ---------- ENGINE: build rows from descriptors ---------- */
+function buildRows(){
+  // cap ต่อแถว (44px): มือถือ 392px = 7 · เดสก์ท็อป = 14
+  const cap=S.mobile?7:14;
+  const R2=[byId('timeslide'),byId('key'),byId('tuan')];                          // แถว 2 คงที่
+  const R1=['grip','back','play','forward','scale','setting'].map(byId);          // แถวล่าง = core คงที่ (ไม่ยุ่ง)
+  const pinned=S.pins.map(byId);
+  const top=[];                                                                   // ปุ่มที่ปัก → แถวใหม่เหนือ row2
+  for(let i=0;i<pinned.length;i+=cap) top.push(pinned.slice(i,i+cap));
+  return [...top,R2,R1];                                                          // บนลงล่าง
+}
+
+function renderRow(row){
+  // แถวที่มี setting = แถวล่าง (row1) → กระจายเต็มแถว (grip ชิดซ้าย · ⚙ ชิดขวา)
+  const spread=row.some(it=>it&&it.id==='setting');
+  return `<div class="r ${spread?'spread':''}">${row.map(itemHtml).join('')}</div>`;
+}
+function renderDock(){
+  // ยุบ → เหลือ [grip][⚙] (ตามไฟล์: ขณะย่อ grip+setting มีทุกหน้า) · grip ลาก/กาง · ⚙ กางพร้อมตั้งค่า
+  if(S.collapsed) return `<div class="dock mini"><button class="btn grip" data-act="grip" title="แตะ=กาง · ลาก=ย้าย">${ic('grip',22)}</button><button class="btn gear" data-act="expandset" title="กางเพื่อตั้งค่า">${ic('gear',20)}</button></div>`;
+  const rows=buildRows();
+  let html=rows.map(renderRow).join('');
+  if(S.openPanel==='gear')  html+=gearPanel();
+  if(S.openPanel==='select')html+=selPanel();
+  if(S.openMenu==='overflow')html+=overflowPop(S._over||[]);
+  const mask=(S.openPanel||S.openMenu)?`<div class="mask" data-act="close"></div>`:'';
+  return `${mask}<div class="dock" style="--a:${S.alpha}">${html}</div>`;
+}
+function fmt(s){s=Math.max(0,s);return Math.floor(s/60)+':'+String(Math.round(s%60)).padStart(2,'0')}
+
+function render(){
+  $('#frame').className='frame '+(S.mobile?'mobile':'desk');
+  renderReader();
+  $('#host').innerHTML=renderDock();
+  [...$('#vpSeg').children].forEach(b=>b.classList.toggle('on',b.dataset.act==='vp:'+(S.mobile?'mobile':'desk')));
+  const nP=S.pins.length;
+  $('#hint').textContent=(S.mobile?'มือถือ cap 7':'เดสก์ท็อป cap 14')+` · ปัก ${nP} ตัว → ${nP?'ขึ้นแถวเหนือไทม์ไลน์':'ไม่มีแถวเพิ่ม'}`;
+  $('#gridnote').textContent='แถวล่าง = core คงที่ Grip·Back·Play·Fwd·Aa·⚙ (ไม่ยุ่ง) · แถว 2: ไทม์ไลน์·คีย์·ท่อน · ปุ่มที่ปัก → ขึ้นแถวใหม่ด้านบน';
+  if(S.pos){const d=$('#host').querySelector('.dock');if(d)d.style.transform=`translate(${S.pos.x}px,${S.pos.y}px)`}
+  clampPops();
+}
+function clampPops(){
+  const fr=$('#frame').getBoundingClientRect(),m=8;
+  $('#host').querySelectorAll('.pop').forEach(el=>{el.style.transform='';const r=el.getBoundingClientRect();let dx=0,dy=0;
+    if(r.right>fr.right-m)dx=fr.right-m-r.right; if(r.left+dx<fr.left+m)dx=fr.left+m-(r.left+dx);
+    if(r.top+dy<fr.top+m)dy=fr.top+m-(r.top+dy); if(r.bottom+dy>fr.bottom-m)dy=fr.bottom-m-r.bottom;
+    if(dx||dy)el.style.transform=`translate(${Math.round(dx)}px,${Math.round(dy)}px)`;});
+}
+// [CORE] ยุบ/กาง อยู่ที่เดิม (collapse-in-place) — grip ไม่กระโดด · ทั้ง 3 หน้าใช้ร่วม
+function transitionInPlace(toCollapsed,panel){
+  const a=$('#host').querySelector('[data-act="grip"]'); const og=a?a.getBoundingClientRect():null;
+  S.collapsed=toCollapsed; S.openPanel=panel||null; S.openMenu=null; S.pos=null; render();
+  if(!og)return;
+  const d=$('#host').querySelector('.dock'); const ng=$('#host').querySelector('[data-act="grip"]').getBoundingClientRect();
+  S.pos={x:og.left-ng.left,y:og.top-ng.top};                 // จัดให้ grip ตัวใหม่ทับตำแหน่ง grip ตัวเดิม
+  d.style.transform=`translate(${S.pos.x}px,${S.pos.y}px)`;
+  const fr=$('#frame').getBoundingClientRect(),dr=d.getBoundingClientRect(),m=6; let ddx=0,ddy=0;  // กันหลุดกรอบ (กางแล้วกว้างขึ้น)
+  if(dr.left<fr.left+m)ddx=fr.left+m-dr.left; if(dr.right>fr.right-m)ddx=fr.right-m-dr.right;
+  if(dr.top<fr.top+m)ddy=fr.top+m-dr.top; if(dr.bottom>fr.bottom-m)ddy=fr.bottom-m-dr.bottom;
+  if(ddx||ddy){S.pos={x:S.pos.x+ddx,y:S.pos.y+ddy};d.style.transform=`translate(${S.pos.x}px,${S.pos.y}px)`}
+  clampPops();
+}
+
+/* ---------- events ---------- */
+function act(a){
+  if(a==='noop')return;
+  if(a==='close'){S.openPanel=S.openMenu=null;return render()}
+  if(a==='play'){S.playing=!S.playing;return render()}
+  if(a==='gear'){S.openPanel=S.openPanel==='gear'?null:'gear';S.openMenu=null;return render()}
+  if(a==='expandset'){transitionInPlace(false,'gear');return}
+  if(a==='fontreset'){S.fontPct=100;return render()}
+  if(a==='select'){S.openPanel=S.openPanel==='select'?null:'select';S.openMenu=null;return render()}
+  if(a.startsWith('vp:')){S.mobile=a.slice(3)==='mobile';S.pos=null;return render()}
+  if(a.startsWith('menu:')){const id=a.slice(5);S.openMenu=S.openMenu===id?null:id;if(id!=='overflow')S.openPanel=null;return render()}
+  if(a.startsWith('pick:')){const[,id,val]=a.split(':');byId(id).set(val);S.openMenu=null;return render()}
+  if(a.startsWith('cycle:')){const it=byId(a.slice(6));const i=it.opts.indexOf(it.get());it.set(it.opts[(i+1)%it.opts.length]);return render()}
+  if(a.startsWith('tog:')){const it=byId(a.slice(4));S[it.state]=!S[it.state];return render()}
+  if(a.startsWith('pin:')){const id=a.slice(4);S.pins=S.pins.includes(id)?S.pins.filter(x=>x!==id):[...S.pins,id];return render()}
+  if(a.startsWith('mv:')){const[,id,d]=a.split(':');const i=S.pins.indexOf(id),j=i+(+d);if(i>=0&&j>=0&&j<S.pins.length){[S.pins[i],S.pins[j]]=[S.pins[j],S.pins[i]]}return render()}
+  if(a.startsWith('sec:')){const nm=a.slice(4);S.selected.has(nm)?S.selected.delete(nm):S.selected.add(nm);return render()}
+  if(a.startsWith('setall:')){S.selected=a.endsWith('1')?new Set(S.sections.map(s=>s.name)):new Set();return render()}
+}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;e.stopPropagation();act(t.dataset.act)});
+document.addEventListener('input',e=>{const t=e.target.closest('[data-act]');if(!t)return;
+  if(t.dataset.act==='alpha'){S.alpha=(+t.value)/100;const d=$('.dock',$('#host'));if(d)d.style.setProperty('--a',S.alpha);const v=t.parentElement.querySelector('.slval');if(v)v.textContent=t.value+'%'}
+  if(t.dataset.act==='font'){S.fontPct=+t.value;renderReader();const dd=t.closest('.fontdd');dd.querySelector('.fontval').textContent=t.value+'%';const rb=dd.querySelector('.fontreset');if(rb)rb.disabled=(+t.value===100)}}); // อัปเดตปุ่ม reset สดๆ (แก้บั๊กปุ่มค้าง disabled)
+document.addEventListener('change',e=>{const t=e.target.closest('[data-act]');if(!t)return;
+  if(t.dataset.act.startsWith('pickpanel:')){byId(t.dataset.act.split(':')[1]).set(t.value);render()}});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'){S.openPanel=S.openMenu=null;render()}});
+
+// ลาก dock ด้วย transform (ได้ทั้งยุบ+กาง · แตะ=ยุบ/กาง · ลาก=ย้าย) — คุมไม่ให้หลุดกรอบ
+let gp=null;
+document.addEventListener('pointerdown',e=>{
+  const grip=e.target.closest('[data-act="grip"]');
+  if(grip){
+    const el=$('#host').querySelector('.dock');
+    const r=el.getBoundingClientRect(), fr=$('#frame').getBoundingClientRect();
+    const bx=(S.pos&&S.pos.x)||0, by=(S.pos&&S.pos.y)||0;
+    gp={sx:e.clientX,sy:e.clientY,moved:false,el,fr,bx,by,natL:r.left-bx,natT:r.top-by,w:r.width,h:r.height};
+    e.preventDefault();
+    try{grip.setPointerCapture(e.pointerId)}catch(_){}
+    return;
+  }
+  const bar=e.target.closest('[data-seek]');
+  if(bar){scrub(bar,e);const mv=ev=>scrub(bar,ev);const up=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up)};document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up)}
+});
+document.addEventListener('pointermove',e=>{
+  if(!gp)return;
+  const dx=e.clientX-gp.sx, dy=e.clientY-gp.sy;
+  if(!gp.moved && dx*dx+dy*dy>25) gp.moved=true;
+  if(gp.moved){
+    const m=6, fr=gp.fr;
+    let nx=Math.max(fr.left+m-gp.natL, Math.min(fr.right-m-gp.w-gp.natL, gp.bx+dx));
+    let ny=Math.max(fr.top+m-gp.natT, Math.min(fr.bottom-m-gp.h-gp.natT, gp.by+dy));
+    S.pos={x:nx,y:ny};
+    gp.el.style.transform=`translate(${nx}px,${ny}px)`;
+  }
+});
+document.addEventListener('pointerup',()=>{
+  if(!gp)return;
+  if(!gp.moved){ transitionInPlace(!S.collapsed); }   // แตะ = ยุบ/กาง อยู่ที่เดิม (ไม่กระโดด)
+  gp=null;
+});
+function scrub(bar,e){
+  const r=bar.getBoundingClientRect();
+  let f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+  S.sections.forEach((s,i)=>{ if(Math.abs(MK(i)/100-f)<SNAP) f=MK(i)/100; }); // snap เข้าวงกลมกลางท่อน
+  S.frac=f;
+  const kn=bar.querySelector('.kn'); if(kn)kn.style.left=f*100+'%';
+  const n=S.sections.length, cur=Math.min(n-1,Math.floor(f*n));                 // อัปเดตท่อนที่กำลังเล่น
+  bar.querySelectorAll('.seg').forEach((el,i)=>el.classList.toggle('cur',i===cur));
+}
+
+render();
+</script>
+</body>
+</html>
