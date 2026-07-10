@@ -4,7 +4,7 @@
 // #shell-left / #shell-title / #shell-menus so there is a single shared bar, not
 // one-per-page. openMenu is shared (v-model) so only one menu is open at a time.
 import { useRoute } from 'vue-router'
-import { shellMenu } from '../store.js'
+import { shellMenu, siteFont, setSiteFont } from '../store.js'
 import ProfileTool from './ProfileTool.vue'
 import Icon from './Icon.vue'
 
@@ -33,6 +33,22 @@ function closeMenus() {
         <router-link to="/guide" role="menuitem" :class="{ here: route.path === '/guide' }"><Icon name="book-open" /> คู่มือ</router-link>
         <router-link to="/about" role="menuitem" :class="{ here: route.path === '/about' }"><Icon name="info" /> เกี่ยวกับเรา</router-link>
         <a href="https://phrakham.life" role="menuitem"><Icon name="globe" /> พระคำ.ชีวิต <span class="sb-k">↗</span></a>
+        <!-- Per-user Thai typeface (มีหัว / ไม่มีหัว). @click.stop keeps the menu open while
+             comparing; each choice is this browser's own (store.siteFont · localStorage). -->
+        <div class="sep" role="separator"></div>
+        <div class="sb-font" @click.stop>
+          <div class="sb-font-lbl">ตัวอักษรไทย</div>
+          <div class="sb-font-opts" role="radiogroup" aria-label="ตัวอักษรไทย">
+            <button type="button" role="radio" :aria-checked="siteFont === 'default'" :class="{ on: siteFont === 'default' }" @click="setSiteFont('default')">
+              <span class="sb-font-eg">ก&nbsp;ข&nbsp;ค</span>
+              ไม่มีหัว
+            </button>
+            <button type="button" role="radio" :aria-checked="siteFont === 'looped'" :class="{ on: siteFont === 'looped' }" @click="setSiteFont('looped')">
+              <span class="sb-font-eg looped">ก&nbsp;ข&nbsp;ค</span>
+              มีหัว
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     <div id="shell-title" class="shell-title-wrap">
