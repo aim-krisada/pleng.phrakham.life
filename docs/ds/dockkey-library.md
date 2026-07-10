@@ -59,7 +59,7 @@ DockItem = {
 | back | ท่อนก่อน | btn | rightOf:grip · row1 | onDock | ไปท่อนก่อน |
 | play | เล่น/หยุด | play | rightOf:back · row1 | onDock | เล่น/หยุด (สลับตามสถานะ) |
 | forward | ท่อนถัดไป | btn | rightOf:play · row1 | onDock | ไปท่อนถัดไป |
-| scale | ขนาดตัวอักษร (Aa) | aa | leftOf:setting · row1 | **permanent** | ย่อ/ขยายตัวอักษร |
+| scale | ขนาดตัวอักษร (Aa) | aa | leftOf:setting · row1 | **permanent** | ย่อ/ขยายตัวอักษร · บนแถบแสดงแค่ "Aa" (ตัวเลข % + ปุ่ม ↺100% อยู่ในป๊อปอัพ) — กันปุ่มกว้างจนดันปุ่มหลุดขอบ |
 | setting | ตั้งค่า (⚙) | gear | right · row1 | onDock·always | เปิดหน้าตั้งค่า |
 | timeslide | ไทม์ไลน์ | timeline | row2 · col1 span3 | onDock | **แตะจุดไหน = วิ่งไปจุดนั้นทันที** · **snap เข้าวงกลมต้นท่อน** เมื่อแตะใกล้ (~3.5% · แก้ปัญหาวงกลมเล็ก) · ไฮไลต์ท่อนที่หัวอยู่ · **แสดงเวลารวมอย่างเดียว** (หัวสไลเดอร์บอกตำแหน่งแล้ว · P'Aim) |
 | key | คีย์ | menu | row2 · col4 | onDock | เลือก key midi ที่เล่น |

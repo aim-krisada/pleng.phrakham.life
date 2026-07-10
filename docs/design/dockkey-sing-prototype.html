@@ -68,11 +68,13 @@
   .bar{position:relative;flex:1;height:26px;display:flex;align-items:center;cursor:pointer;touch-action:none;min-width:50px}
   .trk{position:absolute;left:0;right:0;height:4px;background:var(--line);border-radius:3px;top:50%;transform:translateY(-50%)}
   .fil{position:absolute;left:0;height:4px;background:var(--brand);border-radius:3px;top:50%;transform:translateY(-50%)}
-  .kn{position:absolute;width:13px;height:13px;background:var(--brand);border:2px solid #fff;border-radius:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.3);pointer-events:none}
+  .kn{position:absolute;width:16px;height:16px;background:var(--brand);border:3px solid #fff;border-radius:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,.35);pointer-events:none;z-index:3}
   .seg{position:absolute;height:5px;top:50%;transform:translateY(-50%);border-radius:3px;background:var(--line);pointer-events:none;transition:height .1s}
-  .seg.on{background:var(--brand);opacity:.55}
+  .seg.on{background:var(--brand);opacity:.5}
   .seg.cur{height:9px}
   .seg.on.cur{opacity:1}
+  .mk{position:absolute;width:11px;height:11px;border:1.5px solid var(--brand);background:#fff;border-radius:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:2}
+  .mk.on{background:var(--brand)}
   .keyb{flex:0 0 auto}
 
   .pop{position:absolute;bottom:calc(100% + 8px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:30}
@@ -193,8 +195,8 @@ function tempoLabel(){const t=TEMPOS.find(x=>x[1]===S.tempo);return (t?t[0]:'')+
 const byId=id=>ITEMS_SING.find(x=>x.id===id);
 const OPTIONAL=['repeat','chord','speed','layer','alpha']; // อยู่ในหน้า Setting
 const SECTIONS=[{name:'ท่อน 1'},{name:'ท่อน 2'},{name:'ฮุก',hook:true},{name:'ท่อน 3'},{name:'จบ'}];
-const MK=i=>i/SECTIONS.length*100;  // ขอบต้นท่อน (%) — ใช้ snap
-const SNAP=0.05;                     // แตะใกล้ขอบท่อนในระยะนี้ = ดูดเข้าต้นท่อน
+const MK=i=>(i+0.5)/SECTIONS.length*100;  // จุดกลางท่อน (%) — วงกลม + snap
+const SNAP=0.06;                            // แตะใกล้วงกลมในระยะนี้ = ดูดเข้าท่อน
 
 const S={
   mobile:true, playing:false, loop:false, collapsed:false,
@@ -225,17 +227,18 @@ function itemHtml(it){
     case 'play': return `<button class="play" data-act="play" title="${S.playing?'หยุด':'เล่น'}">${ic(S.playing?'pause':'play',28)}</button>`;
     case 'btn':  return `<button class="btn" data-act="noop" title="${it.name}">${ic(it.icon,20)}</button>`;
     case 'toggle': return `<button class="btn ${S[it.state]?'on':''}" data-act="tog:${it.id}" title="${it.name}">${ic(it.icon,19)}</button>`;
-    case 'aa': { const open=S.openMenu==='font';
-      return `<span class="pinwrap"><button class="pbtn ${open?'on':''}" data-act="menu:font" title="ขนาดตัวอักษร"><span class="aa">Aa</span><b class="pbadge">${S.fontPct}%</b></button>${open?fontPop():''}</span>`; }
+    case 'aa': { const open=S.openMenu==='font';  // แค่ "Aa" (ตัวเลข % ไปโชว์ในป๊อปอัพ) — กันปุ่มกว้างจน ⚙ หลุดขอบ
+      return `<span class="pinwrap"><button class="pbtn ${open?'on':''}" data-act="menu:font" title="ขนาดตัวอักษร ${S.fontPct}%" aria-label="ขนาดตัวอักษร"><span class="aa">Aa</span></button>${open?fontPop():''}</span>`; }
     case 'menu': { const open=S.openMenu===it.id, b=it.badge&&it.badge();
       return `<span class="pinwrap ${it.place&&it.place.row===2?'keyb':''}"><button class="pbtn ${open?'on':''}" data-act="menu:${it.id}" title="${it.name}">${ic(it.icon,17)}${b?`<b class="pbadge">${b}</b>`:''}${ic('cv',13)}</button>${open?ddPop(it):''}</span>`; }
     case 'sel': return `<button class="sel ${S.openPanel==='select'?'on':''}" data-act="select" title="เลือกท่อน">${ic('list',15)}${S.mobile?'ท่อน':'เลือกท่อน'} <b>${S.selected.size}/${S.sections.length}</b></button>`;
     case 'slider': return `<span class="pinwrap pslidewrap" title="${it.name}">${ic('blend',16)}<input class="pslider" type="range" min="40" max="100" value="${Math.round(S.alpha*100)}" data-act="alpha"></span>`;
-    case 'timeline': { // แถบท่อน: เลือก=สีน้ำตาล(จะเล่น) · ไม่เลือก=เทา(ข้าม) · ท่อนที่หัวอยู่=สูงขึ้น(กำลังเล่น)
+    case 'timeline': { // แถบท่อน + วงกลมกลางท่อน: เลือก=น้ำตาลทึบ · ไม่เลือก=เทา/วงกลมขาว · ท่อนที่หัวอยู่=สูงขึ้น
       const n=S.sections.length, cur=Math.min(n-1,Math.floor(S.frac*n));
       const segs=S.sections.map((s,i)=>{const on=S.selected.has(s.name);
         return `<span class="seg ${on?'on':''} ${i===cur?'cur':''}" style="left:${i/n*100}%;width:calc(${100/n}% - 3px)"></span>`;}).join('');
-      return `<span class="seek"><span class="bar" data-seek>${segs}<span class="kn" style="left:${S.frac*100}%"></span></span><span>3:12</span></span>`; }
+      const dots=S.sections.map((s,i)=>`<span class="mk ${S.selected.has(s.name)?'on':''}" style="left:${MK(i)}%"></span>`).join('');
+      return `<span class="seek"><span class="bar" data-seek>${segs}${dots}<span class="kn" style="left:${S.frac*100}%"></span></span><span>3:12</span></span>`; }
     case 'more': return `<button class="btn gear ${S.openMenu==='overflow'?'on':''}" data-act="menu:overflow" title="ดูเพิ่ม">${ic('dots',18)}</button>`;
   }
   return '';
@@ -349,7 +352,7 @@ document.addEventListener('pointerup',()=>{if(!gp)return;if(!gp.moved){S.collaps
 function scrub(bar,e){
   const r=bar.getBoundingClientRect();
   let f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
-  S.sections.forEach((s,i)=>{ if(Math.abs(MK(i)/100-f)<SNAP) f=MK(i)/100; }); // snap เข้าต้นท่อน
+  S.sections.forEach((s,i)=>{ if(Math.abs(MK(i)/100-f)<SNAP) f=MK(i)/100; }); // snap เข้าวงกลมกลางท่อน
   S.frac=f;
   const kn=bar.querySelector('.kn'); if(kn)kn.style.left=f*100+'%';
   const n=S.sections.length, cur=Math.min(n-1,Math.floor(f*n));                 // อัปเดตท่อนที่กำลังเล่น
