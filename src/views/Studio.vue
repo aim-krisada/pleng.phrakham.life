@@ -373,10 +373,10 @@ const activeDock = computed(() =>
   }
 }
 .sheet-title {
-  margin: 0 0 12px;
+  margin: 0 0 var(--sp-3);
   color: var(--brand);
   text-align: center;
-  font-size: 1.5rem;
+  font-size: var(--fs-xl);
 }
 
 /* "เพลง ▾" panel (S2) — teleported into the shared ShellBar */
@@ -445,15 +445,20 @@ const activeDock = computed(() =>
     display: none;
   }
   .sb-title-static {
-    font-size: 1rem;
+    font-size: var(--fs-base);
   }
+  /* the mode switch (ฝึกร้อง·แผ่นเพลง·แก้ไข) goes icon-only on a phone — give each
+     a full 44px touch target so the three are comfortably tappable */
+  .sb-mode-btn { min-height: var(--touch-min); min-width: var(--touch-min); justify-content: center; }
+  /* ＋สร้างเพลงใหม่ is the panel's primary action — 44px on touch */
+  .sb-song-new { min-height: var(--touch-min); }
   /* B008/B018: on a phone the panel is a viewport-inset sheet under the bar — full-width,
      can't run off either edge, whatever the button's x position. */
   .sb-song-panel {
     position: fixed;
     top: var(--sb-panel-top, 56px);
-    left: 8px;
-    right: 8px;
+    left: var(--sp-2);
+    right: var(--sp-2);
     min-width: 0;
     max-width: none;
     width: auto;

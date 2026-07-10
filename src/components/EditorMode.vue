@@ -2943,9 +2943,51 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 @media (hover: none) {
   .seg-col .seg-del { opacity: 1; }
 }
-.sheet-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.sheet-head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
 .only-print { display: none; }
 @media print {
   .only-print { display: block; }
+}
+
+/* ===== S3 responsive polish — mobile (≤760px) =====
+   Desktop keeps its compact, mouse-precise density; on phones every editing
+   control grows to the app's 44px touch standard (design tokens) and dense
+   rows WRAP instead of pushing the page wider. Pure layout — no behaviour
+   change, no logic touched, no colour hard-coded. */
+@media (max-width: 760px) {
+  /* ⭐ kill the horizontal page scroll: a wide bar wraps its note-columns
+     instead of overflowing. Each column keeps chord·note·syllable stacked and
+     aligned within itself, so wrapping COLUMNS never breaks the 1:1 note↔word
+     alignment (a horizontal scroll box was rejected — it would clip the ◀▶
+     align tools and the chord dropdown that pop above/below a cell). */
+  .ed-bar .seg-strip { flex-wrap: wrap; column-gap: var(--sp-3); row-gap: var(--sp-4); }
+  .ed-bar-render { overflow-x: auto; }
+  .ed-bar-foot { flex-wrap: wrap; row-gap: var(--sp-1); }
+
+  /* header + inline action buttons → full 44px hit targets */
+  .ed-ico,
+  .ed-mini { min-width: var(--touch-min); min-height: var(--touch-min); }
+  .ed-crumb,
+  .ed-verify,
+  .ed-settings-toggle,
+  .ed-lay button,
+  .ed-chip,
+  .ed-addbar,
+  .ed-addline,
+  .ed-line-end,
+  .ed-bar-pickup { min-height: var(--touch-min); }
+
+  /* dense secondary tools (bar ⋯ menu · arrangement ▲▼✎✕ · ◀▶ align) */
+  .tiny,
+  .slot-btn { min-width: var(--touch-min); min-height: var(--touch-min); }
+
+  /* primary editing inputs under each note */
+  .syl-box { min-height: var(--touch-min); }
+  .chord-btn { min-height: 34px; }
+
+  /* parts drawer (rail) — the mobile navigation */
+  .rail-row { min-height: var(--touch-min); }
+  .rail-del,
+  .rail-x { min-width: var(--touch-min); min-height: var(--touch-min); }
 }
 </style>

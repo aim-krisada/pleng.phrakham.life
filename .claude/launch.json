@@ -38,6 +38,12 @@
       "port": 5330
     },
     {
+      "name": "s3",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", ".", "--host", "--port", "5335", "--strictPort"],
+      "port": 5335
+    },
+    {
       "name": "wireframe",
       "runtimeExecutable": "py",
       "runtimeArgs": ["-m", "http.server", "5200", "--bind", "127.0.0.1", "--directory", "features"],
