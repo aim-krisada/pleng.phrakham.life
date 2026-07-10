@@ -11,13 +11,16 @@ import { migrateToV2, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
-import { tier, initAuth, shellMenu, currentSong, readingFontScale } from '../store.js'
+import { KEYS } from '../lib/chords.js'
+import { downloadSong } from '../lib/jsonIO.js'
+import { tier, initAuth, shellMenu, currentSong, readingFontScale, setFontScale } from '../store.js'
 import Icon from '../components/Icon.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 import SongViewer from '../components/SongViewer.vue'
 import SongSheet from '../components/SongSheet.vue'
 import EditorMode from '../components/EditorMode.vue'
-import StudioDock from '../components/StudioDock.vue'
+import DockKey from '../components/DockKey.vue'
+import ExportTool from '../components/ExportTool.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -131,6 +134,55 @@ const titleText = computed(() => {
   return (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
 })
 
+// ---------- แผ่นเพลง (print) dock — DockKey fed ITEMS_PRINT (DS dockkey-print-edit §1) ----------
+// The sheet used to be locked to ครบ · สมุดเพลง · ตัวอักษร · คีย์เดิม. These controls let the
+// user tune what the paper prints; defaults keep the old locked behavior.
+const DISPLAY_OPTS = [
+  { value: 'all', label: 'ครบ (เนื้อ+คอร์ด+โน้ต)', chord: true, note: true, lyric: true },
+  { value: 'chord', label: 'เนื้อ+คอร์ด', chord: true, note: false, lyric: true },
+  { value: 'note', label: 'เนื้อ+โน้ต', chord: false, note: true, lyric: true },
+  { value: 'lyric', label: 'เนื้อล้วน', chord: false, note: false, lyric: true },
+  { value: 'noteonly', label: 'โน้ตล้วน', chord: false, note: true, lyric: false },
+]
+const CHORD_OPTS = [
+  { value: 'letter', label: 'คอร์ดตัวอักษร (A B C)' },
+  { value: 'roman', label: 'เลขนัชวิลล์ (1 4 5)' },
+  { value: 'hidden', label: 'ซ่อนคอร์ด' },
+]
+const sheetDisplay = ref('all')
+const sheetChord = ref('letter')
+const sheetBook = ref('songbook') // 'songbook' = ทำนองครั้งเดียว · 'full' = โน้ตทุกเที่ยว
+const sheetKey = ref('C')
+const printAlpha = ref(0.96)
+watch(() => liveSong.value?.content?.key, (k) => { if (k) sheetKey.value = k }, { immediate: true })
+
+const printDisplayDef = computed(() => DISPLAY_OPTS.find((o) => o.value === sheetDisplay.value) || DISPLAY_OPTS[0])
+const printShowChord = computed(() => printDisplayDef.value.chord && sheetChord.value !== 'hidden')
+const printShowNote = computed(() => printDisplayDef.value.note)
+const printShowLyric = computed(() => printDisplayDef.value.lyric)
+const sheetPrintChordSystem = computed(() => (sheetChord.value === 'roman' ? 'roman' : 'letter'))
+const sheetPrintMode = computed(() => (printShowLyric.value && !printShowNote.value && !printShowChord.value ? 'lyrics' : 'full'))
+const keyOptions = computed(() =>
+  KEYS.map((k) => ({ value: k, label: k + (k === liveSong.value?.content?.key ? ' (ต้นฉบับ)' : '') })),
+)
+const printBasename = computed(() => (liveSong.value ? songBasename(liveSong.value) : 'song'))
+
+const printItems = computed(() => [
+  { id: 'grip', kind: 'grip', name: 'ย้าย/ย่อ', place: { anchor: 'left', row: 1 } },
+  { id: 'print', kind: 'btn', name: 'พิมพ์ / บันทึก PDF', icon: 'printer', prime: true, place: { anchor: 'rightOf:grip', row: 1 }, run: printSheet },
+  { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { anchor: 'rightOf:print', row: 1 } },
+  { id: 'scale', kind: 'aa', name: 'ขนาดตัวอักษร', place: { anchor: 'leftOf:setting', row: 1 }, permanent: true },
+  { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
+  { id: 'display', kind: 'menu', name: 'แสดงผล', icon: 'layers', default: 'inSetting', pinnable: true, control: { options: DISPLAY_OPTS.map((o) => ({ value: o.value, label: o.label })), value: sheetDisplay.value, onPick: (v) => (sheetDisplay.value = v) } },
+  { id: 'book', kind: 'menu', name: 'แบบแผ่น', icon: 'book-open', default: 'inSetting', pinnable: true, control: { options: [{ value: 'songbook', label: 'สมุดเพลง (ทำนองครั้งเดียว)' }, { value: 'full', label: 'เต็ม (โน้ตทุกเที่ยว)' }], value: sheetBook.value, onPick: (v) => (sheetBook.value = v) } },
+  { id: 'chord', kind: 'menu', name: 'คอร์ด', icon: 'guitar', default: 'inSetting', pinnable: true, control: { options: CHORD_OPTS, value: sheetChord.value, onPick: (v) => (sheetChord.value = v) } },
+  { id: 'key', kind: 'menu', name: 'คีย์', icon: 'key-round', default: 'inSetting', pinnable: true, control: { options: keyOptions.value, value: sheetKey.value, badge: sheetKey.value, onPick: (v) => (sheetKey.value = v) } },
+  { id: 'download', kind: 'btn', name: 'ดาวน์โหลด JSON', icon: 'download', default: 'inSetting', pinnable: true, run: () => downloadSong(liveSong.value) },
+])
+
+// Aa font popover state for the print dock (mirrors the sing dock's Aa)
+const printFontPct = computed(() => Math.round(readingFontScale.value * 100))
+
 // B002 (P'Aim-approved names): ฝึกร้อง · แผ่นเพลง · แก้ไข (ids stay view/sheet/edit)
 // S1 icons (Lucide): ฝึกร้อง=mic · แผ่นเพลง=music · แก้ไข=pencil
 const MODES = [
@@ -209,14 +261,8 @@ function printSheet() {
 // print tool is owned here. `activeDock` picks the config for the current mode, and the
 // single <StudioDock> stays the same instance across mode switches — so collapse state and
 // the dragged position (shared localStorage keys in StudioDock) feel identical everywhere.
-const editDock = ref(null) // { tools, defaultTools, paletteKeys, message, onInsert }
-const viewDock = ref(null) // { tools, defaultTools }
-const sheetDock = { tools: [{ id: 'print', icon: 'printer', label: 'พิมพ์', run: printSheet, prime: true }], defaultTools: ['print'] }
-// StudioDock's `mode` namespaces its saved tool layout + shows the jianpu keys on 'edit'.
-const dockMode = computed(() => (mode.value === 'edit' ? 'edit' : mode.value === 'sheet' ? 'print' : 'sing'))
-const activeDock = computed(() =>
-  mode.value === 'edit' ? editDock.value : mode.value === 'sheet' ? sheetDock : viewDock.value,
-)
+// All three modes mount their own DockKey (ฝึกร้อง=SongViewer · แผ่นเพลง=here · แก้ไข=EditorMode);
+// the shared StudioDock is gone.
 </script>
 
 <template>
@@ -296,10 +342,56 @@ const activeDock = computed(() =>
              keeps its fixed layout regardless of the on-screen reading size. -->
         <div class="sheet-read-scale" :style="{ fontSize: readingFontScale + 'rem' }">
           <!-- B059: แผ่นเพลง prints like a hymn book — each melody once, reused verses as
-               lyrics only (songbook). ฝึกร้อง (SongViewer) keeps notes on every verse. -->
-          <SongSheet :content="sheetContent" mode="full" chord-system="letter" :display-key="sheetContent.key" :song-title="titleText" songbook />
+               lyrics only (songbook). The DockKey ITEMS_PRINT controls tune what prints. -->
+          <SongSheet
+            :content="sheetContent"
+            :mode="sheetPrintMode"
+            :chord-system="sheetPrintChordSystem"
+            :show-chord="printShowChord"
+            :show-note="printShowNote"
+            :show-lyric="printShowLyric"
+            :display-key="sheetKey"
+            :song-title="titleText"
+            :songbook="sheetBook === 'songbook'"
+          />
         </div>
       </div>
+
+      <!-- แผ่นเพลง dock — DockKey engine fed ITEMS_PRINT (grip · พิมพ์ · export · Aa · ⚙) -->
+      <DockKey :items="printItems" store-key="print" v-model:alpha="printAlpha">
+        <template #cell-export="{ open, toggle, close }">
+          <ExportTool
+            :content="liveSong && liveSong.content"
+            :filename-base="printBasename"
+            :on-json="() => downloadSong(liveSong)"
+            :open="open"
+            @toggle="toggle"
+            @close="close"
+          />
+        </template>
+        <template #cell-scale="{ open, toggle }">
+          <button
+            class="st-aa-btn"
+            :class="{ on: open }"
+            :aria-expanded="open"
+            :title="'ขนาดตัวอักษร ' + printFontPct + '%'"
+            aria-label="ขนาดตัวอักษร"
+            @click.stop="toggle"
+          ><b>Aa</b></button>
+          <div v-if="open" class="dk-pop st-fontpop" role="menu" aria-label="ขนาดตัวอักษร" @click.stop>
+            <div class="st-fonttitle">ขนาดตัวอักษร (พรีวิวบนจอ · กระดาษคงที่)</div>
+            <div class="st-fontrow">
+              <span class="st-fonta-sm" aria-hidden="true">A</span>
+              <input class="st-fontslider" type="range" min="80" max="220" step="10" :value="printFontPct" aria-label="ปรับขนาดตัวอักษร" @input="setFontScale(+$event.target.value / 100)" />
+              <span class="st-fonta-lg" aria-hidden="true">A</span>
+            </div>
+            <div class="st-fontfoot">
+              <span class="st-fontval">{{ printFontPct }}%</span>
+              <button class="st-fontreset" :disabled="printFontPct === 100" @click="setFontScale(1)">↺ 100%</button>
+            </div>
+          </div>
+        </template>
+      </DockKey>
     </div>
 
     <!-- ===== แก้ — the editor (WT-D owns EditorMode). v-show keeps it mounted so its
@@ -312,19 +404,9 @@ const activeDock = computed(() =>
       :active="mode === 'edit'"
       @change="onChange"
       @save="onSave"
-      @dock="editDock = $event"
     />
-
-    <!-- the ONE shared dock — same instance across ทำนอง/ฝึกร้อง/พิมพ์ (dock-core / N1) -->
-    <StudioDock
-      v-if="activeDock"
-      :mode="dockMode"
-      :tools="activeDock.tools"
-      :default-tools="activeDock.defaultTools"
-      :palette-keys="activeDock.paletteKeys || []"
-      :message="activeDock.message || ''"
-      @insert="activeDock.onInsert?.($event)"
-    />
+    <!-- each mode now mounts its OWN DockKey (ฝึกร้อง=SongViewer · แผ่นเพลง=above · แก้ไข=EditorMode);
+         the shared StudioDock is retired. -->
   </div>
 </template>
 
@@ -473,4 +555,31 @@ const activeDock = computed(() =>
     width: auto;
   }
 }
+
+/* ---------- แผ่นเพลง dock: Aa font-size slot (mirrors the sing dock) ---------- */
+.st-aa-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); background: transparent; color: var(--ink);
+  border-radius: 10px; padding: 0 8px; height: var(--touch-min); min-height: 0; min-width: var(--touch-min); cursor: pointer;
+}
+.st-aa-btn b { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+.st-aa-btn.on { border-color: var(--brand); color: var(--brand); }
+/* slot popovers carry their own position; DockKey clamps them by the .dk-pop class */
+.st-fontpop {
+  pointer-events: auto;
+  position: absolute; bottom: calc(100% + 8px); left: 0;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: 30;
+  min-width: 230px; max-width: calc(100vw - 24px); padding: 12px;
+}
+.st-fonttitle { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.st-fontrow { display: flex; align-items: center; gap: 10px; }
+.st-fonta-sm { font-size: 13px; flex: 0 0 auto; }
+.st-fonta-lg { font-size: 22px; font-weight: 700; flex: 0 0 auto; }
+.st-fontslider { flex: 1; min-width: 0; accent-color: var(--brand); height: var(--touch-min); }
+.st-fontfoot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.st-fontval { font-size: 11px; color: var(--muted); }
+.st-fontreset { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; min-height: 32px; }
+.st-fontreset:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); }
+.st-fontreset:disabled { opacity: 0.4; cursor: default; }
 </style>

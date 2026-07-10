@@ -103,8 +103,8 @@ describe('Studio shell — print in โหมดแผ่น (US-06)', () => {
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
     modeBtns()[1].click(); await nextTick() // switch to แผ่น
-    // print moved into the ONE shared <StudioDock> (dock-core / N1), no separate toolbar
-    const btn = w.find('.sd-tools .sd-tbtn[data-tool="print"]')
+    // print is the prime button on the แผ่นเพลง DockKey (ITEMS_PRINT), no separate toolbar
+    const btn = w.find('.dk-dock [data-cell="print"]')
     expect(btn.exists()).toBe(true)
     await btn.trigger('click')
     expect(spy).toHaveBeenCalled()

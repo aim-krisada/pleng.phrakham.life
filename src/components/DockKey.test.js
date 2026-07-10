@@ -9,7 +9,7 @@ import DockKey from './DockKey.vue'
 
 Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function () {}
 
-const onPick = vi.fn(), onToggle = vi.fn(), run = vi.fn()
+const onPick = vi.fn(), onToggle = vi.fn(), run = vi.fn(), onInsert = vi.fn()
 const items = () => [
   { id: 'grip', kind: 'grip', name: 'ย้าย', place: { anchor: 'left', row: 1 } },
   { id: 'play', kind: 'play', name: 'เล่น', place: { anchor: 'rightOf:grip', row: 1 }, control: { value: false }, run },
@@ -27,7 +27,7 @@ const mountDK = (props = {}) => mount(DockKey, {
   attachTo: document.body,
 })
 
-beforeEach(() => { localStorage.clear(); onPick.mockClear(); onToggle.mockClear(); run.mockClear() })
+beforeEach(() => { localStorage.clear(); onPick.mockClear(); onToggle.mockClear(); run.mockClear(); onInsert.mockClear() })
 
 describe('DockKey layout engine', () => {
   it('lays out two default rows: row 2 (timeline·key) above row 1 (core, spread)', () => {
@@ -114,6 +114,44 @@ describe('DockKey menu dropdown', () => {
     await nextTick()
     expect(w.find('[data-cell="key"] .dk-dd').exists()).toBe(false) // key menu closed
     expect(w.find('.dk-panel').exists()).toBe(true)
+  })
+})
+
+describe('DockKey phase-2 schema (E1 keys band · E2 prime/label)', () => {
+  const withExtras = () => [
+    { id: 'keys', kind: 'keys', name: 'แป้น', rows: [['1', '2', '3'], ['.', '-']], onInsert },
+    ...items().filter((i) => ['grip', 'setting'].includes(i.id)),
+    { id: 'print', kind: 'btn', name: 'พิมพ์', icon: 'printer', prime: true, place: { anchor: 'rightOf:grip', row: 1 }, run },
+    { id: 'save', kind: 'btn', name: 'บันทึก', label: 'บันทึก', icon: 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run },
+  ]
+
+  it('E1: renders a full-width key band whose keys call onInsert', async () => {
+    const w = mountDK({ items: withExtras() })
+    const keys = w.findAll('.dk-keys .dk-key')
+    expect(keys.map((k) => k.text())).toEqual(['1', '2', '3', '.', '-'])
+    await keys[0].trigger('mousedown')
+    expect(onInsert).toHaveBeenCalledWith('1')
+  })
+
+  it('E1: the key band is hidden when collapsed', async () => {
+    localStorage.setItem('pleng.dockkey.test.collapsed', '1')
+    const w = mountDK({ items: withExtras() })
+    expect(w.find('.dk-keys').exists()).toBe(false)
+  })
+
+  it('E2: prime buttons get the brand class; a label renders + widens', () => {
+    const w = mountDK({ items: withExtras() })
+    expect(w.find('[data-cell="print"]').classes()).toContain('prime')
+    const save = w.find('[data-cell="save"]')
+    expect(save.classes()).toContain('prime')
+    expect(save.classes()).toContain('wide')
+    expect(save.find('.dk-btn-lbl').text()).toBe('บันทึก')
+  })
+
+  it('a disabled btn is not clickable-through (undo/redo when empty)', () => {
+    const its = items().map((i) => (i.id === 'play' ? { ...i, kind: 'btn', icon: 'undo-2', disabled: true } : i))
+    const w = mountDK({ items: its })
+    expect(w.find('[data-cell="play"]').attributes('disabled')).toBeDefined()
   })
 })
 

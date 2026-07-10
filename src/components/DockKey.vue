@@ -26,10 +26,15 @@ const props = defineProps({
   // collide in localStorage — like StudioDock's per-mode keys.
   storeKey: { type: String, default: 'dock' },
   alpha: { type: Number, default: 0.96 }, // v-model:alpha (transparency of the dock)
+  message: { type: String, default: '' }, // transient status line floated above the dock
 })
 const emit = defineEmits(['update:alpha'])
 
 const SLOT_KINDS = ['timeline', 'sel', 'aa', 'slot'] // drawn by the page via #cell-<id>
+
+// E1: full-width keyboard band(s) (e.g. the edit jianpu palette) — laid out above every
+// row, exempt from the cap/overflow machinery, hidden when collapsed.
+const keysBands = computed(() => visible.value.filter((i) => i.kind === 'keys'))
 
 // ---------- registry helpers ----------
 const byId = (id) => props.items.find((i) => i.id === id)
@@ -230,13 +235,17 @@ function pickMenu(it, value) { it.control?.onPick?.(value); close() }
 // column flex weight for a row-2 cell — the stretchy cells (timeline/selector) fill the
 // slack so the row uses the full width; fixed controls (คีย์) keep their natural size.
 function cellFlex(it) {
-  if (SLOT_KINDS.includes(it.kind) && it.kind !== 'aa') return `${it.place?.span || 1} 1 0`
+  // only the timeline + section-selector stretch to fill their row (sing); every other
+  // slot cell (Aa · export) keeps its natural width so the dock hugs its buttons.
+  if (it.kind === 'timeline' || it.kind === 'sel') return `${it.place?.span || 1} 1 0`
   return '0 0 auto'
 }
 </script>
 
 <template>
   <div ref="hostEl" class="dk-host no-print" :style="{ '--a': alpha }">
+    <p v-if="message" class="dk-msg" role="status">{{ message }}</p>
+
     <!-- collapsed → mini [grip][⚙] in place (DS I7). grip tap = expand · drag = move -->
     <div v-if="collapsed" class="dk-dock dk-mini" :style="pos ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : {}">
       <button
@@ -252,8 +261,15 @@ function cellFlex(it) {
       <button class="dk-btn dk-gear" aria-label="กางเพื่อตั้งค่า" title="กางเพื่อตั้งค่า" @click="transition(false)"><Icon name="settings" :size="20" /></button>
     </div>
 
-    <!-- expanded → the full dock: pinned rows (top) · row 2 · row 1 (core) -->
+    <!-- expanded → the full dock: keys band(s) · pinned rows · row 2 · row 1 (core) -->
     <div v-else class="dk-dock" :class="{ 'dk-m': mobile }" :style="pos ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : {}">
+      <!-- E1: full-width note-key band(s) (edit palette) — above every row, no overflow -->
+      <div v-for="band in keysBands" :key="band.id" class="dk-keys" role="toolbar" :aria-label="band.name || 'แป้นสัญลักษณ์'">
+        <div v-for="(krow, kri) in band.rows" :key="kri" class="dk-keyrow">
+          <button v-for="k in krow" :key="k" class="dk-key" @mousedown.prevent="band.onInsert?.(k)">{{ k }}</button>
+        </div>
+      </div>
+
       <div
         v-for="(row, ri) in rows"
         :key="ri"
@@ -302,15 +318,17 @@ function cellFlex(it) {
             @click="it.run?.()"
           ><Icon :name="it.control?.value ? 'pause' : 'play'" :size="28" /></button>
 
-          <!-- plain action button -->
+          <!-- plain action button — E2 prime (brand fill) · danger (red) · optional label -->
           <button
             v-else-if="it.kind === 'btn'"
             class="dk-btn"
+            :class="{ prime: it.prime, danger: it.danger, wide: it.label }"
             :data-cell="it.id"
+            :disabled="it.disabled"
             :aria-label="it.name"
             :title="it.name"
             @click="it.run?.()"
-          ><Icon :name="it.icon" :size="20" /></button>
+          ><Icon :name="it.icon" :size="20" /><span v-if="it.label" class="dk-btn-lbl">{{ it.label }}</span></button>
 
           <!-- toggle (e.g. วนซ้ำ) — bar style: on = brand -->
           <button
@@ -428,9 +446,21 @@ function cellFlex(it) {
   bottom: 0;
   z-index: 90;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   padding: 0 10px 12px;
   pointer-events: none;
+}
+.dk-msg {
+  pointer-events: auto;
+  margin: 0;
+  background: var(--ink);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 10px;
+  max-width: 92vw;
+  font-size: 13px;
 }
 .dk-dock {
   pointer-events: auto;
@@ -474,6 +504,24 @@ function cellFlex(it) {
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 auto;
 }
 .dk-play:hover { filter: brightness(1.1); }
+.dk-btn:disabled { opacity: 0.4; cursor: default; }
+/* E2: a labeled action button (row-2 บันทึก / ฟังทั้งเพลง) — icon + text pill */
+.dk-btn.wide { width: auto; min-width: var(--touch-min); padding: 0 12px; gap: 6px; border: 1px solid var(--line); }
+.dk-btn-lbl { font-size: 13px; font-weight: 600; white-space: nowrap; }
+/* prime = the page's main action (พิมพ์ · บันทึก), brand-filled */
+.dk-btn.prime { background: var(--brand); color: #fff; border: 1px solid var(--brand); }
+.dk-btn.prime:hover { filter: brightness(1.06); background: var(--brand); }
+.dk-btn.danger { color: var(--red); }
+
+/* E1: full-width jianpu key band(s) — rows share their line (keys stretch, never wrap) */
+.dk-keys { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
+.dk-keyrow { display: flex; flex-wrap: nowrap; gap: 4px; justify-content: center; }
+.dk-key {
+  flex: 1 1 0; min-width: 30px; max-width: 56px; height: var(--touch-min); min-height: 0; padding: 0;
+  border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink);
+  font-family: 'Courier New', monospace; font-weight: 700; font-size: 16px; cursor: pointer;
+}
+@media (hover: hover) { .dk-key:hover { background: var(--cream); } }
 
 /* menu / slider chips */
 .dk-pinwrap { position: relative; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
