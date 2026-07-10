@@ -3,12 +3,30 @@
 กระดานที่ PM "ยืนยันแล้ว" ด้วย triangulation: **standup ของ session ↔ เอกสาร ↔ git/เทสต์จริง**
 (ไม้ต่อสำหรับ PM session หน้า — อ่านไฟล์นี้แล้วรู้ว่ากระดานตรงกับความจริงถึงไหน)
 
-อัปเดตล่าสุด: 2026-07-10 · PM session = **PM รอบ 10 ก.ค. (a)**
+อัปเดตล่าสุด: 2026-07-10 (ค่ำ) · PM session = **pm4** (รับไม้ต่อจาก PM รอบ a)
 
-## 🔚 HANDOFF (2026-07-10 · PM session เต็ม → PM ใหม่อ่านนี่ก่อน)
-**PM ใหม่:** อ่าน `docs/pm/pm.md` + memory `pleng-pm-role` + ไม้ต่อนี้ · อัปเดต §🎯 เป็นชื่อสายตัวเอง · ทุกสายเขียน report+§📥 inbox ด้วย ไม่ตกหล่น · `list_sessions`/`search_session_transcripts` หาสายได้
+**pm4 git-verified ตอนรับงาน:** ฐาน `studio-shell-redesign` HEAD = `1535e1f` = **260 test เขียว + build** (1 "failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก) · **songsheet-finish + B045 = merged เข้าฐานแล้วจริง** (`1535e1f`/`ac693a3` — inbox 2 แถวนั้น stale) · live = `1535e1f` = ฐานปัจจุบันเป๊ะ → deploy รอบ 5 "ของขึ้น" = 260-test-green ไม่พัง
 
-**ฐาน `studio-shell-redesign` = 217 เทสต์เขียว + build** (หลัง catalog merge `d672647`) · ✅✅✅ **deploy รอบ 3 สำเร็จ (10 ก.ค. · P'Aim สั่ง "deploy ได้เลย") — live = `bbb3757`** (main FF `b44edbf→bbb3757` ไม่ force · Actions run `29055806403` success · **live bundle stamp `bbb3757` ยืนยัน short+full hash**) · ได้ catalog (filter+ป้าย ⚠️/✓) + งานสะสมทั้งหมดขึ้น prod · repeat-6-simple.sql = P'Aim run แล้ว
+## 🔚 HANDOFF (2026-07-10 ค่ำ · PM รอบ a → pm4 อ่านนี่ก่อน)
+**pm4:** อ่าน `docs/pm/pm.md` + memory `pleng-pm-role` + ไม้ต่อนี้ · อัปเดต §🎯 เป็นชื่อสายตัวเอง · `list_sessions`/`search_session_transcripts` หาสายได้
+
+**ฐาน `studio-shell-redesign` = 260 เทสต์เขียว + build · live = `1535e1f` (deploy รอบ 5)**
+
+⚠️⚠️ **ค้างสำคัญสุด — P'Aim ต้องตัดสิน deploy รอบ 5:** PM รอบ a **deploy รอบ 5 (`1535e1f`) โดย P'Aim ยังไม่ได้ให้ go ชัด** (อ่าน "go live ใน 60 นาที" ผิดเป็นสั่งทันที · จริงๆ = "ทำงานค้างเสร็จก่อนค่อย live") · **P'Aim ค้าง: rollback→`c9a0cf8`(รอบ4) หรือปล่อย** (ของขึ้นคือ 260-test-green ไม่พัง) · **บทเรียน: ห้าม deploy จน P'Aim สั่ง go ชัดต่อรอบ**
+
+**🔨 เสร็จแล้ว รอ pm4 git-verify+merge (fence ก่อน · ⚠️ ShellBar/store ชนกัน เรียงคิว):**
+- **system-font-switch** `55b2ba6` — สลับฟอนต์ไทยมีหัว/ไม่มีหัว **(per-user·localStorage·ไม่มี admin/Supabase — P'Aim เปลี่ยนกลางทาง)** ที่เมนูแบรนด์ ▾ · แตะ index.html/styles.css/store/ShellBar · 264 test · ⚠️ชน `b045-mobile-shell`(merged)ที่ ShellBar+store → resolve ตอน merge
+
+**🔨 design ปิดแล้ว · P'Aim เคาะ go dev · รอ pm4 จ่ายสายโค้ด:**
+- **DockKey (SA dock-consistency)** `54c9aa1` — core dock library เดียว (ต่อยอด StudioDock · หน้าฝึกร้อง=ฐาน core · แผ่นเพลง/แก้ไข reuse ส่ง descriptor) · DS `docs/ds/dockkey-library.md` + prototype `dockkey-sing-prototype.html` + `docs/design/ข้อกำหนด dockey.docx` · **จ่าย dev: StudioDock→DockKey engine + SingTransport เลิกวาด chrome** · ⚠️ **ทับ B043 sing-repeat/dock-polish → คิวเดียว กันชน dock** (ห้ามงาน dock อื่นขนาน)
+
+**🎨 design รอ P'Aim เคาะ (คุย SA เอง):** **B028 audit log** `docs/ds/audit-log.md` 3 Qs (ต่อยอด song_revisions / แยกถอน-ลบ / RPC approve+publish)
+
+**🔧 ต้องเปิด (PM รอบ a tool พังหลายรอบ ยังไม่ spawn):** **i18n Google Translate** — lang=th + `translate="no"` ที่คอร์ด/โน้ต(NoteRow)/แบรนด์(ShellBar) · P'Aim เลือกแทน i18n เต็ม
+
+**🎯 รอ P'Aim ตัดสิน:** สิทธิ์ลบเพลง (approver-only vs ทีมล็อกอินทุกคน)
+**⏸️ optional:** B046 ระยะชื่อ↔เนื้อ · B066 BPM · footer โหมดแก้ (dock>88px)
+**📦 data:** 10 COMPLEX repeat · พี่เปา review 41 · **🧹 cleanup:** worktree เก่าเยอะ
 
 **✅ MERGED เข้าฐานวันนี้:** editor-ux v2 (6 งาน · `5495e32`) · B058 note-search-v2 · B059 songbook sheet · B064 บั๊ก speed · B065 barline · (ก่อนหน้า: B027/B026/B052 · B055 · B056 · edit-dev · B043 ph1 · dock-core/polish)
 **✅ DA import ครบ:** 120 เพลง LIVE (P'Aim run backup/import/set-review-flags แล้ว · **repeat-6-simple.sql อาจยังไม่ run**) · review_flags ในฐาน (repeat16/lint6/words28)
@@ -62,7 +80,7 @@
 
 ## 🎯 PM session ปัจจุบัน (routing — สำคัญ)
 **สายที่ PM สั่งงาน = รายงานกลับ "PM session ปัจจุบัน" ที่ระบุตรงนี้** (PM หมุน session ไปเรื่อยๆ · อย่า hardcode ชื่อสายในprompt)
-- **ตอนนี้ = `PM รอบ 10 ก.ค. (a)`** ⚠️ **(PM ใหม่: เปลี่ยนเป็นชื่อสายตัวเอง)** · แทน `debug pl2 round 1` / `pm ต้นแบบ pl2` ที่เลิกใช้แล้ว
+- **ตอนนี้ = `pm4`** · แทน `PM รอบ 10 ก.ค. (a)` / `debug pl2 round 1` / `pm ต้นแบบ pl2` ที่เลิกใช้แล้ว
 - **วิธีรายงานเสร็จของ dev/SA (session-agnostic):** (1) เขียน `docs/reports/<branch>.md` · (2) เพิ่มบรรทัดใน 📥 inbox ล่าง · (3) ping PM session ปัจจุบัน (ชื่อด้านบน) · ถ้า PM สายนั้นปิด → PM สายใหม่อ่าน inbox เจอเอง
 - **เวลา PM หมุนสายใหม่:** อัปเดตชื่อบรรทัดนี้ทันที
 
