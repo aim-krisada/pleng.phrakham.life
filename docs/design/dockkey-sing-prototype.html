@@ -34,8 +34,10 @@
   .dock{pointer-events:auto;background:rgba(255,255,255,var(--a,.96));border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 22px rgba(0,0,0,.14);padding:8px;width:100%;backdrop-filter:blur(6px);position:relative}
   .frame.desk .dock{max-width:700px}
   .r{display:flex;align-items:center;gap:6px}
+  .r.spread{justify-content:space-between}
   .r+.r{margin-top:8px}
   .sp{flex:1}
+  .dock.mini{width:auto;display:inline-flex;gap:8px;padding:7px 9px}
 
   .btn{width:var(--touch-min);height:var(--touch-min);min-width:var(--touch-min);padding:0;border:0;background:transparent;color:var(--ink);display:inline-flex;align-items:center;justify-content:center;border-radius:10px;cursor:pointer;flex:0 0 auto}
   .btn .ico{width:20px;height:20px}
@@ -144,7 +146,7 @@
 <div class="wrap">
   <h1>DockKey — หน้าฝึกร้อง</h1>
   <p class="sub">SA · reference ตัวแรกของ library กลาง · จัดตามข้อกำหนด <code>dockey.docx</code> (row นับจากล่าง · col จากซ้าย) · ยังไม่ต่อฐานข้อมูล</p>
-  <div class="warn"><b>ผังตามไฟล์:</b> แถว 1 (ล่าง) = Grip · Back · Play · Fwd · Aa · ⚙ · แถว 2 = ไทม์ไลน์(1–3) · คีย์(4) · เลือกท่อน(5–6) · repeat/คอร์ด/ความเร็ว/เลเยอร์ = อยู่ใน ⚙ ปักได้ · cap มือถือ 6 / เดสก์ท็อป 14</div>
+  <div class="warn"><b>ผังตามไฟล์:</b> แถว 1 (ล่าง) = Grip · Back · Play · Fwd · Aa · ⚙ · แถว 2 = ไทม์ไลน์(1–3) · คีย์(4) · เลือกท่อน(5–6) · repeat/คอร์ด/ความเร็ว/เลเยอร์ = อยู่ใน ⚙ ปักได้ · แถวกระจายเต็มความกว้าง (มือถือ ~7 · เดสก์ท็อป ~14 ที่ 44px) · ยุบ→[grip][⚙]</div>
 
   <div class="tools">
     <span class="seg" id="vpSeg"><button data-act="vp:mobile" class="on">📱 มือถือ (cap 6)</button><button data-act="vp:desk">🖥 เดสก์ท็อป (cap 14)</button></span>
@@ -220,9 +222,9 @@ function itemHtml(it){
       return `<span class="pinwrap ${it.place&&it.place.row===2?'keyb':''}"><button class="pbtn ${open?'on':''}" data-act="menu:${it.id}" title="${it.name}">${ic(it.icon,17)}${b?`<b class="pbadge">${b}</b>`:''}${ic('cv',13)}</button>${open?ddPop(it):''}</span>`; }
     case 'sel': return `<button class="sel ${S.openPanel==='select'?'on':''}" data-act="select" title="เลือกท่อน">${ic('list',15)}${S.mobile?'ท่อน':'เลือกท่อน'} <b>${S.selected.size}/${S.sections.length}</b></button>`;
     case 'slider': return `<span class="pinwrap pslidewrap" title="${it.name}">${ic('blend',16)}<input class="pslider" type="range" min="40" max="100" value="${Math.round(S.alpha*100)}" data-act="alpha"></span>`;
-    case 'timeline': { const cur=fmt(S.frac*192);
+    case 'timeline': { // เหลือเวลารวมอย่างเดียว (ตัดเวลาที่เล่นไปแล้วออก · หัวสไลเดอร์บอกตำแหน่งแล้ว)
       const dots=S.sections.map((s,i)=>`<span class="mk ${i===1?'act':''}" style="left:${12+i*19}%" data-act="noop"></span>`).join('');
-      return `<span class="seek"><span>${cur}</span><span class="bar" data-seek><span class="trk"></span><span class="fil" style="width:${S.frac*100}%"></span><span class="kn" style="left:${S.frac*100}%"></span>${dots}</span><span>3:12</span></span>`; }
+      return `<span class="seek"><span class="bar" data-seek><span class="trk"></span><span class="fil" style="width:${S.frac*100}%"></span><span class="kn" style="left:${S.frac*100}%"></span>${dots}</span><span>3:12</span></span>`; }
     case 'more': return `<button class="btn gear ${S.openMenu==='overflow'?'on':''}" data-act="menu:overflow" title="ดูเพิ่ม">${ic('dots',18)}</button>`;
   }
   return '';
@@ -251,29 +253,30 @@ function overflowPop(over){return `<div class="pop dd" data-pop style="right:0;l
 
 /* ---------- ENGINE: build rows from descriptors ---------- */
 function buildRows(){
-  const cap=S.mobile?6:14;
+  // cap แบบเติมเต็มความกว้าง (44px): มือถือ 392px = 7 · เดสก์ท็อป = 14 · (เดิมล็อค 6 → P'Aim ขอใช้ที่ให้เต็ม)
+  const cap=S.mobile?7:14;
   const R2=[byId('timeslide'),byId('key'),byId('tuan')];              // แถว 2 คงที่
-  const trans=['back','play','forward'].map(byId);
+  const base=[byId('grip'),byId('back'),byId('play'),byId('forward')];// ซ้าย row1
+  const right=[byId('scale'),byId('setting')];                        // ขวา row1 (Aa·⚙)
   const pinned=S.pins.map(byId);
-  let top=[]; let over=[];
-  let R1;
-  if(S.mobile){
-    R1=[byId('grip'),...trans,byId('scale'),byId('setting')];         // 6 พอดี
-    for(let i=0;i<pinned.length;i+=6) top.push(pinned.slice(i,i+6));   // pins ขึ้นแถวบน
-  }else{
-    const left=[byId('grip'),...trans]; const right=[byId('scale'),byId('setting')];
-    const avail=cap-left.length-right.length-1;                        // เผื่อ ⋯ 1 ช่อง
-    const on=pinned.slice(0,avail); over=S.pins.slice(avail);
-    R1=[...left,...on]; if(over.length)R1.push({kind:'more'}); R1.push(...right);
-  }
-  S._over=over;
+  const room=Math.max(0, cap-base.length-right.length);               // ช่องว่างบน row1 (มือถือ 1 · เดสก์ท็อป 8)
+  const onR1=pinned.slice(0,room), rest=pinned.slice(room);           // เติม row1 ก่อน · ที่เหลือขึ้นแถวบน
+  const top=[];
+  for(let i=0;i<rest.length;i+=cap) top.push(rest.slice(i,i+cap));
+  const R1=[...base,...onR1,...right];
   return [...top,R2,R1];                                              // บนลงล่าง
 }
 
+function renderRow(row){
+  // แถวที่มี setting = แถวล่าง (row1) → กระจายเต็มแถว (grip ชิดซ้าย · ⚙ ชิดขวา)
+  const spread=row.some(it=>it&&it.id==='setting');
+  return `<div class="r ${spread?'spread':''}">${row.map(itemHtml).join('')}</div>`;
+}
 function renderDock(){
-  if(S.collapsed) return `<button class="fab" data-act="grip" title="แตะ=กาง · ลาก=ย้าย">${ic('expand',24)}</button>`;
+  // ยุบ → เหลือ [grip][⚙] (ตามไฟล์: ขณะย่อ grip+setting มีทุกหน้า) · grip ลาก/กาง · ⚙ กางพร้อมตั้งค่า
+  if(S.collapsed) return `<div class="dock mini"><button class="btn grip" data-act="grip" title="แตะ=กาง · ลาก=ย้าย">${ic('grip',22)}</button><button class="btn gear" data-act="expandset" title="กางเพื่อตั้งค่า">${ic('gear',20)}</button></div>`;
   const rows=buildRows();
-  let html=rows.map(row=>`<div class="r">${row.map(itemHtml).join('')}</div>`).join('');
+  let html=rows.map(renderRow).join('');
   if(S.openPanel==='gear')  html+=gearPanel();
   if(S.openPanel==='select')html+=selPanel();
   if(S.openMenu==='overflow')html+=overflowPop(S._over||[]);
@@ -288,8 +291,8 @@ function render(){
   $('#host').innerHTML=renderDock();
   [...$('#vpSeg').children].forEach(b=>b.classList.toggle('on',b.dataset.act==='vp:'+(S.mobile?'mobile':'desk')));
   const nP=S.pins.length;
-  $('#hint').textContent=S.mobile?`มือถือ cap 6 — ปัก ${nP} ตัว = ${nP?Math.ceil(nP/6)+' แถวเพิ่มบน':'ไม่มีแถวเพิ่ม'}`:`เดสก์ท็อป cap 14 — ปักลงแถวล่างได้`;
-  $('#gridnote').textContent='แถวล่าง(1): Grip·Back·Play·Fwd·Aa·⚙ = 6 · แถว 2: ไทม์ไลน์(1-3)·คีย์(4)·ท่อน(5-6) = 6';
+  $('#hint').textContent=S.mobile?`มือถือ cap 7 (เติมเต็มความกว้าง 44px) — ปัก ${nP} ตัว`:`เดสก์ท็อป cap 14 — ปักลงแถวล่างได้`;
+  $('#gridnote').textContent='แถวล่างกระจายเต็ม: Grip···Aa·⚙ · แถว 2: ไทม์ไลน์(1-3)·คีย์(4)·ท่อน(5-6) · ปักเกินที่ว่าง→ขึ้นแถวบน';
   if(S.pos){const d=$('.dock',$('#host'));if(d){d.style.position='absolute';d.style.left=S.pos.x+'px';d.style.top=S.pos.y+'px';d.style.width='auto'}}
   clampPops();
 }
@@ -307,6 +310,7 @@ function act(a){
   if(a==='close'){S.openPanel=S.openMenu=null;return render()}
   if(a==='play'){S.playing=!S.playing;return render()}
   if(a==='gear'){S.openPanel=S.openPanel==='gear'?null:'gear';S.openMenu=null;return render()}
+  if(a==='expandset'){S.collapsed=false;S.openPanel='gear';S.openMenu=null;S.pos=null;return render()}
   if(a==='select'){S.openPanel=S.openPanel==='select'?null:'select';S.openMenu=null;return render()}
   if(a.startsWith('vp:')){S.mobile=a.slice(3)==='mobile';S.pos=null;return render()}
   if(a.startsWith('menu:')){const id=a.slice(5);S.openMenu=S.openMenu===id?null:id;if(id!=='overflow')S.openPanel=null;return render()}
@@ -334,7 +338,7 @@ document.addEventListener('pointerdown',e=>{
 document.addEventListener('pointermove',e=>{if(!gp)return;const dx=e.clientX-gp.x,dy=e.clientY-gp.y;if(!gp.moved&&dx*dx+dy*dy>25)gp.moved=true;
   if(gp.moved&&!S.collapsed){S.pos={x:e.clientX-gp.fr.left-gp.ox,y:e.clientY-gp.fr.top-gp.oy};const d=$('.dock',$('#host'));if(d){d.style.position='absolute';d.style.left=S.pos.x+'px';d.style.top=S.pos.y+'px';d.style.width='auto'}}});
 document.addEventListener('pointerup',()=>{if(!gp)return;if(!gp.moved){S.collapsed=!S.collapsed;S.openPanel=S.openMenu=null;if(!S.collapsed)S.pos=null;render()}gp=null});
-function scrub(bar,e){const r=bar.getBoundingClientRect();S.frac=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));const fil=bar.querySelector('.fil'),kn=bar.querySelector('.kn');if(fil)fil.style.width=S.frac*100+'%';if(kn)kn.style.left=S.frac*100+'%';const cur=bar.parentElement.querySelector('span');if(cur)cur.textContent=fmt(S.frac*192)}
+function scrub(bar,e){const r=bar.getBoundingClientRect();S.frac=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));const fil=bar.querySelector('.fil'),kn=bar.querySelector('.kn');if(fil)fil.style.width=S.frac*100+'%';if(kn)kn.style.left=S.frac*100+'%'}
 
 render();
 </script>
