@@ -41,6 +41,15 @@
   - console **0 error** ✓
   - clamp +8px: ตรรกะ `clampPops` มี + unit-tested · เช็คพิกัดจริงในเบราว์เซอร์นี้ไม่ได้ (viewport 0×0) → ฝากพี่เอม/พี่เปาลองบนมือถือจริงว่าป๊อปอัพไม่ล้นขอบ
 
+## รอบแก้ 2 — dock พอดีเนื้อหา (fit-content · P'Aim live verdict ผ่าน pm4)
+P'Aim ลอง LAN แล้วติ 1 จุด: **dock กว้างเต็มจอ + row1 space-between ปุ่มห่างกันมาก** → แก้ให้ **dock hug เนื้อหา** เหมือน dock เดิม B043:
+- `.dk-dock:not(.dk-m)` (เดสก์ท็อป/แท็บเล็ต) = `width: fit-content · min 300 · max min(700, 100vw−20)` → dock กว้างตามแถวที่กว้างสุด (ไทม์ไลน์) ไม่ยืดเต็มจอ
+- row1 **แพ็คกระชับ** (grip ซ้ายสุด · ⚙ ดันขวาสุดด้วย `margin-left:auto`) — **เลิก space-between เต็มกว้าง** · **override DS "row1 กระจายเต็มความกว้าง"** (real-use ชนะ spec ตามที่ pm4 สั่ง)
+- มือถือ (`.dk-m`) = เต็มกว้างตามเดิม + row1 คืน space-between
+- ไทม์ไลน์ `min-width: 190px` ให้ dock hug ที่ความกว้างพอเหมาะ
+- **re-verify LAN 3 breakpoint** (`http://10.215.141.98:5315` · reload สดต่อ viewport): มือถือ 375 → `dk-m` เต็มกว้าง 363/375 ✓ · แท็บเล็ต 753 → fit-content 383px (ไม่เต็มจอ) ✓ · เดสก์ท็อป 1265 → fit-content 383px · grip ซ้าย(9px)/⚙ ขวา(9px) ✓ · console 0 error ✓ · vitest 53 (sing) เขียว · build ผ่าน
+- ✅ P'Aim OK แล้ว (ไม่แก้): 🔁/ความเร็ว/แสดงผล เข้า ⚙ · Aa ไม่มี % กำกับ
+
 ## จุดที่อยากให้ PM/P'Aim เคาะ (ไม่ได้ทำรอบนี้ — นอกขอบเขต engine)
 1. **default เลือกท่อน** — DS §3 อยากให้ "ติ๊กทุกท่อน" เป็น default · แต่ตอนนี้ SongViewer ใช้ semantics เดิม "ไม่เลือก = เล่นทั้งเพลง" (empty = whole song) ซึ่งผูกกับ play logic + `SongViewer.play.test.js` · การเปลี่ยน default = แตะ play-logic ของ SongViewer (นอกงาน dock engine) → **แยกเป็นงาน SongViewer ต่างหาก** ถ้าพี่เอมอยากได้
 2. **download/print ใน Setting ฝึกร้อง** — DS §4 หมายเหตุ "รอ P'Aim เคาะ" · รอบนี้ **ไม่ใส่** (ตาม prototype) · ถ้าจะใส่ = เพิ่ม descriptor 2 ตัวใน adapter

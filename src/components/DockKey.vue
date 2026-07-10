@@ -252,8 +252,8 @@ function cellFlex(it) {
       <button class="dk-btn dk-gear" aria-label="กางเพื่อตั้งค่า" title="กางเพื่อตั้งค่า" @click="transition(false)"><Icon name="settings" :size="20" /></button>
     </div>
 
-    <!-- expanded → the full dock: pinned rows (top) · row 2 · row 1 (core, spread) -->
-    <div v-else class="dk-dock" :style="pos ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : {}">
+    <!-- expanded → the full dock: pinned rows (top) · row 2 · row 1 (core) -->
+    <div v-else class="dk-dock" :class="{ 'dk-m': mobile }" :style="pos ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : {}">
       <div
         v-for="(row, ri) in rows"
         :key="ri"
@@ -435,8 +435,6 @@ function cellFlex(it) {
 .dk-dock {
   pointer-events: auto;
   position: relative;
-  width: 100%;
-  max-width: 700px;
   background: rgba(255, 255, 255, var(--a, 0.96));
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -445,10 +443,20 @@ function cellFlex(it) {
   -webkit-backdrop-filter: blur(max(0px, calc((var(--a, 0.96) - 0.4) / 0.6 * 6px)));
   padding: 8px;
 }
+/* desktop: the dock HUGS its content (P'Aim live verdict B043 · real-use > DS) — it does
+   NOT stretch full-width. Its width follows the widest row (usually the timeline row). */
+.dk-dock:not(.dk-m) { width: fit-content; min-width: 300px; max-width: min(700px, calc(100vw - 20px)); }
+/* mobile: keep the familiar full-width bottom bar */
+.dk-dock.dk-m { width: 100%; max-width: none; }
 .dk-dock.dk-mini { width: auto; max-width: none; display: inline-flex; gap: 8px; padding: 7px 9px; }
 
 .dk-row { display: flex; align-items: center; gap: 6px; }
-.dk-row.spread { justify-content: space-between; }
+/* the core row: packed tight, grip left-most · ⚙ pushed to the right edge (NOT space-between
+   full-width — that spread the buttons apart on a wide dock, P'Aim). On mobile the dock is
+   full-width so the row fills it (space-between) as before. */
+.dk-row.spread .dk-gear { margin-left: auto; }
+.dk-dock.dk-m .dk-row.spread { justify-content: space-between; }
+.dk-dock.dk-m .dk-row.spread .dk-gear { margin-left: 0; }
 .dk-row + .dk-row { margin-top: 8px; }
 .dk-cell { display: inline-flex; align-items: center; min-width: 0; }
 

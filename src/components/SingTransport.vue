@@ -208,7 +208,8 @@ const items = computed(() => {
 <style scoped>
 /* ===== ไทม์ไลน์ ===== */
 .st-seekwrap { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.st-seek { position: relative; flex: 1; min-width: 50px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+/* min-width gives the fit-content dock a sensible width (dock hugs the timeline row · P'Aim) */
+.st-seek { position: relative; flex: 1; min-width: 190px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
 .st-time { flex: 0 0 auto; }
 .st-trk { position: absolute; left: 0; right: 0; height: 4px; background: var(--line); border-radius: 3px; top: 50%; transform: translateY(-50%); }
 .st-fill { position: absolute; left: 0; height: 4px; background: var(--brand); border-radius: 3px; top: 50%; transform: translateY(-50%); pointer-events: none; }
