@@ -8,8 +8,8 @@
 ## ▶ RESUME (สถานะสดที่ git-verify แล้ว)
 - **ฐาน `studio-shell-redesign` HEAD = `1245325`** = **288 เทสต์เขียว + build ผ่าน** (merged วันนี้: note-search · preview · B073 · B075 · MP3 lib+dock · favicon-footer · search-555(B074) · SA editor-ux docs · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
 - ✅ **พร้อม deploy รอบ 6 (ยกเว้น DockKey phase2 ที่ยัง build):** ของ user-facing ที่ merged = ตัวหนังสือมีหัว/ไม่มีหัว · ค้นหาโน้ต+555 · พรีวิว · undo · MP3(dock ฝึกร้อง) · favicon+footer · (B073 อยู่ live แล้ว) — **รอ P'Aim เคาะ: deploy เลย หรือรอ DockKey**
-- 🚀 **DEPLOY B073 เดี่ยว (P'Aim สั่งชัด 10 ก.ค. · พี่เปาตรวจ live):** cherry-pick `320f4dd` เข้า main → **main `1535e1f`→`b538701`** (push แล้ว · Actions `29095988380`) · EditorMode-only · build ผ่าน · ⚠️ **main แตกจากฐานแล้ว** (main มี B073 เดี่ยว · ฐานมี B073 ใน `2ab5628`) → **deploy รอบหน้าต้อง reconcile** (merge base→main จะเจอ B073 ซ้ำ = git ข้ามให้ ถ้า identical · หรือ reset main=base ตอน full deploy)
-- 🚀 **release ที่เหลือ:** หลัง 4 สาย merge + DockKey accept → deploy รอบ 6 (⛔ รอ P'Aim "go" ชัดต่อรอบ)
+- 🎉🚀 **DEPLOY รอบ 6 (P'Aim "go รอบ 6" 10 ก.ค.):** **align main=base** (reset --hard + force-with-lease · แก้ divergence B073-solo ถาวร → main กลับเป็น ancestor ของ base) → **main `b538701`→`1a3aa65`** (Actions `29100068128`) · build ผ่าน · ได้ของครบ: ตัวหนังสือมีหัว/ไม่มีหัว · ค้นหาโน้ต+555 · พรีวิว · undo · **MP3(dock ฝึกร้อง)** · favicon+footer · B073 · SA design docs · **ไม่มี DockKey/โครงเพลง (ยัง build)**
+- [รอบ 5 `1535e1f`] · [B073 เดี่ยว `b538701` = ถูกกลืนใน align รอบ 6]
 - ⚠️ **บทเรียนซ้ำ (pm4 10 ก.ค.):** main dir ถูกสลับไป branch `sa-dockkey-print-edit` ใต้มือ (แม้ spawn_task ใช้ auto-worktree) → commit เอกสาร 5 อันหลุดไปลง branch นั้น · กู้ด้วย `git switch studio-shell-redesign && git merge --ff-only sa-dockkey-print-edit` (เส้นตรง = FF สะอาด) · **เช็ก `git branch --show-current` ก่อน commit เสมอ**
 - **live = `1535e1f` (deploy รอบ 5)** · ✅ **P'Aim เคาะ "ปล่อยไว้" (10 ก.ค.) — ไม่ rollback** (ของขึ้น = 264-test-green ไม่พัง)
 - verify ฐานรวม: `npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'`
