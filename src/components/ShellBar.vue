@@ -10,6 +10,10 @@ import Icon from './Icon.vue'
 
 defineProps({ title: { type: String, default: '' } })
 const route = useRoute()
+// The phrakham.life link shows that site's own logo (public/favicon.ico — byte-identical
+// to phrakham.life2's) instead of a generic globe. BASE_URL keeps it resolving on both the
+// custom domain (/) and the GitHub Pages project path (/repo/).
+const brandIcon = import.meta.env.BASE_URL + 'favicon.ico'
 function toggleSite() {
   shellMenu.value = shellMenu.value === 'site' ? null : 'site'
 }
@@ -32,7 +36,7 @@ function closeMenus() {
         <router-link to="/" role="menuitem" :class="{ here: route.path === '/' }"><Icon name="list-music" /> รายการเพลง</router-link>
         <router-link to="/guide" role="menuitem" :class="{ here: route.path === '/guide' }"><Icon name="book-open" /> คู่มือ</router-link>
         <router-link to="/about" role="menuitem" :class="{ here: route.path === '/about' }"><Icon name="info" /> เกี่ยวกับเรา</router-link>
-        <a href="https://phrakham.life" role="menuitem"><Icon name="globe" /> พระคำ.ชีวิต <span class="sb-k">↗</span></a>
+        <a href="https://phrakham.life" role="menuitem"><img class="sb-brand-ico" :src="brandIcon" alt="" width="18" height="18" /> พระคำ.ชีวิต <span class="sb-k">↗</span></a>
         <!-- Per-user Thai typeface (มีหัว / ไม่มีหัว). @click.stop keeps the menu open while
              comparing; each choice is this browser's own (store.siteFont · localStorage). -->
         <div class="sep" role="separator"></div>

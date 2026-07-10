@@ -6,9 +6,19 @@
 ---
 
 ## ▶ RESUME (สถานะสดที่ git-verify แล้ว)
-- **ฐาน `studio-shell-redesign` HEAD = `0e29bc0`** = **275 เทสต์เขียว + build ผ่าน** (merged วันนี้: note-search-verify · fix-editor-preview-final · B073 beat-count · B075 undo · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
-- 🚀 **DEPLOY B073 เดี่ยว (P'Aim สั่งชัด 10 ก.ค. · พี่เปาตรวจ live):** cherry-pick `320f4dd` เข้า main → **main `1535e1f`→`b538701`** (push แล้ว · Actions `29095988380`) · EditorMode-only · build ผ่าน · ⚠️ **main แตกจากฐานแล้ว** (main มี B073 เดี่ยว · ฐานมี B073 ใน `2ab5628`) → **deploy รอบหน้าต้อง reconcile** (merge base→main จะเจอ B073 ซ้ำ = git ข้ามให้ ถ้า identical · หรือ reset main=base ตอน full deploy)
-- 🚀 **release ที่เหลือ:** หลัง 4 สาย merge + DockKey accept → deploy รอบ 6 (⛔ รอ P'Aim "go" ชัดต่อรอบ)
+- **ฐาน `studio-shell-redesign` HEAD = `97e735b`** = **288 เทสต์เขียว + build ผ่าน** (merged วันนี้: note-search · preview · B073 · B075 · MP3 lib+dock · favicon-footer · search-555(B074) · SA editor-ux docs · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
+- 🎉 **DEPLOY รอบ 6 = LIVE (verified bundle stamp `1a3aa65`)** · **main === base แล้ว** (align เสร็จ · divergence หาย · รอบหน้า clean FF)
+
+## 🔚 EOD HANDOFF (2026-07-10 ค่ำ · pm4 · PM session หน้าอ่านนี่)
+**live = deploy รอบ 6** (ตัวหนังสือมีหัว/ไม่มีหัว · ค้นโน้ต+555 · พรีวิว · undo · MP3 dock ฝึกร้อง · favicon+footer · B073) · **ฐาน = `97e735b` · main = base**
+**🟢 2 สายใหญ่ยัง build (→ deploy รอบ 7):**
+1. **dockkey-dev phase 2 = ✅ เสร็จแล้ว (เข้ามาหลังปิดวัน · commit `5c71c16`+`b94c3d9`)** — 3 หน้าใช้ DockKey engine เดียว: แผ่นเพลง ITEMS_PRINT · แก้ไข ITEMS_EDIT (band 21 keys · note-insert ไม่ regress) · MP3 = `ExportTool.vue` เมนูรวม PDF/JSON/MP3 เสียบ dock พิมพ์+แก้ไข · ถอด StudioDock (retire ไม่ลบไฟล์) · **295 test + build** · dev --host `http://10.215.141.98:5315` · **🔺 รอ PM git-verify DoD + P'Aim LAN 3 หน้า (เน้นหน้าแก้ไข+MP3+undo มือถือ) ก่อน merge** · **4 จุดค้างใน `docs/reports/dockkey-phase2.md`** (Aa หน้าแก้ถอด? · preview หัว · PDF ซ้ำปุ่ม · StudioDock ไฟล์) · brief `brief-dockkey-phase2.md`
+2. **editor-section-ux-dev** (`task_5d47b107`) — เปลือกจัดลำดับท่อนง่ายขึ้น (P'Aim เคาะ mockup) · **เน้นหนัก: ของเดิมห้าม regress** · brief `brief-editor-section-ux-dev.md`
+**⚠️ 2 สายนี้แตะ `EditorMode.vue` เหมือนกัน (คนละส่วน: DockKey=dock · section-ux=rail/arrangement) → PM ต้องเรียงคิว merge + resolve**
+**🎯 รอ P'Aim (ไม่บล็อก):** B028 audit log (3 Qs) · i18n · สิทธิ์ลบเพลง · พี่เปา review 41 เพลง + verify undo/นับจังหวะบน live
+**💡 backlog ใหม่:** ป้าย "ทำไม match" ในผลค้นหา (จาก search-555 branch) · ค้นโน้ตข้ามท่อน (note-search Q)
+- 🎉🚀 **DEPLOY รอบ 6 (P'Aim "go รอบ 6" 10 ก.ค.):** **align main=base** (reset --hard + force-with-lease · แก้ divergence B073-solo ถาวร → main กลับเป็น ancestor ของ base) → **main `b538701`→`1a3aa65`** (Actions `29100068128`) · build ผ่าน · ได้ของครบ: ตัวหนังสือมีหัว/ไม่มีหัว · ค้นหาโน้ต+555 · พรีวิว · undo · **MP3(dock ฝึกร้อง)** · favicon+footer · B073 · SA design docs · **ไม่มี DockKey/โครงเพลง (ยัง build)**
+- [รอบ 5 `1535e1f`] · [B073 เดี่ยว `b538701` = ถูกกลืนใน align รอบ 6]
 - ⚠️ **บทเรียนซ้ำ (pm4 10 ก.ค.):** main dir ถูกสลับไป branch `sa-dockkey-print-edit` ใต้มือ (แม้ spawn_task ใช้ auto-worktree) → commit เอกสาร 5 อันหลุดไปลง branch นั้น · กู้ด้วย `git switch studio-shell-redesign && git merge --ff-only sa-dockkey-print-edit` (เส้นตรง = FF สะอาด) · **เช็ก `git branch --show-current` ก่อน commit เสมอ**
 - **live = `1535e1f` (deploy รอบ 5)** · ✅ **P'Aim เคาะ "ปล่อยไว้" (10 ก.ค.) — ไม่ rollback** (ของขึ้น = 264-test-green ไม่พัง)
 - verify ฐานรวม: `npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'`
@@ -27,19 +37,19 @@
 | สาย/branch | chip | ไฟล์ที่แตะ | brief | สถานะ |
 |---|---|---|---|---|
 | **dockkey-dev** (DockKey core + หน้าฝึกร้อง) | `task_9ca47954` | DockKey.vue(ใหม่)/SingTransport/SongViewer | `brief-dockkey-dev.md` | ✅ เสร็จ + rework 2 รอบ · **`3d44d94` = `width:fit-content` ทุกจอ · flex-start เกาะกลุ่ม · เลิก margin-auto/space-between หมด (พอดีปุ่มเป๊ะ · 383px บนจอ 1265) · timeline min 190 · sing 53 test** · **⏸️ HOLD — รอ P'Aim LAN `http://10.215.141.98:5315` (มือถือจริง · MCP headless วัดพิกัดไม่ได้) + 3 คำถามเดิม** |
-| **fix-favicon-footer** (bug1 ไอคอนแบรนด์ + bug2 footer ติดล่าง) | `task_5bf7aeb4` | ShellBar / styles.css+App.vue | `brief-bugs-favicon-footer.md` | 🔨 จ่ายแล้ว |
+| **fix-favicon-footer** (bug1 ไอคอนแบรนด์ + bug2 footer ติดล่าง) | `task_5bf7aeb4` | ShellBar / styles.css+App.vue | `brief-bugs-favicon-footer.md` | ✅✅ **MERGED `db14779`** (โลโก้ phrakham แทนโลก · footer flush ล่างจอเหนือ dock · font menu ไม่ revert · 283 test) |
 | **sa-dockkey-print-edit** (descriptor พิมพ์/แก้ · docs) | `task_9d603bb7` | docs/ds เท่านั้น | `brief-dockkey-sa-print-edit.md` | ✅ เสร็จ → inbox (รอ PM ตรวจ+merge docs) |
 | **fix-editor-preview-final** (พรีวิว "ดูผลทั้งเพลง": ล็อกบรรทัดไม่ reflow + ไทข้ามห้องซ้อน 2 เส้น) | `task_49330996` | EditorMode + SongSheet | `brief-fix-editor-preview.md` | ✅✅ **MERGED `a8ae3d3`** (nowrap+hscroll · ซ่อนครึ่ง START ของ NoteRow สมมาตร · เพลง 100 ไม่ regress · 268 test) |
 | **fix-beat-count-continued** (B073 · ห้องต่อกันข้ามบรรทัด 11/4) | `task_4ae1acda` | EditorMode | `brief-beat-count-continued.md` | ✅✅ **MERGED `2ab5628`** (ต้นตอ=pickup path ไม่ใช่ cont join · pickupCheck แยกกลุ่ม RUN/ISOLATED · 270 test · preview-fix ยังอยู่) |
 | **fix-undo-latest** (B075 · Ctrl+Z ย้อนผิดตัว) | `task_662f4039` | EditorMode | `brief-undo-latest.md` | ✅✅ **MERGED `0e29bc0`** (ต้นเหตุ=debounce รวบ 2 แก้เร็ว <400ms · แก้ leading-edge commit · 275 test) · รอ พี่เปา verify มือถือ |
 | **note-search-verify** (ตรวจผลค้นโน้ต sequence เพลง 1/29/43 + มี/ไม่มีเว้นวรรค) | `task_a69020e0` | songSearch.js | `brief-note-search-verify.md` | ✅✅ **MERGED `5f6dc82`** (เจอบั๊กจริง: fuzzy fallthrough → match หลอก · แก้ให้ note query = exact-sequence · ผลค้น = เพลง 1 เดียว · 268 test) |
 | **mp3-download** (B072 · ดาวน์โหลดเสียง MP3 · client-side) | `task_c6130db7` | midi.js + audioExport + DownloadTool + lamejs | `brief-mp3-download.md` | ✅✅ **LIB MERGED `fb10927`** (OfflineAudioContext+lamejs · `audioExport.songToMp3Blob/estimateMp3` · P'Aim verify มือถือ+PC · 283 test · bundle flat=tree-shaken) · **⏳ ปุ่มยังไม่โผล่ (DownloadTool orphan หลัง B045)** → **P'Aim: เอาทางไวสุด ขึ้น live แล้วปรับ** → **จ่ายสาย `mp3-dock-wire`** (send_message สาย mp3 เดิม) เสียบ MP3 เข้า dock หน้าฝึกร้อง `SongViewer.vue` (item download ~374) เรียก `audioExport` + progress · ⚠️ ชน dockkey-dev(HOLD)ที่ SongViewer → carry เข้า descriptor ตอน DockKey merge · ไม่ Web Worker |
-| **search-short-notes** (B074 · ค้น "555" เจอทำนอง · เลขล้วน ≥3 union) | `task_263349f9` | songSearch.js | `brief-search-555.md` | 🔨 จ่ายแล้ว |
-| **sa-editor-section-ux** (โหมดแก้ไขจัดการท่อน/ข้อ ให้ intuitive มาตรฐานสากล · docs) | `task_9544a30b` | docs/us,ds,design | `brief-sa-editor-section-ux.md` | 🔨 จ่ายแล้ว · **ราก = พี่เปาใช้แล้วงง (design ไม่ intuitive)** · gate = P'Aim ดู mockup ก่อน dev |
+| **search-short-notes** (B074 · ค้น "555" เจอทำนอง · เลขล้วน ≥3 union) | `task_263349f9` | songSearch.js | `brief-search-555.md` | ✅✅ **MERGED `8b2d779`** ("555"→ทำนอง 5-5-5 · "100"/"117"→เลขเพลง+ทำนอง union · 288 test) · 💡 follow-on idea บน branch: ป้าย "ทำไม match" (backlog) |
+| **sa-editor-section-ux** (โหมดแก้ไขจัดการท่อน/ข้อ ให้ intuitive มาตรฐานสากล · docs) | `task_9544a30b` | docs/us,ds,design | `brief-sa-editor-section-ux.md` | ✅ **เสร็จ · docs MERGED `1245325`** — audit 8 ข้อ + redesign (ยุบ 3 รายการเป็น "โครงเพลง" เดียว · คลิกชื่อแก้ inline · ลากจัดลำดับรองรับนิ้ว · ตัดบล็อกล่าง · แนว Google Docs/Notion) · **mockup `docs/design/editor-section-ux.html`** · ✅ **P'Aim เคาะ mockup แล้ว → จ่าย dev `editor-section-ux-dev` `task_5d47b107`** (brief `brief-editor-section-ux-dev.md` · เน้นหนัก "ของเดิมห้าม regress") · **⚠️ ชน EditorMode.vue กับ DockKey phase2 → คนละส่วน (นี่=rail/arrangement · DockKey=dock) · PM เรียงคิว merge + resolve** |
 
 **🟢 DockKey — UN-PARKED · phase 2 เดินหน้า (P'Aim เคาะ 10 ก.ค.):** P'Aim **accept หน้าฝึกร้อง DockKey fit-content ตัวล่าสุด (`3d44d94`)** + สั่งเดินหน้าครบ 3 หน้า + **เอา MP3 ใส่ใน DockKey** (ไม่ใช่ dock เดิม) → **send_message สาย `dockkey-dev` เดิม ต่อ phase 2** (brief `brief-dockkey-phase2.md`):
 - sync ฐานล่าสุด → build **แผ่นเพลง(Studio) ITEMS_PRINT** + **แก้ไข(EditorMode) ITEMS_EDIT + E1-E3** (ระวัง undo/beat/preview/แป้นโน้ต regress) + **เสียบ MP3 เข้า DockKey export menu** (เรียก audioExport lib) + ถอด StudioDock เดิม
-- ⚠️ **ยกเลิกสาย `mp3-dock-wire`** (ยก MP3 มาเสียบใน DockKey แทน · audioExport lib merged แล้ว = deliverable เสร็จ · สาย mp3 ปิด)
+- ✅✅ **MP3 กดได้จริงแล้ว — `mp3-dock-wire` MERGED `b2ffbab`** (dev ทำเสร็จก่อนคำสั่งยกเลิกถึง · MP3 item ในเมนู ⚙ dock ฝึกร้อง SongViewer · เรียก audioExport dynamic-import · key/tempo ตรง playback · 283 test · lamejs code-split) → **MP3 ขึ้น live ได้เลยรอบ 6** · **dockkey-dev phase2 = carry MP3 item เข้า DockKey descriptor ตอน sync/replace sing dock** (มี reference ใน SongViewer ที่ merged)
 - **P'Aim gate: LAN 3 หน้าก่อน merge** (โดยเฉพาะหน้าแก้ไข) · ⛔ styles.css/ShellBar/App/songSearch/NoteRow (สายอื่นถือ)
 
 **คิว phase 2 (หลัง 3 สายเข้าฐาน):** เสียบ ITEMS_PRINT/ITEMS_EDIT (จาก SA) เข้า DockKey core → dock ครบ 3 หน้า (= เป้า P'Aim ข้อ 4.1)

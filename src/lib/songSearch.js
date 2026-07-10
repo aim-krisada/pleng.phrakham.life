@@ -8,6 +8,11 @@
 
 import { bookName, parseBookRefQuery } from './bookCodes.js'
 
+// A melody-sequence hit is exact (contiguous substring, no fuzzing) but ranks just after
+// an exact number/title/lyric hit (score 0). Small positive so that for a union query
+// like "100" the song numbered 100 stays above songs whose melody merely contains 1-0-0.
+const NOTE_SEQ_SCORE = 0.5
+
 // Normalise for search: canonical composition (Thai combining marks), lower-case,
 // collapse runs of whitespace. Latin case-folds; Thai is unaffected by toLowerCase.
 export function normalize(s) {
@@ -75,18 +80,20 @@ export function notesCompact(content) {
   return notesText(content).replace(/[^0-7]/g, '')
 }
 
-// Is this query a search *by melody notes* (not by lyric / title / song number)?
+// Is this query a search *by melody notes* (possibly ALSO by song number)?
 // True only when the query is made entirely of note glyphs (scale degrees 0-7, octave
-// dots, holds, beams, bars, accidentals, slurs) AND carries at least one pitched
-// degree. To keep number search untouched, a *bare* run of digits (no space, no
-// decoration) counts as notes only from length 4 up — song numbers are <= 3 digits, so
-// "42"/"100"/"117" stay pure number lookups while "5561" is read as notes.
+// dots, holds, beams, bars, accidentals, slurs) AND carries at least one pitched degree.
+// A *bare* run of digits (no space, no decoration) counts as notes from length 3 up:
+// "555" finds the song whose melody opens 5-5-5 (B074). Song numbers are <= 3 digits and
+// stay findable because scoreSong treats a bare-digit note query as a UNION — the song
+// with that exact NUMBER still ranks first, melody-sequence hits follow. A 1-2 digit run
+// ("1", "42") stays a pure number lookup: a 1-2 note melody query would match every song.
 export function isNoteQuery(q) {
   if (!/[1-7]/.test(q)) return false
   if (!/^[0-7\s.'’_|~#b()♮{}-]+$/.test(q)) return false
   const hasSpace = /\s/.test(q)
   const hasDecoration = /[.'’_|~#b()♮{}-]/.test(q)
-  return hasSpace || hasDecoration || q.replace(/[^0-7]/g, '').length >= 4
+  return hasSpace || hasDecoration || q.replace(/[^0-7]/g, '').length >= 3
 }
 
 export function snippet(content, len = 60) {
@@ -191,15 +198,21 @@ export function scoreSong(song, query) {
   // "5 5 6 1" all find the song whose notes are "5 5 6 1 3". Only runs for note-shaped
   // queries so lyric/title/number search is untouched.
   //
+  // UNION with number search (B074): a bare short run like "555" is *both* a possible
+  // song number and a melody query, so it searches both — the exact-number/text hit above
+  // already returned 0 (ranks first), and a melody-sequence hit returns NOTE_SEQ_SCORE
+  // here (ranks just after). That keeps song 100/117 findable while "555" (no such number)
+  // still finds the song whose melody opens 5-5-5.
+  //
   // A melody query is an EXACT-SEQUENCE request and is decided here — it must NOT fall
   // through to the fuzzy path below. Edit-distance matching would admit near-miss
   // sequences (a note or two off), which is exactly the "fake match" P'Aim flagged: for
   // "5 5 5 6 1 6 1 2 2 2 2" only song 1 truly contains the run, but songs 29 & 43 were
   // being returned at fuzzy distance 2 (55561_1_1_2322 / …5556110222…). So return the
-  // note verdict directly: contiguous substring → 0, otherwise no match.
+  // note verdict directly: contiguous substring → NOTE_SEQ_SCORE, otherwise no match.
   if (isNoteQuery(q)) {
     const nc = notesCompact(song.content ?? {})
-    return nc && nc.includes(q.replace(/[^0-7]/g, '')) ? 0 : null
+    return nc && nc.includes(q.replace(/[^0-7]/g, '')) ? NOTE_SEQ_SCORE : null
   }
   const maxErr = fuzzyBudget(compact(q))
   if (maxErr === 0) return null

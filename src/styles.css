@@ -298,6 +298,9 @@ main.container { flex: 1 0 auto; }
 .sb-dropdown a:focus-visible,
 .sb-item:focus-visible { background: rgba(139, 69, 19, 0.1); outline: none; }
 .sb-dropdown .icn { color: var(--brand); }
+/* phrakham.life link uses its raster logo (favicon.ico) — size + block layout matches the
+   18px line-icons so the label baseline lines up with the other menu rows. */
+.sb-brand-ico { display: block; flex: 0 0 auto; width: 18px; height: 18px; object-fit: contain; }
 .sb-k { margin-left: auto; color: var(--muted); font-size: 0.8rem; }
 .sb-mode-item { align-items: flex-start; }
 .sb-mode-item .mt { display: flex; flex-direction: column; line-height: 1.25; }
@@ -596,11 +599,14 @@ footer.site-footer {
 footer.site-footer a { padding: 2px 1px; }
 footer.site-footer a { color: var(--footer-ink); }
 .pk-build { font-size: 0.85em; color: var(--stamp-ink); white-space: nowrap; }
-/* On the Studio surface a music/edit dock floats fixed at the bottom (~88px — matches
-   the .sheet-workspace clearance in Studio.vue). Reserve that band below the footer so
-   the sticky footer clears the dock instead of hiding under it (B047). */
+/* On the Studio surface a music/edit dock floats fixed at the bottom. Reserve exactly its
+   REAL height below the footer so the footer's line + text sit flush on top of the dock
+   (never hidden under it, never floating in an empty band). --dock-clear is measured live
+   in App.vue (the dock's height varies by mode/viewport, and the DockKey line keeps
+   changing it), so no brittle magic number here. Falls back to 88px before first measure
+   and if measurement is unavailable. Extends the sticky footer from B047. */
 footer.site-footer.footer-dock-clear {
-  margin-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  margin-bottom: calc(var(--dock-clear, 88px) + env(safe-area-inset-bottom, 0px));
 }
 
 /* ---------- print (A4) ---------- */
