@@ -31,7 +31,7 @@ const props = defineProps({
 const emit = defineEmits(['change', 'save', 'dock'])
 
 // ---------- auth + role (gating comes from the store via props.tier · DS-02) ----------
-import { session, legacy, shellMenu, saveDraftRow } from '../store.js'
+import { session, legacy, shellMenu, saveDraftRow, readingFontScale } from '../store.js'
 
 // derive the two flags the editor already reads from the single tier source, so the rest
 // of the editor body is untouched (isApprover / loggedIn keep their meaning)
@@ -1215,15 +1215,7 @@ function fileNew() {
   pickerId.value = ''
   resetForm()
 }
-// Close: leave the current song (clear the editor). Confirm if an existing song is
-// open so an accidental click can't discard unsaved edits.
-function fileClose() {
-  openMenu.value = null
-  if (editingId.value && !window.confirm('ออกจากเพลงนี้? การแก้ที่ยังไม่ได้บันทึกจะหาย')) return
-  viewMode.value = 'edit'
-  pickerId.value = ''
-  resetForm()
-}
+// B071: "ออกจากเพลงนี้" (fileClose) was removed — P'Aim found it confusing and unneeded.
 function scrollToCard(id) {
   openMenu.value = null
   viewMode.value = 'edit'
@@ -1662,15 +1654,9 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       </template>
     </Teleport>
     <Teleport to="#shell-menus">
-      <div v-if="editing" class="sb-menu">
-        <button class="sb-text" :aria-expanded="openMenu === 'file'" aria-haspopup="true" @click.stop="toggleMenu('file')">เพลง</button>
-        <div v-if="openMenu === 'file'" class="sb-dropdown" role="menu">
-          <button class="sb-item" role="menuitem" @click="fileNew"><Icon name="file-plus" /> สร้างเพลงใหม่ <span class="sb-k">New</span></button>
-          <button class="sb-item" role="menuitem" @click="openPanel('open')"><Icon name="folder-open" /> เลือกเพลงเพื่อแก้… <span class="sb-k">Open</span></button>
-          <button class="sb-item" role="menuitem" @click="fileClose"><Icon name="x" /> ออกจากเพลงนี้ <span class="sb-k">Close</span></button>
-          <!-- "ตั้งค่าเพลง" เอาออกจากเมนู (P'Aim 10 ก.ค.) — ซ้ำกับการ์ด inline #pk-settings (B060) -->
-        </div>
-      </div>
+      <!-- B071: the "เพลง ▾" menu is gone from the top bar. สร้างเพลงใหม่ / เลือกเพลง now live
+           as buttons on the "⚙ ตั้งค่าเพลง" row (#pk-settings); "ออกจากเพลงนี้" was cut
+           entirely (P'Aim 10 ก.ค. — confusing, not needed). Only "จัดการ ▾" stays up here. -->
       <div v-if="editing" class="sb-menu">
         <button class="sb-text" :aria-expanded="openMenu === 'manage'" aria-haspopup="true" @click.stop="toggleMenu('manage')">จัดการ</button>
         <div v-if="openMenu === 'manage'" class="sb-dropdown" role="menu">
@@ -1711,7 +1697,11 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         <button class="rail-row arr" @click="railGoArrange"><Icon name="list-ordered" :size="17" /> ลำดับเพลง</button>
       </nav>
       <div class="rail-backdrop" :class="{ open: drawerOpen }" aria-hidden="true" @click="closeDrawer"></div>
-      <div class="content">
+      <!-- B070: the top-nav "Aa" reader size (store.readingFontScale) scales the edit page too.
+           font-size is set in rem here, so the em-based jianpu previews (SongSheet) and any
+           inherited text grow/shrink, while the note keypad + edit boxes (fixed px/rem) keep
+           their grid — the Aa button never distorts the editing controls. -->
+      <div class="content ed-read-scale" :style="{ fontSize: readingFontScale + 'rem' }">
     <!-- B060: song settings inline. These used to hide in the "เพลง ▾ ▸ ตั้งค่า" menu, which
          พี่เปา avoided (afraid a menu would switch the page). Now every field sits right on
          the sheet being edited. "✓ ตรวจแล้ว" marks the song human-checked (catalog reads it). -->
@@ -1722,6 +1712,11 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
           <Icon name="chevron-down" :size="15" :class="{ 'ed-chev-open': settingsOpen }" />
         </button>
         <span class="ed-grow"></span>
+        <!-- B071: song file actions moved here from the removed "เพลง ▾" top-bar menu -->
+        <div class="ed-song-acts">
+          <button class="ed-song-act" @click="fileNew"><Icon name="file-plus" :size="15" /> สร้างเพลงใหม่</button>
+          <button class="ed-song-act" @click="openPanel('open')"><Icon name="folder-open" :size="15" /> เลือกเพลง</button>
+        </div>
         <button
           v-if="loggedIn"
           class="ed-verify"
@@ -2960,7 +2955,26 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 }
 /* B060: inline song-settings card */
 .ed-settings { padding: 10px 12px; margin-bottom: 12px; }
-.ed-settings-head { display: flex; align-items: center; gap: 8px; }
+/* flex-wrap so the ⚙ + song-action buttons + ✓ตรวจแล้ว stack onto a second row when the
+   card is too narrow (mobile) instead of overflowing (B071) */
+.ed-settings-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* B071: สร้างเพลงใหม่ / เลือกเพลง — ghost pills matching the ✓ตรวจแล้ว button next to them */
+.ed-song-acts { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.ed-song-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+  border-radius: 999px;
+  padding: 5px 12px;
+  min-height: 32px;
+  cursor: pointer;
+}
+.ed-song-act:hover { border-color: var(--brand); color: var(--brand); }
 .ed-settings-toggle {
   display: inline-flex;
   align-items: center;
