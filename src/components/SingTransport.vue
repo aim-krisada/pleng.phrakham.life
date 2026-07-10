@@ -13,6 +13,7 @@
 // The play/pause button is icon-only (no background) — P'Aim directive.
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import Icon from './Icon.vue'
+import { readingFontScale, setFontScale } from '../store.js'
 
 const props = defineProps({
   playing: { type: Boolean, default: false },
@@ -150,6 +151,14 @@ const alphaSetting = computed(() => ({
   onInput: (v) => emit('dock-alpha', v / 100),
 }))
 const allSettings = computed(() => [...props.settings, alphaSetting.value])
+
+// ---------- Aa reader font size (B045) ----------
+// A permanent 1-tap control in the player (moved off the top bar). It drives the GLOBAL
+// reader scale (store.readingFontScale) — page-independent, like ความโปร่ง above — so the
+// player owns it directly without the page wiring a descriptor. It rides the same
+// openMenu('fontsize') / .mp-dd popover + on-screen clamp as the pinned menus, but is NOT a
+// pinnable setting (never in allSettings/pins) so it can't be customized away from a reader.
+const fontPct = computed(() => Math.round(readingFontScale.value * 100))
 // order the bar controls by the PIN order (คีย์ → ความเร็ว → แสดงผล), not the panel order
 const pinnedSettings = computed(() => pins.value.map((id) => allSettings.value.find((s) => s.id === id)).filter(Boolean))
 
@@ -304,6 +313,42 @@ watch([openPanel, openMenu], async () => {
           title="วนซ้ำ (เปิด/ปิด)"
           @click="emit('toggle-loop')"
         ><Icon name="repeat" :size="19" /></button>
+      </span>
+
+      <!-- Aa reader font size (B045) — permanent 1-tap control (moved off the top bar). Sits
+           OUTSIDE .mp-pins (not a pinnable setting) so a reader can never lose it. Tap = a
+           popover with a live slider; sliding resizes the song text in real time. -->
+      <span class="mp-fontwrap" data-font="fontsize">
+        <button
+          class="mp-pbtn mp-fontbtn"
+          :class="{ on: openMenu === 'fontsize' }"
+          :aria-expanded="openMenu === 'fontsize'"
+          aria-label="ขนาดตัวอักษร"
+          title="ขนาดตัวอักษร"
+          @click.stop="toggleMenu('fontsize')"
+        >
+          <b class="mp-aa">Aa</b>
+          <b class="mp-pbadge">{{ fontPct }}%</b>
+          <Icon name="chevron-down" :size="13" class="mp-pcaret" />
+        </button>
+        <div v-if="openMenu === 'fontsize'" class="mp-dd mp-fontdd" role="menu" aria-label="ขนาดตัวอักษร" @click.stop>
+          <div class="mp-fonttitle">ขนาดตัวอักษร</div>
+          <div class="mp-fontrow">
+            <span class="mp-fonta mp-fonta-sm" aria-hidden="true">A</span>
+            <input
+              class="mp-fontslider"
+              type="range"
+              min="80"
+              max="220"
+              step="10"
+              :value="fontPct"
+              aria-label="ปรับขนาดตัวอักษร"
+              @input="setFontScale(+$event.target.value / 100)"
+            />
+            <span class="mp-fonta mp-fonta-lg" aria-hidden="true">A</span>
+          </div>
+          <div class="mp-fontval">{{ fontPct }}%</div>
+        </div>
       </span>
 
       <!-- pinned quick controls — compact icon+badge, matching the dock convention -->
@@ -543,6 +588,21 @@ watch([openPanel, openMenu], async () => {
 .mp-pbtn.on { border-color: var(--brand); color: var(--brand); }
 .mp-pbadge { font-size: 12.5px; font-weight: 700; }
 .mp-pcaret { color: var(--muted); }
+
+/* ===== Aa reader font size (B045) — a pinned-style button + slider popover ===== */
+.mp-fontwrap { position: relative; display: inline-flex; align-items: center; flex: 0 0 auto; }
+.mp-aa { font-size: 15px; font-weight: 700; line-height: 1; letter-spacing: -0.3px; }
+.mp-fontdd {
+  /* wider than a menu so the slider has room; the popup clamp keeps it on-screen */
+  min-width: 210px; padding: 10px;
+}
+.mp-fonttitle { font-size: 12px; color: var(--muted); padding: 0 2px 8px; }
+.mp-fontrow { display: flex; align-items: center; gap: 10px; }
+.mp-fonta { color: var(--ink); flex: 0 0 auto; line-height: 1; }
+.mp-fonta-sm { font-size: 13px; }
+.mp-fonta-lg { font-size: 22px; font-weight: 700; }
+.mp-fontslider { flex: 1; min-width: 0; accent-color: var(--brand); height: var(--touch-min); }
+.mp-fontval { font-size: 11px; color: var(--muted); text-align: center; margin-top: 6px; font-variant-numeric: tabular-nums; }
 .mp-pstep { border: 1px solid var(--line); border-radius: 10px; padding: 0 3px; height: var(--touch-min); }
 .mp-pstepbtn { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; padding: 0 5px; height: 100%; cursor: pointer; }
 .mp-pstepbtn:disabled { opacity: 0.4; cursor: default; }
