@@ -38,6 +38,12 @@
       "port": 5330
     },
     {
+      "name": "s2",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", ".", "--host", "--port", "5332", "--strictPort"],
+      "port": 5332
+    },
+    {
       "name": "wireframe",
       "runtimeExecutable": "py",
       "runtimeArgs": ["-m", "http.server", "5200", "--bind", "127.0.0.1", "--directory", "features"],
