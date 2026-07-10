@@ -90,7 +90,15 @@ h1, h2, h3 { color: var(--brand); line-height: var(--lh-snug); }
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
 input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); width: 18px; height: 18px; }
 
+/* Sticky footer (B047): the app root is a full-height flex column so the footer sits
+   on the viewport's bottom edge when a page's content is short (was floating mid-screen
+   on ฝึกร้อง/แผ่นเพลง/แก้ไข/guide/about) and scrolls away normally when content is tall.
+   Extends B023, which only reached the song list. */
+#app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+
 .container { max-width: var(--container); margin: 0 auto; padding: var(--sp-4); }
+/* content takes all the slack in the column so the footer is pushed to the bottom */
+main.container { flex: 1 0 auto; }
 /* the Studio shell is a wider, Google-Docs-style workspace (rail + editor) */
 .container.studio-wide { max-width: var(--container-wide); }
 @media (max-width: 480px) { .container { padding: var(--sp-3); } }
@@ -547,6 +555,12 @@ footer.site-footer {
 footer.site-footer a { padding: 2px 1px; }
 footer.site-footer a { color: var(--footer-ink); }
 .pk-build { font-size: 0.85em; color: var(--stamp-ink); white-space: nowrap; }
+/* On the Studio surface a music/edit dock floats fixed at the bottom (~88px — matches
+   the .sheet-workspace clearance in Studio.vue). Reserve that band below the footer so
+   the sticky footer clears the dock instead of hiding under it (B047). */
+footer.site-footer.footer-dock-clear {
+  margin-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
 
 /* ---------- print (A4) ---------- */
 @media print {
