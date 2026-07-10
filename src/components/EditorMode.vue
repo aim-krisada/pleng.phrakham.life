@@ -1125,13 +1125,26 @@ function commitSnapshot() {
   if (history.value.length > 100) history.value.shift()
   histPos.value = history.value.length - 1
 }
+function scheduleCommit() {
+  clearTimeout(histTimer)
+  histTimer = setTimeout(() => {
+    histTimer = null
+    commitSnapshot()
+  }, 400)
+}
 watch(snapshotState, () => {
   if (applyingHistory) return
-  clearTimeout(histTimer)
-  histTimer = setTimeout(commitSnapshot, 400)
+  // B075: commit on the LEADING edge of a burst too. Without this, a second edit that lands
+  // within the 400ms debounce coalesces over the first — so the first edit never enters
+  // history and Ctrl+Z skips straight past it (พี่เปา: "ย้อนข้ามการแก้ล่าสุด", common on
+  // mobile palette tapping). Committing now makes the first edit its own undo step; the
+  // trailing timer still captures the burst's final state. (histTimer null = burst idle.)
+  if (!histTimer) commitSnapshot()
+  scheduleCommit()
 })
 function resetHistory() {
   clearTimeout(histTimer)
+  histTimer = null
   history.value = [snapshotState()]
   histPos.value = 0
 }
@@ -1150,7 +1163,8 @@ const canUndo = computed(() => histPos.value > 0)
 const canRedo = computed(() => histPos.value < history.value.length - 1)
 function undo() {
   clearTimeout(histTimer)
-  commitSnapshot()
+  histTimer = null
+  commitSnapshot() // flush any burst still pending so its final state is the step we leave
   if (histPos.value > 0) {
     histPos.value--
     applyState(history.value[histPos.value])
