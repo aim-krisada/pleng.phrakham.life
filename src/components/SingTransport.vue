@@ -13,6 +13,7 @@
 import { ref, computed } from 'vue'
 import Icon from './Icon.vue'
 import DockKey from './DockKey.vue'
+import ExportTool from './ExportTool.vue'
 import { readingFontScale, setFontScale } from '../store.js'
 
 const props = defineProps({
@@ -29,6 +30,12 @@ const props = defineProps({
   // page controls as inline descriptors (from SongViewer.settingDescs): display/chord/key/tempo/…
   //   { id, icon, label, kind:'menu'|'action', value, badge, options:[{value,label}], onPick(v) }
   settings: { type: Array, default: () => [] },
+  // export (PDF/JSON/MP3) — content + name + the JSON action + MP3 render key/tempo
+  content: { type: Object, default: null },
+  filenameBase: { type: String, default: 'song' },
+  onJson: { type: Function, default: null },
+  mp3Bpm: { type: Number, default: 0 },
+  mp3Transpose: { type: Number, default: 0 },
 })
 const emit = defineEmits(['toggle-play', 'prev', 'next', 'toggle-loop', 'seek', 'jump', 'toggle-section', 'set-all'])
 
@@ -94,6 +101,7 @@ const items = computed(() => {
     { id: 'back', kind: 'btn', name: 'ท่อนก่อน', icon: 'skip-back', place: { anchor: 'rightOf:grip', row: 1 }, hidden: !props.hasSections, run: () => emit('prev') },
     { id: 'play', kind: 'play', name: 'เล่น/หยุด', place: { anchor: 'rightOf:back', row: 1 }, control: { value: props.playing }, run: () => emit('toggle-play') },
     { id: 'forward', kind: 'btn', name: 'ท่อนถัดไป', icon: 'skip-forward', place: { anchor: 'rightOf:play', row: 1 }, hidden: !props.hasSections, run: () => emit('next') },
+    { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { anchor: 'rightOf:forward', row: 1 } },
     { id: 'scale', kind: 'aa', name: 'ขนาดตัวอักษร', place: { anchor: 'leftOf:setting', row: 1 }, permanent: true },
     { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
     { id: 'timeslide', kind: 'timeline', name: 'ไทม์ไลน์', place: { row: 2, col: 1, span: 3 } },
@@ -177,6 +185,20 @@ const items = computed(() => {
           </button>
         </div>
       </div>
+    </template>
+
+    <!-- ===== export (PDF/JSON/MP3) — MP3 in the chosen key/tempo (matches "ฟัง") ===== -->
+    <template #cell-export="{ open, toggle, close }">
+      <ExportTool
+        :content="content"
+        :filename-base="filenameBase"
+        :on-json="onJson"
+        :bpm="mp3Bpm"
+        :transpose="mp3Transpose"
+        :open="open"
+        @toggle="toggle"
+        @close="close"
+      />
     </template>
 
     <!-- ===== Aa reader font size — permanent, 1-tap · slider popover (store-driven) ===== -->

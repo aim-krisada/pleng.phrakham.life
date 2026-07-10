@@ -13,6 +13,10 @@ const props = defineProps({
   onJson: { type: Function, default: null }, // page-specific JSON download (meta differs)
   open: { type: Boolean, default: false }, // from the DockKey slot (one popover at a time)
   label: { type: String, default: 'ดาวน์โหลด' },
+  // MP3 render key/tempo (ฝึกร้อง exports in the chosen key/speed = matches "ฟัง"; print/edit
+  // omit → the song's native key/bpm).
+  bpm: { type: Number, default: 0 },
+  transpose: { type: Number, default: 0 },
 })
 const emit = defineEmits(['toggle', 'close'])
 
@@ -52,10 +56,13 @@ async function downloadMp3() {
   mp3Pct.value = 0
   try {
     const { songToMp3Blob, estimateMp3 } = await import('../lib/audioExport.js')
-    mp3Est.value = estimateMp3(props.content)
+    const bpm = props.bpm || undefined
+    mp3Est.value = estimateMp3(props.content, { bpm })
     mp3Stage.value = 'render'
     let encodeStart = 0
     const { blob } = await songToMp3Blob(props.content, {
+      bpm,
+      transpose: props.transpose || 0,
       onProgress: ({ stage, fraction }) => {
         mp3Stage.value = stage
         if (stage === 'encode') {
