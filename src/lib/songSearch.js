@@ -66,6 +66,27 @@ export function notesText(content) {
     .trim()
 }
 
+// Notes reduced to a bare scale-degree string (spaces and all decoration removed):
+// '5 5 6 1 3' -> '55613'. This is the space-insensitive form matched against a note
+// query so "5561", "55 61" and "5 5 6 1" all hit the same song.
+export function notesCompact(content) {
+  return notesText(content).replace(/[^0-7]/g, '')
+}
+
+// Is this query a search *by melody notes* (not by lyric / title / song number)?
+// True only when the query is made entirely of note glyphs (scale degrees 0-7, octave
+// dots, holds, beams, bars, accidentals, slurs) AND carries at least one pitched
+// degree. To keep number search untouched, a *bare* run of digits (no space, no
+// decoration) counts as notes only from length 4 up — song numbers are <= 3 digits, so
+// "42"/"100"/"117" stay pure number lookups while "5561" is read as notes.
+export function isNoteQuery(q) {
+  if (!/[1-7]/.test(q)) return false
+  if (!/^[0-7\s.'’_|~#b()♮{}-]+$/.test(q)) return false
+  const hasSpace = /\s/.test(q)
+  const hasDecoration = /[.'’_|~#b()♮{}-]/.test(q)
+  return hasSpace || hasDecoration || q.replace(/[^0-7]/g, '').length >= 4
+}
+
 export function snippet(content, len = 60) {
   return lyricsText(content).replace(/\s+/g, ' ').slice(0, len)
 }
@@ -135,6 +156,14 @@ export function scoreSong(song, query) {
   if (!q) return 0
   const hay = songHaystack(song)
   if (hay.includes(q)) return 0
+  // Note path: a melody query matches space-insensitively. Reduce both the query and
+  // the song's notes to bare scale degrees and test substring — so "5561", "55 61" and
+  // "5 5 6 1" all find the song whose notes are "5 5 6 1 3". Exact (no fuzz) to stay
+  // precise; only runs for note-shaped queries so lyric/title/number search is untouched.
+  if (isNoteQuery(q)) {
+    const nc = notesCompact(song.content ?? {})
+    if (nc && nc.includes(q.replace(/[^0-7]/g, ''))) return 0
+  }
   const maxErr = fuzzyBudget(compact(q))
   if (maxErr === 0) return null
   const d = fuzzyDistance(compact(hay), compact(q), maxErr)
