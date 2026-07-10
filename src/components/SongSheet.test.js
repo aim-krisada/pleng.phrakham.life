@@ -194,6 +194,39 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(lyricsOnly.classes()).not.toContain('sheet-no-chord') // no notes → no barlines → no need
   })
 
+  // B069 — a tie that crosses a bar line (source note, then a bar, then a "~" receiver
+  // note) is redrawn as ONE continuous line-level SVG arc over the bar, replacing the two
+  // segment-bound halves. The arc geometry is MEASURED from the rendered notes, so it only
+  // appears when there is real layout — in jsdom (no layout) the component must still mount
+  // cleanly and simply draw no overlay (never a broken/zero-width arc).
+  const crossBarTie = {
+    key: 'C',
+    timeSignature: '4/4',
+    lines: [
+      [
+        { type: 'segment', chord: 'C', note: '1 - - -', lyric: 'ก' },
+        { type: 'bar' },
+        { type: 'segment', chord: 'C', note: '~1', lyric: 'ข' },
+      ],
+    ],
+  }
+
+  it('B069: the overlay host + a cross-bar tie receiver render', () => {
+    const wrapper = mountSheet({ content: crossBarTie })
+    // the arcs are drawn into this positioned host
+    expect(wrapper.find('.sheet-root').exists()).toBe(true)
+    // the "~1" receiver is marked tie-end (what the overlay measurement keys off)
+    expect(wrapper.findAll('.tie-end').length).toBe(1)
+  })
+
+  it('B069: no overlay path is drawn without layout (jsdom) — degrades, never crashes', () => {
+    const wrapper = mountSheet({ content: crossBarTie })
+    // getBoundingClientRect is 0×0 in jsdom, so measureTies finds no arc → no <svg overlay>
+    expect(wrapper.findAll('.tie-overlay path').length).toBe(0)
+    // and mounting/measuring did not throw
+    expect(wrapper.find('.song-line').exists()).toBe(true)
+  })
+
   it('empty song does not throw and renders no lines', () => {
     const wrapper = mount(SongSheet, {
       props: { content: { key: 'C', timeSignature: '4/4', lines: [] }, mode: 'full' },
