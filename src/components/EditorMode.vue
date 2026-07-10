@@ -1373,21 +1373,67 @@ function toggleBarShown(li, bi) {
   const k = `${li}-${bi}`
   shownBars.value = { ...shownBars.value, [k]: !shownBars.value[k] }
 }
-function allBarKeys() {
-  const out = []
-  lines.value.forEach((line, li) => line.bars.forEach((_, bi) => out.push(`${li}-${bi}`)))
-  return out
+// "ดูผลทั้งเพลง" (B) — a NON-MODAL floating window of the whole song sheet. It replaces the
+// old "flip every bar to render inline" toggle (which blocked editing until you flipped back):
+// now the sheet floats over the page, resolvedPreview is reactive so it live-syncs while you
+// keep editing underneath, and it drags + closes. The drag+clamp is the dock-core pattern
+// (StudioDock combinedDown/Move/Up + clampToViewport) so it feels like the app's other
+// floating chrome — no new floating engine.
+const sheetWinOpen = ref(false)
+const sheetWinPos = ref(null) // {left, top} viewport coords · null = default CSS spot (top-right)
+function isNarrow() {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches
 }
-const allShown = computed(() => {
-  const keys = allBarKeys()
-  return keys.length > 0 && keys.every((k) => shownBars.value[k])
-})
-function toggleShowAll() {
-  const on = !allShown.value
-  const next = {}
-  if (on) for (const k of allBarKeys()) next[k] = true
-  shownBars.value = next
+const narrow = ref(isNarrow())
+function toggleSheetWin() { sheetWinOpen.value = !sheetWinOpen.value }
+
+const floatEl = ref(null)
+function clampWin(pos, w, h) {
+  return {
+    left: Math.max(4, Math.min(window.innerWidth - w - 4, pos.left)),
+    top: Math.max(4, Math.min(window.innerHeight - h - 4, pos.top)),
+  }
 }
+// drag the window by its title bar — press→move past a small threshold = drag (pins the
+// window to explicit fixed coords, then tracks the pointer, clamped inside the viewport).
+const FLOAT_DRAG = 5 // px
+let fdown = false, fmoved = false, fsx = 0, fsy = 0, foX = 0, foY = 0, fW = 0, fH = 0, fStartL = 0, fStartT = 0
+function floatDown(e) {
+  if (narrow.value) return // mobile: full-screen, no drag
+  fdown = true; fmoved = false
+  fsx = e.clientX; fsy = e.clientY
+  const el = floatEl.value
+  if (el) {
+    const r = el.getBoundingClientRect()
+    foX = fsx - r.left; foY = fsy - r.top; fW = r.width; fH = r.height; fStartL = r.left; fStartT = r.top
+  }
+  try { e.target.setPointerCapture(e.pointerId) } catch { /* pointer still tracks without capture */ }
+}
+function floatMove(e) {
+  if (!fdown) return
+  const dx = e.clientX - fsx, dy = e.clientY - fsy
+  if (!fmoved && dx * dx + dy * dy > FLOAT_DRAG * FLOAT_DRAG) {
+    fmoved = true
+    sheetWinPos.value = { left: fStartL, top: fStartT } // pin at current spot before tracking
+  }
+  if (fmoved) { e.preventDefault(); sheetWinPos.value = clampWin({ left: e.clientX - foX, top: e.clientY - foY }, fW, fH) }
+}
+function floatUp() { fdown = false; fmoved = false }
+const floatStyle = computed(() =>
+  sheetWinPos.value && !narrow.value
+    ? { left: sheetWinPos.value.left + 'px', top: sheetWinPos.value.top + 'px', right: 'auto', bottom: 'auto' }
+    : {},
+)
+// keep the window on-screen when the viewport shrinks (and refresh the mobile flag)
+function onFloatResize() {
+  narrow.value = isNarrow()
+  if (sheetWinPos.value && !narrow.value && floatEl.value) {
+    const r = floatEl.value.getBoundingClientRect()
+    sheetWinPos.value = clampWin(sheetWinPos.value, r.width, r.height)
+  }
+}
+onMounted(() => window.addEventListener('resize', onFloatResize))
+onUnmounted(() => window.removeEventListener('resize', onFloatResize))
 // a bar's clean render: a one-line, one-bar content object the SongSheet can draw. Words
 // come from the lens verse (if shown) so the render matches what the singer sees.
 function barContent(li, bi) {
@@ -1425,39 +1471,17 @@ function barContent(li, bi) {
   }
   return { version: 2, key: opts.key, timeSignature: opts.timeSignature, lines: [serial] }
 }
-// B061: the live inline preview above each line's edit strip — the SAME jianpu the sheet
+// B061 (A): the live inline preview above each line's edit strip — the SAME jianpu the sheet
 // draws (octave dots · held dashes · ties), rendered from the current line as you type, no
-// button. Reuses serializeLine + the shown verse's words exactly like barContent, but for
-// the whole line at once so it reads like the printed sheet. Read-only; the boxes below stay
-// the edit surface. livePreview lets a small screen turn the strip off (default on).
+// button. Now rendered PER BAR (reusing barContent, same as the B035 per-bar "ดูผล") so you
+// see each ห้อง resolve on its own in real time — bars laid out left→right with a barline
+// between, matching the edit strip below. Read-only; the boxes below stay the edit surface.
+// livePreview lets a small screen turn the strip off (default on).
 const livePreview = ref(true)
 const settingsOpen = ref(true) // B060: inline song-settings card, open by default
 function lineHasNotes(li) {
   const line = lines.value[li]
   return !!line && line.bars.some((b) => b.segments.some((s) => (s.note || '').trim()))
-}
-function lineContent(li) {
-  const line = lines.value[li]
-  if (!line) return { version: 2, key: opts.key, timeSignature: opts.timeSignature, lines: [] }
-  const serial = serializeLine(line)
-  // segment items in `serial` follow model bar/segment order, so zip them with the line's
-  // (bi, si) coords to pull each segment's words from the shown verse at its global slot.
-  if (lensActive.value && lensRow.value) {
-    const coords = []
-    line.bars.forEach((bar, bi) => bar.segments.forEach((_, si) => coords.push([bi, si])))
-    let ci = 0
-    for (const item of serial) {
-      if (item.type !== 'segment') continue
-      const [bi, si] = coords[ci++] ?? []
-      if (bi == null) continue
-      const start = slotStarts.value[`${li}-${bi}-${si}`] ?? 0
-      const n = syllableSlots(item.note || '')
-      const slots = lensRow.value.syllables.slice(start, start + n)
-      item.lyric = joinSyllables(slots)
-      item.syllables = slots
-    }
-  }
-  return { version: 2, key: opts.key, timeSignature: opts.timeSignature, lines: [serial] }
 }
 
 // dropping the lens/stanza switch also clears any stale per-bar renders so the fresh
@@ -1706,12 +1730,15 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         <button :class="{ on: barLayout === 'stack' }" :aria-pressed="barLayout === 'stack'" @click="barLayout = 'stack'">1 ห้อง/แถว</button>
         <button :class="{ on: barLayout === 'flow' }" :aria-pressed="barLayout === 'flow'" @click="barLayout = 'flow'">ต่อกัน</button>
       </div>
-      <button class="ed-chip" :class="{ act: allShown }" title="แสดง/ซ่อน โน้ตแบบแผ่นเพลงทั้งเพลง" @click="toggleShowAll">
-        <Icon :name="allShown ? 'pencil' : 'music'" :size="15" /> {{ allShown ? 'กลับไปแก้ทั้งเพลง' : 'ดูผลทั้งเพลง' }}
-      </button>
-      <button class="ed-chip" :class="{ act: livePreview }" :aria-pressed="livePreview" title="แสดงตัวอย่างโน้ตสดเหนือแต่ละบรรทัด (อัปเดตขณะพิมพ์)" @click="livePreview = !livePreview">
-        <Icon name="eye" :size="15" /> ตัวอย่างสด
-      </button>
+      <!-- พรีวิว group: A = live per-bar preview inline · B = pop-out floating whole-song window -->
+      <span class="ed-preview-grp" role="group" aria-label="พรีวิว">
+        <button class="ed-chip" :class="{ act: livePreview }" :aria-pressed="livePreview" title="ตัวอย่างสด — เห็นผลแต่ละห้องระหว่างพิมพ์ (เหนือบรรทัด)" @click="livePreview = !livePreview">
+          <Icon name="eye" :size="15" /> ตัวอย่างสด
+        </button>
+        <button class="ed-chip" :class="{ act: sheetWinOpen }" :aria-pressed="sheetWinOpen" title="ดูผลทั้งเพลง — เปิดหน้าต่างลอยแผ่นเพลง แก้ไปดูไป (ลากได้ · ปิดได้)" @click="toggleSheetWin">
+          <Icon name="picture-in-picture-2" :size="15" /> ดูผลทั้งเพลง
+        </button>
+      </span>
       <button class="ed-ico" title="ฟังท่อนนี้" aria-label="ฟังท่อนนี้" @click="playStanza"><Icon name="play" :size="16" /></button>
       <span class="ed-quick" aria-label="โครงเพลงด่วน (บรรทัดที่กำลังแก้)">
         <button class="ed-ico" :class="{ on: curLineHook }" title="ทำเครื่องหมายท่อนฮุกให้บรรทัดที่กำลังแก้" aria-label="ท่อนฮุก" @click="qHook"><Icon name="fishing-hook" :size="16" /></button>
@@ -1776,11 +1803,17 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
           <button class="ed-mini" title="ฟังบรรทัดนี้" aria-label="ฟังบรรทัดนี้" @click="playLine(li)"><Icon name="play" :size="14" /></button>
         </span>
       </div>
-      <!-- B061: live jianpu preview of this line — the SAME render the sheet draws, updating
-           as you type (read-only; the edit boxes are below). Skipped while the line is still
-           empty so a blank preview never shows. Toggle off via "ตัวอย่างสด" in the header. -->
-      <div v-if="livePreview && lineHasNotes(li)" class="ed-line-live no-print" aria-label="ตัวอย่างโน้ตบรรทัดนี้ (อ่านอย่างเดียว)">
-        <SongSheet :content="lineContent(li)" mode="full" chord-system="letter" :display-key="opts.key" />
+      <!-- B061 (A): live jianpu preview of this line, PER BAR — the SAME render the sheet draws,
+           updating as you type (read-only; the edit boxes are below). Each ห้อง renders on its
+           own (reusing barContent) with a barline between, so you see edits resolve bar-by-bar
+           in real time. Skipped while the line is still empty. Toggle off via "ตัวอย่างสด". -->
+      <div v-if="livePreview && lineHasNotes(li)" class="ed-line-live no-print" aria-label="ตัวอย่างโน้ตบรรทัดนี้ รายห้อง (อ่านอย่างเดียว)">
+        <template v-for="(bar, bi) in line.bars" :key="bi">
+          <span v-if="bi > 0" class="ed-live-sep" aria-hidden="true"></span>
+          <div class="ed-live-bar">
+            <SongSheet :content="barContent(li, bi)" mode="full" chord-system="letter" :display-key="opts.key" />
+          </div>
+        </template>
       </div>
       <!-- line structure (ชื่อ · ฮุก · ต่อห้อง · จบเพลง · ป้าย · สำเนา · ลบ) now lives in the
            header quick-struct + ⋯, acting on the focused line — US E3 "all structure is
@@ -2011,6 +2044,35 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 
     <!-- bottom dock lives on Studio now (dock-core / N1): a single shared <StudioDock>
          mounted once. This mode emits its dock config up via @dock instead of mounting. -->
+
+    <!-- B: NON-MODAL floating whole-song preview (ดูผลทั้งเพลง). No backdrop → the editor
+         underneath stays interactive (edit-and-watch). resolvedPreview is reactive so it
+         live-syncs while you type. Drag by the title bar (dock-core clamp keeps it on-screen);
+         ✕ closes. Mobile (≤760px): opens full-screen with the same ✕, no drag. -->
+    <div
+      v-if="sheetWinOpen"
+      ref="floatEl"
+      class="ed-float no-print"
+      :style="floatStyle"
+      role="dialog"
+      aria-label="แผ่นเพลงทั้งเพลง (แก้ไปดูไป)"
+    >
+      <div
+        class="ed-float-head"
+        @pointerdown="floatDown"
+        @pointermove="floatMove"
+        @pointerup="floatUp"
+        @pointercancel="floatUp"
+      >
+        <Icon name="grip-horizontal" :size="16" class="ed-float-grip" />
+        <span class="ed-float-title">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || 'แผ่นเพลง' }}</span>
+        <span class="ed-float-key muted">Key {{ opts.key }}</span>
+        <button class="ed-float-x" aria-label="ปิดหน้าต่างแผ่นเพลง" title="ปิด" @click="sheetWinOpen = false"><Icon name="x" :size="16" /></button>
+      </div>
+      <div class="ed-float-body">
+        <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
+      </div>
+    </div>
 
     <!-- full sheet overlay -->
     <div v-if="showSheet" class="sheet-overlay no-print" role="dialog" aria-label="แผ่นเพลง" @click.self="showSheet = false" @keydown.esc="showSheet = false">
@@ -2267,6 +2329,67 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   border: 1.5px solid var(--brand);
   background: var(--cream);
   box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.15);
+}
+/* B: non-modal floating preview window — position:fixed with its own drag+clamp (dock-core
+   pattern). No backdrop: the editor underneath stays fully interactive (edit-and-watch). */
+.ed-float {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  z-index: 95;
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(70vh, calc(100vh - 96px));
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+.ed-float-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--cream);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.ed-float-head:active { cursor: grabbing; }
+.ed-float-grip { color: var(--muted); flex: 0 0 auto; }
+.ed-float-title { font-weight: 700; color: var(--brand); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; }
+.ed-float-key { font-size: 0.8rem; flex: 0 0 auto; }
+.ed-float-x {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+@media (hover: hover) { .ed-float-x:hover { background: var(--cream); border-color: var(--brand); } }
+.ed-float-body { padding: 12px; overflow: auto; }
+/* mobile (≤760px): the floating window makes no sense on a small screen → full-screen sheet
+   with the same ✕, no drag (brief B mobile path). */
+@media (max-width: 760px) {
+  .ed-float {
+    inset: 0;
+    width: 100%;
+    max-height: none;
+    border: none;
+    border-radius: 0;
+  }
+  .ed-float-head { cursor: default; }
 }
 .sheet-overlay {
   position: fixed;
@@ -2628,6 +2751,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   cursor: pointer;
 }
 .ed-chip.act { background: var(--cream); border-color: var(--brand); color: var(--brand); font-weight: 700; }
+.ed-preview-grp { display: inline-flex; gap: 4px; }
 .ed-quick { display: inline-flex; gap: 4px; }
 /* ⋯ line-more popover (advanced settings for the active line) */
 .ed-more-wrap { position: relative; display: inline-flex; }
@@ -2735,14 +2859,21 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 .ed-line.line-active { border-color: var(--brand); }
 /* B061: live jianpu preview strip above the edit boxes — a tinted read-only render that
    updates as you type. Scrolls horizontally on its own so a long line never widens the page. */
+/* A: live per-bar preview — bars flow left→right (like the edit strip) with a barline
+   between; wraps on narrow screens so no ห้อง is clipped. */
 .ed-line-live {
   background: #fffdf5;
   border: 1px dashed var(--brand);
   border-radius: 8px;
   padding: 6px 10px;
   margin-bottom: 8px;
-  overflow-x: auto;
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
 }
+.ed-live-bar { min-width: 0; }
+.ed-live-sep { align-self: stretch; width: 0; border-left: 2px solid var(--muted); margin: 2px 0; min-height: 28px; }
 /* B060: inline song-settings card */
 .ed-settings { padding: 10px 12px; margin-bottom: 12px; }
 .ed-settings-head { display: flex; align-items: center; gap: 8px; }
