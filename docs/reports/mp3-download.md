@@ -49,6 +49,18 @@
 ### รอ P'Aim (ear-check ตัวจริง)
 เปิด **http://10.215.141.98:5372/verify-mp3.html** บนเครื่อง/มือถือใน LAN เดียวกัน → กดเล่นใน `<audio>` player (หรือปุ่ม ⬇️ โหลดไฟล์) เพื่อฟังว่าทำนองไพเราะ/ตรงหูจริง
 
+## รอบ 2 — progress feedback (P'Aim สั่งหลังทดลองผ่าน)
+P'Aim: encode นาน ถ้าไม่มี feedback คนนึกว่าพัง → กด refresh. ขอ near-real-time + ประมาณเวลา/ขนาด + staged. **ทำครบแล้ว** (de-facto: determinate progress + ETA สำหรับงาน >10 วิ — NN/g):
+- `estimateMp3(content)` — คำนวณ **ก่อน** render (แค่เลขโน้ต): ความยาวเป๊ะ + ขนาดไฟล์จาก bitrate → โชว์ "≈ 2m46s · ~2.5 MB" ก่อนเริ่ม
+- `encodePcmToMp3` → async, รายงาน 0→1 + **yield main thread ทุก N เฟรม** (`setTimeout 0`) → progress bar repaint จริง (ไม่งั้น loop กิน thread จนบาร์ค้าง = กับดัก "ดูเหมือนแฮงค์")
+- `songToMp3Blob({onProgress})` → staged `{stage:'render'|'encode'|'done', fraction}`
+- `DownloadTool.vue` → ป้ายตามขั้น + `<progress>` bar + ETA สด + บรรทัดประมาณการ
+- verify จริง เพลง 100: stages `render→encode→done` ✅ · **ประมาณขนาดพลาดแค่ 0.025%** (est 2,659,652 vs จริง 2,660,310 ไบต์) · ETA ยิงสด · pitch ยัง 201/201
+- เทสต์ +2 (estimate math · progress 0→1 monotonic) → **รวม 276 ผ่าน** · build ผ่าน bundle เท่าเดิม (lamejs ยัง tree-shaken จนกว่าจะเสียบ dock)
+
+## ข้อเสนอตำแหน่ง UI (ถึง PM)
+P'Aim ขอให้เสนอ PM จับ MP3 ใส่ที่เหมาะสมอิง de-facto → `docs/pm/proposal-mp3-placement.md`: **รวมเข้าเมนูดาวน์โหลด/ส่งออกเดียวกับ PDF+JSON** (export ทุกฟอร์แมตอยู่ที่เดียว) · หลัง DockKey = เสียบ dock ผ่าน descriptor (สาย `sa-dockkey-print-edit`) · Web Worker = ตัวเลือกเสริม ยังไม่จำเป็น. **รอ PM เคาะ**
+
 ## Next (phase หลัง · ไม่อยู่ในรอบนี้)
 - เสียบ MP3 เข้า dock ผ่าน descriptor ตอน DockKey เสร็จ (ปัจจุบันปุ่มอยู่ใน `DownloadTool.vue` ที่ยัง orphan)
 - ถ้าจะทำ MIDI download ด้วย → มี `songToNotes` อยู่แล้ว, เพิ่ม `songToMidiBlob` ได้ทีหลัง (ใบสั่งบอกรอบนี้ MP3 พอ)
