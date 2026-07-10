@@ -139,4 +139,8 @@ function addBox() {
   background: transparent;
   border-style: dashed;
 }
+/* on a phone the "+" add-note button gets a wider, comfortable tap area */
+@media (max-width: 760px) {
+  .note-box.add { width: 40px; }
+}
 </style>
