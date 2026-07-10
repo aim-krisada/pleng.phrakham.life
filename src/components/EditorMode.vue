@@ -1381,6 +1381,9 @@ function toggleBarShown(li, bi) {
 // floating chrome — no new floating engine.
 const sheetWinOpen = ref(false)
 const sheetWinPos = ref(null) // {left, top} viewport coords · null = default CSS spot (top-right)
+const sheetWinSize = ref(null) // {width, height} px · null = default CSS size (min(440px…))
+const FLOAT_MIN_W = 280 // don't let a resize squash the sheet past readable
+const FLOAT_MIN_H = 200
 function isNarrow() {
   return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches
 }
@@ -1419,15 +1422,63 @@ function floatMove(e) {
   if (fmoved) { e.preventDefault(); sheetWinPos.value = clampWin({ left: e.clientX - foX, top: e.clientY - foY }, fW, fH) }
 }
 function floatUp() { fdown = false; fmoved = false }
-const floatStyle = computed(() =>
-  sheetWinPos.value && !narrow.value
-    ? { left: sheetWinPos.value.left + 'px', top: sheetWinPos.value.top + 'px', right: 'auto', bottom: 'auto' }
-    : {},
-)
-// keep the window on-screen when the viewport shrinks (and refresh the mobile flag)
+// resize by the bottom-right corner handle — same press→track→clamp shape as the drag, but it
+// grows width/height (from a pinned top-left) instead of moving. Kept inside the viewport with a
+// floor (FLOAT_MIN_*) so it can't be squashed and a ceiling so it can't spill off-screen.
+let rdown = false, rsx = 0, rsy = 0, rW0 = 0, rH0 = 0, rLeft = 0, rTop = 0
+function resizeDown(e) {
+  if (narrow.value) return // mobile: full-screen, no resize
+  const el = floatEl.value
+  if (!el) return
+  const r = el.getBoundingClientRect()
+  rdown = true
+  rsx = e.clientX; rsy = e.clientY
+  rW0 = r.width; rH0 = r.height; rLeft = r.left; rTop = r.top
+  // pin the top-left so the box grows from the corner (matches what the eye expects)
+  if (!sheetWinPos.value) sheetWinPos.value = { left: rLeft, top: rTop }
+  e.preventDefault(); e.stopPropagation()
+  try { e.target.setPointerCapture(e.pointerId) } catch { /* still tracks without capture */ }
+}
+function resizeMove(e) {
+  if (!rdown) return
+  e.preventDefault()
+  const maxW = window.innerWidth - rLeft - 4
+  const maxH = window.innerHeight - rTop - 4
+  const w = Math.max(FLOAT_MIN_W, Math.min(maxW, rW0 + (e.clientX - rsx)))
+  const h = Math.max(FLOAT_MIN_H, Math.min(maxH, rH0 + (e.clientY - rsy)))
+  sheetWinSize.value = { width: w, height: h }
+}
+function resizeUp(e) {
+  rdown = false
+  try { e.target.releasePointerCapture(e.pointerId) } catch { /* no-op */ }
+}
+const floatStyle = computed(() => {
+  if (narrow.value) return {}
+  const s = {}
+  if (sheetWinPos.value) {
+    s.left = sheetWinPos.value.left + 'px'
+    s.top = sheetWinPos.value.top + 'px'
+    s.right = 'auto'
+    s.bottom = 'auto'
+  }
+  if (sheetWinSize.value) {
+    s.width = sheetWinSize.value.width + 'px'
+    s.height = sheetWinSize.value.height + 'px'
+    s.maxHeight = 'none' // an explicit height overrides the default 70vh cap
+  }
+  return s
+})
+// keep the window on-screen (and sized within it) when the viewport shrinks; refresh mobile flag
 function onFloatResize() {
   narrow.value = isNarrow()
-  if (sheetWinPos.value && !narrow.value && floatEl.value) {
+  if (narrow.value || !floatEl.value) return
+  if (sheetWinSize.value) {
+    sheetWinSize.value = {
+      width: Math.min(sheetWinSize.value.width, window.innerWidth - 8),
+      height: Math.min(sheetWinSize.value.height, window.innerHeight - 8),
+    }
+  }
+  if (sheetWinPos.value) {
     const r = floatEl.value.getBoundingClientRect()
     sheetWinPos.value = clampWin(sheetWinPos.value, r.width, r.height)
   }
@@ -1482,6 +1533,12 @@ const settingsOpen = ref(true) // B060: inline song-settings card, open by defau
 function lineHasNotes(li) {
   const line = lines.value[li]
   return !!line && line.bars.some((b) => b.segments.some((s) => (s.note || '').trim()))
+}
+// A (editor-preview-refine): does THIS ห้อง carry any note? — gate for the per-bar live preview,
+// so an empty bar shows only its edit boxes (nothing to render yet).
+function barHasNotes(li, bi) {
+  const bar = lines.value[li]?.bars[bi]
+  return !!bar && bar.segments.some((s) => (s.note || '').trim())
 }
 
 // dropping the lens/stanza switch also clears any stale per-bar renders so the fresh
@@ -1803,18 +1860,10 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
           <button class="ed-mini" title="ฟังบรรทัดนี้" aria-label="ฟังบรรทัดนี้" @click="playLine(li)"><Icon name="play" :size="14" /></button>
         </span>
       </div>
-      <!-- B061 (A): live jianpu preview of this line, PER BAR — the SAME render the sheet draws,
-           updating as you type (read-only; the edit boxes are below). Each ห้อง renders on its
-           own (reusing barContent) with a barline between, so you see edits resolve bar-by-bar
-           in real time. Skipped while the line is still empty. Toggle off via "ตัวอย่างสด". -->
-      <div v-if="livePreview && lineHasNotes(li)" class="ed-line-live no-print" aria-label="ตัวอย่างโน้ตบรรทัดนี้ รายห้อง (อ่านอย่างเดียว)">
-        <template v-for="(bar, bi) in line.bars" :key="bi">
-          <span v-if="bi > 0" class="ed-live-sep" aria-hidden="true"></span>
-          <div class="ed-live-bar">
-            <SongSheet :content="barContent(li, bi)" mode="full" chord-system="letter" :display-key="opts.key" />
-          </div>
-        </template>
-      </div>
+      <!-- A (editor-preview-refine): the live jianpu preview now sits IN PLACE — a small
+           read-only render above each ห้อง's own edit boxes (see .ed-bar-live inside the strip),
+           not one shared strip on the line head. So editing a bar shows that bar's render right
+           above it, in real time, in both layouts. Toggle off via "ตัวอย่างสด". -->
       <!-- line structure (ชื่อ · ฮุก · ต่อห้อง · จบเพลง · ป้าย · สำเนา · ลบ) now lives in the
            header quick-struct + ⋯, acting on the focused line — US E3 "all structure is
            line-level in the header; a bar keeps only ▶ + ดูผล". The tags above echo state. -->
@@ -1830,6 +1879,14 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
             :class="{ 'bar-playing': playingBar === `${li}-${bi}` }"
             :data-bar="`${li}-${bi}`"
           >
+            <!-- A (editor-preview-refine): live jianpu preview of THIS ห้อง, in place right above
+                 its edit boxes — the same render the sheet draws, updating as you type. Read-only;
+                 the boxes below stay the edit surface. Hidden when the bar is empty or already
+                 flipped to full ดูผล (which replaces the grid). barContent keeps section/hook on the
+                 first bar only, so the head shows once per line (B051). -->
+            <div v-if="livePreview && !barShown(li, bi) && barHasNotes(li, bi)" class="ed-bar-live no-print" aria-label="ตัวอย่างโน้ตห้องนี้ (อ่านอย่างเดียว)">
+              <SongSheet :content="barContent(li, bi)" mode="full" chord-system="letter" :display-key="opts.key" />
+            </div>
             <!-- one column per note: chord on top, note box, then the syllable box
                  directly under its note (edit everything here — no duplicate preview) -->
             <div v-if="!barShown(li, bi)" class="seg-strip">
@@ -2072,6 +2129,18 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       <div class="ed-float-body">
         <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
       </div>
+      <!-- resize by dragging this bottom-right corner (desktop only; mobile is full-screen) -->
+      <div
+        v-if="!narrow"
+        class="ed-float-resize"
+        role="separator"
+        aria-label="ปรับขนาดหน้าต่างแผ่นเพลง"
+        title="ลากเพื่อปรับขนาด"
+        @pointerdown="resizeDown"
+        @pointermove="resizeMove"
+        @pointerup="resizeUp"
+        @pointercancel="resizeUp"
+      ></div>
     </div>
 
     <!-- full sheet overlay -->
@@ -2378,7 +2447,27 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   cursor: pointer;
 }
 @media (hover: hover) { .ed-float-x:hover { background: var(--cream); border-color: var(--brand); } }
-.ed-float-body { padding: 12px; overflow: auto; }
+.ed-float-body { padding: 12px; overflow: auto; flex: 1 1 auto; min-height: 0; }
+/* resize grip (bottom-right corner) — the diagonal lines are the standard resize affordance.
+   Sits above the scrolling body so it stays grabbable. Desktop only (v-if hides it on mobile). */
+.ed-float-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 2;
+  background: linear-gradient(
+    135deg,
+    transparent 0 46%,
+    var(--muted) 46% 54%,
+    transparent 54% 66%,
+    var(--muted) 66% 74%,
+    transparent 74%
+  );
+}
 /* mobile (≤760px): the floating window makes no sense on a small screen → full-screen sheet
    with the same ✕, no drag (brief B mobile path). */
 @media (max-width: 760px) {
@@ -2857,23 +2946,18 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   margin-bottom: 10px;
 }
 .ed-line.line-active { border-color: var(--brand); }
-/* B061: live jianpu preview strip above the edit boxes — a tinted read-only render that
-   updates as you type. Scrolls horizontally on its own so a long line never widens the page. */
-/* A: live per-bar preview — bars flow left→right (like the edit strip) with a barline
-   between; wraps on narrow screens so no ห้อง is clipped. */
-.ed-line-live {
+/* A (editor-preview-refine): live per-bar preview IN PLACE — a tinted read-only render that
+   sits directly above each ห้อง's own edit boxes and updates as you type. Sits at the top of the
+   .ed-bar flex column, so it works the same in both layouts (1 ห้อง/แถว + ห้องต่อกัน). Scrolls
+   horizontally on its own so a long bar never widens the column. */
+.ed-bar-live {
   background: #fffdf5;
   border: 1px dashed var(--brand);
-  border-radius: 8px;
-  padding: 6px 10px;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 8px;
+  border-radius: 6px;
+  padding: 3px 6px;
+  overflow-x: auto;
+  min-width: 0;
 }
-.ed-live-bar { min-width: 0; }
-.ed-live-sep { align-self: stretch; width: 0; border-left: 2px solid var(--muted); margin: 2px 0; min-height: 28px; }
 /* B060: inline song-settings card */
 .ed-settings { padding: 10px 12px; margin-bottom: 12px; }
 .ed-settings-head { display: flex; align-items: center; gap: 8px; }

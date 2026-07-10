@@ -100,16 +100,51 @@ describe('edhead — prototype-aligned edit header', () => {
     expect(w.find('.ed-float').exists()).toBe(false) // toggled closed
   })
 
-  it('A (editor-preview-split): live "ตัวอย่างสด" preview renders PER BAR (one mini-sheet each)', async () => {
+  it('B (editor-preview-refine): the floating window carries a bottom-right resize handle', async () => {
+    const w = mountEd()
+    await nextTick()
+    expect(w.find('.ed-float-resize').exists()).toBe(false) // no window, no handle
+    await findChip(w, 'ดูผลทั้งเพลง').trigger('click')
+    expect(w.find('.ed-float-resize').exists()).toBe(true) // desktop window offers resize
+  })
+
+  it('B (editor-preview-refine): dragging the handle sets an explicit size, floored at the minimum', async () => {
+    const w = mountEd()
+    await nextTick()
+    await findChip(w, 'ดูผลทั้งเพลง').trigger('click')
+    const handle = w.find('.ed-float-resize')
+    const float = () => w.find('.ed-float')
+    // grab, then drag out by +500 / +400 → explicit width/height style appears (default is CSS-only)
+    await handle.trigger('pointerdown', { clientX: 400, clientY: 300, pointerId: 1 })
+    await handle.trigger('pointermove', { clientX: 900, clientY: 700, pointerId: 1 })
+    let style = float().attributes('style') || ''
+    expect(style).toMatch(/width:\s*\d+px/)
+    expect(style).toMatch(/height:\s*\d+px/)
+    // now drag far past the top-left (huge negative delta) → floored at FLOAT_MIN_W/H (280×200)
+    await handle.trigger('pointermove', { clientX: -5000, clientY: -5000, pointerId: 1 })
+    style = float().attributes('style') || ''
+    expect(style).toContain('width: 280px')
+    expect(style).toContain('height: 200px')
+    // drag far beyond the screen → capped at the viewport (jsdom 1024×768, pinned at 0,0, −4 gutter)
+    await handle.trigger('pointermove', { clientX: 5000, clientY: 5000, pointerId: 1 })
+    style = float().attributes('style') || ''
+    expect(style).toContain('width: 1020px') // innerWidth 1024 − 4
+    expect(style).toContain('height: 764px') // innerHeight 768 − 4
+    await handle.trigger('pointerup', { pointerId: 1 })
+  })
+
+  it('A (editor-preview-refine): live "ตัวอย่างสด" preview renders PER BAR, IN PLACE (above each ห้อง)', async () => {
     const w = mountWorded() // real SongSheet
     await nextTick()
-    // livePreview is on by default; the worded line has 2 bars → 2 per-bar previews + 1 barline
-    const strip = w.find('.ed-line-live')
-    expect(strip.exists()).toBe(true)
-    expect(strip.findAll('.ed-live-bar').length).toBe(2)
-    expect(strip.findAll('.ed-live-sep').length).toBe(1)
-    // section head shows once (on the first bar only), not stamped on every ห้อง
-    expect(strip.findAll('.section-label').length).toBe(1)
+    // livePreview is on by default; each ห้อง carries its own preview above its edit boxes — the
+    // worded line has 2 bars → 2 in-place previews (no shared line-head strip anymore).
+    expect(w.find('.ed-line-live').exists()).toBe(false) // old whole-line strip is gone
+    const previews = w.findAll('.ed-bar-live')
+    expect(previews.length).toBe(2)
+    // each preview sits inside its own .ed-bar (in place, not a separate strip)
+    expect(previews.every((p) => p.element.closest('.ed-bar'))).toBe(true)
+    // section head shows once (on the first bar's preview only), not stamped on every ห้อง (B051)
+    expect(w.findAll('.ed-bar-live .section-label').length).toBe(1)
   })
 
   it('B035: per-bar ดูผล flips one bar only, in place', async () => {
