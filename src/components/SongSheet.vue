@@ -353,6 +353,14 @@ watch(
 :deep(.note-row > .note-group:first-child > .nt.tie-end:first-child .tie-end-arc) {
   display: none;
 }
+/* …and hide NoteRow's START-half of the SAME cross-bar tie (the held note is the LAST note
+   of its NoteRow). B069 only hid the end-half, so the source's start-half kept drawing UNDER
+   the overlay arc → two curves stacked (obvious in the narrow floating preview, subtler on
+   the wide sheet). The overlay already spans source→receiver, so the start-half is redundant;
+   a within-segment tie-start (NOT the last note) keeps NoteRow's arc untouched. */
+:deep(.note-row > .note-group:last-child > .nt.tie-start:last-child .tie-start-arc) {
+  display: none;
+}
 /* Songbook reused-verse lines have no notes, so the note-row spacing (margin-bottom 20px)
    leaves them floating far apart. Pull them into a tight lyric block, like a hymn book. */
 .song-line-lyrics {

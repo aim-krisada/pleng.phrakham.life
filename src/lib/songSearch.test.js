@@ -211,6 +211,51 @@ describe('note search is space-insensitive (space-less)', () => {
   })
 })
 
+// Regression for the note-search-verify pass: a melody query is an EXACT-SEQUENCE
+// request. P'Aim searched "5 5 5 6 1 6 1 2 2 2 2" and got songs 1, 29 and 43, but only
+// song 1 actually contains that run — 29 and 43 were near-miss fuzzy hits (edit distance
+// 2). These fixtures reproduce the real notesCompact() of those three songs.
+describe('note search is an exact sequence (no fuzzy near-miss)', () => {
+  const mkNotes = (degrees) => ({
+    number: 0,
+    title_th: '',
+    content: { version: 2, key: 'C', stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: degrees.split('').join(' ') }]] }] },
+  })
+  // Real notesCompact() from Supabase (2026-07-10): song 1 opens with the queried run;
+  // songs 29 & 43 differ by 2 notes and must NOT match.
+  const song1 = { ...mkNotes('555616122222133235653232165613255561612222213323565323216561211356676533211212367117566532126'), number: 1, title_th: 'พระเจ้าเป็นความรัก' }
+  const song29 = { ...mkNotes('555611123223321176665611555611123223321176665611'), number: 29, title_th: 'ใครเปรียบพระเยซูได้' }
+  const song43 = { ...mkNotes('321235556110222343120321235661112223432105434531161111543453132223232123121652223443210'), number: 43, title_th: 'ชีวิตแสนสุข' }
+  const cat = [song1, song29, song43]
+  const Q = '5 5 5 6 1 6 1 2 2 2 2'
+
+  it('returns only the song that truly contains the run (not the near-misses)', () => {
+    expect(filterSongs(cat, Q).map((s) => s.number)).toEqual([1])
+  })
+
+  it('song 1 contains the contiguous sequence; 29 and 43 do not', () => {
+    expect(notesCompact(song1.content)).toContain('55561612222')
+    expect(notesCompact(song29.content)).not.toContain('55561612222')
+    expect(notesCompact(song43.content)).not.toContain('55561612222')
+  })
+
+  it('gives identical results with, without, and with mixed spaces', () => {
+    const spaced = filterSongs(cat, '5 5 5 6 1 6 1 2 2 2 2').map((s) => s.number)
+    const joined = filterSongs(cat, '55561612222').map((s) => s.number)
+    const mixed = filterSongs(cat, '5556 1612222').map((s) => s.number)
+    const trailing = filterSongs(cat, '5 5 5 6 1 6 1 2 2 2 2 ').map((s) => s.number)
+    expect(spaced).toEqual([1])
+    expect(joined).toEqual([1])
+    expect(mixed).toEqual([1])
+    expect(trailing).toEqual([1])
+  })
+
+  it('a one-note-off query matches nothing (no fuzzy fallthrough for note queries)', () => {
+    // song 1 is '...55561612222...'; '55561612223' (last note off) must not fuzzy-hit it.
+    expect(filterSongs(cat, '55561612223')).toEqual([])
+  })
+})
+
 describe('note path does not disturb lyric / number / title search', () => {
   // A song whose NUMBER is 12 and whose notes happen to contain '12' as well.
   const numbered = {
