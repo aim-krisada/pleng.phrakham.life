@@ -43,6 +43,11 @@
   .btn .ico{width:20px;height:20px}
   .btn:hover{background:var(--cream)}
   .btn.on{color:var(--brand);background:var(--cream)}
+  .btn.tglbar:not(.on){color:var(--muted)}         /* วนซ้ำ ปิด = เทา · เปิด = น้ำตาล+พื้นครีม (ชัดว่า on/off) */
+  .tgl{width:42px;height:24px;border-radius:12px;border:0;background:#c9c0b3;position:relative;cursor:pointer;padding:0;flex:0 0 auto;transition:background .15s}
+  .tgl.on{background:var(--brand)}
+  .tgl-k{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+  .tgl.on .tgl-k{left:20px}
   .play{width:50px;height:50px;color:var(--brand);border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
   .play .ico{width:28px;height:28px}
   .grip{color:var(--muted);cursor:grab;touch-action:none}
@@ -70,11 +75,9 @@
   .fil{position:absolute;left:0;height:4px;background:var(--brand);border-radius:3px;top:50%;transform:translateY(-50%)}
   .kn{position:absolute;width:16px;height:16px;background:var(--brand);border:3px solid #fff;border-radius:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,.35);pointer-events:none;z-index:3}
   .seg{position:absolute;height:5px;top:50%;transform:translateY(-50%);border-radius:3px;background:var(--line);pointer-events:none;transition:height .1s}
-  .seg.on{background:var(--brand);opacity:.5}
-  .seg.cur{height:9px}
-  .seg.on.cur{opacity:1}
-  .mk{position:absolute;width:11px;height:11px;border:1.5px solid var(--brand);background:#fff;border-radius:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:2}
-  .mk.on{background:var(--brand)}
+  .seg.on{background:var(--brand)}                 /* ท่อนที่เลือก = เส้นน้ำตาลชัด (ตัวหลัก) */
+  .seg.cur{height:9px}                              /* ท่อนที่กำลังเล่น = สูงขึ้น */
+  .mk{position:absolute;width:9px;height:9px;border:1px solid rgba(139,69,19,.35);background:transparent;border-radius:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:2}  /* วงกลม = ลายเส้นจางๆ อ้างอิงต้นท่อน */
   .keyb{flex:0 0 auto}
 
   .pop{position:absolute;bottom:calc(100% + 8px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:30}
@@ -229,7 +232,7 @@ function itemHtml(it){
     case 'gear': return `<button class="btn gear ${S.openPanel==='gear'?'on':''}" data-act="gear" title="ตั้งค่า">${ic('gear',20)}</button>`;
     case 'play': return `<button class="play" data-act="play" title="${S.playing?'หยุด':'เล่น'}">${ic(S.playing?'pause':'play',28)}</button>`;
     case 'btn':  return `<button class="btn" data-act="noop" title="${it.name}">${ic(it.icon,20)}</button>`;
-    case 'toggle': return `<button class="btn ${S[it.state]?'on':''}" data-act="tog:${it.id}" title="${it.name}">${ic(it.icon,19)}</button>`;
+    case 'toggle': return `<button class="btn tglbar ${S[it.state]?'on':''}" data-act="tog:${it.id}" role="switch" aria-checked="${!!S[it.state]}" title="${it.name} ${S[it.state]?'(เปิด)':'(ปิด)'}">${ic(it.icon,19)}</button>`;
     case 'aa': { const open=S.openMenu==='font';  // แค่ "Aa" (ตัวเลข % ไปโชว์ในป๊อปอัพ) — กันปุ่มกว้างจน ⚙ หลุดขอบ
       return `<span class="pinwrap"><button class="pbtn ${open?'on':''}" data-act="menu:font" title="ขนาดตัวอักษร ${S.fontPct}%" aria-label="ขนาดตัวอักษร"><span class="aa">Aa</span></button>${open?fontPop():''}</span>`; }
     case 'menu': { const open=S.openMenu===it.id, b=it.badge&&it.badge();
@@ -240,7 +243,7 @@ function itemHtml(it){
       const n=S.sections.length, cur=Math.min(n-1,Math.floor(S.frac*n));
       const segs=S.sections.map((s,i)=>{const on=S.selected.has(s.name);
         return `<span class="seg ${on?'on':''} ${i===cur?'cur':''}" style="left:${i/n*100}%;width:calc(${100/n}% - 3px)"></span>`;}).join('');
-      const dots=S.sections.map((s,i)=>`<span class="mk ${S.selected.has(s.name)?'on':''}" style="left:${MK(i)}%"></span>`).join('');
+      const dots=S.sections.map((s,i)=>`<span class="mk" style="left:${MK(i)}%"></span>`).join('');
       return `<span class="seek"><span class="bar" data-seek>${segs}${dots}<span class="kn" style="left:${S.frac*100}%"></span></span><span>3:12</span></span>`; }
     case 'more': return `<button class="btn gear ${S.openMenu==='overflow'?'on':''}" data-act="menu:overflow" title="ดูเพิ่ม">${ic('dots',18)}</button>`;
   }
@@ -253,7 +256,7 @@ function gearPanel(){
     const it=byId(id); const pinned=S.pins.includes(id); const i=S.pins.indexOf(id);
     let ctl='';
     if(it.kind==='menu') ctl=`<select class="mselect" data-act="pickpanel:${id}" aria-label="${it.name}">${it.opts.map(o=>`<option value="${o}" ${o===it.get()?'selected':''}>${o}</option>`).join('')}</select>`;
-    else if(it.kind==='toggle') ctl=`<button class="msel" data-act="tog:${id}">${S[it.state]?'เปิด':'ปิด'}</button>`;
+    else if(it.kind==='toggle') ctl=`<button class="tgl ${S[it.state]?'on':''}" data-act="tog:${id}" role="switch" aria-checked="${!!S[it.state]}" aria-label="${it.name}"><span class="tgl-k"></span></button>`;
     else if(it.kind==='slider') ctl=`<input class="prange" type="range" min="40" max="100" value="${Math.round(S.alpha*100)}" data-act="alpha"><span class="slval">${Math.round(S.alpha*100)}%</span>`;
     return `<div class="prow"><span class="mi">${ic(it.icon,16)}</span><span class="pl">${it.name}</span><span class="pc">${ctl}</span>`+
       `<button class="mv" data-act="mv:${id}:-1" ${pinned&&i>0?'':'disabled'}>▲</button><button class="mv" data-act="mv:${id}:1" ${pinned&&i>-1&&i<S.pins.length-1?'':'disabled'}>▼</button>`+
@@ -339,7 +342,7 @@ function act(a){
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;e.stopPropagation();act(t.dataset.act)});
 document.addEventListener('input',e=>{const t=e.target.closest('[data-act]');if(!t)return;
   if(t.dataset.act==='alpha'){S.alpha=(+t.value)/100;const d=$('.dock',$('#host'));if(d)d.style.setProperty('--a',S.alpha);const v=t.parentElement.querySelector('.slval');if(v)v.textContent=t.value+'%'}
-  if(t.dataset.act==='font'){S.fontPct=+t.value;renderReader();const v=t.closest('.fontdd').querySelector('.fontval');if(v)v.textContent=t.value+'%'}});
+  if(t.dataset.act==='font'){S.fontPct=+t.value;renderReader();const dd=t.closest('.fontdd');dd.querySelector('.fontval').textContent=t.value+'%';const rb=dd.querySelector('.fontreset');if(rb)rb.disabled=(+t.value===100)}}); // อัปเดตปุ่ม reset สดๆ (แก้บั๊กปุ่มค้าง disabled)
 document.addEventListener('change',e=>{const t=e.target.closest('[data-act]');if(!t)return;
   if(t.dataset.act.startsWith('pickpanel:')){byId(t.dataset.act.split(':')[1]).set(t.value);render()}});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'){S.openPanel=S.openMenu=null;render()}});
