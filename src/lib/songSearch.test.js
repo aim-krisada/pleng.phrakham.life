@@ -157,16 +157,18 @@ describe('isNoteQuery — routes only melody queries to the note path', () => {
     expect(isNoteQuery(".5 1' -")).toBe(true)
   })
 
-  it('treats a bare run of >=4 degrees as notes (unambiguous vs song numbers)', () => {
+  it('treats a bare run of >=3 degrees as notes too (B074 union with number search)', () => {
     expect(isNoteQuery('5561')).toBe(true)
     expect(isNoteQuery('1235')).toBe(true)
+    expect(isNoteQuery('555')).toBe(true) // 3-digit run: melody query (still finds number too)
+    expect(isNoteQuery('117')).toBe(true)
+    expect(isNoteQuery('100')).toBe(true) // has a pitched 1, 3 chars → note+number union
   })
 
-  it('leaves short bare numbers as number lookups, not notes', () => {
+  it('leaves 1-2 digit bare numbers as number lookups, not notes', () => {
     expect(isNoteQuery('42')).toBe(false)
-    expect(isNoteQuery('117')).toBe(false)
-    expect(isNoteQuery('100')).toBe(false) // has 0 but only 3 chars, no space/decoration
     expect(isNoteQuery('7')).toBe(false)
+    expect(isNoteQuery('1')).toBe(false)
   })
 
   it('is not a note query when any non-note glyph is present', () => {
@@ -200,9 +202,11 @@ describe('note search is space-insensitive (space-less)', () => {
     expect(filterSongs(cat, '12 35')).toEqual([v1])
   })
 
-  it('scores a note match as exact (0), so it ranks with substring hits', () => {
-    expect(scoreSong(v2imported, '5561')).toBe(0)
-    expect(scoreSong(v2imported, '55 61')).toBe(0)
+  it('scores a melody-sequence hit just after exact hits (B074 ranking), space-insensitively', () => {
+    // Melody match is exact-contiguous but ranks after a number/title/lyric hit (0),
+    // so the song numbered 100 stays above songs whose melody merely contains the run.
+    expect(scoreSong(v2imported, '5561')).toBeGreaterThan(0)
+    expect(scoreSong(v2imported, '5561')).toBe(scoreSong(v2imported, '55 61'))
   })
 
   it('does not match a note run the song does not contain', () => {
@@ -253,6 +257,54 @@ describe('note search is an exact sequence (no fuzzy near-miss)', () => {
   it('a one-note-off query matches nothing (no fuzzy fallthrough for note queries)', () => {
     // song 1 is '...55561612222...'; '55561612223' (last note off) must not fuzzy-hit it.
     expect(filterSongs(cat, '55561612223')).toEqual([])
+  })
+})
+
+// B074 — P'Aim searched "555" and got 0 songs: a bare 3-digit run was routed to number
+// search only (no song 555), never to the melody path. Now a bare run of >=3 digits is a
+// UNION: it searches the song number (ranks first) AND the melody sequence (ranks after),
+// so "555" finds the song opening 5-5-5 while "100"/"117" keep finding their numbered song.
+describe('B074 — short bare-digit query = number + melody union', () => {
+  const mk = (number, degrees, title = '') => ({
+    number,
+    title_th: title,
+    content: { version: 2, key: 'C', stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: degrees }]] }] },
+  })
+  // song 1 opens 5-5-5-6-1 (the real "พระเจ้าเป็นความรัก"); there is no song numbered 555.
+  const song1 = mk(1, '5 5 5 6 1', 'พระเจ้าเป็นความรัก')
+  // song 100: its NUMBER is 100 but its melody is 3-2-1 (does not contain 1-0-0).
+  const song100 = mk(100, '3 2 1', 'บทที่ร้อย')
+  // song 7: melody contains the run 1-0-0, but its number is not 100.
+  const song7 = mk(7, '4 1 0 0 4', 'ทำนองมีหนึ่งศูนย์ศูนย์')
+  // catalog order deliberately puts the melody-100 song BEFORE song 100 to prove ranking.
+  const cat = [song7, song1, song100]
+
+  it('"555" finds the song whose melody opens 5-5-5 (was 0 songs before B074)', () => {
+    expect(filterSongs(cat, '555').map((s) => s.number)).toEqual([1])
+  })
+
+  it('spaced "5 5 5" and joined "555" return the same song', () => {
+    expect(filterSongs(cat, '5 5 5').map((s) => s.number)).toEqual([1])
+    expect(filterSongs(cat, '555').map((s) => s.number)).toEqual([1])
+  })
+
+  it('"100" ranks the song numbered 100 first, then melody 1-0-0 songs', () => {
+    // song 7 (melody 1-0-0) sits earlier in catalog order, yet the exact number
+    // match (song 100) must come first — number beats melody in the union.
+    expect(searchSongs(cat, '100').map((r) => r.song.number)).toEqual([100, 7])
+  })
+
+  it('"117"-style: exact number ranks above a melody 1-1-7 hit', () => {
+    const c = [mk(3, '1 1 7 2'), mk(117, '5 4 3')]
+    expect(searchSongs(c, '117').map((r) => r.song.number)).toEqual([117, 3])
+  })
+
+  it('1-2 digit queries stay pure number lookups (no melody noise)', () => {
+    expect(isNoteQuery('1')).toBe(false)
+    expect(isNoteQuery('42')).toBe(false)
+    // "42" returns only the song numbered 42, not a song whose melody has 4 then 2.
+    const c = [mk(42, '1 2 3'), mk(5, '4 2 1')]
+    expect(filterSongs(c, '42').map((s) => s.number)).toEqual([42])
   })
 })
 
