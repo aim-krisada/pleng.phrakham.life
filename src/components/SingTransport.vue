@@ -468,7 +468,7 @@ watch([openPanel, openMenu], async () => {
 .mp-grip {
   flex: 0 0 auto;
   width: 28px;
-  height: 40px;
+  height: var(--touch-min); /* 44 tap target (was 40) */
   min-height: 0;
   border: 0;
   background: transparent;
@@ -491,7 +491,7 @@ watch([openPanel, openMenu], async () => {
   display: inline-flex; align-items: center; gap: 5px;
   border: 1px solid var(--line); background: transparent; color: var(--ink);
   border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 600;
-  min-height: 0; cursor: pointer;
+  min-height: var(--touch-min); cursor: pointer;
 }
 .mp-seltrig b { color: var(--brand); }
 .mp-seltrig.on, .mp-seltrig:hover { border-color: var(--brand); color: var(--brand); }
@@ -516,7 +516,7 @@ watch([openPanel, openMenu], async () => {
 /* ===== row 2: ⚙ + transport + pins ===== */
 .mp-r2 { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .mp-more {
-  flex: 0 0 auto; width: 40px; height: 40px; min-height: 0; padding: 0;
+  flex: 0 0 auto; width: var(--touch-min); height: var(--touch-min); min-height: 0; padding: 0;
   border: 0; background: transparent; color: var(--muted);
   display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer;
 }
@@ -524,7 +524,7 @@ watch([openPanel, openMenu], async () => {
 .mp-more.on { color: var(--brand); background: var(--cream); }
 .mp-transport { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 .mp-btn {
-  width: 40px; height: 40px; min-height: 0; padding: 0;
+  width: var(--touch-min); height: var(--touch-min); min-height: 0; padding: 0;
   border: 0; background: transparent; color: var(--ink);
   display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer;
 }
@@ -540,13 +540,13 @@ watch([openPanel, openMenu], async () => {
 .mp-pbtn {
   display: inline-flex; align-items: center; gap: 3px;
   border: 1px solid var(--line); background: transparent; color: var(--ink);
-  border-radius: 10px; padding: 0 8px; height: 36px; min-height: 0; font: inherit; cursor: pointer;
+  border-radius: 10px; padding: 0 8px; height: var(--touch-min); min-height: 0; font: inherit; cursor: pointer;
 }
 @media (hover: hover) { .mp-pbtn:hover { border-color: var(--brand); } }
 .mp-pbtn.on { border-color: var(--brand); color: var(--brand); }
 .mp-pbadge { font-size: 12.5px; font-weight: 700; }
 .mp-pcaret { color: var(--muted); }
-.mp-pstep { border: 1px solid var(--line); border-radius: 10px; padding: 0 3px; height: 36px; }
+.mp-pstep { border: 1px solid var(--line); border-radius: 10px; padding: 0 3px; height: var(--touch-min); }
 .mp-pstepbtn { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; padding: 0 5px; height: 100%; cursor: pointer; }
 .mp-pstepbtn:disabled { opacity: 0.4; cursor: default; }
 .mp-pslider { width: 80px; accent-color: var(--brand); }
@@ -603,11 +603,11 @@ watch([openPanel, openMenu], async () => {
 .mp-sshead { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 6px; font-size: 14px; }
 .mp-ssclose { border: 0; background: transparent; color: var(--muted); cursor: pointer; display: inline-flex; padding: 4px; }
 .mp-ssall { display: flex; align-items: center; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.mp-ssallbtn { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 8px; padding: 5px 12px; font: inherit; font-size: 12.5px; min-height: 0; cursor: pointer; }
+.mp-ssallbtn { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 8px; padding: 5px 12px; font: inherit; font-size: 12.5px; min-height: var(--touch-min); cursor: pointer; }
 @media (hover: hover) { .mp-ssallbtn:hover { border-color: var(--brand); color: var(--brand); } }
 .mp-sshint { font-size: 11px; color: var(--muted); margin-left: auto; }
 .mp-sslist { overflow-y: auto; padding: 6px; }
-.mp-ssrow { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; background: transparent; border-radius: 10px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); text-align: left; min-height: 0; }
+.mp-ssrow { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; background: transparent; border-radius: 10px; cursor: pointer; font: inherit; font-size: 14px; color: var(--ink); text-align: left; min-height: var(--touch-min); }
 @media (hover: hover) { .mp-ssrow:hover { background: var(--cream); } }
 .mp-cx { width: 22px; height: 22px; flex: 0 0 22px; border: 1.5px solid var(--muted); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; }
 .mp-ssrow.on .mp-cx { background: var(--ok, #1d7a54); border-color: var(--ok, #1d7a54); }

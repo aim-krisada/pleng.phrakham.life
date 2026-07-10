@@ -706,7 +706,7 @@ function runTool(t) {
   flex: 1 1 0;
   min-width: 0;
   max-width: 56px;
-  height: 40px;
+  height: var(--touch-min); /* 44 — jianpu key is a tap target (was 40) */
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -864,7 +864,7 @@ function runTool(t) {
 }
 .sd-mini-btn:disabled { opacity: 0.4; cursor: default; }
 .sd-cust-foot { display: flex; gap: 8px; margin-top: 12px; }
-.sd-foot-btn { min-height: 36px; }
+.sd-foot-btn { min-height: var(--touch-min); }
 .sd-foot-btn.secondary { background: var(--cream); color: var(--ink); border: 1px solid var(--line); }
 .sd-cust-foot .sd-foot-btn:last-child { margin-left: auto; }
 
@@ -872,9 +872,10 @@ function runTool(t) {
 .sd-dock.sd-m { max-width: 100%; border-radius: 14px 14px 0 0; }
 .sd-dock.sd-m .sd-keys { gap: 3px; }
 .sd-dock.sd-m .sd-key-row { gap: 3px; }
-.sd-dock.sd-m .sd-key { height: 40px; font-size: 16px; max-width: none; }
+.sd-dock.sd-m .sd-key { height: var(--touch-min); font-size: 16px; max-width: none; }
 .sd-dock.sd-m .sd-tools { gap: 5px; }
-.sd-dock.sd-m .sd-tbtn { flex: 0 0 40px; width: 40px; height: 40px; }
+/* mobile tap targets meet the 44 floor (was 40); overflow (D3) folds any extras into ⋯ */
+.sd-dock.sd-m .sd-tbtn { flex: 0 0 var(--touch-min); width: var(--touch-min); height: var(--touch-min); }
 .sd-dock.sd-m .sd-tbtn.wide { flex: 0 0 auto; width: auto; padding: 0 8px; }
 .sd-wrap:has(.sd-dock.sd-m) { padding: 0; }
 .sd-dock.sd-m { padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
@@ -886,7 +887,7 @@ function runTool(t) {
   transform: translateX(-50%);
   bottom: 14px;
   width: 54px;
-  height: 36px;
+  height: var(--touch-min); /* pull-up tab is a tap target (was 36) */
   display: inline-flex;
   align-items: center;
   justify-content: center;
