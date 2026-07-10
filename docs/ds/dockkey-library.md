@@ -45,7 +45,7 @@ DockItem = {
      row2 = item ที่ระบุ row:2 ตาม col/span
 3. cap: ถ้าแถวเกิน cap → mobile ดัน pinned ขึ้นแถวใหม่(บน) · desktop พับ tail เข้า ⋯ (ก่อน scale/setting)
 4. หน้า Setting = ทุก item ที่ default:'inSetting' หรือ pinnable → แสดง ไอคอน·ชื่อ·ตัวปรับ·▲▼·📌
-5. popover/แผง เปิดเหนือแถบ + CLAMP ไม่ล้นขอบ (+8px) — บังคับทุกตัว
+5. popover/แผง เปิดเหนือแถบ + CLAMP ไม่ล้นขอบ (+8px) — บังคับทุกตัว · แผงลิสต์ (เลือกท่อน) สูงตามเนื้อหา · scroll เฉพาะตอนเกินจอจริง (max-height อิงจอ เช่น 52vh · ห้ามล็อกเตี้ย)
 6. grip: แตะ=ย่อ(FAB) · ลากค้าง=ย้ายทั้ง dock · เปิดได้ทีละ 1 popover · Esc/แตะนอก=ปิด
 ```
 
