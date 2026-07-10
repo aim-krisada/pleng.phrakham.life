@@ -256,18 +256,14 @@ function overflowPop(over){return `<div class="pop dd" data-pop style="right:0;l
 
 /* ---------- ENGINE: build rows from descriptors ---------- */
 function buildRows(){
-  // cap แบบเติมเต็มความกว้าง (44px): มือถือ 392px = 7 · เดสก์ท็อป = 14 · (เดิมล็อค 6 → P'Aim ขอใช้ที่ให้เต็ม)
+  // cap ต่อแถว (44px): มือถือ 392px = 7 · เดสก์ท็อป = 14
   const cap=S.mobile?7:14;
-  const R2=[byId('timeslide'),byId('key'),byId('tuan')];              // แถว 2 คงที่
-  const base=[byId('grip'),byId('back'),byId('play'),byId('forward')];// ซ้าย row1
-  const right=[byId('scale'),byId('setting')];                        // ขวา row1 (Aa·⚙)
+  const R2=[byId('timeslide'),byId('key'),byId('tuan')];                          // แถว 2 คงที่
+  const R1=['grip','back','play','forward','scale','setting'].map(byId);          // แถวล่าง = core คงที่ (ไม่ยุ่ง)
   const pinned=S.pins.map(byId);
-  const room=Math.max(0, cap-base.length-right.length);               // ช่องว่างบน row1 (มือถือ 1 · เดสก์ท็อป 8)
-  const onR1=pinned.slice(0,room), rest=pinned.slice(room);           // เติม row1 ก่อน · ที่เหลือขึ้นแถวบน
-  const top=[];
-  for(let i=0;i<rest.length;i+=cap) top.push(rest.slice(i,i+cap));
-  const R1=[...base,...onR1,...right];
-  return [...top,R2,R1];                                              // บนลงล่าง
+  const top=[];                                                                   // ปุ่มที่ปัก → แถวใหม่เหนือ row2
+  for(let i=0;i<pinned.length;i+=cap) top.push(pinned.slice(i,i+cap));
+  return [...top,R2,R1];                                                          // บนลงล่าง
 }
 
 function renderRow(row){
@@ -294,8 +290,8 @@ function render(){
   $('#host').innerHTML=renderDock();
   [...$('#vpSeg').children].forEach(b=>b.classList.toggle('on',b.dataset.act==='vp:'+(S.mobile?'mobile':'desk')));
   const nP=S.pins.length;
-  $('#hint').textContent=S.mobile?`มือถือ cap 7 (เติมเต็มความกว้าง 44px) — ปัก ${nP} ตัว`:`เดสก์ท็อป cap 14 — ปักลงแถวล่างได้`;
-  $('#gridnote').textContent='แถวล่างกระจายเต็ม: Grip···Aa·⚙ · แถว 2: ไทม์ไลน์(1-3)·คีย์(4)·ท่อน(5-6) · ปักเกินที่ว่าง→ขึ้นแถวบน';
+  $('#hint').textContent=(S.mobile?'มือถือ cap 7':'เดสก์ท็อป cap 14')+` · ปัก ${nP} ตัว → ${nP?'ขึ้นแถวเหนือไทม์ไลน์':'ไม่มีแถวเพิ่ม'}`;
+  $('#gridnote').textContent='แถวล่าง = core คงที่ Grip·Back·Play·Fwd·Aa·⚙ (ไม่ยุ่ง) · แถว 2: ไทม์ไลน์·คีย์·ท่อน · ปุ่มที่ปัก → ขึ้นแถวใหม่ด้านบน';
   if(S.pos){const d=$('.dock',$('#host'));if(d){d.style.position='absolute';d.style.left=S.pos.x+'px';d.style.top=S.pos.y+'px';d.style.width='auto'}}
   clampPops();
 }
