@@ -2443,6 +2443,14 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 }
 @media (hover: hover) { .ed-float-x:hover { background: var(--cream); border-color: var(--brand); } }
 .ed-float-body { padding: 12px; overflow: auto; flex: 1 1 auto; min-height: 0; }
+/* Bug1 (P'Aim): the floating "ดูผลทั้งเพลง" preview must show the FINAL line breaks 1:1 so
+   he can check how the song lays out. Lock each song line to ONE row — never re-wrap at bar
+   boundaries when the window is resized. Narrow window → scroll horizontally (body overflow
+   already auto) instead of reflowing. Scoped to .ed-float only; the sheet/sing views keep
+   their responsive bar-wrap (global .song-line { flex-wrap: wrap }). sheet-root grows to its
+   content so the tie overlay's viewBox still matches the full width. */
+.ed-float-body :deep(.sheet-root) { width: max-content; min-width: 100%; }
+.ed-float-body :deep(.song-line) { flex-wrap: nowrap; }
 /* resize grip (bottom-right corner) — the diagonal lines are the standard resize affordance.
    Sits above the scrolling body so it stays grabbable. Desktop only (v-if hides it on mobile). */
 .ed-float-resize {
