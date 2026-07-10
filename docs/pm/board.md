@@ -6,7 +6,8 @@
 ---
 
 ## ▶ RESUME (สถานะสดที่ git-verify แล้ว)
-- **ฐาน `studio-shell-redesign` HEAD = `9ff4c47`** = **264 เทสต์เขียว + build ผ่าน** (1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก · node lint แยกต่างหาก)
+- **ฐาน `studio-shell-redesign` HEAD = `e3fcb08`** = **264 เทสต์เขียว + build ผ่าน** (commit หลัง `eedc205` เป็นเอกสารล้วน ไม่กระทบเทสต์ · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
+- ⚠️ **บทเรียนซ้ำ (pm4 10 ก.ค.):** main dir ถูกสลับไป branch `sa-dockkey-print-edit` ใต้มือ (แม้ spawn_task ใช้ auto-worktree) → commit เอกสาร 5 อันหลุดไปลง branch นั้น · กู้ด้วย `git switch studio-shell-redesign && git merge --ff-only sa-dockkey-print-edit` (เส้นตรง = FF สะอาด) · **เช็ก `git branch --show-current` ก่อน commit เสมอ**
 - **live = `1535e1f` (deploy รอบ 5)** · ✅ **P'Aim เคาะ "ปล่อยไว้" (10 ก.ค.) — ไม่ rollback** (ของขึ้น = 264-test-green ไม่พัง)
 - verify ฐานรวม: `npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'`
 - **บทเรียน deploy:** ห้าม deploy จน P'Aim สั่ง "go" ชัดต่อรอบ (PM รอบ a เผลอ deploy รอบ 5 โดยอ่านคำสั่งผิด)
