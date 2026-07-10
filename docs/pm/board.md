@@ -63,6 +63,7 @@ responsive overhaul S0-S4 · B062 slur/tie render · B068 ties data (import-ties
 | สาย/branch | commit | สถานะ |
 |---|---|---|
 | **SA B028 audit-log** `sa-b028-audit-log` | docs only (ยังไม่ push) | ✅ DS เสร็จ · **รอ P'Aim เคาะ 3 คำถาม** ก่อน dev (ดู §🎯 รอ P'Aim) |
+| **SA dockkey-print-edit** `sa-dockkey-print-edit` | docs only (ยังไม่ push) | ✅ DS เสร็จ `docs/ds/dockkey-print-edit.md` (ITEMS_PRINT เสียบ core ได้ทันที · ITEMS_EDIT รอขยาย schema E1–E3) · report `docs/reports/sa-dockkey-print-edit.md` · **4 คำถามถึง P'Aim** (ไม่บล็อก) · → phase 2 เสียบ DockKey |
 | _(3 สายคลื่น 60 นาที)_ | — | 🔨 กำลังทำ (ดู §🟢 กำลังทำ) — จะเข้า inbox เมื่อรายงานเสร็จ |
 
 **GitHub:** `C:\Users\aimkr\OneDrive\4 Personal\claude\.env` → `GITHUB_TOKEN_PLENG` (`source .env` ก่อน · repo public) · Supabase = `SUPABASE_*_PLENG`
