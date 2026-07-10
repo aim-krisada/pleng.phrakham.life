@@ -188,11 +188,18 @@ export function scoreSong(song, query) {
   if (hay.includes(q)) return 0
   // Note path: a melody query matches space-insensitively. Reduce both the query and
   // the song's notes to bare scale degrees and test substring — so "5561", "55 61" and
-  // "5 5 6 1" all find the song whose notes are "5 5 6 1 3". Exact (no fuzz) to stay
-  // precise; only runs for note-shaped queries so lyric/title/number search is untouched.
+  // "5 5 6 1" all find the song whose notes are "5 5 6 1 3". Only runs for note-shaped
+  // queries so lyric/title/number search is untouched.
+  //
+  // A melody query is an EXACT-SEQUENCE request and is decided here — it must NOT fall
+  // through to the fuzzy path below. Edit-distance matching would admit near-miss
+  // sequences (a note or two off), which is exactly the "fake match" P'Aim flagged: for
+  // "5 5 5 6 1 6 1 2 2 2 2" only song 1 truly contains the run, but songs 29 & 43 were
+  // being returned at fuzzy distance 2 (55561_1_1_2322 / …5556110222…). So return the
+  // note verdict directly: contiguous substring → 0, otherwise no match.
   if (isNoteQuery(q)) {
     const nc = notesCompact(song.content ?? {})
-    if (nc && nc.includes(q.replace(/[^0-7]/g, ''))) return 0
+    return nc && nc.includes(q.replace(/[^0-7]/g, '')) ? 0 : null
   }
   const maxErr = fuzzyBudget(compact(q))
   if (maxErr === 0) return null
