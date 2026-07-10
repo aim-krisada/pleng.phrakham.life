@@ -83,6 +83,15 @@ body {
   line-height: var(--lh-normal); /* was 1.8 — tightened base rhythm (Thai-safe) */
 }
 
+/* Per-user Thai typeface toggle (site-wide · localStorage · store.siteFont). Default =
+   the loopless Noto Sans Thai the app ships with; data-font="looped" on <html> swaps ONLY
+   the Thai family to the มีหัว cut. Latin 'Noto Sans' and the monospace notation columns
+   (chords/numbers) are untouched, so switching fetches just the ~9KB looped Thai woff2 and
+   only when a reader opts in. Specificity (:root[data-font] body) beats the base body rule. */
+:root[data-font='looped'] body {
+  font-family: 'Noto Sans', 'Noto Sans Thai Looped', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
 a { color: var(--brand); }
 h1, h2, h3 { color: var(--brand); line-height: var(--lh-snug); }
 
@@ -297,6 +306,38 @@ main.container { flex: 1 0 auto; }
 .sb-danger,
 .sb-danger .icn { color: var(--red); }
 .sb-dropdown .sep { border-top: 1px solid var(--line); margin: 4px 6px; }
+/* per-user Thai typeface toggle inside the site (brand ▾) menu — a small radiogroup.
+   Each sample renders in its OWN cut (forced font-family below) so both previews are
+   accurate whatever is currently active. */
+.sb-font { padding: 6px 10px 4px; }
+.sb-font-lbl { font-size: var(--fs-xs); color: var(--muted); padding: 0 2px 6px; }
+.sb-font-opts { display: flex; gap: 6px; }
+.sb-font-opts button {
+  flex: 1;
+  min-height: var(--touch-min);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.sb-font-opts button.on {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: rgba(139, 69, 19, 0.08);
+  font-weight: 700;
+}
+.sb-font-eg { font-size: 1.1rem; font-family: 'Noto Sans Thai', sans-serif; }
+.sb-font-eg.looped { font-family: 'Noto Sans Thai Looped', 'Noto Sans Thai', sans-serif; }
+@media (hover: hover) { .sb-font-opts button:not(.on):hover { border-color: var(--brand); } }
 .sb-backdrop { position: fixed; inset: 0; z-index: 40; }
 @media (hover: hover) {
   .sb-brand:hover,

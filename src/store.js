@@ -26,6 +26,38 @@ export function resetFontScale() { readingFontScale.value = 1 }
 // Absolute set (clamped) — for a slider control that supplies the whole value (B045 dock Aa).
 export function setFontScale(v) { readingFontScale.value = clampFs(v) }
 
+// ---- reader Thai typeface (per-user · site-wide · localStorage) ----
+// A whole-site Thai typeface preference. 'default' = the loopless Noto Sans Thai the app
+// ships with; 'looped' = Noto Sans Thai Looped (มีหัว). Per-user like readingFontScale —
+// each browser keeps its own choice, nothing is shared, so there is no auth gate: a reader
+// only ever changes their own view. Applied by toggling data-font on <html>; index.html
+// sets the same attribute pre-paint (from the same key) so a reload never flashes the
+// default cut. Latin + monospace notation are unaffected — CSS swaps only the Thai family.
+const FONT_KEY = 'pleng.siteFont'
+const FONTS = ['default', 'looped']
+function applySiteFont(v) {
+  try {
+    const el = document.documentElement
+    if (v === 'looped') el.setAttribute('data-font', 'looped')
+    else el.removeAttribute('data-font')
+  } catch { /* no DOM (unit tests / SSR) — the ref still holds the value */ }
+}
+export const siteFont = ref((() => {
+  try {
+    const v = localStorage.getItem(FONT_KEY)
+    if (FONTS.includes(v)) return v
+  } catch { /* ignore */ }
+  return 'default'
+})())
+watch(siteFont, (v) => {
+  try { localStorage.setItem(FONT_KEY, v) } catch { /* ignore */ }
+  applySiteFont(v)
+})
+// Reassert on module load so a host without the index.html bootstrap (tests, embeds) still
+// reflects the saved choice; index.html already did this before paint in the real app.
+applySiteFont(siteFont.value)
+export function setSiteFont(v) { if (FONTS.includes(v)) siteFont.value = v }
+
 // Which shell-bar menu is open ('site' | 'file' | 'manage' | 'mode' | null). Shared so
 // the app-wide ShellBar and a page's teleported menus are one open-at-a-time system.
 export const shellMenu = ref(null)
