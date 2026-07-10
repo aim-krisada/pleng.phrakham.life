@@ -120,7 +120,7 @@ function downloadJson() {
       <!-- staged progress: up-front estimate → determinate bar + ETA while encoding -->
       <div v-if="mp3Busy" class="pk-mp3-prog" role="status" aria-live="polite">
         <p v-if="mp3Est" class="pk-mp3-est">
-          ≈ {{ fmtDur(mp3Est.seconds) }} · ~{{ fmtSize(mp3Est.bytes) }}
+          ไฟล์เสียง ~{{ fmtSize(mp3Est.bytes) }} · ยาว {{ fmtDur(mp3Est.seconds) }}
         </p>
         <progress
           v-if="mp3Stage === 'encode'"
