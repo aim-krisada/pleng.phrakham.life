@@ -319,6 +319,18 @@ watch(
 </template>
 
 <style scoped>
+/* B044 — tighten the note↔lyric vertical gap so a note and its word read as ONE block,
+   and widen the gap BETWEEN line-blocks so verses/phrases separate clearly (P'Aim, real
+   image). Applies wherever the sheet renders — print sheet, sing view, AND the editor
+   preview that reuses this render — so all three match.
+   • in-block: the .note block carried the parent line-height around its inline note-row +
+     trailing space, floating the lyric ~31px below the digits. line-height:0 collapses the
+     block to exactly the note-row height, so the word sits right under the note (~7px, just
+     the reserved low-octave-dot band). NoteRow keeps its own internal line-height. */
+.sheet-root .segment .note { line-height: 0; }
+/* • between-block: lift note-bearing lines apart (songbook lyrics-only lines keep their own
+     tight 2px spacing below, so they are excluded). */
+.sheet-root .song-line:not(.song-line-lyrics) { margin-bottom: 16px; }
 /* B069 — cross-bar tie overlay. Absolutely positioned over the sheet body so its arcs
    can span across bar lines / segments; it never affects layout (pointer-events: none)
    so measuring it can't feed back into a resize loop. Coloured with the note token. */
