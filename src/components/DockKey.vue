@@ -443,20 +443,15 @@ function cellFlex(it) {
   -webkit-backdrop-filter: blur(max(0px, calc((var(--a, 0.96) - 0.4) / 0.6 * 6px)));
   padding: 8px;
 }
-/* desktop: the dock HUGS its content (P'Aim live verdict B043 · real-use > DS) — it does
-   NOT stretch full-width. Its width follows the widest row (usually the timeline row). */
-.dk-dock:not(.dk-m) { width: fit-content; min-width: 300px; max-width: min(700px, calc(100vw - 20px)); }
-/* mobile: keep the familiar full-width bottom bar */
-.dk-dock.dk-m { width: 100%; max-width: none; }
-.dk-dock.dk-mini { width: auto; max-width: none; display: inline-flex; gap: 8px; padding: 7px 9px; }
+/* The dock is a FLOATING TOOLBOX (P'Aim): it hugs its content on EVERY size — width = the
+   widest row's natural button width, never the screen. No full-width, no flex-stretch, no
+   space-between edge-push. It shrinks to the viewport only on very narrow phones. */
+.dk-dock { width: fit-content; min-width: min(300px, calc(100vw - 16px)); max-width: min(700px, calc(100vw - 16px)); }
+.dk-dock.dk-mini { width: auto; min-width: 0; max-width: none; display: inline-flex; gap: 8px; padding: 7px 9px; }
 
+/* rows pack left-to-right at each button's natural size (grip first · ⚙ at the end of the
+   cluster). No justify/space-between — the buttons stay grouped, not pinned to both edges. */
 .dk-row { display: flex; align-items: center; gap: 6px; }
-/* the core row: packed tight, grip left-most · ⚙ pushed to the right edge (NOT space-between
-   full-width — that spread the buttons apart on a wide dock, P'Aim). On mobile the dock is
-   full-width so the row fills it (space-between) as before. */
-.dk-row.spread .dk-gear { margin-left: auto; }
-.dk-dock.dk-m .dk-row.spread { justify-content: space-between; }
-.dk-dock.dk-m .dk-row.spread .dk-gear { margin-left: 0; }
 .dk-row + .dk-row { margin-top: 8px; }
 .dk-cell { display: inline-flex; align-items: center; min-width: 0; }
 
@@ -538,7 +533,6 @@ function cellFlex(it) {
 /* ---------- mobile: full-width bottom bar ---------- */
 @media (max-width: 760px) {
   .dk-host { padding: 0 6px calc(8px + env(safe-area-inset-bottom, 0px)); }
-  .dk-dock { max-width: none; }
   .dk-row { gap: 5px; }
 }
 </style>

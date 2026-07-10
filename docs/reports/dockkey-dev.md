@@ -41,13 +41,13 @@
   - console **0 error** ✓
   - clamp +8px: ตรรกะ `clampPops` มี + unit-tested · เช็คพิกัดจริงในเบราว์เซอร์นี้ไม่ได้ (viewport 0×0) → ฝากพี่เอม/พี่เปาลองบนมือถือจริงว่าป๊อปอัพไม่ล้นขอบ
 
-## รอบแก้ 2 — dock พอดีเนื้อหา (fit-content · P'Aim live verdict ผ่าน pm4)
-P'Aim ลอง LAN แล้วติ 1 จุด: **dock กว้างเต็มจอ + row1 space-between ปุ่มห่างกันมาก** → แก้ให้ **dock hug เนื้อหา** เหมือน dock เดิม B043:
-- `.dk-dock:not(.dk-m)` (เดสก์ท็อป/แท็บเล็ต) = `width: fit-content · min 300 · max min(700, 100vw−20)` → dock กว้างตามแถวที่กว้างสุด (ไทม์ไลน์) ไม่ยืดเต็มจอ
-- row1 **แพ็คกระชับ** (grip ซ้ายสุด · ⚙ ดันขวาสุดด้วย `margin-left:auto`) — **เลิก space-between เต็มกว้าง** · **override DS "row1 กระจายเต็มความกว้าง"** (real-use ชนะ spec ตามที่ pm4 สั่ง)
-- มือถือ (`.dk-m`) = เต็มกว้างตามเดิม + row1 คืน space-between
-- ไทม์ไลน์ `min-width: 190px` ให้ dock hug ที่ความกว้างพอเหมาะ
-- **re-verify LAN 3 breakpoint** (`http://10.215.141.98:5315` · reload สดต่อ viewport): มือถือ 375 → `dk-m` เต็มกว้าง 363/375 ✓ · แท็บเล็ต 753 → fit-content 383px (ไม่เต็มจอ) ✓ · เดสก์ท็อป 1265 → fit-content 383px · grip ซ้าย(9px)/⚙ ขวา(9px) ✓ · console 0 error ✓ · vitest 53 (sing) เขียว · build ผ่าน
+## รอบแก้ 2 — dock = "กล่องเครื่องมือลอย" กว้างพอดีปุ่ม (P'Aim ผ่าน pm4)
+P'Aim ย้ำ: **"พอดี" = พอดีปุ่มตามความกว้างจริง ไม่ใช่พอดีจอ** · dock กอดปุ่มแน่นเหมือนกล่องเครื่องมือ · ห้ามยืดตามจอ · ห้าม space-between ดันปุ่มติดขอบ · ปุ่มเกาะกลุ่มขนาดธรรมชาติ
+- `.dk-dock` = **`width: fit-content`** ทุกขนาดจอ · `min-width: min(300px, 100vw−16)` · `max-width: min(700px, 100vw−16)` → dock กว้างตามแถวที่กว้างสุด (ไทม์ไลน์) แบบพอดี ไม่ยืดตามจอ (หดเข้ากรอบเฉพาะจอแคบมาก)
+- row1 **แพ็คธรรมชาติ (flex-start)** — grip ซ้ายสุด · ปุ่มเกาะกลุ่มขนาดจริง · ⚙ อยู่ท้ายกลุ่ม · **ไม่มี `margin:auto`/`space-between`/`flex:1`** ที่ดันปุ่มติดขอบหรือยืด · **override DS "row1 กระจายเต็มกว้าง"** (real-use ชนะ spec ตามที่ pm4 สั่ง)
+- ไทม์ไลน์ `min-width: 190px` (min ที่ยังใช้งานได้) — dock กว้างตามนี้พอดี ไม่เผื่อเกิน
+- **verify:** วัดสด LAN ต้นรอบยืนยัน dock **fit-content 383px บนจอ 1265px** (ไม่เต็มจอ · toolboxNotScreen ✓) · หลังรอบแก้ 2 ยืนยัน computed style: `.dk-gear margin-left:0` (เลิกดันขอบ · ⚙ เกาะท้ายกลุ่มที่ x≈257) · `.dk-dock width:fit-content` + clamp `calc(100vw−16)` · vitest 53 (sing) เขียว · build ผ่าน · 0 console error
+  - ⚠️ viewport ใน MCP browser รอบท้าย report `100vw=0` (headless artifact · ทำให้ clamp หด 0 เฉพาะที่นี่ — บนเครื่องจริง 100vw ปกติ → hug ~383px ตามที่วัดได้ต้นรอบ) → **ฝากพี่เอม/พี่เปายืนยัน "กล่องพอดีปุ่ม" บนมือถือจริงอีกที**
 - ✅ P'Aim OK แล้ว (ไม่แก้): 🔁/ความเร็ว/แสดงผล เข้า ⚙ · Aa ไม่มี % กำกับ
 
 ## จุดที่อยากให้ PM/P'Aim เคาะ (ไม่ได้ทำรอบนี้ — นอกขอบเขต engine)
