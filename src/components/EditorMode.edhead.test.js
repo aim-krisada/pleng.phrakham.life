@@ -82,18 +82,34 @@ describe('edhead — prototype-aligned edit header', () => {
     expect(w.find('.ed-strip').classes()).toContain('lay-flow')
   })
 
-  it('B035: ดูผลทั้งเพลง renders every bar and the label is authoritative', async () => {
+  const findChip = (w, text) => w.findAll('.ed-chip').find((b) => b.text().includes(text))
+
+  it('B (editor-preview-split): "ดูผลทั้งเพลง" opens a NON-MODAL floating window; editing stays; toggles closed', async () => {
     const w = mountEd()
     await nextTick()
-    const chip = w.find('.ed-chip')
-    expect(chip.text()).toContain('ดูผลทั้งเพลง')
-    expect(w.findAll('.seg-strip').length).toBe(2) // two bars, both editable
-    await chip.trigger('click')
-    expect(w.findAll('.ed-bar-render').length).toBe(2) // both flipped to render
-    expect(w.findAll('.seg-strip').length).toBe(0)
-    expect(w.find('.ed-chip').text()).toContain('กลับไปแก้ทั้งเพลง') // label reflects allShown
-    await w.find('.ed-chip').trigger('click')
-    expect(w.findAll('.seg-strip').length).toBe(2) // back to editing
+    const btn = () => findChip(w, 'ดูผลทั้งเพลง')
+    expect(btn()).toBeTruthy()
+    expect(w.find('.ed-float').exists()).toBe(false) // closed by default
+    expect(w.findAll('.seg-strip').length).toBe(2) // two bars, editable
+    await btn().trigger('click')
+    expect(w.find('.ed-float').exists()).toBe(true) // window opened
+    expect(w.findAll('.seg-strip').length).toBe(2) // still editable underneath (non-modal, no backdrop)
+    expect(btn().attributes('aria-pressed')).toBe('true')
+    expect(w.find('.ed-float-x').exists()).toBe(true) // has a close control
+    await btn().trigger('click')
+    expect(w.find('.ed-float').exists()).toBe(false) // toggled closed
+  })
+
+  it('A (editor-preview-split): live "ตัวอย่างสด" preview renders PER BAR (one mini-sheet each)', async () => {
+    const w = mountWorded() // real SongSheet
+    await nextTick()
+    // livePreview is on by default; the worded line has 2 bars → 2 per-bar previews + 1 barline
+    const strip = w.find('.ed-line-live')
+    expect(strip.exists()).toBe(true)
+    expect(strip.findAll('.ed-live-bar').length).toBe(2)
+    expect(strip.findAll('.ed-live-sep').length).toBe(1)
+    // section head shows once (on the first bar only), not stamped on every ห้อง
+    expect(strip.findAll('.section-label').length).toBe(1)
   })
 
   it('B035: per-bar ดูผล flips one bar only, in place', async () => {
@@ -150,24 +166,25 @@ describe('edhead — prototype-aligned edit header', () => {
     })
   }
 
-  it('B050: ดูผลทั้งเพลง shows the selected verse words, not notes alone', async () => {
+  it('B050: the floating ดูผลทั้งเพลง window shows the selected verse words, not notes alone', async () => {
     const w = mountWorded()
     await nextTick()
-    await w.find('.ed-chip').trigger('click') // flip whole song to render
+    await findChip(w, 'ดูผลทั้งเพลง').trigger('click') // open floating window
     await nextTick()
-    const syls = w.findAll('.ed-bar-render .syl').map((s) => s.text())
+    const syls = w.findAll('.ed-float .syl').map((s) => s.text())
     // every syllable of ร้อง 1 lands under a note (8 words across the two bars)
     expect(syls).toEqual(['สรร', 'เส', 'ริญ', 'พระ', 'เจ้า', 'ผู้', 'ทรง', 'ฤทธิ์'])
   })
 
-  it('B051: the section head shows once per line, not on every bar', async () => {
+  it('B051: the section head shows once per line in the floating window', async () => {
     const w = mountWorded()
     await nextTick()
-    await w.find('.ed-chip').trigger('click')
+    await findChip(w, 'ดูผลทั้งเพลง').trigger('click')
     await nextTick()
-    const heads = w.findAll('.ed-bar-render .section-label')
-    expect(heads.length).toBe(1) // two bars, but "♦ ท่อนขึ้น" appears only on the first
-    expect(heads[0].text()).toContain('ท่อนขึ้น')
+    // the full arranged sheet also shows the verse label ("ร้อง 1"); the LINE's own section
+    // head ("ท่อนขึ้น") must still appear once per line, never stamped per bar (B051 intent).
+    const stanzaHeads = w.findAll('.ed-float .section-label').map((h) => h.text()).filter((t) => t.includes('ท่อนขึ้น'))
+    expect(stanzaHeads.length).toBe(1)
   })
 
   it('B049/E4: ลำดับเพลง keeps arrangement rows but drops the per-row lyric textarea', async () => {
