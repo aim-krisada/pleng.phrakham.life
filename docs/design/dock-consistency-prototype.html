@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dock — prototype กดได้จริง (SA)</title>
+<style>
+  :root{
+    --brand:#8b4513; --ink:#2d2a26; --muted:#757575; --cream:#faf6f0;
+    --line:#e0d6c8; --red:#c0392b; --ok:#1d7a54; --touch-min:44px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:#e9e0d2;color:var(--ink);line-height:1.5;padding:20px 14px 70px}
+  .wrap{max-width:940px;margin:0 auto}
+  h1{font-size:21px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .warn{font-size:12px;color:#7a4a12;background:#f6e7d2;border:1px solid #e6cfa8;border-radius:8px;padding:6px 10px;margin-bottom:16px}
+  .warn b{color:#5c3608}
+
+  /* ===== toolbar ===== */
+  .tools{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:transparent;padding:8px 14px;font:inherit;font-size:13px;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .seg button.on{background:var(--brand);color:#fff}
+  .seg .ico{width:16px;height:16px}
+  .hint{font-size:12px;color:var(--muted)}
+
+  /* ===== app frame (fake page the dock floats over) ===== */
+  .frame{position:relative;margin:0 auto;background:linear-gradient(#fffdf9,#f4eee2);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,.16);transition:max-width .25s}
+  .frame.mobile{max-width:392px;height:560px}
+  .frame.desk{max-width:820px;height:460px}
+  .reader{padding:20px 22px;height:100%;overflow:auto}
+  .reader h3{margin:0 0 12px;font-size:17px;color:var(--brand)}
+  .reader p{margin:0 0 10px;color:#54493c}
+  .ln{color:#6b5f4e;transition:font-size .12s}
+  .ln .cd{color:var(--red);font-weight:700;font-size:.8em;margin-right:2px}
+  .ln .nt{color:#2b6cb0;font-size:.72em;vertical-align:top;margin-right:1px}
+
+  .ico{display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ===== dock (real .sd-dock styling) ===== */
+  .dockhost{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;padding:0 10px 12px;pointer-events:none}
+  .dock{pointer-events:auto;background:rgba(255,255,255,var(--a,.96));border:1px solid var(--line);border-radius:14px;
+        box-shadow:0 6px 22px rgba(0,0,0,.14);padding:8px;width:100%;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);position:relative}
+  .frame.desk .dock{max-width:700px}
+  .r{display:flex;align-items:center;gap:6px}
+  .r+.r{margin-top:8px}
+  .sp{flex:1}
+
+  .btn{width:var(--touch-min);height:var(--touch-min);min-width:var(--touch-min);padding:0;border:0;background:transparent;color:var(--ink);
+       display:inline-flex;align-items:center;justify-content:center;border-radius:10px;cursor:pointer;flex:0 0 auto}
+  .btn .ico{width:20px;height:20px}
+  .btn:hover{background:var(--cream)}
+  .btn.on{color:var(--brand);background:var(--cream)}
+  .play{width:50px;height:50px;color:var(--brand);border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
+  .play .ico{width:28px;height:28px}
+  .play:hover{filter:brightness(1.12)}
+  .grip{color:var(--muted);cursor:grab;touch-action:none}
+  .grip:active{cursor:grabbing}
+  .grip .ico{width:22px;height:22px}
+  .gear{color:var(--muted)}
+  .gear.on{color:var(--brand);background:var(--cream)}
+  .pbtn{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--line);background:transparent;color:var(--ink);
+        border-radius:10px;padding:0 8px;height:var(--touch-min);cursor:pointer;flex:0 0 auto}
+  .pbtn:hover{border-color:var(--brand)}
+  .pbtn.on{border-color:var(--brand);color:var(--brand)}
+  .pbtn .ico{width:17px;height:17px}
+  .pbadge{font-size:12.5px;font-weight:700}
+  .pcaret{width:13px;height:13px;color:var(--muted)}
+  .aa{font-size:15px;font-weight:700;letter-spacing:-.3px}
+  .prime{background:var(--brand);color:#fff;border:1px solid var(--brand)}
+  .prime:hover{filter:brightness(1.08);border-color:var(--brand)}
+  .sel{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:transparent;color:var(--ink);
+       border-radius:8px;padding:0 10px;font-size:12px;font-weight:600;height:var(--touch-min);cursor:pointer;flex:0 0 auto}
+  .sel:hover,.sel.on{border-color:var(--brand);color:var(--brand)}
+  .sel .ico{width:15px;height:15px}
+  .sel b{color:var(--brand)}
+  .pinwrap{position:relative;display:inline-flex;flex:0 0 auto}
+  .pslidewrap{align-items:center;gap:5px;padding:0 8px;border:1px solid var(--line);border-radius:10px;height:var(--touch-min);color:var(--muted)}
+  .pslider{width:74px;accent-color:var(--brand)}
+
+  /* timeline */
+  .seek{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:1;min-width:0}
+  .bar{position:relative;flex:1;height:26px;display:flex;align-items:center;cursor:pointer;touch-action:none;min-width:60px}
+  .trk{position:absolute;left:0;right:0;height:4px;background:var(--line);border-radius:3px;top:50%;transform:translateY(-50%)}
+  .fil{position:absolute;left:0;height:4px;background:var(--brand);border-radius:3px;top:50%;transform:translateY(-50%)}
+  .kn{position:absolute;width:13px;height:13px;background:var(--brand);border:2px solid #fff;border-radius:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.3);pointer-events:none}
+  .mk{position:absolute;width:12px;height:12px;border:1.5px solid var(--brand);background:#fff;border-radius:50%;top:50%;transform:translate(-50%,-50%);cursor:pointer}
+  .mk.act{background:var(--brand)}
+
+  /* jianpu keys */
+  .keys{display:flex;gap:4px;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid var(--line)}
+  .key{flex:1 1 0;min-width:28px;max-width:52px;height:var(--touch-min);border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font-family:'Courier New',monospace;font-weight:700;font-size:16px;cursor:pointer}
+  .key:hover{background:var(--cream)}
+
+  /* ===== popovers ===== */
+  .pop{position:absolute;bottom:calc(100% + 8px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:30;max-width:calc(100% - 8px)}
+  .dd{left:0;min-width:160px;padding:5px}
+  .ddrow{display:flex;align-items:center;gap:8px;width:100%;padding:8px;border:0;background:transparent;border-radius:8px;cursor:pointer;text-align:left;color:var(--ink);font:inherit;font-size:13px;white-space:nowrap}
+  .ddrow:hover{background:var(--cream)}
+  .ddrow.on{color:var(--brand);font-weight:700}
+  .ddck{width:14px;text-align:center;color:var(--brand)}
+  .fontdd{left:0;min-width:220px;padding:12px}
+  .fontrow{display:flex;align-items:center;gap:10px}
+  .fontrow input{flex:1;accent-color:var(--brand)}
+  .fonta{color:var(--ink)} .fs-sm{font-size:13px} .fs-lg{font-size:22px;font-weight:700}
+  .fontval{text-align:center;font-size:11px;color:var(--muted);margin-top:6px}
+  .fonttitle{font-size:12px;color:var(--muted);margin-bottom:8px}
+
+  .panel{left:0;right:auto;min-width:280px;max-width:320px;padding:8px}
+  .panel.right{left:auto;right:0}
+  .ptitle{font-size:11px;color:var(--muted);padding:2px 4px 8px;cursor:move}
+  .prow{display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:8px}
+  .prow:hover{background:var(--cream)}
+  .mi{width:20px;display:inline-flex;justify-content:center;color:var(--brand);flex:0 0 20px}
+  .mi .ico{width:16px;height:16px}
+  .pl{font-size:13px;flex:1}
+  .pc{display:flex;align-items:center;gap:5px}
+  .msel{font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+  .msel .ico{width:12px;height:12px;color:var(--muted)}
+  .prange{width:104px;accent-color:var(--brand)}
+  .slval{font-size:11px;color:var(--muted);min-width:32px}
+  .mv{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer}
+  .mv:disabled{opacity:.35;cursor:default}
+  .pin{border:0;background:transparent;font-size:14px;filter:grayscale(1);opacity:.4;cursor:pointer;padding:2px 4px}
+  .pin.on{filter:none;opacity:1}
+  .selpanel{left:0;width:290px;max-width:calc(100% - 8px);display:flex;flex-direction:column}
+  .sshead{display:flex;align-items:center;justify-content:space-between;padding:10px 12px 6px;font-weight:700}
+  .ssall{display:flex;gap:8px;padding:0 12px 8px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .ssbtn{border:1px solid var(--line);background:transparent;border-radius:8px;padding:5px 12px;font:inherit;font-size:12px;cursor:pointer}
+  .ssbtn:hover{border-color:var(--brand);color:var(--brand)}
+  .sshint{font-size:11px;color:var(--muted);margin-left:auto;align-self:center}
+  .sslist{padding:6px;max-height:200px;overflow:auto}
+  .ssrow{display:flex;align-items:center;gap:12px;width:100%;padding:9px 12px;border:0;background:transparent;border-radius:10px;cursor:pointer;font:inherit;font-size:14px;color:var(--ink);text-align:left}
+  .ssrow:hover{background:var(--cream)}
+  .cx{width:22px;height:22px;flex:0 0 22px;border:1.5px solid var(--muted);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff}
+  .cx .ico{width:14px;height:14px}
+  .ssrow.on .cx{background:var(--ok);border-color:var(--ok)}
+  .ssrow.on{color:var(--ok);font-weight:600}
+  .ssname{flex:1}
+  .hk{font-size:10px;color:var(--brand);border:1px dashed var(--brand);border-radius:10px;padding:0 7px}
+
+  .mask{position:absolute;inset:0;z-index:20;background:transparent}
+  .fab{width:48px;height:48px;border-radius:50%;background:var(--brand);color:#fff;border:1px solid var(--brand);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.28);cursor:grab;pointer-events:auto}
+  .fab .ico{width:24px;height:24px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></symbol>
+  <symbol id="i-sb" viewBox="0 0 24 24"><path d="M17.971 4.285A2 2 0 0 1 21 6v12a2 2 0 0 1-3.029 1.715l-9.997-5.998a2 2 0 0 1-.003-3.432z"/><path d="M3 20V4"/></symbol>
+  <symbol id="i-sf" viewBox="0 0 24 24"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-guitar" viewBox="0 0 24 24"><path d="m11.9 12.1 4.514-4.514"/><path d="M20.1 2.3a1 1 0 0 0-1.4 0l-1.114 1.114A2 2 0 0 0 17 4.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 17.828 7h1.344a2 2 0 0 0 1.414-.586L21.7 5.3a1 1 0 0 0 0-1.4z"/><path d="m6 16 2 2"/><path d="M8.23 9.85A3 3 0 0 1 11 8a5 5 0 0 1 5 5 3 3 0 0 1-1.85 2.77l-.92.38A2 2 0 0 0 12 18a4 4 0 0 1-4 4 6 6 0 0 1-6-6 4 4 0 0 1 4-4 2 2 0 0 0 1.85-1.23z"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M16 5H3"/><path d="M11 12H3"/><path d="M11 19H3"/><path d="M21 16V5"/><circle cx="18" cy="16" r="3"/></symbol>
+  <symbol id="i-cv" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></symbol>
+  <symbol id="i-blend" viewBox="0 0 24 24"><circle cx="9" cy="9" r="7"/><circle cx="15" cy="15" r="7"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M4 12a8 8 0 0 1 8-8"/><path d="M4 12a8 8 0 0 0 8 8"/></symbol>
+</defs></svg>
+
+<div class="wrap">
+  <h1>Dock — prototype กดได้จริง</h1>
+  <p class="sub">SA · CSS/โครง = ของจริง · JS เปิด/ปิดเมนู·ปัก·ยุบ·สไลด์ ทำงานจริง · <b>ยังไม่ต่อฐานข้อมูล</b> (ไว้ทีหลัง)</p>
+  <div class="warn">ลองกดได้เลย: <b>เฟือง ⚙</b> เปิดแผง → ปัก 📌 ปุ่มขึ้น/ลงแถบ · <b>grip ⁝⁝</b> แตะ=ยุบ ลาก=ย้าย · <b>เลือกท่อน</b> · <b>คอร์ด/คีย์/ความเร็ว/Aa</b> เปิดเมนู · ลากไทม์ไลน์ · สลับโหมด/จอ ด้านล่าง</div>
+
+  <div class="tools">
+    <span class="seg" id="modeSeg">
+      <button data-act="mode:sing" class="on">🎤 ฝึกร้อง</button>
+      <button data-act="mode:print">📄 แผ่นเพลง</button>
+      <button data-act="mode:edit">✏️ แก้ไข</button>
+    </span>
+    <span class="seg" id="vpSeg">
+      <button data-act="vp:mobile" class="on">📱 มือถือ</button>
+      <button data-act="vp:desk">🖥 เดสก์ท็อป</button>
+    </span>
+    <span class="hint" id="hint"></span>
+  </div>
+
+  <div class="frame mobile" id="frame">
+    <div class="reader" id="reader"></div>
+    <div class="dockhost" id="host"></div>
+  </div>
+</div>
+
+<script>
+const $ = (s,r=document)=>r.querySelector(s);
+function ic(name,size,cls){return `<svg class="ico ${cls||''}" width="${size}" height="${size}" viewBox="0 0 24 24" style="width:${size}px;height:${size}px"><use href="#i-${name}"/></svg>`}
+
+const KEYS=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const TEMPOS=[['ช้ามาก',60],['ช้า',75],['ปานกลาง',90],['เร็ว',110],['เร็วมาก',130]];
+const CHORDS=['กีตาร์','อูคูเลเล่','เปียโน','ตัวเลข'];
+const DISPLAYS=['คอร์ด+โน้ต','คอร์ดอย่างเดียว','โน้ตอย่างเดียว','เนื้อล้วน'];
+
+const CTRL={
+  chord:  {icon:'guitar', label:'คอร์ด',        type:'menu', opts:CHORDS,   get:()=>S.chord,   set:v=>S.chord=v,   badge:()=>''},
+  tempo:  {icon:'gauge',  label:'ความเร็ว',      type:'menu', opts:TEMPOS.map(t=>t[0]+' ('+t[1]+')'), get:()=>tempoLabel(), set:v=>S.tempo=+v.match(/\((\d+)\)/)[1], badge:()=>S.tempo},
+  key:    {icon:'key',    label:'คีย์',          type:'menu', opts:KEYS,     get:()=>S.key,     set:v=>S.key=v,     badge:()=>S.key},
+  display:{icon:'layers', label:'แสดงผล',        type:'menu', opts:DISPLAYS, get:()=>S.display, set:v=>S.display=v, badge:()=>''},
+  alpha:  {icon:'blend',  label:'ความโปร่งแถบ',   type:'slider'},
+};
+function tempoLabel(){const t=TEMPOS.find(x=>x[1]===S.tempo);return (t?t[0]:'')+' ('+S.tempo+')'}
+
+const MODE={
+  sing:  {main:['prev','play','next','loop'], pins:['chord','tempo','key'], panel:['chord','tempo','key','display','alpha'], timeline:true, select:true, aa:true},
+  print: {main:['print'], pins:[], panel:['display','chord','key','alpha'], timeline:false, select:false, aa:true},
+  edit:  {main:['undo','redo','listen','send'], pins:[], panel:['alpha'], keys:true, overflow:['download'], timeline:false, select:false, aa:false},
+};
+
+const S={
+  mode:'sing', mobile:true, playing:false, loop:true, collapsed:false,
+  alpha:0.96, frac:0.38, fontPct:100, chord:'กีตาร์', key:'C', tempo:90, display:'คอร์ด+โน้ต',
+  openPanel:null, openMenu:null,
+  pins:['chord','tempo','key'],
+  sections:[{name:'ท่อน 1'},{name:'ท่อน 2'},{name:'ฮุก',hook:true},{name:'ท่อน 3'},{name:'จบ'}],
+  selected:new Set(['ท่อน 2','ฮุก']),
+  pos:null,
+};
+
+/* ---------- song background ---------- */
+function renderReader(){
+  const fs=S.fontPct/100;
+  const line=(cd,nt,tx)=>`<div class="ln" style="font-size:${fs*1.02}rem">${cd?`<span class="cd">${cd}</span>`:''}${nt?`<span class="nt">${nt}</span>`:''}${tx}</div>`;
+  $('#reader').innerHTML=`<h3>พระเจ้าทรงเป็นความรัก</h3>`+
+    line('C','5','พระเจ้าทรงเป็นความรัก')+
+    line('G','3','ทรงสร้างสรรพสิ่งด้วยพระหัตถ์')+
+    line('Am','6','ข้าขอสรรเสริญพระองค์')+
+    line('F','1','ตลอดกาลนิรันดร์')+
+    `<div class="ln" style="font-size:${fs*1.02}rem;color:var(--brand);font-weight:600">— ฮุก —</div>`+
+    line('C','5','ฮาเลลูยา ฮาเลลูยา')+
+    line('G','2','พระองค์ทรงเป็นขึ้นมา')+
+    (S.mobile?'':line('Am','6','ทรงครองราชย์เหนือสิ้นทั้งปวง')+line('F','1','สรรเสริญพระนามพระองค์'));
+}
+
+/* ---------- dock ---------- */
+function ddMenu(id){
+  const c=CTRL[id]; const cur=c.get();
+  return `<div class="pop dd" data-pop>${c.opts.map(o=>`<button class="ddrow ${o===cur?'on':''}" data-act="pick:${id}:${o}"><span class="ddck">${o===cur?'●':''}</span>${o}</button>`).join('')}</div>`;
+}
+function pinBar(id){
+  const c=CTRL[id];
+  if(c.type==='slider'){ // ความโปร่ง ปักแล้ว = สไลเดอร์เล็กบนแถบ
+    return `<span class="pinwrap pslidewrap" title="${c.label}">${ic(c.icon,16)}<input class="pslider" type="range" min="40" max="100" value="${Math.round(S.alpha*100)}" data-act="alpha"></span>`;
+  }
+  const open=S.openMenu===id; const b=c.badge&&c.badge();
+  return `<span class="pinwrap">
+    <button class="pbtn ${open?'on':''}" data-act="menu:${id}">${ic(c.icon,17)}${b?`<b class="pbadge">${b}</b>`:''}${ic('cv',13,'pcaret')}</button>
+    ${open?ddMenu(id):''}</span>`;
+}
+function aaBtn(){
+  const open=S.openMenu==='font';
+  return `<span class="pinwrap">
+    <button class="pbtn ${open?'on':''}" data-act="menu:font"><span class="aa">Aa</span><b class="pbadge">${S.fontPct}%</b></button>
+    ${open?`<div class="pop fontdd" data-pop>
+      <div class="fonttitle">ขนาดตัวอักษร</div>
+      <div class="fontrow"><span class="fonta fs-sm">A</span><input type="range" min="80" max="220" step="10" value="${S.fontPct}" data-act="font"><span class="fonta fs-lg">A</span></div>
+      <div class="fontval">${S.fontPct}%</div></div>`:''}</span>`;
+}
+function mainBtn(id){
+  switch(id){
+    case 'prev': return `<button class="btn" data-act="noop" title="ท่อนก่อน">${ic('sb',20)}</button>`;
+    case 'next': return `<button class="btn" data-act="noop" title="ท่อนถัดไป">${ic('sf',20)}</button>`;
+    case 'play': return `<button class="play" data-act="play" title="${S.playing?'พัก':'เล่น'}">${ic(S.playing?'pause':'play',28)}</button>`;
+    case 'loop': return `<button class="btn ${S.loop?'on':''}" data-act="loop" title="วนซ้ำ">${ic('repeat',19)}</button>`;
+    case 'undo': return `<button class="btn" data-act="noop" title="ย้อน">${ic('undo',20)}</button>`;
+    case 'redo': return `<button class="btn" data-act="noop" title="ทำซ้ำ">${ic('redo',20)}</button>`;
+    case 'listen': return `<button class="btn" data-act="play" title="ฟังท่อน">${ic(S.playing?'pause':'play',20)}</button>`;
+    case 'send': return `<button class="pbtn prime" data-act="noop" title="ส่งตรวจ">${ic('send',17)}<b class="pbadge">ส่ง</b></button>`;
+    case 'print': return `<button class="pbtn prime" data-act="noop" title="พิมพ์">${ic('print',17)}<b class="pbadge">พิมพ์</b></button>`;
+    case 'download': return `<button class="btn" data-act="noop" title="ดาวน์โหลด">${ic('download',20)}</button>`;
+  }
+  return '';
+}
+function gearPanel(){
+  const m=MODE[S.mode];
+  const rows=m.panel.map(id=>{
+    const c=CTRL[id]; const pinnable=m.pins.length>0||id!=='alpha'; const pinned=S.pins.includes(id);
+    const i=S.pins.indexOf(id);
+    let ctl='';
+    if(c.type==='menu') ctl=`<button class="msel" data-act="cycle:${id}" title="แตะเพื่อเปลี่ยน">${c.get()} ${ic('cv',12)}</button>`;
+    else if(c.type==='slider') ctl=`<input class="prange" type="range" min="40" max="100" value="${Math.round(S.alpha*100)}" data-act="alpha"><span class="slval">${Math.round(S.alpha*100)}%</span>`;
+    const canPin=(S.mode==='sing'); // ทุกปุ่มปักได้ รวมความโปร่ง (P'Aim 10 ก.ค.)
+    const rc=canPin?`<button class="mv" data-act="mv:${id}:-1" ${pinned&&i>0?'':'disabled'}>▲</button><button class="mv" data-act="mv:${id}:1" ${pinned&&i>-1&&i<S.pins.length-1?'':'disabled'}>▼</button><button class="pin ${pinned?'on':''}" data-act="pin:${id}">📌</button>`:'';
+    return `<div class="prow"><span class="mi">${ic(c.icon,16)}</span><span class="pl">${c.label}</span><span class="pc">${ctl}</span>${rc}</div>`;
+  }).join('');
+  return `<div class="pop panel right" data-pop><div class="ptitle">⠿ ตั้งค่า — ปรับได้ที่นี่เลย · 📌 = ปักขึ้นแถบ</div>${rows}</div>`;
+}
+function selPanel(){
+  const n=S.selected.size, tot=S.sections.length;
+  return `<div class="pop selpanel" data-pop>
+    <div class="sshead"><span>⠿ เลือกท่อนที่จะซ้อม</span></div>
+    <div class="ssall"><button class="ssbtn" data-act="setall:1">☑ ทั้งหมด</button><button class="ssbtn" data-act="setall:0">☐ ไม่เลือก</button><span class="sshint">ไม่เลือก = เล่นทั้งเพลง</span></div>
+    <div class="sslist">${S.sections.map(s=>{const on=S.selected.has(s.name);return `<button class="ssrow ${on?'on':''}" data-act="sec:${s.name}"><span class="cx">${on?ic('check',14):''}</span><span class="ssname">${s.name}</span>${s.hook?'<span class="hk">ฮุก</span>':''}</button>`}).join('')}</div>
+  </div>`;
+}
+function overflowPop(){
+  const m=MODE[S.mode];
+  return `<div class="pop dd" data-pop style="right:0;left:auto">${m.overflow.map(id=>`<button class="ddrow" data-act="noop">${mainBtnLabel(id)}</button>`).join('')}</div>`;
+}
+function mainBtnLabel(id){return {download:ic('download',18)+' ดาวน์โหลด'}[id]||id}
+
+function renderDock(){
+  const m=MODE[S.mode];
+  if(S.collapsed){ return `<button class="fab" data-act="grip" title="แตะเพื่อกาง · ลากเพื่อย้าย">${ic('expand',24)}</button>`; }
+
+  let rows='';
+  // keys row (edit)
+  if(m.keys){
+    rows+=`<div class="keys">${['1','2','3','4','5','6','7','.','-','|','0'].map(k=>`<button class="key" data-act="noop">${k}</button>`).join('')}</div>`;
+  }
+  // top row (sing): timeline + select
+  if(m.timeline){
+    const cur=fmt(S.frac*192), tot=fmt(192);
+    const dots=S.sections.map((s,i)=>`<span class="mk ${i===1?'act':''}" style="left:${12+i*19}%" data-act="noop"></span>`).join('');
+    rows+=`<div class="r">
+      <span class="seek"><span>${cur}</span>
+        <span class="bar" data-seek><span class="trk"></span><span class="fil" style="width:${S.frac*100}%"></span><span class="kn" style="left:${S.frac*100}%"></span>${dots}</span>
+        <span>${tot}</span></span>
+      ${m.select?`<button class="sel ${S.openPanel==='select'?'on':''}" data-act="select">${ic('list',15)}${S.mobile?'ท่อน':'เลือกท่อน'} <b>${S.selected.size}/${S.sections.length}</b></button>`:''}
+    </div>`;
+  }
+  // pins row(s): pinned controls (+aa) — mobile puts them on their own row above the bottom
+  const pinItems = (S.mode==='sing') ? [...S.pins.map(pinBar), (m.aa?aaBtn():'')].filter(Boolean) : [];
+  const cap = S.mobile?6:12;
+
+  // bottom row: grip + main + [pins if desktop-fit] + [overflow] + gear
+  let center = m.main.map(mainBtn);
+  let barPins = [];
+  let overflowBtn='';
+  if(S.mode==='sing'){
+    if(!S.mobile){ barPins = pinItems; }        // desktop: pins inline on bottom row
+  }
+  if(m.overflow && m.overflow.length){ overflowBtn=`<button class="btn gear ${S.openMenu==='overflow'?'on':''}" data-act="menu:overflow" title="ดูเพิ่ม">${ic('dots',18)}</button>`; }
+
+  // mobile sing: pins as their own row above bottom (only if any pinned)
+  if(S.mobile && S.mode==='sing' && pinItems.length){
+    rows+=`<div class="r"><span class="sp"></span>${pinItems.join('')}<span class="sp"></span></div>`;
+  }
+
+  rows+=`<div class="r">
+    <button class="btn grip" data-act="grip" title="แตะ=ยุบ · ลาก=ย้าย">${ic('grip',22)}</button>
+    <span class="sp"></span>
+    ${center.join('')}
+    ${barPins.join('')}
+    <span class="sp"></span>
+    ${overflowBtn}
+    <button class="btn gear ${S.openPanel==='gear'?'on':''}" data-act="gear" title="ตั้งค่า">${ic('gear',20)}</button>
+  </div>`;
+
+  // panels
+  let panels='';
+  if(S.openPanel==='gear') panels+=gearPanel();
+  if(S.openPanel==='select') panels+=selPanel();
+  if(S.openMenu==='overflow') panels+=overflowPop();
+
+  const mask=(S.openPanel||S.openMenu)?`<div class="mask" data-act="close"></div>`:'';
+  return `${mask}<div class="dock" style="--a:${S.alpha}"${S.pos?` data-pos="1"`:''}>${rows}${panels}</div>`;
+}
+
+function fmt(s){s=Math.max(0,s);return Math.floor(s/60)+':'+String(Math.round(s%60)).padStart(2,'0')}
+
+/* ---------- render ---------- */
+function render(){
+  $('#frame').className='frame '+(S.mobile?'mobile':'desk');
+  renderReader();
+  $('#host').innerHTML=renderDock();
+  // sync toolbars
+  [...$('#modeSeg').children].forEach(b=>b.classList.toggle('on',b.dataset.act==='mode:'+S.mode));
+  [...$('#vpSeg').children].forEach(b=>b.classList.toggle('on',b.dataset.act==='vp:'+(S.mobile?'mobile':'desk')));
+  $('#hint').textContent = S.mode==='sing' ? (S.mobile?'มือถือ 6 ช่อง/แถว — pins ขึ้นแถวบน':'เดสก์ท็อป 12 ช่อง — pins พอในแถวล่าง') : (S.mode==='edit'?'แถวคีย์โน้ตพิเศษ + tools':'ปุ่มเดียว: พิมพ์');
+  if(S.pos){const d=$('.dock',$('#host'));if(d){d.style.position='absolute';d.style.left=S.pos.x+'px';d.style.top=S.pos.y+'px';d.style.width='auto'}}
+  clampPops();
+}
+// ข้อกำหนด: ป๊อปอัพ/แผงห้ามล้นขอบ — วัดแล้วเลื่อนกลับเข้ากรอบ +8px (เหมือน clampPopover ของจริง)
+function clampPops(){
+  const fr=$('#frame').getBoundingClientRect(), m=8;
+  $('#host').querySelectorAll('.pop').forEach(el=>{
+    el.style.transform='';
+    const r=el.getBoundingClientRect(); let dx=0,dy=0;
+    if(r.right>fr.right-m) dx=fr.right-m-r.right;
+    if(r.left+dx<fr.left+m) dx=fr.left+m-(r.left+dx);
+    if(r.top+dy<fr.top+m) dy=fr.top+m-(r.top+dy);
+    if(r.bottom+dy>fr.bottom-m) dy=fr.bottom-m-r.bottom;
+    if(dx||dy) el.style.transform=`translate(${Math.round(dx)}px,${Math.round(dy)}px)`;
+  });
+}
+
+/* ---------- events ---------- */
+function act(a){
+  if(a==='noop')return;
+  if(a==='close'){S.openPanel=null;S.openMenu=null;return render()}
+  if(a==='play'){S.playing=!S.playing;return render()}
+  if(a==='loop'){S.loop=!S.loop;return render()}
+  if(a==='gear'){S.openPanel=S.openPanel==='gear'?null:'gear';S.openMenu=null;return render()}
+  if(a==='select'){S.openPanel=S.openPanel==='select'?null:'select';S.openMenu=null;return render()}
+  if(a.startsWith('mode:')){S.mode=a.slice(5);S.openPanel=null;S.openMenu=null;S.collapsed=false;S.pos=null;return render()}
+  if(a.startsWith('vp:')){S.mobile=a.slice(3)==='mobile';S.pos=null;return render()}
+  if(a.startsWith('menu:')){const id=a.slice(5);S.openMenu=S.openMenu===id?null:id;if(id!=='overflow')S.openPanel=null;return render()}
+  if(a.startsWith('pick:')){const[,id,val]=a.split(':');CTRL[id].set(val);S.openMenu=null;return render()}
+  if(a.startsWith('cycle:')){const id=a.slice(6);const c=CTRL[id];const cur=c.get();const i=c.opts.indexOf(cur);c.set(c.opts[(i+1)%c.opts.length]);return render()}
+  if(a.startsWith('pin:')){const id=a.slice(4);S.pins=S.pins.includes(id)?S.pins.filter(x=>x!==id):[...S.pins,id];return render()}
+  if(a.startsWith('mv:')){const[,id,d]=a.split(':');const i=S.pins.indexOf(id),j=i+(+d);if(i>=0&&j>=0&&j<S.pins.length){[S.pins[i],S.pins[j]]=[S.pins[j],S.pins[i]]}return render()}
+  if(a.startsWith('sec:')){const nm=a.slice(4);S.selected.has(nm)?S.selected.delete(nm):S.selected.add(nm);return render()}
+  if(a.startsWith('setall:')){S.selected=a.endsWith('1')?new Set(S.sections.map(s=>s.name)):new Set();return render()}
+}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-act]'); if(!t)return;
+  e.stopPropagation(); act(t.dataset.act);
+});
+document.addEventListener('input',e=>{
+  const t=e.target.closest('[data-act]'); if(!t)return;
+  if(t.dataset.act==='alpha'){S.alpha=(+t.value)/100; const d=$('.dock',$('#host')); if(d)d.style.setProperty('--a',S.alpha); const v=t.parentElement.querySelector('.slval'); if(v)v.textContent=t.value+'%';}
+  if(t.dataset.act==='font'){S.fontPct=+t.value; renderReader(); const v=t.closest('.fontdd').querySelector('.fontval'); if(v)v.textContent=t.value+'%';}
+});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'){S.openPanel=null;S.openMenu=null;render()}});
+
+/* ---------- grip: tap=collapse, drag=move · timeline scrub ---------- */
+let gp=null;
+document.addEventListener('pointerdown',e=>{
+  const grip=e.target.closest('[data-act="grip"]');
+  if(grip){ gp={x:e.clientX,y:e.clientY,moved:false,fab:S.collapsed}; const d=$('.dock',$('#host'))||grip; const r=(S.collapsed?grip:d).getBoundingClientRect(); const fr=$('#frame').getBoundingClientRect(); gp.ox=e.clientX-r.left; gp.oy=e.clientY-r.top; gp.fr=fr; try{grip.setPointerCapture(e.pointerId)}catch(_){}}
+  const bar=e.target.closest('[data-seek]');
+  if(bar){ scrub(bar,e); const mv=ev=>scrub(bar,ev); const up=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up)}; document.addEventListener('pointermove',mv); document.addEventListener('pointerup',up); }
+});
+document.addEventListener('pointermove',e=>{
+  if(!gp)return; const dx=e.clientX-gp.x, dy=e.clientY-gp.y;
+  if(!gp.moved && dx*dx+dy*dy>25){gp.moved=true}
+  if(gp.moved && !S.collapsed){ S.pos={x:e.clientX-gp.fr.left-gp.ox, y:e.clientY-gp.fr.top-gp.oy}; const d=$('.dock',$('#host')); if(d){d.style.position='absolute';d.style.left=S.pos.x+'px';d.style.top=S.pos.y+'px';d.style.width='auto'} }
+});
+document.addEventListener('pointerup',()=>{
+  if(!gp)return; if(!gp.moved){ S.collapsed=!S.collapsed; S.openPanel=null;S.openMenu=null; if(!S.collapsed)S.pos=null; render(); } gp=null;
+});
+function scrub(bar,e){const r=bar.getBoundingClientRect();S.frac=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));const d=$('.dock',$('#host'));const fil=bar.querySelector('.fil'),kn=bar.querySelector('.kn');if(fil)fil.style.width=S.frac*100+'%';if(kn)kn.style.left=S.frac*100+'%';const cur=bar.parentElement.querySelector('span');if(cur)cur.textContent=fmt(S.frac*192);}
+
+render();
+</script>
+</body>
+</html>
