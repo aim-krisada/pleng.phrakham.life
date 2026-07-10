@@ -57,7 +57,7 @@ onMounted(async () => {
 
 <template>
   <div>
-    <div class="no-print" style="margin-bottom: 14px">
+    <div class="no-print search-block">
       <input
         v-model="query"
         type="search"
@@ -81,57 +81,67 @@ onMounted(async () => {
         </select>
         <span v-if="!loading" class="facet-count muted">{{ filtered.length }} เพลง</span>
       </div>
-      <p v-if="dbError" class="muted" style="margin: 6px 0 0">
+      <p v-if="dbError" class="muted db-note">
         ยังเชื่อมต่อฐานข้อมูลไม่ได้ — แสดงเพลงตัวอย่างไปก่อน
       </p>
     </div>
 
     <p v-if="loading" class="muted">กำลังโหลด…</p>
 
-    <router-link v-for="s in filtered" :key="s.id" :to="`/song/${s.id}`" class="card song-card">
-      <div class="song-card-head">
-        <strong class="song-title">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</strong>
-        <span class="head-tags">
-          <span v-if="flagCount(s)" class="badge warn" :title="flagTitle(s)">⚠️ ต้องตรวจ</span>
-          <span v-if="s.verified" class="badge ok" title="ตรวจแล้ว">✓ ตรวจแล้ว</span>
-          <span class="key-chip">Key {{ s.content.key }}</span>
-        </span>
-      </div>
-      <div v-if="s.title_en" class="muted">{{ s.title_en }}</div>
-      <div v-if="snippet(s.content)" class="muted">{{ snippet(s.content) }}…</div>
-      <div v-if="s.theme" class="theme-tag muted">{{ s.theme }}</div>
-    </router-link>
+    <div class="song-grid">
+      <router-link v-for="s in filtered" :key="s.id" :to="`/song/${s.id}`" class="card song-card">
+        <div class="song-card-head">
+          <strong class="song-title">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</strong>
+          <span class="head-tags">
+            <span v-if="flagCount(s)" class="badge warn" :title="flagTitle(s)">⚠️ ต้องตรวจ</span>
+            <span v-if="s.verified" class="badge ok" title="ตรวจแล้ว">✓ ตรวจแล้ว</span>
+            <span class="key-chip">Key {{ s.content.key }}</span>
+          </span>
+        </div>
+        <div v-if="s.title_en" class="muted">{{ s.title_en }}</div>
+        <div v-if="snippet(s.content)" class="muted">{{ snippet(s.content) }}…</div>
+        <div v-if="s.theme" class="theme-tag muted">{{ s.theme }}</div>
+      </router-link>
+    </div>
 
     <p v-if="!loading && filtered.length === 0" class="muted">ไม่พบเพลงที่ค้นหา</p>
   </div>
 </template>
 
 <style scoped>
+/* All spacing/type/radius use the S0 design tokens (--sp-* / --fs-* / --lh-* /
+   --touch-min from styles.css). No hard-coded px for rhythm; focusable form
+   controls stay >= --fs-base (16.96px) so iOS Safari never zoom-on-focus, and
+   every control is >= --touch-min (44px) tall (WCAG 2.5.5). */
+
+.search-block { margin-bottom: var(--sp-4); }
+.db-note { margin: var(--sp-2) 0 0; }
+
 /* single, full-width search field — no wrapping card */
 .song-search {
   width: 100%;
-  min-height: 48px;
-  font-size: 1.02rem;
-  padding: 10px 14px;
+  min-height: var(--touch-min);
+  font-size: var(--fs-base);
+  padding: var(--sp-3) var(--sp-4);
   border-radius: 10px;
 }
 /* facet row under the search: unverified toggle + theme picker + count */
 .facet-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-2);
   flex-wrap: wrap;
-  margin-top: 10px;
+  margin-top: var(--sp-3);
 }
 .facet-chip {
-  min-height: 40px;
-  padding: 6px 14px;
-  border-radius: 20px;
+  min-height: var(--touch-min);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: 22px;
   border: 1px solid var(--line);
   background: var(--cream);
   color: var(--ink);
   cursor: pointer;
-  font-size: 0.92rem;
+  font-size: var(--fs-base);
 }
 .facet-chip:hover { background: var(--cream-hover); }
 .facet-chip.on {
@@ -140,58 +150,74 @@ onMounted(async () => {
   color: #fff;
 }
 .facet-select {
-  min-height: 40px;
-  padding: 6px 12px;
+  min-height: var(--touch-min);
+  padding: var(--sp-2) var(--sp-3);
   border-radius: 10px;
   border: 1px solid var(--line);
   background: var(--cream);
   color: var(--ink);
-  font-size: 0.92rem;
+  font-size: var(--fs-base);
 }
-.facet-count { margin-left: auto; font-size: 0.88rem; }
-/* whole card is the link: no underlines, hover tint signals clickability */
+.facet-count { margin-left: auto; font-size: var(--fs-sm); }
+
+/* responsive card grid: 1 column on phones, 2 from tablet up (container caps
+   at 900px so 2 keeps each card readable) — reflows without horizontal scroll */
+.song-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+}
+@media (min-width: 640px) {
+  .song-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* whole card is the link: no underlines, hover tint signals clickability.
+   margin-bottom cleared — the grid gap owns vertical rhythm now. */
 .song-card {
   display: block;
   text-decoration: none;
   color: var(--ink);
+  margin-bottom: 0;
 }
 .song-card:hover { background: var(--cream-hover); }
 .song-card-head {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 10px;
+  gap: var(--sp-2);
 }
-.song-title { color: var(--brand); font-size: 1.05rem; }
+.song-title { color: var(--brand); font-size: var(--fs-lg); line-height: var(--lh-snug); }
 .head-tags {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-1);
   flex: 0 0 auto;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 .badge {
   border-radius: 12px;
-  padding: 1px 9px;
-  font-size: 0.78rem;
+  padding: 1px var(--sp-2);
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
+/* semantic status colours (warn/ok) — not theme tokens; kept as-is from the
+   catalog merge. If tokenised, needs a PM-approved --warn/--ok pair. */
 .badge.warn { background: #fdecea; color: #9c3b2e; border: 1px solid #f0b8ae; }
 .badge.ok { background: #e7f4e9; color: #2e6b3b; border: 1px solid #b7ddbf; }
 .key-chip {
   background: var(--cream);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 1px 10px;
-  font-size: 0.8rem;
+  padding: 1px var(--sp-3);
+  font-size: var(--fs-xs);
   color: var(--muted);
   white-space: nowrap;
   flex: 0 0 auto;
 }
 .theme-tag {
-  margin-top: 4px;
-  font-size: 0.8rem;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-xs);
   display: inline-block;
 }
 </style>
