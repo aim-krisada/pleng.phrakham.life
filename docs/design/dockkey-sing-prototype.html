@@ -91,11 +91,11 @@
   .prow:hover{background:var(--cream)}
   .mi{width:20px;display:inline-flex;justify-content:center;color:var(--brand);flex:0 0 20px}
   .mi .ico{width:16px;height:16px}
-  .pl{font-size:13px;flex:1}
+  .pl{font-size:13px;flex:1;white-space:nowrap}
   .pc{display:flex;align-items:center;gap:5px}
   .msel{font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:4px}
   .msel .ico{width:12px;height:12px;color:var(--muted)}
-  .prange{width:104px;accent-color:var(--brand)}
+  .prange{width:60px;accent-color:var(--brand)}
   .slval{font-size:11px;color:var(--muted);min-width:32px}
   .mv{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer}
   .mv:disabled{opacity:.35;cursor:default}
@@ -181,7 +181,7 @@ const ITEMS_SING = [
   {id:'chord',   kind:'menu', name:'คอร์ด', icon:'guitar', opts:CHORDS, get:()=>S.chord, set:v=>S.chord=v, badge:()=>'', default:'inSetting', pinnable:true},
   {id:'speed',   kind:'menu', name:'ความเร็ว', icon:'gauge', opts:TEMPOS.map(t=>t[0]+' ('+t[1]+')'), get:()=>tempoLabel(), set:v=>S.tempo=+v.match(/\((\d+)\)/)[1], badge:()=>S.tempo, default:'inSetting', pinnable:true},
   {id:'layer',   kind:'menu', name:'แสดงผล', icon:'layers', opts:DISPLAYS, get:()=>S.display, set:v=>S.display=v, badge:()=>'', default:'inSetting', pinnable:true},
-  {id:'alpha',   kind:'slider', name:'ความโปร่ง', icon:'blend', default:'inSetting', pinnable:true},
+  {id:'alpha',   kind:'slider', name:'โปร่งใส', icon:'blend', default:'inSetting', pinnable:true},
 ];
 function tempoLabel(){const t=TEMPOS.find(x=>x[1]===S.tempo);return (t?t[0]:'')+' ('+S.tempo+')'}
 const byId=id=>ITEMS_SING.find(x=>x.id===id);

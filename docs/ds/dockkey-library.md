@@ -68,14 +68,14 @@ DockItem = {
 | chord | คอร์ด | menu | flow | **inSetting**·pin | เลือกแบบคอร์ด |
 | speed | ความเร็ว | menu | flow | **inSetting**·pin | กำหนดความเร็วจังหวะ |
 | layer | แสดงผล | menu | flow | **inSetting**·pin | เลือกแสดง โน้ต/เนื้อ/ฯลฯ |
-| alpha | ความโปร่ง | slider | flow | **inSetting**·pin | ความโปร่งของ dock (P'Aim) |
+| alpha | โปร่งใส | slider | flow | **inSetting**·pin | โปร่งใสของ dock (P'Aim) |
 
 ### default (เปิดมา) — 2 แถว แถวละ 6 พอดี
 ```
 Row 2:  [ ไทม์ไลน์ · col 1–3 ] [ คีย์ · 4 ] [ เลือกท่อน · 5–6 ]
 Row 1:  [Grip·1][Back·2][Play·3][Fwd·4][Aa·5][⚙·6]
 ```
-- **หน้า Setting (⚙)** = repeat · คอร์ด · ความเร็ว · แสดงผล · ความโปร่ง (แต่ละตัว: ไอคอน·ชื่อ·ตัวปรับ·▲▼·📌)
+- **หน้า Setting (⚙)** = repeat · คอร์ด · ความเร็ว · แสดงผล · โปร่งใส (แต่ละตัว: ไอคอน·ชื่อ·ตัวปรับ·▲▼·📌)
 - **ปัก 📌** → ขึ้นแถบ · mobile ล้น 6 → ขึ้นแถวใหม่(บน) · desktop (cap14) → ลงแถวล่างต่อจาก forward
 - **ถอน 📌** → กลับเข้า Setting
 
