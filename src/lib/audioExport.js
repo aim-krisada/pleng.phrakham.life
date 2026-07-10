@@ -23,6 +23,18 @@ export function notesDurationSec(notes, bpm) {
   return t
 }
 
+// Pre-flight estimate, computed WITHOUT rendering (just note math) so the UI can tell
+// the user up-front "≈ 2m46s · ~2.6 MB" before the slow work starts — de-facto for any
+// long export: set an expectation so a wait doesn't read as a hang. seconds is exact
+// (same math the render uses); bytes ≈ constant-bitrate size (kbps × seconds ÷ 8).
+export function estimateMp3(content, { bpm, kbps = 128 } = {}) {
+  const playable = playableContent(content)
+  const useBpm = Number(bpm) || playable.bpm || 92
+  const seconds = notesDurationSec(buildPlayNotes(playable), useBpm) + 0.25
+  const bytes = Math.round(((kbps * 1000) / 8) * seconds)
+  return { seconds, bytes }
+}
+
 // Render the melody offline into a mono AudioBuffer. Browser only (OfflineAudioContext).
 // Defaults mirror a plain "ฟัง": the song's own bpm (or 92) and its native key
 // (transpose 0). Same per-note timing + synth as playSong, so it sounds identical.
@@ -61,26 +73,49 @@ export function floatToInt16(float32) {
   return out
 }
 
-// Int16 mono PCM → MP3 Blob (audio/mpeg) via lamejs. Pure (no DOM/AudioContext) so it
-// is unit-testable headless. lamejs wants 1152-sample blocks (one MP3 frame).
-export function encodePcmToMp3(int16, { sampleRate = 44100, kbps = 128 } = {}) {
+// Int16 mono PCM → MP3 Blob (audio/mpeg) via lamejs. lamejs wants 1152-sample blocks
+// (one MP3 frame). Async so it can report progress AND yield the main thread mid-encode
+// (setTimeout(0)) — without the yield the tight loop would freeze the page and the
+// progress bar would never repaint (the classic "looks hung" long-task trap). onProgress
+// gets a 0→1 fraction of frames encoded; yieldEvery tunes how often we pause to repaint.
+export async function encodePcmToMp3(int16, { sampleRate = 44100, kbps = 128, onProgress, yieldEvery = 200 } = {}) {
   const enc = new lamejs.Mp3Encoder(1, sampleRate, kbps)
   const chunks = []
   const block = 1152
+  const total = Math.max(1, Math.ceil(int16.length / block))
+  let frame = 0
   for (let i = 0; i < int16.length; i += block) {
     const buf = enc.encodeBuffer(int16.subarray(i, i + block))
     if (buf.length > 0) chunks.push(new Uint8Array(buf))
+    frame++
+    if (onProgress && frame % yieldEvery === 0) {
+      onProgress(frame / total)
+      await new Promise((r) => setTimeout(r)) // let the browser paint the progress bar
+    }
   }
   const end = enc.flush()
   if (end.length > 0) chunks.push(new Uint8Array(end))
+  onProgress?.(1)
   return new Blob(chunks, { type: 'audio/mpeg' })
 }
 
 // Whole pipeline: song content → mono MP3. Browser only. Returns { blob, seconds }.
-export async function songToMp3Blob(content, { bpm, transpose = 0, sampleRate = 44100, kbps = 128 } = {}) {
+// onProgress(stageInfo) fires through the two slow stages so the caller can show a
+// staged, near-real-time indicator:
+//   { stage:'render', fraction:0 } — offline audio render (atomic; no sub-progress)
+//   { stage:'encode', fraction:0..1 } — MP3 encode (real sub-progress from lamejs)
+//   { stage:'done',   fraction:1 }
+export async function songToMp3Blob(content, { bpm, transpose = 0, sampleRate = 44100, kbps = 128, onProgress } = {}) {
+  onProgress?.({ stage: 'render', fraction: 0 })
   const buffer = await renderSongToBuffer(content, { bpm, transpose, sampleRate })
+  onProgress?.({ stage: 'encode', fraction: 0 })
   const int16 = floatToInt16(buffer.getChannelData(0))
-  const blob = encodePcmToMp3(int16, { sampleRate, kbps })
+  const blob = await encodePcmToMp3(int16, {
+    sampleRate,
+    kbps,
+    onProgress: (f) => onProgress?.({ stage: 'encode', fraction: f }),
+  })
+  onProgress?.({ stage: 'done', fraction: 1 })
   return { blob, seconds: buffer.duration }
 }
 

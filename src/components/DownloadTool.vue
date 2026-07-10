@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { currentSong } from '../store.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { songBasename } from '../lib/songName.js'
@@ -8,22 +8,56 @@ import { songBasename } from '../lib/songName.js'
 // song is open in the viewer.
 const open = ref(false)
 
-// MP3 export state: encoding a whole song takes a couple of seconds, so disable the
-// item + show "กำลังสร้าง…" while it runs (guards against double-taps), and surface a
-// plain-Thai reason if it fails.
-const mp3Busy = ref(false)
+// MP3 export state. Encoding a whole song can take several seconds, so — per de-facto
+// long-task UX — we (1) show an up-front estimate (length + size) so the wait has an
+// expectation, (2) report staged, near-real-time progress with a bar + ETA so nobody
+// thinks it hung and hits refresh, and (3) surface a plain-Thai reason on failure.
+const mp3Stage = ref('') // '' | 'render' | 'encode' | 'done'
+const mp3Pct = ref(0) // 0–100, meaningful during 'encode'
+const mp3Est = ref(null) // { seconds, bytes } computed before the slow work starts
+const mp3Eta = ref(null) // seconds remaining during 'encode' (null until we can estimate)
 const mp3Error = ref('')
+const mp3Busy = computed(() => mp3Stage.value !== '')
+
+function fmtDur(s) {
+  s = Math.max(0, Math.round(s))
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return m ? `${m} นาที ${sec} วิ` : `${sec} วิ`
+}
+function fmtSize(bytes) {
+  return bytes >= 1024 * 1024
+    ? (bytes / 1024 / 1024).toFixed(1) + ' MB'
+    : Math.round(bytes / 1024) + ' KB'
+}
 
 // Build the melody MP3 in the browser and trigger a download. audioExport (and the
 // lamejs encoder it pulls in) is imported on demand so it stays out of the initial
 // bundle — the cost is paid only when someone actually downloads audio.
 async function downloadMp3() {
   if (mp3Busy.value || !currentSong.value) return
-  mp3Busy.value = true
   mp3Error.value = ''
+  mp3Eta.value = null
+  mp3Pct.value = 0
+  const content = currentSong.value.content
   try {
-    const { songToMp3Blob, mp3Filename } = await import('../lib/audioExport.js')
-    const { blob } = await songToMp3Blob(currentSong.value.content)
+    const { songToMp3Blob, mp3Filename, estimateMp3 } = await import('../lib/audioExport.js')
+    mp3Est.value = estimateMp3(content) // up-front "≈ length · ~size"
+    mp3Stage.value = 'render'
+    let encodeStart = 0
+    const { blob } = await songToMp3Blob(content, {
+      onProgress: ({ stage, fraction }) => {
+        mp3Stage.value = stage
+        if (stage === 'encode') {
+          mp3Pct.value = Math.round(fraction * 100)
+          if (!encodeStart) encodeStart = performance.now()
+          else if (fraction > 0.02) {
+            const elapsed = (performance.now() - encodeStart) / 1000
+            mp3Eta.value = (elapsed * (1 - fraction)) / fraction
+          }
+        }
+      },
+    })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -34,7 +68,8 @@ async function downloadMp3() {
   } catch (e) {
     mp3Error.value = e?.message || 'สร้างไฟล์เสียงไม่สำเร็จ'
   } finally {
-    mp3Busy.value = false
+    mp3Stage.value = ''
+    mp3Eta.value = null
   }
 }
 
@@ -77,9 +112,30 @@ function downloadJson() {
     <div v-if="open" class="pk-tool-menu" role="menu">
       <button role="menuitem" @click="printPdf">🖨️ พิมพ์ / บันทึกเป็น PDF (A4)</button>
       <button role="menuitem" @click="downloadJson">⬇️ ดาวน์โหลดข้อมูลเพลง (JSON)</button>
-      <button role="menuitem" :disabled="mp3Busy" aria-live="polite" @click="downloadMp3">
-        {{ mp3Busy ? '⏳ กำลังสร้างไฟล์เสียง…' : '⬇️ ดาวน์โหลดเสียง (MP3)' }}
+      <button role="menuitem" :disabled="mp3Busy" @click="downloadMp3">
+        <template v-if="!mp3Busy">⬇️ ดาวน์โหลดเสียง (MP3)</template>
+        <template v-else-if="mp3Stage === 'encode'">⏳ กำลังบีบอัด MP3 · {{ mp3Pct }}%</template>
+        <template v-else>⏳ กำลังเตรียมเสียง…</template>
       </button>
+      <!-- staged progress: up-front estimate → determinate bar + ETA while encoding -->
+      <div v-if="mp3Busy" class="pk-mp3-prog" role="status" aria-live="polite">
+        <p v-if="mp3Est" class="pk-mp3-est">
+          ≈ {{ fmtDur(mp3Est.seconds) }} · ~{{ fmtSize(mp3Est.bytes) }}
+        </p>
+        <progress
+          v-if="mp3Stage === 'encode'"
+          :value="mp3Pct"
+          max="100"
+          :aria-label="`บีบอัด MP3 ${mp3Pct}%`"
+        ></progress>
+        <progress v-else aria-label="กำลังเรนเดอร์เสียง"></progress>
+        <p class="pk-mp3-step">
+          <template v-if="mp3Stage === 'encode'">
+            บีบอัด MP3 · {{ mp3Pct }}%<template v-if="mp3Eta != null"> · เหลือ ~{{ fmtDur(mp3Eta) }}</template>
+          </template>
+          <template v-else>กำลังเรนเดอร์เสียง…</template>
+        </p>
+      </div>
       <p v-if="mp3Error" class="pk-tool-err" role="alert">{{ mp3Error }}</p>
     </div>
   </div>
@@ -103,6 +159,26 @@ function downloadJson() {
 .pk-tool-menu button[disabled] {
   opacity: 0.6;
   cursor: progress;
+}
+/* staged progress block under the MP3 item — estimate line, bar, step + ETA */
+.pk-mp3-prog {
+  padding: var(--sp-1) var(--sp-2);
+  max-width: 15rem;
+}
+.pk-mp3-prog progress {
+  width: 100%;
+  height: 0.5rem;
+  display: block;
+}
+.pk-mp3-est {
+  margin: 0 0 var(--sp-1);
+  font-size: 0.85em;
+  opacity: 0.75;
+}
+.pk-mp3-step {
+  margin: var(--sp-1) 0 0;
+  font-size: 0.8em;
+  opacity: 0.9;
 }
 .pk-tool-err {
   margin: var(--sp-1) var(--sp-2) 0;
