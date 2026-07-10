@@ -1,12 +1,12 @@
 <script setup>
 // The read/listen surface for one song — same engine as the old SongView (play,
 // transpose, tempo, loop, font size, display layers, play-by-section + follow-along
-// highlight = the karaoke feel). B043 reshapes the controls into a bottom "music player":
-// the shared <StudioDock> hosts ONE full-width custom control, <SingTransport> (progress +
-// section markers + ⏮ ▶/⏸ ⏭ 🔁 + ⚙ settings panel + ☰ section selector). All the song
-// controls (display/chord/key/tempo/font/download/print) live in that ⚙ panel, adjustable
-// inline. This component owns the state; SingTransport is a page-agnostic core control.
-import { ref, computed, onMounted, onUnmounted, watch, nextTick, markRaw } from 'vue'
+// highlight = the karaoke feel). The controls are a bottom "music player" built on the
+// DockKey core engine: this page owns the song state and hands <SingTransport> the data;
+// SingTransport turns it into the DockKey descriptor list (ITEMS_SING) and the engine draws
+// the 2-row dock (ไทม์ไลน์ · คีย์ · เลือกท่อน · transport · Aa · ⚙ + pin). Mounted directly
+// here (not through the shared StudioDock, which still serves แก้ไข/พิมพ์).
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { KEYS } from '../lib/chords.js'
 import {
   playSong, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
@@ -19,8 +19,6 @@ import { bookRefLabels } from '../lib/bookCodes.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
 
-const SingTransportRaw = markRaw(SingTransport)
-
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
 // view-only for everyone, so it is accepted but not used to gate anything — there are
 // no save/edit affordances here regardless of tier (US-A01 AC3).
@@ -28,9 +26,6 @@ const props = defineProps({
   song: { type: Object, required: true },
   tier: { type: String, default: 'guest' },
 })
-// dock-core / N1: the dock is mounted once by Studio; this surface emits its "sing" tool
-// set upward instead of mounting its own <StudioDock>.
-const emit = defineEmits(['dock'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -375,35 +370,10 @@ const settingDescs = computed(() => [
   { id: 'print', icon: 'printer', label: 'พิมพ์ / PDF', kind: 'action', actionLabel: 'เปิด', onAction: printSheet },
 ])
 
-// ---------- the sing dock = one full-width transport (D8 region:'top', dock-core) ----------
-const singDockTools = computed(() => [
-  {
-    id: 'transport',
-    type: 'custom',
-    region: 'top',
-    component: SingTransportRaw,
-    props: {
-      playing: playing.value,
-      loop: loop.value,
-      frac: frac.value,
-      totalSec: totalSec.value,
-      markers: markers.value,
-      tags: tags.value,
-      selected: selectedSecs.value,
-      hasSections: sections.value.length > 0,
-      settings: settingDescs.value,
-      onTogglePlay: togglePlay,
-      onPrev: prevSection,
-      onNext: nextSection,
-      onToggleLoop: () => (loop.value = !loop.value),
-      onSeek: onSeekBar,
-      onJump,
-      onToggleSection: toggleSection,
-      onSetAll: setAll,
-    },
-  },
-])
-watch(singDockTools, (tools) => emit('dock', { tools, defaultTools: ['transport'] }), { immediate: true })
+// ---------- the sing dock = the DockKey engine, fed by <SingTransport> (ITEMS_SING) ----------
+// Mounted directly by this page (below); SingTransport builds the descriptor list and the
+// engine owns layout / collapse / drag / Setting+pin / clamp.
+const hasSections = computed(() => sections.value.length > 0)
 
 onMounted(() => {
   window.addEventListener('wheel', onUserScroll, { passive: true })
@@ -454,8 +424,27 @@ function onSeek({ li, si, syk }) {
       />
     </div>
 
-    <!-- control bar lives on Studio now (dock-core / N1): one shared <StudioDock> hosting
-         the <SingTransport> music player. This surface emits its "sing" tool set via @dock. -->
+    <!-- the sing dock — DockKey core engine, fed the ITEMS_SING descriptor list by
+         <SingTransport>. Fixed at the bottom; the engine owns collapse/drag/Setting/clamp. -->
+    <SingTransport
+      :playing="playing"
+      :loop="loop"
+      :frac="frac"
+      :total-sec="totalSec"
+      :markers="markers"
+      :tags="tags"
+      :selected="selectedSecs"
+      :has-sections="hasSections"
+      :settings="settingDescs"
+      @toggle-play="togglePlay"
+      @prev="prevSection"
+      @next="nextSection"
+      @toggle-loop="loop = !loop"
+      @seek="onSeekBar"
+      @jump="onJump"
+      @toggle-section="toggleSection"
+      @set-all="setAll"
+    />
   </div>
 </template>
 
