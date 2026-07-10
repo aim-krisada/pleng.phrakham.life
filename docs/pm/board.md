@@ -37,7 +37,7 @@
 | **search-short-notes** (B074 · ค้น "555" เจอทำนอง · เลขล้วน ≥3 union) | `task_263349f9` | songSearch.js | `brief-search-555.md` | 🔨 จ่ายแล้ว |
 | **sa-editor-section-ux** (โหมดแก้ไขจัดการท่อน/ข้อ ให้ intuitive มาตรฐานสากล · docs) | `task_9544a30b` | docs/us,ds,design | `brief-sa-editor-section-ux.md` | 🔨 จ่ายแล้ว · **ราก = พี่เปาใช้แล้วงง (design ไม่ intuitive)** · gate = P'Aim ดู mockup ก่อน dev |
 
-**🔴 DockKey — P'Aim LAN verdict = "เพี้ยน" → rework จ่ายแล้ว (send_message ตรงสาย dockkey-dev):** P'Aim ระบุ **ข้อ 1 เพี้ยนสุด = dock กว้างเต็มจอ ปุ่มห่าง** · แก้ = **fit-content = พอดีปุ่ม (ตามความกว้างปุ่มจริง) ไม่ใช่พอดีจอ** (กอดปุ่มแน่น · ไม่ space-between · timeline min-width พอเหมาะ · เหมือน `.sd-fit` เดิมที่ P'Aim เคาะ B043) · **override DS ข้อ "row1 กระจายเต็มกว้าง"** (P'Aim live > spec) · ข้อ 2/3 (ย้ายปุ่มเข้า ⚙ · Aa ไม่มี %) P'Aim OK · **HOLD merge จน P'Aim accept รอบใหม่** · ไม่ชน EditorMode/songSearch/shell
+**⏸️ DockKey — PARKED (pm4 ตีความ P'Aim "ship then adjust" 10 ก.ค.):** rework 2 รอบ (fit-content `3d44d94`) P'Aim ยังว่า "เพี้ยน" → **หยุด loop จูน LAN · คง dock เดิม (StudioDock ที่ P'Aim โอเค) ไว้ live · พัก DockKey rewrite branch `dockkey-dev` ไว้ (ไม่ merge · ไม่ทิ้ง)** · revisit เมื่อ P'Aim สั่ง · **ผลข้าง:** MP3 เสียบ dock เดิม (SongViewer) แทน · phase-2 dock-3-หน้า = defer จน DockKey กลับมา · design DS ยังอยู่ในฐาน (`dockkey-*`)
 
 **คิว phase 2 (หลัง 3 สายเข้าฐาน):** เสียบ ITEMS_PRINT/ITEMS_EDIT (จาก SA) เข้า DockKey core → dock ครบ 3 หน้า (= เป้า P'Aim ข้อ 4.1)
 **หลักฐานบั๊ก (ISO traceability):** `docs/pm/realuse-assets/bug-favicon-brand-icon.*` + `bug-footer-bottom.*`
