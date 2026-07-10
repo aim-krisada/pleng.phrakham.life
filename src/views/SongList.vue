@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { filterSongs, snippet } from '../lib/songSearch.js'
+import { bookRefLabels } from '../lib/bookCodes.js'
 
 const songs = ref([])
 const query = ref('')
@@ -43,7 +44,7 @@ const filtered = computed(() => {
 onMounted(async () => {
   const { data, error } = await supabase
     .from('songs')
-    .select('id, number, title_th, title_en, content, theme, verified, book_refs, review_flags')
+    .select('id, number, title_th, title_en, content, theme, verified, book_refs, scripture, review_flags')
     .order('number', { ascending: true })
   if (error || !data || data.length === 0) {
     dbError.value = !!error
@@ -101,6 +102,10 @@ onMounted(async () => {
         <div v-if="s.title_en" class="muted">{{ s.title_en }}</div>
         <div v-if="snippet(s.content)" class="muted">{{ snippet(s.content) }}…</div>
         <div v-if="s.theme" class="theme-tag muted">{{ s.theme }}</div>
+        <div v-if="bookRefLabels(s.book_refs).length" class="src-tag muted">
+          แหล่งเพลง: {{ bookRefLabels(s.book_refs).join(' · ') }}
+        </div>
+        <div v-if="s.scripture" class="scripture-tag muted">📖 {{ s.scripture }}</div>
       </router-link>
     </div>
 
@@ -219,5 +224,13 @@ onMounted(async () => {
   margin-top: var(--sp-1);
   font-size: var(--fs-xs);
   display: inline-block;
+}
+/* B053 — source book(s) + scripture reference, small caption lines under the snippet.
+   Same muted caption weight as the theme tag; each on its own row so long ref lists wrap
+   cleanly on a phone-width card. */
+.src-tag,
+.scripture-tag {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-xs);
 }
 </style>

@@ -235,6 +235,52 @@ describe('note path does not disturb lyric / number / title search', () => {
   })
 })
 
+describe('search by old book number (B053)', () => {
+  // A song that lived at ล.282 (เล่มเล็ก) and ย.274 (เล่มเยอรมัน) in the paper books.
+  const withRefs = {
+    number: 100,
+    title_th: 'ขอสรรเสริญพระเจ้า',
+    content: { key: 'G', lines: [[{ type: 'segment', note: '1', lyric: 'ขอ' }]] },
+    book_refs: [{ book: 'ล', no: 282 }, { book: 'ย', no: 274 }],
+    scripture: 'ยฮ.3:16',
+  }
+  // A near-neighbour at ล.281 — one digit off. It must NOT show up for a ล.282 lookup.
+  const neighbour = {
+    number: 5,
+    title_th: 'เพลงใกล้เคียง',
+    content: { key: 'C', lines: [[{ type: 'segment', note: '1', lyric: 'ใกล้' }]] },
+    book_refs: [{ book: 'ล', no: 281 }],
+  }
+  const cat = [withRefs, neighbour]
+
+  it('finds the song by "code.number" (ล.282)', () => {
+    expect(filterSongs(cat, 'ล.282')).toEqual([withRefs])
+  })
+
+  it('finds the song by "code number" with a space (ล 282)', () => {
+    expect(filterSongs(cat, 'ล 282')).toEqual([withRefs])
+  })
+
+  it('finds the song by a different book code (ย.274)', () => {
+    expect(filterSongs(cat, 'ย.274')).toEqual([withRefs])
+  })
+
+  it('finds the song by the collection real name (เล่มเล็ก 282)', () => {
+    expect(filterSongs(cat, 'เล่มเล็ก 282')).toEqual([withRefs])
+  })
+
+  it('is exact — a one-digit-off neighbour (ล.281) does NOT match ล.282', () => {
+    expect(filterSongs(cat, 'ล.282')).toEqual([withRefs])
+    expect(filterSongs(cat, 'ล 282')).toEqual([withRefs])
+    // and searching the neighbour's own number returns only it
+    expect(filterSongs(cat, 'ล.281')).toEqual([neighbour])
+  })
+
+  it('is also searchable by scripture reference', () => {
+    expect(filterSongs(cat, 'ยฮ.3:16')).toEqual([withRefs])
+  })
+})
+
 describe('search by lyrics', () => {
   it('finds a v1 song by a lyric fragment (not just the title)', () => {
     expect(filterSongs(catalog, 'สถิต')).toEqual([v1])

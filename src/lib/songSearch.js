@@ -6,6 +6,8 @@
 // normalises Thai/whitespace and falls back to fuzzy (edit-distance) matching so a
 // half-remembered line with a typo or two still finds the song.
 
+import { bookName, parseBookRefQuery } from './bookCodes.js'
+
 // Normalise for search: canonical composition (Thai combining marks), lower-case,
 // collapse runs of whitespace. Latin case-folds; Thai is unaffected by toLowerCase.
 export function normalize(s) {
@@ -91,6 +93,24 @@ export function snippet(content, len = 60) {
   return lyricsText(content).replace(/\s+/g, ' ').slice(0, len)
 }
 
+// Searchable text for a song's book references (B053): people look a song up by the
+// number it had in the paper book they know. Emit every form so "ล.282", "ล 282",
+// "ล282", "เล่มเล็ก 282" and the bare "282" all hit the song. normalize() collapses the
+// spacing; Thai codes are case-neutral. Songs without book_refs contribute nothing.
+export function bookRefsText(book_refs) {
+  const out = []
+  for (const r of Array.isArray(book_refs) ? book_refs : []) {
+    if (!r || !r.book) continue
+    const name = bookName(r.book)
+    if (r.no != null) {
+      out.push(`${r.book}.${r.no}`, `${r.book} ${r.no}`, `${r.book}${r.no}`, `${name} ${r.no}`, String(r.no))
+    } else {
+      out.push(r.book, name)
+    }
+  }
+  return out.join(' ')
+}
+
 export function songHaystack(song) {
   return normalize(
     [
@@ -100,6 +120,8 @@ export function songHaystack(song) {
       song.content?.key ?? '',
       lyricsText(song.content ?? {}),
       notesText(song.content ?? {}),
+      bookRefsText(song.book_refs),
+      song.scripture ?? '',
     ].join(' '),
   )
 }
@@ -154,6 +176,14 @@ export function fuzzyDistance(text, pat, maxErr) {
 export function scoreSong(song, query) {
   const q = normalize(query)
   if (!q) return 0
+  // Book-reference lookup (B053): "ล.282" / "ล 282" / "เล่มเล็ก 282" is a precise request
+  // for the song that carried that number in a paper book. Match book_refs EXACTLY and
+  // bypass the fuzzy path — a one-edit budget would otherwise drag in ล.281/ล.262 neighbours.
+  const bref = parseBookRefQuery(query)
+  if (bref) {
+    const refs = Array.isArray(song.book_refs) ? song.book_refs : []
+    return refs.some((r) => r && r.book === bref.book && r.no === bref.no) ? 0 : null
+  }
   const hay = songHaystack(song)
   if (hay.includes(q)) return 0
   // Note path: a melody query matches space-insensitively. Reduce both the query and
