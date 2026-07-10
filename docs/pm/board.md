@@ -39,7 +39,7 @@
 
 **🟢 DockKey — UN-PARKED · phase 2 เดินหน้า (P'Aim เคาะ 10 ก.ค.):** P'Aim **accept หน้าฝึกร้อง DockKey fit-content ตัวล่าสุด (`3d44d94`)** + สั่งเดินหน้าครบ 3 หน้า + **เอา MP3 ใส่ใน DockKey** (ไม่ใช่ dock เดิม) → **send_message สาย `dockkey-dev` เดิม ต่อ phase 2** (brief `brief-dockkey-phase2.md`):
 - sync ฐานล่าสุด → build **แผ่นเพลง(Studio) ITEMS_PRINT** + **แก้ไข(EditorMode) ITEMS_EDIT + E1-E3** (ระวัง undo/beat/preview/แป้นโน้ต regress) + **เสียบ MP3 เข้า DockKey export menu** (เรียก audioExport lib) + ถอด StudioDock เดิม
-- ⚠️ **ยกเลิกสาย `mp3-dock-wire`** (ยก MP3 มาเสียบใน DockKey แทน · audioExport lib merged แล้ว = deliverable เสร็จ · สาย mp3 ปิด)
+- ✅✅ **MP3 กดได้จริงแล้ว — `mp3-dock-wire` MERGED `b2ffbab`** (dev ทำเสร็จก่อนคำสั่งยกเลิกถึง · MP3 item ในเมนู ⚙ dock ฝึกร้อง SongViewer · เรียก audioExport dynamic-import · key/tempo ตรง playback · 283 test · lamejs code-split) → **MP3 ขึ้น live ได้เลยรอบ 6** · **dockkey-dev phase2 = carry MP3 item เข้า DockKey descriptor ตอน sync/replace sing dock** (มี reference ใน SongViewer ที่ merged)
 - **P'Aim gate: LAN 3 หน้าก่อน merge** (โดยเฉพาะหน้าแก้ไข) · ⛔ styles.css/ShellBar/App/songSearch/NoteRow (สายอื่นถือ)
 
 **คิว phase 2 (หลัง 3 สายเข้าฐาน):** เสียบ ITEMS_PRINT/ITEMS_EDIT (จาก SA) เข้า DockKey core → dock ครบ 3 หน้า (= เป้า P'Aim ข้อ 4.1)
