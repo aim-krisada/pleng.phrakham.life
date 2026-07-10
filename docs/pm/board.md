@@ -12,7 +12,7 @@
 ## 🔚 EOD HANDOFF (2026-07-10 ค่ำ · pm4 · PM session หน้าอ่านนี่)
 **live = deploy รอบ 6** (ตัวหนังสือมีหัว/ไม่มีหัว · ค้นโน้ต+555 · พรีวิว · undo · MP3 dock ฝึกร้อง · favicon+footer · B073) · **ฐาน = `97e735b` · main = base**
 **🟢 2 สายใหญ่ยัง build (→ deploy รอบ 7):**
-1. **dockkey-dev phase 2** (`local_e15710b1...`) — DockKey dock ครบ 3 หน้า (แผ่นเพลง+แก้ไข) + ยก MP3 เข้า DockKey · P'Aim accept หน้าฝึกร้องแล้ว · **gate = P'Aim LAN 3 หน้าก่อน merge** · brief `brief-dockkey-phase2.md`
+1. **dockkey-dev phase 2 = ✅ เสร็จแล้ว (เข้ามาหลังปิดวัน · commit `5c71c16`+`b94c3d9`)** — 3 หน้าใช้ DockKey engine เดียว: แผ่นเพลง ITEMS_PRINT · แก้ไข ITEMS_EDIT (band 21 keys · note-insert ไม่ regress) · MP3 = `ExportTool.vue` เมนูรวม PDF/JSON/MP3 เสียบ dock พิมพ์+แก้ไข · ถอด StudioDock (retire ไม่ลบไฟล์) · **295 test + build** · dev --host `http://10.215.141.98:5315` · **🔺 รอ PM git-verify DoD + P'Aim LAN 3 หน้า (เน้นหน้าแก้ไข+MP3+undo มือถือ) ก่อน merge** · **4 จุดค้างใน `docs/reports/dockkey-phase2.md`** (Aa หน้าแก้ถอด? · preview หัว · PDF ซ้ำปุ่ม · StudioDock ไฟล์) · brief `brief-dockkey-phase2.md`
 2. **editor-section-ux-dev** (`task_5d47b107`) — เปลือกจัดลำดับท่อนง่ายขึ้น (P'Aim เคาะ mockup) · **เน้นหนัก: ของเดิมห้าม regress** · brief `brief-editor-section-ux-dev.md`
 **⚠️ 2 สายนี้แตะ `EditorMode.vue` เหมือนกัน (คนละส่วน: DockKey=dock · section-ux=rail/arrangement) → PM ต้องเรียงคิว merge + resolve**
 **🎯 รอ P'Aim (ไม่บล็อก):** B028 audit log (3 Qs) · i18n · สิทธิ์ลบเพลง · พี่เปา review 41 เพลง + verify undo/นับจังหวะบน live
