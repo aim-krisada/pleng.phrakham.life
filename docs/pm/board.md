@@ -25,7 +25,7 @@
 
 | สาย/branch | chip | ไฟล์ที่แตะ | brief | สถานะ |
 |---|---|---|---|---|
-| **dockkey-dev** (DockKey core + หน้าฝึกร้อง) | `task_9ca47954` | DockKey.vue(ใหม่)/SingTransport/SongViewer | `brief-dockkey-dev.md` | ✅ เสร็จ + **rework fit-to-buttons เสร็จ** `0db4db3` (dock 383px ไม่เต็มจอ · grip ซ้าย/⚙ ขวา margin-auto · timeline min 190 · re-verify 3 breakpoint · sing 53 test) · **⏸️ HOLD — รอ P'Aim LAN-test `http://10.215.141.98:5315` รอบ 2 (พอดีปุ่ม + ป๊อปอัพไม่ล้น) + 3 คำถามเดิม** |
+| **dockkey-dev** (DockKey core + หน้าฝึกร้อง) | `task_9ca47954` | DockKey.vue(ใหม่)/SingTransport/SongViewer | `brief-dockkey-dev.md` | ✅ เสร็จ + rework 2 รอบ · **`3d44d94` = `width:fit-content` ทุกจอ · flex-start เกาะกลุ่ม · เลิก margin-auto/space-between หมด (พอดีปุ่มเป๊ะ · 383px บนจอ 1265) · timeline min 190 · sing 53 test** · **⏸️ HOLD — รอ P'Aim LAN `http://10.215.141.98:5315` (มือถือจริง · MCP headless วัดพิกัดไม่ได้) + 3 คำถามเดิม** |
 | **fix-favicon-footer** (bug1 ไอคอนแบรนด์ + bug2 footer ติดล่าง) | `task_5bf7aeb4` | ShellBar / styles.css+App.vue | `brief-bugs-favicon-footer.md` | 🔨 จ่ายแล้ว |
 | **sa-dockkey-print-edit** (descriptor พิมพ์/แก้ · docs) | `task_9d603bb7` | docs/ds เท่านั้น | `brief-dockkey-sa-print-edit.md` | ✅ เสร็จ → inbox (รอ PM ตรวจ+merge docs) |
 | **fix-editor-preview-final** (พรีวิว "ดูผลทั้งเพลง": ล็อกบรรทัดไม่ reflow + ไทข้ามห้องซ้อน 2 เส้น) | `task_49330996` | EditorMode + SongSheet | `brief-fix-editor-preview.md` | ✅✅ **MERGED `a8ae3d3`** (nowrap+hscroll · ซ่อนครึ่ง START ของ NoteRow สมมาตร · เพลง 100 ไม่ regress · 268 test) |
