@@ -448,7 +448,12 @@ function onSeek({ li, si, syk }) {
 </template>
 
 <style scoped>
-/* leave room so the fixed dock (transport band is taller than a plain toolbar) never
-   covers the last line of the song */
-.sheet-scale { padding-bottom: 150px; }
+/* Leave room so the fixed transport dock (S4 <StudioDock>/<SingTransport>) never covers
+   the last line while singing. The dock is ~147px on wider screens but grows to ~191px
+   once its controls wrap at ≤480px; add the iOS home-indicator inset on top so the last
+   line clears on notched phones too. (Clearance tracks the dock height, which S4 owns.) */
+.sheet-scale { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 480px) {
+  .sheet-scale { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
+}
 </style>

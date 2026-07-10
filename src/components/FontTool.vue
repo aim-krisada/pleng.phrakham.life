@@ -59,30 +59,33 @@ watch(open, async (v) => {
 <style scoped>
 .ft-tool { position: relative; display: inline-flex; }
 .ft-btn {
-  width: 38px; height: 34px; min-height: 0; padding: 0;
+  /* full 44×44 touch target — matches the other shell-bar controls (WCAG 2.5.5) */
+  width: var(--touch-min); height: var(--touch-min); min-height: 0; padding: 0;
   border: 1px solid var(--line); background: transparent; color: var(--ink);
-  border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer;
+  border-radius: 8px; font-weight: 700; font-size: var(--fs-md); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
 }
 @media (hover: hover) { .ft-btn:hover { border-color: var(--brand); color: var(--brand); } }
 .ft-menu {
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 60;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); padding: 10px; min-width: 190px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); padding: var(--sp-3);
+  min-width: 190px; max-width: calc(100vw - var(--sp-4));
 }
-.ft-lbl { font-size: 12px; color: var(--muted); padding: 0 2px 8px; }
-.ft-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ft-lbl { font-size: var(--fs-xs); color: var(--muted); padding: 0 2px var(--sp-2); }
+.ft-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .ft-step {
-  width: 40px; height: 36px; min-height: 0; padding: 0;
+  width: var(--touch-min); height: var(--touch-min); min-height: 0; padding: 0;
   border: 1px solid var(--line); background: transparent; color: var(--ink);
   border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
 }
 .ft-step:disabled { opacity: 0.4; cursor: default; }
 @media (hover: hover) { .ft-step:not(:disabled):hover { border-color: var(--brand); color: var(--brand); } }
-.ft-pct { font-size: 14px; font-variant-numeric: tabular-nums; min-width: 46px; text-align: center; }
+.ft-pct { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; min-width: 46px; text-align: center; }
 .ft-reset {
-  width: 100%; margin-top: 8px; border: 0; background: transparent; color: var(--brand);
-  font: inherit; font-size: 12.5px; cursor: pointer; padding: 6px 4px; border-radius: 6px; text-align: center;
+  width: 100%; margin-top: var(--sp-2); border: 0; background: transparent; color: var(--brand);
+  font: inherit; font-size: var(--fs-xs); cursor: pointer; padding: var(--sp-2) var(--sp-1);
+  border-radius: 6px; text-align: center; min-height: var(--touch-min);
 }
 @media (hover: hover) { .ft-reset:hover { background: var(--cream); } }
 </style>

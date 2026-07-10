@@ -338,30 +338,42 @@ async function submitChangePassword() {
   font-weight: 700;
   font-size: 15px;
 }
-.signin-btn { min-height: 40px; display: inline-flex; align-items: center; gap: 6px; }
-@media (max-width: 760px) {
-  /* S4: login collapses to a person icon on mobile */
-  .signin-label { display: none; }
-  .signin-btn { padding: 8px; }
+.signin-btn {
+  min-height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  /* Never wrap the label. When the shell bar is squeezed (a song page at tablet,
+     with the mode switcher taking the width) the label was wrapping to 3 lines and
+     ballooning this button to 68px, which forced the whole bar to ~85px (S0 flag). */
+  white-space: nowrap;
 }
-.profile-menu { padding: 0.8rem 1rem; min-width: 250px; }
-.who { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+/* Collapse the sign-in to a person icon on mobile AND tablet (≤1024): the shell bar
+   runs nowrap above the 760px 2-row breakpoint, and the song page's mode switcher
+   (S3) eats the width — a labelled button pushed the bar into horizontal overflow.
+   The label returns on real desktop (>1024) where there is room. Keeps a 44×44 hit. */
+@media (max-width: 1024px) {
+  .signin-label { display: none; }
+  .signin-btn { padding: var(--sp-2); min-width: var(--touch-min); justify-content: center; }
+}
+.profile-menu { padding: var(--sp-3) var(--sp-4); min-width: 250px; max-width: calc(100vw - var(--sp-4)); }
+.who { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-3); flex-wrap: wrap; }
 .role-chip {
   background: var(--cream);
   color: var(--brand);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 1px 10px;
-  font-size: 12px;
+  padding: 1px var(--sp-3);
+  font-size: var(--fs-xs);
 }
 .profile-menu > button { width: 100%; text-align: center; }
-.menu-actions { display: flex; flex-direction: column; gap: 8px; }
+.menu-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
 .menu-actions button { width: 100%; text-align: center; }
-.login-form { display: flex; flex-direction: column; gap: 8px; }
-.login-form label { display: flex; flex-direction: column; gap: 2px; font-size: 0.85rem; color: var(--muted); }
+.login-form { display: flex; flex-direction: column; gap: var(--sp-2); }
+.login-form label { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-sm); color: var(--muted); }
 .login-form .submit { width: 100%; }
-.err { color: var(--red); font-size: 0.85rem; margin: 4px 0 0; }
-.ok { color: var(--brand); font-size: 0.85rem; margin: 4px 0 0; }
+.err { color: var(--red); font-size: var(--fs-sm); margin: var(--sp-1) 0 0; }
+.ok { color: var(--brand); font-size: var(--fs-sm); margin: var(--sp-1) 0 0; }
 .pw-field { position: relative; display: block; }
 .pw-field input { width: 100%; padding-right: 40px; }
 .pw-eye {
