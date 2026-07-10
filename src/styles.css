@@ -16,6 +16,53 @@
   /* aliases the shared pk-scrollnav.js (B001) reads for theming */
   --pk-accent: var(--brand);
   --pk-cream: var(--cream);
+
+  /* ===== S0 design tokens (responsive overhaul) =====
+     Single source for spacing/type/rhythm across the app. S1–S4 consume these
+     (scoped) — they should NOT need to edit styles.css again. Colours stay the
+     Warm Study Room tokens above; never hard-code a colour. */
+
+  /* Spacing — strict 4px grid. Use --sp-* for every margin/padding/gap. */
+  --sp-0: 0;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* Typography scale (rem; base = 1.06rem, the family standard that also blocks
+     iOS zoom-on-focus — never set an input below --fs-base). */
+  --fs-xs: 0.78rem;   /* footer, build stamp */
+  --fs-sm: 0.9rem;    /* muted / captions / chips */
+  --fs-md: 0.98rem;   /* menu items, secondary controls */
+  --fs-base: 1.06rem; /* body, buttons, inputs */
+  --fs-lg: 1.15rem;   /* brand, sub-headings */
+  --fs-xl: 1.4rem;    /* h2 */
+  --fs-2xl: 1.75rem;  /* h1 / page title */
+
+  /* Line-height (unitless — inherits correctly). Prose = normal; song sheet and
+     dense chrome = snug/tight to kill vertical bloat. */
+  --lh-tight: 1.25;
+  --lh-snug: 1.4;
+  --lh-normal: 1.6;
+  --lh-loose: 1.8;
+
+  /* Touch target — WCAG 2.2 §2.5.8 floor is 24px; app standard = 44px. */
+  --touch-min: 44px;
+
+  /* Containers */
+  --container: 900px;
+  --container-wide: 1160px;
+
+  /* Breakpoints (for JS/matchMedia + reference; CSS media queries use these
+     literal values: sm 480 · md 768 · lg 1024). */
+  --bp-sm: 480px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
 }
 
 * { box-sizing: border-box; }
@@ -32,20 +79,21 @@ body {
   font-family: 'Noto Sans', 'Noto Sans Thai', system-ui, -apple-system, 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--ink);
-  font-size: 1.06rem;
-  line-height: 1.8;
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal); /* was 1.8 — tightened base rhythm (Thai-safe) */
 }
 
 a { color: var(--brand); }
-h1, h2, h3 { color: var(--brand); line-height: 1.4; }
+h1, h2, h3 { color: var(--brand); line-height: var(--lh-snug); }
 
 /* Visible focus everywhere (WCAG 2.4.7 / 2.4.11) */
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
 input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); width: 18px; height: 18px; }
 
-.container { max-width: 900px; margin: 0 auto; padding: 16px; }
+.container { max-width: var(--container); margin: 0 auto; padding: var(--sp-4); }
 /* the Studio shell is a wider, Google-Docs-style workspace (rail + editor) */
-.container.studio-wide { max-width: 1160px; }
+.container.studio-wide { max-width: var(--container-wide); }
+@media (max-width: 480px) { .container { padding: var(--sp-3); } }
 
 /* ---------- header / nav ---------- */
 header.topbar {
@@ -162,10 +210,10 @@ nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
   z-index: 50;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   background: #f8f9fa;
   border-bottom: 1px solid var(--line);
-  padding: 8px 16px;
+  padding: var(--sp-2) var(--sp-4);
 }
 .shell-slot { display: inline-flex; align-items: center; }
 .shell-title-wrap { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
@@ -174,12 +222,12 @@ nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
 .sb-menu { position: relative; display: inline-flex; align-items: center; }
 .sb-brand {
   color: var(--brand);
-  font-size: 1.05rem;
+  font-size: var(--fs-base);
   font-weight: 700;
   text-decoration: none;
   padding: 6px 8px;
   border-radius: 8px;
-  min-height: 40px;
+  min-height: var(--touch-min);
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
@@ -192,7 +240,9 @@ nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
   cursor: pointer;
   padding: 6px;
   border-radius: 8px;
-  min-height: 40px;
+  min-height: var(--touch-min);
+  min-width: var(--touch-min); /* icon-only — hit a full 44×44 target */
+  justify-content: center;
   display: inline-flex;
   align-items: center;
 }
@@ -202,11 +252,11 @@ nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
   border: none;
   color: var(--ink);
   font: inherit;
-  font-size: 1rem;
+  font-size: var(--fs-base);
   padding: 6px 8px;
   border-radius: 8px;
   cursor: pointer;
-  min-height: 40px;
+  min-height: var(--touch-min);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -298,7 +348,7 @@ nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
 @media (max-width: 760px) {
   /* S4 — two rows, no hamburger: row 1 = brand ▾ · ชื่อเพลง ▾ · 👤 ;
      row 2 = the contextual menus (เพลง ▾ + โหมดไอคอนล้วน) full-width below. */
-  .shell-bar { gap: 4px 6px; padding: 8px; flex-wrap: wrap; }
+  .shell-bar { gap: var(--sp-1) 6px; padding: var(--sp-2); flex-wrap: wrap; }
   .sb-brand { font-size: 0.98rem; }
   .sb-sep { display: none; }
   .sb-mode-label { display: none; }
@@ -326,10 +376,10 @@ button, .btn {
   border: none;
   border-radius: 8px;
   padding: 7px 14px;
-  font-size: 1.06rem; /* same text size as phrakham.life (consistency) */
+  font-size: var(--fs-base); /* same text size as phrakham.life (consistency) */
   font-family: inherit;
   cursor: pointer;
-  min-height: 40px;
+  min-height: var(--touch-min); /* was 40px — WCAG 2.2 touch target */
 }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 button.secondary { background: var(--cream); color: var(--ink); border: 1px solid var(--line); }
@@ -351,33 +401,33 @@ button:active { opacity: 0.85; }
 
 input, select, textarea {
   font-family: inherit;
-  font-size: 1.06rem; /* same as phrakham.life; >=16px also stops iOS zoom-on-focus */
-  padding: 8px 10px;
+  font-size: var(--fs-base); /* same as phrakham.life; >=16px also stops iOS zoom-on-focus */
+  padding: var(--sp-2) 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
   color: var(--ink);
-  min-height: 40px;
+  min-height: var(--touch-min);
 }
 
 .card {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 12px;
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-3);
 }
 
-.muted { color: var(--muted); font-size: 0.9rem; }
+.muted { color: var(--muted); font-size: var(--fs-sm); }
 
 /* ---------- song sheet (functional colours preserved) ---------- */
 /* wrap at bar boundaries instead of a horizontal scroll bar (bug 016) */
 .song-line {
-  margin-bottom: 20px;
+  margin-bottom: var(--sp-2); /* was 20px; 8px margin + 4px pad = 12px gap between lines */
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  padding-bottom: 4px;
+  padding-bottom: var(--sp-1);
 }
 /* a bar stays together on one row — only whole bars wrap to the next line */
 .bar-group { display: inline-flex; align-items: flex-start; }
@@ -400,7 +450,7 @@ input, select, textarea {
   min-height: 1.375em;
   font-size: 0.94em;
 }
-.segment .lyric { display: block; font-size: 1.06em; }
+.segment .lyric { display: block; font-size: 1.06em; line-height: var(--lh-snug); } /* was body 1.8 — tighten within-line stack (Thai single line, diacritics fit at 1.4) */
 /* bug 010: spread the melody numbers across the segment width (set by the wider
    lyric) instead of packing them left with a trailing gap. Song sheet only. */
 .song-line .segment .note .note-row { display: flex; width: 100%; justify-content: space-around; }
@@ -532,16 +582,20 @@ input, select, textarea {
 /* ---------- footer: 2 centred lines like phrakham.life2 ---------- */
 footer.site-footer {
   border-top: 1px solid var(--line);
-  margin-top: 24px;
-  padding: 0.6rem 1rem 0.8rem;
+  margin-top: var(--sp-6);
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.15rem;
+  gap: var(--sp-1);
   text-align: center;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-snug);
   color: var(--footer-ink);
 }
+/* footer links are inline within a sentence — WCAG 2.2 §2.5.8 inline exception,
+   so no 44px min; just a comfortable tap padding without breaking the text line */
+footer.site-footer a { padding: 2px 1px; }
 footer.site-footer a { color: var(--footer-ink); }
 .pk-build { font-size: 0.85em; color: var(--stamp-ink); white-space: nowrap; }
 
