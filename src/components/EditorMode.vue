@@ -173,6 +173,18 @@ const migrateWarnings = ref([]) // set when a v1 song is auto-split on load (aut
 const lensChoice = ref(-1)
 const paraOpen = ref(false) // paragraph (free-text) editor for the selected ข้อ
 
+// ---- editor-section-ux: rail "โครงเพลง" shell (inline rename · drag/▲▼ reorder) ----
+// This layer only reshapes how ท่อน (arrangement rows) are managed — the v2 model and the
+// note/word/beat editor below are untouched (SX7 regression gate).
+const editingLabelId = ref(-1) // arrangement index whose label is being renamed (-1 = none)
+const editingLabelWhere = ref('') // 'rail' | 'canvas' — which surface opened the input
+const labelSnapshot = ref('') // pre-edit label, restored on Esc
+const melodyOpen = ref(false) // "ทำนอง (โน้ต)" secondary group — collapsed by default
+const dragFromRow = ref(-1) // drag reorder: source index (mouse DnD + touch pointer)
+const dragOverRow = ref(-1) // current drop-target index (drop indicator)
+const reorderMsg = ref('') // aria-live text announcing the new order (WCAG 2.5.7 fallback)
+const vFocus = { mounted: (el) => { el.focus(); el.select?.() } } // autofocus an inline input
+
 const saveMsg = ref('')
 const playing = ref(false)
 
@@ -524,21 +536,117 @@ function setRowLyricText(row, text) {
 }
 
 function addRow() {
-  arrangement.value.push({ stanza: activeStanzaId.value || stanzas.value[0].id, label: '', syllables: [], key: '' })
+  // a new ท่อน inherits the previous row's melody (ท่อน 2 มักทำนองเดียวกับท่อน 1 — SX5),
+  // falling back to the active/first stanza, then jumps selection to it so the author can
+  // type words immediately (SX5/P8: no "เลือกทำนอง" step to understand first).
+  const prev = arrangement.value[arrangement.value.length - 1]
+  const stanza = prev?.stanza || activeStanzaId.value || stanzas.value[0].id
+  arrangement.value.push({ stanza, label: '', syllables: [], key: '' })
+  focusRow(arrangement.value.length - 1)
 }
 function removeRow(i) {
   arrangement.value.splice(i, 1)
   if (!arrangement.value.length) addRow()
   resetLens()
 }
-function moveRow(i, dir) {
-  const to = i + dir
-  if (to < 0 || to >= arrangement.value.length) return
-  const [r] = arrangement.value.splice(i, 1)
-  arrangement.value.splice(to, 0, r)
-  resetLens()
+// point active stanza + lens at row i (master-detail: selecting a ท่อน shows its melody +
+// its words under the notes). The activeStanzaId watcher resets the lens on a stanza
+// switch, so re-assert lensChoice after that flush (same ordering railSelectRow relies on).
+function focusRow(i) {
+  const row = arrangement.value[i]
+  if (!row) return
+  const s = stanzas.value.findIndex((x) => x.id === row.stanza)
+  if (s >= 0 && s !== activeStanza.value) {
+    selectStanza(s)
+    nextTick(() => { lensChoice.value = i })
+  } else {
+    lensChoice.value = i
+  }
 }
-const stanzaIdOptions = computed(() => stanzas.value.map((s) => ({ value: s.id, label: 'ท่อน ' + s.id })))
+// reorder a ท่อน from → to (shared by ▲▼ and drag) — the moved row stays selected.
+function moveRowTo(from, to) {
+  if (from < 0 || to < 0 || from === to) return
+  if (from >= arrangement.value.length || to >= arrangement.value.length) return
+  const [r] = arrangement.value.splice(from, 1)
+  arrangement.value.splice(to, 0, r)
+  focusRow(to)
+  reorderMsg.value = `ย้าย “${rowLabel(r, to)}” เป็นลำดับที่ ${to + 1} จาก ${arrangement.value.length}`
+}
+function moveRow(i, dir) {
+  moveRowTo(i, i + dir)
+}
+// ---- inline rename (rail row + canvas header edit the same row.label — P1/P5) ----
+function startRename(i, where) {
+  labelSnapshot.value = arrangement.value[i]?.label ?? ''
+  editingLabelWhere.value = where
+  editingLabelId.value = i
+}
+function commitRename() {
+  const i = editingLabelId.value
+  if (i >= 0 && arrangement.value[i]) arrangement.value[i].label = (arrangement.value[i].label || '').trim()
+  editingLabelId.value = -1
+  editingLabelWhere.value = ''
+}
+function cancelRename() {
+  const i = editingLabelId.value
+  if (i >= 0 && arrangement.value[i]) arrangement.value[i].label = labelSnapshot.value
+  editingLabelId.value = -1
+  editingLabelWhere.value = ''
+}
+// ---- drag-to-reorder (mouse = native HTML5 DnD · touch = pointer events on the grip) ----
+function rowIndexAtY(y) {
+  const rows = document.querySelectorAll('#studioRail .srow')
+  let idx = -1
+  rows.forEach((r, k) => {
+    const b = r.getBoundingClientRect()
+    if (y >= b.top && y <= b.bottom) idx = k
+  })
+  return idx
+}
+function onRowDragStart(i, e) {
+  dragFromRow.value = i
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(i)) // Firefox won't start a drag without data
+  }
+}
+function onRowDragOver(i) {
+  if (dragFromRow.value < 0) return
+  dragOverRow.value = i
+}
+function onRowDrop(i) {
+  if (dragFromRow.value >= 0) moveRowTo(dragFromRow.value, i)
+  dragFromRow.value = -1
+  dragOverRow.value = -1
+}
+function onRowDragEnd() {
+  dragFromRow.value = -1
+  dragOverRow.value = -1
+}
+function onGripPointerDown(i, e) {
+  if (e.pointerType === 'mouse') return // mouse uses native HTML5 drag
+  e.preventDefault()
+  dragFromRow.value = i
+  const move = (ev) => {
+    const t = rowIndexAtY(ev.clientY)
+    if (t >= 0) dragOverRow.value = t
+  }
+  const up = (ev) => {
+    document.removeEventListener('pointermove', move)
+    document.removeEventListener('pointerup', up)
+    const to = rowIndexAtY(ev.clientY)
+    if (to >= 0 && dragFromRow.value >= 0) moveRowTo(dragFromRow.value, to)
+    dragFromRow.value = -1
+    dragOverRow.value = -1
+  }
+  document.addEventListener('pointermove', move)
+  document.addEventListener('pointerup', up)
+}
+const stanzaIdOptions = computed(() => stanzas.value.map((s) => ({ value: s.id, label: 'ทำนอง ' + s.id })))
+// compact labels for the ♪ chip on a rail row (tight column) — searchable by "ทำนอง X"
+const stanzaChipOptions = computed(() =>
+  stanzas.value.map((s) => ({ value: s.id, label: '♪' + s.id, search: 'ทำนอง ' + s.id })),
+)
 const rowKeyOptions = computed(() => [{ value: '', label: 'คีย์เดิม' }, ...KEYS.map((k) => ({ value: k, label: k }))])
 
 // beats per bar vs. time signature — honest: unreadable input is an error, never a pass.
@@ -1306,21 +1414,9 @@ function railSelectStanza(i) {
 }
 function railSelectRow(i) {
   viewMode.value = 'edit'
-  const row = arrangement.value[i]
-  const s = stanzas.value.findIndex((x) => x.id === row.stanza)
-  if (s >= 0) selectStanza(s) // resets the lens via the activeStanzaId watcher…
+  focusRow(i) // master-detail: select the ท่อน, show its melody + words under the notes
   closeDrawer()
-  // …so set THIS verse as the lens after the reset flushes (master-detail sync: picking a
-  // ข้อ in the rail shows its words under the notes + scrolls to the notes, not far below)
-  nextTick(() => {
-    lensChoice.value = i
-    scrollToEl('pk-editor')
-  })
-}
-function railGoArrange() {
-  viewMode.value = 'edit'
-  closeDrawer()
-  scrollToEl('pk-arrange')
+  scrollToEl('pk-editor')
 }
 function rowLabel(row, i) {
   return row.label?.trim() || 'ข้อ ' + (i + 1)
@@ -1343,7 +1439,7 @@ const lineMoreOpen = ref(false) // ⋯ advanced settings for the active line (Fi
 
 // breadcrumb text: "ท่อน A · ข้อ 1" — shows position only; selecting happens in the rail
 const crumbLabel = computed(() => {
-  const mel = 'ท่อน ' + activeStanzaId.value
+  const mel = 'ทำนอง ' + activeStanzaId.value
   return lensActive.value ? mel + ' · ' + rowLabel(lensRow.value, lensChoice.value) : mel
 })
 
@@ -1719,22 +1815,80 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
           <span><Icon name="list-music" :size="18" /> ส่วนของเพลง</span>
           <button class="rail-x" aria-label="ปิด" @click="closeDrawer"><Icon name="x" :size="16" /></button>
         </div>
-        <div class="rail-group">ทำนอง</div>
-        <!-- each row = a select button + a delete (B032) — a wrapper, so no nested buttons -->
-        <div v-for="(s, si) in stanzas" :key="s.id" class="rail-rowwrap mel" :class="{ sel: si === activeStanza }">
-          <button class="rail-row" @click="railSelectStanza(si)"><Icon name="music" :size="17" /> ท่อน {{ s.id }}</button>
-          <button v-if="stanzas.length > 1" class="rail-del" title="ลบทำนองนี้" aria-label="ลบท่อนทำนองนี้" @click.stop="removeStanza(si)"><Icon name="trash-2" :size="14" /></button>
+        <!-- ===== โครงเพลง — the one list of ท่อน (arrangement rows), in singing order.
+             Drag ⠿ or ▲▼ to reorder · click a name to rename · ♪ picks its melody. Replaces
+             the old 3 groups (ทำนอง / เนื้อร้อง / ขั้นสูง→ลำดับเพลง) and the bottom block. ===== -->
+        <div class="rail-group rg-main">โครงเพลง</div>
+        <p class="rail-hint no-print">ลากจัดลำดับ · คลิกชื่อเพื่อแก้</p>
+        <div
+          v-for="(row, ri) in arrangement"
+          :key="ri"
+          class="srow"
+          :class="{ sel: ri === lensChoice, drag: ri === dragFromRow, over: ri === dragOverRow && ri !== dragFromRow }"
+          draggable="true"
+          @click="railSelectRow(ri)"
+          @dragstart="onRowDragStart(ri, $event)"
+          @dragover.prevent="onRowDragOver(ri)"
+          @dragleave="dragOverRow = -1"
+          @drop.prevent="onRowDrop(ri)"
+          @dragend="onRowDragEnd"
+        >
+          <span
+            class="grip"
+            title="ลากเพื่อจัดลำดับ"
+            aria-label="จับลากเพื่อจัดลำดับท่อน"
+            @pointerdown="onGripPointerDown(ri, $event)"
+            @click.stop
+          ><Icon name="grip-vertical" :size="16" /></span>
+          <span class="snum">{{ ri + 1 }}</span>
+          <input
+            v-if="editingLabelId === ri && editingLabelWhere === 'rail'"
+            v-model="row.label"
+            v-focus
+            class="snameinp"
+            aria-label="แก้ชื่อท่อน"
+            @click.stop
+            @keydown.enter.prevent="commitRename"
+            @keydown.esc.prevent="cancelRename"
+            @blur="commitRename"
+          />
+          <span
+            v-else
+            class="sname"
+            :title="rowLabel(row, ri) + ' — คลิกเพื่อแก้ชื่อ'"
+            @click.stop="startRename(ri, 'rail')"
+          >{{ rowLabel(row, ri) }}</span>
+          <ComboSelect
+            class="mchip"
+            :model-value="row.stanza"
+            :options="stanzaChipOptions"
+            aria-label="เลือกทำนองของท่อนนี้"
+            width="54px"
+            @click.stop
+            @update:model-value="row.stanza = $event"
+          />
+          <span class="updown" @click.stop>
+            <button aria-label="ย้ายท่อนขึ้น" :disabled="ri === 0" @click="moveRow(ri, -1)">▲</button>
+            <button aria-label="ย้ายท่อนลง" :disabled="ri === arrangement.length - 1" @click="moveRow(ri, 1)">▼</button>
+          </span>
+          <button v-if="arrangement.length > 1" class="srow-del" title="ลบท่อนนี้" aria-label="ลบท่อนนี้" @click.stop="removeRow(ri)"><Icon name="trash-2" :size="14" /></button>
         </div>
-        <button class="rail-row add" @click="addStanza(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มทำนอง</button>
-        <div class="rail-group">เนื้อร้อง</div>
-        <div v-for="(row, ri) in arrangement" :key="ri" class="rail-rowwrap lyr" :class="{ sel: ri === lensChoice }">
-          <button class="rail-row" @click="railSelectRow(ri)"><Icon name="file-text" :size="17" /> {{ rowLabel(row, ri) }}</button>
-          <button v-if="arrangement.length > 1" class="rail-del" title="ลบข้อนี้" aria-label="ลบข้อเนื้อร้องนี้" @click.stop="removeRow(ri)"><Icon name="trash-2" :size="14" /></button>
-        </div>
-        <button class="rail-row add" @click="addRow(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มเนื้อ</button>
+        <button class="addsec" @click="addRow(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มท่อน</button>
+
         <div class="rail-sep"></div>
-        <div class="rail-group">ขั้นสูง</div>
-        <button class="rail-row arr" @click="railGoArrange"><Icon name="list-ordered" :size="17" /> ลำดับเพลง</button>
+        <!-- ทำนอง (โน้ต): secondary group, collapsed — for editing notes / reusing a melody.
+             Adding a ท่อน above already gives it a melody, so most authors never open this. -->
+        <button class="rail-group rg-toggle" :aria-expanded="melodyOpen" @click="melodyOpen = !melodyOpen">
+          <Icon name="chevron-down" :size="14" class="rg-chev" :class="{ 'rg-chev-open': melodyOpen }" /> ทำนอง (โน้ต)
+        </button>
+        <template v-if="melodyOpen">
+          <p class="rail-hint no-print">สำหรับแก้โน้ต / ใช้ทำนองซ้ำ — ปกติไม่ต้องแตะ</p>
+          <div v-for="(s, si) in stanzas" :key="s.id" class="rail-rowwrap mel" :class="{ sel: si === activeStanza }">
+            <button class="rail-row" @click="railSelectStanza(si)"><Icon name="music" :size="17" /> ทำนอง {{ s.id }}</button>
+            <button v-if="stanzas.length > 1" class="rail-del" title="ลบทำนองนี้" aria-label="ลบท่อนทำนองนี้" @click.stop="removeStanza(si)"><Icon name="trash-2" :size="14" /></button>
+          </div>
+          <button class="rail-row add" @click="addStanza(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มทำนอง</button>
+        </template>
       </nav>
       <div class="rail-backdrop" :class="{ open: drawerOpen }" aria-hidden="true" @click="closeDrawer"></div>
       <!-- B070: the top-nav "Aa" reader size (store.readingFontScale) scales the edit page too.
@@ -1861,6 +2015,58 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       เนื้อร้องพิมพ์ในกล่องใต้โน้ต หรือแผง “📝 แก้เนื้อแบบย่อหน้า” (เลือกข้อจากแถบซ้าย)
       <router-link class="pk-info" style="margin-left: 6px" :to="{ path: '/guide', hash: '#notation' }" aria-label="คู่มือโน้ตตัวเลข">เปิดคู่มือ →</router-link>
     </p>
+    <!-- aria-live: announce the new order after a drag/▲▼ move (WCAG 2.5.7 · screen readers) -->
+    <div class="sr-only" aria-live="polite">{{ reorderMsg }}</div>
+
+    <!-- ===== canvas section header for the selected ท่อน — rename + melody + reorder right
+         where you edit (SX2/SX3/SX5). The note/word/beat editor below is unchanged (SX7). ===== -->
+    <div v-if="lensActive" class="cshead no-print">
+      <span class="grip" aria-hidden="true"><Icon name="grip-vertical" :size="16" /></span>
+      <span class="cs-num">{{ lensChoice + 1 }}</span>
+      <input
+        v-if="editingLabelId === lensChoice && editingLabelWhere === 'canvas'"
+        v-model="lensRow.label"
+        v-focus
+        class="cs-name-inp"
+        aria-label="แก้ชื่อท่อน"
+        @keydown.enter.prevent="commitRename"
+        @keydown.esc.prevent="cancelRename"
+        @blur="commitRename"
+      />
+      <span
+        v-else
+        class="cs-name"
+        role="button"
+        tabindex="0"
+        title="คลิกเพื่อแก้ชื่อท่อน"
+        @click="startRename(lensChoice, 'canvas')"
+        @keydown.enter.prevent="startRename(lensChoice, 'canvas')"
+      >{{ rowLabel(lensRow, lensChoice) }}</span>
+      <ComboSelect
+        class="cs-mel"
+        :model-value="lensRow.stanza"
+        :options="stanzaIdOptions"
+        aria-label="เลือกทำนองของท่อนนี้"
+        width="118px"
+        @update:model-value="lensRow.stanza = $event"
+      />
+      <label class="cs-key">คีย์
+        <ComboSelect
+          :model-value="lensRow.key"
+          :options="rowKeyOptions"
+          aria-label="เปลี่ยนคีย์ท่อนนี้"
+          width="94px"
+          @update:model-value="lensRow.key = $event"
+        />
+      </label>
+      <span class="cs-grow"></span>
+      <span class="updown">
+        <button aria-label="ย้ายท่อนขึ้น" :disabled="lensChoice === 0" @click="moveRow(lensChoice, -1)">▲</button>
+        <button aria-label="ย้ายท่อนลง" :disabled="lensChoice === arrangement.length - 1" @click="moveRow(lensChoice, 1)">▼</button>
+      </span>
+      <button v-if="arrangement.length > 1" class="cs-del" title="ลบท่อนนี้" aria-label="ลบท่อนนี้" @click="removeRow(lensChoice)"><Icon name="trash-2" :size="15" /></button>
+    </div>
+
     <p v-if="lensActive" class="muted no-print" style="margin: 0 0 8px">
       พิมพ์คำร้องในช่องใต้โน้ต · ช่องสีแดง = ยังไม่ได้ใส่คำ · ช่องเส้นประ = โน้ตลากเสียง (เว้นว่างได้ หรือใส่ “-”)
     </p>
@@ -2093,40 +2299,8 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       </div>
     </div>
 
-    <!-- ===== arrangement: play order + words per verse ===== -->
-    <h3 id="pk-arrange" class="section-title" style="margin-top: 22px">📜 ลำดับเพลง — เลือกท่อนทำนองมาเรียงเป็นข้อ</h3>
-    <p class="muted no-print" style="margin: 0 0 10px">
-      แต่ละข้อ = เลือก<b>ท่อนทำนอง</b>ที่ใช้ · ตั้งชื่อ/คีย์ · จัดลำดับด้วย ▲▼ ·
-      <b>เนื้อร้องพิมพ์ในกล่องใต้โน้ต</b> หรือแผง <b>“📝 แก้เนื้อแบบย่อหน้า”</b> ด้านบน (กด ✎ เพื่อเลือกข้อ)
-    </p>
-    <div class="card">
-      <div v-for="(row, ri) in arrangement" :key="ri" :id="'arr-row-' + ri" class="arr-row">
-        <div class="arr-head">
-          <span class="muted" style="min-width: 22px">{{ ri + 1 }}.</span>
-          <ComboSelect v-model="row.stanza" :options="stanzaIdOptions" aria-label="เลือกท่อนทำนอง" width="100px" />
-          <input v-model="row.label" placeholder="ชื่อข้อ เช่น ร้อง 1, รับ" aria-label="ชื่อข้อ" class="arr-label" />
-          <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem">คีย์:
-            <ComboSelect v-model="row.key" :options="rowKeyOptions" aria-label="เปลี่ยนคีย์ข้อนี้" width="100px" />
-          </label>
-          <span
-            class="arr-count"
-            :style="{ color: rowStatus(row).ok ? 'var(--muted)' : 'var(--red)', fontWeight: rowStatus(row).ok ? 400 : 700 }"
-          >
-            {{ rowStatus(row).got }}/{{ rowStatus(row).need }} พยางค์ {{ rowStatus(row).ok ? '✓' : '❌' }}
-          </span>
-          <span class="arr-tools">
-            <button class="secondary tiny" aria-label="ย้ายขึ้น" :disabled="ri === 0" @click="moveRow(ri, -1)">▲</button>
-            <button class="secondary tiny" aria-label="ย้ายลง" :disabled="ri === arrangement.length - 1" @click="moveRow(ri, 1)">▼</button>
-            <button class="secondary tiny" aria-label="เลือกข้อนี้เพื่อพิมพ์เนื้อ" @click="lensChoice = ri">✎</button>
-            <button class="secondary tiny" aria-label="ลบข้อนี้" @click="removeRow(ri)">✕</button>
-          </span>
-        </div>
-        <!-- E4/B049: the per-row lyric textarea is CUT — words are typed under the notes
-             (per-syllable) or in the "📝 แก้เนื้อแบบย่อหน้า" panel above (both edit the
-             selected ข้อ). This row now only arranges the verse: ท่อน · ชื่อ · คีย์ · ลำดับ. -->
-      </div>
-      <button class="secondary" @click="addRow">+ เพิ่มข้อ</button>
-    </div>
+    <!-- (arrangement of ท่อน — order · name · melody · key — now lives in the "โครงเพลง" rail
+         + the canvas section header above, not a separate bottom block. editor-section-ux.) -->
 
     <!-- (play ทั้งเพลง = dock · ดาวน์โหลด/ลบ/ประวัติ = "จัดการ" menu · แผ่นเต็ม = 🎼 mode) -->
       </div>
@@ -2386,23 +2560,202 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   white-space: nowrap;
 }
 .slot-btn { min-width: 30px; min-height: 26px; padding: 2px 6px; font-size: 12px; }
-/* arrangement rows */
-.arr-row {
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  padding: 8px;
-  margin-bottom: 8px;
+/* ===== editor-section-ux: "โครงเพลง" rail rows + canvas section header ===== */
+/* screen-reader-only live region (reorder announcements) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
-.arr-head {
+.rail-group.rg-main { color: var(--brand); }
+.rail-hint { font-size: 11.5px; color: var(--muted); margin: 0 6px 6px; }
+/* the collapsible "ทำนอง (โน้ต)" group header is a button */
+.rg-toggle {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 6px;
+  gap: 4px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  text-transform: none;
 }
-.arr-label { flex: 1 1 150px; min-width: 120px; min-height: 32px; padding: 4px 8px; }
-.arr-count { font-size: 13px; white-space: nowrap; }
-.arr-tools { display: flex; gap: 3px; flex-shrink: 0; margin-left: auto; }
+.rg-chev { transform: rotate(-90deg); transition: transform 0.15s; }
+.rg-chev-open { transform: rotate(0); }
+/* a ท่อน row in the rail: grip · num · name · ♪ · ▲▼ · delete */
+.srow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 9px;
+  padding: 5px 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: box-shadow 0.12s, border-color 0.12s, opacity 0.12s;
+}
+.srow.sel { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(139, 69, 19, 0.14); background: var(--cream); }
+.srow.drag { opacity: 0.5; }
+.srow.over { border-color: var(--ok); border-style: dashed; }
+.grip {
+  color: var(--muted);
+  cursor: grab;
+  flex: 0 0 16px;
+  display: inline-flex;
+  align-items: center;
+  touch-action: none;
+}
+.snum { color: var(--muted); font-size: 12px; min-width: 14px; text-align: right; flex: 0 0 auto; }
+.sname {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: text;
+  padding: 4px 5px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snameinp {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 4px 5px;
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+  font-family: inherit;
+}
+/* ♪ chip = compact melody picker (ComboSelect) */
+.mchip { flex: 0 0 auto; }
+.mchip :deep(input) {
+  font-size: 11px;
+  color: var(--brand);
+  font-weight: 700;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 3px 6px;
+  text-align: center;
+  cursor: pointer;
+  min-height: 26px;
+}
+/* stacked ▲▼ */
+.updown { display: inline-flex; flex-direction: column; gap: 1px; flex: 0 0 auto; }
+.updown button {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 5px;
+  width: 22px;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0;
+  font-size: 8px;
+  line-height: 1;
+}
+.updown button:disabled { opacity: 0.3; cursor: default; }
+.srow-del {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 3px;
+  min-width: 26px;
+  min-height: 26px;
+  cursor: pointer;
+}
+.srow-del:hover { color: var(--red); background: #fff0ef; }
+/* "+ เพิ่มท่อน" and "+ เพิ่มทำนอง" primary add row */
+.addsec {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  border: 1px dashed var(--brand);
+  background: transparent;
+  color: var(--brand);
+  border-radius: 9px;
+  padding: 8px;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: var(--touch-min);
+}
+.addsec:hover { background: var(--cream); }
+/* canvas section header — rename/melody/reorder for the selected ท่อน, above the notes */
+.cshead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 11px 11px 0 0;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+.cshead .grip { color: var(--muted); cursor: default; }
+.cs-num { color: var(--muted); font-size: 13px; min-width: 16px; text-align: right; }
+.cs-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--brand);
+  cursor: text;
+  padding: 3px 7px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+.cs-name:hover { background: #fff; }
+.cs-name-inp {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--brand);
+  padding: 3px 7px;
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+  font-family: inherit;
+  min-width: 120px;
+}
+.cs-mel { flex: 0 0 auto; }
+.cs-mel :deep(input) { color: var(--brand); font-weight: 700; }
+.cs-key { display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+.cs-grow { flex: 1; }
+.cs-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 7px;
+  padding: 4px;
+  min-width: 32px;
+  min-height: 32px;
+  cursor: pointer;
+}
+.cs-del:hover { color: var(--red); background: #fff0ef; border-color: var(--red); }
 .arr-lyric {
   width: 100%;
   min-height: 46px;
@@ -3253,5 +3606,13 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   .rail-row { min-height: var(--touch-min); }
   .rail-del,
   .rail-x { min-width: var(--touch-min); min-height: var(--touch-min); }
+
+  /* โครงเพลง rows + canvas header: fat touch targets (WCAG 2.5.8; SOP ≥44px) */
+  .srow { padding: 7px 6px; }
+  .grip { min-width: 32px; min-height: 40px; }
+  .srow-del,
+  .cs-del { min-width: var(--touch-min); min-height: var(--touch-min); }
+  .updown button { width: 40px; height: 22px; font-size: 10px; }
+  .addsec { min-height: var(--touch-min); }
 }
 </style>
