@@ -350,6 +350,69 @@ watch(tempo, () => {
 function printSheet() { window.print() }
 function downloadJson() { if (currentSong.value) downloadSong(currentSong.value) }
 
+// ---------- ดาวน์โหลดเสียง MP3 (B072) — สร้างในเบราว์เซอร์, เสียง = ปุ่มฟัง ----------
+// สร้าง MP3 ของทำนองด้วย OfflineAudioContext + lamejs (audioExport lib · merged แล้ว).
+// โหลด lib แบบ on-demand (dynamic import) ให้ lamejs code-split ออกจาก bundle หลัก —
+// จ่ายต้นทุนเฉพาะตอนกดโหลดจริง. bpm/คีย์ = ค่าที่ผู้ใช้ตั้งในหน้าฝึกร้องตอนนี้ (เหมือนปุ่มฟัง).
+// SingTransport เป็นรั้ว → โชว์สถานะ %/ETA ผ่าน "label ของ dock item" (ข้อความ) ไม่ใช่แถบกราฟิก.
+const mp3Stage = ref('') // '' | 'render' | 'encode' | 'done'
+const mp3Pct = ref(0)
+const mp3Eta = ref(null) // วินาทีที่เหลือ (ระหว่าง encode)
+const mp3Est = ref(null) // { seconds, bytes } ประมาณก่อนเริ่ม
+const mp3Err = ref(false)
+const mp3Busy = computed(() => mp3Stage.value !== '')
+function fmtDur(s) { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60); const sec = s % 60; return m ? `${m} นาที ${sec} วิ` : `${sec} วิ` }
+function fmtSize(b) { return b >= 1024 * 1024 ? (b / 1024 / 1024).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB' }
+// dock item label เปลี่ยนตามสถานะ → progress เห็นในเมนู (settingDescs อ่าน .value ทำให้ re-emit dock)
+const mp3ItemLabel = computed(() => {
+  if (mp3Err.value) return 'เสียง MP3 — ลองใหม่'
+  if (!mp3Busy.value) return 'ดาวน์โหลดเสียง (MP3)'
+  if (mp3Stage.value === 'encode') {
+    return `กำลังสร้างเสียง · ${mp3Pct.value}%` + (mp3Eta.value != null ? ` · เหลือ ~${fmtDur(mp3Eta.value)}` : '')
+  }
+  return 'กำลังเตรียมเสียง' + (mp3Est.value ? ` · ~${fmtSize(mp3Est.value.bytes)}` : '') + '…'
+})
+const mp3ActionLabel = computed(() => (mp3Busy.value ? (mp3Stage.value === 'encode' ? `${mp3Pct.value}%` : '…') : 'บันทึก'))
+
+async function downloadMp3() {
+  if (mp3Busy.value || !props.song) return
+  mp3Err.value = false
+  mp3Pct.value = 0
+  mp3Eta.value = null
+  mp3Est.value = null
+  const content = props.song.content
+  const bpm = Number(tempo.value) || content.bpm || 92
+  try {
+    const { songToMp3Blob, mp3Filename, estimateMp3 } = await import('../lib/audioExport.js')
+    mp3Est.value = estimateMp3(content, { bpm })
+    mp3Stage.value = 'render'
+    let encStart = 0
+    const { blob } = await songToMp3Blob(content, {
+      bpm,
+      transpose: keyTranspose(content.key, displayKey.value || content.key),
+      onProgress: ({ stage, fraction }) => {
+        mp3Stage.value = stage
+        if (stage === 'encode') {
+          mp3Pct.value = Math.round(fraction * 100)
+          if (!encStart) encStart = performance.now()
+          else if (fraction > 0.02) mp3Eta.value = ((performance.now() - encStart) / 1000) * (1 - fraction) / fraction
+        }
+      },
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = mp3Filename(props.song)
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    mp3Err.value = true
+  } finally {
+    mp3Stage.value = ''
+    mp3Eta.value = null
+  }
+}
+
 // ---------- the ⚙ settings panel controls (§4c) — every control, inline ----------
 // icons = Lucide names (rendered via <Icon>), badge = the current value shown on the bar
 const CHORD_BADGE = { letter: 'ABC', roman: '145', hidden: '—' }
@@ -372,6 +435,7 @@ const settingDescs = computed(() => [
   },
   // ขนาดตัวอักษร (font) now lives in the top nav "Aa" tool (FontTool), not the dock — P'Aim.
   { id: 'download', icon: 'download', label: 'ดาวน์โหลด (JSON)', kind: 'action', actionLabel: 'บันทึก', onAction: downloadJson },
+  { id: 'downloadMp3', icon: 'file-music', label: mp3ItemLabel.value, kind: 'action', actionLabel: mp3ActionLabel.value, onAction: downloadMp3 },
   { id: 'print', icon: 'printer', label: 'พิมพ์ / PDF', kind: 'action', actionLabel: 'เปิด', onAction: printSheet },
 ])
 
