@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dock consistency — ภาพร่าง 3 โหมด (SA)</title>
+<style>
+  :root{
+    --brand:#b6763f; --cream:#f6efe6; --ink:#2b2320; --muted:#8a7f76;
+    --line:#e0d6c8; --paper:#fffdf9; --ok:#1d7a54; --warn:#c0803a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:#faf6f0;color:var(--ink);line-height:1.5;padding:24px 16px 80px}
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 24px;font-size:14px}
+  h2{font-size:17px;margin:32px 0 6px;border-bottom:2px solid var(--brand);padding-bottom:4px}
+  h3{font-size:14px;margin:20px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .modecol{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .modecol h4{margin:0 0 10px;font-size:13px;color:var(--brand);display:flex;align-items:center;gap:6px}
+
+  /* ---- mock dock ---- */
+  .dock{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.1);padding:8px}
+  .drow{display:flex;align-items:center;gap:6px}
+  .drow+.drow{margin-top:8px}
+  .btn{width:34px;height:34px;min-width:34px;border:1px solid var(--line);border-radius:9px;background:transparent;
+       display:inline-flex;align-items:center;justify-content:center;font-size:15px;color:var(--ink)}
+  .btn.plain{border:0}
+  .btn.brand{color:var(--brand);border-color:transparent;font-size:20px}
+  .btn.gear{color:var(--muted)}
+  .btn.wide{width:auto;min-width:34px;padding:0 8px;font-size:12px;gap:3px}
+  .grip{color:var(--muted);font-size:16px;letter-spacing:-2px;cursor:grab}
+  .tl{flex:1;height:22px;position:relative;display:flex;align-items:center}
+  .tl .track{position:absolute;left:0;right:0;height:4px;background:var(--line);border-radius:3px}
+  .tl .fill{position:absolute;left:0;width:38%;height:4px;background:var(--brand);border-radius:3px}
+  .tl .knob{position:absolute;left:38%;width:11px;height:11px;background:var(--brand);border:2px solid #fff;border-radius:50%;transform:translateX(-50%);box-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .tl .mk{position:absolute;width:9px;height:9px;border:1.5px solid var(--brand);background:#fff;border-radius:50%;top:50%;transform:translate(-50%,-50%)}
+  .time{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .spring{margin-left:auto}
+  .center{margin:0 auto}
+  .keys{display:flex;gap:3px;padding-bottom:7px;margin-bottom:7px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .key{flex:1;min-width:26px;height:28px;border:1px solid var(--line);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:monospace;font-weight:700;font-size:13px}
+  .rc{margin-left:auto;display:flex;gap:6px}
+
+  .note{font-size:12px;color:var(--muted);margin-top:10px;padding-left:2px}
+  .flag{display:inline-block;font-size:11px;background:#fdeee0;color:var(--warn);border:1px solid #eecdaa;border-radius:6px;padding:1px 6px;margin:2px 3px 0 0}
+  .good{background:#e7f4ee;color:var(--ok);border-color:#bfe0d0}
+
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:var(--cream);font-weight:600}
+  td.el{white-space:nowrap;font-weight:600;color:var(--brand)}
+  .legend{font-size:12px;color:var(--muted);margin:8px 0 0}
+  .rule{background:var(--cream);border-left:3px solid var(--brand);padding:8px 12px;border-radius:0 8px 8px 0;margin:8px 0;font-size:13px}
+  .rule b{color:var(--brand)}
+  .align-x{position:relative}
+  .edge{position:absolute;left:16px;top:0;bottom:0;width:2px;background:repeating-linear-gradient(to bottom,var(--brand) 0 4px,transparent 4px 8px);opacity:.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Dock — จัดระเบียบให้เป็นระบบเดียวทั้ง 3 โหมด</h1>
+  <p class="sub">SA · ภาพร่างให้ P'Aim เคาะ · เทียบ "ตอนนี้" กับ "ที่เสนอ" · ยังไม่ใช่ของจริง (docs เท่านั้น)</p>
+
+  <!-- ================= CURRENT ================= -->
+  <h2>1 · ตอนนี้ — ทำไมดูไม่เป็นระบบเดียว</h2>
+  <p class="sub">รากปัญหา: <b>ฝึกร้อง</b> วาดแถบเองใน <code>SingTransport</code> (StudioDock ซ่อน chrome ตัวเอง) · <b>แผ่นเพลง</b> กับ <b>แก้ไข</b> ใช้ chrome ของ <code>StudioDock</code> → ตำแหน่ง grip/⚙/แผงตั้งค่า คนละที่</p>
+
+  <div class="grid">
+    <!-- SING current -->
+    <div class="modecol">
+      <h4>🎤 ฝึกร้อง (ตอนนี้)</h4>
+      <div class="dock">
+        <div class="drow">
+          <span class="grip">⁝⁝</span>
+          <span class="time">1:04</span>
+          <span class="tl"><span class="track"></span><span class="fill"></span><span class="knob"></span>
+            <span class="mk" style="left:20%"></span><span class="mk" style="left:55%"></span></span>
+          <span class="time">3:12</span>
+          <span class="btn wide">☰ ท่อน</span>
+        </div>
+        <div class="drow">
+          <span class="btn gear">⚙</span>
+          <span class="center"></span>
+          <span class="btn plain">◀</span><span class="btn brand plain">▶</span><span class="btn plain">▶</span><span class="btn plain">🔁</span>
+          <span class="center"></span>
+          <span class="btn wide">Aa</span><span class="btn wide">คีย์</span>
+        </div>
+      </div>
+      <div class="note">
+        <span class="flag">grip = บนซ้าย (แถว 1)</span>
+        <span class="flag">⚙ = ล่างซ้าย</span>
+        <span class="flag">timeline ~200px ไม่เต็ม (แชร์แถวกับ ☰ ท่อน)</span>
+        <span class="flag">แผง ⚙ = ปักซ้าย · ลากได้</span>
+      </div>
+    </div>
+
+    <!-- SHEET current -->
+    <div class="modecol">
+      <h4>📄 แผ่นเพลง (ตอนนี้)</h4>
+      <div class="dock">
+        <div class="drow">
+          <span class="grip">⁝⁝</span>
+          <span class="btn brand wide">🖨 พิมพ์</span>
+          <span class="rc">
+            <span class="btn gear">◑</span>
+          </span>
+        </div>
+      </div>
+      <div class="note">
+        <span class="flag">grip = ซ้ายของแถวเดียว</span>
+        <span class="flag">ไม่มี ⚙ — ความโปร่งอยู่ "ขวา"</span>
+        <span class="flag">ไม่มี timeline</span>
+        <span class="flag">แผงตั้งค่า = ปักขวา · ลากไม่ได้</span>
+      </div>
+    </div>
+
+    <!-- EDIT current -->
+    <div class="modecol">
+      <h4>✏️ แก้ไข (ตอนนี้)</h4>
+      <div class="dock">
+        <div class="keys">
+          <span class="key">1</span><span class="key">2</span><span class="key">3</span><span class="key">5</span><span class="key">6</span><span class="key">|</span><span class="key">-</span>
+        </div>
+        <div class="drow">
+          <span class="grip">⁝⁝</span>
+          <span class="btn">↶</span><span class="btn">↷</span><span class="btn">▶</span><span class="btn">⛭</span>
+          <span class="rc">
+            <span class="btn gear">◑</span><span class="btn gear">⇄</span><span class="btn gear">⋯</span>
+          </span>
+        </div>
+      </div>
+      <div class="note">
+        <span class="flag">grip = ซ้ายของแถว tools</span>
+        <span class="flag">ไม่มี ⚙ — 3 ปุ่ม chrome (ความโปร่ง/จัดปุ่ม/⋯) อยู่ "ขวา"</span>
+        <span class="flag">ไม่มี timeline</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>ตารางเทียบ — ต่างกันตรงไหน</h3>
+  <table>
+    <tr><th>องค์ประกอบ</th><th>🎤 ฝึกร้อง</th><th>📄 แผ่นเพลง</th><th>✏️ แก้ไข</th></tr>
+    <tr><td class="el">แถบมาจาก</td><td>SingTransport (วาดเอง)</td><td>StudioDock chrome</td><td>StudioDock chrome</td></tr>
+    <tr><td class="el">grip อยู่</td><td>บนซ้าย (แถว 1)</td><td>ซ้ายแถวเดียว</td><td>ซ้ายแถว tools</td></tr>
+    <tr><td class="el">⚙ ตั้งค่า</td><td><b>ล่างซ้าย</b> — ปุ่มเดียว = บ้านของทุกอย่าง</td><td><b>ขวา</b> — ไม่มี ⚙ มี 1 ปุ่ม chrome</td><td><b>ขวา</b> — ไม่มี ⚙ มี 3 ปุ่ม chrome</td></tr>
+    <tr><td class="el">timeline</td><td>มี · ~200px ไม่เต็ม</td><td>ไม่มี</td><td>ไม่มี</td></tr>
+    <tr><td class="el">ปุ่มหลัก</td><td>transport กลางๆ</td><td>พิมพ์ ชิดซ้าย</td><td>tools ชิดซ้าย</td></tr>
+    <tr><td class="el">แผงกางที่</td><td>ปักซ้าย · ลากได้</td><td>ปักขวา · ลากไม่ได้</td><td>ปักขวา · ลากไม่ได้</td></tr>
+  </table>
+
+  <!-- ================= PROPOSED ================= -->
+  <h2>2 · ที่เสนอ — ไวยากรณ์เดียว ("dock grammar")</h2>
+  <p class="sub">โครงเดียวกันทุกโหมด · เส้นประ = ขอบซ้ายที่ grip กับ ⚙ ตรงกัน (ตามที่ P'Aim ขอ)</p>
+
+  <div class="rule">R1 · <b>grip</b> = มุมบนซ้ายเสมอ ทุกโหมด</div>
+  <div class="rule">R2 · <b>⚙ ตั้งค่า</b> = ล่างซ้าย ใต้ grip พอดี (ขอบซ้ายตรงกัน) · เป็น "บ้านเดียว" ของปุ่มรอง — ความโปร่ง/จัดปุ่ม/ดูเพิ่ม ยุบเข้ามาใน ⚙ ทุกโหมด</div>
+  <div class="rule">R3 · <b>timeline</b> = แถวของตัวเอง เต็มความกว้าง (เฉพาะโหมดที่มี playback) · "เลือกท่อน" ย้ายออกจากแถว timeline</div>
+  <div class="rule">R4 · <b>ปุ่มหลัก</b> = กึ่งกลางแถวหลัก · R5 · <b>ปุ่มลัด (pins)</b> = ชิดขวา · R6 · <b>แผง ⚙</b> = กางขึ้นจากปุ่ม ⚙ (ปักซ้าย) · ลากได้ · ไม่หลุดขอบ — พฤติกรรมเดียวทุกโหมด</div>
+
+  <div class="grid" style="margin-top:16px">
+    <!-- SING proposed -->
+    <div class="modecol">
+      <h4>🎤 ฝึกร้อง (เสนอ)</h4>
+      <div class="dock align-x">
+        <span class="edge"></span>
+        <div class="drow"><span class="grip">⁝⁝</span></div>
+        <div class="drow">
+          <span class="time">1:04</span>
+          <span class="tl"><span class="track"></span><span class="fill"></span><span class="knob"></span>
+            <span class="mk" style="left:20%"></span><span class="mk" style="left:55%"></span><span class="mk" style="left:80%"></span></span>
+          <span class="time">3:12</span>
+        </div>
+        <div class="drow">
+          <span class="btn gear">⚙</span>
+          <span class="center"></span>
+          <span class="btn plain">◀</span><span class="btn brand plain">▶</span><span class="btn plain">▶</span><span class="btn plain">🔁</span>
+          <span class="spring"></span>
+          <span class="btn wide">☰ ท่อน</span><span class="btn wide">Aa</span>
+        </div>
+      </div>
+      <div class="note"><span class="flag good">timeline เต็มแถว</span><span class="flag good">grip↕⚙ ขอบซ้ายตรงกัน</span></div>
+    </div>
+
+    <!-- SHEET proposed -->
+    <div class="modecol">
+      <h4>📄 แผ่นเพลง (เสนอ)</h4>
+      <div class="dock align-x">
+        <span class="edge"></span>
+        <div class="drow"><span class="grip">⁝⁝</span></div>
+        <div class="drow">
+          <span class="btn gear">⚙</span>
+          <span class="center"></span>
+          <span class="btn brand wide">🖨 พิมพ์</span>
+          <span class="center"></span>
+          <span class="spring"></span>
+        </div>
+      </div>
+      <div class="note"><span class="flag good">⚙ เดียว (ความโปร่งย้ายเข้า)</span><span class="flag good">grip↕⚙ ตรงกัน</span></div>
+    </div>
+
+    <!-- EDIT proposed -->
+    <div class="modecol">
+      <h4>✏️ แก้ไข (เสนอ)</h4>
+      <div class="dock align-x">
+        <span class="edge"></span>
+        <div class="keys">
+          <span class="key">1</span><span class="key">2</span><span class="key">3</span><span class="key">5</span><span class="key">6</span><span class="key">|</span><span class="key">-</span>
+        </div>
+        <div class="drow"><span class="grip">⁝⁝</span></div>
+        <div class="drow">
+          <span class="btn gear">⚙</span>
+          <span class="center"></span>
+          <span class="btn">↶</span><span class="btn">↷</span><span class="btn">▶</span><span class="btn">⛭</span>
+          <span class="spring"></span>
+        </div>
+      </div>
+      <div class="note"><span class="flag good">⚙ เดียว (3 ปุ่ม chrome ยุบเข้า)</span><span class="flag good">grip↕⚙ ตรงกัน</span></div>
+    </div>
+  </div>
+
+  <h3>ข้อดี / ข้อเสีย</h3>
+  <table>
+    <tr><th>✔ ข้อดี</th><th>✖ ข้อเสีย / ต้นทุน</th></tr>
+    <tr>
+      <td>• โมเดลเดียวในหัวผู้ใช้ — จำที่เดียวใช้ได้ทุกโหมด<br>• grip + ⚙ ขอบซ้ายตรงกันทุกโหมด<br>• timeline เต็มแถว จับง่ายขึ้น<br>• "บ้านเดียว" ⚙ — เลิกงง "3 ปุ่ม vs 1 ⚙"<br>• แผงกางเหมือนกันหมด</td>
+      <td>• แผ่นเพลง/แก้ไข: ปุ่ม จัดปุ่ม/⋯ ลึกลงไป 1 แตะใน ⚙ (แต่ 2 โหมดนี้ปุ่มน้อย ไม่ค่อยกระทบ)<br>• ต้อง refactor ให้ SingTransport กับ StudioDock ใช้ "โครง dock เดียว" (ตอนนี้ ฝึกร้อง เลี่ยง chrome ของ dock ทั้งหมด → โค้ด grip/แผง/clamp ซ้ำกัน 2 ที่) = งาน build จริง PM ต้องรู้</td>
+    </tr>
+  </table>
+
+  <!-- ================= QUESTIONS ================= -->
+  <h2>3 · คำถามให้ P'Aim เคาะ</h2>
+  <table>
+    <tr><th>#</th><th>คำถาม</th><th>SA แนะนำ</th></tr>
+    <tr><td>Q1</td><td>⚙ อยู่ <b>ซ้ายล่าง</b> (ตรงกับ grip) หรือ <b>ขวาล่าง</b> (นิ้วโป้งขวาถึงบนมือถือ)?</td><td><b>ซ้ายล่าง</b> — ตรงกับที่พี่ขอให้ grip+⚙ ขอบซ้ายตรงกัน · เหตุผลเดียวที่จะเลือกขวา = เอื้อมนิ้วโป้งมือถือ</td></tr>
+    <tr><td>Q2</td><td>แผ่นเพลง/แก้ไข: ความโปร่ง + จัดปุ่ม + ดูเพิ่ม(⋯) <b>ยุบเข้า ⚙</b> (บ้านเดียว) หรือแยกเป็นปุ่มขวาเหมือนเดิม?</td><td><b>ยุบเข้า ⚙</b> — ให้เหมือนฝึกร้อง</td></tr>
+    <tr><td>Q3</td><td>ปุ่มหลัก <b>กึ่งกลาง</b> (อ่านเป็น "เครื่องเล่น" ทุกโหมด) หรือ <b>ชิดซ้ายหลัง ⚙</b> (มือคุ้นตำแหน่งปุ่มแก้ไข)? = "สม่ำเสมอ" แปลว่าเหมือนเป๊ะ หรือ ไวยากรณ์เดียว?</td><td>ฝึกร้อง = กึ่งกลาง · แก้ไข = ชิดซ้าย (tools ≠ playback) — ขอพี่เคาะนิยาม "สม่ำเสมอ"</td></tr>
+    <tr><td>Q4</td><td>timeline เต็มแถว → "เลือกท่อน" ต้องออกจากแถว timeline · ย้ายไปแถวหลัก(ขวา) หรือเข้า ⚙?</td><td>ปุ่มเล็กที่แถวหลัง (ขวา) — ยังเห็นเร็ว</td></tr>
+    <tr><td>Q5</td><td>ทำเป็น <b>คอมโพเนนต์โครง dock เดียว</b> (ฝึกร้องเลิกวาด chrome เอง) เพื่อการันตี R1–R6 ด้วยโครงสร้าง? (= ต้นทุน build ที่ PM ต้องวางแผน)</td><td>ใช่ — ไม่งั้นกฎจะ drift อีก</td></tr>
+  </table>
+
+  <p class="legend">ไอคอนในภาพร่างเป็นตัวแทน (◑ = ความโปร่ง · ⇄ = จัดปุ่ม · ⋯ = ดูเพิ่ม · ⛭ = ส่ง/ดาวน์โหลด) · ของจริงใช้ Lucide ตาม DS</p>
+</div>
+</body>
+</html>
