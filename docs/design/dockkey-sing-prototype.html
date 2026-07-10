@@ -239,12 +239,11 @@ function itemHtml(it){
       return `<span class="pinwrap ${it.place&&it.place.row===2?'keyb':''}"><button class="pbtn ${open?'on':''}" data-act="menu:${it.id}" title="${it.name}">${ic(it.icon,17)}${b?`<b class="pbadge">${b}</b>`:''}${ic('cv',13)}</button>${open?ddPop(it):''}</span>`; }
     case 'sel': return `<button class="sel ${S.openPanel==='select'?'on':''}" data-act="select" title="เลือกท่อน">${ic('list',15)}${S.mobile?'ท่อน':'เลือกท่อน'} <b>${S.selected.size}/${S.sections.length}</b></button>`;
     case 'slider': return `<span class="pinwrap pslidewrap" title="${it.name}">${ic('blend',16)}<input class="pslider" type="range" min="40" max="100" value="${Math.round(S.alpha*100)}" data-act="alpha"></span>`;
-    case 'timeline': { // แถบท่อน + วงกลมกลางท่อน: เลือก=น้ำตาลทึบ · ไม่เลือก=เทา/วงกลมขาว · ท่อนที่หัวอยู่=สูงขึ้น
+    case 'timeline': { // เส้นท่อน (ช่องแบ่ง=ขอบท่อน): เลือก=น้ำตาลทึบ · ไม่เลือก=เทา · ท่อนที่หัวอยู่=สูงขึ้น · snap เงียบๆ (ไม่มีวงกลมท่อนแล้ว)
       const n=S.sections.length, cur=Math.min(n-1,Math.floor(S.frac*n));
       const segs=S.sections.map((s,i)=>{const on=S.selected.has(s.name);
         return `<span class="seg ${on?'on':''} ${i===cur?'cur':''}" style="left:${i/n*100}%;width:calc(${100/n}% - 3px)"></span>`;}).join('');
-      const dots=S.sections.map((s,i)=>`<span class="mk" style="left:${MK(i)}%"></span>`).join('');
-      return `<span class="seek"><span class="bar" data-seek>${segs}${dots}<span class="kn" style="left:${S.frac*100}%"></span></span><span>3:12</span></span>`; }
+      return `<span class="seek"><span class="bar" data-seek>${segs}<span class="kn" style="left:${S.frac*100}%"></span></span><span>3:12</span></span>`; }
     case 'more': return `<button class="btn gear ${S.openMenu==='overflow'?'on':''}" data-act="menu:overflow" title="ดูเพิ่ม">${ic('dots',18)}</button>`;
   }
   return '';
