@@ -103,6 +103,9 @@
   .pc{display:flex;align-items:center;gap:5px}
   .msel{font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:4px}
   .msel .ico{width:12px;height:12px;color:var(--muted)}
+  .mselect{font:inherit;font-size:12.5px;padding:5px 24px 5px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;max-width:132px;min-height:34px;
+    appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23757575' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center}
+  .mselect:hover{border-color:var(--brand)}
   .prange{width:60px;accent-color:var(--brand)}
   .slval{font-size:11px;color:var(--muted);min-width:32px}
   .mv{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer}
@@ -249,7 +252,7 @@ function gearPanel(){
   const rows=OPTIONAL.map(id=>{
     const it=byId(id); const pinned=S.pins.includes(id); const i=S.pins.indexOf(id);
     let ctl='';
-    if(it.kind==='menu') ctl=`<button class="msel" data-act="cycle:${id}">${it.get()} ${ic('cv',12)}</button>`;
+    if(it.kind==='menu') ctl=`<select class="mselect" data-act="pickpanel:${id}" aria-label="${it.name}">${it.opts.map(o=>`<option value="${o}" ${o===it.get()?'selected':''}>${o}</option>`).join('')}</select>`;
     else if(it.kind==='toggle') ctl=`<button class="msel" data-act="tog:${id}">${S[it.state]?'เปิด':'ปิด'}</button>`;
     else if(it.kind==='slider') ctl=`<input class="prange" type="range" min="40" max="100" value="${Math.round(S.alpha*100)}" data-act="alpha"><span class="slval">${Math.round(S.alpha*100)}%</span>`;
     return `<div class="prow"><span class="mi">${ic(it.icon,16)}</span><span class="pl">${it.name}</span><span class="pc">${ctl}</span>`+
@@ -337,6 +340,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(
 document.addEventListener('input',e=>{const t=e.target.closest('[data-act]');if(!t)return;
   if(t.dataset.act==='alpha'){S.alpha=(+t.value)/100;const d=$('.dock',$('#host'));if(d)d.style.setProperty('--a',S.alpha);const v=t.parentElement.querySelector('.slval');if(v)v.textContent=t.value+'%'}
   if(t.dataset.act==='font'){S.fontPct=+t.value;renderReader();const v=t.closest('.fontdd').querySelector('.fontval');if(v)v.textContent=t.value+'%'}});
+document.addEventListener('change',e=>{const t=e.target.closest('[data-act]');if(!t)return;
+  if(t.dataset.act.startsWith('pickpanel:')){byId(t.dataset.act.split(':')[1]).set(t.value);render()}});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'){S.openPanel=S.openMenu=null;render()}});
 
 let gp=null;
