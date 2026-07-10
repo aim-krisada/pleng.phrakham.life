@@ -31,6 +31,9 @@
 | **note-search-verify** (ตรวจผลค้นโน้ต sequence เพลง 1/29/43 + มี/ไม่มีเว้นวรรค) | `task_a69020e0` | songSearch.js | `brief-note-search-verify.md` | ✅✅ **MERGED `5f6dc82`** (เจอบั๊กจริง: fuzzy fallthrough → match หลอก · แก้ให้ note query = exact-sequence · ผลค้น = เพลง 1 เดียว · 268 test) |
 | **mp3-download** (B072 · ดาวน์โหลดเสียง MP3 · client-side) | `task_c6130db7` | midi.js + DownloadTool + lamejs dep | `brief-mp3-download.md` | 🔨 จ่ายแล้ว |
 
+**⏸️ คิว (ชนไฟล์สายที่วิ่งอยู่ · ยิงทันทีที่ช่องว่าง):**
+- **B073** "ห้องต่อกัน" ข้ามบรรทัดนับจังหวะผิด (11/4) — `EditorMode.vue` · **ชน fix-editor-preview-final → ยิงหลังสายนั้น merge** · brief `brief-beat-count-continued.md` พร้อมแล้ว
+
 **คิว phase 2 (หลัง 3 สายเข้าฐาน):** เสียบ ITEMS_PRINT/ITEMS_EDIT (จาก SA) เข้า DockKey core → dock ครบ 3 หน้า (= เป้า P'Aim ข้อ 4.1)
 **หลักฐานบั๊ก (ISO traceability):** `docs/pm/realuse-assets/bug-favicon-brand-icon.*` + `bug-footer-bottom.*`
 
