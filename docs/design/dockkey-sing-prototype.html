@@ -181,7 +181,7 @@ const ITEMS_SING = [
   {id:'chord',   kind:'menu', name:'คอร์ด', icon:'guitar', opts:CHORDS, get:()=>S.chord, set:v=>S.chord=v, badge:()=>'', default:'inSetting', pinnable:true},
   {id:'speed',   kind:'menu', name:'ความเร็ว', icon:'gauge', opts:TEMPOS.map(t=>t[0]+' ('+t[1]+')'), get:()=>tempoLabel(), set:v=>S.tempo=+v.match(/\((\d+)\)/)[1], badge:()=>S.tempo, default:'inSetting', pinnable:true},
   {id:'layer',   kind:'menu', name:'แสดงผล', icon:'layers', opts:DISPLAYS, get:()=>S.display, set:v=>S.display=v, badge:()=>'', default:'inSetting', pinnable:true},
-  {id:'alpha',   kind:'slider', name:'ความโปร่งแถบ', icon:'blend', default:'inSetting', pinnable:true},
+  {id:'alpha',   kind:'slider', name:'ความโปร่ง', icon:'blend', default:'inSetting', pinnable:true},
 ];
 function tempoLabel(){const t=TEMPOS.find(x=>x[1]===S.tempo);return (t?t[0]:'')+' ('+S.tempo+')'}
 const byId=id=>ITEMS_SING.find(x=>x.id===id);
@@ -242,7 +242,7 @@ function gearPanel(){
       `<button class="mv" data-act="mv:${id}:-1" ${pinned&&i>0?'':'disabled'}>▲</button><button class="mv" data-act="mv:${id}:1" ${pinned&&i>-1&&i<S.pins.length-1?'':'disabled'}>▼</button>`+
       `<button class="pin ${pinned?'on':''}" data-act="pin:${id}" title="ปัก/ถอนขึ้นแถบ">📌</button></div>`;
   }).join('');
-  return `<div class="pop panel" data-pop><div class="ptitle">⠿ ตั้งค่า — ปรับได้ที่นี่เลย · 📌 = ปักขึ้นแถบ</div>${rows}</div>`;
+  return `<div class="pop panel" data-pop>${rows}</div>`;
 }
 function selPanel(){
   return `<div class="pop selpanel" data-pop><div class="sshead">⠿ เลือกท่อนที่จะซ้อม</div>

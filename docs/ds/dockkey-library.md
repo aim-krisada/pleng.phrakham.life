@@ -68,7 +68,7 @@ DockItem = {
 | chord | คอร์ด | menu | flow | **inSetting**·pin | เลือกแบบคอร์ด |
 | speed | ความเร็ว | menu | flow | **inSetting**·pin | กำหนดความเร็วจังหวะ |
 | layer | แสดงผล | menu | flow | **inSetting**·pin | เลือกแสดง โน้ต/เนื้อ/ฯลฯ |
-| alpha | ความโปร่งแถบ | slider | flow | **inSetting**·pin | ความโปร่งของ dock (P'Aim) |
+| alpha | ความโปร่ง | slider | flow | **inSetting**·pin | ความโปร่งของ dock (P'Aim) |
 
 ### default (เปิดมา) — 2 แถว แถวละ 6 พอดี
 ```
