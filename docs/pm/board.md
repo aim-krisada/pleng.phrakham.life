@@ -26,6 +26,7 @@
 | **dockkey-dev** (DockKey core + หน้าฝึกร้อง) | `task_9ca47954` | StudioDock/SingTransport/SongViewer | `brief-dockkey-dev.md` | 🔨 จ่ายแล้ว |
 | **fix-favicon-footer** (bug1 ไอคอนแบรนด์ + bug2 footer ติดล่าง) | `task_5bf7aeb4` | ShellBar / styles.css+App.vue | `brief-bugs-favicon-footer.md` | 🔨 จ่ายแล้ว |
 | **sa-dockkey-print-edit** (descriptor พิมพ์/แก้ · docs) | `task_9d603bb7` | docs/ds เท่านั้น | `brief-dockkey-sa-print-edit.md` | 🔨 จ่ายแล้ว |
+| **fix-editor-preview-final** (พรีวิว "ดูผลทั้งเพลง": ล็อกบรรทัดไม่ reflow + ไทข้ามห้องซ้อน 2 เส้น) | `task_49330996` | EditorMode + SongSheet | `brief-fix-editor-preview.md` | 🔨 จ่ายแล้ว |
 
 **คิว phase 2 (หลัง 3 สายเข้าฐาน):** เสียบ ITEMS_PRINT/ITEMS_EDIT (จาก SA) เข้า DockKey core → dock ครบ 3 หน้า (= เป้า P'Aim ข้อ 4.1)
 **หลักฐานบั๊ก (ISO traceability):** `docs/pm/realuse-assets/bug-favicon-brand-icon.*` + `bug-footer-bottom.*`
