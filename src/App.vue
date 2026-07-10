@@ -34,5 +34,5 @@ watch(
   <main class="container" :class="{ 'studio-wide': isStudio }">
     <router-view />
   </main>
-  <SiteFooter />
+  <SiteFooter :class="{ 'footer-dock-clear': isStudio }" />
 </template>
