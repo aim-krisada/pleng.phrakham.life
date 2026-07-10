@@ -37,7 +37,7 @@
 **⏸️ คิว EditorMode (หลัง B073 · ไฟล์เดียวกัน):**
 - **B075 undo (Ctrl+Z) ย้อนผิดตัว** — พี่เปา repro (ย้อนไม่ใช่ล่าสุด) · คีย์ลัด/ปุ่มมีแล้วแต่ประวัติเพี้ยน (debounce snapshot ไม่ทัน) · brief `brief-undo-latest.md` พร้อม · ยิงหลัง B073 merge (หรือ bundle เข้าสาย B073)
 
-**🔴 DockKey — P'Aim LAN verdict = "เพี้ยน" (ไม่ผ่าน · ต้อง rework):** ทดลอง 5315 แล้วหน้าฝึกร้อง dock เพี้ยน · **HOLD merge ต่อ** · รอ P'Aim ระบุจุด/PM วิเคราะห์ภาพ → ส่ง dockkey-dev แก้ (DockKey.vue/SingTransport · ไม่ชน EditorMode/songSearch/shell)
+**🔴 DockKey — P'Aim LAN verdict = "เพี้ยน" → rework จ่ายแล้ว (send_message ตรงสาย dockkey-dev):** P'Aim ระบุ **ข้อ 1 เพี้ยนสุด = dock กว้างเต็มจอ ปุ่มห่าง** · แก้ = **fit-content = พอดีปุ่ม (ตามความกว้างปุ่มจริง) ไม่ใช่พอดีจอ** (กอดปุ่มแน่น · ไม่ space-between · timeline min-width พอเหมาะ · เหมือน `.sd-fit` เดิมที่ P'Aim เคาะ B043) · **override DS ข้อ "row1 กระจายเต็มกว้าง"** (P'Aim live > spec) · ข้อ 2/3 (ย้ายปุ่มเข้า ⚙ · Aa ไม่มี %) P'Aim OK · **HOLD merge จน P'Aim accept รอบใหม่** · ไม่ชน EditorMode/songSearch/shell
 
 **คิว phase 2 (หลัง 3 สายเข้าฐาน):** เสียบ ITEMS_PRINT/ITEMS_EDIT (จาก SA) เข้า DockKey core → dock ครบ 3 หน้า (= เป้า P'Aim ข้อ 4.1)
 **หลักฐานบั๊ก (ISO traceability):** `docs/pm/realuse-assets/bug-favicon-brand-icon.*` + `bug-footer-bottom.*`
