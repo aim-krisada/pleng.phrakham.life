@@ -95,55 +95,6 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); width:
 .container.studio-wide { max-width: var(--container-wide); }
 @media (max-width: 480px) { .container { padding: var(--sp-3); } }
 
-/* ---------- header / nav ---------- */
-header.topbar {
-  background: #f8f9fa; /* family standard: same light-grey bar as phrakham.life's navbar */
-  border-bottom: 1px solid var(--line);
-  padding: 8px 16px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-header.topbar .brand {
-  font-weight: 700;
-  font-size: 1.15rem;
-  color: var(--brand);
-  text-decoration: none;
-}
-/* family standard: text menu hugs the left after the brand; tools (download +
-   login) pushed to the far right, login last. */
-.topbar-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-button.nav-toggle {
-  display: none;
-  background: transparent;
-  border: none; /* family standard: plain icon like phrakham.life's toggler */
-  border-radius: 8px;
-  padding: 8px 10px;
-  cursor: pointer;
-  color: var(--ink);
-  min-width: 44px;
-  min-height: 44px;
-}
-button.nav-toggle:active { background: var(--cream-hover); opacity: 1; }
-nav.site-nav { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
-nav.site-nav a {
-  color: var(--ink);
-  text-decoration: none;
-  padding: 8px 12px;
-  border-radius: 8px;
-  display: inline-block;
-}
-nav.site-nav a.router-link-active { color: var(--brand); font-weight: 700; }
-
-@media (max-width: 767.98px) {
-  button.nav-toggle { display: inline-flex; align-items: center; justify-content: center; }
-  /* order:5 drops the menu below the top row (brand · tools · hamburger) when open */
-  nav.site-nav { display: none; order: 5; width: 100%; flex-direction: column; align-items: stretch; }
-  nav.site-nav.open { display: flex; }
-  nav.site-nav a { padding: 12px; border-top: 1px solid var(--line); border-radius: 0; }
-}
-
 /* navbar tools (download) — mirrors phrakham.life2 .pk-tool */
 .pk-tool { position: relative; display: flex; align-items: center; }
 .pk-tool-btn {
@@ -390,8 +341,6 @@ button.danger { background: var(--red); }
   button:hover { background: #6d360f; }
   button.secondary:hover { background: var(--cream-hover); }
   button.danger:hover { background: #9c2d21; }
-  button.nav-toggle:hover { background: var(--cream-hover); }
-  nav.site-nav a:hover { background: var(--cream-hover); }
   .pk-tool-btn:hover { background: rgba(0, 0, 0, 0.06); }
   .pk-tool-menu button:hover { background: var(--cream-hover); }
   .pk-info:hover { background: var(--brand); color: #fff; }
@@ -609,7 +558,7 @@ footer.site-footer a { color: var(--footer-ink); }
      Turn OFF the browser's own "Headers and footers" for a clean sheet. */
   @page { margin: 15mm 16mm 16mm; }
   body { background: #fff; }
-  .no-print, footer.site-footer, header.topbar { display: none !important; }
+  .no-print, footer.site-footer { display: none !important; }
   .card { border: none; padding: 0; }
   .song-line { overflow-x: visible; break-inside: avoid; }
 }

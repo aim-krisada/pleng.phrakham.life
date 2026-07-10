@@ -1470,7 +1470,7 @@ watch([activeStanza, lines], () => {
 // Set-once / occasional things live in menus now (เพลง = New/Open/Properties,
 // จัดการ = drafts/history/download/delete) opened as panels, so the editor page
 // stays as clean as the wireframe.
-const activePanel = ref(null) // 'open' | 'properties' | 'history' | 'drafts'
+const activePanel = ref(null) // 'open' | 'history' | 'drafts'
 const pendingPick = ref('') // Open dialog: the song chosen, applied only on "เปิดเพลง"
 function openPanel(p) {
   openMenu.value = null
@@ -1529,7 +1529,7 @@ function manageDelete() {
 // sheet is still the 🎼 mode button.
 const panelTitle = computed(
   () =>
-    ({ open: 'เลือกเพลงเพื่อแก้', properties: 'ตั้งค่าเพลง', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ' })[
+    ({ open: 'เลือกเพลงเพื่อแก้', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ' })[
       activePanel.value
     ] || '',
 )
@@ -2040,19 +2040,6 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
             <button class="secondary" @click="closePanel">ยกเลิก</button>
             <button @click="confirmOpen">เปิดเพลง</button>
           </div>
-        </div>
-
-        <!-- Properties: song metadata (changes apply live; undo covers them) -->
-        <div v-else-if="activePanel === 'properties'">
-          <div class="panel-grid">
-            <label>เลขเพลง<input v-model.number="meta.number" type="number" placeholder="เลขเพลง" /></label>
-            <label>ชื่อเพลง (ไทย)<input v-model="meta.title_th" placeholder="ชื่อเพลง (ไทย)" /></label>
-            <label>ชื่อเพลง (อังกฤษ)<input v-model="meta.title_en" placeholder="ถ้ามี" /></label>
-            <label>คีย์<ComboSelect v-model="opts.key" :options="KEYS" width="100%" /></label>
-            <label>จังหวะ<ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom width="100%" /></label>
-            <label>ความเร็ว (BPM)<input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" /></label>
-          </div>
-          <div class="panel-foot"><button @click="closePanel">เสร็จ</button></div>
         </div>
 
         <!-- History -->
