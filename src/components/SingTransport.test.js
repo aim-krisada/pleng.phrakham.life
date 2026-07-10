@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import SingTransport from './SingTransport.vue'
+import { readingFontScale } from '../store.js'
 
 Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function () {}
 
@@ -178,6 +179,30 @@ describe('⚙ settings panel (§4c)', () => {
     await nextTick()
     await panel(w, 'alpha').find('input[type="range"]').setValue(60)
     expect(w.emitted('dock-alpha')[0]).toEqual([0.6])
+  })
+})
+
+describe('Aa reader font size (B045)', () => {
+  beforeEach(() => { readingFontScale.value = 1 })
+
+  it('the Aa button is always present on the bar (1-tap · not pinnable away)', () => {
+    // even when NO settings are pinned, the reader can still reach font size
+    localStorage.setItem('pleng.dock.sing.pins', JSON.stringify([]))
+    const w = mountT()
+    expect(w.find('.mp-fontbtn').exists()).toBe(true)
+    expect(w.find('.mp-fontbtn').text()).toContain('100%')
+  })
+
+  it('tapping Aa opens a slider popover; sliding resizes the reader text live', async () => {
+    const w = mountT()
+    expect(w.find('.mp-fontslider').exists()).toBe(false) // closed until tapped
+    await w.find('.mp-fontbtn').trigger('click')
+    await nextTick()
+    const slider = w.find('.mp-fontslider')
+    expect(slider.exists()).toBe(true)
+    await slider.setValue(140)
+    expect(readingFontScale.value).toBeCloseTo(1.4, 5)
+    expect(w.find('.mp-fontbtn').text()).toContain('140%') // badge tracks live
   })
 
   it('▲▼ in the panel reorders the pinned controls on the bar (D6-style · persists)', async () => {

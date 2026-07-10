@@ -6,8 +6,6 @@
 import { useRoute } from 'vue-router'
 import { shellMenu } from '../store.js'
 import ProfileTool from './ProfileTool.vue'
-import DownloadTool from './DownloadTool.vue'
-import FontTool from './FontTool.vue'
 import Icon from './Icon.vue'
 
 defineProps({ title: { type: String, default: '' } })
@@ -41,7 +39,10 @@ function closeMenus() {
       <template v-if="title"><span class="sb-sep" aria-hidden="true"></span><span class="shell-title">{{ title }}</span></template>
     </div>
     <div id="shell-menus" class="shell-menus"></div>
-    <div class="sb-right"><slot name="right"><FontTool /><DownloadTool /><ProfileTool /></slot></div>
+    <!-- B045: download + font (Aa) moved OFF the top bar into the studio dock (they only
+         ever showed while a song was open = a dock mode). Row 1 now = brand · title · 👤,
+         so a long song title reads in full on a phone. Only login stays here. -->
+    <div class="sb-right"><slot name="right"><ProfileTool /></slot></div>
     <div v-if="shellMenu" class="sb-backdrop" aria-hidden="true" @click="closeMenus"></div>
   </header>
 </template>
