@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { displayChord } from '../lib/chords.js'
 import NoteRow from './NoteRow.vue'
 
@@ -151,10 +151,121 @@ function isSyl(li, si, k) {
 function seek(li, si, syk = 0) {
   if (props.interactive) emit('seek', { li, si, syk })
 }
+
+// ---- B069: cross-bar ties as ONE continuous line-level arc -------------------
+// A tie that crosses a bar line (the receiving note is the first note of a new
+// segment, e.g. "1 - - -" | "~1") is drawn by NoteRow as a lone end-half that butts
+// the bar line, leaving a gap over the rule. Here we redraw those ties as a single
+// SVG path spanning from the source digit to the tie-end digit, arcing over the bar.
+// We MEASURE the rendered note positions (they depend on width/wrap/font-scale) and
+// re-measure on resize + print + content change. NoteRow is untouched; its end-half
+// for these first-of-segment ties is hidden via CSS below (within-segment ties keep it).
+const rootEl = ref(null)
+const tieArcs = ref([]) // [{ d, key }] paths in px, in the root's coordinate space
+const overlayBox = ref({ w: 0, h: 0 })
+
+// One engraved tie: a filled lens (thin points at each note, thickest at the apex),
+// bowing above the digits — same look as NoteRow's arcs, drawn at line scale.
+function buildArc(x1, x2, yTop, h) {
+  const span = Math.max(x2 - x1, 6)
+  const y = yTop + h * 0.14 // just above the digit, in the octave-dot band
+  const rise = Math.min(Math.max(span * 0.12, h * 0.16), h * 0.42)
+  const th = Math.max(h * 0.06, 1.1) // apex thickness
+  const cx1 = x1 + span * 0.24
+  const cx2 = x2 - span * 0.24
+  const top = y - rise
+  const r = (n) => n.toFixed(1)
+  const d =
+    `M${r(x1)},${r(y)} C${r(cx1)},${r(top)} ${r(cx2)},${r(top)} ${r(x2)},${r(y)}` +
+    ` C${r(cx2)},${r(top + th)} ${r(cx1)},${r(top + th)} ${r(x1)},${r(y)} Z`
+  return { d, key: `${x1.toFixed(0)}_${x2.toFixed(0)}_${yTop.toFixed(0)}` }
+}
+
+function measureTies() {
+  const root = rootEl.value
+  if (!root) { tieArcs.value = []; return }
+  const rootRect = root.getBoundingClientRect()
+  if (!rootRect.width) { tieArcs.value = []; return } // no layout (unit tests / hidden)
+  const arcs = []
+  root.querySelectorAll('.song-line').forEach((lineEl) => {
+    const nts = Array.from(lineEl.querySelectorAll('.note-row .nt'))
+    nts.forEach((nt, i) => {
+      if (!nt.classList.contains('tie-end')) return
+      const prev = nts[i - 1]
+      if (!prev) return
+      // within-segment tie (same NoteRow) — leave it to NoteRow, don't overlay
+      if (prev.closest('.segment') === nt.closest('.segment')) return
+      const a = prev.getBoundingClientRect()
+      const b = nt.getBoundingClientRect()
+      if (!b.width) return
+      const h = Math.max(a.height, b.height)
+      // the bar-group wrapped and the two notes fell onto different visual rows —
+      // an arc between them would slash across the line, so skip (rare on A4 print)
+      if (Math.abs(a.top - b.top) > h * 0.6) return
+      const x1 = a.left + a.width / 2 - rootRect.left
+      const x2 = b.left + b.width / 2 - rootRect.left
+      if (x2 - x1 < 2) return // receiver left of / on top of source (wrapped) — no arc
+      const yTop = Math.min(a.top, b.top) - rootRect.top
+      arcs.push(buildArc(x1, x2, yTop, h))
+    })
+  })
+  tieArcs.value = arcs
+  overlayBox.value = { w: rootRect.width, h: rootRect.height }
+}
+
+// Debounce with a short timer (fires reliably in every context, unlike rAF which is
+// paused in non-painting/headless tabs) — coalesces resize/print storms into one measure
+// after layout settles.
+let timer = 0
+function scheduleMeasure() {
+  clearTimeout(timer)
+  timer = setTimeout(measureTies, 16)
+}
+
+let ro = null
+onMounted(() => {
+  nextTick(scheduleMeasure)
+  if (typeof ResizeObserver !== 'undefined' && rootEl.value) {
+    ro = new ResizeObserver(scheduleMeasure)
+    ro.observe(rootEl.value)
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', scheduleMeasure)
+    window.addEventListener('beforeprint', measureTies)
+  }
+})
+onBeforeUnmount(() => {
+  if (ro) ro.disconnect()
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', scheduleMeasure)
+    window.removeEventListener('beforeprint', measureTies)
+  }
+  clearTimeout(timer)
+})
+// Layer/content/transpose changes re-flow the notes → re-measure after the DOM settles.
+watch(
+  () => [props.content, sc.value, sn.value, props.songbook, props.displayKey, props.mode],
+  () => nextTick(scheduleMeasure),
+  { deep: true },
+)
 </script>
 
 <template>
-  <div :class="[lyricsOnly ? 'sheet-mode-lyrics' : '', sn && !sc ? 'sheet-no-chord' : '']">
+  <div ref="rootEl" class="sheet-root" :class="[lyricsOnly ? 'sheet-mode-lyrics' : '', sn && !sc ? 'sheet-no-chord' : '']">
+    <!-- B069: one continuous arc per cross-bar tie, drawn over the whole sheet so it
+         spans the bar line (NoteRow can only draw within its own segment box). Positions
+         are measured from the rendered notes; px coords map 1:1 to the viewBox. -->
+    <svg
+      v-if="tieArcs.length"
+      class="tie-overlay"
+      :viewBox="`0 0 ${overlayBox.w} ${overlayBox.h}`"
+      :width="overlayBox.w"
+      :height="overlayBox.h"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <path v-for="a in tieArcs" :key="a.key" :d="a.d" />
+    </svg>
     <!-- Printed title — centered, above the song, on paper only (on screen the shell
          bar / Studio heading already show it). Owned here so it prints from ANY mode
          that renders the sheet (ดู or แผ่น), which is why P'Aim's ดู-mode print had none. -->
@@ -208,6 +319,28 @@ function seek(li, si, syk = 0) {
 </template>
 
 <style scoped>
+/* B069 — cross-bar tie overlay. Absolutely positioned over the sheet body so its arcs
+   can span across bar lines / segments; it never affects layout (pointer-events: none)
+   so measuring it can't feed back into a resize loop. Coloured with the note token. */
+.sheet-root { position: relative; }
+.tie-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1;
+}
+.tie-overlay path {
+  fill: var(--note-blue);
+  stroke: none;
+}
+/* The overlay redraws every tie whose receiving note leads a new segment (the cross-bar
+   case). Hide NoteRow's end-half for exactly those so we don't double up — a within-
+   segment tie (receiving note NOT first in its NoteRow) keeps NoteRow's arc untouched. */
+:deep(.note-row > .note-group:first-child > .nt.tie-end:first-child .tie-end-arc) {
+  display: none;
+}
 /* Songbook reused-verse lines have no notes, so the note-row spacing (margin-bottom 20px)
    leaves them floating far apart. Pull them into a tight lyric block, like a hymn book. */
 .song-line-lyrics {
