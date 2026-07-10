@@ -224,19 +224,6 @@ watch([openPanel, openMenu], async () => {
         @click="emit('dock-collapse')"
       ><Icon name="dock-grip-collapse" :size="22" /></button>
       <div class="mp-tl mp-framed">
-        <div class="mp-tlhead">
-          <span class="mp-tllbl">แถบเล่น — ลากหาตำแหน่ง · จุด = ท่อน</span>
-          <button
-            v-if="hasSections"
-            class="mp-seltrig"
-            :class="{ on: openPanel === 'select' }"
-            :aria-expanded="openPanel === 'select'"
-            title="เลือกท่อนที่จะซ้อม"
-            @click.stop="togglePanel('select')"
-          >
-            <Icon name="list-music" :size="15" /> เลือกท่อน <b>{{ selCountLabel }}</b>
-          </button>
-        </div>
         <div class="mp-seekrow">
           <span class="mp-t">{{ curLabel }}</span>
           <div
@@ -270,6 +257,16 @@ watch([openPanel, openMenu], async () => {
             </span>
           </div>
           <span class="mp-t">{{ totalLabel }}</span>
+          <button
+            v-if="hasSections"
+            class="mp-seltrig"
+            :class="{ on: openPanel === 'select' }"
+            :aria-expanded="openPanel === 'select'"
+            title="เลือกท่อนที่จะซ้อม"
+            @click.stop="togglePanel('select')"
+          >
+            <Icon name="list-music" :size="15" /> เลือกท่อน <b>{{ selCountLabel }}</b>
+          </button>
         </div>
       </div>
     </div>
@@ -485,8 +482,6 @@ watch([openPanel, openMenu], async () => {
 /* the frame lives on the timeline itself now, so the grip sits OUTSIDE it (P'Aim) */
 .mp-framed { border: 1px solid var(--line); border-radius: 10px; padding: 5px 9px 3px; }
 .mp-tl { flex: 1; min-width: 0; }
-.mp-tlhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.mp-tllbl { font-size: 10.5px; color: var(--muted); }
 .mp-seltrig {
   display: inline-flex; align-items: center; gap: 5px;
   border: 1px solid var(--line); background: transparent; color: var(--ink);
@@ -495,9 +490,11 @@ watch([openPanel, openMenu], async () => {
 }
 .mp-seltrig b { color: var(--brand); }
 .mp-seltrig.on, .mp-seltrig:hover { border-color: var(--brand); color: var(--brand); }
-.mp-seekrow { display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mp-seekrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .mp-t { flex: 0 0 auto; }
-.mp-seek { position: relative; flex: 1; height: 24px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+/* narrower slider (P'Aim): base 200px, may shrink; leaves room for เลือกท่อน on the same row */
+.mp-seek { position: relative; flex: 0 1 200px; height: 24px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+.mp-seekrow .mp-seltrig { margin-left: auto; }
 .mp-track { position: absolute; left: 0; right: 0; height: 4px; background: var(--line); border-radius: 3px; top: 50%; transform: translateY(-50%); }
 .mp-fill { position: absolute; left: 0; height: 4px; background: var(--brand); border-radius: 3px; top: 50%; transform: translateY(-50%); }
 .mp-dot { position: absolute; width: 13px; height: 13px; background: var(--brand); border: 2px solid #fff; border-radius: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); pointer-events: none; }
