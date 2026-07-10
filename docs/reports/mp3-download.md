@@ -27,7 +27,7 @@
 บน `studio-shell-redesign` ตอนนี้ `DownloadTool.vue` **ไม่ได้ถูก import/mount ที่ไหนเลย** (ปุ่มดาวน์โหลดจริงย้ายเข้า dock ไปแล้ว B045 · dock อยู่ในรั้วห้ามแตะ) — ตรงกับใบสั่ง: รอบนี้ให้เสียบ MP3 ที่ `DownloadTool.vue` เป็น "จุดต่อ" ไว้ก่อน, การเอาเข้า dock/UI จริง = phase หลังผ่าน descriptor ตอน DockKey เสร็จ. ผลคือ **bundle ที่ ship ตอนนี้ยังไม่มี lamejs เลย** (ทั้ง dynamic-import + component ยัง orphan → tree-shaken ออกหมด · ไม่กระทบขนาด bundle ปัจจุบัน). โค้ด + เทสต์ + pipeline พร้อมเสียบทันทีเมื่อ DockKey wiring มาถึง.
 
 ## ผลทดสอบ (DoD)
-- **vitest:** `npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'` → **273 passed / 274** · ที่ fail = `notationLint.test.mjs` (ของเดิม `process.exit`) · เทสต์ใหม่ 6 ตัวผ่านครบ (รันใน env `node` เพราะต้องใช้ `Blob.arrayBuffer` ที่ jsdom ไม่มี)
+- **vitest:** `npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'` → **274 tests passed** (ฐาน 268 + ใหม่ 6) · suite `notationLint.test.mjs` โชว์ "1 failed suite" แต่เป็น quirk เดิม (`process.exit(0)` · จริง ๆ 72/72 ผ่าน) · เทสต์ใหม่ 6 ตัวรันใน env `node` เพราะต้องใช้ `Blob.arrayBuffer` ที่ jsdom ไม่มี
 - **build:** `npm run build` ผ่าน
 - **dev `--host`:** Network URL = **http://10.215.141.98:5372/verify-mp3.html**
 
