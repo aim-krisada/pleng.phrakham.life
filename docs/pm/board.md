@@ -7,7 +7,8 @@
 
 ## ▶ RESUME (สถานะสดที่ git-verify แล้ว)
 - **ฐาน `studio-shell-redesign` HEAD = `2ab5628`** = **270 เทสต์เขียว + build ผ่าน** (merged วันนี้: note-search-verify · fix-editor-preview-final · B073 beat-count · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
-- 🚀 **P'Aim สั่ง: release เมื่อจบคลื่นนี้** — หลังสายที่วิ่งอยู่ merge + P'Aim accept (โดยเฉพาะ DockKey LAN) → deploy รอบ 6 (⛔ รอ P'Aim "go" ชัดต่อรอบ)
+- 🚀 **DEPLOY B073 เดี่ยว (P'Aim สั่งชัด 10 ก.ค. · พี่เปาตรวจ live):** cherry-pick `320f4dd` เข้า main → **main `1535e1f`→`b538701`** (push แล้ว · Actions `29095988380`) · EditorMode-only · build ผ่าน · ⚠️ **main แตกจากฐานแล้ว** (main มี B073 เดี่ยว · ฐานมี B073 ใน `2ab5628`) → **deploy รอบหน้าต้อง reconcile** (merge base→main จะเจอ B073 ซ้ำ = git ข้ามให้ ถ้า identical · หรือ reset main=base ตอน full deploy)
+- 🚀 **release ที่เหลือ:** หลัง 4 สาย merge + DockKey accept → deploy รอบ 6 (⛔ รอ P'Aim "go" ชัดต่อรอบ)
 - ⚠️ **บทเรียนซ้ำ (pm4 10 ก.ค.):** main dir ถูกสลับไป branch `sa-dockkey-print-edit` ใต้มือ (แม้ spawn_task ใช้ auto-worktree) → commit เอกสาร 5 อันหลุดไปลง branch นั้น · กู้ด้วย `git switch studio-shell-redesign && git merge --ff-only sa-dockkey-print-edit` (เส้นตรง = FF สะอาด) · **เช็ก `git branch --show-current` ก่อน commit เสมอ**
 - **live = `1535e1f` (deploy รอบ 5)** · ✅ **P'Aim เคาะ "ปล่อยไว้" (10 ก.ค.) — ไม่ rollback** (ของขึ้น = 264-test-green ไม่พัง)
 - verify ฐานรวม: `npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'`
