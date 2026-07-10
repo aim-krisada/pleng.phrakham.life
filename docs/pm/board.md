@@ -34,8 +34,10 @@
 | **mp3-download** (B072 · ดาวน์โหลดเสียง MP3 · client-side) | `task_c6130db7` | midi.js + DownloadTool + lamejs dep | `brief-mp3-download.md` | 🔨 จ่ายแล้ว |
 | **search-short-notes** (B074 · ค้น "555" เจอทำนอง · เลขล้วน ≥3 union) | `task_263349f9` | songSearch.js | `brief-search-555.md` | 🔨 จ่ายแล้ว |
 
-**✅ verify-first (ไม่ต้องจ่าย · git-verified มีอยู่แล้ว):**
-- **undo/redo + คีย์ลัด (P'Aim ขอ 10 ก.ค.)** — `EditorMode.vue:1139-1154` มีครบแล้ว: `Ctrl+Z`=ย้อน · `Ctrl+Shift+Z`/`Ctrl+Y`=ทำซ้ำ · ปุ่ม dock "ย้อน"/"ทำซ้ำ" ด้วย → **แจ้ง P'Aim ให้ลองก่อน · ถ้าพังจริงค่อยเป็นบั๊ก (คิวหลัง B073 เพราะ EditorMode)**
+**⏸️ คิว EditorMode (หลัง B073 · ไฟล์เดียวกัน):**
+- **B075 undo (Ctrl+Z) ย้อนผิดตัว** — พี่เปา repro (ย้อนไม่ใช่ล่าสุด) · คีย์ลัด/ปุ่มมีแล้วแต่ประวัติเพี้ยน (debounce snapshot ไม่ทัน) · brief `brief-undo-latest.md` พร้อม · ยิงหลัง B073 merge (หรือ bundle เข้าสาย B073)
+
+**🔴 DockKey — P'Aim LAN verdict = "เพี้ยน" (ไม่ผ่าน · ต้อง rework):** ทดลอง 5315 แล้วหน้าฝึกร้อง dock เพี้ยน · **HOLD merge ต่อ** · รอ P'Aim ระบุจุด/PM วิเคราะห์ภาพ → ส่ง dockkey-dev แก้ (DockKey.vue/SingTransport · ไม่ชน EditorMode/songSearch/shell)
 
 **คิว phase 2 (หลัง 3 สายเข้าฐาน):** เสียบ ITEMS_PRINT/ITEMS_EDIT (จาก SA) เข้า DockKey core → dock ครบ 3 หน้า (= เป้า P'Aim ข้อ 4.1)
 **หลักฐานบั๊ก (ISO traceability):** `docs/pm/realuse-assets/bug-favicon-brand-icon.*` + `bug-footer-bottom.*`
