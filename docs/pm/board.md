@@ -6,7 +6,7 @@
 ---
 
 ## ▶ RESUME (สถานะสดที่ git-verify แล้ว)
-- **ฐาน `studio-shell-redesign` HEAD = `a8ae3d3`** = **268 เทสต์เขียว + build ผ่าน** (note-search-verify + fix-editor-preview-final merged · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
+- **ฐาน `studio-shell-redesign` HEAD = `2ab5628`** = **270 เทสต์เขียว + build ผ่าน** (merged วันนี้: note-search-verify · fix-editor-preview-final · B073 beat-count · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
 - 🚀 **P'Aim สั่ง: release เมื่อจบคลื่นนี้** — หลังสายที่วิ่งอยู่ merge + P'Aim accept (โดยเฉพาะ DockKey LAN) → deploy รอบ 6 (⛔ รอ P'Aim "go" ชัดต่อรอบ)
 - ⚠️ **บทเรียนซ้ำ (pm4 10 ก.ค.):** main dir ถูกสลับไป branch `sa-dockkey-print-edit` ใต้มือ (แม้ spawn_task ใช้ auto-worktree) → commit เอกสาร 5 อันหลุดไปลง branch นั้น · กู้ด้วย `git switch studio-shell-redesign && git merge --ff-only sa-dockkey-print-edit` (เส้นตรง = FF สะอาด) · **เช็ก `git branch --show-current` ก่อน commit เสมอ**
 - **live = `1535e1f` (deploy รอบ 5)** · ✅ **P'Aim เคาะ "ปล่อยไว้" (10 ก.ค.) — ไม่ rollback** (ของขึ้น = 264-test-green ไม่พัง)
@@ -29,13 +29,11 @@
 | **fix-favicon-footer** (bug1 ไอคอนแบรนด์ + bug2 footer ติดล่าง) | `task_5bf7aeb4` | ShellBar / styles.css+App.vue | `brief-bugs-favicon-footer.md` | 🔨 จ่ายแล้ว |
 | **sa-dockkey-print-edit** (descriptor พิมพ์/แก้ · docs) | `task_9d603bb7` | docs/ds เท่านั้น | `brief-dockkey-sa-print-edit.md` | ✅ เสร็จ → inbox (รอ PM ตรวจ+merge docs) |
 | **fix-editor-preview-final** (พรีวิว "ดูผลทั้งเพลง": ล็อกบรรทัดไม่ reflow + ไทข้ามห้องซ้อน 2 เส้น) | `task_49330996` | EditorMode + SongSheet | `brief-fix-editor-preview.md` | ✅✅ **MERGED `a8ae3d3`** (nowrap+hscroll · ซ่อนครึ่ง START ของ NoteRow สมมาตร · เพลง 100 ไม่ regress · 268 test) |
-| **fix-beat-count-continued** (B073 · ห้องต่อกันข้ามบรรทัด 11/4) | `task_4ae1acda` | EditorMode | `brief-beat-count-continued.md` | 🔨 จ่ายแล้ว (ปลดคิว · EditorMode ว่างหลังพรีวิว merge) |
+| **fix-beat-count-continued** (B073 · ห้องต่อกันข้ามบรรทัด 11/4) | `task_4ae1acda` | EditorMode | `brief-beat-count-continued.md` | ✅✅ **MERGED `2ab5628`** (ต้นตอ=pickup path ไม่ใช่ cont join · pickupCheck แยกกลุ่ม RUN/ISOLATED · 270 test · preview-fix ยังอยู่) |
+| **fix-undo-latest** (B075 · Ctrl+Z ย้อนผิดตัว) | `task_662f4039` | EditorMode | `brief-undo-latest.md` | 🔨 จ่ายแล้ว (ปลดคิว · EditorMode ว่างหลัง B073 merge) |
 | **note-search-verify** (ตรวจผลค้นโน้ต sequence เพลง 1/29/43 + มี/ไม่มีเว้นวรรค) | `task_a69020e0` | songSearch.js | `brief-note-search-verify.md` | ✅✅ **MERGED `5f6dc82`** (เจอบั๊กจริง: fuzzy fallthrough → match หลอก · แก้ให้ note query = exact-sequence · ผลค้น = เพลง 1 เดียว · 268 test) |
 | **mp3-download** (B072 · ดาวน์โหลดเสียง MP3 · client-side) | `task_c6130db7` | midi.js + DownloadTool + lamejs dep | `brief-mp3-download.md` | 🔨 จ่ายแล้ว |
 | **search-short-notes** (B074 · ค้น "555" เจอทำนอง · เลขล้วน ≥3 union) | `task_263349f9` | songSearch.js | `brief-search-555.md` | 🔨 จ่ายแล้ว |
-
-**⏸️ คิว EditorMode (หลัง B073 · ไฟล์เดียวกัน):**
-- **B075 undo (Ctrl+Z) ย้อนผิดตัว** — พี่เปา repro (ย้อนไม่ใช่ล่าสุด) · คีย์ลัด/ปุ่มมีแล้วแต่ประวัติเพี้ยน (debounce snapshot ไม่ทัน) · brief `brief-undo-latest.md` พร้อม · ยิงหลัง B073 merge (หรือ bundle เข้าสาย B073)
 
 **🔴 DockKey — P'Aim LAN verdict = "เพี้ยน" → rework จ่ายแล้ว (send_message ตรงสาย dockkey-dev):** P'Aim ระบุ **ข้อ 1 เพี้ยนสุด = dock กว้างเต็มจอ ปุ่มห่าง** · แก้ = **fit-content = พอดีปุ่ม (ตามความกว้างปุ่มจริง) ไม่ใช่พอดีจอ** (กอดปุ่มแน่น · ไม่ space-between · timeline min-width พอเหมาะ · เหมือน `.sd-fit` เดิมที่ P'Aim เคาะ B043) · **override DS ข้อ "row1 กระจายเต็มกว้าง"** (P'Aim live > spec) · ข้อ 2/3 (ย้ายปุ่มเข้า ⚙ · Aa ไม่มี %) P'Aim OK · **HOLD merge จน P'Aim accept รอบใหม่** · ไม่ชน EditorMode/songSearch/shell
 
