@@ -24,12 +24,13 @@
 
 | สาย/branch | chip | ไฟล์ที่แตะ | brief | สถานะ |
 |---|---|---|---|---|
-| **dockkey-dev** (DockKey core + หน้าฝึกร้อง) | `task_9ca47954` | StudioDock/SingTransport/SongViewer | `brief-dockkey-dev.md` | 🔨 จ่ายแล้ว |
+| **dockkey-dev** (DockKey core + หน้าฝึกร้อง) | `task_9ca47954` | DockKey.vue(ใหม่)/SingTransport/SongViewer | `brief-dockkey-dev.md` | ✅ **เสร็จ → inbox** · commit `778138a`+`a6295e5` · DoD: 272 test + build + fence ผ่าน (แตะ 6 ไฟล์โค้ด ไม่แตะเอกสาร/songSearch/EditorMode/styles · merge 3-way ปลอดภัย ชนแค่ board) · **⏸️ HOLD merge — รอ P'Aim LAN-test `http://10.215.141.98:5315` (UX ใหญ่ · แพตเทิร์น B043) + 3 คำถาม** |
 | **fix-favicon-footer** (bug1 ไอคอนแบรนด์ + bug2 footer ติดล่าง) | `task_5bf7aeb4` | ShellBar / styles.css+App.vue | `brief-bugs-favicon-footer.md` | 🔨 จ่ายแล้ว |
 | **sa-dockkey-print-edit** (descriptor พิมพ์/แก้ · docs) | `task_9d603bb7` | docs/ds เท่านั้น | `brief-dockkey-sa-print-edit.md` | ✅ เสร็จ → inbox (รอ PM ตรวจ+merge docs) |
 | **fix-editor-preview-final** (พรีวิว "ดูผลทั้งเพลง": ล็อกบรรทัดไม่ reflow + ไทข้ามห้องซ้อน 2 เส้น) | `task_49330996` | EditorMode + SongSheet | `brief-fix-editor-preview.md` | 🔨 จ่ายแล้ว |
 | **note-search-verify** (ตรวจผลค้นโน้ต sequence เพลง 1/29/43 + มี/ไม่มีเว้นวรรค) | `task_a69020e0` | songSearch.js | `brief-note-search-verify.md` | ✅✅ **MERGED `5f6dc82`** (เจอบั๊กจริง: fuzzy fallthrough → match หลอก · แก้ให้ note query = exact-sequence · ผลค้น = เพลง 1 เดียว · 268 test) |
 | **mp3-download** (B072 · ดาวน์โหลดเสียง MP3 · client-side) | `task_c6130db7` | midi.js + DownloadTool + lamejs dep | `brief-mp3-download.md` | 🔨 จ่ายแล้ว |
+| **search-short-notes** (B074 · ค้น "555" เจอทำนอง · เลขล้วน ≥3 union) | `task_263349f9` | songSearch.js | `brief-search-555.md` | 🔨 จ่ายแล้ว |
 
 **⏸️ คิว (ชนไฟล์สายที่วิ่งอยู่ · ยิงทันทีที่ช่องว่าง):**
 - **B073** "ห้องต่อกัน" ข้ามบรรทัดนับจังหวะผิด (11/4) — `EditorMode.vue` · **ชน fix-editor-preview-final → ยิงหลังสายนั้น merge** · brief `brief-beat-count-continued.md` พร้อมแล้ว
