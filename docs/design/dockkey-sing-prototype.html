@@ -83,7 +83,11 @@
   .fontrow{display:flex;align-items:center;gap:10px}
   .fontrow input{flex:1;accent-color:var(--brand)}
   .fs-sm{font-size:13px}.fs-lg{font-size:22px;font-weight:700}
-  .fontval{text-align:center;font-size:11px;color:var(--muted);margin-top:6px}
+  .fontval{font-size:11px;color:var(--muted)}
+  .fontfoot{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+  .fontreset{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer;min-height:32px}
+  .fontreset:hover:not(:disabled){border-color:var(--brand);color:var(--brand)}
+  .fontreset:disabled{opacity:.4;cursor:default}
   .fonttitle{font-size:12px;color:var(--muted);margin-bottom:8px}
   .panel{right:0;left:auto;min-width:290px;max-width:330px;padding:8px}
   .ptitle{font-size:11px;color:var(--muted);padding:2px 4px 8px}
@@ -232,7 +236,7 @@ function itemHtml(it){
   }
   return '';
 }
-function fontPop(){return `<div class="pop fontdd" data-pop><div class="fonttitle">ขนาดตัวอักษร</div><div class="fontrow"><span class="fs-sm">A</span><input type="range" min="80" max="220" step="10" value="${S.fontPct}" data-act="font"><span class="fs-lg">A</span></div><div class="fontval">${S.fontPct}%</div></div>`}
+function fontPop(){return `<div class="pop fontdd" data-pop><div class="fonttitle">ขนาดตัวอักษร</div><div class="fontrow"><span class="fs-sm">A</span><input type="range" min="80" max="220" step="10" value="${S.fontPct}" data-act="font"><span class="fs-lg">A</span></div><div class="fontfoot"><span class="fontval">${S.fontPct}%</span><button class="fontreset" data-act="fontreset" ${S.fontPct===100?'disabled':''}>↺ 100%</button></div></div>`}
 function ddPop(it){const cur=it.get();return `<div class="pop dd" data-pop>${it.opts.map(o=>`<button class="ddrow ${o===cur?'on':''}" data-act="pick:${it.id}:${o}"><span class="ddck">${o===cur?'●':''}</span>${o}</button>`).join('')}</div>`}
 function gearPanel(){
   const rows=OPTIONAL.map(id=>{
@@ -310,6 +314,7 @@ function act(a){
   if(a==='play'){S.playing=!S.playing;return render()}
   if(a==='gear'){S.openPanel=S.openPanel==='gear'?null:'gear';S.openMenu=null;return render()}
   if(a==='expandset'){S.collapsed=false;S.openPanel='gear';S.openMenu=null;S.pos=null;return render()}
+  if(a==='fontreset'){S.fontPct=100;return render()}
   if(a==='select'){S.openPanel=S.openPanel==='select'?null:'select';S.openMenu=null;return render()}
   if(a.startsWith('vp:')){S.mobile=a.slice(3)==='mobile';S.pos=null;return render()}
   if(a.startsWith('menu:')){const id=a.slice(5);S.openMenu=S.openMenu===id?null:id;if(id!=='overflow')S.openPanel=null;return render()}
