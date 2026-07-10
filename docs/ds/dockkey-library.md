@@ -63,7 +63,7 @@ DockItem = {
 | setting | ตั้งค่า (⚙) | gear | right · row1 | onDock·always | เปิดหน้าตั้งค่า |
 | timeslide | ไทม์ไลน์ | timeline | row2 · col1 span3 | onDock | **แตะจุดไหน = วิ่งไปจุดนั้นทันที** · **snap เข้าวงกลมต้นท่อน** เมื่อแตะใกล้ (~3.5% · แก้ปัญหาวงกลมเล็ก) · ไฮไลต์ท่อนที่หัวอยู่ · **แสดงเวลารวมอย่างเดียว** (หัวสไลเดอร์บอกตำแหน่งแล้ว · P'Aim) |
 | key | คีย์ | menu | row2 · col4 | onDock | เลือก key midi ที่เล่น |
-| tuan | เลือกท่อน | sel | row2 · col5 span2 | onDock | เลือกท่อนที่จะซ้อม |
+| tuan | เลือกท่อน | sel | row2 · col5 span2 | onDock | เลือกท่อนที่จะซ้อม · **default = ติ๊กทุกท่อน (เล่นทั้งเพลง 1 รอบ)** · เชื่อมกับไทม์ไลน์ (ท่อนที่เลือก = แถบสีน้ำตาล · ไม่เลือก = เทา) |
 | repeat | วนซ้ำ | toggle | flow | **inSetting**·pin | เล่นวนท่อนที่เลือก |
 | chord | คอร์ด | menu | flow | **inSetting**·pin | เลือกแบบคอร์ด |
 | speed | ความเร็ว | menu | flow | **inSetting**·pin | กำหนดความเร็วจังหวะ |

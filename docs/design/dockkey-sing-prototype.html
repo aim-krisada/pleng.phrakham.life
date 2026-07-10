@@ -69,8 +69,10 @@
   .trk{position:absolute;left:0;right:0;height:4px;background:var(--line);border-radius:3px;top:50%;transform:translateY(-50%)}
   .fil{position:absolute;left:0;height:4px;background:var(--brand);border-radius:3px;top:50%;transform:translateY(-50%)}
   .kn{position:absolute;width:13px;height:13px;background:var(--brand);border:2px solid #fff;border-radius:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.3);pointer-events:none}
-  .mk{position:absolute;width:12px;height:12px;border:1.5px solid var(--brand);background:#fff;border-radius:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none}
-  .mk.act{background:var(--brand);width:14px;height:14px}
+  .seg{position:absolute;height:5px;top:50%;transform:translateY(-50%);border-radius:3px;background:var(--line);pointer-events:none;transition:height .1s}
+  .seg.on{background:var(--brand);opacity:.55}
+  .seg.cur{height:9px}
+  .seg.on.cur{opacity:1}
   .keyb{flex:0 0 auto}
 
   .pop{position:absolute;bottom:calc(100% + 8px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:30}
@@ -190,16 +192,17 @@ const ITEMS_SING = [
 function tempoLabel(){const t=TEMPOS.find(x=>x[1]===S.tempo);return (t?t[0]:'')+' ('+S.tempo+')'}
 const byId=id=>ITEMS_SING.find(x=>x.id===id);
 const OPTIONAL=['repeat','chord','speed','layer','alpha']; // อยู่ในหน้า Setting
-const MK=i=>12+i*19;      // ตำแหน่งวงกลมต้นท่อน (% · demo) — ใช้ทั้งวาดและ snap
-const SNAP=0.035;         // แตะใกล้วงกลมในระยะนี้ = ดูดเข้าท่อน (แก้ปัญหาวงกลมเล็ก)
+const SECTIONS=[{name:'ท่อน 1'},{name:'ท่อน 2'},{name:'ฮุก',hook:true},{name:'ท่อน 3'},{name:'จบ'}];
+const MK=i=>i/SECTIONS.length*100;  // ขอบต้นท่อน (%) — ใช้ snap
+const SNAP=0.05;                     // แตะใกล้ขอบท่อนในระยะนี้ = ดูดเข้าต้นท่อน
 
 const S={
   mobile:true, playing:false, loop:false, collapsed:false,
   alpha:.96, frac:.38, fontPct:100, chord:'กีตาร์', key:'C', tempo:90, display:'คอร์ด+โน้ต',
   openPanel:null, openMenu:null, pos:null,
   pins:[],  // optional ids ที่ปักขึ้นแถบ (default = ยังไม่ปัก)
-  sections:[{name:'ท่อน 1'},{name:'ท่อน 2'},{name:'ฮุก',hook:true},{name:'ท่อน 3'},{name:'จบ'}],
-  selected:new Set(['ท่อน 2','ฮุก']),
+  sections:SECTIONS,
+  selected:new Set(SECTIONS.map(s=>s.name)),  // default = เลือกทุกท่อน (เล่นทั้งเพลง 1 รอบ)
 };
 
 /* ---------- reader bg ---------- */
@@ -228,10 +231,11 @@ function itemHtml(it){
       return `<span class="pinwrap ${it.place&&it.place.row===2?'keyb':''}"><button class="pbtn ${open?'on':''}" data-act="menu:${it.id}" title="${it.name}">${ic(it.icon,17)}${b?`<b class="pbadge">${b}</b>`:''}${ic('cv',13)}</button>${open?ddPop(it):''}</span>`; }
     case 'sel': return `<button class="sel ${S.openPanel==='select'?'on':''}" data-act="select" title="เลือกท่อน">${ic('list',15)}${S.mobile?'ท่อน':'เลือกท่อน'} <b>${S.selected.size}/${S.sections.length}</b></button>`;
     case 'slider': return `<span class="pinwrap pslidewrap" title="${it.name}">${ic('blend',16)}<input class="pslider" type="range" min="40" max="100" value="${Math.round(S.alpha*100)}" data-act="alpha"></span>`;
-    case 'timeline': { // เหลือเวลารวมอย่างเดียว · วงกลม = ต้นท่อน (snap ได้) · ไฮไลต์ท่อนที่หัวสไลเดอร์อยู่
-      let ai=0,ad=9; S.sections.forEach((s,i)=>{const d=Math.abs(MK(i)/100-S.frac);if(d<ad){ad=d;ai=i}});
-      const dots=S.sections.map((s,i)=>`<span class="mk ${i===ai?'act':''}" style="left:${MK(i)}%"></span>`).join('');
-      return `<span class="seek"><span class="bar" data-seek><span class="trk"></span><span class="fil" style="width:${S.frac*100}%"></span><span class="kn" style="left:${S.frac*100}%"></span>${dots}</span><span>3:12</span></span>`; }
+    case 'timeline': { // แถบท่อน: เลือก=สีน้ำตาล(จะเล่น) · ไม่เลือก=เทา(ข้าม) · ท่อนที่หัวอยู่=สูงขึ้น(กำลังเล่น)
+      const n=S.sections.length, cur=Math.min(n-1,Math.floor(S.frac*n));
+      const segs=S.sections.map((s,i)=>{const on=S.selected.has(s.name);
+        return `<span class="seg ${on?'on':''} ${i===cur?'cur':''}" style="left:${i/n*100}%;width:calc(${100/n}% - 3px)"></span>`;}).join('');
+      return `<span class="seek"><span class="bar" data-seek>${segs}<span class="kn" style="left:${S.frac*100}%"></span></span><span>3:12</span></span>`; }
     case 'more': return `<button class="btn gear ${S.openMenu==='overflow'?'on':''}" data-act="menu:overflow" title="ดูเพิ่ม">${ic('dots',18)}</button>`;
   }
   return '';
@@ -345,12 +349,11 @@ document.addEventListener('pointerup',()=>{if(!gp)return;if(!gp.moved){S.collaps
 function scrub(bar,e){
   const r=bar.getBoundingClientRect();
   let f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
-  S.sections.forEach((s,i)=>{ if(Math.abs(MK(i)/100-f)<SNAP) f=MK(i)/100; }); // snap to วงกลมต้นท่อน
+  S.sections.forEach((s,i)=>{ if(Math.abs(MK(i)/100-f)<SNAP) f=MK(i)/100; }); // snap เข้าต้นท่อน
   S.frac=f;
-  const fil=bar.querySelector('.fil'),kn=bar.querySelector('.kn');if(fil)fil.style.width=f*100+'%';if(kn)kn.style.left=f*100+'%';
-  // อัปเดตวงกลมที่ไฮไลต์ (ท่อนปัจจุบัน) ระหว่างลาก
-  let ai=0,ad=9; S.sections.forEach((s,i)=>{const d=Math.abs(MK(i)/100-f);if(d<ad){ad=d;ai=i}});
-  bar.querySelectorAll('.mk').forEach((el,i)=>el.classList.toggle('act',i===ai));
+  const kn=bar.querySelector('.kn'); if(kn)kn.style.left=f*100+'%';
+  const n=S.sections.length, cur=Math.min(n-1,Math.floor(f*n));                 // อัปเดตท่อนที่กำลังเล่น
+  bar.querySelectorAll('.seg').forEach((el,i)=>el.classList.toggle('cur',i===cur));
 }
 
 render();
