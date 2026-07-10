@@ -106,9 +106,18 @@ function onChange(song) {
 function onSave() {}
 
 // each reading surface wants the song in a slightly different shape
+// B053 — carry the song's source books (book_refs) + scripture reference through to the
+// reading view so ฝึกร้อง shows the same "แหล่งเพลง"/📖 captions as the catalog card. These
+// live on the raw DB row (loadedSong), not on liveSong, so read them from there.
 const viewerSong = computed(() =>
   liveSong.value
-    ? { number: liveSong.value.number, title_th: liveSong.value.title_th, content: liveSong.value.content }
+    ? {
+        number: liveSong.value.number,
+        title_th: liveSong.value.title_th,
+        content: liveSong.value.content,
+        book_refs: loadedSong.value?.book_refs,
+        scripture: loadedSong.value?.scripture,
+      }
     : null,
 )
 const sheetContent = computed(() => {

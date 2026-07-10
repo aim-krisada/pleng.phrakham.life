@@ -15,6 +15,7 @@ import {
 import { resolveContent } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale } from '../store.js'
+import { bookRefLabels } from '../lib/bookCodes.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
 
@@ -78,6 +79,10 @@ const printTitle = computed(() => {
   if (!s) return ''
   return (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
 })
+// B053 — source book(s) + scripture caption, same data + label helper as the catalog card
+// (SongList). Shown once at the top of the reading surface so a singer sees where the song
+// comes from without leaving ฝึกร้อง. book_refs → human labels via lib/bookCodes.
+const refLabels = computed(() => bookRefLabels(props.song?.book_refs))
 // section OCCURRENCES (one per {type:'section'} marker) → the timeline markers
 const sections = computed(() => {
   const lines = resolved.value?.lines || []
@@ -425,6 +430,13 @@ function onSeek({ li, si, syk }) {
 
 <template>
   <div>
+    <!-- B053: แหล่งเพลง (source books) + scripture reference — small captions above the
+         sheet, mirroring the catalog card. Only render when the song actually has them. -->
+    <div v-if="refLabels.length || song.scripture" class="song-refs">
+      <div v-if="refLabels.length" class="src-tag muted">แหล่งเพลง: {{ refLabels.join(' · ') }}</div>
+      <div v-if="song.scripture" class="scripture-tag muted">📖 {{ song.scripture }}</div>
+    </div>
+
     <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: readingFontScale + 'rem' }">
       <SongSheet
         :content="resolved"
@@ -455,5 +467,18 @@ function onSeek({ li, si, syk }) {
 .sheet-scale { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 480px) {
   .sheet-scale { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* B053 — source/scripture captions: muted small text (matches SongList's caption weight),
+   each on its own line so long ref lists wrap cleanly on a phone. Uses S0 tokens only. */
+.song-refs {
+  margin-bottom: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.song-refs .src-tag,
+.song-refs .scripture-tag {
+  font-size: var(--fs-sm);
 }
 </style>
