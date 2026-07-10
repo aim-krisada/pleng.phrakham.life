@@ -56,6 +56,12 @@
       "port": 5341
     },
     {
+      "name": "efm",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", ".", "--host", "--port", "5370", "--strictPort"],
+      "port": 5370
+    },
+    {
       "name": "wireframe",
       "runtimeExecutable": "py",
       "runtimeArgs": ["-m", "http.server", "5200", "--bind", "127.0.0.1", "--directory", "features"],
