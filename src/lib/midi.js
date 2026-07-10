@@ -175,6 +175,34 @@ export function stopPlayback() {
   liveOscs = []
 }
 
+// Schedule ONE melody note (triangle oscillator + attack/hold/release gain envelope)
+// on any Web Audio context — realtime (playSong) OR OfflineAudioContext (MP3 export).
+// Extracted so the downloaded file uses the exact same synth as the "ฟัง" button and
+// therefore sounds identical; changing this changes both at once (that's the point).
+//   context     : AudioContext | OfflineAudioContext
+//   destination : node to connect into (usually context.destination)
+//   midi        : MIDI note number (base pitch, before transpose)
+//   startT      : context-time (seconds) when the note begins
+//   soundDur    : audible length in seconds (already trimmed by the caller)
+//   detuneCents : live transpose, 100 cents = 1 semitone (rides on detune so a
+//                 realtime key change re-tunes without rescheduling)
+// Returns the oscillator so the realtime caller can track it (stop / re-tune).
+export function scheduleNote(context, destination, midi, startT, soundDur, detuneCents = 0) {
+  const osc = context.createOscillator()
+  const gain = context.createGain()
+  osc.type = 'triangle'
+  osc.frequency.value = 440 * 2 ** ((midi - 69) / 12)
+  osc.detune.value = detuneCents
+  gain.gain.setValueAtTime(0, startT)
+  gain.gain.linearRampToValueAtTime(0.35, startT + 0.015)
+  gain.gain.setValueAtTime(0.35, startT + Math.max(0.015, soundDur - 0.05))
+  gain.gain.linearRampToValueAtTime(0, startT + soundDur)
+  osc.connect(gain).connect(destination)
+  osc.start(startT)
+  osc.stop(startT + soundDur + 0.01)
+  return osc
+}
+
 // Group section occurrences by label → the "selection tags" (B043 §1). The timeline
 // has every occurrence (รับ twice); a tag is one entry per distinct label, carrying all
 // its ranges. Selecting the tag "รับ" lights every range that shares that label.
@@ -271,20 +299,10 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
       if (n.midi != null) {
         // stop slightly early so repeated same-pitch notes articulate clearly
         const soundDur = Math.max(0.08, dur - 0.07)
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.type = 'triangle'
-        // Base pitch is the ORIGINAL key; transpose rides on detune so it can be
-        // changed live without rescheduling (100 cents = 1 semitone).
-        osc.frequency.value = 440 * 2 ** ((n.midi - 69) / 12)
-        osc.detune.value = liveTranspose * 100
-        gain.gain.setValueAtTime(0, t)
-        gain.gain.linearRampToValueAtTime(0.35, t + 0.015)
-        gain.gain.setValueAtTime(0.35, t + Math.max(0.015, soundDur - 0.05))
-        gain.gain.linearRampToValueAtTime(0, t + soundDur)
-        osc.connect(gain).connect(ctx.destination)
-        osc.start(t)
-        osc.stop(t + soundDur + 0.01)
+        // Same synth as the MP3 export (scheduleNote). Base pitch is the ORIGINAL
+        // key; transpose rides on detune so it can be changed live (100 cents = 1
+        // semitone) without rescheduling.
+        const osc = scheduleNote(ctx, ctx.destination, n.midi, t, soundDur, liveTranspose * 100)
         endTimes.push(osc)
         liveOscs.push({ osc, startTime: t })
       }
