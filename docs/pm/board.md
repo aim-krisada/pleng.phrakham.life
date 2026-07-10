@@ -37,7 +37,10 @@
 | **search-short-notes** (B074 · ค้น "555" เจอทำนอง · เลขล้วน ≥3 union) | `task_263349f9` | songSearch.js | `brief-search-555.md` | 🔨 จ่ายแล้ว |
 | **sa-editor-section-ux** (โหมดแก้ไขจัดการท่อน/ข้อ ให้ intuitive มาตรฐานสากล · docs) | `task_9544a30b` | docs/us,ds,design | `brief-sa-editor-section-ux.md` | 🔨 จ่ายแล้ว · **ราก = พี่เปาใช้แล้วงง (design ไม่ intuitive)** · gate = P'Aim ดู mockup ก่อน dev |
 
-**⏸️ DockKey — PARKED (pm4 ตีความ P'Aim "ship then adjust" 10 ก.ค.):** rework 2 รอบ (fit-content `3d44d94`) P'Aim ยังว่า "เพี้ยน" → **หยุด loop จูน LAN · คง dock เดิม (StudioDock ที่ P'Aim โอเค) ไว้ live · พัก DockKey rewrite branch `dockkey-dev` ไว้ (ไม่ merge · ไม่ทิ้ง)** · revisit เมื่อ P'Aim สั่ง · **ผลข้าง:** MP3 เสียบ dock เดิม (SongViewer) แทน · phase-2 dock-3-หน้า = defer จน DockKey กลับมา · design DS ยังอยู่ในฐาน (`dockkey-*`)
+**🟢 DockKey — UN-PARKED · phase 2 เดินหน้า (P'Aim เคาะ 10 ก.ค.):** P'Aim **accept หน้าฝึกร้อง DockKey fit-content ตัวล่าสุด (`3d44d94`)** + สั่งเดินหน้าครบ 3 หน้า + **เอา MP3 ใส่ใน DockKey** (ไม่ใช่ dock เดิม) → **send_message สาย `dockkey-dev` เดิม ต่อ phase 2** (brief `brief-dockkey-phase2.md`):
+- sync ฐานล่าสุด → build **แผ่นเพลง(Studio) ITEMS_PRINT** + **แก้ไข(EditorMode) ITEMS_EDIT + E1-E3** (ระวัง undo/beat/preview/แป้นโน้ต regress) + **เสียบ MP3 เข้า DockKey export menu** (เรียก audioExport lib) + ถอด StudioDock เดิม
+- ⚠️ **ยกเลิกสาย `mp3-dock-wire`** (ยก MP3 มาเสียบใน DockKey แทน · audioExport lib merged แล้ว = deliverable เสร็จ · สาย mp3 ปิด)
+- **P'Aim gate: LAN 3 หน้าก่อน merge** (โดยเฉพาะหน้าแก้ไข) · ⛔ styles.css/ShellBar/App/songSearch/NoteRow (สายอื่นถือ)
 
 **คิว phase 2 (หลัง 3 สายเข้าฐาน):** เสียบ ITEMS_PRINT/ITEMS_EDIT (จาก SA) เข้า DockKey core → dock ครบ 3 หน้า (= เป้า P'Aim ข้อ 4.1)
 **หลักฐานบั๊ก (ISO traceability):** `docs/pm/realuse-assets/bug-favicon-brand-icon.*` + `bug-footer-bottom.*`
@@ -78,6 +81,5 @@ responsive overhaul S0-S4 · B062 slur/tie render · B068 ties data (import-ties
 | **SA dockkey-print-edit** `sa-dockkey-print-edit` | docs only (ยังไม่ push) | ✅ DS เสร็จ `docs/ds/dockkey-print-edit.md` (ITEMS_PRINT เสียบ core ได้ทันที · ITEMS_EDIT รอขยาย schema E1–E3) · report `docs/reports/sa-dockkey-print-edit.md` · **4 คำถามถึง P'Aim** (ไม่บล็อก) · → phase 2 เสียบ DockKey |
 | _(3 สายคลื่น 60 นาที)_ | — | 🔨 กำลังทำ (ดู §🟢 กำลังทำ) — จะเข้า inbox เมื่อรายงานเสร็จ |
 | **SA DockKey พิมพ์/แก้ไข (final)** `sa-print-dock-followup` | docs only · 6 commits | ✅ P'Aim เคาะครบ (พิมพ์/แก้ไข descriptor + prototype 3 โหมด) · report `docs/reports/sa-dockkey-print-edit.md` · **รอ PM merge → studio-shell-redesign** (SA merge เองไม่ได้ · DockKey dev ยัง HOLD = input รอบ rework) |
-| **SA editor-section-ux** `sa-editor-section-ux` | docs only (ยังไม่ push) | ✅ **เสร็จ → รอ P'Aim เคาะ mockup ก่อน dev.** UX audit (8 ปัญหา · พี่เปาใช้แล้วงง) + redesign: ยุบ 3 รายการ→ “โครงเพลง” เดียว · แก้ชื่อ in-line · ลาก+▲▼ · ตัดบล็อกล่างทิ้ง · เลิก “ขั้นสูง” · เลือกท่อน=เห็นเนื้อทันที. **Mockup คลิกได้** `docs/design/editor-section-ux.html` · report `docs/reports/sa-editor-section-ux.md` · US/DS `editor-section-ux` (ต่อยอด ps3-editor) · **4 คำถามถึง P'Aim** (report §6) · gate = P'Aim ดู mockup |
 
 **GitHub:** `C:\Users\aimkr\OneDrive\4 Personal\claude\.env` → `GITHUB_TOKEN_PLENG` (`source .env` ก่อน · repo public) · Supabase = `SUPABASE_*_PLENG`
