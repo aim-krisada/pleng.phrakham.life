@@ -1,7 +1,7 @@
 # US — audit-log: บันทึกประวัติ "ใครทำอะไรกับเพลงในคลัง"
 
-Backlog: B028 · DS: `docs/ds/audit-log.md` (ยังไม่เขียน — รอ US ผ่าน)
-สถานะ: spec (รอ P'Aim approve)
+Backlog: B028 · DS: `docs/ds/audit-log.md` (เขียนแล้ว — design ready)
+สถานะ: design ready (รอ P'Aim เคาะก่อน dev)
 ธีมใหม่ = **"บันทึกประวัติ"** — ไม่ทับ ps3sa (หน้าจอ/เมนู) และ sa-jianpu-rules (กฎโน้ต)
 
 ## ที่มา (ปัญหา)
