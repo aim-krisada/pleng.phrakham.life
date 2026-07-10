@@ -41,4 +41,12 @@ merge `studio-shell-redesign` (ขยับ 33 commit: audioExport MP3 lib · B0
 3. **แบบแผ่น/แสดงผล/คีย์ หน้าพิมพ์ (DS Q1/Q4):** ใส่ครบใน ⚙ (default = พฤติกรรมเดิม) · ผู้ใช้ปรับได้ · export menu มี PDF ซ้ำกับปุ่มพิมพ์ prime (พิมพ์=ด่วน · export=เมนูรวม) — ตั้งใจ
 4. **StudioDock.vue** = retired (ไม่ mount) แต่ไม่ลบไฟล์/เทสต์ กันกระทบ base 275 · ลบจริงเป็น cleanup รอบหลังได้
 
+## รอบเสริม — MP3/export ครบ 3 หน้า (pm4 tip · re-sync b2ffbab)
+pm4 แจ้ง: สาย `mp3-dock-wire` merged เข้าฐาน (`b2ffbab`) ก่อนคำสั่งยกเลิก = มี MP3 item ใน `SongViewer.settingDescs` แล้ว → ให้ carry เข้า DockKey descriptor
+- **re-sync ฐานล่าสุด** (merge `studio-shell-redesign` รอบ 2: b2ffbab MP3 + favicon-footer + search-555 + editor-ux docs) — auto-merge สะอาด (ไม่มี conflict · SongViewer 2 ฝั่งแก้คนละที่)
+- **ยก MP3 เข้า ExportTool กลาง** (commit `08870aa`): `ExportTool` รับ `bpm`/`transpose` เพิ่ม → **MP3 หน้าฝึกร้อง render ตามคีย์/สปีดที่เลือก** (เหมือนปุ่มฟัง) · พิมพ์/แก้ไข = คีย์/bpm ต้นฉบับ
+- **เพิ่ม export เข้า dock ฝึกร้อง** (row1 rightOf:forward) → sing row1 = `[grip·back·play·fwd·export·Aa·⚙]` · **ลบโค้ด MP3 inline เดิม + item download/mp3/print ใน settingDescs ที่ตายแล้ว** (ExportTool คุมแทน · settingDescs เหลือ display/chord/key/tempo)
+- **ครบ 3 หน้ามี PDF/JSON/MP3 เมนูเดียวกันหมด** · verify: sing export menu = [PDF, JSON, MP3] · key badge (E) ยังอยู่ · **300 test · build ผ่าน · 0 error**
+- ⚠️ export หน้าฝึกร้องเพิ่ม 1 ปุ่มบน row1 ที่ P'Aim accept ไว้ (transport เดิม 6 → 7) — ถ้าอยากย้ายไป ⚙ บอกได้ (ตอนนี้ ⚙ ยัง render slot ไม่ได้เพราะ overflow clip · ต้องเพิ่ม engine)
+
 ## ⛔ ห้าม merge/deploy เอง — รอ PM ตรวจ DoD + P'Aim gate LAN 3 หน้า (โดยเฉพาะหน้าแก้ไข)
