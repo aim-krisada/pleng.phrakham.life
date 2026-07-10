@@ -548,19 +548,46 @@ const expBeats = computed(() => expectedBeats(opts.timeSignature))
 function barTokensAt(li, bi) {
   return lines.value[li]?.bars[bi]?.segments.flatMap((s) => parseNotes(s.note)) ?? []
 }
-// Total beats across every bar the user flagged as ห้องยก (pickup) in the ACTIVE stanza.
-// A pickup (stanza-opening short bar) plus its complementary short final bar should sum
-// to a whole number of full bars — so we validate the flagged bars together, not each
-// one against the full bar length. Covers non-adjacent pairs (first↔last) that the
-// line-level `cont` join can't express (B055).
-const pickupTotal = computed(() => {
-  let sum = 0
-  for (const ln of lines.value) {
-    for (const b of ln.bars) {
-      if (b.pickup) sum += beatCount(b.segments.flatMap((s) => parseNotes(s.note)))
+// Validate the ห้องต่อกัน (pickup) bars of the ACTIVE stanza — each in its OWN group, so
+// two unrelated partial-bar pairs never contaminate each other. Two group shapes coexist:
+//   • a RUN of pickup bars that are adjacent in reading order (consecutive bars, or a bar
+//     split at a line end joined to the first bar of the next line): their beats must sum
+//     to a whole number of bars. This is the cross-line "ห้องต่อกัน" case (B073).
+//   • ISOLATED pickups — a stanza-opening anacrusis and its complementary short final bar
+//     are NOT adjacent (full bars between), so they can't form a run; they are grouped
+//     together (their total must be whole bars) as the classic first↔last pair (B055).
+// Returns per-bar { ok, sum } keyed by bar identity. Grouping locally (not one stanza-wide
+// sum) fixes the 11/4 bug where an unrelated pickup dragged a complete pair red.
+const pickupCheck = computed(() => {
+  const exp = expBeats.value
+  const map = new Map() // bar object -> { ok, sum }
+  if (exp == null) return map
+  const beatsOf = (b) => beatCount(b.segments.flatMap((s) => parseNotes(s.note)))
+  const whole = (sum) => sum > 0.01 && Math.abs(sum / exp - Math.round(sum / exp)) < 0.01
+  const flat = []
+  for (const ln of lines.value) for (const b of ln.bars) flat.push(b)
+  const isolated = []
+  let i = 0
+  while (i < flat.length) {
+    if (!flat[i].pickup) { i++; continue }
+    let j = i
+    while (j < flat.length && flat[j].pickup) j++
+    const run = flat.slice(i, j)
+    if (run.length >= 2) {
+      const sum = run.reduce((a, b) => a + beatsOf(b), 0)
+      const ok = whole(sum)
+      for (const b of run) map.set(b, { ok, sum })
+    } else {
+      isolated.push(run[0])
     }
+    i = j
   }
-  return sum
+  if (isolated.length) {
+    const sum = isolated.reduce((a, b) => a + beatsOf(b), 0)
+    const ok = whole(sum)
+    for (const b of isolated) map.set(b, { ok, sum })
+  }
+  return map
 })
 function barStatus(li, bi) {
   const line = lines.value[li]
@@ -588,15 +615,14 @@ function barStatus(li, bi) {
   }
   const got = beatCount(tokens)
   if (expBeats.value == null) return { text: pre + fmt(got), ok: true }
-  // ห้องยก: valid when the flagged bars together fill a whole number of bars.
+  // ห้องต่อกัน: valid when THIS bar's group (its adjacent run, or the isolated anacrusis
+  // pair) fills a whole number of bars — grouped locally so unrelated pickups can't skew it.
   if (bar.pickup) {
-    const sum = pickupTotal.value
-    const mult = sum / expBeats.value
-    const ok = sum > 0.01 && Math.abs(mult - Math.round(mult)) < 0.01
-    const text = ok
+    const grp = pickupCheck.value.get(bar) ?? { ok: false, sum: got }
+    const text = grp.ok
       ? `⤷ ห้องต่อกัน ${fmt(got)} จังหวะ`
-      : `⤷ ห้องต่อกัน ${fmt(got)} — รวมห้องต่อกัน ${fmt(sum)}/${fmt(expBeats.value)}`
-    return { text, ok, pickup: true }
+      : `⤷ ห้องต่อกัน ${fmt(got)} — รวมห้องต่อกัน ${fmt(grp.sum)}/${fmt(expBeats.value)}`
+    return { text, ok: grp.ok, pickup: true }
   }
   const ok = Math.abs(got - expBeats.value) < 0.01
   // a bar that is merely short (not empty, not full) can be a pickup/continuation —

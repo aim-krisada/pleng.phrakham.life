@@ -126,3 +126,77 @@ describe('B055 — beat check counts across bars', () => {
     expect(items.some((it) => it.type === 'pickup')).toBe(true)
   })
 })
+
+// B073 — a cross-line "ห้องต่อกัน" pair that completes a whole bar must NOT be dragged
+// red by OTHER, unrelated pickup bars in the same stanza. The old check summed EVERY
+// pickup bar in the stanza into one number, so a stray/incomplete pickup elsewhere made
+// a genuinely-complete pair show a nonsense over-count (P'Aim saw 11/4 on a 2+2 pair).
+// Fix: pickup bars are validated per-GROUP — a run of adjacent pickup bars (across the
+// line break) is one group; non-adjacent isolated pickups (classic anacrusis) share
+// another. Independent groups no longer poison each other.
+const B073_SONG = {
+  id: 'song-2',
+  number: 2,
+  title_th: 'ห้องต่อกันข้ามบรรทัด',
+  title_en: '',
+  content: {
+    version: 2,
+    key: 'C',
+    timeSignature: '4/4',
+    stanzas: [
+      {
+        id: 'A',
+        lines: [
+          // line 0 — a full bar + two adjacent pickup bars (3 + 4 = 7, an unrelated,
+          // NOT-whole group) → the stray pickups that used to inflate the global sum
+          [
+            { type: 'segment', note: '1234' },
+            { type: 'bar' },
+            { type: 'pickup' },
+            { type: 'segment', note: '123' },
+            { type: 'bar' },
+            { type: 'pickup' },
+            { type: 'segment', note: '1234' },
+          ],
+          [{ type: 'segment', note: '1234' }], // line 1 — full
+          // line 2 last bar (pickup, 2) ┐ split across the line break → 2 + 2 = 4 = one
+          // line 3 first bar (pickup, 2) ┘ whole bar → BOTH must be ✓ (P'Aim's case)
+          [{ type: 'pickup' }, { type: 'segment', note: '12' }],
+          [{ type: 'pickup' }, { type: 'segment', note: '12' }],
+        ],
+      },
+    ],
+    arrangement: [{ stanza: 'A', label: 'ร้อง 1', syllables: [] }],
+  },
+}
+
+describe('B073 — cross-line pickup pair not poisoned by unrelated pickups', () => {
+  function mount073() {
+    document.body.innerHTML = '<div id="shell-title"></div><div id="shell-menus"></div>'
+    return mount(EditorMode, {
+      props: { song: B073_SONG, tier: 'approver', active: true },
+      global: { stubs: { Icon: true } },
+    })
+  }
+
+  it('the split-across-lines pair (2+2=4) shows ✓, not an over-count like 11/4', async () => {
+    const wrapper = mount073()
+    await nextTick()
+    const el = wrapper.element
+    const bar = (li, bi) => el.querySelector(`.ed-bar[data-bar="${li}-${bi}"]`)
+    // the genuinely-complete cross-line pair is green on BOTH lines
+    expect(isBad(bar(2, 0))).toBe(false)
+    expect(isBad(bar(3, 0))).toBe(false)
+    // and its status is the healthy "ห้องต่อกัน" text — never the lumped over-count
+    expect(statusOf(bar(2, 0)).textContent).not.toContain('/4')
+  })
+
+  it('an unrelated incomplete pickup group (3+4=7) is still flagged red', async () => {
+    const wrapper = mount073()
+    await nextTick()
+    const el = wrapper.element
+    const bar = (li, bi) => el.querySelector(`.ed-bar[data-bar="${li}-${bi}"]`)
+    expect(isBad(bar(0, 1))).toBe(true)
+    expect(isBad(bar(0, 2))).toBe(true)
+  })
+})
