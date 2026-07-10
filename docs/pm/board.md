@@ -35,6 +35,7 @@
 | **note-search-verify** (ตรวจผลค้นโน้ต sequence เพลง 1/29/43 + มี/ไม่มีเว้นวรรค) | `task_a69020e0` | songSearch.js | `brief-note-search-verify.md` | ✅✅ **MERGED `5f6dc82`** (เจอบั๊กจริง: fuzzy fallthrough → match หลอก · แก้ให้ note query = exact-sequence · ผลค้น = เพลง 1 เดียว · 268 test) |
 | **mp3-download** (B072 · ดาวน์โหลดเสียง MP3 · client-side) | `task_c6130db7` | midi.js + DownloadTool + lamejs dep | `brief-mp3-download.md` | 🔨 จ่ายแล้ว |
 | **search-short-notes** (B074 · ค้น "555" เจอทำนอง · เลขล้วน ≥3 union) | `task_263349f9` | songSearch.js | `brief-search-555.md` | 🔨 จ่ายแล้ว |
+| **sa-editor-section-ux** (โหมดแก้ไขจัดการท่อน/ข้อ ให้ intuitive มาตรฐานสากล · docs) | `task_9544a30b` | docs/us,ds,design | `brief-sa-editor-section-ux.md` | 🔨 จ่ายแล้ว · **ราก = พี่เปาใช้แล้วงง (design ไม่ intuitive)** · gate = P'Aim ดู mockup ก่อน dev |
 
 **🔴 DockKey — P'Aim LAN verdict = "เพี้ยน" → rework จ่ายแล้ว (send_message ตรงสาย dockkey-dev):** P'Aim ระบุ **ข้อ 1 เพี้ยนสุด = dock กว้างเต็มจอ ปุ่มห่าง** · แก้ = **fit-content = พอดีปุ่ม (ตามความกว้างปุ่มจริง) ไม่ใช่พอดีจอ** (กอดปุ่มแน่น · ไม่ space-between · timeline min-width พอเหมาะ · เหมือน `.sd-fit` เดิมที่ P'Aim เคาะ B043) · **override DS ข้อ "row1 กระจายเต็มกว้าง"** (P'Aim live > spec) · ข้อ 2/3 (ย้ายปุ่มเข้า ⚙ · Aa ไม่มี %) P'Aim OK · **HOLD merge จน P'Aim accept รอบใหม่** · ไม่ชน EditorMode/songSearch/shell
 
