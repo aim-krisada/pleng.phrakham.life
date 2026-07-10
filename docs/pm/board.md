@@ -6,7 +6,7 @@
 ---
 
 ## ▶ RESUME (สถานะสดที่ git-verify แล้ว)
-- **ฐาน `studio-shell-redesign` HEAD = `2ab5628`** = **270 เทสต์เขียว + build ผ่าน** (merged วันนี้: note-search-verify · fix-editor-preview-final · B073 beat-count · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
+- **ฐาน `studio-shell-redesign` HEAD = `0e29bc0`** = **275 เทสต์เขียว + build ผ่าน** (merged วันนี้: note-search-verify · fix-editor-preview-final · B073 beat-count · B075 undo · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
 - 🚀 **DEPLOY B073 เดี่ยว (P'Aim สั่งชัด 10 ก.ค. · พี่เปาตรวจ live):** cherry-pick `320f4dd` เข้า main → **main `1535e1f`→`b538701`** (push แล้ว · Actions `29095988380`) · EditorMode-only · build ผ่าน · ⚠️ **main แตกจากฐานแล้ว** (main มี B073 เดี่ยว · ฐานมี B073 ใน `2ab5628`) → **deploy รอบหน้าต้อง reconcile** (merge base→main จะเจอ B073 ซ้ำ = git ข้ามให้ ถ้า identical · หรือ reset main=base ตอน full deploy)
 - 🚀 **release ที่เหลือ:** หลัง 4 สาย merge + DockKey accept → deploy รอบ 6 (⛔ รอ P'Aim "go" ชัดต่อรอบ)
 - ⚠️ **บทเรียนซ้ำ (pm4 10 ก.ค.):** main dir ถูกสลับไป branch `sa-dockkey-print-edit` ใต้มือ (แม้ spawn_task ใช้ auto-worktree) → commit เอกสาร 5 อันหลุดไปลง branch นั้น · กู้ด้วย `git switch studio-shell-redesign && git merge --ff-only sa-dockkey-print-edit` (เส้นตรง = FF สะอาด) · **เช็ก `git branch --show-current` ก่อน commit เสมอ**
@@ -31,7 +31,7 @@
 | **sa-dockkey-print-edit** (descriptor พิมพ์/แก้ · docs) | `task_9d603bb7` | docs/ds เท่านั้น | `brief-dockkey-sa-print-edit.md` | ✅ เสร็จ → inbox (รอ PM ตรวจ+merge docs) |
 | **fix-editor-preview-final** (พรีวิว "ดูผลทั้งเพลง": ล็อกบรรทัดไม่ reflow + ไทข้ามห้องซ้อน 2 เส้น) | `task_49330996` | EditorMode + SongSheet | `brief-fix-editor-preview.md` | ✅✅ **MERGED `a8ae3d3`** (nowrap+hscroll · ซ่อนครึ่ง START ของ NoteRow สมมาตร · เพลง 100 ไม่ regress · 268 test) |
 | **fix-beat-count-continued** (B073 · ห้องต่อกันข้ามบรรทัด 11/4) | `task_4ae1acda` | EditorMode | `brief-beat-count-continued.md` | ✅✅ **MERGED `2ab5628`** (ต้นตอ=pickup path ไม่ใช่ cont join · pickupCheck แยกกลุ่ม RUN/ISOLATED · 270 test · preview-fix ยังอยู่) |
-| **fix-undo-latest** (B075 · Ctrl+Z ย้อนผิดตัว) | `task_662f4039` | EditorMode | `brief-undo-latest.md` | 🔨 จ่ายแล้ว (ปลดคิว · EditorMode ว่างหลัง B073 merge) |
+| **fix-undo-latest** (B075 · Ctrl+Z ย้อนผิดตัว) | `task_662f4039` | EditorMode | `brief-undo-latest.md` | ✅✅ **MERGED `0e29bc0`** (ต้นเหตุ=debounce รวบ 2 แก้เร็ว <400ms · แก้ leading-edge commit · 275 test) · รอ พี่เปา verify มือถือ |
 | **note-search-verify** (ตรวจผลค้นโน้ต sequence เพลง 1/29/43 + มี/ไม่มีเว้นวรรค) | `task_a69020e0` | songSearch.js | `brief-note-search-verify.md` | ✅✅ **MERGED `5f6dc82`** (เจอบั๊กจริง: fuzzy fallthrough → match หลอก · แก้ให้ note query = exact-sequence · ผลค้น = เพลง 1 เดียว · 268 test) |
 | **mp3-download** (B072 · ดาวน์โหลดเสียง MP3 · client-side) | `task_c6130db7` | midi.js + DownloadTool + lamejs dep | `brief-mp3-download.md` | 🔨 จ่ายแล้ว |
 | **search-short-notes** (B074 · ค้น "555" เจอทำนอง · เลขล้วน ≥3 union) | `task_263349f9` | songSearch.js | `brief-search-555.md` | 🔨 จ่ายแล้ว |
