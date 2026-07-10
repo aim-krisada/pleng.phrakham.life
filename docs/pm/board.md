@@ -9,7 +9,7 @@
 - **ฐาน `studio-shell-redesign` HEAD = `97e735b`** = **288 เทสต์เขียว + build ผ่าน** (merged วันนี้: note-search · preview · B073 · B075 · MP3 lib+dock · favicon-footer · search-555(B074) · SA editor-ux docs · 1 "failed file" = `notationLint.test.mjs` process.exit เดิม ไม่ใช่บั๊ก)
 - 🎉 **DEPLOY รอบ 6 = LIVE (verified bundle stamp `1a3aa65`)** · **main === base แล้ว** (align เสร็จ · divergence หาย · รอบหน้า clean FF)
 
-## 🔚 EOD HANDOFF (2026-07-10 ค่ำ · pm4 · PM session หน้าอ่านนี่)
+## 🔚 EOD HANDOFF (2026-07-10 ค่ำ · pm4 = deploy รอบ 6 · **session หน้า = `pm7` = sprint รอบ 7** · ตั้งชื่อตัวเอง pm7 แล้วอัปเดต §🎯)
 **live = deploy รอบ 6** (ตัวหนังสือมีหัว/ไม่มีหัว · ค้นโน้ต+555 · พรีวิว · undo · MP3 dock ฝึกร้อง · favicon+footer · B073) · **ฐาน = `97e735b` · main = base**
 **🟢 2 สายใหญ่ยัง build (→ deploy รอบ 7):**
 1. **dockkey-dev phase 2 = ✅ เสร็จแล้ว (เข้ามาหลังปิดวัน · commit `5c71c16`+`b94c3d9`)** — 3 หน้าใช้ DockKey engine เดียว: แผ่นเพลง ITEMS_PRINT · แก้ไข ITEMS_EDIT (band 21 keys · note-insert ไม่ regress) · MP3 = `ExportTool.vue` เมนูรวม PDF/JSON/MP3 เสียบ dock พิมพ์+แก้ไข · ถอด StudioDock (retire ไม่ลบไฟล์) · **295 test + build** · dev --host `http://10.215.141.98:5315` · **🔺 รอ PM git-verify DoD + P'Aim LAN 3 หน้า (เน้นหน้าแก้ไข+MP3+undo มือถือ) ก่อน merge** · **4 จุดค้างใน `docs/reports/dockkey-phase2.md`** (Aa หน้าแก้ถอด? · preview หัว · PDF ซ้ำปุ่ม · StudioDock ไฟล์) · brief `brief-dockkey-phase2.md`
@@ -24,10 +24,11 @@
 - verify ฐานรวม: `npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'`
 - **บทเรียน deploy:** ห้าม deploy จน P'Aim สั่ง "go" ชัดต่อรอบ (PM รอบ a เผลอ deploy รอบ 5 โดยอ่านคำสั่งผิด)
 
-## 🎯 PM session ปัจจุบัน = `pm4`
+## 🎯 PM session ปัจจุบัน = `pm4` (ทำ deploy รอบ 6) → **session หน้า = `pm7`**
+- **กติกาตั้งชื่อใหม่ (P'Aim 2026-07-10): เลข PM = เลข sprint/deploy รอบ** (กันงง · แทน pm4=รอบ6 ที่เลขไม่ตรง) → **PM session หน้าเรียกตัวเองว่า `pm7` = sprint รอบ 7** · รอบถัดๆ ไป pm8/รอบ8 เป็นต้น
 - สายที่ PM สั่ง → รายงานกลับ "PM ปัจจุบัน" ที่ระบุตรงนี้ (PM หมุน session · **อย่า hardcode ชื่อสายใน prompt**)
 - วิธี dev/SA รายงานเสร็จ (session-agnostic): (1) เขียน `docs/reports/<branch>.md` (2) เพิ่มบรรทัด §📥 inbox ล่าง (3) ping PM ปัจจุบัน · PM สายใหม่อ่าน inbox เจอเอง
-- **PM หมุนสายใหม่ → เปลี่ยนชื่อบรรทัดนี้ทันที**
+- **PM หมุนสายใหม่ → เปลี่ยนชื่อบรรทัดนี้ทันที** (session หน้า: ตั้ง `pm7`)
 
 ---
 
