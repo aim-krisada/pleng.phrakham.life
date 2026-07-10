@@ -157,6 +157,101 @@ function ghostAccidental(tokens) {
   return out
 }
 
+// R8 — repeat marks must pair up. In this model repeats are FLAT (sequential), not
+// nested: a section opens at '‖:' and closes at the next ':‖'. So the marks must
+// alternate start→end→start→end. Two '‖:' with no ':‖' between them means the first
+// section was never closed; a ':‖' with no open '‖:' is a stray close. `marks` is the
+// song/line's ordered marker items ({type:'repeat-start'|'repeat-end'|'volta',num});
+// non-marker items are ignored so a whole line's item list can be passed straight in.
+function repeatBalance(marks) {
+  const out = []
+  let open = false
+  let unclosed = false // a '‖:' left without its ':‖' (double-open or trailing-open)
+  let orphanEnd = false // a ':‖' with no open '‖:' before it
+  for (const m of marks) {
+    if (m.type === 'repeat-start') {
+      if (open) unclosed = true // previous '‖:' never got its ':‖'
+      open = true
+    } else if (m.type === 'repeat-end') {
+      if (open) open = false
+      else orphanEnd = true
+    }
+  }
+  if (unclosed || open) {
+    out.push({
+      severity: SEVERITY.WARNING,
+      code: 'repeat-unbalanced',
+      message:
+        `‖: (เปิดเล่นซ้ำ) ไม่มี :‖ (ปิด) ปิดท้ายให้ครบคู่ — ` +
+        `เครื่องหมายเล่นซ้ำต้องเปิด ‖: แล้วปิด :‖ เป็นคู่ ` +
+        `เพิ่ม :‖ ตรงจุดจบของส่วนที่ให้เล่นซ้ำ`,
+    })
+  }
+  if (orphanEnd) {
+    out.push({
+      severity: SEVERITY.WARNING,
+      code: 'repeat-unbalanced',
+      message:
+        `:‖ (ปิดเล่นซ้ำ) ไม่มี ‖: (เปิด) มาก่อน — ` +
+        `เครื่องหมายเล่นซ้ำต้องเปิด ‖: ก่อนแล้วจึงปิด :‖ ` +
+        `เพิ่ม ‖: ตรงจุดเริ่มเล่นซ้ำ หรือลบ :‖ ที่เกินออก`,
+    })
+  }
+  return out
+}
+
+// R9 — volta ("จบรอบ N") endings must be a complete, ordered set. A repeat with
+// alternate endings needs at least จบรอบ 1 AND จบรอบ 2; they must appear in ascending
+// order (1 before 2) with no repeated number. A lone จบรอบ 1 (missing รอบ 2), a จบรอบ 2
+// with no รอบ 1, จบรอบ 2 written before จบรอบ 1, or the same round twice are all flagged.
+function voltaConsistency(marks) {
+  const nums = marks.filter((m) => m.type === 'volta').map((m) => Number(m.num))
+  if (!nums.length) return []
+  const out = []
+  const seen = new Set()
+  let duplicate = false
+  let outOfOrder = false
+  let prev = 0
+  for (const n of nums) {
+    if (seen.has(n)) duplicate = true
+    if (n < prev) outOfOrder = true
+    seen.add(n)
+    prev = n
+  }
+  const max = Math.max(...nums)
+  const missing = []
+  for (let r = 1; r <= Math.max(max, 2); r++) if (!seen.has(r)) missing.push(r)
+  if (missing.length) {
+    out.push({
+      severity: SEVERITY.WARNING,
+      code: 'volta-incomplete',
+      message:
+        `volta (จบรอบ) ไม่ครบ — ขาด ${missing.map((r) => `จบรอบ ${r}`).join(' และ ')} · ` +
+        `การเล่นซ้ำที่มีจบต่างกันต้องมีครบอย่างน้อยจบรอบ 1 และ จบรอบ 2`,
+    })
+  }
+  if (duplicate || outOfOrder) {
+    out.push({
+      severity: SEVERITY.WARNING,
+      code: 'volta-order',
+      message:
+        `ลำดับ volta (จบรอบ) ผิด — จบรอบต้องเรียง 1 ก่อน 2 ` +
+        `และห้ามใช้เลขรอบเดิมซ้ำ`,
+    })
+  }
+  return out
+}
+
+// Lint a song/line's repeat & volta structure. `marks` is the ordered list of that
+// line (or whole song's) items; only repeat/volta markers are inspected, so callers can
+// hand it the same item list SongSheet/midi already walk. Returns [{ severity, code,
+// message }]. This is a STRUCTURE-level check — repeat/volta marks live between bars,
+// not inside a note string — so it sits beside lintBar (R1-R7) rather than within it.
+export function lintRepeatVolta(marks) {
+  const list = Array.isArray(marks) ? marks.filter((m) => m && typeof m.type === 'string') : []
+  return [...repeatBalance(list), ...voltaConsistency(list)] // R8, R9
+}
+
 // Lint ONE bar. `noteString` is that bar's notes (no '|' — the caller splits bars,
 // matching how the editor already stores segments per bar). Options: { timeSignature }.
 // Returns [{ severity, code, message }], most structural problems first.

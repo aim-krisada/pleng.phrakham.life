@@ -1,7 +1,7 @@
 // Dependency-free test for notationLint. Run: `node src/lib/notationLint.test.mjs`
 // Exits non-zero on any failure. No test framework is installed in this project.
 
-import { lintBar, lintLine, SEVERITY } from './notationLint.js'
+import { lintBar, lintLine, lintRepeatVolta, SEVERITY } from './notationLint.js'
 
 let pass = 0
 let fail = 0
@@ -133,6 +133,58 @@ check('R7: severity is WARNING',
 // --- combined clean bar (all R1-R7 quiet) ---
 check('clean bar with slur, valid tie, real accidental → no findings',
   lintBar('( #4 4 ) 1~ ~1', { timeSignature: '4/4' }).length === 0)
+
+// --- R8: repeat marks (‖: / :‖) must pair up (flat, alternating) ---
+const rStart = { type: 'repeat-start' }
+const rEnd = { type: 'repeat-end' }
+const v = (num) => ({ type: 'volta', num })
+
+check('R8: balanced ‖: :‖ → no findings',
+  lintRepeatVolta([rStart, rEnd]).length === 0)
+check('R8: ‖: alone (no close) → repeat-unbalanced',
+  has(lintRepeatVolta([rStart]), 'repeat-unbalanced'))
+check('R8: :‖ alone (no open) → repeat-unbalanced',
+  has(lintRepeatVolta([rEnd]), 'repeat-unbalanced'))
+check('R8: ‖: ‖: :‖ (double open, one close) → repeat-unbalanced',
+  has(lintRepeatVolta([rStart, rStart, rEnd]), 'repeat-unbalanced'))
+check('R8: ‖: :‖ :‖ (extra close) → repeat-unbalanced',
+  has(lintRepeatVolta([rStart, rEnd, rEnd]), 'repeat-unbalanced'))
+check('R8: two clean sequential sections ‖: :‖ ‖: :‖ → no findings',
+  lintRepeatVolta([rStart, rEnd, rStart, rEnd]).length === 0)
+check('R8: severity is WARNING',
+  lintRepeatVolta([rStart]).find((f) => f.code === 'repeat-unbalanced')?.severity === SEVERITY.WARNING)
+check('R8: :‖ ‖: (close before open, both stray) → two repeat-unbalanced findings',
+  lintRepeatVolta([rEnd, rStart]).filter((f) => f.code === 'repeat-unbalanced').length === 2)
+check('R8: non-marker items are ignored',
+  lintRepeatVolta([{ type: 'note' }, rStart, { type: 'bar' }, rEnd]).length === 0)
+
+// --- R9: volta (จบรอบ N) endings must be a complete, ordered set ---
+check('R9: จบรอบ 1 + 2 in order → no findings',
+  lintRepeatVolta([v(1), v(2)]).length === 0)
+check('R9: no voltas at all → no findings',
+  lintRepeatVolta([rStart, rEnd]).length === 0)
+check('R9: lone จบรอบ 1 (missing รอบ 2) → volta-incomplete',
+  has(lintRepeatVolta([v(1)]), 'volta-incomplete'))
+check('R9: lone จบรอบ 2 (missing รอบ 1) → volta-incomplete',
+  has(lintRepeatVolta([v(2)]), 'volta-incomplete'))
+check('R9: จบรอบ 2 before จบรอบ 1 → volta-order',
+  has(lintRepeatVolta([v(2), v(1)]), 'volta-order'))
+check('R9: duplicate จบรอบ 1 1 2 → volta-order',
+  has(lintRepeatVolta([v(1), v(1), v(2)]), 'volta-order'))
+check('R9: three complete endings 1 2 3 → no findings',
+  lintRepeatVolta([v(1), v(2), v(3)]).length === 0)
+check('R9: 1 2 (complete) does NOT flag volta-order',
+  !has(lintRepeatVolta([v(1), v(2)]), 'volta-order'))
+check('R9: severity is WARNING',
+  lintRepeatVolta([v(1)]).find((f) => f.code === 'volta-incomplete')?.severity === SEVERITY.WARNING)
+
+// --- combined: full valid repeat with two endings → clean ---
+check('R8+R9: ‖: ... 1. :‖ 2. → clean',
+  lintRepeatVolta([rStart, v(1), rEnd, v(2)]).length === 0)
+
+// --- edge: non-array / empty input ---
+check('lintRepeatVolta(undefined) → no findings', lintRepeatVolta(undefined).length === 0)
+check('lintRepeatVolta([]) → no findings', lintRepeatVolta([]).length === 0)
 
 console.log(`\nnotationLint: ${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
