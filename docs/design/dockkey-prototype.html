@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DockKey — 3 โหมด (ฝึกร้อง · แผ่นเพลง · แก้ไข)</title>
+<style>
+  :root{--brand:#8b4513;--ink:#2d2a26;--muted:#757575;--cream:#faf6f0;--line:#e0d6c8;--red:#c0392b;--ok:#1d7a54;--touch-min:44px}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:#e9e0d2;color:var(--ink);line-height:1.5;padding:20px 14px 70px}
+  .wrap{max-width:940px;margin:0 auto}
+  h1{font-size:21px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 12px}
+  .warn{font-size:12px;color:#7a4a12;background:#f6e7d2;border:1px solid #e6cfa8;border-radius:8px;padding:6px 10px;margin-bottom:14px}
+  .warn b{color:#5c3608}
+  .tools{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:transparent;padding:8px 14px;font:inherit;font-size:13px;color:var(--muted);cursor:pointer}
+  .seg button.on{background:var(--brand);color:#fff}
+  .hint{font-size:12px;color:var(--muted)}
+  .grid-note{font-size:11px;color:var(--muted);margin-top:8px}
+
+  .frame{position:relative;margin:0 auto;background:linear-gradient(#fffdf9,#f4eee2);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,.16);transition:max-width .25s}
+  .frame.mobile{max-width:392px;height:600px}
+  .frame.desk{max-width:820px;height:480px}
+  .reader{padding:20px 22px;height:100%;overflow:auto}
+  .reader h3{margin:0 0 12px;font-size:17px;color:var(--brand)}
+  .ln{color:#6b5f4e;transition:font-size .12s}
+  .ln .cd{color:var(--red);font-weight:700;font-size:.8em;margin-right:2px}
+  .ln .nt{color:#2b6cb0;font-size:.72em;vertical-align:top;margin-right:1px}
+  .paper{background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.06);padding:16px 18px;margin:0 auto;max-width:340px}
+  .paper .pw{text-align:center;color:var(--muted);font-size:11px;margin-bottom:8px}
+
+  .ico{display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .dockhost{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;padding:0 10px 12px;pointer-events:none}
+  .dock{pointer-events:auto;background:rgba(255,255,255,var(--a,.96));border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 22px rgba(0,0,0,.14);padding:8px;width:100%;backdrop-filter:blur(6px);position:relative}
+  .frame.desk .dock{max-width:700px}
+  .r{display:flex;align-items:center;gap:6px}
+  .r+.r{margin-top:8px}
+  .sp{flex:1}
+  .dock.mini{width:auto;display:inline-flex;gap:8px;padding:7px 9px}
+
+  .btn{width:var(--touch-min);height:var(--touch-min);min-width:var(--touch-min);padding:0;border:0;background:transparent;color:var(--ink);display:inline-flex;align-items:center;justify-content:center;border-radius:10px;cursor:pointer;flex:0 0 auto}
+  .btn .ico{width:20px;height:20px}
+  .btn:hover{background:var(--cream)}
+  .btn.on{color:var(--brand);background:var(--cream)}
+  .btn.danger{color:var(--red)}
+  .btn.tglbar:not(.on){color:var(--muted)}
+  .tgl{width:42px;height:24px;border-radius:12px;border:0;background:#c9c0b3;position:relative;cursor:pointer;padding:0;flex:0 0 auto;transition:background .15s}
+  .tgl.on{background:var(--brand)}
+  .tgl-k{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+  .tgl.on .tgl-k{left:20px}
+  .play{width:50px;height:50px;color:var(--brand);border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
+  .play .ico{width:28px;height:28px}
+  .grip{color:var(--muted);cursor:grab;touch-action:none}
+  .grip .ico{width:22px;height:22px}
+  .gear{color:var(--muted)}
+  .gear.on{color:var(--brand);background:var(--cream)}
+  .pbtn{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:10px;padding:0 8px;height:var(--touch-min);cursor:pointer;flex:0 0 auto}
+  .pbtn:hover{border-color:var(--brand)}
+  .pbtn.on{border-color:var(--brand);color:var(--brand)}
+  .pbtn .ico{width:17px;height:17px}
+  /* ปุ่มหลักสีแบรนด์ (prime) — พิมพ์ / บันทึก */
+  .prime{background:var(--brand);color:#fff;border-color:var(--brand);font-weight:700;padding:0 14px;gap:6px}
+  .prime:hover{filter:brightness(1.06);border-color:var(--brand);color:#fff}
+  .prime .ico{width:18px;height:18px}
+  .pbadge{font-size:12.5px;font-weight:700}
+  .pcaret{width:13px;height:13px;color:var(--muted)}
+  .aa{font-size:15px;font-weight:700;letter-spacing:-.3px}
+  .sel{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:0 10px;font-size:12px;font-weight:600;height:var(--touch-min);cursor:pointer;flex:1 1 0;min-width:0}
+  .sel:hover,.sel.on{border-color:var(--brand);color:var(--brand)}
+  .sel .ico{width:15px;height:15px;flex:0 0 auto}
+  .sel b{color:var(--brand)}
+  .pinwrap{position:relative;display:inline-flex;flex:0 0 auto}
+
+  /* jianpu keys band (edit only) */
+  .keys{display:flex;flex-direction:column;gap:4px;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid var(--line)}
+  .keyrow{display:flex;flex-wrap:nowrap;gap:4px;justify-content:center}
+  .key{flex:1 1 0;min-width:0;max-width:56px;height:var(--touch-min);padding:0;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font-family:'Courier New',monospace;font-weight:700;font-size:16px;cursor:pointer}
+  .key:hover{background:var(--cream)}
+
+  .seek{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:3 1 0;min-width:0}
+  .bar{position:relative;flex:1;height:26px;display:flex;align-items:center;cursor:pointer;touch-action:none;min-width:50px}
+  .kn{position:absolute;width:16px;height:16px;background:var(--brand);border:3px solid #fff;border-radius:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,.35);pointer-events:none;z-index:3}
+  .segm{position:absolute;height:5px;top:50%;transform:translateY(-50%);border-radius:3px;background:var(--line);pointer-events:none;transition:height .1s}
+  .segm.on{background:var(--brand)}
+  .segm.cur{height:9px}
+  .keyb{flex:0 0 auto}
+
+  .pop{position:absolute;bottom:calc(100% + 8px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:30}
+  .dd{left:0;min-width:170px;padding:5px}
+  .ddrow{display:flex;align-items:center;gap:8px;width:100%;padding:8px;border:0;background:transparent;border-radius:8px;cursor:pointer;text-align:left;color:var(--ink);font:inherit;font-size:13px;white-space:nowrap}
+  .ddrow:hover{background:var(--cream)}
+  .ddrow.on{color:var(--brand);font-weight:700}
+  .ddck{width:14px;text-align:center;color:var(--brand)}
+  .fontdd{left:auto;right:0;min-width:220px;padding:12px}
+  .fontrow{display:flex;align-items:center;gap:10px}
+  .fontrow input{flex:1;accent-color:var(--brand)}
+  .fs-sm{font-size:13px}.fs-lg{font-size:22px;font-weight:700}
+  .fontval{font-size:11px;color:var(--muted)}
+  .fontfoot{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+  .fontreset{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer;min-height:32px}
+  .fontreset:hover:not(:disabled){border-color:var(--brand);color:var(--brand)}
+  .fontreset:disabled{opacity:.4;cursor:default}
+  .fonttitle{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .panel{right:0;left:auto;min-width:290px;max-width:340px;padding:8px}
+  .ptitle{font-size:11px;color:var(--muted);padding:2px 4px 8px}
+  .prow{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:8px}
+  .prow:hover{background:var(--cream)}
+  .mi{width:20px;display:inline-flex;justify-content:center;color:var(--brand);flex:0 0 20px}
+  .mi .ico{width:16px;height:16px}
+  .pl{font-size:13px;flex:1;white-space:nowrap}
+  .pc{display:flex;align-items:center;gap:5px}
+  .mselect{font:inherit;font-size:12.5px;padding:5px 24px 5px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;max-width:140px;min-height:34px;
+    appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23757575' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center}
+  .mselect:hover{border-color:var(--brand)}
+  .mact{border:1px solid var(--line);background:transparent;color:var(--brand);border-radius:6px;padding:5px 10px;font:inherit;font-size:12px;cursor:pointer;min-height:34px}
+  .mact:hover{border-color:var(--brand)}
+  .mv{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer}
+  .mv:disabled{opacity:.35;cursor:default}
+  .pin{border:0;background:transparent;font-size:14px;filter:grayscale(1);opacity:.4;cursor:pointer;padding:2px 4px}
+  .pin.on{filter:none;opacity:1}
+  .mask{position:absolute;inset:0;z-index:20;background:transparent}
+  .fab{width:48px;height:48px;border-radius:50%;background:var(--brand);color:#fff;border:1px solid var(--brand);display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.28);cursor:grab;pointer-events:auto}
+  .fab .ico{width:24px;height:24px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/></symbol>
+  <symbol id="i-sb" viewBox="0 0 24 24"><path d="M17.971 4.285A2 2 0 0 1 21 6v12a2 2 0 0 1-3.029 1.715l-9.997-5.998a2 2 0 0 1-.003-3.432z"/><path d="M3 20V4"/></symbol>
+  <symbol id="i-sf" viewBox="0 0 24 24"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-guitar" viewBox="0 0 24 24"><path d="m11.9 12.1 4.514-4.514"/><path d="M20.1 2.3a1 1 0 0 0-1.4 0l-1.114 1.114A2 2 0 0 0 17 4.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 17.828 7h1.344a2 2 0 0 0 1.414-.586L21.7 5.3a1 1 0 0 0 0-1.4z"/><path d="m6 16 2 2"/><path d="M8.23 9.85A3 3 0 0 1 11 8a5 5 0 0 1 5 5 3 3 0 0 1-1.85 2.77l-.92.38A2 2 0 0 0 12 18a4 4 0 0 1-4 4 6 6 0 0 1-6-6 4 4 0 0 1 4-4 2 2 0 0 0 1.85-1.23z"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M16 5H3"/><path d="M11 12H3"/><path d="M11 19H3"/><path d="M21 16V5"/><circle cx="18" cy="16" r="3"/></symbol>
+  <symbol id="i-cv" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/><path d="M6 14h12"/></symbol>
+  <symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3Z"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5 5.5 5.5 0 0 0 9.5 20H13"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/></symbol>
+  <symbol id="i-cplay" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z"/></symbol>
+  <symbol id="i-square" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></symbol>
+  <symbol id="i-pip" viewBox="0 0 24 24"><path d="M21 9V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h4"/><rect width="10" height="7" x="12" y="13" rx="2"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M4 12a8 8 0 0 1 8-8"/><path d="M4 12a8 8 0 0 0 8 8"/></symbol>
+</defs></svg>
+
+<div class="wrap">
+  <h1>DockKey — dock เดียว 3 โหมด</h1>
+  <p class="sub">core engine ตัวเดียว (grip · ⚙ · Aa · ปัก · ยุบ/กาง · ลาก) · แต่ละโหมดส่งแค่ "รายการปุ่ม" (ITEMS) เข้ามา · จาก <code>docs/ds/dockkey-print-edit.md</code> + <code>dockkey-library.md</code></p>
+  <div class="warn" id="warn"></div>
+
+  <div class="tools">
+    <span class="seg" id="modeSeg">
+      <button data-act="mode:sing" class="on">🎤 ฝึกร้อง</button>
+      <button data-act="mode:print">🖨 แผ่นเพลง</button>
+      <button data-act="mode:edit">✏️ แก้ไข</button>
+    </span>
+    <span class="seg" id="vpSeg"><button data-act="vp:mobile" class="on">📱 มือถือ</button><button data-act="vp:desk">🖥 เดสก์ท็อป</button></span>
+    <span class="hint" id="hint"></span>
+  </div>
+  <div class="frame mobile" id="frame"><div class="reader" id="reader"></div><div class="dockhost" id="host"></div></div>
+  <p class="grid-note" id="gridnote"></p>
+</div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+function ic(n,s){return `<svg class="ico" width="${s}" height="${s}" viewBox="0 0 24 24" style="width:${s}px;height:${s}px"><use href="#i-${n}"/></svg>`}
+const KEYS=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const CHORDS=['ตัวอักษร (A B C)','เลขนัชวิลล์ (1 4 5)','ซ่อนคอร์ด'];
+const CHORD_BADGE={'ตัวอักษร (A B C)':'ABC','เลขนัชวิลล์ (1 4 5)':'145','ซ่อนคอร์ด':'—'};
+const TEMPOS=[['ช้ามาก',60],['ช้า',75],['ปานกลาง',90],['เร็ว',110],['เร็วมาก',130]];
+const DISPLAYS=['ครบ (เนื้อ+คอร์ด+โน้ต)','เนื้อ+คอร์ด','เนื้อ+โน้ต','เนื้อล้วน','โน้ตล้วน'];
+const DISP_SHORT={'ครบ (เนื้อ+คอร์ด+โน้ต)':'ครบ','เนื้อ+คอร์ด':'คอร์ด','เนื้อ+โน้ต':'โน้ต','เนื้อล้วน':'เนื้อ','โน้ตล้วน':'โน้ตล้วน'};
+const BOOKS=['สมุดเพลง (ทำนองครั้งเดียว)','เต็ม (โน้ตทุกเที่ยว)'];
+const BOOK_SHORT={'สมุดเพลง (ทำนองครั้งเดียว)':'สมุด','เต็ม (โน้ตทุกเที่ยว)':'เต็ม'};
+const PALETTE=[['1','2','3','4','5','6','7','0','-','~'],['.',"'",'_','^','(',')','{','}','#','b','n']];
+
+/* ===== ITEMS ต่อโหมด — core อ่าน descriptor พวกนี้ (ต่างแค่ data) ===== */
+const S={
+  mode:'sing', mobile:true, playing:false, loop:false, collapsed:false,
+  alpha:.96, frac:.38, fontPct:100,
+  key:'C', tempo:90, chord:'ตัวอักษร (A B C)', display:'ครบ (เนื้อ+คอร์ด+โน้ต)', book:'สมุดเพลง (ทำนองครั้งเดียว)',
+  preview:false,
+  openPanel:null, openMenu:null, pos:null,
+  pins:{sing:[],print:[],edit:[]},
+  sections:[{name:'ท่อน 1'},{name:'ท่อน 2'},{name:'ฮุก',hook:true},{name:'ท่อน 3'},{name:'จบ'}],
+  selected:new Set(['ท่อน 1','ท่อน 2','ฮุก','ท่อน 3','จบ']),
+};
+function tempoLabel(){const t=TEMPOS.find(x=>x[1]===S.tempo);return (t?t[0]:'')+' ('+S.tempo+')'}
+
+// menu control makers (get/set live on S)
+const M={
+  key:   {opts:KEYS, get:()=>S.key, set:v=>S.key=v, badge:()=>S.key, icon:'key'},
+  chord: {opts:CHORDS, get:()=>S.chord, set:v=>S.chord=v, badge:()=>CHORD_BADGE[S.chord], icon:'guitar'},
+  speed: {opts:TEMPOS.map(t=>t[0]+' ('+t[1]+')'), get:()=>tempoLabel(), set:v=>S.tempo=+v.match(/\((\d+)\)/)[1], badge:()=>S.tempo, icon:'gauge'},
+  display:{opts:DISPLAYS, get:()=>S.display, set:v=>S.display=v, badge:()=>DISP_SHORT[S.display], icon:'layers'},
+  book:  {opts:BOOKS, get:()=>S.book, set:v=>S.book=v, badge:()=>BOOK_SHORT[S.book], icon:'book-open'},
+};
+
+const ITEMS={
+  // ---------- หน้าฝึกร้อง ----------
+  sing:{
+    row1:[
+      {id:'grip', kind:'grip', name:'ย้าย/ย่อ'},
+      {id:'back', kind:'btn',  name:'ท่อนก่อน', icon:'sb'},
+      {id:'play', kind:'play', name:'เล่น/หยุด'},
+      {id:'forward', kind:'btn', name:'ท่อนถัดไป', icon:'sf'},
+      {id:'scale', kind:'aa', name:'ขนาดตัวอักษร'},
+      {id:'setting', kind:'gear', name:'ตั้งค่า'},
+    ],
+    row2:[
+      {id:'timeslide', kind:'timeline', name:'ไทม์ไลน์'},
+      {id:'key', kind:'menu', name:'คีย์', ...M.key},
+      {id:'tuan', kind:'sel', name:'เลือกท่อน', icon:'list'},
+    ],
+    optional:[
+      {id:'repeat', kind:'toggle', name:'วนซ้ำ', icon:'expand', state:'loop'},
+      {id:'chord', kind:'menu', name:'คอร์ด', ...M.chord},
+      {id:'speed', kind:'menu', name:'ความเร็ว', ...M.speed},
+      {id:'layer', kind:'menu', name:'แสดงผล', ...M.display},
+    ],
+  },
+  // ---------- หน้าแผ่นเพลง / พิมพ์ ----------
+  print:{
+    row1:[
+      {id:'grip', kind:'grip', name:'ย้าย/ย่อ'},
+      {id:'print', kind:'btn', prime:true, name:'พิมพ์ / บันทึก PDF', icon:'printer', label:'พิมพ์'},
+      {id:'scale', kind:'aa', name:'ขนาดตัวอักษร'},
+      {id:'setting', kind:'gear', name:'ตั้งค่า'},
+    ],
+    row2:[],
+    optional:[
+      {id:'display', kind:'menu', name:'แสดงผล', ...M.display},
+      {id:'book', kind:'menu', name:'แบบแผ่น', ...M.book},
+      {id:'chord', kind:'menu', name:'คอร์ด', ...M.chord},
+      {id:'key', kind:'menu', name:'คีย์', ...M.key},
+      {id:'download', kind:'action', name:'ดาวน์โหลด JSON', icon:'download', actLabel:'บันทึก'},
+    ],
+  },
+  // ---------- หน้าแก้ไข ----------
+  edit:{
+    keys:PALETTE,
+    row1:[
+      {id:'grip', kind:'grip', name:'ย้าย/ย่อ'},
+      {id:'undo', kind:'btn', name:'ย้อน', icon:'undo'},
+      {id:'redo', kind:'btn', name:'ทำซ้ำ', icon:'redo'},
+      {id:'play', kind:'play', name:'ฟังท่อน'},
+      {id:'scale', kind:'aa', name:'ขนาดตัวอักษร'},
+      {id:'setting', kind:'gear', name:'ตั้งค่า'},
+    ],
+    row2:[
+      {id:'save', kind:'btn', prime:true, name:'บันทึก / ส่งตรวจ', icon:'send', label:'บันทึก', grow:2},
+      {id:'playAll', kind:'btn', name:'ฟังทั้งเพลง', icon:'cplay', label:'ฟังทั้งเพลง'},
+    ],
+    optional:[
+      {id:'draft', kind:'action', name:'บันทึกร่าง', icon:'download', actLabel:'เซฟ'},
+      {id:'download', kind:'action', name:'ดาวน์โหลด JSON', icon:'download', actLabel:'บันทึก'},
+      {id:'preview', kind:'toggle', name:'ดูผลทั้งเพลง', icon:'pip', state:'preview'},
+    ],
+  },
+};
+const cfg=()=>ITEMS[S.mode];
+const allItems=()=>[...cfg().row1, ...cfg().row2, ...cfg().optional];
+const byId=id=>allItems().find(x=>x.id===id);
+const pins=()=>S.pins[S.mode];
+
+/* ---------- reader / paper background ---------- */
+const MK=i=>(i+0.5)/S.sections.length*100;
+const SNAP=0.06;
+function renderReader(){
+  const fs=S.fontPct/100;
+  const L=(cd,nt,tx)=>`<div class="ln" style="font-size:${fs*1.02}rem"><span class="cd">${cd}</span><span class="nt">${nt}</span>${tx}</div>`;
+  const lines=L('C','5','พระเจ้าทรงเป็นความรัก')+L('G','3','ทรงสร้างสรรพสิ่งด้วยพระหัตถ์')+
+    L('Am','6','ข้าขอสรรเสริญพระองค์')+L('F','1','ตลอดกาลนิรันดร์')+
+    `<div class="ln" style="font-size:${fs*1.02}rem;color:var(--brand);font-weight:600">— ฮุก —</div>`+
+    L('C','5','ฮาเลลูยา ฮาเลลูยา')+L('G','2','พระองค์ทรงเป็นขึ้นมา');
+  if(S.mode==='print'){
+    $('#reader').innerHTML=`<div class="paper"><div class="pw">— แผ่นเพลง A4 (พรีวิว) · ${DISP_SHORT[S.display]} · ${BOOK_SHORT[S.book]} · ${CHORD_BADGE[S.chord]} · คีย์ ${S.key} —</div><h3 style="text-align:center">พระเจ้าทรงเป็นความรัก</h3>${lines}</div>`;
+  }else{
+    $('#reader').innerHTML=`<h3>พระเจ้าทรงเป็นความรัก</h3>`+lines+(S.mobile?'':L('Am','6','ทรงครองราชย์เหนือสิ้นทั้งปวง'));
+  }
+}
+
+/* ---------- render one item ---------- */
+function itemHtml(it){
+  switch(it.kind){
+    case 'grip': return `<button class="btn grip" data-act="grip" title="แตะ=ยุบ · ลาก=ย้าย">${ic('grip',22)}</button>`;
+    case 'gear': return `<button class="btn gear ${S.openPanel==='gear'?'on':''}" data-act="gear" title="ตั้งค่า">${ic('gear',20)}</button>`;
+    case 'play': { const playing=S.playing;
+      return `<button class="play" data-act="play" title="${playing?'หยุด':'เล่น'}">${ic(playing?'pause':'play',28)}</button>`; }
+    case 'btn': {
+      if(it.prime) return `<button class="pbtn prime" data-act="run:${it.id}" title="${it.name}">${ic(it.icon,18)}<span>${it.label||it.name}</span></button>`;
+      if(it.id==='play') return itemHtml({...it,kind:'play'});
+      return `<button class="btn ${it.danger?'danger':''}" data-act="run:${it.id}" title="${it.name}">${ic(it.icon,20)}</button>`; }
+    case 'aa': { const open=S.openMenu==='font';
+      return `<span class="pinwrap"><button class="pbtn ${open?'on':''}" data-act="menu:font" title="ขนาดตัวอักษร ${S.fontPct}%"><span class="aa">Aa</span></button>${open?fontPop():''}</span>`; }
+    case 'menu': { const open=S.openMenu===it.id, b=it.badge&&it.badge();
+      return `<span class="pinwrap ${it.kind==='menu'&&cfg().row2.includes(it)?'keyb':''}"><button class="pbtn ${open?'on':''}" data-act="menu:${it.id}" title="${it.name}">${ic(it.icon,17)}${b?`<b class="pbadge">${b}</b>`:''}${ic('cv',13)}</button>${open?ddPop(it):''}</span>`; }
+    case 'sel': return `<button class="sel ${S.openPanel==='select'?'on':''}" data-act="select" title="เลือกท่อน">${ic('list',15)}${S.mobile?'ท่อน':'เลือกท่อน'} <b>${S.selected.size}/${S.sections.length}</b></button>`;
+    case 'timeline': {
+      const n=S.sections.length, cur=Math.min(n-1,Math.floor(S.frac*n));
+      const segs=S.sections.map((s,i)=>{const on=S.selected.has(s.name);
+        return `<span class="segm ${on?'on':''} ${i===cur?'cur':''}" style="left:${i/n*100}%;width:calc(${100/n}% - 3px)"></span>`;}).join('');
+      return `<span class="seek"><span class="bar" data-seek>${segs}<span class="kn" style="left:${S.frac*100}%"></span></span><span>3:12</span></span>`; }
+    case 'toggle': return `<button class="btn tglbar ${S[it.state]?'on':''}" data-act="tog:${it.id}" role="switch" aria-checked="${!!S[it.state]}" title="${it.name} ${S[it.state]?'(เปิด)':'(ปิด)'}">${ic(it.icon,19)}</button>`;
+  }
+  return '';
+}
+function fontPop(){return `<div class="pop fontdd" data-pop><div class="fonttitle">ขนาดตัวอักษร${S.mode==='print'?' (พรีวิว · กระดาษพิมพ์คงที่)':''}</div><div class="fontrow"><span class="fs-sm">A</span><input type="range" min="80" max="220" step="10" value="${S.fontPct}" data-act="font"><span class="fs-lg">A</span></div><div class="fontfoot"><span class="fontval">${S.fontPct}%</span><button class="fontreset" data-act="fontreset" ${S.fontPct===100?'disabled':''}>↺ 100%</button></div></div>`}
+function ddPop(it){const cur=it.get();return `<div class="pop dd" data-pop>${it.opts.map(o=>`<button class="ddrow ${o===cur?'on':''}" data-act="pick:${it.id}:${o}"><span class="ddck">${o===cur?'●':''}</span>${o}</button>`).join('')}</div>`}
+
+function gearPanel(){
+  const rows=cfg().optional.map(it=>{
+    const id=it.id, pinned=pins().includes(id), i=pins().indexOf(id);
+    let ctl='';
+    if(it.kind==='menu') ctl=`<select class="mselect" data-act="pickpanel:${id}">${it.opts.map(o=>`<option value="${o}" ${o===it.get()?'selected':''}>${o}</option>`).join('')}</select>`;
+    else if(it.kind==='toggle') ctl=`<button class="tgl ${S[it.state]?'on':''}" data-act="tog:${id}" role="switch" aria-checked="${!!S[it.state]}"><span class="tgl-k"></span></button>`;
+    else if(it.kind==='action') ctl=`<button class="mact" data-act="run:${id}">${it.actLabel||'ทำ'}</button>`;
+    return `<div class="prow"><span class="mi">${ic(it.icon,16)}</span><span class="pl">${it.name}</span><span class="pc">${ctl}</span>`+
+      `<button class="mv" data-act="mv:${id}:-1" ${pinned&&i>0?'':'disabled'}>▲</button><button class="mv" data-act="mv:${id}:1" ${pinned&&i>-1&&i<pins().length-1?'':'disabled'}>▼</button>`+
+      `<button class="pin ${pinned?'on':''}" data-act="pin:${id}" title="ปัก/ถอนขึ้นแถบ">📌</button></div>`;
+  }).join('');
+  return `<div class="pop panel" data-pop><div class="ptitle">ตั้งค่า — ปุ่มเสริม (📌 ปักขึ้นแถบ)</div>${rows}</div>`;
+}
+function selPanel(){
+  return `<div class="pop dd" data-pop style="left:0;min-width:230px"><div class="ptitle">เลือกท่อนที่จะซ้อม</div>${S.sections.map(s=>{const on=S.selected.has(s.name);return `<button class="ddrow ${on?'on':''}" data-act="sec:${s.name}"><span class="ddck">${on?ic('check',13):''}</span>${s.name}${s.hook?' · ฮุก':''}</button>`}).join('')}</div>`;
+}
+
+/* ---------- ENGINE: build rows (core · เหมือนกันทุกโหมด) ---------- */
+function renderRow1(){
+  const items=cfg().row1;
+  const trailIds=['scale','setting'];
+  const lead=items.filter(it=>!trailIds.includes(it.id));
+  const trail=items.filter(it=>trailIds.includes(it.id));
+  // play↔stop swap (sing/edit): ตอนเล่น play kind ยังแสดงปุ่มเดียว (สลับ icon) — เพิ่มปุ่มหยุดแทน
+  return `<div class="r">${lead.map(itemHtml).join('')}<span class="sp"></span>${trail.map(itemHtml).join('')}</div>`;
+}
+function renderRow2(){
+  const items=cfg().row2;
+  if(!items.length) return '';
+  return `<div class="r">${items.map(it=>{
+    const h=itemHtml(it);
+    return it.grow?`<span style="flex:${it.grow} 1 0;display:flex">${h}</span>`:h;
+  }).join('')}</div>`;
+}
+function renderKeys(){
+  if(S.mode!=='edit') return '';
+  return `<div class="keys">${cfg().keys.map(row=>`<div class="keyrow">${row.map(k=>`<button class="key" data-act="key:${k}">${k}</button>`).join('')}</div>`).join('')}</div>`;
+}
+function renderPins(){
+  const cap=S.mobile?7:14, list=pins().map(byId).filter(Boolean), out=[];
+  for(let i=0;i<list.length;i+=cap) out.push(list.slice(i,i+cap));
+  return out.map(row=>`<div class="r">${row.map(itemHtml).join('')}</div>`).join('');
+}
+function renderDock(){
+  if(S.collapsed) return `<div class="dock mini"><button class="btn grip" data-act="grip" title="แตะ=กาง · ลาก=ย้าย">${ic('grip',22)}</button><button class="btn gear" data-act="expandset" title="กางเพื่อตั้งค่า">${ic('gear',20)}</button></div>`;
+  let html=renderKeys()+renderPins()+renderRow2()+renderRow1();
+  if(S.openPanel==='gear')  html+=gearPanel();
+  if(S.openPanel==='select')html+=selPanel();
+  const mask=(S.openPanel||S.openMenu)?`<div class="mask" data-act="close"></div>`:'';
+  return `${mask}<div class="dock" style="--a:${S.alpha}">${html}</div>`;
+}
+
+function render(){
+  $('#frame').className='frame '+(S.mobile?'mobile':'desk');
+  renderReader();
+  $('#host').innerHTML=renderDock();
+  [...$('#modeSeg').children].forEach(b=>b.classList.toggle('on',b.dataset.act==='mode:'+S.mode));
+  [...$('#vpSeg').children].forEach(b=>b.classList.toggle('on',b.dataset.act==='vp:'+(S.mobile?'mobile':'desk')));
+  const names={sing:'ฝึกร้อง',print:'แผ่นเพลง',edit:'แก้ไข'};
+  const barIds=[...cfg().row1,...cfg().row2].map(i=>i.id).concat(pins());
+  const setIds=cfg().optional.filter(i=>!pins().includes(i.id)).map(i=>i.name);
+  $('#warn').innerHTML=`<b>โหมด ${names[S.mode]}:</b> core เดียวกัน (grip ซ้ายสุด · ⚙ ขวาสุด · Aa ซ้ายของ ⚙ · ปัก/ยุบ/ลากเหมือนกัน) — ต่างแค่ "รายการปุ่ม"`+
+    (S.mode==='edit'?' · <b>+ แถบแป้นโน้ต 2 แถว</b> (เฉพาะแก้ไข)':'')+
+    (S.mode==='print'?' · row1 โล่ง (ไม่มี playback)':'');
+  $('#hint').textContent=`บนแถบ: ${barIds.join(' · ')}`+(setIds.length?` · ใน ⚙: ${setIds.join(' · ')}`:'');
+  $('#gridnote').textContent='แตะ ⚙ = เปิดปุ่มเสริม + ปัก 📌 ขึ้นแถบ · แตะ grip = ยุบ/กาง · ลาก grip = ย้ายทั้ง dock · สลับโหมดด้านบนเพื่อดูว่า dock เดียวกันจัดต่างกันยังไง';
+  if(S.pos){const d=$('#host').querySelector('.dock');if(d)d.style.transform=`translate(${S.pos.x}px,${S.pos.y}px)`}
+  clampPops();
+}
+function clampPops(){
+  const fr=$('#frame').getBoundingClientRect(),m=8;
+  $('#host').querySelectorAll('.pop').forEach(el=>{el.style.transform='';const r=el.getBoundingClientRect();let dx=0,dy=0;
+    if(r.right>fr.right-m)dx=fr.right-m-r.right; if(r.left+dx<fr.left+m)dx=fr.left+m-(r.left+dx);
+    if(r.top+dy<fr.top+m)dy=fr.top+m-(r.top+dy); if(r.bottom+dy>fr.bottom-m)dy=fr.bottom-m-r.bottom;
+    if(dx||dy)el.style.transform=`translate(${Math.round(dx)}px,${Math.round(dy)}px)`;});
+}
+function transitionInPlace(toCollapsed,panel){
+  const a=$('#host').querySelector('[data-act="grip"]'); const og=a?a.getBoundingClientRect():null;
+  S.collapsed=toCollapsed; S.openPanel=panel||null; S.openMenu=null; S.pos=null; render();
+  if(!og)return;
+  const d=$('#host').querySelector('.dock'); const ng=$('#host').querySelector('[data-act="grip"]').getBoundingClientRect();
+  S.pos={x:og.left-ng.left,y:og.top-ng.top};
+  d.style.transform=`translate(${S.pos.x}px,${S.pos.y}px)`;
+  const fr=$('#frame').getBoundingClientRect(),dr=d.getBoundingClientRect(),m=6; let ddx=0,ddy=0;
+  if(dr.left<fr.left+m)ddx=fr.left+m-dr.left; if(dr.right>fr.right-m)ddx=fr.right-m-dr.right;
+  if(dr.top<fr.top+m)ddy=fr.top+m-dr.top; if(dr.bottom>fr.bottom-m)ddy=fr.bottom-m-dr.bottom;
+  if(ddx||ddy){S.pos={x:S.pos.x+ddx,y:S.pos.y+ddy};d.style.transform=`translate(${S.pos.x}px,${S.pos.y}px)`}
+  clampPops();
+}
+
+/* ---------- events ---------- */
+function act(a){
+  if(a==='close'){S.openPanel=S.openMenu=null;return render()}
+  if(a==='play'){S.playing=!S.playing;return render()}
+  if(a==='gear'){S.openPanel=S.openPanel==='gear'?null:'gear';S.openMenu=null;return render()}
+  if(a==='expandset'){transitionInPlace(false,'gear');return}
+  if(a==='fontreset'){S.fontPct=100;return render()}
+  if(a==='select'){S.openPanel=S.openPanel==='select'?null:'select';S.openMenu=null;return render()}
+  if(a.startsWith('mode:')){S.mode=a.slice(5);S.openPanel=S.openMenu=null;S.pos=null;S.collapsed=false;return render()}
+  if(a.startsWith('vp:')){S.mobile=a.slice(3)==='mobile';S.pos=null;return render()}
+  if(a.startsWith('key:')){flashKey(a.slice(4));return}
+  if(a.startsWith('run:')){flashRun(byId(a.slice(4)));S.openPanel=null;return render()}
+  if(a.startsWith('menu:')){const id=a.slice(5);S.openMenu=S.openMenu===id?null:id;if(id!=='overflow')S.openPanel=null;return render()}
+  if(a.startsWith('pick:')){const i=a.indexOf(':',5);const id=a.slice(5,i),val=a.slice(i+1);byId(id).set(val);S.openMenu=null;return render()}
+  if(a.startsWith('tog:')){const it=byId(a.slice(4));S[it.state]=!S[it.state];return render()}
+  if(a.startsWith('pin:')){const id=a.slice(4);const p=pins();S.pins[S.mode]=p.includes(id)?p.filter(x=>x!==id):[...p,id];return render()}
+  if(a.startsWith('mv:')){const[,id,d]=a.split(':');const p=pins(),i=p.indexOf(id),j=i+(+d);if(i>=0&&j>=0&&j<p.length){[p[i],p[j]]=[p[j],p[i]]}return render()}
+  if(a.startsWith('sec:')){const nm=a.slice(4);S.selected.has(nm)?S.selected.delete(nm):S.selected.add(nm);return render()}
+}
+let flashT=null;
+function flashKey(k){$('#hint').textContent='แทรกสัญลักษณ์ "'+k+'" ลงช่องโน้ตที่โฟกัส';clearTimeout(flashT);flashT=setTimeout(render,900)}
+function flashRun(it){if(!it)return;$('#hint').textContent='▶ '+it.name;clearTimeout(flashT);flashT=setTimeout(render,900)}
+
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;e.stopPropagation();act(t.dataset.act)});
+document.addEventListener('input',e=>{const t=e.target.closest('[data-act]');if(!t)return;
+  if(t.dataset.act==='font'){S.fontPct=+t.value;renderReader();const dd=t.closest('.fontdd');dd.querySelector('.fontval').textContent=t.value+'%';const rb=dd.querySelector('.fontreset');if(rb)rb.disabled=(+t.value===100)}});
+document.addEventListener('change',e=>{const t=e.target.closest('[data-act]');if(!t)return;
+  if(t.dataset.act.startsWith('pickpanel:')){byId(t.dataset.act.split(':')[1]).set(t.value);render()}});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'){S.openPanel=S.openMenu=null;render()}});
+
+// drag dock by grip + scrub timeline
+let gp=null;
+document.addEventListener('pointerdown',e=>{
+  const grip=e.target.closest('[data-act="grip"]');
+  if(grip){
+    const el=$('#host').querySelector('.dock');
+    const r=el.getBoundingClientRect(), fr=$('#frame').getBoundingClientRect();
+    const bx=(S.pos&&S.pos.x)||0, by=(S.pos&&S.pos.y)||0;
+    gp={sx:e.clientX,sy:e.clientY,moved:false,el,fr,bx,by,natL:r.left-bx,natT:r.top-by,w:r.width,h:r.height};
+    e.preventDefault();
+    try{grip.setPointerCapture(e.pointerId)}catch(_){}
+    return;
+  }
+  const bar=e.target.closest('[data-seek]');
+  if(bar){scrub(bar,e);const mv=ev=>scrub(bar,ev);const up=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up)};document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up)}
+});
+document.addEventListener('pointermove',e=>{
+  if(!gp)return;
+  const dx=e.clientX-gp.sx, dy=e.clientY-gp.sy;
+  if(!gp.moved && dx*dx+dy*dy>25) gp.moved=true;
+  if(gp.moved){
+    const m=6, fr=gp.fr;
+    let nx=Math.max(fr.left+m-gp.natL, Math.min(fr.right-m-gp.w-gp.natL, gp.bx+dx));
+    let ny=Math.max(fr.top+m-gp.natT, Math.min(fr.bottom-m-gp.h-gp.natT, gp.by+dy));
+    S.pos={x:nx,y:ny};
+    gp.el.style.transform=`translate(${nx}px,${ny}px)`;
+  }
+});
+document.addEventListener('pointerup',()=>{
+  if(!gp)return;
+  if(!gp.moved){ transitionInPlace(!S.collapsed); }
+  gp=null;
+});
+function scrub(bar,e){
+  const r=bar.getBoundingClientRect();
+  let f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+  S.sections.forEach((s,i)=>{ if(Math.abs(MK(i)/100-f)<SNAP) f=MK(i)/100; });
+  S.frac=f;
+  const kn=bar.querySelector('.kn'); if(kn)kn.style.left=f*100+'%';
+  const n=S.sections.length, cur=Math.min(n-1,Math.floor(f*n));
+  bar.querySelectorAll('.segm').forEach((el,i)=>el.classList.toggle('cur',i===cur));
+}
+
+render();
+</script>
+</body>
+</html>
