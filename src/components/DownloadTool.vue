@@ -50,3 +50,19 @@ function downloadJson() {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Base look lives in styles.css (.pk-tool*, shared with the navbar). Scoped here:
+   responsive polish only — no styles.css edits (S4). */
+/* menu items are tap targets → meet the 44 floor (global padding gives ~40) */
+.pk-tool-menu button {
+  min-height: var(--touch-min);
+  display: flex;
+  align-items: center;
+}
+/* never let the right-anchored dropdown exceed a narrow viewport (it opens from the
+   top-right tool button, so cap its width and let long labels wrap instead of overflow) */
+.pk-tool-menu {
+  max-width: calc(100vw - var(--sp-4));
+}
+</style>
