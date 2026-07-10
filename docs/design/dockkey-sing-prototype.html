@@ -308,7 +308,7 @@ function render(){
   const nP=S.pins.length;
   $('#hint').textContent=(S.mobile?'มือถือ cap 7':'เดสก์ท็อป cap 14')+` · ปัก ${nP} ตัว → ${nP?'ขึ้นแถวเหนือไทม์ไลน์':'ไม่มีแถวเพิ่ม'}`;
   $('#gridnote').textContent='แถวล่าง = core คงที่ Grip·Back·Play·Fwd·Aa·⚙ (ไม่ยุ่ง) · แถว 2: ไทม์ไลน์·คีย์·ท่อน · ปุ่มที่ปัก → ขึ้นแถวใหม่ด้านบน';
-  if(S.pos){const d=$('.dock',$('#host'));if(d){d.style.position='absolute';d.style.left=S.pos.x+'px';d.style.top=S.pos.y+'px';d.style.width='auto'}}
+  if(S.pos){const d=$('#host').querySelector('.dock');if(d)d.style.transform=`translate(${S.pos.x}px,${S.pos.y}px)`}
   clampPops();
 }
 function clampPops(){
@@ -346,16 +346,39 @@ document.addEventListener('change',e=>{const t=e.target.closest('[data-act]');if
   if(t.dataset.act.startsWith('pickpanel:')){byId(t.dataset.act.split(':')[1]).set(t.value);render()}});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'){S.openPanel=S.openMenu=null;render()}});
 
+// ลาก dock ด้วย transform (ได้ทั้งยุบ+กาง · แตะ=ยุบ/กาง · ลาก=ย้าย) — คุมไม่ให้หลุดกรอบ
 let gp=null;
 document.addEventListener('pointerdown',e=>{
   const grip=e.target.closest('[data-act="grip"]');
-  if(grip){gp={x:e.clientX,y:e.clientY,moved:false};const d=$('.dock',$('#host'))||grip;const r=(S.collapsed?grip:d).getBoundingClientRect();const fr=$('#frame').getBoundingClientRect();gp.ox=e.clientX-r.left;gp.oy=e.clientY-r.top;gp.fr=fr;try{grip.setPointerCapture(e.pointerId)}catch(_){}}
+  if(grip){
+    const el=$('#host').querySelector('.dock');
+    const r=el.getBoundingClientRect(), fr=$('#frame').getBoundingClientRect();
+    const bx=(S.pos&&S.pos.x)||0, by=(S.pos&&S.pos.y)||0;
+    gp={sx:e.clientX,sy:e.clientY,moved:false,el,fr,bx,by,natL:r.left-bx,natT:r.top-by,w:r.width,h:r.height};
+    e.preventDefault();
+    try{grip.setPointerCapture(e.pointerId)}catch(_){}
+    return;
+  }
   const bar=e.target.closest('[data-seek]');
   if(bar){scrub(bar,e);const mv=ev=>scrub(bar,ev);const up=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up)};document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up)}
 });
-document.addEventListener('pointermove',e=>{if(!gp)return;const dx=e.clientX-gp.x,dy=e.clientY-gp.y;if(!gp.moved&&dx*dx+dy*dy>25)gp.moved=true;
-  if(gp.moved&&!S.collapsed){S.pos={x:e.clientX-gp.fr.left-gp.ox,y:e.clientY-gp.fr.top-gp.oy};const d=$('.dock',$('#host'));if(d){d.style.position='absolute';d.style.left=S.pos.x+'px';d.style.top=S.pos.y+'px';d.style.width='auto'}}});
-document.addEventListener('pointerup',()=>{if(!gp)return;if(!gp.moved){S.collapsed=!S.collapsed;S.openPanel=S.openMenu=null;if(!S.collapsed)S.pos=null;render()}gp=null});
+document.addEventListener('pointermove',e=>{
+  if(!gp)return;
+  const dx=e.clientX-gp.sx, dy=e.clientY-gp.sy;
+  if(!gp.moved && dx*dx+dy*dy>25) gp.moved=true;
+  if(gp.moved){
+    const m=6, fr=gp.fr;
+    let nx=Math.max(fr.left+m-gp.natL, Math.min(fr.right-m-gp.w-gp.natL, gp.bx+dx));
+    let ny=Math.max(fr.top+m-gp.natT, Math.min(fr.bottom-m-gp.h-gp.natT, gp.by+dy));
+    S.pos={x:nx,y:ny};
+    gp.el.style.transform=`translate(${nx}px,${ny}px)`;
+  }
+});
+document.addEventListener('pointerup',()=>{
+  if(!gp)return;
+  if(!gp.moved){ S.collapsed=!S.collapsed; S.openPanel=S.openMenu=null; if(!S.collapsed)S.pos=null; render(); }
+  gp=null;
+});
 function scrub(bar,e){
   const r=bar.getBoundingClientRect();
   let f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
