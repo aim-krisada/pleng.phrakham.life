@@ -99,10 +99,10 @@
         <span class="slot plain">◀</span><span class="slot brand plain">▶</span><span class="slot plain">▶</span><span class="slot plain">🔁</span>
         <span class="slot w2">☰ ท่อน</span><span class="slot">Aa</span>
         <span class="spring"></span>
-        <span class="slot gear">⚙</span>
+        <span class="slot gear">⋯</span><span class="slot gear">⚙</span>
       </div>
     </div>
-    <p class="legend">timeline = ไอคอนเดียวยาวเต็มบรรทัดบน · เลือกท่อน = ปุ่มกว้าง 2 ช่อง · เกิน 6 ช่องเมื่อไร ก็ดัน Aa/ท่อน ขึ้นบรรทัดถัดไป</p>
+    <p class="legend">timeline = ไอคอนยาว อยู่ในกริดปกติ (แชร์แถวได้ ถ้าไม่พอก็ขึ้นแถวเอง) · เลือกท่อน = ปุ่มกว้าง 2 ช่อง · เกิน 6 ช่อง = ปุ่มท้ายพับเข้า ⋯</p>
   </div>
 
   <div class="cols">
@@ -131,7 +131,7 @@
           <span class="spring"></span>
           <span class="slot">↶</span><span class="slot">↷</span><span class="slot">▶</span><span class="slot">⛭</span>
           <span class="spring"></span>
-          <span class="slot gear">⚙</span>
+          <span class="slot gear">⋯</span><span class="slot gear">⚙</span>
         </div>
       </div>
       <p class="legend">แถวคีย์ jianpu = แถวพิเศษเต็มกว้าง (เฉพาะแก้ไข) วางเหนือโครง · โครง grip/⚙ เหมือนกัน</p>
@@ -157,18 +157,18 @@
     <tr><th>องค์ประกอบ</th><th>เดิม (ต่างกัน 3 โหมด)</th><th>ใหม่ (โครงเดียว)</th></tr>
     <tr><td class="el">grip</td><td>ฝึกร้องบนซ้าย · print/edit ซ้ายแถว</td><td>ซ้ายสุด แถวล่าง เสมอ</td></tr>
     <tr><td class="el">⚙ ตั้งค่า</td><td>ฝึกร้องล่างซ้าย · print/edit ไม่มี ⚙ (3 ปุ่มขวา)</td><td>ขวาสุด แถวล่าง เสมอ · เป็นบ้านเดียว</td></tr>
-    <tr><td class="el">ปุ่มล้น</td><td>ยัดเข้า ⋯ popover</td><td>ขึ้นบรรทัดใหม่ข้างบน (เลิกใช้ ⋯)</td></tr>
-    <tr><td class="el">timeline</td><td>~200px แชร์แถวกับ ☰</td><td>1 ไอคอนยาว เต็มบรรทัดของตัวเอง</td></tr>
+    <tr><td class="el">ปุ่มล้น</td><td>ยัดเข้า ⋯ popover</td><td>คง ⋯ (วางก่อน ⚙) · element เต็มกว้างขึ้นแถวเอง</td></tr>
+    <tr><td class="el">timeline</td><td>~200px แชร์แถวกับ ☰</td><td>1 ไอคอนยาว อยู่ในกริดปกติ (แชร์แถวได้)</td></tr>
     <tr><td class="el">เลือกท่อน</td><td>ปุ่มบนแถว timeline</td><td>ปุ่มกว้าง 2 ช่อง อยู่ในกริดปกติ</td></tr>
     <tr><td class="el">โค้ด</td><td>chrome 2 ชุด (SingTransport + StudioDock)</td><td>โครง slot เดียว · ต่างแค่ list ของ element</td></tr>
   </table>
 
-  <!-- ================= OPEN ================= -->
-  <h2>5 · เหลือให้ P'Aim เคาะ (แค่ตัวเลข/ยืนยัน)</h2>
-  <p><span class="flag q">Q-A</span> จำนวนช่อง/บรรทัด: มือถือ = <b>6</b> · เดสก์ท็อป = <b>12</b> ใช้ได้ไหม? (SA เสนอ · ปรับได้)</p>
-  <p><span class="flag q">Q-B</span> ยืนยันเลิก ⋯ overflow — ใช้ "ขึ้นบรรทัด + แผง ⚙ (pin/unpin)" แทนทั้งหมด?</p>
-  <p><span class="flag q">Q-C</span> timeline เต็มบรรทัดของตัวเองเสมอ (ไม่แชร์กับปุ่ม) — โอเคไหม?</p>
-  <p class="legend">ไอคอนในภาพเป็นตัวแทน · ของจริงใช้ Lucide ตาม DS</p>
+  <!-- ================= DECIDED ================= -->
+  <h2>5 · เคาะแล้ว (P'Aim 10 ก.ค.)</h2>
+  <p><span class="flag">✓ A</span> จำนวนช่อง/บรรทัด: มือถือ <b>6</b> · เดสก์ท็อป <b>12</b></p>
+  <p><span class="flag">✓ B</span> เก็บปุ่ม <b>⋯</b> ไว้ — ปุ่มล้น cap พับเข้า ⋯ (วางก่อน ⚙ บนแถวล่าง)</p>
+  <p><span class="flag">✓ C</span> timeline อยู่ใน<b>กริดปกติ</b>ได้ (แชร์แถวกับปุ่มถ้าพอ · ไม่พอก็ขึ้นแถวเอง)</p>
+  <p class="legend">→ AC เขียนแล้วใน <code>docs/ds/dock-consistency.md §3</code> · พร้อมจ่าย dev · ไอคอนในภาพเป็นตัวแทน ของจริงใช้ Lucide</p>
 </div>
 </body>
 </html>
