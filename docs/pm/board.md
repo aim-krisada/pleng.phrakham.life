@@ -79,8 +79,14 @@
 - `tools/repeat-6-simple.sql` — P'Aim อาจยังไม่ run · DA option B (repeat จาก geometry ~18) defer
 - **ideas ใหม่:** ป้าย "ทำไม match" ในผลค้นหา · ค้นโน้ต match ข้ามท่อน (บังคับในท่อนเดียว) · B046 ชื่อ↔เนื้อ · B066 tempo
 
+## 🚧 กำลังทำ (จ่ายแล้ว 11 ก.ค. ค่ำ)
+- **B085 สติกกี้เครื่องมือท่อน + B086 ย้ายบรรทัด (เนื้อตามทำนอง)** → dev `local_21441a00` · branch `editor-ux-followup` (EditorMode) · brief `brief-editor-ux-followup.md` · รอ dev → tester → merge → deploy
+- **B087 หน้าแรกใหม่ (เล่ม picker แบบพระคัมภีร์ · 9 เล่มตรงๆ · คงค้นหา)** = **จ่าย SA (spawn `task_0332e825`)** · taxonomy P'Aim เคาะแล้ว · ข้อมูลพร้อม (`book_refs`+`bookCodes.js`) · reference phrakham picker · brief `brief-home-redesign-sa.md` · **P'Aim: รีบ** → mockup → เคาะ → dev
+- **นำเข้าเล่มใหญ่ (scanned PDF 477 หน้า)** = **จ่าย session แยก (spawn `task_a71a4c1d`)** · vision อ่านทีละเพลง · **เนื้อก่อน · แม่นก่อนครบ · context แยกต่อเพลง ~5-9K tok** · เริ่มเพลง 32 วัดโทเค็นจริง · brief `brief-hymnal-import.md` · report → pm7
+- **B084 space bar** = 🟡 รอ reproduce (สเต็ปพี่เปา)
+
 ## 🧹 cleanup (เมื่อสายปิด)
-worktree เก่า ~15 (`.claude/worktrees/` + `pleng-*`) · branch `claude/*` เยอะ · dev server `:5315`/`:5400` อาจยังรัน · `git worktree list` ดู
+worktree เก่า ~15 (`.claude/worktrees/` + `pleng-*`) · branch `claude/*` เยอะ · dev server เก่าหลายพอร์ต (`:5400`/`:5410-5413`/`:5450` อาจยังรัน) · `git worktree list` ดู · **IP ปัจจุบัน = `10.215.141.98`**
 
 **Deploy history:** รอบ5 `1535e1f` · รอบ6 `1a3aa65` · รอบ7 `71b8d8f` · รอบ8 `e83afe7` · **รอบ9 `e7af727` = LIVE + verified (11 ก.ค. ค่ำ · B083 จับคู่ทำนอง↔เนื้อ · P'Aim LAN-approved · live bundle มี e7af727 ไม่มี e83afe7)** · main===base
 kanban พี่เปา: **เสร็จแล้ว = B081/B082/B069/B083** · กำลังทำ = (ว่าง) · **รอทำ = B084 (spacebar · รอสเต็ปพี่เปา)**
