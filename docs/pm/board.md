@@ -82,6 +82,6 @@
 ## 🧹 cleanup (เมื่อสายปิด)
 worktree เก่า ~15 (`.claude/worktrees/` + `pleng-*`) · branch `claude/*` เยอะ · dev server `:5315`/`:5400` อาจยังรัน · `git worktree list` ดู
 
-**Deploy history:** รอบ5 `1535e1f` · รอบ6 `1a3aa65` · รอบ7 `71b8d8f` · รอบ8 `e83afe7` · **รอบ9 `e7af727` = pushed (11 ก.ค. ค่ำ · B083 จับคู่ทำนอง↔เนื้อ · P'Aim LAN-approved เพลง 2 · รอ live verify)** · main===base
-kanban พี่เปา: **เสร็จแล้ว = B081/B082/B069** · กำลังทำ = B083 (melody-pairing dev) · รอทำ = B084 (spacebar reproduce)
+**Deploy history:** รอบ5 `1535e1f` · รอบ6 `1a3aa65` · รอบ7 `71b8d8f` · รอบ8 `e83afe7` · **รอบ9 `e7af727` = LIVE + verified (11 ก.ค. ค่ำ · B083 จับคู่ทำนอง↔เนื้อ · P'Aim LAN-approved · live bundle มี e7af727 ไม่มี e83afe7)** · main===base
+kanban พี่เปา: **เสร็จแล้ว = B081/B082/B069/B083** · กำลังทำ = (ว่าง) · **รอทำ = B084 (spacebar · รอสเต็ปพี่เปา)**
 **env:** GitHub `OneDrive/4 Personal/claude/.env` → `GITHUB_TOKEN_PLENG` (source ก่อน · repo public) · Supabase `SUPABASE_*_PLENG` · main อยู่ worktree `pleng-natural-tie`
