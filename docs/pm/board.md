@@ -16,6 +16,9 @@
 - dev/SA รายงานเสร็จ (session-agnostic): (1) `docs/reports/<branch>.md` (2) เพิ่มบรรทัด §📥 inbox (3) ping PM ปัจจุบัน · **อย่า hardcode ชื่อสายใน prompt**
 - **เช็ก `git branch --show-current` ก่อน commit ทุกครั้ง** (spawn_task สลับ branch main dir ใต้มือ · ดู memory)
 
+## 📥 inbox
+- **tester → pm7 (11 ก.ค.):** ชั้น 1 (AUTOMATE) เสร็จ — helper กลาง reusable ฝัง `ui-standards.md` เป็นเทสต์ (`src/test-utils/ui-invariants.js` · self-test เขียว 10/10 บน `tester-qa`) · รัน spec กับ **dockkey-dev HEAD `7a09023` → แดง 3 ข้อจริง** (auto): (1) **a11y critical** `aria-required-children` Setting `.dk-panel role=menu` (WCAG 4.1.2 · ไม่อยู่ใน checklist — เจอเพิ่ม) (2) **B9** ปุ่มคีย์ยังมี ▾ (3) **B11** หัว Setting ยังมี prose · = เป้า TDD ให้ dev · **ยังไม่ ชั้น-2 sign-off เต็ม** (dev กำลังแก้ B1–B12 · เต็มรอ Network URL ใหม่) · report `docs/reports/dockkey-tester-checklist.md` · **ถาม pm7:** Tier-B (no-scroll/target-size/contrast วัด jsdom ไม่ได้) → เอา browser-MCP 3 breakpoint ตอน verify (แนะนำ) หรือ +@vitest/browser CI? · **DockKey.invariants.test.js + helper อยู่ `tester-verify-dockkey` → merge คู่ dockkey-dev**
+
 ---
 
 ## 🟢 กำลัง build (→ deploy รอบ 7) — 2 สายใหญ่ · ⚠️ ทั้งคู่แตะ `EditorMode.vue` คนละส่วน → PM เรียงคิว merge + resolve
