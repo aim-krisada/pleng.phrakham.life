@@ -2,105 +2,232 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "b092",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5417",
+        "--strictPort"
+      ],
+      "port": 5417
+    },
+    {
       "name": "fbar",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5416", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5416",
+        "--strictPort"
+      ],
       "port": 5416
     },
     {
       "name": "sbt",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5410", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5410",
+        "--strictPort"
+      ],
       "port": 5410
     },
     {
       "name": "ste",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5401", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5401",
+        "--strictPort"
+      ],
       "port": 5401
     },
     {
       "name": "dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 5173
     },
     {
       "name": "wt0",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5301"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5301"
+      ],
       "port": 5301
     },
     {
       "name": "dock",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5315", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5315",
+        "--strictPort"
+      ],
       "port": 5315
     },
     {
       "name": "b043",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5325", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5325",
+        "--strictPort"
+      ],
       "port": 5325
     },
     {
       "name": "b055",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5360", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5360",
+        "--strictPort"
+      ],
       "port": 5360
     },
     {
       "name": "s0",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5330", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5330",
+        "--strictPort"
+      ],
       "port": 5330
     },
     {
       "name": "s1",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5331", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5331",
+        "--strictPort"
+      ],
       "port": 5331
     },
     {
       "name": "eps",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5340", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5340",
+        "--strictPort"
+      ],
       "port": 5340
     },
     {
       "name": "epr",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5341", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5341",
+        "--strictPort"
+      ],
       "port": 5341
     },
     {
       "name": "b053",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5353", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5353",
+        "--strictPort"
+      ],
       "port": 5353
     },
     {
       "name": "b069",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5369", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5369",
+        "--strictPort"
+      ],
       "port": 5369
     },
     {
       "name": "esux",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5372", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5372",
+        "--strictPort"
+      ],
       "port": 5372
     },
     {
       "name": "b076",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5376", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5376",
+        "--strictPort"
+      ],
       "port": 5376
     },
     {
       "name": "mp",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5412", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5412",
+        "--strictPort"
+      ],
       "port": 5412
     },
     {
@@ -112,7 +239,15 @@
     {
       "name": "wireframe",
       "runtimeExecutable": "py",
-      "runtimeArgs": ["-m", "http.server", "5200", "--bind", "127.0.0.1", "--directory", "features"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5200",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "features"
+      ],
       "port": 5200
     }
   ]

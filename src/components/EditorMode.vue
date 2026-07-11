@@ -2435,25 +2435,23 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
               <span class="ed-bar-acts">
                 <button class="ed-mini" title="ฟังห้องนี้" aria-label="ฟังห้องนี้" @click="playBar(li, bi)"><Icon name="play" :size="14" /></button>
                 <button class="ed-mini" :class="{ on: barShown(li, bi) }" :aria-pressed="barShown(li, bi)" title="ดูผล — สลับ แก้ ⇄ แผ่นเพลง (ห้องนี้)" aria-label="ดูผลห้องนี้" @click="toggleBarShown(li, bi)"><Icon name="music" :size="14" /></button>
+                <!-- B092: bar move/copy/delete surfaced out of the ⋯ popover — one tap, no menu.
+                     Icon-only + compact so a line of bars doesn't crowd on mobile (ui-standards). -->
+                <button class="ed-mini ed-bar-mv" title="ย้ายห้องไปทางซ้าย" aria-label="ย้ายห้องไปทางซ้าย (สุดขอบ = ไปบรรทัดก่อน)" :disabled="bi === 0 && li === 0" @click="moveBar(li, bi, -1)"><span aria-hidden="true">←</span></button>
+                <button class="ed-mini ed-bar-mv" title="ย้ายห้องไปทางขวา" aria-label="ย้ายห้องไปทางขวา (สุดขอบ = ไปบรรทัดถัดไป)" :disabled="bi === line.bars.length - 1 && li === lines.length - 1" @click="moveBar(li, bi, 1)"><span aria-hidden="true">→</span></button>
+                <button class="ed-mini" title="ทำสำเนาห้องนี้" aria-label="ทำสำเนาห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)"><Icon name="copy" :size="14" /></button>
+                <button class="ed-mini danger-ic" title="ลบห้องนี้" aria-label="ลบห้องนี้" @click="removeBar(line, bi)"><Icon name="trash-2" :size="14" /></button>
               </span>
               <span class="ed-bar-more-wrap">
                 <button
                   class="ed-mini"
                   :class="{ on: barMenuOpen === `${li}-${bi}` }"
                   :aria-expanded="barMenuOpen === `${li}-${bi}`"
-                  aria-label="เครื่องมือห้องนี้ (ย้าย · สำเนา · ลบ · เล่นซ้ำ · ห้องจบ)"
+                  aria-label="เครื่องมือห้องนี้ (ห้องต่อกัน · เล่นซ้ำ · วนกลับ · ห้องจบ)"
                   title="เครื่องมือห้อง"
                   @click.stop="toggleBarMenu(li, bi)"
                 >⋯</button>
                 <div v-if="barMenuOpen === `${li}-${bi}`" class="ed-bar-menu" role="menu">
-                  <div class="ed-bar-menu-row">
-                    <button class="secondary tiny" aria-label="ย้ายห้องไปทางซ้าย (สุดขอบ = ไปบรรทัดก่อน)" :disabled="bi === 0 && li === 0" @click="moveBar(li, bi, -1)">◀ ซ้าย</button>
-                    <button class="secondary tiny" aria-label="ย้ายห้องไปทางขวา (สุดขอบ = ไปบรรทัดถัดไป)" :disabled="bi === line.bars.length - 1 && li === lines.length - 1" @click="moveBar(li, bi, 1)">ขวา ▶</button>
-                  </div>
-                  <div class="ed-bar-menu-row">
-                    <button class="secondary tiny" title="ทำสำเนาห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)">⧉ สำเนา</button>
-                    <button class="danger tiny" aria-label="ลบห้องนี้" @click="removeBar(line, bi)">✕ ลบห้อง</button>
-                  </div>
                   <label class="ed-bar-menu-check" title="จังหวะไม่เต็ม แต่นับรวมกับห้องที่ต่อกัน เช่น เริ่มกลางห้อง"><input v-model="bar.pickup" type="checkbox" /> ↻ ห้องต่อกัน (จังหวะไม่เต็ม — นับรวมกับห้องที่ต่อกัน)</label>
                   <label class="ed-bar-menu-check"><input v-model="bar.repeatStart" type="checkbox" /> ‖: เริ่มเล่นซ้ำ</label>
                   <label class="ed-bar-menu-check"><input v-model="bar.repeatEnd" type="checkbox" /> :‖ วนกลับ</label>
@@ -3592,6 +3590,10 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   min-height: 30px;
   cursor: pointer;
 }
+.ed-mini:disabled { opacity: 0.35; cursor: default; }
+.ed-mini.danger-ic { color: var(--red); }
+/* B092: move-bar ← → glyphs sized to read as directional (distinct from the ▶ play icon) */
+.ed-bar-mv { font-size: 15px; line-height: 1; font-weight: 700; }
 @media (hover: hover) {
   .ed-ico:hover,
   .ed-crumb:hover,
