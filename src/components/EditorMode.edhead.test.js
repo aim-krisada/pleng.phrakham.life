@@ -54,7 +54,7 @@ function mountEd() {
   return mount(EditorMode, {
     props: { song: SONG, tier: 'approver', active: true },
     attachTo: document.body,
-    global: { stubs: { Icon: true, 'router-link': true, SongSheet: true, StudioDock: true, ComboSelect: true } },
+    global: { stubs: { Icon: true, 'router-link': true, SongSheet: true, ComboSelect: true } },
   })
 }
 
@@ -197,7 +197,7 @@ describe('edhead — prototype-aligned edit header', () => {
     return mount(EditorMode, {
       props: { song: WORDED, tier: 'approver', active: true },
       attachTo: document.body,
-      global: { stubs: { Icon: true, 'router-link': true, StudioDock: true, ComboSelect: true } }, // SongSheet REAL
+      global: { stubs: { Icon: true, 'router-link': true, ComboSelect: true } }, // SongSheet REAL
     })
   }
 

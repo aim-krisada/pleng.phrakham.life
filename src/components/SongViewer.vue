@@ -5,7 +5,7 @@
 // DockKey core engine: this page owns the song state and hands <SingTransport> the data;
 // SingTransport turns it into the DockKey descriptor list (ITEMS_SING) and the engine draws
 // the 2-row dock (ไทม์ไลน์ · คีย์ · เลือกท่อน · transport · Aa · ⚙ + pin). Mounted directly
-// here (not through the shared StudioDock, which still serves แก้ไข/พิมพ์).
+// here; แผ่นเพลง and แก้ไข mount their own DockKey the same way.
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { KEYS } from '../lib/chords.js'
 import {

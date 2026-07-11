@@ -255,14 +255,10 @@ function printSheet() {
 }
 
 // ---------- the ONE shared dock (dock-core / N1) ----------
-// The dock used to be mounted twice (inside EditorMode + SongViewer), so each mode kept
-// its own collapsed/position and they drifted apart (P'Aim noticed). Now it is mounted
-// ONCE, here. Each mode component emits its dock config up via @dock; the sheet mode's
-// print tool is owned here. `activeDock` picks the config for the current mode, and the
-// single <StudioDock> stays the same instance across mode switches — so collapse state and
-// the dragged position (shared localStorage keys in StudioDock) feel identical everywhere.
-// All three modes mount their own DockKey (ฝึกร้อง=SongViewer · แผ่นเพลง=here · แก้ไข=EditorMode);
-// the shared StudioDock is gone.
+// Each of the three modes mounts its OWN DockKey — ฝึกร้อง in SongViewer, แผ่นเพลง here
+// (ITEMS_PRINT), แก้ไข in EditorMode (ITEMS_EDIT). They share the DockKey ENGINE (one file),
+// so collapse/drag/Setting feel identical across modes while each keeps its own descriptor
+// list. The old single shared <StudioDock> has been removed.
 </script>
 
 <template>
