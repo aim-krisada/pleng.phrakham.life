@@ -13,7 +13,7 @@
   1. **DockKey §D GATE-4 polish** `108167c` + **B079** download single-source `10e91d5` (merge `84f0b38`) — tester PASS 3 โหมด dock (`d2a1dc2`)
   2. **slur B076** Bézier ตามความกว้างจริง `c202e13` (merge `c845183`) — tester PASS geometry (`0edf690`) · conflict launch.json (พอร์ต) resolve เก็บทั้งคู่
   3. **tester a11y infra** (axe-core + `ui-invariants.js` + DockKey invariant spec) `b369a49` — npm test รัน a11y ในฐานแล้ว (follow-up ปิด)
-- **🚦 GATE-4 ค้างที่ P'Aim:** ตรวจ **ฐานรวม `http://192.168.1.124:5400`** (dev `--host` กำลังรัน · มือถือเข้าได้) → สั่ง **"go deploy รอบ 7"** · deploy = align main=base + push (memory `feedback_pm_sole_interface`/deploy)
+- **🚧 GATE-4 พบ defect (P'Aim 11 ก.ค.) → บล็อก deploy รอบ 7:** หน้าฝึกร้อง **หัวสไลด์ไทม์ไลน์ชิดขอบซ้าย dock** (วัดจริง 5400 = หัวห่างขอบ 3px ควร ≥10px · วงกลม 16px ยื่นเลยจุดเริ่มราง) — **P'Aim เคยบอกแล้วครั้งหนึ่ง หลุด tester** → จ่ายสาย DockKey เดิม (`local_e15710b1`) ทำ · brief `docs/pm/brief-sing-timeline-edge.md` · branch `fix-sing-timeline-edge` จากฐาน b369a49 · รอ dev → tester → merge → re-serve → P'Aim go
 - 🟢 ขนาน (ไม่บล็อก deploy): **SA interlinear ≥3 ภาษา** (mockup รอ P'Aim เคาะ) · **B080 expert standards** · Amazing Grace ในคลัง (พี่เปาฟังเช็ก)
 - **cleanup ค้าง:** ปิด dev server เก่า (:5315/:5372/:5376 อาจยังรัน) · worktree เก่า ~15
 
