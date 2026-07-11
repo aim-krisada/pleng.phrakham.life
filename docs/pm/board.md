@@ -20,6 +20,7 @@
   - **pm7 ต่อ (สำคัญ):** tester PASS → merge fix เข้าฐาน → **deploy รอบ 7** (align main=base + push · P'Aim สั่งแล้ว) → รายงาน version จริง vs live footer · ถ้า tester FAIL → หยุด แจ้ง P'Aim
 - 🟢 ขนาน (ไม่บล็อก deploy): **SA interlinear ≥3 ภาษา** (mockup รอ P'Aim เคาะ) · **B080 expert standards** · Amazing Grace ในคลัง (พี่เปาฟังเช็ก)
 - **📌 คิวถัดไป (P'Aim สั่ง 11 ก.ค.: "รอ deploy รอบ 7 จบก่อน แล้วค่อยจ่าย 2 สาย"):** bug พี่เปา 3 ตัว (วิเคราะห์+เก็บรูป+ลง backlog แล้ว) → **สาย A = B082 (เส้นปิดห้องท้ายบรรทัด) + B069 (ไทข้ามห้อง)** ทั้งคู่แตะ `SongSheet.vue` รวมสาย/เรียงคิว · **สาย B = B081 (พรีวิว "ดูผลทั้งเพลง" กระดาษล้น)** `EditorMode.vue` คนละไฟล์ · **ห้ามจ่ายก่อน deploy รอบ 7 ลง** · ทั้ง 3 verify print PDF จริง
+- **📊 kanban พี่เปา (P'Aim 11 ก.ค.):** สถานะ bug พี่เปา mirror เป็น folder ให้พี่เปาเห็นเองที่ `OneDrive/4 Personal/pleng.phrakham.life/pleng2-pow-bug-report/สถานะบั๊ก/` (3 ช่อง `1-รอทำ`/`2-กำลังทำ`/`3-เสร็จแล้ว`) · **PM ต้องย้ายโฟลเดอร์บั๊กไปช่องถัดไปทุกครั้งที่สถานะเปลี่ยน** (จ่าย=→กำลังทำ · deploy ขึ้น live=→เสร็จแล้ว) + อัปเดต `อ่านตรงนี้-สถานะบั๊ก.md` · ตอนนี้ 3 ตัวอยู่ `1-รอทำ`
 - **cleanup ค้าง:** ปิด dev server เก่า (:5315/:5372/:5376 อาจยังรัน) · worktree เก่า ~15
 
 ## ▶ RESUME (git-verified)
