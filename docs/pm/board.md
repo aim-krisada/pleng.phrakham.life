@@ -21,8 +21,9 @@
 - 🟢 ขนาน (ไม่บล็อก deploy): **SA interlinear ≥3 ภาษา** (mockup รอ P'Aim เคาะ) · **B080 expert standards** · Amazing Grace ในคลัง (พี่เปาฟังเช็ก)
 - **✅ จ่าย 2 สาย bug พี่เปาแล้ว (11 ก.ค. บ่าย · หลัง deploy รอบ 7):**
   - **สาย A** = B082 (เส้นปิดห้องท้ายบรรทัด) + B069 (ไทข้ามห้อง) · `SongSheet.vue` · branch `fix-songsheet-barline-tie` · → dev `local_3e1ae3ed` (SongSheet finishing · เจ้าของ B069) · brief `brief-songsheet-barline-tie.md`
-  - **สาย B** = B081 (พรีวิว "ดูผลทั้งเพลง" กระดาษล้น) · `EditorMode.vue` · branch `fix-editor-preview-overflow` · → dev `local_bbeeb02f` (บั๊กพรีวิว) · brief `brief-editor-preview-overflow.md`
+  - **สาย B** = B081 (พรีวิว "ดูผลทั้งเพลง" กระดาษล้น) · `EditorMode.vue` · branch `fix-editor-preview-overflow` · **✅ dev เสร็จ (`22abb9d` · EditorMode เดียว · SongSheet ไม่แตะ · 317 test) → in tester (`local_03855226`)** · แก้ = render A4 print จริง ย่อพอดีด้วย font-size (ไม่ใช่ transform → tie ไม่เพี้ยน) WYSIWYG wrap · dev `192.168.1.124:5411` · report `editor-preview-overflow.md` · ⚠️ **AC2 print = ด่าน P'Aim** (dev ไม่เคลม print จาก DOM)
   - ⚠️ 2 สายห้ามแตะไฟล์ของกัน (A=SongSheet · B=EditorMode) · ทั้งคู่ **verify print PDF จริง** · รอ dev → tester → merge → deploy รอบ 8
+  - 🔎 **note สาย A (จาก dev B):** ฐานรอบ 7 นี้ ไทข้ามห้องใน**พรีวิวลอย** render โค้งเดียวถูกแล้ว (NoteRow ครึ่ง start+end ซ่อนครบ · 0 doubled) → สาย A verify B069 บน**เคสจริงที่พี่เปาเจอ (เพลงที่ 3 · แผ่นพิมพ์/print)** อาจต่างจากพรีวิวลอย · อย่า assume พังทุกที่
   - kanban พี่เปา 3 ตัว ย้าย **รอทำ→กำลังทำ** แล้ว (`สถานะบั๊ก/2-กำลังทำ/`)
 - **📊 kanban พี่เปา (P'Aim 11 ก.ค.):** สถานะ bug พี่เปา mirror เป็น folder ให้พี่เปาเห็นเองที่ `OneDrive/4 Personal/pleng.phrakham.life/pleng2-pow-bug-report/สถานะบั๊ก/` (3 ช่อง `1-รอทำ`/`2-กำลังทำ`/`3-เสร็จแล้ว`) · **PM ต้องย้ายโฟลเดอร์บั๊กไปช่องถัดไปทุกครั้งที่สถานะเปลี่ยน** (จ่าย=→กำลังทำ · deploy ขึ้น live=→เสร็จแล้ว) + อัปเดต `อ่านตรงนี้-สถานะบั๊ก.md` · ตอนนี้ 3 ตัวอยู่ `1-รอทำ`
 - **cleanup ค้าง:** ปิด dev server เก่า (:5315/:5372/:5376 อาจยังรัน) · worktree เก่า ~15
