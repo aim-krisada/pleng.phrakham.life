@@ -1687,10 +1687,6 @@ function confirmOpen() {
   pickerId.value = pendingPick.value
   closePanel()
 }
-function manageDownload() {
-  openMenu.value = null
-  downloadJson()
-}
 // bring back a previously downloaded JSON to keep editing (the anonymous "save")
 function manageUpload() {
   openMenu.value = null
@@ -1787,7 +1783,8 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       <div v-if="editing" class="sb-menu">
         <button class="sb-text" :aria-expanded="openMenu === 'manage'" aria-haspopup="true" @click.stop="toggleMenu('manage')">จัดการ</button>
         <div v-if="openMenu === 'manage'" class="sb-dropdown" role="menu">
-          <button class="sb-item" role="menuitem" @click="manageDownload"><Icon name="download" /> ดาวน์โหลด JSON</button>
+          <!-- B079: JSON/PDF/MP3 download lives ONLY in the dock ExportTool now (single source
+               of action · Hick's Law · ui-standards §2). "จัดการ" keeps import + song admin. -->
           <button class="sb-item" role="menuitem" @click="manageUpload"><Icon name="folder-open" /> อัปโหลด JSON</button>
           <template v-if="loggedIn && !legacy">
             <div class="sep"></div>
