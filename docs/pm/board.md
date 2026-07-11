@@ -91,6 +91,8 @@
 - บั๊กพี่เปา: ✅ live = B069/B081/B082/B083 · 🔵 **tester คิว (บั๊กก่อน):** B085/B086 [→deploy 10] · B084 (`notebox-split`) · B088 (`editor-copyline-reslice` · merge หลัง B085/B086) · B090 (`final-barline` เส้นจบ 2 เส้น `c7ac0c2` 327 test) · แล้ว B087+B089 (feature+gate) · **tester = คอขวด (คิวยาว)**
 - พี่เปา issue ใหม่: **B090 เส้นจบ ‖ = ✅ P'Aim print-verified → merged `9a9a132`** รอ deploy 10 · **B091:** ล้างเนื้อ✅ (`5a0f854` รอ merge) · **ล้างโน้ต = ตัดทิ้ง** (เจตนาจริง = โน้ต space ต้อง ripple เหมือนเนื้อ) → **ต่อยอด B084 (NoteBoxes) ให้ space ripple/แทรกเต็มแบบ lyric** (P'Aim เคาะ · สาย `local_dc20cdf4` · ไม่แตะ model) · B092 surface bar tools (📋 รอเคาะจ่าย · feature)
   - 💡 บทเรียน: ซักเจตนาจริง (พี่เปา "ล้างโน้ต") → เกือบเปิด feature ใหญ่แตะ model → แท้จริงคือ note-space ripple (B084 ต่อยอดเล็ก NoteBoxes) · dev flag ตรงช่วยไม่หลงทาง
+  - **✅ B084 ripple เสร็จ (`05cc93a` · NoteBoxes เท่านั้น · vitest 335 · space แทรก/ripple เต็มแบบ lyric · ยืนยัน lyric ไม่เพี้ยน = string filter) → in tester** · = ปิด B084 + เจตนา "ล้างโน้ต"
+  - **บั๊กพี่เปา dev เสร็จครบทุกตัว → อยู่ tester หมด:** B085/B086 · B084(ripple) · B088 · (B090 P'Aim print-verified merged) · ล้างเนื้อ(B091) รอ merge
 - **feature (B087 หน้าแรก · import เล่มใหญ่) = รันใน session แยก แต่ ⛔ ไม่ deploy จนบั๊กเคลียร์**
 
 ## 🚧 กำลังทำ (จ่ายแล้ว 11 ก.ค. ค่ำ)
