@@ -85,4 +85,18 @@ pm4 แจ้ง: สาย `mp3-dock-wire` merged เข้าฐาน (`b2ffb
 
 **DoD checklist:** vitest **284** + build ✓ · dev `--host` **`http://192.168.1.124:5315`** ✓ · Tier A (axe/popup/focus) + Tier B (no-scroll/target-size/clamp 3 จอ) verify แล้ว ✓ · **⛔ ยังไม่ให้ P'Aim ดู — ส่ง tester ตรวจซ้ำก่อน** (screenshot MCP timeout · ตรวจด้วย getBoundingClientRect/computed-style + prototype)
 
+## รอบ §D — P'Aim GATE 4 (ตรวจฐานรวม 11 ก.ค. · `dockkey-checklist §D`) · commit `108167c`
+แก้ที่ **engine → 3 หน้าได้ตาม** · verify Tier-B 3 breakpoint (375/768/1280) เอง
+- [x] **D1 (margin/polish):** dock padding 10px (มือถือ 8px) + row gap กว้างขึ้น = แถวปุ่มโปร่งสบายตา
+- [x] **D2 (smart row-pack · engine):** บนจอ ≥แท็บเล็ต ถ้า row2+row1 เป็น **แถวปุ่มล้วนทั้งคู่** และรวมกันไม่เกิน cap → **ยุบเป็นแถวเดียว** (row2 แทรกก่อน ⚙) · **แก้ไข** จาก 2 แถวครึ่งๆ → 1 แถวเต็ม `[grip·undo·redo·ฟังท่อน·ฟังทั้งเพลง·export·⚙]` · มือถือไม่ยุบ (กันล้น)
+- [x] **D3 (fit ทุกด้าน):** ลบ min-width ที่ดันความกว้าง → **แผ่นเพลง hug พอดี 262px** (trailing หลัง ⚙ = ~1px) · วัดเดิม 39px → 1px
+- [x] **D4 (no redundant):** ปุ่มฟัง 2 ตัวแยกชัด — **▶ ฟังท่อน** (ท่อนที่แก้) vs **◉ ฟังทั้งเพลง** (arrangement) · label + ไอคอนต่างกัน · ไม่ใช่ ▶ เปล่า 2 อัน
+- [x] **D5 (timeline sections):** เพิ่ม **เส้นแบ่งขาวทุกขอบท่อน** + เส้นท่อนที่ไม่เลือกเป็นเทากลาง (เห็นชัด) → เพลง 2 ท่อนเห็น 2 ช่วง + 1 เส้นแบ่ง · timeline responsive (150px มือถือ / 200px เดสก์ท็อป) กัน row2 ล้น
+- **Tier-B verify สด 3 breakpoint** (`--host http://192.168.1.124:5315`): **0 row overflow** ทุกหน้าทุกจอ · dock hug (≥แท็บเล็ต) · แก้ไขยุบ 1 แถว (≥แท็บเล็ต) / 2 แถว (มือถือ ไม่ล้น) · แผ่นเพลง 258-270 hug · console 0 error · **300 test · build**
+  | หน้า | มือถือ 375 | แท็บเล็ต 768 | เดสก์ท็อป 1280 |
+  |---|---|---|---|
+  | ฝึกร้อง | 356 · 2 แถว | 392 hug · 2 แถว | 392 hug · 2 แถว |
+  | แผ่นเพลง | 258 hug | 270 hug | 270 hug |
+  | แก้ไข | 359 · 2 แถว | 491 hug · **1 แถว** | 491 hug · **1 แถว** |
+
 ## ⛔ ห้าม merge/deploy เอง — รอ PM ตรวจ DoD + P'Aim gate LAN 3 หน้า (โดยเฉพาะหน้าแก้ไข)
