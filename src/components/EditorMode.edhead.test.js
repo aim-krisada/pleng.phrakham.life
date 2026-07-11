@@ -65,8 +65,8 @@ describe('edhead — prototype-aligned edit header', () => {
     // the old breadcrumb rendered <select class="pick"> for ท่อน + ข้อ — gone now
     expect(w.find('.edhead').exists()).toBe(true)
     expect(w.findAll('.edhead select').length).toBe(0)
-    // breadcrumb is a position label, not a menu
-    expect(w.find('.ed-crumb').text()).toContain('ท่อน A')
+    // breadcrumb is a position label, not a menu (melody label = "ทำนอง A" — editor-section-ux)
+    expect(w.find('.ed-crumb').text()).toContain('ทำนอง A')
   })
 
   it('B048: layout defaults to ต่อกัน and toggles to 1 ห้อง/แถว', async () => {
@@ -222,27 +222,28 @@ describe('edhead — prototype-aligned edit header', () => {
     expect(stanzaHeads.length).toBe(1)
   })
 
-  it('B049/E4: ลำดับเพลง keeps arrangement rows but drops the per-row lyric textarea', async () => {
+  it('editor-section-ux (B049/E4): "โครงเพลง" lists ท่อน rows; the bottom ลำดับเพลง block is cut; para editor stays', async () => {
     const w = mountEd()
     await nextTick()
-    // arrangement rows stay (stanza select + reorder ▲▼ + ✎ select + ✕) so multi-verse
-    // songs are still buildable — E4 only removes the redundant lyric entry, not the section
-    expect(w.findAll('.arr-row').length).toBe(2)
-    // ...but NO per-row lyric textarea inside a row anymore
-    expect(w.findAll('.arr-row textarea').length).toBe(0)
+    // the single "โครงเพลง" rail list holds one row per ท่อน (arrangement row) — a multi-verse
+    // song is still buildable, with reorder controls on each row
+    expect(w.findAll('.srow').length).toBe(2)
+    expect(w.findAll('.srow .updown').length).toBe(2)
+    // the old bottom "📜 ลำดับเพลง" block (.arr-row) is gone (moved to the rail + canvas header)
+    expect(w.findAll('.arr-row').length).toBe(0)
     // lyric entry still available via the collapsible "แก้เนื้อแบบย่อหน้า (ข้อที่เลือก)" panel
     const paraBtn = w.findAll('button').find((b) => b.text().includes('แก้เนื้อแบบย่อหน้า'))
     expect(paraBtn).toBeTruthy()
   })
 
-  it('B032: each verse row offers a delete, and it removes the ข้อ', async () => {
+  it('editor-section-ux (B032): each ท่อน row offers a delete, and it removes the ท่อน', async () => {
     const w = mountEd()
     await nextTick()
-    expect(w.findAll('.rail-rowwrap.lyr').length).toBe(2)
-    const del = w.find('.rail-rowwrap.lyr .rail-del')
+    expect(w.findAll('.srow').length).toBe(2)
+    const del = w.find('.srow-del')
     expect(del.exists()).toBe(true)
     await del.trigger('click')
-    expect(w.findAll('.rail-rowwrap.lyr').length).toBe(1)
+    expect(w.findAll('.srow').length).toBe(1)
   })
 
   // B056 — "จบเพลง" (final barline, for songs with no repeat) is lifted OUT of the buried
