@@ -84,7 +84,7 @@
   - **📌 standing plan (P'Aim 11 ก.ค. เย็น):** tester B085/B086 **PASS → merge (cherry-pick `8fe0c8c` · EditorMode · git-verify+rerun test) → deploy รอบ 10** (align main=base + push + verify live · pre-authorized · ถ้า tester FAIL หยุด แจ้ง P'Aim)
 - **B087 หน้าแรกใหม่ (เล่ม picker แบบพระคัมภีร์ · 9 เล่มตรงๆ · คงค้นหา)** = **จ่าย SA (spawn `task_0332e825`)** · taxonomy P'Aim เคาะแล้ว · ข้อมูลพร้อม (`book_refs`+`bookCodes.js`) · reference phrakham picker · brief `brief-home-redesign-sa.md` · **P'Aim: รีบ** → mockup → เคาะ → dev
 - **นำเข้าเล่มใหญ่ "บทเพลงสรรเสริญ" (scanned 477 หน้า)** = session แยกรันแล้ว · **✅ เพลง 32 ตัวอย่างเสร็จ (P'Aim สั่ง import เพลงเดียวก่อน · ยังไม่ batch)** — v1 เนื้อล้วน (โน้ตว่าง เห็นบนเว็บทันที · ทีมเติมทำนองใน B083 ทีหลัง) · category **`lem-yai`** (เลข ~470 ไม่ชน anuchon) · verified=false · ไฟล์ `tools/hymnal-samples/s032.{json,sql}` · report `hymnal-import.md`
-  - **🚦 ค้างที่ P'Aim+พี่เปา:** P'Aim รัน `s032.sql` เอง (guard+idempotent เพลงเดียว) → **พี่เปาตรวจเพลง 32 ในแอป** → ผ่าน = ล็อก template → DA ไล่ทีละเพลง (DA หยุดรอ)
+  - **🚦 P'Aim รัน `s032.sql` แล้ว (11 ก.ค.) → เพลง 32 อยู่ใน DB · รอ พี่เปาตรวจในแอป** (เนื้อครบ 4 ข้อ ตรงเล่ม · โน้ตว่าง=ปกติ) → **พี่เปา verdict:** ผ่าน = ผม ping DA ล็อก template + ไล่ทีละเพลง · ไม่ผ่าน = ping DA แก้เพลง 32 (DA หยุดรอ)
   - **โทเค็นจริง = ~8-11K/เพลง** (1 เพลง/subagent · context แยก) → ~470 เพลง ≈ **~4-5M tok** ทั้งเล่ม
   - **💡 small follow-up:** frontend ต้อง map `lem-yai`→"เล่มใหญ่" (เหมือน `anuchon`→"ไทยอนุชน 120") · เกี่ยว **B087** (SA เล่ม picker ต้องรวมเล่มใหญ่เข้า taxonomy · book_refs vs category ให้สอดคล้อง) → flag ตอน B087 mockup กลับมา
 - **B084 space bar** = 🟡 รอ reproduce (สเต็ปพี่เปา)
