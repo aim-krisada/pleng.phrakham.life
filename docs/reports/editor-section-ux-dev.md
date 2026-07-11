@@ -7,6 +7,9 @@
 ## Network URL (LAN — tester/P'Aim ลองจริง)
 `http://192.168.1.124:5372/#/studio` (dev server `--host`, port 5372, ยังรันอยู่ · IP วันนี้)
 
+## รอบแก้ a11y (tester รอบ 1 — axe serious · commit `18b5a14`)
+tester ตรวจ layout เขียวหมด · เจอ 1 serious: `aria-prohibited-attr` — `.grip` เป็น `<span>` มี `aria-label` แต่ไม่มี role (ARIA ห้าม · ชื่อไม่ถูก expose) → **fix: `aria-hidden="true"`** (grip = ที่จับลากด้วยนิ้วอย่างเดียว · ทางคีย์บอร์ด/AT = ปุ่ม ▲▼ ที่มี label อยู่แล้ว · เลือก aria-hidden แทน role=button เพราะ role=button จะโฆษณาว่ากด Enter/Space ได้ ทั้งที่กดลากด้วยคีย์ไม่ได้ = ผิด 4.1.2/2.1.1 · ตรงกับ grip หัวท่อนที่ hidden อยู่แล้ว) · verify สด: grip ทั้ง 3 hidden · ▲▼ ยังมี label · console 0 · vitest 300 + build เขียว
+
 ## รอบแก้ layout — แถว "โครงเพลง" กระชับ (P'Aim: เทอะทะ · commit `56fbdb4`)
 หลักฐานปัญหา: `docs/pm/realuse-assets/songstruct-row-cramped.png` (ชื่อ "ร้..." ตัดโหด · ▲▼ ซ้อน 2 บรรทัด · pill บีบ) → แก้ตาม `docs/ui-standards.md §2` (list-row บรรทัดเดียว · ควบคุมกระชับ):
 - **rail กว้างขึ้น 214 → 250px** — พอให้ควบคุมในแถวไม่บีบชื่อ
