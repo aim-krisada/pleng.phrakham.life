@@ -90,14 +90,15 @@ async function downloadMp3() {
 
 <template>
   <span class="et-wrap">
+    <!-- icon-only ghost button (§A · B7): download is a tool, not the primary action -->
     <button
-      class="dk-btn wide et-trig"
+      class="dk-btn et-trig"
       :class="{ on: open }"
       :aria-expanded="open"
       :aria-label="label"
       :title="label"
       @click.stop="emit('toggle')"
-    ><Icon name="download" :size="18" /><span class="dk-btn-lbl">{{ label }}</span></button>
+    ><Icon name="download" :size="20" /></button>
 
     <div v-if="open" class="dk-pop et-menu" role="menu" @click.stop>
       <button class="et-row" role="menuitem" @click="printPdf"><Icon name="printer" :size="16" /> พิมพ์ / บันทึก PDF (A4)</button>
@@ -123,15 +124,25 @@ async function downloadMp3() {
 </template>
 
 <style scoped>
-.et-wrap { position: relative; display: inline-flex; flex: 0 0 auto; }
-.et-trig.on { border-color: var(--brand); color: var(--brand); }
+/* not position:relative → the menu anchors to the DOCK (same spot as every popover · §A) */
+.et-wrap { display: inline-flex; flex: 0 0 auto; }
+/* full ghost-icon styling here (DockKey's scoped .dk-btn can't reach this slot content, so
+   without this the button falls through to a global filled style — the "only brown button"
+   bug · §A button hierarchy). Ghost like the transport buttons; ▶ stays the lone accent. */
+.et-trig {
+  width: var(--touch-min); height: var(--touch-min); min-width: var(--touch-min); min-height: 0; padding: 0;
+  border: 0; background: transparent; color: var(--ink);
+  display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; flex: 0 0 auto;
+}
+@media (hover: hover) { .et-trig:hover { background: var(--cream); } }
+.et-trig.on { color: var(--brand); background: var(--cream); }
 /* the popover carries its own position (slot content = parent scope; DockKey clamps by .dk-pop) */
 .et-menu {
   pointer-events: auto;
-  position: absolute; bottom: calc(100% + 8px); left: 0;
+  position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: 30;
-  min-width: 230px; max-width: calc(100vw - 24px); padding: 5px;
+  width: max-content; min-width: 200px; max-width: calc(100vw - 24px); padding: 6px;
 }
 .et-row {
   display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px; border: 0;

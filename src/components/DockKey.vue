@@ -234,12 +234,9 @@ function pickMenu(it, value) { it.control?.onPick?.(value); close() }
 
 // column flex weight for a row-2 cell — the stretchy cells (timeline/selector) fill the
 // slack so the row uses the full width; fixed controls (คีย์) keep their natural size.
-function cellFlex(it) {
-  // only the timeline + section-selector stretch to fill their row (sing); every other
-  // slot cell (Aa · export) keeps its natural width so the dock hugs its buttons.
-  if (it.kind === 'timeline' || it.kind === 'sel') return `${it.place?.span || 1} 1 0`
-  return '0 0 auto'
-}
+// Every slot cell keeps its NATURAL width so the dock hugs its content and no cell can be
+// squeezed under its min-content (which made the timeline's total-time overflow into คีย์ · B1).
+function cellFlex() { return '0 0 auto' }
 </script>
 
 <template>
@@ -355,7 +352,6 @@ function cellFlex(it) {
             >
               <Icon :name="it.icon" :size="17" />
               <b v-if="it.control?.badge" class="dk-badge">{{ it.control.badge }}</b>
-              <Icon name="chevron-down" :size="13" class="dk-caret" />
             </button>
             <div v-if="openId === it.id" class="dk-pop dk-dd" role="menu" @click.stop>
               <button
@@ -386,8 +382,7 @@ function cellFlex(it) {
       </div>
 
       <!-- ===== ⚙ Setting page — every item's home · adjust inline · ▲▼ · 📌 (DS §3) ===== -->
-      <div v-if="openId === 'setting'" class="dk-pop dk-panel" role="menu" @click.stop>
-        <div class="dk-ptitle">⚙ ตั้งค่า — ปรับได้ที่นี่ · 📌 = ปักขึ้นแถบ</div>
+      <div v-if="openId === 'setting'" class="dk-pop dk-panel" role="menu" aria-label="ตั้งค่า" @click.stop>
         <div v-for="it in settingItems" :key="it.id" class="dk-prow" :data-setting="it.id">
           <span class="dk-mi"><Icon :name="it.icon" :size="16" /></span>
           <span class="dk-pl">{{ it.name }}</span>
@@ -523,49 +518,48 @@ function cellFlex(it) {
 }
 @media (hover: hover) { .dk-key:hover { background: var(--cream); } }
 
-/* menu / slider chips */
-.dk-pinwrap { position: relative; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+/* menu / slider chips — no position:relative so every popover anchors to the DOCK (all
+   popups open at the SAME spot: right edge, from the dock's top · §A) */
+.dk-pinwrap { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
 .dk-pbtn {
-  display: inline-flex; align-items: center; gap: 3px;
+  display: inline-flex; align-items: center; gap: 4px;
   border: 1px solid var(--line); background: transparent; color: var(--ink);
-  border-radius: 10px; padding: 0 8px; height: var(--touch-min); min-height: 0; font: inherit; cursor: pointer; flex: 0 0 auto;
+  border-radius: 10px; padding: 0 10px; height: var(--touch-min); min-height: 0; font: inherit; cursor: pointer; flex: 0 0 auto;
 }
 @media (hover: hover) { .dk-pbtn:hover { border-color: var(--brand); } }
 .dk-pbtn.on { border-color: var(--brand); color: var(--brand); }
 .dk-badge { font-size: 12.5px; font-weight: 700; }
-.dk-caret { color: var(--muted); }
 .dk-slidewrap { padding: 0 8px; border: 1px solid var(--line); border-radius: 10px; height: var(--touch-min); color: var(--muted); }
 .dk-slider { width: 74px; accent-color: var(--brand); }
 
-/* popovers open ABOVE the bar; clampPops keeps every one on-screen (+8px · DS I5) */
+/* popovers open ABOVE the dock, RIGHT-aligned to it, at the same spot every time (§A).
+   They FIT their content — no v/h scroll (clampPops keeps them on-screen +8px · DS I5). */
 .dk-pop {
   pointer-events: auto;
-  position: absolute; bottom: calc(100% + 8px);
+  position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: 30;
+  width: max-content; max-width: calc(100vw - 24px); padding: 6px;
 }
-.dk-dd {
-  left: 0; min-width: 150px; max-width: calc(100vw - 24px); max-height: 52vh; overflow: auto; padding: 5px;
-  width: max-content;
-}
+.dk-dd { min-width: 160px; }
 .dk-ddrow {
-  display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px; border: 0; background: transparent;
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px; border: 0; background: transparent;
   border-radius: 8px; cursor: pointer; text-align: left; color: var(--ink); font: inherit; font-size: 13px; white-space: nowrap; min-height: 0;
 }
 @media (hover: hover) { .dk-ddrow:hover { background: var(--cream); } }
 .dk-ddrow[aria-checked='true'] { color: var(--brand); font-weight: 700; }
 .dk-ddck { flex: 0 0 14px; text-align: center; color: var(--brand); }
 
-/* ⚙ Setting page */
-.dk-panel { right: 0; left: auto; min-width: 290px; max-width: min(330px, calc(100vw - 24px)); max-height: 60vh; overflow: auto; padding: 8px; }
-.dk-ptitle { font-size: 11px; color: var(--muted); padding: 2px 4px 8px; }
-.dk-prow { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-radius: 8px; }
+/* ⚙ Setting page — fits content, no scroll, even 8px rhythm (§A / B10-B12) */
+.dk-panel { min-width: 260px; padding: 8px; }
+.dk-prow { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-radius: 8px; }
+.dk-prow + .dk-prow { border-top: 1px solid var(--line); }
 @media (hover: hover) { .dk-prow:hover { background: var(--cream); } }
 .dk-mi { width: 20px; display: inline-flex; justify-content: center; color: var(--brand); flex: 0 0 20px; }
 .dk-mi :deep(svg) { width: 16px; height: 16px; }
-.dk-pl { font-size: 13px; flex: 1; min-width: 60px; white-space: nowrap; }
-.dk-pc { display: flex; align-items: center; gap: 5px; }
-.dk-select { font: inherit; font-size: 12.5px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); cursor: pointer; max-width: 132px; min-height: 34px; }
+.dk-pl { font-size: 13px; flex: 1; min-width: 56px; white-space: nowrap; }
+.dk-pc { display: flex; align-items: center; gap: 6px; }
+.dk-select { font: inherit; font-size: 12.5px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); cursor: pointer; max-width: 190px; min-height: 34px; }
 .dk-switch { width: 42px; height: 24px; min-height: 0; border-radius: 12px; border: 0; background: #c9c0b3; position: relative; cursor: pointer; padding: 0; flex: 0 0 auto; transition: background 0.15s; }
 .dk-switch.on { background: var(--brand); }
 .dk-switch-k { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: left 0.15s; }

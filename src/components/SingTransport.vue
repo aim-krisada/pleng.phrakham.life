@@ -145,7 +145,6 @@ const items = computed(() => {
             :class="{ on: s.picked, cur: s.active }"
             :style="{ left: s.left * 100 + '%', width: `calc(${s.width * 100}% - 3px)` }"
           ></span>
-          <span class="st-fill" :style="{ width: pct }"></span>
           <span class="st-kn" :style="{ left: pct }"></span>
         </span>
         <span class="st-time">{{ totalLabel }}</span>
@@ -160,15 +159,14 @@ const items = computed(() => {
         class="st-seltrig"
         :class="{ on: open }"
         :aria-expanded="open"
-        title="เลือกท่อนที่จะซ้อม"
+        title="เลือกท่อนที่จะฟัง"
         @click.stop="toggle"
       ><Icon name="list-music" :size="15" /> ท่อน <b>{{ selCountLabel }}</b></button>
       <div v-if="open" class="dk-pop st-selpanel" role="menu" @click.stop>
-        <div class="st-sshead">⠿ เลือกท่อนที่จะซ้อม</div>
+        <div class="st-sshead">เลือกท่อนที่จะฟัง</div>
         <div class="st-ssall">
-          <button class="st-ssallbtn" @click="emit('set-all', true)">☑ ทั้งหมด</button>
-          <button class="st-ssallbtn" @click="emit('set-all', false)">☐ ไม่เลือก</button>
-          <span class="st-sshint">ไม่เลือก = ทั้งเพลง</span>
+          <button class="st-ssallbtn" @click="emit('set-all', true)">ทั้งหมด</button>
+          <button class="st-ssallbtn" @click="emit('set-all', false)">ไม่เลือก</button>
         </div>
         <div class="st-sslist">
           <button
@@ -229,29 +227,31 @@ const items = computed(() => {
 
 <style scoped>
 /* ===== ไทม์ไลน์ ===== */
-.st-seekwrap { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-/* min-width gives the fit-content dock a sensible width (dock hugs the timeline row · P'Aim) */
-.st-seek { position: relative; flex: 1; min-width: 190px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+/* natural-width timeline cell (no stretch) so it can't be squeezed and overflow into คีย์ (B1) */
+.st-seekwrap { display: inline-flex; align-items: center; gap: 8px; padding-right: 4px; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* fixed, usable timeline width; the fit-content dock hugs it + the คีย์/ท่อน cells */
+.st-seek { position: relative; flex: 0 0 200px; width: 200px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
 .st-time { flex: 0 0 auto; }
 .st-trk { position: absolute; left: 0; right: 0; height: 4px; background: var(--line); border-radius: 3px; top: 50%; transform: translateY(-50%); }
-.st-fill { position: absolute; left: 0; height: 4px; background: var(--brand); border-radius: 3px; top: 50%; transform: translateY(-50%); pointer-events: none; }
-/* section bars: unselected = grey (skipped) · selected = brand (will play) · current = taller */
+/* B2: NO progress fill — the fill spanned 0→now in brand and masqueraded as a 2nd selected
+   section over unselected sections. The selection is carried ONLY by the section bars
+   (selected = brand · skipped = grey); position is the single knob. */
 .st-seg { position: absolute; height: 5px; top: 50%; transform: translateY(-50%); border-radius: 3px; background: var(--line); pointer-events: none; transition: height 0.1s; }
 .st-seg.on { background: var(--brand); }
 .st-seg.cur { height: 9px; }
 .st-kn { position: absolute; width: 16px; height: 16px; background: var(--brand); border: 3px solid #fff; border-radius: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); pointer-events: none; z-index: 3; }
 
-/* ===== popovers (slot-rendered, so they carry their own position; DockKey clamps them by .dk-pop) ===== */
+/* ===== popovers (slot-rendered · anchor to the DOCK right edge = same spot as every popup · §A) ===== */
 .st-selpanel, .st-fontpop {
   pointer-events: auto;
-  position: absolute; bottom: calc(100% + 8px);
+  position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: 30;
 }
 
 /* ===== เลือกท่อน trigger + panel ===== */
 .st-seltrig {
-  display: inline-flex; align-items: center; justify-content: center; gap: 5px; width: 100%;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
   border: 1px solid var(--line); background: transparent; color: var(--ink);
   border-radius: 8px; padding: 0 10px; font: inherit; font-size: 12px; font-weight: 600;
   height: var(--touch-min); min-height: 0; cursor: pointer;
@@ -259,7 +259,7 @@ const items = computed(() => {
 @media (hover: hover) { .st-seltrig:hover { border-color: var(--brand); color: var(--brand); } }
 .st-seltrig.on { border-color: var(--brand); color: var(--brand); }
 .st-seltrig b { color: var(--brand); }
-.st-selpanel { left: 0; right: auto; width: 290px; max-width: calc(100vw - 24px); display: flex; flex-direction: column; padding: 0; }
+.st-selpanel { width: 290px; max-width: calc(100vw - 24px); display: flex; flex-direction: column; padding: 0; }
 .st-sshead { padding: 10px 12px 6px; font-weight: 700; }
 .st-ssall { display: flex; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid var(--line); flex-wrap: wrap; align-items: center; }
 .st-ssallbtn { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 8px; padding: 5px 12px; font: inherit; font-size: 12px; min-height: var(--touch-min); cursor: pointer; }
@@ -283,7 +283,7 @@ const items = computed(() => {
 @media (hover: hover) { .st-aa:hover { border-color: var(--brand); } }
 .st-aa.on { border-color: var(--brand); color: var(--brand); }
 .st-aa-lbl { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
-.st-fontpop { left: 0; min-width: 220px; max-width: calc(100vw - 24px); padding: 12px; }
+.st-fontpop { width: max-content; min-width: 220px; max-width: calc(100vw - 24px); padding: 12px; }
 .st-fonttitle { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 .st-fontrow { display: flex; align-items: center; gap: 10px; }
 .st-fonta { color: var(--ink); flex: 0 0 auto; line-height: 1; }

@@ -379,7 +379,7 @@ function printSheet() {
             @click.stop="toggle"
           ><b>Aa</b></button>
           <div v-if="open" class="dk-pop st-fontpop" role="menu" aria-label="ขนาดตัวอักษร" @click.stop>
-            <div class="st-fonttitle">ขนาดตัวอักษร (พรีวิวบนจอ · กระดาษคงที่)</div>
+            <div class="st-fonttitle">ขนาดตัวอักษร</div>
             <div class="st-fontrow">
               <span class="st-fonta-sm" aria-hidden="true">A</span>
               <input class="st-fontslider" type="range" min="80" max="220" step="10" :value="printFontPct" aria-label="ปรับขนาดตัวอักษร" @input="setFontScale(+$event.target.value / 100)" />
@@ -567,10 +567,10 @@ function printSheet() {
 /* slot popovers carry their own position; DockKey clamps them by the .dk-pop class */
 .st-fontpop {
   pointer-events: auto;
-  position: absolute; bottom: calc(100% + 8px); left: 0;
+  position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: 30;
-  min-width: 230px; max-width: calc(100vw - 24px); padding: 12px;
+  width: max-content; min-width: 230px; max-width: calc(100vw - 24px); padding: 12px;
 }
 .st-fonttitle { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 .st-fontrow { display: flex; align-items: center; gap: 10px; }
