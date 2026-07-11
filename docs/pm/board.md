@@ -80,6 +80,10 @@
 - `tools/repeat-6-simple.sql` — P'Aim อาจยังไม่ run · DA option B (repeat จาก geometry ~18) defer
 - **ideas ใหม่:** ป้าย "ทำไม match" ในผลค้นหา · ค้นโน้ต match ข้ามท่อน (บังคับในท่อนเดียว) · B046 ชื่อ↔เนื้อ · B066 tempo
 
+## ⭐ PRIORITY (P'Aim 11 ก.ค. ค่ำ): **แก้บั๊กให้จบก่อน feature ใหม่**
+- บั๊กพี่เปา: ✅ live = B069/B081/B082/B083 · 🔵 tester→deploy 10 = B085/B086 · 🟡 ค้าง = **B084** (รอพี่เปาบอกช่องที่กด space) · B088 (latent · รอเคาะจ่าย)
+- **feature (B087 หน้าแรก · import เล่มใหญ่) = รันใน session แยก แต่ ⛔ ไม่ deploy จนบั๊กเคลียร์**
+
 ## 🚧 กำลังทำ (จ่ายแล้ว 11 ก.ค. ค่ำ)
 - **B085 สติกกี้ + B086 ย้ายบรรทัด = ✅ dev เสร็จ → in tester (`8fe0c8c` · EditorMode+test · vitest 330 +4 · B085 sticky top:58px z4 · B086 reslice พยางค์ทุก verse)** · ⚠️ tester เน้น **เลื่อนจริง** (dev headless เลื่อนไม่ได้) · dev `10.215.141.98:5413` · **💡 dev flag → B088:** `copyLine`/`removeLine` ก็ไม่ reslice พยางค์ (latent · queued follow-up)
   - **📌 standing plan (P'Aim 11 ก.ค. เย็น):** tester B085/B086 **PASS → merge (cherry-pick `8fe0c8c` · EditorMode · git-verify+rerun test) → deploy รอบ 10** (align main=base + push + verify live · pre-authorized · ถ้า tester FAIL หยุด แจ้ง P'Aim)
