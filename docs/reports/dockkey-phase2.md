@@ -49,4 +49,32 @@ pm4 แจ้ง: สาย `mp3-dock-wire` merged เข้าฐาน (`b2ffb
 - **ครบ 3 หน้ามี PDF/JSON/MP3 เมนูเดียวกันหมด** · verify: sing export menu = [PDF, JSON, MP3] · key badge (E) ยังอยู่ · **300 test · build ผ่าน · 0 error**
 - ⚠️ export หน้าฝึกร้องเพิ่ม 1 ปุ่มบน row1 ที่ P'Aim accept ไว้ (transport เดิม 6 → 7) — ถ้าอยากย้ายไป ⚙ บอกได้ (ตอนนี้ ⚙ ยัง render slot ไม่ได้เพราะ overflow clip · ต้องเพิ่ม engine)
 
+## รอบ checklist — P'Aim ตรวจหน้าฝึกร้อง 11 ก.ค. (pm7 · `docs/pm/dockkey-checklist.md`)
+แก้ที่ **engine ครั้งเดียว → 3 หน้าได้ตาม** (ไม่ hand-roll ต่อหน้า) · ทุกข้ออิง WCAG 2.2 AA · verify DOM สด (viewport session นี้ทำงาน)
+
+### §A ENGINE invariants (DockKey core · ทุกหน้า)
+- [x] **ทุก popup เปิดชิดขวา เริ่มจากขอบบน dock — ตำแหน่งเดียวกันหมด** · เอา `position:relative` ออกจากปุ่ม → popover ยึด dock ไม่ใช่ปุ่ม · **วัดสด: setting/ท่อน/คีย์/Aa gap ขวา = 9px เท่ากันหมด**
+- [x] **ทุก popup fit เนื้อหา ไม่มี scroll แนวตั้ง/แนวนอน** · setting `scrollW/H = 0` (เดิมโดนตัด+h-scroll) · `width:max-content`
+- [x] **spacing สม่ำเสมอ** · setting row rhythm 8px + เส้นคั่น
+- [x] **ตัดลูกศร ▾** · ไม่มี `.dk-caret` แล้วทุกปุ่ม
+- [x] **ไอคอนล้วนบนแถบ** · ปุ่ม download = ไอคอนอย่างเดียว
+- [x] **button hierarchy** · **เจอต้นตอ:** ปุ่ม ExportTool ใช้ class `.dk-btn` แต่ style ของ DockKey เป็น scoped → ไม่ถึง slot → ตกไป global fill สีน้ำตาล = "ปุ่ม download น้ำตาลโดด" · แก้ให้ `.et-trig` เป็น ghost เต็ม (bg โปร่ง) · **filled สงวนให้ primary จริง: ฝึกร้อง=เล่น ▶(สีแบรนด์) · แผ่นเพลง=พิมพ์(filled) · แก้ไข=บันทึก(filled)** · download/tool = ghost หมด · วัดสด: export bg = `transparent` ทั้ง 3 หน้า
+- [x] **ไม่มีคำอธิบายวิธีใช้ในหัว popup** · ตัดหัว ⚙ + trim หัว Aa
+
+### §B หน้าฝึกร้อง
+- [x] **B1** เวลาไม่ซ้อนปุ่มคีย์ · timeline เป็น fixed-width (ไม่ยืด) กัน total-time ล้นเข้า คีย์ · **วัดสด: -34px (ซ้อน) → +10px (เว้น)**
+- [x] **B2** selection↔timeline · **ต้นตอ = progress fill (แถบน้ำตาล 0→ปัจจุบัน) ทับท่อนที่ไม่เลือก ดูเหมือนถูกเลือก** → **ลบ fill** · selection มาจากเส้นท่อนอย่างเดียว (เลือก=น้ำตาล/ข้าม=เทา) · ตำแหน่ง = หัวสไลเดอร์เดียว
+- [x] B3 = §A (popup ชิดขวา) ✓
+- [x] **B4** ตัด "ไม่เลือก = ทั้งเพลง" · **B5** หัว popup "เลือกท่อนที่จะซ้อม" → **"เลือกท่อนที่จะฟัง"**
+- [x] B6 = B1 (timeline margin) ✓ · **B7** download เหลือไอคอน ✓ · **B8** label หายตอนเปิด download = หมดปัญหา (ไอคอนล้วน)
+- [x] **B9** คีย์ตัด ▾ ✓ · **B10** setting ไม่มี h-scroll ✓ · **B11** ตัดหัว setting ✓ · **B12** spacing setting ✓
+
+### verify 3 หน้า (DOM สด · `192.168.1.124:5315`)
+- ฝึกร้อง: row1 `[grip·back·play·fwd·export(ghost)·Aa·⚙]` · time→key +10px · popup 4 ตัว gap ขวา 9 เท่ากัน · ไม่มี fill · console 0 error
+- แผ่นเพลง: export ghost · ไม่มี caret · `[grip·พิมพ์(prime)·export·Aa·⚙]`
+- แก้ไข: export ghost · band แป้นโน้ต 21 · setting ไม่มีหัว/ไม่มี h-scroll
+- **300 test · build ผ่าน**
+
+**DoD checklist:** vitest+build ✓ · dev `--host` **Network URL ใหม่ `http://192.168.1.124:5315`** ✓ · verify DOM ทุกข้อ ✓ · **⛔ ยังไม่ให้ P'Aim ดู — tester ตรวจ checklist ก่อน** (screenshot MCP timeout · ตรวจด้วย getBoundingClientRect/computed-style + prototype แทน)
+
 ## ⛔ ห้าม merge/deploy เอง — รอ PM ตรวจ DoD + P'Aim gate LAN 3 หน้า (โดยเฉพาะหน้าแก้ไข)
