@@ -46,7 +46,14 @@ const alpha = ref(0.96)
 const two = (n) => String(n).padStart(2, '0')
 const fmt = (s) => `${Math.floor(Math.max(0, s) / 60)}:${two(Math.round(Math.max(0, s) % 60))}`
 const totalLabel = computed(() => fmt(props.totalSec)) // DS: show total time only
-const pct = computed(() => (Math.max(0, Math.min(1, props.frac)) * 100).toFixed(2) + '%')
+
+// The knob is INSET from both ends of the seek so at the very start/end it doesn't hug the
+// dock edge (P'Aim). Everything on the rail — knob, section bars, dividers — maps a 0..1
+// fraction into [INSET, width−INSET] via posOf(); the track spans the same inset range; and
+// fracAt() inverts it so a tap/drag still lands exactly under the finger (1:1 with the rail).
+const INSET = 10 // px each side — with the 8/10px dock padding this keeps the knob ≥10px off both dock edges on every breakpoint
+const posOf = (f) => `calc(${INSET}px + ${Math.max(0, Math.min(1, f))} * (100% - ${INSET * 2}px))`
+const widthOf = (w) => `calc(${Math.max(0, w)} * (100% - ${INSET * 2}px) - 4px)`
 
 // ---------- selection summary ----------
 const selCountLabel = computed(() => {
@@ -75,7 +82,9 @@ const seekEl = ref(null)
 let scrubbing = false
 function fracAt(e) {
   const r = seekEl.value.getBoundingClientRect()
-  return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
+  // invert posOf(): the rail's usable span is [INSET, width−INSET], so subtract the inset
+  // and divide by the inset width — a tap on the visible track maps 1:1 to the knob.
+  return Math.max(0, Math.min(1, (e.clientX - r.left - INSET) / (r.width - INSET * 2)))
 }
 function onSeekDown(e) {
   scrubbing = true
@@ -146,10 +155,10 @@ const items = computed(() => {
             :key="i"
             class="st-seg"
             :class="{ on: s.picked, cur: s.active }"
-            :style="{ left: s.left * 100 + '%', width: `calc(${s.width * 100}% - 4px)` }"
+            :style="{ left: posOf(s.left), width: widthOf(s.width) }"
           ></span>
-          <span v-for="(d, i) in dividers" :key="'d' + i" class="st-div" :style="{ left: d * 100 + '%' }"></span>
-          <span class="st-kn" :style="{ left: pct }"></span>
+          <span v-for="(d, i) in dividers" :key="'d' + i" class="st-div" :style="{ left: posOf(d) }"></span>
+          <span class="st-kn" :style="{ left: posOf(frac) }"></span>
         </span>
         <span class="st-time">{{ totalLabel }}</span>
       </span>
@@ -238,7 +247,9 @@ const items = computed(() => {
 .st-seek { position: relative; flex: 0 0 200px; width: 200px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
 @media (max-width: 760px) { .st-seek { flex-basis: 150px; width: 150px; } }
 .st-time { flex: 0 0 auto; }
-.st-trk { position: absolute; left: 0; right: 0; height: 4px; background: #ece5d9; border-radius: 3px; top: 50%; transform: translateY(-50%); }
+/* track inset to match the knob's travel range [8px, width−8px] so the knob at start/end
+   doesn't hug the dock edge (P'Aim) — the rail breathes equally on both ends. */
+.st-trk { position: absolute; left: 10px; right: 10px; height: 4px; background: #ece5d9; border-radius: 3px; top: 50%; transform: translateY(-50%); }
 /* B2: NO progress fill (it masqueraded as selection). Selection = the section bars only:
    skipped = a visible mid-grey (distinct from the track) · selected = brand · current = taller. */
 .st-seg { position: absolute; height: 6px; top: 50%; transform: translateY(-50%); border-radius: 3px; background: #c7bba6; pointer-events: none; transition: height 0.1s; }
