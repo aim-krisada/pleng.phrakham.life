@@ -92,6 +92,12 @@
       "port": 5376
     },
     {
+      "name": "mp",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", ".", "--host", "--port", "5412", "--strictPort"],
+      "port": 5412
+    },
+    {
       "name": "wireframe",
       "runtimeExecutable": "py",
       "runtimeArgs": ["-m", "http.server", "5200", "--bind", "127.0.0.1", "--directory", "features"],

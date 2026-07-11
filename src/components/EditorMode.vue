@@ -473,6 +473,28 @@ function stanzaSlots(id) {
   }
   return n
 }
+// MP2 (B083): a derived preview of a melody so ท่อน that share/pick a melody are told
+// apart WITHOUT a name (Q1: no model field, no name input). First few notes = the melody's
+// "face"; line + syllable capacity give its shape. All computed from the existing model.
+function stanzaFirstNotes(id, n = 6) {
+  const s = stanzas.value.find((x) => x.id === id)
+  if (!s) return ''
+  const toks = []
+  for (const line of s.lines)
+    for (const bar of line.bars)
+      for (const seg of bar.segments)
+        for (const t of (seg.note || '').split(/\s+/).filter(Boolean)) {
+          toks.push(t)
+          if (toks.length >= n) return toks.join(' ') + ' …'
+        }
+  return toks.join(' ')
+}
+function stanzaPreview(id) {
+  const notes = stanzaFirstNotes(id)
+  const s = stanzas.value.find((x) => x.id === id)
+  const lines = s ? s.lines.length : 0
+  return `${notes ? notes + ' · ' : ''}${lines} บรรทัด · ${stanzaSlots(id)} พยางค์`
+}
 // live word-count check per arrangement row (like barStatus). Every note box has a
 // lyric slot, but only ATTACK notes require a word — held/rest boxes may stay blank.
 // So we count words present on attack slots against the number of attack notes.
@@ -536,6 +558,38 @@ function rowLyricText(row) {
 function setRowLyricText(row, text) {
   row.syllables = wordsToSyllables(splitSyllables(text), row.stanza)
 }
+// MP3 (B083): imported lyrics often arrive as one blob per verse (comma between วรรค). Split
+// it into Thai word tokens with Intl.Segmenter (ships with the browser · ICU dict · no lib —
+// Q2). Then feed the space-joined tokens back through setRowLyricText so they map onto the
+// melody's attack slots, ready to fine-tune with ◀▶. Word-level ≈ syllable, not exact.
+const syllableMsg = ref('') // aria-live result of the last ✂ split
+function segmentThai(text) {
+  const phrases = String(text || '')
+    .split(/[,，]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const out = []
+  const canSeg = typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function'
+  const seg = canSeg ? new Intl.Segmenter('th', { granularity: 'word' }) : null
+  for (const ph of phrases) {
+    if (seg) {
+      for (const part of seg.segment(ph)) {
+        const t = (part.segment || '').trim()
+        if (t) out.push(t)
+      }
+    } else {
+      // fallback (no Intl.Segmenter): keep phrases whole, author splits with space/◀▶
+      out.push(...ph.split(/\s+/).filter(Boolean))
+    }
+  }
+  return out
+}
+function autoSyllable() {
+  if (!lensRow.value) return
+  const tokens = segmentThai(rowLyricText(lensRow.value))
+  setRowLyricText(lensRow.value, tokens.join(' '))
+  syllableMsg.value = `แยกได้ ${tokens.length} พยางค์ — ปรับต่อด้วย ◀▶ ได้`
+}
 
 function addRow() {
   // a new ท่อน inherits the previous row's melody (ท่อน 2 มักทำนองเดียวกับท่อน 1 — SX5),
@@ -576,6 +630,15 @@ function moveRowTo(from, to) {
 }
 function moveRow(i, dir) {
   moveRowTo(i, i + dir)
+}
+// MP1 (B083): change the selected ท่อน's melody from the canvas header. Point activeStanza
+// at the new melody too (via focusRow) so lensActive stays true — otherwise cshead + the
+// word boxes vanish because they're gated on `lensRow.stanza === activeStanzaId`. Q3: a
+// mismatch after switching is a warning (rowStatus badge), never a block.
+function setRowStanza(id) {
+  if (!lensRow.value) return
+  lensRow.value.stanza = id
+  focusRow(lensChoice.value)
 }
 // ---- inline rename (rail row + canvas header edit the same row.label — P1/P5) ----
 function startRename(i, where) {
@@ -644,7 +707,26 @@ function onGripPointerDown(i, e) {
   document.addEventListener('pointermove', move)
   document.addEventListener('pointerup', up)
 }
-const stanzaIdOptions = computed(() => stanzas.value.map((s) => ({ value: s.id, label: 'ทำนอง ' + s.id })))
+// MP2: the melody picker's options carry a note preview so A vs B read apart at a glance
+// (search stays "ทำนอง X" so typing the letter still filters).
+const stanzaIdOptions = computed(() =>
+  stanzas.value.map((s) => {
+    const notes = stanzaFirstNotes(s.id)
+    return { value: s.id, label: notes ? `ทำนอง ${s.id} · ${notes}` : `ทำนอง ${s.id}`, search: 'ทำนอง ' + s.id }
+  }),
+)
+// MP4 (B083): per-ท่อน pairing status for the rail badge — reuses rowStatus (got/need). A
+// mismatch (import swapped melody↔lyric, or too many/few words) shows a red count; a fit
+// shows ✓. Symbols + numbers, not colour alone (ui-standards). Computed once per row.
+function pairInfo(row) {
+  const s = rowStatus(row)
+  return {
+    ok: s.ok,
+    text: s.ok ? '✓' : `${s.got}/${s.need} ✗`,
+    label: s.ok ? 'จับคู่ทำนอง↔เนื้อพอดี' : `จับคู่ยังไม่พอดี — ใส่คำ ${s.got} จาก ${s.need} พยางค์ของทำนอง`,
+  }
+}
+const pairInfos = computed(() => arrangement.value.map((row) => pairInfo(row)))
 const rowKeyOptions = computed(() => [{ value: '', label: 'คีย์เดิม' }, ...KEYS.map((k) => ({ value: k, label: k }))])
 
 // beats per bar vs. time signature — honest: unreadable input is an error, never a pass.
@@ -1849,7 +1931,9 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
             :title="rowLabel(row, ri) + ' — คลิกเพื่อแก้ชื่อ'"
             @click.stop="startRename(ri, 'rail')"
           >{{ rowLabel(row, ri) }}</span>
-          <span class="mchip" :title="'ทำนอง ' + row.stanza + ' — เปลี่ยนทำนองได้ที่หัวท่อน'">♪{{ row.stanza }}</span>
+          <span class="mchip" :title="'ทำนอง ' + row.stanza + ' · ' + stanzaPreview(row.stanza) + ' — เปลี่ยนทำนองได้ที่หัวท่อน'">♪{{ row.stanza }}</span>
+          <!-- MP4: melody↔lyric pairing status (spots an import that swapped tune/words) -->
+          <span class="pair-badge" :class="pairInfos[ri].ok ? 'good' : 'bad'" :title="pairInfos[ri].label" :aria-label="pairInfos[ri].label">{{ pairInfos[ri].text }}</span>
           <span class="updown" @click.stop>
             <button aria-label="ย้ายท่อนขึ้น" :disabled="ri === 0" @click="moveRow(ri, -1)">▲</button>
             <button aria-label="ย้ายท่อนลง" :disabled="ri === arrangement.length - 1" @click="moveRow(ri, 1)">▼</button>
@@ -1867,7 +1951,10 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         <template v-if="melodyOpen">
           <p class="rail-hint no-print">สำหรับแก้โน้ต / ใช้ทำนองซ้ำ — ปกติไม่ต้องแตะ</p>
           <div v-for="(s, si) in stanzas" :key="s.id" class="rail-rowwrap mel" :class="{ sel: si === activeStanza }">
-            <button class="rail-row" @click="railSelectStanza(si)"><Icon name="music" :size="17" /> ทำนอง {{ s.id }}</button>
+            <button class="rail-row mel-row" @click="railSelectStanza(si)">
+              <Icon name="music" :size="17" />
+              <span class="mel-row-main">ทำนอง {{ s.id }}<small class="mel-row-sub">{{ stanzaPreview(s.id) }}</small></span>
+            </button>
             <button v-if="stanzas.length > 1" class="rail-del" title="ลบทำนองนี้" aria-label="ลบท่อนทำนองนี้" @click.stop="removeStanza(si)"><Icon name="trash-2" :size="14" /></button>
           </div>
           <button class="rail-row add" @click="addStanza(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มทำนอง</button>
@@ -2029,9 +2116,9 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         class="cs-mel"
         :model-value="lensRow.stanza"
         :options="stanzaIdOptions"
-        aria-label="เลือกทำนองของท่อนนี้"
-        width="118px"
-        @update:model-value="lensRow.stanza = $event"
+        aria-label="เลือกทำนองของท่อนนี้ (ตัวเลือกโชว์พรีวิวโน้ต)"
+        width="150px"
+        @update:model-value="setRowStanza($event)"
       />
       <label class="cs-key">คีย์
         <ComboSelect
@@ -2279,6 +2366,15 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
           aria-label="เนื้อร้องแบบย่อหน้า"
           @input="setRowLyricText(lensRow, $event.target.value)"
         ></textarea>
+        <!-- MP3: split a pasted/imported lyric blob into syllables that land on the melody's
+             notes, then fine-tune with the ◀▶ tools under each note -->
+        <div class="para-tools">
+          <button class="secondary auto-syl" aria-label="แยกพยางค์อัตโนมัติ" @click="autoSyllable">
+            <span aria-hidden="true">✂</span> แยกพยางค์อัตโนมัติ
+          </button>
+          <span class="muted para-tools-hint">แตกเนื้อที่วางมาเป็นก้อน → ช่องพยางค์ (คร่าว ๆ · ปรับต่อด้วย ◀▶)</span>
+        </div>
+        <span class="sr-only" aria-live="polite">{{ syllableMsg }}</span>
       </div>
     </div>
 
@@ -2654,6 +2750,25 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   padding: 3px 7px;
   white-space: nowrap;
 }
+/* MP4: pairing badge — melody↔lyric fit. Symbols + numbers (not colour alone). */
+.pair-badge {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  font-weight: 700;
+  border-radius: 20px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+.pair-badge.good { color: #fff; background: var(--ok); }
+.pair-badge.bad { color: #fff; background: var(--red); }
+/* MP2: melody list row shows a note preview under "ทำนอง X" */
+.mel-row { align-items: flex-start !important; }
+.mel-row-main { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.mel-row-sub { font-size: 11px; font-weight: 400; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* MP3: ✂ auto-syllable tools under the paragraph textarea */
+.para-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.auto-syl { display: inline-flex; align-items: center; gap: 6px; }
+.para-tools-hint { font-size: 12px; }
 /* ▲▼ side by side (single line — never stacked; ui-standards §2). Override the global
    button min-height (44px) so the row stays compact; ≥24px still meets WCAG 2.5.8. */
 .updown { display: inline-flex; flex-direction: row; gap: 2px; flex: 0 0 auto; align-items: center; }
@@ -3054,8 +3169,8 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 .studio-app { display: flex; gap: 16px; align-items: flex-start; }
 .content { flex: 1; min-width: 0; }
 .rail {
-  flex: 0 0 250px;
-  width: 250px;
+  flex: 0 0 288px;
+  width: 288px;
   position: sticky;
   top: 58px;
   align-self: flex-start;
@@ -3133,8 +3248,8 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
     top: 0;
     left: 0;
     height: 100dvh;
-    width: 82%;
-    max-width: 300px;
+    width: 90%;
+    max-width: 340px;
     z-index: 80;
     border-radius: 0;
     max-height: none;
