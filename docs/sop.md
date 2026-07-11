@@ -24,12 +24,13 @@
 | **พี่เปา** | tester ดนตรี (ฟังเสียง/จังหวะ · review เพลง) |
 
 ## 3 · Workflow + gates (ISO 29110-5-4 SI mapping)
+**⭐ Shift-left (P'Aim 11 ก.ค.): มาตรฐานฝังตั้งแต่ SA→DEV ไม่รอ tester.** SA ออกแบบ**อิง `ui-standards.md` ตั้งแต่แรก + self-audit**; dev build อิงมาตรฐาน + **self-verify (axe Tier-A + Tier-B ผ่าน Claude Browser MCP) ก่อนส่ง tester**. → tester = **"ยืนยัน" (ควรผ่านรอบแรก)** ไม่ใช่ "ค้นเจอ+วนแก้". ถ้า tester เจอเยอะ = ต้นทาง (SA/dev) ไม่ self-check → แก้ที่ process (เพิ่ม self-verify ใน DoD/brief) ไม่ใช่โทษคน.
 ```
 idea (backlog.md · SI.2)
-  → SA: US(docs/us) + DS(docs/ds) + mockup(docs/design)   [SI.2 req · SI.3 design]
+  → SA: US(docs/us) + DS(docs/ds) + mockup(docs/design) — **อิง+อ้าง ui-standards + self-audit**   [SI.2 req · SI.3 design]
   → 🚦 GATE 1: P'Aim เคาะ mockup/design
-  → dev: build ตาม DS+prototype+ui-standards + test        [SI.4 construction]
-  → 🚦 GATE 2 (TESTER · บังคับทุก UI): axe-core + no-scroll + target-size (automate)
+  → dev: build ตาม DS+prototype+ui-standards + test + **self-verify axe/Tier-B (browser MCP) ให้เขียวเองก่อน** [SI.4 construction]
+  → 🚦 GATE 2 (TESTER · ยืนยัน · บังคับทุก UI): axe-core + no-scroll + target-size (automate)
             + ตรวจ checklist ฟีเจอร์ + ui-standards ทุกข้อ → เซ็น `*-tester.md` (✓/✗)
             ✗ = **auto-loop `fix-verify-loop` (workflow · ≤3 รอบ · counter กัน infinite)** วนแก้-ตรวจเอง
                 ครอบ **ทั้ง Tier-A (axe/tests) + Tier-B จอจริงผ่าน Claude Browser MCP** (resize breakpoint · วัด no-scroll/target-size/contrast · screenshot)
@@ -49,6 +50,7 @@ idea (backlog.md · SI.2)
 - **เครื่องมือ:** Claude Code (sessions/worktree) · vitest+axe-core (test) · git worktree (1 งาน=1 branch=1 port · collision-aware) · Supabase (RLS · writes = PO run SQL) · GitHub Actions (deploy)
 
 ## 5 · Conventions
+- **brief template (บังคับ · shift-left):** ทุก brief SA/dev **ต้องลิงก์ `docs/ui-standards.md` + checklist ที่เกี่ยว** และใส่ DoD: SA=`ออกแบบผ่าน ui-standards + self-audit` · dev=`self-verify axe(Tier-A)+Tier-B(Claude Browser MCP วัดพิกัด 3 breakpoint)เขียวเองก่อนส่ง tester` — ไม่ปล่อยให้ tester เจอของที่ควร catch ตั้งแต่ต้น
 - **branch:** งานจาก `studio-shell-redesign` · 1 งาน = 1 branch = 1 dev-server port · dev รัน `--host` + ให้ Network URL (มือถือทดสอบ)
 - **รายงาน (session-agnostic):** dev/SA/tester → (1) `docs/reports/<branch>.md` (2) บรรทัด board §📥 inbox (3) ping "PM ปัจจุบัน" (board §🎯) · **อย่า hardcode ชื่อ PM session**
 - **PM session:** ชื่อ = เลข sprint/deploy รอบ (pm7 = รอบ 7) · เช็ก `git branch --show-current` ก่อน commit เสมอ
