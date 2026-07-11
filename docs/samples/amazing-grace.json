@@ -1,0 +1,110 @@
+{
+  "number": 900,
+  "title_th": "พระคุณล้ำเลิศ (Amazing Grace)",
+  "title_en": "Amazing Grace",
+  "category": "anuchon",
+  "theme": "พระคุณ",
+  "verified": false,
+  "public_domain": true,
+  "copyright_note": {
+    "words_en": "John Newton, 1779 — public domain worldwide.",
+    "tune": "New Britain (Virginia Harmony, 1835) — public domain.",
+    "words_th": "แปลไทยแบบร้องได้ แต่งขึ้นเองสำหรับทดสอบระบบ (มอบให้เป็นสาธารณะ / CC0). ไม่ใช้คำแปลไทยฉบับตีพิมพ์ใด ๆ เพื่อเลี่ยงลิขสิทธิ์ผู้แปล.",
+    "notation_note": "ทำนองบันทึกแบบ 1 พยางค์/1 โน้ต (syllabic) ตามที่ร้องในโบสถ์ทั่วไป — melisma (เอื้อนหลายเสียงต่อพยางค์) ของฉบับดั้งเดิมถูกทำให้เรียบเพื่อให้ตรงกับโมเดล v2 (1 พยางค์/attack note). ควรให้นักดนตรี (พี่เปา) ตรวจเสียงก่อนใช้จริง."
+  },
+  "book_refs": [],
+  "scripture": "เอเฟซัส 2:8",
+  "review_flags": [],
+  "content": {
+    "key": "G",
+    "version": 2,
+    "timeSignature": "3/4",
+    "headerKey": "G",
+    "stanzas": [
+      {
+        "id": "A",
+        "lines": [
+          [
+            { "note": "0 0 .5", "type": "segment", "chord": "G" },
+            { "type": "bar" },
+            { "note": "1. 3_ 1", "type": "segment", "chord": "G" },
+            { "type": "bar" },
+            { "note": "3. 2_ 1", "type": "segment", "chord": "C" },
+            { "type": "bar" },
+            { "note": "1 - -", "type": "segment", "chord": "G" }
+          ],
+          [
+            { "note": ".5 1. 3_", "type": "segment", "chord": "G" },
+            { "type": "bar" },
+            { "note": "1_ 3_ 2 -", "type": "segment", "chord": "D" }
+          ],
+          [
+            { "note": ".5 1. 3_", "type": "segment", "chord": "G" },
+            { "type": "bar" },
+            { "note": "1. 3_ 1'", "type": "segment", "chord": "C" },
+            { "type": "bar" },
+            { "note": "6 5 -", "type": "segment", "chord": "G" }
+          ],
+          [
+            { "note": "1. 3_ 1", "type": "segment", "chord": "D" },
+            { "type": "bar" },
+            { "note": "3_ 2_ 1 -", "type": "segment", "chord": "G" }
+          ]
+        ]
+      }
+    ],
+    "arrangement": [
+      {
+        "label": "Verse 1 (EN)",
+        "stanza": "A",
+        "syllables": [
+          "", "", "A",
+          "ma", "zing", "grace",
+          "how", "sweet", "the",
+          "sound", "", "",
+          "that", "saved", "a",
+          "wretch", "like", "me", "",
+          "I", "once", "was",
+          "lost", "but", "now",
+          "am", "found", "",
+          "was", "blind", "but",
+          "now", "I", "see", ""
+        ]
+      },
+      {
+        "label": "ร้อง 1 (ไทย)",
+        "stanza": "A",
+        "syllables": [
+          "", "", "พระ",
+          "คุณ", "ล้ำ", "เลิศ",
+          "ประ", "-เสริฐ", "เกิน",
+          "คำ", "", "",
+          "ช่วย", "คน", "บาป",
+          "อย่าง", "ฉัน", "ไว้", "",
+          "เคย", "หลง", "ทาง",
+          "ไกล", "บัด", "-นี้",
+          "กลับ", "-มา", "",
+          "เคย", "มืด", "บอด",
+          "นี้", "ตา", "เห็น", ""
+        ]
+      },
+      {
+        "label": "Verse 2 (EN)",
+        "stanza": "A",
+        "syllables": [
+          "", "", "'Twas",
+          "grace", "that", "taught",
+          "my", "heart", "to",
+          "fear", "", "",
+          "and", "grace", "my",
+          "fears", "re", "-lieved", "",
+          "how", "pre", "-cious",
+          "did", "that", "grace",
+          "ap", "-pear", "",
+          "the", "hour", "I",
+          "first", "be", "-lieved", ""
+        ]
+      }
+    ]
+  }
+}
