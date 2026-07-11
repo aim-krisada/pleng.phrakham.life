@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { displayChord } from '../lib/chords.js'
+import { parseNotes, beatCount, expectedBeats } from '../lib/notation.js'
 import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
@@ -106,6 +107,18 @@ const renderLines = computed(() =>
       }
     }
     flush()
+    // B082 — close the LAST bar of a line on its right when it holds a FULL measure. Mid-line
+    // bars are already closed by the next bar's left bar-line; the final bar has no successor,
+    // so without this it stayed open (some lines closed, some not — พี่เปา). A short final bar
+    // — a pickup, or a measure whose beats complete only across the line break — is left open
+    // so we never draw a barline through an incomplete measure. A line ending in a final/repeat
+    // barline (Fine ‖ / :‖) isn't a plain bar here, so it's skipped (no double line).
+    const tail = parts.length ? parts[parts.length - 1] : null
+    if (tail && tail.type === 'bar' && tail.segments.length) {
+      const exp = expectedBeats(props.content.timeSignature)
+      const got = tail.segments.reduce((n, seg) => n + beatCount(parseNotes(seg.note || '')), 0)
+      if (exp && Math.abs(got - exp) < 1e-9) tail.closeRight = true
+    }
     // hasText = any real word on this line. A melody-only line (held notes / เอื้อน with
     // blank syllables) has none — in the songbook it prints as an empty gap, so we drop it
     // from reused (lyrics-only) verses. First-use lines keep it (they still show the notes).
@@ -161,8 +174,10 @@ function seek(li, si, syk = 0) {
 // re-measure on resize + print + content change. NoteRow is untouched; its end-half
 // for these first-of-segment ties is hidden via CSS below (within-segment ties keep it).
 const rootEl = ref(null)
-const tieArcs = ref([]) // [{ d, key }] paths in px, in the root's coordinate space
-const overlayBox = ref({ w: 0, h: 0 })
+// Per-LINE arc sets, keyed by the line index (data-li). Each line owns its own small SVG
+// overlay so the arcs paginate with their line when printing — a single sheet-wide absolute
+// SVG would only paint on the first page. { [li]: { paths: [{d,key}], w, h } }.
+const lineArcs = ref({})
 
 // One engraved tie: a filled lens (thin points at each note, thickest at the apex),
 // bowing above the digits — same look as NoteRow's arcs, drawn at line scale.
@@ -181,20 +196,37 @@ function buildArc(x1, x2, yTop, h) {
   return { d, key: `${x1.toFixed(0)}_${x2.toFixed(0)}_${yTop.toFixed(0)}` }
 }
 
+// NoteRow half-arcs we've hidden because the overlay replaces them — restored before every
+// re-measure so hide/draw never drift apart (a half only stays hidden while its overlay
+// arc is actually drawn; a wrapped tie we skip keeps both NoteRow halves as a fallback).
+let hiddenHalves = []
+function restoreHalves() {
+  for (const el of hiddenHalves) el.style.display = ''
+  hiddenHalves = []
+}
+function hideHalf(el) {
+  if (el) { el.style.display = 'none'; hiddenHalves.push(el) }
+}
+
 function measureTies() {
   const root = rootEl.value
-  if (!root) { tieArcs.value = []; return }
-  const rootRect = root.getBoundingClientRect()
-  if (!rootRect.width) { tieArcs.value = []; return } // no layout (unit tests / hidden)
-  const arcs = []
+  restoreHalves()
+  if (!root) { lineArcs.value = {}; return }
+  if (!root.getBoundingClientRect().width) { lineArcs.value = {}; return } // no layout (unit tests / hidden)
+  const byLine = {}
   root.querySelectorAll('.song-line').forEach((lineEl) => {
+    const li = lineEl.dataset.li
+    // measure relative to THIS line so the arcs live in the line's own SVG (prints per page)
+    const lr = lineEl.getBoundingClientRect()
     const nts = Array.from(lineEl.querySelectorAll('.note-row .nt'))
+    const arcs = []
     nts.forEach((nt, i) => {
       if (!nt.classList.contains('tie-end')) return
       const prev = nts[i - 1]
       if (!prev) return
       // within-segment tie (same NoteRow) — leave it to NoteRow, don't overlay
-      if (prev.closest('.segment') === nt.closest('.segment')) return
+      const srcSeg = prev.closest('.segment')
+      if (srcSeg === nt.closest('.segment')) return
       const a = prev.getBoundingClientRect()
       const b = nt.getBoundingClientRect()
       if (!b.width) return
@@ -202,15 +234,21 @@ function measureTies() {
       // the bar-group wrapped and the two notes fell onto different visual rows —
       // an arc between them would slash across the line, so skip (rare on A4 print)
       if (Math.abs(a.top - b.top) > h * 0.6) return
-      const x1 = a.left + a.width / 2 - rootRect.left
-      const x2 = b.left + b.width / 2 - rootRect.left
+      const x1 = a.left + a.width / 2 - lr.left
+      const x2 = b.left + b.width / 2 - lr.left
       if (x2 - x1 < 2) return // receiver left of / on top of source (wrapped) — no arc
-      const yTop = Math.min(a.top, b.top) - rootRect.top
+      const yTop = Math.min(a.top, b.top) - lr.top
       arcs.push(buildArc(x1, x2, yTop, h))
+      // hide the two NoteRow halves this overlay arc replaces: the receiver's end-half AND
+      // the source's start-half. The source's start-arc may sit on ANY note of its segment
+      // (e.g. "5~ - - -" marks the FIRST note, then holds) — a position-based CSS selector
+      // missed that, leaving a stray hook (B069/พี่เปา). Hiding by segment catches it.
+      hideHalf(nt.querySelector('.tie-end-arc'))
+      hideHalf(srcSeg && srcSeg.querySelector('.tie-start-arc'))
     })
+    if (arcs.length) byLine[li] = { paths: arcs, w: lr.width, h: lr.height }
   })
-  tieArcs.value = arcs
-  overlayBox.value = { w: rootRect.width, h: rootRect.height }
+  lineArcs.value = byLine
 }
 
 // Debounce with a short timer (fires reliably in every context, unlike rAF which is
@@ -241,6 +279,7 @@ onBeforeUnmount(() => {
     window.removeEventListener('beforeprint', measureTies)
   }
   clearTimeout(timer)
+  restoreHalves()
 })
 // Layer/content/transpose changes re-flow the notes → re-measure after the DOM settles.
 watch(
@@ -252,26 +291,26 @@ watch(
 
 <template>
   <div ref="rootEl" class="sheet-root" :class="[lyricsOnly ? 'sheet-mode-lyrics' : '', sn && !sc ? 'sheet-no-chord' : '']">
-    <!-- B069: one continuous arc per cross-bar tie, drawn over the whole sheet so it
-         spans the bar line (NoteRow can only draw within its own segment box). Positions
-         are measured from the rendered notes; px coords map 1:1 to the viewBox. -->
-    <svg
-      v-if="tieArcs.length"
-      class="tie-overlay"
-      :viewBox="`0 0 ${overlayBox.w} ${overlayBox.h}`"
-      :width="overlayBox.w"
-      :height="overlayBox.h"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <path v-for="a in tieArcs" :key="a.key" :d="a.d" />
-    </svg>
     <!-- Printed title — centered, above the song, on paper only (on screen the shell
          bar / Studio heading already show it). Owned here so it prints from ANY mode
          that renders the sheet (ดู or แผ่น), which is why P'Aim's ดู-mode print had none. -->
     <h1 v-if="songTitle" class="sheet-print-title">{{ songTitle }}</h1>
     <div v-for="(grp, gi) in renderGroups" :key="gi" class="song-section">
-    <div v-for="row in grp.lines" :key="row.li" v-show="!isEmptyLyricLine(row)" class="song-line" :class="{ 'song-line-lyrics': lineLyricsOnly(row.first) }">
+    <div v-for="row in grp.lines" :key="row.li" v-show="!isEmptyLyricLine(row)" :data-li="row.li" class="song-line" :class="{ 'song-line-lyrics': lineLyricsOnly(row.first) }">
+      <!-- B069: cross-bar ties as ONE continuous arc, drawn in this line's own overlay so
+           NoteRow's per-segment halves (hidden in JS) are replaced by a curve that spans the
+           bar line. Per-line (not sheet-wide) so it prints on whatever page the line lands. -->
+      <svg
+        v-if="lineArcs[row.li]"
+        class="tie-overlay"
+        :viewBox="`0 0 ${lineArcs[row.li].w} ${lineArcs[row.li].h}`"
+        :width="lineArcs[row.li].w"
+        :height="lineArcs[row.li].h"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path v-for="a in lineArcs[row.li].paths" :key="a.key" :d="a.d" />
+      </svg>
       <template v-for="(part, pi) in row.parts" :key="pi">
         <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}</span>
         <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
@@ -311,6 +350,8 @@ watch(
               <span v-else class="lyric">{{ seg.lyric }}&nbsp;</span>
             </template>
           </span>
+          <!-- B082: close the last bar of the line (only when it is a full measure). -->
+          <span v-if="part.closeRight && noteOn(row.first)" class="bar-line bar-close" aria-hidden="true"></span>
         </span>
       </template>
     </div>
@@ -331,10 +372,12 @@ watch(
 /* • between-block: lift note-bearing lines apart (songbook lyrics-only lines keep their own
      tight 2px spacing below, so they are excluded). */
 .sheet-root .song-line:not(.song-line-lyrics) { margin-bottom: 16px; }
-/* B069 — cross-bar tie overlay. Absolutely positioned over the sheet body so its arcs
-   can span across bar lines / segments; it never affects layout (pointer-events: none)
-   so measuring it can't feed back into a resize loop. Coloured with the note token. */
-.sheet-root { position: relative; }
+/* B069 — cross-bar tie overlay. One small SVG per line, absolutely positioned over that
+   line so its arcs can span across bar lines / segments; it never affects layout
+   (pointer-events: none) so measuring it can't feed back into a resize loop. The line is
+   the offset parent, so a printed page break carries each line's arcs with it. Coloured
+   with the note token. */
+.song-line { position: relative; }
 .tie-overlay {
   position: absolute;
   top: 0;
@@ -347,20 +390,11 @@ watch(
   fill: var(--note-blue);
   stroke: none;
 }
-/* The overlay redraws every tie whose receiving note leads a new segment (the cross-bar
-   case). Hide NoteRow's end-half for exactly those so we don't double up — a within-
-   segment tie (receiving note NOT first in its NoteRow) keeps NoteRow's arc untouched. */
-:deep(.note-row > .note-group:first-child > .nt.tie-end:first-child .tie-end-arc) {
-  display: none;
-}
-/* …and hide NoteRow's START-half of the SAME cross-bar tie (the held note is the LAST note
-   of its NoteRow). B069 only hid the end-half, so the source's start-half kept drawing UNDER
-   the overlay arc → two curves stacked (obvious in the narrow floating preview, subtler on
-   the wide sheet). The overlay already spans source→receiver, so the start-half is redundant;
-   a within-segment tie-start (NOT the last note) keeps NoteRow's arc untouched. */
-:deep(.note-row > .note-group:last-child > .nt.tie-start:last-child .tie-start-arc) {
-  display: none;
-}
+/* NoteRow's own start/end half-arcs for a cross-bar tie are hidden in JS (measureTies),
+   in lockstep with the overlay arc that replaces them — a position-based CSS selector
+   missed source hooks that sit on the FIRST note of a held segment ("5~ - - -"), leaving a
+   stray half (B069/พี่เปา). Doing it in JS also keeps hide + draw in sync so a wrapped tie
+   we skip falls back to NoteRow's two halves instead of showing a lone one. */
 /* Songbook reused-verse lines have no notes, so the note-row spacing (margin-bottom 20px)
    leaves them floating far apart. Pull them into a tight lyric block, like a hymn book. */
 .song-line-lyrics {

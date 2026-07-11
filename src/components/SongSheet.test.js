@@ -227,6 +227,52 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(wrapper.find('.song-line').exists()).toBe(true)
   })
 
+  // B082 — the LAST bar of a line gets a right closing barline (.bar-close) ONLY when it is a
+  // FULL measure. Mid-line bars are closed by the next bar's left barline; the final bar had
+  // none, so lines looked inconsistent (some closed, some open). Pickups / bars continued on
+  // the next line stay open. This is pure beat math, so it is testable without layout.
+  const barClose = (lines, timeSignature = '4/4') =>
+    mount(SongSheet, { props: { content: { key: 'C', timeSignature, lines }, mode: 'full' } })
+
+  it('B082: a line ending in a FULL bar (4/4) gets a closing barline', () => {
+    const w = barClose([[{ type: 'segment', chord: 'C', note: '1 2 3 4', lyric: 'ก' }]])
+    expect(w.findAll('.bar-close').length).toBe(1)
+  })
+
+  it('B082: a line ending in a SHORT bar (pickup / continued) is left open', () => {
+    const w = barClose([[{ type: 'segment', chord: 'C', note: '1 2 3', lyric: 'ก' }]]) // 3 of 4 beats
+    expect(w.findAll('.bar-close').length).toBe(0)
+  })
+
+  it('B082: the closing barline sits on the LAST bar only, not mid-line', () => {
+    // two full bars: only the final one is closed on the right (the first is closed by the
+    // second bar\'s own left barline, which the template already draws).
+    const w = barClose([
+      [
+        { type: 'segment', chord: 'C', note: '1 2 3 4', lyric: 'ก' },
+        { type: 'bar' },
+        { type: 'segment', chord: 'G', note: '5 6 5 4', lyric: 'ข' },
+      ],
+    ])
+    expect(w.findAll('.bar-close').length).toBe(1)
+  })
+
+  it('B082: a line ending in a Fine/end barline gets no duplicate closing line', () => {
+    const w = barClose([
+      [
+        { type: 'segment', chord: 'C', note: '1 2 3 4', lyric: 'ก' },
+        { type: 'end' },
+      ],
+    ])
+    expect(w.findAll('.bar-close').length).toBe(0) // the bar-final already closes it
+    expect(w.findAll('.bar-final').length).toBe(1)
+  })
+
+  it('B082: honours the time signature (3/4 full bar closes)', () => {
+    const w = barClose([[{ type: 'segment', chord: 'C', note: '1 2 3', lyric: 'ก' }]], '3/4')
+    expect(w.findAll('.bar-close').length).toBe(1)
+  })
+
   it('empty song does not throw and renders no lines', () => {
     const wrapper = mount(SongSheet, {
       props: { content: { key: 'C', timeSignature: '4/4', lines: [] }, mode: 'full' },
