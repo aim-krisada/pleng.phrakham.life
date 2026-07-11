@@ -900,13 +900,30 @@ function removeSegment(bar, si) {
 function addLine() {
   lines.value.push(newLine())
 }
+// B088: copy/delete a line must keep each verse's words aligned to the melody, the same way
+// B086 (move) does — words are a flat per-row syllables[] indexed by cumulative slot. Copy
+// duplicates the line's word slice; delete drops it; both across EVERY verse on the stanza.
 function copyLine(li) {
-  const copy = JSON.parse(JSON.stringify(lines.value[li]))
-  lines.value.splice(li + 1, 0, copy)
+  const s = stanzas.value[activeStanza.value]
+  const ls = s ? s.lines : lines.value
+  const start = lineSlotStart(ls, li)
+  const len = lineSlotLen(ls[li])
+  const copy = JSON.parse(JSON.stringify(ls[li]))
+  ls.splice(li + 1, 0, copy)
+  if (s && len > 0)
+    resliceRows(s.id, (p) => {
+      while (p.length < start + len) p.push('')
+      p.splice(start + len, 0, ...p.slice(start, start + len)) // duplicate this line's words
+    })
 }
 function removeLine(li) {
-  lines.value.splice(li, 1)
-  if (!lines.value.length) lines.value.push(newLine())
+  const s = stanzas.value[activeStanza.value]
+  const ls = s ? s.lines : lines.value
+  const start = lineSlotStart(ls, li)
+  const len = lineSlotLen(ls[li])
+  ls.splice(li, 1)
+  if (!ls.length) ls.push(newLine())
+  if (s && len > 0) resliceRows(s.id, (p) => p.splice(start, len)) // drop this line's words
 }
 // B086: slot span (flat syllable indices) a line occupies — advances by syllableSlots per
 // segment, matching slotStarts. Needed to carry each verse's words when a line moves.
@@ -914,6 +931,22 @@ function lineSlotLen(line) {
   let n = 0
   for (const bar of line.bars) for (const seg of bar.segments) n += syllableSlots(seg.note || '')
   return n
+}
+// B086/B088: flat-slot index where line `li` starts, and a helper to mutate every verse's
+// syllables[] on a stanza then trim trailing empties (parity with setRowLyricText/moveLine).
+function lineSlotStart(ls, li) {
+  let start = 0
+  for (let k = 0; k < li && k < ls.length; k++) start += lineSlotLen(ls[k])
+  return start
+}
+function resliceRows(stanzaId, mutate) {
+  for (const row of arrangement.value) {
+    if (row.stanza !== stanzaId) continue
+    const p = row.syllables.slice()
+    mutate(p)
+    while (p.length && !((p[p.length - 1] || '').trim())) p.pop()
+    row.syllables = p
+  }
 }
 // B086: move the active line up/down within the stanza AND carry every verse's words with
 // it. Words are a flat syllables[] per arrangement row, indexed by cumulative slot
@@ -928,8 +961,7 @@ function moveLine(dir) {
   const lj = li + dir
   if (lj < 0 || lj >= ls.length) return
   const i = Math.min(li, lj) // adjacent lines → the other is i + 1
-  let start = 0
-  for (let k = 0; k < i; k++) start += lineSlotLen(ls[k])
+  const start = lineSlotStart(ls, i)
   const lenI = lineSlotLen(ls[i])
   const lenJ = lineSlotLen(ls[i + 1])
   const end = start + lenI + lenJ
