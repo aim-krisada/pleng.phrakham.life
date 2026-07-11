@@ -24,9 +24,10 @@
 - **cleanup ค้าง:** ปิด dev server เก่า (:5315/:5372/:5376 อาจยังรัน) · worktree เก่า ~15
 
 ## ▶ RESUME (git-verified)
-- **ฐาน `studio-shell-redesign` HEAD = `b369a49`** = **317 test เขียว + build** (`npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'` · "1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก) · เสิร์ฟรอ P'Aim ที่ `192.168.1.124:5400`
-- 🎉 **live = deploy รอบ 6 (`1a3aa65` · verified bundle stamp)** · **main === base ตอน align รอบ 6** (base เดินหน้าแล้ว → deploy รอบ 7 = align main=base ใหม่ + push)
-- **รอขึ้น live รอบ 7 (ในฐาน b369a49):** DockKey §D polish + B079 export single-source · slur B076 โค้งไม่บิด · (ของรอบ 6 เดิมยังอยู่ครบ)
+- **ฐาน `studio-shell-redesign` = main HEAD = `71b8d8f`** = **317 test + build** · main===base อีกครั้ง (clean FF)
+- 🎉 **DEPLOY รอบ 7 = LIVE + verified (11 ก.ค. · `71b8d8f`)** — live footer stamp `71b8d8f*` (ยืนยัน bundle มี `71b8d8f` · ไม่มี `1a3aa65` เดิม) · `*` = CI build tree dirty (cosmetic · ไม่กระทบโค้ด · follow-up เล็ก)
+- **ขึ้น live รอบ 7:** DockKey §D polish + B079 export single-source · slur B076 โค้งไม่บิด · **หัวไทม์ไลน์ไม่ชิดขอบ (D6 · knob 13px)** · tester a11y infra · (ของรอบ 6 ครบ)
+- **pm7 ต่อ:** **จ่าย 2 สาย bug พี่เปา** (P'Aim สั่ง "หลัง deploy รอบ 7") → ตอนจ่าย ย้าย kanban พี่เปา 3 ตัว รอทำ→กำลังทำ (`สถานะบั๊ก/`)
 
 ## 🎯 PM session ปัจจุบัน = `pm7` (sprint รอบ 7 · pm4 รับต่อเป็น pm7 เอง ไม่ handoff · P'Aim 10 ก.ค.)
 - **กติกา (P'Aim 10 ก.ค.): เลข PM = เลข sprint/deploy รอบ** · pm4→รอบ6 · **pm7 = sprint รอบ 7**
@@ -69,5 +70,5 @@
 ## 🧹 cleanup (เมื่อสายปิด)
 worktree เก่า ~15 (`.claude/worktrees/` + `pleng-*`) · branch `claude/*` เยอะ · dev server `:5315`/`:5400` อาจยังรัน · `git worktree list` ดู
 
-**Deploy history:** รอบ2 `b44edbf` · รอบ3 `bbb3757` · รอบ4 `c9a0cf8` · รอบ5 `1535e1f` · **รอบ6 `1a3aa65` = live**
+**Deploy history:** รอบ2 `b44edbf` · รอบ3 `bbb3757` · รอบ4 `c9a0cf8` · รอบ5 `1535e1f` · รอบ6 `1a3aa65` · **รอบ7 `71b8d8f` = live (11 ก.ค.)**
 **env:** GitHub `OneDrive/4 Personal/claude/.env` → `GITHUB_TOKEN_PLENG` (source ก่อน · repo public) · Supabase `SUPABASE_*_PLENG` · main อยู่ worktree `pleng-natural-tie`
