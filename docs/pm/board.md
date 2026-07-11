@@ -45,6 +45,8 @@
 - **เช็ก `git branch --show-current` ก่อน commit ทุกครั้ง** (spawn_task สลับ branch main dir ใต้มือ · ดู memory)
 
 ## 📥 inbox (รายงานเข้า → pm7 อ่าน)
+- **🆕 สาย B — B081 พรีวิว "ดูผลทั้งเพลง" กระดาษล้น** `fix-editor-preview-overflow` (EditorMode.vue เท่านั้น +28/−12 · ยังไม่ push) — ✅ เปลี่ยนจาก nowrap+max-content (ต้นเหตุล้น) เป็น **render ที่สัดส่วน A4 print (178mm:1rem=42.05) แล้วย่อพอดีหน้าต่างด้วย font-size** (`container-type`+`100cqw`+`scrollbar-gutter:stable`) → wrap เหมือนกระดาษ · **ไม่มี h-scroll · ไม่ตัดคอลัมน์** · ย่อ font (ไม่ใช่ transform) → B069 tie overlay ไม่เพี้ยน · verify Browser MCP เพลง 1+4 (เดสก์ท็อป ~1:1 · มือถือ 360px no h-scroll · ratio คงที่ทุกความกว้าง) · 317 test + build + console 0 · **ค้าง: P'Aim print PDF จริงเทียบ (AC2 gate)** · report `docs/reports/editor-preview-overflow.md` · ⛔ รอ pm7 → tester
+  - **ข้อสังเกตให้สาย A:** ฐานรอบ 7 นี้ ไทข้ามห้องในพรีวิวลอย render โค้งเดียวถูกแล้ว (NoteRow start+end ซ่อนครบ · 0 doubled)
 - **✅ MERGED เข้าฐาน b369a49 แล้ว (pm7 11 ก.ค. บ่าย):** DockKey §D polish+B079 (`84f0b38`) · slur B076 (`c845183`) · tester a11y infra (`b369a49`) — ดู §▶▶ ด้านบน
   - **follow-up ค้างจาก B076:** P'Aim ควร print PDF จริง (verify print/PDF จาก PDF ไม่ใช่ DOM — memory) · **B069 cross-bar overlay (SongSheet คนละกลไก) ยังไม่ตรวจ** · detail `docs/reports/slur-bezier.md`
 

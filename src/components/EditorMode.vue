@@ -2331,7 +2331,13 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         <button class="ed-float-x" aria-label="ปิดหน้าต่างแผ่นเพลง" title="ปิด" @click="sheetWinOpen = false"><Icon name="x" :size="16" /></button>
       </div>
       <div class="ed-float-body">
-        <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
+        <!-- B081: render at the REAL A4 printable width (178mm : 1rem ratio) so bars wrap
+             exactly like the printed page. The .ed-float-page is scaled to fit the window
+             (font-size, not transform → keeps SongSheet's tie overlay measuring real px),
+             so there is no horizontal scroll and no clipped column. -->
+        <div class="ed-float-page">
+          <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
+        </div>
       </div>
       <!-- resize by dragging this bottom-right corner (desktop only; mobile is full-screen) -->
       <div
@@ -2792,8 +2798,10 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   top: 72px;
   right: 16px;
   z-index: 95;
-  width: min(440px, calc(100vw - 32px));
-  max-height: min(70vh, calc(100vh - 96px));
+  /* B081: wide enough to show the A4 page at ~1:1 on desktop (pixel-exact vs print);
+     narrower screens scale the page down (see .ed-float-page). */
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(80vh, calc(100vh - 96px));
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -2833,15 +2841,23 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   cursor: pointer;
 }
 @media (hover: hover) { .ed-float-x:hover { background: var(--cream); border-color: var(--brand); } }
-.ed-float-body { padding: 12px; overflow: auto; flex: 1 1 auto; min-height: 0; }
-/* Bug1 (P'Aim): the floating "ดูผลทั้งเพลง" preview must show the FINAL line breaks 1:1 so
-   he can check how the song lays out. Lock each song line to ONE row — never re-wrap at bar
-   boundaries when the window is resized. Narrow window → scroll horizontally (body overflow
-   already auto) instead of reflowing. Scoped to .ed-float only; the sheet/sing views keep
-   their responsive bar-wrap (global .song-line { flex-wrap: wrap }). sheet-root grows to its
-   content so the tie overlay's viewBox still matches the full width. */
-.ed-float-body :deep(.sheet-root) { width: max-content; min-width: 100%; }
-.ed-float-body :deep(.song-line) { flex-wrap: nowrap; }
+/* B081 (พี่เปา): the floating "ดูผลทั้งเพลง" preview must show WHAT PRINTS — bars wrap at the
+   A4 page edge exactly like paper, never a horizontal scroll with a clipped right column.
+   The old approach (nowrap + max-content) forced one long row per line → overflow. Instead
+   render the SongSheet at the real print ratio and scale-to-fit the window:
+   • container-type on the body → 100cqw == the body's content width (inside the 12px pad).
+   • .ed-float-page width = 100cqw, so it always fills the window (no h-scroll).
+   • font-size = 100cqw / 42.05 keeps the print width:font ratio (178mm printable ÷ 1rem
+     base = 672.76px ÷ 16px ≈ 42.05). Because the sheet is em-based, scaling the font scales
+     every bar the same, so line breaks match A4 print at ANY window width. Scaling via
+     font-size (not transform/zoom) keeps SongSheet's B069 tie overlay measuring real px.
+   The global .song-line { flex-wrap: wrap } (styles.css) then wraps bars like the printed page. */
+/* scrollbar-gutter:stable reserves the vertical scrollbar's width up front, so 100cqw is the
+   real available width and the page can't end up a scrollbar-width too wide (that stray ~15px
+   was the only horizontal scroll left). max-width:100% is the belt-and-suspenders cap for
+   engines without scrollbar-gutter. */
+.ed-float-body { padding: 12px; overflow: auto; flex: 1 1 auto; min-height: 0; container-type: inline-size; scrollbar-gutter: stable; }
+.ed-float-page { width: 100cqw; max-width: 100%; font-size: calc(100cqw / 42.05); }
 /* resize grip (bottom-right corner) — the diagonal lines are the standard resize affordance.
    Sits above the scrolling body so it stays grabbable. Desktop only (v-if hides it on mobile). */
 .ed-float-resize {
