@@ -1829,10 +1829,13 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
           @drop.prevent="onRowDrop(ri)"
           @dragend="onRowDragEnd"
         >
+          <!-- pointer-only drag handle (touch). Keyboard/AT reorder = the ▲▼ buttons below,
+               so the grip is aria-hidden — a role=button here would advertise an activation
+               that Enter/Space can't perform (WCAG 4.1.2 / 2.1.1). -->
           <span
             class="grip"
             title="ลากเพื่อจัดลำดับ"
-            aria-label="จับลากเพื่อจัดลำดับท่อน"
+            aria-hidden="true"
             @pointerdown="onGripPointerDown(ri, $event)"
             @click.stop
           ><Icon name="grip-vertical" :size="16" /></span>
