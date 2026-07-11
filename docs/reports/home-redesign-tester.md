@@ -15,7 +15,7 @@
 | ไม่มี facet-row (unverified/theme) | ✅ | 0 facet/filter-row |
 | ค้นหาโชว์เฉพาะ verified | ✅ | ค้น "พระ" → **0 ผลลัพธ์** (เพราะ 0 verified) |
 | ไม่ crash | ✅ | #app render ปกติ · console 0 error |
-| 375px h-overflow 0 · a11y | ✅ | hOverflow=0 (emulate สะอาด 375=375) · **axe 0 violation** |
+| h-overflow 0 ครบ **3 breakpoint** · a11y | ✅ | **375=0 · 768=0 · 1280=0** (P'Aim สั่งครบ 3 จอ) · gate ยัง hold ทุกจอ (msg/no-badge/no-facet) · **axe 0 violation** @375 |
 | vitest | ✅ | **342 passed** (1 failed file = notationLint quirk เดิม) |
 
 ### ⚠️ team (ล็อกอิน) + จัดกลุ่ม 3 เล่ม = ยืนยันไม่ได้
