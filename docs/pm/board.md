@@ -34,7 +34,8 @@
 - **ฐาน `studio-shell-redesign` = main HEAD = `71b8d8f`** = **317 test + build** · main===base อีกครั้ง (clean FF)
 - 🎉 **DEPLOY รอบ 7 = LIVE + verified (11 ก.ค. · `71b8d8f`)** — live footer stamp `71b8d8f*` (ยืนยัน bundle มี `71b8d8f` · ไม่มี `1a3aa65` เดิม) · `*` = CI build tree dirty (cosmetic · ไม่กระทบโค้ด · follow-up เล็ก)
 - **ขึ้น live รอบ 7:** DockKey §D polish + B079 export single-source · slur B076 โค้งไม่บิด · **หัวไทม์ไลน์ไม่ชิดขอบ (D6 · knob 13px)** · tester a11y infra · (ของรอบ 6 ครบ)
-- **pm7 ต่อ:** **จ่าย 2 สาย bug พี่เปา** (P'Aim สั่ง "หลัง deploy รอบ 7") → ตอนจ่าย ย้าย kanban พี่เปา 3 ตัว รอทำ→กำลังทำ (`สถานะบั๊ก/`)
+- **pm7 ต่อ (P'Aim สั่ง 11 ก.ค. เย็น):** รอ tester ผ่าน **2 สาย** (B081 พรีวิว · B082+B069 SongSheet) → **merge ทั้งคู่เข้าฐาน** (คนละไฟล์ EditorMode/SongSheet → clean · git-verify + rerun test) → **เสิร์ฟ (--host) ให้ P'Aim print เช็ก** (เพลง 3 ไท · เพลง 4 เส้นปิด · เพลงยาวหลายหน้า — verify จาก PDF จริง) → P'Aim go → **deploy รอบ 8** → ย้าย kanban พี่เปา B081/B082/B069 → เสร็จแล้ว
+- **หลัง deploy รอบ 8:** จ่าย B083 dev (melody-pairing · mockup เคาะแล้ว · Q1 พรีวิวโน้ต/Q2 Intl.Segmenter/Q3 เตือนไม่บล็อก · ฐานอัปเดตหลัง B081 merge แล้ว ไม่ชน EditorMode)
 
 ## 🎯 PM session ปัจจุบัน = `pm7` (sprint รอบ 7 · pm4 รับต่อเป็น pm7 เอง ไม่ handoff · P'Aim 10 ก.ค.)
 - **กติกา (P'Aim 10 ก.ค.): เลข PM = เลข sprint/deploy รอบ** · pm4→รอบ6 · **pm7 = sprint รอบ 7**
