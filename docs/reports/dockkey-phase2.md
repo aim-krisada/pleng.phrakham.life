@@ -39,7 +39,7 @@ merge `studio-shell-redesign` (ขยับ 33 commit: audioExport MP3 lib · B0
 1. **Aa หน้าแก้ไข (DS Q2):** **ถอดออก** — หน้าแก้ไขเป็นฟอร์ม row1 เหลือ `[grip·ย้อน·ทำซ้ำ·ฟัง·⚙]` (เลือกตามตัวเลือกที่ DS เปิดไว้) · หน้าฝึกร้อง+แผ่นเพลงมี Aa
 2. **"ดูผลทั้งเพลง" (DS Q3):** เพิ่ม toggle ใน ⚙ หน้าแก้ไข (wired กับ `sheetWinOpen` เดิม) · **คงปุ่มเดิมที่หัวไว้ด้วย** = ไม่ regress · ถ้าพี่เอมอยากให้เหลือที่เดียวบอกได้
 3. **แบบแผ่น/แสดงผล/คีย์ หน้าพิมพ์ (DS Q1/Q4):** ใส่ครบใน ⚙ (default = พฤติกรรมเดิม) · ผู้ใช้ปรับได้ · export menu มี PDF ซ้ำกับปุ่มพิมพ์ prime (พิมพ์=ด่วน · export=เมนูรวม) — ตั้งใจ
-4. **StudioDock.vue** = retired (ไม่ mount) แต่ไม่ลบไฟล์/เทสต์ กันกระทบ base 275 · ลบจริงเป็น cleanup รอบหลังได้
+4. **StudioDock.vue** = **ลบทิ้งแล้ว** (P'Aim สั่ง 11 ก.ค. · `6ff9b1e`) — ไม่มีใคร mount แล้ว · ลบไฟล์ + StudioDock.test.js + stub ในเทสต์ EditorMode · **284 test** (จาก 300 −16 = เทสต์ StudioDock เอง) · build ผ่าน
 
 ## รอบเสริม — MP3/export ครบ 3 หน้า (pm4 tip · re-sync b2ffbab)
 pm4 แจ้ง: สาย `mp3-dock-wire` merged เข้าฐาน (`b2ffbab`) ก่อนคำสั่งยกเลิก = มี MP3 item ใน `SongViewer.settingDescs` แล้ว → ให้ carry เข้า DockKey descriptor
