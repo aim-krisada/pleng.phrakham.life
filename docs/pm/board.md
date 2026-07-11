@@ -81,5 +81,5 @@
 ## 🧹 cleanup (เมื่อสายปิด)
 worktree เก่า ~15 (`.claude/worktrees/` + `pleng-*`) · branch `claude/*` เยอะ · dev server `:5315`/`:5400` อาจยังรัน · `git worktree list` ดู
 
-**Deploy history:** รอบ2 `b44edbf` · รอบ3 `bbb3757` · รอบ4 `c9a0cf8` · รอบ5 `1535e1f` · รอบ6 `1a3aa65` · **รอบ7 `71b8d8f` = live (11 ก.ค.)**
+**Deploy history:** รอบ4 `c9a0cf8` · รอบ5 `1535e1f` · รอบ6 `1a3aa65` · รอบ7 `71b8d8f` · **รอบ8 `e83afe7` = pushed (11 ก.ค. · B069 ไทข้ามห้อง + B082 เส้นปิดห้อง + B081 พรีวิว · P'Aim print-approved · รอ live verify)**
 **env:** GitHub `OneDrive/4 Personal/claude/.env` → `GITHUB_TOKEN_PLENG` (source ก่อน · repo public) · Supabase `SUPABASE_*_PLENG` · main อยู่ worktree `pleng-natural-tie`
