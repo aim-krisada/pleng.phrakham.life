@@ -66,6 +66,9 @@ const segments = computed(() => {
     return { left, width: Math.max(0, right - left), picked: m.picked, active: m.active }
   })
 })
+// D5: a visible divider at every section boundary (each segment start except the first) so
+// a 2-section song clearly reads as 2 parts, not one bar.
+const dividers = computed(() => segments.value.slice(1).map((s) => s.left))
 
 // ---------- scrub (tap/drag the bar = วิ่งไปทันที) ----------
 const seekEl = ref(null)
@@ -143,8 +146,9 @@ const items = computed(() => {
             :key="i"
             class="st-seg"
             :class="{ on: s.picked, cur: s.active }"
-            :style="{ left: s.left * 100 + '%', width: `calc(${s.width * 100}% - 3px)` }"
+            :style="{ left: s.left * 100 + '%', width: `calc(${s.width * 100}% - 4px)` }"
           ></span>
+          <span v-for="(d, i) in dividers" :key="'d' + i" class="st-div" :style="{ left: d * 100 + '%' }"></span>
           <span class="st-kn" :style="{ left: pct }"></span>
         </span>
         <span class="st-time">{{ totalLabel }}</span>
@@ -229,16 +233,19 @@ const items = computed(() => {
 /* ===== ไทม์ไลน์ ===== */
 /* natural-width timeline cell (no stretch) so it can't be squeezed and overflow into คีย์ (B1) */
 .st-seekwrap { display: inline-flex; align-items: center; gap: 8px; padding-right: 4px; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-/* fixed, usable timeline width; the fit-content dock hugs it + the คีย์/ท่อน cells */
+/* fixed, usable timeline width; the fit-content dock hugs it + the คีย์/ท่อน cells.
+   Narrower on a phone so row 2 (timeline·คีย์·ท่อน) fits the viewport-capped dock (no overflow). */
 .st-seek { position: relative; flex: 0 0 200px; width: 200px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+@media (max-width: 760px) { .st-seek { flex-basis: 150px; width: 150px; } }
 .st-time { flex: 0 0 auto; }
-.st-trk { position: absolute; left: 0; right: 0; height: 4px; background: var(--line); border-radius: 3px; top: 50%; transform: translateY(-50%); }
-/* B2: NO progress fill — the fill spanned 0→now in brand and masqueraded as a 2nd selected
-   section over unselected sections. The selection is carried ONLY by the section bars
-   (selected = brand · skipped = grey); position is the single knob. */
-.st-seg { position: absolute; height: 5px; top: 50%; transform: translateY(-50%); border-radius: 3px; background: var(--line); pointer-events: none; transition: height 0.1s; }
+.st-trk { position: absolute; left: 0; right: 0; height: 4px; background: #ece5d9; border-radius: 3px; top: 50%; transform: translateY(-50%); }
+/* B2: NO progress fill (it masqueraded as selection). Selection = the section bars only:
+   skipped = a visible mid-grey (distinct from the track) · selected = brand · current = taller. */
+.st-seg { position: absolute; height: 6px; top: 50%; transform: translateY(-50%); border-radius: 3px; background: #c7bba6; pointer-events: none; transition: height 0.1s; }
 .st-seg.on { background: var(--brand); }
-.st-seg.cur { height: 9px; }
+.st-seg.cur { height: 10px; }
+/* D5: a clear tick at every section boundary so 2 ท่อน read as 2 parts, not one bar */
+.st-div { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 2px; height: 16px; background: #fff; border-radius: 1px; z-index: 2; pointer-events: none; }
 .st-kn { position: absolute; width: 16px; height: 16px; background: var(--brand); border: 3px solid #fff; border-radius: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); pointer-events: none; z-index: 3; }
 
 /* ===== popovers (slot-rendered · anchor to the DOCK right edge = same spot as every popup · §A) ===== */

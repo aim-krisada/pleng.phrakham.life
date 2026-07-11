@@ -1322,8 +1322,10 @@ const editItems = computed(() => [
   { id: 'grip', kind: 'grip', name: 'ย้าย/ย่อ', place: { anchor: 'left', row: 1 } },
   { id: 'undo', kind: 'btn', name: 'ย้อน', icon: 'undo-2', place: { anchor: 'rightOf:grip', row: 1 }, run: undo, disabled: !canUndo.value },
   { id: 'redo', kind: 'btn', name: 'ทำซ้ำ', icon: 'redo-2', place: { anchor: 'rightOf:undo', row: 1 }, run: redo, disabled: !canRedo.value },
-  { id: 'play', kind: 'play', name: 'ฟังท่อน ' + activeStanzaId.value, place: { anchor: 'rightOf:redo', row: 1 }, run: playStanza, hidden: playing.value, control: { value: false } },
-  { id: 'stop', kind: 'btn', name: 'หยุด', icon: 'square', danger: true, place: { anchor: 'rightOf:redo', row: 1 }, run: stopAll, hidden: !playing.value },
+  // D4: the two "listen" controls sit side-by-side, so each carries a distinct label +
+  // icon — ▶ ฟังท่อน (the stanza being edited) vs ◉ ฟังทั้งเพลง (the whole arrangement).
+  { id: 'play', kind: 'btn', name: 'ฟังท่อน ' + activeStanzaId.value, label: 'ฟังท่อน', icon: 'play', place: { anchor: 'rightOf:redo', row: 1 }, run: playStanza, hidden: playing.value },
+  { id: 'stop', kind: 'btn', name: 'หยุด', label: 'หยุด', icon: 'square', danger: true, place: { anchor: 'rightOf:redo', row: 1 }, run: stopAll, hidden: !playing.value },
   { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
   { id: 'save', kind: 'btn', name: saveLabel.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
   { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', place: { row: 2, col: 3 }, run: playFull, hidden: playing.value },
