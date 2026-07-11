@@ -31,7 +31,9 @@ idea (backlog.md · SI.2)
   → dev: build ตาม DS+prototype+ui-standards + test        [SI.4 construction]
   → 🚦 GATE 2 (TESTER · บังคับทุก UI): axe-core + no-scroll + target-size (automate)
             + ตรวจ checklist ฟีเจอร์ + ui-standards ทุกข้อ → เซ็น `*-tester.md` (✓/✗)
-            ✗ = กลับ dev · ✓ ครบ = ส่ง PM
+            ✗ Tier-A (axe/tests) = **auto-loop `fix-verify-loop` (workflow · ≤3 รอบ · กัน infinite)** วนแก้-ตรวจเอง
+                · ครบ 3 ยังไม่ผ่าน = escalate PM · Tier-B (จอจริง: no-scroll/target/contrast) = gate มือท้าย (subagent ไม่มีเบราว์เซอร์)
+            ✓ ครบ = ส่ง PM
   → 🚦 GATE 3 (PM · DoD): git-verify scope/fence · test เขียว · build · checklist ครบ
   → 🚦 GATE 4: P'Aim ตรวจ (เกือบ 100% แล้ว · แค่ทิศทาง)                [SI.5 test/review]
   → PM merge เข้า base (studio-shell-redesign)              [SI.6 config/integration]
