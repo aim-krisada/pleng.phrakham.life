@@ -75,6 +75,14 @@ pm4 แจ้ง: สาย `mp3-dock-wire` merged เข้าฐาน (`b2ffb
 - แก้ไข: export ghost · band แป้นโน้ต 21 · setting ไม่มีหัว/ไม่มี h-scroll
 - **300 test · build ผ่าน**
 
-**DoD checklist:** vitest+build ✓ · dev `--host` **Network URL ใหม่ `http://192.168.1.124:5315`** ✓ · verify DOM ทุกข้อ ✓ · **⛔ ยังไม่ให้ P'Aim ดู — tester ตรวจ checklist ก่อน** (screenshot MCP timeout · ตรวจด้วย getBoundingClientRect/computed-style + prototype แทน)
+### รอบ tester (pm7) — a11y + Tier-B
+- [x] **axe critical `aria-required-children` (WCAG 4.1.2):** `.dk-panel` เป็น**ฟอร์ม**ไม่ใช่ menu (ลูก = controls) → `role="menu"` → **`role="group"`** (dropdown จริง `.dk-dd` คง `role="menu"` = ถูก) · `867b287`
+- [x] **Tier-B fit (มือถือ):** ▲▼ เดิมโชว์ทุกแถว (disabled ตอนไม่ปัก) ดันแถวเกิน 55px บนจอ 375 = h-overflow → **โชว์ ▲▼ เฉพาะ item ที่ปัก** → panel fit ไม่มี scroll
+- [x] **Tier-B verify สด 3 breakpoint** (`--host` · 375/768/1280): ทุก popover **on-screen + ชิดขวา + ไม่มี v/h scroll** · **tap target 44px** · dock hug (≥แท็บเล็ต) · console 0 error
+  - มือถือ 375: setting hScroll 0 · on-screen (ขวา 16px) · dock 359 (เต็มกว้าง)
+  - แท็บเล็ต 768: dock 386 hug · popover ทั้ง 5 on-screen · minTap 44
+  - เดสก์ท็อป 1280: dock 386 hug · setting ชิด dock ขวา 9px · hScroll 0
+
+**DoD checklist:** vitest **284** + build ✓ · dev `--host` **`http://192.168.1.124:5315`** ✓ · Tier A (axe/popup/focus) + Tier B (no-scroll/target-size/clamp 3 จอ) verify แล้ว ✓ · **⛔ ยังไม่ให้ P'Aim ดู — ส่ง tester ตรวจซ้ำก่อน** (screenshot MCP timeout · ตรวจด้วย getBoundingClientRect/computed-style + prototype)
 
 ## ⛔ ห้าม merge/deploy เอง — รอ PM ตรวจ DoD + P'Aim gate LAN 3 หน้า (โดยเฉพาะหน้าแก้ไข)
