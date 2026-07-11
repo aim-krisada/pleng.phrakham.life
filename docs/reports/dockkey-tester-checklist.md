@@ -6,6 +6,32 @@
 
 ---
 
+## ✅✅ FINAL VERIFY (dockkey-dev `867b287`/`d44aa35`) = เขียวครบ พร้อม P'Aim
+dev แก้ `role="menu"`→`role="group"` แล้ว · ผมตรวจ **Tier-A auto + Tier-B วัดจริงในเบราว์เซอร์ 3 breakpoint (375/768/1280)** บนหน้าฝึกร้อง (`5315`)
+
+**Tier-A (npm test):** DockKey.invariants **7/7 เขียว** (aria-required-children หายแล้ว · caret 0 · header prose 0 · single-popup · Esc)
+
+**Tier-B (วัดจริง · 375 / 768 / 1280):**
+| เช็ก | 375 | 768 | 1280 |
+|---|---|---|---|
+| axe WCAG A/AA | 0 | 0 | 0 |
+| caret บนปุ่มเปิด popup (B9) | 0 | 0 | 0 |
+| ปุ่มแถบ ≥44px | ✅ ครบ 9 | ✅ | ✅ |
+| ปุ่มใน Setting (switch/📌) ≥24px (2.5.8 AA) | ✅ 42×24 / 27×44 | ✅ | ✅ |
+| Setting no-scroll (x,y) | 0,0 | 0,0 | 0,0 |
+| Setting on-screen (clamp) | ✅ 8→359 | ✅ | ✅ |
+| Setting ชิดขวา dock (§A) | — | — | ✅ gap 9 |
+| Setting header prose (B11) | ว่าง | ว่าง | ว่าง |
+| dock อยู่ในจอ ไม่ล้น (375 fix) | ✅ 8→367 | ✅ | ✅ |
+| B1 timeline ไม่ทับปุ่มคีย์ | — | — | ✅ |
+| button hierarchy (ไม่มีปุ่มเดียวโดดสี) | — | — | ✅ ไม่มี filled |
+| B4 ตัด "ไม่เลือก=ทั้งเพลง" | ✅ ไม่มี | | |
+| B5 หัว "เลือกท่อนที่จะฟัง" | ✅ | | |
+
+**VERDICT = ✅ ผ่านครบ** (Tier-A 7/7 + Tier-B 3 breakpoint · a11y 0 · geometry ครบ · §A/§B ที่วัดได้เขียวหมด) → **พร้อม P'Aim** · ปุ่มใน Setting 24–27px = ตรง WCAG 2.5.8 AA (ต่ำกว่าเป้า 44 แต่เป็น secondary ใน popup · ถ้า P'Aim อยากใหญ่กว่าคือ preference ไม่ใช่ defect)
+
+---
+
 ## 🔄 RE-VERIFY (dockkey-dev HEAD `7fb616b` · dev แก้ checklist รอบ 11 ก.ค.)
 dev รายงานแก้ checklist ครบ · ผม re-run auto-spec → **2 ใน 3 แดงหายแล้ว · เหลือ 1 critical:**
 - ✅ **B9 caret หาย** — ไม่มี `.dk-caret`/chevron-down บนปุ่ม menu แล้ว (auto pass)
