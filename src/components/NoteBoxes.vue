@@ -100,11 +100,23 @@ function onKey(i, e) {
   } else if (e.key === 'ArrowLeft' && el.selectionStart === 0 && i > 0) {
     e.preventDefault()
     focusBox(i - 1)
-  } else if (e.key === 'Backspace' && el.value === '' && boxes.value.length > 1) {
+  } else if (e.key === 'Backspace' && el.selectionStart === 0 && el.selectionEnd === 0 && i > 0) {
+    // At the very start, Backspace merges this box into the previous one (like the lyric
+    // box) — so it also removes an empty box and steps back, as before.
     e.preventDefault()
+    const prevLen = (boxes.value[i - 1] ?? '').length
+    boxes.value[i - 1] = (boxes.value[i - 1] ?? '') + el.value
     boxes.value.splice(i, 1)
     sync()
-    focusBox(i - 1)
+    focusBox(i - 1, prevLen)
+  } else if (e.key === 'Delete' && el.selectionStart === el.value.length && el.selectionEnd === el.value.length && i < boxes.value.length - 1) {
+    // At the very end, Delete pulls the next box in (like the lyric box).
+    e.preventDefault()
+    const curLen = el.value.length
+    boxes.value[i] = el.value + (boxes.value[i + 1] ?? '')
+    boxes.value.splice(i + 1, 1)
+    sync()
+    focusBox(i, curLen)
   }
 }
 

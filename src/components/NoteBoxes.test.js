@@ -90,10 +90,39 @@ describe('NoteBoxes — unchanged behaviours still hold', () => {
 
   it('Backspace on an empty box removes it and steps back', async () => {
     const w = mountT('1 2')
-    inputs(w)[1].element.value = ''
+    const el = inputs(w)[1].element
+    el.value = ''
+    el.focus()
+    el.setSelectionRange(0, 0)
     await inputs(w)[1].trigger('keydown', { key: 'Backspace' })
     await nextTick()
     expect(inputs(w).map((n) => n.element.value)).toEqual(['1'])
+    w.unmount()
+  })
+
+  it('Backspace at the START of a non-empty box merges it into the previous (like lyric)', async () => {
+    const w = mountT('1 23')
+    const el = inputs(w)[1].element
+    el.focus()
+    el.setSelectionRange(0, 0) // caret before "23"
+    await inputs(w)[1].trigger('keydown', { key: 'Backspace' })
+    await nextTick()
+    expect(inputs(w).map((n) => n.element.value)).toEqual(['123'])
+    expect(document.activeElement).toBe(inputs(w)[0].element)
+    expect(inputs(w)[0].element.selectionStart).toBe(1) // caret at the merge boundary
+    w.unmount()
+  })
+
+  it('Delete at the END of a box pulls the next box in (like lyric)', async () => {
+    const w = mountT('12 3')
+    const el = inputs(w)[0].element
+    el.focus()
+    el.setSelectionRange(2, 2) // caret after "12"
+    await inputs(w)[0].trigger('keydown', { key: 'Delete' })
+    await nextTick()
+    expect(inputs(w).map((n) => n.element.value)).toEqual(['123'])
+    expect(document.activeElement).toBe(inputs(w)[0].element)
+    expect(inputs(w)[0].element.selectionStart).toBe(2) // caret stays at the boundary
     w.unmount()
   })
 
