@@ -19,7 +19,11 @@
   - **P'Aim เคาะ (11 ก.ค.):** เสนอเพิ่มกรอบรอบ timeline → **ไม่ทำ** (PM เตือน nested-border ซ้อนในการ์ดที่มีกรอบแล้ว = ขัด minimalist · slider มาตรฐานไม่มีกรอบ · บันทึกใน ui-standards) → **สั่ง "รอ tester ผ่าน แล้ว deploy รอบ 7 เลย"** (pre-authorized deploy · contingent tester PASS)
   - **pm7 ต่อ (สำคัญ):** tester PASS → merge fix เข้าฐาน → **deploy รอบ 7** (align main=base + push · P'Aim สั่งแล้ว) → รายงาน version จริง vs live footer · ถ้า tester FAIL → หยุด แจ้ง P'Aim
 - 🟢 ขนาน (ไม่บล็อก deploy): **SA interlinear ≥3 ภาษา** (mockup รอ P'Aim เคาะ) · **B080 expert standards** · Amazing Grace ในคลัง (พี่เปาฟังเช็ก)
-- **📌 คิวถัดไป (P'Aim สั่ง 11 ก.ค.: "รอ deploy รอบ 7 จบก่อน แล้วค่อยจ่าย 2 สาย"):** bug พี่เปา 3 ตัว (วิเคราะห์+เก็บรูป+ลง backlog แล้ว) → **สาย A = B082 (เส้นปิดห้องท้ายบรรทัด) + B069 (ไทข้ามห้อง)** ทั้งคู่แตะ `SongSheet.vue` รวมสาย/เรียงคิว · **สาย B = B081 (พรีวิว "ดูผลทั้งเพลง" กระดาษล้น)** `EditorMode.vue` คนละไฟล์ · **ห้ามจ่ายก่อน deploy รอบ 7 ลง** · ทั้ง 3 verify print PDF จริง
+- **✅ จ่าย 2 สาย bug พี่เปาแล้ว (11 ก.ค. บ่าย · หลัง deploy รอบ 7):**
+  - **สาย A** = B082 (เส้นปิดห้องท้ายบรรทัด) + B069 (ไทข้ามห้อง) · `SongSheet.vue` · branch `fix-songsheet-barline-tie` · → dev `local_3e1ae3ed` (SongSheet finishing · เจ้าของ B069) · brief `brief-songsheet-barline-tie.md`
+  - **สาย B** = B081 (พรีวิว "ดูผลทั้งเพลง" กระดาษล้น) · `EditorMode.vue` · branch `fix-editor-preview-overflow` · → dev `local_bbeeb02f` (บั๊กพรีวิว) · brief `brief-editor-preview-overflow.md`
+  - ⚠️ 2 สายห้ามแตะไฟล์ของกัน (A=SongSheet · B=EditorMode) · ทั้งคู่ **verify print PDF จริง** · รอ dev → tester → merge → deploy รอบ 8
+  - kanban พี่เปา 3 ตัว ย้าย **รอทำ→กำลังทำ** แล้ว (`สถานะบั๊ก/2-กำลังทำ/`)
 - **📊 kanban พี่เปา (P'Aim 11 ก.ค.):** สถานะ bug พี่เปา mirror เป็น folder ให้พี่เปาเห็นเองที่ `OneDrive/4 Personal/pleng.phrakham.life/pleng2-pow-bug-report/สถานะบั๊ก/` (3 ช่อง `1-รอทำ`/`2-กำลังทำ`/`3-เสร็จแล้ว`) · **PM ต้องย้ายโฟลเดอร์บั๊กไปช่องถัดไปทุกครั้งที่สถานะเปลี่ยน** (จ่าย=→กำลังทำ · deploy ขึ้น live=→เสร็จแล้ว) + อัปเดต `อ่านตรงนี้-สถานะบั๊ก.md` · ตอนนี้ 3 ตัวอยู่ `1-รอทำ`
 - **cleanup ค้าง:** ปิด dev server เก่า (:5315/:5372/:5376 อาจยังรัน) · worktree เก่า ~15
 
