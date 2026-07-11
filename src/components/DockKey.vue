@@ -108,12 +108,25 @@ const row2 = computed(() =>
   visible.value.filter((i) => i.place?.row === 2).slice().sort((a, b) => (a.place.col || 0) - (b.place.col || 0)),
 )
 const pinnedItems = computed(() => pins.value.map(byId).filter(Boolean))
+// a "plain button row" = no wide/special cells (timeline · selector · key band). Only these
+// can be merged with a neighbour (a timeline/selector must keep its own row).
+const isPackable = (row) => row.length > 0 && !row.some((it) => ['timeline', 'sel', 'keys'].includes(it.kind))
 // bottom → top: [row1][row2][pinned rows]; rendered top → bottom (reverse) so the pinned
 // rows sit ABOVE row 2 (DS §3) and fill `cap` per row before wrapping.
 const rows = computed(() => {
   const top = []
   for (let i = 0; i < pinnedItems.value.length; i += cap.value) top.push(pinnedItems.value.slice(i, i + cap.value))
-  return [...top, row2.value, row1.value].filter((r) => r.length)
+  let r2 = row2.value, r1 = row1.value
+  // §D2 smart row-pack: on a WIDE (desktop/tablet) dock, if row 2 and row 1 are BOTH plain
+  // button rows and fit within the cap together, merge them into ONE row (no half-empty row
+  // · e.g. แก้ไข). row 2's items slot in just before the ⚙ so grip stays left-most and ⚙
+  // right-most. Skipped on mobile — a merged labeled row would overflow the narrow viewport.
+  if (!mobile.value && isPackable(r2) && isPackable(r1) && r2.length + r1.length <= cap.value) {
+    const gi = r1.findIndex((it) => it.kind === 'gear')
+    r1 = gi >= 0 ? [...r1.slice(0, gi), ...r2, ...r1.slice(gi)] : [...r1, ...r2]
+    r2 = []
+  }
+  return [...top, r2, r1].filter((r) => r.length)
 })
 const rowIsChrome = (row) => row.some((it) => it.id === 'setting') // the core bottom row → spread
 
@@ -469,18 +482,18 @@ function cellFlex() { return '0 0 auto' }
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.14);
   backdrop-filter: blur(max(0px, calc((var(--a, 0.96) - 0.4) / 0.6 * 6px)));
   -webkit-backdrop-filter: blur(max(0px, calc((var(--a, 0.96) - 0.4) / 0.6 * 6px)));
-  padding: 8px;
+  padding: 10px; /* D1: comfortable breathing room around the button rows */
 }
-/* The dock is a FLOATING TOOLBOX (P'Aim): it hugs its content on EVERY size — width = the
-   widest row's natural button width, never the screen. No full-width, no flex-stretch, no
-   space-between edge-push. It shrinks to the viewport only on very narrow phones. */
-.dk-dock { width: fit-content; min-width: min(300px, calc(100vw - 16px)); max-width: min(700px, calc(100vw - 16px)); }
+/* The dock is a FLOATING TOOLBOX (P'Aim): it hugs its content on EVERY side — width = the
+   widest row's natural button width, never the screen, and NO min-width padding it out (D3
+   · แผ่นเพลง had trailing space after ⚙). Shrinks to the viewport only on very narrow phones. */
+.dk-dock { width: fit-content; max-width: min(700px, calc(100vw - 16px)); }
 .dk-dock.dk-mini { width: auto; min-width: 0; max-width: none; display: inline-flex; gap: 8px; padding: 7px 9px; }
 
 /* rows pack left-to-right at each button's natural size (grip first · ⚙ at the end of the
    cluster). No justify/space-between — the buttons stay grouped, not pinned to both edges. */
-.dk-row { display: flex; align-items: center; gap: 6px; }
-.dk-row + .dk-row { margin-top: 8px; }
+.dk-row { display: flex; align-items: center; gap: 7px; }
+.dk-row + .dk-row { margin-top: 9px; }
 .dk-cell { display: inline-flex; align-items: center; min-width: 0; }
 
 /* buttons (44px tap target · WCAG 2.2 AA) */
@@ -578,6 +591,8 @@ function cellFlex() { return '0 0 auto' }
 /* ---------- mobile: full-width bottom bar ---------- */
 @media (max-width: 760px) {
   .dk-host { padding: 0 6px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .dk-dock { padding: 8px; }        /* tighter on a phone so a 7-button row fits (no overflow) */
   .dk-row { gap: 5px; }
+  .dk-play { width: 44px; height: 44px; } /* the 50px play would push the row past a narrow dock */
 }
 </style>
