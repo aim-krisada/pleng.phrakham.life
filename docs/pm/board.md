@@ -23,6 +23,10 @@
 2. **editor-section-ux-dev = ✅ ส่งแล้ว** (`61015fa` · **299 test** · build) — ยุบ 3 รายการแถบซ้าย→รายการเดียว "โครงเพลง" · rename inline (rail+หัวท่อน sync) · ลากจัดลำดับนิ้ว+เมาส์+▲▼ (WCAG 2.5.7+aria-live) · หัวท่อนบนแคนวาส · ตัดบล็อก #pk-arrange · "ท่อน A"→"ทำนอง A" · **dev verify ของเดิมไม่ regress** (note/seg/syl/preview/ย่อหน้า/ตั้งค่า) · **🔺 pm7 ทำ: git-verify + P'Aim LAN `http://10.215.141.98:5372/#/studio` (เทียบของเดิมทำได้หมด+ง่ายขึ้น) ก่อน merge** · detail `docs/reports/editor-section-ux-dev.md`
 > **pm7 merge sequencing:** 2 สายบนแตะ `EditorMode.vue` คนละส่วน (DockKey=dock/PALETTE/editDockTools · section-ux=rail/arrangement) → merge ทีละสาย + git-verify ของอีกสายไม่หาย + rerun test · สายไหน merge ก่อนก็ได้ อีกสาย rebase
 
+## 🔬 research (ขนาน · ไม่บล็อก)
+- **jianpu-ly** (`task_c8d52b9f`) — ศึกษา `OneDrive/.../jianpu-ly-master` (text→LilyPond jianpu engraver) เอามาใช้ pleng อะไรได้ (print คุณภาพ/syntax/slur-tie/MusicXML/license) · read-only · brief `brief-jianpu-ly-study.md` → report `docs/reports/jianpu-ly-study.md`
+- **📐 UI standards SSOT รอ P'Aim รีวิว** `docs/ui-standards.md` (de-facto 5 ตัว + invariants + บังคับใช้ 4 ชั้น) + `docs/pm/dockkey-checklist.md` — **เคาะก่อนจ่าย dev แก้ DockKey + เปิด tester**
+
 ## 🎯 รอ P'Aim ตัดสิน (ไม่บล็อก)
 - **B028 audit log** — DS `docs/ds/audit-log.md` · 3 Qs (branch `sa-b028-audit-log` docs · รอเคาะก่อน dev)
 - **i18n** — `lang=th` + `translate="no"` ที่ NoteRow/ShellBar (แทน i18n เต็ม · ยังไม่ spawn)
