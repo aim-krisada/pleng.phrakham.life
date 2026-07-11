@@ -81,6 +81,7 @@
 
 ## 🚧 กำลังทำ (จ่ายแล้ว 11 ก.ค. ค่ำ)
 - **B085 สติกกี้ + B086 ย้ายบรรทัด = ✅ dev เสร็จ → in tester (`8fe0c8c` · EditorMode+test · vitest 330 +4 · B085 sticky top:58px z4 · B086 reslice พยางค์ทุก verse)** · ⚠️ tester เน้น **เลื่อนจริง** (dev headless เลื่อนไม่ได้) · dev `10.215.141.98:5413` · **💡 dev flag → B088:** `copyLine`/`removeLine` ก็ไม่ reslice พยางค์ (latent · queued follow-up)
+  - **📌 standing plan (P'Aim 11 ก.ค. เย็น):** tester B085/B086 **PASS → merge (cherry-pick `8fe0c8c` · EditorMode · git-verify+rerun test) → deploy รอบ 10** (align main=base + push + verify live · pre-authorized · ถ้า tester FAIL หยุด แจ้ง P'Aim)
 - **B087 หน้าแรกใหม่ (เล่ม picker แบบพระคัมภีร์ · 9 เล่มตรงๆ · คงค้นหา)** = **จ่าย SA (spawn `task_0332e825`)** · taxonomy P'Aim เคาะแล้ว · ข้อมูลพร้อม (`book_refs`+`bookCodes.js`) · reference phrakham picker · brief `brief-home-redesign-sa.md` · **P'Aim: รีบ** → mockup → เคาะ → dev
 - **นำเข้าเล่มใหญ่ (scanned PDF 477 หน้า)** = **จ่าย session แยก (spawn `task_a71a4c1d`)** · vision อ่านทีละเพลง · **เนื้อก่อน · แม่นก่อนครบ · context แยกต่อเพลง ~5-9K tok** · เริ่มเพลง 32 วัดโทเค็นจริง · brief `brief-hymnal-import.md` · report → pm7
 - **B084 space bar** = 🟡 รอ reproduce (สเต็ปพี่เปา)
