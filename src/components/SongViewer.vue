@@ -1,12 +1,12 @@
 <script setup>
 // The read/listen surface for one song — same engine as the old SongView (play,
 // transpose, tempo, loop, font size, display layers, play-by-section + follow-along
-// highlight = the karaoke feel). B043 reshapes the controls into a bottom "music player":
-// the shared <StudioDock> hosts ONE full-width custom control, <SingTransport> (progress +
-// section markers + ⏮ ▶/⏸ ⏭ 🔁 + ⚙ settings panel + ☰ section selector). All the song
-// controls (display/chord/key/tempo/font/download/print) live in that ⚙ panel, adjustable
-// inline. This component owns the state; SingTransport is a page-agnostic core control.
-import { ref, computed, onMounted, onUnmounted, watch, nextTick, markRaw } from 'vue'
+// highlight = the karaoke feel). The controls are a bottom "music player" built on the
+// DockKey core engine: this page owns the song state and hands <SingTransport> the data;
+// SingTransport turns it into the DockKey descriptor list (ITEMS_SING) and the engine draws
+// the 2-row dock (ไทม์ไลน์ · คีย์ · เลือกท่อน · transport · Aa · ⚙ + pin). Mounted directly
+// here; แผ่นเพลง and แก้ไข mount their own DockKey the same way.
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { KEYS } from '../lib/chords.js'
 import {
   playSong, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
@@ -19,8 +19,6 @@ import { bookRefLabels } from '../lib/bookCodes.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
 
-const SingTransportRaw = markRaw(SingTransport)
-
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
 // view-only for everyone, so it is accepted but not used to gate anything — there are
 // no save/edit affordances here regardless of tier (US-A01 AC3).
@@ -28,9 +26,6 @@ const props = defineProps({
   song: { type: Object, required: true },
   tier: { type: String, default: 'guest' },
 })
-// dock-core / N1: the dock is mounted once by Studio; this surface emits its "sing" tool
-// set upward instead of mounting its own <StudioDock>.
-const emit = defineEmits(['dock'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -347,71 +342,11 @@ watch(displayKey, (k) => {
 watch(tempo, () => {
   if (playing.value) startPlay(playedIndex.value)
 })
-function printSheet() { window.print() }
 function downloadJson() { if (currentSong.value) downloadSong(currentSong.value) }
 
-// ---------- ดาวน์โหลดเสียง MP3 (B072) — สร้างในเบราว์เซอร์, เสียง = ปุ่มฟัง ----------
-// สร้าง MP3 ของทำนองด้วย OfflineAudioContext + lamejs (audioExport lib · merged แล้ว).
-// โหลด lib แบบ on-demand (dynamic import) ให้ lamejs code-split ออกจาก bundle หลัก —
-// จ่ายต้นทุนเฉพาะตอนกดโหลดจริง. bpm/คีย์ = ค่าที่ผู้ใช้ตั้งในหน้าฝึกร้องตอนนี้ (เหมือนปุ่มฟัง).
-// SingTransport เป็นรั้ว → โชว์สถานะ %/ETA ผ่าน "label ของ dock item" (ข้อความ) ไม่ใช่แถบกราฟิก.
-const mp3Stage = ref('') // '' | 'render' | 'encode' | 'done'
-const mp3Pct = ref(0)
-const mp3Eta = ref(null) // วินาทีที่เหลือ (ระหว่าง encode)
-const mp3Est = ref(null) // { seconds, bytes } ประมาณก่อนเริ่ม
-const mp3Err = ref(false)
-const mp3Busy = computed(() => mp3Stage.value !== '')
-function fmtDur(s) { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60); const sec = s % 60; return m ? `${m} นาที ${sec} วิ` : `${sec} วิ` }
-function fmtSize(b) { return b >= 1024 * 1024 ? (b / 1024 / 1024).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB' }
-// dock item label เปลี่ยนตามสถานะ → progress เห็นในเมนู (settingDescs อ่าน .value ทำให้ re-emit dock)
-const mp3ItemLabel = computed(() => {
-  if (mp3Err.value) return 'เสียง MP3 — ลองใหม่'
-  if (!mp3Busy.value) return 'ดาวน์โหลดเสียง (MP3)'
-  if (mp3Stage.value === 'encode') {
-    return `กำลังสร้างเสียง · ${mp3Pct.value}%` + (mp3Eta.value != null ? ` · เหลือ ~${fmtDur(mp3Eta.value)}` : '')
-  }
-  return 'กำลังเตรียมเสียง' + (mp3Est.value ? ` · ~${fmtSize(mp3Est.value.bytes)}` : '') + '…'
-})
-const mp3ActionLabel = computed(() => (mp3Busy.value ? (mp3Stage.value === 'encode' ? `${mp3Pct.value}%` : '…') : 'บันทึก'))
-
-async function downloadMp3() {
-  if (mp3Busy.value || !props.song) return
-  mp3Err.value = false
-  mp3Pct.value = 0
-  mp3Eta.value = null
-  mp3Est.value = null
-  const content = props.song.content
-  const bpm = Number(tempo.value) || content.bpm || 92
-  try {
-    const { songToMp3Blob, mp3Filename, estimateMp3 } = await import('../lib/audioExport.js')
-    mp3Est.value = estimateMp3(content, { bpm })
-    mp3Stage.value = 'render'
-    let encStart = 0
-    const { blob } = await songToMp3Blob(content, {
-      bpm,
-      transpose: keyTranspose(content.key, displayKey.value || content.key),
-      onProgress: ({ stage, fraction }) => {
-        mp3Stage.value = stage
-        if (stage === 'encode') {
-          mp3Pct.value = Math.round(fraction * 100)
-          if (!encStart) encStart = performance.now()
-          else if (fraction > 0.02) mp3Eta.value = ((performance.now() - encStart) / 1000) * (1 - fraction) / fraction
-        }
-      },
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = mp3Filename(props.song)
-    a.click()
-    URL.revokeObjectURL(url)
-  } catch (e) {
-    mp3Err.value = true
-  } finally {
-    mp3Stage.value = ''
-    mp3Eta.value = null
-  }
-}
+// MP3 export moved to the dock's unified ExportTool (PDF/JSON/MP3). SongViewer just hands it
+// the content + the chosen key/tempo so the MP3 renders exactly like "ฟัง" (see the template).
+const mp3Transpose = computed(() => keyTranspose(props.song?.content?.key, displayKey.value || props.song?.content?.key))
 
 // ---------- the ⚙ settings panel controls (§4c) — every control, inline ----------
 // icons = Lucide names (rendered via <Icon>), badge = the current value shown on the bar
@@ -433,41 +368,13 @@ const settingDescs = computed(() => [
     id: 'tempo', icon: 'gauge', label: 'ความเร็ว', kind: 'menu', value: tempo.value, badge: String(tempo.value),
     options: tempoOptions.value, onPick: (v) => (tempo.value = Number(v)),
   },
-  // ขนาดตัวอักษร (font) now lives in the top nav "Aa" tool (FontTool), not the dock — P'Aim.
-  { id: 'download', icon: 'download', label: 'ดาวน์โหลด (JSON)', kind: 'action', actionLabel: 'บันทึก', onAction: downloadJson },
-  { id: 'downloadMp3', icon: 'file-music', label: mp3ItemLabel.value, kind: 'action', actionLabel: mp3ActionLabel.value, onAction: downloadMp3 },
-  { id: 'print', icon: 'printer', label: 'พิมพ์ / PDF', kind: 'action', actionLabel: 'เปิด', onAction: printSheet },
+  // ขนาดตัวอักษร (font) = top-nav Aa · download/พิมพ์/MP3 = the dock ExportTool (below).
 ])
 
-// ---------- the sing dock = one full-width transport (D8 region:'top', dock-core) ----------
-const singDockTools = computed(() => [
-  {
-    id: 'transport',
-    type: 'custom',
-    region: 'top',
-    component: SingTransportRaw,
-    props: {
-      playing: playing.value,
-      loop: loop.value,
-      frac: frac.value,
-      totalSec: totalSec.value,
-      markers: markers.value,
-      tags: tags.value,
-      selected: selectedSecs.value,
-      hasSections: sections.value.length > 0,
-      settings: settingDescs.value,
-      onTogglePlay: togglePlay,
-      onPrev: prevSection,
-      onNext: nextSection,
-      onToggleLoop: () => (loop.value = !loop.value),
-      onSeek: onSeekBar,
-      onJump,
-      onToggleSection: toggleSection,
-      onSetAll: setAll,
-    },
-  },
-])
-watch(singDockTools, (tools) => emit('dock', { tools, defaultTools: ['transport'] }), { immediate: true })
+// ---------- the sing dock = the DockKey engine, fed by <SingTransport> (ITEMS_SING) ----------
+// Mounted directly by this page (below); SingTransport builds the descriptor list and the
+// engine owns layout / collapse / drag / Setting+pin / clamp.
+const hasSections = computed(() => sections.value.length > 0)
 
 onMounted(() => {
   window.addEventListener('wheel', onUserScroll, { passive: true })
@@ -518,8 +425,32 @@ function onSeek({ li, si, syk }) {
       />
     </div>
 
-    <!-- control bar lives on Studio now (dock-core / N1): one shared <StudioDock> hosting
-         the <SingTransport> music player. This surface emits its "sing" tool set via @dock. -->
+    <!-- the sing dock — DockKey core engine, fed the ITEMS_SING descriptor list by
+         <SingTransport>. Fixed at the bottom; the engine owns collapse/drag/Setting/clamp. -->
+    <SingTransport
+      :playing="playing"
+      :loop="loop"
+      :frac="frac"
+      :total-sec="totalSec"
+      :markers="markers"
+      :tags="tags"
+      :selected="selectedSecs"
+      :has-sections="hasSections"
+      :settings="settingDescs"
+      :content="song && song.content"
+      :filename-base="printTitle"
+      :on-json="downloadJson"
+      :mp3-bpm="Number(tempo) || 0"
+      :mp3-transpose="mp3Transpose"
+      @toggle-play="togglePlay"
+      @prev="prevSection"
+      @next="nextSection"
+      @toggle-loop="loop = !loop"
+      @seek="onSeekBar"
+      @jump="onJump"
+      @toggle-section="toggleSection"
+      @set-all="setAll"
+    />
   </div>
 </template>
 

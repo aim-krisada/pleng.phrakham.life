@@ -11,6 +11,8 @@ import SongSheet from './SongSheet.vue'
 import NoteBoxes from './NoteBoxes.vue'
 import ComboSelect from './ComboSelect.vue'
 import Icon from './Icon.vue'
+import DockKey from './DockKey.vue'
+import ExportTool from './ExportTool.vue'
 
 // ---------- mode contract (DS-04) ----------
 // EditorMode is the "แก้ไข" surface, extracted whole from Studio.vue. The shell owns
@@ -1308,36 +1310,27 @@ function primaryAction() {
   return saveDraft('pending')
 }
 
-// ---------- dock tool set (edit mode) ----------
-// The dock ENGINE (layout · collapse · transparency · pick-your-buttons · dynamic
-// overflow · drag) was lifted out to the shared <StudioDock> (ps4 คลื่น 1). Here we only
-// declare WHICH buttons the edit dock offers + their handlers; StudioDock owns the rest
-// and persists the layout under key `pleng.dock.edit.tools`. Each def carries a `visible`
-// guard so a saved layout only ever renders what applies to the current login / role /
-// playback state. DS ps3-dock: default drops "บันทึกร่าง" (auto-save covers it) and adds
-// "ฟังทั้งเพลง"; "บันทึกร่าง" stays in the registry so it can be re-added via ตั้งค่าปุ่ม.
-const DOCK_DEFAULT = ['undo', 'redo', 'play', 'playAll', 'stop', 'send', 'download']
-const editDockTools = computed(() => [
-  { id: 'undo', icon: 'undo-2', label: 'ย้อน', run: undo, disabled: !canUndo.value },
-  { id: 'redo', icon: 'redo-2', label: 'ทำซ้ำ', run: redo, disabled: !canRedo.value },
-  { id: 'play', icon: 'play', label: 'ฟังท่อน ' + activeStanzaId.value, run: playStanza, visible: !playing.value },
-  { id: 'playAll', icon: 'circle-play', label: 'ฟังทั้งเพลง', run: playFull, visible: !playing.value },
-  { id: 'stop', icon: 'square', label: 'หยุด', run: stopAll, visible: playing.value, danger: true },
-  { id: 'draft', icon: 'save', label: 'บันทึกร่าง', run: () => saveDraft('draft'), visible: loggedIn.value && !legacy.value },
-  { id: 'send', icon: isApprover.value ? 'badge-check' : 'send', label: primaryLabel.value, run: primaryAction, visible: loggedIn.value, prime: true },
-  { id: 'download', icon: 'download', label: 'ดาวน์โหลด JSON', run: downloadJson },
+// ---------- edit dock = DockKey fed ITEMS_EDIT (DS dockkey-print-edit §2) ----------
+// EditorMode mounts its OWN DockKey now (the shared StudioDock is retired). It hands the
+// engine a descriptor list: the full-width note-key band (E1), the row-1 chrome (ย้อน/ทำซ้ำ/
+// ฟังท่อน↔หยุด), the prime บันทึก + ฟังทั้งเพลง on row 2, and export/draft/preview in ⚙.
+// The structural per-bar tools stay INLINE in the table (contextual — not dock commands).
+const editAlpha = ref(0.96)
+const saveLabel = computed(() => (reviewingDraft.value ? 'อนุมัติ' : isApprover.value ? 'เผยแพร่' : 'ส่งตรวจ'))
+const editItems = computed(() => [
+  { id: 'keys', kind: 'keys', name: 'แป้นสัญลักษณ์', rows: PALETTE, onInsert: insertSym },
+  { id: 'grip', kind: 'grip', name: 'ย้าย/ย่อ', place: { anchor: 'left', row: 1 } },
+  { id: 'undo', kind: 'btn', name: 'ย้อน', icon: 'undo-2', place: { anchor: 'rightOf:grip', row: 1 }, run: undo, disabled: !canUndo.value },
+  { id: 'redo', kind: 'btn', name: 'ทำซ้ำ', icon: 'redo-2', place: { anchor: 'rightOf:undo', row: 1 }, run: redo, disabled: !canRedo.value },
+  { id: 'play', kind: 'play', name: 'ฟังท่อน ' + activeStanzaId.value, place: { anchor: 'rightOf:redo', row: 1 }, run: playStanza, hidden: playing.value, control: { value: false } },
+  { id: 'stop', kind: 'btn', name: 'หยุด', icon: 'square', danger: true, place: { anchor: 'rightOf:redo', row: 1 }, run: stopAll, hidden: !playing.value },
+  { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
+  { id: 'save', kind: 'btn', name: saveLabel.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
+  { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', place: { row: 2, col: 3 }, run: playFull, hidden: playing.value },
+  { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { row: 2, col: 4 } },
+  { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', icon: 'save', default: 'inSetting', pinnable: true, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value },
+  { id: 'preview', kind: 'toggle', name: 'ดูผลทั้งเพลง', icon: 'maximize', default: 'inSetting', pinnable: true, control: { value: sheetWinOpen.value, onToggle: () => (sheetWinOpen.value = !sheetWinOpen.value) } },
 ])
-
-// dock-core / N1: the dock is mounted ONCE by Studio (no longer here). Push this mode's
-// dock config up whenever it changes — the edit tool set, the jianpu key rows, the status
-// message, and the note-insert handler (so pressing a key routes back into the focused
-// note box). Studio feeds all this into the single shared <StudioDock> while แก้ไข is on.
-watch(
-  () => ({ tools: editDockTools.value, message: saveMsg.value }),
-  ({ tools, message }) =>
-    emit('dock', { tools, message, defaultTools: DOCK_DEFAULT, paletteKeys: PALETTE, onInsert: insertSym }),
-  { immediate: true },
-)
 
 const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', rejected: 'ถูกส่งกลับ', approved: 'อนุมัติแล้ว' }
 
@@ -2299,8 +2292,20 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
     </div>
     <!-- ===== end edit workspace ===== -->
 
-    <!-- bottom dock lives on Studio now (dock-core / N1): a single shared <StudioDock>
-         mounted once. This mode emits its dock config up via @dock instead of mounting. -->
+    <!-- edit dock — the DockKey engine fed ITEMS_EDIT (แป้นโน้ต band · ย้อน/ทำซ้ำ/ฟัง ·
+         บันทึก prime · export/draft/preview in ⚙). Same engine as ฝึกร้อง/แผ่นเพลง. -->
+    <DockKey :items="editItems" store-key="edit" v-model:alpha="editAlpha" :message="saveMsg">
+      <template #cell-export="{ open, toggle, close }">
+        <ExportTool
+          :content="previewContent"
+          :filename-base="meta.title_th || 'song'"
+          :on-json="downloadJson"
+          :open="open"
+          @toggle="toggle"
+          @close="close"
+        />
+      </template>
+    </DockKey>
 
     <!-- B: NON-MODAL floating whole-song preview (ดูผลทั้งเพลง). No backdrop → the editor
          underneath stays interactive (edit-and-watch). resolvedPreview is reactive so it

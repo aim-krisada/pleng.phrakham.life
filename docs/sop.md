@@ -35,10 +35,10 @@ idea (backlog.md · SI.2)
                 ครอบ **ทั้ง Tier-A (axe/tests) + Tier-B จอจริงผ่าน Claude Browser MCP** (resize breakpoint · วัด no-scroll/target-size/contrast · screenshot)
                 · ครบ 3 ยังไม่ผ่าน = escalate PM · P'Aim เหลือแค่ตัดสินทิศทาง/ความสวย (วัดผลได้ = เครื่องทำหมด)
             ✓ ครบ = ส่ง PM
-  → 🚦 GATE 3 (PM · DoD): git-verify scope/fence · test เขียว · build · checklist ครบ
-  → 🚦 GATE 4: P'Aim ตรวจ (เกือบ 100% แล้ว · แค่ทิศทาง)                [SI.5 test/review]
-  → PM merge เข้า base (studio-shell-redesign)              [SI.6 config/integration]
-  → 🚦 GATE 5: P'Aim สั่ง "go" → PM deploy (main auto-deploy) [SI.6 delivery]
+  → 🚦 GATE 3 (PM · DoD): git-verify scope/fence · test เขียว · build · checklist ครบ (ทุก branch ผ่าน tester)
+  → PM **merge ทุก branch ที่ผ่านเข้า base** (studio-shell-redesign · เรียงคิวถ้าชนไฟล์) [SI.6 integration]
+  → 🚦 GATE 4 (P'Aim · บังคับ): **PM เสิร์ฟฐานรวม (LAN) → P'Aim ตรวจ "ผลรวม" ทั้งชุด** ก่อน deploy [SI.5 review]
+  → 🚦 GATE 5: P'Aim สั่ง "go" → PM deploy (main auto-deploy)                       [SI.6 delivery]
 ```
 **กฎเหล็ก:** ไม่มี UI ถึง P'Aim โดยไม่ผ่าน tester (GATE 2) · ไม่ deploy จน P'Aim สั่ง go ชัดต่อรอบ
 

@@ -1,6 +1,7 @@
-// SingTransport — the reusable music-player band (B043). Drives are pure props/emits:
-// scrub → seek, marker tap → jump, transport buttons, the Gmail selector (All/None +
-// per-ท่อน toggle), and the ⚙ settings panel with 📌 pin persistence.
+// SingTransport — the ฝึกร้อง DockKey adapter. It turns the page's song state into the
+// ITEMS_SING descriptor list and fills the three page-drawn cells (ไทม์ไลน์ · เลือกท่อน · Aa).
+// The engine (DockKey) draws the 2-row dock; these tests drive the adapter's own behavior:
+// transport emits, timeline scrub, the selector, and the ⚙ Setting page (repeat/คอร์ด/…, pin).
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
@@ -15,7 +16,7 @@ const base = {
   frac: 0.25,
   totalSec: 60,
   markers: [
-    { name: 'ร้อง 1', frac: 0, startIndex: 0, isHook: false, active: false, picked: false },
+    { name: 'ร้อง 1', frac: 0, startIndex: 0, isHook: false, active: true, picked: true },
     { name: 'รับ', frac: 0.5, startIndex: 5, isHook: true, active: false, picked: false },
   ],
   tags: [
@@ -25,71 +26,77 @@ const base = {
   selected: new Set(),
   hasSections: true,
   settings: [
-    { id: 'display', icon: '🎵', label: 'แสดงผล', kind: 'menu', value: 'all', options: [{ value: 'all', label: 'ครบ' }, { value: 'lyric', label: 'เนื้อ' }], onPick: () => {} },
-    { id: 'key', icon: '🎼', label: 'คีย์', kind: 'stepper', display: 'C', onPrev: () => {}, onNext: () => {} },
-    { id: 'print', icon: '🖨', label: 'พิมพ์', kind: 'action', actionLabel: 'เปิด', onAction: () => {} },
+    { id: 'display', icon: 'layers', label: 'แสดงผล', kind: 'menu', value: 'all', badge: 'ครบ', options: [{ value: 'all', label: 'ครบ' }, { value: 'lyric', label: 'เนื้อ' }], onPick: () => {} },
+    { id: 'chord', icon: 'guitar', label: 'คอร์ด', kind: 'menu', value: 'letter', badge: 'ABC', options: [{ value: 'letter', label: 'ตัวอักษร' }, { value: 'hidden', label: 'ซ่อน' }], onPick: () => {} },
+    { id: 'key', icon: 'key-round', label: 'คีย์', kind: 'menu', value: 'C', badge: 'C', options: [{ value: 'C', label: 'C' }, { value: 'D', label: 'D' }], onPick: () => {} },
+    { id: 'tempo', icon: 'gauge', label: 'ความเร็ว', kind: 'menu', value: 90, badge: '90', options: [{ value: 90, label: '90' }, { value: 120, label: '120' }], onPick: () => {} },
   ],
 }
-const mountT = (over = {}) => mount(SingTransport, { props: { ...base, ...over }, global: { stubs: { Icon: true } } })
+const mountT = (over = {}) => mount(SingTransport, { props: { ...base, ...over }, global: { stubs: { Icon: true } }, attachTo: document.body })
+const openSetting = async (w) => { await w.find('.dk-gear').trigger('click'); await nextTick() }
+const panel = (w, id) => w.find(`.dk-panel [data-setting="${id}"]`)
 
-beforeEach(() => localStorage.clear())
+beforeEach(() => { localStorage.clear() })
 
-describe('transport row', () => {
-  it('play button is icon-only (mp-play) and emits toggle-play', async () => {
+describe('transport (row 1)', () => {
+  it('play button (icon-only) emits toggle-play', async () => {
     const w = mountT()
-    await w.find('.mp-play').trigger('click')
+    await w.find('.dk-play').trigger('click')
     expect(w.emitted('toggle-play')).toHaveLength(1)
   })
 
-  it('prev / next / loop emit their events', async () => {
+  it('back / forward emit prev / next', async () => {
     const w = mountT()
     await w.find('[aria-label="ท่อนก่อน"]').trigger('click')
     await w.find('[aria-label="ท่อนถัดไป"]').trigger('click')
-    await w.find('[aria-label="วนซ้ำ"]').trigger('click')
     expect(w.emitted('prev')).toHaveLength(1)
     expect(w.emitted('next')).toHaveLength(1)
-    expect(w.emitted('toggle-loop')).toHaveLength(1)
   })
 
-  it('hasSections=false hides prev/next + selector, keeps play', () => {
+  it('hasSections=false hides back/forward + selector, keeps play', () => {
     const w = mountT({ hasSections: false })
-    expect(w.find('.mp-play').exists()).toBe(true)
+    expect(w.find('.dk-play').exists()).toBe(true)
     expect(w.find('[aria-label="ท่อนก่อน"]').exists()).toBe(false)
-    expect(w.find('.mp-seltrig').exists()).toBe(false)
+    expect(w.find('.st-seltrig').exists()).toBe(false)
   })
 })
 
-describe('timeline — scrub + markers', () => {
-  it('a pointer press on the bar emits seek with the fraction', async () => {
+describe('timeline (col 1-3)', () => {
+  it('a press on the bar emits seek with the fraction (แตะ=วิ่งไปทันที)', async () => {
     const w = mountT()
-    const seek = w.find('.mp-seek')
+    const seek = w.find('.st-seek')
     seek.element.getBoundingClientRect = () => ({ left: 0, width: 100, top: 0, height: 26, right: 100, bottom: 26 })
     await seek.trigger('pointerdown', { clientX: 50, pointerId: 1 })
     expect(w.emitted('seek')).toBeTruthy()
     expect(w.emitted('seek')[0][0]).toBeCloseTo(0.5, 2)
   })
 
-  it('tapping a marker emits jump with that occurrence startIndex', async () => {
-    const w = mountT()
-    const marks = w.findAll('.mp-mk')
-    expect(marks).toHaveLength(2)
-    await marks[1].trigger('click')
-    expect(w.emitted('jump')[0]).toEqual([5])
+  it('section bars reflect the selection (picked = brand · current = taller)', () => {
+    const w = mountT({ selected: new Set(['ร้อง 1']) })
+    const segs = w.findAll('.st-seg')
+    expect(segs).toHaveLength(2)
+    expect(segs[0].classes()).toContain('on') // ร้อง 1 picked
+    expect(segs[0].classes()).toContain('cur') // …and current
+    expect(segs[1].classes()).not.toContain('on')
+  })
+
+  it('shows the total time only (DS)', () => {
+    expect(mountT().find('.st-time').text()).toBe('1:00')
   })
 })
 
-describe('selector — Gmail list', () => {
-  it('count badge reads · / N/total / ทั้งหมด', async () => {
-    expect(mountT().find('.mp-seltrig b').text()).toBe('·')
-    expect(mountT({ selected: new Set(['รับ']) }).find('.mp-seltrig b').text()).toBe('1/2')
-    expect(mountT({ selected: new Set(['ร้อง 1', 'รับ']) }).find('.mp-seltrig b').text()).toBe('ทั้งหมด')
+describe('selector (col 5-6)', () => {
+  it('count badge reads · / N/total / ทั้งหมด', () => {
+    expect(mountT().find('.st-seltrig b').text()).toBe('·')
+    expect(mountT({ selected: new Set(['รับ']) }).find('.st-seltrig b').text()).toBe('1/2')
+    expect(mountT({ selected: new Set(['ร้อง 1', 'รับ']) }).find('.st-seltrig b').text()).toBe('ทั้งหมด')
   })
 
-  it('opening the sheet + toggling a row emits toggle-section', async () => {
+  it('opening the panel + toggling a row emits toggle-section', async () => {
     const w = mountT()
-    await w.find('.mp-seltrig').trigger('click')
+    await w.find('.st-seltrig').trigger('click')
     await nextTick()
-    const rows = w.findAll('.mp-ssrow')
+    const rows = w.findAll('.st-ssrow')
     expect(rows).toHaveLength(2)
     await rows[1].trigger('click')
     expect(w.emitted('toggle-section')[0]).toEqual(['รับ'])
@@ -97,9 +104,9 @@ describe('selector — Gmail list', () => {
 
   it('All / None emit set-all', async () => {
     const w = mountT()
-    await w.find('.mp-seltrig').trigger('click')
+    await w.find('.st-seltrig').trigger('click')
     await nextTick()
-    const [all, none] = w.findAll('.mp-ssallbtn')
+    const [all, none] = w.findAll('.st-ssallbtn')
     await all.trigger('click')
     await none.trigger('click')
     expect(w.emitted('set-all')).toEqual([[true], [false]])
@@ -107,128 +114,85 @@ describe('selector — Gmail list', () => {
 
   it('a selected row shows its checked state', async () => {
     const w = mountT({ selected: new Set(['รับ']) })
-    await w.find('.mp-seltrig').trigger('click')
+    await w.find('.st-seltrig').trigger('click')
     await nextTick()
-    const rows = w.findAll('.mp-ssrow')
+    const rows = w.findAll('.st-ssrow')
     expect(rows[1].classes()).toContain('on')
     expect(rows[0].classes()).not.toContain('on')
   })
 })
 
-describe('⚙ settings panel (§4c)', () => {
-  const panel = (w, id) => w.find(`.mp-panel [data-setting="${id}"]`)
-
-  it('every control has a home in the panel, adjustable inline', async () => {
-    const w = mountT()
-    await w.find('.mp-more').trigger('click')
-    await nextTick()
-    expect(panel(w, 'display').find('select').exists()).toBe(true)
-    expect(panel(w, 'key').find('.mp-stpv').text()).toBe('C')
-    expect(panel(w, 'print').find('.mp-stp').text()).toBe('เปิด')
-    // transparency (ความโปร่ง) is a dock-chrome control that lives in the panel too
-    expect(panel(w, 'alpha').find('input[type="range"]').exists()).toBe(true)
+describe('คีย์ on the bar (col 4)', () => {
+  it('shows the current key as a badge', () => {
+    expect(mountT().find('[data-cell="key"] .dk-badge').text()).toBe('C')
   })
-
-  it('a menu select calls the descriptor onPick', async () => {
+  it('picking from its dropdown calls the descriptor onPick', async () => {
     const onPick = vi.fn()
-    const w = mountT({ settings: [{ id: 'display', icon: 'layers', label: 'แสดงผล', kind: 'menu', value: 'all', options: [{ value: 'all', label: 'ครบ' }, { value: 'lyric', label: 'เนื้อ' }], onPick }] })
-    await w.find('.mp-more').trigger('click')
+    const settings = base.settings.map((s) => (s.id === 'key' ? { ...s, onPick } : s))
+    const w = mountT({ settings })
+    await w.find('[data-cell="key"] .dk-pbtn').trigger('click')
     await nextTick()
-    await panel(w, 'display').find('select').setValue('lyric')
-    expect(onPick).toHaveBeenCalledWith('lyric')
-  })
-
-  it('key / tempo / display are pinned on the bar by default (bar not empty)', () => {
-    const w = mountT()
-    expect(w.find('.mp-pins [data-setting="key"]').exists()).toBe(true)
-    expect(w.find('.mp-pins [data-setting="display"]').exists()).toBe(true)
-  })
-
-  it('📌 pin promotes a non-default control to the bar strip + persists', async () => {
-    const w = mountT()
-    expect(w.find('.mp-pins [data-setting="print"]').exists()).toBe(false)
-    await w.find('.mp-more').trigger('click')
-    await nextTick()
-    await panel(w, 'print').find('.mp-pin').trigger('click')
-    await nextTick()
-    expect(w.find('.mp-pins [data-setting="print"]').exists()).toBe(true)
-    expect(JSON.parse(localStorage.getItem('pleng.dock.sing.pins'))).toContain('print')
-  })
-
-  it('reloads pinned controls from localStorage', async () => {
-    localStorage.setItem('pleng.dock.sing.pins', JSON.stringify(['print']))
-    const w = mountT()
-    expect(w.find('.mp-pins [data-setting="print"]').exists()).toBe(true)
-    expect(w.find('.mp-pins [data-setting="key"]').exists()).toBe(false)
-  })
-
-  it('a pinned menu opens a dropdown on the bar and picks a value', async () => {
-    const onPick = vi.fn()
-    const w = mountT({ settings: [{ id: 'display', icon: 'layers', label: 'แสดงผล', kind: 'menu', value: 'all', badge: 'ครบ', options: [{ value: 'all', label: 'ครบ' }, { value: 'lyric', label: 'เนื้อ' }], onPick }] })
-    await w.find('.mp-pins [data-setting="display"] .mp-pbtn').trigger('click')
-    await nextTick()
-    const rows = w.findAll('.mp-pins [data-setting="display"] .mp-ddrow')
-    expect(rows.length).toBe(2)
-    await rows[1].trigger('click')
-    expect(onPick).toHaveBeenCalledWith('lyric')
-  })
-
-  it('the transparency slider drives the dock alpha (dock-chrome hook)', async () => {
-    const w = mountT()
-    await w.find('.mp-more').trigger('click')
-    await nextTick()
-    await panel(w, 'alpha').find('input[type="range"]').setValue(60)
-    expect(w.emitted('dock-alpha')[0]).toEqual([0.6])
+    await w.findAll('[data-cell="key"] .dk-ddrow')[1].trigger('click')
+    expect(onPick).toHaveBeenCalledWith('D')
   })
 })
 
-describe('Aa reader font size (B045)', () => {
-  beforeEach(() => { readingFontScale.value = 1 })
-
-  it('the Aa button is always present on the bar (1-tap · not pinnable away)', () => {
-    // even when NO settings are pinned, the reader can still reach font size
-    localStorage.setItem('pleng.dock.sing.pins', JSON.stringify([]))
+describe('⚙ Setting page', () => {
+  it('holds วนซ้ำ · คอร์ด · ความเร็ว · แสดงผล · โปร่งใส (not คีย์ — that is on the bar)', async () => {
     const w = mountT()
-    expect(w.find('.mp-fontbtn').exists()).toBe(true)
-    expect(w.find('.mp-fontbtn').text()).toContain('100%')
+    await openSetting(w)
+    for (const id of ['repeat', 'chord', 'speed', 'layer', 'alpha']) expect(panel(w, id).exists()).toBe(true)
+    expect(panel(w, 'key').exists()).toBe(false)
   })
 
-  it('tapping Aa opens a slider popover; sliding resizes the reader text live', async () => {
+  it('the วนซ้ำ toggle emits toggle-loop', async () => {
     const w = mountT()
-    expect(w.find('.mp-fontslider').exists()).toBe(false) // closed until tapped
-    await w.find('.mp-fontbtn').trigger('click')
+    await openSetting(w)
+    await panel(w, 'repeat').find('.dk-switch').trigger('click')
+    expect(w.emitted('toggle-loop')).toHaveLength(1)
+  })
+
+  it('a menu select calls the page descriptor onPick (แสดงผล → display)', async () => {
+    const onPick = vi.fn()
+    const settings = base.settings.map((s) => (s.id === 'display' ? { ...s, onPick } : s))
+    const w = mountT({ settings })
+    await openSetting(w)
+    await panel(w, 'layer').find('select').setValue('lyric')
+    expect(onPick).toHaveBeenCalledWith('lyric')
+  })
+
+  it('📌 pin promotes a control to a bar row + persists under the sing key', async () => {
+    const w = mountT()
+    expect(w.find('.dk-row [data-cell="chord"]').exists()).toBe(false)
+    await openSetting(w)
+    await panel(w, 'chord').find('.dk-pin').trigger('click')
     await nextTick()
-    const slider = w.find('.mp-fontslider')
+    expect(w.find('.dk-row [data-cell="chord"]').exists()).toBe(true)
+    expect(JSON.parse(localStorage.getItem('pleng.dockkey.sing.pins'))).toContain('chord')
+  })
+
+  it('the โปร่งใส slider drives the dock transparency', async () => {
+    const w = mountT()
+    await openSetting(w)
+    await panel(w, 'alpha').find('input[type="range"]').setValue(60)
+    await nextTick()
+    expect(w.find('.dk-host').attributes('style')).toContain('0.6')
+  })
+})
+
+describe('Aa reader font size', () => {
+  beforeEach(() => { readingFontScale.value = 1 })
+
+  it('is a permanent 1-tap control; its popover slider resizes the reader live', async () => {
+    const w = mountT()
+    expect(w.find('.st-aa').exists()).toBe(true)
+    expect(w.find('.st-fontslider').exists()).toBe(false) // closed until tapped
+    await w.find('.st-aa').trigger('click')
+    await nextTick()
+    const slider = w.find('.st-fontslider')
     expect(slider.exists()).toBe(true)
     await slider.setValue(140)
     expect(readingFontScale.value).toBeCloseTo(1.4, 5)
-    expect(w.find('.mp-fontbtn').text()).toContain('140%') // badge tracks live
-  })
-
-  it('▲▼ in the panel reorders the pinned controls on the bar (D6-style · persists)', async () => {
-    const mk = (id) => ({ id, icon: 'layers', label: id, kind: 'menu', value: 'a', badge: 'a', options: [{ value: 'a', label: 'a' }], onPick: () => {} })
-    const w = mountT({ settings: [mk('key'), mk('tempo'), mk('display')] })
-    // default pins key,tempo,display → that bar order
-    const barIds = () => w.findAll('.mp-pins [data-setting]').map((e) => e.attributes('data-setting'))
-    expect(barIds()).toEqual(['key', 'tempo', 'display'])
-    await w.find('.mp-more').trigger('click')
-    await nextTick()
-    // move 'key' one to the right (the ▼ = second .mp-mv in its row)
-    const mv = w.findAll('.mp-panel [data-setting="key"] .mp-mv')
-    await mv[1].trigger('click')
-    await nextTick()
-    expect(barIds()).toEqual(['tempo', 'key', 'display'])
-    expect(JSON.parse(localStorage.getItem('pleng.dock.sing.pins'))).toEqual(['tempo', 'key', 'display'])
-  })
-
-  it('the desktop grip wires the injected dock drag/collapse handlers (tap = หุบ via combinedUp, drag = move)', async () => {
-    const gripDown = vi.fn(), gripUp = vi.fn()
-    const w = mountT({ gripDown, gripUp })
-    const grip = w.find('.mp-grip-drag')
-    expect(grip.exists()).toBe(true) // jsdom = desktop (no matchMedia) → the draggable grip
-    await grip.trigger('pointerdown')
-    await grip.trigger('pointerup')
-    expect(gripDown).toHaveBeenCalledTimes(1)
-    expect(gripUp).toHaveBeenCalledTimes(1)
+    expect(w.find('.st-fontval').text()).toContain('140%')
   })
 })

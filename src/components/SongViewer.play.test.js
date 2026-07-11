@@ -1,8 +1,8 @@
 // The ดู surface plays in the SELECTED key, re-tunes live on key/tempo change, and drives
-// every control through the shared studio dock. B043 reshaped the controls into the bottom
-// "music player": the <StudioDock> hosts one full-width <SingTransport> (progress + markers
-// + ⏮ ▶/⏸ ⏭ 🔁) whose ⚙ panel holds display/chord/key/tempo/font/download/print. This
-// suite mocks the audio engine and asserts what reaches playSong / setTranspose.
+// every control through the bottom "music player". The dock is now the DockKey core engine,
+// fed by <SingTransport> (ITEMS_SING): row 2 = ไทม์ไลน์ · คีย์ · เลือกท่อน, row 1 = transport,
+// and the ⚙ Setting page holds คอร์ด/ความเร็ว/แสดงผล/วนซ้ำ. SongViewer mounts it directly.
+// This suite mocks the audio engine and asserts what reaches playSong / setTranspose.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
@@ -37,18 +37,13 @@ Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function 
 Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function () {}
 
 import SongViewer from './SongViewer.vue'
-import StudioDock from './StudioDock.vue'
 
-// Reproduce Studio's wiring: SongViewer emits its dock config; the shared StudioDock renders
-// it. The sing dock is one full-width top-region custom control (SingTransport).
+// SongViewer now mounts its own dock (the DockKey engine via <SingTransport>) — no external
+// wiring to reproduce. A thin wrapper just carries the song/tier props.
 const Harness = {
-  components: { SongViewer, StudioDock },
+  components: { SongViewer },
   props: { song: { type: Object, required: true }, tier: { type: String, default: 'guest' } },
-  data: () => ({ dock: null }),
-  template: `<div>
-    <SongViewer :song="song" :tier="tier" @dock="dock = $event" />
-    <StudioDock v-if="dock" mode="sing" :tools="dock.tools" :default-tools="dock.defaultTools" />
-  </div>`,
+  template: `<div><SongViewer :song="song" :tier="tier" /></div>`,
 }
 
 const song = {
@@ -87,25 +82,33 @@ const SongSheetStub = {
 const mountViewer = (p = song) =>
   mount(Harness, { props: { song: p }, global: { stubs: { SongSheet: SongSheetStub, Icon: true } }, attachTo: document.body })
 
-// ---- transport helpers (the SingTransport DOM inside the dock) ----
-const playBtn = (w) => w.find('.mp-play')
-const loopBtn = (w) => w.find('.mp-transport button[aria-label="วนซ้ำ"]')
-const gear = (w) => w.find('.mp-more')
+// ---- transport helpers (the DockKey/SingTransport DOM inside the dock) ----
+const playBtn = (w) => w.find('.dk-play')
+const gear = (w) => w.find('.dk-gear')
+const keyBadge = (w) => w.find('[data-cell="key"] .dk-badge')
 const sheet = (w) => w.findComponent({ name: 'SongSheet' })
 async function openSettings(w) {
-  if (!w.find('.mp-panel').exists()) { await gear(w).trigger('click'); await nextTick() }
+  if (!w.find('.dk-panel').exists()) { await gear(w).trigger('click'); await nextTick() }
 }
-// scope to the ⚙ panel — [data-setting] also matches the compact pinned controls on the bar
-const row = (w, id) => w.find(`.mp-panel [data-setting="${id}"]`)
-async function pickSelect(w, id, value) {
+// วนซ้ำ lives in the ⚙ Setting page now (not on the bar by default)
+async function toggleLoop(w) {
   await openSettings(w)
-  await row(w, id).find('select').setValue(value)
+  await w.find('.dk-panel [data-setting="repeat"] .dk-switch').trigger('click')
   await nextTick()
 }
-async function stepper(w, id, which) {
+// the page's setting ids → the adapter's descriptor ids in the Setting page
+const SROW = { display: 'layer', tempo: 'speed', chord: 'chord' }
+async function pickSelect(w, id, value) {
+  if (id === 'key') { // คีย์ is a bar dropdown (row 2), not a Setting-page select
+    await w.find('[data-cell="key"] .dk-pbtn').trigger('click')
+    await nextTick()
+    const opt = w.findAll('[data-cell="key"] .dk-ddrow').find((r) => r.text().trim() === String(value))
+    await opt.trigger('click')
+    await nextTick()
+    return
+  }
   await openSettings(w)
-  const btns = row(w, id).findAll('.mp-stp')
-  await btns[which === 'next' ? 1 : 0].trigger('click')
+  await w.find(`.dk-panel [data-setting="${SROW[id] || id}"] select`).setValue(String(value))
   await nextTick()
 }
 const lastPlay = () => playSongSpy.mock.calls.at(-1)
@@ -241,7 +244,7 @@ describe('SongViewer key / tempo / loop / readability (US-A02, US-A03)', () => {
   it('loop toggle → playback loops (US-A02)', async () => {
     const w = mountViewer()
     await nextTick()
-    await loopBtn(w).trigger('click')
+    await toggleLoop(w)
     await playBtn(w).trigger('click')
     expect(lastOpts().loop).toBe(true)
   })
@@ -250,7 +253,7 @@ describe('SongViewer key / tempo / loop / readability (US-A02, US-A03)', () => {
     const w = mountViewer()
     await nextTick()
     await pickSelect(w, 'key', 'G')
-    await loopBtn(w).trigger('click')
+    await toggleLoop(w)
     expect(song.content.key).toBe('E')
     expect(w.props('song').content.key).toBe('E')
   })
@@ -258,9 +261,9 @@ describe('SongViewer key / tempo / loop / readability (US-A02, US-A03)', () => {
   it('the key control shows the current key as a badge on the bar (dropdown)', async () => {
     const w = mountViewer()
     await nextTick()
-    expect(w.find('.mp-pins [data-setting="key"] .mp-pbadge').text()).toBe('E')
+    expect(keyBadge(w).text()).toBe('E')
     await pickSelect(w, 'key', 'F')
-    expect(w.find('.mp-pins [data-setting="key"] .mp-pbadge').text()).toBe('F')
+    expect(keyBadge(w).text()).toBe('F')
   })
 
   it('the reading font size comes from the global store (Aa top-nav tool, not the dock)', async () => {
@@ -301,17 +304,17 @@ describe('SongViewer section selection (B043)', () => {
     const w = mountViewer(song)
     await nextTick()
     expect(playBtn(w).exists()).toBe(true)
-    expect(w.find('.mp-seltrig').exists()).toBe(false)
-    expect(w.find('.mp-transport button[aria-label="ท่อนก่อน"]').exists()).toBe(false)
+    expect(w.find('.st-seltrig').exists()).toBe(false)
+    expect(w.find('[aria-label="ท่อนก่อน"]').exists()).toBe(false)
   })
 
   it('a song with a ท่อน shows the selector; picking it feeds playSong an order', async () => {
     const w = mountViewer(sectionSong)
     await nextTick()
-    expect(w.find('.mp-seltrig').exists()).toBe(true)
-    await w.find('.mp-seltrig').trigger('click') // open the selector sheet
+    expect(w.find('.st-seltrig').exists()).toBe(true)
+    await w.find('.st-seltrig').trigger('click') // open the selector sheet
     await nextTick()
-    await w.find('.mp-ssrow').trigger('click') // pick ท่อน 1
+    await w.find('.st-ssrow').trigger('click') // pick ท่อน 1
     await nextTick()
     await playBtn(w).trigger('click')
     expect(lastOpts().order).toEqual([{ name: 'ท่อน 1', fromLi: 0, toLi: 0 }])
@@ -355,9 +358,9 @@ describe('SongViewer song-identity re-sync (DS-A04)', () => {
     await nextTick()
     await pickSelect(w, 'key', 'F') // E → F
     await w.setProps({ song: { ...song, content: { ...song.content, key: 'E' } } })
-    expect(w.find('.mp-pins [data-setting="key"] .mp-pbadge').text()).toBe('F') // an edit must NOT wipe the chosen key
+    expect(keyBadge(w).text()).toBe('F') // an edit must NOT wipe the chosen key
     await w.setProps({ song: { number: 2, title_th: 'x', content: { ...song.content, key: 'A' } } })
-    expect(w.find('.mp-pins [data-setting="key"] .mp-pbadge').text()).toBe('A') // reset to the new song's key
+    expect(keyBadge(w).text()).toBe('A') // reset to the new song's key
   })
 })
 
@@ -391,6 +394,6 @@ describe('SongViewer edit-then-sing re-sync (B064)', () => {
     const w = mountViewer()
     await nextTick()
     await w.setProps({ song: { ...song, content: { ...song.content, key: 'G' } } }) // E → G edit
-    expect(w.find('.mp-pins [data-setting="key"] .mp-pbadge').text()).toBe('G')
+    expect(keyBadge(w).text()).toBe('G')
   })
 })

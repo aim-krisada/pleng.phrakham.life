@@ -51,14 +51,14 @@ beforeEach(() => {
 const mountEd = (props) =>
   mount(EditorMode, {
     props: { song: null, tier: 'approver', active: true, ...props },
-    global: { stubs: { Icon: true, StudioDock: true, 'router-link': true, ComboSelect: true } },
+    global: { stubs: { Icon: true, 'router-link': true, ComboSelect: true } },
   })
 
 describe('EditorMode — "ตรวจแล้ว" verified toggle', () => {
   it('is hidden for anonymous users', async () => {
     const w = mount(EditorMode, {
       props: { song: SONG, tier: 'anon', active: true },
-      global: { stubs: { Icon: true, StudioDock: true, 'router-link': true, ComboSelect: true } },
+      global: { stubs: { Icon: true, 'router-link': true, ComboSelect: true } },
     })
     await nextTick()
     expect(w.find('.ed-verify').exists()).toBe(false)
