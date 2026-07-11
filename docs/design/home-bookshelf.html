@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>pleng — หน้าแรกใหม่ (เล่ม picker) mockup B087</title>
+<style>
+  /* ---- S0 tokens copied verbatim from src/styles.css (Warm Study Room) ----
+     This is a DESIGN MOCKUP ONLY. It reuses the app tokens so colour/spacing/
+     type match production. Dev builds the real thing in SongList.vue. */
+  :root {
+    --brand:#8b4513; --ink:#2d2a26; --muted:#757575;
+    --cream:#faf6f0; --cream-hover:#f7f1e8; --line:#e0d6c8; --bg:#fff;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+    --fs-xs:.78rem; --fs-sm:.9rem; --fs-md:.98rem; --fs-base:1.06rem; --fs-lg:1.15rem; --fs-xl:1.4rem; --fs-2xl:1.75rem;
+    --lh-tight:1.25; --lh-snug:1.4; --lh-normal:1.6;
+    --touch-min:44px; --container:900px;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Noto Sans','Noto Sans Thai',system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:var(--fs-base); line-height:var(--lh-normal);
+  }
+  h1,h2,h3 { color:var(--brand); line-height:var(--lh-snug); margin:0; }
+  a { color:var(--brand); }
+  :focus-visible { outline:2px solid var(--brand); outline-offset:2px; border-radius:4px; }
+
+  /* mock shell bar (matches .shell-bar) */
+  .shell {
+    position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:var(--sp-3);
+    background:#f8f9fa; border-bottom:1px solid var(--line); padding:var(--sp-2) var(--sp-4);
+  }
+  .shell .brand { color:var(--brand); font-weight:700; text-decoration:none; }
+  .shell .spacer { flex:1; }
+  .shell .who { color:var(--muted); font-size:var(--fs-sm); }
+
+  .container { max-width:var(--container); margin:0 auto; padding:var(--sp-4); }
+  @media (max-width:480px){ .container{ padding:var(--sp-3); } }
+
+  /* ---- search block (mirrors current SongList search) ---- */
+  .search-block { margin-bottom:var(--sp-5); }
+  .song-search {
+    width:100%; min-height:var(--touch-min); font-size:var(--fs-base);
+    padding:var(--sp-3) var(--sp-4); border:1px solid var(--line); border-radius:10px;
+    background:#fff; color:var(--ink); font-family:inherit;
+  }
+  .search-hint { margin:var(--sp-2) 0 0; color:var(--muted); font-size:var(--fs-sm); }
+
+  /* ---- level heading + breadcrumb ---- */
+  .level-head { display:flex; align-items:baseline; gap:var(--sp-3); margin:0 0 var(--sp-4); flex-wrap:wrap; }
+  .level-head h2 { font-size:var(--fs-xl); }
+  .level-head .count { color:var(--muted); font-size:var(--fs-sm); }
+  .crumb {
+    display:inline-flex; align-items:center; gap:var(--sp-1); background:none; border:none;
+    color:var(--brand); font:inherit; font-size:var(--fs-base); cursor:pointer;
+    padding:var(--sp-2) var(--sp-2) var(--sp-2) 0; min-height:var(--touch-min);
+  }
+  .crumb:hover { text-decoration:underline; }
+
+  /* ---- LEVEL 1: bookshelf grid of 9 เล่ม (+ fallback) ---- */
+  .book-grid {
+    display:grid; grid-template-columns:1fr; gap:var(--sp-3);
+  }
+  @media (min-width:480px){ .book-grid{ grid-template-columns:repeat(2,1fr); } }
+  @media (min-width:768px){ .book-grid{ grid-template-columns:repeat(3,1fr); } }
+  .book-card {
+    display:flex; align-items:center; gap:var(--sp-3);
+    background:#fff; border:1px solid var(--line); border-left:5px solid var(--brand);
+    border-radius:10px; padding:var(--sp-4); cursor:pointer; text-align:left;
+    color:var(--ink); font:inherit; min-height:var(--touch-min); width:100%;
+  }
+  .book-card:hover { background:var(--cream-hover); }
+  .book-card .spine { color:var(--brand); font-weight:700; font-size:var(--fs-lg);
+    min-width:2.2em; text-align:center; }
+  .book-card .bk-body { flex:1; min-width:0; }
+  .book-card .bk-name { display:block; font-weight:700; color:var(--brand); font-size:var(--fs-lg); }
+  .book-card .bk-count { display:block; color:var(--muted); font-size:var(--fs-sm); }
+  .book-card .chev { color:var(--muted); }
+  .book-card.fallback { border-left-color:var(--line); }
+  .book-card.fallback .spine, .book-card.fallback .bk-name { color:var(--muted); }
+
+  /* ---- LEVEL 2: songs in a book, by number ---- */
+  .song-list { display:flex; flex-direction:column; gap:var(--sp-1); }
+  .song-row {
+    display:flex; align-items:center; gap:var(--sp-3);
+    background:#fff; border:1px solid var(--line); border-radius:8px;
+    padding:var(--sp-3) var(--sp-4); cursor:pointer; color:var(--ink);
+    font:inherit; text-align:left; width:100%; min-height:var(--touch-min);
+  }
+  .song-row:hover { background:var(--cream-hover); }
+  .song-row .no {
+    min-width:2.4em; text-align:right; color:var(--brand); font-weight:700;
+    font-variant-numeric:tabular-nums;
+  }
+  .song-row .ttl { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .song-row .key { color:var(--muted); font-size:var(--fs-xs); border:1px solid var(--line);
+    border-radius:12px; padding:1px var(--sp-2); white-space:nowrap; }
+
+  /* ---- SEARCH results (flat, across all books) ---- */
+  .result-card {
+    display:block; background:#fff; border:1px solid var(--line); border-radius:10px;
+    padding:var(--sp-4); margin-bottom:var(--sp-3); cursor:pointer; color:var(--ink);
+  }
+  .result-card:hover { background:var(--cream-hover); }
+  .result-card .rc-title { font-weight:700; color:var(--brand); font-size:var(--fs-lg); }
+  .result-card .rc-sub { color:var(--muted); font-size:var(--fs-sm); }
+  .result-card .rc-books { margin-top:var(--sp-1); color:var(--muted); font-size:var(--fs-xs); }
+  .empty { color:var(--muted); padding:var(--sp-4) 0; }
+
+  .note-banner {
+    background:var(--cream); border:1px dashed var(--line); border-radius:10px;
+    padding:var(--sp-3) var(--sp-4); margin:var(--sp-4) 0 0; color:var(--muted); font-size:var(--fs-sm);
+  }
+  footer { border-top:1px solid var(--line); margin-top:var(--sp-8); padding:var(--sp-4);
+    text-align:center; color:#7a6a4e; font-size:var(--fs-xs); }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <a class="brand" href="#" onclick="return false">เพลงพระคำ</a>
+    <span class="spacer"></span>
+    <span class="who">เข้าสู่ระบบ</span>
+  </div>
+
+  <main class="container">
+    <!-- search: always on top, works from any level -->
+    <div class="search-block">
+      <input id="q" class="song-search" type="search" autocomplete="off"
+             placeholder="ค้นหา: ชื่อเพลง หมายเลข เนื้อร้อง คีย์ หรือโน้ต (เช่น 5 5 6 1)"
+             aria-label="ค้นหาเพลง" oninput="onSearch()" />
+      <p class="search-hint">พิมพ์แล้วเจอทันที — ค้นข้ามทุกเล่ม ไม่ต้องเข้าเล่มก่อน</p>
+    </div>
+
+    <!-- ===== VIEW A · เลือกเล่ม (landing) ===== -->
+    <section id="view-books">
+      <div class="level-head">
+        <h2>เลือกเล่ม</h2>
+        <span class="count" id="books-count"></span>
+      </div>
+      <div class="book-grid" id="book-grid"></div>
+      <div class="note-banner">
+        เล่ม = เหมือน “หนังสือ” · เพลง = เหมือน “ข้อ” — เลือกเล่มเพื่อดูเพลงเรียงตามเลขในเล่มนั้น
+        (หลักการเดียวกับตัวเลือกพระธรรมของ phrakham.life)
+      </div>
+    </section>
+
+    <!-- ===== VIEW B · เพลงในเล่ม ===== -->
+    <section id="view-songs" class="hidden">
+      <button class="crumb" onclick="showBooks()">← เล่มทั้งหมด</button>
+      <div class="level-head">
+        <h2 id="book-title"></h2>
+        <span class="count" id="book-song-count"></span>
+      </div>
+      <div class="song-list" id="song-list"></div>
+    </section>
+
+    <!-- ===== VIEW C · ผลค้นหา (ข้ามทุกเล่ม) ===== -->
+    <section id="view-search" class="hidden">
+      <div class="level-head">
+        <h2>ผลการค้นหา</h2>
+        <span class="count" id="search-count"></span>
+      </div>
+      <div id="search-results"></div>
+    </section>
+  </main>
+
+  <footer>mockup B087 · หน้าแรกใหม่ (เล่ม picker) · ข้อมูลตัวอย่าง — dev สร้างจริงใน SongList.vue</footer>
+
+<script>
+/* ---------------------------------------------------------------------------
+   MOCK DATA — illustrative only. Real app: songs come from Supabase with
+   book_refs = [{book, no}] and bookCodes.js supplies BOOK_NAMES.
+   Counts/lists here are representative so the flow is clickable.
+--------------------------------------------------------------------------- */
+const BOOK_NAMES = {
+  'ล':'เล่มเล็ก', 'ย':'เล่มเยอรมัน', 'ยอ':'เยอรมันอนุชน', 'ทอ':'ไทยอนุชน 120',
+  'ม':'เล่มมงคลสมรส', 'ส':'เล่มสิงคโปร์', 'สอ':'สิงคโปร์อนุชน', 'อ':'อังกฤษ Hymn', 'ว':'เล่มไว้อาลัย',
+};
+const BOOK_ORDER = ['ล','ย','ยอ','ทอ','ม','ส','สอ','อ','ว'];
+
+// a small pool of songs; each carries the paper-book number it has in each book it appears in
+const SONGS = [
+  { id:1,  title:'ของขวัญ',            key:'G', refs:[{book:'ทอ',no:2},{book:'ล',no:282}] },
+  { id:2,  title:'พระเจ้าทรงเป็นความรัก', key:'C', refs:[{book:'ทอ',no:5},{book:'ย',no:14}] },
+  { id:3,  title:'สรรเสริญพระนาม',       key:'D', refs:[{book:'ทอ',no:11},{book:'ส',no:40}] },
+  { id:4,  title:'ในพระหัตถ์พระองค์',    key:'A', refs:[{book:'ทอ',no:18}] },
+  { id:5,  title:'ขอบพระคุณพระเจ้า',     key:'G', refs:[{book:'ทอ',no:23},{book:'สอ',no:7}] },
+  { id:6,  title:'พระคุณพระเจ้า',        key:'F', refs:[{book:'อ',no:1},{book:'ล',no:100}] }, // Amazing Grace
+  { id:7,  title:'คืนสงบ',              key:'C', refs:[{book:'ล',no:210}] },
+  { id:8,  title:'ความรักมั่นคง',       key:'D', refs:[{book:'ย',no:3},{book:'ยอ',no:3}] },
+  { id:9,  title:'วันวิวาห์',           key:'G', refs:[{book:'ม',no:1}] },
+  { id:10, title:'คำอธิษฐานคู่บ่าวสาว',  key:'C', refs:[{book:'ม',no:2}] },
+  { id:11, title:'ลาก่อนด้วยรัก',       key:'Am', refs:[{book:'ว',no:1}] },
+  { id:12, title:'กลับสู่มาตุภูมิสวรรค์', key:'F', refs:[{book:'ว',no:2}] },
+  { id:13, title:'Blessed Assurance',   key:'D', refs:[{book:'อ',no:12}] },
+  { id:14, title:'เยาวชนเพื่อพระคริสต์', key:'G', refs:[{book:'ยอ',no:8},{book:'สอ',no:8}] },
+  { id:15, title:'เพลงยังไม่จัดเล่ม (ตัวอย่าง)', key:'C', refs:[] }, // fallback demo
+];
+
+// mock per-book totals so cards read like the full library, even though only a
+// few sample songs are listed under each. (Real app derives count from data.)
+const MOCK_TOTALS = { 'ล':312,'ย':180,'ยอ':96,'ทอ':120,'ม':24,'ส':150,'สอ':72,'อ':66,'ว':30 };
+
+const FALLBACK_KEY = '__none__';
+
+/* ---- helpers ---- */
+function songsInBook(code){
+  return SONGS
+    .filter(s => s.refs.some(r => r.book === code))
+    .map(s => ({ ...s, no: s.refs.find(r => r.book === code).no }))
+    .sort((a,b) => a.no - b.no);
+}
+function fallbackSongs(){ return SONGS.filter(s => !s.refs.length); }
+function bookCount(code){ return code === FALLBACK_KEY ? fallbackSongs().length : MOCK_TOTALS[code]; }
+function refsLabel(refs){ return refs.map(r => `${BOOK_NAMES[r.book]} ${r.no}`).join(' · '); }
+
+/* ---- LEVEL 1 · book grid ---- */
+function renderBooks(){
+  const grid = document.getElementById('book-grid');
+  const cards = BOOK_ORDER.map(code => bookCard(code, false));
+  if (fallbackSongs().length) cards.push(bookCard(FALLBACK_KEY, true));
+  grid.innerHTML = cards.join('');
+  document.getElementById('books-count').textContent = `${BOOK_ORDER.length} เล่ม`;
+}
+function bookCard(code, isFallback){
+  const name = isFallback ? 'อื่นๆ / ยังไม่จัดเล่ม' : BOOK_NAMES[code];
+  const spine = isFallback ? '•' : code;
+  const cnt = bookCount(code);
+  return `<button class="book-card${isFallback?' fallback':''}" onclick="showSongs('${code}')">
+      <span class="spine">${spine}</span>
+      <span class="bk-body">
+        <span class="bk-name">${name}</span>
+        <span class="bk-count">${cnt} เพลง</span>
+      </span>
+      <span class="chev">›</span>
+    </button>`;
+}
+
+/* ---- LEVEL 2 · songs in book ---- */
+function showSongs(code){
+  const list = code === FALLBACK_KEY ? fallbackSongs().map(s => ({...s, no:''})) : songsInBook(code);
+  const name = code === FALLBACK_KEY ? 'อื่นๆ / ยังไม่จัดเล่ม' : BOOK_NAMES[code];
+  document.getElementById('book-title').textContent = name;
+  document.getElementById('book-song-count').textContent = `${bookCount(code)} เพลง`;
+  document.getElementById('song-list').innerHTML = list.map(s =>
+    `<button class="song-row" onclick="openSong(${s.id})">
+       <span class="no">${s.no !== '' ? s.no : '–'}</span>
+       <span class="ttl">${s.title}</span>
+       <span class="key">คีย์ ${s.key}</span>
+     </button>`).join('')
+    || `<p class="empty">ยังไม่มีเพลงในเล่มนี้ (ตัวอย่าง)</p>`;
+  swap('view-songs');
+  window.scrollTo(0,0);
+}
+function showBooks(){ swap('view-books'); }
+
+/* ---- SEARCH · flat, across all books (principle of songSearch.js) ---- */
+function onSearch(){
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  if (!q){ swap(document.getElementById('view-songs').classList.contains('hidden') ? 'view-books' : 'view-songs'); return; }
+  const hits = SONGS.filter(s =>
+    s.title.toLowerCase().includes(q) ||
+    s.key.toLowerCase().includes(q) ||
+    s.refs.some(r => String(r.no) === q || `${r.book}${r.no}`.toLowerCase().includes(q) ||
+                     `${BOOK_NAMES[r.book]} ${r.no}`.toLowerCase().includes(q))
+  );
+  document.getElementById('search-count').textContent = `${hits.length} เพลง`;
+  document.getElementById('search-results').innerHTML = hits.map(s =>
+    `<div class="result-card" onclick="openSong(${s.id})">
+       <div class="rc-title">${s.title}</div>
+       <div class="rc-sub">คีย์ ${s.key}</div>
+       ${s.refs.length ? `<div class="rc-books">แหล่งเพลง: ${refsLabel(s.refs)}</div>` : ''}
+     </div>`).join('')
+    || `<p class="empty">ไม่พบเพลงที่ค้นหา</p>`;
+  swap('view-search');
+}
+
+/* ---- view switching ---- */
+function swap(id){
+  ['view-books','view-songs','view-search'].forEach(v =>
+    document.getElementById(v).classList.toggle('hidden', v !== id));
+}
+function openSong(id){
+  const s = SONGS.find(x => x.id === id);
+  alert('ตัวอย่าง — ในแอปจริงจะเปิดหน้าเพลง: /song/' + id + '\n\n“' + s.title + '”');
+}
+
+renderBooks();
+</script>
+</body>
+</html>
