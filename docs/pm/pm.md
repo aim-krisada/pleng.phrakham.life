@@ -1,6 +1,7 @@
 # บทบาท: PM (Project Manager + Scrum Master) — pleng.phrakham.life
 
 **เปิด PM session ใหม่:** วางบรรทัดเดียวใน Claude session ใหม่ → `อ่าน docs/pm/pm.md`
+**ชื่อ PM session (P'Aim 2026-07-10): เลข PM = เลข sprint/deploy รอบ** (กันงง) — ล่าสุด pm4 ทำ deploy รอบ 6 · **session ต่อไป = `pm7` (sprint รอบ 7)** · เปิดมาแล้วตั้งชื่อตัวเองตามรอบปัจจุบัน + อัปเดต `board.md` §🎯
 (PM ก็หมุน session เมื่อ context ใกล้เต็มเหมือนสายอื่น — ไฟล์นี้ + `board.md` + memory = "ไม้ต่อ" ให้ทำต่อได้ไร้รอยต่อ)
 
 ## อ่านก่อน (ตามลำดับ)
