@@ -5,7 +5,24 @@
 
 ---
 
-## VERDICT: 🔴 ยังไม่ผ่าน — เหลือ 1 (a11y serious)
+## ✅ RE-VERIFY (`5a9bacd` · dev แก้ .grip แล้ว · branch เลย 18b5a14 มาถึง 5a9bacd) = ผ่านครบ Tier-A + Tier-B
+dev แก้ถูก + เหตุผลดี: `.grip` → **`aria-hidden="true"`** (ไม่ใช่ role=button · comment: role=button จะโฆษณา Enter/Space ที่ปุ่มลาก pointer-only ทำไม่ได้ · ▲▼ คือทางคีย์บอร์ด/AT — ตรง WCAG 4.1.2/2.1.1)
+- **axe = 0 violation** (rail · WCAG A/AA จริงในเบราว์เซอร์) ✅
+- **Tier-B วัดจริง 3 breakpoint** (grip aria-hidden ยืนยันใน DOM สด):
+
+| viewport | row | ▲▼ ข้างกัน | ▲▼ min | ชื่อ "ร้อง 1" | h-overflow |
+|---|---|---|---|---|---|
+| 1280 | 52px | ✅ | 26px | ไม่ตัด | 0 |
+| 768 | 52px | ✅ | 26px | ไม่ตัด | 0 |
+| 375 | 58px | ✅ | 34px | ไม่ตัด | 0 |
+
+- console 0 error · vitest 300 (ฐานเดิม)
+- **หมายเหตุค่า:** row = 52/58px (pm7 ตั้ง "~42px") — dev ทำ "roomy" ตั้งใจ (comment: กว้างพอ ชื่อไม่ตัด) · เป็น **แถวเดียว ไม่ wrap ไม่เทอะทะ** → ผ่าน · ถ้า P'Aim อยากแน่นกว่านี้ = ปรับความชอบ ไม่ใช่ defect
+- **VERDICT re-verify = ✅ เขียวครบ พร้อม P'Aim**
+
+---
+
+## VERDICT (รอบแรก `ded324a`): 🔴 เหลือ 1 (a11y serious) — **แก้แล้วใน `5a9bacd` ข้างบน**
 Layout ตามกฎ list-row **เขียวหมด** · เหลือ a11y 1 ข้อ (fix 1 บรรทัด) → ส่งกลับ pm7 · **P'Aim ยังไม่ควรดู**
 
 ### 🔴 ข้อเดียวที่ต้องแก้
