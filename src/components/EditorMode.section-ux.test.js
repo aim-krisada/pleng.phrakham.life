@@ -87,6 +87,22 @@ describe('editor-section-ux — โครงเพลง rail shell', () => {
     expect(mel[1].text()).toContain('ทำนอง B')
   })
 
+  it('ui-standards §2: a ท่อน row is one flat line — name · ♪ pill · ▲▼ (2 siblings, not stacked) · del', async () => {
+    const w = mountEd()
+    await nextTick()
+    const row = w.find('.srow')
+    // ♪ is a compact static pill (span), not a heavy inline dropdown crammed in the narrow rail
+    const chip = row.find('.mchip')
+    expect(chip.exists()).toBe(true)
+    expect(chip.element.tagName).toBe('SPAN')
+    expect(chip.text()).toMatch(/^♪/)
+    // exactly one name element and one .updown holding TWO sibling ▲▼ buttons (side-by-side markup)
+    expect(row.findAll('.sname, .snameinp').length).toBe(1)
+    const updowns = row.findAll('.updown')
+    expect(updowns.length).toBe(1)
+    expect(updowns[0].findAll('button').length).toBe(2)
+  })
+
   it('SX2: click a ท่อน name → inline input; Enter commits row.label everywhere', async () => {
     const w = mountEd()
     await nextTick()

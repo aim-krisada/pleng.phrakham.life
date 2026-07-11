@@ -643,10 +643,6 @@ function onGripPointerDown(i, e) {
   document.addEventListener('pointerup', up)
 }
 const stanzaIdOptions = computed(() => stanzas.value.map((s) => ({ value: s.id, label: 'ทำนอง ' + s.id })))
-// compact labels for the ♪ chip on a rail row (tight column) — searchable by "ทำนอง X"
-const stanzaChipOptions = computed(() =>
-  stanzas.value.map((s) => ({ value: s.id, label: '♪' + s.id, search: 'ทำนอง ' + s.id })),
-)
 const rowKeyOptions = computed(() => [{ value: '', label: 'คีย์เดิม' }, ...KEYS.map((k) => ({ value: k, label: k }))])
 
 // beats per bar vs. time signature — honest: unreadable input is an error, never a pass.
@@ -1858,15 +1854,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
             :title="rowLabel(row, ri) + ' — คลิกเพื่อแก้ชื่อ'"
             @click.stop="startRename(ri, 'rail')"
           >{{ rowLabel(row, ri) }}</span>
-          <ComboSelect
-            class="mchip"
-            :model-value="row.stanza"
-            :options="stanzaChipOptions"
-            aria-label="เลือกทำนองของท่อนนี้"
-            width="54px"
-            @click.stop
-            @update:model-value="row.stanza = $event"
-          />
+          <span class="mchip" :title="'ทำนอง ' + row.stanza + ' — เปลี่ยนทำนองได้ที่หัวท่อน'">♪{{ row.stanza }}</span>
           <span class="updown" @click.stop>
             <button aria-label="ย้ายท่อนขึ้น" :disabled="ri === 0" @click="moveRow(ri, -1)">▲</button>
             <button aria-label="ย้ายท่อนลง" :disabled="ri === arrangement.length - 1" @click="moveRow(ri, 1)">▼</button>
@@ -2589,15 +2577,17 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 }
 .rg-chev { transform: rotate(-90deg); transition: transform 0.15s; }
 .rg-chev-open { transform: rotate(0); }
-/* a ท่อน row in the rail: grip · num · name · ♪ · ▲▼ · delete */
+/* a ท่อน row in the rail — ONE line, controls aligned (ui-standards §2 list-row):
+   grip · num · name (roomy, only truncates when it must) · ♪ pill · ▲▼ (side-by-side,
+   never stacked) · delete. Row height is a single control tall, not two. */
 .srow {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   border: 1px solid var(--line);
   background: #fff;
   border-radius: 9px;
-  padding: 5px 6px;
+  padding: 3px 6px;
   margin-bottom: 6px;
   cursor: pointer;
   transition: box-shadow 0.12s, border-color 0.12s, opacity 0.12s;
@@ -2608,15 +2598,15 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 .grip {
   color: var(--muted);
   cursor: grab;
-  flex: 0 0 16px;
+  flex: 0 0 14px;
   display: inline-flex;
   align-items: center;
   touch-action: none;
 }
-.snum { color: var(--muted); font-size: 12px; min-width: 14px; text-align: right; flex: 0 0 auto; }
+.snum { color: var(--muted); font-size: 12px; min-width: 12px; text-align: right; flex: 0 0 auto; }
 .sname {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: 48px;
   font-size: 0.92rem;
   font-weight: 600;
   cursor: text;
@@ -2627,9 +2617,10 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.sname:hover { background: var(--cream); }
 .snameinp {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: 48px;
   width: 100%;
   font-size: 0.92rem;
   font-weight: 600;
@@ -2638,35 +2629,35 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   border-radius: 6px;
   font-family: inherit;
 }
-/* ♪ chip = compact melody picker (ComboSelect) */
-.mchip { flex: 0 0 auto; }
-.mchip :deep(input) {
+/* ♪ pill = compact melody indicator (change the melody in the canvas header) */
+.mchip {
+  flex: 0 0 auto;
   font-size: 11px;
   color: var(--brand);
   font-weight: 700;
   background: var(--cream);
   border: 1px solid var(--line);
   border-radius: 20px;
-  padding: 3px 6px;
-  text-align: center;
-  cursor: pointer;
-  min-height: 26px;
+  padding: 3px 7px;
+  white-space: nowrap;
 }
-/* stacked ▲▼ */
-.updown { display: inline-flex; flex-direction: column; gap: 1px; flex: 0 0 auto; }
+/* ▲▼ side by side (single line — never stacked; ui-standards §2). Override the global
+   button min-height (44px) so the row stays compact; ≥24px still meets WCAG 2.5.8. */
+.updown { display: inline-flex; flex-direction: row; gap: 2px; flex: 0 0 auto; align-items: center; }
 .updown button {
   border: 1px solid var(--line);
   background: #fff;
+  color: var(--muted);
   border-radius: 5px;
-  width: 22px;
-  height: 15px;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--muted);
   padding: 0;
-  font-size: 8px;
+  font-size: 9px;
   line-height: 1;
 }
 .updown button:disabled { opacity: 0.3; cursor: default; }
@@ -3040,8 +3031,8 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 .studio-app { display: flex; gap: 16px; align-items: flex-start; }
 .content { flex: 1; min-width: 0; }
 .rail {
-  flex: 0 0 214px;
-  width: 214px;
+  flex: 0 0 250px;
+  width: 250px;
   position: sticky;
   top: 58px;
   align-self: flex-start;
@@ -3607,12 +3598,13 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   .rail-del,
   .rail-x { min-width: var(--touch-min); min-height: var(--touch-min); }
 
-  /* โครงเพลง rows + canvas header: fat touch targets (WCAG 2.5.8; SOP ≥44px) */
-  .srow { padding: 7px 6px; }
-  .grip { min-width: 32px; min-height: 40px; }
+  /* โครงเพลง rows + canvas header: fat touch targets (WCAG 2.5.8; SOP ≥44px),
+     still a single-line row — ▲▼ stay side-by-side, just taller for the thumb */
+  .srow { padding: 6px; gap: 5px; }
+  .grip { min-width: 30px; min-height: 40px; }
   .srow-del,
   .cs-del { min-width: var(--touch-min); min-height: var(--touch-min); }
-  .updown button { width: 40px; height: 22px; font-size: 10px; }
+  .updown button { width: 34px; height: 40px; font-size: 11px; }
   .addsec { min-height: var(--touch-min); }
 }
 </style>
