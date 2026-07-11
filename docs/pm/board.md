@@ -16,6 +16,8 @@
 - **🚧 GATE-4 defect (P'Aim 11 ก.ค.) → บล็อก deploy รอบ 7 · [dev เสร็จ → in tester]:** หน้าฝึกร้อง หัวสไลด์ไทม์ไลน์ชิดขอบ dock (เดิม 3px) — **dev แก้แล้ว** (`66915b8` branch `fix-sing-timeline-edge` · inset ราง+หัว 10px ในเซลล์เดิม ไม่ทำกว้างขึ้น · self-verify 375/768/1280 = 11/13/13px · ลาก 1:1 · 317 test) → **ส่ง tester (`local_03855226`) confirm D6 แล้ว รอผล** · server `192.168.1.124:5401` · report `docs/reports/sing-timeline-edge.md`
   - **pm7 ต่อ:** tester PASS → merge `fix-sing-timeline-edge` เข้าฐาน (มี doc-divergence: dev แตกก่อน commit process-rule ของ pm7 → 3-way keep ทั้งคู่ · board.md อาจ conflict inbox line) → re-serve 5400 → P'Aim ตรวจ → go
   - **process ปิดช่องโหว่แล้ว:** ui-standards + checklist **D6** (slider knob วัดสองปลาย ≥10px) แทน B1/B6 ที่กว้างไป → tester ดักครั้งหน้า
+  - **P'Aim เคาะ (11 ก.ค.):** เสนอเพิ่มกรอบรอบ timeline → **ไม่ทำ** (PM เตือน nested-border ซ้อนในการ์ดที่มีกรอบแล้ว = ขัด minimalist · slider มาตรฐานไม่มีกรอบ · บันทึกใน ui-standards) → **สั่ง "รอ tester ผ่าน แล้ว deploy รอบ 7 เลย"** (pre-authorized deploy · contingent tester PASS)
+  - **pm7 ต่อ (สำคัญ):** tester PASS → merge fix เข้าฐาน → **deploy รอบ 7** (align main=base + push · P'Aim สั่งแล้ว) → รายงาน version จริง vs live footer · ถ้า tester FAIL → หยุด แจ้ง P'Aim
 - 🟢 ขนาน (ไม่บล็อก deploy): **SA interlinear ≥3 ภาษา** (mockup รอ P'Aim เคาะ) · **B080 expert standards** · Amazing Grace ในคลัง (พี่เปาฟังเช็ก)
 - **cleanup ค้าง:** ปิด dev server เก่า (:5315/:5372/:5376 อาจยังรัน) · worktree เก่า ~15
 
