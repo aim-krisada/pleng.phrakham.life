@@ -88,6 +88,12 @@
 - **pm7 ต่อ:** tester ผ่าน B087+B089 (public ว่าง+ข้อความ+ไม่ crash · team-view = unit test + P'Aim ยืนยันในแอป) → **deploy (gate active · public ว่าง)** → P'Aim review อนุชนทีละเพลง กด "ตรวจแล้ว" → กลับมาโชว์ · **yuwachon code** รอ DA ยืนยัน (ยังไม่มีเพลง=ไม่กระทบ)
 - **⭐ P'Aim สั่ง (ค่ำ 11 ก.ค.): ดัน B087+B089 ขึ้นก่อนบั๊กที่เหลือ** — tester ตรวจ B087+B089 เป็นลำดับต้น → PM deploy · **B084 final = space ripple + Backspace/Delete (`14415de` NoteBoxes · 337 test) → tester** · **B092/B093 = issue4/5 พี่เปา (B092 จ่ายแล้ว · B093 lint-before-publish รอ P'Aim เคาะ block/warn)**
 
+## ⚠️ MERGE STACK (pm7 · deploy รอบ 10 = โจทย์เรียงคิว EditorMode.vue หลายสาย)
+**5 สายแตะ `EditorMode.vue` ไฟล์เดียว รอ merge — ต้องเรียง+resolve+rerun test:**
+- **stack (ต่อกันแล้ว):** `editor-ux-followup` (B085/B086 `9dc22d9`) → `editor-copyline-reslice` (B088 `e496af5`) → `line-clear-parts` (B091 ล้างเนื้อ `b38fd04`) — merge ตามลำดับนี้ clean
+- **แตกจาก base (ต้อง rebase/resolve):** `surface-bar-tools` (B092 `d33c2e8`) · `lint-before-publish` (B093 กำลังทำ) · `notebox-split` (B084 = NoteBoxes คนละไฟล์ · ไม่ชน)
+- **วิธี:** merge stack ก่อน → แล้ว B092/B093 rebase/3-way (คนละ region: B092=bar-foot · B093=publish · B091=syllable · B085/86=rail) น่าจะ resolve ได้ · rerun 300+ test ทุกครั้ง
+
 ## ⭐ PRIORITY (P'Aim 11 ก.ค. ค่ำ): **แก้บั๊กให้จบก่อน feature ใหม่**
 - บั๊กพี่เปา: ✅ live = B069/B081/B082/B083 · 🔵 **tester คิว (บั๊กก่อน):** B085/B086 [→deploy 10] · B084 (`notebox-split`) · B088 (`editor-copyline-reslice` · merge หลัง B085/B086) · B090 (`final-barline` เส้นจบ 2 เส้น `c7ac0c2` 327 test) · แล้ว B087+B089 (feature+gate) · **tester = คอขวด (คิวยาว)**
 - พี่เปา issue ใหม่: **B090 เส้นจบ ‖ = ✅ P'Aim print-verified → merged `9a9a132`** รอ deploy 10 · **B091:** ล้างเนื้อ✅ (`5a0f854` รอ merge) · **ล้างโน้ต = ตัดทิ้ง** (เจตนาจริง = โน้ต space ต้อง ripple เหมือนเนื้อ) → **ต่อยอด B084 (NoteBoxes) ให้ space ripple/แทรกเต็มแบบ lyric** (P'Aim เคาะ · สาย `local_dc20cdf4` · ไม่แตะ model) · B092 surface bar tools (📋 รอเคาะจ่าย · feature)
