@@ -61,3 +61,9 @@ const results = computed(() => filterSongs(songs, query))     // เดิม
 - **หน้าตาเล่ม = สัน + โค้ดเล่ม พอ** (KISS · ไม่ทำปก/ไอคอนต่อเล่ม)
 - **PC = 3 คอลัมน์** (ตาม mockup) · มือถือตามที่ SA ออกแบบ
 → dev build ตาม US/DS + mockup · ปรับ `SongList.vue` ไม่รื้อ · data-driven จาก `book_refs` (รับ "เล่มใหญ่"/`lem-yai` เอง) · คง search เดิม · ไม่แตะ model/DB/SongSheet
+
+## 🔄 Taxonomy REVISED (P'Aim 11 ก.ค. — final)
+- **เล่มจริง = 3 เล่ม จัดด้วย `category`:** `lem-yai`→"เล่มใหญ่" · `anuchon`→"อนุชน" (ไทยอนุชน 120) · `yuwachon`(หรือโค้ดที่ DA ใช้)→"ยุวชน" (เพลงเด็กเล็ก)
+- **`book_refs` (ล/ย/ยอ/ม/ส/สอ/อ/ว/บพส/ฟ...) = tag อ้างอิงเท่านั้น** — โชว์บนการ์ดเพลง (เช่น "อยู่ในเล่มเล็ก 282") ไม่ใช่เล่มหลักในหน้าแรก · ค้นหายังหาเจอด้วย ref (songSearch เดิม)
+- **หน้าแรก picker = 3 เล่ม (จาก category)** ไม่ใช่ 9 (จาก book_refs) · ซ่อนเล่มว่าง (ยุวชนยังไม่มีเพลง = ไม่โผล่จนกว่ามี) · เพลงอยู่ 1 เล่มหลัก (category) เท่านั้น = ไม่ซ้ำหลายเล่ม
+- แก้ `bookshelf.js` ให้ group ด้วย `category` (map 3 ชื่อ) · book_refs → เป็น tag บนเพลง · **ไม่แตะ model/DB/search**
