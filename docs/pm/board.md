@@ -5,39 +5,41 @@
 
 ---
 
-## ▶▶ ต่อ session (pm7 คนต่อไป อ่านนี่ก่อน · context เต็ม 11 ก.ค.)
-**ยัง sprint 7 (deploy รอบ 7 ยังไม่จบ) → session ใหม่ = `pm7` ต่อ · อ่าน `docs/pm/pm.md` + `docs/sop.md` + memory ก่อน**
-**🔑 pm7 ใหม่ทำทันทีตอนเปิด (กัน worker ping session เก่า):** (1) อัปเดต `§🎯 PM session ปัจจุบัน` = ชื่อ session ตัวเอง (2) อ่าน `§📥 inbox` + `docs/reports/*` = เห็นงานที่ landed แล้ว (ไม้ต่อจริงอยู่ที่นี่ ไม่พึ่ง ping) (3) `list_sessions` → `send_message` หา worker ที่ยัง `isRunning` (dev DockKey `local_e15710b1` · tester `local_03855226` · SA interlinear) แจ้ง "ผม pm7 ใหม่ · report ที่ board inbox · ping มาที่นี่" → live-ping เข้า session ใหม่
-- **ฐาน `2b8462b` = 3 เป้าหมายวันนี้ MERGED** (DockKey 3 หน้า · โครงเพลง · slur · 300 test) · **main=base · live=รอบ6 `1a3aa65`**
-- **กำลังทำ (ต่อ):** 🔨 **DockKey polish รอบ 2 = dev เสร็จครบ (§D `108167c` + B079 `10e91d5` · smart-row-pack · timeline 2 ท่อน · download ซ้ำเอาออกแล้ว = export ที่ dock เดียว · self-verify Tier-B · 300 test) → ส่ง tester ตรวจ §A-§D+B079 แล้ว รอ tester ping** · 🟢 **SA interlinear ≥3 ภาษา** (mockup) · 🟢 **B080 expert standards** (pm7 ต่อยอด ui-standards) · Amazing Grace ในคลัง (พี่เปาฟังเช็ก)
-  - **pm7 ใหม่ทำต่อ:** tester ผ่าน DockKey polish → git-verify + merge (dockkey-dev increment) เข้าฐาน → เสิร์ฟ 5400 ให้ P'Aim ตรวจฐานรวม → go → deploy รอบ 7
-- **🚦 ค้างที่ P'Aim:** ตรวจฐานรวม `192.168.1.124:5400` (หรือหลัง polish) → สั่ง **"go deploy รอบ 7"** · deploy = align main=base + push (ดู memory `feedback_pm_sole_interface`/deploy)
-- **process ปัจจุบัน:** shift-left (SA/dev อิงมาตรฐาน+self-verify ก่อน tester) · tester gate ทุก UI · auto-loop ≤3 · Tier-B ผ่าน Browser MCP · ทุก P'Aim example→กฎใน ui-standards/checklist
-- **follow-up:** merge tester infra (axe-core+ui-invariants จาก branch `tester-qa`) เข้าฐานให้ npm test รัน a11y · ปิด dev server เก่า
+## ▶▶ ต่อ session (pm7 · assembled deploy รอบ 7 base · 11 ก.ค. บ่าย)
+**ยัง sprint 7 · session = `pm7` ต่อ · อ่าน `docs/pm/pm.md` + `docs/sop.md` + memory ก่อน**
+**สถานะ workers:** dev DockKey / tester / slur dev / section-ux dev / SA interlinear = **idle (`isRunning:false`) ทั้งหมด** (เช็ก 11 ก.ค. บ่าย) · ไม้ต่อจริงอยู่ใน git ครบ ไม่ต้อง re-ping · running มีแต่ phrakham.life2 (คนละโปรเจกต์)
+- **✅ ฐานรวม deploy รอบ 7 ประกอบ+ตรวจแล้ว → `studio-shell-redesign` HEAD `b369a49`** · **317 test เขียว** (300 เดิม + 17 axe/invariant ใหม่ · "1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก) · **build เขียว**
+- **merge เข้าฐานรอบนี้ (ทั้งหมด tester PASS):**
+  1. **DockKey §D GATE-4 polish** `108167c` + **B079** download single-source `10e91d5` (merge `84f0b38`) — tester PASS 3 โหมด dock (`d2a1dc2`)
+  2. **slur B076** Bézier ตามความกว้างจริง `c202e13` (merge `c845183`) — tester PASS geometry (`0edf690`) · conflict launch.json (พอร์ต) resolve เก็บทั้งคู่
+  3. **tester a11y infra** (axe-core + `ui-invariants.js` + DockKey invariant spec) `b369a49` — npm test รัน a11y ในฐานแล้ว (follow-up ปิด)
+- **🚦 GATE-4 ค้างที่ P'Aim:** ตรวจ **ฐานรวม `http://192.168.1.124:5400`** (dev `--host` กำลังรัน · มือถือเข้าได้) → สั่ง **"go deploy รอบ 7"** · deploy = align main=base + push (memory `feedback_pm_sole_interface`/deploy)
+- 🟢 ขนาน (ไม่บล็อก deploy): **SA interlinear ≥3 ภาษา** (mockup รอ P'Aim เคาะ) · **B080 expert standards** · Amazing Grace ในคลัง (พี่เปาฟังเช็ก)
+- **cleanup ค้าง:** ปิด dev server เก่า (:5315/:5372/:5376 อาจยังรัน) · worktree เก่า ~15
 
 ## ▶ RESUME (git-verified)
-- **ฐาน `studio-shell-redesign` HEAD = `97e735b`** = **288 test เขียว + build** (`npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'` · "1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก)
-- 🎉 **live = deploy รอบ 6 (`1a3aa65` · verified bundle stamp)** · **main === base** (align เสร็จ · divergence B073-solo หาย · รอบหน้า clean FF)
-- **ได้ขึ้น live รอบ 6:** ตัวหนังสือมีหัว/ไม่มีหัว · ค้นโน้ต+"555" · พรีวิวดูผลทั้งเพลง · undo · MP3 (dock ฝึกร้อง) · favicon+footer · B073
+- **ฐาน `studio-shell-redesign` HEAD = `b369a49`** = **317 test เขียว + build** (`npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'` · "1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก) · เสิร์ฟรอ P'Aim ที่ `192.168.1.124:5400`
+- 🎉 **live = deploy รอบ 6 (`1a3aa65` · verified bundle stamp)** · **main === base ตอน align รอบ 6** (base เดินหน้าแล้ว → deploy รอบ 7 = align main=base ใหม่ + push)
+- **รอขึ้น live รอบ 7 (ในฐาน b369a49):** DockKey §D polish + B079 export single-source · slur B076 โค้งไม่บิด · (ของรอบ 6 เดิมยังอยู่ครบ)
 
 ## 🎯 PM session ปัจจุบัน = `pm7` (sprint รอบ 7 · pm4 รับต่อเป็น pm7 เอง ไม่ handoff · P'Aim 10 ก.ค.)
 - **กติกา (P'Aim 10 ก.ค.): เลข PM = เลข sprint/deploy รอบ** · pm4→รอบ6 · **pm7 = sprint รอบ 7**
-- **🎯 เป้าหมายวันนี้ (P'Aim 11 ก.ค.) — ✅✅✅ ครบ 3 · tester PASS · MERGED เข้าฐาน `2b8462b` (300 test · build · StudioDock ถอด):** (1) DockKey 3 หน้า (Tier-A+B PASS) (2) โครงเพลง (PASS) (3) slur (merged) → **🚦 GATE 4 (SOP ใหม่): เสิร์ฟฐานรวม `http://192.168.1.124:5400` รอ P'Aim ตรวจ "ผลรวม" ก่อน deploy รอบ 7** · ⏳ follow-up: merge tester infra (axe-core+ui-invariants) เข้าฐาน + ปิด server dev เก่า
+- **🎯 เป้าหมายวันนี้ (P'Aim 11 ก.ค.) — ✅ ครบ + polish + slur + tester infra MERGED เข้าฐาน `b369a49` (317 test · build):** (1) DockKey 3 หน้า + §D polish + B079 (2) โครงเพลง (3) slur B076 — ทั้งหมด tester PASS → **🚦 GATE 4: เสิร์ฟฐานรวม `http://192.168.1.124:5400` (กำลังรัน) รอ P'Aim ตรวจ "ผลรวม" ก่อน deploy รอบ 7** · ✅ follow-up ปิด: tester infra เข้าฐานแล้ว · ⏳ ปิด server dev เก่า
 - **⭐ process upgrade (P'Aim 11 ก.ค.):** Tier-B ทำอัตโนมัติผ่าน **Claude Browser MCP** (resize+วัดพิกัดจริง) · auto-loop `fix-verify-loop` (≤3 รอบ) ครอบ Tier-A+B · P'Aim เหลือแค่ทิศทาง/ความสวย
 - dev/SA รายงานเสร็จ (session-agnostic): (1) `docs/reports/<branch>.md` (2) เพิ่มบรรทัด §📥 inbox (3) ping PM ปัจจุบัน · **อย่า hardcode ชื่อสายใน prompt**
 - **เช็ก `git branch --show-current` ก่อน commit ทุกครั้ง** (spawn_task สลับ branch main dir ใต้มือ · ดู memory)
 
 ## 📥 inbox (รายงานเข้า → pm7 อ่าน)
-- **B076 slur/tie bézier = ✅ ส่งแล้ว** (branch `slur-bezier` จาก `studio-shell-redesign`) — เลิกยืด path (`preserveAspectRatio=none`) → คำนวณ `d` จากความกว้างจริง (directive `v-arc` ใน NoteRow) · จุดควบคุม taper คงที่ 26px ทุกความยาว → เอื้อน 8 โน้ตโค้งเรียบไม่บิด · **292 test + build** · แตะแค่ `NoteRow.vue`(+test)+`launch.json` (ไม่แตะ SongSheet/DockKey/EditorMode) · verify: Guide+song sheet+editor ไม่ regress, console ไม่ error, geometry viewBox=clientWidth 1:1 · **ค้าง: P'Aim print PDF จริง + ดูมือถือ `http://192.168.1.124:5376/`** · **follow-up: B069 cross-bar overlay (SongSheet คนละกลไก) ยังไม่ตรวจ** · detail `docs/reports/slur-bezier.md` · ⛔ ยังไม่ merge/deploy
+- **✅ MERGED เข้าฐาน b369a49 แล้ว (pm7 11 ก.ค. บ่าย):** DockKey §D polish+B079 (`84f0b38`) · slur B076 (`c845183`) · tester a11y infra (`b369a49`) — ดู §▶▶ ด้านบน
+  - **follow-up ค้างจาก B076:** P'Aim ควร print PDF จริง (verify print/PDF จาก PDF ไม่ใช่ DOM — memory) · **B069 cross-bar overlay (SongSheet คนละกลไก) ยังไม่ตรวจ** · detail `docs/reports/slur-bezier.md`
 
 ---
 
-## 🟢 กำลัง build (→ deploy รอบ 7) — 2 สายใหญ่ · ⚠️ ทั้งคู่แตะ `EditorMode.vue` คนละส่วน → PM เรียงคิว merge + resolve
-1. **dockkey-dev phase 2 = ✅ ส่งแล้ว** (ล่าสุด `08870aa` · re-sync `9f2ad42` · **300 test** · build) — 3 หน้าใช้ DockKey engine เดียว (แผ่นเพลง ITEMS_PRINT · แก้ไข ITEMS_EDIT band 21 keys · **MP3 เข้า `ExportTool.vue` กลาง = เมนู PDF/JSON/MP3 เดียวกันครบ 3 หน้า** · sing MP3 render ตามคีย์/สปีดที่เลือก · ถอด StudioDock) · ✅ **dev แก้ checklist ครบแล้ว** (`99911c5` · re-sync `7a09023` · **300 test**) — §A engine (popup ชิดขวา gap 9px เท่ากัน · no-scroll · ตัดลูกศร · **button hierarchy: filled=primary จริง [ฝึกร้อง▶/แผ่นพิมพ์/แก้บันทึก] · download ghost หมด**) + §B (เวลาไม่ซ้อนคีย์ · **B2 ลบ progress fill ที่ทำให้ท่อนดูถูกเลือก** · ซ้อม→ฟัง ฯลฯ) · **🔺 pm7: ส่ง tester ตรวจ checklist ก่อน (⛔ ยังไม่ให้ P'Aim)** · export ยัง row1 (ghost แล้ว · ย้ายเข้า ⚙=งานแยก) · detail `docs/reports/dockkey-phase2.md`+`dockkey-checklist.md` · **IP วันนี้ = `192.168.1.124`**
-2. **editor-section-ux-dev = ✅ ส่งแล้ว + แก้แถวเทอะทะ** (`56fbdb4` · **300 test**) — ยุบ 3 รายการแถบซ้าย→ "โครงเพลง" รายการเดียว · rename inline · ลากจัดลำดับ+▲▼ · **แก้ตาม ui-standards §2: แถวบรรทัดเดียว 42px · ▲▼ ข้างกัน · ชื่อไม่ตัดโหด (rail 250px)** · **🔺 อยู่คิว tester ตรวจ (layout+no-regress) ก่อน P'Aim** · dev `192.168.1.124:5372` · detail `docs/reports/editor-section-ux-dev.md`
-> **pm7 merge sequencing:** 2 สายบนแตะ `EditorMode.vue` คนละส่วน (DockKey=dock/PALETTE/editDockTools · section-ux=rail/arrangement) → merge ทีละสาย + git-verify ของอีกสายไม่หาย + rerun test · สายไหน merge ก่อนก็ได้ อีกสาย rebase
-
-3. **slur-bezier (B076) = ✅ dev ส่งแล้ว** (`c202e13` · NoteRow เดียว · +4 test · `v-arc` directive วัดความกว้างจริง สร้าง `d`+viewBox ตามจริง · re-measure beforeprint/ResizeObserver) · **🔺 อยู่คิว tester ตรวจ (visual โค้งสั้น/ยาว + no-regress + print) ก่อน P'Aim** · dev server `192.168.1.124:5376` · report `docs/reports/slur-bezier.md` · brief `brief-slur-bezier.md`
+## ✅ merged เข้าฐาน deploy รอบ 7 (b369a49) — เดิมอยู่ §🟢 กำลัง build
+- **dockkey-dev** (3 หน้า DockKey engine เดียว · §A/§B/§D + B079 · ถอด StudioDock) — merge `84f0b38` · tester PASS
+- **editor-section-ux-dev** (โครงเพลงรายการเดียว · rename inline · ▲▼) `56fbdb4` — เข้าฐาน `2b8462b` ก่อนหน้า · tester PASS
+- **slur-bezier B076** (`v-arc` Bézier ตามความกว้างจริง) — merge `c845183` · tester PASS
+> merge sequencing เสร็จแล้ว: dockkey-dev + slur-bezier แตะ `EditorMode.vue`/`NoteRow.vue` คนละส่วน — merge clean, conflict มีแค่ launch.json (พอร์ต) resolve เก็บทั้งคู่
 
 ## 🔬 research/experiment (ขนาน · ไม่บล็อก)
 - ✅ **Amazing Grace experiment เสร็จ** (`task_90eab2dc`) — PD-safe ยืนยัน (EN Newton1779+New Britain PD · TH แต่งเอง CC0) · เข้า v2 verify ผ่าน · 2-row EN+TH ใช้ได้ 0 โค้ด · report `docs/reports/bilingual-amazing-grace.md` · sample `docs/samples/amazing-grace.json` · **P'Aim เคาะ:** (1) ทำ interlinear จับคู่ 2 row (2) **เข้าคลังจริงทดสอบ** → session ทำ `tools/insert-amazing-grace.sql` (verified=false · พี่เปาฟังเช็ก melody syllabic) **รอ P'Aim run**
