@@ -86,6 +86,7 @@
 - **✅ dev B089 เสร็จ (`2e679bf` · 342 test · SongList+bookshelf · แยกชั้น gate/grouping ได้ · public ว่าง+ข้อความ "กำลังตรวจทาน จะเปิดเร็วๆ" · ป้าย ✓/⚠️+facet ให้ทีมล็อกอิน) → in tester**
 - **✅ P'Aim เคาะจังหวะ deploy (11 ก.ค.): ซ่อนหมด · deploy เลย · public ขึ้นข้อความ "อยู่ระหว่างดำเนินการ"** (คนรู้ว่ายังไม่มีเพลง ไม่ต้อง search) → พี่เอมทวนทีละเพลงเอง (feature แก้ตามแต่ละเพลง) · ข้อความปรับได้
 - **pm7 ต่อ:** tester ผ่าน B087+B089 (public ว่าง+ข้อความ+ไม่ crash · team-view = unit test + P'Aim ยืนยันในแอป) → **deploy (gate active · public ว่าง)** → P'Aim review อนุชนทีละเพลง กด "ตรวจแล้ว" → กลับมาโชว์ · **yuwachon code** รอ DA ยืนยัน (ยังไม่มีเพลง=ไม่กระทบ)
+- **⭐ P'Aim สั่ง (ค่ำ 11 ก.ค.): ดัน B087+B089 ขึ้นก่อนบั๊กที่เหลือ** — tester ตรวจ B087+B089 เป็นลำดับต้น → PM deploy · **B084 final = space ripple + Backspace/Delete (`14415de` NoteBoxes · 337 test) → tester** · **B092/B093 = issue4/5 พี่เปา (B092 จ่ายแล้ว · B093 lint-before-publish รอ P'Aim เคาะ block/warn)**
 
 ## ⭐ PRIORITY (P'Aim 11 ก.ค. ค่ำ): **แก้บั๊กให้จบก่อน feature ใหม่**
 - บั๊กพี่เปา: ✅ live = B069/B081/B082/B083 · 🔵 **tester คิว (บั๊กก่อน):** B085/B086 [→deploy 10] · B084 (`notebox-split`) · B088 (`editor-copyline-reslice` · merge หลัง B085/B086) · B090 (`final-barline` เส้นจบ 2 เส้น `c7ac0c2` 327 test) · แล้ว B087+B089 (feature+gate) · **tester = คอขวด (คิวยาว)**
