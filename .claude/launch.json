@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "fbar",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", ".", "--host", "--port", "5416", "--strictPort"],
+      "port": 5416
+    },
+    {
       "name": "sbt",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vite", ".", "--host", "--port", "5410", "--strictPort"],

@@ -273,6 +273,22 @@ describe('SongSheet — full print sheet (US-B01)', () => {
     expect(w.findAll('.bar-close').length).toBe(1)
   })
 
+  it('B090: the end-of-song barline renders as two strokes (thin + thick ‖)', () => {
+    const w = mount(SongSheet, {
+      props: {
+        content: {
+          key: 'C', timeSignature: '4/4',
+          lines: [[{ type: 'segment', chord: 'C', note: '1 2 3 4', lyric: 'ก' }, { type: 'end' }]],
+        },
+        mode: 'full',
+      },
+    })
+    const fin = w.find('.bar-final')
+    expect(fin.exists()).toBe(true)
+    expect(fin.find('.bf-thin').exists()).toBe(true) // thin stroke
+    expect(fin.find('.bf-thick').exists()).toBe(true) // thick stroke
+  })
+
   it('empty song does not throw and renders no lines', () => {
     const wrapper = mount(SongSheet, {
       props: { content: { key: 'C', timeSignature: '4/4', lines: [] }, mode: 'full' },

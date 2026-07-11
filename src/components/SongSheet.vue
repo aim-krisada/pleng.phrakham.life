@@ -315,7 +315,7 @@ watch(
         <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}</span>
         <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
         <span v-else-if="part.type === 'label'" class="line-label">{{ part.text }}</span>
-        <span v-else-if="part.type === 'end'" v-show="noteOn(row.first)" class="bar-line bar-final" aria-hidden="true"></span>
+        <span v-else-if="part.type === 'end'" v-show="noteOn(row.first)" class="bar-final" aria-hidden="true"><i class="bf-thin" /><i class="bf-thick" /></span>
         <span v-else-if="part.type === 'repeat-start'" v-show="noteOn(row.first)" class="repeat-mark rep-start" aria-label="เริ่มเล่นซ้ำ"><i class="rep-bar" /><i class="rep-thin" /><i class="rep-dots" /></span>
         <span v-else-if="part.type === 'repeat-end'" v-show="noteOn(row.first)" class="repeat-mark rep-end" aria-label="วนกลับไปเล่นซ้ำ"><i class="rep-dots" /><i class="rep-thin" /><i class="rep-bar" /></span>
         <span v-else-if="part.type === 'volta'" v-show="noteOn(row.first)" class="volta-tag">{{ part.num }}.</span>
@@ -425,6 +425,24 @@ watch(
   color: #fff;
   font-weight: 700;
 }
+/* B090 — end-of-song final barline ‖ = a THIN stroke + a THICK stroke (music standard).
+   The shared .bar-final (styles.css) drew this as border-left+border-right on one 5px box,
+   which read as a single line (พี่เปา). Render it instead as two bars — like .repeat-mark —
+   and override the shared border/width here (SongSheet-only change). Height + top offset
+   match the normal .bar-line so it sits on the same baseline; the .sheet-no-chord rule below
+   still zeroes the offset when the chord row is hidden (it targets .bar-final too). */
+.bar-final {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 2px;
+  width: auto;
+  height: 3.25em;
+  margin: 1em 0.6em 0;
+  border: none;
+  vertical-align: top;
+}
+.bar-final .bf-thin { width: 2px; background: #8a7a62; }
+.bar-final .bf-thick { width: 4px; background: #8a7a62; }
 /* B065 — with a chord row above, the barline/repeat marks carry margin-top:1em to drop
    past that row onto the note line. When the chord layer is hidden (เนื้อ+โน้ต / โน้ตล้วน)
    there is no chord row, so that 1em pushed the barline BELOW the notes and the digits
