@@ -19,7 +19,8 @@
 
 ## 🟢 กำลัง build (→ deploy รอบ 7) — 2 สายใหญ่ · ⚠️ ทั้งคู่แตะ `EditorMode.vue` คนละส่วน → PM เรียงคิว merge + resolve
 1. **dockkey-dev phase 2 = ✅ ส่งแล้ว** (ล่าสุด `08870aa` · re-sync `9f2ad42` · **300 test** · build) — 3 หน้าใช้ DockKey engine เดียว (แผ่นเพลง ITEMS_PRINT · แก้ไข ITEMS_EDIT band 21 keys · **MP3 เข้า `ExportTool.vue` กลาง = เมนู PDF/JSON/MP3 เดียวกันครบ 3 หน้า** · sing MP3 render ตามคีย์/สปีดที่เลือก · ถอด StudioDock) · **🔺 pm7 ทำ: git-verify DoD + P'Aim LAN 3 หน้า (เน้นแก้ไข+MP3+undo มือถือ) ก่อน merge** · ❓ export = ปุ่มที่ 7 บน row1 ฝึกร้อง (ย้ายเข้า ⚙ ได้ถ้า P'Aim อยาก · ต้องเพิ่ม engine slot) · 4 จุดค้าง + detail = `docs/reports/dockkey-phase2.md` · dev `http://10.215.141.98:5315`
-2. **editor-section-ux-dev** (`task_5d47b107`) — เปลือกจัดลำดับท่อนง่ายขึ้น (P'Aim เคาะ mockup `docs/design/editor-section-ux.html`) · **เน้นหนัก: ของเดิมห้าม regress** · brief `brief-editor-section-ux-dev.md` · ยังไม่รายงานกลับ
+2. **editor-section-ux-dev = ✅ ส่งแล้ว** (`61015fa` · **299 test** · build) — ยุบ 3 รายการแถบซ้าย→รายการเดียว "โครงเพลง" · rename inline (rail+หัวท่อน sync) · ลากจัดลำดับนิ้ว+เมาส์+▲▼ (WCAG 2.5.7+aria-live) · หัวท่อนบนแคนวาส · ตัดบล็อก #pk-arrange · "ท่อน A"→"ทำนอง A" · **dev verify ของเดิมไม่ regress** (note/seg/syl/preview/ย่อหน้า/ตั้งค่า) · **🔺 pm7 ทำ: git-verify + P'Aim LAN `http://10.215.141.98:5372/#/studio` (เทียบของเดิมทำได้หมด+ง่ายขึ้น) ก่อน merge** · detail `docs/reports/editor-section-ux-dev.md`
+> **pm7 merge sequencing:** 2 สายบนแตะ `EditorMode.vue` คนละส่วน (DockKey=dock/PALETTE/editDockTools · section-ux=rail/arrangement) → merge ทีละสาย + git-verify ของอีกสายไม่หาย + rerun test · สายไหน merge ก่อนก็ได้ อีกสาย rebase
 
 ## 🎯 รอ P'Aim ตัดสิน (ไม่บล็อก)
 - **B028 audit log** — DS `docs/ds/audit-log.md` · 3 Qs (branch `sa-b028-audit-log` docs · รอเคาะก่อน dev)
