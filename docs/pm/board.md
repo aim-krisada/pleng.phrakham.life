@@ -19,13 +19,15 @@
 ---
 
 ## 🟢 กำลัง build (→ deploy รอบ 7) — 2 สายใหญ่ · ⚠️ ทั้งคู่แตะ `EditorMode.vue` คนละส่วน → PM เรียงคิว merge + resolve
-1. **dockkey-dev phase 2 = ✅ ส่งแล้ว** (ล่าสุด `08870aa` · re-sync `9f2ad42` · **300 test** · build) — 3 หน้าใช้ DockKey engine เดียว (แผ่นเพลง ITEMS_PRINT · แก้ไข ITEMS_EDIT band 21 keys · **MP3 เข้า `ExportTool.vue` กลาง = เมนู PDF/JSON/MP3 เดียวกันครบ 3 หน้า** · sing MP3 render ตามคีย์/สปีดที่เลือก · ถอด StudioDock) · **🔺 pm7 ทำ: git-verify DoD + P'Aim LAN 3 หน้า (เน้นแก้ไข+MP3+undo มือถือ) ก่อน merge** · ❓ export = ปุ่มที่ 7 บน row1 ฝึกร้อง (ย้ายเข้า ⚙ ได้ถ้า P'Aim อยาก · ต้องเพิ่ม engine slot) · 4 จุดค้าง + detail = `docs/reports/dockkey-phase2.md` · dev `http://10.215.141.98:5315`
+1. **dockkey-dev phase 2 = ✅ ส่งแล้ว** (ล่าสุด `08870aa` · re-sync `9f2ad42` · **300 test** · build) — 3 หน้าใช้ DockKey engine เดียว (แผ่นเพลง ITEMS_PRINT · แก้ไข ITEMS_EDIT band 21 keys · **MP3 เข้า `ExportTool.vue` กลาง = เมนู PDF/JSON/MP3 เดียวกันครบ 3 หน้า** · sing MP3 render ตามคีย์/สปีดที่เลือก · ถอด StudioDock) · ⏳ **P'Aim ตรวจหน้าฝึกร้อง (11 ก.ค.) เจอหลายจุด → dev กำลังแก้ตาม `dockkey-checklist.md` §A(engine invariant)+§B(12 ข้อ)** (popup ชิดขวา/ไม่ scroll · button hierarchy · bug เลือกท่อน↔timeline · label download หาย ฯลฯ) · **flow: dev แก้ → tester ตรวจ checklist เขียวครบ → ค่อยให้ P'Aim ดู** · dev จะให้ Network URL ใหม่ · detail `docs/reports/dockkey-phase2.md`+`dockkey-checklist.md`
 2. **editor-section-ux-dev = ✅ ส่งแล้ว** (`61015fa` · **299 test** · build) — ยุบ 3 รายการแถบซ้าย→รายการเดียว "โครงเพลง" · rename inline (rail+หัวท่อน sync) · ลากจัดลำดับนิ้ว+เมาส์+▲▼ (WCAG 2.5.7+aria-live) · หัวท่อนบนแคนวาส · ตัดบล็อก #pk-arrange · "ท่อน A"→"ทำนอง A" · **dev verify ของเดิมไม่ regress** (note/seg/syl/preview/ย่อหน้า/ตั้งค่า) · **🔺 pm7 ทำ: git-verify + P'Aim LAN `http://10.215.141.98:5372/#/studio` (เทียบของเดิมทำได้หมด+ง่ายขึ้น) ก่อน merge** · detail `docs/reports/editor-section-ux-dev.md`
 > **pm7 merge sequencing:** 2 สายบนแตะ `EditorMode.vue` คนละส่วน (DockKey=dock/PALETTE/editDockTools · section-ux=rail/arrangement) → merge ทีละสาย + git-verify ของอีกสายไม่หาย + rerun test · สายไหน merge ก่อนก็ได้ อีกสาย rebase
 
 ## 🔬 research (ขนาน · ไม่บล็อก)
 - **jianpu-ly** (`task_c8d52b9f`) — ศึกษา `OneDrive/.../jianpu-ly-master` (text→LilyPond jianpu engraver) เอามาใช้ pleng อะไรได้ (print คุณภาพ/syntax/slur-tie/MusicXML/license) · read-only · brief `brief-jianpu-ly-study.md` → report `docs/reports/jianpu-ly-study.md`
-- **📐 UI standards SSOT รอ P'Aim รีวิว** `docs/ui-standards.md` (de-facto 5 ตัว + invariants + บังคับใช้ 4 ชั้น) + `docs/pm/dockkey-checklist.md` — **เคาะก่อนจ่าย dev แก้ DockKey + เปิด tester**
+- ✅ **UI standards SSOT = P'Aim approve แล้ว** `docs/ui-standards.md` (5 de-facto + invariants + บังคับใช้ 4 ชั้น) — ทุก brief อ้างอิง · เฉพาะฟีเจอร์ = `docs/pm/dockkey-checklist.md` ต่อยอด
+- 🧪 **Tester role เปิดแล้ว** (`task_afad8e4c` · `brief-tester-role.md`) — automate axe-core/no-scroll/target-size + ตรวจ checklist ก่อน P'Aim ทุกครั้ง · เริ่ม DockKey → ต่อ แผ่นเพลง/แก้ไข
+- **หลัก process (P'Aim 11 ก.ค. · memory `feedback_pm_process_not_output`):** มีมาตรฐาน→ตรวจ→iterate · เจอไม่ตรงแก้ที่ process ไม่โทษคน · PM = ensure process perfect
 
 ## 🎯 รอ P'Aim ตัดสิน (ไม่บล็อก)
 - **B028 audit log** — DS `docs/ds/audit-log.md` · 3 Qs (branch `sa-b028-audit-log` docs · รอเคาะก่อน dev)
