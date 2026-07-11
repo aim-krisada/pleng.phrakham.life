@@ -5,6 +5,14 @@
 
 ---
 
+## ▶▶ ต่อ session (pm7 คนต่อไป อ่านนี่ก่อน · context เต็ม 11 ก.ค.)
+**ยัง sprint 7 (deploy รอบ 7 ยังไม่จบ) → session ใหม่ = `pm7` ต่อ · อ่าน `docs/pm/pm.md` + `docs/sop.md` + memory ก่อน**
+- **ฐาน `2b8462b` = 3 เป้าหมายวันนี้ MERGED** (DockKey 3 หน้า · โครงเพลง · slur · 300 test) · **main=base · live=รอบ6 `1a3aa65`**
+- **กำลังทำ (ต่อ):** 🔨 **DockKey polish รอบ 2** (`dockkey-dev` · §D1-D5 checklist + B079 download ซ้ำ · dev→self-verify→tester→pm7) · 🟢 **SA interlinear ≥3 ภาษา** (mockup) · 🟢 **B080 expert standards** (pm7 ต่อยอด ui-standards) · Amazing Grace ในคลัง (พี่เปาฟังเช็ก)
+- **🚦 ค้างที่ P'Aim:** ตรวจฐานรวม `192.168.1.124:5400` (หรือหลัง polish) → สั่ง **"go deploy รอบ 7"** · deploy = align main=base + push (ดู memory `feedback_pm_sole_interface`/deploy)
+- **process ปัจจุบัน:** shift-left (SA/dev อิงมาตรฐาน+self-verify ก่อน tester) · tester gate ทุก UI · auto-loop ≤3 · Tier-B ผ่าน Browser MCP · ทุก P'Aim example→กฎใน ui-standards/checklist
+- **follow-up:** merge tester infra (axe-core+ui-invariants จาก branch `tester-qa`) เข้าฐานให้ npm test รัน a11y · ปิด dev server เก่า
+
 ## ▶ RESUME (git-verified)
 - **ฐาน `studio-shell-redesign` HEAD = `97e735b`** = **288 test เขียว + build** (`npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'` · "1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก)
 - 🎉 **live = deploy รอบ 6 (`1a3aa65` · verified bundle stamp)** · **main === base** (align เสร็จ · divergence B073-solo หาย · รอบหน้า clean FF)
