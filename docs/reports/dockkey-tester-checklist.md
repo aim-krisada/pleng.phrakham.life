@@ -6,6 +6,25 @@
 
 ---
 
+## ✅✅✅ POLISH รอบ 2 §D + B079 (dockkey-dev `108167c`/`e3e403a`) = เขียวครบ พร้อม P'Aim
+ตรวจ 3 โหมด dock (ฝึกร้อง/แก้ไข/แผ่นเพลง) จริงในเบราว์เซอร์ (`5315`) · Tier-A auto **7/7** (ไม่ regress)
+
+| §D / B079 | ผล | หลักฐานวัดจริง |
+|---|---|---|
+| **D1** margin/padding | ✅ | dock ทุกโหมด padding 10px · row gap 7px |
+| **D2** smart row-pack (แก้ไข ≥แท็บเล็ต) | ✅ | edit dock 1280: 7 เครื่องมือ **ยุบเหลือ 1 แถว** (ไม่มีแถวเกือบว่าง) |
+| **D3** fit ไม่มี space เกินท้าย (แผ่นเพลง) | ✅ | sheet dock hug: trailing หลัง ⚙ = 0 · หลัง cell สุดท้าย = 1px (ตาม note) |
+| **D4** ปุ่มฟังแยกชัด | ✅ | edit dock: **"ฟังท่อน A" ≠ "ฟังทั้งเพลง"** (2 ปุ่ม label ต่างชัด) |
+| **D5** timeline แบ่ง 2 ท่อน | ✅ | หน้าฝึกร้อง: `st-seg` = **2 ช่วง** |
+| **B079** download single-source | ✅ | JSON อยู่ที่เดียว (เมนู export dock: PDF/JSON/MP3) · **ไม่มีเมนู "จัดการ"** ที่มี download ซ้ำ |
+| B7 ปุ่มดาวน์โหลด icon-only | ✅ | visible text = "" · aria-label "ดาวน์โหลด" |
+
+**Tier-B ทุกโหมด/จอ:** edit dock @375 (ซับซ้อนสุด · 21-key palette) = **axe 0 · ปุ่มแถบ ≥44 · คีย์ ≥30px (2.5.8 AA) · dock ในจอ 8→367 · no h-overflow** · sing/edit/sheet docks hug ไม่ล้น
+
+**VERDICT รอบ 2 = ✅ เขียวครบ §A–§D + B079** → **พร้อม P'Aim** (ยืนยันจากรอบ FINAL ก่อนหน้าด้วย — §A/§B ไม่ regress)
+
+---
+
 ## ✅✅ FINAL VERIFY (dockkey-dev `867b287`/`d44aa35`) = เขียวครบ พร้อม P'Aim
 dev แก้ `role="menu"`→`role="group"` แล้ว · ผมตรวจ **Tier-A auto + Tier-B วัดจริงในเบราว์เซอร์ 3 breakpoint (375/768/1280)** บนหน้าฝึกร้อง (`5315`)
 
