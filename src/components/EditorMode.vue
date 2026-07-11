@@ -908,6 +908,47 @@ function removeLine(li) {
   lines.value.splice(li, 1)
   if (!lines.value.length) lines.value.push(newLine())
 }
+// B086: slot span (flat syllable indices) a line occupies — advances by syllableSlots per
+// segment, matching slotStarts. Needed to carry each verse's words when a line moves.
+function lineSlotLen(line) {
+  let n = 0
+  for (const bar of line.bars) for (const seg of bar.segments) n += syllableSlots(seg.note || '')
+  return n
+}
+// B086: move the active line up/down within the stanza AND carry every verse's words with
+// it. Words are a flat syllables[] per arrangement row, indexed by cumulative slot
+// (line→bar→seg). Swapping two adjacent lines' melody must swap the matching slice in EVERY
+// row on this stanza, or the words drift onto the wrong notes. Pad first so empty slots are
+// explicit before slicing (trailing empties are trimmed), then re-trim.
+function moveLine(dir) {
+  const s = stanzas.value[activeStanza.value]
+  if (!s) return
+  const ls = s.lines
+  const li = activeLine.value
+  const lj = li + dir
+  if (lj < 0 || lj >= ls.length) return
+  const i = Math.min(li, lj) // adjacent lines → the other is i + 1
+  let start = 0
+  for (let k = 0; k < i; k++) start += lineSlotLen(ls[k])
+  const lenI = lineSlotLen(ls[i])
+  const lenJ = lineSlotLen(ls[i + 1])
+  const end = start + lenI + lenJ
+  ;[ls[i], ls[i + 1]] = [ls[i + 1], ls[i]] // swap the melody lines
+  for (const row of arrangement.value) {
+    if (row.stanza !== s.id) continue
+    const p = row.syllables.slice()
+    while (p.length < end) p.push('')
+    const next = [
+      ...p.slice(0, start),
+      ...p.slice(start + lenI, end), // line j's words move up
+      ...p.slice(start, start + lenI), // line i's words move down
+      ...p.slice(end), // later lines untouched
+    ]
+    while (next.length && !((next[next.length - 1] || '').trim())) next.pop()
+    row.syllables = next
+  }
+  activeLine.value = lj // keep the moved line active/selected
+}
 
 // ---------- song list / picker ----------
 const songList = ref([])
@@ -2059,6 +2100,9 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
       <span class="ed-quick" aria-label="โครงเพลงด่วน (บรรทัดที่กำลังแก้)">
         <button class="ed-ico" :class="{ on: curLineHook }" title="ทำเครื่องหมายท่อนฮุกให้บรรทัดที่กำลังแก้" aria-label="ท่อนฮุก" @click="qHook"><Icon name="fishing-hook" :size="16" /></button>
         <button class="ed-ico" :class="{ on: curLineRepeat }" title="เล่นซ้ำบรรทัดที่กำลังแก้ ‖: :‖" aria-label="เล่นซ้ำบรรทัด" @click="qRepeat"><Icon name="repeat" :size="16" /></button>
+        <!-- B086: move the active line up/down; each verse's words follow the melody line -->
+        <button class="ed-ico ed-mvline" title="ย้ายบรรทัดที่กำลังแก้ขึ้น (เนื้อทุกข้อตามไปด้วย)" aria-label="ย้ายบรรทัดขึ้น" :disabled="activeLine === 0" @click="moveLine(-1)"><span aria-hidden="true">▲</span></button>
+        <button class="ed-ico ed-mvline" title="ย้ายบรรทัดที่กำลังแก้ลง (เนื้อทุกข้อตามไปด้วย)" aria-label="ย้ายบรรทัดลง" :disabled="activeLine === lines.length - 1" @click="moveLine(1)"><span aria-hidden="true">▼</span></button>
         <button class="ed-ico" title="คัดลอกบรรทัดที่กำลังแก้" aria-label="คัดลอกบรรทัด" @click="qCopyLine"><Icon name="copy" :size="16" /></button>
         <button class="ed-ico danger-ic" title="ลบบรรทัดที่กำลังแก้" aria-label="ลบบรรทัด" @click="qDeleteLine"><Icon name="trash-2" :size="16" /></button>
       </span>
@@ -2824,6 +2868,9 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 }
 .addsec:hover { background: var(--cream); }
 /* canvas section header — rename/melody/reorder for the selected ท่อน, above the notes */
+/* B085: the ท่อน toolbar (melody · rename · ▲▼ · delete) stays pinned under the top bar so
+   its controls are reachable while scrolling down through a long ท่อน. Opaque bg so the
+   notes scroll cleanly underneath; z-index over the note strip, under menus/dropdowns. */
 .cshead {
   display: flex;
   align-items: center;
@@ -2834,7 +2881,13 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   border-radius: 11px 11px 0 0;
   padding: 8px 10px;
   margin-bottom: 10px;
+  position: sticky;
+  top: 58px;
+  z-index: 4;
+  box-shadow: 0 3px 8px rgba(45, 42, 38, 0.08);
 }
+/* B086: ▲▼ move-line buttons — plain glyphs sized to sit in the .ed-ico square */
+.ed-mvline { font-size: 11px; line-height: 1; font-weight: 700; }
 .cshead .grip { color: var(--muted); cursor: default; }
 .cs-num { color: var(--muted); font-size: 13px; min-width: 16px; text-align: right; }
 .cs-name {
