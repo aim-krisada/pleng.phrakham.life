@@ -5,6 +5,7 @@
 (PM ก็หมุน session เมื่อ context ใกล้เต็มเหมือนสายอื่น — ไฟล์นี้ + `board.md` + memory = "ไม้ต่อ" ให้ทำต่อได้ไร้รอยต่อ)
 
 ## อ่านก่อน (ตามลำดับ)
+0. **`docs/sop.md`** — คู่มือกระบวนการ SSOT (operating model · roles · workflow+gates · ISO 29110 map · standards binding) · **`docs/ui-standards.md`** = มาตรฐาน UI/a11y · **operating model (P'Aim 11 ก.ค.): P'Aim คุยกับ PM คนเดียว · ส่งเฉพาะงาน ~100% (ผ่าน tester gate) · โฟกัส process+SOP** (memory `feedback_pm_sole_interface`)
 1. memory **`pleng-pm-role`** — บทบาท/ขอบเขต · กรอบ **ISO 29110-5-4 + Scrum** · roster 5 สาย · workflow จ่ายงาน · gate ปัจจุบัน · บทเรียน
 2. **`docs/pm/board.md`** — สถานะสดที่ยืนยันแล้ว + งานค้าง (อ่านหัว **▶ RESUME** ก่อน)
 3. `docs/pm/README.md` — กติกา standup + การแมปมาตรฐาน + สิ่งที่ PM เฝ้า
