@@ -37,7 +37,7 @@
 - **✅ 2 สาย merged + combined-verified (11 ก.ค. เย็น · HEAD `3e931ab`):** Lane A (B069+B082 `b8e2c4a`) + Lane B (B081 `b82f6a9`) cherry-pick เข้าฐาน · **322 test + build** · **tester จับ B081 มือถือ FAIL (tie-overlay 679px ไม่หด) → merge Lane A ก่อน (overlay per-line) แก้เอง**: วัดจริงมือถือ 375 = overlay หด 351=กระดาษ · h-overflow 0 (เดิม 316) ✅ · เดสก์ท็อป+มือถือผ่านทั้งคู่
   - **🚦 ค้างที่ P'Aim = print เช็กจาก PDF จริง** (เสิร์ฟ `http://192.168.1.124:5400` --host): เพลง 3 (ไทข้ามห้อง) · เพลง 4 (เส้นปิดห้อง) · เพลงยาวหลายหน้า (ไทพิมพ์ครบทุกหน้า) · + พรีวิว "ดูผลทั้งเพลง" = กระดาษ → go → **deploy รอบ 8** → ย้าย kanban B081/B082/B069 → เสร็จแล้ว
 - **✅ B083 melody-pairing = tester PASS บนเพลง 2 จริง (`0784961` · `17f49ee` EditorMode+test เดียว · ไม่แตะโมเดล · vitest 326):** MP1 เปลี่ยนทำนอง A→B ไม่หาย (บั๊กพี่เปา ✅) · MP2 พรีวิวโน้ต A≠B ✅ · MP3 ✂ แตกก้อน 137→266 ✅ (⚠️ ◀▶ tester trigger synthetic ไม่ขึ้น = ฝาก P'Aim กดมือ · ไม่ใช่ FAIL) · MP4 badge got/need สด ✅ · no-regress rail 1-line/326 test ✅ · branch `melody-pairing-dev` (ฐาน `e83afe7`) · dev `192.168.1.124:5412/#/studio`
-  - **pm7 ต่อ:** git-verify + merge `melody-pairing-dev` เข้าฐาน → เสิร์ฟ ให้ **P'Aim LAN เพลง 2** ยืนยัน MP3 ◀▶ ด้วยมือ + save/ดูผล → go → deploy รอบ 9 → kanban B083 → เสร็จแล้ว
+  - **✅ merged เข้าฐาน (`76881bc` · 326 test + build) → เสิร์ฟ `--host :5450` รอ P'Aim LAN เพลง 2** · **⚠️ IP เปลี่ยน = `10.215.141.98`** (เก่า 192.168.1.124 คนละ network) · รอ P'Aim ยืนยัน MP3 ◀▶ ด้วยมือ + เปลี่ยนทำนอง + save/ดูผล → go → **deploy รอบ 9** → kanban B083 → เสร็จแล้ว
 
 ## 🎯 PM session ปัจจุบัน = `pm7` (sprint รอบ 7 · pm4 รับต่อเป็น pm7 เอง ไม่ handoff · P'Aim 10 ก.ค.)
 - **กติกา (P'Aim 10 ก.ค.): เลข PM = เลข sprint/deploy รอบ** · pm4→รอบ6 · **pm7 = sprint รอบ 7**
