@@ -83,7 +83,9 @@
 ## 🚦 GATE ARMED (P'Aim 11 ก.ค. — verified quality gate)
 - **P'Aim รัน `reset-verified-false.sql` แล้ว** → DB 123 เพลง verified=false ทั้งหมด · **แต่ gate ยังไม่ active** (live public ยังเห็นทุกเพลง เพราะ verified-filter ยังไม่ deploy)
 - **standing plan (P'Aim เคาะ):** B087 หน้าแรกใหม่ + B089 verified-filter/ซ่อนป้าย **อยู่ SongList ไฟล์เดียว → deploy พร้อมกัน** พอ dev เสร็จ (B089 filter queued ที่ `local_1661c954`) + tester ผ่าน → **ผม deploy = gate active (public ว่างจนทีม verify)** · ข้อยกเว้นจาก "บั๊กก่อน feature" เพราะ gate เป็น priority
-- **pm7 ต่อ:** dev B089 เสร็จ → tester (B087+B089) → deploy → ทีม review อนุชนทีละเพลง (กด "ตรวจแล้ว" → verified=true → กลับมาโชว์)
+- **✅ dev B089 เสร็จ (`2e679bf` · 342 test · SongList+bookshelf · แยกชั้น gate/grouping ได้ · public ว่าง+ข้อความ "กำลังตรวจทาน จะเปิดเร็วๆ" · ป้าย ✓/⚠️+facet ให้ทีมล็อกอิน) → in tester**
+- **✅ P'Aim เคาะจังหวะ deploy (11 ก.ค.): ซ่อนหมด · deploy เลย · public ขึ้นข้อความ "อยู่ระหว่างดำเนินการ"** (คนรู้ว่ายังไม่มีเพลง ไม่ต้อง search) → พี่เอมทวนทีละเพลงเอง (feature แก้ตามแต่ละเพลง) · ข้อความปรับได้
+- **pm7 ต่อ:** tester ผ่าน B087+B089 (public ว่าง+ข้อความ+ไม่ crash · team-view = unit test + P'Aim ยืนยันในแอป) → **deploy (gate active · public ว่าง)** → P'Aim review อนุชนทีละเพลง กด "ตรวจแล้ว" → กลับมาโชว์ · **yuwachon code** รอ DA ยืนยัน (ยังไม่มีเพลง=ไม่กระทบ)
 
 ## ⭐ PRIORITY (P'Aim 11 ก.ค. ค่ำ): **แก้บั๊กให้จบก่อน feature ใหม่**
 - บั๊กพี่เปา: ✅ live = B069/B081/B082/B083 · 🔵 **tester คิว:** B085/B086 [→deploy 10] · B084 (`notebox-split` `5c25a65` · 334 test · dev เสร็จ) · B088 (`editor-copyline-reslice` `df11b8b` · 333 test · dev เสร็จ · merge หลัง B085/B086) · **บั๊กทุกตัว dev เสร็จหมด อยู่ tester** · lib B087 `bookshelf.js` PM อนุมัติ (แยกเพื่อ unit-test)
