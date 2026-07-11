@@ -382,7 +382,8 @@ function cellFlex() { return '0 0 auto' }
       </div>
 
       <!-- ===== ⚙ Setting page — every item's home · adjust inline · ▲▼ · 📌 (DS §3) ===== -->
-      <div v-if="openId === 'setting'" class="dk-pop dk-panel" role="menu" aria-label="ตั้งค่า" @click.stop>
+      <!-- a settings FORM, not a menu — its rows are controls, not menuitems (a11y 4.1.2) -->
+      <div v-if="openId === 'setting'" class="dk-pop dk-panel" role="group" aria-label="ตั้งค่า" @click.stop>
         <div v-for="it in settingItems" :key="it.id" class="dk-prow" :data-setting="it.id">
           <span class="dk-mi"><Icon :name="it.icon" :size="16" /></span>
           <span class="dk-pl">{{ it.name }}</span>
@@ -416,8 +417,10 @@ function cellFlex() { return '0 0 auto' }
               <span class="dk-slval">{{ it.control?.value }}%</span>
             </template>
           </span>
-          <button class="dk-mv" :disabled="!isPinned(it.id) || pinIndex(it.id) === 0" aria-label="เลื่อนขึ้น" @click.stop="movePin(it.id, -1)">▲</button>
-          <button class="dk-mv" :disabled="!isPinned(it.id) || pinIndex(it.id) === pins.length - 1" aria-label="เลื่อนลง" @click.stop="movePin(it.id, 1)">▼</button>
+          <!-- ▲▼ reorder only for PINNED items (meaningless otherwise · reclaims row width so
+               the panel fits a 375px phone without h-scroll · B10) -->
+          <button v-if="isPinned(it.id)" class="dk-mv" :disabled="pinIndex(it.id) === 0" aria-label="เลื่อนขึ้น" @click.stop="movePin(it.id, -1)">▲</button>
+          <button v-if="isPinned(it.id)" class="dk-mv" :disabled="pinIndex(it.id) === pins.length - 1" aria-label="เลื่อนลง" @click.stop="movePin(it.id, 1)">▼</button>
           <button
             class="dk-pin"
             :class="{ on: isPinned(it.id) }"
