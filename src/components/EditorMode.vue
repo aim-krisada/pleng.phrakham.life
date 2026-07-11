@@ -1618,6 +1618,25 @@ function qDeleteLine() {
   activeLine.value = Math.min(activeLine.value, lines.value.length - 1)
   lineMoreOpen.value = false
 }
+// B091: clear only the WORDS of this line, in EVERY verse (the melody stays). Reuses the
+// B086/B088 slot model — blank this line's slice in each row's syllables[] (later lines'
+// words keep their positions). Undo (B075) restores it.
+function clearLineLyrics(li) {
+  const s = stanzas.value[activeStanza.value]
+  if (!s) return
+  const start = lineSlotStart(s.lines, li)
+  const len = lineSlotLen(s.lines[li])
+  if (len <= 0) return
+  resliceRows(s.id, (p) => {
+    for (let k = start; k < start + len && k < p.length; k++) p[k] = ''
+  })
+}
+function qClearLyrics() {
+  if (!curLine()) return
+  if (!window.confirm(`ล้างเนื้อร้องของบรรทัด ${activeLine.value + 1} (ทุกข้อ)? โน้ตยังอยู่`)) return
+  clearLineLyrics(activeLine.value)
+  lineMoreOpen.value = false
+}
 const curLineHook = computed(() => !!curLine()?.marker)
 const curLineRepeat = computed(() => {
   const l = curLine()
@@ -2146,6 +2165,9 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
           <label v-if="activeLine > 0" class="ed-opt-check"><input v-model="curLine().cont" type="checkbox" /> ⤷ ต่อห้องจากบรรทัดก่อน</label>
           <!-- B056: "จบเพลง" ยกออกไปเป็นปุ่มเห็นชัดในหัวแต่ละบรรทัด (ed-line-end) แล้ว -->
           <input v-model="curLine().label" class="ed-opt-input" placeholder="ป้าย เช่น Fine, D.C. al Fine" aria-label="ข้อความกำกับท้ายบรรทัด" />
+          <!-- B091: clear just the words (all verses) OR just the notes of this line -->
+          <div class="ed-more-sep" role="separator"></div>
+          <button class="ed-more-act" @click="qClearLyrics"><span aria-hidden="true">🧹</span> ล้างเนื้อบรรทัดนี้ (ทุกข้อ · โน้ตอยู่)</button>
         </div>
       </span>
     </div>
@@ -3470,6 +3492,25 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
   gap: 8px;
 }
 .ed-more-title { font-weight: 700; color: var(--brand); font-size: 0.85rem; }
+/* B091: line clear-parts actions in the ⋯ menu */
+.ed-more-sep { border-top: 1px solid var(--line); margin: 2px 0; }
+.ed-more-act {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: var(--cream);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-height: var(--touch-min);
+}
+.ed-more-act:hover { background: var(--cream-hover); border-color: var(--brand); }
 /* in-context help: (?) legend + (i) tip */
 .ed-legend {
   display: flex;
