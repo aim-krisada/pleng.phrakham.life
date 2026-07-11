@@ -23,7 +23,7 @@
 2. **editor-section-ux-dev = ✅ ส่งแล้ว** (`61015fa` · **299 test** · build) — ยุบ 3 รายการแถบซ้าย→รายการเดียว "โครงเพลง" · rename inline (rail+หัวท่อน sync) · ลากจัดลำดับนิ้ว+เมาส์+▲▼ (WCAG 2.5.7+aria-live) · หัวท่อนบนแคนวาส · ตัดบล็อก #pk-arrange · "ท่อน A"→"ทำนอง A" · **dev verify ของเดิมไม่ regress** (note/seg/syl/preview/ย่อหน้า/ตั้งค่า) · **🔺 pm7 ทำ: git-verify + P'Aim LAN `http://192.168.1.124:5372/#/studio` (เทียบของเดิมทำได้หมด+ง่ายขึ้น) ก่อน merge** · detail `docs/reports/editor-section-ux-dev.md`
 > **pm7 merge sequencing:** 2 สายบนแตะ `EditorMode.vue` คนละส่วน (DockKey=dock/PALETTE/editDockTools · section-ux=rail/arrangement) → merge ทีละสาย + git-verify ของอีกสายไม่หาย + rerun test · สายไหน merge ก่อนก็ได้ อีกสาย rebase
 
-3. **slur-bezier (B076) = 🔨 จ่ายแล้ว** (`task_94f2d5c8`) — แก้เส้นเอื้อน/ไทบิด (`NoteRow.vue` `preserveAspectRatio=none`+path ตายตัว → คำนวณ Bézier ตามความกว้างจริง · หลักการจาก jianpu-ly research) · **NoteRow เดียว = ไม่ชน DockKey/โครงเพลง** · brief `brief-slur-bezier.md`
+3. **slur-bezier (B076) = ✅ dev ส่งแล้ว** (`c202e13` · NoteRow เดียว · +4 test · `v-arc` directive วัดความกว้างจริง สร้าง `d`+viewBox ตามจริง · re-measure beforeprint/ResizeObserver) · **🔺 อยู่คิว tester ตรวจ (visual โค้งสั้น/ยาว + no-regress + print) ก่อน P'Aim** · dev server `192.168.1.124:5376` · report `docs/reports/slur-bezier.md` · brief `brief-slur-bezier.md`
 
 ## 🔬 research/experiment (ขนาน · ไม่บล็อก)
 - **Amazing Grace + เนื้อ 2 ภาษา** (`task_90eab2dc`) — เอาเพลง PD (Amazing Grace) เข้าระบบทดสอบ (ปลอดลิขสิทธิ์ · Crossover/10ปลาวาฬ ติดลิขสิทธิ์ใช้ไม่ได้) + ประเมิน feature เนื้อ 2 ภาษา (v2 ไม่มี native · ทดสอบ 2-row workaround + gap) · experiment ไม่ push DB · brief `brief-amazing-grace-bilingual.md`
