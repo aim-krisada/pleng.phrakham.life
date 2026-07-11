@@ -55,3 +55,9 @@ const results = computed(() => filterSongs(songs, query))     // เดิม
 - WCAG 2.2 AA: คอนทราสต์ ≥ 4.5:1 (ชื่อ brand บน cream ผ่าน) · target ≥ 44px (book-card/song-row/crumb ตั้ง `min-height:var(--touch-min)`) · โฟกัส `:focus-visible` เดิม · คีย์บอร์ดครบ (ทุกอย่างเป็น button/link).
 - theme tokens เดิมทั้งหมด (`--brand/--cream/--line/--muted/--sp-*/--fs-*/--touch-min`) — ไม่ hard-code สี.
 - `aria-live` ที่ตัวนับผล/แถวว่าง (ผลค้นหา) เพื่อแจ้ง dynamic.
+
+## ✅ P'Aim เคาะแล้ว (11 ก.ค. · mockup approved)
+- **เล่ม 0 เพลง = ซ่อน** (ไม่โชว์เล่มว่าง)
+- **หน้าตาเล่ม = สัน + โค้ดเล่ม พอ** (KISS · ไม่ทำปก/ไอคอนต่อเล่ม)
+- **PC = 3 คอลัมน์** (ตาม mockup) · มือถือตามที่ SA ออกแบบ
+→ dev build ตาม US/DS + mockup · ปรับ `SongList.vue` ไม่รื้อ · data-driven จาก `book_refs` (รับ "เล่มใหญ่"/`lem-yai` เอง) · คง search เดิม · ไม่แตะ model/DB/SongSheet
