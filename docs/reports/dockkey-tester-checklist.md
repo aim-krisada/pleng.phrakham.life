@@ -6,6 +6,16 @@
 
 ---
 
+## 🔄 RE-VERIFY (dockkey-dev HEAD `7fb616b` · dev แก้ checklist รอบ 11 ก.ค.)
+dev รายงานแก้ checklist ครบ · ผม re-run auto-spec → **2 ใน 3 แดงหายแล้ว · เหลือ 1 critical:**
+- ✅ **B9 caret หาย** — ไม่มี `.dk-caret`/chevron-down บนปุ่ม menu แล้ว (auto pass)
+- ✅ **B11 header หาย** — ไม่มี prose ในหัว Setting แล้ว (auto pass)
+- 🔴 **ยังแดง: `aria-required-children` (critical)** — `DockKey.vue:385` `.dk-panel role="menu" aria-label="ตั้งค่า"` · dev เติม aria-label แล้วแต่ **คง `role="menu"` ไว้** ทั้งที่ลูก `.dk-prow` เป็น div ไม่ใช่ `menuitem*` → ยังผิด WCAG 4.1.2
+  - **fix (1 บรรทัด):** `role="menu"` → **`role="group"`** (panel นี้คือฟอร์มตั้งค่า ไม่ใช่เมนู · aria-label เดิมคงไว้ได้) · dropdown จริง `.dk-dd` (บรรทัด 356) คง `role=menu` ถูกแล้ว (ลูกเป็น menuitemradio)
+- **VERDICT re-verify = ยังไม่ผ่าน** (1 critical a11y) → ส่งกลับ pm7 · แก้ role แล้ว auto จะเขียว → ค่อยทำ ชั้น-2 visual §B ครบ 3 breakpoint (ตอนนี้ 5315 ปิด)
+
+---
+
 ## สรุป F60+ (อ่าน 60 วิ)
 - **ชั้น 1 (AUTOMATE) เสร็จ** — เขียน helper กลาง reusable (`src/test-utils/ui-invariants.js`) ฝังกฎ `docs/ui-standards.md` เป็นเทสต์ · self-test **เขียว 10/10** (บน `tester-qa`, มาตรฐานยืนได้เอง ไม่ผูก DockKey)
 - **รัน spec กับ dockkey-dev HEAD `7a09023` → แดง 3 ข้อจริง** (เครื่องจับเอง ไม่ใช่ความเห็น):
