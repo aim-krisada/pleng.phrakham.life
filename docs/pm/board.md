@@ -80,6 +80,11 @@
 - `tools/repeat-6-simple.sql` — P'Aim อาจยังไม่ run · DA option B (repeat จาก geometry ~18) defer
 - **ideas ใหม่:** ป้าย "ทำไม match" ในผลค้นหา · ค้นโน้ต match ข้ามท่อน (บังคับในท่อนเดียว) · B046 ชื่อ↔เนื้อ · B066 tempo
 
+## 🚦 GATE ARMED (P'Aim 11 ก.ค. — verified quality gate)
+- **P'Aim รัน `reset-verified-false.sql` แล้ว** → DB 123 เพลง verified=false ทั้งหมด · **แต่ gate ยังไม่ active** (live public ยังเห็นทุกเพลง เพราะ verified-filter ยังไม่ deploy)
+- **standing plan (P'Aim เคาะ):** B087 หน้าแรกใหม่ + B089 verified-filter/ซ่อนป้าย **อยู่ SongList ไฟล์เดียว → deploy พร้อมกัน** พอ dev เสร็จ (B089 filter queued ที่ `local_1661c954`) + tester ผ่าน → **ผม deploy = gate active (public ว่างจนทีม verify)** · ข้อยกเว้นจาก "บั๊กก่อน feature" เพราะ gate เป็น priority
+- **pm7 ต่อ:** dev B089 เสร็จ → tester (B087+B089) → deploy → ทีม review อนุชนทีละเพลง (กด "ตรวจแล้ว" → verified=true → กลับมาโชว์)
+
 ## ⭐ PRIORITY (P'Aim 11 ก.ค. ค่ำ): **แก้บั๊กให้จบก่อน feature ใหม่**
 - บั๊กพี่เปา: ✅ live = B069/B081/B082/B083 · 🔵 **tester คิว:** B085/B086 [→deploy 10] · B084 (`notebox-split` `5c25a65` · 334 test · dev เสร็จ) · B088 (`editor-copyline-reslice` `df11b8b` · 333 test · dev เสร็จ · merge หลัง B085/B086) · **บั๊กทุกตัว dev เสร็จหมด อยู่ tester** · lib B087 `bookshelf.js` PM อนุมัติ (แยกเพื่อ unit-test)
 - **feature (B087 หน้าแรก · import เล่มใหญ่) = รันใน session แยก แต่ ⛔ ไม่ deploy จนบั๊กเคลียร์**
