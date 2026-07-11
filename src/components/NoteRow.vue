@@ -18,6 +18,109 @@ const groups = computed(() => {
   return gs
 })
 const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
+
+// --- Engraved slur/tie geometry (B076) ------------------------------------------------
+// The old arcs used one FIXED path stretched to the group width with
+// preserveAspectRatio="none". That single-axis stretch flattened long slurs and blunted
+// their tips (a long เอื้อน over 8 notes came out warped). The LilyPond principle (from
+// docs/reports/jianpu-ly-study.md (ค)#2) is: don't stretch a ready-made shape — compute
+// the curve from the REAL span each time so the apex height and end-taper stay constant
+// while only the horizontal reach grows. We keep our filled-lens look (thin tips, thick
+// middle) and do exactly that: the `v-arc` directive measures the arc's rendered pixel
+// width and rebuilds `d` (and a matching 1:1 viewBox so the x-axis is never scaled).
+const rnd = (n) => Math.round(n * 10) / 10
+
+// slur = a filled lens spanning the whole group. Y values stay in the 0..40 viewBox
+// (apex ~y=3, inner edge ~y=17, ends at y=33) so the curve height never changes; only x
+// is driven by the measured width W. The control-point inset CX is held CONSTANT for long
+// spans (sharp tips, the middle simply flattens like a real long slur) and only capped to
+// a fraction of the span so a short 2-note slur can't overshoot into a loop.
+const SLUR_INSET = 4 // tips sit just inside the span, floating above the first/last digit
+const SLUR_CX = 26 // constant taper depth (px) for long slurs
+const SLUR_CX_FRAC = 0.32 // ...but never more than this fraction of a short span
+function slurArc(w) {
+  const W = w > 0 ? w : 84 // pre-layout / jsdom fallback so a path always renders
+  const x0 = SLUR_INSET
+  const x1 = W - SLUR_INSET
+  const span = Math.max(1, x1 - x0)
+  const cx = Math.min(SLUR_CX, span * SLUR_CX_FRAC)
+  const a = rnd(x0 + cx) // outer+inner control near the left tip
+  const b = rnd(x1 - cx) // ...near the right tip
+  // outer edge (apex, y=3) forward, then inner edge (y=17) back → a lens that tapers to a
+  // point at each end and is thickest at the middle, at ANY width.
+  const d = `M${rnd(x0)},33 C${a},3 ${b},3 ${rnd(x1)},33 C${b},17 ${a},17 ${rnd(x0)},33 Z`
+  return { viewBox: `0 0 ${rnd(W)} 40`, d }
+}
+// tie halves: same principle, drawn across the measured width W. Each half tapers to a
+// point at the held note and is cut square (full thickness) at the bar edge so the two
+// halves butt into one curve over the bar line. Widths are small/steady (a fixed ~1em
+// box), so these were never the warped case — computing from W keeps them stable and on
+// the same footing as the slur.
+function tieStartArc(w) {
+  const W = w > 0 ? w : 16
+  const d = `M0,31 C${rnd(0.3 * W)},9 ${rnd(0.7 * W)},5 ${rnd(W)},5 L${rnd(W)},16 C${rnd(0.7 * W)},18 ${rnd(0.3 * W)},26 0,31 Z`
+  return { viewBox: `0 0 ${rnd(W)} 40`, d }
+}
+function tieEndArc(w) {
+  const W = w > 0 ? w : 16
+  const d = `M${rnd(W)},31 C${rnd(0.7 * W)},9 ${rnd(0.3 * W)},5 0,5 L0,16 C${rnd(0.3 * W)},18 ${rnd(0.7 * W)},26 ${rnd(W)},31 Z`
+  return { viewBox: `0 0 ${rnd(W)} 40`, d }
+}
+const ARC_BUILDERS = { slur: slurArc, tieStart: tieStartArc, tieEnd: tieEndArc }
+
+function applyArc(el, kind) {
+  const build = ARC_BUILDERS[kind]
+  if (!build) return
+  // clientWidth = the SVG's own rendered box; setting viewBox width to it makes the x-axis
+  // 1:1, so preserveAspectRatio="none" no longer distorts horizontally.
+  const w = el.clientWidth || (el.getBoundingClientRect && el.getBoundingClientRect().width) || 0
+  const { viewBox, d } = build(w)
+  el.setAttribute('viewBox', viewBox)
+  const path = el.querySelector('path')
+  if (path) path.setAttribute('d', d)
+}
+
+// Re-measure every live arc before the browser snapshots the print layout, since print
+// can resize the notes and ResizeObserver may not fire in time (installed once per module).
+const liveArcs = new Set()
+function applyAllArcs() {
+  for (const el of liveArcs) applyArc(el, el.__arcKind)
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeprint', applyAllArcs)
+  if (window.matchMedia) {
+    try {
+      window.matchMedia('print').addEventListener('change', applyAllArcs)
+    } catch (_) {
+      /* older Safari: no MediaQueryList.addEventListener — beforeprint still covers it */
+    }
+  }
+}
+
+// v-arc="'slur' | 'tieStart' | 'tieEnd'" — measure this arc and (re)build its path, then
+// keep it in sync with layout via a ResizeObserver.
+const vArc = {
+  mounted(el, binding) {
+    el.__arcKind = binding.value
+    liveArcs.add(el)
+    applyArc(el, binding.value)
+    if (typeof ResizeObserver !== 'undefined') {
+      el.__arcRO = new ResizeObserver(() => applyArc(el, el.__arcKind))
+      el.__arcRO.observe(el)
+    }
+  },
+  updated(el, binding) {
+    el.__arcKind = binding.value
+    applyArc(el, binding.value)
+  },
+  unmounted(el) {
+    liveArcs.delete(el)
+    if (el.__arcRO) {
+      el.__arcRO.disconnect()
+      delete el.__arcRO
+    }
+  },
+}
 </script>
 
 <template>
@@ -28,14 +131,15 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
       :class="['note-group', g.group ? 'g-' + g.group : '']"
     >
       <!-- slur (เอื้อน) = ONE continuous SVG arc over the whole group, at any length
-           (B062). preserveAspectRatio=none stretches the curve to the group width while
-           non-scaling-stroke keeps the line weight even — so it never breaks into pieces
-           the way the old CSS pseudo-arc did once a group grew past a couple of notes. -->
-      <svg v-if="g.group === 'slur'" class="slur-arc" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+           (B062). The `v-arc` directive (B076) measures the group's real width and rebuilds
+           the Bézier `d` so the apex height and tapered tips stay constant while only the
+           reach grows — a long เอื้อน no longer flattens/warps the way a stretched fixed
+           path did. viewBox is set 1:1 to the measured px width, so x is never scaled. -->
+      <svg v-if="g.group === 'slur'" class="slur-arc" v-arc="'slur'" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
         <!-- engraved slur: a FILLED lens (two Béziers) — tapered to fine points at the
-             ends, thickest at the apex — the way a slur is drawn in real notation, not a
-             uniform-width line. Endpoints sit low near the digits; apex arcs above. -->
-        <path d="M5,33 C26,3 74,3 95,33 C74,17 26,17 5,33 Z" />
+             ends, thickest at the apex. `d` is (re)computed by v-arc from the real width;
+             this initial value is just a pre-mount fallback. -->
+        <path d="M4,33 C30,3 56,3 82,33 C56,17 30,17 4,33 Z" />
       </svg>
       <span
         v-for="(t, ti) in g.tokens"
@@ -44,15 +148,16 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
       >
         <!-- tie across a bar (B062): each side draws a smooth SVG half-arc that rises to
              the segment edge, so the two halves in adjacent segments meet over the bar
-             line into one curve (replaces the old CSS border-radius hooks). -->
-        <svg v-if="t.tieStart" class="tie-arc tie-start-arc" viewBox="0 0 10 40" preserveAspectRatio="none" aria-hidden="true">
+             line into one curve. v-arc (B076) rebuilds `d` from the real width, same as the
+             slur, keeping the tips consistent; the inline `d` is a pre-mount fallback. -->
+        <svg v-if="t.tieStart" class="tie-arc tie-start-arc" v-arc="'tieStart'" viewBox="0 0 16 40" preserveAspectRatio="none" aria-hidden="true">
           <!-- left half of an engraved tie: fine point at the held note, cut square at
                the bar edge (full thickness) so it butts the next segment's end-half -->
-          <path d="M0,31 C3,9 7,5 10,5 L10,16 C7,18 3,26 0,31 Z" />
+          <path d="M0,31 C4.8,9 11.2,5 16,5 L16,16 C11.2,18 4.8,26 0,31 Z" />
         </svg>
-        <svg v-if="t.tieEnd" class="tie-arc tie-end-arc" viewBox="0 0 10 40" preserveAspectRatio="none" aria-hidden="true">
+        <svg v-if="t.tieEnd" class="tie-arc tie-end-arc" v-arc="'tieEnd'" viewBox="0 0 16 40" preserveAspectRatio="none" aria-hidden="true">
           <!-- right half: full thickness at the bar edge, tapering to a point at the note -->
-          <path d="M10,31 C7,9 3,5 0,5 L0,16 C3,18 7,26 10,31 Z" />
+          <path d="M16,31 C11.2,9 4.8,5 0,5 L0,16 C4.8,18 11.2,26 16,31 Z" />
         </svg>
         <template v-if="t.type === 'note'">
           <!-- octave dots stay centred on the DIGIT; more than one dot stacks
@@ -168,8 +273,9 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
   font-size: 0.55em;
   line-height: 1;
 }
-/* slur (เอื้อน) — one SVG arc spanning the whole group, stretched to its width.
-   vector-effect keeps the stroke even no matter how wide the group gets. */
+/* slur (เอื้อน) — one SVG arc spanning the whole group. Its `d`/viewBox are computed
+   from the measured width by v-arc (B076), so it is NOT stretched; width just sets the
+   box the directive measures. */
 .slur-arc {
   position: absolute;
   top: -0.15em;
@@ -195,7 +301,8 @@ const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
 .tie-start-arc { left: 60%; }
 .tie-end-arc { right: 60%; }
 /* engraved slur/tie = a filled tapered shape (thin ends, thick middle), so the curve
-   reads like real notation rather than a flat constant-width line */
+   reads like real notation rather than a flat constant-width line. The path `d` is
+   width-driven (B076) — see v-arc in the script. */
 .slur-arc path,
 .tie-arc path {
   fill: currentColor;
