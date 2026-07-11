@@ -25,7 +25,8 @@
 
 3. **slur-bezier (B076) = 🔨 จ่ายแล้ว** (`task_94f2d5c8`) — แก้เส้นเอื้อน/ไทบิด (`NoteRow.vue` `preserveAspectRatio=none`+path ตายตัว → คำนวณ Bézier ตามความกว้างจริง · หลักการจาก jianpu-ly research) · **NoteRow เดียว = ไม่ชน DockKey/โครงเพลง** · brief `brief-slur-bezier.md`
 
-## 🔬 research (ขนาน · ไม่บล็อก)
+## 🔬 research/experiment (ขนาน · ไม่บล็อก)
+- **Amazing Grace + เนื้อ 2 ภาษา** (`task_90eab2dc`) — เอาเพลง PD (Amazing Grace) เข้าระบบทดสอบ (ปลอดลิขสิทธิ์ · Crossover/10ปลาวาฬ ติดลิขสิทธิ์ใช้ไม่ได้) + ประเมิน feature เนื้อ 2 ภาษา (v2 ไม่มี native · ทดสอบ 2-row workaround + gap) · experiment ไม่ push DB · brief `brief-amazing-grace-bilingual.md`
 - ✅ **jianpu-ly research เสร็จ** (`task_c8d52b9f`) → report `docs/reports/jianpu-ly-study.md` (branch `research-jianpu-ly`) · **🟢 P'Aim ตัดสิน (11 ก.ค.): เอาแค่แนวคิดมาปรับปรุงของเราให้ดีขึ้นพอ — ❌ ไม่รับ LilyPond export / ❌ ไม่รับ MusicXML import** · แนวคิดที่รับมา = (1) เช็กลิสต์ syntax ตรวจ `notation.js` (gap เฝ้าดู ไม่รีบ: เขบ็ต 3 ชั้น/ห้องยก/DC-Coda · v2 playOrder แก้ซ้ำได้ดีกว่า volta) (2) แก้ B062/B069 เส้นเอื้อนบิด → คำนวณ Bézier ตามความกว้างจริง (เลิก `preserveAspectRatio=none`) · license Apache 2.0 → รวมใน GPL v3 ได้ (เอาแนวคิด ไม่ลอกโค้ด) · **pm7: จ่ายเป็น backlog ปรับปรุงในสายเราเอง ไม่มี dependency ภายนอก**
 - ✅ **UI standards SSOT = P'Aim approve แล้ว** `docs/ui-standards.md` (5 de-facto + invariants + บังคับใช้ 4 ชั้น) — ทุก brief อ้างอิง · เฉพาะฟีเจอร์ = `docs/pm/dockkey-checklist.md` ต่อยอด
 - 🧪 **Tester role เปิดแล้ว** (`task_afad8e4c` · `brief-tester-role.md`) — automate axe-core/no-scroll/target-size + ตรวจ checklist ก่อน P'Aim ทุกครั้ง · เริ่ม DockKey → ต่อ แผ่นเพลง/แก้ไข
