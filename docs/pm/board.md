@@ -89,7 +89,7 @@
 
 ## ⭐ PRIORITY (P'Aim 11 ก.ค. ค่ำ): **แก้บั๊กให้จบก่อน feature ใหม่**
 - บั๊กพี่เปา: ✅ live = B069/B081/B082/B083 · 🔵 **tester คิว (บั๊กก่อน):** B085/B086 [→deploy 10] · B084 (`notebox-split`) · B088 (`editor-copyline-reslice` · merge หลัง B085/B086) · B090 (`final-barline` เส้นจบ 2 เส้น `c7ac0c2` 327 test) · แล้ว B087+B089 (feature+gate) · **tester = คอขวด (คิวยาว)**
-- พี่เปา issue ใหม่: B090 เส้นจบ (dev เสร็จ→tester) · B091 ล้างเนื้อ/โน้ต (dev: ล้างเนื้อเสร็จ · ล้างโน้ต=พี่เปาอยาก park เนื้อไหลกลับ · dev ประเมิน feasibility) · B092 surface bar tools (📋 รอเคาะจ่าย · feature)
+- พี่เปา issue ใหม่: **B090 เส้นจบ ‖ = ✅ P'Aim print-PDF ยืนยัน → merged เข้าฐาน `9a9a132` (327 test)** รอ deploy รอบ 10 · B091 ล้างเนื้อ✅(รอ merge)/ล้างโน้ต⏳(dev: park ต้องแตะ model→เสนอ blank-placeholder ไม่แตะ model · รอ feasibility) · B092 surface bar tools (📋 รอเคาะจ่าย · feature)
 - **feature (B087 หน้าแรก · import เล่มใหญ่) = รันใน session แยก แต่ ⛔ ไม่ deploy จนบั๊กเคลียร์**
 
 ## 🚧 กำลังทำ (จ่ายแล้ว 11 ก.ค. ค่ำ)
