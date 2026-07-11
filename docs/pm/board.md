@@ -88,7 +88,8 @@
 - **pm7 ต่อ:** tester ผ่าน B087+B089 (public ว่าง+ข้อความ+ไม่ crash · team-view = unit test + P'Aim ยืนยันในแอป) → **deploy (gate active · public ว่าง)** → P'Aim review อนุชนทีละเพลง กด "ตรวจแล้ว" → กลับมาโชว์ · **yuwachon code** รอ DA ยืนยัน (ยังไม่มีเพลง=ไม่กระทบ)
 
 ## ⭐ PRIORITY (P'Aim 11 ก.ค. ค่ำ): **แก้บั๊กให้จบก่อน feature ใหม่**
-- บั๊กพี่เปา: ✅ live = B069/B081/B082/B083 · 🔵 **tester คิว:** B085/B086 [→deploy 10] · B084 (`notebox-split` `5c25a65` · 334 test · dev เสร็จ) · B088 (`editor-copyline-reslice` `df11b8b` · 333 test · dev เสร็จ · merge หลัง B085/B086) · **บั๊กทุกตัว dev เสร็จหมด อยู่ tester** · lib B087 `bookshelf.js` PM อนุมัติ (แยกเพื่อ unit-test)
+- บั๊กพี่เปา: ✅ live = B069/B081/B082/B083 · 🔵 **tester คิว (บั๊กก่อน):** B085/B086 [→deploy 10] · B084 (`notebox-split`) · B088 (`editor-copyline-reslice` · merge หลัง B085/B086) · B090 (`final-barline` เส้นจบ 2 เส้น `c7ac0c2` 327 test) · แล้ว B087+B089 (feature+gate) · **tester = คอขวด (คิวยาว)**
+- พี่เปา issue ใหม่: B090 เส้นจบ (dev เสร็จ→tester) · B091 ล้างเนื้อ/โน้ต (dev: ล้างเนื้อเสร็จ · ล้างโน้ต=พี่เปาอยาก park เนื้อไหลกลับ · dev ประเมิน feasibility) · B092 surface bar tools (📋 รอเคาะจ่าย · feature)
 - **feature (B087 หน้าแรก · import เล่มใหญ่) = รันใน session แยก แต่ ⛔ ไม่ deploy จนบั๊กเคลียร์**
 
 ## 🚧 กำลังทำ (จ่ายแล้ว 11 ก.ค. ค่ำ)
