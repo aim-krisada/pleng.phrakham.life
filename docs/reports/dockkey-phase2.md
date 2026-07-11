@@ -99,4 +99,8 @@ pm4 แจ้ง: สาย `mp3-dock-wire` merged เข้าฐาน (`b2ffb
   | แผ่นเพลง | 258 hug | 270 hug | 270 hug |
   | แก้ไข | 359 · 2 แถว | 491 hug · **1 แถว** | 491 hug · **1 แถว** |
 
+### B079 (ต่อจาก D4 · P'Aim) — download ซ้ำ 2 ที่ · commit `10e91d5`
+- [x] "ดาวน์โหลด JSON" อยู่ทั้งเมนู **จัดการ ▾** และ **dock export** = ผิด single-source-of-action (Hick's Law · NN/g #4 · `ui-standards §2`)
+- **แก้:** export (PDF/JSON/MP3) = **dock ExportTool ที่เดียว** · จัดการ ▾ เอา "ดาวน์โหลด JSON" ออก เหลือ **อัปโหลด JSON (import)** + งานร่าง/ประวัติ/ลบเพลง · verify: จัดการ = [อัปโหลด JSON, …] · dock export = [PDF, JSON, MP3] · **300 test**
+
 ## ⛔ ห้าม merge/deploy เอง — รอ PM ตรวจ DoD + P'Aim gate LAN 3 หน้า (โดยเฉพาะหน้าแก้ไข)
