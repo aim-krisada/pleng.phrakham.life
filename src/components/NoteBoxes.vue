@@ -37,12 +37,13 @@ function inputEls() {
   return root.value ? [...root.value.querySelectorAll('input')] : []
 }
 
-function focusBox(i) {
+function focusBox(i, caret) {
   nextTick(() => {
     const el = inputEls()[Math.max(0, Math.min(i, boxes.value.length - 1))]
     if (el) {
       el.focus()
-      el.setSelectionRange(el.value.length, el.value.length)
+      const pos = caret == null ? el.value.length : caret
+      el.setSelectionRange(pos, pos)
     }
   })
 }
@@ -77,7 +78,23 @@ function onInput(i, e) {
 
 function onKey(i, e) {
   const el = e.target
-  if (e.key === 'Enter' || e.key === ' ') {
+  if (e.key === ' ') {
+    // Space splits at the caret: text before stays in this box, text after moves to a
+    // new box at i+1 (so "345" with the caret before "5" -> "34" | "5"). With nothing
+    // after the caret it just advances to / creates the next box, as before.
+    e.preventDefault()
+    const c = el.selectionStart ?? el.value.length
+    const after = el.value.slice(c)
+    if (after) {
+      boxes.value[i] = fixAccidental(el.value.slice(0, c))
+      boxes.value.splice(i + 1, 0, fixAccidental(after))
+      sync()
+      focusBox(i + 1, 0)
+    } else {
+      if (i === boxes.value.length - 1) boxes.value.push('')
+      focusBox(i + 1)
+    }
+  } else if (e.key === 'Enter') {
     e.preventDefault()
     if (i === boxes.value.length - 1) boxes.value.push('')
     focusBox(i + 1)
