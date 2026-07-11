@@ -1,7 +1,7 @@
 export const meta = {
   name: 'fix-verify-loop',
   description: 'Auto dev↔tester loop (≤3 rounds) — dev applies tester findings, tester re-verifies (axe/tests), stop on pass or escalate',
-  whenToUse: 'หลัง tester เจอ defect ที่ auto-ตรวจได้ (axe/tests) → วนแก้-ตรวจเองจนผ่าน หรือครบ 3 รอบแล้ว escalate มา PM. Tier-B visual (จอจริง) ไม่ครอบ.',
+  whenToUse: 'หลัง tester เจอ defect → วนแก้-ตรวจเอง (Tier-A axe/tests + Tier-B จอจริงผ่าน Claude Browser MCP) จนผ่าน หรือครบ 3 รอบแล้ว escalate มา PM.',
   phases: [
     { title: 'Fix', detail: 'dev agent applies current findings on the branch, runs vitest+build+axe, commits' },
     { title: 'Verify', detail: 'tester agent re-runs axe + checklist, returns pass/findings' },
@@ -49,12 +49,12 @@ while (round < MAX_ROUNDS) {
     { phase: 'Fix', label: `fix r${round}` },
   )
 
-  // Verify: tester re-runs axe (Tier-A) + checklist, returns structured verdict.
+  // Verify: tester re-runs Tier-A (axe/tests) AND Tier-B (real browser via Claude Browser MCP).
   verdict = await agent(
     `คุณคือ tester (QA) pleng.phrakham.life. บน worktree: \`git switch ${branch}\`.\n` +
-    `ตรวจ **Tier-A อัตโนมัติ** เทียบ ${standards}: รัน axe-core a11y (contrast/role/name/label/aria) บน component ที่เกี่ยว + vitest เขียว + no-caret-on-popup-trigger + single-popup + Esc/focus. ` +
-    `**อย่าตรวจ Tier-B (no-scroll/target-size/contrast วัดพิกัดจอจริง) — subagent ไม่มีเบราว์เซอร์จริง ข้ามไป (PM ทำ gate นั้นทีหลัง).**\n` +
-    `คืน pass=true เฉพาะเมื่อ axe 0 violation + tests เขียว. ถ้าไม่ผ่าน คืน findings (ไฟล์:บรรทัด + กฎ) ให้ dev รอบหน้า.`,
+    `**Tier-A (unit):** รัน axe-core a11y (contrast/role/name/label/aria) + vitest เขียว + no-caret-on-popup-trigger + single-popup + Esc/focus.\n` +
+    `**Tier-B (จอจริง — ใช้ Claude Browser MCP · โหลดผ่าน ToolSearch "select:mcp__Claude_Browser__preview_start,mcp__Claude_Browser__navigate,mcp__Claude_Browser__resize_window,mcp__Claude_Browser__read_page,mcp__Claude_Browser__javascript_tool,mcp__Claude_Browser__computer"):** เปิด dev server ของ branch (\`npx vite <worktree> --host --port <p> --strictPort\` แล้ว preview_start/navigate ไป url) → resize 375/768/1280 → วัดจริงด้วย javascript_tool: **no-scroll** (\`scrollWidth<=clientWidth && scrollHeight<=clientHeight\` ของ popup/dock), **target-size** (ปุ่ม \`getBoundingClientRect\` >=44px), **contrast** (computed color vs bg หรือ axe ในเบราว์เซอร์), popup clamp ไม่ล้นขอบ, layout ตาม ui-standards · screenshot เก็บหลักฐาน.\n` +
+    `เทียบ ${standards} ทุกข้อ. คืน pass=true เฉพาะเมื่อ **Tier-A + Tier-B ผ่านหมด** (axe 0 violation · tests เขียว · no-scroll · target>=44 · contrast ผ่าน). ถ้าไม่ผ่าน คืน findings (ไฟล์:บรรทัด/จุด + กฎ) ให้ dev รอบหน้า.`,
     { phase: 'Verify', label: `verify r${round}`, schema: VERDICT },
   )
 
@@ -72,7 +72,7 @@ return {
   tierA_pass: !!verdict?.pass,
   remaining: verdict?.pass ? [] : (verdict?.findings || findings),
   next: verdict?.pass
-    ? 'พร้อม Tier-B (จอจริง) + PM gate → P\'Aim'
+    ? 'ผ่าน Tier-A+B (axe/tests + จอจริง) → PM gate → P\'Aim (เหลือแค่ตัดสินทิศทาง/ความสวย)'
     : `ครบ ${MAX_ROUNDS} รอบยังไม่ผ่าน → PM escalate (อย่าวนต่อ · คนตัดสิน)`,
   history,
 }
