@@ -91,7 +91,8 @@
 ## ⚠️ MERGE STACK (pm7 · deploy รอบ 10 = โจทย์เรียงคิว EditorMode.vue หลายสาย)
 **5 สายแตะ `EditorMode.vue` ไฟล์เดียว รอ merge — ต้องเรียง+resolve+rerun test:**
 - **stack (ต่อกันแล้ว):** `editor-ux-followup` (B085/B086 `9dc22d9`) → `editor-copyline-reslice` (B088 `e496af5`) → `line-clear-parts` (B091 ล้างเนื้อ `b38fd04`) — merge ตามลำดับนี้ clean
-- **แตกจาก base (ต้อง rebase/resolve):** `surface-bar-tools` (B092 `d33c2e8`) · `lint-before-publish` (B093 กำลังทำ) · `notebox-split` (B084 = NoteBoxes คนละไฟล์ · ไม่ชน)
+- **แตกจาก base (ต้อง rebase/resolve):** `surface-bar-tools` (B092 `d33c2e8`) · `lint-before-publish` (B093 `0fc2e95` เสร็จ→tester · severity ERROR+WARNING PM เคาะ) · `notebox-split` (B084 = NoteBoxes คนละไฟล์ · ไม่ชน)
+- **follow-up B087:** เพิ่ม `FLAG_LABEL['lint:beats']='จังหวะไม่ครบ'` ฯลฯ ใน SongList (ตอนนี้ `lint:*` โชว์ raw) — ประสานตอน B087 finalize · ไม่เร่ง (lint flag ยังไม่มีจน B093 deploy)
 - **วิธี:** merge stack ก่อน → แล้ว B092/B093 rebase/3-way (คนละ region: B092=bar-foot · B093=publish · B091=syllable · B085/86=rail) น่าจะ resolve ได้ · rerun 300+ test ทุกครั้ง
 
 ## ⭐ PRIORITY (P'Aim 11 ก.ค. ค่ำ): **แก้บั๊กให้จบก่อน feature ใหม่**
