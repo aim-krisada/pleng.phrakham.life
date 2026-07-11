@@ -34,7 +34,8 @@
 - **ฐาน `studio-shell-redesign` = main HEAD = `71b8d8f`** = **317 test + build** · main===base อีกครั้ง (clean FF)
 - 🎉 **DEPLOY รอบ 7 = LIVE + verified (11 ก.ค. · `71b8d8f`)** — live footer stamp `71b8d8f*` (ยืนยัน bundle มี `71b8d8f` · ไม่มี `1a3aa65` เดิม) · `*` = CI build tree dirty (cosmetic · ไม่กระทบโค้ด · follow-up เล็ก)
 - **ขึ้น live รอบ 7:** DockKey §D polish + B079 export single-source · slur B076 โค้งไม่บิด · **หัวไทม์ไลน์ไม่ชิดขอบ (D6 · knob 13px)** · tester a11y infra · (ของรอบ 6 ครบ)
-- **pm7 ต่อ (P'Aim สั่ง 11 ก.ค. เย็น):** รอ tester ผ่าน **2 สาย** (B081 พรีวิว · B082+B069 SongSheet) → **merge ทั้งคู่เข้าฐาน** (คนละไฟล์ EditorMode/SongSheet → clean · git-verify + rerun test) → **เสิร์ฟ (--host) ให้ P'Aim print เช็ก** (เพลง 3 ไท · เพลง 4 เส้นปิด · เพลงยาวหลายหน้า — verify จาก PDF จริง) → P'Aim go → **deploy รอบ 8** → ย้าย kanban พี่เปา B081/B082/B069 → เสร็จแล้ว
+- **✅ 2 สาย merged + combined-verified (11 ก.ค. เย็น · HEAD `3e931ab`):** Lane A (B069+B082 `b8e2c4a`) + Lane B (B081 `b82f6a9`) cherry-pick เข้าฐาน · **322 test + build** · **tester จับ B081 มือถือ FAIL (tie-overlay 679px ไม่หด) → merge Lane A ก่อน (overlay per-line) แก้เอง**: วัดจริงมือถือ 375 = overlay หด 351=กระดาษ · h-overflow 0 (เดิม 316) ✅ · เดสก์ท็อป+มือถือผ่านทั้งคู่
+  - **🚦 ค้างที่ P'Aim = print เช็กจาก PDF จริง** (เสิร์ฟ `http://192.168.1.124:5400` --host): เพลง 3 (ไทข้ามห้อง) · เพลง 4 (เส้นปิดห้อง) · เพลงยาวหลายหน้า (ไทพิมพ์ครบทุกหน้า) · + พรีวิว "ดูผลทั้งเพลง" = กระดาษ → go → **deploy รอบ 8** → ย้าย kanban B081/B082/B069 → เสร็จแล้ว
 - **หลัง deploy รอบ 8:** จ่าย B083 dev (melody-pairing · mockup เคาะแล้ว · Q1 พรีวิวโน้ต/Q2 Intl.Segmenter/Q3 เตือนไม่บล็อก · ฐานอัปเดตหลัง B081 merge แล้ว ไม่ชน EditorMode)
 
 ## 🎯 PM session ปัจจุบัน = `pm7` (sprint รอบ 7 · pm4 รับต่อเป็น pm7 เอง ไม่ handoff · P'Aim 10 ก.ค.)
