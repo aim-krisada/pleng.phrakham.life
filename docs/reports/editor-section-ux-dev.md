@@ -2,10 +2,20 @@
 
 **branch:** `editor-section-ux-dev` (จาก `studio-shell-redesign`) · **chip:** `task_5d47b107`
 **brief:** `docs/pm/brief-editor-section-ux-dev.md` · **spec:** `docs/ds/editor-section-ux.md` + `docs/us/editor-section-ux.md` · **mockup:** `docs/design/editor-section-ux.html`
-**สถานะ:** ✅ เสร็จ · vitest 299 เขียว + build ผ่าน · verify เบราว์เซอร์ + มือถือครบ · **⛔ ยังไม่ merge/deploy — รอ P'Aim LAN gate**
+**สถานะ:** ✅ เสร็จ + รอบแก้ layout (P'Aim feedback แถวเทอะทะ) · vitest **300** เขียว + build ผ่าน · verify เบราว์เซอร์+มือถือ · **⛔ ยังไม่ merge/deploy — ส่ง tester ตรวจก่อน (process ใหม่ pm7)**
 
-## Network URL (LAN — P'Aim ลองจริงบนมือถือ/PC)
-`http://10.215.141.98:5372/#/studio` (dev server `--host`, port 5372, ยังรันอยู่)
+## Network URL (LAN — tester/P'Aim ลองจริง)
+`http://192.168.1.124:5372/#/studio` (dev server `--host`, port 5372, ยังรันอยู่ · IP วันนี้)
+
+## รอบแก้ layout — แถว "โครงเพลง" กระชับ (P'Aim: เทอะทะ · commit `56fbdb4`)
+หลักฐานปัญหา: `docs/pm/realuse-assets/songstruct-row-cramped.png` (ชื่อ "ร้..." ตัดโหด · ▲▼ ซ้อน 2 บรรทัด · pill บีบ) → แก้ตาม `docs/ui-standards.md §2` (list-row บรรทัดเดียว · ควบคุมกระชับ):
+- **rail กว้างขึ้น 214 → 250px** — พอให้ควบคุมในแถวไม่บีบชื่อ
+- **▲▼ เรียงข้างกัน (แนวนอน) บรรทัดเดียว** (ไม่ซ้อน) · override `button{min-height:44}` global บน `.updown` → แถวสูง **42px** (เดิม 52+) · ≥24px ยังผ่าน WCAG 2.5.8
+- **♪ = ป้ายกระชับ (static pill)** บอกทำนอง · **เปลี่ยนทำนองที่หัวท่อน (`.cs-mel`)** ที่มีที่ว่าง — เลี่ยง dropdown ยัดในคอลัมน์แคบ (ตาม ui-standards popup ห้ามถูกตัด)
+- **ชื่อได้ min-width จริง (48px) + ellipsis + tooltip** → "ร้อง 1" เห็นเต็ม ไม่ตัดโหด
+- **มือถือ** คงปุ่มใหญ่ (▲▼ 34×40 · grip/del ≥40) แต่ยังบรรทัดเดียว
+- **verify จริง:** desktop 1280 (rail 250 · row 42px · ▲▼ 26×26 ข้างกัน · "ร้อง 1" ไม่ตัด · ไม่ล้นแนวนอน · console 0) + มือถือ 375 (▲▼ 34×44 ข้างกัน) · **หมายเหตุ:** headless วัด desktop ได้หลัง `resize_window` explicit เท่านั้น (preset คืน winW=0) — pixel-precise บนเครื่องจริงเป็น tester/P'Aim gate
+- **เทสต์ใหม่ (guard):** ui-standards §2 — แถว = 1 บรรทัด (`.mchip` เป็น span pill · `.updown` เดียวมี 2 ปุ่มพี่น้อง · ชื่อ 1 ช่อง)
 
 ## ทำอะไรไป (ตาม mockup + DS — เปลี่ยนแค่เปลือกจัดการท่อน)
 - **ยุบ 3 รายการในแถบซ้าย → "โครงเพลง" เดียว** — แต่ละแถว (`.srow`) = ท่อน (arrangement row): ที่จับลาก ⠿ · เลข · ชื่อคลิกแก้ · ป้ายทำนอง ♪ · ▲▼ · ลบ
@@ -24,7 +34,7 @@
 - **มือถือ 375px:** cshead flex-wrap · grip 32×40 · ▲▼ 40×44 · ลบ 44×44 · ไม่ล้นแนวนอน
 
 ## Test / build
-- **vitest 299 เขียว** (ฐาน 288 + ใหม่ 11 · `EditorMode.section-ux.test.js`) · แก้ 3 เคส `edhead.test.js` ที่ยืนยันเปลือกเก่า (crumb "ทำนอง A" · `.srow` แทน `.arr-row`/`.rail-rowwrap.lyr`) — เจตนาเดิมคงไว้ (ลบท่อน/สร้างหลายท่อน/para panel ยังผ่าน)
+- **vitest 300 เขียว** (ฐาน 288 + ใหม่ 12 · `EditorMode.section-ux.test.js` รวม guard layout §2) · แก้ 3 เคส `edhead.test.js` ที่ยืนยันเปลือกเก่า (crumb "ทำนอง A" · `.srow` แทน `.arr-row`/`.rail-rowwrap.lyr`) — เจตนาเดิมคงไว้ (ลบท่อน/สร้างหลายท่อน/para panel ยังผ่าน)
 - คำสั่ง: `npx vitest run --exclude '**/.claude/**' --exclude '**/node_modules/**'` (ไฟล์ fail 1 = `notationLint.test.mjs` `process.exit(0)` — ของเดิม ไม่เกี่ยว)
 - **`npm run build` ผ่าน**
 
