@@ -12,7 +12,8 @@
 
 ## 🎯 PM session ปัจจุบัน = `pm7` (sprint รอบ 7 · pm4 รับต่อเป็น pm7 เอง ไม่ handoff · P'Aim 10 ก.ค.)
 - **กติกา (P'Aim 10 ก.ค.): เลข PM = เลข sprint/deploy รอบ** · pm4→รอบ6 · **pm7 = sprint รอบ 7**
-- **🎯 เป้าหมายวันนี้ (P'Aim 11 ก.ค.) + สถานะ:** (1) **DockKey 3 หน้า** = dev แก้ checklist · tester เจอ a11y critical `aria-required-children` (role=menu→group 1 บรรทัด) → กลับ dev + Tier-B visual · **~90%** · (2) **โครงเพลง** = tester layout เขียวหมด+300test+no-regress · เหลือ a11y serious grip (role=button 1 บรรทัด) → กลับ dev · **~95%** · (3) **slur เส้นเอื้อน** = ✅✅ **tester PASSED + MERGED `a83a23e`** (292 test) · **DONE** → รวม deploy รอบ 7
+- **🎯 เป้าหมายวันนี้ (P'Aim 11 ก.ค.) + สถานะ:** (1) **DockKey 3 หน้า** = ✅ dev แก้ a11y (role=group) + **self-verify Tier-B 3 breakpoint เขียว** (`867b287` · แถม▲▼ล้นจอ375 แก้แล้ว · 284 test) → **tester re-verify** · **~98%** · (2) **โครงเพลง** = ✅ dev แก้ a11y grip (`18b5a14` · 300 test) → **tester re-verify** · **~98%** · (3) **slur** = ✅✅ **MERGED `a83a23e`** (292 test · tester PASSED) · **DONE** · → tester ยืนยัน 2 ตัว → รวม deploy รอบ 7
+- **⭐ process upgrade (P'Aim 11 ก.ค.):** Tier-B ทำอัตโนมัติผ่าน **Claude Browser MCP** (resize+วัดพิกัดจริง) · auto-loop `fix-verify-loop` (≤3 รอบ) ครอบ Tier-A+B · P'Aim เหลือแค่ทิศทาง/ความสวย
 - dev/SA รายงานเสร็จ (session-agnostic): (1) `docs/reports/<branch>.md` (2) เพิ่มบรรทัด §📥 inbox (3) ping PM ปัจจุบัน · **อย่า hardcode ชื่อสายใน prompt**
 - **เช็ก `git branch --show-current` ก่อน commit ทุกครั้ง** (spawn_task สลับ branch main dir ใต้มือ · ดู memory)
 
