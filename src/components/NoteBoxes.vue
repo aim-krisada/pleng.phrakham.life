@@ -79,21 +79,17 @@ function onInput(i, e) {
 function onKey(i, e) {
   const el = e.target
   if (e.key === ' ') {
-    // Space splits at the caret: text before stays in this box, text after moves to a
-    // new box at i+1 (so "345" with the caret before "5" -> "34" | "5"). With nothing
-    // after the caret it just advances to / creates the next box, as before.
+    // Space inserts a note break at the caret and ripples right — same as the lyric
+    // box (EditorMode.vue onSylKey): text before stays here, text after (even empty)
+    // moves to a new box at i+1 and everything shifts right, focus lands on it. So
+    // "345" with the caret before "5" -> "34" | "5"; a space at the very end inserts an
+    // empty box after; a space at the very start pushes the whole token right.
     e.preventDefault()
     const c = el.selectionStart ?? el.value.length
-    const after = el.value.slice(c)
-    if (after) {
-      boxes.value[i] = fixAccidental(el.value.slice(0, c))
-      boxes.value.splice(i + 1, 0, fixAccidental(after))
-      sync()
-      focusBox(i + 1, 0)
-    } else {
-      if (i === boxes.value.length - 1) boxes.value.push('')
-      focusBox(i + 1)
-    }
+    boxes.value[i] = fixAccidental(el.value.slice(0, c))
+    boxes.value.splice(i + 1, 0, fixAccidental(el.value.slice(c)))
+    sync()
+    focusBox(i + 1, 0)
   } else if (e.key === 'Enter') {
     e.preventDefault()
     if (i === boxes.value.length - 1) boxes.value.push('')

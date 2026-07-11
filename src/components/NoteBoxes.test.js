@@ -1,5 +1,7 @@
 // NoteBoxes — ID-card note entry (one small box per note token). B084: Space must SPLIT
 // at the caret (พี่เปา: type "345", move the "5" out) — not just jump to the next box.
+// Follow-up (P'Aim): Space must RIPPLE exactly like the lyric box (EditorMode onSylKey) —
+// always insert a box at the caret and push right, even with nothing after the caret.
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
@@ -23,7 +25,7 @@ async function spaceAt(w, i, pos) {
   await nextTick()
 }
 
-describe('NoteBoxes — Space splits at the caret (B084)', () => {
+describe('NoteBoxes — Space splits/ripples at the caret (B084 + ripple follow-up)', () => {
   it('"345" with the caret before "5" splits into "34" | "5" and focuses the new box', async () => {
     const w = mountT('345')
     expect(inputs(w).map((n) => n.element.value)).toEqual(['345'])
@@ -34,12 +36,20 @@ describe('NoteBoxes — Space splits at the caret (B084)', () => {
     w.unmount()
   })
 
-  it('caret at the end (nothing after it) just adds an empty next box, as before', async () => {
+  it('caret at the end inserts an empty box after and ripples (like the lyric box)', async () => {
     const w = mountT('345')
     await spaceAt(w, 0, 3) // caret after "5"
     const vals = inputs(w).map((n) => n.element.value)
     expect(vals).toEqual(['345', ''])
     expect(document.activeElement).toBe(inputs(w)[1].element)
+    w.unmount()
+  })
+
+  it('caret at the end of a MIDDLE box inserts an empty box in place and ripples right', async () => {
+    const w = mountT('1 2')
+    await spaceAt(w, 0, 1) // caret after "1" — a middle box, not the last
+    expect(inputs(w).map((n) => n.element.value)).toEqual(['1', '', '2'])
+    expect(document.activeElement).toBe(inputs(w)[1].element) // the fresh empty box
     w.unmount()
   })
 
