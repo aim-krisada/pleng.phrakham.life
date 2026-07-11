@@ -16,6 +16,9 @@
 - dev/SA รายงานเสร็จ (session-agnostic): (1) `docs/reports/<branch>.md` (2) เพิ่มบรรทัด §📥 inbox (3) ping PM ปัจจุบัน · **อย่า hardcode ชื่อสายใน prompt**
 - **เช็ก `git branch --show-current` ก่อน commit ทุกครั้ง** (spawn_task สลับ branch main dir ใต้มือ · ดู memory)
 
+## 📥 inbox (รายงานเข้า → pm7 อ่าน)
+- **B076 slur/tie bézier = ✅ ส่งแล้ว** (branch `slur-bezier` จาก `studio-shell-redesign`) — เลิกยืด path (`preserveAspectRatio=none`) → คำนวณ `d` จากความกว้างจริง (directive `v-arc` ใน NoteRow) · จุดควบคุม taper คงที่ 26px ทุกความยาว → เอื้อน 8 โน้ตโค้งเรียบไม่บิด · **292 test + build** · แตะแค่ `NoteRow.vue`(+test)+`launch.json` (ไม่แตะ SongSheet/DockKey/EditorMode) · verify: Guide+song sheet+editor ไม่ regress, console ไม่ error, geometry viewBox=clientWidth 1:1 · **ค้าง: P'Aim print PDF จริง + ดูมือถือ `http://192.168.1.124:5376/`** · **follow-up: B069 cross-bar overlay (SongSheet คนละกลไก) ยังไม่ตรวจ** · detail `docs/reports/slur-bezier.md` · ⛔ ยังไม่ merge/deploy
+
 ---
 
 ## 🟢 กำลัง build (→ deploy รอบ 7) — 2 สายใหญ่ · ⚠️ ทั้งคู่แตะ `EditorMode.vue` คนละส่วน → PM เรียงคิว merge + resolve
