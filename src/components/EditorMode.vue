@@ -3,6 +3,7 @@ import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds } from '../lib/notation.js'
+import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { diffSongRows } from '../lib/diff.js'
@@ -189,6 +190,10 @@ const vFocus = { mounted: (el) => { el.focus(); el.select?.() } } // autofocus a
 
 const saveMsg = ref('')
 const playing = ref(false)
+// B093: review_flags loaded with the song (so publish keeps DA/other flags and only
+// refreshes the lint ones) + the last publish's lint issue count (for the warn message).
+const loadedFlags = ref([])
+const lastLintCount = ref(0)
 
 // the bar/segment editor operates on the ACTIVE stanza's lines through this computed
 const lines = computed({
@@ -1028,6 +1033,7 @@ function applyRow(data) {
   meta.category = data.category ?? 'anuchon'
   meta.theme = data.theme ?? ''
   verified.value = data.verified ?? false
+  loadedFlags.value = Array.isArray(data.review_flags) ? data.review_flags : [] // B093: keep on publish
   const { content, warnings } = migrateToV2(data.content)
   opts.key = content.key || 'C'
   opts.timeSignature = content.timeSignature || '4/4'
@@ -1155,6 +1161,38 @@ async function saveDraft(status) {
 }
 
 // ---------- publish (approver) ----------
+// B093: lint every melody bar before publishing. notationLint tags 'unreadable' as ERROR
+// and everything structural (จังหวะไม่ครบ = 'beats', R1/R4-R7) as WARNING; P'Aim's intent
+// is to catch the beats/symbol problems, so a real issue = severity ERROR **or** WARNING
+// (HINT = advisory, ignored). Returns the distinct rule codes + a total issue count.
+function lintSong() {
+  const ts = opts.timeSignature
+  const codes = new Set()
+  let count = 0
+  for (const s of stanzas.value) {
+    for (const line of s.lines) {
+      for (const bar of line.bars) {
+        const noteStr = bar.segments.map((seg) => seg.note || '').join(' ').trim()
+        if (!noteStr) continue
+        for (const f of lintBar(noteStr, { timeSignature: ts })) {
+          if (f.severity === SEVERITY.HINT) continue
+          count++
+          codes.add(f.code)
+        }
+      }
+    }
+  }
+  return { count, codes: [...codes] }
+}
+// review_flags to write on publish: keep the song's non-lint flags (DA repeat marks etc.),
+// refresh the `lint:*` ones from this lint pass (so a fixed song loses its old lint flags).
+function reviewFlagsForPublish() {
+  const kept = (loadedFlags.value || []).filter((f) => !String(f).startsWith('lint'))
+  const { count, codes } = lintSong()
+  const lintFlags = count > 0 ? codes.map((c) => 'lint:' + c) : []
+  return { flags: [...kept, ...lintFlags], count }
+}
+
 async function saveDirect() {
   saveMsg.value = ''
   const row = draftRow()
@@ -1166,9 +1204,13 @@ async function saveDirect() {
   row.theme = meta.theme || null
   if (!row.title_th) {
     saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
-    return
+    return false
   }
   emit('save', 'publish')
+  // B093: lint the melody → tag review_flags (keep DA flags) + warn, but never block publish
+  const { flags, count } = reviewFlagsForPublish()
+  lastLintCount.value = count
+  row.review_flags = flags
   let error
   if (editingId.value) {
     ;({ error } = await supabase.from('songs').update(row).eq('id', editingId.value))
@@ -1178,8 +1220,12 @@ async function saveDirect() {
     error = res.error
     if (res.data) editingId.value = res.data.id
   }
-  saveMsg.value = error ? '❌ บันทึกไม่สำเร็จ: ' + error.message : '✅ เผยแพร่แล้ว'
-  if (!error) {
+  if (error) {
+    saveMsg.value = '❌ บันทึกไม่สำเร็จ: ' + error.message
+  } else {
+    saveMsg.value =
+      count > 0 ? `⚠️ เผยแพร่แล้ว — แต่พบปัญหาโน้ต ${count} จุด (ติดป้ายไว้ให้ตรวจ)` : '✅ เผยแพร่แล้ว'
+    loadedFlags.value = flags // keep in sync so a same-session re-publish preserves them
     // publishing from one's own draft closes that draft
     if (currentDraftId.value && !reviewingDraft.value) {
       await supabase
@@ -1192,17 +1238,24 @@ async function saveDirect() {
     loadSongList()
     loadRevisions()
   }
+  return !error
 }
 
 async function approve() {
   const d = reviewingDraft.value
-  await saveDirect()
-  if (saveMsg.value.startsWith('❌') || saveMsg.value.startsWith('⚠️')) return
+  // B093: saveDirect now returns whether the publish went through. A lint warning is a
+  // successful publish (⚠️ but published), so key on the boolean — not on the saveMsg text
+  // — or the approve step would abort on a lint-flagged song.
+  const ok = await saveDirect()
+  if (!ok) return
   await supabase
     .from('song_drafts')
     .update({ status: 'approved', song_id: editingId.value, review_comment: reviewComment.value || null })
     .eq('id', d.id)
-  saveMsg.value = '✅ อนุมัติและเผยแพร่แล้ว'
+  saveMsg.value =
+    lastLintCount.value > 0
+      ? `✅ อนุมัติและเผยแพร่แล้ว — แต่พบปัญหาโน้ต ${lastLintCount.value} จุด (ติดป้ายไว้ให้ตรวจ)`
+      : '✅ อนุมัติและเผยแพร่แล้ว'
   reviewingDraft.value = null
   currentDraftId.value = null
   loadDrafts()
