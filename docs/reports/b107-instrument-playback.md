@@ -72,6 +72,15 @@
 
 ---
 
+## 4b. ยืนยันเชิงเทคนิค (ทดสอบแล้วบน branch นี้)
+- **smplr 1.0.0 ติดตั้ง+ import ผ่าน** (`SplendidGrandPiano` · generic `Sampler` · `CacheStorage` สำหรับออฟไลน์). ไม่ต้องใช้ Tone.js.
+- **จำกัดขนาดเปียโนได้จริง:** velocity layer ของ smplr = PPP[1-40] PP[41-67] **MP[68-84]** MF[85-100] FF[101-127]. สั่ง `notesToLoad{velocityRange:[68,84], notes:[…ช่วงที่ใช้]}` → โหลดชั้น MP ชั้นเดียว (~62 sample เต็มชั้น ≈ 4.3 MB · จำกัดช่วงโน้ต ~40 ตัว ≈ **2.8 MB**). default ไม่จำกัด = 5 ชั้น ≈ 17 MB.
+- **สตริง:** generic `Sampler({ buffers:{ "C4":url, … } })` — ให้ note→url แบบห่าง ๆ แล้ว smplr pitch-shift เติมเอง (ไวโอลิน+เชลโล จาก jsDelivr).
+- **routing เข้าบัสคอร์ด (§1 spec)** ทำได้: Sampler รับ `destination` + `lpfCutoffHz` → ต่อ low-pass/compressor ได้ตามสเปก.
+- **2 จุดที่ต้องระวัง (ใส่ในแผน · ไม่ block):**
+  1. **ทรานสโพสสด (setTranspose กลางเพลง):** oscillator เดิม re-tune ด้วย detune ได้ทันที · sampler = voice เป็นก้อน → เปลี่ยนคีย์กลางเล่นต้อง **reschedule** (เหมือน B105 ที่ reschedule ตอนสลับโหมด). ทรานสโพส "ก่อนเล่น" = ส่ง MIDI ที่บวก offset แล้ว → ได้เลย. → P1 จัดการเหมือน B105.
+  2. **MP3 export (P3):** sampler ต้อง render ใน OfflineAudioContext (decode sample ให้เสร็จก่อน render) — **เป็น spike ที่ต้องพิสูจน์ใน P3** ก่อนสรุปว่า "engine เดียวทั้ง live+MP3". ถ้าไม่ได้ → fallback: MP3 ใช้ synth เดิม (ยอมรับได้ชั่วคราว).
+
 ## 5. ยังไม่ทำ / ยังไม่ deploy
 - **ไม่ merge เข้า base · ไม่ deploy** — PM cherry-pick หลัง tester gate (regression: playback/มือถือ/MP3).
 - เสียง/รสนิยม (preset ไหนเพราะ · จังหวะ · บาลานซ์) = **P'Aim↔SA ตรง** — ผม implement ตาม spec/เดโม.
