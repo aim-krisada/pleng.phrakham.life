@@ -2,12 +2,26 @@
 
 กระดานนี้ = สถานะสด + งานค้าง + routing เท่านั้น · **รายละเอียดเทคนิค → git log + `docs/reports/<branch>.md` + `docs/backlog.md`** (อย่าซ้ำที่นี่)
 **⛔ เปิด PM session ใน worktree `C:\gl\krisada\pleng.phrakham.life-pm` เท่านั้น (ไม่ใช่ primary clone!)** — primary ถูกสลับ branch ใต้มือ (park ที่ `pm-primary-parking`) · ดู `docs/sop.md` §5
-**เปิด PM session ใหม่:** อ่าน `docs/pm/pm.md` → memory `pleng-pm-role` (+ feedback PM ทั้งชุด) → `docs/sop.md` → ไฟล์นี้ · **ตั้งชื่อ session ตัวเองตามรอบ deploy ถัดไป (`pm11`)** แล้วอัปเดต §🎯
+**เปิด PM session ใหม่:** อ่าน `docs/pm/pm.md` → memory `pleng-pm-role` (+ feedback PM ทั้งชุด) → `docs/sop.md` → ไฟล์นี้ · **ตั้งชื่อ session ตัวเองตามรอบ deploy ถัดไป (`pm21`)** แล้วอัปเดต §🎯
+
+---
+
+## ▶ RESUME (hand-off pm11 → pm21 · 12 ก.ค. เย็น · context pm11 ใกล้เต็ม)
+**LIVE = `509195c` (รอบ 20)** — วันนี้ยิงขึ้น live 10 รอบ (11-20): B095 ล็อกหมวด · B098 คัดลอก/ลบโน้ต-ห้อง · B097 undo/redo · B099 เส้นโค้งไท · B100 เตือนออกหน้า · B104 คอร์ด 3 โหมด · B105 real-time mode · B101 คัดลอกวางยืดหยุ่น · **B107 P1 เปียโน Grand จริง** · B102 P1+rd3 ร้องรับทุกข้อ+ข้อ1+ตัวชี้รอบ
+**🔴 GATE ยังอยู่:** public เห็น 0 เพลง · ตัวปลดล็อกเปิดเว็บจริง = ทีม review อนุชน 122 เพลง (ยัง 0/122) — **นี่คือ priority จริงถ้า P'Aim ถามงานต่อ** (เสียง=ของเสริม)
+**กำลังทำ (P'Aim↔SA lane — อย่าแทรกลูปฟัง-เลือกเสียง · memory `feedback_paim_direct_sa_creative`):**
+- **B107 P2 เสียงเครื่องดนตรี** — direction ตกผลึกแล้ว (§🎼 P2 DIRECTION ท้ายไฟล์ · SSOT `docs/ds/instrument-arranger-p2.md` · CC samples `docs/reports/cc-instrument-samples.md`) · **SA (`local_769b8371`) กำลังทำ spike humanize+timbre ให้ P'Aim ปั้น** → เคาะเสียง+tier แล้ว SA ping PM → **PM จ่าย dev implement + tester (วัด real audio peak>0) + P'Aim ฟังก่อน deploy**
+- **B102 รับข้อ4:** พิสูจน์แล้ว resolver ถูก (tailPeak 0.35 desktop) · P'Aim ได้ยินตกรับ = **มือถือ AudioContext suspend** — ถ้า P'Aim ยืนยันด้วยตัวชี้ "รอบ 4/4" บนมือถือ (ป้ายถึงแต่เงียบ) → เปิดงานแยก **keep-awake/wake-lock**
+**ค้าง/held:**
+- **B103 `.gitattributes`** (branch `b103-gitattributes` · dev เสร็จ) — renormalize ทั้งรีโป → **merge เฉพาะ window ที่ไม่มี in-flight src** (ยากเพราะ P2 กำลังมา) · ยังถือไว้
+- research done: `cc-instrument-samples.md` (branch `cc-samples-research`)
+**บทเรียนสำคัญวันนี้ (เข้ากติกาแล้ว §กติกา):** audio/heard bug **ต้องวัด real output (AnalyserNode peak) + invariant test** ไม่ใช่ "fire ไม่ error"/นับ playNotes (B107 เปียโนเงียบ + B102 รับข้อ4)
+**ธุรการ:** board ไฟล์นี้ยาว/รก — สายใหม่อ่าน RESUME + §🟢 LIVE พอ · worktree เก่าเยอะ (`git worktree list`) + branch `claude/*` เยอะ (ล้างได้ตอนว่าง)
 
 ---
 
 ## 🟢 LIVE ตอนนี้ — deploy รอบ 20 (`509195c`, 12 ก.ค. · เปียโนจริง B107P1 + B102rd3 ข้อ1/ตัวชี้รอบ)
-main = `359872b` · **นโยบายใหม่: PM deploy ทีละ fix ที่ผ่าน tester** (ดู §กติกา deploy) · รอบ11-20: B095·B098·B097·B099·B100·B104·B105·B101·B102P1·**B107P1(เปียโนจริง)+B102rd3** · ("1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก)
+main = `509195c` · **นโยบายใหม่: PM deploy ทีละ fix ที่ผ่าน tester** (ดู §กติกา deploy) · รอบ11-20: B095·B098·B097·B099·B100·B104·B105·B101·B102P1·**B107P1(เปียโนจริง)+B102rd3** · ("1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก)
 - **ขึ้น live รอบ 10:** บั๊ก+ข้อเสนอพี่เปาครบ (โน้ต space ripple B084 · สติกกี้ B085 · ย้ายบรรทัด B086 · เส้นจบ‖ B090 · ล้างเนื้อบรรทัด · ปุ่มห้อง+มือถือ B092 · lint-ก่อนเผยแพร่ B093) + **หน้าแรกใหม่ (เล่ม picker) + verified GATE (B087+B089)**
 - ประวัติรอบก่อน (7-9): DockKey 3 หน้า+polish · slur B076 · ไทข้ามห้อง B069 · เส้นปิดห้อง B082 · พรีวิว B081 · จับคู่ทำนอง B083 · timeline D6 · a11y infra
 
