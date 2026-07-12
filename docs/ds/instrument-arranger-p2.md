@@ -25,9 +25,11 @@
 
 **หัวใจของสถาปัตย์:** ทุกกฎเป็น **โมดูลแยก** — แต่ละตัวเป็นฟังก์ชันบริสุทธิ์ที่แปลง "รายการเสียง" (pure function) → **build/test/verify ทีละตัวได้** แม้ส่งครบชุด. ตัวเรียบเรียงคืน **"รายการเสียง" (performance events) เป็นข้อมูลล้วน** → เทสแบบ headless ได้ + ใช้ตัวเดียวกันทั้งเล่นสดและ MP3.
 
-**ผู้ใช้เห็นอะไร (P'Aim เคาะ · 2 แกน):** แยก **(A) ระดับลูกเล่น 4 โหมด** — ทำนองอย่างเดียว · คอร์ดอย่างเดียว · **ทำนอง+คอร์ด ธรรมดา (ไม่มีลูกเล่น = ตรวจโน้ต พี่เป้า)** · **จัดเต็ม (arranger เต็ม + humanize · "น้อยแต่ได้มาก")** — ออกจาก **(B) เครื่องดนตรี** (เปียโน/ไวโอลิน+เปียโน/เต็มวง/กีตาร์). โหมด 1–3 ต่อยอด 3 sound modes เดิม (B104).
+**ผู้ใช้เห็นอะไร (P'Aim เคาะ · UI 3 แกน):** **(1) เล่นอะไร** — ทำนอง/คอร์ด/รวม (3 sound modes เดิม B104) · **(2) เสียงเครื่อง** — เปียโน/ไวโอลิน/กีตาร์ (เดี่ยว เลือกอิสระ) + **วงรวม (อัตโนมัติ · curated)** · **(3) toggle ลูกเล่น** — ธรรมดา (ตรวจโน้ต พี่เป้า) / มีลูกเล่น (humanize+arranger). default: หน้าแก้ไข=ธรรมดา · หน้าเล่น=มีลูกเล่น.
 
 **เผื่อกีตาร์ตั้งแต่ออกแบบ (P'Aim สั่ง):** ลูกเล่นแต่ละเครื่องไม่เหมือนกัน → แยก **แกนกลางร่วม (harmony/humanize/dynamics = สากล) + โมดูลต่อเครื่อง (pattern/voicing/feel = เฉพาะเครื่อง)**. เปียโน = arp/block; กีตาร์ = strum/fingerpick/รูปคอร์ดเฟร็ตจริง. เพิ่มเครื่อง = plug-in โมดูล ไม่รื้อแกน (§4B).
+
+**Curated Orchestration (ที่ปรึกษา P'Aim):** ไม่ให้ผู้ใช้เลือกเครื่องดิบ ๆ (รก + เสี่ยงย่านเสียงชนนัว) → **ล็อกคู่เสียงเพราะสุดตามทฤษฎีเป็น preset "อารมณ์"** (สงบ/เต็มวง/คลาสสิก) แต่ละอันการันตี "เปิดเพลงไหนก็เพราะ". preset = **role-based recipe** (ทำนอง/คลอ/เบส เล่นเครื่องไหน+pattern+ย่านเสียง). **อนาคต:** โหมด "จัดเต็ม (อัตโนมัติ)" = ระบบดูลักษณะเพลงแล้วเลือก orchestration ให้เอง (§6d). **P2 = สร้างเปียโนก่อน · architecture เผื่อ future ไม่ต้องรื้อ (§12).**
 
 **ลำดับ build (ที่ปรึกษาสั่ง):** **Humanize ก่อนเป็นฐาน** (แก้ความแข็งได้เยอะสุดต่อแรงลงน้อยสุด) → drop-2/open → pedal bass → rubato/dynamics → patterns → walking bass → มิกซ์ → presets → เครื่องเพิ่ม.
 
@@ -117,7 +119,8 @@ src/lib/arranger/
   patterns.js         LAYER 3 : sustained · arpeggio · harpRoll · stringPad · waltz · alberti · fingerpick
   embellish.js        LAYER 3 : sparkle · chromaticApproach · gapFill · octaveSwell   (probabilistic, seeded)
   rng.js              PRNG (mulberry32) + seedFor(songId, pass) — determinism
-  presets.js          นิยาม โหมด/flavor (§6) → cfg object
+  presets.js          นิยาม โหมด + orchestration recipe (§6) → cfg object
+  recommend.js        §6d auto-instrumentation (future) — songFeatures() + recommendRecipe()
   instruments/        §4B InstrumentModule ต่อเครื่อง (idiomatic)
     keyboard.js         เปียโน/felt — voicing (voice-leading) + patterns (§4) + independent-spread feel
     bowed.js            violin/cello/strings — pattern pad/sustain/swell + long-attack feel
@@ -307,75 +310,105 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 | Per-role mix | melody / bass / inner คนละ gain (velocity) | มี P1 |
 | **Reverb (มิติโบสถ์)** | `ConvolverNode` + **IR โบสถ์ CC0** · wet/dry send bus · ต่อทั้ง live + offline | ★ ใหม่ P2 — คุ้มสุดกับนมัสการ |
 | **Multi-velocity layer** | โหลด ≥2 layer → smplr เลือก timbre ตาม velocity จริง (ไม่ใช่แค่ gain) | ใหม่ P2 (option/preset · +ขนาดโหลด) |
-| **Ensemble blend** | melInst ≠ chordInst · แยกย่านความถี่ (melody=เปียโน · chord=สตริง) | ใหม่ P2 |
+| **Ensemble blend + register bands** | หลาย role/เครื่อง (§6a′ recipe) · **แต่ละ role บีบให้อยู่ย่านของมัน** (เบสต่ำ · คลอกลาง · ทำนองบน) = หัวใจ orchestration กันเสียงนัว | ใหม่ P2 |
 | **Stereo spread / pan** | `StereoPannerNode`: bass กลาง · up แผ่ L/R เล็กน้อย · melody กลาง | ใหม่ P2 |
 
-### เครื่องดนตรี (registry ใน `sampler.js`) — host-agnostic + CC0/CC-BY เท่านั้น
-| เครื่อง | source | ลิขสิทธิ์ | ใช้ใน preset | หมายเหตุ |
+### เครื่องดนตรี — ชุด **5 เสียง** ที่ล็อกแล้ว (ที่ปรึกษา P'Aim: "จุดตัดพอดี · น้อยแต่มาก")
+
+**source/ลิขสิทธิ์:** อ้างผลวิจัย `docs/reports/cc-instrument-samples.md` (2 tier · ผ่าน smplr เดิม ไม่มี dependency ใหม่). ไม่เพิ่มเครื่องเป่า/กลอง (ขัด "น้อยแต่มาก").
+
+| # | เสียง (registry id) | role หลัก | source (Tier 1 เริ่ม → Tier 2 อัป) | สถานะ P2 |
 |---|---|---|---|---|
-| **grand** (Splendid Grand) | smplr / danigb (Akai) | **PD** ✓ | ทุก preset เปียโน · default | มี P1 (~2–3 MB, PP layer) |
-| **felt** (soft/felt piano) | Pianobook / .sf2 CC0 | CC0 ต้องหา sample | preset สงบ/ใคร่ครวญ | **ต้อง source sample** (งานย่อย) |
-| **violin** | tonejs-instruments (Iowa/Philharmonia) | **CC-BY 3.0** ✓ (เครดิต) | ไวโอลินคลอเปียโน | ~3.6 MB |
-| **cello** | เดียวกัน | CC-BY 3.0 ✓ | เต็มวง (เบสสาย) | ~0.75 MB |
-| **strings** (ensemble) | เดียวกัน / string_ensemble | CC-BY 3.0 ✓ | เต็มวง (pad) | แบ่งย่าน |
-| **guitar** (acoustic/nylon) | หา CC0/CC-BY (FreePats / .sf2) | CC0/CC-BY ✓ (ต้อง source) | flavor กีตาร์ | **โมดูล idiomatic §4B** (voicing เฟร็ต + strum/Travis · ไม่ยืมของเปียโน) |
+| 1 | **grand** (Grand Piano · สว่าง ชัด) | ทำนอง/คลอ · **ยืนพื้นฝึก** | Splendid Grand (**PD**) — มี P1 (~2–3 MB PP layer) | ✅ มีแล้ว |
+| 2 | **felt** (Felt/Soft Piano · นุ่ม ทุ้ม) | ทำนอง/คลอ · โหมดสงบ | **กรอง grand เดิม (softest + low-pass) = 0 sample / 0 license ใหม่** (cc-samples §felt) | ✅ **P2 build ได้เลย** (ไม่ต้องรอ sample!) |
+| 3 | **nylon** (Nylon Guitar · เกาอุ่น มน) | ทำนอง/คลอ (เกา) | Tier-1 `FluidR3_GM` nylon (**CC-BY**) → Tier-2 FreePats CC0 | 🔜 มี sample แล้ว slot |
+| 4 | **violin** (Solo Violin · lead กินใจ) | **ทำนอง** (lead) | Tier-1 GM violin → Tier-2 VSCO2/Iowa CC0 (lead เดี่ยว) | 🔜 slot |
+| 5 | **cello / strpad** (Cello + Chamber/Con-sordino String Pad · ทุ้ม ฟุ้ง) | **เบส/ฐานล่าง** + pad ลากยาว | Tier-1 GM cello + string-ensemble → Tier-2 VSCO2 CE / Iowa MIS (cello เดี่ยว) | 🔜 slot |
 
-> เครื่องที่เป็น **โมดูล idiomatic (§4B)** — ตอนนี้ = กีตาร์ (voicing/pattern/feel ต่างจากเปียโน). เปียโน/felt = โมดูล "keyboard" ร่วม voicing/patterns เดียวกัน (ต่างแค่ sample/timbre). สตริง/ไวโอลิน/เชลโล = โมดูล "bowed" (pattern = pad/sustain/swell, ไม่มี arp/strum). เพิ่มเครื่อง = เพิ่มโมดูล 1 ตัว.
+> **ครบทุก role:** ทำนอง = grand/felt/nylon/violin · คลอ = grand/nylon/string-pad · **เบส = cello** (เติมย่านต่ำจริงให้กฎ pedal/walking bass §2 แทนมือซ้ายเปียโน). **ฟอร์แมต** .sf2/.sfz (Tier-1) หรือ ogg (Tier-2 host เอง). ขนาดรวม Tier-1 5 ตัว ≈ 12.5 MB + Grand 3.23 — แต่ **lazy-load เฉพาะที่ preset ใช้ (2–4 ตัว)** ไม่โหลดทั้ง 5 พร้อมกัน.
 
-**host-agnostic:** ทุกเครื่องเพิ่มใน `SAMPLE_HOSTS` (knob เดียว). P2 ชี้ upstream CDN เพื่อ ship + วัดโหลดมือถือ → production mirror มาที่เราคุมเอง (PM เคาะ host). **CC-BY ต้องแสดงเครดิต** ในหน้า About/Guide (งานย่อย).
-**AC:** เพิ่มเครื่องใหม่ = แก้ registry เท่านั้น (ไม่แตะ arranger/scheduler) · fallback synth ยังทำงานถ้าโหลด fail · reverb ต่อได้ทั้ง live + OfflineAudioContext.
+**โมดูล idiomatic (§4B):** keyboard (grand/felt · voicing+patterns เปียโน) · guitar (nylon · เฟร็ต+strum/Travis) · bowed (violin/cello/strpad · pad/sustain/swell ไม่มี arp/strum). เพิ่มเครื่อง = เพิ่มโมดูล 1 ตัว.
+
+**tier (เคาะกับ P'Aim ตอนเดโม · PM แนะ):** เริ่ม **Tier-1 GM** ให้ครบเครื่อง+ขึ้นเร็ว → อัป **Tier-2 CC0** เฉพาะ **lead ที่โชว์เดี่ยว** (violin/nylon solo) ที่คุณภาพสำคัญสุด. **host-agnostic** (`SAMPLE_HOSTS` knob เดียว) → P2 ชี้ CDN ต้นทาง ship+วัดมือถือ → mirror ทีหลัง. **CC-BY = เครดิต 1 บรรทัด** ใน About/Guide.
+**AC:** เพิ่ม/สลับเสียง = แก้ registry เท่านั้น · fallback synth ถ้าโหลด fail · felt = filter-node ของ grand (ไม่ใช่ sample แยก) · reverb ต่อได้ทั้ง live + OfflineAudioContext.
 
 ---
 
-## 6. Presets — สิ่งที่ผู้ใช้เห็น (โครง 4 โหมด · P'Aim เคาะ)
+## 6. Presets — สิ่งที่ผู้ใช้เห็น (UI 3 แกน · P'Aim + ที่ปรึกษาเคาะ)
 
-**หลัก (P'Aim 12 ก.ค.):** แยก UI เป็น **2 แกนอิสระ** ให้เข้าใจง่าย — **(แกน A) ระดับลูกเล่น** ≠ **(แกน B) เครื่องดนตรี**. ผู้ใช้ไม่เห็นปุ่มดิบ (SA curate ให้).
+**หลัก:** ผู้ใช้ไม่เห็นปุ่มดิบ. คุมด้วย **3 แกนอิสระ · เข้าใจง่าย** — 2 ปุ่มเลือก + 1 toggle:
 
-### 6a. แกน A — ระดับลูกเล่น (4 โหมด · ต่อยอด 3 sound modes เดิม B104)
+### 6a. โครง UI 3 แกน
 
-| โหมด | = | arranger | เหมาะกับ |
-|---|---|---|---|
-| **1. ทำนองอย่างเดียว** | `voices:'melody'` | OFF | ฟังทำนอง/ร้องตาม |
-| **2. คอร์ดอย่างเดียว** | `voices:'chords'` | OFF | ฟังคอร์ด/ฝึกคลอ |
-| **3. ★ ทำนอง+คอร์ด ธรรมดา (ไม่มีลูกเล่น)** | `voices:'both'` | **OFF** (literal) | **ฝึกเล่นตามง่าย / ตรวจโน้ต — พี่เป้า** (§6c) |
-| **4. ★ จัดเต็ม (ลูกเล่นครบ + humanize)** | `voices:'both'` | **ON (full)** | "น้อยแต่ได้มาก" · ฟังเพราะเหมือนคนบรรเลง |
+| แกน | ตัวเลือก | หมายเหตุ |
+|---|---|---|
+| **1. เล่นอะไร** (voices) | ทำนอง · คอร์ด · **ทำนอง+คอร์ด** | = 3 sound modes เดิม (B104) |
+| **2. เสียงเครื่อง** (instrument) | 🎹 เปียโน · 🎻 ไวโอลิน · 🎸 กีตาร์ · **🏛️ วงรวม (อัตโนมัติ)** | เดี่ยว = เลือกอิสระทุกโหมด · วงรวม = curated (§6b) |
+| **3. ลูกเล่น** (toggle) | **ธรรมดา** (ตรวจโน้ต) ⇄ **มีลูกเล่น** (humanize+arranger) | default: หน้าแก้ไข=ธรรมดา · หน้าเล่น=มีลูกเล่น (P'Aim เคาะ) |
 
-- **1–3 = ตระกูล "ธรรมดา"** — คือ 3 sound modes เดิม (B104) ที่ arranger ปิด → โน้ตตรงพิมพ์ (voice-leading เลือกอ็อกเทฟคอร์ดได้ แต่ไม่มี dynamics/pattern/embellish/humanize). โหมด 3 = "ธรรมดา/ตรวจโน้ต" first-class (§6c).
-- **4 = จัดเต็ม** — เปิด auto-arranger เต็ม 3 ชั้น (humanize + voicing + patterns + dynamics + embellish). = คันเดียว เปิด "ความเป็นคนเล่น".
-- แกน A **แยกจากเครื่องดนตรี** — เลือก "จัดเต็ม" แล้วยังเลือกได้ว่าเป็นเปียโน/ไวโอลิน+เปียโน/เต็มวง/กีตาร์.
+**ทำไม 3 แกนนี้ (ที่ปรึกษา 2 คน + พี่เป้า บรรจบกัน):**
+- **เสียงเครื่องเดี่ยว = เลือกอิสระได้ทุกโหมด ปลอดภัย** — เล่นเครื่องเดียวไม่มีทางชนย่านตัวเอง → [ทำนอง]+[กีตาร์] = กีตาร์เดี่ยวเล่นทำนอง · [คอร์ด]+[ไวโอลิน] = สายลากคอร์ดคลอ. (ที่ปรึกษา timbre-selector)
+- **ความเสี่ยงย่านเสียงชนนัว อยู่แค่ "วงรวม"** (หลายเครื่องพร้อมกัน เช่น flute+violin สูง) → จึง **ล็อกสูตรเพราะไว้ที่วงรวมเท่านั้น** ผู้ใช้ไม่จิ้มผสมเอง. (ที่ปรึกษา Curated Orchestration) → 2 ที่ปรึกษาไม่ขัดกัน.
+- **แกน "ลูกเล่น" แยกไว้เสมอ** — "ธรรมดา" (arranger OFF · โน้ตตรง) = **พี่เป้าตรวจโน้ต** (§6c) · ทิ้งไม่ได้.
+- **เครื่องเดี่ยวมี "นิสัย" ต่างกัน:** โมดูลเครื่อง (§4B) ทำให้แม้โหมดธรรมดา/คอร์ด ก็ยังเป็นธรรมชาติของเครื่องนั้น (กีตาร์ = เกา/รูดเบา ไม่ค้างเป็นแพเหมือนออร์แกน).
 
-### 6b. แกน B — เครื่องดนตรี / สไตล์ (เฉพาะโหมด "จัดเต็ม" · SA curate)
+**เครื่องที่ยังไม่มี sample (นอกจากเปียโน) ใน P2** = ปุ่มจาง "เร็ว ๆ นี้" (โชว์ roadmap · P'Aim เคาะ).
 
-โหมด "จัดเต็ม" มี **flavor สำเร็จรูป** (= instrument module + preset config รวมมา) ให้เลือก 1 อัน:
+### 6b. แกน 2 (เสียงเครื่อง) — เครื่องเดี่ยว + "วงรวม" = Curated Orchestration
 
-| flavor (label) | melInst | chordInst | voicing | pattern | dynamics | reverb | bpm | ทำไมเพราะ |
-|---|---|---|---|---|---|---|---|---|
-| **เปียโนสงบ** (default) | grand | grand | pedal(sustain-root) | sustained | humanize + rubato + section | church | 64 | *น้อยแต่มาก* · Sacred Space · เบสค้างลุ่มลึก |
-| **เปียโนบรรเลง** (มือซ้ายไหล) | grand | grand | drop2 | **arp** | humanize + accent + contour | room | 72 | มือซ้ายไหลใต้ทำนอง เหมือนคนเล่นจริง |
-| **ไวโอลินคลอเปียโน** | **violin** | grand | drop2 | arp | humanize + contour + rubato | church | 69 | ไวโอลินร้องทำนอง เปียโนพยุง หวาน สง่า |
-| **เต็มวง** (เปียโน+สตริง) | grand | **strings** | open + lush | **pad** (swell) | humanize + section + cresc | hall | 74 | คอร์ด/ประสานชัด อุ่น เต็ม · dynamic ตามท่อน |
-| **กีตาร์** (โมดูล §4B · เผื่อไว้) | **guitar** | guitar | fret-playable | **strum / travis** | humanize + accent | room | 76 | รูดคอร์ด/เกากีตาร์ · สายเปล่ากังวาน (โมดูลกีตาร์ §4B) |
+**เครื่องเดี่ยว** (เปียโน/ไวโอลิน/กีตาร์) = recipe ง่าย ๆ ที่ **ทุก role ใช้เครื่องเดียวกัน** (เล่นตามเสียงที่เลือก · ปลอดภัย). **"วงรวม (อัตโนมัติ)"** = orchestration recipe ที่ **คัดคู่เสียงมาแล้ว**:
 
-> ทั้งหมดใช้ **engine เดียว** — flavor = instrument module (§4B) + config เปิด/ปิด rule. **default โหมดจัดเต็ม = เปียโนสงบ** (CCM ร่วมสมัย · P'Aim ชี้). humanize เปิดทุก flavor.
+> **หลักการ (ที่ปรึกษา P'Aim — นักออกแบบผลิตภัณฑ์ดนตรี): "Curated Orchestration".**
+> **ห้ามให้ผู้ใช้จิ้มผสมเครื่องหลายชิ้นเอง** — (1) UI รก (2) **เสี่ยงจับคู่ย่านเสียงชนนัว** (flute ทำนอง + violin คอร์ดสูง). → **ล็อกคู่เสียงเพราะสุดตามทฤษฎี orchestration เป็น "อารมณ์" สำเร็จ** (สงบ/เต็มวง/คลาสสิก) · แต่ละอันการันตี "เปิดเพลงไหนก็เพราะ".
 
-### 6a′. โครง config (ต่อ flavor)
+**"วงรวม" preset = "orchestration recipe"** — กำหนด **แต่ละ role (ทำนอง/คอร์ด-คลอ/เบส) เล่นด้วยเครื่องไหน + pattern + ย่านเสียง** (แบ่งย่านไม่ให้ทับ = หัวใจกันนัว). เป็น layer บน "แกนกลาง + instrument module (§4B)". เครื่องเดี่ยว = recipe ที่ roles ทั้ง 3 = เครื่องเดียว.
+
+| อารมณ์ / เครื่อง | ทำนอง | คลอ/คอร์ด | เบส | pattern | reverb·bpm | ทำไมเพราะ (orchestration) | สถานะ |
+|---|---|---|---|---|---|---|---|
+| **★ เปียโนสงบ** (P2 default) | **felt** (กรอง grand) | felt | grand (pedal) | sustained + pedal bass | church·64 | เปียโนล้วน นุ่ม · *น้อยแต่มาก* · Sacred Space | **✅ P2 (felt = กรอง grand ฟรี → build ได้เลย)** |
+| **เปียโนบรรเลง** | grand | grand (arp) | grand | arp + drop2 | room·72 | มือซ้ายไหลใต้ทำนอง เหมือนคนเล่นจริง | **✅ P2** |
+| **Acoustic Intimate** (สงบ/อธิษฐาน) | **Felt Piano** | **Nylon Guitar** (arp เกา) | **Cello** (ลากยาวต่ำ) | guitar arp + cello sustain | church·62 | อบอุ่น ใกล้ชิด มีช่องหายใจ · 3 ย่านแยกชัด | 🔜 future (ต้อง sample felt/nylon/cello) |
+| **Modern Worship** (เต็มวง CCM) | **Acoustic Guitar** (คม) | **Ambient String Pad** (ลากลื่น) + **Grand** (ย่ำ syncope เบา = groove) | grand/strings low | strum + pad + light-comp | hall·74 | ย่านเสียงกระจายไม่ทับ · groove นุ่ม | 🔜 future (guitar/string-pad module) |
+| **Classical Elegance** | **Violin** (ลากพลิ้ว) | **Grand** (broken-chord ไหล) | grand | violin sustain + piano arp | church·69 | คู่หู violin sonata · หวาน สง่า | 🔜 future (violin module) |
+
+> ทั้งหมดใช้ **engine เดียว** (แกนกลาง + instrument module §4B + orchestration recipe). **P2 build จริง = 2 preset เปียโน** (เปียโนสงบ=felt-from-grand default + เปียโนบรรเลง=arp) เพราะเปียโน+felt พร้อมแล้ว (felt = กรอง grand ฟรี). **อีก 3 (Acoustic Intimate/Modern Worship/Classical) = slot ทีหลัง** เมื่อได้ instrument module + sample (nylon/violin/cello · cc-instrument-samples.md · Tier-1 GM ก่อน). **architecture ไม่ต้องรื้อตอนเพิ่ม.**
+
+### 6a′. โครง config (orchestration recipe · role-based · scale ไป auto-instrumentation ได้)
 
 ```js
-const FLAVOR = {
-  id, label,
-  melInst, chordInst,                    // §4B instrument module id
-  voicing:  { drop2, open, pedal, walking, lush },   // LAYER 1 flags (core หรือ override โดยโมดูล)
-  dynamics: { accent, contour, section, cresc, rubato, humanizeVel, humanizeTime },  // LAYER 2 (core)
-  pattern,                               // LAYER 3 — ชื่อ pattern ในโมดูลของเครื่องนั้น
-  embellish,                             // LAYER 3 bool
-  bpm, chordGain,                        // ค่าเสียง
-  reverb,                                // LAYER 4 'none'|'room'|'church'|'hall'
-  pan,                                   // LAYER 4 bool
+const PRESET = {
+  id, label, mood,                        // "อารมณ์" ที่ผู้ใช้เห็น
+  roles: [                                // ★ role-based (ไม่ hardcode 2 เครื่อง) → รองรับ 3+ เครื่อง
+    { role:'melody', inst, pattern, register:[lo,hi], gain },
+    { role:'comp',   inst, pattern, register:[lo,hi], gain,   // คอร์ด/คลอ
+      voicing:{ drop2, open, lush } },
+    { role:'bass',   inst, pattern:'pedal'|'walking'|'root', register:[lo,hi], gain },
+  ],
+  dynamics: { accent, contour, section, cresc, rubato, humanizeVel, humanizeTime },  // LAYER 2 core (ร่วมทุก role)
+  embellish, bpm, reverb, pan,            // LAYER 3/4
 }
-// โหมด 1–3 (ธรรมดา) ไม่ใช่ flavor — เป็น { voices, arranger:false } ตรงๆ (ต่อ B104)
+// โหมด 1–3 (ธรรมดา) ไม่ใช่ preset — เป็น { voices, arranger:false } ตรงๆ (ต่อ B104)
+// เปียโนสงบ = roles ทั้ง 3 = grand (P2 buildable). Acoustic Intimate = 3 เครื่องต่าง role (future).
 ```
 
-**UI ที่เสนอ:** คุม 2 ชั้น — (A) เลือกโหมด: ทำนอง / คอร์ด / ธรรมดา / **จัดเต็ม** · (B) ถ้า "จัดเต็ม" → เลือก flavor (เปียโนสงบ/บรรเลง/ไวโอลิน/เต็มวง/กีตาร์). จำค่าทั้งสอง (localStorage). **default หน้าเล่นเพลง = จัดเต็ม→เปียโนสงบ · default หน้าแก้ไข = ธรรมดา (โหมด 3)**.
+- **role-based** สำคัญ: ทำให้ preset ขยายจาก "2 เครื่อง (mel+chord)" → "3+ เครื่องต่อ role" (ทำนอง/คลอ/เบสคนละเครื่อง) โดย scheduler วน `roles[]` เรียก instrument module ของแต่ละตัว → **ไม่ hardcode เปียโน** · เพิ่ม role/เครื่อง = แก้ recipe ไม่แตะแกน.
+- **register ต่อ role** = ที่ orchestration ใช้กันเสียงนัว (แบ่งย่าน) — scheduler/voicing บีบแต่ละ role ให้อยู่ในย่านของมัน.
+
+### 6d. โหมด "จัดเต็ม (อัตโนมัติ)" = auto-instrumentation (★ future rule layer · design-for now)
+
+**วิสัยทัศน์ P'Aim:** ผู้ใช้ไม่ต้องเลือกอารมณ์เองก็ได้ — เลือก **"จัดเต็ม (อัตโนมัติ)"** แล้ว **ระบบดูลักษณะเพลงแล้วเลือก orchestration ที่เพราะสุดให้เอง**.
+- **rule layer แยก (เสียบทีหลัง · ไม่แตะแกน):** `recommendRecipe(songFeatures) → preset`
+  - `songFeatures(content)` = detector อ่าน **tempo (bpm) · meter (timeSignature) · อารมณ์คร่าว ๆ (major/minor · ช่วงเสียง) · โครง section (จำนวน/ความยาว)**.
+  - mapping เลือก "อารมณ์": ช้า/ใคร่ครวญ/ไมเนอร์ → **Acoustic Intimate / เปียโนสงบ + pedal** · เร็ว/สดใส/เมเจอร์ → **Modern Worship (guitar strum + walking bass)** · 3/4 สง่า → **Classical Elegance**.
+
+**★ กฎ tempo → pattern (ที่ปรึกษา P'Aim · สวนสัญชาตญาณแต่ถูก):** ในโหมดวงรวม (และ auto) เลือก pattern คลอตามความเร็ว —
+- **เพลงช้า → Arpeggio** (ไล่เสียงพลิ้ว · เติมช่องว่างให้หวาน โปร่ง — เพราะช้าถ้าค้างเฉย ๆ จะโหวง)
+- **เพลงเร็ว → คลอค้าง (sustain) / ย่ำ (oom-pah)** (ไม่ให้โน้ตดีดรัวจนรกหู — เร็วต้อง "นิ่ง" ถึงสะอาด)
+- threshold เริ่ม ~ 92 bpm (จูนกับ P'Aim) · เป็นกฎเดียวใช้ได้ทุก instrument module (เปียโน arp/sustain · กีตาร์ fingerpick/strum · สาย pad).
+
+- **design-for now, build later:** P2 นิยาม **interface `recommendRecipe()` + `songFeatures()`** ไว้ (return preset id) · P2 implement เวอร์ชันง่าย (bpm threshold → เปียโน arp vs sustain ตามกฎบน) · เวอร์ชันเต็ม (เลือกข้าม orchestration ทั้งหมด) = future. **แกน arranger/preset ไม่ต้องรื้อ** เพราะ auto = "ตัวเลือก preset อัตโนมัติ" หัวทาง ไม่ใช่ pipeline ใหม่.
+
+**UI (3 แกน · §6a):** (1) เล่นอะไร: ทำนอง/คอร์ด/รวม · (2) เสียงเครื่อง: เปียโน/ไวโอลิน/กีตาร์/**วงรวม(อัตโนมัติ)** · (3) toggle ลูกเล่น: ธรรมดา/มีลูกเล่น. จำค่าทั้ง 3 (localStorage). **default หน้าเล่น = เปียโน · มีลูกเล่น · (วงรวมได้) · default หน้าแก้ไข = เปียโน · ธรรมดา**.
 
 ### 6c. โหมด 3 "ทำนอง+คอร์ด ธรรมดา / ตรวจโน้ต" — first-class (พี่เป้า ผ่าน P'Aim) — ข้อกำหนดบังคับ
 - **arranger OFF สนิท:** ทำนอง = โน้ตตามพิมพ์เป๊ะ · gain คงที่ · **ไม่มี** humanize/dynamics/embellish/pattern/rubato/pan/reverb.
@@ -440,7 +473,7 @@ const FLAVOR = {
 | **5** | **Patterns: arp → roll → pad → waltz (P3.2–5)** + embellish | ตัวสร้าง "ต่างที่หูจับได้" | hit count · emb ปิดได้ · audio ต่อ pattern |
 | **6** | **Walking bass (R1.8)** + alberti/fingerpick | ต้อง lookahead · เพลงจังหวะ | approach ≤2 · ในย่าน |
 | **7** | **Mix: reverb (M4.5) → pan (M4.8) → multi-velocity (M4.6)** | เนื้อเสียง/มิติ | reverb tail · offline ผ่าน |
-| **8** | **Presets wiring (§6)** + editor โหมด 3 ธรรมดา first-class + จำค่า | ประกอบเป็นสิ่งที่ผู้ใช้เห็น | 4 flavor จัดเต็ม โหลด+เล่นครบ · โหมดธรรมดาเลือกง่าย |
+| **8** | **Presets wiring (§6):** role-based recipe + 2 preset เปียโนล้วน (สงบ/บรรเลง) + `recommendRecipe()` interface (เวอร์ชันง่าย) + editor โหมด 3 ธรรมดา first-class + จำค่า | ประกอบเป็นสิ่งที่ผู้ใช้เห็น · เผื่อ recipe/auto ทีหลัง | 2 preset เปียโนโหลด+เล่นครบ · โหมดธรรมดาเลือกง่าย · recipe เพิ่มได้ไม่แตะแกน |
 | **9** | **เครื่องเพิ่ม: felt · violin · cello · strings** (registry + credit) | ต้อง source sample CC | fallback synth · เครดิต CC-BY |
 | **10** | **โมดูลกีตาร์ (§4B)** — voicing เฟร็ต + strum/Travis + strum-stagger feel + sample | plug-in ยืนยันว่า interface §4B ใช้ได้จริง (เครื่อง idiomatic ตัวแรก) | guitar AC (§7b) · ไม่แตะแกน core · P'Aim ฟัง |
 | **P3** | **MP3 rework** — `renderSongToBuffer` ผ่าน `arrange()` + sampler บน OfflineAudioContext | เอกสารแยก | §9 |
@@ -469,10 +502,30 @@ const FLAVOR = {
 | Mix/timbre | envelope · bus · makeup · per-role · **reverb** · multi-velocity · ensemble · pan | §5 |
 | Instruments | grand · felt · violin · cello · strings · **guitar** (CC0/CC-BY · host-agnostic) | §5 |
 | **Instrument modules** | core (harmony/dynamics/humanize) + idiomatic (voicing/pattern/feel ต่อเครื่อง · เผื่อกีตาร์) | §4B |
-| Presets / โหมด | **4 โหมด (ทำนอง/คอร์ด/ธรรมดา/จัดเต็ม) แยกจากเครื่องดนตรี** · ธรรมดา = first-class · จัดเต็ม 5 flavor | §6 |
+| Presets / โหมด | **UI 3 แกน: เล่นอะไร × เสียงเครื่อง × toggle ลูกเล่น** · ธรรมดา = first-class | §6 |
+| **Curated Orchestration** | preset = role-based recipe (ทำนอง/คลอ/เบส × เครื่อง+pattern+ย่าน) · "อารมณ์" ล็อกคู่เสียงเพราะ · **auto-instrumentation (future)** | §6b·6d |
+| **ขอบเขต P2 vs future** | build เปียโนก่อน · architecture เผื่อ (module/recipe/auto) ไม่ต้องรื้อ | §12 |
 | Fidelity | sheet=SSOT · 3 sound modes · repeat/volta · transpose · **MP3 P3** | §1 กติกา · §9 |
 
 **ครบทุกเทคนิคใน catalog + 2 requirement ใหม่จาก P'Aim** (โครง 4 โหมด §6 · instrument module เผื่อกีตาร์ §4B) — จัดเป็นระบบ modular ที่ build ทีละตัวได้ (§8), verify ด้วย invariant + real audio (§7), เชื่อม MP3 (§9), และ productize เป็นโหมดที่ผู้ใช้เลือกง่าย (§6) โดยคง "ธรรมดา/ตรวจโน้ต" เป็น first-class.
+
+---
+
+## 12. ขอบเขต P2 vs future (design-for now · build piano-first) — P'Aim + PM
+
+**หลัก:** architecture เผื่อทุกอย่างตั้งแต่แรก (role-based recipe + instrument module + auto-instrumentation interface) **แต่ P2 สร้างเปียโนก่อน** — เพิ่มของ future ทีหลัง **ไม่ต้องรื้อ**.
+
+| เรื่อง | **P2 (build เลย)** | **Future (design-for · เสียบทีหลัง)** |
+|---|---|---|
+| arranger 3 ชั้น + humanize | ✅ ครบ (§2–4) | — |
+| instrument module interface (§4B) | ✅ นิยาม + โมดูล keyboard (เปียโน/felt) | โมดูล guitar (§4B.3) · bowed (violin/cello/strings) |
+| orchestration recipe (role-based §6a′) | ✅ interface + 2 preset เปียโน (สงบ=felt · บรรเลง=arp) | Acoustic Intimate · Modern Worship · Classical Elegance (ต้อง sample) |
+| auto-instrumentation + tempo→pattern (§6d) | ✅ interface `recommendRecipe()` + กฎ tempo→pattern (ช้า=arp/เร็ว=sustain) | เลือกข้าม orchestration ทั้งหมดตาม song-feature |
+| เครื่อง/sample | ✅ grand (P1) + **felt (กรอง grand ฟรี)** | nylon · violin · cello/string-pad (Tier-1 GM → Tier-2 CC0 · `cc-instrument-samples.md`) |
+| reverb · pan · multi-velocity | ✅ (§5) | — |
+| MP3 เสียงจริง | 🔜 P3 (§9) | — |
+
+**เงื่อนไขสถาปัตย์ (ยืนยัน):** เพิ่ม future ทุกตัว = (ก) เขียน instrument module 1 ตัว หรือ (ข) เพิ่ม orchestration recipe (config) หรือ (ค) เติม mapping ใน `recommendRecipe()` — **ไม่แตะ** แกน core (harmony/dynamics/humanize) · PerfEvent · scheduler · โหมด 1–3 ธรรมดา. = design-for ผ่าน.
 
 ---
 
@@ -480,10 +533,11 @@ const FLAVOR = {
 
 รสนิยม/เสียง = P'Aim↔SA ตรง (memory `feedback_paim_direct_sa_creative`). จุดที่อยากให้ฟัง+เคาะ:
 1. **ปริมาณ humanize** — ±10ms/±5% "กำลังดี" หรืออยากมาก/น้อยกว่า? (ฟัง step 1)
-2. **default โหมดจัดเต็ม** — เปียโนสงบ ใช่ไหม? (CCM ร่วมสมัย)
+2. **default หน้าเล่น** — เปียโนสงบ (felt) ใช่ไหม? (CCM ร่วมสมัย) · **tier เสียง:** Tier-1 GM ก่อน vs Tier-2 CC0 เลย (`cc-instrument-samples.md`)
 3. **reverb โบสถ์** — church/hall แค่ไหนถึง "อยู่ในโบสถ์" ไม่ "ฟุ้งจนเบลอ"?
-4. **flavor จัดเต็ม** — 5 อัน (เปียโนสงบ/บรรเลง/ไวโอลิน/เต็มวง/กีตาร์) พอไหม · อยากได้เครื่องอื่น (เชลโล/ฟลูต/ออร์แกน)?
-5. **drop-2 vs open** ต่อ flavor — ฟังคู่ไหนเพราะกว่า.
-6. **กีตาร์** — อยากได้ acoustic หรือ nylon (คลาสสิก)? · สไตล์เด่น = strum (รูด) หรือ fingerpick (เกา)? (โมดูล §4B build ทีหลังได้ · แต่ปั้น feel ล่วงหน้าได้)
+4. **orchestration recipe (อารมณ์)** — 3 สูตรที่ปรึกษา (Acoustic Intimate / Modern Worship / Classical Elegance) โดนใจไหม · อยากปรับคู่เครื่อง/pattern ตรงไหน? (P2 เริ่ม 2 preset เปียโน · ที่เหลือรอ sample)
+5. **drop-2 vs open** ต่อ recipe — ฟังคู่ไหนเพราะกว่า.
+6. **กีตาร์** — acoustic (steel) หรือ nylon (คลาสสิก)? · เด่น = strum (รูด) หรือ fingerpick (เกา)?
+7. **auto-instrumentation (§6d)** — อยากให้ "จัดเต็มอัตโนมัติ" เลือกอารมณ์ตาม tempo/เมเจอร์-ไมเนอร์แบบไหน (ยืนยัน mapping ช้า→สงบ · เร็ว→เต็มวง)?
 
 **ขั้นตอนถัดไป:** SA ทำ spike เดโม step 1 (humanize บนเปียโนจริง) ให้ P'Aim ฟัง → ปั้นค่าจนพอใจ → SA ping PM (pm11) → PM จ่าย dev implement ตาม §8 + tester (วัด real audio §7c) + P'Aim ฟังก่อน deploy. **ไม่แตะ prod src · ไม่ deploy** ในงานออกแบบนี้.

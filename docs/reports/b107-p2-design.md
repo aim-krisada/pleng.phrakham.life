@@ -32,6 +32,13 @@ P'Aim สั่ง (12 ก.ค.) "รวมทุกเทคนิคที่�
 1. **โครง 4 โหมด (2 แกน · §6):** แยก **(A) ระดับลูกเล่น** — ทำนอง / คอร์ด / **ธรรมดา (ไม่มีลูกเล่น = ตรวจโน้ต)** / **จัดเต็ม (arranger เต็ม)** — ออกจาก **(B) เครื่องดนตรี**. โหมด 1–3 ต่อยอด 3 sound modes เดิม B104. "จัดเต็ม" มี 5 flavor (เปียโนสงบ/บรรเลง/ไวโอลิน/เต็มวง/กีตาร์). UI เข้าใจง่าย: ระดับลูกเล่น ≠ เครื่องดนตรี.
 2. **Instrument module — เผื่อกีตาร์ตั้งแต่ออกแบบ (§4B):** แยก **แกนกลางร่วม (harmony/voice-leading/humanize/dynamics = instrument-agnostic)** + **โมดูลต่อเครื่อง (voicing constraints/patterns/humanize feel/sample = idiomatic)**. นิยาม `InstrumentModule` interface + worked example กีตาร์ (strum/Travis · รูปคอร์ดเฟร็ตจริง · strum-stagger 15–30ms · ไม่ยืม wide-voicing เปียโน). เพิ่มเครื่อง = plug-in โมดูล 1 ตัว ไม่แตะแกน. build order เพิ่ม step 10 (โมดูลกีตาร์) + AC + folder `arranger/instruments/`.
 
+## รอบ 3 — consolidate หลังคุย P'Aim + ที่ปรึกษา + ผลวิจัย sample (12 ก.ค.)
+- **ชุดเสียงล็อก 5 เครื่อง** (§5): Grand · **Felt (กรอง grand เดิม = 0 sample/license ใหม่ → P2 buildable!)** · Nylon Guitar · Solo Violin · Cello/String Pad. map ครบ role (cello=เบส). อ้าง `docs/reports/cc-instrument-samples.md` (Tier-1 `FluidR3_GM` CC-BY → Tier-2 CC0 เฉพาะ lead เดี่ยว). lazy-load per-preset.
+- **UI 3 แกน** (§6a · P'Aim เคาะ): (1) เล่นอะไร (ทำนอง/คอร์ด/รวม) × (2) เสียงเครื่อง (เดี่ยวอิสระ + วงรวม curated) × (3) toggle ลูกเล่น (ธรรมดา/มีลูกเล่น). เครื่องเดี่ยว=เสรีปลอดภัย · วงรวม=ล็อกสูตรกันย่านชนนัว.
+- **กฎ tempo→pattern** (§6d · ที่ปรึกษา): ช้า→Arpeggio · เร็ว→sustain/ย่ำ (threshold ~92 bpm · จูนกับ P'Aim).
+- **2 default UI (P'Aim เคาะแล้ว):** ลูกเล่น toggle (แก้ไข=ธรรมดา/เล่น=มีลูกเล่น) · เครื่องยังไม่มี sample = ปุ่มจาง "เร็ว ๆ นี้".
+- **P2 = เปียโนก่อน** (เปียโนสงบ=felt + เปียโนบรรเลง=arp buildable เลย) · อีก 3 preset slot ทีหลังไม่ต้องรื้อ (§12).
+
 ## ที่ตัดสินใจเชิงออกแบบ (flag ได้ถ้าไม่เห็นด้วย)
 - **แยกโฟลเดอร์ `arranger/`** แทนยัดใน `midi.js` (ขนาด).
 - **`PerfEvent` มีฟิลด์ `timeShift` (วินาที)** สำหรับ humanize/rubato — ไม่ยัดใน `startBeat` (beat) เพราะ ±10ms คือ ±10ms ไม่ขึ้น bpm.
