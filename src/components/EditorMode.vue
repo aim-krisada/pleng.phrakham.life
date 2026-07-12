@@ -391,7 +391,13 @@ function onSylKey(e, i) {
 function resetLens() {
   lensChoice.value = arrangement.value.findIndex((r) => r.stanza === activeStanzaId.value)
 }
-watch(activeStanzaId, resetLens)
+// B097: while undo/redo is restoring a step, applyState() sets activeStanza AND the saved
+// lensChoice itself — this switch-driven reset must not fire, or it snaps the lens back to
+// the first เที่ยว and the restored lyric view is lost. (applyingHistory declared below with
+// the history state; the watcher only ever runs post-setup, so the reference is resolved.)
+watch(activeStanzaId, () => {
+  if (!applyingHistory) resetLens()
+})
 
 // ---------- chord at a note box ----------
 // A chord lives on a segment (it covers all that segment's notes). To let the author
@@ -1437,27 +1443,47 @@ function playBar(li, bi) {
 }
 
 // ---------- undo / redo ----------
-// Debounced JSON snapshots of the whole editing state (meta + opts + stanzas +
-// arrangement + which stanza is active).
-const history = ref([])
+// B097: undo/redo must keep the NOTES and the LYRIC boxes under them in sync. A history
+// step is a change to the DOCUMENT (meta + opts + stanzas + arrangement). Which ท่อน is
+// active and which เที่ยว the lens shows are VIEW state — pure navigation, NOT a document
+// change — so switching them must NOT create an undo step. But the view IS remembered per
+// step and restored on undo/redo, so after undoing an edit the lyric boxes come back on the
+// SAME เที่ยว/ท่อน the edit was made on (before B097 applyState() called resetLens(), which
+// snapped the lens back to the FIRST เที่ยว → "โน้ตถูก เนื้อผิด").
+const history = ref([]) // each entry: { doc: <json string>, view: { activeStanza, lensChoice } }
 const histPos = ref(-1)
 let applyingHistory = false
 let histTimer = null
 
-function snapshotState() {
+// the DOCUMENT — the only thing whose change opens a new undo step
+function docState() {
   return JSON.stringify({
     meta: { ...meta },
     opts: { ...opts },
     stanzas: stanzas.value,
     arrangement: arrangement.value,
-    activeStanza: activeStanza.value,
   })
 }
+// the VIEW — remembered inside a step, restored on undo/redo, never a step of its own
+function viewState() {
+  return { activeStanza: activeStanza.value, lensChoice: lensChoice.value }
+}
+// watch source: fires on a document OR a view change (view changes only refresh the current
+// step's view; document changes push a new step).
+function snapshotState() {
+  return docState() + ' ' + JSON.stringify(viewState())
+}
 function commitSnapshot() {
-  const snap = snapshotState()
-  if (history.value[histPos.value] === snap) return
+  const doc = docState()
+  const cur = history.value[histPos.value]
+  if (cur && cur.doc === doc) {
+    // document unchanged → this was pure navigation. Refresh where we're looking so a later
+    // undo returns to THIS เที่ยว/ท่อน, but do NOT add a history step.
+    cur.view = viewState()
+    return
+  }
   history.value.splice(histPos.value + 1) // typing after undo drops the redo tail
-  history.value.push(snap)
+  history.value.push({ doc, view: viewState() })
   if (history.value.length > 100) history.value.shift()
   histPos.value = history.value.length - 1
 }
@@ -1475,24 +1501,32 @@ watch(snapshotState, () => {
   // history and Ctrl+Z skips straight past it (พี่เปา: "ย้อนข้ามการแก้ล่าสุด", common on
   // mobile palette tapping). Committing now makes the first edit its own undo step; the
   // trailing timer still captures the burst's final state. (histTimer null = burst idle.)
+  // A view-only change also lands here — commitSnapshot() just refreshes the current view.
   if (!histTimer) commitSnapshot()
   scheduleCommit()
 })
 function resetHistory() {
   clearTimeout(histTimer)
   histTimer = null
-  history.value = [snapshotState()]
+  history.value = [{ doc: docState(), view: viewState() }]
   histPos.value = 0
 }
-function applyState(snap) {
+function applyState(entry) {
   applyingHistory = true
-  const s = JSON.parse(snap)
+  const s = JSON.parse(entry.doc)
   Object.assign(meta, s.meta)
   Object.assign(opts, s.opts)
   stanzas.value = s.stanzas
   arrangement.value = s.arrangement
-  activeStanza.value = Math.min(s.activeStanza ?? 0, s.stanzas.length - 1)
-  resetLens()
+  // restore the view, clamped to the restored document (arrangement/stanzas may have shrunk,
+  // e.g. undoing an add-ท่อน). The activeStanzaId watcher's resetLens() is suppressed while
+  // applyingHistory, so the restored lensChoice is not clobbered back to the first เที่ยว.
+  const v = entry.view || {}
+  activeStanza.value = Math.min(Math.max(v.activeStanza ?? 0, 0), stanzas.value.length - 1)
+  let lc = v.lensChoice ?? -1
+  if (lc >= arrangement.value.length) lc = arrangement.value.length - 1
+  if (lc < -1) lc = -1
+  lensChoice.value = lc
   nextTick(() => (applyingHistory = false))
 }
 const canUndo = computed(() => histPos.value > 0)
@@ -2012,7 +2046,13 @@ watch(songOut, (s) => emit('change', s), { immediate: true })
 // Surfaced for US-D01 unit tests (save a draft · reopen an existing draft to continue).
 // These are the same functions the dock button / drafts panel call — exposing them lets
 // the AC be asserted without reaching through teleported chrome.
-defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewContent })
+defineExpose({
+  saveDraft, loadDraft, meta, editingId, currentDraftId, previewContent,
+  // B097 undo/redo tests: drive the same doc/view state + navigation the UI drives.
+  opts, stanzas, arrangement, activeStanza, lensChoice,
+  undo, redo, selectStanza, focusRow, addStanza, setSyl, applyChordAt,
+  history, histPos,
+})
 </script>
 
 <template>
