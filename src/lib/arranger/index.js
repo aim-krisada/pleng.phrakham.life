@@ -91,17 +91,22 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   if (wantMelody) events.push(...melodyEvents(notes))
 
   // LAYER 1 voicing + LAYER 3 pattern (comp up voices + bass foundation + embellishments). When
-  // OFF, force the plain defaults (sustained + root + no voicing/embellish) = the P1 block pad.
+  // OFF ("ลูกเล่นปิด" / ตรวจโน้ต §6c), force the plain block pad — INSTRUMENT-AGNOSTIC: a hard
+  // sustained block of the FULL printed chord + root bass, ignoring the module's idiom. This keeps
+  // note-check honest on any instrument (e.g. a violin's double-stop reduction would DROP printed
+  // chord notes, and its stringPad default would add a swell — neither is "notes exactly as
+  // printed"). ON = the module's idiomatic voicing/pattern.
   if (wantChords) {
-    const compName = (on && cfg.pattern) || mod.defaultPattern
-    const comp = mod.patterns[compName] || mod.patterns[mod.defaultPattern]
-    const bassName = (on && cfg.bass) || mod.defaultBass
+    const compName = on ? (cfg.pattern || mod.defaultPattern) : 'sustained'
+    const comp = mod.patterns[compName] || mod.patterns[mod.defaultPattern] || mod.patterns.sustained
+    const bassName = on ? (cfg.bass || mod.defaultBass) : 'root'
     const bassMode = (mod.bassModes && mod.bassModes[bassName]) || mod.bassModes.root
     let prevUp = null
     const list = chordEvents || []
     for (let i = 0; i < list.length; i++) {
       const evc = list[i]
-      let voiced = mod.voicing(evc, prevUp, { cfg, meta })
+      // OFF → the raw voice-led chord (full up[]), no module reduction; ON → the module's voicing.
+      let voiced = on ? mod.voicing(evc, prevUp, { cfg, meta }) : { bass: evc.bass, up: evc.up }
       if (on) voiced = applyVoicing(voiced, cfg) // drop-2 / open per preset
       prevUp = voiced.up
       events.push(...comp(evc, voiced.up, bpb, rng, cfg))

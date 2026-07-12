@@ -317,4 +317,17 @@ describe('instrument modules (§4B) — bowed / plucked / keyboard resolver', ()
       expect(evs.map((e) => e.midi)).toEqual([60, 62, 64, 67])
     }
   })
+
+  it('plain mode (arranger off) is instrument-agnostic — full chord block, no module reduction (§6c)', () => {
+    const chordLine = [{ midi: 60, beats: 4, chord: 'C' }, { midi: 64, beats: 4, chord: 'F' }]
+    const chords = buildChordVoice(chordLine)
+    // With the arranger OFF, bowed must NOT reduce to a double-stop and must NOT swell (stringPad):
+    // note-check hears every printed chord tone as a plain sustained block, same as the piano.
+    const kb = arrange(chordLine, chords, { voices: 'both', arranger: false, module: keyboard }, META)
+    const bw = arrange(chordLine, chords, { voices: 'both', arranger: false, module: bowed }, META)
+    const innerCount = (evs) => evs.filter((e) => e.role === 'inner').length
+    expect(innerCount(bw)).toBe(innerCount(kb)) // bowed off == keyboard off (no double-stop drop)
+    // and every event is exactly on the grid (no humanize/swell timeShift) for both
+    for (const evs of [kb, bw]) for (const e of evs) expect(e.timeShift).toBe(0)
+  })
 })
