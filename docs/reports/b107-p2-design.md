@@ -39,6 +39,14 @@ P'Aim สั่ง (12 ก.ค.) "รวมทุกเทคนิคที่�
 - **2 default UI (P'Aim เคาะแล้ว):** ลูกเล่น toggle (แก้ไข=ธรรมดา/เล่น=มีลูกเล่น) · เครื่องยังไม่มี sample = ปุ่มจาง "เร็ว ๆ นี้".
 - **P2 = เปียโนก่อน** (เปียโนสงบ=felt + เปียโนบรรเลง=arp buildable เลย) · อีก 3 preset slot ทีหลังไม่ต้องรื้อ (§12).
 
+## รอบ 6 — เต็มวง (Lead-driven) รูปธรรม + เดโม (สโคปใหม่: รอครบ 5 เครื่อง ขึ้น live ทีเดียว)
+**สโคป (P'Aim ค่ำ 12 ก.ค. ผ่าน PM):** ไม่ deploy เปียโนอย่างเดียว — รอครบ 5 เครื่อง + เต็มวง แล้ว live ทีเดียว · sample 5 เครื่อง self-host `public/samples/` ครบ + arranger role-based อยู่บน base แล้ว (dev สร้างตามสเปกเป๊ะ) → เต็มวง = ทำจริงใน P2.
+- **3 recipe เต็มวงรูปธรรม (§6b.1 · dev wire เข้า `presets.js`):** 🎹 เปียโนนำ (grand+string pad+cello · default) · 🎻 ไวโอลินนำ (violin+grand arp+cello) · 🎸 กีตาร์นำ (nylon+grand+cello) — แต่ละ role แยก register กันนัว · humanize/dynamics = แกนกลาง.
+- **balance เริ่ม:** ทำนอง 1.0 · คลอ ~0.62 (−4dB) · เบส ~0.78 · reverb church ~0.30 (จูนกับ P'Aim ในเดโม).
+- **verify เต็มวง (§7c):** วัดแยก 3 role peak>0 · ทำนองนำ · ไม่ล้น/นัว · offline.
+- **เดโมเลือกพระเอก:** `docs/spikes/ensemble-demo.html` (เลือกพระเอก + สไลเดอร์ balance/reverb/bpm · humanize auto) — P'Aim ฟังปั้นได้.
+- default เต็มวง = เปียโนนำ (เพราะสุดก่อน).
+
 ## รอบ 5 — P'Aim ฟังเดโม + เคาะเสียง (12 ก.ค. · sign-off)
 - **humanize เคาะแล้ว: ±12ms / ±6%** (P'Aim ฟังเดโม `humanize-timbre-demo.html`: "เกินคาด · อย่าเพิ่มอีก" = sweet spot · ล็อกเป็น default สเปก).
 - **default เล่น = เต็มวง + ลูกเล่นเต็ม (เพราะสุดก่อน)** · โหมดฝึก/ตรวจโน้ต = opt-in · **จำค่า localStorage** (คนตั้งโหมดฝึกไว้ = sticky → default เพราะสุดไม่ชนตรวจโน้ต). P2: default = เปียโนจัดเต็ม จนกว่า sample วงมา.

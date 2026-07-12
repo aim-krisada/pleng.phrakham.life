@@ -381,11 +381,40 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 |---|---|---|---|---|---|---|---|
 | **★ เปียโนสงบ** (P2 default) | **felt** (กรอง grand) | felt | grand (pedal) | sustained + pedal bass | church·64 | เปียโนล้วน นุ่ม · *น้อยแต่มาก* · Sacred Space | **✅ P2 (felt = กรอง grand ฟรี → build ได้เลย)** |
 | **เปียโนบรรเลง** | grand | grand (arp) | grand | arp + drop2 | room·72 | มือซ้ายไหลใต้ทำนอง เหมือนคนเล่นจริง | **✅ P2** |
-| **Acoustic Intimate** (สงบ/อธิษฐาน) | **Felt Piano** | **Nylon Guitar** (arp เกา) | **Cello** (ลากยาวต่ำ) | guitar arp + cello sustain | church·62 | อบอุ่น ใกล้ชิด มีช่องหายใจ · 3 ย่านแยกชัด | 🔜 future (ต้อง sample felt/nylon/cello) |
-| **Modern Worship** (เต็มวง CCM) | **Acoustic Guitar** (คม) | **Ambient String Pad** (ลากลื่น) + **Grand** (ย่ำ syncope เบา = groove) | grand/strings low | strum + pad + light-comp | hall·74 | ย่านเสียงกระจายไม่ทับ · groove นุ่ม | 🔜 future (guitar/string-pad module) |
-| **Classical Elegance** | **Violin** (ลากพลิ้ว) | **Grand** (broken-chord ไหล) | grand | violin sustain + piano arp | church·69 | คู่หู violin sonata · หวาน สง่า | 🔜 future (violin module) |
+| **🎹 เปียโนนำ — เต็มวงนมัสการ** | **grand** | **string pad** (sustained/swell) | **cello** (pedal) | pad + pedal | church·72 | เปียโนนำ · สตริงปูพื้น · เชลโลอุ้ม · อุ่น เต็ม | ✅ **sample พร้อม** (§6b.1) |
+| **🎻 ไวโอลินนำ — คลาสสิก** | **violin** (mono+double-stop) | **grand** (arpeggio) | **cello** (pedal) | arp + pedal | church·66 | ไวโอลินสีทำนอง · เปียโนไล่คอร์ด · สง่า หวาน | ✅ **sample พร้อม** |
+| **🎸 กีตาร์นำ — อะคูสติกอบอุ่น** | **nylon** (fingerpick) | **grand** (arpeggio เบา) | **cello** (pedal) | arp + pedal | room·72 | กีตาร์เกานำ · เปียโนคลอ · เชลโลต่ำ · ใกล้ชิด | ✅ **sample พร้อม** |
 
-> ทั้งหมดใช้ **engine เดียว** (แกนกลาง + instrument module §4B + orchestration recipe). **P2 build จริง = 2 preset เปียโน** (เปียโนสงบ=felt-from-grand default + เปียโนบรรเลง=arp) เพราะเปียโน+felt พร้อมแล้ว (felt = กรอง grand ฟรี). **อีก 3 (Acoustic Intimate/Modern Worship/Classical) = slot ทีหลัง** เมื่อได้ instrument module + sample (nylon/violin/cello · cc-instrument-samples.md · Tier-1 GM ก่อน). **architecture ไม่ต้องรื้อตอนเพิ่ม.**
+> **สโคปเปลี่ยน (P'Aim ค่ำ 12 ก.ค.):** ไม่ deploy เปียโนอย่างเดียว — **รอครบ 5 เครื่อง + เต็มวง แล้วขึ้น live ทีเดียว** · sample 5 เครื่อง self-host `public/samples/` ครบแล้ว (`cc-instrument-samples.md`) → เต็มวง = **ทำจริงใน P2 แล้ว** (ไม่ใช่ future). ทุก recipe ใช้ **engine เดียว** (แกนกลาง §4B + role-based §6a′). **เดโมเลือกพระเอก:** `docs/spikes/ensemble-demo.html`.
+
+#### 6b.1 — Recipe เต็มวงรูปธรรม (นำวง · dev wire เข้า `presets.js` PRESETS)
+เลือกพระเอก (แกน 1 = ensemble) → ระบบใช้ recipe ที่ล็อกคู่เสียงตามทฤษฎี · แต่ละ role แยกย่าน (register) กันนัว · humanize/dynamics = แกนกลาง (เหมือน preset เปียโน). ค่า `roles[]` + `cfg` ตามรูปแบบใน `presets.js` ที่ dev วางไว้แล้ว:
+
+```js
+// role = { role, inst, pattern, register:[lo,hi] } ; ทุก recipe: dynamics เปิดครบ · reverb ตามตาราง · humanize ±12ms/±6%
+'ensemble-piano': {  // 🎹 เปียโนนำ = default เต็มวง (P'Aim: default เพราะสุด)
+  label:'เต็มวงนมัสการ', mood:'เปียโนนำ · อุ่น เต็ม', lead:'grand',
+  roles:[ {role:'melody', inst:'grand',  pattern:null,        register:[55,84]},
+          {role:'comp',   inst:'strpad', pattern:'pad',       register:[52,72]},   // สตริงแพด ลากยาว swell
+          {role:'bass',   inst:'cello',  pattern:'pedal',     register:[36,52]} ],
+  cfg:{ reverb:'church', bpm:72, pan:true, dynamics:{accent:true,contour:true,rubato:true,section:true} } },
+'ensemble-violin': { // 🎻 ไวโอลินนำ
+  label:'คลาสสิก', mood:'ไวโอลินนำ · สง่า', lead:'violin',
+  roles:[ {role:'melody', inst:'violin', pattern:null,        register:[55,88]},   // mono + double-stop (bowed module §4B)
+          {role:'comp',   inst:'grand',  pattern:'arpeggio',  register:[48,67]},
+          {role:'bass',   inst:'cello',  pattern:'pedal',     register:[36,52]} ],
+  cfg:{ reverb:'church', bpm:66, pan:true, dynamics:{accent:true,contour:true,rubato:true,section:true} } },
+'ensemble-guitar': { // 🎸 กีตาร์นำ
+  label:'อะคูสติกอบอุ่น', mood:'กีตาร์นำ · ใกล้ชิด', lead:'nylon',
+  roles:[ {role:'melody', inst:'nylon',  pattern:'fingerpick',register:[45,76]},
+          {role:'comp',   inst:'grand',  pattern:'arpeggio',  register:[48,67]},
+          {role:'bass',   inst:'cello',  pattern:'pedal',     register:[36,52]} ],
+  cfg:{ reverb:'room', bpm:72, pan:true, dynamics:{accent:true,contour:true,rubato:true,section:true} } },
+```
+
+**balance เริ่ม (per-role gain · จูนกับ P'Aim ในเดโม · relative):** ทำนอง(นำ) **1.0** · คลอ **~0.62** (−4 dB ใต้ทำนอง · pad ต่ำกว่า arp นิด) · เบส(เชลโล) **~0.78** (อุ้มแต่ไม่กลบ) · reverb wet **~0.30** (church) — ให้ทำนองนำชัด ทุก role แยกย่าน ไม่ล้น.
+**tempo→pattern (§6d):** comp pattern สลับตาม bpm — <92 = arpeggio/pad ไล่ · ≥92 = sustained pad นิ่ง (กันรก).
+**default เต็มวง (P'Aim: เพราะสุดก่อน) = `ensemble-piano` (เปียโนนำ).** อีก 2 = ผู้ใช้เลือกพระเอกเอง.
 
 ### 6a′. โครง config (orchestration recipe · role-based · scale ไป auto-instrumentation ได้)
 
@@ -462,6 +491,7 @@ const PRESET = {
 - [ ] **humanize ได้ผลจริง:** วัด onset ของ melody attack — **ไม่ตรงกริดเป๊ะ** (มี spread) เทียบสถานะลูกเล่นปิด ที่ตรงกริด. (พิสูจน์ว่า "หายแข็ง" วัดได้ ไม่ใช่แค่ฟัง.)
 - [ ] reverb: มี tail หลังโน้ตจบ (decay > 0) เมื่อ reverb≠none.
 - [ ] ทุก velocity ที่ fire ∈ layer ที่โหลด (0 โน้ตเงียบ).
+- [ ] **เต็มวง (§6b.1) — วัดแยก 3 role:** melody/comp/bass **peak > 0 ทั้งสาม** (ไม่มี role เงียบ · บทเรียนเปียโนเงียบ ต่อทุกเครื่อง) · **ทำนองนำ** (melody peak สูงสุด · comp ~−4dB · bass อุ้มแต่ < melody) · **ไม่ล้น/ไม่นัว** (peak รวม ≤ ~0.9 · แต่ละ role อยู่คนละย่าน register ตาม recipe) · offline render ผ่าน (MP3 P3).
 
 ### 7d. regression (ไม่พังของเดิม)
 - [ ] เล่น/หยุด/resume/สลับโหมด(ทำนอง/คอร์ด/รวม)/ทรานสโพสกลางเล่น/loop ยังทำงาน.
@@ -534,9 +564,9 @@ const PRESET = {
 |---|---|---|
 | arranger 3 ชั้น + humanize | ✅ ครบ (§2–4) | — |
 | instrument module interface (§4B) | ✅ นิยาม + โมดูล keyboard (เปียโน/felt) | โมดูล guitar (§4B.3) · bowed (violin/cello/strings) |
-| orchestration recipe (role-based §6a′) | ✅ interface + 2 preset เปียโน (สงบ=felt · บรรเลง=arp) | Acoustic Intimate · Modern Worship · Classical Elegance (ต้อง sample) |
-| auto-instrumentation + tempo→pattern (§6d) | ✅ interface `recommendRecipe()` + กฎ tempo→pattern (ช้า=arp/เร็ว=sustain) | เลือกข้าม orchestration ทั้งหมดตาม song-feature |
-| เครื่อง/sample | ✅ grand (P1) + **felt (กรอง grand ฟรี)** | nylon · violin · cello/string-pad (Tier-1 GM → Tier-2 CC0 · `cc-instrument-samples.md`) |
+| orchestration recipe (role-based §6a′) | ✅ 2 preset เปียโน + **3 recipe เต็มวง (นำวง §6b.1: เปียโน/ไวโอลิน/กีตาร์นำ)** | — (auto-instrumentation ข้าม orchestration เต็ม = §6d future) |
+| auto-instrumentation + tempo→pattern (§6d) | ✅ `recommendRecipe()` + กฎ tempo→pattern (ช้า=arp/เร็ว=sustain) | เลือกข้าม orchestration ทั้งหมดตาม mood/minor |
+| เครื่อง/sample (5 เสียง) | ✅ **ครบ** — grand · felt(กรอง grand) · nylon · violin · cello · string-pad (self-host `public/samples/` · merge base แล้ว) | — |
 | reverb · pan · multi-velocity | ✅ (§5) | — |
 | MP3 เสียงจริง | 🔜 P3 (§9) | — |
 
