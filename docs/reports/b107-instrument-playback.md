@@ -19,7 +19,8 @@
 | host + ลิขสิทธิ์ | ✅ `smpldsnds.github.io` (Splendid Grand · **Public Domain**) — host-agnostic ผ่าน `SAMPLE_HOSTS.grand` |
 | lifecycle | ✅ not-ready → โหลด → ready (getReadyInstrument sync → เล่นไม่ต้องรอ) |
 | เล่นโน้ต (ทำนอง/คอร์ด/ทรานสโพส) | ✅ fire ครบ ไม่ error · ctx running · balance ทำนอง vel 116 / คอร์ด 33 (คอร์ดเบากว่าชัด) |
-| progress bar (wait-then-play) | ✅ callback 0→1 · 30 tick monotonic (1/ไฟล์) · pill โชว์ % + แถบ · กดพักยกเลิกได้ |
+| progress bar (wait-then-play) | ✅ callback 0→1 · 30 tick monotonic (1/ไฟล์) · pill โชว์ % + native `<progress>` · กดพักยกเลิกได้ |
+| **persist ไฟล์เสียง (offline · โหลดครั้งเดียว)** | ✅ smplr **Cache API storage** (`pleng-samples-v1`) · cold load เก็บ 30 ogg · **reload แล้วโหลดใหม่ = 0 network request** (เสิร์ฟจาก cache ~520ms decode) · persist ข้าม session/ออฟไลน์ (ไม่ใช่ HTTP cache ที่ evict ได้) · secure-context guard (fallback HTTP storage บน http LAN) |
 | console error | ✅ 0 |
 | test + build | ✅ `vitest run` 436 ผ่าน (เหลือ notationLint process.exit quirk เดิม) · `npm run build` ผ่าน · smplr = lazy chunk (~9.5KB gz · ไม่อยู่ใน bundle หน้าแรก) |
 
