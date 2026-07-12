@@ -89,26 +89,48 @@ function ensure(){ if(ctx)return;
   revGain=ctx.createGain(); revConv.connect(revGain); revGain.connect(master);
   for(const r of ['mel','comp']){ const g=ctx.createGain(); g.connect(master); g.connect(revConv); roleG[r]=g; }
 }
+// ★ REAL nylon CC sample (self-hosted · the true timbre). Tiny custom sampler: fetch each ogg
+// (filename = MIDI pitch), decode, and pitch-shift the nearest sample via playbackRate. This is
+// what ships — a fairer test than the GM soundfont. Falls back to soundfont if the files aren't served.
+let NYL=null, activeVoice=[];
+async function loadNylon(){ if(NYL)return NYL;
+  const pj=await (await fetch('./nylon/preset.json')).json();
+  const regs=pj.groups.flatMap(g=>g.regions);
+  const bufs=await Promise.all(regs.map(async r=>{
+    const ab=await (await fetch('./nylon/'+r.sample+'.ogg')).arrayBuffer();
+    return { midi:r.pitch, buf:await ctx.decodeAudioData(ab) }; }));
+  bufs.sort((a,b)=>a.midi-b.midi); NYL=bufs; return NYL; }
+function nylPlay(role,midi,t,dur,gain){
+  let best=NYL[0]; for(const b of NYL) if(Math.abs(b.midi-midi)<Math.abs(best.midi-midi)) best=b;
+  const src=ctx.createBufferSource(); src.buffer=best.buf;
+  src.playbackRate.value=Math.pow(2,(midi-best.midi)/12);
+  const g=ctx.createGain(); const G=Math.max(0.02,gain);
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(G,t+0.004);
+  g.gain.setTargetAtTime(0.0001, t+Math.max(0.08,dur), 0.28); // natural pluck decay
+  src.connect(g).connect(roleG[role]); src.start(t); src.stop(t+dur+2); activeVoice.push(src); }
 async function sf(){ if(SF)return SF;
   const Soundfont=(await import('https://esm.sh/soundfont-player@0.12.0')).default;
   SF=await Soundfont.instrument(ctx,'acoustic_guitar_nylon',{soundfont:'MusyngKite'}); return SF; }
 const setStatus=m=>document.getElementById('status').textContent=m;
 const setNow=m=>document.getElementById('now').textContent=m;
-function stopAll(){ gen++; if(SF)try{SF.stop();}catch(e){} }
+function stopAll(){ gen++; activeVoice.forEach(s=>{try{s.stop();}catch(e){}}); activeVoice=[]; if(SF)try{SF.stop();}catch(e){} }
 
 let STYLE='strum';
 async function play(){
   ensure(); await ctx.resume(); stopAll(); const my=gen;
-  document.getElementById('play').disabled=true; setStatus('⏳ กำลังโหลดเสียงกีตาร์...');
-  let g; try{ g=await sf(); }catch(e){ setStatus('⚠️ โหลดไม่ได้ — '+e.message); document.getElementById('play').disabled=false; return; }
+  document.getElementById('play').disabled=true; setStatus('⏳ กำลังโหลดเสียงกีตาร์จริง (ไนลอน CC)...');
+  let real=true, sfInst=null;
+  try{ await loadNylon(); }
+  catch(e){ real=false; try{ sfInst=await sf(); }catch(e2){ setStatus('⚠️ โหลดไม่ได้ — '+e2.message); document.getElementById('play').disabled=false; return; } }
   document.getElementById('play').disabled=false; if(my!==gen)return;
-  setStatus('✅ เล่นด้วยเสียงกีตาร์ตัวอย่าง');
+  setStatus(real?'✅ เล่นด้วยไฟล์กีตาร์ไนลอนจริง (CC · เสียงที่จะใช้จริง)':'✅ เล่นด้วยเสียงตัวอย่าง (soundfont · fallback)');
 
   const melVol=(+melV.value)/100, compVol=(+compV.value)/100;
   revGain.gain.value=(+revEl.value)/100*0.5;
   const bpm=+bpmEl.value, spb=60/bpm; prevUp=null;
   const t0=ctx.currentTime+0.2, rnd=()=>(Math.random()-0.5)*2, TJ=0.014, VJ=0.06;
-  const pk=(role,midi,t,dur,gg)=> g.play(midi,t,{duration:dur, gain:Math.max(0.03,gg), destination:roleG[role]});
+  const pk=real ? ((role,midi,t,dur,gg)=> nylPlay(role,midi,t,dur,gg))
+               : ((role,midi,t,dur,gg)=> sfInst.play(midi,t,{duration:dur, gain:Math.max(0.03,gg), destination:roleG[role]}));
 
   // MELODY — plucked nylon on top; breathes + occasional SLIDE/grace (guitar ornament: a quick
   // note a step below sliding into the target). let it ring.
