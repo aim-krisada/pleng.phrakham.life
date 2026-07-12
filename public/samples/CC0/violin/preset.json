@@ -1,0 +1,135 @@
+{
+ "name": "violin",
+ "samples": {
+  "baseUrl": "",
+  "formats": [
+   "ogg"
+  ]
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "55",
+     "keyRange": [
+      48,
+      56
+     ],
+     "pitch": 55
+    },
+    {
+     "sample": "57",
+     "keyRange": [
+      57,
+      58
+     ],
+     "pitch": 57
+    },
+    {
+     "sample": "60",
+     "keyRange": [
+      59,
+      62
+     ],
+     "pitch": 60
+    },
+    {
+     "sample": "64",
+     "keyRange": [
+      63,
+      65
+     ],
+     "pitch": 64
+    },
+    {
+     "sample": "67",
+     "keyRange": [
+      66,
+      68
+     ],
+     "pitch": 67
+    },
+    {
+     "sample": "69",
+     "keyRange": [
+      69,
+      70
+     ],
+     "pitch": 69
+    },
+    {
+     "sample": "72",
+     "keyRange": [
+      71,
+      74
+     ],
+     "pitch": 72
+    },
+    {
+     "sample": "76",
+     "keyRange": [
+      75,
+      77
+     ],
+     "pitch": 76
+    },
+    {
+     "sample": "79",
+     "keyRange": [
+      78,
+      80
+     ],
+     "pitch": 79
+    },
+    {
+     "sample": "81",
+     "keyRange": [
+      81,
+      82
+     ],
+     "pitch": 81
+    },
+    {
+     "sample": "84",
+     "keyRange": [
+      83,
+      86
+     ],
+     "pitch": 84
+    },
+    {
+     "sample": "88",
+     "keyRange": [
+      87,
+      89
+     ],
+     "pitch": 88
+    },
+    {
+     "sample": "91",
+     "keyRange": [
+      90,
+      92
+     ],
+     "pitch": 91
+    },
+    {
+     "sample": "93",
+     "keyRange": [
+      93,
+      94
+     ],
+     "pitch": 93
+    },
+    {
+     "sample": "96",
+     "keyRange": [
+      95,
+      103
+     ],
+     "pitch": 96
+    }
+   ]
+  }
+ ]
+}
