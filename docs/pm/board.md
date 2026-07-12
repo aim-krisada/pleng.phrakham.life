@@ -22,10 +22,13 @@ main === base (`studio-shell-redesign`) · **371 test + build เขียว** 
 - **📥 import เล่มใหญ่ "บทเพลงสรรเสริญ" (scanned 477 หน้า · session แยก `local_9f147e9d`)** — เพลง 32 (`lem-yai`) อยู่ใน DB แล้ว · **รอพี่เปาตรวจในแอป** → ผ่าน = ping DA ล็อก template + ไล่ทีละเพลง · **⏸️ พักไว้ก่อน** (P'Aim: อนุชน review ก่อน) · ~8-11K tok/เพลง (context แยก/เพลง · อย่าทำแชทเดียว) · ไฟล์ `tools/hymnal-samples/`, report `hymnal-import.md`
 - **B092 responsive-split = live แล้ว** (มือถือเก็บ สำเนา/ลบ ใน ⋯) — ถ้าพี่เปายังว่าหนักบนมือถือ ค่อยปรับ
 
+## 📥 inbox → PM (dev handoff · รอ gate/merge)
+- **B095 เล่มเพลง 3 เล่ม + ล็อกหมวด → DEV เสร็จ · รอ tester gate** (สาย `book-taxonomy-3`) — 3 เล่ม canonical: เล่มใหญ่/อนุชน/เด็กเล็ก(`dek-lek`) · `yuwachon`(0เพลง) ถูกลบ/แทน · หมวดในหน้าแก้ไขล็อก 3 เล่ม (ตัด allow-custom) · self-verify Tier-B บนเบราว์เซอร์จริง (Supabase live 123) ✅ · 375 test + build เขียว · report `docs/reports/book-taxonomy-3.md` · **ไม่มี DB migration** · ▶ ส่ง tester → ผ่าน = PM cherry-pick commit โค้ด (ไม่เอา board/doc)
+
 ## 🎯 รอ P'Aim ตัดสิน (ไม่บล็อก)
 - **SA interlinear ≥3 ภาษา** (`task_aea51f3c` · mockup รอเคาะ · ชน SongSheet → จัดคิว dev) · **B080 expert standards** (ต่อยอด ui-standards)
 - **B028 audit log** (DS `docs/ds/audit-log.md` · 3 Qs) · **i18n** (`lang=th`+`translate="no"`) · **สิทธิ์ลบเพลง** (approver-only vs ทุกคน)
-- **yuwachon code** — DA ยืนยันโค้ด category "ยุวชน" ตอน import จริง (ยังไม่มีเพลง=ไม่กระทบ)
+- ~~**yuwachon code**~~ — ปิดแล้ว (B095): P'Aim เคาะ 3 เล่ม canonical · ยุวชน→**เด็กเล็ก** (`dek-lek`) · เพลงเด็กเล็ก import ทีหลังด้วยโค้ดนี้
 
 ## 📌 follow-up เล็ก (ไม่บล็อก · หลัง live รอบ 10)
 - **B094 in-app confirm dialog** — แทน `window.confirm` ที่ ลบบรรทัด/ลบห้อง/ล้างเนื้อ (tester ยืนยัน freeze Browser MCP · UX)

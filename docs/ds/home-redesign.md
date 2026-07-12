@@ -62,8 +62,10 @@ const results = computed(() => filterSongs(songs, query))     // เดิม
 - **PC = 3 คอลัมน์** (ตาม mockup) · มือถือตามที่ SA ออกแบบ
 → dev build ตาม US/DS + mockup · ปรับ `SongList.vue` ไม่รื้อ · data-driven จาก `book_refs` (รับ "เล่มใหญ่"/`lem-yai` เอง) · คง search เดิม · ไม่แตะ model/DB/SongSheet
 
-## 🔄 Taxonomy REVISED (P'Aim 11 ก.ค. — final)
-- **เล่มจริง = 3 เล่ม จัดด้วย `category`:** `lem-yai`→"เล่มใหญ่" · `anuchon`→"อนุชน" (ไทยอนุชน 120) · `yuwachon`(หรือโค้ดที่ DA ใช้)→"ยุวชน" (เพลงเด็กเล็ก)
+## 🔄 Taxonomy REVISED (P'Aim 12 ก.ค. — final · B095)
+- **เล่มจริง = 3 เล่ม canonical จัดด้วย `category`:** `lem-yai`→"เล่มใหญ่" · `anuchon`→"อนุชน" (ไทยอนุชน 120) · `dek-lek`→"เด็กเล็ก"
+- **`yuwachon`(ยุวชน) ถูกแทนด้วย `dek-lek`(เด็กเล็ก)** — yuwachon มี 0 เพลง ไม่เคยใช้จริง · P'Aim 12 ก.ค. เคาะ 3 เล่มตายตัว: เล่มใหญ่/อนุชน/เด็กเล็ก · code `dek-lek` (SA เคาะ · ตาม convention kebab เหมือน `lem-yai`) · เพลงเด็กเล็ก import ทีหลังด้วย code นี้ (category = free-text column · ไม่มี DB migration)
+- **ช่อง "หมวด" ในหน้าแก้ไข (EditorMode.vue) ล็อกเลือกได้เฉพาะ 3 เล่มนี้** — `CATEGORY_OPTIONS` = 3 ตัวเลือก · **ตัด `allow-custom`** ที่ ComboSelect (พิมพ์ code เองไม่ได้) · single-select เดิม = 1 เพลง 1 เล่ม
 - **`book_refs` (ล/ย/ยอ/ม/ส/สอ/อ/ว/บพส/ฟ...) = tag อ้างอิงเท่านั้น** — โชว์บนการ์ดเพลง (เช่น "อยู่ในเล่มเล็ก 282") ไม่ใช่เล่มหลักในหน้าแรก · ค้นหายังหาเจอด้วย ref (songSearch เดิม)
-- **หน้าแรก picker = 3 เล่ม (จาก category)** ไม่ใช่ 9 (จาก book_refs) · ซ่อนเล่มว่าง (ยุวชนยังไม่มีเพลง = ไม่โผล่จนกว่ามี) · เพลงอยู่ 1 เล่มหลัก (category) เท่านั้น = ไม่ซ้ำหลายเล่ม
+- **หน้าแรก picker = 3 เล่ม (จาก category)** ไม่ใช่ 9 (จาก book_refs) · ซ่อนเล่มว่าง (เด็กเล็กยังไม่มีเพลง = ไม่โผล่จนกว่ามี) · เพลงอยู่ 1 เล่มหลัก (category) เท่านั้น = ไม่ซ้ำหลายเล่ม
 - แก้ `bookshelf.js` ให้ group ด้วย `category` (map 3 ชื่อ) · book_refs → เป็น tag บนเพลง · **ไม่แตะ model/DB/search**

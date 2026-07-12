@@ -160,7 +160,14 @@ const THEMES = [
   'อาณาจักร',
 ]
 const themeOptions = [{ value: '', label: '— ไม่ระบุธีม —' }, ...THEMES.map((t) => ({ value: t, label: t }))]
-const CATEGORY_OPTIONS = [{ value: 'anuchon', label: 'ไทยอนุชน 120 (anuchon)' }]
+// The 3 canonical books (P'Aim 12 ก.ค. — see docs/ds/home-redesign.md §Taxonomy). The
+// "หมวด" ComboSelect is locked to exactly these (no allow-custom) so 1 song = 1 book from
+// a fixed set — labels are the plain Thai เล่ม names editors recognise.
+const CATEGORY_OPTIONS = [
+  { value: 'lem-yai', label: 'เล่มใหญ่' },
+  { value: 'anuchon', label: 'อนุชน' },
+  { value: 'dek-lek', label: 'เด็กเล็ก' },
+]
 
 // melodies + play order (v2). An arrangement row stores its words as a `syllables`
 // array (one token per syllable-bearing note) so the per-note lyric boxes under the
@@ -2145,7 +2152,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         <label>จังหวะ<ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom width="100%" /></label>
         <label>ความเร็ว (BPM)<input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" /></label>
         <label>ธีม<ComboSelect v-model="meta.theme" :options="themeOptions" width="100%" /></label>
-        <label>หมวด<ComboSelect v-model="meta.category" :options="CATEGORY_OPTIONS" allow-custom width="100%" /></label>
+        <label>หมวด<ComboSelect v-model="meta.category" :options="CATEGORY_OPTIONS" width="100%" /></label>
       </div>
     </div>
 
