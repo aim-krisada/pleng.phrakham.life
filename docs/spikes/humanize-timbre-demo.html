@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B107 P2 · เดโม Humanize + เนื้อเสียง (ให้ P'Aim ฟัง+ปั้น)</title>
+<style>
+  :root{ font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body{ margin:0; padding:16px; max-width:760px; margin:auto; color:#1a1a1a; background:#faf9f7; line-height:1.5; }
+  h1{ font-size:1.25rem; margin:0 0 4px; }
+  .sub{ color:#666; font-size:.9rem; margin:0 0 16px; }
+  .card{ background:#fff; border:1px solid #e6e3de; border-radius:12px; padding:14px 16px; margin:12px 0; }
+  .card h2{ font-size:1.02rem; margin:0 0 6px; }
+  .card p{ margin:4px 0; font-size:.9rem; color:#444; }
+  button.play{ font-size:1rem; padding:9px 16px; border-radius:9px; border:1px solid #cfc9c0;
+    background:#fff; cursor:pointer; margin-top:6px; }
+  button.play:hover{ background:#f2efe9; }
+  button.big{ font-weight:600; }
+  .rec{ border-color:#7a9a5b; box-shadow:0 0 0 2px #eaf1e0; }
+  .tag{ font-size:.72rem; padding:1px 7px; border-radius:20px; margin-left:6px; vertical-align:middle; }
+  .robot{ background:#f3d9d9; color:#8a2b2b; }
+  .human{ background:#dcecc9; color:#3f6021; }
+  .row{ display:flex; align-items:center; gap:10px; margin:8px 0; flex-wrap:wrap; }
+  .row label{ font-size:.86rem; min-width:150px; }
+  input[type=range]{ flex:1; min-width:140px; }
+  .val{ font-variant-numeric:tabular-nums; font-size:.84rem; color:#555; min-width:64px; text-align:right; }
+  #status{ font-size:.9rem; color:#2a5; min-height:1.3em; margin-top:8px; }
+  #readout{ font-size:.8rem; color:#666; font-family:ui-monospace,monospace; white-space:pre-wrap;
+    background:#f6f4f0; border-radius:8px; padding:8px 10px; margin-top:8px; min-height:2em; }
+  .note{ font-size:.82rem; color:#777; }
+  fieldset{ border:1px solid #e0ddd7; border-radius:9px; margin:8px 0; padding:8px 12px; }
+  legend{ font-size:.82rem; color:#555; padding:0 6px; }
+  .seg label{ margin-right:14px; font-size:.9rem; }
+</style>
+</head>
+<body>
+<h1>🎹 B107 P2 · เดโม Humanize + เนื้อเสียง</h1>
+<p class="sub">เพลงจริง #1 "พระเจ้าเป็นความรัก" (คีย์ E) · เปียโน Grand จริง (smplr) · เทียบ "ตอกตรง ๆ แข็ง" กับ "มีชีวิตเหมือนคนเล่น" — พี่เอมกดฟัง เลื่อนปรับ แล้วบอก SA ว่ากำลังดีไหม</p>
+
+<div class="card">
+  <h2>1. เปียโนตอกตรง ๆ <span class="tag robot">แข็ง · หุ่นยนต์</span></h2>
+  <p>ทุกโน้ตดังเท่ากันเป๊ะ · ลงจังหวะตรงกริดเป๊ะ = แบบที่ P1 เป็นตอนนี้ (เปียโนจริงแต่ยัง "ทื่อ")</p>
+  <button class="play big" data-mode="plain">▶ ฟังแบบตรง ๆ</button>
+</div>
+
+<div class="card rec">
+  <h2>2. เปียโน + Humanize <span class="tag human">มีชีวิต</span></h2>
+  <p>★ ฐานของ P2 (ที่ปรึกษาบอกคุ้มสุด): สุ่มความแรง ±<span id="vLbl">6</span>% + เลื่อนเวลานิดหน่อย ±<span id="tLbl">10</span>ms + เน้นจังหวะตก/ไต่ทำนอง → "เหมือนมือคนเล่น"</p>
+  <button class="play big" data-mode="human">▶ ฟังแบบ Humanize</button>
+</div>
+
+<div class="card">
+  <h2>3. เปียโน Felt (นุ่ม) + Humanize <span class="tag human">โหมดสงบ</span></h2>
+  <p>เสียงเดียวกันแต่กรองให้ทุ้มนุ่ม (low-pass) = "Felt Piano" ทำจาก Grand เดิม ไม่ต้องโหลดไฟล์ใหม่ · สำหรับโหมดใคร่ครวญ</p>
+  <button class="play big" data-mode="felt">▶ ฟังแบบ Felt</button>
+</div>
+
+<fieldset>
+  <legend>ปรับค่า (เลื่อนแล้วกดฟังใหม่)</legend>
+  <div class="row"><label>Humanize เวลา (±ms)</label>
+    <input type="range" id="tJit" min="0" max="25" value="10"><span class="val" id="tVal">10 ms</span></div>
+  <div class="row"><label>Humanize ความแรง (±%)</label>
+    <input type="range" id="vJit" min="0" max="20" value="6"><span class="val" id="vVal">6 %</span></div>
+  <div class="row"><label>ความเร็ว (BPM)</label>
+    <input type="range" id="bpm" min="50" max="120" value="66"><span class="val" id="bVal">66</span></div>
+  <div class="row seg"><label>สไตล์คอร์ด</label>
+    <span><label><input type="radio" name="pat" value="sustained" checked> คลอค้าง</label>
+    <label><input type="radio" name="pat" value="arp"> ไล่เสียง (arp)</label></span></div>
+  <p class="note">💡 กฎที่ปรึกษา: เพลง<b>ช้า</b> → ไล่เสียง (โปร่งหวาน) · เพลง<b>เร็ว</b> → คลอค้าง (ไม่รกหู). ลองสลับ BPM + สไตล์ดูครับ</p>
+</fieldset>
+
+<button class="play" id="stop">■ หยุด</button>
+<div id="status"></div>
+<div id="readout">— กดปุ่มเพื่อฟัง —</div>
+
+<p class="note" style="margin-top:16px">หมายเหตุ: เดโมนี้พิสูจน์ "รสชาติ" ให้ฟังด้วยหู · ค่าที่ตกลงกันจะกลายเป็นค่าเริ่มในสเปก แล้ว dev ทำจริง + tester วัดเสียงจริง (peak/onset-spread) ก่อน deploy</p>
+
+<script type="module">
+// ---- REAL song #1 (flattened by songToNotes · key E) — m=MIDI b=beats c=chord ----
+const SONG = JSON.parse('[{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":0.5,"c":"A"},{"m":68,"b":0.5,"c":"A"},{"m":66,"b":4,"c":"B"},{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":1,"c":"A"},{"m":66,"b":3,"c":"B"},{"m":64,"b":1,"c":"B"},{"m":64,"b":4,"c":"E"}]');
+
+// ---- chord theory (mirrors src/lib/chords.js) ----
+const SHARP=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const INTERVALS={'':[0,4,7],m:[0,3,7],7:[0,4,7,10],m7:[0,3,7,10],maj7:[0,4,7,11],sus4:[0,5,7],sus2:[0,2,7],dim:[0,3,6],6:[0,4,7,9],m6:[0,3,7,9],9:[0,4,7,10,14],add9:[0,4,7,14]};
+function parse(ch){const m=/^([A-G][#b]?)(.*)$/.exec(ch);if(!m)return null;
+  return {ri:SHARP.indexOf(m[1].replace('Bb','A#').replace('Eb','D#').replace('Ab','G#').replace('Db','C#').replace('Gb','F#')),suf:m[2]};}
+const ivFor=s=>INTERVALS[s]??INTERVALS[''];
+// voice-leading (same as src/lib/midi.js chordVoicing)
+let prevUp=null; const WLO=48, WHI=67;
+function nearestOctave(pc,target){let m=WLO+((pc-WLO)%12+12)%12,best=m;
+  for(let x=m;x<=WHI;x+=12)if(Math.abs(x-target)<Math.abs(best-target))best=x;return best;}
+function voiceLed(ch){const p=parse(ch);if(!p)return{bass:null,up:[]};
+  const pcs=ivFor(p.suf).slice(1,4).map(iv=>(p.ri+iv)%12);
+  const anchor=prevUp&&prevUp.length?prevUp.reduce((a,b)=>a+b,0)/prevUp.length:58;
+  const up=pcs.map(pc=>nearestOctave(pc,anchor)).sort((a,b)=>a-b);
+  prevUp=up;const bass=40+((p.ri-4)%12+12)%12;return{bass,up};}
+function chordEvents(){const ev=[];let beat=0,cur=null;
+  for(const n of SONG){const c=n.c||'';
+    if(c&&(!cur||cur.chord!==c)){if(cur)ev.push(cur);cur={chord:c,startBeat:beat,beats:0};}
+    if(cur)cur.beats+=n.b;beat+=n.b;}
+  if(cur)ev.push(cur);return ev;}
+
+// ---- dynamics (mirrors demo/spec §3) ----
+function accent(pb){const p=((pb%4)+4)%4;
+  if(p<0.01)return 1.0; if(Math.abs(p-2)<0.01)return 0.9;
+  if(Math.abs(p-1)<0.01||Math.abs(p-3)<0.01)return 0.8; return 0.72;}
+function contour(i){const n=SONG[i],pr=SONG[i-1],nx=SONG[i+1];let c=1;
+  if(pr&&n.m>pr.m)c+=0.06; if(pr&&nx&&n.m>pr.m&&n.m>=nx.m)c+=0.06;
+  if(pr&&n.m<pr.m)c-=0.04; if(n.b>=3)c-=0.06; return c;}
+
+// ---- audio ----
+let ctx, master, pianoBus, felt, piano=null, gen=0, liveTimers=[];
+function ensureCtx(){ if(ctx)return;
+  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  master=ctx.createGain(); master.gain.value=1;
+  felt=ctx.createBiquadFilter(); felt.type='lowpass'; felt.frequency.value=20000; felt.Q.value=0.6; // 20k=open(grand)
+  pianoBus=ctx.createGain(); pianoBus.gain.value=1;
+  pianoBus.connect(felt); felt.connect(master); master.connect(ctx.destination);
+}
+async function loadPiano(){
+  if(piano) return piano;
+  setStatus('⏳ กำลังโหลดเสียงเปียโน Grand จริง...');
+  const m = await import('https://esm.sh/smplr@0.16.0');
+  const p = new m.SplendidGrandPiano(ctx, { destination: pianoBus }); // route through felt filter → master
+  await p.load;
+  piano = { fire:(midi,t,dur,gain)=> p.start({ note:Math.round(midi), time:t,
+              duration:Math.max(0.15,dur), velocity: Math.max(6, Math.min(122, Math.round((gain||0.4)*70)+18)) }),
+            stop:()=>{ try{ p.stop(); }catch(e){} } };
+  setStatus('✅ พร้อม — เสียงเปียโนจริง');
+  return piano;
+}
+const setStatus=m=>{ document.getElementById('status').textContent=m; };
+const setReadout=m=>{ document.getElementById('readout').textContent=m; };
+function stopAll(){ gen++; liveTimers.forEach(clearTimeout); liveTimers=[]; if(piano)piano.stop(); }
+
+// ---- schedule a play with/without humanize ----
+async function play(mode){
+  ensureCtx(); await ctx.resume();
+  stopAll(); const myGen=gen;
+  const inst = await loadPiano();
+  if(myGen!==gen) return; // superseded during load
+
+  const humanize = (mode!=='plain');
+  felt.frequency.setValueAtTime(mode==='felt'?1500:20000, ctx.currentTime); // felt = low-pass
+  const tJit = (+document.getElementById('tJit').value)/1000;  // ms → s (±)
+  const vJit = (+document.getElementById('vJit').value)/100;   // % → frac (±)
+  const bpm  = +document.getElementById('bpm').value;
+  const pat  = document.querySelector('input[name=pat]:checked').value;
+  const spb = 60/bpm;
+  prevUp=null;
+
+  const t0 = ctx.currentTime + 0.15;
+  const rnd = ()=> (Math.random()-0.5)*2; // −1..1
+  let melShifts=[]; // for readout proof
+
+  // melody
+  let beat=0;
+  SONG.forEach((n,i)=>{
+    const d = n.b*spb;
+    if(n.m!=null){
+      const gDyn = humanize ? accent(beat)*contour(i)*(1 + vJit*rnd()) : 1;
+      const gain = Math.max(0.12, Math.min(0.6, 0.35*gDyn));
+      const shift = humanize ? tJit*rnd() : 0;
+      melShifts.push(shift*1000);
+      inst.fire(n.m, t0 + beat*spb + shift, Math.max(0.12, d-0.06), gain);
+    }
+    beat += n.b;
+  });
+
+  // chords (voice-led · sustained or arp)
+  const cg=0.06;
+  for(const e of chordEvents()){
+    const v=voiceLed(e.chord); if(v.bass==null) continue;
+    const bT=t0+e.startBeat*spb, dur=e.beats*spb, a=humanize?accent(e.startBeat):1;
+    const chSpread = ()=> humanize ? (Math.random()-0.5)*0.008 : 0; // ±4ms chord stagger
+    if(pat==='sustained'){
+      inst.fire(v.bass, bT+chSpread(), dur-0.05, cg*1.45*a);
+      v.up.forEach(mm=> inst.fire(mm, bT+chSpread(), dur-0.05, cg*a));
+    } else { // arp: bass then up across beats
+      const seq=[v.bass, v.up[0], v.up[1]??v.up[0], v.up[0]];
+      const nb=Math.max(1,Math.round(e.beats));
+      for(let k=0;k<nb;k++){ const mm=seq[k%seq.length];
+        const sh = humanize ? tJit*rnd() : 0;
+        inst.fire(mm, bT+k*spb+sh, spb*0.9, (k%4===0?cg*1.5:cg*1.1)*accent(e.startBeat+k)); }
+    }
+  }
+
+  // readout: prove humanize is really applied (measurable, not just audible)
+  if(humanize){
+    const avg=(melShifts.reduce((s,x)=>s+Math.abs(x),0)/melShifts.length).toFixed(1);
+    const mx=Math.max(...melShifts.map(Math.abs)).toFixed(1);
+    setReadout(`Humanize เปิด · ${mode==='felt'?'Felt (low-pass 1.5kHz)':'Grand'}\n`+
+      `เวลาเลื่อนจริง: เฉลี่ย ±${avg} ms · สูงสุด ±${mx} ms (ตั้ง ±${(tJit*1000).toFixed(0)} ms)\n`+
+      `ความแรงสุ่ม ±${(vJit*100).toFixed(0)}% + เน้นจังหวะตก/ไต่ทำนอง · BPM ${bpm} · ${pat==='arp'?'ไล่เสียง':'คลอค้าง'}`);
+  } else {
+    setReadout(`Humanize ปิด · ตรงกริดเป๊ะทุกโน้ต (ทุกเวลาเลื่อน = 0 ms · ความแรงคงที่)\nBPM ${bpm} · ${pat==='arp'?'ไล่เสียง':'คลอค้าง'}`);
+  }
+  setStatus('▶ กำลังเล่น...');
+}
+
+// wire up
+document.querySelectorAll('button.play[data-mode]').forEach(b=>
+  b.addEventListener('click',()=> play(b.dataset.mode).catch(e=>{ setStatus('⚠️ '+e.message); })));
+document.getElementById('stop').addEventListener('click',()=>{ stopAll(); setStatus('■ หยุดแล้ว'); });
+const bind=(id,lbl,suf)=>{ const el=document.getElementById(id), out=document.getElementById(lbl);
+  const upd=()=> out.textContent=el.value+suf; el.addEventListener('input',upd); upd(); };
+bind('tJit','tVal',' ms'); bind('vJit','vVal',' %'); bind('bpm','bVal','');
+document.getElementById('tJit').addEventListener('input',e=>document.getElementById('tLbl').textContent=e.target.value);
+document.getElementById('vJit').addEventListener('input',e=>document.getElementById('vLbl').textContent=e.target.value);
+</script>
+</body>
+</html>
