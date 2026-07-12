@@ -94,7 +94,8 @@
 - **tester ผ่านหมดคืน 11→12 ก.ค.** (B085 sticky=กลไกถูก · ที่เหลือ PASS)
 - **เหลือ: B092 responsive-split (dev กำลังทำ) → merge → deploy รอบ 10**
 - **P'Aim: (1) เลื่อนสติกกี้มือถือยืนยัน (2) go deploy** → align main+push + public "อยู่ระหว่างดำเนินการ" (gate · SQL รันแล้ว)
-- follow-up: B088 native-confirm→dialog · B087 FLAG_LABEL ไทย · B092 mobile split (กำลังทำ)
+- follow-up (หลัง live รอบ 10 · ไม่บล็อก): **B094 in-app confirm dialog** (แทน `window.confirm` ที่ ลบบรรทัด B088 · ลบห้อง · ล้างเนื้อ B091 — tester ยืนยัน freeze Browser MCP) · B087 FLAG_LABEL ไทย `lint:beats`
+- **✅ ยืนยัน merge ถูก (tester เตือน "อย่า merge ทั้ง branch line-clear-parts = ย้อน −1760/ลบ B087"):** PM cherry-pick เฉพาะ `a8b18e8` (+145) · main มี a8b18e8+c49f435(B087)+f500382(B085/86) ครบ · SongList gate ไม่หาย · = ทำถูก ไม่ revert
 
 ## ⚠️ MERGE STACK (ประวัติ · deploy รอบ 10)
 **5 สายแตะ `EditorMode.vue` ไฟล์เดียว รอ merge — ต้องเรียง+resolve+rerun test:**
