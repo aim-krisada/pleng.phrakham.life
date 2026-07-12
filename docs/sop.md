@@ -55,6 +55,7 @@ idea (backlog.md · SI.2)
 
 ## 5 · Conventions
 - **brief template (บังคับ · shift-left):** ทุก brief SA/dev **ต้องลิงก์ `docs/ui-standards.md` + checklist ที่เกี่ยว** และใส่ DoD: SA=`ออกแบบผ่าน ui-standards + self-audit` · dev=`self-verify axe(Tier-A)+Tier-B(Claude Browser MCP วัดพิกัด 3 breakpoint)เขียวเองก่อนส่ง tester` — ไม่ปล่อยให้ tester เจอของที่ควร catch ตั้งแต่ต้น
+- **system-map (living doc · DoD บังคับ):** `docs/system-map.md` = ประตูหน้าเดียว "ระบบตอนนี้ออกแบบไว้ยังไง" (entities · data dict ตาราง songs · flow หลัก · invariants · ลิงก์ SSOT เดิม ไม่ก็อป) · **งานใดแตะ data model / flow / taxonomy / คอลัมน์ DB → DoD ต้องอัปเดต system-map ในงานเดียวกัน** (มินิมอล = เขียนเฉพาะของนิ่ง · รายละเอียดผันผวนอยู่ในโค้ด) — กัน AI session ใหม่อ่านโค้ดเย็นทุกครั้ง + ให้คนอ่านรู้เรื่อง
 - **branch:** งานจาก `studio-shell-redesign` · 1 งาน = 1 branch = 1 dev-server port · dev รัน `--host` + ให้ Network URL (มือถือทดสอบ)
 - **รายงาน (session-agnostic):** dev/SA/tester → (1) `docs/reports/<branch>.md` (2) บรรทัด board §📥 inbox (3) ping "PM ปัจจุบัน" (board §🎯) · **อย่า hardcode ชื่อ PM session**
 - **PM session:** ชื่อ = เลข sprint/deploy รอบ (pm7 = รอบ 7) · เช็ก `git branch --show-current` ก่อน commit เสมอ
