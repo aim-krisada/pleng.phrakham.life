@@ -74,3 +74,5 @@ main = `359872b` · **นโยบายใหม่: PM deploy ทีละ fix
 
 **Deploy history:** รอบ7 `71b8d8f` · รอบ8 `e83afe7` · รอบ9 `e7af727` · รอบ10 `4c5fd07` (+GATE) · รอบ11 `84d259c` (B095 lock) · รอบ12 `6e6653d` (B098) · รอบ13 `54eba5c` (B097) · รอบ14 `4513961` (B099) · รอบ15 `6951c19` (B100) · รอบ16 `b7341ee` (B104) · รอบ17 `64c21cb` (B105) · รอบ18 `b161984` (B101) · **รอบ19 `359872b` = LIVE (12 ก.ค. · B102 P1 รับทุกข้อ) — PM deploy ทีละ fix**
 **env:** GitHub token `OneDrive/4 Personal/claude/.env`→`GITHUB_TOKEN_PLENG` (source ก่อน · repo public) · Supabase `SUPABASE_*_PLENG` · main อยู่ worktree `pleng-natural-tie` · IP เปลี่ยนบ่อย (เช็ก `Get-NetIPAddress` / vite Network line)
+
+<!-- P2 mode structure (P'Aim 12 ก.ค.): 4 โหมด = เปียโนอย่างเดียว / คอร์ดอย่างเดียว / ทำนอง+คอร์ด ธรรมดา(ไม่มีลูกเล่น=ฝึกง่าย/ตรวจโน้ต) / จัดเต็ม(ลูกเล่นครบ+humanize) · 1-3=ตระกูลธรรมดา(ต่อ B104) · 4=arranger เต็ม · + เผื่อกีตาร์: arranger = แกนกลางร่วม + โมดูล pattern/voicing ต่อเครื่อง (กีตาร์=strum/fingerpick/รูปคอร์ด ≠ เปียโน) → instrument-pluggable · ส่ง SA P2 local_769b8371 แล้ว -->
