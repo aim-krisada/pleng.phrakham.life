@@ -57,18 +57,34 @@ function main() {
   const precache = files.map(f => SAMPLES_BASE + f.split('/').map(encodeURIComponent).join('/'))
   const totalMB = (files.reduce((s, f) => s + statSync(join(OUT, f)).size, 0) / 1e6).toFixed(2)
 
+  // Per-instrument playback metadata for the arranger (measured, ffprobe mid-note):
+  //  durationSec = representative one-shot sample length. NONE of these loop (loops:false), so a single
+  //    held note decays/ends at ~durationSec — a longer chord/pad must re-trigger or overlap notes.
+  //    The arranger can derive its re-trigger interval from durationSec instead of hardcoding.
+  //  bakedMakeupDb = gain ALREADY applied when the file was built (do NOT re-apply). The CC0 solo strings
+  //    were recorded ~10-13 dB below GM/Grand; this makeup levels them so all instruments sit comparably.
+  const meta = {
+    grand:  { durationSec: 4.2,  loops: false, bakedMakeupDb: 0 },
+    felt:   { durationSec: 4.2,  loops: false, bakedMakeupDb: 0 },
+    steel:  { durationSec: 3.1,  loops: false, bakedMakeupDb: 0 },
+    string_ensemble: { durationSec: 3.1, loops: false, bakedMakeupDb: 0 },
+    nylon:  { durationSec: 2.4,  loops: false, bakedMakeupDb: 0 },
+    cello:  { durationSec: 4.3,  loops: false, bakedMakeupDb: 10 },
+    violin: { durationSec: 14.1, loops: false, bakedMakeupDb: 9 },
+  }
   const manifest = {
     baseUrl: SAMPLES_BASE,
     generated: 'run tools/assemble-samples-repo.mjs to regenerate',
     totalMB: Number(totalMB),
+    notes: 'All instruments are one-shot (loops:false). durationSec = per-note sustain ceiling; longer holds need re-trigger/overlap. bakedMakeupDb is already applied in the files (do not re-apply). Ranges/velocities per instrument are in the CC0 preset.json / the Grand velocityRange.',
     instruments: {
-      grand:  { loader: 'SplendidGrandPiano', baseUrl: 'splendid-grand/samples', format: 'ogg', velocityRange: [41, 67], license: 'Public Domain', attribution: null },
-      felt:   { loader: 'SplendidGrandPiano+lowpass', reuses: 'grand', note: 'low-pass ~2 kHz on output; no files of its own', license: 'Public Domain', attribution: null },
-      steel:  { loader: 'Soundfont', instrumentUrl: 'FluidR3_GM/acoustic_guitar_steel-mp3.js', license: 'CC-BY-3.0', attribution: 'FluidR3 GM soundfont © Frank Wen, CC-BY 3.0' },
-      string_ensemble: { loader: 'Soundfont', instrumentUrl: 'FluidR3_GM/string_ensemble_1-mp3.js', license: 'CC-BY-3.0', attribution: 'FluidR3 GM soundfont © Frank Wen, CC-BY 3.0' },
-      nylon:  { loader: 'Sampler', preset: 'CC0/nylon/preset.json', baseUrl: 'CC0/nylon', license: 'CC0', attribution: null, source: 'FreePats Spanish Classical guitar' },
-      cello:  { loader: 'Sampler', preset: 'CC0/cello/preset.json', baseUrl: 'CC0/cello', license: 'CC0', attribution: null, source: 'Bigcat cello' },
-      violin: { loader: 'Sampler', preset: 'CC0/violin/preset.json', baseUrl: 'CC0/violin', license: 'CC0', attribution: null, source: 'VSCO-2-CE Solo Violin' },
+      grand:  { loader: 'SplendidGrandPiano', baseUrl: 'splendid-grand/samples', format: 'ogg', velocityRange: [41, 67], sampledRange: [40, 84], license: 'Public Domain', attribution: null, ...meta.grand },
+      felt:   { loader: 'SplendidGrandPiano+lowpass', reuses: 'grand', note: 'low-pass ~2 kHz on output; no files of its own', license: 'Public Domain', attribution: null, ...meta.felt },
+      steel:  { loader: 'Soundfont', instrumentUrl: 'FluidR3_GM/acoustic_guitar_steel-mp3.js', sampledRange: [36, 90], license: 'CC-BY-3.0', attribution: 'FluidR3 GM soundfont © Frank Wen, CC-BY 3.0', ...meta.steel },
+      string_ensemble: { loader: 'Soundfont', instrumentUrl: 'FluidR3_GM/string_ensemble_1-mp3.js', sampledRange: [36, 90], license: 'CC-BY-3.0', attribution: 'FluidR3 GM soundfont © Frank Wen, CC-BY 3.0', ...meta.string_ensemble },
+      nylon:  { loader: 'Sampler', preset: 'CC0/nylon/preset.json', baseUrl: 'CC0/nylon', sampledRange: [31, 84], license: 'CC0', attribution: null, source: 'FreePats Spanish Classical guitar', ...meta.nylon },
+      cello:  { loader: 'Sampler', preset: 'CC0/cello/preset.json', baseUrl: 'CC0/cello', sampledRange: [24, 72], license: 'CC0', attribution: null, source: 'Bigcat cello', ...meta.cello },
+      violin: { loader: 'Sampler', preset: 'CC0/violin/preset.json', baseUrl: 'CC0/violin', sampledRange: [55, 96], license: 'CC0', attribution: null, source: 'VSCO-2-CE Solo Violin', ...meta.violin },
     },
     precache,
   }

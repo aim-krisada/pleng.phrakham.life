@@ -2,6 +2,7 @@
   "baseUrl": "/samples/",
   "generated": "run tools/assemble-samples-repo.mjs to regenerate",
   "totalMB": 10.63,
+  "notes": "All instruments are one-shot (loops:false). durationSec = per-note sustain ceiling; longer holds need re-trigger/overlap. bakedMakeupDb is already applied in the files (do not re-apply). Ranges/velocities per instrument are in the CC0 preset.json / the Grand velocityRange.",
   "instruments": {
     "grand": {
       "loader": "SplendidGrandPiano",
@@ -11,51 +12,96 @@
         41,
         67
       ],
+      "sampledRange": [
+        40,
+        84
+      ],
       "license": "Public Domain",
-      "attribution": null
+      "attribution": null,
+      "durationSec": 4.2,
+      "loops": false,
+      "bakedMakeupDb": 0
     },
     "felt": {
       "loader": "SplendidGrandPiano+lowpass",
       "reuses": "grand",
       "note": "low-pass ~2 kHz on output; no files of its own",
       "license": "Public Domain",
-      "attribution": null
+      "attribution": null,
+      "durationSec": 4.2,
+      "loops": false,
+      "bakedMakeupDb": 0
     },
     "steel": {
       "loader": "Soundfont",
       "instrumentUrl": "FluidR3_GM/acoustic_guitar_steel-mp3.js",
+      "sampledRange": [
+        36,
+        90
+      ],
       "license": "CC-BY-3.0",
-      "attribution": "FluidR3 GM soundfont © Frank Wen, CC-BY 3.0"
+      "attribution": "FluidR3 GM soundfont © Frank Wen, CC-BY 3.0",
+      "durationSec": 3.1,
+      "loops": false,
+      "bakedMakeupDb": 0
     },
     "string_ensemble": {
       "loader": "Soundfont",
       "instrumentUrl": "FluidR3_GM/string_ensemble_1-mp3.js",
+      "sampledRange": [
+        36,
+        90
+      ],
       "license": "CC-BY-3.0",
-      "attribution": "FluidR3 GM soundfont © Frank Wen, CC-BY 3.0"
+      "attribution": "FluidR3 GM soundfont © Frank Wen, CC-BY 3.0",
+      "durationSec": 3.1,
+      "loops": false,
+      "bakedMakeupDb": 0
     },
     "nylon": {
       "loader": "Sampler",
       "preset": "CC0/nylon/preset.json",
       "baseUrl": "CC0/nylon",
+      "sampledRange": [
+        31,
+        84
+      ],
       "license": "CC0",
       "attribution": null,
-      "source": "FreePats Spanish Classical guitar"
+      "source": "FreePats Spanish Classical guitar",
+      "durationSec": 2.4,
+      "loops": false,
+      "bakedMakeupDb": 0
     },
     "cello": {
       "loader": "Sampler",
       "preset": "CC0/cello/preset.json",
       "baseUrl": "CC0/cello",
+      "sampledRange": [
+        24,
+        72
+      ],
       "license": "CC0",
       "attribution": null,
-      "source": "Bigcat cello"
+      "source": "Bigcat cello",
+      "durationSec": 4.3,
+      "loops": false,
+      "bakedMakeupDb": 10
     },
     "violin": {
       "loader": "Sampler",
       "preset": "CC0/violin/preset.json",
       "baseUrl": "CC0/violin",
+      "sampledRange": [
+        55,
+        96
+      ],
       "license": "CC0",
       "attribution": null,
-      "source": "VSCO-2-CE Solo Violin"
+      "source": "VSCO-2-CE Solo Violin",
+      "durationSec": 14.1,
+      "loops": false,
+      "bakedMakeupDb": 9
     }
   },
   "precache": [
