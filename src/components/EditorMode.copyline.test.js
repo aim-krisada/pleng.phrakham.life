@@ -88,8 +88,8 @@ describe('B088 — copy/delete line reslices every verse\'s words', () => {
   it('copying line 0 duplicates its word slice in BOTH verses (later words stay put)', async () => {
     const w = mountEd()
     await nextTick()
-    // active line defaults to 0; copy it
-    await w.find('button[aria-label="คัดลอกบรรทัด"]').trigger('click')
+    // active line defaults to 0; ทำซ้ำ (duplicate-in-place, B088) — B101 renamed the label
+    await w.find('button[aria-label="ทำซ้ำบรรทัด"]').trigger('click')
     await nextTick()
 
     const c = contentOf(w)

@@ -65,7 +65,7 @@ describe('B098 — note vs bar copy/delete: 4 distinct actions at two scopes', (
     expect(byAria(w, 'คัดลอกโน้ตนี้').length).toBe(2)
     expect(byAria(w, 'ลบโน้ตนี้').length).toBe(2)
     // bar level: one คัดลอกห้อง + one ลบห้อง per bar (surfaced in the foot) → 2 each
-    expect(byAria(w, 'ทำสำเนาห้องนี้').length).toBe(2)
+    expect(byAria(w, 'ทำซ้ำห้องนี้').length).toBe(2)
     expect(byAria(w, 'ลบห้องนี้').length).toBe(2)
   })
 
@@ -74,7 +74,7 @@ describe('B098 — note vs bar copy/delete: 4 distinct actions at two scopes', (
     await nextTick()
     expect(byAria(w, 'คัดลอกโน้ตนี้').every((b) => b.element.closest('.seg-col'))).toBe(true)
     expect(byAria(w, 'ลบโน้ตนี้').every((b) => b.element.closest('.seg-col'))).toBe(true)
-    expect(byAria(w, 'ทำสำเนาห้องนี้').every((b) => !b.element.closest('.seg-col'))).toBe(true)
+    expect(byAria(w, 'ทำซ้ำห้องนี้').every((b) => !b.element.closest('.seg-col'))).toBe(true)
     expect(byAria(w, 'ลบห้องนี้').every((b) => !b.element.closest('.seg-col'))).toBe(true)
   })
 
@@ -116,7 +116,7 @@ describe('B098 — note vs bar copy/delete: 4 distinct actions at two scopes', (
     const w = mountEd()
     await nextTick()
     expect(barCount(w)).toBe(2)
-    await byAria(w, 'ทำสำเนาห้องนี้')[0].trigger('click')
+    await byAria(w, 'ทำซ้ำห้องนี้')[0].trigger('click')
     await nextTick()
     expect(barCount(w)).toBe(3) // a whole new bar
   })

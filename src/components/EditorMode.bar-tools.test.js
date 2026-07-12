@@ -60,7 +60,7 @@ describe('B092 — bar move/copy/delete surfaced from the ⋯ menu', () => {
     await nextTick()
     expect(w.findAll('.ed-bar-menu').length).toBe(0) // no popover open
     // two bars → two of each surfaced tool, and none sit inside a .ed-bar-menu
-    for (const label of ['ย้ายห้องไปทางซ้าย', 'ย้ายห้องไปทางขวา', 'ทำสำเนาห้องนี้', 'ลบห้องนี้']) {
+    for (const label of ['ย้ายห้องไปทางซ้าย', 'ย้ายห้องไปทางขวา', 'ทำซ้ำห้องนี้', 'ลบห้องนี้']) {
       const btns = byAria(w, label)
       expect(btns.length).toBe(2)
       expect(btns.every((b) => !b.element.closest('.ed-bar-menu'))).toBe(true)
@@ -80,7 +80,7 @@ describe('B092 — bar move/copy/delete surfaced from the ⋯ menu', () => {
     const w = mountEd()
     await nextTick()
     expect(w.findAll('.seg-strip').length).toBe(2)
-    await byAria(w, 'ทำสำเนาห้องนี้')[0].trigger('click')
+    await byAria(w, 'ทำซ้ำห้องนี้')[0].trigger('click')
     await nextTick()
     expect(w.findAll('.seg-strip').length).toBe(3)
     await byAria(w, 'ลบห้องนี้')[0].trigger('click')
@@ -92,7 +92,7 @@ describe('B092 — bar move/copy/delete surfaced from the ⋯ menu', () => {
     const w = mountEd()
     await nextTick()
     // surfaced copy/delete carry .bar-act-wide (CSS-hidden on phones); move buttons do NOT
-    expect(byAria(w, 'ทำสำเนาห้องนี้').every((b) => b.classes().includes('bar-act-wide'))).toBe(true)
+    expect(byAria(w, 'ทำซ้ำห้องนี้').every((b) => b.classes().includes('bar-act-wide'))).toBe(true)
     expect(byAria(w, 'ลบห้องนี้').every((b) => b.classes().includes('bar-act-wide'))).toBe(true)
     expect(byAria(w, 'ย้ายห้องไปทางซ้าย').some((b) => b.classes().includes('bar-act-wide'))).toBe(false)
 

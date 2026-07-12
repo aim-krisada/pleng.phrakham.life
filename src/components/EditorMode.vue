@@ -1016,6 +1016,53 @@ function moveLine(dir) {
   activeLine.value = lj // keep the moved line active/selected
 }
 
+// ---------- B101: คัดลอก→วาง a whole บรรทัด / ห้อง anywhere (incl. a new ท่อน) ----------
+// The "ย้ายไปที่อื่น" twin of B098's ทำซ้ำ-in-place (duplicateBar / copyLine). ทำซ้ำ drops a
+// copy right next to the original (fast repeat, same spot); คัดลอก loads ONE in-memory slot
+// and วาง places it wherever you are — after switching to another (or a brand-new) ท่อน. Paste
+// is MELODY-ONLY (notes + chords + a ห้อง's repeat/volta/pickup flags, or a บรรทัด's structure):
+// words live per-ข้อ and can't follow across ท่อน, so paste never carries lyrics (ทำซ้ำ stays
+// the with-words path for the same ท่อน). `clip` is VIEW state (not the document) → it is NOT
+// snapshotted into undo history; the paste itself mutates the doc and is undoable like any edit.
+const clip = ref(null) // { kind: 'line' | 'bar', data: <deep copy>, from: string }
+function copyBarToClip(li, bi) {
+  const bar = lines.value[li]?.bars[bi]
+  if (!bar) return
+  clip.value = { kind: 'bar', data: JSON.parse(JSON.stringify(bar)), from: `ห้อง ${bi + 1} · บรรทัด ${li + 1}` }
+  barMenuOpen.value = ''
+}
+function copyLineToClip(li) {
+  const line = lines.value[li]
+  if (!line) return
+  clip.value = { kind: 'line', data: JSON.parse(JSON.stringify(line)), from: `บรรทัด ${li + 1}` }
+  lineMoreOpen.value = false
+}
+function clearClip() {
+  clip.value = null
+}
+// paste the copied ห้อง at the end of บรรทัด li (melody only). The button sits on every line,
+// so "ที่นี่" = whichever ท่อน/บรรทัด you are on — switch ท่อน first to paste across melodies.
+function pasteBarAt(li) {
+  if (clip.value?.kind !== 'bar') return
+  const line = lines.value[li]
+  if (!line) return
+  line.bars.push(JSON.parse(JSON.stringify(clip.value.data)))
+}
+// paste the copied บรรทัด at the end of the ACTIVE ท่อน (melody only)
+function pasteLineHere() {
+  if (clip.value?.kind !== 'line') return
+  lines.value.push(JSON.parse(JSON.stringify(clip.value.data)))
+  activeLine.value = lines.value.length - 1
+}
+// วางเป็นท่อนใหม่ — the headline: a fresh ท่อน (stanza) whose only บรรทัด is the copy, then
+// jump to it. Mirrors addStanza's shape (a new melody with no ข้อ yet — words added later).
+function pasteLineAsStanza() {
+  if (clip.value?.kind !== 'line') return
+  stanzas.value.push({ id: nextStanzaId(), lines: [JSON.parse(JSON.stringify(clip.value.data))] })
+  activeStanza.value = stanzas.value.length - 1
+  activeLine.value = 0
+}
+
 // ---------- song list / picker ----------
 const songList = ref([])
 
@@ -2301,7 +2348,7 @@ defineExpose({
         <!-- B086: move the active line up/down; each verse's words follow the melody line -->
         <button class="ed-ico ed-mvline" title="ย้ายบรรทัดที่กำลังแก้ขึ้น (เนื้อทุกข้อตามไปด้วย)" aria-label="ย้ายบรรทัดขึ้น" :disabled="activeLine === 0" @click="moveLine(-1)"><span aria-hidden="true">▲</span></button>
         <button class="ed-ico ed-mvline" title="ย้ายบรรทัดที่กำลังแก้ลง (เนื้อทุกข้อตามไปด้วย)" aria-label="ย้ายบรรทัดลง" :disabled="activeLine === lines.length - 1" @click="moveLine(1)"><span aria-hidden="true">▼</span></button>
-        <button class="ed-ico" title="คัดลอกบรรทัดที่กำลังแก้" aria-label="คัดลอกบรรทัด" @click="qCopyLine"><Icon name="copy" :size="16" /></button>
+        <button class="ed-ico" title="ทำซ้ำบรรทัดที่กำลังแก้ (วางถัดไปทันที · เนื้อทุกข้อตามไปด้วย) — ถ้าอยากวางที่ท่อนอื่น ใช้ ⋯ › คัดลอกบรรทัด" aria-label="ทำซ้ำบรรทัด" @click="qCopyLine"><Icon name="copy" :size="16" /></button>
         <button class="ed-ico danger-ic" title="ลบบรรทัดที่กำลังแก้" aria-label="ลบบรรทัด" @click="qDeleteLine"><Icon name="trash-2" :size="16" /></button>
       </span>
       <span class="ed-more-wrap">
@@ -2312,6 +2359,10 @@ defineExpose({
           <label v-if="activeLine > 0" class="ed-opt-check"><input v-model="curLine().cont" type="checkbox" /> ⤷ ต่อห้องจากบรรทัดก่อน</label>
           <!-- B056: "จบเพลง" ยกออกไปเป็นปุ่มเห็นชัดในหัวแต่ละบรรทัด (ed-line-end) แล้ว -->
           <input v-model="curLine().label" class="ed-opt-input" placeholder="ป้าย เช่น Fine, D.C. al Fine" aria-label="ข้อความกำกับท้ายบรรทัด" />
+          <!-- B101: copy this บรรทัด onto the clipboard to วาง it in another ท่อน (or a new one).
+               ทำซ้ำ (header ⧉) drops a copy right here; คัดลอก moves it anywhere. -->
+          <div class="ed-more-sep" role="separator"></div>
+          <button class="ed-more-act" aria-label="คัดลอกบรรทัดนี้ไปวางที่ท่อนอื่น" @click="copyLineToClip(activeLine)"><Icon name="clipboard-copy" :size="14" /> คัดลอกบรรทัด (ไปวางที่ท่อนอื่น)</button>
           <!-- B091: clear just the words (all verses) OR just the notes of this line -->
           <div class="ed-more-sep" role="separator"></div>
           <button class="ed-more-act" @click="qClearLyrics"><span aria-hidden="true">🧹</span> ล้างเนื้อบรรทัดนี้ (ทุกข้อ · โน้ตอยู่)</button>
@@ -2385,6 +2436,22 @@ defineExpose({
     <p v-if="lensActive" class="muted no-print" style="margin: 0 0 8px">
       พิมพ์คำร้องในช่องใต้โน้ต · ช่องสีแดง = ยังไม่ได้ใส่คำ · ช่องเส้นประ = โน้ตลากเสียง (เว้นว่างได้ หรือใส่ “-”)
     </p>
+
+    <!-- B101: clipboard tray — appears only while a บรรทัด/ห้อง is on the clipboard, so the
+         normal editor stays clean. Tells you what is held + how to place it, and (for a line)
+         the one-tap "วางเป็นท่อนใหม่". The inline "วาง…" buttons live down at each ＋ zone. -->
+    <div v-if="clip" class="ed-clip no-print" role="status" aria-live="polite">
+      <span class="ed-clip-what">
+        <Icon name="clipboard-copy" :size="15" />
+        คัดลอกไว้: <b>{{ clip.kind === 'line' ? 'บรรทัด' : 'ห้อง' }}</b>
+        <span class="muted">({{ clip.from }})</span>
+      </span>
+      <span class="ed-clip-hint">— เปิดท่อนที่ต้องการ แล้วกด “วาง{{ clip.kind === 'line' ? 'บรรทัด' : 'ห้อง' }}” (โน้ต·คอร์ด ไม่รวมเนื้อ)</span>
+      <button v-if="clip.kind === 'line'" class="ed-clip-new" title="สร้างท่อน (ทำนอง) ใหม่ แล้ววางบรรทัดนี้เป็นบรรทัดแรก" @click="pasteLineAsStanza">
+        <Icon name="plus" :size="13" /> วางเป็นท่อนใหม่
+      </button>
+      <button class="ed-clip-x" aria-label="ยกเลิกการคัดลอก" title="ยกเลิกการคัดลอก" @click="clearClip">✕ ยกเลิก</button>
+    </div>
 
     <!-- line editor (edits the ACTIVE stanza) — clean strip like the wireframe: the
          busy per-line / per-bar controls are tucked behind ⋯ so the notes read first,
@@ -2541,7 +2608,7 @@ defineExpose({
                      (≤480) so the bar foot stays one row (ui-standards no-crowd). -->
                 <button class="ed-mini ed-bar-mv" title="ย้ายห้องไปทางซ้าย" aria-label="ย้ายห้องไปทางซ้าย (สุดขอบ = ไปบรรทัดก่อน)" :disabled="bi === 0 && li === 0" @click="moveBar(li, bi, -1)"><span aria-hidden="true">←</span></button>
                 <button class="ed-mini ed-bar-mv" title="ย้ายห้องไปทางขวา" aria-label="ย้ายห้องไปทางขวา (สุดขอบ = ไปบรรทัดถัดไป)" :disabled="bi === line.bars.length - 1 && li === lines.length - 1" @click="moveBar(li, bi, 1)"><span aria-hidden="true">→</span></button>
-                <button class="ed-mini bar-act-wide" title="คัดลอกทั้งห้องนี้ (ทุกโน้ตในห้อง)" aria-label="ทำสำเนาห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)"><Icon name="copy" :size="14" /></button>
+                <button class="ed-mini bar-act-wide" title="ทำซ้ำทั้งห้องนี้ (วางเป็นห้องถัดไปทันที) — ถ้าอยากวางที่ท่อนอื่น ใช้ ⋯ › คัดลอกห้อง" aria-label="ทำซ้ำห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)"><Icon name="copy" :size="14" /></button>
                 <button class="ed-mini danger-ic bar-act-wide" title="ลบทั้งห้องนี้ (ทุกโน้ตในห้อง)" aria-label="ลบห้องนี้" @click="removeBar(line, bi)"><Icon name="trash-2" :size="14" /></button>
               </span>
               <span class="ed-bar-more-wrap">
@@ -2554,10 +2621,15 @@ defineExpose({
                   @click.stop="toggleBarMenu(li, bi)"
                 >⋯</button>
                 <div v-if="barMenuOpen === `${li}-${bi}`" class="ed-bar-menu" role="menu">
-                  <!-- B092 responsive-split: on a phone (≤480) สำเนา/ลบ live here instead of the
+                  <!-- B101: copy this ห้อง onto the clipboard to วาง it in another ท่อน/บรรทัด.
+                       Distinct from ทำซ้ำ (below/foot) which drops a copy right here. -->
+                  <div class="ed-bar-menu-row">
+                    <button class="secondary tiny" aria-label="คัดลอกห้องนี้ไปวางที่ท่อนหรือบรรทัดอื่น" title="คัดลอกไปวางที่อื่น (ท่อน/บรรทัดไหนก็ได้)" @click="copyBarToClip(li, bi)"><Icon name="clipboard-copy" :size="13" /> คัดลอกห้อง (ไปวางที่อื่น)</button>
+                  </div>
+                  <!-- B092 responsive-split: on a phone (≤480) ทำซ้ำ/ลบ live here instead of the
                        foot (hidden on tablet/desktop where they're surfaced) -->
                   <div class="ed-bar-menu-row bar-menu-narrow">
-                    <button class="secondary tiny" aria-label="ทำสำเนาห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)">⧉ สำเนาห้อง</button>
+                    <button class="secondary tiny" aria-label="ทำซ้ำห้องนี้ วางถัดไปทันที" @click="duplicateBar(line, bi)">⧉ ทำซ้ำห้อง</button>
                     <button class="danger tiny" aria-label="ลบห้องนี้" @click="removeBar(line, bi)">✕ ลบห้อง</button>
                   </div>
                   <label class="ed-bar-menu-check" title="จังหวะไม่เต็ม แต่นับรวมกับห้องที่ต่อกัน เช่น เริ่มกลางห้อง"><input v-model="bar.pickup" type="checkbox" /> ↻ ห้องต่อกัน (จังหวะไม่เต็ม — นับรวมกับห้องที่ต่อกัน)</label>
@@ -2576,6 +2648,9 @@ defineExpose({
           </div>
         </template>
         <button class="ed-addbar" title="เพิ่มห้อง" aria-label="เพิ่มห้อง" @click="addBar(line, li)"><Icon name="plus" :size="14" /> ห้อง</button>
+        <!-- B101: paste the copied ห้อง at the end of THIS บรรทัด — only shown when a ห้อง is
+             on the clipboard, in whichever ท่อน you're on (แล้วเลื่อน ← → จัดตำแหน่งได้) -->
+        <button v-if="clip && clip.kind === 'bar'" class="ed-addbar ed-paste" title="วางห้องที่คัดลอกไว้ ต่อท้ายบรรทัดนี้" aria-label="วางห้องที่นี่" @click="pasteBarAt(li)"><Icon name="clipboard-paste" :size="14" /> วางห้อง</button>
       </div>
     </div>
     <!-- live word-count for the ข้อ being shown under the notes (like the wireframe) -->
@@ -2583,7 +2658,11 @@ defineExpose({
       {{ rowStatus(lensRow).ok ? '✓' : '⚠' }} {{ rowStatus(lensRow).got }}/{{ rowStatus(lensRow).need }} คำ
       {{ rowStatus(lensRow).ok ? '· ลงพอดี' : '· ยังไม่ครบ' }}
     </div>
-    <button class="ed-addline" @click="addLine"><Icon name="plus" :size="14" /> เพิ่มบรรทัด</button>
+    <span class="ed-addline-row">
+      <button class="ed-addline" @click="addLine"><Icon name="plus" :size="14" /> เพิ่มบรรทัด</button>
+      <!-- B101: paste the copied บรรทัด at the end of THIS ท่อน — only when a บรรทัด is copied -->
+      <button v-if="clip && clip.kind === 'line'" class="ed-addline ed-paste" title="วางบรรทัดที่คัดลอกไว้ ต่อท้ายท่อนนี้" aria-label="วางบรรทัดที่นี่" @click="pasteLineHere"><Icon name="clipboard-paste" :size="14" /> วางบรรทัด</button>
+    </span>
 
     <!-- overflow: syllables typed past the last note — shown as note-less boxes so an
          over-count is visible and fixable, never silently dropped -->
@@ -3726,6 +3805,22 @@ defineExpose({
   .ed-quick { flex-wrap: wrap; }
   .ed-lay button { padding: 6px 8px; font-size: 0.8rem; }
   .ed-chip { padding: 6px 8px; font-size: 0.82rem; }
+  /* B101 fix: on a phone the header wraps, so the ⋯ button can land anywhere. Its dropdown was
+     anchored to that tiny wrapper (right:0 + 240px), so when ⋯ sat on the left the menu ran off
+     the left edge and "คัดลอกบรรทัด" was hard to tap. Anchor it to the FULL-WIDTH header instead
+     (edhead) + clamp width to the viewport, so it always opens on-screen wherever ⋯ wrapped to. */
+  .edhead { position: relative; }
+  .ed-more-wrap { position: static; }
+  .ed-more-menu {
+    top: calc(100% + 4px);
+    right: 6px;
+    left: auto;
+    min-width: 0;
+    width: max-content;
+    max-width: calc(100vw - 16px);
+  }
+  /* same viewport clamp for the per-ห้อง ⋯ menu (holds "คัดลอกห้อง") — never wider than the screen */
+  .ed-bar-menu { max-width: calc(100vw - 16px); }
 }
 /* read row (phase 4): the pair in sheet style, above the edit boxes */
 /* จัดการ menu danger item + divider */
@@ -3982,6 +4077,69 @@ defineExpose({
 }
 .ed-count { font-size: 0.9rem; color: #2f7d4f; margin: 2px 0 8px; font-weight: 600; }
 .ed-count.bad { color: var(--red); }
+/* B101 clipboard: the paste "วาง…" buttons echo the ＋ add buttons but in brand colour so
+   they read as an ACTION (a filled destination), not another dashed placeholder. */
+.ed-addline-row { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ed-paste {
+  border-style: solid;
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--cream);
+}
+@media (hover: hover) {
+  .ed-paste:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
+}
+/* B101 clipboard tray — a sticky notice while a บรรทัด/ห้อง is held, so you always see what
+   will be pasted no matter how far you scroll to the target ท่อน. */
+.ed-clip {
+  position: sticky;
+  top: 6px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 6px 0 10px;
+  padding: 7px 12px;
+  border: 1px solid var(--brand);
+  border-radius: 10px;
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+.ed-clip-what { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.ed-clip-hint { color: var(--muted); font-size: 0.82rem; margin-right: auto; }
+.ed-clip-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 11px;
+  min-height: 32px;
+  border: 1px solid var(--brand);
+  border-radius: 8px;
+  background: var(--brand);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.ed-clip-new:hover { filter: brightness(1.08); }
+.ed-clip-x {
+  padding: 5px 10px;
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+@media (hover: hover) {
+  .ed-clip-x:hover { border-color: var(--brand); color: var(--brand); }
+}
 /* the note-level tools (คัดลอก/ลบ โน้ต) are quiet until you hover / focus the column */
 .seg-col .seg-tools { opacity: 0; transition: opacity 0.12s; }
 .seg-col:hover .seg-tools,
