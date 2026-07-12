@@ -32,29 +32,40 @@ describe('songToNotes — chord carry-forward', () => {
   })
 })
 
-describe('chordVoicing — v1 bass + block triad below the melody', () => {
-  it('C major = low root C2 + block C3 E3 G3', () => {
-    expect(chordVoicing('C')).toEqual([36, 48, 52, 55])
+describe('chordVoicing — B107 voice-leading (bass + upper voices near the last chord)', () => {
+  it('C major (no prev) = bass C3 + upper E3 G3 (no doubled root)', () => {
+    expect(chordVoicing('C')).toEqual({ bass: 48, up: [52, 55] })
   })
-  it('G major = low root G2 + block G3 B3 D4', () => {
-    expect(chordVoicing('G')).toEqual([43, 55, 59, 62])
+  it('a 7th adds the 7th to the upper voices; a 9th trims to ≤3 upper (≤4 total)', () => {
+    expect(chordVoicing('C7')).toEqual({ bass: 48, up: [52, 55, 58] }) // + Bb3
+    const v9 = chordVoicing('C9')
+    expect(v9.up.length).toBeLessThanOrEqual(3)
+    expect(1 + v9.up.length).toBeLessThanOrEqual(4)
   })
-  it('a 7th adds one more tone; a 9th is trimmed to ≤5 notes (bass + 4)', () => {
-    expect(chordVoicing('C7')).toEqual([36, 48, 52, 55, 58]) // + Bb3
-    expect(chordVoicing('C9').length).toBeLessThanOrEqual(5)
-  })
-  it('the bass is a low root (C2..B2), an octave below the block, under the melody', () => {
-    for (const c of ['C', 'Am7', 'F', 'Dsus4', 'G']) {
-      const v = chordVoicing(c)
-      expect(v[0]).toBeGreaterThanOrEqual(36) // C2
-      expect(v[0]).toBeLessThan(48) // below C3 — a deep left-hand root
-      expect(v[0]).toBe(Math.min(...v)) // the bass is the lowest note
-      expect(v.length).toBeLessThanOrEqual(5) // stays a light pad
+  it('upper voices always live in the C3..G4 window (never up in the melody range)', () => {
+    for (const c of ['C', 'Am7', 'F', 'Dsus4', 'G', 'B', 'A']) {
+      const { up } = chordVoicing(c)
+      for (const m of up) { expect(m).toBeGreaterThanOrEqual(48); expect(m).toBeLessThanOrEqual(67) }
     }
   })
-  it('a blank / unparseable chord yields no notes (silence, not a crash)', () => {
-    expect(chordVoicing('')).toEqual([])
-    expect(chordVoicing('???')).toEqual([]) // parseChord fails → []
+  it('the bass is a low root (E2..D#3) and below every upper voice', () => {
+    for (const c of ['C', 'Am7', 'F', 'Dsus4', 'G']) {
+      const { bass, up } = chordVoicing(c)
+      expect(bass).toBeGreaterThanOrEqual(40)
+      expect(bass).toBeLessThanOrEqual(51)
+      expect(bass).toBeLessThan(Math.min(...up)) // foundation under the pad
+    }
+  })
+  it('voice-leads: passing the previous upper voices moves the pad the SHORT way', () => {
+    const cUp = chordVoicing('C').up // [52,55]
+    // C→G: with voice-leading, the upper voices stay near cUp (centroid moves < an octave)
+    const gUp = chordVoicing('G', cUp).up
+    const centroid = (a) => a.reduce((x, y) => x + y, 0) / a.length
+    expect(Math.abs(centroid(gUp) - centroid(cUp))).toBeLessThan(6) // < a tritone of drift
+  })
+  it('a blank / unparseable chord yields no bass (silence, not a crash)', () => {
+    expect(chordVoicing('')).toEqual({ bass: null, up: [] })
+    expect(chordVoicing('???')).toEqual({ bass: null, up: [] }) // parseChord fails
   })
 })
 
@@ -67,9 +78,11 @@ describe('buildChordVoice — one held block per chord, timed to the melody', ()
     expect(events[0]).toMatchObject({ startBeat: 0, beats: 2 }) // C over notes 1 & 2
     expect(events[1]).toMatchObject({ startBeat: 2, beats: 2 }) // G over notes 3 & 4
   })
-  it('sounds the sheet chords note-for-note (C then G voicings)', () => {
-    expect(events[0].midiSet).toEqual([36, 48, 52, 55])
-    expect(events[1].midiSet).toEqual([43, 55, 59, 62])
+  it('sounds the sheet chords with voice-leading (C then G, pad glides between them)', () => {
+    expect(events[0].midiSet).toEqual([48, 52, 55]) // C: bass C3 + E3 G3
+    expect(events[1].midiSet).toEqual([43, 50, 59]) // G: bass G2 + D3 B3 (voice-led from C)
+    expect(events[0]).toMatchObject({ bass: 48, up: [52, 55] })
+    expect(events[1]).toMatchObject({ bass: 43, up: [50, 59] })
   })
   it('leading notes with no chord stay silent until the first symbol', () => {
     const evs = buildChordVoice(buildPlayNotes({ key: 'C', lines: [[
@@ -93,7 +106,7 @@ describe('repeat/volta — chords replay with the section', () => {
     ]] }
     const events = buildChordVoice(buildPlayNotes(rep))
     expect(events).toHaveLength(4) // C G C G — replayed, and no false merge across the seam
-    expect(events.map((e) => e.midiSet[0])).toEqual([36, 43, 36, 43]) // C G C G bass roots
+    expect(events.map((e) => e.midiSet[0])).toEqual([48, 43, 48, 43]) // C G C G bass roots
   })
 })
 
