@@ -12,6 +12,7 @@ import {
   playSong, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
   effectiveOrder, buildPlayNotes,
 } from '../lib/midi.js'
+import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode } from '../store.js'
@@ -58,6 +59,11 @@ const sheetMode = computed(() => (showLyric.value && !showNote.value && !showCho
 
 const displayKey = ref(props.song?.content?.key || 'C')
 const playing = ref(false)
+// B107: which instrument the playback sounds on. P1 = Grand piano (the default sound, per
+// P'Aim); a selectable preset arrives in P2. The real samples load on first play; until then
+// the synth plays instantly (no wait) and `instrumentLoading` shows a small hint.
+const PLAY_INSTRUMENT = 'grand'
+const instrumentLoading = ref(false)
 const loop = ref(false)
 const tempo = ref(props.song?.content?.bpm || 92)
 const playingSeg = ref(null)
@@ -278,6 +284,8 @@ async function startPlay(startIndex = 0) {
     order: order.value,
     transpose: keyTranspose(props.song.content.key, displayKey.value || props.song.content.key),
     voices: soundMode.value, // B104: melody / chords / both — remembered per browser
+    instrument: PLAY_INSTRUMENT, // B107: real Grand piano (synth fallback while it loads)
+    onInstrumentPending: (pending) => { instrumentLoading.value = pending },
     startIndex,
     onNote: (n, idx) => {
       playingSeg.value = { li: n.li, si: n.si }
@@ -354,9 +362,13 @@ function setAll(on) {
 // B105: tick every ท่อน (= whole song). Used as the default on load / song change — sets the
 // selection directly (no afterSelectionChange stop/reset, since nothing is playing yet).
 function selectAllSecs() { selectedSecs.value = new Set(tags.value.map((t) => t.name)) }
-// live key change: re-tune the notes still ahead (seamless, not a restart)
+// live key change. On the synth the notes still ahead just re-tune (seamless detune). A
+// sampler (B107) can't re-tune already-scheduled sample voices, so — like a tempo change —
+// we re-schedule the notes ahead in the new key, continuing from the current note.
 watch(displayKey, (k) => {
-  if (playing.value) setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
+  if (!playing.value) return
+  if (isSampledInstrument(PLAY_INSTRUMENT)) startPlay(playedIndex.value)
+  else setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
 })
 // live tempo change: re-schedule the notes ahead at the new bpm, continuing from here
 watch(tempo, () => {
@@ -458,6 +470,10 @@ function onSeek({ li, si, syk }) {
       />
     </div>
 
+    <!-- B107: real Grand piano samples load on first play; the synth plays instantly
+         meanwhile, and this hint tells the user the fuller sound is on its way. -->
+    <div v-if="instrumentLoading" class="inst-loading" role="status">🎹 กำลังโหลดเสียงเปียโนจริง…</div>
+
     <!-- the sing dock — DockKey core engine, fed the ITEMS_SING descriptor list by
          <SingTransport>. Fixed at the bottom; the engine owns collapse/drag/Setting/clamp. -->
     <SingTransport
@@ -496,6 +512,27 @@ function onSeek({ li, si, syk }) {
 .sheet-scale { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 480px) {
   .sheet-scale { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* B107 — "loading real piano" hint, a small pill sitting just above the fixed dock. Purely
+   informational (the synth is already playing); fades in, never blocks interaction. */
+.inst-loading {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(170px + env(safe-area-inset-bottom, 0px));
+  z-index: 20;
+  pointer-events: none;
+  background: var(--surface-2, #222);
+  color: var(--text-1, #eee);
+  border: 1px solid var(--border-1, #4444);
+  border-radius: 999px;
+  padding: var(--sp-1, 4px) var(--sp-3, 12px);
+  font-size: 0.82rem;
+  box-shadow: 0 2px 10px #0003;
+}
+@media (max-width: 480px) {
+  .inst-loading { bottom: calc(220px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* B053 — source/scripture captions: muted small text (matches SongList's caption weight),
