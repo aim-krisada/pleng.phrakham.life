@@ -58,6 +58,26 @@ watch(siteFont, (v) => {
 applySiteFont(siteFont.value)
 export function setSiteFont(v) { if (FONTS.includes(v)) siteFont.value = v }
 
+// ---- sound mode for playback (B104 · which voices you HEAR) ----
+// Separate from the visual "แสดงผล" layer (sound ≠ what's on screen). Three modes, mirroring
+// the sheet: 'melody' (tune only — the long-standing behaviour), 'chords' (the chord pad
+// only), 'both'. DEFAULT = 'melody' so existing users' playback doesn't change under them.
+// Per-browser, persisted like readingFontScale/siteFont; every play path (ฟังท่อน · ฟังทั้ง
+// เพลง · MP3) reads this so they always agree.
+const SOUND_KEY = 'pleng.soundMode'
+const SOUND_MODES = ['melody', 'chords', 'both']
+export const soundMode = ref((() => {
+  try {
+    const v = localStorage.getItem(SOUND_KEY)
+    if (SOUND_MODES.includes(v)) return v
+  } catch { /* ignore */ }
+  return 'melody'
+})())
+watch(soundMode, (v) => {
+  try { localStorage.setItem(SOUND_KEY, v) } catch { /* ignore */ }
+})
+export function setSoundMode(v) { if (SOUND_MODES.includes(v)) soundMode.value = v }
+
 // Which shell-bar menu is open ('site' | 'file' | 'manage' | 'mode' | null). Shared so
 // the app-wide ShellBar and a page's teleported menus are one open-at-a-time system.
 export const shellMenu = ref(null)

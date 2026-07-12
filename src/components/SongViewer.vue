@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { resolveContent } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
-import { currentSong, readingFontScale } from '../store.js'
+import { currentSong, readingFontScale, soundMode, setSoundMode } from '../store.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
@@ -43,6 +43,13 @@ const CHORD_OPTS = [
   { value: 'hidden', label: 'ซ่อนคอร์ด' },
 ]
 const chordSystem = ref('letter')
+// ---------- sound mode (B104 "เสียงที่เล่น" menu) — what you HEAR, separate from แสดงผล ----------
+const SOUND_OPTS = [
+  { value: 'melody', label: '🎵 ทำนองอย่างเดียว', short: 'ทำนอง' },
+  { value: 'chords', label: '🎹 คอร์ดอย่างเดียว', short: 'คอร์ด' },
+  { value: 'both', label: '🎶 ทำนอง + คอร์ด', short: 'รวม' },
+]
+const soundDef = computed(() => SOUND_OPTS.find((o) => o.value === soundMode.value) || SOUND_OPTS[0])
 const showChord = computed(() => displayDef.value.chord && chordSystem.value !== 'hidden')
 const showNote = computed(() => displayDef.value.note)
 const showLyric = computed(() => displayDef.value.lyric)
@@ -261,6 +268,7 @@ async function startPlay(startIndex = 0) {
     loop: loop.value,
     order: order.value,
     transpose: keyTranspose(props.song.content.key, displayKey.value || props.song.content.key),
+    voices: soundMode.value, // B104: melody / chords / both — remembered per browser
     startIndex,
     onNote: (n, idx) => {
       playingSeg.value = { li: n.li, si: n.si }
@@ -357,6 +365,10 @@ const settingDescs = computed(() => [
     options: DISPLAY_OPTS.map((o) => ({ value: o.value, label: o.label })), onPick: (v) => (display.value = v),
   },
   {
+    id: 'sound', icon: 'volume-2', label: 'เสียงที่เล่น', kind: 'menu', value: soundMode.value, badge: soundDef.value.short,
+    options: SOUND_OPTS.map((o) => ({ value: o.value, label: o.label })), onPick: (v) => setSoundMode(v),
+  },
+  {
     id: 'chord', icon: 'guitar', label: 'คอร์ด', kind: 'menu', value: chordSystem.value, badge: CHORD_BADGE[chordSystem.value],
     options: CHORD_OPTS, onPick: (v) => (chordSystem.value = v),
   },
@@ -442,6 +454,7 @@ function onSeek({ li, si, syk }) {
       :on-json="downloadJson"
       :mp3-bpm="Number(tempo) || 0"
       :mp3-transpose="mp3Transpose"
+      :mp3-voices="soundMode"
       @toggle-play="togglePlay"
       @prev="prevSection"
       @next="nextSection"

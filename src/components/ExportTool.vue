@@ -17,6 +17,7 @@ const props = defineProps({
   // omit → the song's native key/bpm).
   bpm: { type: Number, default: 0 },
   transpose: { type: Number, default: 0 },
+  voices: { type: String, default: 'melody' }, // B104: 'melody' | 'chords' | 'both' — MP3 matches "ฟัง"
 })
 const emit = defineEmits(['toggle', 'close'])
 
@@ -63,6 +64,7 @@ async function downloadMp3() {
     const { blob } = await songToMp3Blob(props.content, {
       bpm,
       transpose: props.transpose || 0,
+      voices: props.voices || 'melody',
       onProgress: ({ stage, fraction }) => {
         mp3Stage.value = stage
         if (stage === 'encode') {

@@ -56,6 +56,35 @@ export function chordToRoman(chord, key) {
   return degree + p.suffix
 }
 
+// Chord quality → semitone intervals above the root (B104 · audio accompaniment).
+// Used to turn a chord SYMBOL (segment.chord) into the actual notes to sound, so the
+// player can "play what the sheet shows". Covers every suffix the picker (QUALITIES)
+// can produce. Kept next to parseChord — parseChord gives the root, this gives the
+// shape. Pure (no audio), so it's unit-testable headless.
+const CHORD_INTERVALS = {
+  '': [0, 4, 7], // major triad
+  m: [0, 3, 7], // minor triad
+  7: [0, 4, 7, 10], // dominant 7
+  m7: [0, 3, 7, 10],
+  maj7: [0, 4, 7, 11],
+  sus4: [0, 5, 7],
+  sus2: [0, 2, 7],
+  dim: [0, 3, 6],
+  6: [0, 4, 7, 9],
+  m6: [0, 3, 7, 9],
+  9: [0, 4, 7, 10, 14],
+  add9: [0, 4, 7, 14],
+}
+
+// suffix (from parseChord) → intervals above the root. Unknown suffixes and slash
+// chords ("G/B" → parseChord suffix "/B") FALL BACK to a plain major triad rather than
+// throwing or going silent — the accompaniment stays musical even on odd input. The
+// dedicated bass of a slash chord is a future enhancement, not v1.
+export function chordToIntervals(suffix) {
+  const s = (suffix || '').trim()
+  return CHORD_INTERVALS[s] || CHORD_INTERVALS['']
+}
+
 // Display a chord under the chosen system, transposed from originalKey to displayKey
 export function displayChord(chord, { system, originalKey, displayKey }) {
   if (!chord) return ''

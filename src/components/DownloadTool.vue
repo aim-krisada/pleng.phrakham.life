@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { currentSong } from '../store.js'
+import { currentSong, soundMode } from '../store.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { songBasename } from '../lib/songName.js'
 
@@ -46,6 +46,7 @@ async function downloadMp3() {
     mp3Stage.value = 'render'
     let encodeStart = 0
     const { blob } = await songToMp3Blob(content, {
+      voices: soundMode.value, // B104: match the chosen sound mode (melody / chords / both)
       onProgress: ({ stage, fraction }) => {
         mp3Stage.value = stage
         if (stage === 'encode') {

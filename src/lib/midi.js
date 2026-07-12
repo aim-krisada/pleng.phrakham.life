@@ -2,6 +2,7 @@
 // Converts notation tokens (movable do) + key + BPM into scheduled oscillator notes.
 
 import { parseNotes, groupNotes, DOT_FACTOR } from './notation.js'
+import { parseChord, chordToIntervals } from './chords.js'
 
 const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 65,
   'F#': 66, Gb: 66, G: 67, 'G#': 68, Ab: 68, A: 69, 'A#': 70, Bb: 70, B: 71 }
@@ -83,6 +84,11 @@ function expandRepeats(bars) {
 // Repeat/volta marks are expanded so playback actually loops.
 export function songToNotes(content) {
   const root = KEY_MIDI[content.key] ?? 60
+  // Chord symbol currently in force (B104): a lead-sheet chord holds until the next one,
+  // so we carry the last non-empty segment.chord forward and stamp every note (rests too)
+  // with it. Done HERE, before expandRepeats, so a repeated section replays with its chords
+  // intact. Attached now → buildChordVoice can sound "exactly the chords the sheet shows".
+  let curChord = ''
   // 1. group each line's notes into bars, tagging repeat/volta flags per bar
   const bars = []
   ;(content.lines || []).forEach((line, li) => {
@@ -102,6 +108,7 @@ export function songToNotes(content) {
       }
       if (item.type !== 'segment') continue
       si++
+      if (item.chord) curChord = item.chord // carry-forward: chord holds until the next one
       if (!item.note) continue
       const bn = bar.notes
       // syllable-slot index within this segment: every note box (a note, a rest, or a
@@ -115,7 +122,7 @@ export function songToNotes(content) {
           if (t.type === 'note') {
             slot++
             if (t.pitch === '0') {
-              bn.push({ midi: null, beats: tokenBeats(t, f), li, bi, si }) // rest: no syllable
+              bn.push({ midi: null, beats: tokenBeats(t, f), li, bi, si, chord: curChord }) // rest: no syllable, chord rings on
               prevMidi = null
             } else {
               let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
@@ -133,7 +140,7 @@ export function songToNotes(content) {
                 last.beats += tokenBeats(t, f) // melisma: this slot holds no new word
               } else {
                 // an attack: carry its slot so the highlight lands on this syllable
-                bn.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, tieEnd: !!t.tieEnd, li, bi, si, syk: slot })
+                bn.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, tieEnd: !!t.tieEnd, li, bi, si, syk: slot, chord: curChord })
               }
               prevMidi = midi
             }
@@ -186,21 +193,74 @@ export function stopPlayback() {
 //   soundDur    : audible length in seconds (already trimmed by the caller)
 //   detuneCents : live transpose, 100 cents = 1 semitone (rides on detune so a
 //                 realtime key change re-tunes without rescheduling)
+//   peak        : envelope peak gain — melody = 0.35 (default); the chord pad passes a
+//                 smaller value (0.12) so it stays under the melody (B104 §Voicing)
+//   attack      : ramp-up seconds — the chord pad uses a longer attack so it "คลอ"
+//                 (swells softly) instead of "ตอก" (strikes)
 // Returns the oscillator so the realtime caller can track it (stop / re-tune).
-export function scheduleNote(context, destination, midi, startT, soundDur, detuneCents = 0) {
+export function scheduleNote(context, destination, midi, startT, soundDur, detuneCents = 0, peak = 0.35, attack = 0.015) {
   const osc = context.createOscillator()
   const gain = context.createGain()
   osc.type = 'triangle'
   osc.frequency.value = 440 * 2 ** ((midi - 69) / 12)
   osc.detune.value = detuneCents
   gain.gain.setValueAtTime(0, startT)
-  gain.gain.linearRampToValueAtTime(0.35, startT + 0.015)
-  gain.gain.setValueAtTime(0.35, startT + Math.max(0.015, soundDur - 0.05))
+  gain.gain.linearRampToValueAtTime(peak, startT + attack)
+  gain.gain.setValueAtTime(peak, startT + Math.max(attack, soundDur - 0.05))
   gain.gain.linearRampToValueAtTime(0, startT + soundDur)
   osc.connect(gain).connect(destination)
   osc.start(startT)
   osc.stop(startT + soundDur + 0.01)
   return osc
+}
+
+// ---------- B104: chord accompaniment (the "left hand") ----------
+// Voice ONE chord symbol as a set of MIDI notes: a low root in the bass + a block triad
+// (root+3+5, plus the 7th/etc. from the suffix) sitting below the melody. This is the v1
+// default voicing (KISS) — locked in docs/ds/midi-chord-accompaniment.md §Voicing. The
+// structure (this fn picks the NOTES; buildChordVoice below decides WHEN they sound) is
+// kept separate so a future v2 can add other styles (arpeggio, walking bass) without
+// touching the scheduler. Returns [] for a blank/unparseable chord (→ no sound).
+export function chordVoicing(chordStr) {
+  const p = parseChord(chordStr || '')
+  if (!p) return []
+  const blockRoot = 48 + p.rootIndex // C3..B3 — block triad sits below the melody (root ≥ C4)
+  const bass = blockRoot - 12 // C2..B2 — a deep root under the block, like a left-hand bass
+  const set = new Set([bass])
+  for (const iv of chordToIntervals(p.suffix)) set.add(blockRoot + iv)
+  return [...set].slice(0, 5) // keep it light: bass + up to 4 chord tones (trims a 9th's top)
+}
+
+// The one rule for the 3 sound modes (B104), shared by live play and MP3 export so they
+// can never disagree: 'melody' = tune only, 'chords' = pad only, 'both' = together.
+//   → { melody:boolean, chords:boolean }
+export function voiceFlags(voices) {
+  return { melody: voices !== 'chords', chords: voices === 'chords' || voices === 'both' }
+}
+
+// Collapse a note list (from songToNotes/buildPlayNotes, each carrying its `chord`) into
+// chord EVENTS timed to the melody: a run of consecutive notes under the same chord becomes
+// one held block. startBeat/beats are cumulative beats over the SAME list playSong walks, so
+// a chord changes exactly where its symbol changes on the sheet and stays in sync with the
+// melody (and, since it runs on the post-expandRepeats list, repeats replay their chords).
+//   → [{ midiSet:[…], startBeat, beats }]  (events with an empty voicing are dropped)
+export function buildChordVoice(notes) {
+  const events = []
+  let beat = 0
+  let cur = null // { chord, startBeat, beats } — the chord currently sounding
+  for (const n of notes || []) {
+    const c = n.chord || ''
+    if (c && (!cur || cur.chord !== c)) {
+      if (cur) events.push(cur)
+      cur = { chord: c, startBeat: beat, beats: 0 } // a new chord starts here
+    }
+    if (cur) cur.beats += n.beats // extend the held chord across this note (incl. blank-chord notes)
+    beat += n.beats
+  }
+  if (cur) events.push(cur)
+  return events
+    .map((e) => ({ midiSet: chordVoicing(e.chord), startBeat: e.startBeat, beats: e.beats }))
+    .filter((e) => e.midiSet.length)
 }
 
 // Group section occurrences by label → the "selection tags" (B043 §1). The timeline
@@ -266,7 +326,7 @@ export function setTranspose(semitones) {
 
 // Play the melody; resolves when done or stopped. Returns false when the device
 // blocks audio (e.g. iOS with the silent switch on / autoplay policy).
-export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, order, transpose = 0, startIndex = 0 } = {}) {
+export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, order, transpose = 0, startIndex = 0, voices = 'melody', chordGain = 0.12 } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   // iOS unlock: play a 1-sample silent buffer synchronously inside the user gesture
   try {
@@ -289,14 +349,20 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   if (startIndex > 0) notes = notes.slice(startIndex)
   if (!notes.length) return true
   const spb = 60 / bpm // seconds per beat
+  // B104: which voices sound. 'melody' = as before, 'chords' = pad only, 'both' = together.
+  // The chord events time against the SAME `notes` list, so the pad lines up with the melody
+  // and the follow-along highlight still runs off `notes` even in chords-only mode.
+  const { melody: wantMelody, chords: wantChords } = voiceFlags(voices)
+  const chordEvents = wantChords ? buildChordVoice(notes) : []
 
   do {
-    let t = ctx.currentTime + 0.08
+    const t0 = ctx.currentTime + 0.08
+    let t = t0
     const endTimes = []
     liveOscs = [] // reset per pass so a mid-play key change re-tunes this pass's notes
     for (const n of notes) {
       const dur = n.beats * spb
-      if (n.midi != null) {
+      if (wantMelody && n.midi != null) {
         // stop slightly early so repeated same-pitch notes articulate clearly
         const soundDur = Math.max(0.08, dur - 0.07)
         // Same synth as the MP3 export (scheduleNote). Base pitch is the ORIGINAL
@@ -307,6 +373,18 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
         liveOscs.push({ osc, startTime: t })
       }
       t += dur
+    }
+    // Chord pad: one soft block per chord event, held for its span, riding the same detune
+    // as the melody so a live key change moves both together. Softer + longer attack than
+    // the melody (scheduleNote peak/attack) so it คลอ underneath without burying the tune.
+    for (const ev of chordEvents) {
+      const startT = t0 + ev.startBeat * spb
+      const soundDur = Math.max(0.1, ev.beats * spb - 0.06)
+      for (const m of ev.midiSet) {
+        const osc = scheduleNote(ctx, ctx.destination, m, startT, soundDur, liveTranspose * 100, chordGain, 0.04)
+        endTimes.push(osc)
+        liveOscs.push({ osc, startTime: startT })
+      }
     }
     // wait until the scheduled end, checking the stop flag and reporting the
     // note currently sounding (for follow-along highlight)

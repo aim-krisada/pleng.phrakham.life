@@ -4,7 +4,7 @@
 // Split so the pieces are testable headless: notesDurationSec / floatToInt16 /
 // encodePcmToMp3 are pure; only renderSongToBuffer needs a browser (OfflineAudioContext).
 import lamejs from '@breezystack/lamejs'
-import { buildPlayNotes, scheduleNote } from './midi.js'
+import { buildPlayNotes, scheduleNote, buildChordVoice, voiceFlags } from './midi.js'
 import { resolveContent } from './songModel.js'
 import { songBasename } from './songName.js'
 
@@ -38,7 +38,7 @@ export function estimateMp3(content, { bpm, kbps = 128 } = {}) {
 // Render the melody offline into a mono AudioBuffer. Browser only (OfflineAudioContext).
 // Defaults mirror a plain "ฟัง": the song's own bpm (or 92) and its native key
 // (transpose 0). Same per-note timing + synth as playSong, so it sounds identical.
-export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRate = 44100 } = {}) {
+export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRate = 44100, voices = 'melody', chordGain = 0.12 } = {}) {
   const playable = playableContent(content)
   const useBpm = Number(bpm) || playable.bpm || 92
   const notes = buildPlayNotes(playable)
@@ -51,14 +51,26 @@ export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRa
     : null
   if (!OfflineCtx) throw new Error('เบราว์เซอร์นี้ไม่รองรับการสร้างไฟล์เสียง (OfflineAudioContext)')
   const ctx = new OfflineCtx(1, frames, sampleRate)
+  // B104: honour the same 3 sound modes as "ฟัง" (melody / chords / both) so a downloaded
+  // MP3 matches whatever the play button plays — same scheduleNote + buildChordVoice.
+  const { melody: wantMelody, chords: wantChords } = voiceFlags(voices)
   let t = 0
   for (const n of notes) {
     const dur = n.beats * spb
-    if (n.midi != null) {
+    if (wantMelody && n.midi != null) {
       const soundDur = Math.max(0.08, dur - 0.07) // match playSong's early stop
       scheduleNote(ctx, ctx.destination, n.midi, t, soundDur, transpose * 100)
     }
     t += dur
+  }
+  if (wantChords) {
+    for (const ev of buildChordVoice(notes)) {
+      const startT = ev.startBeat * spb
+      const soundDur = Math.max(0.1, ev.beats * spb - 0.06)
+      for (const m of ev.midiSet) {
+        scheduleNote(ctx, ctx.destination, m, startT, soundDur, transpose * 100, chordGain, 0.04)
+      }
+    }
   }
   return await ctx.startRendering()
 }
@@ -105,9 +117,9 @@ export async function encodePcmToMp3(int16, { sampleRate = 44100, kbps = 128, on
 //   { stage:'render', fraction:0 } — offline audio render (atomic; no sub-progress)
 //   { stage:'encode', fraction:0..1 } — MP3 encode (real sub-progress from lamejs)
 //   { stage:'done',   fraction:1 }
-export async function songToMp3Blob(content, { bpm, transpose = 0, sampleRate = 44100, kbps = 128, onProgress } = {}) {
+export async function songToMp3Blob(content, { bpm, transpose = 0, sampleRate = 44100, kbps = 128, voices = 'melody', onProgress } = {}) {
   onProgress?.({ stage: 'render', fraction: 0 })
-  const buffer = await renderSongToBuffer(content, { bpm, transpose, sampleRate })
+  const buffer = await renderSongToBuffer(content, { bpm, transpose, sampleRate, voices })
   onProgress?.({ stage: 'encode', fraction: 0 })
   const int16 = floatToInt16(buffer.getChannelData(0))
   const blob = await encodePcmToMp3(int16, {

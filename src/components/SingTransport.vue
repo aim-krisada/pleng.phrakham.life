@@ -36,6 +36,7 @@ const props = defineProps({
   onJson: { type: Function, default: null },
   mp3Bpm: { type: Number, default: 0 },
   mp3Transpose: { type: Number, default: 0 },
+  mp3Voices: { type: String, default: 'melody' }, // B104: MP3 honours the chosen sound mode
 })
 const emit = defineEmits(['toggle-play', 'prev', 'next', 'toggle-loop', 'seek', 'jump', 'toggle-section', 'set-all'])
 
@@ -124,6 +125,7 @@ const items = computed(() => {
     { id: 'chord', kind: 'menu', name: 'คอร์ด', icon: 'guitar', default: 'inSetting', pinnable: true, control: menuControl('chord') },
     { id: 'speed', kind: 'menu', name: 'ความเร็ว', icon: 'gauge', default: 'inSetting', pinnable: true, control: menuControl('tempo') },
     { id: 'layer', kind: 'menu', name: 'แสดงผล', icon: 'layers', default: 'inSetting', pinnable: true, control: menuControl('display') },
+    { id: 'sound', kind: 'menu', name: 'เสียงที่เล่น', icon: 'volume-2', default: 'inSetting', pinnable: true, control: menuControl('sound') },
     { id: 'alpha', kind: 'slider', name: 'โปร่งใส', icon: 'blend', default: 'inSetting', pinnable: true, control: { min: 40, max: 100, value: Math.round(alpha.value * 100), onInput: (v) => (alpha.value = v / 100) } },
   ]
   // drop menu items whose control the page didn't supply (keeps the engine fed with valid data)
@@ -206,6 +208,7 @@ const items = computed(() => {
         :on-json="onJson"
         :bpm="mp3Bpm"
         :transpose="mp3Transpose"
+        :voices="mp3Voices"
         :open="open"
         @toggle="toggle"
         @close="close"
