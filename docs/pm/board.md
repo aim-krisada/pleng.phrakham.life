@@ -58,7 +58,7 @@ main === base (`studio-shell-redesign`) · **371 test + build เขียว** 
 - **tester gate = ทุก UI ก่อน P'Aim** · dev/SA self-verify Tier-B (Browser MCP) ก่อน · print feature = P'Aim verify จาก PDF จริง (ไม่ใช่ DOM)
 - **รายงาน session-agnostic:** dev เขียน `docs/reports/<branch>.md` + บรรทัด §📥 inbox + ping "PM ปัจจุบัน" (อย่า hardcode ชื่อสาย)
 - **merge:** cherry-pick เฉพาะ commit โค้ด (เลี่ยง doc conflict + กัน branch เก่า revert งานใหม่) · เช็ก `git branch --show-current` ก่อน commit ทุกครั้ง · rerun test
-- **deploy:** P'Aim สั่งเท่านั้น · align main=base (FF) + push → poll live bundle จนเจอ commit · **kanban พี่เปา:** ย้ายโฟลเดอร์ `สถานะบั๊ก/{1-รอทำ,2-กำลังทำ,3-เสร็จแล้ว}` ทุกครั้งสถานะเปลี่ยน + อัปเดต `อ่านตรงนี้-สถานะบั๊ก.md`
+- **deploy (นโยบายใหม่ P'Aim 12 ก.ค.): PM คุม deploy เอง · deploy ทีละ fix ที่พร้อม (ผ่าน tester) ไม่ต้องรอครบทุกงาน ไม่ต้องถาม P'Aim ทุกครั้ง** — พี่เปาทดสอบบน live · เงื่อนไข: ต้องผ่าน tester gate ก่อน + เป็น fix ที่ปลอดภัยกับ public (ตอนนี้ GATE ทำให้ public เห็น 0 เพลง → editor features ไม่กระทบ) · วิธี: cherry-pick commit โค้ดของ fix นั้น → align main=base (FF) + push → poll live bundle จนเจอ commit · **kanban พี่เปา:** ย้ายโฟลเดอร์ `สถานะบั๊ก/{1-รอทำ,2-กำลังทำ,3-เสร็จแล้ว}` ทุกครั้งสถานะเปลี่ยน + อัปเดต `อ่านตรงนี้-สถานะบั๊ก.md`
 - ทุก P'Aim example → กฎใน `ui-standards.md`/checklist (tester ดักครั้งหน้า) · แก้ที่ process ไม่โทษคน
 
 ## roster / routing (session id)
