@@ -6,8 +6,8 @@
 
 ---
 
-## 🟢 LIVE ตอนนี้ — deploy รอบ 10 (`4c5fd07`, 12 ก.ค.)
-main === base (`studio-shell-redesign`) · **371 test + build เขียว** ("1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก)
+## 🟢 LIVE ตอนนี้ — deploy รอบ 11 (`84d259c`, 12 ก.ค. · B095 lock)
+main = `84d259c` (base ณ จุด cherry-pick B095) · **นโยบายใหม่: PM deploy ทีละ fix ที่ผ่าน tester** (ดู §กติกา deploy) · ("1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก)
 - **ขึ้น live รอบ 10:** บั๊ก+ข้อเสนอพี่เปาครบ (โน้ต space ripple B084 · สติกกี้ B085 · ย้ายบรรทัด B086 · เส้นจบ‖ B090 · ล้างเนื้อบรรทัด · ปุ่มห้อง+มือถือ B092 · lint-ก่อนเผยแพร่ B093) + **หน้าแรกใหม่ (เล่ม picker) + verified GATE (B087+B089)**
 - ประวัติรอบก่อน (7-9): DockKey 3 หน้า+polish · slur B076 · ไทข้ามห้อง B069 · เส้นปิดห้อง B082 · พรีวิว B081 · จับคู่ทำนอง B083 · timeline D6 · a11y infra
 
@@ -22,15 +22,7 @@ main === base (`studio-shell-redesign`) · **371 test + build เขียว** 
   - ✅ **auto-focus หลังเพิ่มห้อง เสร็จแล้ว** (code commit `b79cd37` · `addBar`→nextTick→focus `.note-box` ห้องใหม่ · verify: กดเพิ่มห้อง→พิมพ์ "5" ได้เลยไม่ต้องคลิก) · 382 test · **cherry-pick 2 commit: `3a934a4`+`b79cd37`**
   - **⚠️ ชน `EditorMode.vue` กับ B097/B095** — dev ว่า region ไม่ทับ (removeSegment~909 · seg-col~2410 · bar-foot~2452 · CSS .seg-tools) แต่ PM เช็กตอน cherry-pick · **ยังไม่ merge/deploy**
 - **B097 undo/redo ให้ถูกครบทุกกรณี** (หน้าแก้ไข) — ✅ **DEV เสร็จ · จ่าย tester gate แล้ว** (branch `fix-b097-undo-redo` @ `18eee9f` · session dev `local_f2f1836b` · tester `task_f66f73da`) · แก้ตามต้นเหตุ: แยก doc-state/view-state (สลับท่อน/เที่ยว=ไม่นับ undo step · เก็บ+กู้ view ใน snapshot แทน resetLens) · 380 test เขียว + build · dev verify browser (เนื้อเที่ยว 2 กลับถูก) · รั้ว `EditorMode.vue`+`EditorMode.undo-view.test.js` · report `docs/reports/fix-b097-undo-redo.md` · ▶ รอ tester PASS → PM cherry-pick · **ยังไม่ deploy**
-- **B095 เล่มเพลง 3 เล่ม + ล็อกหมวด** — requirement = **ล็อก 3 เล่ม** (P'Aim เคาะ AskUserQuestion 12 ก.ค. ผ่าน PM · commit `0ac0556` · dev/tester อ้าง "เลี้ยงได้" ผ่านคอมเมนต์โค้ด = ไม่ผ่าน PM ไม่นับ)
-  - **สถานะจริง (git-verified pm11, 12 ก.ค.): fix แก้กลับล็อก ยังไม่ได้ทำเลย · base ยัง contaminated เป็น flexible**
-  - base `studio-shell-redesign` = **allow-custom/flexible (breach)** — `EditorMode.vue:2156` ยังมี `allow-custom` · test = `ComboSelect.category.test.js` (flexible) · self-merged เข้ามา (`a1d3c20`+`b60f221`+`d0ef2b8`)
-  - **ไม่มี branch ไหนมี code fix แก้กลับล็อก:** `book-taxonomy-lock` = docs-only (ไม่แตะโค้ด) · `book-taxonomy-3` จบที่ flexible (`b60f221`) · สาย fix ที่จ่ายไป `local_ae09d959` (branch `claude/zealous-albattani-850756`) = **ไม่ได้ commit อะไรเลย** (tip ยัง `4c5fd07` · EditorMode ยัง allow-custom · ไม่ได้รัน) · `task_96ab1591` หายแล้ว (task ไม่ persist)
-  - tester re-gate (`book-taxonomy-3-tester`, session friendly-hugle) = **✗ FAIL** ยืนยัน fix ยังไม่ลง (report `docs/reports/book-taxonomy-3-tester.md`)
-  - **ยังไม่ deploy → public ไม่กระทบ** · แต่ base ต้อง revert กลับล็อก
-  - ✅ **DEV เสร็จ · จ่าย tester gate แล้ว** (branch `b095-lock-fix` · commit cherry-pick `e9ae706` · session dev `local_bb179dfc` · tester `task_67529556`) — ตัด `allow-custom` EditorMode.vue · test mount EditorMode จริง (พิมพ์ "เยาวชน"→ไม่ติด) · docs 3 ไฟล์ revert เป็น "ล็อก" · ไม่แตะ DB/bookshelf · 374 test + build · dev verify browser (dropdown 3 เล่ม · ค่านอกลิสต์เด้งกลับ anuchon) · report `docs/reports/b095-lock-fix.md` · ▶ รอ tester PASS → PM cherry-pick `e9ae706` เข้า base (ยังไม่ deploy = public ไม่กระทบ)
-- **B096 หน้าจัดการเล่ม (approver-only)** — 🅿️ **deferred** (P'Aim: ยังไม่เอาตอนนี้) · คือวิธี "เลี้ยงได้" ที่ถูก (ตาราง `book_categories` + admin UI) แทน allow-custom ในช่องแก้เพลง · file ไว้ backlog B096 · แยกจาก B095
-- **system-map.md** — ✅ canonical (base · PM แก้ id int→uuid) · **⚠️ §เล่มเพลง+invariant ยังเป็น "เลี้ยงได้" (breach) บน base → ต้องแก้กลับ "ล็อก 3 เล่มในหน้าแก้ไข" พร้อม B095 dev fix ข้างบน**
+- **B095 ล็อกหมวด 3 เล่ม — ✅ เสร็จ + ขึ้น LIVE (deploy รอบ 11 · `84d259c` · 12 ก.ค.)** — tester PASS 5/5 (`tester-b095-lock-fix.md`) → PM cherry-pick `e9ae706`→base (`84d259c`) → FF main + push → poll live bundle เจอ `84d259c` ✅ · ช่องหมวดล็อก 3 เล่ม (ตัด allow-custom) · docs+system-map revert เป็น "ล็อก" แล้ว · breach ปิดจบ · B096 (admin จัดการเล่ม) = 🅿️ deferred แยกไว้ backlog
 - **📥 import เล่มใหญ่ "บทเพลงสรรเสริญ" (scanned 477 หน้า · session แยก `local_9f147e9d`)** — เพลง 32 (`lem-yai`) อยู่ใน DB แล้ว · **รอพี่เปาตรวจในแอป** → ผ่าน = ping DA ล็อก template + ไล่ทีละเพลง · **⏸️ พักไว้ก่อน** (P'Aim: อนุชน review ก่อน) · ~8-11K tok/เพลง (context แยก/เพลง · อย่าทำแชทเดียว) · ไฟล์ `tools/hymnal-samples/`, report `hymnal-import.md`
 - **B092 responsive-split = live แล้ว** (มือถือเก็บ สำเนา/ลบ ใน ⋯) — ถ้าพี่เปายังว่าหนักบนมือถือ ค่อยปรับ
 
@@ -66,5 +58,5 @@ main === base (`studio-shell-redesign`) · **371 test + build เขียว** 
 - **ทุกงานใหม่ = spawn worktree + session ใหม่** (1 งาน = 1 worktree = 1 branch ตามหลักบอร์ด) · ไม่ปลุก session เก่า
 - ข้อยกเว้น: import เล่มใหญ่ `local_9f147e9d` (⏸️ พัก) — ถ้ายังไม่ archive ปลุกต่อได้ ไม่งั้น spawn ใหม่จาก report `hymnal-import.md`
 
-**Deploy history:** รอบ7 `71b8d8f` · รอบ8 `e83afe7` · รอบ9 `e7af727` · **รอบ10 `4c5fd07` = LIVE (12 ก.ค. · 371 test · +GATE)**
+**Deploy history:** รอบ7 `71b8d8f` · รอบ8 `e83afe7` · รอบ9 `e7af727` · รอบ10 `4c5fd07` (+GATE) · **รอบ11 `84d259c` = LIVE (12 ก.ค. · B095 lock หมวด) — PM deploy ทีละ fix**
 **env:** GitHub token `OneDrive/4 Personal/claude/.env`→`GITHUB_TOKEN_PLENG` (source ก่อน · repo public) · Supabase `SUPABASE_*_PLENG` · main อยู่ worktree `pleng-natural-tie` · IP เปลี่ยนบ่อย (เช็ก `Get-NetIPAddress` / vite Network line)
