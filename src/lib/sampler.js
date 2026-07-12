@@ -27,10 +27,12 @@ export const SAMPLE_HOSTS = {
 // MP = a natural mezzo tone — clear and easy to sing along to (Grand = default, per P'Aim).
 // Loading ONE layer keeps the download small; per-note dynamics still ride on `velocity`.
 const GRAND_VEL_RANGE = [68, 84]
-// The MIDI range we actually play (bass root ~E2 up past the melody). Restricting the notes
-// (with the single layer) is what pins the download to ~3 MB instead of the full keyboard.
-const GRAND_LO = 36 // C2
-const GRAND_HI = 88 // E6
+// The MIDI range to LOAD samples for. Covers the common bass-root..melody span; notes outside
+// it still play (smplr pitch-shifts from the nearest loaded sample), so this only trades a
+// little edge fidelity for a smaller download. With the single velocity layer this pins the
+// first load to ~3 MB (measured) instead of the ~17 MB full-keyboard default.
+const GRAND_LO = 40 // E2 (lowest chord bass root)
+const GRAND_HI = 84 // C6 (above all but the rare highest melody note)
 function midiRange(lo, hi) { const a = []; for (let m = lo; m <= hi; m++) a.push(m); return a }
 
 // Map our synth-scale gain (melody ≈ 0.35, chord voices ≈ 0.055–0.08) to a MIDI velocity
@@ -56,10 +58,12 @@ function cacheKey(name, context) {
 async function createInstrument(name, context) {
   if (name === 'grand') {
     const { SplendidGrandPiano } = await import('smplr')
-    return new SplendidGrandPiano(context, {
-      baseUrl: SAMPLE_HOSTS.grand,
-      notesToLoad: { notes: midiRange(GRAND_LO, GRAND_HI), velocityRange: GRAND_VEL_RANGE },
-    })
+    const opts = { notesToLoad: { notes: midiRange(GRAND_LO, GRAND_HI), velocityRange: GRAND_VEL_RANGE } }
+    // Only override the sample host when we actually have one — passing baseUrl:undefined
+    // clobbers smplr's own default and breaks its URL builder. To mirror to our own host for
+    // production, set SAMPLE_HOSTS.grand (that's the single host-agnostic knob).
+    if (SAMPLE_HOSTS.grand) opts.baseUrl = SAMPLE_HOSTS.grand
+    return new SplendidGrandPiano(context, opts)
   }
   return null
 }
