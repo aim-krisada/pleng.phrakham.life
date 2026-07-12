@@ -55,10 +55,14 @@ function cacheKey(name, context) {
 }
 
 // Build the smplr instrument for a registry name (smplr loaded lazily). Only 'grand' in P1.
-async function createInstrument(name, context) {
+// onProgress(0..1) fires as the samples download so the UI can show a bar (like MP3 export).
+async function createInstrument(name, context, onProgress) {
   if (name === 'grand') {
     const { SplendidGrandPiano } = await import('smplr')
-    const opts = { notesToLoad: { notes: midiRange(GRAND_LO, GRAND_HI), velocityRange: GRAND_VEL_RANGE } }
+    const opts = {
+      notesToLoad: { notes: midiRange(GRAND_LO, GRAND_HI), velocityRange: GRAND_VEL_RANGE },
+      onLoadProgress: ({ loaded, total }) => { if (total) onProgress?.(loaded / total) },
+    }
     // Only override the sample host when we actually have one — passing baseUrl:undefined
     // clobbers smplr's own default and breaks its URL builder. To mirror to our own host for
     // production, set SAMPLE_HOSTS.grand (that's the single host-agnostic knob).
@@ -92,13 +96,13 @@ export function getReadyInstrument(name, context) {
 // Kick off loading (name, context) if not started; resolves to the ready wrapper (or null if
 // the instrument is unknown / load failed → caller stays on the synth). Idempotent: repeated
 // calls share one load. Preload with this on mount so 'grand' is usually ready by first play.
-export async function loadInstrument(name, context) {
+export async function loadInstrument(name, context, { onProgress } = {}) {
   const key = cacheKey(name, context)
   const existing = cache.get(key)
   if (existing) return existing.loading
   const e = { instrument: null, ready: false, wrapper: null, loading: null }
   cache.set(key, e)
-  e.loading = createInstrument(name, context)
+  e.loading = createInstrument(name, context, onProgress)
     .then((inst) => {
       if (!inst) { cache.delete(key); return null } // unknown name → no instrument
       e.instrument = inst

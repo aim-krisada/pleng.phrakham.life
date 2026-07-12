@@ -410,18 +410,25 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   stopFlag = { stopped: false }
   const myFlag = stopFlag
   liveTranspose = transpose // starting key offset; setTranspose() updates it live
-  // B107: choose the sound. A real instrument is used ONLY if its samples are already loaded
-  // (getReadyInstrument is synchronous). Otherwise play the synth NOW — instant, no wait — and
-  // kick off the load in the background so the NEXT play uses the real instrument. The synth is
-  // never on the critical path, so mobile / slow-net / offline / first-press never hangs.
+  // B107: choose the sound. A real instrument plays only once its samples are fully loaded
+  // (P'Aim: wait-then-play with a progress bar, like the MP3 download — NOT a synth stand-in
+  // during the wait). If it's not loaded yet, WAIT for the download here (reporting progress),
+  // then play on the real instrument. The synth is used ONLY when the load FAILS, so playback
+  // can never hard-fail. The ctx is already resumed (above) inside the user gesture, so
+  // scheduling after this await still starts audio on iOS. A pause during the wait sets the
+  // stop flag, which we honour right after the load resolves.
   let sampler = null
   if (isSampledInstrument(instrument)) {
     sampler = getReadyInstrument(instrument, ctx)
     if (!sampler) {
-      onInstrumentPending?.(true) // "loading real sound…" — playing on the synth meanwhile
-      loadInstrument(instrument, ctx).then(() => onInstrumentPending?.(false)).catch(() => onInstrumentPending?.(false))
+      onInstrumentPending?.({ loading: true, progress: 0 })
+      try {
+        sampler = await loadInstrument(instrument, ctx, { onProgress: (p) => onInstrumentPending?.({ loading: true, progress: p }) })
+      } catch { sampler = null } // load failed → fall back to the synth (no hard-fail)
+      onInstrumentPending?.({ loading: false, progress: 1 })
+      if (myFlag.stopped) return true // user cancelled (pressed pause) during the download
     } else {
-      onInstrumentPending?.(false)
+      onInstrumentPending?.({ loading: false, progress: 1 })
     }
   }
   activeSampler = sampler // so stopPlayback() can silence the sampler's voices

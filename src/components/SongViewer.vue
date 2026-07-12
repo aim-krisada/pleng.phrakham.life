@@ -60,10 +60,12 @@ const sheetMode = computed(() => (showLyric.value && !showNote.value && !showCho
 const displayKey = ref(props.song?.content?.key || 'C')
 const playing = ref(false)
 // B107: which instrument the playback sounds on. P1 = Grand piano (the default sound, per
-// P'Aim); a selectable preset arrives in P2. The real samples load on first play; until then
-// the synth plays instantly (no wait) and `instrumentLoading` shows a small hint.
+// P'Aim); a selectable preset arrives in P2. On first play the samples download while a
+// progress pill shows (like the MP3 export), THEN playback starts — the synth is only a
+// fallback if the download fails. `instrumentProgress` = 0..1 for the pill.
 const PLAY_INSTRUMENT = 'grand'
 const instrumentLoading = ref(false)
+const instrumentProgress = ref(0)
 const loop = ref(false)
 const tempo = ref(props.song?.content?.bpm || 92)
 const playingSeg = ref(null)
@@ -270,6 +272,7 @@ function stopPlay() {
   playing.value = false
   playingSeg.value = null
   playingSyl.value = null
+  instrumentLoading.value = false // hide the "loading piano" pill if we cancel mid-download
 }
 // Play the current order (selection, or the whole song) from a note index. All playback
 // paths route through here so `order` stays the single source of what plays.
@@ -284,8 +287,11 @@ async function startPlay(startIndex = 0) {
     order: order.value,
     transpose: keyTranspose(props.song.content.key, displayKey.value || props.song.content.key),
     voices: soundMode.value, // B104: melody / chords / both — remembered per browser
-    instrument: PLAY_INSTRUMENT, // B107: real Grand piano (synth fallback while it loads)
-    onInstrumentPending: (pending) => { instrumentLoading.value = pending },
+    instrument: PLAY_INSTRUMENT, // B107: real Grand piano (waits for samples, then plays)
+    onInstrumentPending: ({ loading, progress }) => {
+      instrumentLoading.value = loading
+      instrumentProgress.value = progress ?? 0
+    },
     startIndex,
     onNote: (n, idx) => {
       playingSeg.value = { li: n.li, si: n.si }
@@ -470,9 +476,13 @@ function onSeek({ li, si, syk }) {
       />
     </div>
 
-    <!-- B107: real Grand piano samples load on first play; the synth plays instantly
-         meanwhile, and this hint tells the user the fuller sound is on its way. -->
-    <div v-if="instrumentLoading" class="inst-loading" role="status">🎹 กำลังโหลดเสียงเปียโนจริง…</div>
+    <!-- B107: on first play the real Grand piano samples download (~3 MB, cached after);
+         this pill shows the progress, like the MP3 export. Playback starts once it's ready.
+         Pressing พัก during the wait cancels (the pill hides via stopPlay). -->
+    <div v-if="instrumentLoading" class="inst-loading" role="status" aria-live="polite">
+      🎹 กำลังโหลดเสียงเปียโนจริง… {{ Math.round(instrumentProgress * 100) }}%
+      <span class="inst-bar"><span class="inst-bar-fill" :style="{ width: Math.round(instrumentProgress * 100) + '%' }"></span></span>
+    </div>
 
     <!-- the sing dock — DockKey core engine, fed the ITEMS_SING descriptor list by
          <SingTransport>. Fixed at the bottom; the engine owns collapse/drag/Setting/clamp. -->
@@ -530,6 +540,25 @@ function onSeek({ li, si, syk }) {
   padding: var(--sp-1, 4px) var(--sp-3, 12px);
   font-size: 0.82rem;
   box-shadow: 0 2px 10px #0003;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2, 8px);
+  max-width: min(88vw, 340px);
+}
+.inst-bar {
+  flex: 1;
+  height: 5px;
+  min-width: 60px;
+  border-radius: 999px;
+  background: var(--border-1, #4444);
+  overflow: hidden;
+}
+.inst-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent, #22c55e);
+  transition: width 0.15s linear;
 }
 @media (max-width: 480px) {
   .inst-loading { bottom: calc(220px + env(safe-area-inset-bottom, 0px)); }
