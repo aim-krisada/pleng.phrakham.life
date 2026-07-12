@@ -11,7 +11,9 @@
 **🔄 PIVOT (P'Aim ฟังเดโมเต็มวง → จืด ไม่เท่าเดี่ยว):** **หัวใจ P2 = "เดี่ยว-จัดเต็ม สุดๆ" ต่อเครื่อง (§4B.4)** · เต็มวง คงไว้ไม่ปั้น balance/ไม่ลบ presets.js
 **🚀 LAUNCH SCOPE (P'Aim 13 ก.ค.): ขึ้น live แค่ 2 เครื่อง = Grand + Guitar nylon ก่อน · ที่เหลือ (felt/violin/cello/string/เต็มวง) tune ทีหลัง (คงบน base เสียบไม่รื้อ)**
 - 🎹 grand solo-จัดเต็ม = มีแล้วใน P2 arranger (tester PASS) · 🎸 guitar nylon solo module = ใหม่ (strum D-DU-UDU/travis PIMA/rasgueado/slide · เดโม `guitar-solo-demo.html` โหลด nylon CC จริง)
-- **✅ P'Aim ฟังกีตาร์ "พอได้" ผ่าน → จ่าย dev launch แล้ว** (`local_3fc2030f` · branch `b107-step9-instruments`): DoD = dock UI(ค้าง) + guitar nylon module (จาก `guitar-solo-demo.html`) + grand จัดเต็ม(P2 arranger) + UI 2 เครื่อง active (felt/violin/cello/string จาง "เร็วๆนี้")
+- **✅ P'Aim ฟังกีตาร์ "พอได้" ผ่าน → จ่าย dev launch** (`local_3fc2030f` · branch `b107-step9-instruments`)
+  - ✅ **Dock UI เสร็จ** (`db8e1c2`/`bc11dd0`: ปุ่มเดียว "เสียงดนตรี" `audio-lines` + popover 4 กลุ่ม + ยุบท่อน+badge · `SoundControl.vue`+`soundOptions.js` · edit-default plainest จำ `pleng.editor.*` แยก · 514 เขียว)
+  - ⏳ **ยังค้าง (launch · queue crossed):** (1) 🎸 guitar **solo-รวย** port ลายจาก `guitar-solo-demo.html` (ตอนนี้กีตาร์เล่นแค่ทำนองดิบ) (2) UI จำกัด active = เปียโน+กีตาร์ (อื่นจาง "เร็วๆนี้") → dev ทำต่อ branch เดิม
 - **gate: tester real-audio 2 เครื่อง (กีตาร์ลายรูด/เกาได้ยินจริง) + full-spec UI + offline cold-boot → 🔑 P'Aim "confirm UI" เอง + ฟัง final บนแอปจริง → deploy (LAUNCH)**
 **✅ MERGE เข้า base แล้ว (895c9cc · 505 test เขียว · build ✓ · ยังไม่ deploy):** (1) B107 P2 arranger เปียโน (tester PASS · โมดูล `src/lib/arranger/*` + UI 3 แกน บรรเลง/สงบ/ตรงโน้ต) (2) เสียง 5 เครื่อง self-host `public/samples/` (115 ไฟล์ 10.63MB · same-origin · PWA offline · binary committed โดยตั้งใจ). **PM worktree ลง npm install แล้ว (verify merge ได้เอง).**
 **▶ จ่ายแล้ว 2 สายขนาน (เต็มวง):**
