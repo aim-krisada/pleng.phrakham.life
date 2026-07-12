@@ -33,6 +33,12 @@
 
 **P1 ยังไม่รวม (= P2/P3):** MP3 ยังใช้ **synth ที่แก้แล้ว** (voice-leading+gain · ไม่ใช่เปียโนจริง — real-instrument MP3 = P3) · presets/เลือกเครื่อง + auto-arranger 3 ชั้น = **P2** · mirror ไฟล์เสียงมา host เราเอง = ก่อน production เต็ม (PM เงื่อนไข).
 
+### 📌 P2 requirement (พี่เป้า ผ่าน P'Aim · บันทึกไว้ให้ P2 dev ทำ)
+**ต้องมี preset "ธรรมดา / ตรวจโน้ต" เป็น first-class (arranger OFF) — เล่นโน้ตตรง ๆ ไม่มีลูกเล่น** ไว้ใช้ตอนทำเพลง/ตรวจโน้ต (โดยเฉพาะในหน้าแก้ไข):
+- เปียโน Grand เล่นโน้ตตามที่พิมพ์เป๊ะ · **ปิด** dynamics + embellishments + (ถ้าจำเป็น) voice-leading → ได้ยินโน้ตที่พิมพ์ตรง ๆ
+- auto-arranger 3 ชั้น (P2) **ห้ามบังคับใส่ทุก preset** — "ธรรมดา" ต้องคงไว้เสมอเป็นตัวเลือกเริ่มต้นตัวหนึ่ง
+- **P1 ครอบ need นี้ชั่วคราวแล้ว:** โหมด **"ทำนองอย่างเดียว" (soundMode='melody') + Grand = เล่นทำนองโน้ตตรง ๆ ไม่มีลูกเล่น** (melody path เล่น 1 โน้ต/โน้ตพิมพ์ · gain คงที่ · ไม่มี dynamics/embellishment) · โหมด "รวม" คอร์ดเป็น voice-led (pitch-class ตามแผ่น · แค่เลือก octave ให้ลื่น · ไม่มี dynamics/embellishment) → P2 preset "ธรรมดา" ทำให้ชัด+เลือกง่ายในหน้าแก้ไข
+
 ---
 
 ---
