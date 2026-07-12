@@ -18,6 +18,7 @@ import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle,
   ensembleMode, setEnsembleMode, leadInstrument, setLeadInstrument } from '../store.js'
 import { presetCfg } from '../lib/arranger/presets.js'
+import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
@@ -46,36 +47,13 @@ const CHORD_OPTS = [
   { value: 'hidden', label: 'ซ่อนคอร์ด' },
 ]
 const chordSystem = ref('letter')
-// ---------- sound mode (B104 "เสียงที่เล่น" menu) — what you HEAR, separate from แสดงผล ----------
-const SOUND_OPTS = [
-  { value: 'melody', label: '🎵 ทำนองอย่างเดียว', short: 'ทำนอง' },
-  { value: 'chords', label: '🎹 คอร์ดอย่างเดียว', short: 'คอร์ด' },
-  { value: 'both', label: '🎶 ทำนอง + คอร์ด', short: 'รวม' },
-]
+// ---------- the four sound axes (B104 + B107) — shared option lists (soundOptions.js SSOT) ----------
+// เสียงที่เล่น (what voices) · การบรรเลง (solo/ensemble) · เครื่องดนตรี (the 5 solo voices) ·
+// อารมณ์/สไตล์ (how it performs). Step 9 collapsed their four dock menus into ONE "เสียงดนตรี"
+// button + popover (SoundControl); the option lists are shared with the แก้เพลง editor.
 const soundDef = computed(() => SOUND_OPTS.find((o) => o.value === soundMode.value) || SOUND_OPTS[0])
-// ---------- B107 P2 · แกน 1 "การบรรเลง" (เดี่ยว/เต็มวง) + เครื่องดนตรี (lead) ----------
-// The spec's 2-axis picker (§6a). Step 9 enabled all FIVE solo instruments — each plays for real
-// (self-hosted samples) with its idiomatic module. เต็มวง (auto-filled accompaniment) is still
-// "เร็ว ๆ นี้" while SA designs the ensemble sound. The pick drives playback + persists (§6a).
-const ENSEMBLE_OPTS = [
-  { value: 'solo', label: '🎹 เดี่ยว (เครื่องเดียว)', short: 'เดี่ยว' },
-  { value: 'ensemble', label: '🎻 เต็มวง (นำวง) — เร็ว ๆ นี้', short: 'เต็มวง', disabled: true },
-]
 const ensembleDef = computed(() => ENSEMBLE_OPTS.find((o) => o.value === ensembleMode.value) || ENSEMBLE_OPTS[0])
-const INSTRUMENT_OPTS = [
-  { value: 'grand', label: '🎹 เปียโน (Grand)', short: 'เปียโน' },
-  { value: 'felt', label: '🎹 เปียโนนุ่ม (Felt)', short: 'Felt' },
-  { value: 'nylon', label: '🎸 กีตาร์ (Nylon)', short: 'กีตาร์' },
-  { value: 'violin', label: '🎻 ไวโอลิน', short: 'ไวโอลิน' },
-  { value: 'cello', label: '🎻 เชลโล', short: 'เชลโล' },
-]
 const instrumentDef = computed(() => INSTRUMENT_OPTS.find((o) => o.value === leadInstrument.value) || INSTRUMENT_OPTS[0])
-// ---------- play style / อารมณ์ (B107 P2) — HOW the piano performs, separate from เสียงที่เล่น ----------
-const STYLE_OPTS = [
-  { value: 'arrangement', label: '🎼 บรรเลง (จัดเต็ม)', short: 'บรรเลง' },
-  { value: 'calm', label: '🕊️ สงบ (นุ่ม)', short: 'สงบ' },
-  { value: 'plain', label: '📝 ตรงโน้ต (ปิดลูกเล่น)', short: 'ตรงโน้ต' },
-]
 const styleDef = computed(() => STYLE_OPTS.find((o) => o.value === playStyle.value) || STYLE_OPTS[0])
 // Map the chosen style → what playSong needs: 'plain' turns the arranger OFF (notes as printed);
 // the others hand it the matching preset recipe (§6). B107 P2.
@@ -478,19 +456,19 @@ const settingDescs = computed(() => [
   },
   {
     id: 'sound', icon: 'volume-2', label: 'เสียงที่เล่น', kind: 'menu', value: soundMode.value, badge: soundDef.value.short,
-    options: SOUND_OPTS.map((o) => ({ value: o.value, label: o.label })), onPick: (v) => setSoundMode(v),
+    options: SOUND_OPTS.map((o) => ({ value: o.value, label: o.label, short: o.short })), onPick: (v) => setSoundMode(v),
   },
   {
     id: 'ensemble', icon: 'blend', label: 'การบรรเลง', kind: 'menu', value: ensembleMode.value, badge: ensembleDef.value.short,
-    options: ENSEMBLE_OPTS.map((o) => ({ value: o.value, label: o.label, disabled: o.disabled })), onPick: (v) => setEnsembleMode(v),
+    options: ENSEMBLE_OPTS.map((o) => ({ value: o.value, label: o.label, short: o.short, disabled: o.disabled })), onPick: (v) => setEnsembleMode(v),
   },
   {
     id: 'instrument', icon: 'music', label: 'เครื่องดนตรี', kind: 'menu', value: leadInstrument.value, badge: instrumentDef.value.short,
-    options: INSTRUMENT_OPTS.map((o) => ({ value: o.value, label: o.label, disabled: o.disabled })), onPick: (v) => setLeadInstrument(v),
+    options: INSTRUMENT_OPTS.map((o) => ({ value: o.value, label: o.label, short: o.short, disabled: o.disabled })), onPick: (v) => setLeadInstrument(v),
   },
   {
     id: 'style', icon: 'sliders-horizontal', label: 'อารมณ์ / สไตล์', kind: 'menu', value: playStyle.value, badge: styleDef.value.short,
-    options: STYLE_OPTS.map((o) => ({ value: o.value, label: o.label })), onPick: (v) => setPlayStyle(v),
+    options: STYLE_OPTS.map((o) => ({ value: o.value, label: o.label, short: o.short })), onPick: (v) => setPlayStyle(v),
   },
   {
     id: 'chord', icon: 'guitar', label: 'คอร์ด', kind: 'menu', value: chordSystem.value, badge: CHORD_BADGE[chordSystem.value],

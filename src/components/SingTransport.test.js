@@ -196,22 +196,35 @@ describe('⚙ Setting page', () => {
     expect(w.find('.dk-host').attributes('style')).toContain('0.6')
   })
 
-  // B107 P2 — the 2-axis arranger picker must actually appear in the Setting page (the bug P'Aim
-  // hit: the controls were defined but never registered in ITEMS_SING, so nothing showed).
-  it('shows การบรรเลง · เครื่องดนตรี · อารมณ์ with the coming-soon options disabled', async () => {
+  // B107 step 9 — the four sound axes collapse into ONE "เสียงดนตรี" bar button (P'Aim 13 ก.ค.).
+  // Its popover holds all the axes; a coming-soon option renders disabled; picking one calls onPick.
+  it('เสียงดนตรี button opens a popover with the sound axes (disabled options greyed)', async () => {
     const onPickInstr = vi.fn()
     const settings = [
       ...base.settings,
-      { id: 'ensemble', icon: 'blend', label: 'การบรรเลง', kind: 'menu', value: 'solo', badge: 'เดี่ยว', options: [{ value: 'solo', label: 'เดี่ยว' }, { value: 'ensemble', label: 'เต็มวง — เร็ว ๆ นี้', disabled: true }], onPick: () => {} },
-      { id: 'instrument', icon: 'music', label: 'เครื่องดนตรี', kind: 'menu', value: 'grand', badge: 'เปียโน', options: [{ value: 'grand', label: 'เปียโน' }, { value: 'violin', label: 'ไวโอลิน — เร็ว ๆ นี้', disabled: true }], onPick: onPickInstr },
-      { id: 'style', icon: 'sliders-horizontal', label: 'อารมณ์', kind: 'menu', value: 'arrangement', badge: 'บรรเลง', options: [{ value: 'arrangement', label: 'บรรเลง' }, { value: 'plain', label: 'ตรงโน้ต' }], onPick: () => {} },
+      { id: 'sound', icon: 'volume-2', label: 'เสียงที่เล่น', kind: 'menu', value: 'both', badge: 'รวม', options: [{ value: 'melody', label: 'ทำนอง', short: 'ทำนอง' }, { value: 'both', label: 'รวม', short: 'รวม' }], onPick: () => {} },
+      { id: 'ensemble', icon: 'blend', label: 'การบรรเลง', kind: 'menu', value: 'solo', badge: 'เดี่ยว', options: [{ value: 'solo', label: 'เดี่ยว', short: 'เดี่ยว' }, { value: 'ensemble', label: 'เต็มวง', short: 'เต็มวง', disabled: true }], onPick: () => {} },
+      { id: 'instrument', icon: 'music', label: 'เครื่องดนตรี', kind: 'menu', value: 'grand', badge: 'เปียโน', options: [{ value: 'grand', label: 'เปียโน', short: 'เปียโน' }, { value: 'violin', label: 'ไวโอลิน', short: 'ไวโอลิน' }], onPick: onPickInstr },
+      { id: 'style', icon: 'sliders-horizontal', label: 'อารมณ์', kind: 'menu', value: 'arrangement', badge: 'บรรเลง', options: [{ value: 'arrangement', label: 'บรรเลง', short: 'บรรเลง' }, { value: 'plain', label: 'ตรงโน้ต', short: 'ตรงโน้ต' }], onPick: () => {} },
     ]
     const w = mountT({ settings })
-    await openSetting(w)
-    for (const id of ['ensemble', 'instrument', 'style']) expect(panel(w, id).exists()).toBe(true)
-    // the coming-soon instrument option renders disabled (can't be picked yet)
-    const opts = panel(w, 'instrument').findAll('option')
-    expect(opts.find((o) => o.text().includes('ไวโอลิน')).attributes('disabled')).toBeDefined()
+    // the single bar button exists and shows the current instrument as its summary
+    const trig = w.find('.sc-trig')
+    expect(trig.exists()).toBe(true)
+    expect(trig.find('.sc-sum').text()).toBe('เปียโน')
+    // opening it reveals all four axes as groups of option chips
+    expect(w.find('.sc-pop').exists()).toBe(false)
+    await trig.trigger('click')
+    await nextTick()
+    expect(w.find('.sc-pop').exists()).toBe(true)
+    expect(w.findAll('.sc-grp')).toHaveLength(4)
+    // a coming-soon option (เต็มวง) renders disabled
+    const disabled = w.findAll('.sc-opt').filter((b) => b.text() === 'เต็มวง')
+    expect(disabled[0].attributes('disabled')).toBeDefined()
+    // picking a real instrument option calls the page's onPick
+    const violin = w.findAll('.sc-opt').find((b) => b.text() === 'ไวโอลิน')
+    await violin.trigger('click')
+    expect(onPickInstr).toHaveBeenCalledWith('violin')
   })
 })
 

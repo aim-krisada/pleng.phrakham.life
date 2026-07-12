@@ -123,6 +123,25 @@ watch(leadInstrument, (v) => { try { localStorage.setItem(INSTR_KEY, v) } catch 
 export function setEnsembleMode(v) { if (ENSEMBLE_MODES.includes(v)) ensembleMode.value = v }
 export function setLeadInstrument(v) { if (READY_INSTRUMENTS.includes(v)) leadInstrument.value = v }
 
+// ---- แก้เพลง (editor) page's OWN sound state (B107 step 9 · P'Aim 13 ก.ค.) ----
+// The editor remembers its sound choices SEPARATELY from ฝึกร้อง (own localStorage keys), with a
+// PLAINEST default — Grand · เดี่ยว · ทำนองอย่างเดียว · ตรงโน้ต — so พี่เปา checks the raw printed
+// notes on load, but can open the same "เสียงดนตรี" popover to switch to a fuller sound if wanted.
+function editorSoundRef(key, allowed, dflt) {
+  const LS = `pleng.editor.${key}`
+  const r = ref((() => { try { const v = localStorage.getItem(LS); if (allowed.includes(v)) return v } catch { /* ignore */ } return dflt })())
+  watch(r, (v) => { try { localStorage.setItem(LS, v) } catch { /* ignore */ } })
+  return r
+}
+export const editorSound = editorSoundRef('sound', SOUND_MODES, 'melody')
+export const editorEnsemble = editorSoundRef('ensemble', ENSEMBLE_MODES, 'solo')
+export const editorInstrument = editorSoundRef('instrument', READY_INSTRUMENTS, 'grand')
+export const editorStyle = editorSoundRef('style', PLAY_STYLES, 'plain')
+export function setEditorSound(v) { if (SOUND_MODES.includes(v)) editorSound.value = v }
+export function setEditorEnsemble(v) { if (ENSEMBLE_MODES.includes(v)) editorEnsemble.value = v }
+export function setEditorInstrument(v) { if (READY_INSTRUMENTS.includes(v)) editorInstrument.value = v }
+export function setEditorStyle(v) { if (PLAY_STYLES.includes(v)) editorStyle.value = v }
+
 // Which shell-bar menu is open ('site' | 'file' | 'manage' | 'mode' | null). Shared so
 // the app-wide ShellBar and a page's teleported menus are one open-at-a-time system.
 export const shellMenu = ref(null)
