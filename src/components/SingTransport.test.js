@@ -195,6 +195,24 @@ describe('⚙ Setting page', () => {
     await nextTick()
     expect(w.find('.dk-host').attributes('style')).toContain('0.6')
   })
+
+  // B107 P2 — the 2-axis arranger picker must actually appear in the Setting page (the bug P'Aim
+  // hit: the controls were defined but never registered in ITEMS_SING, so nothing showed).
+  it('shows การบรรเลง · เครื่องดนตรี · อารมณ์ with the coming-soon options disabled', async () => {
+    const onPickInstr = vi.fn()
+    const settings = [
+      ...base.settings,
+      { id: 'ensemble', icon: 'blend', label: 'การบรรเลง', kind: 'menu', value: 'solo', badge: 'เดี่ยว', options: [{ value: 'solo', label: 'เดี่ยว' }, { value: 'ensemble', label: 'เต็มวง — เร็ว ๆ นี้', disabled: true }], onPick: () => {} },
+      { id: 'instrument', icon: 'music', label: 'เครื่องดนตรี', kind: 'menu', value: 'grand', badge: 'เปียโน', options: [{ value: 'grand', label: 'เปียโน' }, { value: 'violin', label: 'ไวโอลิน — เร็ว ๆ นี้', disabled: true }], onPick: onPickInstr },
+      { id: 'style', icon: 'sliders-horizontal', label: 'อารมณ์', kind: 'menu', value: 'arrangement', badge: 'บรรเลง', options: [{ value: 'arrangement', label: 'บรรเลง' }, { value: 'plain', label: 'ตรงโน้ต' }], onPick: () => {} },
+    ]
+    const w = mountT({ settings })
+    await openSetting(w)
+    for (const id of ['ensemble', 'instrument', 'style']) expect(panel(w, id).exists()).toBe(true)
+    // the coming-soon instrument option renders disabled (can't be picked yet)
+    const opts = panel(w, 'instrument').findAll('option')
+    expect(opts.find((o) => o.text().includes('ไวโอลิน')).attributes('disabled')).toBeDefined()
+  })
 })
 
 describe('Aa reader font size', () => {

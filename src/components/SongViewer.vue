@@ -15,7 +15,8 @@ import {
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
-import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle } from '../store.js'
+import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle,
+  ensembleMode, setEnsembleMode, leadInstrument, setLeadInstrument } from '../store.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
 import SongSheet from './SongSheet.vue'
@@ -52,9 +53,26 @@ const SOUND_OPTS = [
   { value: 'both', label: '🎶 ทำนอง + คอร์ด', short: 'รวม' },
 ]
 const soundDef = computed(() => SOUND_OPTS.find((o) => o.value === soundMode.value) || SOUND_OPTS[0])
-// ---------- play style (B107 P2 "สไตล์การเล่น") — HOW the piano performs, separate from เสียงที่เล่น ----------
+// ---------- B107 P2 · แกน 1 "การบรรเลง" (เดี่ยว/เต็มวง) + เครื่องดนตรี (lead) ----------
+// The spec's 2-axis picker (§6a). In P2 only the grand piano has samples, so เต็มวง and every
+// non-piano instrument show as "เร็ว ๆ นี้" (disabled) — the direction is visible, the piano path
+// works today. Playback stays solo grand regardless of these; they drive the UI + remember intent.
+const ENSEMBLE_OPTS = [
+  { value: 'solo', label: '🎹 เดี่ยว (เครื่องเดียว)', short: 'เดี่ยว' },
+  { value: 'ensemble', label: '🎻 เต็มวง (นำวง) — เร็ว ๆ นี้', short: 'เต็มวง', disabled: true },
+]
+const ensembleDef = computed(() => ENSEMBLE_OPTS.find((o) => o.value === ensembleMode.value) || ENSEMBLE_OPTS[0])
+const INSTRUMENT_OPTS = [
+  { value: 'grand', label: '🎹 เปียโน (Grand)', short: 'เปียโน' },
+  { value: 'felt', label: '🎹 เปียโนนุ่ม (Felt) — เร็ว ๆ นี้', short: 'Felt', disabled: true },
+  { value: 'nylon', label: '🎸 กีตาร์ (Nylon) — เร็ว ๆ นี้', short: 'กีตาร์', disabled: true },
+  { value: 'violin', label: '🎻 ไวโอลิน — เร็ว ๆ นี้', short: 'ไวโอลิน', disabled: true },
+  { value: 'cello', label: '🎻 เชลโล/สตริง — เร็ว ๆ นี้', short: 'เชลโล', disabled: true },
+]
+const instrumentDef = computed(() => INSTRUMENT_OPTS.find((o) => o.value === leadInstrument.value) || INSTRUMENT_OPTS[0])
+// ---------- play style / อารมณ์ (B107 P2) — HOW the piano performs, separate from เสียงที่เล่น ----------
 const STYLE_OPTS = [
-  { value: 'arrangement', label: '🎹 บรรเลง (จัดเต็ม)', short: 'บรรเลง' },
+  { value: 'arrangement', label: '🎼 บรรเลง (จัดเต็ม)', short: 'บรรเลง' },
   { value: 'calm', label: '🕊️ สงบ (นุ่ม)', short: 'สงบ' },
   { value: 'plain', label: '📝 ตรงโน้ต (ปิดลูกเล่น)', short: 'ตรงโน้ต' },
 ]
@@ -458,7 +476,15 @@ const settingDescs = computed(() => [
     options: SOUND_OPTS.map((o) => ({ value: o.value, label: o.label })), onPick: (v) => setSoundMode(v),
   },
   {
-    id: 'style', icon: 'sliders-horizontal', label: 'สไตล์การเล่น', kind: 'menu', value: playStyle.value, badge: styleDef.value.short,
+    id: 'ensemble', icon: 'blend', label: 'การบรรเลง', kind: 'menu', value: ensembleMode.value, badge: ensembleDef.value.short,
+    options: ENSEMBLE_OPTS.map((o) => ({ value: o.value, label: o.label, disabled: o.disabled })), onPick: (v) => setEnsembleMode(v),
+  },
+  {
+    id: 'instrument', icon: 'music', label: 'เครื่องดนตรี', kind: 'menu', value: leadInstrument.value, badge: instrumentDef.value.short,
+    options: INSTRUMENT_OPTS.map((o) => ({ value: o.value, label: o.label, disabled: o.disabled })), onPick: (v) => setLeadInstrument(v),
+  },
+  {
+    id: 'style', icon: 'sliders-horizontal', label: 'อารมณ์ / สไตล์', kind: 'menu', value: playStyle.value, badge: styleDef.value.short,
     options: STYLE_OPTS.map((o) => ({ value: o.value, label: o.label })), onPick: (v) => setPlayStyle(v),
   },
   {

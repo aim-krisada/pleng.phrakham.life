@@ -136,6 +136,10 @@ const items = computed(() => {
     { id: 'speed', kind: 'menu', name: 'ความเร็ว', icon: 'gauge', default: 'inSetting', pinnable: true, control: menuControl('tempo') },
     { id: 'layer', kind: 'menu', name: 'แสดงผล', icon: 'layers', default: 'inSetting', pinnable: true, control: menuControl('display') },
     { id: 'sound', kind: 'menu', name: 'เสียงที่เล่น', icon: 'volume-2', default: 'inSetting', pinnable: true, control: menuControl('sound') },
+    // B107 P2 — the 2-axis arranger picker: การบรรเลง (เดี่ยว/เต็มวง) · เครื่องดนตรี (lead) · อารมณ์/สไตล์.
+    { id: 'ensemble', kind: 'menu', name: 'การบรรเลง', icon: 'blend', default: 'inSetting', pinnable: true, control: menuControl('ensemble') },
+    { id: 'instrument', kind: 'menu', name: 'เครื่องดนตรี', icon: 'music', default: 'inSetting', pinnable: true, control: menuControl('instrument') },
+    { id: 'style', kind: 'menu', name: 'อารมณ์ / สไตล์', icon: 'sliders-horizontal', default: 'inSetting', pinnable: true, control: menuControl('style') },
     { id: 'alpha', kind: 'slider', name: 'โปร่งใส', icon: 'blend', default: 'inSetting', pinnable: true, control: { min: 40, max: 100, value: Math.round(alpha.value * 100), onInput: (v) => (alpha.value = v / 100) } },
   ]
   // drop menu items whose control the page didn't supply (keeps the engine fed with valid data)

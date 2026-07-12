@@ -373,6 +373,7 @@ function cellFlex() { return '0 0 auto' }
                 class="dk-ddrow"
                 role="menuitemradio"
                 :aria-checked="o.value === it.control.value"
+                :disabled="o.disabled"
                 @click="pickMenu(it, o.value)"
               ><span class="dk-ddck">{{ o.value === it.control.value ? '●' : '' }}</span>{{ o.label }}</button>
             </div>
@@ -407,7 +408,7 @@ function cellFlex() { return '0 0 auto' }
               :value="it.control?.value"
               :aria-label="it.name"
               @change="it.control?.onPick?.($event.target.value)"
-            ><option v-for="o in it.control.options" :key="o.value" :value="o.value">{{ o.label }}</option></select>
+            ><option v-for="o in it.control.options" :key="o.value" :value="o.value" :disabled="o.disabled">{{ o.label }}</option></select>
             <button
               v-else-if="it.kind === 'toggle'"
               class="dk-switch"
@@ -562,8 +563,9 @@ function cellFlex() { return '0 0 auto' }
   display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px; border: 0; background: transparent;
   border-radius: 8px; cursor: pointer; text-align: left; color: var(--ink); font: inherit; font-size: 13px; white-space: nowrap; min-height: 0;
 }
-@media (hover: hover) { .dk-ddrow:hover { background: var(--cream); } }
+@media (hover: hover) { .dk-ddrow:not(:disabled):hover { background: var(--cream); } }
 .dk-ddrow[aria-checked='true'] { color: var(--brand); font-weight: 700; }
+.dk-ddrow:disabled { opacity: 0.42; cursor: default; }
 .dk-ddck { flex: 0 0 14px; text-align: center; color: var(--brand); }
 
 /* ⚙ Setting page — fits content, no scroll, even 8px rhythm (§A / B10-B12) */

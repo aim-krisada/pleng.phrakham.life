@@ -99,6 +99,31 @@ watch(playStyle, (v) => {
 })
 export function setPlayStyle(v) { if (PLAY_STYLES.includes(v)) playStyle.value = v }
 
+// ---- ensemble mode + lead instrument (B107 P2 · แกน 1 "เสียง") ----
+// The spec's axis 1: เดี่ยว (one instrument the whole song) vs เต็มวง/นำวง (a lead instrument +
+// auto-filled accompaniment). In P2 only the piano has samples, so 'ensemble' and every non-piano
+// instrument are shown as "เร็ว ๆ นี้" (disabled) — the choices are visible so the direction is
+// clear, and the picks persist for when the samples land (§6a localStorage). Playback in P2 is
+// always solo grand; these refs just drive the UI + remember the user's intent.
+const ENSEMBLE_KEY = 'pleng.ensembleMode'
+const ENSEMBLE_MODES = ['solo', 'ensemble']
+export const ensembleMode = ref((() => {
+  try { const v = localStorage.getItem(ENSEMBLE_KEY); if (ENSEMBLE_MODES.includes(v)) return v } catch { /* ignore */ }
+  return 'solo'
+})())
+watch(ensembleMode, (v) => { try { localStorage.setItem(ENSEMBLE_KEY, v) } catch { /* ignore */ } })
+// Instruments that actually play in P2 (samples present). Only 'grand' for now; the rest are
+// listed in the UI as coming-soon so the picker shows the full 5-voice plan (§5).
+export const READY_INSTRUMENTS = ['grand']
+const INSTR_KEY = 'pleng.leadInstrument'
+export const leadInstrument = ref((() => {
+  try { const v = localStorage.getItem(INSTR_KEY); if (READY_INSTRUMENTS.includes(v)) return v } catch { /* ignore */ }
+  return 'grand'
+})())
+watch(leadInstrument, (v) => { try { localStorage.setItem(INSTR_KEY, v) } catch { /* ignore */ } })
+export function setEnsembleMode(v) { if (ENSEMBLE_MODES.includes(v)) ensembleMode.value = v }
+export function setLeadInstrument(v) { if (READY_INSTRUMENTS.includes(v)) leadInstrument.value = v }
+
 // Which shell-bar menu is open ('site' | 'file' | 'manage' | 'mode' | null). Shared so
 // the app-wide ShellBar and a page's teleported menus are one open-at-a-time system.
 export const shellMenu = ref(null)
