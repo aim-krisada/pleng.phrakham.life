@@ -88,16 +88,24 @@ describe('B092 — bar move/copy/delete surfaced from the ⋯ menu', () => {
     expect(w.findAll('.seg-strip').length).toBe(2)
   })
 
-  it('the ⋯ menu keeps only the checkboxes (no move/copy/delete buttons)', async () => {
+  it('responsive-split: move (←→) stays surfaced; copy/delete also live in ⋯ (phone-only via CSS) alongside the checkboxes', async () => {
     const w = mountEd()
     await nextTick()
+    // surfaced copy/delete carry .bar-act-wide (CSS-hidden on phones); move buttons do NOT
+    expect(byAria(w, 'ทำสำเนาห้องนี้').every((b) => b.classes().includes('bar-act-wide'))).toBe(true)
+    expect(byAria(w, 'ลบห้องนี้').every((b) => b.classes().includes('bar-act-wide'))).toBe(true)
+    expect(byAria(w, 'ย้ายห้องไปทางซ้าย').some((b) => b.classes().includes('bar-act-wide'))).toBe(false)
+
     await w.findAll('button[aria-label^="เครื่องมือห้องนี้"]')[0].trigger('click')
     await nextTick()
     const menu = w.find('.ed-bar-menu')
     expect(menu.exists()).toBe(true)
-    // the row buttons are gone; what remains are checkbox labels + the volta select
-    expect(menu.findAll('button').length).toBe(0)
+    // the ⋯ holds the phone copy/delete row (.bar-menu-narrow) + the checkboxes; NO move buttons
+    const narrow = menu.find('.bar-menu-narrow')
+    expect(narrow.exists()).toBe(true)
+    expect(narrow.findAll('button').length).toBe(2) // สำเนา + ลบ
     expect(menu.text()).toContain('ห้องต่อกัน')
     expect(menu.findAll('input[type="checkbox"]').length).toBeGreaterThanOrEqual(3)
+    expect(byAria(w, 'ย้ายห้องไปทางซ้าย').every((b) => !b.element.closest('.ed-bar-menu'))).toBe(true)
   })
 })
