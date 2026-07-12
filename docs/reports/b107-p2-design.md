@@ -39,6 +39,13 @@ P'Aim สั่ง (12 ก.ค.) "รวมทุกเทคนิคที่�
 - **2 default UI (P'Aim เคาะแล้ว):** ลูกเล่น toggle (แก้ไข=ธรรมดา/เล่น=มีลูกเล่น) · เครื่องยังไม่มี sample = ปุ่มจาง "เร็ว ๆ นี้".
 - **P2 = เปียโนก่อน** (เปียโนสงบ=felt + เปียโนบรรเลง=arp buildable เลย) · อีก 3 preset slot ทีหลังไม่ต้องรื้อ (§12).
 
+## รอบ 10 — 🆕 เต็มวงเข้า launch ด้วย (3 โหมด · P'Aim เคาะ 13 ก.ค.)
+- **P'Aim ฟัง `ensemble-rules-demo.html` (A/B กฎ 3 ชั้น):** "ดีขึ้น ไม่จืด แต่น่าจะดีกว่านี้ได้ · **ยอมให้ขึ้น full ได้ เป็น 3 อย่าง piano/guitar/รวม · แต่ต้อง tune อีกเยอะ**".
+- **Launch scope = 3 โหมด:** เปียโนเดี่ยว + กีตาร์เดี่ยว + **เต็มวง(รวม)** · default = เต็มวง (เพราะสุด).
+- **เต็มวงใช้ "กฎ 3 Sonic Layers" (§6b.2)** แทนเวอร์ชันจืดเดิม: per-role reverb หน้า/หลัง + section density (verse/chorus) + role-prominence + arp motion (ไม่ pad นิ่ง). reference = `ensemble-rules-demo.html`.
+- **ต้อง tune SA↔P'Aim ต่ออีกเยอะ** ก่อน final เต็มวง (ทิศถูกแล้ว).
+- **นัย:** violin/cello/string sample ต้องพร้อม launch (เป็น role ในวง) · แต่ "เดี่ยว" ของ felt/violin/cello = ยังหลัง launch.
+
 ## รอบ 9 — 🎸 กีตาร์ผ่าน (P'Aim เคาะ 13 ก.ค.) · ค่าพารามิเตอร์ล็อกให้ dev
 - **P'Aim ฟังกีตาร์ (ไฟล์ไนลอนจริง + รูด/เกา/rasgueado/slide) → OK · แจ้ง PM เอง.** เดี่ยว-จัดเต็มกีตาร์ผ่าน creative gate.
 - **ล็อกค่าพารามิเตอร์กีตาร์ลงสเปก (§Launch scope)** = SSOT ให้ dev: strum D-DU-UDU (down 26ms/up 20ms rake · gain 0.30/0.18) · travis (thumb+i-m-a) · rasgueado (4-flick) · slide-in grace · default = strum. dev อ่าน + เดโม `guitar-solo-demo.html` เป็น reference.

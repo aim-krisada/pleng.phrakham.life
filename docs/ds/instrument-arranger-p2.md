@@ -303,8 +303,11 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 
 **ผลต่อสถาปัตย์:** เพิ่มกีตาร์/bowed/ออร์แกน/ฟลูต ภายหลัง = เขียน `InstrumentModule` 1 ตัว (voicing + patterns + feel + sample) → เสียบเข้า registry. **แกน core (harmony/dynamics/humanize-vel) + PerfEvent + scheduler + presets ไม่แตะ.** = plug-in.
 
-### 🚀 Launch scope (P'Aim เคาะ 13 ก.ค.): ขึ้น live แค่ 2 เครื่อง — **Grand Piano + Guitar (nylon)**
-เดี่ยว-จัดเต็มทั้งคู่. **go live ได้เลยด้วย 2 ตัวนี้** · เครื่องที่เหลือ (**felt · violin · cello · string** + **เต็มวง**) = **หลัง launch** (ยัง tune อีกเยอะ · architecture/sample/recipe คงไว้ครบ ไม่ต้องรื้อ · เสียบเพิ่มทีหลัง). **✅ กีตาร์ P'Aim ฟัง+เคาะผ่านแล้ว (13 ก.ค.)** · เปียโน solo = พิสูจน์แล้ว (`humanize-timbre-demo.html`).
+### 🚀 Launch scope (P'Aim เคาะ 13 ก.ค. · อัปเดต): ขึ้น live **3 โหมด — เปียโนเดี่ยว + กีตาร์เดี่ยว + เต็มวง(รวม)**
+- **✅ เปียโน solo** (พิสูจน์แล้ว `humanize-timbre-demo.html`) · **✅ กีตาร์ solo** (P'Aim เคาะ 13 ก.ค. · nylon จริง · param ด้านล่าง)
+- **🆕 เต็มวง (รวม) = เข้า launch ด้วย** (P'Aim: "ยอมให้ขึ้น full ได้ · แต่ต้อง tune อีกเยอะ") — **ใช้ "กฎ 3 ชั้น" (§6b.2)** ที่ P'Aim ฟังเดโม `ensemble-rules-demo.html` แล้วเคาะ "ดีขึ้น ไม่จืด แต่น่าจะดีกว่านี้ได้" → **ต้องมีรอบ tune SA↔P'Aim ต่อ** ก่อน final (ไม่ใช่เวอร์ชันจืดเดิม).
+- เครื่องที่เหลือ (**felt · violin · cello · string** เป็น "เดี่ยว" แยก) = หลัง launch · แต่ **sample พวกนี้ถูกใช้ในเต็มวงแล้ว** (violin/cello/string = role ในวง) จึงต้องพร้อมสำหรับ launch.
+- **default:** เปิดแอปครั้งแรก = **เต็มวง (เพราะสุด)** · เปียโนเดี่ยว/กีตาร์เดี่ยว = ตัวเลือก · โหมดฝึก opt-in · จำ localStorage (§6a).
 
 **🎸 Guitar module — ค่าพารามิเตอร์ที่ P'Aim เคาะ (จากเดโม `guitar-solo-demo.html` · dev implement ตามนี้ = SSOT):**
 - **sample:** nylon จาก `public/samples/CC0/nylon` (filename = MIDI pitch · bakedMakeup 0 · ไม่ loop 2.4s → ปล่อย ring ธรรมชาติ ไม่ต้อง re-trigger สำหรับ pluck) · voicing ในช่วง 31–84.
@@ -455,14 +458,14 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 4. **level:** CC0 solo strings อัดเบากว่า GM/Grand ~10–13dB (research เบค makeup +10dB เชลโล/+9dB ไวโอลิน ในไฟล์แล้ว) · ในมิกซ์เต็มวง **GM pad ดังกว่าโดยธรรมชาติ → ดันไวโอลิน/พระเอกให้อยู่เหนือ pad + เบสเชลโลแยกชัด** (balance ข้างบนเป็นจุดเริ่ม · วัด 3-role §7c ยืนยันทำนองนำ).
 5. **สูตร layer กันโคลน (low→high):** เบส เชลโล/pedal grand (<C3) → กลาง ไนลอน arp/เปียโน (C3–C4) → pad ค้าง GM string ensemble (คลุม) → ทำนองบนสุด ไวโอลิน (>C4).
 
-#### 6b.2 — ★ กฎแก้ "เต็มวงจืด" (banked · ที่ปรึกษาดนตรี · ใช้ตอนกลับมาปั้นเต็มวงหลัง launch)
-เดโมเต็มวงจืดเพราะ 2 พลาด (comp เป็น pad นิ่งแทน arp · limiter กด dynamics) — แก้แล้วในเดโม. แต่เพื่อทำเต็มวง "เพราะเป็นสูตร" ในอนาคต ที่ปรึกษาให้ **3 กฎเหล็ก (3 Sonic Layers)** — บางส่วนสเปกมีแล้ว (✓) ที่เหลือ = เพิ่มตอนปั้นเต็มวง:
+#### 6b.2 — ★ กฎ "3 Sonic Layers" = วิธีทำเต็มวงให้เพราะ (**launch scope · P'Aim เคาะทิศแล้ว**)
+**สถานะ:** เต็มวงเข้า launch (P'Aim ยอมขึ้น full) · เวอร์ชันจืดเดิม (comp pad นิ่ง + limiter กด dynamics) = **ทิ้ง** · ใช้ **3 กฎนี้แทน** — P'Aim ฟังเดโม `ensemble-rules-demo.html` (A/B กฎเปิด/ปิด) แล้วเคาะ **"ดีขึ้น ไม่จืด แต่น่าจะดีกว่านี้ได้"** → ทิศถูก · **ต้อง tune SA↔P'Aim ต่ออีกเยอะ** ก่อน final. dev implement 3 กฎนี้เข้า scheduler multi-role (บางส่วนมีแล้ว ✓):
 1. **Guide layer (ทำนอง 1 ชิ้นเดียว):** ล็อกให้มี lead เล่นทำนอง **แค่เครื่องเดียว** · เครื่องอื่น**ห้ามเล่นโน้ตทำนองเดียวกัน** (กันชนย่าน/จืด) · lead ใส่ **swell ในโน้ตยาว + rubato ปลายวรรค** (✓ dynamics มี).
 2. **Motion layer (ชีพจร):** เปียโน/กีตาร์ = **arpeggio เดินไลน์** (ไม่ตอกคอร์ดก้อนนิ่งพร้อมกัน) → โปร่ง มีที่ให้ทำนองหายใจ (✓ pattern arp มี · **บทเรียน: comp ต้อง movement ไม่ใช่ pad static**).
 3. **Foundation layer (โอบอุ้ม):** เชลโล/string pad = voice-led ขยับน้อย · **gain ~−9 dB ใต้ทำนอง** + **reverb ผลักไป"ด้านหลัง"** (✓ voice-leading/balance มี · **เพิ่ม: per-role reverb depth — เปียโน/กีตาร์ dry อยู่หน้า · สาย wet อยู่หลัง** = มิติ).
 - **★ Dynamic role-prominence (เพิ่ม):** ไม่ให้ทุกเครื่องเด่นเท่ากันตลอด — เมื่อ lead เด่น เครื่องอื่น **ลดบทบาท** (เปียโน→คอร์ดห่าง sustain · กีตาร์→arp เบา) เปิดที่ให้ lead (call-and-response ไม่แย่งซีน).
 - **★ Section arrangement density (เพิ่ม · เหนือ section-gain เดิม):** **เพิ่ม/ลดจำนวนเครื่องตามท่อน** — verse = felt+กีตาร์เบา · chorus = ไวโอลิน+string เอ่อล้นเข้ามา (ไม่ใช่เปิดครบทุกเครื่องตั้งแต่โน้ตแรก). → ลบความจืด กินใจ.
-> ทั้งหมด = future (หลัง launch grand+guitar) · เก็บไว้ให้ dev เขียนตอนกลับมาปั้นเต็มวง · รากฐาน = ทำ solo-จัดเต็มแต่ละเครื่องให้เพราะสุดก่อน (เต็มวง = เอา solo ที่ดีมารวม).
+> ทั้งหมด = **launch scope** (เต็มวงเข้ารอบนี้ด้วย) · reference = `ensemble-rules-demo.html` (A/B พิสูจน์ว่ากฎช่วย) · ยังต้อง tune SA↔P'Aim อีกเยอะ · per-role reverb depth (หน้า/หลัง) + section density (verse/chorus) + role-prominence + arp motion = ค่าเริ่มในเดโม dev พอร์ตเข้า scheduler แล้วปั้นต่อกับ P'Aim.
 
 ### 6a′. โครง config (orchestration recipe · role-based · scale ไป auto-instrumentation ได้)
 
