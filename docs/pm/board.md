@@ -9,7 +9,10 @@
 ## ▶ RESUME (pm21 · 12 ก.ค. ค่ำ · B107 P2 → เต็มวง)
 **สโคปเปลี่ยน (P'Aim ค่ำ 12 ก.ค.): ไม่ deploy เปียโนอย่างเดียว — รอครบ 5 เครื่อง + เต็มวง (เลือกพระเอกได้) แล้วขึ้น live ทีเดียว.** เต็มวง = Lead-driven Curated Orchestration (§6b · เลือกเครื่องนำ → ระบบเติมคลอเพราะๆ ให้ · ไม่ให้จิ้มผสมเอง).
 **✅ MERGE เข้า base แล้ว (895c9cc · 505 test เขียว · build ✓ · ยังไม่ deploy):** (1) B107 P2 arranger เปียโน (tester PASS · โมดูล `src/lib/arranger/*` + UI 3 แกน บรรเลง/สงบ/ตรงโน้ต) (2) เสียง 5 เครื่อง self-host `public/samples/` (115 ไฟล์ 10.63MB · same-origin · PWA offline · binary committed โดยตั้งใจ). **PM worktree ลง npm install แล้ว (verify merge ได้เอง).**
-**▶ กำลังจ่าย (เต็มวง):** dev step 9 (เสียบ 5 เครื่อง เดี่ยว + เปิด UI) · SA ออกแบบ+เดโมเสียงเต็มวง (P'Aim↔SA) → tester เทียบ spec §6/§7 เต็ม (memory `feedback_tester_gate_full_spec`) → P'Aim ฟัง final → deploy
+**▶ จ่ายแล้ว 2 สายขนาน (เต็มวง):**
+- **dev step 9** (`task_830ec8b0` · branch `b107-step9-instruments` · brief `brief-b107-step9-dev.md`) = เสียบ 5 เครื่อง เล่นเดี่ยว + เปิด UI + ย้าย Grand มา self-host + PWA offline precache · verify real audio + offline
+- **SA เต็มวง** (re-engage `local_769b8371`) = ทำ recipe lead-driven §6b รูปธรรม (เปียโน/ไวโอลิน/กีตาร์นำ) + เดโมให้ P'Aim ฟัง+เลือก+ปั้น → เคาะ → ping PM → PM จ่าย dev wire เต็มวง
+- gate: tester เทียบ spec §6/§7 **เต็มทุกข้อ** (memory `feedback_tester_gate_full_spec`) → P'Aim ฟัง final → PM deploy ทีเดียว
 **คู่ขนาน:** review อนุชน 0/122 (งานคน) · B102 รับข้อ4 mobile · B103 (ถือ merge)
 
 ## ▶ RESUME เก่า (pm21 online · 12 ก.ค. เย็น)
