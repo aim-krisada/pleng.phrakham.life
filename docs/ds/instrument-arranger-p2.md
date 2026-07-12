@@ -295,7 +295,7 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 **guard voicing กีตาร์ (AC):** ทุก voicing = รูปที่กดได้จริง (สาย ≤ 6, ช่วงมือ ≤ ~4 เฟร็ต, ไม่มีโน้ตซ้ำสายเดียวกัน) · ราก = สายเบสที่ถูก (E/A/D string) · **ไม่ยืม wide-voicing ของเปียโน**. strum = stagger ทิศเดียว (ไม่ใช่ spread สุ่มสองข้างแบบเปียโน).
 
 **guard voicing ไวโอลิน/bowed เดี่ยว (AC · ที่ปรึกษา):** ไวโอลินเล่นคอร์ดหนา 3–4 เสียงพร้อมกัน**ไม่ได้** → โมดูล bowed เมื่อเล่น role คอร์ด/เดี่ยว **ลด voicing เหลือ double-stop (2 โน้ต) หรือคู่ 3/6 ที่จำเป็น** (mono + monophonic embellishment สำหรับทำนอง · ลากยาวมีอารมณ์). เชลโล = role เบส (เสียงเดียวย่านต่ำ). **ห้ามส่ง block 4 เสียงให้ bowed.**
-**guard bowed "ไม่ loop" (AC · จาก sample research):** solo CC0 เชลโล/ไวโอลิน **ไม่ loop** → โน้ตค้างยาว decay หมดหาง → (ก) **pattern 'pedal' ของ bowed = re-attack (re-bow) ต่อ bar** ไม่ใช่ค้างยาวโน้ตเดียว (ต่างจาก keyboard pedal) (ข) **pad ค้างจริง = ห้ามใช้ solo bowed → ใช้ GM string_ensemble เท่านั้น** (`ensemble-piano` comp=strpad) · bowed เหมาะเส้นทำนอง/ประโยคสั้น. จัด voicing ในช่วง sample จริง (เชลโล 24–72 · ไวโอลิน 55–96 · §6b.1) ไม่งั้นขอบ pitch-shift เพี้ยน.
+**guard "ไม่ loop" ทุกเครื่อง (AC · จาก sample research · one-shot buffer):** เพดานค้าง = ความยาว sample (ไวโอลิน 14.1s · เชลโล 4.3s · grand 4.2s · GM string 3.1s · ไนลอน 2.4s) → (ก) **bowed 'pedal' = re-bow (re-attack) ต่อ ~3 บีต** ไม่ค้างยาวโน้ตเดียว (ข) **pad ค้างจริง = re-trigger/overlap (crossfade) ทุกเครื่อง** — แม้ GM string_ensemble ก็ตายที่ 3.1s (ค) **ไนลอน = arp/fingerpick เท่านั้น** (decay 2.4s · ห้าม pad ค้าง). จัด voicing ในช่วง sample จริง (เชลโล 24–72 · ไวโอลิน 55–96 · §6b.1) ไม่งั้นขอบ pitch-shift เพี้ยน. **บทเรียนเดโม:** comp เป็น pad static = จืด/ไม่มีลูกเล่น → **comp ควรเป็น arp (movement) + pad เป็นชั้นอุ่นเบา ๆ ใต้** (P'Aim: เต็มวงต้องมีลูกเล่น+หนักเบา เท่าเดี่ยว-จัดเต็ม ไม่ใช่จืดกว่า).
 
 **★ โหมดเดี่ยว ≠ โน้ตทื่อ (ที่ปรึกษายืนยัน):** เลือกเครื่องเดี่ยว + "ลูกเล่นเปิด" → รัน arranger ด้วย **เทคนิคขั้นสูงของเครื่องนั้น** (เปียโนเดี่ยว = มือขวาทำนอง + มือซ้าย arp/broken + pedal bass + sparkle · กีตาร์เดี่ยว = fingerpick + harp roll · ไวโอลินเดี่ยว = mono embellishment + double-stop). "ลูกเล่นปิด" (§6a) = โน้ตตรงเท่านั้น. → module.patterns ต้องมีทั้ง "solo-rich" และ "plain" ต่อเครื่อง.
 
@@ -396,9 +396,10 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 'ensemble-piano': {  // 🎹 เปียโนนำ = default เต็มวง (P'Aim: default เพราะสุด)
   label:'เต็มวงนมัสการ', mood:'เปียโนนำ · อุ่น เต็ม', lead:'grand',
   roles:[ {role:'melody', inst:'grand',  pattern:null,        register:[55,84]},
-          {role:'comp',   inst:'strpad', pattern:'pad',       register:[52,72]},   // สตริงแพด ลากยาว swell
-          {role:'bass',   inst:'cello',  pattern:'pedal',     register:[36,52]} ],
-  cfg:{ reverb:'church', bpm:72, pan:true, dynamics:{accent:true,contour:true,rubato:true,section:true} } },
+          {role:'comp',   inst:'grand',  pattern:'arpeggio',  register:[48,67]},   // ★ มือซ้ายไล่คอร์ด = ลูกเล่น (ไม่ใช่ pad นิ่ง)
+          {role:'pad',    inst:'strpad', pattern:'pad-retrig',register:[52,72]},   // สตริงแพดอุ่น ใต้ (soft · re-trigger ≤3.1s)
+          {role:'bass',   inst:'cello',  pattern:'pedal',     register:[36,52]} ],  // re-bow ~3 beat
+  cfg:{ reverb:'church', bpm:72, pan:true, embellish:['sparkle'], dynamics:{accent:true,contour:true,rubato:true,section:true} } },
 'ensemble-violin': { // 🎻 ไวโอลินนำ
   label:'คลาสสิก', mood:'ไวโอลินนำ · สง่า', lead:'violin',
   roles:[ {role:'melody', inst:'violin', pattern:null,        register:[55,88]},   // mono + double-stop (bowed module §4B)
@@ -419,7 +420,7 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 
 **⚠️ ข้อจำกัด sample จริง (จาก research session · `public/samples/manifest.json` · dev ต้องทำตามไม่งั้นเพี้ยน/เละ):**
 1. **ช่วง sample จริง — จัด voicing ในช่วงนี้ (นอกช่วง smplr pitch-shift ขอบเพี้ยน):** เชลโล MIDI **24–72 (C1–C5)** เก่งย่านต่ำ-กลาง → **เบส/ล่าง < ~C4** · ไวโอลิน **55–96 (G3–C7)** → **ทำนอง/เดสแคนต์ > ~C4** · ไนลอน **G1–C6** → arp/fingerpick กลาง **C3–C5** · string ensemble (GM) + grand/felt = เต็มช่วง.
-2. **pad ลากยาว = ใช้ GM `string_ensemble` เท่านั้น** — solo CC0 (เชลโล/ไวโอลิน) **ไม่ loop** → โน้ตค้างยาว decay หมดหาง. ดังนั้น **`ensemble-piano` comp='pad' → strpad (GM) ถูกแล้ว** · แต่ **`bass:'pedal'` บนเชลโล = ต้อง re-bow (ยิงซ้ำต้นห้อง/ต่อคอร์ด) ไม่ใช่โน้ตเดียวค้างยาว** (ไม่งั้นเบสหาย) → **โมดูล bowed: pattern 'pedal' = re-attack ต่อ bar** (ต่างจาก keyboard pedal ที่ค้างได้).
+2. **★ ไม่มีเครื่องไหน loop เลย (ทั้ง CC0 + GM = one-shot buffer · วัดด้วย ffprobe):** "เพดานเสียงค้าง" = ความยาว sample เอง/โน้ต — ไวโอลิน **14.1s** (ยาวสุด · ค้างได้จริง) · เชลโล **4.3s** · Grand **4.2s** · GM string_ensemble **3.1s** · GM steel 3.1s · ไนลอน **2.4s** (decay สั้น · ดีด/arp เท่านั้น). → **คอร์ดค้างยาว (pad จริง) = ต้อง re-trigger/overlap (crossfade) โน้ตซ้อน ทุกเครื่อง** — พึ่งโน้ตเดียวค้างยาวไม่ได้แม้แต่ GM string_ensemble (ตายที่ 3.1s). **bass เชลโล 'pedal' = re-bow (ยิงซ้ำ) ต่อ ~3 บีต** ไม่งั้นเบสหาย. **ไนลอน = arp/fingerpick เท่านั้น** (ห้าม pad). manifest ต่อเครื่อง (`durationSec`/`loops:false`) ใน `public/samples/manifest.json`.
 3. **โซนทับ G3–C5:** เชลโลบนสุดเจอไวโอลินล่างสุด → **แยก register เด็ดขาด** (ไวโอลิน=ทำนองบน >C4 · เชลโล=เบส <C3–C4) กันเป็นโคลน — register ในตาราง §6b.1 คุมไว้แล้ว (cello[36–52] · violin[55–88] ไม่ทับ).
 4. **level:** CC0 solo strings อัดเบากว่า GM/Grand ~10–13dB (research เบค makeup +10dB เชลโล/+9dB ไวโอลิน ในไฟล์แล้ว) · ในมิกซ์เต็มวง **GM pad ดังกว่าโดยธรรมชาติ → ดันไวโอลิน/พระเอกให้อยู่เหนือ pad + เบสเชลโลแยกชัด** (balance ข้างบนเป็นจุดเริ่ม · วัด 3-role §7c ยืนยันทำนองนำ).
 5. **สูตร layer กันโคลน (low→high):** เบส เชลโล/pedal grand (<C3) → กลาง ไนลอน arp/เปียโน (C3–C4) → pad ค้าง GM string ensemble (คลุม) → ทำนองบนสุด ไวโอลิน (>C4).
