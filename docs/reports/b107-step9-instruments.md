@@ -64,6 +64,18 @@
 
 ---
 
+## Dock UI — ปุ่ม "เสียงดนตรี" ปุ่มเดียว (P'Aim 13 ก.ค. · relay ผ่าน PM)
+
+P'Aim เคาะสดกลางงาน: **อย่าแยก 4 คอนโทรลใน ⚙ pin ทีละอัน** → **รวมเป็นปุ่มเดียวบนแถบ dock ล่าง** ทั้งหน้าฝึกร้องและหน้าแก้เพลง.
+
+- **`SoundControl.vue` (ใหม่)** — ปุ่ม trigger (icon **`audio-lines`** + badge เครื่องปัจจุบัน) → popover เล็ก รวม **4 กลุ่ม**: เสียงที่เล่น (ทำนอง/คอร์ด/รวม) · การบรรเลง (เดี่ยว/เต็มวง) · เครื่องดนตรี (5 เครื่อง) · อารมณ์/สไตล์ (บรรเลง/สงบ/ตรงโน้ต). เป็น presentational — แต่ละหน้าถือ state เอง (render ผ่าน DockKey slot · engine clamp ให้อยู่ในจอ).
+- **`soundOptions.js` (ใหม่)** — option list 4 แกน = SSOT เดียว ใช้ทั้ง viewer + editor.
+- **หน้าฝึกร้อง (SingTransport):** เอา 4 menu items ออก → เหลือปุ่ม `soundctl` เดียว (วางแถว 2 คู่กับ ท่อน เพื่อไม่ให้แถว transport แถว 1 ล้นจอมือถือ) · **ยุบปุ่ม "ท่อน" เหลือ icon + badge สถานะ** (ทั้งหมด vs subset "n/N" = ท่อนเดียว/วนซ้ำ · เน้นขอบเมื่อ subset).
+- **หน้าแก้เพลง (EditorMode):** เดิม **ล็อกตรงโน้ต synth** → ตอนนี้มีปุ่มเดียวกัน เลือกเครื่อง/สไตล์ได้ · **default = plainest: Grand · เดี่ยว · ทำนองอย่างเดียว · ตรงโน้ต** (พี่เปาตรวจโน้ตดิบ) · `runPlay` ใช้เครื่อง/เสียง/สไตล์ที่เลือก.
+- **จำ localStorage แยกหน้า:** editor ใช้ `pleng.editor.{sound,ensemble,instrument,style}` แยกจาก viewer (`pleng.{soundMode,ensembleMode,leadInstrument,playStyle}`) → ต่างคนต่างจำ (verified: เลือกใน editor ไม่แตะ key ของ viewer).
+
+**Verify (live · หน้าแก้เพลง `/studio`):** ปุ่มโผล่บนแถบ (audio-lines · badge "เปียโน") · popover ครบ 4 กลุ่ม default ตรง (ทำนอง/เดี่ยว/เปียโน/ตรงโน้ต) · เลือก ไวโอลิน+บรรเลง → persist `pleng.editor.*` + summary อัปเดต · เต็มวง disabled กดไม่ได้ · **375px ไม่ล้น/ไม่มี h-scroll · console ไม่มี error**. หน้าฝึกร้อง = unit test (SingTransport 22 เขียว รวม test popover + ท่อน badge) — dev DB ไม่มีเพลง seed จึงยังไม่ได้ลองบนเพลงจริง (ขอ tester/พี่เปา eyeball).
+
 ## ยังไม่ทำ / ต่อ
 
 - **"เต็มวง" (ensemble)** = ยังปิด "เร็ว ๆ นี้" (SA ออกแบบเสียงเครื่องคลอ · จ่ายแยก) — interface role-based (§6a′) เผื่อไว้แล้ว, scheduler วน `roles[]` เพิ่มได้ไม่แตะแกน
