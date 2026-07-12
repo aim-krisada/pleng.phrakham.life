@@ -1,5 +1,6 @@
 <script setup>
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds } from '../lib/notation.js'
@@ -1185,6 +1186,7 @@ async function saveDraft(status) {
     : status === 'pending'
       ? '📨 ส่งตรวจแล้ว — รอผู้อนุมัติ'
       : '💾 บันทึกร่างแล้ว (ยังไม่เผยแพร่)'
+  if (!error) markClean() // B100: a persisted draft is no longer "unsaved"
   loadDrafts()
 }
 
@@ -1253,6 +1255,7 @@ async function saveDirect() {
   } else {
     saveMsg.value =
       count > 0 ? `⚠️ เผยแพร่แล้ว — แต่พบปัญหาโน้ต ${count} จุด (ติดป้ายไว้ให้ตรวจ)` : '✅ เผยแพร่แล้ว'
+    markClean() // B100: a published song is no longer "unsaved"
     loadedFlags.value = flags // keep in sync so a same-session re-publish preserves them
     // publishing from one's own draft closes that draft
     if (currentDraftId.value && !reviewingDraft.value) {
@@ -1508,8 +1511,10 @@ watch(snapshotState, () => {
 function resetHistory() {
   clearTimeout(histTimer)
   histTimer = null
-  history.value = [{ doc: docState(), view: viewState() }]
+  const doc = docState()
+  history.value = [{ doc, view: viewState() }]
   histPos.value = 0
+  cleanDoc.value = doc // a freshly loaded / reset song is clean (B100)
 }
 function applyState(entry) {
   applyingHistory = true
@@ -1562,6 +1567,31 @@ onMounted(() => {
   resetHistory()
 })
 onUnmounted(() => window.removeEventListener('keydown', onUndoKeys))
+
+// ---------- B100: warn before leaving with unsaved edits ----------
+// "ยังไม่บันทึก" (dirty) = the DOCUMENT (meta + opts + stanzas + arrangement — the same
+// docState() the undo history tracks) differs from the last CLEAN checkpoint. A checkpoint
+// is set when a song is loaded / the form is reset (resetHistory) AND after every successful
+// save (draft/publish), so a saved-then-untouched song never nags. Two exits are guarded:
+//   • in-app route change → our confirm dialog (KISS: window.confirm, like the rest of the
+//     editor's confirms — B094's shared dialog is still backlog).
+//   • tab close / refresh → the browser's own beforeunload prompt (its wording can't be set).
+const cleanDoc = ref(docState())
+const isDirty = computed(() => docState() !== cleanDoc.value)
+function markClean() {
+  cleanDoc.value = docState()
+}
+function onBeforeUnload(e) {
+  if (!isDirty.value) return
+  e.preventDefault()
+  e.returnValue = '' // Chrome needs a set returnValue to show the native "leave?" prompt
+}
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
+onBeforeRouteLeave(() => {
+  if (!isDirty.value) return true
+  return window.confirm('มีงานที่ยังไม่บันทึก ถ้าออกจากหน้านี้งานที่แก้ไว้จะหาย — ออกเลยไหม?')
+})
 
 // ---------- floating toolbar + sheet overlay ----------
 const showSheet = ref(false)
@@ -2052,6 +2082,8 @@ defineExpose({
   opts, stanzas, arrangement, activeStanza, lensChoice,
   undo, redo, selectStanza, focusRow, addStanza, setSyl, applyChordAt,
   history, histPos,
+  // B100 leave-warning tests: dirty flag + save/load clean checkpoints.
+  isDirty, saveDirect,
 })
 </script>
 
