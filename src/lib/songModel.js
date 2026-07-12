@@ -119,9 +119,9 @@ export function resolveContent(content) {
   //       whose 1st and 3rd lines share a tune (not adjacent) is never collapsed → its words
   //       stay in reading order.
   const seenStanza = new Set()
-  for (const entry of content.arrangement || []) {
+  ;(content.arrangement || []).forEach((entry, ei) => {
     const stanza = byId[entry.stanza]
-    if (!stanza) continue
+    if (!stanza) return
     const stanzaFirst = !seenStanza.has(entry.stanza)
     seenStanza.add(entry.stanza)
     const syls = entry.syllables || []
@@ -129,7 +129,14 @@ export function resolveContent(content) {
     let prevSig = null // previous line's melody signature, within this entry only
     ;(stanza.lines || []).forEach((line, li) => {
       const outLine = []
-      if (li === 0 && entry.label) outLine.push({ type: 'section', name: entry.label })
+      // B102 — a section carrying the strophic "รับทุกข้อ" directive shows a one-time rubric
+      // "(ร้องรับทุกข้อ)" next to its label; the refrain still prints ONCE (resolvePlayOrder,
+      // not this display pass, repeats it for playback). The sheet is untouched otherwise.
+      if (li === 0 && entry.label) {
+        const marker = { type: 'section', name: entry.label }
+        if (entry.afterEachVerse) marker.rubric = 'ร้องรับทุกข้อ'
+        outLine.push(marker)
+      }
       const sig = melodyLineSignature(line, expBeats)
       for (const item of line) {
         if (item.type === 'segment') {
@@ -152,8 +159,53 @@ export function resolveContent(content) {
       prevSig = sig
       outLine._stanza = entry.stanza
       outLine._melodyFirst = melodyFirst
+      outLine._entryIndex = ei // B102 — which arrangement entry this display line belongs to
       out.push(outLine)
     })
-  }
+  })
   return out
+}
+
+// ---------- B102: play-order resolver (display order ↔ play order) ----------
+// The sheet (resolveContent) writes each section ONCE; some songs SING a section more
+// than the sheet shows it. resolvePlayOrder returns the PLAY order as display-line RANGES
+// [{fromLi,toLi}] over resolveContent's output, so buildPlayNotes concatenates the ranges
+// and a repeated section's notes replay carrying their ORIGINAL li — highlight, timeline
+// dots and karaoke work exactly like the bar-level ‖: :‖ mechanism (midi.js expandRepeats).
+// Returns null when the song has no directive → the caller plays the whole song in display
+// order (byte-identical to today). This is the dispatch seam for Phase 2 jump symbols
+// (D.C./D.S./Coda): they add more cases here; the display pass never changes.
+export function resolvePlayOrder(content) {
+  if (!isV2(content)) return null
+  return resolveStrophicOrder(content)
+}
+
+// Strophic "ร้องรับทุกข้อ" (afterEachVerse): the refrain is sung after EVERY verse, but the
+// sheet writes it once. Expand the play order to insert the refrain after each verse (unless
+// the arrangement already places it there next). Returns null when no section carries the
+// directive. Each arrangement entry expands to a contiguous run of display lines, so an entry
+// maps to one {fromLi,toLi} range.
+function resolveStrophicOrder(content) {
+  const arr = content.arrangement || []
+  const chorusIdx = arr.findIndex((e) => e && e.afterEachVerse)
+  if (chorusIdx < 0) return null
+  const lines = resolveContent(content)
+  const ranges = [] // ranges[entryIndex] = {fromLi,toLi}
+  lines.forEach((line, li) => {
+    const e = line._entryIndex
+    if (e == null) return
+    if (!ranges[e]) ranges[e] = { fromLi: li, toLi: li }
+    else ranges[e].toLi = li
+  })
+  const chorus = ranges[chorusIdx]
+  if (!chorus) return null
+  const order = []
+  arr.forEach((entry, i) => {
+    const r = ranges[i]
+    if (!r) return
+    order.push(r)
+    if (i === chorusIdx) return // the refrain itself — never append the refrain after itself
+    if (i + 1 !== chorusIdx) order.push(chorus) // after a verse → sing the refrain (unless already next)
+  })
+  return order
 }

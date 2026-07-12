@@ -540,6 +540,15 @@ input, select, textarea {
   font-size: 0.95em;
   margin: 2px 0 4px;
 }
+/* B102 — one-time rubric next to a refrain's label ("ร้องรับทุกข้อ"): a quiet aside, not a
+   heading, so it reads as an instruction about the refrain without competing with the label. */
+.section-rubric {
+  margin-left: 8px;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.85em;
+  font-style: italic;
+}
 .font-ctl { display: inline-flex; gap: 3px; }
 .font-ctl button { min-width: 42px; min-height: 40px; padding: 6px 10px; }
 /* section chips — play the whole song or just one verse/refrain (feature 003) */

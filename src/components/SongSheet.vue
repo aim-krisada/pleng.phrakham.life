@@ -85,7 +85,9 @@ const renderLines = computed(() =>
         bar = { type: 'bar', barLine: true, segments: [] }
       } else if (item.type === 'section') {
         flush()
-        parts.push({ type: 'section', name: item.name })
+        // B102 — `rubric` (e.g. "ร้องรับทุกข้อ") rides the section marker when the refrain
+        // carries the strophic directive; shown once next to the label, refrain still once.
+        parts.push({ type: 'section', name: item.name, rubric: item.rubric })
       } else if (item.type === 'end') {
         flush()
         parts.push({ type: 'end' })
@@ -318,7 +320,7 @@ watch(
         <path v-for="a in lineArcs[row.li].paths" :key="a.key" :d="a.d" />
       </svg>
       <template v-for="(part, pi) in row.parts" :key="pi">
-        <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}</span>
+        <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}<span v-if="part.rubric" class="section-rubric">({{ part.rubric }})</span></span>
         <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
         <span v-else-if="part.type === 'label'" class="line-label">{{ part.text }}</span>
         <span v-else-if="part.type === 'end'" v-show="noteOn(row.first)" class="bar-final" aria-hidden="true"><i class="bf-thin" /><i class="bf-thick" /></span>

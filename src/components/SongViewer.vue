@@ -12,7 +12,7 @@ import {
   playSong, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
   effectiveOrder, buildPlayNotes,
 } from '../lib/midi.js'
-import { resolveContent } from '../lib/songModel.js'
+import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode } from '../store.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
@@ -133,7 +133,19 @@ const tempoOptions = computed(() => {
 // sit before the first section marker. With all ท่อน ticked by default (below), "play the
 // whole song" therefore stays exactly that, just with every dot shown as picked.
 const allSelected = computed(() => tags.value.length > 0 && selectedSecs.value.size === tags.value.length)
-const order = computed(() => (allSelected.value ? undefined : effectiveOrder(sections.value, selectedSecs.value)))
+// B102 — the strophic play order (refrain repeated after each verse), or undefined when the
+// song carries no directive. This is the DEFAULT "whole song" play order; a partial ท่อน
+// selection (below) overrides it. resolvePlayOrder reads the same content the sheet resolves,
+// so its display-line ranges line up 1:1 with resolved.value.lines.
+const strophicOrder = computed(() => resolvePlayOrder(props.song?.content) ?? undefined)
+// a partial ท่อน selection → ranges (undefined when every ท่อน is picked = whole song)
+const selectionOrder = computed(() => (allSelected.value ? undefined : effectiveOrder(sections.value, selectedSecs.value)))
+// what actually PLAYS: an explicit selection wins; otherwise the strophic default (or, with no
+// directive, undefined = whole song in display order — byte-identical to before B102).
+const order = computed(() => selectionOrder.value ?? strophicOrder.value)
+// true ONLY when a strict subset is selected — then play/full indices differ and must be
+// mapped. A strophic whole-song play has playNotes === fullNotes, so mapping stays identity.
+const isSelectionSubset = computed(() => !!selectionOrder.value)
 const playNotes = computed(() => (resolved.value ? buildPlayNotes(resolved.value, { order: order.value }) : []))
 const totalNotes = computed(() => playNotes.value.length)
 
@@ -142,7 +154,10 @@ const totalNotes = computed(() => playNotes.value.length)
 // a ท่อน only tints the chosen dots green (picked) — it never collapses the timeline. The
 // playhead is mapped onto this full-song axis so it moves through the selected block(s) in
 // place even though playback only schedules the selection.
-const fullNotes = computed(() => (resolved.value ? buildPlayNotes(resolved.value, {}) : []))
+// The timeline axis = the whole song in its DEFAULT play order (strophic-expanded when a
+// directive is present → the refrain appears as a dot after each verse). With no directive
+// this is the plain whole song (strophicOrder = undefined), unchanged from before B102.
+const fullNotes = computed(() => (resolved.value ? buildPlayNotes(resolved.value, { order: strophicOrder.value }) : []))
 const fullTotal = computed(() => fullNotes.value.length)
 // selection-play index → full-song index (drives the dot + snaps scrub/tap into the selection)
 const playFullIdx = computed(() => {
@@ -155,7 +170,7 @@ const playFullIdx = computed(() => {
 })
 // during full playback posIndex IS the full index; during a selection, map it (findIndex
 // would collapse repeats, so only map when a selection is active).
-const posFullIndex = computed(() => (order.value ? (playFullIdx.value[posIndex.value] ?? 0) : posIndex.value))
+const posFullIndex = computed(() => (isSelectionSubset.value ? (playFullIdx.value[posIndex.value] ?? 0) : posIndex.value))
 const totalSec = computed(() => {
   const beats = fullNotes.value.reduce((a, n) => a + (n.beats || 0), 0)
   return (beats * 60) / (Number(tempo.value) || 92)
@@ -187,7 +202,7 @@ const markers = computed(() => {
 // a full-song index → the nearest reachable note in the current play order (identity when
 // nothing is selected; snaps into the selection otherwise, so scrub/tap stay inside it)
 function fullToPlayIndex(fullIdx) {
-  if (!order.value) return fullIdx
+  if (!isSelectionSubset.value) return fullIdx
   const pfi = playFullIdx.value
   let best = 0, bd = Infinity
   for (let k = 0; k < pfi.length; k++) {
@@ -314,7 +329,7 @@ function seekToIndex(idx) {
 // ⏮/⏭ walk the section dots. When a selection is active they step through the SELECTED
 // (green) dots (decision H = เดินใน selection); otherwise through every dot. ⏮ from the
 // first lands on its start (= กลับต้น, B042).
-function reachableMarkers() { return markers.value.filter((m) => !order.value || m.picked) }
+function reachableMarkers() { return markers.value.filter((m) => !isSelectionSubset.value || m.picked) }
 function markerAtPos() {
   const ms = reachableMarkers()
   let cur = 0

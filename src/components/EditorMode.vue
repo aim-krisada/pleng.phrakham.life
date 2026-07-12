@@ -225,6 +225,9 @@ const previewContent = computed(() => ({
     label: r.label?.trim() || '',
     syllables: r.syllables.map((t) => (t || '').trim()),
     ...(r.key ? { key: r.key } : {}),
+    // B102 — "ร้องรับทุกข้อ": the refrain is sung after every verse. Stored on the entry
+    // (SSOT, visible in the downloaded JSON); playback (resolvePlayOrder) expands it.
+    ...(r.afterEachVerse ? { afterEachVerse: true } : {}),
   })),
 }))
 
@@ -659,6 +662,16 @@ function setRowStanza(id) {
   if (!lensRow.value) return
   lensRow.value.stanza = id
   focusRow(lensChoice.value)
+}
+// B102 — "ร้องรับทุกข้อ" checkbox: a plain-language helper that writes/removes the strophic
+// `afterEachVerse` directive on this ท่อน (the refrain), so the author never needs the music
+// term. One refrain per song, so ticking one row clears it on the others. The change lands in
+// the arrangement (docState) → captured by undo/redo and by save, like any edit.
+function toggleAfterEachVerse(i, on) {
+  const row = arrangement.value[i]
+  if (!row) return
+  if (on) arrangement.value.forEach((r, k) => { r.afterEachVerse = k === i })
+  else row.afterEachVerse = false
 }
 // ---- inline rename (rail row + canvas header edit the same row.label — P1/P5) ----
 function startRename(i, where) {
@@ -1124,6 +1137,7 @@ function applyRow(data) {
     label: r.label || '',
     syllables: [...(r.syllables || [])],
     key: r.key || '',
+    afterEachVerse: !!r.afterEachVerse, // B102 — strophic "ร้องรับทุกข้อ" directive (round-trips)
   }))
   if (!arrangement.value.length) {
     arrangement.value = [{ stanza: stanzas.value[0].id, label: '', syllables: [], key: '' }]
@@ -2128,6 +2142,7 @@ defineExpose({
   // B097 undo/redo tests: drive the same doc/view state + navigation the UI drives.
   opts, stanzas, arrangement, activeStanza, lensChoice,
   undo, redo, selectStanza, focusRow, addStanza, setSyl, applyChordAt,
+  toggleAfterEachVerse, // B102 — "ร้องรับทุกข้อ" refrain directive helper (AC-5 tests)
   history, histPos,
   // B100 leave-warning tests: dirty flag + save/load clean checkpoints.
   isDirty, saveDirect,
@@ -2424,6 +2439,16 @@ defineExpose({
           width="94px"
           @update:model-value="lensRow.key = $event"
         />
+      </label>
+      <!-- B102 — "ร้องรับทุกข้อ": mark this ท่อน as the refrain sung after every verse. Writes
+           the strophic directive; the sheet still shows it once, playback repeats it. -->
+      <label class="cs-refrain" title="ให้ฝึกร้องเล่นท่อนนี้ (ท่อนรับ) ซ้ำหลังทุกข้อ — แผ่นเพลงยังโชว์ครั้งเดียว">
+        <input
+          type="checkbox"
+          :checked="!!lensRow.afterEachVerse"
+          aria-label="ร้องรับทุกข้อ"
+          @change="toggleAfterEachVerse(lensChoice, $event.target.checked)"
+        /> ร้องรับทุกข้อ
       </label>
       <span class="cs-grow"></span>
       <span class="updown">
@@ -3209,6 +3234,9 @@ defineExpose({
 .cs-mel { flex: 0 0 auto; }
 .cs-mel :deep(input) { color: var(--brand); font-weight: 700; }
 .cs-key { display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+/* B102 — "ร้องรับทุกข้อ" refrain toggle in the ท่อน header */
+.cs-refrain { display: inline-flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.cs-refrain input { width: 16px; height: 16px; cursor: pointer; }
 .cs-grow { flex: 1; }
 .cs-del {
   display: inline-flex;
