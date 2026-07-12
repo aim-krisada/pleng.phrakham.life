@@ -39,6 +39,13 @@ P'Aim สั่ง (12 ก.ค.) "รวมทุกเทคนิคที่�
 - **2 default UI (P'Aim เคาะแล้ว):** ลูกเล่น toggle (แก้ไข=ธรรมดา/เล่น=มีลูกเล่น) · เครื่องยังไม่มี sample = ปุ่มจาง "เร็ว ๆ นี้".
 - **P2 = เปียโนก่อน** (เปียโนสงบ=felt + เปียโนบรรเลง=arp buildable เลย) · อีก 3 preset slot ทีหลังไม่ต้องรื้อ (§12).
 
+## รอบ 8 — 🚀 Launch scope: ขึ้น live แค่ Grand + Guitar (P'Aim เคาะ 13 ก.ค.)
+**P'Aim:** "เอาขึ้นแค่ 2 อย่าง grand piano + guitar ก่อน · ที่เหลือ tune อีกเยอะ · อยากให้ go live ได้แล้ว 2 อย่างนี้."
+- **Launch = 2 เครื่อง เดี่ยว-จัดเต็ม:** 🎹 Grand (พิสูจน์แล้ว) + 🎸 Guitar nylon (เดโมไฟล์จริง + รูด/เกา/rasgueado/slide ผ่าน).
+- **หลัง launch (ยัง tune):** felt · violin · cello · string · เต็มวง — architecture/sample/recipe/เดโม คงไว้ครบ เสียบทีหลังไม่รื้อ.
+- **guitar module reference สำหรับ dev = `docs/spikes/guitar-solo-demo.html`** (นylon จริง · Travis PIMA / strum D-DU-UDU / rasgueado / slide-in · custom buffer sampler + soundfont fallback).
+- **→ ส่ง PM (pm21):** จ่าย dev ทำ (1) grand solo-จัดเต็ม (2) guitar solo module (จากเดโม) → tester real-audio 2 เครื่อง → P'Aim ฟัง final → **deploy 2 เครื่อง**.
+
 ## รอบ 7 — P'Aim ฟังเต็มวง → pivot: "เดี่ยว-จัดเต็มสุด ๆ ต่อเครื่อง = หัวใจ" (12 ก.ค. ค่ำ)
 **P'Aim ฟังเดโมเต็มวง:** ยังไม่เพราะเท่าเดี่ยว-จัดเต็ม (จืด — สาเหตุ: comp เป็น pad static + limiter squash dynamics · แก้เดโมแล้ว: arp movement + gentle limiter · แต่ยังไม่เท่าเดี่ยว). → **เคาะทิศ: เน้นทำเครื่องเดี่ยว ลูกเล่นแต่ละเครื่องจัดเต็ม = เพราะกว่า + เสี่ยงน้อยกว่ามิกซ์วง.**
 - **หัวใจ P2 = "เดี่ยว-จัดเต็ม สุด ๆ ต่อเครื่อง" (§4B.4 ใหม่):** เปียโน/felt (RH+LH arp+pedal+sparkle ✅) · nylon (fingerpick Travis+harp roll) · violin (mono ลากยาว+double-stop+swell) · cello (ทุ้มลึก+re-bow). แต่ละ module มี pattern set 'solo-rich'.

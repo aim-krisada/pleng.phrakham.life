@@ -303,6 +303,9 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 
 **ผลต่อสถาปัตย์:** เพิ่มกีตาร์/bowed/ออร์แกน/ฟลูต ภายหลัง = เขียน `InstrumentModule` 1 ตัว (voicing + patterns + feel + sample) → เสียบเข้า registry. **แกน core (harmony/dynamics/humanize-vel) + PerfEvent + scheduler + presets ไม่แตะ.** = plug-in.
 
+### 🚀 Launch scope (P'Aim เคาะ 13 ก.ค.): ขึ้น live แค่ 2 เครื่อง — **Grand Piano + Guitar (nylon)**
+เดี่ยว-จัดเต็มทั้งคู่. **go live ได้เลยด้วย 2 ตัวนี้** · เครื่องที่เหลือ (**felt · violin · cello · string** + **เต็มวง**) = **หลัง launch** (ยัง tune อีกเยอะ · architecture/sample/recipe คงไว้ครบ ไม่ต้องรื้อ · เสียบเพิ่มทีหลัง). guitar solo module reference = **`docs/spikes/guitar-solo-demo.html`** (นylon จริง + รูดจังหวะ D-DU-UDU / เกา PIMA / rasgueado / slide-in). เปียโน solo = พิสูจน์แล้ว (`humanize-timbre-demo.html`).
+
 ### 4B.4 — ★ หัวใจ P2: "เดี่ยว-จัดเต็ม" สุด ๆ ของเทคนิคแต่ละเครื่อง (P'Aim เคาะ 12 ก.ค. ค่ำ)
 
 **ทิศทาง (P'Aim):** "เน้นทำเครื่องเดี่ยว แต่ลูกเล่นของแต่ละเครื่องจัดเต็ม น่าจะเพราะกว่า (วงรวม)". → **โฟกัส P2 = ปั้นเทคนิค idiomatic ของแต่ละเครื่องให้สุดทาง** (เครื่องเดียวทำเต็มที่สุด = เพราะกว่า + เสี่ยงน้อยกว่าการมิกซ์วงให้ไม่ขุ่น · ตรง "น้อยแต่มาก"). **เต็มวง (§6b.1) = คงไว้ตามที่ทำแล้ว · ยังไม่ปั้น · หา balance ทีหลัง** (ไม่ใช่ของหลัก P2).
