@@ -160,9 +160,10 @@ const THEMES = [
   'อาณาจักร',
 ]
 const themeOptions = [{ value: '', label: '— ไม่ระบุธีม —' }, ...THEMES.map((t) => ({ value: t, label: t }))]
-// The 3 canonical books (P'Aim 12 ก.ค. — see docs/ds/home-redesign.md §Taxonomy). The
-// "หมวด" ComboSelect is locked to exactly these (no allow-custom) so 1 song = 1 book from
-// a fixed set — labels are the plain Thai เล่ม names editors recognise.
+// The 3 canonical books (P'Aim 12 ก.ค. — see docs/ds/home-redesign.md §Taxonomy) offered as
+// the main choices in the "หมวด" ComboSelect. NOT a hard lock: allow-custom stays on so a
+// name can still be nurtured/extended (a rename or a 4th book) without a code change — the
+// taxonomy stays flexible ("เลี้ยงได้", P'Aim 12 ก.ค.). 1 song = 1 book (single-select).
 const CATEGORY_OPTIONS = [
   { value: 'lem-yai', label: 'เล่มใหญ่' },
   { value: 'anuchon', label: 'อนุชน' },
@@ -2152,7 +2153,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
         <label>จังหวะ<ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom width="100%" /></label>
         <label>ความเร็ว (BPM)<input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" /></label>
         <label>ธีม<ComboSelect v-model="meta.theme" :options="themeOptions" width="100%" /></label>
-        <label>หมวด<ComboSelect v-model="meta.category" :options="CATEGORY_OPTIONS" width="100%" /></label>
+        <label>หมวด<ComboSelect v-model="meta.category" :options="CATEGORY_OPTIONS" allow-custom width="100%" /></label>
       </div>
     </div>
 
