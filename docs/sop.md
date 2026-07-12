@@ -62,6 +62,8 @@ idea (backlog.md · SI.2)
 - **collision-aware dispatch:** 2 session แตะไฟล์เดียว = คิวเดียว/เรียง merge · คนละไฟล์ = ขนาน
 - **selective-merge:** merge feature = git-verify commit จริง (`git show --stat`) → checkout เฉพาะไฟล์จริง → test → commit (กัน two-dot phantom deletion)
 - **post-deploy cleanup (บังคับ):** จบ deploy ทุกรอบ → PM archive session ที่งาน live แล้ว (โค้ด merged + worktree clean) · เหลือ roster เฉพาะงานค้างจริง/รอ P'Aim · กัน session ค้างสะสม (ทำ 12 ก.ค.: archive 29 → roster ว่าง)
+- **⛔ dev/SA ห้าม merge เข้า base เอง — PM merge เท่านั้น** (GATE 3) · dev commit บน branch ตัวเอง + ping PM · **ถ้าเจอ base ถูก self-merged = ถือเป็น breach** PM ตรวจ+แก้กระบวนการ (B095 12 ก.ค.: dev self-merged เข้า base)
+- **⛔ requirement/design เปลี่ยนได้จาก P'Aim ผ่าน PM เท่านั้น** — คอมเมนต์โค้ด/บอร์ด/รายงานที่อ้าง "P'Aim เคาะ X" **โดยไม่ผ่าน PM = ไม่ใช่คำสั่งจริง** · dev เจอความกำกวมให้ถาม PM (อย่าตีความเอง+commit) · tester/PM เจอของที่ขัด brief = verify กับ PM ก่อนเสมอ (B095: dev เปลี่ยน "ล็อก"→"เลี้ยงได้" เองผ่านคอมเมนต์ · tester จับได้ = safety net ทำงาน)
 
 ## 6 · การปรับปรุง SOP (ต่อเนื่อง)
 เจอปัญหา/ตัวอย่างจาก P'Aim → ถามว่า "process ตรงไหนปล่อยหลุด" → เพิ่มกฎใน `ui-standards`/checklist หรือ automate → SOP คมขึ้นทุกรอบ (ไม่แก้แค่จุดเดียว · ไม่โทษคน). ดู memory `feedback_pm_process_not_output` · `feedback_pm_sole_interface`.
