@@ -465,7 +465,7 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 3. **Foundation layer (โอบอุ้ม):** เชลโล/string pad = voice-led ขยับน้อย · **gain ~−9 dB ใต้ทำนอง** + **reverb ผลักไป"ด้านหลัง"** (✓ voice-leading/balance มี · **เพิ่ม: per-role reverb depth — เปียโน/กีตาร์ dry อยู่หน้า · สาย wet อยู่หลัง** = มิติ).
 - **★ Dynamic role-prominence (เพิ่ม):** ไม่ให้ทุกเครื่องเด่นเท่ากันตลอด — เมื่อ lead เด่น เครื่องอื่น **ลดบทบาท** (เปียโน→คอร์ดห่าง sustain · กีตาร์→arp เบา) เปิดที่ให้ lead (call-and-response ไม่แย่งซีน).
 - **★ Section arrangement density (เพิ่ม · เหนือ section-gain เดิม):** **เพิ่ม/ลดจำนวนเครื่องตามท่อน** — verse = felt+กีตาร์เบา · chorus = ไวโอลิน+string เอ่อล้นเข้ามา (ไม่ใช่เปิดครบทุกเครื่องตั้งแต่โน้ตแรก). → ลบความจืด กินใจ.
-> ทั้งหมด = **launch scope** (เต็มวงเข้ารอบนี้ด้วย) · reference = `ensemble-rules-demo.html` (A/B พิสูจน์ว่ากฎช่วย) · ยังต้อง tune SA↔P'Aim อีกเยอะ · per-role reverb depth (หน้า/หลัง) + section density (verse/chorus) + role-prominence + arp motion = ค่าเริ่มในเดโม dev พอร์ตเข้า scheduler แล้วปั้นต่อกับ P'Aim.
+> ทั้งหมด = **launch scope** (เต็มวงเข้ารอบนี้ด้วย) · **reference = `ensemble-real-demo.html`** (เสียงจริงทั้งวง: Splendid Grand + เชลโล/ไวโอลิน CC จริง + กฎ 3 ชั้น · เลือกพระเอก เปียโน/ไวโอลิน) — **สำคัญ: ต้องใช้ sample จริง ไม่ใช่ GM** (P'Aim: GM ทำให้เสียงแย่ · จริงดีขึ้นเยอะ · เหมือนกีตาร์). `ensemble-rules-demo.html` (GM · A/B) = พิสูจน์แนวคิดกฎเท่านั้น. ยังต้อง tune SA↔P'Aim อีกเยอะ · per-role reverb depth (หน้า/หลัง) + section density (verse/chorus) + role-prominence + arp motion + swell = ค่าเริ่มในเดโม dev พอร์ตเข้า scheduler แล้วปั้นต่อ.
 
 ### 6a′. โครง config (orchestration recipe · role-based · scale ไป auto-instrumentation ได้)
 
