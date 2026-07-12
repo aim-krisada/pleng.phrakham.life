@@ -78,6 +78,27 @@ watch(soundMode, (v) => {
 })
 export function setSoundMode(v) { if (SOUND_MODES.includes(v)) soundMode.value = v }
 
+// ---- play style for the arranger (B107 P2 · HOW it's performed) ----
+// Separate from soundMode (which VOICES) — this is how the piano plays them:
+//   'plain'       — arranger OFF: notes exactly as printed, dead on the grid (ตรวจโน้ต / ฝึก).
+//   'calm'        — เปียโนสงบ preset (held pad + pedal bass + gentle reverb).
+//   'arrangement' — เปียโนบรรเลง preset (arpeggio + drop-2 + humanize + room). DEFAULT (เพราะสุดก่อน).
+// Per-browser, persisted — so someone who prefers 'plain' for note-checking keeps it without
+// fighting the default (§6a localStorage). Maps to an arranger cfg in the viewer.
+const STYLE_KEY = 'pleng.playStyle'
+const PLAY_STYLES = ['plain', 'calm', 'arrangement']
+export const playStyle = ref((() => {
+  try {
+    const v = localStorage.getItem(STYLE_KEY)
+    if (PLAY_STYLES.includes(v)) return v
+  } catch { /* ignore */ }
+  return 'arrangement'
+})())
+watch(playStyle, (v) => {
+  try { localStorage.setItem(STYLE_KEY, v) } catch { /* ignore */ }
+})
+export function setPlayStyle(v) { if (PLAY_STYLES.includes(v)) playStyle.value = v }
+
 // Which shell-bar menu is open ('site' | 'file' | 'manage' | 'mode' | null). Shared so
 // the app-wide ShellBar and a page's teleported menus are one open-at-a-time system.
 export const shellMenu = ref(null)

@@ -15,7 +15,8 @@ import {
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
-import { currentSong, readingFontScale, soundMode, setSoundMode } from '../store.js'
+import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle } from '../store.js'
+import { presetCfg } from '../lib/arranger/presets.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
@@ -51,6 +52,20 @@ const SOUND_OPTS = [
   { value: 'both', label: '🎶 ทำนอง + คอร์ด', short: 'รวม' },
 ]
 const soundDef = computed(() => SOUND_OPTS.find((o) => o.value === soundMode.value) || SOUND_OPTS[0])
+// ---------- play style (B107 P2 "สไตล์การเล่น") — HOW the piano performs, separate from เสียงที่เล่น ----------
+const STYLE_OPTS = [
+  { value: 'arrangement', label: '🎹 บรรเลง (จัดเต็ม)', short: 'บรรเลง' },
+  { value: 'calm', label: '🕊️ สงบ (นุ่ม)', short: 'สงบ' },
+  { value: 'plain', label: '📝 ตรงโน้ต (ปิดลูกเล่น)', short: 'ตรงโน้ต' },
+]
+const styleDef = computed(() => STYLE_OPTS.find((o) => o.value === playStyle.value) || STYLE_OPTS[0])
+// Map the chosen style → what playSong needs: 'plain' turns the arranger OFF (notes as printed);
+// the others hand it the matching preset recipe (§6). B107 P2.
+const styleArrange = computed(() =>
+  playStyle.value === 'plain'
+    ? { arranger: false, arrangeCfg: {} }
+    : { arranger: true, arrangeCfg: presetCfg(playStyle.value === 'calm' ? 'piano-calm' : 'piano-arrangement') },
+)
 const showChord = computed(() => displayDef.value.chord && chordSystem.value !== 'hidden')
 const showNote = computed(() => displayDef.value.note)
 const showLyric = computed(() => displayDef.value.lyric)
@@ -317,7 +332,8 @@ async function startPlay(startIndex = 0) {
     voices: soundMode.value, // B104: melody / chords / both — remembered per browser
     instrument: PLAY_INSTRUMENT, // B107: real Grand piano (waits for samples, then plays)
     songId: props.song?.id ?? props.song?.slug ?? props.song?.title, // B107 P2: stable humanize seed
-    // arranger defaults on → humanize; the first-class "ลูกเล่นปิด" switch lands in step 8
+    arranger: styleArrange.value.arranger, // B107 P2: 'plain' = notes as printed; else humanize+preset
+    arrangeCfg: styleArrange.value.arrangeCfg, // B107 P2: the chosen preset recipe (§6)
     onInstrumentPending: ({ loading, progress }) => {
       instrumentLoading.value = loading
       instrumentProgress.value = progress ?? 0
@@ -418,6 +434,11 @@ watch(tempo, () => {
 watch(soundMode, () => {
   if (playing.value) startPlay(playedIndex.value)
 })
+// B107 P2 — live play-style change (บรรเลง / สงบ / ตรงโน้ต): re-schedule ahead with the new
+// arranger recipe from the current note, same as a live sound-mode change.
+watch(playStyle, () => {
+  if (playing.value) startPlay(playedIndex.value)
+})
 function downloadJson() { if (currentSong.value) downloadSong(currentSong.value) }
 
 // MP3 export moved to the dock's unified ExportTool (PDF/JSON/MP3). SongViewer just hands it
@@ -435,6 +456,10 @@ const settingDescs = computed(() => [
   {
     id: 'sound', icon: 'volume-2', label: 'เสียงที่เล่น', kind: 'menu', value: soundMode.value, badge: soundDef.value.short,
     options: SOUND_OPTS.map((o) => ({ value: o.value, label: o.label })), onPick: (v) => setSoundMode(v),
+  },
+  {
+    id: 'style', icon: 'sliders-horizontal', label: 'สไตล์การเล่น', kind: 'menu', value: playStyle.value, badge: styleDef.value.short,
+    options: STYLE_OPTS.map((o) => ({ value: o.value, label: o.label })), onPick: (v) => setPlayStyle(v),
   },
   {
     id: 'chord', icon: 'guitar', label: 'คอร์ด', kind: 'menu', value: chordSystem.value, badge: CHORD_BADGE[chordSystem.value],

@@ -13,15 +13,20 @@
 //        ▼
 //   sampler.fire(...) | scheduleNote(...)
 //
-// Pipeline layers (§1a): LAYER 1 voicing → LAYER 2 dynamics → LAYER 3 pattern. Step 0–1 wires
-// the seam + humanize; the deeper voicing/pattern/embellish rules slot into the same shape.
+// Pipeline (§1a): LAYER 1 voicing → LAYER 3 pattern (comp + bass + embellish) → LAYER 2 dynamics.
+// (Dynamics runs last because accent/contour/humanize act on the fully-expanded attacks.)
 //
 // GOLDEN RULE (§1a, from B104): the sheet is SSOT. The arranger seasons the PERFORMANCE
 // (ordering / loudness / timing / timbre) but never changes the melody pitches and never adds
-// notes outside the chord (except opt-in safe embellishments, later steps).
+// notes outside the chord (except opt-in safe embellishments — chord tones / resolving approaches).
 
 import { rngFor } from './rng.js'
-import { humanizeVel, humanizeTime } from './dynamics.js'
+import {
+  humanizeVel, humanizeTime, metricAccent, melodicContour,
+  sectionDynamics, crescendo, rubato, clampAll,
+} from './dynamics.js'
+import { applyVoicing } from './voicing.js'
+import { embellishChord } from './embellish.js'
 import { keyboard } from './instruments/keyboard.js'
 
 /** @typedef {Object} PerfEvent
@@ -46,8 +51,7 @@ function beatsPerBar(meta) {
 
 // Melody = the printed notes, one PerfEvent per sounding note (rests advance the beat clock but
 // make no event). This is literal — the sheet's pitch/timing untouched; dynamics/humanize are a
-// SEPARATE layer applied afterwards, and only when the arranger is on. `syk`/`li`/`si` are not
-// needed downstream (the scheduler tracks follow-along from `notes` directly).
+// SEPARATE layer applied afterwards, and only when the arranger is on.
 function melodyEvents(notes) {
   const out = []
   let beat = 0
@@ -67,9 +71,10 @@ function melodyEvents(notes) {
 /**
  * @param {Array} notes        songToNotes(content) — melody + rests, cumulative beats
  * @param {Array} chordEvents  buildChordVoice(notes) — voice-led { bass, up[], startBeat, beats }
- * @param {Object} cfg   { arranger=true, voices='both', chordGain=0.055, pattern,
- *                         humanizeVel=0.06, humanizeTime=0.012, module=keyboard }
- * @param {Object} meta  { songId, pass=0, timeSignature }
+ * @param {Object} cfg   { arranger=true, voices='both', chordGain=0.055, module=keyboard,
+ *                         pattern, bass, voicing, embellish, dynamics:{accent,contour,section,
+ *                         sectionMap,cresc,rubato}, humanizeVel, humanizeTime }
+ * @param {Object} meta  { songId, pass=0, timeSignature, keyRoot, sections }
  * @returns {PerfEvent[]}
  */
 export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
@@ -80,29 +85,46 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   const wantChords = voices === 'chords' || voices === 'both'
   const bpb = beatsPerBar(meta)
   const rng = rngFor(meta.songId, meta.pass || 0)
+  const dyn = cfg.dynamics || {}
 
   const events = []
-
-  // LAYER 3 (pattern) — expand chords via the instrument module's pattern. Step 0–1 = sustained
-  // only; the module owns the pattern set so a different instrument expands chords differently.
   if (wantMelody) events.push(...melodyEvents(notes))
+
+  // LAYER 1 voicing + LAYER 3 pattern (comp up voices + bass foundation + embellishments). When
+  // OFF, force the plain defaults (sustained + root + no voicing/embellish) = the P1 block pad.
   if (wantChords) {
-    const patternName = (on && cfg.pattern) || mod.defaultPattern
-    const pattern = mod.patterns[patternName] || mod.patterns[mod.defaultPattern]
+    const compName = (on && cfg.pattern) || mod.defaultPattern
+    const comp = mod.patterns[compName] || mod.patterns[mod.defaultPattern]
+    const bassName = (on && cfg.bass) || mod.defaultBass
+    const bassMode = (mod.bassModes && mod.bassModes[bassName]) || mod.bassModes.root
     let prevUp = null
-    for (const ev of chordEvents || []) {
-      const voiced = mod.voicing(ev, prevUp, { cfg, meta })
+    const list = chordEvents || []
+    for (let i = 0; i < list.length; i++) {
+      const evc = list[i]
+      let voiced = mod.voicing(evc, prevUp, { cfg, meta })
+      if (on) voiced = applyVoicing(voiced, cfg) // drop-2 / open per preset
       prevUp = voiced.up
-      events.push(...pattern(ev, voiced, bpb, rng, cfg))
+      events.push(...comp(evc, voiced.up, bpb, rng, cfg))
+      events.push(...bassMode(evc, voiced.bass, {
+        nextBass: list[i + 1] ? list[i + 1].bass : null,
+        keyRoot: meta.keyRoot ?? 40, beatsPerBar: bpb, rng, cfg,
+      }))
+      if (on) events.push(...embellishChord(evc, voiced, bpb, rng, cfg))
     }
   }
 
-  // LAYER 2 (dynamics) — only when the arranger is ON. When OFF ("ลูกเล่นปิด"): notes play
-  // exactly as printed — constant gain, timeShift 0, no embellishment (§6c invariant). Humanize
-  // is the step-1 content; accent/contour/section/rubato are added here in step 4.
+  // LAYER 2 dynamics — only when the arranger is ON. When OFF ("ลูกเล่นปิด"): notes play exactly
+  // as printed — constant gain, timeShift 0, no embellishment (§6c invariant). Order: shape the
+  // gains (section → accent → contour → cresc), then time (rubato → humanize), clamp to layer.
   if (on) {
+    if (dyn.section !== false) sectionDynamics(events, meta.sections, dyn.sectionMap)
+    if (dyn.accent !== false) metricAccent(events, bpb)
+    if (dyn.contour !== false) melodicContour(events)
+    if (dyn.cresc) crescendo(events, dyn.cresc)
+    if (dyn.rubato !== false) rubato(events)
     humanizeVel(events, rng, cfg.humanizeVel ?? mod.humanizeFeel.velJitter)
     humanizeTime(events, rng, cfg.humanizeTime ?? mod.humanizeFeel.timing.sigma)
+    clampAll(events) // velocity-in-layer safety net (§7b)
   }
 
   return events

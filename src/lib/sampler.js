@@ -118,7 +118,9 @@ async function createInstrument(name, context, onProgress) {
     // clobbers smplr's own default and breaks its URL builder. To mirror to our own host for
     // production, set SAMPLE_HOSTS.grand (that's the single host-agnostic knob).
     if (SAMPLE_HOSTS.grand) opts.baseUrl = SAMPLE_HOSTS.grand
-    return new SplendidGrandPiano(context, opts)
+    // Return the makeup gain as `output` so the scheduler can re-route the whole instrument
+    // through the LAYER-4 mix (reverb/pan) instead of straight to the speakers (B107 P2 §5).
+    return { instrument: new SplendidGrandPiano(context, opts), output: makeup }
   }
   return null
 }
@@ -126,14 +128,17 @@ async function createInstrument(name, context, onProgress) {
 // Wrap a loaded smplr instrument in the uniform interface midi.js schedules against.
 //   fire(midi, startT, dur, gain) — schedule ONE note (sampler pitch-shifts for transpose)
 //   releaseAll()                  — stop every sounding/scheduled voice (playback stop)
-function wrap(name, inst) {
+function wrap(name, inst, output) {
   return {
     name,
-    output: inst.output,
+    output, // the makeup gain — the instrument's single output node (for the LAYER-4 mix)
     fire(midi, startT, dur, gain) {
       inst.start({ note: Math.round(midi), time: startT, duration: Math.max(0.12, dur), velocity: gainToVelocity(gain) })
     },
     releaseAll() { try { inst.stop() } catch { /* already stopped */ } },
+    // Re-route the whole instrument into `node` (reverb/pan bus) instead of context.destination.
+    // Idempotent per play: disconnect any prior wiring first so repeated plays don't stack sends.
+    setDestination(node) { try { output.disconnect() } catch { /* not connected */ } output.connect(node) },
   }
 }
 
@@ -154,10 +159,10 @@ export async function loadInstrument(name, context, { onProgress } = {}) {
   const e = { instrument: null, ready: false, wrapper: null, loading: null }
   cache.set(key, e)
   e.loading = createInstrument(name, context, onProgress)
-    .then((inst) => {
-      if (!inst) { cache.delete(key); return null } // unknown name → no instrument
-      e.instrument = inst
-      return inst.load.then(() => { e.ready = true; e.wrapper = wrap(name, inst); return e.wrapper })
+    .then((res) => {
+      if (!res) { cache.delete(key); return null } // unknown name → no instrument
+      e.instrument = res.instrument
+      return res.instrument.load.then(() => { e.ready = true; e.wrapper = wrap(name, res.instrument, res.output); return e.wrapper })
     })
     .catch((err) => { cache.delete(key); throw err }) // failed load → drop so a retry can re-load
   // swallow the rejection on the stored promise so an un-awaited preload can't crash the app;

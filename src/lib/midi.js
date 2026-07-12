@@ -5,6 +5,7 @@ import { parseNotes, groupNotes, DOT_FACTOR } from './notation.js'
 import { parseChord, chordToIntervals } from './chords.js'
 import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
 import { arrange } from './arranger/index.js'
+import { mulberry32 } from './arranger/rng.js'
 
 const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 65,
   'F#': 66, Gb: 66, G: 67, 'G#': 68, Ab: 68, A: 69, 'A#': 70, Bb: 70, B: 71 }
@@ -333,6 +334,47 @@ export function makeChordBus(context, destination, level = 1) {
   return g
 }
 
+// ---------- B107 P2 · LAYER 4: reverb (church space) ----------
+// Reverb presets — the "how much room" knob P'Aim tunes by ear (§11.3). seconds = tail length,
+// decay = how fast it fades, wet = how much reverb vs dry. Worship wants "in the room", not blur.
+export const REVERB = {
+  none: null,
+  room: { seconds: 1.1, decay: 3.2, wet: 0.18 },
+  church: { seconds: 2.4, decay: 2.2, wet: 0.28 },
+  hall: { seconds: 3.2, decay: 1.8, wet: 0.34 },
+}
+
+// Build a stereo impulse response by SYNTHESIS (decaying noise) — no IR file to fetch, works
+// identically on realtime and OfflineAudioContext. Seeded (mulberry32) so the MP3 export (P3)
+// renders the exact same tail as live. Two lightly-decorrelated channels give a natural stereo
+// bloom. duration/decay set the space size.
+function synthIR(context, seconds, decay) {
+  const rng = mulberry32(0x1e7 ^ Math.round(seconds * 1000))
+  const len = Math.max(1, Math.floor(context.sampleRate * seconds))
+  const buf = context.createBuffer(2, len, context.sampleRate)
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch)
+    for (let i = 0; i < len; i++) d[i] = (rng() * 2 - 1) * Math.pow(1 - i / len, decay)
+  }
+  return buf
+}
+
+// A wet/dry reverb bus: everything connected to `.input` reaches `destination` both dry and
+// through a convolver (the wet tail). Returns { input } — route melody/chords/sampler into it.
+// Works on realtime AND OfflineAudioContext (MP3), so live and download share the same space.
+export function makeReverbBus(context, destination, { seconds, decay, wet }) {
+  const input = context.createGain()
+  const dry = context.createGain()
+  const wetGain = context.createGain()
+  wetGain.gain.value = wet
+  dry.gain.value = 1 - wet * 0.5 // keep the direct sound present; wet only adds tail
+  const conv = context.createConvolver()
+  conv.buffer = synthIR(context, seconds, decay)
+  input.connect(dry).connect(destination)
+  input.connect(conv).connect(wetGain).connect(destination)
+  return { input }
+}
+
 // Group section occurrences by label → the "selection tags" (B043 §1). The timeline
 // has every occurrence (รับ twice); a tag is one entry per distinct label, carrying all
 // its ranges. Selecting the tag "รับ" lights every range that shares that label.
@@ -396,7 +438,7 @@ export function setTranspose(semitones) {
 
 // Play the melody; resolves when done or stopped. Returns false when the device
 // blocks audio (e.g. iOS with the silent switch on / autoplay policy).
-export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, order, transpose = 0, startIndex = 0, voices = 'melody', chordGain = 0.055, instrument = 'synth', onInstrumentPending, arranger = true, songId } = {}) {
+export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, order, transpose = 0, startIndex = 0, voices = 'melody', chordGain = 0.055, instrument = 'synth', onInstrumentPending, arranger = true, songId, arrangeCfg = {} } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   // iOS unlock: play a 1-sample silent buffer synchronously inside the user gesture
   try {
@@ -446,10 +488,19 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   // and the follow-along highlight still runs off `notes` even in chords-only mode.
   const { melody: wantMelody, chords: wantChords } = voiceFlags(voices)
   const chordEvents = wantChords ? buildChordVoice(notes) : []
+  // B107 P2 §5 LAYER 4 — reverb (church space): one wet/dry bus everything flows into. `busIn`
+  // is the reverb input, or context.destination when reverb is off/none. Both the synth and the
+  // sampler route through it, so live playback (and later the MP3) share the same room. Built
+  // once per play; the sampler is re-pointed at it via setDestination.
+  const reverbCfg = REVERB[arrangeCfg.reverb]
+  const fx = reverbCfg ? makeReverbBus(ctx, ctx.destination, reverbCfg) : null
+  const busIn = fx ? fx.input : ctx.destination
+  const wantPan = !!arrangeCfg.pan
+  if (sampler) sampler.setDestination(busIn) // route the real instrument through reverb
   // B107 §1: one bus (gain → low-pass → compressor) for all SYNTH chord voices so the pad sits
   // under the melody instead of masking it. Not needed for the sampler (recorded piano isn't
   // harsh, and per-note velocity already sets the balance). Built once; reused across passes.
-  const chordBus = (wantChords && !sampler) ? makeChordBus(ctx, ctx.destination) : null
+  const chordBus = (wantChords && !sampler) ? makeChordBus(ctx, busIn) : null
 
   const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
   let pass = 0 // loop pass index → humanize seed, so pass 0/1 differ but repeat (§R2.5)
@@ -461,7 +512,7 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
     // B107 P2: the arranger turns the sheet into a flat PerfEvent[] (melody + voiced chord
     // hits, with humanize gain/timeShift when on). One pure function feeds both live play and
     // MP3 export, so they can't drift. arranger:false = "ลูกเล่นปิด" → notes exactly as printed.
-    const perf = arrange(notes, chordEvents, { arranger, voices, chordGain }, { songId, pass, timeSignature: content.timeSignature })
+    const perf = arrange(notes, chordEvents, { arranger, voices, chordGain, ...arrangeCfg }, { songId, pass, timeSignature: content.timeSignature, keyRoot: KEY_MIDI[content.key] ?? 60 })
     for (const e of perf) {
       const isMel = e.role === 'melody'
       // onset = grid time + humanize shift; sound stops slightly early so repeated notes articulate
@@ -474,9 +525,16 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
         sampler.fire(e.midi + liveTranspose, startT, soundDur, e.gain)
       } else {
         // Synth: base pitch is the ORIGINAL key; transpose rides on detune so it can be changed
-        // live (100 cents = 1 semitone) without rescheduling. Chord voices route through the bus
-        // (low-pass + compressor) so the pad sits under the melody; the melody hits the dest raw.
-        const dest = isMel ? ctx.destination : chordBus
+        // live (100 cents = 1 semitone) without rescheduling. Melody hits the reverb bus centre;
+        // chord voices route through the low-pass/compressor bus, optionally panned per-voice
+        // (higher voices lean a touch right = a wider pad) before the bus (§5 stereo spread).
+        let dest = isMel ? busIn : chordBus
+        if (!isMel && wantPan && e.role !== 'bass') {
+          const pan = ctx.createStereoPanner()
+          pan.pan.value = Math.max(-0.4, Math.min(0.4, (e.midi - 58) / 28))
+          pan.connect(chordBus)
+          dest = pan
+        }
         const osc = scheduleNote(ctx, dest, e.midi, startT, soundDur, liveTranspose * 100, e.gain, e.attack, e.decayTo)
         endTimes.push(osc)
         liveOscs.push({ osc, startTime: startT })
