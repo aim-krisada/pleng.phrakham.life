@@ -18,14 +18,20 @@ main === base (`studio-shell-redesign`) · **371 test + build เขียว** 
 - **campaign tracker + checklist มาตรฐาน:** `docs/pm/review-anuchon.md` (PM re-run query นับ progress ทุก session) · อนุชน = clean 80 + ติดธง 42 (words28/repeat16/lint6/อื่น3)
 
 ## 🚧 กำลังทำ / รอ (รอบ 11 เริ่ม · pm11)
-- **B095 เล่มเพลง 3 เล่ม + ล็อกหมวด** — P'Aim เคาะ **ล็อก 3 เล่ม** (AskUserQuestion 12 ก.ค. · ยึดตามนี้ · dev/tester อ้าง "เลี้ยงได้" ผ่านคอมเมนต์โค้ด = ไม่ผ่าน PM ไม่นับ) · base มีเวอร์ชัน allow-custom หลุดเข้ามา (breach · dev self-merged) → **จ่ายแก้กลับล็อก สาย `book-taxonomy-lock` `task_96ab1591`** (ตัด allow-custom line 2156 + test + docs) → tester re-verify → PM merge · **ยังไม่ deploy = public ไม่กระทบ** · detail `docs/backlog.md` B095
+- **B095 เล่มเพลง 3 เล่ม + ล็อกหมวด** — requirement = **ล็อก 3 เล่ม** (P'Aim เคาะ AskUserQuestion 12 ก.ค. ผ่าน PM · commit `0ac0556` · dev/tester อ้าง "เลี้ยงได้" ผ่านคอมเมนต์โค้ด = ไม่ผ่าน PM ไม่นับ)
+  - **สถานะจริง (git-verified pm11, 12 ก.ค.): fix แก้กลับล็อก ยังไม่ได้ทำเลย · base ยัง contaminated เป็น flexible**
+  - base `studio-shell-redesign` = **allow-custom/flexible (breach)** — `EditorMode.vue:2156` ยังมี `allow-custom` · test = `ComboSelect.category.test.js` (flexible) · self-merged เข้ามา (`a1d3c20`+`b60f221`+`d0ef2b8`)
+  - **ไม่มี branch ไหนมี code fix แก้กลับล็อก:** `book-taxonomy-lock` = docs-only (ไม่แตะโค้ด) · `book-taxonomy-3` จบที่ flexible (`b60f221`) · สาย fix ที่จ่ายไป `local_ae09d959` (branch `claude/zealous-albattani-850756`) = **ไม่ได้ commit อะไรเลย** (tip ยัง `4c5fd07` · EditorMode ยัง allow-custom · ไม่ได้รัน) · `task_96ab1591` หายแล้ว (task ไม่ persist)
+  - tester re-gate (`book-taxonomy-3-tester`, session friendly-hugle) = **✗ FAIL** ยืนยัน fix ยังไม่ลง (report `docs/reports/book-taxonomy-3-tester.md`)
+  - **ยังไม่ deploy → public ไม่กระทบ** · แต่ base ต้อง revert กลับล็อก
+  - **▶ ต้องทำ:** spawn dev session ใหม่ (worktree ใหม่ from base) → (1) ตัด `allow-custom` `EditorMode.vue:2156` (2) คืน lock test (ค่านอกลิสต์ไม่ติด · สะท้อน EditorMode จริง ไม่ mount ลวง) (3) docs `home-redesign.md`+`book-taxonomy-3.md` → "ล็อก" (4) revert `system-map.md` §เล่มเพลง กลับล็อก → tester re-verify (browser จริง: พิมพ์ค่านอกลิสต์ **ไม่ติด**) → PM merge → align base · detail `docs/backlog.md` B095
 - **B096 หน้าจัดการเล่ม (approver-only)** — 🅿️ **deferred** (P'Aim: ยังไม่เอาตอนนี้) · คือวิธี "เลี้ยงได้" ที่ถูก (ตาราง `book_categories` + admin UI) แทน allow-custom ในช่องแก้เพลง · file ไว้ backlog B096 · แยกจาก B095
-- **system-map.md** — ✅ canonical (base · PM แก้ id int→uuid) · **⚠️ §เล่มเพลง+invariant ถูกแก้เป็น "เลี้ยงได้" ตาม breach → ต้องแก้กลับ "ล็อก 3 เล่มในหน้าแก้ไข" พร้อม dev fix**
+- **system-map.md** — ✅ canonical (base · PM แก้ id int→uuid) · **⚠️ §เล่มเพลง+invariant ยังเป็น "เลี้ยงได้" (breach) บน base → ต้องแก้กลับ "ล็อก 3 เล่มในหน้าแก้ไข" พร้อม B095 dev fix ข้างบน**
 - **📥 import เล่มใหญ่ "บทเพลงสรรเสริญ" (scanned 477 หน้า · session แยก `local_9f147e9d`)** — เพลง 32 (`lem-yai`) อยู่ใน DB แล้ว · **รอพี่เปาตรวจในแอป** → ผ่าน = ping DA ล็อก template + ไล่ทีละเพลง · **⏸️ พักไว้ก่อน** (P'Aim: อนุชน review ก่อน) · ~8-11K tok/เพลง (context แยก/เพลง · อย่าทำแชทเดียว) · ไฟล์ `tools/hymnal-samples/`, report `hymnal-import.md`
 - **B092 responsive-split = live แล้ว** (มือถือเก็บ สำเนา/ลบ ใน ⋯) — ถ้าพี่เปายังว่าหนักบนมือถือ ค่อยปรับ
 
 ## 📥 inbox → PM (dev handoff · รอ gate/merge)
-- **B095 เล่มเพลง 3 เล่ม + ล็อกหมวด → DEV เสร็จ · รอ tester gate** (สาย `book-taxonomy-3`) — 3 เล่ม canonical: เล่มใหญ่/อนุชน/เด็กเล็ก(`dek-lek`) · `yuwachon`(0เพลง) ถูกลบ/แทน · หมวดในหน้าแก้ไขล็อก 3 เล่ม (ตัด allow-custom) · self-verify Tier-B บนเบราว์เซอร์จริง (Supabase live 123) ✅ · 375 test + build เขียว · report `docs/reports/book-taxonomy-3.md` · **ไม่มี DB migration** · ▶ ส่ง tester → ผ่าน = PM cherry-pick commit โค้ด (ไม่เอา board/doc)
+- _(ว่าง — B095 handoff เดิม (`book-taxonomy-3`, flexible) ถูก tester gate FAIL แล้ว · สถานะจริงรวมอยู่ใน §🚧 B095 ข้างบน · รอ spawn dev fix ใหม่)_
 
 ## 🎯 รอ P'Aim ตัดสิน (ไม่บล็อก)
 - **SA interlinear ≥3 ภาษา** (`task_aea51f3c` · mockup รอเคาะ · ชน SongSheet → จัดคิว dev) · **B080 expert standards** (ต่อยอด ui-standards)
