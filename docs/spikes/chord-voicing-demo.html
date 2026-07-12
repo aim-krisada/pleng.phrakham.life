@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B106 · เปรียบเทียบเสียงคอร์ดคลอ — เพลง 1 พระเจ้าเป็นความรัก</title>
+<script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 16px;
+         max-width: 780px; margin-inline: auto; line-height: 1.5; }
+  h1 { font-size: 1.2rem; margin: 0 0 4px; }
+  .sub { color: #888; font-size: .85rem; margin: 0 0 16px; }
+  .card { border: 1px solid #8884; border-radius: 12px; padding: 12px 16px; margin: 10px 0; background: #8881; }
+  .card h2 { font-size: 1.02rem; margin: 0 0 4px; }
+  .card p { margin: 4px 0 10px; font-size: .88rem; color: #999; }
+  .rec { border-color: #22c55e; background: #22c55e18; }
+  .tag { font-size: .68rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle; }
+  .tag.pretty { color: #22c55e; border: 1px solid #22c55e; }
+  .tag.diff { color: #a855f7; border: 1px solid #a855f7; }
+  .tag.base { color: #888; border: 1px solid #888; }
+  button.play { font-size: .95rem; padding: 8px 18px; border-radius: 999px; border: none;
+          background: #2563eb; color: #fff; cursor: pointer; font-weight: 600; }
+  button.play:active { transform: scale(.97); }
+  button.stopb { font-size: .85rem; padding: 6px 14px; border-radius: 999px; border: 1px solid #ef4444; background: transparent; color: #ef4444; cursor: pointer; }
+  .modes { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+  .modes label { font-size: .82rem; padding: 4px 10px; border: 1px solid #8886; border-radius: 999px; cursor: pointer; }
+  .modes input { margin-right: 4px; }
+  .controls { margin: 14px 0; padding: 12px; border: 1px dashed #8886; border-radius: 10px; }
+  .controls label { display: flex; align-items: center; gap: 10px; font-size: .85rem; margin: 6px 0; }
+  .controls input[type=range] { flex: 1; }
+  code { background: #8882; padding: 1px 5px; border-radius: 4px; font-size: .85em; }
+  .note { font-size: .8rem; color: #888; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<h1>🎼 B106 · บรรเลงเพลง 1 — <span style="color:#2563eb">“พระเจ้าเป็นความรัก”</span></h1>
+<p class="sub">เพลงจริง (คีย์ E · ร้อง+รับ · โน้ต+คอร์ดจากระบบจริง) · <b>เสียงเครื่องดนตรีอัดจริงทั้งหมด (ฟรี/CC)</b> — เปียโน = Splendid Grand · ไวโอลิน + สตริง = ตัวอย่างเสียงจริง (Iowa/Philharmonia) · “สตริง” = <b>เชลโล(เสียงต่ำ)+ไวโอลิน(เสียงสูง)</b> แบ่งย่านจริง. ครั้งแรกที่กด รอโหลด ~3-6 วินาที · กด ⏹ เพื่อหยุด.</p>
+
+<div id="presetStatus" class="note" style="min-height:1.2em;margin:0 0 6px"></div>
+<label style="display:inline-flex;gap:7px;align-items:center;font-size:.85rem;margin:0 0 4px"><input type="checkbox" id="dyn" checked> กดหนัก-เบาอัตโนมัติ (dynamics — นุ่มเป็นธรรมชาติ ไม่กดแข็ง)</label><br>
+<label style="display:inline-flex;gap:7px;align-items:center;font-size:.85rem;margin:0 0 10px"><input type="checkbox" id="emb" checked> ลูกเล่นเล็กๆ (embellishments — โน้ตประดับ/สลับแพตเทิร์น/เติมช่องว่าง · สุ่มไม่เหมือนทุกครั้ง)</label>
+
+<div class="card rec"><h2>1. 🎹 แกรนด์เปียโนล้วน <span class="tag pretty">สงบ ลุ่มลึก · น้อยแต่มาก</span></h2>
+  <p>เปียโนล้วน ๆ ช้า ๆ · ทำนอง + คอร์ดค้างเบา ๆ กังวานยาว ปล่อยให้มี<b>ช่องว่าง (Sacred Space)</b> — สงบ ใคร่ครวญ แบบ felt piano. เรียบที่สุด กินใจที่สุด.</p>
+  <button class="play" data-preset="grand-pure">▶ ฟัง</button></div>
+
+<div class="card rec"><h2>2. 🎹 เปียโนบรรเลง (มือซ้ายไหล) <span class="tag pretty">อบอุ่น มีการเคลื่อน</span></h2>
+  <p>แกรนด์เปียโนอย่างเดียว · ทำนองร้องข้างบน · มือซ้าย<b>ไล่คอร์ดแบบลื่น</b> (broken chord ไม่ตอกเป็นก้อน) — เหมือนคนเล่นเปียโนจริง เอาเพลงเป็นหลัก.</p>
+  <button class="play" data-preset="solo-piano">▶ ฟัง</button></div>
+
+<div class="card rec"><h2>3. 🎻 ไวโอลินคลอเปียโน <span class="tag pretty">หวาน ร้องเพลง</span></h2>
+  <p>ไวโอลิน<b>สีทำนอง</b> (ลากเสียงยาว นุ่ม) · เปียโนคลอเบา ๆ ข้างล่าง — คู่คลาสสิกที่ไพเราะ ทำนองเด่นเหมือนมีคนสีไวโอลินให้.</p>
+  <button class="play" data-preset="violin-piano">▶ ฟัง</button></div>
+
+<div class="card rec"><h2>4. 🎹🎻 เต็มวง (มีคอร์ดชัด) <span class="tag pretty">อิ่ม ฟุ้ง</span></h2>
+  <p>เปียโนเล่นทำนอง · <b>สตริงคลอคอร์ด</b>ค้างอุ่น ๆ ข้างใต้ — ได้ยินคอร์ด/เสียงประสานชัด เต็มอิ่มแบบนมัสการ.</p>
+  <button class="play" data-preset="full">▶ ฟัง</button></div>
+
+<p class="note">👉 ผมจัด 3 แบบนี้ให้เป็นตัวเลือกที่ "เพราะพร้อมใช้". อยากลองผสมเองด้านล่างก็ได้.</p>
+
+<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:600">🎛️ ปรับเอง (ขั้นสูง) — เลือกเครื่อง × สไตล์คลอ เอง</summary>
+<div class="controls">
+  <strong style="font-size:.9rem">🎻 เครื่องดนตรี (เสียงจริง = โหลดครั้งแรกไม่กี่วินาที)</strong>
+  <div class="modes" id="inst">
+    <label><input type="radio" name="inst" value="synth" checked>สังเคราะห์ (เดิม · ทื่อ)</label>
+    <label><input type="radio" name="inst" value="piano">🎹 เปียโนจริง</label>
+    <label><input type="radio" name="inst" value="strings">🎻 สตริงจริง</label>
+    <label><input type="radio" name="inst" value="mix">🎹+🎻 เปียโน(ทำนอง)+สตริง(คอร์ด)</label>
+  </div>
+  <div id="status" class="note" style="min-height:1.2em"></div>
+  <hr style="border:none;border-top:1px solid #8883;margin:8px 0">
+  <div class="modes" id="mode">
+    <label><input type="radio" name="mode" value="both" checked>ทำนอง+คอร์ด</label>
+    <label><input type="radio" name="mode" value="chords">คอร์ดล้วน</label>
+    <label><input type="radio" name="mode" value="melody">ทำนองล้วน</label>
+  </div>
+  <label>เร็ว (BPM) <input type="range" id="bpm" min="54" max="112" value="76"><span id="bpmv">76</span></label>
+  <label>ระดับคอร์ด <input type="range" id="cg" min="0" max="20" value="6"><span id="cgv">0.06</span></label>
+  <button class="stopb" id="stop">⏹ หยุด</button>
+</div>
+
+<div class="card"><h2>1. ปัจจุบัน (B104) <span class="tag base">ฐานเทียบ</span></h2>
+  <p>block ราก-position ค้างยาว · timbre เดิม. คอร์ดรากสูงไต่ทับทำนอง.</p>
+  <button class="play" data-opt="current">▶ ฟัง</button></div>
+
+<div class="card rec"><h2>2. คลอค้าง (voice-led sustain) <span class="tag pretty">เพราะ นุ่ม</span></h2>
+  <p>คอร์ดค้าง แต่ voice-led + กรอง low-pass + เบสอุ้ม. = “ข้อ 3 เดิม” ที่พี่ว่าเพราะแล้ว.</p>
+  <button class="play" data-opt="sustain">▶ ฟัง</button></div>
+
+<div class="card"><h2>3. ไล่เสียง (arpeggio) <span class="tag diff">แปลก โปร่ง</span></h2>
+  <p>กระจายโน้ตทีละตัวตามจังหวะ. โปร่ง มีจังหวะ.</p>
+  <button class="play" data-opt="arp">▶ ฟัง</button></div>
+
+<div class="card rec"><h2>4. รูดคอร์ด (harp roll) <span class="tag pretty">เพราะ</span> <span class="tag diff">ใหม่</span></h2>
+  <p>ตีคอร์ดพร้อมกันแต่เหลื่อมนิดเดียว (ล่าง→บน ~30 ms) เหมือนดีดพิณ/กีตาร์รูด — นุ่ม หวาน.</p>
+  <button class="play" data-opt="roll">▶ ฟัง</button></div>
+
+<div class="card rec"><h2>5. สตริงคลอ (string pad) <span class="tag pretty">เพราะสุด?</span> <span class="tag diff">ใหม่</span></h2>
+  <p>2 oscillator เพี้ยนกันนิด (chorus) + swell ช้า เหมือนสตริง/ออร์แกนคลอ. เหมาะเพลงนมัสการช้าแบบนี้.</p>
+  <button class="play" data-opt="pad">▶ ฟัง</button></div>
+
+<div class="card"><h2>6. จังหวะย่ำ (waltz / oom-pah) <span class="tag diff">มีจังหวะ</span></h2>
+  <p>เบสลงบีต 1 · คอร์ดย่ำสั้นบีตถัดไป. คึกคักกว่าค้าง.</p>
+  <button class="play" data-opt="waltz">▶ ฟัง</button></div>
+
+<p class="note">💡 “เพราะ” = 3 ชั้น: <b>โน้ต</b> (voice-leading · เท่ากันทุกแบบ) · <b>จังหวะ</b> · <b>เสียง</b> (timbre). โปรดักชันทำเป็น <b>ตัวเลือกสไตล์ + เครื่องดนตรี</b> ให้ผู้ใช้เลือก.</p>
+</details>
+
+<script>
+// ---- REAL song #1 "พระเจ้าเป็นความรัก" — flattened by the actual songToNotes+playableContent
+//      (key E · repeats/arrangement resolved) · m=MIDI, b=beats, c=chord(carry-forward) ----
+const SONG = JSON.parse('[{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":0.5,"c":"A"},{"m":68,"b":0.5,"c":"A"},{"m":66,"b":4,"c":"B"},{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":1,"c":"A"},{"m":66,"b":3,"c":"B"},{"m":64,"b":1,"c":"B"},{"m":64,"b":3,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":0.5,"c":"E"},{"m":73,"b":2,"c":"C#m"},{"m":73,"b":0.5,"c":"C#m"},{"m":75,"b":0.5,"c":"C#m"},{"m":73,"b":0.5,"c":"C#m"},{"m":71,"b":0.5,"c":"C#m"},{"m":68,"b":3,"c":"G#m"},{"m":68,"b":0.5,"c":"G#m"},{"m":66,"b":0.5,"c":"G#m"},{"m":64,"b":1.5,"c":"A"},{"m":64,"b":0.5,"c":"A"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":66,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":73,"b":0.5,"c":"E"},{"m":75,"b":0.5,"c":"E"},{"m":64,"b":1.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":75,"b":1,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":73,"b":1.5,"c":"A"},{"m":73,"b":0.5,"c":"A"},{"m":71,"b":1,"c":"E"},{"m":68,"b":1,"c":"E"},{"m":66,"b":1.5,"c":"F#"},{"m":64,"b":0.5,"c":"F#"},{"m":66,"b":1,"c":"F#"},{"m":73,"b":1,"c":"F#"},{"m":71,"b":4,"c":"B"},{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":1,"c":"A"},{"m":66,"b":3,"c":"B"},{"m":64,"b":1,"c":"B"},{"m":64,"b":4,"c":"E"}]');
+
+// ---- chord theory (mirrors src/lib/chords.js) ----
+const SHARP=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const INTERVALS={'':[0,4,7],m:[0,3,7],7:[0,4,7,10],m7:[0,3,7,10],maj7:[0,4,7,11],sus4:[0,5,7],sus2:[0,2,7],dim:[0,3,6],6:[0,4,7,9],m6:[0,3,7,9],9:[0,4,7,10,14],add9:[0,4,7,14]};
+function parse(ch){const m=/^([A-G][#b]?)(.*)$/.exec(ch);if(!m)return null;
+  return {ri:SHARP.indexOf(m[1].replace('Bb','A#').replace('Eb','D#').replace('Ab','G#').replace('Db','C#').replace('Gb','F#')),suf:m[2]};}
+const ivFor=s=>INTERVALS[s]??INTERVALS[''];
+
+// voice-leading note selection — shared by ALL pretty options
+let prevUp=null; const WLO=48, WHI=67;
+function nearestOctave(pc,target){let m=WLO+((pc-WLO)%12+12)%12,best=m;
+  for(let x=m;x<=WHI;x+=12)if(Math.abs(x-target)<Math.abs(best-target))best=x;return best;}
+function voiceLed(ch){const p=parse(ch);if(!p)return{bass:null,up:[]};
+  const pcs=ivFor(p.suf).slice(1).map(iv=>(p.ri+iv)%12);
+  const anchor=prevUp&&prevUp.length?prevUp.reduce((a,b)=>a+b,0)/prevUp.length:58;
+  const up=pcs.map(pc=>nearestOctave(pc,anchor)).sort((a,b)=>a-b);
+  prevUp=up;const bass=40+((p.ri-4)%12+12)%12;return{bass,up};}
+function vCurrent(ch){const p=parse(ch);if(!p)return[];const bR=48+p.ri,bass=bR-12;const s=new Set([bass]);
+  for(const iv of ivFor(p.suf))s.add(bR+iv);return[...s].slice(0,5);}
+
+// ---- general dynamics algorithm (velocity per note · makes it not "stiff") ----
+// metric accent for 4/4: downbeat strong, beat 3 medium, off-beats weak.
+function accent(posBeat){ const p=((posBeat%4)+4)%4;
+  if(p<0.01) return 1.0; if(Math.abs(p-2)<0.01) return 0.9;
+  if(Math.abs(p-1)<0.01||Math.abs(p-3)<0.01) return 0.8; return 0.72; }
+// melody velocity mult: metric accent × melodic contour (rise/peak louder, fall/cadence softer) × tiny human jitter
+function melDyn(i, beat){ const n=SONG[i], prev=SONG[i-1], next=SONG[i+1];
+  let cont=1;
+  if(prev&&n.m>prev.m) cont+=0.06;                       // ascending → grow
+  if(prev&&next&&n.m>prev.m&&n.m>=next.m) cont+=0.06;    // local peak → lean in
+  if(prev&&n.m<prev.m) cont-=0.04;                       // descending → ease
+  if(n.b>=3) cont-=0.06;                                 // long/held (phrase end) → gentle
+  const jit=0.95+Math.random()*0.1;
+  return Math.max(0.5, Math.min(1.2, accent(beat)*cont*jit)); }
+
+// group SONG into chord events {chord,startBeat,beats} — like buildChordVoice
+function chordEvents(){const ev=[];let beat=0,cur=null;
+  for(const n of SONG){const c=n.c||'';
+    if(c&&(!cur||cur.chord!==c)){if(cur)ev.push(cur);cur={chord:c,startBeat:beat,beats:0};}
+    if(cur)cur.beats+=n.b;beat+=n.b;}
+  if(cur)ev.push(cur);return ev;}
+
+// ---- audio ----
+let ctx, master, curGen=0;
+function ensureCtx(){ if(ctx)return; ctx=new (window.AudioContext||window.webkitAudioContext)();
+  master=ctx.createGain(); master.gain.value=1; master.connect(ctx.destination); }
+
+// ---- REAL sampled instruments (soundfont-player · MusyngKite) ----
+const SF={}; // name -> loaded instrument
+const SF_ID={ piano:'acoustic_grand_piano', strings:'string_ensemble_1', violin:'violin' };
+const TH={ piano:'เปียโน', strings:'สตริง', violin:'ไวโอลิน' };
+let STATUS_ID='presetStatus';
+function setStatus(msg){ const e=document.getElementById(STATUS_ID); if(e) e.textContent=msg; }
+// ---- Tone.Sampler for real recorded strings (nbrosowsky/tonejs-instruments · Iowa/Philharmonia, free) ----
+let _Tone=null;
+async function getTone(){ if(_Tone) return _Tone; _Tone=await import('https://esm.sh/tone@14.7.77'); _Tone.setContext(ctx); return _Tone; }
+async function toneSampler(folder, notes){
+  const T=await getTone();
+  const urls={}; notes.forEach(n=> urls[n]=n+'.mp3');
+  const s=new T.Sampler({ urls, release:0.7,
+    baseUrl:'https://cdn.jsdelivr.net/gh/nbrosowsky/tonejs-instruments@master/samples/'+folder+'/' }).toDestination();
+  await T.loaded();
+  return { s, T };
+}
+const vel=g=> Math.min(1, Math.max(0.12, (g||0.3)));
+const dur=o=> Math.max(0.2, (o&&o.duration)||1);
+
+// Each loaded instrument is wrapped to a uniform { play(midi,t,{duration,gain}), stop() }.
+async function loadInst(name){
+  if(name==='synth') return null;
+  if(SF[name]) return SF[name];
+  setStatus('⏳ กำลังโหลดเสียง'+(TH[name]||name)+'จริง...');
+  if(name==='piano'){
+    // smplr Splendid Grand Piano — real recorded grand (warmer/fuller than GM soundfont)
+    try {
+      const m = await import('https://esm.sh/smplr@0.16.0');
+      const p = new m.SplendidGrandPiano(ctx); await p.load;
+      SF[name] = { play:(midi,t,o)=> p.start({ note:midi, time:t, duration:Math.max(0.15,(o&&o.duration)||1),
+                     velocity: Math.max(6, Math.min(122, Math.round(((o&&o.gain)||0.4)*70)+18)) }),
+                   stop:()=>{ try{ p.stop(); }catch(e){} } };
+      return SF[name];
+    } catch(e){ /* fall through to GM soundfont piano */ }
+  }
+  if(name==='violin'){
+    const v=await toneSampler('violin',['G3','A3','C4','E4','G4','A4','C5','E5','G5','A5','C6']);
+    SF[name]={ play:(midi,t,o)=> v.s.triggerAttackRelease(v.T.Frequency(midi,'midi').toNote(),dur(o),t,vel(o&&o.gain)),
+               stop:()=>{ try{ v.s.releaseAll(); }catch(e){} } };
+    return SF[name];
+  }
+  if(name==='strings'){
+    // a small section: cello for the low notes, violin for the upper — real frequency-band split
+    const lo=await toneSampler('cello',['C2','E2','G2','C3','E3','G3','A3','C4','E4','G4']);
+    const hi=await toneSampler('violin',['G3','A3','C4','E4','G4','A4','C5','E5','G5','A5']);
+    SF[name]={ play:(midi,t,o)=>{ const inst=midi<52?lo:hi;
+                 inst.s.triggerAttackRelease(inst.T.Frequency(midi,'midi').toNote(),dur(o),t,vel(o&&o.gain)); },
+               stop:()=>{ try{lo.s.releaseAll();}catch(e){} try{hi.s.releaseAll();}catch(e){} } };
+    return SF[name];
+  }
+  if(typeof Soundfont==='undefined') throw new Error('no-lib');
+  const inst=await Soundfont.instrument(ctx, SF_ID[name], { soundfont:'MusyngKite' });
+  SF[name]={ play:(midi,t,o)=> inst.play(midi,t,o), stop:()=>{ try{ inst.stop(); }catch(e){} } };
+  return SF[name];
+}
+// preload the real instruments a preset needs; fall back to synth if load fails
+async function prep(melKey, chordKey){
+  const keys=[...new Set([melKey,chordKey])].filter(k=>k!=='synth');
+  if(!keys.length) return { mel:melKey, chord:chordKey };
+  try { await Promise.all(keys.map(loadInst)); setStatus('✅ พร้อม — เสียงจริง'); return { mel:melKey, chord:chordKey }; }
+  catch(e){ setStatus('⚠️ โหลดเสียงจริงไม่ได้ (ออฟไลน์?) — ใช้เสียงสังเคราะห์แทน'); return { mel:'synth', chord:'synth' }; }
+}
+function bus(improved){ const g=ctx.createGain(); g.gain.value=1;
+  if(improved){ const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=2000; lp.Q.value=0.7;
+    const c=ctx.createDynamicsCompressor(); c.threshold.value=-20;c.knee.value=14;c.ratio.value=3;c.attack.value=0.02;c.release.value=0.18;
+    g.connect(lp).connect(c).connect(master);} else g.connect(master); return g; }
+function voice(dest,midi,t,dur,peak,attack,decayTo){
+  const o=ctx.createOscillator(),g=ctx.createGain();
+  o.type='triangle';o.frequency.value=440*2**((midi-69)/12);
+  const REL=0.03,relStart=Math.max(t+attack,t+dur-REL);let sus=peak;
+  g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(peak,t+attack);
+  if(decayTo!=null){sus=peak*decayTo;g.gain.linearRampToValueAtTime(sus,Math.min(relStart,t+attack+0.25));}
+  g.gain.setValueAtTime(sus,relStart);g.gain.linearRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(dest);o.start(t);o.stop(t+dur+0.03);return o;}
+function padVoice(dest,midi,t,dur,peak){
+  const g=ctx.createGain();const atk=0.35,rel=0.45,relStart=Math.max(t+atk,t+dur-0.05);
+  g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(peak,t+atk);
+  g.gain.setValueAtTime(peak,relStart);g.gain.linearRampToValueAtTime(0.0001,t+dur+rel);
+  const os=[];for(const cents of [-6,6]){const o=ctx.createOscillator();o.type='triangle';
+    o.frequency.value=440*2**((midi-69)/12);o.detune.value=cents;o.connect(g);o.start(t);o.stop(t+dur+rel+0.05);os.push(o);}
+  g.connect(dest);return os;}
+
+let liveOscs=[];
+function stopAll(){ curGen++; for(const o of liveOscs){try{o.stop();}catch(e){}} liveOscs=[];
+  for(const k in SF){ try{ SF[k].stop(); }catch(e){} } }
+
+// fire ONE voice on either the synth or a sampled instrument.
+//   instKey: 'synth' | 'piano' | 'strings'  ·  peak = synth-scale gain (0.35 melody / cg chords)
+//   pad/decay only apply to the synth; sampled instruments carry their own timbre.
+function fire(instKey, bus, midi, t, dur, peak, attack, decayTo, pad){
+  if(instKey==='synth'){
+    if(pad) padVoice(bus,midi,t,dur,peak).forEach(o=>liveOscs.push(o));
+    else liveOscs.push(voice(bus,midi,t,Math.max(0.08,dur),peak,attack,decayTo));
+    return;
+  }
+  const inst=SF[instKey]; if(!inst) return;
+  // map synth-scale peak -> soundfont gain (keeps melody-vs-chord ratio); strings a touch louder
+  const g=peak*4*(instKey==='strings'?1.15:1);
+  inst.play(midi, t, { duration: Math.max(0.12,dur), gain: g });
+}
+
+// core renderer — cfg = { melInst, chordInst, style, mode, bpm, cg }
+async function render(cfg){
+  ensureCtx(); await ctx.resume(); stopAll();
+  const gen=curGen;
+  const got=await prep(cfg.melInst, cfg.chordInst);    // may await sample download
+  if(gen!==curGen) return;                             // a newer press superseded us
+  const spb=60/cfg.bpm, cg=cfg.cg, opt=cfg.style, mode=cfg.mode;
+  const improved=opt!=='current';
+  const dynOn=document.getElementById('dyn') ? document.getElementById('dyn').checked : true;
+  const embOn=document.getElementById('emb') ? document.getElementById('emb').checked : true;
+  const t0=ctx.currentTime+0.15, cb=(got.chord==='synth')?bus(improved):master;
+  const wantMel=mode!=='chords', wantCh=mode!=='melody';
+  const ca=pos=> dynOn?accent(pos):1;                 // rhythmic accent (arp/waltz)
+  const cm=pos=> dynOn?0.86+0.14*accent(pos):1;       // mild accent (sustained pads)
+
+  // melody (on the melody instrument) — velocity shaped by the dynamics algorithm
+  if(wantMel){ let t=t0, beat=0; SONG.forEach((n,i)=>{ const d=n.b*spb;
+    if(n.m!=null){ const gm=dynOn?melDyn(i,beat):1; const jt=dynOn?(Math.random()-0.5)*0.012:0;
+      fire(got.mel, master, n.m, t+jt, d-0.06, 0.35*gm, 0.015, null, false); }
+    t+=d; beat+=n.b; }); }
+
+  // chords (event-based · on the chord instrument) — accent by metric position too
+  if(wantCh){ prevUp=null; for(const e of chordEvents()){
+    const bT=t0+e.startBeat*spb, dur=e.beats*spb, ic=got.chord, sp=e.startBeat; const v=voiceLed(e.chord);
+    if(opt==='current'){ vCurrent(e.chord).forEach(m=> fire(ic,cb,m,bT,dur-0.06,0.12,0.04,null,false)); continue; }
+    if(v.bass==null) continue;
+    if(opt==='sustain'){ const a=cm(sp);
+      fire(ic,cb,v.bass,bT,dur-0.05,cg*1.4*a,0.05,0.75,false); v.up.forEach(m=> fire(ic,cb,m,bT,dur-0.05,cg*a,0.06,0.7,false));
+      // ✦ embellishment: occasional octave-up swell on the top voice ("เอ่อล้น" at some chords)
+      if(embOn && Math.random()<0.22){ const top=Math.max(...v.up)+12; if(top<=88) fire(ic,cb,top,bT+0.03,dur-0.1,cg*0.6*a,0.25,0.7,false); }
+    } else if(opt==='pad'){ const a=cm(sp); const isPad=ic==='synth';
+      fire(ic,cb,v.bass,bT,dur,cg*1.3*a,0.05,0.75,isPad); v.up.forEach(m=> fire(ic,cb,m,bT,dur,cg*a,0.06,0.7,isPad));
+    } else if(opt==='roll'){ const a=cm(sp);
+      const st=[v.bass,...v.up]; st.forEach((m,i)=> fire(ic,cb,m,bT+i*0.03,dur-0.05-i*0.03,(i===0?cg*1.4:cg)*a,0.012,0.5,false));
+    } else if(opt==='arp'){
+      const u=v.up, u0=u[0], u1=u[1]??u[0];
+      // ✦ embellishment: vary the broken-chord shape per event (not identical every bar)
+      const shapes=[[v.bass,u1,u0,u1],[v.bass,u0,u1,u0],[v.bass,u1,u0,u1+ (u1+12<=86?0:0)]];
+      const seq = embOn ? shapes[Math.floor(Math.random()*shapes.length)] : shapes[0];
+      const nb=Math.max(1,Math.round(e.beats));
+      // ✦ embellishment: occasional chromatic approach note leading into the bass
+      if(embOn && Math.random()<0.28) fire(ic,cb,v.bass-1,bT-spb*0.22,spb*0.2,cg*0.9,0.008,0.4,false);
+      for(let k=0;k<nb;k++){ const m=seq[k%seq.length]; const a=ca(sp+k); const jt=dynOn?(Math.random()-0.5)*0.01:0;
+        fire(ic,cb,m,bT+k*spb+jt,spb*0.9,(k%4===0?cg*1.5:cg*1.1)*a,0.01,0.35,false);
+        // ✦ soft high-octave sparkle on some downbeats
+        if(embOn && k===0 && Math.random()<0.16){ const top=u0+12; if(top<=86) fire(ic,cb,top,bT+jt,spb*0.8,cg*0.7*a,0.01,0.3,false); }
+        // ✦ gentle fill in the space of a long chord (last beat)
+        if(embOn && nb>=3 && k===nb-1 && Math.random()<0.33){ fire(ic,cb,u1,bT+(k+0.5)*spb,spb*0.4,cg*0.9*a,0.01,0.3,false); }
+      }
+    } else if(opt==='waltz'){
+      fire(ic,cb,v.bass,bT,Math.min(dur,spb*1.4),cg*1.5*ca(sp),0.02,0.5,false); const nb=Math.max(1,Math.round(e.beats));
+      for(let k=1;k<nb;k++) v.up.forEach(m=> fire(ic,cb,m,bT+k*spb,spb*0.55,cg*ca(sp+k),0.015,0.4,false));
+    }
+  } }
+}
+
+// ---- the 3 curated arrangements (the SA/arranger's picks) ----
+const PRESETS={
+  'grand-pure':   { melInst:'piano',  chordInst:'piano',   style:'sustain', mode:'both', bpm:64, cg:0.05 },
+  'solo-piano':   { melInst:'piano',  chordInst:'piano',   style:'arp',     mode:'both', bpm:72, cg:0.055 },
+  'violin-piano': { melInst:'violin', chordInst:'piano',   style:'arp',     mode:'both', bpm:69, cg:0.05 },
+  'full':         { melInst:'piano',  chordInst:'strings', style:'sustain', mode:'both', bpm:74, cg:0.06 },
+};
+function playPreset(name){ STATUS_ID='presetStatus'; render(PRESETS[name]); }
+// advanced (manual) — build cfg from the DOM controls
+function playManual(opt){
+  STATUS_ID='status';
+  const instSel=document.querySelector('input[name=inst]:checked').value;
+  const map = instSel==='synth' ? {mel:'synth',chord:'synth'}
+            : instSel==='mix'   ? {mel:'piano',chord:'strings'}
+            : {mel:instSel,chord:instSel};
+  render({ melInst:map.mel, chordInst:map.chord, style:opt,
+    mode:document.querySelector('input[name=mode]:checked').value,
+    bpm:+document.getElementById('bpm').value, cg:(+document.getElementById('cg').value)/100 });
+}
+document.querySelectorAll('button.play').forEach(b=> b.addEventListener('click',()=>{
+  if(b.dataset.preset) playPreset(b.dataset.preset); else playManual(b.dataset.opt);
+}));
+document.getElementById('stop').addEventListener('click', stopAll);
+const bpmEl=document.getElementById('bpm');bpmEl.oninput=()=>bpmv.textContent=bpmEl.value;
+const cgEl=document.getElementById('cg');cgEl.oninput=()=>cgv.textContent=(cgEl.value/100).toFixed(2);
+</script>
+</body>
+</html>

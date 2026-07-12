@@ -1,0 +1,77 @@
+# Report — B107 (dev): ระบบเสียงเครื่องดนตรีจริง (sampler + presets + auto-arranger)
+
+**branch:** `b107-instrument-playback` (base `studio-shell-redesign` · มี B104+B105) · **บทบาท:** dev
+**SSOT สเปก:** `docs/ds/chord-voicing-quality.md` (รอบ 0–6) · **เดโมพิสูจน์แล้ว:** `docs/spikes/chord-voicing-demo.html`
+**สถานะ:** 🟡 **GATE — เสนอแผนเป็นเฟส + รอ PM เคาะ host ไฟล์เสียง ก่อนลุยส่วนที่ย้อนยาก**
+
+---
+
+## สรุปสั้น (F60+)
+
+งานนี้เปลี่ยน "สถาปัตยกรรมเสียง" ทั้งเส้น (แทน oscillator สังเคราะห์ ด้วย **ตัวอย่างเสียงเครื่องจริง**).
+ตามที่ brief สั่ง — **ก่อนลุยส่วนที่ย้อนยาก ผมวัดความเสี่ยงหลัก (ขนาดไฟล์เสียง + เวลาโหลดมือถือ) และเสนอแผน 3 เฟส + วิธี host ให้ PM เคาะก่อน.**
+ข่าวดี: เดโม (SA) พิสูจน์แล้วว่าเล่นได้จริงในเบราว์เซอร์ + ทรานสโพสได้ · ตัวอย่างเสียงถูกลิขสิทธิ์ (PD/CC-BY) host ซ้ำได้.
+ความเสี่ยงเดียวที่ต้องตัดสิน = **ต้องโหลดไฟล์เสียง ~2–3 MB ครั้งแรก (เปียโน) → เวลาโหลดบนมือถือ/เน็ตช้า.**
+
+---
+
+## 1. วัดความเสี่ยงหลัก — ขนาดไฟล์เสียง + เวลาโหลด (วัดจริง)
+
+| ชุดเสียง | แหล่ง | ลิขสิทธิ์ | ขนาดจริง (วัดแล้ว) |
+|---|---|---|---|
+| **เปียโน Splendid Grand** (smplr) | danigb/samples (Akai) | **Public Domain** ✅ host ซ้ำได้ | **default = 303 sample ≈ 17 MB** (โหลดครบ 5 ชั้น velocity) |
+| ↳ **จำกัด 1 ชั้น velocity + 4 อ็อกเทฟ** | เดียวกัน | เดียวกัน | **~2.0–3.4 MB** (ogg · จูนได้ด้วย notesToLoad) |
+| **สตริง = ไวโอลิน+เชลโล** (tonejs-instruments) | nbrosowsky (Iowa/Philharmonia) | **CC-BY 3.0** ✅ host ซ้ำได้ (ต้องเครดิต) | ไวโอลิน 11 ไฟล์ ×~330 KB ≈ **3.6 MB** + เชลโล 10 ×~75 KB ≈ **0.75 MB** = **~4.4 MB** |
+
+**บทเรียนสำคัญ:** smplr โหลดเปียโน **ครบ 5 ชั้น velocity = ~17 MB** ถ้าไม่จำกัด → **ห้ามใช้ default** · ต้องสั่ง `notesToLoad` (1 ชั้น + ช่วงโน้ตที่ใช้จริง) ให้เหลือ ~2–3 MB.
+
+**ประเมินเวลาโหลด (ครั้งแรก/เครื่อง · หลังจากนั้น cache):**
+- WiFi/4G (~10 Mbps): เปียโน 3 MB ≈ **2–3 วินาที** · เต็มวง +สตริง ≈ +3–4 วินาที
+- 3G ช้า (~0.4 Mbps): เปียโน 3 MB ≈ **~60 วินาที** ⚠️ — นี่คือเคสที่ต้องมีทางหนี (fallback synth ทันที + indicator)
+
+---
+
+## 2. แผน 3 เฟส (เสนอ · ปรับจาก brief)
+
+> หลักออกแบบที่ทำให้ host **ไม่ block การเขียนโค้ด:** ทำ **baseUrl เป็น config ค่าเดียว** — ย้ายที่ host ทีหลังแก้บรรทัดเดียว. ดังนั้นเริ่มเขียนได้เลย แม้ PM ยังไม่เคาะ host สุดท้าย.
+
+**สถาปัตยกรรม (ตัดสินใจ dev · flag ได้ถ้า PM ไม่เห็นด้วย):** ใช้ **smplr ตัวเดียว** ทั้งเปียโนและสตริง (smplr `Sampler` โหลด note→url เองได้) → **ไม่ต้องพึ่ง Tone.js** (เดโมใช้ Tone แค่ตอน R&D) → bundle เล็กลง + code path เดียว. `scheduleNote` (B104 แยกไว้ให้ realtime+MP3 ใช้ร่วม) กลายเป็น "จุดสลับเครื่องดนตรี": route โน้ตไป sampler แทน oscillator.
+
+| เฟส | ทำอะไร | ไฟล์ (fence) | ย้อนยากไหม |
+|---|---|---|---|
+| **P1 — sampler infra + Grand default (แทนเสียง B104)** | โมดูล `sampler.js` ครอบ smplr · abstraction เครื่องดนตรี · เปียโน Grand = default · **กลืน gain/voice-leading fix (คอร์ดไม่ดังไปแล้ว)** · lazy-load ตอนกดเล่นครั้งแรก · **fallback = synth เดิม** ถ้าโหลดพลาด/ออฟไลน์ · host-agnostic baseUrl | `sampler.js`(ใหม่) · `midi.js` · viewer selector | **นี่คือแกนหลัก · ship + tester gate ที่นี่** |
+| **P2 — presets + auto-arranger** | preset selector (Grand default · Felt · #2 เปียโน arp · #3 ไวโอลิน+เปียโน · #4 เต็มวง) + **arranger 3 ชั้น** (voice-leading → dynamics → embellishments) ย้ายจากเดโมเข้า `src/lib` | `arranger.js`(ใหม่) · `midi.js` · viewer | กลาง |
+| **P3 — MP3 rework** | `audioExport.js` render ผ่าน sampler เดียวกันบน OfflineAudioContext | `audioExport.js` | ⚠️ ต้อง spike: sampler render ใน OfflineAudioContext ได้ไหม (decode ต้องเสร็จก่อน render) |
+
+**สิ่งที่ P1 ปิดจบพร้อมกัน** (ตามที่ P'Aim เคาะ "กลืน gain/voicing ในนี้"): (1) เสียงจริง (2) แก้ "คอร์ดดังไป" (§1 spec) (3) voice-leading (§2 spec). → tester gate ที่ P1 ครอบ regression: playback/มือถือ/สลับโหมด/MP3-เดิม-ไม่พัง.
+
+---
+
+## 3. ตัวเลือก host ไฟล์เสียง (ให้ PM เคาะ)
+
+| | A. jsDelivr จาก repo ต้นทาง | B. self-host ใน repo เรา (`public/samples/`) | C. repo assets แยก → GH Pages/jsDelivr |
+|---|---|---|---|
+| งานตอนนี้ | 0 (ชี้ URL) | ก๊อป ~7 MB เข้า repo | ตั้ง repo ใหม่ + push |
+| repo เราบวม | ไม่ | **+7 MB** (clone หนักทุก session parallel) | ไม่ |
+| เราคุมเอง/ออฟไลน์ | ❌ พึ่ง 3rd-party | ✅ | ✅ |
+| CC ถูกต้อง (redistribute) | ผ่าน (jsDelivr mirror) | ✅ ชัดสุด | ✅ ชัดสุด |
+| เร็วสุดที่จะ ship | ✅ | กลาง | ช้าสุด |
+
+**คำแนะนำ dev:** เขียนแบบ **host-agnostic** (baseUrl ค่าเดียว) → **P1 ชี้ jsDelivr ต้นทาง (A) เพื่อ ship + วัดเวลาโหลดมือถือจริง** → รู้ตัวเลขจริงแล้วค่อย mirror มาที่เราคุมเอง (C) ใน P2/P3. ได้ทั้งเร็ว + ไม่ล็อกตัวเอง + ไม่บวม repo ตอนต้น.
+
+---
+
+## 4. 2 เรื่องที่ต้องให้ PM/P'Aim เคาะก่อนผมลุย P1 หนัก
+
+1. **Host:** เอาแนวทาง host-agnostic + P1 ผ่าน jsDelivr แล้ว mirror ทีหลัง (คำแนะนำผม) ✅ หรืออยาก self-host ใน repo เลย?
+2. **น้ำหนักโหลด default:** Grand = default แปลว่า **โหลด ~2–3 MB ครั้งแรกตอนกดเล่น**. เอาแบบ:
+   - (ก) **Grand default + fallback synth เล่นทันทีระหว่างโหลด + indicator "กำลังโหลดเสียงจริง…"** (คำแนะนำผม — ผู้ใช้ไม่รอหน้าจอค้าง) หรือ
+   - (ข) synth = default (0 download) · เสียงจริง = ปุ่ม "อัปเกรดเสียง" opt-in (เบาสุดต่อมือถือ แต่คนส่วนใหญ่ไม่กด = ไม่ได้ยินของเพราะ)
+
+**ระหว่างรอ:** ผมเริ่มโครง `sampler.js` (host-agnostic · ย้อนได้ · ยังไม่ commit ไฟล์เสียง MB ลง repo) ได้เลยโดยไม่ผูกการตัดสิน host.
+
+---
+
+## 5. ยังไม่ทำ / ยังไม่ deploy
+- **ไม่ merge เข้า base · ไม่ deploy** — PM cherry-pick หลัง tester gate (regression: playback/มือถือ/MP3).
+- เสียง/รสนิยม (preset ไหนเพราะ · จังหวะ · บาลานซ์) = **P'Aim↔SA ตรง** — ผม implement ตาม spec/เดโม.

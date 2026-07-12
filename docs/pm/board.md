@@ -35,6 +35,7 @@ main = `64c21cb` · **นโยบายใหม่: PM deploy ทีละ fix
 
 ## 📥 inbox → PM (dev handoff · รอ gate/merge)
 - _(ว่าง — B095 + B098 ผ่าน tester + ขึ้น live แล้ว · รอ B097 tester)_
+- **🟡 B107 GATE — dev เสนอแผน 3 เฟส + วัดขนาดไฟล์เสียง/เวลาโหลดมือถือ · รอ PM เคาะ 2 ข้อ ก่อนลุยหนัก** (branch `b107-instrument-playback` · report `docs/reports/b107-instrument-playback.md`) · **วัดจริง:** เปียโน Grand ~2–3 MB (ถ้าจำกัด 1 velocity layer · default ครบ 5 ชั้น = 17 MB ห้ามใช้) · สตริง ~4.4 MB · ลิขสิทธิ์ PD/CC-BY host ซ้ำได้ · **เคาะ:** (1) host = host-agnostic+jsDelivr ก่อน แล้ว mirror (dev แนะ) หรือ self-host เลย (2) default = Grand+fallback synth ระหว่างโหลด (dev แนะ) หรือ synth default+เสียงจริง opt-in · **dev เริ่มโครง `sampler.js` host-agnostic ระหว่างรอได้ (ยังไม่ commit ไฟล์เสียง)**
 
 ## 🎯 รอ P'Aim ตัดสิน (ไม่บล็อก)
 - **SA interlinear ≥3 ภาษา** (`task_aea51f3c` · mockup รอเคาะ · ชน SongSheet → จัดคิว dev) · **B080 expert standards** (ต่อยอด ui-standards)
