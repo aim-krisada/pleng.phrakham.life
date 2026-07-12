@@ -56,7 +56,7 @@
   <div class="row"><label>ทำนอง (พระเอก)</label><input type="range" id="melVol" min="40" max="130" value="100"><span class="val" id="melV">100</span></div>
   <div class="row"><label>คอร์ดคลอ</label><input type="range" id="compVol" min="20" max="110" value="62"><span class="val" id="compV">62</span></div>
   <div class="row"><label>เบส (ฐาน)</label><input type="range" id="bassVol" min="20" max="120" value="78"><span class="val" id="bassV">78</span></div>
-  <div class="row"><label>เสียงก้องโบสถ์</label><input type="range" id="rev" min="0" max="100" value="34"><span class="val" id="revV">34</span></div>
+  <div class="row"><label>เสียงก้องโบสถ์</label><input type="range" id="rev" min="0" max="100" value="24"><span class="val" id="revV">24</span></div>
   <div class="row"><label>ความเร็ว (BPM)</label><input type="range" id="bpm" min="52" max="100" value="72"><span class="val" id="bpmV">72</span></div>
   <p class="hint">humanize (±12ms/±6%) เปิดอัตโนมัติแล้ว · กฎ tempo→pattern: ช้า(&lt;92)=ไล่เสียง · เร็ว=คลอค้าง</p>
 </div>
@@ -102,8 +102,12 @@ function impulse(sec, decay){ const rate=ctx.sampleRate, len=rate*sec, buf=ctx.c
     for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay); } return buf; }
 function ensure(){ if(ctx)return;
   ctx=new (window.AudioContext||window.webkitAudioContext)();
-  master=ctx.createGain(); master.connect(ctx.destination);
-  revConv=ctx.createConvolver(); revConv.buffer=impulse(2.6,2.2);
+  master=ctx.createGain(); master.gain.value=0.9;
+  // master LIMITER — stops the mix from clipping/pumping (the "เสียงเงียบทุกจังหวะ" = hard-clip on loud beats)
+  const lim=ctx.createDynamicsCompressor();
+  lim.threshold.value=-6; lim.knee.value=0; lim.ratio.value=20; lim.attack.value=0.003; lim.release.value=0.12;
+  master.connect(lim); lim.connect(ctx.destination);
+  revConv=ctx.createConvolver(); revConv.buffer=impulse(2.2,2.6);
   revGain=ctx.createGain(); revConv.connect(revGain); revGain.connect(master);
   for(const r of ['mel','comp','bass']){ const g=ctx.createGain(); g.connect(master); g.connect(revConv); roleG[r]=g; }
 }
@@ -127,31 +131,31 @@ async function play(){
   setStatus('✅ เล่นด้วยเสียงตัวอย่าง (การจัดวงจริง)');
 
   const melVol=(+melVolEl.value)/100, compVol=(+compVolEl.value)/100, bassVol=(+bassVolEl.value)/100;
-  revGain.gain.value=(+revEl.value)/100*0.9;
+  revGain.gain.value=(+revEl.value)/100*0.5; // gentler wash (was clipping into the mix)
   const bpm=+bpmEl.value, spb=60/bpm; prevUp=null;
   const slow = bpm<92; const compPat = slow ? rec.compPat : 'pad'; // tempo→pattern: fast forces calm pad
   const t0=ctx.currentTime+0.2, rnd=()=>(Math.random()-0.5)*2, TJ=0.012, VJ=0.06;
-  const play1=(inst,role,midi,t,dur,g)=> inst.play(midi, t, {duration:dur, gain:Math.max(0.05,g), destination:roleG[role]});
+  const play1=(inst,role,midi,t,dur,g)=> inst.play(midi, t, {duration:dur, gain:Math.max(0.04,g), destination:roleG[role]});
 
-  // melody on the LEAD
+  // melody on the LEAD — the star: sits ON TOP, a touch louder, always clear
   let beat=0; SONG.forEach((n,i)=>{ const d=n.b*spb;
     if(n.m!=null){ const gd=accent(beat)*contour(i)*(1+VJ*rnd()); const sh=TJ*rnd();
-      play1(mel,'mel', n.m, t0+beat*spb+sh, Math.max(.15,d-.05), 0.5*melVol*gd); } beat+=n.b; });
+      play1(mel,'mel', n.m, t0+beat*spb+sh, Math.max(.18,d-.03), 0.62*melVol*gd); } beat+=n.b; });
 
-  // comp + bass
+  // comp + bass — accompaniment SITS UNDER: softer, and notes OVERLAP (no per-beat gap → no "silence")
   for(const e of chordEvents()){ const v=voiceLed(e.chord); if(v.bass==null)continue;
     const bT=t0+e.startBeat*spb, dur=e.beats*spb, a=accent(e.startBeat);
-    // bass = pedal (held long, low) on cello
-    play1(bass,'bass', v.bass, bT, dur*0.98, 0.42*bassVol*a);
-    if(compPat==='pad'){ // sustained pad (string ensemble / grand held)
-      v.up.forEach(mm=> play1(comp,'comp', mm, bT+(Math.random()*0.006), dur*0.98, 0.16*compVol*a));
-    } else { // arpeggio (grand under a violin/guitar lead)
+    // bass = pedal, held under everything (cello). full length so it never drops out.
+    play1(bass,'bass', v.bass, bT, dur, 0.34*bassVol*a);
+    if(compPat==='pad'){ // sustained pad — one soft held wash per chord, much quieter than the lead
+      v.up.forEach(mm=> play1(comp,'comp', mm, bT+(Math.random()*0.006), dur, 0.085*compVol*a));
+    } else { // arpeggio (grand under a violin/guitar lead) — each note rings PAST the next beat = seamless
       const seq=[v.up[0], v.up[1]??v.up[0], v.up[0], v.up[1]??v.up[0]]; const nb=Math.max(1,Math.round(e.beats));
       for(let k=0;k<nb;k++){ const sh=TJ*rnd();
-        play1(comp,'comp', seq[k%seq.length], bT+k*spb+sh, spb*0.92, 0.17*compVol*accent(e.startBeat+k)); }
+        play1(comp,'comp', seq[k%seq.length], bT+k*spb+sh, spb*1.6, 0.10*compVol*accent(e.startBeat+k)); }
     }
   }
-  setNow('▶ '+rec.label+' · พระเอก: '+({piano:'เปียโน',violin:'ไวโอลิน',guitar:'กีตาร์'}[LEAD])+' · '+(slow?'ไล่เสียง':'คลอค้าง'));
+  setNow('▶ '+rec.label+' · พระเอก: '+({piano:'เปียโน',violin:'ไวโอลิน',guitar:'กีตาร์'}[LEAD])+' · คลอ: '+(compPat==='pad'?'คลอค้าง':'ไล่เสียง'));
 }
 
 // ---- UI ----
