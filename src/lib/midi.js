@@ -3,6 +3,7 @@
 
 import { parseNotes, groupNotes, DOT_FACTOR } from './notation.js'
 import { parseChord, chordToIntervals } from './chords.js'
+import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
 
 const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 65,
   'F#': 66, Gb: 66, G: 67, 'G#': 68, Ab: 68, A: 69, 'A#': 70, Bb: 70, B: 71 }
@@ -35,6 +36,10 @@ let stopFlag = { stopped: false }
 // note that hasn't sounded yet when the user changes key mid-playback.
 let liveOscs = []
 let liveTranspose = 0
+// The real-instrument sampler sounding this playback (B107), or null when on the synth. Held
+// module-level so stopPlayback()/the in-loop stop can silence its voices (the synth is stopped
+// via liveOscs; a sampler owns its own voices).
+let activeSampler = null
 
 function tokenBeats(t, tripletFactor) {
   let d = 1 / 2 ** t.underlines
@@ -180,6 +185,7 @@ function mergeTies(notes) {
 export function stopPlayback() {
   stopFlag.stopped = true
   liveOscs = []
+  if (activeSampler) { activeSampler.releaseAll(); activeSampler = null }
 }
 
 // Schedule ONE melody note (triangle oscillator + attack/hold/release gain envelope)
@@ -198,15 +204,26 @@ export function stopPlayback() {
 //   attack      : ramp-up seconds — the chord pad uses a longer attack so it "คลอ"
 //                 (swells softly) instead of "ตอก" (strikes)
 // Returns the oscillator so the realtime caller can track it (stop / re-tune).
-export function scheduleNote(context, destination, midi, startT, soundDur, detuneCents = 0, peak = 0.35, attack = 0.015) {
+export function scheduleNote(context, destination, midi, startT, soundDur, detuneCents = 0, peak = 0.35, attack = 0.015, decayTo = null) {
   const osc = context.createOscillator()
   const gain = context.createGain()
   osc.type = 'triangle'
   osc.frequency.value = 440 * 2 ** ((midi - 69) / 12)
   osc.detune.value = detuneCents
+  // Envelope: 0 → peak (attack) → [decay to peak·decayTo] → hold → 0 (release). decayTo
+  // (B107 §4a) lets a chord "ยุบ" slightly after the swell so the melody sits on top instead
+  // of a flat wall of sound. The release always ramps from the REAL sustain level (never a
+  // hard jump to 0) so there's no click — the same anti-pop shape B104 shipped.
+  const REL = 0.05
+  const relStart = Math.max(startT + attack, startT + soundDur - REL)
+  let sustain = peak
   gain.gain.setValueAtTime(0, startT)
   gain.gain.linearRampToValueAtTime(peak, startT + attack)
-  gain.gain.setValueAtTime(peak, startT + Math.max(attack, soundDur - 0.05))
+  if (decayTo != null) {
+    sustain = peak * decayTo
+    gain.gain.linearRampToValueAtTime(sustain, Math.min(relStart, startT + attack + 0.25))
+  }
+  gain.gain.setValueAtTime(sustain, relStart)
   gain.gain.linearRampToValueAtTime(0, startT + soundDur)
   osc.connect(gain).connect(destination)
   osc.start(startT)
@@ -214,21 +231,41 @@ export function scheduleNote(context, destination, midi, startT, soundDur, detun
   return osc
 }
 
-// ---------- B104: chord accompaniment (the "left hand") ----------
-// Voice ONE chord symbol as a set of MIDI notes: a low root in the bass + a block triad
-// (root+3+5, plus the 7th/etc. from the suffix) sitting below the melody. This is the v1
-// default voicing (KISS) — locked in docs/ds/midi-chord-accompaniment.md §Voicing. The
-// structure (this fn picks the NOTES; buildChordVoice below decides WHEN they sound) is
-// kept separate so a future v2 can add other styles (arpeggio, walking bass) without
-// touching the scheduler. Returns [] for a blank/unparseable chord (→ no sound).
-export function chordVoicing(chordStr) {
+// ---------- B104/B107: chord accompaniment (the "left hand") ----------
+// Voice-leading window for the upper voices (B107 §4b). Upper chord tones live in C3..G4
+// (MIDI 48-67): low enough to sit UNDER a typical melody, high enough to sound like a hand
+// rather than mud. The bass root sits below, in its own low register.
+const UP_LO = 48
+const UP_HI = 67
+
+// Place a pitch-class into the upper window at the octave NEAREST a target pitch — the core
+// of voice-leading: the next chord's tones move as little as possible from the last chord's,
+// so the pad glides (common tones held, others step) instead of the whole block jumping.
+function nearestOctave(pc, target) {
+  let best = UP_LO + (((pc - UP_LO) % 12) + 12) % 12
+  for (let x = best; x <= UP_HI; x += 12) if (Math.abs(x - target) < Math.abs(best - target)) best = x
+  return best
+}
+
+// Voice ONE chord symbol with VOICE-LEADING (B107 §2, replaces B104's fixed block triad):
+//   - bass  = the root in a low register (E2..D#3), a clear foundation of its own
+//   - up[]  = the 3rd/5th(/7th…) — NO doubled root (the bass already owns it, so the pad is
+//             thinner and clearer) — each placed at the octave nearest the PREVIOUS chord's
+//             upper voices (prevUp). This keeps the accompaniment out of the melody's range
+//             and moving smoothly, the two things that made B104's block voicing sound "muddy
+//             / too loud / jumping" (proven by ear in the B106 demo).
+//   → { bass, up:[…] }  ·  { bass:null, up:[] } for a blank/unparseable chord (→ silence)
+// prevUp = the previous chord's up[] (null on the first chord → anchor mid-window).
+export function chordVoicing(chordStr, prevUp = null) {
   const p = parseChord(chordStr || '')
-  if (!p) return []
-  const blockRoot = 48 + p.rootIndex // C3..B3 — block triad sits below the melody (root ≥ C4)
-  const bass = blockRoot - 12 // C2..B2 — a deep root under the block, like a left-hand bass
-  const set = new Set([bass])
-  for (const iv of chordToIntervals(p.suffix)) set.add(blockRoot + iv)
-  return [...set].slice(0, 5) // keep it light: bass + up to 4 chord tones (trims a 9th's top)
+  if (!p) return { bass: null, up: [] }
+  // upper pitch-classes = the chord tones ABOVE the root (drop interval 0); trim to 3 so a
+  // 9th/7th chord stays a light 3-voice pad on top of the bass (≤ 4 notes total).
+  const pcs = chordToIntervals(p.suffix).slice(1, 4).map((iv) => (p.rootIndex + iv) % 12)
+  const anchor = prevUp && prevUp.length ? prevUp.reduce((a, b) => a + b, 0) / prevUp.length : 58
+  const up = pcs.map((pc) => nearestOctave(pc, anchor)).sort((a, b) => a - b)
+  const bass = 40 + (((p.rootIndex - 4) % 12) + 12) % 12 // root in E2..D#3 (40-51), its own low register
+  return { bass, up }
 }
 
 // The one rule for the 3 sound modes (B104), shared by live play and MP3 export so they
@@ -258,9 +295,41 @@ export function buildChordVoice(notes) {
     beat += n.beats
   }
   if (cur) events.push(cur)
-  return events
-    .map((e) => ({ midiSet: chordVoicing(e.chord), startBeat: e.startBeat, beats: e.beats }))
-    .filter((e) => e.midiSet.length)
+  // Voice-lead across events (B107): carry each chord's upper voices into the next so the pad
+  // glides. midiSet = [bass, ...up] keeps the scheduler's interface unchanged; bass/up are also
+  // exposed so a caller can gain them separately (bass a touch louder = a firmer foundation).
+  const out = []
+  let prevUp = null
+  for (const e of events) {
+    const v = chordVoicing(e.chord, prevUp)
+    if (v.bass == null) continue // blank/unparseable chord → no block (and don't reset prevUp)
+    prevUp = v.up
+    out.push({ bass: v.bass, up: v.up, midiSet: [v.bass, ...v.up], startBeat: e.startBeat, beats: e.beats })
+  }
+  return out
+}
+
+// Chord accompaniment bus (B107 §1 — the "chords too loud" fix). All chord voices route
+// through ONE gain → low-pass → compressor before the destination, instead of hitting it
+// raw: the low-pass rolls off the triangle's harsh upper harmonics ("หึ่ง"), the compressor
+// tames peaks when voices align, and the single gain is the master "chord level" knob. Net
+// effect: the pad sits ~-9 dB under the melody and stops masking it. Returns the input gain
+// node — connect every chord voice into it. Works on realtime AND OfflineAudioContext.
+export function makeChordBus(context, destination, level = 1) {
+  const g = context.createGain()
+  g.gain.value = level
+  const lp = context.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.value = 1900
+  lp.Q.value = 0.7
+  const comp = context.createDynamicsCompressor()
+  comp.threshold.value = -20
+  comp.knee.value = 14
+  comp.ratio.value = 3
+  comp.attack.value = 0.02
+  comp.release.value = 0.18
+  g.connect(lp).connect(comp).connect(destination)
+  return g
 }
 
 // Group section occurrences by label → the "selection tags" (B043 §1). The timeline
@@ -326,7 +395,7 @@ export function setTranspose(semitones) {
 
 // Play the melody; resolves when done or stopped. Returns false when the device
 // blocks audio (e.g. iOS with the silent switch on / autoplay policy).
-export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, order, transpose = 0, startIndex = 0, voices = 'melody', chordGain = 0.12 } = {}) {
+export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, order, transpose = 0, startIndex = 0, voices = 'melody', chordGain = 0.055, instrument = 'synth', onInstrumentPending } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   // iOS unlock: play a 1-sample silent buffer synchronously inside the user gesture
   try {
@@ -341,6 +410,28 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   stopFlag = { stopped: false }
   const myFlag = stopFlag
   liveTranspose = transpose // starting key offset; setTranspose() updates it live
+  // B107: choose the sound. A real instrument plays only once its samples are fully loaded
+  // (P'Aim: wait-then-play with a progress bar, like the MP3 download — NOT a synth stand-in
+  // during the wait). If it's not loaded yet, WAIT for the download here (reporting progress),
+  // then play on the real instrument. The synth is used ONLY when the load FAILS, so playback
+  // can never hard-fail. The ctx is already resumed (above) inside the user gesture, so
+  // scheduling after this await still starts audio on iOS. A pause during the wait sets the
+  // stop flag, which we honour right after the load resolves.
+  let sampler = null
+  if (isSampledInstrument(instrument)) {
+    sampler = getReadyInstrument(instrument, ctx)
+    if (!sampler) {
+      onInstrumentPending?.({ loading: true, progress: 0 })
+      try {
+        sampler = await loadInstrument(instrument, ctx, { onProgress: (p) => onInstrumentPending?.({ loading: true, progress: p }) })
+      } catch { sampler = null } // load failed → fall back to the synth (no hard-fail)
+      onInstrumentPending?.({ loading: false, progress: 1 })
+      if (myFlag.stopped) return true // user cancelled (pressed pause) during the download
+    } else {
+      onInstrumentPending?.({ loading: false, progress: 1 })
+    }
+  }
+  activeSampler = sampler // so stopPlayback() can silence the sampler's voices
   // `order` (B043 selection = many ranges) OR `range` (one section) OR the whole song —
   // buildPlayNotes is the SSOT the viewer also uses for the dot/markers/scrub/⏮⏭.
   let notes = buildPlayNotes(content, { order, range })
@@ -354,6 +445,10 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   // and the follow-along highlight still runs off `notes` even in chords-only mode.
   const { melody: wantMelody, chords: wantChords } = voiceFlags(voices)
   const chordEvents = wantChords ? buildChordVoice(notes) : []
+  // B107 §1: one bus (gain → low-pass → compressor) for all SYNTH chord voices so the pad sits
+  // under the melody instead of masking it. Not needed for the sampler (recorded piano isn't
+  // harsh, and per-note velocity already sets the balance). Built once; reused across passes.
+  const chordBus = (wantChords && !sampler) ? makeChordBus(ctx, ctx.destination) : null
 
   do {
     const t0 = ctx.currentTime + 0.08
@@ -365,12 +460,17 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
       if (wantMelody && n.midi != null) {
         // stop slightly early so repeated same-pitch notes articulate clearly
         const soundDur = Math.max(0.08, dur - 0.07)
-        // Same synth as the MP3 export (scheduleNote). Base pitch is the ORIGINAL
-        // key; transpose rides on detune so it can be changed live (100 cents = 1
-        // semitone) without rescheduling.
-        const osc = scheduleNote(ctx, ctx.destination, n.midi, t, soundDur, liveTranspose * 100)
-        endTimes.push(osc)
-        liveOscs.push({ osc, startTime: t })
+        if (sampler) {
+          // Real instrument: transpose = play a different MIDI note (the sampler pitch-shifts).
+          // A live key change reschedules (the viewer restarts) — sampler voices can't detune.
+          sampler.fire(n.midi + liveTranspose, t, soundDur, 0.35)
+        } else {
+          // Synth: base pitch is the ORIGINAL key; transpose rides on detune so it can be
+          // changed live (100 cents = 1 semitone) without rescheduling.
+          const osc = scheduleNote(ctx, ctx.destination, n.midi, t, soundDur, liveTranspose * 100)
+          endTimes.push(osc)
+          liveOscs.push({ osc, startTime: t })
+        }
       }
       t += dur
     }
@@ -379,11 +479,18 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
     // the melody (scheduleNote peak/attack) so it คลอ underneath without burying the tune.
     for (const ev of chordEvents) {
       const startT = t0 + ev.startBeat * spb
-      const soundDur = Math.max(0.1, ev.beats * spb - 0.06)
-      for (const m of ev.midiSet) {
-        const osc = scheduleNote(ctx, ctx.destination, m, startT, soundDur, liveTranspose * 100, chordGain, 0.04)
-        endTimes.push(osc)
-        liveOscs.push({ osc, startTime: startT })
+      const soundDur = Math.max(0.1, ev.beats * spb - 0.05)
+      // bass a touch louder than the inner voices (a firmer foundation); all softer than B104
+      // and through the chord bus. decayTo makes the pad "ยุบ" so the melody sits on top.
+      const voiceGains = [{ midi: ev.bass, gain: chordGain * 1.45 }, ...ev.up.map((m) => ({ midi: m, gain: chordGain }))]
+      for (const v of voiceGains) {
+        if (sampler) {
+          sampler.fire(v.midi + liveTranspose, startT, soundDur, v.gain)
+        } else {
+          const osc = scheduleNote(ctx, chordBus, v.midi, startT, soundDur, liveTranspose * 100, v.gain, 0.05, 0.72)
+          endTimes.push(osc)
+          liveOscs.push({ osc, startTime: startT })
+        }
       }
     }
     // wait until the scheduled end, checking the stop flag and reporting the
@@ -396,6 +503,7 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
     while (Date.now() - start < totalMs) {
       if (myFlag.stopped) {
         endTimes.forEach((o) => { try { o.stop() } catch {} })
+        if (sampler) sampler.releaseAll()
         return true
       }
       const elapsed = Date.now() - start - 80
@@ -411,5 +519,6 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
       await new Promise((r) => setTimeout(r, 100))
     }
   } while (loop && !myFlag.stopped)
+  if (activeSampler === sampler) activeSampler = null // natural end: drop our handle (voices ring out)
   return true
 }

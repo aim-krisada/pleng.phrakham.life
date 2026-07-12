@@ -162,14 +162,17 @@ describe('SongViewer playback key', () => {
     expect(lastPlay()[1].transpose).toBe(1) // …the shift rides on transpose
   })
 
-  it('change key WHILE playing → live re-tune (setTranspose), NOT a restart', async () => {
+  it('change key WHILE playing → reschedules in the new key (B107: sampler can\'t detune)', async () => {
     const w = mountViewer()
     await nextTick()
     await playBtn(w).trigger('click') // start (E, transpose 0)
     playSongSpy.mockClear()
     await pickSelect(w, 'key', 'Eb') // E → Eb (−1) mid-playback
-    expect(setTransposeSpy).toHaveBeenCalledWith(-1)
-    expect(playSongSpy).not.toHaveBeenCalled() // did NOT restart
+    // With the real Grand piano (B107 default) the notes ahead can't be detuned like the
+    // synth's oscillators, so a live key change re-schedules them in the new key instead.
+    expect(playSongSpy).toHaveBeenCalled()
+    expect(lastPlay()[1].transpose).toBe(-1)
+    expect(setTransposeSpy).not.toHaveBeenCalled()
   })
 })
 

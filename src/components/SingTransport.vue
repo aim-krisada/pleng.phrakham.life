@@ -23,6 +23,8 @@ const props = defineProps({
   totalSec: { type: Number, default: 0 },
   // one entry per section OCCURRENCE in play order: { name, frac, startIndex, isHook, active, picked }
   markers: { type: Array, default: () => [] },
+  // B102 — the ท่อน sounding now + which pass, for the "รอบ N" badge: { name, round, total } | null
+  nowPlaying: { type: Object, default: null },
   // one row per distinct label for the selector: { name, isHook }
   tags: { type: Array, default: () => [] },
   selected: { type: Object, default: () => new Set() }, // Set<name>
@@ -47,6 +49,14 @@ const alpha = ref(0.96)
 const two = (n) => String(n).padStart(2, '0')
 const fmt = (s) => `${Math.floor(Math.max(0, s) / 60)}:${two(Math.round(Math.max(0, s) % 60))}`
 const totalLabel = computed(() => fmt(props.totalSec)) // DS: show total time only
+// B102 — "รอบ N" badge text: the ท่อน sounding now, plus "รอบ n/total" when it repeats (a
+// refrain). Empty when idle. Lets the singer see which pass of the refrain is playing (and is
+// a live proof the last refrain fires — the badge reaches "รับ • รอบ 4/4").
+const nowLabel = computed(() => {
+  const n = props.nowPlaying
+  if (!n || !n.name) return ''
+  return n.total > 1 ? `${n.name} • รอบ ${n.round}/${n.total}` : n.name
+})
 
 // The knob is INSET from both ends of the seek so at the very start/end it doesn't hug the
 // dock edge (P'Aim). Everything on the rail — knob, section bars, dividers — maps a 0..1
@@ -162,6 +172,7 @@ const items = computed(() => {
           <span v-for="(d, i) in dividers" :key="'d' + i" class="st-div" :style="{ left: posOf(d) }"></span>
           <span class="st-kn" :style="{ left: posOf(frac) }"></span>
         </span>
+        <span v-if="nowLabel" class="st-now" aria-live="polite">{{ nowLabel }}</span>
         <span class="st-time">{{ totalLabel }}</span>
       </span>
     </template>
@@ -250,6 +261,10 @@ const items = computed(() => {
 .st-seek { position: relative; flex: 0 0 200px; width: 200px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
 @media (max-width: 760px) { .st-seek { flex-basis: 150px; width: 150px; } }
 .st-time { flex: 0 0 auto; }
+/* B102 — "รอบ N" now-playing badge: the current ท่อน + refrain pass, in the brand colour so it
+   reads as the live playhead label (not muted chrome). Ellipsis so a long ท่อน name never pushes
+   the total time off the dock. */
+.st-now { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--brand); font-weight: 700; }
 /* track inset to match the knob's travel range [8px, width−8px] so the knob at start/end
    doesn't hug the dock edge (P'Aim) — the rail breathes equally on both ends. */
 .st-trk { position: absolute; left: 10px; right: 10px; height: 4px; background: #ece5d9; border-radius: 3px; top: 50%; transform: translateY(-50%); }

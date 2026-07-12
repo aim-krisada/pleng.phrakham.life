@@ -132,10 +132,19 @@ export function resolveContent(content) {
       // B102 — a section carrying the strophic "รับทุกข้อ" directive shows a one-time rubric
       // "(ร้องรับทุกข้อ)" next to its label; the refrain still prints ONCE (resolvePlayOrder,
       // not this display pass, repeats it for playback). The sheet is untouched otherwise.
-      if (li === 0 && entry.label) {
-        const marker = { type: 'section', name: entry.label }
-        if (entry.afterEachVerse) marker.rubric = 'ร้องรับทุกข้อ'
-        outLine.push(marker)
+      // B102-fix — an UNLABELLED verse (a common authoring shortcut for verse 1) must still
+      // appear as a ท่อน everywhere sections are listed (selector · timeline · sheet), so it
+      // gets a default "ข้อ N" (same convention as the editor's rowLabel). Only in a
+      // MULTI-section song, so a single lyric block (incl. every v1-migrated song, whose lone
+      // arrangement entry is unlabelled) stays heading-free as before.
+      if (li === 0) {
+        const label = (entry.label || '').trim()
+        const name = label || ((content.arrangement || []).length > 1 ? `ข้อ ${ei + 1}` : '')
+        if (name) {
+          const marker = { type: 'section', name }
+          if (entry.afterEachVerse) marker.rubric = 'ร้องรับทุกข้อ'
+          outLine.push(marker)
+        }
       }
       const sig = melodyLineSignature(line, expBeats)
       for (const item of line) {

@@ -4,7 +4,7 @@
 // Split so the pieces are testable headless: notesDurationSec / floatToInt16 /
 // encodePcmToMp3 are pure; only renderSongToBuffer needs a browser (OfflineAudioContext).
 import lamejs from '@breezystack/lamejs'
-import { buildPlayNotes, scheduleNote, buildChordVoice, voiceFlags } from './midi.js'
+import { buildPlayNotes, scheduleNote, buildChordVoice, voiceFlags, makeChordBus } from './midi.js'
 import { resolveContent } from './songModel.js'
 import { songBasename } from './songName.js'
 
@@ -38,7 +38,7 @@ export function estimateMp3(content, { bpm, kbps = 128 } = {}) {
 // Render the melody offline into a mono AudioBuffer. Browser only (OfflineAudioContext).
 // Defaults mirror a plain "ฟัง": the song's own bpm (or 92) and its native key
 // (transpose 0). Same per-note timing + synth as playSong, so it sounds identical.
-export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRate = 44100, voices = 'melody', chordGain = 0.12 } = {}) {
+export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRate = 44100, voices = 'melody', chordGain = 0.055 } = {}) {
   const playable = playableContent(content)
   const useBpm = Number(bpm) || playable.bpm || 92
   const notes = buildPlayNotes(playable)
@@ -64,11 +64,15 @@ export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRa
     t += dur
   }
   if (wantChords) {
+    // Same voice-leading + chord bus + gain balance as playSong (B107), so the MP3 sounds
+    // exactly like "ฟัง": pad sits under the melody, bass a touch louder, envelope decays.
+    const chordBus = makeChordBus(ctx, ctx.destination)
     for (const ev of buildChordVoice(notes)) {
       const startT = ev.startBeat * spb
-      const soundDur = Math.max(0.1, ev.beats * spb - 0.06)
-      for (const m of ev.midiSet) {
-        scheduleNote(ctx, ctx.destination, m, startT, soundDur, transpose * 100, chordGain, 0.04)
+      const soundDur = Math.max(0.1, ev.beats * spb - 0.05)
+      const voiceGains = [{ midi: ev.bass, gain: chordGain * 1.45 }, ...ev.up.map((m) => ({ midi: m, gain: chordGain }))]
+      for (const v of voiceGains) {
+        scheduleNote(ctx, chordBus, v.midi, startT, soundDur, transpose * 100, v.gain, 0.05, 0.72)
       }
     }
   }

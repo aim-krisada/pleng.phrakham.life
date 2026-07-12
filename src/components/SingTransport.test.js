@@ -38,6 +38,23 @@ const panel = (w, id) => w.find(`.dk-panel [data-setting="${id}"]`)
 
 beforeEach(() => { localStorage.clear() })
 
+describe('B102 — "รอบ N" now-playing badge', () => {
+  it('shows nothing when idle', () => {
+    const w = mountT({ nowPlaying: null })
+    expect(w.find('.st-now').exists()).toBe(false)
+  })
+
+  it('shows "รอบ n/total" while a repeated ท่อน (refrain) plays', () => {
+    const w = mountT({ nowPlaying: { name: 'รับ', round: 4, total: 4 } })
+    expect(w.find('.st-now').text()).toBe('รับ • รอบ 4/4')
+  })
+
+  it('shows just the name for a ท่อน that plays once (no รอบ noise)', () => {
+    const w = mountT({ nowPlaying: { name: 'ข้อ 1', round: 1, total: 1 } })
+    expect(w.find('.st-now').text()).toBe('ข้อ 1')
+  })
+})
+
 describe('transport (row 1)', () => {
   it('play button (icon-only) emits toggle-play', async () => {
     const w = mountT()

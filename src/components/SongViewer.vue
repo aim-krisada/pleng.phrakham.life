@@ -12,6 +12,7 @@ import {
   playSong, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
   effectiveOrder, buildPlayNotes,
 } from '../lib/midi.js'
+import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode } from '../store.js'
@@ -58,6 +59,13 @@ const sheetMode = computed(() => (showLyric.value && !showNote.value && !showCho
 
 const displayKey = ref(props.song?.content?.key || 'C')
 const playing = ref(false)
+// B107: which instrument the playback sounds on. P1 = Grand piano (the default sound, per
+// P'Aim); a selectable preset arrives in P2. On first play the samples download while a
+// progress pill shows (like the MP3 export), THEN playback starts — the synth is only a
+// fallback if the download fails. `instrumentProgress` = 0..1 for the pill.
+const PLAY_INSTRUMENT = 'grand'
+const instrumentLoading = ref(false)
+const instrumentProgress = ref(0)
 const loop = ref(false)
 const tempo = ref(props.song?.content?.bpm || 92)
 const playingSeg = ref(null)
@@ -199,6 +207,19 @@ const markers = computed(() => {
   })
   return out
 })
+// B102 — "รอบ N" indicator: which ท่อน is sounding now and, when it repeats (a refrain), which
+// pass. Reads the SAME markers the timeline draws, so it advances exactly with the playhead —
+// if the last refrain plays, the badge reaches "รับ • รอบ 4/4"; if a pass were dropped it would
+// visibly stop short. round = this occurrence's position among same-named markers.
+const nowPlaying = computed(() => {
+  if (!playing.value) return null
+  const ms = markers.value
+  const active = ms.find((m) => m.active)
+  if (!active) return null
+  const same = ms.filter((m) => m.name === active.name)
+  const round = same.findIndex((m) => m.startIndex === active.startIndex) + 1
+  return { name: active.name, round, total: same.length }
+})
 // a full-song index → the nearest reachable note in the current play order (identity when
 // nothing is selected; snaps into the selection otherwise, so scrub/tap stay inside it)
 function fullToPlayIndex(fullIdx) {
@@ -279,6 +300,7 @@ function stopPlay() {
   playing.value = false
   playingSeg.value = null
   playingSyl.value = null
+  instrumentLoading.value = false // hide the "loading piano" pill if we cancel mid-download
 }
 // Play the current order (selection, or the whole song) from a note index. All playback
 // paths route through here so `order` stays the single source of what plays.
@@ -293,6 +315,11 @@ async function startPlay(startIndex = 0) {
     order: order.value,
     transpose: keyTranspose(props.song.content.key, displayKey.value || props.song.content.key),
     voices: soundMode.value, // B104: melody / chords / both — remembered per browser
+    instrument: PLAY_INSTRUMENT, // B107: real Grand piano (waits for samples, then plays)
+    onInstrumentPending: ({ loading, progress }) => {
+      instrumentLoading.value = loading
+      instrumentProgress.value = progress ?? 0
+    },
     startIndex,
     onNote: (n, idx) => {
       playingSeg.value = { li: n.li, si: n.si }
@@ -369,9 +396,13 @@ function setAll(on) {
 // B105: tick every ท่อน (= whole song). Used as the default on load / song change — sets the
 // selection directly (no afterSelectionChange stop/reset, since nothing is playing yet).
 function selectAllSecs() { selectedSecs.value = new Set(tags.value.map((t) => t.name)) }
-// live key change: re-tune the notes still ahead (seamless, not a restart)
+// live key change. On the synth the notes still ahead just re-tune (seamless detune). A
+// sampler (B107) can't re-tune already-scheduled sample voices, so — like a tempo change —
+// we re-schedule the notes ahead in the new key, continuing from the current note.
 watch(displayKey, (k) => {
-  if (playing.value) setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
+  if (!playing.value) return
+  if (isSampledInstrument(PLAY_INSTRUMENT)) startPlay(playedIndex.value)
+  else setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
 })
 // live tempo change: re-schedule the notes ahead at the new bpm, continuing from here
 watch(tempo, () => {
@@ -473,6 +504,15 @@ function onSeek({ li, si, syk }) {
       />
     </div>
 
+    <!-- B107: on first play the real Grand piano samples download (~3 MB, cached after);
+         this pill shows the progress, like the MP3 export. Playback starts once it's ready.
+         Pressing พัก during the wait cancels (the pill hides via stopPlay). -->
+    <div v-if="instrumentLoading" class="inst-loading" role="status" aria-live="polite">
+      🎹 กำลังโหลดเสียงเปียโนจริง… {{ Math.round(instrumentProgress * 100) }}%
+      <progress class="inst-bar" :value="Math.round(instrumentProgress * 100)" max="100"
+                :aria-label="`โหลดเสียงเปียโน ${Math.round(instrumentProgress * 100)}%`"></progress>
+    </div>
+
     <!-- the sing dock — DockKey core engine, fed the ITEMS_SING descriptor list by
          <SingTransport>. Fixed at the bottom; the engine owns collapse/drag/Setting/clamp. -->
     <SingTransport
@@ -481,6 +521,7 @@ function onSeek({ li, si, syk }) {
       :frac="frac"
       :total-sec="totalSec"
       :markers="markers"
+      :now-playing="nowPlaying"
       :tags="tags"
       :selected="selectedSecs"
       :has-sections="hasSections"
@@ -511,6 +552,45 @@ function onSeek({ li, si, syk }) {
 .sheet-scale { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 480px) {
   .sheet-scale { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* B107 — "loading real piano" hint, a small pill sitting just above the fixed dock. Purely
+   informational (the synth is already playing); fades in, never blocks interaction. */
+.inst-loading {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(170px + env(safe-area-inset-bottom, 0px));
+  z-index: 20;
+  pointer-events: none;
+  background: var(--surface-2, #222);
+  color: var(--text-1, #eee);
+  border: 1px solid var(--border-1, #4444);
+  border-radius: 999px;
+  padding: var(--sp-1, 4px) var(--sp-3, 12px);
+  font-size: 0.82rem;
+  box-shadow: 0 2px 10px #0003;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2, 8px);
+  max-width: min(88vw, 340px);
+}
+/* native <progress> so it reads the same as the MP3 export bar + gets built-in a11y */
+.inst-bar {
+  flex: 1;
+  min-width: 60px;
+  height: 5px;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.inst-bar::-webkit-progress-bar { background: var(--border-1, #4444); border-radius: 999px; }
+.inst-bar::-webkit-progress-value { background: var(--accent, #22c55e); border-radius: 999px; }
+.inst-bar::-moz-progress-bar { background: var(--accent, #22c55e); border-radius: 999px; }
+@media (max-width: 480px) {
+  .inst-loading { bottom: calc(220px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* B053 — source/scripture captions: muted small text (matches SongList's caption weight),

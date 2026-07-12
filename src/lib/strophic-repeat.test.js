@@ -108,6 +108,39 @@ describe('display (resolveContent) is untouched — refrain shown ONCE + rubric 
   })
 })
 
+describe('unlabelled verse shows as "ข้อ N" everywhere sections are listed (B102-fix)', () => {
+  it('an empty first-verse label becomes "ข้อ 1" in a multi-section song', () => {
+    const lines = resolveContent(song141)
+    // the first verse (arrangement entry 0, label '') now carries a section heading
+    const firstSection = lines[0].find((it) => it.type === 'section')
+    expect(firstSection).toBeTruthy()
+    expect(firstSection.name).toBe('ข้อ 1')
+  })
+
+  it('the full section list now includes ข้อ 1 (so the ท่อน selector can offer it)', () => {
+    const names = resolveContent(song141)
+      .flat()
+      .filter((it) => it.type === 'section')
+      .map((it) => it.name)
+    expect(names).toEqual(['ข้อ 1', 'รับ', 'ข้อ 2', 'ข้อ 3', 'ข้อ 4'])
+  })
+
+  it('a lone unlabelled block (single-entry / v1-migrated) stays heading-free', () => {
+    const single = {
+      version: 2, key: 'C', timeSignature: '4/4',
+      stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1' }]] }],
+      arrangement: [{ stanza: 'A', label: '' }],
+    }
+    const sections = resolveContent(single).flat().filter((it) => it.type === 'section')
+    expect(sections.length).toBe(0)
+  })
+
+  it('an explicit label is never overridden by the default', () => {
+    const named = resolveContent(song141).flat().find((it) => it.type === 'section' && it.name === 'รับ')
+    expect(named).toBeTruthy() // 'รับ' kept, not renamed to "ข้อ 2"
+  })
+})
+
 describe('no directive / not v2 → null (AC-7 regression: whole song unchanged)', () => {
   it('resolvePlayOrder returns null when no section carries the directive', () => {
     expect(resolvePlayOrder(noDirective)).toBeNull()
