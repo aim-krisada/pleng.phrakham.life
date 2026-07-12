@@ -40,6 +40,7 @@ main = `359872b` · **นโยบายใหม่: PM deploy ทีละ fix
 
 ## 📥 inbox → PM (dev handoff · รอ gate/merge)
 - _(ว่าง — B095 + B098 ผ่าน tester + ขึ้น live แล้ว · รอ B097 tester)_
+- **B107 P2 design (SA) เสร็จ** (`b107-p2-design`) — spec auto-arranger ครบทั้งระบบ 1 ชุด `docs/ds/instrument-arranger-p2.md` (3 ชั้น modular · ทุกเทคนิค: humanize/drop-2/open/pedal/walking/rubato/patterns/reverb/ensemble/presets + "ธรรมดา/ตรวจโน้ต" first-class · AC + real-audio verify + build order Humanize-first + MP3 P3 hook) · report `docs/reports/b107-p2-design.md` · **ขั้นถัดไป: P'Aim ปั้นเสียงกับ SA (spike humanize) ก่อน → SA ping PM จ่าย dev** · ยังไม่แตะ src/ไม่ deploy
 
 ## 🎯 รอ P'Aim ตัดสิน (ไม่บล็อก)
 - **SA interlinear ≥3 ภาษา** (`task_aea51f3c` · mockup รอเคาะ · ชน SongSheet → จัดคิว dev) · **B080 expert standards** (ต่อยอด ui-standards)
