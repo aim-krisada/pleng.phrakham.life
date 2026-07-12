@@ -18,6 +18,7 @@ main === base (`studio-shell-redesign`) · **371 test + build เขียว** 
 - **campaign tracker + checklist มาตรฐาน:** `docs/pm/review-anuchon.md` (PM re-run query นับ progress ทุก session) · อนุชน = clean 80 + ติดธง 42 (words28/repeat16/lint6/อื่น3)
 
 ## 🚧 กำลังทำ / รอ (รอบ 11 เริ่ม · pm11)
+- **B097 undo/redo ให้ถูกครบทุกกรณี** (หน้าแก้ไข) — **จ่าย dev แล้ว (spawn_task 12 ก.ค.)** · อาการ P'Aim: กดช่องโน้ต โน้ตถูก แต่กล่องเนื้อล่างผิด + อยากครอบทั้งหมด · **ต้นเหตุ PM trace:** (1) `applyState` เรียก `resetLens()` เด้ง lens กลับเที่ยวแรก + `lensChoice` ไม่อยู่ใน snapshot → หลัง undo เนื้อล่างผิดเที่ยว (2) `activeStanza` ถูกนับเป็น undo step (สลับท่อน=นำทาง ไม่ควรนับ) · แยก doc-state/view-state · brief `docs/pm/brief-b097-undo-redo.md` · รั้ว EditorMode.vue+test · ต่อยอด B075 · ▶ dev เสร็จ → tester gate → PM merge · **ยังไม่ deploy**
 - **B095 เล่มเพลง 3 เล่ม + ล็อกหมวด** — requirement = **ล็อก 3 เล่ม** (P'Aim เคาะ AskUserQuestion 12 ก.ค. ผ่าน PM · commit `0ac0556` · dev/tester อ้าง "เลี้ยงได้" ผ่านคอมเมนต์โค้ด = ไม่ผ่าน PM ไม่นับ)
   - **สถานะจริง (git-verified pm11, 12 ก.ค.): fix แก้กลับล็อก ยังไม่ได้ทำเลย · base ยัง contaminated เป็น flexible**
   - base `studio-shell-redesign` = **allow-custom/flexible (breach)** — `EditorMode.vue:2156` ยังมี `allow-custom` · test = `ComboSelect.category.test.js` (flexible) · self-merged เข้ามา (`a1d3c20`+`b60f221`+`d0ef2b8`)
