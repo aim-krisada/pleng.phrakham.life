@@ -6,8 +6,8 @@
 
 ---
 
-## 🟢 LIVE ตอนนี้ — deploy รอบ 16 (`b7341ee`, 12 ก.ค. · B104 MIDI chords)
-main = `b7341ee` · **นโยบายใหม่: PM deploy ทีละ fix ที่ผ่าน tester** (ดู §กติกา deploy) · รอบ11 B095 · 12 B098 · 13 B097 · 14 B099 · 15 B100 · 16 B104 · ("1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก)
+## 🟢 LIVE ตอนนี้ — deploy รอบ 17 (`64c21cb`, 12 ก.ค. · B105 play-UX)
+main = `64c21cb` · **นโยบายใหม่: PM deploy ทีละ fix ที่ผ่าน tester** (ดู §กติกา deploy) · รอบ11-17: B095·B098·B097·B099·B100·B104·B105 · ("1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก)
 - **ขึ้น live รอบ 10:** บั๊ก+ข้อเสนอพี่เปาครบ (โน้ต space ripple B084 · สติกกี้ B085 · ย้ายบรรทัด B086 · เส้นจบ‖ B090 · ล้างเนื้อบรรทัด · ปุ่มห้อง+มือถือ B092 · lint-ก่อนเผยแพร่ B093) + **หน้าแรกใหม่ (เล่ม picker) + verified GATE (B087+B089)**
 - ประวัติรอบก่อน (7-9): DockKey 3 หน้า+polish · slur B076 · ไทข้ามห้อง B069 · เส้นปิดห้อง B082 · พรีวิว B081 · จับคู่ทำนอง B083 · timeline D6 · a11y infra
 
@@ -18,7 +18,7 @@ main = `b7341ee` · **นโยบายใหม่: PM deploy ทีละ fix
 - **campaign tracker + checklist มาตรฐาน:** `docs/pm/review-anuchon.md` (PM re-run query นับ progress ทุก session) · อนุชน = clean 80 + ติดธง 42 (words28/repeat16/lint6/อื่น3)
 
 ## 🚧 กำลังทำ / รอ (รอบ 11 เริ่ม · pm11)
-- **B105 (dev) ปุ่มเล่น UX — ✅ DEV เสร็จ · จ่าย tester** (branch `b105-play-ux` · code `2511e69` · dev `local_2f0f94d7` · tester `task_5cc85c56`) · (1) สลับโหมดเสียง real-time (watcher soundMode re-schedule กลางเล่น · แพตเทิร์นเดียวกับ tempo) (2) เล่นทั้งเพลง default ติ๊กท่อนครบ + short-circuit playback เหมือนเดิมเป๊ะ · **แก้แค่ SongViewer.vue+test · ไม่แตะ midi.js (ไม่ชน B106)** · 430 test + build · report `docs/reports/b105-play-ux.md` · ▶ tester PASS → PM deploy
+- **B105 ปุ่มเล่น UX — ✅ เสร็จ + ขึ้น LIVE (รอบ 17 · `64c21cb`)** — สลับโหมดเสียง real-time กลางเล่นได้ + เล่นทั้งเพลง default ติ๊กท่อนครบ · tester PASS 4/4 (พิสูจน์ 124/124 เพลง playback เหมือนเดิม 0 ต่าง · สลับกลางเล่นจริง) → cherry-pick `2511e69` (SongViewer.vue+test · ไม่แตะ midi.js) → deploy `64c21cb` · **พี่เปาลอง live ได้**
 - **B106 (SA R&D) เสียงคอร์ดเพราะขึ้น — ✅ SA เสร็จ + มีเดโม · รอ P'Aim ฟัง+เคาะ 3 ข้อ** (branch `b106-sa-chord-quality` · commit `84f75d3` · session `local_1dac1ace`) · **สรุป:** (1) "คอร์ดดังไป" = จริง วัดได้ (คอร์ด 4-5 เสียง ~−2/−3dB ใต้ทำนอง+ค้างยาว → กลบ) แก้ลด gain+low-pass+compressor → ~−9dB (2) เพราะขึ้นได้ = ปัญหา voicing (block ราก-position กระโดด + เสียงบนทับทำนอง เช่น Am=A2A3C4**E4**) → แนะ **voice-leading เป็น default ใหม่** (ขยับน้อย ไม่ทับทำนอง เสี่ยงต่ำ) + arpeggio เป็น style ที่ 2 (voicing v2) · **เดโมฟังเทียบ:** `docs/spikes/chord-voicing-demo.html` → `http://10.152.249.98:8106/chord-voicing-demo.html` (server ใน SA session) · **3 คำถาม (spec §7):** ทิศทาง voice-leading+mix / arpeggio v2 เลยไหม / ระดับ gain · spec `docs/ds/chord-voicing-quality.md` → P'Aim เคาะ → จ่าย dev
 - **B098 แยกเครื่องมือโน้ต/ห้อง (4 การกระทำ) + auto-focus เพิ่มห้อง — ✅ เสร็จ + ขึ้น LIVE (รอบ 12 · `6e6653d`)** — tester PASS ครบ (คลิกจริง 4 สโคป + auto-focus + มือถือ 375px) → PM cherry-pick `3a934a4`+`b79cd37`→base (auto-merge สะอาด ไม่ชน B095) → FF main + push → poll bundle เจอ `6e6653d` ✅ · โน้ต: คัดลอก/ลบ · ห้อง: คัดลอก/ลบ · กดเพิ่มห้อง→พิมพ์ต่อได้เลย · report `docs/reports/b098-note-bar-tools.md`+`tester-b098-note-bar-tools.md` · **พี่เปาลอง live ได้**
 - **B104 MIDI เสียงคอร์ด 3 โหมด — ✅ เสร็จ + ขึ้น LIVE (รอบ 16 · `b7341ee`)** — music sheet=SSOT · โหมด ทำนอง/คอร์ด/รวม (default ทำนอง · จำค่า `pleng.soundMode`) · voicing v1 เบสราก+block triad · ครบ ฟังท่อน+ทั้งเพลง+MP3 · tester PASS correctness (421 test · sheet=SSOT 0 mismatch · 3 โหมดแยกชั้นถูก) → PM cherry-pick `0da62a3` (11 ไฟล์ · LF สะอาด) → deploy `b7341ee` · **⚠️ ความไพเราะ/สมดุลเสียงยังไม่จูนด้วยหูคน → รอ P'Aim/พี่เปาฟัง live (โหมดคอร์ด/รวม) · จูน gain/voicing = fast-follow ถ้าต้องการ** · voicing v2 (เลือกเอง) ยังค้าง
@@ -65,5 +65,5 @@ main = `b7341ee` · **นโยบายใหม่: PM deploy ทีละ fix
 - **ทุกงานใหม่ = spawn worktree + session ใหม่** (1 งาน = 1 worktree = 1 branch ตามหลักบอร์ด) · ไม่ปลุก session เก่า
 - ข้อยกเว้น: import เล่มใหญ่ `local_9f147e9d` (⏸️ พัก) — ถ้ายังไม่ archive ปลุกต่อได้ ไม่งั้น spawn ใหม่จาก report `hymnal-import.md`
 
-**Deploy history:** รอบ7 `71b8d8f` · รอบ8 `e83afe7` · รอบ9 `e7af727` · รอบ10 `4c5fd07` (+GATE) · รอบ11 `84d259c` (B095 lock) · รอบ12 `6e6653d` (B098) · รอบ13 `54eba5c` (B097) · รอบ14 `4513961` (B099) · รอบ15 `6951c19` (B100) · **รอบ16 `b7341ee` = LIVE (12 ก.ค. · B104 MIDI chords) — PM deploy ทีละ fix**
+**Deploy history:** รอบ7 `71b8d8f` · รอบ8 `e83afe7` · รอบ9 `e7af727` · รอบ10 `4c5fd07` (+GATE) · รอบ11 `84d259c` (B095 lock) · รอบ12 `6e6653d` (B098) · รอบ13 `54eba5c` (B097) · รอบ14 `4513961` (B099) · รอบ15 `6951c19` (B100) · รอบ16 `b7341ee` (B104) · **รอบ17 `64c21cb` = LIVE (12 ก.ค. · B105 play-UX) — PM deploy ทีละ fix**
 **env:** GitHub token `OneDrive/4 Personal/claude/.env`→`GITHUB_TOKEN_PLENG` (source ก่อน · repo public) · Supabase `SUPABASE_*_PLENG` · main อยู่ worktree `pleng-natural-tie` · IP เปลี่ยนบ่อย (เช็ก `Get-NetIPAddress` / vite Network line)
