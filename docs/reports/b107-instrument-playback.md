@@ -2,7 +2,34 @@
 
 **branch:** `b107-instrument-playback` (base `studio-shell-redesign` · มี B104+B105) · **บทบาท:** dev
 **SSOT สเปก:** `docs/ds/chord-voicing-quality.md` (รอบ 0–6) · **เดโมพิสูจน์แล้ว:** `docs/spikes/chord-voicing-demo.html`
-**สถานะ:** 🟡 **GATE — เสนอแผนเป็นเฟส + รอ PM เคาะ host ไฟล์เสียง ก่อนลุยส่วนที่ย้อนยาก**
+**สถานะ:** 🟢 **P1 เสร็จ (dev self-verify ในเบราว์เซอร์จริงผ่าน) → ขอ tester gate** · PM เคาะ gate แล้ว (host-agnostic+jsDelivr · Grand default+fallback)
+
+---
+
+## ✅ P1 — เสร็จแล้ว (commits บน branch นี้ · ยังไม่ merge/deploy)
+
+**ทำอะไร:** แทนเสียง synth ของ B104 ด้วย **เปียโน Grand จริง (เสียงอัด)** บนการเล่นสด + **แก้ "คอร์ดดังไป" (voice-leading + บัส gain)** กลืนในตัว + **fallback synth เล่นทันทีระหว่างโหลด**.
+
+**dev self-verify ในเบราว์เซอร์จริง (worktree dev server · วัดจริง):**
+| เช็ก | ผล |
+|---|---|
+| โหลดเปียโน Grand จริง | ✅ 30 ไฟล์ ogg · **3.23 MB** · โหลดเย็น ~4 วิ (warm cache ~0.5 วิ) · 1 ชั้น velocity (ไม่ใช่ 17 MB) |
+| host + ลิขสิทธิ์ | ✅ `smpldsnds.github.io` (Splendid Grand · **Public Domain**) — host-agnostic ผ่าน `SAMPLE_HOSTS.grand` |
+| lifecycle | ✅ not-ready → โหลด → ready (getReadyInstrument sync → เล่นไม่ต้องรอ) |
+| เล่นโน้ต (ทำนอง/คอร์ด/ทรานสโพส) | ✅ fire ครบ ไม่ error · ctx running · balance ทำนอง vel 116 / คอร์ด 33 (คอร์ดเบากว่าชัด) |
+| console error | ✅ 0 |
+| test + build | ✅ `vitest run` 436 ผ่าน (เหลือ notationLint process.exit quirk เดิม) · `npm run build` ผ่าน · smplr = lazy chunk (~9.5KB gz · ไม่อยู่ใน bundle หน้าแรก) |
+
+**⚠️ ที่ dev เห็น/ยืนยันไม่ได้ (= งาน tester + P'Aim):**
+- **"เพราะไหม/ถูกไหม" ด้วยหู** — dev ไม่มีหู · ต้อง tester/P'Aim ฟังจริง
+- **เล่นในหน้า SongViewer จริง** — anonymous ติด GATE (เห็น 0 เพลง) → **tester ต้องล็อกอินทีมแล้วเปิดเพลงจริง** (dev ทดสอบ pipeline ตรง ๆ ผ่านโมดูลจริงในเบราว์เซอร์ ไม่ผ่าน UI)
+- **เวลาโหลด+fallback บนมือถือ/3G จริง** — วัดบน desktop ~4 วิ · **Network URL ให้ลองบนมือถือ:** `http://10.152.249.98:5307/` (dev server ของ session นี้ · tester รันเองก็ได้)
+
+**สำคัญ — สิ่งที่เปลี่ยนสำหรับผู้ใช้ทุกคน:** เสียงเล่น (ทำนอง+คอร์ด) เปลี่ยนจาก synth เป็น **เปียโนจริง** โดย default → tester **อย่าตีเป็น regression ว่า "เสียงเปลี่ยน"** (= ฟีเจอร์ที่ P'Aim เคาะ) · regression ที่ต้องเช็ก = เล่น/หยุด/สลับโหมด(ทำนอง/คอร์ด/รวม)/ทรานสโพส/MP3 ยังทำงาน + fallback ไม่ค้างบนมือถือ.
+
+**P1 ยังไม่รวม (= P2/P3):** MP3 ยังใช้ **synth ที่แก้แล้ว** (voice-leading+gain · ไม่ใช่เปียโนจริง — real-instrument MP3 = P3) · presets/เลือกเครื่อง + auto-arranger 3 ชั้น = **P2** · mirror ไฟล์เสียงมา host เราเอง = ก่อน production เต็ม (PM เงื่อนไข).
+
+---
 
 ---
 
