@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>B107 P2 — audio verify (OfflineAudioContext)</title></head>
+<body>
+<h1>B107 P2 arranger — real-audio measurement</h1>
+<p>Renders the SYNTH path offline through the real arrange()+scheduleNote pipeline and measures
+peak / balance / humanize spread. (Sampler timbre is verified by ear on the real app.)</p>
+<pre id="out">running…</pre>
+<script type="module">
+import { songToNotes, buildChordVoice, scheduleNote, makeChordBus } from '/src/lib/midi.js'
+import { arrange } from '/src/lib/arranger/index.js'
+
+// A representative fragment: melody with rests + long notes, chords changing under it.
+const content = {
+  key: 'C', timeSignature: '4/4',
+  lines: [
+    [
+      { type: 'segment', note: '1', chord: 'C', lyric: 'a' },
+      { type: 'segment', note: '3', chord: '', lyric: 'b' },
+      { type: 'segment', note: '5', chord: 'F', lyric: 'c' },
+      { type: 'bar' },
+      { type: 'segment', note: '5', chord: 'G', lyric: 'd' },
+      { type: 'segment', note: '0', chord: '', lyric: '' },
+      { type: 'segment', note: '3', chord: 'C', lyric: 'f' },
+      { type: 'segment', note: '1---', chord: '', lyric: 'g' },
+    ],
+  ],
+}
+const BPM = 80, SPB = 60 / BPM, SR = 44100
+
+async function renderPeak(voices, arranger) {
+  const notes = songToNotes(content)
+  const chordEvents = voices === 'melody' ? [] : buildChordVoice(notes)
+  const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
+  const len = totalBeats * SPB + 1.0
+  const oac = new OfflineAudioContext(1, Math.ceil(SR * len), SR)
+  const chordBus = makeChordBus(oac, oac.destination)
+  const perf = arrange(notes, chordEvents, { arranger, voices, chordGain: 0.055 }, { songId: 'verify', pass: 0 })
+  for (const e of perf) {
+    const isMel = e.role === 'melody'
+    const startT = 0.08 + e.startBeat * SPB + (e.timeShift || 0)
+    const rawDur = e.beats * SPB
+    const soundDur = isMel ? Math.max(0.08, rawDur - 0.07) : Math.max(0.1, rawDur - 0.05)
+    scheduleNote(oac, isMel ? oac.destination : chordBus, e.midi, startT, soundDur, 0, e.gain, e.attack, e.decayTo)
+  }
+  const buf = await oac.startRendering()
+  const ch = buf.getChannelData(0)
+  let peak = 0
+  for (let i = 0; i < ch.length; i++) { const a = Math.abs(ch[i]); if (a > peak) peak = a }
+  return peak
+}
+
+// Humanize spread, measured on the melody onset times (seconds off the grid).
+function spread(arranger) {
+  const notes = songToNotes(content)
+  const chordEvents = buildChordVoice(notes)
+  const perf = arrange(notes, chordEvents, { arranger, voices: 'both', chordGain: 0.055 }, { songId: 'verify', pass: 0 })
+  const mel = perf.filter((e) => e.role === 'melody').map((e) => e.timeShift)
+  const ch = perf.filter((e) => e.role !== 'melody').map((e) => e.timeShift)
+  const maxAbs = (a) => Math.max(...a.map(Math.abs))
+  return { melMaxMs: (maxAbs(mel) * 1000).toFixed(2), chMaxMs: (maxAbs(ch) * 1000).toFixed(2), melShifts: mel.map((x) => (x * 1000).toFixed(1)) }
+}
+
+const db = (r) => (20 * Math.log10(r)).toFixed(1)
+try {
+  const [both, mel, chords] = await Promise.all([renderPeak('both', true), renderPeak('melody', true), renderPeak('chords', true)])
+  const offSpread = spread(false)
+  const onSpread = spread(true)
+  const res = {
+    'peak both (0<p<=0.9)': both.toFixed(4),
+    'peak melody-only': mel.toFixed(4),
+    'peak chords-only': chords.toFixed(4),
+    'balance melody-vs-chord (dB, expect + )': (db(mel) - db(chords)).toFixed(1),
+    'no clip (peak<=0.9)': both <= 0.9,
+    'melody louder than chord': mel > chords,
+    'peak > 0': both > 0,
+    'humanize OFF melody spread (ms, expect 0)': offSpread.melMaxMs,
+    'humanize ON melody spread (ms, expect ~<=12)': onSpread.melMaxMs,
+    'humanize ON chord spread (ms, expect < melody)': onSpread.chMaxMs,
+    'chord spread < melody spread': Number(onSpread.chMaxMs) < Number(onSpread.melMaxMs),
+    'ON melody shifts (ms)': onSpread.melShifts.join(', '),
+  }
+  const pass = both > 0 && both <= 0.9 && mel > chords && Number(offSpread.melMaxMs) === 0 && Number(onSpread.melMaxMs) > 0 && Number(onSpread.chMaxMs) < Number(onSpread.melMaxMs)
+  document.getElementById('out').textContent = (pass ? '✅ ALL AUDIO CHECKS PASS\n\n' : '❌ CHECK FAILED\n\n') + JSON.stringify(res, null, 2)
+  document.title = pass ? 'AUDIO PASS' : 'AUDIO FAIL'
+} catch (err) {
+  document.getElementById('out').textContent = '❌ ERROR: ' + err.message + '\n' + err.stack
+  document.title = 'AUDIO ERROR'
+}
+</script>
+</body>
+</html>

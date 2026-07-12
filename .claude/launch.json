@@ -237,6 +237,19 @@
       "port": 5413
     },
     {
+      "name": "b107",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "C:/gl/krisada/pleng.phrakham.life/.claude/worktrees/pensive-joliot-b70bc4",
+        "--host",
+        "--port",
+        "5342",
+        "--strictPort"
+      ],
+      "port": 5342
+    },
+    {
       "name": "wireframe",
       "runtimeExecutable": "py",
       "runtimeArgs": [

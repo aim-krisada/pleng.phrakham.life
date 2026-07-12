@@ -1481,7 +1481,10 @@ async function runPlay(content, liOffset, follow = true) {
   const id = ++playSeq
   playing.value = true
   const onNote = follow ? followBar(liOffset) : undefined
-  const ok = await playSong(content, { bpm: opts.bpm || 80, onNote })
+  // B107 P2 §6c: the editor is พี่เปา's note-checking surface → arranger OFF (notes exactly as
+  // printed, no humanize). The viewer (SongViewer) is where humanize plays. A first-class in-UI
+  // switch + localStorage lands in step 8; the editor stays "ลูกเล่นปิด" for now.
+  const ok = await playSong(content, { bpm: opts.bpm || 80, onNote, arranger: false })
   if (ok === false) saveMsg.value = AUDIO_BLOCKED_MSG
   if (id === playSeq) {
     playing.value = false

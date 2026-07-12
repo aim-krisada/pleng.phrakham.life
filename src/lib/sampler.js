@@ -61,6 +61,16 @@ export function gainToVelocity(gain) {
   return Math.round(GRAND_LAYER[0] + t * (GRAND_LAYER[1] - GRAND_LAYER[0]))
 }
 
+// The usable gain window [chord-inner floor .. melody ceiling]. Anything the arranger's
+// dynamics layer (B107 P2 §R2.4) produces MUST be clamped into this before it's fired, so
+// gainToVelocity() lands strictly inside the ONE loaded velocity layer (GRAND_LAYER). This
+// is the "velocity-in-layer" invariant whose absence made P1 play silence: humanize/accent
+// multiply the base gain, and an un-clamped product could map outside [41,67] → no sample.
+export const GAIN_WINDOW = [GAIN_MIN, GAIN_MAX]
+export function clampGainToLayer(gain) {
+  return Math.max(GAIN_MIN, Math.min(GAIN_MAX, gain || GAIN_MIN))
+}
+
 // name -> { instrument, ready, loading:Promise } — one entry per (name, AudioContext).
 // Keyed by context because an OfflineAudioContext (MP3) is a different context than the live
 // one; we don't want to share decoded buffers across incompatible contexts.

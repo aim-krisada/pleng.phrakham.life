@@ -4,6 +4,7 @@
 import { parseNotes, groupNotes, DOT_FACTOR } from './notation.js'
 import { parseChord, chordToIntervals } from './chords.js'
 import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
+import { arrange } from './arranger/index.js'
 
 const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 65,
   'F#': 66, Gb: 66, G: 67, 'G#': 68, Ab: 68, A: 69, 'A#': 70, Bb: 70, B: 71 }
@@ -395,7 +396,7 @@ export function setTranspose(semitones) {
 
 // Play the melody; resolves when done or stopped. Returns false when the device
 // blocks audio (e.g. iOS with the silent switch on / autoplay policy).
-export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, order, transpose = 0, startIndex = 0, voices = 'melody', chordGain = 0.055, instrument = 'synth', onInstrumentPending } = {}) {
+export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, order, transpose = 0, startIndex = 0, voices = 'melody', chordGain = 0.055, instrument = 'synth', onInstrumentPending, arranger = true, songId } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   // iOS unlock: play a 1-sample silent buffer synchronously inside the user gesture
   try {
@@ -450,49 +451,38 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   // harsh, and per-note velocity already sets the balance). Built once; reused across passes.
   const chordBus = (wantChords && !sampler) ? makeChordBus(ctx, ctx.destination) : null
 
+  const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
+  let pass = 0 // loop pass index → humanize seed, so pass 0/1 differ but repeat (§R2.5)
   do {
     const t0 = ctx.currentTime + 0.08
-    let t = t0
+    const t = t0 + totalBeats * spb // when the last note ends (for the wait loop below)
     const endTimes = []
     liveOscs = [] // reset per pass so a mid-play key change re-tunes this pass's notes
-    for (const n of notes) {
-      const dur = n.beats * spb
-      if (wantMelody && n.midi != null) {
-        // stop slightly early so repeated same-pitch notes articulate clearly
-        const soundDur = Math.max(0.08, dur - 0.07)
-        if (sampler) {
-          // Real instrument: transpose = play a different MIDI note (the sampler pitch-shifts).
-          // A live key change reschedules (the viewer restarts) — sampler voices can't detune.
-          sampler.fire(n.midi + liveTranspose, t, soundDur, 0.35)
-        } else {
-          // Synth: base pitch is the ORIGINAL key; transpose rides on detune so it can be
-          // changed live (100 cents = 1 semitone) without rescheduling.
-          const osc = scheduleNote(ctx, ctx.destination, n.midi, t, soundDur, liveTranspose * 100)
-          endTimes.push(osc)
-          liveOscs.push({ osc, startTime: t })
-        }
-      }
-      t += dur
-    }
-    // Chord pad: one soft block per chord event, held for its span, riding the same detune
-    // as the melody so a live key change moves both together. Softer + longer attack than
-    // the melody (scheduleNote peak/attack) so it คลอ underneath without burying the tune.
-    for (const ev of chordEvents) {
-      const startT = t0 + ev.startBeat * spb
-      const soundDur = Math.max(0.1, ev.beats * spb - 0.05)
-      // bass a touch louder than the inner voices (a firmer foundation); all softer than B104
-      // and through the chord bus. decayTo makes the pad "ยุบ" so the melody sits on top.
-      const voiceGains = [{ midi: ev.bass, gain: chordGain * 1.45 }, ...ev.up.map((m) => ({ midi: m, gain: chordGain }))]
-      for (const v of voiceGains) {
-        if (sampler) {
-          sampler.fire(v.midi + liveTranspose, startT, soundDur, v.gain)
-        } else {
-          const osc = scheduleNote(ctx, chordBus, v.midi, startT, soundDur, liveTranspose * 100, v.gain, 0.05, 0.72)
-          endTimes.push(osc)
-          liveOscs.push({ osc, startTime: startT })
-        }
+    // B107 P2: the arranger turns the sheet into a flat PerfEvent[] (melody + voiced chord
+    // hits, with humanize gain/timeShift when on). One pure function feeds both live play and
+    // MP3 export, so they can't drift. arranger:false = "ลูกเล่นปิด" → notes exactly as printed.
+    const perf = arrange(notes, chordEvents, { arranger, voices, chordGain }, { songId, pass, timeSignature: content.timeSignature })
+    for (const e of perf) {
+      const isMel = e.role === 'melody'
+      // onset = grid time + humanize shift; sound stops slightly early so repeated notes articulate
+      const startT = t0 + e.startBeat * spb + (e.timeShift || 0)
+      const rawDur = e.beats * spb
+      const soundDur = isMel ? Math.max(0.08, rawDur - 0.07) : Math.max(0.1, rawDur - 0.05)
+      if (sampler) {
+        // Real instrument: transpose = play a different MIDI note (the sampler pitch-shifts).
+        // A live key change reschedules (the viewer restarts) — sampler voices can't detune.
+        sampler.fire(e.midi + liveTranspose, startT, soundDur, e.gain)
+      } else {
+        // Synth: base pitch is the ORIGINAL key; transpose rides on detune so it can be changed
+        // live (100 cents = 1 semitone) without rescheduling. Chord voices route through the bus
+        // (low-pass + compressor) so the pad sits under the melody; the melody hits the dest raw.
+        const dest = isMel ? ctx.destination : chordBus
+        const osc = scheduleNote(ctx, dest, e.midi, startT, soundDur, liveTranspose * 100, e.gain, e.attack, e.decayTo)
+        endTimes.push(osc)
+        liveOscs.push({ osc, startTime: startT })
       }
     }
+    pass++
     // wait until the scheduled end, checking the stop flag and reporting the
     // note currently sounding (for follow-along highlight)
     const totalMs = (t - ctx.currentTime) * 1000

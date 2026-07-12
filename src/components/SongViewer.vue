@@ -316,6 +316,8 @@ async function startPlay(startIndex = 0) {
     transpose: keyTranspose(props.song.content.key, displayKey.value || props.song.content.key),
     voices: soundMode.value, // B104: melody / chords / both — remembered per browser
     instrument: PLAY_INSTRUMENT, // B107: real Grand piano (waits for samples, then plays)
+    songId: props.song?.id ?? props.song?.slug ?? props.song?.title, // B107 P2: stable humanize seed
+    // arranger defaults on → humanize; the first-class "ลูกเล่นปิด" switch lands in step 8
     onInstrumentPending: ({ loading, progress }) => {
       instrumentLoading.value = loading
       instrumentProgress.value = progress ?? 0
