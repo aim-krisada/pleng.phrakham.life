@@ -910,6 +910,13 @@ function removeSegment(bar, si) {
   bar.segments.splice(si, 1)
   if (!bar.segments.length) bar.segments.push(newSegment())
 }
+// B098 — NOTE-level copy: duplicate ONE segment (chord + note + lyric) right after it,
+// leaving the rest of the ห้อง untouched. The bar-level twin is duplicateBar (whole ห้อง).
+// Mirrors duplicateBar's deep-copy so tweaks to the copy don't mutate the original.
+function duplicateSegment(bar, si) {
+  const copy = JSON.parse(JSON.stringify(bar.segments[si]))
+  bar.segments.splice(si + 1, 0, copy)
+}
 function addLine() {
   lines.value.push(newLine())
 }
@@ -2407,7 +2414,13 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
                     <span v-else class="syl-spacer" aria-hidden="true"></span>
                   </span>
                 </span>
-                <button class="secondary tiny seg-del" aria-label="ลบช่องคอร์ดนี้" @click="removeSegment(bar, si)">✕</button>
+                <!-- B098: NOTE-level tools (this ตัวโน้ต only) — คัดลอกโน้ต + ลบโน้ต. The bar-
+                     level twins (คัดลอกห้อง/ลบห้อง) live in the bar foot below, so it is clear
+                     which control acts on one note vs the whole ห้อง. -->
+                <span class="seg-tools">
+                  <button class="secondary tiny seg-copy" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" aria-label="คัดลอกโน้ตนี้" @click="duplicateSegment(bar, si)"><Icon name="copy" :size="13" /></button>
+                  <button class="secondary tiny seg-del" title="ลบโน้ตนี้ (ห้องยังอยู่)" aria-label="ลบโน้ตนี้" @click="removeSegment(bar, si)">✕</button>
+                </span>
               </div>
             </div>
             <!-- ดูผล: the same bar drawn clean (jianpu render) — REPLACES the edit grid, not
@@ -2449,8 +2462,8 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
                      (≤480) so the bar foot stays one row (ui-standards no-crowd). -->
                 <button class="ed-mini ed-bar-mv" title="ย้ายห้องไปทางซ้าย" aria-label="ย้ายห้องไปทางซ้าย (สุดขอบ = ไปบรรทัดก่อน)" :disabled="bi === 0 && li === 0" @click="moveBar(li, bi, -1)"><span aria-hidden="true">←</span></button>
                 <button class="ed-mini ed-bar-mv" title="ย้ายห้องไปทางขวา" aria-label="ย้ายห้องไปทางขวา (สุดขอบ = ไปบรรทัดถัดไป)" :disabled="bi === line.bars.length - 1 && li === lines.length - 1" @click="moveBar(li, bi, 1)"><span aria-hidden="true">→</span></button>
-                <button class="ed-mini bar-act-wide" title="ทำสำเนาห้องนี้" aria-label="ทำสำเนาห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)"><Icon name="copy" :size="14" /></button>
-                <button class="ed-mini danger-ic bar-act-wide" title="ลบห้องนี้" aria-label="ลบห้องนี้" @click="removeBar(line, bi)"><Icon name="trash-2" :size="14" /></button>
+                <button class="ed-mini bar-act-wide" title="คัดลอกทั้งห้องนี้ (ทุกโน้ตในห้อง)" aria-label="ทำสำเนาห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)"><Icon name="copy" :size="14" /></button>
+                <button class="ed-mini danger-ic bar-act-wide" title="ลบทั้งห้องนี้ (ทุกโน้ตในห้อง)" aria-label="ลบห้องนี้" @click="removeBar(line, bi)"><Icon name="trash-2" :size="14" /></button>
               </span>
               <span class="ed-bar-more-wrap">
                 <button
@@ -2465,7 +2478,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
                   <!-- B092 responsive-split: on a phone (≤480) สำเนา/ลบ live here instead of the
                        foot (hidden on tablet/desktop where they're surfaced) -->
                   <div class="ed-bar-menu-row bar-menu-narrow">
-                    <button class="secondary tiny" aria-label="ทำสำเนาห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)">⧉ สำเนา</button>
+                    <button class="secondary tiny" aria-label="ทำสำเนาห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)">⧉ สำเนาห้อง</button>
                     <button class="danger tiny" aria-label="ลบห้องนี้" @click="removeBar(line, bi)">✕ ลบห้อง</button>
                   </div>
                   <label class="ed-bar-menu-check" title="จังหวะไม่เต็ม แต่นับรวมกับห้องที่ต่อกัน เช่น เริ่มกลางห้อง"><input v-model="bar.pickup" type="checkbox" /> ↻ ห้องต่อกัน (จังหวะไม่เต็ม — นับรวมกับห้องที่ต่อกัน)</label>
@@ -2779,7 +2792,11 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 }
 .chord-btn.chord-add:hover { opacity: 1; }
 .chord-pick { position: absolute; left: 0; top: 0; z-index: 20; }
-.seg-del { align-self: flex-start; color: var(--muted); padding: 2px 8px; }
+/* B098: note-level tools (คัดลอกโน้ต + ลบโน้ต) sit together under each note column */
+.seg-tools { display: inline-flex; gap: 4px; align-self: flex-start; }
+.seg-copy { color: var(--muted); padding: 2px 6px; }
+.seg-del { color: var(--muted); padding: 2px 8px; }
+.seg-del:hover { color: var(--red); }
 /* plain-language "how to" overview card */
 .how-to { background: var(--cream); border-color: var(--brand); }
 .how-to ol { line-height: 1.5; }
@@ -3886,12 +3903,12 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
 }
 .ed-count { font-size: 0.9rem; color: #2f7d4f; margin: 2px 0 8px; font-weight: 600; }
 .ed-count.bad { color: var(--red); }
-/* the ✕ seg-del is quiet until you hover / focus its column */
-.seg-col .seg-del { opacity: 0; transition: opacity 0.12s; }
-.seg-col:hover .seg-del,
-.seg-col:focus-within .seg-del { opacity: 1; }
+/* the note-level tools (คัดลอก/ลบ โน้ต) are quiet until you hover / focus the column */
+.seg-col .seg-tools { opacity: 0; transition: opacity 0.12s; }
+.seg-col:hover .seg-tools,
+.seg-col:focus-within .seg-tools { opacity: 1; }
 @media (hover: none) {
-  .seg-col .seg-del { opacity: 1; }
+  .seg-col .seg-tools { opacity: 1; }
 }
 .sheet-head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
 .only-print { display: none; }
