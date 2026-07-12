@@ -17,8 +17,8 @@ main === base (`studio-shell-redesign`) · **371 test + build เขียว** 
 - **campaign tracker + checklist มาตรฐาน:** `docs/pm/review-anuchon.md` (PM re-run query นับ progress ทุก session) · อนุชน = clean 80 + ติดธง 42 (words28/repeat16/lint6/อื่น3)
 
 ## 🚧 กำลังทำ / รอ (รอบ 11 เริ่ม · pm11)
-- **B095 เล่มเพลง 3 เล่ม (เล่มใหญ่/อนุชน/เด็กเล็ก) + ล็อกหมวดในหน้าแก้ไข** — DEV เสร็จ (branch `book-taxonomy-3` `f49178e` · code `dek-lek` แทน yuwachon) → **tester gate chip `task_e338e406`** · ผ่าน = PM cherry-pick commit โค้ด · detail `docs/backlog.md` B095
-- **system-map.md** — ✅ **canonical แล้ว** (บน base `5a3ab44` · PM review ผ่าน · แก้ id int→uuid ตรวจกับ schema จริง) · SA commit ตรง base (ไม่แยก worktree — process ผ่อนได้เพราะ doc-only) · **⚠️ ตอน merge B095 ต้องอัปเดต §เล่มเพลง system-map: ลบ yuwachon → `dek-lek`/เด็กเล็ก** (DoD taxonomy-touch)
+- **B095 เล่มเพลง 3 เล่ม (เล่มใหญ่/อนุชน/เด็กเล็ก) + ล็อกหมวดในหน้าแก้ไข** — ✅ **merged เข้า base** (`3fd806e` · P'Aim สั่ง merge ตรง 12 ก.ค. · tester gate `task_e338e406` = moot/superseded) · 375 test เขียว · code `dek-lek` แทน yuwachon · **ยังไม่ deploy main** (รอ P'Aim GATE 4/5) · detail `docs/backlog.md` B095
+- **system-map.md** — ✅ **canonical** (base · PM review แก้ id int→uuid) · **✅ taxonomy sync แล้ว** (B095 merge: §เล่มเพลง ลบ yuwachon → `dek-lek`/เด็กเล็ก + invariant note หน้าแก้ไขล็อก 3 เล่ม · DoD taxonomy-touch ครบ)
 - **📥 import เล่มใหญ่ "บทเพลงสรรเสริญ" (scanned 477 หน้า · session แยก `local_9f147e9d`)** — เพลง 32 (`lem-yai`) อยู่ใน DB แล้ว · **รอพี่เปาตรวจในแอป** → ผ่าน = ping DA ล็อก template + ไล่ทีละเพลง · **⏸️ พักไว้ก่อน** (P'Aim: อนุชน review ก่อน) · ~8-11K tok/เพลง (context แยก/เพลง · อย่าทำแชทเดียว) · ไฟล์ `tools/hymnal-samples/`, report `hymnal-import.md`
 - **B092 responsive-split = live แล้ว** (มือถือเก็บ สำเนา/ลบ ใน ⋯) — ถ้าพี่เปายังว่าหนักบนมือถือ ค่อยปรับ
 
