@@ -3,6 +3,7 @@
 
 import { parseNotes, groupNotes, DOT_FACTOR } from './notation.js'
 import { parseChord, chordToIntervals } from './chords.js'
+import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
 
 const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 65,
   'F#': 66, Gb: 66, G: 67, 'G#': 68, Ab: 68, A: 69, 'A#': 70, Bb: 70, B: 71 }
@@ -35,6 +36,10 @@ let stopFlag = { stopped: false }
 // note that hasn't sounded yet when the user changes key mid-playback.
 let liveOscs = []
 let liveTranspose = 0
+// The real-instrument sampler sounding this playback (B107), or null when on the synth. Held
+// module-level so stopPlayback()/the in-loop stop can silence its voices (the synth is stopped
+// via liveOscs; a sampler owns its own voices).
+let activeSampler = null
 
 function tokenBeats(t, tripletFactor) {
   let d = 1 / 2 ** t.underlines
@@ -180,6 +185,7 @@ function mergeTies(notes) {
 export function stopPlayback() {
   stopFlag.stopped = true
   liveOscs = []
+  if (activeSampler) { activeSampler.releaseAll(); activeSampler = null }
 }
 
 // Schedule ONE melody note (triangle oscillator + attack/hold/release gain envelope)
@@ -389,7 +395,7 @@ export function setTranspose(semitones) {
 
 // Play the melody; resolves when done or stopped. Returns false when the device
 // blocks audio (e.g. iOS with the silent switch on / autoplay policy).
-export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, order, transpose = 0, startIndex = 0, voices = 'melody', chordGain = 0.055 } = {}) {
+export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, order, transpose = 0, startIndex = 0, voices = 'melody', chordGain = 0.055, instrument = 'synth', onInstrumentPending } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   // iOS unlock: play a 1-sample silent buffer synchronously inside the user gesture
   try {
@@ -404,6 +410,21 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   stopFlag = { stopped: false }
   const myFlag = stopFlag
   liveTranspose = transpose // starting key offset; setTranspose() updates it live
+  // B107: choose the sound. A real instrument is used ONLY if its samples are already loaded
+  // (getReadyInstrument is synchronous). Otherwise play the synth NOW — instant, no wait — and
+  // kick off the load in the background so the NEXT play uses the real instrument. The synth is
+  // never on the critical path, so mobile / slow-net / offline / first-press never hangs.
+  let sampler = null
+  if (isSampledInstrument(instrument)) {
+    sampler = getReadyInstrument(instrument, ctx)
+    if (!sampler) {
+      onInstrumentPending?.(true) // "loading real sound…" — playing on the synth meanwhile
+      loadInstrument(instrument, ctx).then(() => onInstrumentPending?.(false)).catch(() => onInstrumentPending?.(false))
+    } else {
+      onInstrumentPending?.(false)
+    }
+  }
+  activeSampler = sampler // so stopPlayback() can silence the sampler's voices
   // `order` (B043 selection = many ranges) OR `range` (one section) OR the whole song —
   // buildPlayNotes is the SSOT the viewer also uses for the dot/markers/scrub/⏮⏭.
   let notes = buildPlayNotes(content, { order, range })
@@ -417,9 +438,10 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   // and the follow-along highlight still runs off `notes` even in chords-only mode.
   const { melody: wantMelody, chords: wantChords } = voiceFlags(voices)
   const chordEvents = wantChords ? buildChordVoice(notes) : []
-  // B107 §1: one bus (gain → low-pass → compressor) for all chord voices so the pad sits
-  // under the melody instead of masking it. Built once; reused across loop passes.
-  const chordBus = wantChords ? makeChordBus(ctx, ctx.destination) : null
+  // B107 §1: one bus (gain → low-pass → compressor) for all SYNTH chord voices so the pad sits
+  // under the melody instead of masking it. Not needed for the sampler (recorded piano isn't
+  // harsh, and per-note velocity already sets the balance). Built once; reused across passes.
+  const chordBus = (wantChords && !sampler) ? makeChordBus(ctx, ctx.destination) : null
 
   do {
     const t0 = ctx.currentTime + 0.08
@@ -431,12 +453,17 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
       if (wantMelody && n.midi != null) {
         // stop slightly early so repeated same-pitch notes articulate clearly
         const soundDur = Math.max(0.08, dur - 0.07)
-        // Same synth as the MP3 export (scheduleNote). Base pitch is the ORIGINAL
-        // key; transpose rides on detune so it can be changed live (100 cents = 1
-        // semitone) without rescheduling.
-        const osc = scheduleNote(ctx, ctx.destination, n.midi, t, soundDur, liveTranspose * 100)
-        endTimes.push(osc)
-        liveOscs.push({ osc, startTime: t })
+        if (sampler) {
+          // Real instrument: transpose = play a different MIDI note (the sampler pitch-shifts).
+          // A live key change reschedules (the viewer restarts) — sampler voices can't detune.
+          sampler.fire(n.midi + liveTranspose, t, soundDur, 0.35)
+        } else {
+          // Synth: base pitch is the ORIGINAL key; transpose rides on detune so it can be
+          // changed live (100 cents = 1 semitone) without rescheduling.
+          const osc = scheduleNote(ctx, ctx.destination, n.midi, t, soundDur, liveTranspose * 100)
+          endTimes.push(osc)
+          liveOscs.push({ osc, startTime: t })
+        }
       }
       t += dur
     }
@@ -450,9 +477,13 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
       // and through the chord bus. decayTo makes the pad "ยุบ" so the melody sits on top.
       const voiceGains = [{ midi: ev.bass, gain: chordGain * 1.45 }, ...ev.up.map((m) => ({ midi: m, gain: chordGain }))]
       for (const v of voiceGains) {
-        const osc = scheduleNote(ctx, chordBus, v.midi, startT, soundDur, liveTranspose * 100, v.gain, 0.05, 0.72)
-        endTimes.push(osc)
-        liveOscs.push({ osc, startTime: startT })
+        if (sampler) {
+          sampler.fire(v.midi + liveTranspose, startT, soundDur, v.gain)
+        } else {
+          const osc = scheduleNote(ctx, chordBus, v.midi, startT, soundDur, liveTranspose * 100, v.gain, 0.05, 0.72)
+          endTimes.push(osc)
+          liveOscs.push({ osc, startTime: startT })
+        }
       }
     }
     // wait until the scheduled end, checking the stop flag and reporting the
@@ -465,6 +496,7 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
     while (Date.now() - start < totalMs) {
       if (myFlag.stopped) {
         endTimes.forEach((o) => { try { o.stop() } catch {} })
+        if (sampler) sampler.releaseAll()
         return true
       }
       const elapsed = Date.now() - start - 80
@@ -480,5 +512,6 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
       await new Promise((r) => setTimeout(r, 100))
     }
   } while (loop && !myFlag.stopped)
+  if (activeSampler === sampler) activeSampler = null // natural end: drop our handle (voices ring out)
   return true
 }
