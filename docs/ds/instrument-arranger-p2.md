@@ -301,6 +301,21 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 
 **ผลต่อสถาปัตย์:** เพิ่มกีตาร์/bowed/ออร์แกน/ฟลูต ภายหลัง = เขียน `InstrumentModule` 1 ตัว (voicing + patterns + feel + sample) → เสียบเข้า registry. **แกน core (harmony/dynamics/humanize-vel) + PerfEvent + scheduler + presets ไม่แตะ.** = plug-in.
 
+### 4B.4 — ★ หัวใจ P2: "เดี่ยว-จัดเต็ม" สุด ๆ ของเทคนิคแต่ละเครื่อง (P'Aim เคาะ 12 ก.ค. ค่ำ)
+
+**ทิศทาง (P'Aim):** "เน้นทำเครื่องเดี่ยว แต่ลูกเล่นของแต่ละเครื่องจัดเต็ม น่าจะเพราะกว่า (วงรวม)". → **โฟกัส P2 = ปั้นเทคนิค idiomatic ของแต่ละเครื่องให้สุดทาง** (เครื่องเดียวทำเต็มที่สุด = เพราะกว่า + เสี่ยงน้อยกว่าการมิกซ์วงให้ไม่ขุ่น · ตรง "น้อยแต่มาก"). **เต็มวง (§6b.1) = คงไว้ตามที่ทำแล้ว · ยังไม่ปั้น · หา balance ทีหลัง** (ไม่ใช่ของหลัก P2).
+
+แต่ละ instrument module (§4B) ต้องมี pattern set **"solo-rich"** (ลูกเล่นเปิด) = สุดทางของเครื่องนั้น:
+
+| เครื่อง (module) | solo-rich = สุด ๆ ของเทคนิค (ลูกเล่นเปิด) | สถานะ |
+|---|---|---|
+| 🎹 **grand / felt** (keyboard) | มือขวาทำนอง voice-led + **มือซ้าย arp/Alberti broken-chord** + **pedal bass** (ค้าง/re-articulate) + drop-2/open voicing + **ประกายอ็อกเทฟสูง** (sparkle) + **เติมช่องคอร์ดยาว** (gapFill) + rubato ปลายวรรค + dynamics เต็ม (accent/contour/section/humanize) · felt = +low-pass อุ่น | ✅ พิสูจน์แล้ว (เดโม solo) |
+| 🎸 **nylon** (guitar) | **fingerpick (Travis)** เบสสลับ (p) + treble (i-m-a) · **รูดคอร์ด (harp roll)** ต้นวรรค (stagger 15–30ms) · รูปคอร์ด **กดได้จริงบนเฟร็ต** + สายเปล่ากังวาน · **strum** ลง/ขึ้น · ปล่อยสายให้ decay (ไม่ค้าง · sample 2.4s) · humanize | 🔜 sample พร้อม (build) |
+| 🎻 **violin** (bowed) | ทำนอง **mono ลากยาวพลิ้ว** (sustain 14s) · **double-stop** (คู่ 3/6) ตอนต้องประสาน · **สเวลล์ (cresc/decresc) ในโน้ตยาว** · slur เชื่อมวลี · **portamento/rubato ปลายวรรค** · vibrato feel | 🔜 sample พร้อม (build) |
+| 🎻 **cello** (bowed) | เดี่ยวย่านทุ้ม-เทเนอร์ · สีลากยาวมีอารมณ์ + สเวลล์ · double-stop บาง ๆ · **re-bow** สำหรับค้างยาว (>4.3s) · ทำนองเบส/เทเนอร์ | 🔜 sample พร้อม (build) |
+
+**build order ปรับ (§8):** หลัง core + humanize + เปียโน solo แล้ว → **ทำ solo-rich ของ nylon → violin → cello ทีละเครื่องให้สุด** (สำคัญกว่า wire เต็มวง) · แต่ละเครื่อง = P'Aim↔SA ปั้นเดโม solo ก่อนส่ง dev. เต็มวงคง `presets.js` เดิมไว้ (ไม่ลบ).
+
 ---
 
 ## 5. LAYER 4 — Mix / Timbre + เครื่องดนตรี (audio graph)
@@ -386,7 +401,7 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 | **🎻 ไวโอลินนำ — คลาสสิก** | **violin** (mono+double-stop) | **grand** (arpeggio) | **cello** (pedal) | arp + pedal | church·66 | ไวโอลินสีทำนอง · เปียโนไล่คอร์ด · สง่า หวาน | ✅ **sample พร้อม** |
 | **🎸 กีตาร์นำ — อะคูสติกอบอุ่น** | **nylon** (fingerpick) | **grand** (arpeggio เบา) | **cello** (pedal) | arp + pedal | room·72 | กีตาร์เกานำ · เปียโนคลอ · เชลโลต่ำ · ใกล้ชิด | ✅ **sample พร้อม** |
 
-> **สโคปเปลี่ยน (P'Aim ค่ำ 12 ก.ค.):** ไม่ deploy เปียโนอย่างเดียว — **รอครบ 5 เครื่อง + เต็มวง แล้วขึ้น live ทีเดียว** · sample 5 เครื่อง self-host `public/samples/` ครบแล้ว (`cc-instrument-samples.md`) → เต็มวง = **ทำจริงใน P2 แล้ว** (ไม่ใช่ future). ทุก recipe ใช้ **engine เดียว** (แกนกลาง §4B + role-based §6a′). **เดโมเลือกพระเอก:** `docs/spikes/ensemble-demo.html`.
+> **สโคป (P'Aim ค่ำ 12 ก.ค. · อัปเดตล่าสุด):** รอครบ 5 เครื่อง แล้วขึ้น live ทีเดียว (ไม่ deploy เปียโนอย่างเดียว) · sample 5 เครื่อง self-host ครบ. **แต่ P'Aim ฟังเดโมเต็มวงแล้ว = ยังไม่เพราะเท่าเดี่ยว-จัดเต็ม → เคาะ: หัวใจ = "เดี่ยว-จัดเต็ม สุด ๆ ต่อเครื่อง" (§4B.4) · เต็มวง (recipe/เดโมข้างล่าง) = คงไว้ตามที่ทำ · ยังไม่ปั้น · หา balance ทีหลัง (ไม่ใช่โฟกัส).** recipe เต็มวงคงไว้ใน `presets.js` (ไม่ลบ). **เดโมเต็มวง:** `docs/spikes/ensemble-demo.html` (working · ยังไม่ปั้น).
 
 #### 6b.1 — Recipe เต็มวงรูปธรรม (นำวง · dev wire เข้า `presets.js` PRESETS)
 เลือกพระเอก (แกน 1 = ensemble) → ระบบใช้ recipe ที่ล็อกคู่เสียงตามทฤษฎี · แต่ละ role แยกย่าน (register) กันนัว · humanize/dynamics = แกนกลาง (เหมือน preset เปียโน). ค่า `roles[]` + `cfg` ตามรูปแบบใน `presets.js` ที่ dev วางไว้แล้ว:

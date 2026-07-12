@@ -39,6 +39,12 @@ P'Aim สั่ง (12 ก.ค.) "รวมทุกเทคนิคที่�
 - **2 default UI (P'Aim เคาะแล้ว):** ลูกเล่น toggle (แก้ไข=ธรรมดา/เล่น=มีลูกเล่น) · เครื่องยังไม่มี sample = ปุ่มจาง "เร็ว ๆ นี้".
 - **P2 = เปียโนก่อน** (เปียโนสงบ=felt + เปียโนบรรเลง=arp buildable เลย) · อีก 3 preset slot ทีหลังไม่ต้องรื้อ (§12).
 
+## รอบ 7 — P'Aim ฟังเต็มวง → pivot: "เดี่ยว-จัดเต็มสุด ๆ ต่อเครื่อง = หัวใจ" (12 ก.ค. ค่ำ)
+**P'Aim ฟังเดโมเต็มวง:** ยังไม่เพราะเท่าเดี่ยว-จัดเต็ม (จืด — สาเหตุ: comp เป็น pad static + limiter squash dynamics · แก้เดโมแล้ว: arp movement + gentle limiter · แต่ยังไม่เท่าเดี่ยว). → **เคาะทิศ: เน้นทำเครื่องเดี่ยว ลูกเล่นแต่ละเครื่องจัดเต็ม = เพราะกว่า + เสี่ยงน้อยกว่ามิกซ์วง.**
+- **หัวใจ P2 = "เดี่ยว-จัดเต็ม สุด ๆ ต่อเครื่อง" (§4B.4 ใหม่):** เปียโน/felt (RH+LH arp+pedal+sparkle ✅) · nylon (fingerpick Travis+harp roll) · violin (mono ลากยาว+double-stop+swell) · cello (ทุ้มลึก+re-bow). แต่ละ module มี pattern set 'solo-rich'.
+- **เต็มวง = คงไว้ตามที่ทำ (P'Aim: "ไหน ๆ ทำแล้วก็คงไว้") · ยังไม่ปั้น · balance ทีหลัง · ไม่ลบ `presets.js`** (§6b.1 คง · เดโม working).
+- **next:** ทำเดโม solo-รวย ต่อเครื่อง (sample พร้อมบน base) ให้ P'Aim ปั้นทีละตัว → dev โฟกัสโมดูลเดี่ยว.
+
 ## รอบ 6 — เต็มวง (Lead-driven) รูปธรรม + เดโม (สโคปใหม่: รอครบ 5 เครื่อง ขึ้น live ทีเดียว)
 **สโคป (P'Aim ค่ำ 12 ก.ค. ผ่าน PM):** ไม่ deploy เปียโนอย่างเดียว — รอครบ 5 เครื่อง + เต็มวง แล้ว live ทีเดียว · sample 5 เครื่อง self-host `public/samples/` ครบ + arranger role-based อยู่บน base แล้ว (dev สร้างตามสเปกเป๊ะ) → เต็มวง = ทำจริงใน P2.
 - **3 recipe เต็มวงรูปธรรม (§6b.1 · dev wire เข้า `presets.js`):** 🎹 เปียโนนำ (grand+string pad+cello · default) · 🎻 ไวโอลินนำ (violin+grand arp+cello) · 🎸 กีตาร์นำ (nylon+grand+cello) — แต่ละ role แยก register กันนัว · humanize/dynamics = แกนกลาง.
