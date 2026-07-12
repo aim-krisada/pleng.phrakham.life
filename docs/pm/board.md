@@ -44,10 +44,9 @@ main === base (`studio-shell-redesign`) · **371 test + build เขียว** 
 - ทุก P'Aim example → กฎใน `ui-standards.md`/checklist (tester ดักครั้งหน้า) · แก้ที่ process ไม่โทษคน
 
 ## roster / routing (session id)
-- **tester (QA gate):** `local_03855226`
-- dev editor (EditorMode · โครงเพลง): `local_21441a00` · dev NoteBoxes/B084: `local_dc20cdf4` · dev SongSheet: `local_3e1ae3ed` · dev preview/B081: `local_bbeeb02f` · dev DockKey/หน้าฝึกร้อง: `local_e15710b1`
-- dev B087 home: `local_1661c954` · SA editor UX: `local_b6a88b87` · DA import: `local_9f147e9d`
-- (worker idle = ปลุกด้วย send_message · P'Aim กดยืนยัน)
+- **ไม่มี session ค้าง (archived หมด 12 ก.ค.)** — งานขึ้น live รอบ 7-10 ครบ, branch+commit ยังอยู่ใน git
+- **ทุกงานใหม่ = spawn worktree + session ใหม่** (1 งาน = 1 worktree = 1 branch ตามหลักบอร์ด) · ไม่ปลุก session เก่า
+- ข้อยกเว้น: import เล่มใหญ่ `local_9f147e9d` (⏸️ พัก) — ถ้ายังไม่ archive ปลุกต่อได้ ไม่งั้น spawn ใหม่จาก report `hymnal-import.md`
 
 **Deploy history:** รอบ7 `71b8d8f` · รอบ8 `e83afe7` · รอบ9 `e7af727` · **รอบ10 `4c5fd07` = LIVE (12 ก.ค. · 371 test · +GATE)**
 **env:** GitHub token `OneDrive/4 Personal/claude/.env`→`GITHUB_TOKEN_PLENG` (source ก่อน · repo public) · Supabase `SUPABASE_*_PLENG` · main อยู่ worktree `pleng-natural-tie` · IP เปลี่ยนบ่อย (เช็ก `Get-NetIPAddress` / vite Network line)
