@@ -12,7 +12,7 @@
 **คู่ขนาน (ไม่บล็อก):** review อนุชน 0/122 (งานคน P'Aim/พี่เปา · gate ปลดล็อก public) · B102 รับข้อ4 mobile (รอ P'Aim ทดสอบ) · B103 gitattributes (ถือ merge)
 **⚠️ ข้อกำหนด PWA (P'Aim 12 ก.ค.): sample ทุกชิ้นต้อง self-host + cache offline · ห้าม CDN runtime** (memory `pleng-pwa-self-host-samples`)
 **📥 2 checkpoint รอ P'Aim (12 ก.ค. เย็น):**
-- **(A) B107 P2 arranger humanize** — dev `local_4e478a01` เสร็จ step 0-1 (branch `b107-p2-arranger` `03bbedf`) · วัดจริง peak 0.60 humanize OFF 0ms/ON 9.69ms · 482 test · **⛔ ear-gate: P'Aim ฟัง `http://192.168.1.173:5342/` → โอเค = PM ไฟเขียว dev ลุย step 2-8**
+- **(A) B107 P2 arranger** — ✅ **P'Aim ฟัง humanize (5342) แล้ว "เพราะขึ้นจริง" → ไฟเขียว dev ลุย step 2-8** (drop-2/pedal/rubato/patterns/walking/mix/presets) บน `b107-p2-arranger` · dev `local_4e478a01` กำลังทำ · พอครบ → tester re-gate (วัด audio ทุก preset §7c) → P'Aim ฟัง final → PM deploy
 - **(B) sample sourcing เสร็จ+พิสูจน์** — research `local_7015b6a7` (branch `cc-samples-research` `156c663`) · mirror 5 เครื่อง self-host ~11.8MB ผ่าน `tools/prepare-samples.mjs` (ไม่เก็บ binary ใน git) · external req=0 (ออฟไลน์จริง) · เดโม `http://192.168.1.173:8123/` · **รอ P'Aim เคาะ 2 ข้อ: (1) host = repo แยก `pleng-samples` [PM แนะ] vs `public/samples/` · (2) quality upgrade CC0 (Bigcat Cello/FreePats nylon/VSCO2 · ต้องลง ffmpeg) เลย หรือใช้ GM ก่อน**
 
 ## ▶ RESUME เก่า (hand-off pm11 → pm21 · 12 ก.ค. เย็น · context pm11 ใกล้เต็ม)
