@@ -88,7 +88,15 @@
 - **pm7 ต่อ:** tester ผ่าน B087+B089 (public ว่าง+ข้อความ+ไม่ crash · team-view = unit test + P'Aim ยืนยันในแอป) → **deploy (gate active · public ว่าง)** → P'Aim review อนุชนทีละเพลง กด "ตรวจแล้ว" → กลับมาโชว์ · **yuwachon code** รอ DA ยืนยัน (ยังไม่มีเพลง=ไม่กระทบ)
 - **⭐ P'Aim สั่ง (ค่ำ 11 ก.ค.): ดัน B087+B089 ขึ้นก่อนบั๊กที่เหลือ** — tester ตรวจ B087+B089 เป็นลำดับต้น → PM deploy · **B084 final = space ripple + Backspace/Delete (`14415de` NoteBoxes · 337 test) → tester** · **B092/B093 = issue4/5 พี่เปา (B092 จ่ายแล้ว · B093 lint-before-publish รอ P'Aim เคาะ block/warn)**
 
-## ⚠️ MERGE STACK (pm7 · deploy รอบ 10 = โจทย์เรียงคิว EditorMode.vue หลายสาย)
+## 🔴 CURRENT (12 ก.ค. เช้า) — ฐาน deploy รอบ 10 ประกอบเสร็จ · เหลือ B092 split
+**`studio-shell-redesign` HEAD `c49f435` = 367 test + build เขียว** (cherry-pick code เลี่ยง doc conflict):
+- ✅ merged: B085/86 · B088 · B091 ล้างเนื้อ · B084 (split+ripple+bksp/del) · B093 lint · **B087+B089 หน้าแรก+gate** · B090 (มีก่อน)
+- **tester ผ่านหมดคืน 11→12 ก.ค.** (B085 sticky=กลไกถูก · ที่เหลือ PASS)
+- **เหลือ: B092 responsive-split (dev กำลังทำ) → merge → deploy รอบ 10**
+- **P'Aim: (1) เลื่อนสติกกี้มือถือยืนยัน (2) go deploy** → align main+push + public "อยู่ระหว่างดำเนินการ" (gate · SQL รันแล้ว)
+- follow-up: B088 native-confirm→dialog · B087 FLAG_LABEL ไทย · B092 mobile split (กำลังทำ)
+
+## ⚠️ MERGE STACK (ประวัติ · deploy รอบ 10)
 **5 สายแตะ `EditorMode.vue` ไฟล์เดียว รอ merge — ต้องเรียง+resolve+rerun test:**
 - **stack (ต่อกันแล้ว):** `editor-ux-followup` (B085/B086 `9dc22d9`) → `editor-copyline-reslice` (B088 `e496af5`) → `line-clear-parts` (B091 ล้างเนื้อ `b38fd04`) — merge ตามลำดับนี้ clean
 - **แตกจาก base (ต้อง rebase/resolve):** `surface-bar-tools` (B092 `d33c2e8`) · `lint-before-publish` (B093 `0fc2e95` เสร็จ→tester · severity ERROR+WARNING PM เคาะ) · `notebox-split` (B084 = NoteBoxes คนละไฟล์ · ไม่ชน)
