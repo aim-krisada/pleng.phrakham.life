@@ -224,9 +224,13 @@ function measureTies() {
       if (!nt.classList.contains('tie-end')) return
       const prev = nts[i - 1]
       if (!prev) return
-      // within-segment tie (same NoteRow) — leave it to NoteRow, don't overlay
+      // B099: draw EVERY tie as one overlay arc — cross-bar AND within-segment. A
+      // within-segment tie (both notes in the same NoteRow) used to be left to NoteRow's
+      // two half-arcs, but with no bar line between the notes those opposing halves overlap
+      // and cross into a bowtie (พี่เอม 12 ก.ค.). The overlay spans source→receiver as a
+      // single lens, so it repairs both cases the same way.
       const srcSeg = prev.closest('.segment')
-      if (srcSeg === nt.closest('.segment')) return
+      const sameSeg = srcSeg === nt.closest('.segment')
       const a = prev.getBoundingClientRect()
       const b = nt.getBoundingClientRect()
       if (!b.width) return
@@ -240,11 +244,13 @@ function measureTies() {
       const yTop = Math.min(a.top, b.top) - lr.top
       arcs.push(buildArc(x1, x2, yTop, h))
       // hide the two NoteRow halves this overlay arc replaces: the receiver's end-half AND
-      // the source's start-half. The source's start-arc may sit on ANY note of its segment
-      // (e.g. "5~ - - -" marks the FIRST note, then holds) — a position-based CSS selector
-      // missed that, leaving a stray hook (B069/พี่เปา). Hiding by segment catches it.
+      // the source's start-half. Cross-bar: the source's start-arc may sit on ANY note of
+      // its segment (e.g. "5~ - - -" marks the FIRST note, then holds) — a position-based CSS
+      // selector missed that, leaving a stray hook (B069/พี่เปา), so hide by segment. Within
+      // a segment (B099) the source IS `prev`, so hide its own start-arc precisely — avoids
+      // grabbing an unrelated earlier tie-start in the same segment.
       hideHalf(nt.querySelector('.tie-end-arc'))
-      hideHalf(srcSeg && srcSeg.querySelector('.tie-start-arc'))
+      hideHalf((sameSeg ? prev : srcSeg) && (sameSeg ? prev : srcSeg).querySelector('.tie-start-arc'))
     })
     if (arcs.length) byLine[li] = { paths: arcs, w: lr.width, h: lr.height }
   })
