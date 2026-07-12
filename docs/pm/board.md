@@ -124,6 +124,6 @@
 ## 🧹 cleanup (เมื่อสายปิด)
 worktree เก่า ~15 (`.claude/worktrees/` + `pleng-*`) · branch `claude/*` เยอะ · dev server เก่าหลายพอร์ต (`:5400`/`:5410-5413`/`:5450` อาจยังรัน) · `git worktree list` ดู · **IP ปัจจุบัน = `10.215.141.98`**
 
-**Deploy history:** รอบ5 `1535e1f` · รอบ6 `1a3aa65` · รอบ7 `71b8d8f` · รอบ8 `e83afe7` · **รอบ9 `e7af727` = LIVE + verified (11 ก.ค. ค่ำ · B083 จับคู่ทำนอง↔เนื้อ · P'Aim LAN-approved · live bundle มี e7af727 ไม่มี e83afe7)** · main===base
+**Deploy history:** รอบ7 `71b8d8f` · รอบ8 `e83afe7` · รอบ9 `e7af727` · **รอบ10 `4c5fd07` = PUSHED (12 ก.ค. เช้า · ใหญ่สุด: B085/86/84/88/90/B091ล้างเนื้อ/B092responsive/B093lint + B087+B089 หน้าแรก+GATE · 371 test · P'Aim go)** · **⚠️ GATE ACTIVE: public ว่าง+"อยู่ระหว่างดำเนินการ" (verified=0/123 · SQL รันแล้ว)** · verify: public view local = 0 เพลง+ข้อความ ✅ · รอ live stamp 4c5fd07
 kanban พี่เปา: **เสร็จแล้ว = B081/B082/B069/B083** · กำลังทำ = (ว่าง) · **รอทำ = B084 (spacebar · รอสเต็ปพี่เปา)**
 **env:** GitHub `OneDrive/4 Personal/claude/.env` → `GITHUB_TOKEN_PLENG` (source ก่อน · repo public) · Supabase `SUPABASE_*_PLENG` · main อยู่ worktree `pleng-natural-tie`
