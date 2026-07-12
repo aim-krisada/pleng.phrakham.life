@@ -9,7 +9,7 @@
 ## ▶ RESUME (pm21 · 12 ก.ค. ค่ำ · B107 P2 → เต็มวง)
 **สโคป (P'Aim ค่ำ 12 ก.ค. · ปรับหลังฟังเต็มวง): ไม่ deploy เปียโนอย่างเดียว — รอครบ 5 เครื่อง แล้วขึ้น live ทีเดียว.**
 **🔄 PIVOT (P'Aim ฟังเดโมเต็มวง → จืด ไม่เท่าเดี่ยว):** **หัวใจ P2 = "เดี่ยว-จัดเต็ม สุดๆ" ต่อเครื่อง (§4B.4)** · เต็มวง คงไว้ไม่ปั้น balance/ไม่ลบ presets.js
-**🚀 LAUNCH SCOPE (P'Aim 13 ก.ค.): ขึ้น live แค่ 2 เครื่อง = Grand + Guitar nylon ก่อน · ที่เหลือ (felt/violin/cello/string/เต็มวง) tune ทีหลัง (คงบน base เสียบไม่รื้อ)**
+**🚀 LAUNCH SCOPE (P'Aim 13 ก.ค. · final): 3 โหมด = เปียโนเดี่ยว + กีตาร์เดี่ยว + รวมวง(เสียงจริง)** (เต็มวงเสียงจริงผ่านหู P'Aim แล้ว · SA `a3d220d` §6b.2 · ref `ensemble-real-demo.html` · ตัด GM เสียงจริงเท่านั้น: grand self-host + cello/violin CC · balance วัด: เปียโน −5.6dB นำ/เชลโล −16.8/ไวโอลิน −26.7 · lead เปียโน default · default เปิดแอป = รวมวงเปียโนนำ) · เครื่องเดี่ยวอื่น (felt/violin/cello เดี่ยว) tune ทีหลัง
 - 🎹 grand solo-จัดเต็ม = มีแล้วใน P2 arranger (tester PASS) · 🎸 guitar nylon solo module = ใหม่ (strum D-DU-UDU/travis PIMA/rasgueado/slide · เดโม `guitar-solo-demo.html` โหลด nylon CC จริง)
 - **✅ P'Aim ฟังกีตาร์ "พอได้" ผ่าน → จ่าย dev launch** (`local_3fc2030f` · branch `b107-step9-instruments`)
   - ✅ **Dock UI เสร็จ** (`db8e1c2`/`bc11dd0`: ปุ่มเดียว "เสียงดนตรี" `audio-lines` + popover 4 กลุ่ม + ยุบท่อน+badge · `SoundControl.vue`+`soundOptions.js` · edit-default plainest จำ `pleng.editor.*` แยก · 514 เขียว)
