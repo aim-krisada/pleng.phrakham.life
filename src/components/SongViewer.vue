@@ -54,9 +54,9 @@ const SOUND_OPTS = [
 ]
 const soundDef = computed(() => SOUND_OPTS.find((o) => o.value === soundMode.value) || SOUND_OPTS[0])
 // ---------- B107 P2 · แกน 1 "การบรรเลง" (เดี่ยว/เต็มวง) + เครื่องดนตรี (lead) ----------
-// The spec's 2-axis picker (§6a). In P2 only the grand piano has samples, so เต็มวง and every
-// non-piano instrument show as "เร็ว ๆ นี้" (disabled) — the direction is visible, the piano path
-// works today. Playback stays solo grand regardless of these; they drive the UI + remember intent.
+// The spec's 2-axis picker (§6a). Step 9 enabled all FIVE solo instruments — each plays for real
+// (self-hosted samples) with its idiomatic module. เต็มวง (auto-filled accompaniment) is still
+// "เร็ว ๆ นี้" while SA designs the ensemble sound. The pick drives playback + persists (§6a).
 const ENSEMBLE_OPTS = [
   { value: 'solo', label: '🎹 เดี่ยว (เครื่องเดียว)', short: 'เดี่ยว' },
   { value: 'ensemble', label: '🎻 เต็มวง (นำวง) — เร็ว ๆ นี้', short: 'เต็มวง', disabled: true },
@@ -64,10 +64,10 @@ const ENSEMBLE_OPTS = [
 const ensembleDef = computed(() => ENSEMBLE_OPTS.find((o) => o.value === ensembleMode.value) || ENSEMBLE_OPTS[0])
 const INSTRUMENT_OPTS = [
   { value: 'grand', label: '🎹 เปียโน (Grand)', short: 'เปียโน' },
-  { value: 'felt', label: '🎹 เปียโนนุ่ม (Felt) — เร็ว ๆ นี้', short: 'Felt', disabled: true },
-  { value: 'nylon', label: '🎸 กีตาร์ (Nylon) — เร็ว ๆ นี้', short: 'กีตาร์', disabled: true },
-  { value: 'violin', label: '🎻 ไวโอลิน — เร็ว ๆ นี้', short: 'ไวโอลิน', disabled: true },
-  { value: 'cello', label: '🎻 เชลโล/สตริง — เร็ว ๆ นี้', short: 'เชลโล', disabled: true },
+  { value: 'felt', label: '🎹 เปียโนนุ่ม (Felt)', short: 'Felt' },
+  { value: 'nylon', label: '🎸 กีตาร์ (Nylon)', short: 'กีตาร์' },
+  { value: 'violin', label: '🎻 ไวโอลิน', short: 'ไวโอลิน' },
+  { value: 'cello', label: '🎻 เชลโล', short: 'เชลโล' },
 ]
 const instrumentDef = computed(() => INSTRUMENT_OPTS.find((o) => o.value === leadInstrument.value) || INSTRUMENT_OPTS[0])
 // ---------- play style / อารมณ์ (B107 P2) — HOW the piano performs, separate from เสียงที่เล่น ----------
@@ -92,11 +92,10 @@ const sheetMode = computed(() => (showLyric.value && !showNote.value && !showCho
 
 const displayKey = ref(props.song?.content?.key || 'C')
 const playing = ref(false)
-// B107: which instrument the playback sounds on. P1 = Grand piano (the default sound, per
-// P'Aim); a selectable preset arrives in P2. On first play the samples download while a
-// progress pill shows (like the MP3 export), THEN playback starts — the synth is only a
-// fallback if the download fails. `instrumentProgress` = 0..1 for the pill.
-const PLAY_INSTRUMENT = 'grand'
+// B107: which instrument the playback sounds on = the chosen lead (step 9: grand/felt/nylon/
+// violin/cello, all self-hosted). On first play its samples download while a progress pill shows
+// (like the MP3 export), THEN playback starts — the synth is only a fallback if the download
+// fails. `instrumentProgress` = 0..1 for the pill. The instrument's short label names the pill.
 const instrumentLoading = ref(false)
 const instrumentProgress = ref(0)
 const loop = ref(false)
@@ -348,7 +347,7 @@ async function startPlay(startIndex = 0) {
     order: order.value,
     transpose: keyTranspose(props.song.content.key, displayKey.value || props.song.content.key),
     voices: soundMode.value, // B104: melody / chords / both — remembered per browser
-    instrument: PLAY_INSTRUMENT, // B107: real Grand piano (waits for samples, then plays)
+    instrument: leadInstrument.value, // B107 step 9: the chosen lead (waits for samples, then plays)
     songId: props.song?.id ?? props.song?.slug ?? props.song?.title, // B107 P2: stable humanize seed
     arranger: styleArrange.value.arranger, // B107 P2: 'plain' = notes as printed; else humanize+preset
     arrangeCfg: styleArrange.value.arrangeCfg, // B107 P2: the chosen preset recipe (§6)
@@ -437,7 +436,7 @@ function selectAllSecs() { selectedSecs.value = new Set(tags.value.map((t) => t.
 // we re-schedule the notes ahead in the new key, continuing from the current note.
 watch(displayKey, (k) => {
   if (!playing.value) return
-  if (isSampledInstrument(PLAY_INSTRUMENT)) startPlay(playedIndex.value)
+  if (isSampledInstrument(leadInstrument.value)) startPlay(playedIndex.value)
   else setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
 })
 // live tempo change: re-schedule the notes ahead at the new bpm, continuing from here
@@ -455,6 +454,12 @@ watch(soundMode, () => {
 // B107 P2 — live play-style change (บรรเลง / สงบ / ตรงโน้ต): re-schedule ahead with the new
 // arranger recipe from the current note, same as a live sound-mode change.
 watch(playStyle, () => {
+  if (playing.value) startPlay(playedIndex.value)
+})
+// B107 step 9 — live instrument change (เปียโน/ไวโอลิน/…): the sampler can't swap the instrument
+// on already-scheduled voices, so re-schedule ahead with the new instrument, continuing from here
+// (its samples download first if not yet loaded — the pill shows the wait).
+watch(leadInstrument, () => {
   if (playing.value) startPlay(playedIndex.value)
 })
 function downloadJson() { if (currentSong.value) downloadSong(currentSong.value) }
@@ -557,13 +562,13 @@ function onSeek({ li, si, syk }) {
       />
     </div>
 
-    <!-- B107: on first play the real Grand piano samples download (~3 MB, cached after);
+    <!-- B107: on first play the chosen instrument's samples download (~2–3 MB, cached after);
          this pill shows the progress, like the MP3 export. Playback starts once it's ready.
          Pressing พัก during the wait cancels (the pill hides via stopPlay). -->
     <div v-if="instrumentLoading" class="inst-loading" role="status" aria-live="polite">
-      🎹 กำลังโหลดเสียงเปียโนจริง… {{ Math.round(instrumentProgress * 100) }}%
+      🎵 กำลังโหลดเสียง{{ instrumentDef.short }}… {{ Math.round(instrumentProgress * 100) }}%
       <progress class="inst-bar" :value="Math.round(instrumentProgress * 100)" max="100"
-                :aria-label="`โหลดเสียงเปียโน ${Math.round(instrumentProgress * 100)}%`"></progress>
+                :aria-label="`โหลดเสียง${instrumentDef.short} ${Math.round(instrumentProgress * 100)}%`"></progress>
     </div>
 
     <!-- the sing dock — DockKey core engine, fed the ITEMS_SING descriptor list by

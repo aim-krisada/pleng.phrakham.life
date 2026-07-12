@@ -1,71 +1,108 @@
-// B107 — real recorded instruments in the browser (P1: Grand piano; strings/presets follow
-// in P2). Swaps the triangle oscillator (midi.js) for recorded samples so playback sounds
-// like an instrument, while still being driven by the SAME note events — so transpose and
-// live editing keep working (a sampler just plays a different MIDI number; nothing is
-// pre-rendered). Thin wrapper over `smplr`.
+// B107 — real recorded instruments in the browser. Swaps the triangle oscillator (midi.js) for
+// recorded samples so playback sounds like an instrument, while still being driven by the SAME
+// note events — so transpose and live editing keep working (a sampler just plays a different MIDI
+// number; nothing is pre-rendered). Thin wrapper over `smplr`.
 //
-// HOST-AGNOSTIC: `SAMPLE_HOSTS` is the ONE place that decides where sample files come from.
-// P1 points at the upstream CDN to ship + measure real mobile load; production must later
-// MIRROR the files to a host we control (do NOT self-host in the repo — it bloats every
-// clone/worktree). Changing the host = editing this object only.
+// STEP 9 (5-instrument solo): P1 shipped Grand only. Step 9 adds felt (filtered grand), nylon,
+// violin, cello, plus steel + string-ensemble accompaniment voices — ALL self-hosted under
+// `/samples/` (same-origin, PWA-offline safe · no runtime CDN). See docs/reports/cc-instrument-
+// samples.md for the sourcing/licence/mirror plan and public/samples/manifest.json for the layout.
 //
-// SIZE: SplendidGrandPiano's default loads all 5 velocity layers (~17 MB). We restrict to a
-// single layer + the used note range via `notesToLoad` so first-load is ~3 MB, cached after.
-// If the samples aren't loaded (offline / slow / first press), the caller falls back to the
-// synth INSTANTLY — the sampler is never on the critical path of "press play → hear sound".
+// SELF-HOST (offline PWA): `SAMPLE_HOSTS.base` is the ONE knob for where samples come from — the
+// same-origin mirror `/samples/`. The P1 CDN default is gone: every instrument (Grand included)
+// loads from our own host so the service worker can precache it and playback works offline.
+// smplr's own `CacheStorage` persists fetched files across sessions; the SW precache covers the
+// FIRST offline launch (never-played). Changing the host = editing SAMPLE_HOSTS only.
 //
-// `smplr` itself is imported DYNAMICALLY (inside loadInstrument) so it's a lazy chunk, not in
-// the initial page bundle — a viewer who never presses play downloads neither smplr nor samples.
+// SIZE: each instrument loads LAZILY (only when first played) + a single velocity layer / trimmed
+// range, so a real session downloads only the 2–4 voices it uses (~2–3 MB each), not the whole
+// ~10.6 MB catalog. If the samples aren't loaded (offline / slow / first press) the caller falls
+// back to the synth INSTANTLY — the sampler is never on the critical path of "press play → hear".
+//
+// `smplr` is imported DYNAMICALLY (inside loadInstrument) so it's a lazy chunk, not in the initial
+// page bundle — a viewer who never presses play downloads neither smplr nor samples.
 
-// One knob for where samples are served. `undefined` baseUrl = smplr's own hosted set
-// (its GitHub Pages, Public-Domain Splendid Grand). Mirror to our own host for production.
+// The same-origin mirror root (served from public/samples/ → /samples/ in dev + prod). `grand`
+// is kept as an explicit entry so the legacy host-agnostic contract (and its test) still holds;
+// production mirrors samples by editing this object only.
 export const SAMPLE_HOSTS = {
-  grand: undefined, // smplr default (Public Domain / Akai Splendid Grand)
+  base: '/samples/',
+  grand: '/samples/splendid-grand/samples',
 }
 
-// The velocity layer to load (smplr layers: PPP[1-40] PP[41-67] MP[68-84] MF[85-100] FF[101-127]).
-// CRITICAL: smplr picks the layer by the note's velocity and does NOT fall back across layers —
-// firing a velocity OUTSIDE the loaded layer plays SILENCE (tester caught this: B107 P1 was
-// mute because it fired vel 33–116 into a layer loaded only for [68,84]). So every velocity we
-// fire MUST land inside GRAND_LAYER. We load PP because, measured, it's the widest usable layer
-// (~8.5 dB of level between vel 41 and 67) — enough range to seat the chord pad ~7 dB under the
-// melody while keeping all notes in ONE loaded layer (small download). A makeup gain (below)
-// lifts the overall level, since PP samples are recorded soft.
+// ---- Instrument registry (step 9) --------------------------------------------------------------
+// One entry per registry name → how smplr builds it from the mirror. `kind` picks the loader:
+//   'grand'    — SplendidGrandPiano (velocity-layered · felt = same + a low-pass filter node)
+//   'soundfont'— smplr Soundfont from a FluidR3_GM per-note mp3.js (steel / string ensemble)
+//   'sampler'  — smplr Sampler from a hosted SmplrPreset (per-note ogg · the CC0 leads)
+// `makeup` lifts each instrument to a comparable level (Grand's PP layer is soft → ×2.3; the GM /
+// CC0 samples are recorded near full level → a gentler lift). Tuned against the OfflineAudioContext
+// peak measurement (docs/spikes/instrument-self-host-demo.html) so none is silent or clipping.
+const REGISTRY = {
+  grand: { kind: 'grand', makeup: 2.3 },
+  // felt = the Grand samples through a low-pass (~2 kHz) → soft/intimate. No files of its own.
+  // (The per-region lpfCutoffHz preset field is layer-scoped, so we insert a BiquadFilter node on
+  // the output instead — the authoritative approach from the cc-samples report §felt.)
+  felt: { kind: 'grand', makeup: 2.3, lpfCutoffHz: 2000 },
+  nylon: { kind: 'sampler', preset: 'CC0/nylon/preset.json', baseUrl: 'CC0/nylon', makeup: 1.4 },
+  cello: { kind: 'sampler', preset: 'CC0/cello/preset.json', baseUrl: 'CC0/cello', makeup: 1.3 },
+  violin: { kind: 'sampler', preset: 'CC0/violin/preset.json', baseUrl: 'CC0/violin', makeup: 0.8 },
+  // Accompaniment voices (blended, GM is fine) — kept for the future เต็มวง path + offline precache.
+  steel: { kind: 'soundfont', instrumentUrl: 'FluidR3_GM/acoustic_guitar_steel-mp3.js', makeup: 1.3 },
+  string: { kind: 'soundfont', instrumentUrl: 'FluidR3_GM/string_ensemble_1-mp3.js', makeup: 1.5 },
+}
+export const SAMPLED_INSTRUMENTS = Object.keys(REGISTRY)
+
+// The velocity layer the Grand loads (smplr layers: PPP PP MP MF FF). CRITICAL: smplr plays the
+// layer picked by the note's velocity and does NOT fall back across layers — firing a velocity
+// OUTSIDE the loaded layer plays SILENCE (the P1 "piano mute" bug). So every velocity the arranger
+// fires for a GRAND/FELT note MUST land inside GRAND_LAYER. We load PP because it's the widest
+// usable layer (~8.5 dB across vel 41–67) — room to seat the chord pad under the melody in ONE
+// loaded layer (small download). A makeup gain lifts the overall level, since PP is recorded soft.
 export const GRAND_LAYER = [41, 67]
 const GRAND_VEL_RANGE = GRAND_LAYER
 // The gains playSong actually fires (midi.js): melody, chord bass (chordGain·1.45), chord inner
 // (chordGain). Exported so a test can prove EVERY fired velocity lands in the loaded layer —
 // the invariant whose absence let P1 ship silent. Keep in sync with midi.js if those change.
 export const FIRED_GAINS = { melody: 0.35, chordBass: 0.055 * 1.45, chordInner: 0.055 }
-// Overall level lift (PP samples are quiet; ~×2.3 puts the melody near the old synth level).
-const GRAND_MAKEUP = 2.3
 // The gain window our callers pass: chord inner ≈ 0.055 (softest) up to melody ≈ 0.35 (loudest).
 const GAIN_MIN = 0.055
 const GAIN_MAX = 0.35
-// The MIDI range to LOAD samples for. Covers the common bass-root..melody span; notes outside
-// it still play (smplr pitch-shifts from the nearest loaded sample), so this only trades a
-// little edge fidelity for a smaller download. With the single velocity layer this pins the
-// first load to ~3 MB (measured) instead of the ~17 MB full-keyboard default.
+// The MIDI range to LOAD Grand samples for. Covers the common bass-root..melody span; notes
+// outside it still play (smplr pitch-shifts from the nearest loaded sample), so this only trades a
+// little edge fidelity for a smaller download. With the single velocity layer this pins the first
+// load to ~2.4 MB (measured) instead of the ~17 MB full-keyboard default.
 const GRAND_LO = 40 // E2 (lowest chord bass root)
 const GRAND_HI = 84 // C6 (above all but the rare highest melody note)
 function midiRange(lo, hi) { const a = []; for (let m = lo; m <= hi; m++) a.push(m); return a }
 
-// Map our synth-scale gain (chord inner ≈ 0.055 up to melody ≈ 0.35) to a MIDI velocity that
-// lands INSIDE the loaded layer GRAND_LAYER — this is what keeps the pad under the melody while
-// guaranteeing a sample exists (see GRAND_LAYER note). Louder gain → higher velocity within the
-// layer; both the melody top and the chord floor stay in-range, so nothing plays silent. The
-// PP layer's ~8.5 dB span across [41,67] carries the melody-vs-chord balance.
+// Map our synth-scale gain (chord inner ≈ 0.055 up to melody ≈ 0.35) to a MIDI velocity INSIDE the
+// loaded GRAND layer — keeps the pad under the melody while guaranteeing a sample exists. Louder
+// gain → higher velocity within the layer; both the melody top and the chord floor stay in-range,
+// so nothing plays silent. The PP layer's ~8.5 dB span across [41,67] carries the balance.
 export function gainToVelocity(gain) {
   const g = Math.max(0.02, Math.min(0.5, gain || 0.3))
   const t = Math.max(0, Math.min(1, (g - GAIN_MIN) / (GAIN_MAX - GAIN_MIN)))
   return Math.round(GRAND_LAYER[0] + t * (GRAND_LAYER[1] - GRAND_LAYER[0]))
 }
 
-// The usable gain window [chord-inner floor .. melody ceiling]. Anything the arranger's
-// dynamics layer (B107 P2 §R2.4) produces MUST be clamped into this before it's fired, so
-// gainToVelocity() lands strictly inside the ONE loaded velocity layer (GRAND_LAYER). This
-// is the "velocity-in-layer" invariant whose absence made P1 play silence: humanize/accent
-// multiply the base gain, and an un-clamped product could map outside [41,67] → no sample.
+// Velocity mapping for the NON-layered instruments (Soundfont / Sampler). Those have ONE sample
+// per note and scale loudness by velocity (no layer to fall out of), so we spread our gain window
+// across a fuller, musical velocity band [FULL_VEL_LO, FULL_VEL_HI]. Same monotonic shape as the
+// Grand map (louder gain → higher velocity), so the melody-over-chord balance is preserved; a
+// per-instrument makeup gain node then matches the overall level to the Grand.
+const FULL_VEL_LO = 46
+const FULL_VEL_HI = 110
+export function gainToVelocityFull(gain) {
+  const g = Math.max(0.02, Math.min(0.5, gain || 0.3))
+  const t = Math.max(0, Math.min(1, (g - GAIN_MIN) / (GAIN_MAX - GAIN_MIN)))
+  return Math.round(FULL_VEL_LO + t * (FULL_VEL_HI - FULL_VEL_LO))
+}
+
+// The usable gain window [chord-inner floor .. melody ceiling]. Anything the arranger's dynamics
+// layer (B107 P2 §R2.4) produces MUST be clamped into this before it's fired, so gainToVelocity()
+// lands strictly inside the ONE loaded velocity layer (GRAND_LAYER). This is the "velocity-in-
+// layer" invariant whose absence made P1 play silence.
 export const GAIN_WINDOW = [GAIN_MIN, GAIN_MAX]
 export function clampGainToLayer(gain) {
   return Math.max(GAIN_MIN, Math.min(GAIN_MAX, gain || GAIN_MIN))
@@ -84,10 +121,10 @@ function cacheKey(name, context) {
 
 // Persistent sample cache (B107). smplr's CacheStorage stores the fetched sample files in the
 // browser Cache API, which SURVIVES page reloads / restarts / offline — unlike the plain HTTP
-// cache (evictable) or localStorage (5 MB string cap, no binary). So the ~3 MB downloads once
-// and every later play (even offline) is instant. The Cache API needs a secure context
-// (https or localhost); on a plain-http LAN test URL it's absent, so we fall back to the
-// default HTTP storage (still works, just not persisted). Built lazily with smplr.
+// cache (evictable) or localStorage (5 MB string cap, no binary). So each instrument downloads
+// once and every later play (even offline) is instant. The Cache API needs a secure context
+// (https or localhost); on a plain-http LAN test URL it's absent, so we fall back to the default
+// HTTP storage (still works, just not persisted). Built lazily with smplr.
 const CACHE_NAME = 'pleng-samples-v1'
 function makeStorage(CacheStorage) {
   try {
@@ -96,44 +133,81 @@ function makeStorage(CacheStorage) {
   return undefined
 }
 
-// Build the smplr instrument for a registry name (smplr loaded lazily). Only 'grand' in P1.
-// onProgress(0..1) fires as the samples download so the UI can show a bar (like MP3 export).
+// Build the smplr instrument for a registry name (smplr loaded lazily). onProgress(0..1) fires as
+// the samples download so the UI can show a bar (like MP3 export). Returns { instrument, output,
+// velMap } — `output` is the makeup gain node (the instrument's single output, re-routed into the
+// LAYER-4 mix); `velMap` is the gain→velocity function for this instrument's loader.
 async function createInstrument(name, context, onProgress) {
-  if (name === 'grand') {
-    const { SplendidGrandPiano, CacheStorage } = await import('smplr')
-    // makeup gain: PP samples are recorded soft, so lift the whole instrument to a usable level
-    // (melody ≈ old synth). One gain for all voices → the melody/chord balance (set by velocity)
-    // is preserved. Routed as the instrument's destination → context.destination.
-    const makeup = context.createGain()
-    makeup.gain.value = GRAND_MAKEUP
+  const entry = REGISTRY[name]
+  if (!entry) return null
+  const smplr = await import('smplr')
+  const { SplendidGrandPiano, Soundfont, Sampler, CacheStorage } = smplr
+  const storage = makeStorage(CacheStorage)
+  const base = SAMPLE_HOSTS.base
+  const onLoadProgress = ({ loaded, total }) => { if (total) onProgress?.(loaded / total) }
+
+  // makeup gain: lift the instrument to a usable level (see REGISTRY.makeup). One gain for all
+  // voices → the melody/chord balance (set by velocity) is preserved. Routed as the instrument's
+  // destination → context.destination (the scheduler re-points it at the reverb bus, §5).
+  const makeup = context.createGain()
+  makeup.gain.value = entry.makeup ?? 1
+
+  if (entry.kind === 'grand') {
+    // makeup is always the single re-routable output → context.destination. felt = Grand + a
+    // low-pass placed BEFORE the makeup (instrument → lpf → makeup), so the makeup node still is
+    // the one output the scheduler re-points at the reverb bus.
     makeup.connect(context.destination)
-    const opts = {
-      notesToLoad: { notes: midiRange(GRAND_LO, GRAND_HI), velocityRange: GRAND_VEL_RANGE },
-      destination: makeup,
-      onLoadProgress: ({ loaded, total }) => { if (total) onProgress?.(loaded / total) },
+    let dest = makeup
+    if (entry.lpfCutoffHz) {
+      const lpf = context.createBiquadFilter()
+      lpf.type = 'lowpass'
+      lpf.frequency.value = entry.lpfCutoffHz
+      lpf.connect(makeup)
+      dest = lpf
     }
-    const storage = makeStorage(CacheStorage)
-    if (storage) opts.storage = storage // persist samples across sessions / offline
-    // Only override the sample host when we actually have one — passing baseUrl:undefined
-    // clobbers smplr's own default and breaks its URL builder. To mirror to our own host for
-    // production, set SAMPLE_HOSTS.grand (that's the single host-agnostic knob).
-    if (SAMPLE_HOSTS.grand) opts.baseUrl = SAMPLE_HOSTS.grand
-    // Return the makeup gain as `output` so the scheduler can re-route the whole instrument
-    // through the LAYER-4 mix (reverb/pan) instead of straight to the speakers (B107 P2 §5).
-    return { instrument: new SplendidGrandPiano(context, opts), output: makeup }
+    const opts = {
+      baseUrl: SAMPLE_HOSTS.grand, // self-hosted (offline PWA) — same-origin mirror
+      formats: ['ogg'],
+      notesToLoad: { notes: midiRange(GRAND_LO, GRAND_HI), velocityRange: GRAND_VEL_RANGE },
+      destination: dest,
+      onLoadProgress,
+    }
+    if (storage) opts.storage = storage
+    return { instrument: new SplendidGrandPiano(context, opts), output: makeup, velMap: gainToVelocity }
   }
+
+  makeup.connect(context.destination)
+
+  if (entry.kind === 'soundfont') {
+    const opts = { instrumentUrl: base + entry.instrumentUrl, destination: makeup, onLoadProgress }
+    if (storage) opts.storage = storage
+    return { instrument: new Soundfont(context, opts), output: makeup, velMap: gainToVelocityFull }
+  }
+
+  if (entry.kind === 'sampler') {
+    // Fetch the hosted SmplrPreset (per-note ogg map) and point it at the mirror. smplr then loads
+    // each region's ogg from `${base}${baseUrl}/<midi>.ogg` (same-origin → SW-precacheable).
+    const preset = await (await fetch(base + entry.preset)).json()
+    preset.samples = preset.samples || {}
+    preset.samples.baseUrl = base + entry.baseUrl
+    const opts = { preset, destination: makeup, onLoadProgress }
+    if (storage) opts.storage = storage
+    return { instrument: new Sampler(context, opts), output: makeup, velMap: gainToVelocityFull }
+  }
+
   return null
 }
 
 // Wrap a loaded smplr instrument in the uniform interface midi.js schedules against.
 //   fire(midi, startT, dur, gain) — schedule ONE note (sampler pitch-shifts for transpose)
 //   releaseAll()                  — stop every sounding/scheduled voice (playback stop)
-function wrap(name, inst, output) {
+function wrap(name, inst, output, velMap) {
+  const toVel = velMap || gainToVelocity
   return {
     name,
     output, // the makeup gain — the instrument's single output node (for the LAYER-4 mix)
     fire(midi, startT, dur, gain) {
-      inst.start({ note: Math.round(midi), time: startT, duration: Math.max(0.12, dur), velocity: gainToVelocity(gain) })
+      inst.start({ note: Math.round(midi), time: startT, duration: Math.max(0.12, dur), velocity: toVel(gain) })
     },
     releaseAll() { try { inst.stop() } catch { /* already stopped */ } },
     // Re-route the whole instrument into `node` (reverb/pan bus) instead of context.destination.
@@ -151,7 +225,7 @@ export function getReadyInstrument(name, context) {
 
 // Kick off loading (name, context) if not started; resolves to the ready wrapper (or null if
 // the instrument is unknown / load failed → caller stays on the synth). Idempotent: repeated
-// calls share one load. Preload with this on mount so 'grand' is usually ready by first play.
+// calls share one load. Preload with this on mount so the instrument is usually ready by first play.
 export async function loadInstrument(name, context, { onProgress } = {}) {
   const key = cacheKey(name, context)
   const existing = cache.get(key)
@@ -162,7 +236,14 @@ export async function loadInstrument(name, context, { onProgress } = {}) {
     .then((res) => {
       if (!res) { cache.delete(key); return null } // unknown name → no instrument
       e.instrument = res.instrument
-      return res.instrument.load.then(() => { e.ready = true; e.wrapper = wrap(name, res.instrument, res.output); return e.wrapper })
+      // smplr instruments expose a `load` promise (Soundfont/Sampler also `.loaded`); await
+      // whichever is present so we only mark ready once the samples have actually decoded.
+      const loaded = res.instrument.load ?? res.instrument.loaded ?? Promise.resolve()
+      return Promise.resolve(loaded).then(() => {
+        e.ready = true
+        e.wrapper = wrap(name, res.instrument, res.output, res.velMap)
+        return e.wrapper
+      })
     })
     .catch((err) => { cache.delete(key); throw err }) // failed load → drop so a retry can re-load
   // swallow the rejection on the stored promise so an un-awaited preload can't crash the app;
@@ -174,5 +255,5 @@ export async function loadInstrument(name, context, { onProgress } = {}) {
 // True if the given instrument name is a real-sample instrument this module can load (vs the
 // built-in 'synth'). Lets the viewer/scheduler treat 'synth' as the always-instant default.
 export function isSampledInstrument(name) {
-  return name === 'grand'
+  return Object.prototype.hasOwnProperty.call(REGISTRY, name)
 }

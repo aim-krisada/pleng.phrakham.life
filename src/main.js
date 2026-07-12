@@ -14,3 +14,13 @@ router.afterEach(() => {
 })
 
 createApp(App).use(router).mount('#app')
+
+// B107 step 9 — PWA service worker: precache the self-hosted instrument samples + app shell so the
+// site loads and plays offline (a church with no signal). Registered in PRODUCTION only — a SW
+// intercepting the Vite dev server's on-the-fly modules fights HMR, so offline is tested against a
+// real build (`vite build` + `vite preview`). base is './', deployed at the domain root → /sw.js.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* SW optional — app still works online */ })
+  })
+}

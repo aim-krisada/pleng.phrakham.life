@@ -5,6 +5,7 @@ import { parseNotes, groupNotes, DOT_FACTOR } from './notation.js'
 import { parseChord, chordToIntervals } from './chords.js'
 import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
 import { arrange } from './arranger/index.js'
+import { moduleForInstrument } from './arranger/instruments/index.js'
 import { mulberry32 } from './arranger/rng.js'
 
 const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 65,
@@ -512,7 +513,11 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
     // B107 P2: the arranger turns the sheet into a flat PerfEvent[] (melody + voiced chord
     // hits, with humanize gain/timeShift when on). One pure function feeds both live play and
     // MP3 export, so they can't drift. arranger:false = "ลูกเล่นปิด" → notes exactly as printed.
-    const perf = arrange(notes, chordEvents, { arranger, voices, chordGain, ...arrangeCfg }, { songId, pass, timeSignature: content.timeSignature, keyRoot: KEY_MIDI[content.key] ?? 60 })
+    // §4B: pick the idiomatic module from the chosen instrument (keyboard/bowed/plucked) unless a
+    // preset already named one. So a solo violin uses bowed voicing+patterns, nylon uses plucked,
+    // etc. — the same arranger core, an instrument-shaped surface.
+    const module = arrangeCfg.module || moduleForInstrument(instrument)
+    const perf = arrange(notes, chordEvents, { arranger, voices, chordGain, ...arrangeCfg, module }, { songId, pass, timeSignature: content.timeSignature, keyRoot: KEY_MIDI[content.key] ?? 60 })
     for (const e of perf) {
       const isMel = e.role === 'melody'
       // onset = grid time + humanize shift; sound stops slightly early so repeated notes articulate

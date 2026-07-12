@@ -75,7 +75,8 @@ main = `509195c` · **นโยบายใหม่: PM deploy ทีละ fix
 - **B092 responsive-split = live แล้ว** (มือถือเก็บ สำเนา/ลบ ใน ⋯) — ถ้าพี่เปายังว่าหนักบนมือถือ ค่อยปรับ
 
 ## 📥 inbox → PM (dev handoff · รอ gate/merge)
-- _(ว่าง — B095 + B098 ผ่าน tester + ขึ้น live แล้ว · รอ B097 tester)_
+- **B107 step 9 — เสียบ 5 เครื่องดนตรี (เดี่ยว) + เปิด UI + PWA offline** (branch `b107-step9-instruments` · dev เสร็จ · **อย่า merge/deploy**) — เปียโน/Felt/Nylon/ไวโอลิน/เชลโล เล่นเดี่ยวได้จริง (self-host `/samples/` · smplr เดิม ไม่มี dep ใหม่) + instrument module bowed/plucked (§4B) + SW precache offline. **vitest 513 เขียว · build ผ่าน · smplr ยัง lazy · real audio ทุกเครื่อง peak>0 ไม่ clip RMS match Grand · offline: samples decode ตอน server ตาย · external req=0.** รายงาน `docs/reports/b107-step9-instruments.md`. **ขอ gate:** (1) tester เปิดเพลงจริงเลือกครบ 5 เครื่อง = มีเสียง (§full-spec) + cold-boot offline DevTools-Offline (2) P'Aim ฟังด้วยหูทุกเครื่อง. "เต็มวง" ยังไม่ทำ (SA · จ่ายแยก).
+- _(B095 + B098 ผ่าน tester + ขึ้น live แล้ว · รอ B097 tester)_
 
 ## 🎯 รอ P'Aim ตัดสิน (ไม่บล็อก)
 - **SA interlinear ≥3 ภาษา** (`task_aea51f3c` · mockup รอเคาะ · ชน SongSheet → จัดคิว dev) · **B080 expert standards** (ต่อยอด ui-standards)

@@ -15,6 +15,7 @@ import { rubato } from './dynamics.js'
 import { PRESETS, DEFAULT_PRESET, presetCfg, songFeatures, recommendRecipe } from './presets.js'
 import { buildChordVoice } from '../midi.js'
 import { gainToVelocity, GRAND_LAYER } from '../sampler.js'
+import { keyboard, bowed, plucked, moduleForInstrument } from './instruments/index.js'
 
 const NOTES = [
   { midi: 60, beats: 1, chord: 'C' },
@@ -269,5 +270,51 @@ describe('rubato (R2.8 §7b) — no time drift', () => {
     rubato(mel, 0.03)
     expect(mel[0].timeShift).toBeCloseTo(0.03, 6)
     expect(mel[1].timeShift).toBeCloseTo(-0.03, 6)
+  })
+})
+
+// B107 step 9 · §4B — the idiomatic instrument modules (keyboard/bowed/plucked). The arranger core
+// stays the same; each module shapes voicing + which comp patterns exist + humanize feel.
+describe('instrument modules (§4B) — bowed / plucked / keyboard resolver', () => {
+  it('moduleForInstrument maps ids → the right module, keyboard as the default', () => {
+    expect(moduleForInstrument('grand')).toBe(keyboard)
+    expect(moduleForInstrument('felt')).toBe(keyboard)
+    expect(moduleForInstrument('violin')).toBe(bowed)
+    expect(moduleForInstrument('cello')).toBe(bowed)
+    expect(moduleForInstrument('nylon')).toBe(plucked)
+    expect(moduleForInstrument('who')).toBe(keyboard) // unknown → piano behaviour
+  })
+
+  it('bowed voicing reduces every chord to a double-stop (≤2 upper notes) — no 4-note block', () => {
+    const chordLine = [
+      { midi: 60, beats: 4, chord: 'C' }, { midi: 64, beats: 4, chord: 'F' }, { midi: 67, beats: 4, chord: 'G7' },
+    ]
+    const bowedEvs = arrange(chordLine, buildChordVoice(chordLine), { voices: 'both', module: bowed, arranger: true }, META)
+    // group inner (comp) hits by startBeat → each simultaneous bowed stack must be ≤2 notes
+    const byStart = {}
+    for (const e of bowedEvs.filter((x) => x.role === 'inner')) {
+      byStart[e.startBeat] = (byStart[e.startBeat] || 0) + 1
+    }
+    expect(Object.keys(byStart).length).toBeGreaterThan(0) // sanity: comp hits were produced
+    for (const [beat, n] of Object.entries(byStart)) {
+      expect(n, `bowed stack at beat ${beat} has ${n} notes (must be ≤2)`).toBeLessThanOrEqual(2)
+    }
+  })
+
+  it('bowed uses only sustain-family patterns (no arpeggio/waltz keys)', () => {
+    expect(Object.keys(bowed.patterns).sort()).toEqual(['harpRoll', 'stringPad', 'sustained'])
+    expect(bowed.defaultPattern).toBe('stringPad')
+  })
+
+  it('plucked defaults to arpeggio and offers fingerpick', () => {
+    expect(plucked.defaultPattern).toBe('arpeggio')
+    expect(plucked.patterns).toHaveProperty('fingerpick')
+  })
+
+  it('every module keeps melody = printed notes (core golden rule) regardless of instrument', () => {
+    for (const mod of [keyboard, bowed, plucked]) {
+      const evs = melodyOf(arrange(NOTES, CHORDS, { voices: 'both', module: mod }, META))
+      expect(evs.map((e) => e.midi)).toEqual([60, 62, 64, 67])
+    }
   })
 })
