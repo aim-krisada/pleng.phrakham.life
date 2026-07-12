@@ -69,8 +69,11 @@ const sheetWrap = ref(null)
 const playedIndex = ref(0)
 const pausedIndex = ref(0)
 const posIndex = ref(0)
-// B043 §3a — which ท่อน (by label) are selected. Empty = play the whole song. Local,
-// temporary state like key/tempo (decision C = ไม่จำ · cleared when the song changes).
+// B043 §3a — which ท่อน (by label) are selected. Local, temporary state like key/tempo
+// (decision C = ไม่จำ · reset when the song changes). B105: the default is EVERY ท่อน ticked
+// (= whole song) rather than none, so the selector reads honestly — when the whole song
+// plays, all sections show as selected; the singer unticks the ones to drop. Empty (via
+// "ไม่เลือก") still falls back to the whole song, unchanged.
 const selectedSecs = ref(new Set())
 
 const resolved = computed(() =>
@@ -124,7 +127,13 @@ const tempoOptions = computed(() => {
 // ---------- what PLAYS: the selection order (SSOT shared with the audio engine) ----------
 // order = the selected ท่อน as ranges (undefined = whole song). playNotes = exactly what
 // playSong schedules; posIndex is an index into it.
-const order = computed(() => effectiveOrder(sections.value, selectedSecs.value))
+// B105: every distinct ท่อน selected = the whole song, so short-circuit to `undefined`. This
+// keeps playback, the timeline and ⏮/⏭ byte-identical to an unselected whole-song play —
+// effectiveOrder would otherwise collapse a shared open/close label or drop any notes that
+// sit before the first section marker. With all ท่อน ticked by default (below), "play the
+// whole song" therefore stays exactly that, just with every dot shown as picked.
+const allSelected = computed(() => tags.value.length > 0 && selectedSecs.value.size === tags.value.length)
+const order = computed(() => (allSelected.value ? undefined : effectiveOrder(sections.value, selectedSecs.value)))
 const playNotes = computed(() => (resolved.value ? buildPlayNotes(resolved.value, { order: order.value }) : []))
 const totalNotes = computed(() => playNotes.value.length)
 
@@ -202,7 +211,7 @@ watch(
     tempo.value = c.bpm || 92
     pausedIndex.value = 0
     posIndex.value = 0
-    selectedSecs.value = new Set()
+    selectAllSecs() // B105: a fresh song starts with every ท่อน ticked (= whole song)
   },
 )
 // B064: the SAME song's stored tempo/key can change via an edit+publish (แก้ไข → ฝึกร้อง).
@@ -342,12 +351,23 @@ function setAll(on) {
   selectedSecs.value = on ? new Set(tags.value.map((t) => t.name)) : new Set()
   afterSelectionChange()
 }
+// B105: tick every ท่อน (= whole song). Used as the default on load / song change — sets the
+// selection directly (no afterSelectionChange stop/reset, since nothing is playing yet).
+function selectAllSecs() { selectedSecs.value = new Set(tags.value.map((t) => t.name)) }
 // live key change: re-tune the notes still ahead (seamless, not a restart)
 watch(displayKey, (k) => {
   if (playing.value) setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
 })
 // live tempo change: re-schedule the notes ahead at the new bpm, continuing from here
 watch(tempo, () => {
+  if (playing.value) startPlay(playedIndex.value)
+})
+// B105 — live sound-mode change (ทำนอง / คอร์ด / รวม): takes effect immediately, no manual
+// stop+restart. A live KEY change only re-tunes the oscillators already scheduled (detune),
+// but switching voices ADDS or REMOVES whole oscillator sets (melody vs chord pad), so — like
+// a live tempo change — we re-schedule the notes ahead with the new voices, continuing from
+// the current note.
+watch(soundMode, () => {
   if (playing.value) startPlay(playedIndex.value)
 })
 function downloadJson() { if (currentSong.value) downloadSong(currentSong.value) }
@@ -389,6 +409,7 @@ const settingDescs = computed(() => [
 const hasSections = computed(() => sections.value.length > 0)
 
 onMounted(() => {
+  selectAllSecs() // B105: first-load default = every ท่อน ticked (the identity watcher isn't immediate)
   window.addEventListener('wheel', onUserScroll, { passive: true })
   window.addEventListener('touchmove', onUserScroll, { passive: true })
 })

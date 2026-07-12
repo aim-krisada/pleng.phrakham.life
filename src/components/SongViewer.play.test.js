@@ -3,7 +3,7 @@
 // fed by <SingTransport> (ITEMS_SING): row 2 = ไทม์ไลน์ · คีย์ · เลือกท่อน, row 1 = transport,
 // and the ⚙ Setting page holds คอร์ด/ความเร็ว/แสดงผล/วนซ้ำ. SongViewer mounts it directly.
 // This suite mocks the audio engine and asserts what reaches playSong / setTranspose.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
@@ -69,6 +69,25 @@ const sectionSong = {
     arrangement: [{ stanza: 'A', label: 'ท่อน 1', syllables: [] }],
   },
 }
+// two ท่อน → resolveContent puts a section marker on li 0 and li 1 (fromLi/toLi 0 and 1).
+// Lets us test unticking one ท่อน out of the all-ticked default (B105).
+const twoSecSong = {
+  number: 5,
+  title_th: 'สองท่อน',
+  content: {
+    version: 2,
+    key: 'C',
+    timeSignature: '4/4',
+    stanzas: [
+      { id: 'A', lines: [[{ type: 'segment', note: '1', chord: 'C' }]] },
+      { id: 'B', lines: [[{ type: 'segment', note: '2', chord: 'G' }]] },
+    ],
+    arrangement: [
+      { stanza: 'A', label: 'ท่อน 1', syllables: [] },
+      { stanza: 'B', label: 'ท่อน 2', syllables: [] },
+    ],
+  },
+}
 
 const SongSheetStub = {
   name: 'SongSheet',
@@ -79,8 +98,16 @@ const SongSheetStub = {
     ' :data-syl="playingSyl ? playingSyl.li + \'-\' + playingSyl.si + \'-\' + playingSyl.syk : \'\'"' +
     ' @click="$emit(\'seek\', { li: 0, si: 1, syk: 0 })"></div>',
 }
-const mountViewer = (p = song) =>
-  mount(Harness, { props: { song: p }, global: { stubs: { SongSheet: SongSheetStub, Icon: true } }, attachTo: document.body })
+// Track every mounted viewer and unmount it after each test. The mocked playSong never
+// resolves, so a viewer left playing stays reactive; because soundMode (B105) is a SHARED
+// store ref (unlike the per-instance tempo/key refs), a later setSoundMode() would otherwise
+// re-fire every lingering playing viewer's watcher and pollute the spy count.
+const mountedViewers = []
+const mountViewer = (p = song) => {
+  const w = mount(Harness, { props: { song: p }, global: { stubs: { SongSheet: SongSheetStub, Icon: true } }, attachTo: document.body })
+  mountedViewers.push(w)
+  return w
+}
 
 // ---- transport helpers (the DockKey/SingTransport DOM inside the dock) ----
 const playBtn = (w) => w.find('.dk-play')
@@ -118,6 +145,9 @@ beforeEach(() => {
   localStorage.clear()
   playSongSpy.mockClear()
   setTransposeSpy.mockClear()
+})
+afterEach(() => {
+  while (mountedViewers.length) { try { mountedViewers.pop().unmount() } catch { /* already gone */ } }
 })
 
 describe('SongViewer playback key', () => {
@@ -240,6 +270,43 @@ describe('SongViewer live tempo (US-A04)', () => {
   })
 })
 
+// B105 — the sound mode (ทำนอง/คอร์ด/รวม, store.soundMode) applies in real time, like tempo:
+// switch it mid-play and playback re-schedules the notes ahead with the new voices from the
+// current note — no manual stop+restart.
+describe('SongViewer live sound mode (B105)', () => {
+  beforeEach(async () => {
+    const { setSoundMode } = await import('../store.js')
+    setSoundMode('melody') // reset the shared store ref between tests
+  })
+
+  it('change sound mode WHILE playing → re-schedule from the current note with the new voices', async () => {
+    const { setSoundMode } = await import('../store.js')
+    const w = mountViewer()
+    await nextTick()
+    await playBtn(w).trigger('click')
+    expect(lastOpts().voices).toBe('melody') // default mode reaches playSong
+    lastOpts().onNote({ li: 1, si: 0 }, 2)
+    playSongSpy.mockClear()
+    setSoundMode('both') // switch mid-playback
+    await nextTick()
+    expect(playSongSpy).toHaveBeenCalledTimes(1) // immediate re-schedule (not waiting for restart)
+    expect(lastOpts().startIndex).toBe(2) // continues from the current note
+    expect(lastOpts().voices).toBe('both') // now sounds the new mode
+  })
+
+  it('changing sound mode BEFORE playing just applies to the next play', async () => {
+    const { setSoundMode } = await import('../store.js')
+    const w = mountViewer()
+    await nextTick()
+    setSoundMode('chords')
+    await nextTick()
+    expect(playSongSpy).not.toHaveBeenCalled() // nothing playing → no re-schedule
+    await playBtn(w).trigger('click')
+    expect(lastOpts().voices).toBe('chords')
+    expect(lastOpts().startIndex).toBe(0)
+  })
+})
+
 describe('SongViewer key / tempo / loop / readability (US-A02, US-A03)', () => {
   it('loop toggle → playback loops (US-A02)', async () => {
     const w = mountViewer()
@@ -308,16 +375,37 @@ describe('SongViewer section selection (B043)', () => {
     expect(w.find('[aria-label="ท่อนก่อน"]').exists()).toBe(false)
   })
 
-  it('a song with a ท่อน shows the selector; picking it feeds playSong an order', async () => {
+  it('a song with a ท่อน shows the selector', async () => {
     const w = mountViewer(sectionSong)
     await nextTick()
     expect(w.find('.st-seltrig').exists()).toBe(true)
+  })
+
+  // B105: every ท่อน is ticked by default (= whole song), so the selector reads honestly and
+  // "play whole song" the first time plays the whole song with no order (undefined).
+  it('B105: default-ticks every ท่อน; the whole song plays with no order', async () => {
+    const w = mountViewer(twoSecSong)
+    await nextTick()
+    expect(w.find('.st-seltrig b').text()).toBe('ทั้งหมด') // count summary = all
     await w.find('.st-seltrig').trigger('click') // open the selector sheet
     await nextTick()
-    await w.find('.st-ssrow').trigger('click') // pick ท่อน 1
+    const rows = w.findAll('.st-ssrow')
+    expect(rows).toHaveLength(2)
+    expect(rows.every((r) => r.classes().includes('on'))).toBe(true) // both ticked
+    await playBtn(w).trigger('click')
+    expect(lastOpts().order).toBeUndefined() // all ท่อน = whole song, not a collapsed order
+  })
+
+  // B105: unticking one ท่อน out of the all-ticked default feeds playSong the remaining order.
+  it('B105: unticking a ท่อน plays only the rest (feeds an order)', async () => {
+    const w = mountViewer(twoSecSong)
+    await nextTick()
+    await w.find('.st-seltrig').trigger('click')
+    await nextTick()
+    await w.findAll('.st-ssrow')[0].trigger('click') // untick ท่อน 1 → only ท่อน 2 left
     await nextTick()
     await playBtn(w).trigger('click')
-    expect(lastOpts().order).toEqual([{ name: 'ท่อน 1', fromLi: 0, toLi: 0 }])
+    expect(lastOpts().order).toEqual([{ name: 'ท่อน 2', fromLi: 1, toLi: 1 }])
   })
 })
 
