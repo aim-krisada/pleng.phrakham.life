@@ -70,6 +70,7 @@ main = `509195c` · **นโยบายใหม่: PM deploy ทีละ fix
 
 ## 📥 inbox → PM (dev handoff · รอ gate/merge)
 - _(ว่าง — B095 + B098 ผ่าน tester + ขึ้น live แล้ว · รอ B097 tester)_
+- **[research] B107 P2 samples IN-APP `public/samples/` — ✅ เสร็จ+verify · รอ PM merge** (branch **`b107-samples-in-public`** off base `studio-shell-redesign` · report `docs/reports/cc-instrument-samples.md`) · re-target ตาม P'Aim (repo เดียว in-app · ทิ้ง pleng-samples/Pages/token) → `tools/assemble-samples-repo.mjs` generate เข้า **`public/samples/`** (Grand PD + steel/string GM CC-BY + violin/cello/nylon CC0 + felt=filter) · **115 ไฟล์ 10.63MB commit binary จริง** (asset PWA จำเป็น · `public/samples/.gitattributes` `* -text -diff`) + `manifest.json` (precache same-origin `/samples/...` ให้ SW) + README · **✅ verify: เสิร์ฟ `public/` (แบบ vite) → 115/115 URL `/samples/` คืน 200 · smplr เล่นครบ 7 เครื่อง (peak 0.054–0.121) · external req=0** · reproducible 3 scripts · **→ PM merge `b107-samples-in-public` เข้า base** · dev step 9: `sampler.js` `SAMPLE_HOSTS`→`/samples/` + Soundfont/Sampler + felt lowpass + SW precache จาก manifest (code sketch ใน report)
 
 ## 🎯 รอ P'Aim ตัดสิน (ไม่บล็อก)
 - **SA interlinear ≥3 ภาษา** (`task_aea51f3c` · mockup รอเคาะ · ชน SongSheet → จัดคิว dev) · **B080 expert standards** (ต่อยอด ui-standards)

@@ -1,0 +1,132 @@
+<!doctype html>
+<!--
+  B107 P2 — self-host / offline sample demo + A/B (GM vs CC0) + audio-measure harness.
+  Proves every instrument loads from OUR host (no CDN) and produces sound. To run:
+    1. node tools/prepare-samples.mjs docs/spikes/samples-mirror          # Grand + GM instruments
+       FFMPEG=<ffmpeg> SEVENZIP=<7z> node tools/prepare-samples-cc0.mjs \
+            docs/spikes/samples-mirror/CC0                                 # CC0 leads (violin/cello/nylon)
+    2. cp node_modules/smplr/dist/index.mjs docs/spikes/smplr.mjs          # self-contained ESM
+    3. serve docs/spikes over http (e.g. `python -m http.server 8123 --bind 0.0.0.0`) and open this file
+  🅰️/🅱️ rows = GM vs CC0 for the 3 showcase leads (P'Aim picks). "วัดทั้งหมด" renders each through
+  OfflineAudioContext (peak>0 = not silent, peak<1 = not clipping). Verified 2026-07-12: all rows
+  peak 0.05–0.12, zero external requests. NOT shipped — dev integrates via src/lib/sampler.js.
+-->
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pleng — self-host sample demo (B107 P2)</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 1rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.2rem; }
+  .row { display:flex; align-items:center; gap:.5rem; margin:.4rem 0; padding:.4rem; border:1px solid #ddd; border-radius:8px; }
+  .row b { flex: 1; }
+  button { padding:.5rem .8rem; border-radius:8px; border:1px solid #888; background:#f6f6f6; cursor:pointer; }
+  button:disabled { opacity:.5; }
+  .peak { font-family: monospace; font-size:.85rem; min-width: 8rem; }
+  #out { white-space: pre-wrap; font-family: monospace; font-size:.8rem; background:#f0f0f0; padding:.5rem; border-radius:8px; margin-top:1rem; }
+  .ok{color:#0a0}.bad{color:#c00}
+</style>
+</head>
+<body>
+<h1>🎵 pleng — self-host sample demo (offline PWA / B107 P2)</h1>
+<p>ทุกไฟล์เสียงโหลดจาก <code>./samples-mirror/</code> (โฮสต์เราเอง · ไม่มี CDN ภายนอก). กด ▶ ฟังทีละชิ้น · กด "วัดทั้งหมด" ให้ระบบเรนเดอร์ผ่าน OfflineAudioContext แล้วรายงาน peak (พิสูจน์ไม่เงียบ/ไม่ clip).</p>
+<div id="list"></div>
+<button id="measureAll" style="margin-top:1rem">📊 วัดทั้งหมด (OfflineAudioContext)</button>
+<div id="out">พร้อม</div>
+
+<script type="module">
+import { Soundfont, SplendidGrandPiano, Sampler } from './smplr.mjs'
+
+const BASE = './samples-mirror'
+const GRAND_NOTES = [40,41,43,45,47,48,50,52,53,55,56,57,58,59,60,62,64,65,67,69,71,72,74,76,77,79,80,81,82,83]
+
+function gm(ctx, patch){ return new Soundfont(ctx, { instrumentUrl: `${BASE}/FluidR3_GM/${patch}-mp3.js` }) }
+// CC0 upgrade: load a hosted SmplrPreset (per-note ogg) via the generic Sampler.
+async function cc0(ctx, id){
+  const preset = await (await fetch(`${BASE}/CC0/${id}/preset.json`)).json()
+  preset.samples.baseUrl = `${BASE}/CC0/${id}`   // dev sets this to the mirror host
+  return new Sampler(ctx, { preset })
+}
+
+// Instrument registry — how each self-hosted instrument is built from the local mirror.
+// The 3 showcase leads have an A/B pair: GM (CC-BY) vs CC0 upgrade. P'Aim picks per instrument.
+const INSTRUMENTS = [
+  { id:'grand',   label:'Grand piano (Splendid · PD) — มีอยู่แล้ว',      build: (ctx)=> new SplendidGrandPiano(ctx, { baseUrl: BASE+'/splendid-grand/samples', notesToLoad:{ notes:GRAND_NOTES, velocityRange:[41,67] }, formats:['ogg'] }) },
+  { id:'felt',    label:'Felt (Grand + low-pass ~2kHz) — 0 ไฟล์ใหม่',    build: (ctx)=> new SplendidGrandPiano(ctx, { baseUrl: BASE+'/splendid-grand/samples', notesToLoad:{ notes:GRAND_NOTES, velocityRange:[41,67] }, formats:['ogg'], lpfCutoffHz: 2000 }) },
+  { id:'nylon_gm',   label:'🅰️ Nylon guitar — GM (FluidR3 · CC-BY)',        build: (ctx)=> gm(ctx,'acoustic_guitar_nylon') },
+  { id:'nylon_cc0',  label:'🅱️ Nylon guitar — CC0 (FreePats) ⭐',           build: (ctx)=> cc0(ctx,'nylon') },
+  { id:'cello_gm',   label:'🅰️ Cello — GM (FluidR3 · CC-BY)',               build: (ctx)=> gm(ctx,'cello') },
+  { id:'cello_cc0',  label:'🅱️ Cello — CC0 (Bigcat) ⭐',                    build: (ctx)=> cc0(ctx,'cello') },
+  { id:'violin_gm',  label:'🅰️ Violin — GM (FluidR3 · CC-BY)',              build: (ctx)=> gm(ctx,'violin') },
+  { id:'violin_cc0', label:'🅱️ Violin — CC0 (VSCO2 CE) ⭐',                 build: (ctx)=> cc0(ctx,'violin') },
+  { id:'acoustic_guitar_steel',  label:'Steel guitar (GM · คงเดิม)',       build: (ctx)=> gm(ctx,'acoustic_guitar_steel') },
+  { id:'string_ensemble_1', label:'String ensemble/pad (GM · คงเดิม)',     build: (ctx)=> gm(ctx,'string_ensemble_1') },
+]
+
+// A short musical phrase (C major arpeggio + chord) to hear/measure each instrument.
+const PHRASE = [60,64,67,72]
+
+const ready = (inst)=> inst.load ?? inst.ready ?? Promise.resolve()
+let liveCtx
+async function play(def){
+  liveCtx ||= new AudioContext()
+  if (liveCtx.state === 'suspended') await liveCtx.resume()
+  const inst = await def.build(liveCtx)
+  await ready(inst)
+  const t = liveCtx.currentTime + 0.1
+  PHRASE.forEach((n,i)=> inst.start({ note:n, time:t+i*0.32, duration:0.6, velocity:64 }))
+  inst.start({ note:60, time:t+PHRASE.length*0.32+0.1, duration:1.4, velocity:52 })
+  inst.start({ note:64, time:t+PHRASE.length*0.32+0.1, duration:1.4, velocity:52 })
+  inst.start({ note:67, time:t+PHRASE.length*0.32+0.1, duration:1.4, velocity:52 })
+}
+
+// Render a phrase through OfflineAudioContext and report peak amplitude — proves the mirrored
+// samples decode and produce sound (peak>0 = not silent; peak<1 = not clipping).
+async function measure(def){
+  const sr = 44100, secs = 3
+  const octx = new OfflineAudioContext(1, sr*secs, sr)
+  const inst = await def.build(octx)
+  await ready(inst)
+  PHRASE.forEach((n,i)=> inst.start({ note:n, time:0.05+i*0.32, duration:0.6, velocity:64 }))
+  ;[60,64,67].forEach(n=> inst.start({ note:n, time:0.05+PHRASE.length*0.32+0.1, duration:1.4, velocity:52 }))
+  const buf = await octx.startRendering()
+  const d = buf.getChannelData(0)
+  let peak=0, sum=0
+  for (let i=0;i<d.length;i++){ const a=Math.abs(d[i]); if(a>peak)peak=a; sum+=d[i]*d[i]; }
+  return { peak, rms: Math.sqrt(sum/d.length) }
+}
+
+const list = document.getElementById('list')
+for (const def of INSTRUMENTS){
+  const row = document.createElement('div'); row.className='row'
+  row.innerHTML = `<b>${def.label}</b><span class="peak" id="peak-${def.id}"></span>`
+  const btn = document.createElement('button'); btn.textContent='▶'
+  btn.onclick = ()=> play(def).catch(e=>{ document.getElementById('out').textContent='ERR '+def.id+': '+e.message })
+  row.prepend(btn); list.appendChild(row)
+}
+
+async function measureAll(){
+  const out = document.getElementById('out'); out.textContent='กำลังวัด...\n'
+  const results = {}
+  for (const def of INSTRUMENTS){
+    try{
+      const r = await measure(def)
+      results[def.id] = r
+      const cls = r.peak>0.001 && r.peak<0.999 ? 'ok':'bad'
+      document.getElementById('peak-'+def.id).innerHTML = `<span class="${cls}">peak ${r.peak.toFixed(3)} · rms ${r.rms.toFixed(3)}</span>`
+      out.textContent += `${def.id.padEnd(24)} peak=${r.peak.toFixed(3)} rms=${r.rms.toFixed(3)} ${cls==='ok'?'OK':'CHECK'}\n`
+    }catch(e){
+      results[def.id] = { error: e.message }
+      out.textContent += `${def.id.padEnd(24)} ERROR ${e.message}\n`
+    }
+  }
+  window.__RESULTS__ = results
+  out.textContent += '\nDONE. window.__RESULTS__ set.'
+  return results
+}
+document.getElementById('measureAll').onclick = measureAll
+window.measureAll = measureAll
+</script>
+</body>
+</html>

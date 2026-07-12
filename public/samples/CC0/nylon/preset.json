@@ -1,0 +1,399 @@
+{
+ "name": "nylon",
+ "samples": {
+  "baseUrl": "",
+  "formats": [
+   "ogg"
+  ]
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "31",
+     "keyRange": [
+      24,
+      31
+     ],
+     "pitch": 31
+    },
+    {
+     "sample": "32",
+     "keyRange": [
+      32,
+      32
+     ],
+     "pitch": 32
+    },
+    {
+     "sample": "33",
+     "keyRange": [
+      33,
+      33
+     ],
+     "pitch": 33
+    },
+    {
+     "sample": "34",
+     "keyRange": [
+      34,
+      34
+     ],
+     "pitch": 34
+    },
+    {
+     "sample": "35",
+     "keyRange": [
+      35,
+      35
+     ],
+     "pitch": 35
+    },
+    {
+     "sample": "36",
+     "keyRange": [
+      36,
+      36
+     ],
+     "pitch": 36
+    },
+    {
+     "sample": "37",
+     "keyRange": [
+      37,
+      37
+     ],
+     "pitch": 37
+    },
+    {
+     "sample": "38",
+     "keyRange": [
+      38,
+      38
+     ],
+     "pitch": 38
+    },
+    {
+     "sample": "39",
+     "keyRange": [
+      39,
+      39
+     ],
+     "pitch": 39
+    },
+    {
+     "sample": "40",
+     "keyRange": [
+      40,
+      40
+     ],
+     "pitch": 40
+    },
+    {
+     "sample": "41",
+     "keyRange": [
+      41,
+      42
+     ],
+     "pitch": 41
+    },
+    {
+     "sample": "43",
+     "keyRange": [
+      43,
+      44
+     ],
+     "pitch": 43
+    },
+    {
+     "sample": "45",
+     "keyRange": [
+      45,
+      46
+     ],
+     "pitch": 45
+    },
+    {
+     "sample": "47",
+     "keyRange": [
+      47,
+      47
+     ],
+     "pitch": 47
+    },
+    {
+     "sample": "48",
+     "keyRange": [
+      48,
+      49
+     ],
+     "pitch": 48
+    },
+    {
+     "sample": "50",
+     "keyRange": [
+      50,
+      51
+     ],
+     "pitch": 50
+    },
+    {
+     "sample": "52",
+     "keyRange": [
+      52,
+      52
+     ],
+     "pitch": 52
+    },
+    {
+     "sample": "53",
+     "keyRange": [
+      53,
+      53
+     ],
+     "pitch": 53
+    },
+    {
+     "sample": "54",
+     "keyRange": [
+      54,
+      54
+     ],
+     "pitch": 54
+    },
+    {
+     "sample": "55",
+     "keyRange": [
+      55,
+      55
+     ],
+     "pitch": 55
+    },
+    {
+     "sample": "56",
+     "keyRange": [
+      56,
+      56
+     ],
+     "pitch": 56
+    },
+    {
+     "sample": "57",
+     "keyRange": [
+      57,
+      57
+     ],
+     "pitch": 57
+    },
+    {
+     "sample": "58",
+     "keyRange": [
+      58,
+      58
+     ],
+     "pitch": 58
+    },
+    {
+     "sample": "59",
+     "keyRange": [
+      59,
+      59
+     ],
+     "pitch": 59
+    },
+    {
+     "sample": "60",
+     "keyRange": [
+      60,
+      60
+     ],
+     "pitch": 60
+    },
+    {
+     "sample": "61",
+     "keyRange": [
+      61,
+      61
+     ],
+     "pitch": 61
+    },
+    {
+     "sample": "62",
+     "keyRange": [
+      62,
+      62
+     ],
+     "pitch": 62
+    },
+    {
+     "sample": "63",
+     "keyRange": [
+      63,
+      63
+     ],
+     "pitch": 63
+    },
+    {
+     "sample": "64",
+     "keyRange": [
+      64,
+      64
+     ],
+     "pitch": 64
+    },
+    {
+     "sample": "65",
+     "keyRange": [
+      65,
+      65
+     ],
+     "pitch": 65
+    },
+    {
+     "sample": "66",
+     "keyRange": [
+      66,
+      66
+     ],
+     "pitch": 66
+    },
+    {
+     "sample": "67",
+     "keyRange": [
+      67,
+      68
+     ],
+     "pitch": 67
+    },
+    {
+     "sample": "69",
+     "keyRange": [
+      69,
+      69
+     ],
+     "pitch": 69
+    },
+    {
+     "sample": "70",
+     "keyRange": [
+      70,
+      70
+     ],
+     "pitch": 70
+    },
+    {
+     "sample": "71",
+     "keyRange": [
+      71,
+      71
+     ],
+     "pitch": 71
+    },
+    {
+     "sample": "72",
+     "keyRange": [
+      72,
+      72
+     ],
+     "pitch": 72
+    },
+    {
+     "sample": "73",
+     "keyRange": [
+      73,
+      73
+     ],
+     "pitch": 73
+    },
+    {
+     "sample": "74",
+     "keyRange": [
+      74,
+      74
+     ],
+     "pitch": 74
+    },
+    {
+     "sample": "75",
+     "keyRange": [
+      75,
+      75
+     ],
+     "pitch": 75
+    },
+    {
+     "sample": "76",
+     "keyRange": [
+      76,
+      76
+     ],
+     "pitch": 76
+    },
+    {
+     "sample": "77",
+     "keyRange": [
+      77,
+      77
+     ],
+     "pitch": 77
+    },
+    {
+     "sample": "78",
+     "keyRange": [
+      78,
+      78
+     ],
+     "pitch": 78
+    },
+    {
+     "sample": "79",
+     "keyRange": [
+      79,
+      79
+     ],
+     "pitch": 79
+    },
+    {
+     "sample": "80",
+     "keyRange": [
+      80,
+      80
+     ],
+     "pitch": 80
+    },
+    {
+     "sample": "81",
+     "keyRange": [
+      81,
+      81
+     ],
+     "pitch": 81
+    },
+    {
+     "sample": "82",
+     "keyRange": [
+      82,
+      82
+     ],
+     "pitch": 82
+    },
+    {
+     "sample": "83",
+     "keyRange": [
+      83,
+      83
+     ],
+     "pitch": 83
+    },
+    {
+     "sample": "84",
+     "keyRange": [
+      84,
+      91
+     ],
+     "pitch": 84
+    }
+   ]
+  }
+ ]
+}
