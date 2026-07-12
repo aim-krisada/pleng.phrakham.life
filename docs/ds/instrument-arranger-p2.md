@@ -304,7 +304,17 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 **ผลต่อสถาปัตย์:** เพิ่มกีตาร์/bowed/ออร์แกน/ฟลูต ภายหลัง = เขียน `InstrumentModule` 1 ตัว (voicing + patterns + feel + sample) → เสียบเข้า registry. **แกน core (harmony/dynamics/humanize-vel) + PerfEvent + scheduler + presets ไม่แตะ.** = plug-in.
 
 ### 🚀 Launch scope (P'Aim เคาะ 13 ก.ค.): ขึ้น live แค่ 2 เครื่อง — **Grand Piano + Guitar (nylon)**
-เดี่ยว-จัดเต็มทั้งคู่. **go live ได้เลยด้วย 2 ตัวนี้** · เครื่องที่เหลือ (**felt · violin · cello · string** + **เต็มวง**) = **หลัง launch** (ยัง tune อีกเยอะ · architecture/sample/recipe คงไว้ครบ ไม่ต้องรื้อ · เสียบเพิ่มทีหลัง). guitar solo module reference = **`docs/spikes/guitar-solo-demo.html`** (นylon จริง + รูดจังหวะ D-DU-UDU / เกา PIMA / rasgueado / slide-in). เปียโน solo = พิสูจน์แล้ว (`humanize-timbre-demo.html`).
+เดี่ยว-จัดเต็มทั้งคู่. **go live ได้เลยด้วย 2 ตัวนี้** · เครื่องที่เหลือ (**felt · violin · cello · string** + **เต็มวง**) = **หลัง launch** (ยัง tune อีกเยอะ · architecture/sample/recipe คงไว้ครบ ไม่ต้องรื้อ · เสียบเพิ่มทีหลัง). **✅ กีตาร์ P'Aim ฟัง+เคาะผ่านแล้ว (13 ก.ค.)** · เปียโน solo = พิสูจน์แล้ว (`humanize-timbre-demo.html`).
+
+**🎸 Guitar module — ค่าพารามิเตอร์ที่ P'Aim เคาะ (จากเดโม `guitar-solo-demo.html` · dev implement ตามนี้ = SSOT):**
+- **sample:** nylon จาก `public/samples/CC0/nylon` (filename = MIDI pitch · bakedMakeup 0 · ไม่ loop 2.4s → ปล่อย ring ธรรมชาติ ไม่ต้อง re-trigger สำหรับ pluck) · voicing ในช่วง 31–84.
+- **patterns (module.patterns):**
+  - **`strum` (default):** จังหวะ **D _ D U _ U D U** (eighth positions barpos 0=D,1=D,1.5=U,2.5=U,3=D,3.5=U) · **down = rake ต่ำ→สูง ~26ms/โน้ต** (มีเบส · gain ~0.30) · **up = rake สูง→ต่ำ ~20ms/โน้ต** (ไม่มีเบส · gain ~0.18) · โน้ต ring ~2 บีต.
+  - **`travis` (fingerpick):** thumb เบสสลับ ราก(บีตคู่)/คู่5(บีตคี่) gain ~0.30 · ตาม i-m-a ไล่ขึ้นชัด 3 โน้ตในบีต (offset +0.25/+0.47/+0.69 บีต) gain ~0.16.
+  - **`rasgueado`:** ต้นคอร์ด กรีด 4 ที cascading (t+0/+38/+76/+114ms · rake 12ms · gain ไล่ 0.12→0.27) + strum body เบา.
+- **melody:** พลัก nylon บนสุด · **slide-in grace** (โน้ต −2 semitone ~55ms ก่อนโน้ตยาว โอกาส ~22%) · humanize ±12ms/±6% + accent/contour (แกนกลาง).
+- **mix:** gentle master limiter (thresh −2 · ratio 4 · ไม่บีบ dynamics) · reverb room เบา.
+- default สไตล์กีตาร์ = **strum (รูดจังหวะ)**.
 
 ### 4B.4 — ★ หัวใจ P2: "เดี่ยว-จัดเต็ม" สุด ๆ ของเทคนิคแต่ละเครื่อง (P'Aim เคาะ 12 ก.ค. ค่ำ)
 

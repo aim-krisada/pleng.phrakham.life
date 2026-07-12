@@ -39,6 +39,12 @@ P'Aim สั่ง (12 ก.ค.) "รวมทุกเทคนิคที่�
 - **2 default UI (P'Aim เคาะแล้ว):** ลูกเล่น toggle (แก้ไข=ธรรมดา/เล่น=มีลูกเล่น) · เครื่องยังไม่มี sample = ปุ่มจาง "เร็ว ๆ นี้".
 - **P2 = เปียโนก่อน** (เปียโนสงบ=felt + เปียโนบรรเลง=arp buildable เลย) · อีก 3 preset slot ทีหลังไม่ต้องรื้อ (§12).
 
+## รอบ 9 — 🎸 กีตาร์ผ่าน (P'Aim เคาะ 13 ก.ค.) · ค่าพารามิเตอร์ล็อกให้ dev
+- **P'Aim ฟังกีตาร์ (ไฟล์ไนลอนจริง + รูด/เกา/rasgueado/slide) → OK · แจ้ง PM เอง.** เดี่ยว-จัดเต็มกีตาร์ผ่าน creative gate.
+- **ล็อกค่าพารามิเตอร์กีตาร์ลงสเปก (§Launch scope)** = SSOT ให้ dev: strum D-DU-UDU (down 26ms/up 20ms rake · gain 0.30/0.18) · travis (thumb+i-m-a) · rasgueado (4-flick) · slide-in grace · default = strum. dev อ่าน + เดโม `guitar-solo-demo.html` เป็น reference.
+- **สถานะ:** grand + guitar เคาะเสียงครบ → รอ PM จ่าย dev implement guitar module + tester → deploy 2 เครื่อง.
+- **นอกเหนือ launch:** ทำเดโมทดลอง `ensemble-rules-demo.html` (A/B กฎ 3 ชั้น ช่วยเต็มวงยังไง · P'Aim ขอดู · ไม่ release) + bank กฎเต็มวง §6b.2.
+
 ## รอบ 8 — 🚀 Launch scope: ขึ้น live แค่ Grand + Guitar (P'Aim เคาะ 13 ก.ค.)
 **P'Aim:** "เอาขึ้นแค่ 2 อย่าง grand piano + guitar ก่อน · ที่เหลือ tune อีกเยอะ · อยากให้ go live ได้แล้ว 2 อย่างนี้."
 - **Launch = 2 เครื่อง เดี่ยว-จัดเต็ม:** 🎹 Grand (พิสูจน์แล้ว) + 🎸 Guitar nylon (เดโมไฟล์จริง + รูด/เกา/rasgueado/slide ผ่าน).
