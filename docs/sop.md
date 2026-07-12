@@ -59,6 +59,7 @@ idea (backlog.md · SI.2)
 - **branch:** งานจาก `studio-shell-redesign` · 1 งาน = 1 branch = 1 dev-server port · dev รัน `--host` + ให้ Network URL (มือถือทดสอบ)
 - **รายงาน (session-agnostic):** dev/SA/tester → (1) `docs/reports/<branch>.md` (2) บรรทัด board §📥 inbox (3) ping "PM ปัจจุบัน" (board §🎯) · **อย่า hardcode ชื่อ PM session**
 - **PM session:** ชื่อ = เลข sprint/deploy รอบ (pm7 = รอบ 7) · เช็ก `git branch --show-current` ก่อน commit เสมอ
+- **⛔ PM รันใน worktree เฉพาะ `../pleng.phrakham.life-pm` (บน base) เท่านั้น — ห้ามรันใน primary clone ที่แชร์** (12 ก.ค. · จาก pk pm2): primary ถูก session อื่น/harness สลับ HEAD ใต้มือ → commit หลุด branch / `git push` เงียบ no-op · primary park ไว้ที่ branch `pm-primary-parking` · deploy (main) ทำใน worktree `pleng-natural-tie` · push base ใช้ `git push origin HEAD:studio-shell-redesign`
 - **collision-aware dispatch:** 2 session แตะไฟล์เดียว = คิวเดียว/เรียง merge · คนละไฟล์ = ขนาน
 - **selective-merge:** merge feature = git-verify commit จริง (`git show --stat`) → checkout เฉพาะไฟล์จริง → test → commit (กัน two-dot phantom deletion)
 - **post-deploy cleanup (บังคับ):** จบ deploy ทุกรอบ → PM archive session ที่งาน live แล้ว (โค้ด merged + worktree clean) · เหลือ roster เฉพาะงานค้างจริง/รอ P'Aim · กัน session ค้างสะสม (ทำ 12 ก.ค.: archive 29 → roster ว่าง)

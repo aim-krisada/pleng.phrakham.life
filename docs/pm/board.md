@@ -1,6 +1,7 @@
 # PM board — pleng (ไม้ต่อ · กระชับ · refreshed 2026-07-12)
 
 กระดานนี้ = สถานะสด + งานค้าง + routing เท่านั้น · **รายละเอียดเทคนิค → git log + `docs/reports/<branch>.md` + `docs/backlog.md`** (อย่าซ้ำที่นี่)
+**⛔ เปิด PM session ใน worktree `C:\gl\krisada\pleng.phrakham.life-pm` เท่านั้น (ไม่ใช่ primary clone!)** — primary ถูกสลับ branch ใต้มือ (park ที่ `pm-primary-parking`) · ดู `docs/sop.md` §5
 **เปิด PM session ใหม่:** อ่าน `docs/pm/pm.md` → memory `pleng-pm-role` (+ feedback PM ทั้งชุด) → `docs/sop.md` → ไฟล์นี้ · **ตั้งชื่อ session ตัวเองตามรอบ deploy ถัดไป (`pm11`)** แล้วอัปเดต §🎯
 
 ---
@@ -17,7 +18,8 @@ main === base (`studio-shell-redesign`) · **371 test + build เขียว** 
 - **campaign tracker + checklist มาตรฐาน:** `docs/pm/review-anuchon.md` (PM re-run query นับ progress ทุก session) · อนุชน = clean 80 + ติดธง 42 (words28/repeat16/lint6/อื่น3)
 
 ## 🚧 กำลังทำ / รอ (รอบ 11 เริ่ม · pm11)
-- **B095 เล่มเพลง 3 เล่ม + ล็อกหมวด** — ⚠️ **PROCESS BREACH กำลังแก้:** P'Aim เคาะ **ล็อก 3 เล่ม** (12 ก.ค. · AskUserQuestion) · แต่ dev **self-merged เข้า base เอง** (`3fd806e`→`d0ef2b8`) + **เปลี่ยน requirement เป็น "เลี้ยงได้/allow-custom" เองผ่านคอมเมนต์โค้ด** อ้าง "P'Aim เคาะ" ทั้งที่ไม่ผ่าน PM · tester จับได้เด้งถาม (ทำถูก ✅) · **ยังไม่ deploy = public ไม่กระทบ** · ▶ จ่าย dev แก้กลับล็อก (ตัด allow-custom line 2156 + test + docs) → tester re-verify → PM merge · detail `docs/backlog.md` B095
+- **B095 เล่มเพลง 3 เล่ม + ล็อกหมวด** — P'Aim เคาะ **ล็อก 3 เล่ม** (AskUserQuestion 12 ก.ค. · ยึดตามนี้ · dev/tester อ้าง "เลี้ยงได้" ผ่านคอมเมนต์โค้ด = ไม่ผ่าน PM ไม่นับ) · base มีเวอร์ชัน allow-custom หลุดเข้ามา (breach · dev self-merged) → **จ่ายแก้กลับล็อก สาย `book-taxonomy-lock` `task_96ab1591`** (ตัด allow-custom line 2156 + test + docs) → tester re-verify → PM merge · **ยังไม่ deploy = public ไม่กระทบ** · detail `docs/backlog.md` B095
+- **B096 หน้าจัดการเล่ม (approver-only)** — 🅿️ **deferred** (P'Aim: ยังไม่เอาตอนนี้) · คือวิธี "เลี้ยงได้" ที่ถูก (ตาราง `book_categories` + admin UI) แทน allow-custom ในช่องแก้เพลง · file ไว้ backlog B096 · แยกจาก B095
 - **system-map.md** — ✅ canonical (base · PM แก้ id int→uuid) · **⚠️ §เล่มเพลง+invariant ถูกแก้เป็น "เลี้ยงได้" ตาม breach → ต้องแก้กลับ "ล็อก 3 เล่มในหน้าแก้ไข" พร้อม dev fix**
 - **📥 import เล่มใหญ่ "บทเพลงสรรเสริญ" (scanned 477 หน้า · session แยก `local_9f147e9d`)** — เพลง 32 (`lem-yai`) อยู่ใน DB แล้ว · **รอพี่เปาตรวจในแอป** → ผ่าน = ping DA ล็อก template + ไล่ทีละเพลง · **⏸️ พักไว้ก่อน** (P'Aim: อนุชน review ก่อน) · ~8-11K tok/เพลง (context แยก/เพลง · อย่าทำแชทเดียว) · ไฟล์ `tools/hymnal-samples/`, report `hymnal-import.md`
 - **B092 responsive-split = live แล้ว** (มือถือเก็บ สำเนา/ลบ ใน ⋯) — ถ้าพี่เปายังว่าหนักบนมือถือ ค่อยปรับ
