@@ -111,9 +111,10 @@ export const ensembleMode = ref((() => {
   return 'solo'
 })())
 watch(ensembleMode, (v) => { try { localStorage.setItem(ENSEMBLE_KEY, v) } catch { /* ignore */ } })
-// Instruments that actually play (samples present + wired in sampler.js). Step 9 enabled the five
-// solo voices; each plays for real with its idiomatic arranger module (keyboard/bowed/plucked).
-export const READY_INSTRUMENTS = ['grand', 'felt', 'nylon', 'violin', 'cello']
+// Instruments the picker can actually SELECT. LAUNCH scope (P'Aim 13 ก.ค.) = เปียโน + กีตาร์ only;
+// felt/violin/cello are wired + self-hosted but stay "เร็ว ๆ นี้" (disabled in the UI) until P'Aim
+// signs off on each. Add one here + drop its `disabled` in soundOptions.js to enable it.
+export const READY_INSTRUMENTS = ['grand', 'nylon']
 const INSTR_KEY = 'pleng.leadInstrument'
 export const leadInstrument = ref((() => {
   try { const v = localStorage.getItem(INSTR_KEY); if (READY_INSTRUMENTS.includes(v)) return v } catch { /* ignore */ }

@@ -16,13 +16,15 @@ export const ENSEMBLE_OPTS = [
   { value: 'ensemble', label: '🎻 เต็มวง (นำวง) — เร็ว ๆ นี้', short: 'เต็มวง', disabled: true },
 ]
 
-// เครื่องดนตรี — the five self-hosted solo voices (step 9 enabled all of them).
+// เครื่องดนตรี — LAUNCH scope (P'Aim 13 ก.ค.): ship only เปียโน + กีตาร์ (nylon, approved from the
+// solo demo). felt/violin/cello are self-hosted + wired but stay "เร็ว ๆ นี้" (disabled) until
+// P'Aim signs off on each — flip `disabled` off here to enable one (and add it to READY_INSTRUMENTS).
 export const INSTRUMENT_OPTS = [
   { value: 'grand', label: '🎹 เปียโน (Grand)', short: 'เปียโน' },
-  { value: 'felt', label: '🎹 เปียโนนุ่ม (Felt)', short: 'Felt' },
   { value: 'nylon', label: '🎸 กีตาร์ (Nylon)', short: 'กีตาร์' },
-  { value: 'violin', label: '🎻 ไวโอลิน', short: 'ไวโอลิน' },
-  { value: 'cello', label: '🎻 เชลโล', short: 'เชลโล' },
+  { value: 'felt', label: '🎹 เปียโนนุ่ม (Felt) — เร็ว ๆ นี้', short: 'Felt', disabled: true },
+  { value: 'violin', label: '🎻 ไวโอลิน — เร็ว ๆ นี้', short: 'ไวโอลิน', disabled: true },
+  { value: 'cello', label: '🎻 เชลโล — เร็ว ๆ นี้', short: 'เชลโล', disabled: true },
 ]
 
 // อารมณ์ / สไตล์ — HOW it performs (arranger preset, or ตรงโน้ต = arranger off).

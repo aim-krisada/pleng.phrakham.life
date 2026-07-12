@@ -15,7 +15,7 @@ import { rubato } from './dynamics.js'
 import { PRESETS, DEFAULT_PRESET, presetCfg, songFeatures, recommendRecipe } from './presets.js'
 import { buildChordVoice } from '../midi.js'
 import { gainToVelocity, GRAND_LAYER } from '../sampler.js'
-import { keyboard, bowed, plucked, moduleForInstrument } from './instruments/index.js'
+import { keyboard, bowed, guitar, moduleForInstrument } from './instruments/index.js'
 
 const NOTES = [
   { midi: 60, beats: 1, chord: 'C' },
@@ -273,15 +273,15 @@ describe('rubato (R2.8 §7b) — no time drift', () => {
   })
 })
 
-// B107 step 9 · §4B — the idiomatic instrument modules (keyboard/bowed/plucked). The arranger core
+// B107 step 9 · §4B — the idiomatic instrument modules (keyboard/bowed/guitar). The arranger core
 // stays the same; each module shapes voicing + which comp patterns exist + humanize feel.
-describe('instrument modules (§4B) — bowed / plucked / keyboard resolver', () => {
+describe('instrument modules (§4B) — bowed / guitar / keyboard resolver', () => {
   it('moduleForInstrument maps ids → the right module, keyboard as the default', () => {
     expect(moduleForInstrument('grand')).toBe(keyboard)
     expect(moduleForInstrument('felt')).toBe(keyboard)
     expect(moduleForInstrument('violin')).toBe(bowed)
     expect(moduleForInstrument('cello')).toBe(bowed)
-    expect(moduleForInstrument('nylon')).toBe(plucked)
+    expect(moduleForInstrument('nylon')).toBe(guitar)
     expect(moduleForInstrument('who')).toBe(keyboard) // unknown → piano behaviour
   })
 
@@ -306,16 +306,44 @@ describe('instrument modules (§4B) — bowed / plucked / keyboard resolver', ()
     expect(bowed.defaultPattern).toBe('stringPad')
   })
 
-  it('plucked defaults to arpeggio and offers fingerpick', () => {
-    expect(plucked.defaultPattern).toBe('arpeggio')
-    expect(plucked.patterns).toHaveProperty('fingerpick')
+  it('guitar defaults to strum and offers travis + rasgueado', () => {
+    expect(guitar.defaultPattern).toBe('strum')
+    expect(guitar.patterns).toHaveProperty('travis')
+    expect(guitar.patterns).toHaveProperty('rasgueado')
   })
 
-  it('every module keeps melody = printed notes (core golden rule) regardless of instrument', () => {
-    for (const mod of [keyboard, bowed, plucked]) {
+  it('guitar owns its bass (every core bassMode → empty) so a preset bass can never double it', () => {
+    for (const m of Object.values(guitar.bassModes)) {
+      expect(m({ startBeat: 0, beats: 4, bass: 40 }, 40, { cfg: {}, keyRoot: 40, beatsPerBar: 4 })).toEqual([])
+    }
+    // with a piano preset (bass:'root') the guitar run still gets its bass ONLY from the pattern
+    const line = [{ midi: 60, beats: 4, chord: 'C' }, { midi: 64, beats: 4, chord: 'G' }]
+    const evs = arrange(line, buildChordVoice(line), { ...presetCfg('piano-arrangement'), voices: 'both', module: guitar }, META)
+    // a down-strum rakes low→high with an increasing per-string timeShift (an audible strum, not a block)
+    const bassHits = evs.filter((e) => e.role === 'bass')
+    expect(bassHits.length).toBeGreaterThan(0)
+    const strumStack = evs.filter((e) => e.role !== 'melody' && Math.abs(e.startBeat - 0) < 0.01)
+    const shifts = strumStack.map((e) => e.timeShift).sort((a, b) => a - b)
+    expect(shifts[shifts.length - 1]).toBeGreaterThan(shifts[0]) // staggered, not simultaneous
+  })
+
+  it('keyboard/bowed keep melody = printed notes exactly (core golden rule)', () => {
+    for (const mod of [keyboard, bowed]) {
       const evs = melodyOf(arrange(NOTES, CHORDS, { voices: 'both', module: mod }, META))
       expect(evs.map((e) => e.midi)).toEqual([60, 62, 64, 67])
     }
+  })
+
+  it('guitar keeps every printed melody note (grace notes are ADDED ornaments, printed unchanged)', () => {
+    const evs = melodyOf(arrange(NOTES, CHORDS, { voices: 'both', module: guitar }, META))
+    const midis = evs.map((e) => e.midi)
+    // the four printed notes appear in order (grace notes may be interleaved before their target)
+    let k = 0
+    for (const m of midis) if (m === [60, 62, 64, 67][k]) k++
+    expect(k).toBe(4)
+    // ornament OFF when the arranger is off (ตรงโน้ต) → melody is exactly the printed notes
+    const plain = melodyOf(arrange(NOTES, CHORDS, { voices: 'both', module: guitar, arranger: false }, META))
+    expect(plain.map((e) => e.midi)).toEqual([60, 62, 64, 67])
   })
 
   it('plain mode (arranger off) is instrument-agnostic — full chord block, no module reduction (§6c)', () => {

@@ -5,16 +5,16 @@
 
 import { keyboard } from './keyboard.js'
 import { bowed } from './bowed.js'
-import { plucked } from './plucked.js'
+import { guitar } from './guitar.js'
 
-// instrument id → module. grand/felt = keyboard; violin/cello/string = bowed; nylon = plucked.
+// instrument id → module. grand/felt = keyboard; violin/cello/string = bowed; nylon = guitar.
 const MODULE_BY_INSTRUMENT = {
   grand: keyboard,
   felt: keyboard,
   violin: bowed,
   cello: bowed,
   string: bowed,
-  nylon: plucked,
+  nylon: guitar,
 }
 
 // Resolve the module for an instrument id, defaulting to the keyboard (piano) module — so an
@@ -24,4 +24,4 @@ export function moduleForInstrument(id) {
   return MODULE_BY_INSTRUMENT[id] || keyboard
 }
 
-export { keyboard, bowed, plucked }
+export { keyboard, bowed, guitar }
