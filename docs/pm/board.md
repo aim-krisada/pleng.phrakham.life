@@ -7,7 +7,9 @@
 ---
 
 ## ▶ RESUME (pm21 online · 12 ก.ค. เย็น)
-**pm21 (สายนี้) รับช่วงต่อ pm11.** สิ่งที่ทำไปแล้ว: (1) ยืนยัน live = `509195c` รอบ20 (poll bundle) · (2) **B107 P2 design merge เข้า base แล้ว** (`1fe0f61` · docs-only: spec+report+demo · SA branch `b107-p2-design` a3f8524 · git-verified honest ไม่แตะ prod src · push base แล้ว) · **SA ส่งมอบ P2 + P'Aim sign-off เสียง (humanize ±12ms/±6% · default=เต็มวง+ลูกเล่น · localStorage sticky)** → **รอ P'Aim เคาะ: จ่าย dev build §8 (เปียโนก่อน) เลย หรือถือไว้โฟกัส review gate ก่อน** (2 งานนี้ไม่ชนกัน — dev build ใน worktree แยก · review = งานคน)
+**pm21 (สายนี้) = PM session ปัจจุบัน (§🎯).** สิ่งที่ทำไปแล้ว: (1) ยืนยัน live = `509195c` รอบ20 (poll bundle) · (2) **B107 P2 design merge เข้า base** (`1fe0f61` · docs-only · git-verified honest · push แล้ว) · (3) **P'Aim เคาะ "จ่าย dev สร้าง P2 เลย" → dispatch dev แล้ว** (brief `docs/pm/brief-b107-p2-dev.md` · branch `b107-p2-arranger` · spawn_task)
+**▶ กำลังรอ:** dev build §8 step 0–1 (seam+humanize) → **CHECKPOINT: หยุดให้ P'Aim ฟัง "หายแข็ง" บนแอปจริง** → PM ไฟเขียว → dev ลุย step 2–8 → tester วัด real audio → P'Aim ฟัง final → PM deploy
+**คู่ขนาน (ไม่บล็อก):** review อนุชน 0/122 (งานคน P'Aim/พี่เปา · gate ปลดล็อก public) · B102 รับข้อ4 mobile (รอ P'Aim ทดสอบ) · B103 gitattributes (ถือ merge)
 
 ## ▶ RESUME เก่า (hand-off pm11 → pm21 · 12 ก.ค. เย็น · context pm11 ใกล้เต็ม)
 **LIVE = `509195c` (รอบ 20)** — วันนี้ยิงขึ้น live 10 รอบ (11-20): B095 ล็อกหมวด · B098 คัดลอก/ลบโน้ต-ห้อง · B097 undo/redo · B099 เส้นโค้งไท · B100 เตือนออกหน้า · B104 คอร์ด 3 โหมด · B105 real-time mode · B101 คัดลอกวางยืดหยุ่น · **B107 P1 เปียโน Grand จริง** · B102 P1+rd3 ร้องรับทุกข้อ+ข้อ1+ตัวชี้รอบ
