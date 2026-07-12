@@ -35,10 +35,11 @@
 <div class="panel">
   <h2>สไตล์การเล่น</h2>
   <div class="opts" id="styleOpts">
-    <div class="opt sel" data-s="travis">🤌 เกาสาย (fingerpick)<small>เบสสลับ + เกาโน้ตบน · นุ่ม ใกล้ชิด</small></div>
-    <div class="opt" data-s="strum">🖐️ รูดคอร์ด (strum)<small>รูดลง + ทำนองบน · อุ่น พลิ้ว</small></div>
+    <div class="opt sel" data-s="strum">🖐️ รูดจังหวะ<small>รูดคอร์ดเป็นจังหวะ (D-DU-UDU) · ได้ยินเสียงรูดชัด</small></div>
+    <div class="opt" data-s="travis">🤌 เกาสาย<small>เบสสลับ + ไล่นิ้วกลิ้งชัด (PIMA)</small></div>
+    <div class="opt" data-s="rasg">🔥 กรีดรัว (rasgueado)<small>กรีดสายรัว ๆ ต้นวรรค · สไตล์สแปนิช</small></div>
   </div>
-  <p class="hint">ทั้งคู่ = ทำนองเด่นบนสุด · humanize + หนักเบา อัตโนมัติ · โน้ตกีตาร์ปล่อยให้กังวานเอง (ไม่ค้างแข็ง)</p>
+  <p class="hint">ลูกเล่นกีตาร์แท้ ๆ: เสียงรูด/กรีดสาย (stagger ชัด) · สไลด์เข้าโน้ตทำนอง · สายเปล่ากังวาน · humanize อัตโนมัติ</p>
 </div>
 
 <div id="playRow"><button id="play">▶ เล่น</button><button id="stop">■ หยุด</button></div>
@@ -95,7 +96,7 @@ const setStatus=m=>document.getElementById('status').textContent=m;
 const setNow=m=>document.getElementById('now').textContent=m;
 function stopAll(){ gen++; if(SF)try{SF.stop();}catch(e){} }
 
-let STYLE='travis';
+let STYLE='strum';
 async function play(){
   ensure(); await ctx.resume(); stopAll(); const my=gen;
   document.getElementById('play').disabled=true; setStatus('⏳ กำลังโหลดเสียงกีตาร์...');
@@ -109,32 +110,49 @@ async function play(){
   const t0=ctx.currentTime+0.2, rnd=()=>(Math.random()-0.5)*2, TJ=0.014, VJ=0.06;
   const pk=(role,midi,t,dur,gg)=> g.play(midi,t,{duration:dur, gain:Math.max(0.03,gg), destination:roleG[role]});
 
-  // MELODY — plucked nylon on top, breathes (accent × contour × humanize). let it ring (dur long).
+  // MELODY — plucked nylon on top; breathes + occasional SLIDE/grace (guitar ornament: a quick
+  // note a step below sliding into the target). let it ring.
   let beat=0; SONG.forEach((n,i)=>{ const d=n.b*spb;
-    if(n.m!=null){ const gd=accent(beat)*contour(i)*(1+VJ*rnd()); const sh=TJ*rnd();
-      pk('mel', n.m, t0+beat*spb+sh, Math.max(.6,d+0.4), 0.5*melVol*gd); } beat+=n.b; });
+    if(n.m!=null){ const gd=accent(beat)*contour(i)*(1+VJ*rnd()); const sh=TJ*rnd(); const t=t0+beat*spb+sh;
+      if(n.b>=1 && Math.random()<0.22){ pk('mel', n.m-2, t-0.055, 0.09, 0.34*melVol*gd); } // slide-in grace
+      pk('mel', n.m, t, Math.max(.6,d+0.4), 0.52*melVol*gd); } beat+=n.b; });
 
-  // ACCOMPANIMENT — real guitar idiom, notes RING (nylon decays ~2.4s naturally, no hard cutoff)
+  // ACCOMPANIMENT — DISTINCT guitar idiom (audible rake / roll), notes RING (~2.4s decay)
+  // a raked strum: notes fired low→high (down) or high→low (up) with a CLEAR stagger you can hear.
+  const rake=(notes, t, gapMs, baseG, ac)=> notes.forEach((m,j)=>
+    pk('comp', m, t+j*gapMs/1000+TJ*rnd()*0.4, spb*2.0, baseG*(1-j*0.08)*compVol*ac));
+  const CH=v=>[v.bass,...v.up];
+
   for(const e of chordEvents()){ const v=voiceLed(e.chord); if(v.bass==null)continue;
     const bT=t0+e.startBeat*spb, nb=Math.max(1,Math.round(e.beats));
-    if(STYLE==='travis'){
-      // Travis fingerpick: thumb alternates bass (root / 5th) on the beat; fingers pluck an inner
-      // chord tone on the off-beat → the rolling pick under the tune.
-      for(let k=0;k<nb;k++){ const ac=accent(e.startBeat+k), sh=TJ*rnd();
-        const thumb = (k%2===0) ? v.bass : v.bass+7;               // root / fifth
-        pk('comp', thumb, bT+k*spb+sh, spb*2.2, 0.3*compVol*ac);   // ring past next beats
-        const inner = v.up[k % v.up.length];                        // finger inner tone
-        pk('comp', inner, bT+(k+0.5)*spb+TJ*rnd(), spb*1.8, 0.14*compVol*ac);
+
+    if(STYLE==='strum'){
+      // rhythmic strum pattern D _ D U _ U D U (the recognizable worship groove) with clear rakes.
+      const PAT={'0':'D','1':'D','1.5':'U','2.5':'U','3':'D','3.5':'U'};
+      for(let p=0;p<nb;p+=0.5){ const bp=((e.startBeat+p)%4);
+        const key=Object.keys(PAT).find(k=>Math.abs(+k-bp)<0.01); if(!key)continue;
+        const ac=accent(e.startBeat+Math.floor(p)), t=bT+p*spb;
+        if(PAT[key]==='D') rake(CH(v), t, 26, 0.30, ac);              // downstroke low→high, fuller
+        else rake([...v.up].reverse(), t, 20, 0.18, ac);             // upstroke high→low, lighter (no bass)
       }
-      // ✦ harp roll on the chord's first beat (occasional) — the sweet guitar shimmer
-      if(Math.random()<0.35){ const st=[v.bass,...v.up]; st.forEach((m,j)=> pk('comp', m, bT+j*0.026, spb*2.4, 0.10*compVol)); }
-    } else {
-      // Strum: roll the chord low→high (~18ms) on each beat, downstroke, melody stays on top.
-      for(let k=0;k<nb;k++){ const ac=accent(e.startBeat+k), st=[v.bass,...v.up];
-        st.forEach((m,j)=> pk('comp', m, bT+k*spb+j*0.018+TJ*rnd(), spb*1.9, (j===0?0.16:0.11)*compVol*ac)); }
+    } else if(STYLE==='travis'){
+      // Travis: thumb bass on the beat + a CLEAR ascending i-m-a roll across the beat (obvious pick).
+      for(let k=0;k<nb;k++){ const ac=accent(e.startBeat+k);
+        pk('comp', (k%2===0)?v.bass:v.bass+7, bT+k*spb+TJ*rnd(), spb*2.2, 0.30*compVol*ac);
+        const ima=[v.up[0], v.up[1]??v.up[0], v.up[2]??v.up[1]??v.up[0]];
+        ima.forEach((m,j)=> pk('comp', m, bT+(k+0.25+j*0.22)*spb+TJ*rnd(), spb*1.6, 0.16*compVol*ac));
+      }
+    } else { // rasgueado — a rapid finger-flick flourish at each chord start, then a light strum body
+      const st=CH(v); for(let f=0;f<4;f++){ rake(st, bT+f*0.038, 12, 0.12+f*0.05, 1); } // 4 fast cascading flicks
+      const PAT={'1':'D','2':'D','2.5':'U','3':'U','3.5':'D'};
+      for(let p=1;p<nb;p+=0.5){ const bp=((e.startBeat+p)%4);
+        const key=Object.keys(PAT).find(k=>Math.abs(+k-bp)<0.01); if(!key)continue;
+        const ac=accent(e.startBeat+Math.floor(p));
+        rake(PAT[key]==='D'?st:[...v.up].reverse(), bT+p*spb, 22, 0.16, ac);
+      }
     }
   }
-  setNow('▶ กีตาร์เดี่ยว · '+(STYLE==='travis'?'เกาสาย (fingerpick + harp roll)':'รูดคอร์ด (strum)')+' · BPM '+bpm);
+  setNow('▶ กีตาร์เดี่ยว · '+({strum:'รูดจังหวะ (D-DU-UDU)',travis:'เกาสาย (PIMA roll)',rasg:'กรีดรัว (rasgueado)'}[STYLE])+' · BPM '+bpm);
 }
 
 const melV=document.getElementById('melVol'), compV=document.getElementById('compVol'),
