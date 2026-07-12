@@ -10,13 +10,15 @@
 
 // The real books, in shelf order, with their display names. Data-driven: any category
 // code the data actually carries appears even if it's not in this map (raw code shown),
-// so a newly-imported book needs no code change here. `yuwachon` code is DA-tentative —
-// confirm with PM if DA used a different one (name still maps cleanly once known).
-export const CATEGORY_ORDER = ['lem-yai', 'anuchon', 'yuwachon']
+// so a newly-imported book needs no code change here. THREE canonical books only (P'Aim
+// 12 ก.ค. — see docs/ds/home-redesign.md §Taxonomy): the old `yuwachon` (0 songs, never
+// used) was replaced by `dek-lek` (เด็กเล็ก). เด็กเล็ก songs are imported later with this
+// code; the book stays hidden until it has songs (orderedBooks drops empty เล่ม).
+export const CATEGORY_ORDER = ['lem-yai', 'anuchon', 'dek-lek']
 export const CATEGORY_NAMES = {
   'lem-yai': 'เล่มใหญ่',
   anuchon: 'อนุชน',
-  yuwachon: 'ยุวชน',
+  'dek-lek': 'เด็กเล็ก',
 }
 
 // Sentinel for the "อื่นๆ / ยังไม่จัดเล่ม" bucket (songs with no category). Not a real
@@ -71,7 +73,7 @@ export function tallyCategories(songs) {
 
 // The ordered shelf to render: known books first (CATEGORY_ORDER), then any unknown/new
 // category present in the data, then the fallback bucket. Books with 0 songs are hidden
-// (P'Aim: don't show empty เล่ม — e.g. ยุวชน stays hidden until it has songs); the fallback
+// (P'Aim: don't show empty เล่ม — e.g. เด็กเล็ก stays hidden until it has songs); the fallback
 // shows only when non-empty. Each entry = { code, name, count, fallback }.
 export function orderedBooks(songs) {
   const { counts, none } = tallyCategories(songs)

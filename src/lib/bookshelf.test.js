@@ -30,10 +30,10 @@ const SONGS = [
 
 describe('CATEGORY_ORDER / names', () => {
   it('is the 3 real books in shelf order', () => {
-    expect(CATEGORY_ORDER).toEqual(['lem-yai', 'anuchon', 'yuwachon'])
+    expect(CATEGORY_ORDER).toEqual(['lem-yai', 'anuchon', 'dek-lek'])
     expect(CATEGORY_NAMES['lem-yai']).toBe('เล่มใหญ่')
     expect(CATEGORY_NAMES.anuchon).toBe('อนุชน')
-    expect(CATEGORY_NAMES.yuwachon).toBe('ยุวชน')
+    expect(CATEGORY_NAMES['dek-lek']).toBe('เด็กเล็ก')
   })
   it('categoryName falls back to the raw code for an unknown category', () => {
     expect(categoryName('saraphi')).toBe('saraphi')
@@ -66,9 +66,9 @@ describe('orderedBooks', () => {
     // lem-yai before anuchon (per order), then unknown saraphi, then fallback
     expect(codes).toEqual(['lem-yai', 'anuchon', 'saraphi', FALLBACK_KEY])
   })
-  it('hides books with 0 songs (e.g. ยุวชน when empty)', () => {
+  it('hides books with 0 songs (e.g. เด็กเล็ก when empty)', () => {
     const shelf = orderedBooks(SONGS)
-    expect(shelf.find((b) => b.code === 'yuwachon')).toBeUndefined()
+    expect(shelf.find((b) => b.code === 'dek-lek')).toBeUndefined()
     expect(shelf.every((b) => b.count > 0)).toBe(true)
   })
   it('gives real names + fallback label; omits fallback when empty', () => {
@@ -93,7 +93,7 @@ describe('songsInBook', () => {
     expect(list.map((x) => x.id)).toEqual([7, 6]) // number 8 before 9
   })
   it('empty for a book with no songs; no throw', () => {
-    expect(songsInBook(SONGS, 'yuwachon')).toEqual([])
+    expect(songsInBook(SONGS, 'dek-lek')).toEqual([])
     expect(songsInBook([], 'anuchon')).toEqual([])
   })
 })
