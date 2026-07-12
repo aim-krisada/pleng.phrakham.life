@@ -6,8 +6,8 @@
 
 ---
 
-## 🟢 LIVE ตอนนี้ — deploy รอบ 12 (`6e6653d`, 12 ก.ค. · B098 note/bar tools)
-main = `6e6653d` · **นโยบายใหม่: PM deploy ทีละ fix ที่ผ่าน tester** (ดู §กติกา deploy) · ล่าสุด: รอบ11 B095 lock (`84d259c`) · รอบ12 B098 (`6e6653d`) · ("1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก)
+## 🟢 LIVE ตอนนี้ — deploy รอบ 13 (`54eba5c`, 12 ก.ค. · B097 undo/redo)
+main = `54eba5c` · **นโยบายใหม่: PM deploy ทีละ fix ที่ผ่าน tester** (ดู §กติกา deploy) · ล่าสุด: รอบ11 B095 lock · รอบ12 B098 note/bar · รอบ13 B097 undo/redo · ("1 failed file" = notationLint process.exit เดิม ไม่ใช่บั๊ก)
 - **ขึ้น live รอบ 10:** บั๊ก+ข้อเสนอพี่เปาครบ (โน้ต space ripple B084 · สติกกี้ B085 · ย้ายบรรทัด B086 · เส้นจบ‖ B090 · ล้างเนื้อบรรทัด · ปุ่มห้อง+มือถือ B092 · lint-ก่อนเผยแพร่ B093) + **หน้าแรกใหม่ (เล่ม picker) + verified GATE (B087+B089)**
 - ประวัติรอบก่อน (7-9): DockKey 3 หน้า+polish · slur B076 · ไทข้ามห้อง B069 · เส้นปิดห้อง B082 · พรีวิว B081 · จับคู่ทำนอง B083 · timeline D6 · a11y infra
 
@@ -20,7 +20,7 @@ main = `6e6653d` · **นโยบายใหม่: PM deploy ทีละ fix
 ## 🚧 กำลังทำ / รอ (รอบ 11 เริ่ม · pm11)
 - **B098 แยกเครื่องมือโน้ต/ห้อง (4 การกระทำ) + auto-focus เพิ่มห้อง — ✅ เสร็จ + ขึ้น LIVE (รอบ 12 · `6e6653d`)** — tester PASS ครบ (คลิกจริง 4 สโคป + auto-focus + มือถือ 375px) → PM cherry-pick `3a934a4`+`b79cd37`→base (auto-merge สะอาด ไม่ชน B095) → FF main + push → poll bundle เจอ `6e6653d` ✅ · โน้ต: คัดลอก/ลบ · ห้อง: คัดลอก/ลบ · กดเพิ่มห้อง→พิมพ์ต่อได้เลย · report `docs/reports/b098-note-bar-tools.md`+`tester-b098-note-bar-tools.md` · **พี่เปาลอง live ได้**
 - **B099 เส้นโค้ง slur/ไท วาดขาด (ควรต่อเป็นเส้นเดียว)** — **จ่าย dev แล้ว (spawn_task 12 ก.ค. · branch `b099-slur-curve` · `task_130552bd`)** · อาการ P'Aim: เส้นโค้งเหนือ `1 . 1` เป็น 2 ครึ่งไขว้กันเป็นโบว์ ต้องเป็น arc เดียวลื่น (ภาพ `realuse-assets/B099-slur-broken-bowtie.jpg`) · dev วิเคราะห์เอง (pointer NoteRow.vue/SongSheet.vue · เกี่ยว B076 slur) · รั้ว = ตัววาด slur+test · brief `docs/pm/brief-b099-slur-curve.md` · ▶ dev→tester→PM deploy · **ยังไม่ deploy**
-- **B097 undo/redo ให้ถูกครบทุกกรณี** (หน้าแก้ไข) — ✅ **DEV เสร็จ · จ่าย tester gate แล้ว** (branch `fix-b097-undo-redo` @ `18eee9f` · session dev `local_f2f1836b` · tester `task_f66f73da`) · แก้ตามต้นเหตุ: แยก doc-state/view-state (สลับท่อน/เที่ยว=ไม่นับ undo step · เก็บ+กู้ view ใน snapshot แทน resetLens) · 380 test เขียว + build · dev verify browser (เนื้อเที่ยว 2 กลับถูก) · รั้ว `EditorMode.vue`+`EditorMode.undo-view.test.js` · report `docs/reports/fix-b097-undo-redo.md` · ▶ รอ tester PASS → PM cherry-pick · **ยังไม่ deploy**
+- **B097 undo/redo — ✅ เสร็จ + ขึ้น LIVE (รอบ 13 · `54eba5c`)** — tester PASS ครบ (เพลงจริง #12: แก้เนื้อร้อง2→Ctrl+Z โน้ต+เนื้อถูกยังเที่ยว 2 · สลับท่อนไม่กิน undo · redo mirror · sabotage-proof) → PM apply logic (docState/viewState split · applyState กู้ view แทน resetLens) commit `54eba5c` → FF main + push → poll bundle เจอ `54eba5c` ✅ · **พี่เปาลอง live ได้** · (⚠️ EOL: branch CRLF → PM apply LF patch สะอาด +55/-15 · ดู §กติกา merge)
 - **B095 ล็อกหมวด 3 เล่ม — ✅ เสร็จ + ขึ้น LIVE (deploy รอบ 11 · `84d259c` · 12 ก.ค.)** — tester PASS 5/5 (`tester-b095-lock-fix.md`) → PM cherry-pick `e9ae706`→base (`84d259c`) → FF main + push → poll live bundle เจอ `84d259c` ✅ · ช่องหมวดล็อก 3 เล่ม (ตัด allow-custom) · docs+system-map revert เป็น "ล็อก" แล้ว · breach ปิดจบ · B096 (admin จัดการเล่ม) = 🅿️ deferred แยกไว้ backlog
 - **📥 import เล่มใหญ่ "บทเพลงสรรเสริญ" (scanned 477 หน้า · session แยก `local_9f147e9d`)** — เพลง 32 (`lem-yai`) อยู่ใน DB แล้ว · **รอพี่เปาตรวจในแอป** → ผ่าน = ping DA ล็อก template + ไล่ทีละเพลง · **⏸️ พักไว้ก่อน** (P'Aim: อนุชน review ก่อน) · ~8-11K tok/เพลง (context แยก/เพลง · อย่าทำแชทเดียว) · ไฟล์ `tools/hymnal-samples/`, report `hymnal-import.md`
 - **B092 responsive-split = live แล้ว** (มือถือเก็บ สำเนา/ลบ ใน ⋯) — ถ้าพี่เปายังว่าหนักบนมือถือ ค่อยปรับ
@@ -49,6 +49,7 @@ main = `6e6653d` · **นโยบายใหม่: PM deploy ทีละ fix
 - **tester gate = ทุก UI ก่อน P'Aim** · dev/SA self-verify Tier-B (Browser MCP) ก่อน · print feature = P'Aim verify จาก PDF จริง (ไม่ใช่ DOM)
 - **รายงาน session-agnostic:** dev เขียน `docs/reports/<branch>.md` + บรรทัด §📥 inbox + ping "PM ปัจจุบัน" (อย่า hardcode ชื่อสาย)
 - **merge:** cherry-pick เฉพาะ commit โค้ด (เลี่ยง doc conflict + กัน branch เก่า revert งานใหม่) · เช็ก `git branch --show-current` ก่อน commit ทุกครั้ง · rerun test
+  - **⚠️ EOL (บทเรียน B097 12 ก.ค.):** ถ้า dev เซฟไฟล์เป็น CRLF ทั้งไฟล์ (autocrlf=true, ไม่มี .gitattributes) → cherry-pick ตรงๆ ได้ diff ยักษ์ + conflict. วิธีแก้: `git cat-file -p <fixcommit>^:<file> | tr -d '\r' > A` · `git cat-file -p <fixcommit>:<file> | tr -d '\r' > B` · `diff -u --text A B | patch -p0 <file>` (apply แค่ logic เป็น LF · autocrlf แปลงกลับตอน commit) · **ควรเพิ่ม `.gitattributes` (`*.vue text eol=lf`) กันปัญหาถาวร** — ค้างเป็น follow-up
 - **deploy (นโยบายใหม่ P'Aim 12 ก.ค.): PM คุม deploy เอง · deploy ทีละ fix ที่พร้อม (ผ่าน tester) ไม่ต้องรอครบทุกงาน ไม่ต้องถาม P'Aim ทุกครั้ง** — พี่เปาทดสอบบน live · เงื่อนไข: ต้องผ่าน tester gate ก่อน + เป็น fix ที่ปลอดภัยกับ public (ตอนนี้ GATE ทำให้ public เห็น 0 เพลง → editor features ไม่กระทบ) · วิธี: cherry-pick commit โค้ดของ fix นั้น → align main=base (FF) + push → poll live bundle จนเจอ commit · **kanban พี่เปา:** ย้ายโฟลเดอร์ `สถานะบั๊ก/{1-รอทำ,2-กำลังทำ,3-เสร็จแล้ว}` ทุกครั้งสถานะเปลี่ยน + อัปเดต `อ่านตรงนี้-สถานะบั๊ก.md`
 - ทุก P'Aim example → กฎใน `ui-standards.md`/checklist (tester ดักครั้งหน้า) · แก้ที่ process ไม่โทษคน
 
@@ -57,5 +58,5 @@ main = `6e6653d` · **นโยบายใหม่: PM deploy ทีละ fix
 - **ทุกงานใหม่ = spawn worktree + session ใหม่** (1 งาน = 1 worktree = 1 branch ตามหลักบอร์ด) · ไม่ปลุก session เก่า
 - ข้อยกเว้น: import เล่มใหญ่ `local_9f147e9d` (⏸️ พัก) — ถ้ายังไม่ archive ปลุกต่อได้ ไม่งั้น spawn ใหม่จาก report `hymnal-import.md`
 
-**Deploy history:** รอบ7 `71b8d8f` · รอบ8 `e83afe7` · รอบ9 `e7af727` · รอบ10 `4c5fd07` (+GATE) · รอบ11 `84d259c` (B095 lock) · **รอบ12 `6e6653d` = LIVE (12 ก.ค. · B098 note/bar tools) — PM deploy ทีละ fix**
+**Deploy history:** รอบ7 `71b8d8f` · รอบ8 `e83afe7` · รอบ9 `e7af727` · รอบ10 `4c5fd07` (+GATE) · รอบ11 `84d259c` (B095 lock) · รอบ12 `6e6653d` (B098 note/bar) · **รอบ13 `54eba5c` = LIVE (12 ก.ค. · B097 undo/redo) — PM deploy ทีละ fix**
 **env:** GitHub token `OneDrive/4 Personal/claude/.env`→`GITHUB_TOKEN_PLENG` (source ก่อน · repo public) · Supabase `SUPABASE_*_PLENG` · main อยู่ worktree `pleng-natural-tie` · IP เปลี่ยนบ่อย (เช็ก `Get-NetIPAddress` / vite Network line)
