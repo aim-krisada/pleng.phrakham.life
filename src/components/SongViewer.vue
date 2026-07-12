@@ -481,7 +481,8 @@ function onSeek({ li, si, syk }) {
          Pressing พัก during the wait cancels (the pill hides via stopPlay). -->
     <div v-if="instrumentLoading" class="inst-loading" role="status" aria-live="polite">
       🎹 กำลังโหลดเสียงเปียโนจริง… {{ Math.round(instrumentProgress * 100) }}%
-      <span class="inst-bar"><span class="inst-bar-fill" :style="{ width: Math.round(instrumentProgress * 100) + '%' }"></span></span>
+      <progress class="inst-bar" :value="Math.round(instrumentProgress * 100)" max="100"
+                :aria-label="`โหลดเสียงเปียโน ${Math.round(instrumentProgress * 100)}%`"></progress>
     </div>
 
     <!-- the sing dock — DockKey core engine, fed the ITEMS_SING descriptor list by
@@ -545,21 +546,20 @@ function onSeek({ li, si, syk }) {
   gap: var(--sp-2, 8px);
   max-width: min(88vw, 340px);
 }
+/* native <progress> so it reads the same as the MP3 export bar + gets built-in a11y */
 .inst-bar {
   flex: 1;
-  height: 5px;
   min-width: 60px;
+  height: 5px;
+  border: 0;
   border-radius: 999px;
-  background: var(--border-1, #4444);
   overflow: hidden;
+  -webkit-appearance: none;
+  appearance: none;
 }
-.inst-bar-fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent, #22c55e);
-  transition: width 0.15s linear;
-}
+.inst-bar::-webkit-progress-bar { background: var(--border-1, #4444); border-radius: 999px; }
+.inst-bar::-webkit-progress-value { background: var(--accent, #22c55e); border-radius: 999px; }
+.inst-bar::-moz-progress-bar { background: var(--accent, #22c55e); border-radius: 999px; }
 @media (max-width: 480px) {
   .inst-loading { bottom: calc(220px + env(safe-area-inset-bottom, 0px)); }
 }
