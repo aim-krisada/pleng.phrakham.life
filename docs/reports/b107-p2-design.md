@@ -28,6 +28,10 @@ P'Aim สั่ง (12 ก.ค.) "รวมทุกเทคนิคที่�
 6. **ลำดับ build ภายใน** (§8) — Humanize step 1 (ฐาน) · แต่ละ step มี checkpoint ฟัง.
 7. **MP3 (P3) hook** (§9) — arranger เดียว → live=MP3 · seed เดียว · reverb/pan ทำงานใน OfflineAudioContext.
 
+## รอบ 2 — เพิ่มตาม input P'Aim (ผ่าน PM · 12 ก.ค.)
+1. **โครง 4 โหมด (2 แกน · §6):** แยก **(A) ระดับลูกเล่น** — ทำนอง / คอร์ด / **ธรรมดา (ไม่มีลูกเล่น = ตรวจโน้ต)** / **จัดเต็ม (arranger เต็ม)** — ออกจาก **(B) เครื่องดนตรี**. โหมด 1–3 ต่อยอด 3 sound modes เดิม B104. "จัดเต็ม" มี 5 flavor (เปียโนสงบ/บรรเลง/ไวโอลิน/เต็มวง/กีตาร์). UI เข้าใจง่าย: ระดับลูกเล่น ≠ เครื่องดนตรี.
+2. **Instrument module — เผื่อกีตาร์ตั้งแต่ออกแบบ (§4B):** แยก **แกนกลางร่วม (harmony/voice-leading/humanize/dynamics = instrument-agnostic)** + **โมดูลต่อเครื่อง (voicing constraints/patterns/humanize feel/sample = idiomatic)**. นิยาม `InstrumentModule` interface + worked example กีตาร์ (strum/Travis · รูปคอร์ดเฟร็ตจริง · strum-stagger 15–30ms · ไม่ยืม wide-voicing เปียโน). เพิ่มเครื่อง = plug-in โมดูล 1 ตัว ไม่แตะแกน. build order เพิ่ม step 10 (โมดูลกีตาร์) + AC + folder `arranger/instruments/`.
+
 ## ที่ตัดสินใจเชิงออกแบบ (flag ได้ถ้าไม่เห็นด้วย)
 - **แยกโฟลเดอร์ `arranger/`** แทนยัดใน `midi.js` (ขนาด).
 - **`PerfEvent` มีฟิลด์ `timeShift` (วินาที)** สำหรับ humanize/rubato — ไม่ยัดใน `startBeat` (beat) เพราะ ±10ms คือ ±10ms ไม่ขึ้น bpm.

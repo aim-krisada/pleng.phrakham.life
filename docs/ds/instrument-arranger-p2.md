@@ -25,7 +25,9 @@
 
 **หัวใจของสถาปัตย์:** ทุกกฎเป็น **โมดูลแยก** — แต่ละตัวเป็นฟังก์ชันบริสุทธิ์ที่แปลง "รายการเสียง" (pure function) → **build/test/verify ทีละตัวได้** แม้ส่งครบชุด. ตัวเรียบเรียงคืน **"รายการเสียง" (performance events) เป็นข้อมูลล้วน** → เทสแบบ headless ได้ + ใช้ตัวเดียวกันทั้งเล่นสดและ MP3.
 
-**ผู้ใช้เห็นอะไร:** ไม่เห็นปุ่มดิบ ๆ — เห็น **"โหมดบรรเลง" (preset) สำเร็จรูปไม่กี่แบบ** (เปียโนสงบ · เปียโนบรรเลง · ไวโอลินคลอเปียโน · เต็มวง) + **"ธรรมดา/ตรวจโน้ต" (arranger ปิด · โน้ตตรง ๆ)** ที่เลือกง่ายในหน้าแก้ไข (พี่เป้าต้องใช้ตรวจโน้ต).
+**ผู้ใช้เห็นอะไร (P'Aim เคาะ · 2 แกน):** แยก **(A) ระดับลูกเล่น 4 โหมด** — ทำนองอย่างเดียว · คอร์ดอย่างเดียว · **ทำนอง+คอร์ด ธรรมดา (ไม่มีลูกเล่น = ตรวจโน้ต พี่เป้า)** · **จัดเต็ม (arranger เต็ม + humanize · "น้อยแต่ได้มาก")** — ออกจาก **(B) เครื่องดนตรี** (เปียโน/ไวโอลิน+เปียโน/เต็มวง/กีตาร์). โหมด 1–3 ต่อยอด 3 sound modes เดิม (B104).
+
+**เผื่อกีตาร์ตั้งแต่ออกแบบ (P'Aim สั่ง):** ลูกเล่นแต่ละเครื่องไม่เหมือนกัน → แยก **แกนกลางร่วม (harmony/humanize/dynamics = สากล) + โมดูลต่อเครื่อง (pattern/voicing/feel = เฉพาะเครื่อง)**. เปียโน = arp/block; กีตาร์ = strum/fingerpick/รูปคอร์ดเฟร็ตจริง. เพิ่มเครื่อง = plug-in โมดูล ไม่รื้อแกน (§4B).
 
 **ลำดับ build (ที่ปรึกษาสั่ง):** **Humanize ก่อนเป็นฐาน** (แก้ความแข็งได้เยอะสุดต่อแรงลงน้อยสุด) → drop-2/open → pedal bass → rubato/dynamics → patterns → walking bass → มิกซ์ → presets → เครื่องเพิ่ม.
 
@@ -80,6 +82,10 @@ sampler.fire(midi, startT, dur, gain)  |  scheduleNote(...)   → ลำโพ�
 
 **กติกาคงที่ทุกชั้น (สืบจาก B104): แผ่น = SSOT.** โน้ต/คอร์ด = ตามที่แผ่นแสดง. arranger **ปรุงการเล่น** (การเรียง/หนัก-เบา/จังหวะตี/เนื้อเสียง) แต่ **ไม่เปลี่ยนตัวโน้ตทำนอง** และ **ไม่เติมโน้ตนอกคอร์ด** ยกเว้น (ก) โน้ตประดับที่เป็น chord-tone/approach ที่ปลอดภัย (ชั้น 3, opt-in ตาม preset) (ข) added tension เมื่อ flag เปิด (§2, default ปิด).
 
+**★ แกนกลางร่วม + โมดูลต่อเครื่อง (instrument-agnostic core + instrument-idiomatic modules) — P'Aim สั่งเผื่อกีตาร์:** ลูกเล่นของแต่ละเครื่อง **ไม่เหมือนกัน** (เปียโน arp ≠ กีตาร์ strum). ออกแบบให้แยก 2 ส่วนตั้งแต่ต้น เพื่อเพิ่มกีตาร์/เครื่องอื่นภายหลัง = plug-in ไม่รื้อแกน (§4B):
+- **แกนกลางร่วม (ไม่ขึ้นกับเครื่อง):** harmony/voice-leading (ชั้น 1 คณิต) · dynamics/humanize/rubato/section (ชั้น 2 ทั้งหมด) — เหมือนกันทุกเครื่อง.
+- **โมดูลต่อเครื่อง (idiomatic):** ข้อจำกัดการเรียงเสียง (voicing constraints) + รูปแบบการตี (patterns, ชั้น 3) + "ฟีล humanize" (เช่น strum stagger กีตาร์ ~15–30ms) + sample. → เปียโน = arp/Alberti/block/wide-voicing · กีตาร์ = strum/fingerpick(Travis)/รูปคอร์ด 6 สาย/สายเปล่า (เล่นได้จริงบนเฟร็ต).
+
 ### 1b. รายการเสียงกลาง — `PerfEvent` (สัญญา interface)
 
 หน่วยข้อมูลที่ arranger คืน และ scheduler กิน. **เป็นข้อมูลล้วน → headless-testable + ใช้ร่วม live/MP3.**
@@ -111,8 +117,12 @@ src/lib/arranger/
   patterns.js         LAYER 3 : sustained · arpeggio · harpRoll · stringPad · waltz · alberti · fingerpick
   embellish.js        LAYER 3 : sparkle · chromaticApproach · gapFill · octaveSwell   (probabilistic, seeded)
   rng.js              PRNG (mulberry32) + seedFor(songId, pass) — determinism
-  presets.js          นิยาม preset (ตาราง §6) → cfg object
-  arranger.test.js    invariant tests ต่อ rule (headless)
+  presets.js          นิยาม โหมด/flavor (§6) → cfg object
+  instruments/        §4B InstrumentModule ต่อเครื่อง (idiomatic)
+    keyboard.js         เปียโน/felt — voicing (voice-leading) + patterns (§4) + independent-spread feel
+    bowed.js            violin/cello/strings — pattern pad/sustain/swell + long-attack feel
+    guitar.js           strum/Travis + fret-playable voicing + strum-stagger feel (เพิ่มทีหลัง · ไม่แตะแกน)
+  arranger.test.js    invariant tests ต่อ rule + โมดูล (headless)
 src/lib/sampler.js    (ขยาย) registry: grand · felt · violin · cello · strings ; multi-velocity option
 src/lib/midi.js       (ปรับ) playSong ให้ consume perfEvents + LAYER 4 mix (reverb/pan bus)
 src/lib/audioExport.js (P3) renderSongToBuffer ผ่าน arrange() ตัวเดียวกัน
@@ -234,6 +244,57 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 
 ---
 
+## 4B. Instrument modules — แกนกลางร่วม + โมดูลต่อเครื่อง (เผื่อกีตาร์ · P'Aim สั่ง)
+
+**โจทย์ (P'Aim):** "ลูกเล่นเปียโนกับกีตาร์เหมือนกันไหม → ไม่เหมือน". ถ้า hard-code pattern แบบเปียโนไว้กลาง arranger → เพิ่มกีตาร์ทีหลังต้องรื้อ. แก้ด้วยการนิยาม **"instrument module" เป็น interface** — แกน arranger เรียกผ่าน interface นี้ → เพิ่มเครื่อง = เขียนโมดูลใหม่ 1 ตัว ไม่แตะแกน.
+
+### 4B.1 — เส้นแบ่ง core vs idiomatic
+
+| | อยู่ที่ไหน | ตัวอย่าง | ขึ้นกับเครื่อง? |
+|---|---|---|---|
+| **แกนกลางร่วม (core)** | ชั้น 1 คณิต harmony + ชั้น 2 ทั้งหมด | voice-leading (เลือก pitch-class + อ็อกเทฟใกล้), metric accent, contour, section dynamics, cresc, rubato, humanize velocity | **ไม่** — เหมือนทุกเครื่อง |
+| **โมดูลต่อเครื่อง (idiomatic)** | ชั้น 1 constraints + ชั้น 3 patterns + humanize feel + sample | รูปแบบตี (arp/strum), ข้อจำกัดการเรียง (เฟร็ตกีตาร์), stagger feel, ช่วง register, ชุดเสียง | **ใช่** |
+
+**หลัก:** core คำนวณ "ฮาร์โมนีที่ถูกต้อง + ควรหนัก-เบายังไง" (สากล) → ส่งให้โมดูลเครื่อง "แปลงเป็นการเล่นจริงของเครื่องนั้น" (idiomatic). humanize velocity = core; humanize **timing feel** (เปียโน spread ±10ms อิสระ vs กีตาร์ strum stagger ล่าง→บน 15–30ms เป็นทิศทาง) = idiomatic.
+
+### 4B.2 — Interface ของ instrument module
+
+```js
+/** @typedef {Object} InstrumentModule
+ *  id            : 'grand' | 'felt' | 'violin' | 'cello' | 'strings' | 'guitar' | …
+ *  sample        : registry entry ใน sampler.js (host, layer, ช่วงโหลด, ลิขสิทธิ์)   // LAYER 4
+ *  role          : 'melody' | 'chord' | 'both'    // เล่นทำนอง / คอร์ด / ได้ทั้งคู่
+ *  register      : { lo, hi }                      // ช่วง MIDI ที่เล่นได้จริงของเครื่อง
+ *  voicing(chordEvent, prevUp, ctx) : { bass, up[] }
+ *                  // ข้อจำกัดการเรียงเสียงเฉพาะเครื่อง — เปียโนใช้ core voice-leading ตรงๆ;
+ *                  // กีตาร์ override ให้เป็นรูปคอร์ดที่กดได้จริงบน 6 สาย (fret-playable)
+ *  patterns      : { [name]: (chordEvent, voiced, beatsPerBar, rng) => PerfEvent[] }
+ *                  // รูปแบบตีของเครื่องนี้ (เปียโน: sustain/arp/roll/pad/alberti; กีตาร์: strum/travis/…)
+ *  defaultPattern: string
+ *  humanizeFeel  : { velJitter, timing }
+ *                  // timing = {type:'independent', sigma} (เปียโน) | {type:'strum', span, dir} (กีตาร์)
+ */
+```
+
+- **core arranger** เรียก `module.voicing(...)` แทน `chordVoicing(...)` ตรง ๆ, และเรียก `module.patterns[cfg.pattern](...)` แทน pattern กลาง. โมดูลเปียโนก็แค่ wrap ฟังก์ชันที่มีอยู่ (voice-leading + patterns §4) → **ไม่เปลี่ยนพฤติกรรมเปียโน**.
+- humanize velocity (core, §R2.4) ทำเหมือนเดิมทุกเครื่อง; humanize **timing** (§R2.5) เรียก `module.humanizeFeel.timing` → เปียโน = independent spread, กีตาร์ = strum stagger.
+
+### 4B.3 — โมดูลกีตาร์ (worked example · P'Aim อยากเห็นตั้งแต่ออกแบบ)
+
+| ด้าน | เปียโน (มี) | **กีตาร์ (โมดูลใหม่)** |
+|---|---|---|
+| **voicing** | voice-leading อ็อกเทฟใกล้ (wide/close ได้อิสระ) | **รูปคอร์ดที่กดได้จริงบน 6 สาย** — map ราก→รูปคอร์ดมาตรฐาน (open/barre), เลือกสายเปล่า (open string) ให้กังวาน, ไม่ข้ามช่วงเกินมือเอื้อม (≤ ~4 เฟร็ต), ย่านกีตาร์ E2–E4 |
+| **patterns** | sustain/arp/roll/pad/alberti/fingerpick | **strum** (รูดลง/ขึ้นทั้งคอร์ด) · **fingerpick (Travis)** (เบสสลับ p + i-m-a รูดบน) · **arpeggio สาย** · **block รูปคอร์ด** |
+| **humanize feel** | independent spread ±10ms | **strum stagger 15–30ms** ล่าง→บน (ทิศตาม down/up-stroke), เร็วขึ้นเมื่อจังหวะเร็ว |
+| **register** | 40–84 | **40–64** (E2–E4) |
+| **sample** | Grand PD | acoustic/nylon guitar **CC0/CC-BY** (ต้อง source) |
+
+**guard voicing กีตาร์ (AC):** ทุก voicing = รูปที่กดได้จริง (สาย ≤ 6, ช่วงมือ ≤ ~4 เฟร็ต, ไม่มีโน้ตซ้ำสายเดียวกัน) · ราก = สายเบสที่ถูก (E/A/D string) · **ไม่ยืม wide-voicing ของเปียโน**. strum = stagger ทิศเดียว (ไม่ใช่ spread สุ่มสองข้างแบบเปียโน).
+
+**ผลต่อสถาปัตย์:** เพิ่มกีตาร์/ออร์แกน/ฟลูต ภายหลัง = เขียน `InstrumentModule` 1 ตัว (voicing + patterns + feel + sample) → เสียบเข้า registry. **แกน core (harmony/dynamics/humanize-vel) + PerfEvent + scheduler + presets ไม่แตะ.** = plug-in.
+
+---
+
 ## 5. LAYER 4 — Mix / Timbre + เครื่องดนตรี (audio graph)
 
 ชั้นนี้อยู่ที่ **scheduler** (`playSong` / `renderSongToBuffer`) — สร้าง audio graph แล้ว route `PerfEvent` ตาม `role`/`inst`.
@@ -257,49 +318,70 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 | **violin** | tonejs-instruments (Iowa/Philharmonia) | **CC-BY 3.0** ✓ (เครดิต) | ไวโอลินคลอเปียโน | ~3.6 MB |
 | **cello** | เดียวกัน | CC-BY 3.0 ✓ | เต็มวง (เบสสาย) | ~0.75 MB |
 | **strings** (ensemble) | เดียวกัน / string_ensemble | CC-BY 3.0 ✓ | เต็มวง (pad) | แบ่งย่าน |
+| **guitar** (acoustic/nylon) | หา CC0/CC-BY (FreePats / .sf2) | CC0/CC-BY ✓ (ต้อง source) | flavor กีตาร์ | **โมดูล idiomatic §4B** (voicing เฟร็ต + strum/Travis · ไม่ยืมของเปียโน) |
+
+> เครื่องที่เป็น **โมดูล idiomatic (§4B)** — ตอนนี้ = กีตาร์ (voicing/pattern/feel ต่างจากเปียโน). เปียโน/felt = โมดูล "keyboard" ร่วม voicing/patterns เดียวกัน (ต่างแค่ sample/timbre). สตริง/ไวโอลิน/เชลโล = โมดูล "bowed" (pattern = pad/sustain/swell, ไม่มี arp/strum). เพิ่มเครื่อง = เพิ่มโมดูล 1 ตัว.
 
 **host-agnostic:** ทุกเครื่องเพิ่มใน `SAMPLE_HOSTS` (knob เดียว). P2 ชี้ upstream CDN เพื่อ ship + วัดโหลดมือถือ → production mirror มาที่เราคุมเอง (PM เคาะ host). **CC-BY ต้องแสดงเครดิต** ในหน้า About/Guide (งานย่อย).
 **AC:** เพิ่มเครื่องใหม่ = แก้ registry เท่านั้น (ไม่แตะ arranger/scheduler) · fallback synth ยังทำงานถ้าโหลด fail · reverb ต่อได้ทั้ง live + OfflineAudioContext.
 
 ---
 
-## 6. Presets ("โหมดบรรเลง") — สิ่งที่ผู้ใช้เห็น
+## 6. Presets — สิ่งที่ผู้ใช้เห็น (โครง 4 โหมด · P'Aim เคาะ)
 
-**หลัก (รอบ 4 SSOT):** ผู้ใช้ **เลือก preset สำเร็จรูป** ไม่เห็นปุ่มดิบ. SA เป็นคน curate ให้ "พอดี ไม่รก". preset = config เปิด/ปิด rule + ค่า.
+**หลัก (P'Aim 12 ก.ค.):** แยก UI เป็น **2 แกนอิสระ** ให้เข้าใจง่าย — **(แกน A) ระดับลูกเล่น** ≠ **(แกน B) เครื่องดนตรี**. ผู้ใช้ไม่เห็นปุ่มดิบ (SA curate ให้).
 
-### 6a. โครง config
+### 6a. แกน A — ระดับลูกเล่น (4 โหมด · ต่อยอด 3 sound modes เดิม B104)
+
+| โหมด | = | arranger | เหมาะกับ |
+|---|---|---|---|
+| **1. ทำนองอย่างเดียว** | `voices:'melody'` | OFF | ฟังทำนอง/ร้องตาม |
+| **2. คอร์ดอย่างเดียว** | `voices:'chords'` | OFF | ฟังคอร์ด/ฝึกคลอ |
+| **3. ★ ทำนอง+คอร์ด ธรรมดา (ไม่มีลูกเล่น)** | `voices:'both'` | **OFF** (literal) | **ฝึกเล่นตามง่าย / ตรวจโน้ต — พี่เป้า** (§6c) |
+| **4. ★ จัดเต็ม (ลูกเล่นครบ + humanize)** | `voices:'both'` | **ON (full)** | "น้อยแต่ได้มาก" · ฟังเพราะเหมือนคนบรรเลง |
+
+- **1–3 = ตระกูล "ธรรมดา"** — คือ 3 sound modes เดิม (B104) ที่ arranger ปิด → โน้ตตรงพิมพ์ (voice-leading เลือกอ็อกเทฟคอร์ดได้ แต่ไม่มี dynamics/pattern/embellish/humanize). โหมด 3 = "ธรรมดา/ตรวจโน้ต" first-class (§6c).
+- **4 = จัดเต็ม** — เปิด auto-arranger เต็ม 3 ชั้น (humanize + voicing + patterns + dynamics + embellish). = คันเดียว เปิด "ความเป็นคนเล่น".
+- แกน A **แยกจากเครื่องดนตรี** — เลือก "จัดเต็ม" แล้วยังเลือกได้ว่าเป็นเปียโน/ไวโอลิน+เปียโน/เต็มวง/กีตาร์.
+
+### 6b. แกน B — เครื่องดนตรี / สไตล์ (เฉพาะโหมด "จัดเต็ม" · SA curate)
+
+โหมด "จัดเต็ม" มี **flavor สำเร็จรูป** (= instrument module + preset config รวมมา) ให้เลือก 1 อัน:
+
+| flavor (label) | melInst | chordInst | voicing | pattern | dynamics | reverb | bpm | ทำไมเพราะ |
+|---|---|---|---|---|---|---|---|---|
+| **เปียโนสงบ** (default) | grand | grand | pedal(sustain-root) | sustained | humanize + rubato + section | church | 64 | *น้อยแต่มาก* · Sacred Space · เบสค้างลุ่มลึก |
+| **เปียโนบรรเลง** (มือซ้ายไหล) | grand | grand | drop2 | **arp** | humanize + accent + contour | room | 72 | มือซ้ายไหลใต้ทำนอง เหมือนคนเล่นจริง |
+| **ไวโอลินคลอเปียโน** | **violin** | grand | drop2 | arp | humanize + contour + rubato | church | 69 | ไวโอลินร้องทำนอง เปียโนพยุง หวาน สง่า |
+| **เต็มวง** (เปียโน+สตริง) | grand | **strings** | open + lush | **pad** (swell) | humanize + section + cresc | hall | 74 | คอร์ด/ประสานชัด อุ่น เต็ม · dynamic ตามท่อน |
+| **กีตาร์** (โมดูล §4B · เผื่อไว้) | **guitar** | guitar | fret-playable | **strum / travis** | humanize + accent | room | 76 | รูดคอร์ด/เกากีตาร์ · สายเปล่ากังวาน (โมดูลกีตาร์ §4B) |
+
+> ทั้งหมดใช้ **engine เดียว** — flavor = instrument module (§4B) + config เปิด/ปิด rule. **default โหมดจัดเต็ม = เปียโนสงบ** (CCM ร่วมสมัย · P'Aim ชี้). humanize เปิดทุก flavor.
+
+### 6a′. โครง config (ต่อ flavor)
 
 ```js
-const PRESET = {
+const FLAVOR = {
   id, label,
-  melInst, chordInst,                    // LAYER 4 เครื่อง
-  voicing:  { drop2, open, pedal, walking, lush },   // LAYER 1 flags
-  dynamics: { accent, contour, section, cresc, rubato, humanizeVel, humanizeTime },  // LAYER 2
-  pattern,                               // LAYER 3 'sustained'|'arp'|'roll'|'pad'|'waltz'|'alberti'|'fingerpick'
+  melInst, chordInst,                    // §4B instrument module id
+  voicing:  { drop2, open, pedal, walking, lush },   // LAYER 1 flags (core หรือ override โดยโมดูล)
+  dynamics: { accent, contour, section, cresc, rubato, humanizeVel, humanizeTime },  // LAYER 2 (core)
+  pattern,                               // LAYER 3 — ชื่อ pattern ในโมดูลของเครื่องนั้น
   embellish,                             // LAYER 3 bool
   bpm, chordGain,                        // ค่าเสียง
   reverb,                                // LAYER 4 'none'|'room'|'church'|'hall'
   pan,                                   // LAYER 4 bool
 }
+// โหมด 1–3 (ธรรมดา) ไม่ใช่ flavor — เป็น { voices, arranger:false } ตรงๆ (ต่อ B104)
 ```
 
-### 6b. Preset ที่ SA จัดให้ (เริ่ม 5 ตัว)
+**UI ที่เสนอ:** คุม 2 ชั้น — (A) เลือกโหมด: ทำนอง / คอร์ด / ธรรมดา / **จัดเต็ม** · (B) ถ้า "จัดเต็ม" → เลือก flavor (เปียโนสงบ/บรรเลง/ไวโอลิน/เต็มวง/กีตาร์). จำค่าทั้งสอง (localStorage). **default หน้าเล่นเพลง = จัดเต็ม→เปียโนสงบ · default หน้าแก้ไข = ธรรมดา (โหมด 3)**.
 
-| # | preset (label) | melInst | chordInst | voicing | pattern | dynamics | reverb | bpm | ทำไมเพราะ |
-|---|---|---|---|---|---|---|---|---|---|
-| **0** | **★ ธรรมดา / ตรวจโน้ต** | grand | grand | **ปิดหมด** (literal) | **sustained-literal** | **ปิดหมด** | none | ตามเพลง | **arranger OFF** · โน้ตตรงพิมพ์ · พี่เป้าตรวจโน้ต (§6c) |
-| **1** | เปียโนสงบ (แกรนด์ล้วน) | grand | grand | pedal(sustain-root) | sustained | humanize + rubato + section | church | 64 | *น้อยแต่มาก* · Sacred Space · เบสค้างลุ่มลึก |
-| **2** | เปียโนบรรเลง (มือซ้ายไหล) | grand | grand | drop2 | **arp** | humanize + accent + contour | room | 72 | มือซ้ายไหลใต้ทำนอง เหมือนคนเล่นจริง |
-| **3** | ไวโอลินคลอเปียโน | **violin** | grand | drop2 | arp | humanize + contour + rubato | church | 69 | ไวโอลินร้องทำนอง เปียโนพยุง หวาน สง่า |
-| **4** | เต็มวง (เปียโน+สตริง) | grand | **strings** | open + lush | **pad** (swell) | humanize + section + cresc | hall | 74 | คอร์ด/ประสานชัด อุ่น เต็ม · dynamic ตามท่อน |
-
-> ทั้งหมดใช้ **engine เดียว** — preset = แค่ config. **default แนะนำ (หน้าเล่นเพลง) = #1 เปียโนสงบ** (ตรง CCM ร่วมสมัย · P'Aim ชี้). **default หน้าแก้ไข = #0 ธรรมดา** (พี่เป้าตรวจโน้ต). humanize เปิดในทุก preset ที่เป็น "บรรเลง" (#1–4), ปิดใน #0.
-
-### 6c. Preset #0 "ธรรมดา / ตรวจโน้ต" — first-class (พี่เป้า ผ่าน P'Aim) — ข้อกำหนดบังคับ
+### 6c. โหมด 3 "ทำนอง+คอร์ด ธรรมดา / ตรวจโน้ต" — first-class (พี่เป้า ผ่าน P'Aim) — ข้อกำหนดบังคับ
 - **arranger OFF สนิท:** ทำนอง = โน้ตตามพิมพ์เป๊ะ · gain คงที่ · **ไม่มี** humanize/dynamics/embellish/pattern/rubato/pan/reverb.
-- **คอร์ด:** โหมด "รวม" = block ค้างตาม pitch-class ที่แผ่นสั่ง (voice-leading เลือกอ็อกเทฟให้ไม่ทับทำนองได้ **แต่ไม่มีลูกเล่นอื่น**) · โหมด "ทำนองอย่างเดียว" = ทำนองล้วน (ตรวจโน้ตแท้สุด).
-- **UI:** เลือกง่ายในหน้าแก้ไข (เป็น default ที่นั่น) · **arranger 3 ชั้น ห้ามบังคับใส่ preset นี้** — ต้องคงเป็นตัวเลือกเสมอ.
-- **invariant test บังคับ:** `arrange(notes, chordEvents, PRESET[0])` → melody perfEvents มี `midi/startBeat/beats` = โน้ตพิมพ์ทุกตัว · `timeShift===0` ทุก event · ไม่มี event `role:'emb'` · gain melody คงที่. = พิสูจน์ "ตรวจโน้ตไม่ถูกแตะ".
+- **คอร์ด:** block ค้างตาม pitch-class ที่แผ่นสั่ง (voice-leading เลือกอ็อกเทฟให้ไม่ทับทำนองได้ **แต่ไม่มีลูกเล่นอื่น**). โหมด 1 (ทำนองอย่างเดียว) = ตรวจโน้ตทำนองแท้สุด.
+- **UI:** เลือกง่ายในหน้าแก้ไข (เป็น default ที่นั่น) · **โหมด "จัดเต็ม" (arranger เต็ม) ห้ามบังคับใส่แทนโหมดนี้** — โหมด 1–3 ต้องคงเป็นตัวเลือกเสมอ.
+- **invariant test บังคับ:** `arrange(notes, chordEvents, {arranger:false, voices:'both'})` → melody perfEvents มี `midi/startBeat/beats` = โน้ตพิมพ์ทุกตัว · `timeShift===0` ทุก event · ไม่มี event `role:'emb'` · gain melody คงที่. = พิสูจน์ "ตรวจโน้ตไม่ถูกแตะ".
 
 ---
 
@@ -309,7 +391,8 @@ const PRESET = {
 - [ ] `arrange(notes, chordEvents, cfg, meta)` เป็น **pure function** คืน `PerfEvent[]` — เรียกซ้ำด้วย input+seed เดิม = ผลเดิม (headless, ไม่มี AudioContext).
 - [ ] แต่ละ rule = 1 export แยก, รับ+คืน event list → เปิด/ปิดต่อ rule ได้ตาม cfg (โมดูล).
 - [ ] `playSong` และ `renderSongToBuffer` **consume `PerfEvent[]` ตัวเดียวกัน** (arranger เดียว → live = MP3).
-- [ ] เพิ่มเครื่องดนตรี = แก้ `sampler.js` registry เท่านั้น.
+- [ ] เพิ่มเครื่องดนตรี (sample ล้วน) = แก้ `sampler.js` registry เท่านั้น.
+- [ ] **instrument module (§4B):** แกน arranger เรียก voicing/pattern ผ่าน interface โมดูล — เพิ่มเครื่อง idiomatic (กีตาร์) = เขียนโมดูล 1 ตัว ไม่แตะแกน core/PerfEvent/scheduler/presets. (มี test: เปียโน = โมดูล keyboard, ผลเท่าเดิม; guitar module เสียบได้.)
 
 ### 7b. invariant tests ต่อ rule (headless · vitest) — **ต้องดักของจริง ไม่ใช่แค่ math** (บทเรียน P1)
 - [ ] **velocity-in-layer (บังคับ):** ทุก `PerfEvent.gain` หลัง dynamics → `gainToVelocity(gain) ∈ GRAND_LAYER` สำหรับทุก sampled instrument. (นี่คือ invariant ที่ P1 ไม่มี → เปียโนเงียบ.)
@@ -320,20 +403,21 @@ const PRESET = {
 - [ ] pedal: sustain-root 1 เบส/คอร์ด · tonic-pedal ปล่อยเฉพาะ tonic ปลอดภัย.
 - [ ] tensions: default = 0 โน้ตนอกคอร์ด · lush = ไม่ชน pc ทำนอง.
 - [ ] embellish: ปิดได้ (0 emb) · ทุกโน้ต ∈ chord-tone/approach · โอกาสคุมด้วย seed.
-- [ ] **preset #0 ธรรมดา:** melody = โน้ตพิมพ์ · timeShift 0 ทุกตัว · 0 emb · gain คงที่ (§6c).
+- [ ] **guitar module (§4B):** ทุก voicing เล่นได้จริง (สาย ≤ 6 · ช่วงมือ ≤ ~4 เฟร็ต · ราก = สายเบสถูก · อยู่ย่าน 40–64) · strum = stagger ทิศเดียว 15–30ms (ไม่ใช่ spread สองข้าง) · ไม่ยืม wide-voicing เปียโน.
+- [ ] **โหมด 3 ธรรมดา:** melody = โน้ตพิมพ์ · timeShift 0 ทุกตัว · 0 emb · gain คงที่ (§6c).
 - [ ] rubato: เวลารวมไม่ดริฟต์ (Σ timeShift รอบวลี ≈ 0).
 
 ### 7c. real audio output (บทเรียน B107 — วัดเสียงจริง ทุก preset)
 - [ ] **peak > 0** ทุก preset (ไม่เงียบ) — วัดผ่าน OfflineAudioContext render 1 เพลงจริง.
 - [ ] **balance:** melody peak > chord peak (ทำนองนำ) · เป้า chord ~−5 ถึง −9 dB ใต้ melody.
 - [ ] **ไม่ clip:** peak รวม ≤ ~0.9 (both voices).
-- [ ] **humanize ได้ผลจริง:** วัด onset ของ melody attack — **ไม่ตรงกริดเป๊ะ** (มี spread) เทียบ preset #0 ที่ตรงกริด. (พิสูจน์ว่า "หายแข็ง" วัดได้ ไม่ใช่แค่ฟัง.)
+- [ ] **humanize ได้ผลจริง:** วัด onset ของ melody attack — **ไม่ตรงกริดเป๊ะ** (มี spread) เทียบโหมด 3 ธรรมดา ที่ตรงกริด. (พิสูจน์ว่า "หายแข็ง" วัดได้ ไม่ใช่แค่ฟัง.)
 - [ ] reverb: มี tail หลังโน้ตจบ (decay > 0) เมื่อ reverb≠none.
 - [ ] ทุก velocity ที่ fire ∈ layer ที่โหลด (0 โน้ตเงียบ).
 
 ### 7d. regression (ไม่พังของเดิม)
 - [ ] เล่น/หยุด/resume/สลับโหมด(ทำนอง/คอร์ด/รวม)/ทรานสโพสกลางเล่น/loop ยังทำงาน.
-- [ ] preset #0 = พฤติกรรมโน้ตตรงเท่า P1 melody-only/รวม.
+- [ ] โหมด 1–3 ธรรมดา = พฤติกรรมโน้ตตรงเท่า P1 melody-only/รวม.
 - [ ] `vitest run` เขียวหมด · `npm run build` ผ่าน · smplr/arranger = lazy chunk (ไม่โตหน้าแรก).
 - [ ] มือถือ: humanize/pattern ไม่ทำ CPU พุ่งจนกระตุก (วัด — schedule ล่วงหน้า ไม่คำนวณใน callback).
 
@@ -348,7 +432,7 @@ const PRESET = {
 
 | step | ทำ | ทำไมลำดับนี้ | verify |
 |---|---|---|---|
-| **0** | **Refactor seam:** `arrange()` + `PerfEvent[]` + scheduler consume · preset #0 ธรรมดา = ผ่าน P1 behavior | สร้าง "ราง"ให้ทุก rule เสียบ · ไม่เปลี่ยนเสียง (เท่ากับ P1) | preset #0 test = โน้ตตรง · audio peak เท่า P1 |
+| **0** | **Refactor seam:** `arrange()` + `PerfEvent[]` + scheduler consume · **นิยาม `InstrumentModule` interface (§4B) + โมดูล keyboard (เปียโน) wrap ของเดิม** · โหมด 3 ธรรมดา = ผ่าน P1 behavior | สร้าง "ราง" + interface ให้ทุก rule/เครื่องเสียบ · ไม่เปลี่ยนเสียง (เท่ากับ P1) | โหมด 3 test = โน้ตตรง · เปียโน = โมดูล keyboard ผลเท่าเดิม · audio peak เท่า P1 |
 | **1** | **★ Humanize (R2.4 vel + R2.5 timing)** บน sustained | ที่ปรึกษา #1 · คุ้มสุด/แรงน้อยสุด · แก้ "แข็ง" ทันที | onset spread วัดได้ · vel ยังใน layer · P'Aim ฟัง "หายหุ่นยนต์" |
 | **2** | **Drop-2 / open voicing (R1.4/R1.5)** | ที่ปรึกษา #2 · เคลียร์ย่าน | pitch-class เท่าเดิม + กว้างขึ้น + audio ไม่ทับ |
 | **3** | **Pedal bass (R1.7 sustain-root)** | ที่ปรึกษา #3 · depth | เบสในย่าน · audio เบสต่อเนื่อง |
@@ -356,8 +440,9 @@ const PRESET = {
 | **5** | **Patterns: arp → roll → pad → waltz (P3.2–5)** + embellish | ตัวสร้าง "ต่างที่หูจับได้" | hit count · emb ปิดได้ · audio ต่อ pattern |
 | **6** | **Walking bass (R1.8)** + alberti/fingerpick | ต้อง lookahead · เพลงจังหวะ | approach ≤2 · ในย่าน |
 | **7** | **Mix: reverb (M4.5) → pan (M4.8) → multi-velocity (M4.6)** | เนื้อเสียง/มิติ | reverb tail · offline ผ่าน |
-| **8** | **Presets wiring (§6)** + editor #0 ธรรมดา first-class + จำค่า | ประกอบเป็นสิ่งที่ผู้ใช้เห็น | 5 preset โหลด+เล่นครบ · #0 เลือกง่าย |
+| **8** | **Presets wiring (§6)** + editor โหมด 3 ธรรมดา first-class + จำค่า | ประกอบเป็นสิ่งที่ผู้ใช้เห็น | 4 flavor จัดเต็ม โหลด+เล่นครบ · โหมดธรรมดาเลือกง่าย |
 | **9** | **เครื่องเพิ่ม: felt · violin · cello · strings** (registry + credit) | ต้อง source sample CC | fallback synth · เครดิต CC-BY |
+| **10** | **โมดูลกีตาร์ (§4B)** — voicing เฟร็ต + strum/Travis + strum-stagger feel + sample | plug-in ยืนยันว่า interface §4B ใช้ได้จริง (เครื่อง idiomatic ตัวแรก) | guitar AC (§7b) · ไม่แตะแกน core · P'Aim ฟัง |
 | **P3** | **MP3 rework** — `renderSongToBuffer` ผ่าน `arrange()` + sampler บน OfflineAudioContext | เอกสารแยก | §9 |
 
 > step 0–1 = "ฐาน" ที่ต้องมั่นก่อน (seam + humanize). ทำเสร็จ 2 step นี้แล้ว P'Aim ควรได้ยินความต่างชัด (เปียโนจริง + หายแข็ง) — เป็นจุด checkpoint ให้ฟังก่อนลุยที่เหลือ.
@@ -382,11 +467,12 @@ const PRESET = {
 | Dynamics | velocity map · accent · contour · humanize(vel+time) · section · cresc · rubato | §3 (R2.1–2.8) |
 | Patterns | sustained · arp · roll · pad · waltz · alberti · fingerpick + embellish | §4 |
 | Mix/timbre | envelope · bus · makeup · per-role · **reverb** · multi-velocity · ensemble · pan | §5 |
-| Instruments | grand · felt · violin · cello · strings (CC0/CC-BY · host-agnostic) | §5 |
-| Presets | ธรรมดา/ตรวจโน้ต (first-class) · สงบ · บรรเลง · ไวโอลิน · เต็มวง | §6 |
+| Instruments | grand · felt · violin · cello · strings · **guitar** (CC0/CC-BY · host-agnostic) | §5 |
+| **Instrument modules** | core (harmony/dynamics/humanize) + idiomatic (voicing/pattern/feel ต่อเครื่อง · เผื่อกีตาร์) | §4B |
+| Presets / โหมด | **4 โหมด (ทำนอง/คอร์ด/ธรรมดา/จัดเต็ม) แยกจากเครื่องดนตรี** · ธรรมดา = first-class · จัดเต็ม 5 flavor | §6 |
 | Fidelity | sheet=SSOT · 3 sound modes · repeat/volta · transpose · **MP3 P3** | §1 กติกา · §9 |
 
-**ครบทุกเทคนิคใน catalog** — จัดเป็นระบบ modular ที่ build ทีละตัวได้ (§8), verify ด้วย invariant + real audio (§7), เชื่อม MP3 (§9), และ productize เป็น preset ที่ผู้ใช้เลือกง่าย (§6) โดยคง "ธรรมดา/ตรวจโน้ต" เป็น first-class.
+**ครบทุกเทคนิคใน catalog + 2 requirement ใหม่จาก P'Aim** (โครง 4 โหมด §6 · instrument module เผื่อกีตาร์ §4B) — จัดเป็นระบบ modular ที่ build ทีละตัวได้ (§8), verify ด้วย invariant + real audio (§7), เชื่อม MP3 (§9), และ productize เป็นโหมดที่ผู้ใช้เลือกง่าย (§6) โดยคง "ธรรมดา/ตรวจโน้ต" เป็น first-class.
 
 ---
 
@@ -394,9 +480,10 @@ const PRESET = {
 
 รสนิยม/เสียง = P'Aim↔SA ตรง (memory `feedback_paim_direct_sa_creative`). จุดที่อยากให้ฟัง+เคาะ:
 1. **ปริมาณ humanize** — ±10ms/±5% "กำลังดี" หรืออยากมาก/น้อยกว่า? (ฟัง step 1)
-2. **default หน้าเล่น** — #1 เปียโนสงบ ใช่ไหม? (CCM ร่วมสมัย)
+2. **default โหมดจัดเต็ม** — เปียโนสงบ ใช่ไหม? (CCM ร่วมสมัย)
 3. **reverb โบสถ์** — church/hall แค่ไหนถึง "อยู่ในโบสถ์" ไม่ "ฟุ้งจนเบลอ"?
-4. **preset ที่อยากได้เพิ่ม/ตัด** — 5 ตัวพอไหม · อยากได้เครื่องอื่น (เชลโล/ฟลูต/ออร์แกน/กีตาร์)?
-5. **drop-2 vs open** ต่อ preset — ฟังคู่ไหนเพราะกว่า.
+4. **flavor จัดเต็ม** — 5 อัน (เปียโนสงบ/บรรเลง/ไวโอลิน/เต็มวง/กีตาร์) พอไหม · อยากได้เครื่องอื่น (เชลโล/ฟลูต/ออร์แกน)?
+5. **drop-2 vs open** ต่อ flavor — ฟังคู่ไหนเพราะกว่า.
+6. **กีตาร์** — อยากได้ acoustic หรือ nylon (คลาสสิก)? · สไตล์เด่น = strum (รูด) หรือ fingerpick (เกา)? (โมดูล §4B build ทีหลังได้ · แต่ปั้น feel ล่วงหน้าได้)
 
 **ขั้นตอนถัดไป:** SA ทำ spike เดโม step 1 (humanize บนเปียโนจริง) ให้ P'Aim ฟัง → ปั้นค่าจนพอใจ → SA ping PM (pm11) → PM จ่าย dev implement ตาม §8 + tester (วัด real audio §7c) + P'Aim ฟังก่อน deploy. **ไม่แตะ prod src · ไม่ deploy** ในงานออกแบบนี้.
