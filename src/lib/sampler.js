@@ -54,15 +54,31 @@ function cacheKey(name, context) {
   return name + '@' + id
 }
 
+// Persistent sample cache (B107). smplr's CacheStorage stores the fetched sample files in the
+// browser Cache API, which SURVIVES page reloads / restarts / offline — unlike the plain HTTP
+// cache (evictable) or localStorage (5 MB string cap, no binary). So the ~3 MB downloads once
+// and every later play (even offline) is instant. The Cache API needs a secure context
+// (https or localhost); on a plain-http LAN test URL it's absent, so we fall back to the
+// default HTTP storage (still works, just not persisted). Built lazily with smplr.
+const CACHE_NAME = 'pleng-samples-v1'
+function makeStorage(CacheStorage) {
+  try {
+    if (typeof caches !== 'undefined' && CacheStorage) return new CacheStorage(CACHE_NAME)
+  } catch { /* Cache API blocked → fall through to smplr's default HTTP storage */ }
+  return undefined
+}
+
 // Build the smplr instrument for a registry name (smplr loaded lazily). Only 'grand' in P1.
 // onProgress(0..1) fires as the samples download so the UI can show a bar (like MP3 export).
 async function createInstrument(name, context, onProgress) {
   if (name === 'grand') {
-    const { SplendidGrandPiano } = await import('smplr')
+    const { SplendidGrandPiano, CacheStorage } = await import('smplr')
     const opts = {
       notesToLoad: { notes: midiRange(GRAND_LO, GRAND_HI), velocityRange: GRAND_VEL_RANGE },
       onLoadProgress: ({ loaded, total }) => { if (total) onProgress?.(loaded / total) },
     }
+    const storage = makeStorage(CacheStorage)
+    if (storage) opts.storage = storage // persist samples across sessions / offline
     // Only override the sample host when we actually have one — passing baseUrl:undefined
     // clobbers smplr's own default and breaks its URL builder. To mirror to our own host for
     // production, set SAMPLE_HOSTS.grand (that's the single host-agnostic knob).
