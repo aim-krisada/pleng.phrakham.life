@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B107 P2 · เดโมระบบเสียงบรรเลงอัตโนมัติ (ให้ P'Aim ฟัง)</title>
+<style>
+  :root{ font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body{ margin:0; padding:16px; max-width:720px; margin:auto; color:#1a1a1a; background:#faf9f7; line-height:1.5; }
+  h1{ font-size:1.2rem; margin:0 0 2px; }
+  .sub{ color:#666; font-size:.88rem; margin:0 0 14px; }
+  .panel{ background:#fff; border:1px solid #e6e3de; border-radius:14px; padding:14px 16px; margin:12px 0; }
+  .panel h2{ font-size:.82rem; letter-spacing:.02em; color:#8a8378; text-transform:uppercase; margin:0 0 10px; font-weight:600; }
+  .opts{ display:flex; gap:8px; flex-wrap:wrap; }
+  .opt{ font-size:.95rem; padding:9px 14px; border-radius:10px; border:1.5px solid #d8d3ca; background:#fff;
+    cursor:pointer; user-select:none; }
+  .opt.sel{ border-color:#5b7a3a; background:#eef4e6; color:#33501d; font-weight:600; }
+  .opt.dim{ opacity:.45; cursor:not-allowed; }
+  .opt small{ display:block; font-size:.7rem; color:#a99; font-weight:400; }
+  .switch{ display:flex; align-items:center; gap:10px; margin-top:4px; }
+  .switch button{ font-size:.92rem; padding:7px 14px; border-radius:20px; border:1.5px solid #d8d3ca; background:#fff; cursor:pointer; }
+  .switch button.on{ border-color:#5b7a3a; background:#5b7a3a; color:#fff; font-weight:600; }
+  #playRow{ display:flex; align-items:center; gap:12px; margin-top:14px; }
+  #play{ font-size:1.15rem; font-weight:700; padding:12px 26px; border-radius:12px; border:none;
+    background:#5b7a3a; color:#fff; cursor:pointer; }
+  #play:hover{ background:#4d6830; }
+  #stop{ font-size:.95rem; padding:10px 16px; border-radius:10px; border:1px solid #cfc9c0; background:#fff; cursor:pointer; }
+  #now{ font-size:.9rem; color:#5b7a3a; min-height:1.3em; margin-top:8px; font-weight:600; }
+  #status{ font-size:.85rem; color:#888; min-height:1.2em; }
+  .hint{ font-size:.82rem; color:#777; margin:6px 0 0; }
+  details{ margin-top:14px; } summary{ font-size:.82rem; color:#999; cursor:pointer; }
+  .adv{ padding:10px 4px 0; } .row{ display:flex; align-items:center; gap:10px; margin:6px 0; }
+  .row label{ font-size:.82rem; min-width:150px; } input[type=range]{ flex:1; }
+  .val{ font-size:.8rem; color:#666; min-width:56px; text-align:right; font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<h1>🎵 เดโมระบบเสียงบรรเลงอัตโนมัติ (B107 P2)</h1>
+<p class="sub">เพลงจริง #1 "พระเจ้าเป็นความรัก" (คีย์ E) · <b>ทุกอย่างปรุงให้อัตโนมัติ</b> — พี่เอมแค่เลือกเสียง + โหมด แล้วกดเล่น</p>
+
+<div class="panel">
+  <h2>① เสียงเครื่องดนตรี</h2>
+  <div class="opts" id="instOpts">
+    <div class="opt sel" data-inst="grand">🎹 เปียโน<small>Grand · สว่าง ชัด</small></div>
+    <div class="opt" data-inst="felt">🎹 Felt<small>นุ่ม ทุ้ม · โหมดสงบ</small></div>
+    <div class="opt dim" data-inst="guitar" title="รอไฟล์เสียง">🎸 กีตาร์<small>เร็ว ๆ นี้</small></div>
+    <div class="opt dim" data-inst="violin" title="รอไฟล์เสียง">🎻 ไวโอลิน<small>เร็ว ๆ นี้</small></div>
+    <div class="opt dim" data-inst="ensemble" title="รอไฟล์เสียง">🏛️ วงรวม<small>เร็ว ๆ นี้</small></div>
+  </div>
+  <p class="hint">วันนี้เล่นได้จริง = เปียโน + Felt (Felt = กรองเปียโนให้นุ่ม ไม่ต้องโหลดไฟล์ใหม่) · เครื่องอื่นรอไฟล์เสียง CC</p>
+</div>
+
+<div class="panel">
+  <h2>② เล่นอะไร</h2>
+  <div class="opts" id="voiceOpts">
+    <div class="opt" data-v="melody">ทำนองอย่างเดียว</div>
+    <div class="opt" data-v="chords">คอร์ดอย่างเดียว</div>
+    <div class="opt sel" data-v="both">ทำนอง + คอร์ด</div>
+  </div>
+  <div class="switch" id="embRow" style="margin-top:12px">
+    <span style="font-size:.9rem">ใส่ลูกเล่น (auto-arranger):</span>
+    <button id="embBtn" class="on">เปิด</button>
+    <span id="embWhat" style="font-size:.8rem;color:#888"></span>
+  </div>
+  <p class="hint" id="modeHint"></p>
+</div>
+
+<div id="playRow">
+  <button id="play">▶ เล่น</button>
+  <button id="stop">■ หยุด</button>
+</div>
+<div id="now"></div>
+<div id="status"></div>
+
+<details>
+  <summary>⚙ ขั้นสูง (ปกติผู้ใช้ไม่เห็น · สำหรับ SA จูนค่าเริ่ม)</summary>
+  <div class="adv">
+    <p class="hint">ค่า humanize ตั้งอัตโนมัติตามหลักสากลแล้ว — ส่วนนี้ไว้ให้ SA ลองหาค่าที่ดีที่สุดเท่านั้น</p>
+    <div class="row"><label>Humanize เวลา (±ms)</label><input type="range" id="tJit" min="0" max="25" value="12"><span class="val" id="tVal">12 ms</span></div>
+    <div class="row"><label>Humanize ความแรง (±%)</label><input type="range" id="vJit" min="0" max="20" value="6"><span class="val" id="vVal">6 %</span></div>
+    <div class="row"><label>ความเร็ว (BPM)</label><input type="range" id="bpm" min="50" max="120" value="66"><span class="val" id="bVal">66</span></div>
+    <div id="readout" style="font-size:.78rem;color:#777;font-family:ui-monospace,monospace;white-space:pre-wrap;background:#f6f4f0;border-radius:8px;padding:8px 10px;margin-top:8px;min-height:1.5em">—</div>
+  </div>
+</details>
+
+<script type="module">
+// ---- REAL song #1 (flattened by songToNotes · key E) ----
+const SONG = JSON.parse('[{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":0.5,"c":"A"},{"m":68,"b":0.5,"c":"A"},{"m":66,"b":4,"c":"B"},{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":1,"c":"A"},{"m":66,"b":3,"c":"B"},{"m":64,"b":1,"c":"B"},{"m":64,"b":4,"c":"E"}]');
+const SHARP=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const IV={'':[0,4,7],m:[0,3,7],7:[0,4,7,10],m7:[0,3,7,10],maj7:[0,4,7,11],sus4:[0,5,7],dim:[0,3,6],6:[0,4,7,9],9:[0,4,7,10,14]};
+function parse(ch){const m=/^([A-G][#b]?)(.*)$/.exec(ch);if(!m)return null;
+  return {ri:SHARP.indexOf(m[1].replace('Bb','A#').replace('Eb','D#').replace('Ab','G#').replace('Db','C#').replace('Gb','F#')),suf:m[2]};}
+let prevUp=null; const WLO=48,WHI=67;
+function nearO(pc,t){let m=WLO+((pc-WLO)%12+12)%12,best=m;for(let x=m;x<=WHI;x+=12)if(Math.abs(x-t)<Math.abs(best-t))best=x;return best;}
+function voiceLed(ch){const p=parse(ch);if(!p)return{bass:null,up:[]};
+  const pcs=(IV[p.suf]||IV['']).slice(1,4).map(iv=>(p.ri+iv)%12);
+  const a=prevUp&&prevUp.length?prevUp.reduce((x,y)=>x+y,0)/prevUp.length:58;
+  const up=pcs.map(pc=>nearO(pc,a)).sort((x,y)=>x-y);prevUp=up;
+  const bass=40+((p.ri-4)%12+12)%12;return{bass,up};}
+function chordEvents(){const ev=[];let beat=0,cur=null;
+  for(const n of SONG){const c=n.c||'';if(c&&(!cur||cur.chord!==c)){if(cur)ev.push(cur);cur={chord:c,startBeat:beat,beats:0};}
+    if(cur)cur.beats+=n.b;beat+=n.b;}if(cur)ev.push(cur);return ev;}
+function accent(pb){const p=((pb%4)+4)%4;if(p<0.01)return 1;if(Math.abs(p-2)<0.01)return .9;
+  if(Math.abs(p-1)<0.01||Math.abs(p-3)<0.01)return .8;return .72;}
+function contour(i){const n=SONG[i],pr=SONG[i-1],nx=SONG[i+1];let c=1;
+  if(pr&&n.m>pr.m)c+=.06;if(pr&&nx&&n.m>pr.m&&n.m>=nx.m)c+=.06;if(pr&&n.m<pr.m)c-=.04;if(n.b>=3)c-=.06;return c;}
+
+// ---- audio ----
+let ctx,master,pianoBus,felt,piano=null,gen=0,timers=[];
+function ensure(){ if(ctx)return;
+  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  master=ctx.createGain();master.gain.value=1;
+  felt=ctx.createBiquadFilter();felt.type='lowpass';felt.frequency.value=20000;felt.Q.value=0.6;
+  pianoBus=ctx.createGain();pianoBus.connect(felt);felt.connect(master);master.connect(ctx.destination);
+}
+async function loadPiano(){ if(piano)return piano;
+  setStatus('⏳ กำลังโหลดเสียงเปียโนจริง...');
+  const m=await import('https://esm.sh/smplr@0.16.0');
+  const p=new m.SplendidGrandPiano(ctx,{destination:pianoBus});await p.load;
+  piano={fire:(mi,t,d,g)=>p.start({note:Math.round(mi),time:t,duration:Math.max(.15,d),
+    velocity:Math.max(6,Math.min(122,Math.round((g||.4)*70)+18))}),stop:()=>{try{p.stop();}catch(e){}}};
+  setStatus('✅ พร้อม'); return piano;
+}
+const setStatus=m=>document.getElementById('status').textContent=m;
+const setNow=m=>document.getElementById('now').textContent=m;
+const setReadout=m=>document.getElementById('readout').textContent=m;
+function stopAll(){gen++;timers.forEach(clearTimeout);timers=[];if(piano)piano.stop();}
+
+// ---- state ----
+const S={ inst:'grand', voices:'both', emb:true };
+function embApplies(){ return S.voices==='both'; }            // switch shown only for both
+function embActive(){ return embApplies() ? S.emb : false; }  // melody/chord-only => literal
+
+async function play(){
+  ensure(); await ctx.resume(); stopAll(); const my=gen;
+  const inst=await loadPiano(); if(my!==gen)return;
+  felt.frequency.setValueAtTime(S.inst==='felt'?1500:20000, ctx.currentTime);
+  const tJit=(+document.getElementById('tJit').value)/1000, vJit=(+document.getElementById('vJit').value)/100;
+  const bpm=+document.getElementById('bpm').value, spb=60/bpm; prevUp=null;
+  const human=embActive();               // humanize+arranger ON only when embellish active
+  const arp = embActive();               // broken-chord + pedal bass when embellish on; else sustained block
+  const t0=ctx.currentTime+0.15; const rnd=()=> (Math.random()-0.5)*2;
+  const wantMel=S.voices!=='chords', wantCh=S.voices!=='melody';
+  let shifts=[];
+
+  if(wantMel){ let beat=0; SONG.forEach((n,i)=>{ const d=n.b*spb;
+    if(n.m!=null){ const gd=human?accent(beat)*contour(i)*(1+vJit*rnd()):1;
+      const g=Math.max(.12,Math.min(.6,.35*gd)); const sh=human?tJit*rnd():0; shifts.push(sh*1000);
+      inst.fire(n.m, t0+beat*spb+sh, Math.max(.12,d-.06), g); } beat+=n.b; }); }
+
+  if(wantCh){ const cg=0.06;
+    for(const e of chordEvents()){ const v=voiceLed(e.chord); if(v.bass==null)continue;
+      const bT=t0+e.startBeat*spb, dur=e.beats*spb, a=human?accent(e.startBeat):1;
+      if(!arp){ // sustained block (literal / plain)
+        inst.fire(v.bass,bT,dur-.05,cg*1.45*a); v.up.forEach(mm=>inst.fire(mm,bT,dur-.05,cg*a));
+      } else {  // ★ จัดเต็ม: PEDAL BASS (held long) + broken-chord arp on upper voices
+        inst.fire(v.bass, bT, dur, cg*1.5);                       // pedal: bass rings the whole chord
+        const seq=[v.up[0], v.up[1]??v.up[0], v.up[0], v.up[1]??v.up[0]];
+        const nb=Math.max(1,Math.round(e.beats));
+        for(let k=0;k<nb;k++){ const mm=seq[k%seq.length]; const sh=tJit*rnd();
+          inst.fire(mm, bT+k*spb+sh, spb*0.9, cg*1.05*accent(e.startBeat+k)); }
+      }
+    }
+  }
+
+  const modeTxt=`${S.inst==='felt'?'Felt':'เปียโน'} · ${ {melody:'ทำนองอย่างเดียว',chords:'คอร์ดอย่างเดียว',both:'ทำนอง+คอร์ด'}[S.voices] }${embApplies()?(S.emb?' · ลูกเล่นเปิด':' · ลูกเล่นปิด'):''}`;
+  setNow('▶ กำลังเล่น: '+modeTxt);
+  if(human){ const avg=(shifts.reduce((s,x)=>s+Math.abs(x),0)/(shifts.length||1)).toFixed(1);
+    setReadout(`ลูกเล่นเปิด (auto) · pedal bass + arp + humanize\nเวลาเลื่อนจริง เฉลี่ย ±${avg} ms (ตั้งอัตโนมัติ ±${(tJit*1000).toFixed(0)} ms) · ความแรงสุ่ม ±${(vJit*100).toFixed(0)}% · เน้นจังหวะตก/ไต่ทำนอง`);
+  } else setReadout(`ลูกเล่นปิด · โน้ตตรงแผ่น จังหวะเป๊ะ (สำหรับแกะโน้ต) · BPM ${bpm}`);
+}
+
+// ---- wire UI ----
+function sel(container,attr,val){ document.querySelectorAll(`#${container} .opt`).forEach(o=>
+  o.classList.toggle('sel', o.dataset[attr]===val)); }
+document.querySelectorAll('#instOpts .opt').forEach(o=> o.addEventListener('click',()=>{
+  if(o.classList.contains('dim')) return; S.inst=o.dataset.inst; sel('instOpts','inst',S.inst); }));
+document.querySelectorAll('#voiceOpts .opt').forEach(o=> o.addEventListener('click',()=>{
+  S.voices=o.dataset.v; sel('voiceOpts','v',S.voices); refreshEmb(); }));
+const embBtn=document.getElementById('embBtn');
+embBtn.addEventListener('click',()=>{ S.emb=!S.emb; refreshEmb(); });
+function refreshEmb(){
+  const show=embApplies();
+  document.getElementById('embRow').style.display = show?'flex':'none';
+  embBtn.textContent=S.emb?'เปิด':'ปิด'; embBtn.classList.toggle('on',S.emb);
+  document.getElementById('embWhat').textContent = show?(S.emb?'(arp + pedal bass + humanize)':'(คอร์ดค้างธรรมดา · ตรวจโน้ต)'):'';
+  const hints={ melody:'เล่นเฉพาะเส้นทำนอง โน้ตตรงแผ่น (แกะทำนอง/ร้องตาม)',
+    chords:'เล่นเฉพาะคอร์ดคลอ โน้ตตรงแผ่น (ฝึกเล่นตาม)',
+    both:'เล่นทั้งทำนอง+คอร์ด · สวิตช์เลือก "ตรวจโน้ต" หรือ "จัดเต็ม (auto-arranger)"' };
+  document.getElementById('modeHint').textContent=hints[S.voices];
+}
+document.getElementById('play').addEventListener('click',()=> play().catch(e=> setStatus('⚠️ '+e.message)));
+document.getElementById('stop').addEventListener('click',()=>{ stopAll(); setNow(''); setStatus('■ หยุดแล้ว'); });
+const bind=(id,l,s)=>{const el=document.getElementById(id),o=document.getElementById(l);const u=()=>o.textContent=el.value+s;el.addEventListener('input',u);u();};
+bind('tJit','tVal',' ms'); bind('vJit','vVal',' %'); bind('bpm','bVal','');
+refreshEmb();
+</script>
+</body>
+</html>
