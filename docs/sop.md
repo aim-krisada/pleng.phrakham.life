@@ -40,8 +40,12 @@ idea (backlog.md · SI.2)
   → PM **merge ทุก branch ที่ผ่านเข้า base** (studio-shell-redesign · เรียงคิวถ้าชนไฟล์) [SI.6 integration]
   → 🚦 GATE 4 (P'Aim · บังคับ): **PM เสิร์ฟฐานรวม (LAN) → P'Aim ตรวจ "ผลรวม" ทั้งชุด** ก่อน deploy [SI.5 review]
   → 🚦 GATE 5: P'Aim สั่ง "go" → PM deploy (main auto-deploy)                       [SI.6 delivery]
+  → 🧹 CLEANUP (PM · บังคับหลัง deploy ทุกรอบ): archive ทุก session ที่งานขึ้น live แล้วในรอบนั้น [config mgmt]
+            เงื่อนไข archive: (1) โค้ด merge เข้า base+main แล้ว (2) worktree `git status` clean (ไม่มีงานค้าง)
+            → `mcp__ccd_session_mgmt__archive_session` (branch+commit ยังอยู่ใน git · เปิดกลับได้) · ไม่แตะ session โปรเจกต์อื่น/รอ P'Aim ตัดสิน
+            → เขียน board §roster ให้ตรง · "ทุกงานใหม่ = spawn worktree ใหม่ ไม่ปลุก session เก่า"
 ```
-**กฎเหล็ก:** ไม่มี UI ถึง P'Aim โดยไม่ผ่าน tester (GATE 2) · ไม่ deploy จน P'Aim สั่ง go ชัดต่อรอบ
+**กฎเหล็ก:** ไม่มี UI ถึง P'Aim โดยไม่ผ่าน tester (GATE 2) · ไม่ deploy จน P'Aim สั่ง go ชัดต่อรอบ · **ปิด (archive) session ที่จบทุกรอบหลัง deploy (CLEANUP)**
 
 ## 4 · Standards binding
 - **ISO/IEC 29110-5-4:2025** (Agile VSE) — traceability `backlog id → US → DS → code → tester report → deploy` · DoD gate · config mgmt (base branch · main deploy-on-go) · หลักฐานทุก gate commit ไว้
@@ -56,6 +60,7 @@ idea (backlog.md · SI.2)
 - **PM session:** ชื่อ = เลข sprint/deploy รอบ (pm7 = รอบ 7) · เช็ก `git branch --show-current` ก่อน commit เสมอ
 - **collision-aware dispatch:** 2 session แตะไฟล์เดียว = คิวเดียว/เรียง merge · คนละไฟล์ = ขนาน
 - **selective-merge:** merge feature = git-verify commit จริง (`git show --stat`) → checkout เฉพาะไฟล์จริง → test → commit (กัน two-dot phantom deletion)
+- **post-deploy cleanup (บังคับ):** จบ deploy ทุกรอบ → PM archive session ที่งาน live แล้ว (โค้ด merged + worktree clean) · เหลือ roster เฉพาะงานค้างจริง/รอ P'Aim · กัน session ค้างสะสม (ทำ 12 ก.ค.: archive 29 → roster ว่าง)
 
 ## 6 · การปรับปรุง SOP (ต่อเนื่อง)
 เจอปัญหา/ตัวอย่างจาก P'Aim → ถามว่า "process ตรงไหนปล่อยหลุด" → เพิ่มกฎใน `ui-standards`/checklist หรือ automate → SOP คมขึ้นทุกรอบ (ไม่แก้แค่จุดเดียว · ไม่โทษคน). ดู memory `feedback_pm_process_not_output` · `feedback_pm_sole_interface`.
