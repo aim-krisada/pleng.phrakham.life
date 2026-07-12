@@ -860,8 +860,15 @@ function insertSym(sym) {
 }
 
 // ---------- line/bar/segment operations (act on the active stanza) ----------
-function addBar(line) {
+// B098: add a ห้อง and drop the cursor straight into its (empty) note box, so the user
+// can keep typing notes without reaching for the mouse. Focus after nextTick once the new
+// bar's seg-strip has rendered — same [data-...] + querySelector idiom as focusSlot.
+async function addBar(line, li) {
   line.bars.push(newBar())
+  if (li == null) return
+  const bi = line.bars.length - 1
+  await nextTick()
+  document.querySelector(`[data-bar="${li}-${bi}"] .note-box:not(.add)`)?.focus()
 }
 function removeBar(line, bi) {
   line.bars.splice(bi, 1)
@@ -2496,7 +2503,7 @@ defineExpose({ saveDraft, loadDraft, meta, editingId, currentDraftId, previewCon
             </div>
           </div>
         </template>
-        <button class="ed-addbar" title="เพิ่มห้อง" aria-label="เพิ่มห้อง" @click="addBar(line)"><Icon name="plus" :size="14" /> ห้อง</button>
+        <button class="ed-addbar" title="เพิ่มห้อง" aria-label="เพิ่มห้อง" @click="addBar(line, li)"><Icon name="plus" :size="14" /> ห้อง</button>
       </div>
     </div>
     <!-- live word-count for the ข้อ being shown under the notes (like the wireframe) -->

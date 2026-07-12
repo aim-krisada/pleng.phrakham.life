@@ -3,7 +3,7 @@
 //   • BAR level (the whole ห้อง): คัดลอกห้อง + ลบห้อง — live in the bar foot, NOT the seg-col.
 // Asserts each acts at the right scope: delete-note keeps the bar; delete-bar removes it.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
 vi.mock('../supabase.js', () => {
@@ -128,5 +128,20 @@ describe('B098 — note vs bar copy/delete: 4 distinct actions at two scopes', (
     await byAria(w, 'ลบห้องนี้')[0].trigger('click')
     await nextTick()
     expect(barCount(w)).toBe(1) // the whole bar is gone
+  })
+
+  it('ADD bar: cursor auto-focuses the new ห้อง note box (type notes right away)', async () => {
+    const w = mountEd()
+    await nextTick()
+    expect(barCount(w)).toBe(2)
+    await byAria(w, 'เพิ่มห้อง')[0].trigger('click') // add a 3rd bar (index 2)
+    await flushPromises() // addBar awaits nextTick before focusing
+    expect(barCount(w)).toBe(3)
+    const active = document.activeElement
+    expect(active).toBeTruthy()
+    expect(active.classList.contains('note-box')).toBe(true) // it's a note input
+    expect(active.classList.contains('add')).toBe(false) // not the "+" add-note button
+    // and it lives inside the newly added bar (data-bar "0-2"), not an old one
+    expect(active.closest('[data-bar]')?.getAttribute('data-bar')).toBe('0-2')
   })
 })
