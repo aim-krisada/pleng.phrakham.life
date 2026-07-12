@@ -76,3 +76,11 @@ main = `359872b` · **นโยบายใหม่: PM deploy ทีละ fix
 **env:** GitHub token `OneDrive/4 Personal/claude/.env`→`GITHUB_TOKEN_PLENG` (source ก่อน · repo public) · Supabase `SUPABASE_*_PLENG` · main อยู่ worktree `pleng-natural-tie` · IP เปลี่ยนบ่อย (เช็ก `Get-NetIPAddress` / vite Network line)
 
 <!-- P2 mode structure (P'Aim 12 ก.ค.): 4 โหมด = เปียโนอย่างเดียว / คอร์ดอย่างเดียว / ทำนอง+คอร์ด ธรรมดา(ไม่มีลูกเล่น=ฝึกง่าย/ตรวจโน้ต) / จัดเต็ม(ลูกเล่นครบ+humanize) · 1-3=ตระกูลธรรมดา(ต่อ B104) · 4=arranger เต็ม · + เผื่อกีตาร์: arranger = แกนกลางร่วม + โมดูล pattern/voicing ต่อเครื่อง (กีตาร์=strum/fingerpick/รูปคอร์ด ≠ เปียโน) → instrument-pluggable · ส่ง SA P2 local_769b8371 แล้ว -->
+
+## 🎼 P2 DIRECTION (settled · P'Aim↔SA+ที่ปรึกษา 12 ก.ค. · SSOT=`docs/ds/instrument-arranger-p2.md`)
+- **5 เครื่องล็อก:** Grand · **Felt (กรอง Grand เดิม = 0 sample/license ใหม่)** · Nylon Guitar · Solo Violin · Cello/String Pad (เบส/ฐานล่าง) — ไม่เพิ่มเป่า/กลอง
+- **UI 3 แกน:** (1) เล่นอะไร = ทำนอง/คอร์ด/รวม (B104) · (2) เครื่อง = เปียโน/ไวโอลิน/กีตาร์ **เดี่ยว(เสรี)** + **วงรวม(auto curated orchestration)** · (3) ลูกเล่น = toggle **ธรรมดา(ตรวจโน้ต·พี่เป้า)** / มีลูกเล่น(humanize+arranger) · → ความเสี่ยงย่านชนนัวอยู่แค่ "วงรวม" จึงล็อกสูตรที่นั่น
+- **auto วงรวม:** แบ่ง role (ทำนอง≠คอร์ด≠เบส แยกย่าน) + pattern ตาม tempo (ช้า→arpeggio · เร็ว→ค้าง/ย่ำ) · อนาคต=auto อารมณ์ตาม tempo/major-minor
+- **P2 build (เปียโนก่อน · architecture เผื่อครบ):** เปียโนสงบ(grand+felt) · เปียโนบรรเลง(arp) + โครง 3 แกน + role-recipe + auto-pattern interface + lazy/preset · **slot ทีหลัง:** nylon/violin/cello (Tier-1 FluidR3 GM CC-BY ก่อน → Tier-2 CC0 เฉพาะ lead เดี่ยว) · ref `cc-instrument-samples.md`
+- **default UI (P'Aim ค้านได้):** ลูกเล่น=หน้าแก้ไขธรรมดา/หน้าเล่นมีลูกเล่น · เครื่องยังไม่มี sample = ปุ่มจาง "เร็วๆนี้"
+- **▶ next:** SA spike humanize+timbre → P'Aim ฟัง+ปั้น+เคาะ tier → ping PM จ่าย dev implement + tester(วัดเสียงจริง) + P'Aim ฟังก่อน deploy
