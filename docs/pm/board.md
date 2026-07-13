@@ -22,7 +22,7 @@
 - 1.3 = รับความเสี่ยง client-side filter ไว้ก่อน (ไม่ทำ) ✅ เคาะแล้ว
 
 - **[เลน 6] ป้ายสถานะ ✓ตรวจแล้ว/ยัง ในรายการเพลง — ✅✅ Tester PASS 5/5 · PM merge เข้า base แล้ว** (`docs/reports/tester-review-status-badge-qa.md` · contrast 7.22:1 วัดสด AA+AAA · 360/412 ไม่ตัด/ไม่ h-scroll · ป้ายตรง verified 121/121 แถว 0 mismatch · ตัวนับ 8/124) · merge code-only (`bookshelf.js`+test · `SongList.vue` · ไม่เอา launch.json/board dev พ่วง) · verify บน base: bookshelf 20/20 · ป้ายเขียว/เทา + ตัวนับ X/Y team-only · **รอ deploy รอบหน้า (batch)**
-- **[เลน 7] 🎹 ทำเพลงให้เพราะ (เปียโนเดี่ยว Grand-only) — ⏸️ HOLD · P'Aim ยัง iterate (กำลังเพิ่ม "แตกคอร์ด"/arpeggio · 13 ก.ค. ค่ำ)** `task_4c4808d8` (branch `blissful-rosalind-613f3e`) · ทำแล้ว 4 เทคนิค (①BPM-auto ②sparkle−30%+สไลเดอร์ ④rubato + เบส pedal) แต่**ยังไม่จบ = ยังไม่ deploy** · **⚠️ tester `task_3b6065ba` = ผลของเวอร์ชันก่อนแตกคอร์ด (stale) → re-test หลังแตกคอร์ดเสร็จ + P'Aim sign-off final** · ไม่ชน 2/5 (คนละไฟล์ · รวม deploy รอบหลังได้) · scope Grand-only
+- **[เลน 7] 🎹 ทำเพลงให้เพราะ (เปียโนเดี่ยว Grand-only) — ⏸️ HOLD · P'Aim ยัง iterate** `task_4c4808d8` (branch `blissful-rosalind-613f3e`) · ทำแล้ว 4 เทคนิค (①BPM-auto ②sparkle−30%+สไลเดอร์ ④rubato + เบส pedal) · **กำลังเพิ่ม "ท่อนรับแตกคอร์ด" (refrain arpeggio ถี่/เต็มกว่าท่อนร้อง = contrast verse↔รับ · เฉพาะโหมดบรรเลง) เข้า batch เดียวกันก่อน deploy** (P'Aim ไม่อยาก deploy 2 รอบ) · **⚠️ tester `task_3b6065ba` = stale (ก่อนแตกคอร์ด) → re-test หลังเสร็จ + P'Aim sign-off final แล้ว SA ping มา gate ทั้งชุด** · ไม่ชน 2/5 · scope Grand-only
 
 **📋 to-do พี่เปา (root · ยังไม่จ่าย · §🐞):** issues4 (โครงเพลง▾) · ~~issues5~~ → เข้า spec notation แล้ว · issues6 (คลิก preview→แก้ไข) · issues7 (ใหม่ · ยังไม่ triage)
 
