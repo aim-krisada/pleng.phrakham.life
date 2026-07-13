@@ -103,10 +103,13 @@ describe('timeline (col 1-3)', () => {
 })
 
 describe('selector (col 5-6)', () => {
-  it('count badge reads · / N/total / ทั้งหมด', () => {
-    expect(mountT().find('.st-seltrig b').text()).toBe('·')
-    expect(mountT({ selected: new Set(['รับ']) }).find('.st-seltrig b').text()).toBe('1/2')
-    expect(mountT({ selected: new Set(['ร้อง 1', 'รับ']) }).find('.st-seltrig b').text()).toBe('ทั้งหมด')
+  it('count badge shows ONLY for a subset (icon-only when ทั้งหมด/none · mobile width)', () => {
+    // all selected → icon only (no badge); a subset → the "n/total" badge appears + .sub highlight
+    expect(mountT({ selected: new Set(['ร้อง 1', 'รับ']) }).find('.st-seltrig b').exists()).toBe(false)
+    expect(mountT().find('.st-seltrig b').exists()).toBe(false) // none picked → icon only
+    const sub = mountT({ selected: new Set(['รับ']) })
+    expect(sub.find('.st-seltrig b').text()).toBe('1/2')
+    expect(sub.find('.st-seltrig').classes()).toContain('sub')
   })
 
   it('opening the panel + toggling a row emits toggle-section', async () => {

@@ -73,6 +73,8 @@ const selCountLabel = computed(() => {
   if (!n) return '·'
   return n === props.tags.length ? 'ทั้งหมด' : `${n}/${props.tags.length}`
 })
+// a SUBSET of ท่อน is picked (not all · not none) → show the count badge + highlight the button
+const isSubset = computed(() => props.selected.size > 0 && props.selected.size < props.tags.length)
 const isSelected = (name) => props.selected.has(name)
 
 // ---------- timeline segments (เส้นท่อน — เลือก=น้ำตาล · ไม่เลือก=เทา · หัวอยู่=หนา) ----------
@@ -210,16 +212,17 @@ const items = computed(() => {
 
     <!-- ===== เลือกท่อน (col 5-6) — trigger + selector panel (one-at-a-time via engine) ===== -->
     <template #cell-tuan="{ open, toggle, close }">
-      <!-- collapsed to an icon + a compact status badge (ทั้งหมด vs a subset "n/total" =
-           ท่อนเดียว/วนซ้ำ · P'Aim 13 ก.ค.). The badge stays so the play scope is always visible. -->
+      <!-- ICON-ONLY (P'Aim 13 ก.ค. · มือถือแคบ): the "ทั้งหมด" text is dropped to save width. The
+           count badge shows ONLY when a SUBSET is picked (ท่อนเดียว/วนซ้ำ) — then the button is also
+           highlighted — so "all vs a subset" is still readable without the word. -->
       <button
         class="st-seltrig"
-        :class="{ on: open, sub: selCountLabel !== 'ทั้งหมด' && selCountLabel !== '·' }"
+        :class="{ on: open, sub: isSubset }"
         :aria-expanded="open"
         :aria-label="'เลือกท่อนที่จะฟัง — ' + selCountLabel"
         title="เลือกท่อนที่จะฟัง"
         @click.stop="toggle"
-      ><Icon name="list-music" :size="16" /><b>{{ selCountLabel }}</b></button>
+      ><Icon name="list-music" :size="17" /><b v-if="isSubset">{{ selCountLabel }}</b></button>
       <div v-if="open" class="dk-pop st-selpanel" role="menu" @click.stop>
         <div class="st-sshead">เลือกท่อนที่จะฟัง</div>
         <div class="st-ssall">

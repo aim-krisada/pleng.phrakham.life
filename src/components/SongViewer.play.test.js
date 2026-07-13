@@ -409,7 +409,9 @@ describe('SongViewer section selection (B043)', () => {
   it('B105: default-ticks every ท่อน; the whole song plays with no order', async () => {
     const w = mountViewer(twoSecSong)
     await nextTick()
-    expect(w.find('.st-seltrig b').text()).toBe('ทั้งหมด') // count summary = all
+    // all ท่อน ticked → the selector shows icon-only (no subset badge, not highlighted) · mobile width
+    expect(w.find('.st-seltrig b').exists()).toBe(false)
+    expect(w.find('.st-seltrig').classes()).not.toContain('sub')
     await w.find('.st-seltrig').trigger('click') // open the selector sheet
     await nextTick()
     const rows = w.findAll('.st-ssrow')
