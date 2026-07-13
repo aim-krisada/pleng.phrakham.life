@@ -219,7 +219,7 @@ const items = computed(() => {
         :aria-label="'เลือกท่อนที่จะฟัง — ' + selCountLabel"
         title="เลือกท่อนที่จะฟัง"
         @click.stop="toggle"
-      ><Icon name="table-of-contents" :size="16" /><b>{{ selCountLabel }}</b></button>
+      ><Icon name="list-music" :size="16" /><b>{{ selCountLabel }}</b></button>
       <div v-if="open" class="dk-pop st-selpanel" role="menu" @click.stop>
         <div class="st-sshead">เลือกท่อนที่จะฟัง</div>
         <div class="st-ssall">

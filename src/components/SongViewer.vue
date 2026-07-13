@@ -340,8 +340,10 @@ async function startPlay(startIndex = 0) {
     songId, startIndex, onInstrumentPending, onNote,
   }
   if (ensembleMode.value === 'ensemble') {
-    // B107 step 9 §6b.2 — รวมวง เสียงจริง: piano + cello + violin, 3 sonic layers (piano lead).
-    await playEnsemble(resolved.value, { ...common, lead: 'piano' })
+    // B107 step 9 §6b — รวมวง lead-driven: the CHOSEN instrument leads the melody, the band fills
+    // in around it (เปียโนนำ / กีตาร์นำ). grand → piano-lead, nylon → guitar-lead.
+    const lead = leadInstrument.value === 'nylon' ? 'guitar' : leadInstrument.value === 'violin' ? 'violin' : 'piano'
+    await playEnsemble(resolved.value, { ...common, lead })
   } else {
     await playSong(resolved.value, {
       ...common,

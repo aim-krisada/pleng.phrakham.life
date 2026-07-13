@@ -1491,8 +1491,9 @@ async function runPlay(content, liOffset, follow = true) {
   // ตรงโน้ต = arranger OFF (notes exactly as printed). Choices persist per-page (editor* store refs).
   const sa = editStyleArrange.value
   const songId = props.song?.id ?? props.song?.slug ?? meta.title_th
+  const editLead = editorInstrument.value === 'nylon' ? 'guitar' : editorInstrument.value === 'violin' ? 'violin' : 'piano'
   const ok = editorEnsemble.value === 'ensemble'
-    ? await playEnsemble(content, { bpm: opts.bpm || 80, onNote, songId, lead: 'piano' })
+    ? await playEnsemble(content, { bpm: opts.bpm || 80, onNote, songId, lead: editLead })
     : await playSong(content, {
       bpm: opts.bpm || 80, onNote,
       voices: editorSound.value,
