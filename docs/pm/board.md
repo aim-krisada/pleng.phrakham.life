@@ -20,7 +20,11 @@
   - **🔴 tester เจอ + พิสูจน์ fix: cold-boot offline FAIL** (kill server→เปิดใหม่=หน้าเปล่า · หัวใจ PWA) — root: vite `crossorigin`→Origin header→asset `Vary:Origin`→SW `caches.match` miss→network(ตาย)→ไม่ boot · **fix: `caches.match(req,{ignoreVary:true})` ×3 ใน `public/sw.js`** (tester พิสูจน์ boot ได้) → relay dev แล้ว
   - **✅ รวมวง (โหมด 3) เสร็จ** (`cc838ee` · `playEnsemble` midi.js · Grand+เชลโล/ไวโอลิน CC ไม่มี GM · GUIDE/MOTION/FOUNDATION + near/far reverb + section density · default หน้าดู=เต็มวงเปียโนนำ · วัด LIVE: เปียโน 0.405>เชลโล 0.138>ไวโอลิน 0.084 ไม่ clip · 517 test) · popover fix ✅
   - **✅ SW ignoreVary fix ใส่แล้ว** (`3af62e5` · dev verify cold-boot boot ได้ appMounted true) · git-verified ครบ: ignoreVary×3 + playEnsemble + sc-pop + guitar module + 517 test
-  - **⏳ tester re-gate ทั้งชุด จ่ายแล้ว** (`local_04292fd9` · HEAD `3af62e5`): 3 โหมด live-audio(ทำนองนำ·เปียโนไม่เงียบ) + popover ทุก viewport + cold-boot offline DevTools + guitar audible → **PASS → 🔑 P'Aim confirm 3 โหมด+ฟัง (`5313`) → PM deploy (LAUNCH!)** · ⏭️ human check login: dock เพลงจริง/มือถือ/สลับเครื่องกลางเล่น/timbre
+  - **✅ tester PASS ครบ 3 โหมด (`3af62e5`)** — A/B/C/D + popover ทุก viewport + cold-boot offline + ensemble live(เปียโน 0.30>เชลโล −7.8>ไวโอลิน −17.1dB) + guitar รูด
+  - **🔑 P'Aim confirm UI (13 ก.ค.) → เจอ 1 บั๊ก + ขอปรับหน้าตา → จ่าย dev polish** (brief `brief-b107-launch-polish.md`):
+    - **🔴 BUG (blocking): เปลี่ยน option กลางเล่น (บรรเลง→สงบ ฯลฯ) = เสียงซ้อน 2 ชั้น** (ไม่ stop pass เก่าก่อน reschedule) → dev แก้ stop-before-restart + test voice ไม่สะสม
+    - **UI:** default หน้าดู→เปียโนเดี่ยว(รวม/เดี่ยว/เปียโน/บรรเลง) · dock ล่าง icon-only+กระชับ+สมมาตร (สไลเดอร์แคบ · เครื่อง+ท่อน icon ล้วน) · icon: เปียโน`piano`/กีตาร์`guitar`/รวมวง`users`/felt·violin·cello`music`(จาง)/ท่อน`table-of-contents`(P'Aim อาจเปลี่ยน §) · chip โชว์ icon
+  - → dev แก้ → tester re-gate (บั๊กซ้อน+UI) → P'Aim final → **deploy (LAUNCH)**
 - **gate: tester real-audio 2 เครื่อง (กีตาร์ลายรูด/เกาได้ยินจริง) + full-spec UI + offline cold-boot → 🔑 P'Aim "confirm UI" เอง + ฟัง final บนแอปจริง → deploy (LAUNCH)**
 **✅ MERGE เข้า base แล้ว (895c9cc · 505 test เขียว · build ✓ · ยังไม่ deploy):** (1) B107 P2 arranger เปียโน (tester PASS · โมดูล `src/lib/arranger/*` + UI 3 แกน บรรเลง/สงบ/ตรงโน้ต) (2) เสียง 5 เครื่อง self-host `public/samples/` (115 ไฟล์ 10.63MB · same-origin · PWA offline · binary committed โดยตั้งใจ). **PM worktree ลง npm install แล้ว (verify merge ได้เอง).**
 **▶ จ่ายแล้ว 2 สายขนาน (เต็มวง):**
