@@ -34,6 +34,11 @@ export const TEMPO_MARKS = [
 
 let ctx = null
 let stopFlag = { stopped: false }
+// B107 step 9 — a monotonic play token. Every playSong/playEnsemble call takes the next token at
+// the top; after any `await` (instrument load) it checks it's STILL the latest — if a newer play
+// started meanwhile (the user switched instrument/การบรรเลง while samples were loading), the stale
+// pass aborts BEFORE it schedules a single note, so two passes can never both start = no ซ้อน 2 ชั้น.
+let playToken = 0
 // Oscillators scheduled for the current playback, each with its start time, plus
 // the transpose (semitones) currently applied. Lets setTranspose() re-tune every
 // note that hasn't sounded yet when the user changes key mid-playback.
@@ -457,6 +462,7 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   if (ctx.state !== 'running') return false
   stopFlag = { stopped: false }
   const myFlag = stopFlag
+  const myToken = ++playToken // newer switch during our load → we're stale, abort before scheduling
   liveTranspose = transpose // starting key offset; setTranspose() updates it live
   // B107: choose the sound. A real instrument plays only once its samples are fully loaded
   // (P'Aim: wait-then-play with a progress bar, like the MP3 download — NOT a synth stand-in
@@ -474,11 +480,13 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
         sampler = await loadInstrument(instrument, ctx, { onProgress: (p) => onInstrumentPending?.({ loading: true, progress: p }) })
       } catch { sampler = null } // load failed → fall back to the synth (no hard-fail)
       onInstrumentPending?.({ loading: false, progress: 1 })
-      if (myFlag.stopped) return true // user cancelled (pressed pause) during the download
+      // cancelled (พัก) OR a newer switch started while we loaded → abort before scheduling.
+      if (myFlag.stopped || myToken !== playToken) return true
     } else {
       onInstrumentPending?.({ loading: false, progress: 1 })
     }
   }
+  if (myToken !== playToken) return true // a newer play superseded us (even with no load wait)
   activeSampler = sampler // so stopPlayback() can silence the sampler's voices
   // `order` (B043 selection = many ranges) OR `range` (one section) OR the whole song —
   // buildPlayNotes is the SSOT the viewer also uses for the dot/markers/scrub/⏮⏭.
@@ -558,9 +566,11 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
     let cumMs = 0
     const noteEndsMs = notes.map((n) => (cumMs += n.beats * spb * 1000))
     while (Date.now() - start < totalMs) {
-      if (myFlag.stopped) {
+      if (myFlag.stopped || myToken !== playToken) {
         endTimes.forEach((o) => { try { o.stop() } catch {} })
-        if (sampler) sampler.releaseAll()
+        // release the sampler ONLY if we're being stopped as the CURRENT pass — a newer pass now
+        // owns the shared instrument, so a stale loop must NOT silence it (that would cut the new sound).
+        if (sampler && myToken === playToken) sampler.releaseAll()
         return true
       }
       const elapsed = Date.now() - start - 80
@@ -628,6 +638,7 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
   if (ctx.state !== 'running') return false
   stopFlag = { stopped: false }
   const myFlag = stopFlag
+  const myToken = ++playToken // newer switch during our (multi-instrument) load → we're stale, abort
   liveTranspose = transpose
 
   // Load the instruments this LEAD needs (§6b.1 recipe · lead-driven · P'Aim 13 ก.ค.): grand
@@ -646,7 +657,9 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     gr = res[0]; ce = res[1]; vi = res[2]; ny = res[3] || null
   } catch { /* a load failed → degrade below (skip the missing role), never hard-fail */ }
   onInstrumentPending?.({ loading: false, progress: 1 })
-  if (myFlag.stopped) return true
+  // cancelled OR a newer switch (เครื่อง/การบรรเลง) started while our samples loaded → abort before
+  // scheduling, so the superseded ensemble can never start playing under the new one (no ซ้อน 2 ชั้น).
+  if (myFlag.stopped || myToken !== playToken) return true
   if (!gr && !ce && !vi) return false
   activeEnsemble = [gr, ce, vi, ny].filter(Boolean)
 
@@ -817,7 +830,11 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     let noteIdx = -1, cumMs = 0
     const noteEndsMs = notes.map((n) => (cumMs += n.beats * spb * 1000))
     while (Date.now() - start < totalMs) {
-      if (myFlag.stopped) { activeEnsemble.forEach((w) => { try { w.releaseAll() } catch { /* stopped */ } }); return true }
+      if (myFlag.stopped || myToken !== playToken) {
+        // release only as the CURRENT pass — a newer pass now owns the shared instruments.
+        if (myToken === playToken) activeEnsemble.forEach((w) => { try { w.releaseAll() } catch { /* stopped */ } })
+        return true
+      }
       const elapsed = Date.now() - start - 80
       let idx = noteIdx < 0 ? 0 : noteIdx
       while (idx < notes.length - 1 && elapsed >= noteEndsMs[idx]) idx++

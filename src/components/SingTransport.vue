@@ -295,8 +295,8 @@ const items = computed(() => {
 .st-seekwrap { display: inline-flex; align-items: center; gap: 8px; padding-right: 4px; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* fixed, usable timeline width; the fit-content dock hugs it + the คีย์/ท่อน cells.
    Narrower on a phone so row 2 (timeline·คีย์·ท่อน) fits the viewport-capped dock (no overflow). */
-.st-seek { position: relative; flex: 0 0 176px; width: 176px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
-@media (max-width: 760px) { .st-seek { flex-basis: 126px; width: 126px; } }
+.st-seek { position: relative; flex: 0 0 158px; width: 158px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+@media (max-width: 760px) { .st-seek { flex-basis: 112px; width: 112px; } }
 .st-time { flex: 0 0 auto; }
 /* B102 — "รอบ N" now-playing badge: the current ท่อน + refrain pass, in the brand colour so it
    reads as the live playhead label (not muted chrome). Ellipsis so a long ท่อน name never pushes
