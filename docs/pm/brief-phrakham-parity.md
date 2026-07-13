@@ -6,6 +6,13 @@
 
 ---
 
+## ⭐ ข้อกำหนดใหม่จาก P'Aim (13 ก.ค.) — shared core "แก้ที่เดียว"
+P'Aim อยากให้เพลง+พระคำ **ใช้ core เดียวกันเท่าที่ common/share ได้** → แก้ที่เดียว ทั้งสองเว็บตาม · ไม่ก๊อปซ้ำ
+- **ข้อจริง:** เพลง=Vue · พระคำ=Quarto (คนละ render engine) → **Vue component แชร์ตรงๆ ไม่ได้** · แต่ **design tokens (สี/ฟอนต์/ขนาด/spacing/radius/เงา) + framework-free JS (`pk-scrollnav.js`) แชร์ได้** = ~80% ของ look&feel
+- ปัจจุบัน tokens ถูก **copy verbatim** เข้าเพลง (memory `reference_phrakham_source_repo`) = 2 ที่ · เป้า = **แหล่ง SSOT เดียว ให้ทั้งคู่อ้าง**
+- **งาน SA เพิ่ม (ทำก่อนเขียน DS parity):** ประเมิน**ความเป็นไปได้ + ออกแบบโครงสร้าง shared token layer** — ไฟล์ SSOT อยู่ที่ไหน (repo/submodule/copied-with-sync?) · เพลง(Vite/CSS-vars) อ่านยังไง · พระคำ(Quarto/SCSS) อ่านยังไง · migration path · ข้อจำกัด · **ถ้าแชร์จริงยาก → เสนอ fallback (single-file token + documented sync) พร้อมเหตุผล** → เขียนใน DS ส่วน "Shared-core" ให้ P'Aim เคาะ**ก่อน** Dev ลงมือ
+- ผลลัพธ์: DS parity รอบนี้ **สร้างบน shared token layer** (ถ้า P'Aim เคาะ) — parity = "แก้ที่เดียว" ตั้งแต่ต้น ไม่แยกทีหลัง
+
 ## ขอบเขต = Section B เท่านั้น (B-1..B-6) · quick-win ก่อน
 | # | เปลี่ยน | จาก → เป็น | ไฟล์ | ขนาด |
 |---|---|---|---|---|
