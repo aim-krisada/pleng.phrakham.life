@@ -62,6 +62,13 @@ self.addEventListener('activate', (event) => {
   })())
 })
 
+// ⚠️ ALL cache lookups pass { ignoreVary: true }. Vite marks the module <script> `crossorigin`,
+// so the browser sends an `Origin` header and the served asset carries `Vary: Origin`. A plain
+// caches.match(req) HONOURS Vary, so offline (where the request's Origin/headers differ from what
+// was cached) it MISSES → falls through to the dead network → import() fails → the app never boots.
+// ignoreVary makes the match key the URL alone, which is what we want for these static assets.
+const MATCH = { ignoreVary: true }
+
 self.addEventListener('fetch', (event) => {
   const req = event.request
   if (req.method !== 'GET') return
@@ -71,7 +78,7 @@ self.addEventListener('fetch', (event) => {
   // Samples: cache-first (immutable content; the whole point of the offline precache).
   if (url.pathname.startsWith('/samples/')) {
     event.respondWith((async () => {
-      const cached = await caches.match(req)
+      const cached = await caches.match(req, MATCH)
       if (cached) return cached
       const res = await fetch(req)
       if (res.ok) { const c = await caches.open(SAMPLES_CACHE); c.put(req, res.clone()) }
@@ -88,7 +95,7 @@ self.addEventListener('fetch', (event) => {
         const c = await caches.open(APP_CACHE); c.put(req, res.clone())
         return res
       } catch {
-        return (await caches.match(req)) || (await caches.match('/index.html')) || (await caches.match('/')) || Response.error()
+        return (await caches.match(req, MATCH)) || (await caches.match('/index.html', MATCH)) || (await caches.match('/', MATCH)) || Response.error()
       }
     })())
     return
@@ -97,7 +104,7 @@ self.addEventListener('fetch', (event) => {
   // Other same-origin assets (hashed JS/CSS/fonts): stale-while-revalidate — instant from cache,
   // refreshed in the background when online.
   event.respondWith((async () => {
-    const cached = await caches.match(req)
+    const cached = await caches.match(req, MATCH)
     const network = fetch(req).then((res) => {
       if (res.ok) { caches.open(APP_CACHE).then((c) => c.put(req, res.clone())) }
       return res
