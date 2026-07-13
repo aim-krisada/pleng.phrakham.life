@@ -6,15 +6,18 @@
 
 ---
 
-## ▶ RESUME (hand-off pm22 → pm23 · 13 ก.ค. บ่าย · อาจย้ายบัญชีบริษัท)
-**pm22 ทำวันนี้ (13 ก.ค. บ่าย) = งานชุด "look&feel เหมือน phrakham" + บั๊กพี่เปา — ดู §🆕 งานใหม่ ละเอียด:**
-- ✅ **phrakham-parity (5 tweaks · B-1,3,4,5,6)** ผ่าน Tester (`c127578`) · **B-2 ตัดทิ้ง** (header ตรงพระคำแล้ว)
-- ✅ **issues1 tie+เลข3** (`fe8991b`) · ✅ **issues3 ดูผลทั้งเพลง** (`2031962`) · ✅ **repeat/seek** (`7d54a77`) — ทั้ง 3 Dev เสร็จ git-verified (merge เอาเฉพาะไฟล์โค้ด ไม่เอา launch.json/board.md ที่พ่วง)
-- 🔵 **hero+favicon** (`local_cfd288df`) · 🔵 **issues2 เอื้อน beaming Option A prototype** (tie Dev `local_6a3414a8` · P'Aim เคาะแล้ว · render-only ก่อน · พี่เปา verify look) — ยังทำอยู่
-- 📝 **menu-parity DS เสร็จ** (`41708f0`) PARKED รอ hero/favicon merge + 4 Q (PM มี default)
-- **⏳ รอ verify มือคน:** repeat = ear-verify http://192.168.1.124:5309/ · issues1 = พี่เปา print PDF "ของขวัญ"
-- **▶ งาน PM ถัดไป:** พอ hero/favicon เสร็จ + verify 2 อันบน → **batch: gate → merge โค้ด (ไม่เอา noise) เข้า base → deploy รวม** (parity+bug+hero) · แล้วค่อยจ่าย menu Dev (หลัง hero/favicon land)
-- **นโยบาย deploy:** P'Aim อยาก batch รวม (parity+hero/favicon) · ยังไม่มี go deploy — **ห้าม deploy จน P'Aim สั่ง**
+## ▶ RESUME (hand-off pm22 → pm23 · 13 ก.ค. เย็น)
+**🎉 pm22 = DEPLOY รอบ 22 `6cb8e68` LIVE** (phrakham look&feel: parity+header + bug issue1/2/3+repeat + favicon · https://pleng.phrakham.life) · kanban พี่เปา 4 บั๊ก → 🟢 เสร็จ · รายละเอียดใน §✅ DEPLOYED
+
+**🔵 กำลังทำ / รอต่อ (pm23 สานต่อ):**
+- **ป้ายสถานะตรวจเพลง** (team-only · GATE unlock) — Dev `task_5d4f34d6` กำลังทำ · รอ report → gate → **deploy รอบ 23**
+- **🤝 menu design ร่วมกับ pk pm4** (P'Aim สั่ง 2 PM เคาะเอง) — **send_message ไป pk pm4 `local_9db3b697` แล้ว รอตอบ** · เป้า = สเปกเมนูร่วม 1 หน้า → ปรับ drawer ทั้ง 2 เว็บเหมือนกัน (เพลงต่าง 3 จุด: ชิดขวา→ซ้าย · เอาไอคอน nav ออก · ตัวอักษรไทยปุ่มใหญ่→แถวเรียบ) · **pm23 เช็ก inbox/สาย pk pm4 ตอบหรือยัง**
+
+**📋 to-do พี่เปา (root · ยังไม่จ่าย · §🐞):** issues4 (โครงเพลง▾) · issues5 (slur ข้ามห้อง render) · issues6 (คลิก preview→แก้ไข)
+
+**🔴 เรื่องใหญ่สุด (สำคัญกว่าบั๊ก):** GATE — public เห็น 0 เพลง · ต้องทีม review อนุชน 122 กด ✓ (ยัง 0/122) · ป้ายที่กำลังทำช่วยเรื่องนี้
+
+**🧹 cleanup:** `public/pleng-hero.png/.webp` (6.5MB · ไม่ถูกอ้าง ลบได้) · pk pm4 = สาย 📖 (running · reconnected)
 
 **✅ DEPLOYED รอบ 22 — `6cb8e68` LIVE (13 ก.ค. เย็น · P'Aim go · https://pleng.phrakham.life):**
 - **merge 6 อันเข้า base แล้ว** (`studio-shell-redesign`): (1) parity [ae576b2 · styles/Guide/About] (2) tie+triplet [NoteRow/SongSheet] (3) beaming [NoteRow] (4) editor-preview [EditorMode] (5) repeat-seek [midi.js] (6) **hero/favicon** [cc84c7b · index.html/public ชุด favicon+hero/ShellBar/SongList/styles.css `.sb-app-ico` merge ไม่ทับ parity] · เอาเฉพาะไฟล์โค้ด/asset ไม่เอา launch.json/board.md ที่พ่วง
