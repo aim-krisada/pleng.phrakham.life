@@ -42,6 +42,22 @@ export function showVerifiedBadge(song, loggedIn) {
   return !!(song && song.verified) && !!loggedIn
 }
 
+// Its mirror: the "ยังไม่ตรวจ" marker. So the team can spot which songs still need review
+// while browsing a book, both states are labelled (verified ✓ vs pending). Logged-in only —
+// public never sees an unverified song at all, so the marker is meaningless for them.
+export function showUnverifiedBadge(song, loggedIn) {
+  return !!song && !song.verified && !!loggedIn
+}
+
+// Review progress over a song list → { verified, total }. Feeds the "ตรวจแล้ว X / ทั้งหมด Y"
+// tally so พี่เปา sees how far the review has come. Pure + defensive (no throw on garbage).
+export function verifiedProgress(songs) {
+  const list = songs || []
+  let verified = 0
+  for (const s of list) if (s && s.verified) verified++
+  return { verified, total: list.length }
+}
+
 // A song's category code, trimmed; null when blank/absent (→ fallback bucket). Kept
 // defensive so a row missing the column doesn't throw.
 function songCategory(song) {

@@ -12,6 +12,8 @@ import {
   songsInBook,
   visibleSongs,
   showVerifiedBadge,
+  showUnverifiedBadge,
+  verifiedProgress,
 } from './bookshelf.js'
 
 // Minimal song fixtures — only the fields the bookshelf reads (number + category).
@@ -132,5 +134,32 @@ describe('showVerifiedBadge (QA marker = logged-in only)', () => {
     expect(showVerifiedBadge({ verified: false }, true)).toBe(false)
     expect(showVerifiedBadge({}, true)).toBe(false)
     expect(showVerifiedBadge(null, true)).toBe(false)
+  })
+})
+
+describe('showUnverifiedBadge (pending marker = logged-in only)', () => {
+  it('shows only for an unverified song AND a logged-in viewer', () => {
+    expect(showUnverifiedBadge({ verified: false }, true)).toBe(true)
+    expect(showUnverifiedBadge({}, true)).toBe(true) // verified undefined → pending
+    expect(showUnverifiedBadge({ verified: true }, true)).toBe(false)
+    expect(showUnverifiedBadge({ verified: false }, false)).toBe(false) // public: no marker
+    expect(showUnverifiedBadge(null, true)).toBe(false)
+  })
+  it('is the exact complement of showVerifiedBadge for a logged-in viewer', () => {
+    for (const song of [{ verified: true }, { verified: false }, {}]) {
+      expect(showVerifiedBadge(song, true)).toBe(!showUnverifiedBadge(song, true))
+    }
+  })
+})
+
+describe('verifiedProgress', () => {
+  it('counts verified vs total over a list', () => {
+    const list = [{ verified: true }, { verified: false }, {}, { verified: true }]
+    expect(verifiedProgress(list)).toEqual({ verified: 2, total: 4 })
+  })
+  it('no throw on empty/undefined/garbage', () => {
+    expect(verifiedProgress([])).toEqual({ verified: 0, total: 0 })
+    expect(verifiedProgress(undefined)).toEqual({ verified: 0, total: 0 })
+    expect(verifiedProgress([null, undefined])).toEqual({ verified: 0, total: 2 })
   })
 })

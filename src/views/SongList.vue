@@ -5,7 +5,15 @@ import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { filterSongs, snippet, normalize } from '../lib/songSearch.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
-import { orderedBooks, songsInBook, visibleSongs, showVerifiedBadge, FALLBACK_KEY } from '../lib/bookshelf.js'
+import {
+  orderedBooks,
+  songsInBook,
+  visibleSongs,
+  showVerifiedBadge,
+  showUnverifiedBadge,
+  verifiedProgress,
+  FALLBACK_KEY,
+} from '../lib/bookshelf.js'
 import { session } from '../store.js'
 
 const router = useRouter()
@@ -56,6 +64,12 @@ function flagTitle(s) {
 // search all agree (public sees only verified songs; team sees all). Separate layer from
 // the grouping (can ship independently).
 const shownSongs = computed(() => visibleSongs(songs.value, loggedIn.value))
+
+// review progress (team only) — "ตรวจแล้ว X / ทั้งหมด Y". Overall across the library for the
+// landing; per-book for the in-book view. Public never sees these (they see only verified),
+// so the templates gate the display on loggedIn.
+const progress = computed(() => verifiedProgress(shownSongs.value))
+const bookProgress = computed(() => verifiedProgress(inBook.value))
 
 // ---- bookshelf derivations (pure logic in lib/bookshelf.js, unit-tested there) ----
 // grouped by `category` (real books); each entry = { code, name, count, fallback }.
@@ -156,6 +170,7 @@ onMounted(async () => {
             <span class="head-tags">
               <span v-if="loggedIn && flagCount(s)" class="badge warn" :title="flagTitle(s)">⚠️ ต้องตรวจ</span>
               <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok" title="ตรวจแล้ว">✓ ตรวจแล้ว</span>
+              <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending" title="ยังไม่ตรวจ">ยังไม่ตรวจ</span>
               <span class="key-chip">Key {{ s.content.key }}</span>
             </span>
           </div>
@@ -177,6 +192,9 @@ onMounted(async () => {
       <div class="level-head">
         <h2>{{ activeBookMeta ? activeBookMeta.name : '' }}</h2>
         <span class="count muted">{{ inBook.length }} เพลง</span>
+        <span v-if="loggedIn" class="count progress" aria-live="polite">
+          ✓ ตรวจแล้ว {{ bookProgress.verified }} / {{ bookProgress.total }}
+        </span>
       </div>
       <div class="song-list">
         <router-link
@@ -187,6 +205,8 @@ onMounted(async () => {
         >
           <span class="no">{{ s.number != null ? s.number : '–' }}</span>
           <span class="ttl">{{ s.title_th }}</span>
+          <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok row-status" title="ตรวจแล้ว">✓ ตรวจแล้ว</span>
+          <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending row-status" title="ยังไม่ตรวจ">ยังไม่ตรวจ</span>
           <!-- book_refs = reference tag ("เล่มเล็ก 282"). Kept title-first: shown only where
                the row is wide enough (≥640px) so it never crushes the title into a sliver on
                a phone. Full list also lives on the search card + the song page. -->
@@ -206,6 +226,9 @@ onMounted(async () => {
       <div class="level-head">
         <h2>เลือกเล่ม</h2>
         <span class="count muted">{{ shelf.length }} เล่ม</span>
+        <span v-if="loggedIn" class="count progress" aria-live="polite">
+          ✓ ตรวจแล้ว {{ progress.verified }} / ทั้งหมด {{ progress.total }}
+        </span>
       </div>
       <div class="book-grid">
         <button
@@ -264,6 +287,8 @@ onMounted(async () => {
 }
 .level-head h2 { font-size: var(--fs-xl); color: var(--brand); line-height: var(--lh-snug); }
 .level-head .count { font-size: var(--fs-sm); }
+/* review-progress tally (team only) — green to echo the ✓ ตรวจแล้ว badge */
+.level-head .progress { color: #2e6b3b; font-weight: 600; }
 .crumb {
   display: inline-flex;
   align-items: center;
@@ -407,6 +432,9 @@ onMounted(async () => {
   white-space: nowrap;
   flex: 0 0 auto;
 }
+/* verified/pending marker on an in-book row — the title (flex 1, ellipsis) yields space to
+   it, so it stays whole at 360px while the title truncates. Team-only (v-if loggedIn). */
+.song-row .row-status { flex: 0 0 auto; }
 
 /* ---- SEARCH results: reuse the existing card treatment (refine, not rewrite) ---- */
 .song-grid {
@@ -446,6 +474,9 @@ onMounted(async () => {
 /* semantic status colours (warn/ok) — not theme tokens; kept as-is from the catalog merge */
 .badge.warn { background: #fdecea; color: #9c3b2e; border: 1px solid #f0b8ae; }
 .badge.ok { background: #e7f4e9; color: #2e6b3b; border: 1px solid #b7ddbf; }
+/* "ยังไม่ตรวจ" = neutral grey (not alarming red — a song simply awaits review, it isn't
+   broken). Slate on a light-grey chip; contrast ≥ 7:1 so it reads on the warm cream page. */
+.badge.pending { background: #eef0f2; color: #4a4f57; border: 1px solid #cfd4da; }
 .key-chip {
   background: var(--cream);
   border: 1px solid var(--line);

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ป้ายสถานะ "ตรวจแล้ว/ยังไม่ตรวจ" — 2 สถานะ</title>
+<style>
+  /* Real theme-token values captured live from the running app (getComputedStyle on :root).
+     The badge/row/progress CSS below is copied verbatim from src/views/SongList.vue so this
+     page renders EXACTLY what the app renders. Song titles are the real อนุชน book rows. */
+  :root {
+    --brand:#8b4513; --ink:#2d2a26; --muted:#757575; --line:#e0d6c8;
+    --cream:#faf6f0; --cream-hover:#f7f1e8; --bg:#ffffff;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px;
+    --fs-xs:0.78rem; --fs-sm:0.9rem; --fs-base:1.125rem; --fs-lg:1.15rem; --fs-xl:1.4rem;
+    --lh-snug:1.4; --touch-min:44px;
+  }
+  * { box-sizing:border-box; }
+  body { font-family:"Noto Sans","Noto Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--ink); background:#efe7db; margin:0; padding:24px; }
+  h1 { font-size:1.3rem; color:var(--brand); }
+  .cap { color:#555; font-size:.9rem; margin:-6px 0 18px; }
+  .panels { display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; }
+  .phone { width:360px; background:var(--bg); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,.08); }
+  .phone h2 { font-size:.95rem; margin:0 0 4px; color:#333; }
+  .phone .sub { font-size:.78rem; color:#888; margin:0 0 14px; }
+
+  /* ---- copied from SongList.vue ---- */
+  .level-head { display:flex; align-items:baseline; gap:var(--sp-3); flex-wrap:wrap; margin:0 0 var(--sp-4); }
+  .level-head h3 { font-size:var(--fs-xl); color:var(--brand); line-height:var(--lh-snug); margin:0; }
+  .level-head .count { font-size:var(--fs-sm); color:var(--muted); }
+  .level-head .progress { color:#2e6b3b; font-weight:600; }
+
+  .song-list { display:flex; flex-direction:column; gap:var(--sp-1); }
+  .song-row { display:flex; align-items:center; gap:var(--sp-3); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:var(--sp-3) var(--sp-4); color:var(--ink); text-decoration:none; min-height:var(--touch-min); }
+  .song-row .no { min-width:2.4em; text-align:right; color:var(--brand); font-weight:700; font-variant-numeric:tabular-nums; flex:0 0 auto; }
+  .song-row .ttl { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .song-row .row-status { flex:0 0 auto; }
+  .song-row .key { color:var(--muted); font-size:var(--fs-xs); border:1px solid var(--line); border-radius:12px; padding:1px var(--sp-2); white-space:nowrap; flex:0 0 auto; }
+
+  .badge { border-radius:12px; padding:1px var(--sp-2); font-size:var(--fs-xs); white-space:nowrap; }
+  .badge.ok { background:#e7f4e9; color:#2e6b3b; border:1px solid #b7ddbf; }
+  .badge.pending { background:#eef0f2; color:#4a4f57; border:1px solid #cfd4da; }
+
+  /* search card */
+  .song-card { display:block; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:10px; }
+  .song-card-head { display:flex; justify-content:space-between; align-items:baseline; gap:var(--sp-2); }
+  .song-title { color:var(--brand); font-size:var(--fs-lg); line-height:var(--lh-snug); font-weight:700; }
+  .head-tags { display:flex; align-items:center; gap:var(--sp-1); flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end; }
+  .key-chip { background:var(--cream); border:1px solid var(--line); border-radius:12px; padding:1px var(--sp-3); font-size:var(--fs-xs); color:var(--muted); white-space:nowrap; }
+</style>
+</head>
+<body>
+  <h1>ป้ายสถานะ "ตรวจแล้ว / ยังไม่ตรวจ" ในรายการเพลง — 2 สถานะ</h1>
+  <p class="cap">โทเคนสี + CSS คัดลอกตรงจาก <code>src/views/SongList.vue</code> · ชื่อเพลงจริงจากเล่ม "อนุชน" · แสดงที่กว้าง 360px</p>
+
+  <div class="panels">
+    <!-- STATE 1: PUBLIC (logged out) -->
+    <div class="phone">
+      <h2>สถานะ 1 · ผู้ใช้ทั่วไป (ไม่ล็อกอิน)</h2>
+      <p class="sub">ไม่เห็นป้าย · ไม่เห็นตัวนับ · เห็นเฉพาะเพลงที่ตรวจแล้ว</p>
+      <div class="level-head">
+        <h3>อนุชน</h3>
+        <span class="count">8 เพลง</span>
+      </div>
+      <div class="song-list">
+        <div class="song-row"><span class="no">1</span><span class="ttl">พระเจ้าเป็นความรัก</span><span class="key">คีย์ E</span></div>
+        <div class="song-row"><span class="no">3</span><span class="ttl">ในโลกนี้</span><span class="key">คีย์ C</span></div>
+        <div class="song-row"><span class="no">5</span><span class="ttl">ดอกไม้ในป่า</span><span class="key">คีย์ A</span></div>
+        <div class="song-row"><span class="no">11</span><span class="ttl">ขอบพระคุณ</span><span class="key">คีย์ C</span></div>
+      </div>
+    </div>
+
+    <!-- STATE 2: TEAM (logged in) -->
+    <div class="phone">
+      <h2>สถานะ 2 · ทีมล็อกอิน</h2>
+      <p class="sub">เห็นป้ายทุกเพลง (✓ เขียว / ยังไม่ตรวจ เทา) + ตัวนับความคืบหน้า · เห็นครบทุกเพลง</p>
+      <div class="level-head">
+        <h3>อนุชน</h3>
+        <span class="count">121 เพลง</span>
+        <span class="count progress">✓ ตรวจแล้ว 61 / 121</span>
+      </div>
+      <div class="song-list">
+        <div class="song-row"><span class="no">1</span><span class="ttl">พระเจ้าเป็นความรัก</span><span class="badge ok row-status">✓ ตรวจแล้ว</span><span class="key">คีย์ E</span></div>
+        <div class="song-row"><span class="no">2</span><span class="ttl">ของขวัญ</span><span class="badge pending row-status">ยังไม่ตรวจ</span><span class="key">คีย์ G</span></div>
+        <div class="song-row"><span class="no">3</span><span class="ttl">ในโลกนี้</span><span class="badge ok row-status">✓ ตรวจแล้ว</span><span class="key">คีย์ C</span></div>
+        <div class="song-row"><span class="no">4</span><span class="ttl">พระเยซูเข้าสู่ใจข้า</span><span class="badge pending row-status">ยังไม่ตรวจ</span><span class="key">คีย์ C</span></div>
+        <div class="song-row"><span class="no">5</span><span class="ttl">ดอกไม้ในป่า</span><span class="badge ok row-status">✓ ตรวจแล้ว</span><span class="key">คีย์ A</span></div>
+        <div class="song-row"><span class="no">6</span><span class="ttl">ข้าได้ยินเสียงพระเยซูตรัส</span><span class="badge pending row-status">ยังไม่ตรวจ</span><span class="key">คีย์ D</span></div>
+      </div>
+    </div>
+
+    <!-- STATE 2b: search card + landing progress -->
+    <div class="phone">
+      <h2>สถานะ 2 (ต่อ) · การ์ดค้นหา + หน้าเลือกเล่ม</h2>
+      <p class="sub">ป้ายเดียวกันบนการ์ดผลค้นหา · ตัวนับรวมบนหน้าเลือกเล่ม</p>
+      <div class="level-head">
+        <h3>เลือกเล่ม</h3>
+        <span class="count">3 เล่ม</span>
+        <span class="count progress">✓ ตรวจแล้ว 62 / ทั้งหมด 124</span>
+      </div>
+      <div class="song-card">
+        <div class="song-card-head">
+          <strong class="song-title">1. พระเจ้าเป็นความรัก</strong>
+          <span class="head-tags"><span class="badge ok">✓ ตรวจแล้ว</span><span class="key-chip">Key E</span></span>
+        </div>
+      </div>
+      <div class="song-card">
+        <div class="song-card-head">
+          <strong class="song-title">2. ของขวัญ</strong>
+          <span class="head-tags"><span class="badge pending">ยังไม่ตรวจ</span><span class="key-chip">Key G</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
