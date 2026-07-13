@@ -20,6 +20,7 @@
 - 1.3 = รับความเสี่ยง client-side filter ไว้ก่อน (ไม่ทำ) ✅ เคาะแล้ว
 
 - **[เลน 6] ป้ายสถานะ ✓ตรวจแล้ว/ยัง ในรายการเพลง — 🔵 re-dispatch แล้ว** `task_6d711e84` (P'Aim "go" 13 ก.ค. · task เดิม `5d4f34d6` เป็นตัวหลอก ไม่เคยทำ) · brief เดิม `docs/pm/brief-review-status-badge.md` (ครบ) · ป้ายต่อเพลงใน `SongList.vue` เห็นเฉพาะทีม + นับ progress · ช่วยติดตามรีวิว 124 เพลง (ปลด GATE) · คนละไฟล์ ไม่ชนใคร
+- **[เลน 7] 🎹 ทำเพลงให้เพราะ (เสียงเปียโนเดี่ยว · ต่อยอด B107) — 🔵 เปิด session แล้ว** `task_4c4808d8` · **P'Aim สั่งให้ PM รู้ด้วย (เกาะติดผ่าน inbox)** · brief `docs/pm/brief-audio-piano-quality.md` (checklist P'Aim: Dynamic Weight/Melodic Contour/Humanize±6%±12ms/Pedal Bass/Felt 1.5kHz/toggle + ไอเดียใหม่ embellishment/add9-maj7/rubato) · **operating: P'Aim iterate ตรงกับ SA เสียง · PM เข้าตอน merge+publish+QA** (memory `feedback_paim_direct_sa_creative`) · งานแรก = audit ของเดิมเทียบ checklist A · ห้าม merge/deploy
 
 **📋 to-do พี่เปา (root · ยังไม่จ่าย · §🐞):** issues4 (โครงเพลง▾) · ~~issues5~~ → เข้า spec notation แล้ว · issues6 (คลิก preview→แก้ไข) · issues7 (ใหม่ · ยังไม่ triage)
 
