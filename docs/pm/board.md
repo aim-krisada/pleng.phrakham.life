@@ -132,6 +132,8 @@ main = `509195c` · **นโยบายใหม่: PM deploy ทีละ fix
 - ทุก P'Aim example → กฎใน `ui-standards.md`/checklist (tester ดักครั้งหน้า) · แก้ที่ process ไม่โทษคน
 
 ## roster / routing (session id)
+- **⚠️ IP เครื่องเปลี่ยน 13 ก.ค. → `10.152.249.98`** (เดิม 192.168.1.173 ตาย) · launch server `http://10.152.249.98:5313/` · icon preview `http://10.152.249.98:5312/docs/spikes/violin-cello-icons.html`
+- **SA (ออกแบบดนตรี) หมุน session ใหม่ 13 ก.ค.** (context เต็ม · P'Aim orchestrate handoff) · **SSOT ต่อ = `docs/reports/b107-p2-sa-handoff.md`** (บน base แล้ว) + spec `docs/ds/instrument-arranger-p2.md` §6b.2 + branch `b107-p2-design` (living) · session ใหม่ยังไม่รู้ id → PM route ตอน ping/board inbox · งาน SA ที่เหลือ = จูนค่า ensemble ด้วยหู (ไม่บล็อก launch · tester PASS แล้ว)
 - **ไม่มี session ค้าง (archived หมด 12 ก.ค.)** — งานขึ้น live รอบ 7-10 ครบ, branch+commit ยังอยู่ใน git
 - **ทุกงานใหม่ = spawn worktree + session ใหม่** (1 งาน = 1 worktree = 1 branch ตามหลักบอร์ด) · ไม่ปลุก session เก่า
 - ข้อยกเว้น: import เล่มใหญ่ `local_9f147e9d` (⏸️ พัก) — ถ้ายังไม่ archive ปลุกต่อได้ ไม่งั้น spawn ใหม่จาก report `hymnal-import.md`
