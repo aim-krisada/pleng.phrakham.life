@@ -312,9 +312,6 @@ main.container { flex: 1 0 auto; }
 .sb-dropdown a:focus-visible,
 .sb-item:focus-visible { background: rgba(139, 69, 19, 0.1); outline: none; }
 .sb-dropdown .icn { color: var(--brand); }
-/* phrakham.life link uses its raster logo (favicon.ico) — size + block layout matches the
-   18px line-icons so the label baseline lines up with the other menu rows. */
-.sb-brand-ico { display: block; flex: 0 0 auto; width: 18px; height: 18px; object-fit: contain; }
 /* Brand swaps per width (phrakham parity): DESKTOP = name only (icon hidden); MOBILE = the
    app icon only (name hidden). Rules here are the desktop default; the mobile @media flips. */
 .sb-app-ico { display: none; flex: 0 0 auto; width: 28px; height: 28px; border-radius: 7px; object-fit: contain; }
@@ -387,7 +384,6 @@ main.container { flex: 1 0 auto; }
 }
 .sb-drawer-nav a.here { color: var(--brand); font-weight: 700; }
 .sb-drawer-nav a:hover { background: rgba(139, 69, 19, 0.08); }
-.sb-drawer-nav .icn { color: var(--brand); }
 .sb-drawer-sep { border-top: 1px solid var(--line); margin: var(--sp-2) 0; }
 .sb-drawer-lbl { font-size: var(--fs-xs); color: var(--muted); font-weight: 700; padding: 0 2px var(--sp-1); }
 .sb-drawer-tools { display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -438,8 +434,8 @@ main.container { flex: 1 0 auto; }
   .sb-text:hover { background: rgba(0, 0, 0, 0.06); }
 }
 /* the off-canvas drawer only exists on mobile; guard against a resize-while-open showing it */
-@media (min-width: 768px) { .sb-drawer { display: none; } }
-@media (max-width: 767px) {
+@media (min-width: 992px) { .sb-drawer { display: none; } }
+@media (max-width: 991.98px) {
   /* phrakham parity (P'Aim 13 ก.ค.): app ICON left (no name) · 🔍 + ☰ right; nav + tools move
      into the ☰ drawer. Studio's teleported #shell-menus still drops to a 2nd row below. */
   .shell-bar { gap: var(--sp-1) 6px; padding: var(--sp-2); flex-wrap: wrap; }

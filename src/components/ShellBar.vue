@@ -18,10 +18,6 @@ import Icon from './Icon.vue'
 defineProps({ title: { type: String, default: '' } })
 const route = useRoute()
 const router = useRouter()
-// The phrakham.life link shows that site's own logo (public/phrakham.ico — the phrakham.life2
-// favicon). BASE_URL keeps it resolving on both the custom domain (/) and the GitHub Pages
-// project path (/repo/).
-const brandIcon = import.meta.env.BASE_URL + 'phrakham.ico'
 // App icon shown as the whole brand on mobile (phrakham-style top-left app mark). P'Aim's
 // 192px glowing-book icon; BASE_URL keeps it resolving on both hosts.
 const appIcon = import.meta.env.BASE_URL + 'android-chrome-192x192.png'
@@ -118,11 +114,14 @@ async function goSearch() {
 
     <!-- Mobile drawer (slide-in from the right): nav links + เครื่องมือ (font + login). -->
     <aside v-if="shellMenu === 'site'" class="sb-drawer" role="dialog" aria-label="เมนู">
+      <!-- Nav links = text only (design-system SSOT docs/ds/menu-drawer-spec.md §2: ไม่มีไอคอนหน้า).
+           Desktop .sb-nav is already text-only; this mirrors it in the drawer. ↗ on พระคำ.ชีวิต is a
+           text external-link marker (same as desktop .sb-ext), not a leading icon. -->
       <nav class="sb-drawer-nav" @click="closeMenus">
-        <router-link to="/" :class="{ here: route.path === '/' }"><Icon name="list-music" :size="18" /> รายการเพลง</router-link>
-        <router-link to="/guide" :class="{ here: route.path === '/guide' }"><Icon name="book-open" :size="18" /> คู่มือ</router-link>
-        <a href="https://phrakham.life"><img class="sb-brand-ico" :src="brandIcon" alt="" width="18" height="18" /> พระคำ.ชีวิต <span class="sb-k">↗</span></a>
-        <router-link to="/about" :class="{ here: route.path === '/about' }"><Icon name="info" :size="18" /> เกี่ยวกับเรา</router-link>
+        <router-link to="/" :class="{ here: route.path === '/' }">รายการเพลง</router-link>
+        <router-link to="/guide" :class="{ here: route.path === '/guide' }">คู่มือ</router-link>
+        <a href="https://phrakham.life">พระคำ.ชีวิต <span class="sb-k">↗</span></a>
+        <router-link to="/about" :class="{ here: route.path === '/about' }">เกี่ยวกับเรา</router-link>
       </nav>
       <div class="sb-drawer-sep" role="separator"></div>
       <div class="sb-drawer-tools">
