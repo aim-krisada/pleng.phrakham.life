@@ -56,10 +56,9 @@
   <div class="row"><label>ทำนอง (พระเอก)</label><input type="range" id="melVol" min="40" max="140" value="100"><span class="val" id="melV">100</span></div>
   <div class="row"><label>ไล่คอร์ด (เปียโน)</label><input type="range" id="compVol" min="10" max="120" value="60"><span class="val" id="compV">60</span></div>
   <div class="row"><label>เบส (เชลโล)</label><input type="range" id="bassVol" min="10" max="130" value="72"><span class="val" id="bassV">72</span></div>
-  <div class="row"><label>สายเอ่อ (ท่อนหลัง)</label><input type="range" id="padVol" min="0" max="120" value="55"><span class="val" id="padV">55</span></div>
   <div class="row"><label>เสียงก้อง</label><input type="range" id="rev" min="0" max="100" value="30"><span class="val" id="revV">30</span></div>
   <div class="row"><label>ความเร็ว (BPM)</label><input type="range" id="bpm" min="54" max="92" value="68"><span class="val" id="bpmV">68</span></div>
-  <p class="hint">กฎ 3 ชั้นเปิด: เปียโนอยู่หน้า · สาย/เชลโลอยู่หลัง (reverb) · verse โปร่ง → chorus สายเอ่อล้น · humanize อัตโนมัติ</p>
+  <p class="hint">ตัดสายค้าง (pad) ออกแล้ว = ไม่มีออร์แกน · เต็มวง = เปียโน (นำ+ไล่คอร์ด) + เชลโลเบส + ไวโอลินสีทำนอง (โหมดไวโอลินนำ) · verse โปร่ง→chorus โต · humanize</p>
 </div>
 
 <script type="module">
@@ -164,7 +163,7 @@ async function play(){
   document.getElementById('play').disabled=false; if(my!==gen)return;
   setStatus('✅ เล่นด้วยเสียงจริงทั้งวง (เปียโน + เชลโล + ไวโอลิน · CC)');
 
-  const melVol=(+melV.value)/100, compVol=(+compV.value)/100, bassVol=(+bassV.value)/100, padVol=(+padV.value)/100;
+  const melVol=(+melV.value)/100, compVol=(+compV.value)/100, bassVol=(+bassV.value)/100;
   const rv=(+revEl.value)/100; revNearG.gain.value=rv*0.8; revFarG.gain.value=rv*1.0;
   const bpm=+bpmEl.value, spb=60/bpm; prevUp=null;
   const t0=ctx.currentTime+0.25, rnd=()=>(Math.random()-0.5)*2, TJ=0.012, VJ=0.06;
@@ -201,17 +200,15 @@ async function play(){
     if(longHold){ gr(v.up[1]??v.up[0], bT+nb*spb*0.5, spb*0.9, ag*0.95);
       const top=v.up[0]+12; if(top<=86) gr(top, bT+nb*spb*0.62, spb*0.8, ag*0.7); }
 
-    // FOUNDATION violin wash — CHORUS only, WAY back. THIN (1 top note, not a full chord = not an
-    // organ wall) · SOFT · BREATHING (short-ish so it swells in and fades, not a sustained drone).
-    if(s==='chorus'){ const pg=0.028*padVol*sg; const top=v.up[v.up.length-1];
-      const pdur=Math.min(nb*spb, 2.3); // breathe: swell in & fade out, don't hold a wall
-      playOgg('violin','violin', top, bT+Math.random()*0.02, pdur, pg*a); }
+    // NO sustained string PAD (P'Aim ทาง 1): a held violin chord = the organ wall. Violin is used
+    // ONLY as a melodic LEAD line (violin-lead mode), never as a held pad. Ensemble = piano trio:
+    // piano (melody+arp) + cello (bass). Chorus grows via section dynamics + role-prominence, not a pad.
   }
   setNow('▶ เต็มวง · '+(LEAD==='piano'?'เปียโนนำ':'ไวโอลินนำ')+' · '+(GREEN?'✅ 2 กฎเปิด (verse→chorus โต + หลบพระเอก)':'ปิด (แบบเดิม เท่ากันทั้งเพลง)'));
 }
 
 const melV=document.getElementById('melVol'),compV=document.getElementById('compVol'),bassV=document.getElementById('bassVol'),
-  padV=document.getElementById('padVol'),revEl=document.getElementById('rev'),bpmEl=document.getElementById('bpm');
+  revEl=document.getElementById("rev"),bpmEl=document.getElementById("bpm");
 document.querySelectorAll('#leadOpts .opt').forEach(o=> o.addEventListener('click',()=>{
   LEAD=o.dataset.lead; document.querySelectorAll('#leadOpts .opt').forEach(x=>x.classList.toggle('sel',x===o)); }));
 document.querySelectorAll('#grOpts .opt').forEach(o=> o.addEventListener('click',()=>{
@@ -219,7 +216,7 @@ document.querySelectorAll('#grOpts .opt').forEach(o=> o.addEventListener('click'
 document.getElementById('play').addEventListener('click',()=> play().catch(e=>setStatus('⚠️ '+e.message)));
 document.getElementById('stop').addEventListener('click',()=>{ stopAll(); setNow(''); setStatus('■ หยุดแล้ว'); });
 const bind=(el,l)=>{ const o=document.getElementById(l); const u=()=>o.textContent=el.value; el.addEventListener('input',u); u(); };
-bind(melV,'melV'); bind(compV,'compV'); bind(bassV,'bassV'); bind(padV,'padV'); bind(revEl,'revV'); bind(bpmEl,'bpmV');
+bind(melV,'melV'); bind(compV,'compV'); bind(bassV,'bassV'); bind(revEl,'revV'); bind(bpmEl,'bpmV');
 </script>
 </body>
 </html>
