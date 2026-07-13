@@ -132,7 +132,7 @@ main = `509195c` · **นโยบายใหม่: PM deploy ทีละ fix
 - ทุก P'Aim example → กฎใน `ui-standards.md`/checklist (tester ดักครั้งหน้า) · แก้ที่ process ไม่โทษคน
 
 ## roster / routing (session id)
-- **⚠️ IP เครื่องเปลี่ยน 13 ก.ค. → `10.152.249.98`** (เดิม 192.168.1.173 ตาย) · launch server `http://10.152.249.98:5313/` · icon preview `http://10.152.249.98:5312/docs/spikes/violin-cello-icons.html`
+- **⚠️ IP เปลี่ยนบ่อย (เน็ตสลับวง) — ล่าสุด `192.168.1.173`** (เช็กทุกครั้งก่อนส่ง URL: `Get-NetIPAddress`) · launch server `http://192.168.1.173:5313/` (5313 ยังรัน)
 - **SA หมุน session ใหม่ 13 ก.ค.** → **spawn SA ใหม่แล้ว (`task_29d5864f` · brief `brief-ensemble-option1-sa.md`)** · SSOT `b107-p2-sa-handoff.md` + spec §6b.2 + branch `b107-p2-design`
   - **✅ เต็มวง Option 1 — P'Aim SIGN-OFF ("ดีพอสำหรับ 1st release")** · SA ล็อกสูตร §6b.2 (`04ff089` · บน base `0f2cabc`) · ตัด pad + violinFill (call-response b≥2.5 · 71-86 · g0.21) + violinCounter (chorus offbeat · 74-86 · g0.14) · balance เปียโน −7.3/ไวโอลิน −16.6/เชลโล −23.1
   - **→ จ่าย dev อัปเต็มวง Option 1 แล้ว** (`local_3fc2030f` · branch `b107-step9-instruments` · แทน ensemble เดิมที่มี pad) → verify LIVE `window.__peaks()` 3-role · ไวโอลินใต้เปียโน · ไม่มี pad → **tester re-gate เต็มวง → P'Aim final → deploy 3 โหมดวันนี้**
