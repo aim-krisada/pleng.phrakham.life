@@ -10,11 +10,6 @@ import { session } from '../store.js'
 
 const router = useRouter()
 
-// Landing hero art (public/ assets). BASE_URL keeps them resolving on both the custom domain
-// and the GitHub Pages project path.
-const heroWebp = import.meta.env.BASE_URL + 'pleng-hero.webp'
-const heroPng = import.meta.env.BASE_URL + 'pleng-hero.png'
-
 // public (anon) vs logged-in team. Drives the verified-only gate + the QA badge visibility.
 const loggedIn = computed(() => !!session.value)
 
@@ -208,13 +203,6 @@ onMounted(async () => {
 
     <!-- ===== LEVEL 1 · bookshelf (landing) ===== -->
     <section v-else>
-      <!-- Warm welcome hero (P'Aim's glowing-book art). Landing only — it never shows while
-           searching or drilled into a book, so the utility search path stays fast. webp is
-           the primary (~180KB); png is the fallback for browsers without webp. -->
-      <picture class="hero">
-        <source :srcset="heroWebp" type="image/webp" />
-        <img :src="heroPng" alt="หนังสือเพลงเปิดอยู่ มีโน้ตดนตรีสีทองลอยขึ้น" width="2752" height="1536" />
-      </picture>
       <div class="level-head">
         <h2>เลือกเล่ม</h2>
         <span class="count muted">{{ shelf.length }} เล่ม</span>
@@ -248,24 +236,6 @@ onMounted(async () => {
    --touch-min from styles.css). No hard-coded px for rhythm; focusable form
    controls stay >= --fs-base so iOS Safari never zoom-on-focus, and every
    interactive target is >= --touch-min (44px) tall (WCAG 2.5.5 / 2.5.8). */
-
-/* landing hero — full-width, rounded, capped height so it welcomes without pushing the
-   bookshelf far down. aspect-ratio holds the box before the image loads (no layout shift). */
-.hero {
-  display: block;
-  margin: 0 0 var(--sp-5);
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-}
-.hero img {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 320px;
-  object-fit: cover;
-  aspect-ratio: 2752 / 1536;
-}
 
 .search-block { margin-bottom: var(--sp-5); }
 .search-hint { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); }

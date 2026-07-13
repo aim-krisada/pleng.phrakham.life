@@ -7,6 +7,7 @@ defineProps({
 })
 const ICONS = {
   menu: '<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
   'chevron-down': '<path d="m6 9 6 6 6-6"/>',
   music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
   // B107 step 9 — the "เสียงดนตรี" dock button + the per-instrument/mode glyphs (P'Aim 13 ก.ค.)

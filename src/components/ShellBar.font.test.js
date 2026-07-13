@@ -1,10 +1,14 @@
-// Per-user Thai typeface toggle (มีหัว / ไม่มีหัว) in the site (brand ▾) menu. Each browser
-// keeps its own choice (store.siteFont · localStorage), applied by data-font on <html>.
+// Per-user Thai typeface toggle (มีหัว / ไม่มีหัว) in the ⚙ settings popover (desktop; the
+// same control also lives in the mobile ☰ drawer). Each browser keeps its own choice
+// (store.siteFont · localStorage), applied by data-font on <html>.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
-vi.mock('vue-router', () => ({ useRoute: () => ({ path: '/' }) }))
+vi.mock('vue-router', () => ({
+  useRoute: () => ({ path: '/' }),
+  useRouter: () => ({ push: vi.fn() }),
+}))
 
 import ShellBar from './ShellBar.vue'
 import { shellMenu, siteFont, setSiteFont } from '../store.js'
@@ -17,7 +21,8 @@ const stubs = {
 
 async function openMenu() {
   const w = mount(ShellBar, { global: { stubs } })
-  await w.find('.sb-caret').trigger('click')
+  // ⚙ settings button (desktop tools cluster) opens the ตัวอักษรไทย popover
+  await w.find('.sb-settings .sb-icon-btn').trigger('click')
   await nextTick()
   return w
 }
