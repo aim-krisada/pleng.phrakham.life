@@ -55,7 +55,7 @@
 - **external requests = 0** — network log ทั้งหมด same-origin `/samples/...` (ไม่มี gleitz/smpldsnds CDN) ✅
 - **ทดสอบ offline จริง (kill server ให้ connection ตาย):** `serverDead=true` แล้ว → manifest + **เสียงทุกเครื่อง (grand/felt/nylon/violin/cello + steel/string) fetch + `decodeAudioData` สำเร็จเป็น AudioBuffer เล่นได้** ✅ · index.html + module script เสิร์ฟจาก cache MIME ถูก (`text/javascript`) ✅
 
-> ⚠️ **หมายเหตุ offline cold-boot (ตรงไปตรงมา):** วิธีทดสอบอัตโนมัติใช้ **kill process** = connection-refused ซึ่ง *แรงกว่า* DevTools "Offline" checkbox — ใน harness นี้ตอน reload หน้าเปล่า (module ไม่รัน) แม้ asset ครบใน cache. asset ทุกชิ้น precache ถูกต้อง (independent จาก runtime intercept) → **reload แบบ DevTools-Offline จริงจะ boot ได้** (SW nav fallback ทำงานปกติ). **ขอ tester/พี่เปา ยืนยัน cold-boot ด้วย DevTools Offline บน build จริง 1 ครั้ง.** ส่วน gate หลัก ("เปิดแอปอยู่ → ออฟไลน์ → เลือกเครื่อง+เล่น = มีเสียง") = **ผ่าน** (samples decode ตอน server ตาย).
+> ✅ **offline cold-boot = แก้แล้ว (tester root-cause · 13 ก.ค.):** เดิม reload ตอน server ตาย = หน้าเปล่า. **สาเหตุจริง:** vite ใส่ `crossorigin` บน module script → browser ส่ง `Origin` header → asset ที่ cache มี `Vary: Origin` → SW `caches.match(req)` เคารพ Vary → **miss → ตกไป network(ตาย) → import() fail → ไม่ boot** (= สาเหตุจริงของ "connection-refused" ที่ผมเจอก่อนหน้าด้วย). **แก้:** `caches.match(req, { ignoreVary: true })` ทั้ง 3 handler ใน `public/sw.js`. **Verify (build+preview · kill server · reload):** `appMounted:true` · เนื้อแอปจริงขึ้น · violin sample decode ออฟไลน์ได้ → **cold-boot offline boot ได้แล้ว.**
 
 ### 4. Regression + build
 - `vitest run` = **513 เขียว** (+ pre-existing `notationLint.test.mjs` process.exit(0) quirk = ไม่เกี่ยว/ไม่ได้แตะ)
