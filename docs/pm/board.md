@@ -16,6 +16,11 @@
 - **▶ งาน PM ถัดไป:** พอ hero/favicon เสร็จ + verify 2 อันบน → **batch: gate → merge โค้ด (ไม่เอา noise) เข้า base → deploy รวม** (parity+bug+hero) · แล้วค่อยจ่าย menu Dev (หลัง hero/favicon land)
 - **นโยบาย deploy:** P'Aim อยาก batch รวม (parity+hero/favicon) · ยังไม่มี go deploy — **ห้าม deploy จน P'Aim สั่ง**
 
+**🚀 DEPLOY กำลังเตรียม (pm22 · P'Aim สั่ง deploy ของที่เสร็จก่อน):**
+- **merge 5 อันเข้า base แล้ว** (commit บน `studio-shell-redesign` · เอาเฉพาะ 8 ไฟล์โค้ด: styles.css/Guide/About/NoteRow/SongSheet/NoteRow.test/EditorMode/midi.js · ไม่เอา launch.json/board.md ที่พ่วง) · **522 tests ผ่าน + build ok**
+- **serve base: http://192.168.1.124:5350/** (bg `bg281b8zj`) — รอ P'Aim verify + go
+- **⚠️ ก่อน push main:** notation (tie/beaming) พี่เปายังไม่ verify look/print — ถ้า P'Aim อยาก hold 2 อันนี้ = revert NoteRow.vue/SongSheet.vue ก่อน push · **ยังไม่ push main จน P'Aim go**
+
 **⏸️ PAUSE/HANDOFF (pm22 · quota ส่วนตัว 97% weekly → ย้ายบัญชีบริษัท):**
 - **ทุกสาย idle (isRunning=false) — ไม่มีการเผา token · worktree อยู่บนดิสก์ + context สายเก่าคงอยู่ → ไม่ต้องสั่งหยุด/ปลุก** (ปลุกต่อทีหลังได้ไร้รอยต่อ)
 - **pm23 resume เรียงเล็ก→ใหญ่:** (1) gate+merge 4 สายเสร็จ [issues3 1ไฟล์ · repeat 1ไฟล์ · issues1 2ไฟล์ · parity ผ่าน Tester 3ไฟล์] — merge เฉพาะไฟล์โค้ด (ไม่เอา launch.json/board.md ที่พ่วง) → (2) hero/favicon `local_cfd288df` **เงียบตั้งแต่ 10:01 · เช็กก่อนว่าติด login ไหม** → (3) issues2 beaming ✅ **เสร็จแล้ว (NoteRow.vue · zero data migration)** รอแค่พี่เปา verify look+print → merge รวม tie Dev branch → (4) menu Dev (หลัง hero/favicon land) · **หมายเหตุ: tie Dev branch `brave-pasteur` มี issues1(fe8991b)+issues2(d90acbb) 2 commit — merge ได้ทั้งคู่ (NoteRow/SongSheet)**
