@@ -16,6 +16,12 @@
 - **▶ งาน PM ถัดไป:** พอ hero/favicon เสร็จ + verify 2 อันบน → **batch: gate → merge โค้ด (ไม่เอา noise) เข้า base → deploy รวม** (parity+bug+hero) · แล้วค่อยจ่าย menu Dev (หลัง hero/favicon land)
 - **นโยบาย deploy:** P'Aim อยาก batch รวม (parity+hero/favicon) · ยังไม่มี go deploy — **ห้าม deploy จน P'Aim สั่ง**
 
+**⏸️ PAUSE/HANDOFF (pm22 · quota ส่วนตัว 97% weekly → ย้ายบัญชีบริษัท):**
+- **ทุกสาย idle (isRunning=false) — ไม่มีการเผา token · worktree อยู่บนดิสก์ + context สายเก่าคงอยู่ → ไม่ต้องสั่งหยุด/ปลุก** (ปลุกต่อทีหลังได้ไร้รอยต่อ)
+- **pm23 resume เรียงเล็ก→ใหญ่:** (1) gate+merge 4 สายเสร็จ [issues3 1ไฟล์ · repeat 1ไฟล์ · issues1 2ไฟล์ · parity ผ่าน Tester 3ไฟล์] — merge เฉพาะไฟล์โค้ด (ไม่เอา launch.json/board.md ที่พ่วง) → (2) hero/favicon `local_cfd288df` **เงียบตั้งแต่ 10:01 · เช็กก่อนว่าติด login ไหม** → (3) issues2 beaming prototype `local_6a3414a8` (P'Aim เคาะ Option A · render-only ก่อน) → (4) menu Dev (หลัง hero/favicon land)
+- **verify ค้าง (มือคน):** repeat ear-verify `:5309` · issues1 พี่เปา print PDF "ของขวัญ"
+- **ยังไม่ deploy จน P'Aim สั่ง** (นโยบาย batch: parity+hero/favicon+bug รวมรอบเดียว)
+
 **--- ประวัติ pm21 (LAUNCH รอบ 21) ด้านล่าง ---**
 
 ## ▶ RESUME เดิม (hand-off pm21 → pm22 · 13 ก.ค.)
