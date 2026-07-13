@@ -91,6 +91,10 @@ body {
   color: var(--ink);
   font-size: var(--fs-base);
   line-height: var(--lh-normal); /* was 1.8 — tightened base rhythm (Thai-safe) */
+  /* belt-and-braces with the html rule — pin against Chrome-mobile font boosting (P'Aim: Chrome
+     was auto-zooming to 125% → lyrics wide + notes ตกบรรทัด). 100% = stay at the sizes we set. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* Per-user Thai typeface toggle (site-wide · localStorage · store.siteFont). Default =
