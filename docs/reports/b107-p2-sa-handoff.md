@@ -7,11 +7,12 @@
 - **dev กำลังทำ** (PM pm21 จ่ายแล้ว · branch `b107-step9-instruments`): popover fix → 3 โหมด → tester real-audio → P'Aim ฟัง final → deploy
 - **เดี่ยว felt/violin/cello + real string-ensemble pad = หลัง launch**
 
-## 2. ★ จุดที่ค้างอยู่ตอน handoff (ทำต่อจากตรงนี้)
-**เต็มวง "เสียงสายเหมือนออร์แกน"** — ไล่แก้มาหลายรอบ (vibrato · swell arc · legato · far reverb · role-prominence · pad บาง). ล่าสุด **P'Aim เลือก "ทาง 1" = ตัด pad สายค้างออกหมด** → เต็มวง = เปียโนทริโอ (เปียโน melody+arp + เชลโลเบส) + ไวโอลินเป็น **เส้นทำนองอย่างเดียว** (โหมดไวโอลินนำ).
-- **รอ P'Aim ฟัง `ensemble-real-demo.html` (ตัด pad) แล้วบอกว่า "หายออร์แกน/โดนไหม"** ← นี่คือ next action
-- ถ้า chorus โหวงไป → option: เติม **ไวโอลิน counter-melody เฉพาะ chorus** (ใช้แบบทำนอง ไม่ใช่ pad)
-- พอลงตัว → ล็อกสูตรเต็มวงสุดท้ายใน spec §6b.2 + ping PM
+## 2. ★ เต็มวง Option 1 — ✅ P'Aim SIGN-OFF (13 ก.ค. "ดีพอสำหรับ 1st release") · ส่ง PM แล้ว
+เดโม `docs/spikes/ensemble-callresp-demo.html` ผ่าน. สูตรล็อกใน **spec §6b.2 (LOCKED block)** แล้ว. **งาน SA รอบนี้ = จบ · รอ PM จ่าย dev อัปเต็มวง.**
+- **สูตรที่ล็อก:** ตัด pad หมด · call-response (`violinFill` · โน้ตทำนอง b≥2.5 = ช่องว่าง → 3-โน้ต turn ย่าน 71–86 · gain 0.21) · countermelody chorus-only (`violinCounter` · offbeat +1 บีต · ย่าน 74–86 · gain 0.14 · duck ลึกกว่า fill).
+- **Balance principle (สำคัญ · วัดจริง):** bowed สอดรับดังกว่าตัวเลข peak → ตั้ง ~10–13 dB ใต้เปียโนนำ · counter duck ลึกกว่า fill. วัดได้ เปียโน −7.3 · ไวโอลิน −16.6 (9.3 ใต้ lead) · เชลโล −23.1. **`window.__peaks()`** ในเดโม = เครื่องวัด balance ต่อ role (setInterval ไม่ใช่ rAF — rAF หยุดตอน tab ไม่ render).
+- **ถ้ามี tuning รอบหน้า:** สไลเดอร์ไวโอลิน + BPM ในเดโมปรับสดได้ · จุดที่จูนต่อได้ = ความถี่ fill (เพิ่ม/ลด verse) · ความยาว counter · voicing.
+- **เดโมเก่า** `ensemble-real-demo.html` = ตัด pad แล้วแต่ไวโอลินเงียบใน piano-lead (fill เป็นเปียโน) · เก็บเป็นโหมด "ไวโอลินนำ" ทางเลือก
 
 ## 3. ไฟล์สำคัญ
 - **spec เต็ม:** `docs/ds/instrument-arranger-p2.md` (arranger 3 ชั้น · ทุกเทคนิค · §Launch scope + §6b.1/§6b.2 เต็มวง + guitar params)
@@ -20,7 +21,8 @@
 - **เดโม (docs/spikes/):**
   - `humanize-timbre-demo.html` — เปียโนเดี่ยว-จัดเต็ม (approved)
   - `guitar-solo-demo.html` — กีตาร์เดี่ยว · **nylon จริง** (strum D-DU-UDU / travis / rasgueado / slide · approved)
-  - `ensemble-real-demo.html` — **เต็มวงเสียงจริง** (Splendid Grand + เชลโล/ไวโอลิน CC) + กฎ 3 ชั้น + toggle 2 กฎเขียว · **ตัวที่ปั้นอยู่**
+  - `ensemble-callresp-demo.html` — **★ เต็มวง Option 1 (ตัวปัจจุบัน)** เปียโนนำ + ไวโอลินสอดรับ (call-response) + countermelody ฮุก · toggle แยกฟังทีละกฎ
+  - `ensemble-real-demo.html` — เต็มวงเสียงจริง ตัด pad (ไวโอลินเงียบใน piano-lead · fill=เปียโน) · ตัวก่อน Option 1
   - `ensemble-rules-demo.html` — A/B กฎ 3 ชั้น (GM · พิสูจน์แนวคิด)
 
 ## 4. Infra (ต้องรู้ก่อนรันเดโม)
