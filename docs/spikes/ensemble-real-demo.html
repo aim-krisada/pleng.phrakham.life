@@ -39,6 +39,14 @@
   </div>
 </div>
 
+<div class="panel">
+  <h2>🟢 2 กฎใหม่ (สลับฟังเทียบ)</h2>
+  <div class="opts" id="grOpts">
+    <div class="opt" data-g="off">ปิด (แบบเดิม)<small>ทุกเครื่องดังเท่ากันทั้งเพลง</small></div>
+    <div class="opt sel" data-g="on">✅ เปิด<small>verse เบา→chorus เต็ม + หลบพระเอก (ทำนองเร็ว=หรี่คลอ · ทำนองยาว=เปียโนแทรก)</small></div>
+  </div>
+</div>
+
 <div id="playRow"><button id="play">▶ เล่นวง</button><button id="stop">■ หยุด</button></div>
 <div id="now"></div>
 <div id="status">แตะ "เล่นวง" ครั้งแรกจะโหลดเสียงจริง 3 เครื่อง</div>
@@ -75,6 +83,11 @@ function accent(pb){const p=((pb%4)+4)%4;if(p<0.01)return 1;if(Math.abs(p-2)<0.0
 function contour(i){const n=SONG[i],pr=SONG[i-1],nx=SONG[i+1];let c=1;
   if(pr&&n.m>pr.m)c+=.06;if(pr&&nx&&n.m>pr.m&&n.m>=nx.m)c+=.06;if(pr&&n.m<pr.m)c-=.04;if(n.b>=3)c-=.06;return c;}
 const TOTAL=SONG.reduce((s,n)=>s+n.b,0), CUT=TOTAL*0.46;
+// per-chord-event melody stats for role-prominence: density = melody attacks/beat in the span,
+// maxHold = longest melody note in it. busy tune -> dim comp/bass; long-held tune -> piano fills.
+function melStats(evs){ let mb=0; const mel=[]; for(const n of SONG){ if(n.m!=null)mel.push({beat:mb,len:n.b}); mb+=n.b; }
+  return evs.map(e=>{ const inS=mel.filter(x=> x.beat>=e.startBeat-0.01 && x.beat<e.startBeat+e.beats-0.01);
+    return { density: inS.length/Math.max(1,e.beats), maxHold: inS.reduce((m,x)=>Math.max(m,x.len),0) }; }); }
 
 let ctx,master,revNear,revNearG,revFar,revFarG,roleG={},sends={},grand=null,BUF={},gen=0,voices=[],pianoIn=null;
 function impulse(sec,decay){const rate=ctx.sampleRate,len=Math.floor(rate*sec),buf=ctx.createBuffer(2,len,rate);
@@ -123,7 +136,7 @@ const setStatus=m=>document.getElementById('status').textContent=m;
 const setNow=m=>document.getElementById('now').textContent=m;
 function stopAll(){ gen++; voices.forEach(s=>{try{s.stop();}catch(e){}}); voices=[]; if(grand)grand.stop(); }
 
-let LEAD='piano';
+let LEAD='piano', grState='on';
 async function play(){
   ensure(); await ctx.resume(); stopAll(); const my=gen;
   document.getElementById('play').disabled=true; setStatus('⏳ กำลังโหลดเสียงจริง (เปียโน+เชลโล+ไวโอลิน)...');
@@ -138,41 +151,50 @@ async function play(){
   const t0=ctx.currentTime+0.25, rnd=()=>(Math.random()-0.5)*2, TJ=0.012, VJ=0.06;
   const sec=beat=> beat<CUT?'verse':'chorus';
   const gr=(midi,t,dur,g)=> grand.fire(midi,t,dur,g); // grand always → roleG.piano (front)
+  const GREEN = grState==='on';
+  const evs = chordEvents(); const stats = melStats(evs);
+  // RULE 1 — section dynamics: master gain grows verse ×0.7 → chorus ×1.0 (off = flat 1.0)
+  const secGain = beat => GREEN ? (sec(beat)==='verse'?0.7:1.0) : 1.0;
 
   // MELODY (guide, one line) — lead = piano OR violin. swell on long notes; slide-in on violin.
   let beat=0; SONG.forEach((n,i)=>{ const d=n.b*spb;
-    if(n.m!=null){ let gd=accent(beat)*contour(i)*(1+VJ*rnd()); const s=sec(beat); if(s==='verse')gd*=0.9;
-      const t=t0+beat*spb+TJ*rnd();
+    if(n.m!=null){ const gd=accent(beat)*contour(i)*(1+VJ*rnd())*secGain(beat); const t=t0+beat*spb+TJ*rnd();
       if(LEAD==='piano'){ gr(n.m, t, (n.b>=3?d+0.5:Math.max(.5,d+0.3)), 0.52*melVol*gd); }
       else { if(n.b>=1&&Math.random()<0.2) playOgg('violin','violin', n.m-2, t-0.06, 0.12, 0.16*melVol*gd); // slide
-             playOgg('violin','violin', n.m, t, Math.max(.9,d+0.6), 0.34*melVol*gd); } } // violin sings long (baked +9dB → lower gain)
+             playOgg('violin','violin', n.m, t, Math.max(.9,d+0.6), 0.34*melVol*gd); } }
     beat+=n.b; });
 
-  for(const e of chordEvents()){ const v=voiceLed(e.chord); if(v.bass==null)continue;
-    const bT=t0+e.startBeat*spb, nb=Math.max(1,Math.round(e.beats)), s=sec(e.startBeat), a=accent(e.startBeat);
+  for(let ei=0; ei<evs.length; ei++){ const e=evs[ei]; const v=voiceLed(e.chord); if(v.bass==null)continue;
+    const bT=t0+e.startBeat*spb, nb=Math.max(1,Math.round(e.beats)), s=sec(e.startBeat), sg=secGain(e.startBeat), a=accent(e.startBeat);
+    // RULE 2 — role-prominence: tune BUSY (fast) → dim comp+bass; tune HOLDS long → comp lifts + piano fills
+    const busy = GREEN && stats[ei].density>=1.3, longHold = GREEN && stats[ei].maxHold>=3;
+    const compF = busy?0.7:(longHold?1.12:1.0), bassF = busy?0.8:1.0;
 
-    // BASS — real cello (baked +10dB → keep gain LOW so it sits under, not over). re-bow ~3 beats.
-    const bg=(s==='verse'?0.11:0.14)*bassVol;
+    // BASS — real cello (baked +10dB → gain LOW). re-bow ~3 beats.
+    const bg=0.13*bassVol*sg*bassF;
     for(let b=0;b<nb;b+=3){ const seg=Math.min(3,nb-b); playOgg('cello','cello', v.bass, bT+b*spb, seg*spb+0.4, bg*a); }
 
-    // MOTION — piano arpeggio (front). fuller in chorus; fill when tune holds long.
-    const ag=(s==='verse'?0.10:0.14)*compVol;
+    // MOTION — piano arpeggio (front).
+    const ag=0.13*compVol*sg*compF;
     const seq=[v.up[0], v.up[1]??v.up[0], v.up[2]??v.up[0], v.up[1]??v.up[0]];
-    for(let k=0;k<nb;k++){ gr(seq[k%seq.length], bT+k*spb+TJ*rnd(), spb*1.5, ag*accent(e.startBeat+k));
-      if(s==='chorus'&&Math.random()<0.22){ const top=v.up[0]+12; if(top<=86) gr(top, bT+(k+0.5)*spb, spb, ag*0.7); } }
+    for(let k=0;k<nb;k++) gr(seq[k%seq.length], bT+k*spb+TJ*rnd(), spb*1.5, ag*accent(e.startBeat+k));
+    // FILL-IN when the tune holds a long note (call-and-response: piano fills the space it left)
+    if(longHold){ gr(v.up[1]??v.up[0], bT+nb*spb*0.5, spb*0.9, ag*0.95);
+      const top=v.up[0]+12; if(top<=86) gr(top, bT+nb*spb*0.62, spb*0.8, ag*0.7); }
 
-    // FOUNDATION strings — real VIOLIN as the warm sustained wash (14s sustain = true pad), CHORUS only,
-    // pushed to the back. (When violin is the LEAD, use its lower notes softly so it doesn't fight the tune.)
-    if(s==='chorus'){ const pg=0.05*padVol; const pv = LEAD==='violin' ? v.up.slice(0,1) : v.up;
+    // FOUNDATION violin pad — CHORUS only, back.
+    if(s==='chorus'){ const pg=0.05*padVol*sg; const pv = LEAD==='violin' ? v.up.slice(0,1) : v.up;
       pv.forEach(mm=> playOgg('violin','violin', mm, bT+Math.random()*0.02, nb*spb+0.8, pg*a)); }
   }
-  setNow('▶ เต็มวงเสียงจริง · '+(LEAD==='piano'?'เปียโนนำ':'ไวโอลินนำ')+' · verse โปร่ง → chorus สายเอ่อ · เปียโนหน้า/สายหลัง');
+  setNow('▶ เต็มวง · '+(LEAD==='piano'?'เปียโนนำ':'ไวโอลินนำ')+' · '+(GREEN?'✅ 2 กฎเปิด (verse→chorus โต + หลบพระเอก)':'ปิด (แบบเดิม เท่ากันทั้งเพลง)'));
 }
 
 const melV=document.getElementById('melVol'),compV=document.getElementById('compVol'),bassV=document.getElementById('bassVol'),
   padV=document.getElementById('padVol'),revEl=document.getElementById('rev'),bpmEl=document.getElementById('bpm');
 document.querySelectorAll('#leadOpts .opt').forEach(o=> o.addEventListener('click',()=>{
   LEAD=o.dataset.lead; document.querySelectorAll('#leadOpts .opt').forEach(x=>x.classList.toggle('sel',x===o)); }));
+document.querySelectorAll('#grOpts .opt').forEach(o=> o.addEventListener('click',()=>{
+  grState=o.dataset.g; document.querySelectorAll('#grOpts .opt').forEach(x=>x.classList.toggle('sel',x===o)); }));
 document.getElementById('play').addEventListener('click',()=> play().catch(e=>setStatus('⚠️ '+e.message)));
 document.getElementById('stop').addEventListener('click',()=>{ stopAll(); setNow(''); setStatus('■ หยุดแล้ว'); });
 const bind=(el,l)=>{ const o=document.getElementById(l); const u=()=>o.textContent=el.value; el.addEventListener('input',u); u(); };
