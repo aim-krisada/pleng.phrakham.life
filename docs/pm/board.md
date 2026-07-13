@@ -16,10 +16,10 @@
 - **▶ งาน PM ถัดไป:** พอ hero/favicon เสร็จ + verify 2 อันบน → **batch: gate → merge โค้ด (ไม่เอา noise) เข้า base → deploy รวม** (parity+bug+hero) · แล้วค่อยจ่าย menu Dev (หลัง hero/favicon land)
 - **นโยบาย deploy:** P'Aim อยาก batch รวม (parity+hero/favicon) · ยังไม่มี go deploy — **ห้าม deploy จน P'Aim สั่ง**
 
-**🚀 DEPLOY กำลังเตรียม (pm22 · P'Aim สั่ง deploy ของที่เสร็จก่อน):**
-- **merge 5 อันเข้า base แล้ว** (commit บน `studio-shell-redesign` · เอาเฉพาะ 8 ไฟล์โค้ด: styles.css/Guide/About/NoteRow/SongSheet/NoteRow.test/EditorMode/midi.js · ไม่เอา launch.json/board.md ที่พ่วง) · **522 tests ผ่าน + build ok**
-- **serve base: http://192.168.1.124:5350/** (bg `bg281b8zj`) — รอ P'Aim verify + go
-- **⚠️ ก่อน push main:** notation (tie/beaming) พี่เปายังไม่ verify look/print — ถ้า P'Aim อยาก hold 2 อันนี้ = revert NoteRow.vue/SongSheet.vue ก่อน push · **ยังไม่ push main จน P'Aim go**
+**🚀 DEPLOY กำลังเตรียม (pm22 · P'Aim สั่ง deploy ของที่เสร็จก่อน · +hero/favicon):**
+- **merge 6 อันเข้า base แล้ว** (`studio-shell-redesign`): (1) parity [ae576b2 · styles/Guide/About] (2) tie+triplet [NoteRow/SongSheet] (3) beaming [NoteRow] (4) editor-preview [EditorMode] (5) repeat-seek [midi.js] (6) **hero/favicon** [cc84c7b · index.html/public ชุด favicon+hero/ShellBar/SongList/styles.css `.sb-app-ico` merge ไม่ทับ parity] · เอาเฉพาะไฟล์โค้ด/asset ไม่เอา launch.json/board.md ที่พ่วง
+- **522 tests ผ่าน + build ok (×2 รอบ)** · **serve base: http://192.168.1.124:5350/** (bg `bg281b8zj` · index.html+public เสิร์ฟ 200 ครบ) — รอ P'Aim verify + go
+- **⚠️ ก่อน push main:** notation (tie/beaming = NoteRow/SongSheet) พี่เปายังไม่ verify look/print · ถ้า P'Aim hold = revert 2 ไฟล์นั้นก่อน push · **ยังไม่ push main จน P'Aim go**
 
 **⏸️ PAUSE/HANDOFF (pm22 · quota ส่วนตัว 97% weekly → ย้ายบัญชีบริษัท):**
 - **ทุกสาย idle (isRunning=false) — ไม่มีการเผา token · worktree อยู่บนดิสก์ + context สายเก่าคงอยู่ → ไม่ต้องสั่งหยุด/ปลุก** (ปลุกต่อทีหลังได้ไร้รอยต่อ)
