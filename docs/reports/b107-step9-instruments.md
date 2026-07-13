@@ -143,6 +143,13 @@ P'Aim ฟัง Option 1 แล้ว "ดีพอสำหรับ 1st releas
 
 **Verify (LIVE per-role):** **เปียโนนำ (0.36) · ไวโอลิน −11.5dB · เชลโล −15.4dB ใต้ทำนอง** (ตรงเป้า demo · violin ~10-13dB / cello ~16dB ใต้) · audible ครบ · **ไม่มี pad** (ไวโอลินเล่น 7 call-response note) · section dynamics มีผล · ไม่ clip. vitest 517 เขียว · build ผ่าน. **ค่า (sectionGain/fill/counter/bus) = SA↔P'Aim จูนต่อ.**
 
+## 🔧 Launch polish รอบ 3 (P'Aim confirm ก่อน deploy)
+
+- **🔴 เสียงซ้อนตอน "สลับโหมด/เครื่อง" (load-race · แก้แล้ว):** สลับไปโหมดที่ต้องโหลด sample (เต็มวง=cello/violin · กีตาร์=nylon) → pass เก่ายังเล่นระหว่าง `await loadInstrument` · `stopPlayback` รันก่อน pass ใหม่จะ set activeSampler → cancel pass ที่ยังโหลดไม่ได้ → 2 pass โหลดเสร็จ+เล่นทับ. **แก้:** `playToken` (monotonic) — ทุก play จับ token ต้นทาง · หลัง await ถ้าไม่ใช่ token ล่าสุด (มี switch ใหม่แซง) = **abort ก่อน schedule โน้ต** · wait-loop bail เมื่อถูกแซง + release เฉพาะตอนเป็น pass ปัจจุบัน (stale loop ไม่ silence เสียงใหม่). **Verify LIVE: สลับรัว ensemble→guitar→ensemble→piano → 3 pass ที่ถูกแซง fire 0 โน้ต · เล่นตัวสุดท้ายตัวเดียว** (onlyLastPlayed).
+- **dock สมมาตร:** timeline slider แคบลง (176→158 / 126→112) → แถวบน (slider+คีย์+ท่อน+เครื่อง) = แถวล่าง (7 ปุ่ม) พอดี · **2 แถว 338px เท่ากัน · align ซ้าย-ขวา · อยู่ในจอ 375/712/desktop · ไม่ h-scroll**.
+
+vitest 517 เขียว · build ผ่าน · ไม่มี console error.
+
 ## ยังไม่ทำ / ต่อ
 
 - **"เต็มวง" (ensemble)** = ยังปิด "เร็ว ๆ นี้" (SA ออกแบบเสียงเครื่องคลอ · จ่ายแยก) — interface role-based (§6a′) เผื่อไว้แล้ว, scheduler วน `roles[]` เพิ่มได้ไม่แตะแกน
