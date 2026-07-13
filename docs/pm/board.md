@@ -20,7 +20,9 @@
 - **merge 6 อันเข้า base แล้ว** (`studio-shell-redesign`): (1) parity [ae576b2 · styles/Guide/About] (2) tie+triplet [NoteRow/SongSheet] (3) beaming [NoteRow] (4) editor-preview [EditorMode] (5) repeat-seek [midi.js] (6) **hero/favicon** [cc84c7b · index.html/public ชุด favicon+hero/ShellBar/SongList/styles.css `.sb-app-ico` merge ไม่ทับ parity] · เอาเฉพาะไฟล์โค้ด/asset ไม่เอา launch.json/board.md ที่พ่วง
 - **522 tests + build ok · serve :5350** (bg `bg281b8zj`)
 - **✅ หัวเว็บ phrakham-style เสร็จ + P'Aim iterate โดยตรง + integrate เข้า base แล้ว** (menu Dev `local_e359bb54` `dreamy-dijkstra` → ShellBar/styles/SongList/Icon/2 test · verify parity คงครบ `--fs-base 1.125`) · desktop=ชื่ออย่างเดียว · mobile=icon+🔍/☰ drawer · login ขวาสุด · hero ลบแล้ว · 523 tests+build ✓
-- **🟢 ชุด deploy ครบ 7 อันบน base + เสิร์ฟ :5350 (verified serves ใหม่):** parity · tie(issue1) · beaming(issue2) · ดูผลทั้งเพลง(issue3) · repeat · favicon · **phrakham-header** — **รอ P'Aim ดูรอบสุดท้าย :5350 → go → deploy** (asset hero ใน public/ ไม่ถูกอ้าง = harmless · cleanup ทีหลัง)
+- **🟢 ชุด deploy ครบ 7 อันบน base + เสิร์ฟ :5350:** parity · tie(issue1) · beaming(issue2) · ดูผลทั้งเพลง(issue3) · repeat · favicon · **phrakham-header** — **รอ P'Aim ดูรอบสุดท้าย :5350 → go** (asset hero ใน public/ ไม่ถูกอ้าง = harmless · cleanup ทีหลัง)
+- **🆕 P'Aim ขอเพิ่ม (13 ก.ค.):** **ป้ายสถานะตรวจเพลง (verified) ในรายการ · team-only** (ช่วยพี่เปา review 122 = GATE unlock) → **จ่าย Dev `task_5d4f34d6`** (brief `review-status-badge.md`) · **รอ P'Aim เลือกจังหวะ:** (ก) deploy 7 ตอนนี้ + ป้ายรอบหน้า (แนะนำ) / (ข) hold รวมป้ายเข้า deploy นี้
+- **issue2 = P'Aim ถามซ้ำ = อยู่ใน batch แล้ว (ยืนยัน)** · เผื่อหมาย issues5 (cross-bar slur · to-do) — ถาม P'Aim
 - **notation (tie issue1 + beaming issue2) = P'Aim เคาะให้ขึ้น deploy ด้วย** (13 ก.ค. · issue2 = แก้เจ๋ง zero-data-migration · อยู่ใน batch NoteRow.vue แล้ว) → ไม่ hold รอพี่เปาแล้ว (พี่เปา verify live ทีหลังได้) · **ยังไม่ push main จน P'Aim go (รอหัวเว็บใหม่เสร็จก่อน)**
 
 **⏸️ PAUSE/HANDOFF (pm22 · quota ส่วนตัว 97% weekly → ย้ายบัญชีบริษัท):**
