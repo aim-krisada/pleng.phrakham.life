@@ -10,7 +10,7 @@
 **🎉 pm22 = DEPLOY รอบ 22 `6cb8e68` LIVE** (phrakham look&feel: parity+header + bug issue1/2/3+repeat + favicon · https://pleng.phrakham.life) · kanban พี่เปา 4 บั๊ก → 🟢 เสร็จ · รายละเอียดใน §✅ DEPLOYED
 
 **🚀 pm23 ยิงขนาน 3 dev แล้ว (13 ก.ค. เย็น · P'Aim "เอาตามที่คุณเสนอ Go") — chip รอ/กดเริ่ม:**
-- **[เลน 3] audit log B028 — Dev `task_cecdfe89`** · brief `docs/pm/brief-audit-log.md` · DS `docs/ds/audit-log.md` (ใน base · **แก้ข้อ 4 แล้ว: ต้อง snapshot actor_name — ชื่อไม่หาย** · P'Aim กลับคำจากที่ SA session สรุป) · วิวัฒน์ `song_revisions`(db/002) → `db/004` จับ `songs`+`song_drafts` · event มีความหมาย · RPC `approve_and_publish` · `RevisionHistory.vue`+`lib/auditLog.js` · **⚠️ เลี่ยงโซนปุ่ม verified ~2361 (เลน 4 จับ)**
+- **[เลน 3] audit log B028 — ✅ Dev เสร็จ · PM gate DB ผ่าน · 🔵 Tester ตรวจ** `task_bc5856dd` · branch `distracted-shtern-255d85` `b6d7e2a` · report `docs/reports/claude-distracted-shtern-255d85.md` · **git-verify scope สะอาด** (db/004+auditLog.js+RevisionHistory.vue+wiring EditorMode approve · +devDep pglite dev-only) · spot-check db/004: actor_name/role SNAPSHOT ✓ · RPC+op_group ✓ · security definer แก้ log ไม่ได้ ✓ · จับ song_drafts+songs ✓ · 563 tests (pglite Postgres จริง) · **2 ค้าง: (1) P'Aim รัน `db/004` บน Supabase prod ตอน deploy — steps `docs/pm/migration-db004-steps.md` · (2) รอ tester report** → merge · ⚠️ EditorMode.vue แก้ 104 บรรทัด (approve/RPC rewire · คนละโซนปุ่ม verified เลน4 → merge clean)
 - **[เลน 5] เมนูเพลง 2 จุด — Dev `task_e4965a44`** · brief `docs/pm/brief-menu-pleng.md` · DS `docs/ds/menu-drawer-spec.md` (**P'Aim อนุมัติแล้ว**) · เพลงแก้: alignment ชิดซ้าย + เอาไอคอน nav ออก · **พระคำ = baseline ไม่ต้องแตะ** (pk pm4) · scope `ShellBar.vue`+styles
 - **[เลน 4] ปุ่ม "✓ ตรวจแล้ว" โชว์เฉพาะ approver — ✅ เสร็จ + PM merge เข้า base แล้ว** (`EditorMode.vue` `v-if loggedIn→isApprover` · จาก branch `sad-jennings-08f0ad` `fd314c9` · เอาเฉพาะโค้ด+test+report ไม่เอา board dev พ่วง) · git-verify diff สะอาด · 4/4 verify tests ผ่านบน base · report `docs/reports/verify-button-approver-gate.md` · **รอ deploy รอบหน้า (batch)**
 - **[เลน 2] notation (issue8 beam ตามพยางค์ + issues5 slur ข้ามห้อง) — 🔵 จ่าย Dev แล้ว** `task_fc17c66e` · DS `docs/ds/notation-beam-slur.md` (PM review + เลื่อน Open Q ทั้ง 3 = KISS default · P'Aim "ทำเลย" 13 ก.ค.) · scope `notation.js`+`NoteRow.vue`+`SongSheet.vue`+tests+`tools/audit-notation.mjs` · **แยกไฟล์ 100% ไม่ชน audit/menu/EditorMode** · DoD บังคับ golden test + สคริปต์ตรวจข้อมูล · ห้าม regress issues2(`d90acbb`)/B076/B069/B099 · Tier B (tester real browser + print PDF)
@@ -19,7 +19,7 @@
 - **1.2 เช็ก Supabase dashboard: ติว = role `editor` จริงไหม** (จุดตาย — ถ้าติว legacy/approver จะเผยแพร่เองได้ ผิด use case) · P'Aim รับไปทำ
 - 1.3 = รับความเสี่ยง client-side filter ไว้ก่อน (ไม่ทำ) ✅ เคาะแล้ว
 
-**⚠️ FLAG: "ป้ายสถานะตรวจเพลง" (task_5d4f34d6) ไม่มี session/branch จริง** — บอร์ดเก่าว่า "กำลังทำ" คลาดเคลื่อน · deploy รอบ 23 (ปลด GATE) ยังไม่มีใครทำ · **รอ P'Aim ตัดสินว่าจะ re-dispatch ป้ายสถานะไหม** (เป็นตัวช่วยปลด GATE 0/122)
+- **[เลน 6] ป้ายสถานะ ✓ตรวจแล้ว/ยัง ในรายการเพลง — 🔵 re-dispatch แล้ว** `task_6d711e84` (P'Aim "go" 13 ก.ค. · task เดิม `5d4f34d6` เป็นตัวหลอก ไม่เคยทำ) · brief เดิม `docs/pm/brief-review-status-badge.md` (ครบ) · ป้ายต่อเพลงใน `SongList.vue` เห็นเฉพาะทีม + นับ progress · ช่วยติดตามรีวิว 124 เพลง (ปลด GATE) · คนละไฟล์ ไม่ชนใคร
 
 **📋 to-do พี่เปา (root · ยังไม่จ่าย · §🐞):** issues4 (โครงเพลง▾) · ~~issues5~~ → เข้า spec notation แล้ว · issues6 (คลิก preview→แก้ไข) · issues7 (ใหม่ · ยังไม่ triage)
 
