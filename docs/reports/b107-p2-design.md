@@ -26,8 +26,8 @@ P'Aim เคาะ **Option 1** แก้ "เต็มวงจืด+เหม
 - **section dynamics คงไว้** (verse ×0.7 → chorus ×1.0). balance/reverb เดิม (เปียโนหน้า near-reverb · สาย far-reverb หลัง).
 - **verify (SA):** โหลดเสียงจริง 3 เครื่องผ่าน · scheduling call-response + counter รันครบไม่ error (console 0 error · วัด gap/register ด้วย node: fill 71–85 · counter 75–85 · ล้วนเหนือ 73 ยืนยัน register แยกจริง).
 - **UI เดโม:** toggle "สอดรับ" เปิด/ปิด + toggle "countermelody" เปิด/ปิด (แยกฟังทีละกฎ) + สไลเดอร์ "🎻 ไวโอลินสอดรับ".
-- **สถานะ:** ⏳ **รอ P'Aim ฟัง + เคาะรสชาติ** (creative lane · P'Aim↔SA ตรง) → ลงตัวแล้วล็อกสูตรใน spec §6b.2 → ping PM จ่าย dev.
-- **ค่าที่ยังจูนได้ด้วยหู:** gain fill (0.30) · gain counter (0.24) · จุดเข้า fill (ครึ่งหลัง) · ความถี่/ความยาว counter · จะเพิ่ม fill ใน verse ไหม.
+- **balance (วัดจริง AnalyserNode ต่อ role):** เดิมไวโอลิน −13.3 (แค่ 7.4 ใต้เปียโน) → P'Aim ว่า "ดังไปนิดนึง". **หลักการ:** bowed สอดรับดังกว่าตัวเลข peak (sustain+vibrato+ย่านสูง) → ต้อง ~10–13 dB ใต้ lead · counter duck ลึกกว่า fill. trim fill 0.30→0.21, counter 0.24→0.14 → วัดใหม่ ไวโอลิน −16.6 (9.3 ใต้เปียโน).
+- **✅ สถานะ: P'Aim sign-off 13 ก.ค. "ดีพอสำหรับ 1st release"** → ล็อกสูตรใน spec §6b.2 (LOCKED block) → ping PM จ่าย dev อัปเต็มวง (b107-step9-instruments). เดโม ref = `ensemble-callresp-demo.html` · `window.__peaks()` = เครื่องวัด balance ให้ dev/tester.
 
 ## สิ่งที่ทำในสเปก (ชี้จุดเด่น)
 

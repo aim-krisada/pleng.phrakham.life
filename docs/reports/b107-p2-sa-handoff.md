@@ -7,13 +7,12 @@
 - **dev กำลังทำ** (PM pm21 จ่ายแล้ว · branch `b107-step9-instruments`): popover fix → 3 โหมด → tester real-audio → P'Aim ฟัง final → deploy
 - **เดี่ยว felt/violin/cello + real string-ensemble pad = หลัง launch**
 
-## 2. ★ จุดที่ค้างอยู่ตอน handoff (ทำต่อจากตรงนี้)
-**เต็มวง Option 1 (call-and-response) — เดโมใหม่พร้อมให้ P'Aim ฟังแล้ว** `docs/spikes/ensemble-callresp-demo.html`.
-ไวโอลิน = "นักดนตรีคนที่ 2 สอดรับ" (ไม่ใช่ pad): (1) ตัด pad หมด (2) เงียบตอนเปียโนเล่น → สีสวนในช่องว่างปลายวรรค (`violinFill`) (3) chorus เล่น countermelody offbeat เหนือเปียโน (`violinCounter`). ทั้งหมด register 71–86 เหนือทำนองเปียโน (top=73) = ไม่ทับย่าน. verify ผ่าน (โหลด 3 เครื่องจริง · scheduling ครบ · 0 console error).
-- **next action = รอ P'Aim ฟังเดโมใหม่ + เคาะรสชาติ** (มือถือ `http://10.152.249.98:8107/ensemble-callresp-demo.html` · เช็ก IP+server ก่อน) — มี toggle แยกฟัง "สอดรับ"/"countermelody" ทีละกฎ
-- ถ้าโดน → **ล็อกสูตรใน spec §6b.2** (pad ออก · call-response threshold b≥2.5 · fill 3-โน้ต 71–86 · counter offbeat 74–86 chorus-only · gain fill 0.30/counter 0.24) → **ping PM (pm21)** จ่าย dev อัป `b107-step9-instruments`
-- ถ้ายังไม่โดน → จูนด้วยหู: gain fill/counter · จุดเข้า fill · เพิ่ม fill ใน verse ไหม · counter ถี่/ยาวแค่ไหน · ลองเดโมเก่า `ensemble-real-demo.html` (ไวโอลินนำ) เทียบ
-- **เดโมเก่า** `ensemble-real-demo.html` = ตัด pad แล้วแต่ไวโอลินเงียบสนิทใน piano-lead (fill เป็นเปียโน) — เดโมใหม่ทำไวโอลินสอดรับจริงตาม Option 1
+## 2. ★ เต็มวง Option 1 — ✅ P'Aim SIGN-OFF (13 ก.ค. "ดีพอสำหรับ 1st release") · ส่ง PM แล้ว
+เดโม `docs/spikes/ensemble-callresp-demo.html` ผ่าน. สูตรล็อกใน **spec §6b.2 (LOCKED block)** แล้ว. **งาน SA รอบนี้ = จบ · รอ PM จ่าย dev อัปเต็มวง.**
+- **สูตรที่ล็อก:** ตัด pad หมด · call-response (`violinFill` · โน้ตทำนอง b≥2.5 = ช่องว่าง → 3-โน้ต turn ย่าน 71–86 · gain 0.21) · countermelody chorus-only (`violinCounter` · offbeat +1 บีต · ย่าน 74–86 · gain 0.14 · duck ลึกกว่า fill).
+- **Balance principle (สำคัญ · วัดจริง):** bowed สอดรับดังกว่าตัวเลข peak → ตั้ง ~10–13 dB ใต้เปียโนนำ · counter duck ลึกกว่า fill. วัดได้ เปียโน −7.3 · ไวโอลิน −16.6 (9.3 ใต้ lead) · เชลโล −23.1. **`window.__peaks()`** ในเดโม = เครื่องวัด balance ต่อ role (setInterval ไม่ใช่ rAF — rAF หยุดตอน tab ไม่ render).
+- **ถ้ามี tuning รอบหน้า:** สไลเดอร์ไวโอลิน + BPM ในเดโมปรับสดได้ · จุดที่จูนต่อได้ = ความถี่ fill (เพิ่ม/ลด verse) · ความยาว counter · voicing.
+- **เดโมเก่า** `ensemble-real-demo.html` = ตัด pad แล้วแต่ไวโอลินเงียบใน piano-lead (fill เป็นเปียโน) · เก็บเป็นโหมด "ไวโอลินนำ" ทางเลือก
 
 ## 3. ไฟล์สำคัญ
 - **spec เต็ม:** `docs/ds/instrument-arranger-p2.md` (arranger 3 ชั้น · ทุกเทคนิค · §Launch scope + §6b.1/§6b.2 เต็มวง + guitar params)
