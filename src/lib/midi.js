@@ -670,9 +670,11 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
   // clear tone — a low velocity would collapse to silence) and set the level HERE at the bus:
   // piano front + present, cello well under, violin furthest back. Tuned vs the OfflineAudioContext
   // per-role measurement; SA↔P'Aim keep tuning the taste from here.
+  // §6b.2 Option 1 balance (measured target · piano −7.3 / violin −16.6 / cello −23.1 dB → violin
+  // ~9 dB under the lead · cello ~16 dB under · a bowed answer punches above its number). SA tunes.
   const pianoBus = roleBus(1.0, 0.13, 0)
-  const celloBus = roleBus(0.30, 0.05, 0.34)
-  const violinBus = roleBus(0.13, 0.12, 0.4)
+  const celloBus = roleBus(0.16, 0.05, 0.34)
+  const violinBus = roleBus(0.62, 0.12, 0.4)
   const nylonBus = roleBus(0.9, 0.14, 0.05) // guitar lead — front, mostly dry (a fingerpicked lead)
   gr?.setDestination(pianoBus); ce?.setDestination(celloBus); vi?.setDestination(violinBus); ny?.setDestination(nylonBus)
   // the melody (guide) instrument = the chosen lead
@@ -693,21 +695,28 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
   const sections = sectionBeatRanges(content, notes)
   const levelAt = (beat) => { const s = sections.find((x) => beat >= x.fromBeat && beat < x.toBeat); return s ? s.level : 'chorus' }
 
-  // §6b.2 role-prominence inputs: how BUSY the melody is over a chord span (attacks/beat), and
-  // whether it HOLDS a long note there (a gap the band can fill). Precomputed from the melody line.
-  const melStarts = []
-  { let bb = 0; for (const n of notes) { if (n.midi != null) melStarts.push({ beat: bb, dur: n.beats }); bb += n.beats } }
-  const melDensityIn = (fromBeat, beats) => melStarts.filter((m) => m.beat >= fromBeat - 0.01 && m.beat < fromBeat + beats).length / Math.max(1, beats)
-  const melLongIn = (fromBeat, beats) => melStarts.some((m) => m.dur >= 3 && m.beat >= fromBeat - 0.01 && m.beat < fromBeat + beats)
-
-  // ★ tunable ensemble constants (STRUCTURE fixed · SA↔P'Aim จูนค่าด้วยหูตอนฟัง final · §6b.2).
-  const ENS = {
-    sectionGain: { verse: 0.72, chorus: 1.0 }, // master gain per section (verse quieter → chorus full)
-    duck: 0.72, // comp+bass × when the melody is busy (~−3 dB · หลบพระเอก)
-    denseThresh: 0.9, // melody attacks/beat above which to duck
-    fillBoost: 1.15, // comp × when the melody holds a long note (เติมช่องว่าง)
+  // §6b.2 Option 1 (call-and-response · P'Aim approved for launch): the violin has NO sustained pad.
+  // It answers only in the phrase-end GAPS (a long held/rest melody note ≥2.5 beats) and, in the
+  // chorus, weaves a countermelody ABOVE the tune — never doubling it. Helpers: chord tones placed
+  // in a high register (from the voiced chord), and the gaps found from the melody line.
+  const tonesInRange = (e, lo, hi) => {
+    const pcs = [...new Set([e.bass, ...(e.up || [])].filter((m) => m != null).map((m) => (((m % 12) + 12) % 12)))]
+    const out = []
+    for (const pc of pcs) for (let m = lo + (((pc - lo) % 12) + 12) % 12; m <= hi; m += 12) out.push(m)
+    return [...new Set(out)].sort((a, b) => a - b)
   }
-  const BASE_MASTER = 0.85
+  const eventAtBeat = (beat) => chordEvents.find((x) => beat >= x.startBeat - 0.01 && beat < x.startBeat + x.beats - 0.01) || chordEvents[chordEvents.length - 1]
+  const gaps = []
+  { let mb = 0; for (const n of notes) { if (n.midi != null && n.beats >= 2.5) gaps.push({ beat: mb, beats: n.beats, e: eventAtBeat(mb) }); mb += n.beats } }
+  const gapBeats = new Set(gaps.map((g) => Math.round(g.beat)))
+
+  // ★ tunable ensemble constants (STRUCTURE fixed · SA↔P'Aim จูนค่าด้วยหูตอนฟัง final · §6b.2 Option 1).
+  const ENS = {
+    sectionGain: { verse: 0.7, chorus: 1.0 }, // section dynamics (verse โปร่ง → chorus เต็ม)
+    fill: 0.21, // violin gap-answer gain (a touch present — it fills an empty space)
+    counter: 0.14, // violin chorus countermelody gain (ducks more — it overlaps the lead)
+  }
+  const secGain = (beat) => ENS.sectionGain[levelAt(beat)]
 
   // idiomatic dynamics (self-contained, per the demo): metric accent + melodic contour.
   const accent = (pb) => { const p = ((pb % 4) + 4) % 4; if (p < 0.01) return 1; if (Math.abs(p - 2) < 0.01) return 0.9; if (Math.abs(p - 1) < 0.01 || Math.abs(p - 3) < 0.01) return 0.8; return 0.72 }
@@ -726,20 +735,14 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     const tEnd = t0 + totalBeats * spb
     const TJ = 0.012, VJ = 0.06
 
-    // §6b.2 SECTION DYNAMICS — ramp the master gain to each section's level (verse quieter → chorus
-    // full) at its boundary. Real sections; whole-song fallback = chorus (level 1.0).
-    master.gain.cancelScheduledValues(Math.max(0, t0 - 0.01))
-    master.gain.setValueAtTime(BASE_MASTER * ENS.sectionGain[levelAt(0)], t0)
-    for (const sec of sections) master.gain.linearRampToValueAtTime(BASE_MASTER * ENS.sectionGain[sec.level], t0 + sec.fromBeat * spb + 0.25)
-
-    // GUIDE layer (ONE melody line) on the LEAD instrument: piano swells long notes · violin sings
-    // long + slide-in · guitar fingerpicks + a hammer-on grace. Only the lead plays the tune.
+    // GUIDE layer (ONE melody line) on the LEAD instrument, × section gain (verse quieter → chorus
+    // full). piano swells long notes · violin sings long + slide-in · guitar fingerpicks + a
+    // hammer-on grace. Only the lead plays the tune; the violin NEVER doubles it.
     let beat = 0
     for (let i = 0; i < notes.length; i++) {
       const n = notes[i]
       if (n.midi != null && melInst) {
-        let gd = accent(beat) * contour(i) * (1 + VJ * rnd())
-        if (levelAt(beat) === 'verse') gd *= 0.9
+        const gd = accent(beat) * contour(i) * (1 + VJ * rnd()) * secGain(beat)
         const t = t0 + beat * spb + TJ * rnd()
         const d = n.beats * spb
         if (lead === 'guitar') {
@@ -755,34 +758,56 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
       beat += n.beats
     }
 
-    // chord layers (foundation bass + motion + string wash) — grand always does the motion/comp,
-    // cello the bass, violin the chorus wash (regardless of lead).
+    // COMP + BASS — grand arpeggio (front · movement) + cello bass (re-bow ~3 beats · one-shot §6b.1).
+    // NO sustained string pad (§6b.2 Option 1). Both × section gain.
     for (const e of chordEvents) {
       if (e.bass == null) continue
       const up = e.up || []
       const bT = t0 + e.startBeat * spb
       const nb = Math.max(1, Math.round(e.beats))
-      const s = levelAt(e.startBeat), a = accent(e.startBeat)
-      // §6b.2 role-prominence: DUCK the band when the melody is busy (make room for the lead), and
-      // BOOST + fill when the melody holds a long note (fill the gap).
-      const dense = melDensityIn(e.startBeat, e.beats) > ENS.denseThresh
-      const long = melLongIn(e.startBeat, e.beats)
-      const promin = dense ? ENS.duck : (long ? ENS.fillBoost : 1)
-      // FOUNDATION bass — cello, RE-BOW every ~3 beats (a one-shot sample can't hold, §6b.1).
-      if (ce) { const bg = (s === 'verse' ? 0.28 : 0.34) * promin; for (let b = 0; b < nb; b += 3) { const seg = Math.min(3, nb - b); ce.fire(e.bass + T, bT + b * spb, seg * spb + 0.4, bg * a) } }
-      // MOTION — grand arpeggio (front · movement, not a static block), fuller in the chorus.
+      const sg = secGain(e.startBeat), a = accent(e.startBeat)
+      if (ce) { const bg = 0.32 * sg; for (let b = 0; b < nb; b += 3) { const seg = Math.min(3, nb - b); ce.fire(e.bass + T, bT + b * spb, seg * spb + 0.4, bg * a) } }
       if (gr) {
-        const ag = (s === 'verse' ? 0.10 : 0.14) * promin
+        const ag = 0.13 * sg
         const seq = [up[0], up[1] ?? up[0], up[2] ?? up[0], up[1] ?? up[0]].filter((m) => m != null)
-        for (let k = 0; k < nb && seq.length; k++) {
-          gr.fire(seq[k % seq.length] + T, bT + k * spb + TJ * rnd(), spb * 1.5, ag * accent(e.startBeat + k))
-          // fill: when the melody holds long, thread an extra upper note into the gap
-          if ((long || s === 'chorus') && rng() < (long ? 0.4 : 0.22)) { const top = (up[0] ?? 60) + 12; if (top <= 86) gr.fire(top + T, bT + (k + 0.5) * spb, spb, ag * 0.7) }
+        for (let k = 0; k < nb && seq.length; k++) gr.fire(seq[k % seq.length] + T, bT + k * spb + TJ * rnd(), spb * 1.5, ag * accent(e.startBeat + k))
+      }
+    }
+
+    // §6b.2 Option 1 — CALL-AND-RESPONSE violin (no pad · P'Aim approved). RESPONSE: the violin
+    // answers in each phrase-end gap with a short 3-note turn (high register 71–86, never doubling
+    // the tune, entering into the tail so the lead speaks first). COUNTERMELODY: chorus only, a
+    // moving line above the tune (74–86, offbeat) on chords that DON'T host a fill. Bowed voices
+    // punch above their peak → violin sits ~10–13 dB under the lead (fill 0.21 · counter 0.14).
+    if (vi) {
+      gaps.forEach((g, gi) => {
+        const tones = tonesInRange(g.e, 71, 86)
+        if (tones.length < 3) return
+        const startBeat = g.beat + Math.max(0.75, g.beats - 2.0)
+        const seq = gi % 2 === 0
+          ? [{ p: tones[tones.length - 1], d: 0.5 }, { p: tones[tones.length - 2], d: 0.5 }, { p: tones[Math.max(0, tones.length - 3)], d: 1.0 }]
+          : [{ p: tones[Math.max(0, tones.length - 3)], d: 0.5 }, { p: tones[Math.max(0, tones.length - 2)], d: 0.5 }, { p: tones[tones.length - 1], d: 1.0 }]
+        let b = startBeat
+        for (const s of seq) { vi.fire(s.p + T, t0 + b * spb, s.d * spb + 0.25, ENS.fill * secGain(g.beat) * (s.d >= 1 ? 1 : 0.9)); b += s.d }
+      })
+      for (const e of chordEvents) {
+        if (levelAt(e.startBeat) !== 'chorus') continue
+        let hostsFill = false
+        for (let bb = e.startBeat; bb < e.startBeat + e.beats; bb++) if (gapBeats.has(Math.round(bb))) hostsFill = true
+        if (hostsFill) continue
+        const tones = tonesInRange(e, 74, 86)
+        if (!tones.length) continue
+        const enter = e.startBeat + 1.0, room = e.beats - 1.0
+        if (room < 0.6) continue
+        const pick = tones[Math.min(tones.length - 1, 1)]
+        if (e.beats >= 3 && tones.length >= 2) {
+          vi.fire(pick + T, t0 + enter * spb, 1.1 * spb + 0.2, ENS.counter)
+          const nxt = tones[Math.min(tones.length - 1, 2)]
+          vi.fire(nxt + T, t0 + (enter + 1.3) * spb, Math.min(room - 1.3, 1.4) * spb + 0.3, ENS.counter)
+        } else {
+          vi.fire(pick + T, t0 + enter * spb, Math.min(room, 1.6) * spb + 0.3, ENS.counter)
         }
       }
-      // FOUNDATION strings — violin warm wash (14s sustain = a true pad), CHORUS only, pushed back.
-      // Keep pad notes IN the violin's sampled range (≥55 · §6b.1) so they don't pitch-shift dark.
-      if (vi && s === 'chorus') { const pg = 0.34; const pv = lead === 'violin' ? up.slice(0, 1) : up; pv.forEach((m) => { const pm = m < 55 ? m + 12 : m; vi.fire(pm + T, bT + rng() * 0.02, nb * spb + 0.8, pg * a) }) }
     }
     pass++
 
