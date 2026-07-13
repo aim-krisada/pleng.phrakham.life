@@ -25,7 +25,10 @@
     - **🔴 BUG1 (blocking): เปลี่ยน option กลางเล่น = เสียงซ้อน 2 ชั้น** (ไม่ stop pass เก่า) → stop-before-restart + test voice ไม่สะสม
     - **🔴 BUG2 (blocking): เต็มวง ไม่ตามเครื่องที่เลือกเป็นตัวนำ** — เลือก เต็มวง+กีตาร์ → เล่นเปียโนนำ (ติด piano-lead ตลอด) → wire เครื่องดนตรี→`lead` ของ playEnsemble (เปียโน→piano-lead · กีตาร์→guitar-lead recipe ensemble-guitar) · ถ้า guitar-lead real-sound ไม่มี → ping SA
     - **UI:** default หน้าดู→เปียโนเดี่ยว(รวม/เดี่ยว/เปียโน/บรรเลง) · dock ล่าง icon-only+กระชับ+สมมาตร (สไลเดอร์แคบ · เครื่อง+ท่อน icon ล้วน) · icon: เปียโน`piano`/กีตาร์`guitar`/รวมวง`users`/felt·violin·cello`music`(จาง)/**ท่อน `list-music`**(เปลี่ยนจาก table-of-contents · P'Aim เอน) · chip โชว์ icon
-  - → dev แก้ → tester re-gate (บั๊กซ้อน+UI) → P'Aim final → **deploy (LAUNCH)**
+    - **+ ensemble คุณภาพ (SA+ที่ปรึกษา · P'Aim เคาะ · ชุดสุดท้าย):** (1) section dynamics verse×0.7→chorus×1.0 (ใช้ `meta.sections` จริง · hook มีแล้ว) (2) role-prominence (melDensity → หรี่ comp/bass −3dB ตอนทำนองถี่ · fill-in ตอนทำนองยาว) · **ค่า = SA↔P'Aim จูนตอนฟัง** · dev implement โครง · sections verified มีจริง
+  - **🎨 icon violin/cello session แยก** (`task_88aea49c` · Lucide-style · ไม่บล็อก launch)
+  - **❓ P'Aim ขอ: ดาวน์โหลด(MP3) ยังเป็น synth เก่า → อยากได้เสียงจริง (=P3)** · มีโจทย์: smplr เงียบใน OfflineAudioContext (โน้ตยาว) → real-time capture หรือ fix offline · **PM แนะ fast-follow หลัง launch · รอ P'Aim เคาะ (ก)launch ก่อน (ข)รอทำ download**
+  - → dev แก้ทั้งหมด → tester re-gate (บั๊กซ้อน+ensemble-lead+section/role+UI) → P'Aim final → **deploy (LAUNCH)**
 - **gate: tester real-audio 2 เครื่อง (กีตาร์ลายรูด/เกาได้ยินจริง) + full-spec UI + offline cold-boot → 🔑 P'Aim "confirm UI" เอง + ฟัง final บนแอปจริง → deploy (LAUNCH)**
 **✅ MERGE เข้า base แล้ว (895c9cc · 505 test เขียว · build ✓ · ยังไม่ deploy):** (1) B107 P2 arranger เปียโน (tester PASS · โมดูล `src/lib/arranger/*` + UI 3 แกน บรรเลง/สงบ/ตรงโน้ต) (2) เสียง 5 เครื่อง self-host `public/samples/` (115 ไฟล์ 10.63MB · same-origin · PWA offline · binary committed โดยตั้งใจ). **PM worktree ลง npm install แล้ว (verify merge ได้เอง).**
 **▶ จ่ายแล้ว 2 สายขนาน (เต็มวง):**
