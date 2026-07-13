@@ -133,9 +133,12 @@ function playOgg(folder,role,midi,t,dur,gain){ const B=BUF[folder]; if(!B)return
   let best=B[0]; for(const b of B) if(Math.abs(b.midi-midi)<Math.abs(best.midi-midi)) best=b;
   const src=ctx.createBufferSource(); src.buffer=best.buf; src.playbackRate.value=Math.pow(2,(midi-best.midi)/12);
   const end=t+dur+2.5;
-  // vibrato: ~5.5 Hz, depth ramps 0→~18 cents by t+0.35 (so plucky-short notes stay steady)
-  const lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=5.4+Math.random()*0.4;
-  const vd=ctx.createGain(); vd.gain.setValueAtTime(0,t); vd.gain.linearRampToValueAtTime(18, t+0.35);
+  // vibrato: LFO on detune, depth ramps in after ~0.35s (short notes stay steady). Bass (cello) gets
+  // a GENTLER, slightly slower vibrato so the foundation stays steady, not seasick; melody = fuller.
+  const isBass = role==='cello';
+  const lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=(isBass?4.6:5.4)+Math.random()*0.4;
+  const depth=isBass?9:18; // cents
+  const vd=ctx.createGain(); vd.gain.setValueAtTime(0,t); vd.gain.linearRampToValueAtTime(depth, t+(isBass?0.5:0.35));
   lfo.connect(vd).connect(src.detune); lfo.start(t); lfo.stop(end);
   const g=ctx.createGain(); const G=Math.max(0.02,gain);
   const atk=Math.min(0.16, Math.max(0.05, dur*0.35));            // bow onset (soft, not plucked)
