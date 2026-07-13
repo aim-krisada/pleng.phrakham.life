@@ -1,0 +1,87 @@
+<!doctype html>
+<!--
+  P3 — real-audio download spike. Renders a short hymn phrase in 3 modes (piano/guitar/ensemble)
+  through the REAL smplr samplers on an OfflineAudioContext, fixing the ">3s notes silent offline"
+  bug by injecting a big-lookahead Scheduler. Produces downloadable WAV. See
+  docs/reports/download-real-audio-spike.md for the root cause + recommendation + integration plan.
+  To run: node tools/prepare-samples.mjs docs/spikes/samples-mirror &&
+          FFMPEG=.. SEVENZIP=.. node tools/prepare-samples-cc0.mjs docs/spikes/samples-mirror/CC0 &&
+          cp node_modules/smplr/dist/index.mjs docs/spikes/smplr.mjs &&
+          serve docs/spikes over http, open this file. NOT shipped — prototype only.
+  Verified 2026-07-12: 3 modes render, >3s tail note audible, offline 20-60× faster than realtime.
+-->
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>P3 real-audio download spike</title>
+<style>body{font-family:system-ui;max-width:640px;margin:1rem auto;padding:0 1rem}button{padding:.6rem 1rem;border-radius:8px;border:1px solid #888;background:#f6f6f6;cursor:pointer;margin:.2rem}.row{margin:.6rem 0;padding:.5rem;border:1px solid #ddd;border-radius:8px}audio{width:100%;margin-top:.4rem}#log{white-space:pre-wrap;font-family:monospace;font-size:.8rem;background:#f0f0f0;padding:.5rem;border-radius:8px}</style>
+</head><body>
+<h1>🎧 P3 — ดาวน์โหลดเสียงจริง (spike)</h1>
+<p>เรนเดอร์ "Amazing Grace" 4 ห้อง (~13s · โน้ตท้ายยาว &gt;3s เพื่อพิสูจน์แก้ bug offline) ผ่าน <b>sampler จริง offline + big-lookahead scheduler</b> → ไฟล์ WAV. กด render แล้วฟัง/ดาวน์โหลด.</p>
+<div id="modes"></div>
+<div id="log">พร้อม</div>
+<script type="module">
+import { Sampler, Soundfont, Scheduler, pianoToPreset, audioBufferToWav } from './smplr.mjs'
+const BASE='./samples-mirror'
+const GN=[40,41,43,45,47,48,50,52,53,55,56,57,58,59,60,62,64,65,67,69,71,72,74,76,77,79,80,81,82,83]
+const log=(m)=>{document.getElementById('log').textContent=m}
+
+// Amazing Grace, key G — {midi,start,dur} seconds. Ends on a long G4 (9.5→13s) = the >3s tail case.
+const MEL=[
+ [62,0,.7],[67,.7,1.4],[71,2.1,.7],[67,2.8,.7],[71,3.5,1.4],[69,4.9,.7],
+ [67,5.6,1.4],[64,7.0,.7],[62,7.7,1.4],[67,9.1,3.9]
+]
+// chord plan (bass root + triad) per span: G, C, G, D, G
+const CH=[ [55,[55,59,62],0,2.1],[48,[48,52,55],2.1,1.4],[55,[55,59,62],3.5,1.4],
+          [50,[50,54,57],4.9,2.1],[55,[55,59,62],7.0,2.8],[55,[55,59,62],9.1,3.9] ]
+const LEN=13.4, sr=44100
+
+function clampGrandVel(v){return Math.max(41,Math.min(67,v))}
+async function grandInst(ctx,sch){const p=pianoToPreset({baseUrl:BASE+'/splendid-grand/samples',formats:['ogg'],notesToLoad:{notes:GN,velocityRange:[41,67]},decayTime:.5,detune:0,volume:100});const i=new Sampler(ctx,{preset:p,volume:100,scheduler:sch});await i.load;return i}
+async function cc0Inst(ctx,sch,id){const p=await(await fetch(`${BASE}/CC0/${id}/preset.json`)).json();p.samples.baseUrl=`${BASE}/CC0/${id}`;const i=new Sampler(ctx,{preset:p,scheduler:sch});await i.load;return i}
+async function gmInst(ctx,sch,patch){const i=new Soundfont(ctx,{instrumentUrl:`${BASE}/FluidR3_GM/${patch}-mp3.js`,scheduler:sch});await i.load;return i}
+
+// Each mode = a function(ctx,sch) → schedules its arrangement; returns nothing (renders into ctx).
+const MODES={
+ 'เปียโน (piano solo)': async(ctx,sch)=>{const g=await grandInst(ctx,sch);
+   MEL.forEach(([m,t,d])=>g.start({note:m,time:t,duration:d,velocity:63}));
+   CH.forEach(([b,tri,t,d])=>{g.start({note:b,time:t,duration:d,velocity:clampGrandVel(50)});tri.forEach(m=>g.start({note:m,time:t,duration:d,velocity:clampGrandVel(46)}))});},
+ 'กีตาร์ (nylon)': async(ctx,sch)=>{const n=await cc0Inst(ctx,sch,'nylon');
+   MEL.forEach(([m,t,d])=>n.start({note:m,time:t,duration:d,velocity:78}));
+   CH.forEach(([b,tri,t,d])=>{const notes=[b,...tri];notes.forEach((m,k)=>n.start({note:m,time:t+k*0.12,duration:Math.max(.4,d-k*0.12),velocity:56}))});},
+ 'รวมวง (ensemble)': async(ctx,sch)=>{const[v,c,e,g]=await Promise.all([cc0Inst(ctx,sch,'violin'),cc0Inst(ctx,sch,'cello'),gmInst(ctx,sch,'string_ensemble_1'),grandInst(ctx,sch)]);
+   MEL.forEach(([m,t,d])=>v.start({note:m,time:t,duration:d,velocity:80}));           // violin = melody
+   CH.forEach(([b,tri,t,d])=>{c.start({note:b-12,time:t,duration:d,velocity:75});      // cello = bass
+     tri.forEach(m=>e.start({note:m,time:t,duration:d,velocity:42}));                  // ensemble = pad
+     g.start({note:b,time:t,duration:d,velocity:clampGrandVel(44)});});},              // piano = light body
+}
+
+async function render(name,fn){
+  log('กำลังเรนเดอร์ '+name+' …')
+  const t0=performance.now()
+  const octx=new OfflineAudioContext(1, Math.ceil((LEN+0.5)*sr), sr)
+  const sch=Scheduler(octx,{lookaheadMs:Math.ceil((LEN+1)*1000)}) // cover the whole piece → all notes dispatch immediately
+  await fn(octx,sch)
+  const buf=await octx.startRendering()
+  const d=buf.getChannelData(0); let pk=0,tail=0
+  for(let i=0;i<d.length;i++){const a=Math.abs(d[i]);if(a>pk)pk=a}
+  for(let i=Math.floor(10*sr);i<Math.floor(12.5*sr);i++){const a=Math.abs(d[i]);if(a>tail)tail=a} // long-tail note region
+  const wav=audioBufferToWav(buf)
+  const blob=new Blob([wav],{type:'audio/wav'})
+  const ms=Math.round(performance.now()-t0)
+  return {blob, peak:pk, tail, ms}
+}
+
+const modesDiv=document.getElementById('modes')
+for(const [name,fn] of Object.entries(MODES)){
+  const row=document.createElement('div');row.className='row'
+  row.innerHTML=`<b>${name}</b> `
+  const btn=document.createElement('button');btn.textContent='▶ render + ฟัง'
+  btn.onclick=async()=>{ btn.disabled=true; try{
+      const {blob,peak,tail,ms}=await render(name,fn)
+      const url=URL.createObjectURL(blob)
+      const audio=document.createElement('audio');audio.controls=true;audio.src=url
+      const a=document.createElement('a');a.href=url;a.download=name.replace(/[^a-z]/gi,'_')+'.wav';a.textContent='⬇ ดาวน์โหลด .wav';a.style.marginLeft='.5rem'
+      row.append(audio,a)
+      log(`${name}: peak=${peak.toFixed(3)} · tail(10–12.5s)=${tail.toFixed(3)} ${tail>0.01?'✅ โน้ตยาวมีเสียง':'❌ tail เงียบ'} · offline render ${ms}ms (เพลง ${LEN}s → เร็วกว่า realtime ${(LEN*1000/ms).toFixed(1)}×)`)
+    }catch(e){log(name+' ERR '+e.message)} btn.disabled=false }
+  row.append(btn); modesDiv.append(row)
+}
+</script></body></html>
