@@ -134,7 +134,8 @@ main = `509195c` · **นโยบายใหม่: PM deploy ทีละ fix
 ## roster / routing (session id)
 - **⚠️ IP เครื่องเปลี่ยน 13 ก.ค. → `10.152.249.98`** (เดิม 192.168.1.173 ตาย) · launch server `http://10.152.249.98:5313/` · icon preview `http://10.152.249.98:5312/docs/spikes/violin-cello-icons.html`
 - **SA หมุน session ใหม่ 13 ก.ค.** → **spawn SA ใหม่แล้ว (`task_29d5864f` · brief `brief-ensemble-option1-sa.md`)** · SSOT `b107-p2-sa-handoff.md` + spec §6b.2 + branch `b107-p2-design`
-  - **งาน SA ใหม่ = เต็มวง Option 1 → ✅ เดโมเสร็จแล้ว** (`local_a5d4b566` · `b1cacd8` · `ensemble-callresp-demo.html` · `http://10.152.249.98:8107/ensemble-callresp-demo.html` · toggle แยกฟัง call-response/countermelody · verify: 3 เครื่องจริง · ไวโอลิน register 71-86 เหนือเปียโน 73 ไม่ทับ) → **⏳ รอ P'Aim ฟัง+เคาะ → ล็อก §6b.2 → ping PM → dev อัปเต็มวง (b107-step9)** · pad ออก=simpler
+  - **✅ เต็มวง Option 1 — P'Aim SIGN-OFF ("ดีพอสำหรับ 1st release")** · SA ล็อกสูตร §6b.2 (`04ff089` · บน base `0f2cabc`) · ตัด pad + violinFill (call-response b≥2.5 · 71-86 · g0.21) + violinCounter (chorus offbeat · 74-86 · g0.14) · balance เปียโน −7.3/ไวโอลิน −16.6/เชลโล −23.1
+  - **→ จ่าย dev อัปเต็มวง Option 1 แล้ว** (`local_3fc2030f` · branch `b107-step9-instruments` · แทน ensemble เดิมที่มี pad) → verify LIVE `window.__peaks()` 3-role · ไวโอลินใต้เปียโน · ไม่มี pad → **tester re-gate เต็มวง → P'Aim final → deploy 3 โหมดวันนี้**
   - **🎨 icon เต็มวง = "วาทยกรมองจากหลาย แขน-V" (P'Aim ขอ · default D)** · `icons-violin-cello` `324d938` · รอ P'Aim เลือก variant violin/cello/ensemble @ `10.152.249.98:5312`
   - **⚠️ บิลด์ launch ปัจจุบัน (35e1bf1 · tester PASS) เต็มวง = ยังมี pad (ออร์แกน) ≠ Option 1** → **รอ P'Aim เคาะ launch timing: (ก) เปียโน+กีตาร์ ขึ้นก่อน + เต็มวงตาม vs (ข) รอเต็มวง Option 1 จบ ขึ้น 3 โหมดพร้อม**
 - **ไม่มี session ค้าง (archived หมด 12 ก.ค.)** — งานขึ้น live รอบ 7-10 ครบ, branch+commit ยังอยู่ใน git
