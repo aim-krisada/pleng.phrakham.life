@@ -16,7 +16,14 @@ const APP_CACHE = 'pleng-app-v1'
 const SAMPLES_CACHE = 'pleng-samples-v1'
 const MANIFEST_URL = '/samples/manifest.json'
 // App-shell URLs we always want cached (the hashed assets are added at runtime on first fetch).
-const APP_SHELL = ['/', '/index.html', '/favicon.ico']
+// Includes the PWA manifest + install icons so an offline "add to home screen" still resolves
+// them (they're static public/ files, not in the hashed asset-manifest).
+const APP_SHELL = [
+  '/', '/index.html', '/favicon.ico', '/phrakham.ico',
+  '/site.webmanifest',
+  '/favicon-16x16.png', '/favicon-32x32.png', '/apple-touch-icon.png',
+  '/android-chrome-192x192.png', '/android-chrome-512x512.png',
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {

@@ -10,10 +10,15 @@ import Icon from './Icon.vue'
 
 defineProps({ title: { type: String, default: '' } })
 const route = useRoute()
-// The phrakham.life link shows that site's own logo (public/favicon.ico — byte-identical
-// to phrakham.life2's) instead of a generic globe. BASE_URL keeps it resolving on both the
-// custom domain (/) and the GitHub Pages project path (/repo/).
-const brandIcon = import.meta.env.BASE_URL + 'favicon.ico'
+// The phrakham.life link shows that site's own logo (public/phrakham.ico — the phrakham.life2
+// favicon, kept as a distinct file now that pleng's own favicon.ico is P'Aim's glowing-book
+// mark). BASE_URL keeps it resolving on both the custom domain (/) and the GitHub Pages project
+// path (/repo/).
+const brandIcon = import.meta.env.BASE_URL + 'phrakham.ico'
+// App icon shown at the far left of the bar, before the brand name (phrakham-style top-left
+// app mark). Uses P'Aim's 192px glowing-book icon; BASE_URL keeps it resolving on both the
+// custom domain and the GitHub Pages project path.
+const appIcon = import.meta.env.BASE_URL + 'android-chrome-192x192.png'
 function toggleSite() {
   shellMenu.value = shellMenu.value === 'site' ? null : 'site'
 }
@@ -26,7 +31,7 @@ function closeMenus() {
   <header class="shell-bar no-print">
     <div id="shell-left" class="shell-slot"></div>
     <div class="sb-menu">
-      <router-link to="/" class="sb-brand" aria-label="หน้าแรก · รายการเพลง">เพลง.พระคำ.ชีวิต</router-link>
+      <router-link to="/" class="sb-brand" aria-label="หน้าแรก · รายการเพลง"><img class="sb-app-ico" :src="appIcon" alt="" width="26" height="26" />เพลง.พระคำ.ชีวิต</router-link>
       <button class="sb-caret" :aria-expanded="shellMenu === 'site'" aria-haspopup="true" aria-label="เมนู" @click.stop="toggleSite">
         <Icon name="chevron-down" :size="16" />
       </button>

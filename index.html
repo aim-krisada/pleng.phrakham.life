@@ -7,9 +7,15 @@
          home indicator (B020). -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="คลังเพลงนมัสการ — เนื้อร้อง คอร์ด และโน้ตตัวเลข สำหรับคริสตจักร ใช้ฟรี" />
-    <!-- favicon: shared with phrakham.life2 (assets/favicon.ico). Relative path so
-         both the custom domain and the github.io project path resolve it (B036). -->
+    <!-- App favicon + PWA icons (P'Aim's glowing-book set, matches the hero + พระคำ). All
+         relative paths so both the custom domain and the github.io project path resolve
+         them (B036). .ico = legacy fallback; the PNGs cover modern tabs + install. -->
     <link rel="icon" href="favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+    <link rel="manifest" href="site.webmanifest" />
+    <meta name="theme-color" content="#f8f9fa" />
     <title>เพลง.พระคำ.ชีวิต — คลังเพลงนมัสการ</title>
     <!-- Self-hosted subset Noto fonts (same files as phrakham.life) — no external
          requests. Relative paths so both the custom domain and the github.io

@@ -315,6 +315,9 @@ main.container { flex: 1 0 auto; }
 /* phrakham.life link uses its raster logo (favicon.ico) — size + block layout matches the
    18px line-icons so the label baseline lines up with the other menu rows. */
 .sb-brand-ico { display: block; flex: 0 0 auto; width: 18px; height: 18px; object-fit: contain; }
+/* Top-left app mark inside the brand link (phrakham-style). Rounded so it reads as an app
+   icon; flex:0 0 auto so it never shrinks and the brand text keeps its own space. */
+.sb-app-ico { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 7px; object-fit: contain; margin-right: 8px; }
 .sb-k { margin-left: auto; color: var(--muted); font-size: 0.8rem; }
 .sb-mode-item { align-items: flex-start; }
 .sb-mode-item .mt { display: flex; flex-direction: column; line-height: 1.25; }
