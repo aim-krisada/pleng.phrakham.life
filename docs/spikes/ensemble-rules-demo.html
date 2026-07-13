@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B107 · ทดลอง "กฎ 3 ชั้น" ช่วยเต็มวงยังไง (ไม่ release)</title>
+<style>
+  :root{ font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body{ margin:0; padding:16px; max-width:680px; margin:auto; color:#1a1a1a; background:#faf9f7; line-height:1.5; }
+  h1{ font-size:1.18rem; margin:0 0 2px; }
+  .sub{ color:#666; font-size:.88rem; margin:0 0 14px; }
+  .banner{ background:#fff7e6; border:1px solid #f0d998; border-radius:10px; padding:8px 12px; font-size:.82rem; color:#7a5a12; margin-bottom:12px; }
+  .panel{ background:#fff; border:1px solid #e6e3de; border-radius:14px; padding:14px 16px; margin:12px 0; }
+  .panel h2{ font-size:.82rem; letter-spacing:.02em; color:#8a8378; text-transform:uppercase; margin:0 0 10px; font-weight:600; }
+  .big{ display:flex; gap:10px; flex-wrap:wrap; }
+  .toggle{ flex:1; min-width:250px; border:2px solid #d8d3ca; border-radius:14px; padding:12px 14px; cursor:pointer; background:#fff; }
+  .toggle.sel{ border-color:#5b7a3a; background:#eef4e6; }
+  .toggle b{ font-size:1rem; } .toggle small{ display:block; font-size:.78rem; color:#777; margin-top:3px; }
+  .toggle.sel small{ color:#4d6830 }
+  #playRow{ display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap }
+  #play{ font-size:1.15rem; font-weight:700; padding:12px 26px; border-radius:12px; border:none; background:#5b7a3a; color:#fff; cursor:pointer; }
+  #play:disabled{ opacity:.5 } #stop{ font-size:.95rem; padding:10px 16px; border-radius:10px; border:1px solid #cfc9c0; background:#fff; cursor:pointer; }
+  #now{ font-size:.9rem; color:#5b7a3a; min-height:1.3em; margin-top:8px; font-weight:600; }
+  #status{ font-size:.85rem; color:#888; min-height:1.2em; }
+  .row{ display:flex; align-items:center; gap:10px; margin:8px 0; } .row label{ font-size:.85rem; min-width:120px; } input[type=range]{ flex:1; }
+  .val{ font-size:.8rem; color:#666; min-width:44px; text-align:right; }
+  .hint{ font-size:.82rem; color:#777; }
+  ul{ margin:6px 0; padding-left:20px; font-size:.84rem; color:#555 } li{ margin:2px 0 }
+</style>
+</head>
+<body>
+<h1>🔬 ทดลอง: "กฎ 3 ชั้น" ช่วยเต็มวงยังไง</h1>
+<p class="sub">เพลงจริง #1 · เปียโน(ทำนอง+ไล่คอร์ด) + สตริงแพด + เชลโล · <b>สลับกฎเปิด/ปิด แล้วฟังเทียบ</b></p>
+<div class="banner">⚠️ อันนี้แค่ทดลองให้เห็นว่ากฎช่วยยังไง — <b>ไม่ release</b> · ตัวที่จะขึ้นจริงคือ เปียโน + กีตาร์ เดี่ยว</div>
+
+<div class="panel">
+  <h2>เลือกโหมด</h2>
+  <div class="big" id="modeOpts">
+    <div class="toggle" data-r="off"><b>❌ กฎปิด (แบบจืด)</b><small>ทุกเครื่องดังเท่ากัน · แห้งเท่ากัน · เปิดครบทุกท่อน · นิ่ง</small></div>
+    <div class="toggle sel" data-r="on"><b>✅ กฎเปิด (3 ชั้น)</b><small>มิติหน้า-หลัง + เพิ่ม/ลดเครื่องตามท่อน + หลบพระเอก</small></div>
+  </div>
+</div>
+
+<div id="playRow"><button id="play">▶ เล่น</button><button id="stop">■ หยุด</button></div>
+<div id="now"></div>
+<div id="status">แตะ "เล่น" ครั้งแรกจะโหลดเสียง 3 เครื่อง (~2-4 วิ)</div>
+
+<div class="panel">
+  <h2>ปั้น</h2>
+  <div class="row"><label>ความเร็ว (BPM)</label><input type="range" id="bpm" min="54" max="96" value="70"><span class="val" id="bpmV">70</span></div>
+  <p class="hint" id="whatHint"></p>
+</div>
+
+<div class="panel">
+  <h2>กฎ 3 ชั้น (ที่เปิดในโหมด ✅)</h2>
+  <ul>
+    <li><b>ชั้นนำ (ทำนอง):</b> เปียโนเล่นทำนองชิ้นเดียว · โน้ตยาว = สเวลล์ (ค่อยดัง)</li>
+    <li><b>ชั้นเคลื่อนไหว:</b> เปียโนไล่คอร์ด (arp) = ชีพจร · โน้ตทำนองยาว → เติมไล่ (หลบ-เติมพระเอก)</li>
+    <li><b>ชั้นโอบอุ้ม:</b> สตริง/เชลโล −9dB ใต้ทำนอง + <b>reverb ผลักไป "ด้านหลัง"</b> (เปียโนอยู่หน้า)</li>
+    <li><b>ตามท่อน:</b> ท่อนต้น (verse) = เปียโน+เชลโลเบา · ท่อนหลัง (chorus) = สตริงแพดเอ่อล้นเข้ามา</li>
+  </ul>
+</div>
+
+<script type="module">
+const SONG = JSON.parse('[{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":0.5,"c":"A"},{"m":68,"b":0.5,"c":"A"},{"m":66,"b":4,"c":"B"},{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":1,"c":"A"},{"m":66,"b":3,"c":"B"},{"m":64,"b":1,"c":"B"},{"m":64,"b":4,"c":"E"}]');
+const SHARP=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const IV={'':[0,4,7],m:[0,3,7],7:[0,4,7,10],m7:[0,3,7,10],maj7:[0,4,7,11],sus4:[0,5,7],dim:[0,3,6],6:[0,4,7,9],9:[0,4,7,10,14]};
+function parse(ch){const m=/^([A-G][#b]?)(.*)$/.exec(ch);if(!m)return null;
+  return {ri:SHARP.indexOf(m[1].replace('Bb','A#').replace('Eb','D#').replace('Ab','G#').replace('Db','C#').replace('Gb','F#')),suf:m[2]};}
+let prevUp=null; const WLO=48,WHI=67;
+function nearO(pc,t){let m=WLO+((pc-WLO)%12+12)%12,best=m;for(let x=m;x<=WHI;x+=12)if(Math.abs(x-t)<Math.abs(best-t))best=x;return best;}
+function voiceLed(ch){const p=parse(ch);if(!p)return{bass:null,up:[]};
+  const pcs=(IV[p.suf]||IV['']).slice(1,4).map(iv=>(p.ri+iv)%12);
+  const a=prevUp&&prevUp.length?prevUp.reduce((x,y)=>x+y,0)/prevUp.length:58;
+  const up=pcs.map(pc=>nearO(pc,a)).sort((x,y)=>x-y);prevUp=up;
+  const bass=40+((p.ri-4)%12+12)%12;return{bass,up};}
+function chordEvents(){const ev=[];let beat=0,cur=null;
+  for(const n of SONG){const c=n.c||'';if(c&&(!cur||cur.chord!==c)){if(cur)ev.push(cur);cur={chord:c,startBeat:beat,beats:0};}
+    if(cur)cur.beats+=n.b;beat+=n.b;}if(cur)ev.push(cur);return ev;}
+function accent(pb){const p=((pb%4)+4)%4;if(p<0.01)return 1;if(Math.abs(p-2)<0.01)return .9;
+  if(Math.abs(p-1)<0.01||Math.abs(p-3)<0.01)return .8;return .72;}
+function contour(i){const n=SONG[i],pr=SONG[i-1],nx=SONG[i+1];let c=1;
+  if(pr&&n.m>pr.m)c+=.06;if(pr&&nx&&n.m>pr.m&&n.m>=nx.m)c+=.06;if(pr&&n.m<pr.m)c-=.04;if(n.b>=3)c-=.06;return c;}
+const TOTAL=SONG.reduce((s,n)=>s+n.b,0), CUT=TOTAL*0.46; // verse = first 46% of beats
+
+let ctx,master,revNear,revNearG,revFar,revFarG,roleG={},SF={},gen=0;
+function impulse(sec,decay){const rate=ctx.sampleRate,len=Math.floor(rate*sec),buf=ctx.createBuffer(2,len,rate);
+  for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay);}return buf;}
+function ensure(){ if(ctx)return;
+  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  master=ctx.createGain(); master.gain.value=0.85;
+  const lim=ctx.createDynamicsCompressor(); lim.threshold.value=-2;lim.knee.value=8;lim.ratio.value=4;lim.attack.value=0.006;lim.release.value=0.18;
+  master.connect(lim); lim.connect(ctx.destination);
+  revNear=ctx.createConvolver(); revNear.buffer=impulse(1.1,3.0); revNearG=ctx.createGain(); revNear.connect(revNearG); revNearG.connect(master); // ห้องเล็ก = อยู่หน้า
+  revFar=ctx.createConvolver();  revFar.buffer=impulse(3.0,2.0);  revFarG=ctx.createGain();  revFar.connect(revFarG);  revFarG.connect(master);  // ห้องโถง = อยู่หลัง
+  // per-role: dry + a send to near/far (สร้างมิติหน้า-หลัง)
+  for(const r of ['mel','motion','pad','bass']){ roleG[r]=ctx.createGain(); roleG[r].connect(master); }
+  const send=(role,node,amt)=>{ const s=ctx.createGain(); s.gain.value=amt; roleG[role].connect(s); s.connect(node); return s; };
+  roleG._sends={ melN:send('mel',revNear,0.14), moN:send('motion',revNear,0.16),
+                 padN:send('pad',revNear,0.05), padF:send('pad',revFar,0.5),  // pad ผลักไปหลัง (far มาก)
+                 basN:send('bass',revNear,0.06), basF:send('bass',revFar,0.28) };
+}
+async function sf(name){ if(SF[name])return SF[name];
+  const Soundfont=(await import('https://esm.sh/soundfont-player@0.12.0')).default;
+  SF[name]=await Soundfont.instrument(ctx,name,{soundfont:'MusyngKite'}); return SF[name]; }
+const setStatus=m=>document.getElementById('status').textContent=m;
+const setNow=m=>document.getElementById('now').textContent=m;
+function stopAll(){ gen++; for(const k in SF){try{SF[k].stop();}catch(e){}} }
+
+let RULES='on';
+async function play(){
+  ensure(); await ctx.resume(); stopAll(); const my=gen;
+  document.getElementById('play').disabled=true; setStatus('⏳ กำลังโหลดเสียง 3 เครื่อง...');
+  let piano,strings,cello;
+  try{ [piano,strings,cello]=await Promise.all([sf('acoustic_grand_piano'),sf('string_ensemble_1'),sf('cello')]); }
+  catch(e){ setStatus('⚠️ โหลดไม่ได้ — '+e.message); document.getElementById('play').disabled=false; return; }
+  document.getElementById('play').disabled=false; if(my!==gen)return;
+  const on = RULES==='on';
+  setStatus(on?'✅ กฎเปิด — ฟังมิติ + ท่อน':'✅ กฎปิด — แบน เท่ากันหมด');
+
+  // rule OFF = flat: everything through the near reverb only (no depth), all layers all song, uniform.
+  revNearG.gain.value = on?0.9:0.6; revFarG.gain.value = on?0.9:0.0;
+  roleG._sends.padF.gain.value = on?0.5:0.0; roleG._sends.basF.gain.value = on?0.28:0.0; // OFF = no "back"
+  const bpm=+bpmEl.value, spb=60/bpm; prevUp=null;
+  const t0=ctx.currentTime+0.2, rnd=()=>(Math.random()-0.5)*2, TJ=0.012, VJ=0.06;
+  const pl=(inst,role,midi,t,dur,g)=> inst.play(midi,t,{duration:dur, gain:Math.max(0.03,g), destination:roleG[role]});
+  const sec=beat=> (on && beat<CUT) ? 'verse' : 'chorus'; // OFF = ท่อนเดียวเท่ากันหมด (treat as chorus/full)
+
+  // MELODY (guide) — piano, one line. rule ON: swell on long notes.
+  let beat=0; SONG.forEach((n,i)=>{ const d=n.b*spb;
+    if(n.m!=null){ let gd=accent(beat)*contour(i)*(1+VJ*rnd()); const s=sec(beat);
+      if(on && s==='verse') gd*=0.9;                         // verse a touch softer
+      const atkDur = (on && n.b>=3) ? d+0.5 : Math.max(.5,d+0.3);
+      pl(piano,'mel', n.m, t0+beat*spb+TJ*rnd(), atkDur, 0.5*gd); } beat+=n.b; });
+
+  for(const e of chordEvents()){ const v=voiceLed(e.chord); if(v.bass==null)continue;
+    const bT=t0+e.startBeat*spb, nb=Math.max(1,Math.round(e.beats)), s=sec(e.startBeat), a=accent(e.startBeat);
+    // FOUNDATION bass — cello, pushed to the back when rules on. re-bow ~3 beats.
+    const bassG = on ? (s==='verse'?0.24:0.3) : 0.3;
+    for(let b=0;b<nb;b+=3){ const seg=Math.min(3,nb-b); pl(cello,'bass', v.bass, bT+b*spb, seg*spb+0.4, bassG*a); }
+
+    // MOTION — piano arpeggio pulse. rule ON: fuller in chorus; extra fill when the tune holds long.
+    const arpG = on ? (s==='verse'?0.10:0.14) : 0.12;
+    const seq=[v.up[0], v.up[1]??v.up[0], v.up[2]??v.up[0], v.up[1]??v.up[0]];
+    for(let k=0;k<nb;k++){ pl(piano,'motion', seq[k%seq.length], bT+k*spb+TJ*rnd(), spb*1.5, arpG*accent(e.startBeat+k));
+      if(on && s==='chorus' && Math.random()<0.25){ const top=v.up[0]+12; if(top<=88) pl(piano,'motion', top, bT+(k+0.5)*spb, spb*1.0, arpG*0.7); } }
+
+    // FOUNDATION pad — string ensemble. rule ON: ONLY in chorus (density by section), soft, far/back.
+    //                    rule OFF: pad plays the WHOLE song (static wall) = part of why it's จืด.
+    const padOn = on ? (s==='chorus') : true;
+    if(padOn){ const padG = on?0.06:0.09;
+      for(let b=0;b<nb;b+=2){ const seg=Math.min(2,nb-b);
+        v.up.forEach(mm=> pl(strings,'pad', mm, bT+b*spb+Math.random()*0.01, seg*spb+0.6, padG*a)); } }
+  }
+  setNow(on?'▶ กฎเปิด · verse=เปียโน+เชลโล → chorus=สตริงเอ่อล้น · มิติหน้า-หลัง':'▶ กฎปิด · ทุกเครื่องเท่ากัน แห้ง นิ่ง ตลอดเพลง');
+}
+
+const bpmEl=document.getElementById('bpm');
+document.querySelectorAll('#modeOpts .toggle').forEach(o=> o.addEventListener('click',()=>{
+  RULES=o.dataset.r; document.querySelectorAll('#modeOpts .toggle').forEach(x=>x.classList.toggle('sel',x===o));
+  document.getElementById('whatHint').textContent = RULES==='on'
+    ? 'กำลังจะเล่นแบบ "ใส่กฎ" — สังเกต: ท่อนต้นโปร่งเบา แล้วสตริงเอ่อเข้ามาท่อนหลัง + เปียโนอยู่หน้า สายอยู่หลัง'
+    : 'กำลังจะเล่นแบบ "จืด" — ทุกเครื่องดังเท่ากัน แห้งเท่ากัน เปิดครบตลอด = แบน'; }));
+document.getElementById('play').addEventListener('click',()=> play().catch(e=>setStatus('⚠️ '+e.message)));
+document.getElementById('stop').addEventListener('click',()=>{ stopAll(); setNow(''); setStatus('■ หยุดแล้ว'); });
+bpmEl.addEventListener('input',()=>document.getElementById('bpmV').textContent=bpmEl.value);
+document.querySelector('[data-r="on"]').click();
+</script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B107 P2 · เดโมกีตาร์เดี่ยว-จัดเต็ม (ให้ P'Aim ฟัง)</title>
+<style>
+  :root{ font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body{ margin:0; padding:16px; max-width:680px; margin:auto; color:#1a1a1a; background:#faf9f7; line-height:1.5; }
+  h1{ font-size:1.2rem; margin:0 0 2px; }
+  .sub{ color:#666; font-size:.88rem; margin:0 0 14px; }
+  .panel{ background:#fff; border:1px solid #e6e3de; border-radius:14px; padding:14px 16px; margin:12px 0; }
+  .panel h2{ font-size:.82rem; letter-spacing:.02em; color:#8a8378; text-transform:uppercase; margin:0 0 10px; font-weight:600; }
+  .opts{ display:flex; gap:8px; flex-wrap:wrap; }
+  .opt{ font-size:.95rem; padding:11px 15px; border-radius:12px; border:1.5px solid #d8d3ca; background:#fff; cursor:pointer; }
+  .opt.sel{ border-color:#8a5a2b; background:#f6ecdf; color:#6b3f14; font-weight:600; }
+  .opt small{ display:block; font-size:.72rem; color:#a98; font-weight:400; margin-top:2px }
+  .opt.sel small{ color:#8a5a2b }
+  #playRow{ display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap }
+  #play{ font-size:1.15rem; font-weight:700; padding:12px 26px; border-radius:12px; border:none; background:#8a5a2b; color:#fff; cursor:pointer; }
+  #play:hover{ background:#734a22 } #play:disabled{ opacity:.5 }
+  #stop{ font-size:.95rem; padding:10px 16px; border-radius:10px; border:1px solid #cfc9c0; background:#fff; cursor:pointer; }
+  #now{ font-size:.9rem; color:#8a5a2b; min-height:1.3em; margin-top:8px; font-weight:600; }
+  #status{ font-size:.85rem; color:#888; min-height:1.2em; }
+  .hint{ font-size:.82rem; color:#777; margin:6px 0 0; }
+  .row{ display:flex; align-items:center; gap:10px; margin:8px 0; }
+  .row label{ font-size:.85rem; min-width:120px; } input[type=range]{ flex:1; }
+  .val{ font-size:.8rem; color:#666; min-width:44px; text-align:right; font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<h1>🎸 เดโมกีตาร์เดี่ยว-จัดเต็ม (B107 P2)</h1>
+<p class="sub">เพลงจริง #1 "พระเจ้าเป็นความรัก" · กีตาร์ไนลอนตัวเดียว เล่นทั้งเพลงด้วยลูกเล่นกีตาร์แท้ ๆ (ไม่ใช่ตอกคอร์ด) · ทุกอย่างอัตโนมัติ</p>
+
+<div class="panel">
+  <h2>สไตล์การเล่น</h2>
+  <div class="opts" id="styleOpts">
+    <div class="opt sel" data-s="strum">🖐️ รูดจังหวะ<small>รูดคอร์ดเป็นจังหวะ (D-DU-UDU) · ได้ยินเสียงรูดชัด</small></div>
+    <div class="opt" data-s="travis">🤌 เกาสาย<small>เบสสลับ + ไล่นิ้วกลิ้งชัด (PIMA)</small></div>
+    <div class="opt" data-s="rasg">🔥 กรีดรัว (rasgueado)<small>กรีดสายรัว ๆ ต้นวรรค · สไตล์สแปนิช</small></div>
+  </div>
+  <p class="hint">ลูกเล่นกีตาร์แท้ ๆ: เสียงรูด/กรีดสาย (stagger ชัด) · สไลด์เข้าโน้ตทำนอง · สายเปล่ากังวาน · humanize อัตโนมัติ</p>
+</div>
+
+<div id="playRow"><button id="play">▶ เล่น</button><button id="stop">■ หยุด</button></div>
+<div id="now"></div>
+<div id="status">แตะ "เล่น" ครั้งแรกจะโหลดเสียงกีตาร์ (~2 วิ)</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>ปั้นเสียง (เลื่อนแล้วกดเล่นใหม่)</h2>
+  <div class="row"><label>ทำนอง</label><input type="range" id="melVol" min="40" max="130" value="100"><span class="val" id="melV">100</span></div>
+  <div class="row"><label>เกา/รูด (คลอ)</label><input type="range" id="compVol" min="20" max="120" value="70"><span class="val" id="compV">70</span></div>
+  <div class="row"><label>เสียงก้อง</label><input type="range" id="rev" min="0" max="100" value="20"><span class="val" id="revV">20</span></div>
+  <div class="row"><label>ความเร็ว (BPM)</label><input type="range" id="bpm" min="52" max="104" value="70"><span class="val" id="bpmV">70</span></div>
+</div>
+
+<p class="hint" style="margin-top:14px">⚠️ เดโมใช้เสียงกีตาร์ตัวอย่าง (soundfont) เพื่อฟัง "ลูกเล่น/สไตล์" — ของจริงใช้ไฟล์ไนลอน CC ที่ dev โฮสต์ไว้ (นุ่มกว่า) แต่ลวดลายการเล่นเหมือนกัน</p>
+
+<script type="module">
+const SONG = JSON.parse('[{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":0.5,"c":"A"},{"m":68,"b":0.5,"c":"A"},{"m":66,"b":4,"c":"B"},{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":1,"c":"A"},{"m":66,"b":3,"c":"B"},{"m":64,"b":1,"c":"B"},{"m":64,"b":4,"c":"E"}]');
+const SHARP=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const IV={'':[0,4,7],m:[0,3,7],7:[0,4,7,10],m7:[0,3,7,10],maj7:[0,4,7,11],sus4:[0,5,7],dim:[0,3,6],6:[0,4,7,9],9:[0,4,7,10,14]};
+function parse(ch){const m=/^([A-G][#b]?)(.*)$/.exec(ch);if(!m)return null;
+  return {ri:SHARP.indexOf(m[1].replace('Bb','A#').replace('Eb','D#').replace('Ab','G#').replace('Db','C#').replace('Gb','F#')),suf:m[2]};}
+let prevUp=null; const WLO=52,WHI=71; // guitar-ish mid register for the picked voices
+function nearO(pc,t){let m=WLO+((pc-WLO)%12+12)%12,best=m;for(let x=m;x<=WHI;x+=12)if(Math.abs(x-t)<Math.abs(best-t))best=x;return best;}
+function voiceLed(ch){const p=parse(ch);if(!p)return{bass:null,up:[]};
+  const pcs=(IV[p.suf]||IV['']).slice(1,4).map(iv=>(p.ri+iv)%12);
+  const a=prevUp&&prevUp.length?prevUp.reduce((x,y)=>x+y,0)/prevUp.length:60;
+  const up=pcs.map(pc=>nearO(pc,a)).sort((x,y)=>x-y);prevUp=up;
+  const bass=40+((p.ri-4)%12+12)%12;return{bass,up};} // low E string area
+function chordEvents(){const ev=[];let beat=0,cur=null;
+  for(const n of SONG){const c=n.c||'';if(c&&(!cur||cur.chord!==c)){if(cur)ev.push(cur);cur={chord:c,startBeat:beat,beats:0};}
+    if(cur)cur.beats+=n.b;beat+=n.b;}if(cur)ev.push(cur);return ev;}
+function accent(pb){const p=((pb%4)+4)%4;if(p<0.01)return 1;if(Math.abs(p-2)<0.01)return .9;
+  if(Math.abs(p-1)<0.01||Math.abs(p-3)<0.01)return .8;return .72;}
+function contour(i){const n=SONG[i],pr=SONG[i-1],nx=SONG[i+1];let c=1;
+  if(pr&&n.m>pr.m)c+=.06;if(pr&&nx&&n.m>pr.m&&n.m>=nx.m)c+=.06;if(pr&&n.m<pr.m)c-=.04;if(n.b>=3)c-=.06;return c;}
+
+let ctx,master,revConv,revGain,roleG={},SF=null,gen=0;
+function impulse(sec,decay){const rate=ctx.sampleRate,len=rate*sec,buf=ctx.createBuffer(2,len,rate);
+  for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay);}return buf;}
+function ensure(){ if(ctx)return;
+  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  master=ctx.createGain(); master.gain.value=0.9;
+  const lim=ctx.createDynamicsCompressor(); lim.threshold.value=-2;lim.knee.value=8;lim.ratio.value=4;lim.attack.value=0.006;lim.release.value=0.18;
+  master.connect(lim); lim.connect(ctx.destination);
+  revConv=ctx.createConvolver(); revConv.buffer=impulse(1.8,2.6);
+  revGain=ctx.createGain(); revConv.connect(revGain); revGain.connect(master);
+  for(const r of ['mel','comp']){ const g=ctx.createGain(); g.connect(master); g.connect(revConv); roleG[r]=g; }
+}
+// ★ REAL nylon CC sample (self-hosted · the true timbre). Tiny custom sampler: fetch each ogg
+// (filename = MIDI pitch), decode, and pitch-shift the nearest sample via playbackRate. This is
+// what ships — a fairer test than the GM soundfont. Falls back to soundfont if the files aren't served.
+let NYL=null, activeVoice=[];
+async function loadNylon(){ if(NYL)return NYL;
+  const pj=await (await fetch('./nylon/preset.json')).json();
+  const regs=pj.groups.flatMap(g=>g.regions);
+  const bufs=await Promise.all(regs.map(async r=>{
+    const ab=await (await fetch('./nylon/'+r.sample+'.ogg')).arrayBuffer();
+    return { midi:r.pitch, buf:await ctx.decodeAudioData(ab) }; }));
+  bufs.sort((a,b)=>a.midi-b.midi); NYL=bufs; return NYL; }
+function nylPlay(role,midi,t,dur,gain){
+  let best=NYL[0]; for(const b of NYL) if(Math.abs(b.midi-midi)<Math.abs(best.midi-midi)) best=b;
+  const src=ctx.createBufferSource(); src.buffer=best.buf;
+  src.playbackRate.value=Math.pow(2,(midi-best.midi)/12);
+  const g=ctx.createGain(); const G=Math.max(0.02,gain);
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(G,t+0.004);
+  g.gain.setTargetAtTime(0.0001, t+Math.max(0.08,dur), 0.28); // natural pluck decay
+  src.connect(g).connect(roleG[role]); src.start(t); src.stop(t+dur+2); activeVoice.push(src); }
+async function sf(){ if(SF)return SF;
+  const Soundfont=(await import('https://esm.sh/soundfont-player@0.12.0')).default;
+  SF=await Soundfont.instrument(ctx,'acoustic_guitar_nylon',{soundfont:'MusyngKite'}); return SF; }
+const setStatus=m=>document.getElementById('status').textContent=m;
+const setNow=m=>document.getElementById('now').textContent=m;
+function stopAll(){ gen++; activeVoice.forEach(s=>{try{s.stop();}catch(e){}}); activeVoice=[]; if(SF)try{SF.stop();}catch(e){} }
+
+let STYLE='strum';
+async function play(){
+  ensure(); await ctx.resume(); stopAll(); const my=gen;
+  document.getElementById('play').disabled=true; setStatus('⏳ กำลังโหลดเสียงกีตาร์จริง (ไนลอน CC)...');
+  let real=true, sfInst=null;
+  try{ await loadNylon(); }
+  catch(e){ real=false; try{ sfInst=await sf(); }catch(e2){ setStatus('⚠️ โหลดไม่ได้ — '+e2.message); document.getElementById('play').disabled=false; return; } }
+  document.getElementById('play').disabled=false; if(my!==gen)return;
+  setStatus(real?'✅ เล่นด้วยไฟล์กีตาร์ไนลอนจริง (CC · เสียงที่จะใช้จริง)':'✅ เล่นด้วยเสียงตัวอย่าง (soundfont · fallback)');
+
+  const melVol=(+melV.value)/100, compVol=(+compV.value)/100;
+  revGain.gain.value=(+revEl.value)/100*0.5;
+  const bpm=+bpmEl.value, spb=60/bpm; prevUp=null;
+  const t0=ctx.currentTime+0.2, rnd=()=>(Math.random()-0.5)*2, TJ=0.014, VJ=0.06;
+  const pk=real ? ((role,midi,t,dur,gg)=> nylPlay(role,midi,t,dur,gg))
+               : ((role,midi,t,dur,gg)=> sfInst.play(midi,t,{duration:dur, gain:Math.max(0.03,gg), destination:roleG[role]}));
+
+  // MELODY — plucked nylon on top; breathes + occasional SLIDE/grace (guitar ornament: a quick
+  // note a step below sliding into the target). let it ring.
+  let beat=0; SONG.forEach((n,i)=>{ const d=n.b*spb;
+    if(n.m!=null){ const gd=accent(beat)*contour(i)*(1+VJ*rnd()); const sh=TJ*rnd(); const t=t0+beat*spb+sh;
+      if(n.b>=1 && Math.random()<0.22){ pk('mel', n.m-2, t-0.055, 0.09, 0.34*melVol*gd); } // slide-in grace
+      pk('mel', n.m, t, Math.max(.6,d+0.4), 0.52*melVol*gd); } beat+=n.b; });
+
+  // ACCOMPANIMENT — DISTINCT guitar idiom (audible rake / roll), notes RING (~2.4s decay)
+  // a raked strum: notes fired low→high (down) or high→low (up) with a CLEAR stagger you can hear.
+  const rake=(notes, t, gapMs, baseG, ac)=> notes.forEach((m,j)=>
+    pk('comp', m, t+j*gapMs/1000+TJ*rnd()*0.4, spb*2.0, baseG*(1-j*0.08)*compVol*ac));
+  const CH=v=>[v.bass,...v.up];
+
+  for(const e of chordEvents()){ const v=voiceLed(e.chord); if(v.bass==null)continue;
+    const bT=t0+e.startBeat*spb, nb=Math.max(1,Math.round(e.beats));
+
+    if(STYLE==='strum'){
+      // rhythmic strum pattern D _ D U _ U D U (the recognizable worship groove) with clear rakes.
+      const PAT={'0':'D','1':'D','1.5':'U','2.5':'U','3':'D','3.5':'U'};
+      for(let p=0;p<nb;p+=0.5){ const bp=((e.startBeat+p)%4);
+        const key=Object.keys(PAT).find(k=>Math.abs(+k-bp)<0.01); if(!key)continue;
+        const ac=accent(e.startBeat+Math.floor(p)), t=bT+p*spb;
+        if(PAT[key]==='D') rake(CH(v), t, 26, 0.30, ac);              // downstroke low→high, fuller
+        else rake([...v.up].reverse(), t, 20, 0.18, ac);             // upstroke high→low, lighter (no bass)
+      }
+    } else if(STYLE==='travis'){
+      // Travis: thumb bass on the beat + a CLEAR ascending i-m-a roll across the beat (obvious pick).
+      for(let k=0;k<nb;k++){ const ac=accent(e.startBeat+k);
+        pk('comp', (k%2===0)?v.bass:v.bass+7, bT+k*spb+TJ*rnd(), spb*2.2, 0.30*compVol*ac);
+        const ima=[v.up[0], v.up[1]??v.up[0], v.up[2]??v.up[1]??v.up[0]];
+        ima.forEach((m,j)=> pk('comp', m, bT+(k+0.25+j*0.22)*spb+TJ*rnd(), spb*1.6, 0.16*compVol*ac));
+      }
+    } else { // rasgueado — a rapid finger-flick flourish at each chord start, then a light strum body
+      const st=CH(v); for(let f=0;f<4;f++){ rake(st, bT+f*0.038, 12, 0.12+f*0.05, 1); } // 4 fast cascading flicks
+      const PAT={'1':'D','2':'D','2.5':'U','3':'U','3.5':'D'};
+      for(let p=1;p<nb;p+=0.5){ const bp=((e.startBeat+p)%4);
+        const key=Object.keys(PAT).find(k=>Math.abs(+k-bp)<0.01); if(!key)continue;
+        const ac=accent(e.startBeat+Math.floor(p));
+        rake(PAT[key]==='D'?st:[...v.up].reverse(), bT+p*spb, 22, 0.16, ac);
+      }
+    }
+  }
+  setNow('▶ กีตาร์เดี่ยว · '+({strum:'รูดจังหวะ (D-DU-UDU)',travis:'เกาสาย (PIMA roll)',rasg:'กรีดรัว (rasgueado)'}[STYLE])+' · BPM '+bpm);
+}
+
+const melV=document.getElementById('melVol'), compV=document.getElementById('compVol'),
+  revEl=document.getElementById('rev'), bpmEl=document.getElementById('bpm');
+document.querySelectorAll('#styleOpts .opt').forEach(o=> o.addEventListener('click',()=>{
+  STYLE=o.dataset.s; document.querySelectorAll('#styleOpts .opt').forEach(x=>x.classList.toggle('sel',x===o)); }));
+document.getElementById('play').addEventListener('click',()=> play().catch(e=>setStatus('⚠️ '+e.message)));
+document.getElementById('stop').addEventListener('click',()=>{ stopAll(); setNow(''); setStatus('■ หยุดแล้ว'); });
+const bind=(el,l)=>{ const o=document.getElementById(l); const u=()=>o.textContent=el.value; el.addEventListener('input',u); u(); };
+bind(melV,'melV'); bind(compV,'compV'); bind(revEl,'revV'); bind(bpmEl,'bpmV');
+</script>
+</body>
+</html>
