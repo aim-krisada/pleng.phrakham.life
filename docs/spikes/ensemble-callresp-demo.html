@@ -93,7 +93,7 @@ function chordAtBeat(evs,beat){ for(const e of evs) if(beat>=e.startBeat-0.01 &&
 // Returns {beat, beats, m, chord} per gap. b>=2.5 = a clear phrase-end breath.
 function findGaps(evs){ let mb=0; const g=[]; for(const n of SONG){ if(n.m!=null && n.b>=2.5) g.push({beat:mb, beats:n.b, m:n.m, chord:chordAtBeat(evs,mb)}); mb+=n.b; } return g; }
 
-let ctx,master,revNear,revNearG,revFar,revFarG,roleG={},sends={},grand=null,BUF={},gen=0,voices=[],pianoIn=null;
+let ctx,master,revNear,revNearG,revFar,revFarG,roleG={},sends={},grand=null,BUF={},gen=0,voices=[],pianoIn=null,analys={},peaks={};
 function impulse(sec,decay){const rate=ctx.sampleRate,len=Math.floor(rate*sec),buf=ctx.createBuffer(2,len,rate);
   for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay);}return buf;}
 function ensure(){ if(ctx)return;
@@ -104,6 +104,12 @@ function ensure(){ if(ctx)return;
   revNear=ctx.createConvolver(); revNear.buffer=impulse(1.1,3.0); revNearG=ctx.createGain(); revNear.connect(revNearG); revNearG.connect(master);
   revFar=ctx.createConvolver();  revFar.buffer=impulse(3.2,1.9);  revFarG=ctx.createGain();  revFar.connect(revFarG);  revFarG.connect(master);
   for(const r of ['piano','cello','violin']){ roleG[r]=ctx.createGain(); roleG[r].connect(master); }
+  // per-role metering (measure real peak dB, don't guess — B107 lesson)
+  for(const r of ['piano','cello','violin']){ const an=ctx.createAnalyser(); an.fftSize=1024; roleG[r].connect(an); analys[r]=an; peaks[r]=0; }
+  // setInterval (not rAF) so metering keeps running even when the preview tab isn't visibly rendering
+  setInterval(()=>{ for(const r in analys){ const buf=new Float32Array(analys[r].fftSize); analys[r].getFloatTimeDomainData(buf);
+    let m=0; for(const v of buf) if(Math.abs(v)>m)m=Math.abs(v); if(m>peaks[r])peaks[r]=m; } }, 25);
+  window.__peaks=()=>{ const o={state:ctx.state}; for(const r in peaks) o[r]=peaks[r]>0? +(20*Math.log10(peaks[r])).toFixed(1) : -99; return o; };
   pianoIn=ctx.createGain(); pianoIn.gain.value=2.6; pianoIn.connect(roleG.piano);
   const mk=(role,node,amt)=>{ const s=ctx.createGain(); s.gain.value=amt; roleG[role].connect(s); s.connect(node); return s; };
   sends={ pN:mk('piano',revNear,0.13), cN:mk('cello',revNear,0.05), cF:mk('cello',revFar,0.34),
@@ -190,6 +196,7 @@ async function play(){
 
   const melVol=(+melV.value)/100, compVol=(+compV.value)/100, bassVol=(+bassV.value)/100, vioVol=(+vioV.value)/100;
   const rv=(+revEl.value)/100; revNearG.gain.value=rv*0.8; revFarG.gain.value=rv*1.0;
+  for(const r in peaks) peaks[r]=0;   // reset meters each play
   const bpm=+bpmEl.value, spb=60/bpm; prevUp=null;
   const t0=ctx.currentTime+0.25, rnd=()=>(Math.random()-0.5)*2, TJ=0.012, VJ=0.06;
   const sec=beat=> beat<CUT?'verse':'chorus';
@@ -214,9 +221,13 @@ async function play(){
   }
 
   // ── RULE 2: CALL-AND-RESPONSE — violin answers in every phrase-end gap ──
+  // BALANCE PRINCIPLE (measured): a bowed answering voice punches above its peak number (sustain +
+  // vibrato + bright register), so it must sit ~10-13 dB UNDER the piano-lead peak — deeper than the
+  // 3-6 dB you'd give another piano. gap-fill can be a touch more present (it answers in an empty space);
+  // countermelody ducks MORE (it overlaps the piano lead). fill 0.21, counter 0.14.
   const gaps = findGaps(evs);
   if(RESP==='on'){
-    gaps.forEach((g,gi)=>{ const sg=secGain(g.beat); violinFill(g, spb, t0, 0.30*vioVol*sg, gi); });
+    gaps.forEach((g,gi)=>{ const sg=secGain(g.beat); violinFill(g, spb, t0, 0.21*vioVol*sg, gi); });
   }
   // ── RULE 3: COUNTERMELODY — only in the chorus, weaving above the piano ──
   if(CM==='on'){
@@ -225,7 +236,7 @@ async function play(){
     for(const e of evs){ if(sec(e.startBeat)!=='chorus') continue;
       let hostsFill=false; for(let bb=e.startBeat; bb<e.startBeat+e.beats; bb++) if(gapBeats.has(Math.round(bb))) hostsFill=true;
       if(hostsFill) continue;
-      violinCounter(e, spb, t0, 0.24*vioVol);
+      violinCounter(e, spb, t0, 0.14*vioVol);
     }
   }
 
