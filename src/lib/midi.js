@@ -6,7 +6,7 @@ import { parseChord, chordToIntervals } from './chords.js'
 import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
 import { arrange } from './arranger/index.js'
 import { moduleForInstrument } from './arranger/instruments/index.js'
-import { mulberry32 } from './arranger/rng.js'
+import { mulberry32, seedFor } from './arranger/rng.js'
 
 const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 65,
   'F#': 66, Gb: 66, G: 67, 'G#': 68, Ab: 68, A: 69, 'A#': 70, Bb: 70, B: 71 }
@@ -43,6 +43,9 @@ let liveTranspose = 0
 // module-level so stopPlayback()/the in-loop stop can silence its voices (the synth is stopped
 // via liveOscs; a sampler owns its own voices).
 let activeSampler = null
+// B107 step 9 — the ensemble (รวมวง) plays SEVERAL real instruments at once (piano + cello +
+// violin), each its own wrapper; held here so stopPlayback() can silence every one.
+let activeEnsemble = []
 
 function tokenBeats(t, tripletFactor) {
   let d = 1 / 2 ** t.underlines
@@ -189,6 +192,7 @@ export function stopPlayback() {
   stopFlag.stopped = true
   liveOscs = []
   if (activeSampler) { activeSampler.releaseAll(); activeSampler = null }
+  if (activeEnsemble.length) { activeEnsemble.forEach((w) => { try { w?.releaseAll() } catch { /* already stopped */ } }); activeEnsemble = [] }
 }
 
 // Schedule ONE melody note (triangle oscillator + attack/hold/release gain envelope)
@@ -573,5 +577,154 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
     }
   } while (loop && !myFlag.stopped)
   if (activeSampler === sampler) activeSampler = null // natural end: drop our handle (voices ring out)
+  return true
+}
+
+// B107 step 9 · §6b.2 — the ENSEMBLE (รวมวง) player: THREE real instruments at once (piano +
+// cello + violin), the "3 sonic layers" arrangement, near/far reverb depth, verse→chorus density.
+// Ported from docs/spikes/ensemble-real-demo.html (P'Aim-approved · เสียงจริงทั้งวง, no GM). Kept
+// separate from playSong because it drives MULTIPLE samplers through a per-role mix graph; it shares
+// the module ctx / stop flag / note SSOT so stop/resume/transpose behave the same.
+//   lead: 'piano' (default · เปียโนนำ) | 'violin' (ไวโอลินนำ) — which instrument sings the melody.
+// A live transpose/key/tempo change reschedules (samplers can't detune) — the viewer restarts us.
+export async function playEnsemble(content, { bpm = 72, loop = false, onNote, onProgress, order, range, transpose = 0, startIndex = 0, lead = 'piano', onInstrumentPending, songId } = {}) {
+  ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
+  try { const b = ctx.createBuffer(1, 1, 22050); const s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0) } catch { /* not fatal */ }
+  await ctx.resume()
+  if (ctx.state !== 'running') return false
+  stopFlag = { stopped: false }
+  const myFlag = stopFlag
+  liveTranspose = transpose
+
+  // Load the three real instruments (self-hosted + precached). Report progress like the MP3 pill.
+  onInstrumentPending?.({ loading: true, progress: 0 })
+  let gr = null, ce = null, vi = null
+  try {
+    ;[gr, ce, vi] = await Promise.all([
+      loadInstrument('grand', ctx, { onProgress: (p) => onInstrumentPending?.({ loading: true, progress: p }) }),
+      loadInstrument('cello', ctx),
+      loadInstrument('violin', ctx),
+    ])
+  } catch { /* a load failed → degrade below (skip the missing role), never hard-fail */ }
+  onInstrumentPending?.({ loading: false, progress: 1 })
+  if (myFlag.stopped) return true
+  if (!gr && !ce && !vi) return false
+  activeEnsemble = [gr, ce, vi].filter(Boolean)
+
+  // ---- LAYER-4 mix (§6b.2): dry role buses + near/far reverb depth (piano front · strings back) ----
+  const master = ctx.createGain(); master.gain.value = 0.85
+  const lim = ctx.createDynamicsCompressor()
+  lim.threshold.value = -2; lim.knee.value = 8; lim.ratio.value = 4; lim.attack.value = 0.006; lim.release.value = 0.18
+  master.connect(lim); lim.connect(ctx.destination)
+  const near = ctx.createConvolver(); near.buffer = synthIR(ctx, 1.1, 3.0)
+  const nearG = ctx.createGain(); nearG.gain.value = 0.24; near.connect(nearG); nearG.connect(master)
+  const far = ctx.createConvolver(); far.buffer = synthIR(ctx, 3.2, 1.9)
+  const farG = ctx.createGain(); farG.gain.value = 0.30; far.connect(farG); farG.connect(master)
+  const roleBus = (dry, sendNear, sendFar) => {
+    const g = ctx.createGain(); g.gain.value = dry; g.connect(master)
+    if (sendNear) { const s = ctx.createGain(); s.gain.value = sendNear; g.connect(s); s.connect(near) }
+    if (sendFar) { const s = ctx.createGain(); s.gain.value = sendFar; g.connect(s); s.connect(far) }
+    return g
+  }
+  // balance (§6b.2 target: piano −5.6 / cello −16.8 / violin −26.7 dB · ทำนองนำ · สายอยู่หลัง).
+  // The CC strings are ONE-dynamic samples baked loud, so we fire them at a healthy velocity (a
+  // clear tone — a low velocity would collapse to silence) and set the level HERE at the bus:
+  // piano front + present, cello well under, violin furthest back. Tuned vs the OfflineAudioContext
+  // per-role measurement; SA↔P'Aim keep tuning the taste from here.
+  const pianoBus = roleBus(1.0, 0.13, 0)
+  const celloBus = roleBus(0.30, 0.05, 0.34)
+  const violinBus = roleBus(0.13, 0.12, 0.4)
+  gr?.setDestination(pianoBus); ce?.setDestination(celloBus); vi?.setDestination(violinBus)
+
+  // notes SSOT (shared with the viewer dot/markers) + voice-led chords
+  let notes = buildPlayNotes(content, { order, range })
+  if (startIndex > 0) notes = notes.slice(startIndex)
+  if (!notes.length) return true
+  const chordEvents = buildChordVoice(notes)
+  const spb = 60 / bpm
+  const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
+  const CUT = totalBeats * 0.46 // verse (sparse) → chorus (strings swell in) — §6b.2 section density
+  const T = liveTranspose
+  const seedBase = seedFor(songId, 0)
+
+  // idiomatic dynamics (self-contained, per the demo): metric accent + melodic contour.
+  const accent = (pb) => { const p = ((pb % 4) + 4) % 4; if (p < 0.01) return 1; if (Math.abs(p - 2) < 0.01) return 0.9; if (Math.abs(p - 1) < 0.01 || Math.abs(p - 3) < 0.01) return 0.8; return 0.72 }
+  const contour = (i) => { const n = notes[i], pr = notes[i - 1], nx = notes[i + 1]; let c = 1
+    if (pr && pr.midi != null && n.midi > pr.midi) c += 0.06
+    if (pr && nx && pr.midi != null && nx.midi != null && n.midi > pr.midi && n.midi >= nx.midi) c += 0.06
+    if (pr && pr.midi != null && n.midi < pr.midi) c -= 0.04
+    if (n.beats >= 3) c -= 0.06
+    return c }
+
+  let pass = 0
+  do {
+    const rng = mulberry32((seedBase ^ (pass * 0x9e37)) >>> 0)
+    const rnd = () => rng() * 2 - 1
+    const t0 = ctx.currentTime + 0.25
+    const tEnd = t0 + totalBeats * spb
+    const TJ = 0.012, VJ = 0.06
+    const secOf = (beat) => (beat < CUT ? 'verse' : 'chorus')
+
+    // GUIDE layer (ONE melody line): piano OR violin sings it; swell on long notes, slide-in on violin.
+    let beat = 0
+    for (let i = 0; i < notes.length; i++) {
+      const n = notes[i]
+      if (n.midi != null) {
+        let gd = accent(beat) * contour(i) * (1 + VJ * rnd())
+        if (secOf(beat) === 'verse') gd *= 0.9
+        const t = t0 + beat * spb + TJ * rnd()
+        const d = n.beats * spb
+        if (lead === 'violin' && vi) {
+          if (n.beats >= 1 && rng() < 0.2) vi.fire(n.midi - 2 + T, t - 0.06, 0.2, 0.28 * gd) // slide-in grace
+          vi.fire(n.midi + T, t, Math.max(0.9, d + 0.6), 0.42 * gd) // violin sings long (fire hot, bus sets level)
+        } else if (gr) {
+          gr.fire(n.midi + T, t, n.beats >= 3 ? d + 0.5 : Math.max(0.5, d + 0.3), 0.52 * gd)
+        }
+      }
+      beat += n.beats
+    }
+
+    // chord layers (foundation bass + motion + string wash)
+    for (const e of chordEvents) {
+      if (e.bass == null) continue
+      const up = e.up || []
+      const bT = t0 + e.startBeat * spb
+      const nb = Math.max(1, Math.round(e.beats))
+      const s = secOf(e.startBeat), a = accent(e.startBeat)
+      // FOUNDATION bass — cello, RE-BOW every ~3 beats (a one-shot sample can't hold, §6b.1). Fire
+      // hot (clear bowed tone); the low celloBus keeps it under the melody.
+      if (ce) { const bg = s === 'verse' ? 0.28 : 0.34; for (let b = 0; b < nb; b += 3) { const seg = Math.min(3, nb - b); ce.fire(e.bass + T, bT + b * spb, seg * spb + 0.4, bg * a) } }
+      // MOTION — piano arpeggio (front · movement, not a static block), fuller in the chorus
+      if (gr) {
+        const ag = s === 'verse' ? 0.10 : 0.14
+        const seq = [up[0], up[1] ?? up[0], up[2] ?? up[0], up[1] ?? up[0]].filter((m) => m != null)
+        for (let k = 0; k < nb && seq.length; k++) {
+          gr.fire(seq[k % seq.length] + T, bT + k * spb + TJ * rnd(), spb * 1.5, ag * accent(e.startBeat + k))
+          if (s === 'chorus' && rng() < 0.22) { const top = (up[0] ?? 60) + 12; if (top <= 86) gr.fire(top + T, bT + (k + 0.5) * spb, spb, ag * 0.7) }
+        }
+      }
+      // FOUNDATION strings — violin warm wash (14s sustain = a true pad), CHORUS only, pushed back.
+      // Keep pad notes IN the violin's sampled range (≥55 · §6b.1) so they don't pitch-shift dark/weak;
+      // fire hot, the low violinBus sets the quiet back-of-room level.
+      if (vi && s === 'chorus') { const pg = 0.34; const pv = lead === 'violin' ? up.slice(0, 1) : up; pv.forEach((m) => { const pm = m < 55 ? m + 12 : m; vi.fire(pm + T, bT + rng() * 0.02, nb * spb + 0.8, pg * a) }) }
+    }
+    pass++
+
+    // wait loop — same machinery as playSong (stop flag + follow-along onNote)
+    const totalMs = (tEnd - ctx.currentTime) * 1000
+    const start = Date.now()
+    let noteIdx = -1, cumMs = 0
+    const noteEndsMs = notes.map((n) => (cumMs += n.beats * spb * 1000))
+    while (Date.now() - start < totalMs) {
+      if (myFlag.stopped) { activeEnsemble.forEach((w) => { try { w.releaseAll() } catch { /* stopped */ } }); return true }
+      const elapsed = Date.now() - start - 80
+      let idx = noteIdx < 0 ? 0 : noteIdx
+      while (idx < notes.length - 1 && elapsed >= noteEndsMs[idx]) idx++
+      if (idx !== noteIdx) { noteIdx = idx; onNote?.(notes[idx], startIndex + idx) }
+      onProgress?.(Date.now() - start, totalMs)
+      await new Promise((r) => setTimeout(r, 100))
+    }
+  } while (loop && !myFlag.stopped)
+  activeEnsemble = []
   return true
 }

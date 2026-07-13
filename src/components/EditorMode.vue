@@ -8,7 +8,7 @@ import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { diffSongRows } from '../lib/diff.js'
-import { playSong, stopPlayback } from '../lib/midi.js'
+import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import SongSheet from './SongSheet.vue'
@@ -1490,13 +1490,16 @@ async function runPlay(content, liOffset, follow = true) {
   // ตรงโน้ต so พี่เปา checks the raw printed notes on load, but can switch to any instrument/style.
   // ตรงโน้ต = arranger OFF (notes exactly as printed). Choices persist per-page (editor* store refs).
   const sa = editStyleArrange.value
-  const ok = await playSong(content, {
-    bpm: opts.bpm || 80, onNote,
-    voices: editorSound.value,
-    instrument: editorInstrument.value,
-    songId: props.song?.id ?? props.song?.slug ?? meta.title_th,
-    arranger: sa.arranger, arrangeCfg: sa.arrangeCfg,
-  })
+  const songId = props.song?.id ?? props.song?.slug ?? meta.title_th
+  const ok = editorEnsemble.value === 'ensemble'
+    ? await playEnsemble(content, { bpm: opts.bpm || 80, onNote, songId, lead: 'piano' })
+    : await playSong(content, {
+      bpm: opts.bpm || 80, onNote,
+      voices: editorSound.value,
+      instrument: editorInstrument.value,
+      songId,
+      arranger: sa.arranger, arrangeCfg: sa.arrangeCfg,
+    })
   if (ok === false) saveMsg.value = AUDIO_BLOCKED_MSG
   if (id === playSeq) {
     playing.value = false

@@ -10,10 +10,11 @@ export const SOUND_OPTS = [
   { value: 'both', label: '🎶 ทำนอง + คอร์ด', short: 'รวม' },
 ]
 
-// การบรรเลง — solo (one instrument) vs ensemble (auto-filled band, still เร็ว ๆ นี้ · SA designs it).
+// การบรรเลง — solo (one instrument) vs ensemble (รวมวง เสียงจริง: เปียโน+เชลโล+ไวโอลิน · §6b.2).
+// LAUNCH (P'Aim 13 ก.ค.): เต็มวง เปิดจริงแล้ว (เปียโนนำ · เสียงจริงทั้งวง) = default หน้าฝึกร้อง.
 export const ENSEMBLE_OPTS = [
   { value: 'solo', label: '🎹 เดี่ยว (เครื่องเดียว)', short: 'เดี่ยว' },
-  { value: 'ensemble', label: '🎻 เต็มวง (นำวง) — เร็ว ๆ นี้', short: 'เต็มวง', disabled: true },
+  { value: 'ensemble', label: '🎻 เต็มวง (เปียโนนำ)', short: 'เต็มวง' },
 ]
 
 // เครื่องดนตรี — LAUNCH scope (P'Aim 13 ก.ค.): ship only เปียโน + กีตาร์ (nylon, approved from the

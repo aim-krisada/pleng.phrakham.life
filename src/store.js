@@ -106,9 +106,11 @@ export function setPlayStyle(v) { if (PLAY_STYLES.includes(v)) playStyle.value =
 // persist so someone's chosen instrument survives reloads (§6a localStorage).
 const ENSEMBLE_KEY = 'pleng.ensembleMode'
 const ENSEMBLE_MODES = ['solo', 'ensemble']
+// DEFAULT (หน้าฝึกร้อง · P'Aim 13 ก.ค.): เต็มวง เปียโนนำ — เพราะสุด กดเล่นปุ๊บได้เสียงบรรเลงเต็มวง.
+// (หน้าแก้เพลง มี state แยก editorEnsemble ที่ default = solo สำหรับพี่เปาตรวจโน้ต.)
 export const ensembleMode = ref((() => {
   try { const v = localStorage.getItem(ENSEMBLE_KEY); if (ENSEMBLE_MODES.includes(v)) return v } catch { /* ignore */ }
-  return 'solo'
+  return 'ensemble'
 })())
 watch(ensembleMode, (v) => { try { localStorage.setItem(ENSEMBLE_KEY, v) } catch { /* ignore */ } })
 // Instruments the picker can actually SELECT. LAUNCH scope (P'Aim 13 ก.ค.) = เปียโน + กีตาร์ only;

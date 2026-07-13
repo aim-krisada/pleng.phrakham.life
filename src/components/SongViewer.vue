@@ -9,7 +9,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { KEYS } from '../lib/chords.js'
 import {
-  playSong, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
+  playSong, playEnsemble, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
   effectiveOrder, buildPlayNotes,
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
@@ -54,6 +54,8 @@ const chordSystem = ref('letter')
 const soundDef = computed(() => SOUND_OPTS.find((o) => o.value === soundMode.value) || SOUND_OPTS[0])
 const ensembleDef = computed(() => ENSEMBLE_OPTS.find((o) => o.value === ensembleMode.value) || ENSEMBLE_OPTS[0])
 const instrumentDef = computed(() => INSTRUMENT_OPTS.find((o) => o.value === leadInstrument.value) || INSTRUMENT_OPTS[0])
+// the loading pill's label — the whole band in ensemble mode, else the chosen solo instrument
+const loadingLabel = computed(() => (ensembleMode.value === 'ensemble' ? 'วงดนตรี' : instrumentDef.value.short))
 const styleDef = computed(() => STYLE_OPTS.find((o) => o.value === playStyle.value) || STYLE_OPTS[0])
 // Map the chosen style → what playSong needs: 'plain' turns the arranger OFF (notes as printed);
 // the others hand it the matching preset recipe (§6). B107 P2.
@@ -319,28 +321,36 @@ async function startPlay(startIndex = 0) {
   const gen = ++playGen
   playing.value = true
   posIndex.value = startIndex
-  await playSong(resolved.value, {
+  const songId = props.song?.id ?? props.song?.slug ?? props.song?.title
+  const onInstrumentPending = ({ loading, progress }) => {
+    instrumentLoading.value = loading
+    instrumentProgress.value = progress ?? 0
+  }
+  const onNote = (n, idx) => {
+    playingSeg.value = { li: n.li, si: n.si }
+    if (n.syk != null) playingSyl.value = { li: n.li, si: n.si, syk: n.syk }
+    playedIndex.value = idx
+    posIndex.value = idx
+  }
+  const common = {
     bpm: Number(tempo.value) || resolved.value.bpm || 92,
     loop: loop.value,
     order: order.value,
     transpose: keyTranspose(props.song.content.key, displayKey.value || props.song.content.key),
-    voices: soundMode.value, // B104: melody / chords / both — remembered per browser
-    instrument: leadInstrument.value, // B107 step 9: the chosen lead (waits for samples, then plays)
-    songId: props.song?.id ?? props.song?.slug ?? props.song?.title, // B107 P2: stable humanize seed
-    arranger: styleArrange.value.arranger, // B107 P2: 'plain' = notes as printed; else humanize+preset
-    arrangeCfg: styleArrange.value.arrangeCfg, // B107 P2: the chosen preset recipe (§6)
-    onInstrumentPending: ({ loading, progress }) => {
-      instrumentLoading.value = loading
-      instrumentProgress.value = progress ?? 0
-    },
-    startIndex,
-    onNote: (n, idx) => {
-      playingSeg.value = { li: n.li, si: n.si }
-      if (n.syk != null) playingSyl.value = { li: n.li, si: n.si, syk: n.syk }
-      playedIndex.value = idx
-      posIndex.value = idx
-    },
-  })
+    songId, startIndex, onInstrumentPending, onNote,
+  }
+  if (ensembleMode.value === 'ensemble') {
+    // B107 step 9 §6b.2 — รวมวง เสียงจริง: piano + cello + violin, 3 sonic layers (piano lead).
+    await playEnsemble(resolved.value, { ...common, lead: 'piano' })
+  } else {
+    await playSong(resolved.value, {
+      ...common,
+      voices: soundMode.value, // B104: melody / chords / both — remembered per browser
+      instrument: leadInstrument.value, // B107 step 9: the chosen solo lead
+      arranger: styleArrange.value.arranger, // B107 P2: 'plain' = notes as printed; else humanize+preset
+      arrangeCfg: styleArrange.value.arrangeCfg, // B107 P2: the chosen preset recipe (§6)
+    })
+  }
   if (gen === playGen) {
     // reached the natural end (not a pause) → next play starts from the top
     playing.value = false
@@ -414,7 +424,8 @@ function selectAllSecs() { selectedSecs.value = new Set(tags.value.map((t) => t.
 // we re-schedule the notes ahead in the new key, continuing from the current note.
 watch(displayKey, (k) => {
   if (!playing.value) return
-  if (isSampledInstrument(leadInstrument.value)) startPlay(playedIndex.value)
+  // ensemble + any real sampler can't re-tune scheduled voices → reschedule; only the synth detunes live.
+  if (ensembleMode.value === 'ensemble' || isSampledInstrument(leadInstrument.value)) startPlay(playedIndex.value)
   else setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
 })
 // live tempo change: re-schedule the notes ahead at the new bpm, continuing from here
@@ -438,6 +449,11 @@ watch(playStyle, () => {
 // on already-scheduled voices, so re-schedule ahead with the new instrument, continuing from here
 // (its samples download first if not yet loaded — the pill shows the wait).
 watch(leadInstrument, () => {
+  if (playing.value) startPlay(playedIndex.value)
+})
+// B107 step 9 §6b.2 — live เดี่ยว⇄เต็มวง switch: swaps between playSong and playEnsemble (different
+// instrument sets), so re-schedule ahead from the current note, same as an instrument change.
+watch(ensembleMode, () => {
   if (playing.value) startPlay(playedIndex.value)
 })
 function downloadJson() { if (currentSong.value) downloadSong(currentSong.value) }
@@ -544,9 +560,9 @@ function onSeek({ li, si, syk }) {
          this pill shows the progress, like the MP3 export. Playback starts once it's ready.
          Pressing พัก during the wait cancels (the pill hides via stopPlay). -->
     <div v-if="instrumentLoading" class="inst-loading" role="status" aria-live="polite">
-      🎵 กำลังโหลดเสียง{{ instrumentDef.short }}… {{ Math.round(instrumentProgress * 100) }}%
+      🎵 กำลังโหลดเสียง{{ loadingLabel }}… {{ Math.round(instrumentProgress * 100) }}%
       <progress class="inst-bar" :value="Math.round(instrumentProgress * 100)" max="100"
-                :aria-label="`โหลดเสียง${instrumentDef.short} ${Math.round(instrumentProgress * 100)}%`"></progress>
+                :aria-label="`โหลดเสียง${loadingLabel} ${Math.round(instrumentProgress * 100)}%`"></progress>
     </div>
 
     <!-- the sing dock — DockKey core engine, fed the ITEMS_SING descriptor list by
