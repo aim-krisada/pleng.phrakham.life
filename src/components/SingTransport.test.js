@@ -208,10 +208,10 @@ describe('⚙ Setting page', () => {
       { id: 'style', icon: 'sliders-horizontal', label: 'อารมณ์', kind: 'menu', value: 'arrangement', badge: 'บรรเลง', options: [{ value: 'arrangement', label: 'บรรเลง', short: 'บรรเลง' }, { value: 'plain', label: 'ตรงโน้ต', short: 'ตรงโน้ต' }], onPick: () => {} },
     ]
     const w = mountT({ settings })
-    // the single bar button exists and shows the current instrument as its summary
+    // the single bar button exists — ICON-ONLY (glyph reflects the current mode/instrument, no text)
     const trig = w.find('.sc-trig')
     expect(trig.exists()).toBe(true)
-    expect(trig.find('.sc-sum').text()).toBe('เปียโน')
+    expect(trig.find('.sc-sum').exists()).toBe(false) // no text label (icon-only)
     // opening it reveals all four axes as groups of option chips
     expect(w.find('.sc-pop').exists()).toBe(false)
     await trig.trigger('click')

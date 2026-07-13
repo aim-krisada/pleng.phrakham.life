@@ -12,8 +12,9 @@ const props = defineProps({
   open: { type: Boolean, default: false },
   // one entry per axis: { key, label, icon, value, options:[{value,label,disabled?}], onPick(v) }
   groups: { type: Array, default: () => [] },
-  // short text shown on the bar button (the current instrument), e.g. "เปียโน"
-  summary: { type: String, default: '' },
+  // the bar button is ICON-ONLY (P'Aim 13 ก.ค.): the glyph reflects the current instrument/mode
+  // (piano / guitar / users(เต็มวง) / music) so no text label is needed.
+  icon: { type: String, default: 'audio-lines' },
 })
 const emit = defineEmits(['toggle', 'close'])
 
@@ -36,8 +37,7 @@ function pick(g, o) {
     title="เสียงดนตรี — เลือกเครื่อง เสียง และสไตล์"
     @click.stop="emit('toggle')"
   >
-    <Icon name="audio-lines" :size="18" />
-    <b v-if="summary" class="sc-sum">{{ summary }}</b>
+    <Icon :name="icon" :size="19" />
   </button>
 
   <div v-if="open" class="dk-pop sc-pop" role="group" aria-label="เสียงดนตรี" @click.stop>
@@ -62,15 +62,14 @@ function pick(g, o) {
 </template>
 
 <style scoped>
-/* trigger — same chip shape as the other dock buttons (icon + short current-instrument badge) */
+/* trigger — an ICON-ONLY square button (the glyph = the current instrument/mode · P'Aim 13 ก.ค.) */
 .sc-trig {
-  display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--line); background: transparent; color: var(--ink);
-  border-radius: 10px; padding: 0 10px; height: var(--touch-min); min-height: 0; font: inherit; cursor: pointer; flex: 0 0 auto;
+  border-radius: 10px; padding: 0; width: var(--touch-min); height: var(--touch-min); min-height: 0; cursor: pointer; flex: 0 0 auto;
 }
-@media (hover: hover) { .sc-trig:hover { border-color: var(--brand); } }
+@media (hover: hover) { .sc-trig:hover { border-color: var(--brand); color: var(--brand); } }
 .sc-trig.on { border-color: var(--brand); color: var(--brand); }
-.sc-sum { font-size: 12.5px; font-weight: 700; white-space: nowrap; }
 
 /* popover — an OVERLAY above the dock's right edge. CRITICAL: `.dk-pop`'s positioning lives in
    DockKey's SCOPED styles, which do NOT reach this component's element — so the full overlay CSS

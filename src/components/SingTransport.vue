@@ -132,8 +132,13 @@ const soundGroups = computed(() =>
     return s ? { ...a, value: s.value, options: s.options, onPick: s.onPick } : null
   }).filter(Boolean),
 )
-// the bar button's short badge = the current instrument (the most telling axis)
-const soundSummary = computed(() => findSetting('instrument')?.badge || '')
+// the bar button is icon-only — the glyph reflects the current mode/instrument (P'Aim 13 ก.ค.):
+// เต็มวง → users · เปียโน → piano · กีตาร์ → guitar · felt/violin/cello → music.
+const INSTR_ICON = { grand: 'piano', nylon: 'guitar', felt: 'music', violin: 'music', cello: 'music' }
+const soundIcon = computed(() => {
+  if (findSetting('ensemble')?.value === 'ensemble') return 'users'
+  return INSTR_ICON[findSetting('instrument')?.value] || 'audio-lines'
+})
 const hasSound = computed(() => soundGroups.value.length > 0)
 
 // ---------- ITEMS_SING — the descriptor list handed to the engine ----------
@@ -214,7 +219,7 @@ const items = computed(() => {
         :aria-label="'เลือกท่อนที่จะฟัง — ' + selCountLabel"
         title="เลือกท่อนที่จะฟัง"
         @click.stop="toggle"
-      ><Icon name="list-music" :size="16" /><b>{{ selCountLabel }}</b></button>
+      ><Icon name="table-of-contents" :size="16" /><b>{{ selCountLabel }}</b></button>
       <div v-if="open" class="dk-pop st-selpanel" role="menu" @click.stop>
         <div class="st-sshead">เลือกท่อนที่จะฟัง</div>
         <div class="st-ssall">
@@ -255,7 +260,7 @@ const items = computed(() => {
 
     <!-- ===== เสียงดนตรี — one button → popover with all 4 sound axes (B107 step 9) ===== -->
     <template #cell-soundctl="{ open, toggle, close }">
-      <SoundControl :open="open" :groups="soundGroups" :summary="soundSummary" @toggle="toggle" @close="close" />
+      <SoundControl :open="open" :groups="soundGroups" :icon="soundIcon" @toggle="toggle" @close="close" />
     </template>
 
     <!-- ===== Aa reader font size — permanent, 1-tap · slider popover (store-driven) ===== -->
@@ -290,8 +295,8 @@ const items = computed(() => {
 .st-seekwrap { display: inline-flex; align-items: center; gap: 8px; padding-right: 4px; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* fixed, usable timeline width; the fit-content dock hugs it + the คีย์/ท่อน cells.
    Narrower on a phone so row 2 (timeline·คีย์·ท่อน) fits the viewport-capped dock (no overflow). */
-.st-seek { position: relative; flex: 0 0 200px; width: 200px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
-@media (max-width: 760px) { .st-seek { flex-basis: 150px; width: 150px; } }
+.st-seek { position: relative; flex: 0 0 176px; width: 176px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+@media (max-width: 760px) { .st-seek { flex-basis: 126px; width: 126px; } }
 .st-time { flex: 0 0 auto; }
 /* B102 — "รอบ N" now-playing badge: the current ท่อน + refrain pass, in the brand colour so it
    reads as the live playhead label (not muted chrome). Ellipsis so a long ท่อน name never pushes

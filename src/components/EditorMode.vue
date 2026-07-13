@@ -1698,14 +1698,14 @@ const editStyleArrange = computed(() =>
     ? { arranger: false, arrangeCfg: {} }
     : { arranger: true, arrangeCfg: presetCfg(editorStyle.value === 'calm' ? 'piano-calm' : 'piano-arrangement') },
 )
-const shortOf = (opts, v) => (opts.find((o) => o.value === v) || opts[0]).short
 const soundGroups = computed(() => [
   { key: 'sound', label: 'เสียงที่เล่น', icon: 'volume-2', value: editorSound.value, options: SOUND_OPTS, onPick: setEditorSound },
   { key: 'ensemble', label: 'การบรรเลง', icon: 'blend', value: editorEnsemble.value, options: ENSEMBLE_OPTS, onPick: setEditorEnsemble },
   { key: 'instrument', label: 'เครื่องดนตรี', icon: 'music', value: editorInstrument.value, options: INSTRUMENT_OPTS, onPick: setEditorInstrument },
   { key: 'style', label: 'อารมณ์ / สไตล์', icon: 'sliders-horizontal', value: editorStyle.value, options: STYLE_OPTS, onPick: setEditorStyle },
 ])
-const soundSummary = computed(() => shortOf(INSTRUMENT_OPTS, editorInstrument.value))
+const INSTR_ICON = { grand: 'piano', nylon: 'guitar', felt: 'music', violin: 'music', cello: 'music' }
+const soundIcon = computed(() => (editorEnsemble.value === 'ensemble' ? 'users' : (INSTR_ICON[editorInstrument.value] || 'audio-lines')))
 
 const editItems = computed(() => [
   { id: 'keys', kind: 'keys', name: 'แป้นสัญลักษณ์', rows: PALETTE, onInsert: insertSym },
@@ -2801,7 +2801,7 @@ defineExpose({
       </template>
       <!-- เสียงดนตรี — one button → popover with all 4 sound axes (B107 step 9) -->
       <template #cell-soundctl="{ open, toggle, close }">
-        <SoundControl :open="open" :groups="soundGroups" :summary="soundSummary" @toggle="toggle" @close="close" />
+        <SoundControl :open="open" :groups="soundGroups" :icon="soundIcon" @toggle="toggle" @close="close" />
       </template>
     </DockKey>
 

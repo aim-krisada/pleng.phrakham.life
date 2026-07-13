@@ -203,13 +203,25 @@ async function createInstrument(name, context, onProgress) {
 //   releaseAll()                  — stop every sounding/scheduled voice (playback stop)
 function wrap(name, inst, output, velMap) {
   const toVel = velMap || gainToVelocity
+  // Every smplr start() returns a per-VOICE StopFn. We keep them because inst.stop() on a smplr
+  // `Sampler` (nylon/cello/violin) does NOT cancel notes scheduled in the FUTURE — so a mid-play
+  // reschedule (change instrument/style) left the old pass's future notes ringing UNDER the new
+  // pass = two songs at once (P'Aim's "เสียงซ้อน 2 ชั้น" bug). Calling each voice's StopFn cancels
+  // its (future or sounding) BufferSource for real. SplendidGrandPiano.stop() already handles this;
+  // doing both is harmless. Cleared on every releaseAll, and stopPlayback() runs before each new
+  // play, so the list only ever holds the current play's voices.
+  const stoppers = []
   return {
     name,
     output, // the makeup gain — the instrument's single output node (for the LAYER-4 mix)
     fire(midi, startT, dur, gain) {
-      inst.start({ note: Math.round(midi), time: startT, duration: Math.max(0.12, dur), velocity: toVel(gain) })
+      const stop = inst.start({ note: Math.round(midi), time: startT, duration: Math.max(0.12, dur), velocity: toVel(gain) })
+      if (typeof stop === 'function') stoppers.push(stop)
     },
-    releaseAll() { try { inst.stop() } catch { /* already stopped */ } },
+    releaseAll() {
+      stoppers.splice(0).forEach((s) => { try { s() } catch { /* voice already gone */ } })
+      try { inst.stop() } catch { /* already stopped */ }
+    },
     // Re-route the whole instrument into `node` (reverb/pan bus) instead of context.destination.
     // Idempotent per play: disconnect any prior wiring first so repeated plays don't stack sends.
     setDestination(node) { try { output.disconnect() } catch { /* not connected */ } output.connect(node) },
