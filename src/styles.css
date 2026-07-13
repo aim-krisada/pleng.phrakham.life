@@ -39,7 +39,7 @@
   --fs-xs: 0.78rem;   /* footer, build stamp */
   --fs-sm: 0.9rem;    /* muted / captions / chips */
   --fs-md: 0.98rem;   /* menu items, secondary controls */
-  --fs-base: 1.06rem; /* body, buttons, inputs */
+  --fs-base: 1.125rem; /* body, buttons, inputs — 16px root × 1.125 = 18px (phrakham parity) */
   --fs-lg: 1.15rem;   /* brand, sub-headings */
   --fs-xl: 1.4rem;    /* h2 */
   --fs-2xl: 1.75rem;  /* h1 / page title */
@@ -405,7 +405,7 @@ button.danger { background: var(--red); }
    keeps :hover "stuck" after a tap, which froze the hamburger in brown */
 @media (hover: hover) {
   button:hover { background: #6d360f; }
-  button.secondary:hover { background: var(--cream-hover); }
+  button.secondary:hover { background: var(--cream-hover); border-color: var(--brand); } /* ghost hover → brown edge (phrakham parity) */
   button.danger:hover { background: #9c2d21; }
   .pk-tool-btn:hover { background: rgba(0, 0, 0, 0.06); }
   .pk-tool-menu button:hover { background: var(--cream-hover); }
@@ -428,12 +428,17 @@ input, select, textarea {
 .card {
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 14px; /* softer corner — phrakham card/picker parity */
   padding: var(--sp-4);
   margin-bottom: var(--sp-3);
 }
 
 .muted { color: var(--muted); font-size: var(--fs-sm); }
+
+/* Reading pages (คู่มือ/เกี่ยวกับ) = airy prose rhythm + centred narrow column,
+   matching phrakham. Scoped to these views only — never touch the song sheet
+   (SongViewer/SongSheet are intentionally tight for note alignment). */
+.reading-page { line-height: var(--lh-loose); max-width: 820px; margin-inline: auto; }
 
 /* ---------- song sheet (functional colours preserved) ---------- */
 /* wrap at bar boundaries instead of a horizontal scroll bar (bug 016) */
@@ -571,7 +576,7 @@ input, select, textarea {
   background: none;
   border: 1px solid var(--brand);
   color: var(--brand);
-  border-radius: 16px;
+  border-radius: 20px; /* full pill — phrakham .pk-study-ref parity */
   padding: 5px 14px;
   font-size: 0.9rem;
   min-height: 34px;

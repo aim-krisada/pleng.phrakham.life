@@ -490,17 +490,18 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   activeSampler = sampler // so stopPlayback() can silence the sampler's voices
   // `order` (B043 selection = many ranges) OR `range` (one section) OR the whole song —
   // buildPlayNotes is the SSOT the viewer also uses for the dot/markers/scrub/⏮⏭.
-  let notes = buildPlayNotes(content, { order, range })
-  // resume (US-A01 "เล่นต่อ"): skip the notes already played so a pause/play continues
-  // from where you stopped instead of restarting. index is into this (range-filtered) list.
-  if (startIndex > 0) notes = notes.slice(startIndex)
-  if (!notes.length) return true
+  // This FULL ordered set is the LOOP UNIT (the "เลือกท่อน"/order SSOT — what วนซ้ำ repeats).
+  const fullNotes = buildPlayNotes(content, { order, range })
+  if (!fullNotes.length) return true
+  // resume / seek (US-A01 "เล่นต่อ" · tap a word · scrub the bar): startIndex = where THIS play
+  // begins. It offsets ONLY the first pass — so when วนซ้ำ is on, the loop returns to the order's
+  // START (the defined ท่อน), never to the seek/resume point (fix: click = seek, not a new loop).
+  const seekFrom = startIndex > 0 ? Math.min(startIndex, fullNotes.length - 1) : 0
   const spb = 60 / bpm // seconds per beat
   // B104: which voices sound. 'melody' = as before, 'chords' = pad only, 'both' = together.
-  // The chord events time against the SAME `notes` list, so the pad lines up with the melody
-  // and the follow-along highlight still runs off `notes` even in chords-only mode.
+  // The chord events time against the SAME per-pass notes, so the pad lines up with the melody
+  // and the follow-along highlight still runs off those notes even in chords-only mode.
   const { melody: wantMelody, chords: wantChords } = voiceFlags(voices)
-  const chordEvents = wantChords ? buildChordVoice(notes) : []
   // B107 P2 §5 LAYER 4 — reverb (church space): one wet/dry bus everything flows into. `busIn`
   // is the reverb input, or context.destination when reverb is off/none. Both the synth and the
   // sampler route through it, so live playback (and later the MP3) share the same room. Built
@@ -515,9 +516,14 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   // harsh, and per-note velocity already sets the balance). Built once; reused across passes.
   const chordBus = (wantChords && !sampler) ? makeChordBus(ctx, busIn) : null
 
-  const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
   let pass = 0 // loop pass index → humanize seed, so pass 0/1 differ but repeat (§R2.5)
   do {
+    // pass 0 begins at the seek/resume point; every loop pass after it replays the WHOLE order
+    // from note 0 — so วนซ้ำ loops the defined ท่อน, not the click/seek point.
+    const from = pass === 0 ? seekFrom : 0
+    const notes = from > 0 ? fullNotes.slice(from) : fullNotes
+    const chordEvents = wantChords ? buildChordVoice(notes) : []
+    const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
     const t0 = ctx.currentTime + 0.08
     const t = t0 + totalBeats * spb // when the last note ends (for the wait loop below)
     const endTimes = []
@@ -578,9 +584,9 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
       while (idx < notes.length - 1 && elapsed >= noteEndsMs[idx]) idx++
       if (idx !== noteIdx) {
         noteIdx = idx
-        // second arg = absolute index in the range-filtered list, so the viewer can
-        // remember where a pause happened and resume via startIndex.
-        onNote?.(notes[idx], startIndex + idx)
+        // second arg = absolute index in the ordered list, so the viewer can remember where a
+        // pause/seek happened and resume via startIndex. `from` = this pass's start offset.
+        onNote?.(notes[idx], from + idx)
       }
       onProgress?.(Date.now() - start, totalMs)
       await new Promise((r) => setTimeout(r, 100))
@@ -693,35 +699,23 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
   // the melody (guide) instrument = the chosen lead
   const melInst = lead === 'guitar' ? ny : lead === 'violin' ? vi : gr
 
-  // notes SSOT (shared with the viewer dot/markers) + voice-led chords
-  let notes = buildPlayNotes(content, { order, range })
-  if (startIndex > 0) notes = notes.slice(startIndex)
-  if (!notes.length) return true
-  const chordEvents = buildChordVoice(notes)
+  // notes SSOT (shared with the viewer dot/markers). The FULL ordered set = the LOOP UNIT (the
+  // "เลือกท่อน"/order SSOT). A seek (tap a word · scrub) arrives as startIndex and offsets ONLY
+  // the first pass — so วนซ้ำ returns to the order's START, never the seek point.
+  const fullNotes = buildPlayNotes(content, { order, range })
+  if (!fullNotes.length) return true
+  const seekFrom = startIndex > 0 ? Math.min(startIndex, fullNotes.length - 1) : 0
   const spb = 60 / bpm
-  const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
   const T = liveTranspose
   const seedBase = seedFor(songId, 0)
 
-  // §6b.2 REAL sections (verse โปร่ง → chorus เต็ม) — a beat→level lookup from the sheet's labels.
-  // No sections → whole song = chorus (never breaks).
-  const sections = sectionBeatRanges(content, notes)
-  const levelAt = (beat) => { const s = sections.find((x) => beat >= x.fromBeat && beat < x.toBeat); return s ? s.level : 'chorus' }
-
-  // §6b.2 Option 1 (call-and-response · P'Aim approved for launch): the violin has NO sustained pad.
-  // It answers only in the phrase-end GAPS (a long held/rest melody note ≥2.5 beats) and, in the
-  // chorus, weaves a countermelody ABOVE the tune — never doubling it. Helpers: chord tones placed
-  // in a high register (from the voiced chord), and the gaps found from the melody line.
+  // §6b.2 Option 1 — high-register chord tones (pure · same every pass).
   const tonesInRange = (e, lo, hi) => {
     const pcs = [...new Set([e.bass, ...(e.up || [])].filter((m) => m != null).map((m) => (((m % 12) + 12) % 12)))]
     const out = []
     for (const pc of pcs) for (let m = lo + (((pc - lo) % 12) + 12) % 12; m <= hi; m += 12) out.push(m)
     return [...new Set(out)].sort((a, b) => a - b)
   }
-  const eventAtBeat = (beat) => chordEvents.find((x) => beat >= x.startBeat - 0.01 && beat < x.startBeat + x.beats - 0.01) || chordEvents[chordEvents.length - 1]
-  const gaps = []
-  { let mb = 0; for (const n of notes) { if (n.midi != null && n.beats >= 2.5) gaps.push({ beat: mb, beats: n.beats, e: eventAtBeat(mb) }); mb += n.beats } }
-  const gapBeats = new Set(gaps.map((g) => Math.round(g.beat)))
 
   // ★ tunable ensemble constants (STRUCTURE fixed · SA↔P'Aim จูนค่าด้วยหูตอนฟัง final · §6b.2 Option 1).
   const ENS = {
@@ -729,19 +723,36 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     fill: 0.21, // violin gap-answer gain (a touch present — it fills an empty space)
     counter: 0.14, // violin chorus countermelody gain (ducks more — it overlaps the lead)
   }
-  const secGain = (beat) => ENS.sectionGain[levelAt(beat)]
-
-  // idiomatic dynamics (self-contained, per the demo): metric accent + melodic contour.
+  // idiomatic dynamics — metric accent (pure · same every pass).
   const accent = (pb) => { const p = ((pb % 4) + 4) % 4; if (p < 0.01) return 1; if (Math.abs(p - 2) < 0.01) return 0.9; if (Math.abs(p - 1) < 0.01 || Math.abs(p - 3) < 0.01) return 0.8; return 0.72 }
-  const contour = (i) => { const n = notes[i], pr = notes[i - 1], nx = notes[i + 1]; let c = 1
-    if (pr && pr.midi != null && n.midi > pr.midi) c += 0.06
-    if (pr && nx && pr.midi != null && nx.midi != null && n.midi > pr.midi && n.midi >= nx.midi) c += 0.06
-    if (pr && pr.midi != null && n.midi < pr.midi) c -= 0.04
-    if (n.beats >= 3) c -= 0.06
-    return c }
 
   let pass = 0
   do {
+    // pass 0 starts at the seek/resume point; every loop pass after it replays the WHOLE order
+    // from note 0 — so วนซ้ำ loops the defined ท่อน, not the seek point. Everything below is
+    // rebuilt per pass from THIS pass's notes so pass 0 (sliced) and pass 1+ (full) stay consistent.
+    const from = pass === 0 ? seekFrom : 0
+    const notes = from > 0 ? fullNotes.slice(from) : fullNotes
+    const chordEvents = buildChordVoice(notes)
+    const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
+    // §6b.2 REAL sections (verse โปร่ง → chorus เต็ม) — a beat→level lookup from the sheet's labels.
+    // No sections → whole song = chorus (never breaks).
+    const sections = sectionBeatRanges(content, notes)
+    const levelAt = (beat) => { const s = sections.find((x) => beat >= x.fromBeat && beat < x.toBeat); return s ? s.level : 'chorus' }
+    const secGain = (beat) => ENS.sectionGain[levelAt(beat)]
+    // §6b.2 Option 1 — phrase-end GAPS (a long held/rest melody note ≥2.5 beats) where the violin
+    // answers, + a beat→chord-event lookup. Rebuilt per pass so the fills line up with these notes.
+    const eventAtBeat = (beat) => chordEvents.find((x) => beat >= x.startBeat - 0.01 && beat < x.startBeat + x.beats - 0.01) || chordEvents[chordEvents.length - 1]
+    const gaps = []
+    { let mb = 0; for (const n of notes) { if (n.midi != null && n.beats >= 2.5) gaps.push({ beat: mb, beats: n.beats, e: eventAtBeat(mb) }); mb += n.beats } }
+    const gapBeats = new Set(gaps.map((g) => Math.round(g.beat)))
+    // melodic contour (depends on this pass's notes).
+    const contour = (i) => { const n = notes[i], pr = notes[i - 1], nx = notes[i + 1]; let c = 1
+      if (pr && pr.midi != null && n.midi > pr.midi) c += 0.06
+      if (pr && nx && pr.midi != null && nx.midi != null && n.midi > pr.midi && n.midi >= nx.midi) c += 0.06
+      if (pr && pr.midi != null && n.midi < pr.midi) c -= 0.04
+      if (n.beats >= 3) c -= 0.06
+      return c }
     const rng = mulberry32((seedBase ^ (pass * 0x9e37)) >>> 0)
     const rnd = () => rng() * 2 - 1
     const t0 = ctx.currentTime + 0.25
@@ -838,7 +849,7 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
       const elapsed = Date.now() - start - 80
       let idx = noteIdx < 0 ? 0 : noteIdx
       while (idx < notes.length - 1 && elapsed >= noteEndsMs[idx]) idx++
-      if (idx !== noteIdx) { noteIdx = idx; onNote?.(notes[idx], startIndex + idx) }
+      if (idx !== noteIdx) { noteIdx = idx; onNote?.(notes[idx], from + idx) }
       onProgress?.(Date.now() - start, totalMs)
       await new Promise((r) => setTimeout(r, 100))
     }

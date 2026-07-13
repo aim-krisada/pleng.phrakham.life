@@ -224,7 +224,15 @@ function measureTies() {
     const arcs = []
     nts.forEach((nt, i) => {
       if (!nt.classList.contains('tie-end')) return
-      const prev = nts[i - 1]
+      // The tie's SOURCE is the DIGIT this receiver ties back to. When that note is held by
+      // one or more '-' extensions ("2 - - - | ~2"), the immediately-previous .nt is a dash,
+      // not the digit — anchoring the arc there started the curve at the last dash and left
+      // the whole held run uncovered, so the tie read as broken (พี่เปา: "ต่อโยงจากตัวเลข
+      // ไปตัวเลข ไม่เส้นขาด"). Skip back over the ext dashes to the real source digit so the
+      // arc spans notehead→notehead, over the held dashes and the bar line, as one curve.
+      let pi = i - 1
+      while (pi >= 0 && nts[pi].classList.contains('nt-ext')) pi--
+      const prev = nts[pi]
       if (!prev) return
       // B099: draw EVERY tie as one overlay arc — cross-bar AND within-segment. A
       // within-segment tie (both notes in the same NoteRow) used to be left to NoteRow's
@@ -271,6 +279,18 @@ function scheduleMeasure() {
 let ro = null
 onMounted(() => {
   nextTick(scheduleMeasure)
+  // Cold load: web fonts swap in AFTER the first paint, shifting each note's width without
+  // resizing the sheet ROOT — so the ResizeObserver never fires, and the first measure ran
+  // against pre-font (often zero-width) positions and drew nothing. The ties then stayed
+  // unpainted until a manual resize forced a re-measure — exactly the broken tie พี่เปา saw
+  // on a fresh open. Re-measure once fonts are ready and once more after two frames so the
+  // arcs land on the settled layout without needing any user interaction.
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(scheduleMeasure).catch(() => {})
+  }
+  if (typeof requestAnimationFrame !== 'undefined') {
+    requestAnimationFrame(() => requestAnimationFrame(scheduleMeasure))
+  }
   if (typeof ResizeObserver !== 'undefined' && rootEl.value) {
     ro = new ResizeObserver(scheduleMeasure)
     ro.observe(rootEl.value)

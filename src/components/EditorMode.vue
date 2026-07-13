@@ -2000,9 +2000,43 @@ const floatStyle = computed(() => {
   }
   return s
 })
+// issues3 (พี่เปา): the preview must wrap EXACTLY like the แผ่นเพลง SCREEN page, not the A4
+// print page. The sheet page renders SongSheet inside the studio-wide reading column
+// (.container.studio-wide → .card → .sheet-read-scale at readingFontScale·1rem), which on a
+// wide desktop is ~68em/line — but the old preview locked to the A4 print ratio (42.05em),
+// so it dropped bars to new lines the sheet page keeps together ("บรรทัดตก"). Fix: measure the
+// live reading column and render the preview at the SAME em-width, so both break identically.
+// The .ed-float-page still scales that em-width to fill the window via font-size (B081), which
+// keeps SongSheet's B069 tie overlay measuring real px (no transform/zoom).
+const CARD_BOX = 34 // .card chrome between the reading column and the sheet: border(1+1) + padding(16+16)
+const sheetColW = ref(0) // px width of the sheet page's SongSheet column at 1rem (readingFontScale·1rem basis)
+function measureSheetCol() {
+  if (typeof document === 'undefined') return
+  const c = document.querySelector('main.container')
+  if (!c) return
+  const cs = getComputedStyle(c)
+  const pad = parseFloat(cs.paddingLeft || '0') + parseFloat(cs.paddingRight || '0')
+  // The reading column caps at the container's max-width; the song sheet wraps at that cap. We
+  // CANNOT read c.clientWidth here — .container has margin:0 auto in a flex column, so auto
+  // margins shrink it to its current content (116px on an empty tab, 1160 on a full one). Derive
+  // the stable cap instead: min(available width from the flex parent, the container's max-width).
+  const cap = parseFloat(cs.maxWidth) || Infinity // --container-wide in studio (1160px)
+  const parentW = c.parentElement ? c.parentElement.clientWidth : window.innerWidth
+  const containerW = Math.min(parentW, cap)
+  sheetColW.value = Math.max(0, containerW - pad - CARD_BOX)
+}
+// how many ems fit on one sheet line = column px ÷ reader font px. The preview renders exactly
+// this many ems, so its bar wrapping matches the แผ่นเพลง page at the current viewport + Aa size.
+const previewEmWidth = computed(() => {
+  const fs = 16 * (readingFontScale.value || 1)
+  const em = sheetColW.value > 0 ? sheetColW.value / fs : 42.05 // fall back to A4 ratio before first measure
+  return Math.max(20, em) // guard: never divide by an absurdly small number
+})
+const previewPageStyle = computed(() => ({ fontSize: `calc(100cqw / ${previewEmWidth.value.toFixed(2)})` }))
 // keep the window on-screen (and sized within it) when the viewport shrinks; refresh mobile flag
 function onFloatResize() {
   narrow.value = isNarrow()
+  measureSheetCol() // the reading column tracks the viewport → re-measure so the preview keeps parity
   if (narrow.value || !floatEl.value) return
   if (sheetWinSize.value) {
     sheetWinSize.value = {
@@ -2015,8 +2049,10 @@ function onFloatResize() {
     sheetWinPos.value = clampWin(sheetWinPos.value, r.width, r.height)
   }
 }
-onMounted(() => window.addEventListener('resize', onFloatResize))
+onMounted(() => { window.addEventListener('resize', onFloatResize); measureSheetCol() })
 onUnmounted(() => window.removeEventListener('resize', onFloatResize))
+// measure fresh each time the preview opens (the reading column may have changed while it was closed)
+watch(sheetWinOpen, (open) => { if (open) nextTick(measureSheetCol) })
 // a bar's clean render: a one-line, one-bar content object the SongSheet can draw. Words
 // come from the lens verse (if shown) so the render matches what the singer sees.
 function barContent(li, bi) {
@@ -2835,7 +2871,7 @@ defineExpose({
              exactly like the printed page. The .ed-float-page is scaled to fit the window
              (font-size, not transform → keeps SongSheet's tie overlay measuring real px),
              so there is no horizontal scroll and no clipped column. -->
-        <div class="ed-float-page">
+        <div class="ed-float-page" :style="previewPageStyle">
           <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
         </div>
       </div>
@@ -3376,23 +3412,25 @@ defineExpose({
   cursor: pointer;
 }
 @media (hover: hover) { .ed-float-x:hover { background: var(--cream); border-color: var(--brand); } }
-/* B081 (พี่เปา): the floating "ดูผลทั้งเพลง" preview must show WHAT PRINTS — bars wrap at the
-   A4 page edge exactly like paper, never a horizontal scroll with a clipped right column.
-   The old approach (nowrap + max-content) forced one long row per line → overflow. Instead
-   render the SongSheet at the real print ratio and scale-to-fit the window:
+/* The floating "ดูผลทั้งเพลง" preview scales the whole song sheet to fit the window with no
+   horizontal scroll and no clipped column (the old nowrap + max-content forced one long row
+   per line → overflow). It renders SongSheet at a fixed em-width and scales-to-fit via font:
    • container-type on the body → 100cqw == the body's content width (inside the 12px pad).
    • .ed-float-page width = 100cqw, so it always fills the window (no h-scroll).
-   • font-size = 100cqw / 42.05 keeps the print width:font ratio (178mm printable ÷ 1rem
-     base = 672.76px ÷ 16px ≈ 42.05). Because the sheet is em-based, scaling the font scales
-     every bar the same, so line breaks match A4 print at ANY window width. Scaling via
-     font-size (not transform/zoom) keeps SongSheet's B069 tie overlay measuring real px.
-   The global .song-line { flex-wrap: wrap } (styles.css) then wraps bars like the printed page. */
+   • font-size = 100cqw / <em-width> is set INLINE (previewPageStyle). Because the sheet is
+     em-based, scaling the font scales every bar the same, so bar wrapping is identical at ANY
+     window width. Scaling via font-size (not transform/zoom) keeps SongSheet's B069 tie overlay
+     measuring real px.
+   B081 locked <em-width> to the A4 print ratio (42.05). issues3 (พี่เปา) instead wants the
+   preview to match the แผ่นเพลง SCREEN page, so <em-width> is now the LIVE reading-column width
+   (previewEmWidth, measured from .container) → both wrap at the same bar. The global
+   .song-line { flex-wrap: wrap } (styles.css) then wraps bars exactly like that page. */
 /* scrollbar-gutter:stable reserves the vertical scrollbar's width up front, so 100cqw is the
    real available width and the page can't end up a scrollbar-width too wide (that stray ~15px
    was the only horizontal scroll left). max-width:100% is the belt-and-suspenders cap for
    engines without scrollbar-gutter. */
 .ed-float-body { padding: 12px; overflow: auto; flex: 1 1 auto; min-height: 0; container-type: inline-size; scrollbar-gutter: stable; }
-.ed-float-page { width: 100cqw; max-width: 100%; font-size: calc(100cqw / 42.05); }
+.ed-float-page { width: 100cqw; max-width: 100%; } /* font-size set inline via previewPageStyle */
 /* resize grip (bottom-right corner) — the diagonal lines are the standard resize affordance.
    Sits above the scrolling body so it stays grabbable. Desktop only (v-if hides it on mobile). */
 .ed-float-resize {

@@ -83,6 +83,53 @@ describe('NoteRow slur/tie width-driven geometry (B076)', () => {
     for (const d of ds) expect(d).toMatch(/^M.*L.* Z$/) // square-cut edge (L) + closed
     w.unmount()
   })
+})
+
+// A held note tied across a bar ("2 - - - | ~2") is drawn by SongSheet's overlay as ONE
+// arc from the SOURCE DIGIT to the receiver digit. To find the source digit it walks back
+// over the '-' extensions, which it identifies by the `nt-ext` class NoteRow stamps on each
+// dash. This class is that contract — if it ever drops, the overlay anchors the arc on the
+// last dash again and the tie reads as broken (พี่เปา issues1). Guard it here.
+describe('NoteRow marks extension dashes with nt-ext (tie-overlay source anchor)', () => {
+  it('every "-" extension token gets the nt-ext class; digits do not', () => {
+    const w = mount(NoteRow, { props: { notes: '2 - - -' } })
+    const nts = w.findAll('.nt')
+    expect(nts.length).toBe(4)
+    expect(nts[0].classes()).not.toContain('nt-ext') // the digit
+    for (const i of [1, 2, 3]) expect(nts[i].classes()).toContain('nt-ext') // the dashes
+  })
+})
+
+// Beat-based beaming (issues2 / พี่เปา): a within-beat run of eighths/sixteenths is drawn as
+// ONE beam (a .beam element per run), and a slur that IS just such a run drops its arc — the
+// เอื้อน is engraved as a beam, like the songbook, not a slur curve. (These come from the note
+// string, so they're assertable in jsdom even though the beam's pixel position needs layout.)
+describe('NoteRow beaming (issues2)', () => {
+  it('a within-beat "(6_ 5_)" เอื้อน draws ONE beam and NO slur arc', () => {
+    const w = mount(NoteRow, { props: { notes: '(6_ 5_)' } })
+    expect(w.findAll('.slur-arc').length).toBe(0) // arc suppressed — it's a beam, not a slur
+    expect(w.findAll('.beam').length).toBe(1)
+    expect(w.findAll('.nt.beamed').length).toBe(2)
+  })
+
+  it('a run crossing a beat is TWO beams, not one long beam', () => {
+    // 3(quarter) - 3_ 4_ 5_ 6_  →  3_4_ (beat 3) and 5_6_ (beat 4) beam separately
+    const w = mount(NoteRow, { props: { notes: '(3 - 3_) 4_ 5_ 6_' } })
+    expect(w.findAll('.beam').length).toBe(2)
+    // the slur here holds a quarter + '-' , so it keeps its arc (a phrase melisma, not a beam)
+    expect(w.findAll('.slur-arc').length).toBe(1)
+  })
+
+  it('a lone eighth is not beamed; an eighth+quarter pair has no beam', () => {
+    expect(mount(NoteRow, { props: { notes: '1_ 2' } }).findAll('.beam').length).toBe(0)
+    expect(mount(NoteRow, { props: { notes: '5' } }).findAll('.beam').length).toBe(0)
+  })
+
+  it('triplets are not swept into beam runs (they keep their own bracket + underline)', () => {
+    const w = mount(NoteRow, { props: { notes: '{1_ 2_ 3_}' } })
+    expect(w.findAll('.beam').length).toBe(0)
+    expect(w.findAll('.g-triplet').length).toBe(1)
+  })
 
   it('viewBox is set to a 0 0 W 40 box (1:1 x, constant-height y)', () => {
     const w = mount(NoteRow, { props: { notes: '(1 2 3 4)' }, attachTo: document.body })

@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { parseNotes, groupNotes } from '../lib/notation.js'
+import { parseNotes, groupNotes, DOT_FACTOR } from '../lib/notation.js'
 
 const props = defineProps({
   notes: { type: String, default: '' },
@@ -11,12 +11,74 @@ const props = defineProps({
 })
 // flatten groups but stamp each rendered token with its running slot index so the
 // template can match `active` without re-counting across the nested v-for.
-const groups = computed(() => {
+const model = computed(() => {
   const gs = groupNotes(parseNotes(props.notes))
   let idx = -1
   for (const g of gs) for (const t of g.tokens) t.idx = ++idx
-  return gs
+  // --- Beat-based beaming (issues2 / พี่เปา) ------------------------------------------
+  // A เอื้อน sung within one beat (e.g. "6 5" on "ดี") is engraved in the reference
+  // songbook as ONE connected underline (a beam), NOT a slur arc. So we join the
+  // underlines of consecutive eighth/sixteenth notes that fall in the SAME beat into a
+  // single beam, exactly like standard jianpu. Beat position accumulates across the whole
+  // segment from its start (beat 0, where segments align); a beam breaks at an integer beat
+  // boundary, at any non-underlined token (quarter, '-', rest 0), or across a triplet (which
+  // already beams via its own stretched underline). A lone underlined note keeps its short
+  // individual underline. This is render-only — the stored note string is untouched.
+  let beat = 0
+  let run = []
+  let runBeat = -1
+  const beams = [] // { start, end, u2 } per beam group — drawn as one continuous underline
+  const flush = () => {
+    if (run.length >= 2) {
+      run.forEach((t) => { t.beamed = true })
+      beams.push({
+        start: run[0].idx,
+        end: run[run.length - 1].idx,
+        u2: run.some((t) => t.underlines >= 2), // sixteenth run → double beam
+      })
+    }
+    run = []
+  }
+  for (const g of gs) {
+    const isTrip = g.group === 'triplet'
+    for (const t of g.tokens) {
+      if (t.type === 'note') {
+        let dur = (1 / 2 ** t.underlines) * (DOT_FACTOR[t.dots] ?? 1)
+        if (isTrip) dur = (dur * 2) / 3
+        const startBeat = Math.floor(beat + 1e-9)
+        const beamable = !isTrip && t.underlines > 0 && t.pitch !== '0'
+        if (beamable && (run.length === 0 || startBeat === runBeat)) {
+          if (run.length === 0) runBeat = startBeat
+          run.push(t)
+        } else {
+          flush()
+          if (beamable) {
+            run = [t]
+            runBeat = startBeat
+          }
+        }
+        beat += dur
+      } else if (t.type === 'ext') {
+        flush()
+        beat += 1
+      } else {
+        flush()
+      }
+    }
+  }
+  flush()
+  // A slur group that is entirely ONE within-beat beam (a short เอื้อน like "(6_ 5_)") is
+  // drawn as that beam, so its arc is dropped — the arc form is reserved for phrase melismas
+  // that span beats / hold notes (e.g. "(3 - 3_)"), which keep it.
+  for (const g of gs) {
+    if (g.group === 'slur') {
+      g.beamOnly = g.tokens.length >= 2 && g.tokens.every((t) => t.type === 'note' && t.beamed)
+    }
+  }
+  return { groups: gs, beams }
 })
+const groups = computed(() => model.value.groups)
+const beams = computed(() => model.value.beams)
 const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
 
 // --- Engraved slur/tie geometry (B076) ------------------------------------------------
@@ -121,6 +183,70 @@ const vArc = {
     }
   },
 }
+
+// v-beam="{ start, end, u2 }" — draw ONE continuous underline (a beam) spanning the first
+// through last note of a same-beat run (issues2). The per-note underlines leave lyric-driven
+// gaps between the digits; this bar bridges them into a single beam, overlaying the existing
+// border-bottoms at the same y/thickness so it simply reads as one line. Positioned against
+// the .note-row and re-measured on layout/resize/print. If there is no layout (jsdom), it
+// hides itself and the per-note underlines remain as a graceful fallback.
+const liveBeams = new Set()
+function applyBeam(el) {
+  const b = el.__beam
+  const row = el.parentElement
+  if (!row || !b) return
+  const first = row.querySelector(`.nt[data-idx="${b.start}"] .num`)
+  const last = row.querySelector(`.nt[data-idx="${b.end}"] .num`)
+  if (!first || !last) { el.style.display = 'none'; return }
+  const rr = row.getBoundingClientRect()
+  const a = first.getBoundingClientRect()
+  const c = last.getBoundingClientRect()
+  if (!a.width || !rr.width) { el.style.display = 'none'; return }
+  const th = b.u2 ? 4 : 1.5
+  el.style.display = ''
+  el.style.left = a.left - rr.left + 'px'
+  el.style.width = Math.max(0, c.right - a.left) + 'px'
+  el.style.height = th + 'px'
+  el.style.top = a.bottom - rr.top - th + 'px'
+}
+function applyAllBeams() { for (const el of liveBeams) applyBeam(el) }
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeprint', applyAllBeams)
+  // The beam is positioned from the digits' MEASURED positions, which shift when web fonts
+  // swap in / the lyric row reflows AFTER the first paint — a resize of the note-row itself
+  // may not fire (monospace digits keep the row width), so the per-el ResizeObserver alone
+  // left the beam on stale coords. Re-measure on window resize + once fonts are ready so the
+  // beam lands on the settled layout, same as SongSheet's tie overlay.
+  window.addEventListener('resize', applyAllBeams)
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(applyAllBeams).catch(() => {})
+  }
+}
+const vBeam = {
+  mounted(el, binding) {
+    el.__beam = binding.value
+    liveBeams.add(el)
+    applyBeam(el)
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(() => requestAnimationFrame(() => applyBeam(el)))
+    }
+    if (typeof ResizeObserver !== 'undefined') {
+      el.__beamRO = new ResizeObserver(() => applyBeam(el))
+      el.__beamRO.observe(el.parentElement || el)
+    }
+  },
+  updated(el, binding) {
+    el.__beam = binding.value
+    applyBeam(el)
+  },
+  unmounted(el) {
+    liveBeams.delete(el)
+    if (el.__beamRO) {
+      el.__beamRO.disconnect()
+      delete el.__beamRO
+    }
+  },
+}
 </script>
 
 <template>
@@ -135,7 +261,7 @@ const vArc = {
            the Bézier `d` so the apex height and tapered tips stay constant while only the
            reach grows — a long เอื้อน no longer flattens/warps the way a stretched fixed
            path did. viewBox is set 1:1 to the measured px width, so x is never scaled. -->
-      <svg v-if="g.group === 'slur'" class="slur-arc" v-arc="'slur'" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+      <svg v-if="g.group === 'slur' && !g.beamOnly" class="slur-arc" v-arc="'slur'" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
         <!-- engraved slur: a FILLED lens (two Béziers) — tapered to fine points at the
              ends, thickest at the apex. `d` is (re)computed by v-arc from the real width;
              this initial value is just a pre-mount fallback. -->
@@ -144,7 +270,8 @@ const vArc = {
       <span
         v-for="(t, ti) in g.tokens"
         :key="ti"
-        :class="['nt', t.type === 'note' && t.dots ? 'dotted' : '', t.type === 'note' && t.dots === 2 ? 'dbldot' : '', t.type === 'note' && t.accidental ? 'has-acc' : '', t.tieStart ? 'tie-start' : '', t.tieEnd ? 'tie-end' : '', t.idx === active ? 'nt-playing' : '']"
+        :data-idx="t.idx"
+        :class="['nt', t.type === 'ext' ? 'nt-ext' : '', t.beamed ? 'beamed' : '', t.type === 'note' && t.dots ? 'dotted' : '', t.type === 'note' && t.dots === 2 ? 'dbldot' : '', t.type === 'note' && t.accidental ? 'has-acc' : '', t.tieStart ? 'tie-start' : '', t.tieEnd ? 'tie-end' : '', t.idx === active ? 'nt-playing' : '']"
       >
         <!-- tie across a bar (B062): each side draws a smooth SVG half-arc that rises to
              the segment edge, so the two halves in adjacent segments meet over the bar
@@ -180,11 +307,21 @@ const vArc = {
         </template>
       </span>
     </span>
+    <!-- beams (issues2): one continuous underline per same-beat run of eighths/sixteenths,
+         positioned over the digits by v-beam so consecutive beamed notes read as one beam. -->
+    <i
+      v-for="b in beams"
+      :key="'beam-' + b.start"
+      class="beam"
+      :class="{ 'beam-u2': b.u2 }"
+      v-beam="b"
+      aria-hidden="true"
+    ></i>
   </span>
 </template>
 
 <style scoped>
-.note-row { display: inline-flex; align-items: flex-start; }
+.note-row { display: inline-flex; align-items: flex-start; position: relative; }
 .note-group { display: inline-flex; position: relative; }
 .nt {
   position: relative;
@@ -231,6 +368,21 @@ const vArc = {
    underlines (a long connected underline means something else). Triplets still
    stretch their underlines to sit under the bracketed group. */
 .g-triplet .num.u1, .g-triplet .num.u2 { align-self: stretch; text-align: center; }
+/* Beam (issues2 / พี่เปา): one continuous underline spanning a same-beat run of eighths/
+   sixteenths — a เอื้อน within a beat engraved like the reference songbook, distinct from the
+   arc used for phrase melismas that span beats. Drawn as a bar (v-beam measures its left/width/
+   top over the digits) that overlays the per-note border-bottoms and bridges the lyric-driven
+   gaps between them into a single line. u2 = double bar (sixteenths). */
+.beam {
+  position: absolute;
+  background: currentColor;
+  pointer-events: none;
+}
+.beam.beam-u2 {
+  background: none;
+  border-top: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+}
 /* accidental: smaller than the digit, floating at its upper-left WITHOUT
    widening the digit column — so octave dots stay exactly under the digit */
 .acc {
@@ -308,19 +460,22 @@ const vArc = {
   fill: currentColor;
   stroke: none;
 }
-/* triplet: bracket + "3" above the group */
+/* triplet: bracket + "3" above the group. The "3" is the reading cue a player scans for,
+   so keep it clearly legible (พี่เปา): a larger, bold digit sitting on a thin bracket. The
+   bracket keeps its slim 1px rules while the numeral itself is bumped up and weighted. */
 .g-triplet::before {
   content: '3';
   position: absolute;
-  top: -0.75em;
+  top: -0.9em;
   left: 10%;
   right: 10%;
-  font-size: 0.6em;
+  font-size: 0.82em;
+  font-weight: 700;
   text-align: center;
   border-top: 1px solid currentColor;
   border-left: 1px solid currentColor;
   border-right: 1px solid currentColor;
-  height: 0.9em;
-  line-height: 0.6em;
+  height: 0.78em;
+  line-height: 0.62em;
 }
 </style>

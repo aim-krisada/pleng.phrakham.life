@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="reading-page">
     <div class="card">
       <h2 style="margin-top: 0">เกี่ยวกับเรา</h2>
       <p>

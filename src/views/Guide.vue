@@ -34,7 +34,7 @@ const COMBOS = [
 </script>
 
 <template>
-  <div>
+  <div class="reading-page">
     <div class="card">
       <h2 style="margin-top: 0">คู่มือ</h2>
       <p style="margin-bottom: 0">
