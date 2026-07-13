@@ -12,7 +12,7 @@
 **🔴 GATE ยังอยู่ = priority จริง (ถ้า P'Aim ถามงานต่อ):** public เห็น **0 เพลง** · ปลดล็อก = ทีม review **อนุชน 122 เพลง** ในหน้าแก้ไข → กด "✓ ตรวจแล้ว" (verified=true) · **ยัง 0/122** (กลไก live พร้อม · ยังไม่มีคนเริ่ม) · tracker `docs/pm/review-anuchon.md` · เสียง = ของเสริม เสร็จแล้ว
 
 **งานต่อยอด B107 (ไม่บล็อก · หลัง launch):**
-- **🎨 icon violin/cello/ensemble** (branch `icons-violin-cello` `324d938` · asset ไม่ merge) — ensemble = "วาทยกรมองจากหลัง แขน-V" (default D) · **รอ P'Aim เลือก variant A/B/C ต่อเครื่อง** @ preview (icon session ยังเปิด) → dev เสียบ Icon.vue แทน `music`(violin/cello จาง)/`users`(ensemble placeholder)
+- **🎨 icon violin/cello/ensemble** (branch `icons-violin-cello` `324d938` · asset ไม่ merge · **session archived 13 ก.ค.**) — ensemble = "วาทยกรมองจากหลัง แขน-V" (default D) + violin/cello (3 variant A/B/C ต่อเครื่อง) · **รอ P'Aim เลือก variant** → PM re-serve preview `docs/spikes/violin-cello-icons.html` (`node` server) ได้เมื่อ P'Aim พร้อมเลือก → dev เสียบ Icon.vue แทน `music`(violin/cello จาง)/`users`(ensemble placeholder)
 - **🎵 ดาวน์โหลดเสียงจริง (P3)** — spike พิสูจน์แล้ว (`download-real-audio-spike.md` · offline+big-lookahead Scheduler + grand→Sampler pianoToPreset · 20-60× realtime) → **PM จ่าย dev integrate `renderSongToBuffer`** (≈1 module · reuse arrange/sampler/encoder) · ตอนนี้ดาวน์โหลด = synth เก่า
 - **เครื่องเดี่ยว felt/violin/cello** (ยังจาง "เร็วๆนี้") + **ensemble balance** = P'Aim↔SA จูนต่อ (มี `window.__peaks()` · ค่าเป็น named const)
 - **B102 รับข้อ4 มือถือ** — resolver ถูก (desktop) · ถ้า P'Aim ยืนยันมือถือป้ายถึง 4/4 แต่เงียบ = AudioContext suspend → เปิดงาน wake-lock แยก
