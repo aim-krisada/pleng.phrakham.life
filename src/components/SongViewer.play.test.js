@@ -7,8 +7,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
-const { playSongSpy, setTransposeSpy } = vi.hoisted(() => ({
+const { playSongSpy, playEnsembleSpy, setTransposeSpy } = vi.hoisted(() => ({
   playSongSpy: vi.fn(() => new Promise(() => {})),
+  playEnsembleSpy: vi.fn(() => new Promise(() => {})),
   setTransposeSpy: vi.fn(),
 }))
 vi.mock('../lib/midi.js', () => {
@@ -20,6 +21,7 @@ vi.mock('../lib/midi.js', () => {
   ]
   return {
     playSong: playSongSpy,
+    playEnsemble: playEnsembleSpy,
     stopPlayback: () => {},
     setTranspose: setTransposeSpy,
     keyTranspose: (from, to) => (KEY_MIDI[to] ?? 60) - (KEY_MIDI[from] ?? 60),
@@ -37,6 +39,7 @@ Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function 
 Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function () {}
 
 import SongViewer from './SongViewer.vue'
+import { setEnsembleMode } from '../store.js'
 
 // SongViewer now mounts its own dock (the DockKey engine via <SingTransport>) — no external
 // wiring to reproduce. A thin wrapper just carries the song/tier props.
@@ -144,7 +147,11 @@ const lastOpts = () => lastPlay()[1]
 beforeEach(() => {
   localStorage.clear()
   playSongSpy.mockClear()
+  playEnsembleSpy.mockClear()
   setTransposeSpy.mockClear()
+  // these tests assert the SOLO path (playSong args: transpose/voices/instrument). The viewer's
+  // default is now เต็มวง (playEnsemble), so force solo here; a dedicated test covers ensemble.
+  setEnsembleMode('solo')
 })
 afterEach(() => {
   while (mountedViewers.length) { try { mountedViewers.pop().unmount() } catch { /* already gone */ } }
@@ -173,6 +180,19 @@ describe('SongViewer playback key', () => {
     expect(playSongSpy).toHaveBeenCalled()
     expect(lastPlay()[1].transpose).toBe(-1)
     expect(setTransposeSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('SongViewer เต็มวง (ensemble · B107 §6b.2)', () => {
+  it('เต็มวง → routes to playEnsemble (piano lead), not playSong', async () => {
+    setEnsembleMode('ensemble')
+    const w = mountViewer()
+    await nextTick()
+    await playBtn(w).trigger('click')
+    await nextTick()
+    expect(playEnsembleSpy).toHaveBeenCalled()
+    expect(playSongSpy).not.toHaveBeenCalled()
+    expect(playEnsembleSpy.mock.calls[0][1].lead).toBe('piano')
   })
 })
 
@@ -389,7 +409,9 @@ describe('SongViewer section selection (B043)', () => {
   it('B105: default-ticks every ท่อน; the whole song plays with no order', async () => {
     const w = mountViewer(twoSecSong)
     await nextTick()
-    expect(w.find('.st-seltrig b').text()).toBe('ทั้งหมด') // count summary = all
+    // all ท่อน ticked → the selector shows icon-only (no subset badge, not highlighted) · mobile width
+    expect(w.find('.st-seltrig b').exists()).toBe(false)
+    expect(w.find('.st-seltrig').classes()).not.toContain('sub')
     await w.find('.st-seltrig').trigger('click') // open the selector sheet
     await nextTick()
     const rows = w.findAll('.st-ssrow')

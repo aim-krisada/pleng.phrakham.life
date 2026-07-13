@@ -592,9 +592,19 @@ function cellFlex() { return '0 0 auto' }
 
 /* ---------- mobile: full-width bottom bar ---------- */
 @media (max-width: 760px) {
-  .dk-host { padding: 0 6px calc(8px + env(safe-area-inset-bottom, 0px)); }
-  .dk-dock { padding: 8px; }        /* tighter on a phone so a 7-button row fits (no overflow) */
-  .dk-row { gap: 5px; }
-  .dk-play { width: 44px; height: 44px; } /* the 50px play would push the row past a narrow dock */
+  .dk-host { padding: 0 5px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  /* A real ~360px Android must fit ALL 7 buttons of the transport row + the top row (P'Aim: ปุ่มขวา
+     หลุดขอบ). Shrinking --touch-min cascades to EVERY dock button (incl. the slotted ท่อน / เสียงดนตรี
+     / Aa cells, since CSS vars ignore scoped-style boundaries), and tighter gap/padding buys the rest.
+     42px is still a comfortable tap target; the row now hugs ~318px so it fits a 360px viewport. */
+  .dk-dock { --touch-min: 42px; padding: 6px; }
+  .dk-row { gap: 4px; }
+  .dk-play { width: 42px; height: 42px; }
+}
+/* narrowest phones (~≤360px) — trim one more notch so nothing clips */
+@media (max-width: 380px) {
+  .dk-dock { --touch-min: 40px; padding: 5px; }
+  .dk-row { gap: 3px; }
+  .dk-play { width: 40px; height: 40px; }
 }
 </style>

@@ -5,7 +5,8 @@ import { parseNotes, groupNotes, DOT_FACTOR } from './notation.js'
 import { parseChord, chordToIntervals } from './chords.js'
 import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
 import { arrange } from './arranger/index.js'
-import { mulberry32 } from './arranger/rng.js'
+import { moduleForInstrument } from './arranger/instruments/index.js'
+import { mulberry32, seedFor } from './arranger/rng.js'
 
 const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 65,
   'F#': 66, Gb: 66, G: 67, 'G#': 68, Ab: 68, A: 69, 'A#': 70, Bb: 70, B: 71 }
@@ -33,6 +34,11 @@ export const TEMPO_MARKS = [
 
 let ctx = null
 let stopFlag = { stopped: false }
+// B107 step 9 — a monotonic play token. Every playSong/playEnsemble call takes the next token at
+// the top; after any `await` (instrument load) it checks it's STILL the latest — if a newer play
+// started meanwhile (the user switched instrument/การบรรเลง while samples were loading), the stale
+// pass aborts BEFORE it schedules a single note, so two passes can never both start = no ซ้อน 2 ชั้น.
+let playToken = 0
 // Oscillators scheduled for the current playback, each with its start time, plus
 // the transpose (semitones) currently applied. Lets setTranspose() re-tune every
 // note that hasn't sounded yet when the user changes key mid-playback.
@@ -42,6 +48,9 @@ let liveTranspose = 0
 // module-level so stopPlayback()/the in-loop stop can silence its voices (the synth is stopped
 // via liveOscs; a sampler owns its own voices).
 let activeSampler = null
+// B107 step 9 — the ensemble (รวมวง) plays SEVERAL real instruments at once (piano + cello +
+// violin), each its own wrapper; held here so stopPlayback() can silence every one.
+let activeEnsemble = []
 
 function tokenBeats(t, tripletFactor) {
   let d = 1 / 2 ** t.underlines
@@ -188,6 +197,7 @@ export function stopPlayback() {
   stopFlag.stopped = true
   liveOscs = []
   if (activeSampler) { activeSampler.releaseAll(); activeSampler = null }
+  if (activeEnsemble.length) { activeEnsemble.forEach((w) => { try { w?.releaseAll() } catch { /* already stopped */ } }); activeEnsemble = [] }
 }
 
 // Schedule ONE melody note (triangle oscillator + attack/hold/release gain envelope)
@@ -452,6 +462,7 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   if (ctx.state !== 'running') return false
   stopFlag = { stopped: false }
   const myFlag = stopFlag
+  const myToken = ++playToken // newer switch during our load → we're stale, abort before scheduling
   liveTranspose = transpose // starting key offset; setTranspose() updates it live
   // B107: choose the sound. A real instrument plays only once its samples are fully loaded
   // (P'Aim: wait-then-play with a progress bar, like the MP3 download — NOT a synth stand-in
@@ -469,11 +480,13 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
         sampler = await loadInstrument(instrument, ctx, { onProgress: (p) => onInstrumentPending?.({ loading: true, progress: p }) })
       } catch { sampler = null } // load failed → fall back to the synth (no hard-fail)
       onInstrumentPending?.({ loading: false, progress: 1 })
-      if (myFlag.stopped) return true // user cancelled (pressed pause) during the download
+      // cancelled (พัก) OR a newer switch started while we loaded → abort before scheduling.
+      if (myFlag.stopped || myToken !== playToken) return true
     } else {
       onInstrumentPending?.({ loading: false, progress: 1 })
     }
   }
+  if (myToken !== playToken) return true // a newer play superseded us (even with no load wait)
   activeSampler = sampler // so stopPlayback() can silence the sampler's voices
   // `order` (B043 selection = many ranges) OR `range` (one section) OR the whole song —
   // buildPlayNotes is the SSOT the viewer also uses for the dot/markers/scrub/⏮⏭.
@@ -512,7 +525,11 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
     // B107 P2: the arranger turns the sheet into a flat PerfEvent[] (melody + voiced chord
     // hits, with humanize gain/timeShift when on). One pure function feeds both live play and
     // MP3 export, so they can't drift. arranger:false = "ลูกเล่นปิด" → notes exactly as printed.
-    const perf = arrange(notes, chordEvents, { arranger, voices, chordGain, ...arrangeCfg }, { songId, pass, timeSignature: content.timeSignature, keyRoot: KEY_MIDI[content.key] ?? 60 })
+    // §4B: pick the idiomatic module from the chosen instrument (keyboard/bowed/plucked) unless a
+    // preset already named one. So a solo violin uses bowed voicing+patterns, nylon uses plucked,
+    // etc. — the same arranger core, an instrument-shaped surface.
+    const module = arrangeCfg.module || moduleForInstrument(instrument)
+    const perf = arrange(notes, chordEvents, { arranger, voices, chordGain, ...arrangeCfg, module }, { songId, pass, timeSignature: content.timeSignature, keyRoot: KEY_MIDI[content.key] ?? 60 })
     for (const e of perf) {
       const isMel = e.role === 'melody'
       // onset = grid time + humanize shift; sound stops slightly early so repeated notes articulate
@@ -549,9 +566,11 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
     let cumMs = 0
     const noteEndsMs = notes.map((n) => (cumMs += n.beats * spb * 1000))
     while (Date.now() - start < totalMs) {
-      if (myFlag.stopped) {
+      if (myFlag.stopped || myToken !== playToken) {
         endTimes.forEach((o) => { try { o.stop() } catch {} })
-        if (sampler) sampler.releaseAll()
+        // release the sampler ONLY if we're being stopped as the CURRENT pass — a newer pass now
+        // owns the shared instrument, so a stale loop must NOT silence it (that would cut the new sound).
+        if (sampler && myToken === playToken) sampler.releaseAll()
         return true
       }
       const elapsed = Date.now() - start - 80
@@ -568,5 +587,262 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
     }
   } while (loop && !myFlag.stopped)
   if (activeSampler === sampler) activeSampler = null // natural end: drop our handle (voices ring out)
+  return true
+}
+
+// B107 step 9 · §6b.2 — the ENSEMBLE (รวมวง) player: THREE real instruments at once (piano +
+// cello + violin), the "3 sonic layers" arrangement, near/far reverb depth, verse→chorus density.
+// Ported from docs/spikes/ensemble-real-demo.html (P'Aim-approved · เสียงจริงทั้งวง, no GM). Kept
+// separate from playSong because it drives MULTIPLE samplers through a per-role mix graph; it shares
+// the module ctx / stop flag / note SSOT so stop/resume/transpose behave the same.
+//   lead: 'piano' (default · เปียโนนำ) | 'violin' (ไวโอลินนำ) — which instrument sings the melody.
+// A live transpose/key/tempo change reschedules (samplers can't detune) — the viewer restarts us.
+// Derive the song's real sections as BEAT ranges + a level (§6b.2 · P'Aim: use real sections, not a
+// %-of-song guess). Reads the resolved content's {type:'section'} labels (same as the viewer's
+// markers), maps each label's line range → beats via the played notes' cumulative beats, and tags a
+// label that RECURS (a refrain / รับ) as 'chorus' (fuller) vs 'verse' (sparser). No sections → [],
+// and the caller then treats the whole song as 'chorus' (never breaks). Returns [{name,fromBeat,toBeat,level}].
+export function sectionBeatRanges(content, notes) {
+  const lines = content?.lines || []
+  const secs = []
+  lines.forEach((line, li) => {
+    const s = Array.isArray(line) ? line.find((it) => it.type === 'section') : null
+    if (s) secs.push({ name: s.name, fromLi: li, toLi: lines.length - 1 })
+  })
+  for (let i = 0; i < secs.length - 1; i++) secs[i].toLi = secs[i + 1].fromLi - 1
+  if (!secs.length) return []
+  const count = {}
+  for (const s of secs) count[s.name] = (count[s.name] || 0) + 1
+  // A "refrain" (chorus) = a label that RECURS (รับ ร้องหลายรอบ). resolveContent prints most
+  // refrains ONCE, so recurrence is often absent — and then we default EVERY section to 'chorus'
+  // (the FULLER sound), never leaving the whole song stuck at the sparse verse level (P'Aim: เต็มวง
+  // อย่าจืด). Only when a refrain IS detectable do the non-refrain sections drop to 'verse' for the
+  // verse→chorus swell. (SA can refine the detection with the arrangement's refrain flag later.)
+  const hasRefrain = Object.values(count).some((c) => c > 1)
+  const liStartBeat = {}
+  let b = 0
+  for (const n of notes) { if (liStartBeat[n.li] == null) liStartBeat[n.li] = b; b += n.beats }
+  const totalBeats = b
+  return secs.map((s) => {
+    const fromBeat = liStartBeat[s.fromLi] ?? 0
+    let toBeat = totalBeats
+    for (let li = s.toLi + 1; li < lines.length; li++) { if (liStartBeat[li] != null) { toBeat = liStartBeat[li]; break } }
+    return { name: s.name, fromBeat, toBeat, level: !hasRefrain || count[s.name] > 1 ? 'chorus' : 'verse' }
+  })
+}
+
+export async function playEnsemble(content, { bpm = 72, loop = false, onNote, onProgress, order, range, transpose = 0, startIndex = 0, lead = 'piano', onInstrumentPending, songId } = {}) {
+  ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
+  try { const b = ctx.createBuffer(1, 1, 22050); const s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0) } catch { /* not fatal */ }
+  await ctx.resume()
+  if (ctx.state !== 'running') return false
+  stopFlag = { stopped: false }
+  const myFlag = stopFlag
+  const myToken = ++playToken // newer switch during our (multi-instrument) load → we're stale, abort
+  liveTranspose = transpose
+
+  // Load the instruments this LEAD needs (§6b.1 recipe · lead-driven · P'Aim 13 ก.ค.): grand
+  // (motion/arp) + cello (bass) always; the MELODY instrument = the chosen lead — เปียโนนำ→grand ·
+  // กีตาร์นำ→nylon · ไวโอลินนำ→violin; violin also plays the chorus wash (unless it IS the lead).
+  onInstrumentPending?.({ loading: true, progress: 0 })
+  let gr = null, ce = null, vi = null, ny = null
+  try {
+    const loads = [
+      loadInstrument('grand', ctx, { onProgress: (p) => onInstrumentPending?.({ loading: true, progress: p }) }),
+      loadInstrument('cello', ctx),
+      loadInstrument('violin', ctx),
+    ]
+    if (lead === 'guitar') loads.push(loadInstrument('nylon', ctx))
+    const res = await Promise.all(loads)
+    gr = res[0]; ce = res[1]; vi = res[2]; ny = res[3] || null
+  } catch { /* a load failed → degrade below (skip the missing role), never hard-fail */ }
+  onInstrumentPending?.({ loading: false, progress: 1 })
+  // cancelled OR a newer switch (เครื่อง/การบรรเลง) started while our samples loaded → abort before
+  // scheduling, so the superseded ensemble can never start playing under the new one (no ซ้อน 2 ชั้น).
+  if (myFlag.stopped || myToken !== playToken) return true
+  if (!gr && !ce && !vi) return false
+  activeEnsemble = [gr, ce, vi, ny].filter(Boolean)
+
+  // ---- LAYER-4 mix (§6b.2): dry role buses + near/far reverb depth (piano front · strings back) ----
+  const master = ctx.createGain(); master.gain.value = 0.85
+  const lim = ctx.createDynamicsCompressor()
+  lim.threshold.value = -2; lim.knee.value = 8; lim.ratio.value = 4; lim.attack.value = 0.006; lim.release.value = 0.18
+  master.connect(lim); lim.connect(ctx.destination)
+  const near = ctx.createConvolver(); near.buffer = synthIR(ctx, 1.1, 3.0)
+  const nearG = ctx.createGain(); nearG.gain.value = 0.24; near.connect(nearG); nearG.connect(master)
+  const far = ctx.createConvolver(); far.buffer = synthIR(ctx, 3.2, 1.9)
+  const farG = ctx.createGain(); farG.gain.value = 0.30; far.connect(farG); farG.connect(master)
+  const roleBus = (dry, sendNear, sendFar) => {
+    const g = ctx.createGain(); g.gain.value = dry; g.connect(master)
+    if (sendNear) { const s = ctx.createGain(); s.gain.value = sendNear; g.connect(s); s.connect(near) }
+    if (sendFar) { const s = ctx.createGain(); s.gain.value = sendFar; g.connect(s); s.connect(far) }
+    return g
+  }
+  // balance (§6b.2 target: piano −5.6 / cello −16.8 / violin −26.7 dB · ทำนองนำ · สายอยู่หลัง).
+  // The CC strings are ONE-dynamic samples baked loud, so we fire them at a healthy velocity (a
+  // clear tone — a low velocity would collapse to silence) and set the level HERE at the bus:
+  // piano front + present, cello well under, violin furthest back. Tuned vs the OfflineAudioContext
+  // per-role measurement; SA↔P'Aim keep tuning the taste from here.
+  // §6b.2 Option 1 balance (measured target · piano −7.3 / violin −16.6 / cello −23.1 dB → violin
+  // ~9 dB under the lead · cello ~16 dB under · a bowed answer punches above its number). SA tunes.
+  const pianoBus = roleBus(1.0, 0.13, 0)
+  const celloBus = roleBus(0.16, 0.05, 0.34)
+  const violinBus = roleBus(0.62, 0.12, 0.4)
+  const nylonBus = roleBus(0.9, 0.14, 0.05) // guitar lead — front, mostly dry (a fingerpicked lead)
+  gr?.setDestination(pianoBus); ce?.setDestination(celloBus); vi?.setDestination(violinBus); ny?.setDestination(nylonBus)
+  // the melody (guide) instrument = the chosen lead
+  const melInst = lead === 'guitar' ? ny : lead === 'violin' ? vi : gr
+
+  // notes SSOT (shared with the viewer dot/markers) + voice-led chords
+  let notes = buildPlayNotes(content, { order, range })
+  if (startIndex > 0) notes = notes.slice(startIndex)
+  if (!notes.length) return true
+  const chordEvents = buildChordVoice(notes)
+  const spb = 60 / bpm
+  const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
+  const T = liveTranspose
+  const seedBase = seedFor(songId, 0)
+
+  // §6b.2 REAL sections (verse โปร่ง → chorus เต็ม) — a beat→level lookup from the sheet's labels.
+  // No sections → whole song = chorus (never breaks).
+  const sections = sectionBeatRanges(content, notes)
+  const levelAt = (beat) => { const s = sections.find((x) => beat >= x.fromBeat && beat < x.toBeat); return s ? s.level : 'chorus' }
+
+  // §6b.2 Option 1 (call-and-response · P'Aim approved for launch): the violin has NO sustained pad.
+  // It answers only in the phrase-end GAPS (a long held/rest melody note ≥2.5 beats) and, in the
+  // chorus, weaves a countermelody ABOVE the tune — never doubling it. Helpers: chord tones placed
+  // in a high register (from the voiced chord), and the gaps found from the melody line.
+  const tonesInRange = (e, lo, hi) => {
+    const pcs = [...new Set([e.bass, ...(e.up || [])].filter((m) => m != null).map((m) => (((m % 12) + 12) % 12)))]
+    const out = []
+    for (const pc of pcs) for (let m = lo + (((pc - lo) % 12) + 12) % 12; m <= hi; m += 12) out.push(m)
+    return [...new Set(out)].sort((a, b) => a - b)
+  }
+  const eventAtBeat = (beat) => chordEvents.find((x) => beat >= x.startBeat - 0.01 && beat < x.startBeat + x.beats - 0.01) || chordEvents[chordEvents.length - 1]
+  const gaps = []
+  { let mb = 0; for (const n of notes) { if (n.midi != null && n.beats >= 2.5) gaps.push({ beat: mb, beats: n.beats, e: eventAtBeat(mb) }); mb += n.beats } }
+  const gapBeats = new Set(gaps.map((g) => Math.round(g.beat)))
+
+  // ★ tunable ensemble constants (STRUCTURE fixed · SA↔P'Aim จูนค่าด้วยหูตอนฟัง final · §6b.2 Option 1).
+  const ENS = {
+    sectionGain: { verse: 0.7, chorus: 1.0 }, // section dynamics (verse โปร่ง → chorus เต็ม)
+    fill: 0.21, // violin gap-answer gain (a touch present — it fills an empty space)
+    counter: 0.14, // violin chorus countermelody gain (ducks more — it overlaps the lead)
+  }
+  const secGain = (beat) => ENS.sectionGain[levelAt(beat)]
+
+  // idiomatic dynamics (self-contained, per the demo): metric accent + melodic contour.
+  const accent = (pb) => { const p = ((pb % 4) + 4) % 4; if (p < 0.01) return 1; if (Math.abs(p - 2) < 0.01) return 0.9; if (Math.abs(p - 1) < 0.01 || Math.abs(p - 3) < 0.01) return 0.8; return 0.72 }
+  const contour = (i) => { const n = notes[i], pr = notes[i - 1], nx = notes[i + 1]; let c = 1
+    if (pr && pr.midi != null && n.midi > pr.midi) c += 0.06
+    if (pr && nx && pr.midi != null && nx.midi != null && n.midi > pr.midi && n.midi >= nx.midi) c += 0.06
+    if (pr && pr.midi != null && n.midi < pr.midi) c -= 0.04
+    if (n.beats >= 3) c -= 0.06
+    return c }
+
+  let pass = 0
+  do {
+    const rng = mulberry32((seedBase ^ (pass * 0x9e37)) >>> 0)
+    const rnd = () => rng() * 2 - 1
+    const t0 = ctx.currentTime + 0.25
+    const tEnd = t0 + totalBeats * spb
+    const TJ = 0.012, VJ = 0.06
+
+    // GUIDE layer (ONE melody line) on the LEAD instrument, × section gain (verse quieter → chorus
+    // full). piano swells long notes · violin sings long + slide-in · guitar fingerpicks + a
+    // hammer-on grace. Only the lead plays the tune; the violin NEVER doubles it.
+    let beat = 0
+    for (let i = 0; i < notes.length; i++) {
+      const n = notes[i]
+      if (n.midi != null && melInst) {
+        const gd = accent(beat) * contour(i) * (1 + VJ * rnd()) * secGain(beat)
+        const t = t0 + beat * spb + TJ * rnd()
+        const d = n.beats * spb
+        if (lead === 'guitar') {
+          if (n.beats >= 1 && rng() < 0.18) melInst.fire(n.midi - 2 + T, t - 0.05, 0.12, 0.42 * gd) // hammer/slide
+          melInst.fire(n.midi + T, t, Math.max(0.6, d + 0.4), 0.56 * gd) // plucked, rings
+        } else if (lead === 'violin') {
+          if (n.beats >= 1 && rng() < 0.2) melInst.fire(n.midi - 2 + T, t - 0.06, 0.2, 0.28 * gd) // slide-in grace
+          melInst.fire(n.midi + T, t, Math.max(0.9, d + 0.6), 0.42 * gd) // violin sings long
+        } else {
+          melInst.fire(n.midi + T, t, n.beats >= 3 ? d + 0.5 : Math.max(0.5, d + 0.3), 0.52 * gd)
+        }
+      }
+      beat += n.beats
+    }
+
+    // COMP + BASS — grand arpeggio (front · movement) + cello bass (re-bow ~3 beats · one-shot §6b.1).
+    // NO sustained string pad (§6b.2 Option 1). Both × section gain.
+    for (const e of chordEvents) {
+      if (e.bass == null) continue
+      const up = e.up || []
+      const bT = t0 + e.startBeat * spb
+      const nb = Math.max(1, Math.round(e.beats))
+      const sg = secGain(e.startBeat), a = accent(e.startBeat)
+      if (ce) { const bg = 0.32 * sg; for (let b = 0; b < nb; b += 3) { const seg = Math.min(3, nb - b); ce.fire(e.bass + T, bT + b * spb, seg * spb + 0.4, bg * a) } }
+      if (gr) {
+        const ag = 0.13 * sg
+        const seq = [up[0], up[1] ?? up[0], up[2] ?? up[0], up[1] ?? up[0]].filter((m) => m != null)
+        for (let k = 0; k < nb && seq.length; k++) gr.fire(seq[k % seq.length] + T, bT + k * spb + TJ * rnd(), spb * 1.5, ag * accent(e.startBeat + k))
+      }
+    }
+
+    // §6b.2 Option 1 — CALL-AND-RESPONSE violin (no pad · P'Aim approved). RESPONSE: the violin
+    // answers in each phrase-end gap with a short 3-note turn (high register 71–86, never doubling
+    // the tune, entering into the tail so the lead speaks first). COUNTERMELODY: chorus only, a
+    // moving line above the tune (74–86, offbeat) on chords that DON'T host a fill. Bowed voices
+    // punch above their peak → violin sits ~10–13 dB under the lead (fill 0.21 · counter 0.14).
+    if (vi) {
+      gaps.forEach((g, gi) => {
+        const tones = tonesInRange(g.e, 71, 86)
+        if (tones.length < 3) return
+        const startBeat = g.beat + Math.max(0.75, g.beats - 2.0)
+        const seq = gi % 2 === 0
+          ? [{ p: tones[tones.length - 1], d: 0.5 }, { p: tones[tones.length - 2], d: 0.5 }, { p: tones[Math.max(0, tones.length - 3)], d: 1.0 }]
+          : [{ p: tones[Math.max(0, tones.length - 3)], d: 0.5 }, { p: tones[Math.max(0, tones.length - 2)], d: 0.5 }, { p: tones[tones.length - 1], d: 1.0 }]
+        let b = startBeat
+        for (const s of seq) { vi.fire(s.p + T, t0 + b * spb, s.d * spb + 0.25, ENS.fill * secGain(g.beat) * (s.d >= 1 ? 1 : 0.9)); b += s.d }
+      })
+      for (const e of chordEvents) {
+        if (levelAt(e.startBeat) !== 'chorus') continue
+        let hostsFill = false
+        for (let bb = e.startBeat; bb < e.startBeat + e.beats; bb++) if (gapBeats.has(Math.round(bb))) hostsFill = true
+        if (hostsFill) continue
+        const tones = tonesInRange(e, 74, 86)
+        if (!tones.length) continue
+        const enter = e.startBeat + 1.0, room = e.beats - 1.0
+        if (room < 0.6) continue
+        const pick = tones[Math.min(tones.length - 1, 1)]
+        if (e.beats >= 3 && tones.length >= 2) {
+          vi.fire(pick + T, t0 + enter * spb, 1.1 * spb + 0.2, ENS.counter)
+          const nxt = tones[Math.min(tones.length - 1, 2)]
+          vi.fire(nxt + T, t0 + (enter + 1.3) * spb, Math.min(room - 1.3, 1.4) * spb + 0.3, ENS.counter)
+        } else {
+          vi.fire(pick + T, t0 + enter * spb, Math.min(room, 1.6) * spb + 0.3, ENS.counter)
+        }
+      }
+    }
+    pass++
+
+    // wait loop — same machinery as playSong (stop flag + follow-along onNote)
+    const totalMs = (tEnd - ctx.currentTime) * 1000
+    const start = Date.now()
+    let noteIdx = -1, cumMs = 0
+    const noteEndsMs = notes.map((n) => (cumMs += n.beats * spb * 1000))
+    while (Date.now() - start < totalMs) {
+      if (myFlag.stopped || myToken !== playToken) {
+        // release only as the CURRENT pass — a newer pass now owns the shared instruments.
+        if (myToken === playToken) activeEnsemble.forEach((w) => { try { w.releaseAll() } catch { /* stopped */ } })
+        return true
+      }
+      const elapsed = Date.now() - start - 80
+      let idx = noteIdx < 0 ? 0 : noteIdx
+      while (idx < notes.length - 1 && elapsed >= noteEndsMs[idx]) idx++
+      if (idx !== noteIdx) { noteIdx = idx; onNote?.(notes[idx], startIndex + idx) }
+      onProgress?.(Date.now() - start, totalMs)
+      await new Promise((r) => setTimeout(r, 100))
+    }
+  } while (loop && !myFlag.stopped)
+  activeEnsemble = []
   return true
 }

@@ -8,13 +8,16 @@ import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { diffSongRows } from '../lib/diff.js'
-import { playSong, stopPlayback } from '../lib/midi.js'
+import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
+import { presetCfg } from '../lib/arranger/presets.js'
+import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import SongSheet from './SongSheet.vue'
 import NoteBoxes from './NoteBoxes.vue'
 import ComboSelect from './ComboSelect.vue'
 import Icon from './Icon.vue'
 import DockKey from './DockKey.vue'
 import ExportTool from './ExportTool.vue'
+import SoundControl from './SoundControl.vue'
 
 // ---------- mode contract (DS-04) ----------
 // EditorMode is the "แก้ไข" surface, extracted whole from Studio.vue. The shell owns
@@ -35,7 +38,9 @@ const props = defineProps({
 const emit = defineEmits(['change', 'save', 'dock'])
 
 // ---------- auth + role (gating comes from the store via props.tier · DS-02) ----------
-import { session, legacy, shellMenu, saveDraftRow, readingFontScale } from '../store.js'
+import { session, legacy, shellMenu, saveDraftRow, readingFontScale,
+  editorSound, editorEnsemble, editorInstrument, editorStyle,
+  setEditorSound, setEditorEnsemble, setEditorInstrument, setEditorStyle } from '../store.js'
 
 // derive the two flags the editor already reads from the single tier source, so the rest
 // of the editor body is untouched (isApprover / loggedIn keep their meaning)
@@ -1481,10 +1486,21 @@ async function runPlay(content, liOffset, follow = true) {
   const id = ++playSeq
   playing.value = true
   const onNote = follow ? followBar(liOffset) : undefined
-  // B107 P2 §6c: the editor is พี่เปา's note-checking surface → arranger OFF (notes exactly as
-  // printed, no humanize). The viewer (SongViewer) is where humanize plays. A first-class in-UI
-  // switch + localStorage lands in step 8; the editor stays "ลูกเล่นปิด" for now.
-  const ok = await playSong(content, { bpm: opts.bpm || 80, onNote, arranger: false })
+  // B107 step 9: the editor has its OWN "เสียงดนตรี" popover — default Grand · เดี่ยว · ทำนอง ·
+  // ตรงโน้ต so พี่เปา checks the raw printed notes on load, but can switch to any instrument/style.
+  // ตรงโน้ต = arranger OFF (notes exactly as printed). Choices persist per-page (editor* store refs).
+  const sa = editStyleArrange.value
+  const songId = props.song?.id ?? props.song?.slug ?? meta.title_th
+  const editLead = editorInstrument.value === 'nylon' ? 'guitar' : editorInstrument.value === 'violin' ? 'violin' : 'piano'
+  const ok = editorEnsemble.value === 'ensemble'
+    ? await playEnsemble(content, { bpm: opts.bpm || 80, onNote, songId, lead: editLead })
+    : await playSong(content, {
+      bpm: opts.bpm || 80, onNote,
+      voices: editorSound.value,
+      instrument: editorInstrument.value,
+      songId,
+      arranger: sa.arranger, arrangeCfg: sa.arrangeCfg,
+    })
   if (ok === false) saveMsg.value = AUDIO_BLOCKED_MSG
   if (id === playSeq) {
     playing.value = false
@@ -1675,6 +1691,23 @@ function primaryAction() {
 // The structural per-bar tools stay INLINE in the table (contextual — not dock commands).
 const editAlpha = ref(0.96)
 const saveLabel = computed(() => (reviewingDraft.value ? 'อนุมัติ' : isApprover.value ? 'เผยแพร่' : 'ส่งตรวจ'))
+
+// B107 step 9 — the editor's "เสียงดนตรี" popover (same SoundControl as ฝึกร้อง, its own state).
+// 'plain' → arranger OFF (notes as printed · ตรวจโน้ต); calm/arrangement → the matching preset.
+const editStyleArrange = computed(() =>
+  editorStyle.value === 'plain'
+    ? { arranger: false, arrangeCfg: {} }
+    : { arranger: true, arrangeCfg: presetCfg(editorStyle.value === 'calm' ? 'piano-calm' : 'piano-arrangement') },
+)
+const soundGroups = computed(() => [
+  { key: 'sound', label: 'เสียงที่เล่น', icon: 'volume-2', value: editorSound.value, options: SOUND_OPTS, onPick: setEditorSound },
+  { key: 'ensemble', label: 'การบรรเลง', icon: 'blend', value: editorEnsemble.value, options: ENSEMBLE_OPTS, onPick: setEditorEnsemble },
+  { key: 'instrument', label: 'เครื่องดนตรี', icon: 'music', value: editorInstrument.value, options: INSTRUMENT_OPTS, onPick: setEditorInstrument },
+  { key: 'style', label: 'อารมณ์ / สไตล์', icon: 'sliders-horizontal', value: editorStyle.value, options: STYLE_OPTS, onPick: setEditorStyle },
+])
+const INSTR_ICON = { grand: 'piano', nylon: 'guitar', felt: 'music', violin: 'music', cello: 'music' }
+const soundIcon = computed(() => (editorEnsemble.value === 'ensemble' ? 'users' : (INSTR_ICON[editorInstrument.value] || 'audio-lines')))
+
 const editItems = computed(() => [
   { id: 'keys', kind: 'keys', name: 'แป้นสัญลักษณ์', rows: PALETTE, onInsert: insertSym },
   { id: 'grip', kind: 'grip', name: 'ย้าย/ย่อ', place: { anchor: 'left', row: 1 } },
@@ -1684,6 +1717,9 @@ const editItems = computed(() => [
   // icon — ▶ ฟังท่อน (the stanza being edited) vs ◉ ฟังทั้งเพลง (the whole arrangement).
   { id: 'play', kind: 'btn', name: 'ฟังท่อน ' + activeStanzaId.value, label: 'ฟังท่อน', icon: 'play', place: { anchor: 'rightOf:redo', row: 1 }, run: playStanza, hidden: playing.value },
   { id: 'stop', kind: 'btn', name: 'หยุด', label: 'หยุด', icon: 'square', danger: true, place: { anchor: 'rightOf:redo', row: 1 }, run: stopAll, hidden: !playing.value },
+  // B107 step 9 — the single "เสียงดนตรี" button (audio-lines) → popover with all 4 sound axes,
+  // so พี่เปา can switch instrument/style right here (default = ตรงโน้ต for raw note-checking).
+  { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', place: { anchor: 'leftOf:setting', row: 1 } },
   { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
   { id: 'save', kind: 'btn', name: saveLabel.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
   { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', place: { row: 2, col: 3 }, run: playFull, hidden: playing.value },
@@ -2763,6 +2799,10 @@ defineExpose({
           @toggle="toggle"
           @close="close"
         />
+      </template>
+      <!-- เสียงดนตรี — one button → popover with all 4 sound axes (B107 step 9) -->
+      <template #cell-soundctl="{ open, toggle, close }">
+        <SoundControl :open="open" :groups="soundGroups" :icon="soundIcon" @toggle="toggle" @close="close" />
       </template>
     </DockKey>
 

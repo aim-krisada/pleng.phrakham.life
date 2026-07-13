@@ -51,17 +51,22 @@ function beatsPerBar(meta) {
 
 // Melody = the printed notes, one PerfEvent per sounding note (rests advance the beat clock but
 // make no event). This is literal — the sheet's pitch/timing untouched; dynamics/humanize are a
-// SEPARATE layer applied afterwards, and only when the arranger is on.
-function melodyEvents(notes) {
+// SEPARATE layer applied afterwards, and only when the arranger is on. When the arranger is on, an
+// instrument MAY add an idiomatic ornament per note via `mod.melodyGrace` (e.g. a guitar slide-in) —
+// opt-in, seeded, and only for a module that defines it (piano leaves the melody exactly as printed).
+function melodyEvents(notes, mod, rng, cfg) {
   const out = []
   let beat = 0
   for (const n of notes || []) {
     if (n.midi != null) {
-      out.push({
+      const e = {
         role: 'melody', inst: 'melody', midi: n.midi,
         startBeat: beat, beats: n.beats,
         gain: 0.35, attack: 0.015, decayTo: null, timeShift: 0,
-      })
+      }
+      const grace = mod && mod.melodyGrace ? mod.melodyGrace(e, rng, cfg) : null
+      if (grace) out.push(grace)
+      out.push(e)
     }
     beat += n.beats
   }
@@ -88,20 +93,27 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   const dyn = cfg.dynamics || {}
 
   const events = []
-  if (wantMelody) events.push(...melodyEvents(notes))
+  // pass the module only when the arranger is ON, so "ตรงโน้ต" (off) never adds an ornament — the
+  // melody stays exactly as printed (§6c), and piano (no melodyGrace) is unchanged either way.
+  if (wantMelody) events.push(...melodyEvents(notes, on ? mod : null, rng, cfg))
 
   // LAYER 1 voicing + LAYER 3 pattern (comp up voices + bass foundation + embellishments). When
-  // OFF, force the plain defaults (sustained + root + no voicing/embellish) = the P1 block pad.
+  // OFF ("ลูกเล่นปิด" / ตรวจโน้ต §6c), force the plain block pad — INSTRUMENT-AGNOSTIC: a hard
+  // sustained block of the FULL printed chord + root bass, ignoring the module's idiom. This keeps
+  // note-check honest on any instrument (e.g. a violin's double-stop reduction would DROP printed
+  // chord notes, and its stringPad default would add a swell — neither is "notes exactly as
+  // printed"). ON = the module's idiomatic voicing/pattern.
   if (wantChords) {
-    const compName = (on && cfg.pattern) || mod.defaultPattern
-    const comp = mod.patterns[compName] || mod.patterns[mod.defaultPattern]
-    const bassName = (on && cfg.bass) || mod.defaultBass
+    const compName = on ? (cfg.pattern || mod.defaultPattern) : 'sustained'
+    const comp = mod.patterns[compName] || mod.patterns[mod.defaultPattern] || mod.patterns.sustained
+    const bassName = on ? (cfg.bass || mod.defaultBass) : 'root'
     const bassMode = (mod.bassModes && mod.bassModes[bassName]) || mod.bassModes.root
     let prevUp = null
     const list = chordEvents || []
     for (let i = 0; i < list.length; i++) {
       const evc = list[i]
-      let voiced = mod.voicing(evc, prevUp, { cfg, meta })
+      // OFF → the raw voice-led chord (full up[]), no module reduction; ON → the module's voicing.
+      let voiced = on ? mod.voicing(evc, prevUp, { cfg, meta }) : { bass: evc.bass, up: evc.up }
       if (on) voiced = applyVoicing(voiced, cfg) // drop-2 / open per preset
       prevUp = voiced.up
       events.push(...comp(evc, voiced.up, bpb, rng, cfg))

@@ -18,10 +18,28 @@ function buildInfo() {
 
 const info = buildInfo()
 
+// B107 step 9 — emit dist/asset-manifest.json listing every built /assets/* file (hashed JS/CSS
+// chunks). The service worker precaches this list at install so the FIRST offline launch can boot
+// the app AND load the audio engine (smplr) chunk — not just the samples. Without it the SW would
+// only have the shell, and offline boot fails on the hashed entry bundle (its name is unknown to a
+// hand-written SW). Runs only at build (no-op in dev/serve).
+function assetManifest() {
+  return {
+    name: 'pleng-asset-manifest',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const files = Object.keys(bundle)
+        .filter((f) => f.startsWith('assets/'))
+        .map((f) => '/' + f)
+      this.emitFile({ type: 'asset', fileName: 'asset-manifest.json', source: JSON.stringify(files) })
+    },
+  }
+}
+
 // base './' works both on GitHub Pages project path and the custom domain
 export default defineConfig({
   base: './',
-  plugins: [vue()],
+  plugins: [vue(), assetManifest()],
   define: {
     __BUILD_COMMIT__: JSON.stringify(info.commit),
     __BUILD_TIME__: JSON.stringify(info.time),

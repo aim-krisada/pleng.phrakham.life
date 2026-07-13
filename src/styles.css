@@ -72,7 +72,17 @@
    mobile editor the full-width dock then covers them instead of the two fighting. */
 .pk-scrollnav { z-index: 30 !important; }
 
-html { scroll-behavior: smooth; }
+/* text-size-adjust: 100% — DISABLE Chrome-mobile "font boosting" (auto-inflation). Without it,
+   Chrome on Android enlarges text a moment after load to "improve readability", which widened the
+   lyrics and pushed the numeric-notation cells onto the next line (โน้ตตกบรรทัด) — but ONLY on
+   Chrome mobile (Samsung Internet / desktop don't boost), and only after the first paint ("แว๊บแรก
+   ปกติแล้วกระจาย"). Pinning it to 100% keeps every device at the sizes we set. Both the standard and
+   the -webkit- prefix (Chrome/Android still needs the prefixed one). */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 
 body {
   margin: 0;
@@ -81,6 +91,10 @@ body {
   color: var(--ink);
   font-size: var(--fs-base);
   line-height: var(--lh-normal); /* was 1.8 — tightened base rhythm (Thai-safe) */
+  /* belt-and-braces with the html rule — pin against Chrome-mobile font boosting (P'Aim: Chrome
+     was auto-zooming to 125% → lyrics wide + notes ตกบรรทัด). 100% = stay at the sizes we set. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* Per-user Thai typeface toggle (site-wide · localStorage · store.siteFont). Default =

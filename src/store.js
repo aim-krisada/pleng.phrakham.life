@@ -71,7 +71,7 @@ export const soundMode = ref((() => {
     const v = localStorage.getItem(SOUND_KEY)
     if (SOUND_MODES.includes(v)) return v
   } catch { /* ignore */ }
-  return 'melody'
+  return 'both' // หน้าฝึกร้อง default = รวม (ทำนอง+คอร์ด · P'Aim 13 ก.ค.)
 })())
 watch(soundMode, (v) => {
   try { localStorage.setItem(SOUND_KEY, v) } catch { /* ignore */ }
@@ -101,20 +101,22 @@ export function setPlayStyle(v) { if (PLAY_STYLES.includes(v)) playStyle.value =
 
 // ---- ensemble mode + lead instrument (B107 P2 · แกน 1 "เสียง") ----
 // The spec's axis 1: เดี่ยว (one instrument the whole song) vs เต็มวง/นำวง (a lead instrument +
-// auto-filled accompaniment). In P2 only the piano has samples, so 'ensemble' and every non-piano
-// instrument are shown as "เร็ว ๆ นี้" (disabled) — the choices are visible so the direction is
-// clear, and the picks persist for when the samples land (§6a localStorage). Playback in P2 is
-// always solo grand; these refs just drive the UI + remember the user's intent.
+// auto-filled accompaniment). Step 9 ships all five SOLO instruments (samples self-hosted); เต็มวง
+// (auto-filled accompaniment) is still "เร็ว ๆ นี้" while SA designs the ensemble sound. The picks
+// persist so someone's chosen instrument survives reloads (§6a localStorage).
 const ENSEMBLE_KEY = 'pleng.ensembleMode'
 const ENSEMBLE_MODES = ['solo', 'ensemble']
+// DEFAULT (หน้าฝึกร้อง · P'Aim 13 ก.ค. final จากภาพ): เปียโนเดี่ยว (รวม · เดี่ยว · เปียโน · บรรเลง).
+// (หน้าแก้เพลง มี state แยก editorEnsemble ที่ default = solo สำหรับพี่เปาตรวจโน้ต.)
 export const ensembleMode = ref((() => {
   try { const v = localStorage.getItem(ENSEMBLE_KEY); if (ENSEMBLE_MODES.includes(v)) return v } catch { /* ignore */ }
   return 'solo'
 })())
 watch(ensembleMode, (v) => { try { localStorage.setItem(ENSEMBLE_KEY, v) } catch { /* ignore */ } })
-// Instruments that actually play in P2 (samples present). Only 'grand' for now; the rest are
-// listed in the UI as coming-soon so the picker shows the full 5-voice plan (§5).
-export const READY_INSTRUMENTS = ['grand']
+// Instruments the picker can actually SELECT. LAUNCH scope (P'Aim 13 ก.ค.) = เปียโน + กีตาร์ only;
+// felt/violin/cello are wired + self-hosted but stay "เร็ว ๆ นี้" (disabled in the UI) until P'Aim
+// signs off on each. Add one here + drop its `disabled` in soundOptions.js to enable it.
+export const READY_INSTRUMENTS = ['grand', 'nylon']
 const INSTR_KEY = 'pleng.leadInstrument'
 export const leadInstrument = ref((() => {
   try { const v = localStorage.getItem(INSTR_KEY); if (READY_INSTRUMENTS.includes(v)) return v } catch { /* ignore */ }
@@ -123,6 +125,25 @@ export const leadInstrument = ref((() => {
 watch(leadInstrument, (v) => { try { localStorage.setItem(INSTR_KEY, v) } catch { /* ignore */ } })
 export function setEnsembleMode(v) { if (ENSEMBLE_MODES.includes(v)) ensembleMode.value = v }
 export function setLeadInstrument(v) { if (READY_INSTRUMENTS.includes(v)) leadInstrument.value = v }
+
+// ---- แก้เพลง (editor) page's OWN sound state (B107 step 9 · P'Aim 13 ก.ค.) ----
+// The editor remembers its sound choices SEPARATELY from ฝึกร้อง (own localStorage keys), with a
+// PLAINEST default — Grand · เดี่ยว · ทำนองอย่างเดียว · ตรงโน้ต — so พี่เปา checks the raw printed
+// notes on load, but can open the same "เสียงดนตรี" popover to switch to a fuller sound if wanted.
+function editorSoundRef(key, allowed, dflt) {
+  const LS = `pleng.editor.${key}`
+  const r = ref((() => { try { const v = localStorage.getItem(LS); if (allowed.includes(v)) return v } catch { /* ignore */ } return dflt })())
+  watch(r, (v) => { try { localStorage.setItem(LS, v) } catch { /* ignore */ } })
+  return r
+}
+export const editorSound = editorSoundRef('sound', SOUND_MODES, 'melody')
+export const editorEnsemble = editorSoundRef('ensemble', ENSEMBLE_MODES, 'solo')
+export const editorInstrument = editorSoundRef('instrument', READY_INSTRUMENTS, 'grand')
+export const editorStyle = editorSoundRef('style', PLAY_STYLES, 'plain')
+export function setEditorSound(v) { if (SOUND_MODES.includes(v)) editorSound.value = v }
+export function setEditorEnsemble(v) { if (ENSEMBLE_MODES.includes(v)) editorEnsemble.value = v }
+export function setEditorInstrument(v) { if (READY_INSTRUMENTS.includes(v)) editorInstrument.value = v }
+export function setEditorStyle(v) { if (PLAY_STYLES.includes(v)) editorStyle.value = v }
 
 // Which shell-bar menu is open ('site' | 'file' | 'manage' | 'mode' | null). Shared so
 // the app-wide ShellBar and a page's teleported menus are one open-at-a-time system.

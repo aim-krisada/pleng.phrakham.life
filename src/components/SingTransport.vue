@@ -14,6 +14,7 @@ import { ref, computed } from 'vue'
 import Icon from './Icon.vue'
 import DockKey from './DockKey.vue'
 import ExportTool from './ExportTool.vue'
+import SoundControl from './SoundControl.vue'
 import { readingFontScale, setFontScale } from '../store.js'
 
 const props = defineProps({
@@ -72,6 +73,8 @@ const selCountLabel = computed(() => {
   if (!n) return '·'
   return n === props.tags.length ? 'ทั้งหมด' : `${n}/${props.tags.length}`
 })
+// a SUBSET of ท่อน is picked (not all · not none) → show the count badge + highlight the button
+const isSubset = computed(() => props.selected.size > 0 && props.selected.size < props.tags.length)
 const isSelected = (name) => props.selected.has(name)
 
 // ---------- timeline segments (เส้นท่อน — เลือก=น้ำตาล · ไม่เลือก=เทา · หัวอยู่=หนา) ----------
@@ -116,6 +119,30 @@ function menuControl(id) {
   return { options: s.options, value: s.value, badge: s.badge, onPick: s.onPick }
 }
 
+// ---------- "เสียงดนตรี" — the 4 sound axes collapsed into ONE dock button (P'Aim 13 ก.ค.) ----------
+// Build the popover groups from the page's four sound settings (เสียงที่เล่น · การบรรเลง ·
+// เครื่องดนตรี · อารมณ์/สไตล์). Only the axes the page actually supplies appear.
+const SOUND_AXES = [
+  { key: 'sound', label: 'เสียงที่เล่น', icon: 'volume-2' },
+  { key: 'ensemble', label: 'การบรรเลง', icon: 'blend' },
+  { key: 'instrument', label: 'เครื่องดนตรี', icon: 'music' },
+  { key: 'style', label: 'อารมณ์ / สไตล์', icon: 'sliders-horizontal' },
+]
+const soundGroups = computed(() =>
+  SOUND_AXES.map((a) => {
+    const s = findSetting(a.key)
+    return s ? { ...a, value: s.value, options: s.options, onPick: s.onPick } : null
+  }).filter(Boolean),
+)
+// the bar button is icon-only — the glyph reflects the current mode/instrument (P'Aim 13 ก.ค.):
+// เต็มวง → users · เปียโน → piano · กีตาร์ → guitar · felt/violin/cello → music.
+const INSTR_ICON = { grand: 'piano', nylon: 'guitar', felt: 'music', violin: 'music', cello: 'music' }
+const soundIcon = computed(() => {
+  if (findSetting('ensemble')?.value === 'ensemble') return 'users'
+  return INSTR_ICON[findSetting('instrument')?.value] || 'audio-lines'
+})
+const hasSound = computed(() => soundGroups.value.length > 0)
+
 // ---------- ITEMS_SING — the descriptor list handed to the engine ----------
 const items = computed(() => {
   const keyCtl = menuControl('key')
@@ -129,17 +156,17 @@ const items = computed(() => {
     { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
     { id: 'timeslide', kind: 'timeline', name: 'ไทม์ไลน์', place: { row: 2, col: 1, span: 3 } },
     { id: 'key', kind: 'menu', name: 'คีย์', icon: 'key-round', place: { row: 2, col: 4, span: 1 }, control: keyCtl },
-    { id: 'tuan', kind: 'sel', name: 'เลือกท่อน', icon: 'list-music', place: { row: 2, col: 5, span: 2 }, hidden: !props.hasSections },
+    { id: 'tuan', kind: 'sel', name: 'เลือกท่อน', icon: 'list-music', place: { row: 2, col: 5, span: 1 }, hidden: !props.hasSections },
+    // B107 step 9 — the ONE "เสียงดนตรี" button (audio-lines) → popover with all 4 sound axes.
+    // On row 2 (with the collapsed ท่อน) so row 1's transport never overflows a narrow phone.
+    { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', place: { row: 2, col: 7 }, hidden: !hasSound.value },
     // optional — home is the ⚙ Setting page · ปักขึ้นแถบได้
     { id: 'repeat', kind: 'toggle', name: 'วนซ้ำ', icon: 'repeat', default: 'inSetting', pinnable: true, control: { value: props.loop, onToggle: () => emit('toggle-loop') } },
     { id: 'chord', kind: 'menu', name: 'คอร์ด', icon: 'guitar', default: 'inSetting', pinnable: true, control: menuControl('chord') },
     { id: 'speed', kind: 'menu', name: 'ความเร็ว', icon: 'gauge', default: 'inSetting', pinnable: true, control: menuControl('tempo') },
     { id: 'layer', kind: 'menu', name: 'แสดงผล', icon: 'layers', default: 'inSetting', pinnable: true, control: menuControl('display') },
-    { id: 'sound', kind: 'menu', name: 'เสียงที่เล่น', icon: 'volume-2', default: 'inSetting', pinnable: true, control: menuControl('sound') },
-    // B107 P2 — the 2-axis arranger picker: การบรรเลง (เดี่ยว/เต็มวง) · เครื่องดนตรี (lead) · อารมณ์/สไตล์.
-    { id: 'ensemble', kind: 'menu', name: 'การบรรเลง', icon: 'blend', default: 'inSetting', pinnable: true, control: menuControl('ensemble') },
-    { id: 'instrument', kind: 'menu', name: 'เครื่องดนตรี', icon: 'music', default: 'inSetting', pinnable: true, control: menuControl('instrument') },
-    { id: 'style', kind: 'menu', name: 'อารมณ์ / สไตล์', icon: 'sliders-horizontal', default: 'inSetting', pinnable: true, control: menuControl('style') },
+    // B107 step 9 — เสียงที่เล่น · การบรรเลง · เครื่องดนตรี · อารมณ์/สไตล์ moved into the single
+    // "เสียงดนตรี" bar button + popover (soundctl above), so they're no longer separate ⚙ items.
     { id: 'alpha', kind: 'slider', name: 'โปร่งใส', icon: 'blend', default: 'inSetting', pinnable: true, control: { min: 40, max: 100, value: Math.round(alpha.value * 100), onInput: (v) => (alpha.value = v / 100) } },
   ]
   // drop menu items whose control the page didn't supply (keeps the engine fed with valid data)
@@ -185,13 +212,17 @@ const items = computed(() => {
 
     <!-- ===== เลือกท่อน (col 5-6) — trigger + selector panel (one-at-a-time via engine) ===== -->
     <template #cell-tuan="{ open, toggle, close }">
+      <!-- ICON-ONLY (P'Aim 13 ก.ค. · มือถือแคบ): the "ทั้งหมด" text is dropped to save width. The
+           count badge shows ONLY when a SUBSET is picked (ท่อนเดียว/วนซ้ำ) — then the button is also
+           highlighted — so "all vs a subset" is still readable without the word. -->
       <button
         class="st-seltrig"
-        :class="{ on: open }"
+        :class="{ on: open, sub: isSubset }"
         :aria-expanded="open"
+        :aria-label="'เลือกท่อนที่จะฟัง — ' + selCountLabel"
         title="เลือกท่อนที่จะฟัง"
         @click.stop="toggle"
-      ><Icon name="list-music" :size="15" /> ท่อน <b>{{ selCountLabel }}</b></button>
+      ><Icon name="list-music" :size="17" /><b v-if="isSubset">{{ selCountLabel }}</b></button>
       <div v-if="open" class="dk-pop st-selpanel" role="menu" @click.stop>
         <div class="st-sshead">เลือกท่อนที่จะฟัง</div>
         <div class="st-ssall">
@@ -230,6 +261,11 @@ const items = computed(() => {
       />
     </template>
 
+    <!-- ===== เสียงดนตรี — one button → popover with all 4 sound axes (B107 step 9) ===== -->
+    <template #cell-soundctl="{ open, toggle, close }">
+      <SoundControl :open="open" :groups="soundGroups" :icon="soundIcon" @toggle="toggle" @close="close" />
+    </template>
+
     <!-- ===== Aa reader font size — permanent, 1-tap · slider popover (store-driven) ===== -->
     <template #cell-scale="{ open, toggle }">
       <button
@@ -262,8 +298,8 @@ const items = computed(() => {
 .st-seekwrap { display: inline-flex; align-items: center; gap: 8px; padding-right: 4px; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* fixed, usable timeline width; the fit-content dock hugs it + the คีย์/ท่อน cells.
    Narrower on a phone so row 2 (timeline·คีย์·ท่อน) fits the viewport-capped dock (no overflow). */
-.st-seek { position: relative; flex: 0 0 200px; width: 200px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
-@media (max-width: 760px) { .st-seek { flex-basis: 150px; width: 150px; } }
+.st-seek { position: relative; flex: 0 0 158px; width: 158px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+@media (max-width: 760px) { .st-seek { flex-basis: 112px; width: 112px; } }
 .st-time { flex: 0 0 auto; }
 /* B102 — "รอบ N" now-playing badge: the current ท่อน + refrain pass, in the brand colour so it
    reads as the live playhead label (not muted chrome). Ellipsis so a long ท่อน name never pushes
@@ -298,7 +334,9 @@ const items = computed(() => {
 }
 @media (hover: hover) { .st-seltrig:hover { border-color: var(--brand); color: var(--brand); } }
 .st-seltrig.on { border-color: var(--brand); color: var(--brand); }
-.st-seltrig b { color: var(--brand); }
+/* a subset of ท่อน selected (ท่อนเดียว/วนซ้ำ) → highlight so the narrowed play scope stands out */
+.st-seltrig.sub { border-color: var(--brand); }
+.st-seltrig b { color: var(--brand); font-size: 12px; }
 .st-selpanel { width: 290px; max-width: calc(100vw - 24px); display: flex; flex-direction: column; padding: 0; }
 .st-sshead { padding: 10px 12px 6px; font-weight: 700; }
 .st-ssall { display: flex; gap: 8px; padding: 0 12px 8px; border-bottom: 1px solid var(--line); flex-wrap: wrap; align-items: center; }
