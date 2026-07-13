@@ -1,7 +1,8 @@
 // "✓ ตรวจแล้ว" (verified) toggle — marks a song human-checked (songs.verified) so the
-// catalog can show which of the imported songs พี่เปา has reviewed. These assert the button
-// only shows when logged in, flips the song's verified flag on click, and refuses to run
-// before the song is saved (no editingId → no write).
+// catalog can show which of the imported songs พี่เปา has reviewed. Writing songs.verified is
+// approver-only at the RLS layer, so the button shows ONLY for approvers (an editor's click
+// would be rejected by the DB → these assert anon + editor never see it), flips the song's
+// verified flag on click, and refuses to run before the song is saved (no editingId → no write).
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
@@ -64,7 +65,16 @@ describe('EditorMode — "ตรวจแล้ว" verified toggle', () => {
     expect(w.find('.ed-verify').exists()).toBe(false)
   })
 
-  it('shows for a logged-in team member and flips verified on click', async () => {
+  it('is hidden for a logged-in editor (RLS would reject their write)', async () => {
+    const w = mount(EditorMode, {
+      props: { song: SONG, tier: 'editor', active: true },
+      global: { stubs: { Icon: true, 'router-link': true, ComboSelect: true } },
+    })
+    await nextTick()
+    expect(w.find('.ed-verify').exists()).toBe(false)
+  })
+
+  it('shows for an approver and flips verified on click', async () => {
     const w = mountEd({ song: SONG })
     await nextTick()
     const btn = w.find('.ed-verify')

@@ -2357,8 +2357,11 @@ defineExpose({
           <button class="ed-song-act" @click="fileNew"><Icon name="file-plus" :size="15" /> สร้างเพลงใหม่</button>
           <button class="ed-song-act" @click="openPanel('open')"><Icon name="folder-open" :size="15" /> เลือกเพลง</button>
         </div>
+        <!-- "✓ ตรวจแล้ว" writes songs.verified — RLS lets ONLY approvers (พี่เปา) do that,
+             so gate the button on isApprover: editors (ติว) never saw a button whose click
+             the DB would reject. -->
         <button
-          v-if="loggedIn"
+          v-if="isApprover"
           class="ed-verify"
           :class="{ on: verified }"
           :aria-pressed="verified"
