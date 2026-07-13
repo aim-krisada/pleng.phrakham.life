@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { displayChord } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, slurSpans, arcPlan } from '../lib/notation.js'
 import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
@@ -262,6 +262,58 @@ function measureTies() {
       hideHalf(nt.querySelector('.tie-end-arc'))
       hideHalf((sameSeg ? prev : srcSeg) && (sameSeg ? prev : srcSeg).querySelector('.tie-start-arc'))
     })
+    // --- issues5: cross-segment slur arcs -------------------------------------------------
+    // A slur whose '(' and ')' land in different segments (open at a bar's end, close at the
+    // next bar's / line's start) can't be paired by NoteRow — it leaves a stray one-note arc
+    // on the open box and nothing on the close. Redraw those as ONE line-level arc spanning
+    // open→close across the bar (same overlay + look as the cross-bar tie above). Within-
+    // segment slurs (sameSegment) are left to NoteRow untouched (B062/B076 — no regression).
+    const line = renderLines.value[Number(li)]
+    if (line) {
+      const notesBySi = []
+      line.parts.forEach((p) => {
+        if (p.segments) p.segments.forEach((s) => { notesBySi[s.si] = s.note || '' })
+      })
+      const spans = slurSpans(notesBySi).filter((sp) => !sp.sameSegment)
+      for (const sp of spans) {
+        const openNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.open.si}"] .nt[data-idx="${sp.open.idx}"]`)
+        const closeNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.close.si}"] .nt[data-idx="${sp.close.idx}"]`)
+        if (!openNt || !closeNt) continue
+        const ao = openNt.getBoundingClientRect()
+        const bc = closeNt.getBoundingClientRect()
+        if (!ao.width || !bc.width) continue
+        const h = Math.max(ao.height, bc.height)
+        const xOpen = ao.left + ao.width / 2 - lr.left
+        const xClose = bc.left + bc.width / 2 - lr.left
+        const produced = []
+        if (arcPlan(ao, bc, h) === 'single') {
+          // both anchors on the same visual row → one continuous arc over the bar line
+          const yTop = Math.min(ao.top, bc.top) - lr.top
+          if (xClose - xOpen >= 2) produced.push(buildArc(xOpen, xClose, yTop, h))
+        } else {
+          // a line wrap fell between them → two halves: open→end-of-its-row, and
+          // start-of-close-row→close (edges = the outermost .nt on each visual row so the
+          // arc never runs past the notes). Standard engraving for a slur split by a system.
+          let rowRight = xOpen
+          let rowLeft = xClose
+          for (const el of nts) {
+            const r = el.getBoundingClientRect()
+            if (!r.width) continue
+            if (Math.abs(r.top - ao.top) <= h * 0.6) rowRight = Math.max(rowRight, r.right - lr.left)
+            if (Math.abs(r.top - bc.top) <= h * 0.6) rowLeft = Math.min(rowLeft, r.left - lr.left)
+          }
+          if (rowRight - xOpen >= 2) produced.push(buildArc(xOpen, rowRight, ao.top - lr.top, h))
+          if (xClose - rowLeft >= 2) produced.push(buildArc(rowLeft, xClose, bc.top - lr.top, h))
+        }
+        // only claim (hide) the stray NoteRow arc once we actually drew a replacement — a
+        // wrap we couldn't measure keeps NoteRow's own arc as a fallback (like ties above).
+        if (produced.length) {
+          const grp = openNt.closest('.note-group')
+          hideHalf(grp && grp.querySelector('.slur-arc'))
+          arcs.push(...produced)
+        }
+      }
+    }
     if (arcs.length) byLine[li] = { paths: arcs, w: lr.width, h: lr.height }
   })
   lineArcs.value = byLine
@@ -358,7 +410,7 @@ watch(
             @click="seek(row.li, seg.si)"
           >
             <span v-if="chordOn(row.first)" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
-            <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :active="activeNote(row.li, seg.si)" />&nbsp;</span>
+            <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :syllables="seg.syllables || null" :active="activeNote(row.li, seg.si)" />&nbsp;</span>
             <!-- v2: one span per syllable-bearing note -> highlight walks note by note
                  (B006). v1 (no syllables array): the whole lyric as before. -->
             <template v-if="sl">

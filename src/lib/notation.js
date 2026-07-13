@@ -174,3 +174,153 @@ export function syllableSlots(noteString) {
 export function attackSlots(noteString) {
   return noteBoxKinds(noteString).filter((k) => k === 'attack').length
 }
+
+// --- issue8: beam runs follow SYLLABLES, not beats ------------------------------------
+// The reference songbook (traditional vocal / jianpu beaming) connects the underlines of
+// consecutive eighth/sixteenth notes ONLY while the later notes are เอื้อน — a continuation
+// of the SAME sung syllable. A note that starts a NEW word breaks the beam even mid-beat.
+// (This is deliberate: modern instrumental beaming (Gould, *Behind Bars*) beams by beat and
+// ignores syllables — we do NOT follow that; pleng targets sung Thai numbered notation.)
+//
+// The "does this note carry its own word" signal already lives in the v2 model as
+// `seg.syllables` (one slot per syllable-bearing box, blank = เอื้อน) — the same array
+// resolveContent aligns to each segment. So this is zero-migration: we thread that array in.
+//
+// `beamGroups(noteString, syllables)` returns { groups, beams }:
+//   groups — groupNotes(parseNotes(noteString)) with each token stamped `.idx` (the running
+//            slot NoteRow uses for data-idx) and `.beamed=true` on notes that join a beam.
+//   beams  — [{ start, end, u2 }] one entry per beam run (start/end = token idx, u2 = the
+//            run has a sixteenth → double beam). NoteRow draws one continuous underline each.
+//
+// A beam breaks at every OLD boundary (integer beat edge · non-underlined token · rest 0 ·
+// '-' extension · triplet) AND, new for issue8, before any note that STARTS a new syllable.
+// syllables == null (v1 / not supplied) → no note is ever an attack → identical to the prior
+// beat-only behaviour (the graceful fallback).
+export function beamGroups(noteString, syllables = null) {
+  const gs = groupNotes(parseNotes(noteString))
+  let idx = -1
+  for (const g of gs) for (const t of g.tokens) t.idx = ++idx
+
+  // Mark the token idx of every NOTE that begins a new sung syllable. Syllable slots align
+  // with note + extension tokens in order (brackets & unreadable tokens bear no slot — the
+  // same set syllableSlots()/noteBoxKinds() counts), so we walk with a running slot counter.
+  const attacks = new Set()
+  if (Array.isArray(syllables)) {
+    let slot = -1
+    for (const g of gs) {
+      for (const t of g.tokens) {
+        if (t.type === 'note' || t.type === 'ext') {
+          slot++
+          if (t.type === 'note') {
+            const s = syllables[slot]
+            const has = typeof s === 'string' ? s.trim() !== '' : s != null && s !== ''
+            if (has) attacks.add(t.idx)
+          }
+        }
+      }
+    }
+  }
+
+  let beat = 0
+  let run = []
+  let runBeat = -1
+  const beams = []
+  const flush = () => {
+    if (run.length >= 2) {
+      run.forEach((t) => { t.beamed = true })
+      beams.push({
+        start: run[0].idx,
+        end: run[run.length - 1].idx,
+        u2: run.some((t) => t.underlines >= 2),
+      })
+    }
+    run = []
+  }
+  for (const g of gs) {
+    const isTrip = g.group === 'triplet'
+    for (const t of g.tokens) {
+      if (t.type === 'note') {
+        let dur = (1 / 2 ** t.underlines) * (DOT_FACTOR[t.dots] ?? 1)
+        if (isTrip) dur = (dur * 2) / 3
+        const startBeat = Math.floor(beat + 1e-9)
+        const beamable = !isTrip && t.underlines > 0 && t.pitch !== '0'
+        // continue the current beam only for a เอื้อน note (no new word) that stays in the
+        // same beat; a new-word note (or a beat/kind boundary) flushes and starts fresh.
+        if (beamable && run.length > 0 && startBeat === runBeat && !attacks.has(t.idx)) {
+          run.push(t)
+        } else {
+          flush()
+          if (beamable) {
+            run = [t]
+            runBeat = startBeat
+          }
+        }
+        beat += dur
+      } else if (t.type === 'ext') {
+        flush()
+        beat += 1
+      } else {
+        flush()
+      }
+    }
+  }
+  flush()
+  return { groups: gs, beams }
+}
+
+// --- issues5: slur pairs at LINE level (so a slur can cross a bar / segment) ------------
+// A slur written `( … )` may open at the end of one segment and close at the start of the
+// next (or several later), so the `(` and `)` land in DIFFERENT note strings. groupNotes
+// only pairs them WITHIN one string, so a cross-segment slur has a dangling open (a stray
+// one-note arc) in one box and a bare close in another. This resolves the pairing across
+// the whole LINE — the same structure the cross-bar TIE overlay (B069/B099) already uses.
+//
+// input  — the segments' note strings for one line, left→right (index = si, matching the
+//          `data-seg="{li}-{si}"` NoteRow carries).
+// output — one entry per slur:
+//   { open:{si, idx}, close:{si, idx}, sameSegment }
+//   idx = the NoteRow token idx (per-segment, brackets dropped) of the anchor note: the
+//         FIRST note after `(` for open, the LAST note before `)` for close.
+// A `sameSegment:false` pair is what SongSheet must redraw as a line-level overlay arc;
+// `sameSegment:true` pairs are left to NoteRow's own arc (unchanged — no regression).
+// Nesting / consecutive slurs are handled with a stack (depth-1 is the common case).
+export function slurSpans(noteStrings) {
+  const spans = []
+  const stack = []
+  ;(noteStrings || []).forEach((str, si) => {
+    let idx = -1 // running NoteRow token idx within THIS segment (brackets bear none)
+    let lastNoteIdx = -1
+    for (const t of parseNotes(str)) {
+      if (t.type === 'open' && t.group === 'slur') {
+        stack.push({ si, idx: null }) // anchor captured by the next note seen
+      } else if (t.type === 'close' && t.group === 'slur') {
+        const open = stack.pop()
+        if (open && open.idx != null && lastNoteIdx >= 0) {
+          spans.push({
+            open: { si: open.si, idx: open.idx },
+            close: { si, idx: lastNoteIdx },
+            sameSegment: open.si === si,
+          })
+        }
+      } else if (t.type === 'note' || t.type === 'ext' || t.type === 'raw') {
+        idx++
+        if (t.type === 'note') {
+          lastNoteIdx = idx
+          for (const o of stack) if (o.idx === null) { o.idx = idx; o.si = si }
+        }
+      }
+      // triplet { } brackets advance nothing — they bear no note idx (dropped by groupNotes)
+    }
+  })
+  return spans
+}
+
+// Decide how a cross-segment slur is drawn once its two anchor notes are MEASURED: a single
+// continuous arc when both notes sit on the same visual row (crossing a bar line within one
+// line), or a split arc (two halves, tail-of-row + head-of-next-row) when a line wrap fell
+// between them. Pure so it is unit-testable (Tier A) with mocked rects; the pixel geometry
+// itself stays in SongSheet (Tier B, real browser). rowH = a note's height (band tolerance).
+export function arcPlan(openRect, closeRect, rowH) {
+  const h = rowH || Math.max(openRect.height || 0, closeRect.height || 0) || 1
+  return Math.abs(openRect.top - closeRect.top) <= h * 0.6 ? 'single' : 'split'
+}

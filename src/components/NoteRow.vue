@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { parseNotes, groupNotes, DOT_FACTOR } from '../lib/notation.js'
+import { beamGroups } from '../lib/notation.js'
 
 const props = defineProps({
   notes: { type: String, default: '' },
@@ -8,65 +8,21 @@ const props = defineProps({
   // every rendered digit/dash left-to-right — the same slot midi.js puts on each attack
   // — so the played note lights up in step with its syllable (B006).
   active: { type: Number, default: -1 },
+  // v2 per-syllable slots for this segment (blank = เอื้อน / held). Drives syllable-based
+  // beaming (issue8): a beam breaks before a note that starts a NEW word. null (v1 / not
+  // supplied) → beat-only beaming, unchanged.
+  syllables: { type: Array, default: null },
 })
 // flatten groups but stamp each rendered token with its running slot index so the
 // template can match `active` without re-counting across the nested v-for.
 const model = computed(() => {
-  const gs = groupNotes(parseNotes(props.notes))
-  let idx = -1
-  for (const g of gs) for (const t of g.tokens) t.idx = ++idx
-  // --- Beat-based beaming (issues2 / พี่เปา) ------------------------------------------
-  // A เอื้อน sung within one beat (e.g. "6 5" on "ดี") is engraved in the reference
-  // songbook as ONE connected underline (a beam), NOT a slur arc. So we join the
-  // underlines of consecutive eighth/sixteenth notes that fall in the SAME beat into a
-  // single beam, exactly like standard jianpu. Beat position accumulates across the whole
-  // segment from its start (beat 0, where segments align); a beam breaks at an integer beat
-  // boundary, at any non-underlined token (quarter, '-', rest 0), or across a triplet (which
-  // already beams via its own stretched underline). A lone underlined note keeps its short
-  // individual underline. This is render-only — the stored note string is untouched.
-  let beat = 0
-  let run = []
-  let runBeat = -1
-  const beams = [] // { start, end, u2 } per beam group — drawn as one continuous underline
-  const flush = () => {
-    if (run.length >= 2) {
-      run.forEach((t) => { t.beamed = true })
-      beams.push({
-        start: run[0].idx,
-        end: run[run.length - 1].idx,
-        u2: run.some((t) => t.underlines >= 2), // sixteenth run → double beam
-      })
-    }
-    run = []
-  }
-  for (const g of gs) {
-    const isTrip = g.group === 'triplet'
-    for (const t of g.tokens) {
-      if (t.type === 'note') {
-        let dur = (1 / 2 ** t.underlines) * (DOT_FACTOR[t.dots] ?? 1)
-        if (isTrip) dur = (dur * 2) / 3
-        const startBeat = Math.floor(beat + 1e-9)
-        const beamable = !isTrip && t.underlines > 0 && t.pitch !== '0'
-        if (beamable && (run.length === 0 || startBeat === runBeat)) {
-          if (run.length === 0) runBeat = startBeat
-          run.push(t)
-        } else {
-          flush()
-          if (beamable) {
-            run = [t]
-            runBeat = startBeat
-          }
-        }
-        beat += dur
-      } else if (t.type === 'ext') {
-        flush()
-        beat += 1
-      } else {
-        flush()
-      }
-    }
-  }
-  flush()
+  // --- Beaming (issues2 + issue8) -----------------------------------------------------
+  // beamGroups stamps each token's running `.idx` (matching data-idx below) and returns the
+  // beam runs. A เอื้อน run within one beat is engraved as ONE connected underline (a beam),
+  // like the reference songbook — NOT a slur arc. issue8: a beam now also breaks before any
+  // note that starts a new sung syllable (from `syllables`), so two words sharing a beat are
+  // NOT joined. Logic lives in lib/notation.js so it is unit-tested without layout.
+  const { groups: gs, beams } = beamGroups(props.notes, props.syllables)
   // A slur group that is entirely ONE within-beat beam (a short เอื้อน like "(6_ 5_)") is
   // drawn as that beam, so its arc is dropped — the arc form is reserved for phrase melismas
   // that span beats / hold notes (e.g. "(3 - 3_)"), which keep it.
