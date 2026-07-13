@@ -1,6 +1,6 @@
 # Menu/Drawer — สเปกร่วม pleng ↔ phrakham (design-system SSOT)
 
-**สถานะ:** ร่างโดย pleng PM (pm22) · **รอ pk pm4 ratify + P'Aim อนุมัติ** ก่อน dev ทั้ง 2 ฝั่งลงมือ
+**สถานะ:** ร่างโดย pleng PM (pm22) · **✅ RATIFIED โดย pk pm4 (13 ก.ค.)** · **รอ P'Aim อนุมัติ** ก่อน dev ทั้ง 2 ฝั่งลงมือ
 **ที่มา:** P'Aim สั่ง 2 PM เคาะดีไซน์เมนูร่วม → ปรับ **เพลง + พระคำ ให้เหมือนกันทีเดียว** · อ้างหลัก Material Design / Apple HIG
 **บ้าน SSOT:** ไฟล์นี้ (pleng `docs/ds/` = design-system home ที่ DockKey อยู่) · **พระคำ link ถึงไฟล์นี้** · แก้ต้องผ่าน 2 PM
 
@@ -23,7 +23,9 @@
 
 ### โครง drawer (มือถือ)
 [icon แอปซ้ายบน · ไม่มีชื่อ] ... [🔍 · ☰ ขวาบน] → กด ☰ เปิด drawer:
-ลิงก์นำทาง (text-only ชิดซ้าย) → เส้นคั่น → หัวข้อ **"เครื่องมือ"** → controls (ตามกฎข้อ 3) · login = ปุ่มแยกบนแถบ (ไม่อยู่ใน drawer)
+ลิงก์นำทาง (text-only ชิดซ้าย) → เส้นคั่น → หัวข้อ **"เครื่องมือ"** → controls (ตามกฎข้อ 3) · login = ปุ่มแยกบนแถบ (ไม่อยู่ใน drawer) **(เพลงเท่านั้น — พระคำ static ฟรี ไม่มีบัญชี/login · dev อย่าเติมปุ่ม login ให้พระคำ)**
+
+**หมายเหตุ (pk pm4 ratify):** **ลำดับ** ของ controls ในหมวด "เครื่องมือ" = **per-site ไม่ใช่ contract ร่วม** (2 เว็บ tool set ต่างกัน) — แต่ละเว็บจัดลำดับเอง (เช่นตำแหน่ง font picker ของพระคำ P'Aim เคาะแยก) · สเปกร่วมคุมแค่ **alignment · text-only nav · ชนิด control→layout (ข้อ 3) · breakpoint**
 
 ---
 
