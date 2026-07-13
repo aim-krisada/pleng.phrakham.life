@@ -150,6 +150,15 @@ P'Aim ฟัง Option 1 แล้ว "ดีพอสำหรับ 1st releas
 
 vitest 517 เขียว · build ผ่าน · ไม่มี console error.
 
+## 🔴 dock ล้นขอบมือถือจริง (แก้แล้ว · P'Aim ลองมือถือ)
+
+**อาการ:** Android จริง → ปุ่มขวา (เครื่อง/Aa/⚙) หลุดขอบจอ. **สาเหตุ:** วิธี verify เดิมวัด container (375px computed) ไม่ใช่ overflow จริงบน device — แถว transport 7 ปุ่ม (7×44+gap ≈ 338px) ต้องการจอ ≥370px → มือถือ ~360px ล้น.
+**แก้:**
+- **ท่อน = icon-only** (ตัดคำ "ทั้งหมด" · badge "n/total" โชว์เฉพาะตอนเลือก subset + highlight → ยังรู้ ทั้งหมด/ท่อนเดียว) → ประหยัด ~40px
+- **mobile dock ย่อผ่าน `--touch-min`** (cascade ทุกปุ่มรวม slot ท่อน/เสียงดนตรี/Aa): ≤760px = 42px+gap4+pad6 · ≤380px = 40px+gap3+pad5 · play ปุ่มตาม → แถวเหลือ ~298–318px
+
+**Verify (จอมือถือจริง · ไม่ใช่ 375 computed):** **360px → dock 310px · 0 ปุ่มหลุด · ไม่ h-scroll · 2 แถว 298px สมมาตร** · **412px → dock 332px · 0 ปุ่มหลุด · 318px** · vitest 517 เขียว · build ผ่าน · ไม่มี console error. (screenshot MCP timeout ตามเคย → พิสูจน์ด้วย DOM: ทุกปุ่ม right ≤ viewport, clipped=0)
+
 ## ยังไม่ทำ / ต่อ
 
 - **"เต็มวง" (ensemble)** = ยังปิด "เร็ว ๆ นี้" (SA ออกแบบเสียงเครื่องคลอ · จ่ายแยก) — interface role-based (§6a′) เผื่อไว้แล้ว, scheduler วน `roles[]` เพิ่มได้ไม่แตะแกน
