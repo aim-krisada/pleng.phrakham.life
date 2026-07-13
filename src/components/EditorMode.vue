@@ -7,7 +7,6 @@ import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds } fro
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
-import { diffSongRows } from '../lib/diff.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
@@ -15,6 +14,7 @@ import SongSheet from './SongSheet.vue'
 import NoteBoxes from './NoteBoxes.vue'
 import ComboSelect from './ComboSelect.vue'
 import Icon from './Icon.vue'
+import RevisionHistory from './RevisionHistory.vue'
 import DockKey from './DockKey.vue'
 import ExportTool from './ExportTool.vue'
 import SoundControl from './SoundControl.vue'
@@ -1112,7 +1112,6 @@ async function loadSong(id) {
   currentDraftId.value = null
   reviewingDraft.value = null
   saveMsg.value = ''
-  loadRevisions()
   nextTick(resetHistory)
 }
 
@@ -1172,7 +1171,6 @@ function resetForm() {
   activeLine.value = 0
   migrateWarnings.value = []
   saveMsg.value = ''
-  revisions.value = []
   resetLens()
   nextTick(resetHistory)
 }
@@ -1212,7 +1210,6 @@ function loadDraft(d) {
   reviewingDraft.value = isApprover.value && d.status === 'pending' ? d : null
   reviewComment.value = d.review_comment || ''
   saveMsg.value = d.status === 'rejected' && d.review_comment ? '↩ ถูกส่งกลับ: ' + d.review_comment : ''
-  loadRevisions()
   nextTick(resetHistory)
 }
 
@@ -1333,29 +1330,52 @@ async function saveDirect() {
       loadDrafts()
     }
     loadSongList()
-    loadRevisions()
   }
   return !error
 }
 
 async function approve() {
   const d = reviewingDraft.value
-  // B093: saveDirect now returns whether the publish went through. A lint warning is a
-  // successful publish (⚠️ but published), so key on the boolean — not on the saveMsg text
-  // — or the approve step would abort on a lint-flagged song.
-  const ok = await saveDirect()
-  if (!ok) return
-  await supabase
-    .from('song_drafts')
-    .update({ status: 'approved', song_id: editingId.value, review_comment: reviewComment.value || null })
-    .eq('id', d.id)
+  emit('save', 'publish')
+  if (!meta.title_th) {
+    saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
+    return
+  }
+  // B093: lint the melody → tag review_flags (keep DA flags) + warn, but never block publish
+  const { flags, count } = reviewFlagsForPublish()
+  lastLintCount.value = count
+  const p_song = {
+    number: meta.number || null,
+    title_th: meta.title_th.trim(),
+    title_en: meta.title_en?.trim() || null,
+    content: JSON.parse(JSON.stringify(previewContent.value)),
+    category: meta.category || 'anuchon',
+    theme: meta.theme || null,
+    review_flags: flags,
+  }
+  // B028: "approve + publish" is ONE logical event. The RPC writes the published song AND
+  // flips the draft to approved in a single transaction, tagging both audit rows with the
+  // same op_group — so the history shows one line and it is unmistakable who made it public.
+  const { data, error } = await supabase.rpc('approve_and_publish', {
+    p_draft_id: d.id,
+    p_song,
+    p_review_comment: reviewComment.value || null,
+  })
+  if (error) {
+    saveMsg.value = '❌ อนุมัติไม่สำเร็จ: ' + error.message
+    return
+  }
+  editingId.value = data
+  markClean() // a published song is no longer "unsaved"
+  loadedFlags.value = flags // keep in sync so a same-session re-publish preserves them
   saveMsg.value =
-    lastLintCount.value > 0
-      ? `✅ อนุมัติและเผยแพร่แล้ว — แต่พบปัญหาโน้ต ${lastLintCount.value} จุด (ติดป้ายไว้ให้ตรวจ)`
+    count > 0
+      ? `✅ อนุมัติและเผยแพร่แล้ว — แต่พบปัญหาโน้ต ${count} จุด (ติดป้ายไว้ให้ตรวจ)`
       : '✅ อนุมัติและเผยแพร่แล้ว'
   reviewingDraft.value = null
   currentDraftId.value = null
   loadDrafts()
+  loadSongList()
 }
 
 async function reject() {
@@ -1408,31 +1428,14 @@ async function markVerified() {
 }
 
 // ---------- history ----------
-const revisions = ref([])
-const showHistory = ref(false)
-
-async function loadRevisions() {
-  revisions.value = []
-  if (legacy.value || !session.value || !editingId.value) return
-  const { data, error } = await supabase
-    .from('song_revisions')
-    .select('*')
-    .eq('song_id', editingId.value)
-    .order('id', { ascending: false })
-    .limit(30)
-  if (!error) revisions.value = data ?? []
-}
-
-function revName(rev) {
-  return profilesMap.value[rev.editor_id] || 'ไม่ทราบชื่อ'
-}
-function revDiff(rev) {
-  return diffSongRows(rev.old_row, rev.new_row)
-}
+// The timeline UI lives in RevisionHistory.vue (reads via lib/auditLog.js). Here we only
+// keep restore(), which an approver may use to roll a published song back to an older
+// snapshot from that history panel.
 async function restore(rev) {
-  if (!rev.new_row) return
+  // B028: history entries carry a full "after" snapshot; fall back to legacy new_row
+  const r = rev.after ?? rev.new_row
+  if (!r) return
   if (!window.confirm('ย้อนเพลงกลับไปเป็นเวอร์ชันนี้?')) return
-  const r = rev.new_row
   const { error } = await supabase
     .from('songs')
     .update({ number: r.number, title_th: r.title_th, title_en: r.title_en, content: r.content })
@@ -2124,7 +2127,6 @@ const pendingPick = ref('') // Open dialog: the song chosen, applied only on "�
 function openPanel(p) {
   openMenu.value = null
   viewMode.value = 'edit'
-  if (p === 'history') loadRevisions()
   if (p === 'open') pendingPick.value = pickerId.value
   activePanel.value = p
 }
@@ -2192,7 +2194,6 @@ watch(
     currentDraftId.value = null
     reviewingDraft.value = null
     saveMsg.value = ''
-    loadRevisions()
     nextTick(resetHistory)
   },
   { immediate: true },
@@ -2922,19 +2923,16 @@ defineExpose({
           </div>
         </div>
 
-        <!-- History -->
+        <!-- History (B028): full timeline across draft + published, snapshot names, both
+             hands colour-coded. Reads via lib/auditLog.js — cannot be edited by anyone. -->
         <div v-else-if="activePanel === 'history'">
-          <p v-if="!revisions.length" class="muted">ยังไม่มีประวัติ (บันทึกเพลงก่อน)</p>
-          <div v-for="rev in revisions" :key="rev.id" class="rev-row">
-            <div>
-              <strong>{{ revName(rev) }}</strong>
-              <span class="muted"> · {{ new Date(rev.created_at).toLocaleString('th-TH') }}</span>
-              <button v-if="isApprover && rev.new_row" class="secondary tiny" style="margin-left: 8px" @click="restore(rev)">⏪ ย้อนมาเวอร์ชันนี้</button>
-            </div>
-            <ul class="muted" style="margin: 4px 0 0 18px">
-              <li v-for="(d, i) in revDiff(rev)" :key="i">{{ d }}</li>
-            </ul>
-          </div>
+          <RevisionHistory
+            :song-id="editingId"
+            :draft-id="currentDraftId"
+            :can-restore="isApprover"
+            :profiles-map="profilesMap"
+            @restore="restore"
+          />
           <div class="panel-foot"><button class="secondary" @click="closePanel">ปิด</button></div>
         </div>
 
