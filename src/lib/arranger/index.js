@@ -41,6 +41,13 @@ import { keyboard } from './instruments/keyboard.js'
  *  timeShift: number      // onset shift in SECONDS (humanize/rubato), added by scheduler
  */
 
+// True if `beat` falls inside a ท่อนรับ (refrain) section. sections come from sectionBeatRanges,
+// which flags refrains (name รับ / *** or a recurring label). Used to break the chord more there.
+function inRefrain(beat, sections) {
+  if (!sections || !sections.length) return false
+  return sections.some((s) => s.isRefrain && beat >= s.fromBeat && beat < s.toBeat)
+}
+
 // Parse "4/4" → beats-per-bar 4 (default 4). Only patterns that lock to the bar need it.
 function beatsPerBar(meta) {
   const ts = meta && meta.timeSignature
@@ -106,6 +113,9 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   if (wantChords) {
     const compName = on ? (cfg.pattern || mod.defaultPattern) : 'sustained'
     const comp = mod.patterns[compName] || mod.patterns[mod.defaultPattern] || mod.patterns.sustained
+    // ท่อนรับ (refrain) may break the chord MORE than the verse (P'Aim) — cfg.refrainPattern names a
+    // fuller comp used only inside refrain sections; falls back to the normal comp if absent/OFF.
+    const refrainComp = (on && cfg.refrainPattern && mod.patterns[cfg.refrainPattern]) || comp
     const bassName = on ? (cfg.bass || mod.defaultBass) : 'root'
     const bassMode = (mod.bassModes && mod.bassModes[bassName]) || mod.bassModes.root
     let prevUp = null
@@ -116,7 +126,8 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
       let voiced = on ? mod.voicing(evc, prevUp, { cfg, meta }) : { bass: evc.bass, up: evc.up }
       if (on) voiced = applyVoicing(voiced, cfg) // drop-2 / open per preset
       prevUp = voiced.up
-      events.push(...comp(evc, voiced.up, bpb, rng, cfg))
+      const useComp = inRefrain(evc.startBeat, meta.sections) ? refrainComp : comp
+      events.push(...useComp(evc, voiced.up, bpb, rng, cfg))
       events.push(...bassMode(evc, voiced.bass, {
         nextBass: list[i + 1] ? list[i + 1].bass : null,
         keyRoot: meta.keyRoot ?? 40, beatsPerBar: bpb, rng, cfg,
@@ -133,7 +144,7 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
     if (dyn.accent !== false) metricAccent(events, bpb)
     if (dyn.contour !== false) melodicContour(events)
     if (dyn.cresc) crescendo(events, dyn.cresc)
-    if (dyn.rubato !== false) rubato(events)
+    if (dyn.rubato !== false) rubato(events, meta.sections) // ท่อน-end breathe (§R2.8)
     humanizeVel(events, rng, cfg.humanizeVel ?? mod.humanizeFeel.velJitter)
     humanizeTime(events, rng, cfg.humanizeTime ?? mod.humanizeFeel.timing.sigma)
     clampAll(events) // velocity-in-layer safety net (§7b)

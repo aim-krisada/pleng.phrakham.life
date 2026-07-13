@@ -100,16 +100,29 @@ export function crescendo(events, hairpins) {
   return events
 }
 
-// R2.8 — Rubato at phrase ends: "breathe" into a long/phrase-ending melody note by delaying its
-// onset a hair, then snap back "a tempo" on the next note (an equal negative shift) so the total
-// time NEVER drifts (the sheet grid — startBeat — is untouched; only timeShift push-pulls). Σ of
-// the rubato shifts over a phrase pair = 0. Default delay ~30ms.
-export function rubato(events, delay = 0.03) {
-  const mel = events.filter((e) => e.role === 'melody')
-  for (let i = 0; i < mel.length - 1; i++) {
-    if (mel[i].beats >= 3) {
-      mel[i].timeShift = (mel[i].timeShift || 0) + delay // ritard into the long note
-      mel[i + 1].timeShift = (mel[i + 1].timeShift || 0) - delay // a tempo — pulls back, Σ = 0
+// R2.8 — Structural rubato (P'Aim ข้อ 4): the music "breathes" at the END OF A ท่อน (section
+// boundary) and at the song's end. The last melody note of a ท่อน RINGS LONGER (beats × STRETCH,
+// ~12% within the 10–15% ask) and the first note of the next ท่อน comes in a hair late (BREATH) —
+// a held breath before the new phrase, กินใจ. The sheet grid (startBeat) is NEVER moved, so timing
+// can't drift: only that one note's LENGTH and one onset nudge change; every other note still lands
+// on its own grid position. `sections` = [{fromBeat,toBeat,…}] (from sectionBeatRanges); a new
+// section's fromBeat (after the first) is a boundary. With NO sections, only the very last note of
+// the song ritards. Fires only at ท่อน ends — NOT every long note (that was the old proxy).
+const RUBATO_STRETCH = 1.12 // last-note lengthening (P'Aim: 10–15%)
+const RUBATO_BREATH = 0.06 // seconds of "breath" before the next ท่อน
+export function rubato(events, sections = []) {
+  const mel = events.filter((e) => e.role === 'melody').sort((a, b) => a.startBeat - b.startBeat)
+  if (!mel.length) return events
+  // boundary beats = where a NEW ท่อน starts (skip the first section's start = song start)
+  const bounds = (sections || []).map((s) => s.fromBeat).filter((b, i) => i > 0 && b != null)
+  for (let i = 0; i < mel.length; i++) {
+    const cur = mel[i]
+    const next = mel[i + 1]
+    // ท่อน-end = a boundary falls between this note and the next (or this is the song's last note)
+    const crosses = bounds.some((b) => b > cur.startBeat && (!next || b <= next.startBeat))
+    if (!next || crosses) {
+      cur.beats *= RUBATO_STRETCH // the ท่อน's last note rings longer (the "ยืด")
+      if (next) next.timeShift = (next.timeShift || 0) + RUBATO_BREATH // breath into the new ท่อน
     }
   }
   return events

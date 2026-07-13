@@ -127,11 +127,14 @@ const SOUND_AXES = [
   { key: 'ensemble', label: 'การบรรเลง', icon: 'blend' },
   { key: 'instrument', label: 'เครื่องดนตรี', icon: 'music' },
   { key: 'style', label: 'อารมณ์ / สไตล์', icon: 'sliders-horizontal' },
+  // ประกายเสียงสูง (B107 P2 ข้อ 3) — a live slider; the page supplies it ONLY in บรรเลง mode, so it
+  // appears/disappears with the style. Carries `kind:'slider'` + `control` (SoundControl renders it).
+  { key: 'sparkle', label: 'ประกายเสียงสูง', icon: 'sparkles' },
 ]
 const soundGroups = computed(() =>
   SOUND_AXES.map((a) => {
     const s = findSetting(a.key)
-    return s ? { ...a, value: s.value, options: s.options, onPick: s.onPick } : null
+    return s ? { ...a, kind: s.kind || 'menu', value: s.value, options: s.options, onPick: s.onPick, control: s.control } : null
   }).filter(Boolean),
 )
 // the bar button is icon-only — the glyph reflects the current mode/instrument (P'Aim 13 ก.ค.):

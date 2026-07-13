@@ -39,6 +39,23 @@ export function arpeggio(chordEvent, up, bpb, rng, cfg) {
   return out
 }
 
+// arpeggioDense — like arpeggio but TWICE the motion: two notes per beat, cycling low→high. A
+// fuller, flowing broken-chord used for the ท่อนรับ (refrain) so it "opens up" against the sparser
+// verse (P'Aim: ท่อนรับเพิ่มแตกคอร์ด). Downbeats a touch louder; each hit rings ~half a beat.
+export function arpeggioDense(chordEvent, up, bpb, rng, cfg) {
+  if (!up.length) return []
+  const g = G(cfg)
+  const steps = Math.max(1, Math.round(chordEvent.beats * 2)) // 2 hits per beat (8th-note flow)
+  const out = []
+  for (let s = 0; s < steps; s++) {
+    const at = chordEvent.startBeat + s * 0.5
+    const m = up[s % up.length]
+    const onDown = Math.abs(((Math.round(at * 2) / 2) % bpb)) < 0.01 && Number.isInteger(at)
+    out.push(ev(m, at, Math.min(0.6, chordEvent.beats - s * 0.5), g * (onDown ? 1.0 : 0.82), 0.02, null))
+  }
+  return out
+}
+
 // harpRoll — a single chord whose notes enter staggered low→high (~30ms apart) like a harp/
 // rolled piano chord. Same startBeat, offset via timeShift. Slow, tender.
 export function harpRoll(chordEvent, up, bpb, rng, cfg) {
@@ -96,4 +113,4 @@ export function fingerpick(chordEvent, up, bpb, rng, cfg) {
   return out
 }
 
-export const COMP_PATTERNS = { sustained, arpeggio, harpRoll, stringPad, waltz, alberti, fingerpick }
+export const COMP_PATTERNS = { sustained, arpeggio, arpeggioDense, harpRoll, stringPad, waltz, alberti, fingerpick }

@@ -97,7 +97,33 @@ export const playStyle = ref((() => {
 watch(playStyle, (v) => {
   try { localStorage.setItem(STYLE_KEY, v) } catch { /* ignore */ }
 })
-export function setPlayStyle(v) { if (PLAY_STYLES.includes(v)) playStyle.value = v }
+// ข้อ 1 (BPM auto · P'Aim 13 ก.ค.): until the listener explicitly picks a style, the viewer chooses
+// บรรเลง/สงบ per the song's tempo (recommendRecipe) and highlights that button. `styleAuto` = "no
+// explicit choice yet" (no stored key). The first setPlayStyle turns it off for good — the pick
+// persists and auto never overrides it again.
+export const styleAuto = ref((() => {
+  try { return localStorage.getItem(STYLE_KEY) == null } catch { /* ignore */ }
+  return true
+})())
+export function setPlayStyle(v) {
+  if (!PLAY_STYLES.includes(v)) return
+  styleAuto.value = false
+  playStyle.value = v
+}
+
+// ---- sparkle level (B107 P2 · ข้อ 3) — loudness of the high "ประกาย" embellishment as a FRACTION
+// of the melody (0.7 = 30% under). Only affects the บรรเลง preset. Tunable LIVE so P'Aim dials
+// "ประกายพอดี" by ear; persisted per browser. Range 0.3–0.9 (never as loud as the melody).
+const SPARKLE_KEY = 'pleng.sparkleLevel'
+export const sparkleLevel = ref((() => {
+  try { const v = parseFloat(localStorage.getItem(SPARKLE_KEY)); if (v >= 0.3 && v <= 0.9) return v } catch { /* ignore */ }
+  return 0.7
+})())
+watch(sparkleLevel, (v) => { try { localStorage.setItem(SPARKLE_KEY, String(v)) } catch { /* ignore */ } })
+export function setSparkleLevel(v) {
+  const n = Math.max(0.3, Math.min(0.9, Number(v)))
+  if (!Number.isNaN(n)) sparkleLevel.value = n
+}
 
 // ---- ensemble mode + lead instrument (B107 P2 · แกน 1 "เสียง") ----
 // The spec's axis 1: เดี่ยว (one instrument the whole song) vs เต็มวง/นำวง (a lead instrument +

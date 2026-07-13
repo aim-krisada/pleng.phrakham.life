@@ -535,7 +535,10 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
     // preset already named one. So a solo violin uses bowed voicing+patterns, nylon uses plucked,
     // etc. — the same arranger core, an instrument-shaped surface.
     const module = arrangeCfg.module || moduleForInstrument(instrument)
-    const perf = arrange(notes, chordEvents, { arranger, voices, chordGain, ...arrangeCfg, module }, { songId, pass, timeSignature: content.timeSignature, keyRoot: KEY_MIDI[content.key] ?? 60 })
+    // Real ท่อน ranges (beats) so rubato can ritard at ท่อน ends / song end (§R2.8). Same helper the
+    // ensemble uses; [] when the song has no section labels (then rubato only ritards the final note).
+    const sections = sectionBeatRanges(content, notes)
+    const perf = arrange(notes, chordEvents, { arranger, voices, chordGain, ...arrangeCfg, module }, { songId, pass, timeSignature: content.timeSignature, keyRoot: KEY_MIDI[content.key] ?? 60, sections })
     for (const e of perf) {
       const isMel = e.role === 'melody'
       // onset = grid time + humanize shift; sound stops slightly early so repeated notes articulate
@@ -633,7 +636,10 @@ export function sectionBeatRanges(content, notes) {
     const fromBeat = liStartBeat[s.fromLi] ?? 0
     let toBeat = totalBeats
     for (let li = s.toLi + 1; li < lines.length; li++) { if (liStartBeat[li] != null) { toBeat = liStartBeat[li]; break } }
-    return { name: s.name, fromBeat, toBeat, level: !hasRefrain || count[s.name] > 1 ? 'chorus' : 'verse' }
+    // isRefrain (ท่อนรับ) — primary: the label says so (รับ / *** · B102 repeat symbols); secondary: it
+    // recurs. Name-first so a labeled refrain printed ONCE is still caught, and verses never false-fire.
+    const isRefrain = /รับ/.test(s.name || '') || /\*\*\*/.test(s.name || '') || count[s.name] > 1
+    return { name: s.name, fromBeat, toBeat, level: !hasRefrain || count[s.name] > 1 ? 'chorus' : 'verse', isRefrain }
   })
 }
 

@@ -36,10 +36,17 @@ export const PRESETS = {
     roles: [
       { role: 'melody', inst: 'grand', pattern: null, register: [55, 84] },
       { role: 'comp', inst: 'grand', pattern: 'arpeggio', register: [48, 67] },
-      { role: 'bass', inst: 'grand', pattern: 'root', register: [36, 51] },
+      { role: 'bass', inst: 'grand', pattern: 'pedal', register: [36, 51] },
     ],
     cfg: {
-      pattern: 'arpeggio', bass: 'root', voicing: 'drop2', embellish: ['sparkle', 'gapFill'],
+      // P'Aim 13 ก.ค. — เบสมือซ้ายใช้ pedal (ลากยาว "อุ้ม" ไม่ "ตอก") ให้ Grand ลุ่มลึกอบอุ่น
+      // (ของเดิม 'root'). sparkleLevel = ความดังประกายย่านสูงเทียบทำนอง (0.7 = เบากว่า 30%) —
+      // ค่าเริ่มต้น · viewer จูนสดทับด้วยสไลเดอร์ (store.sparkleLevel).
+      pattern: 'arpeggio', bass: 'pedal', voicing: 'drop2', embellish: ['sparkle', 'gapFill'],
+      // ท่อนรับ แตกคอร์ดถี่ขึ้น (arpeggioDense = 2 hits/beat) ให้เด่นกว่าท่อนร้อง (P'Aim). โหมดสงบไม่ตั้ง
+      // → ท่อนรับก็นิ่งตาม mood.
+      refrainPattern: 'arpeggioDense',
+      sparkleLevel: 0.7,
       reverb: 'room', pan: true, bpm: 72,
       dynamics: { accent: true, contour: true, rubato: true, section: true, sectionMap: { verse: 0.85, chorus: 1.0 } },
     },

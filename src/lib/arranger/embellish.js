@@ -12,13 +12,23 @@ function emev(midi, startBeat, beats, gain, attack, decayTo, timeShift = 0) {
 }
 const G = (cfg) => cfg.chordGain ?? 0.055
 
+// The melody's base gain (mirror of melodyEvents() in index.js). Sparkle is pinned RELATIVE to
+// THIS, not to the chord level — see sparkle() (P'Aim ข้อ 3).
+const MEL_BASE = 0.35
+
 // sparkle — an octave-up shimmer on the top voice at some downbeats (top capped at MIDI 86).
+// LOUDNESS (P'Aim ข้อ 3): sparkle sits an octave above the tune, where the ear is most sensitive,
+// so it is pinned to a FRACTION OF THE MELODY (cfg.sparkleLevel, default 0.7 = 30% under) — NOT to
+// the chord level (the old `chordGain*0.8` ≈ 0.044 sat ~87% under the melody = inaudible). The
+// viewer's live slider feeds cfg.sparkleLevel; clampGainToLayer downstream guarantees it can never
+// exceed the melody. So it "พลิ้วไหวได้ยินชัด แต่ไม่แย่งซีน".
 export function sparkle(chordEvent, voiced, bpb, rng, cfg) {
   const up = voiced.up || []
   if (!up.length || rng() > 0.16) return []
   const top = up[up.length - 1] + 12
   if (top > 86) return []
-  return [emev(top, chordEvent.startBeat, Math.min(1, chordEvent.beats), G(cfg) * 0.8, 0.01, null)]
+  const level = cfg.sparkleLevel ?? 0.7
+  return [emev(top, chordEvent.startBeat, Math.min(1, chordEvent.beats), MEL_BASE * level, 0.01, null)]
 }
 
 // chromaticApproach — a leading tone a semitone below the bass, just before the chord lands.

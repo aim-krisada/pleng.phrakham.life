@@ -15,9 +15,10 @@ import {
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
-import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle,
+import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
+  sparkleLevel, setSparkleLevel,
   ensembleMode, setEnsembleMode, leadInstrument, setLeadInstrument } from '../store.js'
-import { presetCfg } from '../lib/arranger/presets.js'
+import { presetCfg, recommendRecipe, songFeatures } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
 import SongSheet from './SongSheet.vue'
@@ -56,14 +57,24 @@ const ensembleDef = computed(() => ENSEMBLE_OPTS.find((o) => o.value === ensembl
 const instrumentDef = computed(() => INSTRUMENT_OPTS.find((o) => o.value === leadInstrument.value) || INSTRUMENT_OPTS[0])
 // the loading pill's label — the whole band in ensemble mode, else the chosen solo instrument
 const loadingLabel = computed(() => (ensembleMode.value === 'ensemble' ? 'วงดนตรี' : instrumentDef.value.short))
-const styleDef = computed(() => STYLE_OPTS.find((o) => o.value === playStyle.value) || STYLE_OPTS[0])
-// Map the chosen style → what playSong needs: 'plain' turns the arranger OFF (notes as printed);
-// the others hand it the matching preset recipe (§6). B107 P2.
-const styleArrange = computed(() =>
-  playStyle.value === 'plain'
-    ? { arranger: false, arrangeCfg: {} }
-    : { arranger: true, arrangeCfg: presetCfg(playStyle.value === 'calm' ? 'piano-calm' : 'piano-arrangement') },
+// ข้อ 1 (BPM auto · P'Aim 13 ก.ค.): on first open (styleAuto = no explicit pick yet) choose the
+// left-hand style by the song's tempo — slow → บรรเลง (arpeggio, flowing), fast → สงบ (held,
+// uncluttered) — and highlight that button. The instant the listener taps a style, setPlayStyle
+// turns auto off and their pick wins from then on. Auto never selects 'plain'.
+const recommendedStyle = computed(() =>
+  recommendRecipe(songFeatures(props.song?.content)) === 'piano-calm' ? 'calm' : 'arrangement',
 )
+const effectiveStyle = computed(() => (styleAuto.value ? recommendedStyle.value : playStyle.value))
+const styleDef = computed(() => STYLE_OPTS.find((o) => o.value === effectiveStyle.value) || STYLE_OPTS[0])
+// Map the effective style → what playSong needs: 'plain' turns the arranger OFF (notes as printed);
+// the others hand it the matching preset recipe (§6), with the live sparkle level injected (ข้อ 3).
+const styleArrange = computed(() =>
+  effectiveStyle.value === 'plain'
+    ? { arranger: false, arrangeCfg: {} }
+    : { arranger: true, arrangeCfg: { ...presetCfg(effectiveStyle.value === 'calm' ? 'piano-calm' : 'piano-arrangement'), sparkleLevel: sparkleLevel.value } },
+)
+// ข้อ 3 slider shows ONLY in บรรเลง (the only preset with sparkle) — spec §4 / P'Aim 13 ก.ค.
+const showSparkle = computed(() => effectiveStyle.value === 'arrangement')
 const showChord = computed(() => displayDef.value.chord && chordSystem.value !== 'hidden')
 const showNote = computed(() => displayDef.value.note)
 const showLyric = computed(() => displayDef.value.lyric)
@@ -442,9 +453,14 @@ watch(tempo, () => {
 watch(soundMode, () => {
   if (playing.value) startPlay(playedIndex.value)
 })
-// B107 P2 — live play-style change (บรรเลง / สงบ / ตรงโน้ต): re-schedule ahead with the new
-// arranger recipe from the current note, same as a live sound-mode change.
-watch(playStyle, () => {
+// B107 P2 — live play-style change (บรรเลง / สงบ / ตรงโน้ต · incl. the BPM-auto pick, ข้อ 1):
+// re-schedule ahead with the new arranger recipe from the current note. Watch effectiveStyle so
+// both an explicit pick AND an auto change take effect live.
+watch(effectiveStyle, () => {
+  if (playing.value) startPlay(playedIndex.value)
+})
+// ข้อ 3 — live ประกายเสียงสูง slider: re-schedule ahead so the new sparkle level is heard at once.
+watch(sparkleLevel, () => {
   if (playing.value) startPlay(playedIndex.value)
 })
 // B107 step 9 — live instrument change (เปียโน/ไวโอลิน/…): the sampler can't swap the instrument
@@ -485,9 +501,16 @@ const settingDescs = computed(() => [
     options: INSTRUMENT_OPTS.map((o) => ({ value: o.value, label: o.label, short: o.short, disabled: o.disabled })), onPick: (v) => setLeadInstrument(v),
   },
   {
-    id: 'style', icon: 'sliders-horizontal', label: 'อารมณ์ / สไตล์', kind: 'menu', value: playStyle.value, badge: styleDef.value.short,
+    id: 'style', icon: 'sliders-horizontal', label: 'อารมณ์ / สไตล์', kind: 'menu', value: effectiveStyle.value, badge: styleDef.value.short,
     options: STYLE_OPTS.map((o) => ({ value: o.value, label: o.label, short: o.short })), onPick: (v) => setPlayStyle(v),
   },
+  // ข้อ 3 (P'Aim 13 ก.ค.) — ประกายเสียงสูง live slider, shown only in บรรเลง. Value is a % of the
+  // melody (30–90); 70% = default (30% under). onInput stores the fraction so playback re-schedules.
+  ...(showSparkle.value ? [{
+    id: 'sparkle', icon: 'sparkles', label: 'ประกายเสียงสูง', kind: 'slider',
+    value: Math.round(sparkleLevel.value * 100),
+    control: { min: 30, max: 90, step: 5, value: Math.round(sparkleLevel.value * 100), onInput: (v) => setSparkleLevel(v / 100) },
+  }] : []),
   {
     id: 'chord', icon: 'guitar', label: 'คอร์ด', kind: 'menu', value: chordSystem.value, badge: CHORD_BADGE[chordSystem.value],
     options: CHORD_OPTS, onPick: (v) => (chordSystem.value = v),

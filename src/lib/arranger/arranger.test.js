@@ -9,7 +9,7 @@ import { arrange } from './index.js'
 import { mulberry32, seedFor } from './rng.js'
 import { drop2, open } from './voicing.js'
 import { root, pedal, walking } from './bass.js'
-import { sustained, arpeggio, harpRoll, waltz, alberti } from './patterns.js'
+import { sustained, arpeggio, arpeggioDense, harpRoll, waltz, alberti } from './patterns.js'
 import { embellishChord } from './embellish.js'
 import { rubato } from './dynamics.js'
 import { PRESETS, DEFAULT_PRESET, presetCfg, songFeatures, recommendRecipe } from './presets.js'
@@ -252,24 +252,71 @@ describe('presets (§6 §8 step 8)', () => {
   })
 })
 
-describe('rubato (R2.8 §7b) — no time drift', () => {
-  it('Σ rubato shift over the phrase = 0 (grid never drifts)', () => {
+describe('rubato (R2.8) — structural, ท่อน-end breathe, grid never drifts', () => {
+  it('grid (startBeat) is never moved by rubato', () => {
     const line = [
       { midi: 60, beats: 1, chord: 'C' }, { midi: 62, beats: 1, chord: 'C' },
       { midi: 64, beats: 3, chord: 'C' }, { midi: 65, beats: 1, chord: 'C' },
     ]
     const evs = melodyOf(arrange(line, [], { voices: 'melody', humanizeTime: 0, humanizeVel: 0, dynamics: { accent: false, contour: false } }, META))
-    const total = evs.reduce((s, e) => s + e.timeShift, 0)
-    expect(Math.abs(total)).toBeLessThan(1e-9)
+    // startBeats are the cumulative sheet grid — rubato only stretches beats / nudges timeShift.
+    expect(evs.map((e) => e.startBeat)).toEqual([0, 1, 2, 5])
   })
-  it('rubato() delays the long note and pulls the next one back equally', () => {
+  it('rubato() stretches the last note before a ท่อน boundary + breathes into the next', () => {
     const mel = [
-      { role: 'melody', midi: 60, startBeat: 0, beats: 3, gain: 0.35, timeShift: 0 },
-      { role: 'melody', midi: 62, startBeat: 3, beats: 1, gain: 0.35, timeShift: 0 },
+      { role: 'melody', midi: 60, startBeat: 0, beats: 2, gain: 0.35, timeShift: 0 },
+      { role: 'melody', midi: 62, startBeat: 2, beats: 2, gain: 0.35, timeShift: 0 }, // last of ท่อน 1
+      { role: 'melody', midi: 64, startBeat: 4, beats: 2, gain: 0.35, timeShift: 0 }, // first of ท่อน 2
     ]
-    rubato(mel, 0.03)
-    expect(mel[0].timeShift).toBeCloseTo(0.03, 6)
-    expect(mel[1].timeShift).toBeCloseTo(-0.03, 6)
+    rubato(mel, [{ fromBeat: 0, toBeat: 4 }, { fromBeat: 4, toBeat: 6 }])
+    expect(mel[1].beats).toBeCloseTo(2 * 1.12, 6) // ท่อน-end note rings longer
+    expect(mel[2].timeShift).toBeGreaterThan(0) // a breath into the new ท่อน
+    expect(mel[0].beats).toBeCloseTo(2, 6) // a mid-phrase note is untouched
+    expect(mel.map((e) => e.startBeat)).toEqual([0, 2, 4]) // grid untouched
+  })
+  it('rubato() ritards the song-final note even with no sections', () => {
+    const mel = [
+      { role: 'melody', midi: 60, startBeat: 0, beats: 2, gain: 0.35, timeShift: 0 },
+      { role: 'melody', midi: 62, startBeat: 2, beats: 2, gain: 0.35, timeShift: 0 },
+    ]
+    rubato(mel, [])
+    expect(mel[1].beats).toBeCloseTo(2 * 1.12, 6) // last note ritards
+    expect(mel[0].beats).toBeCloseTo(2, 6) // earlier note untouched
+    expect(mel.every((e) => e.timeShift === 0)).toBe(true) // no breath without a following ท่อน
+  })
+})
+
+describe('refrain chord-break (ท่อนรับแตกคอร์ด · P\'Aim)', () => {
+  const CE = [
+    { bass: 48, up: [60, 64, 67], startBeat: 0, beats: 2 }, // verse chord
+    { bass: 48, up: [60, 64, 67], startBeat: 4, beats: 2 }, // refrain chord
+  ]
+  const sections = [
+    { name: 'ร้อง 1', fromBeat: 0, toBeat: 4, isRefrain: false },
+    { name: 'รับ', fromBeat: 4, toBeat: 6, isRefrain: true },
+  ]
+  const cfg = { voices: 'chords', pattern: 'arpeggio', refrainPattern: 'arpeggioDense', bass: 'root', embellish: false, humanizeVel: 0, humanizeTime: 0, dynamics: { accent: false, contour: false, section: false, rubato: false } }
+  const inner = (evs, lo, hi) => evs.filter((e) => e.role === 'inner' && e.startBeat >= lo && e.startBeat < hi).length
+  it('breaks the chord DENSER in the ท่อนรับ than in the verse (2×)', () => {
+    const evs = arrange([], CE, cfg, { ...META, sections })
+    expect(inner(evs, 0, 2)).toBe(2) // verse = arpeggio (1 hit/beat)
+    expect(inner(evs, 4, 6)).toBe(4) // ท่อนรับ = arpeggioDense (2 hits/beat)
+  })
+  it('no refrainPattern → verse and refrain use the SAME comp (no change)', () => {
+    const evs = arrange([], CE, { ...cfg, refrainPattern: undefined }, { ...META, sections })
+    expect(inner(evs, 0, 2)).toBe(inner(evs, 4, 6))
+  })
+  it('no sections → refrainPattern never fires (whole song = normal comp)', () => {
+    const evs = arrange([], CE, cfg, { ...META, sections: [] })
+    expect(inner(evs, 0, 2)).toBe(inner(evs, 4, 6))
+  })
+})
+
+describe('arpeggioDense pattern (§4)', () => {
+  it('emits ~2 hits per beat, all inner chord voices', () => {
+    const hits = arpeggioDense({ startBeat: 0, beats: 2 }, [60, 64, 67], 4, () => 0, {})
+    expect(hits.length).toBe(4)
+    expect(hits.every((h) => h.role === 'inner')).toBe(true)
   })
 })
 

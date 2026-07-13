@@ -44,7 +44,18 @@ function pick(g, o) {
     <div class="sc-head">เสียงดนตรี</div>
     <div v-for="g in groups" :key="g.key" class="sc-grp">
       <div class="sc-glabel"><Icon v-if="g.icon" :name="g.icon" :size="14" /> {{ g.label }}</div>
-      <div class="sc-opts" role="radiogroup" :aria-label="g.label">
+      <!-- slider group (e.g. ประกายเสียงสูง · B107 P2 ข้อ 3): a live-tune range instead of radios -->
+      <div v-if="g.kind === 'slider'" class="sc-slider">
+        <input
+          type="range"
+          :min="g.control.min" :max="g.control.max" :step="g.control.step || 1"
+          :value="g.control.value"
+          :aria-label="g.label"
+          @input="g.control.onInput(Number($event.target.value))"
+        />
+        <span class="sc-slval">{{ g.control.value }}%</span>
+      </div>
+      <div v-else class="sc-opts" role="radiogroup" :aria-label="g.label">
         <button
           v-for="o in g.options"
           :key="o.value"
@@ -100,4 +111,8 @@ function pick(g, o) {
 @media (hover: hover) { .sc-opt:not(.dis):hover { border-color: var(--brand); color: var(--brand); } }
 .sc-opt.on { border-color: var(--brand); color: var(--brand); background: var(--cream); font-weight: 700; }
 .sc-opt.dis { opacity: 0.4; cursor: default; }
+/* slider group (ประกายเสียงสูง) — range fills the row, value shown to its right */
+.sc-slider { display: flex; align-items: center; gap: 9px; min-height: 36px; }
+.sc-slider input[type="range"] { flex: 1 1 auto; min-width: 120px; accent-color: var(--brand); cursor: pointer; }
+.sc-slval { font-size: 12.5px; font-weight: 700; color: var(--brand); min-width: 34px; text-align: right; }
 </style>
