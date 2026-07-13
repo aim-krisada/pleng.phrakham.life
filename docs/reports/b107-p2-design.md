@@ -39,6 +39,13 @@ P'Aim สั่ง (12 ก.ค.) "รวมทุกเทคนิคที่�
 - **2 default UI (P'Aim เคาะแล้ว):** ลูกเล่น toggle (แก้ไข=ธรรมดา/เล่น=มีลูกเล่น) · เครื่องยังไม่มี sample = ปุ่มจาง "เร็ว ๆ นี้".
 - **P2 = เปียโนก่อน** (เปียโนสงบ=felt + เปียโนบรรเลง=arp buildable เลย) · อีก 3 preset slot ทีหลังไม่ต้องรื้อ (§12).
 
+## รอบ 12 — ที่ปรึกษาให้ feedback เอกสารวิเคราะห์ → P'Aim เคาะทำ "สีเขียว" 2 ตัว (13 ก.ค.)
+- **ที่ปรึกษาชม spec + ให้ 4 จุดปรับ** (role-prominence · rubato · section dynamics · crossfade pad + guitar voicing + gain-clamp reminder).
+- **SA ประเมินซื่อ ๆ** แบ่ง 🟢คุ้ม-ง่าย / 🟡คุ้ม-ระวัง / 🔴ช่วยบางส่วน + แย้ง 2 จุด (crossfade ไม่แก้ต้นตอ=ไวโอลิน solo เป็น pad → ควรซ้อนไวโอลินหนา · เพดานเต็มวงจำกัดที่ sample คนละค่าย) + flag ต้องใช้ข้อมูลท่อนจริง.
+- **P'Aim เคาะ: เอาแค่ 🟢 ก่อน** = **(1) section dynamics** (master gain verse 0.7→chorus 1.0) + **(2) role-prominence** (ทำนองเร็ว→หรี่คลอ −3dB · ทำนองยาว→เปียโนแทรก fill). ล็อกสูตรใน spec §6b.2.
+- **พักไว้:** rubato · crossfade pad · guitar fret-voicing. gain-clamp มีอยู่แล้ว.
+- เอกสารวิเคราะห์ให้ที่ปรึกษา = `docs/reports/b107-p2-sound-analysis.md`.
+
 ## รอบ 11 — ✅ เต็มวงเสียงจริง + balance วัดแล้ว → P'Aim เคาะนำขึ้นครบ 3 โหมด (13 ก.ค.)
 - **ทำเดโมเต็มวงเสียงจริงทั้งวง** `ensemble-real-demo.html` (Splendid Grand + เชลโล/ไวโอลิน CC จริง · ตัด GM ทิ้ง · P'Aim: "ต้องใช้ CC จริง").
 - **จับบั๊ก + fix ด้วยเครื่องวัด (AnalyserNode):** เปียโนเงียบ 0 = arg-shift bug (MIDI ไปช่องเวลา) + velocity นอก layer → แก้ (PP layer + gain→vel + makeup ×2.6) · เชลโล/ไวโอลิน baked +9/+10dB ดังเกิน → หั่น gain. **วัดหลังแก้: เปียโน −5.6dB (นำ) · เชลโล −16.8 · ไวโอลิน −26.7** = ทำนองนำ สายอยู่ใต้/หลัง.

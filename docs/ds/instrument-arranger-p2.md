@@ -475,6 +475,14 @@ melody 0.35 · chord bass ×1.45 · inner ×1.0 → `gainToVelocity` เข้�
 - **lead:** เปียโนนำ (default) หรือ ไวโอลินนำ (slide-in + ลากยาว) · **default เปิดแอป = รวมวง เปียโนนำ**.
 - **dev note:** เดโมโหลด grand จาก smplr CDN → prod ชี้ `public/samples/splendid-grand`. ยัง tune balance/รสนิยม SA↔P'Aim ต่อได้ (มีเครื่องวัด peak ต่อ role ช่วย).
 
+**🟢 Enhancements ที่ P'Aim เคาะทำ (13 ก.ค. · จากที่ปรึกษา · แก้ "จืด" — เอาแค่ 2 ตัวนี้ก่อน):**
+1. **Section dynamics (master gain ตามท่อน)** — ล็อก master gain: **verse ×0.7 → chorus ×1.0** (ramp ที่ขอบท่อน) → ไดนามิกเติบโต. ใช้ **section จริงของเพลง** (song model มี sections/ท่อน · ไม่ใช่ % บีตแบบเดโม). ใช้ได้ทุกโหมด (เปียโน/กีตาร์/รวมวง).
+2. **Role-prominence (หลบ-เติมพระเอก · call-and-response · หัวใจแก้เต็มวงจืด)** — ต่อ comp/bass event ดู **ความเคลื่อนไหวของทำนองในช่วงนั้น**:
+   - ทำนอง**วิ่งเร็ว/โน้ตสั้นถี่** → **หรี่ comp+bass ~−3 dB อัตโนมัติ** (เปิดที่ให้พระเอก)
+   - ทำนอง**ลากโน้ตยาว** (beats ≥ ~3) → **ให้เปียโนเล่น fill-in แทรก** (arp/sparkle) + comp ดังขึ้นนิด
+   - สูตร: `melDensity` = จำนวน attack ทำนอง/บีต ในช่วง event → `compGain *= (busy ? 0.7 : 1.0)` · long-hold → trigger fill. **ค่า −3dB/threshold = จูนด้วยหู SA↔P'Aim**.
+> **พักไว้ (ยังไม่ทำ · เหลือง/แดง):** rubato (ต้องข้อมูลปลายวรรคแม่น) · crossfade pad (แก้รอยต่อ แต่ไม่แก้ต้นตอ — ต้นตอ = ไวโอลิน solo แทน pad · ทางที่ดีกว่า = ซ้อนไวโอลิน 2-3 ตัว detune ให้หนา) · guitar fret-voicing (polish · กีตาร์ผ่านแล้ว). · **gain clamp = มีอยู่แล้ว** (velocity-in-layer §7b · ที่ปรึกษาย้ำถูก).
+
 ### 6a′. โครง config (orchestration recipe · role-based · scale ไป auto-instrumentation ได้)
 
 ```js
