@@ -19,7 +19,8 @@
 **🚀 DEPLOY กำลังเตรียม (pm22 · P'Aim สั่ง deploy ของที่เสร็จก่อน · +hero/favicon):**
 - **merge 6 อันเข้า base แล้ว** (`studio-shell-redesign`): (1) parity [ae576b2 · styles/Guide/About] (2) tie+triplet [NoteRow/SongSheet] (3) beaming [NoteRow] (4) editor-preview [EditorMode] (5) repeat-seek [midi.js] (6) **hero/favicon** [cc84c7b · index.html/public ชุด favicon+hero/ShellBar/SongList/styles.css `.sb-app-ico` merge ไม่ทับ parity] · เอาเฉพาะไฟล์โค้ด/asset ไม่เอา launch.json/board.md ที่พ่วง
 - **522 tests + build ok · serve :5350** (bg `bg281b8zj`)
-- **🛑 DEPLOY PAUSED (P'Aim 13 ก.ค.):** หัวเว็บ/เมนู "ต่างเยอะ" ยังไม่เหมือนพระคำ → **ต้องทำใหม่ก่อน deploy** · **เอา hero ออกจากหน้าแรก** · **กฎ P'Aim:** desktop=ชื่ออย่างเดียว(ไม่มี icon) · mobile=icon อย่างเดียว(ไม่มีชื่อ)+🔍/☰ ขวา+drawer · nav inline desktop · **จ่าย Dev `task_a11d9478`** (brief `brief-menu-parity-impl.md` + SA DS `menu-parity.md`) → serve → P'Aim iterate → แล้ว **batch deploy รวม (fixes+header, ไม่มี hero)**
+- **✅ หัวเว็บ phrakham-style เสร็จ + P'Aim iterate โดยตรง + integrate เข้า base แล้ว** (menu Dev `local_e359bb54` `dreamy-dijkstra` → ShellBar/styles/SongList/Icon/2 test · verify parity คงครบ `--fs-base 1.125`) · desktop=ชื่ออย่างเดียว · mobile=icon+🔍/☰ drawer · login ขวาสุด · hero ลบแล้ว · 523 tests+build ✓
+- **🟢 ชุด deploy ครบ 7 อันบน base + เสิร์ฟ :5350 (verified serves ใหม่):** parity · tie(issue1) · beaming(issue2) · ดูผลทั้งเพลง(issue3) · repeat · favicon · **phrakham-header** — **รอ P'Aim ดูรอบสุดท้าย :5350 → go → deploy** (asset hero ใน public/ ไม่ถูกอ้าง = harmless · cleanup ทีหลัง)
 - **notation (tie issue1 + beaming issue2) = P'Aim เคาะให้ขึ้น deploy ด้วย** (13 ก.ค. · issue2 = แก้เจ๋ง zero-data-migration · อยู่ใน batch NoteRow.vue แล้ว) → ไม่ hold รอพี่เปาแล้ว (พี่เปา verify live ทีหลังได้) · **ยังไม่ push main จน P'Aim go (รอหัวเว็บใหม่เสร็จก่อน)**
 
 **⏸️ PAUSE/HANDOFF (pm22 · quota ส่วนตัว 97% weekly → ย้ายบัญชีบริษัท):**
