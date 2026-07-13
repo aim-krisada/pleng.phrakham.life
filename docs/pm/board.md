@@ -10,6 +10,7 @@
 **🎉 pm22 = DEPLOY รอบ 22 `6cb8e68` LIVE** (phrakham look&feel: parity+header + bug issue1/2/3+repeat + favicon · https://pleng.phrakham.life) · kanban พี่เปา 4 บั๊ก → 🟢 เสร็จ · รายละเอียดใน §✅ DEPLOYED
 
 **🔵 กำลังทำ / รอต่อ (pm23 สานต่อ):**
+- **🔎 2 งานตรวจสอบ (read-only · P'Aim สั่ง 13 ก.ค. เย็น):** (A) `task_bfed5326` เช็ค role/permission — โค้ดแยกสิทธิ์ "พี่เปาอนุมัติ publish ได้เอง" vs "ติวแก้ได้แต่ต้องขออนุมัติ" จริงไหม → `docs/reports/check-role-permission.md` · (B) `task_6f5b98ea` เช็ค audit log "ใครแก้อะไร" ยังมีไหม → `docs/reports/check-audit-log.md` · **รอ report เข้า 📥 inbox** · issue 8 (beam ตามพยางค์) = P'Aim เห็นด้วยกฎ · รอตัดสินว่ารวม spec กับ issues5 เมื่อไหร่
 - **ป้ายสถานะตรวจเพลง** (team-only · GATE unlock) — Dev `task_5d4f34d6` กำลังทำ · รอ report → gate → **deploy รอบ 23**
 - **🤝 menu design ร่วมกับ pk pm4 — เคาะจบแล้ว + ร่างสเปก** `docs/ds/menu-drawer-spec.md` (pushed) · **กฎร่วม:** ชิดซ้าย · nav text-only · **tools: picker=ปุ่มพรีวิว (font ก ข ค) / toggle=แถวเรียบ** (pk pm4 แก้ premise ผม: พระคำพอร์ตปุ่ม font 2 อันจากเพลงวันนี้ = ปุ่มถูกทั้ง 2) · <992px · **เพลงต้องแก้ 2 จุด (ชิดซ้าย + เอาไอคอน nav ออก) · พระคำ = baseline แล้ว** · **✅ RATIFIED by pk pm4 (13 ก.ค.)** + เติม 2 จุด (login=เพลงเท่านั้น · ลำดับ tools=per-site) · **ค้างจุดเดียว: รอ P'Aim อนุมัติสเปก → จ่าย dev 2 ฝั่งพร้อมกัน** (เพลงแก้ 2 จุด · พระคำ baseline แล้ว) · pk pm4 ปิด session → pm5 · drawer พระคำห้ามรื้อจน P'Aim อนุมัติ
 
