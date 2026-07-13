@@ -159,6 +159,11 @@ vitest 517 เขียว · build ผ่าน · ไม่มี console erro
 
 **Verify (จอมือถือจริง · ไม่ใช่ 375 computed):** **360px → dock 310px · 0 ปุ่มหลุด · ไม่ h-scroll · 2 แถว 298px สมมาตร** · **412px → dock 332px · 0 ปุ่มหลุด · 318px** · vitest 517 เขียว · build ผ่าน · ไม่มี console error. (screenshot MCP timeout ตามเคย → พิสูจน์ด้วย DOM: ทุกปุ่ม right ≤ viewport, clipped=0)
 
+## 🔴 Chrome-mobile font boosting (แก้แล้ว · P'Aim ลอง Chrome Android)
+
+**อาการ:** Chrome มือถือ (Samsung Internet ปกติ) → เนื้อกว้าง + โน้ตตกบรรทัด · "แว๊บแรกปกติแล้วกระจาย". **สาเหตุ:** ทั้งโปรเจกต์ไม่มี `text-size-adjust` → Chrome Android auto-inflate ฟอนต์หลัง first paint. **แก้:** `-webkit-text-size-adjust: 100%` + `text-size-adjust: 100%` บน `html` (styles.css).
+**Verify:** อยู่ใน built CSS + computed บน `<html>` = 100% (webkit+standard). ⚠️ boosting ยิงเฉพาะ **Chrome Android จริง** (ไม่ใช่ desktop-Chromium emulate) → **ยืนยันภาพต้อง P'Aim/tester ลอง Chrome มือถือจริง**. vitest 517 เขียว · build ผ่าน.
+
 ## ยังไม่ทำ / ต่อ
 
 - **"เต็มวง" (ensemble)** = ยังปิด "เร็ว ๆ นี้" (SA ออกแบบเสียงเครื่องคลอ · จ่ายแยก) — interface role-based (§6a′) เผื่อไว้แล้ว, scheduler วน `roles[]` เพิ่มได้ไม่แตะแกน
