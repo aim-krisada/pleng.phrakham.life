@@ -11,7 +11,7 @@
 
 **🔵 กำลังทำ / รอต่อ (pm23 สานต่อ):**
 - **ป้ายสถานะตรวจเพลง** (team-only · GATE unlock) — Dev `task_5d4f34d6` กำลังทำ · รอ report → gate → **deploy รอบ 23**
-- **🤝 menu design ร่วมกับ pk pm4** (P'Aim สั่ง 2 PM เคาะเอง) — **send_message ไป pk pm4 `local_9db3b697` แล้ว รอตอบ** · เป้า = สเปกเมนูร่วม 1 หน้า → ปรับ drawer ทั้ง 2 เว็บเหมือนกัน (เพลงต่าง 3 จุด: ชิดขวา→ซ้าย · เอาไอคอน nav ออก · ตัวอักษรไทยปุ่มใหญ่→แถวเรียบ) · **pm23 เช็ก inbox/สาย pk pm4 ตอบหรือยัง**
+- **🤝 menu design ร่วมกับ pk pm4 — เคาะจบแล้ว + ร่างสเปก** `docs/ds/menu-drawer-spec.md` (pushed) · **กฎร่วม:** ชิดซ้าย · nav text-only · **tools: picker=ปุ่มพรีวิว (font ก ข ค) / toggle=แถวเรียบ** (pk pm4 แก้ premise ผม: พระคำพอร์ตปุ่ม font 2 อันจากเพลงวันนี้ = ปุ่มถูกทั้ง 2) · <992px · **เพลงต้องแก้ 2 จุด (ชิดซ้าย + เอาไอคอน nav ออก) · พระคำ = baseline แล้ว** · **ค้าง: pk pm4 ratify (ฝากตอบที่สาย pl pm) → รายงาน P'Aim ร่วม → อนุมัติ → จ่าย dev 2 ฝั่งพร้อมกัน** · pm23 เช็กสาย pk pm4 `local_9db3b697`
 
 **📋 to-do พี่เปา (root · ยังไม่จ่าย · §🐞):** issues4 (โครงเพลง▾) · issues5 (slur ข้ามห้อง render) · issues6 (คลิก preview→แก้ไข)
 
