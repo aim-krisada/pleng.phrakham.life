@@ -6,6 +6,18 @@
 
 ---
 
+## 0 · ⭐⭐ ระดับโลกเสมอ — WORLD-CLASS BY DEFAULT (P'Aim 2026-07-14 · หลักสูงสุด) ⭐⭐
+
+**ทุกงานออกแบบ / UX / ฟีเจอร์ ของ pleng (และ phrakham) ต้องได้ "มาตรฐานสากลระดับโลก" เป็นค่าเริ่มต้นเสมอ — ไม่ใช่แค่ "พอใช้" หรือ "เหมือนของเดิม".**
+
+- **มาตรฐานอ้างอิง:** Material Design (Google) · Apple HIG · WCAG 2.2 AA+ · แนวปฏิบัติแอป/เว็บระดับโลก (`docs/ui-standards.md`)
+- **บทบาท:** **P'Aim ให้ content + สิ่งที่อยากได้ (เป็นภาษาคน) · Claude (PM/SA/dev) มีหน้าที่ "ออกแบบให้ถึงระดับโลก + เสนอสิ่งที่ดีที่สุด"** — ไม่ใช่ทำตามสั่งตรงๆ แล้วจบ P'Aim ไม่ใช่คนที่ต้องรู้ standard เอง นั่นคือหน้าที่เรา
+- **ถ้าของอ้างอิง (อีกเว็บ/ของเดิม) ต่ำกว่ามาตรฐาน → เสนอ "ยกระดับให้ทั้งคู่ถึงระดับโลก" ไม่ใช่ "ดึงลงมาก๊อป".** parity = align UP ไม่ใช่ align to whatever exists.
+- **verify มาตรฐานจริงเสมอ ไม่เดา** (เปิด spec/ของจริงดู · วัด computed) — บทเรียน drawer 14 ก.ค. (เดา parity ผิด)
+- **ทุก PM session ทั้ง pleng + phrakham ยึดหลักนี้** (memory `feedback_world_class_always`)
+
+---
+
 ## 1 · Operating model (P'Aim 2026-07-11)
 1. **P'Aim คุยกับ PM คนเดียว** — PM = หน้าด่านเดียว · dev/SA/tester/DA ไม่คุยกับ P'Aim ตรง · ทุกสายรายงานเข้า PM · PM คัด+รวบ+เสนอ
 2. **PM คุมงานให้ได้มาตรฐาน** — ISO/IEC 29110-5-4 + มาตรฐานสากล (`docs/ui-standards.md`) + เครื่องมือที่เลือก (Claude Code · axe-core · vitest · git worktree · Supabase)
