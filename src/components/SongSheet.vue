@@ -405,7 +405,7 @@ watch(
             v-for="seg in part.segments"
             :key="seg.si"
             class="segment"
-            :class="{ 'seg-playing': isPlaying(row.li, seg.si) && !seg.syllables, 'seg-tap': interactive }"
+            :class="{ 'seg-playing': isPlaying(row.li, seg.si) && (!seg.syllables || lineLyricsOnly(row.first)), 'seg-tap': interactive }"
             :data-seg="`${row.li}-${seg.si}`"
             @click="seek(row.li, seg.si)"
           >

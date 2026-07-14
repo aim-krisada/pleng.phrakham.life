@@ -112,4 +112,13 @@ describe('SongSheet — per-syllable render, highlight and tap-to-jump', () => {
     expect(w.findAll('.syl').length).toBe(0) // no per-syllable spans
     expect(w.find('.segment').classes()).toContain('seg-playing') // segment-level fallback
   })
+
+  // เนื้อล้วน DISPLAY mode (lyric shown, note+chord hidden): a v2 song renders its lyric as plain
+  // joined text (no per-syllable spans → readable hymn line), so the karaoke can't light a syllable.
+  // The follow-along must fall back to whole-segment highlight (P'Aim 14 ก.ค. "เนื้อล้วน karaoke ไม่วิ่ง").
+  it('v2 in lyrics-only display → whole-segment highlight (no per-syllable spans)', () => {
+    const w = mount(SongSheet, { props: { content, showChord: false, showNote: false, showLyric: true, playingSeg: { li: 0, si: 0 }, playingSyl: { li: 0, si: 0, syk: 1 } } })
+    expect(w.findAll('.syl').length).toBe(0) // lyrics-only → joined text, not per-syllable spans
+    expect(w.find('.segment').classes()).toContain('seg-playing') // so the whole segment lights instead
+  })
 })
