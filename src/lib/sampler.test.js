@@ -3,25 +3,48 @@
 // network); here we lock the gain→velocity balance and the instrument registry so the
 // melody-vs-chord loudness and the synth-fallback rule can't silently drift.
 import { describe, it, expect } from 'vitest'
-import { gainToVelocity, gainToVelocityFull, isSampledInstrument, SAMPLE_HOSTS, SAMPLED_INSTRUMENTS, GRAND_LAYER, FIRED_GAINS } from './sampler.js'
+import { gainToVelocity, gainToVelocityFull, isSampledInstrument, SAMPLE_HOSTS, SAMPLED_INSTRUMENTS, GRAND_LAYER, GRAND_VELOCITY_LAYERS, velocityInLoadedLayer, FIRED_GAINS } from './sampler.js'
 
-describe('gainToVelocity — every fired note lands in the LOADED velocity layer (else: silence)', () => {
-  // The regression that shipped P1 mute: smplr plays SILENCE when the fired velocity is outside
-  // the loaded layer (it does not fall back across layers). So the hard invariant is that every
-  // gain we actually fire maps to a velocity INSIDE GRAND_LAYER — not just "some math".
-  it('all of playSong\'s fired gains map inside the loaded layer [lo,hi]', () => {
-    for (const [role, gain] of Object.entries(FIRED_GAINS)) {
-      const v = gainToVelocity(gain)
-      expect(v, `${role} gain ${gain} → vel ${v} must be within the loaded layer`).toBeGreaterThanOrEqual(GRAND_LAYER[0])
-      expect(v, `${role} gain ${gain} → vel ${v} must be within the loaded layer`).toBeLessThanOrEqual(GRAND_LAYER[1])
+describe('GRAND velocity layers — the five loaded layers tile [1,127] with NO gap (mute-proof)', () => {
+  // Audio R2 STEP 0 loads ALL five layers. The mute bug (smplr plays SILENCE for a velocity outside
+  // every loaded layer) is only impossible if the loaded layers cover 1..127 CONTIGUOUSLY. Lock that.
+  it('covers 1..127 with no gap and no overlap between adjacent layers', () => {
+    const sorted = [...GRAND_VELOCITY_LAYERS].sort((a, b) => a.range[0] - b.range[0])
+    expect(sorted[0].range[0]).toBe(1)
+    expect(sorted[sorted.length - 1].range[1]).toBe(127)
+    for (let i = 1; i < sorted.length; i++) {
+      expect(sorted[i].range[0], `${sorted[i].name} must start right after ${sorted[i - 1].name}`).toBe(sorted[i - 1].range[1] + 1)
     }
   })
-  it('clamps ANY gain (incl. out-of-range) to inside the loaded layer', () => {
-    for (const g of [0, 0.001, 0.5, 1, 5, -1]) {
-      const v = gainToVelocity(g)
-      expect(v).toBeGreaterThanOrEqual(GRAND_LAYER[0])
-      expect(v).toBeLessThanOrEqual(GRAND_LAYER[1])
+  it('velocityInLoadedLayer is true for EVERY MIDI velocity 1..127', () => {
+    for (let v = 1; v <= 127; v++) expect(velocityInLoadedLayer(v), `vel ${v} must be in a loaded layer`).toBe(true)
+  })
+  it('GRAND_LAYER is the full loaded coverage [1,127]', () => {
+    expect(GRAND_LAYER).toEqual([1, 127])
+  })
+})
+
+describe('gainToVelocity — every fired note lands in a LOADED velocity layer (else: silence)', () => {
+  // The regression that shipped P1 mute: smplr plays SILENCE when the fired velocity is outside
+  // every loaded layer. The hard invariant: every gain we actually fire maps to a velocity that
+  // velocityInLoadedLayer() accepts — not just "some math".
+  it('all of playSong\'s fired gains map to a velocity inside a loaded layer', () => {
+    for (const [role, gain] of Object.entries(FIRED_GAINS)) {
+      const v = gainToVelocity(gain)
+      expect(velocityInLoadedLayer(v), `${role} gain ${gain} → vel ${v} must be in a loaded layer`).toBe(true)
     }
+  })
+  it('maps ANY gain (incl. out-of-range) to a velocity in a loaded layer', () => {
+    for (const g of [0, 0.001, 0.5, 1, 5, -1, NaN, undefined]) {
+      const v = gainToVelocity(g)
+      expect(v).toBeGreaterThanOrEqual(1)
+      expect(v).toBeLessThanOrEqual(127)
+      expect(velocityInLoadedLayer(v), `gain ${g} → vel ${v}`).toBe(true)
+    }
+  })
+  it('the soft comp drops into PPP (softer than the old PP floor 41) — the left hand can get quiet', () => {
+    // The whole point of STEP 0: comp is no longer jammed at the PP floor (vel 41).
+    expect(gainToVelocity(FIRED_GAINS.chordInner)).toBeLessThan(41)
   })
   it('keeps the pad under the melody: chord velocity < melody velocity', () => {
     expect(gainToVelocity(FIRED_GAINS.chordInner)).toBeLessThan(gainToVelocity(FIRED_GAINS.melody))

@@ -42,9 +42,18 @@ function trimGm(src) {
   return { text: head + '\n' + body + ',\n\n}\n', notes: kept.length }
 }
 
-// --- Splendid Grand (Public Domain). smplr's default host; per-note ogg, PP layer notes 40..84. ---
+// --- Splendid Grand (Public Domain). smplr's default host; per-note ogg. ---
+// R2 STEP 0: mirror ALL FIVE velocity layers (PPP reuses the PP files + low-pass → not downloaded;
+// MP/MF/FF are extra). Filenames are the exact smplr strings (incl. the MF layer's mixed MF/Mf case,
+// which the case-sensitive host requires). Same set as tools/fetch-grand-layers.mjs (the direct-to-
+// public runner); kept here so a from-scratch `prepare → assemble` reproduces the full grand.
 const GRAND_HOST = 'https://smpldsnds.github.io/sfzinstruments-splendid-grand-piano/samples'
-const GRAND_SAMPLES = ['E1','F1','G1','A1','B1','C2','D2','E2','F2','G2','G#2','A2','A#2','B2','C3','D3','E3','F3','G3','A3','B3','C4','D4','E4','F4','G4','G#4','A4','A#4','B4'].map(n => 'PP ' + n)
+const GRAND_PP = ['PP E1','PP F1','PP G1','PP A1','PP B1','PP C2','PP D2','PP E2','PP F2','PP G2','PP G#2','PP A2','PP A#2','PP B2','PP C3','PP D3','PP E3','PP F3','PP G3','PP A3','PP B3','PP C4','PP D4','PP E4','PP F4','PP G4','PP G#4','PP A4','PP A#4','PP B4']
+const GRAND_MP = GRAND_PP.map(n => n.replace('PP ', 'Mp '))
+// MF layer: notes ≤ C4 use 'MF', notes > C4 use 'Mf' (smplr's exact casing).
+const GRAND_MF = ['MF E1','MF F1','MF G1','MF A1','MF B1','MF C2','MF D2','MF E2','MF F2','MF G2','MF G#2','MF A2','MF A#2','MF B2','MF C3','MF D3','MF E3','MF F3','MF G3','MF A3','MF B3','MF C4','Mf D4','Mf E4','Mf F4','Mf G4','Mf G#4','Mf A4','Mf A#4','Mf B4']
+const GRAND_FF = GRAND_PP.map(n => n.replace('PP ', 'FF '))
+const GRAND_SAMPLES = [...GRAND_PP, ...GRAND_MP, ...GRAND_MF, ...GRAND_FF]
 
 async function fetchBuf(url) { const r = await fetch(url); if (!r.ok) throw new Error(`${r.status} ${url}`); return Buffer.from(await r.arrayBuffer()) }
 

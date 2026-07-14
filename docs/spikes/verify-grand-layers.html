@@ -1,0 +1,77 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Verify — Grand 5 velocity layers (R2 STEP 0)</title>
+<style>
+  body { font: 15px/1.5 system-ui; max-width: 780px; margin: 2rem auto; padding: 0 1rem; }
+  pre { background:#111; color:#dfe; padding:1rem; border-radius:8px; white-space:pre-wrap; }
+  .ok{color:#3c3} .bad{color:#f66} h2{margin-top:1.6rem}
+  button{font-size:1rem;padding:.5rem 1rem;margin:.3rem 0}
+</style>
+<h1>Grand — 5 velocity layers loaded from <code>/samples/</code> (offline render)</h1>
+<p>Loads the Splendid Grand with <code>velocityRange:[1,127]</code> (all 5 layers) from the in-app
+same-origin mirror, then renders one note per layer + the arranger's real fired gains through an
+<code>OfflineAudioContext</code>. peak&gt;0 = not silent · peak&lt;1 = not clipping · a rising peak
+across PPP→FF proves the layers are distinct real recordings, not one layer scaled.</p>
+<button id="run">▶ Load + render all</button>
+<pre id="out">idle…</pre>
+<!-- Regenerate the self-contained smplr (not committed): cp node_modules/smplr/dist/index.mjs docs/spikes/smplr.mjs
+     Serve the worktree: npx vite --host --port 5399 --strictPort  → open /docs/spikes/verify-grand-layers.html -->
+<script type="module">
+import { SplendidGrandPiano } from './smplr.mjs'
+// Mirror the sampler.js contract exactly.
+const BASE = '/samples/splendid-grand/samples'
+const GRAND_NOTES = (()=>{ const a=[]; for(let m=40;m<=84;m++)a.push(m); return a })()
+const out = document.getElementById('out')
+const log = (s)=>{ out.textContent += s + '\n' }
+
+// gainToVelocity copied from src/lib/sampler.js (kept in sync) — proves the ACTUAL mapping sounds.
+const GAIN_MIN=0.055, GAIN_MAX=0.35, VLO=24, VHI=67
+const gainToVelocity=(gain)=>{ const g=Math.max(0.02,Math.min(0.5,gain||0.3)); const t=Math.max(0,Math.min(1,(g-GAIN_MIN)/(GAIN_MAX-GAIN_MIN))); return Math.max(1,Math.min(127,Math.round(VLO+t*(VHI-VLO)))) }
+const FIRED = { melody:0.35, chordBass:0.055*1.45, chordInner:0.055 }
+
+async function render(piano, midi, vel, secs=2.2){
+  const sr=44100
+  const octx=new OfflineAudioContext(1, sr*secs, sr)
+  // Build a fresh instrument bound to the OfflineAudioContext (its own graph).
+  const p=new SplendidGrandPiano(octx,{ baseUrl:BASE, notesToLoad:{notes:GRAND_NOTES, velocityRange:[1,127]}, formats:['ogg'] })
+  await p.load
+  p.output?.connect ? p.output.connect(octx.destination) : null
+  p.start({ note:midi, time:0, duration:1.6, velocity:vel })
+  const buf=await octx.startRendering()
+  const d=buf.getChannelData(0)
+  let peak=0,sum=0
+  for(let i=0;i<d.length;i++){ const a=Math.abs(d[i]); if(a>peak)peak=a; sum+=d[i]*d[i] }
+  return { peak, rms:Math.sqrt(sum/d.length) }
+}
+
+document.getElementById('run').onclick=async()=>{
+  out.textContent=''
+  const t0=performance.now()
+  const external = ()=>performance.getEntriesByType('resource').filter(r=>{
+    try{ return new URL(r.name).origin!==location.origin }catch{ return false }
+  })
+  const before=external().length
+  const midi=60 // middle C
+  log('LAYER SWEEP (one note per layer, midi 60):')
+  const layers=[['PPP',20],['PP',55],['MP',76],['MF',92],['FF',115]]
+  let prev=-1, monotoneOk=true
+  for(const [name,vel] of layers){
+    const r=await render(null,midi,vel)
+    const cls=r.peak>0.001&&r.peak<0.999?'OK':'CHECK'
+    if(r.peak+1e-6<prev) monotoneOk=false
+    prev=r.peak
+    log(`  ${name.padEnd(4)} vel ${String(vel).padStart(3)}  peak=${r.peak.toFixed(4)} rms=${r.rms.toFixed(4)}  ${cls}`)
+  }
+  log('\nARRANGER FIRED GAINS (via gainToVelocity):')
+  for(const [role,g] of Object.entries(FIRED)){
+    const vel=gainToVelocity(g)
+    const r=await render(null,midi,vel)
+    const cls=r.peak>0.001&&r.peak<0.999?'OK':'CHECK'
+    log(`  ${role.padEnd(10)} gain ${g.toFixed(4)} → vel ${String(vel).padStart(3)}  peak=${r.peak.toFixed(4)}  ${cls}`)
+  }
+  const ext=external().slice(before)
+  log(`\nmonotonic PPP→FF peak rises: ${monotoneOk?'YES ✓':'NO ✗'}`)
+  log(`external (cross-origin) requests: ${ext.length===0?'NONE ✓':ext.map(e=>e.name).join(', ')}`)
+  log(`\ndone in ${((performance.now()-t0)/1000).toFixed(1)}s`)
+}
+</script>

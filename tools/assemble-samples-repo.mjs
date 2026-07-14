@@ -78,7 +78,7 @@ function main() {
     totalMB: Number(totalMB),
     notes: 'All instruments are one-shot (loops:false). durationSec = per-note sustain ceiling; longer holds need re-trigger/overlap. bakedMakeupDb is already applied in the files (do not re-apply). Ranges/velocities per instrument are in the CC0 preset.json / the Grand velocityRange.',
     instruments: {
-      grand:  { loader: 'SplendidGrandPiano', baseUrl: 'splendid-grand/samples', format: 'ogg', velocityRange: [41, 67], sampledRange: [40, 84], license: 'Public Domain', attribution: null, ...meta.grand },
+      grand:  { loader: 'SplendidGrandPiano', baseUrl: 'splendid-grand/samples', format: 'ogg', velocityRange: [1, 127], velocityLayers: ['PPP[1-40]', 'PP[41-67]', 'MP[68-84]', 'MF[85-100]', 'FF[101-127]'], sampledRange: [40, 84], license: 'Public Domain', attribution: null, ...meta.grand },
       felt:   { loader: 'SplendidGrandPiano+lowpass', reuses: 'grand', note: 'low-pass ~2 kHz on output; no files of its own', license: 'Public Domain', attribution: null, ...meta.felt },
       steel:  { loader: 'Soundfont', instrumentUrl: 'FluidR3_GM/acoustic_guitar_steel-mp3.js', sampledRange: [36, 90], license: 'CC-BY-3.0', attribution: 'FluidR3 GM soundfont © Frank Wen, CC-BY 3.0', ...meta.steel },
       string_ensemble: { loader: 'Soundfont', instrumentUrl: 'FluidR3_GM/string_ensemble_1-mp3.js', sampledRange: [36, 90], license: 'CC-BY-3.0', attribution: 'FluidR3 GM soundfont © Frank Wen, CC-BY 3.0', ...meta.string_ensemble },

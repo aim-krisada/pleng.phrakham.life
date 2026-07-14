@@ -53,16 +53,35 @@ const REGISTRY = {
 }
 export const SAMPLED_INSTRUMENTS = Object.keys(REGISTRY)
 
-// The velocity layer the Grand loads (smplr layers: PPP PP MP MF FF). CRITICAL: smplr plays the
-// layer picked by the note's velocity and does NOT fall back across layers — firing a velocity
-// OUTSIDE the loaded layer plays SILENCE (the P1 "piano mute" bug). So every velocity the arranger
-// fires for a GRAND/FELT note MUST land inside GRAND_LAYER. We load PP because it's the widest
-// usable layer (~8.5 dB across vel 41–67) — room to seat the chord pad under the melody in ONE
-// loaded layer (small download). A makeup gain lifts the overall level, since PP is recorded soft.
-export const GRAND_LAYER = [41, 67]
+// smplr's Splendid Grand has FIVE contiguous velocity layers. CRITICAL: smplr plays the layer picked
+// by the note's velocity and does NOT fall back across layers — firing a velocity OUTSIDE every loaded
+// layer plays SILENCE (the P1 "piano mute" bug). P1 loaded ONLY PP, so the comp floor jammed at vel 41
+// and anything outside [41,67] went silent. Audio R2 STEP 0 loads ALL layers → their ranges tile
+// [1,127] with NO gap, so EVERY MIDI velocity lands in a real recorded layer and the mute bug is
+// structurally impossible. PPP reuses the PP files (+ a ~1 kHz low-pass smplr applies) → 0 extra
+// download; MP/MF/FF are the new self-hosted files. Loading REAL layers (not one layer scaled by gain)
+// is what gives round 2 a true per-velocity timbre to tune, and lets the left hand actually get softer
+// (drop into PPP). Ranges mirror smplr src/splendid-grand-piano.ts (the load SSOT).
+export const GRAND_VELOCITY_LAYERS = [
+  { name: 'PPP', range: [1, 40] },   // reuses PP files + low-pass — 0 extra bytes
+  { name: 'PP', range: [41, 67] },
+  { name: 'MP', range: [68, 84] },
+  { name: 'MF', range: [85, 100] },
+  { name: 'FF', range: [101, 127] },
+]
+// The velocity range we ask smplr to LOAD. [1,127] → every layer whose range overlaps it = all five.
+// Kept named GRAND_LAYER for the legacy contract/test; it now means the FULL loaded coverage (was the
+// PP-only [41,67]). Because the layers tile [1,127] with no gap, this is also the loaded coverage.
+export const GRAND_LAYER = [1, 127]
 const GRAND_VEL_RANGE = GRAND_LAYER
+// True iff velocity v falls inside one of the LOADED layers (a real sample will sound, not silence).
+// With all five loaded this is just [1,127]; kept explicit + layer-aware so the mute invariant stays
+// checkable and still holds if we ever load a SUBSET of layers (e.g. drop FF to shrink the cache).
+export function velocityInLoadedLayer(v) {
+  return GRAND_VELOCITY_LAYERS.some(({ range }) => v >= range[0] && v <= range[1])
+}
 // The gains playSong actually fires (midi.js): melody, chord bass (chordGain·1.45), chord inner
-// (chordGain). Exported so a test can prove EVERY fired velocity lands in the loaded layer —
+// (chordGain). Exported so a test can prove EVERY fired velocity lands in a loaded layer —
 // the invariant whose absence let P1 ship silent. Keep in sync with midi.js if those change.
 export const FIRED_GAINS = { melody: 0.35, chordBass: 0.055 * 1.45, chordInner: 0.055 }
 // The gain window our callers pass: chord inner ≈ 0.055 (softest) up to melody ≈ 0.35 (loudest).
@@ -76,14 +95,21 @@ const GRAND_LO = 40 // E2 (lowest chord bass root)
 const GRAND_HI = 84 // C6 (above all but the rare highest melody note)
 function midiRange(lo, hi) { const a = []; for (let m = lo; m <= hi; m++) a.push(m); return a }
 
-// Map our synth-scale gain (chord inner ≈ 0.055 up to melody ≈ 0.35) to a MIDI velocity INSIDE the
-// loaded GRAND layer — keeps the pad under the melody while guaranteeing a sample exists. Louder
-// gain → higher velocity within the layer; both the melody top and the chord floor stay in-range,
-// so nothing plays silent. The PP layer's ~8.5 dB span across [41,67] carries the balance.
+// Map the arranger's gain window [chord inner ≈ 0.055 .. melody ≈ 0.35] onto a velocity band. STEP 0
+// is a NON-REGRESSING foundation: it keeps the melody exactly where P1 had it (top of PP, vel 67 —
+// same loudness/timbre) and only drops the softest comp DOWN into PPP (soft + dark low-pass), so the
+// left hand can finally get quiet — the one thing the objective asked for. MP/MF/FF are loaded (see
+// GRAND_VEL_RANGE) but the DEFAULT band doesn't reach them yet: they are the headroom ROUND 2 dials
+// in (raise GRAND_VEL_HI toward MP/MF for a brighter, more present melody; FF for accents), tuning
+// by ear with P'Aim. These two constants are round 2's primary per-role knobs. Output is clamped to
+// [1,127] and, since the layers tile that range, always lands in a loaded layer (never silent).
+export const GRAND_VEL_LO = 24  // softest comp → low PPP (dark, quiet) — was jammed at the PP floor 41
+export const GRAND_VEL_HI = 67  // loudest melody → top of PP (unchanged from P1; round 2 raises this)
 export function gainToVelocity(gain) {
   const g = Math.max(0.02, Math.min(0.5, gain || 0.3))
   const t = Math.max(0, Math.min(1, (g - GAIN_MIN) / (GAIN_MAX - GAIN_MIN)))
-  return Math.round(GRAND_LAYER[0] + t * (GRAND_LAYER[1] - GRAND_LAYER[0]))
+  const v = Math.round(GRAND_VEL_LO + t * (GRAND_VEL_HI - GRAND_VEL_LO))
+  return Math.max(1, Math.min(127, v))
 }
 
 // Velocity mapping for the NON-layered instruments (Soundfont / Sampler). Those have ONE sample
