@@ -87,14 +87,23 @@ function pick(g, o) {
    (position/anchor/background/shadow/z-index) MUST be declared here, or the panel renders in-flow
    INSIDE the dock and inflates it (P'Aim bug 13 ก.ค.: the popover overlapped the transport). We keep
    the `dk-pop` class only so DockKey's clampPops() still finds + keeps it on-screen (+8px).
-   4 groups make it tall → cap the height and scroll INSIDE so it never grows over the dock/sheet. */
+   Up to 5 groups make it tall → cap by the viewport (see max-height below) so it never grows over
+   the dock/sheet, yet shows every group without a scrollbar whenever the screen has the room. */
 .sc-pop {
   pointer-events: auto;
   position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: 30;
   width: max-content; min-width: 210px; max-width: calc(100vw - 24px);
-  max-height: min(56vh, 360px); overflow-y: auto; overscroll-behavior: contain;
+  /* Cap by the VIEWPORT minus the room the dock needs below (~200px covers the tallest dock + its
+     bottom gutter), NOT a flat 360px. The old cap forced a scrollbar on ordinary screens and clipped
+     the top "เสียงที่เล่น" heading (P'Aim 14 ก.ค.). The panel opens above the dock (bottom:100%+8px),
+     so `100dvh - 200px` is the space it can grow into without overlapping the dock/sheet or spilling
+     off the top (clampPops still nudges the last +8px). Normal-height screens show all 5 groups with
+     NO scrollbar; only a genuinely short viewport (≈<620px tall) falls back to scrolling. */
+  max-height: min(90vh, calc(100vh - 200px));   /* fallback where dvh is unsupported */
+  max-height: min(90dvh, calc(100dvh - 200px));
+  overflow-y: auto; overscroll-behavior: contain;
   padding: 9px 11px; display: flex; flex-direction: column; gap: 8px;
 }
 .sc-head { font-weight: 700; font-size: 12.5px; position: sticky; top: 0; background: #fff; padding-bottom: 2px; }
