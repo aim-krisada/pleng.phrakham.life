@@ -35,7 +35,8 @@ _(ประวัติ pm22 = รอบ 22 `6cb8e68` phrakham look&feel — เ
 
 **📋 to-do พี่เปา (root · ยังไม่จ่าย · §🐞):** issues4 (โครงเพลง▾) · ~~issues5~~ → เข้า spec notation แล้ว · issues6 (คลิก preview→แก้ไข) · issues7 (ใหม่ · ยังไม่ triage)
 
-**🔴 เรื่องใหญ่สุด (สำคัญกว่าบั๊ก):** GATE — **คืบหน้าแล้ว 8/124 verified** (เปาทยอย approve · เช็กสด 13 ก.ค. เย็น: total 124 · verified 8 · false 116) · public เห็น 8 เพลงที่ approve แล้วถูกต้อง (ยืนยันตรงภาพ P'Aim: อนุชน 1/4/7/9/11/13/14/16) · กลไกทำงานถูก · เหลือทีมทยอยตรวจต่อ · ป้ายสถานะ (ยังไม่มีคนทำ) = ตัวช่วยติดตามคืบหน้า
+**🔴 เรื่องใหญ่สุด (สำคัญกว่าบั๊ก):** GATE — **คืบหน้าแล้ว 8/124 verified** (เปาทยอย approve · เช็กสด 13 ก.ค. เย็น: total 124 · verified 8 · false 116) · public เห็น 8 เพลงที่ approve แล้วถูกต้อง (ยืนยันตรงภาพ P'Aim: อนุชน 1/4/7/9/11/13/14/16) · กลไกทำงานถูก · เหลือทีมทยอยตรวจต่อ
+- **🐞🔒 GATE leak (P'Aim เจอ 14 ก.ค.) — 🔵 จ่าย dev `task_6cb6764f`:** ตัวเลือกเพลง "เปิดเพลงที่มีอยู่" ในหน้าแก้ไข (`EditorMode.loadSongList`) ดึงเพลง**ทั้งหมด ไม่กรอง verified** → anon เห็นเพลงยังไม่ตรวจ (SongList กรองถูกแต่ picker ไม่) · fix = ใช้ `visibleSongs(list, loggedIn)` ใน pickerOptions · scope EditorMode.vue · **ควร deploy รอบหน้า (correctness)** · รอ dev → gate
 
 **🧹 cleanup:** `public/pleng-hero.png/.webp` (6.5MB · ไม่ถูกอ้าง ลบได้) · pk pm4 = สาย 📖 (running · reconnected)
 
