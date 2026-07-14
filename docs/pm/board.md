@@ -14,7 +14,11 @@ _(ประวัติ pm22 = รอบ 22 `6cb8e68` phrakham look&feel — เ
 - **พร้อมใน base ครบ:** audio round 2 (P'Aim ear-approve · 626 tests) + STEP 0 (Grand 5 layer 12.9MB) + GATE-leak fix — **แต่ HOLD push** เพราะ:
 - **✅ karaoke bug เจอ+แก้แล้ว (`c034de4` merge base):** ต้นเหตุ = **"โหมดแสดงผลเนื้อล้วน"** (ซ่อนโน้ต โชว์เนื้อ · ไม่ใช่เพลงเนื้อล้วน!) → เพลง v2 render เนื้อเป็น text ไม่มี .syl span + seg-playing gate ไว้แค่ v1 → ไม่ highlight · fix 1 บรรทัด (เปิด seg-playing เมื่อ lineLyricsOnly) · **ไม่ใช่ regression รอบ 2** (logic SongSheet เดิม) · 33 tests · **SA verify advancement ถูกวิธีแล้ว (poll สด: syl-playing เดิน 33 พยางค์ โหมดเต็ม · seg-playing เดิน 15 วรรค โหมดเนื้อล้วน = ไม่ค้าง)** · **เหลือ พี่เปา verify device จริง (grand · hard reload · โหมดเนื้อล้วน) → ปลด hold + push รอบ 24**
 - **GATE-fix แยก:** cherry-pick สะอาดใน worktree `../pleng-r24` (branch `r24-gate-fix` · commit b8b2a3b บน origin/main) **ยังไม่ push** (P'Aim สั่ง "รอ") — พร้อม push standalone ถ้าจะปล่อยเฉพาะ GATE fix
-- **ลำดับ pm24:** (1) SA แก้ karaoke highlight → verify real device (2) P'Aim เคาะ → deploy รอบ 24 (audio+STEP0+GATE-fix+กู้ hollow ทีเดียว · align main=base) · Remix ⏸️พัก · drawer 🔵พระคำทำ
+- **🚀 DEPLOY รอบ 24 — spec ล็อกโดย P'Aim (14 ก.ค. ค่ำ):**
+  - **Trigger:** deploy เมื่อ **(1) karaoke เนื้อล้วน (พี่เปา verify device) + (2) drawer เพลง (dev+gate)** เสร็จ**ทั้งคู่**
+  - **✅ รวม:** audio round 2 (ear-approved · กู้ hollow) + STEP 0 (5 layer) + GATE-leak fix + karaoke fix (`c034de4`) + **drawer เพลง (consume pk-drawer · `task_b512fd83`)**
+  - **❌ ห้ามรวม/ห้าม merge เข้ารอบนี้: 🎻 violin (`task_15a3f347`) · 🎨 Remix** (ยังทำ/พัก · ไปรอบหลัง)
+  - วิธี: merge drawer เข้า base → verify test+build → align main=base → push (violin/Remix อยู่ branch แยก ไม่ใน base = ปลอดภัย)
 
 **🚀 pm23 ยิงขนาน 3 dev แล้ว (13 ก.ค. เย็น · P'Aim "เอาตามที่คุณเสนอ Go") — chip รอ/กดเริ่ม:**
 - **[เลน 3] audit log B028 — ✅✅ Tester PASS 7/7 · PM merge เข้า base แล้ว** (`docs/reports/tester-audit-log-qa.md` · ลบ profile แล้วชื่อยังอยู่=actor_name snapshot จริง · integrity แก้ log ไม่ได้) · cherry-pick code-only จาก `distracted-shtern-255d85` `b6d7e2a` → base (3-way merge สะอาด · role-fix เลน4 `isApprover` คงอยู่ + audit RPC เข้ามาครบ) · verify บน base: db/004 6/6 (pglite Postgres) + verify 4/4 + approve-rpc/auditLog/RevisionHistory เขียว · +pglite devDep (`npm install` แล้ว) · **✅ db/004 รันบน prod แล้ว (13 ก.ค. ค่ำ · verify คอลัมน์ event/actor_name/op_group ขึ้น prod HTTP 200) — deploy-blocker เคลียร์** · เหลือ: วัด mobile 360/412 หลังมี data (post-deploy)
