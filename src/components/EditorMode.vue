@@ -7,6 +7,7 @@ import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds } fro
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
+import { visibleSongs } from '../lib/bookshelf.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
@@ -1087,14 +1088,17 @@ const songList = ref([])
 async function loadSongList() {
   const { data } = await supabase
     .from('songs')
-    .select('id, number, title_th, title_en, content')
+    .select('id, number, title_th, title_en, content, verified')
     .order('number', { ascending: true })
   songList.value = data ?? []
 }
 
 const pickerOptions = computed(() => [
   { value: '', label: '— เพลงใหม่ —', search: 'เพลงใหม่ new' },
-  ...songList.value.map((s) => ({
+  // GATE (reuse bookshelf.visibleSongs — same source SongList uses): anon sees only
+  // verified songs, team sees all. computed on loggedIn so it re-filters on login/logout
+  // without reloading the list.
+  ...visibleSongs(songList.value, loggedIn.value).map((s) => ({
     value: s.id,
     label: (s.number != null ? s.number + '. ' : '') + s.title_th,
     search: songHaystack(s),
