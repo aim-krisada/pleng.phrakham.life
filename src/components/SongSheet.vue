@@ -405,18 +405,15 @@ watch(
             v-for="seg in part.segments"
             :key="seg.si"
             class="segment"
-            :class="{ 'seg-playing': isPlaying(row.li, seg.si) && (!seg.syllables || lineLyricsOnly(row.first)), 'seg-tap': interactive }"
+            :class="{ 'seg-playing': isPlaying(row.li, seg.si) && !seg.syllables, 'seg-tap': interactive }"
             :data-seg="`${row.li}-${seg.si}`"
             @click="seek(row.li, seg.si)"
           >
             <span v-if="chordOn(row.first)" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
             <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :syllables="seg.syllables || null" :active="activeNote(row.li, seg.si)" />&nbsp;</span>
-            <!-- v2: one span per syllable-bearing note -> highlight walks note by note
-                 (B006). v1 (no syllables array): the whole lyric as before. -->
+            <!-- v2: one span per syllable-bearing note -> highlight walks note by note (B006). -->
             <template v-if="sl">
-              <!-- syllable spans spread under the notes (karaoke alignment). A songbook
-                   reused-verse line has no notes, so fall back to the joined lyric text —
-                   words keep their spaces and read as a plain hymn-book verse. -->
+              <!-- FULL display: syllable spans spread UNDER the notes (flex, karaoke alignment). -->
               <span v-if="seg.syllables && !lineLyricsOnly(row.first)" class="lyric lyric-syl">
                 <span
                   v-for="(w, k) in seg.syllables"
@@ -427,6 +424,18 @@ watch(
                   @click.stop="seek(row.li, seg.si, k)"
                 >{{ w || ' ' }}</span>
               </span>
+              <!-- เนื้อล้วน display: same per-syllable spans but INLINE (natural reading, a space after
+                   each word) so the karaoke still walks SYLLABLE-by-syllable, not whole-segment
+                   (P'Aim 14 ก.ค. "อยากได้เป็นพยางค์"). Empty slots (melisma) render nothing. -->
+              <span v-else-if="seg.syllables" class="lyric lyric-words">
+                <template v-for="(w, k) in seg.syllables" :key="k"><span
+                  class="syl"
+                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
+                  :data-syl="`${row.li}-${seg.si}-${k}`"
+                  @click.stop="seek(row.li, seg.si, k)"
+                >{{ w }}</span>{{ w ? ' ' : '' }}</template>
+              </span>
+              <!-- v1 (no syllables array): the whole lyric as before (seg-playing highlight). -->
               <span v-else class="lyric">{{ seg.lyric }}&nbsp;</span>
             </template>
           </span>
@@ -493,6 +502,10 @@ watch(
   width: 100%;
   justify-content: space-around;
 }
+/* เนื้อล้วน display: per-syllable spans read as natural inline words (a space text-node sits after
+   each), so the karaoke walks syllable-by-syllable while the line still reads like a plain verse. */
+.lyric-words { display: inline; }
+.lyric-words .syl { white-space: normal; }
 .syl {
   white-space: pre;
   border-radius: 4px;
