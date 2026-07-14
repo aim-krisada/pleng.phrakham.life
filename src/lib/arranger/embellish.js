@@ -37,10 +37,11 @@ export function chromaticApproach(chordEvent, voiced, bpb, rng, cfg) {
   return [emev(voiced.bass - 1, chordEvent.startBeat, 0.4, G(cfg) * 0.7, 0.01, null, -0.12)]
 }
 
-// gapFill — fill the last beat of a long-held chord with a soft upper chord tone.
+// gapFill — fill the last beat of a long-held chord with a soft upper chord tone. Frequency halved
+// (P'Aim 14 ก.ค. "มีที่เพราะ แต่อย่าเยอะเกิน"): ~0.18 so it garnishes a held note now and then, not most.
 export function gapFill(chordEvent, voiced, bpb, rng, cfg) {
   const up = voiced.up || []
-  if (chordEvent.beats < 3 || !up.length || rng() > 0.33) return []
+  if (chordEvent.beats < 3 || !up.length || rng() > 0.18) return []
   const m = up[Math.floor(rng() * up.length)]
   return [emev(m, chordEvent.startBeat + chordEvent.beats - 1, 1, G(cfg) * 0.75, 0.02, null)]
 }

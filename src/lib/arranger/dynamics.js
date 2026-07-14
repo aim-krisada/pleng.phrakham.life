@@ -40,6 +40,29 @@ export function humanizeTime(events, rng, sigma = 0.012) {
 
 const isOffBeat = (b) => Math.abs(b - Math.round(b)) > 0.05
 
+// R2.9 — Ease the left hand under a HELD melody note (P'Aim 14 ก.ค.: "ถ้ามันควรเงียบ → ผ่อนเบา").
+// While the tune sustains one note for a while (e.g. `2 – – –`), the comp shouldn't keep walking on
+// every beat ("ตึ่งตึง นานไปจนน่ารำคาญ") — it should thin out so the held note can ring. Once the
+// melody has been holding ≥ holdBeats, drop the comp's inner hits except the bar downbeats. Bass and
+// melody are untouched (the foundation + tune stay); the moment the melody moves again, full comp
+// resumes. Returns a NEW filtered array. Comp is already at the layer's soft floor, so "ผ่อนเบา"
+// here means playing FEWER notes (real space), not just quieter.
+export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2) {
+  const onsets = events.filter((e) => e.role === 'melody').map((e) => e.startBeat).sort((a, b) => a - b)
+  if (!onsets.length) return events
+  const beatsHeld = (b) => {
+    let last = -Infinity
+    for (const o of onsets) { if (o <= b + 1e-6) last = o; else break }
+    return b - last
+  }
+  return events.filter((e) => {
+    if (e.role !== 'inner') return true // bass / melody / embellishment untouched
+    if (beatsHeld(e.startBeat) < holdBeats) return true // melody moving / just moved → full comp
+    const inBar = ((Math.round(e.startBeat) % beatsPerBar) + beatsPerBar) % beatsPerBar
+    return inBar === 0 // deep in a held note → keep only the bar downbeat, let the rest breathe
+  })
+}
+
 // R2.2 — Metric accent: emphasise the downbeat of each bar, ease off the weak beats and the
 // off-beats, so the pulse breathes instead of every note hitting equally hard. Multiplies gain by
 // a position factor in [0.72, 1.0]. Reads beats-per-bar from the caller (time signature).
@@ -47,10 +70,12 @@ export function metricAccent(events, beatsPerBar = 4) {
   const mid = Math.floor(beatsPerBar / 2)
   for (const e of events) {
     let f
-    if (isOffBeat(e.startBeat)) f = 0.72
+    // Gentler spread than before (P'Aim 14 ก.ค. "กระแทกหนักไป"): the downbeat still leads the pulse
+    // but no longer THUMPS — range narrowed to [0.8, 0.92] so beat 1 isn't a hard stab.
+    if (isOffBeat(e.startBeat)) f = 0.8
     else {
       const p = ((Math.round(e.startBeat) % beatsPerBar) + beatsPerBar) % beatsPerBar
-      f = p === 0 ? 1.0 : p === mid ? 0.9 : 0.8
+      f = p === 0 ? 0.92 : p === mid ? 0.86 : 0.82
     }
     e.gain *= f
   }

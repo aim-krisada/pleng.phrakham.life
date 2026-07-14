@@ -23,7 +23,7 @@
 import { rngFor } from './rng.js'
 import {
   humanizeVel, humanizeTime, metricAccent, melodicContour,
-  sectionDynamics, crescendo, rubato, clampAll,
+  sectionDynamics, crescendo, rubato, clampAll, easeUnderHold,
 } from './dynamics.js'
 import { applyVoicing } from './voicing.js'
 import { embellishChord } from './embellish.js'
@@ -67,9 +67,11 @@ function melodyEvents(notes, mod, rng, cfg) {
   for (const n of notes || []) {
     if (n.midi != null) {
       const e = {
+        // gain 0.31 (was 0.35, the layer ceiling) — a slightly softer touch so the piano doesn't
+        // "กระแทก" on every note (P'Aim 14 ก.ค.). Still the loudest role, well above the comp floor.
         role: 'melody', inst: 'melody', midi: n.midi,
         startBeat: beat, beats: n.beats,
-        gain: 0.35, attack: 0.015, decayTo: null, timeShift: 0,
+        gain: 0.31, attack: 0.015, decayTo: null, timeShift: 0,
       }
       const grace = mod && mod.melodyGrace ? mod.melodyGrace(e, rng, cfg) : null
       if (grace) out.push(grace)
@@ -99,7 +101,7 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   const rng = rngFor(meta.songId, meta.pass || 0)
   const dyn = cfg.dynamics || {}
 
-  const events = []
+  let events = []
   // pass the module only when the arranger is ON, so "ตรงโน้ต" (off) never adds an ornament — the
   // melody stays exactly as printed (§6c), and piano (no melodyGrace) is unchanged either way.
   if (wantMelody) events.push(...melodyEvents(notes, on ? mod : null, rng, cfg))
@@ -140,6 +142,8 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   // as printed — constant gain, timeShift 0, no embellishment (§6c invariant). Order: shape the
   // gains (section → accent → contour → cresc), then time (rubato → humanize), clamp to layer.
   if (on) {
+    // thin the comp under a held melody note first (fewer notes = real space), then shape gains
+    if (cfg.easeUnderHold !== false) events = easeUnderHold(events, bpb)
     if (dyn.section !== false) sectionDynamics(events, meta.sections, dyn.sectionMap)
     if (dyn.accent !== false) metricAccent(events, bpb)
     if (dyn.contour !== false) melodicContour(events)

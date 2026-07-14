@@ -42,6 +42,8 @@ export const PRESETS = {
       // P'Aim 13 ก.ค. — เบสมือซ้ายใช้ pedal (ลากยาว "อุ้ม" ไม่ "ตอก") ให้ Grand ลุ่มลึกอบอุ่น
       // (ของเดิม 'root'). sparkleLevel = ความดังประกายย่านสูงเทียบทำนอง (0.7 = เบากว่า 30%) —
       // ค่าเริ่มต้น · viewer จูนสดทับด้วยสไลเดอร์ (store.sparkleLevel).
+      // gapFill kept (P'Aim 14 ก.ค. "มีที่เพราะ แต่อย่าเยอะเกิน") but its frequency was halved in
+      // embellish.js so it garnishes a long held note now and then instead of poking one into most.
       pattern: 'arpeggio', bass: 'pedal', voicing: 'drop2', embellish: ['sparkle', 'gapFill'],
       // ท่อนรับ แตกคอร์ดถี่ขึ้น (arpeggioDense = 2 hits/beat) ให้เด่นกว่าท่อนร้อง (P'Aim). โหมดสงบไม่ตั้ง
       // → ท่อนรับก็นิ่งตาม mood.

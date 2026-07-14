@@ -11,7 +11,7 @@ import { drop2, open } from './voicing.js'
 import { root, pedal, walking } from './bass.js'
 import { sustained, arpeggio, arpeggioDense, harpRoll, waltz, alberti } from './patterns.js'
 import { embellishChord } from './embellish.js'
-import { rubato } from './dynamics.js'
+import { rubato, easeUnderHold } from './dynamics.js'
 import { PRESETS, DEFAULT_PRESET, presetCfg, songFeatures, recommendRecipe } from './presets.js'
 import { buildChordVoice } from '../midi.js'
 import { gainToVelocity, GRAND_LAYER } from '../sampler.js'
@@ -78,7 +78,7 @@ describe('ลูกเล่นปิด — note-check first-class (§6c)', () 
   it('melody exactly as printed — constant gain, timeShift 0, no emb', () => {
     const mel = melodyOf(evs)
     expect(mel.every((e) => e.timeShift === 0)).toBe(true)
-    expect(mel.every((e) => e.gain === 0.35)).toBe(true)
+    expect(mel.every((e) => e.gain === 0.31)).toBe(true)
     expect(evs.some((e) => e.role === 'emb')).toBe(false)
   })
   it('every event timeShift 0', () => { expect(evs.every((e) => e.timeShift === 0)).toBe(true) })
@@ -309,6 +309,27 @@ describe('refrain chord-break (ท่อนรับแตกคอร์ด · 
   it('no sections → refrainPattern never fires (whole song = normal comp)', () => {
     const evs = arrange([], CE, cfg, { ...META, sections: [] })
     expect(inner(evs, 0, 2)).toBe(inner(evs, 4, 6))
+  })
+})
+
+describe('easeUnderHold (R2.9) — comp thins under a held melody (P\'Aim "ควรเงียบ → ผ่อนเบา")', () => {
+  it('drops non-downbeat comp hits deep inside a held note; keeps bass + melody + moving-comp', () => {
+    const evs = [
+      { role: 'melody', startBeat: 0, beats: 4 }, // held 4 beats (e.g. 2 – – –)
+      { role: 'bass', startBeat: 0, beats: 4 },
+      { role: 'inner', startBeat: 0 }, { role: 'inner', startBeat: 1 },
+      { role: 'inner', startBeat: 2 }, { role: 'inner', startBeat: 3 },
+      { role: 'melody', startBeat: 4, beats: 1 }, // tune moves again
+      { role: 'inner', startBeat: 4 },
+    ]
+    const out = easeUnderHold(evs, 4, 2)
+    expect(out.filter((e) => e.role === 'inner').map((e) => e.startBeat)).toEqual([0, 1, 4]) // 2,3 eased out
+    expect(out.filter((e) => e.role === 'bass').length).toBe(1) // foundation stays
+    expect(out.filter((e) => e.role === 'melody').length).toBe(2) // tune untouched
+  })
+  it('no melody (chords-only) → nothing thinned', () => {
+    const evs = [{ role: 'inner', startBeat: 2 }, { role: 'inner', startBeat: 3 }]
+    expect(easeUnderHold(evs, 4, 2).length).toBe(2)
   })
 })
 
