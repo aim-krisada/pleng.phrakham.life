@@ -37,10 +37,12 @@ beforeEach(() => {
 describe('ShellBar — Thai typeface toggle', () => {
   it('offers both cuts as a radiogroup, default selected', async () => {
     const w = await openMenu()
-    const opts = w.findAll('.sb-font-opts button')
+    // Scope to the ⚙ settings popover — the same control also lives in the always-rendered
+    // mobile ☰ drawer panel, so an unscoped query would match both copies.
+    const opts = w.findAll('.sb-settings .sb-font-opts button')
     expect(opts).toHaveLength(2)
-    expect(w.find('.sb-font-opts').attributes('role')).toBe('radiogroup')
-    expect(w.find('.sb-font-lbl').text()).toContain('ตัวอักษรไทย')
+    expect(w.find('.sb-settings .sb-font-opts').attributes('role')).toBe('radiogroup')
+    expect(w.find('.sb-settings .sb-font-lbl').text()).toContain('ตัวอักษรไทย')
     // default cut is the checked radio
     expect(opts[0].attributes('aria-checked')).toBe('true')
     expect(opts[1].attributes('aria-checked')).toBe('false')
@@ -48,7 +50,7 @@ describe('ShellBar — Thai typeface toggle', () => {
 
   it('choosing มีหัว sets the store, persists it, and flags <html>', async () => {
     const w = await openMenu()
-    await w.findAll('.sb-font-opts button')[1].trigger('click')
+    await w.findAll('.sb-settings .sb-font-opts button')[1].trigger('click')
     expect(siteFont.value).toBe('looped')
     expect(localStorage.getItem('pleng.siteFont')).toBe('looped')
     expect(document.documentElement.getAttribute('data-font')).toBe('looped')
@@ -59,7 +61,7 @@ describe('ShellBar — Thai typeface toggle', () => {
     await nextTick()
     expect(document.documentElement.getAttribute('data-font')).toBe('looped')
     const w = await openMenu()
-    await w.findAll('.sb-font-opts button')[0].trigger('click')
+    await w.findAll('.sb-settings .sb-font-opts button')[0].trigger('click')
     expect(siteFont.value).toBe('default')
     expect(localStorage.getItem('pleng.siteFont')).toBe('default')
     expect(document.documentElement.hasAttribute('data-font')).toBe(false)

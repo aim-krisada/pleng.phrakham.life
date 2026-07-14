@@ -9,7 +9,14 @@
 //             พระคำ↗) + tools on the right (🔍 · ⚙ ตัวอักษรไทย · เข้าสู่ระบบ).
 //   Mobile  = app ICON only (มุมซ้าย · no name) + 🔍 + ☰ on the right; ☰ opens a drawer
 //             holding the nav links + a "เครื่องมือ" section (ตัวอักษรไทย + เข้าสู่ระบบ).
-import { nextTick } from 'vue'
+//
+// The mobile drawer is NOT hand-rolled here: it is the ONE shared vanilla core
+// window.PKDrawer (src/lib/pk-drawer.js, verbatim from phrakham.life) — so pleng's ☰
+// menu = phrakham's (left slide + scrim + focus-trap + Esc/scrim-close + scroll-lock,
+// all a11y baked once). This component only owns the CONTENT of the panel (Vue nav +
+// เครื่องมือ); the core owns the off-canvas SHELL. The core re-queries focusables on
+// every open, so the Vue-rendered links are trapped correctly.
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { shellMenu, siteFont, setSiteFont } from '../store.js'
 import ProfileTool from './ProfileTool.vue'
@@ -22,12 +29,41 @@ const router = useRouter()
 // 192px glowing-book icon; BASE_URL keeps it resolving on both hosts.
 const appIcon = import.meta.env.BASE_URL + 'android-chrome-192x192.png'
 
-// The drawer reuses the shared one-open-at-a-time channel under the 'site' key (mobile ☰);
-// the desktop ⚙ font popover uses 'settings'. Studio's own menus use other keys, so opening
-// any one closes the rest.
-function toggleDrawer() {
-  shellMenu.value = shellMenu.value === 'site' ? null : 'site'
-}
+// ---- Mobile drawer wiring (shared PKDrawer core) ----
+// The ☰ button and the always-rendered panel are handed to PKDrawer.create() on mount;
+// the core wires the trigger click, scrim, Esc and × itself. We only bridge its open
+// state onto the shared one-open-at-a-time `shellMenu` channel (key 'site') so opening
+// the drawer coexists with the desktop ⚙ popover ('settings') and Studio's own menus.
+const burgerBtn = ref(null)
+const drawerPanel = ref(null)
+let drawer = null
+const desktopMq = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+  ? window.matchMedia('(min-width: 992px)') : null
+
+onMounted(() => {
+  if (!window.PKDrawer || !burgerBtn.value || !drawerPanel.value) return
+  drawer = window.PKDrawer.create({
+    side: 'left',
+    trigger: burgerBtn.value,
+    panel: drawerPanel.value,
+    label: 'เมนู',
+    scrim: true,
+    onOpen() { shellMenu.value = 'site' },
+    onClose() { if (shellMenu.value === 'site') shellMenu.value = null },
+  })
+  // Another menu (settings popover / Studio menu) taking the shared channel closes the drawer.
+  watch(shellMenu, (v) => { if (v !== 'site' && drawer && drawer.isOpen()) drawer.close() })
+  // Crossing to desktop while open (rotate/resize): the ☰ is gone, so close the off-canvas.
+  if (desktopMq) desktopMq.addEventListener('change', onDesktop)
+})
+
+function onDesktop(e) { if (e.matches && drawer && drawer.isOpen()) drawer.close() }
+
+onUnmounted(() => {
+  if (desktopMq) desktopMq.removeEventListener('change', onDesktop)
+  if (drawer) { drawer.destroy(); drawer = null }   // kill scrim/listeners (leak + HMR)
+})
+
 function toggleSettings() {
   shellMenu.value = shellMenu.value === 'settings' ? null : 'settings'
 }
@@ -102,8 +138,8 @@ async function goSearch() {
         </div>
       </div>
 
-      <!-- ☰ hamburger — mobile only; opens the drawer -->
-      <button class="sb-icon-btn sb-burger" :aria-expanded="shellMenu === 'site'" aria-label="เมนู" @click.stop="toggleDrawer">
+      <!-- ☰ hamburger — mobile only; the PKDrawer core wires its click + syncs aria-expanded. -->
+      <button ref="burgerBtn" class="sb-icon-btn sb-burger" aria-label="เมนู">
         <Icon name="menu" :size="22" />
       </button>
 
@@ -112,8 +148,11 @@ async function goSearch() {
       <ProfileTool class="sb-login" />
     </div>
 
-    <!-- Mobile drawer (slide-in from the right): nav links + เครื่องมือ (font + login). -->
-    <aside v-if="shellMenu === 'site'" class="sb-drawer" role="dialog" aria-label="เมนู">
+    <!-- Mobile drawer CONTENT — the PKDrawer core (side:left) owns the off-canvas shell, scrim
+         and a11y; this panel is its BYO-DOM content. Always rendered (the core toggles its
+         visibility off-canvas), NOT v-if'd, so the core keeps a stable node to slide + trap.
+         On desktop it stays hidden off-canvas (the ☰ trigger is display:none). -->
+    <aside ref="drawerPanel" class="sb-drawer-panel">
       <!-- Nav links = text only (design-system SSOT docs/ds/menu-drawer-spec.md §2: ไม่มีไอคอนหน้า).
            Desktop .sb-nav is already text-only; this mirrors it in the drawer. ↗ on พระคำ.ชีวิต is a
            text external-link marker (same as desktop .sb-ext), not a leading icon. -->
@@ -142,6 +181,10 @@ async function goSearch() {
       </div>
     </aside>
 
-    <div v-if="shellMenu" class="sb-backdrop" aria-hidden="true" @click="closeMenus"></div>
+    <!-- Click-away backdrop for every shell popover EXCEPT the mobile drawer: the ⚙ font
+         popover ('settings') and Studio's teleported menus ('song' etc.) all rely on it to
+         close on an outside click. The 'site' drawer is excluded — PKDrawer supplies its own
+         scrim (and would double-dim behind it otherwise). -->
+    <div v-if="shellMenu && shellMenu !== 'site'" class="sb-backdrop" aria-hidden="true" @click="closeMenus"></div>
   </header>
 </template>

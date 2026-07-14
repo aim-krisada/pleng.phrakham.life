@@ -5,6 +5,10 @@ import './styles.css'
 // B001 — floating scroll ↑/↓ buttons. The SAME vanilla file phrakham.life uses
 // (self-mounts to <body>, portable by design). It listens on window scroll/resize.
 import './lib/pk-scrollnav.js'
+// The ONE shared off-canvas drawer core (also vanilla, verbatim from phrakham.life —
+// edit-once, no second copy). Registers window.PKDrawer; ShellBar consumes it for the
+// mobile ☰ menu so pleng's drawer = phrakham's drawer (left slide + scrim + a11y).
+import './lib/pk-drawer.js'
 
 // SPA route changes swap page content without a scroll/resize event, so the shared
 // script (which re-checks on those events) wouldn't notice the new page height. Nudge it

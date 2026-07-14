@@ -13,9 +13,13 @@
   --chord-red: #c0392b;  /* 5.2:1 on white */
   --note-blue: #2b6cb0;  /* 5.0:1 on white */
   --red: #c0392b;
-  /* aliases the shared pk-scrollnav.js (B001) reads for theming */
+  /* aliases the shared pk-* vanilla cores (pk-scrollnav B001, pk-drawer) read for theming.
+     Their CSS uses these tokens with hard-coded fallbacks; mapping them here keeps pleng's
+     drawer skin identical to phrakham (cream panel, brown accent, warm border). */
   --pk-accent: var(--brand);
   --pk-cream: var(--cream);
+  --pk-ink: var(--ink);
+  --pk-border: var(--line);
 
   /* ===== S0 design tokens (responsive overhaul) =====
      Single source for spacing/type/rhythm across the app. S1–S4 consume these
@@ -351,25 +355,15 @@ main.container { flex: 1 0 auto; }
 }
 .sb-burger { display: none; } /* mobile only — shown in the mobile @media */
 
-/* ---- mobile drawer (slide-in from the right, phrakham-style off-canvas) ---- */
-.sb-drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(84vw, 320px);
-  background: #fff;
-  border-left: 1px solid var(--line);
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.16);
-  z-index: 60;
-  padding: var(--sp-4);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+/* ---- mobile drawer CONTENT (shell = the shared vanilla core src/lib/pk-drawer.js) ----
+   The core owns the off-canvas positioning, left slide, scrim, cream background and the ×
+   close button (all via its own injected .pk-drawer styles, skinned by the --pk-* tokens
+   above). This panel only lays out the content INSIDE: column flow + a top pad that clears
+   the core's absolutely-positioned × (mirrors phrakham theme.scss #pk-drawer-content). */
+.sb-drawer-panel {
   gap: var(--sp-2);
-  animation: sb-drawer-in 0.18s ease-out;
+  padding: calc(env(safe-area-inset-top) + 3.25rem) var(--sp-4) var(--sp-4);
 }
-@keyframes sb-drawer-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .sb-drawer-nav { display: flex; flex-direction: column; gap: 2px; }
 .sb-drawer-nav a {
   display: flex;
@@ -433,8 +427,6 @@ main.container { flex: 1 0 auto; }
   .sb-cat:hover,
   .sb-text:hover { background: rgba(0, 0, 0, 0.06); }
 }
-/* the off-canvas drawer only exists on mobile; guard against a resize-while-open showing it */
-@media (min-width: 992px) { .sb-drawer { display: none; } }
 @media (max-width: 991.98px) {
   /* phrakham parity (P'Aim 13 ก.ค.): app ICON left (no name) · 🔍 + ☰ right; nav + tools move
      into the ☰ drawer. Studio's teleported #shell-menus still drops to a 2nd row below. */
