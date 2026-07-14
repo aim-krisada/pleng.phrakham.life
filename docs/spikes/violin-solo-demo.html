@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B107 P2 · เดโมไวโอลินเดี่ยว-จัดเต็ม (ให้ P'Aim ฟัง)</title>
+<style>
+  :root{ font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body{ margin:0; padding:16px; max-width:680px; margin:auto; color:#1a1a1a; background:#faf8f7; line-height:1.5; }
+  h1{ font-size:1.2rem; margin:0 0 2px; }
+  .sub{ color:#666; font-size:.88rem; margin:0 0 14px; }
+  .panel{ background:#fff; border:1px solid #ece3e3; border-radius:14px; padding:14px 16px; margin:12px 0; }
+  .panel h2{ font-size:.82rem; letter-spacing:.02em; color:#977; text-transform:uppercase; margin:0 0 10px; font-weight:600; }
+  .opts{ display:flex; gap:8px; flex-wrap:wrap; }
+  .opt{ font-size:.95rem; padding:11px 15px; border-radius:12px; border:1.5px solid #e0d3d3; background:#fff; cursor:pointer; }
+  .opt.sel{ border-color:#7a2e3a; background:#f6e6e8; color:#5e2029; font-weight:600; }
+  .opt small{ display:block; font-size:.72rem; color:#b99; font-weight:400; margin-top:2px }
+  .opt.sel small{ color:#7a2e3a }
+  #playRow{ display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap }
+  #play{ font-size:1.15rem; font-weight:700; padding:12px 26px; border-radius:12px; border:none; background:#7a2e3a; color:#fff; cursor:pointer; }
+  #play:hover{ background:#652531 } #play:disabled{ opacity:.5 }
+  #stop{ font-size:.95rem; padding:10px 16px; border-radius:10px; border:1px solid #d7c9c9; background:#fff; cursor:pointer; }
+  #now{ font-size:.9rem; color:#7a2e3a; min-height:1.3em; margin-top:8px; font-weight:600; }
+  #status{ font-size:.85rem; color:#888; min-height:1.2em; }
+  .hint{ font-size:.82rem; color:#777; margin:6px 0 0; }
+  .row{ display:flex; align-items:center; gap:10px; margin:8px 0; }
+  .row label{ font-size:.85rem; min-width:132px; } input[type=range]{ flex:1; accent-color:#7a2e3a; }
+  .val{ font-size:.8rem; color:#666; min-width:52px; text-align:right; font-variant-numeric:tabular-nums; }
+  .tg{ display:flex; flex-wrap:wrap; gap:7px; }
+  .tgb{ font-size:.85rem; padding:9px 13px; border-radius:10px; border:1.5px solid #e0d3d3; background:#fff; cursor:pointer; user-select:none; }
+  .tgb.on{ border-color:#7a2e3a; background:#f6e6e8; color:#5e2029; font-weight:600; }
+  .tgb .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background:#ccc; margin-right:6px; vertical-align:middle; }
+  .tgb.on .dot{ background:#3a9d5a; }
+</style>
+</head>
+<body>
+<h1>🎻 เดโมไวโอลินเดี่ยว-จัดเต็ม (B107 P2)</h1>
+<p class="sub">เพลงจริง #1 "พระเจ้าเป็นความรัก" · ไวโอลินตัวเดียวเล่นทำนองทั้งเพลง ด้วยลูกเล่นคันชักแท้ ๆ (ลากยาว-สเวลล์-สั่นเสียง) ไม่ใช่ยิงโน้ตทื่อ ๆ · ทุกอย่างอัตโนมัติ · เสียงไฟล์ไวโอลินจริงที่โฮสต์ไว้ (VSCO-2 CC0)</p>
+
+<div class="panel">
+  <h2>สไตล์การเล่น (กดแล้วเล่นใหม่)</h2>
+  <div class="opts" id="styleOpts">
+    <div class="opt sel" data-s="cantabile">🎶 ลากยาวพลิ้ว (cantabile)<small>ร้องเป็นเส้นเดียวลื่น · สเวลล์+สั่นเสียง · เพราะนุ่ม</small></div>
+    <div class="opt" data-s="grand">👑 สง่า (grand)<small>คันชักหนักแน่น · สเวลล์ลึก · double-stop ประสานโน้ตยาว</small></div>
+    <div class="opt" data-s="plain">📝 ตรงโน้ต (เรียบ)<small>ลากตรง ๆ ไม่ใส่ลูกเล่น · ไว้เทียบ A/B</small></div>
+  </div>
+  <p class="hint">แต่ละสไตล์ = ชุดลูกเล่นสำเร็จ · ปรับเปิด/ปิดแต่ละอย่างเองได้ข้างล่าง เพื่อหาว่าตัวไหนทำให้เพราะ/ไม่เพราะ</p>
+</div>
+
+<div class="panel">
+  <h2>ลูกเล่นคันชัก (เปิด/ปิดทีละอย่าง)</h2>
+  <div class="tg" id="techTg">
+    <button class="tgb on" data-t="legato"><span class="dot"></span>เชื่อมโน้ต (legato)</button>
+    <button class="tgb on" data-t="swell"><span class="dot"></span>สเวลล์โน้ตยาว (คันชักดัง-เบา)</button>
+    <button class="tgb on" data-t="vibrato"><span class="dot"></span>สั่นเสียง (vibrato)</button>
+    <button class="tgb on" data-t="porta"><span class="dot"></span>สไลด์เข้าโน้ต (portamento)</button>
+    <button class="tgb on" data-t="dyn"><span class="dot"></span>หนัก-เบาตามวรรค (dynamics)</button>
+    <button class="tgb" data-t="dstop"><span class="dot"></span>ประสานคู่ (double-stop)</button>
+  </div>
+</div>
+
+<div id="playRow"><button id="play">▶ เล่น</button><button id="stop">■ หยุด</button></div>
+<div id="now"></div>
+<div id="status">แตะ "เล่น" ครั้งแรกจะโหลดเสียงไวโอลินจริง (~2 วิ)</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>ปั้นเสียง (เลื่อนแล้วกดเล่นใหม่)</h2>
+  <div class="row"><label>ดังทำนอง</label><input type="range" id="melVol" min="40" max="140" value="100"><span class="val" id="melV">100%</span></div>
+  <div class="row"><label>ความลึกสเวลล์</label><input type="range" id="swell" min="0" max="80" value="38"><span class="val" id="swellV">38%</span></div>
+  <div class="row"><label>ความแรงสั่นเสียง</label><input type="range" id="vib" min="0" max="45" value="20"><span class="val" id="vibV">20 cent</span></div>
+  <div class="row"><label>ดังคู่ประสาน</label><input type="range" id="dsVol" min="20" max="100" value="55"><span class="val" id="dsV">55%</span></div>
+  <div class="row"><label>เสียงก้อง (โบสถ์)</label><input type="range" id="rev" min="0" max="100" value="34"><span class="val" id="revV">34%</span></div>
+  <div class="row"><label>ความเร็ว (BPM)</label><input type="range" id="bpm" min="46" max="96" value="63"><span class="val" id="bpmV">63</span></div>
+</div>
+
+<p class="hint" style="margin-top:14px">🎻 เสียงจริง = ไฟล์ VSCO-2 Solo Violin (CC0) ที่ dev โฮสต์ไว้ใน <code>/samples/CC0/violin/</code> — ตัวเดียวกับที่จะใช้จริงในแอป. เดโมนี้เพิ่ม "การเล่น" (envelope คันชัก + สเวลล์ + vibrato + สไลด์) รอบเสียงจริงนั้น ซึ่งเป็นสิ่งที่ smplr ทำไม่ได้ — จึงต้องมี playback path ของ bowed แยก (สรุปในรายงาน).</p>
+
+<script type="module">
+// Real worship song #1 "พระเจ้าเป็นความรัก" (same melody as the guitar demo, so P'Aim can A/B the
+// two instruments on the SAME tune). m = MIDI pitch (null = rest) · b = beats · c = chord symbol.
+const SONG = JSON.parse('[{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":0.5,"c":"A"},{"m":68,"b":0.5,"c":"A"},{"m":66,"b":4,"c":"B"},{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":1,"c":"A"},{"m":66,"b":3,"c":"B"},{"m":64,"b":1,"c":"B"},{"m":64,"b":4,"c":"E"}]');
+
+const SHARP=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const IV={'':[0,4,7],m:[0,3,7],7:[0,4,7,10],m7:[0,3,7,10],maj7:[0,4,7,11],sus4:[0,5,7],dim:[0,3,6],6:[0,4,7,9],9:[0,4,7,10,14]};
+function chordPCs(ch){const m=/^([A-G][#b]?)(.*)$/.exec(ch||'');if(!m)return[];
+  const ri=SHARP.indexOf(m[1].replace('Bb','A#').replace('Eb','D#').replace('Ab','G#').replace('Db','C#').replace('Gb','F#'));
+  if(ri<0)return[]; return (IV[m[2]]||IV['']).map(iv=>(ri+iv)%12);}
+// idiomatic melodic dynamics (shared with piano/guitar demos): downbeat stress + rising-line lift.
+function accent(pb){const p=((pb%4)+4)%4;if(p<0.01)return 1;if(Math.abs(p-2)<0.01)return .9;
+  if(Math.abs(p-1)<0.01||Math.abs(p-3)<0.01)return .8;return .72;}
+function contour(i){const n=SONG[i],pr=SONG[i-1],nx=SONG[i+1];let c=1;
+  if(pr&&n.m>pr.m)c+=.06;if(pr&&nx&&n.m>pr.m&&n.m>=nx.m)c+=.06;if(pr&&n.m<pr.m)c-=.04;if(n.b>=3)c-=.06;return c;}
+
+// ---- audio graph ----
+let ctx,master,revConv,revGain,melBus,dsBus,gen=0;
+function impulse(sec,decay){const rate=ctx.sampleRate,len=Math.max(1,Math.floor(rate*sec)),buf=ctx.createBuffer(2,len,rate);
+  for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay);}return buf;}
+function ensure(){ if(ctx)return;
+  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  master=ctx.createGain(); master.gain.value=0.9;
+  const lim=ctx.createDynamicsCompressor(); lim.threshold.value=-3;lim.knee.value=10;lim.ratio.value=3;lim.attack.value=0.01;lim.release.value=0.25;
+  master.connect(lim); lim.connect(ctx.destination);
+  revConv=ctx.createConvolver(); revConv.buffer=impulse(2.6,2.0); // church tail
+  revGain=ctx.createGain(); revConv.connect(revGain); revGain.connect(master);
+  melBus=ctx.createGain(); melBus.connect(master); melBus.connect(revConv);
+  dsBus=ctx.createGain();  dsBus.connect(master);  dsBus.connect(revConv);
+}
+
+// ★ REAL violin CC sample (self-hosted, the true timbre). Tiny custom sampler: fetch each ogg
+// (filename = MIDI pitch), decode, and pitch-shift the nearest sample via playbackRate — SAME
+// approach the shipping app should use for bowed, because we need a PER-NOTE gain envelope
+// (bow attack + swell + release) that smplr's Sampler doesn't expose.
+let VLN=null, activeVoice=[];
+async function loadViolin(){ if(VLN)return VLN;
+  const pj=await (await fetch('/samples/CC0/violin/preset.json')).json();
+  const regs=pj.groups.flatMap(g=>g.regions);
+  const bufs=await Promise.all(regs.map(async r=>{
+    const ab=await (await fetch('/samples/CC0/violin/'+r.sample+'.ogg')).arrayBuffer();
+    return { midi:r.pitch, buf:await ctx.decodeAudioData(ab) }; }));
+  bufs.sort((a,b)=>a.midi-b.midi); VLN=bufs; return VLN; }
+function nearest(midi){ let best=VLN[0]; for(const b of VLN) if(Math.abs(b.midi-midi)<Math.abs(best.midi-midi)) best=b; return best; }
+
+// The heart of the demo: fire ONE bowed note with an expressive envelope.
+//   bus   : melBus (melody) or dsBus (double-stop harmony)
+//   midi  : pitch · t : start (sec) · durBeats : length in beats · spb : sec/beat · gain : peak
+//   T     : { legato, swell, vibrato, porta } technique flags · swellAmt/vibCents from sliders
+function bow(bus, midi, t, durBeats, spb, gain, T, swellAmt, vibCents){
+  const best=nearest(midi);
+  const src=ctx.createBufferSource(); src.buffer=best.buf;
+  src.playbackRate.value=Math.pow(2,(midi-best.midi)/12); // pitch-shift to target
+  const g=ctx.createGain();
+  const G=Math.max(0.02,gain);
+  const dur=durBeats*spb;
+  // bow lean-in: NOT a percussive hit. Slightly longer attack on longer notes (a slow bow).
+  const atk=Math.min(0.16, 0.05 + durBeats*0.02);
+  // legato = let the note ring past its slot so the next note's attack overlaps (bow doesn't stop);
+  // detached = end with a small gap before the next onset.
+  const ring = T.legato ? 0.12 : 0.0;
+  const rel = T.legato ? 0.14 : 0.09;
+  const soundEnd = t + (T.legato ? dur : Math.max(0.1, dur-0.05));
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(G, t+atk);
+  if(T.swell && durBeats>=1.5){
+    // messa di voce — swell up through the middle of a long note, then ease back (the violin's
+    // signature expressive shape). Amount from the slider.
+    const peakT=t+dur*0.55;
+    g.gain.linearRampToValueAtTime(G*(1+swellAmt), peakT);
+    g.gain.linearRampToValueAtTime(G*0.82, soundEnd);
+  } else {
+    g.gain.setValueAtTime(G, Math.max(t+atk, soundEnd-rel));
+  }
+  g.gain.linearRampToValueAtTime(0.0001, soundEnd+rel);
+  // portamento: start a touch flat and slide up into pitch (~70ms) — occasional, on longer notes.
+  if(T.porta && durBeats>=1 && (best.midi+midi)%3===0){
+    src.detune.setValueAtTime(-38, t);
+    src.detune.linearRampToValueAtTime(0, t+0.075);
+  }
+  // vibrato: a ~5.6 Hz detune wobble that FADES IN after ~0.25s (players don't vibrate on the onset).
+  let lfo=null,lg=null;
+  if(T.vibrato && durBeats>=1 && vibCents>0){
+    lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=5.6;
+    lg=ctx.createGain(); lg.gain.setValueAtTime(0.0001,t); lg.gain.linearRampToValueAtTime(vibCents, t+0.28);
+    lfo.connect(lg).connect(src.detune);
+  }
+  src.connect(g).connect(bus);
+  src.start(t); src.stop(soundEnd+rel+ring+0.05);
+  if(lfo){ lfo.start(t); lfo.stop(soundEnd+rel+0.05); }
+  activeVoice.push(src); if(lfo)activeVoice.push(lfo);
+}
+
+const setStatus=m=>document.getElementById('status').textContent=m;
+const setNow=m=>document.getElementById('now').textContent=m;
+function stopAll(){ gen++; activeVoice.forEach(s=>{try{s.stop();}catch(e){}}); activeVoice=[]; }
+
+let STYLE='cantabile';
+const TECH={legato:true,swell:true,vibrato:true,porta:true,dyn:true,dstop:false};
+// style preset → default technique combo (the toggles reflect it; user can still override)
+const PRESETS={
+  cantabile:{legato:1,swell:1,vibrato:1,porta:1,dyn:1,dstop:0},
+  grand:    {legato:1,swell:1,vibrato:1,porta:0,dyn:1,dstop:1},
+  plain:    {legato:0,swell:0,vibrato:0,porta:0,dyn:0,dstop:0},
+};
+function applyPreset(s){ const p=PRESETS[s]; for(const k in p) TECH[k]=!!p[k];
+  document.querySelectorAll('#techTg .tgb').forEach(b=>b.classList.toggle('on',!!TECH[b.dataset.t])); }
+
+async function play(){
+  ensure(); await ctx.resume(); stopAll(); const my=gen;
+  document.getElementById('play').disabled=true; setStatus('⏳ กำลังโหลดเสียงไวโอลินจริง (VSCO-2 CC0)...');
+  try{ await loadViolin(); }
+  catch(e){ setStatus('⚠️ โหลดไฟล์ไวโอลินไม่ได้ (ต้องเปิดผ่าน dev server ที่เสิร์ฟ /samples/) — '+e.message);
+    document.getElementById('play').disabled=false; return; }
+  document.getElementById('play').disabled=false; if(my!==gen)return;
+  setStatus('✅ เล่นด้วยไฟล์ไวโอลินจริง (VSCO-2 Solo Violin · CC0 · เสียงที่จะใช้จริง)');
+
+  const melVol=(+melVolEl.value)/100, dsVol=(+dsVolEl.value)/100;
+  const swellAmt=(+swellEl.value)/100, vibCents=+vibEl.value;
+  revGain.gain.value=(+revEl.value)/100*0.55;
+  const bpm=+bpmEl.value, spb=60/bpm;
+  const t0=ctx.currentTime+0.2, rnd=()=>(Math.random()-0.5)*2, TJ=0.012, VJ=0.06;
+  const T=TECH;
+
+  // MELODY — one bowed line, the whole song. dynamics (accent×contour×humanize) shape the peak
+  // gain when "หนัก-เบา" is on; a flat gain when off (the plain A/B reference).
+  let beat=0;
+  SONG.forEach((n,i)=>{
+    if(n.m!=null){
+      const dyn = T.dyn ? accent(beat)*contour(i)*(1+VJ*rnd()) : 1;
+      const sh  = T.dyn ? TJ*rnd() : 0;
+      const t   = t0+beat*spb+sh;
+      bow(melBus, n.m, t, n.b, spb, 0.30*melVol*dyn, T, swellAmt, vibCents);
+      // double-stop: on longer notes, add a chord tone a 3rd/6th BELOW (a real solo-violin
+      // harmony move) — only when it lands on a chord tone, softer, no vibrato of its own.
+      if(T.dstop && n.b>=2){
+        const pcs=chordPCs(n.c); let h=null;
+        for(let d=3; d<=9; d++){ const cand=n.m-d; if(pcs.includes(((cand%12)+12)%12)){ h=cand; break; } }
+        if(h!=null) bow(dsBus, h, t+0.01, n.b, spb, 0.30*dsVol*dyn, {legato:T.legato,swell:T.swell,vibrato:false,porta:false}, swellAmt*0.7, 0);
+      }
+    }
+    beat+=n.b;
+  });
+  const names={cantabile:'ลากยาวพลิ้ว (cantabile)',grand:'สง่า (grand)',plain:'ตรงโน้ต (เรียบ)'};
+  setNow('▶ ไวโอลินเดี่ยว · '+names[STYLE]+' · BPM '+bpm);
+}
+
+// ---- controls ----
+const melVolEl=document.getElementById('melVol'), dsVolEl=document.getElementById('dsVol'),
+  swellEl=document.getElementById('swell'), vibEl=document.getElementById('vib'),
+  revEl=document.getElementById('rev'), bpmEl=document.getElementById('bpm');
+document.querySelectorAll('#styleOpts .opt').forEach(o=> o.addEventListener('click',()=>{
+  STYLE=o.dataset.s; document.querySelectorAll('#styleOpts .opt').forEach(x=>x.classList.toggle('sel',x===o));
+  applyPreset(STYLE); }));
+document.querySelectorAll('#techTg .tgb').forEach(b=> b.addEventListener('click',()=>{
+  TECH[b.dataset.t]=!TECH[b.dataset.t]; b.classList.toggle('on',TECH[b.dataset.t]); }));
+document.getElementById('play').addEventListener('click',()=> play().catch(e=>setStatus('⚠️ '+e.message)));
+document.getElementById('stop').addEventListener('click',()=>{ stopAll(); setNow(''); setStatus('■ หยุดแล้ว'); });
+const bind=(el,l,suf)=>{ const o=document.getElementById(l); const u=()=>o.textContent=el.value+(suf||''); el.addEventListener('input',u); u(); };
+bind(melVolEl,'melV','%'); bind(swellEl,'swellV','%'); bind(vibEl,'vibV',' cent'); bind(dsVolEl,'dsV','%'); bind(revEl,'revV','%'); bind(bpmEl,'bpmV','');
+
+// expose for headless verify (OfflineAudioContext peak check) — see docs/reports
+window.__violinDemo={ SONG, chordPCs };
+</script>
+</body>
+</html>
