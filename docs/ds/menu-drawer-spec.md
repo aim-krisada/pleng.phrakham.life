@@ -14,6 +14,7 @@
 >
 > **🏛️ สถาปัตย์ (P'Aim 14 ก.ค. · บังคับ): drawer = CORE LIBRARY ตัวเดียว authored ที่พระคำ · เพลง "เรียกใช้" — ยึดแพตเทิร์น `pk-scrollnav.js`/DockKey · แก้ที่เดียว ห้าม 2 ก๊อป.**
 > ⚠️ **ข้อเทคนิคที่ต้องออกแบบให้ได้ (consultant flag):** ให้ "แก้ที่เดียว" เป็นจริง → พระคำต้อง author drawer เป็น **standalone vanilla JS+CSS core (เช่น `assets/pk-drawer.js`)** ที่ทั้ง 2 เว็บ import โค้ด**ตัวเดียวกัน** (แบบ `pk-scrollnav.js` ที่เพลง copy verbatim) — **ไม่ใช่** ใช้ Bootstrap `offcanvas` native ล้วน (นั่น = ฟีเจอร์ของ Quarto/Bootstrap ที่เพลง Vue import มาแชร์ไม่ได้ → จะกลายเป็น 2 ก๊อปโดยปริยาย ผิดเจตนา P'Aim) · **pk pm5 ออกแบบ core นี้ที่พระคำ → เพลงบริโภค** · ต้องกำหนด API/mount ให้ใช้ได้ทั้ง Quarto(static) + Vue
+> **✅ API contract เสร็จ (pk pm5 · SSOT = phrakham `pm/spec-pk-drawer.md` `967375b`):** `window.PKDrawer.create({side,trigger,panel,label,width,scrim,onOpen,onClose}) → {open,close,toggle,isOpen,destroy}` · core = เปลือก+a11y (focus-trap/inert/scroll-lock/reduced-motion/token-skin) · site ส่ง `panel` DOM (เพลง Vue render ใส่ ref · destroy ตอน unmount) · **เพลงขอเพิ่ม 1: focus-trap re-query focusable ตอน open() ทุกครั้ง (ไม่ cache ตอน create) เพราะ Vue content dynamic** · **build เมื่อ P'Aim เคาะทิศ:** พระคำ author `assets/pk-drawer.js` → เพลง consume verbatim
 
 ## กฎร่วม (target = left off-canvas drawer + scrim · world-class · align-UP ทั้ง 2 เว็บ — pending P'Aim เคาะทิศ)
 
