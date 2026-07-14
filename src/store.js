@@ -125,6 +125,22 @@ export function setSparkleLevel(v) {
   if (!Number.isNaN(n)) sparkleLevel.value = n
 }
 
+// ---- arranger technique overrides (ROUND 2 · "ปรับละเอียด" menu — P'Aim: เลือกเปิด/ปิดเองได้) ----
+// A per-browser map { <techniqueKey>: value } that OVERRIDES the current preset's default for each
+// technique (see src/lib/arranger/techniques.js for the list + how each maps to cfg). Only keys the
+// listener explicitly changed are stored; the rest follow the preset. Persisted so a chosen setup
+// survives reloads; the viewer merges it into the arrangeCfg (buildArrangeCfg) for both live + MP3.
+const OVERRIDES_KEY = 'pleng.arrangeOverrides'
+export const arrangeOverrides = ref((() => {
+  try { const v = JSON.parse(localStorage.getItem(OVERRIDES_KEY)); if (v && typeof v === 'object') return v } catch { /* ignore */ }
+  return {}
+})())
+watch(arrangeOverrides, (v) => { try { localStorage.setItem(OVERRIDES_KEY, JSON.stringify(v)) } catch { /* ignore */ } }, { deep: true })
+// set one technique (new object → the viewer's computed arrangeCfg + watcher re-schedule fire)
+export function setArrangeOverride(key, value) { arrangeOverrides.value = { ...arrangeOverrides.value, [key]: value } }
+// back to the preset defaults (clear all overrides)
+export function resetArrangeOverrides() { arrangeOverrides.value = {} }
+
 // ---- ensemble mode + lead instrument (B107 P2 · แกน 1 "เสียง") ----
 // The spec's axis 1: เดี่ยว (one instrument the whole song) vs เต็มวง/นำวง (a lead instrument +
 // auto-filled accompaniment). Step 9 ships all five SOLO instruments (samples self-hosted); เต็มวง

@@ -8,13 +8,14 @@ import { describe, it, expect } from 'vitest'
 import { arrange } from './index.js'
 import { mulberry32, seedFor } from './rng.js'
 import { drop2, open } from './voicing.js'
-import { root, pedal, walking } from './bass.js'
+import { root, pedal, walking, pedalWalk } from './bass.js'
 import { sustained, arpeggio, arpeggioDense, harpRoll, waltz, alberti } from './patterns.js'
 import { embellishChord } from './embellish.js'
 import { rubato, easeUnderHold } from './dynamics.js'
+import { answerFills, applySusCadence } from './fills.js'
 import { PRESETS, DEFAULT_PRESET, presetCfg, songFeatures, recommendRecipe } from './presets.js'
 import { buildChordVoice } from '../midi.js'
-import { gainToVelocity, GRAND_LAYER } from '../sampler.js'
+import { gainToVelocity, GRAND_LAYER, GAIN_WINDOW } from '../sampler.js'
 import { keyboard, bowed, guitar, moduleForInstrument } from './instruments/index.js'
 
 const NOTES = [
@@ -105,7 +106,7 @@ describe('velocity-in-layer — the P1 silent-piano invariant (§7b)', () => {
 describe('humanize (R2.4/R2.5 §7b)', () => {
   it('vel nudges but stays in window', () => {
     const on = arrange(NOTES, CHORDS, { voices: 'both' }, META)
-    for (const e of on) { expect(e.gain).toBeGreaterThanOrEqual(0.055); expect(e.gain).toBeLessThanOrEqual(0.35) }
+    for (const e of on) { expect(e.gain).toBeGreaterThanOrEqual(GAIN_WINDOW[0]); expect(e.gain).toBeLessThanOrEqual(GAIN_WINDOW[1]) }
   })
   it('melody timing spread ≤ ±12ms (rubato isolated)', () => {
     for (const e of melodyOf(arrange(NOTES, CHORDS, { voices: 'both', dynamics: NO_TIME }, META)))
@@ -242,9 +243,10 @@ describe('presets (§6 §8 step 8)', () => {
   it('presetCfg is safe for unknown ids (→ default)', () => {
     expect(presetCfg('nope').pattern).toBe(PRESETS[DEFAULT_PRESET].cfg.pattern)
   })
-  it('recommendRecipe: slow→arrangement (arp), fast→calm (sustain) at ~92bpm (§6d)', () => {
+  it('recommendRecipe: ONE predictable default (บรรเลง) for every tempo — auto tempo-switch removed (P\'Aim 14 ก.ค.)', () => {
     expect(recommendRecipe({ bpm: 70 })).toBe('piano-arrangement')
-    expect(recommendRecipe({ bpm: 120 })).toBe('piano-calm')
+    expect(recommendRecipe({ bpm: 120 })).toBe('piano-arrangement')
+    expect(recommendRecipe()).toBe('piano-arrangement')
   })
   it('songFeatures reads bpm + meter', () => {
     const f = songFeatures({ bpm: 100, timeSignature: '3/4', lines: [[], []] })
@@ -313,23 +315,116 @@ describe('refrain chord-break (ท่อนรับแตกคอร์ด · 
 })
 
 describe('easeUnderHold (R2.9) — comp thins under a held melody (P\'Aim "ควรเงียบ → ผ่อนเบา")', () => {
-  it('drops non-downbeat comp hits deep inside a held note; keeps bass + melody + moving-comp', () => {
-    const evs = [
-      { role: 'melody', startBeat: 0, beats: 4 }, // held 4 beats (e.g. 2 – – –)
-      { role: 'bass', startBeat: 0, beats: 4 },
-      { role: 'inner', startBeat: 0 }, { role: 'inner', startBeat: 1 },
-      { role: 'inner', startBeat: 2 }, { role: 'inner', startBeat: 3 },
-      { role: 'melody', startBeat: 4, beats: 1 }, // tune moves again
-      { role: 'inner', startBeat: 4 },
-    ]
-    const out = easeUnderHold(evs, 4, 2)
-    expect(out.filter((e) => e.role === 'inner').map((e) => e.startBeat)).toEqual([0, 1, 4]) // 2,3 eased out
+  const held = () => ([
+    { role: 'melody', startBeat: 0, beats: 8 }, // held 2 bars (e.g. 2 – – – | – – – –)
+    { role: 'bass', startBeat: 0, beats: 8 },
+    ...[0, 1, 2, 3, 4, 5, 6, 7].map((b) => ({ role: 'inner', startBeat: b })),
+    { role: 'melody', startBeat: 8, beats: 1 }, // tune moves again
+    { role: 'inner', startBeat: 8 },
+  ])
+  const innerBeats = (evs) => evs.filter((e) => e.role === 'inner').map((e) => e.startBeat)
+
+  it('half-note pulse (round-2 default): keeps bar-downbeat + mid-bar under a held note (no hollow)', () => {
+    // beats 0,1 are within the first holdBeats (full comp); from beat 2 on, thinning keeps only
+    // the downbeat (0,4,8) and the mid-bar pulse (2,6). The old downbeat-only behaviour dropped
+    // 2 and 6 too → a ~2-beat comp silence (the live round-23 "โหวง"); the mid pulse fills it.
+    const out = easeUnderHold(held(), 4, 2)
+    expect(innerBeats(out)).toEqual([0, 1, 2, 4, 6, 8])
     expect(out.filter((e) => e.role === 'bass').length).toBe(1) // foundation stays
     expect(out.filter((e) => e.role === 'melody').length).toBe(2) // tune untouched
+  })
+  it('pulse=false reproduces the old downbeat-only thinning (fallback knob)', () => {
+    expect(innerBeats(easeUnderHold(held(), 4, 2, false))).toEqual([0, 1, 4, 8])
   })
   it('no melody (chords-only) → nothing thinned', () => {
     const evs = [{ role: 'inner', startBeat: 2 }, { role: 'inner', startBeat: 3 }]
     expect(easeUnderHold(evs, 4, 2).length).toBe(2)
+  })
+})
+
+describe('applySusCadence (sus4 → resolve · voicing swap, not a muddy layer)', () => {
+  const pc = (m) => ((m % 12) + 12) % 12
+  const cmajComp = () => ([
+    { role: 'inner', inst: 'chord', midi: 52, startBeat: 0, beats: 4, gain: 0.09 }, // E = 3rd
+    { role: 'inner', inst: 'chord', midi: 55, startBeat: 0, beats: 4, gain: 0.09 }, // G = 5th
+  ])
+  it('raises the 3rd → 4th early, then RESOLVES back to the 3rd (real suspension)', () => {
+    const ev = cmajComp()
+    const n = applySusCadence(ev, 'C', 0, 4, [{ role: 'melody', midi: 60, startBeat: 0, beats: 4 }], { susCadence: true, susLevel: 0.5 })
+    expect(n).toBe(1)
+    expect(ev.some((e) => pc(e.midi) === 5 && e.startBeat < 2)).toBe(true) // F (4th) suspended early
+    expect(ev.some((e) => pc(e.midi) === 4 && e.startBeat >= 2)).toBe(true) // E (3rd) resolves later
+    // the suspended 4th must STOP before the resolution (no muddy 4th-over-3rd cluster)
+    const sus = ev.find((e) => pc(e.midi) === 5)
+    expect(sus.startBeat + sus.beats).toBeLessThanOrEqual(2 + 1e-9)
+  })
+  it('GUARD: skips when the melody on the chord is the 3rd (a 4th would clash a semitone)', () => {
+    expect(applySusCadence(cmajComp(), 'C', 0, 4, [{ role: 'melody', midi: 64, startBeat: 0, beats: 4 }], { susCadence: true })).toBe(0)
+  })
+  it('only plain triads (skips 7ths / short chords / off)', () => {
+    expect(applySusCadence(cmajComp(), 'C7', 0, 4, [], { susCadence: true })).toBe(0)
+    expect(applySusCadence(cmajComp(), 'C', 0, 2, [], { susCadence: true })).toBe(0) // too short
+    expect(applySusCadence(cmajComp(), 'C', 0, 4, [], { susCadence: false })).toBe(0)
+  })
+})
+
+describe('pedalWalk bass (passing bass · ลูกเชื่อมคอร์ด)', () => {
+  const ctx = (nextBass, cfg = {}) => ({ cfg, nextBass })
+  it('holds the root then STEPS into the next chord on the last beat', () => {
+    const out = pedalWalk({ startBeat: 0, beats: 4 }, 40, ctx(45))
+    expect(out.length).toBe(2)
+    expect(out[0].midi).toBe(40) // the carried root
+    expect(out[0].beats).toBe(3) // held beats 0..2 (one short of the span)
+    expect(out[1].startBeat).toBe(3) // passing note on the last beat
+    expect(Math.abs(out[1].midi - 45)).toBe(1) // resolves by a half-step into the next root
+    expect(out.every((e) => e.role === 'bass')).toBe(true)
+  })
+  it('no chord change (same next root) → plain pedal, one held note', () => {
+    const out = pedalWalk({ startBeat: 0, beats: 4 }, 40, ctx(40))
+    expect(out).toEqual(pedal({ startBeat: 0, beats: 4 }, 40, ctx(40)))
+  })
+  it('too short to connect (1 beat) → plain pedal', () => {
+    expect(pedalWalk({ startBeat: 0, beats: 1 }, 40, ctx(45)).length).toBe(1)
+  })
+})
+
+describe('answerFills (ลูกรับส่ง) — left hand answers the melody in long holds', () => {
+  // melody: two short notes, then a LONG hold (4 beats), then movement.
+  const mel = [
+    { role: 'melody', startBeat: 0, beats: 1 }, { role: 'melody', startBeat: 1, beats: 1 },
+    { role: 'melody', startBeat: 2, beats: 4 }, // the hold (space to answer) — spans beats 2..6
+    { role: 'melody', startBeat: 6, beats: 2 },
+  ]
+  const chords = [
+    { startBeat: 0, beats: 4, up: [60, 64, 67], bass: 48 },
+    { startBeat: 4, beats: 4, up: [62, 67, 71], bass: 55 },
+  ]
+  const chordTones = new Set([60, 64, 67, 62, 71])
+
+  it('answers a long hold with a RISING figure of CHORD TONES in its tail', () => {
+    const f = answerFills(mel, chords, 4, { fillLevel: 0.4, chordGain: 0.09 }).sort((a, b) => a.startBeat - b.startBeat)
+    expect(f.length).toBeGreaterThanOrEqual(2)
+    expect(f.every((e) => e.role === 'emb')).toBe(true)
+    expect(f.every((e) => chordTones.has(e.midi))).toBe(true) // safe: never out of the chord/key
+    expect(f.every((e) => e.startBeat >= 4 && e.startBeat < 6)).toBe(true) // in the hold's tail, before it moves
+    expect(f[f.length - 1].midi).toBeGreaterThan(f[0].midi) // rising, leading into the next phrase
+  })
+  it('does NOT answer short notes (sparse — the melody is busy there)', () => {
+    const short = [{ role: 'melody', startBeat: 0, beats: 1 }, { role: 'melody', startBeat: 1, beats: 1 }]
+    expect(answerFills(short, chords, 4, { fillLevel: 0.4 })).toEqual([])
+  })
+  it('fillLevel 0 → OFF (no answers at all)', () => {
+    expect(answerFills(mel, chords, 4, { fillLevel: 0 })).toEqual([])
+  })
+  it('keeps answers spaced apart (two back-to-back long holds → not both fire)', () => {
+    const holds = [
+      { role: 'melody', startBeat: 0, beats: 4 },
+      { role: 'melody', startBeat: 4, beats: 4 },
+    ]
+    // second hold ends 4 beats after the first — spacing gate should drop the crowded one
+    const f = answerFills(holds, chords, 4, { fillLevel: 0.4 })
+    const starts = [...new Set(f.map((e) => Math.floor(e.startBeat)))]
+    expect(starts.length).toBeLessThanOrEqual(2) // one answer figure, not two overlapping runs
   })
 })
 

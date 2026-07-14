@@ -12,13 +12,23 @@ function noteIndex(note) {
   return i
 }
 
-// "C#m7" -> { root: "C#", suffix: "m7" }; returns null if not a chord
+// "C#m7" -> { root: "C#", rootIndex, suffix: "m7", bass:null, bassIndex:-1 }
+// "G/B"  -> { root: "G",  rootIndex, suffix: "/B", bass:"B", bassIndex:11 }  (slash bass parsed)
+// `suffix` is kept VERBATIM (incl. any "/X") so transposeChord/chordToRoman are unchanged; the
+// slash bass is exposed as extra fields for the audio voicing to honour. Returns null if not a chord.
 export function parseChord(chord) {
   const m = /^([A-G][#b]?)(.*)$/.exec(chord.trim())
   if (!m) return null
   const idx = noteIndex(m[1])
   if (idx === -1) return null
-  return { root: m[1], rootIndex: idx, suffix: m[2] }
+  const suffix = m[2]
+  let bass = null, bassIndex = -1
+  const slash = suffix.indexOf('/')
+  if (slash !== -1) {
+    const bi = noteIndex(suffix.slice(slash + 1).trim())
+    if (bi !== -1) { bass = suffix.slice(slash + 1).trim(); bassIndex = bi }
+  }
+  return { root: m[1], rootIndex: idx, suffix, bass, bassIndex }
 }
 
 // Transpose a chord by semitones, spelling for the target key
@@ -76,12 +86,14 @@ const CHORD_INTERVALS = {
   add9: [0, 4, 7, 14],
 }
 
-// suffix (from parseChord) → intervals above the root. Unknown suffixes and slash
-// chords ("G/B" → parseChord suffix "/B") FALL BACK to a plain major triad rather than
-// throwing or going silent — the accompaniment stays musical even on odd input. The
-// dedicated bass of a slash chord is a future enhancement, not v1.
+// suffix (from parseChord) → intervals above the root. A slash ("m7/G", "/B") is stripped first so
+// the QUALITY before it is honoured (was: any slash fell back to a plain major — so "Cm7/G" lost its
+// m7). Unknown suffixes still fall back to a major triad rather than throwing/going silent — the
+// accompaniment stays musical on odd input. (The slash BASS is handled by chordVoicing via bassIndex.)
 export function chordToIntervals(suffix) {
-  const s = (suffix || '').trim()
+  let s = (suffix || '').trim()
+  const slash = s.indexOf('/')
+  if (slash !== -1) s = s.slice(0, slash)
   return CHORD_INTERVALS[s] || CHORD_INTERVALS['']
 }
 

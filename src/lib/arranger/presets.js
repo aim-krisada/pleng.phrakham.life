@@ -21,9 +21,15 @@ export const PRESETS = {
       { role: 'bass', inst: 'grand', pattern: 'pedal', register: [36, 51] },
     ],
     cfg: {
+      // chordGain = left-hand working level (P'Aim 14 ก.ค. "มือซ้ายเบามาก · ระดับเดียว"). Sits ABOVE
+      // the sampler floor (0.03) so accent/contour/humanize can shade it up AND down = dynamic life,
+      // not one flat level. Still soft (maps to low PPP) so the tune leads. Round-2 by-ear knob.
+      chordGain: 0.09,
+      // สงบ ก็ minimal เช่นเดียวกับบรรเลง (P'Aim 14 ก.ค.): ค้างเสียง + ลากอุ้ม · ลูกเล่น/dynamics ปิดหมด
+      // (เน้นจังหวะ/ไล่ระดับ/ยืดหายใจ) ให้เรียบ-คาดเดาได้เท่ากันเมื่อผู้ใช้เลือกสงบเอง. 3 ตัวช่วยเบื้องหลังคงเปิด.
       pattern: 'sustained', bass: 'pedal', voicing: 'open', embellish: false,
       reverb: 'church', pan: false, bpm: 64,
-      dynamics: { accent: true, contour: true, rubato: true, section: true, sectionMap: { verse: 0.9, chorus: 1.0 } },
+      dynamics: { accent: false, contour: false, rubato: false, section: false },
     },
   },
   // เปียโนบรรเลง — arrangement: arpeggiated left hand under the tune, drop-2 openness, light
@@ -39,18 +45,17 @@ export const PRESETS = {
       { role: 'bass', inst: 'grand', pattern: 'pedal', register: [36, 51] },
     ],
     cfg: {
-      // P'Aim 13 ก.ค. — เบสมือซ้ายใช้ pedal (ลากยาว "อุ้ม" ไม่ "ตอก") ให้ Grand ลุ่มลึกอบอุ่น
-      // (ของเดิม 'root'). sparkleLevel = ความดังประกายย่านสูงเทียบทำนอง (0.7 = เบากว่า 30%) —
-      // ค่าเริ่มต้น · viewer จูนสดทับด้วยสไลเดอร์ (store.sparkleLevel).
-      // gapFill kept (P'Aim 14 ก.ค. "มีที่เพราะ แต่อย่าเยอะเกิน") but its frequency was halved in
-      // embellish.js so it garnishes a long held note now and then instead of poking one into most.
-      pattern: 'arpeggio', bass: 'pedal', voicing: 'drop2', embellish: ['sparkle', 'gapFill'],
-      // ท่อนรับ แตกคอร์ดถี่ขึ้น (arpeggioDense = 2 hits/beat) ให้เด่นกว่าท่อนร้อง (P'Aim). โหมดสงบไม่ตั้ง
-      // → ท่อนรับก็นิ่งตาม mood.
-      refrainPattern: 'arpeggioDense',
-      sparkleLevel: 0.7,
+      // MINIMALIST default (P'Aim 14 ก.ค. "minimalist แต่เพราะจริง · เยอะไปเลือกยาก"): เหลือแค่
+      // แตกคอร์ด (arpeggio) + ลากอุ้ม (pedal) + ลูกรับส่งน้อยสุด — ลูกเล่นอื่นปิดหมด (ประกาย/หยอดโน้ต/
+      // เน้นจังหวะ/ไล่ระดับ/ยืดหายใจ/sus). เปิดเพิ่มได้ทั้งหมดใน "ปรับละเอียด". ยังเก็บ humanize ไว้นิดเดียว
+      // = ความเป็นมนุษย์ ให้ไม่แข็งเป็นหุ่นยนต์ (ไม่ใช่ลูกเล่นที่ได้ยินชัด · ปิดในเมนูได้ถ้าอยากดิบสุด).
+      chordGain: 0.09,
+      fills: true, fillLevel: 0.2, // ลูกรับส่งน้อยสุด
+      pattern: 'arpeggio', bass: 'pedal', voicing: 'drop2', embellish: [],
+      susCadence: false,
+      refrainPattern: 'arpeggioDense', // ท่อนรับยังแตกคอร์ดถี่ขึ้นให้เด่น (ป้าย รับ/***)
       reverb: 'room', pan: true, bpm: 72,
-      dynamics: { accent: true, contour: true, rubato: true, section: true, sectionMap: { verse: 0.85, chorus: 1.0 } },
+      dynamics: { accent: false, contour: false, rubato: false, section: false },
     },
   },
 }
@@ -75,11 +80,11 @@ export function songFeatures(content) {
   return { bpm, beatsPerBar, lines }
 }
 
-// §6d — auto-instrumentation (piano-first version): the consultant's tempo→pattern rule. SLOW
-// songs get the flowing arpeggio (fills the space, keeps it from feeling hollow); FAST songs get
-// the calmer sustained pad (a busy arp would clutter). Threshold ~92 bpm (tunable with P'Aim).
-// Returns a preset id; the full "choose across all orchestrations" version is future (§6d).
-export function recommendRecipe(features) {
-  const bpm = features?.bpm ?? 92
-  return bpm < 92 ? 'piano-arrangement' : 'piano-calm'
+// Auto-picked default preset. P'Aim 14 ก.ค.: ONE predictable minimal default for EVERY song —
+// "บรรเลง-minimal" (แตกคอร์ด + ลากอุ้ม + ลูกรับส่งน้อยสุด + ลูกเล่นปิด). The earlier tempo switch
+// (fast → สงบ) was removed because it surprised the listener (a fast song opened as สงบ with a
+// different, non-minimal setup) and broke the "predictable single default" goal. สงบ / ตรงโน้ต stay
+// available as MANUAL picks. `features` kept in the signature for a possible future recommender.
+export function recommendRecipe(/* features */) {
+  return 'piano-arrangement'
 }

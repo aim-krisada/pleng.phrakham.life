@@ -56,6 +56,29 @@ export function arpeggioDense(chordEvent, up, bpb, rng, cfg) {
   return out
 }
 
+// flowing — a LEGATO broken chord for "เพราะ · ลื่น · ไม่กระแทกเป็นจังหวะ" (P'Aim 14 ก.ค.: the plain
+// arpeggio "เหมือนลงคอร์ดเป็นจังหวะ · ไม่เข้ากับ melody" — a per-beat pulse fights a freely-sung tune).
+// Instead of re-striking every beat, it gently ROLLS the chord tones low→high at the chord's start and
+// lets them RING (long, overlapping durations = a held wash of harmony), re-rolling only every ~2 beats
+// on a long chord so there's motion without a metric pulse. Soft attack + high sustain → it sits UNDER
+// the melody like a pedalled left hand, carrying the harmony rather than marking time.
+export function flowing(chordEvent, up, bpb, rng, cfg) {
+  if (!up.length) return []
+  const g = G(cfg)
+  const total = chordEvent.beats
+  const period = 2 // re-roll the wash every ~2 beats (a slow swell), NOT a hit on every beat
+  const out = []
+  for (let start = 0; start < total - 0.01; start += period) {
+    const seg = Math.min(period, total - start)
+    up.forEach((m, i) => {
+      const off = i * 0.13 // a soft harp-like roll, not a beat-locked strike
+      const dur = Math.min(total - start - off, seg + 0.6) // rings ~through the segment (legato overlap)
+      out.push(ev(m, chordEvent.startBeat + start + off, Math.max(0.5, dur), g * (start === 0 ? 1.0 : 0.85), 0.05, 0.85))
+    })
+  }
+  return out
+}
+
 // harpRoll — a single chord whose notes enter staggered low→high (~30ms apart) like a harp/
 // rolled piano chord. Same startBeat, offset via timeShift. Slow, tender.
 export function harpRoll(chordEvent, up, bpb, rng, cfg) {
@@ -113,4 +136,4 @@ export function fingerpick(chordEvent, up, bpb, rng, cfg) {
   return out
 }
 
-export const COMP_PATTERNS = { sustained, arpeggio, arpeggioDense, harpRoll, stringPad, waltz, alberti, fingerpick }
+export const COMP_PATTERNS = { sustained, arpeggio, arpeggioDense, flowing, harpRoll, stringPad, waltz, alberti, fingerpick }

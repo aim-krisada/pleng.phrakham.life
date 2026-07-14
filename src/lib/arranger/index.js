@@ -27,6 +27,7 @@ import {
 } from './dynamics.js'
 import { applyVoicing } from './voicing.js'
 import { embellishChord } from './embellish.js'
+import { answerFills, applySusCadence } from './fills.js'
 import { keyboard } from './instruments/keyboard.js'
 
 /** @typedef {Object} PerfEvent
@@ -102,6 +103,7 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   const dyn = cfg.dynamics || {}
 
   let events = []
+  const voicedChords = [] // {startBeat,beats,up,bass} per chord — the chord tones ลูกรับส่ง draws on
   // pass the module only when the arranger is ON, so "ตรงโน้ต" (off) never adds an ornament — the
   // melody stays exactly as printed (§6c), and piano (no melodyGrace) is unchanged either way.
   if (wantMelody) events.push(...melodyEvents(notes, on ? mod : null, rng, cfg))
@@ -128,29 +130,45 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
       let voiced = on ? mod.voicing(evc, prevUp, { cfg, meta }) : { bass: evc.bass, up: evc.up }
       if (on) voiced = applyVoicing(voiced, cfg) // drop-2 / open per preset
       prevUp = voiced.up
+      voicedChords.push({ startBeat: evc.startBeat, beats: evc.beats, up: voiced.up, bass: voiced.bass })
       const useComp = inRefrain(evc.startBeat, meta.sections) ? refrainComp : comp
-      events.push(...useComp(evc, voiced.up, bpb, rng, cfg))
+      const compEvts = useComp(evc, voiced.up, bpb, rng, cfg)
+      // sus → คลี่คลาย at a cadence chord (harmony-aware; uses melody already in `events` for the
+      // clash guard). Edits compEvts in place before they join the stream.
+      if (on && cfg.susCadence) applySusCadence(compEvts, evc.chord, evc.startBeat, evc.beats, events, cfg)
+      events.push(...compEvts)
       events.push(...bassMode(evc, voiced.bass, {
         nextBass: list[i + 1] ? list[i + 1].bass : null,
+        slashBass: evc.slashBass, // slash chord: root first, then move to this (P'Aim)
         keyRoot: meta.keyRoot ?? 40, beatsPerBar: bpb, rng, cfg,
       }))
       if (on) events.push(...embellishChord(evc, voiced, bpb, rng, cfg))
     }
   }
 
+  // LAYER 3 (ลูกรับส่ง) — the LEFT hand answers the melody in the space of a long held note, using
+  // that moment's chord tones (voicedChords). Needs BOTH hands present (melody + chords), the
+  // arranger ON, and cfg.fills. Added before dynamics so accent/humanize shade the answer too.
+  if (on && cfg.fills && wantMelody && wantChords) {
+    events.push(...answerFills(events, voicedChords, bpb, cfg))
+  }
+
   // LAYER 2 dynamics — only when the arranger is ON. When OFF ("ลูกเล่นปิด"): notes play exactly
   // as printed — constant gain, timeShift 0, no embellishment (§6c invariant). Order: shape the
   // gains (section → accent → contour → cresc), then time (rubato → humanize), clamp to layer.
   if (on) {
-    // thin the comp under a held melody note first (fewer notes = real space), then shape gains
-    if (cfg.easeUnderHold !== false) events = easeUnderHold(events, bpb)
+    // thin the comp under a held melody note first (fewer notes = real space), then shape gains.
+    // cfg.holdPulse (default on) = the mid-bar pulse that keeps a long hold from going hollow.
+    if (cfg.easeUnderHold !== false) events = easeUnderHold(events, bpb, 2, cfg.holdPulse !== false)
     if (dyn.section !== false) sectionDynamics(events, meta.sections, dyn.sectionMap)
     if (dyn.accent !== false) metricAccent(events, bpb)
     if (dyn.contour !== false) melodicContour(events)
     if (dyn.cresc) crescendo(events, dyn.cresc)
     if (dyn.rubato !== false) rubato(events, meta.sections) // ท่อน-end breathe (§R2.8)
-    humanizeVel(events, rng, cfg.humanizeVel ?? mod.humanizeFeel.velJitter)
-    humanizeTime(events, rng, cfg.humanizeTime ?? mod.humanizeFeel.timing.sigma)
+    // humanize: cfg.humanize === false turns BOTH nudges off (jitter 0) so the menu can A/B it.
+    const humOff = cfg.humanize === false
+    humanizeVel(events, rng, humOff ? 0 : (cfg.humanizeVel ?? mod.humanizeFeel.velJitter))
+    humanizeTime(events, rng, humOff ? 0 : (cfg.humanizeTime ?? mod.humanizeFeel.timing.sigma))
     clampAll(events) // velocity-in-layer safety net (§7b)
   }
 

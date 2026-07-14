@@ -8,8 +8,14 @@ import { arrange } from './arranger/index.js'
 import { moduleForInstrument } from './arranger/instruments/index.js'
 import { mulberry32, seedFor } from './arranger/rng.js'
 
+// Playback root MIDI per key. Every tonic is kept inside ONE comfortable window (G3..F#4 = 55..66)
+// so no key plays an octave higher than another (พี่เปา 14 ก.ค.: "คีย์ A สูงเกินไป · ขอโซน A4"). The
+// high keys G,G#,A,A#,B used to sit at the TOP of octave 4 (A=69, B=71) → their melodies shot up into
+// the A5/B5 zone; dropping them to octave 3 (A=57 → melody peaks around A4) fixes that. C..F# are
+// unchanged (they were already comfortable). This is PLAYBACK pitch only — the sheet's numbers/octave
+// dots are unaffected. keyTranspose + songToNotes + arrange all read this, so live + MP3 stay in sync.
 const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 65,
-  'F#': 66, Gb: 66, G: 67, 'G#': 68, Ab: 68, A: 69, 'A#': 70, Bb: 70, B: 71 }
+  'F#': 66, Gb: 66, G: 55, 'G#': 56, Ab: 56, A: 57, 'A#': 58, Bb: 58, B: 59 }
 const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11] // semitone offsets for degrees 1-7
 
 // Semitone offset to transpose a melody from one key to another. Matches how
@@ -125,7 +131,22 @@ export function songToNotes(content) {
       if (item.type !== 'segment') continue
       si++
       if (item.chord) curChord = item.chord // carry-forward: chord holds until the next one
-      if (!item.note) continue
+      if (!item.note) {
+        // เนื้อล้วน (lyric-only · no notation): emit a SILENT slot so the karaoke follow-along still
+        // ADVANCES through the words (P'Aim 14 ก.ค. "ตัว karaoke ไม่วิ่ง"). No pitch → no sound; its
+        // length ≈ the line's word-count so the highlight paces readably, and li/si drive the per-line
+        // highlight (onNote timeline walks every slot, midi-null included). Note-ful segments never hit
+        // this branch, so normal songs are unchanged.
+        // words live in `lyric` (v1) or the `syllables` array (v2); take whichever is present.
+        const syls = Array.isArray(item.syllables) ? item.syllables : []
+        const words = String(item.lyric || '').trim() || syls.join(' ').trim()
+        if (words) {
+          // pace ≈ syllable count when known (≈1 beat/syllable), else estimate from text length.
+          const units = syls.length || Math.round((words.match(/[฀-๿a-zA-Z0-9]/g) || []).length / 3)
+          bar.notes.push({ midi: null, beats: Math.max(2, Math.min(24, units || 2)), li, bi, si, chord: curChord })
+        }
+        continue
+      }
       const bn = bar.notes
       // syllable-slot index within this segment: every note box (a note, a rest, or a
       // '-' extension) advances it; brackets don't. This matches syllableSlots() so the
@@ -276,8 +297,14 @@ export function chordVoicing(chordStr, prevUp = null) {
   const pcs = chordToIntervals(p.suffix).slice(1, 4).map((iv) => (p.rootIndex + iv) % 12)
   const anchor = prevUp && prevUp.length ? prevUp.reduce((a, b) => a + b, 0) / prevUp.length : 58
   const up = pcs.map((pc) => nearestOctave(pc, anchor)).sort((a, b) => a - b)
-  const bass = 40 + (((p.rootIndex - 4) % 12) + 12) % 12 // root in E2..D#3 (40-51), its own low register
-  return { bass, up }
+  // bass = the chord ROOT in its low register E2..D#3 (40-51). Slash chord ("G/B") also exposes
+  // `slashBass` (the printed bass note, e.g. B): P'Aim 14 ก.ค. wants the ROOT struck FIRST when the
+  // chord changes, THEN the bass moves to the slash note — so the bass mode plays root → slashBass,
+  // not the slash note the whole time. Only the printed bass note is used → safe (what the sheet says).
+  const lowReg = (pc) => 40 + (((pc - 4) % 12) + 12) % 12
+  const bass = lowReg(p.rootIndex)
+  const slashBass = p.bassIndex >= 0 && p.bassIndex !== p.rootIndex ? lowReg(p.bassIndex) : null
+  return { bass, up, slashBass }
 }
 
 // The one rule for the 3 sound modes (B104), shared by live play and MP3 export so they
@@ -316,7 +343,9 @@ export function buildChordVoice(notes) {
     const v = chordVoicing(e.chord, prevUp)
     if (v.bass == null) continue // blank/unparseable chord → no block (and don't reset prevUp)
     prevUp = v.up
-    out.push({ bass: v.bass, up: v.up, midiSet: [v.bass, ...v.up], startBeat: e.startBeat, beats: e.beats })
+    // carry the chord SYMBOL too (root/quality) so the arranger's harmony-aware passes (sus resolve,
+    // richer fills) can reason about it — the voiced pitches alone don't say "this is a plain triad".
+    out.push({ chord: e.chord, bass: v.bass, up: v.up, slashBass: v.slashBass, midiSet: [v.bass, ...v.up], startBeat: e.startBeat, beats: e.beats })
   }
   return out
 }
@@ -471,8 +500,16 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   // can never hard-fail. The ctx is already resumed (above) inside the user gesture, so
   // scheduling after this await still starts audio on iOS. A pause during the wait sets the
   // stop flag, which we honour right after the load resolves.
+  // Play notes up front so a SILENT sheet can skip the heavy sampler load. A lyric-only song
+  // (เนื้อล้วน) has no pitched notes → nothing to sound; fetching a ~12MB instrument just to play
+  // silence wastes bandwidth and can stall on a slow decode, yet the karaoke follow-along still needs
+  // to run. So we load an instrument ONLY when there's something to play; the highlight timeline
+  // (below) walks these notes regardless. (buildPlayNotes = the SSOT the viewer's dot/scrub also use.)
+  const fullNotes = buildPlayNotes(content, { order, range })
+  if (!fullNotes.length) return true
+  const hasPitched = fullNotes.some((n) => n.midi != null)
   let sampler = null
-  if (isSampledInstrument(instrument)) {
+  if (isSampledInstrument(instrument) && hasPitched) {
     sampler = getReadyInstrument(instrument, ctx)
     if (!sampler) {
       onInstrumentPending?.({ loading: true, progress: 0 })
@@ -488,11 +525,7 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   }
   if (myToken !== playToken) return true // a newer play superseded us (even with no load wait)
   activeSampler = sampler // so stopPlayback() can silence the sampler's voices
-  // `order` (B043 selection = many ranges) OR `range` (one section) OR the whole song —
-  // buildPlayNotes is the SSOT the viewer also uses for the dot/markers/scrub/⏮⏭.
-  // This FULL ordered set is the LOOP UNIT (the "เลือกท่อน"/order SSOT — what วนซ้ำ repeats).
-  const fullNotes = buildPlayNotes(content, { order, range })
-  if (!fullNotes.length) return true
+  // fullNotes (computed above) is the FULL ordered LOOP UNIT (the "เลือกท่อน"/order — what วนซ้ำ repeats).
   // resume / seek (US-A01 "เล่นต่อ" · tap a word · scrub the bar): startIndex = where THIS play
   // begins. It offsets ONLY the first pass — so when วนซ้ำ is on, the loop returns to the order's
   // START (the defined ท่อน), never to the seek/resume point (fix: click = seek, not a new loop).

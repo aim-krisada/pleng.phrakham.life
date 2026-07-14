@@ -34,10 +34,15 @@ describe('songToNotes — chord carry-forward', () => {
 
 describe('chordVoicing — B107 voice-leading (bass + upper voices near the last chord)', () => {
   it('C major (no prev) = bass C3 + upper E3 G3 (no doubled root)', () => {
-    expect(chordVoicing('C')).toEqual({ bass: 48, up: [52, 55] })
+    expect(chordVoicing('C')).toEqual({ bass: 48, up: [52, 55], slashBass: null })
+  })
+  it('slash chord "G/B" keeps the root as bass + exposes slashBass (B) for a root→bass move', () => {
+    const v = chordVoicing('G/B')
+    expect(v.bass).toBe(43) // G in the low register (struck FIRST)
+    expect(v.slashBass).toBe(47) // B — the bass moves here after the root (P'Aim)
   })
   it('a 7th adds the 7th to the upper voices; a 9th trims to ≤3 upper (≤4 total)', () => {
-    expect(chordVoicing('C7')).toEqual({ bass: 48, up: [52, 55, 58] }) // + Bb3
+    expect(chordVoicing('C7')).toEqual({ bass: 48, up: [52, 55, 58], slashBass: null }) // + Bb3
     const v9 = chordVoicing('C9')
     expect(v9.up.length).toBeLessThanOrEqual(3)
     expect(1 + v9.up.length).toBeLessThanOrEqual(4)

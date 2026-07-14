@@ -83,9 +83,15 @@ export function velocityInLoadedLayer(v) {
 // The gains playSong actually fires (midi.js): melody, chord bass (chordGain·1.45), chord inner
 // (chordGain). Exported so a test can prove EVERY fired velocity lands in a loaded layer —
 // the invariant whose absence let P1 ship silent. Keep in sync with midi.js if those change.
-export const FIRED_GAINS = { melody: 0.35, chordBass: 0.055 * 1.45, chordInner: 0.055 }
-// The gain window our callers pass: chord inner ≈ 0.055 (softest) up to melody ≈ 0.35 (loudest).
-const GAIN_MIN = 0.055
+export const FIRED_GAINS = { melody: 0.31, chordBass: 0.09 * 1.45, chordInner: 0.09 }
+// The gain window our callers pass: chord inner (softest) up to melody ≈ 0.31 (loudest).
+// ROUND 2 (P'Aim "มือซ้ายเบามาก · เป็นระดับเดียว"): GAIN_MIN was 0.055 = exactly the comp's base gain,
+// so every accent/contour/humanize step pushed the comp BELOW it and got clamped back up → the whole
+// left hand collapsed onto ONE velocity (flat/dead). STEP 0's five contiguous layers cover [1,127], so
+// the floor no longer has to be high to dodge silence (that was the P1 single-PP-layer constraint) —
+// drop it to 0.03 so the left hand has real room to swell and ease (dynamic life), and lift the comp's
+// working level above it (see chordGain in presets) so it sits in that range, not on the floor.
+const GAIN_MIN = 0.03
 const GAIN_MAX = 0.35
 // The MIDI range to LOAD Grand samples for. Covers the common bass-root..melody span; notes
 // outside it still play (smplr pitch-shifts from the nearest loaded sample), so this only trades a
@@ -103,8 +109,18 @@ function midiRange(lo, hi) { const a = []; for (let m = lo; m <= hi; m++) a.push
 // in (raise GRAND_VEL_HI toward MP/MF for a brighter, more present melody; FF for accents), tuning
 // by ear with P'Aim. These two constants are round 2's primary per-role knobs. Output is clamped to
 // [1,127] and, since the layers tile that range, always lands in a loaded layer (never silent).
-export const GRAND_VEL_LO = 24  // softest comp → low PPP (dark, quiet) — was jammed at the PP floor 41
-export const GRAND_VEL_HI = 67  // loudest melody → top of PP (unchanged from P1; round 2 raises this)
+// ROUND 2 · first pass (per-role mix — P'Aim feedback "comp เบากว่านี้"): the fix for "comp too loud"
+// is mostly to make the MELODY sing, not to mute the comp. P1/STEP-0 kept melody at vel 67 (top of the
+// soft PP layer) — it never really led. Raising HI into MP (the layer STEP 0 self-hosted for exactly
+// this) makes the tune present + brighter, so the comp naturally sits BEHIND it; and nudging LO down
+// takes the soft comp a little darker/quieter in PPP. Bass rides the same map but sits above the comp
+// floor, so it keeps carrying. All by-ear from here — these two are the primary per-role knobs.
+export const GRAND_VEL_LO = 20  // softest comp → low PPP (dark, quiet). was 24
+// P'Aim 14 ก.ค. "โน้ตแต่ละตัวลงหนักก่อน เหมือนกระแทก · soft กว่านี้": the melody ceiling had climbed into
+// MP (vel 80), the layer with a brighter/harder hammer attack — that was the กระแทก. Bring it back into
+// PP (vel 66, warm + soft attack) so the tune stays present but no longer strikes. Raise again by ear if
+// it feels buried, but softness wins for now (with accent off in the minimalist default it won't thump).
+export const GRAND_VEL_HI = 66  // loudest melody → top of PP (warm, soft attack). was 80 (MP · too hard)
 export function gainToVelocity(gain) {
   const g = Math.max(0.02, Math.min(0.5, gain || 0.3))
   const t = Math.max(0, Math.min(1, (g - GAIN_MIN) / (GAIN_MAX - GAIN_MIN)))

@@ -130,11 +130,15 @@ const SOUND_AXES = [
   // ประกายเสียงสูง (B107 P2 ข้อ 3) — a live slider; the page supplies it ONLY in บรรเลง mode, so it
   // appears/disappears with the style. Carries `kind:'slider'` + `control` (SoundControl renders it).
   { key: 'sparkle', label: 'ประกายเสียงสูง', icon: 'sparkles' },
+  // ROUND 2 — "ปรับละเอียด": a collapsible panel of per-technique toggles/sliders (kind 'advanced').
+  { key: 'advanced', label: 'ปรับละเอียด', icon: 'sliders-horizontal' },
 ]
 const soundGroups = computed(() =>
   SOUND_AXES.map((a) => {
     const s = findSetting(a.key)
-    return s ? { ...a, kind: s.kind || 'menu', value: s.value, options: s.options, onPick: s.onPick, control: s.control } : null
+    if (!s) return null
+    // 'advanced' carries the technique rows + handlers; the others carry value/options or a slider control.
+    return { ...a, kind: s.kind || 'menu', value: s.value, options: s.options, onPick: s.onPick, control: s.control, rows: s.rows, onSet: s.onSet, onReset: s.onReset, canReset: s.canReset }
   }).filter(Boolean),
 )
 // the bar button is icon-only — the glyph reflects the current mode/instrument (P'Aim 13 ก.ค.):

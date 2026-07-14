@@ -28,10 +28,41 @@ export function root(chordEvent, bass, ctx) {
 }
 
 // pedal — held root that carries: long attack (~0.08s) so it swells in, long tail (decayTo high),
-// slightly softer so it underpins without thumping.
+// slightly softer so it underpins without thumping. SLASH chord (ctx.slashBass): strike the ROOT
+// first (P'Aim 14 ก.ค. "ลง G ก่อน แล้วค่อยเป็น B"), then move the bass to the printed slash note for
+// the rest of the chord — root establishes the harmony, then the specified bass sings underneath.
 export function pedal(chordEvent, bass, ctx) {
   if (bass == null) return []
+  const slash = ctx.slashBass
+  if (slash != null && slash !== bass && chordEvent.beats >= 2) {
+    return [
+      bev(bass, chordEvent.startBeat, 1, bassGain(ctx.cfg, 0.9), 0.08, 0.9), // root first
+      bev(slash, chordEvent.startBeat + 1, chordEvent.beats - 1, bassGain(ctx.cfg, 0.9), 0.06, 0.9), // → slash bass
+    ]
+  }
   return [bev(bass, chordEvent.startBeat, chordEvent.beats, bassGain(ctx.cfg, 0.9), 0.08, 0.9)]
+}
+
+// pedalWalk — pedal's carrying root for most of the chord, then a single PASSING note on the last
+// beat that steps INTO the next chord's root (a "ลูกเชื่อม" between chords · P'Aim 14 ก.ค.). Keeps the
+// "อุ้ม ไม่ตอก" pedal feel (root sustains beats 1..n-1) but adds the walking-bass connection that makes
+// a real left hand lead from one chord to the next. Only when the chord is ≥2 beats and the next root
+// differs (nothing to connect otherwise) → falls back to plain pedal. The approach note is the
+// chromatic neighbour of the next root that resolves into it — the same accepted device as walking().
+export function pedalWalk(chordEvent, bass, ctx) {
+  if (bass == null) return []
+  // a slash chord's own bass move (root → slash) takes priority over walking into the next chord
+  if (ctx.slashBass != null && ctx.slashBass !== bass) return pedal(chordEvent, bass, ctx)
+  const nb = Math.max(1, Math.round(chordEvent.beats))
+  const next = ctx.nextBass
+  const connect = nb >= 2 && next != null && next !== bass
+  if (!connect) return pedal(chordEvent, bass, ctx)
+  const dir = next > bass ? 1 : -1
+  const approach = clampBass(next - dir) // resolves by a half-step into the next root
+  return [
+    bev(bass, chordEvent.startBeat, nb - 1, bassGain(ctx.cfg, 0.9), 0.08, 0.9), // the carried root
+    bev(approach, chordEvent.startBeat + nb - 1, 1, bassGain(ctx.cfg, 0.82), 0.04, 0.4), // passing step
+  ]
 }
 
 // Nearest diatonic (in-key) note to `target`, within the bass register, walking `dir` from `from`.
@@ -70,4 +101,4 @@ export function walking(chordEvent, bass, ctx) {
   return out
 }
 
-export const BASS_MODES = { root, pedal, walking }
+export const BASS_MODES = { root, pedal, walking, pedalWalk }

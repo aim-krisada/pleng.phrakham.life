@@ -16,9 +16,10 @@ import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
-  sparkleLevel, setSparkleLevel,
+  sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
   ensembleMode, setEnsembleMode, leadInstrument, setLeadInstrument } from '../store.js'
 import { presetCfg, recommendRecipe, songFeatures } from '../lib/arranger/presets.js'
+import { buildArrangeCfg, readTechniques } from '../lib/arranger/techniques.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
 import SongSheet from './SongSheet.vue'
@@ -68,13 +69,26 @@ const effectiveStyle = computed(() => (styleAuto.value ? recommendedStyle.value 
 const styleDef = computed(() => STYLE_OPTS.find((o) => o.value === effectiveStyle.value) || STYLE_OPTS[0])
 // Map the effective style → what playSong needs: 'plain' turns the arranger OFF (notes as printed);
 // the others hand it the matching preset recipe (§6), with the live sparkle level injected (ข้อ 3).
-const styleArrange = computed(() =>
-  effectiveStyle.value === 'plain'
-    ? { arranger: false, arrangeCfg: {} }
-    : { arranger: true, arrangeCfg: { ...presetCfg(effectiveStyle.value === 'calm' ? 'piano-calm' : 'piano-arrangement'), sparkleLevel: sparkleLevel.value } },
-)
+const styleArrange = computed(() => {
+  if (effectiveStyle.value === 'plain') return { arranger: false, arrangeCfg: {} }
+  // preset recipe → overlay the listener's "ปรับละเอียด" on/off choices → inject the live sparkle level
+  const base = presetCfg(effectiveStyle.value === 'calm' ? 'piano-calm' : 'piano-arrangement')
+  const merged = buildArrangeCfg(base, arrangeOverrides.value)
+  return { arranger: true, arrangeCfg: { ...merged, sparkleLevel: sparkleLevel.value } }
+})
 // ข้อ 3 slider shows ONLY in บรรเลง (the only preset with sparkle) — spec §4 / P'Aim 13 ก.ค.
 const showSparkle = computed(() => effectiveStyle.value === 'arrangement')
+// "ปรับละเอียด" technique rows (ROUND 2 diagnostic menu) — effective value of each technique given the
+// current preset + overrides. Only meaningful when the arranger is on (style ≠ plain).
+const techniqueRows = computed(() => {
+  if (effectiveStyle.value === 'plain') return []
+  const base = presetCfg(effectiveStyle.value === 'calm' ? 'piano-calm' : 'piano-arrangement')
+  return readTechniques(base, arrangeOverrides.value)
+})
+const hasOverrides = computed(() => Object.keys(arrangeOverrides.value).length > 0)
+// "ปรับละเอียด" is piano-specific (ลีลา/เบสมือซ้าย ฯลฯ are keyboard-hand ideas) → show it only for the
+// piano family (P'Aim 14 ก.ค.: กีตาร์ไม่ต้องมีปรับละเอียด). Guitar keeps just the simple preset chips.
+const showAdvanced = computed(() => techniqueRows.value.length > 0 && (leadInstrument.value === 'grand' || leadInstrument.value === 'felt'))
 const showChord = computed(() => displayDef.value.chord && chordSystem.value !== 'hidden')
 const showNote = computed(() => displayDef.value.note)
 const showLyric = computed(() => displayDef.value.lyric)
@@ -463,6 +477,11 @@ watch(effectiveStyle, () => {
 watch(sparkleLevel, () => {
   if (playing.value) startPlay(playedIndex.value)
 })
+// ROUND 2 — live "ปรับละเอียด" technique toggles: re-schedule ahead so a flip is heard immediately
+// (this is exactly the A/B loop P'Aim wants to find what's the problem). Deep-watch the overrides map.
+watch(arrangeOverrides, () => {
+  if (playing.value) startPlay(playedIndex.value)
+}, { deep: true })
 // B107 step 9 — live instrument change (เปียโน/ไวโอลิน/…): the sampler can't swap the instrument
 // on already-scheduled voices, so re-schedule ahead with the new instrument, continuing from here
 // (its samples download first if not yet loaded — the pill shows the wait).
@@ -504,12 +523,16 @@ const settingDescs = computed(() => [
     id: 'style', icon: 'sliders-horizontal', label: 'อารมณ์ / สไตล์', kind: 'menu', value: effectiveStyle.value, badge: styleDef.value.short,
     options: STYLE_OPTS.map((o) => ({ value: o.value, label: o.label, short: o.short })), onPick: (v) => setPlayStyle(v),
   },
-  // ข้อ 3 (P'Aim 13 ก.ค.) — ประกายเสียงสูง live slider, shown only in บรรเลง. Value is a % of the
-  // melody (30–90); 70% = default (30% under). onInput stores the fraction so playback re-schedules.
-  ...(showSparkle.value ? [{
-    id: 'sparkle', icon: 'sparkles', label: 'ประกายเสียงสูง', kind: 'slider',
-    value: Math.round(sparkleLevel.value * 100),
-    control: { min: 30, max: 90, step: 5, value: Math.round(sparkleLevel.value * 100), onInput: (v) => setSparkleLevel(v / 100) },
+  // (ประกายเสียงสูง used to be a top-level slider here; removed as a duplicate/มิสลีดดิ้ง — sparkle is
+  // OFF by default now and lives as a toggle inside "ปรับละเอียด" · P'Aim 14 ก.ค. "เยอะไป / ซ้ำ".)
+  // ROUND 2 — "ปรับละเอียด": the collapsible technique panel (toggle/slider/choice per technique) so
+  // the listener switches each on/off and finds what's the problem (P'Aim 14 ก.ค.). Only when arranger on.
+  ...(showAdvanced.value ? [{
+    id: 'advanced', icon: 'sliders-horizontal', label: 'ปรับละเอียด', kind: 'advanced',
+    rows: techniqueRows.value,
+    onSet: (key, value) => setArrangeOverride(key, value),
+    onReset: () => resetArrangeOverrides(),
+    canReset: hasOverrides.value,
   }] : []),
   {
     id: 'chord', icon: 'guitar', label: 'คอร์ด', kind: 'menu', value: chordSystem.value, badge: CHORD_BADGE[chordSystem.value],

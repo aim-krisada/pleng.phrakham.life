@@ -43,13 +43,21 @@ const isOffBeat = (b) => Math.abs(b - Math.round(b)) > 0.05
 // R2.9 — Ease the left hand under a HELD melody note (P'Aim 14 ก.ค.: "ถ้ามันควรเงียบ → ผ่อนเบา").
 // While the tune sustains one note for a while (e.g. `2 – – –`), the comp shouldn't keep walking on
 // every beat ("ตึ่งตึง นานไปจนน่ารำคาญ") — it should thin out so the held note can ring. Once the
-// melody has been holding ≥ holdBeats, drop the comp's inner hits except the bar downbeats. Bass and
-// melody are untouched (the foundation + tune stay); the moment the melody moves again, full comp
-// resumes. Returns a NEW filtered array. Comp is already at the layer's soft floor, so "ผ่อนเบา"
-// here means playing FEWER notes (real space), not just quieter.
-export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2) {
+// melody has been holding ≥ holdBeats, thin the comp's inner hits. Bass and melody are untouched (the
+// foundation + tune stay); the moment the melody moves again, full comp resumes. Returns a NEW
+// filtered array. Comp is already at the layer's soft floor, so "ผ่อนเบา" here means playing FEWER
+// notes (real space), not just quieter.
+//
+// HOLLOW-GAP FIX (round 2 · live round-23: "ท่อนเงียบ ~2 บีต / โหวง"): keeping ONLY the bar downbeat
+// meant a note held across a whole bar (e.g. `2 – – –` in 4/4) had its comp re-struck once at beat 1
+// then NOTHING for beats 2–4 — the held note + pedal bass just decayed into a ~2-beat hole. The fix
+// is a gentle HALF-NOTE PULSE: keep the bar downbeat AND the mid-bar beat, so a long held note still
+// has a soft pulse under it (fills the hole) while staying far calmer than full per-beat comp. `pulse`
+// (default on) is round 2's knob — set false to fall back to the old downbeat-only "ผ่อนสุด" feel.
+export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = true) {
   const onsets = events.filter((e) => e.role === 'melody').map((e) => e.startBeat).sort((a, b) => a - b)
   if (!onsets.length) return events
+  const mid = Math.floor(beatsPerBar / 2) // mid-bar pulse point (beat 3 in 4/4, beat 2 in 3/4)
   const beatsHeld = (b) => {
     let last = -Infinity
     for (const o of onsets) { if (o <= b + 1e-6) last = o; else break }
@@ -59,7 +67,9 @@ export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2) {
     if (e.role !== 'inner') return true // bass / melody / embellishment untouched
     if (beatsHeld(e.startBeat) < holdBeats) return true // melody moving / just moved → full comp
     const inBar = ((Math.round(e.startBeat) % beatsPerBar) + beatsPerBar) % beatsPerBar
-    return inBar === 0 // deep in a held note → keep only the bar downbeat, let the rest breathe
+    // deep in a held note → keep the bar downbeat, plus (pulse on) the mid-bar beat so it doesn't
+    // go hollow. mid>0 guards 1- and 2-beat bars where mid would collide with / precede the downbeat.
+    return inBar === 0 || (pulse && mid > 0 && inBar === mid)
   })
 }
 
