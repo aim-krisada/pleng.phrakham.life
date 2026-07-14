@@ -11,6 +11,9 @@
 > **🌍 ทิศใหม่ (หลัก World-class by default · `sop.md §0`) — ข้อเสนอร่วม pleng PM + pk pm5 · รอ P'Aim เคาะทิศสุดท้าย:**
 > เป้าหมายร่วม = **off-canvas navigation drawer เลื่อนจากซ้าย + scrim (ฉากมืด) ทั้ง 2 เว็บ** (มาตรฐาน Material · Gmail/YouTube) = **align UP ทั้งคู่** ไม่ใช่เพลงถอยไปก๊อป dropdown · พระคำทำผ่าน Bootstrap `offcanvas-start` (native scrim+a11y) · เพลงพลิก `.sb-drawer` จากขวา→ซ้าย + ย้าย ☰ ซ้ายบน
 > **สัญญาร่วม = เปลือก/พฤติกรรม drawer** (left off-canvas + scrim + nav ข้อความล้วน + วิธี render preview-picker vs switch) · **ไม่กำหนดว่าเครื่องมือไหนอยู่ในเมนู** (per-site + per-context — พระคำมี reading dock ต่างหน้า) · non-blocking (queue หลัง reader feature พระคำ)
+>
+> **🏛️ สถาปัตย์ (P'Aim 14 ก.ค. · บังคับ): drawer = CORE LIBRARY ตัวเดียว authored ที่พระคำ · เพลง "เรียกใช้" — ยึดแพตเทิร์น `pk-scrollnav.js`/DockKey · แก้ที่เดียว ห้าม 2 ก๊อป.**
+> ⚠️ **ข้อเทคนิคที่ต้องออกแบบให้ได้ (consultant flag):** ให้ "แก้ที่เดียว" เป็นจริง → พระคำต้อง author drawer เป็น **standalone vanilla JS+CSS core (เช่น `assets/pk-drawer.js`)** ที่ทั้ง 2 เว็บ import โค้ด**ตัวเดียวกัน** (แบบ `pk-scrollnav.js` ที่เพลง copy verbatim) — **ไม่ใช่** ใช้ Bootstrap `offcanvas` native ล้วน (นั่น = ฟีเจอร์ของ Quarto/Bootstrap ที่เพลง Vue import มาแชร์ไม่ได้ → จะกลายเป็น 2 ก๊อปโดยปริยาย ผิดเจตนา P'Aim) · **pk pm5 ออกแบบ core นี้ที่พระคำ → เพลงบริโภค** · ต้องกำหนด API/mount ให้ใช้ได้ทั้ง Quarto(static) + Vue
 
 ## กฎร่วม (target = left off-canvas drawer + scrim · world-class · align-UP ทั้ง 2 เว็บ — pending P'Aim เคาะทิศ)
 
