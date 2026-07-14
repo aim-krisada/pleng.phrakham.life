@@ -6,8 +6,16 @@
 
 ---
 
-## ▶ RESUME (hand-off pm23 → pm24 · 14 ก.ค.)
-**🎉 pm23 = DEPLOY รอบ 23 `bb0c8d3` LIVE** (role-gate+audit+badge+notation+menu parity+expressive audio) — รายละเอียด+verify ใน §🎉 DEPLOYED รอบ 23 ด้านล่าง · **pm24 ทำ post-deploy follow-ups (drawer-parity/notation print/ROUND2 audio) — ดู §post-deploy**
+## ▶ RESUME (hand-off pm23 → pm24 · 14 ก.ค. ค่ำ)
+
+**⏯️ RESUME SNAPSHOT (ถ้า credit limit → เปิดใหม่หลัง reset อ่านตรงนี้ · P'Aim สั่ง "resume when reset active"):** ทุกอย่าง save ครบ (git commit + board + memory) · **ห้าม deploy อัตโนมัติ — รอ P'Aim go เสมอ** · สายที่วิ่ง (ปลุกต่อได้ไร้รอยต่อ · worktree อยู่ครบ):
+- **🎹 รอบ 24 (จะ deploy)** — base มี: audio r2(ear-approved)+STEP0+GATE-fix+karaoke-fix พร้อม · **รอ 2:** (1) พี่เปา verify karaoke device (โหมดเนื้อล้วน) (2) drawer เพลง dev เสร็จ `task_b512fd83` → merge → push · **spec+exclude ล็อกไว้ §⏭️ รอบ 24**
+- **🚪 drawer เพลง** `task_b512fd83` — consume `pk-drawer.js` (phrakham main · left) · 🔵 dev ทำ
+- **🎻 violin** `task_15a3f347` — SA ใหม่ · P'Aim iterate · **ไม่เข้ารอบ 24**
+- **🎨 Remix** ⏸️ พัก (design เสร็จ · P'Aim หยุดชั่วคราว) · **ไม่เข้ารอบ 24**
+- **GATE-fix แยก** = worktree `../pleng-r24` (`r24-gate-fix` commit 14b996e · unpushed · เผื่อ deploy เดี่ยว)
+
+**🎉 pm23 = DEPLOY รอบ 23 `bb0c8d3` LIVE** (role-gate+audit+badge+notation+menu parity+expressive audio) — รายละเอียด+verify ใน §🎉 DEPLOYED รอบ 23 ด้านล่าง
 _(ประวัติ pm22 = รอบ 22 `6cb8e68` phrakham look&feel — เก็บใน §DEPLOYED รอบ 22)_
 
 **⏭️ รอบ 24 (pm24 สานต่อ · 14 ก.ค. ค่ำ · P'Aim จะแก้ karaoke ใน session นี้):**
