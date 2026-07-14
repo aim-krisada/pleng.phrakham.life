@@ -74,3 +74,29 @@ _(IP เครื่องเปลี่ยนได้ · เช็ก `Get-Ne
 3. **Tester gate เต็ม spec** → PM merge → deploy
 
 **ขอบเขตชัด:** รอบนี้ **ยังไม่แตะ prod src** (`src/`) — เดโม + รายงานเท่านั้น (creative iterate ก่อน · ตรง §4B.4). ยังไม่ merge/deploy — PM gate.
+
+---
+
+## รอบ 2 — อัป sample คุณภาพ (P'Aim: "ยังไม่เพราะ" → PM อนุมัติ research spike · 15 ก.ค.)
+
+**ปัญหาที่ยืนยัน:** VSCO-2 = อัด **ระดับความดังเดียว** → หรี่/เร่ง = แค่ volume, เนื้อเสียงไม่เปลี่ยน = แบน. เพดานเดียวกับ Grand ก่อนมี 5 layer.
+
+**สำรวจคลังฟรี (verify จริง ไม่เดา):** ฟรี multi-dynamic solo violin **หายากมาก** — คุณภาพสูงเกือบทั้งหมด commercial (Spitfire/VSL). ตัวเดียวที่เข้าเกณฑ์ PD/CC0 + หลาย dynamic จริง = **University of Iowa MIS (Public Domain)**.
+
+**เลือก + ทำจริง = Iowa MIS Violin 2012 (arco):**
+- **License:** Public Domain — ใช้อิสระไร้ข้อจำกัดตั้งแต่ 1997 (ไม่ต้องเครดิต · จะใส่เครดิตมารยาทใน About/Guide)
+- **3 dynamic (pp/mf/ff)** — โน้ตเบา=สีนุ่มลม · โน้ตเน้น=สว่างมีแรงสี (เนื้อเสียงเปลี่ยนจริง = หัวใจที่ทำให้ Grand เพราะ)
+- หั่นจากไฟล์จริง (ไฟล์ Iowa = สเกลหลายโน้ต/สาย → เอา "โน้ตแรก" ที่พิตช์แน่จากชื่อไฟล์) → **8 พิตช์ (G3–C7) × 3 dynamic = 24 โน้ต** · RMS-normalize (body ดังเท่ากัน · timbre ต่างคงอยู่) · mono ogg q5
+- **ขนาด 644KB** (self-host + offline PWA ได้สบาย · เทียบ Grand 12.9MB) · reproduce ได้ด้วย `tools/slice-iowa-violin.sh`
+- self-host: `public/samples/CC0/violin-iowa/{pp,mf,ff}/<midi>.ogg` (+ README license/provenance)
+
+**เดโม A/B (ให้ P'Aim ฟังเทียบ):** `docs/spikes/violin-iowa-demo.html`
+- **Network URL:** `http://192.168.1.124:5344/docs/spikes/violin-iowa-demo.html`
+- สลับ **Iowa หลายระดับ ↔ VSCO-2 เดิม** บนเพลง+ลูกเล่นเดียวกัน → หูตัดสิน
+- Iowa: เลือกชั้น pp/mf/ff ตามความแรงโน้ต (accent×contour · โน้ตยอด→ff · ปลายวรรค→pp) + layer-gain สร้างช่วงดัง-เบา + envelope คันชักเดิม + **re-bow** โน้ตยาว (>1.6s เพราะ Iowa โน้ตสั้น ~2s ต่างจาก VSCO 14s)
+
+**Verify:** Iowa 3 ชั้น × 8 พิตช์ โหลดครบ (missing 0) · offline body RMS เท่ากันทุกชั้น (~0.15) · ff peak สูงกว่า (transient สว่าง = คาแรกเตอร์ ff) · live เล่นได้ทั้ง 2 source · **0 console error**
+
+**Trade-off ที่ต้อง honest กับ P'Aim:** Iowa = อัด anechoic (แห้ง สะอาด · เราเติม reverb เอง) · โน้ตสั้น ~2s (ต้อง re-bow โน้ตยาว) · mono (spike ใช้ mono 68MB; ถ้าชอบ upgrade เป็น stereo/24-96 ได้). **ถ้า P'Aim ฟังแล้วยัง "ไม่ถึง"** → flag PM: รับ best-free / upgrade stereo / ทบทวนข้อจำกัดฟรี / พักไวโอลิน (ไม่ฝืนลง src)
+
+**Next:** P'Aim ฟัง A/B → เคาะ (Iowa/VSCO/ปรับค่า) → ถ้า Iowa ผ่าน = dev wire multi-dynamic bowed path + เปิดปุ่ม + อัป bowed.js/manifest → Tester gate → PM merge

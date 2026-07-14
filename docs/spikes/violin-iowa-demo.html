@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B107 P2 · ไวโอลินเดี่ยว หลายระดับความดัง (Iowa) vs เดิม (VSCO-2) — A/B</title>
+<style>
+  :root{ font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body{ margin:0; padding:16px; max-width:700px; margin:auto; color:#1a1a1a; background:#faf8f7; line-height:1.5; }
+  h1{ font-size:1.18rem; margin:0 0 2px; }
+  .sub{ color:#666; font-size:.88rem; margin:0 0 14px; }
+  .panel{ background:#fff; border:1px solid #ece3e3; border-radius:14px; padding:14px 16px; margin:12px 0; }
+  .panel h2{ font-size:.82rem; letter-spacing:.02em; color:#977; text-transform:uppercase; margin:0 0 10px; font-weight:600; }
+  .opts{ display:flex; gap:8px; flex-wrap:wrap; }
+  .opt{ font-size:.95rem; padding:11px 15px; border-radius:12px; border:1.5px solid #e0d3d3; background:#fff; cursor:pointer; }
+  .opt.sel{ border-color:#7a2e3a; background:#f6e6e8; color:#5e2029; font-weight:600; }
+  .opt small{ display:block; font-size:.72rem; color:#b99; font-weight:400; margin-top:2px }
+  .opt.sel small{ color:#7a2e3a }
+  .big .opt{ font-size:1.05rem; padding:14px 18px; flex:1 1 44%; }
+  #playRow{ display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap }
+  #play{ font-size:1.15rem; font-weight:700; padding:12px 26px; border-radius:12px; border:none; background:#7a2e3a; color:#fff; cursor:pointer; }
+  #play:hover{ background:#652531 } #play:disabled{ opacity:.5 }
+  #stop{ font-size:.95rem; padding:10px 16px; border-radius:10px; border:1px solid #d7c9c9; background:#fff; cursor:pointer; }
+  #now{ font-size:.9rem; color:#7a2e3a; min-height:1.3em; margin-top:8px; font-weight:600; }
+  #status{ font-size:.85rem; color:#888; min-height:1.2em; }
+  .hint{ font-size:.82rem; color:#777; margin:6px 0 0; }
+  .row{ display:flex; align-items:center; gap:10px; margin:8px 0; }
+  .row label{ font-size:.85rem; min-width:140px; } input[type=range]{ flex:1; accent-color:#7a2e3a; }
+  .val{ font-size:.8rem; color:#666; min-width:56px; text-align:right; font-variant-numeric:tabular-nums; }
+  .tg{ display:flex; flex-wrap:wrap; gap:7px; }
+  .tgb{ font-size:.85rem; padding:9px 13px; border-radius:10px; border:1.5px solid #e0d3d3; background:#fff; cursor:pointer; user-select:none; }
+  .tgb.on{ border-color:#7a2e3a; background:#f6e6e8; color:#5e2029; font-weight:600; }
+  .tgb .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background:#ccc; margin-right:6px; vertical-align:middle; }
+  .tgb.on .dot{ background:#3a9d5a; }
+</style>
+</head>
+<body>
+<h1>🎻 ไวโอลินเดี่ยว — เทียบเสียง A/B</h1>
+<p class="sub">เพลง #1 "พระเจ้าเป็นความรัก" · <b>Iowa หลายระดับความดัง (pp/mf/ff)</b> = เสียงคุณภาพใหม่ (Public Domain) · <b>VSCO-2 เดิม</b> = ระดับเดียว · ลูกเล่นคันชัก + การเล่นเหมือนกันเป๊ะ ต่างแค่ "เสียง" → หูพี่เอมตัดสินว่าอันไหนเพราะ/มีชีวิตกว่า</p>
+
+<div class="panel">
+  <h2>เลือกเสียง (กดสลับแล้วกดเล่นใหม่ — เทียบ A/B)</h2>
+  <div class="opts big" id="srcOpts">
+    <div class="opt sel" data-src="iowa">🎻 Iowa หลายระดับ<small>pp/mf/ff · โน้ตเบา=สีนุ่มลม · โน้ตเน้น=สว่างมีแรงสี (เหมือน Grand 5 ชั้น)</small></div>
+    <div class="opt" data-src="vsco">🎻 VSCO-2 เดิม<small>ระดับเดียว · หรี่/เร่ง=แค่ volume เนื้อเสียงไม่เปลี่ยน</small></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>สไตล์การเล่น</h2>
+  <div class="opts" id="styleOpts">
+    <div class="opt sel" data-s="cantabile">🎶 ลากยาวพลิ้ว<small>ร้องเป็นเส้นลื่น · สเวลล์+สั่นเสียง</small></div>
+    <div class="opt" data-s="grand">👑 สง่า<small>คันชักแน่น · สเวลล์ลึก · +ประสานคู่</small></div>
+    <div class="opt" data-s="plain">📝 ตรงโน้ต<small>ลากตรง ไม่ใส่ลูกเล่น (A/B)</small></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>ลูกเล่นคันชัก (เปิด/ปิดทีละอย่าง)</h2>
+  <div class="tg" id="techTg">
+    <button class="tgb on" data-t="legato"><span class="dot"></span>เชื่อมโน้ต (legato)</button>
+    <button class="tgb on" data-t="swell"><span class="dot"></span>สเวลล์โน้ตยาว</button>
+    <button class="tgb on" data-t="vibrato"><span class="dot"></span>สั่นเสียง (vibrato)</button>
+    <button class="tgb on" data-t="porta"><span class="dot"></span>สไลด์เข้าโน้ต</button>
+    <button class="tgb on" data-t="dyn"><span class="dot"></span>หนัก-เบาตามวรรค</button>
+    <button class="tgb on" data-t="layers"><span class="dot"></span>สลับชั้นความดัง (Iowa เท่านั้น)</button>
+    <button class="tgb" data-t="dstop"><span class="dot"></span>ประสานคู่ (double-stop)</button>
+  </div>
+  <p class="hint">"สลับชั้นความดัง" = หัวใจของ Iowa: โน้ตเน้น/ยอดวรรคดึงเสียง <b>ff</b> (สว่าง) · โน้ตเบา/ปลายวรรคดึง <b>pp</b> (นุ่ม) → เนื้อเสียงเปลี่ยนจริง ไม่ใช่แค่ดัง-เบา. ปิด = ใช้ชั้นกลางอย่างเดียว (เหมือน VSCO)</p>
+</div>
+
+<div id="playRow"><button id="play">▶ เล่น</button><button id="stop">■ หยุด</button></div>
+<div id="now"></div>
+<div id="status">แตะ "เล่น" ครั้งแรกจะโหลดเสียงไวโอลิน (~1-2 วิ)</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>ปั้นเสียง (เลื่อนแล้วกดเล่นใหม่)</h2>
+  <div class="row"><label>ดังทำนอง</label><input type="range" id="melVol" min="40" max="150" value="100"><span class="val" id="melV">100%</span></div>
+  <div class="row"><label>ช่วงไดนามิก (แคบ↔กว้าง)</label><input type="range" id="dynW" min="0" max="100" value="65"><span class="val" id="dynWV">65%</span></div>
+  <div class="row"><label>ความลึกสเวลล์</label><input type="range" id="swell" min="0" max="80" value="38"><span class="val" id="swellV">38%</span></div>
+  <div class="row"><label>ความแรงสั่นเสียง</label><input type="range" id="vib" min="0" max="45" value="18"><span class="val" id="vibV">18 cent</span></div>
+  <div class="row"><label>ดังคู่ประสาน</label><input type="range" id="dsVol" min="20" max="100" value="55"><span class="val" id="dsV">55%</span></div>
+  <div class="row"><label>เสียงก้อง (โบสถ์)</label><input type="range" id="rev" min="0" max="100" value="36"><span class="val" id="revV">36%</span></div>
+  <div class="row"><label>ความเร็ว (BPM)</label><input type="range" id="bpm" min="46" max="96" value="62"><span class="val" id="bpmV">62</span></div>
+</div>
+
+<p class="hint" style="margin-top:14px">🎻 <b>Iowa</b> = University of Iowa MIS (Public Domain · ใช้อิสระไร้ข้อจำกัด) · หั่นจากไฟล์จริงเป็น 8 พิตช์ × 3 ระดับ (pp/mf/ff) normalize แล้ว · self-host ได้ (660KB · ออฟไลน์ได้) · <b>VSCO-2</b> = เสียงที่อยู่ในแอปตอนนี้. ทั้งคู่ใช้ envelope คันชัก + ลูกเล่นชุดเดียวกัน — ต่างแค่ไฟล์เสียง.</p>
+
+<script type="module">
+const SONG = JSON.parse('[{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":0.5,"c":"A"},{"m":68,"b":0.5,"c":"A"},{"m":66,"b":4,"c":"B"},{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":1,"c":"A"},{"m":66,"b":3,"c":"B"},{"m":64,"b":1,"c":"B"},{"m":64,"b":4,"c":"E"}]');
+const SHARP=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const IV={'':[0,4,7],m:[0,3,7],7:[0,4,7,10],m7:[0,3,7,10],maj7:[0,4,7,11],sus4:[0,5,7],dim:[0,3,6],6:[0,4,7,9],9:[0,4,7,10,14]};
+function chordPCs(ch){const m=/^([A-G][#b]?)(.*)$/.exec(ch||'');if(!m)return[];
+  const ri=SHARP.indexOf(m[1].replace('Bb','A#').replace('Eb','D#').replace('Ab','G#').replace('Db','C#').replace('Gb','F#'));
+  if(ri<0)return[]; return (IV[m[2]]||IV['']).map(iv=>(ri+iv)%12);}
+function accent(pb){const p=((pb%4)+4)%4;if(p<0.01)return 1;if(Math.abs(p-2)<0.01)return .9;
+  if(Math.abs(p-1)<0.01||Math.abs(p-3)<0.01)return .8;return .72;}
+function contour(i){const n=SONG[i],pr=SONG[i-1],nx=SONG[i+1];let c=1;
+  if(pr&&n.m>pr.m)c+=.06;if(pr&&nx&&n.m>pr.m&&n.m>=nx.m)c+=.06;if(pr&&n.m<pr.m)c-=.04;if(n.b>=3)c-=.06;return c;}
+
+let ctx,master,revConv,revGain,melBus,dsBus,gen=0;
+function impulse(sec,decay){const rate=ctx.sampleRate,len=Math.max(1,Math.floor(rate*sec)),buf=ctx.createBuffer(2,len,rate);
+  for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay);}return buf;}
+function ensure(){ if(ctx)return;
+  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  master=ctx.createGain(); master.gain.value=0.92;
+  const lim=ctx.createDynamicsCompressor(); lim.threshold.value=-3;lim.knee.value=10;lim.ratio.value=3;lim.attack.value=0.01;lim.release.value=0.25;
+  master.connect(lim); lim.connect(ctx.destination);
+  revConv=ctx.createConvolver(); revConv.buffer=impulse(2.6,2.0);
+  revGain=ctx.createGain(); revConv.connect(revGain); revGain.connect(master);
+  melBus=ctx.createGain(); melBus.connect(master); melBus.connect(revConv);
+  dsBus=ctx.createGain();  dsBus.connect(master);  dsBus.connect(revConv);
+}
+
+// ---- sample sources ----
+// Iowa: 3 dynamic layers (pp/mf/ff), 8 pitches each. VSCO: single layer from the app's current set.
+const IOWA_PITCHES=[55,60,62,69,72,76,84,96];
+const IOWA={pp:null,mf:null,ff:null};
+let VSCO=null;
+async function fetchBuf(url){ const ab=await (await fetch(url)).arrayBuffer(); return ctx.decodeAudioData(ab); }
+async function loadIowa(){ if(IOWA.pp)return;
+  for(const dyn of ['pp','mf','ff']){
+    IOWA[dyn]=await Promise.all(IOWA_PITCHES.map(async m=>({midi:m, buf:await fetchBuf('/samples/CC0/violin-iowa/'+dyn+'/'+m+'.ogg')})));
+  }
+}
+async function loadVsco(){ if(VSCO)return;
+  const pj=await (await fetch('/samples/CC0/violin/preset.json')).json();
+  const regs=pj.groups.flatMap(g=>g.regions);
+  VSCO=(await Promise.all(regs.map(async r=>({midi:r.pitch, buf:await fetchBuf('/samples/CC0/violin/'+r.sample+'.ogg')})))).sort((a,b)=>a.midi-b.midi);
+}
+function nearest(arr,midi){ let best=arr[0]; for(const b of arr) if(Math.abs(b.midi-midi)<Math.abs(best.midi-midi)) best=b; return best; }
+
+// fire ONE bow stroke (single buffer) with envelope. layerArr = the sample set to draw from.
+function stroke(bus, layerArr, midi, t, dur, gain, opts){
+  const best=nearest(layerArr,midi);
+  const src=ctx.createBufferSource(); src.buffer=best.buf;
+  src.playbackRate.value=Math.pow(2,(midi-best.midi)/12);
+  const g=ctx.createGain(); const G=Math.max(0.015,gain);
+  const atk=opts.rebow?0.09:Math.min(0.16,0.05+dur*0.05);
+  const rel=opts.legato?0.14:0.09;
+  const soundEnd=t+(opts.legato?dur:Math.max(0.1,dur-0.05));
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(G,t+atk);
+  if(opts.swell && opts.swellShape){ // single-bow messa di voce
+    g.gain.linearRampToValueAtTime(G*(1+opts.swellAmt), t+dur*0.55);
+    g.gain.linearRampToValueAtTime(G*0.82, soundEnd);
+  } else { g.gain.setValueAtTime(G, Math.max(t+atk, soundEnd-rel)); }
+  g.gain.linearRampToValueAtTime(0.0001, soundEnd+rel);
+  if(opts.porta && !opts.rebow){ src.detune.setValueAtTime(-38,t); src.detune.linearRampToValueAtTime(0,t+0.075); }
+  let lfo=null;
+  if(opts.vibrato && dur>=0.9 && opts.vibCents>0){
+    lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=5.6;
+    const lg=ctx.createGain(); lg.gain.setValueAtTime(0.0001,t); lg.gain.linearRampToValueAtTime(opts.vibCents,t+0.28);
+    lfo.connect(lg).connect(src.detune); lfo.start(t); lfo.stop(soundEnd+rel);
+  }
+  src.connect(g).connect(bus); src.start(t); src.stop(soundEnd+rel+0.08); activeVoice.push(src); if(lfo)activeVoice.push(lfo);
+}
+// play a full note: choose layer by intensity, re-bow if longer than one sample (~1.7s)
+function bowNote(bus, src, midi, t, durBeats, spb, gainPeak, intensity, opts){
+  const dur=durBeats*spb;
+  // pick dynamic layer from intensity (Iowa only; VSCO has one set)
+  let layer=src.arr;
+  if(src.multi && opts.layers){ layer = intensity<0.4?src.pp : intensity<0.72?src.mf : src.ff; }
+  else if(src.multi){ layer = src.mf; }
+  const SEG=1.6; const n=Math.max(1,Math.ceil(dur/SEG));
+  if(n===1){ stroke(bus,layer,midi,t,dur,gainPeak,{...opts,swellShape:opts.swell&&durBeats>=1.5}); return; }
+  for(let k=0;k<n;k++){
+    const st=t+k*(dur/n); const sdur=dur/n+(k<n-1?0.14:0);
+    const posc=(k+0.5)/n;
+    let g=gainPeak; if(opts.swell&&durBeats>=1.5) g=gainPeak*(0.78+0.5*Math.sin(Math.PI*posc));
+    stroke(bus,layer,midi,st,sdur,g,{...opts,rebow:k>0,swellShape:false});
+  }
+}
+
+let activeVoice=[];
+const setStatus=m=>document.getElementById('status').textContent=m;
+const setNow=m=>document.getElementById('now').textContent=m;
+function stopAll(){ gen++; activeVoice.forEach(s=>{try{s.stop();}catch(e){}}); activeVoice=[]; }
+
+let SRC='iowa', STYLE='cantabile';
+const TECH={legato:true,swell:true,vibrato:true,porta:true,dyn:true,layers:true,dstop:false};
+const PRESETS={ cantabile:{legato:1,swell:1,vibrato:1,porta:1,dyn:1,dstop:0},
+  grand:{legato:1,swell:1,vibrato:1,porta:0,dyn:1,dstop:1}, plain:{legato:0,swell:0,vibrato:0,porta:0,dyn:0,dstop:0} };
+function applyPreset(s){ const p=PRESETS[s]; for(const k in p) TECH[k]=!!p[k];
+  document.querySelectorAll('#techTg .tgb').forEach(b=>{ if(b.dataset.t!=='layers') b.classList.toggle('on',!!TECH[b.dataset.t]); }); }
+
+async function play(){
+  ensure(); await ctx.resume(); stopAll(); const my=gen;
+  document.getElementById('play').disabled=true;
+  setStatus('⏳ กำลังโหลดเสียง '+(SRC==='iowa'?'Iowa (หลายระดับ)':'VSCO-2 เดิม')+'...');
+  try{ if(SRC==='iowa') await loadIowa(); else await loadVsco(); }
+  catch(e){ setStatus('⚠️ โหลดเสียงไม่ได้ (ต้องเปิดผ่าน dev server ที่เสิร์ฟ /samples/) — '+e.message);
+    document.getElementById('play').disabled=false; return; }
+  document.getElementById('play').disabled=false; if(my!==gen)return;
+  setStatus('✅ เล่นด้วยเสียง '+(SRC==='iowa'?'Iowa MIS หลายระดับ (pp/mf/ff · Public Domain)':'VSCO-2 เดิม (ระดับเดียว)'));
+
+  const melVol=(+melVolEl.value)/100, dsVol=(+dsVolEl.value)/100, dynW=(+dynWEl.value)/100;
+  const swellAmt=(+swellEl.value)/100, vibCents=+vibEl.value;
+  revGain.gain.value=(+revEl.value)/100*0.55;
+  const bpm=+bpmEl.value, spb=60/bpm;
+  const t0=ctx.currentTime+0.2, rnd=()=>(Math.random()-0.5)*2, TJ=0.012, VJ=0.06;
+  const src = SRC==='iowa' ? {multi:true, pp:IOWA.pp, mf:IOWA.mf, ff:IOWA.ff} : {multi:false, arr:VSCO};
+  // per-layer makeup so the dynamic loudness arc reads (samples are normalized to -3dB peak)
+  const layerGain = (intensity)=> !TECH.layers||!src.multi ? 0.85 : (intensity<0.4?0.62 : intensity<0.72?0.82 : 1.0);
+
+  let beat=0;
+  SONG.forEach((n,i)=>{
+    if(n.m!=null){
+      const dynMul = TECH.dyn ? accent(beat)*contour(i)*(1+VJ*rnd()) : 0.85;
+      // intensity 0..1 from the melodic dynamics, widened/narrowed by the ช่วงไดนามิก slider
+      let intensity = (dynMul-0.6)/(1.25-0.6);
+      intensity = 0.5 + (intensity-0.5)*(0.4+dynW); // widen around center
+      intensity = Math.max(0,Math.min(1,intensity));
+      const lg=layerGain(intensity);
+      const sh = TECH.dyn ? TJ*rnd() : 0;
+      const t=t0+beat*spb+sh;
+      const opts={legato:TECH.legato,swell:TECH.swell,porta:TECH.porta,vibrato:TECH.vibrato,layers:TECH.layers,swellAmt,vibCents};
+      bowNote(melBus, src, n.m, t, n.b, spb, 0.30*melVol*dynMul*lg, intensity, opts);
+      if(TECH.dstop && n.b>=2){
+        const pcs=chordPCs(n.c); let h=null;
+        for(let d=3; d<=9; d++){ const cand=n.m-d; if(pcs.includes(((cand%12)+12)%12)){ h=cand; break; } }
+        if(h!=null) bowNote(dsBus, src, h, t+0.01, n.b, spb, 0.30*dsVol*dynMul*lg, Math.max(0,intensity-0.15),
+          {legato:TECH.legato,swell:TECH.swell,porta:false,vibrato:false,layers:TECH.layers,swellAmt:swellAmt*0.7,vibCents:0});
+      }
+    }
+    beat+=n.b;
+  });
+  const names={cantabile:'ลากยาวพลิ้ว',grand:'สง่า',plain:'ตรงโน้ต'};
+  setNow('▶ '+(SRC==='iowa'?'Iowa หลายระดับ':'VSCO-2 เดิม')+' · '+names[STYLE]+' · BPM '+bpm);
+}
+
+const melVolEl=document.getElementById('melVol'), dsVolEl=document.getElementById('dsVol'),
+  dynWEl=document.getElementById('dynW'), swellEl=document.getElementById('swell'), vibEl=document.getElementById('vib'),
+  revEl=document.getElementById('rev'), bpmEl=document.getElementById('bpm');
+document.querySelectorAll('#srcOpts .opt').forEach(o=> o.addEventListener('click',()=>{
+  SRC=o.dataset.src; document.querySelectorAll('#srcOpts .opt').forEach(x=>x.classList.toggle('sel',x===o)); }));
+document.querySelectorAll('#styleOpts .opt').forEach(o=> o.addEventListener('click',()=>{
+  STYLE=o.dataset.s; document.querySelectorAll('#styleOpts .opt').forEach(x=>x.classList.toggle('sel',x===o)); applyPreset(STYLE); }));
+document.querySelectorAll('#techTg .tgb').forEach(b=> b.addEventListener('click',()=>{
+  TECH[b.dataset.t]=!TECH[b.dataset.t]; b.classList.toggle('on',TECH[b.dataset.t]); }));
+document.getElementById('play').addEventListener('click',()=> play().catch(e=>setStatus('⚠️ '+e.message)));
+document.getElementById('stop').addEventListener('click',()=>{ stopAll(); setNow(''); setStatus('■ หยุดแล้ว'); });
+const bind=(el,l,suf)=>{ const o=document.getElementById(l); const u=()=>o.textContent=el.value+(suf||''); el.addEventListener('input',u); u(); };
+bind(melVolEl,'melV','%'); bind(dynWEl,'dynWV','%'); bind(swellEl,'swellV','%'); bind(vibEl,'vibV',' cent'); bind(dsVolEl,'dsV','%'); bind(revEl,'revV','%'); bind(bpmEl,'bpmV','');
+window.__iowaDemo={ IOWA_PITCHES };
+</script>
+</body>
+</html>
