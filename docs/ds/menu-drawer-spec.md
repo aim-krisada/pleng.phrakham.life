@@ -6,7 +6,13 @@
 
 ---
 
-## กฎร่วม (baseline = phrakham drawer ปัจจุบัน)
+> **⚠️ แก้ SSOT (14 ก.ค. · 2 PM เห็นตรงกัน):** ประโยคเดิม "baseline = phrakham drawer" **ผิด** — verify live แล้ว **พระคำวันนี้ = Bootstrap collapse (กางลงเต็มกว้าง) ไม่มี drawer** จึงเป็น baseline ไม่ได้ · รายละเอียด verify → `docs/ds/menu-drawer-parity-fix.md`
+>
+> **🌍 ทิศใหม่ (หลัก World-class by default · `sop.md §0`) — ข้อเสนอร่วม pleng PM + pk pm5 · รอ P'Aim เคาะทิศสุดท้าย:**
+> เป้าหมายร่วม = **off-canvas navigation drawer เลื่อนจากซ้าย + scrim (ฉากมืด) ทั้ง 2 เว็บ** (มาตรฐาน Material · Gmail/YouTube) = **align UP ทั้งคู่** ไม่ใช่เพลงถอยไปก๊อป dropdown · พระคำทำผ่าน Bootstrap `offcanvas-start` (native scrim+a11y) · เพลงพลิก `.sb-drawer` จากขวา→ซ้าย + ย้าย ☰ ซ้ายบน
+> **สัญญาร่วม = เปลือก/พฤติกรรม drawer** (left off-canvas + scrim + nav ข้อความล้วน + วิธี render preview-picker vs switch) · **ไม่กำหนดว่าเครื่องมือไหนอยู่ในเมนู** (per-site + per-context — พระคำมี reading dock ต่างหน้า) · non-blocking (queue หลัง reader feature พระคำ)
+
+## กฎร่วม (target = left off-canvas drawer + scrim · world-class · align-UP ทั้ง 2 เว็บ — pending P'Aim เคาะทิศ)
 
 ### 1. Alignment = ชิดซ้าย
 เมนู/ลิงก์/หมวด **ชิดซ้ายทั้งหมด** — ไทย/LTR อ่านซ้าย→ขวา สแกนตาเร็วสุด · **ห้ามชิดขวา** (ผิดขนบ อ่านช้า)
