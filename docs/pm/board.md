@@ -11,6 +11,14 @@
 - **post-deploy verify (live · มือคน):** พี่เปา verify karaoke พยางค์ + drawer slide บน device จริง (ถ้าเพี้ยนแก้รอบ 25 · เสี่ยงต่ำ)
 - **ยังทำต่อ (แยก · ไม่อยู่ใน deploy):** 🎻 violin `task_15a3f347` (spike เสร็จ · Iowa PD · **รอ P'Aim ฟัง A/B** `:5344/docs/spikes/violin-iowa-demo.html`) · 🎨 Remix ⏸️พัก (design เสร็จ รอ P'Aim เคาะ GATE1)
 
+**▶ pm25 เริ่มตรงนี้ (next actions · ไม่มีอะไรบล็อก · รอ P'Aim/พี่เปา):**
+1. **violin:** P'Aim ฟัง A/B (Iowa vs VSCO) → ถ้าผ่าน → ปลุก SA (`task_15a3f347`/branch `charming-cori-25514b`) wire multi-dynamic bowed + เปิดปุ่ม → tester → gate → รอบ 25 · ถ้าไม่ผ่าน SA เสนอ best-free/upgrade/พัก
+2. **Remix:** P'Aim เคาะ GATE1 (design พร้อม `docs/ds/remix.md`+wireframe) → จ่าย dev → รอบถัดไป
+3. **post-deploy verify (พี่เปา · live):** karaoke พยางค์ + drawer slide (เพี้ยน→รอบ 25)
+4. **shared-core token layer** (deferred · §📌) · notation print (พี่เปา) · to-do พี่เปา issues4/6/7
+- **git:** base `studio-shell-redesign` = origin/main = `cafaa3b` (deploy synced) · สะอาด · memory synced OneDrive
+- **🧹 cleanup (pm25 ตอนว่าง):** worktree/session รอบ 23-24 เสร็จแล้วเยอะ (dev/tester ~20+) archive+`git worktree remove` ได้ · สายที่ยัง active = violin(`charming-cori`) · phrakham pk pm5 · drawer(peaceful-clarke เสร็จ)
+
 **--- ประวัติ pm24 ด้านล่าง ---**
 
 ## ▶ RESUME เดิม (pm23 → pm24 · 14 ก.ค. ค่ำ)
