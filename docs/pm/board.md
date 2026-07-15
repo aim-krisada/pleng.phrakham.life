@@ -227,3 +227,9 @@ PM วัดเอง getComputedStyle 2 เว็บ live ยืนยันท
 - **#4 ไฮไลต์หน้าปัจจุบัน:** เพลงมี · พระคำไม่ → **P'Aim เลือก align-up: พระคำเพิ่มไฮไลต์ด้วย** (dev เพลงคงไว้ · pk pm5 เพิ่มพระคำ)
 - **#5 (ยกไว้):** เพลง=dock คุมขนาดฟอนต์ · พระคำ=ปุ่ม Aa ในลิ้นชัก → normalize เป็น core เดียวทีหลัง (P'Aim สั่งยกไว้)
 - **บทเรียน PM:** parity brief พลาด footer/focus/active + verify desktop-only (ข้อ 1 เห็นเฉพาะ Android) → memory `feedback_parity_full_visual_audit` เพิ่ม checklist 4 จุด · จ่ายแก้แล้ว 2 ฝั่ง · **P'Aim จะ re-verify local (Android) ก่อน joint deploy**
+
+## 🔀 CONSOLIDATE parity → 1 session (P'Aim 15 ก.ค.): "ให้คนเดียวทำ จะได้เห็นภาพเดียวกัน" + "ตรวจละเอียดทุกจุด+แนะนำ"
+- แยกสาย (audit SA + pleng dev + phrakham dev) → ไม่มีใครเห็นภาพรวม → P'Aim จับ gap 2 รอบ → **รวมเป็น 1 session (`local_81d4f3d9`/sad-moser) เจ้าของ parity ข้ามเว็บ**: เปิด 2 dev server (pleng :5344 + สร้าง phrakham worktree จาก `feat/drawer-parity` รันเอง) · เทียบ element-by-element สองจอ · แก้ทั้ง pleng + phrakham (บน feat/drawer-parity) · exhaustive ทุกจุด + แนะนำ align-up
+- **pk pm5 hold สายพระคำ** (ไม่แก้ branch พร้อมกัน · คงสิทธิ์ review+deploy พระคำ) — ส่งแล้ว
+- fix ค้าง 4 (#1 Android text-size-adjust พระคำ · #2 footer เพลง · #3 focus-visible เพลง · #4 align-up พระคำเพิ่มไฮไลต์) + หาเพิ่ม → 1 session ถือหมด · verify 2 จอ + Android → ส่ง P'Aim → joint deploy
+- lesson: `feedback_parity_full_visual_audit` (1-session cross-site + PM แนะนำเชิงที่ปรึกษา)
