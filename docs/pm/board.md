@@ -24,7 +24,7 @@
 - **ยังทำต่อ (แยก · ไม่อยู่ใน deploy):** 🎻 violin `task_15a3f347` (spike เสร็จ · Iowa PD · **รอ P'Aim ฟัง A/B** `:5344/docs/spikes/violin-iowa-demo.html`) · 🎨 Remix ⏸️พัก (design เสร็จ รอ P'Aim เคาะ GATE1)
 
 **▶ pm25 เริ่มตรงนี้ (next actions · ไม่มีอะไรบล็อก · รอ P'Aim/พี่เปา):**
-1. **violin:** P'Aim ฟัง A/B (Iowa vs VSCO) → ถ้าผ่าน → ปลุก SA (`task_15a3f347`/branch `charming-cori-25514b`) wire multi-dynamic bowed + เปิดปุ่ม → tester → gate → รอบ 25 · ถ้าไม่ผ่าน SA เสนอ best-free/upgrade/พัก
+1. **violin:** ❌ **P'Aim ฟัง A/B แล้ว verdict: ยังไม่ใช่ — "ออกแนวออร์แกน"** (นิ่ง ตายตัว) · ไวโอลินจริงที่ชอบ = **"แหลม โหยหวน · หนักเบาชัดกว่ามาก"** → Iowa multi-dynamic ไม่พอ · ที่ขาด = **expression ภายในตัวโน้ต** (vibrato · dynamic swell คันชัก · brightness ตาม intensity · portamento) · **จ่าย SA เดิม (`local_c457a6cb`/charming-cori) ต่อ (15 ก.ค.):** วิเคราะห์เชิงตัวเลข (librosa) 3 ไฟล์ ref ที่ P'Aim ชอบ (Amazing Grace 박지혜/石川綾子 + Canon · ช่วงกลาง · ⚠️ ลิขสิทธิ์ ห้าม commit MP3) เทียบเดโม Iowa → หาว่า "ออร์แกน" มาจากอะไร → prototype เติม expression → เดโมใหม่ · ถ้าฟรี+processing ชนเพดาน → flag ทางเลือก (lib true-legato/vibrato · hybrid synth · รับข้อจำกัด) ให้ P'Aim ตัดสิน · P'Aim iterate ตรง SA
 2. **Remix:** P'Aim เคาะ GATE1 (design พร้อม `docs/ds/remix.md`+wireframe) → จ่าย dev → รอบถัดไป
 3. **post-deploy verify (พี่เปา · live):** karaoke พยางค์ + drawer slide (เพี้ยน→รอบ 25)
 4. **shared-core token layer** (deferred · §📌) · notation print (พี่เปา) · to-do พี่เปา issues4/6/7
