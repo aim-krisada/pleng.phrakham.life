@@ -14,7 +14,11 @@
 - 🎹 **PRIMED รอ P'Aim สั่งเปิด** — "เปียโนเดี่ยวร่างทอง" universal adaptive solo piano ~400 เพลง (ต่อยอด Canon · handoff `docs/reports/piano-golden-handoff.md`) · กลืน follow-up preset เปียโนบรรเลง SongView · **รอ P'Aim GO → PM spawn worktree+brief** (§🎹 PRIMED)
 - **git:** base `studio-shell-redesign` · สะอาด · ไม่มีอะไรบล็อก · **ไม่มี deploy ค้าง**
 
-**🎹 ACTIVE — golden-piano ยิงแล้ว (P'Aim อนุมัติ 100% · 15 ก.ค.):** spawn_task `task_033450b9` (chip "Build golden-piano arranger referee") → dev/SA สาย `golden-piano` (fork ใหม่จาก base) · brief SSOT `docs/pm/brief-golden-piano.md` · **ขอบเขต 4:** (1) 🚦 วาทยกร no-clash — ลูกเล่น (sparkle/gapFill/fills) เล่นเฉพาะช่องว่างทำนอง (2) 🛡️ ยาม balance-floor — non-melody ≤ concurrent melody×0.8 (มือขวานำ ≥20%) + floor กันบ๋อท่า · pass ใน `arrange()` pure (live==MP3) (3) 🎼 แก้ป้ายท่อน v2 — `resolveContent` ก่อน `sectionBeatRanges` (ตอนนี้อ่าน `content.lines` → v2 คืน [] → section/rubato ตายเงียบ ~400 เพลง) + fallback melody-density (4) 🎧 ปุ่ม A/B ในหน้า SongView จริง (`cfg.strictReferee`) · **P'Aim iterate ตรง SA · PM gate/merge** · **รอสาย: (a) Network URL --host (b) report `docs/reports/<branch>.md`+inbox** · guardrails: fork ถูกฐาน · ต่อ arranger จริง (playSong) ไม่ทำ demo · ไม่แต่งทำนองใหม่
+**🎹 ACTIVE — golden-piano ✅ ส่งมอบครบ 4 · รอ P'Aim ฟัง A/B + PM gate (15 ก.ค.):** `task_033450b9` · branch `golden-piano` (fork ถูกฐาน · `9fd1c55` code + `7b15e90` report) · report `docs/reports/golden-piano.md`
+- **PM git-verify:** scope สะอาด 10 ไฟล์ตรง brief (`referee.js`+test = 2 pass · `midi.js` resolveSections+fallback · UI 3 ไฟล์ A/B · store persist) ไม่มีไฟล์แปลก · อ่าน referee.js เอง = ตรรกะ no-clash (emb เล่นเฉพาะ gap ≥0.4บีต) + balanceFloor (≤ mel×0.8 + AUDIBLE_FLOOR 0.045) ทำจริง · 645 tests + build ผ่าน (สายรายงาน)
+- **🎧 URL ให้ P'Aim ฟัง:** `http://192.168.1.124:5430/` → เพลงไหนก็ได้ → ปุ่ม "เสียงดนตรี" → "วาทยกร (ก่อน/หลัง)" · default = เปิด(หลัง)
+- **🚩 DECISION รอ P'Aim:** MP3 export (`renderSongToBuffer`) **ไม่เดินผ่าน arrange()** = referee ไม่มีผลกับ MP3 (ของเดิม live↔MP3 diverge อยู่ก่อนแล้ว · ไม่ใช่ regression) → route MP3 ผ่าน arrange = งานต่อ จะเปลี่ยน output MP3 เดิม → **ต้อง P'Aim ฟันธง**
+- **next:** P'Aim ฟัง A/B เพลงจริงหลายแบบ → iterate ตรง SA (ปรับ GAP/LEAD/FLOOR/density) → พอใจ → PM gate เต็ม (rerun test บน base) + merge + deploy เมื่อสั่ง · dev server ค้างให้ฟัง
 
 **--- ประวัติ pm25 ด้านล่าง (รอบ 25 GATE leak#2 · parity in-progress) ---**
 
