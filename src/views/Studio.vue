@@ -9,6 +9,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
+import { visibleSongs } from '../lib/bookshelf.js'
 import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
@@ -199,13 +200,17 @@ const songList = ref([])
 async function loadSongList() {
   const { data } = await supabase
     .from('songs')
-    .select('id, number, title_th, title_en, content')
+    .select('id, number, title_th, title_en, content, verified')
     .order('number', { ascending: true })
   songList.value = data ?? []
 }
-// searchable options (ชื่อ · เลข · เนื้อร้อง · โน้ต — same haystack as the catalog page)
+// searchable options (ชื่อ · เลข · เนื้อร้อง · โน้ต — same haystack as the catalog page).
+// GATE (reuse bookshelf.visibleSongs — same source SongList + EditorMode use): anon sees only
+// verified songs, team sees all. computed on tier so it re-filters on login/logout without
+// reloading the list. Without this the shell's "เปิดเพลงที่มีอยู่" picker leaks unverified
+// songs to the public — a separate code path from EditorMode's own picker (round-24 leak #2).
 const pickerOptions = computed(() =>
-  songList.value.map((s) => ({
+  visibleSongs(songList.value, tier.value !== 'anon').map((s) => ({
     value: s.id,
     label: (s.number != null ? s.number + '. ' : '') + s.title_th,
     search: songHaystack(s),
