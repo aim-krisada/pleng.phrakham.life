@@ -18,6 +18,13 @@ const props = defineProps({
   bpm: { type: Number, default: 0 },
   transpose: { type: Number, default: 0 },
   voices: { type: String, default: 'melody' }, // B104: 'melody' | 'chords' | 'both' — MP3 matches "ฟัง"
+  // golden-piano — when the page plays through the arranger, hand the MP3 the SAME recipe so the
+  // download carries the full arrangement (referee, legato, ลูกเล่น, humanize, rubato), not a plain
+  // synth melody. arranger:false (default) keeps the legacy plain export for print/editor callers.
+  arranger: { type: Boolean, default: false },
+  arrangeCfg: { type: Object, default: () => ({}) },
+  instrument: { type: String, default: 'synth' },
+  songId: { type: [String, Number], default: undefined },
 })
 const emit = defineEmits(['toggle', 'close'])
 
@@ -65,6 +72,10 @@ async function downloadMp3() {
       bpm,
       transpose: props.transpose || 0,
       voices: props.voices || 'melody',
+      arranger: props.arranger,
+      arrangeCfg: props.arrangeCfg,
+      instrument: props.instrument,
+      songId: props.songId,
       onProgress: ({ stage, fraction }) => {
         mp3Stage.value = stage
         if (stage === 'encode') {

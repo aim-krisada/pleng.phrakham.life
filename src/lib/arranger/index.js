@@ -28,6 +28,7 @@ import {
 import { applyVoicing } from './voicing.js'
 import { embellishChord } from './embellish.js'
 import { answerFills, applySusCadence } from './fills.js'
+import { refereeNoClash, balanceFloor, legatoBass } from './referee.js'
 import { keyboard } from './instruments/keyboard.js'
 
 /** @typedef {Object} PerfEvent
@@ -153,6 +154,13 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
     events.push(...answerFills(events, voicedChords, bpb, cfg))
   }
 
+  // REFEREE §1 (วาทยกร · golden-piano) — no ลูกเล่น (embellishment / fill, all role 'emb') may sound
+  // on top of a melody note. Drop any whose onset isn't in a real melodic gap. Runs BEFORE dynamics
+  // so the shaping layer only touches survivors. INTRINSIC (P'Aim 15 ก.ค.: เปิดตลอด · ซ่อนปุ่ม) — it's
+  // a discipline rule, not a taste, so it always runs; it's what lets the "เปิดหมด" default not turn
+  // to mud. The melody + comp + bass are untouched — only the optional ลูกเล่น are policed.
+  if (on) events = refereeNoClash(events, cfg)
+
   // LAYER 2 dynamics — only when the arranger is ON. When OFF ("ลูกเล่นปิด"): notes play exactly
   // as printed — constant gain, timeShift 0, no embellishment (§6c invariant). Order: shape the
   // gains (section → accent → contour → cresc), then time (rubato → humanize), clamp to layer.
@@ -170,6 +178,15 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
     humanizeVel(events, rng, humOff ? 0 : (cfg.humanizeVel ?? mod.humanizeFeel.velJitter))
     humanizeTime(events, rng, humOff ? 0 : (cfg.humanizeTime ?? mod.humanizeFeel.timing.sigma))
     clampAll(events) // velocity-in-layer safety net (§7b)
+    // REFEREE §2 (ยาม · golden-piano) — the FINAL word on balance: after every gain is settled, pin
+    // each non-melody voice ≤ the melody actually sounding over it × 0.8 (right hand leads ≥20%) and
+    // lift any voice the dynamics chain drove toward inaudible back to a soft floor. Last so nothing
+    // downstream can reopen the balance. INTRINSIC (P'Aim 15 ก.ค.) — always runs when the arranger is on.
+    balanceFloor(events, cfg)
+    // REFEREE §1 LEGATO (golden-piano) — close the "ฟันหลอ" seam in the LEFT hand: stretch each bass
+    // note to connect into the next so ลากอุ้ม/ลากเชื่อม rings continuously. Last, after humanize has
+    // locked the bass onset on-grid (dynamics.humanizeTime skips role 'bass'). Beat-space, pure.
+    legatoBass(events, cfg)
   }
 
   return events

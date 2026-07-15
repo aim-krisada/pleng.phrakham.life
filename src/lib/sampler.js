@@ -183,10 +183,19 @@ async function createInstrument(name, context, onProgress) {
   const entry = REGISTRY[name]
   if (!entry) return null
   const smplr = await import('smplr')
-  const { SplendidGrandPiano, Soundfont, Sampler, CacheStorage } = smplr
+  const { SplendidGrandPiano, Soundfont, Sampler, CacheStorage, Scheduler } = smplr
   const storage = makeStorage(CacheStorage)
   const base = SAMPLE_HOSTS.base
   const onLoadProgress = ({ loaded, total }) => { if (total) onProgress?.(loaded / total) }
+  // OFFLINE (MP3 export) — smplr's default scheduler queues any note beyond a 200ms lookahead for a
+  // setInterval tick that NEVER fires during OfflineAudioContext.startRendering() (offline renders in
+  // one synchronous pass), so every note after the first ~200ms would be SILENT (verified). Inject a
+  // scheduler with a huge lookahead so EVERY note dispatches its BufferSource immediately at schedule
+  // time → the whole song is scheduled before startRendering. Realtime keeps the default (a huge
+  // lookahead there would pre-create every voice up front and break stop/reschedule). Duck-typed:
+  // only an OfflineAudioContext has startRendering().
+  const isOffline = typeof context.startRendering === 'function'
+  const offlineScheduler = isOffline && Scheduler ? Scheduler(context, { lookaheadMs: 1e7 }) : null
 
   // makeup gain: lift the instrument to a usable level (see REGISTRY.makeup). One gain for all
   // voices → the melody/chord balance (set by velocity) is preserved. Routed as the instrument's
@@ -215,6 +224,7 @@ async function createInstrument(name, context, onProgress) {
       onLoadProgress,
     }
     if (storage) opts.storage = storage
+    if (offlineScheduler) opts.scheduler = offlineScheduler // MP3: schedule the whole song up front
     return { instrument: new SplendidGrandPiano(context, opts), output: makeup, velMap: gainToVelocity }
   }
 
@@ -223,6 +233,7 @@ async function createInstrument(name, context, onProgress) {
   if (entry.kind === 'soundfont') {
     const opts = { instrumentUrl: base + entry.instrumentUrl, destination: makeup, onLoadProgress }
     if (storage) opts.storage = storage
+    if (offlineScheduler) opts.scheduler = offlineScheduler
     return { instrument: new Soundfont(context, opts), output: makeup, velMap: gainToVelocityFull }
   }
 
@@ -234,6 +245,7 @@ async function createInstrument(name, context, onProgress) {
     preset.samples.baseUrl = base + entry.baseUrl
     const opts = { preset, destination: makeup, onLoadProgress }
     if (storage) opts.storage = storage
+    if (offlineScheduler) opts.scheduler = offlineScheduler
     return { instrument: new Sampler(context, opts), output: makeup, velMap: gainToVelocityFull }
   }
 

@@ -32,6 +32,9 @@ const CHORD_TIME_RATIO = 0.35
 // on top. Seeded → deterministic per (song, pass).
 export function humanizeTime(events, rng, sigma = 0.012) {
   for (const e of events) {
+    // §1 (golden-piano) — the BASS is the anchor: keep it dead on the grid so a held/legato left hand
+    // never gets a jittered onset that opens a seam ("ฟันหลอ"). Only melody + inner voices breathe.
+    if (e.role === 'bass') { e.timeShift = e.timeShift || 0; continue }
     const s = e.role === 'melody' ? sigma : sigma * CHORD_TIME_RATIO
     e.timeShift = (e.timeShift || 0) + (rng() * 2 - 1) * s
   }

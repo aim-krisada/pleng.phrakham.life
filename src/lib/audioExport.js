@@ -4,7 +4,11 @@
 // Split so the pieces are testable headless: notesDurationSec / floatToInt16 /
 // encodePcmToMp3 are pure; only renderSongToBuffer needs a browser (OfflineAudioContext).
 import lamejs from '@breezystack/lamejs'
-import { buildPlayNotes, scheduleNote, buildChordVoice, voiceFlags, makeChordBus } from './midi.js'
+import { buildPlayNotes, scheduleNote, buildChordVoice, voiceFlags, makeChordBus,
+  makeReverbBus, REVERB, resolveSections, KEY_MIDI } from './midi.js'
+import { arrange } from './arranger/index.js'
+import { moduleForInstrument } from './arranger/instruments/index.js'
+import { loadInstrument, isSampledInstrument } from './sampler.js'
 import { resolveContent } from './songModel.js'
 import { songBasename } from './songName.js'
 
@@ -36,24 +40,81 @@ export function estimateMp3(content, { bpm, kbps = 128 } = {}) {
 }
 
 // Render the melody offline into a mono AudioBuffer. Browser only (OfflineAudioContext).
-// Defaults mirror a plain "ฟัง": the song's own bpm (or 92) and its native key
-// (transpose 0). Same per-note timing + synth as playSong, so it sounds identical.
-export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRate = 44100, voices = 'melody', chordGain = 0.055 } = {}) {
+// Defaults mirror a plain "ฟัง": the song's own bpm (or 92) and its native key (transpose 0).
+//
+// Two modes — same synth (scheduleNote) as playSong's fallback voice, so timing/dynamics match:
+//   arranger:true  — route the sheet through arrange() (the SAME pure function live playback uses),
+//                    so the download carries the FULL arrangement (referee no-clash + balance, legato
+//                    bass, embellishments, humanize, rubato, section dynamics) — MP3 == "ฟัง" in every
+//                    musical detail (§1b). Pass the live arrangeCfg + instrument + songId to match
+//                    exactly. Timbre is the offline synth (the real Grand in OfflineAudioContext is a
+//                    separate P3 spike); everything ELSE — the notes, timing, loudness — is identical.
+//   arranger:false — the legacy plain path (melody + block chords), unchanged, for callers that don't
+//                    opt in (print/editor default).
+export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRate = 44100, voices = 'melody', chordGain = 0.055, arranger = false, arrangeCfg = {}, instrument = 'synth', songId } = {}) {
   const playable = playableContent(content)
   const useBpm = Number(bpm) || playable.bpm || 92
   const notes = buildPlayNotes(playable)
   const spb = 60 / useBpm
-  // tail so the last note's release (soundDur + 0.01) isn't clipped at buffer end
-  const seconds = notesDurationSec(notes, useBpm) + 0.25
-  const frames = Math.max(1, Math.ceil(seconds * sampleRate))
+  const { melody: wantMelody, chords: wantChords } = voiceFlags(voices)
   const OfflineCtx = typeof window !== 'undefined'
     ? window.OfflineAudioContext || window.webkitOfflineAudioContext
     : null
   if (!OfflineCtx) throw new Error('เบราว์เซอร์นี้ไม่รองรับการสร้างไฟล์เสียง (OfflineAudioContext)')
+
+  if (arranger) {
+    // ---- new engine: same arrange() as live, rendered with the synth voice ----
+    const chordEvents = wantChords ? buildChordVoice(notes) : []
+    const sections = resolveSections(playable, notes)
+    const module = arrangeCfg.module || moduleForInstrument(instrument)
+    const perf = arrange(notes, chordEvents, { arranger: true, voices, chordGain, ...arrangeCfg, module },
+      { songId, pass: 0, timeSignature: playable.timeSignature, keyRoot: KEY_MIDI[playable.key] ?? 60, sections })
+    // buffer length from the ACTUAL performance end (rubato lengthens the last note, legato extends
+    // the bass, an embellishment can sit in the final gap) — never clip the tail.
+    let endBeat = notes.reduce((s, n) => s + n.beats, 0)
+    for (const e of perf) endBeat = Math.max(endBeat, e.startBeat + e.beats + (e.timeShift || 0) / spb)
+    const frames = Math.max(1, Math.ceil((endBeat * spb + 0.6) * sampleRate)) // +tail for release + reverb
+    const ctx = new OfflineCtx(1, frames, sampleRate)
+    // mirror playSong's reverb room (the sampler routes straight through it, like live)
+    const reverbCfg = REVERB[arrangeCfg.reverb]
+    const fx = reverbCfg ? makeReverbBus(ctx, ctx.destination, reverbCfg) : null
+    const busIn = fx ? fx.input : ctx.destination
+    const perNoteDur = (e) => {
+      const rawDur = e.beats * spb
+      return e.role === 'melody' ? Math.max(0.08, rawDur - 0.07) : Math.max(0.1, rawDur - 0.05)
+    }
+    const onset = (e) => Math.max(0, e.startBeat * spb + (e.timeShift || 0))
+
+    // REAL TIMBRE (P3 · golden-piano) — render with the actual instrument sample (Grand 5-layer),
+    // the SAME voice as live "ฟัง", so the download matches in timbre too. sampler.js injects a huge-
+    // lookahead scheduler for the offline context so smplr schedules the WHOLE song before render
+    // (offline has no scheduler tick → otherwise every note past ~200ms is silent). If the load fails,
+    // fall through to the synth voice below so the export never hard-fails.
+    let sampler = null
+    if (isSampledInstrument(instrument)) {
+      try { sampler = await loadInstrument(instrument, ctx) } catch { sampler = null }
+    }
+    if (sampler) {
+      sampler.setDestination(busIn) // whole instrument → reverb room (no chord bus; velocity sets balance)
+      for (const e of perf) sampler.fire(e.midi + transpose, onset(e), perNoteDur(e), e.gain)
+      return await ctx.startRendering()
+    }
+
+    // SYNTH fallback — mirror playSong's synth graph: reverb room + one chord bus (pad under the tune)
+    const hasChordVoice = perf.some((e) => e.role !== 'melody')
+    const chordBus = (wantChords && hasChordVoice) ? makeChordBus(ctx, busIn) : null
+    for (const e of perf) {
+      const isMel = e.role === 'melody'
+      const dest = isMel ? busIn : (chordBus || busIn)
+      scheduleNote(ctx, dest, e.midi, onset(e), perNoteDur(e), transpose * 100, e.gain, e.attack, e.decayTo)
+    }
+    return await ctx.startRendering()
+  }
+
+  // ---- legacy plain path (unchanged) ----
+  const seconds = notesDurationSec(notes, useBpm) + 0.25
+  const frames = Math.max(1, Math.ceil(seconds * sampleRate))
   const ctx = new OfflineCtx(1, frames, sampleRate)
-  // B104: honour the same 3 sound modes as "ฟัง" (melody / chords / both) so a downloaded
-  // MP3 matches whatever the play button plays — same scheduleNote + buildChordVoice.
-  const { melody: wantMelody, chords: wantChords } = voiceFlags(voices)
   let t = 0
   for (const n of notes) {
     const dur = n.beats * spb
@@ -64,8 +125,6 @@ export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRa
     t += dur
   }
   if (wantChords) {
-    // Same voice-leading + chord bus + gain balance as playSong (B107), so the MP3 sounds
-    // exactly like "ฟัง": pad sits under the melody, bass a touch louder, envelope decays.
     const chordBus = makeChordBus(ctx, ctx.destination)
     for (const ev of buildChordVoice(notes)) {
       const startT = ev.startBeat * spb
@@ -121,9 +180,9 @@ export async function encodePcmToMp3(int16, { sampleRate = 44100, kbps = 128, on
 //   { stage:'render', fraction:0 } — offline audio render (atomic; no sub-progress)
 //   { stage:'encode', fraction:0..1 } — MP3 encode (real sub-progress from lamejs)
 //   { stage:'done',   fraction:1 }
-export async function songToMp3Blob(content, { bpm, transpose = 0, sampleRate = 44100, kbps = 128, voices = 'melody', onProgress } = {}) {
+export async function songToMp3Blob(content, { bpm, transpose = 0, sampleRate = 44100, kbps = 128, voices = 'melody', arranger = false, arrangeCfg = {}, instrument = 'synth', songId, onProgress } = {}) {
   onProgress?.({ stage: 'render', fraction: 0 })
-  const buffer = await renderSongToBuffer(content, { bpm, transpose, sampleRate, voices })
+  const buffer = await renderSongToBuffer(content, { bpm, transpose, sampleRate, voices, arranger, arrangeCfg, instrument, songId })
   onProgress?.({ stage: 'encode', fraction: 0 })
   const int16 = floatToInt16(buffer.getChannelData(0))
   const blob = await encodePcmToMp3(int16, {

@@ -7,6 +7,7 @@ import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampl
 import { arrange } from './arranger/index.js'
 import { moduleForInstrument } from './arranger/instruments/index.js'
 import { mulberry32, seedFor } from './arranger/rng.js'
+import { resolveContent } from './songModel.js'
 
 // Playback root MIDI per key. Every tonic is kept inside ONE comfortable window (G3..F#4 = 55..66)
 // so no key plays an octave higher than another (พี่เปา 14 ก.ค.: "คีย์ A สูงเกินไป · ขอโซน A4"). The
@@ -14,7 +15,7 @@ import { mulberry32, seedFor } from './arranger/rng.js'
 // the A5/B5 zone; dropping them to octave 3 (A=57 → melody peaks around A4) fixes that. C..F# are
 // unchanged (they were already comfortable). This is PLAYBACK pitch only — the sheet's numbers/octave
 // dots are unaffected. keyTranspose + songToNotes + arrange all read this, so live + MP3 stay in sync.
-const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 65,
+export const KEY_MIDI = { C: 60, 'C#': 61, Db: 61, D: 62, 'D#': 63, Eb: 63, E: 64, F: 65,
   'F#': 66, Gb: 66, G: 55, 'G#': 56, Ab: 56, A: 57, 'A#': 58, Bb: 58, B: 59 }
 const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11] // semitone offsets for degrees 1-7
 
@@ -568,9 +569,11 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
     // preset already named one. So a solo violin uses bowed voicing+patterns, nylon uses plucked,
     // etc. — the same arranger core, an instrument-shaped surface.
     const module = arrangeCfg.module || moduleForInstrument(instrument)
-    // Real ท่อน ranges (beats) so rubato can ritard at ท่อน ends / song end (§R2.8). Same helper the
-    // ensemble uses; [] when the song has no section labels (then rubato only ritards the final note).
-    const sections = sectionBeatRanges(content, notes)
+    // Real ท่อน ranges (beats) so rubato/section/density work on the ACTUAL song (golden-piano §3).
+    // resolveSections resolves v2 content when needed AND falls back to melody-shape phrases for the
+    // ~400 unlabelled songs — so `sections` is never empty and rubato breathes per phrase, not just
+    // at the song's final note.
+    const sections = resolveSections(content, notes)
     const perf = arrange(notes, chordEvents, { arranger, voices, chordGain, ...arrangeCfg, module }, { songId, pass, timeSignature: content.timeSignature, keyRoot: KEY_MIDI[content.key] ?? 60, sections })
     for (const e of perf) {
       const isMel = e.role === 'melody'
@@ -674,6 +677,71 @@ export function sectionBeatRanges(content, notes) {
     const isRefrain = /รับ/.test(s.name || '') || /\*\*\*/.test(s.name || '') || count[s.name] > 1
     return { name: s.name, fromBeat, toBeat, level: !hasRefrain || count[s.name] > 1 ? 'chorus' : 'verse', isRefrain }
   })
+}
+
+// golden-piano §3b — FALLBACK phrase sections from melody shape, for songs with NO usable ท่อน labels
+// (the common case for the ~400 v1-migrated songs, whose single arrangement entry is unlabelled →
+// sectionBeatRanges returns []). Without boundaries, rubato can only ritard the very last note of the
+// whole song; the music never "breathes" per phrase. We infer วรรค (phrase) boundaries the way a
+// reader hears them: a phrase ENDS on a long held melody note (a resting point) or a rest (a breath).
+// A boundary is placed AFTER such a note, so rubato stretches the phrase-ending note and breathes into
+// the next — exactly its designed behaviour, now on every song. Pure (note math only), so live == MP3.
+// Returns [{name,fromBeat,toBeat,level,isRefrain}] with ≥1 section (the whole song when no phrase end
+// is found). `holdBeats` = how long a note must ring to count as a phrase end (default 3).
+export function phraseSectionsFromMelody(notes, holdBeats = 3) {
+  const list = notes || []
+  // one pass: each note's start beat + the phrase segments (boundary AFTER a long note / a rest).
+  const startBeat = new Array(list.length)
+  const secs = []
+  let beat = 0
+  let segStart = 0
+  for (let i = 0; i < list.length; i++) {
+    const n = list[i]
+    startBeat[i] = beat
+    const end = beat + n.beats
+    // a long sung note (วรรคจบ) or a real rest (a breath) ends a phrase — but only if notes follow,
+    // so we never cut a trailing tail into its own empty section.
+    const phraseEnd = (n.midi != null && n.beats >= holdBeats) || (n.midi == null && n.beats >= 1)
+    if (phraseEnd && i < list.length - 1) { secs.push({ fromBeat: segStart, toBeat: end }); segStart = end }
+    beat = end
+  }
+  if (segStart < beat - 1e-9) secs.push({ fromBeat: segStart, toBeat: beat })
+  if (!secs.length) secs.push({ fromBeat: 0, toBeat: beat })
+  // Density-adaptive tag (§3b): a phrase whose sung-notes-per-beat runs clearly above the song's
+  // median is the more "active" material (a hook / รับ) → mark isRefrain so a preset with a fuller
+  // refrain comp (refrainPattern) opens up there; sparse/held phrases stay calm (verse). Conservative
+  // threshold so it fires only on genuinely busier phrases; the melody is never altered (§1a).
+  const density = (s) => {
+    const span = s.toBeat - s.fromBeat
+    if (span <= 0) return 0
+    let cnt = 0
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].midi != null && startBeat[i] >= s.fromBeat - 1e-9 && startBeat[i] < s.toBeat - 1e-9) cnt++
+    }
+    return cnt / span
+  }
+  const ds = secs.map(density).filter((d) => d > 0).sort((a, b) => a - b)
+  const median = ds.length ? ds[Math.floor(ds.length / 2)] : 0
+  return secs.map((s, i) => {
+    const active = median > 0 && density(s) >= median * 1.5
+    return { name: `วรรค ${i + 1}`, fromBeat: s.fromBeat, toBeat: s.toBeat, level: active ? 'chorus' : 'verse', isRefrain: active }
+  })
+}
+
+// golden-piano §3 — the ท่อน (section) beat-ranges arrange() should use, ROBUST for any content shape.
+// (a) The label path only works on RESOLVED v1-shaped lines; a raw v2 song ({stanzas}/{arrangement},
+//     no `lines`) makes sectionBeatRanges return [] — the trap that killed rubato/section on ~400
+//     songs. So resolve first when `lines` is absent. (b) When the resolved labels still yield < 2
+//     sections (unlabelled songs), fall back to melody-shape phrases so rubato always has real
+//     boundaries. Pure → shared by live playback (playSong) and the MP3 export.
+export function resolveSections(content, notes) {
+  const resolved = Array.isArray(content?.lines) && content.lines.length
+    ? content
+    : { ...content, lines: resolveContent(content) }
+  const labelled = sectionBeatRanges(resolved, notes)
+  if (labelled.length >= 2) return labelled
+  const phrases = phraseSectionsFromMelody(notes)
+  return phrases.length > labelled.length ? phrases : labelled
 }
 
 export async function playEnsemble(content, { bpm = 72, loop = false, onNote, onProgress, order, range, transpose = 0, startIndex = 0, lead = 'piano', onInstrumentPending, songId } = {}) {

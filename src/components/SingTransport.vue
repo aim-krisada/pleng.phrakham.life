@@ -40,6 +40,11 @@ const props = defineProps({
   mp3Bpm: { type: Number, default: 0 },
   mp3Transpose: { type: Number, default: 0 },
   mp3Voices: { type: String, default: 'melody' }, // B104: MP3 honours the chosen sound mode
+  // golden-piano — MP3 renders through the SAME arranger as "ฟัง" when these are supplied
+  mp3Arranger: { type: Boolean, default: false },
+  mp3ArrangeCfg: { type: Object, default: () => ({}) },
+  mp3Instrument: { type: String, default: 'synth' },
+  mp3SongId: { type: [String, Number], default: undefined },
 })
 const emit = defineEmits(['toggle-play', 'prev', 'next', 'toggle-loop', 'seek', 'jump', 'toggle-section', 'set-all'])
 
@@ -262,6 +267,10 @@ const items = computed(() => {
         :bpm="mp3Bpm"
         :transpose="mp3Transpose"
         :voices="mp3Voices"
+        :arranger="mp3Arranger"
+        :arrange-cfg="mp3ArrangeCfg"
+        :instrument="mp3Instrument"
+        :song-id="mp3SongId"
         :open="open"
         @toggle="toggle"
         @close="close"

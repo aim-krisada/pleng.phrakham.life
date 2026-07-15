@@ -523,6 +523,8 @@ const settingDescs = computed(() => [
     id: 'style', icon: 'sliders-horizontal', label: 'อารมณ์ / สไตล์', kind: 'menu', value: effectiveStyle.value, badge: styleDef.value.short,
     options: STYLE_OPTS.map((o) => ({ value: o.value, label: o.label, short: o.short })), onPick: (v) => setPlayStyle(v),
   },
+  // (วาทยกร · golden-piano: the referee is now INTRINSIC — always on, no user toggle — P'Aim 15 ก.ค.
+  // "ซ่อนวาทยกร เป็นเปิดตลอด". It's a discipline rule, not a taste, so it isn't a menu item.)
   // (ประกายเสียงสูง used to be a top-level slider here; removed as a duplicate/มิสลีดดิ้ง — sparkle is
   // OFF by default now and lives as a toggle inside "ปรับละเอียด" · P'Aim 14 ก.ค. "เยอะไป / ซ้ำ".)
   // ROUND 2 — "ปรับละเอียด": the collapsible technique panel (toggle/slider/choice per technique) so
@@ -632,6 +634,10 @@ function onSeek({ li, si, syk }) {
       :mp3-bpm="Number(tempo) || 0"
       :mp3-transpose="mp3Transpose"
       :mp3-voices="soundMode"
+      :mp3-arranger="styleArrange.arranger"
+      :mp3-arrange-cfg="styleArrange.arrangeCfg"
+      :mp3-instrument="leadInstrument"
+      :mp3-song-id="song && (song.id ?? song.slug ?? song.title)"
       @toggle-play="togglePlay"
       @prev="prevSection"
       @next="nextSection"

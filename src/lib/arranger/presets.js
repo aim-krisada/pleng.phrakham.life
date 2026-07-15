@@ -45,17 +45,19 @@ export const PRESETS = {
       { role: 'bass', inst: 'grand', pattern: 'pedal', register: [36, 51] },
     ],
     cfg: {
-      // MINIMALIST default (P'Aim 14 ก.ค. "minimalist แต่เพราะจริง · เยอะไปเลือกยาก"): เหลือแค่
-      // แตกคอร์ด (arpeggio) + ลากอุ้ม (pedal) + ลูกรับส่งน้อยสุด — ลูกเล่นอื่นปิดหมด (ประกาย/หยอดโน้ต/
-      // เน้นจังหวะ/ไล่ระดับ/ยืดหายใจ/sus). เปิดเพิ่มได้ทั้งหมดใน "ปรับละเอียด". ยังเก็บ humanize ไว้นิดเดียว
-      // = ความเป็นมนุษย์ ให้ไม่แข็งเป็นหุ่นยนต์ (ไม่ใช่ลูกเล่นที่ได้ยินชัด · ปิดในเมนูได้ถ้าอยากดิบสุด).
+      // "เปิดหมด" default (P'Aim 15 ก.ค. — กลับทิศจาก minimalist 14 ก.ค.): เปิดลูกเล่นทุกตัวในเมนู
+      // "ปรับละเอียด" เป็นค่าเริ่มต้น (แตกคอร์ด + ลากอุ้ม + ลูกรับส่ง + แขวนคอร์ด + ประกาย + หยอดโน้ต +
+      // เน้นจังหวะ + ไล่ระดับ + ยืดหายใจ + humanize/holdPulse/easeUnderHold). ที่ minimalist เดิมต้อง
+      // ปิดไว้เพราะ "เปิดพร้อมกันแล้วเสียงเละ" — ตอนนี้ REFEREE (วาทยกร · เปิดตลอด, ดู arranger/index.js)
+      // คุม no-clash + balance ให้แล้ว จึงเปิดหมดได้โดยไม่เละ. ผู้ใช้ยังปิดเฉพาะตัวได้ในเมนู.
       chordGain: 0.09,
-      fills: true, fillLevel: 0.2, // ลูกรับส่งน้อยสุด
-      pattern: 'arpeggio', bass: 'pedal', voicing: 'drop2', embellish: [],
-      susCadence: false,
+      fills: true, fillLevel: 0.4, // ลูกรับส่ง (วาทยกรกันไม่ให้ทับทำนอง)
+      pattern: 'arpeggio', bass: 'pedal', voicing: 'drop2',
+      embellish: ['sparkle', 'gapFill', 'chromaticApproach'], // ประกาย + หยอดโน้ต + คั่นโครมาติก
+      susCadence: true, // แขวนคอร์ดก่อนลง
       refrainPattern: 'arpeggioDense', // ท่อนรับยังแตกคอร์ดถี่ขึ้นให้เด่น (ป้าย รับ/***)
       reverb: 'room', pan: true, bpm: 72,
-      dynamics: { accent: false, contour: false, rubato: false, section: false },
+      dynamics: { accent: true, contour: true, rubato: true, section: false },
     },
   },
 }
