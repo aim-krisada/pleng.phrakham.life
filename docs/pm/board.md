@@ -20,10 +20,10 @@
 - **🎧 URL:** `http://192.168.1.124:5430/` (P'Aim กำลังฟัง)
 - **🚩 ear-check ค้าง:** accent (เน้นจังหวะแรก) เคยปิดเพราะ "กระแทกหนักไป" (14 ก.ค.) ตอนนี้เปิดตาม "เปิดหมด" → P'Aim เช็กว่ากระแทกไหม (ปิดเฉพาะตัวง่าย)
 - **✅ MP3 route ผ่าน arrange() แล้ว (P'Aim สั่งทำต่อ · `9765fef` + docs `68ca7a8`):** `renderSongToBuffer` โหมด `arranger:true` → MP3 ที่โหลดได้ arrangement ครบ (referee+legato+ลูกเล่น+humanize+rubato+section) ผ่าน reverb+chord-bus เดียวกับ live · `arranger:false` = ทางเดิม (print/editor ไม่กระทบ) · buffer ยาวตาม perf end จริง (ไม่ clip หาง) · verify MP3 109KB เรนเดอร์สำเร็จ 0 error
-- **🎹 MP3 timbre = Grand จริง — ✅ P'Aim สั่งทำ · จ่ายห้องเดิมแล้ว (15 ก.ค.):** เรนเดอร์เปียโน Grand 5-layer ลง MP3 แทน synth (live↔MP3 ตรงรวม timbre) · ต่อยอด sampler.js (cache keyed-by-context สร้าง Sampler บน offline ได้แล้ว) · **กับดัก:** smplr offline scheduler lookahead (โน้ตยาวเงียบ) + preload sample ก่อน startRendering + fallback→synth ถ้าโหลดไม่ได้ (memory `pleng-smplr-offline-render`) · DoD: ดาวน์โหลด MP3 จริงแล้วเล่นได้ยินเปียโน + โน้ตยาวไม่หาย · **รอสายทำ→ping pm27**
-- **สถานะรวม branch `golden-piano`:** 4 ข้อ brief + G-audit legato + MP3 = ครบ · **649 tests เขียว + build ผ่าน** · report ครบ
-- **🚩 ear-check ค้าง:** accent (เปิดตาม "เปิดหมด" · เคยปิดเพราะกระแทก) — P'Aim เช็ก
-- **next:** P'Aim iterate ตรง SA จนพอใจ → PM gate เต็ม (rerun test บน base + build) + merge + deploy เมื่อสั่ง · dev server ค้างให้ฟัง (`:5430`)
+- **🎹 MP3 timbre = Grand จริง — ✅ เสร็จ (`6af528d` + docs `341be4c`):** เรนเดอร์ Grand 5-layer ลง MP3 แทน synth → live↔MP3 ตรง **รวม timbre** · **กับดัก verify จริง (memory `pleng-smplr-offline-render` ถูกเป๊ะ):** smplr default scheduler คิวโน้ต >200ms ไปรอ setInterval ที่ไม่เดินใน OfflineAudioContext → RMS=0 · แก้ = inject `Scheduler(lookaheadMs:1e7)` เฉพาะ offline ctx (realtime คงเดิม) + โหลด Grand บน offline route reverb เดียวกับ live + **fallback→synth ถ้าโหลดพลาด (export ไม่ hard-fail)** · verify: Grand ได้ยินตลอด 14.3s (5/5 window RMS>0.001 · โน้ตยาว/late ไม่เงียบ) + fallback peak 0.57 · **เหลือ P'Aim ดาวน์โหลด MP3 จริงฟังยืนยันเสียงเปียโน**
+- **สถานะรวม branch `golden-piano` = FEATURE-COMPLETE:** 4 ข้อ brief + G-audit legato + MP3-through-arrange + MP3 Grand timbre = ครบ · **649 tests เขียว + build ผ่าน** · report ครบ · commits ล่าสุด `6af528d`
+- **🚩 รอ P'Aim ear ก่อน PM gate (2 จุด):** (1) ดาวน์โหลด MP3 จริงฟังยืนยันเสียงเปียโน (2) accent (เปิดตาม "เปิดหมด" · เคยปิดเพราะกระแทก) กระแทกไหม
+- **next:** P'Aim เคาะ "พอใจ/merge" → **PM gate เต็ม:** merge `golden-piano`→base (selective code-only · git-verify) + rerun test บน base + build → align main + **deploy รอบ 27** เมื่อ P'Aim สั่ง go · dev server ค้างให้ฟัง (`:5430`)
 
 **--- ประวัติ pm25 ด้านล่าง (รอบ 25 GATE leak#2 · parity in-progress) ---**
 
