@@ -100,3 +100,33 @@ _(IP เครื่องเปลี่ยนได้ · เช็ก `Get-Ne
 **Trade-off ที่ต้อง honest กับ P'Aim:** Iowa = อัด anechoic (แห้ง สะอาด · เราเติม reverb เอง) · โน้ตสั้น ~2s (ต้อง re-bow โน้ตยาว) · mono (spike ใช้ mono 68MB; ถ้าชอบ upgrade เป็น stereo/24-96 ได้). **ถ้า P'Aim ฟังแล้วยัง "ไม่ถึง"** → flag PM: รับ best-free / upgrade stereo / ทบทวนข้อจำกัดฟรี / พักไวโอลิน (ไม่ฝืนลง src)
 
 **Next:** P'Aim ฟัง A/B → เคาะ (Iowa/VSCO/ปรับค่า) → ถ้า Iowa ผ่าน = dev wire multi-dynamic bowed path + เปิดปุ่ม + อัป bowed.js/manifest → Tester gate → PM merge
+
+---
+
+## รอบ 3 — P'Aim: "ยังออกแนวออร์แกน" → วิเคราะห์เชิงตัวเลข + ชั้น expression (pm25 · 15 ก.ค.)
+
+**P'Aim ฟัง Iowa A/B แล้ว:** ยังไม่ใช่ — "ออกแนวออร์แกน" (นิ่ง ตายตัว) เทียบไวโอลินจริงที่ชอบ = "แหลม โหยหวน · หนักเบาชัดกว่ามาก". สรุป: **multi-dynamic layer อย่างเดียวไม่พอ — ที่ขาดคือ expression ภายในตัวโน้ต**.
+
+**วิเคราะห์เชิงตัวเลข (ฟังหูไม่ได้ → วัด · `tools/analyze-violin-expression.py` · ffmpeg→numpy, ไม่ต้อง librosa):**
+เทียบ Amazing Grace จริง (Park Ji-hye live · Ishikawa · ช่วงกลางเพลง) ↔ Iowa ของเรา:
+
+| ตัววัด | ref ไวโอลินจริง | Iowa ของเรา | แปลผล |
+|---|---|---|---|
+| **vibrato depth** | **44–54 cents** p2p @ **5–7 Hz** | **2–3 cents** (แทบไม่มี) | ← ต้นเหตุหลัก "ออร์แกน" |
+| within-note swell (RMS) | สวิง 5–12 dB ต่อเนื่อง | ~4–5 dB นิ่ง | โน้ตไม่ค่อยดัง-เบาในตัว |
+| portamento/glide | 0.03–0.21 | 0.00 | เปลี่ยนโน้ตทันที ไม่ไถลเชื่อม |
+| brightness (centroid) | ~1400–2200 Hz | 1400–2280 Hz | **ของเราไม่ได้ทึบกว่า!** |
+
+**ข้อสรุปสำคัญ:** "ออร์แกน" = **vibrato≈0 + โน้ตนิ่ง + ไม่ไถล**. และ "แหลม โหยหวน" **ไม่ใช่เพิ่มความแหลม** (spectral ของเราพอแล้ว) — คือเพิ่ม **การเคลื่อนไหวในตัวโน้ต**. Iowa อัดแบบเสียงตรงเกือบสนิท = ตรงนิยามออร์แกนเป๊ะ (เสียงคงที่ ไม่สั่น ไม่สเวลล์).
+
+**Prototype ชั้น expression** (`docs/spikes/violin-expressive-demo.html` · ไวโอลินล้วน · A/B "ใส่ชีวิต" vs "นิ่ง"):
+- **vibrato พิตช์+ความดังพร้อมกัน** (คันชักจริงสั่นทั้งคู่) ~5.7 Hz depth ~44 cents · ค่อยเข้าหลัง onset 0.22s · ลึกขึ้นในโน้ตยาว · humanize rate/depth
+- **messa di voce** — สเวลล์ดัง-เบาต่อเนื่องในโน้ต
+- **portamento** — ไถลจากพิตช์ก่อนหน้า (เฉพาะ leap ≤5 semitone · ~55ms)
+- **brightness filter เปิดตามความดัง** (ดัง=สว่างขึ้น · lowpass ramp ตาม swell)
+- **rubato** ปลายวรรค · สไลเดอร์ปรับทุกตัว
+- **Verify (offline render โน้ตเดียว):** expressive vibrato p2p ~4× ของ plain · peak สูงกว่า (swell) · 2 โหมดมีเสียง · 0 error
+
+**Network URL:** `http://192.168.1.124:5344/docs/spikes/violin-expressive-demo.html`
+
+**Honest (ยังไม่ merge · P'Aim iterate):** ชั้นนี้เติม "การเคลื่อนไหว" ที่วัดได้ว่าขาดพอดี → ควรปิดช่องว่าง "ออร์แกน" ได้มาก. **ถ้าฟังแล้วยังไม่ถึง "โหยหวน" ระดับ master** เพดานที่เหลือ = vibrato/portamento สังเคราะห์บน sample เสียงตรง ไม่เท่าการอัด true-legato/vibrato จริง → ทางเลือก: (ก) sample library ที่อัด legato/vibrato มา (คุณภาพ = commercial เกือบทั้งหมด) (ข) hybrid ปั้นต่อ (ค) รับระดับนี้ → flag PM ให้ P'Aim ตัดสิน. **ยังไม่แตะ src/.**

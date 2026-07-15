@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B107 P2 · ไวโอลินเดี่ยว "ใส่ชีวิต" (expression) vs "นิ่ง" — A/B</title>
+<style>
+  :root{ font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body{ margin:0; padding:16px; max-width:700px; margin:auto; color:#1a1a1a; background:#faf8f7; line-height:1.5; }
+  h1{ font-size:1.18rem; margin:0 0 2px; }
+  .sub{ color:#666; font-size:.88rem; margin:0 0 14px; }
+  .panel{ background:#fff; border:1px solid #ece3e3; border-radius:14px; padding:14px 16px; margin:12px 0; }
+  .panel h2{ font-size:.82rem; letter-spacing:.02em; color:#977; text-transform:uppercase; margin:0 0 10px; font-weight:600; }
+  .opts{ display:flex; gap:8px; flex-wrap:wrap; }
+  .opt{ font-size:.95rem; padding:11px 15px; border-radius:12px; border:1.5px solid #e0d3d3; background:#fff; cursor:pointer; }
+  .opt.sel{ border-color:#7a2e3a; background:#f6e6e8; color:#5e2029; font-weight:600; }
+  .opt small{ display:block; font-size:.72rem; color:#b99; font-weight:400; margin-top:2px }
+  .opt.sel small{ color:#7a2e3a }
+  .big .opt{ font-size:1.05rem; padding:14px 18px; flex:1 1 44%; }
+  #playRow{ display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap }
+  #play{ font-size:1.15rem; font-weight:700; padding:12px 26px; border-radius:12px; border:none; background:#7a2e3a; color:#fff; cursor:pointer; }
+  #play:hover{ background:#652531 } #play:disabled{ opacity:.5 }
+  #stop{ font-size:.95rem; padding:10px 16px; border-radius:10px; border:1px solid #d7c9c9; background:#fff; cursor:pointer; }
+  #now{ font-size:.9rem; color:#7a2e3a; min-height:1.3em; margin-top:8px; font-weight:600; }
+  #status{ font-size:.85rem; color:#888; min-height:1.2em; }
+  .hint{ font-size:.82rem; color:#777; margin:6px 0 0; }
+  .row{ display:flex; align-items:center; gap:10px; margin:8px 0; }
+  .row label{ font-size:.85rem; min-width:150px; } input[type=range]{ flex:1; accent-color:#7a2e3a; }
+  .val{ font-size:.8rem; color:#666; min-width:60px; text-align:right; font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<h1>🎻 ไวโอลินเดี่ยว — "ใส่ชีวิต" vs "นิ่ง"</h1>
+<p class="sub">เสียงเดียวกัน (Iowa Public Domain หลายระดับ) · ต่างแค่ "ชั้นการแสดงออก" ที่ผมเติมให้ตรงกับไวโอลินจริงที่พี่เอมชอบ (วัดมาจาก Amazing Grace Park Ji-hye / Ishikawa): <b>vibrato ลึก 5–7 Hz</b> · <b>คันชักดัง-เบาในตัวโน้ต (swell)</b> · <b>ไถลเชื่อมโน้ต (portamento)</b> · เสียงเปิดสว่างตอนดัง · หายใจปลายวรรค. "นิ่ง" = ปิดชั้นนี้ = เสียงออร์แกนแบบเดิม</p>
+
+<div class="panel">
+  <h2>เทียบ A/B (กดสลับแล้วเล่นใหม่)</h2>
+  <div class="opts big" id="modeOpts">
+    <div class="opt sel" data-m="expr">✨ ใส่ชีวิต (expressive)<small>vibrato + swell + ไถลโน้ต + เปิดสว่าง = โหยหวน มีอารมณ์</small></div>
+    <div class="opt" data-m="plain">➖ นิ่ง (organ-like)<small>โน้ตตรง ไม่สั่น ไม่สเวลล์ = แบบที่ฟังแล้วเหมือนออร์แกน</small></div>
+  </div>
+</div>
+
+<div id="playRow"><button id="play">▶ เล่น</button><button id="stop">■ หยุด</button></div>
+<div id="now"></div>
+<div id="status">แตะ "เล่น" ครั้งแรกจะโหลดเสียง (~1 วิ)</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>ปั้นการแสดงออก (เลื่อนแล้วกดเล่นใหม่)</h2>
+  <div class="row"><label>ความลึก vibrato</label><input type="range" id="vibD" min="0" max="70" value="44"><span class="val" id="vibDV">44 cent</span></div>
+  <div class="row"><label>ความเร็ว vibrato</label><input type="range" id="vibR" min="40" max="80" value="57"><span class="val" id="vibRV">5.7 Hz</span></div>
+  <div class="row"><label>คันชักดัง-เบา (swell)</label><input type="range" id="swell" min="0" max="90" value="55"><span class="val" id="swellV">55%</span></div>
+  <div class="row"><label>ไถลเชื่อมโน้ต</label><input type="range" id="porta" min="0" max="120" value="55"><span class="val" id="portaV">55 ms</span></div>
+  <div class="row"><label>เปิดสว่างตามความดัง</label><input type="range" id="bright" min="0" max="100" value="60"><span class="val" id="brightV">60%</span></div>
+  <div class="row"><label>ดังทำนอง</label><input type="range" id="melVol" min="40" max="150" value="105"><span class="val" id="melV">105%</span></div>
+  <div class="row"><label>เสียงก้อง (โบสถ์)</label><input type="range" id="rev" min="0" max="100" value="40"><span class="val" id="revV">40%</span></div>
+  <div class="row"><label>ความเร็ว (BPM)</label><input type="range" id="bpm" min="44" max="92" value="58"><span class="val" id="bpmV">58</span></div>
+</div>
+
+<p class="hint" style="margin-top:14px">ตัวเลขอ้างอิงที่วัดจากไวโอลินจริง: vibrato ~44–54 cent @ 5–7 Hz · ของเดิม (Iowa ดิบ) = ~2–3 cent (แทบไม่สั่น = ต้นเหตุ "ออร์แกน"). ชั้นนี้ทำ vibrato ทั้ง <b>พิตช์+ความดัง</b> พร้อมกัน (คันชักจริงสั่นทั้งคู่) + ค่อยเข้าหลังเริ่มโน้ต (ไม่สั่นทันที) + ลึกขึ้นในโน้ตยาว.</p>
+
+<script type="module">
+const SONG = JSON.parse('[{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":0.5,"c":"A"},{"m":68,"b":0.5,"c":"A"},{"m":66,"b":4,"c":"B"},{"m":59,"b":1.5,"c":"E"},{"m":59,"b":0.5,"c":"E"},{"m":59,"b":1,"c":"E"},{"m":61,"b":1,"c":"E"},{"m":64,"b":3,"c":"C#m"},{"m":61,"b":0.5,"c":"C#m"},{"m":64,"b":0.5,"c":"C#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"B"},{"m":64,"b":0.5,"c":"B"},{"m":68,"b":0.5,"c":"B"},{"m":68,"b":3,"c":"E"},{"m":66,"b":0.5,"c":"E"},{"m":68,"b":0.5,"c":"E"},{"m":71,"b":1.5,"c":"G#m"},{"m":73,"b":0.5,"c":"G#m"},{"m":71,"b":1,"c":"G#m"},{"m":68,"b":1,"c":"G#m"},{"m":66,"b":1.5,"c":"F#m"},{"m":68,"b":0.5,"c":"F#m"},{"m":66,"b":1,"c":"F#m"},{"m":64,"b":1,"c":"F#m"},{"m":61,"b":1.5,"c":"A"},{"m":59,"b":0.5,"c":"A"},{"m":61,"b":1,"c":"A"},{"m":64,"b":1,"c":"A"},{"m":66,"b":3,"c":"B"},{"m":64,"b":1,"c":"B"},{"m":64,"b":4,"c":"E"}]');
+function accent(pb){const p=((pb%4)+4)%4;if(p<0.01)return 1;if(Math.abs(p-2)<0.01)return .9;if(Math.abs(p-1)<0.01||Math.abs(p-3)<0.01)return .8;return .72;}
+function contour(i){const n=SONG[i],pr=SONG[i-1],nx=SONG[i+1];let c=1;
+  if(pr&&n.m>pr.m)c+=.06;if(pr&&nx&&n.m>pr.m&&n.m>=nx.m)c+=.06;if(pr&&n.m<pr.m)c-=.04;if(n.b>=3)c-=.06;return c;}
+
+let ctx,master,revConv,revGain,melBus,gen=0,activeVoice=[];
+function impulse(sec,decay){const rate=ctx.sampleRate,len=Math.max(1,Math.floor(rate*sec)),buf=ctx.createBuffer(2,len,rate);
+  for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay);}return buf;}
+function ensure(){ if(ctx)return;
+  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  master=ctx.createGain(); master.gain.value=0.95;
+  const lim=ctx.createDynamicsCompressor(); lim.threshold.value=-3;lim.knee.value=10;lim.ratio.value=3;lim.attack.value=0.01;lim.release.value=0.25;
+  master.connect(lim); lim.connect(ctx.destination);
+  revConv=ctx.createConvolver(); revConv.buffer=impulse(2.8,2.0);
+  revGain=ctx.createGain(); revConv.connect(revGain); revGain.connect(master);
+  melBus=ctx.createGain(); melBus.connect(master); melBus.connect(revConv);
+}
+const IOWA_PITCHES=[55,60,62,69,72,76,84,96];
+const IOWA={pp:null,mf:null,ff:null};
+async function fetchBuf(url){ const ab=await (await fetch(url)).arrayBuffer(); return ctx.decodeAudioData(ab); }
+async function loadIowa(){ if(IOWA.pp)return;
+  for(const dyn of ['pp','mf','ff']) IOWA[dyn]=await Promise.all(IOWA_PITCHES.map(async m=>({midi:m,buf:await fetchBuf('/samples/CC0/violin-iowa/'+dyn+'/'+m+'.ogg')})));
+}
+function nearest(arr,midi){ let best=arr[0]; for(const b of arr) if(Math.abs(b.midi-midi)<Math.abs(best.midi-midi)) best=b; return best; }
+
+// EXPRESSION: fire one bowed sub-stroke with vibrato(pitch+amp) + brightness filter + envelope.
+// prevMidi = the previous melody pitch (for portamento glide). E = the expression params.
+function stroke(layerArr, midi, prevMidi, t, dur, gainPeak, E, first){
+  const best=nearest(layerArr,midi);
+  const src=ctx.createBufferSource(); src.buffer=best.buf;
+  src.playbackRate.value=Math.pow(2,(midi-best.midi)/12);
+  // brightness filter that OPENS with intensity (louder/brighter on the swell peak) — ref shows the
+  // tone brightens with energy; a static cutoff = synth/organ. Only when expressive + bright>0.
+  const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=0.5;
+  const openHz = E.on ? (2600 + E.bright*5200) : 20000;         // base..open
+  lp.frequency.setValueAtTime(E.on? 2400:20000, t);
+  const g=ctx.createGain(); const G=Math.max(0.012,gainPeak);
+  const atk=first?Math.min(0.16,0.05+dur*0.05):0.07;
+  const rel=E.legato?0.16:0.09;
+  const end=t+(E.legato?dur:Math.max(0.1,dur-0.05));
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(G,t+atk);
+  if(E.on && E.swell>0 && dur>0.5){ // messa di voce: swell up then ease (continuous within the note)
+    const peakT=t+dur*0.5;
+    g.gain.linearRampToValueAtTime(G*(1+E.swell), peakT);
+    if(E.on) lp.frequency.linearRampToValueAtTime(openHz, peakT);
+    g.gain.linearRampToValueAtTime(G*0.8, end);
+    if(E.on) lp.frequency.linearRampToValueAtTime(2400, end);
+  } else { g.gain.setValueAtTime(G,Math.max(t+atk,end-rel)); if(E.on) lp.frequency.setValueAtTime(openHz,t); }
+  g.gain.linearRampToValueAtTime(0.0001,end+rel);
+  // portamento: slide in from the previous pitch (small leaps only) — the connective "wail"
+  if(E.on && E.porta>0 && first && prevMidi!=null){ const iv=prevMidi-midi;
+    if(Math.abs(iv)>=1 && Math.abs(iv)<=5){ src.detune.setValueAtTime(iv*100,t); src.detune.linearRampToValueAtTime(0,t+E.porta/1000); } }
+  // VIBRATO — pitch (detune) + amplitude (tremolo), fading in after onset, deeper on longer notes.
+  let lfo=null,lfo2=null;
+  if(E.on && E.vibD>0 && dur>=0.55){
+    const depthScale=Math.min(1, 0.55+dur*0.5)*(0.9+0.2*Math.random()); // longer/held = fuller
+    const rate=E.vibR*(0.94+0.12*Math.random());
+    lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=rate;
+    const pg=ctx.createGain(); pg.gain.setValueAtTime(0.0001,t); pg.gain.linearRampToValueAtTime(E.vibD*depthScale, t+0.22);
+    lfo.connect(pg).connect(src.detune); lfo.start(t); lfo.stop(end+rel);
+    // amplitude vibrato (bow pressure) — small, in phase-ish (slightly different rate = organic)
+    lfo2=ctx.createOscillator(); lfo2.type='sine'; lfo2.frequency.value=rate*1.0;
+    const ag=ctx.createGain(); ag.gain.setValueAtTime(0.0001,t); ag.gain.linearRampToValueAtTime(G*0.10*depthScale, t+0.22);
+    lfo2.connect(ag).connect(g.gain); lfo2.start(t); lfo2.stop(end+rel);
+  }
+  src.connect(lp).connect(g).connect(melBus); src.start(t); src.stop(end+rel+0.08);
+  activeVoice.push(src); if(lfo)activeVoice.push(lfo); if(lfo2)activeVoice.push(lfo2);
+}
+// full note: pick dynamic layer by intensity, re-bow long notes, carry portamento from prev pitch
+function bowNote(midi, prevMidi, t, durBeats, spb, gainPeak, intensity, E){
+  const dur=durBeats*spb;
+  const layer = intensity<0.4?IOWA.pp : intensity<0.72?IOWA.mf : IOWA.ff;
+  const SEG=1.55, n=Math.max(1,Math.ceil(dur/SEG));
+  if(n===1){ stroke(layer,midi,prevMidi,t,dur,gainPeak,E,true); return; }
+  for(let k=0;k<n;k++){ const st=t+k*(dur/n); const sd=dur/n+(k<n-1?0.14:0);
+    const posc=(k+0.5)/n; let g=gainPeak; if(E.on&&E.swell>0) g=gainPeak*(0.8+0.45*Math.sin(Math.PI*posc));
+    stroke(layer,midi,k===0?prevMidi:null,st,sd,g,E,k===0); }
+}
+
+const setStatus=m=>document.getElementById('status').textContent=m;
+const setNow=m=>document.getElementById('now').textContent=m;
+function stopAll(){ gen++; activeVoice.forEach(s=>{try{s.stop();}catch(e){}}); activeVoice=[]; }
+
+let MODE='expr';
+async function play(){
+  ensure(); await ctx.resume(); stopAll(); const my=gen;
+  document.getElementById('play').disabled=true; setStatus('⏳ กำลังโหลดเสียงไวโอลิน Iowa...');
+  try{ await loadIowa(); }catch(e){ setStatus('⚠️ โหลดไม่ได้ (ต้องเปิดผ่าน dev server ที่เสิร์ฟ /samples/) — '+e.message); document.getElementById('play').disabled=false; return; }
+  document.getElementById('play').disabled=false; if(my!==gen)return;
+  setStatus('✅ เล่น: '+(MODE==='expr'?'ใส่ชีวิต (vibrato+swell+ไถล+เปิดสว่าง)':'นิ่ง (organ-like)'));
+  const on = MODE==='expr';
+  const E={ on, legato:true,
+    vibD:+vibDEl.value, vibR:(+vibREl.value)/10, swell:(+swellEl.value)/100,
+    porta:+portaEl.value, bright:(+brightEl.value)/100 };
+  const melVol=(+melVolEl.value)/100; revGain.gain.value=(+revEl.value)/100*0.55;
+  const bpm=+bpmEl.value, spb=60/bpm; const t0=ctx.currentTime+0.2, rnd=()=>(Math.random()-0.5)*2, TJ=0.012, VJ=0.06;
+  let beat=0, prevMidi=null;
+  SONG.forEach((n,i)=>{
+    if(n.m!=null){
+      const dynMul = accent(beat)*contour(i)*(1+VJ*rnd());
+      let intensity=(dynMul-0.6)/(1.25-0.6); intensity=0.5+(intensity-0.5)*1.05; intensity=Math.max(0,Math.min(1,intensity));
+      // rubato: ease onto long phrase-end notes (expressive only)
+      const rub = on && n.b>=3 ? 0.04 : 0;
+      const t=t0+beat*spb+(on?TJ*rnd():0)+rub;
+      const lg = intensity<0.4?0.66 : intensity<0.72?0.84 : 1.0;
+      bowNote(n.m, prevMidi, t, n.b, spb, 0.30*melVol*dynMul*lg, intensity, E);
+      prevMidi=n.m;
+    } else prevMidi=null; // rest breaks legato/portamento
+    beat+=n.b;
+  });
+  setNow('▶ '+(MODE==='expr'?'✨ ใส่ชีวิต':'➖ นิ่ง')+' · ไวโอลิน Iowa · BPM '+bpm);
+}
+const vibDEl=document.getElementById('vibD'),vibREl=document.getElementById('vibR'),swellEl=document.getElementById('swell'),
+  portaEl=document.getElementById('porta'),brightEl=document.getElementById('bright'),melVolEl=document.getElementById('melVol'),
+  revEl=document.getElementById('rev'),bpmEl=document.getElementById('bpm');
+document.querySelectorAll('#modeOpts .opt').forEach(o=> o.addEventListener('click',()=>{
+  MODE=o.dataset.m; document.querySelectorAll('#modeOpts .opt').forEach(x=>x.classList.toggle('sel',x===o)); }));
+document.getElementById('play').addEventListener('click',()=> play().catch(e=>setStatus('⚠️ '+e.message)));
+document.getElementById('stop').addEventListener('click',()=>{ stopAll(); setNow(''); setStatus('■ หยุดแล้ว'); });
+const bind=(el,l,f)=>{ const o=document.getElementById(l); const u=()=>o.textContent=f(el.value); el.addEventListener('input',u); u(); };
+bind(vibDEl,'vibDV',v=>v+' cent'); bind(vibREl,'vibRV',v=>(v/10).toFixed(1)+' Hz'); bind(swellEl,'swellV',v=>v+'%');
+bind(portaEl,'portaV',v=>v+' ms'); bind(brightEl,'brightV',v=>v+'%'); bind(melVolEl,'melV',v=>v+'%'); bind(revEl,'revV',v=>v+'%'); bind(bpmEl,'bpmV',v=>v);
+window.__exprDemo={IOWA_PITCHES};
+</script>
+</body>
+</html>
