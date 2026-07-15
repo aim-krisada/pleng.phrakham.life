@@ -243,3 +243,10 @@ whole-site look&feel parity เพลง→พระคำ (พระคำ=mast
 - **#5 normalize dock↔ปุ่ม Aa เป็น core เดียว = ยกไว้ (P'Aim สั่ง) ทำทีหลัง**
 
 **Deploy history:** ...25 `bede377`(GATE leak#2) · **26 `bd53742`(whole-site look&feel parity vs phrakham)**
+
+## ✅✅ PARITY จบ — เหมือนกันบน server ครบทั้ง 2 เว็บ (15 ก.ค.)
+- 🟦 เพลง **`bd53742`** LIVE · 🟩 พระคำ **`a0a3021`** LIVE (PM verify เอง: e6fa73b→a0a3021 · pk-ext ↗ live · Last-Modified 10:08)
+- พระคำ deploy `feat/drawer-parity`: ↗ + ปุ่มมีหัว/ไม่มีหัว + text-size-adjust:100% scoped .pk-drawer (17478ce) · render 48 หน้าสะอาด
+- **เหลืออย่างเดียว:** P'Aim/พี่เปา verify Android จริง 2 จุด — #1 ลิ้นชักพระคำไม่ boost (⚠️ ถ้า Chrome ไม่ยอม un-boost subtree → pk pm5 มี fallback) · #3 ปุ่มปิดไม่มีกรอบตอนแตะ · เพี้ยน→รอบเก็บตก (สาย parity `local_81d4f3d9` ปลุกกลับได้)
+- cleanup: สาย parity ปิด :8930 + remove phrakham worktree แล้ว · sad-moser branch archived ได้
+- **#5 normalize dock↔Aa เป็น core เดียว = ยกไว้ (P'Aim)**
