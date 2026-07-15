@@ -259,3 +259,9 @@ whole-site look&feel parity เพลง→พระคำ (พระคำ=mast
 - **⭐ follow-up คุ้มสุด (คิวไว้ · รอ P'Aim สั่ง):** ดึงเทคนิคเปียโน (pedal-ring + flow + variation) → ทำ **preset "เปียโนบรรเลง" ใน SongView จริง** ให้เพลงเพราะขึ้น · เชลโล/ไวโอลินปลุกเมื่อมี sample ดีกว่า mono ฟรี
 
 - **ปลุกเต็มวง/เชลโลกลับเมื่อมี:** (ก) sample ดีกว่า mono ฟรี หรือ (ข) multi-agent live-listen หรือ (ค) **phrase-map ที่คนเรียบเรียง (พี่เปา) มาร์กน้ำหนัก/ลายเส้นไว้ก่อน** · โค้ด celloEngine+arranged rules parked ไม่ลบ · ราก (G): static conditional logic ≠ musical empathy + SA ฟังไม่ได้
+
+## 🎹 PRIMED (รอ P'Aim เปิด session) — "เปียโนเดี่ยวร่างทอง" (universal adaptive solo piano · ~400 เพลง)
+ต่อยอดจาก Canon spike (เปียโนพิสูจน์แล้ว) → core engine เปียโนเดี่ยว adaptive กับเพลงบรรเลงทั้งหมด (โครง YS/เจียนผู้: ป้ายท่อนร้อง/รับ · คอร์ดรายห้อง · โน้ตเลข)
+- **handoff brief:** `docs/reports/piano-golden-handoff.md` (+ spike report · branch spike `dreamy-lumiere-68292a` `8e5f41f` · parked)
+- **PM guardrails ตอนตั้ง session (SA ฝาก):** (1) **worktree/branch ใหม่จากฐาน `studio-shell-redesign`** ไม่ทำต่อ branch spike · dev `--host` (2) **ต่อยอด arranger/presets ตัวจริง (playSong) ไม่สร้าง demo Canon ใหม่** = ได้ 400 เพลงจริง (3) traps: resolveContent ก่อนอ่านป้ายท่อน · melody-density fallback · A/B toggle (dev ฟังไม่ได้) · −40% ที่ gain (4) P'Aim iterate ตรง SA (creative/audio) · PM re-engage ตอน gate+publish
+- **กลืน follow-up เดิม** (preset เปียโนบรรเลง SongView) เข้างานนี้พอดี · **รอ P'Aim สั่งเปิด → PM spawn worktree+brief**
