@@ -15,7 +15,7 @@
 - **git:** base `studio-shell-redesign` = `ad63021` = origin/main (deploy synced · FF) · สะอาด · **ไม่มี deploy ค้าง** · session ต่อไป = `pm28`
 
 **🎉 DEPLOYED รอบ 27 `ad63021` LIVE (15 ก.ค. · P'Aim "ขึ้นได้") — golden-piano เปียโนเดี่ยวร่างทอง:** `task_033450b9` · branch `golden-piano` (fork ถูกฐาน) · merge code+report only (ข้าม board.md) · **verify prod:** GH Actions run `ad63021` = success · live Last-Modified 15 Jul 23:02 GMT · bundle ใหม่ `index-O2x1Kn-h.js` · FF push `bd53742..ad63021` studio-shell-redesign→main · **PM gate PASS:** scope 12 ไฟล์สะอาด · 649 tests + build ผ่านบน base · fork FF ไม่ diverged
-- **📌 post-deploy (pm27):** (1) P'Aim ear-check **accent** (เปิดตาม "เปิดหมด" · เคยปิดเพราะกระแทก) — เพี้ยน→ปิดเฉพาะตัวรอบเก็บ (2) 🧹 archive สาย golden-piano (`local_d26ef64d`) ได้เมื่อ P'Aim ยืนยัน accent OK (โค้ด merged+live · worktree clean · dev server `:5430` ค้างเผื่อ P'Aim ฟัง)
+- **📌 post-deploy (pm27):** (1) ⏳ P'Aim ear-check **accent** (เปิดตาม "เปิดหมด" · เคยปิดเพราะกระแทก) — ฟังบน live ได้เลย · เพี้ยน→รอบเก็บ (worktree ใหม่ · branch `golden-piano` เปิดกลับได้) (2) ✅ **archived สาย golden-piano** (`local_d26ef64d`) + ลบ worktree (branch คงไว้ใน git)
 - _(ประวัติ dev · commits `9fd1c55`→`0779bd5`→`5a88b73`(legato)→`9765fef`(MP3 arrange)→`6af528d`(MP3 Grand timbre) · report `docs/reports/golden-piano.md`)_
 - **PM git-verify (รอบแรก):** scope สะอาดตรง brief · อ่าน referee.js เอง = ตรรกะ no-clash (emb เล่นเฉพาะ gap ≥0.4บีต) + balanceFloor (≤ mel×0.8 + AUDIBLE_FLOOR 0.045) ทำจริง · 645 tests + build ผ่าน
 - **🔄 design เปลี่ยน (P'Aim เคาะตรงกับ SA · `0779bd5`):** (1) **ถอดปุ่ม A/B "ก่อน/หลัง" ทิ้ง — วาทยกร = intrinsic เปิดตลอด** (มันคือกฎกันบั๊ก/คุมวินัย ไม่ใช่รสนิยม) ตัด cfg.strictReferee+store+เมนู+icon (2) **default preset "บรรเลง" = เปิดลูกเล่นหมด** (กลับทิศ minimalist 14 ก.ค. — วาทยกรคุม clash+balance ให้แล้ว เปิดหมดได้ไม่เละ · "สงบ" ยัง minimal)
@@ -66,7 +66,7 @@
 3. **post-deploy verify (พี่เปา · live):** karaoke พยางค์ + drawer slide (เพี้ยน→รอบ 25)
 4. **shared-core token layer** (deferred · §📌) · notation print (พี่เปา) · to-do พี่เปา issues4/6/7
 - **git:** base `studio-shell-redesign` = origin/main = `cafaa3b` (deploy synced) · สะอาด · memory synced OneDrive
-- **🧹 cleanup (pm25 ตอนว่าง):** worktree/session รอบ 23-24 เสร็จแล้วเยอะ (dev/tester ~20+) archive+`git worktree remove` ได้ · สายที่ยัง active = violin(`charming-cori`) · phrakham pk pm5 · drawer(peaceful-clarke เสร็จ)
+- **🧹 cleanup (pm27 · 15 ก.ค.):** archived golden-piano + ลบ worktree สะอาด 4 อัน (gallant-maxwell/determined-panini/fervent-nash/nostalgic-hellman) · **เหลือ ~17 worktree ค้าง** — ลบเพิ่มได้แต่ต้อง `--force` (build junk) · **⚠️ 3 อันมีไฟล์ยังไม่ commit อย่า force ทิ้ง:** `agent-a617e20c`(SingTransport.vue/test แก้ค้าง) · `recursing-bartik`(docs/ds/menu-drawer-parity-fix.md untracked) · `youthful-payne`(docs/reports/answer-melisma-underline.md untracked) → ตรวจว่ามีค่าไหมก่อนลบ · **ห้ามลบ `dreamy-lumiere`(ถือ handoff+Canon spike) · `charming-cori`(ไวโอลิน parked)**
 
 **--- ประวัติ pm24 ด้านล่าง ---**
 
