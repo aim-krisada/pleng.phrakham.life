@@ -235,3 +235,11 @@ PM วัดเอง getComputedStyle 2 เว็บ live ยืนยันท
 - lesson: `feedback_parity_full_visual_audit` (1-session cross-site + PM แนะนำเชิงที่ปรึกษา)
 - **✅ pleng #2 footer + #3 focus เสร็จ (`a0e937b`):** footer ตัดเส้นขอบ + font 10.94px/stamp 9.30px = พระคำเป๊ะ (วัด live) · #3 `:focus:not(:focus-visible){outline:none}` → แตะไม่มีกรอบ/Tab มี (คง WCAG) · 631 tests · **⚠️ #3 ต้อง P'Aim verify Android จริง (นิ้วแตะ — automation ตั้ง pointer modality ไม่ได้)**
 - **⏳ ยังเหลือ (สายเดียวกำลังทำต่อ · คำสั่งรวมสาย queued):** phrakham #1 (text-size-adjust) + #4 (active highlight) บน `feat/drawer-parity` (สร้าง worktree+server เอง) + **exhaustive sweep ทั้ง 2 เว็บ หาที่ตกหล่นเพิ่ม** → เสร็จค่อยส่ง P'Aim เทียบรอบเดียวครบ (รวม Android checks #1+#3)
+
+## 🎉 DEPLOYED รอบ 26 — เพลง `bd53742` LIVE (15 ก.ค. · P'Aim "ได้แล้ว")
+whole-site look&feel parity เพลง→พระคำ (พระคำ=master · all flags P'Aim เคาะ) · code-only merge จาก `sad-moser-c66f59` (b07944f..dfb27c8 · ShellBar+styles.css+SongList) · **verify prod:** Actions success · build stamp bd53742 · CSS live มี #545555/radius10/22.5px/footer-no-border · Last-Modified สด · 631 tests+build
+- **พระคำ:** GO ให้ pk pm5 deploy `feat/drawer-parity` (↗+toggle+text-size-adjust 17478ce) พร้อมกัน — รอ pk pm5 ยืนยัน live + Android drawer no-boost
+- **เหลือ:** พี่เปา/P'Aim verify Android 2 จุด (#1 ลิ้นชักไม่ boost · #3 ปุ่มปิดไม่มีกรอบตอนแตะ) · เก็บ worktree phrakham :8930 ของสาย parity หลัง phrakham deploy
+- **#5 normalize dock↔ปุ่ม Aa เป็น core เดียว = ยกไว้ (P'Aim สั่ง) ทำทีหลัง**
+
+**Deploy history:** ...25 `bede377`(GATE leak#2) · **26 `bd53742`(whole-site look&feel parity vs phrakham)**
