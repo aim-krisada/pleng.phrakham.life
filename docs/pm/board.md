@@ -12,7 +12,9 @@
 - ✅ **รอบ 26 LIVE `bd53742`** — whole-site parity เพลง↔พระคำ · **PARITY จบครบทั้ง 2 เว็บ** (เพลง `bd53742` · พระคำ `a0a3021`) · เหลือแค่ P'Aim/พี่เปา verify Android 2 จุด (#1 ลิ้นชักไม่ boost · #3 ปุ่มปิดไม่มีกรอบตอนแตะ) — เพี้ยน→รอบเก็บตก (§✅✅ PARITY จบ)
 - ✅ **Canon spike ปิด** — เปียโนสำเร็จ (P'Aim "เพราะดี") · เชลโล/ไวโอลินพัก (free mono ไม่เข้ากัน · SA ฟังไม่ได้) (§🎻🎹 Canon)
 - 🎹 **PRIMED รอ P'Aim สั่งเปิด** — "เปียโนเดี่ยวร่างทอง" universal adaptive solo piano ~400 เพลง (ต่อยอด Canon · handoff `docs/reports/piano-golden-handoff.md`) · กลืน follow-up preset เปียโนบรรเลง SongView · **รอ P'Aim GO → PM spawn worktree+brief** (§🎹 PRIMED)
-- **git:** base `studio-shell-redesign` = HEAD `8e0be4f` · สะอาด · ไม่มีอะไรบล็อก · **ไม่มี deploy ค้าง**
+- **git:** base `studio-shell-redesign` · สะอาด · ไม่มีอะไรบล็อก · **ไม่มี deploy ค้าง**
+
+**🎹 ACTIVE — golden-piano ยิงแล้ว (P'Aim อนุมัติ 100% · 15 ก.ค.):** spawn_task `task_033450b9` (chip "Build golden-piano arranger referee") → dev/SA สาย `golden-piano` (fork ใหม่จาก base) · brief SSOT `docs/pm/brief-golden-piano.md` · **ขอบเขต 4:** (1) 🚦 วาทยกร no-clash — ลูกเล่น (sparkle/gapFill/fills) เล่นเฉพาะช่องว่างทำนอง (2) 🛡️ ยาม balance-floor — non-melody ≤ concurrent melody×0.8 (มือขวานำ ≥20%) + floor กันบ๋อท่า · pass ใน `arrange()` pure (live==MP3) (3) 🎼 แก้ป้ายท่อน v2 — `resolveContent` ก่อน `sectionBeatRanges` (ตอนนี้อ่าน `content.lines` → v2 คืน [] → section/rubato ตายเงียบ ~400 เพลง) + fallback melody-density (4) 🎧 ปุ่ม A/B ในหน้า SongView จริง (`cfg.strictReferee`) · **P'Aim iterate ตรง SA · PM gate/merge** · **รอสาย: (a) Network URL --host (b) report `docs/reports/<branch>.md`+inbox** · guardrails: fork ถูกฐาน · ต่อ arranger จริง (playSong) ไม่ทำ demo · ไม่แต่งทำนองใหม่
 
 **--- ประวัติ pm25 ด้านล่าง (รอบ 25 GATE leak#2 · parity in-progress) ---**
 
