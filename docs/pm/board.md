@@ -6,7 +6,14 @@
 
 ---
 
-## ▶ RESUME (hand-off pm24 → pm25 · 15 ก.ค.)
+## ▶ RESUME (pm25 ACTIVE · 15 ก.ค. · PM session ปัจจุบัน = **pm25** — รายงานกลับ ping ที่นี่)
+
+**🔴 P'Aim เจอ 15 ก.ค. เช้า (2 ภาพ Chrome+Samsung · `Downloads/Screenshot_20260715_06*`):**
+1. **🔒 GATE leak #2 (รอบ 24 แก้ไม่ครบ · correctness) — 🔵 จ่าย dev:** picker "เปิดเพลงที่มีอยู่" บน **Studio.vue** (หน้าสร้างเพลง/shell) ยังดึงเพลงทั้งหมด ไม่กรอง verified → anon เห็นเพลงยังไม่ตรวจ · รอบ 24 อุดแค่ `EditorMode.vue` (คนละไฟล์) · **fix = `Studio.vue:207 pickerOptions` wrap `visibleSongs(songList.value, tier.value!=='anon')` + import bookshelf** (แพตเทิร์นเดียวกับ SongList/EditorMode · 1 ไฟล์) · **เข้ารอบ 25**
+2. **🚪 drawer parity เพลง↔พระคำ (P'Aim เคาะ "ทำทั้งหมด" + "พระคำมีปุ่มฟอนต์ด้วย"):** แชร์แค่เปลือก → เนื้อ+ขนาด drift · **4 จุด (align UP · world-class):** (2.1) หัวลิ้นชักโชว์ชื่อเว็บ → พระคำเติมให้มี (เพลงมีแล้ว) (2.2) ↗ ท้ายลิงก์ข้ามเว็บ → พระคำเติม (เพลง→พระคำ มีแล้ว · พระคำ→เพลง ไม่มี · pk-ext ↗ มีสไตล์อยู่) (2.3) ปุ่ม "มีหัว/ไม่มีหัว" → **P'Aim เคาะให้พระคำมีด้วย** (2.4/ข้อ4) ขนาดฟอนต์เมนู inverted (เพลง desktop ใหญ่/mobile เล็ก · พระคำ desktop เล็ก/mobile ใหญ่) → สเกลเดียว **mobile ≥ desktop** (Material/HIG touch) · **SA วัด live 4 จุด (2 เว็บ × desktop/mobile) ก่อนเคาะเลข — ไม่เดาจาก source** (`feedback_verify_parity_live_computed`) · **cross-team → ประสาน pk pm5: สเปกลิ้นชักร่วม 1 อัน + ดันหัว/สเกลเข้า core (แก้ที่เดียว)**
+
+**--- pm24 hand-off เดิม ด้านล่าง ---**
+
 **🎉 DEPLOY รอบ 24 `2c580a8` LIVE** (https://pleng.phrakham.life · verify bundle: `lyric-words`+`PKDrawer`+`flowing`+`easeUnder` พบ · `violin-iowa`=0 ไม่หลุด · GH Actions success) = audio round 2 + STEP 0 + GATE-leak fix + karaoke พยางค์ + drawer เพลง(ซ้าย เหมือนพระคำ · pk-drawer core) · **กู้เสียงเงียบ live แล้ว**
 - **post-deploy verify (live · มือคน):** พี่เปา verify karaoke พยางค์ + drawer slide บน device จริง (ถ้าเพี้ยนแก้รอบ 25 · เสี่ยงต่ำ)
 - **ยังทำต่อ (แยก · ไม่อยู่ใน deploy):** 🎻 violin `task_15a3f347` (spike เสร็จ · Iowa PD · **รอ P'Aim ฟัง A/B** `:5344/docs/spikes/violin-iowa-demo.html`) · 🎨 Remix ⏸️พัก (design เสร็จ รอ P'Aim เคาะ GATE1)
