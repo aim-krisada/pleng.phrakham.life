@@ -14,11 +14,13 @@
 - 🎹 **PRIMED รอ P'Aim สั่งเปิด** — "เปียโนเดี่ยวร่างทอง" universal adaptive solo piano ~400 เพลง (ต่อยอด Canon · handoff `docs/reports/piano-golden-handoff.md`) · กลืน follow-up preset เปียโนบรรเลง SongView · **รอ P'Aim GO → PM spawn worktree+brief** (§🎹 PRIMED)
 - **git:** base `studio-shell-redesign` · สะอาด · ไม่มีอะไรบล็อก · **ไม่มี deploy ค้าง**
 
-**🎹 ACTIVE — golden-piano ✅ ส่งมอบครบ 4 · รอ P'Aim ฟัง A/B + PM gate (15 ก.ค.):** `task_033450b9` · branch `golden-piano` (fork ถูกฐาน · `9fd1c55` code + `7b15e90` report) · report `docs/reports/golden-piano.md`
-- **PM git-verify:** scope สะอาด 10 ไฟล์ตรง brief (`referee.js`+test = 2 pass · `midi.js` resolveSections+fallback · UI 3 ไฟล์ A/B · store persist) ไม่มีไฟล์แปลก · อ่าน referee.js เอง = ตรรกะ no-clash (emb เล่นเฉพาะ gap ≥0.4บีต) + balanceFloor (≤ mel×0.8 + AUDIBLE_FLOOR 0.045) ทำจริง · 645 tests + build ผ่าน (สายรายงาน)
-- **🎧 URL ให้ P'Aim ฟัง:** `http://192.168.1.124:5430/` → เพลงไหนก็ได้ → ปุ่ม "เสียงดนตรี" → "วาทยกร (ก่อน/หลัง)" · default = เปิด(หลัง)
-- **🚩 DECISION รอ P'Aim:** MP3 export (`renderSongToBuffer`) **ไม่เดินผ่าน arrange()** = referee ไม่มีผลกับ MP3 (ของเดิม live↔MP3 diverge อยู่ก่อนแล้ว · ไม่ใช่ regression) → route MP3 ผ่าน arrange = งานต่อ จะเปลี่ยน output MP3 เดิม → **ต้อง P'Aim ฟันธง**
-- **next:** P'Aim ฟัง A/B เพลงจริงหลายแบบ → iterate ตรง SA (ปรับ GAP/LEAD/FLOOR/density) → พอใจ → PM gate เต็ม (rerun test บน base) + merge + deploy เมื่อสั่ง · dev server ค้างให้ฟัง
+**🎹 ACTIVE — golden-piano · P'Aim iterate ตรงอยู่ · รอ PM gate (15 ก.ค.):** `task_033450b9` · branch `golden-piano` (fork ถูกฐาน) · commits `9fd1c55`→`0779bd5` (code) + docs `7402071` · report `docs/reports/golden-piano.md`
+- **PM git-verify (รอบแรก):** scope สะอาดตรง brief · อ่าน referee.js เอง = ตรรกะ no-clash (emb เล่นเฉพาะ gap ≥0.4บีต) + balanceFloor (≤ mel×0.8 + AUDIBLE_FLOOR 0.045) ทำจริง · 645 tests + build ผ่าน
+- **🔄 design เปลี่ยน (P'Aim เคาะตรงกับ SA · `0779bd5`):** (1) **ถอดปุ่ม A/B "ก่อน/หลัง" ทิ้ง — วาทยกร = intrinsic เปิดตลอด** (มันคือกฎกันบั๊ก/คุมวินัย ไม่ใช่รสนิยม) ตัด cfg.strictReferee+store+เมนู+icon (2) **default preset "บรรเลง" = เปิดลูกเล่นหมด** (กลับทิศ minimalist 14 ก.ค. — วาทยกรคุม clash+balance ให้แล้ว เปิดหมดได้ไม่เละ · "สงบ" ยัง minimal)
+- **🎧 URL:** `http://192.168.1.124:5430/` (P'Aim กำลังฟัง)
+- **🚩 ear-check ค้าง:** accent (เน้นจังหวะแรก) เคยปิดเพราะ "กระแทกหนักไป" (14 ก.ค.) ตอนนี้เปิดตาม "เปิดหมด" → P'Aim เช็กว่ากระแทกไหม (ปิดเฉพาะตัวง่าย)
+- **🚩 DECISION รอ P'Aim:** MP3 export (`renderSongToBuffer`) **ไม่เดินผ่าน arrange()** = referee/ลูกเล่นใหม่ไม่มีผลกับ MP3 (ของเดิม live↔MP3 diverge อยู่ก่อน · ไม่ใช่ regression) → route MP3 ผ่าน arrange = งานต่อ จะเปลี่ยน output เดิม → **ต้อง P'Aim ฟันธง**
+- **next:** P'Aim iterate ตรง SA ทีละสเต็ปตามหู → พอใจ → PM gate เต็ม (rerun test บน base) + merge + deploy เมื่อสั่ง · dev server ค้างให้ฟัง
 
 **--- ประวัติ pm25 ด้านล่าง (รอบ 25 GATE leak#2 · parity in-progress) ---**
 
