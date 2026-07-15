@@ -88,7 +88,7 @@ async function goSearch() {
     <!-- Brand: mobile shows the app icon only (มุมซ้ายบน · ไม่มีชื่อ); desktop shows the name
          only (เพลง.พระคำ.ชีวิต · ไม่มี icon) — phrakham-style. One link; CSS swaps per width. -->
     <router-link to="/" class="sb-brand" aria-label="หน้าแรก · เพลง.พระคำ.ชีวิต">
-      <img class="sb-app-ico" :src="appIcon" alt="" width="28" height="28" />
+      <img class="sb-app-ico" :src="appIcon" alt="" width="40" height="40" />
       <span class="sb-brand-text">เพลง.พระคำ.ชีวิต</span>
     </router-link>
 
@@ -108,7 +108,7 @@ async function goSearch() {
 
     <div class="sb-right">
       <!-- 🔍 — go to the song search (home) and focus the search field -->
-      <button class="sb-icon-btn" aria-label="ค้นหาเพลง" @click="goSearch"><Icon name="search" :size="20" /></button>
+      <button class="sb-icon-btn" aria-label="ค้นหาเพลง" @click="goSearch"><Icon name="search" :size="24" /></button>
 
       <!-- ⚙ site settings (ตัวอักษรไทย) — desktop only; on mobile it lives in the drawer -->
       <div class="sb-menu sb-settings">
@@ -119,7 +119,7 @@ async function goSearch() {
           aria-label="ตั้งค่า"
           @click.stop="toggleSettings"
         >
-          <Icon name="settings" :size="20" />
+          <Icon name="settings" :size="24" />
         </button>
         <div v-if="shellMenu === 'settings'" class="sb-dropdown sb-mode-menu" role="menu" @click.stop>
           <div class="sb-font">
@@ -140,7 +140,7 @@ async function goSearch() {
 
       <!-- ☰ hamburger — mobile only; the PKDrawer core wires its click + syncs aria-expanded. -->
       <button ref="burgerBtn" class="sb-icon-btn sb-burger" aria-label="เมนู">
-        <Icon name="menu" :size="22" />
+        <Icon name="menu" :size="24" />
       </button>
 
       <!-- login (เข้าสู่ระบบ) — far right on every width (P'Aim 13 ก.ค.: mobile icon outside

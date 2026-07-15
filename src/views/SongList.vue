@@ -268,11 +268,13 @@ onMounted(async () => {
 .song-search {
   width: 100%;
   min-height: var(--touch-min);
-  font-size: var(--fs-base);
+  /* phrakham parity: cream fill (#faf6f0) + 16px text — its search box uses the cream control
+     fill, not white, and 16px (was pleng white #fff + 18px). 16px = iOS zoom-safe floor. */
+  font-size: 16px;
   padding: var(--sp-3) var(--sp-4);
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: var(--bg);
+  background: var(--cream);
   color: var(--ink);
   font-family: inherit;
 }
@@ -351,9 +353,13 @@ onMounted(async () => {
   align-items: center;
   gap: var(--sp-3);
   background: var(--bg);
-  border: 1px solid var(--line);
+  /* phrakham .hl-card parity: 14px radius + border #e7dcca (was 10px + --line #e0d6c8).
+     #e7dcca is a literal — it's phrakham's card-border warm cream, distinct from pleng's
+     --line #e0d6c8 (kept for every other border). The 5px brown left stripe stays: it marks
+     the book category (P'Aim: keep) — phrakham has no equivalent card, so it's pleng-only. */
+  border: 1px solid #e7dcca;
   border-left: 5px solid var(--brand);
-  border-radius: 10px;
+  border-radius: 14px;
   padding: var(--sp-4);
   cursor: pointer;
   text-align: left;

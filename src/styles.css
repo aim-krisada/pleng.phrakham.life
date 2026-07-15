@@ -143,7 +143,7 @@ main.container { flex: 1 0 auto; }
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 .pk-tool-menu {
   position: absolute;
@@ -198,7 +198,8 @@ main.container { flex: 1 0 auto; }
   align-items: center;
   gap: var(--sp-3);
   background: #f8f9fa;
-  border-bottom: 1px solid var(--line);
+  /* No bottom border — phrakham's navbar has none (live: border-bottom-width 0, both
+     desktop + mobile). pleng had a 1px #e0d6c8 rule that master doesn't; dropped for parity. */
   padding: var(--sp-2) var(--sp-4);
 }
 .shell-slot { display: inline-flex; align-items: center; }
@@ -207,12 +208,19 @@ main.container { flex: 1 0 auto; }
 .sb-right { display: inline-flex; align-items: center; gap: 8px; }
 .sb-menu { position: relative; display: inline-flex; align-items: center; }
 .sb-brand {
-  color: var(--brand);
-  font-size: var(--fs-base);
-  font-weight: 700;
+  /* Brand = phrakham parity (live master, measured on phrakham.life):
+     desktop shows the NAME — 22.5px · weight 400 · grey #545555 · left-aligned (pinned in px,
+     not rem, so pleng's 16px root doesn't shrink it below phrakham's 22.525px on its 17px root).
+     Was 18px · w700 · brown. Colour is a literal (not --brand/--muted): phrakham's brand grey
+     #545555 differs from pleng's --muted #757575, and this is the only element that uses it.
+     Mobile hides .sb-brand-text and shows the app icon only — same icon-only behaviour as
+     phrakham (its .navbar-title collapses to font-size:0 + an icon ::before on mobile). */
+  color: #545555;
+  font-size: 22.5px;
+  font-weight: 400;
   text-decoration: none;
   padding: 6px 8px;
-  border-radius: 8px;
+  border-radius: 10px;
   min-height: var(--touch-min);
   display: inline-flex;
   align-items: center;
@@ -225,7 +233,7 @@ main.container { flex: 1 0 auto; }
   color: var(--muted);
   cursor: pointer;
   padding: 6px;
-  border-radius: 8px;
+  border-radius: 10px;
   min-height: var(--touch-min);
   min-width: var(--touch-min); /* icon-only — hit a full 44×44 target */
   justify-content: center;
@@ -240,7 +248,7 @@ main.container { flex: 1 0 auto; }
   font: inherit;
   font-size: var(--fs-base);
   padding: 6px 8px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   min-height: var(--touch-min);
   display: inline-flex;
@@ -298,7 +306,7 @@ main.container { flex: 1 0 auto; }
   align-items: center;
   gap: 9px;
   padding: 9px 10px;
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--ink);
   text-decoration: none;
   background: transparent;
@@ -318,7 +326,10 @@ main.container { flex: 1 0 auto; }
 .sb-dropdown .icn { color: var(--brand); }
 /* Brand swaps per width (phrakham parity): DESKTOP = name only (icon hidden); MOBILE = the
    app icon only (name hidden). Rules here are the desktop default; the mobile @media flips. */
-.sb-app-ico { display: none; flex: 0 0 auto; width: 28px; height: 28px; border-radius: 7px; object-fit: contain; }
+/* Mobile brand mark — 40×40 · radius 11px to match phrakham live (its .navbar-title::before
+   app icon = 40×40 · border-radius 11px). Was 28px/7px. 40 < the 44px touch targets in the row,
+   so it doesn't grow the bar height. */
+.sb-app-ico { display: none; flex: 0 0 auto; width: 40px; height: 40px; border-radius: 11px; object-fit: contain; }
 .sb-brand-text { display: inline; }
 .sb-k { margin-left: auto; color: var(--muted); font-size: 0.8rem; }
 
@@ -332,23 +343,25 @@ main.container { flex: 1 0 auto; }
   text-decoration: none;
   font-size: var(--fs-base);
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: 10px;
   min-height: var(--touch-min);
   white-space: nowrap;
 }
 .sb-nav a.here { color: var(--brand); font-weight: 700; }
 .sb-ext { color: var(--muted); font-size: 0.8rem; }
 
-/* generic 44×44 icon button in the bar (🔍 · ⚙ · ☰) — mirrors phrakham .pk-tool-btn */
+/* generic 44×44 icon button in the bar (🔍 · ⚙ · ☰) — mirrors phrakham .pk-tool-btn.
+   Icon colour = #545555 (phrakham's nav-icon grey, measured live), not --ink #2d2a26 —
+   pleng's icons read darker than phrakham's side-by-side. Literal (only place it's used). */
 .sb-icon-btn {
   background: transparent;
   border: none;
-  color: var(--ink);
+  color: #545555;
   cursor: pointer;
   padding: 10px;
   min-width: var(--touch-min);
   min-height: var(--touch-min);
-  border-radius: 8px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -362,24 +375,50 @@ main.container { flex: 1 0 auto; }
    the core's absolutely-positioned × (mirrors phrakham theme.scss #pk-drawer-content). */
 .sb-drawer-panel {
   gap: var(--sp-2);
-  padding: calc(env(safe-area-inset-top) + 3.25rem) var(--sp-4) var(--sp-4);
+  padding: calc(env(safe-area-inset-top) + 55.25px) 0 21.25px;
+}
+/* The shared pk-drawer core adds `.pk-drawer` (padding-top/bottom = safe-area inset) and
+   `.pk-drawer--left` (padding-left = safe-area) onto THIS same element at runtime, injecting
+   its <style> into <head> AFTER this file. Equal specificity → the shell wins the cascade and
+   collapses the panel padding to ~0, so the first nav row ("รายการเพลง") hid under the
+   absolutely-positioned × close button (real overlap bug on live). phrakham dodges this with an
+   ID (#pk-drawer-content); we out-specify by combining both classes. Top pad in px (not rem)
+   clears the 44px × the same as phrakham regardless of root font. Values = phrakham live
+   (#pk-drawer-content): 55.25 / 0 / 21.25px. */
+.sb-drawer-panel.pk-drawer {
+  padding: calc(env(safe-area-inset-top) + 55.25px) 0 21.25px;
 }
 .sb-drawer-nav { display: flex; flex-direction: column; gap: 2px; }
 .sb-drawer-nav a {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 10px;
-  border-radius: 8px;
+  /* phrakham parity: 10.2 top/bottom · 21.25 left/right (the panel itself now has 0 side pad).
+     px-pinned so pleng's 16px root matches phrakham's live #pk-drawer-content .nav-link. */
+  padding: 10.2px 21.25px;
+  border-radius: 10px;
   color: var(--ink);
   text-decoration: none;
-  font-size: var(--fs-base);
+  /* 17.34px = phrakham drawer nav-link (its 1.02rem × 17 root), pinned px. ONLY the drawer —
+     desktop .sb-nav a stays 18px (phrakham's inline desktop nav = 18.02, already matched). */
+  font-size: 17.34px;
   min-height: var(--touch-min);
 }
 .sb-drawer-nav a.here { color: var(--brand); font-weight: 700; }
 .sb-drawer-nav a:hover { background: rgba(139, 69, 19, 0.08); }
+/* Drawer focus ring = KEYBOARD ONLY (phrakham parity). The shared pk-drawer core focuses the
+   × close button on open (so screen readers land inside the dialog). On a touch/mouse open that
+   left a brown ring "กรอบ" on the × in pleng that phrakham doesn't show. `:focus:not(:focus-visible)`
+   drops the ring for pointer/programmatic focus while keeping it for keyboard Tab (WCAG 2.4.7).
+   Covers the core's × (.pk-drawer__close) + every focusable inside the panel. */
+.sb-drawer-panel .pk-drawer__close:focus:not(:focus-visible),
+.sb-drawer-panel a:focus:not(:focus-visible),
+.sb-drawer-panel button:focus:not(:focus-visible) { outline: none; }
 .sb-drawer-sep { border-top: 1px solid var(--line); margin: var(--sp-2) 0; }
-.sb-drawer-lbl { font-size: var(--fs-xs); color: var(--muted); font-weight: 700; padding: 0 2px var(--sp-1); }
+/* Tools group label — phrakham parity (live #pk-drawer-content .pk-navtools-lbl):
+   13.26px · brown #8b4513 (not grey) · w700 · padding 6.8/17/2.55 (px-pinned so pleng's 16px
+   root doesn't shrink it below phrakham's on its 17px root). Was grey 12.5px, left pad 2px. */
+.sb-drawer-lbl { font-size: 13.26px; color: var(--brand); font-weight: 700; padding: 6.8px 17px 2.55px; }
 .sb-drawer-tools { display: flex; flex-direction: column; gap: var(--sp-3); }
 .sb-mode-item { align-items: flex-start; }
 .sb-mode-item .mt { display: flex; flex-direction: column; line-height: 1.25; }
@@ -405,7 +444,7 @@ main.container { flex: 1 0 auto; }
   background: #fff;
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 6px 8px;
   font: inherit;
   font-size: var(--fs-sm);
@@ -434,7 +473,12 @@ main.container { flex: 1 0 auto; }
   /* brand = icon only */
   .sb-app-ico { display: block; }
   .sb-brand-text { display: none; }
-  .sb-brand { padding: 6px; }
+  /* 2px pad around the 40px icon → 44px brand, so the bar stays at phrakham's 65px height
+     (the audit recorded pleng's mobile bar at 65 before the icon grew from 28→40). pleng's
+     shell-bar chrome runs ~3px taller than phrakham's navbar for the same brand box, so we
+     match the bar HEIGHT (what reads side-by-side) rather than phrakham's 48px brand box —
+     the 40px icon itself is identical. 44px = the WCAG touch-target floor, still met. */
+  .sb-brand { padding: 2px; }
   /* desktop-only chrome hidden on mobile → the nav links + ตัวอักษรไทย live in the drawer.
      Login stays in the bar (P'Aim 13 ก.ค.: icon outside the drawer, far right). */
   .sb-nav,
@@ -465,7 +509,7 @@ button, .btn {
   background: var(--brand);
   color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 7px 14px;
   font-size: var(--fs-base); /* same text size as phrakham.life (consistency) */
   font-family: inherit;
@@ -493,7 +537,7 @@ input, select, textarea {
   font-size: var(--fs-base); /* same as phrakham.life; >=16px also stops iOS zoom-on-focus */
   padding: var(--sp-2) 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: #fff;
   color: var(--ink);
   min-height: var(--touch-min);
@@ -684,7 +728,9 @@ input, select, textarea {
 
 /* ---------- footer: 2 centred lines like phrakham.life2 ---------- */
 footer.site-footer {
-  border-top: 1px solid var(--line);
+  /* No top border — phrakham footer has none (live: border-top 0). font-size 10.94px pinned
+     to match phrakham's footer line (its <p> = 10.9395px, root-independent); pleng was 12.48
+     (--fs-xs). Colours (#7a6a4e line · #827356 stamp) already match phrakham. */
   margin-top: var(--sp-6);
   padding: var(--sp-3) var(--sp-4) var(--sp-4);
   display: flex;
@@ -692,7 +738,7 @@ footer.site-footer {
   align-items: center;
   gap: var(--sp-1);
   text-align: center;
-  font-size: var(--fs-xs);
+  font-size: 10.94px;
   line-height: var(--lh-snug);
   color: var(--footer-ink);
 }
