@@ -257,3 +257,5 @@ whole-site look&feel parity เพลง→พระคำ (พระคำ=mast
 - **เปียโน = สำเร็จ** (P'Aim "เพราะดี"): Grand 5-layer self-host + ทำนองบนสุด + คอร์ดแตกไหล pedal-ring + variation 16th → ใช้ได้ทั้ง Canon + เพลงจริง #1
 - **เชลโล = พัก** (เหมือนไวโอลิน): free Iowa mono + swell = "หวูดเรือ" ไม่เข้ากัน · SA ฟังไม่ได้=เดา → พัก (lesson `pleng-aesthetic-audio-needs-ear`)
 - **⭐ follow-up คุ้มสุด (คิวไว้ · รอ P'Aim สั่ง):** ดึงเทคนิคเปียโน (pedal-ring + flow + variation) → ทำ **preset "เปียโนบรรเลง" ใน SongView จริง** ให้เพลงเพราะขึ้น · เชลโล/ไวโอลินปลุกเมื่อมี sample ดีกว่า mono ฟรี
+
+- **ปลุกเต็มวง/เชลโลกลับเมื่อมี:** (ก) sample ดีกว่า mono ฟรี หรือ (ข) multi-agent live-listen หรือ (ค) **phrase-map ที่คนเรียบเรียง (พี่เปา) มาร์กน้ำหนัก/ลายเส้นไว้ก่อน** · โค้ด celloEngine+arranged rules parked ไม่ลบ · ราก (G): static conditional logic ≠ musical empathy + SA ฟังไม่ได้
