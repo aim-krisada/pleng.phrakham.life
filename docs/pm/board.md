@@ -250,3 +250,5 @@ whole-site look&feel parity เพลง→พระคำ (พระคำ=mast
 - **เหลืออย่างเดียว:** P'Aim/พี่เปา verify Android จริง 2 จุด — #1 ลิ้นชักพระคำไม่ boost (⚠️ ถ้า Chrome ไม่ยอม un-boost subtree → pk pm5 มี fallback) · #3 ปุ่มปิดไม่มีกรอบตอนแตะ · เพี้ยน→รอบเก็บตก (สาย parity `local_81d4f3d9` ปลุกกลับได้)
 - cleanup: สาย parity ปิด :8930 + remove phrakham worktree แล้ว · sad-moser branch archived ได้
 - **#5 normalize dock↔Aa เป็น core เดียว = ยกไว้ (P'Aim)**
+
+- 🧹 ค้างลบทีหลัง: โฟลเดอร์ phrakham worktree (sweet-payne) บนดิสก์ลบไม่ได้ (OneDrive lock) · git deregister แล้ว = ไม่กระทบ branch/deploy · ลบเมื่อ lock คลาย
