@@ -19,8 +19,11 @@
 - **🔄 design เปลี่ยน (P'Aim เคาะตรงกับ SA · `0779bd5`):** (1) **ถอดปุ่ม A/B "ก่อน/หลัง" ทิ้ง — วาทยกร = intrinsic เปิดตลอด** (มันคือกฎกันบั๊ก/คุมวินัย ไม่ใช่รสนิยม) ตัด cfg.strictReferee+store+เมนู+icon (2) **default preset "บรรเลง" = เปิดลูกเล่นหมด** (กลับทิศ minimalist 14 ก.ค. — วาทยกรคุม clash+balance ให้แล้ว เปิดหมดได้ไม่เละ · "สงบ" ยัง minimal)
 - **🎧 URL:** `http://192.168.1.124:5430/` (P'Aim กำลังฟัง)
 - **🚩 ear-check ค้าง:** accent (เน้นจังหวะแรก) เคยปิดเพราะ "กระแทกหนักไป" (14 ก.ค.) ตอนนี้เปิดตาม "เปิดหมด" → P'Aim เช็กว่ากระแทกไหม (ปิดเฉพาะตัวง่าย)
-- **🚩 DECISION รอ P'Aim:** MP3 export (`renderSongToBuffer`) **ไม่เดินผ่าน arrange()** = referee/ลูกเล่นใหม่ไม่มีผลกับ MP3 (ของเดิม live↔MP3 diverge อยู่ก่อน · ไม่ใช่ regression) → route MP3 ผ่าน arrange = งานต่อ จะเปลี่ยน output เดิม → **ต้อง P'Aim ฟันธง**
-- **next:** P'Aim iterate ตรง SA ทีละสเต็ปตามหู → พอใจ → PM gate เต็ม (rerun test บน base) + merge + deploy เมื่อสั่ง · dev server ค้างให้ฟัง
+- **✅ MP3 route ผ่าน arrange() แล้ว (P'Aim สั่งทำต่อ · `9765fef` + docs `68ca7a8`):** `renderSongToBuffer` โหมด `arranger:true` → MP3 ที่โหลดได้ arrangement ครบ (referee+legato+ลูกเล่น+humanize+rubato+section) ผ่าน reverb+chord-bus เดียวกับ live · `arranger:false` = ทางเดิม (print/editor ไม่กระทบ) · buffer ยาวตาม perf end จริง (ไม่ clip หาง) · verify MP3 109KB เรนเดอร์สำเร็จ 0 error
+- **🚩 timbre (ค้าง · ไม่บล็อก):** offline MP3 ใช้ **synth voice** (เหมือน fallback playSong) → live↔MP3 ตรงทุกดีเทลดนตรี **ยกเว้น timbre** · เปียโน Grand จริงใน OfflineAudioContext = P3 spike แยก (smplr offline scheduler) — P'Aim สั่งได้ถ้าอยากได้ MP3 เสียงเปียโนจริง
+- **สถานะรวม branch `golden-piano`:** 4 ข้อ brief + G-audit legato + MP3 = ครบ · **649 tests เขียว + build ผ่าน** · report ครบ
+- **🚩 ear-check ค้าง:** accent (เปิดตาม "เปิดหมด" · เคยปิดเพราะกระแทก) — P'Aim เช็ก
+- **next:** P'Aim iterate ตรง SA จนพอใจ → PM gate เต็ม (rerun test บน base + build) + merge + deploy เมื่อสั่ง · dev server ค้างให้ฟัง (`:5430`)
 
 **--- ประวัติ pm25 ด้านล่าง (รอบ 25 GATE leak#2 · parity in-progress) ---**
 
