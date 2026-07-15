@@ -233,3 +233,5 @@ PM วัดเอง getComputedStyle 2 เว็บ live ยืนยันท
 - **pk pm5 hold สายพระคำ** (ไม่แก้ branch พร้อมกัน · คงสิทธิ์ review+deploy พระคำ) — ส่งแล้ว
 - fix ค้าง 4 (#1 Android text-size-adjust พระคำ · #2 footer เพลง · #3 focus-visible เพลง · #4 align-up พระคำเพิ่มไฮไลต์) + หาเพิ่ม → 1 session ถือหมด · verify 2 จอ + Android → ส่ง P'Aim → joint deploy
 - lesson: `feedback_parity_full_visual_audit` (1-session cross-site + PM แนะนำเชิงที่ปรึกษา)
+- **✅ pleng #2 footer + #3 focus เสร็จ (`a0e937b`):** footer ตัดเส้นขอบ + font 10.94px/stamp 9.30px = พระคำเป๊ะ (วัด live) · #3 `:focus:not(:focus-visible){outline:none}` → แตะไม่มีกรอบ/Tab มี (คง WCAG) · 631 tests · **⚠️ #3 ต้อง P'Aim verify Android จริง (นิ้วแตะ — automation ตั้ง pointer modality ไม่ได้)**
+- **⏳ ยังเหลือ (สายเดียวกำลังทำต่อ · คำสั่งรวมสาย queued):** phrakham #1 (text-size-adjust) + #4 (active highlight) บน `feat/drawer-parity` (สร้าง worktree+server เอง) + **exhaustive sweep ทั้ง 2 เว็บ หาที่ตกหล่นเพิ่ม** → เสร็จค่อยส่ง P'Aim เทียบรอบเดียวครบ (รวม Android checks #1+#3)
