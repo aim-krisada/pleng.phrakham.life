@@ -9,12 +9,14 @@
 ## ▶ RESUME (pm27 ACTIVE · 15 ก.ค. · PM session ปัจจุบัน = **pm27** — รายงานกลับ ping ที่นี่)
 
 **สถานะจริงตอนนี้ (pm27 · sync กระดานล่าง):**
-- ✅ **รอบ 26 LIVE `bd53742`** — whole-site parity เพลง↔พระคำ · **PARITY จบครบทั้ง 2 เว็บ** (เพลง `bd53742` · พระคำ `a0a3021`) · เหลือแค่ P'Aim/พี่เปา verify Android 2 จุด (#1 ลิ้นชักไม่ boost · #3 ปุ่มปิดไม่มีกรอบตอนแตะ) — เพี้ยน→รอบเก็บตก (§✅✅ PARITY จบ)
-- ✅ **Canon spike ปิด** — เปียโนสำเร็จ (P'Aim "เพราะดี") · เชลโล/ไวโอลินพัก (free mono ไม่เข้ากัน · SA ฟังไม่ได้) (§🎻🎹 Canon)
-- 🎹 **PRIMED รอ P'Aim สั่งเปิด** — "เปียโนเดี่ยวร่างทอง" universal adaptive solo piano ~400 เพลง (ต่อยอด Canon · handoff `docs/reports/piano-golden-handoff.md`) · กลืน follow-up preset เปียโนบรรเลง SongView · **รอ P'Aim GO → PM spawn worktree+brief** (§🎹 PRIMED)
-- **git:** base `studio-shell-redesign` · สะอาด · ไม่มีอะไรบล็อก · **ไม่มี deploy ค้าง**
+- 🎉 **รอบ 27 LIVE `ad63021`** — **golden-piano เปียโนเดี่ยวร่างทอง** (referee วาทยกร+ยาม · แก้ป้ายท่อน+fallback · เปิดลูกเล่นหมด default · legato · MP3 ผ่าน arrange + เสียง Grand จริง) · verify prod ครบ (Actions success · Last-Modified 23:02 · bundle ใหม่) · **post-deploy:** accent ear-check + archive สาย golden-piano (ดูบล็อก 🎉 DEPLOYED รอบ 27)
+- ✅ **รอบ 26 `bd53742`** — whole-site parity เพลง↔พระคำ จบครบ 2 เว็บ · เหลือ P'Aim/พี่เปา verify Android 2 จุด (§✅✅ PARITY จบ)
+- ✅ **Canon spike ปิด** — เปียโนสำเร็จ · เชลโล/ไวโอลินพัก (§🎻🎹 Canon)
+- **git:** base `studio-shell-redesign` = `ad63021` = origin/main (deploy synced · FF) · สะอาด · **ไม่มี deploy ค้าง** · session ต่อไป = `pm28`
 
-**🎹 ACTIVE — golden-piano · P'Aim iterate ตรงอยู่ · รอ PM gate (15 ก.ค.):** `task_033450b9` · branch `golden-piano` (fork ถูกฐาน) · commits `9fd1c55`→`0779bd5` (code) + docs `7402071` · report `docs/reports/golden-piano.md`
+**🎉 DEPLOYED รอบ 27 `ad63021` LIVE (15 ก.ค. · P'Aim "ขึ้นได้") — golden-piano เปียโนเดี่ยวร่างทอง:** `task_033450b9` · branch `golden-piano` (fork ถูกฐาน) · merge code+report only (ข้าม board.md) · **verify prod:** GH Actions run `ad63021` = success · live Last-Modified 15 Jul 23:02 GMT · bundle ใหม่ `index-O2x1Kn-h.js` · FF push `bd53742..ad63021` studio-shell-redesign→main · **PM gate PASS:** scope 12 ไฟล์สะอาด · 649 tests + build ผ่านบน base · fork FF ไม่ diverged
+- **📌 post-deploy (pm27):** (1) P'Aim ear-check **accent** (เปิดตาม "เปิดหมด" · เคยปิดเพราะกระแทก) — เพี้ยน→ปิดเฉพาะตัวรอบเก็บ (2) 🧹 archive สาย golden-piano (`local_d26ef64d`) ได้เมื่อ P'Aim ยืนยัน accent OK (โค้ด merged+live · worktree clean · dev server `:5430` ค้างเผื่อ P'Aim ฟัง)
+- _(ประวัติ dev · commits `9fd1c55`→`0779bd5`→`5a88b73`(legato)→`9765fef`(MP3 arrange)→`6af528d`(MP3 Grand timbre) · report `docs/reports/golden-piano.md`)_
 - **PM git-verify (รอบแรก):** scope สะอาดตรง brief · อ่าน referee.js เอง = ตรรกะ no-clash (emb เล่นเฉพาะ gap ≥0.4บีต) + balanceFloor (≤ mel×0.8 + AUDIBLE_FLOOR 0.045) ทำจริง · 645 tests + build ผ่าน
 - **🔄 design เปลี่ยน (P'Aim เคาะตรงกับ SA · `0779bd5`):** (1) **ถอดปุ่ม A/B "ก่อน/หลัง" ทิ้ง — วาทยกร = intrinsic เปิดตลอด** (มันคือกฎกันบั๊ก/คุมวินัย ไม่ใช่รสนิยม) ตัด cfg.strictReferee+store+เมนู+icon (2) **default preset "บรรเลง" = เปิดลูกเล่นหมด** (กลับทิศ minimalist 14 ก.ค. — วาทยกรคุม clash+balance ให้แล้ว เปิดหมดได้ไม่เละ · "สงบ" ยัง minimal)
 - **🎧 URL:** `http://192.168.1.124:5430/` (P'Aim กำลังฟัง)
@@ -23,7 +25,7 @@
 - **🎹 MP3 timbre = Grand จริง — ✅ เสร็จ (`6af528d` + docs `341be4c`):** เรนเดอร์ Grand 5-layer ลง MP3 แทน synth → live↔MP3 ตรง **รวม timbre** · **กับดัก verify จริง (memory `pleng-smplr-offline-render` ถูกเป๊ะ):** smplr default scheduler คิวโน้ต >200ms ไปรอ setInterval ที่ไม่เดินใน OfflineAudioContext → RMS=0 · แก้ = inject `Scheduler(lookaheadMs:1e7)` เฉพาะ offline ctx (realtime คงเดิม) + โหลด Grand บน offline route reverb เดียวกับ live + **fallback→synth ถ้าโหลดพลาด (export ไม่ hard-fail)** · verify: Grand ได้ยินตลอด 14.3s (5/5 window RMS>0.001 · โน้ตยาว/late ไม่เงียบ) + fallback peak 0.57 · **เหลือ P'Aim ดาวน์โหลด MP3 จริงฟังยืนยันเสียงเปียโน**
 - **สถานะรวม branch `golden-piano` = FEATURE-COMPLETE:** 4 ข้อ brief + G-audit legato + MP3-through-arrange + MP3 Grand timbre = ครบ · **649 tests เขียว + build ผ่าน** · report ครบ · commits ล่าสุด `6af528d`
 - **🚩 รอ P'Aim ear ก่อน PM gate (2 จุด):** (1) ดาวน์โหลด MP3 จริงฟังยืนยันเสียงเปียโน (2) accent (เปิดตาม "เปิดหมด" · เคยปิดเพราะกระแทก) กระแทกไหม
-- **next:** P'Aim เคาะ "พอใจ/merge" → **PM gate เต็ม:** merge `golden-piano`→base (selective code-only · git-verify) + rerun test บน base + build → align main + **deploy รอบ 27** เมื่อ P'Aim สั่ง go · dev server ค้างให้ฟัง (`:5430`)
+- **✅ merged+deployed รอบ 27 (ดูหัวบล็อกด้านบน)** · เหลือ post-deploy: accent ear-check + archive สาย
 
 **--- ประวัติ pm25 ด้านล่าง (รอบ 25 GATE leak#2 · parity in-progress) ---**
 
@@ -261,7 +263,7 @@ whole-site look&feel parity เพลง→พระคำ (พระคำ=mast
 - **เหลือ:** พี่เปา/P'Aim verify Android 2 จุด (#1 ลิ้นชักไม่ boost · #3 ปุ่มปิดไม่มีกรอบตอนแตะ) · เก็บ worktree phrakham :8930 ของสาย parity หลัง phrakham deploy
 - **#5 normalize dock↔ปุ่ม Aa เป็น core เดียว = ยกไว้ (P'Aim สั่ง) ทำทีหลัง**
 
-**Deploy history:** ...25 `bede377`(GATE leak#2) · **26 `bd53742`(whole-site look&feel parity vs phrakham)**
+**Deploy history:** ...25 `bede377`(GATE leak#2) · **26 `bd53742`(whole-site look&feel parity vs phrakham)** · **27 `ad63021`(golden-piano: referee วาทยกร+ยาม · section fix+fallback · เปิดหมด default · legato · MP3 through arrange + real Grand timbre)**
 
 ## ✅✅ PARITY จบ — เหมือนกันบน server ครบทั้ง 2 เว็บ (15 ก.ค.)
 - 🟦 เพลง **`bd53742`** LIVE · 🟩 พระคำ **`a0a3021`** LIVE (PM verify เอง: e6fa73b→a0a3021 · pk-ext ↗ live · Last-Modified 10:08)
