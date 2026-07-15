@@ -20,7 +20,7 @@
 - **🎧 URL:** `http://192.168.1.124:5430/` (P'Aim กำลังฟัง)
 - **🚩 ear-check ค้าง:** accent (เน้นจังหวะแรก) เคยปิดเพราะ "กระแทกหนักไป" (14 ก.ค.) ตอนนี้เปิดตาม "เปิดหมด" → P'Aim เช็กว่ากระแทกไหม (ปิดเฉพาะตัวง่าย)
 - **✅ MP3 route ผ่าน arrange() แล้ว (P'Aim สั่งทำต่อ · `9765fef` + docs `68ca7a8`):** `renderSongToBuffer` โหมด `arranger:true` → MP3 ที่โหลดได้ arrangement ครบ (referee+legato+ลูกเล่น+humanize+rubato+section) ผ่าน reverb+chord-bus เดียวกับ live · `arranger:false` = ทางเดิม (print/editor ไม่กระทบ) · buffer ยาวตาม perf end จริง (ไม่ clip หาง) · verify MP3 109KB เรนเดอร์สำเร็จ 0 error
-- **🚩 timbre (ค้าง · ไม่บล็อก):** offline MP3 ใช้ **synth voice** (เหมือน fallback playSong) → live↔MP3 ตรงทุกดีเทลดนตรี **ยกเว้น timbre** · เปียโน Grand จริงใน OfflineAudioContext = P3 spike แยก (smplr offline scheduler) — P'Aim สั่งได้ถ้าอยากได้ MP3 เสียงเปียโนจริง
+- **🎹 MP3 timbre = Grand จริง — ✅ P'Aim สั่งทำ · จ่ายห้องเดิมแล้ว (15 ก.ค.):** เรนเดอร์เปียโน Grand 5-layer ลง MP3 แทน synth (live↔MP3 ตรงรวม timbre) · ต่อยอด sampler.js (cache keyed-by-context สร้าง Sampler บน offline ได้แล้ว) · **กับดัก:** smplr offline scheduler lookahead (โน้ตยาวเงียบ) + preload sample ก่อน startRendering + fallback→synth ถ้าโหลดไม่ได้ (memory `pleng-smplr-offline-render`) · DoD: ดาวน์โหลด MP3 จริงแล้วเล่นได้ยินเปียโน + โน้ตยาวไม่หาย · **รอสายทำ→ping pm27**
 - **สถานะรวม branch `golden-piano`:** 4 ข้อ brief + G-audit legato + MP3 = ครบ · **649 tests เขียว + build ผ่าน** · report ครบ
 - **🚩 ear-check ค้าง:** accent (เปิดตาม "เปิดหมด" · เคยปิดเพราะกระแทก) — P'Aim เช็ก
 - **next:** P'Aim iterate ตรง SA จนพอใจ → PM gate เต็ม (rerun test บน base + build) + merge + deploy เมื่อสั่ง · dev server ค้างให้ฟัง (`:5430`)
