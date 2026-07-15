@@ -1,4 +1,4 @@
-# PM board — pleng (ไม้ต่อ · refreshed 2026-07-13 · หลัง LAUNCH รอบ 21)
+# PM board — pleng (ไม้ต่อ · refreshed 2026-07-15 · หลัง PARITY จบ + รอบ 26 LIVE)
 
 กระดานนี้ = สถานะสด + งานค้าง + routing เท่านั้น · **รายละเอียดเทคนิค → git log + `docs/reports/<branch>.md` + `docs/backlog.md`** (อย่าซ้ำที่นี่)
 **⛔ เปิด PM session ใน worktree `C:\gl\krisada\pleng.phrakham.life-pm` เท่านั้น** (ไม่ใช่ primary clone · primary park ที่ `pm-primary-parking` · ดู `docs/sop.md` §5)
@@ -6,7 +6,15 @@
 
 ---
 
-## ▶ RESUME (pm25 ACTIVE · 15 ก.ค. · PM session ปัจจุบัน = **pm25** — รายงานกลับ ping ที่นี่)
+## ▶ RESUME (pm27 ACTIVE · 15 ก.ค. · PM session ปัจจุบัน = **pm27** — รายงานกลับ ping ที่นี่)
+
+**สถานะจริงตอนนี้ (pm27 · sync กระดานล่าง):**
+- ✅ **รอบ 26 LIVE `bd53742`** — whole-site parity เพลง↔พระคำ · **PARITY จบครบทั้ง 2 เว็บ** (เพลง `bd53742` · พระคำ `a0a3021`) · เหลือแค่ P'Aim/พี่เปา verify Android 2 จุด (#1 ลิ้นชักไม่ boost · #3 ปุ่มปิดไม่มีกรอบตอนแตะ) — เพี้ยน→รอบเก็บตก (§✅✅ PARITY จบ)
+- ✅ **Canon spike ปิด** — เปียโนสำเร็จ (P'Aim "เพราะดี") · เชลโล/ไวโอลินพัก (free mono ไม่เข้ากัน · SA ฟังไม่ได้) (§🎻🎹 Canon)
+- 🎹 **PRIMED รอ P'Aim สั่งเปิด** — "เปียโนเดี่ยวร่างทอง" universal adaptive solo piano ~400 เพลง (ต่อยอด Canon · handoff `docs/reports/piano-golden-handoff.md`) · กลืน follow-up preset เปียโนบรรเลง SongView · **รอ P'Aim GO → PM spawn worktree+brief** (§🎹 PRIMED)
+- **git:** base `studio-shell-redesign` = HEAD `8e0be4f` · สะอาด · ไม่มีอะไรบล็อก · **ไม่มี deploy ค้าง**
+
+**--- ประวัติ pm25 ด้านล่าง (รอบ 25 GATE leak#2 · parity in-progress) ---**
 
 **🔴 P'Aim เจอ 15 ก.ค. เช้า (2 ภาพ Chrome+Samsung · `Downloads/Screenshot_20260715_06*`):**
 1. **🔒 GATE leak #2 — 🎉 DEPLOYED รอบ 25 `bede377` LIVE (15 ก.ค. · P'Aim สั่ง deploy เฉพาะบั๊กก่อน · งานเพลงค่อยๆ ทำ):** push FF `3638484..bede377` studio-shell-redesign→main · **verify prod:** GH Actions success · live bundle `content, verified` ×2 (EditorMode+Studio = shell picker กรอง verified แล้ว) · HTML Last-Modified 15 Jul 00:33 GMT · **code delta รอบ 25 = เฉพาะ Studio.vue+test (งาน violin/Canon/drawer อยู่ branch แยก ไม่หลุด)** · _(รายละเอียดเดิม)_ ✅✅ Dev เสร็จ + PM gate PASS + merge base `b16f5f9`:** picker "เปิดเพลงที่มีอยู่" บน **Studio.vue** (shell "เพลง ▾") เป็นคนละ code path จาก EditorMode (รอบ 24 อุดแค่ EditorMode) → ยังรั่ว · fix = `pickerOptions` กรองผ่าน `visibleSongs(songList, tier!=='anon')` + เพิ่ม `verified` ใน select (1 ไฟล์ · แพตเทิร์นเดียว SongList/EditorMode) · จาก branch `claude/distracted-lederberg-4953c1` `fe45dfc` (fork ถูก · merge code-only Studio.vue+test) · **gate PASS:** scope สะอาด · gate tests 28/28 · full 631 pass (1 "failed" = `notationLint.test.mjs` standalone self-exit · pre-existing บน base · ไม่เกี่ยว) · build ✓ · anon เห็น 8 verified ครบ 3 surface (home/EditorMode/shell) · **รอ deploy รอบ 25 (รอ P'Aim go)** · dev worktree serve `:5327 --host` เผื่อ P'Aim verify มือถือ (session `local_997bfdfc` archive ได้)
