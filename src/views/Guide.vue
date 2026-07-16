@@ -1,5 +1,6 @@
 <script setup>
 import NoteRow from '../components/NoteRow.vue'
+import Icon from '../components/Icon.vue'
 
 // Each row: [syntax to type, rendered example, meaning]
 const SYMBOLS = [
@@ -234,25 +235,64 @@ const COMBOS = [
 
     <div class="card" id="howto">
       <h2 style="margin-top: 0">② วิธีใช้เว็บนี้</h2>
+      <p class="muted">
+        เมนูไปหน้าต่าง ๆ (รายการเพลง · คู่มือ · เกี่ยวกับเรา) อยู่ด้านบน — บนมือถือกดปุ่ม
+        <strong>☰</strong> มุมขวาบนเพื่อเปิดเมนู ในเมนูยังเลือก<strong>แบบตัวอักษรไทย</strong>
+        (มีหัว / ไม่มีหัว) ได้ตามชอบ
+      </p>
 
-      <h3 id="howto-list">หาเพลง (หน้ารายการเพลง)</h3>
+      <h3 id="howto-list" class="howto-h"><Icon name="list-music" :size="22" class="howto-ico" />หาเพลง (หน้ารายการเพลง)</h3>
       <p>
         พิมพ์อะไรก็ได้ในช่องค้นหา — ชื่อเพลง เลขเพลง ท่อนเนื้อร้อง คีย์
         หรือแม้แต่ตัวเลขโน้ตที่จำได้ (เช่น 5 5 6 1) แล้วกดเพลงที่ต้องการ
+        หรือจะเลือกดูตามเล่มหนังสือต้นทางก็ได้
       </p>
 
-      <h3 id="howto-song">อ่านและฟังเพลง (หน้าเพลง)</h3>
+      <h3 id="howto-song" class="howto-h"><Icon name="circle-play" :size="22" class="howto-ico" />อ่านและฟังเพลง (หน้าเพลง)</h3>
+      <p>
+        เปิดเพลงแล้วจะเห็น<strong>แผ่นเพลง</strong>อยู่กลางจอ และมี<strong>แถบเครื่องเล่น</strong>ลอยอยู่ล่างจอ
+        (เลื่อนหน้าไปไหนก็ตามไปด้วย) ปุ่มควบคุมทุกอย่างอยู่ที่แถบนี้ — กด
+        <strong>⚙ ตั้งค่า</strong> เพื่อเปิดรายการปุ่มทั้งหมด และปักปุ่มที่ใช้บ่อยขึ้นมาบนแถบได้
+      </p>
+
+      <h4 class="howto-h"><Icon name="volume-2" :size="20" class="howto-ico" />เมนู "เสียงดนตรี"</h4>
+      <p>
+        กดปุ่มเสียงดนตรีบนแถบเครื่องเล่นเพื่อเลือกว่าจะให้เว็บเล่นเสียงแบบไหน — รวมไว้ในปุ่มเดียว:
+      </p>
       <ul>
-        <li><strong>เนื้อร้องล้วน</strong> — สลับโหมดเพื่อดูเนื้ออย่างเดียวตัวโต ๆ เหมาะกับคนร้อง</li>
-        <li><strong>คอร์ดโรมัน</strong> — เปลี่ยนคอร์ด C, G, Am เป็นเลขโรมัน I, V, VIm สำหรับนักดนตรีที่นับตามลำดับคีย์</li>
+        <li><strong>เสียงที่เล่น</strong> — ทำนองอย่างเดียว · คอร์ดอย่างเดียว · หรือทำนอง+คอร์ด</li>
+        <li><strong>การบรรเลง</strong> — เดี่ยว (เครื่องเดียว) หรือเต็มวง (เปียโนนำ)</li>
+        <li><strong>เครื่องดนตรี</strong> — เปียโน หรือ กีตาร์ (เครื่องอื่นกำลังทยอยเปิดเพิ่ม)</li>
+        <li><strong>อารมณ์ / สไตล์</strong> — บรรเลง (จัดเต็ม) · สงบ (นุ่ม) · หรือ ตรงโน้ต (ปิดลูกเล่น เล่นตามโน้ตเป๊ะ ๆ)</li>
+        <li><strong>ปรับละเอียด</strong> — สำหรับเปียโน เปิด/ปิดลูกเล่นการเรียบเรียงทีละอย่างได้ ถ้าอยากลองเสียงเอง</li>
+      </ul>
+      <p class="muted" style="margin-top: 0">
+        ปกติเว็บตั้งค่าเสียงที่เพราะให้อยู่แล้ว — <strong>เปียโนบรรเลง</strong>ที่เว็บเรียบเรียงให้เองอัตโนมัติ
+        (เล่นทำนองพร้อมเสียงคลอ ผ่อนหนักเบา และหายใจปลายวรรคเหมือนคนเล่นจริง) ไม่ต้องตั้งอะไรก็ฟังได้เลย
+      </p>
+
+      <ul>
+        <li><strong>▶ ฟังทำนอง</strong> — กดเล่นเพื่อฝึกร้อง · ปรับ<strong>ความเร็ว</strong>ได้ · เปิด <strong>"วนซ้ำ"</strong>
+          เพื่อซ้อมต่อเนื่อง · ระหว่างเล่นคำที่กำลังร้องจะ<strong>ไฮไลต์ทีละพยางค์</strong>แบบคาราโอเกะ
+          และจอเลื่อนตามให้เอง · แตะที่<strong>แถบเวลา</strong>เพื่อกระโดดไปจุดที่ต้องการ
+          หรือกด <strong>เลือกท่อน</strong> เพื่อฟังเฉพาะบางท่อน</li>
         <li><strong>คีย์</strong> — เลือกคีย์ใหม่ คอร์ดทุกตัวเปลี่ยนให้เองทันที (เช่น ผู้นำขอลดจาก G เป็น F)</li>
-        <li><strong>▶ ฟังทำนอง</strong> — เว็บเล่นเสียงโน้ตให้ฟังเพื่อฝึกร้อง เลือกความเร็วได้ กด "วนซ้ำ" เพื่อซ้อมต่อเนื่อง</li>
-        <li><strong>ดาวน์โหลด/พิมพ์</strong> — ปุ่มลูกศรลง (มุมขวาบน) พิมพ์เป็นกระดาษ A4 หรือบันทึกเป็น PDF ได้
-          <br>เพื่อให้แผ่นสวยเรียบร้อย ในกล่องพิมพ์ให้ <strong>ปิด "หัวกระดาษและท้ายกระดาษ" (Headers and footers)</strong> —
+        <li><strong>คอร์ดเป็นตัวเลข</strong> — สลับคอร์ดตัวอักษร (C G Am) เป็นตัวเลขนับลำดับขั้นในคีย์
+          สำหรับนักดนตรีที่นับตามลำดับ (อยู่ในเมนู ⚙ ตั้งค่า › คอร์ด)</li>
+        <li><strong>เนื้อร้องล้วน</strong> — เลือกโหมดแสดงผลเป็นเนื้ออย่างเดียวตัวโต ๆ เหมาะกับคนร้อง (⚙ ตั้งค่า › แสดงผล)</li>
+        <li><strong>ขนาดตัวอักษร (Aa)</strong> — ปรับตัวหนังสือให้ใหญ่-เล็กตามสายตา</li>
+        <li><strong>ดาวน์โหลด / พิมพ์</strong> — กดปุ่มลูกศรลงบนแถบเครื่องเล่น เลือกได้ 3 แบบ:
+          <strong>พิมพ์ / บันทึก PDF (A4)</strong> · <strong>ข้อมูลเพลง (JSON)</strong> ·
+          และ<strong>ไฟล์เสียง MP3</strong> (เสียงเปียโนจริงตามคีย์และความเร็วที่ตั้งไว้)
+          <br>เวลาพิมพ์ เพื่อให้แผ่นสวยเรียบร้อย ในกล่องพิมพ์ให้ <strong>ปิด "หัวกระดาษและท้ายกระดาษ" (Headers and footers)</strong> —
           เว็บใส่ชื่อเพลง ชื่อเว็บ เลขหน้า และวันที่ให้เองครบแล้ว</li>
       </ul>
+      <p class="muted" style="margin-bottom: 0">
+        ทุกเพลงในคลังผ่านการตรวจจากทีมงานแล้ว (ทีมงานที่เข้าสู่ระบบจะเห็นป้าย
+        <span class="verified-eg"><Icon name="badge-check" :size="14" />✓ ตรวจแล้ว</span> กำกับไว้ว่าเพลงไหนตรวจเสร็จ)
+      </p>
 
-      <h3 id="howto-studio">คีย์เพลงใหม่ (ห้องทำเพลง)</h3>
+      <h3 id="howto-studio" class="howto-h"><Icon name="file-plus" :size="22" class="howto-ico" />คีย์เพลง (ห้องทำเพลง)</h3>
       <ul>
         <li>เพลงแบ่งเป็น <strong>บรรทัด → ห้อง → ช่อง</strong>: 1 ช่องเล็ก = โน้ต 1 ตัว = 1 คำ
           กด Enter หรือเว้นวรรคเพื่อไปช่องถัดไป กดลูกศรซ้าย-ขวาเพื่อเลื่อน
@@ -346,4 +386,20 @@ const COMBOS = [
 .refs { margin: 8px 0 0; padding-left: 20px; }
 .refs li { margin-bottom: 8px; }
 .refs a { word-break: break-word; }
+
+/* ② overview icons — one glyph per heading (H3 + the "เสียงดนตรี" sub-heading), so the
+   section scans at a glance without cluttering every bullet (P'Aim 15 ก.ค.). The icon
+   inherits the heading's --brand colour via currentColor and is decorative (aria-hidden
+   is baked into <Icon>). */
+.howto-h { display: flex; align-items: center; gap: 8px; }
+.howto-ico { flex: 0 0 auto; }
+/* inline sample of the "✓ ตรวจแล้ว" QA badge, matching the catalog's green marker */
+.verified-eg {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ok, #1d7a54);
+  font-weight: 600;
+  white-space: nowrap;
+}
 </style>
