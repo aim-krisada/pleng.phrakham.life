@@ -14,7 +14,13 @@
 - **git:** base `studio-shell-redesign` = origin/main = `f573d2d` · สะอาด · memory synced OneDrive
 - **cleanup:** archived สายย่อยทั้งหมด · ❌ Remix cancelled · 🎻 violin archived (parked · เปิดใหม่เมื่อมี sample ดีกว่า · branch `charming-cori`+Iowa samples ใน git) · 📖 phrakham = คนละโปรเจกต์ (ไม่แตะ)
 
-**🎻 NEW (16 ก.ค. ค่ำ · P'Aim สั่ง): cello bake-off — รอ P'Aim เปิด session ใหม่**
+**🎼 NEW (16 ก.ค. ค่ำ): reference-track analysis — `task_1bffa814` (รอ P'Aim กดชิป)**
+- **โจทย์:** P'Aim ให้ 2 เพลงที่ฟังแล้ว "เพราะมาก" = เป้าหมายเสียงของ pleng → **ถอดเทคนิคที่ลอกได้** (Canon cello&piano wedding · A Thousand Years piano-cello cover · ใน `OneDrive/1 Devotional/hymm/mp3/บรรเลง/`)
+- **brief = `docs/pm/brief-reference-analysis.md`** (`b32741c`) · **แก้ตรง root cause ที่ Canon spike สรุปเอง:** เชลโลเราเป็น static conditional logic ต้องการ **human-authored phrase-map** → งานนี้ถอด map จากคนเล่นจริง
+- **มาตรฐาน:** วัดได้เท่านั้น (Claude ฟังไม่ได้ · ห้าม "ฟังแล้วรู้สึกว่า") · ทุกข้อต้องแมปเป็นพารามิเตอร์จริงใน `src/lib/arranger/` · ⚖️ ห้าม commit MP3/stems · ห้ามลอก A Thousand Years โน้ตต่อโน้ต (มีลิขสิทธิ์)
+- **ของที่ PM ต้องการ:** ตาราง "เทคนิค → แก้ไฟล์ไหน" + แยก 3 กอง (ลอกได้เลย / ต้องเขียนใหม่ / เพดาน sample ฟรี)
+
+**🎻 NEW (16 ก.ค. ค่ำ · P'Aim สั่ง): cello bake-off — `task_4ebc6bc9` (รอ P'Aim กดชิป)**
 - **โจทย์:** P'Aim ฟัง YouTube แล้วชอบ **เปียโน+เชลโลคู่กัน** (เชลโลเดี่ยว = น่าเบื่อ) → ลองอีกรอบ · **ต้องใช้วาทยกรเปียโนทอง (`src/lib/arranger` + splendid-grand) คุม** (P'Aim สั่งเอง)
 - **brief = `docs/pm/brief-cello-bakeoff.md`** (`b4d9e22`) · ส่งมอบ = 3 คลิป A/B/C ท่อนเดียวกัน ต่างแค่ sample + หน้าเทียบ + MP3 · **หูของ P'Aim ตัดสิน · ห้าม SA วนเดาความเพราะ** ([[pleng-aesthetic-audio-needs-ear]])
 - **research แล้ว (16 ก.ค.):** ✅ **Karoryfer x bigcat = CC0 จริง** (P'Aim โหลดไว้ `C:\Users\aimkr\Downloads\karoryfer-bigcat.cello-master`) 4 ระดับ p/mp/mf/f × คันชัก d/g · **SFZ มี legato maps** · ⚠️ no vibrato · ⚠️ **SSO = CC Sampling Plus 1.0 (retired) → ทดลองในเครื่องเท่านั้น ห้าม commit sample** · ❌ **Pianobook ตัดทิ้ง (EULA ห้ามแจกต่อ = PWA ใช้ไม่ได้)** · ❌ VSCO 2 CE 2 ระดับ (แย่กว่า Iowa 3) — ที่ปรึกษาแนะนำผิด
