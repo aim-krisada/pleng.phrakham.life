@@ -21,6 +21,16 @@
 - **มาตรฐาน:** วัดได้เท่านั้น (Claude ฟังไม่ได้ · ห้าม "ฟังแล้วรู้สึกว่า") · ทุกข้อต้องแมปเป็นพารามิเตอร์จริงใน `src/lib/arranger/` · ⚖️ ห้าม commit MP3/stems · ห้ามลอก A Thousand Years โน้ตต่อโน้ต (มีลิขสิทธิ์)
 - **ของที่ PM ต้องการ:** ตาราง "เทคนิค → แก้ไฟล์ไหน" + แยก 3 กอง (ลอกได้เลย / ต้องเขียนใหม่ / เพดาน sample ฟรี)
 
+**🎻 cello bake-off ✅ เสร็จ · 🔴 รอ P'Aim ฟังตัดสิน (16 ก.ค.):** branch `cello-bakeoff` `31adff8` · report `docs/reports/cello-bakeoff.md` · **URL: `http://192.168.1.124:5450/docs/spikes/cello-bakeoff.html`** (:5450 เปิดค้าง · 4 ปุ่ม + MP3 · มือถือได้)
+- **4 คลิป** เพลง #1 ท่อนแรก 20.3s · เปียโนทอง `arrange()`+splendid-grand รอบ 27 · เชลโลร้องนำ: **A Karoryfer · B SSO · C Iowa · D เปียโนอย่างเดียว (ตัวควบคุม · dev เพิ่มเอง = initiative ถูก)**
+- **PM git-verify PASS:** scope สะอาด (spike files + report เท่านั้น · `git diff` vs base ฝั่ง `src/lib/` = ว่าง) · ไม่มี .ogg/.wav/.mp3 ใน git (SSO license ปลอดภัย) · 673 tests (fail 1 = `notationLint` pre-existing)
+- **ยุติธรรมพิสูจน์แล้ว:** เปียโน A/B/C เหมือนกันเชิงตัวเลข (ต่าง 3e-8 = float rounding) · เชลโลดังเท่ากัน · ทุกคลิป RMS −24.0dB ไม่คลิป · **near-miss ที่ dev จับเอง:** normalize ทั้งไลบรารี → B ดังกว่า A 6.5dB (Karoryfer เสียงสูงเบากว่าต่ำ 14.7dB) = P'Aim จะเลือก B เพราะดังกว่า → แก้เป็นวัดจากท่อนที่ใช้จริง
+- ⭐ **negative delay ยืนยันสมมติฐาน PM เป๊ะ (t50 วัดเอง ไม่ยกเลขที่ปรึกษา):** Grand **0ms** · Karoryfer **40ms** · SSO **55ms** · **Iowa 250ms** → **"หวูดเรือ" = ตัวเลขแล้ว** (Iowa ตามหลัง ~1/3 บีต · สายวิเคราะห์วัดคนจริง mean≈0 = มาตรงบีต) · **PM อนุมัติ t50 แทน time-to-peak** (สเปก PM เขียนศัพท์ผิด · time-to-peak จริง 320–730ms = เลื่อนแล้วมาก่อนบีต)
+- **🔑 dev จับได้ว่า PM ผิด: shipped cello = Karoryfer มาตลอด** (`tools/prepare-samples-cc0.mjs:33`) → brief ตั้ง A vs C เป็นคนละตัวทั้งที่เป็นตัวเดียวกัน · dev สลับไปใช้ Iowa จริงจาก `dreamy-lumiere` = การทดลองรอด · **PM ผิดเพราะไม่อ่าน `tools/` ก่อนค้นเว็บ** → memory `pleng-two-cellos-karoryfer-vs-iowa`
+- **PM เคาะ: memory เดิม *ไม่ผิด* ไม่ต้องแก้** — `slice-iowa-cello.sh` + `cello-iowa/` **มีจริง** (commit `4d8175c` · อยู่บน spike branch ไม่ใช่ base) → `pleng-smplr-vellayer-relative` + `pleng-cello-piano-spike` พูดถึง Iowa ฝั่ง spike = ถูกต้อง · **เชลโล 2 ชุดอยู่คู่กัน ไม่ใช่ความขัดแย้ง** (ไวโอลิน shipped = VSCO-2-CE)
+- **🐞 bug ค้าง (ไม่กระทบผู้ใช้ · ไม่แก้ตอนนี้):** `CC0/cello/preset.json` pitch **ต่ำไป 1 octave ครบ 17/17** (ประกาศ 24 · วัดจริง 36 · เชลโลเล่น MIDI 24 ไม่ได้ = ฟิสิกส์ยืนยัน) · cello/violin `disabled:true` ใน `soundOptions.js` → ปลอดภัย · ⚠️ ถ้าเปิดใช้ ต้องแก้ preset **+ ไล่ที่เรียกใช้** (spike `render-real-audio-spike.html` เล่น `b-12` = อาจชดเชยมือไว้)
+- **▶ ถ้าไม่เพราะทั้ง 3 = พักถาวรได้อย่างสบายใจ** — รอบนี้ตัดตัวแปรกวนหมดแล้ว (ดัง/จูน/ออกเทฟ/เวลา/เรียบเรียง) เหลือเพดาน sample ฟรีจริง ๆ
+
 **🎧 P'Aim ear ground-truth (Canon · 16 ก.ค.) — พลิกข้อสรุปสายวิเคราะห์ · เก็บไว้ใช้ยาว:**
 - P'Aim: "1:30 โดยเฉพาะ **2:00–2:25 cello นำ** · **2:25–2:35 เปียโนนำ** · แล้วผลัดกัน **เหมือนคุยตอบกัน ถึง 3:30** · **3:45 cello นำ**" · **"นำ = เด่น"**
 - ⚡ **presence ≠ prominence** — สายวิเคราะห์วัด "ใครส่งเสียง" (เชลโล 93%) → สรุปผิดว่า "ไม่มีการผลัดกันเล่น" · P'Aim ได้ยิน "ใครเด่น" = **สลับกันชัด** · **ทั้งคู่เล่นตลอด + ผลัดกันนำ ไม่ขัดกัน**
