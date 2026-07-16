@@ -78,10 +78,33 @@ def frame_f0(seg, sr):
     return sr / k
 
 
+def attack_ms(x, sr, frac=0.5):
+    """Time until the RMS envelope first reaches `frac` of its sustain plateau, in ms.
+
+    Feeds the NEGATIVE DELAY (PM, 16 ก.ค. · docs/pm/audio-round2-techniques.md): a bowed note's energy
+    ramps up, so firing it ON the beat makes it arrive LATE against the piano's instant attack — every
+    clip equally. Left uncompensated P'Aim could reject all three cellos for OUR timing error rather
+    than for their sound (a false negative that would close the project for the wrong reason).
+
+    frac=0.5 (the half-power point) is used as the perceptual onset: t_peak is far too late to shift by
+    (the plateau is reached hundreds of ms in), while the very start of the ramp is inaudibly quiet.
+    Per the spec the value is MEASURED per sample-set — never the advisor's generic "30-80ms".
+    """
+    w = max(1, int(sr * 0.010))                       # 10 ms envelope frames
+    n = len(x) // w
+    if n < 5: return 0.0
+    e = np.array([np.sqrt((x[i*w:(i+1)*w] ** 2).mean()) for i in range(n)])
+    a, b = int(n*0.15), int(n*0.6)
+    plateau = float(np.median(e[a:b])) if b > a else float(e.max())
+    idx = np.where(e >= max(plateau, 1e-9) * frac)[0]
+    return round(float(idx[0]) * 10.0, 1) if len(idx) else 0.0
+
+
 def measure(path):
-    """-> dict(midi, cents_off, vibrato_cents, rms_db, peak_db, dur) using the MEDIAN frame pitch."""
+    """-> dict(midi, cents_off, vibrato_cents, rms_db, peak_db, dur, attack_ms) — MEDIAN frame pitch."""
     sr, x = decode(path)
     peak, rms = float(np.max(np.abs(x))), float(np.sqrt((x ** 2).mean()))
+    atk = attack_ms(x, sr)
     a = int(0.30 * sr); b = min(len(x), a + int(2.5 * sr))
     if b - a < sr // 3: a, b = 0, len(x)
     W, H = int(0.06 * sr), int(0.02 * sr)
@@ -97,7 +120,8 @@ def measure(path):
     return dict(midi=midi, cents_off=round((midi_f - midi) * 100, 1),
                 vibrato_cents=round(1200 * math.log2(hi_p / lo_p), 1),
                 rms_db=round(20 * math.log10(rms or 1e-9), 2),
-                peak_db=round(20 * math.log10(peak or 1e-9), 2), dur=round(len(x) / sr, 3))
+                peak_db=round(20 * math.log10(peak or 1e-9), 2), dur=round(len(x) / sr, 3),
+                attack_ms=atk)
 
 
 # ---------- SSO loop points (shipped by the library, parsed from its own sfz) ------------------
@@ -173,11 +197,19 @@ def build(lib, files, note_of, stereo=False, loops=None):
             reg.update({"loop": True, "loopStart": round(lp[0], 4), "loopEnd": round(lp[1], 4)})
         regions.append(reg)
 
+    # median attack across the set -> how far EARLY this library's cello must fire (negative delay).
+    atk = float(np.median([r["attack_ms"] for r in by_pitch.values()]))
+    print(f"  attack (median time to 50% of sustain) = {atk:.0f} ms -> negative delay {-atk:.0f} ms")
+
     preset = {"name": f"cello-{lib}", "samples": {"baseUrl": "", "formats": ["ogg"]},
-              "groups": [{"regions": regions}]}
+              "groups": [{"regions": regions}],
+              # not an smplr field — read by src/spikes/celloBakeoff.js so the delay is DERIVED from
+              # this library's own measured attack instead of a number typed into the code.
+              "plengMeta": {"attackMs": round(atk, 1)}}
     (outdir / "preset.json").write_text(json.dumps(preset, indent=1))
     meta = {"lib": lib, "makeup_db": round(makeup_db, 2), "mean_rms_db": round(mean_rms, 2),
             "target_rms_db": TARGET_RMS_DB, "stereo": stereo, "looped": bool(loops),
+            "attack_ms_median": round(atk, 1),
             "samples": sorted(by_pitch.values(), key=lambda r: r["midi"])}
     (outdir / "measured.json").write_text(json.dumps(meta, indent=1, ensure_ascii=False))
     return meta

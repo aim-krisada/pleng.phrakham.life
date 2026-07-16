@@ -49,6 +49,7 @@ const SPIKE_BASE = '/samples/_spike'
 async function loadCello(variantId, context, makeupGain, { correctTuning = true } = {}) {
   const { Sampler, Scheduler } = await import('smplr')
   const preset = await (await fetch(`${SPIKE_BASE}/${variantId}/preset.json`)).json()
+  const attackMs = preset.plengMeta?.attackMs ?? 0    // measured by tools/prepare-cello-bakeoff.py
   preset.samples = preset.samples || {}
   preset.samples.baseUrl = `${SPIKE_BASE}/${variantId}`
   if (!correctTuning) {
@@ -62,7 +63,7 @@ async function loadCello(variantId, context, makeupGain, { correctTuning = true 
   if (isOffline && Scheduler) opts.scheduler = Scheduler(context, { lookaheadMs: 1e7 })
   const inst = new Sampler(context, opts)
   await inst.load
-  return { inst, output: makeup }
+  return { inst, output: makeup, attackMs }
 }
 
 // 'both' = melody + chords. NOTE the exact string matters: voiceFlags() in midi.js only turns the
@@ -110,7 +111,7 @@ export function buildPerformance(content, { bpm, range, songId }) {
 // P'Aim rather than settled here. Default false = the brief's "เชลโลร้องนำ · เปียโนคลอ".
 export async function renderClip(content, { variantId, bpm, range, songId, transpose = 0,
   sampleRate = 44100, celloMakeup = CELLO_MAKEUP, correctTuning = true, pianoKeepsMelody = false,
-  pianoRoles = null, celloMuted = false } = {}) {
+  pianoRoles = null, celloMuted = false, negativeDelay = true } = {}) {
   const { perf, cfg, bpm: useBpm } = buildPerformance(content, { bpm, range, songId })
   const spb = 60 / useBpm
 
@@ -146,9 +147,16 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
 
   let celloReport = null
   if (useCello && !celloMuted) {
-    const { inst, output } = await loadCello(variantId, ctx, celloMakeup, { correctTuning })
+    const { inst, output, attackMs } = await loadCello(variantId, ctx, celloMakeup, { correctTuning })
     output.disconnect()
     output.connect(busIn)                              // same reverb room as the piano
+    // NEGATIVE DELAY (PM 16 ก.ค. · docs/pm/audio-round2-techniques.md): a bowed note ramps up, so
+    // firing it ON the beat lands it LATE against the piano's instant attack (measured: piano
+    // reaches half level in 0 ms; these cellos in 40/55/250 ms). Fire it early by its own measured
+    // attack so the note is HEARD on the beat. Deterministic (no randomness → the MP3 matches live),
+    // and derived per library from that library's audio, so it removes a timing defect rather than
+    // flattering any candidate.
+    const shift = negativeDelay ? (attackMs || 0) / 1000 : 0
     const mel = perf.filter(isMelody)
     const outOfRange = []
     for (const e of mel) {
@@ -159,10 +167,11 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
       if (midi < CELLO_LO || midi > CELLO_HI) outOfRange.push(midi)
       // velocity from the arranger's own gain via the SAME map sampler.js uses for its CC0 cello,
       // so the cello's dynamics track the arrangement exactly like the shipped path would.
-      inst.start({ note: midi, time: onset(e), duration: Math.max(0.12, perNoteDur(e)),
-        velocity: gainToVelocityFull(e.gain) })
+      inst.start({ note: midi, time: Math.max(0, onset(e) - shift),
+        duration: Math.max(0.12, perNoteDur(e)), velocity: gainToVelocityFull(e.gain) })
     }
-    celloReport = { melodyNotes: mel.length, outOfRange: [...new Set(outOfRange)].sort((a, b) => a - b) }
+    celloReport = { melodyNotes: mel.length, attackMs, shiftMs: Math.round(shift * 1000),
+      outOfRange: [...new Set(outOfRange)].sort((a, b) => a - b) }
   }
 
   const buffer = await ctx.startRendering()

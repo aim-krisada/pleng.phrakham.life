@@ -14,7 +14,7 @@ const TO_LI = q.get('to') != null ? Number(q.get('to')) : null
 
 // `balance` is a RELATIVE nudge (×) around the measured lead-level default from calibrateLevels().
 const state = { song: null, range: null, clips: {}, balance: 1, correctTuning: true,
-  pianoKeepsMelody: false, cal: null }
+  pianoKeepsMelody: false, negativeDelay: true, cal: null }
 const log = (m) => { $('#log').textContent = m }
 
 async function loadSong() {
@@ -64,7 +64,7 @@ async function renderAll() {
         songId: state.song.id, correctTuning: state.correctTuning,
         // measured lead-level default × P'Aim's nudge × this library's fairness gain
         celloMakeup: state.cal.leadMakeup * state.balance * (state.cal.gains[v.id] ?? 1),
-        pianoKeepsMelody: state.pianoKeepsMelody,
+        pianoKeepsMelody: state.pianoKeepsMelody, negativeDelay: state.negativeDelay,
       })
       normalizeBuffer(buffer)          // all 4 clips play at one loudness (see normalizeBuffer)
       const m = measure(buffer)
@@ -84,7 +84,8 @@ async function renderAll() {
       document.querySelector(`[data-meta="${v.id}"]`).innerHTML =
         `${m.seconds.toFixed(1)}s · ${(blob.size / 1024).toFixed(0)} KB · peak ${m.peakDb.toFixed(1)}dB`
         + ` · RMS ${m.rmsDb.toFixed(1)}dB${m.clipped ? ' · <b class="warn">CLIP!</b>' : ''}`
-        + `${celloReport ? ` · เชลโล ${celloReport.melodyNotes} โน้ต` : ''}${oor}`
+        + `${celloReport ? ` · เชลโล ${celloReport.melodyNotes} โน้ต · หัวเสียงไต่ ${celloReport.attackMs}ms`
+          + `${celloReport.shiftMs ? ` → เลื่อนก่อน ${celloReport.shiftMs}ms` : ' → ไม่เลื่อน'}` : ''}${oor}`
         + ` · ${((performance.now() - t0) / 1000).toFixed(1)}s · ${perf.length} events`
     } catch (e) {
       document.querySelector(`[data-meta="${v.id}"]`).innerHTML = `<b class="warn">พัง: ${e.message}</b>`
@@ -114,6 +115,7 @@ $('#makeup').addEventListener('change', renderAll)
 // tuning changes the cello audio → the fairness calibration must be re-measured for it
 $('#tuning').addEventListener('change', (e) => { state.correctTuning = e.target.checked; state.cal = null; renderAll() })
 $('#unison').addEventListener('change', (e) => { state.pianoKeepsMelody = e.target.checked; renderAll() })
+$('#negdelay').addEventListener('change', (e) => { state.negativeDelay = e.target.checked; renderAll() })
 $('#makeup').value = '1'
 showBalance()
 
