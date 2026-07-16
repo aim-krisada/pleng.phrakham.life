@@ -47,6 +47,14 @@ IOWA = Path(os.environ.get("IOWA_SRC", ""))  # dir of <midi>.ogg (cello-iowa/mf)
 CELLO_LO, CELLO_HI = 36, 84   # real cello range: open C (36) .. high register
 TARGET_RMS_DB = -20.0         # common loudness target for all 3 libraries
 
+# Karoryfer names its lowest note "C1", but that note MEASURES as MIDI 36 (C2, the open C string —
+# MIDI 24 is below a double bass and no cello can play it). So the naive `C1 -> 24` reading of the
+# filename is a whole octave low; +12 corrects it. This is NOT a guess from the name: every one of the
+# 17 pitches measured exactly +12 from the naive reading, and the physics agrees. It's used only as a
+# PRIOR to keep the f0 search near the right note (see measure()); the pitch is still measured, and a
+# file that lands outside the window is flagged rather than trusted.
+OCTAVE_FIX = 12
+
 
 # ---------- measurement ----------------------------------------------------------------------
 def decode(path):
@@ -60,14 +68,23 @@ def decode(path):
     return sr, x
 
 
-def frame_f0(seg, sr):
+def frame_f0(seg, sr, f_lo=25.0, f_hi=1200.0):
+    """Autocorrelation f0 within [f_lo, f_hi].
+
+    The window matters: on a SOFT bow the fundamental is weak and an upper harmonic can dominate, so
+    an unconstrained search locks onto it. Real case (16 ก.ค.): C2_p_d.wav is MIDI 48 (f0 130.8 Hz)
+    but its 3rd harmonic at 392.5 Hz is ~19 dB stronger, and 392.5 Hz reads as MIDI 67 — every frame
+    agreed, so taking the median could not save it. That produced a phantom region at pitch 67 which
+    played a C2 sample ~19 semitones below the written note = a note that never speaks. Callers pass a
+    window around the expected pitch to make that impossible.
+    """
     s = seg - seg.mean()
     if np.sqrt((s ** 2).mean()) < 1e-4: return None
     n = len(s)
     ac = np.correlate(s, s, mode="full")[n - 1:]
     if ac[0] <= 0: return None
     ac /= ac[0]
-    lo, hi = int(sr / 1200), min(int(sr / 25), len(ac) - 1)
+    lo, hi = int(sr / f_hi), min(int(sr / f_lo), len(ac) - 1)
     if hi <= lo: return None
     k = int(np.argmax(ac[lo:hi])) + lo
     if ac[k] < 0.3: return None
@@ -76,6 +93,10 @@ def frame_f0(seg, sr):
         d = a - 2 * b + c
         if d != 0: k = k + 0.5 * (a - c) / d
     return sr / k
+
+
+def midi_to_hz(m):
+    return 440.0 * 2 ** ((m - 69) / 12.0)
 
 
 def attack_ms(x, sr, frac=0.5):
@@ -140,17 +161,28 @@ def timbre(x, sr):
     return round(cen, 1), round(float(10*np.log10(max(hf, 1e-12))), 2)
 
 
-def measure(path):
-    """-> dict(midi, cents_off, vibrato_cents, rms_db, peak_db, dur, attack_ms, ...) — MEDIAN pitch."""
+def measure(path, expect_midi=None):
+    """-> dict(midi, cents_off, vibrato_cents, rms_db, peak_db, dur, attack_ms, ...) — MEDIAN pitch.
+
+    `expect_midi` (from the filename, via a convention that was itself ESTABLISHED by measurement —
+    see karoryfer_note) narrows the f0 search to +-4 semitones. This is not "trusting the filename":
+    the pitch is still measured, the returned cents error is still whatever the audio says, and a file
+    that genuinely sits outside the window is FLAGGED rather than silently accepted. It only removes
+    the detector's freedom to lock onto a harmonic 19 semitones up.
+    """
     sr, x = decode(path)
     peak, rms = float(np.max(np.abs(x))), float(np.sqrt((x ** 2).mean()))
     atk = attack_ms(x, sr)
     nf = quietest_100ms_db(x, sr)
     cen, hf = timbre(x, sr)
+    if expect_midi is not None:
+        f_lo, f_hi = midi_to_hz(expect_midi - 4), midi_to_hz(expect_midi + 4)
+    else:
+        f_lo, f_hi = 25.0, 1200.0
     a = int(0.30 * sr); b = min(len(x), a + int(2.5 * sr))
     if b - a < sr // 3: a, b = 0, len(x)
     W, H = int(0.06 * sr), int(0.02 * sr)
-    f0s = [f for i in range(a, b - W, H) if (f := frame_f0(x[i:i + W], sr))]
+    f0s = [f for i in range(a, b - W, H) if (f := frame_f0(x[i:i + W], sr, f_lo, f_hi))]
     if len(f0s) < 5: raise RuntimeError(f"cannot measure pitch: {path}")
     f0s = np.array(f0s)
     med = float(np.median(f0s))
@@ -159,11 +191,15 @@ def measure(path):
     midi_f = 69 + 12 * math.log2(med / 440.0)
     midi = int(round(midi_f))
     lo_p, hi_p = np.percentile(f0s, 5), np.percentile(f0s, 95)
+    # a file whose measured pitch escapes the expected window is a REAL anomaly, not a detector
+    # artefact -> surface it instead of quietly mapping a wrong sample onto a key.
+    mismatch = expect_midi is not None and abs(midi - expect_midi) > 1
     return dict(midi=midi, cents_off=round((midi_f - midi) * 100, 1),
                 vibrato_cents=round(1200 * math.log2(hi_p / lo_p), 1),
                 rms_db=round(20 * math.log10(rms or 1e-9), 2),
                 peak_db=round(20 * math.log10(peak or 1e-9), 2), dur=round(len(x) / sr, 3),
-                attack_ms=atk, quietest_100ms_db=nf, centroid_hz=cen, hf_ratio_db=hf)
+                attack_ms=atk, quietest_100ms_db=nf, centroid_hz=cen, hf_ratio_db=hf,
+                expect_midi=expect_midi, mismatch=mismatch)
 
 
 # ---------- SSO loop points (shipped by the library, parsed from its own sfz) ------------------
@@ -202,16 +238,22 @@ def spread_key_ranges(pitches):
     return ranges
 
 
-def build(lib, files, note_of, stereo=False, loops=None):
+def build(lib, files, expect_of, stereo=False, loops=None, naive_of=None):
     print(f"\n### {lib}")
     rows = []
     for f in files:
-        m = measure(f)
+        # expected pitch per THIS library's own convention (Karoryfer needs +12; Iowa's filenames are
+        # already honest MIDI). Only a search prior — the pitch is still measured, and anything that
+        # lands outside the window is flagged, not trusted.
+        expect = expect_of(Path(f).name)
+        m = measure(f, expect_midi=expect)
         m["src"] = str(f); m["file"] = Path(f).name
-        declared = note_of(Path(f).name)
-        if declared is not None and declared != m["midi"]:
-            print(f"  ! {Path(f).name:18s} filename says MIDI {declared} but MEASURES {m['midi']} "
-                  f"({m['midi']-declared:+d} semitones)")
+        naive = naive_of(Path(f).name) if naive_of else None
+        if naive is not None and naive != m["midi"]:
+            print(f"  ! {Path(f).name:18s} filename says MIDI {naive} but MEASURES {m['midi']} "
+                  f"({m['midi']-naive:+d} semitones)")
+        if m.get("mismatch"):
+            print(f"  🔴 {Path(f).name:18s} measured {m['midi']} but expected ~{expect} — INVESTIGATE")
         rows.append(m)
 
     # one sample per pitch (drop dupes, keep the loudest)
@@ -291,16 +333,36 @@ def karoryfer_note(name):
 DYNAMICS = ["p", "mp", "mf", "f"]
 
 
+def karoryfer_expect(name):
+    """Expected MIDI for a Karoryfer filename = its note name + the library's verified octave offset."""
+    n = karoryfer_note(name)
+    return None if n is None else n + OCTAVE_FIX
+
+
+SSO_RE = re.compile(r"cello-([acdf][s#]?)(\d)", re.I)
+
+
+def sso_expect(name):
+    """SSO names its samples at CONCERT pitch (cello-c2 measures MIDI 36), so no offset."""
+    m = SSO_RE.match(Path(name).stem)
+    if not m: return None
+    letter = m.group(1)[0].upper()
+    sharp = len(m.group(1)) > 1
+    return SEMI[letter] + (1 if sharp else 0) + (int(m.group(2)) + 1) * 12
+
+
 def main():
     summary = {}
     if KARORYFER.exists():
         for dyn in DYNAMICS:
             files = sorted(glob.glob(str(KARORYFER / f"*_{dyn}_d.wav")))
             if files:
-                summary[f"karoryfer-{dyn}"] = build(f"karoryfer-{dyn}", files, karoryfer_note, stereo=False)
+                summary[f"karoryfer-{dyn}"] = build(f"karoryfer-{dyn}", files, karoryfer_expect,
+                                                    stereo=False, naive_of=karoryfer_note)
         # kept so the bake-off page (mf = what P'Aim already judged) still resolves
         files = sorted(glob.glob(str(KARORYFER / "*_mf_d.wav")))
-        summary["karoryfer"] = build("karoryfer", files, karoryfer_note, stereo=False)
+        summary["karoryfer"] = build("karoryfer", files, karoryfer_expect, stereo=False,
+                                    naive_of=karoryfer_note)
     else:
         print(f"skip karoryfer (not found: {KARORYFER})")
 
@@ -308,12 +370,13 @@ def main():
         files = sorted(glob.glob(str(SSO / "cello-[acdf]*")))
         files = [f for f in files if "hrm" not in Path(f).name]
         loops = sso_loops(os.environ.get("SSO_SFZ", ""))
-        summary["sso"] = build("sso", files, lambda n: None, stereo=True, loops=loops)
+        summary["sso"] = build("sso", files, sso_expect, stereo=True, loops=loops)
     else:
         print(f"skip sso (set SSO_SRC=<dir of cello-*.wav>)")
 
     if IOWA and IOWA.exists():
         files = sorted(glob.glob(str(IOWA / "*.ogg")))
+        # Iowa's filenames ARE the MIDI number (verified: 36.ogg really measures 36)
         summary["iowa"] = build("iowa", files, lambda n: int(Path(n).stem), stereo=False)
     else:
         print(f"skip iowa (set IOWA_SRC=<dir of <midi>.ogg>)")
