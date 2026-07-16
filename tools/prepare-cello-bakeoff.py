@@ -90,14 +90,15 @@ def attack_ms(x, sr, frac=0.5):
     (the plateau is reached hundreds of ms in), while the very start of the ramp is inaudibly quiet.
     Per the spec the value is MEASURED per sample-set — never the advisor's generic "30-80ms".
     """
-    w = max(1, int(sr * 0.010))                       # 10 ms envelope frames
+    FRAME_MS = 5.0        # 5 ms frames: at 10 ms the quantisation error was itself ~20 ms on the
+    w = max(1, int(sr * FRAME_MS / 1000))             # fastest set (Karoryfer read 40 ms; really ~20)
     n = len(x) // w
     if n < 5: return 0.0
     e = np.array([np.sqrt((x[i*w:(i+1)*w] ** 2).mean()) for i in range(n)])
     a, b = int(n*0.15), int(n*0.6)
     plateau = float(np.median(e[a:b])) if b > a else float(e.max())
     idx = np.where(e >= max(plateau, 1e-9) * frac)[0]
-    return round(float(idx[0]) * 10.0, 1) if len(idx) else 0.0
+    return round(float(idx[0]) * FRAME_MS, 1) if len(idx) else 0.0
 
 
 def measure(path):
