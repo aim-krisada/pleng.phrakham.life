@@ -9,6 +9,7 @@
 ## ▶ RESUME (pm26 ACTIVE · 15 ก.ค. · PM session ปัจจุบัน = **pm26** — รายงานกลับ ping ที่นี่)
 
 **สถานะจริงตอนนี้ (pm26 · sync กระดานล่าง):**
+- 🎉 **รอบ 29 LIVE `f573d2d`** (16 ก.ค. · P'Aim "go") — **ชุดใหญ่:** ชื่อแอพไทย "เพลง.พระคำ" + คู่มือทำเพลง (มาตรฐานการเขียนโน้ต /#/notation) + เมนู "คู่มือ ▾" 2 อัน + ไอคอนใหม่พื้นขาวกุญแจทอง(เฉด E) + shell overflow fix + นัชวิลล์→คอร์ดโรมัน + a11y ตาราง + เอา accent knob ออก(เสียง=เดิม) · **verify prod:** Actions success · Last-Modified 12:12 · app-name meta "เพลง.พระคำ" · bundle มี "คู่มือทำเพลง"/"มาตรฐานการเขียนโน้ต" · ไอคอน 512 พื้นขาว(ไฟล์เล็กลง) · **post-deploy:** archive 6 สายรอบ 29 + verify มือถือ (ไอคอน/ชื่อแอพ iOS re-install · install PWA Android)
 - 🎉 **รอบ 28 LIVE `09b9712`** — **ชุด 3 งาน:** (1) คู่มืออัปเดต + การ์ด "ขอบคุณ & แหล่งที่มา" ใน About (แหล่งเพลง+sample+FluidR3_GM CC-BY+เทคนิค→GPL · P'Aim เคาะถ้อยคำ) (2) ปุ่ม "ติดตั้งแอพ" PWA ในเมนู ☰ (3) ป้ายคอร์ด→"คอร์ดโรมัน (I IV V)" · verify prod: Actions success · live bundle มี 3 marker ครบ · Last-Modified 01:42 · **post-deploy:** 🤖 verify ปุ่มติดตั้ง Android บน **live https** ได้แล้ว (dev/LAN ทำไม่ได้) + iOS · archive 3 สาย (chord/pwa/guide) · tidy: guide-② "คอร์ดโรมัน" + นัชวิลล์-in-docs
 - 🎉 **รอบ 27 `ad63021`** — golden-piano เปียโนเดี่ยวร่างทอง (referee+MP3 Grand จริง) · accent ear-check ค้าง
 - ✅ **รอบ 26 `bd53742`** — whole-site parity เพลง↔พระคำ จบครบ 2 เว็บ · เหลือ P'Aim/พี่เปา verify Android 2 จุด (§✅✅ PARITY จบ)
@@ -293,7 +294,7 @@ whole-site look&feel parity เพลง→พระคำ (พระคำ=mast
 - **เหลือ:** พี่เปา/P'Aim verify Android 2 จุด (#1 ลิ้นชักไม่ boost · #3 ปุ่มปิดไม่มีกรอบตอนแตะ) · เก็บ worktree phrakham :8930 ของสาย parity หลัง phrakham deploy
 - **#5 normalize dock↔ปุ่ม Aa เป็น core เดียว = ยกไว้ (P'Aim สั่ง) ทำทีหลัง**
 
-**Deploy history:** ...25 `bede377`(GATE leak#2) · **26 `bd53742`(whole-site parity)** · **27 `ad63021`(golden-piano referee+MP3 Grand)** · **28 `09b9712`(guide refresh+About credits/sources · PWA install button · chord label→Roman I IV V)**
+**Deploy history:** ...25 `bede377`(GATE leak#2) · **26 `bd53742`(whole-site parity)** · **27 `ad63021`(golden-piano referee+MP3 Grand)** · **28 `09b9712`(guide refresh+About credits · PWA install button · chord→Roman)** · **29 `f573d2d`(app-name ไทย · คู่มือทำเพลง/notation+เมนูดรอปดาวน์ · ไอคอนพื้นขาวทองเฉด E · shell overflow fix · นัชวิลล์ sync · a11y ตาราง · accent knob ออก)**
 
 ## ✅✅ PARITY จบ — เหมือนกันบน server ครบทั้ง 2 เว็บ (15 ก.ค.)
 - 🟦 เพลง **`bd53742`** LIVE · 🟩 พระคำ **`a0a3021`** LIVE (PM verify เอง: e6fa73b→a0a3021 · pk-ext ↗ live · Last-Modified 10:08)
