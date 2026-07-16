@@ -16,6 +16,13 @@
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
     <link rel="manifest" href="site.webmanifest" />
     <meta name="theme-color" content="#f8f9fa" />
+    <!-- iOS "Add to Home Screen" reads apple-mobile-web-app-title for the icon label;
+         without it iOS falls back to the URL ("pleng.phrakham.life"). Set the Thai name
+         to match the manifest short_name and mirror phrakham ("พระคำ.ชีวิต"). -->
+    <meta name="apple-mobile-web-app-title" content="เพลง.พระคำ" />
+    <meta name="application-name" content="เพลง.พระคำ" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <title>เพลง.พระคำ.ชีวิต — คลังเพลงนมัสการ</title>
     <!-- Self-hosted subset Noto fonts (same files as phrakham.life) — no external
          requests. Relative paths so both the custom domain and the github.io
