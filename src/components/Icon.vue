@@ -36,6 +36,10 @@ const ICONS = {
   send: '<path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/>',
   save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
   download: '<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>',
+  // PWA install affordance (pwa-install): smartphone = "ติดตั้งเป็นแอพ"; share = the iOS
+  // Safari share glyph (box + up-arrow) the manual "เพิ่มไปยังหน้าจอหลัก" hint points at.
+  smartphone: '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
+  share: '<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/>',
   maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
   plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
   'file-music': '<path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M4 10V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1"/><circle cx="8" cy="18" r="2"/><path d="M10 18v-5l4-1v4"/><circle cx="12" cy="16" r="2"/>',

@@ -20,6 +20,7 @@ import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { shellMenu, siteFont, setSiteFont } from '../store.js'
 import ProfileTool from './ProfileTool.vue'
+import InstallAppTool from './InstallAppTool.vue'
 import Icon from './Icon.vue'
 
 defineProps({ title: { type: String, default: '' } })
@@ -165,6 +166,9 @@ async function goSearch() {
       <div class="sb-drawer-sep" role="separator"></div>
       <div class="sb-drawer-tools">
         <div class="sb-drawer-lbl">เครื่องมือ</div>
+        <!-- "ติดตั้งแอพ" affordance — self-contained (lib/pwaInstall.js). An action row per
+             docs/ds/menu-drawer-spec.md §3. Renders nothing when already installed. -->
+        <InstallAppTool />
         <div class="sb-font" @click.stop>
           <div class="sb-font-lbl">ตัวอักษรไทย</div>
           <div class="sb-font-opts" role="radiogroup" aria-label="ตัวอักษรไทย">

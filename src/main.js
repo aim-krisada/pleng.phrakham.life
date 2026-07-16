@@ -9,6 +9,11 @@ import './lib/pk-scrollnav.js'
 // edit-once, no second copy). Registers window.PKDrawer; ShellBar consumes it for the
 // mobile ☰ menu so pleng's drawer = phrakham's drawer (left slide + scrim + a11y).
 import './lib/pk-drawer.js'
+// pwa-install: register the beforeinstallprompt/appinstalled listeners at startup (before the
+// Vue app mounts) so the one-shot install event isn't missed. The ☰ drawer's InstallAppTool
+// reads this module's reactive state to show a visible "ติดตั้งแอพ" button (Android/desktop)
+// or an iOS Safari Share→Add-to-Home-Screen hint. Does NOT touch the manifest or the SW.
+import './lib/pwaInstall.js'
 
 // SPA route changes swap page content without a scroll/resize event, so the shared
 // script (which re-checks on those events) wouldn't notice the new page height. Nudge it
