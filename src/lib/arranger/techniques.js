@@ -60,10 +60,10 @@ export const TECHNIQUES = [
     key: 'gapFill', label: 'หยอดโน้ตช่องยาว', hint: 'เติมโน้ตในคอร์ดที่ค้างนาน', type: 'toggle',
     read: (c) => hasEmb(c, 'gapFill'), apply: (c, v) => toggleEmb(c, 'gapFill', v),
   },
-  {
-    key: 'accent', label: 'เน้นจังหวะแรก', hint: 'บีตแรกของห้องหนักกว่าบีตอื่นเล็กน้อย', type: 'toggle',
-    read: (c) => (c.dynamics?.accent !== false), apply: (c, v) => { dyn(c).accent = v },
-  },
+  // "เน้นจังหวะแรก" (metric accent) is NOT a user control (P'Aim 16 ก.ค.): the full-strength accent is
+  // what gives the piano its human dynamic shape — exposing it as a knob only invited "why is it thumpy /
+  // organ-y" confusion. It stays ON at full by default via the preset (dynamics.accent), just with no menu
+  // row, so listeners can't dial it. (Re-add an entry here if a future need to tune it ever surfaces.)
   {
     key: 'contour', label: 'ไล่ระดับตามทำนอง', hint: 'ทำนองไต่ขึ้นดังขึ้น ปลายวรรคผ่อน', type: 'toggle',
     read: (c) => (c.dynamics?.contour !== false), apply: (c, v) => { dyn(c).contour = v },

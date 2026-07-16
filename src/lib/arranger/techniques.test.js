@@ -32,7 +32,9 @@ describe('buildArrangeCfg — overrides overlay the preset, never mutate it', ()
     expect(cfg.susCadence).toBe(false)
     expect(cfg.embellish).not.toContain('sparkle')
     expect(cfg.embellish).not.toContain('gapFill')
-    expect(cfg.dynamics.accent).toBe(false)
+    // accent is NOT a menu control (P'Aim 16 ก.ค.) → an `accent` override is ignored; it stays full ON
+    // from the preset so the piano keeps its human dynamic shape (never flattens to an organ).
+    expect(cfg.dynamics.accent).toBe(true)
     expect(cfg.dynamics.contour).toBe(false)
     expect(cfg.dynamics.rubato).toBe(false)
     expect(cfg.holdPulse).toBe(false)
@@ -53,8 +55,11 @@ describe('readTechniques — the menu shows the effective state', () => {
     expect(rows.every((r) => r.value !== undefined && r.label && r.type)).toBe(true)
   })
   it('reflects an override in the displayed value', () => {
-    const rows = readTechniques(base(), { accent: false, pattern: 'sustained' })
-    expect(rows.find((r) => r.key === 'accent').value).toBe(false)
+    const rows = readTechniques(base(), { pattern: 'sustained' })
     expect(rows.find((r) => r.key === 'pattern').value).toBe('sustained')
+  })
+  it('accent is not exposed as a menu row (P\'Aim 16 ก.ค. — no user control)', () => {
+    expect(readTechniques(base(), {}).find((r) => r.key === 'accent')).toBeUndefined()
+    expect(TECHNIQUES.find((t) => t.key === 'accent')).toBeUndefined()
   })
 })
