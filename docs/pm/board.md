@@ -14,6 +14,12 @@
 - **git:** base `studio-shell-redesign` = origin/main = `f573d2d` · สะอาด · memory synced OneDrive
 - **cleanup:** archived สายย่อยทั้งหมด · ❌ Remix cancelled · 🎻 violin archived (parked · เปิดใหม่เมื่อมี sample ดีกว่า · branch `charming-cori`+Iowa samples ใน git) · 📖 phrakham = คนละโปรเจกต์ (ไม่แตะ)
 
+**🎻 NEW (16 ก.ค. ค่ำ · P'Aim สั่ง): cello bake-off — รอ P'Aim เปิด session ใหม่**
+- **โจทย์:** P'Aim ฟัง YouTube แล้วชอบ **เปียโน+เชลโลคู่กัน** (เชลโลเดี่ยว = น่าเบื่อ) → ลองอีกรอบ · **ต้องใช้วาทยกรเปียโนทอง (`src/lib/arranger` + splendid-grand) คุม** (P'Aim สั่งเอง)
+- **brief = `docs/pm/brief-cello-bakeoff.md`** (`b4d9e22`) · ส่งมอบ = 3 คลิป A/B/C ท่อนเดียวกัน ต่างแค่ sample + หน้าเทียบ + MP3 · **หูของ P'Aim ตัดสิน · ห้าม SA วนเดาความเพราะ** ([[pleng-aesthetic-audio-needs-ear]])
+- **research แล้ว (16 ก.ค.):** ✅ **Karoryfer x bigcat = CC0 จริง** (P'Aim โหลดไว้ `C:\Users\aimkr\Downloads\karoryfer-bigcat.cello-master`) 4 ระดับ p/mp/mf/f × คันชัก d/g · **SFZ มี legato maps** · ⚠️ no vibrato · ⚠️ **SSO = CC Sampling Plus 1.0 (retired) → ทดลองในเครื่องเท่านั้น ห้าม commit sample** · ❌ **Pianobook ตัดทิ้ง (EULA ห้ามแจกต่อ = PWA ใช้ไม่ได้)** · ❌ VSCO 2 CE 2 ระดับ (แย่กว่า Iowa 3) — ที่ปรึกษาแนะนำผิด
+- **ผลลัพธ์ที่เป็นไปได้:** เพราะ → ต่อยอด preset · ไม่เพราะ → **พักถาวร** (เพดาน sample ฟรี ไม่ใช่จำนวนชั้นความดัง)
+
 **▶ งานถัดไป (ไม่บล็อก · รอ P'Aim หยิบ):**
 1. 🔴 **GATE (สำคัญสุดระยะยาว):** ทีมทยอยกด "✓ ตรวจแล้ว" ให้เพลง (public เห็นเฉพาะ verified · ~8/124) → เพลงถึงจะโชว์ครบ · tracker `docs/pm/review-anuchon.md`
 2. **post-deploy verify มือถือ (P'Aim/พี่เปา · optional):** iOS ลบไอคอนเก่า+ติดตั้งใหม่ (ชื่อ "เพลง.พระคำ"+ไอคอนทองพื้นขาว) · Android install PWA · เปิดคู่มือทำเพลง
