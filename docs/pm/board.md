@@ -21,7 +21,13 @@
 - **มาตรฐาน:** วัดได้เท่านั้น (Claude ฟังไม่ได้ · ห้าม "ฟังแล้วรู้สึกว่า") · ทุกข้อต้องแมปเป็นพารามิเตอร์จริงใน `src/lib/arranger/` · ⚖️ ห้าม commit MP3/stems · ห้ามลอก A Thousand Years โน้ตต่อโน้ต (มีลิขสิทธิ์)
 - **ของที่ PM ต้องการ:** ตาราง "เทคนิค → แก้ไฟล์ไหน" + แยก 3 กอง (ลอกได้เลย / ต้องเขียนใหม่ / เพดาน sample ฟรี)
 
-**🎻 NEW (16 ก.ค. ค่ำ · P'Aim สั่ง): cello bake-off — `task_4ebc6bc9` 🔵 RUNNING (P'Aim กดแล้ว)**
+**🅿️ round-2 audio techniques = พักไว้ (`docs/pm/audio-round2-techniques.md` · `c2a9f89`) — ใช้หลัง P'Aim เลือก sample เท่านั้น**
+- ที่มา = คำแนะนำที่ปรึกษาชุด 2 (16 ก.ค.) · **PM จับได้ว่าที่ปรึกษาขัดกันเองในเอกสารเดียว:** "Attack Time Breathing" (หน่วงเชลโล**ช้าลง**) vs "Negative Delay" (เลื่อนเชลโล**เร็วขึ้น**) = ตรงข้าม 100% → **Negative Delay ชนะ** (เชลโลช้าตามธรรมชาติอยู่แล้ว หน่วงเพิ่ม = ช้าซ้อนช้า) · ทิ้ง Attack Time Breathing
+- **ส่งเข้า bake-off แล้ว 1 ข้อ = negative delay** (เหตุผล: วัดได้ ไม่ใช่รสนิยม · กระทบ 3 คลิปเท่ากัน ไม่บิดผล · **กัน false negative** ที่ P'Aim จะเทหมด 3 ตัวเพราะเชลโลตามหลัง ทั้งที่เป็นความผิดเรา)
+- **พักไว้:** pan (ขยับเฉพาะเชลโล ไม่ใช่เปียโน · มือถือ mono ไม่ได้ยิน = value ต่ำ) · layer crossfade (ต้องผ่าน workaround `pleng-smplr-vellayer-relative` · เสี่ยง "เชลโล 2 ตัว" + CPU 2 เท่า) · sustain-tail (เรามี shared reverb bus อยู่แล้ว · เหตุผล sympathetic resonance ของที่ปรึกษาผิด)
+- **ตรงกับ PM อยู่แล้ว:** phrase-map 2 โหมด · <200Hz→voicing · ไม่ใช้ if-else ต่อโน้ต
+
+**🎻 NEW (16 ก.ค. ค่ำ · P'Aim สั่ง): cello bake-off — `task_4ebc6bc9` 🔵 RUNNING (P'Aim กดแล้ว · +negative delay ส่งเข้าแล้ว)**
 - **โจทย์:** P'Aim ฟัง YouTube แล้วชอบ **เปียโน+เชลโลคู่กัน** (เชลโลเดี่ยว = น่าเบื่อ) → ลองอีกรอบ · **ต้องใช้วาทยกรเปียโนทอง (`src/lib/arranger` + splendid-grand) คุม** (P'Aim สั่งเอง)
 - **brief = `docs/pm/brief-cello-bakeoff.md`** (`b4d9e22`) · ส่งมอบ = 3 คลิป A/B/C ท่อนเดียวกัน ต่างแค่ sample + หน้าเทียบ + MP3 · **หูของ P'Aim ตัดสิน · ห้าม SA วนเดาความเพราะ** ([[pleng-aesthetic-audio-needs-ear]])
 - **research แล้ว (16 ก.ค.):** ✅ **Karoryfer x bigcat = CC0 จริง** (P'Aim โหลดไว้ `C:\Users\aimkr\Downloads\karoryfer-bigcat.cello-master`) 4 ระดับ p/mp/mf/f × คันชัก d/g · **SFZ มี legato maps** · ⚠️ no vibrato · ⚠️ **SSO = CC Sampling Plus 1.0 (retired) → ทดลองในเครื่องเท่านั้น ห้าม commit sample** · ❌ **Pianobook ตัดทิ้ง (EULA ห้ามแจกต่อ = PWA ใช้ไม่ได้)** · ❌ VSCO 2 CE 2 ระดับ (แย่กว่า Iowa 3) — ที่ปรึกษาแนะนำผิด
