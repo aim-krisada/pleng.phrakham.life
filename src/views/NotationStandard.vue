@@ -120,7 +120,7 @@ const MAP = [
       <p class="muted">
         คอลัมน์ "พิมพ์" คือสิ่งที่พิมพ์ในห้องทำเพลง · "แสดงผล" คือผลบนแผ่นเพลง (render จริงจาก engine)
       </p>
-      <div class="tbl-wrap">
+      <div class="tbl-wrap" tabindex="0" role="region" aria-label="ตารางสัญลักษณ์พื้นฐาน · เลื่อนแนวนอนได้">
         <table class="guide-table">
           <thead>
             <tr><th scope="col">พิมพ์</th><th scope="col">แสดงผล</th><th scope="col">ความหมาย</th></tr>
@@ -164,7 +164,7 @@ const MAP = [
       <h3 class="ns-h3">การผสมสัญลักษณ์</h3>
       <p>สัญลักษณ์ทุกตัวซ้อนกันได้ในโน้ตตัวเดียว — พิมพ์ตาม<strong>ลำดับ</strong>นี้เสมอ:</p>
       <p><code>[# / b / n] → [.] จุดต่ำ → ตัวเลข → ['] จุดสูง → [_] เส้นใต้ → [.] ประจุด</code></p>
-      <div class="tbl-wrap">
+      <div class="tbl-wrap" tabindex="0" role="region" aria-label="ตารางการผสมสัญลักษณ์ · เลื่อนแนวนอนได้">
         <table class="guide-table">
           <thead>
             <tr><th scope="col">พิมพ์</th><th scope="col">แสดงผล</th><th scope="col">ความหมาย</th></tr>
@@ -227,7 +227,7 @@ const MAP = [
       </p>
 
       <p class="muted ex-lbl">ตัวอย่างเอื้อน (สลัวร์) — โน้ต<strong>คนละเสียง</strong>ในช่องเดียว:</p>
-      <div class="tbl-wrap">
+      <div class="tbl-wrap" tabindex="0" role="region" aria-label="ตารางตัวอย่างเอื้อน (สลัวร์) · เลื่อนแนวนอนได้">
         <table class="guide-table">
           <thead>
             <tr><th scope="col">พิมพ์</th><th scope="col">แสดงผล</th><th scope="col">ความหมาย</th></tr>
@@ -357,7 +357,7 @@ const MAP = [
         โน้ตทุกตัวป้อนการเรียบเรียงเปียโนอัตโนมัติ ตารางนี้สรุปว่าแต่ละสิ่งที่เขียน ให้ผลอะไรทั้ง 2 ทาง
         <strong>แถวที่เน้นสี</strong> = ตัวที่ "เขียนแล้วได้ผลตอนเล่นชัดสุด"
       </p>
-      <div class="tbl-wrap">
+      <div class="tbl-wrap" tabindex="0" role="region" aria-label="ตารางสรุป เขียน X → ได้ผล Y · เลื่อนแนวนอนได้">
         <table class="guide-table map-table">
           <thead>
             <tr>
@@ -433,6 +433,9 @@ const MAP = [
 /* every table scrolls INSIDE its own box so a wide row never pushes the page sideways
    (ui-standards §2 · WCAG 1.4.10) */
 .tbl-wrap { overflow-x: auto; }
+/* now keyboard-focusable (WCAG 2.1.1) so a wide table can be scrolled without a mouse —
+   give it a clear focus ring so the target is obvious (WCAG 2.4.7) */
+.tbl-wrap:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 8px; }
 .refs { margin: 8px 0 0; padding-left: 20px; }
 .refs li { margin-bottom: 8px; }
 .refs a { word-break: break-word; }
