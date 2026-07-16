@@ -9,7 +9,8 @@
 ## ▶ RESUME (pm27 ACTIVE · 15 ก.ค. · PM session ปัจจุบัน = **pm27** — รายงานกลับ ping ที่นี่)
 
 **สถานะจริงตอนนี้ (pm27 · sync กระดานล่าง):**
-- 🎉 **รอบ 27 LIVE `ad63021`** — **golden-piano เปียโนเดี่ยวร่างทอง** (referee วาทยกร+ยาม · แก้ป้ายท่อน+fallback · เปิดลูกเล่นหมด default · legato · MP3 ผ่าน arrange + เสียง Grand จริง) · verify prod ครบ (Actions success · Last-Modified 23:02 · bundle ใหม่) · **post-deploy:** accent ear-check + archive สาย golden-piano (ดูบล็อก 🎉 DEPLOYED รอบ 27)
+- 🎉 **รอบ 28 LIVE `09b9712`** — **ชุด 3 งาน:** (1) คู่มืออัปเดต + การ์ด "ขอบคุณ & แหล่งที่มา" ใน About (แหล่งเพลง+sample+FluidR3_GM CC-BY+เทคนิค→GPL · P'Aim เคาะถ้อยคำ) (2) ปุ่ม "ติดตั้งแอพ" PWA ในเมนู ☰ (3) ป้ายคอร์ด→"คอร์ดโรมัน (I IV V)" · verify prod: Actions success · live bundle มี 3 marker ครบ · Last-Modified 01:42 · **post-deploy:** 🤖 verify ปุ่มติดตั้ง Android บน **live https** ได้แล้ว (dev/LAN ทำไม่ได้) + iOS · archive 3 สาย (chord/pwa/guide) · tidy: guide-② "คอร์ดโรมัน" + นัชวิลล์-in-docs
+- 🎉 **รอบ 27 `ad63021`** — golden-piano เปียโนเดี่ยวร่างทอง (referee+MP3 Grand จริง) · accent ear-check ค้าง
 - ✅ **รอบ 26 `bd53742`** — whole-site parity เพลง↔พระคำ จบครบ 2 เว็บ · เหลือ P'Aim/พี่เปา verify Android 2 จุด (§✅✅ PARITY จบ)
 - ✅ **Canon spike ปิด** — เปียโนสำเร็จ · เชลโล/ไวโอลินพัก (§🎻🎹 Canon)
 - 📝 **guide-update ✅ เสร็จ · รอ P'Aim ดูถ้อยคำ + PM gate (15 ก.ค.):** `task_ee559d4f` · branch `guide-update` (fork ถูกฐาน · `1393eed`) · report `docs/reports/guide-update.md` · **PM git-verify: scope สะอาด 2 ไฟล์ (Guide.vue+About.vue · ใช้ Icon เดิมไม่แตะ Icon.vue) · 649 tests + build ผ่าน** · Guide.vue ② ตรง UI จริง (เสียงดนตรี 5 แกน/golden-piano/คาราโอเกะ/export PDF-JSON-MP3/ป้ายตรวจแล้ว team-only · ไม่พูดถึงปุ่ม A/B ที่ถอด) + ไอคอน 1/หัวข้อ · About การ์ด "ขอบคุณ&แหล่งที่มา" (9 เล่ม+hymnal · sample · FluidR3_GM CC-BY · เทคนิค→ชี้ GPL)
@@ -272,7 +273,7 @@ whole-site look&feel parity เพลง→พระคำ (พระคำ=mast
 - **เหลือ:** พี่เปา/P'Aim verify Android 2 จุด (#1 ลิ้นชักไม่ boost · #3 ปุ่มปิดไม่มีกรอบตอนแตะ) · เก็บ worktree phrakham :8930 ของสาย parity หลัง phrakham deploy
 - **#5 normalize dock↔ปุ่ม Aa เป็น core เดียว = ยกไว้ (P'Aim สั่ง) ทำทีหลัง**
 
-**Deploy history:** ...25 `bede377`(GATE leak#2) · **26 `bd53742`(whole-site look&feel parity vs phrakham)** · **27 `ad63021`(golden-piano: referee วาทยกร+ยาม · section fix+fallback · เปิดหมด default · legato · MP3 through arrange + real Grand timbre)**
+**Deploy history:** ...25 `bede377`(GATE leak#2) · **26 `bd53742`(whole-site parity)** · **27 `ad63021`(golden-piano referee+MP3 Grand)** · **28 `09b9712`(guide refresh+About credits/sources · PWA install button · chord label→Roman I IV V)**
 
 ## ✅✅ PARITY จบ — เหมือนกันบน server ครบทั้ง 2 เว็บ (15 ก.ค.)
 - 🟦 เพลง **`bd53742`** LIVE · 🟩 พระคำ **`a0a3021`** LIVE (PM verify เอง: e6fa73b→a0a3021 · pk-ext ↗ live · Last-Modified 10:08)
