@@ -282,7 +282,13 @@ def karoryfer_note(name):
 # velRange. Never as velRange groups inside one preset: smplr scales velocity RELATIVE to the matched
 # group, so a combined preset resets loudness at every layer boundary (memory
 # pleng-smplr-vellayer-relative). `_d` (down-bow) only, per the brief — raw sus, no legato maps.
-DYNAMICS = ["p", "mp", "mf"]
+#
+# All FOUR are built even though step 1 only asks P'Aim to compare p/mp/mf: P'Aim confirmed the end
+# state is the 4 layers assembled per the intensity of the phrase (17 pitches x 4 = the 68 files he
+# approved), and the brief requires the DATA STRUCTURE to support every layer from the start — step 1
+# merely doesn't USE them all yet. `f` costs nothing to build now and stops this being throwaway.
+# The `_d`/`_g` bow-stroke axis stays out (P'Aim: doubles the size for little realism).
+DYNAMICS = ["p", "mp", "mf", "f"]
 
 
 def main():
