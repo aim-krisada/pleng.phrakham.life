@@ -14,13 +14,14 @@
 - **git:** base `studio-shell-redesign` = origin/main = `f573d2d` · สะอาด · memory synced OneDrive
 - **cleanup:** archived สายย่อยทั้งหมด · ❌ Remix cancelled · 🎻 violin archived (parked · เปิดใหม่เมื่อมี sample ดีกว่า · branch `charming-cori`+Iowa samples ใน git) · 📖 phrakham = คนละโปรเจกต์ (ไม่แตะ)
 
-**🎼 NEW (16 ก.ค. ค่ำ): reference-track analysis — `task_1bffa814` (รอ P'Aim กดชิป)**
+**🎼 NEW (16 ก.ค. ค่ำ): reference-track analysis — `task_cd47ede8` (รอ P'Aim กดชิป · แทน `task_1bffa814` ที่ยกเลิก)**
 - **โจทย์:** P'Aim ให้ 2 เพลงที่ฟังแล้ว "เพราะมาก" = เป้าหมายเสียงของ pleng → **ถอดเทคนิคที่ลอกได้** (Canon cello&piano wedding · A Thousand Years piano-cello cover · ใน `OneDrive/1 Devotional/hymm/mp3/บรรเลง/`)
-- **brief = `docs/pm/brief-reference-analysis.md`** (`b32741c`) · **แก้ตรง root cause ที่ Canon spike สรุปเอง:** เชลโลเราเป็น static conditional logic ต้องการ **human-authored phrase-map** → งานนี้ถอด map จากคนเล่นจริง
+- **brief = `docs/pm/brief-reference-analysis.md` v2 (`7882016`)** · **แก้ตรง root cause ที่ Canon spike สรุปเอง:** เชลโลเราเป็น static conditional logic ต้องการ **human-authored phrase-map** → งานนี้ถอด map จากคนเล่นจริง
+- **🧠 PM triage คำแนะนำที่ปรึกษา (P'Aim สั่งให้ค้านได้ · อยู่ในไฟล์ §"PM คัดกรอง"):** ✅ เอา "ลมหายใจร่วม" เป็น P1 **แต่ต้องวัดความหนาแน่นโน้ตด้วย ไม่ใช่แค่ dB** (ลอกแค่ dB = เปียโนเบาลงแต่ยังรัว = ฟังออกว่าโดนหรี่) · 🔄 "ตัดเบส <200Hz" → เปลี่ยนเป็น **voicing** (ไม่เล่นทับแต่แรก) ไม่ใช่หรี่ทับแบบช่างมิกซ์ · ❌ **"หน่วงแบบสุ่ม"** (ensemble offset มีทิศทาง+สม่ำเสมอ · หัวเสียงเชลโล 30-80ms ปน onset · **MP3==live → ห้ามสุ่มสด ใช้ `rng.js` seeded**) · ❌❌ **"ผลลัพธ์เป็น if-else"** = สิ่งเดียวกับที่ทำเชลโลพัง → ค่าคงที่เอาได้ **แต่โครงต้องเป็น phrase-level role plan** · ⬇️ "ถอดสูตรรอยต่อคันชัก" ลดเป็น P3 (sample หัวโน้ตแก้ไม่ได้ · ดัด gain = `celloEngine` = "หวูดเรือ" → ทางแก้จริงคือ legato maps ของ Karoryfer = งานสาย bake-off) · ⚠️ **n=2 ห้ามเฉลี่ยรวม** (Canon=เชลโลเดินเบส · ATY=เชลโลร้องนำ → แยกรายงาน)
 - **มาตรฐาน:** วัดได้เท่านั้น (Claude ฟังไม่ได้ · ห้าม "ฟังแล้วรู้สึกว่า") · ทุกข้อต้องแมปเป็นพารามิเตอร์จริงใน `src/lib/arranger/` · ⚖️ ห้าม commit MP3/stems · ห้ามลอก A Thousand Years โน้ตต่อโน้ต (มีลิขสิทธิ์)
 - **ของที่ PM ต้องการ:** ตาราง "เทคนิค → แก้ไฟล์ไหน" + แยก 3 กอง (ลอกได้เลย / ต้องเขียนใหม่ / เพดาน sample ฟรี)
 
-**🎻 NEW (16 ก.ค. ค่ำ · P'Aim สั่ง): cello bake-off — `task_4ebc6bc9` (รอ P'Aim กดชิป)**
+**🎻 NEW (16 ก.ค. ค่ำ · P'Aim สั่ง): cello bake-off — `task_4ebc6bc9` 🔵 RUNNING (P'Aim กดแล้ว)**
 - **โจทย์:** P'Aim ฟัง YouTube แล้วชอบ **เปียโน+เชลโลคู่กัน** (เชลโลเดี่ยว = น่าเบื่อ) → ลองอีกรอบ · **ต้องใช้วาทยกรเปียโนทอง (`src/lib/arranger` + splendid-grand) คุม** (P'Aim สั่งเอง)
 - **brief = `docs/pm/brief-cello-bakeoff.md`** (`b4d9e22`) · ส่งมอบ = 3 คลิป A/B/C ท่อนเดียวกัน ต่างแค่ sample + หน้าเทียบ + MP3 · **หูของ P'Aim ตัดสิน · ห้าม SA วนเดาความเพราะ** ([[pleng-aesthetic-audio-needs-ear]])
 - **research แล้ว (16 ก.ค.):** ✅ **Karoryfer x bigcat = CC0 จริง** (P'Aim โหลดไว้ `C:\Users\aimkr\Downloads\karoryfer-bigcat.cello-master`) 4 ระดับ p/mp/mf/f × คันชัก d/g · **SFZ มี legato maps** · ⚠️ no vibrato · ⚠️ **SSO = CC Sampling Plus 1.0 (retired) → ทดลองในเครื่องเท่านั้น ห้าม commit sample** · ❌ **Pianobook ตัดทิ้ง (EULA ห้ามแจกต่อ = PWA ใช้ไม่ได้)** · ❌ VSCO 2 CE 2 ระดับ (แย่กว่า Iowa 3) — ที่ปรึกษาแนะนำผิด
