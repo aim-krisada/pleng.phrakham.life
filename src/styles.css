@@ -349,6 +349,27 @@ main.container { flex: 1 0 auto; }
 }
 .sb-nav a.here { color: var(--brand); font-weight: 700; }
 .sb-ext { color: var(--muted); font-size: 0.8rem; }
+/* "คู่มือ ▾" menu-button — visually identical to a .sb-nav link so the bar reads as one nav row */
+.sb-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-base);
+  padding: 6px 10px;
+  border-radius: 10px;
+  min-height: var(--touch-min);
+  white-space: nowrap;
+}
+.sb-nav-btn.here { color: var(--brand); font-weight: 700; }
+@media (hover: hover) { .sb-nav-btn:hover { background: rgba(0, 0, 0, 0.06); } }
+.sb-chev { opacity: 0.55; font-size: 0.7rem; }
+/* guide dropdown items sit at the 44px touch floor (a hair above the shared 40px .sb-dropdown a) */
+.sb-guide-menu a { min-height: 44px; }
 
 /* generic 44×44 icon button in the bar (🔍 · ⚙ · ☰) — mirrors phrakham .pk-tool-btn.
    Icon colour = #545555 (phrakham's nav-icon grey, measured live), not --ink #2d2a26 —

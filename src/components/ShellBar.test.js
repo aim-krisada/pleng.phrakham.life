@@ -14,14 +14,15 @@ vi.mock('vue-router', () => ({
 // that global so ShellBar's onMounted wires the real drawer, exactly as in the browser.
 import './../lib/pk-drawer.js'
 import ShellBar from './ShellBar.vue'
-import { shellMenu } from '../store.js'
+import { shellMenu, session } from '../store.js'
 
 const stubs = {
   ProfileTool: true,
   DownloadTool: true,
   FontTool: true,
   Icon: true,
-  RouterLink: { template: '<a><slot /></a>' },
+  // expose `to` as href so tests can assert where a link points (dropdown items)
+  RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
 }
 
 let wrapper = null
@@ -63,5 +64,61 @@ describe('ShellBar — site nav (phrakham parity)', () => {
     wrapper = mount(ShellBar, { global: { stubs } })
     expect(wrapper.find('#shell-title').exists()).toBe(true)
     expect(wrapper.find('#shell-menus').exists()).toBe(true)
+  })
+})
+
+describe('ShellBar — "คู่มือ ▾" dropdown (GATE 1: 2 sub-guides, every tier)', () => {
+  it('the desktop คู่มือ button opens a role=menu with 2 items → /guide + /notation', async () => {
+    wrapper = mount(ShellBar, { global: { stubs } })
+    const btn = wrapper.find('.sb-guide .sb-nav-btn')
+    expect(btn.exists()).toBe(true)
+    expect(btn.attributes('aria-haspopup')).toBe('true')
+    expect(btn.attributes('aria-expanded')).toBe('false')
+    // closed by default → no menu rendered
+    expect(wrapper.find('.sb-guide-menu').exists()).toBe(false)
+    await btn.trigger('click')
+    await nextTick()
+    const menu = wrapper.find('.sb-guide-menu')
+    expect(menu.exists()).toBe(true)
+    expect(menu.attributes('role')).toBe('menu')
+    expect(btn.attributes('aria-expanded')).toBe('true')
+    const items = menu.findAll('[role="menuitem"]')
+    expect(items).toHaveLength(2)
+    expect(items[0].attributes('href')).toBe('/guide')
+    expect(items[1].attributes('href')).toBe('/notation')
+    expect(menu.text()).toContain('คู่มือใช้งานโปรแกรม')
+    expect(menu.text()).toContain('คู่มือทำเพลง')
+  })
+
+  it('shows the same 2 sub-guides regardless of login tier (login ไม่เปลี่ยนเมนู)', async () => {
+    // logged in (a real session) must not change the guide menu — song-making is open to all.
+    session.value = { user: { id: 'x' } }
+    wrapper = mount(ShellBar, { global: { stubs } })
+    await wrapper.find('.sb-guide .sb-nav-btn').trigger('click')
+    await nextTick()
+    const items = wrapper.find('.sb-guide-menu').findAll('[role="menuitem"]')
+    expect(items.map((i) => i.attributes('href'))).toEqual(['/guide', '/notation'])
+    session.value = null
+  })
+
+  it('the mobile drawer lists both sub-guides as nav links (every tier)', async () => {
+    wrapper = mount(ShellBar, { attachTo: document.body, global: { stubs } })
+    await wrapper.find('.sb-burger').trigger('click')
+    await nextTick()
+    const nav = document.querySelector('.sb-drawer-panel.is-open .sb-drawer-nav')
+    const hrefs = Array.from(nav.querySelectorAll('a')).map((a) => a.getAttribute('href'))
+    expect(hrefs).toContain('/guide')
+    expect(hrefs).toContain('/notation')
+  })
+
+  it('Escape closes the open menu and returns focus to the button', async () => {
+    wrapper = mount(ShellBar, { attachTo: document.body, global: { stubs } })
+    const btn = wrapper.find('.sb-guide .sb-nav-btn')
+    await btn.trigger('click')
+    await nextTick()
+    await wrapper.find('.sb-guide-menu').trigger('keydown', { key: 'Escape' })
+    await nextTick()
+    expect(wrapper.find('.sb-guide-menu').exists()).toBe(false)
+    expect(shellMenu.value).toBeNull()
   })
 })

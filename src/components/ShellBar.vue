@@ -71,6 +71,52 @@ function toggleSettings() {
 function closeMenus() {
   shellMenu.value = null
 }
+
+// ---- "คู่มือ ▾" desktop dropdown (WAI-ARIA APG menu button · GATE 1) ----
+// A disclosure button that opens a role=menu of 2 links (ใช้งานโปรแกรม /guide · ทำเพลง /notation).
+// Shares the one-open-at-a-time `shellMenu` channel (key 'guide') so it coexists with ⚙ + the
+// drawer, and the existing .sb-backdrop closes it on an outside click. Keyboard: ↑↓ move, Home/
+// End jump, Enter/Space/↓ on the button open+focus first item, Esc closes + returns focus, Tab
+// closes. Not gated on session — the same menu shows to every tier (song-making is open to all).
+const guideBtn = ref(null)
+const guideMenu = ref(null)
+function guideItems() {
+  return guideMenu.value ? Array.from(guideMenu.value.querySelectorAll('[role="menuitem"]')) : []
+}
+function openGuide(focusFirst) {
+  shellMenu.value = 'guide'
+  if (!focusFirst) return
+  nextTick(() => { const it = guideItems(); if (it.length) it[0].focus() })
+}
+function closeGuide(returnFocus) {
+  if (shellMenu.value === 'guide') shellMenu.value = null
+  if (returnFocus && guideBtn.value) guideBtn.value.focus()
+}
+function toggleGuide() {
+  if (shellMenu.value === 'guide') closeGuide(false)
+  else openGuide(false) // pointer open leaves focus on the button (APG)
+}
+function onGuideBtnKey(e) {
+  if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault()
+    openGuide(true)
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    openGuide(false)
+    nextTick(() => { const it = guideItems(); if (it.length) it[it.length - 1].focus() })
+  }
+}
+function onGuideMenuKey(e) {
+  const it = guideItems()
+  if (!it.length) return
+  const i = it.indexOf(document.activeElement)
+  if (e.key === 'ArrowDown') { e.preventDefault(); it[(i + 1) % it.length].focus() }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); it[(i - 1 + it.length) % it.length].focus() }
+  else if (e.key === 'Home') { e.preventDefault(); it[0].focus() }
+  else if (e.key === 'End') { e.preventDefault(); it[it.length - 1].focus() }
+  else if (e.key === 'Escape') { e.preventDefault(); closeGuide(true) }
+  else if (e.key === 'Tab') { closeGuide(false) }
+}
 // 🔍 — the home list IS the search surface, so search = go home and focus the search box.
 async function goSearch() {
   closeMenus()
@@ -97,7 +143,30 @@ async function goSearch() {
          Order (P'Aim 13 ก.ค.): รายการเพลง · คู่มือ · พระคำ.ชีวิต↗ · เกี่ยวกับเรา. -->
     <nav class="sb-nav" aria-label="เมนูหลัก">
       <router-link to="/" :class="{ here: route.path === '/' }">รายการเพลง</router-link>
-      <router-link to="/guide" :class="{ here: route.path === '/guide' }">คู่มือ</router-link>
+      <!-- คู่มือ ▾ — APG menu button opening 2 sub-guides (GATE 1). Shown to every tier. -->
+      <div class="sb-menu sb-guide">
+        <button
+          ref="guideBtn"
+          class="sb-nav-btn"
+          :class="{ here: route.path === '/guide' || route.path === '/notation' }"
+          :aria-expanded="shellMenu === 'guide'"
+          aria-haspopup="true"
+          @click.stop="toggleGuide"
+          @keydown="onGuideBtnKey"
+        >คู่มือ<span class="sb-chev" aria-hidden="true">▾</span></button>
+        <div
+          v-if="shellMenu === 'guide'"
+          ref="guideMenu"
+          class="sb-dropdown sb-guide-menu"
+          role="menu"
+          aria-label="คู่มือ"
+          @keydown="onGuideMenuKey"
+          @click.stop
+        >
+          <router-link to="/guide" role="menuitem" :class="{ here: route.path === '/guide' }" @click="closeGuide(false)">คู่มือใช้งานโปรแกรม</router-link>
+          <router-link to="/notation" role="menuitem" :class="{ here: route.path === '/notation' }" @click="closeGuide(false)">คู่มือทำเพลง</router-link>
+        </div>
+      </div>
       <a href="https://phrakham.life" class="sb-nav-ext">พระคำ.ชีวิต<span class="sb-ext" aria-hidden="true">↗</span></a>
       <router-link to="/about" :class="{ here: route.path === '/about' }">เกี่ยวกับเรา</router-link>
     </nav>
@@ -159,7 +228,10 @@ async function goSearch() {
            text external-link marker (same as desktop .sb-ext), not a leading icon. -->
       <nav class="sb-drawer-nav" @click="closeMenus">
         <router-link to="/" :class="{ here: route.path === '/' }">รายการเพลง</router-link>
-        <router-link to="/guide" :class="{ here: route.path === '/guide' }">คู่มือ</router-link>
+        <!-- คู่มือ = 2 sub-guides (GATE 1). Flattened as two rows in the drawer (a menu-button
+             popover isn't the mobile idiom); same 2 destinations, shown to every tier. -->
+        <router-link to="/guide" :class="{ here: route.path === '/guide' }">คู่มือใช้งานโปรแกรม</router-link>
+        <router-link to="/notation" :class="{ here: route.path === '/notation' }">คู่มือทำเพลง</router-link>
         <a href="https://phrakham.life">พระคำ.ชีวิต <span class="sb-k">↗</span></a>
         <router-link to="/about" :class="{ here: route.path === '/about' }">เกี่ยวกับเรา</router-link>
       </nav>

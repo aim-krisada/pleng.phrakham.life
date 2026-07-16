@@ -38,6 +38,11 @@ const props = defineProps({
 })
 const emit = defineEmits(['change', 'save', 'dock'])
 
+// help-in-context (notation-standard · ทางเสริม ข): the song-maker's standard opens in a NEW
+// tab so in-progress keying is never lost (Tier 0 has no autosave). BASE_URL keeps the hash
+// route resolving on both hosts.
+const notationHelpUrl = import.meta.env.BASE_URL + '#/notation'
+
 // ---------- auth + role (gating comes from the store via props.tier · DS-02) ----------
 import { session, legacy, shellMenu, saveDraftRow, readingFontScale,
   editorSound, editorEnsemble, editorInstrument, editorStyle,
@@ -2243,6 +2248,15 @@ defineExpose({
       <!-- B071: the "เพลง ▾" menu is gone from the top bar. สร้างเพลงใหม่ / เลือกเพลง now live
            as buttons on the "⚙ ตั้งค่าเพลง" row (#pk-settings); "ออกจากเพลงนี้" was cut
            entirely (P'Aim 10 ก.ค. — confusing, not needed). Only "จัดการ ▾" stays up here. -->
+      <!-- help-in-context: link to "คู่มือทำเพลง" (notation standard), new tab so keying isn't lost -->
+      <a
+        v-if="editing"
+        class="sb-text ed-help-link"
+        :href="notationHelpUrl"
+        target="_blank"
+        rel="noopener"
+        aria-label="คู่มือทำเพลง (เปิดแท็บใหม่)"
+      ><Icon name="circle-help" :size="18" /> คู่มือทำเพลง</a>
       <div v-if="editing" class="sb-menu">
         <button class="sb-text" :aria-expanded="openMenu === 'manage'" aria-haspopup="true" @click.stop="toggleMenu('manage')">จัดการ</button>
         <div v-if="openMenu === 'manage'" class="sb-dropdown" role="menu">

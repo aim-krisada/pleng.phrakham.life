@@ -1,37 +1,10 @@
 <script setup>
+// คู่มือใช้งานโปรแกรม (/#/guide) — for people who OPEN the site to read / sing / print.
+// It keeps ② "วิธีใช้เว็บนี้" (full) + a SHORT note-reading intro (just enough to sing along).
+// The detailed writing rules (symbol tables, accidentals trap, tie/slur, combos, references)
+// moved to the song-makers' page "มาตรฐานการเขียนโน้ต" (/#/notation) — a bridge box links there.
 import NoteRow from '../components/NoteRow.vue'
 import Icon from '../components/Icon.vue'
-
-// Each row: [syntax to type, rendered example, meaning]
-const SYMBOLS = [
-  ['1 2 3 4 5 6 7', '1 2 3 4 5 6 7', 'ตัวเลข 1–7 = โด เร มี ฟา ซอล ลา ที (movable do — หัวเพลง "E 4/4" หมายถึง โด = เสียง E)'],
-  ['0', '0', 'ตัวหยุด (rest) — เงียบตามค่าจังหวะของช่องนั้น'],
-  ['.5', '.5', 'จุดใต้ตัวเลข 1 จุด = ต่ำลง 1 ช่วงเสียง (octave) — พิมพ์ . นำหน้าตัวเลข'],
-  ['..5', '..5', 'จุดใต้ 2 จุด = ต่ำลง 2 ช่วงเสียง (จุดวางเรียงอยู่ใต้ตัวเลข)'],
-  ["5'", "5'", "จุดบนตัวเลข 1 จุด = สูงขึ้น 1 ช่วงเสียง — พิมพ์ ' ต่อท้ายตัวเลข"],
-  ["5''", "5''", 'จุดบน 2 จุด = สูงขึ้น 2 ช่วงเสียง (จุดวางเรียงอยู่เหนือตัวเลข)'],
-  ['5_', '5_', 'เส้นใต้ 1 เส้น = เขบ็ต 1 ชั้น (eighth note) — ลดค่าโน้ตเหลือครึ่ง เร็วขึ้นเท่าตัว'],
-  ['5__', '5__', 'เส้นใต้ 2 เส้น = เขบ็ต 2 ชั้น (sixteenth note) — เร็วขึ้น 4 เท่า'],
-  ['5.', '5.', 'จุดหลังตัวเลข = โน้ตประจุด (dotted note) เพิ่มค่าอีกครึ่งหนึ่งของโน้ตเดิม (×1.5)'],
-  ['5..', '5..', 'สองจุดหลังตัวเลข = โน้ตประจุดคู่ (double-dotted) เพิ่มค่าอีก 3 ใน 4 ของโน้ตเดิม (×1.75)'],
-  ['5 - - -', '5 - - -', 'ขีด = ยืดเสียงต่ออีก 1 จังหวะต่อ 1 ขีด (ตัวอย่างนี้คือเสียงยาว 4 จังหวะ)'],
-  ['#4', '#4', 'ชาร์ป (sharp ♯) = สูงขึ้นครึ่งเสียง — พิมพ์ # หน้าตัวเลข'],
-  ['b7', 'b7', 'แฟลต (flat ♭) = ต่ำลงครึ่งเสียง — พิมพ์ b หน้าตัวเลข'],
-  ['n4', 'n4', 'เนเชอรัล (natural ♮) = ยกเลิก # หรือ b ที่เขียนไว้ก่อนหน้าในห้องเดียวกัน กลับมาเป็นเลขเปล่าของคีย์ — พิมพ์ n หน้าตัวเลข (มีจุดพลาดง่าย ดูกล่องด้านล่าง)'],
-  ['(65)', '(65)', 'เส้นโค้งด้านบน = สลัวร์ (slur) — ร้องคำเดียวลากหลายโน้ต (เอื้อน) ได้ยินทุกโน้ต · พิมพ์โน้ตติดกันในช่องเดียว (ไม่เว้นวรรค) แล้วครอบวงเล็บ · ใช้กับโน้ตแบบไหนก็ได้ (ดูหัวข้อสลัวร์ด้านล่าง)'],
-  ['{1 2 3}', '{1 2 3}', 'สามพยางค์ (triplet) = โน้ต 3 ตัวในเวลาของ 2 ตัว'],
-  ['3^', '3^', 'เฟอร์มาตา (fermata — โค้งมีจุดเหนือโน้ต) = ยืดเสียงยาวกว่าปกติ ตามผู้นำเพลง — ตอนกดฟัง เสียงจะลากยาวขึ้นให้'],
-]
-
-// Combined symbols — order: [#/b/n] [.]low digit [']high [_]underline [.]dot
-const COMBOS = [
-  ['.5_', '.5_', 'จุดใต้ (ต่ำ 1 ช่วงเสียง) + เส้นใต้ 1 เส้น (เขบ็ต 1 ชั้น)'],
-  ['..5__', '..5__', 'ต่ำ 2 ช่วงเสียง + เขบ็ต 2 ชั้น'],
-  ["5'.", "5'.", 'โน้ตสูง + โน้ตประจุด'],
-  ['.5_.', '.5_.', 'ต่ำ + เขบ็ต + ประจุด (ครบสามอย่างในตัวเดียว)'],
-  ['#.4_', '#.4_', 'ชาร์ป + ต่ำ + เขบ็ต'],
-  ["(.6_5'_)", "(.6_5'_)", 'เส้นโค้งครอบโน้ตผสม — ทุกอย่างซ้อนกันได้ (โน้ตติดกันในช่องเดียว = เอื้อนคำเดียว)'],
-]
 </script>
 
 <template>
@@ -39,198 +12,36 @@ const COMBOS = [
     <div class="card">
       <h2 style="margin-top: 0">คู่มือ</h2>
       <p style="margin-bottom: 0">
-        มี 2 เรื่อง: <a href="#/guide#notation">① วิธีอ่านโน้ตตัวเลข</a> ·
+        มี 2 เรื่อง: <a href="#/guide#notation">① อ่านโน้ตตัวเลขเบื้องต้น</a> ·
         <a href="#/guide#howto">② วิธีใช้เว็บนี้</a>
       </p>
     </div>
 
+    <!-- ① SHORT note intro — "อ่านออกพอร้อง", not "เขียนเป็น". The full writing standard lives
+         on /#/notation. #notation anchor kept so old links still land here. -->
     <div class="card" id="notation">
-      <h2 style="margin-top: 0">① วิธีอ่านโน้ตตัวเลข</h2>
+      <h2 style="margin-top: 0">① อ่านโน้ตตัวเลขเบื้องต้น</h2>
       <p>
-        เพลงในเว็บนี้เขียนด้วย <strong>โน้ตตัวเลข</strong> (numbered notation) —
-        เป็นระบบหนึ่งที่หนังสือเพลงคริสตจักรหลายเล่มนิยมใช้ (บางเล่มใช้โน้ตบรรทัด
-        5 เส้นแบบสากล หรือระบบอื่นก็มี) ต้นทางมาจากฝรั่งเศส จีนนำไปใช้จนแพร่หลาย
-        เรียกว่า "เจี่ยนผู่ 簡譜" หลักง่าย ๆ คือ เลข 1 = เสียง "โด" ของคีย์เพลงนั้น
-        ส่วนหัวเพลงเขียนแบบ "E 4/4" — <strong>E</strong> คือคีย์ (โด = เสียง E) ·
-        <strong>4/4</strong> คือเครื่องหมายกำหนดจังหวะ (time signature) บอกว่า
-        1 ห้องมีกี่จังหวะ ข้อดีของโน้ตตัวเลขคือย้ายคีย์เพลงได้โดยตัวเลขไม่ต้องเปลี่ยนเลย
-      </p>
-      <p class="muted">
-        คอลัมน์ "พิมพ์" คือสิ่งที่พิมพ์ในห้องทำเพลง · คอลัมน์ "แสดงผล" คือผลบนแผ่นเพลง
-      </p>
-    </div>
-
-    <div class="card" style="overflow-x: auto">
-      <table class="guide-table">
-        <thead>
-          <tr><th>พิมพ์</th><th>แสดงผล</th><th>ความหมาย</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="[syntax, example, meaning] in SYMBOLS" :key="syntax">
-            <td><code>{{ syntax }}</code></td>
-            <td class="render-cell"><NoteRow :notes="example" /></td>
-            <td>{{ meaning }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card" id="accidentals">
-      <h3 style="margin-top: 0">ชาร์ป ♯ · แฟลต ♭ · เนเชอรัล ♮ — จุดที่พลาดง่าย</h3>
-      <p>
-        โน้ตตัวเลขเป็นระบบ <strong>"เลขวิ่งตามคีย์"</strong> — เลข 1–7 ไม่ใช่ตัวโน้ตตายตัว
-        แต่คือ "ขั้นที่เท่าไรของสเกล" ในคีย์นั้น เวลาดัดเสียงจึงคิดจาก<strong>ขั้นของสเกล</strong>
-        ไม่ใช่จากชื่อโน้ต:
+        เพลงในเว็บนี้เขียนด้วย <strong>โน้ตตัวเลข</strong> (numbered notation) — พออ่านออกก็ร้องตามได้
+        โดยไม่ต้องอ่านโน้ตห้าเส้น หลักสั้น ๆ มีเท่านี้:
       </p>
       <ul>
-        <li><code>#</code> = ยกขั้นนั้น<strong>ขึ้นครึ่งเสียง</strong></li>
-        <li><code>b</code> = ลดขั้นนั้น<strong>ลงครึ่งเสียง</strong></li>
-        <li><code>♮ (n)</code> = <strong>ยกเลิก # หรือ b ที่เพิ่งเขียนไว้ก่อนหน้าในห้องเดียวกัน</strong>
-          ให้กลับไปเป็นเลขเปล่าของคีย์</li>
+        <li><strong>1–7 = โด เร มี ฟา ซอล ลา ที</strong> (โด = เสียงตามคีย์ในหัวเพลง เช่น "E 4/4" คือ โด = E)</li>
+        <li><strong>จุด</strong> ใต้/บนตัวเลข = เสียงต่ำ/สูงลง-ขึ้น 1 ช่วงเสียง (octave)</li>
+        <li><strong>ขีด <code>-</code></strong> = ลากเสียงยาวต่อ · <strong>เส้นใต้</strong>ตัวเลข = โน้ตเร็วขึ้น (เขบ็ต)</li>
+        <li><strong><code>|</code></strong> = เส้นกั้นห้อง · <strong><code>***</code></strong> หรือป้ายท่อน = จุดเริ่มท่อนรับ / ท่อนใหม่</li>
       </ul>
-      <p class="warn-box">
-        ⚠️ <strong>กับดักที่พบบ่อย:</strong> ♮ ในโน้ตตัวเลข<strong>ไม่ได้แปลว่า "โน้ตขาว / เสียงธรรมชาติ"</strong>
-        แบบโน้ตห้าเส้น — เพราะในคีย์ที่มีชาร์ป/แฟลต เลขเปล่าอาจเป็นเสียงชาร์ปอยู่แล้ว<br />
-        ตัวอย่าง: <strong>คีย์ A เลข 3 = C#</strong> อยู่แล้ว ถ้าใส่ <code>♮3</code> จะได้เสียง
-        <strong>C#</strong> (เลขเปล่า) <strong>ไม่ใช่ C</strong>
-      </p>
-      <p>ถ้าอยากได้ <strong>C จริง ๆ</strong> (ต่ำกว่า C# ครึ่งเสียง) ในคีย์ A ให้เขียน:</p>
-      <ul>
-        <li><code>b3</code> = ลดขั้น 3 (C#) ลงครึ่งเสียง → C
-          <span class="muted">(อ่านลื่นสุดเมื่อทำนองเคลื่อนลง)</span></li>
-        <li><code>#2</code> = ยกขั้น 2 (B) ขึ้นครึ่งเสียง → C
-          <span class="muted">(เมื่อทำนองเคลื่อนขึ้น)</span></li>
-      </ul>
-      <p class="muted" style="margin-bottom: 0">
-        ทั้งสองแบบเสียงเท่ากัน — เลือกตามทิศทางทำนอง · ส่วน ♮ ใช้เมื่อ<strong>ก่อนหน้าในห้องเดียวกัน</strong>
-        มี # หรือ b แล้วอยากยกเลิกกลับไปเสียงปกติของคีย์เท่านั้น
-      </p>
-    </div>
+      <p class="muted" style="margin-bottom: 4px">ตัวอย่าง (อ่านออกพอร้อง):</p>
+      <p class="intro-demo"><NoteRow notes="5 5 6 5 1' 7" /><span class="bar-line demo-bar" aria-hidden="true"></span><NoteRow notes="5 - - -" /></p>
 
-    <div class="card">
-      <h3 style="margin-top: 0">การผสมสัญลักษณ์</h3>
-      <p>
-        สัญลักษณ์ทุกตัวซ้อนกันได้ในโน้ตตัวเดียว — พิมพ์ตาม<strong>ลำดับ</strong>นี้เสมอ:
+      <p class="bridge-box">
+        <Icon name="pencil" :size="20" class="bridge-ico" />
+        <span>
+          <strong>เป็นคนทำเพลง?</strong> วิธี<strong>เขียน</strong>โน้ตให้ถูกมาตรฐานเดียวกันทั้งคลัง
+          (สัญลักษณ์ครบ · จังหวะ · โครงเพลง · คอร์ด · เนื้อร้อง) อยู่ที่
+          <a href="#/notation">คู่มือทำเพลง — มาตรฐานการเขียนโน้ต →</a>
+        </span>
       </p>
-      <p><code>[# / b / n] → [.] จุดต่ำ → ตัวเลข → ['] จุดสูง → [_] เส้นใต้ → [.] ประจุด</code></p>
-      <div style="overflow-x: auto">
-        <table class="guide-table">
-          <thead>
-            <tr><th>พิมพ์</th><th>แสดงผล</th><th>ความหมาย</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="[syntax, example, meaning] in COMBOS" :key="syntax">
-              <td><code>{{ syntax }}</code></td>
-              <td class="render-cell"><NoteRow :notes="example" /></td>
-              <td>{{ meaning }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="muted">
-        ตามมาตรฐานโน้ตตัวเลข จุดบอกช่วงเสียงต่ำจะอยู่<strong>ใต้เส้นใต้</strong>อีกชั้นหนึ่ง —
-        ระบบจัดให้อัตโนมัติ
-      </p>
-      <h3>เส้นโค้ง: ไท (tie) กับ สลัวร์ (slur)</h3>
-      <p>
-        ทั้งสองอย่างวาดเป็น<strong>เส้นโค้ง</strong>เหนือโน้ตเหมือนกัน — ต่างกันที่ว่า "เชื่อมเสียงอะไร":
-      </p>
-      <ul>
-        <li><strong>ไท (tie)</strong> = โค้งเชื่อมโน้ต<strong>เสียงเดียวกัน</strong> →
-          ลากต่อเป็นเสียงเดียว <strong>ไม่ดีดซ้ำ</strong></li>
-        <li><strong>สลัวร์ (slur)</strong> = โค้งเชื่อมโน้ต<strong>คนละเสียง</strong>ในคำเดียว (เอื้อน) →
-          ร้องลื่น <strong>ได้ยินทุกโน้ต</strong></li>
-      </ul>
-      <p>วิธีพิมพ์ในเว็บนี้ ให้ดูว่าโน้ตอยู่ "ช่องเดียวกัน" หรือ "คนละช่อง":</p>
-      <p>
-        <strong>① เอื้อน (สลัวร์) — หลายโน้ตในคำเดียว:</strong> พิมพ์โน้ตทุกตัว<strong>ติดกันในช่องเดียว
-        (ไม่เว้นวรรค)</strong> แล้วใส่วงเล็บครอบ เช่น <code>(65)</code> — ทั้งช่องนับเป็น <strong>1 คำ</strong>
-        แต่เล่นครบทุกโน้ต · ใช้กับโน้ตแบบไหนก็ได้ (เขบ็ต 1 ชั้น, 2 ชั้น, หรือธรรมดา)
-        <br /><span class="muted">⚠️ <strong>เว้นวรรคหรือกด Enter = ขึ้นช่องใหม่ = คนละคำ</strong> —
-        ฉะนั้นเอื้อนต้องพิมพ์โน้ตติดกัน ถ้าเผลอเว้นวรรค (เช่น <code>(6 5)</code>) จะกลายเป็น 2 ช่อง = 2 คำ</span>
-      </p>
-      <p>
-        <strong>② ไท — ลากโน้ตเสียงเดิมข้ามช่อง:</strong> พิมพ์ <code>~</code> <strong>ท้าย</strong>โน้ตตัวแรก
-        และ <code>~</code> <strong>หน้า</strong>โน้ตตัวรับ (อยู่คนละช่อง) เช่น ช่องแรก <code>3~</code>
-        ช่องถัดไป <code>~3</code>
-        <br /><span class="muted"><strong>ใช้ได้ทั้งในห้องเดียวกันและข้ามเส้นกั้นห้อง</strong> —
-        ไม่ใช่เฉพาะตอนข้ามห้อง · จุดต่างจากเอื้อนคือ ไทอยู่<strong>คนละช่อง</strong>
-        (ถ้าโน้ตอยู่ช่องเดียวกัน = เอื้อน ใช้วงเล็บ ไม่ใช่ <code>~</code>)</span>
-      </p>
-
-      <p class="muted" style="margin-bottom: 4px">ตัวอย่างเอื้อน (สลัวร์) — โน้ต<strong>คนละเสียง</strong>ในช่องเดียว:</p>
-      <div style="overflow-x: auto">
-        <table class="guide-table">
-          <thead>
-            <tr><th>พิมพ์</th><th>แสดงผล</th><th>ความหมาย</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>.6_ .7_</code></td>
-              <td class="render-cell"><NoteRow notes=".6_ .7_" /></td>
-              <td>คนละพยางค์ ไม่มีสลัวร์ — เส้นใต้แยกกัน มีช่องไฟ</td>
-            </tr>
-            <tr>
-              <td><code>(.6_.7_)</code></td>
-              <td class="render-cell"><NoteRow notes="(.6_.7_)" /></td>
-              <td>เอื้อนคำเดียว — โน้ตติดกันใน<strong>ช่องเดียว</strong> (ไม่เว้นวรรค) มีเส้นโค้งด้านบน แต่เส้นใต้<strong>ยังแยกกันคนละตัว</strong> (ยังเป็นเขบ็ต 2 ตัว)</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <p class="muted" style="margin: 12px 0 4px">ตัวอย่างไท — โน้ต<strong>เสียงเดียวกัน</strong>คนละช่อง:</p>
-      <div style="overflow-x: auto">
-        <table class="guide-table">
-          <thead>
-            <tr><th>พิมพ์</th><th>แสดงผล</th><th>ความหมาย</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>3~</code></td>
-              <td class="render-cell"><NoteRow notes="3~" /></td>
-              <td>โน้ตตัวแรก (ต้นเสียง) — เส้นโค้งเปิดไปทางขวา</td>
-            </tr>
-            <tr>
-              <td><code>~3 - -</code></td>
-              <td class="render-cell"><NoteRow notes="~3 - -" /></td>
-              <td>โน้ตตัวรับ (เสียงเดิม) — เส้นโค้งรับจากทางซ้าย ไม่ดีดใหม่</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p>
-        กรณีข้ามห้อง (เช่น "น้ำ" ในเพลงที่ 1) สองตัวนี้จะอยู่คนละฝั่งของเส้นกั้นห้อง:
-        <span class="tie-demo"><NoteRow notes="3~" /><span class="bar-line" style="height: 34px; margin-top: 2px" aria-hidden="true"></span><NoteRow notes="~3 - -" /></span>
-      </p>
-      <p class="muted">
-        ตอนกดฟังทำนอง โน้ตตัวรับ (<code>~3</code>) จะ<strong>ไม่ดีดเสียงใหม่</strong>
-        แต่ลากเสียงตัวแรกต่อเนื่องเป็นเสียงเดียว
-      </p>
-    </div>
-
-    <div class="card">
-      <h3 style="margin-top: 0">สัญลักษณ์อื่นบนแผ่นเพลง</h3>
-      <ul>
-        <li><strong>|</strong> เส้นกั้นห้องเพลง (bar) · <strong>‖</strong> จบเพลง</li>
-        <li><strong>***</strong> จุดเริ่มท่อนฮุก (ตามธรรมเนียมหนังสือเพลงเล่มนี้)</li>
-        <li><strong>ข้อความกำกับ</strong> เช่น <em>Fine</em> (จุดจบเพลง) หรือ
-          <em>D.C. al Fine</em> (กลับไปเล่นจากต้นเพลงจนถึง Fine) —
-          ในห้องทำเพลง พิมพ์ลงช่อง "ป้าย" ของบรรทัดนั้น
-          ข้อความจะแสดงตัวเอียงเล็ก ๆ ท้ายบรรทัดเหมือนหนังสือ</li>
-        <li><strong>คอร์ดโรมัน</strong> นับลำดับจากคีย์ของเพลง — กดปุ่ม "คอร์ดโรมัน"
-          ในหน้าเพลงเพื่อสลับจากคอร์ดตัวอักษร (ใช้เลขโรมันเพื่อไม่ให้ปนกับตัวเลขโน้ตทำนอง)
-          ตัวพิมพ์บอกชนิดคอร์ดตามมาตรฐานสากล:
-          <strong>ตัวใหญ่ = Major</strong> (I, IV, V) ·
-          <strong>ตัวเล็ก = minor</strong> (ii, iii, vi) ·
-          <strong>ตัวเล็ก + ° = diminished</strong> (vii°) ·
-          เลข 7 ต่อท้าย = คอร์ดเซเว่น (V7, ii7)
-          <br /><span class="muted">อ้างอิง: Open Music Theory (ตำราเปิดระดับมหาวิทยาลัย) ·
-          The Complete Musician — Steven G. Laitz (Oxford University Press)</span></li>
-      </ul>
-      <h3>ตัวอย่างรวมทุกสัญลักษณ์</h3>
-      <p class="muted"><code>5. .5_ .5_ .6  |  (1' 7) 6  |  {3 2 1}  |  2 - - -  ‖</code></p>
-      <p class="symbol-demo"><NoteRow notes="5. .5_ .5_ .6" /><span class="bar-line demo-bar" aria-hidden="true"></span><NoteRow notes="(1' 7) 6" /><span class="bar-line demo-bar" aria-hidden="true"></span><NoteRow notes="{3 2 1}" /><span class="bar-line demo-bar" aria-hidden="true"></span><NoteRow notes="2 - - -" /><span class="bar-line demo-bar demo-bar-end" aria-hidden="true"></span><span class="bar-line demo-bar demo-bar-final" aria-hidden="true"></span></p>
     </div>
 
     <div class="card" id="howto">
@@ -297,7 +108,7 @@ const COMBOS = [
         <li>เพลงแบ่งเป็น <strong>บรรทัด → ห้อง → ช่อง</strong>: 1 ช่องเล็ก = โน้ต 1 ตัว = 1 คำ
           กด Enter หรือเว้นวรรคเพื่อไปช่องถัดไป กดลูกศรซ้าย-ขวาเพื่อเลื่อน
           <br /><span class="muted">ยกเว้น<strong>เอื้อน</strong> (ร้องคำเดียวหลายโน้ต): พิมพ์โน้ตติดกันในช่องเดียว
-          ไม่เว้นวรรค แล้วครอบวงเล็บ เช่น <code>(65)</code> — ดูหัวข้อสลัวร์</span></li>
+          ไม่เว้นวรรค แล้วครอบวงเล็บ เช่น <code>(65)</code> — ดู<a href="#/notation#rhythm">คู่มือทำเพลง</a></span></li>
         <li>ใช้<strong>แผงปุ่มสัญลักษณ์</strong>ที่แถบล่างจอ (เลื่อนไปไหนก็ตามไปด้วย):
           แตะช่องโน้ตก่อน แล้วจิ้มสัญลักษณ์ที่ต้องการ — ชาร์ป/แฟลต จิ้มก่อนหรือหลังพิมพ์เลขก็ได้</li>
         <li>ระบบ<strong>นับจังหวะให้ทุกห้อง</strong> — ถ้าขึ้น ❌ แปลว่าโน้ตในห้องนั้นยังไม่ครบ
@@ -322,75 +133,28 @@ const COMBOS = [
         </li>
       </ul>
     </div>
-
-    <div class="card">
-      <h3 style="margin-top: 0">แหล่งอ้างอิง</h3>
-      <p class="muted" style="margin-bottom: 0">
-        เนื้อหาวิธีอ่านโน้ตตัวเลขในหน้านี้ อ้างอิงตามหลักสากลจาก:
-      </p>
-      <ul class="muted refs">
-        <li>
-          <strong>ระบบโน้ตตัวเลข (โน้ตตัวเลข / เจี่ยนผู่ 簡譜):</strong>
-          "Numbered musical notation", Wikipedia —
-          <a href="https://en.wikipedia.org/wiki/Numbered_musical_notation" target="_blank" rel="noopener">
-            en.wikipedia.org/wiki/Numbered_musical_notation</a>
-          (กฎเรื่องตัวเลข-ขั้นเสียง · จุดช่วงเสียง · เส้นเขบ็ต/การรวมคาน · เครื่องหมายชาร์ป-แฟลต-เนเชอรัล ·
-          สลัวร์-ไท · เครื่องหมายกำหนดจังหวะ · ความเป็นมา)
-        </li>
-        <li>
-          <strong>ทฤษฎีคอร์ดโรมัน:</strong>
-          Open Music Theory (ตำราเปิดระดับมหาวิทยาลัย) ·
-          The Complete Musician — Steven G. Laitz (Oxford University Press)
-        </li>
-      </ul>
-    </div>
   </div>
 </template>
 
 <style scoped>
-.guide-table { width: 100%; border-collapse: collapse; }
-.guide-table th, .guide-table td {
-  text-align: left;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--line);
-  vertical-align: middle;
-}
-.guide-table code {
-  background: #edf2f7;
-  padding: 2px 6px;
-  border-radius: 4px;
-  white-space: nowrap;
-}
-.render-cell { font-size: 19px; color: var(--note-blue); white-space: nowrap; padding-top: 16px !important; }
-.tie-demo {
-  display: inline-flex;
+.intro-demo { font-size: 20px; display: flex; align-items: stretch; flex-wrap: wrap; color: var(--note-blue); }
+.intro-demo .demo-bar { height: auto; align-self: stretch; margin: 0 10px; }
+/* bridge to the song-makers' standard page — a soft brand-tinted well (Gestalt common region,
+   not a hard box), with the pencil glyph marking "this is for authoring". */
+.bridge-box {
+  display: flex;
   align-items: flex-start;
-  gap: 4px;
-  font-size: 20px;
-  color: var(--note-blue);
-  padding: 10px 6px 0;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f6f3ee;
+  border: 1px solid #e2d8c8;
+  border-left: 4px solid var(--brand);
 }
-/* Combined-symbols example: bars auto-match the note-row height (align-items:
-   stretch) so they sit flush like the real sheet instead of floating short. */
-.symbol-demo { font-size: 20px; display: flex; align-items: stretch; flex-wrap: wrap; }
-.symbol-demo .demo-bar { height: auto; align-self: stretch; margin: 0 10px; }
-.symbol-demo .demo-bar-end { margin-right: 0; }   /* end double bar sits tight */
-.symbol-demo .demo-bar-final { margin-left: 3px; }
-.warn-box {
-  background: #fff8e6;
-  border: 1px solid #f0d98a;
-  border-left: 4px solid #e0a800;
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-.refs { margin: 8px 0 0; padding-left: 20px; }
-.refs li { margin-bottom: 8px; }
-.refs a { word-break: break-word; }
+.bridge-ico { flex: 0 0 auto; color: var(--brand); margin-top: 2px; }
 
-/* ② overview icons — one glyph per heading (H3 + the "เสียงดนตรี" sub-heading), so the
-   section scans at a glance without cluttering every bullet (P'Aim 15 ก.ค.). The icon
-   inherits the heading's --brand colour via currentColor and is decorative (aria-hidden
-   is baked into <Icon>). */
+/* ② overview icons — one glyph per heading, so the section scans at a glance (P'Aim 15 ก.ค.). */
 .howto-h { display: flex; align-items: center; gap: 8px; }
 .howto-ico { flex: 0 0 auto; }
 /* inline sample of the "✓ ตรวจแล้ว" QA badge, matching the catalog's green marker */
