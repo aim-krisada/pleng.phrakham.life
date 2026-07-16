@@ -101,11 +101,52 @@ def attack_ms(x, sr, frac=0.5):
     return round(float(idx[0]) * FRAME_MS, 1) if len(idx) else 0.0
 
 
+def quietest_100ms_db(x, sr):
+    """Level of the quietest 100 ms in the file.
+
+    ⚠️ NOT a noise floor for these libraries, and must not be reported as one. It only equals the
+    noise floor if the file CONTAINS silence. Karoryfer's samples are trimmed to start right at the
+    attack (measured: sound present at 0 ms) and are cut while still ringing, so the quietest frame is
+    the note's own DECAY TAIL — which made the naive "SNR" read 11 dB for p and 6 dB for mf, i.e.
+    backwards and far too low for real recordings (Iowa reads 40 dB only because it has silent
+    padding). Kept for the record; the honest statement about hiss risk is the MAKEUP DELTA
+    (p needs ~10 dB more gain than mf), plus P'Aim's ear.
+    """
+    w = max(1, int(sr * 0.1))
+    n = len(x) // w
+    if n < 2: return -120.0
+    frames = [float(np.sqrt((x[i*w:(i+1)*w] ** 2).mean())) for i in range(n)]
+    return round(20 * math.log10(max(min(frames), 1e-9)), 2)
+
+
+def timbre(x, sr):
+    """(centroid_hz, hf_ratio_db) on the sustain, NORMALISED to unit RMS.
+
+    Loudness-matched on purpose: it answers "is this layer a DARKER TIMBRE" rather than "is it
+    quieter". Verified claim (16 ก.ค.): p vs mf at equal loudness = -167 Hz centroid, -5.7 dB above
+    2 kHz -> the soft layers really are a different bow tone, not a turned-down mf.
+    """
+    a = int(0.35*sr); b = min(len(x), a + int(1.5*sr))
+    if b - a < sr//4: a, b = 0, len(x)
+    seg = x[a:b]
+    r = np.sqrt((seg**2).mean())
+    if r < 1e-6: return 0.0, -120.0
+    w = (seg/r) * np.hanning(len(seg))
+    S = np.abs(np.fft.rfft(w, 1 << 17)) ** 2
+    f = np.fft.rfftfreq(1 << 17, 1/sr)
+    band = (f >= 40) & (f <= 12000)
+    cen = float((f[band]*S[band]).sum() / max(S[band].sum(), 1e-30))
+    hf = S[(f > 2000) & (f <= 12000)].sum() / max(S[band].sum(), 1e-30)
+    return round(cen, 1), round(float(10*np.log10(max(hf, 1e-12))), 2)
+
+
 def measure(path):
-    """-> dict(midi, cents_off, vibrato_cents, rms_db, peak_db, dur, attack_ms) — MEDIAN frame pitch."""
+    """-> dict(midi, cents_off, vibrato_cents, rms_db, peak_db, dur, attack_ms, ...) — MEDIAN pitch."""
     sr, x = decode(path)
     peak, rms = float(np.max(np.abs(x))), float(np.sqrt((x ** 2).mean()))
     atk = attack_ms(x, sr)
+    nf = quietest_100ms_db(x, sr)
+    cen, hf = timbre(x, sr)
     a = int(0.30 * sr); b = min(len(x), a + int(2.5 * sr))
     if b - a < sr // 3: a, b = 0, len(x)
     W, H = int(0.06 * sr), int(0.02 * sr)
@@ -122,7 +163,7 @@ def measure(path):
                 vibrato_cents=round(1200 * math.log2(hi_p / lo_p), 1),
                 rms_db=round(20 * math.log10(rms or 1e-9), 2),
                 peak_db=round(20 * math.log10(peak or 1e-9), 2), dur=round(len(x) / sr, 3),
-                attack_ms=atk)
+                attack_ms=atk, quietest_100ms_db=nf, centroid_hz=cen, hf_ratio_db=hf)
 
 
 # ---------- SSO loop points (shipped by the library, parsed from its own sfz) ------------------
@@ -199,8 +240,12 @@ def build(lib, files, note_of, stereo=False, loops=None):
         regions.append(reg)
 
     # median attack across the set -> how far EARLY this library's cello must fire (negative delay).
+    # Re-measured PER LAYER: a light bow blooms slower than a heavy one, so p != mf.
     atk = float(np.median([r["attack_ms"] for r in by_pitch.values()]))
+    cen = float(np.median([r["centroid_hz"] for r in by_pitch.values()]))
+    hf = float(np.median([r["hf_ratio_db"] for r in by_pitch.values()]))
     print(f"  attack (median time to 50% of sustain) = {atk:.0f} ms -> negative delay {-atk:.0f} ms")
+    print(f"  timbre @ equal loudness: centroid {cen:.0f} Hz · hf@2k+ {hf:+.2f} dB")
 
     preset = {"name": f"cello-{lib}", "samples": {"baseUrl": "", "formats": ["ogg"]},
               "groups": [{"regions": regions}],
@@ -210,7 +255,8 @@ def build(lib, files, note_of, stereo=False, loops=None):
     (outdir / "preset.json").write_text(json.dumps(preset, indent=1))
     meta = {"lib": lib, "makeup_db": round(makeup_db, 2), "mean_rms_db": round(mean_rms, 2),
             "target_rms_db": TARGET_RMS_DB, "stereo": stereo, "looped": bool(loops),
-            "attack_ms_median": round(atk, 1),
+            "attack_ms_median": round(atk, 1), "centroid_hz_median": round(cen, 1),
+            "hf_ratio_db_median": round(hf, 2),
             "samples": sorted(by_pitch.values(), key=lambda r: r["midi"])}
     (outdir / "measured.json").write_text(json.dumps(meta, indent=1, ensure_ascii=False))
     return meta
@@ -228,9 +274,25 @@ def karoryfer_note(name):
     return s + (int(m.group(3)) + 1) * 12
 
 
+# Karoryfer's sus set is 17 pitches x 4 dynamics (p/mp/mf/f) x 2 bow strokes (_d/_g) = 136 files, but
+# only `*_mf_d.wav` was ever shipped (prepare-samples-cc0.mjs:33 "one dyn/take") = every note in the
+# song bowed at the same medium-hard weight = the leading suspect for P'Aim's "แสบแก้วหู".
+#
+# Each dynamic is built as its OWN mirror -> loaded as a SEPARATE smplr instrument with a FULL
+# velRange. Never as velRange groups inside one preset: smplr scales velocity RELATIVE to the matched
+# group, so a combined preset resets loudness at every layer boundary (memory
+# pleng-smplr-vellayer-relative). `_d` (down-bow) only, per the brief — raw sus, no legato maps.
+DYNAMICS = ["p", "mp", "mf"]
+
+
 def main():
     summary = {}
     if KARORYFER.exists():
+        for dyn in DYNAMICS:
+            files = sorted(glob.glob(str(KARORYFER / f"*_{dyn}_d.wav")))
+            if files:
+                summary[f"karoryfer-{dyn}"] = build(f"karoryfer-{dyn}", files, karoryfer_note, stereo=False)
+        # kept so the bake-off page (mf = what P'Aim already judged) still resolves
         files = sorted(glob.glob(str(KARORYFER / "*_mf_d.wav")))
         summary["karoryfer"] = build("karoryfer", files, karoryfer_note, stereo=False)
     else:

@@ -37,6 +37,21 @@ export const VARIANTS = [
 export const PIANO_ONLY = { id: 'none', label: 'D · เปียโนทองอย่างเดียว (ของเดิม รอบ 27)', licence: '—',
   note: 'ไม่มีเชลโล = เสียงที่ deploy อยู่จริงตอนนี้ · ไว้เทียบว่าเติมเชลโลแล้วดีขึ้นหรือแย่ลง' }
 
+// ── STEP 1 of the "แสบแก้วหู" brief (docs/pm/brief-cello-soften.md) ────────────────────────────
+// P'Aim picked Karoryfer but it is harsh. We only ever loaded `*_mf_d.wav` = 1 of the 8 takes per
+// pitch, so every note is bowed at the same medium-hard weight. The p/mp takes are a real cellist
+// bowing lightly — VERIFIED to be a genuinely darker tone rather than a quieter mf: at MATCHED
+// loudness, p sits 167 Hz lower in centroid and has 5.7 dB less energy above 2 kHz than mf
+// (monotonic p<mp<mf<f across all 17 pitches). So turning mf down could not have produced this.
+export const DYN_LAYERS = [
+  { id: 'karoryfer-p', label: 'p · สีเบา (นุ่มสุด)', licence: 'CC0',
+    note: 'ทึบกว่า mf 5.7 dB ในย่านแสบ (>2kHz) · แต่คันชักบวมช้า 200ms · ต้องดันเสียง +13dB' },
+  { id: 'karoryfer-mp', label: 'mp · สีเบากลาง', licence: 'CC0',
+    note: 'ทึบกว่า mf 0.5 dB · บวม 35ms · ดัน +6.8dB — ตรงกลางระหว่าง p กับ mf' },
+  { id: 'karoryfer-mf', label: 'mf · ของเดิมที่ P\'Aim ว่าแสบ', licence: 'CC0',
+    note: 'ชั้นเดียวที่แอพเคยโหลด · บวม 20ms · ดัน +3.2dB — ตัวเทียบ' },
+]
+
 const SPIKE_BASE = '/samples/_spike'
 
 // Build a smplr Sampler for one cello variant from the spike mirror. Mirrors sampler.js's
@@ -257,20 +272,21 @@ export function bufferToWav(buffer) {
 // it should arrive with the presence the lead line already had. Measured, not felt.
 //
 // Returns { gains:{variantId:mult}, rms:{variantId:rms}, leadMakeup, pianoMelodyRms }.
-export async function calibrateLevels(content, { bpm, range, songId, correctTuning = true } = {}) {
+export async function calibrateLevels(content, { bpm, range, songId, correctTuning = true,
+  variants = VARIANTS } = {}) {
   const base = { bpm, range, songId, correctTuning }
   const rms = {}
-  for (const v of VARIANTS) {
+  for (const v of variants) {
     const { buffer } = await renderClip(content, {
       ...base, variantId: v.id, pianoRoles: 'none', celloMakeup: 1,
     })
     rms[v.id] = measure(buffer).rms
   }
   const vals = Object.values(rms).filter((r) => r > 0).sort((a, b) => a - b)
-  if (!vals.length) return { gains: Object.fromEntries(VARIANTS.map((v) => [v.id, 1])), rms, leadMakeup: 1 }
+  if (!vals.length) return { gains: Object.fromEntries(variants.map((v) => [v.id, 1])), rms, leadMakeup: 1 }
   const target = vals[Math.floor(vals.length / 2)]   // median → nobody pushed to an extreme
   const gains = {}
-  for (const v of VARIANTS) gains[v.id] = rms[v.id] > 0 ? target / rms[v.id] : 1
+  for (const v of variants) gains[v.id] = rms[v.id] > 0 ? target / rms[v.id] : 1
 
   // what the piano's melody alone measured — the level the lead voice used to arrive at
   const { buffer: melBuf } = await renderClip(content, {

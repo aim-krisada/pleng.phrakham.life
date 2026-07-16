@@ -1,8 +1,15 @@
-// SPIKE page controller — cello bake-off. Renders A/B/C/D from the SAME sheet + SAME golden piano
-// and hands the result to P'Aim's ear. See src/spikes/celloBakeoff.js for the fairness contract.
+// SPIKE page controller — shared by two listening tests, both of which ask P'Aim's ear ONE question
+// and hold everything else identical (see src/spikes/celloBakeoff.js for the fairness contract):
+//   /docs/spikes/cello-bakeoff.html — which cello LIBRARY? (A/B/C + D piano-only reference)
+//   /docs/spikes/cello-soften.html  — which BOW WEIGHT of the chosen library? (p/mp/mf + D)
+// The page picks its variant set from `window.SPIKE_VARIANTS`; everything else is the same harness.
 import { supabase } from '../supabase.js'
-import { VARIANTS, PIANO_ONLY, renderClip, bufferToMp3, measure, excerptRange,
+import { VARIANTS, DYN_LAYERS, PIANO_ONLY, renderClip, bufferToMp3, measure, excerptRange,
   calibrateLevels, normalizeBuffer } from './celloBakeoff.js'
+
+const IS_DYN = window.SPIKE_VARIANTS === 'dynamics'
+const VARIANT_SET = IS_DYN ? DYN_LAYERS : VARIANTS
+const SPIKE_SLUG = IS_DYN ? 'cello-soften' : 'cello-bakeoff'
 
 const $ = (s) => document.querySelector(s)
 const q = new URLSearchParams(location.search)
@@ -37,21 +44,21 @@ function card(v, isRef) {
 }
 
 async function renderAll() {
-  const all = [...VARIANTS, PIANO_ONLY]
+  const all = [...VARIANT_SET, PIANO_ONLY]
   $('#cards').innerHTML = ''
   for (const v of all) $('#cards').appendChild(card(v, v.id === 'none'))
 
   // level-match the 3 cellos over THIS phrase before anything is heard (see calibrateLevels)
   if (!state.cal) {
-    log('กำลังปรับให้เชลโลทั้ง 3 ตัวดังเท่ากัน (เพื่อความยุติธรรม) …')
+    log('กำลังปรับให้ทั้ง 3 แบบดังเท่ากัน (เพื่อความยุติธรรม) …')
     state.cal = await calibrateLevels(state.song.content, {
       bpm: state.song.content?.bpm, range: state.range, songId: state.song.id,
-      correctTuning: state.correctTuning,
+      correctTuning: state.correctTuning, variants: VARIANT_SET,
     })
   }
   const dbs = Object.entries(state.cal.gains)
     .map(([k, g]) => `${k} ${(20 * Math.log10(g)).toFixed(1)}dB`).join(' · ')
-  $('#cal').textContent = `เชลโล 3 ตัวถูกปรับให้ดังเท่ากันแล้ว (${dbs}) · `
+  $('#cal').textContent = `${IS_DYN ? 'ทั้ง 3 ชั้นเสียง' : 'เชลโล 3 ตัว'}ถูกปรับให้ดังเท่ากันแล้ว (${dbs}) · `
     + `ระดับเริ่มต้นตั้งเท่ากับ "ทำนองของเปียโน" ที่วัดได้ · ทุกคลิปถูกปรับให้ดังเท่ากันตอนเล่น`
 
   for (const v of all) {
@@ -75,7 +82,7 @@ async function renderAll() {
       const audio = document.querySelector(`[data-audio="${v.id}"]`)
       audio.src = url; audio.hidden = false
       const dl = document.querySelector(`[data-dl="${v.id}"]`)
-      dl.href = url; dl.download = `cello-bakeoff-${v.id}.mp3`; dl.hidden = false
+      dl.href = url; dl.download = `${SPIKE_SLUG}-${v.id}.mp3`; dl.hidden = false
       const btn = document.querySelector(`[data-play="${v.id}"]`)
       btn.disabled = false
       btn.onclick = () => { document.querySelectorAll('audio').forEach((a) => { a.pause(); a.currentTime = 0 }); audio.play() }
@@ -92,7 +99,7 @@ async function renderAll() {
       console.error(v.id, e)
     }
   }
-  log('พร้อมฟังแล้ว — สลับ A/B/C/D ไปมาได้เลย')
+  log(IS_DYN ? 'พร้อมฟังแล้ว — สลับ p / mp / mf ไปมาได้เลย' : 'พร้อมฟังแล้ว — สลับ A/B/C/D ไปมาได้เลย')
 }
 
 async function main() {
