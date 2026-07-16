@@ -5,3 +5,7 @@ dist/
 pleng.phrakham.life.md
 bugs/
 features/
+
+# cello bake-off spike: local-only sample mirror (SSO = CC Sampling Plus 1.0, must not be committed)
+public/samples/_spike/
+docs/spikes/clips/

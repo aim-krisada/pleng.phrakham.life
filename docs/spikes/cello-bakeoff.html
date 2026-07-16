@@ -1,0 +1,67 @@
+<!doctype html>
+<!--
+  SPIKE — cello bake-off. brief: docs/pm/brief-cello-bakeoff.md · report: docs/reports/cello-bakeoff.md
+  ท่อนเดียวกัน · เปียโนทองเดิม (arrange() + splendid-grand, ของที่ deploy รอบ 27) · ต่างกันแค่ไฟล์เสียงเชลโล.
+  ไม่ได้ shipped — เป็นหน้าทดลองให้ P'Aim ฟังตัดสินด้วยหู.
+  เปิดผ่าน vite dev ของ worktree นี้: /docs/spikes/cello-bakeoff.html
+-->
+<html lang="th"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🎻 เทียบเสียงเชลโล — คู่กับเปียโนทอง</title>
+<style>
+  :root { color-scheme: light dark; --bd:#d8d8de; --mut:#666; --acc:#8a6d1f; }
+  @media (prefers-color-scheme: dark) { :root { --bd:#3a3a42; --mut:#9a9aa4; --acc:#d8b45a; } }
+  * { box-sizing: border-box }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0 auto; max-width: 640px;
+         padding: 1rem 1rem 3rem; line-height: 1.65; }
+  h1 { font-size: 1.3rem; margin: .2rem 0 .4rem }
+  .sub { color: var(--mut); font-size: .9rem; margin: 0 0 1rem }
+  .panel { border: 1px solid var(--bd); border-radius: 12px; padding: .8rem; margin-bottom: 1rem }
+  .panel h2 { font-size: .95rem; margin: 0 0 .5rem }
+  .row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: .45rem 0 }
+  input[type=range] { flex: 1; min-width: 160px }
+  .card { border: 1px solid var(--bd); border-radius: 12px; padding: .8rem; margin-bottom: .8rem }
+  .card.ref { border-style: dashed }
+  .hd { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem }
+  .lic { font-size: .72rem; color: var(--mut); white-space: nowrap }
+  .note { font-size: .85rem; color: var(--mut); margin: .3rem 0 .5rem }
+  .controls { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap }
+  button { padding: .6rem 1.1rem; border-radius: 10px; border: 1px solid var(--bd);
+           background: transparent; font: inherit; cursor: pointer; min-height: 44px }
+  button:disabled { opacity: .45; cursor: default }
+  .dl { font-size: .85rem; text-decoration: none; border: 1px solid var(--bd); border-radius: 10px;
+        padding: .55rem .8rem; min-height: 44px; display: inline-flex; align-items: center }
+  audio { width: 100%; margin-top: .5rem }
+  .meta { font-size: .75rem; color: var(--mut); margin-top: .4rem; font-variant-numeric: tabular-nums }
+  .warn { color: #b3261e }
+  #log { font-size: .85rem; color: var(--mut); padding: .5rem 0 }
+  .ask { border-left: 3px solid var(--acc); padding-left: .7rem; font-size: .87rem }
+</style>
+</head><body>
+
+<h1>🎻 เทียบเสียงเชลโล 3 ตัว — คู่กับเปียโนทอง</h1>
+<p class="sub" id="songname">กำลังโหลด…</p>
+
+<div class="panel ask">
+  <b>โจทย์ข้อเดียว: ตัวไหน "เพราะ" ครับ — หรือไม่เอาเลยทั้ง 3 ตัว?</b><br>
+  ทั้ง 4 คลิปคือ<b>ท่อนเดียวกันเป๊ะ</b> · <b>เปียโนทองตัวเดิมเป๊ะ</b> (วาทยกร + Grand ที่ใช้จริงตอนนี้) ·
+  ต่างกัน<b>แค่ไฟล์เสียงเชลโล</b>. เชลโลร้องนำทำนอง เปียโนคลอ. D = ของเดิมไม่มีเชลโล ไว้เทียบ.
+</div>
+
+<div class="panel">
+  <h2>ปุ่มปรับ (มีผลกับทุกคลิปเท่ากัน — ความยุติธรรมไม่เสีย)</h2>
+  <div class="row">
+    <label for="makeup">เสียงเชลโลดัง/เบา</label>
+    <input type="range" id="makeup" min="0.35" max="2.8" step="0.05">
+    <span id="makeupVal"></span>
+  </div>
+  <div class="row"><label><input type="checkbox" id="tuning" checked> แก้จูนให้ตรงเสียง (ปิด = ฟังดิบ ๆ ตามไฟล์จริง)</label></div>
+  <div class="row"><label><input type="checkbox" id="unison"> ให้เปียโนเล่นทำนองด้วย (ซ้อนกับเชลโล)</label></div>
+  <div class="meta" id="cal"></div>
+</div>
+
+<div id="cards"></div>
+<div id="log">พร้อม</div>
+
+<script type="module" src="/src/spikes/celloBakeoffPage.js"></script>
+</body></html>
