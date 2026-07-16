@@ -1,12 +1,27 @@
-# PM board — pleng (ไม้ต่อ · refreshed 2026-07-15 · หลัง PARITY จบ + รอบ 26 LIVE)
+# PM board — pleng (ไม้ต่อ · refreshed 2026-07-16 · หลัง DEPLOY รอบ 29 + golden-piano จบ)
 
 กระดานนี้ = สถานะสด + งานค้าง + routing เท่านั้น · **รายละเอียดเทคนิค → git log + `docs/reports/<branch>.md` + `docs/backlog.md`** (อย่าซ้ำที่นี่)
 **⛔ เปิด PM session ใน worktree `C:\gl\krisada\pleng.phrakham.life-pm` เท่านั้น** (ไม่ใช่ primary clone · primary park ที่ `pm-primary-parking` · ดู `docs/sop.md` §5)
-**เปิด PM session ใหม่:** `docs/pm/pm.md` → memory `pleng-pm-role` (+ feedback PM ชุด) → `docs/sop.md` → ไฟล์นี้ · **ตั้งชื่อ session ตามรอบ deploy ถัดไป (`pm22`)** · IP เครื่องเปลี่ยนบ่อย (เช็ก `Get-NetIPAddress`/vite Network line ก่อนส่ง URL)
+**เปิด PM session ใหม่:** `docs/pm/pm.md` → memory `pleng-pm-role` (+ feedback PM ชุด) → `docs/sop.md` → ไฟล์นี้ · **ตั้งชื่อ session ถัดไป = `pm27`** (นับต่อเนื่องจาก pm26 · P'Aim 16 ก.ค. — เลข PM = ลำดับ session ไม่ใช่เลขรอบ deploy) · IP เครื่องเปลี่ยนบ่อย (เช็ก `Get-NetIPAddress`/vite Network line ก่อนส่ง URL)
 
 ---
 
-## ▶ RESUME (pm26 ACTIVE · 15 ก.ค. · PM session ปัจจุบัน = **pm26** — รายงานกลับ ping ที่นี่)
+## ▶ RESUME (HAND-OFF จาก pm26 · 16 ก.ค. ค่ำ · PM session ถัดไป = **pm27**)
+
+**สถานะ: สะอาด · ไม่มีงานค้าง/บล็อก · ไม่มีสายย่อยเปิดค้าง (archived หมด)**
+- 🎉 **รอบ 29 LIVE `f573d2d` = origin/main** (deploy ล่าสุด · 16 ก.ค.) — ชื่อแอพไทย "เพลง.พระคำ" + คู่มือทำเพลง (`/#/notation`) + เมนู "คู่มือ ▾" 2 อัน + ไอคอนพื้นขาวกุญแจทอง(เฉด E) + shell overflow fix + นัชวิลล์→คอร์ดโรมัน + a11y ตาราง + accent knob ออก(เสียง=เดิม) · verify prod ครบ · _(ประวัติรอบ 22-29 + DEPLOYED blocks + รายละเอียดงานด้านล่าง)_
+- 🎹 **golden-piano (เปียโนทอง) = จบ · P'Aim พอใจ** · สรุปเทคนิคส่งที่ปรึกษา = `docs/reports/golden-piano-tech-summary.md`
+- **git:** base `studio-shell-redesign` = origin/main = `f573d2d` · สะอาด · memory synced OneDrive
+- **cleanup:** archived สายย่อยทั้งหมด · ❌ Remix cancelled · 🎻 violin archived (parked · เปิดใหม่เมื่อมี sample ดีกว่า · branch `charming-cori`+Iowa samples ใน git) · 📖 phrakham = คนละโปรเจกต์ (ไม่แตะ)
+
+**▶ งานถัดไป (ไม่บล็อก · รอ P'Aim หยิบ):**
+1. 🔴 **GATE (สำคัญสุดระยะยาว):** ทีมทยอยกด "✓ ตรวจแล้ว" ให้เพลง (public เห็นเฉพาะ verified · ~8/124) → เพลงถึงจะโชว์ครบ · tracker `docs/pm/review-anuchon.md`
+2. **post-deploy verify มือถือ (P'Aim/พี่เปา · optional):** iOS ลบไอคอนเก่า+ติดตั้งใหม่ (ชื่อ "เพลง.พระคำ"+ไอคอนทองพื้นขาว) · Android install PWA · เปิดคู่มือทำเพลง
+3. **to-do พี่เปา:** issues4(โครงเพลง▾)/6(คลิก preview→แก้)/7 · print โน้ต (§🐞/🐞 to-do)
+4. **backlog:** เนื้อ 3 ภาษา · สิทธิ์ลบเพลง · import เล่มใหญ่(พัก) · shared-core token (§📌)
+5. **parked:** 🎻 violin (รอ sample หลาย-dynamic) · phrakham parity (ทีมพระคำ)
+
+**--- ประวัติ pm26 (รายละเอียดรอบ 27-29) ด้านล่าง ---**
 
 **สถานะจริงตอนนี้ (pm26 · sync กระดานล่าง):**
 - 🎉 **รอบ 29 LIVE `f573d2d`** (16 ก.ค. · P'Aim "go") — **ชุดใหญ่:** ชื่อแอพไทย "เพลง.พระคำ" + คู่มือทำเพลง (มาตรฐานการเขียนโน้ต /#/notation) + เมนู "คู่มือ ▾" 2 อัน + ไอคอนใหม่พื้นขาวกุญแจทอง(เฉด E) + shell overflow fix + นัชวิลล์→คอร์ดโรมัน + a11y ตาราง + เอา accent knob ออก(เสียง=เดิม) · **verify prod:** Actions success · Last-Modified 12:12 · app-name meta "เพลง.พระคำ" · bundle มี "คู่มือทำเพลง"/"มาตรฐานการเขียนโน้ต" · ไอคอน 512 พื้นขาว(ไฟล์เล็กลง) · **post-deploy:** archive 6 สายรอบ 29 + verify มือถือ (ไอคอน/ชื่อแอพ iOS re-install · install PWA Android)
