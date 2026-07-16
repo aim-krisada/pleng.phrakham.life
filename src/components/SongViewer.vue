@@ -45,7 +45,7 @@ const display = ref('all')
 const displayDef = computed(() => DISPLAY_OPTS.find((o) => o.value === display.value) || DISPLAY_OPTS[0])
 const CHORD_OPTS = [
   { value: 'letter', label: 'คอร์ดตัวอักษร (A B C)' },
-  { value: 'roman', label: 'เลขนัชวิลล์ (1 4 5)' },
+  { value: 'roman', label: 'คอร์ดโรมัน (I IV V)' },
   { value: 'hidden', label: 'ซ่อนคอร์ด' },
 ]
 const chordSystem = ref('letter')
@@ -501,7 +501,7 @@ const mp3Transpose = computed(() => keyTranspose(props.song?.content?.key, displ
 
 // ---------- the ⚙ settings panel controls (§4c) — every control, inline ----------
 // icons = Lucide names (rendered via <Icon>), badge = the current value shown on the bar
-const CHORD_BADGE = { letter: 'ABC', roman: '145', hidden: '—' }
+const CHORD_BADGE = { letter: 'ABC', roman: 'I·V', hidden: '—' }
 const settingDescs = computed(() => [
   {
     id: 'display', icon: 'layers', label: 'แสดงผล', kind: 'menu', value: display.value, badge: displayDef.value.short,

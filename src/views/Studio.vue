@@ -147,7 +147,7 @@ const DISPLAY_OPTS = [
 ]
 const CHORD_OPTS = [
   { value: 'letter', label: 'คอร์ดตัวอักษร (A B C)' },
-  { value: 'roman', label: 'เลขนัชวิลล์ (1 4 5)' },
+  { value: 'roman', label: 'คอร์ดโรมัน (I IV V)' },
   { value: 'hidden', label: 'ซ่อนคอร์ด' },
 ]
 const sheetDisplay = ref('all')
