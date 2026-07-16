@@ -43,6 +43,22 @@ export const PIANO_ONLY = { id: 'none', label: 'D · เปียโนทอง
 // bowing lightly — VERIFIED to be a genuinely darker tone rather than a quieter mf: at MATCHED
 // loudness, p sits 167 Hz lower in centroid and has 5.7 dB less energy above 2 kHz than mf
 // (monotonic p<mp<mf<f across all 17 pitches). So turning mf down could not have produced this.
+// ── MARCATO (P'Aim's design, 17 ก.ค.) ────────────────────────────────────────────────────────
+// P'Aim: "mp mf สั้น ๆ มากๆ แล้วลากด้วย p · การแสบน่าจะเกิดตอนช่วงแรกของการเริ่มสีขึ้นหรือลง".
+// So: a SHORT hard head on the beat, and a soft `p` carrying the body. It is also exactly what the
+// people who recorded this cello built — readme: "staccato attacks layered on top of sustained
+// notes"; `vc_arco_marcato_map.sfz` = ampeg_hold 0.200 + sustain 0 + an `amplitude_oncc110`
+// "Marcato Strength" knob. Their marcato splits head-vs-body BY TIME, which is not the
+// crossfade-two-dynamics-of-one-note thing we're avoiding (that one really does sound like 2 cellos).
+export const MARCATO = [
+  { id: 'marcato-mp', label: 'p ลากยาว + หัวโน้ต mp', licence: 'CC0', head: 'staccato-mp',
+    note: 'หัวสั้น mp เคาะตรงบีต แล้วปล่อย p พาต่อ — ดีไซน์ของ P\'Aim' },
+  { id: 'marcato-mf', label: 'p ลากยาว + หัวโน้ต mf', licence: 'CC0', head: 'staccato-mf',
+    note: 'หัวแรงกว่า (mf) — P\'Aim บอก "mp mf สั้น ๆ" เลยให้ฟังทั้งคู่' },
+  { id: 'karoryfer-p', label: 'p ล้วน (ไม่มีหัวโน้ต)', licence: 'CC0', head: null,
+    note: 'ตัวเทียบ = สิ่งที่ P\'Aim ฟังรอบก่อน ("นุ่มสุด ไม่เหมือนออแกน แต่บางช่วงเหมือนเร่ง")' },
+]
+
 export const DYN_LAYERS = [
   { id: 'karoryfer-p', label: 'p · สีเบา (นุ่มสุด)', licence: 'CC0',
     note: 'ทึบกว่า mf 5.7 dB ในย่านแสบ (>2kHz) · แต่คันชักบวมช้า 200ms · ต้องดันเสียง +13dB' },
@@ -126,7 +142,12 @@ export function buildPerformance(content, { bpm, range, songId }) {
 // P'Aim rather than settled here. Default false = the brief's "เชลโลร้องนำ · เปียโนคลอ".
 export async function renderClip(content, { variantId, bpm, range, songId, transpose = 0,
   sampleRate = 44100, celloMakeup = CELLO_MAKEUP, correctTuning = true, pianoKeepsMelody = false,
-  pianoRoles = null, celloMuted = false, negativeDelay = true } = {}) {
+  pianoRoles = null, celloMuted = false, negativeDelay = true,
+  // marcato (P'Aim's design): `headId` = a staccato set layered on the beat over the sustained body.
+  // headStrength / bodyShiftMs are the two KNOBS P'Aim turns — "how hard is right" and "does the
+  // body still need shifting once a sharp head marks the beat" are both ear questions, so neither is
+  // a number I pick. bodyShiftMs=null keeps the measured negative delay.
+  headId = null, headStrength = 1, headHoldMs = 200, bodyShiftMs = null } = {}) {
   const { perf, cfg, bpm: useBpm } = buildPerformance(content, { bpm, range, songId })
   const spb = 60 / useBpm
 
@@ -162,7 +183,8 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
 
   let celloReport = null
   if (useCello && !celloMuted) {
-    const { inst, output, attackMs } = await loadCello(variantId, ctx, celloMakeup, { correctTuning })
+    const bodyId = MARCATO.find((m) => m.id === variantId)?.head ? 'karoryfer-p' : variantId
+    const { inst, output, attackMs } = await loadCello(bodyId, ctx, celloMakeup, { correctTuning })
     output.disconnect()
     output.connect(busIn)                              // same reverb room as the piano
     // NEGATIVE DELAY (PM 16 ก.ค. · docs/pm/audio-round2-techniques.md): a bowed note ramps up, so
@@ -171,7 +193,11 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     // attack so the note is HEARD on the beat. Deterministic (no randomness → the MP3 matches live),
     // and derived per library from that library's audio, so it removes a timing defect rather than
     // flattering any candidate.
-    const shift = negativeDelay ? (attackMs || 0) / 1000 : 0
+    // bodyShiftMs (P'Aim's knob) overrides the measured delay. PM's hypothesis to test: once a sharp
+    // head marks the beat, the ear may stop needing the body shifted at all — so this must be
+    // turnable, not fixed.
+    const shiftMs = bodyShiftMs != null ? bodyShiftMs : (negativeDelay ? (attackMs || 0) : 0)
+    const shift = shiftMs / 1000
     const mel = perf.filter(isMelody)
     const outOfRange = []
     for (const e of mel) {
@@ -185,8 +211,27 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
       inst.start({ note: midi, time: Math.max(0, onset(e) - shift),
         duration: Math.max(0.12, perNoteDur(e)), velocity: gainToVelocityFull(e.gain) })
     }
-    celloReport = { melodyNotes: mel.length, attackMs, shiftMs: Math.round(shift * 1000),
-      outOfRange: [...new Set(outOfRange)].sort((a, b) => a - b) }
+
+    // the marcato head: a short staccato ON the beat, under P'Aim's strength knob. Fired at the
+    // written onset with NO negative delay — the head is what marks the beat, and it is fast anyway
+    // (measured 20-55 ms vs the body's 200 ms). NOT a crossfade: head and body are separated in TIME
+    // (the library's own approach), not two dynamics of one note bleeding into each other.
+    let headReport = null
+    if (headId && headStrength > 0) {
+      const head = await loadCello(headId, ctx, celloMakeup * headStrength, { correctTuning })
+      head.output.disconnect()
+      head.output.connect(busIn)
+      const hold = Math.min(headHoldMs / 1000, 0.2)   // library's ampeg_hold=0.200
+      for (const e of mel) {
+        head.inst.start({ note: e.midi + transpose, time: onset(e),
+          duration: Math.max(0.05, Math.min(hold, perNoteDur(e))),
+          velocity: gainToVelocityFull(e.gain) })
+      }
+      headReport = { headId, attackMs: head.attackMs, strength: headStrength, holdMs: headHoldMs }
+    }
+
+    celloReport = { melodyNotes: mel.length, attackMs, shiftMs: Math.round(shiftMs), bodyId,
+      head: headReport, outOfRange: [...new Set(outOfRange)].sort((a, b) => a - b) }
   }
 
   const buffer = await ctx.startRendering()

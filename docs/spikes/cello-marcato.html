@@ -1,0 +1,89 @@
+<!doctype html>
+<!--
+  SPIKE — marcato: หัวโน้ตสั้น + ลากด้วย p (ดีไซน์ของ P'Aim 17 ก.ค. · brief docs/pm/brief-cello-soften.md)
+  ท่อนเดิม · เปียโนทองเดิม · ตัวโน้ต = p เหมือนกันทั้ง 3 คลิป — ต่างกันแค่ "หัวโน้ต"
+  ⭐ 2 ปุ่มให้ P'Aim หมุนเอง: ความแรงหัวโน้ต + เลื่อนเวลาตัวโน้ต — SA ฟังไม่ออกว่าเท่าไหร่พอดี
+-->
+<html lang="th"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🎻 หัวโน้ตสั้น + ลากด้วย p</title>
+<style>
+  :root { color-scheme: light dark; --bd:#d8d8de; --mut:#666; --acc:#8a6d1f; }
+  @media (prefers-color-scheme: dark) { :root { --bd:#3a3a42; --mut:#9a9aa4; --acc:#d8b45a; } }
+  * { box-sizing: border-box }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0 auto; max-width: 640px;
+         padding: 1rem 1rem 3rem; line-height: 1.65; }
+  h1 { font-size: 1.3rem; margin: .2rem 0 .4rem }
+  .sub { color: var(--mut); font-size: .9rem; margin: 0 0 1rem }
+  .panel { border: 1px solid var(--bd); border-radius: 12px; padding: .8rem; margin-bottom: 1rem }
+  .panel h2 { font-size: .95rem; margin: 0 0 .5rem }
+  .knob { border: 2px solid var(--acc); border-radius: 12px; padding: .9rem; margin-bottom: 1rem }
+  .row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: .55rem 0 }
+  .row label { min-width: 8.5rem }
+  input[type=range] { flex: 1; min-width: 150px; height: 30px }
+  .val { font-variant-numeric: tabular-nums; min-width: 6.5rem; text-align: right; font-weight: 600 }
+  .card { border: 1px solid var(--bd); border-radius: 12px; padding: .8rem; margin-bottom: .8rem }
+  .card.ref { border-style: dashed }
+  .hd { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem }
+  .lic { font-size: .72rem; color: var(--mut); white-space: nowrap }
+  .note { font-size: .85rem; color: var(--mut); margin: .3rem 0 .5rem }
+  .controls { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap }
+  button { padding: .6rem 1.1rem; border-radius: 10px; border: 1px solid var(--bd);
+           background: transparent; font: inherit; cursor: pointer; min-height: 44px }
+  button:disabled { opacity: .45; cursor: default }
+  .dl { font-size: .85rem; text-decoration: none; border: 1px solid var(--bd); border-radius: 10px;
+        padding: .55rem .8rem; min-height: 44px; display: inline-flex; align-items: center }
+  audio { width: 100%; margin-top: .5rem }
+  .meta { font-size: .75rem; color: var(--mut); margin-top: .4rem; font-variant-numeric: tabular-nums }
+  .warn { color: #b3261e }
+  #log { font-size: .85rem; color: var(--mut); padding: .5rem 0 }
+  .ask { border-left: 3px solid var(--acc); padding-left: .7rem; font-size: .87rem }
+</style>
+</head><body>
+
+<h1>🎻 หัวโน้ตสั้น + ลากด้วย p</h1>
+<p class="sub" id="songname">กำลังโหลด…</p>
+
+<div class="panel ask">
+  <b>ดีไซน์นี้ P'Aim คิดเอง</b> — "mp mf สั้น ๆ มากๆ แล้วลากด้วย p · การแสบน่าจะเกิดตอนช่วงแรกของการเริ่มสี"<br>
+  ปรากฏว่า<b>คนที่อัดเชลโลตัวนี้ก็ทำแบบเดียวกันเป๊ะ</b> (readme เขาเขียนเอง: หัว staccato ทับบนเสียงลากยาว ·
+  ไฟล์ <code>vc_arco_marcato_map.sfz</code> หัวยาว 200ms แล้วปล่อย + มีปุ่มปรับความแรงหัวโน้ตมาให้ด้วย)
+</div>
+
+<div class="knob">
+  <h2>⭐ 2 ปุ่มนี้ — หมุนจนพอดีหูแล้วบอกค่ามาได้เลยครับ</h2>
+  <div class="row">
+    <label for="head">ความแรงหัวโน้ต</label>
+    <input type="range" id="head" min="0" max="2" step="0.05" value="1">
+    <span class="val" id="headVal"></span>
+  </div>
+  <div class="row">
+    <label for="shift">เลื่อนเวลาตัวโน้ต</label>
+    <input type="range" id="shift" min="0" max="200" step="10" value="200">
+    <span class="val" id="shiftVal"></span>
+  </div>
+  <p class="note" style="margin:.5rem 0 0">
+    <b>ความแรงหัวโน้ต:</b> 0 = ไม่มีหัวเลย (= p ล้วนแบบเดิม) · 100% = ปกติ · เกิน 100% = หัวเด่นขึ้น<br>
+    <b>เลื่อนเวลาตัวโน้ต:</b> ตัว p ใช้เวลาบวม 200ms เลยต้องเริ่มก่อนบีต — <b>แต่ถ้าหัวโน้ตเคาะตรงบีตอยู่แล้ว
+    หูอาจยึดหัวโน้ตเป็นจังหวะ → ไม่ต้องเลื่อนเลยก็ได้ (ลอง 0 ดู)</b> · นี่คือข้อที่อาจแก้อาการ "เหมือนเร่งจังหวะ"
+    ที่ P'Aim ได้ยินตอนฟัง p ล้วน
+  </p>
+</div>
+
+<div class="panel">
+  <h2>ปุ่มปรับอื่น (มีผลกับทุกคลิปเท่ากัน)</h2>
+  <div class="row">
+    <label for="makeup">เสียงเชลโลดัง/เบา</label>
+    <input type="range" id="makeup" min="0.35" max="2.8" step="0.05">
+    <span class="val" id="makeupVal"></span>
+  </div>
+  <div class="row"><label><input type="checkbox" id="unison"> ให้เปียโนเล่นทำนองด้วย</label></div>
+  <div class="meta" id="cal"></div>
+</div>
+
+<div id="cards"></div>
+<div id="log">พร้อม</div>
+
+<script>window.SPIKE_VARIANTS = 'marcato'</script>
+<script type="module" src="/src/spikes/celloBakeoffPage.js"></script>
+</body></html>

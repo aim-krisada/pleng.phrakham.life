@@ -4,12 +4,14 @@
 //   /docs/spikes/cello-soften.html  — which BOW WEIGHT of the chosen library? (p/mp/mf + D)
 // The page picks its variant set from `window.SPIKE_VARIANTS`; everything else is the same harness.
 import { supabase } from '../supabase.js'
-import { VARIANTS, DYN_LAYERS, PIANO_ONLY, renderClip, bufferToMp3, measure, excerptRange,
+import { VARIANTS, DYN_LAYERS, MARCATO, PIANO_ONLY, renderClip, bufferToMp3, measure, excerptRange,
   calibrateLevels, normalizeBuffer } from './celloBakeoff.js'
 
-const IS_DYN = window.SPIKE_VARIANTS === 'dynamics'
-const VARIANT_SET = IS_DYN ? DYN_LAYERS : VARIANTS
-const SPIKE_SLUG = IS_DYN ? 'cello-soften' : 'cello-bakeoff'
+const MODE = window.SPIKE_VARIANTS || 'libraries'
+const IS_DYN = MODE === 'dynamics'
+const IS_MARC = MODE === 'marcato'
+const VARIANT_SET = IS_MARC ? MARCATO : IS_DYN ? DYN_LAYERS : VARIANTS
+const SPIKE_SLUG = IS_MARC ? 'cello-marcato' : IS_DYN ? 'cello-soften' : 'cello-bakeoff'
 
 const $ = (s) => document.querySelector(s)
 const q = new URLSearchParams(location.search)
@@ -21,7 +23,9 @@ const TO_LI = q.get('to') != null ? Number(q.get('to')) : null
 
 // `balance` is a RELATIVE nudge (×) around the measured lead-level default from calibrateLevels().
 const state = { song: null, range: null, clips: {}, balance: 1, correctTuning: true,
-  pianoKeepsMelody: false, negativeDelay: true, cal: null }
+  pianoKeepsMelody: false, negativeDelay: true, cal: null,
+  // P'Aim's two marcato knobs — "how hard" and "shift the body or not" are ear questions
+  headStrength: 1, bodyShiftMs: null }
 const log = (m) => { $('#log').textContent = m }
 
 async function loadSong() {
@@ -58,8 +62,11 @@ async function renderAll() {
   }
   const dbs = Object.entries(state.cal.gains)
     .map(([k, g]) => `${k} ${(20 * Math.log10(g)).toFixed(1)}dB`).join(' · ')
-  $('#cal').textContent = `${IS_DYN ? 'ทั้ง 3 ชั้นเสียง' : 'เชลโล 3 ตัว'}ถูกปรับให้ดังเท่ากันแล้ว (${dbs}) · `
-    + `ระดับเริ่มต้นตั้งเท่ากับ "ทำนองของเปียโน" ที่วัดได้ · ทุกคลิปถูกปรับให้ดังเท่ากันตอนเล่น`
+  const calEl = $('#cal')
+  if (calEl) calEl.textContent = IS_MARC
+    ? `ตัวโน้ต (p) เหมือนกันทั้ง 3 คลิป — ต่างกันแค่หัวโน้ต · ทุกคลิปดังเท่ากันตอนเล่น`
+    : `${IS_DYN ? 'ทั้ง 3 ชั้นเสียง' : 'เชลโล 3 ตัว'}ถูกปรับให้ดังเท่ากันแล้ว (${dbs}) · `
+      + `ระดับเริ่มต้นตั้งเท่ากับ "ทำนองของเปียโน" ที่วัดได้ · ทุกคลิปถูกปรับให้ดังเท่ากันตอนเล่น`
 
   for (const v of all) {
     log(`กำลังสร้างเสียง ${v.label} …`)
@@ -72,6 +79,7 @@ async function renderAll() {
         // measured lead-level default × P'Aim's nudge × this library's fairness gain
         celloMakeup: state.cal.leadMakeup * state.balance * (state.cal.gains[v.id] ?? 1),
         pianoKeepsMelody: state.pianoKeepsMelody, negativeDelay: state.negativeDelay,
+        headId: v.head || null, headStrength: state.headStrength, bodyShiftMs: state.bodyShiftMs,
       })
       normalizeBuffer(buffer)          // all 4 clips play at one loudness (see normalizeBuffer)
       const m = measure(buffer)
@@ -91,15 +99,17 @@ async function renderAll() {
       document.querySelector(`[data-meta="${v.id}"]`).innerHTML =
         `${m.seconds.toFixed(1)}s · ${(blob.size / 1024).toFixed(0)} KB · peak ${m.peakDb.toFixed(1)}dB`
         + ` · RMS ${m.rmsDb.toFixed(1)}dB${m.clipped ? ' · <b class="warn">CLIP!</b>' : ''}`
-        + `${celloReport ? ` · เชลโล ${celloReport.melodyNotes} โน้ต · หัวเสียงไต่ ${celloReport.attackMs}ms`
-          + `${celloReport.shiftMs ? ` → เลื่อนก่อน ${celloReport.shiftMs}ms` : ' → ไม่เลื่อน'}` : ''}${oor}`
+        + `${celloReport ? ` · เชลโล ${celloReport.melodyNotes} โน้ต · ตัวโน้ตไต่ ${celloReport.attackMs}ms`
+          + `${celloReport.shiftMs ? ` → เลื่อนก่อน ${celloReport.shiftMs}ms` : ' → ไม่เลื่อน'}`
+          + `${celloReport.head ? ` · หัวโน้ต ${celloReport.head.headId.replace('staccato-','')} ไต่ ${celloReport.head.attackMs}ms × ${Math.round(celloReport.head.strength*100)}%` : ''}` : ''}${oor}`
         + ` · ${((performance.now() - t0) / 1000).toFixed(1)}s · ${perf.length} events`
     } catch (e) {
       document.querySelector(`[data-meta="${v.id}"]`).innerHTML = `<b class="warn">พัง: ${e.message}</b>`
       console.error(v.id, e)
     }
   }
-  log(IS_DYN ? 'พร้อมฟังแล้ว — สลับ p / mp / mf ไปมาได้เลย' : 'พร้อมฟังแล้ว — สลับ A/B/C/D ไปมาได้เลย')
+  log(IS_MARC ? 'พร้อมฟังแล้ว — หมุน 2 ปุ่มข้างบนจนพอดีหูได้เลย แล้วบอกค่ามา'
+    : IS_DYN ? 'พร้อมฟังแล้ว — สลับ p / mp / mf ไปมาได้เลย' : 'พร้อมฟังแล้ว — สลับ A/B/C/D ไปมาได้เลย')
 }
 
 async function main() {
@@ -113,17 +123,41 @@ async function main() {
   } catch (e) { log('พัง: ' + e.message); console.error(e) }
 }
 
+// controls differ per page → bind only what exists
+const on = (sel, ev, fn) => { const el = $(sel); if (el) el.addEventListener(ev, fn) }
+
 const showBalance = () => {
   const db = 20 * Math.log10(state.balance)
-  $('#makeupVal').textContent = state.balance === 1 ? 'ปกติ' : `${db > 0 ? '+' : ''}${db.toFixed(1)} dB`
+  const el = $('#makeupVal')
+  if (el) el.textContent = state.balance === 1 ? 'ปกติ' : `${db > 0 ? '+' : ''}${db.toFixed(1)} dB`
 }
-$('#makeup').addEventListener('input', (e) => { state.balance = Number(e.target.value); showBalance() })
-$('#makeup').addEventListener('change', renderAll)
+on('#makeup', 'input', (e) => { state.balance = Number(e.target.value); showBalance() })
+on('#makeup', 'change', renderAll)
 // tuning changes the cello audio → the fairness calibration must be re-measured for it
-$('#tuning').addEventListener('change', (e) => { state.correctTuning = e.target.checked; state.cal = null; renderAll() })
-$('#unison').addEventListener('change', (e) => { state.pianoKeepsMelody = e.target.checked; renderAll() })
-$('#negdelay').addEventListener('change', (e) => { state.negativeDelay = e.target.checked; renderAll() })
-$('#makeup').value = '1'
+on('#tuning', 'change', (e) => { state.correctTuning = e.target.checked; state.cal = null; renderAll() })
+on('#unison', 'change', (e) => { state.pianoKeepsMelody = e.target.checked; renderAll() })
+on('#negdelay', 'change', (e) => { state.negativeDelay = e.target.checked; renderAll() })
+
+// ── P'Aim's 2 marcato knobs ──────────────────────────────────────────────────────────────────
+// The point of these being knobs: "how hard should the head be" and "does the body still need
+// shifting once the head marks the beat" are both things SA cannot hear. So P'Aim turns them until
+// it sits right and we record the number — instead of me guessing and looping.
+const showHead = () => {
+  const el = $('#headVal')
+  if (el) el.textContent = state.headStrength === 0 ? 'ปิด (p ล้วน)' : `${Math.round(state.headStrength * 100)}%`
+}
+const showShift = () => {
+  const el = $('#shiftVal')
+  if (el) el.textContent = state.bodyShiftMs === null ? 'อัตโนมัติ (200ms)' : `${state.bodyShiftMs} ms`
+}
+on('#head', 'input', (e) => { state.headStrength = Number(e.target.value); showHead() })
+on('#head', 'change', renderAll)
+on('#shift', 'input', (e) => { state.bodyShiftMs = Number(e.target.value); showShift() })
+on('#shift', 'change', renderAll)
+
+if ($('#makeup')) $('#makeup').value = '1'
 showBalance()
+if (IS_MARC) { state.bodyShiftMs = 200; if ($('#shift')) $('#shift').value = '200'; if ($('#head')) $('#head').value = '1' }
+showHead(); showShift()
 
 main()

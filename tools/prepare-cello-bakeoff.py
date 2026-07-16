@@ -55,6 +55,10 @@ TARGET_RMS_DB = -20.0         # common loudness target for all 3 libraries
 # file that lands outside the window is flagged rather than trusted.
 OCTAVE_FIX = 12
 
+# The 17 pitches Karoryfer records (minor thirds, C/Eb/Gb/A across the cello's range). Any Karoryfer-
+# derived set MUST land on exactly these; anything else means files were missed by a glob.
+KARORYFER_PITCHES = [36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84]
+
 
 # ---------- measurement ----------------------------------------------------------------------
 def decode(path):
@@ -238,7 +242,7 @@ def spread_key_ranges(pitches):
     return ranges
 
 
-def build(lib, files, expect_of, stereo=False, loops=None, naive_of=None):
+def build(lib, files, expect_of, stereo=False, loops=None, naive_of=None, expect_pitches=None):
     print(f"\n### {lib}")
     rows = []
     for f in files:
@@ -262,6 +266,13 @@ def build(lib, files, expect_of, stereo=False, loops=None, naive_of=None):
         if r["midi"] not in by_pitch or r["rms_db"] > by_pitch[r["midi"]]["rms_db"]:
             by_pitch[r["midi"]] = r
 
+    if expect_pitches and sorted(by_pitch) != sorted(expect_pitches):
+        missing = [p for p in expect_pitches if p not in by_pitch]
+        extra = [p for p in by_pitch if p not in expect_pitches]
+        print(f"  🔴 {lib}: got {len(by_pitch)} pitches, expected {len(expect_pitches)}"
+              f" · missing {missing} · unexpected {extra}")
+        raise SystemExit(f"{lib}: incomplete pitch set — a missing pitch is silently faked by "
+                         f"stretching a neighbour = wrong notes. Fix the source glob.")
     mean_rms = sum(r["rms_db"] for r in by_pitch.values()) / len(by_pitch)
     makeup_db = TARGET_RMS_DB - mean_rms
     print(f"  {len(by_pitch)} pitches {min(by_pitch)}..{max(by_pitch)} | mean RMS {mean_rms:+.2f} dB "
@@ -271,6 +282,11 @@ def build(lib, files, expect_of, stereo=False, loops=None, naive_of=None):
     ranges = spread_key_ranges(by_pitch.keys())
     regions = []
     outdir = OUT / lib
+    # wipe stale output first: a re-run after fixing a pitch bug leaves the OLD (wrongly named) .ogg
+    # behind — e.g. the phantom `67.ogg` survived the fix as an orphan. Harmless only until someone
+    # reads the folder and believes it.
+    if outdir.exists():
+        for old in outdir.glob("*.ogg"): old.unlink()
     for p, r in sorted(by_pitch.items()):
         convert(r["src"], outdir / f"{p}.ogg", makeup_db, stereo)
         reg = {"sample": str(p), "keyRange": ranges[p], "pitch": p,
@@ -332,6 +348,29 @@ def karoryfer_note(name):
 # The `_d`/`_g` bow-stroke axis stays out (P'Aim: doubles the size for little realism).
 DYNAMICS = ["p", "mp", "mf", "f"]
 
+# ── MARCATO (P'Aim's own design, 17 ก.ค.) ─────────────────────────────────────────────────────
+# P'Aim: "mp mf สั้น ๆ มากๆ แล้วลากด้วย p · คนเล่นจริงลากยาวเน้นตลอดไม่ได้โดยธรรมชาติ · การแสบน่าจะเกิดตอน
+# ช่วงแรกของการเริ่มสีขึ้นหรือลง" — i.e. the harshness lives in the START of the bow stroke, so use a
+# SHORT hard attack and let a soft p carry the body.
+#
+# That is exactly what the people who recorded this cello built. Their readme: "a scripted marcato
+# which uses staccato attacks layered on top of sustained notes", and `vc_arco_marcato_map.sfz` does
+# it with `ampeg_hold=0.200` (200 ms head) + `ampeg_sustain_oncc103=0` (the head then gets out of the
+# way) + `amplitude_oncc110=100` = a "Marcato Strength" knob. So attack strength being a KNOB rather
+# than a number we pick is the library's own design decision too — and SA cannot hear "how hard is
+# right", so P'Aim turns it (memory pleng-aesthetic-audio-needs-ear).
+#
+# `_1` take only for now: the set ships 4 round-robin takes (`_1.._4`, seq_length=4) which would stop
+# repeated notes sounding machine-gunned, but PM's rule is one new variable at a time — RR is reported
+# as available, not switched on here.
+STACCATO_DYNAMICS = ["mp", "mf"]   # the two P'Aim named for the head
+STACCATO_RR = "1"
+# ⚠️ the staccato set names its takes INCONSISTENTLY: 11 pitches are `A1_mp_1.wav` but 6 (Eb2/Eb3/Eb4/
+# Gb2/Gb3/Gb4) are `Eb2_mp1.wav` with no separator. Globbing one form silently yields 11 of 17 pitches
+# — and the missing ones get faked by stretching a neighbouring sample, i.e. WRONG PITCHES, the same
+# class of defect as the phantom-67 bug. Both forms are matched, and build() hard-checks the count.
+STACCATO_GLOBS = ["*_{dyn}_{rr}.wav", "*_{dyn}{rr}.wav"]
+
 
 def karoryfer_expect(name):
     """Expected MIDI for a Karoryfer filename = its note name + the library's verified octave offset."""
@@ -351,6 +390,14 @@ def sso_expect(name):
     return SEMI[letter] + (1 if sharp else 0) + (int(m.group(2)) + 1) * 12
 
 
+def staccato_expect(name):
+    """Staccato uses the same note naming as sus -> same verified +12 convention."""
+    m = re.match(r"([A-G])(b|#)?(\d+)_", name)
+    if not m: return None
+    semi = SEMI[m.group(1)] + (-1 if m.group(2) == "b" else 1 if m.group(2) == "#" else 0)
+    return semi + (int(m.group(3)) + 1) * 12 + OCTAVE_FIX
+
+
 def main():
     summary = {}
     if KARORYFER.exists():
@@ -358,11 +405,21 @@ def main():
             files = sorted(glob.glob(str(KARORYFER / f"*_{dyn}_d.wav")))
             if files:
                 summary[f"karoryfer-{dyn}"] = build(f"karoryfer-{dyn}", files, karoryfer_expect,
-                                                    stereo=False, naive_of=karoryfer_note)
+                                                    stereo=False, naive_of=karoryfer_note,
+                                                    expect_pitches=KARORYFER_PITCHES)
+        # marcato heads: a short staccato attack that sits ON TOP of the p sustain (P'Aim's design)
+        for dyn in STACCATO_DYNAMICS:
+            sdir = KARORYFER.parent / "staccato"
+            sfiles = sorted({f for g in STACCATO_GLOBS
+                             for f in glob.glob(str(sdir / g.format(dyn=dyn, rr=STACCATO_RR)))})
+            if sfiles:
+                summary[f"staccato-{dyn}"] = build(f"staccato-{dyn}", sfiles, staccato_expect,
+                                                   stereo=False, naive_of=karoryfer_note,
+                                                   expect_pitches=KARORYFER_PITCHES)
         # kept so the bake-off page (mf = what P'Aim already judged) still resolves
         files = sorted(glob.glob(str(KARORYFER / "*_mf_d.wav")))
         summary["karoryfer"] = build("karoryfer", files, karoryfer_expect, stereo=False,
-                                    naive_of=karoryfer_note)
+                                    naive_of=karoryfer_note, expect_pitches=KARORYFER_PITCHES)
     else:
         print(f"skip karoryfer (not found: {KARORYFER})")
 
