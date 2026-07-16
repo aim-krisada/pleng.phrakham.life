@@ -123,11 +123,16 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); width:
    Extends B023, which only reached the song list. */
 #app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
 
-.container { max-width: var(--container); margin: 0 auto; padding: var(--sp-4); }
+/* max-width caps at min(design, 100%) so a container never exceeds the viewport:
+   main.container is a flex item (flex:1 0 auto below) whose cross-axis width can grow
+   past #app's width when a child's min-content is wide, pushing a mobile h-scroll on
+   every page (shell root bug). The 100% cap keeps it inside the viewport; the design
+   width still applies on wider screens. min-width:0 lets the flex item shrink too. */
+.container { max-width: min(var(--container), 100%); margin: 0 auto; padding: var(--sp-4); }
 /* content takes all the slack in the column so the footer is pushed to the bottom */
-main.container { flex: 1 0 auto; }
+main.container { flex: 1 0 auto; min-width: 0; }
 /* the Studio shell is a wider, Google-Docs-style workspace (rail + editor) */
-.container.studio-wide { max-width: var(--container-wide); }
+.container.studio-wide { max-width: min(var(--container-wide), 100%); }
 @media (max-width: 480px) { .container { padding: var(--sp-3); } }
 
 /* navbar tools (download) — mirrors phrakham.life2 .pk-tool */

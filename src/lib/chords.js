@@ -1,4 +1,4 @@
-// Chord math: parsing, transposing, and letter <-> Nashville-number conversion.
+// Chord math: parsing, transposing, and letter <-> Roman-numeral conversion.
 
 const SHARP_SCALE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const FLAT_SCALE = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']

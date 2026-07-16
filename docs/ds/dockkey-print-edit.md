@@ -23,7 +23,7 @@
 | setting | ตั้งค่า (⚙) | gear | `settings` | right · row1 | onDock·always | always | เปิดหน้าตั้งค่า |
 | display | แสดงผล | menu | `layers` | flow | **inSetting**·pin | always | ครบ(เนื้อ+คอร์ด+โน้ต) / เนื้อ+คอร์ด / เนื้อ+โน้ต / เนื้อล้วน / โน้ตล้วน — badge = short label · **คุมว่าเลเยอร์ไหนพิมพ์** (ปัจจุบันล็อก "ครบ") |
 | book | แบบแผ่น | menu | `book-open` | flow | **inSetting**·pin | always | **สมุดเพลง** (ทำนองโชว์ครั้งเดียว · เที่ยวซ้ำ=เนื้อล้วน) / **เต็ม** (โน้ตทุกเที่ยว) — คุม prop `songbook` (ปัจจุบันล็อก true) |
-| chord | คอร์ด | menu | `guitar` | flow | **inSetting**·pin | always | ตัวอักษร (A B C) / เลขนัชวิลล์ (1 4 5) / ซ่อนคอร์ด — badge ABC·145·— (เหมือนฝึกร้อง) |
+| chord | คอร์ด | menu | `guitar` | flow | **inSetting**·pin | always | ตัวอักษร (A B C) / คอร์ดโรมัน (I IV V) / ซ่อนคอร์ด — badge ABC·I·V·— (เหมือนฝึกร้อง) |
 | key | คีย์ (พิมพ์คีย์อื่น) | menu | `key-round` | flow | **inSetting**·pin | always | transpose ตอนพิมพ์ · badge = คีย์ที่เลือก (default = คีย์เดิมของเพลง) |
 | download | ดาวน์โหลด JSON | btn | `download` | flow | **inSetting**·pin | always | โหลดไฟล์ข้อมูลเพลง (`downloadSong`) |
 
