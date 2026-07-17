@@ -18,22 +18,42 @@
 
 ---
 
-## 1 · Operating model (P'Aim 2026-07-11)
-1. **P'Aim คุยกับ PM คนเดียว** — PM = หน้าด่านเดียว · dev/SA/tester/DA ไม่คุยกับ P'Aim ตรง · ทุกสายรายงานเข้า PM · PM คัด+รวบ+เสนอ
+## 1 · Operating model (P'Aim 2026-07-11 · roster ปรับ 2026-07-17)
+1. **P'Aim คุยกับ PM คนเดียว** — PM = หน้าด่านเดียว · SA/UX/dev/tester/DA ไม่คุยกับ P'Aim ตรง · ทุกสายรายงานเข้า PM · PM คัด+รวบ+เสนอ · **→ มีกี่ที่นั่งก็ได้ ภาระความสนใจของ P'Aim ยังเท่าเดิม = คนเดียว** (กุญแจของโครงนี้)
 2. **PM คุมงานให้ได้มาตรฐาน** — ISO/IEC 29110-5-4 + มาตรฐานสากล (`docs/ui-standards.md`) + เครื่องมือที่เลือก (Claude Code · axe-core · vitest · git worktree · Supabase)
 3. **ส่งเฉพาะงาน ~100%** ให้ P'Aim ตรวจ (ผ่าน gate ครบก่อน) · P'Aim ตรวจทิศทาง/ยกตัวอย่าง ไม่ใช่ QA
 4. **ทุก defect/ตัวอย่างของ P'Aim → ยกระดับ SOP/มาตรฐาน/automation** ให้ดักครั้งหน้า (แก้ที่ process ไม่โทษคน)
+
+### 1.1 · ⭐ Roster: 3 ที่นั่งคิดถาวร + Dev/Tester จ่ายต่องาน (P'Aim 2026-07-17)
+**เหตุผล:** วันนี้ PM จ่ายงานปะทีละใบที่ผู้ใช้บ่น **ไม่มีใครถือภาพรวมทั้งเว็บ** → "เว็บไม่ consistent เลย" · และ SA/UX ถูกทำโดย session ลอย ๆ ที่ต้อง re-brief ทุกครั้ง → เสียภาพรวม + ชนกัน
+```
+P'Aim ──คุยกับ── PM (Agile PM · หน้าด่านเดียว · จัดคิวไฟล์ · funnel ภาษาคน)
+          ┌────────────┼────────────┐
+     SA (ถาวร)     UX/UI (ถาวร)      ← ถือ "ภาพรวม" ในโดเมนตัวเอง · รายงานเข้า PM
+          └────────────┴────────────┘
+                 Dev / Tester  ← PM จ่ายต่องาน · ใช้แล้วปิด · worktree แยก (ไม่ถาวร)
+```
+- **3 ที่นั่งคิด (PM/SA/UX) = ถาวร** (persistent worktree + session ยาว) → **ถือภาพรวม ไม่ต้อง re-brief** = ตัวแก้ "ไม่มีใครเห็นภาพรวม"
+- **Dev/Tester = จ่ายต่องาน · disposable · worktree แยก** (มือทำต้องแยกกันไม่ชนโค้ด · หัวคิดต้องรวมเป็นภาพเดียว) · **⛔ อย่าทำ Dev/Tester เป็นที่นั่งถาวร**
+- **worktree ถาวร:** `pleng.phrakham.life-pm` (PM) · `pleng.phrakham.life-sa` (SA) · `pleng.phrakham.life-uxui` (UX/UI) — คนละ branch ยาว · เขียน doc เข้า base ผ่าน PM
+
+### 1.2 · 🔴 กฎเหล็ก: 1 ไฟล์ = 1 สาย ณ เวลาหนึ่ง · PM จัดคิว
+**บทเรียน 2026-07-17:** PM ปล่อย 2 สายแตะไฟล์เดียวกันพร้อมกัน → งานทับกัน (เชลโล vibrato · `EditorMode.vue` หลายรอบ). **โครง 3 ที่นั่งจะได้ผลก็ต่อเมื่อ PM คุมข้อนี้เข้ม** — ทุก brief ต้องระบุไฟล์ที่จะแตะ · PM เช็ก collision ก่อนจ่าย · ถ้าชน = เข้าคิว ไม่จ่ายขนาน
+**+ ยกรายงานเข้าฐานทันทีที่เสร็จ** (อย่าให้ค้างในสาขา = สายอื่นทำซ้ำ · บทเรียน editor-friction 45KB ติดสาขา)
 
 ## 2 · Roles
 | Role | หน้าที่ |
 |---|---|
 | **P'Aim (PO)** | จัดลำดับความสำคัญ · เคาะ mockup/design · ตรวจงานเกือบ 100% · สั่ง deploy |
-| **PM (Claude)** | หน้าด่านเดียว · แตกงาน+จ่าย (collision-aware) · เขียน brief อ้างมาตรฐาน · คุม gate/DoD · merge · deploy เมื่อ PO สั่ง · ดูแล SOP/board/มาตรฐาน · **ไม่ code เอง** |
-| **SA** | ออกแบบ US/DS + mockup ตามมาตรฐาน (docs only) |
-| **dev** | สร้างตาม DS+prototype+มาตรฐาน · เขียน test · ไม่ merge เอง |
-| **tester** | **gate ของทุก UI ก่อน P'Aim** — automate (axe/no-scroll/target-size) + ตรวจ checklist+ui-standards · เซ็นหลักฐาน |
+| **PM (Claude · ถาวร)** | Agile PM · หน้าด่านเดียว · แตกงาน+จ่าย (collision-aware · **1 ไฟล์ 1 สาย**) · เขียน brief อ้างมาตรฐาน · คุม gate/DoD · merge · deploy เมื่อ PO สั่ง · ดูแล SOP/board/มาตรฐาน · **ไม่ code เอง** · `pleng.phrakham.life-pm` |
+| **SA — System Architect (ถาวร)** | **"ทำได้ไหม · ต่อสายตรงไหน · ข้อมูล/สถาปัตยกรรมถูกไหม"** — feasibility · data model · RLS/security · จุดต่อโค้ด · ออกแบบ US/DS ฝั่งระบบ (docs only) · ถือภาพรวม**สถาปัตยกรรม** · `pleng.phrakham.life-sa` |
+| **UX/UI (ถาวร · world-class)** | **"ผู้ใช้เห็นอะไร · ทำอะไร · ทั้งเว็บเป็นอันเดียวกันไหม"** — user flow · information architecture · visual/interaction consistency · ออกแบบ US/DS ฝั่ง UX + mockup อิง `ui-standards.md` · **เจ้าของ "ความ consistent ทั้งผลิตภัณฑ์"** (docs only) · `pleng.phrakham.life-uxui` |
+| **dev (ต่องาน · disposable)** | สร้างตาม DS+prototype+มาตรฐาน · เขียน test · self-verify · ไม่ merge เอง · worktree แยกใช้แล้วปิด |
+| **tester (ต่องาน · disposable)** | **gate ของทุก UI ก่อน P'Aim** — automate (axe/no-scroll/target-size) + ตรวจ checklist+ui-standards · เซ็นหลักฐาน · worktree แยก |
 | **DA** | นำเข้า/จัดข้อมูลเพลง (SQL ให้ PO run) |
-| **พี่เปา** | tester ดนตรี (ฟังเสียง/จังหวะ · review เพลง) |
+| **พี่เปา** | tester ดนตรี (ฟังเสียง/จังหวะ · review เพลง) · **คนเดียวที่พิมพ์เพลงเข้าระบบ = คอขวด → UX ของหน้าแก้ไข = ความสำคัญสูงสุด** |
+
+**ขอบเขต SA ↔ UX (กันทับ/กันช่องว่าง):** ถ้าคำถามคือ *"สร้างได้ไหม/ข้อมูลถูกไหม"* = SA · ถ้าคือ *"ผู้ใช้เข้าใจไหม/สวย+เป็นอันเดียวกันไหม"* = UX · งานที่คาบเกี่ยว (เช่น selection-driven redesign) = **UX นำเรื่อง flow · SA ตรวจ feasibility** · PM จัดให้คุยกันผ่าน PM ไม่ใช่ต่างคนต่างออกแบบ
 
 ## 3 · Workflow + gates (ISO 29110-5-4 SI mapping)
 **⭐ Shift-left (P'Aim 11 ก.ค.): มาตรฐานฝังตั้งแต่ SA→DEV ไม่รอ tester.** SA ออกแบบ**อิง `ui-standards.md` ตั้งแต่แรก + self-audit**; dev build อิงมาตรฐาน + **self-verify (axe Tier-A + Tier-B ผ่าน Claude Browser MCP) ก่อนส่ง tester**. → tester = **"ยืนยัน" (ควรผ่านรอบแรก)** ไม่ใช่ "ค้นเจอ+วนแก้". ถ้า tester เจอเยอะ = ต้นทาง (SA/dev) ไม่ self-check → แก้ที่ process (เพิ่ม self-verify ใน DoD/brief) ไม่ใช่โทษคน.
