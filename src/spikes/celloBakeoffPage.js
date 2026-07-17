@@ -4,8 +4,8 @@
 //   /docs/spikes/cello-soften.html  — which BOW WEIGHT of the chosen library? (p/mp/mf + D)
 // The page picks its variant set from `window.SPIKE_VARIANTS`; everything else is the same harness.
 import { supabase } from '../supabase.js'
-import { VARIANTS, DYN_LAYERS, MARCATO, PIANO_ONLY, renderClip, bufferToMp3, measure, excerptRange,
-  calibrateLevels, normalizeBuffer } from './celloBakeoff.js'
+import { VARIANTS, DYN_LAYERS, MARCATO, PAIM_MARCATO, PIANO_ONLY, renderClip, bufferToMp3, measure,
+  excerptRange, calibrateLevels, normalizeBuffer } from './celloBakeoff.js'
 
 const MODE = window.SPIKE_VARIANTS || 'libraries'
 const IS_DYN = MODE === 'dynamics'
@@ -24,8 +24,8 @@ const TO_LI = q.get('to') != null ? Number(q.get('to')) : null
 // `balance` is a RELATIVE nudge (×) around the measured lead-level default from calibrateLevels().
 const state = { song: null, range: null, clips: {}, balance: 1, correctTuning: true,
   pianoKeepsMelody: false, negativeDelay: true, cal: null,
-  // P'Aim's two marcato knobs — "how hard" and "shift the body or not" are ear questions
-  headStrength: 1, bodyShiftMs: null }
+  // P'Aim's two marcato knobs — start at the values HE turned them to and approved (PAIM_MARCATO)
+  headStrength: PAIM_MARCATO.headStrength, bodyShiftMs: PAIM_MARCATO.bodyShiftMs }
 const log = (m) => { $('#log').textContent = m }
 
 async function loadSong() {
@@ -157,7 +157,12 @@ on('#shift', 'change', renderAll)
 
 if ($('#makeup')) $('#makeup').value = '1'
 showBalance()
-if (IS_MARC) { state.bodyShiftMs = 200; if ($('#shift')) $('#shift').value = '200'; if ($('#head')) $('#head').value = '1' }
+if (IS_MARC) {
+  state.headStrength = PAIM_MARCATO.headStrength
+  state.bodyShiftMs = PAIM_MARCATO.bodyShiftMs
+  if ($('#shift')) $('#shift').value = String(PAIM_MARCATO.bodyShiftMs)
+  if ($('#head')) $('#head').value = String(PAIM_MARCATO.headStrength)
+}
 showHead(); showShift()
 
 main()

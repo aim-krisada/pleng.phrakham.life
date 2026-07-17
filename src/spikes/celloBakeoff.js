@@ -51,13 +51,30 @@ export const PIANO_ONLY = { id: 'none', label: 'D · เปียโนทอง
 // "Marcato Strength" knob. Their marcato splits head-vs-body BY TIME, which is not the
 // crossfade-two-dynamics-of-one-note thing we're avoiding (that one really does sound like 2 cellos).
 export const MARCATO = [
-  { id: 'marcato-mp', label: 'p ลากยาว + หัวโน้ต mp', licence: 'CC0', head: 'staccato-mp',
-    note: 'หัวสั้น mp เคาะตรงบีต แล้วปล่อย p พาต่อ — ดีไซน์ของ P\'Aim' },
+  { id: 'marcato-mp', label: 'p ลากยาว + หัวโน้ต mp ⭐ P\'Aim เคาะ', licence: 'CC0', head: 'staccato-mp',
+    note: 'ค่าที่ P\'Aim หมุนเอง 17 ก.ค. — หัว mp 5% · เลื่อนตัวโน้ต 10ms ("mp นุ่มกว่าหน่อย")' },
   { id: 'marcato-mf', label: 'p ลากยาว + หัวโน้ต mf', licence: 'CC0', head: 'staccato-mf',
-    note: 'หัวแรงกว่า (mf) — P\'Aim บอก "mp mf สั้น ๆ" เลยให้ฟังทั้งคู่' },
+    note: 'หัวแรงกว่า (mf) — P\'Aim: "mp กับ mf พอได้ทั้งคู่" แต่เลือก mp' },
   { id: 'karoryfer-p', label: 'p ล้วน (ไม่มีหัวโน้ต)', licence: 'CC0', head: null,
-    note: 'ตัวเทียบ = สิ่งที่ P\'Aim ฟังรอบก่อน ("นุ่มสุด ไม่เหมือนออแกน แต่บางช่วงเหมือนเร่ง")' },
+    note: 'ตัวเทียบ = ก่อนใส่หัวโน้ต ("นุ่มสุด ไม่เหมือนออแกน แต่บางช่วงเหมือนเร่ง")' },
 ]
+
+// ⭐ ค่าที่ P'AIM หมุนเองแล้วพอใจ (17 ก.ค.) — เชลโลผ่านหูเขาเป็นครั้งแรก หลังพักมา 2 รอบ.
+// LOCKED as the spike's defaults so every later experiment can fall back to this exact point. The
+// knobs still turn; only the starting value is fixed. NOT in the app yet (cello stays disabled).
+//
+// What these numbers themselves proved:
+//   headStrength 5%  — at 100% the ear hears head and body as TWO events (P'Aim's "สะดุด"); at 5%
+//                      they fuse into one note. The head is a HINT, not a hit.
+//   bodyShift 10ms   — was 200ms (p's measured bloom). P'Aim's own hand took it 20x down, which
+//                      CONFIRMS PM's hypothesis: once a sharp head marks the beat, the ear stops
+//                      needing the slow body pulled forward. Consistent with the measurement that
+//                      the head lands 145-180ms ahead of the body — there IS something to latch onto.
+export const PAIM_MARCATO = {
+  variantId: 'marcato-mp',   // body p + head mp — "mp นุ่มกว่าหน่อย"
+  headStrength: 0.05,
+  bodyShiftMs: 10,
+}
 
 export const DYN_LAYERS = [
   { id: 'karoryfer-p', label: 'p · สีเบา (นุ่มสุด)', licence: 'CC0',
