@@ -218,7 +218,10 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   // a number I pick. bodyShiftMs=null keeps the measured negative delay.
   headId = null, headStrength = 1, headHoldMs = 200, bodyShiftMs = null,
   // vibrato depth in cents (0 = off, exactly as the library ships it). P'Aim's knob — see VIBRATO.
-  vibratoCents = 0 } = {}) {
+  vibratoCents = 0,
+  // bow round-robin: alternate the body's down-bow/up-bow takes so the same file stops replaying
+  // back-to-back (~31% of notes measured). Off by default = today's sound, so A/B is direct.
+  bowRoundRobin = false } = {}) {
   const { perf, cfg, bpm: useBpm } = buildPerformance(content, { bpm, range, songId })
   const spb = 60 / useBpm
 
@@ -271,11 +274,20 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     const shift = shiftMs / 1000
     const mel = perf.filter(isMelody)
     const outOfRange = []
+    // bow round-robin: load the up-bow take too and alternate. Strictly by note INDEX (i % 2) — not
+    // random — so the MP3 is identical to what was heard live. No rng.js needed at all.
+    let upBow = null
+    if (bowRoundRobin && bodyId === 'karoryfer-p') {
+      upBow = await loadCello('karoryfer-p-g', ctx, celloMakeup, { correctTuning })
+      upBow.output.disconnect()
+      upBow.output.connect(busIn)
+    }
+
     // vibrato rides the BODY only: it is what sustains. The head is 55 ms of staccato at 5% —
     // nothing to shake, and inaudible anyway.
     const bodyOnsets = mel.map((e) => Math.max(0, onset(e) - shift))
     withVibrato(ctx, vibratoCents, bodyOnsets, () => {
-      for (const e of mel) {
+      mel.forEach((e, i) => {
         const midi = e.midi + transpose
         // honest-to-the-sheet (brief §4 · memory feedback-audio-honest-to-sheet): play the written
         // pitch. Do NOT octave-shift to flatter the sample — if it falls outside the cello's real
@@ -283,9 +295,10 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
         if (midi < CELLO_LO || midi > CELLO_HI) outOfRange.push(midi)
         // velocity from the arranger's own gain via the SAME map sampler.js uses for its CC0 cello,
         // so the cello's dynamics track the arrangement exactly like the shipped path would.
-        inst.start({ note: midi, time: Math.max(0, onset(e) - shift),
+        const voice = (upBow && i % 2 === 1) ? upBow.inst : inst
+        voice.start({ note: midi, time: Math.max(0, onset(e) - shift),
           duration: Math.max(0.12, perNoteDur(e)), velocity: gainToVelocityFull(e.gain) })
-      }
+      })
     })
 
     // the marcato head: a short staccato ON the beat, under P'Aim's strength knob. Fired at the
@@ -307,7 +320,7 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     }
 
     celloReport = { melodyNotes: mel.length, attackMs, shiftMs: Math.round(shiftMs), bodyId,
-      head: headReport, vibratoCents,
+      head: headReport, vibratoCents, bowRoundRobin: !!upBow,
       outOfRange: [...new Set(outOfRange)].sort((a, b) => a - b) }
   }
 

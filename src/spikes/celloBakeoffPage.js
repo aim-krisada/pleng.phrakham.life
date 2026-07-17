@@ -27,7 +27,9 @@ const state = { song: null, range: null, clips: {}, balance: 1, correctTuning: t
   // P'Aim's two marcato knobs — start at the values HE turned them to and approved (PAIM_MARCATO)
   headStrength: PAIM_MARCATO.headStrength, bodyShiftMs: PAIM_MARCATO.bodyShiftMs,
   // vibrato: 0 = off, exactly how the library ships it. P'Aim's third knob.
-  vibratoCents: 0 }
+  vibratoCents: 0,
+  // bow round-robin: off = today's sound, so A/B is direct
+  bowRoundRobin: false }
 const log = (m) => { $('#log').textContent = m }
 
 async function loadSong() {
@@ -82,7 +84,7 @@ async function renderAll() {
         celloMakeup: state.cal.leadMakeup * state.balance * (state.cal.gains[v.id] ?? 1),
         pianoKeepsMelody: state.pianoKeepsMelody, negativeDelay: state.negativeDelay,
         headId: v.head || null, headStrength: state.headStrength, bodyShiftMs: state.bodyShiftMs,
-        vibratoCents: state.vibratoCents,
+        vibratoCents: state.vibratoCents, bowRoundRobin: state.bowRoundRobin,
       })
       normalizeBuffer(buffer)          // all 4 clips play at one loudness (see normalizeBuffer)
       const m = measure(buffer)
@@ -169,6 +171,11 @@ const showVib = () => {
 on('#vib', 'input', (e) => { state.vibratoCents = Number(e.target.value); showVib() })
 on('#vib', 'change', renderAll)
 showVib()
+
+// bow round-robin — P'Aim asked for a button to TRY it. The numbers say the condition is real
+// (~31% of notes replay the same file), but he has never once complained of it, so the measurement
+// only proves the disease exists, not that the ear is sick. Off by default = direct A/B.
+on('#rr', 'change', (e) => { state.bowRoundRobin = e.target.checked; state.cal = null; renderAll() })
 
 if ($('#makeup')) $('#makeup').value = '1'
 showBalance()

@@ -365,6 +365,18 @@ DYNAMICS = ["p", "mp", "mf", "f"]
 # as available, not switched on here.
 STACCATO_DYNAMICS = ["mp", "mf"]   # the two P'Aim named for the head
 STACCATO_RR = "1"
+
+# Bow round-robin for the BODY only (P'Aim asked for a button to try it, 17 ก.ค.). The sus set has
+# two bow strokes per pitch — `_d` (down) and `_g` (up) — which the recordist maps as a plain
+# round-robin (seq_length=2), not chosen by musical stress. Alternating them stops the same file
+# replaying back-to-back. Only `p` is built: the body is the only thing that sustains, and the head
+# sits at 5% where PM is right that it is inaudible.
+#
+# Measured need (5 real songs): ~31% of melody notes replay the SAME source file as the note before,
+# and 4-27 per song are "invisible" repeats where the melody moves but the file doesn't (only 5-7 of
+# the 17 samples ever get used, because worship melodies sit in a narrow range).
+# Measured ceiling: 2 takes only halves it (~31% -> ~15%). Honest limit, stated on the page.
+BODY_RR_DYNAMIC = "p"
 # ⚠️ the staccato set names its takes INCONSISTENTLY: 11 pitches are `A1_mp_1.wav` but 6 (Eb2/Eb3/Eb4/
 # Gb2/Gb3/Gb4) are `Eb2_mp1.wav` with no separator. Globbing one form silently yields 11 of 17 pitches
 # — and the missing ones get faked by stretching a neighbouring sample, i.e. WRONG PITCHES, the same
@@ -407,6 +419,12 @@ def main():
                 summary[f"karoryfer-{dyn}"] = build(f"karoryfer-{dyn}", files, karoryfer_expect,
                                                     stereo=False, naive_of=karoryfer_note,
                                                     expect_pitches=KARORYFER_PITCHES)
+        # up-bow take of the body, for the round-robin button (down-bow is the `karoryfer-p` above)
+        gfiles = sorted(glob.glob(str(KARORYFER / f"*_{BODY_RR_DYNAMIC}_g.wav")))
+        if gfiles:
+            summary[f"karoryfer-{BODY_RR_DYNAMIC}-g"] = build(
+                f"karoryfer-{BODY_RR_DYNAMIC}-g", gfiles, karoryfer_expect, stereo=False,
+                naive_of=karoryfer_note, expect_pitches=KARORYFER_PITCHES)
         # marcato heads: a short staccato attack that sits ON TOP of the p sustain (P'Aim's design)
         for dyn in STACCATO_DYNAMICS:
             sdir = KARORYFER.parent / "staccato"
