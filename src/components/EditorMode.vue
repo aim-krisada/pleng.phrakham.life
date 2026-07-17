@@ -1399,6 +1399,27 @@ async function reject() {
   loadDrafts()
 }
 
+// issues10 (พี่เปา): "เพลงร่างก็หาที่ลบทั้งเพลงไม่ได้" — there was no way to throw away a draft, so
+// abandoned ones piled up in งานร่างของฉัน forever. Scope approved by P'Aim (17 ก.ค.) = OWN DRAFTS
+// ONLY; deleting a published song is a separate, unapproved question and is untouched here.
+// The RLS policy for this already exists (db/002 "Delete own or as approver"), so no DB change:
+// the server refuses a draft that is not yours even if the UI ever slipped. classifyChange()
+// already maps a song_drafts DELETE to null ("discard"), so this writes no audit event by design.
+async function deleteDraft(d) {
+  if (!window.confirm(`ลบร่าง "${d.title_th}" ถาวร? (กู้คืนไม่ได้)`)) return
+  const { error } = await supabase.from('song_drafts').delete().eq('id', d.id)
+  if (error) {
+    saveMsg.value = '❌ ลบร่างไม่สำเร็จ: ' + error.message
+    return
+  }
+  // if the open editor is holding the draft we just deleted, let go of the dead id so the next
+  // บันทึกร่าง starts a fresh row instead of updating a row that no longer exists
+  if (currentDraftId.value === d.id) currentDraftId.value = null
+  if (reviewingDraft.value?.id === d.id) reviewingDraft.value = null
+  saveMsg.value = '🗑️ ลบร่างแล้ว'
+  loadDrafts()
+}
+
 async function deleteSong() {
   if (!editingId.value) return
   if (!window.confirm(`ลบเพลง "${meta.title_th}" ออกจากรายการเพลงถาวร?`)) return
@@ -1736,7 +1757,12 @@ const editItems = computed(() => [
   { id: 'save', kind: 'btn', name: saveLabel.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
   { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', place: { row: 2, col: 3 }, run: playFull, hidden: playing.value },
   { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { row: 2, col: 4 } },
-  { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', icon: 'save', default: 'inSetting', pinnable: true, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value },
+  // issues9 (พี่เปา): บันทึกร่าง used to live in ⚙ (default:'inSetting'), where a `btn` renders no
+  // control at all — so pinning it was the ONLY way to get a button that runs ("ทำไมต้องกดปักหมุด
+  // ก่อนถึงจะเซฟร่างได้"). It is the most-used command for someone typing in 124 songs, so it has a
+  // permanent home on the bar. No `pinnable`: an item with a `place` is already on the bar, and
+  // pinning it too would render it twice (single source of action · ui-standards §2).
+  { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', label: 'บันทึกร่าง', icon: 'save', place: { row: 2, col: 5 }, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value },
   { id: 'preview', kind: 'toggle', name: 'ดูผลทั้งเพลง', icon: 'maximize', default: 'inSetting', pinnable: true, control: { value: sheetWinOpen.value, onToggle: () => (sheetWinOpen.value = !sheetWinOpen.value) } },
 ])
 
@@ -1823,6 +1849,41 @@ const edLyrOptions = computed(() => [
   { value: -1, label: '— ซ่อนเนื้อ —' },
   ...lensRowsForActiveStanza.value.map((x) => ({ value: x.i, label: rowLabel(x.r, x.i) })),
 ])
+
+// issues11 (พี่เปา): the edit header carries the tools for the line being edited (⋯ · ฮุก · ซ้ำ ·
+// ย้ายขึ้น/ลง · ลบบรรทัด) but was position:static, so it scrolled away with the page — editing
+// line 20 meant scrolling back to the top for every single tool ("ต้องเลื่อนมาบนสุดถึงจะกดใช้ได้
+// เสียเวลา"). It now sticks under the shell bar. The bar's height changes with the breakpoint
+// (105px at 1280 · taller when it wraps), so measure it rather than hard-code an offset — the
+// rail's hard-coded top:58px is exactly the drift this avoids.
+const shellH = ref(56)
+// Both bars are measured off the live DOM (the same way .shell-bar already is) rather than a
+// template ref: the ref stayed null through mount, which silently left edheadH at 0 and pinned
+// .cshead straight back on top of the edhead.
+const edheadH = ref(0)
+let edheadRO = null
+function measureShell() {
+  if (typeof document === 'undefined') return
+  const bar = document.querySelector('.shell-bar')
+  if (bar) shellH.value = Math.round(bar.getBoundingClientRect().height)
+  const eh = document.querySelector('.edhead')
+  if (!eh) return
+  edheadH.value = Math.round(eh.getBoundingClientRect().height)
+  // the edhead wraps to more rows as the width shrinks (and as its buttons swap), so track its
+  // real box — a fixed number would drift the moment the header re-wraps
+  if (!edheadRO && typeof ResizeObserver !== 'undefined') {
+    edheadRO = new ResizeObserver(() => { edheadH.value = Math.round(eh.getBoundingClientRect().height) })
+    edheadRO.observe(eh)
+  }
+}
+
+// The ท่อน toolbar (.cshead) was ALREADY sticky at a hard-coded top:58px (B085, same reason as
+// this header). Once the edhead pins too, 58px puts .cshead UNDER it — measured: 62px of overlap
+// and its buttons failed a hit test, i.e. we would have traded one unreachable toolbar for
+// another. So .cshead pins below whatever the edhead actually occupies. The edhead wraps at
+// narrow widths, so its height is observed, not assumed.
+// mobile keeps .cshead's own CSS top (the edhead is not sticky there — see the media query)
+const csheadStyle = computed(() => (narrow.value ? {} : { top: shellH.value + edheadH.value + 'px' }))
 
 // ---------- edit header (edhead — prototype ps2 §③) ----------
 // The header is a BREADCRUMB that opens the rail (the rail is the only navigation — no
@@ -1924,8 +1985,20 @@ function toggleBarShown(li, bi) {
 // (StudioDock combinedDown/Move/Up + clampToViewport) so it feels like the app's other
 // floating chrome — no new floating engine.
 const sheetWinOpen = ref(false)
-const sheetWinPos = ref(null) // {left, top} viewport coords · null = default CSS spot (top-right)
-const sheetWinSize = ref(null) // {width, height} px · null = default CSS size (min(440px…))
+// P'Aim: "ควรใช้พื้นที่เต็ม · เหลือที่ทางขวาเยอะ". Part of that was the window FORGETTING: drag it
+// wide, close it, reopen → back to the default every time. Remembered per browser, like the dock's
+// pins/transparency. Values are re-clamped to the viewport on open (onFloatResize), so a size
+// saved on a big monitor cannot strand the window off-screen on a laptop.
+const FLOAT_BOX_KEY = 'pleng.editor.sheetWinBox'
+const savedBox = (() => {
+  try {
+    const b = JSON.parse(localStorage.getItem(FLOAT_BOX_KEY) || 'null')
+    if (b && b.size?.width > 0 && b.size?.height > 0) return b
+  } catch { /* ignore bad storage */ }
+  return null
+})()
+const sheetWinPos = ref(savedBox?.pos ?? null) // {left, top} viewport coords · null = default CSS spot (top-right)
+const sheetWinSize = ref(savedBox?.size ?? null) // {width, height} px · null = default CSS size
 const FLOAT_MIN_W = 280 // don't let a resize squash the sheet past readable
 const FLOAT_MIN_H = 200
 function isNarrow() {
@@ -1965,7 +2038,7 @@ function floatMove(e) {
   }
   if (fmoved) { e.preventDefault(); sheetWinPos.value = clampWin({ left: e.clientX - foX, top: e.clientY - foY }, fW, fH) }
 }
-function floatUp() { fdown = false; fmoved = false }
+function floatUp() { if (fmoved) saveWinBox(); fdown = false; fmoved = false }
 // resize by the bottom-right corner handle — same press→track→clamp shape as the drag, but it
 // grows width/height (from a pinned top-left) instead of moving. Kept inside the viewport with a
 // floor (FLOAT_MIN_*) so it can't be squashed and a ceiling so it can't spill off-screen.
@@ -1986,15 +2059,32 @@ function resizeDown(e) {
 function resizeMove(e) {
   if (!rdown) return
   e.preventDefault()
-  const maxW = window.innerWidth - rLeft - 4
+  // issues7 ("ยืดขยายไม่ได้อีก"): the window's home is the TOP-RIGHT, so growing only rightwards
+  // from a pinned left edge left just 27px of travel at 1536px — the grip looked broken. When the
+  // right edge runs out, slide the window LEFT to make room instead of clamping the width. The
+  // sheet scales to the window (previewPageStyle), so a wider window = bigger notes: the grip IS
+  // the zoom, which is the gesture พี่เปา already reached for.
+  const maxRight = window.innerWidth - 4
+  let w = Math.max(FLOAT_MIN_W, rW0 + (e.clientX - rsx))
+  let left = rLeft
+  if (left + w > maxRight) left = Math.max(4, maxRight - w)
+  w = Math.min(w, maxRight - left)
   const maxH = window.innerHeight - rTop - 4
-  const w = Math.max(FLOAT_MIN_W, Math.min(maxW, rW0 + (e.clientX - rsx)))
   const h = Math.max(FLOAT_MIN_H, Math.min(maxH, rH0 + (e.clientY - rsy)))
+  sheetWinPos.value = { left, top: rTop }
   sheetWinSize.value = { width: w, height: h }
 }
 function resizeUp(e) {
   rdown = false
+  saveWinBox()
   try { e.target.releasePointerCapture(e.pointerId) } catch { /* no-op */ }
+}
+// remember the box the moment a drag/resize settles (not on every pointermove)
+function saveWinBox() {
+  if (narrow.value || !sheetWinSize.value) return
+  try {
+    localStorage.setItem(FLOAT_BOX_KEY, JSON.stringify({ pos: sheetWinPos.value, size: sheetWinSize.value }))
+  } catch { /* ignore */ }
 }
 const floatStyle = computed(() => {
   if (narrow.value) return {}
@@ -2032,22 +2122,58 @@ function measureSheetCol() {
   // CANNOT read c.clientWidth here — .container has margin:0 auto in a flex column, so auto
   // margins shrink it to its current content (116px on an empty tab, 1160 on a full one). Derive
   // the stable cap instead: min(available width from the flex parent, the container's max-width).
-  const cap = parseFloat(cs.maxWidth) || Infinity // --container-wide in studio (1160px)
+  // The cap comes back UNRESOLVED from getComputedStyle ("min(1160px, 100%)"), so a plain
+  // parseFloat is NaN and the old `|| Infinity` silently fell back to the whole viewport:
+  // the column measured 1455px instead of its real 1160px at a 1536px window, which rendered
+  // the preview ~25% smaller than designed — and the WIDER the screen the smaller it got
+  // (issues7 "ตัวเล็กมาก"). Pull the px length out of the expression instead.
+  const cap = parseFloat((cs.maxWidth.match(/([\d.]+)px/) || [])[1]) || Infinity // --container-wide (1160px)
   const parentW = c.parentElement ? c.parentElement.clientWidth : window.innerWidth
   const containerW = Math.min(parentW, cap)
   sheetColW.value = Math.max(0, containerW - pad - CARD_BOX)
 }
+// P'Aim (17 ก.ค.): "ขยายขนาดตัวอักษรไม่ได้ (ต้องขยายยังไง) · ควรมีปุ่มขยาย font ในหน้านั้นเอง —
+// ดูตรงไหนแก้ตรงนั้น". The reader "Aa" DID drive this window all along, but พี่เปา could not find
+// it, P'Aim could not find it, and it took reading the source to know — so it may as well not
+// exist. This zoom lives in the window itself and is deliberately NOT the global Aa: reaching out
+// and reflowing the editor behind you is not what "ขยายตรงนี้" means.
+// It divides the em-width rather than multiplying the font: the page is always 100cqw wide, so
+// scaling the font alone would push the sheet past the window (ui-standards §2: a popup must
+// never scroll sideways). Fewer ems = bigger text, no h-scroll, at zoom 1 = parity untouched.
+const PREVIEW_ZOOM_KEY = 'pleng.editor.previewZoom'
+const clampZoom = (v) => Math.min(4, Math.max(0.5, Math.round(v * 10) / 10))
+const previewZoom = ref((() => {
+  try {
+    const v = parseFloat(localStorage.getItem(PREVIEW_ZOOM_KEY))
+    if (v >= 0.5 && v <= 4) return v
+  } catch { /* ignore bad storage */ }
+  return 1
+})())
+// persisted: P'Aim sets his reading size ONCE, not on every re-open (the window forgetting is half
+// of why it "ไม่ใช้พื้นที่เต็ม")
+watch(previewZoom, (v) => { try { localStorage.setItem(PREVIEW_ZOOM_KEY, String(v)) } catch { /* ignore */ } })
+function bumpPreviewZoom(d) { previewZoom.value = clampZoom(previewZoom.value + d) }
+const previewZoomPct = computed(() => Math.round(previewZoom.value * 100))
+
 // how many ems fit on one sheet line = column px ÷ reader font px. The preview renders exactly
 // this many ems, so its bar wrapping matches the แผ่นเพลง page at the current viewport + Aa size.
+// Two different floors, and conflating them is a bug: 20em guards a BAD MEASUREMENT, while the
+// zoom is the user deliberately asking for fewer ems. Applying the 20em floor after the division
+// silently killed the zoom on a phone (the column there is only ~21em, so any zoom hit the floor
+// and + did nothing — measured at 412px). Guard the measurement, then let the zoom through, with
+// its own much lower floor so a bar can still fit on a line (no sideways scroll · ui-standards §2).
+const PREVIEW_MIN_EM = 8
 const previewEmWidth = computed(() => {
   const fs = 16 * (readingFontScale.value || 1)
-  const em = sheetColW.value > 0 ? sheetColW.value / fs : 42.05 // fall back to A4 ratio before first measure
-  return Math.max(20, em) // guard: never divide by an absurdly small number
+  const raw = sheetColW.value > 0 ? sheetColW.value / fs : 42.05 // fall back to A4 ratio before first measure
+  const measured = Math.max(20, raw)
+  return Math.max(PREVIEW_MIN_EM, measured / previewZoom.value)
 })
 const previewPageStyle = computed(() => ({ fontSize: `calc(100cqw / ${previewEmWidth.value.toFixed(2)})` }))
 // keep the window on-screen (and sized within it) when the viewport shrinks; refresh mobile flag
 function onFloatResize() {
   narrow.value = isNarrow()
+  measureShell() // the shell bar's height changes with the breakpoint → keep the edhead's sticky top true
   measureSheetCol() // the reading column tracks the viewport → re-measure so the preview keeps parity
   if (narrow.value || !floatEl.value) return
   if (sheetWinSize.value) {
@@ -2061,10 +2187,26 @@ function onFloatResize() {
     sheetWinPos.value = clampWin(sheetWinPos.value, r.width, r.height)
   }
 }
-onMounted(() => { window.addEventListener('resize', onFloatResize); measureSheetCol() })
-onUnmounted(() => window.removeEventListener('resize', onFloatResize))
-// measure fresh each time the preview opens (the reading column may have changed while it was closed)
-watch(sheetWinOpen, (open) => { if (open) nextTick(measureSheetCol) })
+onMounted(() => {
+  window.addEventListener('resize', onFloatResize)
+  measureShell()
+  nextTick(measureShell) // the header may not be in the DOM yet on the first pass
+  measureSheetCol()
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', onFloatResize)
+  edheadRO?.disconnect()
+})
+// measure fresh each time the preview opens (the reading column may have changed while it was
+// closed), and re-clamp the remembered box — a size saved on a wide monitor must not strand the
+// window off-screen on a laptop.
+watch(sheetWinOpen, (open) => {
+  if (!open) return
+  nextTick(() => {
+    measureSheetCol()
+    onFloatResize()
+  })
+})
 // a bar's clean render: a one-line, one-bar content object the SongSheet can draw. Words
 // come from the lens verse (if shown) so the render matches what the singer sees.
 function barContent(li, bi) {
@@ -2224,6 +2366,8 @@ watch(songOut, (s) => emit('change', s), { immediate: true })
 // the AC be asserted without reaching through teleported chrome.
 defineExpose({
   saveDraft, loadDraft, meta, editingId, currentDraftId, previewContent,
+  // issues9/issues10: บันทึกร่าง's seat on the bar + throwing away one's own draft.
+  deleteDraft, editItems,
   // B097 undo/redo tests: drive the same doc/view state + navigation the UI drives.
   opts, stanzas, arrangement, activeStanza, lensChoice,
   undo, redo, selectStanza, focusRow, addStanza, setSyl, applyChordAt,
@@ -2428,7 +2572,7 @@ defineExpose({
     <!-- ===== edit header (edhead) — ps2 prototype §③: breadcrumb OPENS the rail (the rail
          is the only navigation, no duplicate ท่อน/ข้อ dropdowns · B031/B003/E1) · in-context
          help · layout / whole-song-preview toggles · line-level quick structure ===== -->
-    <div id="pk-editor" class="edhead no-print">
+    <div id="pk-editor" class="edhead no-print" :style="{ top: shellH + 'px' }">
       <button
         class="ed-crumb"
         aria-label="เปิดแถบองค์ประกอบเพลง (ทำนอง·เนื้อ·ลำดับ)"
@@ -2498,7 +2642,7 @@ defineExpose({
 
     <!-- ===== canvas section header for the selected ท่อน — rename + melody + reorder right
          where you edit (SX2/SX3/SX5). The note/word/beat editor below is unchanged (SX7). ===== -->
-    <div v-if="lensActive" class="cshead no-print">
+    <div v-if="lensActive" class="cshead no-print" :style="csheadStyle">
       <span class="grip" aria-hidden="true"><Icon name="grip-vertical" :size="16" /></span>
       <span class="cs-num">{{ lensChoice + 1 }}</span>
       <input
@@ -2886,6 +3030,30 @@ defineExpose({
         <Icon name="grip-horizontal" :size="16" class="ed-float-grip" />
         <span class="ed-float-title">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || 'แผ่นเพลง' }}</span>
         <span class="ed-float-key muted">Key {{ opts.key }}</span>
+        <!-- P'Aim: "ควรมีปุ่มขยาย font ในหน้านั้นเอง — ดูตรงไหนแก้ตรงนั้น". pointerdown.stop so a
+             press on the buttons never starts the title bar's drag. -->
+        <span class="ed-float-zoom" role="group" aria-label="ขนาดตัวอักษรในหน้าต่างนี้" @pointerdown.stop>
+          <button
+            class="ed-float-zb"
+            aria-label="ตัวอักษรเล็กลง"
+            title="ตัวอักษรเล็กลง"
+            :disabled="previewZoom <= 0.5"
+            @click="bumpPreviewZoom(-0.1)"
+          ><Icon name="minus" :size="15" /></button>
+          <button
+            class="ed-float-zpct"
+            :aria-label="'ขนาดตัวอักษร ' + previewZoomPct + ' เปอร์เซ็นต์ — กดเพื่อคืนค่าปกติ'"
+            title="คืนค่าปกติ (100%)"
+            @click="previewZoom = 1"
+          >{{ previewZoomPct }}%</button>
+          <button
+            class="ed-float-zb"
+            aria-label="ตัวอักษรใหญ่ขึ้น"
+            title="ตัวอักษรใหญ่ขึ้น"
+            :disabled="previewZoom >= 4"
+            @click="bumpPreviewZoom(0.1)"
+          ><Icon name="plus" :size="15" /></button>
+        </span>
         <button class="ed-float-x" aria-label="ปิดหน้าต่างแผ่นเพลง" title="ปิด" @click="sheetWinOpen = false"><Icon name="x" :size="16" /></button>
       </div>
       <div class="ed-float-body">
@@ -2967,9 +3135,17 @@ defineExpose({
           </template>
           <template v-if="myDrafts.length">
             <strong>📝 งานร่างของฉัน</strong>
+            <!-- issues10: the ลบ lives ON the draft's own row — the row IS the draft, so that is
+                 where พี่เปา looks for it ("หาที่ลบทั้งเพลงไม่ได้ · ทำไมมันหายาก"). -->
             <div v-for="d in myDrafts" :key="d.id" class="draft-row">
               <a href="#" @click.prevent="loadDraft(d); closePanel()">{{ d.number != null ? d.number + '. ' : '' }}{{ d.title_th }}</a>
               <span :class="['status-chip', 's-' + d.status]">{{ STATUS_TH[d.status] }}</span>
+              <button
+                class="draft-del"
+                :aria-label="'ลบร่าง ' + d.title_th"
+                title="ลบร่างนี้ถาวร"
+                @click="deleteDraft(d)"
+              ><Icon name="trash-2" :size="16" /></button>
             </div>
           </template>
           <div class="panel-foot"><button class="secondary" @click="closePanel">ปิด</button></div>
@@ -3289,7 +3465,9 @@ defineExpose({
 /* canvas section header — rename/melody/reorder for the selected ท่อน, above the notes */
 /* B085: the ท่อน toolbar (melody · rename · ▲▼ · delete) stays pinned under the top bar so
    its controls are reachable while scrolling down through a long ท่อน. Opaque bg so the
-   notes scroll cleanly underneath; z-index over the note strip, under menus/dropdowns. */
+   notes scroll cleanly underneath; z-index over the note strip, under menus/dropdowns.
+   `top` below is the MOBILE value only — on desktop the edhead is sticky too, so this pins
+   under it via the measured csheadStyle (58px would put it 62px behind the edhead). */
 .cshead {
   display: flex;
   align-items: center;
@@ -3367,8 +3545,29 @@ defineExpose({
   font-size: 13px;
   margin-left: 6px;
 }
-.draft-row { margin-top: 6px; }
-.status-chip { border-radius: 10px; padding: 1px 10px; font-size: 12px; margin-left: 8px; }
+/* one row = one line: title grows, chip and ลบ hold their size at the end (ui-standards §2) */
+.draft-row { margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+.draft-row > a { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-chip { border-radius: 10px; padding: 1px 10px; font-size: 12px; margin-left: 8px; flex: 0 0 auto; }
+/* ghost until wanted — ลบ must not compete with the title for attention, but stays a 44px
+   target (WCAG 2.2 AA 2.5.8 · the project's 44px goal) so it is tappable on พี่เปา's phone */
+.draft-del {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+@media (hover: hover) { .draft-del:hover { color: var(--danger, #c53030); border-color: var(--line); background: #fff; } }
+.draft-del:focus-visible { color: var(--danger, #c53030); }
 .s-draft { background: #edf2f7; }
 .s-pending { background: #fefcbf; }
 .s-rejected { background: #fed7d7; }
@@ -3388,9 +3587,12 @@ defineExpose({
   top: 72px;
   right: 16px;
   z-index: 95;
-  /* B081: wide enough to show the A4 page at ~1:1 on desktop (pixel-exact vs print);
-     narrower screens scale the page down (see .ed-float-page). */
-  width: min(720px, calc(100vw - 32px));
+  /* The sheet SCALES TO THE WINDOW (.ed-float-page), so this width sets the reading size: at the
+     old 720px the song rendered at ~9px and พี่เปา could not read it (issues7). P'Aim then asked
+     for "ใช้พื้นที่เต็ม" and reminded us not to bake fixed numbers in — so this tracks the screen
+     (65% of it) instead of a magic pixel count, floored so a small laptop still gets a usable
+     window and capped by the viewport. Whatever P'Aim drags it to is remembered from then on. */
+  width: clamp(min(680px, calc(100vw - 32px)), 65vw, calc(100vw - 32px));
   max-height: min(80vh, calc(100vh - 96px));
   display: flex;
   flex-direction: column;
@@ -3415,6 +3617,32 @@ defineExpose({
 .ed-float-grip { color: var(--muted); flex: 0 0 auto; }
 .ed-float-title { font-weight: 700; color: var(--brand); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; }
 .ed-float-key { font-size: 0.8rem; flex: 0 0 auto; }
+/* font zoom for THIS window (P'Aim: ดูตรงไหนแก้ตรงนั้น). Sits with the ✕ as title-bar chrome:
+   same 32px box as .ed-float-x so the bar keeps one rhythm, with the 44px pointer target coming
+   from the padded row rather than a taller button (WCAG 2.2 AA 2.5.8 · ui-standards §1). */
+.ed-float-zoom { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.ed-float-zb,
+.ed-float-zpct {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.ed-float-zb { width: 32px; }
+.ed-float-zpct { min-width: 48px; padding: 0 6px; font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ed-float-zb:disabled { opacity: 0.4; cursor: default; }
+@media (hover: hover) {
+  .ed-float-zb:not(:disabled):hover,
+  .ed-float-zpct:hover { background: var(--cream); border-color: var(--brand); color: var(--brand); }
+}
 .ed-float-x {
   flex: 0 0 auto;
   display: inline-flex;
@@ -3777,6 +4005,19 @@ defineExpose({
   border-radius: 10px;
   padding: 7px 9px;
   margin: 0 0 10px;
+}
+/* issues11: the header sticks under the shell bar so the line tools (⋯ · ฮุก · ซ้ำ · ย้าย · ลบ)
+   stay reachable from any line instead of forcing a scroll back to the top. `top` is measured
+   (shellH) because the shell bar's height moves with the breakpoint. z-index sits above the
+   editor content but below the shell bar (50), the floating preview (95) and the dock (90).
+   DESKTOP ONLY — measured at 360px the header wraps to 6 rows / 256px, so pinning it there would
+   eat a third of the phone screen for good. Making it stick on a phone needs the header to be
+   short first, which is a different job (see docs/reports/editor-friction.md). */
+@media (min-width: 761px) {
+  .edhead {
+    position: sticky;
+    z-index: 20;
+  }
 }
 /* breadcrumb button — opens the rail, shows "ท่อน A · ข้อ 1" (position only, not a menu) */
 .ed-crumb {

@@ -107,7 +107,11 @@ const row1 = computed(() =>
 const row2 = computed(() =>
   visible.value.filter((i) => i.place?.row === 2).slice().sort((a, b) => (a.place.col || 0) - (b.place.col || 0)),
 )
-const pinnedItems = computed(() => pins.value.map(byId).filter(Boolean))
+// Only items WITHOUT a home on the bar can occupy a pinned row. An item that has a `place` is
+// already rendered by row1/row2, so honouring a stale pin for it would draw the same button twice
+// (ui-standards §2 single source of action). This also self-heals a saved pin from before an item
+// was promoted to the bar — e.g. พี่เปา's pinned 'draft' (issues9) — with no storage migration.
+const pinnedItems = computed(() => pins.value.map(byId).filter((i) => i && !i.place))
 // a "plain button row" = no wide/special cells (timeline · selector · key band). Only these
 // can be merged with a neighbour (a timeline/selector must keep its own row).
 const isPackable = (row) => row.length > 0 && !row.some((it) => ['timeline', 'sel', 'keys'].includes(it.kind))
@@ -402,8 +406,18 @@ function cellFlex() { return '0 0 auto' }
           <span class="dk-mi"><Icon :name="it.icon" :size="16" /></span>
           <span class="dk-pl">{{ it.name }}</span>
           <span class="dk-pc">
+            <!-- issues9: a `btn` row used to render an EMPTY control cell — icon, name, pin, and
+                 nothing to press — so the only way to run the command was to pin it onto the bar
+                 first. Give it a real run button so every row in this panel does what it says. -->
+            <button
+              v-if="it.kind === 'btn'"
+              class="dk-prun"
+              :disabled="it.disabled"
+              :aria-label="it.name"
+              @click="it.run?.(); close()"
+            >{{ it.label || it.name }}</button>
             <select
-              v-if="it.kind === 'menu'"
+              v-else-if="it.kind === 'menu'"
               class="dk-select"
               :value="it.control?.value"
               :aria-label="it.name"
@@ -582,6 +596,11 @@ function cellFlex() { return '0 0 auto' }
 .dk-switch.on { background: var(--brand); }
 .dk-switch-k { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: left 0.15s; }
 .dk-switch.on .dk-switch-k { left: 20px; }
+/* run button for a `btn` row — same treatment as .dk-select (a secondary control in the panel,
+   not a primary: ui-standards §2 button hierarchy). 34px matches the other panel controls. */
+.dk-prun { font: inherit; font-size: 12.5px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); cursor: pointer; min-height: 34px; white-space: nowrap; }
+.dk-prun:disabled { opacity: 0.4; cursor: default; }
+@media (hover: hover) { .dk-prun:not(:disabled):hover { border-color: var(--brand); color: var(--brand); } }
 .dk-prange { width: 60px; accent-color: var(--brand); }
 .dk-slval { font-size: 11px; color: var(--muted); min-width: 32px; }
 .dk-mv { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 6px; padding: 2px 6px; font-size: 11px; cursor: pointer; min-height: 0; flex: 0 0 auto; }

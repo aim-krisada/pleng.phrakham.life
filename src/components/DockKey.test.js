@@ -64,6 +64,30 @@ describe('DockKey ⚙ Setting page', () => {
     expect(w.find('.dk-panel [data-setting="key"]').exists()).toBe(false)
   })
 
+  // issues9 (พี่เปา): "ทำไมต้องกดปักหมุดก่อนถึงจะเซฟร่างได้" — a `btn` row rendered an EMPTY control
+  // cell, so the command could not be run from the panel at all and pinning was the only way out.
+  it('a btn in the Setting page is runnable in place (not pin-only)', async () => {
+    const w = mountDK({
+      items: [...items(), { id: 'act', kind: 'btn', name: 'บันทึกร่าง', icon: 'save', default: 'inSetting', pinnable: true, run }],
+    })
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    const runBtn = w.find('.dk-panel [data-setting="act"] .dk-prun')
+    expect(runBtn.exists()).toBe(true)
+    await runBtn.trigger('click')
+    expect(run).toHaveBeenCalledTimes(1)
+  })
+
+  // An item with a `place` already lives on the bar, so a pin for it must NOT draw it a second
+  // time. Guards ui-standards §2 (single source of action) and self-heals a pin saved before the
+  // item was promoted to the bar — พี่เปา has exactly that stale 'draft' pin from issues9.
+  it('a stale pin for an item that now has a place does not duplicate it on the bar', () => {
+    localStorage.setItem('pleng.dockkey.test.pins', JSON.stringify(['key']))
+    const w = mountDK()
+    expect(w.findAll('.dk-row')).toHaveLength(2) // no extra pinned row
+    expect(w.findAll('[data-cell="key"]')).toHaveLength(1) // drawn once, by row 2
+  })
+
   it('a toggle in the Setting page calls its onToggle', async () => {
     const w = mountDK()
     await w.find('.dk-gear').trigger('click')
