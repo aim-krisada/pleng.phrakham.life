@@ -4,8 +4,8 @@
 //   /docs/spikes/cello-soften.html  — which BOW WEIGHT of the chosen library? (p/mp/mf + D)
 // The page picks its variant set from `window.SPIKE_VARIANTS`; everything else is the same harness.
 import { supabase } from '../supabase.js'
-import { VARIANTS, DYN_LAYERS, MARCATO, PAIM_MARCATO, PIANO_ONLY, renderClip, bufferToMp3, measure,
-  excerptRange, calibrateLevels, normalizeBuffer } from './celloBakeoff.js'
+import { VARIANTS, DYN_LAYERS, MARCATO, PAIM_MARCATO, VIBRATO, PIANO_ONLY, renderClip, bufferToMp3,
+  measure, excerptRange, calibrateLevels, normalizeBuffer } from './celloBakeoff.js'
 
 const MODE = window.SPIKE_VARIANTS || 'libraries'
 const IS_DYN = MODE === 'dynamics'
@@ -25,7 +25,9 @@ const TO_LI = q.get('to') != null ? Number(q.get('to')) : null
 const state = { song: null, range: null, clips: {}, balance: 1, correctTuning: true,
   pianoKeepsMelody: false, negativeDelay: true, cal: null,
   // P'Aim's two marcato knobs — start at the values HE turned them to and approved (PAIM_MARCATO)
-  headStrength: PAIM_MARCATO.headStrength, bodyShiftMs: PAIM_MARCATO.bodyShiftMs }
+  headStrength: PAIM_MARCATO.headStrength, bodyShiftMs: PAIM_MARCATO.bodyShiftMs,
+  // vibrato: 0 = off, exactly how the library ships it. P'Aim's third knob.
+  vibratoCents: 0 }
 const log = (m) => { $('#log').textContent = m }
 
 async function loadSong() {
@@ -80,6 +82,7 @@ async function renderAll() {
         celloMakeup: state.cal.leadMakeup * state.balance * (state.cal.gains[v.id] ?? 1),
         pianoKeepsMelody: state.pianoKeepsMelody, negativeDelay: state.negativeDelay,
         headId: v.head || null, headStrength: state.headStrength, bodyShiftMs: state.bodyShiftMs,
+        vibratoCents: state.vibratoCents,
       })
       normalizeBuffer(buffer)          // all 4 clips play at one loudness (see normalizeBuffer)
       const m = measure(buffer)
@@ -154,6 +157,18 @@ on('#head', 'input', (e) => { state.headStrength = Number(e.target.value); showH
 on('#head', 'change', renderAll)
 on('#shift', 'input', (e) => { state.bodyShiftMs = Number(e.target.value); showShift() })
 on('#shift', 'change', renderAll)
+
+// vibrato knob — the library ships this OFF with the recordist's own numbers; P'Aim decides if the
+// "ขาดมิติลุ่มลึก" he described wants it on.
+const showVib = () => {
+  const el = $('#vibVal')
+  if (el) el.textContent = state.vibratoCents === 0
+    ? 'ปิด (เหมือนที่คนอัดตั้งมา)'
+    : `${state.vibratoCents} cents${state.vibratoCents >= VIBRATO.maxDepthCents ? ' (สุดที่เขาแนะนำ)' : ''}`
+}
+on('#vib', 'input', (e) => { state.vibratoCents = Number(e.target.value); showVib() })
+on('#vib', 'change', renderAll)
+showVib()
 
 if ($('#makeup')) $('#makeup').value = '1'
 showBalance()

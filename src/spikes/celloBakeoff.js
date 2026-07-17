@@ -76,6 +76,58 @@ export const PAIM_MARCATO = {
   bodyShiftMs: 10,
 }
 
+// ── VIBRATO ──────────────────────────────────────────────────────────────────────────────────
+// The cello's own sfz HAS a vibrato, switched off, with the recordist's reasoning in comments next
+// to every value — i.e. the "how to use this" note P'Aim was after. We can't run their sfz LFO on
+// Web Audio, but we can take their NUMBERS and their reasons:
+//   lfo01_freq=2                        "ช้ากว่านี้ฟังแย่มาก"        -> 2 Hz floor
+//   lfo01_freq_oncc112=8, set_cc112=32  "เร็วประมาณนี้คือสุดที่เชลโลทำได้" -> 2 + 8*(32/127) = 4.0 Hz
+//   lfo01_pitch_oncc111=22              no set_cc111 => depth 0     -> OFF by default; 22 cents at full
+//   lfo01_delay_oncc115=0.5, cc115=45   -> 0.5*(45/127) = 177 ms still before it starts to shake
+//   lfo01_fade_oncc116=0.5, cc116=45    -> 177 ms to fade the depth in (never shakes at full instantly)
+// Depth starts at 0 exactly as they shipped it ("ready if you want it") and is P'Aim's knob — the
+// same pattern that worked for the last two knobs.
+export const VIBRATO = {
+  freqHz: 2 + 8 * (32 / 127),   // 4.02 Hz — their base + their default speed knob
+  maxDepthCents: 22,            // their lfo01_pitch_oncc111
+  delaySec: 0.5 * (45 / 127),   // 0.177 s
+  fadeSec: 0.5 * (45 / 127),    // 0.177 s
+}
+
+// Attach an LFO to every voice created while `fn` runs.
+//
+// smplr computes `source.detune.value` once and never hands the node back (start() returns only a
+// stop fn), so there is no supported way to modulate a sounding voice. Instead we hook
+// createBufferSource for the duration of the scheduling calls, collect the voices, and drive each
+// one's `detune` AudioParam from one shared LFO. Contained to the spike; no smplr fork, no patching
+// of anything the app ships.
+//
+// Per voice: LFO -> depth gain -> source.detune, with the depth gain automated 0 -> depth so each
+// note sits still for `delaySec` then eases its vibrato in over `fadeSec` (their design).
+function withVibrato(ctx, depthCents, onsets, fn) {
+  if (!(depthCents > 0)) return fn()
+  const orig = ctx.createBufferSource.bind(ctx)
+  const voices = []
+  ctx.createBufferSource = () => { const s = orig(); voices.push(s); return s }
+  try { return fn() } finally {
+    ctx.createBufferSource = orig
+    const lfo = ctx.createOscillator()
+    lfo.type = 'sine'
+    lfo.frequency.value = VIBRATO.freqHz
+    lfo.start(0)
+    voices.forEach((s, i) => {
+      if (!s.detune) return                       // Safari fallback path uses playbackRate
+      const g = ctx.createGain()
+      const t0 = onsets[i] ?? 0
+      g.gain.setValueAtTime(0, 0)
+      g.gain.setValueAtTime(0, t0 + VIBRATO.delaySec)
+      g.gain.linearRampToValueAtTime(depthCents, t0 + VIBRATO.delaySec + VIBRATO.fadeSec)
+      lfo.connect(g)
+      g.connect(s.detune)                          // adds to the static detune smplr already set
+    })
+  }
+}
+
 export const DYN_LAYERS = [
   { id: 'karoryfer-p', label: 'p · สีเบา (นุ่มสุด)', licence: 'CC0',
     note: 'ทึบกว่า mf 5.7 dB ในย่านแสบ (>2kHz) · แต่คันชักบวมช้า 200ms · ต้องดันเสียง +13dB' },
@@ -164,7 +216,9 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   // headStrength / bodyShiftMs are the two KNOBS P'Aim turns — "how hard is right" and "does the
   // body still need shifting once a sharp head marks the beat" are both ear questions, so neither is
   // a number I pick. bodyShiftMs=null keeps the measured negative delay.
-  headId = null, headStrength = 1, headHoldMs = 200, bodyShiftMs = null } = {}) {
+  headId = null, headStrength = 1, headHoldMs = 200, bodyShiftMs = null,
+  // vibrato depth in cents (0 = off, exactly as the library ships it). P'Aim's knob — see VIBRATO.
+  vibratoCents = 0 } = {}) {
   const { perf, cfg, bpm: useBpm } = buildPerformance(content, { bpm, range, songId })
   const spb = 60 / useBpm
 
@@ -217,17 +271,22 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     const shift = shiftMs / 1000
     const mel = perf.filter(isMelody)
     const outOfRange = []
-    for (const e of mel) {
-      const midi = e.midi + transpose
-      // honest-to-the-sheet (brief §4 · memory feedback-audio-honest-to-sheet): play the written
-      // pitch. Do NOT octave-shift to flatter the sample — if it falls outside the cello's real
-      // range we REPORT it instead of silently moving it.
-      if (midi < CELLO_LO || midi > CELLO_HI) outOfRange.push(midi)
-      // velocity from the arranger's own gain via the SAME map sampler.js uses for its CC0 cello,
-      // so the cello's dynamics track the arrangement exactly like the shipped path would.
-      inst.start({ note: midi, time: Math.max(0, onset(e) - shift),
-        duration: Math.max(0.12, perNoteDur(e)), velocity: gainToVelocityFull(e.gain) })
-    }
+    // vibrato rides the BODY only: it is what sustains. The head is 55 ms of staccato at 5% —
+    // nothing to shake, and inaudible anyway.
+    const bodyOnsets = mel.map((e) => Math.max(0, onset(e) - shift))
+    withVibrato(ctx, vibratoCents, bodyOnsets, () => {
+      for (const e of mel) {
+        const midi = e.midi + transpose
+        // honest-to-the-sheet (brief §4 · memory feedback-audio-honest-to-sheet): play the written
+        // pitch. Do NOT octave-shift to flatter the sample — if it falls outside the cello's real
+        // range we REPORT it instead of silently moving it.
+        if (midi < CELLO_LO || midi > CELLO_HI) outOfRange.push(midi)
+        // velocity from the arranger's own gain via the SAME map sampler.js uses for its CC0 cello,
+        // so the cello's dynamics track the arrangement exactly like the shipped path would.
+        inst.start({ note: midi, time: Math.max(0, onset(e) - shift),
+          duration: Math.max(0.12, perNoteDur(e)), velocity: gainToVelocityFull(e.gain) })
+      }
+    })
 
     // the marcato head: a short staccato ON the beat, under P'Aim's strength knob. Fired at the
     // written onset with NO negative delay — the head is what marks the beat, and it is fast anyway
@@ -248,7 +307,8 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     }
 
     celloReport = { melodyNotes: mel.length, attackMs, shiftMs: Math.round(shiftMs), bodyId,
-      head: headReport, outOfRange: [...new Set(outOfRange)].sort((a, b) => a - b) }
+      head: headReport, vibratoCents,
+      outOfRange: [...new Set(outOfRange)].sort((a, b) => a - b) }
   }
 
   const buffer = await ctx.startRendering()
