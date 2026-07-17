@@ -121,11 +121,12 @@
 
 ## 5 · มองข้าม 2 เว็บ (พระคำ + เพลง) — consistency ข้าม product
 
-**ผมเป็นเจ้าของ "2 เว็บเป็นตระกูลเดียว" (uxui.md ข้อ 4)** → dock-config นี้ต้องคิดข้าม product:
+**ผมเป็นเจ้าของ "2 เว็บเป็นตระกูลเดียว" (uxui.md ข้อ 4)** — และ **SA ยืนยันแล้ว (report `dockkey-shared-core-feasibility.md` `2c98c2c`) ว่า DockKey แชร์จริง** (P'Aim ถูก):
 
-- **ระบบชื่ออ้างอิง + preset ขนาด + name-toggle = ควรอยู่ใน core engine ที่แชร์** (ยึดสัญญา `pk-drawer.js` / DockKey core ที่ menu-drawer-spec วางไว้) → **แก้ครั้งเดียว 2 เว็บได้วินัยเดียวกัน** (ทุกปุ่มมีชื่ออ้างอิง · resize preset เหมือนกัน · toggle ชื่อเหมือนกัน)
-- **ชื่ออ้างอิงเป็น per-site** (เครื่องมือคนละชุด) แต่ **scheme + หน้าตั้งค่า = shared** → 2 เว็บ "รู้สึกเป็นตระกูลเดียว"
-- **⚠️ คำถาม feasibility ส่ง SA (เจ้าของ core lib):** ดู §7
+- **`DockKey.vue` = source เดียวที่แชร์จริง** — พระคำ import ตัวเดียวกันผ่าน `@pleng` alias (`IslandApp.vue`) เป็น dock อ่านออกเสียง (ไม่ใช่ก๊อป) → **config ต้องอยู่ชั้น engine ใน `DockKey.vue` = แก้ครั้งเดียว 2 เว็บได้จริง** (ตรงคำสั่ง P'Aim เป๊ะ)
+- **แยกชั้นถูก:** ระบบชื่ออ้างอิง + preset ขนาด + name-toggle = **engine (shared)** → 2 เว็บวินัยเดียวกัน · ส่วน "ปุ่มไหนมี" = **data (items) ต่อเว็บ** (พระคำ reading dock · เพลงปุ่มเยอะกว่า) → ชื่ออ้างอิง per-site แต่ scheme+หน้าตั้งค่า shared
+- **🔴 ราคาที่ต้องรู้ (SA):** แชร์จริง = **แตะ engine กระทบ dock อ่านออกเสียงพระคำด้วย** → **DoD ต้อง test 2 host + rebuild island `pk-dock-island.js`** ทุกครั้งที่แตะ engine (แก้แค่ `ITEMS_EDIT` = data เพลง → พระคำไม่กระทบ) · 1 edit แต่ **2 deploy** (เพลงตรง · พระคำ rebuild+render)
+- **ที่ SA ตอบให้แล้ว:** persist = `localStorage` per `storeKey` (แยก user/เว็บอยู่แล้ว) · id คงที่ = มีครบ · resize = เติม
 
 ---
 
@@ -140,12 +141,15 @@
 
 ---
 
-## 7 · คำถาม feasibility → SA (ผ่าน PM · SA เจ้าของ core lib)
+## 7 · feasibility — SA ตอบแล้ว (`2c98c2c`) · เหลือปิดตอน DS
 
-1. **shared จริงหรือก๊อป-drift:** config (เลือกปุ่ม/ขนาด/ชื่อ) + ระบบชื่ออ้างอิง ควรอยู่ชั้นไหนถึง **"แก้ครั้งเดียว 2 เว็บ"** — `pk-drawer.js`/DockKey core หรือ per-site · แตะแล้วพระคำ regress ไหม
-2. **persist:** เก็บ config ต่อผู้ใช้ที่ไหน (localStorage / profile) · anon (พี่เปาเทสต์ไม่ล็อกอิน) เก็บได้ไหม
-3. **id คงที่:** `data-cell=it.id` มีครบทุกปุ่มจริงไหม (รวม sing/print) · ต้องเพิ่ม id ให้ตัวไหน
-4. **name-toggle:** render `it.name` บนปุ่มแล้ว cap/overflow engine เดิมจัดแถวใหม่ได้เลยไหม · กระทบ band แป้นโน้ต (`keys`) ไหม
+**SA ยืนยัน (✅ ตอบครบ 3/4):**
+1. **shared:** ✅ `DockKey.vue` engine แชร์จริง (พระคำ `@pleng` import) → config ที่ engine = แก้ครั้งเดียว 2 เว็บ · **regression พระคำจริง → 2-host DoD** (ดู §5)
+2. **persist:** ✅ `localStorage` per `storeKey` (แยก user/เว็บอยู่แล้ว · anon ได้)
+3. **id คงที่:** ✅ มีครบ (`data-cell=it.id`)
+
+**เหลือปิดตอนทำ DS/build:**
+4. **name-toggle × band:** render `it.name` บนปุ่ม → cap/overflow engine จัดแถวใหม่ได้ (ยืนยันแล้วในหลักการ) · **ต้องเช็คตอน build ว่าไม่กระทบ band แป้นโน้ต (`keys`) เต็มกว้าง** + verify ไม่ล้น 360/412 พร้อมชื่อเปิด
 
 ---
 
