@@ -1,0 +1,228 @@
+<title>DockKey ปรับแต่งได้ — mockup (ขนาด · ชื่อปุ่ม · เลือกปุ่ม)</title>
+<style>
+  :root{
+    --brand:#8B4513; --brand-2:#A8631F; --bg:#F3ECE1; --card:#FBF7F0; --ink:#2A2320;
+    --muted:#8A7E72; --line:#E4D9C8; --sel:rgba(139,69,19,.12); --shadow:0 6px 22px rgba(60,40,20,.16);
+    --good:#3B7A57; --warn:#B4531A; --btn:44px; --gap:4px; --pad:6px;
+  }
+  @media (prefers-color-scheme:dark){:root{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;
+    --line:#3A3129;--sel:rgba(214,158,102,.18);--brand:#D69E66;--brand-2:#E0B588;--shadow:0 6px 22px rgba(0,0,0,.5)}}
+  :root[data-theme="dark"]{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;
+    --sel:rgba(214,158,102,.18);--brand:#D69E66;--brand-2:#E0B588;--shadow:0 6px 22px rgba(0,0,0,.5)}
+  :root[data-theme="light"]{--brand:#8B4513;--brand-2:#A8631F;--bg:#F3ECE1;--card:#FBF7F0;--ink:#2A2320;
+    --muted:#8A7E72;--line:#E4D9C8;--sel:rgba(139,69,19,.12);--shadow:0 6px 22px rgba(60,40,20,.16)}
+  *{box-sizing:border-box} body{margin:0}
+  .wrap{font:15px/1.6 system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;color:var(--ink);
+    background:var(--bg);padding:22px 16px 60px;min-height:100%}
+  .inner{max-width:920px;margin:0 auto}
+  .eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:700;margin:0 0 6px}
+  h1{font-size:1.45rem;line-height:1.25;margin:0 0 4px;text-wrap:balance;letter-spacing:-.01em}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:.96rem}
+
+  .demo{display:grid;grid-template-columns:1fr;gap:18px}
+  @media(min-width:760px){.demo{grid-template-columns:1fr 320px}}
+
+  /* stage with the live dock */
+  .stage{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;
+    display:flex;flex-direction:column;min-height:260px;position:relative;box-shadow:var(--shadow)}
+  .stage .cap{font-size:.78rem;color:var(--muted);margin:0 0 auto}
+  .readout{font-size:.8rem;color:var(--muted);min-height:2.6em;margin:0 0 12px;border-bottom:1px dashed var(--line);padding-bottom:10px}
+  .readout b{color:var(--brand)} .readout code{background:var(--sel);padding:1px 6px;border-radius:5px;color:var(--ink);font-size:.9em}
+
+  /* THE DOCK */
+  .dock{align-self:center;background:var(--card);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);padding:var(--pad);display:inline-flex;flex-direction:column;gap:var(--gap);
+    max-width:100%;transition:padding .18s,gap .18s}
+  .drow{display:flex;gap:var(--gap);justify-content:center;flex-wrap:wrap;transition:gap .18s}
+  .db{min-width:var(--btn);height:var(--btn);border:0;background:transparent;color:var(--brand);
+    border-radius:11px;cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:2px;padding:0 6px;transition:width .18s,height .18s;position:relative}
+  .db:hover{background:var(--sel)} .db:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+  .db .ic{font-size:1.15rem;line-height:1}
+  .db .nm{font-size:.66rem;color:var(--muted);white-space:nowrap;display:none;line-height:1}
+  .dock.names .db .nm{display:block}
+  .dock.names .db{min-width:calc(var(--btn) + 14px)}
+  .db.prime{background:var(--brand);color:#fff;min-width:calc(var(--btn) + 30px)}
+  .db.prime .nm{color:rgba(255,255,255,.85)}
+  .db.sel-ref{outline:2px solid var(--brand);outline-offset:2px;background:var(--sel)}
+
+  /* settings panel */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+  .panel h2{font-size:.82rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:700}
+  .panel section{padding:12px 0;border-top:1px solid var(--line)}
+  .panel section:first-of-type{border-top:0;padding-top:0}
+  .lbl{font-size:.9rem;font-weight:600;margin:0 0 8px;display:flex;align-items:center;gap:6px}
+  .seg{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;width:100%}
+  .seg button{flex:1;font:inherit;font-size:.82rem;font-weight:600;border:0;background:transparent;color:var(--muted);
+    padding:8px 4px;border-radius:8px;cursor:pointer;min-height:40px}
+  .seg button[aria-pressed="true"]{background:var(--brand);color:#fff}
+  .seg small{display:block;font-size:.66rem;font-weight:500;opacity:.8}
+
+  .switchrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .switchrow .txt{font-size:.9rem;font-weight:600}
+  .switchrow .txt small{display:block;font-size:.74rem;color:var(--muted);font-weight:400}
+  .sw{width:46px;height:26px;border:0;border-radius:13px;background:#c9c0b3;position:relative;cursor:pointer;flex:0 0 auto;transition:background .15s}
+  .sw[aria-checked="true"]{background:var(--brand)}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+  .sw[aria-checked="true"]::after{left:22px}
+
+  .picker{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+  .picker li{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px;background:var(--bg);font-size:.86rem}
+  .picker .pi{color:var(--brand);font-size:1rem;width:20px;text-align:center}
+  .picker .pn{flex:1}
+  .picker .pid{font-size:.7rem;color:var(--muted);font-family:ui-monospace,monospace}
+  .picker .pin{font:inherit;font-size:.9rem;border:1px solid var(--line);background:var(--card);color:var(--brand);
+    border-radius:8px;width:32px;height:32px;cursor:pointer}
+  .picker li.off{opacity:.55} .picker li.off .pin{color:var(--muted)}
+  .picker li.locked .pin{opacity:.3;cursor:not-allowed}
+  .reset{margin-top:12px;width:100%;font:inherit;font-size:.86rem;font-weight:600;border:1px solid var(--line);
+    background:transparent;color:var(--warn);border-radius:10px;padding:10px;cursor:pointer;min-height:44px}
+  .reset:hover{background:var(--sel)}
+
+  /* explainer cards */
+  .notes{display:grid;grid-template-columns:1fr;gap:12px;margin-top:26px}
+  @media(min-width:680px){.notes{grid-template-columns:1fr 1fr}}
+  .ncard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .ncard.hero{border-left:4px solid var(--brand)}
+  .ncard h3{margin:0 0 8px;font-size:1rem}
+  .ncard p{margin:0;font-size:.9rem;color:var(--muted)} .ncard b{color:var(--ink)}
+  .four{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+  .four li{font-size:.78rem;background:var(--sel);color:var(--ink);border-radius:7px;padding:4px 9px}
+  .foot{color:var(--muted);font-size:.8rem;margin-top:22px;text-align:center;line-height:1.7}
+  .foot a{color:var(--brand)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap"><div class="inner">
+  <p class="eyebrow">pleng · UX/UI · DockKey หน้าแก้ไข</p>
+  <h1>แถบเครื่องมือปรับแต่งได้ — เลือกปุ่ม · ย่อขนาด · เรียกชื่อได้</h1>
+  <p class="sub">เลื่อน “ขนาดแถบ” เห็นแถบย่อสด · เปิด “แสดงชื่อปุ่ม” เห็นชื่อไทยทุกปุ่ม · ปัก/ถอนปุ่มว่าจะโชว์ตัวไหน · แตะปุ่มบนแถบเพื่อดู “ชื่ออ้างอิง + id”</p>
+
+  <div class="demo">
+    <div class="stage">
+      <p class="cap">แถบเครื่องมือ (ตัวอย่างหน้าแก้ไข)</p>
+      <p class="readout" id="readout">แตะปุ่มบนแถบ เพื่อดูชื่ออ้างอิงที่ทั้งทีมใช้เรียก + id สำหรับ dev/test</p>
+      <div class="dock" id="dock"></div>
+    </div>
+
+    <div class="panel">
+      <h2>⚙ ตั้งค่าแถบ</h2>
+      <section>
+        <p class="lbl">ขนาดแถบ</p>
+        <div class="seg" id="segSize" role="group" aria-label="ขนาดแถบ">
+          <button data-size="44" aria-pressed="true">กะทัดรัด<small>44px</small></button>
+          <button data-size="48" aria-pressed="false">สบาย<small>48px</small></button>
+          <button data-size="56" aria-pressed="false">ใหญ่<small>56px</small></button>
+        </div>
+      </section>
+      <section>
+        <div class="switchrow">
+          <span class="txt">แสดงชื่อปุ่ม<small>ชื่อไทย = ป้าย = ที่ทีมใช้เรียก</small></span>
+          <button class="sw" id="swNames" role="switch" aria-checked="false" aria-label="แสดงชื่อปุ่ม"></button>
+        </div>
+      </section>
+      <section>
+        <p class="lbl">ปุ่มที่แสดงบนแถบ</p>
+        <ul class="picker" id="picker"></ul>
+        <button class="reset" id="reset">↺ คืนค่าเริ่มต้น</button>
+      </section>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="ncard hero">
+      <h3>⭐ 1 ชื่อ = 4 หน้าที่ (ระบบชื่ออ้างอิง)</h3>
+      <p>ทุกปุ่มมี <b>ชื่อไทยเดียว</b> ที่เป็นทั้ง —</p>
+      <ul class="four"><li>ป้ายบนปุ่ม</li><li>ชื่อที่ทีมเรียก</li><li>accessible-name (a11y)</li><li>tooltip</li></ul>
+      <p style="margin-top:8px">+ <b>id</b> (ascii คงที่) แยกไว้สำหรับ code/test → พี่เปาพูด “ปุ่มฟังท่อน” ทุกคนรู้ว่า <code style="font-family:ui-monospace">play</code> ไม่ต้อง capture จอ</p>
+    </div>
+    <div class="ncard">
+      <h3>ทำไม “ขนาด = ตั้งค่า” ไม่ใช่ลากขอบ</h3>
+      <p>บนมือถือ ลากมุมย่อ = เล็งยาก. <b>Apple Dynamic Type</b> + <b>Material density</b> ทำ “ขนาด = ตัวเลือกในตั้งค่า” ให้ UI ปรับตาม — เราจึงใช้ 3 ระดับ. default <b>กะทัดรัด 44px</b> (เดิม 50px ใหญ่ไป) ยังผ่าน Apple HIG 44pt.</p>
+    </div>
+  </div>
+
+  <p class="foot">
+    mockup ออกแบบ · UX/UI seat · Photoshop Edit Toolbar (เลือกปุ่ม 2 คอลัมน์) · VS Code (id↔ชื่อ แยกชั้น · ซ่อน≠ลบ) · Apple Dynamic Type · WCAG 2.5.3 Label in Name<br>
+    รายละเอียด+อ้างอิง: <a href="../us/dockkey-config.md">dockkey-config.md</a>
+  </p>
+</div></div>
+
+<script>
+(function(){
+  var DEFAULT=[
+    {id:'grip',   name:'ที่จับ/ย่อ', ic:'⋮⋮', on:true,  lock:true},
+    {id:'undo',   name:'ย้อน',       ic:'↶',  on:true,  lock:false},
+    {id:'redo',   name:'ทำซ้ำ',      ic:'↷',  on:true,  lock:false},
+    {id:'play',   name:'ฟังท่อน',    ic:'▶',  on:true,  lock:false},
+    {id:'save',   name:'บันทึก/ส่งตรวจ', ic:'✈', on:true, lock:false, prime:true},
+    {id:'playAll',name:'ฟังทั้งเพลง', ic:'⏵', on:true,  lock:false},
+    {id:'scale',  name:'ขนาดตัวอักษร', ic:'Aa', on:true, lock:true},
+    {id:'setting',name:'ตั้งค่า',     ic:'⚙',  on:true,  lock:true},
+    {id:'draft',  name:'บันทึกร่าง',  ic:'💾', on:false, lock:false},
+    {id:'download',name:'ดาวน์โหลด',  ic:'⬇', on:false, lock:false},
+    {id:'preview',name:'ดูผลทั้งเพลง', ic:'👁', on:false, lock:false}
+  ];
+  var state=JSON.parse(JSON.stringify(DEFAULT));
+  var dock=document.getElementById('dock'), picker=document.getElementById('picker'),
+      readout=document.getElementById('readout'), root=document.documentElement;
+  var showNames=false, selRef=null;
+
+  function renderDock(){
+    dock.classList.toggle('names',showNames);
+    dock.innerHTML='';
+    var on=state.filter(function(b){return b.on});
+    // split: chrome row (grip..setting) + prime/playAll row for realism
+    var rowMain=document.createElement('div'); rowMain.className='drow';
+    var rowTop=document.createElement('div'); rowTop.className='drow';
+    on.forEach(function(b){
+      var el=document.createElement('button');
+      el.className='db'+(b.prime?' prime':'')+(selRef===b.id?' sel-ref':'');
+      el.setAttribute('data-cell',b.id);
+      el.setAttribute('aria-label',b.name);
+      el.setAttribute('title',b.name);
+      el.innerHTML='<span class="ic">'+b.ic+'</span><span class="nm">'+b.name+'</span>';
+      el.onclick=function(e){ e.stopPropagation(); selRef=b.id; renderDock();
+        readout.innerHTML='ชื่ออ้างอิง: <b>'+b.name+'</b> · id (code/test): <code>'+b.id+'</code> — พี่เปาพูดชื่อไทย · dev/test ใช้ id';
+      };
+      (b.prime||b.id==='playAll'?rowTop:rowMain).appendChild(el);
+    });
+    if(rowTop.children.length) dock.appendChild(rowTop);
+    dock.appendChild(rowMain);
+  }
+  function renderPicker(){
+    picker.innerHTML='';
+    state.forEach(function(b){
+      var li=document.createElement('li');
+      li.className=(b.on?'':'off')+(b.lock?' locked':'');
+      li.innerHTML='<span class="pi">'+b.ic+'</span><span class="pn">'+b.name+'</span>'+
+        '<span class="pid">'+b.id+'</span>'+
+        '<button class="pin" title="'+(b.on?'ถอนออกจากแถบ':'ปักขึ้นแถบ')+'">'+(b.lock?'🔒':(b.on?'📌':'＋'))+'</button>';
+      var btn=li.querySelector('.pin');
+      if(!b.lock) btn.onclick=function(){ b.on=!b.on; renderDock(); renderPicker(); };
+      picker.appendChild(li);
+    });
+  }
+  // size
+  document.getElementById('segSize').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-size]'); if(!b) return;
+    [].forEach.call(this.children,function(c){c.setAttribute('aria-pressed', c===b)});
+    var s=+b.getAttribute('data-size');
+    root.style.setProperty('--btn',s+'px');
+    root.style.setProperty('--gap', s<=44?'4px':s<=48?'6px':'8px');
+    root.style.setProperty('--pad', s<=44?'6px':s<=48?'8px':'10px');
+  });
+  // names
+  var sw=document.getElementById('swNames');
+  sw.onclick=function(){ showNames=!showNames; sw.setAttribute('aria-checked',showNames); renderDock(); };
+  // reset
+  document.getElementById('reset').onclick=function(){
+    state=JSON.parse(JSON.stringify(DEFAULT)); selRef=null; renderDock(); renderPicker();
+    readout.innerHTML='คืนค่าเริ่มต้นแล้ว · แตะปุ่มเพื่อดูชื่ออ้างอิง + id';
+  };
+  document.addEventListener('click',function(e){ if(!e.target.closest('.db')&&selRef){selRef=null;renderDock();} });
+
+  renderDock(); renderPicker();
+})();
+</script>
