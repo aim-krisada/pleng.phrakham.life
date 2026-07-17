@@ -104,7 +104,14 @@ create policy "Authenticated reads all songs" on public.songs
 insert into public.songs (..., author_id) values (..., auth.uid())   -- ← uid ของ APPROVER
 ```
 ควรเป็น `d.author_id` (คนเขียน draft). กระทบทุกเพลงที่อนุมัติผ่าน RPC = เครดิต/ประวัติผิดถาวร.
-**fix พร้อมใน `db/006-author-id-fix.sql`** (replace ฟังก์ชัน `approve_and_publish` เปลี่ยน `auth.uid()`→`d.author_id` ในกิ่ง insert · ไม่แตะ update) · **ไม่ back-fill อัตโนมัติ** (เพลงที่อนุมัติไปแล้ว author_id ผิด — ต้องดูว่าย้อนได้จาก `song_revisions.actor_id` ของ event `create` ไหม = งานแยก ต้องระวัง). **⛔ queue — รันหลัง 005 + PM go.**
+**fix พร้อมใน `db/006-author-id-fix.sql`** (replace ฟังก์ชัน `approve_and_publish` เปลี่ยน `auth.uid()`→`d.author_id` ในกิ่ง insert · ไม่แตะ update). **⛔ queue — รันหลัง 005 + PM go.**
+
+**🔎 verify เพิ่ม (18 ก.ค.): บั๊กนี้ latent — `songs.author_id` ไม่มีใครอ่านในแอปเลย.** แอปอ่าน `song_drafts.author_id` (ตัวกรอง "ร่างของฉัน" + ป้ายคนเขียนร่าง) และประวัติที่โชว์จริง = `song_revisions.actor_name` (snapshot ต่อ event · ถูกอยู่แล้ว) · **ไม่มีจุดไหนอ่าน `songs.author_id`** → เป็น **data-integrity/future-proofing ไม่ใช่ user-visible** → **queue ต่ำถูกต้อง**.
+
+**back-fill เพลงเก่า = `db/007-author-id-backfill.sql` (⛔ opt-in · รันหลัง 006 · ถ้า P'Aim อยากแก้ย้อนหลัง):**
+- **recovery source = `song_drafts.author_id`** (draft ยัง link `song_id` · author_id คนเขียน ไม่เคยถูกเขียนทับ) → `UPDATE songs SET author_id = draft.author_id WHERE draft.song_id = songs.id AND ต่างจริง`
+- เพลง **นำเข้าตรง (ไม่มี draft — 120 YS/hymnal)** = ไม่มี "คนเขียน" ให้ย้อน → **คงเดิม ไม่ null** (ซื่อสัตย์ต่อข้อมูล)
+- มี **pre-flight count** วัด blast radius ก่อนรัน · แตะเฉพาะแถวที่ผิดจริง (min churn) · **ไม่ปิด audit trigger** (ISO 27001 A.12.4 · จะ log `edit_published` ต่อแถว = โปร่งใส ตั้งใจ)
 
 ---
 
