@@ -1,6 +1,16 @@
 # รายงาน — เฟส 1 "ห้ามเลือดไหล" (editor-orientation) เสร็จแล้ว
 
-**สาขา:** `claude/inspiring-cerf-401036` (ฐาน `studio-shell-redesign`)
+## 🔀 UPDATE — rebase ลงฐานล่าสุดแล้ว (หลัง friction deploy รอบ 30)
+PM merge งาน editor-friction (ปุ่มขยายในหน้าต่าง/แถบติดจอ/เซฟร่าง/ลบร่าง) ขึ้น live ระหว่างที่ผมทำ — ไฟล์เดียวกัน
+- **rebase เฟส 1 ลง `ce1022e` แล้ว** (commit `38cd50b`) · conflict มีจุดเดียว = `defineExpose` (ทั้ง 2 ฝั่งเพิ่ม export คนละชุด → **เก็บทั้งคู่**)
+- **🐞 บั๊กเงียบจาก auto-merge ที่ผมจับได้:** `deleteDraft` ของ base เขียน `reviewingDraft.value = null` แต่ตอนนี้ `reviewingDraft` เป็น **computed อ่านอย่างเดียว** → runtime พัง · **แก้:** เปลี่ยนเป็นล้าง `openDraft` (แหล่งต้นทาง) แทน → computed recompute เป็น null เอง + ครอบร่างตัวเองด้วย
+- **ยืนยัน base ไม่หายสักบรรทัด:** grep เทียบ `ce1022e` vs merged → `readingFontScale` 6=6 · `deleteDraft` 3=3 · `edhead` 28=28 · `cshead` 11=11 · `sheetWinOpen` 7=7
+- **เปิดจริงในเบราว์เซอร์ (ตอบ PM "ไม่ใช่แค่รันผ่าน"):** หน้าต่าง `ดูผลทั้งเพลง` + ปุ่มขยาย font (`.sheet-read-scale` = friction ของ base) mount+visible คู่กับ `.pending-alert`/computed identity ของผม · console error = 0 · **2 ฟีเจอร์อยู่ไฟล์เดียวกันได้จริง**
+- **test:** **715 เขียว** (จาก 293 ใน src/components — รวม friction tests เดิม + 16 ของผม) · notationLint แดงเดิม (pre-existing) · null byte ยังอยู่ (1 · ไม่ลบตามที่ PM กำชับ)
+
+---
+
+**สาขา:** `claude/inspiring-cerf-401036` (ฐาน `studio-shell-redesign` = `ce1022e`)
 **แตะไฟล์:** `src/components/EditorMode.vue` (โค้ด) + test 2 ไฟล์ — **ไฟล์เดียวตาม DS · ไม่แตะ `Studio.vue`/`ShellBar.vue`/DB/DockKey**
 **สเปกที่ทำตาม:** `docs/ds/editor-orientation.md §เฟส 1` (D3 · D4 · D2) + `docs/us/editor-orientation.md`
 **test:** `npm test` — **283 เขียว** (267 เดิม + 16 ใหม่) · ไฟล์แดง 1 = `notationLint.test.mjs` **แดงก่อนงานนี้** (ยืนยันด้วย `git stash` แล้ว — สคริปต์เรียก `process.exit`, ไม่เกี่ยวกับผม)
