@@ -59,10 +59,16 @@ let activeSampler = null
 // violin), each its own wrapper; held here so stopPlayback() can silence every one.
 let activeEnsemble = []
 
+// Fermata hold multiplier. Notation software (Sibelius/MuseScore/Finale) stretches a fermata note
+// to 1.5–2× its written length on playback; 1.75 sits mid-range. It multiplies the note's WRITTEN
+// duration — a fermata on a half note (2 beats) plays 3.5, on a whole note (4) plays 7 — so every
+// box that makes up the note (the digit AND its '-' extensions) has to be scaled, not just the first.
+export const FERMATA_FACTOR = 1.75
+
 function tokenBeats(t, tripletFactor) {
   let d = 1 / 2 ** t.underlines
   d *= DOT_FACTOR[t.dots] ?? 1 // . ×1.5 · .. ×1.75
-  if (t.fermata) d *= 1.75 // fermata: hold longer (playback only; bar counting ignores it)
+  if (t.fermata) d *= FERMATA_FACTOR // playback only; bar counting ignores it
   return d * tripletFactor
 }
 
@@ -160,7 +166,7 @@ export function songToNotes(content) {
           if (t.type === 'note') {
             slot++
             if (t.pitch === '0') {
-              bn.push({ midi: null, beats: tokenBeats(t, f), li, bi, si, chord: curChord }) // rest: no syllable, chord rings on
+              bn.push({ midi: null, beats: tokenBeats(t, f), fermata: !!t.fermata, li, bi, si, chord: curChord }) // rest: no syllable, chord rings on
               prevMidi = null
             } else {
               let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
@@ -178,13 +184,19 @@ export function songToNotes(content) {
                 last.beats += tokenBeats(t, f) // melisma: this slot holds no new word
               } else {
                 // an attack: carry its slot so the highlight lands on this syllable
-                bn.push({ midi, beats: tokenBeats(t, f), tieOpen: !!t.tieStart, tieEnd: !!t.tieEnd, li, bi, si, syk: slot, chord: curChord })
+                bn.push({ midi, beats: tokenBeats(t, f), fermata: !!t.fermata, tieOpen: !!t.tieStart, tieEnd: !!t.tieEnd, li, bi, si, syk: slot, chord: curChord })
               }
               prevMidi = midi
             }
           } else if (t.type === 'ext') {
             slot++ // a '-' box holds the previous syllable — its own (blank) slot
-            if (bn.length) bn[bn.length - 1].beats += 1 * f
+            // A '-' is part of the SAME note, so a fermata on that note stretches this beat too.
+            // Without this the ×1.75 covered only the first box and the hold got weaker the longer
+            // the note ran (2-beat note → 1.375× · 4-beat → 1.19×) — backwards, since a fermata is
+            // written on long phrase-ending notes precisely. Scaling each box == scaling the whole
+            // written note, so `1^ -` = (1+1)×1.75 = 3.5 beats. (พี่เปา issue12 · P'Aim "ไม่ลากเสียงจริง")
+            const last = bn[bn.length - 1]
+            if (last) last.beats += 1 * f * (last.fermata ? FERMATA_FACTOR : 1)
           }
         }
       }
