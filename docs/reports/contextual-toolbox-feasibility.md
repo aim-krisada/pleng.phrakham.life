@@ -103,4 +103,27 @@ grep ทั้งไฟล์: **ไม่มี** `@mouseenter / @mouseover / @
 
 ---
 
+## 7 · ฟันธง SA — go/no-go + phase plan (พาไปถึงตัดสินใจ ไม่จบที่ "แล้วแต่")
+
+### 7.1 คำตอบที่ P'Aim ให้ verify ตรง ๆ: **mobile ทำ hover-equivalent ได้ไหม → ✅ ได้ · เป็น refine ไม่ใช่ redesign**
+คำถามจริงคือ *"มือถือไม่มี hover — โครงเดิมทำ tap-equivalent ได้ไหม"* — คำตอบเด็ดขาด: **โครงเดิม tap-to-select คือโมเดลปัจจุบันอยู่แล้ว** (`@focus`→focusedSlot · `@click`→editingChord/barMenuOpen). มือถือ**ไม่ต้องเลียนแบบ hover เลย** — มัน tap ตรง ๆ ได้ของจริงวันนี้. **hover เป็นของ desktop ล้วน (สิ่งเสริม)** ไม่ใช่ interaction หลัก. ดังนั้น *"mobile ทำไม่ได้บนโครงเดิม → redesign"* = **ไม่จริง** — มือถือคือเคสที่โครงเดิม**แข็งแรงที่สุด**. **ยืนยัน refine.**
+
+### 7.2 phase plan ที่ SA แนะนำ (ฟันธง · UX จัด flow ในกรอบนี้)
+| เฟส | ทำ | แตะ | เสี่ยง | คุ้ม |
+|---|---|---|---|---|
+| **A · anchored toolbox โน้ต+ห้อง (tap)** | ใช้ `slot-tools`/`barMenuOpen` เดิม จัดเครื่องมือให้ครบต่อ element | เล็ก — reuse pattern | ต่ำ | **สูงสุด — เริ่มที่นี่** |
+| **B · ขยายไป line+stanza** | ย้าย edhead/cshead tools → anchored popover (helper กลาง 1 ตัว) | กลาง — restructure 2 scope | กลาง | สูง (ได้ consistency ครบ 5) |
+| **C · hover-preview (desktop)** | `@pointerenter` gated `@media(hover:hover)` ซ้อน state เดิม | เล็ก–กลาง | ต่ำ (fallback = tap เดิม) | เสริม desktop |
+
+**go:** เฟส A ทำได้ทันที (เสี่ยงต่ำ คุ้มสุด) · **no-go จนกว่า P'Aim เคาะ:** B (แตะ layout 2 scope = "รื้อ" ระดับกลาง) · **ลำดับบังคับ:** ถ้ามี dev แตะ `EditorMode.vue` อยู่ → เข้าคิว (1 ไฟล์ 1 สาย).
+
+### 7.3 🚩 เชิงรุก — flag รูรั่วที่เร่งกว่างานนี้ (ไม่รอถูกถาม)
+งาน toolbox = UX/ความสะดวก. แต่ในมือ SA มี **2 รายการที่กระทบผู้ใช้จริง/ความถูกต้อง — ควรจัดคิวก่อนหรือขนานงาน cosmetic:**
+1. **🔴 verified GATE ไม่มี RLS = รูรั่ว security บน live** — anon เห็น **104 เพลงที่ยังไม่ตรวจ** (ควรเห็นเฉพาะ verified). นี่คือ**ข้อมูลรั่วบนเว็บจริงตอนนี้** ไม่ใช่ backlog เย็น ๆ → **แนะนำ P1** · ผมออกแบบ RLS policy + ตรวจ leak ได้ทันทีถ้า PM จ่าย (docs/DS ก่อน · dev รัน SQL ให้ PO)
+2. **🟠 `publish_draft` เก็บ `author_id` = คนอนุมัติ ไม่ใช่คนเขียน** — ประวัติ/เครดิตผิดถาวรทุกเพลงที่อนุมัติ (แก้ย้อนหลังยากขึ้นทุกวัน) → แนะนำจัดคิวเร็ว
+
+**ทั้งสองอยู่ในโดเมน SA เต็ม ๆ (RLS/data model) · แยกไฟล์กับ `EditorMode.vue` = ทำขนานกับ toolbox ได้ ไม่ชน** — รอ PM ชั่งลำดับกับ P'Aim.
+
+---
+
 *วัดโค้ดจริง 2026-07-17 · SA (feasibility-only) · ฐาน `studio-shell-redesign` · ⛔ ไม่แตะ `src/`*
