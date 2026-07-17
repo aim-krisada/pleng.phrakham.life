@@ -9,13 +9,34 @@ import { buildPlayNotes, scheduleNote, buildChordVoice, voiceFlags, makeChordBus
 import { arrange } from './arranger/index.js'
 import { moduleForInstrument } from './arranger/instruments/index.js'
 import { loadInstrument, isSampledInstrument } from './sampler.js'
-import { resolveContent } from './songModel.js'
+import { resolveContent, resolvePlayOrder } from './songModel.js'
 import { songBasename } from './songName.js'
 
 // The playable v1 shape playSong/SongViewer use: v2 stanzas flattened to lines, other
 // content fields (key, bpm) kept. So the MP3 plays exactly what "ฟัง" plays.
 export function playableContent(content) {
   return { ...content, lines: resolveContent(content) }
+}
+
+// B102 — the PLAY order, not the sheet order. The sheet writes a "ร้องรับทุกข้อ" refrain
+// ONCE; singing repeats it after every verse, so the note list the sheet resolves to is
+// SHORTER than the song. The viewer gets this right (SongViewer fullNotes passes
+// strophicOrder); the export used to omit it and silently dropped every repeat — on 11
+// published songs, up to 116s of a 297s song. Deriving it here (rather than taking it from
+// a caller) keeps every export path honest by default: DownloadTool/ExportTool pass content
+// alone, and print/editor callers can't forget it. Same seam the viewer uses, so the two
+// paths cannot drift. Returns undefined (= whole song, display order) when the song has no
+// directive — byte-identical to before for those songs.
+export function playOrderOf(content) {
+  return resolvePlayOrder(content) ?? undefined
+}
+
+// The note list EVERY export path renders — the one seam where content → notes happens, so
+// the estimate and the render cannot disagree. They used to derive it separately and both
+// forgot the play order; one function means one place to get it right and one place to test.
+// Must stay equal to the viewer's fullNotes (SongViewer.vue) — pinned by audioExport.order.test.js.
+export function exportPlayNotes(content) {
+  return buildPlayNotes(playableContent(content), { order: playOrderOf(content) })
 }
 
 // Seconds a note list spans at a given bpm (Σ beats × secondsPerBeat). Also the basis
@@ -34,7 +55,7 @@ export function notesDurationSec(notes, bpm) {
 export function estimateMp3(content, { bpm, kbps = 128 } = {}) {
   const playable = playableContent(content)
   const useBpm = Number(bpm) || playable.bpm || 92
-  const seconds = notesDurationSec(buildPlayNotes(playable), useBpm) + 0.25
+  const seconds = notesDurationSec(exportPlayNotes(content), useBpm) + 0.25
   const bytes = Math.round(((kbps * 1000) / 8) * seconds)
   return { seconds, bytes }
 }
@@ -45,16 +66,19 @@ export function estimateMp3(content, { bpm, kbps = 128 } = {}) {
 // Two modes — same synth (scheduleNote) as playSong's fallback voice, so timing/dynamics match:
 //   arranger:true  — route the sheet through arrange() (the SAME pure function live playback uses),
 //                    so the download carries the FULL arrangement (referee no-clash + balance, legato
-//                    bass, embellishments, humanize, rubato, section dynamics) — MP3 == "ฟัง" in every
-//                    musical detail (§1b). Pass the live arrangeCfg + instrument + songId to match
-//                    exactly. Timbre is the offline synth (the real Grand in OfflineAudioContext is a
-//                    separate P3 spike); everything ELSE — the notes, timing, loudness — is identical.
+//                    bass, embellishments, humanize, rubato, section dynamics). Pass the live
+//                    arrangeCfg + instrument + songId to match exactly.
+//                    Parity with "ฟัง" is asserted by test, not by this comment: audioExport.order
+//                    .test.js pins MP3 notes === viewer notes across every published song. (This
+//                    comment used to claim 'MP3 == ฟัง in every musical detail' while the export
+//                    silently dropped every strophic refrain repeat — the claim is what kept the bug
+//                    invisible for 19 deploys. Don't restate parity here; extend that test instead.)
 //   arranger:false — the legacy plain path (melody + block chords), unchanged, for callers that don't
 //                    opt in (print/editor default).
 export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRate = 44100, voices = 'melody', chordGain = 0.055, arranger = false, arrangeCfg = {}, instrument = 'synth', songId } = {}) {
   const playable = playableContent(content)
   const useBpm = Number(bpm) || playable.bpm || 92
-  const notes = buildPlayNotes(playable)
+  const notes = exportPlayNotes(content)
   const spb = 60 / useBpm
   const { melody: wantMelody, chords: wantChords } = voiceFlags(voices)
   const OfflineCtx = typeof window !== 'undefined'
