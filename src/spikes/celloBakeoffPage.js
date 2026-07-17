@@ -109,7 +109,8 @@ async function renderAll() {
         + ` · RMS ${m.rmsDb.toFixed(1)}dB${m.clipped ? ' · <b class="warn">CLIP!</b>' : ''}`
         + `${celloReport ? ` · เชลโล ${celloReport.melodyNotes} โน้ต · ตัวโน้ตไต่ ${celloReport.attackMs}ms`
           + `${celloReport.shiftMs ? ` → เลื่อนก่อน ${celloReport.shiftMs}ms` : ' → ไม่เลื่อน'}`
-          + `${celloReport.head ? ` · หัวโน้ต ${celloReport.head.headId.replace('staccato-','')} ไต่ ${celloReport.head.attackMs}ms × ${Math.round(celloReport.head.strength*100)}%` : ''}` : ''}${oor}`
+          + `${celloReport.head ? ` · หัวโน้ต ${celloReport.head.headId.replace('staccato-','')} ไต่ ${celloReport.head.attackMs}ms × ${Math.round(celloReport.head.strength*100)}%` : ''}`
+          + `${celloReport.vib ? ` · สั่นนิ้ว ${celloReport.vib.vibrated}/${celloReport.vib.vibrated+celloReport.vib.plain} โน้ต (${celloReport.vib.pct}% · กฎอัตโนมัติ)` : ''}` : ''}${oor}`
         + ` · ${((performance.now() - t0) / 1000).toFixed(1)}s · ${perf.length} events`
     } catch (e) {
       document.querySelector(`[data-meta="${v.id}"]`).innerHTML = `<b class="warn">พัง: ${e.message}</b>`

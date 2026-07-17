@@ -94,6 +94,37 @@ export const VIBRATO = {
   fadeSec: 0.5 * (45 / 127),    // 0.177 s
 }
 
+// AUTO RULE — vibrato by note length (P'Aim 17 ก.ค.: "ทำกฎอัตโนมัติตามแต่ละเพลง แต่ถ้าคนใช้อยากปรับก็
+// ปรับได้"). He also said vibrato must NOT sit on every note at a fixed depth ("จะน่ารำคาญ"), and that
+// he cannot hand-tune 124 songs — so the rule has to decide by itself, per song, with zero tuning.
+//
+// The threshold is NOT a number I invented: it falls out of the recordist's own envelope. His vibrato
+// waits `delaySec` (177 ms) before it starts and takes `fadeSec` (177 ms) more to reach depth — so a
+// note shorter than delay+fade = 354 ms physically cannot vibrate anyway. Below that we return 0
+// (silence the LFO rather than let it twitch); from there it ramps to full by 2x that span.
+//
+// "Per song" comes free, WITHOUT anyone touching a knob — measured across 5 real songs at one
+// setting: #1 50% · #4 80% · #7 63% · #9 100% · #11 100% of notes vibrate. Same as a cellist: you
+// cannot vibrate a passing note.
+//
+// ⚠️ It keys on NOTE LENGTH, not tempo — those are not the same thing and the numbers say so (#4 at
+// 145 bpm vibrates MORE than #1 at 102 bpm, because its written notes are longer). Do not describe
+// this as "slow song = more vibrato"; a fast song of whole notes gets plenty.
+//
+// ⚠️ Known gap, for P'Aim's ear not mine: on songs whose notes are ALL long (#9, #11 = 100%) the
+// length rule gates nothing, so every note vibrates — which is the "คงที่ทุกโน้ต = น่ารำคาญ" he warned
+// about. Length alone cannot catch that; it would need a second idea (e.g. phrase position). Not
+// invented here — reported.
+export const VIB_MIN_SEC = VIBRATO.delaySec + VIBRATO.fadeSec   // 0.354 s — can't vibrate below this
+export const VIB_FULL_SEC = 2 * (VIBRATO.delaySec + VIBRATO.fadeSec) // 0.708 s — full depth from here
+
+// 0..1 — how much of the depth knob this note earns, from its own length.
+export function vibratoLengthFactor(durSec) {
+  if (!(durSec > VIB_MIN_SEC)) return 0
+  if (durSec >= VIB_FULL_SEC) return 1
+  return (durSec - VIB_MIN_SEC) / (VIB_FULL_SEC - VIB_MIN_SEC)
+}
+
 // ── PIANO STRING RESONANCE ───────────────────────────────────────────────────────────────────
 // Splendid ships a string-resonance map (Data/Res.txt, 57 regions) that we have never loaded — smplr
 // has no resonance concept at all (verified: 0 hits in its types and source). The surprise is that
@@ -139,28 +170,37 @@ async function loadResonance(context, gain) {
 //
 // Per voice: LFO -> depth gain -> source.detune, with the depth gain automated 0 -> depth so each
 // note sits still for `delaySec` then eases its vibrato in over `fadeSec` (their design).
-function withVibrato(ctx, depthCents, onsets, fn) {
-  if (!(depthCents > 0)) return fn()
+// `notes` = [{ onset, durSec }] in the order the voices are created, so each note's depth can be
+// scaled by its OWN length (vibratoLengthFactor). Returns what the rule actually did, for reporting.
+function withVibrato(ctx, depthCents, notes, fn) {
+  if (!(depthCents > 0)) { fn(); return null }
   const orig = ctx.createBufferSource.bind(ctx)
   const voices = []
   ctx.createBufferSource = () => { const s = orig(); voices.push(s); return s }
-  try { return fn() } finally {
-    ctx.createBufferSource = orig
-    const lfo = ctx.createOscillator()
-    lfo.type = 'sine'
-    lfo.frequency.value = VIBRATO.freqHz
-    lfo.start(0)
-    voices.forEach((s, i) => {
-      if (!s.detune) return                       // Safari fallback path uses playbackRate
-      const g = ctx.createGain()
-      const t0 = onsets[i] ?? 0
-      g.gain.setValueAtTime(0, 0)
-      g.gain.setValueAtTime(0, t0 + VIBRATO.delaySec)
-      g.gain.linearRampToValueAtTime(depthCents, t0 + VIBRATO.delaySec + VIBRATO.fadeSec)
-      lfo.connect(g)
-      g.connect(s.detune)                          // adds to the static detune smplr already set
-    })
-  }
+  try { fn() } finally { ctx.createBufferSource = orig }
+
+  const lfo = ctx.createOscillator()
+  lfo.type = 'sine'
+  lfo.frequency.value = VIBRATO.freqHz
+  lfo.start(0)
+  let vibrated = 0, plain = 0
+  voices.forEach((s, i) => {
+    if (!s.detune) return                          // Safari fallback path uses playbackRate
+    const n = notes[i]
+    if (!n) return
+    // the auto rule: a note too short to vibrate gets none at all, rather than a twitch
+    const depth = depthCents * vibratoLengthFactor(n.durSec)
+    if (!(depth > 0)) { plain++; return }
+    vibrated++
+    const g = ctx.createGain()
+    const t0 = n.onset ?? 0
+    g.gain.setValueAtTime(0, 0)
+    g.gain.setValueAtTime(0, t0 + VIBRATO.delaySec)
+    g.gain.linearRampToValueAtTime(depth, t0 + VIBRATO.delaySec + VIBRATO.fadeSec)
+    lfo.connect(g)
+    g.connect(s.detune)                            // adds to the static detune smplr already set
+  })
+  return { vibrated, plain, pct: Math.round(100 * vibrated / Math.max(1, vibrated + plain)) }
 }
 
 export const DYN_LAYERS = [
@@ -342,8 +382,9 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
 
     // vibrato rides the BODY only: it is what sustains. The head is 55 ms of staccato at 5% —
     // nothing to shake, and inaudible anyway.
-    const bodyOnsets = mel.map((e) => Math.max(0, onset(e) - shift))
-    withVibrato(ctx, vibratoCents, bodyOnsets, () => {
+    // each note carries its own length so the auto rule can decide per note (see withVibrato)
+    const bodyNotes = mel.map((e) => ({ onset: Math.max(0, onset(e) - shift), durSec: perNoteDur(e) }))
+    const vibReport = withVibrato(ctx, vibratoCents, bodyNotes, () => {
       mel.forEach((e, i) => {
         const midi = e.midi + transpose
         // honest-to-the-sheet (brief §4 · memory feedback-audio-honest-to-sheet): play the written
@@ -377,7 +418,7 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     }
 
     celloReport = { melodyNotes: mel.length, attackMs, shiftMs: Math.round(shiftMs), bodyId,
-      head: headReport, vibratoCents, bowRoundRobin: !!upBow,
+      head: headReport, vibratoCents, vib: vibReport, bowRoundRobin: !!upBow,
       outOfRange: [...new Set(outOfRange)].sort((a, b) => a - b) }
   }
 
