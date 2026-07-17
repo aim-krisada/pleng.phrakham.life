@@ -1,8 +1,30 @@
-# PM board — pleng (ไม้ต่อ · refreshed 2026-07-16 · หลัง DEPLOY รอบ 29 + golden-piano จบ)
+# PM board — pleng (ไม้ต่อ · refreshed 2026-07-18 · หลัง DEPLOY รอบ 30 + ตั้งโครง 3 ที่นั่งถาวร)
 
-กระดานนี้ = สถานะสด + งานค้าง + routing เท่านั้น · **รายละเอียดเทคนิค → git log + `docs/reports/<branch>.md` + `docs/backlog.md`** (อย่าซ้ำที่นี่)
-**⛔ เปิด PM session ใน worktree `C:\gl\krisada\pleng.phrakham.life-pm` เท่านั้น** (ไม่ใช่ primary clone · primary park ที่ `pm-primary-parking` · ดู `docs/sop.md` §5)
-**เปิด PM session ใหม่:** `docs/pm/pm.md` → memory `pleng-pm-role` (+ feedback PM ชุด) → `docs/sop.md` → ไฟล์นี้ · **ตั้งชื่อ session ถัดไป = `pm27`** (นับต่อเนื่องจาก pm26 · P'Aim 16 ก.ค. — เลข PM = ลำดับ session ไม่ใช่เลขรอบ deploy) · IP เครื่องเปลี่ยนบ่อย (เช็ก `Get-NetIPAddress`/vite Network line ก่อนส่ง URL)
+กระดานนี้ = สถานะสด + งานค้าง + routing เท่านั้น · **รายละเอียดเทคนิค → git log + `docs/reports/<branch>.md`**
+**⛔ เปิด PM session ใน worktree `C:\gl\krisada\pleng.phrakham.life-pm` เท่านั้น** · **ตั้งชื่อ session ถัดไป = `pm27`**
+**เปิด PM session ใหม่:** `docs/pm/pm.md` → **`docs/sop.md` (อ่าน §1.1-1.3 roster + §6 anti-patterns ก่อน)** → memory `pleng-pm-role` + `pleng-roster-3-seats` → ไฟล์นี้ · IP เปลี่ยนบ่อย (เช็ก vite Network line ก่อนส่ง URL · ปัจจุบัน `192.168.1.124`)
+
+## 🔑 HAND-OFF (18 ก.ค. · session เต็ม → pm27) — อ่านก่อนทำต่อ
+**โครงทีมใหม่ (P'Aim 17 ก.ค. · `docs/sop.md §1.1`):** 3 ที่นั่งคิดถาวร + Dev/Tester ต่องาน
+- **PM** = `pleng.phrakham.life-pm` (นี่) · **SA** = `pleng.phrakham.life-sa` (`sa.md` · session `pl sa`) · **UX/UI** = `pleng.phrakham.life-uxui` (`uxui.md` · session `pl uxui`)
+- **P'Aim เปิด window เองในแต่ละ dir** (spawn_task สร้าง worktree ทิ้ง ไม่เกาะ dir — อย่า spawn ที่นั่งถาวร) · **1 ไฟล์ 1 สาย PM จัดคิว** · ยกรายงานเข้าฐานทันที
+
+**🔴 P'Aim decision ค้าง (session หน้าถาม/รอ):**
+1. **RLS leak = P'Aim เลือก ข. (เร่งตรวจ batch ก่อนเปิด) · พี่เปาเป็นคนตรวจ** → SA กำลังเช็ก "94 เพลง กี่เพลงสมบูรณ์พอกด ✓" → พอ verified ถึงระดับรับได้ PM รัน `db/005` (⛔ PO run SQL · ยังไม่รัน) · public จะเหลือ verified-only
+2. **dock-config GATE 1:** P'Aim ลอง mockup https://claude.ai/code/artifact/555c023e-4bdb-46b4-a894-05509fbd559d → เคาะทิศ → UX ทำ DS ส่ง dev · **DockKey แชร์ 2 เว็บจริง (แก้ engine=2 เว็บ · regression พระคำต้อง test 2 host)**
+3. **toolbox (hover/tap contextual) = banked** หลัง dock-config · mockup https://claude.ai/code/artifact/234933b6... · เฟส A/B รอ P'Aim
+
+**สถานะที่นั่ง (18 ก.ค.):**
+- **SA:** งานออกแบบจบหมด · stand by รอ UX flow ตรวจ feasibility คู่ · SQL พร้อมไม่รัน: `db/005`(RLS·รอจังหวะ) `db/006`(author_id fix) `db/007`(back-fill·author_id latent ไม่ urgent)
+- **UX:** dock-config flow+mockup เสร็จ (ใช้ verdict `2c98c2c` = shared 2 เว็บ) · กำลังเขียน `summary-dockkey-paim.md` (เจ้าของคนเดียว) · toolbox banked
+- **สาย orientation `91b05cf3`:** 2a (แถบตัวตน+คิวอนุมัติขึ้น shell) กำลังทำ — **เช็กว่าเสร็จยัง (ไล่ดูเอง อย่ารอ ping)**
+
+**เข้าฐานแล้ว รอ deploy รอบ 31:** `2c`(การ์ดชื่อเต็ม) · เฟส1(เตือนก่อนทับงานโม `13f0f52`) — **รอ P'Aim ลองรวม + สั่ง go**
+**🐞 backlog dev:** pk-drawer.js header เคลม "แชร์พระคำ" ทั้งที่ import ตรง (แก้คอมเมนต์) · null byte `EditorMode.vue:1569`
+**design banked (รอ P'Aim หยิบ):** `#`ยกทั้งห้อง · ถังขยะ · slur/เส้นเอื้อน(ทำสัญลักษณ์แยก) · selection-driven toolbox
+
+---
+_(ประวัติ DEPLOY รอบ 30 + วันนี้ด้านล่าง)_
 
 ---
 
