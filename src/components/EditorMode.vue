@@ -148,7 +148,10 @@ function serializeLine(line) {
 
 const editingId = ref(null)
 const currentDraftId = ref(null)
-const reviewingDraft = ref(null)
+// The draft row actually open in the editor (null = editing the published song). This is
+// the only navigation-set part of the identity; everything else about "whose version is
+// this" is derived from it + the loaded drafts (see openPendingDraft / reviewingDraft).
+const openDraft = ref(null)
 const reviewComment = ref('')
 const pickerId = ref('')
 const meta = reactive({ number: null, title_th: '', title_en: '', category: 'anuchon', theme: '' })
@@ -1119,7 +1122,7 @@ async function loadSong(id) {
   applyRow(data)
   editingId.value = data.id
   currentDraftId.value = null
-  reviewingDraft.value = null
+  openDraft.value = null
   saveMsg.value = ''
   nextTick(resetHistory)
 }
@@ -1164,7 +1167,7 @@ function applyRow(data) {
 function resetForm() {
   editingId.value = null
   currentDraftId.value = null
-  reviewingDraft.value = null
+  openDraft.value = null
   meta.number = null
   meta.title_th = ''
   meta.title_en = ''
@@ -1212,11 +1215,54 @@ async function loadDrafts() {
   pendingDrafts.value = (data ?? []).filter((d) => d.status === 'pending')
 }
 
+// ---------- identity: derived from DATA, never from which door you walked in through ----------
+// (DS editor-orientation §1/D3) Before this, "am I reviewing a draft?" was a ref that only
+// loadDraft() ever set — so opening the very same draft-backed song from the picker, a URL
+// or a refresh produced a screen that said nothing. These computeds answer the question from
+// what is loaded, so every route into the song gives the identical answer.
+const uid = computed(() => session.value?.user?.id ?? null)
+const draftAuthor = (d) => (d ? profilesMap.value[d.author_id] || 'ผู้เขียน' : '')
+
+// A pending draft open in the editor, own or not. An approver publishing either goes through
+// approve_and_publish (B028: publish + close the draft in ONE audited transaction), so this
+// — not reviewingDraft — is what the primary action keys on.
+const openPendingDraft = computed(() =>
+  isApprover.value && openDraft.value?.status === 'pending' ? openDraft.value : null,
+)
+// "I am reviewing someone ELSE's work" — drives the banner + whose-work labels. The author
+// check is what stops an approver's own pending draft from announcing "กำลังตรวจฉบับร่างของ
+// [ตัวเอง]" (US §9 edge bug #5).
+const reviewingDraft = computed(() =>
+  openPendingDraft.value && openPendingDraft.value.author_id !== uid.value ? openPendingDraft.value : null,
+)
+// A draft is waiting for review on the song currently open, and it is NOT the one on screen
+// → publishing from here strands it silently. This is the fact the editor already had in hand
+// (pendingDrafts loads on login) but never once asked for.
+const pendingForThisSong = computed(() => {
+  if (!editingId.value) return null
+  return pendingDrafts.value.find((d) => d.song_id === editingId.value && d.id !== openDraft.value?.id) || null
+})
+
+// The D4 banner is dismissible ("แก้ฉบับเผยแพร่ต่อ" = I know, I'm working on the live song).
+// DS §2 asked it to stay put because the fact hasn't changed — but a button that visibly does
+// nothing is the same lie as a row you can't press (editor-friction §2), and the fact does NOT
+// get lost: it still rides the primary button's label and the confirm before the overwrite.
+// Keyed by draft id, so a different/new pending draft re-announces itself.
+const alertDismissedFor = ref(null)
+const pendingAlert = computed(() =>
+  pendingForThisSong.value && pendingForThisSong.value.id !== alertDismissedFor.value
+    ? pendingForThisSong.value
+    : null,
+)
+function dismissPendingAlert() {
+  alertDismissedFor.value = pendingForThisSong.value?.id ?? null
+}
+
 function loadDraft(d) {
   applyRow(d)
   editingId.value = d.song_id
   currentDraftId.value = d.id
-  reviewingDraft.value = isApprover.value && d.status === 'pending' ? d : null
+  openDraft.value = d
   reviewComment.value = d.review_comment || ''
   saveMsg.value = d.status === 'rejected' && d.review_comment ? '↩ ถูกส่งกลับ: ' + d.review_comment : ''
   nextTick(resetHistory)
@@ -1344,7 +1390,7 @@ async function saveDirect() {
 }
 
 async function approve() {
-  const d = reviewingDraft.value
+  const d = openPendingDraft.value
   emit('save', 'publish')
   if (!meta.title_th) {
     saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
@@ -1381,20 +1427,20 @@ async function approve() {
     count > 0
       ? `✅ อนุมัติและเผยแพร่แล้ว — แต่พบปัญหาโน้ต ${count} จุด (ติดป้ายไว้ให้ตรวจ)`
       : '✅ อนุมัติและเผยแพร่แล้ว'
-  reviewingDraft.value = null
+  openDraft.value = null
   currentDraftId.value = null
   loadDrafts()
   loadSongList()
 }
 
 async function reject() {
-  const d = reviewingDraft.value
+  const d = openPendingDraft.value
   const { error } = await supabase
     .from('song_drafts')
     .update({ status: 'rejected', review_comment: reviewComment.value || null })
     .eq('id', d.id)
   saveMsg.value = error ? '❌ ' + error.message : '↩ ส่งกลับให้ผู้เขียนแก้แล้ว'
-  reviewingDraft.value = null
+  openDraft.value = null
   currentDraftId.value = null
   loadDrafts()
 }
@@ -1415,7 +1461,9 @@ async function deleteDraft(d) {
   // if the open editor is holding the draft we just deleted, let go of the dead id so the next
   // บันทึกร่าง starts a fresh row instead of updating a row that no longer exists
   if (currentDraftId.value === d.id) currentDraftId.value = null
-  if (reviewingDraft.value?.id === d.id) reviewingDraft.value = null
+  // D3: reviewingDraft is derived from openDraft now — drop the source, and the review banner
+  // / labels recompute to null on their own (this also covers deleting one's own open draft).
+  if (openDraft.value?.id === d.id) openDraft.value = null
   saveMsg.value = '🗑️ ลบร่างแล้ว'
   loadDrafts()
 }
@@ -1430,11 +1478,6 @@ async function deleteSong() {
     pickerId.value = ''
     loadSongList()
   }
-}
-
-function save() {
-  if (legacy.value || (isApprover.value && !reviewingDraft.value)) return saveDirect()
-  return saveDraft(reviewingDraft.value ? 'pending' : 'draft')
 }
 
 // "✓ ตรวจแล้ว": mark this song as human-checked (songs.verified). The catalog reads this
@@ -1708,13 +1751,25 @@ onBeforeRouteLeave(() => {
 
 // ---------- floating toolbar + sheet overlay ----------
 const showSheet = ref(false)
-const primaryLabel = computed(() =>
-  reviewingDraft.value ? '✅ อนุมัติ' : isApprover.value ? '✅ เผยแพร่' : '📨 ส่งตรวจ'
-)
+// D2/D4 — the primary action states what it will DO and to WHOSE work, and it refuses to
+// overwrite a song that has a draft waiting for review without saying so first.
+// `save()` and `primaryLabel` used to live here too, disagreeing with this function about the
+// same state; both were dead code (nothing called them — the dock runs primaryAction and
+// renders saveLabel), so they are gone rather than kept in sync. One source of truth.
 function primaryAction() {
-  if (reviewingDraft.value) return approve()
-  if (isApprover.value) return saveDirect()
-  return saveDraft('pending')
+  if (openPendingDraft.value) return approve()
+  if (!isApprover.value) return saveDraft('pending')
+  const waiting = pendingForThisSong.value
+  // HIG Alerts: alert only for an uncommon destructive action that can't be undone — this is
+  // one. M3 Dialogs: no ambiguous "Are you sure?" — say what actually happens (US AC-6).
+  if (
+    waiting &&
+    !window.confirm(
+      `เผยแพร่ทับฉบับปัจจุบัน — ร่างของ${draftAuthor(waiting)}ที่รอตรวจอยู่จะยังไม่ถูกอนุมัติ\n\nเผยแพร่ทับ?`,
+    )
+  )
+    return
+  return saveDirect()
 }
 
 // ---------- edit dock = DockKey fed ITEMS_EDIT (DS dockkey-print-edit §2) ----------
@@ -1723,7 +1778,32 @@ function primaryAction() {
 // ฟังท่อน↔หยุด), the prime บันทึก + ฟังทั้งเพลง on row 2, and export/draft/preview in ⚙.
 // The structural per-bar tools stay INLINE in the table (contextual — not dock commands).
 const editAlpha = ref(0.96)
-const saveLabel = computed(() => (reviewingDraft.value ? 'อนุมัติ' : isApprover.value ? 'เผยแพร่' : 'ส่งตรวจ'))
+// D2 (WCAG 3.2.4 · 2.4.6 · 3.3.2) — one label per meaning. "เผยแพร่" alone was the same word
+// for "publish my own edit", "overwrite the live song" and "overwrite while โม's draft waits":
+// three functions wearing one label. saveLabel is the compact BUTTON FACE; saveName is the
+// full accessible name (aria-label + title) with no width limit.
+//
+// Divergence from DS §3 (recorded in the report): DS put the owner's name ON the button face
+// ("อนุมัติร่างของโม"). At 360px that face rides row 2 next to ฟังทั้งเพลง, and a real latin
+// author name ("k.pituck"/"yeahwong") pushed the row past the viewport (measured: 393px > 360)
+// — which US AC-9 forbids as a hard gate. The owner is not lost: it sits in the banner
+// directly above the button (review-banner / pending-alert) AND in saveName (the accessible
+// name). So the face stays compact + consistent, and WHOSE-work is always on screen beside it.
+const saveLabel = computed(() => {
+  if (reviewingDraft.value) return 'อนุมัติร่าง'
+  if (!isApprover.value) return 'ส่งตรวจ'
+  if (openPendingDraft.value) return 'เผยแพร่ร่างฉัน'
+  if (pendingForThisSong.value) return '⚠️ เผยแพร่ทับ'
+  return editingId.value ? 'เผยแพร่ทับ' : 'เผยแพร่'
+})
+const saveName = computed(() => {
+  if (reviewingDraft.value) return 'อนุมัติและเผยแพร่ร่างของ' + draftAuthor(reviewingDraft.value)
+  if (!isApprover.value) return 'ส่งตรวจ'
+  if (openPendingDraft.value) return 'เผยแพร่ร่างของฉัน (อนุมัติเอง)'
+  if (pendingForThisSong.value)
+    return `เผยแพร่ทับฉบับปัจจุบัน — มีร่างของ${draftAuthor(pendingForThisSong.value)}รอตรวจอยู่`
+  return editingId.value ? 'เผยแพร่ทับฉบับปัจจุบัน' : 'เผยแพร่'
+})
 
 // B107 step 9 — the editor's "เสียงดนตรี" popover (same SoundControl as ฝึกร้อง, its own state).
 // 'plain' → arranger OFF (notes as printed · ตรวจโน้ต); calm/arrangement → the matching preset.
@@ -1754,7 +1834,7 @@ const editItems = computed(() => [
   // so พี่เปา can switch instrument/style right here (default = ตรงโน้ต for raw note-checking).
   { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', place: { anchor: 'leftOf:setting', row: 1 } },
   { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
-  { id: 'save', kind: 'btn', name: saveLabel.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
+  { id: 'save', kind: 'btn', name: saveName.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
   { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', place: { row: 2, col: 3 }, run: playFull, hidden: playing.value },
   { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { row: 2, col: 4 } },
   // issues9 (พี่เปา): บันทึกร่าง used to live in ⚙ (default:'inSetting'), where a `btn` renders no
@@ -2343,7 +2423,7 @@ watch(
     applyRow(s)
     editingId.value = s.id ?? null
     currentDraftId.value = null
-    reviewingDraft.value = null
+    openDraft.value = null
     saveMsg.value = ''
     nextTick(resetHistory)
   },
@@ -2368,6 +2448,9 @@ defineExpose({
   saveDraft, loadDraft, meta, editingId, currentDraftId, previewContent,
   // issues9/issues10: บันทึกร่าง's seat on the bar + throwing away one's own draft.
   deleteDraft, editItems,
+  // D3/D2/D4 identity tests: the derived facts + the one label/action the dock actually uses.
+  openDraft, pendingDrafts, reviewingDraft, openPendingDraft, pendingForThisSong, pendingAlert,
+  saveLabel, saveName, primaryAction, loadSong, loadDrafts,
   // B097 undo/redo tests: drive the same doc/view state + navigation the UI drives.
   opts, stanzas, arrangement, activeStanza, lensChoice,
   undo, redo, selectStanza, focusRow, addStanza, setSyl, applyChordAt,
@@ -2546,9 +2629,26 @@ defineExpose({
       </div>
     </div>
 
-    <!-- review banner (contextual — while an approver is reviewing a draft) -->
-    <div v-if="reviewingDraft" class="card review-banner no-print">
-      <strong>🔍 กำลังตรวจฉบับร่างของ {{ profilesMap[reviewingDraft.author_id] || '?' }}</strong>
+    <!-- D4 (US AC-6) — this song has a draft waiting for review that is NOT the one on screen.
+         Publishing from here strands it silently, so say so on arrival, not only at the button.
+         Inline, not a toast: the fact is a lasting state and a snackbar leaves (HIG Feedback).
+         aria-live announces it when it appears mid-session (loadDrafts resolves after loadSong). -->
+    <div v-if="pendingAlert" class="card pending-alert no-print" role="status" aria-live="polite">
+      <!-- ⚠️ as text, matching .migrate-note below: Icon.vue renders `ICONS[name] || ''`, so a
+           glyph it doesn't carry (it has no warning triangle) would vanish without an error -->
+      <strong>⚠️ {{ draftAuthor(pendingAlert) }}ส่งร่างของเพลงนี้มารอตรวจ</strong>
+      <span class="muted"> — เผยแพร่ทับตอนนี้ ร่างนั้นจะยังค้างรอตรวจอยู่</span>
+      <div class="pa-actions">
+        <button class="pa-go" @click="loadDraft(pendingAlert)">
+          ดูร่างของ{{ draftAuthor(pendingAlert) }}
+        </button>
+        <button @click="dismissPendingAlert">แก้ฉบับเผยแพร่ต่อ</button>
+      </div>
+    </div>
+
+    <!-- review banner (contextual — while an approver is reviewing SOMEONE ELSE's draft) -->
+    <div v-if="reviewingDraft" class="card review-banner no-print" role="status" aria-live="polite">
+      <strong>🔍 กำลังตรวจฉบับร่างของ {{ draftAuthor(reviewingDraft) }}</strong>
       <span class="muted"> — แก้ไขในฟอร์มด้านล่างได้ก่อนอนุมัติ</span>
       <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center">
         <button @click="approve">✅ อนุมัติและเผยแพร่</button>
@@ -3572,6 +3672,18 @@ defineExpose({
 .s-pending { background: #fefcbf; }
 .s-rejected { background: #fed7d7; }
 .review-banner { background: #fffbeb; border-color: #f6e05e; }
+/* D4 — "someone's draft is waiting on this song". Warmer + heavier than .review-banner on
+   purpose: that one says "you are somewhere safe", this one says "you can destroy work here".
+   Never colour alone (WCAG 1.4.1) — the icon and the author's name carry it too. */
+.pending-alert {
+  background: #fff4ed;
+  border-color: var(--red, #c53030);
+  border-left: 4px solid var(--red, #c53030);
+}
+.pa-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+/* min-height 44 = WCAG 2.5.8 target size with room to spare, matching the draft-row buttons */
+.pa-actions button { min-height: 44px; }
+.pa-actions .pa-go { background: var(--brand); color: #fff; border-color: var(--brand); }
 .migrate-note { background: #fffbeb; border-color: #f6e05e; }
 .rev-row { border-top: 1px solid var(--line); padding: 8px 0; margin-top: 8px; }
 .line-active { border-color: var(--brand); }
