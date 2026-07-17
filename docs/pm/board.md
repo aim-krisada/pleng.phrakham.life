@@ -16,7 +16,7 @@
 
 **สถานะที่นั่ง (18 ก.ค.):**
 - **SA:** งานออกแบบจบหมด · stand by รอ UX flow ตรวจ feasibility คู่ · SQL พร้อมไม่รัน: `db/005`(RLS·รอจังหวะ) `db/006`(author_id fix) `db/007`(back-fill·author_id latent ไม่ urgent)
-- **UX:** dock-config flow+mockup เสร็จ (ใช้ verdict `2c98c2c` = shared 2 เว็บ) · กำลังเขียน `summary-dockkey-paim.md` (เจ้าของคนเดียว) · toolbox banked
+- **UX: ✅ ส่งมอบครบ (`45ecc39` uxui-standing · design ล้วน)** — `docs/us/dockkey-config.md`(+ตารางชื่ออ้างอิง §4) · `docs/pm/summary-dockkey-paim.md`(1 หน้า ม.ต้น · hedge "รอ SA" ลบแล้ว) · `docs/ds/dockkey-config-mockup.html` · **mockup มือถือ** https://claude.ai/code/artifact/555c023e-4bdb-46b4-a894-05509fbd559d · เฟส A(44px+ชื่อ+ตาราง)/B(เลือกปุ่ม)/C(preset ขนาด)/D(→shared พระคำ) · **รอ P'Aim GATE 1 ลอง mockup→เคาะทิศ→UX ทำ DS ส่ง dev** · toolbox banked
 - **สาย orientation `91b05cf3`:** 2a (แถบตัวตน+คิวอนุมัติขึ้น shell) กำลังทำ — **เช็กว่าเสร็จยัง (ไล่ดูเอง อย่ารอ ping)**
 
 **เข้าฐานแล้ว รอ deploy รอบ 31:** `2c`(การ์ดชื่อเต็ม) · เฟส1(เตือนก่อนทับงานโม `13f0f52`) — **รอ P'Aim ลองรวม + สั่ง go**
