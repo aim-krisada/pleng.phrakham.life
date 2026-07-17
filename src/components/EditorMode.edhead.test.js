@@ -22,6 +22,7 @@ vi.mock('../supabase.js', () => {
 })
 
 import EditorMode from './EditorMode.vue'
+import { readingFontScale } from '../store.js'
 
 // one stanza, one line, TWO bars (bar token splits them) · two verses so delete is offered
 const SONG = {
@@ -48,6 +49,8 @@ const SONG = {
 
 beforeEach(() => {
   document.body.innerHTML = '<div id="shell-title"></div><div id="shell-menus"></div>'
+  localStorage.clear() // a remembered zoom / window box must not leak between tests
+  readingFontScale.value = 1
 })
 
 function mountEd() {
@@ -132,6 +135,68 @@ describe('edhead — prototype-aligned edit header', () => {
     expect(style).toContain('left: 4px') // issues7: slides LEFT to make room instead of clamping
     expect(style).toContain('height: 764px') // innerHeight 768 − 4
     await handle.trigger('pointerup', { pointerId: 1 })
+  })
+
+  // issues7 (P'Aim 17 ก.ค.): "ขยายขนาดตัวอักษรไม่ได้ (ต้องขยายยังไง) · ควรมีปุ่มขยาย font ในหน้านั้นเอง".
+  it('issues7: the preview window carries its own font zoom, which changes the rendered size', async () => {
+    const w = mountEd()
+    await nextTick()
+    await findChip(w, 'ดูผลทั้งเพลง').trigger('click')
+    const pageFont = () => w.find('.ed-float-page').attributes('style') || ''
+    const before = pageFont()
+    expect(w.find('.ed-float-zoom').exists()).toBe(true)
+    await w.find('.ed-float-zb[aria-label="ตัวอักษรใหญ่ขึ้น"]').trigger('click')
+    expect(pageFont()).not.toBe(before) // + actually re-renders the sheet bigger
+    expect(w.find('.ed-float-zpct').text()).toBe('110%')
+    await w.find('.ed-float-zpct').trigger('click') // the % readout is also "back to normal"
+    expect(w.find('.ed-float-zpct').text()).toBe('100%')
+  })
+
+  // The zoom is deliberately NOT the global Aa: zooming the preview must not reflow the editor
+  // behind it (P'Aim asked for a control in THAT window — "ดูตรงไหนแก้ตรงนั้น").
+  it('issues7: the preview zoom does not touch the global reader size', async () => {
+    const w = mountEd()
+    await nextTick()
+    await findChip(w, 'ดูผลทั้งเพลง').trigger('click')
+    const before = readingFontScale.value
+    await w.find('.ed-float-zb[aria-label="ตัวอักษรใหญ่ขึ้น"]').trigger('click')
+    expect(readingFontScale.value).toBe(before)
+  })
+
+  // The 20em floor guards a BAD MEASUREMENT, not the user's zoom. Applying it after the division
+  // silently killed + on a phone, where the column is only ~21em (measured live at 412px).
+  // A PHONE-width column is the whole point: jsdom has no layout, so sheetColW would fall back to
+  // the wide 42em desktop guess — where this bug does NOT reproduce. Feed the measurement a real
+  // 412px-phone column (~21em) so the floor is actually in play, or the test fake-passes.
+  it('issues7: zoom still enlarges on a narrow column (the 20em measurement floor must not cap it)', async () => {
+    const host = document.createElement('div')
+    const main = document.createElement('main')
+    main.className = 'container'
+    main.style.cssText = 'max-width: min(1160px, 100%); padding-left: 12px; padding-right: 12px'
+    host.appendChild(main)
+    document.body.appendChild(host)
+    Object.defineProperty(host, 'clientWidth', { value: 397, configurable: true }) // a 412px phone
+
+    const w = mountEd() // onMounted measures the column above → ~21em, like พี่เปา's phone
+    await nextTick()
+    await findChip(w, 'ดูผลทั้งเพลง').trigger('click')
+    await nextTick()
+    // the engine folds `calc(100cqw / <em>)` down to `calc(<n>cqw)`, so read the em back out of n
+    const emOf = (s) => 100 / parseFloat((s.match(/calc\(([\d.]+)cqw\)/) || [])[1])
+    const page = () => w.find('.ed-float-page').attributes('style') || ''
+    const base = emOf(page())
+    expect(base).toBeLessThan(25) // guard the guard: we really are on a narrow column
+    const plus = w.find('.ed-float-zb[aria-label="ตัวอักษรใหญ่ขึ้น"]')
+    // The bug PARKS the value on the floor, so one click still looks like it "moved" (21.2 → 20).
+    // Keep pressing: each press must keep enlarging, or + is dead from the second press on.
+    await plus.trigger('click')
+    const first = emOf(page())
+    await plus.trigger('click')
+    const second = emOf(page())
+    expect(first).toBeLessThan(base)
+    expect(second).toBeLessThan(first) // fewer ems in the same window = bigger text, every press
+    main.remove()
+    host.remove()
   })
 
   it('A (editor-preview-refine): live "ตัวอย่างสด" preview renders PER BAR, IN PLACE (above each ห้อง)', async () => {

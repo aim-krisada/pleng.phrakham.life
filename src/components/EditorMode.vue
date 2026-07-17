@@ -1985,8 +1985,20 @@ function toggleBarShown(li, bi) {
 // (StudioDock combinedDown/Move/Up + clampToViewport) so it feels like the app's other
 // floating chrome — no new floating engine.
 const sheetWinOpen = ref(false)
-const sheetWinPos = ref(null) // {left, top} viewport coords · null = default CSS spot (top-right)
-const sheetWinSize = ref(null) // {width, height} px · null = default CSS size (min(440px…))
+// P'Aim: "ควรใช้พื้นที่เต็ม · เหลือที่ทางขวาเยอะ". Part of that was the window FORGETTING: drag it
+// wide, close it, reopen → back to the default every time. Remembered per browser, like the dock's
+// pins/transparency. Values are re-clamped to the viewport on open (onFloatResize), so a size
+// saved on a big monitor cannot strand the window off-screen on a laptop.
+const FLOAT_BOX_KEY = 'pleng.editor.sheetWinBox'
+const savedBox = (() => {
+  try {
+    const b = JSON.parse(localStorage.getItem(FLOAT_BOX_KEY) || 'null')
+    if (b && b.size?.width > 0 && b.size?.height > 0) return b
+  } catch { /* ignore bad storage */ }
+  return null
+})()
+const sheetWinPos = ref(savedBox?.pos ?? null) // {left, top} viewport coords · null = default CSS spot (top-right)
+const sheetWinSize = ref(savedBox?.size ?? null) // {width, height} px · null = default CSS size
 const FLOAT_MIN_W = 280 // don't let a resize squash the sheet past readable
 const FLOAT_MIN_H = 200
 function isNarrow() {
@@ -2026,7 +2038,7 @@ function floatMove(e) {
   }
   if (fmoved) { e.preventDefault(); sheetWinPos.value = clampWin({ left: e.clientX - foX, top: e.clientY - foY }, fW, fH) }
 }
-function floatUp() { fdown = false; fmoved = false }
+function floatUp() { if (fmoved) saveWinBox(); fdown = false; fmoved = false }
 // resize by the bottom-right corner handle — same press→track→clamp shape as the drag, but it
 // grows width/height (from a pinned top-left) instead of moving. Kept inside the viewport with a
 // floor (FLOAT_MIN_*) so it can't be squashed and a ceiling so it can't spill off-screen.
@@ -2064,7 +2076,15 @@ function resizeMove(e) {
 }
 function resizeUp(e) {
   rdown = false
+  saveWinBox()
   try { e.target.releasePointerCapture(e.pointerId) } catch { /* no-op */ }
+}
+// remember the box the moment a drag/resize settles (not on every pointermove)
+function saveWinBox() {
+  if (narrow.value || !sheetWinSize.value) return
+  try {
+    localStorage.setItem(FLOAT_BOX_KEY, JSON.stringify({ pos: sheetWinPos.value, size: sheetWinSize.value }))
+  } catch { /* ignore */ }
 }
 const floatStyle = computed(() => {
   if (narrow.value) return {}
@@ -2112,12 +2132,42 @@ function measureSheetCol() {
   const containerW = Math.min(parentW, cap)
   sheetColW.value = Math.max(0, containerW - pad - CARD_BOX)
 }
+// P'Aim (17 ก.ค.): "ขยายขนาดตัวอักษรไม่ได้ (ต้องขยายยังไง) · ควรมีปุ่มขยาย font ในหน้านั้นเอง —
+// ดูตรงไหนแก้ตรงนั้น". The reader "Aa" DID drive this window all along, but พี่เปา could not find
+// it, P'Aim could not find it, and it took reading the source to know — so it may as well not
+// exist. This zoom lives in the window itself and is deliberately NOT the global Aa: reaching out
+// and reflowing the editor behind you is not what "ขยายตรงนี้" means.
+// It divides the em-width rather than multiplying the font: the page is always 100cqw wide, so
+// scaling the font alone would push the sheet past the window (ui-standards §2: a popup must
+// never scroll sideways). Fewer ems = bigger text, no h-scroll, at zoom 1 = parity untouched.
+const PREVIEW_ZOOM_KEY = 'pleng.editor.previewZoom'
+const clampZoom = (v) => Math.min(4, Math.max(0.5, Math.round(v * 10) / 10))
+const previewZoom = ref((() => {
+  try {
+    const v = parseFloat(localStorage.getItem(PREVIEW_ZOOM_KEY))
+    if (v >= 0.5 && v <= 4) return v
+  } catch { /* ignore bad storage */ }
+  return 1
+})())
+// persisted: P'Aim sets his reading size ONCE, not on every re-open (the window forgetting is half
+// of why it "ไม่ใช้พื้นที่เต็ม")
+watch(previewZoom, (v) => { try { localStorage.setItem(PREVIEW_ZOOM_KEY, String(v)) } catch { /* ignore */ } })
+function bumpPreviewZoom(d) { previewZoom.value = clampZoom(previewZoom.value + d) }
+const previewZoomPct = computed(() => Math.round(previewZoom.value * 100))
+
 // how many ems fit on one sheet line = column px ÷ reader font px. The preview renders exactly
 // this many ems, so its bar wrapping matches the แผ่นเพลง page at the current viewport + Aa size.
+// Two different floors, and conflating them is a bug: 20em guards a BAD MEASUREMENT, while the
+// zoom is the user deliberately asking for fewer ems. Applying the 20em floor after the division
+// silently killed the zoom on a phone (the column there is only ~21em, so any zoom hit the floor
+// and + did nothing — measured at 412px). Guard the measurement, then let the zoom through, with
+// its own much lower floor so a bar can still fit on a line (no sideways scroll · ui-standards §2).
+const PREVIEW_MIN_EM = 8
 const previewEmWidth = computed(() => {
   const fs = 16 * (readingFontScale.value || 1)
-  const em = sheetColW.value > 0 ? sheetColW.value / fs : 42.05 // fall back to A4 ratio before first measure
-  return Math.max(20, em) // guard: never divide by an absurdly small number
+  const raw = sheetColW.value > 0 ? sheetColW.value / fs : 42.05 // fall back to A4 ratio before first measure
+  const measured = Math.max(20, raw)
+  return Math.max(PREVIEW_MIN_EM, measured / previewZoom.value)
 })
 const previewPageStyle = computed(() => ({ fontSize: `calc(100cqw / ${previewEmWidth.value.toFixed(2)})` }))
 // keep the window on-screen (and sized within it) when the viewport shrinks; refresh mobile flag
@@ -2147,8 +2197,16 @@ onUnmounted(() => {
   window.removeEventListener('resize', onFloatResize)
   edheadRO?.disconnect()
 })
-// measure fresh each time the preview opens (the reading column may have changed while it was closed)
-watch(sheetWinOpen, (open) => { if (open) nextTick(measureSheetCol) })
+// measure fresh each time the preview opens (the reading column may have changed while it was
+// closed), and re-clamp the remembered box — a size saved on a wide monitor must not strand the
+// window off-screen on a laptop.
+watch(sheetWinOpen, (open) => {
+  if (!open) return
+  nextTick(() => {
+    measureSheetCol()
+    onFloatResize()
+  })
+})
 // a bar's clean render: a one-line, one-bar content object the SongSheet can draw. Words
 // come from the lens verse (if shown) so the render matches what the singer sees.
 function barContent(li, bi) {
@@ -2972,6 +3030,30 @@ defineExpose({
         <Icon name="grip-horizontal" :size="16" class="ed-float-grip" />
         <span class="ed-float-title">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || 'แผ่นเพลง' }}</span>
         <span class="ed-float-key muted">Key {{ opts.key }}</span>
+        <!-- P'Aim: "ควรมีปุ่มขยาย font ในหน้านั้นเอง — ดูตรงไหนแก้ตรงนั้น". pointerdown.stop so a
+             press on the buttons never starts the title bar's drag. -->
+        <span class="ed-float-zoom" role="group" aria-label="ขนาดตัวอักษรในหน้าต่างนี้" @pointerdown.stop>
+          <button
+            class="ed-float-zb"
+            aria-label="ตัวอักษรเล็กลง"
+            title="ตัวอักษรเล็กลง"
+            :disabled="previewZoom <= 0.5"
+            @click="bumpPreviewZoom(-0.1)"
+          ><Icon name="minus" :size="15" /></button>
+          <button
+            class="ed-float-zpct"
+            :aria-label="'ขนาดตัวอักษร ' + previewZoomPct + ' เปอร์เซ็นต์ — กดเพื่อคืนค่าปกติ'"
+            title="คืนค่าปกติ (100%)"
+            @click="previewZoom = 1"
+          >{{ previewZoomPct }}%</button>
+          <button
+            class="ed-float-zb"
+            aria-label="ตัวอักษรใหญ่ขึ้น"
+            title="ตัวอักษรใหญ่ขึ้น"
+            :disabled="previewZoom >= 4"
+            @click="bumpPreviewZoom(0.1)"
+          ><Icon name="plus" :size="15" /></button>
+        </span>
         <button class="ed-float-x" aria-label="ปิดหน้าต่างแผ่นเพลง" title="ปิด" @click="sheetWinOpen = false"><Icon name="x" :size="16" /></button>
       </div>
       <div class="ed-float-body">
@@ -3505,12 +3587,12 @@ defineExpose({
   top: 72px;
   right: 16px;
   z-index: 95;
-  /* The sheet SCALES TO THE WINDOW (see .ed-float-page), so this width sets the reading size:
-     at 720px the whole song rendered at ~9px and พี่เปา could not read it (issues7). The reading
-     column it must wrap-match is 1160px, so the window has to be near that to stay legible —
-     980px lands the sheet at ~13.8px and still leaves the editor visible for แก้ไปดูไป. Drag the
-     corner grip for bigger (up to 1:1), or the Aa reader size, which also scales it. */
-  width: min(980px, calc(100vw - 32px));
+  /* The sheet SCALES TO THE WINDOW (.ed-float-page), so this width sets the reading size: at the
+     old 720px the song rendered at ~9px and พี่เปา could not read it (issues7). P'Aim then asked
+     for "ใช้พื้นที่เต็ม" and reminded us not to bake fixed numbers in — so this tracks the screen
+     (65% of it) instead of a magic pixel count, floored so a small laptop still gets a usable
+     window and capped by the viewport. Whatever P'Aim drags it to is remembered from then on. */
+  width: clamp(min(680px, calc(100vw - 32px)), 65vw, calc(100vw - 32px));
   max-height: min(80vh, calc(100vh - 96px));
   display: flex;
   flex-direction: column;
@@ -3535,6 +3617,32 @@ defineExpose({
 .ed-float-grip { color: var(--muted); flex: 0 0 auto; }
 .ed-float-title { font-weight: 700; color: var(--brand); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; }
 .ed-float-key { font-size: 0.8rem; flex: 0 0 auto; }
+/* font zoom for THIS window (P'Aim: ดูตรงไหนแก้ตรงนั้น). Sits with the ✕ as title-bar chrome:
+   same 32px box as .ed-float-x so the bar keeps one rhythm, with the 44px pointer target coming
+   from the padded row rather than a taller button (WCAG 2.2 AA 2.5.8 · ui-standards §1). */
+.ed-float-zoom { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.ed-float-zb,
+.ed-float-zpct {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.ed-float-zb { width: 32px; }
+.ed-float-zpct { min-width: 48px; padding: 0 6px; font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ed-float-zb:disabled { opacity: 0.4; cursor: default; }
+@media (hover: hover) {
+  .ed-float-zb:not(:disabled):hover,
+  .ed-float-zpct:hover { background: var(--cream); border-color: var(--brand); color: var(--brand); }
+}
 .ed-float-x {
   flex: 0 0 auto;
   display: inline-flex;
