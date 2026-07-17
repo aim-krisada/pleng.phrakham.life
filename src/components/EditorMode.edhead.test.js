@@ -125,10 +125,11 @@ describe('edhead — prototype-aligned edit header', () => {
     style = float().attributes('style') || ''
     expect(style).toContain('width: 280px')
     expect(style).toContain('height: 200px')
-    // drag far beyond the screen → capped at the viewport (jsdom 1024×768, pinned at 0,0, −4 gutter)
+    // drag far beyond the screen → capped at the viewport (jsdom 1024×768, −4 gutter each side)
     await handle.trigger('pointermove', { clientX: 5000, clientY: 5000, pointerId: 1 })
     style = float().attributes('style') || ''
-    expect(style).toContain('width: 1020px') // innerWidth 1024 − 4
+    expect(style).toContain('width: 1016px') // 1024 − 4 left gutter − 4 right gutter
+    expect(style).toContain('left: 4px') // issues7: slides LEFT to make room instead of clamping
     expect(style).toContain('height: 764px') // innerHeight 768 − 4
     await handle.trigger('pointerup', { pointerId: 1 })
   })
