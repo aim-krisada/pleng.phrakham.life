@@ -19,6 +19,7 @@
 
 import { buildPlayNotes, buildChordVoice, resolveSections, KEY_MIDI, REVERB, makeReverbBus } from '../lib/midi.js'
 import { arrange } from '../lib/arranger/index.js'
+import { rngFor } from '../lib/arranger/rng.js'
 import { moduleForInstrument } from '../lib/arranger/instruments/index.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { loadInstrument, gainToVelocityFull, SAMPLE_HOSTS } from '../lib/sampler.js'
@@ -87,12 +88,46 @@ export const PAIM_MARCATO = {
 //   lfo01_fade_oncc116=0.5, cc116=45    -> 177 ms to fade the depth in (never shakes at full instantly)
 // Depth starts at 0 exactly as they shipped it ("ready if you want it") and is P'Aim's knob — the
 // same pattern that worked for the last two knobs.
+// ⚠️ CORRECTION to the brief's table (verified by reading the sfz itself, 17 ก.ค.):
+//   - the EQ is NOT "at 1800 Hz". `eq1_freq=2500` is the band; 1800 is how far the LFO SWEEPS that
+//     band (`lfo01_eq1freq_oncc114=1800`), alongside ±5 dB of its gain (`lfo01_eq1gain_oncc114=5`).
+//   - his comment says what it is FOR: "together with the tremolo it can simulate varying bow
+//     pressure while playing with heavy vibrato" — bow pressure, not an anti-synthetic filter.
+//   - `set_cc114` / `set_cc113` / `set_cc118` / `set_cc119` are ALL ABSENT from his set_cc block
+//     (only 103,104,110,112,115,116,117,122 are set). So the EQ, the tremolo, and BOTH of lfo02's
+//     destinations ship at ZERO exactly like the vibrato depth does. The numbers below are his
+//     CEILINGS ("about as high as it can go and not sound too synthetic"), not his recommendations —
+//     so each is exposed as a knob from 0 (= today) to his ceiling, the pattern that has now worked
+//     three times (head strength, body shift, vibrato depth).
 export const VIBRATO = {
-  freqHz: 2 + 8 * (32 / 127),   // 4.02 Hz — their base + their default speed knob
-  maxDepthCents: 22,            // their lfo01_pitch_oncc111
-  delaySec: 0.5 * (45 / 127),   // 0.177 s
-  fadeSec: 0.5 * (45 / 127),    // 0.177 s
+  freqHz: 2 + 8 * (32 / 127),   // 4.02 Hz — lfo01_freq=2 + lfo01_freq_oncc112=8 × set_cc112=32
+  maxDepthCents: 22,            // lfo01_pitch_oncc111 ceiling
+  delaySec: 0.5 * (45 / 127),   // 0.177 s — lfo01_delay_oncc115 × set_cc115=45
+  fadeSec: 0.5 * (45 / 127),    // 0.177 s — lfo01_fade_oncc116 × set_cc116=45
+  // lfo02 = "Second LFO to humanize stuff", "This LFO has random phase" (cc135 = ARIA's random
+  // generator, i.e. a fresh phase PER NOTE — not a user knob). Our LFO1 today is ONE shared
+  // oscillator started at t=0, so every note's vibrato is phase-locked to a global clock: strictly
+  // MORE machine-like than his design. Per-note phase is the fix, and it must be seeded (rng.js) or
+  // the MP3 stops matching what was heard live.
+  lfo2FreqHz: 0.01 + 1 * (32 / 127),  // 0.262 Hz — lfo02_freq + lfo02_freq_oncc117 × set_cc117=32
+  lfo2MaxPitchCents: 7,         // lfo2_pitch_oncc118 ceiling — "Slight pitch wobbliness"
+  lfo2MaxRateHz: 3,             // lfo2_freq_lfo1_oncc119 ceiling — "for unsteady vibrato"
+  // bow pressure = tremolo + EQ, both driven by LFO1 (so his delay/fade applies to them too)
+  tremoloMaxDb: 2,              // lfo01_volume_oncc113 — "Not much - more than this sounds silly"
+  eqFreqHz: 2500,               // eq1_freq
+  eqBwOct: 2,                   // eq1_bw
+  eqMaxGainDb: 5,               // lfo01_eq1gain_oncc114 ceiling
+  eqMaxSweepHz: 1800,           // lfo01_eq1freq_oncc114 ceiling
 }
+
+// biquad Q from an SFZ bandwidth in octaves (eq1_bw=2 → Q ≈ 0.667).
+const qFromBw = (oct) => Math.sqrt(Math.pow(2, oct)) / (Math.pow(2, oct) - 1)
+// a unit sine with an explicit starting PHASE. OscillatorNode has no phase control, so build the
+// one-harmonic wave directly: cos(φ)·cos + sin(φ)·sin = a sine shifted by φ, amplitude always 1
+// (cos²+sin²=1), so phase never leaks into loudness.
+const phasedSine = (ctx, phase) => ctx.createPeriodicWave(
+  new Float32Array([0, Math.cos(phase)]), new Float32Array([0, Math.sin(phase)]),
+  { disableNormalization: true })
 
 // ── PIANO STRING RESONANCE ───────────────────────────────────────────────────────────────────
 // Splendid ships a string-resonance map (Data/Res.txt, 57 regions) that we have never loaded — smplr
@@ -129,39 +164,152 @@ async function loadResonance(context, gain) {
   return { inst, output: out, covered, regions: preset.plengMeta?.regionsUsable ?? 0 }
 }
 
-// Attach an LFO to every voice created while `fn` runs.
+// Attach the recordist's LFO rig to every voice created while `fn` runs.
 //
 // smplr computes `source.detune.value` once and never hands the node back (start() returns only a
 // stop fn), so there is no supported way to modulate a sounding voice. Instead we hook
 // createBufferSource for the duration of the scheduling calls, collect the voices, and drive each
-// one's `detune` AudioParam from one shared LFO. Contained to the spike; no smplr fork, no patching
-// of anything the app ships.
+// one's params ourselves. Contained to the spike; no smplr fork, no patching of anything the app
+// ships.
 //
-// Per voice: LFO -> depth gain -> source.detune, with the depth gain automated 0 -> depth so each
-// note sits still for `delaySec` then eases its vibrato in over `fadeSec` (their design).
-function withVibrato(ctx, depthCents, onsets, fn) {
-  if (!(depthCents > 0)) return fn()
+// Per voice, mirroring the sfz's signal flow:
+//   lfo1 (per-note phase) ─► fade ─┬─► depth  ─► source.detune          (vibrato · lfo01_pitch)
+//                                  ├─► eqGain ─► peaking.gain           (bow pressure · eq1gain)
+//                                  ├─► eqFreq ─► peaking.frequency      (bow pressure · eq1freq)
+//                                  └─► trem   ─► tremGain.gain          (bow pressure · lfo01_volume)
+//   lfo2 (per-note phase, 0.26 Hz) ─┬─► rate  ─► lfo1.frequency         (unsteady · lfo2_freq_lfo1)
+//                                   └─► wobble─► source.detune          (unsteady · lfo2_pitch)
+// `fade` carries his delay+fade ONCE, so everything lfo1 drives eases in together — which is what
+// the sfz does (delay/fade are properties of the LFO, not of each destination).
+//
+// PARAM ORDER MATTERS: `notes[i]` must be melody note i. smplr creates exactly one BufferSource per
+// start() call, in call order — but that is an assumption about someone else's code, so the caller
+// asserts voices.length === notes.length rather than trusting it (the "11 ≠ 17" lesson).
+function withVibrato(ctx, cfg, notes, rng, fn) {
+  const { depthCents = 0, unsteady = 0, bowPressure = 0, minNoteSec = 0 } = cfg
+  if (!(depthCents > 0)) return { result: fn(), voices: 0, vibratoNotes: 0 }
+  // Draw every note's random phases UP FRONT, indexed by note — not lazily inside the
+  // length filter. Otherwise moving the "long notes only" threshold would re-roll the phases of
+  // every other note too, and P'Aim's A/B of that one knob would be comparing two different
+  // performances. Seeded (rng.js) → the MP3 is identical to what was heard live.
+  const phases = notes.map(() => [rng() * 2 * Math.PI, rng() * 2 * Math.PI])
+
   const orig = ctx.createBufferSource.bind(ctx)
+  const insertChain = bowPressure > 0        // only touch the audio path when the knob is off zero
   const voices = []
-  ctx.createBufferSource = () => { const s = orig(); voices.push(s); return s }
-  try { return fn() } finally {
+  ctx.createBufferSource = () => {
+    const s = orig()
+    const rec = { s, eq: null, trem: null }
+    voices.push(rec)
+    if (insertChain) {
+      // Splice a per-voice EQ + tremolo gain in right after the source, by intercepting the FIRST
+      // connect() smplr makes: source ─► eq ─► trem ─► (whatever smplr wanted). A peaking filter at
+      // 0 dB and a gain at 1.0 are transparent, so a voice whose note is too short to be modulated
+      // passes through unchanged.
+      const eq = ctx.createBiquadFilter()
+      eq.type = 'peaking'
+      eq.frequency.value = VIBRATO.eqFreqHz
+      eq.Q.value = qFromBw(VIBRATO.eqBwOct)
+      eq.gain.value = 0
+      const trem = ctx.createGain()
+      trem.gain.value = 1
+      eq.connect(trem)
+      rec.eq = eq; rec.trem = trem
+      const origConnect = s.connect.bind(s)
+      let wired = false
+      s.connect = (dest, ...rest) => {
+        if (!wired && dest && typeof dest.connect === 'function') {
+          wired = true
+          trem.connect(dest, ...rest)
+          return origConnect(eq)
+        }
+        return origConnect(dest, ...rest)
+      }
+    }
+    return s
+  }
+
+  let result, vibratoNotes = 0
+  try { result = fn() } finally {
     ctx.createBufferSource = orig
-    const lfo = ctx.createOscillator()
-    lfo.type = 'sine'
-    lfo.frequency.value = VIBRATO.freqHz
-    lfo.start(0)
-    voices.forEach((s, i) => {
-      if (!s.detune) return                       // Safari fallback path uses playbackRate
-      const g = ctx.createGain()
-      const t0 = onsets[i] ?? 0
-      g.gain.setValueAtTime(0, 0)
-      g.gain.setValueAtTime(0, t0 + VIBRATO.delaySec)
-      g.gain.linearRampToValueAtTime(depthCents, t0 + VIBRATO.delaySec + VIBRATO.fadeSec)
-      lfo.connect(g)
-      g.connect(s.detune)                          // adds to the static detune smplr already set
+    voices.forEach((rec, i) => {
+      const n = notes[i]
+      const s = rec.s
+      if (!n || !s.detune) return                 // Safari fallback path uses playbackRate
+      // 80:20 rule P'Aim asked for — a real cellist does not vibrate every note, and a note shorter
+      // than the library's own 177 ms delay cannot show vibrato anyway. Automatic for all 124 songs;
+      // nothing to tune per song. minNoteSec = 0 → every note, i.e. exactly today's sound.
+      if (n.dur < minNoteSec) return
+      vibratoNotes++
+      const t0 = n.onset
+
+      const lfo1 = ctx.createOscillator()
+      lfo1.setPeriodicWave(phasedSine(ctx, phases[i][0]))
+      lfo1.frequency.value = VIBRATO.freqHz
+      lfo1.start(0)
+
+      const fade = ctx.createGain()
+      fade.gain.setValueAtTime(0, 0)
+      fade.gain.setValueAtTime(0, t0 + VIBRATO.delaySec)
+      fade.gain.linearRampToValueAtTime(1, t0 + VIBRATO.delaySec + VIBRATO.fadeSec)
+      lfo1.connect(fade)
+
+      const depth = ctx.createGain()
+      depth.gain.value = depthCents
+      fade.connect(depth)
+      depth.connect(s.detune)                     // adds to the static detune smplr already set
+
+      if (unsteady > 0) {
+        const lfo2 = ctx.createOscillator()
+        lfo2.setPeriodicWave(phasedSine(ctx, phases[i][1]))
+        lfo2.frequency.value = VIBRATO.lfo2FreqHz
+        lfo2.start(0)
+        const rate = ctx.createGain()             // wobbles the vibrato's RATE = "unsteady vibrato"
+        rate.gain.value = unsteady * VIBRATO.lfo2MaxRateHz
+        lfo2.connect(rate); rate.connect(lfo1.frequency)
+        const wobble = ctx.createGain()           // "slight pitch wobbliness" — no fade in the sfz
+        wobble.gain.value = unsteady * VIBRATO.lfo2MaxPitchCents
+        lfo2.connect(wobble); wobble.connect(s.detune)
+      }
+
+      if (bowPressure > 0 && rec.eq) {
+        const eqGain = ctx.createGain()
+        eqGain.gain.value = bowPressure * VIBRATO.eqMaxGainDb
+        fade.connect(eqGain); eqGain.connect(rec.eq.gain)
+        const eqFreq = ctx.createGain()
+        eqFreq.gain.value = bowPressure * VIBRATO.eqMaxSweepHz
+        fade.connect(eqFreq); eqFreq.connect(rec.eq.frequency)
+        // tremolo. His ±2 dB is applied as a LINEAR gain wobble around 1.0 (10^(2/20)−1 ≈ 0.26),
+        // which is the standard small-signal approximation — a Web Audio GainNode has no dB input.
+        const trem = ctx.createGain()
+        trem.gain.value = bowPressure * (Math.pow(10, VIBRATO.tremoloMaxDb / 20) - 1)
+        fade.connect(trem); trem.connect(rec.trem.gain)
+      }
     })
   }
+  return { result, voices: voices.length, vibratoNotes }
 }
+
+// ── 5.3 · THE LOUD-SOFT ARC ──────────────────────────────────────────────────────────────────
+// P'Aim asked to HEAR a wider loud-soft line before deciding anything ("ขอฟังก่อน ปรับดูก่อน").
+// ⛔ dynamics.js is NOT touched — this is an overlay computed here, in the spike.
+//
+// Shape: a raised cosine rising to a climax at 58% of the SONG and easing off after — 58% is the one
+// number actually measured from the reference track (docs/reports/reference-track-analysis.md). The
+// rest of the shape is NOT measured; it is the simplest smooth curve through that one known point,
+// and it is labelled as such rather than dressed up as analysis.
+export const ARC_CLIMAX = 0.58
+export function arcShape(t) {
+  const p = ARC_CLIMAX
+  const x = Math.max(0, Math.min(1, t))
+  return x <= p
+    ? 0.5 - 0.5 * Math.cos(Math.PI * (x / p))
+    : 0.5 + 0.5 * Math.cos(Math.PI * ((x - p) / (1 - p)))
+}
+// dB to apply at song-fraction t: 0 dB at the climax, −spreadDb at the quietest point. Pushing the
+// soft parts DOWN (rather than the climax up) keeps the peak where P'Aim already approved it and
+// cannot clip.
+export const arcDbAt = (t, spreadDb) => -spreadDb * (1 - arcShape(t))
 
 export const DYN_LAYERS = [
   { id: 'karoryfer-p', label: 'p · สีเบา (นุ่มสุด)', licence: 'CC0',
@@ -223,6 +371,13 @@ export function excerptRange(content, { bpm, targetSec = 20 }) {
   return { fromLi: 0, toLi: best }
 }
 
+// Total beats of the WHOLE song — the arc's x-axis. It must be the song's span, not the excerpt's:
+// the arc is an 80-second structure and the listening clip is only its first quarter, so scaling the
+// arc to the clip would invent a shape the song does not have.
+export function songBeatSpan(content) {
+  return buildPlayNotes(playableContent(content)).reduce((s, n) => s + n.beats, 0)
+}
+
 // The arrangement is computed from the sheet exactly as the shipped "เปียโนบรรเลง" preset does.
 // `songId` is passed through as the RNG seed → identical performance across variants.
 export function buildPerformance(content, { bpm, range, songId }) {
@@ -254,6 +409,14 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   headId = null, headStrength = 1, headHoldMs = 200, bodyShiftMs = null,
   // vibrato depth in cents (0 = off, exactly as the library ships it). P'Aim's knob — see VIBRATO.
   vibratoCents = 0,
+  // 5.2 — each 0 = today's sound, so every one of these A/Bs directly against what P'Aim approved.
+  vibUnsteady = 0,      // 0..1 of the recordist's lfo02 ceilings (per-note phase + unsteady rate)
+  vibBowPressure = 0,   // 0..1 of his tremolo + EQ ceilings ("varying bow pressure")
+  vibMinNoteSec = 0,    // vibrate only notes at least this long (0 = every note = today)
+  vibGainDb = 0,        // trim the cello while vibrato is on — P'Aim's "ต้องลด volume แต่ยังโหยหวน"
+  // 5.3 — loud-soft arc. `arcSpreadDb` 0 = today. `arcMode`: 'bus' rides the finished mix (exact dB),
+  // 'perf' scales the arranger's gains (musical, but the velocity map compresses it — measured).
+  arcSpreadDb = 0, arcMode = 'bus',
   // bow round-robin: alternate the body's down-bow/up-bow takes so the same file stops replaying
   // back-to-back (~31% of notes measured). Off by default = today's sound, so A/B is direct.
   bowRoundRobin = false,
@@ -269,8 +432,27 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   const ctx = new OfflineCtx(2, frames, sampleRate)   // stereo — SSO cello is a stereo recording
 
   const reverbCfg = REVERB[cfg.reverb]
-  const fx = reverbCfg ? makeReverbBus(ctx, ctx.destination, reverbCfg) : null
-  const busIn = fx ? fx.input : ctx.destination
+  // 5.3 · ARC. `bus` rides one gain across the FINISHED mix (piano + cello + reverb tail together),
+  // which is the only route that delivers the dB the knob promises: the `perf` route has to go
+  // through gainToVelocityFull(), which clamps gain to [0.02, 0.5] and maps it into a narrow
+  // velocity band — so a 15 dB request arrives as a fraction of that (measured; see the report).
+  // The honest trade-off, stated on the page: a bus ride changes LOUDNESS only, where a real player
+  // playing softer also changes TONE. `perf` is kept so both can be measured rather than argued.
+  let arcNode = null
+  if (arcSpreadDb > 0 && arcMode === 'bus') {
+    arcNode = ctx.createGain()
+    arcNode.connect(ctx.destination)
+  }
+  const arcOut = arcNode || ctx.destination
+  const fx = reverbCfg ? makeReverbBus(ctx, arcOut, reverbCfg) : null
+  const busIn = fx ? fx.input : arcOut
+
+  const songBeats = arcSpreadDb > 0 ? songBeatSpan(content) : 0
+  if (arcSpreadDb > 0 && arcMode === 'perf') {
+    for (const e of perf) {
+      e.gain *= Math.pow(10, arcDbAt(e.startBeat / (songBeats || 1), arcSpreadDb) / 20)
+    }
+  }
 
   const onset = (e) => Math.max(0, e.startBeat * spb + (e.timeShift || 0))
   const perNoteDur = (e) => {
@@ -315,6 +497,14 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   let celloReport = null
   if (useCello && !celloMuted) {
     const bodyId = MARCATO.find((m) => m.id === variantId)?.head ? 'karoryfer-p' : variantId
+    // P'Aim: "[with vibrato] เสียงดังขึ้นด้วย ต้องลด volume แต่ยังโหยหวนได้". MEASURED first: at depth
+    // 22 the cello's RMS moves −0.09 dB and its >2 kHz band −0.05 dB, i.e. vibrato adds no energy at
+    // all — so there is no implementation bug to fix, and the loudness he hears is the shaking making
+    // the line stand out, not the line getting louder. That is exactly why a trim works without
+    // costing the โหยหวน: the wail lives in the SHAKE, and this only touches the LEVEL. How much is
+    // an ear question, so it is a knob starting at 0 dB (= today), not a number I picked.
+    const vibTrim = vibratoCents > 0 ? Math.pow(10, vibGainDb / 20) : 1
+    celloMakeup *= vibTrim
     const { inst, output, attackMs } = await loadCello(bodyId, ctx, celloMakeup, { correctTuning })
     output.disconnect()
     output.connect(busIn)                              // same reverb room as the piano
@@ -342,8 +532,18 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
 
     // vibrato rides the BODY only: it is what sustains. The head is 55 ms of staccato at 5% —
     // nothing to shake, and inaudible anyway.
-    const bodyOnsets = mel.map((e) => Math.max(0, onset(e) - shift))
-    withVibrato(ctx, vibratoCents, bodyOnsets, () => {
+    const bodyNotes = mel.map((e) => ({
+      onset: Math.max(0, onset(e) - shift), dur: Math.max(0.12, perNoteDur(e)),
+    }))
+    // seeded off the SONG (rng.js), never Math.random(): the vibrato's per-note phases must come out
+    // the same in the MP3 as they did in the live render, or P'Aim downloads a different performance
+    // from the one he approved. `pass: 1` keeps this stream separate from the arranger's own humanize
+    // stream (pass 0) so turning vibrato on cannot shift the piano's performance.
+    const vibRng = rngFor(songId, 1)
+    const vib = withVibrato(ctx, {
+      depthCents: vibratoCents, unsteady: vibUnsteady,
+      bowPressure: vibBowPressure, minNoteSec: vibMinNoteSec,
+    }, bodyNotes, vibRng, () => {
       mel.forEach((e, i) => {
         const midi = e.midi + transpose
         // honest-to-the-sheet (brief §4 · memory feedback-audio-honest-to-sheet): play the written
@@ -357,6 +557,15 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
           duration: Math.max(0.12, perNoteDur(e)), velocity: gainToVelocityFull(e.gain) })
       })
     })
+    // GUARD — withVibrato pairs voice i with melody note i, which assumes smplr makes exactly one
+    // BufferSource per start(), in call order. That is an assumption about someone else's library,
+    // so it is CHECKED, not trusted: a mismatch would silently put each note's vibrato envelope on
+    // the wrong note (audible as nothing in particular = the worst kind of bug). Same guard style
+    // that caught the "11 of 17 pitches" staccato bug last round.
+    if (vibratoCents > 0 && vib.voices !== mel.length) {
+      throw new Error(`vibrato voice mismatch: smplr made ${vib.voices} sources for ${mel.length} `
+        + 'melody notes — the per-note LFO mapping would be wrong. Refusing to render.')
+    }
 
     // the marcato head: a short staccato ON the beat, under P'Aim's strength knob. Fired at the
     // written onset with NO negative delay — the head is what marks the beat, and it is fast anyway
@@ -378,11 +587,31 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
 
     celloReport = { melodyNotes: mel.length, attackMs, shiftMs: Math.round(shiftMs), bodyId,
       head: headReport, vibratoCents, bowRoundRobin: !!upBow,
+      vibUnsteady, vibBowPressure, vibMinNoteSec, vibGainDb,
+      // how many notes the "long notes only" rule actually left shaking — the number that tells
+      // P'Aim whether the threshold he is turning is doing anything at all on THIS song
+      vibratoNotes: vibratoCents > 0 ? vib.vibratoNotes : 0,
       outOfRange: [...new Set(outOfRange)].sort((a, b) => a - b) }
   }
 
+  // Ride the arc across the finished mix. setValueCurveAtTime with a dense curve = one deterministic
+  // automation, identical in the MP3 and live (no scheduler, no randomness). x is the SONG fraction,
+  // so an excerpt correctly gets only the slice of the arc it actually occupies rather than a shape
+  // squeezed to fit it.
+  if (arcNode) {
+    const steps = 512
+    const curve = new Float32Array(steps)
+    const clipBeats = endBeat || 1
+    for (let i = 0; i < steps; i++) {
+      const beat = (i / (steps - 1)) * clipBeats
+      curve[i] = Math.pow(10, arcDbAt(beat / (songBeats || clipBeats), arcSpreadDb) / 20)
+    }
+    arcNode.gain.setValueCurveAtTime(curve, 0, Math.max(0.01, frames / sampleRate))
+  }
+
   const buffer = await ctx.startRendering()
-  return { buffer, perf, bpm: useBpm, celloReport, resReport }
+  return { buffer, perf, bpm: useBpm, celloReport, resReport,
+    arc: arcSpreadDb > 0 ? { spreadDb: arcSpreadDb, mode: arcMode, songBeats, clipBeats: endBeat } : null }
 }
 
 // Real cello range: open C string (C2 = MIDI 36) up to a comfortable high register (~A5 = 81).
