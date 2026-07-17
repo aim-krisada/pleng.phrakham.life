@@ -13,6 +13,9 @@
 - **git:** base `studio-shell-redesign` = origin/main = `2f4177e`
 - **📌 พี่เปาทดสอบบน live จริงได้แล้ว** — ไม่ต้องใช้ LAN IP/Wi-Fi เดียวกันอีก (แก้ปัญหา login ผ่าน IP + รหัสเบราว์เซอร์ไม่มา)
 
+## 📥 PM inbox
+- 🏛️ **SA feasibility contextual toolbox ✅** `docs/reports/contextual-toolbox-feasibility.md` (`93d05b8` · `sa-standing`) — **โครงรองรับ (verify จริง: hover=0 ต้องเพิ่ม · selection 5 ระดับมีครบ · positioning 3 primitive มี ขาดรวมเป็น helper เดียว)** · ยัง refine (⚠️ SA ค้าน: verdict "refine" เดิมเป็นของทิศ *ยุบปุ่ม* ที่ P'Aim ปฏิเสธ ห้ามยกมาดื้อ ๆ · ขนาดผันตาม scope UX เลือก) · **3 ข้อต้องเติม: hover-preview · anchored toolbox ครบ line+stanza · trigger consistent 5 ระดับ** · ⚠️ มือถือ: scope ที่พิมพ์ (โน้ต/พยางค์) toolbox ต้องลอย**เหนือ** (คีย์บอร์ดบัง) + คีย์ลัดห้ามแย่ง Space/Enter/Backspace · **ทั้งงานใน `EditorMode.vue` = 1 ไฟล์ 1 สาย** · ต่อ UX ออกแบบ flow → SA ตรวจ feasibility คู่ → P'Aim GATE 1
+
 ## 🎯 สถานะสด 17 ก.ค. — **P'Aim สั่งเหลือ 2 สายหลัก** (เพลง 30% · อีก 70% ผ่านพี่เปาคนเดียว = คอขวด)
 - **สาย A · SA UX design (`local_91b05cf3`):** ออกแบบเสร็จ `2a`(IdentityStrip ขึ้น shell +ชิปคิวอนุมัติ `📨 n รอตรวจ`) · `2b`(รอเฟส1 merge) · `2c`(SongList ชื่อเต็ม ~6 บรรทัด CSS · `docs/ds/songlist-full-names.md`) · เฟส3(Aa+สลับปุ่มเซฟ/เผยแพร่ `DS §5-6`) · **⛔ SA ล้วน ยังไม่ commit โค้ด**
 - **สาย B · dev เฟส1 (`local_996eafda`) ✅ MERGED เข้าฐาน (`13f0f52`):** "ห้ามเลือดไหล" — reviewingDraft = computed derive (เปิดทาง list/URL/refresh/กล่องร่าง ได้ผลเดียวกัน) + `.pending-alert` เตือนก่อนทับ + ปุ่มพูดความจริง · **rebase ลงฐาน deploy ก่อน merge (ของ live อยู่ครบ) · dev แก้บั๊ก auto-merge deleteDraft(computed readonly) เอง · 293 เทสต์เขียว** · ⚠️ เบี่ยง DS จุดเดียว: ชื่อเจ้าของอยู่แถบเตือน+aria ไม่ใช่บนปุ่ม (360px ล้น AC-9) → ถ้าอยากได้บนปุ่ม = เฟส 2 (DockKey ellipsis)
