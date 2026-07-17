@@ -4,8 +4,8 @@
 //   /docs/spikes/cello-soften.html  — which BOW WEIGHT of the chosen library? (p/mp/mf + D)
 // The page picks its variant set from `window.SPIKE_VARIANTS`; everything else is the same harness.
 import { supabase } from '../supabase.js'
-import { VARIANTS, DYN_LAYERS, MARCATO, PAIM_MARCATO, VIBRATO, PIANO_ONLY, renderClip, bufferToMp3,
-  measure, excerptRange, calibrateLevels, normalizeBuffer } from './celloBakeoff.js'
+import { VARIANTS, DYN_LAYERS, MARCATO, PAIM_MARCATO, VIBRATO, VIB_MIN_SEC, PIANO_ONLY, renderClip,
+  bufferToMp3, measure, excerptRange, calibrateLevels, normalizeBuffer } from './celloBakeoff.js'
 import { spreadDb } from './verifyVibArc.js'
 
 const MODE = window.SPIKE_VARIANTS || 'libraries'
@@ -29,9 +29,15 @@ const state = { song: null, range: null, clips: {}, balance: 1, correctTuning: t
   headStrength: PAIM_MARCATO.headStrength, bodyShiftMs: PAIM_MARCATO.bodyShiftMs,
   // vibrato: 0 = off, exactly how the library ships it. P'Aim's third knob.
   vibratoCents: 0,
-  // 5.2 — the two things P'Aim asked for after approving vibrato at 22. Every one starts at 0 =
-  // today's sound, so each A/Bs against the exact clip he approved (verified bit-identical).
-  vibGainDb: 0, vibUnsteady: 0, vibBowPressure: 0, vibMinNoteSec: 0,
+  // 5.2 — the two things P'Aim asked for after approving vibrato at 22. These start at 0 = today's
+  // sound, so each A/Bs against the exact clip he approved (verified bit-identical).
+  vibGainDb: 0, vibUnsteady: 0, vibBowPressure: 0,
+  // ...except the length rule, which starts ON at the physics threshold (354 ms), because it IS the
+  // thing P'Aim asked for ("ห้ามใส่คงที่ทุกโน้ต · ทำกฎอัตโนมัติ") rather than an extra to try. Safe to
+  // default ON: vibrato itself defaults to OFF, so the "bit-identical to his approved clip" contract
+  // is untouched — the rule can only act once he turns vibrato up. Slide it to 0 to hear the
+  // every-note vibrato he first called "มิติชัดขึ้นจริง ๆ".
+  vibMinNoteSec: VIB_MIN_SEC,
   // 5.3 — loud-soft arc. 0 = today. `fullSong` matters: the 20s clip is only the first 24% of the
   // song, so the arc barely shows in it — he has to hear the whole song for the knob to mean anything.
   arcSpreadDb: 0, fullSong: false,
@@ -125,7 +131,7 @@ async function renderAll() {
         + `${celloReport ? ` · เชลโล ${celloReport.melodyNotes} โน้ต · ตัวโน้ตไต่ ${celloReport.attackMs}ms`
           + `${celloReport.shiftMs ? ` → เลื่อนก่อน ${celloReport.shiftMs}ms` : ' → ไม่เลื่อน'}`
           + `${celloReport.head ? ` · หัวโน้ต ${celloReport.head.headId.replace('staccato-','')} ไต่ ${celloReport.head.attackMs}ms × ${Math.round(celloReport.head.strength*100)}%` : ''}`
-          + `${celloReport.vibratoCents ? ` · สั่น ${celloReport.vibratoNotes}/${celloReport.melodyNotes} โน้ต` : ''}` : ''}${oor}`
+          + `${celloReport.vib ? ` · สั่นนิ้ว ${celloReport.vib.vibrated}/${celloReport.vib.vibrated+celloReport.vib.plain} โน้ต (${celloReport.vib.pct}% · กฎอัตโนมัติ)` : ''}` : ''}${oor}`
         + ` · <b>เส้นดัง-ค่อยที่วัดได้จริง ${sp.spread.toFixed(1)} dB</b> (ของจริง 13.4–15.1)`
         + ` · ${((performance.now() - t0) / 1000).toFixed(1)}s · ${perf.length} events`
     } catch (e) {
@@ -133,7 +139,8 @@ async function renderAll() {
       console.error(v.id, e)
     }
   }
-  log(IS_MARC ? 'พร้อมฟังแล้ว — หมุนปุ่มจนพอดีหูแล้วบอกค่ามาได้เลยครับ (ทุกปุ่มใหม่เริ่มที่ "ปิด" = เสียงเดิมที่เคาะไว้เป๊ะ)'
+  log(IS_MARC ? 'พร้อมฟังแล้ว — หมุนปุ่มจนพอดีหูแล้วบอกค่ามาได้เลยครับ '
+    + '("สั่นนิ้ว" เริ่มที่ปิด = เสียงเดิมที่เคาะไว้เป๊ะทุกบิต · เปิดสั่นเมื่อไหร่ กฎ ④ จะทำงานให้เอง)'
     : IS_DYN ? 'พร้อมฟังแล้ว — สลับ p / mp / mf ไปมาได้เลย' : 'พร้อมฟังแล้ว — สลับ A/B/C/D ไปมาได้เลย')
 }
 
@@ -213,7 +220,11 @@ const bindKnob = (sel, key, fmt, opts = {}) => {
 bindKnob('#vibgain', 'vibGainDb', (v) => (v === 0 ? 'ไม่หรี่ (เท่าตอนนี้)' : `${v.toFixed(1)} dB`), { recal: true })
 bindKnob('#vibuns', 'vibUnsteady', (v) => (v === 0 ? 'ปิด (สั่นเท่ากันทุกโน้ต)' : `${Math.round(v * 100)}%`))
 bindKnob('#vibbow', 'vibBowPressure', (v) => (v === 0 ? 'ปิด (คันชักนิ่ง)' : `${Math.round(v * 100)}%`))
-bindKnob('#vibmin', 'vibMinNoteSec', (v) => (v === 0 ? 'สั่นทุกโน้ต (เท่าตอนนี้)' : `ยาวกว่า ${v.toFixed(2)} วิ`))
+// ④ is the auto rule's threshold, not an on/off. The rule decides per note by itself (that is
+// P'Aim's "กฎอัตโนมัติ · 124 เพลงไม่ต้องจูนทีละเพลง"); this knob is his "แต่ถ้าคนใช้อยากปรับก็ปรับได้" half.
+bindKnob('#vibmin', 'vibMinNoteSec', (v) => (v === 0 ? 'ปิดกฎ = สั่นทุกโน้ต'
+  : Math.abs(v - VIB_MIN_SEC) < 0.005 ? `อัตโนมัติ (${v.toFixed(2)} วิ — ค่าที่ฟิสิกส์บอก)`
+    : `ยาวกว่า ${v.toFixed(2)} วิ`))
 
 // ── 5.3 · the loud-soft arc ──────────────────────────────────────────────────────────────────────
 bindKnob('#arc', 'arcSpreadDb', (v) => (v === 0 ? 'ปิด (เท่าตอนนี้)' : `กว้าง ${v.toFixed(0)} dB`))
@@ -237,6 +248,12 @@ if (IS_MARC) {
   state.bodyShiftMs = PAIM_MARCATO.bodyShiftMs
   if ($('#shift')) $('#shift').value = String(PAIM_MARCATO.bodyShiftMs)
   if ($('#head')) $('#head').value = String(PAIM_MARCATO.headStrength)
+  // the auto rule ships ON — push its value INTO the slider so the control agrees with what is
+  // actually rendering. A slider parked at 0 while the engine runs the rule is a lying UI.
+  if ($('#vibmin')) {
+    $('#vibmin').value = String(VIB_MIN_SEC)
+    $('#vibmin').dispatchEvent(new Event('input'))
+  }
 }
 showHead(); showShift()
 

@@ -129,6 +129,47 @@ const phasedSine = (ctx, phase) => ctx.createPeriodicWave(
   new Float32Array([0, Math.cos(phase)]), new Float32Array([0, Math.sin(phase)]),
   { disableNormalization: true })
 
+// AUTO RULE — vibrato by note length (P'Aim 17 ก.ค.: "ทำกฎอัตโนมัติตามแต่ละเพลง แต่ถ้าคนใช้อยากปรับก็
+// ปรับได้"). He also said vibrato must NOT sit on every note at a fixed depth ("จะน่ารำคาญ"), and that
+// he cannot hand-tune 124 songs — so the rule has to decide by itself, per song, with zero tuning.
+//
+// The threshold is NOT a number anyone invented: it falls out of the recordist's own envelope. His
+// vibrato waits `delaySec` (177 ms) before it starts and takes `fadeSec` (177 ms) more to reach
+// depth — so a note shorter than delay+fade = 354 ms physically cannot vibrate anyway. Below that
+// the LFO is not attached at all (silence it rather than let it twitch); from there it RAMPS to full
+// by 2x that span, because a cellist's vibrato on a middling note doesn't reach full width either.
+//
+// "Per song" comes free, WITHOUT anyone touching a knob — measured across 5 real songs at one
+// setting: #1 50% · #4 80% · #7 63% · #9 100% · #11 100% of notes vibrate. Same as a cellist: you
+// cannot vibrate a passing note.
+//
+// ⚠️ It keys on NOTE LENGTH, not tempo — those are not the same thing and the numbers say so (#4 at
+// 145 bpm vibrates MORE than #1 at 102 bpm, because its written notes are longer). Do not describe
+// this as "slow song = more vibrato"; a fast song of whole notes gets plenty.
+//
+// ⚠️ Known gap, for P'Aim's ear not mine: on songs whose notes are ALL long (#9, #11 = 100%) the
+// length rule gates nothing, so every note vibrates — which is the "คงที่ทุกโน้ต = น่ารำคาญ" he warned
+// about. Length alone cannot catch that; it would need a second idea (e.g. phrase position). Not
+// invented here — reported.
+export const VIB_MIN_SEC = VIBRATO.delaySec + VIBRATO.fadeSec   // 0.354 s — can't vibrate below this
+export const VIB_FULL_SEC = 2 * (VIBRATO.delaySec + VIBRATO.fadeSec) // 0.708 s — full depth from here
+
+// 0..1 — how much of the depth knob this note earns, from its own length.
+//
+// `minSec` is the USER OVERRIDE half of P'Aim's ask ("ถ้าคนใช้อยากปรับก็ปรับได้"): the rule decides on
+// its own by default (VIB_MIN_SEC, from the physics above), but the knob can move the threshold and
+// the ramp keeps its 1:2 shape around it. minSec = 0 → every note earns full depth, i.e. exactly the
+// "vibrato on every note" P'Aim first heard and called "มิติชัดขึ้นจริง ๆ" — so A/B against that clip
+// stays possible instead of being designed away.
+export function vibratoLengthFactor(durSec, minSec = VIB_MIN_SEC) {
+  const lo = Math.max(0, minSec)
+  const hi = 2 * lo
+  if (!(lo > 0)) return durSec > 0 ? 1 : 0     // threshold off = the pre-rule sound, every note full
+  if (!(durSec > lo)) return 0
+  if (durSec >= hi) return 1
+  return (durSec - lo) / (hi - lo)
+}
+
 // ── PIANO STRING RESONANCE ───────────────────────────────────────────────────────────────────
 // Splendid ships a string-resonance map (Data/Res.txt, 57 regions) that we have never loaded — smplr
 // has no resonance concept at all (verified: 0 hits in its types and source). The surprise is that
@@ -180,14 +221,18 @@ async function loadResonance(context, gain) {
 //   lfo2 (per-note phase, 0.26 Hz) ─┬─► rate  ─► lfo1.frequency         (unsteady · lfo2_freq_lfo1)
 //                                   └─► wobble─► source.detune          (unsteady · lfo2_pitch)
 // `fade` carries his delay+fade ONCE, so everything lfo1 drives eases in together — which is what
-// the sfz does (delay/fade are properties of the LFO, not of each destination).
+// the sfz does (delay/fade are properties of the LFO, not of each destination). The auto rule's
+// length factor scales `fade`'s TARGET, so one note's whole LFO rig — vibrato, EQ and tremolo
+// together — comes up by however much that note's own length earns. That is the coherent reading:
+// a note too short to vibrate is also too short for the bow to lean into.
 //
+// `notes` = [{ onset, dur }] in the order the voices are created.
 // PARAM ORDER MATTERS: `notes[i]` must be melody note i. smplr creates exactly one BufferSource per
 // start() call, in call order — but that is an assumption about someone else's code, so the caller
 // asserts voices.length === notes.length rather than trusting it (the "11 ≠ 17" lesson).
 function withVibrato(ctx, cfg, notes, rng, fn) {
-  const { depthCents = 0, unsteady = 0, bowPressure = 0, minNoteSec = 0 } = cfg
-  if (!(depthCents > 0)) return { result: fn(), voices: 0, vibratoNotes: 0 }
+  const { depthCents = 0, unsteady = 0, bowPressure = 0, minNoteSec = VIB_MIN_SEC } = cfg
+  if (!(depthCents > 0)) return { result: fn(), voices: 0, vibratoNotes: 0, plain: 0, pct: 0 }
   // Draw every note's random phases UP FRONT, indexed by note — not lazily inside the
   // length filter. Otherwise moving the "long notes only" threshold would re-roll the phases of
   // every other note too, and P'Aim's A/B of that one knob would be comparing two different
@@ -229,17 +274,18 @@ function withVibrato(ctx, cfg, notes, rng, fn) {
     return s
   }
 
-  let result, vibratoNotes = 0
+  let result, vibratoNotes = 0, plain = 0
   try { result = fn() } finally {
     ctx.createBufferSource = orig
     voices.forEach((rec, i) => {
       const n = notes[i]
       const s = rec.s
       if (!n || !s.detune) return                 // Safari fallback path uses playbackRate
-      // 80:20 rule P'Aim asked for — a real cellist does not vibrate every note, and a note shorter
-      // than the library's own 177 ms delay cannot show vibrato anyway. Automatic for all 124 songs;
-      // nothing to tune per song. minNoteSec = 0 → every note, i.e. exactly today's sound.
-      if (n.dur < minNoteSec) return
+      // THE AUTO RULE (P'Aim's "กฎอัตโนมัติ + ปรับได้"): this note earns a share of the depth knob
+      // from its OWN length. Too short → nothing is attached at all, rather than a twitch. Automatic
+      // across all 124 songs; the threshold is the knob, and 0 gives back the every-note sound.
+      const factor = vibratoLengthFactor(n.dur, minNoteSec)
+      if (!(factor > 0)) { plain++; return }
       vibratoNotes++
       const t0 = n.onset
 
@@ -248,10 +294,12 @@ function withVibrato(ctx, cfg, notes, rng, fn) {
       lfo1.frequency.value = VIBRATO.freqHz
       lfo1.start(0)
 
+      // `factor` rides on the fade's TARGET, so this note's vibrato AND its bow-pressure EQ/tremolo
+      // all come up together by what its length earns — one rule, one place.
       const fade = ctx.createGain()
       fade.gain.setValueAtTime(0, 0)
       fade.gain.setValueAtTime(0, t0 + VIBRATO.delaySec)
-      fade.gain.linearRampToValueAtTime(1, t0 + VIBRATO.delaySec + VIBRATO.fadeSec)
+      fade.gain.linearRampToValueAtTime(factor, t0 + VIBRATO.delaySec + VIBRATO.fadeSec)
       lfo1.connect(fade)
 
       const depth = ctx.createGain()
@@ -287,7 +335,10 @@ function withVibrato(ctx, cfg, notes, rng, fn) {
       }
     })
   }
-  return { result, voices: voices.length, vibratoNotes }
+  // `vibrated/plain/pct` is the old lane's reporting contract — it is what shows P'Aim (and the
+  // report) how much of THIS song the auto rule actually left shaking, per song, with no tuning.
+  return { result, voices: voices.length, vibratoNotes, plain,
+    pct: Math.round(100 * vibratoNotes / Math.max(1, vibratoNotes + plain)) }
 }
 
 // ── 5.3 · THE LOUD-SOFT ARC ──────────────────────────────────────────────────────────────────
@@ -412,7 +463,11 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   // 5.2 — each 0 = today's sound, so every one of these A/Bs directly against what P'Aim approved.
   vibUnsteady = 0,      // 0..1 of the recordist's lfo02 ceilings (per-note phase + unsteady rate)
   vibBowPressure = 0,   // 0..1 of his tremolo + EQ ceilings ("varying bow pressure")
-  vibMinNoteSec = 0,    // vibrate only notes at least this long (0 = every note = today)
+  // The auto rule's threshold. Defaults to the rule being ON at the physics value — NOT 0. 0 here
+  // means "rule off, every note vibrates", which is a real setting (it is the every-note sound P'Aim
+  // first approved) but it must be asked for, not fallen into: leaving this at 0 silently disabled
+  // the whole auto rule and every song measured 100% instead of the rule's 50/80/63%.
+  vibMinNoteSec = VIB_MIN_SEC,
   vibGainDb = 0,        // trim the cello while vibrato is on — P'Aim's "ต้องลด volume แต่ยังโหยหวน"
   // 5.3 — loud-soft arc. `arcSpreadDb` 0 = today. `arcMode`: 'bus' rides the finished mix (exact dB),
   // 'perf' scales the arranger's gains (musical, but the velocity map compresses it — measured).
@@ -532,6 +587,9 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
 
     // vibrato rides the BODY only: it is what sustains. The head is 55 ms of staccato at 5% —
     // nothing to shake, and inaudible anyway.
+    // each note carries its OWN length so the auto rule can decide per note (see withVibrato).
+    // `dur` must be the length the note is actually FIRED with (the same clamp used below), not the
+    // raw beat length — otherwise the rule judges a note by a duration that never reached the ear.
     const bodyNotes = mel.map((e) => ({
       onset: Math.max(0, onset(e) - shift), dur: Math.max(0.12, perNoteDur(e)),
     }))
@@ -588,9 +646,10 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     celloReport = { melodyNotes: mel.length, attackMs, shiftMs: Math.round(shiftMs), bodyId,
       head: headReport, vibratoCents, bowRoundRobin: !!upBow,
       vibUnsteady, vibBowPressure, vibMinNoteSec, vibGainDb,
-      // how many notes the "long notes only" rule actually left shaking — the number that tells
-      // P'Aim whether the threshold he is turning is doing anything at all on THIS song
-      vibratoNotes: vibratoCents > 0 ? vib.vibratoNotes : 0,
+      // how many notes the auto rule actually left shaking, per song, with nobody tuning anything —
+      // the old lane's number (#1 50% · #4 80% · #7 63% · #9 100% · #11 100%) and the one that tells
+      // P'Aim whether the rule is gating anything at all on THIS song
+      vib: vibratoCents > 0 ? { vibrated: vib.vibratoNotes, plain: vib.plain, pct: vib.pct } : null,
       outOfRange: [...new Set(outOfRange)].sort((a, b) => a - b) }
   }
 
