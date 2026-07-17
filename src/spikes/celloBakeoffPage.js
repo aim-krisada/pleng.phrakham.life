@@ -38,6 +38,12 @@ const state = { song: null, range: null, clips: {}, balance: 1, correctTuning: t
   // is untouched — the rule can only act once he turns vibrato up. Slide it to 0 to hear the
   // every-note vibrato he first called "มิติชัดขึ้นจริง ๆ".
   vibMinNoteSec: VIB_MIN_SEC,
+  // 5.4 — the "โน้ตวินาที 14 ดังผิดปกติ" fix. Defaults ON (full) because P'Aim reported it as a BUG
+  // and the source is a measurement, not a taste: the library's level zigzags 10 direction-flips /
+  // 16 steps (worst 12.6 dB between neighbouring files) = take-to-take variation, not a cello's
+  // natural contour. The 4 values he locked (head 5% · shift 10ms · body p · head mp) are untouched.
+  // Slide to 0 for the exact pre-fix sound.
+  fileLevelAmount: 1,
   // 5.3 — loud-soft arc. 0 = today. `fullSong` matters: the 20s clip is only the first 24% of the
   // song, so the arc barely shows in it — he has to hear the whole song for the knob to mean anything.
   arcSpreadDb: 0, fullSong: false,
@@ -103,7 +109,7 @@ async function renderAll() {
         pianoResonance: state.pianoResonance,
         vibGainDb: state.vibGainDb, vibUnsteady: state.vibUnsteady,
         vibBowPressure: state.vibBowPressure, vibMinNoteSec: state.vibMinNoteSec,
-        arcSpreadDb: state.arcSpreadDb,
+        arcSpreadDb: state.arcSpreadDb, fileLevelAmount: state.fileLevelAmount,
       })
       // MEASURE the loud-soft line that actually came out, and show it. The arc knob asks for a dB;
       // the sound has to be checked against it rather than assumed (the request does NOT arrive
@@ -228,6 +234,9 @@ bindKnob('#vibmin', 'vibMinNoteSec', (v) => (v === 0 ? 'ปิดกฎ = สั
 
 // ── 5.3 · the loud-soft arc ──────────────────────────────────────────────────────────────────────
 bindKnob('#arc', 'arcSpreadDb', (v) => (v === 0 ? 'ปิด (เท่าตอนนี้)' : `กว้าง ${v.toFixed(0)} dB`))
+// ⑥ the bug fix, not a taste knob — but still turnable so P'Aim can hear the "before".
+bindKnob('#flvl', 'fileLevelAmount', (v) => (v === 0 ? '⛔ ปิด = เสียงเดิมที่มีบั๊ก'
+  : v >= 1 ? 'แก้เต็ม (แนะนำ)' : `แก้ ${Math.round(v * 100)}%`))
 // The 20s clip is only the FIRST 24% of the song (measured) and the climax sits at 58% — so inside
 // the short clip the arc has almost nothing to do. Without this switch P'Aim would turn the arc
 // knob, hear nothing, and correctly conclude it was a dud, for the wrong reason.

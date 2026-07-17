@@ -371,6 +371,51 @@ export const DYN_LAYERS = [
     note: 'ชั้นเดียวที่แอพเคยโหลด · บวม 20ms · ดัน +3.2dB — ตัวเทียบ' },
 ]
 
+// ── 5.4 · THE "โน้ตวินาที 14 ดังผิดปกติ" BUG (P'Aim, 17 ก.ค.) ────────────────────────────────
+// Steady-state RMS of every `p` sample, measured straight off the .ogg files (window 0.3–1.3 s, i.e.
+// past the 200 ms bow bloom so it is the note's real body, not its attack). dB.
+//
+// The library's own level is NOT flat and NOT a smooth instrument contour — it ZIGZAGS: 10 direction
+// flips across 16 adjacent steps, median step 5.3 dB, worst 12.6 dB between two neighbouring files
+// (54→57). A real cello does not jump 12.6 dB between adjacent notes; that is take-to-take recording
+// variation. prepare-cello-bakeoff.py bakes ONE makeup for the whole library, so the zigzag survives
+// intact into playback.
+//
+// What P'Aim heard: this song's melody rides files 63/66/69, then steps down onto file 60 at 14.1 s —
+// and file 60 is the loudest of the four (60:-19.0 · 63:-21.9 · 66:-24.0 · 69:-34.4 = 15.4 dB spread
+// inside ONE song). Measured in the clip: notes landing on file 60 sit +5 to +7 dB above the line,
+// and the 13.5 s→14.1 s step jumps +5.4 dB more than the arranger asked for. That is the "อยู่ดี ๆ ก็
+// ดังขึ้นมาผิดปกติ", at the second he reported it.
+const P_FILE_DB = {
+  36: -24.8, 39: -20.0, 42: -14.7, 45: -18.5, 48: -14.9, 51: -17.5, 54: -25.8, 57: -13.2, 60: -19.0,
+  63: -21.9, 66: -24.0, 69: -34.4, 72: -23.8, 75: -25.9, 78: -23.8, 81: -29.6, 84: -23.6,
+}
+// Normalise TO the library's own median (-23.6 dB) rather than to a number I picked, so the cello's
+// overall loudness lands where it already is and only the zigzag is removed.
+const P_FILE_TARGET_DB = -23.6
+
+// Per-region dB correction that flattens the zigzag. `amount` 0..1 = how much of the correction to
+// apply (0 = today's sound exactly, for a direct A/B).
+//
+// ⚠️ smplr's `volume` on a region is DECIBELS — verified empirically, NOT taken from the docs, which
+// call it a "0–127 MIDI scale" defaulting to 100. It is not: no field = -32.2 dB, volume:50 = +17.8,
+// volume:100 = +67.8 — i.e. it ADDS N dB. Trusting the doc and writing `volume: 100` as "unity"
+// would have detonated the output by +100 dB.
+export function fileLevelFix(regions, amount = 1) {
+  if (!(amount > 0)) return { applied: 0, maxCutDb: 0, maxBoostDb: 0 }
+  let maxCut = 0, maxBoost = 0, applied = 0
+  for (const r of regions) {
+    const lvl = P_FILE_DB[Number(r.sample)]
+    if (lvl == null) continue
+    const corr = (P_FILE_TARGET_DB - lvl) * amount
+    r.volume = (r.volume || 0) + corr
+    applied++
+    if (corr < maxCut) maxCut = corr
+    if (corr > maxBoost) maxBoost = corr
+  }
+  return { applied, maxCutDb: Math.round(maxCut * 10) / 10, maxBoostDb: Math.round(maxBoost * 10) / 10 }
+}
+
 const SPIKE_BASE = '/samples/_spike'
 
 // Build a smplr Sampler for one cello variant from the spike mirror. Mirrors sampler.js's
@@ -380,7 +425,7 @@ const SPIKE_BASE = '/samples/_spike'
 // `correctTuning:false` strips the per-region detune so P'Aim can hear each library RAW, exactly as
 // its files sit on disk. Default true: each sample's MEASURED cents error is cancelled so the three
 // are compared on timbre, not intonation (Iowa is up to ~38 cents sharp — a third of a semitone).
-async function loadCello(variantId, context, makeupGain, { correctTuning = true } = {}) {
+async function loadCello(variantId, context, makeupGain, { correctTuning = true, fileLevelAmount = 0 } = {}) {
   const { Sampler, Scheduler } = await import('smplr')
   const preset = await (await fetch(`${SPIKE_BASE}/${variantId}/preset.json`)).json()
   const attackMs = preset.plengMeta?.attackMs ?? 0    // measured by tools/prepare-cello-bakeoff.py
@@ -388,6 +433,12 @@ async function loadCello(variantId, context, makeupGain, { correctTuning = true 
   preset.samples.baseUrl = `${SPIKE_BASE}/${variantId}`
   if (!correctTuning) {
     for (const g of preset.groups || []) for (const r of g.regions || []) r.detune = 0
+  }
+  // 5.4 — flatten the library's take-to-take level zigzag (P'Aim's "โน้ตวินาที 14 ดังผิดปกติ").
+  // Only the `p` layer is measured, so only the p body is corrected; the 5% head is left alone.
+  let levelFix = null
+  if (fileLevelAmount > 0 && (variantId === 'karoryfer-p' || variantId === 'karoryfer-p-g')) {
+    levelFix = fileLevelFix((preset.groups || []).flatMap((g) => g.regions || []), fileLevelAmount)
   }
   const makeup = context.createGain()
   makeup.gain.value = makeupGain
@@ -397,7 +448,7 @@ async function loadCello(variantId, context, makeupGain, { correctTuning = true 
   if (isOffline && Scheduler) opts.scheduler = Scheduler(context, { lookaheadMs: 1e7 })
   const inst = new Sampler(context, opts)
   await inst.load
-  return { inst, output: makeup, attackMs }
+  return { inst, output: makeup, attackMs, levelFix }
 }
 
 // 'both' = melody + chords. NOTE the exact string matters: voiceFlags() in midi.js only turns the
@@ -476,6 +527,8 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   // back-to-back (~31% of notes measured). Off by default = today's sound, so A/B is direct.
   bowRoundRobin = false,
   // piano string resonance (Splendid's own Res map, reusing the PP samples we ship). Off = today.
+  // 5.4 — 0..1 of the measured per-file level correction. 0 = today's sound exactly (direct A/B).
+  fileLevelAmount = 0,
   pianoResonance = false } = {}) {
   const { perf, cfg, bpm: useBpm } = buildPerformance(content, { bpm, range, songId })
   const spb = 60 / useBpm
@@ -560,7 +613,8 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     // an ear question, so it is a knob starting at 0 dB (= today), not a number I picked.
     const vibTrim = vibratoCents > 0 ? Math.pow(10, vibGainDb / 20) : 1
     celloMakeup *= vibTrim
-    const { inst, output, attackMs } = await loadCello(bodyId, ctx, celloMakeup, { correctTuning })
+    const { inst, output, attackMs, levelFix } = await loadCello(bodyId, ctx, celloMakeup,
+      { correctTuning, fileLevelAmount })
     output.disconnect()
     output.connect(busIn)                              // same reverb room as the piano
     // NEGATIVE DELAY (PM 16 ก.ค. · docs/pm/audio-round2-techniques.md): a bowed note ramps up, so
@@ -645,7 +699,7 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
 
     celloReport = { melodyNotes: mel.length, attackMs, shiftMs: Math.round(shiftMs), bodyId,
       head: headReport, vibratoCents, bowRoundRobin: !!upBow,
-      vibUnsteady, vibBowPressure, vibMinNoteSec, vibGainDb,
+      vibUnsteady, vibBowPressure, vibMinNoteSec, vibGainDb, fileLevelAmount, levelFix,
       // how many notes the auto rule actually left shaking, per song, with nobody tuning anything —
       // the old lane's number (#1 50% · #4 80% · #7 63% · #9 100% · #11 100%) and the one that tells
       // P'Aim whether the rule is gating anything at all on THIS song
