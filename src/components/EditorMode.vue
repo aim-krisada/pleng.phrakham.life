@@ -1857,11 +1857,33 @@ const edLyrOptions = computed(() => [
 // (105px at 1280 · taller when it wraps), so measure it rather than hard-code an offset — the
 // rail's hard-coded top:58px is exactly the drift this avoids.
 const shellH = ref(56)
+// Both bars are measured off the live DOM (the same way .shell-bar already is) rather than a
+// template ref: the ref stayed null through mount, which silently left edheadH at 0 and pinned
+// .cshead straight back on top of the edhead.
+const edheadH = ref(0)
+let edheadRO = null
 function measureShell() {
   if (typeof document === 'undefined') return
-  const el = document.querySelector('.shell-bar')
-  if (el) shellH.value = Math.round(el.getBoundingClientRect().height)
+  const bar = document.querySelector('.shell-bar')
+  if (bar) shellH.value = Math.round(bar.getBoundingClientRect().height)
+  const eh = document.querySelector('.edhead')
+  if (!eh) return
+  edheadH.value = Math.round(eh.getBoundingClientRect().height)
+  // the edhead wraps to more rows as the width shrinks (and as its buttons swap), so track its
+  // real box — a fixed number would drift the moment the header re-wraps
+  if (!edheadRO && typeof ResizeObserver !== 'undefined') {
+    edheadRO = new ResizeObserver(() => { edheadH.value = Math.round(eh.getBoundingClientRect().height) })
+    edheadRO.observe(eh)
+  }
 }
+
+// The ท่อน toolbar (.cshead) was ALREADY sticky at a hard-coded top:58px (B085, same reason as
+// this header). Once the edhead pins too, 58px puts .cshead UNDER it — measured: 62px of overlap
+// and its buttons failed a hit test, i.e. we would have traded one unreachable toolbar for
+// another. So .cshead pins below whatever the edhead actually occupies. The edhead wraps at
+// narrow widths, so its height is observed, not assumed.
+// mobile keeps .cshead's own CSS top (the edhead is not sticky there — see the media query)
+const csheadStyle = computed(() => (narrow.value ? {} : { top: shellH.value + edheadH.value + 'px' }))
 
 // ---------- edit header (edhead — prototype ps2 §③) ----------
 // The header is a BREADCRUMB that opens the rail (the rail is the only navigation — no
@@ -2115,8 +2137,16 @@ function onFloatResize() {
     sheetWinPos.value = clampWin(sheetWinPos.value, r.width, r.height)
   }
 }
-onMounted(() => { window.addEventListener('resize', onFloatResize); measureShell(); measureSheetCol() })
-onUnmounted(() => window.removeEventListener('resize', onFloatResize))
+onMounted(() => {
+  window.addEventListener('resize', onFloatResize)
+  measureShell()
+  nextTick(measureShell) // the header may not be in the DOM yet on the first pass
+  measureSheetCol()
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', onFloatResize)
+  edheadRO?.disconnect()
+})
 // measure fresh each time the preview opens (the reading column may have changed while it was closed)
 watch(sheetWinOpen, (open) => { if (open) nextTick(measureSheetCol) })
 // a bar's clean render: a one-line, one-bar content object the SongSheet can draw. Words
@@ -2554,7 +2584,7 @@ defineExpose({
 
     <!-- ===== canvas section header for the selected ท่อน — rename + melody + reorder right
          where you edit (SX2/SX3/SX5). The note/word/beat editor below is unchanged (SX7). ===== -->
-    <div v-if="lensActive" class="cshead no-print">
+    <div v-if="lensActive" class="cshead no-print" :style="csheadStyle">
       <span class="grip" aria-hidden="true"><Icon name="grip-vertical" :size="16" /></span>
       <span class="cs-num">{{ lensChoice + 1 }}</span>
       <input
@@ -3353,7 +3383,9 @@ defineExpose({
 /* canvas section header — rename/melody/reorder for the selected ท่อน, above the notes */
 /* B085: the ท่อน toolbar (melody · rename · ▲▼ · delete) stays pinned under the top bar so
    its controls are reachable while scrolling down through a long ท่อน. Opaque bg so the
-   notes scroll cleanly underneath; z-index over the note strip, under menus/dropdowns. */
+   notes scroll cleanly underneath; z-index over the note strip, under menus/dropdowns.
+   `top` below is the MOBILE value only — on desktop the edhead is sticky too, so this pins
+   under it via the measured csheadStyle (58px would put it 62px behind the edhead). */
 .cshead {
   display: flex;
   align-items: center;

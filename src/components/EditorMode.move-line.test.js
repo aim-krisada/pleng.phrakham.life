@@ -120,4 +120,30 @@ describe('B086 — move line (melody + every verse\'s words together)', () => {
     // element is present and the move controls live in the header toolbar (behavioural anchor).
     expect(w.find('button[aria-label="ย้ายบรรทัดขึ้น"]').exists()).toBe(true)
   })
+
+  // issues11: once the edhead pins too, .cshead's hard-coded top:58px put it UNDERNEATH the
+  // edhead — measured in a real browser at 1536px: 62px of overlap and .cshead's buttons failed
+  // a hit test, i.e. B085's whole point was undone. .cshead must pin below whatever the edhead
+  // actually occupies. jsdom has no layout, so this pins the ARITHMETIC (feed known heights in,
+  // assert the offset that comes out) rather than pretending to measure a real overlap.
+  it('issues11: .cshead pins BELOW the sticky edhead, not under it (desktop)', async () => {
+    document.body.innerHTML =
+      '<div id="shell-title"></div><div id="shell-menus"></div><header class="shell-bar"></header>'
+    const real = Element.prototype.getBoundingClientRect
+    Element.prototype.getBoundingClientRect = function () {
+      if (this.classList?.contains('shell-bar')) return { height: 64, width: 1536, top: 0, bottom: 64, left: 0, right: 1536 }
+      if (this.classList?.contains('edhead')) return { height: 94, width: 1160, top: 64, bottom: 158, left: 0, right: 1160 }
+      return real.call(this)
+    }
+    try {
+      const w = mountEd()
+      await nextTick()
+      await nextTick() // onMounted's measure + its nextTick re-measure
+      const style = w.find('.cshead').attributes('style') || ''
+      // 64 (shell bar) + 94 (edhead) — NOT the stylesheet's 58px, which is 100px too high
+      expect(style).toContain('top: 158px')
+    } finally {
+      Element.prototype.getBoundingClientRect = real
+    }
+  })
 })
