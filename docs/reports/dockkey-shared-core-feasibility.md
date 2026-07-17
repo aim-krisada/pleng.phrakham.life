@@ -46,7 +46,7 @@
 | **show/hide ปุ่ม** | 🟡 กลไก `hidden` มีในโมเดล (`visible=filter(!hidden)`) **แต่วันนี้ "หน้า" ตั้ง ไม่ใช่ผู้ใช้** · Setting page ทำแค่ **pin/reorder** | เติม: Setting page + ชุด `hiddenOverride` ต่อผู้ใช้ (แพตเทิร์นเดียวกับ `pins` ที่ persist อยู่แล้ว) |
 | **ตำแหน่ง/ลำดับ** | ✅ pin + reorder (`togglePin`/`movePin`) ใน Setting page · `place` เป็น declarative | ~มีแล้ว (reorder ใน pins) · ย้าย anchor อิสระ = เติมถ้า UX ต้องการ |
 | **settings (⚙)** | ✅ มี Setting page (pin/reorder + transparency) | 0 — ต่อยอดหน้าเดิม |
-| **resize** | 🟡 **ย้าย/ลาก dock ได้** (grip drag + clamp) + collapse + transparency slider · **ขนาด(width/height) ปรับไม่ได้** | ถ้า "resize"=ย้าย → มีแล้ว · ถ้า=ปรับขนาด → **เติม (additive)** · **UX ต้องนิยาม "resize" ให้ชัด** |
+| **resize** (brief: "ตอนนี้ใหญ่ไป") | 🟡 **ย้าย/ลาก dock ได้** (grip drag + clamp) + collapse + transparency · **ปรับขนาดไม่ได้** · ขนาดคุมด้วย `cap`(mobile 7 / desktop 14) + 44px target | brief ชัดแล้ว **resize = ขนาด (ไม่ใช่ย้าย)** → เติม (additive): (ก) **ลด default ให้เล็กลง** (UX ฟันธงค่า · ต้อง ≥44px) (ข) ปุ่ม/handle ปรับขนาดต่อ user (persist) |
 | **toggle ชื่อ (โชว์/ซ่อน label)** | ❌ ยังไม่มี toggle · `name` ต่อปุ่มมี | เติม: flag `showLabels` + persist + render `name` แบบมีเงื่อนไข (additive) |
 | **persist ต่อผู้ใช้** | ✅ **localStorage** namespaced `pleng.dockkey.<storeKey>.pins/collapsed/alpha` | **per-device มีแล้ว** · **cross-device(ต่อ user จริง) = ต้อง Supabase profile** (เฟสเสริม · เฉพาะทีมล็อกอิน · Tier-0 anon ไม่มี profile) |
 
@@ -70,6 +70,32 @@
 
 1. **"core lib แชร์ 2 เว็บ" ในหัว P'Aim ไม่ตรงของจริง (สำหรับ dock):** dock ไม่แชร์เลย · แชร์จริงแค่ `pk-scrollnav` (identical) · `pk-drawer` **drift ไปแล้ว** (phrakham ไม่ track ทั้งที่ header เคลมแชร์) → ถ้าอยากได้ "แก้ครั้งเดียว 2 เว็บ" จริง ต้องลงทุน **shared package ข้าม framework** ก่อน = งานสถาปัตยกรรมแยก ควรตัดสินใจแยกจากฟีเจอร์พี่เปา
 2. **drift risk ที่ควรเก็บกวาด (แยกงาน):** `pk-scrollnav` in-sync วันนี้แต่กันด้วยมือ (ก๊อป) → มี test `pk-scrollnav.test.js` ใน pleng ช่วยจับ · `pk-drawer` header เคลมเท็จว่า "phrakham copies verbatim" ทั้งที่ phrakham ไม่ track → ควรแก้คอมเมนต์ให้ตรงจริง (pleng-only) กัน AI/คนรุ่นหลังเข้าใจผิด
+
+---
+
+## 4.5 · ⭐ ground-truth ระบบชื่ออ้างอิง (P'Aim ข้อ 5 · "โครงสร้างการสื่อสารทีม")
+
+P'Aim อยากให้ทุกปุ่มมี **ชื่ออ้างอิง + id คงที่** เพื่อพี่เปาพูดชื่อแล้วทีมรู้ว่าปุ่มไหน (เลิก capture หน้าจอ). **SA verify: มีอยู่แล้วที่ชั้นข้อมูล** — ทุก descriptor มี `id` (คงที่) + `name` (ไทย). งานที่เหลือ = **surface + document + toggle** ไม่ใช่ประดิษฐ์ใหม่.
+
+**ground-truth ตอนนี้ — dock หน้าแก้ไข (`ITEMS_EDIT` · `EditorMode.vue` · หน้าที่พี่เปาขอก่อน):**
+
+| id (คงที่ · addressable) | name (ไทย · มีแล้ว) | kind |
+|---|---|---|
+| `keys` | แป้นสัญลักษณ์ | keys |
+| `grip` | ย้าย/ย่อ | grip |
+| `undo` | ย้อน | btn |
+| `redo` | ทำซ้ำ | btn |
+| `play` | ฟังท่อน | btn |
+| `stop` | หยุด | btn |
+| `soundctl` | เสียงดนตรี | slot |
+| `setting` | ตั้งค่า | gear |
+| `save` | (บันทึก) | btn |
+| `playAll` | ฟังทั้งเพลง | btn |
+| `export` | ดาวน์โหลด | slot |
+| `draft` | บันทึกร่าง | btn |
+| `preview` | ดูผลทั้งเพลง | toggle |
+
+> **แปลว่า:** ข้อ 5 = **80% มีแล้ว** (id + ชื่อไทยครบทุกปุ่ม) · เหลือ **(1)** UX ทำตาราง "ปุ่ม→ชื่อ→id" เป็นเอกสารอ้างอิงทีม (ต่อยอดตารางนี้ · เพิ่มหน้า print `ITEMS_PRINT`/ฝึกร้อง `ITEMS_SING` ที่ใช้ engine เดียวกัน) · **(2)** toggle โชว์/ซ่อน `name` ในจอ · **(3)** เผลอ ๆ ทำ `id` เป็น `data-dock-id` บน DOM เพื่อ test hook + a11y `aria-label` จาก `name` (ได้ระดับโลกในตัว). **ไม่ต้องเพิ่ม id/ชื่อใหม่ — มันมีแล้ว.**
 
 ---
 
