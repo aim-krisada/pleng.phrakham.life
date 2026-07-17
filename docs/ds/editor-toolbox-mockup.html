@@ -1,0 +1,333 @@
+<title>เครื่องมือติดกับสิ่งที่เลือก — mockup หน้าแก้ไขเพลง</title>
+<style>
+  :root{
+    --brand:#8B4513; --brand-2:#A8631F;
+    --bg:#F3ECE1; --card:#FBF7F0; --ink:#2A2320; --muted:#8A7E72;
+    --line:#E4D9C8; --sel:rgba(139,69,19,.14); --sel-line:rgba(139,69,19,.55);
+    --shadow:0 6px 22px rgba(60,40,20,.16);
+    --good:#3B7A57; --warn:#B4531A;
+    --fs:15px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#1C1815; --card:#241F1B; --ink:#EDE4D6; --muted:#A99C8C;
+      --line:#3A3129; --sel:rgba(214,158,102,.18); --sel-line:rgba(214,158,102,.7);
+      --brand:#D69E66; --brand-2:#E0B588; --shadow:0 6px 22px rgba(0,0,0,.5); }
+  }
+  :root[data-theme="dark"]{ --bg:#1C1815; --card:#241F1B; --ink:#EDE4D6; --muted:#A99C8C;
+      --line:#3A3129; --sel:rgba(214,158,102,.18); --sel-line:rgba(214,158,102,.7);
+      --brand:#D69E66; --brand-2:#E0B588; --shadow:0 6px 22px rgba(0,0,0,.5); }
+  :root[data-theme="light"]{ --brand:#8B4513; --brand-2:#A8631F; --bg:#F3ECE1; --card:#FBF7F0;
+      --ink:#2A2320; --muted:#8A7E72; --line:#E4D9C8; --sel:rgba(139,69,19,.14);
+      --sel-line:rgba(139,69,19,.55); --shadow:0 6px 22px rgba(60,40,20,.16); }
+
+  *{box-sizing:border-box}
+  body,.wrap{margin:0}
+  .wrap{
+    font:var(--fs)/1.6 system-ui,-apple-system,"Segoe UI","Noto Sans Thai","Sarabun",sans-serif;
+    color:var(--ink); background:var(--bg); padding:22px 16px 60px; min-height:100%;
+  }
+  .inner{max-width:960px;margin:0 auto}
+  h1{font-size:1.5rem;line-height:1.25;margin:0 0 4px;text-wrap:balance;letter-spacing:-.01em}
+  .sub{color:var(--muted);margin:0 0 20px;font-size:.98rem}
+  .eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:700;margin:0 0 6px}
+
+  /* mode toggle */
+  .modes{display:inline-flex;gap:4px;background:var(--card);border:1px solid var(--line);
+    border-radius:999px;padding:4px;margin-bottom:8px}
+  .modes button{font:inherit;font-size:.9rem;font-weight:600;border:0;background:transparent;
+    color:var(--muted);padding:7px 16px;border-radius:999px;cursor:pointer;min-height:40px}
+  .modes button[aria-pressed="true"]{background:var(--brand);color:#fff}
+  :root[data-theme="dark"] .modes button[aria-pressed="true"],
+  @media (prefers-color-scheme:dark){}
+  .hint-strip{font-size:.86rem;color:var(--muted);margin:0 0 18px;min-height:1.4em}
+  .hint-strip b{color:var(--ink)}
+
+  /* stage */
+  .stage{display:flex;justify-content:center;margin-bottom:8px}
+  /* phone frame */
+  .device{position:relative;background:var(--card);border:1px solid var(--line);
+    box-shadow:var(--shadow);overflow:hidden;transition:width .25s ease}
+  .device.mobile{width:390px;max-width:100%;border-radius:34px;padding:12px 10px 0}
+  .device.desktop{width:100%;max-width:900px;border-radius:16px;padding:0}
+  .notch{height:22px;display:flex;align-items:center;justify-content:center}
+  .notch::before{content:"";width:96px;height:6px;border-radius:6px;background:var(--line)}
+  .device.desktop .notch{display:none}
+
+  /* editor chrome */
+  .edbar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);
+    background:var(--card);position:relative;z-index:3}
+  .device.mobile .edbar{border-radius:22px 22px 0 0}
+  .edbar .doc{font-weight:700;font-size:.95rem;color:var(--ink);display:flex;align-items:center;gap:7px}
+  .edbar .doc .dot{width:9px;height:9px;border-radius:50%;background:var(--brand)}
+  .edbar .spacer{flex:1}
+  .docbar{display:flex;gap:5px;flex-wrap:wrap}
+  .docbar .db{font:inherit;font-size:.8rem;border:1px solid var(--line);background:var(--card);
+    color:var(--muted);border-radius:9px;padding:6px 9px;cursor:default;min-height:34px;white-space:nowrap}
+
+  /* canvas */
+  .canvas{padding:14px 12px 0;position:relative}
+  .device.desktop .canvas{padding:20px 26px 0}
+
+  .section-chip{display:inline-flex;align-items:center;gap:7px;font-size:.82rem;font-weight:700;
+    color:var(--brand);background:transparent;border:1px dashed var(--sel-line);border-radius:9px;
+    padding:5px 11px;margin:2px 0 12px;cursor:pointer;min-height:36px}
+  .section-chip small{font-weight:500;color:var(--muted)}
+
+  .line{position:relative;border-radius:12px;padding:8px 8px 10px;margin:0 -4px 8px;cursor:pointer;
+    transition:background .12s}
+  .bars{display:flex;flex-wrap:wrap;gap:2px;align-items:flex-end}
+  .bar{display:flex;align-items:flex-end;border-radius:9px;padding:4px 3px;cursor:pointer;position:relative}
+  .bar::before{content:"|";color:var(--muted);opacity:.5;margin:0 4px 0 1px;align-self:stretch;
+    display:flex;align-items:center;font-size:1.3rem}
+  .bar:first-child::before{margin-left:0}
+  .note{display:flex;flex-direction:column;align-items:center;min-width:30px;padding:2px 3px;
+    border-radius:7px;cursor:pointer;position:relative}
+  .note .num{font-size:1.32rem;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;position:relative}
+  .note .num.oct-up::after{content:"·";position:absolute;top:-.55em;left:50%;transform:translateX(-50%);font-weight:900}
+  .note .syl{font-size:.82rem;color:var(--muted);margin-top:5px;min-height:1em}
+  .note .held{color:var(--muted);opacity:.6}
+
+  /* selection highlight — persistent, brand tint + outline (the "which one" answer) */
+  .sel{background:var(--sel)!important;outline:2px solid var(--sel-line);outline-offset:1px}
+  .line.sel{outline-offset:-2px}
+
+  /* floating anchored toolbox */
+  .tbx{position:absolute;z-index:20;display:none;align-items:center;gap:2px;background:var(--card);
+    border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:5px;
+    max-width:calc(100% - 12px)}
+  .tbx.show{display:inline-flex}
+  .tbx::after{content:"";position:absolute;bottom:-7px;left:var(--arrow,50%);transform:translateX(-50%) rotate(45deg);
+    width:12px;height:12px;background:var(--card);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .tbx.below::after{bottom:auto;top:-7px;transform:translateX(-50%) rotate(225deg)}
+  .tbx button{font:inherit;font-size:.82rem;font-weight:600;border:0;background:transparent;color:var(--ink);
+    border-radius:9px;padding:8px 9px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;
+    white-space:nowrap;min-height:40px}
+  .tbx button:hover{background:var(--sel)}
+  .tbx button.danger{color:var(--warn)}
+  .tbx .ic{font-size:1rem;line-height:1}
+  .tbx .scope-tag{font-size:.7rem;color:var(--brand);font-weight:800;letter-spacing:.05em;
+    padding:0 6px 0 3px;border-right:1px solid var(--line);margin-right:2px;align-self:stretch;
+    display:flex;align-items:center}
+
+  /* desktop hover ghost */
+  .ghost{position:absolute;z-index:15;display:none;background:transparent;border:1.5px dashed var(--sel-line);
+    border-radius:11px;pointer-events:none;opacity:.7}
+  .ghost.show{display:block}
+  .ghost .lbl{position:absolute;top:-24px;left:0;font-size:.7rem;background:var(--brand);color:#fff;
+    padding:2px 7px;border-radius:6px;white-space:nowrap;font-weight:600}
+
+  /* simulated mobile keyboard (proves toolbox stays above) */
+  .kbd{height:0;overflow:hidden;background:linear-gradient(var(--line),var(--card));
+    border-top:1px solid var(--line);transition:height .22s ease;display:flex;flex-wrap:wrap;
+    gap:4px;padding:0 8px;align-content:flex-start}
+  .kbd.up{height:150px;padding:8px}
+  .kbd span{flex:1 0 8%;min-width:26px;height:30px;background:var(--card);border:1px solid var(--line);
+    border-radius:6px}
+  .kbd .kbmsg{flex-basis:100%;font-size:.74rem;color:var(--muted);text-align:center;margin-top:2px}
+
+  /* explainer */
+  .grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:26px}
+  @media(min-width:720px){.grid{grid-template-columns:1.3fr 1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:18px 18px 16px}
+  .card h2{font-size:1.05rem;margin:0 0 10px}
+  .verdict{border-left:4px solid var(--brand)}
+  .verdict .pick{font-size:1.12rem;font-weight:800;color:var(--brand);margin:0 0 2px}
+  .rowlist{list-style:none;margin:8px 0 0;padding:0}
+  .rowlist li{display:flex;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:.92rem}
+  .rowlist li:first-child{border-top:0}
+  .mk{flex:0 0 auto;font-weight:800}
+  .no .mk{color:var(--warn)} .yes .mk{color:var(--good)}
+  .three{counter-reset:r}
+  .three li{align-items:flex-start}
+  .three li .n{flex:0 0 22px;height:22px;border-radius:50%;background:var(--brand);color:#fff;
+    font-size:.78rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .phase{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .phase .p{flex:1;min-width:120px;border:1px solid var(--line);border-radius:11px;padding:9px 11px;font-size:.82rem}
+  .phase .p b{color:var(--brand)}
+  .foot{color:var(--muted);font-size:.8rem;margin-top:22px;text-align:center;line-height:1.7}
+  .foot a{color:var(--brand)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap"><div class="inner">
+  <p class="eyebrow">pleng · UX/UI · หน้าแก้ไขเพลง</p>
+  <h1>เครื่องมือติดกับ “สิ่งที่เลือก” — จิ้มอันไหน เครื่องมือของอันนั้นโผล่ตรงนั้น</h1>
+  <p class="sub">ลองจิ้มโน้ต · ห้อง · บรรทัด · หรือหัวท่อน ในจอด้านล่าง — เครื่องมือของสิ่งนั้นจะโผล่มาติดตรงนั้น และสิ่งที่เลือกจะถูกไฮไลต์ให้เห็นชัด</p>
+
+  <div class="modes" role="group" aria-label="สลับมุมมอง">
+    <button id="mMobile" aria-pressed="true">📱 มือถือ (พี่เปา)</button>
+    <button id="mDesktop" aria-pressed="false">🖥️ เดสก์ท็อป</button>
+  </div>
+  <p class="hint-strip" id="hint"><b>ไม่ได้เลือกอะไร = จอสะอาด</b> — เห็นแค่แถบระดับเอกสาร · จิ้มสิ่งใดสิ่งหนึ่งเพื่อดูเครื่องมือของมัน</p>
+
+  <div class="stage">
+    <div class="device mobile" id="device">
+      <div class="notch"></div>
+      <div class="edbar">
+        <span class="doc"><span class="dot"></span>เพลงพระพร</span>
+        <span class="spacer"></span>
+        <div class="docbar">
+          <button class="db">🔊 ฟังทั้งเพลง</button>
+          <button class="db">👁 ดูผล</button>
+          <button class="db">💾 ร่าง</button>
+          <button class="db">⬇️</button>
+        </div>
+      </div>
+      <div class="canvas" id="canvas">
+        <span class="section-chip" data-scope="ท่อน" data-tools="section">🎵 ท่อน: Verse 1 <small>· C เมเจอร์</small></span>
+
+        <div class="line" data-scope="บรรทัด" data-tools="line">
+          <div class="bars">
+            <div class="bar" data-scope="ห้อง" data-tools="bar">
+              <span class="note" data-scope="โน้ต" data-tools="note"><span class="num">1</span><span class="syl">พระ</span></span>
+              <span class="note" data-scope="โน้ต" data-tools="note"><span class="num">2</span><span class="syl">เจ้า</span></span>
+              <span class="note" data-scope="โน้ต" data-tools="note"><span class="num">3</span><span class="syl">ทรง</span></span>
+            </div>
+            <div class="bar" data-scope="ห้อง" data-tools="bar">
+              <span class="note" data-scope="โน้ต" data-tools="note"><span class="num oct-up">5</span><span class="syl">รัก</span></span>
+              <span class="note" data-scope="โน้ต" data-tools="note"><span class="num held">–</span><span class="syl held">·</span></span>
+              <span class="note" data-scope="โน้ต" data-tools="note"><span class="num">3</span><span class="syl">เรา</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="line" data-scope="บรรทัด" data-tools="line">
+          <div class="bars">
+            <div class="bar" data-scope="ห้อง" data-tools="bar">
+              <span class="note" data-scope="โน้ต" data-tools="note"><span class="num">6</span><span class="syl">พระ</span></span>
+              <span class="note" data-scope="โน้ต" data-tools="note"><span class="num">5</span><span class="syl">องค์</span></span>
+              <span class="note" data-scope="โน้ต" data-tools="note"><span class="num">3</span><span class="syl">ทรง</span></span>
+            </div>
+            <div class="bar" data-scope="ห้อง" data-tools="bar">
+              <span class="note" data-scope="โน้ต" data-tools="note"><span class="num">2</span><span class="syl">ดี</span></span>
+              <span class="note" data-scope="โน้ต" data-tools="note"><span class="num">1</span><span class="syl">งาม</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- floating pieces -->
+        <div class="tbx" id="tbx"></div>
+        <div class="ghost" id="ghost"><span class="lbl"></span></div>
+      </div>
+      <div class="kbd" id="kbd" aria-hidden="true"><span class="kbmsg">แป้นพิมพ์เด้งขึ้น — เครื่องมือโน้ตยังลอย “เหนือ” ช่อง ไม่ถูกบัง</span></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card verdict">
+      <h2>ข้อเสนอที่ฟันธง (จาก 3 ขนาดที่ SA ให้)</h2>
+      <p class="pick">✅ เอา “ขนาดกลาง” — toolbox เกาะติด element ครบ 5 ระดับ</p>
+      <p style="margin:.2em 0 0;color:var(--muted);font-size:.9rem">แบบ Canva / iPhone callout · จิ้ม = เลือก · hover = แค่พรีวิวบนเดสก์ท็อป</p>
+      <ul class="rowlist">
+        <li class="no"><span class="mk">✗</span><span><b>เล็ก</b> (คงแถวเดิม + hover เฉย ๆ) — ไม่แก้ปัญหา 100 ปุ่ม และ hover ใช้บนมือถือไม่ได้</span></li>
+        <li class="yes"><span class="mk">✓</span><span><b>กลาง</b> (toolbox เกาะ element) — ตอบ “ลบบรรทัดไหน” ตรง · มือถือใช้ได้จริง · ต่อยอด <code>slot-tools</code> เดิม</span></li>
+        <li class="no"><span class="mk">✗</span><span><b>ใหญ่</b> (panel ลากได้แบบ Photoshop) — แถบลอยอิสระ บนจอมือถือ = บังโน้ต / ชนแป้นพิมพ์</span></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>3 อย่างที่ออกแบบ (ส่วนที่ยังขาด)</h2>
+      <ul class="rowlist three">
+        <li><span class="n">1</span><span><b>ตำแหน่ง consistent ทั้ง 5 ระดับ</b> — จิ้ม→toolbox เกาะ “เหนือ” element + ลูกศรชี้ + ไม่หลุดจอ</span></li>
+        <li><span class="n">2</span><span><b>ย้าย บรรทัด+ท่อน มาลอย</b> — วันนี้อยู่ในแถบถาวร → ให้เกาะ element เหมือน โน้ต/ห้อง</span></li>
+        <li><span class="n">3</span><span><b>hover-preview (เดสก์ท็อปเท่านั้น)</b> — <code>@media(hover:hover)</code> · จิ้มคือความจริง hover คือน้ำตาล</span></li>
+      </ul>
+      <div class="phase">
+        <div class="p"><b>เฟส A</b><br>โน้ต+ห้อง + ไฮไลต์ · เสี่ยงต่ำ</div>
+        <div class="p"><b>เฟส B</b><br>บรรทัด+ท่อน · <i>รอ P'Aim เคาะ</i></div>
+        <div class="p"><b>เฟส C</b><br>ขัดมือถือ + hover</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">
+    mockup ออกแบบ · UX/UI seat · ยึด Apple HIG (edit menu วางบน/ล่าง + ลูกศรชี้) · Canva (tap-to-select) · NN/g (touch ไม่มี hover) · Material/WCAG target ≥ 48dp<br>
+    รายละเอียด+อ้างอิง: <a href="../us/selection-driven-editor.md">selection-driven-editor.md §10</a> · feasibility (SA): contextual-toolbox-feasibility.md
+  </p>
+</div></div>
+
+<script>
+(function(){
+  var TOOLS={
+    note:{tag:"โน้ต",b:[["·","จุดบน"],["·","จุดล่าง"],["♫","เขบ็ต"],["‿","เอื้อน"],["C","คอร์ด"],["🔊","ฟัง"],["🗑","ลบโน้ต","danger"]]},
+    bar:{tag:"ห้อง",b:[["＋","เพิ่มโน้ต"],["🔊","ฟังห้อง"],["📋","คัดลอก"],["🗑","ลบห้อง","danger"]]},
+    line:{tag:"บรรทัด",b:[["▲","ขึ้น"],["▼","ลง"],["🔊","ฟังบรรทัด"],["📋","ทำซ้ำ"],["🗑","ลบบรรทัด","danger"]]},
+    section:{tag:"ท่อน",b:[["✏️","เปลี่ยนชื่อ"],["🎵","ทำนอง"],["🔑","คีย์"],["▲","ย้ายขึ้น"],["🗑","ลบท่อน","danger"]]}
+  };
+  var canvas=document.getElementById('canvas'), tbx=document.getElementById('tbx'),
+      ghost=document.getElementById('ghost'), kbd=document.getElementById('kbd'),
+      device=document.getElementById('device'), hint=document.getElementById('hint');
+  var mode='mobile', current=null;
+
+  function clearSel(){ canvas.querySelectorAll('.sel').forEach(function(e){e.classList.remove('sel')});
+    tbx.classList.remove('show'); kbd.classList.remove('up'); current=null;
+    hint.innerHTML='<b>ไม่ได้เลือกอะไร = จอสะอาด</b> — เห็นแค่แถบระดับเอกสาร · จิ้มสิ่งใดสิ่งหนึ่งเพื่อดูเครื่องมือของมัน'; }
+
+  function buildTbx(kind){
+    var t=TOOLS[kind]; var html='<span class="scope-tag">'+t.tag+'</span>';
+    t.b.forEach(function(x){ html+='<button'+(x[2]?' class="danger"':'')+'><span class="ic">'+x[0]+'</span>'+x[1]+'</button>'; });
+    tbx.innerHTML=html;
+  }
+
+  function place(el){
+    var cr=canvas.getBoundingClientRect(), r=el.getBoundingClientRect();
+    tbx.classList.add('show');
+    var tw=tbx.offsetWidth, th=tbx.offsetHeight;
+    var cx=r.left-cr.left+r.width/2;
+    var left=cx-tw/2, pad=6;
+    left=Math.max(pad,Math.min(left,cr.width-tw-pad));
+    var top=r.top-cr.top-th-10, below=false;
+    if(top<2){ top=r.bottom-cr.top+10; below=true; }      // flip below if no room above
+    tbx.classList.toggle('below',below);
+    tbx.style.left=left+'px'; tbx.style.top=top+'px';
+    tbx.style.setProperty('--arrow',(cx-left)+'px');
+  }
+
+  function select(el){
+    var kind=el.getAttribute('data-tools');
+    clearSel(); current=el; el.classList.add('sel');
+    buildTbx(kind); place(el);
+    hint.innerHTML='เลือก <b>'+el.getAttribute('data-scope')+'</b> อยู่ — เครื่องมือของ'+el.getAttribute('data-scope')+'โผล่ติดตรงนั้น · จิ้มที่ว่างเพื่อยกเลิก';
+    // mobile: note scope raises keyboard, toolbox stays above (proof)
+    if(mode==='mobile' && kind==='note'){ kbd.classList.add('up'); setTimeout(function(){place(el)},230); }
+    else kbd.classList.remove('up');
+  }
+
+  canvas.addEventListener('click',function(e){
+    var el=e.target.closest('[data-tools]');
+    if(el){ e.stopPropagation(); select(el); }
+  });
+  // tap empty / outside → clean
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('[data-tools]') && !e.target.closest('#tbx')) clearSel();
+  });
+  tbx.addEventListener('click',function(e){ e.stopPropagation(); });
+
+  // desktop hover ghost (progressive enhancement — only when mode=desktop)
+  canvas.addEventListener('mouseover',function(e){
+    if(mode!=='desktop') return;
+    var el=e.target.closest('[data-tools]'); if(!el||el===current) return;
+    var cr=canvas.getBoundingClientRect(), r=el.getBoundingClientRect();
+    ghost.style.left=(r.left-cr.left-2)+'px'; ghost.style.top=(r.top-cr.top-2)+'px';
+    ghost.style.width=(r.width+4)+'px'; ghost.style.height=(r.height+4)+'px';
+    ghost.querySelector('.lbl').textContent='hover: '+el.getAttribute('data-scope')+' — คลิกเพื่อเลือก';
+    ghost.classList.add('show');
+  });
+  canvas.addEventListener('mouseout',function(e){
+    if(!e.relatedTarget||!e.relatedTarget.closest||!e.relatedTarget.closest('[data-tools]')) ghost.classList.remove('show');
+  });
+
+  function setMode(m){
+    mode=m;
+    device.classList.toggle('mobile',m==='mobile');
+    device.classList.toggle('desktop',m==='desktop');
+    document.getElementById('mMobile').setAttribute('aria-pressed',m==='mobile');
+    document.getElementById('mDesktop').setAttribute('aria-pressed',m==='desktop');
+    ghost.classList.remove('show'); clearSel();
+    setTimeout(function(){ if(current) place(current); },260);
+  }
+  document.getElementById('mMobile').onclick=function(){setMode('mobile')};
+  document.getElementById('mDesktop').onclick=function(){setMode('desktop')};
+  window.addEventListener('resize',function(){ if(current) place(current); });
+})();
+</script>

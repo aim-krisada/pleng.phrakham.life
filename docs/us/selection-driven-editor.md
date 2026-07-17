@@ -315,4 +315,29 @@ UX ตรวจโค้ดเบื้องต้นแล้ว (ยืนย
 
 ---
 
+---
+
+## 10.7 · ฟันธงขนาด (ตอบ SA 3 ขนาด) + mockup ให้ P'Aim ลองจริง
+
+SA (`docs/reports/contextual-toolbox-feasibility.md`) ยืนยัน **โครงรองรับ · refine ไม่ redesign** และให้เลือก 3 ขนาด — **UX ฟันธง:**
+
+| ขนาด (SA) | คือ | ตัดสิน + เหตุผล (อ้างมาตรฐาน) |
+|---|---|---|
+| **เล็ก** — คงแถวถาวร + เพิ่ม hover | เดิม + น้ำตาลเดสก์ท็อป | ❌ **ไม่พอ** — ไม่แก้ 100 ปุ่ม (§1) · hover ใช้บนมือถือไม่ได้ (NN/g touch ไม่มี hover) = ทิ้งพี่เปา |
+| **กลาง** — toolbox เกาะ element ครบ 5 | Canva/Apple callout | ✅ **เอาอันนี้** — เล็กสุดที่แก้ครบ (ยุบซ้ำ + ตอบ "ลบบรรทัดไหน" + มือถือใช้ได้) · reuse `slot-tools`/clamp/state เดิม (SA Q1–Q3) |
+| **ใหญ่** — panel เดียวลากได้แบบ Photoshop | `floatEl` เป็นฐาน | ❌ **ไม่เอา** — คือแถบลอยอิสระที่ §10.0 ค้านไว้: บนมือถือ 360px บังโน้ต/ชนคีย์บอร์ด (Adobe docs เอง desktop-only) |
+
+> **ฟันธง: ขนาดกลาง — "toolbox เกาะติด element ครบ 5 ระดับ (tap นำ · hover เสริมเดสก์ท็อป)"** = world-class ที่สุด*สำหรับพี่เปาบนมือถือ* เพราะมันคือแพตเทิร์นเดียวที่มี touch story จริงและ pleng ทำครึ่งทางแล้ว
+
+**สิ่งที่ต้องออกแบบจริง = 3 ช่องว่างที่ SA ชี้** (ไม่ใช่รื้อ): **(1) ตำแหน่ง/trigger consistent ทั้ง 5** (§10.2–10.3 = โดเมน UX) · **(2) ย้าย บรรทัด+ท่อน จากแถบถาวรมาลอยเกาะ element** · **(3) hover-preview เดสก์ท็อป** (`@media(hover:hover)` · tap=ความจริง hover=พรีวิว)
+
+**เฟส (sync กับ SA §7.2):** **A** โน้ต+ห้อง + ไฮไลต์ (เสี่ยงต่ำ เริ่มได้) → **B** บรรทัด+ท่อน anchored (แตะ layout 2 scope = "รื้อกลาง" · **รอ P'Aim เคาะ GATE 1**) → **C** hover-preview + ขัดมือถือ (48dp · long-press · verify 360/412)
+
+### 🖼️ Mockup ทดลองจิ้มได้จริง (desktop + มือถือ)
+- **เปิดเลย (เปิดบนมือถือได้):** [🎼 mockup — จิ้มโน้ต/ห้อง/บรรทัด/ท่อน แล้วดู toolbox โผล่](https://claude.ai/code/artifact/234933b6-7503-464f-a058-36fcf04a1e74)
+- ไฟล์ในรีโป: `docs/ds/editor-toolbox-mockup.html` (self-contained · เปิด local ก็ได้)
+- **แสดง:** จิ้มสิ่งไหน → toolbox ของสิ่งนั้นเกาะเหนือมัน + element ไฮไลต์ค้าง · ไม่จิ้ม = จอสะอาด · สลับ 📱/🖥️ · **มือถือ:** จิ้มโน้ต → แป้นพิมพ์เด้ง แต่ toolbox ยังลอยเหนือช่อง ไม่ถูกบัง (พิสูจน์ §4.1)
+
+---
+
 *UX/UI seat · 2026-07-17 · docs-only · ⛔ ไม่แตะ `src/` · อ้างอิงเปิดจริงเพิ่ม: [Canva floating toolbar](https://www.canva.com/help/moving-elements/) · [Apple HIG Edit menus](https://developer.apple.com/design/human-interface-guidelines/edit-menus) · [Notion editing basics](https://www.notion.com/help/writing-and-editing-basics) · [FigJam iPad](https://help.figma.com/hc/en-us/articles/4502073572247-FigJam-for-iPad) · [Photoshop CTB](https://helpx.adobe.com/photoshop/desktop/get-started/learn-the-basics/boost-workflows-with-the-contextual-task-bar.html) · [Material 3 structure/targets](https://m3.material.io/foundations/designing/structure) · [NN/g touch targets](https://www.nngroup.com/articles/touch-target-size/) · [NN/g mouse vs fingers](https://www.nngroup.com/articles/mouse-vs-fingers-input-device/)*
