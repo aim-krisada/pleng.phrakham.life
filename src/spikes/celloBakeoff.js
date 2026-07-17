@@ -21,7 +21,7 @@ import { buildPlayNotes, buildChordVoice, resolveSections, KEY_MIDI, REVERB, mak
 import { arrange } from '../lib/arranger/index.js'
 import { moduleForInstrument } from '../lib/arranger/instruments/index.js'
 import { presetCfg } from '../lib/arranger/presets.js'
-import { loadInstrument, gainToVelocityFull } from '../lib/sampler.js'
+import { loadInstrument, gainToVelocityFull, SAMPLE_HOSTS } from '../lib/sampler.js'
 import { playableContent, floatToInt16 } from '../lib/audioExport.js'
 
 // The three candidates + the piano-only reference. `dir` is the mirror built by
@@ -92,6 +92,41 @@ export const VIBRATO = {
   maxDepthCents: 22,            // their lfo01_pitch_oncc111
   delaySec: 0.5 * (45 / 127),   // 0.177 s
   fadeSec: 0.5 * (45 / 127),    // 0.177 s
+}
+
+// ── PIANO STRING RESONANCE ───────────────────────────────────────────────────────────────────
+// Splendid ships a string-resonance map (Data/Res.txt, 57 regions) that we have never loaded — smplr
+// has no resonance concept at all (verified: 0 hits in its types and source). The surprise is that
+// Res.txt needs NO new audio: every region points at a `PP <note>` sample we ALREADY ship, replayed
+// at a different pitch_keycenter, quiet (group_volume=-11) with a slow attack (ampeg_attack=0.1).
+// That is how sympathetic ring is faked — undamped strings sounding under the played note.
+//
+// The sfz gates it on `locc64=65` (sustain pedal held). We model no pedal at all, which is what made
+// this look expensive — but measurement settled it: the golden piano already rings continuously
+// (85% of notes sound past the next onset, 2.37 voices average, ZERO silence across the clip), so
+// "pedal held for the whole piece" is a faithful description of what we actually play, and the
+// resonance can simply be always-on. Nothing musical left to invent.
+//
+// ⚠️ 30 of the 57 regions are usable: fetch-grand-layers.mjs trims the piano to MIDI 40-84, so the
+// 27 PP samples at the extremes were never mirrored. The 30 cover played-keys 28-71 — i.e. free
+// resonance across the register the arrangement actually lives in, and none above 71.
+const RES_PRESET = '/samples/_spike/piano-res/preset.json'
+
+async function loadResonance(context, gain) {
+  const { Sampler, Scheduler } = await import('smplr')
+  const preset = await (await fetch(RES_PRESET)).json()
+  preset.samples = preset.samples || {}
+  preset.samples.baseUrl = SAMPLE_HOSTS.grand   // the SAME grand samples the app already serves
+  const out = context.createGain()
+  out.gain.value = gain
+  out.connect(context.destination)
+  const isOffline = typeof context.startRendering === 'function'
+  const opts = { preset, destination: out }
+  if (isOffline && Scheduler) opts.scheduler = Scheduler(context, { lookaheadMs: 1e7 })
+  const inst = new Sampler(context, opts)
+  await inst.load
+  const covered = preset.plengMeta?.coversPlayedKeys ?? [0, 127]
+  return { inst, output: out, covered, regions: preset.plengMeta?.regionsUsable ?? 0 }
 }
 
 // Attach an LFO to every voice created while `fn` runs.
@@ -221,7 +256,9 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   vibratoCents = 0,
   // bow round-robin: alternate the body's down-bow/up-bow takes so the same file stops replaying
   // back-to-back (~31% of notes measured). Off by default = today's sound, so A/B is direct.
-  bowRoundRobin = false } = {}) {
+  bowRoundRobin = false,
+  // piano string resonance (Splendid's own Res map, reusing the PP samples we ship). Off = today.
+  pianoResonance = false } = {}) {
   const { perf, cfg, bpm: useBpm } = buildPerformance(content, { bpm, range, songId })
   const spb = 60 / useBpm
 
@@ -246,6 +283,7 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   // pianoRoles: 'all' (D = the deployed sound) | 'accomp' (คลอ, under the cello) | 'melody' | 'none'.
   // 'melody'/'none' exist only for the calibration passes below, not as user-facing modes.
   const roles = pianoRoles || ((!useCello || pianoKeepsMelody) ? 'all' : 'accomp')
+  let resReport = null
   if (roles !== 'none') {
     const piano = await loadInstrument('grand', ctx)     // the SAME loader the app ships
     piano.setDestination(busIn)
@@ -253,6 +291,25 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
       : roles === 'melody' ? perf.filter(isMelody)
       : perf.filter((e) => !isMelody(e))
     for (const e of pianoEvents) piano.fire(e.midi + transpose, onset(e), perNoteDur(e), e.gain)
+
+    // string resonance: an EXTRA quiet voice under each piano note, exactly as the sfz layers its Res
+    // group on top of the played note. Always-on is faithful here (the piano never stops ringing —
+    // see loadResonance). The real preset is untouched; this is a second sampler beside it.
+    if (pianoResonance && pianoEvents.length) {
+      const res = await loadResonance(ctx, 1)
+      res.output.disconnect()
+      res.output.connect(busIn)                          // same room as everything else
+      let fired = 0, outside = 0
+      for (const e of pianoEvents) {
+        const midi = e.midi + transpose
+        if (midi < res.covered[0] || midi > res.covered[1]) { outside++; continue }
+        // resonance rings for the note's length; its own -11 dB + slow attack come from the preset
+        res.inst.start({ note: midi, time: onset(e), duration: Math.max(0.3, perNoteDur(e)),
+          velocity: gainToVelocityFull(e.gain) })
+        fired++
+      }
+      resReport = { regions: res.regions, covered: res.covered, fired, notesAboveRange: outside }
+    }
   }
 
   let celloReport = null
@@ -325,7 +382,7 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   }
 
   const buffer = await ctx.startRendering()
-  return { buffer, perf, bpm: useBpm, celloReport }
+  return { buffer, perf, bpm: useBpm, celloReport, resReport }
 }
 
 // Real cello range: open C string (C2 = MIDI 36) up to a comfortable high register (~A5 = 81).

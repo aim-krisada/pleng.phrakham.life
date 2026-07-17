@@ -29,7 +29,9 @@ const state = { song: null, range: null, clips: {}, balance: 1, correctTuning: t
   // vibrato: 0 = off, exactly how the library ships it. P'Aim's third knob.
   vibratoCents: 0,
   // bow round-robin: off = today's sound, so A/B is direct
-  bowRoundRobin: false }
+  bowRoundRobin: false,
+  // piano string resonance: off = today's sound
+  pianoResonance: false }
 const log = (m) => { $('#log').textContent = m }
 
 async function loadSong() {
@@ -85,6 +87,7 @@ async function renderAll() {
         pianoKeepsMelody: state.pianoKeepsMelody, negativeDelay: state.negativeDelay,
         headId: v.head || null, headStrength: state.headStrength, bodyShiftMs: state.bodyShiftMs,
         vibratoCents: state.vibratoCents, bowRoundRobin: state.bowRoundRobin,
+        pianoResonance: state.pianoResonance,
       })
       normalizeBuffer(buffer)          // all 4 clips play at one loudness (see normalizeBuffer)
       const m = measure(buffer)
@@ -176,6 +179,9 @@ showVib()
 // (~31% of notes replay the same file), but he has never once complained of it, so the measurement
 // only proves the disease exists, not that the ear is sick. Off by default = direct A/B.
 on('#rr', 'change', (e) => { state.bowRoundRobin = e.target.checked; state.cal = null; renderAll() })
+
+// piano string resonance — Splendid shipped the map, we never loaded it. +0 MB (reuses PP).
+on('#res', 'change', (e) => { state.pianoResonance = e.target.checked; renderAll() })
 
 if ($('#makeup')) $('#makeup').value = '1'
 showBalance()
