@@ -377,15 +377,18 @@ onMounted(async () => {
 .book-card.fallback { border-left-color: var(--line); }
 .book-card.fallback .bk-name { color: var(--muted); }
 
-/* ---- LEVEL 2 · one row per song: number (tabular, right) + title (ellipsis) + key ---- */
-/* `contain: inline-size` makes the list's width independent of its nowrap rows: the app
-   shell's <main> is a shrink-to-fit flex item, so without this a long single-line title
-   would blow <main> past the viewport (horizontal scroll at 375px). Containing the inline
-   size lets <main> stay at viewport width and the titles ellipsis instead. */
-.song-list { display: flex; flex-direction: column; gap: var(--sp-1); contain: inline-size; }
+/* ---- LEVEL 2 · one row per song: number (tabular, right) + title (wraps) + key ---- */
+/* Width = fit-content, capped at 100%. The list is exactly as wide as its longest row
+   needs and every row stretches to that one width — "ยาวพออันยาวสุด · เท่ากันทุกอัน".
+   (Dropped the old `contain: inline-size`, which pinned this to a thin ~306px column
+   stranded in a wide screen. It existed to stop a long nowrap title pushing <main> past
+   the viewport; titles now wrap — .ttl white-space:normal + overflow-wrap:anywhere — so a
+   long title grows taller, never wider, and max-width:100% keeps it inside a phone: no
+   horizontal scroll at any width.) */
+.song-list { display: flex; flex-direction: column; gap: var(--sp-1); width: fit-content; max-width: 100%; }
 .song-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--sp-3);
   background: var(--bg);
   border: 1px solid var(--line);
@@ -397,6 +400,10 @@ onMounted(async () => {
   min-height: var(--touch-min);
 }
 .song-row:hover { background: var(--cream-hover); }
+/* number/key/status hold the FIRST line when a long title wraps (2c) */
+.song-row .no,
+.song-row .key,
+.song-row .row-status { align-self: flex-start; }
 .song-row .no {
   min-width: 2.4em;
   text-align: right;
@@ -408,9 +415,8 @@ onMounted(async () => {
 .song-row .ttl {
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;      /* was nowrap — show the whole name, wrap instead of clip (2c) */
+  overflow-wrap: anywhere;  /* an over-long unbroken token wraps rather than pushing width */
 }
 /* book_refs reference tag ("เล่มเล็ก 282") — the paper-book number people know. Secondary
    to the title: hidden on phones (would crush the title into a sliver — the ref is on the
