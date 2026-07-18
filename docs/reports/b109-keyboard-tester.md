@@ -54,3 +54,26 @@
 - ⛔ tester ไม่ merge
 
 *tester · 2026-07-18 · `54c3fed`*
+
+---
+
+## 🔁 RE-VERIFY (Home/End fix) — ✅ PASS · **CLEAN GATE2 B109**
+**branch:** `b109-keyboard` @ `499d8d3` (fix: Ctrl-only Home/End · plain = native caret) · วัดสด Browser pane (synthetic keydown + defaultPrevented + focus)
+
+**source:** `EditorMode.vue:1878-1879` = **เฉพาะ `ctrl && Home/End`** → `preventDefault + focusEdge(±1, true=songWide)` · **plain Home/End ไม่ถูกดัก → falls through → native caret** ✓
+
+**behavior (เพลง 2 ห้อง · โฟกัสโน้ตกลางห้อง 0-0:"2"):**
+| key | defaultPrevented | focus after | ผล |
+|---|---|---|---|
+| plain **Home** | **false** | 0-0:2 (อยู่เดิม) | native — app ไม่ hijack ✓ |
+| plain **End** | **false** | 0-0:2 (อยู่เดิม) | native ✓ |
+| **Ctrl+Home** | true | 0-0:1 (โน้ตแรกเพลง) | song-start ✓ |
+| **Ctrl+End** | true | 0-1:6 (โน้ตท้ายเพลง) | song-end ✓ |
+
+- **plain Home/End = `defaultPrevented false` + focus ไม่ขยับ** → app ยกให้ native caret เดิน (การเลื่อน caret ในคำ = พฤติกรรม browser เมื่อไม่ preventDefault — ในช่องพยางค์หลายตัวอักษรจึงเลื่อน caret ปกติ ไม่กระโดด) = **แก้ CONCERN เดิมตรงจุด**
+- **Ctrl+Home/End = song-edge** (ไม่ใช่ bar-edge เดิม · `focusEdge(dir,true)`) — ตรง PM เคาะ
+- dev: 744 tests เขียว (plain=native · Ctrl=song-edge)
+
+**→ 🟢 GATE2 B109 CLEAN** (nav ผ่านรอบแรก + Home/End แก้ยืนยันแล้ว) · **3 ข้อ mobile คงรอพี่เปา (ไม่บล็อก):** Enter/Esc คอร์ด · nav เหนือ OS keyboard · narrow 344/390 · ⛔ tester ไม่ merge (PM gate)
+
+*tester · 2026-07-18 · re-verify @ `499d8d3`*
