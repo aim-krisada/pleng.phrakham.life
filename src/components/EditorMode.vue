@@ -1798,6 +1798,90 @@ onMounted(() => {
 })
 onUnmounted(() => window.removeEventListener('keydown', onUndoKeys))
 
+// ---------- B109: keyboard navigation (bar / line / note jumps · all-device) ----------
+// พี่เปา asked to hop across bars (ห้อง) and lines (บรรทัด) from the keyboard. One model, two
+// triggers: desktop = physical keys here; mobile = on-screen buttons (UX) call the SAME jump*
+// functions. All reuses existing plumbing (slotStarts · focusSlot · [data-bar] · lines) — no new
+// data model. Every nav key preventDefaults so the page never scrolls (which would flicker the
+// dock's hide-on-scroll · SA flag). Scheme (US §2, MuseScore/Flat.io + ARIA-grid): Ctrl+←/→ = bar,
+// Ctrl+↑/↓ = line, Home/End = first/last of bar, Ctrl+Home/End = song, Tab/Shift+Tab = note/syllable.
+function currentPos() {
+  const el = document.activeElement
+  const bar = el?.closest?.('[data-bar]')
+  if (!bar) return null
+  const [li, bi] = bar.getAttribute('data-bar').split('-').map(Number)
+  return { li, bi, onSyllable: !!el.classList?.contains('syl-box') }
+}
+// focus the FIRST note/syllable of bar (li,bi), keeping the caller's mode (note vs lyric)
+function focusBar(li, bi, onSyllable) {
+  if (onSyllable) {
+    const slot = slotStarts.value[`${li}-${bi}-0`]
+    if (slot != null) return focusSlot(slot)
+  }
+  nextTick(() => document.querySelector(`[data-bar="${li}-${bi}"] .note-box:not(.add)`)?.focus())
+}
+function jumpBar(dir) {
+  const p = currentPos()
+  if (!p) return
+  const ls = lines.value
+  let { li, bi } = p
+  bi += dir
+  if (bi < 0) { li -= 1; if (li < 0) return; bi = ls[li].bars.length - 1 } // wrap to prev line's last bar
+  else if (bi >= ls[li].bars.length) { li += 1; if (li >= ls.length) return; bi = 0 } // next line's first bar
+  focusBar(li, bi, p.onSyllable)
+}
+function jumpLine(dir) {
+  const p = currentPos()
+  if (!p) return
+  const ls = lines.value
+  const li = p.li + dir
+  if (li < 0 || li >= ls.length) return
+  focusBar(li, 0, p.onSyllable)
+}
+// Tab: next/prev note (or syllable). Syllable slots are a continuous global index, so +1 crosses
+// bars/lines by itself; note boxes move in DOM order. Returns true if focus moved (so the caller
+// only preventDefaults then — at the very edge, native Tab still escapes the editor · no focus trap).
+function jumpNote(dir) {
+  const el = document.activeElement
+  if (el?.classList?.contains('syl-box') && focusedSlot.value >= 0) {
+    const next = document.querySelector(`[data-slot="${focusedSlot.value + dir}"]`)
+    if (next) { focusSlot(focusedSlot.value + dir); return true }
+    return false
+  }
+  const boxes = [...document.querySelectorAll('.ed-strip .note-box:not(.add)')]
+  const next = boxes[boxes.indexOf(el) + dir]
+  if (next) { next.focus(); return true }
+  return false
+}
+// Home/End = first/last of the CURRENT bar; Ctrl+Home/End = first/last of the whole song
+function focusEdge(dir, songWide) {
+  const p = currentPos()
+  const kind = p?.onSyllable ? '.syl-box' : '.note-box:not(.add)'
+  const scope = songWide || !p ? '.ed-strip' : `[data-bar="${p.li}-${p.bi}"]`
+  const boxes = [...document.querySelectorAll(`${scope} ${kind}`)]
+  ;(dir < 0 ? boxes[0] : boxes[boxes.length - 1])?.focus()
+}
+function editorHasFocus() {
+  const el = document.activeElement
+  if (!el?.closest?.('.ed-strip')) return false
+  if (el.closest?.('.chord-pick')) return false // editing a chord → the picker owns its keys
+  return true
+}
+function onNavKeys(e) {
+  if (!editorHasFocus()) return
+  const ctrl = e.ctrlKey || e.metaKey
+  if (ctrl && e.altKey) return // leave OS/other combos alone
+  if (ctrl && e.key === 'ArrowRight') { e.preventDefault(); jumpBar(1) }
+  else if (ctrl && e.key === 'ArrowLeft') { e.preventDefault(); jumpBar(-1) }
+  else if (ctrl && e.key === 'ArrowDown') { e.preventDefault(); jumpLine(1) }
+  else if (ctrl && e.key === 'ArrowUp') { e.preventDefault(); jumpLine(-1) }
+  else if (ctrl && e.key === 'Home') { e.preventDefault(); focusEdge(-1, true) } // song start (Ctrl only)
+  else if (ctrl && e.key === 'End') { e.preventDefault(); focusEdge(1, true) } // song end · plain Home/End = native caret (world-class · P'Aim/UX)
+  else if (e.key === 'Tab') { if (jumpNote(e.shiftKey ? -1 : 1)) e.preventDefault() } // no focus trap at edges
+}
+onMounted(() => window.addEventListener('keydown', onNavKeys))
+onUnmounted(() => window.removeEventListener('keydown', onNavKeys))
+
 // ---------- B100: warn before leaving with unsaved edits ----------
 // "ยังไม่บันทึก" (dirty) = the DOCUMENT (meta + opts + stanzas + arrangement — the same
 // docState() the undo history tracks) differs from the last CLEAN checkpoint. A checkpoint
@@ -1922,6 +2006,12 @@ const editItems = computed(() => [
   // pinning it too would render it twice (single source of action · ui-standards §2).
   { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', label: 'บันทึกร่าง', icon: 'save', place: { row: 2, col: 3 }, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value },
   { id: 'preview', kind: 'toggle', name: 'ดูผลทั้งเพลง', icon: 'maximize', default: 'inSetting', pinnable: true, control: { value: sheetWinOpen.value, onToggle: () => (sheetWinOpen.value = !sheetWinOpen.value) } },
+  // B109 เฟส A — ปุ่มนำทางบนจอ (◀▶ โน้ต · ⏮⏭ ห้อง · ▲▼ บรรทัด). editor-side slot (markup อยู่
+  // #cell-nav ด้านล่าง · ไม่ใช่ DockKey-shared) เรียก jumpNote/jumpBar/jumpLine(±1) ของ dev =
+  // navigation model เดียวกับคีย์ desktop (1 model 2 trigger · US §3). row 2 = ใต้แป้นสัญลักษณ์
+  // เหนือ core row · ปุ่ม flex-wrap ใน cell → self-fit ทุกจอ (344 = 3×2 ไม่ล้น). ขี่ dock
+  // keyboard-aware → โผล่เหนือแป้นพิมพ์ตอนป้อนเนื้อ. ไม่ pinnable = utility ถาวร ไม่ tuck เข้า ⚙.
+  { id: 'nav', kind: 'slot', name: 'นำทาง', place: { row: 2, col: 0 } },
 ])
 
 const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', rejected: 'ถูกส่งกลับ', approved: 'อนุมัติแล้ว' }
@@ -2977,7 +3067,10 @@ defineExpose({
                   <button class="secondary slot-btn slot-del" aria-label="ลบโน้ตนี้" title="ลบโน้ตนี้ (ห้องยังอยู่)" @mousedown.prevent @click="removeSegment(bar, si)">✕</button>
                 </span>
                 <div class="chord-row">
-                  <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell">
+                  <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell" @keydown.esc="editingChord = null">
+                    <!-- B109: Enter=ยืนยันคอร์ด via allow-custom (accept the typed value, not just a
+                         list pick — root cause Enter did nothing) · Esc=ยกเลิก at the wrapper (closes
+                         editingChord · mirrors the rename pattern · NOT emitted into shared ComboSelect). -->
                     <ComboSelect
                       v-if="chordEditing(li, bi, si, p - 1)"
                       :model-value="p - 1 === 0 ? seg.chord : ''"
@@ -2986,6 +3079,7 @@ defineExpose({
                       aria-label="เลือกคอร์ด"
                       width="120px"
                       class="chord-pick"
+                      allow-custom
                       autofocus
                       @update:model-value="applyChordAt(bar, si, p - 1, $event)"
                     />
@@ -3192,6 +3286,20 @@ defineExpose({
       <!-- เสียงดนตรี — one button → popover with all 4 sound axes (B107 step 9) -->
       <template #cell-soundctl="{ open, toggle, close }">
         <SoundControl :open="open" :groups="soundGroups" :icon="soundIcon" @toggle="toggle" @close="close" />
+      </template>
+      <!-- B109 เฟส A — ปุ่มนำทางบนจอ (touch/mobile) → เรียก jump* ของ dev = คีย์ desktop ตัวเดียวกัน.
+           @mousedown.prevent = ห้ามปุ่มแย่งโฟกัสจากช่องโน้ต (jump* อ่าน document.activeElement). -->
+      <template #cell-nav>
+        <span class="ed-nav" role="group" aria-label="นำทางในเพลง">
+          <button type="button" class="ed-nav-btn" aria-label="โน้ตก่อนหน้า" title="โน้ตก่อนหน้า" @mousedown.prevent @click="jumpNote(-1)">◀</button>
+          <button type="button" class="ed-nav-btn" aria-label="โน้ตถัดไป" title="โน้ตถัดไป" @mousedown.prevent @click="jumpNote(1)">▶</button>
+          <span class="ed-nav-div" aria-hidden="true"></span>
+          <button type="button" class="ed-nav-btn" aria-label="ห้องก่อนหน้า" title="ห้องก่อนหน้า" @mousedown.prevent @click="jumpBar(-1)">⏮</button>
+          <button type="button" class="ed-nav-btn" aria-label="ห้องถัดไป" title="ห้องถัดไป" @mousedown.prevent @click="jumpBar(1)">⏭</button>
+          <span class="ed-nav-div" aria-hidden="true"></span>
+          <button type="button" class="ed-nav-btn" aria-label="บรรทัดก่อนหน้า" title="บรรทัดก่อนหน้า" @mousedown.prevent @click="jumpLine(-1)">▲</button>
+          <button type="button" class="ed-nav-btn" aria-label="บรรทัดถัดไป" title="บรรทัดถัดไป" @mousedown.prevent @click="jumpLine(1)">▼</button>
+        </span>
       </template>
     </DockKey>
 
@@ -3498,6 +3606,12 @@ defineExpose({
    ≤5 buttons × 44 + gaps ≈ 228px < the 344 clamp (max-width: 100vw-24); more buttons overflow
    in-toolbox (overflow-x). dev's clampTbx re-measures after render → the wider box re-clamps. */
 .slot-btn { min-width: 44px; min-height: 44px; padding: 4px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
+/* B109 เฟส A — ปุ่มนำทางบนจอ (◀▶ โน้ต · ⏮⏭ ห้อง · ▲▼ บรรทัด) ในแถบ dock (editor-side · #cell-nav).
+   44px touch floor (WCAG 2.5.5 / parity dock · = เกณฑ์เดียวกับ .slot-btn) · flex-wrap → บนจอแคบสุด
+   (Fold 344) ยุบเป็น 3×2 ไม่ยื่นเลยจอ (cellFlex = 0 0 auto · cell กว้างเท่าเนื้อหา) · icon-only + aria-label. */
+.ed-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.ed-nav-btn { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; padding: 4px; }
+.ed-nav-div { width: 1px; align-self: stretch; margin: 4px 2px; background: var(--line); flex: 0 0 auto; }
 /* divider ระหว่าง 2 กลุ่มใน contextual toolbox: [◀▶ พยางค์] ┊ [คัดลอก/ลบ โน้ต] */
 .slot-div { width: 1px; align-self: stretch; margin: 2px 2px; background: var(--line); flex: 0 0 auto; }
 .slot-del { color: var(--muted); }
