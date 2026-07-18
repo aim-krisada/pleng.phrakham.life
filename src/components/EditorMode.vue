@@ -3434,7 +3434,12 @@ defineExpose({
 /* ◀ ▶ align tools float above the focused syllable box, no layout shift */
 .slot-tools {
   position: absolute;
-  bottom: 100%;
+  /* dock-space positioning (UX · P'Aim: toolbox ห่างจากตัวที่เลือก) — anchor เหนือ "โน้ต" (NoteBoxes)
+     ไม่ใช่ยอด .seg-col: .chord-row (min-height 28px + gap 4 = ~32px) อยู่บนสุดดันกล่องลอยสูง.
+     วัดจริง (dispatched focusin): เดิม gapToNote=35 · gapToSyllable=83. ดึงลง 32px → กล่องเกาะเหนือโน้ต
+     (gap ~3-5) + ใกล้พยางค์ขึ้น. 32 = chord-row min-height(28)+gap(4) · ถ้า chord-row สูงขึ้น กล่องยังอยู่
+     เหนือโน้ตเสมอ (32 ≤ chord-row จริง) ไม่ทับ. */
+  bottom: calc(100% - 32px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
