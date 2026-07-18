@@ -39,13 +39,28 @@
 | `book_refs` | jsonb | อ้างอิงเล่มกระดาษอื่น `[{book:'ล', no:282}]` = **ป้ายอ้างอิง** ไม่ใช่ที่สังกัด · ชื่อเล่ม → `src/lib/bookCodes.js` |
 | `scripture` | text | ข้ออ้างอิงพระคัมภีร์ |
 
-RLS: **public อ่านได้ / team เท่านั้นที่เขียนได้** · เขียนคลังจริงบางอย่าง (เช่น reset) = P'Aim รัน SQL เอง
+**RLS (บังคับที่ชั้นฐานข้อมูล · ไม่ใช่แค่ client):**
+- **อ่าน:** anon/public เห็น **เฉพาะ `verified=true`** · authenticated (team) เห็นครบ — บังคับด้วย RLS policy (`db/005`) · client `bookshelf.js visibleSongs` = defense-in-depth ชั้นสอง (ไม่ใช่ด่านจริง)
+- **เขียน (insert/update/delete):** **approver เท่านั้น** (`db/002`) · เขียนคลังบางอย่าง (เช่น reset) = P'Aim รัน SQL เอง
+- migrations ทั้งหมด → โฟลเดอร์ **`db/`** (รันมือใน Supabase SQL Editor · P'Aim รันเอง)
 
 ### ตาราง `song_drafts` — ร่างก่อนเผยแพร่
-ที่พักงานของ editor ก่อนเข้าคลัง · แถวมี `song_id` (null = เพลงใหม่), `number`, `title_th`,
-`content`, และ `status` (`'draft'` = ร่างส่วนตัว · `'pending'` = ส่งตรวจแล้ว) · เขียนผ่าน
-`store.js saveDraftRow()` · เมื่ออนุมัติ ข้อมูลถูกเขียนลง `songs` แล้วปิดร่างนั้น
-(ประวัติการแก้เก็บใน `song_revisions` → ทำให้ย้อนได้)
+ที่พักงานของ editor ก่อนเข้าคลัง · คอลัมน์: `song_id` (null = เพลงใหม่), `number`, `title_th`,
+`content`, `author_id` (คนเขียนร่าง · default `auth.uid()`), `review_comment`, และ
+`status` (`'draft'` ร่างส่วนตัว · `'pending'` ส่งตรวจ · `'approved'` · `'rejected'`) · เขียนผ่าน
+`store.js saveDraftRow()` · **RLS:** เห็น/แก้ได้เฉพาะร่างตัวเอง **หรือ** ถ้าเป็น approver (เห็นทุกร่าง) ·
+อนุมัติ = RPC `approve_and_publish` (เช็ก approver) เขียนลง `songs` + ปิดร่าง (op เดียว · audit ผูก op_group)
+(ประวัติการแก้เก็บใน `song_revisions` → ย้อนได้)
+
+### ตาราง `notifications` (`db/008` · B108) — ศูนย์แจ้งเตือน
+inbox ต่อผู้ใช้ · คอลัมน์: `recipient_id`, `type` (v1 = `'draft_submitted'`), `ref_id` (draft/song),
+`payload` jsonb (snapshot ชื่อ/ผู้ส่ง · ไม่ join ตอนแสดง), `read_at` (null = ยังไม่อ่าน) ·
+**RLS:** `recipient_id = auth.uid()` (เห็นเฉพาะของตัวเอง · anon ไม่เห็น) · เขียนโดย trigger/RPC เท่านั้น
+(client forge ไม่ได้) · v1 event = draft เข้า `pending` → แจ้ง approver ทุกคน · กดอ่าน = RPC `mark_notification_read`
+
+### ตาราง `profiles` · `song_revisions`
+`profiles` — 1 แถว/user ถือ `role` (`editor`/`approver` · เปลี่ยนที่ dashboard) · authenticated อ่านได้ ·
+`song_revisions` — audit log ทุกการเปลี่ยน (เขียนโดย trigger security-definer เท่านั้น · แก้/ลบไม่ได้ · ISO 27001 A.12.4)
 
 ### 2.2 · โครงสร้าง `content` (โมเดลเพลง v2)
 v2 แยก **ทำนอง (stanza)** ออกจาก **คำร้อง (verse/refrain ที่ผูกกับ stanza)** — 1 พยางค์
@@ -91,7 +106,8 @@ logic แกน: `lib/notation.js` (แปลง jianpu) · `lib/songModel.js` (
 - **(ข) แก้ไข → ร่าง → เผยแพร่** — editor แก้ใน `EditorMode` → บันทึกเป็น `song_drafts`
   (`draft`/`pending`) → approver กด "เผยแพร่" → เขียนลง `songs` (lint ก่อน: เตือน+ใส่ธง แต่ไม่บล็อก)
 - **(ค) verified gate** — public เห็นเฉพาะเพลง `verified=true`; ทีมที่ล็อกอินเห็นทุกเพลง
-  (เพื่อตรวจ/แก้) · กรองที่ต้นทาง (`bookshelf.js visibleSongs`) → นับเล่ม/รายการ/ค้นหา ตรงกันหมด
+  (เพื่อตรวจ/แก้) · **ด่านจริง = RLS ที่ฐานข้อมูล (`db/005`)** — anon query ได้เฉพาะ verified · `bookshelf.js visibleSongs`
+  = ชั้นสอง (นับเล่ม/รายการ/ค้นหา ตรงกัน) · **แก้ verified ทีละเพลงในหน้าแก้ไข** → เพลงโผล่ public เพิ่มเอง
 - **(ง) นำเข้า/พกพา JSON** — ดาวน์โหลดเพลงเป็น JSON v2 หรือ upload JSON ของตัวเองมาแก้
   โดยไม่แตะคลัง (`lib/jsonIO.js`, `DownloadTool.vue`) → [ds/wt-c-json/](ds/wt-c-json/)
 
@@ -110,6 +126,15 @@ logic แกน: `lib/notation.js` (แปลง jianpu) · `lib/songModel.js` (
 - **โน้ต = scale degree + จุดบน/ล่างบอก octave** — ตัวเลข = ขั้นคู่เสียง, `.` บน/ล่าง = ระดับเสียงสูง/ต่ำ,
   `-`/`~` = เสียงยาว/โยง, `|` = เส้นกั้นห้อง · SSOT = jianpu มาตรฐานครบ (เครื่องมือช่วยจัดเป็นแค่ตัวช่วย)
 - **แก้ทำนองที่เดียว** — v2 เก็บทำนองใน stanza ครั้งเดียว หลายข้อใช้ร่วม; อย่า duplicate เนื้อทำนอง
+
+---
+
+## 6 · Security & ฐานข้อมูล
+
+- **RLS เปิดครบทุกตาราง** (songs·song_drafts·song_revisions·profiles·notifications) · ไม่มีตารางเปิดโล่ง
+- **กุญแจ:** ใช้แค่ **publishable key** (เปิดเผยได้ · `supabase.js`) — write ป้องกันด้วย RLS+auth · **ไม่มี service_role/secret ใน repo**
+- **migrations:** `db/NNN-*.sql` รันมือใน Supabase SQL Editor (P'Aim รันเอง) · 002 draft/review+audit · 003 profile · 004 audit events+`approve_and_publish` · 005 verified-read RLS (LIVE) · 008 notifications · 009 hardening (เตรียม)
+- **audit ผลการตรวจล่าสุด** → [docs/reports/security-audit-sa.md](reports/security-audit-sa.md) (F1 self-approve · F2/F3 hardening → `db/009`)
 
 ---
 
