@@ -3272,7 +3272,7 @@ defineExpose({
     <!-- edit dock — the DockKey engine fed ITEMS_EDIT (แป้นโน้ต band · ย้อน/ทำซ้ำ/ฟัง ·
          บันทึก prime · export/draft/preview in ⚙). Same engine as ฝึกร้อง/แผ่นเพลง. -->
     <!-- dock-space: auto-hide = เปิด engine hide-on-scroll ที่ dev ทำใน DockKey (คืนพื้นที่ตอนอ่าน/เลื่อน · a11y ปิดเองเมื่อ screen reader) -->
-    <DockKey :items="editItems" store-key="edit" v-model:alpha="editAlpha" :message="saveMsg" :auto-hide="true">
+    <DockKey :items="editItems" store-key="edit" v-model:alpha="editAlpha" :message="saveMsg" :auto-hide="true" :resizable="true">
       <template #cell-export="{ open, toggle, close }">
         <ExportTool
           :content="previewContent"
