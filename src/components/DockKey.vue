@@ -91,6 +91,17 @@ watch(openId, (v) => {
   else document.removeEventListener('mousedown', onOutside)
 })
 
+// A slot cell (soundctl · export) can live INSIDE the ⚙ Setting page once a page moves it to
+// `default:'inSetting'`. Its trigger must NOT reuse `openId`: that is 'setting' while the panel
+// is open, and toggling it to the item id would close the panel (one-at-a-time). `panelOpenId`
+// is a SECOND, panel-local one-at-a-time tracker, so the ⚙ page stays open while the inner
+// popover toggles. Reset it whenever the panel itself closes.
+const panelOpenId = ref(null)
+function togglePanelOpen(id) { panelOpenId.value = panelOpenId.value === id ? null : id }
+function closePanel() { panelOpenId.value = null }
+watch(openId, (v) => { if (v !== 'setting') panelOpenId.value = null })
+watch(panelOpenId, async () => { await nextTick(); clampPops() })
+
 // ---------- ENGINE: order row 1 by anchor, row 2 by column, pinned → rows on top ----------
 // rank a row-1 item from its anchor so [grip … leftOf:setting][setting] lays out in order.
 function rankOf(it) {
@@ -406,11 +417,22 @@ function cellFlex() { return '0 0 auto' }
           <span class="dk-mi"><Icon :name="it.icon" :size="16" /></span>
           <span class="dk-pl">{{ it.name }}</span>
           <span class="dk-pc">
+            <!-- a page-drawn cell (soundctl · export) moved into ⚙ (default:'inSetting'): the
+                 engine lays out the row, the PAGE renders the control via #cell-<id>. Uses the
+                 panel-local open state so opening it keeps the ⚙ page open (see panelOpenId). -->
+            <slot
+              v-if="SLOT_KINDS.includes(it.kind)"
+              :name="`cell-${it.id}`"
+              :item="it"
+              :open="panelOpenId === it.id"
+              :toggle="() => togglePanelOpen(it.id)"
+              :close="closePanel"
+            />
             <!-- issues9: a `btn` row used to render an EMPTY control cell — icon, name, pin, and
                  nothing to press — so the only way to run the command was to pin it onto the bar
                  first. Give it a real run button so every row in this panel does what it says. -->
             <button
-              v-if="it.kind === 'btn'"
+              v-else-if="it.kind === 'btn'"
               class="dk-prun"
               :disabled="it.disabled"
               :aria-label="it.name"

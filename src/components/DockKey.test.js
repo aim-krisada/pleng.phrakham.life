@@ -4,7 +4,7 @@
 // mini, and menu dropdowns. Page-drawn cells (timeline/aa) are provided as empty slots.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { nextTick, h } from 'vue'
 import DockKey from './DockKey.vue'
 
 Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function () {}
@@ -86,6 +86,47 @@ describe('DockKey ⚙ Setting page', () => {
     const w = mountDK()
     expect(w.findAll('.dk-row')).toHaveLength(2) // no extra pinned row
     expect(w.findAll('[data-cell="key"]')).toHaveLength(1) // drawn once, by row 2
+  })
+
+  // A slot kind (soundctl · export) moved into ⚙ (default:'inSetting') must have its page-drawn
+  // cell rendered INSIDE the panel row via #cell-<id> — before this the panel rendered nothing
+  // for a slot, so UX could not move soundctl/export off the bar.
+  it('a slot in the Setting page renders its #cell-<id> content', async () => {
+    const its = [...items(), { id: 'sound', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', default: 'inSetting', pinnable: true }]
+    const w = mount(DockKey, {
+      props: { items: its, storeKey: 'test', alpha: 0.96 },
+      slots: {
+        'cell-timeslide': '<span class="my-time" />', 'cell-scale': '<button class="my-aa" />',
+        'cell-sound': '<button class="my-sound">เสียง</button>',
+      },
+      global: { stubs: { Icon: true } },
+      attachTo: document.body,
+    })
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    expect(w.find('.dk-panel [data-setting="sound"] .my-sound').exists()).toBe(true)
+  })
+
+  // Opening a panel slot's inner control uses panelOpenId (a second one-at-a-time tracker), so
+  // it must NOT flip openId off 'setting' and close the ⚙ page. The scoped `open`/`toggle` given
+  // to the slot are panel-local; the panel stays open.
+  it('a panel slot opens its own popover WITHOUT closing the ⚙ page', async () => {
+    const its = [...items(), { id: 'sound', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', default: 'inSetting', pinnable: true }]
+    const w = mount(DockKey, {
+      props: { items: its, storeKey: 'test', alpha: 0.96 },
+      slots: {
+        'cell-timeslide': '<span class="my-time" />', 'cell-scale': '<button class="my-aa" />',
+        'cell-sound': (p) => h('span', [h('button', { class: 'my-sound', onClick: p.toggle }), p.open ? h('div', { class: 'my-pop' }) : null]),
+      },
+      global: { stubs: { Icon: true } },
+      attachTo: document.body,
+    })
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    await w.find('.dk-panel [data-setting="sound"] .my-sound').trigger('click')
+    await nextTick()
+    expect(w.find('.my-pop').exists()).toBe(true) // inner popover opened
+    expect(w.find('.dk-panel').exists()).toBe(true) // ⚙ page still open
   })
 
   it('a toggle in the Setting page calls its onToggle', async () => {
