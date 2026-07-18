@@ -220,6 +220,86 @@ describe('DockKey phase-2 schema (E1 keys band · E2 prime/label)', () => {
   })
 })
 
+describe('DockKey hide-on-scroll (auto-hide)', () => {
+  let rafOrig, scrollDesc
+  beforeEach(() => {
+    rafOrig = globalThis.requestAnimationFrame
+    globalThis.requestAnimationFrame = (cb) => { cb(); return 0 } // run the rAF-gate synchronously
+    scrollDesc = Object.getOwnPropertyDescriptor(window, 'scrollY')
+  })
+  afterEach(() => {
+    globalThis.requestAnimationFrame = rafOrig
+    if (scrollDesc) Object.defineProperty(window, 'scrollY', scrollDesc)
+  })
+  const scrollTo = async (w, y) => {
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: y })
+    window.dispatchEvent(new Event('scroll'))
+    await nextTick()
+    return w
+  }
+
+  it('never hides when auto-hide is off (default) — phrakham stays put', async () => {
+    const w = mountDK() // autoHide defaults false
+    await scrollTo(w, 300)
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+    expect(w.find('.dk-peek').exists()).toBe(false)
+  })
+
+  it('scroll DOWN past the threshold hides the dock + shows the peek; scroll UP reveals', async () => {
+    const w = mountDK({ autoHide: true })
+    await scrollTo(w, 120) // down 120 (> 8, past the top dead-zone) → hide
+    expect(w.find('.dk-shift.hidden').exists()).toBe(true)
+    expect(w.find('.dk-peek').exists()).toBe(true)
+    await scrollTo(w, 60) // up 60 → reveal
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+    expect(w.find('.dk-peek').exists()).toBe(false)
+  })
+
+  it('does NOT hide near the very top (no jitter at the page head)', async () => {
+    const w = mountDK({ autoHide: true })
+    await scrollTo(w, 30) // within the top dead-zone (<=40)
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+  })
+
+  it('does NOT hide while a popover is open (guard)', async () => {
+    const w = mountDK({ autoHide: true })
+    await w.find('[data-cell="key"] .dk-pbtn').trigger('click') // open a menu
+    await nextTick()
+    await scrollTo(w, 200)
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+  })
+
+  it('the peek handle brings the dock back', async () => {
+    const w = mountDK({ autoHide: true })
+    await scrollTo(w, 120)
+    expect(w.find('.dk-peek').exists()).toBe(true)
+    await w.find('.dk-peek').trigger('click')
+    await nextTick()
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+  })
+
+  it('the ⚙ "ซ่อนแถบเมื่อเลื่อนอ่าน" toggle turns auto-hide off + persists', async () => {
+    const w = mountDK({ autoHide: true })
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    await w.find('.dk-prow-ah .dk-switch').trigger('click') // turn OFF
+    expect(localStorage.getItem('pleng.dockkey.test.autohideoff')).toBe('1')
+    await w.find('.dk-gear').trigger('click') // close panel
+    await nextTick()
+    await scrollTo(w, 200)
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false) // stays visible
+  })
+
+  it('prefers-reduced-motion disables auto-hide', async () => {
+    const mmOrig = window.matchMedia
+    window.matchMedia = (q) => ({ matches: q.includes('reduce'), media: q, addEventListener() {}, removeEventListener() {} })
+    const w = mountDK({ autoHide: true })
+    await scrollTo(w, 200)
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+    window.matchMedia = mmOrig
+  })
+})
+
 describe('DockKey collapse-in-place', () => {
   it('a grip tap collapses to the [grip][⚙] mini (DS I7)', async () => {
     const w = mountDK()
