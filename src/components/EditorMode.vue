@@ -331,8 +331,22 @@ const focusedSlot = ref(-1) // global slot index whose ◀ ▶ tools are shown
 // folding/rotating/closing the keyboard (which blurs the input) keeps the toolbox + selection.
 // It is replaced when another note is focused, and cleared by an explicit pointer-down outside.
 const focusedSeg = ref('')
+// The STICKY syllable selection for the toolbox's ◀▶ (SA §7 continuity). Unlike `focusedSlot`
+// (live · blur-cleared · still drives the overflow strip), `selSlot` is NOT cleared on blur, so
+// folding/rotating/closing the keyboard keeps the ◀▶ on the selected syllable. -1 = a note box
+// (not a syllable) is the selection → the toolbox shows octave ▼▲ instead of ◀▶. No refocus is
+// ever forced, so this can't loop with the keyboard-aware hide (the loop PM flagged).
+const selSlot = ref(-1)
+function onSegFocus(e, li, bi, si) {
+  focusedSeg.value = `${li}-${bi}-${si}`
+  // focus landed on a note box (not a syllable) → note-entry selection, no ◀▶
+  if (e.target.classList?.contains('note-box')) selSlot.value = -1
+}
 function onSegOutside(e) {
-  if (!e.target.closest?.('.seg-col') && !e.target.closest?.('.slot-tools')) focusedSeg.value = ''
+  if (!e.target.closest?.('.seg-col') && !e.target.closest?.('.slot-tools')) {
+    focusedSeg.value = ''
+    selSlot.value = -1
+  }
 }
 watch(focusedSeg, (v) => {
   if (v) setTimeout(() => document.addEventListener('mousedown', onSegOutside), 0)
@@ -903,6 +917,19 @@ function insertSym(sym) {
   const start = activeInput.selectionStart ?? activeInput.value.length
   const end = activeInput.selectionEnd ?? start
   activeInput.setRangeText(sym, start, end, 'end')
+  activeInput.dispatchEvent(new Event('input', { bubbles: true }))
+  activeInput.focus()
+}
+// dock-space note toolbox: shift the focused NOTE box one octave. jianpu (notation.js): a leading
+// '.' per octave below (".5"), a trailing "'" per octave above ("5'"). dir +1 up / -1 down, one
+// step on the focused note box (activeInput) — same activeInput pattern as insertSym (PM: keep it,
+// do NOT move to NoteBoxes). @mousedown.prevent on the buttons keeps that note box focused.
+function octaveShift(dir) {
+  if (!activeInput || !activeInput.isConnected) return
+  let v = activeInput.value
+  if (dir > 0) v = v.startsWith('.') ? v.slice(1) : v + "'"
+  else v = v.endsWith("'") ? v.slice(0, -1) : '.' + v
+  activeInput.value = v
   activeInput.dispatchEvent(new Event('input', { bubbles: true }))
   activeInput.focus()
 }
@@ -2897,18 +2924,22 @@ defineExpose({
             <!-- one column per note: chord on top, note box, then the syllable box
                  directly under its note (edit everything here — no duplicate preview) -->
             <div v-if="!barShown(li, bi)" class="seg-strip">
-              <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col" @focusin="focusedSeg = `${li}-${bi}-${si}`">
+              <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col" @focusin="onSegFocus($event, li, bi, si)">
                 <!-- dock-space merged contextual toolbox (§10): ONE on-selection set per note,
-                     hoisted to .seg-col so it shows in EVERY mode — a note-box focus outside the
-                     lens, or a syllable focus in the lens (both bubble to this seg-col's focusin).
-                     ◀▶ align the focused syllable (lens-only, acts on focusedSlot); ⧉/✕ copy·delete
-                     the note (bar,si). .slot-tools CSS anchors it above the column + clamps to 344. -->
+                     hoisted to .seg-col so it shows in EVERY mode. The selection is STICKY (selSlot
+                     /focusedSeg survive blur → fold/rotate/keyboard-close keep it · SA §7). Groups
+                     are mutually exclusive by what's selected: a NOTE box → octave ▼▲; a SYLLABLE →
+                     ◀▶ align. ⧉/✕ copy·delete the note (bar,si) always. Anchored + 344-clamped by CSS. -->
                 <span v-if="focusedSeg === `${li}-${bi}-${si}`" class="slot-tools">
-                  <template v-if="focusedSlot >= 0">
-                    <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(focusedSlot)">◀</button>
-                    <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(focusedSlot)">▶</button>
-                    <span class="slot-div" aria-hidden="true"></span>
+                  <template v-if="selSlot >= 0">
+                    <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(selSlot)">◀</button>
+                    <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(selSlot)">▶</button>
                   </template>
+                  <template v-else>
+                    <button class="secondary slot-btn" aria-label="ลดเสียงลงหนึ่งช่วงเสียง" title="ลดเสียงลงหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(-1)">▼</button>
+                    <button class="secondary slot-btn" aria-label="เพิ่มเสียงขึ้นหนึ่งช่วงเสียง" title="เพิ่มเสียงขึ้นหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(1)">▲</button>
+                  </template>
+                  <span class="slot-div" aria-hidden="true"></span>
                   <button class="secondary slot-btn" aria-label="คัดลอกโน้ตนี้" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" @mousedown.prevent @click="duplicateSegment(bar, si)"><Icon name="copy" :size="13" /></button>
                   <button class="secondary slot-btn slot-del" aria-label="ลบโน้ตนี้" title="ลบโน้ตนี้ (ห้องยังอยู่)" @mousedown.prevent @click="removeSegment(bar, si)">✕</button>
                 </span>
@@ -2945,7 +2976,7 @@ defineExpose({
                         :data-slot="cell.slot"
                         :placeholder="cell.held ? '-' : ''"
                         :aria-label="cell.held ? `โน้ตลากเสียง ช่องที่ ${cell.slot + 1} (เว้นว่างได้)` : `พยางค์ที่ ${cell.slot + 1}`"
-                        @focus="focusedSlot = cell.slot"
+                        @focus="focusedSlot = cell.slot; selSlot = cell.slot"
                         @blur="focusedSlot = -1"
                         @keydown="onSylKey($event, cell.slot)"
                         @input="setSyl(lensRow, cell.slot, $event.target.value)"

@@ -63,34 +63,64 @@ describe('dock-space §10 — one hoisted contextual toolbox per note', () => {
     expect(w.find('.slot-tools').exists()).toBe(false)
   })
 
-  it('focusing a NOTE box shows the toolbox with copy + delete (no ◀▶ — nothing to align)', async () => {
+  it('focusing a NOTE box shows octave ▼▲ + copy + delete (no ◀▶ — nothing to align)', async () => {
     const w = mountEd(NOTE_SONG)
     await nextTick()
-    w.findAll('.note-box')[0].element.focus() // focusin → seg-col → focusedSeg
+    w.findAll('.note-box')[0].element.focus() // focusin → seg-col → focusedSeg, selSlot = -1
     await nextTick()
     const st = w.find('.slot-tools')
     expect(st.exists()).toBe(true)
     const aria = ariaOf(st)
+    expect(aria.some((a) => a.includes('เพิ่มเสียงขึ้น'))).toBe(true) // ▲ octave up
+    expect(aria.some((a) => a.includes('ลดเสียงลง'))).toBe(true) // ▼ octave down
     expect(aria.some((a) => a.includes('คัดลอกโน้ตนี้'))).toBe(true)
     expect(aria.some((a) => a.includes('ลบโน้ตนี้'))).toBe(true)
-    expect(aria.some((a) => a.includes('ดึงคำมาซ้าย'))).toBe(false) // ◀ hidden (focusedSlot = -1)
+    expect(aria.some((a) => a.includes('ดึงคำมาซ้าย'))).toBe(false) // ◀ hidden (selSlot = -1)
   })
 
-  it('focusing a SYLLABLE shows the MERGED set (◀ ▶ + copy + delete) in the one toolbox', async () => {
+  it('octave ▲ raises the focused note ("5" → "5\'") via the toolbox', async () => {
+    const w = mountEd(NOTE_SONG)
+    await nextTick()
+    w.findAll('.note-box')[0].element.focus() // editorFocusIn sets activeInput
+    await nextTick()
+    expect(w.findAll('.note-box')[0].element.value).toBe('5')
+    const up = w.find('.slot-tools').findAll('button').find((b) => (b.attributes('aria-label') || '').includes('เพิ่มเสียงขึ้น'))
+    await up.trigger('click')
+    await nextTick()
+    expect(w.findAll('.note-box')[0].element.value).toBe("5'")
+  })
+
+  it('focusing a SYLLABLE shows ◀ ▶ align + copy + delete (octave hidden)', async () => {
     const w = mountEd(LENS_SONG)
     await nextTick()
     const syl = w.find('.syl-box')
     expect(syl.exists()).toBe(true)
     await syl.trigger('focusin') // seg-col focusin → focusedSeg
-    await syl.trigger('focus') // syllable → focusedSlot
+    await syl.trigger('focus') // syllable → focusedSlot + selSlot
     await nextTick()
     const st = w.find('.slot-tools')
     expect(st.exists()).toBe(true)
     const aria = ariaOf(st)
     expect(aria.some((a) => a.includes('ดึงคำมาซ้าย'))).toBe(true) // ◀
     expect(aria.some((a) => a.includes('ดันคำไปขวา'))).toBe(true) // ▶
+    expect(aria.some((a) => a.includes('เพิ่มเสียงขึ้น'))).toBe(false) // octave hidden (selSlot ≥ 0)
     expect(aria.some((a) => a.includes('คัดลอกโน้ตนี้'))).toBe(true)
     expect(aria.some((a) => a.includes('ลบโน้ตนี้'))).toBe(true)
+  })
+
+  it('continuity: a syllable ◀▶ selection SURVIVES blur (sticky selSlot)', async () => {
+    const w = mountEd(LENS_SONG)
+    await nextTick()
+    const syl = w.find('.syl-box')
+    await syl.trigger('focusin')
+    await syl.trigger('focus')
+    await nextTick()
+    expect(ariaOf(w.find('.slot-tools')).some((a) => a.includes('ดึงคำมาซ้าย'))).toBe(true) // ◀ shown
+    syl.element.blur() // fold/rotate/keyboard-close
+    await nextTick()
+    // toolbox + ◀▶ still there (selSlot + focusedSeg both sticky), no refocus forced
+    expect(w.find('.slot-tools').exists()).toBe(true)
+    expect(ariaOf(w.find('.slot-tools')).some((a) => a.includes('ดึงคำมาซ้าย'))).toBe(true)
   })
 
   it('copy in the toolbox duplicates the note (wired to duplicateSegment)', async () => {
