@@ -624,13 +624,16 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     // TREBLE TAMING (5.5) — ONE high-shelf on the whole cello, its gain scheduled per note by pitch
     // below. Built here so body + up-bow + head all share it and stay one timbre. Only created when
     // asked (trebleTameDb>0) so the untamed clip is byte-identical to before = a clean A/B.
-    // shelf at 2.2 kHz — P'Aim maxed the knob (20) and it stayed "แสบนิดนึง". At 2.8 kHz the shelf sat
-    // ABOVE the harsh mid-harmonics of these notes (G#4/B4's 3rd-5th partials are ~1.2-2.5 kHz), so it
-    // could not reach them however hard he pushed. 2.2 kHz catches the presence/bite band (the
-    // recordist's own EQ sat 1800-2500 Hz) without dulling the note's core.
-    // RAMP: harsh notes are midi 66-73; 63→66 puts FULL cut on the whole cluster (66-73 = 100%) while
-    // the warm low notes (≤63) stay untouched (64 = 33%, 65 = 67%).
-    const TREBLE_FREQ = 2200, TAME_LO = 63, TAME_HI = 66   // 0 cut below LO, full cut at/above HI
+    // shelf at 2.2 kHz — the presence/bite band (the recordist's own EQ sat 1800-2500 Hz).
+    // KEYED TO PITCH-SHIFT, not absolute pitch (measured 18 ก.ค. · P'Aim heard "แหบ↔ทุ้ม สลับเป็นตัว ๆ").
+    // Karoryfer recorded only 17 pitches (minor thirds); every other note is pitch-shifted from the
+    // nearest, and the shift moves the formants: a note shifted UP is ~3 dB brighter/"แหบ", a note that
+    // lands ON a recorded pitch is the warm "ทุ้ม" reference (measured: +1 = −2.5 dB, 0 = −5.4 dB,
+    // −1 = −4.0 dB above 1.5 kHz). So the harshness is the SHIFT, not the register — and the fix is to
+    // cut the treble of up-shifted notes down toward the exact-pitch warmth, evening the timbre out.
+    const TREBLE_FREQ = 2200
+    const KARO_PITCHES = [36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84]
+    const nearestKaro = (m) => KARO_PITCHES.reduce((a, b) => Math.abs(b - m) < Math.abs(a - m) ? b : a, KARO_PITCHES[0])
     let celloDest = busIn, tameNode = null
     if (trebleTameDb > 0) {
       tameNode = ctx.createBiquadFilter()
@@ -658,7 +661,13 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     // Stepped at each note's (delayed) body onset — the line is monophonic, so a shelf step landing on
     // the attack is inaudible. Deterministic (no rng), so the MP3 matches the live render.
     if (tameNode) {
-      const tameFor = (m) => Math.min(1, Math.max(0, (m - TAME_LO) / (TAME_HI - TAME_LO))) * trebleTameDb
+      // weight by pitch-shift: up-shifted (bright/"แหบ") gets the full cut, down-shifted gets half
+      // (it is only ~1.4 dB bright), exact-pitch (the warm "ทุ้ม" target) gets none.
+      const tameFor = (m) => {
+        const sh = m - nearestKaro(m)
+        const w = sh > 0 ? 1 : sh < 0 ? 0.5 : 0
+        return w * trebleTameDb
+      }
       for (const e of mel) {
         tameNode.gain.setValueAtTime(-tameFor(e.midi + transpose), Math.max(0, onset(e) - shift))
       }
