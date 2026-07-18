@@ -6,7 +6,9 @@
 - **git:** base `studio-shell-redesign` = origin/main = `938497a`
 - **🎯 พี่เปาตัดสินจากการใช้จริง** บนมือถือ (editor ที่ใช้ทุกวัน · ไม่ต้อง LAN) — 3 จุดยืนยัน: keyboard-aware · narrow 344/390 · ◀▶ syllable
 - **🔴 2-host phrakham:** DockKey engine เปลี่ยน → พระคำ island ต้อง rebuild `pk-dock-island.js` ตอนพระคำ deploy รอบหน้า (autoHide default false = ตอนนี้ไม่ regress · แจ้ง pk-PM แล้ว)
-- **▶ B109 shortcut + คู่มือ editor = BUILD เริ่มแล้ว (P'Aim สั่ง 18 ก.ค.):** branch จาก base `938497a` · **ไม่ 2-host (nav = editor ไม่ใช่ DockKey)** · **baton: dev logic (jumpBar/jumpLine + Enter=allow-custom + Esc wrapper + keydown preventDefault · reuse slotStarts/onUndoKeys) → free → UX ปุ่มบนจอ(editor-side ◀▶⏮⏭▲▼)+คู่มือ (เฟส A พี่เปาได้ก่อน)** → tester GATE2 → พี่เปา/deploy · สเปก `docs/us/editor-keyboard-nav.md` · music เชลโล คู่ขนาน
+- **🔴🔴 ESCALATION 18 ก.ค. (หลัง deploy): พี่เปา "ไม่ชอบ dock-space" — อยากได้ free-form resize ที่ PM pivot ทิ้งไป** · P'Aim: "PM ต้องคุยกับพี่เปา · ทำ shortcut ด่วน กู้หน้า" · **บทเรียน (memory `feedback_deliver_user_concrete_want`): user จริงขอของรูปธรรม = ทำให้ · อย่าเอา expert-ว่าดีกว่า ไปแทน · resize "ทำได้" (mockup เคยใช้ได้ + engine reflow deploy แล้ว) ไม่ใช่ "ทำไม่ได้" — relay ให้ตรง**
+  - **PM recovery (3):** (1) 🔴 เร่ง B109 shortcut ด่วน — Enter=ยืนยันคอร์ด + jump ขึ้นก่อน (พี่เปาขอตรงๆ · quick-win กู้หน้า) (2) **สร้าง free-form resize ให้พี่เปา** (ต่อบน engine reflow-by-width ที่ deploy แล้ว · auto-hide อยู่ร่วมได้) (3) ข้อความขอโทษ→พี่เปา (P'Aim relay)
+- **▶ B109 shortcut + คู่มือ editor = BUILD (P'Aim สั่ง · เร่งด่วนหลัง escalation):** branch จาก base `938497a` · **ไม่ 2-host (nav = editor ไม่ใช่ DockKey)** · **baton: dev logic (jumpBar/jumpLine + Enter=allow-custom + Esc wrapper + keydown preventDefault · reuse slotStarts/onUndoKeys) → free → UX ปุ่มบนจอ(editor-side ◀▶⏮⏭▲▼)+คู่มือ (เฟส A พี่เปาได้ก่อน)** → tester GATE2 → พี่เปา/deploy · สเปก `docs/us/editor-keyboard-nav.md` · music เชลโล คู่ขนาน
 
 ---
 _(ประวัติ HAND-OFF + งานก่อน deploy รอบ 31 ด้านล่าง)_
