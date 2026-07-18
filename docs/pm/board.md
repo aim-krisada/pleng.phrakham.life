@@ -1,4 +1,17 @@
-# PM board — pleng (ไม้ต่อ · refreshed 2026-07-18 · หลัง DEPLOY รอบ 30 + ตั้งโครง 3 ที่นั่งถาวร)
+# PM board — pleng (ไม้ต่อ · refreshed 2026-07-18 · หลัง DEPLOY รอบ 31)
+
+## 🎉 DEPLOY รอบ 31 LIVE `938497a` (18 ก.ค. · P'Aim "deploy 3 เลย")
+- **ของที่ขึ้น (3):** 🎛️ **dock-space** (แถบ editor สลิม+หลบตอนเลื่อน+contextual toolbox ◀▶/copy/del/octave+continuity · ผ่าน tester GATE2 · A anchoring+B 44px แก้แล้ว) · 🛡️ **เตือนก่อนทับงาน** (phase-1 ห้ามเลือดไหล `13f0f52`) · 📝 **ชื่อเพลงเต็ม** (2c `ce1022e`)
+- **✅ verify prod (ไม่ใช่ push=ขึ้น):** live bundle `index-CgSKljyx.js` มี `938497a` · เก่า `2f4177e` หาย · **เจอ marker dock-space จริง: `auto-hide`·`dk-shift`·`slot-tools`×4** · เทสต์ 736 ผ่าน (notationLint process.exit = pre-existing) · build ✓
+- **git:** base `studio-shell-redesign` = origin/main = `938497a`
+- **🎯 พี่เปาตัดสินจากการใช้จริง** บนมือถือ (editor ที่ใช้ทุกวัน · ไม่ต้อง LAN) — 3 จุดยืนยัน: keyboard-aware · narrow 344/390 · ◀▶ syllable
+- **🔴 2-host phrakham:** DockKey engine เปลี่ยน → พระคำ island ต้อง rebuild `pk-dock-island.js` ตอนพระคำ deploy รอบหน้า (autoHide default false = ตอนนี้ไม่ regress · แจ้ง pk-PM แล้ว)
+- **▶ ถัดไป:** B109 shortcut (ข้ามห้อง/บรรทัด+Enter คอร์ด · analysis เสร็จ) + คู่มือ editor = รอบหน้า · music เชลโล คู่ขนาน
+
+---
+_(ประวัติ HAND-OFF + งานก่อน deploy รอบ 31 ด้านล่าง)_
+
+# (เดิม) PM board — refreshed หลัง DEPLOY รอบ 30 + ตั้งโครง 3 ที่นั่งถาวร
 
 กระดานนี้ = สถานะสด + งานค้าง + routing เท่านั้น · **รายละเอียดเทคนิค → git log + `docs/reports/<branch>.md`**
 **⛔ เปิด PM session ใน worktree `C:\gl\krisada\pleng.phrakham.life-pm` เท่านั้น** · **ตั้งชื่อ session ถัดไป = `pm27`**
