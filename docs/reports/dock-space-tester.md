@@ -86,3 +86,22 @@
 ## ยังไม่ merge (PM gate ต่อ) · หลักฐานทั้งหมดวัดสด (DOM/computed/real-scroll) ไม่ได้เดา
 
 *tester · 2026-07-18 · commit `6c3b225`*
+
+---
+
+## 🔁 RE-VERIFY รอบ 2 (concern A+B แก้แล้ว) — ✅ ผ่านทั้งคู่ · **CLEAR GATE2**
+**branch:** `dock-space-dev` @ `13d482f` (A=`6a4cec2` · B=`13d482f`) · วัดสด **Browser pane (geometry เป๊ะ) + real Chrome (pixel · dpr 1.75)**
+
+**A — anchoring (แก้: `tbxLeft` = center-x โน้ตที่โฟกัส · inline `:style` · `clampTbx` margin 8px · re-clamp on resize):**
+- **เกาะโน้ตจริง (gap→0):** desktop 1280 · segment กว้าง 765px 16 โน้ต → ซ้ายสุด/กลาง/ขวาสุด = **gap 0/0/0** (เดิม 335/−/−302) ✓ · real Chrome (dpr 1.75): ซ้ายสุด+ขวาสุด **gap 0** ✓
+- **clamp ไม่หลุดจอ (วัดที่ 768):** โน้ตที่เลย/ชิดขอบขวา (noteX 825/923/1021 พ้น 768) → toolbox **ถูกรั้งที่ right≈761 ≤ vw−8 · onScreen=true ทุกตัว** ✓
+**B — touch target (แก้: `.slot-btn min 44×44`):**
+- ปุ่ม toolbox ทุกตัว (octave ▼▲ · คัดลอก · **✕ลบ**) = **44×44** ทั้ง pane + real Chrome ✓ (เดิม 30×26)
+- **fit 344:** toolbox 4 ปุ่ม กว้างคงที่ **~195px < 320 (344−24)** → ไม่ล้น · `max-width:100vw−24` + clampTbx คุมกรณีแคบกว่าไว้ ✓ · served source มี `tbxLeft` (โค้ดสด)
+
+**คงเดิม (ผ่านรอบแรก):** dock slim · hide-on-scroll · continuity · 2-host · note-mode octave/copy/del
+**คงรอพี่เปามือถือจริง (ไม่บล็อก):** keyboard-aware · narrow 344/390/690 keypad fit · ◀▶ syllable + draft-on-bar-login
+
+**→ 🟢 GATE2 CLEAR** · ⛔ tester ไม่ merge (PM gate)
+
+*tester · 2026-07-18 · re-verify @ `13d482f`*
