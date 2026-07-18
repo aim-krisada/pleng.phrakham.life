@@ -7,7 +7,11 @@
 - **🎯 พี่เปาตัดสินจากการใช้จริง** บนมือถือ (editor ที่ใช้ทุกวัน · ไม่ต้อง LAN) — 3 จุดยืนยัน: keyboard-aware · narrow 344/390 · ◀▶ syllable
 - **🔴 2-host phrakham:** DockKey engine เปลี่ยน → พระคำ island ต้อง rebuild `pk-dock-island.js` ตอนพระคำ deploy รอบหน้า (autoHide default false = ตอนนี้ไม่ regress · แจ้ง pk-PM แล้ว)
 - **🔴🔴 ESCALATION 18 ก.ค. (หลัง deploy): พี่เปา "ไม่ชอบ dock-space" — อยากได้ free-form resize ที่ PM pivot ทิ้งไป** · P'Aim: "PM ต้องคุยกับพี่เปา · ทำ shortcut ด่วน กู้หน้า" · **บทเรียน (memory `feedback_deliver_user_concrete_want`): user จริงขอของรูปธรรม = ทำให้ · อย่าเอา expert-ว่าดีกว่า ไปแทน · resize "ทำได้" (mockup เคยใช้ได้ + engine reflow deploy แล้ว) ไม่ใช่ "ทำไม่ได้" — relay ให้ตรง**
-  - **PM recovery (3):** (1) 🔴 เร่ง B109 shortcut ด่วน — Enter=ยืนยันคอร์ด + jump ขึ้นก่อน (พี่เปาขอตรงๆ · quick-win กู้หน้า) (2) **สร้าง free-form resize ให้พี่เปา** (ต่อบน engine reflow-by-width ที่ deploy แล้ว · auto-hide อยู่ร่วมได้) (3) ข้อความขอโทษ→พี่เปา (P'Aim relay)
+  - **PM recovery — P'Aim "แก้ทุกจุด ระมัดระวัง · shortcut+resize+ล้นจอ คู่ขนาน" → 3 สาย (คนละไฟล์ ไม่ชน):**
+    - **สาย 1 · B109 shortcut** (`EditorMode.vue`) = dev เดิม (`local_e20ebbbd`) · เร่ง Enter=คอร์ด+jump (พี่เปา quick-win) · UX ปุ่มบนจอ+คู่มือ (prep เสร็จ `2205eca`) รอ dev commit logic
+    - **สาย 2 · 344-overflow fix + free-form resize** (`DockKey.vue` · 2-host) = dev ใหม่ (`task_7533e1a5`) · 🔴 **344-fix ก่อน (LIVE regress · block พระคำ · pk PM วัด @344 dock 367 overflow +23 · กระทบ pleng@344 ด้วย)** → free-form resize (แบบ 2 · สิ่งพี่เปาอยากได้)
+    - **pk PM:** เลือกรอ DockKey cap fix (แก้ราก · P'Aim สั่งตรง) · block พระคำ deploy ไว้ · PM ping ตอน fix พร้อม → pk rebuild island+gate 344/690/768 tree จริง → deploy Acts 26
+    - (3) ข้อความขอโทษ→พี่เปา (P'Aim relay) · **บทเรียน `feedback_deliver_user_concrete_want`**
 - **▶ B109 shortcut + คู่มือ editor = BUILD (P'Aim สั่ง · เร่งด่วนหลัง escalation):** branch จาก base `938497a` · **ไม่ 2-host (nav = editor ไม่ใช่ DockKey)** · **baton: dev logic (jumpBar/jumpLine + Enter=allow-custom + Esc wrapper + keydown preventDefault · reuse slotStarts/onUndoKeys) → free → UX ปุ่มบนจอ(editor-side ◀▶⏮⏭▲▼)+คู่มือ (เฟส A พี่เปาได้ก่อน)** → tester GATE2 → พี่เปา/deploy · สเปก `docs/us/editor-keyboard-nav.md` · music เชลโล คู่ขนาน
 
 ---
