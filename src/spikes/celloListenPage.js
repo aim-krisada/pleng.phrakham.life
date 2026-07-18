@@ -11,24 +11,24 @@ import { supabase } from '../supabase.js'
 import { MARCATO, PIANO_ONLY, VIB_MIN_SEC, VIBRATO, renderClip, bufferToMp3, measure,
   excerptRange, calibrateLevels, normalizeBuffer } from './celloBakeoff.js'
 
-// The cello body/head/timing are P'Aim's four locked values (head mp · 5% · shift 10ms · body p),
-// and fileLevelAmount:1 is the measured "second-14" bug fix (not a taste). marcato-mp resolves to
-// body karoryfer-p + head staccato-mp inside renderClip. vibrato at 22 cents is P'Aim's own stated
-// preference ("มิติชัดขึ้นจริง ๆ โหยหวนดีกว่า"), gated to long notes only by the auto rule so it is
-// not the "คงที่ทุกโน้ต = น่ารำคาญ" he warned against.
+// A/B for treble taming (P'Aim 18 ก.ค.): he confirmed the cello is worth it, but "ดังเกินตั้งแต่
+// วินาที 8" — measured as the melody's ascent into the bright upper register, not a level problem.
+// So both cello clips are P'Aim's approved sound (body p · head mp 5% · shift 10ms · vibrato 22 gated
+// to long notes · second-14 fix) held IDENTICAL, and the ONLY difference is trebleTameDb: a high-shelf
+// cut that grows with pitch, darkening the high notes and leaving the warm low ones alone.
 const CELLO_BASE = { variantId: 'marcato-mp', headId: 'staccato-mp', headStrength: 0.05,
-  bodyShiftMs: 10, fileLevelAmount: 1 }
+  bodyShiftMs: 10, fileLevelAmount: 1, vibratoCents: VIBRATO.maxDepthCents, vibMinNoteSec: VIB_MIN_SEC }
 
 const PRESETS = [
   { id: 'piano', label: '🎹 เปียโนอย่างเดียว', ref: true,
-    sub: 'เสียงที่ใช้จริงตอนนี้ — ไว้เทียบว่าเติมเชลโลแล้วดีขึ้นหรือรกขึ้น',
+    sub: 'เส้นเปรียบเทียบ (เสียงที่ใช้จริงตอนนี้)',
     cfg: { variantId: 'none' } },
-  { id: 'cello', label: '🎻 เปียโน + เชลโล — เรียบ',
-    sub: 'เชลโลร้องนำ · ไม่สั่นนิ้ว',
-    cfg: { ...CELLO_BASE, vibratoCents: 0 } },
-  { id: 'cello-vib', label: '🎻 เปียโน + เชลโล — สั่นนิ้วนุ่ม ๆ',
-    sub: 'เชลโลร้องนำ · มีสั่นนิ้ว เฉพาะโน้ตที่ลากยาว (โน้ตสั้นไม่สั่น)',
-    cfg: { ...CELLO_BASE, vibratoCents: VIBRATO.maxDepthCents, vibMinNoteSec: VIB_MIN_SEC } },
+  { id: 'now', label: '🎻 เชลโล — ตอนนี้',
+    sub: 'ที่พี่เอมเพิ่งฟัง · โน้ตสูง (ราววินาที 8) ยังแสบ',
+    cfg: { ...CELLO_BASE, trebleTameDb: 0 } },
+  { id: 'soft', label: '🎻 เชลโล — นุ่มขึ้น ⭐',
+    sub: 'ลดความแสบเฉพาะโน้ตสูง (อัตโนมัติตามระดับเสียง · โน้ตต่ำที่อุ่นไม่แตะ)',
+    cfg: { ...CELLO_BASE, trebleTameDb: 8 } },
 ]
 
 const $ = (s) => document.querySelector(s)

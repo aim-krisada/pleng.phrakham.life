@@ -529,6 +529,12 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   // piano string resonance (Splendid's own Res map, reusing the PP samples we ship). Off = today.
   // 5.4 — 0..1 of the measured per-file level correction. 0 = today's sound exactly (direct A/B).
   fileLevelAmount = 0,
+  // 5.5 — treble taming (P'Aim 18 ก.ค.): a high-shelf cut on the cello that GROWS with pitch. His
+  // "ดังเกินตั้งแต่วินาที 8" measured as the clip's BRIGHTEST window, not its loudest — the melody's
+  // ascent into the upper register, where Karoryfer is harshest; the warm low notes he did NOT flag.
+  // So darken only the high notes, automatically per pitch (no per-song tuning). This value = the cut
+  // in dB at the top note; it ramps from 0 below TAME_LO to full at TAME_HI. 0 = today (direct A/B).
+  trebleTameDb = 0,
   pianoResonance = false } = {}) {
   const { perf, cfg, bpm: useBpm } = buildPerformance(content, { bpm, range, songId })
   const spb = 60 / useBpm
@@ -615,8 +621,23 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     celloMakeup *= vibTrim
     const { inst, output, attackMs, levelFix } = await loadCello(bodyId, ctx, celloMakeup,
       { correctTuning, fileLevelAmount })
+    // TREBLE TAMING (5.5) — ONE high-shelf on the whole cello, its gain scheduled per note by pitch
+    // below. Built here so body + up-bow + head all share it and stay one timbre. Only created when
+    // asked (trebleTameDb>0) so the untamed clip is byte-identical to before = a clean A/B.
+    // shelf at 2.8 kHz = the cello's "bite/แสบ" band (the recordist's own EQ sat 1800-2500 Hz); higher
+    // than this barely touched what the ear calls harsh (measured). Warm body below is left intact.
+    const TREBLE_FREQ = 2800, TAME_LO = 62, TAME_HI = 74   // 0 cut below LO, full cut at/above HI
+    let celloDest = busIn, tameNode = null
+    if (trebleTameDb > 0) {
+      tameNode = ctx.createBiquadFilter()
+      tameNode.type = 'highshelf'
+      tameNode.frequency.value = TREBLE_FREQ
+      tameNode.gain.value = 0
+      tameNode.connect(busIn)
+      celloDest = tameNode
+    }
     output.disconnect()
-    output.connect(busIn)                              // same reverb room as the piano
+    output.connect(celloDest)                          // → (treble tame) → same reverb room as piano
     // NEGATIVE DELAY (PM 16 ก.ค. · docs/pm/audio-round2-techniques.md): a bowed note ramps up, so
     // firing it ON the beat lands it LATE against the piano's instant attack (measured: piano
     // reaches half level in 0 ms; these cellos in 40/55/250 ms). Fire it early by its own measured
@@ -629,6 +650,15 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     const shiftMs = bodyShiftMs != null ? bodyShiftMs : (negativeDelay ? (attackMs || 0) : 0)
     const shift = shiftMs / 1000
     const mel = perf.filter(isMelody)
+    // schedule the treble taming per note: higher pitch → deeper high-shelf cut, warm low notes → 0.
+    // Stepped at each note's (delayed) body onset — the line is monophonic, so a shelf step landing on
+    // the attack is inaudible. Deterministic (no rng), so the MP3 matches the live render.
+    if (tameNode) {
+      const tameFor = (m) => Math.min(1, Math.max(0, (m - TAME_LO) / (TAME_HI - TAME_LO))) * trebleTameDb
+      for (const e of mel) {
+        tameNode.gain.setValueAtTime(-tameFor(e.midi + transpose), Math.max(0, onset(e) - shift))
+      }
+    }
     const outOfRange = []
     // bow round-robin: load the up-bow take too and alternate. Strictly by note INDEX (i % 2) — not
     // random — so the MP3 is identical to what was heard live. No rng.js needed at all.
@@ -636,7 +666,7 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     if (bowRoundRobin && bodyId === 'karoryfer-p') {
       upBow = await loadCello('karoryfer-p-g', ctx, celloMakeup, { correctTuning })
       upBow.output.disconnect()
-      upBow.output.connect(busIn)
+      upBow.output.connect(celloDest)
     }
 
     // vibrato rides the BODY only: it is what sustains. The head is 55 ms of staccato at 5% —
@@ -687,7 +717,7 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     if (headId && headStrength > 0) {
       const head = await loadCello(headId, ctx, celloMakeup * headStrength, { correctTuning })
       head.output.disconnect()
-      head.output.connect(busIn)
+      head.output.connect(celloDest)
       const hold = Math.min(headHoldMs / 1000, 0.2)   // library's ampeg_hold=0.200
       for (const e of mel) {
         head.inst.start({ note: e.midi + transpose, time: onset(e),
@@ -699,7 +729,7 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
 
     celloReport = { melodyNotes: mel.length, attackMs, shiftMs: Math.round(shiftMs), bodyId,
       head: headReport, vibratoCents, bowRoundRobin: !!upBow,
-      vibUnsteady, vibBowPressure, vibMinNoteSec, vibGainDb, fileLevelAmount, levelFix,
+      vibUnsteady, vibBowPressure, vibMinNoteSec, vibGainDb, fileLevelAmount, trebleTameDb, levelFix,
       // how many notes the auto rule actually left shaking, per song, with nobody tuning anything —
       // the old lane's number (#1 50% · #4 80% · #7 63% · #9 100% · #11 100%) and the one that tells
       // P'Aim whether the rule is gating anything at all on THIS song

@@ -43,7 +43,7 @@ npm run dev -- --host                    # จด Network URL → เปิด /
 
 **🎧 หน้าฟัง "ตัดสินใจ" (ใหม่ 18 ก.ค. · สำหรับพี่เอม — ไม่มีปุ่มปรับ):** `docs/spikes/cello-listen.html` + `src/spikes/celloListenPage.js`
 เหตุผล: หน้า `cello-marcato.html` มีปุ่ม 6-7 อัน = หน้า debug ของ composer ไม่ใช่หน้าตัดสินใจของพี่เอม (พี่เอม 18 ก.ค. "ตัวเลือกเยอะเกินไป ไม่รู้จะเลือกยังไง") → ยุบเหลือ **3 ปุ่มใหญ่** ให้หูตัดสิน 2 คำถาม (เชลโลคุ้มไหม · เรียบหรือสั่นนิ้ว) · ค่าอื่นฝังไว้หมด (p/mp/5%/10ms + normalize) · vibrato preset = 22 cents + auto-rule โน้ตยาว
-> ⚠️ **serve ชั่วคราวจาก worktree เชลโลเดิม** (`zealous-chatelet` · มี node_modules + server 5460) เพราะ `music-standing` ยังไม่ได้ `npm install` · **TODO: `npm install` ใน music worktree ให้ serve เองได้ (ยั่งยืน)**
+> ✅ **music worktree serve เองแล้ว** (`npm install` เสร็จ · `node_modules/.bin/vite --host --port 5470`) · URL ฟัง = `http://<IP>:5470/docs/spikes/cello-listen.html` (IP เช็ก vite Network line) · sample `_spike` copy มาจาก worktree เชลโลเดิมแล้ว (gitignored)
 
 **🎧 คำถามที่รอหูพี่เอมเคาะ (ห้ามเดาแทน):**
 1. เชลโลตอนนี้ (marcato + normalize + vibrato-โน้ตยาว) **"ไม่แสบแล้ว/ลื่นหูพอ"** หรือยัง? → ถ้าใช่ = **จบเชลโล** (เหลือแค่คุยเรื่องเอาเข้า SongView จริง)
@@ -55,7 +55,7 @@ npm run dev -- --host                    # จด Network URL → เปิด /
 - ✅ **ข้อ ก. = เชลโลคุ้ม** (พี่เอมยืนยัน "เพราะขึ้น")
 - **"ดังเกิน" จริง ๆ = "แสบเกิน" (ย่านสูง):** (1) vibrato เพิ่มดัง ~0 dB = ไม่ใช่ตัวการ (2) เป็นเสียงเชลโลตอน**เล่นเดี่ยว** (เปียโนพัก · piano −10 dB ตรงนั้น) (3) **วินาที 8-8.5 = จุด brightness สูงสุดของทั้งคลิป** (−12.8 dB high-band) เพราะทำนอง**ไต่ขึ้นย่านสูงสุด** (midi 68→71→73) พอดี · วินาที 3.5 ดังกว่า (โน้ตยาว midi 64) **แต่ต่ำ=อุ่น** เลยไม่ถูกบ่น → **ปัญหา = brightness ของโน้ตสูง ไม่ใช่ level**
 - ยืนยัน: loud humps = โน้ตยาว sustained ที่ gain ปกติ (**ไม่ใช่ hot file · ไม่ใช่ arranger ดัน**)
-- **▶ ฟิกซ์เสนอ (รอพี่เอมเคาะ approach): ขั้น 4 = ลด treble เฉพาะโน้ตสูง** (auto ตาม pitch · โน้ตต่ำอุ่นไม่แตะ · 124 เพลงไม่จูนราย) · ทางเลือก = ขั้น 2 (reverb ขยับห่าง · ทั้งตัวนุ่มลง)
+- **✅ พี่เอมเคาะ "ลด treble เฉพาะโน้ตสูง" (18 ก.ค.) → BUILT + A/B live:** param ใหม่ `trebleTameDb` ใน `renderClip` = high-shelf @2800Hz cut มากขึ้นตาม pitch (TAME_LO 62 → TAME_HI 74 · 0=off) · automate `gain.setValueAtTime` ต่อโน้ต (mono line · deterministic) · default A/B = 8 dB · **วัดยืนยัน: >2kHz band ลด ~1 dB เฉพาะช่วงไต่สูง sec 7-9 · โน้ตต่ำไม่แตะ** · **รอหูพี่เอม: แสบน้อยลงไหม + แรงพอ/มาก/น้อยไป (ปรับ trebleTameDb ได้)**
 
 ## ▶ Next actions (ตามลำดับ — ทีละก้าว หยุดรอหูพี่เอม)
 - [ ] **rebuild sample mirror** (คำสั่งข้างบน) → serve → ส่ง Network URL + MP3 ให้พี่เอมฟังของล่าสุด (5.3 + normalize)
