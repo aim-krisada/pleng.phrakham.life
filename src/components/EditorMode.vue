@@ -1835,14 +1835,16 @@ const editItems = computed(() => [
   { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', place: { anchor: 'leftOf:setting', row: 1 } },
   { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
   { id: 'save', kind: 'btn', name: saveName.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
-  { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', place: { row: 2, col: 3 }, run: playFull, hidden: playing.value },
-  { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { row: 2, col: 4 } },
+  // dock-space slim (UX presentation · P'Aim: dock กินพื้นที่): ฟังทั้งเพลง = ใช้นาน ๆ ครั้ง →
+  // ย้ายเข้า ⚙ (ยังกดได้ · ปักกลับขึ้นแถบได้) เพื่อลด footprint row 2 · kind:btn → ⚙ render run ปุ่มได้จริง.
+  { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', default: 'inSetting', pinnable: true, run: playFull, hidden: playing.value },
+  { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { row: 2, col: 3 } },
   // issues9 (พี่เปา): บันทึกร่าง used to live in ⚙ (default:'inSetting'), where a `btn` renders no
   // control at all — so pinning it was the ONLY way to get a button that runs ("ทำไมต้องกดปักหมุด
   // ก่อนถึงจะเซฟร่างได้"). It is the most-used command for someone typing in 124 songs, so it has a
   // permanent home on the bar. No `pinnable`: an item with a `place` is already on the bar, and
   // pinning it too would render it twice (single source of action · ui-standards §2).
-  { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', label: 'บันทึกร่าง', icon: 'save', place: { row: 2, col: 5 }, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value },
+  { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', label: 'บันทึกร่าง', icon: 'save', place: { row: 2, col: 4 }, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value },
   { id: 'preview', kind: 'toggle', name: 'ดูผลทั้งเพลง', icon: 'maximize', default: 'inSetting', pinnable: true, control: { value: sheetWinOpen.value, onToggle: () => (sheetWinOpen.value = !sheetWinOpen.value) } },
 ])
 
