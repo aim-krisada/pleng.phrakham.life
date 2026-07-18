@@ -6,7 +6,7 @@
 - **git:** base `studio-shell-redesign` = origin/main = `938497a`
 - **🎯 พี่เปาตัดสินจากการใช้จริง** บนมือถือ (editor ที่ใช้ทุกวัน · ไม่ต้อง LAN) — 3 จุดยืนยัน: keyboard-aware · narrow 344/390 · ◀▶ syllable
 - **🔴 2-host phrakham:** DockKey engine เปลี่ยน → พระคำ island ต้อง rebuild `pk-dock-island.js` ตอนพระคำ deploy รอบหน้า (autoHide default false = ตอนนี้ไม่ regress · แจ้ง pk-PM แล้ว)
-- **▶ ถัดไป:** B109 shortcut (ข้ามห้อง/บรรทัด+Enter คอร์ด · analysis เสร็จ) + คู่มือ editor = รอบหน้า · music เชลโล คู่ขนาน
+- **▶ B109 shortcut + คู่มือ editor = BUILD เริ่มแล้ว (P'Aim สั่ง 18 ก.ค.):** branch จาก base `938497a` · **ไม่ 2-host (nav = editor ไม่ใช่ DockKey)** · **baton: dev logic (jumpBar/jumpLine + Enter=allow-custom + Esc wrapper + keydown preventDefault · reuse slotStarts/onUndoKeys) → free → UX ปุ่มบนจอ(editor-side ◀▶⏮⏭▲▼)+คู่มือ (เฟส A พี่เปาได้ก่อน)** → tester GATE2 → พี่เปา/deploy · สเปก `docs/us/editor-keyboard-nav.md` · music เชลโล คู่ขนาน
 
 ---
 _(ประวัติ HAND-OFF + งานก่อน deploy รอบ 31 ด้านล่าง)_
