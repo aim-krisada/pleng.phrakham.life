@@ -15,8 +15,12 @@
 2. **dock-config GATE 1:** P'Aim ลอง mockup https://claude.ai/code/artifact/555c023e-4bdb-46b4-a894-05509fbd559d → เคาะทิศ → UX ทำ DS ส่ง dev · **DockKey แชร์ 2 เว็บจริง (แก้ engine=2 เว็บ · regression พระคำต้อง test 2 host)**
 3. **toolbox (hover/tap contextual) = banked** หลัง dock-config · mockup https://claude.ai/code/artifact/234933b6... · เฟส A/B รอ P'Aim
 
+**🎯 PM session ปัจจุบัน = `pm27` (18 ก.ค.)** — สายอื่น ping/รายงานกลับที่นี่ · ครั้งหน้า `pm28`
+
+**🔔 จ่ายแล้ว 18 ก.ค.: B108 ระฆังเตือน → UX นำ + SA feasibility คู่** (send_message ทั้ง 2 สาย · design ก่อน · build ต่อคิวหลัง dock-config · ระวังชนไฟล์ shell/IdentityStrip กับ orientation 2a)
+
 **สถานะที่นั่ง (18 ก.ค.):**
-- **SA:** งานออกแบบจบหมด · stand by รอ UX flow ตรวจ feasibility คู่ · SQL พร้อมไม่รัน: `db/005`(RLS·รอจังหวะ) `db/006`(author_id fix) `db/007`(back-fill·author_id latent ไม่ urgent)
+- **SA:** งานออกแบบจบหมด · ✅ RLS ปิดจบแล้ว · stand by รอ UX flow (dock-config + B108) ตรวจ feasibility คู่ · SQL ที่เหลือ: `db/006`(author_id fix) `db/007`(back-fill·latent ไม่ urgent) พร้อมไม่รัน
 - **UX: ✅ ส่งมอบครบ (`45ecc39` uxui-standing · design ล้วน)** — `docs/us/dockkey-config.md`(+ตารางชื่ออ้างอิง §4) · `docs/pm/summary-dockkey-paim.md`(1 หน้า ม.ต้น · hedge "รอ SA" ลบแล้ว) · `docs/ds/dockkey-config-mockup.html` · **mockup มือถือ** https://claude.ai/code/artifact/555c023e-4bdb-46b4-a894-05509fbd559d · เฟส A(44px+ชื่อ+ตาราง)/B(เลือกปุ่ม)/C(preset ขนาด)/D(→shared พระคำ) · **รอ P'Aim GATE 1 ลอง mockup→เคาะทิศ→UX ทำ DS ส่ง dev** · toolbox banked
 - **สาย orientation `91b05cf3`:** 2a (แถบตัวตน+คิวอนุมัติขึ้น shell) กำลังทำ — **เช็กว่าเสร็จยัง (ไล่ดูเอง อย่ารอ ping)**
 
