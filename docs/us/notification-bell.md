@@ -1,97 +1,116 @@
-# US/UX — ระฆังเตือน 🔔 "มีเพลงส่งเข้ามารอตรวจ" (B108)
+# US/UX — ศูนย์แจ้งเตือนตามบทบาท 🔔 (Notification Center · B108)
 
-**ประเภท:** UX flow + design (นำ) · **⛔ ยังไม่ build — รอ P'Aim GATE 1** · SA ตรวจ feasibility + core lib คู่
-**brief:** `docs/pm/brief-dockkey-config.md`→B108 (PM 18 ก.ค.) · **ต่อยอด (ไม่รื้อ):** ชิป `📨 n รอตรวจ` (orientation 2a · `local_91b05cf3`) · `docs/ds/editor-orientation.md` (D1 identity strip)
-**ยึด:** `docs/ux-platform-patterns.md` (SOP) · `docs/ui-standards.md` · WCAG 2.2 AA (**4.1.3 Status Messages**) · Material 3 Badges · Apple HIG Notifications
+**ประเภท:** UX flow + design (นำ) · **⛔ ยังไม่ build — รอ P'Aim GATE 1** · SA ตรวจ feasibility คู่
+**brief:** B108 (PM 18 ก.ค. · ปรับเป็น role/event notification center) · **ต่อยอด (ไม่รื้อ):** ชิป `📨 n รอตรวจ` (orientation 2a · `local_91b05cf3`) · **SA feasibility:** `dockkey`/notif `10c8479`
+**ยึด:** `docs/ux-platform-patterns.md` (SOP) · `docs/ui-standards.md` · WCAG 2.2 AA (**4.1.3 Status Messages**) · Material 3 Badges · Apple HIG Notifications · pattern GitHub/Gmail notification center
 **สรุป ม.ต้น:** `docs/pm/summary-notification-bell-paim.md`
 
-> **โจทย์ P'Aim:** ปิด RLS แล้ว (public เห็นเฉพาะ verified) → ทีมทยอยกด ✓ ตรวจเอง · **ผู้ตรวจ (พี่เปา) ต้องเห็นเองว่ามีเพลงส่งเข้ามาใหม่ + ค้างรอตรวจกี่เพลง โดยไม่ต้องถาม** → ระฆัง 🔔 + badge บน shell
+> **โจทย์ P'Aim (ปรับ):** ไม่ใช่ "ตัวนับเดียว" — เป็น **ศูนย์แจ้งเตือนที่ขึ้นกับ *งานของแต่ละบทบาท*** ออกแบบให้เพิ่มบทบาท/ประกาศทีหลังได้โดยไม่รื้อ. v1: ผู้ตรวจเห็นงานเข้า · ผู้ส่งได้รู้ผลอนุมัติ.
 
 ---
 
-## 0 · สรุปการตัดสินใจ (อ่าน 30 วิ · ฟันธง)
+## 0 · สรุปการตัดสินใจ (อ่าน 30 วิ · ฟันธงทุกข้อ · P'Aim ลองในฐานะคนใช้ ไม่ใช่คนเลือกเมนู)
 
-| # | คำถาม | ฟันธง UX | อ้างมาตรฐาน (เปิดจริง) |
+| # | ประเด็น | ฟันธง UX | อ้างมาตรฐาน (เปิดจริง) |
 |---|---|---|---|
-| **แสดงยังไง** | 🔔 บน shell (ทุกโหมด) + **badge** | ✅ **number badge = ค้างกี่เพลง** (งานจริง) **+ จุด/เน้น "ใหม่" = มีของเข้ามาตั้งแต่ครั้งก่อน** | M3 Badges (dot=มีใหม่ · number=count) |
-| **"ใหม่" กับ "ค้าง" ต่างกันไง** | ✅ **แยกกัน** — count ลดเมื่อ**ตรวจจริง** · จุดใหม่หายเมื่อ**เปิดดู** | count=งานคงเหลือ · จุด=สัญญาณให้เหลียวมอง | Apple HIG "clear when seen" (จุด) · count=งานจริงไม่หายตอนแค่เหลือบ |
-| **นับจากไหน** | ✅ **นับสด `pendingDrafts` (status='pending' ของคนอื่น)** ห้าม hardcode | derive จาก DB เสมอ | `editor-orientation.md §1` (8/116→20/104 เน่าใน 4 วัน) |
-| **กดแล้วไปไหน** | ✅ **เปิด "คิวรอตรวจ" = ร่าง pending ทั้งคลัง** (ต่อยอดกล่องร่างเดิม) | desktop=popover · **mobile=หน้าเต็มจอ** | `ux-platform-patterns §1` |
-| **ใครเห็น** | ✅ **approver เท่านั้น** (พี่เปา) · editor/Tier0 ไม่มีคิวตรวจ | — | mission tiers |
-| **a11y count** | ✅ ชื่อระฆังมี count + `role="status"` + `aria-atomic` | อ่านออกเสียงตอนเลขเปลี่ยน ไม่แย่งโฟกัส | **WCAG 4.1.3** · W3C ARIA22 |
+| **โครง** | list หรือ ตัวนับ | ✅ **notification list (bell + unread badge + dropdown ของ item ที่ลิงก์ไปเรื่องนั้น + mark-as-read)** — ไม่ใช่ตัวนับ | GitHub/Gmail center · M3 Badges |
+| **ทำไม list** | รองรับอนาคต | ✅ **เพิ่มบทบาท/ประกาศ = เพิ่ม item type ไม่รื้อ UI** (schema เดียว) | extensibility · SOP §4 |
+| **badge เลข** | นับอะไร | ✅ **unread count** (แจ้งเตือนที่ยังไม่อ่าน) · **mark-as-read = เคลียร์** · เกิน 99 = `99+` | Apple HIG (badge = unread เท่านั้น) · M3 |
+| **"ค้างกี่เพลง"** | อยู่ไหน | ✅ **สรุปในหัว panel + ลิงก์ "ตัวติดตามการตรวจ"** ไม่ใช่ตัวเลข badge (badge = unread event ไม่ใช่ backlog) | Apple: badge ไม่ใช่ข้อมูลทั่วไป |
+| **94 verified=false** | เด้งไหม | ✅ **ไม่เด้ง** — เป็น backlog ในหน้า review tracker แยก (SA แนะ · UX ฟันธงตาม: bell = event จริง ไม่ใช่ตัวเลขคลัง) | Apple HIG · derive live |
+| **กด item** | ไปไหน | ✅ ลิงก์ไปเรื่องนั้น (เพลง→โหมดตรวจ) + **mark read** | recognition · single action |
+| **มือถือ** | popup? | ✅ **หน้าเต็มจอ** (desktop = popover) | `ux-platform-patterns §1` |
+| **a11y** | count เปลี่ยน | ✅ ชื่อระฆังมี unread + `role=status`+`aria-atomic` · unread mark ไม่พึ่งสี | WCAG 4.1.3 · 1.4.1 |
 
-**ข้อเสนอเดียว:** **ยกชิป `📨 n รอตรวจ` เป็นระฆัง 🔔 + badge 2 ชั้น** (number=ค้าง · dot=ใหม่) บน shell → กด = คิวรอตรวจ · **นับสด · เคลียร์ "ใหม่" เมื่อเปิด · count ลดเมื่อตรวจจริง**
+**ข้อเสนอเดียว (ฟันธง):** **ศูนย์แจ้งเตือน = bell + unread badge + list ของ item (ตาม type) + mark-as-read** บน shell · **v1:** approver=งานเข้า(pending) · submitter=ผลอนุมัติ · **schema เดียว รองรับ role/broadcast อนาคต**
 
 ---
 
-## 0.5 · ⭐ ของเดิม vs ใหม่จริง (ยึด `ux-platform-patterns §4`)
+## 0.5 · ⭐ ของเดิม vs ใหม่จริง (ยึด `ux-platform-patterns §4`) + SA feasibility
 
-| ส่วน | สถานะ | หมายเหตุ |
+| ส่วน | สถานะ | หมายเหตุ (SA `10c8479`) |
 |---|---|---|
-| ชิป `📨 n รอตรวจ` บน shell (2a) | ❌ **มีแล้ว** (สาย `91b05cf3`) | B108 = **ยกระดับชิปนี้** เป็นระฆัง+badge · ไม่สร้างคู่แข่ง |
-| ข้อมูล `pendingDrafts` (นับ pending ได้) | ❌ มีแล้ว | โหลดผ่าน `loadDrafts()` · `editor-orientation.md §1` |
-| กล่องร่าง (list ร่าง) | ❌ มีแล้ว | คิวรอตรวจ = กล่องนี้ **filter เฉพาะ pending ของคนอื่น** |
-| identity strip D1 (เพลงที่เปิด·ของใคร) | ❌ มีแล้ว (2a) | **คนละเรื่อง** — D1=เพลงที่เปิดอยู่ · 🔔=ทั้งคลังมีอะไรรอ |
-| **badge 2 ชั้น (number + dot ใหม่)** | ✅ ใหม่ | — |
-| **ตัวจำ "เห็นแล้ว" (last-seen)** | ✅ ใหม่ | localStorage/profile ต่อ approver |
-| **คิวรอตรวจเป็น panel/หน้าเต็มจอ** | 🟡 ต่อยอดกล่องร่าง | filter + a11y |
-| **นับสด/อัปเดตเมื่อมีของเข้า** | 🟡 ต่อยอด | realtime/refresh — ถาม SA |
+| ชิป `📨 n รอตรวจ` (2a) | ❌ **มีแล้ว** | B108 = ยกเป็น notification center · **extend lane เดียว** (PM คิว) |
+| `pendingDrafts` (นับ pending) | ❌ มีแล้ว | ✅ SA: **ยกตัวนับขึ้น `store.js`** ให้ shell อ่าน global |
+| กล่องร่าง (list ร่าง) | ❌ มีแล้ว | item "งานเข้า" ต่อยอดจากนี้ |
+| อัปเดตสด | — | ✅ SA: **poll (ไม่มี realtime)** — refresh-on-focus/interval |
+| **notification list + item schema** | ✅ ใหม่ | `{id,type,icon,text,link,read,ts}` |
+| **unread badge + mark-as-read** | ✅ ใหม่ | ✅ SA: **last-seen marker** สำหรับ unread |
+| **ผลอนุมัติถึง submitter** | ✅ ใหม่ (v1) | อ่าน draft.status เปลี่ยน (approved/returned) |
+| หน้า review tracker (94 backlog) | 🟡 แยก (ไม่ใช่ bell) | ลิงก์จาก panel |
 
 ---
 
-## 1 · หน้าตา (desktop + มือถือ)
+## 1 · หน้าตา — notification center
 
-### ระฆัง + badge บน shell
+### ระฆัง + unread badge (บน shell · ทุกโหมด)
 ```
- 🔔③     ← number badge = 3 เพลงรอตรวจ (งานจริง)
- 🔔·③    ← + จุดเน้น = มีเพลง "ใหม่" เข้ามาตั้งแต่เปิดครั้งก่อน
- 🔔      ← ไม่มีค้าง = ระฆังเปล่า (ไม่มี badge · Apple: ไม่มีของ = ไม่มี badge)
+🔔②   ← unread badge = แจ้งเตือน 2 อันที่ยังไม่อ่าน (เกิน 99 = 99+)
+🔔    ← อ่านหมด/ไม่มี = ระฆังเปล่า
 ```
-- **number badge:** มุมขวาบนไอคอน · pill สั้น · **เกิน 99 = `99+`** (M3/impl convention · คลังเพลงเล็ก 99+ พอ)
-- **จุด "ใหม่" (dot/pulse):** เมื่อมี pending ที่ approver ยังไม่เคยเปิดคิวเห็น → **เปิดคิว = จุดหาย** (Apple clear-on-seen) · **แต่ count ยังอยู่จนตรวจจริง** (count = งานคงเหลือ ไม่ใช่ unread)
-- **ไอคอน + เลข + สี** เสมอ (ไม่พึ่งสีอย่างเดียว · WCAG 1.4.1) · badge โทน accent (ส้ม/แดงอ่อน) ตัดกับ ≥3:1
+- **ไอคอน + เลข + สี** เสมอ (WCAG 1.4.1) · accent ตัด ≥3:1 · 44px
 
-### กด 🔔 → "คิวรอตรวจ"
-- **desktop:** popover ใต้ระฆัง — list เพลงรอตรวจ (ชื่อ · ของใคร · กี่วันก่อน · [ตรวจ]) · Esc/แตะนอกปิด
-- **มือถือ (พี่เปา):** **หน้าเต็มจอ** (ตาม SOP · popup ลอยบน 360px คับ) → เลือกเพลง → กด "เสร็จ"/ย้อน กลับจุดเดิม
-- แต่ละแถว → เปิดเพลงนั้นเข้าโหมดตรวจ (D3/D4 ของ orientation ทำงานต่อ) — **ต่อกันพอดี**
+### กด 🔔 → รายการแจ้งเตือน (desktop popover · mobile หน้าเต็มจอ)
+```
+┌── การแจ้งเตือน ───────────────── [อ่านทั้งหมด] ─┐
+│ ● 🔎 โม ส่ง "21. เมื่อข้าได้พบ..." มารอตรวจ  2 วันก่อน │  ← unread (จุด+หนา) · กด→ตรวจ
+│ ● ✅ "45. พระคุณ" ของคุณ ได้รับอนุมัติแล้ว     1 วันก่อน │
+│   ↩ "12. ในความรัก" ถูกส่งกลับให้แก้ไข         3 วันก่อน │  ← read
+│ ─────────────────────────────────────── │
+│ 3 เพลงรอตรวจทั้งหมด · ดูตัวติดตามการตรวจ →         │  ← สรุป+ลิงก์ (ไม่ใช่ badge)
+└────────────────────────────────────────┘
+```
+- แต่ละ **item = icon + ข้อความ(ใคร·อะไร) + เวลา + สถานะอ่าน** · กด → ไปเรื่องนั้น + mark read
+- **unread:** จุดนำ + ตัวหนา (ไม่พึ่งสีอย่างเดียว) · **[อ่านทั้งหมด]** = mark all read
+- **item type (v1 + เผื่ออนาคต):**
+
+| type | ใคร | ตัวอย่าง | ลิงก์ไป |
+|---|---|---|---|
+| `review_incoming` | approver | 🔎 โม ส่ง "X" มารอตรวจ | เพลง→โหมดตรวจ |
+| `draft_approved` | submitter | ✅ "X" อนุมัติแล้ว | เพลงเผยแพร่ |
+| `draft_returned` | submitter | ↩ "X" ส่งกลับแก้ | ร่างของตัวเอง |
+| `broadcast` (อนาคต) | ทุกคน | 📢 ประกาศ… | — |
+
+→ **เพิ่ม type ใหม่ = เพิ่มแถวใน map ไม่แตะ UI** (นี่คือเหตุผลที่ทำเป็น list ตั้งแต่แรก)
 
 ---
 
-## 2 · a11y (WCAG 4.1.3 Status Messages · AA)
+## 2 · a11y (WCAG 4.1.3 · AA)
 
-- **ชื่อระฆัง (accessible name) มี count:** `aria-label="การแจ้งเตือน · 3 เพลงรอตรวจ"` → โฟกัสปุ๊บได้ยินเลข (APG practice)
-- **count อยู่ใน `role="status"` + `aria-atomic="true"` + polite** → **เลขเปลี่ยนอ่านทั้งก้อน "การแจ้งเตือน 3 เพลงรอตรวจ" ไม่แย่งโฟกัส** (W3C ARIA22 · ต้องใส่ role ไว้ก่อนเลขมา)
-- ปุ่ม 44px · โฟกัสเห็นชัด · จุด "ใหม่" มี text ทางเลือก ("มีใหม่") ไม่พึ่งสี
+- ชื่อระฆัง: `aria-label="การแจ้งเตือน · 2 ยังไม่อ่าน"` → โฟกัสได้ยินเลย
+- unread count ใน `role="status"` + `aria-atomic="true"` + polite → เปลี่ยนแล้วอ่านทั้งก้อน ไม่แย่งโฟกัส (W3C ARIA22)
+- list = `role="list"` · แต่ละ item actionable (ปุ่ม/ลิงก์ · โฟกัสได้) · unread mark มี text ("ยังไม่อ่าน") ไม่พึ่งสี (1.4.1)
 
 ---
 
 ## 3 · เฟส
 
-| เฟส | ทำ | พี่เปาได้ | บล็อก |
+| เฟส | ทำ | ได้อะไร | feasibility |
 |---|---|---|---|
-| **A ⭐** | ระฆัง + number badge (นับสด pending) + a11y · กด = คิว | **เห็นเองว่าค้างกี่เพลง กดไปตรวจได้** | 🚩 shell = 1 ไฟล์ 1 สาย (2a) · extend |
-| **B** | จุด "ใหม่" + last-seen (เคลียร์เมื่อเปิด) | รู้ว่ามี "ของเพิ่งเข้า" | ต่อ A |
-| **C** | อัปเดตสด (realtime/refresh-on-focus) | ไม่ต้องรีเฟรชเอง | รอ SA (realtime feasibility) |
+| **A ⭐** | bell + unread badge + list (`review_incoming`) + mark-read · นับสดจาก store.js · poll | **approver เห็นงานเข้า กดไปตรวจ** | ✅ SA เคลียร์ (store.js counter · poll · last-seen) |
+| **B** | `draft_approved` / `draft_returned` ถึง submitter | ผู้ส่งรู้ผลเอง | อ่าน status change |
+| **C** | ลิงก์ review tracker (94 backlog) + broadcast type | ตามงานครบ · ประกาศได้ | หน้า tracker แยก |
 
 ---
 
-## 4 · feasibility → SA (ผ่าน PM · SA เจ้าของ data/RLS + core)
+## 4 · feasibility — SA ตอบแล้ว (`10c8479`) · เหลือปิดตอน DS
 
-1. **นับสดบน shell:** `pendingDrafts` วันนี้โหลดตอน login/เปิดกล่องเท่านั้น (`editor-orientation.md §1`) → ต้องโหลด global ตอน approver เข้า + refresh ยังไง (ไม่ให้ badge ค้าง 0)
-2. **RLS (เพิ่งปิด):** approver query นับ **ร่าง pending ทั้งคลังของคนอื่น** ได้จริงไหม (RLS อนุญาต approver อ่าน pending drafts) · count รั่วให้ non-approver ไหม
-3. **last-seen "ใหม่":** เก็บที่ไหน (localStorage ต่อ user? profile?) · เทียบ max draft id/created_at
-4. **realtime vs poll:** "เห็นเองโดยไม่ต้องถาม" = ต้อง Supabase realtime subscription หรือ refresh-on-focus/interval พอ · ต้นทุน keepalive
-5. **shell home:** ระฆังอยู่ `ShellBar.vue`/`Studio.vue` = ไฟล์เดียวกับ 2a → extend chip เดิม (1 ไฟล์ 1 สาย · PM คิว)
+| # | คำถาม | SA |
+|---|---|---|
+| 1 | นับ pending บน shell | ✅ ยกตัวนับขึ้น `store.js` (shell อ่าน global) |
+| 2 | อัปเดตสด | ✅ **poll** (ไม่มี realtime) · refresh-on-focus/interval |
+| 3 | unread marker | ✅ **last-seen marker** |
+| 4 | extend 2a | ✅ คิว lane เดียว · PM ประสาน (1 ไฟล์ 1 สาย) |
+| 5 | **RLS: approver นับ/อ่าน pending คนอื่นได้ · submitter อ่าน status ตัวเองได้ · ไม่รั่ว non-approver** | 🟡 **ยืนยันตอน DS** (RLS เพิ่งปิด — ต้อง test) |
 
 ---
 
 ## 5 · 🖼️ Mockup (จิ้มได้ · desktop + มือถือ)
 
-- **เปิดเลย:** [🔔 mockup ระฆังเตือน — badge · จุดใหม่ · คิวรอตรวจ](https://claude.ai/code/artifact/46569a53-99ee-44cd-8501-cff261503e95)
+- **เปิดเลย:** [🔔 mockup ศูนย์แจ้งเตือน — list · unread · mark-as-read](https://claude.ai/code/artifact/46569a53-99ee-44cd-8501-cff261503e95)
 - ไฟล์รีโป: `docs/ds/notification-bell-mockup.html`
-- **แสดง:** ระฆัง+badge · ปุ่ม "จำลองส่งเพลงใหม่" (badge เด้ง + จุดใหม่) · กด 🔔 (desktop=popover · mobile=หน้าเต็มจอ) → คิว → ตรวจ → count ลด · จุดใหม่หายเมื่อเปิด
+- **แสดง:** ระฆัง+unread badge · จำลอง item เข้า (approver/submitter) · กด 🔔 (desktop popover·mobile เต็มจอ) → list · กด item → mark read เลขลด · [อ่านทั้งหมด] · สรุป "N รอตรวจ + ลิงก์ tracker"
 
 ---
 
-*UX/UI seat · 2026-07-18 · docs-only · ⛔ ไม่แตะ `src/` · อ้างอิงเปิดจริง: [M3 Badges](https://m3.material.io/components/badges) · [Apple HIG Notifications](https://developer.apple.com/design/human-interface-guidelines/notifications) · [W3C ARIA22 (status)](https://www.w3.org/WAI/WCAG22/Techniques/aria/ARIA22) · [WCAG 4.1.3](https://www.w3.org/WAI/WCAG21/Understanding/status-messages.html)*
+*UX/UI seat · 2026-07-18 · docs-only · ⛔ ไม่แตะ `src/` · อ้างอิงเปิดจริง: [M3 Badges](https://m3.material.io/components/badges) · [Apple HIG Notifications](https://developer.apple.com/design/human-interface-guidelines/notifications) · [W3C ARIA22](https://www.w3.org/WAI/WCAG22/Techniques/aria/ARIA22) · [WCAG 4.1.3](https://www.w3.org/WAI/WCAG21/Understanding/status-messages.html)*
