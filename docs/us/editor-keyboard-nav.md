@@ -40,8 +40,10 @@
 | **Tab / Shift+Tab** | โน้ต/พยางค์ ถัดไป/ก่อนหน้า (ข้ามห้อง/บรรทัดเนียน) | Google Sheets (Tab=next field) · form nav สากล |
 | ⭐ **Ctrl+→ / Ctrl+←** *(Win/Linux)* | **ห้องถัดไป / ก่อนหน้า** | **MuseScore 4** (`Ctrl+Right`=next measure) **+ Flat.io** (ตรงกัน · [handbook](https://handbook.musescore.org/navigation/navigating-your-score) · [Flat](https://help.flat.io/en/music-notation-software/keyboard-shortcuts/)) |
 | ⭐ **Ctrl+↓ / Ctrl+↑** *(Win/Linux)* | **บรรทัดถัดไป / ก่อนหน้า** | ARIA grid (↑↓=แถว) + Ctrl=block-jump ([MDN grid](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles/grid_role)) |
-| **Home / End** | โน้ตแรก/สุดท้ายของ **ห้อง** ปัจจุบัน | ARIA grid + Sheets (Home/End=ต้น/ท้ายแถว) |
+| **Home / End** *(เปล่า)* | **คงเดิม (native caret ต้น/ท้ายข้อความในช่อง)** — ไม่ override | ทุก text field ทุก OS · แก้พยางค์หลายตัวอักษรพัง ถ้ายึด |
 | **Ctrl+Home / Ctrl+End** | ต้น/ท้าย **เพลง** | grid + Sheets (Ctrl+Home/End=ต้น/ท้ายเอกสาร) |
+
+> **🔧 แก้ (dev `bb18c08` จับ · UX เคาะ 18 ก.ค.):** สเปกเดิม plain Home/End=ข้ามห้อง = **override native caret** ในช่องพิมพ์ → พังการแก้พยางค์หลายตัวอักษร (เช่น "ฮาเลลูยา" กด Home คาดว่าไป caret ต้นคำ) · แถมข้ามห้องมี **Ctrl+←/→ + ปุ่ม ⏮⏭ บนจอ**อยู่แล้ว → plain Home/End ซ้ำซ้อน · **∴ คง native Home/End · เหลือ Ctrl+Home/End=เพลง** (world-class = ไม่แย่ง convention text field)
 | `←→` เปล่า · Space/Enter/… | **คงเดิม** (caret · แยกพยางค์) | ไม่แตะ |
 
 **ทำไม scheme นี้:** (1) **Ctrl+ลูกศร=block-jump** = MuseScore+Flat.io **เห็นตรงกัน** + spreadsheet muscle-memory → ไม่ประดิษฐ์ (2) ทุกคีย์เป็น **non-printable/modifier** → นอกขอบเขต WCAG 2.1.4 (§4) (3) ไม่ชนของเดิม (Space/Enter/Backspace/Delete/Ctrl+Z/Y ครบ)
