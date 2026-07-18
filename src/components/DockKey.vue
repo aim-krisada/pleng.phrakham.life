@@ -27,6 +27,9 @@ const props = defineProps({
   storeKey: { type: String, default: 'dock' },
   alpha: { type: Number, default: 0.96 }, // v-model:alpha (transparency of the dock)
   message: { type: String, default: '' }, // transient status line floated above the dock
+  // hide-on-scroll: reclaim screen while reading (Material BottomAppBar). OFF by default so
+  // the shared phrakham read-aloud island keeps its old behaviour — a host opts IN per page.
+  autoHide: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:alpha'])
 
@@ -71,11 +74,23 @@ onMounted(() => {
 })
 watch(() => props.alpha, (v) => { try { localStorage.setItem(LS_ALPHA.value, String(v)) } catch { /* ignore */ } })
 
-// ---------- viewport (cap = fill the width at 44px · WCAG 2.2 AA · DS I6) ----------
-const mobile = ref(false)
-let mq = null
-function syncMobile() { mobile.value = mq ? mq.matches : false }
-const cap = computed(() => (mobile.value ? 7 : 14))
+// ---------- viewport (cap = f(width) · continuous · WCAG 2.2 AA · DS I6 · §4) ----------
+// A single binary matchMedia(760) made `cap` jump 7↔14, so an unfolding Fold (690–768) crossed
+// 760 and the dock snapped rows. Derive `cap` from the LIVE full width instead (measured off the
+// document, NOT the dock — a fixed/auto-width dock would feed its own width back into cap · SA Q4).
+// Buttons keep their --touch-min floor (44/42/40 via CSS); a narrow width reflows to MORE rows,
+// it never shrinks the target.
+const PER_BTN = 50 // ≈ one 44px button + 7px gap; the budget one dock button occupies
+const containerWidth = ref(typeof window !== 'undefined' ? (window.innerWidth || 1024) : 1024)
+function readWidth() {
+  return (typeof window !== 'undefined' &&
+    (window.visualViewport?.width || document.documentElement?.clientWidth || window.innerWidth)) || 1024
+}
+function syncWidth() { containerWidth.value = readWidth() }
+const cap = computed(() => Math.max(3, Math.min(14, Math.floor(containerWidth.value / PER_BTN))))
+// `mobile` (tighter gaps · suppress the wide row-merge) now derives from the same width source,
+// aligned to the CSS --touch-min breakpoint at 760 — one source of truth, no separate matchMedia.
+const mobile = computed(() => containerWidth.value <= 760)
 
 // ---------- one popover at a time (menu · setting · a slot cell) ----------
 const openId = ref(null) // item id | 'setting' | null
@@ -90,6 +105,87 @@ watch(openId, (v) => {
   if (v) setTimeout(() => document.addEventListener('mousedown', onOutside), 0)
   else document.removeEventListener('mousedown', onOutside)
 })
+
+// A slot cell (soundctl · export) can live INSIDE the ⚙ Setting page once a page moves it to
+// `default:'inSetting'`. Its trigger must NOT reuse `openId`: that is 'setting' while the panel
+// is open, and toggling it to the item id would close the panel (one-at-a-time). `panelOpenId`
+// is a SECOND, panel-local one-at-a-time tracker, so the ⚙ page stays open while the inner
+// popover toggles. Reset it whenever the panel itself closes.
+const panelOpenId = ref(null)
+function togglePanelOpen(id) { panelOpenId.value = panelOpenId.value === id ? null : id }
+function closePanel() { panelOpenId.value = null }
+watch(openId, (v) => { if (v !== 'setting') panelOpenId.value = null })
+watch(panelOpenId, async () => { await nextTick(); clampPops() })
+
+// ---------- hide-on-scroll (§2 · reclaim space while reading · engine · 2-host opt-in) ----------
+// The editor scrolls the WINDOW (no overflow wrapper — SA Q1); the preview is position:fixed and
+// separate. Scrolling DOWN slides the whole dock off the bottom; a small peek handle stays to
+// bring it back; scrolling UP reveals it again. Driven by an rAF-gated DIRECTIONAL delta (not a
+// time-debounce, which feels laggy — SA), and never fires while a popover is open, the keyboard
+// is up, the dock has focus, or the user is dragging (so the bar never vanishes mid-action).
+const autoHidden = ref(false)
+const keyboardUp = ref(false) // set by the visualViewport watcher (added in the keyboard phase)
+// user override + reduced-motion → auto-hide OFF (Material: hiding chrome hurts AT/低-motion users;
+// there is no screen-reader API, so a ⚙ toggle + reduced-motion + focus-guard is the standard).
+const LS_AUTOHIDEOFF = computed(() => `pleng.dockkey.${props.storeKey}.autohideoff`)
+const autoHideOff = ref(localStorage.getItem(LS_AUTOHIDEOFF.value) === '1')
+const reduceMotion = ref(false)
+watch(autoHideOff, (v) => {
+  try { localStorage.setItem(LS_AUTOHIDEOFF.value, v ? '1' : '0') } catch { /* ignore */ }
+  if (v) autoHidden.value = false
+})
+const autoHideEnabled = computed(() => props.autoHide && !autoHideOff.value && !reduceMotion.value)
+
+// Pure reducer (unit-tested in jsdom, which has no layout): decide the next hidden state from a
+// scroll delta. Down past +8px hides; any upward past -4px reveals immediately; a guard (popover
+// open · keyboard up · focus/drag in dock) or being near the very top never hides.
+function nextHidden(dy, hidden, { guarded = false, atTop = false } = {}) {
+  if (dy < -4) return false
+  if (dy > 8 && !guarded && !atTop) return true
+  return hidden
+}
+function focusInsideDock() { return !!hostEl.value?.contains(document.activeElement) }
+function isGuarded() {
+  return openId.value !== null || panelOpenId.value !== null || keyboardUp.value || gp !== null || focusInsideDock()
+}
+let lastY = 0, rafPending = false
+function onScroll() {
+  if (!autoHideEnabled.value || rafPending) return
+  rafPending = true
+  requestAnimationFrame(() => {
+    rafPending = false
+    const y = window.scrollY || window.pageYOffset || 0
+    autoHidden.value = nextHidden(y - lastY, autoHidden.value, { guarded: isGuarded(), atTop: y <= 40 })
+    lastY = y
+  })
+}
+function revealDock() { autoHidden.value = false }
+
+// ---------- keyboard-aware (§3 · mobile soft-keyboard occludes the dock → hide it) ----------
+// On a phone the keyboard covers the bottom dock; hide it so the page's contextual toolbox (which
+// the PAGE floats above the keyboard) is unobstructed. Detect via visualViewport height drop >150px
+// — URL-bar collapse is only ~60-100px, so 150 cleanly separates the two (SA Q2). No meta change
+// (`interactive-widget=resizes-content` would stop visualViewport from shrinking · SA). Fallback:
+// focusin/out on a text field, used only when visualViewport is absent.
+let vv = null
+function syncKeyboard() {
+  if (!vv) return
+  const up = (window.innerHeight - vv.height) > 150
+  if (up === keyboardUp.value) return
+  keyboardUp.value = up
+  if (props.autoHide && !autoHideOff.value) autoHidden.value = up // reduced-motion just skips the anim
+}
+function isTextTarget(t) { return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) }
+function onFocusIn(e) {
+  if (vv || !isTextTarget(e.target)) return // visualViewport is authoritative when present
+  keyboardUp.value = true
+  if (props.autoHide && !autoHideOff.value) autoHidden.value = true
+}
+function onFocusOut() {
+  if (vv) return
+  keyboardUp.value = false
+  if (props.autoHide && !autoHideOff.value) autoHidden.value = false
+}
 
 // ---------- ENGINE: order row 1 by anchor, row 2 by column, pinned → rows on top ----------
 // rank a row-1 item from its anchor so [grip … leftOf:setting][setting] lays out in order.
@@ -231,17 +327,39 @@ watch(openId, async () => { await nextTick(); clampPops() })
 
 // ---------- lifecycle ----------
 let ro = null
+let rmq = null // prefers-reduced-motion media query
+function syncReduce() { reduceMotion.value = rmq ? rmq.matches : false }
 onMounted(() => {
-  mq = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 760px)') : null
-  syncMobile()
-  mq?.addEventListener?.('change', syncMobile)
-  window.addEventListener('resize', syncMobile)
+  // cap = f(width): observe the DOCUMENT width (the full-width ref) — never the dock itself, or
+  // cap→button count→dock width→cap would form a feedback loop (SA Q4). visualViewport.width also
+  // reflects pinch-zoom; window resize covers rotate/fold; RO covers layout-driven width changes.
+  syncWidth()
+  ro = typeof ResizeObserver === 'function' ? new ResizeObserver(syncWidth) : null
+  ro?.observe(document.documentElement)
+  window.addEventListener('resize', syncWidth)
+  window.visualViewport?.addEventListener('resize', syncWidth)
   window.addEventListener('keydown', onEsc)
+  // keyboard-aware: visualViewport shrinks when the soft keyboard opens; focus is the fallback.
+  vv = window.visualViewport || null
+  vv?.addEventListener('resize', syncKeyboard)
+  document.addEventListener('focusin', onFocusIn)
+  document.addEventListener('focusout', onFocusOut)
+  // hide-on-scroll: reduced-motion forces auto-hide off; the window is the scroll container.
+  rmq = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null
+  syncReduce()
+  rmq?.addEventListener?.('change', syncReduce)
+  lastY = window.scrollY || window.pageYOffset || 0
+  window.addEventListener('scroll', onScroll, { passive: true })
 })
 onUnmounted(() => {
-  mq?.removeEventListener?.('change', syncMobile)
-  window.removeEventListener('resize', syncMobile)
+  rmq?.removeEventListener?.('change', syncReduce)
+  window.removeEventListener('resize', syncWidth)
+  window.visualViewport?.removeEventListener('resize', syncWidth)
+  vv?.removeEventListener('resize', syncKeyboard)
+  document.removeEventListener('focusin', onFocusIn)
+  document.removeEventListener('focusout', onFocusOut)
   window.removeEventListener('keydown', onEsc)
+  window.removeEventListener('scroll', onScroll)
   document.removeEventListener('mousedown', onOutside)
   ro?.disconnect()
 })
@@ -260,6 +378,9 @@ function cellFlex() { return '0 0 auto' }
   <div ref="hostEl" class="dk-host no-print" :style="{ '--a': alpha }">
     <p v-if="message" class="dk-msg" role="status">{{ message }}</p>
 
+    <!-- hide-on-scroll shifts the WHOLE dock (mini + full) off-screen as one; it wraps both
+         states so the translateY never fights the per-dock drag transform on .dk-dock (§2). -->
+    <div class="dk-shift" :class="{ hidden: autoHidden }">
     <!-- collapsed → mini [grip][⚙] in place (DS I7). grip tap = expand · drag = move -->
     <div v-if="collapsed" class="dk-dock dk-mini" :style="pos ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : {}">
       <button
@@ -402,15 +523,43 @@ function cellFlex() { return '0 0 auto' }
       <!-- ===== ⚙ Setting page — every item's home · adjust inline · ▲▼ · 📌 (DS §3) ===== -->
       <!-- a settings FORM, not a menu — its rows are controls, not menuitems (a11y 4.1.2) -->
       <div v-if="openId === 'setting'" class="dk-pop dk-panel" role="group" aria-label="ตั้งค่า" @click.stop>
+        <!-- a11y: let the user turn OFF hide-on-scroll (persisted). Shown only when the page opts
+             into auto-hide; disabled + forced off under reduced-motion (no screen-reader API · §6). -->
+        <div v-if="autoHide" class="dk-prow dk-prow-ah" data-setting="__autohide">
+          <span class="dk-mi"><Icon name="chevrons-down-up" :size="16" /></span>
+          <span class="dk-pl">ซ่อนแถบเมื่อเลื่อนอ่าน</span>
+          <span class="dk-pc">
+            <button
+              class="dk-switch"
+              :class="{ on: !autoHideOff && !reduceMotion }"
+              role="switch"
+              :aria-checked="!autoHideOff && !reduceMotion"
+              :disabled="reduceMotion"
+              aria-label="ซ่อนแถบเมื่อเลื่อนอ่าน"
+              @click.stop="autoHideOff = !autoHideOff"
+            ><span class="dk-switch-k"></span></button>
+          </span>
+        </div>
         <div v-for="it in settingItems" :key="it.id" class="dk-prow" :data-setting="it.id">
           <span class="dk-mi"><Icon :name="it.icon" :size="16" /></span>
           <span class="dk-pl">{{ it.name }}</span>
           <span class="dk-pc">
+            <!-- a page-drawn cell (soundctl · export) moved into ⚙ (default:'inSetting'): the
+                 engine lays out the row, the PAGE renders the control via #cell-<id>. Uses the
+                 panel-local open state so opening it keeps the ⚙ page open (see panelOpenId). -->
+            <slot
+              v-if="SLOT_KINDS.includes(it.kind)"
+              :name="`cell-${it.id}`"
+              :item="it"
+              :open="panelOpenId === it.id"
+              :toggle="() => togglePanelOpen(it.id)"
+              :close="closePanel"
+            />
             <!-- issues9: a `btn` row used to render an EMPTY control cell — icon, name, pin, and
                  nothing to press — so the only way to run the command was to pin it onto the bar
                  first. Give it a real run button so every row in this panel does what it says. -->
             <button
-              v-if="it.kind === 'btn'"
+              v-else-if="it.kind === 'btn'"
               class="dk-prun"
               :disabled="it.disabled"
               :aria-label="it.name"
@@ -460,6 +609,17 @@ function cellFlex() { return '0 0 auto' }
         </div>
       </div>
     </div>
+    </div><!-- /.dk-shift -->
+
+    <!-- peek handle — the only thing left when the dock hid on scroll; tap to bring it back
+         (always reachable so AT/keyboard users can recover the bar · §6). -->
+    <button
+      v-if="autoHidden"
+      class="dk-peek"
+      aria-label="แสดงแถบเครื่องมือ"
+      title="แสดงแถบเครื่องมือ"
+      @click="revealDock"
+    ><Icon name="chevron-up" :size="20" /></button>
   </div>
 </template>
 
@@ -488,6 +648,38 @@ function cellFlex() { return '0 0 auto' }
   max-width: 92vw;
   font-size: 13px;
 }
+/* hide-on-scroll: the shift wrapper carries the whole dock down off-screen (its own translateY,
+   kept off .dk-dock so the drag transform is never overwritten). Layout box stays in flow. */
+.dk-shift {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.22s ease;
+  will-change: transform;
+}
+.dk-shift.hidden { transform: translateY(calc(100% + 24px)); }
+/* peek handle — out of flow (fixed) so it stays put while the shift slides away; always tappable */
+.dk-peek {
+  pointer-events: auto;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  width: 56px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 13px 13px 6px 6px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--muted);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+}
+@media (hover: hover) { .dk-peek:hover { color: var(--brand); border-color: var(--brand); } }
+@media (prefers-reduced-motion: reduce) { .dk-shift { transition: none; } }
 .dk-dock {
   pointer-events: auto;
   position: relative;

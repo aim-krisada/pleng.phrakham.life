@@ -325,6 +325,67 @@ function setSyl(row, i, val) {
 // A missing/extra syllable in the middle shifts every later word off its note. These
 // insert/remove one slot and RIPPLE the rest across the whole ข้อ (past bars & lines).
 const focusedSlot = ref(-1) // global slot index whose ◀ ▶ tools are shown
+// dock-space joint-pass: the NOTE ("li-bi-si") whose contextual toolbox is open. Set on any
+// focus inside its .seg-col (note box OR syllable box — focusin bubbles), so the ONE merged
+// toolbox shows in every mode. SA §7 continuity: this is STICKY — it is NOT cleared on blur, so
+// folding/rotating/closing the keyboard (which blurs the input) keeps the toolbox + selection.
+// It is replaced when another note is focused, and cleared by an explicit pointer-down outside.
+const focusedSeg = ref('')
+// The STICKY syllable selection for the toolbox's ◀▶ (SA §7 continuity). Unlike `focusedSlot`
+// (live · blur-cleared · still drives the overflow strip), `selSlot` is NOT cleared on blur, so
+// folding/rotating/closing the keyboard keeps the ◀▶ on the selected syllable. -1 = a note box
+// (not a syllable) is the selection → the toolbox shows octave ▼▲ instead of ◀▶. No refocus is
+// ever forced, so this can't loop with the keyboard-aware hide (the loop PM flagged).
+const selSlot = ref(-1)
+// dock-space anchoring (tester GATE2 concern A): center the toolbox on the FOCUSED note/syllable's
+// x, not the whole segment (a wide melody segment put it up to 335px off). `tbxLeft` = the focused
+// element's centre x relative to its .seg-col (the toolbox's offset parent); `tbxShift` nudges it
+// back on-screen so it never runs off the edge. UX owns the vertical anchor + button CSS; this is
+// only the horizontal x + clamp (inline style overrides just left/transform, not `bottom`).
+const tbxLeft = ref(null)
+const tbxShift = ref(0)
+const tbxStyle = computed(() =>
+  tbxLeft.value == null ? null : { left: `${tbxLeft.value}px`, transform: `translateX(calc(-50% + ${tbxShift.value}px))` },
+)
+function anchorToolbox(el) {
+  const seg = el?.closest?.('.seg-col')
+  if (!el || !seg) return
+  const er = el.getBoundingClientRect(), sr = seg.getBoundingClientRect()
+  tbxLeft.value = er.left + er.width / 2 - sr.left // centre x within the seg-col
+  tbxShift.value = 0
+  nextTick(clampTbx)
+}
+function clampTbx() {
+  const tb = document.querySelector('.slot-tools')
+  if (!tb || tbxLeft.value == null) return
+  const r = tb.getBoundingClientRect(), m = 8
+  let dx = 0
+  if (r.left < m) dx = m - r.left
+  else if (r.right > window.innerWidth - m) dx = window.innerWidth - m - r.right
+  tbxShift.value = Math.round(dx)
+}
+function onSegFocus(e, li, bi, si) {
+  focusedSeg.value = `${li}-${bi}-${si}`
+  // focus landed on a note box (not a syllable) → note-entry selection, no ◀▶
+  if (e.target.classList?.contains('note-box')) selSlot.value = -1
+  anchorToolbox(e.target) // centre the toolbox on the actually-focused element
+}
+function onSegOutside(e) {
+  if (!e.target.closest?.('.seg-col') && !e.target.closest?.('.slot-tools')) {
+    focusedSeg.value = ''
+    selSlot.value = -1
+  }
+}
+watch(focusedSeg, (v) => {
+  if (v) setTimeout(() => document.addEventListener('mousedown', onSegOutside), 0)
+  else document.removeEventListener('mousedown', onSegOutside)
+})
+// keep the open toolbox on-screen across rotate/resize (relative x is stable; re-clamp to viewport)
+onMounted(() => window.addEventListener('resize', clampTbx))
+onUnmounted(() => {
+  document.removeEventListener('mousedown', onSegOutside)
+  window.removeEventListener('resize', clampTbx)
+})
 function slotIdx(li, bi, si, k) {
   return (slotStarts.value[`${li}-${bi}-${si}`] ?? 0) + k - 1
 }
@@ -889,6 +950,19 @@ function insertSym(sym) {
   const start = activeInput.selectionStart ?? activeInput.value.length
   const end = activeInput.selectionEnd ?? start
   activeInput.setRangeText(sym, start, end, 'end')
+  activeInput.dispatchEvent(new Event('input', { bubbles: true }))
+  activeInput.focus()
+}
+// dock-space note toolbox: shift the focused NOTE box one octave. jianpu (notation.js): a leading
+// '.' per octave below (".5"), a trailing "'" per octave above ("5'"). dir +1 up / -1 down, one
+// step on the focused note box (activeInput) — same activeInput pattern as insertSym (PM: keep it,
+// do NOT move to NoteBoxes). @mousedown.prevent on the buttons keeps that note box focused.
+function octaveShift(dir) {
+  if (!activeInput || !activeInput.isConnected) return
+  let v = activeInput.value
+  if (dir > 0) v = v.startsWith('.') ? v.slice(1) : v + "'"
+  else v = v.endsWith("'") ? v.slice(0, -1) : '.' + v
+  activeInput.value = v
   activeInput.dispatchEvent(new Event('input', { bubbles: true }))
   activeInput.focus()
 }
@@ -1832,17 +1906,21 @@ const editItems = computed(() => [
   { id: 'stop', kind: 'btn', name: 'หยุด', label: 'หยุด', icon: 'square', danger: true, place: { anchor: 'rightOf:redo', row: 1 }, run: stopAll, hidden: !playing.value },
   // B107 step 9 — the single "เสียงดนตรี" button (audio-lines) → popover with all 4 sound axes,
   // so พี่เปา can switch instrument/style right here (default = ตรงโน้ต for raw note-checking).
-  { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', place: { anchor: 'leftOf:setting', row: 1 } },
+  // dock-space slim: เสียงดนตรี = สลับเครื่อง/สไตล์นาน ๆ ครั้ง → เข้า ⚙ (slot render ใน ⚙ · dev 1cd032c) · ปักกลับได้.
+  { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', default: 'inSetting', pinnable: true },
   { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
   { id: 'save', kind: 'btn', name: saveName.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
-  { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', place: { row: 2, col: 3 }, run: playFull, hidden: playing.value },
-  { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { row: 2, col: 4 } },
+  // dock-space slim (UX presentation · P'Aim: dock กินพื้นที่): ฟังทั้งเพลง = ใช้นาน ๆ ครั้ง →
+  // ย้ายเข้า ⚙ (ยังกดได้ · ปักกลับขึ้นแถบได้) เพื่อลด footprint row 2 · kind:btn → ⚙ render run ปุ่มได้จริง.
+  { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', default: 'inSetting', pinnable: true, run: playFull, hidden: playing.value },
+  // dock-space slim: ดาวน์โหลด = นาน ๆ ครั้ง → เข้า ⚙ (slot render ใน ⚙ · dev 1cd032c) · ปักกลับได้ · row 2 เหลือ save+draft.
+  { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', default: 'inSetting', pinnable: true },
   // issues9 (พี่เปา): บันทึกร่าง used to live in ⚙ (default:'inSetting'), where a `btn` renders no
   // control at all — so pinning it was the ONLY way to get a button that runs ("ทำไมต้องกดปักหมุด
   // ก่อนถึงจะเซฟร่างได้"). It is the most-used command for someone typing in 124 songs, so it has a
   // permanent home on the bar. No `pinnable`: an item with a `place` is already on the bar, and
   // pinning it too would render it twice (single source of action · ui-standards §2).
-  { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', label: 'บันทึกร่าง', icon: 'save', place: { row: 2, col: 5 }, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value },
+  { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', label: 'บันทึกร่าง', icon: 'save', place: { row: 2, col: 3 }, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value },
   { id: 'preview', kind: 'toggle', name: 'ดูผลทั้งเพลง', icon: 'maximize', default: 'inSetting', pinnable: true, control: { value: sheetWinOpen.value, onToggle: () => (sheetWinOpen.value = !sheetWinOpen.value) } },
 ])
 
@@ -2879,7 +2957,25 @@ defineExpose({
             <!-- one column per note: chord on top, note box, then the syllable box
                  directly under its note (edit everything here — no duplicate preview) -->
             <div v-if="!barShown(li, bi)" class="seg-strip">
-              <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col">
+              <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col" @focusin="onSegFocus($event, li, bi, si)">
+                <!-- dock-space merged contextual toolbox (§10): ONE on-selection set per note,
+                     hoisted to .seg-col so it shows in EVERY mode. The selection is STICKY (selSlot
+                     /focusedSeg survive blur → fold/rotate/keyboard-close keep it · SA §7). Groups
+                     are mutually exclusive by what's selected: a NOTE box → octave ▼▲; a SYLLABLE →
+                     ◀▶ align. ⧉/✕ copy·delete the note (bar,si) always. Anchored + 344-clamped by CSS. -->
+                <span v-if="focusedSeg === `${li}-${bi}-${si}`" class="slot-tools" :style="tbxStyle">
+                  <template v-if="selSlot >= 0">
+                    <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(selSlot)">◀</button>
+                    <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(selSlot)">▶</button>
+                  </template>
+                  <template v-else>
+                    <button class="secondary slot-btn" aria-label="ลดเสียงลงหนึ่งช่วงเสียง" title="ลดเสียงลงหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(-1)">▼</button>
+                    <button class="secondary slot-btn" aria-label="เพิ่มเสียงขึ้นหนึ่งช่วงเสียง" title="เพิ่มเสียงขึ้นหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(1)">▲</button>
+                  </template>
+                  <span class="slot-div" aria-hidden="true"></span>
+                  <button class="secondary slot-btn" aria-label="คัดลอกโน้ตนี้" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" @mousedown.prevent @click="duplicateSegment(bar, si)"><Icon name="copy" :size="13" /></button>
+                  <button class="secondary slot-btn slot-del" aria-label="ลบโน้ตนี้" title="ลบโน้ตนี้ (ห้องยังอยู่)" @mousedown.prevent @click="removeSegment(bar, si)">✕</button>
+                </span>
                 <div class="chord-row">
                   <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell">
                     <ComboSelect
@@ -2906,10 +3002,6 @@ defineExpose({
                 <span v-if="lensActive" class="syl-boxes">
                   <span v-for="(cell, bx) in sylCells(li, bi, si, seg.note)" :key="bx" class="syl-slot">
                     <template v-if="cell.slot !== null">
-                      <span v-if="focusedSlot === cell.slot" class="slot-tools">
-                        <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(cell.slot)">◀</button>
-                        <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(cell.slot)">▶</button>
-                      </span>
                       <input
                         class="syl-box"
                         :class="{ 'syl-empty': !cell.held && !sylAt(lensRow, cell.slot), 'syl-held': cell.held }"
@@ -2917,7 +3009,7 @@ defineExpose({
                         :data-slot="cell.slot"
                         :placeholder="cell.held ? '-' : ''"
                         :aria-label="cell.held ? `โน้ตลากเสียง ช่องที่ ${cell.slot + 1} (เว้นว่างได้)` : `พยางค์ที่ ${cell.slot + 1}`"
-                        @focus="focusedSlot = cell.slot"
+                        @focus="focusedSlot = cell.slot; selSlot = cell.slot"
                         @blur="focusedSlot = -1"
                         @keydown="onSylKey($event, cell.slot)"
                         @input="setSyl(lensRow, cell.slot, $event.target.value)"
@@ -2926,13 +3018,7 @@ defineExpose({
                     <span v-else class="syl-spacer" aria-hidden="true"></span>
                   </span>
                 </span>
-                <!-- B098: NOTE-level tools (this ตัวโน้ต only) — คัดลอกโน้ต + ลบโน้ต. The bar-
-                     level twins (คัดลอกห้อง/ลบห้อง) live in the bar foot below, so it is clear
-                     which control acts on one note vs the whole ห้อง. -->
-                <span class="seg-tools">
-                  <button class="secondary tiny seg-copy" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" aria-label="คัดลอกโน้ตนี้" @click="duplicateSegment(bar, si)"><Icon name="copy" :size="13" /></button>
-                  <button class="secondary tiny seg-del" title="ลบโน้ตนี้ (ห้องยังอยู่)" aria-label="ลบโน้ตนี้" @click="removeSegment(bar, si)">✕</button>
-                </span>
+                <!-- note copy/delete moved UP into the hoisted merged toolbox (dock-space §10) -->
               </div>
             </div>
             <!-- ดูผล: the same bar drawn clean (jianpu render) — REPLACES the edit grid, not
@@ -3091,7 +3177,8 @@ defineExpose({
 
     <!-- edit dock — the DockKey engine fed ITEMS_EDIT (แป้นโน้ต band · ย้อน/ทำซ้ำ/ฟัง ·
          บันทึก prime · export/draft/preview in ⚙). Same engine as ฝึกร้อง/แผ่นเพลง. -->
-    <DockKey :items="editItems" store-key="edit" v-model:alpha="editAlpha" :message="saveMsg">
+    <!-- dock-space: auto-hide = เปิด engine hide-on-scroll ที่ dev ทำใน DockKey (คืนพื้นที่ตอนอ่าน/เลื่อน · a11y ปิดเองเมื่อ screen reader) -->
+    <DockKey :items="editItems" store-key="edit" v-model:alpha="editAlpha" :message="saveMsg" :auto-hide="true">
       <template #cell-export="{ open, toggle, close }">
         <ExportTool
           :content="previewContent"
@@ -3323,7 +3410,9 @@ defineExpose({
 /* one bar = a strip of note-columns (chord / notes / syllable) that reads left to
    right; segments wrap only if the bar is very long */
 .seg-strip { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
-.seg-col { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+/* position:relative so the hoisted merged toolbox (.slot-tools, absolute bottom:100%) anchors
+   above THIS note column (dock-space §10) */
+.seg-col { position: relative; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .seg-col :deep(.combo input) { color: var(--chord-red); font-weight: 700; }
 .seg-col :deep(.note-boxes) { flex-wrap: nowrap; }
 /* chord row: one cell above each note box (same 46px + 3px gap so it lines up) */
@@ -3350,10 +3439,7 @@ defineExpose({
 .chord-btn.chord-add:hover { opacity: 1; }
 .chord-pick { position: absolute; left: 0; top: 0; z-index: 20; }
 /* B098: note-level tools (คัดลอกโน้ต + ลบโน้ต) sit together under each note column */
-.seg-tools { display: inline-flex; gap: 4px; align-self: flex-start; }
-.seg-copy { color: var(--muted); padding: 2px 6px; }
-.seg-del { color: var(--muted); padding: 2px 8px; }
-.seg-del:hover { color: var(--red); }
+/* .seg-tools removed — note copy/delete merged into the hoisted .slot-tools toolbox (dock-space §10) */
 /* plain-language "how to" overview card */
 .how-to { background: var(--cream); border-color: var(--brand); }
 .how-to ol { line-height: 1.5; }
@@ -3381,7 +3467,12 @@ defineExpose({
 /* ◀ ▶ align tools float above the focused syllable box, no layout shift */
 .slot-tools {
   position: absolute;
-  bottom: 100%;
+  /* dock-space positioning (UX · P'Aim: toolbox ห่างจากตัวที่เลือก) — anchor เหนือ "โน้ต" (NoteBoxes)
+     ไม่ใช่ยอด .seg-col: .chord-row (min-height 28px + gap 4 = ~32px) อยู่บนสุดดันกล่องลอยสูง.
+     วัดจริง (dispatched focusin): เดิม gapToNote=35 · gapToSyllable=83. ดึงลง 32px → กล่องเกาะเหนือโน้ต
+     (gap ~3-5) + ใกล้พยางค์ขึ้น. 32 = chord-row min-height(28)+gap(4) · ถ้า chord-row สูงขึ้น กล่องยังอยู่
+     เหนือโน้ตเสมอ (32 ≤ chord-row จริง) ไม่ทับ. */
+  bottom: calc(100% - 32px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -3393,9 +3484,24 @@ defineExpose({
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 5;
-  white-space: nowrap;
+  /* dock-space §5 / DS note 1 — contextual toolbox ห้ามล้มจอแคบสุด (Fold ~344): clamp
+     ความกว้างไว้กับ viewport แล้วปุ่มที่เกินเลื่อนแนวนอนในตัว toolbox (icon-only + overflow).
+     รองรับตอนเติม note tools (จุดบน/ล่าง · เขบ็ต · ลบ) เข้ามาโดยไม่ยื่นเลยจอ. */
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-.slot-btn { min-width: 30px; min-height: 26px; padding: 2px 6px; font-size: 12px; }
+.slot-tools::-webkit-scrollbar { display: none; }
+/* dock-space GATE2 (tester CONCERN B): the contextual toolbox holds a DESTRUCTIVE ✕ลบ +
+   octave/copy — a mis-tap deletes a note. Lift from 30×26 (WCAG 2.5.8 minimum, +2px only) to
+   44×44 = the dock's own floor (WCAG 2.5.5 Enhanced / project --touch-min), ✕ลบ included.
+   ≤5 buttons × 44 + gaps ≈ 228px < the 344 clamp (max-width: 100vw-24); more buttons overflow
+   in-toolbox (overflow-x). dev's clampTbx re-measures after render → the wider box re-clamps. */
+.slot-btn { min-width: 44px; min-height: 44px; padding: 4px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
+/* divider ระหว่าง 2 กลุ่มใน contextual toolbox: [◀▶ พยางค์] ┊ [คัดลอก/ลบ โน้ต] */
+.slot-div { width: 1px; align-self: stretch; margin: 2px 2px; background: var(--line); flex: 0 0 auto; }
+.slot-del { color: var(--muted); }
+.slot-del:hover { color: var(--red); }
 /* ===== editor-section-ux: "โครงเพลง" rail rows + canvas section header ===== */
 /* screen-reader-only live region (reorder announcements) */
 .sr-only {
@@ -4621,13 +4727,7 @@ defineExpose({
 @media (hover: hover) {
   .ed-clip-x:hover { border-color: var(--brand); color: var(--brand); }
 }
-/* the note-level tools (คัดลอก/ลบ โน้ต) are quiet until you hover / focus the column */
-.seg-col .seg-tools { opacity: 0; transition: opacity 0.12s; }
-.seg-col:hover .seg-tools,
-.seg-col:focus-within .seg-tools { opacity: 1; }
-@media (hover: none) {
-  .seg-col .seg-tools { opacity: 1; }
-}
+/* (.seg-tools reveal CSS removed — the merged toolbox now reveals via focusedSeg on-selection) */
 .sheet-head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
 .only-print { display: none; }
 @media print {
