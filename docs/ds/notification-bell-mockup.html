@@ -1,0 +1,173 @@
+<title>ระฆังเตือน 🔔 — mockup (badge · จุดใหม่ · คิวรอตรวจ)</title>
+<style>
+  :root{
+    --brand:#8B4513;--bg:#F3ECE1;--card:#FBF7F0;--ink:#2A2320;--muted:#8A7E72;--line:#E4D9C8;
+    --sel:rgba(139,69,19,.12);--shadow:0 8px 26px rgba(60,40,20,.18);--alert:#C0392B;--new:#1E6E4B;
+  }
+  @media (prefers-color-scheme:dark){:root{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;
+    --sel:rgba(214,158,102,.18);--brand:#D69E66;--shadow:0 8px 26px rgba(0,0,0,.55);--alert:#E06A5C;--new:#5FBF92}}
+  :root[data-theme="dark"]{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;
+    --sel:rgba(214,158,102,.18);--brand:#D69E66;--shadow:0 8px 26px rgba(0,0,0,.55);--alert:#E06A5C;--new:#5FBF92}
+  :root[data-theme="light"]{--brand:#8B4513;--bg:#F3ECE1;--card:#FBF7F0;--ink:#2A2320;--muted:#8A7E72;--line:#E4D9C8;--sel:rgba(139,69,19,.12);--shadow:0 8px 26px rgba(60,40,20,.18);--alert:#C0392B;--new:#1E6E4B}
+  *{box-sizing:border-box}body{margin:0}
+  .wrap{font:15px/1.6 system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;color:var(--ink);background:var(--bg);padding:22px 16px 60px;min-height:100%}
+  .inner{max-width:900px;margin:0 auto}
+  .eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:700;margin:0 0 6px}
+  h1{font-size:1.4rem;line-height:1.25;margin:0 0 4px;text-wrap:balance}
+  .sub{color:var(--muted);margin:0 0 16px;font-size:.95rem}
+  .modes{display:inline-flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:14px}
+  .modes button{font:inherit;font-size:.9rem;font-weight:600;border:0;background:transparent;color:var(--muted);padding:8px 16px;border-radius:999px;cursor:pointer;min-height:40px}
+  .modes button[aria-pressed="true"]{background:var(--brand);color:#fff}
+
+  .stage{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;margin:0 auto}
+  .stage.mobile{width:390px;max-width:100%}.stage.desktop{width:100%;max-width:820px}
+  .shell{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--card);position:relative;z-index:5}
+  .shell .logo{font-weight:800;color:var(--brand);font-size:1rem}.shell .sp{flex:1}
+  /* bell */
+  .bell{position:relative;width:44px;height:44px;border:0;background:transparent;color:var(--ink);border-radius:12px;cursor:pointer;font-size:1.35rem;display:inline-flex;align-items:center;justify-content:center}
+  .bell:hover{background:var(--sel)}.bell:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+  .badge{position:absolute;top:3px;right:2px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:var(--alert);color:#fff;
+    font-size:.7rem;font-weight:800;display:none;align-items:center;justify-content:center;border:2px solid var(--card);font-variant-numeric:tabular-nums}
+  .badge.show{display:inline-flex}
+  .newdot{position:absolute;top:5px;right:26px;width:9px;height:9px;border-radius:50%;background:var(--new);border:2px solid var(--card);display:none}
+  .newdot.show{display:block;animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.35);opacity:.7}}
+  .bell.ring{animation:ring .5s ease}
+  @keyframes ring{0%,100%{transform:rotate(0)}20%{transform:rotate(-16deg)}40%{transform:rotate(12deg)}60%{transform:rotate(-8deg)}80%{transform:rotate(4deg)}}
+
+  .body{padding:20px 18px 24px;min-height:220px}
+  .body .hint{font-size:.82rem;color:var(--muted);background:var(--sel);border-radius:9px;padding:10px 12px;margin:0 0 16px}
+  .sim{font:inherit;font-size:.88rem;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--brand);border-radius:10px;padding:10px 16px;cursor:pointer;min-height:44px}
+  .live{font-size:.78rem;color:var(--muted);margin:12px 0 0;min-height:1.3em}
+  .live b{color:var(--ink)}
+
+  /* queue: desktop popover */
+  .queue{position:absolute;z-index:30;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);display:none;flex-direction:column;overflow:hidden}
+  .queue.show{display:flex}
+  .stage.desktop .queue{top:58px;right:12px;width:330px;max-height:340px}
+  .stage.mobile .queue{inset:0;border-radius:0;border:0;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex}
+  .stage.mobile .queue.show{transform:translateY(0)}
+  .qhead{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--line)}
+  .qhead h2{font-size:1rem;margin:0;flex:1}
+  .qdone{font:inherit;font-size:.88rem;font-weight:700;border:0;background:var(--brand);color:#fff;border-radius:9px;padding:8px 14px;cursor:pointer;min-height:40px;display:none}
+  .stage.mobile .qdone{display:inline-block}
+  .qlist{list-style:none;margin:0;padding:8px;overflow:auto;flex:1}
+  .qrow{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px}
+  .qrow:hover{background:var(--sel)}
+  .qrow .ic{color:var(--brand)}.qrow .t{flex:1;font-size:.88rem;line-height:1.3}.qrow .t small{display:block;color:var(--muted);font-size:.76rem}
+  .qrow .go{font:inherit;font-size:.8rem;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--brand);border-radius:8px;padding:7px 12px;cursor:pointer;min-height:38px}
+  .qempty{padding:28px 16px;text-align:center;color:var(--muted);font-size:.88rem}
+
+  .notes{display:grid;grid-template-columns:1fr;gap:12px;margin-top:24px}
+  @media(min-width:680px){.notes{grid-template-columns:1fr 1fr}}
+  .nc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .nc h3{margin:0 0 8px;font-size:1rem}.nc p{margin:0 0 6px;font-size:.88rem;color:var(--muted)}.nc b{color:var(--ink)}
+  .foot{color:var(--muted);font-size:.8rem;margin-top:22px;text-align:center;line-height:1.7}.foot a{color:var(--brand)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap"><div class="inner">
+  <p class="eyebrow">pleng · UX/UI · B108</p>
+  <h1>ระฆังเตือน — “มีเพลงส่งเข้ามารอตรวจ” เห็นเองไม่ต้องถาม</h1>
+  <p class="sub">กดปุ่ม “จำลองส่งเพลงใหม่” → ระฆังสั่น + เลขเพิ่ม + จุดเขียว(ใหม่) · กด 🔔 เปิดคิว → ตรวจ → เลขลด · เปิดคิวแล้วจุด “ใหม่” หาย (เลขยังอยู่จนตรวจจริง)</p>
+
+  <div class="modes" role="group" aria-label="อุปกรณ์">
+    <button id="mMobile" aria-pressed="true">📱 มือถือ (พี่เปา)</button>
+    <button id="mDesktop" aria-pressed="false">🖥️ เดสก์ท็อป</button>
+  </div>
+
+  <div class="stage mobile" id="stage">
+    <div class="shell">
+      <span class="logo">เพลง.พระคำ</span><span class="sp"></span>
+      <button class="bell" id="bell" aria-haspopup="dialog">🔔
+        <span class="newdot" id="newdot" title="มีเพลงใหม่"></span>
+        <span class="badge" id="badge"></span>
+      </button>
+    </div>
+    <div class="body">
+      <p class="hint">คุณคือ <b>พี่เปา (ผู้ตรวจ)</b> · ระฆังจะโชว์เฉพาะผู้ตรวจ · เลข = เพลงที่ทีมส่งมารอตรวจทั้งคลัง</p>
+      <button class="sim" id="sim">➕ จำลองส่งเพลงใหม่เข้ามา</button>
+      <p class="live" id="live" role="status" aria-atomic="true" aria-live="polite">การแจ้งเตือน · 2 เพลงรอตรวจ</p>
+    </div>
+
+    <div class="queue" id="queue" role="dialog" aria-modal="true" aria-label="คิวรอตรวจ">
+      <div class="qhead"><h2>คิวรอตรวจ</h2><button class="qdone" id="qdone">เสร็จ</button></div>
+      <ul class="qlist" id="qlist"></ul>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="nc">
+      <h3>เลข vs จุดเขียว (ทำไมทั้งสอง)</h3>
+      <p><b>เลข</b> = งานจริงที่ยังต้องตรวจ → <b>ลดเมื่อตรวจจริงเท่านั้น</b> (เหลือบเฉย ๆ ไม่หาย)</p>
+      <p><b>จุดเขียว “ใหม่”</b> = มีของเพิ่งเข้ามาตั้งแต่ครั้งก่อน → <b>หายเมื่อเปิดคิวดู</b> (Apple: เคลียร์เมื่อเห็นแล้ว)</p>
+      <p style="font-size:.8rem">M3 Badges (dot=มีใหม่ · number=count) · Apple HIG Notifications</p>
+    </div>
+    <div class="nc">
+      <h3>คนพิการก็รู้ (a11y)</h3>
+      <p>ระฆังมีชื่อพร้อมเลข: <b>“การแจ้งเตือน · 3 เพลงรอตรวจ”</b> — โฟกัสได้ยินเลย</p>
+      <p>เลขเปลี่ยน → โปรแกรมอ่านหน้าจอ<b>อ่านให้เองโดยไม่แย่งโฟกัส</b> (role=status + aria-atomic)</p>
+      <p style="font-size:.8rem">WCAG 4.1.3 Status Messages (AA) · W3C ARIA22</p>
+    </div>
+  </div>
+  <p class="foot">mockup · UX/UI seat · ต่อยอดชิป <code>📨 n รอตรวจ</code> (orientation 2a) · <a href="../us/notification-bell.md">notification-bell.md</a> · <a href="../ux-platform-patterns.md">SOP</a></p>
+</div></div>
+
+<script>
+(function(){
+  var songs=[
+    {id:1,name:'21. เมื่อข้าได้พบพระองค์',by:'โม',days:2,seen:true},
+    {id:2,name:'45. พระคุณพระเจ้า',by:'ปุ๊ก',days:1,seen:true}
+  ];
+  var nextId=3, pool=['ลำธารแห่งชีวิต','ในอ้อมพระหัตถ์','สรรเสริญพระนาม','ความรักมั่นคง','เพลงแห่งความหวัง'];
+  var mode='mobile';
+  var bell=document.getElementById('bell'),badge=document.getElementById('badge'),newdot=document.getElementById('newdot'),
+      queue=document.getElementById('queue'),qlist=document.getElementById('qlist'),live=document.getElementById('live'),
+      stage=document.getElementById('stage');
+
+  function pending(){return songs.length}
+  function hasNew(){return songs.some(function(s){return !s.seen})}
+  function render(){
+    var n=pending();
+    badge.textContent = n>99?'99+':n; badge.classList.toggle('show', n>0);
+    newdot.classList.toggle('show', hasNew());
+    bell.setAttribute('aria-label','การแจ้งเตือน · '+n+' เพลงรอตรวจ'+(hasNew()?' (มีใหม่)':''));
+    live.innerHTML='การแจ้งเตือน · <b>'+n+' เพลงรอตรวจ</b>'+(hasNew()?' · มีเพลงใหม่':'');
+    // queue list
+    qlist.innerHTML = n? songs.map(function(s){
+      return '<li class="qrow"><span class="ic">📄</span><span class="t">'+s.name+
+        '<small>ร่างของ'+s.by+' — รอตรวจ · '+s.days+' วันก่อน</small></span>'+
+        '<button class="go" data-go="'+s.id+'">ตรวจ</button></li>';
+    }).join('') : '<li class="qempty">✓ ไม่มีเพลงค้างตรวจ</li>';
+  }
+  function openQueue(){ songs.forEach(function(s){s.seen=true}); render(); queue.classList.add('show'); }
+  function closeQueue(){ queue.classList.remove('show'); }
+
+  bell.onclick=function(e){ e.stopPropagation(); queue.classList.contains('show')?closeQueue():openQueue(); };
+  document.getElementById('qdone').onclick=closeQueue;
+  document.addEventListener('click',function(e){ if(mode==='desktop'&&queue.classList.contains('show')&&!e.target.closest('#queue')&&!e.target.closest('#bell')) closeQueue(); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeQueue(); });
+
+  qlist.addEventListener('click',function(e){
+    var g=e.target.closest('[data-go]'); if(!g)return;
+    var id=+g.getAttribute('data-go'); songs=songs.filter(function(s){return s.id!==id});
+    render(); live.innerHTML='ตรวจแล้ว 1 เพลง · <b>'+pending()+' เพลงรอตรวจ</b>';
+    if(pending()===0) setTimeout(closeQueue,500);
+  });
+
+  document.getElementById('sim').onclick=function(){
+    var nm=(nextId)+'. '+pool[(nextId)%pool.length];
+    songs.push({id:nextId++,name:nm,by:['โม','ปุ๊ก','แนน'][nextId%3],days:0,seen:false});
+    render(); bell.classList.remove('ring'); void bell.offsetWidth; bell.classList.add('ring');
+  };
+
+  function setMode(m){ mode=m; closeQueue();
+    stage.classList.toggle('mobile',m==='mobile'); stage.classList.toggle('desktop',m==='desktop');
+    document.getElementById('mMobile').setAttribute('aria-pressed',m==='mobile');
+    document.getElementById('mDesktop').setAttribute('aria-pressed',m==='desktop');
+  }
+  document.getElementById('mMobile').onclick=function(){setMode('mobile')};
+  document.getElementById('mDesktop').onclick=function(){setMode('desktop')};
+  render();
+})();
+</script>
