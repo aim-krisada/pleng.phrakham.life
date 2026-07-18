@@ -66,6 +66,21 @@
   @media(min-width:680px){.notes{grid-template-columns:1fr 1fr 1fr}}
   .nc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px}.nc h3{margin:0 0 7px;font-size:.98rem}.nc p{margin:0;font-size:.85rem;color:var(--muted)}.nc b{color:var(--ink)}
   .thesis{background:var(--new-bg);border:1px solid var(--new);border-radius:12px;padding:12px 14px;margin:0 0 14px;font-size:.9rem}.thesis b{color:var(--new)}
+  /* glanceable before/after concept */
+  .concept{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin:0 0 20px}
+  .cf{width:158px}
+  .cframe{width:158px;height:230px;border:3px solid var(--line);border-radius:20px;overflow:hidden;background:var(--card);position:relative;display:flex;flex-direction:column}
+  .csong{flex:1;padding:9px 9px 0;overflow:hidden}
+  .cl{font-size:.62rem;line-height:1.7;color:var(--muted);white-space:nowrap}.cl .n{color:var(--brand);font-weight:700}
+  .cdim{opacity:.35}
+  .cdockbig{border-top:1px solid var(--line);background:var(--sel);padding:6px;display:flex;flex-direction:column;gap:4px}
+  .cdockbig .r{display:flex;gap:4px;justify-content:center}.cdockbig .b{width:22px;height:20px;border-radius:5px;background:var(--card);border:1px solid var(--line)}
+  .cpeek{position:absolute;left:50%;bottom:7px;transform:translateX(-50%);width:34px;height:12px;border-radius:6px;background:var(--card);border:1px solid var(--line);color:var(--muted);font-size:.6rem;text-align:center;line-height:10px}
+  .ctbx{position:absolute;top:64px;left:24px;background:var(--card);border:1px solid var(--sel-line);border-radius:8px;box-shadow:var(--shadow);padding:3px;display:flex;gap:2px}
+  .ctbx .b{width:17px;height:17px;border-radius:4px;background:var(--sel);font-size:.6rem;text-align:center;line-height:17px;color:var(--brand)}
+  .cnote-hl{background:var(--sel);outline:1.5px solid var(--sel-line);border-radius:3px;padding:0 2px}
+  .clabel{font-size:.76rem;text-align:center;padding:8px 4px 0;font-weight:700}.cbad{color:var(--warn)}.cgood{color:var(--new)}
+  .carrow{display:flex;align-items:center;font-size:1.5rem;color:var(--muted)}
   .foot{color:var(--muted);font-size:.8rem;margin-top:22px;text-align:center;line-height:1.6}.foot a{color:var(--brand)}
   @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}}
 </style>
@@ -74,7 +89,40 @@
   <p class="eyebrow">pleng · UX/UI · คืนพื้นที่ editor (root fix)</p>
   <h1>ให้แถบเครื่องมือ “หลบเอง” ไม่ใช่ให้พี่เปามานั่งย่อ</h1>
   <p class="sub">รากปัญหา = dock แย่งพื้นที่เนื้อเพลง · ทางแก้ระดับโลก = แถบ<b>มีเงื่อนไข</b> (โผล่เฉพาะตอนต้องใช้) ไม่ใช่แค่ทำให้เล็กลง</p>
-  <p class="thesis"><b>ลองเอง:</b> ① <b>เลื่อน</b>เนื้อเพลงลง → dock หลบหาย (จอคืนพื้นที่) เลื่อนขึ้น → กลับมา · ② <b>แตะโน้ต/บรรทัด</b> → เครื่องมือโผล่ตรงนั้น · ③ กด <b>“พิมพ์”</b> → แป้นขึ้น dock ซ่อน เครื่องมือเกาะเหนือแป้น</p>
+  <div class="concept">
+    <div class="cf">
+      <div class="cframe">
+        <div class="csong">
+          <div class="cl"><span class="n">1 2 3</span> พระ-เจ้า-ทรง</div>
+          <div class="cl"><span class="n">5 – 3</span> รัก-เรา</div>
+          <div class="cl cdim">···</div>
+        </div>
+        <div class="cdockbig">
+          <div class="r"><span class="b"></span><span class="b"></span><span class="b"></span><span class="b"></span></div>
+          <div class="r"><span class="b"></span><span class="b"></span><span class="b"></span><span class="b"></span></div>
+          <div class="r"><span class="b"></span><span class="b"></span><span class="b"></span></div>
+        </div>
+      </div>
+      <p class="clabel cbad">❌ วันนี้ — แถบกินพื้นที่ แย่งเนื้อเพลง</p>
+    </div>
+    <div class="carrow">→</div>
+    <div class="cf">
+      <div class="cframe">
+        <div class="csong">
+          <div class="cl"><span class="n">1 <span class="cnote-hl">2</span> 3</span> พระ-เจ้า-ทรง</div>
+          <div class="cl"><span class="n">5 – 3</span> รัก-เรา</div>
+          <div class="cl"><span class="n">6 5 3</span> พระ-องค์-ทรง</div>
+          <div class="cl"><span class="n">2 1</span> ดี-งาม</div>
+          <div class="cl"><span class="n">1 2 3</span> ขอ-สรร-เสริญ</div>
+          <div class="cl"><span class="n">5 6</span> พระ-นาม</div>
+        </div>
+        <div class="ctbx"><span class="b">▲</span><span class="b">▼</span><span class="b">♪</span><span class="b">🗑</span></div>
+        <div class="cpeek">⋯</div>
+      </div>
+      <p class="clabel cgood">✅ ใหม่ — แถบหลบเอง · เครื่องมือไปหาโน้ต · จอคืนพื้นที่</p>
+    </div>
+  </div>
+  <p class="thesis"><b>ลองเอง (แตะเล่นได้):</b> ① <b>เลื่อน</b>เนื้อเพลงลง → dock หลบหาย (จอคืนพื้นที่) เลื่อนขึ้น → กลับมา · ② <b>แตะโน้ต/บรรทัด</b> → เครื่องมือโผล่ตรงนั้น · ③ กด <b>“พิมพ์”</b> → แป้นขึ้น dock ซ่อน เครื่องมือเกาะเหนือแป้น</p>
 
   <div class="controls">
     <div class="modes" role="group" aria-label="อุปกรณ์" id="devs">
