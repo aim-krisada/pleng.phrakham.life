@@ -77,6 +77,27 @@
 4. positioning: note ก่อน · bar(`barMenuOpen`)/line(`activeLine`)/section(`activeStanza`) = เฟสถัดไป
 
 **⚠️ บอก UX:** `.seg-tools` วันนี้โชว์ตลอด → contextual = copy/del ซ่อนจนกดโน้ต (behavior change · ตรงเจตนา แต่ให้ P'Aim/UX รู้)
-**verify:** editor data จริง (เพิ่มโน้ต→verse lens→focus syl-box · ⛔ ไม่ verify จอเปล่า) + device-matrix
 
-*dev · engine lane · 2026-07-18 · engine `1cd032c`/`3955a1f`/`27f5d9b`/`e406e29` + 2-host gate `99c9002` · Q1/Q2 ตอบแล้ว · รอ UX template+freeze → PM เคาะ joint pass · ⛔ ไม่ merge เอง*
+---
+
+## 7 · joint-pass DONE — hoisted merged toolbox (`b4dad62` · rebased บน UX `ba18718`)
+
+**⚠️ scroll container — เคลียร์แล้ว (PM correction):** UX เจอ `window.scrollY=0` แต่ syl-box y~1599 → เดาว่า inner scroll · **แต่ = MCP pane scroll ไม่ได้ (env limit · ตรงกับ memory ผม)** ไม่ใช่บั๊ก → **คง `window` listener ตาม SA Q1** · verify scroll-target บนเบราว์เซอร์/มือถือจริง (ไม่ใช่ pane) = tester
+
+**reconcile:** UX ทำ markup (`ba18718` = merge ◀▶+copy/del ลง slot-tools + DEV comment 4 ข้อ) · ผม drop `bfdcee1` (parallel เดิม) แล้ว wire บนของ UX ตาม comment:
+1. **`focusedSeg` (`"li-bi-si"`)** set บน `.seg-col @focusin` (note box **หรือ** syllable · bubble ทั้งคู่) → **hoist toolbox เดียวขึ้น `.seg-col` โผล่ทุกโหมด:** note-entry (copy/del) · lens (◀▶ align focusedSlot + copy/del)
+2. **ลบ** per-syllable `.slot-tools` เดิม + `.seg-tools` แยก (+ dead CSS) → **ไม่มีชุดซ้ำ · copy/del on-selection** (P'Aim เคาะ declutter)
+3. **octave = NoteBoxes child (แยก)** → **ไม่อยู่ pass นี้** (UX comment ข้อ 3 · flag ทำแยก)
+4. **continuity (SA §7):** `focusedSeg` **sticky — ไม่ล้างตอน blur** → พับ/หมุน/ปิดแป้น toolbox+selection อยู่ · ล้างเฉพาะ pointer-down นอก (`onSegOutside`) → **แก้ปัญหา keyboard-loop ที่ผม flag** (blur ไม่ล้าง = ไม่ต้อง refocus)
+- `.seg-col position:relative` anchor toolbox เหนือ note column · overflow-strip slot-tools = ◀▶-only คงเดิม (ไม่มีโน้ตแม่ · UX finding ถูก · **ไม่เพิ่ม note buttons ที่นั่น**)
+
+### verify — jsdom (RELIABLE · pane ขับ focus ไม่ได้ · ดู memory)
+- **`EditorMode.contextual-toolbox.test.js` +5:** ไม่มี `.seg-tools` แล้ว · โฟกัสโน้ต→copy/del (ไม่มี ◀▶) · โฟกัส syllable→◀▶+copy/del · copy ทำงาน (duplicateSegment) · **continuity: blur→toolbox อยู่ · outside pointer→หาย**
+- **note-bar-tools.test.js อัปเดต** (on-selection: focus ก่อน · ปุ่มโน้ต 1 ชุด/เวลา ไม่ใช่ 2) · **733 tests · build ✓** · compile live 200
+
+### flag (ขอ PM/UX)
+- **octave = NoteBoxes child** (UX comment) — **ยังไม่ทำ** · sub-feature แยก (ปุ่ม ↑↓ ใน NoteBoxes · placement = UX design) → **ขอ spec/จ่ายเป็นงานถัดไป**
+- **positioning:** toolbox anchor เหนือ `.seg-col` (บนสุดคอลัมน์) — ตอนแก้ syllable (ล่างสุด) toolbox อยู่บน = ห่าง · **UX จูน CSS ได้** (structure พร้อม)
+- **bar/line/section** = pass ถัดไป · **device-matrix editor = tester GATE2** (จริง ไม่ใช่ pane)
+
+*dev · 2026-07-18 · engine `1a6d27e`/`59763c2`/`b6d9f97`/`932cca5` + 2-host `aa8516e` + joint-pass `b4dad62` · ⛔ ไม่ merge เอง (PM merge dev+ux)*
