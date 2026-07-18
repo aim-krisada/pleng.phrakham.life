@@ -1,0 +1,61 @@
+<!doctype html>
+<!--
+  SPIKE — หน้าฟังตัดสินใจ (สำหรับ P'Aim) · controller = src/spikes/celloListenPage.js
+  ไม่มีปุ่มปรับ — ทุกค่าตั้งไว้ดีที่สุดแล้ว (ค่าที่ P'Aim เคาะ + ตัวแก้ที่วัดมา)
+  เหลือให้หูตัดสินแค่ 2 ข้อ: (ก) เติมเชลโลดีขึ้นหรือรกขึ้น (ข) ชอบเรียบหรือมีสั่นนิ้ว
+  หน้า debug ที่มีปุ่มครบ = /docs/spikes/cello-marcato.html
+-->
+<html lang="th"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🎻 ฟังเทียบ เปียโน + เชลโล</title>
+<style>
+  :root { color-scheme: light dark; --bd:#d8d8de; --mut:#666; --acc:#8a6d1f; --accbg:#f6efd9; --card:#fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bd:#3a3a42; --mut:#9a9aa4; --acc:#d8b45a; --accbg:#2c2712; --card:#1b1b20; } }
+  * { box-sizing: border-box }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0 auto; max-width: 560px;
+         padding: 1.1rem 1rem 3rem; line-height: 1.6; }
+  h1 { font-size: 1.35rem; margin: .2rem 0 .3rem }
+  .songname { color: var(--mut); font-size: .9rem; margin: 0 0 1.2rem }
+  .card { display: flex; align-items: center; gap: .9rem; border: 1px solid var(--bd); border-radius: 16px;
+          padding: 1rem; margin-bottom: .9rem; background: var(--card); transition: border-color .15s; }
+  .card.ref { border-style: dashed }
+  .card.on { border-color: var(--acc); box-shadow: 0 0 0 2px var(--acc) inset }
+  .play { flex: 0 0 auto; width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--acc);
+          background: var(--accbg); color: var(--acc); font-size: 1rem; cursor: pointer;
+          display: flex; align-items: center; justify-content: center; flex-direction: column; line-height: 1; }
+  .play span { font-size: .62rem; margin-top: .1rem }
+  .play:disabled { opacity: .4; cursor: default }
+  .card.on .play { background: var(--acc); color: #fff }
+  .txt b { font-size: 1.05rem }
+  .txt .sub { color: var(--mut); font-size: .85rem; margin-top: .15rem }
+  .warn { color: #b3261e }
+  #log { font-size: .85rem; color: var(--mut); padding: .6rem 0 1rem }
+  .ask { border: 1px solid var(--acc); background: var(--accbg); border-radius: 14px; padding: .9rem 1rem;
+         font-size: .92rem; margin-top: .6rem }
+  .ask h2 { font-size: .95rem; margin: 0 0 .5rem }
+  .ask p { margin: .35rem 0 }
+  .foot { color: var(--mut); font-size: .78rem; margin-top: 1.4rem; border-top: 1px solid var(--bd); padding-top: .8rem }
+  audio { display: none }
+</style></head>
+<body>
+  <h1>🎻 ฟังเทียบ เปียโน + เชลโล</h1>
+  <div class="songname" id="songname">…</div>
+
+  <div id="cards"></div>
+  <div id="log">พร้อม</div>
+
+  <div class="ask">
+    <h2>ฟังแล้วช่วยเคาะ 2 ข้อครับ</h2>
+    <p><b>ก.</b> เติมเชลโลเข้าไป (อันที่ 2/3) — <b>เพราะขึ้น</b> หรือ <b>รกขึ้น</b> เทียบเปียโนเปล่า (อันที่ 1)?</p>
+    <p><b>ข.</b> ถ้าเอาเชลโล — ชอบ <b>เรียบ</b> (อันที่ 2) หรือ <b>มีสั่นนิ้ว</b> (อันที่ 3) มากกว่า?</p>
+  </div>
+
+  <div class="foot">
+    ทั้ง 3 อันใช้เปียโนร่างทองตัวเดียวกัน เพลงเดียวกัน ท่อนเดียวกัน ปรับให้ดังเท่ากันแล้ว — ต่างกันแค่เชลโล ·
+    ค่าเชลโลที่ตั้งไว้ = ที่พี่เอมเคาะเอง (ตัวลาก p · หัว mp 5% · เลื่อน 10ms) + ตัวแก้ "วินาที-14" ·
+    อยากได้ทั้งเพลง (~80 วิ) เติม <code>?full</code> ท้าย URL · อยากปรับเองทีละปุ่มไปที่หน้า debug <code>/docs/spikes/cello-marcato.html</code>
+  </div>
+
+  <script type="module" src="/src/spikes/celloListenPage.js"></script>
+</body></html>
