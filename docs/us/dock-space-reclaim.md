@@ -43,6 +43,8 @@
 | **⭐ continuity** | พับ↔กาง / หมุนจอ = **reflow + คง state** (เนื้อที่พิมพ์ค้าง · dock position · element ที่เลือก) **ห้าม reset** — reflow แบบ 2 เข้าทางนี้พอดี (width เปลี่ยน ปุ่ม repack ไม่ล้างค่า) |
 | safe-area · touch+pointer | `env(safe-area-inset-*)` (dock ล่าง/toolbox ไม่โดน notch/home-indicator บัง) · Fold/tablet มีทั้งนิ้ว+เมาส์ → hover เป็น enhancement เท่านั้น |
 
+> **📌 DS note (PM GATE0 · toolbox ต้อง fit จอแคบสุด):** contextual toolbox **ห้ามล้มจอ 344 (Fold พับ)** — ป้ายข้อความยาว nowrap = ~537px ล้น · **ฟันธง: icon-only + aria-label + overflow ⋯** (Material floating selection: primary icons + More) → mockup verify แล้ว **291px fit ใน 327px @344** · ผูก §10 (เจ้าของ toolbox) + `ux-platform-patterns §5.5`
+
 ---
 
 ## 1 · thesis จากมาตรฐาน — "conditional not smaller" (เปิดของจริง)

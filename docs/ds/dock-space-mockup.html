@@ -38,8 +38,10 @@
   /* contextual toolbox (summon at element) */
   .tbx{position:absolute;z-index:20;display:none;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:4px}
   .tbx.show{display:inline-flex}
-  .tbx button{font:inherit;font-size:.8rem;border:0;background:transparent;color:var(--ink);border-radius:8px;padding:7px 9px;cursor:pointer;min-height:38px;white-space:nowrap}
-  .tbx button:hover{background:var(--sel)}.tbx .tag{font-size:.66rem;color:var(--brand);font-weight:800;padding:0 5px;align-self:center;border-right:1px solid var(--line);margin-right:2px}
+  /* icon-only buttons so the toolbox fits the narrowest screen (Fold 344) — labels via aria */
+  .tbx button{font:inherit;font-size:1.02rem;border:0;background:transparent;color:var(--ink);border-radius:8px;width:40px;height:40px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+  .tbx button:hover{background:var(--sel)}.tbx button.more{color:var(--muted)}
+  .tbx .tag{font-size:.64rem;color:var(--brand);font-weight:800;padding:0 5px;align-self:center;border-right:1px solid var(--line);margin-right:1px}
 
   /* dock (slim essential) — conditional: hides on scroll / keyboard */
   .dock{flex:0 0 auto;display:flex;gap:6px;justify-content:center;align-items:center;padding:9px;border-top:1px solid var(--line);background:var(--card);
@@ -164,7 +166,12 @@
     var el=e.target.closest('.note'); if(!el){ if(sel){sel.classList.remove('sel');sel=null;tbx.classList.remove('show');} return; }
     if(sel) sel.classList.remove('sel'); sel=el; el.classList.add('sel');
     tbx.innerHTML='<span class="tag">'+el.getAttribute('data-el')+'</span>'+
-      '<button>·บน</button><button>·ล่าง</button><button>เขบ็ต</button><button>เอื้อน</button><button>🗑 ลบ</button>';
+      '<button aria-label="ทบเสียงขึ้น (จุดบน)">▲</button>'+
+      '<button aria-label="ทบเสียงลง (จุดล่าง)">▼</button>'+
+      '<button aria-label="เขบ็ต">♪</button>'+
+      '<button aria-label="เอื้อน">⌒</button>'+
+      '<button aria-label="ลบ">🗑</button>'+
+      '<button class="more" aria-label="เพิ่มเติม">⋯</button>';
     tbx.classList.add('show');
     var sr=song.getBoundingClientRect(), r=el.getBoundingClientRect();
     var tw=tbx.offsetWidth, left=r.left-sr.left+song.scrollLeft+r.width/2-tw/2;
