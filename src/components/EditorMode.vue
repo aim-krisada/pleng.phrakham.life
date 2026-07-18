@@ -337,10 +337,38 @@ const focusedSeg = ref('')
 // (not a syllable) is the selection → the toolbox shows octave ▼▲ instead of ◀▶. No refocus is
 // ever forced, so this can't loop with the keyboard-aware hide (the loop PM flagged).
 const selSlot = ref(-1)
+// dock-space anchoring (tester GATE2 concern A): center the toolbox on the FOCUSED note/syllable's
+// x, not the whole segment (a wide melody segment put it up to 335px off). `tbxLeft` = the focused
+// element's centre x relative to its .seg-col (the toolbox's offset parent); `tbxShift` nudges it
+// back on-screen so it never runs off the edge. UX owns the vertical anchor + button CSS; this is
+// only the horizontal x + clamp (inline style overrides just left/transform, not `bottom`).
+const tbxLeft = ref(null)
+const tbxShift = ref(0)
+const tbxStyle = computed(() =>
+  tbxLeft.value == null ? null : { left: `${tbxLeft.value}px`, transform: `translateX(calc(-50% + ${tbxShift.value}px))` },
+)
+function anchorToolbox(el) {
+  const seg = el?.closest?.('.seg-col')
+  if (!el || !seg) return
+  const er = el.getBoundingClientRect(), sr = seg.getBoundingClientRect()
+  tbxLeft.value = er.left + er.width / 2 - sr.left // centre x within the seg-col
+  tbxShift.value = 0
+  nextTick(clampTbx)
+}
+function clampTbx() {
+  const tb = document.querySelector('.slot-tools')
+  if (!tb || tbxLeft.value == null) return
+  const r = tb.getBoundingClientRect(), m = 8
+  let dx = 0
+  if (r.left < m) dx = m - r.left
+  else if (r.right > window.innerWidth - m) dx = window.innerWidth - m - r.right
+  tbxShift.value = Math.round(dx)
+}
 function onSegFocus(e, li, bi, si) {
   focusedSeg.value = `${li}-${bi}-${si}`
   // focus landed on a note box (not a syllable) → note-entry selection, no ◀▶
   if (e.target.classList?.contains('note-box')) selSlot.value = -1
+  anchorToolbox(e.target) // centre the toolbox on the actually-focused element
 }
 function onSegOutside(e) {
   if (!e.target.closest?.('.seg-col') && !e.target.closest?.('.slot-tools')) {
@@ -352,7 +380,12 @@ watch(focusedSeg, (v) => {
   if (v) setTimeout(() => document.addEventListener('mousedown', onSegOutside), 0)
   else document.removeEventListener('mousedown', onSegOutside)
 })
-onUnmounted(() => document.removeEventListener('mousedown', onSegOutside))
+// keep the open toolbox on-screen across rotate/resize (relative x is stable; re-clamp to viewport)
+onMounted(() => window.addEventListener('resize', clampTbx))
+onUnmounted(() => {
+  document.removeEventListener('mousedown', onSegOutside)
+  window.removeEventListener('resize', clampTbx)
+})
 function slotIdx(li, bi, si, k) {
   return (slotStarts.value[`${li}-${bi}-${si}`] ?? 0) + k - 1
 }
@@ -2930,7 +2963,7 @@ defineExpose({
                      /focusedSeg survive blur → fold/rotate/keyboard-close keep it · SA §7). Groups
                      are mutually exclusive by what's selected: a NOTE box → octave ▼▲; a SYLLABLE →
                      ◀▶ align. ⧉/✕ copy·delete the note (bar,si) always. Anchored + 344-clamped by CSS. -->
-                <span v-if="focusedSeg === `${li}-${bi}-${si}`" class="slot-tools">
+                <span v-if="focusedSeg === `${li}-${bi}-${si}`" class="slot-tools" :style="tbxStyle">
                   <template v-if="selSlot >= 0">
                     <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(selSlot)">◀</button>
                     <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(selSlot)">▶</button>

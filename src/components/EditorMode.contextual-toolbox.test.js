@@ -135,6 +135,20 @@ describe('dock-space §10 — one hoisted contextual toolbox per note', () => {
     expect(w.findAll('.seg-col').length).toBe(2) // note duplicated
   })
 
+  // dock-space GATE2 concern A: the toolbox anchors to the FOCUSED element's x (not the segment
+  // centre). jsdom has no layout (getBoundingClientRect = 0) so the pixel value can't be asserted
+  // here — the real-Chrome pixel check is the tester's — but the mechanism must wire: focusing sets
+  // an inline left/transform on the toolbox (anchorToolbox → tbxStyle), not the static CSS left:50%.
+  it('anchoring: focusing a note applies an inline x-position to the toolbox', async () => {
+    const w = mountEd(NOTE_SONG)
+    await nextTick()
+    w.findAll('.note-box')[0].element.focus()
+    await nextTick()
+    const style = w.find('.slot-tools').attributes('style') || ''
+    expect(style).toContain('left') // positioned to the focused element, not CSS left:50%
+    expect(style).toContain('translateX') // includes the clamp-shift transform
+  })
+
   it('continuity: the toolbox SURVIVES a blur (sticky focusedSeg), cleared only by an outside pointer', async () => {
     const w = mountEd(NOTE_SONG)
     await nextTick()
