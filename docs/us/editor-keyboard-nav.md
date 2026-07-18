@@ -38,18 +38,23 @@
 | คีย์ | ทำอะไร | อ้าง (เปิดจริง) |
 |---|---|---|
 | **Tab / Shift+Tab** | โน้ต/พยางค์ ถัดไป/ก่อนหน้า (ข้ามห้อง/บรรทัดเนียน) | Google Sheets (Tab=next field) · form nav สากล |
-| ⭐ **Ctrl+→ / Ctrl+←** | **ห้องถัดไป / ก่อนหน้า** | **MuseScore 4** (`Ctrl+Right`=next measure) **+ Flat.io** (ตรงกัน · [handbook](https://handbook.musescore.org/navigation/navigating-your-score) · [Flat](https://help.flat.io/en/music-notation-software/keyboard-shortcuts/)) |
-| ⭐ **Ctrl+↓ / Ctrl+↑** | **บรรทัดถัดไป / ก่อนหน้า** | ARIA grid (↑↓=แถว) + Ctrl=block-jump ([MDN grid](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles/grid_role)) |
+| ⭐ **Ctrl+→ / Ctrl+←** *(Win/Linux)* | **ห้องถัดไป / ก่อนหน้า** | **MuseScore 4** (`Ctrl+Right`=next measure) **+ Flat.io** (ตรงกัน · [handbook](https://handbook.musescore.org/navigation/navigating-your-score) · [Flat](https://help.flat.io/en/music-notation-software/keyboard-shortcuts/)) |
+| ⭐ **Ctrl+↓ / Ctrl+↑** *(Win/Linux)* | **บรรทัดถัดไป / ก่อนหน้า** | ARIA grid (↑↓=แถว) + Ctrl=block-jump ([MDN grid](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles/grid_role)) |
 | **Home / End** | โน้ตแรก/สุดท้ายของ **ห้อง** ปัจจุบัน | ARIA grid + Sheets (Home/End=ต้น/ท้ายแถว) |
 | **Ctrl+Home / Ctrl+End** | ต้น/ท้าย **เพลง** | grid + Sheets (Ctrl+Home/End=ต้น/ท้ายเอกสาร) |
 | `←→` เปล่า · Space/Enter/… | **คงเดิม** (caret · แยกพยางค์) | ไม่แตะ |
 
 **ทำไม scheme นี้:** (1) **Ctrl+ลูกศร=block-jump** = MuseScore+Flat.io **เห็นตรงกัน** + spreadsheet muscle-memory → ไม่ประดิษฐ์ (2) ทุกคีย์เป็น **non-printable/modifier** → นอกขอบเขต WCAG 2.1.4 (§4) (3) ไม่ชนของเดิม (Space/Enter/Backspace/Delete/Ctrl+Z/Y ครบ)
 
+> **🔴 ข้อจำกัด Mac (SA `5e3f011`):** macOS ยึด `Ctrl+←/→` ไว้สลับ **Spaces** (OS แย่งก่อน browser · `preventDefault` หยุดไม่ได้) → **Ctrl+Arrow jump ตายบน Mac** · **∴ Tab/Shift+Tab = คีย์หลัก cross-platform** (ทำงานทุก OS · ผมให้เป็นหลักอยู่แล้ว) · **Ctrl+Arrow = enhancement เฉพาะ Win/Linux** · **Mac ข้ามห้อง/บรรทัด = ใช้ปุ่มบนจอ (§3) หรือ Tab** → ทุก OS ทำงานได้ ไม่มีใครตกขบวน
+
 ### 2.5 · ⭐ Enter=ยืนยัน · Esc=ยกเลิก (context-scoped · ซ่อมคอร์ด · พี่เปาขอ)
 **บั๊กจริง:** พิมพ์คอร์ด → กด Enter **ไม่ยืนยัน** ต้องเอาเมาส์คลิก = ผิด convention ทุกฟอร์ม/editor
 - **ในตัวแก้คอร์ด (`editingChord`/ComboSelect `:2889`):** **Enter=ยืนยันคอร์ด · Esc=ยกเลิก**
-- **precedent มีในไฟล์เดียวกันแล้ว:** ตัวเปลี่ยนชื่อท่อน (`:2591`) ใช้ `@keydown.enter.prevent="commitRename"` + `@keydown.esc.prevent="cancelRename"` → **คอร์ดควรทำเหมือนกัน (consistency)** · single-source pattern
+- **กลไกจริง (SA `5e3f011` ยืนยัน root cause):**
+  - **Enter = ยืนยันค่าที่พิมพ์** → ComboSelect `allow-custom` (รับค่าที่พิมพ์เอง ไม่ใช่แค่เลือกจาก list) — root cause ที่ Enter ไม่ทำงานวันนี้
+  - **Esc = `@keydown.esc` ที่ `.chord-cell` wrapper** (ปิด `editingChord`) — **⛔ ไม่ใส่ emit ใน ComboSelect** (ComboSelect Esc แค่ revert text + **share 3 ที่** · แตะ = กระทบที่อื่น · ui-standards single-source)
+- **precedent ในไฟล์เดียวกัน:** เปลี่ยนชื่อท่อน (`:2591`) `@keydown.enter="commitRename"` + `@keydown.esc="cancelRename"` = pattern เดียวกัน (wrapper-level · consistency)
 - **Enter = context-scoped (WCAG-safe · active-on-focus):** ในช่องพยางค์=แยกพยางค์(เดิม) · ในตัวแก้คอร์ด=ยืนยัน · ในเปลี่ยนชื่อ=commit → **คนละ focus คนละความหมาย ไม่ชนกัน** (WCAG 2.1.4 "active only on focus")
 - **ทุกอุปกรณ์:** OS keyboard มือถือมี Enter/Done · Esc = desktop (mobile ใช้ปิดแป้น/ปุ่มยกเลิกบนจอ)
 
@@ -93,6 +98,8 @@
 | **C** | cheatsheet (ต่อ "?สัญลักษณ์"/คู่มือเดิม) + tooltip + remap(ถ้าต้องการ) | ค้นพบ/เรียนรู้ |
 
 **ทำไมเรียงงี้:** เฟส A = ปุ่มบนจอ = ครอบ**ทุกอุปกรณ์** (รวมพี่เปา) + เป็น discoverability ให้เฟส B ด้วย → คุ้มสุด · desktop keys ต่อยอดฟังก์ชันเดิม (ไม่ทำใหม่)
+
+**🚧 build lane (SA `5e3f011`):** **focus/nav-band = สายเดียวกับ dock-space** (continuity fix ร่วม · แตะ `EditorMode.vue` ตัวเดียวกัน) → **build ต่อคิวหลัง dock-space ปิด · 1 ไฟล์ 1 สาย** (analysis นี้ read-only)
 
 ---
 
