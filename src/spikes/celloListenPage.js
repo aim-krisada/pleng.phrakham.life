@@ -116,8 +116,10 @@ async function loadSongList() {
 }
 
 const PRESETS = [
+  { id: 'celloSolo', label: '🎻 เชลโลเดี่ยว (ไม่มีเปียโน)', sub: 'ฟังเชลโลล้วน ๆ ให้มั่นใจก่อนรวมวง',
+    cfg: () => ({ ...celloCfg(), pianoRoles: 'none' }) },
+  { id: 'cello', label: '🎹🎻 เปียโน + เชลโล (duo)', sub: 'เสียงรวมวงจริง', cfg: celloCfg },
   { id: 'piano', ref: true, label: '🎹 เปียโนอย่างเดียว', sub: 'เส้นเปรียบเทียบ', cfg: () => ({ variantId: 'none' }) },
-  { id: 'cello', label: '🎻 เปียโน + เชลโล', sub: 'ปรับปุ่มข้างล่าง แล้วกดเล่นอันนี้ซ้ำ', cfg: celloCfg },
 ]
 
 function card(p) {
@@ -158,13 +160,15 @@ async function renderPreset(p) {
   }
 }
 
-const cello = () => PRESETS.find((p) => p.id === 'cello')
 let reRenderReq = 0
-async function reRenderCello() {   // any knob change → stop + rebuild just the cello clip
+async function reRenderCello() {   // any knob change → stop + rebuild the cello clips (solo + duo)
   stopAll()
   const my = ++reRenderReq
   log('กำลังปรับเสียง …')
-  await renderPreset(cello())
+  for (const p of PRESETS.filter((p) => p.id !== 'piano')) {
+    if (my !== reRenderReq) return
+    await renderPreset(p)
+  }
   if (my === reRenderReq) log('พร้อม — กด "เล่น" อันเชลโลเพื่อฟังค่าใหม่')
 }
 
