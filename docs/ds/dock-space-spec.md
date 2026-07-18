@@ -122,4 +122,30 @@
 
 ---
 
-*DRAFT · UX/UI seat · 2026-07-18 · read-only prep (verify โค้ดจริง `DockKey.vue`/`EditorMode.vue`) · **⛔ ไม่แตะไฟล์/build จน PM เคาะ dev+sequence + P'Aim เคาะทิศ** · เมื่อเคาะ → UX pair dev เขียน+build บน branch เดียว*
+---
+
+## 10 · 🔧 Toolbox joint-pass mini-plan (UX+dev · หลัง dev ปิด engine set) — PM req
+
+**สถานะ build (branch `dock-space-ux`):** ✅ playAll slim (`10a3207`) · ✅ fit-344 clamp (`4dd99c5` · render-verified 320px@344) · ✅ soundctl/export slim (`f88e189` · control-render รอ integration) · ⏭️ **contextual toolbox = joint pass นี้**
+
+### เป้า: รวม 2 toolbar ต่อโน้ต → **anchored on-selection toolbox เดียว** (ตัด clutter)
+วันนี้ต่อโน้ตมี **2 ชุดแยก** → รวมเป็นอันเดียวที่โผล่ตอนเลือก:
+| ของเดิม | ไฟล์:บรรทัด | ทำอะไร | ปัญหา |
+|---|---|---|---|
+| `slot-tools` | `EditorMode:2911` · CSS :3384 | ◀▶ pull/push พยางค์ · โผล่ตอน focus (on-selection) · anchored-above · **fit-344 clamp เพิ่มแล้ว** | มีแค่ 2 ปุ่ม |
+| `seg-tools` | `EditorMode:2934` · CSS :3355 | คัดลอกโน้ต/ลบโน้ต · **always-visible บนมือถือ** (media :4631) | **= clutter (โผล่ทุกโน้ตตลอด)** |
+
+→ **รวม:** ย้าย copy/delete จาก seg-tools เข้า slot-tools (บน-selection) · เอา `.seg-tools` always-visible บนมือถือออก → **เครื่องมือโผล่เฉพาะโน้ตที่เลือก = คืนพื้นที่**
+
+### แบ่งงาน joint pass
+- **UX (template/CSS):** markup toolbox รวม (icon-only + aria-label + overflow ⋯) · CSS anchored-above + clamp (มีแล้ว) · จัดปุ่ม note scope (จุดบน/ล่าง · เขบ็ต · เอื้อน · คัดลอก · ลบ)
+- **dev (wire + positioning + engine):** `@click` → ฟังก์ชันที่มีจริง (`pullSlot`/`pushSlot`/`duplicateSegment`/`removeSegment` · octave = `NoteBoxes`) · **ขยาย bar/line/section** (`barMenuOpen`/`activeLine`/`activeStanza`) positioning · keyboard-safe (`onSylKey` ไม่ชน)
+
+### verify (repro state จริง — ผมทดสอบแล้วว่าเข้าถึงได้)
+**อย่า verify จอเปล่า** → ขับ editor เข้าสถานะนี้: (1) พิมพ์โน้ต "1 2 3" ในกล่องโน้ต (2) คลิก verse "ข้อ 1" ในแถบซ้าย (set lens · `.srow.sel`) (3) `.syl-box` โผล่ (4) focus ช่อง → `.slot-tools` render · วัด device-matrix 344/390/690/834/desktop · dev/tester ยืนยัน
+
+### ⚠️ dev flag (จาก 1cd032c): slot item ที่ pin ขึ้นแถบ **และ** อยู่ ⚙ พร้อมกัน = render 2 ที่ — note ให้ tester
+
+---
+
+*UX/UI seat · 2026-07-18 · §0-9 = spec map 1:1 base · §10 = joint-plan · build บน `dock-space-ux` (playAll/clamp/soundctl-export slim เสร็จ · verified) · toolbox = joint pass รอ dev engine set + PM sequence*
