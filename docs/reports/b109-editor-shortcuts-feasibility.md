@@ -59,4 +59,26 @@
 
 ---
 
+## 7 · Enter = ยืนยันคอร์ด (พี่เปา: พิมพ์แล้ว Enter ไม่ยืนยัน ต้องคลิก) — root cause เจอแล้ว
+
+**กลไกปัจจุบัน:** คอร์ดแก้ผ่าน `ComboSelect` (:2886) · commit ทาง `@update:model-value → applyChordAt` (:440) ซึ่ง set `seg.chord` **+ ปิด `editingChord`** (:455) · ComboSelect **มี Enter handler อยู่แล้ว** (`onKeydown` :74)
+
+**🔴 root cause (ยืนยันในโค้ด):** คอร์ด ComboSelect **ไม่ได้ส่ง prop `allow-custom`** (:2886 มีแค่ `:options`) → `allowCustom = false` (default). Enter branch:
+```js
+if (hi >= 0 && filtered[hi]) pick(filtered[hi])            // (a) ต้องกดลูกศร highlight ก่อน
+else if (filtered.length >= 1 && !allowCustom) pick(filtered[0])  // (b) มี match → เลือกตัวแรก
+else if (allowCustom && text.trim()) { emit(text) }        // (c) allowCustom=false → ข้าม
+```
+→ **ถ้าพิมพ์คอร์ดที่ไม่อยู่ใน `chordPickOpts`/`chordOpts` (filtered = 0)** — เช่นคอร์ดทับเบส `G/B` · คอร์ดขยายที่ list ไม่มี · พิมพ์ยังไม่ครบ — **ไม่เข้า branch ไหนเลย → Enter ตาย → ต้องคลิก** (ตรงอาการพี่เปาเป๊ะ)
+
+**fix (build phase · targeted · blast radius = 0):** **เพิ่ม `allow-custom` ที่คอร์ด ComboSelect ตัวเดียว** → Enter เข้า branch (c) → emit ค่าที่พิมพ์ → `applyChordAt` (รับ string อิสระอยู่แล้ว) set + ปิด · **ไม่กระทบ 2 ComboSelect อื่น** (หมวด = ตั้งใจ lock no-custom :179 · song picker Studio = คนละ instance)
+
+**clash check (PM ห่วง Space=next/Enter อื่น):** ✅ **ไม่ชน** — Enter ในช่องคอร์ด (ComboSelect input) กับ Enter ในช่องพยางค์ (`onSylKey`) = **คนละ input** · Space ในช่องคอร์ด = พิมพ์ช่องว่างปกติ ไม่ไป trigger onSylKey (นั่นบนช่องพยางค์) → แยกกันสะอาด
+
+**⚠️ ที่ UX/พี่เปาต้องยืนยัน:** คอร์ด = พิมพ์อิสระได้ (slash/extension) ใช่ไหม → ถ้าใช่ `allow-custom` ถูก · ถ้าอยากล็อกเฉพาะ list = fix คนละแบบ (ให้ Enter จับ exact/closest match แม้ filtered ไม่ได้เรียงตรง) · **SA แนะ allow-custom** (คอร์ดไม่มี finite set · `applyChordAt` เก็บ string อิสระอยู่แล้ว)
+
+**collision:** อยู่ใน `EditorMode.vue` (แก้ template คอร์ด ComboSelect) + อาจไม่แตะ `ComboSelect.vue` เลย (แค่เพิ่ม prop) → **build หลัง dock-space** เหมือน jump · read-only ตอนนี้
+
+---
+
 *verify โค้ดจริง 2026-07-18 · SA (feasibility · read-only) · ฐาน `studio-shell-redesign`*
