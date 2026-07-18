@@ -581,6 +581,11 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   // one note +7 dB over its neighbours). Compress the CELLO melody's per-note level toward its own
   // median (piano keeps its dynamics untouched). 0 = full arranger dynamics; 1 = flat.
   celloEven = 0,
+  // CALL-AND-RESPONSE (18 ก.ค. · P'Aim "ชอบตอนเปียโนกับเชลโลพลัดกันคุยโต้ตอบ"): split the melody into
+  // phrases (by rests) and hand alternate phrases to the PIANO instead of the cello — cello sings a
+  // phrase, piano answers the next, back and forth. 0 = cello sings every phrase (now); 1 = strict
+  // alternation. General (phrase = melody rest, per song), deterministic.
+  trading = 0,
   // G (18 ก.ค.): a warm CHAMBER convolution reverb to put 2-3 m of distance between the mic and the
   // instruments and melt the close-mic bite "for free". 0 = the arranger's default reverb; > 0 = wet
   // amount of the chamber (replaces the default space for BOTH piano and cello, same room).
@@ -630,13 +635,40 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   // pianoRoles: 'all' (D = the deployed sound) | 'accomp' (คลอ, under the cello) | 'melody' | 'none'.
   // 'melody'/'none' exist only for the calibration passes below, not as user-facing modes.
   const roles = pianoRoles || ((!useCello || pianoKeepsMelody) ? 'all' : 'accomp')
+  // CALL-AND-RESPONSE: number the melody phrases (a rest > 0.6 beat starts a new one), then mark the
+  // notes of every other phrase as "piano sings this one". At trading=0 the set is empty (cello sings
+  // all). Deterministic — phrases come straight from the written melody, same in the MP3 and live.
+  const pianoLed = new Set()
+  if (trading > 0 && useCello) {
+    const melAll = perf.filter(isMelody).slice().sort((a, b) => onset(a) - onset(b))
+    // first pass: assign a phrase number to every melody note. A phrase ends at a rest (> 0.5 beat) OR
+    // after ~2 bars (8 beats) — worship melodies are often continuous, so a rest alone finds too few.
+    const phraseOf = new Map()
+    let ph = 0, lastEnd = -Infinity, phStartBeat = null
+    for (const e of melAll) {
+      const on = onset(e)
+      if (phStartBeat === null) phStartBeat = e.startBeat
+      const restBreak = lastEnd > -Infinity && on - lastEnd > 0.5 * spb
+      const lenBreak = e.startBeat - phStartBeat >= 8
+      if (restBreak || lenBreak) { ph++; phStartBeat = e.startBeat }
+      phraseOf.set(e, ph)
+      lastEnd = on + perNoteDur(e)
+    }
+    // choose which of the ODD phrases the piano takes — a golden-ratio sequence gives a well-spread
+    // fraction ≈ trading (deterministic, no rng). trading=1 → every odd phrase; 0.5 → about half.
+    const oddPhrases = [...new Set([...phraseOf.values()].filter((p) => p % 2 === 1))]
+    const pick = new Set(oddPhrases.filter((p, i) => ((i * 0.6180339887) % 1) < trading))
+    for (const e of melAll) if (pick.has(phraseOf.get(e))) pianoLed.add(e)
+  }
+  const pianoLeadsNote = (e) => pianoLed.has(e)
   let resReport = null
   if (roles !== 'none') {
     const piano = await loadInstrument('grand', ctx)     // the SAME loader the app ships
     piano.setDestination(busIn)
     const pianoEvents = roles === 'all' ? perf
       : roles === 'melody' ? perf.filter(isMelody)
-      : perf.filter((e) => !isMelody(e))
+      // accomp + the melody notes of phrases the piano is answering (call-and-response)
+      : perf.filter((e) => !isMelody(e) || pianoLeadsNote(e))
     for (const e of pianoEvents) piano.fire(e.midi + transpose, onset(e), perNoteDur(e), e.gain)
 
     // string resonance: an EXTRA quiet voice under each piano note, exactly as the sfz layers its Res
@@ -723,7 +755,8 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     // turnable, not fixed.
     const shiftMs = bodyShiftMs != null ? bodyShiftMs : (negativeDelay ? (attackMs || 0) : 0)
     const shift = shiftMs / 1000
-    const mel = perf.filter(isMelody)
+    // cello sings every melody note EXCEPT the phrases the piano answers (call-and-response)
+    const mel = perf.filter((e) => isMelody(e) && !pianoLeadsNote(e))
     // schedule the treble taming per note: higher pitch → deeper high-shelf cut, warm low notes → 0.
     // Stepped at each note's (delayed) body onset — the line is monophonic, so a shelf step landing on
     // the attack is inaudible. Deterministic (no rng), so the MP3 matches the live render.

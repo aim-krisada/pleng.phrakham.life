@@ -17,7 +17,7 @@ const log = (m) => { $('#log').textContent = m }
 // live tuning state — starts at the values P'Aim approved / the measured fixes
 const state = {
   songNo: SONG_NO, full: FULL,
-  tame: 8, even: 0.5, vib: VIBRATO.maxDepthCents, head: 0.05, headKind: 'mp', shift: 10, arc: 0, balance: 1,
+  tame: 8, even: 0.5, vib: VIBRATO.maxDepthCents, head: 0.05, headKind: 'mp', shift: 10, arc: 0, trading: 0, balance: 1,
   chamber: 0, vibGain: 0, vibUnsteady: 0, vibBow: 0, vibMin: VIB_MIN_SEC, fileLevel: 1,
   resonance: false, roundRobin: false,
 }
@@ -30,7 +30,7 @@ const celloCfg = () => ({
   vibratoCents: state.vib, vibMinNoteSec: state.vibMin, vibGainDb: state.vibGain,
   vibUnsteady: state.vibUnsteady, vibBowPressure: state.vibBow,
   fileLevelAmount: state.fileLevel, trebleTameDb: state.tame, celloEven: state.even,
-  arcSpreadDb: state.arc, bowRoundRobin: state.roundRobin, pianoResonance: state.resonance,
+  arcSpreadDb: state.arc, trading: state.trading, bowRoundRobin: state.roundRobin, pianoResonance: state.resonance,
   chamberWet: state.chamber,
 })
 
@@ -47,8 +47,10 @@ const KNOBS = [
     min: 0, max: 0.5, step: 0.01, fmt: (v) => v === 0 ? 'ไม่มีหัว' : pct(v) },
   { key: 'shift', label: 'เลื่อนเวลาตัวโน้ต — กันฟังเหมือนช้า', L: 'ตรงบีต', R: 'มาก่อน',
     min: 0, max: 200, step: 5, fmt: (v) => `${v} ms` },
-  { key: 'arc',   label: 'เส้นดัง-ค่อย — มิติทั้งเพลง (ชัดตอนฟังทั้งเพลง)', L: 'เรียบ', R: 'ดัง-ค่อยชัด',
-    min: 0, max: 15, step: 1, fmt: (v) => v === 0 ? 'เรียบ' : `${v} dB` },
+  { key: 'arc',   label: '🌊 เส้นเดินทางอารมณ์ — เบา→ไคลแมกซ์→คลาย (เปิด "ทั้งเพลง" จะชัด)', L: 'แบน (เดิม)', R: 'เดินทางกว้าง',
+    min: 0, max: 15, step: 1, fmt: (v) => v === 0 ? 'แบน (เดิม)' : `${v} dB` },
+  { key: 'trading', label: '💬 พลัดกันโต้ตอบ — เปียโนกับเชลโลผลัดกันร้องวรรค', L: 'เชลโลนำตลอด (เดิม)', R: 'สลับกันมาก',
+    min: 0, max: 1, step: 0.1, fmt: (v) => v === 0 ? 'เชลโลนำตลอด' : `${Math.round(v * 100)}%` },
   { key: 'balance', label: 'ความดังเชลโล (เทียบเปียโน)', L: 'เบา (ให้เปียโนออก)', R: 'ดัง',
     min: 0.08, max: 2.4, step: 0.02, fmt: (v) => v === 1 ? 'ปกติ' : `${(20 * Math.log10(v)).toFixed(1)} dB` },
   { key: 'chamber', label: '🏛 ระยะห่าง/ห้อง (G แนะนำ) — ดันเสียงให้ห่าง ลดความจ่อหู', L: 'ชิด (เดิม)', R: 'ห่าง/อุ่น',
