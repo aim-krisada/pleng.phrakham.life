@@ -1798,6 +1798,90 @@ onMounted(() => {
 })
 onUnmounted(() => window.removeEventListener('keydown', onUndoKeys))
 
+// ---------- B109: keyboard navigation (bar / line / note jumps · all-device) ----------
+// พี่เปา asked to hop across bars (ห้อง) and lines (บรรทัด) from the keyboard. One model, two
+// triggers: desktop = physical keys here; mobile = on-screen buttons (UX) call the SAME jump*
+// functions. All reuses existing plumbing (slotStarts · focusSlot · [data-bar] · lines) — no new
+// data model. Every nav key preventDefaults so the page never scrolls (which would flicker the
+// dock's hide-on-scroll · SA flag). Scheme (US §2, MuseScore/Flat.io + ARIA-grid): Ctrl+←/→ = bar,
+// Ctrl+↑/↓ = line, Home/End = first/last of bar, Ctrl+Home/End = song, Tab/Shift+Tab = note/syllable.
+function currentPos() {
+  const el = document.activeElement
+  const bar = el?.closest?.('[data-bar]')
+  if (!bar) return null
+  const [li, bi] = bar.getAttribute('data-bar').split('-').map(Number)
+  return { li, bi, onSyllable: !!el.classList?.contains('syl-box') }
+}
+// focus the FIRST note/syllable of bar (li,bi), keeping the caller's mode (note vs lyric)
+function focusBar(li, bi, onSyllable) {
+  if (onSyllable) {
+    const slot = slotStarts.value[`${li}-${bi}-0`]
+    if (slot != null) return focusSlot(slot)
+  }
+  nextTick(() => document.querySelector(`[data-bar="${li}-${bi}"] .note-box:not(.add)`)?.focus())
+}
+function jumpBar(dir) {
+  const p = currentPos()
+  if (!p) return
+  const ls = lines.value
+  let { li, bi } = p
+  bi += dir
+  if (bi < 0) { li -= 1; if (li < 0) return; bi = ls[li].bars.length - 1 } // wrap to prev line's last bar
+  else if (bi >= ls[li].bars.length) { li += 1; if (li >= ls.length) return; bi = 0 } // next line's first bar
+  focusBar(li, bi, p.onSyllable)
+}
+function jumpLine(dir) {
+  const p = currentPos()
+  if (!p) return
+  const ls = lines.value
+  const li = p.li + dir
+  if (li < 0 || li >= ls.length) return
+  focusBar(li, 0, p.onSyllable)
+}
+// Tab: next/prev note (or syllable). Syllable slots are a continuous global index, so +1 crosses
+// bars/lines by itself; note boxes move in DOM order. Returns true if focus moved (so the caller
+// only preventDefaults then — at the very edge, native Tab still escapes the editor · no focus trap).
+function jumpNote(dir) {
+  const el = document.activeElement
+  if (el?.classList?.contains('syl-box') && focusedSlot.value >= 0) {
+    const next = document.querySelector(`[data-slot="${focusedSlot.value + dir}"]`)
+    if (next) { focusSlot(focusedSlot.value + dir); return true }
+    return false
+  }
+  const boxes = [...document.querySelectorAll('.ed-strip .note-box:not(.add)')]
+  const next = boxes[boxes.indexOf(el) + dir]
+  if (next) { next.focus(); return true }
+  return false
+}
+// Home/End = first/last of the CURRENT bar; Ctrl+Home/End = first/last of the whole song
+function focusEdge(dir, songWide) {
+  const p = currentPos()
+  const kind = p?.onSyllable ? '.syl-box' : '.note-box:not(.add)'
+  const scope = songWide || !p ? '.ed-strip' : `[data-bar="${p.li}-${p.bi}"]`
+  const boxes = [...document.querySelectorAll(`${scope} ${kind}`)]
+  ;(dir < 0 ? boxes[0] : boxes[boxes.length - 1])?.focus()
+}
+function editorHasFocus() {
+  const el = document.activeElement
+  if (!el?.closest?.('.ed-strip')) return false
+  if (el.closest?.('.chord-pick')) return false // editing a chord → the picker owns its keys
+  return true
+}
+function onNavKeys(e) {
+  if (!editorHasFocus()) return
+  const ctrl = e.ctrlKey || e.metaKey
+  if (ctrl && e.altKey) return // leave OS/other combos alone
+  if (ctrl && e.key === 'ArrowRight') { e.preventDefault(); jumpBar(1) }
+  else if (ctrl && e.key === 'ArrowLeft') { e.preventDefault(); jumpBar(-1) }
+  else if (ctrl && e.key === 'ArrowDown') { e.preventDefault(); jumpLine(1) }
+  else if (ctrl && e.key === 'ArrowUp') { e.preventDefault(); jumpLine(-1) }
+  else if (e.key === 'Home') { e.preventDefault(); focusEdge(-1, ctrl) }
+  else if (e.key === 'End') { e.preventDefault(); focusEdge(1, ctrl) }
+  else if (e.key === 'Tab') { if (jumpNote(e.shiftKey ? -1 : 1)) e.preventDefault() } // no focus trap at edges
+}
+onMounted(() => window.addEventListener('keydown', onNavKeys))
+onUnmounted(() => window.removeEventListener('keydown', onNavKeys))
+
 // ---------- B100: warn before leaving with unsaved edits ----------
 // "ยังไม่บันทึก" (dirty) = the DOCUMENT (meta + opts + stanzas + arrangement — the same
 // docState() the undo history tracks) differs from the last CLEAN checkpoint. A checkpoint
@@ -2977,7 +3061,10 @@ defineExpose({
                   <button class="secondary slot-btn slot-del" aria-label="ลบโน้ตนี้" title="ลบโน้ตนี้ (ห้องยังอยู่)" @mousedown.prevent @click="removeSegment(bar, si)">✕</button>
                 </span>
                 <div class="chord-row">
-                  <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell">
+                  <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell" @keydown.esc="editingChord = null">
+                    <!-- B109: Enter=ยืนยันคอร์ด via allow-custom (accept the typed value, not just a
+                         list pick — root cause Enter did nothing) · Esc=ยกเลิก at the wrapper (closes
+                         editingChord · mirrors the rename pattern · NOT emitted into shared ComboSelect). -->
                     <ComboSelect
                       v-if="chordEditing(li, bi, si, p - 1)"
                       :model-value="p - 1 === 0 ? seg.chord : ''"
@@ -2986,6 +3073,7 @@ defineExpose({
                       aria-label="เลือกคอร์ด"
                       width="120px"
                       class="chord-pick"
+                      allow-custom
                       autofocus
                       @update:model-value="applyChordAt(bar, si, p - 1, $event)"
                     />
