@@ -1,228 +1,270 @@
-<title>DockKey ปรับแต่งได้ — mockup (ขนาด · ชื่อปุ่ม · เลือกปุ่ม)</title>
+<title>DockKey ปรับแต่งได้ — mockup v2 (desktop ลากขอบ · mobile หน้าเต็มจอ)</title>
 <style>
   :root{
     --brand:#8B4513; --brand-2:#A8631F; --bg:#F3ECE1; --card:#FBF7F0; --ink:#2A2320;
-    --muted:#8A7E72; --line:#E4D9C8; --sel:rgba(139,69,19,.12); --shadow:0 6px 22px rgba(60,40,20,.16);
-    --good:#3B7A57; --warn:#B4531A; --btn:44px; --gap:4px; --pad:6px;
+    --muted:#8A7E72; --line:#E4D9C8; --sel:rgba(139,69,19,.12); --shadow:0 8px 26px rgba(60,40,20,.18);
+    --new:#1E6E4B; --new-bg:rgba(30,110,75,.10); --warn:#B4531A; --btn:44px; --gap:5px; --pad:7px;
   }
   @media (prefers-color-scheme:dark){:root{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;
-    --line:#3A3129;--sel:rgba(214,158,102,.18);--brand:#D69E66;--brand-2:#E0B588;--shadow:0 6px 22px rgba(0,0,0,.5)}}
+    --line:#3A3129;--sel:rgba(214,158,102,.18);--brand:#D69E66;--brand-2:#E0B588;
+    --new:#5FBF92;--new-bg:rgba(95,191,146,.14);--shadow:0 8px 26px rgba(0,0,0,.55)}}
   :root[data-theme="dark"]{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;
-    --sel:rgba(214,158,102,.18);--brand:#D69E66;--brand-2:#E0B588;--shadow:0 6px 22px rgba(0,0,0,.5)}
+    --sel:rgba(214,158,102,.18);--brand:#D69E66;--brand-2:#E0B588;--new:#5FBF92;--new-bg:rgba(95,191,146,.14);--shadow:0 8px 26px rgba(0,0,0,.55)}
   :root[data-theme="light"]{--brand:#8B4513;--brand-2:#A8631F;--bg:#F3ECE1;--card:#FBF7F0;--ink:#2A2320;
-    --muted:#8A7E72;--line:#E4D9C8;--sel:rgba(139,69,19,.12);--shadow:0 6px 22px rgba(60,40,20,.16)}
+    --muted:#8A7E72;--line:#E4D9C8;--sel:rgba(139,69,19,.12);--new:#1E6E4B;--new-bg:rgba(30,110,75,.10);--shadow:0 8px 26px rgba(60,40,20,.18)}
   *{box-sizing:border-box} body{margin:0}
   .wrap{font:15px/1.6 system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;color:var(--ink);
     background:var(--bg);padding:22px 16px 60px;min-height:100%}
-  .inner{max-width:920px;margin:0 auto}
+  .inner{max-width:940px;margin:0 auto}
   .eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:700;margin:0 0 6px}
-  h1{font-size:1.45rem;line-height:1.25;margin:0 0 4px;text-wrap:balance;letter-spacing:-.01em}
-  .sub{color:var(--muted);margin:0 0 22px;font-size:.96rem}
+  h1{font-size:1.42rem;line-height:1.25;margin:0 0 4px;text-wrap:balance;letter-spacing:-.01em}
+  .sub{color:var(--muted);margin:0 0 16px;font-size:.95rem}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin:0 0 16px}
+  .legend b{color:var(--ink)} .dotk{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle;margin-right:5px}
+  .k-exist{background:var(--line)} .k-new{background:var(--new)}
 
-  .demo{display:grid;grid-template-columns:1fr;gap:18px}
-  @media(min-width:760px){.demo{grid-template-columns:1fr 320px}}
+  .modes{display:inline-flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:14px}
+  .modes button{font:inherit;font-size:.9rem;font-weight:600;border:0;background:transparent;color:var(--muted);padding:8px 16px;border-radius:999px;cursor:pointer;min-height:40px}
+  .modes button[aria-pressed="true"]{background:var(--brand);color:#fff}
 
-  /* stage with the live dock */
-  .stage{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;
-    display:flex;flex-direction:column;min-height:260px;position:relative;box-shadow:var(--shadow)}
-  .stage .cap{font-size:.78rem;color:var(--muted);margin:0 0 auto}
-  .readout{font-size:.8rem;color:var(--muted);min-height:2.6em;margin:0 0 12px;border-bottom:1px dashed var(--line);padding-bottom:10px}
-  .readout b{color:var(--brand)} .readout code{background:var(--sel);padding:1px 6px;border-radius:5px;color:var(--ink);font-size:.9em}
+  /* editor stage */
+  .stage{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;
+    box-shadow:var(--shadow);overflow:hidden;transition:width .25s;margin:0 auto}
+  .stage.mobile{width:390px;max-width:100%}
+  .stage.desktop{width:100%;max-width:860px}
+  .ed-canvas{padding:18px 18px 90px;min-height:300px;position:relative}
+  .ed-canvas .ln{font-size:1.15rem;letter-spacing:.02em;margin:0 0 12px;color:var(--ink)}
+  .ed-canvas .ln .num{font-weight:600;color:var(--brand);font-variant-numeric:tabular-nums}
+  .ed-canvas .cursor{display:inline-block;width:2px;height:1.1em;background:var(--brand);vertical-align:text-bottom;animation:blink 1s step-end infinite}
+  @keyframes blink{50%{opacity:0}}
+  .ed-note{font-size:.78rem;color:var(--muted);background:var(--sel);border-radius:8px;padding:8px 12px;display:inline-block}
 
-  /* THE DOCK */
-  .dock{align-self:center;background:var(--card);border:1px solid var(--line);border-radius:16px;
-    box-shadow:var(--shadow);padding:var(--pad);display:inline-flex;flex-direction:column;gap:var(--gap);
-    max-width:100%;transition:padding .18s,gap .18s}
-  .drow{display:flex;gap:var(--gap);justify-content:center;flex-wrap:wrap;transition:gap .18s}
-  .db{min-width:var(--btn);height:var(--btn);border:0;background:transparent;color:var(--brand);
-    border-radius:11px;cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;
-    justify-content:center;gap:2px;padding:0 6px;transition:width .18s,height .18s;position:relative}
-  .db:hover{background:var(--sel)} .db:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
-  .db .ic{font-size:1.15rem;line-height:1}
-  .db .nm{font-size:.66rem;color:var(--muted);white-space:nowrap;display:none;line-height:1}
-  .dock.names .db .nm{display:block}
-  .dock.names .db{min-width:calc(var(--btn) + 14px)}
-  .db.prime{background:var(--brand);color:#fff;min-width:calc(var(--btn) + 30px)}
-  .db.prime .nm{color:rgba(255,255,255,.85)}
+  /* THE DOCK (existing features shown) */
+  .dockwrap{position:absolute;left:0;right:0;bottom:14px;display:flex;justify-content:center;pointer-events:none}
+  .dock{pointer-events:auto;position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);padding:var(--pad);display:inline-flex;flex-direction:column;gap:var(--gap);max-width:calc(100% - 20px);transition:padding .15s,gap .15s}
+  .drow{display:flex;gap:var(--gap);justify-content:center;flex-wrap:wrap}
+  .db{min-width:var(--btn);height:var(--btn);border:0;background:transparent;color:var(--brand);border-radius:11px;cursor:pointer;
+    display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0 6px;position:relative;transition:width .15s,height .15s}
+  .db:hover{background:var(--sel)} .db .ic{font-size:1.12rem;line-height:1}
+  .db .nm{font-size:.62rem;color:var(--muted);white-space:nowrap;display:none;line-height:1}
+  .dock.names .db .nm{display:block} .dock.names .db{min-width:calc(var(--btn) + 12px)}
+  .db.prime{background:var(--brand);color:#fff;min-width:calc(var(--btn) + 26px)}
   .db.sel-ref{outline:2px solid var(--brand);outline-offset:2px;background:var(--sel)}
+  /* desktop resize handle (NEW) */
+  .rz{position:absolute;top:-9px;right:-9px;width:26px;height:26px;border-radius:50%;background:var(--new);color:#fff;
+    border:2px solid var(--card);cursor:nwse-resize;display:none;align-items:center;justify-content:center;font-size:.8rem;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+  .stage.desktop .rz{display:inline-flex}
+  .rz::after{content:"⤡"}
 
-  /* settings panel */
-  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
-  .panel h2{font-size:.82rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:700}
-  .panel section{padding:12px 0;border-top:1px solid var(--line)}
-  .panel section:first-of-type{border-top:0;padding-top:0}
-  .lbl{font-size:.9rem;font-weight:600;margin:0 0 8px;display:flex;align-items:center;gap:6px}
+  /* desktop inline settings popover */
+  .pop{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);width:300px;max-width:92vw;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:14px;display:none;z-index:20}
+  .pop.show{display:block}
+
+  /* mobile full-screen settings overlay (NEW) */
+  .sheet{position:absolute;inset:0;background:var(--card);z-index:40;transform:translateY(100%);
+    transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+  .sheet.up{transform:translateY(0)}
+  .sheet-top{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .sheet-top h2{font-size:1.05rem;margin:0;flex:1}
+  .sheet-done{font:inherit;font-size:.92rem;font-weight:700;border:0;background:var(--brand);color:#fff;border-radius:10px;padding:9px 18px;cursor:pointer;min-height:44px}
+  .sheet-body{padding:8px 16px 24px;overflow:auto;flex:1}
+
+  /* shared settings controls */
+  .setsec{padding:14px 0;border-top:1px solid var(--line)}
+  .setsec:first-child{border-top:0}
+  .setlbl{font-size:.88rem;font-weight:600;margin:0 0 9px;display:flex;align-items:center;gap:7px}
+  .tag-new{font-size:.6rem;font-weight:800;letter-spacing:.05em;color:var(--new);background:var(--new-bg);border-radius:5px;padding:2px 6px;text-transform:uppercase}
   .seg{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;width:100%}
-  .seg button{flex:1;font:inherit;font-size:.82rem;font-weight:600;border:0;background:transparent;color:var(--muted);
-    padding:8px 4px;border-radius:8px;cursor:pointer;min-height:40px}
+  .seg button{flex:1;font:inherit;font-size:.82rem;font-weight:600;border:0;background:transparent;color:var(--muted);padding:9px 4px;border-radius:8px;cursor:pointer;min-height:42px}
   .seg button[aria-pressed="true"]{background:var(--brand);color:#fff}
-  .seg small{display:block;font-size:.66rem;font-weight:500;opacity:.8}
-
-  .switchrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .switchrow .txt{font-size:.9rem;font-weight:600}
-  .switchrow .txt small{display:block;font-size:.74rem;color:var(--muted);font-weight:400}
+  .seg small{display:block;font-size:.64rem;font-weight:500;opacity:.8}
+  .swrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .swrow .t{font-size:.9rem;font-weight:600}.swrow .t small{display:block;font-size:.72rem;color:var(--muted);font-weight:400}
   .sw{width:46px;height:26px;border:0;border-radius:13px;background:#c9c0b3;position:relative;cursor:pointer;flex:0 0 auto;transition:background .15s}
-  .sw[aria-checked="true"]{background:var(--brand)}
-  .sw::after{content:"";position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;
-    box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+  .sw[aria-checked="true"]{background:var(--brand)} .sw::after{content:"";position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
   .sw[aria-checked="true"]::after{left:22px}
-
   .picker{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
-  .picker li{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px;background:var(--bg);font-size:.86rem}
-  .picker .pi{color:var(--brand);font-size:1rem;width:20px;text-align:center}
-  .picker .pn{flex:1}
-  .picker .pid{font-size:.7rem;color:var(--muted);font-family:ui-monospace,monospace}
-  .picker .pin{font:inherit;font-size:.9rem;border:1px solid var(--line);background:var(--card);color:var(--brand);
-    border-radius:8px;width:32px;height:32px;cursor:pointer}
-  .picker li.off{opacity:.55} .picker li.off .pin{color:var(--muted)}
-  .picker li.locked .pin{opacity:.3;cursor:not-allowed}
-  .reset{margin-top:12px;width:100%;font:inherit;font-size:.86rem;font-weight:600;border:1px solid var(--line);
-    background:transparent;color:var(--warn);border-radius:10px;padding:10px;cursor:pointer;min-height:44px}
-  .reset:hover{background:var(--sel)}
+  .picker li{display:flex;align-items:center;gap:8px;padding:8px;border-radius:9px;background:var(--bg);font-size:.85rem}
+  .picker .pi{color:var(--brand);width:18px;text-align:center}.picker .pn{flex:1}.picker .pid{font-size:.68rem;color:var(--muted);font-family:ui-monospace,monospace}
+  .picker .mv,.picker .pin{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--brand);border-radius:7px;min-width:30px;height:30px;cursor:pointer}
+  .picker li.off{opacity:.5}.picker li.locked .pin{opacity:.3}
+  .reset{margin-top:10px;width:100%;font:inherit;font-size:.86rem;font-weight:600;border:1px solid var(--line);background:transparent;color:var(--warn);border-radius:10px;padding:11px;cursor:pointer;min-height:44px}
+  .readout{font-size:.78rem;color:var(--muted);margin:8px 0 0;min-height:1.4em}.readout code{background:var(--sel);padding:1px 6px;border-radius:5px;color:var(--ink)}
 
-  /* explainer cards */
-  .notes{display:grid;grid-template-columns:1fr;gap:12px;margin-top:26px}
+  .notes{display:grid;grid-template-columns:1fr;gap:12px;margin-top:24px}
   @media(min-width:680px){.notes{grid-template-columns:1fr 1fr}}
-  .ncard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
-  .ncard.hero{border-left:4px solid var(--brand)}
-  .ncard h3{margin:0 0 8px;font-size:1rem}
-  .ncard p{margin:0;font-size:.9rem;color:var(--muted)} .ncard b{color:var(--ink)}
-  .four{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
-  .four li{font-size:.78rem;background:var(--sel);color:var(--ink);border-radius:7px;padding:4px 9px}
-  .foot{color:var(--muted);font-size:.8rem;margin-top:22px;text-align:center;line-height:1.7}
-  .foot a{color:var(--brand)}
-  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+  .nc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .nc h3{margin:0 0 8px;font-size:1rem}.nc p{margin:0 0 6px;font-size:.88rem;color:var(--muted)}.nc b{color:var(--ink)}
+  .nc ul{margin:6px 0 0;padding-left:18px;font-size:.86rem;color:var(--muted)}
+  .foot{color:var(--muted);font-size:.8rem;margin-top:22px;text-align:center;line-height:1.7}.foot a{color:var(--brand)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}.cursor{animation:none}}
 </style>
 
 <div class="wrap"><div class="inner">
-  <p class="eyebrow">pleng · UX/UI · DockKey หน้าแก้ไข</p>
-  <h1>แถบเครื่องมือปรับแต่งได้ — เลือกปุ่ม · ย่อขนาด · เรียกชื่อได้</h1>
-  <p class="sub">เลื่อน “ขนาดแถบ” เห็นแถบย่อสด · เปิด “แสดงชื่อปุ่ม” เห็นชื่อไทยทุกปุ่ม · ปัก/ถอนปุ่มว่าจะโชว์ตัวไหน · แตะปุ่มบนแถบเพื่อดู “ชื่ออ้างอิง + id”</p>
+  <p class="eyebrow">pleng · UX/UI · DockKey หน้าแก้ไข · v2</p>
+  <h1>แถบเครื่องมือ — ปรับขนาดตามใจ + ตั้งค่าถูกท่าตามอุปกรณ์</h1>
+  <p class="sub">สลับ 📱/🖥️ แล้วกดปุ่ม ⚙ ในแถบ — จะเห็นว่ามือถือกับเดสก์ท็อป “ตั้งค่า” คนละท่า (ตามที่พี่เอมเคาะ)</p>
+  <p class="legend"><span><span class="dotk k-exist"></span><b>ของเดิมมีแล้ว</b> (ปัก · ▲▼ · ตั้งค่าในตัว · ย่อแถบ)</span><span><span class="dotk k-new"></span><b>ใหม่จริง</b> (ลากขอบ · หน้าเต็มจอมือถือ · แสดงชื่อ · คืนค่า)</span></p>
 
-  <div class="demo">
-    <div class="stage">
-      <p class="cap">แถบเครื่องมือ (ตัวอย่างหน้าแก้ไข)</p>
-      <p class="readout" id="readout">แตะปุ่มบนแถบ เพื่อดูชื่ออ้างอิงที่ทั้งทีมใช้เรียก + id สำหรับ dev/test</p>
-      <div class="dock" id="dock"></div>
-    </div>
+  <div class="modes" role="group" aria-label="อุปกรณ์">
+    <button id="mMobile" aria-pressed="true">📱 มือถือ (พี่เปา)</button>
+    <button id="mDesktop" aria-pressed="false">🖥️ เดสก์ท็อป</button>
+  </div>
 
-    <div class="panel">
-      <h2>⚙ ตั้งค่าแถบ</h2>
-      <section>
-        <p class="lbl">ขนาดแถบ</p>
-        <div class="seg" id="segSize" role="group" aria-label="ขนาดแถบ">
-          <button data-size="44" aria-pressed="true">กะทัดรัด<small>44px</small></button>
-          <button data-size="48" aria-pressed="false">สบาย<small>48px</small></button>
-          <button data-size="56" aria-pressed="false">ใหญ่<small>56px</small></button>
-        </div>
-      </section>
-      <section>
-        <div class="switchrow">
-          <span class="txt">แสดงชื่อปุ่ม<small>ชื่อไทย = ป้าย = ที่ทีมใช้เรียก</small></span>
-          <button class="sw" id="swNames" role="switch" aria-checked="false" aria-label="แสดงชื่อปุ่ม"></button>
-        </div>
-      </section>
-      <section>
-        <p class="lbl">ปุ่มที่แสดงบนแถบ</p>
-        <ul class="picker" id="picker"></ul>
-        <button class="reset" id="reset">↺ คืนค่าเริ่มต้น</button>
-      </section>
+  <div class="stage mobile" id="stage">
+    <div class="ed-canvas">
+      <p class="ln"><span class="num">1 2 3</span> พระ-เจ้า-ทรง &nbsp; <span class="num">5 – 3</span> รัก-เรา<span class="cursor"></span></p>
+      <p class="ln"><span class="num">6 5 3</span> พระ-องค์-ทรง &nbsp; <span class="num">2 1</span> ดี-งาม</p>
+      <p class="ed-note">📱 มือถือ: กด ⚙ → เปิด<b>หน้าเต็มจอ</b> · กด “เสร็จ” กลับมาที่เดิม (เคอร์เซอร์ยังอยู่จุดเดิม)</p>
+
+      <!-- dock -->
+      <div class="dockwrap"><div class="dock" id="dock">
+        <div class="rz" id="rz" title="ลากเพื่อย่อ/ขยายแถบ (เดสก์ท็อป)" aria-label="ลากปรับขนาดแถบ"></div>
+        <!-- desktop inline settings -->
+        <div class="pop" id="pop"></div>
+      </div></div>
+
+      <!-- mobile full-screen settings -->
+      <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="ตั้งค่าแถบเครื่องมือ">
+        <div class="sheet-top"><h2>ตั้งค่าแถบเครื่องมือ</h2><button class="sheet-done" id="sheetDone">เสร็จ</button></div>
+        <div class="sheet-body" id="sheetBody"></div>
+      </div>
     </div>
   </div>
 
   <div class="notes">
-    <div class="ncard hero">
-      <h3>⭐ 1 ชื่อ = 4 หน้าที่ (ระบบชื่ออ้างอิง)</h3>
-      <p>ทุกปุ่มมี <b>ชื่อไทยเดียว</b> ที่เป็นทั้ง —</p>
-      <ul class="four"><li>ป้ายบนปุ่ม</li><li>ชื่อที่ทีมเรียก</li><li>accessible-name (a11y)</li><li>tooltip</li></ul>
-      <p style="margin-top:8px">+ <b>id</b> (ascii คงที่) แยกไว้สำหรับ code/test → พี่เปาพูด “ปุ่มฟังท่อน” ทุกคนรู้ว่า <code style="font-family:ui-monospace">play</code> ไม่ต้อง capture จอ</p>
+    <div class="nc">
+      <h3>ทำไมมือถือ ≠ เดสก์ท็อป (SOP)</h3>
+      <p><b>เดสก์ท็อป (เมาส์):</b> ตั้งค่าเปิดข้างแถบ + <b>ลากขอบย่อ</b>ได้ (จุดเขียวมุมขวาบน)</p>
+      <p><b>มือถือ (นิ้ว):</b> ⚙ เปิด<b>หน้าเต็มจอ</b> เลือกเสร็จกด “เสร็จ” กลับจุดเดิม — เพราะ popup ลอยบนจอเล็กคับ + นิ้วลากขอบเล็งยาก</p>
+      <p style="font-size:.8rem">อ้าง: Material full-screen dialog · Apple Dynamic Type · NN/g (touch ไม่มี hover)</p>
     </div>
-    <div class="ncard">
-      <h3>ทำไม “ขนาด = ตั้งค่า” ไม่ใช่ลากขอบ</h3>
-      <p>บนมือถือ ลากมุมย่อ = เล็งยาก. <b>Apple Dynamic Type</b> + <b>Material density</b> ทำ “ขนาด = ตัวเลือกในตั้งค่า” ให้ UI ปรับตาม — เราจึงใช้ 3 ระดับ. default <b>กะทัดรัด 44px</b> (เดิม 50px ใหญ่ไป) ยังผ่าน Apple HIG 44pt.</p>
+    <div class="nc">
+      <h3>“ใหญ่ไป” = กินพื้นที่จอ → ลด footprint</h3>
+      <ul>
+        <li>ปุ่มเดิม <b>44px อยู่แล้ว</b> (ย่อต่ำกว่านี้ไม่ได้ · มาตรฐานนิ้ว)</li>
+        <li>ลดที่ = <b>โชว์ปุ่มน้อยลง</b> (เก็บในตั้งค่า) + preset กะทัดรัด + <b>ลากขอบ/ย่อแถบ</b></li>
+        <li>⭐ <b>แสดงชื่อปุ่ม</b> + <b>ชื่ออ้างอิง</b> = แก้ pain สื่อสารพี่เปา (แตะปุ่มดู id)</li>
+      </ul>
     </div>
   </div>
-
-  <p class="foot">
-    mockup ออกแบบ · UX/UI seat · Photoshop Edit Toolbar (เลือกปุ่ม 2 คอลัมน์) · VS Code (id↔ชื่อ แยกชั้น · ซ่อน≠ลบ) · Apple Dynamic Type · WCAG 2.5.3 Label in Name<br>
-    รายละเอียด+อ้างอิง: <a href="../us/dockkey-config.md">dockkey-config.md</a>
-  </p>
+  <p class="foot">mockup v2 · UX/UI seat · ยึด <a href="../ux-platform-patterns.md">ux-platform-patterns.md</a> (SOP) · <a href="../us/dockkey-config.md">dockkey-config.md</a></p>
 </div></div>
 
 <script>
 (function(){
   var DEFAULT=[
-    {id:'grip',   name:'ที่จับ/ย่อ', ic:'⋮⋮', on:true,  lock:true},
-    {id:'undo',   name:'ย้อน',       ic:'↶',  on:true,  lock:false},
-    {id:'redo',   name:'ทำซ้ำ',      ic:'↷',  on:true,  lock:false},
-    {id:'play',   name:'ฟังท่อน',    ic:'▶',  on:true,  lock:false},
-    {id:'save',   name:'บันทึก/ส่งตรวจ', ic:'✈', on:true, lock:false, prime:true},
-    {id:'playAll',name:'ฟังทั้งเพลง', ic:'⏵', on:true,  lock:false},
-    {id:'scale',  name:'ขนาดตัวอักษร', ic:'Aa', on:true, lock:true},
-    {id:'setting',name:'ตั้งค่า',     ic:'⚙',  on:true,  lock:true},
-    {id:'draft',  name:'บันทึกร่าง',  ic:'💾', on:false, lock:false},
-    {id:'download',name:'ดาวน์โหลด',  ic:'⬇', on:false, lock:false},
-    {id:'preview',name:'ดูผลทั้งเพลง', ic:'👁', on:false, lock:false}
+    {id:'grip',name:'ที่จับ/ย่อ',ic:'⋮⋮',on:true,lock:true},
+    {id:'undo',name:'ย้อน',ic:'↶',on:true,lock:false},
+    {id:'redo',name:'ทำซ้ำ',ic:'↷',on:true,lock:false},
+    {id:'play',name:'ฟังท่อน',ic:'▶',on:true,lock:false},
+    {id:'save',name:'บันทึก/ส่งตรวจ',ic:'✈',on:true,lock:false,prime:true},
+    {id:'scale',name:'ขนาดตัวอักษร',ic:'Aa',on:true,lock:true},
+    {id:'setting',name:'ตั้งค่า',ic:'⚙',on:true,lock:true},
+    {id:'playAll',name:'ฟังทั้งเพลง',ic:'⏵',on:false,lock:false},
+    {id:'draft',name:'บันทึกร่าง',ic:'💾',on:false,lock:false},
+    {id:'download',name:'ดาวน์โหลด',ic:'⬇',on:false,lock:false},
+    {id:'preview',name:'ดูผลทั้งเพลง',ic:'👁',on:false,lock:false}
   ];
   var state=JSON.parse(JSON.stringify(DEFAULT));
-  var dock=document.getElementById('dock'), picker=document.getElementById('picker'),
-      readout=document.getElementById('readout'), root=document.documentElement;
-  var showNames=false, selRef=null;
+  var mode='mobile', showNames=false, selRef=null, size=44;
+  var stage=document.getElementById('stage'),dock=document.getElementById('dock'),pop=document.getElementById('pop'),
+      sheet=document.getElementById('sheet'),sheetBody=document.getElementById('sheetBody'),root=document.documentElement;
 
   function renderDock(){
     dock.classList.toggle('names',showNames);
-    dock.innerHTML='';
+    // remove old rows but keep rz + pop
+    [].slice.call(dock.querySelectorAll('.drow')).forEach(function(r){r.remove()});
     var on=state.filter(function(b){return b.on});
-    // split: chrome row (grip..setting) + prime/playAll row for realism
-    var rowMain=document.createElement('div'); rowMain.className='drow';
-    var rowTop=document.createElement('div'); rowTop.className='drow';
+    var row=document.createElement('div'); row.className='drow';
     on.forEach(function(b){
       var el=document.createElement('button');
       el.className='db'+(b.prime?' prime':'')+(selRef===b.id?' sel-ref':'');
-      el.setAttribute('data-cell',b.id);
-      el.setAttribute('aria-label',b.name);
-      el.setAttribute('title',b.name);
+      el.setAttribute('data-cell',b.id); el.setAttribute('aria-label',b.name); el.title=b.name;
       el.innerHTML='<span class="ic">'+b.ic+'</span><span class="nm">'+b.name+'</span>';
-      el.onclick=function(e){ e.stopPropagation(); selRef=b.id; renderDock();
-        readout.innerHTML='ชื่ออ้างอิง: <b>'+b.name+'</b> · id (code/test): <code>'+b.id+'</code> — พี่เปาพูดชื่อไทย · dev/test ใช้ id';
+      el.onclick=function(e){ e.stopPropagation();
+        if(b.id==='setting'){ openSettings(); return; }
+        selRef=b.id; renderDock(); setReadout(b);
       };
-      (b.prime||b.id==='playAll'?rowTop:rowMain).appendChild(el);
+      row.appendChild(el);
     });
-    if(rowTop.children.length) dock.appendChild(rowTop);
-    dock.appendChild(rowMain);
+    dock.insertBefore(row, pop); // rows before pop/rz in flow (column)
   }
-  function renderPicker(){
-    picker.innerHTML='';
-    state.forEach(function(b){
-      var li=document.createElement('li');
-      li.className=(b.on?'':'off')+(b.lock?' locked':'');
-      li.innerHTML='<span class="pi">'+b.ic+'</span><span class="pn">'+b.name+'</span>'+
-        '<span class="pid">'+b.id+'</span>'+
-        '<button class="pin" title="'+(b.on?'ถอนออกจากแถบ':'ปักขึ้นแถบ')+'">'+(b.lock?'🔒':(b.on?'📌':'＋'))+'</button>';
-      var btn=li.querySelector('.pin');
-      if(!b.lock) btn.onclick=function(){ b.on=!b.on; renderDock(); renderPicker(); };
-      picker.appendChild(li);
-    });
+  function setReadout(b){
+    var r=document.getElementById('roRef'); if(r) r.innerHTML='ชื่ออ้างอิง: <b>'+b.name+'</b> · id: <code>'+b.id+'</code>';
   }
-  // size
-  document.getElementById('segSize').addEventListener('click',function(e){
-    var b=e.target.closest('button[data-size]'); if(!b) return;
-    [].forEach.call(this.children,function(c){c.setAttribute('aria-pressed', c===b)});
-    var s=+b.getAttribute('data-size');
-    root.style.setProperty('--btn',s+'px');
-    root.style.setProperty('--gap', s<=44?'4px':s<=48?'6px':'8px');
-    root.style.setProperty('--pad', s<=44?'6px':s<=48?'8px':'10px');
-  });
-  // names
-  var sw=document.getElementById('swNames');
-  sw.onclick=function(){ showNames=!showNames; sw.setAttribute('aria-checked',showNames); renderDock(); };
-  // reset
-  document.getElementById('reset').onclick=function(){
-    state=JSON.parse(JSON.stringify(DEFAULT)); selRef=null; renderDock(); renderPicker();
-    readout.innerHTML='คืนค่าเริ่มต้นแล้ว · แตะปุ่มเพื่อดูชื่ออ้างอิง + id';
-  };
-  document.addEventListener('click',function(e){ if(!e.target.closest('.db')&&selRef){selRef=null;renderDock();} });
 
-  renderDock(); renderPicker();
+  function settingsHTML(){
+    var pins=state.filter(function(b){return b.on && !b.lock});
+    var list=state.map(function(b){
+      return '<li class="'+(b.on?'':'off')+(b.lock?' locked':'')+'">'+
+        '<span class="pi">'+b.ic+'</span><span class="pn">'+b.name+'</span><span class="pid">'+b.id+'</span>'+
+        (b.on&&!b.lock?'<button class="mv" data-mv="'+b.id+'" aria-label="เลื่อน">↕</button>':'')+
+        '<button class="pin" data-pin="'+b.id+'"'+(b.lock?' disabled':'')+'>'+(b.lock?'🔒':(b.on?'📌':'＋'))+'</button></li>';
+    }).join('');
+    return ''+
+    '<div class="setsec"><p class="setlbl">ขนาดแถบ <span class="tag-new">มือถือ=เลือก</span></p>'+
+      '<div class="seg" id="segSize">'+
+        '<button data-size="44" aria-pressed="'+(size===44)+'">กะทัดรัด<small>44px</small></button>'+
+        '<button data-size="48" aria-pressed="'+(size===48)+'">สบาย<small>48px</small></button>'+
+        '<button data-size="56" aria-pressed="'+(size===56)+'">ใหญ่<small>56px</small></button>'+
+      '</div></div>'+
+    '<div class="setsec"><div class="swrow"><span class="t">แสดงชื่อปุ่ม <span class="tag-new">ใหม่</span><small>ชื่อไทย = ป้าย = ที่ทีมเรียก</small></span>'+
+      '<button class="sw" id="swNames" role="switch" aria-checked="'+showNames+'" aria-label="แสดงชื่อปุ่ม"></button></div>'+
+      '<p class="readout" id="roRef">แตะปุ่มบนแถบ เพื่อดูชื่ออ้างอิง + id</p></div>'+
+    '<div class="setsec"><p class="setlbl">ปุ่มที่แสดงบนแถบ</p><ul class="picker" id="picker">'+list+'</ul>'+
+      '<button class="reset" id="reset">↺ คืนค่าเริ่มต้น <span class="tag-new">ใหม่</span></button></div>';
+  }
+  function wireSettings(scope){
+    scope.querySelector('#segSize').addEventListener('click',function(e){
+      var b=e.target.closest('button[data-size]'); if(!b)return;
+      size=+b.getAttribute('data-size');
+      [].forEach.call(this.children,function(c){c.setAttribute('aria-pressed',c===b)});
+      root.style.setProperty('--btn',size+'px');
+      root.style.setProperty('--gap',size<=44?'5px':size<=48?'6px':'8px');
+      root.style.setProperty('--pad',size<=44?'7px':size<=48?'8px':'10px');
+    });
+    scope.querySelector('#swNames').onclick=function(){ showNames=!showNames; this.setAttribute('aria-checked',showNames); renderDock(); };
+    scope.querySelector('#picker').addEventListener('click',function(e){
+      var pin=e.target.closest('[data-pin]'), mv=e.target.closest('[data-mv]');
+      if(pin&&!pin.disabled){ var b=byId(pin.getAttribute('data-pin')); b.on=!b.on; refreshSettings(); renderDock(); }
+      if(mv){ var id=mv.getAttribute('data-mv'); var i=state.findIndex(function(x){return x.id===id}); if(i>0){var t=state[i];state[i]=state[i-1];state[i-1]=t;refreshSettings();renderDock();} }
+    });
+    scope.querySelector('#reset').onclick=function(){ state=JSON.parse(JSON.stringify(DEFAULT)); size=44; showNames=false;
+      root.style.setProperty('--btn','44px');root.style.setProperty('--gap','5px');root.style.setProperty('--pad','7px');
+      refreshSettings(); renderDock(); };
+  }
+  function byId(id){return state.find(function(b){return b.id===id})}
+  function refreshSettings(){ var host = mode==='mobile'? sheetBody : pop; host.innerHTML=settingsHTML(); wireSettings(host); }
+
+  function openSettings(){
+    if(mode==='mobile'){ sheetBody.innerHTML=settingsHTML(); wireSettings(sheetBody); sheet.classList.add('up'); }
+    else { pop.innerHTML=settingsHTML(); wireSettings(pop); pop.classList.add('show'); }
+  }
+  function closeSettings(){ pop.classList.remove('show'); sheet.classList.remove('up'); }
+  document.getElementById('sheetDone').onclick=closeSettings;
+  document.addEventListener('click',function(e){
+    if(mode==='desktop' && pop.classList.contains('show') && !e.target.closest('#pop') && !e.target.closest('[data-cell=setting]')) closeSettings();
+  });
+
+  // desktop resize handle → shrink footprint (drag left = smaller preset)
+  var rz=document.getElementById('rz'), rzStart=null;
+  rz.addEventListener('pointerdown',function(e){ e.stopPropagation(); rzStart=e.clientX; try{rz.setPointerCapture(e.pointerId)}catch(_){} });
+  rz.addEventListener('pointermove',function(e){ if(rzStart==null)return; var dx=e.clientX-rzStart;
+    var ns = dx<-20?44:dx>20?56:48; if(ns!==size){ size=ns; root.style.setProperty('--btn',size+'px');
+      root.style.setProperty('--gap',size<=44?'5px':size<=48?'6px':'8px');root.style.setProperty('--pad',size<=44?'7px':size<=48?'8px':'10px'); } });
+  rz.addEventListener('pointerup',function(){ rzStart=null; });
+
+  function setMode(m){ mode=m; closeSettings();
+    stage.classList.toggle('mobile',m==='mobile'); stage.classList.toggle('desktop',m==='desktop');
+    document.getElementById('mMobile').setAttribute('aria-pressed',m==='mobile');
+    document.getElementById('mDesktop').setAttribute('aria-pressed',m==='desktop');
+  }
+  document.getElementById('mMobile').onclick=function(){setMode('mobile')};
+  document.getElementById('mDesktop').onclick=function(){setMode('desktop')};
+
+  renderDock();
 })();
 </script>
