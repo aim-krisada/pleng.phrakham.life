@@ -17,7 +17,9 @@ const log = (m) => { $('#log').textContent = m }
 // live tuning state — starts at the values P'Aim approved / the measured fixes
 const state = {
   songNo: SONG_NO, full: FULL,
-  tame: 8, even: 0, vib: 0, head: 0.05, headKind: 'mp', shift: 10, arc: 0, trading: 0, balance: 1,
+  // RESTORED to the "นุ่มมาก" baseline (commit 52b659c) for the regression hunt: vib 22 + even 0.5 =
+  // the state P'Aim last called good. See docs/music/handoff-cello-regression.md.
+  tame: 8, even: 0.5, vib: VIBRATO.maxDepthCents, head: 0.05, headKind: 'mp', shift: 10, arc: 0, trading: 0, balance: 1,
   chamber: 0, vibGain: 0, vibUnsteady: 0, vibBow: 0, vibMin: VIB_MIN_SEC, fileLevel: 1,
   resonance: false, roundRobin: false,
 }
@@ -233,11 +235,10 @@ async function main() {
     log('กำลังปรับให้เชลโลดังพอดีกับเปียโน …')
     const marc = MARCATO.find((m) => m.id === 'marcato-mp')
     const cal = await calibrateLevels(song.content, { bpm: songBpm, range, songId: song.id, variants: [marc] })
-    // calibrateLevels matches the cello to the piano-MELODY level — but in the duo the piano gives the
-    // melody to the cello and plays only (much softer) accompaniment, so that baseline drowns the piano
-    // by ~9 dB. The reference tracks have the cello only ~+1 dB over the piano. Scale down so balance=1
-    // sits the cello WITH the piano; the knob still moves it up/down from there. (measured 18 ก.ค.)
-    baseMakeup = cal.leadMakeup * (cal.gains['marcato-mp'] ?? 1) * 0.2
+    // NOTE: the ×0.2 balance scaling (b6a5c09) is reverted to ×1 = the exact "นุ่มมาก" baseline for the
+    // regression hunt. It drowns the piano (~+9 dB over accompaniment) — that "cello covers piano" fix
+    // needs redoing WITHOUT a post-gain-then-normalize (which is a suspect). Use the balance knob for now.
+    baseMakeup = cal.leadMakeup * (cal.gains['marcato-mp'] ?? 1)
 
     for (const p of PRESETS) { log(`กำลังสร้างเสียง ${p.label} …`); await renderPreset(p) }
     log('พร้อมฟังแล้ว — ปรับปุ่มแล้วกด "เล่น" อันเชลโลซ้ำเพื่อฟังผล')

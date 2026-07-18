@@ -5,6 +5,12 @@
 
 ---
 
+## 🔴 ▶ RESUME — ล่า regression "เชลโลเทปยืด" (18 ก.ค. ค่ำ · session ใหม่ทำต่อ)
+**เชลโลเคย "นุ่มมาก" (commit `52b659c`) → regress เป็น "เทปยืด" ทั้งเดี่ยว+duo ทุกเพลง** · **อ่าน `docs/music/handoff-cello-regression.md` ก่อน**
+- **restore default = known-good แล้ว** (vib 22 · even 0.5 · baseMakeup ×1) → เปิดหน้ามายืนยันว่านุ่มกลับไหม
+- **ตัดออกด้วย git แล้ว:** engine ที่ default = เหมือน known-good เป๊ะ (arc/trading no-op ที่ 0) · ไฟล์ดิบ+render pitch นิ่ง 0 · **suspect หลัก = default ที่ผมปิดไป (vibrato 22→0) ตอนไล่บั๊ก** (เสียงนุ่มพึ่ง vib เป็นชีวิต)
+- **⚠️ metric จับ "เทปยืด" ไม่ได้ → เชื่อหู P'Aim · A/B toggle ทีละตัว**
+
 ## ▶ RESUME (อ่านก่อนทำต่อ)
 
 **ที่นั่งนี้เพิ่งตั้ง (18 ก.ค.)** — พี่เอมให้เป็นสาย music composer คู่ขนาน · ทำต่อจาก **เปียโน (จบ) + เชลโล (ค้างที่ขั้น 5.3)**
