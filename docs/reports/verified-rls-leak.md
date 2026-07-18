@@ -122,21 +122,13 @@ create policy "Authenticated reads all songs" on public.songs
 
 ---
 
-## 5 · Appendix — `author_id` ผิดคน (migration แยก · เข้าคิวหลัง RLS)
+## 5 · Appendix — `author_id` ผิดคน → ⛔ **ทิ้งแล้ว (P'Aim ตัดสิน 18 ก.ค.)**
 
-**ยืนยัน root cause ใน SQL จริง** (`db/004` `approve_and_publish`): ตอน insert เพลงใหม่ใช้
-```sql
-insert into public.songs (..., author_id) values (..., auth.uid())   -- ← uid ของ APPROVER
-```
-ควรเป็น `d.author_id` (คนเขียน draft). กระทบทุกเพลงที่อนุมัติผ่าน RPC = เครดิต/ประวัติผิดถาวร.
-**fix พร้อมใน `db/006-author-id-fix.sql`** (replace ฟังก์ชัน `approve_and_publish` เปลี่ยน `auth.uid()`→`d.author_id` ในกิ่ง insert · ไม่แตะ update). **⛔ queue — รันหลัง 005 + PM go.**
+> **DECISION (ไม่ใช่ค้างงาน):** P'Aim เคาะ **"ไม่โชว์เครดิตคนแต่ง → ทิ้ง author_id ไปเลย"** → **ลบ `db/006` + `db/007` · ไม่ทำ.** อย่าเจอแล้วมาทำซ้ำ.
 
-**🔎 verify เพิ่ม (18 ก.ค.): บั๊กนี้ latent — `songs.author_id` ไม่มีใครอ่านในแอปเลย.** แอปอ่าน `song_drafts.author_id` (ตัวกรอง "ร่างของฉัน" + ป้ายคนเขียนร่าง) และประวัติที่โชว์จริง = `song_revisions.actor_name` (snapshot ต่อ event · ถูกอยู่แล้ว) · **ไม่มีจุดไหนอ่าน `songs.author_id`** → เป็น **data-integrity/future-proofing ไม่ใช่ user-visible** → **queue ต่ำถูกต้อง**.
+**ทำไมทิ้งได้ (บันทึกกันรื้อ):** `songs.author_id` **ไม่มีใครอ่านในแอปเลย** — แอปอ่าน `song_drafts.author_id` (ตัวกรอง "ร่างของฉัน") · ประวัติที่โชว์จริง = `song_revisions.actor_name` (snapshot ต่อ event · ถูกอยู่แล้ว) → author_id ที่ผิด (approve_and_publish ใช้ `auth.uid()` = approver แทนคนเขียน) **ไม่กระทบผู้ใช้เลย** · เมื่อ P'Aim ยืนยันไม่โชว์เครดิต = **ไม่มีเหตุให้แก้** · ทั้ง 2 ไฟล์ **ไม่เคยรัน** (รันแค่ `db/005`) → ลบไฟล์ = ไม่ต้องแตะ DB.
 
-**back-fill เพลงเก่า = `db/007-author-id-backfill.sql` (⛔ opt-in · รันหลัง 006 · ถ้า P'Aim อยากแก้ย้อนหลัง):**
-- **recovery source = `song_drafts.author_id`** (draft ยัง link `song_id` · author_id คนเขียน ไม่เคยถูกเขียนทับ) → `UPDATE songs SET author_id = draft.author_id WHERE draft.song_id = songs.id AND ต่างจริง`
-- เพลง **นำเข้าตรง (ไม่มี draft — 120 YS/hymnal)** = ไม่มี "คนเขียน" ให้ย้อน → **คงเดิม ไม่ null** (ซื่อสัตย์ต่อข้อมูล)
-- มี **pre-flight count** วัด blast radius ก่อนรัน · แตะเฉพาะแถวที่ผิดจริง (min churn) · **ไม่ปิด audit trigger** (ISO 27001 A.12.4 · จะ log `edit_published` ต่อแถว = โปร่งใส ตั้งใจ)
+**ถ้าวันหน้าอยากโชว์เครดิตคนแต่ง** ค่อยรื้อจาก git history (commit `fcf15ff`/`23ed92f`): fix ไปข้างหน้า = `d.author_id` แทน `auth.uid()` ใน `approve_and_publish` · back-fill เก่า = จาก `song_drafts.author_id` (link ผ่าน song_id).
 
 ---
 
