@@ -36,19 +36,46 @@
   .ask h2 { font-size: .95rem; margin: 0 0 .5rem }
   .ask p { margin: .35rem 0 }
   .foot { color: var(--mut); font-size: .78rem; margin-top: 1.4rem; border-top: 1px solid var(--bd); padding-top: .8rem }
+  .transport { display: flex; align-items: baseline; gap: 1rem; margin: 0 0 1.1rem; padding: .7rem 1rem;
+    border: 1px solid var(--acc); border-radius: 14px; background: var(--accbg); }
+  .tclock { font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--acc);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: -.02em; }
+  .tnote { font-size: .95rem; color: var(--mut); }
+  .tnote b { color: var(--acc); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+  .knob { border: 2px solid var(--acc); border-radius: 14px; padding: .9rem 1rem; margin: 0 0 1rem; background: var(--card); }
+  .knob .klab { font-weight: 700; display: block; margin-bottom: .1rem }
+  .knob .khint { color: var(--mut); font-size: .82rem; margin-bottom: .55rem }
+  .knob .krow { display: flex; align-items: center; gap: .8rem }
+  .knob input[type=range] { flex: 1; height: 34px }
+  .kval { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 6.5rem; text-align: right; color: var(--acc) }
   audio { display: none }
 </style></head>
 <body>
   <h1>🎻 ฟังเทียบ เปียโน + เชลโล</h1>
   <div class="songname" id="songname">…</div>
 
+  <div class="transport">
+    <span class="tclock" id="tclock">0:00.0</span>
+    <span class="tnote" id="tnote">— กดเล่นแล้วนาฬิกาจะเดิน บอกโน้ตที่กำลังเล่น</span>
+  </div>
+
   <div id="cards"></div>
+
+  <div class="knob">
+    <label class="klab" for="tame">🎛 ความนุ่ม (ลดแสบเฉพาะโน้ตสูง)</label>
+    <div class="khint">เลื่อนซ้าย = ตอนนี้ (แสบ) · ขวา = นุ่มขึ้น · เลื่อนแล้ว <b>กด "เล่น" อันเชลโลซ้ำ</b> เพื่อฟังค่าใหม่</div>
+    <div class="krow">
+      <input type="range" id="tame" min="0" max="16" step="1">
+      <span class="kval" id="tameVal"></span>
+    </div>
+  </div>
+
   <div id="log">พร้อม</div>
 
   <div class="ask">
-    <h2>ฟังแล้วช่วยเคาะครับ</h2>
-    <p><b>ก.</b> อันที่ 3 (<b>นุ่มขึ้น</b>) — โน้ตสูงราววินาที 8 <b>แสบน้อยลงไหม</b> เทียบอันที่ 2 (ตอนนี้)?</p>
-    <p><b>ข.</b> ถ้าช่วยแล้ว — กำลังดี หรืออยากให้ <b>นุ่มกว่านี้ / น้อยกว่านี้</b>? (ผมปรับระดับได้)</p>
+    <h2>ฟังแล้วช่วยบอกครับ</h2>
+    <p><b>ก.</b> เลื่อน "ความนุ่ม" หาจุดที่ <b>แสบน้อยที่สุดแต่ยังไม่อู้อี้</b> แล้วบอกเลขมาได้เลย</p>
+    <p><b>ข.</b> "เสียงคล้ายกดแตร" — ดู <b>นาฬิกา + ชื่อโน้ต</b> ตอนได้ยิน แล้วบอกเวลา/โน้ตมา ผมจะตามไปวัดที่โน้ตนั้น</p>
   </div>
 
   <div class="foot">

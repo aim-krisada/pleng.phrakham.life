@@ -74,4 +74,5 @@ npm run dev -- --host                    # จด Network URL → เปิด /
 
 ---
 ## Log
+- **2026-07-18 (ต่อ):** เชลโล+treble-tame = พี่เอมว่า "นุ่มขึ้นจริง แต่มีเสียงคล้ายกดแตร" → หน้าฟังเพิ่ม **นาฬิกา + ชื่อโน้ตที่กำลังเล่น** (setInterval · map midi→ชื่อโน้ต+ไฟล์ Karoryfer) ให้พี่เอมชี้เวลา artifact เจาะจง + **แถบ "ความนุ่ม" (trebleTameDb 0-16)** ให้พี่เอมหมุนเอง (re-render เฉพาะ cello clip) · รอ: (1) เลขความนุ่มที่พอดี (2) เวลา/โน้ตของ "เสียงกดแตร" → ตามไปวัดสเปกตรัมโน้ตนั้น
 - **2026-07-18:** ตั้งที่นั่ง music composer · สร้าง worktree `music-standing` (fork `cello-vib-arc`) · เขียน `composer.md` + board นี้ · ยืนยัน sound source ย้ายมา OneDrive `sfz/` · แจ้ง PM
