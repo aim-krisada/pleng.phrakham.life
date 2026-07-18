@@ -49,8 +49,8 @@ const KNOBS = [
     min: 0, max: 200, step: 5, fmt: (v) => `${v} ms` },
   { key: 'arc',   label: 'เส้นดัง-ค่อย — มิติทั้งเพลง (ชัดตอนฟังทั้งเพลง)', L: 'เรียบ', R: 'ดัง-ค่อยชัด',
     min: 0, max: 15, step: 1, fmt: (v) => v === 0 ? 'เรียบ' : `${v} dB` },
-  { key: 'balance', label: 'ความดังเชลโล (เทียบเปียโน)', L: 'เบา', R: 'ดัง',
-    min: 0.4, max: 2.4, step: 0.05, fmt: (v) => v === 1 ? 'ปกติ' : `${(20 * Math.log10(v)).toFixed(1)} dB` },
+  { key: 'balance', label: 'ความดังเชลโล (เทียบเปียโน)', L: 'เบา (ให้เปียโนออก)', R: 'ดัง',
+    min: 0.08, max: 2.4, step: 0.02, fmt: (v) => v === 1 ? 'ปกติ' : `${(20 * Math.log10(v)).toFixed(1)} dB` },
   { key: 'chamber', label: '🏛 ระยะห่าง/ห้อง (G แนะนำ) — ดันเสียงให้ห่าง ลดความจ่อหู', L: 'ชิด (เดิม)', R: 'ห่าง/อุ่น',
     min: 0, max: 0.7, step: 0.05, fmt: (v) => v === 0 ? 'ชิด (เดิม)' : `${Math.round(v * 100)}%` },
   // ── advanced ──
@@ -231,7 +231,11 @@ async function main() {
     log('กำลังปรับให้เชลโลดังพอดีกับเปียโน …')
     const marc = MARCATO.find((m) => m.id === 'marcato-mp')
     const cal = await calibrateLevels(song.content, { bpm: songBpm, range, songId: song.id, variants: [marc] })
-    baseMakeup = cal.leadMakeup * (cal.gains['marcato-mp'] ?? 1)
+    // calibrateLevels matches the cello to the piano-MELODY level — but in the duo the piano gives the
+    // melody to the cello and plays only (much softer) accompaniment, so that baseline drowns the piano
+    // by ~9 dB. The reference tracks have the cello only ~+1 dB over the piano. Scale down so balance=1
+    // sits the cello WITH the piano; the knob still moves it up/down from there. (measured 18 ก.ค.)
+    baseMakeup = cal.leadMakeup * (cal.gains['marcato-mp'] ?? 1) * 0.2
 
     for (const p of PRESETS) { log(`กำลังสร้างเสียง ${p.label} …`); await renderPreset(p) }
     log('พร้อมฟังแล้ว — ปรับปุ่มแล้วกด "เล่น" อันเชลโลซ้ำเพื่อฟังผล')
