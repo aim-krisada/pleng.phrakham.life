@@ -50,6 +50,16 @@ function tick() {
 function startClock(audio) { clearInterval(timer); curAudio = audio; tick(); timer = setInterval(tick, 100) }
 function stopClock() { clearInterval(timer); curAudio = null }   // keep last time on screen
 
+// ONE thing plays at a time, and there is always an obvious way to stop it (P'Aim: "เหมือนคุมไม่ได้ ·
+// เสียงตีกัน ไม่รู้ว่าอันไหน"). stopAll silences everything, clears the highlight + button labels, and
+// stops the clock — called before every new play, on the Stop button, and before any re-render.
+function stopAll() {
+  document.querySelectorAll('audio').forEach((a) => { a.pause(); a.currentTime = 0 })
+  document.querySelectorAll('.card').forEach((c) => c.classList.remove('on'))
+  document.querySelectorAll('.play').forEach((b) => { b.innerHTML = '▶︎ <span>เล่น</span>' })
+  stopClock()
+}
+
 async function loadSong() {
   const { data, error } = await supabase.from('songs').select('*').eq('number', SONG_NO).limit(1).single()
   if (error) throw new Error('โหลดเพลงไม่ได้: ' + error.message)
@@ -79,14 +89,16 @@ async function renderPreset(p) {
     const url = URL.createObjectURL(blob); audio.dataset.url = url; audio.src = url
     btn.disabled = false
     btn.onclick = () => {
-      const playing = !audio.paused
-      document.querySelectorAll('audio').forEach((a) => { a.pause(); a.currentTime = 0 })
-      document.querySelectorAll('.card').forEach((c) => c.classList.remove('on'))
-      stopClock()
-      if (!playing) { audio.play(); btn.closest('.card').classList.add('on'); startClock(audio) }
+      const wasPlaying = !audio.paused
+      stopAll()                                   // silence everything first — never two at once
+      if (!wasPlaying) {
+        audio.play()
+        btn.closest('.card').classList.add('on')
+        btn.innerHTML = '⏸ <span>หยุด</span>'      // the same button stops it — obvious control
+        startClock(audio)
+      }
     }
-    audio.onended = () => { btn.closest('.card').classList.remove('on'); stopClock() }
-    audio.onpause = () => stopClock()
+    audio.onended = () => { btn.closest('.card').classList.remove('on'); btn.innerHTML = '▶︎ <span>เล่น</span>'; stopClock() }
   } catch (e) {
     $(`[data-sub="${p.id}"]`).innerHTML = `<b class="warn">สร้างเสียงไม่ได้: ${e.message}</b>`
     console.error(p.id, e)
@@ -126,15 +138,19 @@ async function main() {
 // ── the one knob: ความนุ่ม (trebleTameDb) ─────────────────────────────────────────────────────
 const showTame = () => {
   const el = $('#tameVal')
-  if (el) el.textContent = state.tame === 0 ? '0 = ตอนนี้ (แสบ)' : `${state.tame} dB`
+  if (el) el.textContent = state.tame === 0 ? `${state.tame} · แสบสุด (เดิม)`
+    : state.tame >= 20 ? `${state.tame} · นุ่มสุด` : `${state.tame}`
 }
 $('#tame')?.addEventListener('input', (e) => { state.tame = Number(e.target.value); showTame() })
-// re-render only the cello clip on release (not the reference) — one render, ~2s
+// re-render only the cello clip on release (not the reference) — one render, ~2s. Stop playback first
+// so a re-render can never collide with a clip that is still sounding.
 $('#tame')?.addEventListener('change', async () => {
-  log(`กำลังปรับความนุ่มเป็น ${state.tame} dB …`)
+  stopAll()
+  log(`กำลังปรับความนุ่มเป็นระดับ ${state.tame} …`)
   await renderPreset(PRESETS.find((p) => p.id === 'cello'))
   log('พร้อม — กด "เล่น" อันเชลโลเพื่อฟังค่าใหม่')
 })
+$('#stopBtn')?.addEventListener('click', stopAll)
 if ($('#tame')) $('#tame').value = String(state.tame)
 showTame()
 

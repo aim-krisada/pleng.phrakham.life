@@ -626,7 +626,11 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     // asked (trebleTameDb>0) so the untamed clip is byte-identical to before = a clean A/B.
     // shelf at 2.8 kHz = the cello's "bite/แสบ" band (the recordist's own EQ sat 1800-2500 Hz); higher
     // than this barely touched what the ear calls harsh (measured). Warm body below is left intact.
-    const TREBLE_FREQ = 2800, TAME_LO = 62, TAME_HI = 74   // 0 cut below LO, full cut at/above HI
+    // RAMP (fixed 18 ก.ค.): the harsh notes P'Aim flags are midi 66-73; the old 62→74 ramp reserved
+    // full strength for notes ≥74 that never occur, so a "16" only cut midi-68 by 8 dB and it stayed
+    // harsh. 64→70 puts FULL cut on the whole harsh cluster (68=67%, 70-73=100%) and still leaves the
+    // warm low notes (≤64) untouched.
+    const TREBLE_FREQ = 2800, TAME_LO = 64, TAME_HI = 70   // 0 cut below LO, full cut at/above HI
     let celloDest = busIn, tameNode = null
     if (trebleTameDb > 0) {
       tameNode = ctx.createBiquadFilter()
