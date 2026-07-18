@@ -3395,8 +3395,14 @@ defineExpose({
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 5;
-  white-space: nowrap;
+  /* dock-space §5 / DS note 1 — contextual toolbox ห้ามล้มจอแคบสุด (Fold ~344): clamp
+     ความกว้างไว้กับ viewport แล้วปุ่มที่เกินเลื่อนแนวนอนในตัว toolbox (icon-only + overflow).
+     รองรับตอนเติม note tools (จุดบน/ล่าง · เขบ็ต · ลบ) เข้ามาโดยไม่ยื่นเลยจอ. */
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.slot-tools::-webkit-scrollbar { display: none; }
 .slot-btn { min-width: 30px; min-height: 26px; padding: 2px 6px; font-size: 12px; }
 /* ===== editor-section-ux: "โครงเพลง" rail rows + canvas section header ===== */
 /* screen-reader-only live region (reorder announcements) */
