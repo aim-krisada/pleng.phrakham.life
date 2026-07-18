@@ -17,7 +17,7 @@ const log = (m) => { $('#log').textContent = m }
 // live tuning state — starts at the values P'Aim approved / the measured fixes
 const state = {
   tame: 8, vib: VIBRATO.maxDepthCents, head: 0.05, headKind: 'mp', shift: 10, arc: 0, balance: 1,
-  vibGain: 0, vibUnsteady: 0, vibBow: 0, vibMin: VIB_MIN_SEC, fileLevel: 1,
+  chamber: 0, vibGain: 0, vibUnsteady: 0, vibBow: 0, vibMin: VIB_MIN_SEC, fileLevel: 1,
   resonance: false, roundRobin: false,
 }
 
@@ -30,6 +30,7 @@ const celloCfg = () => ({
   vibUnsteady: state.vibUnsteady, vibBowPressure: state.vibBow,
   fileLevelAmount: state.fileLevel, trebleTameDb: state.tame,
   arcSpreadDb: state.arc, bowRoundRobin: state.roundRobin, pianoResonance: state.resonance,
+  chamberWet: state.chamber,
 })
 
 // ── the knobs: label = what it is + what it helps; hint = ◀ left · right ▶ ─────────────────────
@@ -47,6 +48,8 @@ const KNOBS = [
     min: 0, max: 15, step: 1, fmt: (v) => v === 0 ? 'เรียบ' : `${v} dB` },
   { key: 'balance', label: 'ความดังเชลโล (เทียบเปียโน)', L: 'เบา', R: 'ดัง',
     min: 0.4, max: 2.4, step: 0.05, fmt: (v) => v === 1 ? 'ปกติ' : `${(20 * Math.log10(v)).toFixed(1)} dB` },
+  { key: 'chamber', label: '🏛 ระยะห่าง/ห้อง (G แนะนำ) — ดันเสียงให้ห่าง ลดความจ่อหู', L: 'ชิด (เดิม)', R: 'ห่าง/อุ่น',
+    min: 0, max: 0.7, step: 0.05, fmt: (v) => v === 0 ? 'ชิด (เดิม)' : `${Math.round(v * 100)}%` },
   // ── advanced ──
   { key: 'vibGain', adv: true, label: 'หรี่เสียงตอนสั่นนิ้ว', L: 'ไม่หรี่', R: 'หรี่ลง',
     min: -6, max: 0, step: 0.5, fmt: (v) => v === 0 ? 'ไม่หรี่' : `${v} dB` },

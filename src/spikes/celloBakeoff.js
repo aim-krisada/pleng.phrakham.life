@@ -501,6 +501,47 @@ export function buildPerformance(content, { bpm, range, songId }) {
 // `pianoKeepsMelody` is exposed because "should the piano double the tune in unison under the cello?"
 // is a TASTE question, not a technical one — it is listed in the report as an ear-decision for
 // P'Aim rather than settled here. Default false = the brief's "เชลโลร้องนำ · เปียโนคลอ".
+// ── CHAMBER reverb (spike-local · G's "distance melts the close-mic bite") ─────────────────────────
+// A warm convolution room, built here (not in midi.js, which is deploy code): pre-delay for distance,
+// a few early reflections for the "room" cue, and a LOW-PASSED diffuse tail so the space adds body
+// without adding brightness. Seeded (rngFor) → deterministic → the MP3 matches live, same as synthIR.
+function chamberIR(ctx, { seconds = 1.5, decay = 2.3, predelayMs = 16, lpHz = 3000 } = {}) {
+  const rng = rngFor('cello-chamber-ir', 0)
+  const sr = ctx.sampleRate
+  const pre = Math.floor(sr * predelayMs / 1000)
+  const tail = Math.floor(sr * seconds)
+  const len = pre + tail
+  const buf = ctx.createBuffer(2, len, sr)
+  const a = Math.exp(-2 * Math.PI * lpHz / sr)   // one-pole low-pass coefficient (warmth)
+  const taps = [[9, 0.5], [14, 0.42], [21, 0.34], [29, 0.26], [39, 0.2]]  // early reflections (ms, gain)
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch)
+    let lp = 0
+    for (let i = 0; i < tail; i++) {
+      const x = (rng() * 2 - 1) * Math.pow(1 - i / tail, decay)
+      lp = (1 - a) * x + a * lp                   // low-pass the diffuse tail → dark/warm room
+      d[pre + i] = lp
+    }
+    for (const [ms, g] of taps) {                 // decorrelate the two channels slightly
+      const idx = pre + Math.floor(sr * ms / 1000) + (ch ? 5 : 0)
+      if (idx < len) d[idx] += (0.9 + rng() * 0.2) * g * (ch ? -1 : 1) * 0.6
+    }
+  }
+  return buf
+}
+
+// wet/dry bus using the chamber IR. A higher wet + a lowered dry = the source sits FURTHER back (the
+// distance G asked for), which is what dilutes the close-mic harshness.
+function makeChamberBus(ctx, destination, wet) {
+  const input = ctx.createGain()
+  const dry = ctx.createGain(); dry.gain.value = Math.max(0, 1 - wet * 0.9)
+  const wetGain = ctx.createGain(); wetGain.gain.value = wet
+  const conv = ctx.createConvolver(); conv.buffer = chamberIR(ctx)
+  input.connect(dry).connect(destination)
+  input.connect(conv).connect(wetGain).connect(destination)
+  return { input }
+}
+
 export async function renderClip(content, { variantId, bpm, range, songId, transpose = 0,
   sampleRate = 44100, celloMakeup = CELLO_MAKEUP, correctTuning = true, pianoKeepsMelody = false,
   pianoRoles = null, celloMuted = false, negativeDelay = true,
@@ -535,6 +576,10 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   // So darken only the high notes, automatically per pitch (no per-song tuning). This value = the cut
   // in dB at the top note; it ramps from 0 below TAME_LO to full at TAME_HI. 0 = today (direct A/B).
   trebleTameDb = 0,
+  // G (18 ก.ค.): a warm CHAMBER convolution reverb to put 2-3 m of distance between the mic and the
+  // instruments and melt the close-mic bite "for free". 0 = the arranger's default reverb; > 0 = wet
+  // amount of the chamber (replaces the default space for BOTH piano and cello, same room).
+  chamberWet = 0,
   pianoResonance = false } = {}) {
   const { perf, cfg, bpm: useBpm } = buildPerformance(content, { bpm, range, songId })
   const spb = 60 / useBpm
@@ -558,7 +603,8 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     arcNode.connect(ctx.destination)
   }
   const arcOut = arcNode || ctx.destination
-  const fx = reverbCfg ? makeReverbBus(ctx, arcOut, reverbCfg) : null
+  const fx = chamberWet > 0 ? makeChamberBus(ctx, arcOut, chamberWet)
+    : reverbCfg ? makeReverbBus(ctx, arcOut, reverbCfg) : null
   const busIn = fx ? fx.input : arcOut
 
   const songBeats = arcSpreadDb > 0 ? songBeatSpan(content) : 0
@@ -682,6 +728,9 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
         if (durSec > 1.0 && sh !== 0) {
           // the tail is the brightest part, so over-cut it (1.5× the knob) — a high-shelf's dB does not
           // fully translate to the >1.5 kHz band, so a nominal "full" ramp only moved it ~0.7 dB.
+          // G (18 ก.ค.): hold the base cut for the first 0.3 s so the note's head stays natural, THEN
+          // ease the tail down — don't start darkening from the attack.
+          tameNode.gain.setValueAtTime(-base, onT + 0.3)
           tameNode.gain.linearRampToValueAtTime(-1.5 * trebleTameDb, onT + durSec)
         }
       }
