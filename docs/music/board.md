@@ -28,7 +28,15 @@ npm run dev -- --host                    # จด Network URL → เปิด /
 - **ไม่มีงานค้าง** — เว้นแต่พี่เอมอยากยกระดับต่อ (ดู §ไอเดียเผื่ออนาคต)
 - อ้างอิง: `docs/reports/golden-piano-tech-summary.md`
 
-## 🎻 เชลโล (Karoryfer CC0) — 🔶 ค้างที่ขั้น 5.3 · รอหูพี่เอม
+## 🎻 เชลโล (Karoryfer CC0) — ✅ ผ่านหูพี่เอมที่ default (18 ก.ค. · "นุ่มหมดแล้ว ด้วย default")
+
+**🎉 หลังพักมา 2 รอบ — เชลโลผ่านแล้ว** · **default ที่ผ่าน (ห้ามพัง):** body `p` · head `mp` 5% · shift 10ms · fileLevelAmount 1 (แก้ซิกแซก) · vibrato 22 + auto-rule โน้ตยาว · **ความสม่ำเสมอ (trebleTameDb shift-based) = 8** + tail-darkening long shifted notes
+**generalize ยืนยันแล้ว** (วัด #2/#4/#7 · spread ลดทุกเพลง ไม่มีเพลงไหนแย่ลง) = สูตรกลางเหมือน golden piano
+**ยังเป็น spike** (`soundOptions.js` เชลโล `disabled:true`) · **รอ:** (1) G เสนอ root fix (17-pitch / formant-preserve / sample ใหม่) (2) พี่เอมเคาะว่าจะเอาเข้า SongView จริงเมื่อไหร่ (= งาน integration + PM)
+
+_(ประวัติขั้น 1–5.3 ด้านล่าง)_
+
+## 🎻 เชลโล — ประวัติ (ขั้น 5.3 · archived)
 
 **เป้า (พี่เอม):** "รวมวง เปียโนร่างทอง + เชลโลที่ลื่นหู ไม่แสบแก้วหู เพราะระดับหนึ่ง พอแล้ว" · **ยังเป็น spike** (`soundOptions.js` เชลโล `disabled:true` — ยังไม่เข้าแอปจริง)
 
