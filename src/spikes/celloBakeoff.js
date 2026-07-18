@@ -665,11 +665,25 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
       // (it is only ~1.4 dB bright), exact-pitch (the warm "ทุ้ม" target) gets none.
       const tameFor = (m) => {
         const sh = m - nearestKaro(m)
-        const w = sh > 0 ? 1 : sh < 0 ? 0.5 : 0
+        const w = sh > 0 ? 1 : sh < 0 ? 0.6 : 0
         return w * trebleTameDb
       }
       for (const e of mel) {
-        tameNode.gain.setValueAtTime(-tameFor(e.midi + transpose), Math.max(0, onset(e) - shift))
+        const m = e.midi + transpose
+        const sh = m - nearestKaro(m)
+        const onT = Math.max(0, onset(e) - shift)
+        const base = tameFor(m)
+        tameNode.gain.setValueAtTime(-base, onT)
+        // a soft `p` bow HELD for a second-plus creeps brighter toward its end (measured: a 2 s note
+        // climbs ~4 dB · P'Aim heard it as "แหบ กลับมา ช่วงสั้น ๆ" late in a long note). Ramp a SHIFTED
+        // long note's cut to full over its tail so the sustain stays even. Exact-pitch notes (sh=0)
+        // are the warm reference and are left alone.
+        const durSec = Math.max(0.12, perNoteDur(e))
+        if (durSec > 1.0 && sh !== 0) {
+          // the tail is the brightest part, so over-cut it (1.5× the knob) — a high-shelf's dB does not
+          // fully translate to the >1.5 kHz band, so a nominal "full" ramp only moved it ~0.7 dB.
+          tameNode.gain.linearRampToValueAtTime(-1.5 * trebleTameDb, onT + durSec)
+        }
       }
     }
     const outOfRange = []
