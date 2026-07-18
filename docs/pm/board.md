@@ -5,8 +5,9 @@
 **เปิด PM session ใหม่:** `docs/pm/pm.md` → **`docs/sop.md` (อ่าน §1.1-1.3 roster + §6 anti-patterns ก่อน)** → memory `pleng-pm-role` + `pleng-roster-3-seats` → ไฟล์นี้ · IP เปลี่ยนบ่อย (เช็ก vite Network line ก่อนส่ง URL · ปัจจุบัน `192.168.1.124`)
 
 ## 🔑 HAND-OFF (18 ก.ค. · session เต็ม → pm27) — อ่านก่อนทำต่อ
-**โครงทีมใหม่ (P'Aim 17 ก.ค. · `docs/sop.md §1.1`):** 3 ที่นั่งคิดถาวร + Dev/Tester ต่องาน
+**โครงทีมใหม่ (P'Aim 17 ก.ค. · `docs/sop.md §1.1`):** 3 ที่นั่งคิดถาวร + Dev/Tester ต่องาน + **Music Composer (สาย 4 คู่ขนาน · P'Aim 18 ก.ค.)**
 - **PM** = `pleng.phrakham.life-pm` (นี่) · **SA** = `pleng.phrakham.life-sa` (`sa.md` · session `pl sa`) · **UX/UI** = `pleng.phrakham.life-uxui` (`uxui.md` · session `pl uxui`)
+- **🎼 Music Composer** = `pleng.phrakham.life-music` · branch `music-standing` (fork `cello-vib-arc`) · docs `docs/music/composer.md`+`board.md` · session `🎼 pl music` (`local_278e3228`) · **เสียงล้วน · spike `src/spikes/` · ⛔ ไม่แตะ deploy-code/ไม่ merge/ไม่ deploy จน P'Aim สั่ง = ไม่ชน dev/UX/SA** · ping PM ตอนมี milestone ให้ P'Aim ฟัง · สถานะ: 🎹 เปียโนทองจบ(prod) · 🎻 เชลโลค้าง 5.3 (marcato+normalize+vibrato · รอหู P'Aim · sound source ย้าย OneDrive `sfz/` rebuild ก่อนฟัง)
 - **P'Aim เปิด window เองในแต่ละ dir** (spawn_task สร้าง worktree ทิ้ง ไม่เกาะ dir — อย่า spawn ที่นั่งถาวร) · **1 ไฟล์ 1 สาย PM จัดคิว** · ยกรายงานเข้าฐานทันที
 
 **🔴 P'Aim decision ค้าง (session หน้าถาม/รอ):**
