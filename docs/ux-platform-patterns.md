@@ -68,6 +68,28 @@
 
 ---
 
+## 5.5 · ⭐⭐ ครอบคลุมทุกอุปกรณ์ (binding · P'Aim 18 ก.ค. · "รองรับ desktop · tablet · Samsung Fold · มือถือ Android+Apple ทั้งหมด")
+
+**หลัก: ออกแบบ fluid (ลื่นทุกความกว้าง 320px→∞) ก่อน แล้ว *ทดสอบ* ที่อุปกรณ์แต่ละคลาส** — ไม่ล็อกดีไซน์ที่ขนาดตายตัว แต่ต้องพิสูจน์ว่าใช้ได้จริงทุกคลาสด้านล่าง (⚠️ ตัวเลขเป็นตัวแทน · **verify spec อุปกรณ์ปัจจุบันจริง ไม่ hardcode** — [[feedback_verify_mobile_real_width]]):
+
+| คลาส | ความกว้าง CSS (ตัวแทน) | ต้องผ่าน |
+|---|---|---|
+| **มือถือเล็ก** | ~360 (Android) · 375 (iPhone SE) | ทุกปุ่มอยู่ในจอ · ไม่ scroll แนวนอน |
+| **มือถือใหญ่** | ~412 (Android) · 390–430 (iPhone) | thumb-zone · safe-area |
+| **Fold — พับ (cover)** | ~344–360 · **แคบมาก อัตราส่วนสูง** | จอแคบสุดยังใช้ได้ (คือเคสที่ตึงสุด) |
+| **Fold — กาง (inner)** | ~690–768 · **เกือบสี่เหลี่ยมจัตุรัส** | ทั้ง portrait+landscape · ไม่ใช่ layout มือถือยืด |
+| **Tablet** | 768 (แนวตั้ง) · 1024 (แนวนอน) | ไม่ใช่มือถือยืด · ใช้พื้นที่กว้างให้เป็นประโยชน์ |
+| **Desktop** | ≥1280 | pointer/hover เต็มรูปแบบ |
+
+**นอกเหนือ breakpoint — 3 เรื่องที่ Fold/มือถือบังคับ:**
+1. **ต่อเนื่องข้ามการพับ/หมุนจอ (continuity)** — พับ↔กาง / หมุน portrait↔landscape = layout **reflow + คง state** (ตำแหน่ง/ค่าที่กรอก/สิ่งที่เลือก) **ห้าม reset** · (ตรงกับ dock resize แบบ reflow · เนื้อ editor ที่พิมพ์ค้างต้องไม่หาย)
+2. **safe-area insets** — iOS notch/home-indicator + Android → `env(safe-area-inset-*)` · `viewport-fit=cover` (มีแล้ว B020) · แถบล่าง/ปุ่มลอยต้องไม่โดนบัง
+3. **touch + pointer พร้อมกัน** — Fold/tablet มีทั้งนิ้วและเมาส์/ปากกา → `@media (hover:hover)` gate · อย่าสมมติว่ามีแค่อย่างเดียว (§0)
+
+**ทดสอบจริง:** emulate ความกว้างจริงของแต่ละคลาส (ไม่ใช่ค่า computed เดียว) + วัด `getBoundingClientRect` · Fold ทดสอบ **ทั้งพับและกาง** · ทั้ง 2 orientation ที่ tablet/Fold-กาง · **tester gate ครอบเมทริกซ์นี้** (ผูก `ui-standards.md §2` + `sop.md`).
+
+---
+
 ## 6 · ท่าทำงานของที่นั่งนี้ (ผูกกับ SOP §0 + §1.3)
 
 1. **world-class · เปิด spec จริง/วัด computed · อ้างเป็นข้อ** ไม่อ้างจากความจำ · ของอ้างอิงต่ำกว่ามาตรฐาน = ยกขึ้น ไม่ก๊อป
@@ -83,6 +105,7 @@
 - [ ] desktop + mobile **แยกท่าถูกตามตาราง §1** (ไม่ยกท่าเมาส์มาแปะมือถือ)
 - [ ] mobile: popup→full-screen? · resize→preset? · hover→tap? ตรวจครบ
 - [ ] touch target ≥ 44px · footprint ลดด้วยการลดของ ไม่ใช่ย่อต่ำ floor · วัด 360/412
+- [ ] **ครอบทุกอุปกรณ์ §5.5** — Fold พับ(~344)+กาง(~690–768) · tablet · desktop · ทดสอบ 2 orientation · continuity ข้ามพับ/หมุน (คง state) · safe-area
 - [ ] ถ้าแชร์ 2 เว็บ → ระบุ test 2 host + เช็ค SA
 - [ ] ฟันธง 1 ทาง + อ้างมาตรฐานเป็นข้อ + mockup จิ้มได้ + จบที่ "ตัดสินใจได้"
 

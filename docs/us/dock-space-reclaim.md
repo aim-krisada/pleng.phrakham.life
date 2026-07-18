@@ -26,6 +26,23 @@
 
 **ทำไมดีกว่า free-form resize:** resize = ผู้ใช้ต้องมานั่งจัดการเอง + ย่อแล้ว**ยังกินที่ตลอดเวลา** · conditional = **พื้นที่คืนอัตโนมัติเมื่อไม่ได้ใช้ + เครื่องมือมาหาที่งาน** → พี่เปาได้จอเต็มไว้อ่าน/แก้เพลง
 
+### ⭐ ฟันธง: resize (v4 แบบ 2) อยู่ในคำตอบไหม? (PM ถามตรง)
+> **resize ไม่ใช่ตัวแก้ root — auto-collapse + contextual toolbox แก้ root ได้เอง จน "ย่อ dock เอง" แทบไม่จำเป็น.** แต่ **กลไก reflow (แบบ 2) ที่ PM verify แล้วว่าใช้ได้จริง = ตัวเดียวกับที่ทำ responsive ข้ามอุปกรณ์** (§5.5) → **เก็บ reflow ไว้เป็น "เครื่องยนต์ responsive" (อัตโนมัติต่อจอ) + ให้ผู้ใช้ nudge เองได้เป็น personalization (desktop ลากขอบ · mobile สไลเดอร์กว้าง) — ไม่ใช่ภาระที่ต้องทำเพื่อคืนพื้นที่.**
+>
+> **สรุปการรวม (ไม่ให้รก):** ชั้นที่ *แก้ root* = **auto-hide + slim + contextual** (ทำงานเอง ผู้ใช้ไม่ต้องแตะ) · ชั้น *personalization* = reflow width + โปร่งใส (ซ่อนใน ⚙ · ใครอยากปรับค่อยเข้าไป) → **default สะอาดสุด ไม่มีอะไรให้ตั้งค่าก็ใช้ดี**
+
+### 📱 ครอบทุกอุปกรณ์ (apply `ux-platform-patterns §5.5` · binding)
+โมเดล conditional+reflow เป็น **fluid** อยู่แล้ว → ทดสอบต่ออุปกรณ์:
+
+| คลาส | dock ทำตัวยังไง |
+|---|---|
+| **Fold พับ ~344** (ตึงสุด — "กินพื้นที่" หนักสุด) | auto-hide + slim + contextual **ต้องเอาอยู่** · reflow → ปุ่มขึ้นหลายแถว/ซ่อนใน ⚙ · toolbox เกาะเหนือ element |
+| **มือถือ ~360–430** | ตามหลัก 3 จังหวะ |
+| **Fold กาง ~690–768 · tablet** (เกือบสี่เหลี่ยม · **ไม่ใช่มือถือยืด**) | ใช้ความกว้าง: **dock reflow เป็นแถวเดียว** (เตี้ยลง) · **contextual toolbox วางข้าง element ได้** (ไม่ต้องเหนืออย่างเดียว) · portrait+landscape |
+| **desktop ≥1280** | hover peek เต็ม (`@media hover:hover`) · dock กว้าง แถวเดียว |
+| **⭐ continuity** | พับ↔กาง / หมุนจอ = **reflow + คง state** (เนื้อที่พิมพ์ค้าง · dock position · element ที่เลือก) **ห้าม reset** — reflow แบบ 2 เข้าทางนี้พอดี (width เปลี่ยน ปุ่ม repack ไม่ล้างค่า) |
+| safe-area · touch+pointer | `env(safe-area-inset-*)` (dock ล่าง/toolbox ไม่โดน notch/home-indicator บัง) · Fold/tablet มีทั้งนิ้ว+เมาส์ → hover เป็น enhancement เท่านั้น |
+
 ---
 
 ## 1 · thesis จากมาตรฐาน — "conditional not smaller" (เปิดของจริง)

@@ -75,11 +75,15 @@
   <p class="thesis"><b>ลองเอง:</b> ① <b>เลื่อน</b>เนื้อเพลงลง → dock หลบหาย (จอคืนพื้นที่) เลื่อนขึ้น → กลับมา · ② <b>แตะโน้ต/บรรทัด</b> → เครื่องมือโผล่ตรงนั้น · ③ กด <b>“พิมพ์”</b> → แป้นขึ้น dock ซ่อน เครื่องมือเกาะเหนือแป้น</p>
 
   <div class="controls">
-    <div class="modes" role="group" aria-label="อุปกรณ์">
-      <button id="mMobile" aria-pressed="true">📱 มือถือ</button>
-      <button id="mDesktop" aria-pressed="false">🖥️ เดสก์ท็อป</button>
+    <div class="modes" role="group" aria-label="อุปกรณ์" id="devs">
+      <button data-w="344" data-touch="1" aria-pressed="false">Fold พับ 344</button>
+      <button data-w="390" data-touch="1" aria-pressed="true">📱 มือถือ 390</button>
+      <button data-w="690" data-touch="1" aria-pressed="false">Fold กาง 690</button>
+      <button data-w="834" data-touch="1" aria-pressed="false">Tablet 834</button>
+      <button data-w="1120" data-touch="0" aria-pressed="false">🖥️ Desktop</button>
     </div>
-    <button class="srtoggle" id="srBtn" aria-pressed="false">🦻 โหมด screen reader (dock ไม่ auto-hide)</button>
+    <button class="srtoggle" id="srBtn" aria-pressed="false">🦻 screen reader (ไม่ auto-hide)</button>
+    <span class="reclaim" id="keptNote" style="color:var(--new);font-size:.78rem;font-weight:700;opacity:0">✓ คง state ข้ามอุปกรณ์</span>
   </div>
 
   <div class="stage mobile" id="stage">
@@ -185,13 +189,18 @@
     if(srMode){ hideDock(false); }
   };
 
-  function setMode(m){ mode=m;
-    stage.classList.toggle('mobile',m==='mobile'); stage.classList.toggle('desktop',m==='desktop');
-    document.getElementById('mMobile').setAttribute('aria-pressed',m==='mobile');
-    document.getElementById('mDesktop').setAttribute('aria-pressed',m==='desktop');
-    if(typing){document.getElementById('typeBtn').click();}
+  function setDevice(btn){
+    var w=+btn.getAttribute('data-w'), touch=btn.getAttribute('data-touch')==='1';
+    [].forEach.call(document.querySelectorAll('#devs button'),function(b){b.setAttribute('aria-pressed',b===btn)});
+    mode = touch?'mobile':'desktop';
+    stage.classList.toggle('mobile',touch); stage.classList.toggle('desktop',!touch);
+    stage.style.width=w+'px'; stage.style.maxWidth='100%'; stage.style.height=(touch?560:520)+'px';
+    // ⭐ continuity: DON'T reset — selected note, scroll, typed state all persist (dock just reflows)
+    var kn=document.getElementById('keptNote'); kn.style.opacity='1'; setTimeout(function(){kn.style.opacity='0'},1500);
+    if(sel){ // re-anchor toolbox to the still-selected element at the new width
+      requestAnimationFrame(function(){ if(sel) sel.click(); });
+    }
   }
-  document.getElementById('mMobile').onclick=function(){setMode('mobile')};
-  document.getElementById('mDesktop').onclick=function(){setMode('desktop')};
+  document.getElementById('devs').addEventListener('click',function(e){var b=e.target.closest('button[data-w]'); if(b) setDevice(b);});
 })();
 </script>
