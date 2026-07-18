@@ -44,12 +44,20 @@
     font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: -.02em; }
   .tnote { font-size: .95rem; color: var(--mut); }
   .tnote b { color: var(--acc); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
-  .knob { border: 2px solid var(--acc); border-radius: 14px; padding: .9rem 1rem; margin: 0 0 1rem; background: var(--card); }
-  .knob .klab { font-weight: 700; display: block; margin-bottom: .1rem }
-  .knob .khint { color: var(--mut); font-size: .82rem; margin-bottom: .55rem }
-  .knob .krow { display: flex; align-items: center; gap: .8rem }
-  .knob input[type=range] { flex: 1; height: 34px }
-  .kval { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 6.5rem; text-align: right; color: var(--acc) }
+  .khead { font-size: .9rem; color: var(--mut); margin: .2rem 0 .7rem }
+  .knob { border: 1px solid var(--bd); border-radius: 12px; padding: .6rem .8rem; margin: 0 0 .6rem; background: var(--card); }
+  #knobs .knob:first-child { border: 2px solid var(--acc); }
+  .knob .klab { font-weight: 600; font-size: .92rem; margin-bottom: .35rem }
+  .knob .krow { display: flex; align-items: center; gap: .7rem }
+  .knob input[type=range] { flex: 1; height: 32px }
+  .knob .khint { color: var(--mut); font-size: .78rem; margin-top: .3rem }
+  .kval { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 5.5rem; text-align: right; color: var(--acc); font-size: .9rem }
+  .knob select { font: inherit; padding: .4rem .5rem; border-radius: 8px; min-height: 40px }
+  .ktog { display: flex; align-items: center; gap: .5rem; font-weight: 600; font-size: .92rem; cursor: pointer; min-height: 40px }
+  .ktog input { width: 20px; height: 20px }
+  details.adv { margin: .2rem 0 1rem }
+  details.adv summary { cursor: pointer; padding: .6rem .2rem; font-weight: 600; color: var(--acc); font-size: .92rem }
+  details.adv[open] summary { margin-bottom: .5rem }
   audio { display: none }
 </style></head>
 <body>
@@ -64,21 +72,18 @@
 
   <div id="cards"></div>
 
-  <div class="knob">
-    <label class="klab" for="tame">🎛 ความนุ่ม (ลดแสบเฉพาะโน้ตสูง)</label>
-    <div class="khint">เลื่อนซ้าย = ตอนนี้ (แสบ) · ขวา = นุ่มขึ้น · เลื่อนแล้ว <b>กด "เล่น" อันเชลโลซ้ำ</b> เพื่อฟังค่าใหม่</div>
-    <div class="krow">
-      <input type="range" id="tame" min="0" max="20" step="1">
-      <span class="kval" id="tameVal"></span>
-    </div>
-  </div>
+  <div class="khead">🎛 ปรับเสียง — เลื่อนแล้ว <b>กด "เล่น" อันเชลโลซ้ำ</b> เพื่อฟังค่าใหม่</div>
+  <div id="knobs"></div>
+  <details class="adv"><summary>ปุ่มขั้นสูง (ปรับละเอียด · เผื่ออยากลองทุกอย่าง)</summary>
+    <div id="knobsAdv"></div>
+  </details>
 
   <div id="log">พร้อม</div>
 
   <div class="ask">
     <h2>ฟังแล้วช่วยบอกครับ</h2>
-    <p><b>ก.</b> เลื่อน "ความนุ่ม" หาจุดที่ <b>แสบน้อยที่สุดแต่ยังไม่อู้อี้</b> แล้วบอกเลขมาได้เลย</p>
-    <p><b>ข.</b> "เสียงคล้ายกดแตร" — ดู <b>นาฬิกา + ชื่อโน้ต</b> ตอนได้ยิน แล้วบอกเวลา/โน้ตมา ผมจะตามไปวัดที่โน้ตนั้น</p>
+    <p><b>ก.</b> เลื่อน "ความนุ่ม" หาจุดที่ <b>แสบน้อยที่สุดแต่ยังไม่อู้อี้</b> แล้วบอกเลขมา</p>
+    <p><b>ข.</b> "เสียงคล้ายกดแตร" — ดู <b>นาฬิกา + ชื่อโน้ต</b> ตอนได้ยิน แล้วบอกเวลา/โน้ตมา</p>
   </div>
 
   <div class="foot">
