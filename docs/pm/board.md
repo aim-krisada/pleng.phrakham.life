@@ -1,4 +1,6 @@
-# PM board — pleng (ไม้ต่อ · refreshed 2026-07-18 · หลัง DEPLOY รอบ 32 · handoff → pm28)
+# PM board — pleng (ไม้ต่อ · refreshed 2026-07-18 ค่ำ · หลัง ROLLBACK → live รอบ 30)
+
+> 🤝 **HANDOFF (18 ก.ค. ค่ำ · P'Aim ขอส่งมอบ): อ่าน `docs/pm/HANDOFF-2026-07-18.md` ก่อน** — สรุปครบจบในตัว (live=รอบ30 · git/DB state · sessions · บทเรียน · เฟอร์มาต้า→Gemini · งานค้าง)
 
 ## 🟢🔴 IN FLIGHT (pm28 · 18 ก.ค. ค่ำ) — ROLLBACK แล้ว: live = รอบ 30 · redesign editor รอเริ่มใหม่
 
