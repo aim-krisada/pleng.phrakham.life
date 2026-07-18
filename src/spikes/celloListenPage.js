@@ -17,7 +17,7 @@ const log = (m) => { $('#log').textContent = m }
 // live tuning state — starts at the values P'Aim approved / the measured fixes
 const state = {
   songNo: SONG_NO, full: FULL,
-  tame: 8, even: 0, vib: VIBRATO.maxDepthCents, head: 0.05, headKind: 'mp', shift: 10, arc: 0, trading: 0, balance: 1,
+  tame: 8, even: 0, vib: 0, head: 0.05, headKind: 'mp', shift: 10, arc: 0, trading: 0, balance: 1,
   chamber: 0, vibGain: 0, vibUnsteady: 0, vibBow: 0, vibMin: VIB_MIN_SEC, fileLevel: 1,
   resonance: false, roundRobin: false,
 }
