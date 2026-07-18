@@ -2910,9 +2910,18 @@ defineExpose({
                 <span v-if="lensActive" class="syl-boxes">
                   <span v-for="(cell, bx) in sylCells(li, bi, si, seg.note)" :key="bx" class="syl-slot">
                     <template v-if="cell.slot !== null">
+                      <!-- dock-space contextual toolbox (UX template · dev.grouping) — anchored on-selection,
+                           2 groups: [◀ ▶ พยางค์ · lens-only] ┊ [⧉ คัดลอก · ✕ ลบ โน้ต · ทุกโหมด]. icon-only +
+                           fit-344 clamp + overflow (มีแล้ว). ปุ่มใช้ handler เดิม (pullSlot/pushSlot/duplicate/removeSegment).
+                           🔧 DEV wiring pass: (1) เพิ่ม trigger `|| focusedSeg === si` (โฟกัสโน้ตนอก lens) แล้ว hoist กล่องนี้
+                           ขึ้นระดับ .seg-col ให้โผล่ทุกโหมด (2) ลบ .seg-tools (:2936) ออกเมื่อ focusedSeg พร้อม (เลี่ยง dup)
+                           (3) octave ↑↓ = NoteBoxes child (แยก) · (4) continuity: เก็บ selection ref อิสระจาก blur. -->
                       <span v-if="focusedSlot === cell.slot" class="slot-tools">
                         <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(cell.slot)">◀</button>
                         <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(cell.slot)">▶</button>
+                        <span class="slot-div" aria-hidden="true"></span>
+                        <button class="secondary slot-btn" aria-label="คัดลอกโน้ตนี้" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" @mousedown.prevent @click="duplicateSegment(bar, si)"><Icon name="copy" :size="13" /></button>
+                        <button class="secondary slot-btn" aria-label="ลบโน้ตนี้" title="ลบโน้ตนี้ (ห้องยังอยู่)" @mousedown.prevent @click="removeSegment(bar, si)">✕</button>
                       </span>
                       <input
                         class="syl-box"
@@ -3406,7 +3415,9 @@ defineExpose({
   scrollbar-width: none;
 }
 .slot-tools::-webkit-scrollbar { display: none; }
-.slot-btn { min-width: 30px; min-height: 26px; padding: 2px 6px; font-size: 12px; }
+.slot-btn { min-width: 30px; min-height: 26px; padding: 2px 6px; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
+/* divider ระหว่าง 2 กลุ่มใน contextual toolbox: [◀▶ พยางค์] ┊ [คัดลอก/ลบ โน้ต] */
+.slot-div { width: 1px; align-self: stretch; margin: 2px 2px; background: var(--line); flex: 0 0 auto; }
 /* ===== editor-section-ux: "โครงเพลง" rail rows + canvas section header ===== */
 /* screen-reader-only live region (reorder announcements) */
 .sr-only {
