@@ -407,3 +407,88 @@ describe('DockKey collapse-in-place', () => {
     expect(w.find('.dk-mini').exists()).toBe(false)
   })
 })
+
+describe('DockKey free-form resize (แบบ 2 · width→reflow)', () => {
+  let iwDesc
+  beforeEach(() => { iwDesc = Object.getOwnPropertyDescriptor(window, 'innerWidth'); Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 }) })
+  afterEach(() => { if (iwDesc) Object.defineProperty(window, 'innerWidth', iwDesc) })
+
+  it('is INERT by default (no handle · no width row · no --dk-w) — phrakham unchanged', async () => {
+    const w = mountDK() // resizable defaults false
+    expect(w.find('.dk-resize').exists()).toBe(false)
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    expect(w.find('.dk-prow-rz').exists()).toBe(false)
+    expect(w.find('.dk-dock').attributes('style') || '').not.toContain('--dk-w')
+  })
+
+  it('resizable → renders the drag handle + the ⚙ width slider', async () => {
+    const w = mountDK({ resizable: true })
+    expect(w.find('.dk-resize').exists()).toBe(true)
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    expect(w.find('.dk-prow-rz input[type=range]').exists()).toBe(true)
+  })
+
+  it('the ⚙ slider sets an explicit width (--dk-w) + persists per storeKey; cap follows the chosen width', async () => {
+    const w = mountDK({ resizable: true })
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    const slider = w.find('.dk-prow-rz input[type=range]')
+    await slider.setValue('160')
+    await nextTick()
+    expect(localStorage.getItem('pleng.dockkey.test.width')).toBe('160')
+    await w.find('.dk-gear').trigger('click') // close panel
+    await nextTick()
+    expect(w.find('.dk-dock').attributes('style')).toContain('--dk-w: 160px')
+  })
+
+  it('a persisted width is restored on mount (resizable), and ignored when not resizable', () => {
+    localStorage.setItem('pleng.dockkey.test.width', '220')
+    const on = mountDK({ resizable: true })
+    expect(on.find('.dk-dock').attributes('style')).toContain('--dk-w: 220px')
+    const off = mountDK({ resizable: false })
+    expect(off.find('.dk-dock').attributes('style') || '').not.toContain('--dk-w')
+  })
+
+  it('a width below MIN_W (120) is clamped, not stored raw', async () => {
+    const w = mountDK({ resizable: true })
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    await w.find('.dk-prow-rz input[type=range]').setValue('40') // below floor
+    await nextTick()
+    expect(Number(localStorage.getItem('pleng.dockkey.test.width'))).toBeGreaterThanOrEqual(120)
+  })
+
+  it('↺ reset returns to AUTO (clears --dk-w + storage)', async () => {
+    localStorage.setItem('pleng.dockkey.test.width', '180')
+    const w = mountDK({ resizable: true })
+    expect(w.find('.dk-dock').attributes('style')).toContain('--dk-w: 180px')
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    await w.find('.dk-prow-rz .dk-mv').trigger('click') // ↺
+    await nextTick()
+    expect(localStorage.getItem('pleng.dockkey.test.width')).toBe(null)
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    expect(w.find('.dk-dock').attributes('style') || '').not.toContain('--dk-w')
+  })
+
+  it('resize + auto-hide are independent (a chosen width survives the dock hiding)', async () => {
+    const rafOrig = globalThis.requestAnimationFrame
+    globalThis.requestAnimationFrame = (cb) => { cb(); return 0 }
+    const scrollDesc = Object.getOwnPropertyDescriptor(window, 'scrollY')
+    try {
+      localStorage.setItem('pleng.dockkey.test.width', '200')
+      const w = mountDK({ resizable: true, autoHide: true })
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: 200 })
+      window.dispatchEvent(new Event('scroll'))
+      await nextTick()
+      expect(w.find('.dk-shift.hidden').exists()).toBe(true) // hidden
+      expect(w.find('.dk-dock').attributes('style')).toContain('--dk-w: 200px') // width preserved
+    } finally {
+      globalThis.requestAnimationFrame = rafOrig
+      if (scrollDesc) Object.defineProperty(window, 'scrollY', scrollDesc)
+    }
+  })
+})
