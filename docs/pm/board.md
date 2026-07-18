@@ -27,6 +27,7 @@
   - 🔄 **REFRAME (18 ก.ค. · P'Aim): root cause = "dock กินพื้นที่แย่งเนื้อเพลง → ใช้ยาก" + เปิดให้ expert เสนอทางดีกว่า** ("นี่คือสิ่งที่ผมต้องการ แต่ expert แนะนำให้ดีกว่าได้") → โจทย์เปลี่ยนจาก "ทำ resize" เป็น **"แก้ dock แย่งพื้นที่ editor แบบ world-class"** · resize (แบบ 2 window reflow) = แค่ 1 ทางเลือก ไม่ใช่คำตอบสุดท้าย
     - _(ประวัติ: v3=uniform zoom ผิด · P'Aim เคยเคาะ "แบบ 2"=window resize+reflow ก่อน reframe · engine `buildRows`/`cap` รองรับ reflow)_
   - **PM expert POV (ตั้งต้น · UX ต่อยอด+ฟันธง):** resize = แก้ปลายเหตุ · world-class = ให้ dock **หลบเอง** ไม่ใช่ให้คนย่อ → (1) auto-collapse เมื่อไม่ใช้ (มี collapse-in-place `:151`) (2) essential-only+overflow (SOP §3 · มี pin) (3) **contextual toolbox** (`selection-driven-editor.md §10` · SA feasibility `93d05b8` · อาจไม่ต้องมีแถบใหญ่ถาวร = แก้ root สุด) (4) โปร่งใส+resize เสริม
+  - **SA pre-verify (stand by · ตอบเร็วตอน flow มา):** กลไกมีครบบน engine (`cap` mobile7/desktop14 · `collapse-in-place`+grip `transition()` · pin/reorder) → **งานใหม่ = trigger เท่านั้น** (auto-collapse = reuse `collapsed` ref) · contextual toolbox `93d05b8` reuse ได้ · 🚩 **flag regression: auto-collapse ที่ engine → dock อ่านออกเสียงพระคำ collapse ด้วย → ต้องเช็กพระคำอยากได้ไหม** (หรือวาง trigger ที่ host = แยกได้แต่ไม่ share) · แตะ `collapsed`/shell = คิว 1-ไฟล์-1-สาย (2a/EditorMode)
   - **▶ สถานะ: จ่าย UX ออกแบบทางแก้ root (ฟันธง 1 ข้อ) + SA เตรียมตรวจ feasibility คู่ · PM GATE0 verify ก่อนส่ง P'Aim · engine 2 host · ประเมินชน 2a/EditorMode**
 
 **สถานะที่นั่ง (18 ก.ค.):**
