@@ -28,6 +28,11 @@
 >
 > **§3.1/§3.4/§4 (ชื่ออ้างอิง · name-toggle · เลือกปุ่ม 2 คอลัมน์) = reference material · ไม่ใช่ scope รอบนี้** (ปัก/settings มีแล้ว) — ถ้า P'Aim อยากได้ name-toggle (คำขอ #5 เดิม) เป็น delta แยกที่ PM ยืนยันทีหลัง
 
+> ### 📌 NOTES สำหรับ DS (PM GATE0 · 18 ก.ค. · บังคับใส่ตอนเขียน DS)
+> 1. **resize floor = project floor จริง ไม่ใช่ตัวเลข mockup:** mockup ใช้ `SMIN=0.86` (~38px) เพื่อโชว์ช่วง — **แต่ DS ต้อง clamp min = floor จริง `--touch-min` (44px desktop · 42px ≤760 · 40px จอเล็ก · `DockKey.vue:515/619/625`)** · free-form ย่อ **ห้ามต่ำกว่า floor** · footprint เล็กกว่านั้น = **ซ่อนปุ่ม/ลด gap** (SOP §3) ไม่ใช่หด `--touch-min` ลงเรื่อย ๆ
+> 2. **คงปุ่ม `dk-grip` (ลากย้าย) + collapse-in-place เดิมครบ:** mockup drow เป็นตัวอย่างไม่ได้โชว์ grip → **DS/build ต้องคง grip + ย่อแถบเดิมไว้** (กัน P'Aim เจอ "ปุ่มหาย" อีก)
+> 3. **build = `DockKey.vue` engine = แชร์ 2 เว็บ → DoD test 2 host** (`pleng-dockkey-shared-single-source` · rebuild `pk-dock-island.js`)
+
 ---
 
 ## 0.5 · ⭐ ของเดิมมีอะไรแล้ว vs ใหม่จริง (verify `DockKey.vue` · ยึด `ux-platform-patterns §4`)
