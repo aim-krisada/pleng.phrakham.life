@@ -2006,6 +2006,12 @@ const editItems = computed(() => [
   // pinning it too would render it twice (single source of action · ui-standards §2).
   { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', label: 'บันทึกร่าง', icon: 'save', place: { row: 2, col: 3 }, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value },
   { id: 'preview', kind: 'toggle', name: 'ดูผลทั้งเพลง', icon: 'maximize', default: 'inSetting', pinnable: true, control: { value: sheetWinOpen.value, onToggle: () => (sheetWinOpen.value = !sheetWinOpen.value) } },
+  // B109 เฟส A — ปุ่มนำทางบนจอ (◀▶ โน้ต · ⏮⏭ ห้อง · ▲▼ บรรทัด). editor-side slot (markup อยู่
+  // #cell-nav ด้านล่าง · ไม่ใช่ DockKey-shared) เรียก jumpNote/jumpBar/jumpLine(±1) ของ dev =
+  // navigation model เดียวกับคีย์ desktop (1 model 2 trigger · US §3). row 2 = ใต้แป้นสัญลักษณ์
+  // เหนือ core row · ปุ่ม flex-wrap ใน cell → self-fit ทุกจอ (344 = 3×2 ไม่ล้น). ขี่ dock
+  // keyboard-aware → โผล่เหนือแป้นพิมพ์ตอนป้อนเนื้อ. ไม่ pinnable = utility ถาวร ไม่ tuck เข้า ⚙.
+  { id: 'nav', kind: 'slot', name: 'นำทาง', place: { row: 2, col: 0 } },
 ])
 
 const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', rejected: 'ถูกส่งกลับ', approved: 'อนุมัติแล้ว' }
@@ -3281,6 +3287,20 @@ defineExpose({
       <template #cell-soundctl="{ open, toggle, close }">
         <SoundControl :open="open" :groups="soundGroups" :icon="soundIcon" @toggle="toggle" @close="close" />
       </template>
+      <!-- B109 เฟส A — ปุ่มนำทางบนจอ (touch/mobile) → เรียก jump* ของ dev = คีย์ desktop ตัวเดียวกัน.
+           @mousedown.prevent = ห้ามปุ่มแย่งโฟกัสจากช่องโน้ต (jump* อ่าน document.activeElement). -->
+      <template #cell-nav>
+        <span class="ed-nav" role="group" aria-label="นำทางในเพลง">
+          <button type="button" class="ed-nav-btn" aria-label="โน้ตก่อนหน้า" title="โน้ตก่อนหน้า" @mousedown.prevent @click="jumpNote(-1)">◀</button>
+          <button type="button" class="ed-nav-btn" aria-label="โน้ตถัดไป" title="โน้ตถัดไป" @mousedown.prevent @click="jumpNote(1)">▶</button>
+          <span class="ed-nav-div" aria-hidden="true"></span>
+          <button type="button" class="ed-nav-btn" aria-label="ห้องก่อนหน้า" title="ห้องก่อนหน้า" @mousedown.prevent @click="jumpBar(-1)">⏮</button>
+          <button type="button" class="ed-nav-btn" aria-label="ห้องถัดไป" title="ห้องถัดไป" @mousedown.prevent @click="jumpBar(1)">⏭</button>
+          <span class="ed-nav-div" aria-hidden="true"></span>
+          <button type="button" class="ed-nav-btn" aria-label="บรรทัดก่อนหน้า" title="บรรทัดก่อนหน้า" @mousedown.prevent @click="jumpLine(-1)">▲</button>
+          <button type="button" class="ed-nav-btn" aria-label="บรรทัดถัดไป" title="บรรทัดถัดไป" @mousedown.prevent @click="jumpLine(1)">▼</button>
+        </span>
+      </template>
     </DockKey>
 
     <!-- B: NON-MODAL floating whole-song preview (ดูผลทั้งเพลง). No backdrop → the editor
@@ -3586,6 +3606,12 @@ defineExpose({
    ≤5 buttons × 44 + gaps ≈ 228px < the 344 clamp (max-width: 100vw-24); more buttons overflow
    in-toolbox (overflow-x). dev's clampTbx re-measures after render → the wider box re-clamps. */
 .slot-btn { min-width: 44px; min-height: 44px; padding: 4px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
+/* B109 เฟส A — ปุ่มนำทางบนจอ (◀▶ โน้ต · ⏮⏭ ห้อง · ▲▼ บรรทัด) ในแถบ dock (editor-side · #cell-nav).
+   44px touch floor (WCAG 2.5.5 / parity dock · = เกณฑ์เดียวกับ .slot-btn) · flex-wrap → บนจอแคบสุด
+   (Fold 344) ยุบเป็น 3×2 ไม่ยื่นเลยจอ (cellFlex = 0 0 auto · cell กว้างเท่าเนื้อหา) · icon-only + aria-label. */
+.ed-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.ed-nav-btn { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; padding: 4px; }
+.ed-nav-div { width: 1px; align-self: stretch; margin: 4px 2px; background: var(--line); flex: 0 0 auto; }
 /* divider ระหว่าง 2 กลุ่มใน contextual toolbox: [◀▶ พยางค์] ┊ [คัดลอก/ลบ โน้ต] */
 .slot-div { width: 1px; align-self: stretch; margin: 2px 2px; background: var(--line); flex: 0 0 auto; }
 .slot-del { color: var(--muted); }
