@@ -94,18 +94,39 @@ describe('B109 — bar / line keyboard navigation', () => {
     expect(barOf()).toBe('1-1')
   })
 
-  it('Home / End focus the first / last note of the CURRENT bar; nav keys stay off other elements', async () => {
+  it('Ctrl+Home / Ctrl+End jump to song start / end; PLAIN Home/End is left to native caret', async () => {
     const w = mountEd()
     await nextTick()
     noteInBar(w, '1-0').focus()
-    const eHome = await key({ key: 'Home' })
-    expect(barOf()).toBe('1-0') // stays in the bar
-    expect(eHome.defaultPrevented).toBe(true)
+    // Ctrl+Home → first note of the whole song (0-0), preventDefault
+    const eCH = await key({ key: 'Home', ctrlKey: true })
+    expect(barOf()).toBe('0-0')
+    expect(eCH.defaultPrevented).toBe(true)
+    // plain Home is NOT intercepted (world-class: caret home/end stays native · P'Aim/UX call)
+    const ePlain = await key({ key: 'Home' })
+    expect(ePlain.defaultPrevented).toBe(false)
     // a Ctrl+Arrow with focus OUTSIDE the editor is ignored
     document.getElementById('shell-title').setAttribute('tabindex', '-1')
     document.getElementById('shell-title').focus()
     const eOut = await key({ key: 'ArrowRight', ctrlKey: true })
     expect(eOut.defaultPrevented).toBe(false)
+  })
+
+  it('a jump carries the contextual toolbox to the new note automatically (focus → onSegFocus)', async () => {
+    const w = mountEd()
+    await nextTick()
+    noteInBar(w, '0-0').focus() // focusin → onSegFocus → focusedSeg = "0-0-0" → toolbox renders
+    await nextTick()
+    let tb = w.find('.slot-tools')
+    expect(tb.exists()).toBe(true)
+    expect(tb.element.closest('[data-bar]')?.getAttribute('data-bar')).toBe('0-0')
+    await key({ key: 'ArrowRight', ctrlKey: true }) // jumpBar → focusBar → .focus() on 0-1's note
+    await nextTick()
+    tb = w.find('.slot-tools')
+    expect(tb.exists()).toBe(true)
+    // the ONE toolbox now lives in the jumped-to seg-col — UX gets anchor-follow for free (no need
+    // to set selSlot/focusedSeg manually: jump focuses a real element, which fires the handlers)
+    expect(tb.element.closest('[data-bar]')?.getAttribute('data-bar')).toBe('0-1')
   })
 })
 

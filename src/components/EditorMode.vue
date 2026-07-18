@@ -1875,8 +1875,8 @@ function onNavKeys(e) {
   else if (ctrl && e.key === 'ArrowLeft') { e.preventDefault(); jumpBar(-1) }
   else if (ctrl && e.key === 'ArrowDown') { e.preventDefault(); jumpLine(1) }
   else if (ctrl && e.key === 'ArrowUp') { e.preventDefault(); jumpLine(-1) }
-  else if (e.key === 'Home') { e.preventDefault(); focusEdge(-1, ctrl) }
-  else if (e.key === 'End') { e.preventDefault(); focusEdge(1, ctrl) }
+  else if (ctrl && e.key === 'Home') { e.preventDefault(); focusEdge(-1, true) } // song start (Ctrl only)
+  else if (ctrl && e.key === 'End') { e.preventDefault(); focusEdge(1, true) } // song end · plain Home/End = native caret (world-class · P'Aim/UX)
   else if (e.key === 'Tab') { if (jumpNote(e.shiftKey ? -1 : 1)) e.preventDefault() } // no focus trap at edges
 }
 onMounted(() => window.addEventListener('keydown', onNavKeys))
