@@ -3492,7 +3492,12 @@ defineExpose({
   scrollbar-width: none;
 }
 .slot-tools::-webkit-scrollbar { display: none; }
-.slot-btn { min-width: 30px; min-height: 26px; padding: 2px 6px; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
+/* dock-space GATE2 (tester CONCERN B): the contextual toolbox holds a DESTRUCTIVE ✕ลบ +
+   octave/copy — a mis-tap deletes a note. Lift from 30×26 (WCAG 2.5.8 minimum, +2px only) to
+   44×44 = the dock's own floor (WCAG 2.5.5 Enhanced / project --touch-min), ✕ลบ included.
+   ≤5 buttons × 44 + gaps ≈ 228px < the 344 clamp (max-width: 100vw-24); more buttons overflow
+   in-toolbox (overflow-x). dev's clampTbx re-measures after render → the wider box re-clamps. */
+.slot-btn { min-width: 44px; min-height: 44px; padding: 4px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
 /* divider ระหว่าง 2 กลุ่มใน contextual toolbox: [◀▶ พยางค์] ┊ [คัดลอก/ลบ โน้ต] */
 .slot-div { width: 1px; align-self: stretch; margin: 2px 2px; background: var(--line); flex: 0 0 auto; }
 .slot-del { color: var(--muted); }
