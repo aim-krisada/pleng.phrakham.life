@@ -1,85 +1,110 @@
-# SA feasibility — DockKey ปรับแต่งได้ + คำถาม "core lib แชร์พระคำ↔เพลง"
+# SA feasibility — DockKey ปรับแต่งได้ + "core lib แชร์พระคำ↔เพลง"
 
 **ประเภท:** SA feasibility (docs only · ⛔ ไม่แตะ `src/`) · **brief:** `docs/pm/brief-dockkey-config.md`
-**โจทย์พี่เปา:** DockKey ปรับได้ (เลือกปุ่ม show/hide + ตำแหน่ง · resize · settings · toggle ชื่อ) · **P'Aim ย้ำ:** "ถ้าแก้ต้องแก้ core lib ที่ใช้ร่วมพระคำกับเพลง"
-**verify ของจริง 2 repo:** pleng `sa-standing` · phrakham `phrakham.life2` (live · Quarto) — วัด/ diff จริง 2026-07-17 ไม่เดา
+**โจทย์พี่เปา:** DockKey ปรับได้ (เลือกปุ่ม show/hide + ตำแหน่ง · resize ขนาด · settings · toggle ชื่อ + ชื่ออ้างอิง) · **P'Aim ย้ำ:** "แก้ต้องแก้ core lib ที่ใช้ร่วมพระคำ↔เพลง"
+**verify ของจริง 2 repo:** pleng `sa-standing` · phrakham `phrakham.life2` **`origin/main`** — วัด/อ่านซอร์สจริง 2026-07-18
 **UX นำ flow · ใบนี้ตอบ feasibility + สถาปัตยกรรม shared-core**
+
+> ⚠️ **แก้ไขจากฉบับแรก (SA ยอมรับผิด):** ฉบับแรกผมสรุปว่า "phrakham ไม่มี dock · DockKey pleng-only · แก้ 2 เว็บไม่ได้ · regression พระคำ = ศูนย์" — **ผิดทั้งหมด** เพราะผม verify แค่ branch `pm-primary-parking` (branch พัก) + main `assets/` folder แล้วสรุปเร็ว. **P'Aim แก้ถูก:** DockKey **ออกแบบให้ share 2 เว็บตั้งแต่แรก** (พระคำใช้อ่านออกเสียง · เพลงปุ่มเยอะกว่า · base เดียวกัน). บทเรียน: verify ต้องดู **branch live (`origin/main`) + ซอร์สจริง** ไม่ใช่ branch แรกที่เจอ.
 
 ---
 
-## 0 · สรุป 30 วิ (ตอบ 3 คำถาม PM)
+## 0 · สรุป 30 วิ (ตอบ 3 คำถาม PM · ฉบับถูกต้อง)
 
 | # | คำถาม | คำตอบฟันธง |
 |---|---|---|
-| **Q1** | อะไร shared core · อะไรเฉพาะ pleng · config ควรอยู่ชั้นไหน | **DockKey.vue = "core lib" แต่แชร์ข้าม 3 หน้าของ pleng เอง (ฝึกร้อง/แผ่นเพลง/แก้ไข) ไม่ใช่ข้าม 2 เว็บ** · config อยู่ในชั้น descriptor + Setting page ของ DockKey (มีโครงรองรับ ~80% แล้ว) |
-| **Q2** | 🔴 แก้ครั้งเดียวได้ 2 เว็บจริงไหม | ❌ **ไม่จริงสำหรับ dock** — phrakham **ไม่มี dock เลย** (ใช้ `pk-navbar`) · dock ของ pleng (`DockKey.vue` Vue) กับสิ่งที่ phrakham มี **เป็นคนละ implementation คนละภาษา ไม่แชร์โค้ดสักบรรทัด** · 2 เว็บแชร์จริงแค่ `pk-scrollnav.js` (identical) — **ไม่เกี่ยวกับ dock** |
-| **Q3** | persist ที่ไหน · resize primitive · id คงที่ · regression phrakham · กี่เฟส | persist=localStorage มีแล้ว (per-user-cross-device ต้อง profile=เฟสเสริม) · **id คงที่ต่อปุ่ม = มีอยู่แล้ว** · resize(ย้าย)มี / resize(ขนาด)ยังไม่มี · **regression phrakham = ศูนย์ (phrakham ไม่มี dock)** · 1–3 เฟส |
+| **Q1** | อะไร shared · อะไรเฉพาะ pleng · config ควรอยู่ชั้นไหน | **`DockKey.vue` = single shared source จริง** (พระคำ import ตัวเดียวกันผ่าน `@pleng` alias · ไม่ใช่ก๊อป) · **config ต้องอยู่ที่ชั้น engine ใน `DockKey.vue`** → แก้ครั้งเดียว 2 เว็บได้ · ส่วน "ปุ่มไหนมี" อยู่ที่ data (items) ของแต่ละเว็บ |
+| **Q2** | 🟢 แก้ครั้งเดียวได้ 2 เว็บจริงไหม | ✅ **ได้จริง** — 1 source edit (`DockKey.vue`) · แต่ **2 deploy** (pleng deploy ตรง · phrakham ต้อง `npm run build` rebuild island `pk-dock-island.js` + commit + render + deploy) |
+| **Q3** | persist · resize · id คงที่ · regression พระคำ · กี่เฟส | persist=localStorage per `storeKey` (แยก user/เว็บอยู่แล้ว) · **id คงที่ = มีแล้ว** · resize ขนาด=เติม · **🔴 regression พระคำ = มีจริง (engine แชร์)** ต้องเป็น test gate · 1–3 เฟส |
 
-**ฟันธง SA:** งานนี้ **ทำใน `DockKey.vue` = pleng-only โดยธรรมชาติ และถูกต้อง** (พี่เปาใช้ pleng) · **engine รองรับ config อยู่แล้ว ~80%** (id คงที่ · `hidden` · `place` · pin/reorder · persist) → **refine ไม่ใช่ redesign** · **แต่ต้องค้าน premise:** "แก้ครั้งเดียวได้ 2 เว็บ" **เป็นไปไม่ได้กับ dock** เพราะ phrakham ไม่มี dock ให้รับ — อย่าผูกฟีเจอร์พี่เปาไว้กับ shared package ข้ามเว็บที่ยังไม่มีจริง
-
----
-
-## 1 · Q1+Q2 · แผนที่ shared core จริง (verify 2 repo · ไม่เดา)
-
-### สิ่งที่ "แชร์ข้าม 2 เว็บ" จริง ๆ (วัดแล้ว)
-| ไฟล์ | pleng | phrakham (`phrakham.life2`) | สถานะจริง |
-|---|---|---|---|
-| **`pk-scrollnav.js`** | `src/lib/` (147 บรรทัด) | `assets/` (147 บรรทัด · git-tracked) | ✅ **identical เป๊ะ (diff = 0)** — แชร์แบบ **ก๊อป-verbatim** in-sync วันนี้ |
-| **`pk-drawer.js`** | `src/lib/` (311 บรรทัด · ใช้จริงใน `ShellBar.vue` ☰) | **ไม่มีใน main tree · `git ls-files` ไม่ track** (มีแต่ใน `.claude/worktrees/*` + build dirs) | ⚠️ **pleng ใช้ฝ่ายเดียว** · header ไฟล์เคลม "phrakham AND pleng share this" = **aspirational/drift** — phrakham live ใช้ `pk-navbar` ไม่ใช่ drawer นี้ |
-| **`DockKey.vue`** (dock) | `src/components/` (629 บรรทัด · Vue) | **ไม่มี · phrakham ไม่มี dock** (ใช้ `pk-navbar.html`+`pk-navbar.js`) | ❌ **ไม่แชร์เลย** — คนละ paradigm (pleng=dock · phrakham=navbar) |
-
-> **แชร์แบบก๊อป-verbatim ไม่ใช่ shared package** — ไม่มี npm/submodule กลาง · sync ด้วยมือ (ก๊อปไฟล์) → **`pk-scrollnav` in-sync วันนี้แต่ drift ได้ทุกเมื่อ** · `pk-drawer` drift ไปแล้ว (phrakham ไม่ track) = ตรง memory [[pleng-shared-core-shell-deep]] เป๊ะ
-
-### DockKey = "core lib" ของ pleng เอง (ไม่ใช่ของ 2 เว็บ)
-`DockKey.vue` header: *"Every studio page (ฝึกร้อง · แผ่นเพลง · แก้ไข) hands it a list of button descriptors; the engine owns everything else. So the three pages share ONE engine."* → **shared ในความหมาย "3 หน้าใน pleng ใช้ engine เดียว"** · import แค่ `vue` + `Icon.vue` · **ไม่แตะ `pk-scrollnav`/`pk-drawer`** → แก้ DockKey **ไม่กระทบไฟล์ที่แชร์ 2 เว็บเลย**
-
-### ⛔ ตอบ Q2 ตรง ๆ (ค้าน premise · ตัวเลข/โค้ดชนะ)
-**"แก้ dock ครั้งเดียวได้ 2 เว็บ" = ทำไม่ได้บนสถาปัตยกรรมปัจจุบัน** เพราะ **phrakham ไม่มี dock** (มี navbar) → ไม่มีอะไรรับการแก้. ถ้า P'Aim อยากให้ config ไปโผล่ที่ phrakham ด้วยจริง ๆ ต้อง **(ก) phrakham เปลี่ยนจาก navbar → รับ dock** + **(ข) สกัด dock core ข้าม framework** (Vue host + Quarto/vanilla host กินได้) เป็น shared package = **โปรเจกต์ใหญ่แยกต่างหาก** ไม่ใช่ "เติม config ให้ DockKey". **อย่าบล็อกฟีเจอร์พี่เปาไว้กับงานนี้.**
+**ฟันธง SA (แก้ใหม่):** ทำ config ที่ **engine (`DockKey.vue`)** = **ถูกชั้นตามที่ P'Aim สั่งเป๊ะ** และ **ได้ 2 เว็บจริง** · engine รองรับ ~80% แล้ว → **refine** · **แต่เพราะแชร์จริง → ต้องมี gate ป้องกัน regression dock อ่านออกเสียงของพระคำทุกครั้งที่แตะ engine** (ตรงข้ามกับที่ผมเขียนผิดรอบแรก).
 
 ---
 
-## 2 · Q3 · feasibility ราย element (เปิด `DockKey.vue` วัดจริง)
+## 1 · Q1+Q2 · สถาปัตยกรรม shared core จริง (verify ซอร์ส 2 repo)
 
-| พี่เปาขอ | DockKey วันนี้มีไหม | ช่องว่าง / งานที่ต้องเติม |
+### DockKey = single source · พระคำ consume ไฟล์เดียวกัน (ไม่ใช่ก๊อป)
+หลักฐานในซอร์สพระคำ (`origin/main`):
+```
+src/IslandApp.vue:8   import DockKey from '@pleng/components/DockKey.vue'
+vite.config.js        alias { '@pleng': '../pleng.phrakham.life/src' }   // ชี้ src จริงของ pleng
+                      // คอมเมนต์: "points STRAIGHT at pleng's src (not a copy).
+                      //            Edit DockKey.vue there → rebuild here → phrakham gets it."
+```
+- **pleng:** ใช้ `DockKey.vue` ตรงใน Vue app · feed `ITEMS_EDIT`/`ITEMS_SING`/`ITEMS_PRINT`
+- **phrakham:** `IslandApp.vue` (host glue: TTS อ่านออกเสียง + Aa + ภาพ) import `DockKey.vue` ตัวเดียวกัน → Vite bundle เป็น `assets/pk-dock-island.js` (96KB / **36.6KB gzip**) → Quarto โหลดเฉพาะหน้าบทความ · feed reading dock (▶ฟังบทความ/speed/Aa/ภาพ) · `store-key="phrakham-reading"`
+- **engine เดียวกัน ต่างแค่ DATA (items)** — พระคำปุ่มน้อย (grip·▶·Aa·⚙ + transport ตอนเล่น) · เพลงปุ่มเยอะ (13 ปุ่ม edit) · **ทั้งคู่ใช้ ⚙ Setting page (pin/reorder/transparency) อันเดียวกัน**
+
+### ✅ ตอบ Q2 (แก้ใหม่): แก้ครั้งเดียวได้ 2 เว็บจริง — กลไก
+| | |
+|---|---|
+| **source** | 1 ที่ = `pleng/src/components/DockKey.vue` |
+| **pleng ได้ยังไง** | ใช้ตรง → pleng build/deploy ปกติ |
+| **phrakham ได้ยังไง** | `npm run build` (vite · ที่ root พระคำ) → rebuild `pk-dock-island.js` → **commit bundle** (Quarto resource · node_modules gitignore) → `quarto render` → deploy |
+| **แปลว่า** | **1 source edit · 2 deploy** — ไม่ fork ไม่ก๊อป-drift · แต่ **ไม่ auto**: ต้อง trigger rebuild ฝั่งพระคำ (report เดิมเสนอผูก `npm run build` เข้า `deploy-github.ps1` กัน bundle เก่าค้าง — ยังไม่ทำ) |
+
+### สิ่งที่แชร์ "แบบก๊อป-verbatim" (คนละกลไกกับ DockKey · ยังจริง)
+`pk-scrollnav.js` = identical (diff=0) แชร์แบบก๊อปมือ · `pk-fontsize.js` = แชร์ core (Aa ของพระคำเรียกใช้) · `pk-tts.js` = framework-agnostic (report บอกจะ graduate เป็น shared แบบ pk-fontsize) · **`pk-drawer.js`** = pleng ใช้ (ShellBar ☰) · พระคำไม่ track (คนละของกับ dock · ไม่เกี่ยวงานนี้).
+
+---
+
+## 2 · Q3 · feasibility ราย element (config อยู่ที่ engine = 2 เว็บได้)
+
+| พี่เปาขอ | DockKey engine วันนี้ | เติมที่ engine (→ 2 เว็บได้) |
 |---|---|---|
-| **id คงที่ต่อปุ่ม (ชื่ออ้างอิง)** | ✅ **มีแล้ว** — ทุก descriptor มี `id` · `byId(id)` · `:data-cell="it.id"` | **0 — มีอยู่แล้ว** (P'Aim ขอสิ่งที่ระบบมีแล้ว) |
-| **show/hide ปุ่ม** | 🟡 กลไก `hidden` มีในโมเดล (`visible=filter(!hidden)`) **แต่วันนี้ "หน้า" ตั้ง ไม่ใช่ผู้ใช้** · Setting page ทำแค่ **pin/reorder** | เติม: Setting page + ชุด `hiddenOverride` ต่อผู้ใช้ (แพตเทิร์นเดียวกับ `pins` ที่ persist อยู่แล้ว) |
-| **ตำแหน่ง/ลำดับ** | ✅ pin + reorder (`togglePin`/`movePin`) ใน Setting page · `place` เป็น declarative | ~มีแล้ว (reorder ใน pins) · ย้าย anchor อิสระ = เติมถ้า UX ต้องการ |
-| **settings (⚙)** | ✅ มี Setting page (pin/reorder + transparency) | 0 — ต่อยอดหน้าเดิม |
-| **resize** | 🟡 **ย้าย/ลาก dock ได้** (grip drag + clamp) + collapse + transparency slider · **ขนาด(width/height) ปรับไม่ได้** | ถ้า "resize"=ย้าย → มีแล้ว · ถ้า=ปรับขนาด → **เติม (additive)** · **UX ต้องนิยาม "resize" ให้ชัด** |
-| **toggle ชื่อ (โชว์/ซ่อน label)** | ❌ ยังไม่มี toggle · `name` ต่อปุ่มมี | เติม: flag `showLabels` + persist + render `name` แบบมีเงื่อนไข (additive) |
-| **persist ต่อผู้ใช้** | ✅ **localStorage** namespaced `pleng.dockkey.<storeKey>.pins/collapsed/alpha` | **per-device มีแล้ว** · **cross-device(ต่อ user จริง) = ต้อง Supabase profile** (เฟสเสริม · เฉพาะทีมล็อกอิน · Tier-0 anon ไม่มี profile) |
+| **id คงที่ต่อปุ่ม (ชื่ออ้างอิง)** | ✅ **มีแล้ว** — ทุก descriptor มี `id` + `name` · `byId` · `:data-cell` | 0 — surface/document/toggle (§4.5) |
+| **show/hide ปุ่ม** | 🟡 กลไก `hidden` มี · Setting page ทำแค่ pin/reorder | เติม `hiddenOverride` ต่อ user (แพตเทิร์นเดียวกับ `pins`) · namespaced ด้วย `storeKey` → **user เพลง กับ user พระคำ แยกกัน อัตโนมัติ** |
+| **ตำแหน่ง/ลำดับ** | ✅ pin+reorder + `place` declarative | ~มีแล้ว |
+| **settings ⚙** | ✅ มี (pin/reorder + transparency · ใช้ทั้ง 2 เว็บ) | ต่อยอดหน้าเดิม |
+| **resize (พี่เปา: "ใหญ่ไป")** | 🟡 ย้าย/ลากได้ · ปรับ**ขนาด**ไม่ได้ · ขนาดคุมด้วย `cap`(m7/d14)+44px | **resize = ขนาด** → (ก) ลด default เล็กลง (UX ฟันธง · ≥44px) (ข) handle ปรับขนาด+persist |
+| **toggle ชื่อ label** | ❌ ยังไม่มี · `name` มี | flag `showLabels` + persist + render `name` มีเงื่อนไข |
+| **persist ต่อ user** | ✅ localStorage `pleng.dockkey.<storeKey>.*` | per-device มีแล้ว · cross-device = profile (เฟสเสริม) |
 
-**regression phrakham:** **ศูนย์** — `DockKey.vue` เป็น pleng-only · phrakham ไม่มี dock/DockKey → **ฟีเจอร์นี้แตะ phrakham ไม่ได้แม้อยากแตะ** → **ความกลัว "แตะผิดพัง 2 เว็บ" ไม่เกิดกับ dock** (จะเกิดก็ต่อเมื่อไปแตะ `pk-scrollnav`/`pk-drawer` ซึ่งงานนี้ไม่แตะ)
+### 🔴 regression พระคำ = มีจริง (แก้ที่ผมเขียนผิด) → ต้องเป็น gate
+engine แชร์จริง → **ทุกการแตะ `DockKey.vue` กระทบ dock อ่านออกเสียงของพระคำด้วย**. ต้องกัน:
+- config UI ใหม่ใน ⚙ / resize / label-toggle → โผล่ที่พระคำด้วย (น่าจะดี แต่**ต้องพิสูจน์ไม่พังอ่านออกเสียง**: transport โผล่ตอนเล่น · Aa slot เป็น page-drawn · gating โชว์เฉพาะหน้าบทความ)
+- **DoD บังคับ:** ทุกงานแตะ engine → **rebuild `pk-dock-island.js` + รัน standards gate ของพระคำ** (report เดิมมี checklist: target 48px · aria-label ครบ · no h-scroll 375/390 · print hidden) ก่อนถือว่าเสร็จ · ทดสอบทั้ง 2 host
+- **regression risk แท้จริง = engine change เท่านั้น** · แค่แก้ `ITEMS_EDIT` (data เพลง) → พระคำไม่กระทบ (คนละ items)
 
 ---
 
-## 3 · เฟส (ฟันธง · UX จัด flow ในกรอบ)
+## 3 · เฟส (ฟันธง · UX จัด flow · config ที่ engine = 2 เว็บ)
 
-| เฟส | ทำ | แตะ | ขนาด | 2-เว็บ? |
+| เฟส | ทำ | แตะ | 2 เว็บ? | regression guard |
 |---|---|---|---|---|
-| **1 · user config บน DockKey** ⭐ | Setting page เพิ่ม show/hide ต่อปุ่ม + toggle ชื่อ + (ตำแหน่งใช้ pin/reorder เดิม) · persist localStorage | `DockKey.vue` + ITEMS ของแต่ละหน้า | **เล็ก–กลาง** (engine รองรับ ~80%) | pleng-only |
-| **2 · persist ต่อผู้ใช้ (cross-device)** | ย้าย/มิเรอร์ prefs → Supabase `profiles` (เฉพาะทีมล็อกอิน) + RLS | +DB column + `store.js` | กลาง | pleng-only |
-| **3 · resize ขนาด dock** (ถ้า UX นิยามว่าต้อง) | เพิ่ม handle ปรับขนาด + clamp (มี clamp primitive แล้ว) | `DockKey.vue` | เล็ก–กลาง | pleng-only |
+| **1 · user config บน engine** ⭐ | Setting page: show/hide ต่อปุ่ม + toggle ชื่อ + reorder เดิม · persist localStorage per storeKey | `DockKey.vue` (+ items แต่ละหน้า) | ✅ ได้ทั้ง 2 | rebuild island + standards gate พระคำ |
+| **2 · resize ขนาด + ลด default** | ลด default เล็กลง (พี่เปา) + handle ปรับขนาด | `DockKey.vue` | ✅ ได้ทั้ง 2 | เช็ก dock พระคำไม่เล็กจนกด TTS ยาก · 48px |
+| **3 · persist cross-device** | mirror prefs → Supabase profile (เฉพาะ login) | +DB+`store.js` | pleng (พระคำไม่มี auth เดียวกัน) | — |
 
-**go:** เฟส 1 ทำได้ทันที (pleng-only · engine พร้อม · refine) · เฟส 2–3 รอ UX/P'Aim นิยาม (persist ข้ามเครื่องเอาไหม · "resize"=อะไร)
+**go:** เฟส 1 = refine · engine พร้อม ~80% · **แต่บังคับ 2-web test** ก่อนถือเสร็จ · **1 ไฟล์ 1 สาย ข้าม 2 product:** งานแตะ `DockKey.vue` = สายเดียว · ต้อง rebuild+verify พระคำในสายเดียวกัน (PM คิว)
 
 ---
 
-## 4 · 🚩 เชิงรุก — 2 เรื่องที่ P'Aim ควรรู้ (ไม่รอถาม)
+## 4.5 · ⭐ ระบบชื่ออ้างอิง (P'Aim ข้อ 5 · "โครงสร้างสื่อสารทีม") — ground-truth
 
-1. **"core lib แชร์ 2 เว็บ" ในหัว P'Aim ไม่ตรงของจริง (สำหรับ dock):** dock ไม่แชร์เลย · แชร์จริงแค่ `pk-scrollnav` (identical) · `pk-drawer` **drift ไปแล้ว** (phrakham ไม่ track ทั้งที่ header เคลมแชร์) → ถ้าอยากได้ "แก้ครั้งเดียว 2 เว็บ" จริง ต้องลงทุน **shared package ข้าม framework** ก่อน = งานสถาปัตยกรรมแยก ควรตัดสินใจแยกจากฟีเจอร์พี่เปา
-2. **drift risk ที่ควรเก็บกวาด (แยกงาน):** `pk-scrollnav` in-sync วันนี้แต่กันด้วยมือ (ก๊อป) → มี test `pk-scrollnav.test.js` ใน pleng ช่วยจับ · `pk-drawer` header เคลมเท็จว่า "phrakham copies verbatim" ทั้งที่ phrakham ไม่ track → ควรแก้คอมเมนต์ให้ตรงจริง (pleng-only) กัน AI/คนรุ่นหลังเข้าใจผิด
+ทุก descriptor มี `id` คงที่ + `name` ไทยอยู่แล้ว → ข้อ 5 = **surface + document + toggle ไม่ใช่ประดิษฐ์ใหม่**. ตาราง edit dock (`ITEMS_EDIT` · หน้าที่พี่เปาขอก่อน):
+
+| id | name (ไทย) | kind | | id | name | kind |
+|---|---|---|---|---|---|---|
+| `keys` | แป้นสัญลักษณ์ | keys | | `setting` | ตั้งค่า | gear |
+| `grip` | ย้าย/ย่อ | grip | | `save` | (บันทึก) | btn |
+| `undo` | ย้อน | btn | | `playAll` | ฟังทั้งเพลง | btn |
+| `redo` | ทำซ้ำ | btn | | `export` | ดาวน์โหลด | slot |
+| `play` | ฟังท่อน | btn | | `draft` | บันทึกร่าง | btn |
+| `stop` | หยุด | btn | | `preview` | ดูผลทั้งเพลง | toggle |
+| `soundctl` | เสียงดนตรี | slot | | | | |
+
+→ เหลือ (1) UX ทำตาราง "ปุ่ม→ชื่อ→id" เป็นเอกสารทีม (ต่อยอด + เพิ่มหน้า print/sing + **dock อ่านออกเสียงพระคำ**) · (2) toggle โชว์/ซ่อน `name` · (3) `id`→`data-dock-id` บน DOM = test hook + `aria-label` จากชื่อไทย (a11y ในตัว · **ได้ทั้ง 2 เว็บ เพราะอยู่ที่ engine**)
 
 ---
 
 ## 5 · ที่ SA ไม่ตัดสินแทน — ส่ง UX + รอ PM/P'Aim
 
-1. **นิยาม "resize"** (ย้าย vs ปรับขนาด) = UX เคาะ → กำหนดว่าเฟส 3 ต้องทำไหม
-2. **persist ข้ามเครื่องเอาไหม** (localStorage พอ หรือ profile) = P'Aim เลือก (พี่เปาเครื่องเดียว localStorage พอ)
-3. **จะลงทุน shared package ข้าม 2 เว็บไหม** = P'Aim ตัดสิน **แยกจากฟีเจอร์นี้** (อย่าบล็อกพี่เปา)
-4. **ยังไม่ build** — UX ทำ flow/mockup (เลือกปุ่มไหน config ได้ · หน้าตา Setting) → ผมตรวจ feasibility คู่ → P'Aim เคาะ GATE 1 → DS + จ่าย dev
+1. **นิยาม default ขนาดเล็กลง** (พี่เปาว่าใหญ่ไป) = UX ฟันธง (≥44px)
+2. **config โผล่ที่พระคำด้วยเอาไหม** — show/hide/resize/label ที่ engine จะเห็นผลที่ dock อ่านออกเสียงด้วย → P'Aim/UX ยืนยันว่าอยากให้ 2 เว็บได้พร้อมกัน (น่าจะใช่ ตามเจตนา "แก้ core ร่วม") หรือจะ gate เฉพาะบางเว็บ
+3. **persist cross-device** (localStorage พอ หรือ profile) = P'Aim เลือก
+4. **ยังไม่ build** — UX flow/mockup → ผมตรวจ feasibility คู่ → P'Aim เคาะ GATE 1 → DS + จ่าย dev (+ แผน rebuild/verify พระคำ)
 
 ---
 
-*verify 2 repo จริง 2026-07-17 · SA (feasibility) · pleng `studio-shell-redesign` · phrakham `phrakham.life2`*
+*verify 2 repo (pleng `studio-shell-redesign` · phrakham `phrakham.life2 origin/main` ซอร์สจริง) 2026-07-18 · SA*
