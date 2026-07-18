@@ -1,4 +1,17 @@
-# PM board — pleng (ไม้ต่อ · refreshed 2026-07-18 · หลัง DEPLOY รอบ 31)
+# PM board — pleng (ไม้ต่อ · refreshed 2026-07-18 · หลัง DEPLOY รอบ 32)
+
+## 🎉 DEPLOY รอบ 32 LIVE `64ec8ef` (18 ก.ค. · P'Aim "deploy" · recovery หลังพี่เปาไม่ชอบ dock-space)
+- **ของที่ขึ้น (3):** 🎛️ **free-form resize** (พี่เปาขอตั้งแต่แรก · ลากขอบ/สไลเดอร์ตั้งกว้าง→ปุ่ม reflow · desktop drag+dblclick-auto · mobile slider · prop `resizable` · auto-hide coexist) · ⌨️ **คีย์ลัด B109** (Enter=ยืนยันคอร์ด · Ctrl+←/→ ห้อง · Ctrl+↑/↓ บรรทัด · Tab · ปุ่มนำทางบนจอ · คู่มือ Guide §②) · 🔧 **แก้ล้นจอ 344** (flex-wrap · 2-host · phrakham tree ยืนยันแล้ว)
+- **✅ verify prod:** live bundle `index-x_p9S_BX.js` มี `64ec8ef` · marker จริง `resizable`×6·`dk-resize`·`--dk-w`·`cell-nav` · **751 tests · build ✓** · resize wire `:resizable="true"` byte-safe (EditorMode มี null byte :1569)
+- **git:** base `studio-shell-redesign` = origin/main = `64ec8ef`
+- **🎯 พี่เปาลองได้ทันที** https://pleng.phrakham.life/#/studio (มือถือ · ลากปรับขนาดแถบ + คีย์ลัด = สิ่งที่ขอ) — recovery
+- **B108 backend (store.js counter · `348930c`) = ไม่ได้ deploy** (dormant · รวมกับระฆัง UI + db/008 รอบหน้า)
+- **▶ ถัดไป:** ระฆัง B108 UI (backend+db/008 พร้อม) · db/006/007 ลบเข้า base (repo cleanup) · resize/นาว บนมือถือจริง = พี่เปายืนยัน
+
+---
+_(ประวัติ DEPLOY รอบ 31 + งานด้านล่าง)_
+
+# (เดิม) PM board — refreshed หลัง DEPLOY รอบ 31
 
 ## 🎉 DEPLOY รอบ 31 LIVE `938497a` (18 ก.ค. · P'Aim "deploy 3 เลย")
 - **ของที่ขึ้น (3):** 🎛️ **dock-space** (แถบ editor สลิม+หลบตอนเลื่อน+contextual toolbox ◀▶/copy/del/octave+continuity · ผ่าน tester GATE2 · A anchoring+B 44px แก้แล้ว) · 🛡️ **เตือนก่อนทับงาน** (phase-1 ห้ามเลือดไหล `13f0f52`) · 📝 **ชื่อเพลงเต็ม** (2c `ce1022e`)
