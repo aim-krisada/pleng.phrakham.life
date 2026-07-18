@@ -693,13 +693,21 @@ function cellFlex() { return '0 0 auto' }
 }
 /* The dock is a FLOATING TOOLBOX (P'Aim): it hugs its content on EVERY side — width = the
    widest row's natural button width, never the screen, and NO min-width padding it out (D3
-   · แผ่นเพลง had trailing space after ⚙). Shrinks to the viewport only on very narrow phones. */
-.dk-dock { width: fit-content; max-width: min(700px, calc(100vw - 16px)); }
+   · แผ่นเพลง had trailing space after ⚙). Shrinks to the viewport only on very narrow phones.
+   `- 20px` = the host's 10px L/R padding (was 16 · left the dock ~4px wider than the host content
+   box). `min-width: 0` lets the flex item actually shrink to that cap instead of a nowrap row's
+   min-content forcing it past the cap (the 344 clip · see .dk-row flex-wrap below). */
+.dk-dock { width: fit-content; min-width: 0; max-width: min(700px, calc(100vw - 20px)); }
 .dk-dock.dk-mini { width: auto; min-width: 0; max-width: none; display: inline-flex; gap: 8px; padding: 7px 9px; }
 
 /* rows pack left-to-right at each button's natural size (grip first · ⚙ at the end of the
-   cluster). No justify/space-between — the buttons stay grouped, not pinned to both edges. */
-.dk-row { display: flex; align-items: center; gap: 7px; }
+   cluster). No justify/space-between — the buttons stay grouped, not pinned to both edges.
+   flex-wrap: a row whose natural width exceeds the (clamped) dock REFLOWS to more lines instead
+   of overflowing the viewport — the last button (⚙) was clipped ~+23px past a 344 Fold-cover when
+   a wide pill (▶ ฟังบทความ) + menu chip pushed the nowrap row past min(700, 100vw). Buttons keep
+   their --touch-min floor; only the row count grows (the cap=f(width) intent, guaranteed in CSS
+   so it holds for ANY host/font/glyph width — pleng editor AND the phrakham island · 2-host). */
+.dk-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .dk-row + .dk-row { margin-top: 9px; }
 .dk-cell { display: inline-flex; align-items: center; min-width: 0; }
 
