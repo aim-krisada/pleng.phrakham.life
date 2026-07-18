@@ -220,6 +220,46 @@ describe('DockKey phase-2 schema (E1 keys band · E2 prime/label)', () => {
   })
 })
 
+describe('DockKey cap = f(width)', () => {
+  let iwDesc
+  beforeEach(() => { iwDesc = Object.getOwnPropertyDescriptor(window, 'innerWidth') })
+  afterEach(() => { if (iwDesc) Object.defineProperty(window, 'innerWidth', iwDesc) })
+  const setWidth = (px) => Object.defineProperty(window, 'innerWidth', { configurable: true, value: px })
+
+  it('wide viewport merges row2 into row1 (one row); narrow keeps two + dk-m', () => {
+    const packable = () => [
+      { id: 'grip', kind: 'grip', name: 'ย้าย', place: { anchor: 'left', row: 1 } },
+      { id: 'print', kind: 'btn', name: 'พิมพ์', icon: 'printer', place: { anchor: 'rightOf:grip', row: 1 }, run },
+      { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
+      { id: 'save', kind: 'btn', name: 'บันทึก', label: 'บันทึก', icon: 'send', place: { row: 2, col: 1 }, run },
+    ]
+    setWidth(1200)
+    const wide = mountDK({ items: packable() })
+    expect(wide.findAll('.dk-row')).toHaveLength(1) // merged
+    expect(wide.find('.dk-dock').classes()).not.toContain('dk-m')
+
+    setWidth(400)
+    const narrow = mountDK({ items: packable() })
+    expect(narrow.findAll('.dk-row')).toHaveLength(2) // not merged on narrow
+    expect(narrow.find('.dk-dock').classes()).toContain('dk-m')
+  })
+
+  it('cap grows with width: the same pinned set packs into FEWER rows when wider (no 760 jump)', () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ id: 'p' + i, kind: 'btn', name: 'p' + i, icon: 'x', default: 'inSetting', pinnable: true, run }))
+    const base = () => [
+      { id: 'grip', kind: 'grip', name: 'g', place: { anchor: 'left', row: 1 } },
+      { id: 'setting', kind: 'gear', name: 's', place: { anchor: 'right', row: 1 } },
+      ...many,
+    ]
+    localStorage.setItem('pleng.dockkey.test.pins', JSON.stringify(many.map((m) => m.id)))
+    setWidth(1400) // cap 14 → 12 pinned in one row
+    const wideRows = mountDK({ items: base() }).findAll('.dk-row').length
+    setWidth(300) // cap 6 → 12 pinned across two rows
+    const narrowRows = mountDK({ items: base() }).findAll('.dk-row').length
+    expect(narrowRows).toBeGreaterThan(wideRows)
+  })
+})
+
 describe('DockKey hide-on-scroll (auto-hide)', () => {
   let rafOrig, scrollDesc
   beforeEach(() => {

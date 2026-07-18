@@ -74,11 +74,23 @@ onMounted(() => {
 })
 watch(() => props.alpha, (v) => { try { localStorage.setItem(LS_ALPHA.value, String(v)) } catch { /* ignore */ } })
 
-// ---------- viewport (cap = fill the width at 44px · WCAG 2.2 AA · DS I6) ----------
-const mobile = ref(false)
-let mq = null
-function syncMobile() { mobile.value = mq ? mq.matches : false }
-const cap = computed(() => (mobile.value ? 7 : 14))
+// ---------- viewport (cap = f(width) · continuous · WCAG 2.2 AA · DS I6 · §4) ----------
+// A single binary matchMedia(760) made `cap` jump 7↔14, so an unfolding Fold (690–768) crossed
+// 760 and the dock snapped rows. Derive `cap` from the LIVE full width instead (measured off the
+// document, NOT the dock — a fixed/auto-width dock would feed its own width back into cap · SA Q4).
+// Buttons keep their --touch-min floor (44/42/40 via CSS); a narrow width reflows to MORE rows,
+// it never shrinks the target.
+const PER_BTN = 50 // ≈ one 44px button + 7px gap; the budget one dock button occupies
+const containerWidth = ref(typeof window !== 'undefined' ? (window.innerWidth || 1024) : 1024)
+function readWidth() {
+  return (typeof window !== 'undefined' &&
+    (window.visualViewport?.width || document.documentElement?.clientWidth || window.innerWidth)) || 1024
+}
+function syncWidth() { containerWidth.value = readWidth() }
+const cap = computed(() => Math.max(3, Math.min(14, Math.floor(containerWidth.value / PER_BTN))))
+// `mobile` (tighter gaps · suppress the wide row-merge) now derives from the same width source,
+// aligned to the CSS --touch-min breakpoint at 760 — one source of truth, no separate matchMedia.
+const mobile = computed(() => containerWidth.value <= 760)
 
 // ---------- one popover at a time (menu · setting · a slot cell) ----------
 const openId = ref(null) // item id | 'setting' | null
@@ -292,10 +304,14 @@ let ro = null
 let rmq = null // prefers-reduced-motion media query
 function syncReduce() { reduceMotion.value = rmq ? rmq.matches : false }
 onMounted(() => {
-  mq = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 760px)') : null
-  syncMobile()
-  mq?.addEventListener?.('change', syncMobile)
-  window.addEventListener('resize', syncMobile)
+  // cap = f(width): observe the DOCUMENT width (the full-width ref) — never the dock itself, or
+  // cap→button count→dock width→cap would form a feedback loop (SA Q4). visualViewport.width also
+  // reflects pinch-zoom; window resize covers rotate/fold; RO covers layout-driven width changes.
+  syncWidth()
+  ro = typeof ResizeObserver === 'function' ? new ResizeObserver(syncWidth) : null
+  ro?.observe(document.documentElement)
+  window.addEventListener('resize', syncWidth)
+  window.visualViewport?.addEventListener('resize', syncWidth)
   window.addEventListener('keydown', onEsc)
   // hide-on-scroll: reduced-motion forces auto-hide off; the window is the scroll container.
   rmq = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null
@@ -305,9 +321,9 @@ onMounted(() => {
   window.addEventListener('scroll', onScroll, { passive: true })
 })
 onUnmounted(() => {
-  mq?.removeEventListener?.('change', syncMobile)
   rmq?.removeEventListener?.('change', syncReduce)
-  window.removeEventListener('resize', syncMobile)
+  window.removeEventListener('resize', syncWidth)
+  window.visualViewport?.removeEventListener('resize', syncWidth)
   window.removeEventListener('keydown', onEsc)
   window.removeEventListener('scroll', onScroll)
   document.removeEventListener('mousedown', onOutside)
