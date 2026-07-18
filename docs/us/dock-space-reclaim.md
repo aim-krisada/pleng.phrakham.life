@@ -1,0 +1,100 @@
+# US/UX — คืนพื้นที่หน้าจอ: "dock หลบเอง" ไม่ใช่ "ให้คนย่อ dock"
+
+**ประเภท:** UX flow + design (นำ · design lead) · **⛔ ยังไม่ build — รอ P'Aim GATE 1** · SA ตรวจ feasibility คู่
+**reframe:** P'Aim 18 ก.ค. — *"รากเง้าคือมันกินพื้นที่ ทำให้ใช้งานยาก"* (resize free-form = แก้ปลายเหตุ) · **PM expert POV → UX ต่อยอด+ฟันธง**
+**ต่อยอด (ไม่รื้อ):** `docs/us/selection-driven-editor.md §10` (contextual toolbox ที่ผม banked · **กลับมามีบ้าน**) · `docs/us/dockkey-config.md` (resize/settings เดิม) · engine `DockKey.vue` (collapse/grip/pin มีแล้ว)
+**ยึด:** `docs/ux-platform-patterns.md` (SOP) · `docs/ui-standards.md` · WCAG 2.2 AA · Apple HIG · Material 3
+**สรุป ม.ต้น:** `docs/pm/summary-dock-space-paim.md`
+
+> **root ที่ P'Aim ชี้:** dock ถาวร (2 แถว + แป้นโน้ต) กิน ~1/3 จอมือถือ **แย่งพื้นที่กับเนื้อเพลงที่พี่เปากำลังแก้** → ย่อ dock เอง = ยังกินที่ + ต้องมานั่งย่อ
+
+---
+
+## 0 · ข้อเสนอ (ฟันธง 1 ทาง · P'Aim ให้ root มาแล้ว ไม่ต้องถามต่อ)
+
+**หลักเดียว (จากการเปิดมาตรฐานจริง):** **โลกไม่ทำแถบให้ "เล็กลง" — ทำให้ "มีเงื่อนไข" (conditional not smaller)** · แถบโผล่เฉพาะตอนต้องใช้ · ไม่งั้นหลบให้เนื้อหา
+
+> **✅ ข้อเสนอ: "conditional dock" — แถบต้องหาพื้นที่คืนด้วยการหลบเอง 3 จังหวะ + เครื่องมือไปหา element**
+
+| # | พฤติกรรม | trigger | คืนแถบ | อ้างมาตรฐาน (เปิดจริง) |
+|---|---|---|---|---|
+| 1 | **ซ่อนตอนอ่าน/scroll** — เลื่อนดูเพลง → dock เลื่อนหาย | scroll ลง | scroll ขึ้น / แตะ | Apple HIG (Safari ซ่อน toolbar ตอน scroll · "defer to content") · Material bottom bar `hideOnScroll` · browser chrome |
+| 2 | **ซ่อนตอนพิมพ์ → เครื่องมือเกาะเหนือแป้น** — คีย์บอร์ดขึ้น dock ซ่อน (โดนบังอยู่แล้ว) | keyboard ขึ้น | keyboard ปิด | iOS `inputAccessoryView` · Google Docs (toolbar เหนือแป้น) |
+| 3 ⭐ | **เครื่องมือไปหา element ที่แตะ (contextual toolbox §10)** — แตะโน้ต/ห้อง/บรรทัด → toolbox โผล่ตรงนั้น | แตะ element | เลิกเลือก | Material floating selection toolbar (เกาะ selection ไม่ทับ) · CAB · §10 (Canva/Apple) |
+| + | **default = แถบบางเฉพาะ essential** (play·undo·save·⚙) ที่เหลือใน ⚙ overflow | — | — | SOP §3 (ลดจำนวน ไม่ย่อ target) · Material CAB/overflow |
+| + | resize (แบบ 2) + โปร่งใส = **เสริม** ถ้ายังต้องการ | — | — | dockkey-config §3.2 |
+
+**ทำไมดีกว่า free-form resize:** resize = ผู้ใช้ต้องมานั่งจัดการเอง + ย่อแล้ว**ยังกินที่ตลอดเวลา** · conditional = **พื้นที่คืนอัตโนมัติเมื่อไม่ได้ใช้ + เครื่องมือมาหาที่งาน** → พี่เปาได้จอเต็มไว้อ่าน/แก้เพลง
+
+---
+
+## 1 · thesis จากมาตรฐาน — "conditional not smaller" (เปิดของจริง)
+
+- **Apple HIG (defer to content):** UI ต้องหลบให้เนื้อหาเป็นพระเอก · toolbar *"ซ่อนเมื่อผู้ใช้ไม่น่าต้องใช้ — เช่น Safari ซ่อน toolbar ตอน scroll เพราะกำลังอ่าน"* ([HIG Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars) · SPA — เก็บจาก extract, ยืนยัน exact quote ตอน build)
+- **Mobile browser chrome:** address/toolbar เลื่อนหายตอน scroll ลง กลับมาตอน scroll ขึ้น = คืนพื้นที่อ่าน ([Chrome blog](https://developer.chrome.com/blog/url-bar-resizing))
+- **Material bottom app bar `hideOnScroll`:** ซ่อนตอน scroll ลง โผล่ตอน scroll ขึ้น ([BottomAppBar doc](https://github.com/material-components/material-components-android/blob/master/docs/components/BottomAppBar.md))
+- **Material floating selection toolbar:** เครื่องมือโผล่ *"เหนือ selection แต่ไม่ทับ"* · More → ขยาย ([m1 selection](https://m1.material.io/patterns/selection.html))
+- **iOS inputAccessoryView / Google Docs:** เครื่องมือแก้ไขเกาะ**เหนือแป้นพิมพ์** เลื่อนตามแป้น ([Docs Android](https://support.google.com/docs/answer/1663349))
+
+> **🔴 a11y บังคับ (Material เตือน):** hide-on-scroll **auto-disable เมื่อเปิด screen reader (TalkBack)** — ไม่งั้นแถบหายจาก AT · **ต้องมี fallback: เปิด screen reader → dock ไม่ auto-hide** ([BottomAppBar doc](https://github.com/material-components/material-components-android/blob/master/docs/components/BottomAppBar.md))
+
+---
+
+## 2 · ต่อยอดของเดิม (ยึด `ux-platform-patterns §4` · SA ตรวจ)
+
+| พฤติกรรม | ของเดิมรองรับ | ต้องเติม |
+|---|---|---|
+| ซ่อน/กางแถบ | ✅ `collapse-in-place` + grip (`DockKey.vue:151/184`) | trigger จาก scroll (ตอนนี้แตะ grip เอง) |
+| overflow/pin essential | ✅ pin 📌 + settingItems (`:139/:44`) | เลือก essential set + default |
+| contextual toolbox | 🟡 §10 (design เสร็จ · banked) + `focusedSlot`/`slot-tools` เกาะ element แล้ว | ขยายครบ 5 scope |
+| keyboard-aware | 🟡 `slot-tools` เกาะเหนือช่องพิสูจน์แล้ว keyboard-safe | ให้ dock ซ่อนตอน keyboard ขึ้น |
+| a11y fallback | — | detect screen reader → ไม่ auto-hide |
+
+→ **refine หนัก ไม่ใช่ rebuild** — 4/5 มีเชื้ออยู่แล้ว · งานคือ**ประสาน** (scroll/keyboard state → collapse engine + §10)
+
+---
+
+## 3 · เฟส (มีของถึงมือพี่เปาทุกเฟส)
+
+| เฟส | ทำ | พี่เปาได้ | บล็อก |
+|---|---|---|---|
+| **A ⭐ (คุ้มสุด root)** | **hide-on-scroll** + slim essential default + a11y fallback | อ่าน/เลื่อนเพลง = จอเต็ม dock หลบเอง | 🚩 `DockKey.vue` engine (2-host) |
+| **B** | **contextual toolbox §10** (โน้ต+ห้องก่อน) | เครื่องมือมาหา element = ไม่ต้องพึ่งแถบใหญ่ | 🚩 `EditorMode.vue` (ไฟล์ร้อน) |
+| **C** | **keyboard-aware** (พิมพ์→dock ซ่อน · toolbox เหนือแป้น) + toolbox ครบ 5 scope | แก้บนมือถือลื่น ไม่โดนแป้นบัง | ต่อ B |
+| **D** | resize แบบ 2 + โปร่งใส = เสริม (ถ้า P'Aim ยังอยาก) | ปรับเพิ่มเองได้ | — |
+
+**ทำไมเรียงงี้:** เฟส A แก้ root ตรงสุดด้วยของที่มีเกือบครบ (collapse engine) · เฟส B-C คือ §10 ที่ banked ไว้ = ต่อได้เลย
+
+---
+
+## 4 · 🚦 1-ไฟล์-1-สาย (ใหญ่กว่า dock-config — แตะ editor space)
+
+| ไฟล์ | แตะอะไร | ชนใคร |
+|---|---|---|
+| **`DockKey.vue`** (engine · แชร์ 2 เว็บ) | hide-on-scroll · slim default · keyboard state | **2-host DoD** · shared |
+| **`EditorMode.vue`** (ไฟล์ร้อน) | contextual toolbox §10 · scroll/keyboard hook | orientation D-series · editor งานเก่า |
+| `Studio.vue`/`ShellBar.vue` | — (dock/editor ชั้นล่าง) | ✅ ไม่ควรชน orientation 2a / B108 bell ถ้าคุมชั้น |
+
+→ **แตะ 2 ไฟล์ร้อน** · design ได้เลย · **build เข้าคิวหนัก** PM sequence กับ orientation 2a + B108 + toolbox
+
+---
+
+## 5 · feasibility → SA (ผ่าน PM)
+
+1. **scroll hook:** ผูก scroll direction ของพื้นที่เพลง → collapse engine เดิมได้ไหม · debounce กัน jitter (Chrome เตือน reflow) · scope element ไหน scroll
+2. **keyboard detect:** จับ keyboard ขึ้น/ลง บนมือถือ (visualViewport API?) ให้ dock ซ่อน + toolbox เกาะเหนือช่อง — reliable ข้าม browser ไหม
+3. **screen-reader detect → ไม่ auto-hide:** ตรวจ AT ได้แค่ไหน (ไม่มี API ตรง) · fallback = respect `prefers-reduced-motion`? หรือ toggle ในตั้งค่า
+4. **contextual toolbox §10:** (คำถามเดิมใน §10.4/feasibility) anchor/clamp ต่อ element · scope conditional กระทบ `onSylKey`
+5. **shared 2 host:** hide-on-scroll ใน engine กระทบ dock อ่านออกเสียงพระคำยังไง (พระคำก็ scroll อ่านบทความ — อาจได้ประโยชน์ด้วย) · 2-host DoD
+
+---
+
+## 6 · 🖼️ Mockup (จิ้มได้ · desktop + มือถือ)
+
+- **เปิดเลย:** [📱 mockup คืนพื้นที่ — scroll ซ่อน dock · แตะ element โผล่ toolbox · พิมพ์ dock หลบ](https://claude.ai/code/artifact/1483051e-a506-4384-8d97-64a1d42c3d2c)
+- ไฟล์รีโป: `docs/ds/dock-space-mockup.html`
+- **แสดง:** เลื่อนเพลง → dock เลื่อนหาย (จอคืนพื้นที่) · แตะโน้ต/บรรทัด → toolbox โผล่ที่ตรงนั้น · กด "พิมพ์" → แป้นขึ้น dock ซ่อน toolbox เกาะเหนือช่อง · toggle "screen reader" → dock ไม่ auto-hide (a11y)
+
+---
+
+*UX/UI seat · 2026-07-18 · docs-only · ⛔ ไม่แตะ `src/` · อ้างอิงเปิดจริง: [Apple HIG Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars) · [Chrome URL-bar resizing](https://developer.chrome.com/blog/url-bar-resizing) · [Material BottomAppBar](https://github.com/material-components/material-components-android/blob/master/docs/components/BottomAppBar.md) · [Material selection toolbar](https://m1.material.io/patterns/selection.html) · [Google Docs Android](https://support.google.com/docs/answer/1663349) · [iOS inputAccessoryView](https://www.hackingwithswift.com/example-code/uikit/how-to-add-a-toolbar-above-the-keyboard-using-inputaccessoryview)*

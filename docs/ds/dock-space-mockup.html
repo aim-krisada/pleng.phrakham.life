@@ -1,0 +1,197 @@
+<title>คืนพื้นที่หน้าจอ 🔽 — mockup (dock หลบเอง + toolbox ไปหา element)</title>
+<style>
+  :root{
+    --brand:#8B4513;--bg:#F3ECE1;--card:#FBF7F0;--ink:#2A2320;--muted:#8A7E72;--line:#E4D9C8;
+    --sel:rgba(139,69,19,.14);--sel-line:rgba(139,69,19,.55);--shadow:0 8px 26px rgba(60,40,20,.18);--new:#1E6E4B;--new-bg:rgba(30,110,75,.12);
+  }
+  @media (prefers-color-scheme:dark){:root{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;--sel:rgba(214,158,102,.18);--sel-line:rgba(214,158,102,.7);--brand:#D69E66;--new:#5FBF92;--new-bg:rgba(95,191,146,.16);--shadow:0 8px 26px rgba(0,0,0,.55)}}
+  :root[data-theme="dark"]{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;--sel:rgba(214,158,102,.18);--sel-line:rgba(214,158,102,.7);--brand:#D69E66;--new:#5FBF92;--new-bg:rgba(95,191,146,.16);--shadow:0 8px 26px rgba(0,0,0,.55)}
+  :root[data-theme="light"]{--brand:#8B4513;--bg:#F3ECE1;--card:#FBF7F0;--ink:#2A2320;--muted:#8A7E72;--line:#E4D9C8;--sel:rgba(139,69,19,.14);--sel-line:rgba(139,69,19,.55);--new:#1E6E4B;--new-bg:rgba(30,110,75,.12);--shadow:0 8px 26px rgba(60,40,20,.18)}
+  *{box-sizing:border-box}body{margin:0}
+  .wrap{font:15px/1.6 system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;color:var(--ink);background:var(--bg);padding:22px 16px 60px;min-height:100%}
+  .inner{max-width:920px;margin:0 auto}
+  .eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:700;margin:0 0 6px}
+  h1{font-size:1.34rem;line-height:1.25;margin:0 0 4px;text-wrap:balance}
+  .sub{color:var(--muted);margin:0 0 14px;font-size:.93rem}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .modes{display:inline-flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px}
+  .modes button{font:inherit;font-size:.88rem;font-weight:600;border:0;background:transparent;color:var(--muted);padding:8px 14px;border-radius:999px;cursor:pointer;min-height:40px}
+  .modes button[aria-pressed="true"]{background:var(--brand);color:#fff}
+  .srtoggle{display:inline-flex;align-items:center;gap:7px;font-size:.82rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--card);cursor:pointer}
+  .srtoggle[aria-pressed="true"]{border-color:var(--new);color:var(--new)}
+
+  .stage{position:relative;background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden;margin:0 auto;display:flex;flex-direction:column}
+  .stage.mobile{width:390px;max-width:100%;height:560px}.stage.desktop{width:100%;max-width:760px;height:520px}
+  .topbar{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .topbar .t{font-weight:700;color:var(--brand);font-size:.95rem}.topbar .sp{flex:1}
+  .reclaim{font-size:.7rem;color:var(--new);font-weight:700;opacity:0;transition:opacity .2s}.reclaim.on{opacity:1}
+
+  /* scrollable song content */
+  .song{flex:1;overflow-y:auto;padding:14px 16px 20px;position:relative;scroll-behavior:smooth}
+  .ln{margin:0 0 14px;font-size:1.06rem;line-height:2.1}
+  .note{display:inline-block;padding:1px 4px;border-radius:6px;cursor:pointer;position:relative}
+  .note .n{font-weight:600;color:var(--brand);font-variant-numeric:tabular-nums}
+  .note .s{font-size:.82rem;color:var(--muted)}
+  .note.sel{background:var(--sel);outline:2px solid var(--sel-line)}
+  .sech{font-size:.8rem;font-weight:700;color:var(--brand);margin:2px 0 8px}
+
+  /* contextual toolbox (summon at element) */
+  .tbx{position:absolute;z-index:20;display:none;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:4px}
+  .tbx.show{display:inline-flex}
+  .tbx button{font:inherit;font-size:.8rem;border:0;background:transparent;color:var(--ink);border-radius:8px;padding:7px 9px;cursor:pointer;min-height:38px;white-space:nowrap}
+  .tbx button:hover{background:var(--sel)}.tbx .tag{font-size:.66rem;color:var(--brand);font-weight:800;padding:0 5px;align-self:center;border-right:1px solid var(--line);margin-right:2px}
+
+  /* dock (slim essential) — conditional: hides on scroll / keyboard */
+  .dock{flex:0 0 auto;display:flex;gap:6px;justify-content:center;align-items:center;padding:9px;border-top:1px solid var(--line);background:var(--card);
+    transition:transform .26s cubic-bezier(.4,0,.2,1),opacity .2s;position:relative;z-index:10}
+  .dock.hidden{transform:translateY(100%);opacity:0;pointer-events:none}
+  .db{width:44px;height:44px;border:0;background:transparent;color:var(--brand);border-radius:11px;cursor:pointer;font-size:1.1rem;display:inline-flex;align-items:center;justify-content:center}
+  .db:hover{background:var(--sel)}.db.grip{color:var(--muted)}.db.prime{background:var(--brand);color:#fff;width:auto;padding:0 14px;font-size:.88rem;font-weight:600}
+  /* peek handle when dock hidden */
+  .peek{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);z-index:11;width:54px;height:20px;border-radius:10px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);display:none;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
+  .peek.show{display:inline-flex}.peek::after{content:"⋯";font-size:1rem;line-height:0}
+
+  /* simulated keyboard */
+  .kbd{position:absolute;left:0;right:0;bottom:0;height:0;overflow:hidden;background:linear-gradient(var(--line),var(--card));border-top:1px solid var(--line);z-index:15;transition:height .24s;display:flex;flex-wrap:wrap;gap:4px;padding:0 8px;align-content:flex-start}
+  .kbd.up{height:170px;padding:8px}
+  .kbd span{flex:1 0 8%;min-width:26px;height:32px;background:var(--card);border:1px solid var(--line);border-radius:6px}
+  .kbd .msg{flex-basis:100%;font-size:.72rem;color:var(--muted);text-align:center;margin-top:4px}
+  /* toolbox docked above keyboard */
+  .kbtbx{position:absolute;left:0;right:0;bottom:170px;z-index:16;display:none;gap:2px;justify-content:center;background:var(--card);border-top:1px solid var(--line);padding:6px}
+  .kbtbx.show{display:flex}.kbtbx button{font:inherit;font-size:.82rem;border:1px solid var(--line);background:var(--card);color:var(--brand);border-radius:8px;padding:8px 10px;min-height:40px;cursor:pointer}
+
+  .notes{display:grid;grid-template-columns:1fr;gap:12px;margin-top:22px}
+  @media(min-width:680px){.notes{grid-template-columns:1fr 1fr 1fr}}
+  .nc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px}.nc h3{margin:0 0 7px;font-size:.98rem}.nc p{margin:0;font-size:.85rem;color:var(--muted)}.nc b{color:var(--ink)}
+  .thesis{background:var(--new-bg);border:1px solid var(--new);border-radius:12px;padding:12px 14px;margin:0 0 14px;font-size:.9rem}.thesis b{color:var(--new)}
+  .foot{color:var(--muted);font-size:.8rem;margin-top:22px;text-align:center;line-height:1.6}.foot a{color:var(--brand)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}}
+</style>
+
+<div class="wrap"><div class="inner">
+  <p class="eyebrow">pleng · UX/UI · คืนพื้นที่ editor (root fix)</p>
+  <h1>ให้แถบเครื่องมือ “หลบเอง” ไม่ใช่ให้พี่เปามานั่งย่อ</h1>
+  <p class="sub">รากปัญหา = dock แย่งพื้นที่เนื้อเพลง · ทางแก้ระดับโลก = แถบ<b>มีเงื่อนไข</b> (โผล่เฉพาะตอนต้องใช้) ไม่ใช่แค่ทำให้เล็กลง</p>
+  <p class="thesis"><b>ลองเอง:</b> ① <b>เลื่อน</b>เนื้อเพลงลง → dock หลบหาย (จอคืนพื้นที่) เลื่อนขึ้น → กลับมา · ② <b>แตะโน้ต/บรรทัด</b> → เครื่องมือโผล่ตรงนั้น · ③ กด <b>“พิมพ์”</b> → แป้นขึ้น dock ซ่อน เครื่องมือเกาะเหนือแป้น</p>
+
+  <div class="controls">
+    <div class="modes" role="group" aria-label="อุปกรณ์">
+      <button id="mMobile" aria-pressed="true">📱 มือถือ</button>
+      <button id="mDesktop" aria-pressed="false">🖥️ เดสก์ท็อป</button>
+    </div>
+    <button class="srtoggle" id="srBtn" aria-pressed="false">🦻 โหมด screen reader (dock ไม่ auto-hide)</button>
+  </div>
+
+  <div class="stage mobile" id="stage">
+    <div class="topbar"><span class="t">เพลงพระพร</span><span class="sp"></span><span class="reclaim" id="reclaim">▲ คืนพื้นที่แล้ว</span>
+      <button class="db" style="width:38px;height:38px;font-size:1rem" id="typeBtn" title="จำลองพิมพ์">⌨</button></div>
+    <div class="song" id="song">
+      <p class="sech">ท่อน 1</p>
+      <p class="ln" id="lnA">
+        <span class="note" data-el="โน้ต"><span class="n">1</span> <span class="s">พระ</span></span>
+        <span class="note" data-el="โน้ต"><span class="n">2</span> <span class="s">เจ้า</span></span>
+        <span class="note" data-el="โน้ต"><span class="n">3</span> <span class="s">ทรง</span></span>
+        <span class="note" data-el="โน้ต"><span class="n">5</span> <span class="s">รัก</span></span>
+      </p>
+      <p class="ln"><span class="note" data-el="โน้ต"><span class="n">6</span> <span class="s">พระ</span></span>
+        <span class="note" data-el="โน้ต"><span class="n">5</span> <span class="s">องค์</span></span>
+        <span class="note" data-el="โน้ต"><span class="n">3</span> <span class="s">ดี</span></span></p>
+      <p class="sech">ท่อน 2</p>
+      <p class="ln"><span class="note" data-el="โน้ต"><span class="n">1</span> <span class="s">ขอ</span></span>
+        <span class="note" data-el="โน้ต"><span class="n">2</span> <span class="s">สรร</span></span>
+        <span class="note" data-el="โน้ต"><span class="n">3</span> <span class="s">เสริญ</span></span></p>
+      <p class="ln"><span class="note" data-el="โน้ต"><span class="n">5</span> <span class="s">พระ</span></span>
+        <span class="note" data-el="โน้ต"><span class="n">6</span> <span class="s">นาม</span></span></p>
+      <p class="sech">ท่อน 3</p>
+      <p class="ln"><span class="note" data-el="โน้ต"><span class="n">3</span> <span class="s">ตลอด</span></span>
+        <span class="note" data-el="โน้ต"><span class="n">2</span> <span class="s">ไป</span></span>
+        <span class="note" data-el="โน้ต"><span class="n">1</span> <span class="s">นิรันดร์</span></span></p>
+      <p class="ln" style="color:var(--muted);font-size:.85rem">… เลื่อนดูต่อ — สังเกตว่า dock หลบให้เนื้อเพลง …</p>
+      <p class="ln"><span class="note" data-el="โน้ต"><span class="n">5</span> <span class="s">อา</span></span>
+        <span class="note" data-el="โน้ต"><span class="n">5</span> <span class="s">เมน</span></span></p>
+      <div class="tbx" id="tbx"></div>
+    </div>
+    <div class="kbtbx" id="kbtbx"></div>
+    <div class="dock" id="dock">
+      <button class="db grip" title="ลากย้าย/ย่อ">⋮⋮</button>
+      <button class="db" title="ย้อน">↶</button>
+      <button class="db" title="ทำซ้ำ">↷</button>
+      <button class="db" title="ฟัง">▶</button>
+      <button class="db prime" title="ส่งตรวจ">✈ ส่งตรวจ</button>
+      <button class="db" title="ตั้งค่า (ที่เหลือ)">⚙</button>
+    </div>
+    <button class="peek" id="peek" title="แตะเพื่อกาง dock" aria-label="กางแถบเครื่องมือ"></button>
+    <div class="kbd" id="kbd" aria-hidden="true"><span class="msg">แป้นพิมพ์ · dock หลบ · เครื่องมือเกาะเหนือแป้น</span></div>
+  </div>
+
+  <div class="notes">
+    <div class="nc"><h3>① ซ่อนตอนอ่าน/scroll</h3><p>เลื่อนดูเพลง → dock เลื่อนหาย คืนพื้นที่ · เลื่อนขึ้น/แตะ ⋯ กลับมา · <b>Apple: Safari ซ่อน toolbar ตอน scroll · Material hideOnScroll</b></p></div>
+    <div class="nc"><h3>② เครื่องมือไปหา element</h3><p>แตะโน้ต/บรรทัด → toolbox โผล่ตรงนั้น = <b>ไม่ต้องมีแถบใหญ่ถาวร</b> (Material floating selection · §10 ที่ออกแบบไว้)</p></div>
+    <div class="nc"><h3>③ พิมพ์ → เกาะเหนือแป้น</h3><p>คีย์บอร์ดขึ้น → dock ซ่อน (โดนบังอยู่แล้ว) เครื่องมือเกาะเหนือแป้น · <b>iOS inputAccessoryView · Google Docs</b></p></div>
+  </div>
+  <p class="foot">mockup · UX/UI seat · “conditional not smaller” · 🦻 เปิด screen reader = dock ไม่ auto-hide (Material a11y) · <a href="../us/dock-space-reclaim.md">dock-space-reclaim.md</a></p>
+</div></div>
+
+<script>
+(function(){
+  var mode='mobile', srMode=false, sel=null, typing=false;
+  var stage=document.getElementById('stage'),song=document.getElementById('song'),dock=document.getElementById('dock'),
+      peek=document.getElementById('peek'),tbx=document.getElementById('tbx'),reclaim=document.getElementById('reclaim'),
+      kbd=document.getElementById('kbd'),kbtbx=document.getElementById('kbtbx');
+  var lastY=0;
+
+  function hideDock(on){ if(typing) on=true;
+    dock.classList.toggle('hidden',on && !srMode || (on&&typing));
+    peek.classList.toggle('show', on && !srMode && !typing);
+    reclaim.classList.toggle('on', on && !typing);
+  }
+  // ① hide on scroll (unless screen-reader mode)
+  song.addEventListener('scroll',function(){
+    if(srMode||typing) return;
+    var y=song.scrollTop;
+    if(y>lastY+6 && y>20){ hideDock(true); tbx.classList.remove('show'); if(sel){sel.classList.remove('sel');sel=null;} }
+    else if(y<lastY-6){ hideDock(false); }
+    lastY=y;
+  });
+  peek.onclick=function(){ hideDock(false); };
+
+  // ② summon toolbox at element
+  song.addEventListener('click',function(e){
+    var el=e.target.closest('.note'); if(!el){ if(sel){sel.classList.remove('sel');sel=null;tbx.classList.remove('show');} return; }
+    if(sel) sel.classList.remove('sel'); sel=el; el.classList.add('sel');
+    tbx.innerHTML='<span class="tag">'+el.getAttribute('data-el')+'</span>'+
+      '<button>·บน</button><button>·ล่าง</button><button>เขบ็ต</button><button>เอื้อน</button><button>🗑 ลบ</button>';
+    tbx.classList.add('show');
+    var sr=song.getBoundingClientRect(), r=el.getBoundingClientRect();
+    var tw=tbx.offsetWidth, left=r.left-sr.left+song.scrollLeft+r.width/2-tw/2;
+    left=Math.max(6,Math.min(left, song.clientWidth-tw-6));
+    var top=r.top-sr.top+song.scrollTop-tbx.offsetHeight-8; if(top<song.scrollTop+2) top=r.bottom-sr.top+song.scrollTop+8;
+    tbx.style.left=left+'px'; tbx.style.top=top+'px';
+  });
+
+  // ③ keyboard sim
+  document.getElementById('typeBtn').onclick=function(){
+    typing=!typing;
+    kbd.classList.toggle('up',typing);
+    dock.classList.toggle('hidden',typing);       // dock hides while typing
+    peek.classList.remove('show'); reclaim.classList.remove('on');
+    if(typing){ kbtbx.innerHTML='<button>·บน</button><button>·ล่าง</button><button>เขบ็ต</button><button>◀ ▶ พยางค์</button>'; kbtbx.classList.add('show'); tbx.classList.remove('show'); if(sel){sel.classList.remove('sel');sel=null;} }
+    else kbtbx.classList.remove('show');
+  };
+
+  // 🦻 screen-reader mode: no auto-hide
+  document.getElementById('srBtn').onclick=function(){
+    srMode=!srMode; this.setAttribute('aria-pressed',srMode);
+    if(srMode){ hideDock(false); }
+  };
+
+  function setMode(m){ mode=m;
+    stage.classList.toggle('mobile',m==='mobile'); stage.classList.toggle('desktop',m==='desktop');
+    document.getElementById('mMobile').setAttribute('aria-pressed',m==='mobile');
+    document.getElementById('mDesktop').setAttribute('aria-pressed',m==='desktop');
+    if(typing){document.getElementById('typeBtn').click();}
+  }
+  document.getElementById('mMobile').onclick=function(){setMode('mobile')};
+  document.getElementById('mDesktop').onclick=function(){setMode('desktop')};
+})();
+</script>
