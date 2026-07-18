@@ -60,4 +60,23 @@
 
 ---
 
-*dev · engine lane · 2026-07-18 · commit `1cd032c`/`3955a1f`/`27f5d9b`/`e406e29` · รอ PM sequence + P'Aim ลองรวมตอน integrate*
+---
+
+## 6 · joint-pass wiring plan (prep · ไม้ต่อ) — dev pass บน EditorMode หลัง UX วาง template
+
+**ลำดับ (PM sequence · dev = pass 2):** UX วาง toolbox template/CSS + `:auto-hide="true"` บน `dock-space-ux` → freeze → PM เคาะ → dev `git rebase dock-space-dev` บน latest `dock-space-ux` → wire.
+
+**Q1/Q2 verify แล้ว (EditorMode:2884-2937):**
+- `.slot-tools`(◀▶ :2911) + `.seg-tools`(copy/del :2934) **อยู่ `.seg-col` เดียวกัน** (`v-for (seg,si) in bar.segments` :2884) → `(li,bi,si,bar,seg)`+`cell.slot` พร้อมกัน = **ไม่ต้อง reverse-lookup**
+- functions พร้อม: `pullSlot(i)`/`pushSlot(i)` (:336/329 · แก้ `lensRow.syllables` · lens-only) · `duplicateSegment(bar,si)`/`removeSegment(bar,si)` (:954/947 · ทุกโหมด) · octave = `NoteBoxes` child
+
+**dev จะ wire:**
+1. **`focusedSeg` ref ใหม่** (ยังไม่มี · =0) — set ผ่าน `@focusin` บน `.seg-col` (`NoteBoxes`=native input · focus bubbles ไม่ stopProp) → `"li-bi-si"` = โน้ต scope trigger ตอนพิมพ์โน้ต (ไม่มี lens)
+2. merged toolbox: `focusedSlot` → ◀▶ (slot) · `focusedSeg` → copy/del (note) · ในกล่อง anchored เดียว
+3. **continuity (SA §7):** เก็บ selection ใน ref อิสระจาก `@blur` (ไม่ล้างทันที) หรือ restore focus หลัง resize settle — จุดเดียวคุม `focusedSlot`+`focusedSeg` (กันพับ/หมุน/ปิดแป้น toolbox หาย)
+4. positioning: note ก่อน · bar(`barMenuOpen`)/line(`activeLine`)/section(`activeStanza`) = เฟสถัดไป
+
+**⚠️ บอก UX:** `.seg-tools` วันนี้โชว์ตลอด → contextual = copy/del ซ่อนจนกดโน้ต (behavior change · ตรงเจตนา แต่ให้ P'Aim/UX รู้)
+**verify:** editor data จริง (เพิ่มโน้ต→verse lens→focus syl-box · ⛔ ไม่ verify จอเปล่า) + device-matrix
+
+*dev · engine lane · 2026-07-18 · engine `1cd032c`/`3955a1f`/`27f5d9b`/`e406e29` + 2-host gate `99c9002` · Q1/Q2 ตอบแล้ว · รอ UX template+freeze → PM เคาะ joint pass · ⛔ ไม่ merge เอง*
