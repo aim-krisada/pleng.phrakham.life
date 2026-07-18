@@ -23,6 +23,7 @@
 - **ไอคอนล้วนถ้าความหมายชัด** (ไม่ยัดคำยาวในปุ่มแถบ) · มี `aria-label` เสมอ
 - **ไม่โชว์คำอธิบายวิธีใช้ในหัว popup** (minimalist — UI ต้อง self-evident)
 - **responsive:** ใช้ได้ทั้งมือถือ+PC · drag รองรับ touch · ไม่มี horizontal overflow ของ body · **แยกท่า touch/pointer ตาม [`ux-platform-patterns.md §1`](ux-platform-patterns.md)** (ห้ามยกท่าเมาส์มาแปะมือถือ · hover ผูกงานไม่ได้บน touch)
+- **⭐ ครอบคลุมทุกอุปกรณ์ (binding · P'Aim 18 ก.ค.):** ทุก UI ต้องผ่าน **desktop · tablet · Samsung Fold (พับ ~344 + กาง ~690–768) · มือถือ Android+iOS** — ออกแบบ fluid 320px→∞ + ทดสอบทุกคลาส + 2 orientation + **continuity ข้ามพับ/หมุน (คง state ไม่ reset)** + safe-area insets · เมทริกซ์เต็ม + วิธีทดสอบ = [`ux-platform-patterns.md §5.5`](ux-platform-patterns.md) · **tester gate ครอบเมทริกซ์นี้**
 - **theme tokens:** ใช้ตัวแปรสี/ระยะจาก `styles.css` (S0 tokens) ไม่ hard-code
 - **แถว/รายการ (list row) ต้องกระชับ ดูมืออาชีพ:** แต่ละแถว = **บรรทัดเดียว** (ไม่ห่อ/ไม่สูงเทอะทะ) · ปุ่มควบคุมในแถว (เช่น ▲▼ เลื่อนขึ้น-ลง) **วางเรียงบรรทัดเดียว ไม่ซ้อนแนวตั้ง** · ข้อความ (ชื่อ) **ไม่ถูกตัดสั้นเกินไป** (ให้ความกว้างพอ · truncate เฉพาะเมื่อจำเป็นจริงพร้อม tooltip) · องค์ประกอบในแถว align กันเป็นระเบียบ · ตัวอย่างที่ผิด: `docs/pm/realuse-assets/songstruct-row-cramped.png` (ชื่อ "ร้..." ตัดโหด · ▲▼ ซ้อน 2 บรรทัด · pill บีบ)
 - **การตัดคำ (truncation):** ปุ่ม/ป้าย/ตัวเลือกต้องแสดงข้อความพอเข้าใจ · ถ้าที่แคบ = ปรับ layout ให้พอ ไม่ใช่ตัดจนอ่านไม่ออก

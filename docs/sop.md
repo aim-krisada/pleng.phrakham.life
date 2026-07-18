@@ -63,6 +63,7 @@ idea → SA: US+DS+mockup (อิง ui-standards+self-audit)
      → 🚦GATE1 P'Aim เคาะ design (ลองในฐานะคนใช้ · ไม่ใช่ QA)
      → dev: build+test+self-verify เขียวเอง
      → 🚦GATE2 TESTER (บังคับทุก UI): axe+no-scroll+target-size + checklist → เซ็น *-tester.md
+            + **device matrix** (desktop·tablet·Fold พับ/กาง·มือถือ Android/iOS · 2 orientation · continuity คง state · safe-area · `ui-standards §2`+`ux-platform-patterns §5.5`)
             ✗ = auto fix-verify-loop (≤3 รอบ) · ครบ 3 ไม่ผ่าน = escalate PM
      → 🚦GATE3 PM DoD: git-verify scope · test เขียว · build
      → PM merge เข้า base (เรียงคิวถ้าชนไฟล์)
