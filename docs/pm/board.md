@@ -19,6 +19,9 @@
 
 **🔔 จ่ายแล้ว 18 ก.ค.: B108 ระฆังเตือน → UX นำ + SA feasibility คู่** (send_message ทั้ง 2 สาย · design ก่อน · build ต่อคิวหลัง dock-config · ระวังชนไฟล์ shell/IdentityStrip กับ orientation 2a)
 
+**📐 มาตรฐานใหม่ผูกแล้ว 18 ก.ค.: `docs/ux-platform-patterns.md`** (UX เขียน `3f94ce9` · P'Aim สั่งเพราะเบื่อพูดซ้ำ) — touch≠pointer (ตารางแปลง desktop→mobile) + เช็คของเดิมก่อนออกแบบ (DELTA only) · **PM ผูกเข้าฐาน:** `ui-standards.md §1(ข้อ6)+§2` · `sop.md §1.3+roster` = **binding ทุก US/DS/mockup ของ UX**
+- ⚠️ **ต้อง verify กับ P'Aim:** UX แจ้งว่า P'Aim "เพิ่งเคาะทิศ dock-config" (desktop ลากขอบปรับขนาด · mobile กด⚙ หน้าเต็มจอ) ผ่านสาย UX → PM ยังไม่ได้ยินตรง → **ถาม P'Aim ยืนยัน = GATE 1 ผ่านทิศนี้จริงไหม** (memory `feedback_pm_verify_decisions_no_selfmerge`) · UX กำลังแก้ mockup ตามทิศนี้+SOP ใหม่
+
 **สถานะที่นั่ง (18 ก.ค.):**
 - **SA:** งานออกแบบจบหมด · ✅ RLS ปิดจบแล้ว · stand by รอ UX flow (dock-config + B108) ตรวจ feasibility คู่ · SQL ที่เหลือ: `db/006`(author_id fix) `db/007`(back-fill·latent ไม่ urgent) พร้อมไม่รัน
 - **UX: ✅ ส่งมอบครบ (`45ecc39` uxui-standing · design ล้วน)** — `docs/us/dockkey-config.md`(+ตารางชื่ออ้างอิง §4) · `docs/pm/summary-dockkey-paim.md`(1 หน้า ม.ต้น · hedge "รอ SA" ลบแล้ว) · `docs/ds/dockkey-config-mockup.html` · **mockup มือถือ** https://claude.ai/code/artifact/555c023e-4bdb-46b4-a894-05509fbd559d · เฟส A(44px+ชื่อ+ตาราง)/B(เลือกปุ่ม)/C(preset ขนาด)/D(→shared พระคำ) · **รอ P'Aim GATE 1 ลอง mockup→เคาะทิศ→UX ทำ DS ส่ง dev** · toolbox banked
