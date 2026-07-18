@@ -74,4 +74,60 @@
 
 ---
 
+## 6 · ⭐ Architecture decision — v1 derive-per-role หรือ `notifications` table? (SA ฟันธง)
+
+**PM ปรับกรอบ:** B108 = **ศูนย์แจ้งเตือนตามบทบาท/เหตุการณ์ที่ขยายได้** (approver→งานเข้า · submitter→ผลอนุมัติ · ทุกคน→ประกาศ) ไม่ใช่ตัวนับเดียว. คำถาม: v1 พอไหมแบบ derive หรือควรมีตารางตั้งแต่แรก.
+
+### 🎯 ฟันธง: **มี `notifications` table ตั้งแต่ v1** (แล้ว scope งาน v1 ให้เล็ก) — ไม่ใช่ derive
+
+**เหตุผล (ไม่ใช่รสนิยม — วัดจากขอบเขตที่ P'Aim ระบุเอง):**
+
+| มิติ | derive-per-role (ไม่มีตาราง) | `notifications` table |
+|---|---|---|
+| **approver: งานเข้า** | ✅ query `pending` drafts ได้ | ✅ unread rows |
+| **submitter: "อนุมัติแล้ว/ถูกส่งกลับ"** | 🟡 ต้อง derive จาก draft status + **last-seen ต่อ user ต่อ type** (ทำเองทุก type) | ✅ trigger insert 1 แถว recipient=`d.author_id` |
+| **ประกาศ broadcast** | ❌ **ไม่มีแหล่งให้ derive เลย** — ต้องมีตารางอยู่ดี | ✅ fan-out insert |
+| **read/unread ต่อชิ้น** | ❌ derive ได้แค่ "ใหม่กว่า last-seen" · กดอ่านทีละอันไม่ได้ | ✅ `read_at` ต่อแถว |
+| **"list ที่ขยายได้" (P'Aim ขอ)** | ❌ ทุก type = query+UI+seen-tracking ใหม่ | ✅ type ใหม่ = insert แถวใหม่ 0 การเปลี่ยนโครง |
+| **RLS "ผู้รับเห็นเฉพาะของตัวเอง"** | 🟡 คนละกติกาต่อ type | ✅ policy เดียว `recipient_id = auth.uid()` |
+| **ต้นทุน v1** | ต่ำกว่านิดเดียว (เฉพาะ approver count) | +1 ตาราง +trigger +RLS +RPC read |
+| **ต้นทุน "ครบ scope ที่ P'Aim ขอ"** | **สูงกว่า** (ทุก type ทำ derivation+seen เอง · broadcast ทำไม่ได้ · migrate ทีหลัง) | **ต่ำกว่า** (กลไกเดียวครอบทุก type) |
+
+> **แก่นการตัดสิน:** derive **ชนะเฉพาะเคสเดียว** (approver count) แต่ P'Aim ระบุ scope = **หลาย role + หลาย event + ขยายได้ + ประกาศ**. broadcast **derive ไม่ได้เลย** = ต้องมีตารางอยู่ดี. `notifications` table (recipient/type/ref/read_at) = **แพตเทิร์นมาตรฐานโลก** (GitHub · ทุก SaaS) สำหรับ inbox ที่ขยายได้. เลือก derive วันนี้ = ชน "migrate ทีหลัง" ที่ P'Aim สั่งให้เลี่ยงเป๊ะ.
+
+### schema ที่เสนอ (v1 · เตรียม · ยังไม่ build จน GATE 1)
+```sql
+create table public.notifications (
+  id           uuid primary key default gen_random_uuid(),
+  recipient_id uuid not null references auth.users(id) on delete cascade,
+  type         text not null,          -- 'draft_submitted' | 'draft_approved' | 'draft_rejected' | 'announcement' ...
+  ref_id       uuid,                    -- draft/song ที่เกี่ยว (deep-link)
+  payload      jsonb default '{}',      -- ชื่อเพลง/ผู้ส่ง snapshot (ไม่ join ตอนแสดง · เหมือน actor_name ใน audit)
+  created_at   timestamptz default now(),
+  read_at      timestamptz             -- null = ยังไม่อ่าน
+);
+alter table public.notifications enable row level security;
+create index on public.notifications (recipient_id, read_at);
+-- ผู้รับเห็นเฉพาะของตัวเอง (P'Aim)
+create policy "read own notifications" on public.notifications
+  for select using (recipient_id = auth.uid());
+-- ไม่มี client insert — เขียนโดย trigger/RPC เท่านั้น (เหมือน song_revisions · กันปลอม)
+-- กดอ่าน = RPC security-definer แก้ได้แค่ read_at ของแถวตัวเอง (กันแก้ type/payload)
+```
+- **แหล่ง event = reuse ของเดิม:** `db/004 log_song_event` จำแนก submit/approve/reject อยู่แล้ว → เพิ่ม insert notification ในทริกเกอร์เดียวกัน (approver fan-out ตอน submit · recipient=`d.author_id` ตอน approve/reject) = **ไม่เขียน logic เหตุการณ์ใหม่**
+- **broadcast:** fan-out insert ต่อ user (จำนวนน้อย) — v3
+
+### เฟส (ต้นทุนซื่อ ๆ · v1 ยังเล็กแม้มีตาราง)
+| เฟส | ทำ | ต้นทุน |
+|---|---|---|
+| **v1** | ตาราง + RLS + trigger `draft_submitted→approvers` (event เดียวที่มีตอนนี้) + ระฆัง unread + RPC mark-read | 1 ตาราง · 1 trigger-branch · 1 policy · 1 RPC · UI bell/list |
+| **v2** | trigger `approve/reject→submitter` (recipient=author) | +1 trigger-branch (0 migrate) |
+| **v3** | ประกาศ broadcast (compose + fan-out) | +UI (0 migrate) |
+
+**สรุป:** ตารางตั้งแต่ v1 = **ต้นทุน v1 สูงกว่า derive นิดเดียว แต่ต้นทุนรวมตลอด scope ต่ำกว่า + ไม่ต้อง migrate + scale = แพตเทิร์นมาตรฐาน**. derive = ประหยัดวันแรก จ่ายแพงทุกวันถัดไป + broadcast ทำไม่ได้. **SA ฟันธงตารางตั้งแต่ v1 · scope งาน v1 ให้เล็ก (event เดียว) บนฐานที่ถูก.**
+
+*(SA เตรียม `db/008-notifications.sql` ตอน GATE 1 ผ่าน — ยังไม่สร้างตอนนี้เพราะยังไม่อนุมัติ build · ไม่ pre-create migration ของฟีเจอร์ที่ยังไม่เคาะ)*
+
+---
+
 *verify โค้ด+schema+นับสด 2026-07-18 · SA (feasibility) · ฐาน `studio-shell-redesign`*
