@@ -20,7 +20,7 @@
 **🔔 จ่ายแล้ว 18 ก.ค.: B108 ระฆังเตือน → UX นำ + SA feasibility คู่** (send_message ทั้ง 2 สาย · design ก่อน · build ต่อคิวหลัง dock-config · ระวังชนไฟล์ shell/IdentityStrip กับ orientation 2a)
 
 **📐 มาตรฐานใหม่ผูกแล้ว 18 ก.ค.: `docs/ux-platform-patterns.md`** (UX เขียน `3f94ce9` · P'Aim สั่งเพราะเบื่อพูดซ้ำ) — touch≠pointer (ตารางแปลง desktop→mobile) + เช็คของเดิมก่อนออกแบบ (DELTA only) · **PM ผูกเข้าฐาน:** `ui-standards.md §1(ข้อ6)+§2` · `sop.md §1.3+roster` = **binding ทุก US/DS/mockup ของ UX**
-- ⚠️ **ต้อง verify กับ P'Aim:** UX แจ้งว่า P'Aim "เพิ่งเคาะทิศ dock-config" (desktop ลากขอบปรับขนาด · mobile กด⚙ หน้าเต็มจอ) ผ่านสาย UX → PM ยังไม่ได้ยินตรง → **ถาม P'Aim ยืนยัน = GATE 1 ผ่านทิศนี้จริงไหม** (memory `feedback_pm_verify_decisions_no_selfmerge`) · UX กำลังแก้ mockup ตามทิศนี้+SOP ใหม่
+- ✅ **ที่มาทิศ dock-config ชัดแล้ว:** P'Aim **พิมพ์ตรงในสาย UX วันนี้** (user turn จริง · verbatim: "พี่เปาต้องการปรับวินโดวได้ตามใจ ลากปรับขนาด desktop · mobile ไม่ใช่ popup แต่เปิดอีกหน้าเลือกเสร็จกลับจุดเดิม" · ตอบ "ดี") → ทิศ = **desktop ลากขอบ · mobile ⚙ หน้าเต็มจอ** · UX ถือ "ยังไม่ final จน PM relay → P'Aim เคาะ GATE 1 เป็นทางการ" (ถูกตาม operating model) · **mockup v2 `fb276a2` (ลิงก์เดิม): https://claude.ai/code/artifact/555c023e-4bdb-46b4-a894-05509fbd559d** (🩶 ของเดิม / 🟢 ใหม่จริง · ตัดเสนอซ้ำออก · `dockkey-config.md §0.5` ตาราง exists-vs-new) → **รอ P'Aim ลอง+เคาะ GATE 1**
 
 **สถานะที่นั่ง (18 ก.ค.):**
 - **SA:** งานออกแบบจบหมด · ✅ RLS ปิดจบแล้ว · stand by รอ UX flow (dock-config + B108) ตรวจ feasibility คู่ · SQL ที่เหลือ: `db/006`(author_id fix) `db/007`(back-fill·latent ไม่ urgent) พร้อมไม่รัน
