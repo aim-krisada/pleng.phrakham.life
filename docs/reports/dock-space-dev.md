@@ -30,10 +30,25 @@
 - **full suite: 728 tests pass** · build ✓ · **0 Vue warning** · (`notationLint` แดง = pre-existing `process.exit(0)` · 72/72 ผ่านข้างใน · ยืนยันไม่เกี่ยว)
 - **live smoke (Browser MCP → worktree 5313):** `.dk-shift` render จริงในแอป · **0 console error** · hostDisplay flex (mount ไม่พัง layout)
 
-### ⚠️ device-matrix Tier-B (344/390/690/834/desktop) — ทำที่ integration
-- **hide/keyboard/peek** วัดสด "ตัวเลข" ไม่ได้ตอนนี้เพราะ **editor ยังไม่ผ่าน `:auto-hide`** (= EditorMode · lane UX/PM-sequence) → dock live ยังพฤติกรรมเดิม
-- **worktree caveat:** Browser pane อ่าน dock 0-width (dock ต้องอยู่สถานะ edit จริง + pane rendering quirk) → เชื่อ Tier-A + compile ตาม `CLAUDE.md`
-- **→ device-matrix พร้อมตัวเลข = tester Tier-B gate หลัง wire + serve บนฐาน** (SOP GATE 2)
+### ✅ 2-host gate (phrakham island) — rebuild + live smoke PASS
+- **rebuild:** build `pk-dock-island.js` จาก **DockKey ของผม** (island worktree `angry-galileo-10ad10` · `PLENG_SRC=<my worktree>/src` · **output → scratch ไม่แตะ phrakham tree** · git assets/ clean) → **15 modules · 524ms · bundle มี engine ใหม่ (`autoHidden`/`dk-shift`/`nextHidden`)** = **DockKey ผม bundle เข้า island สะอาด**
+- **source-safe:** `IslandApp.vue` `<DockKey>` **ไม่ส่ง `auto-hide`** → hide/keyboard **inert** · ⚙ ของพระคำ = toggle/slider/note (ไม่มี slot-kind) → slot-in-panel ไม่ยิง · scale(Aa) = bar item ถาวร ไม่ใช่ ⚙
+- **live smoke (Chromium จริง · bundle ผม · demo `about.html`):**
+
+  | จอ (content W) | mount | rows | h-scroll | auto-hidden | หมายเหตุ |
+  |---|---|---|---|---|---|
+  | 344 | ✅ | 1 | ❌ ไม่มี | false (inert) | `--touch-min` 40px floor |
+  | 690 | ✅ | 1 | ❌ | false | dkm=true |
+  | 768 (753) | ✅ | 1 | ❌ | false | dkm=true (scrollbar −15) |
+  | 1200 (1185) | ✅ | 1 | ❌ | false | **dkm=false** (mobile off ถูก) |
+
+  **0 console error** ทุกจอ · **ไม่มี Fold-jump** (690↔768 ต่อเนื่อง) · **auto-hide inert ทุกจอ = พระคำไม่ regress** ✅
+- ⚠️ **ข้อสังเกต harness:** Browser MCP `resize_window` ไม่ยิง `resize` event ให้ page → ต้อง `dispatchEvent('resize')` เอง dkm ถึง update (พิสูจน์: 1200 dispatch → dkm flips false ถูก) — logic ถูก, เป็น quirk ของ tool ไม่ใช่บั๊กโค้ด
+- **⛔ ยังไม่ commit `pk-dock-island.js` เข้า phrakham** = post-merge + pk-PM (build ไป scratch เท่านั้น)
+
+### ⚠️ device-matrix Tier-B ฝั่ง editor (auto-hide จริง) — ทำที่ integration
+- **hide/keyboard/peek บน editor** วัดสดยังไม่ได้เพราะ **editor ยังไม่ผ่าน `:auto-hide`** (= EditorMode · lane UX/PM-sequence) → **แต่พฤติกรรมพิสูจน์แล้วผ่าน Tier-A (real events) + engine เดียวกับ island ที่ smoke ผ่าน**
+- **→ device-matrix editor พร้อมเลข = tester Tier-B gate หลัง wire `:auto-hide` + serve บนฐาน** (SOP GATE 2)
 
 ---
 
