@@ -340,6 +340,49 @@ describe('DockKey hide-on-scroll (auto-hide)', () => {
   })
 })
 
+describe('DockKey keyboard-aware hide', () => {
+  let vvDesc, ihDesc
+  const makeVV = (h) => {
+    const L = {}
+    return {
+      height: h, width: 1024,
+      addEventListener(ev, cb) { (L[ev] ||= []).push(cb) },
+      removeEventListener(ev, cb) { L[ev] = (L[ev] || []).filter((x) => x !== cb) },
+      _set(h2) { this.height = h2; (L.resize || []).forEach((cb) => cb()) },
+    }
+  }
+  beforeEach(() => {
+    vvDesc = Object.getOwnPropertyDescriptor(window, 'visualViewport')
+    ihDesc = Object.getOwnPropertyDescriptor(window, 'innerHeight')
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 })
+  })
+  afterEach(() => {
+    if (vvDesc) Object.defineProperty(window, 'visualViewport', vvDesc); else delete window.visualViewport
+    if (ihDesc) Object.defineProperty(window, 'innerHeight', ihDesc)
+  })
+
+  it('keyboard up (visualViewport height drop >150px) hides the dock; closing reveals it', async () => {
+    const vv = makeVV(800)
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: vv })
+    const w = mountDK({ autoHide: true })
+    vv._set(480) // drop 320 > 150 → keyboard
+    await nextTick()
+    expect(w.find('.dk-shift.hidden').exists()).toBe(true)
+    vv._set(800) // keyboard closed
+    await nextTick()
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+  })
+
+  it('a URL-bar collapse (~90px) is NOT treated as a keyboard', async () => {
+    const vv = makeVV(800)
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: vv })
+    const w = mountDK({ autoHide: true })
+    vv._set(710) // drop 90 < 150
+    await nextTick()
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+  })
+})
+
 describe('DockKey collapse-in-place', () => {
   it('a grip tap collapses to the [grip][⚙] mini (DS I7)', async () => {
     const w = mountDK()

@@ -161,6 +161,32 @@ function onScroll() {
 }
 function revealDock() { autoHidden.value = false }
 
+// ---------- keyboard-aware (§3 · mobile soft-keyboard occludes the dock → hide it) ----------
+// On a phone the keyboard covers the bottom dock; hide it so the page's contextual toolbox (which
+// the PAGE floats above the keyboard) is unobstructed. Detect via visualViewport height drop >150px
+// — URL-bar collapse is only ~60-100px, so 150 cleanly separates the two (SA Q2). No meta change
+// (`interactive-widget=resizes-content` would stop visualViewport from shrinking · SA). Fallback:
+// focusin/out on a text field, used only when visualViewport is absent.
+let vv = null
+function syncKeyboard() {
+  if (!vv) return
+  const up = (window.innerHeight - vv.height) > 150
+  if (up === keyboardUp.value) return
+  keyboardUp.value = up
+  if (props.autoHide && !autoHideOff.value) autoHidden.value = up // reduced-motion just skips the anim
+}
+function isTextTarget(t) { return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) }
+function onFocusIn(e) {
+  if (vv || !isTextTarget(e.target)) return // visualViewport is authoritative when present
+  keyboardUp.value = true
+  if (props.autoHide && !autoHideOff.value) autoHidden.value = true
+}
+function onFocusOut() {
+  if (vv) return
+  keyboardUp.value = false
+  if (props.autoHide && !autoHideOff.value) autoHidden.value = false
+}
+
 // ---------- ENGINE: order row 1 by anchor, row 2 by column, pinned → rows on top ----------
 // rank a row-1 item from its anchor so [grip … leftOf:setting][setting] lays out in order.
 function rankOf(it) {
@@ -313,6 +339,11 @@ onMounted(() => {
   window.addEventListener('resize', syncWidth)
   window.visualViewport?.addEventListener('resize', syncWidth)
   window.addEventListener('keydown', onEsc)
+  // keyboard-aware: visualViewport shrinks when the soft keyboard opens; focus is the fallback.
+  vv = window.visualViewport || null
+  vv?.addEventListener('resize', syncKeyboard)
+  document.addEventListener('focusin', onFocusIn)
+  document.addEventListener('focusout', onFocusOut)
   // hide-on-scroll: reduced-motion forces auto-hide off; the window is the scroll container.
   rmq = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null
   syncReduce()
@@ -324,6 +355,9 @@ onUnmounted(() => {
   rmq?.removeEventListener?.('change', syncReduce)
   window.removeEventListener('resize', syncWidth)
   window.visualViewport?.removeEventListener('resize', syncWidth)
+  vv?.removeEventListener('resize', syncKeyboard)
+  document.removeEventListener('focusin', onFocusIn)
+  document.removeEventListener('focusout', onFocusOut)
   window.removeEventListener('keydown', onEsc)
   window.removeEventListener('scroll', onScroll)
   document.removeEventListener('mousedown', onOutside)
