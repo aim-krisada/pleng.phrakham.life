@@ -12,6 +12,7 @@
 3. **Apple HIG + Material Design 3** — touch 44px/48dp · พฤติกรรม popover/sheet/menu · **button hierarchy: 1 บริบท = ปุ่มหลัก (filled/สีเน้น) ได้ปุ่มเดียว** ที่เหลือ secondary/tertiary (outline/ghost/text) · spacing grid 4/8px · motion/elevation สม่ำเสมอ
 4. **Nielsen Norman Group 10 heuristics** — เห็นสถานะระบบ (progress determinate ถ้า > 10 วิ) · consistency & standards · minimalist (ไม่ยัดคำอธิบายเกิน) · recognition > recall · error prevention
 5. **Fitts's law** — ปุ่มใช้บ่อย/สำคัญ = ใหญ่+เข้าถึงง่าย (thumb zone บนมือถือ)
+6. **touch ≠ pointer (มือถือ ≠ เดสก์ท็อป)** — ทุกงานออกแบบต้องแยกท่า touch/pointer ให้ถูกตั้งแต่แรก (hover→tap · popup→full-screen · drag-resize→preset ฯลฯ) → **SSOT = [`docs/ux-platform-patterns.md`](ux-platform-patterns.md)** (UX SOP ผูกพัน · ตารางแปลง §1 + เช็คของเดิมก่อนออกแบบ §4 · อ้าง NN/g · Material · Apple HIG)
 
 ## 2 · UI invariants ทั่วเว็บ (ทุกหน้า · ทุก component)
 - **popup/overlay ทุกตัว:** ตำแหน่งสม่ำเสมอ (ยึดกับปุ่มที่เปิด) · **ห้าม scroll แนวตั้ง/แนวนอน** (fit เนื้อหาพอดี · dropdown ไม่ถูกตัด) · ปิดด้วย Esc/แตะนอก · clamp ไม่หลุดขอบจอ
@@ -21,7 +22,7 @@
 - **ปุ่มที่กดแล้วเปิดหน้าต่างเลือก = ไม่ต้องมีลูกศร ▾** (ทุกปุ่มเปิดหน้าต่าง = ลูกศรซ้ำซ้อน)
 - **ไอคอนล้วนถ้าความหมายชัด** (ไม่ยัดคำยาวในปุ่มแถบ) · มี `aria-label` เสมอ
 - **ไม่โชว์คำอธิบายวิธีใช้ในหัว popup** (minimalist — UI ต้อง self-evident)
-- **responsive:** ใช้ได้ทั้งมือถือ+PC · drag รองรับ touch · ไม่มี horizontal overflow ของ body
+- **responsive:** ใช้ได้ทั้งมือถือ+PC · drag รองรับ touch · ไม่มี horizontal overflow ของ body · **แยกท่า touch/pointer ตาม [`ux-platform-patterns.md §1`](ux-platform-patterns.md)** (ห้ามยกท่าเมาส์มาแปะมือถือ · hover ผูกงานไม่ได้บน touch)
 - **theme tokens:** ใช้ตัวแปรสี/ระยะจาก `styles.css` (S0 tokens) ไม่ hard-code
 - **แถว/รายการ (list row) ต้องกระชับ ดูมืออาชีพ:** แต่ละแถว = **บรรทัดเดียว** (ไม่ห่อ/ไม่สูงเทอะทะ) · ปุ่มควบคุมในแถว (เช่น ▲▼ เลื่อนขึ้น-ลง) **วางเรียงบรรทัดเดียว ไม่ซ้อนแนวตั้ง** · ข้อความ (ชื่อ) **ไม่ถูกตัดสั้นเกินไป** (ให้ความกว้างพอ · truncate เฉพาะเมื่อจำเป็นจริงพร้อม tooltip) · องค์ประกอบในแถว align กันเป็นระเบียบ · ตัวอย่างที่ผิด: `docs/pm/realuse-assets/songstruct-row-cramped.png` (ชื่อ "ร้..." ตัดโหด · ▲▼ ซ้อน 2 บรรทัด · pill บีบ)
 - **การตัดคำ (truncation):** ปุ่ม/ป้าย/ตัวเลือกต้องแสดงข้อความพอเข้าใจ · ถ้าที่แคบ = ปรับ layout ให้พอ ไม่ใช่ตัดจนอ่านไม่ออก
