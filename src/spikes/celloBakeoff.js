@@ -576,6 +576,11 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   // So darken only the high notes, automatically per pitch (no per-song tuning). This value = the cut
   // in dB at the top note; it ramps from 0 below TAME_LO to full at TAME_HI. 0 = today (direct A/B).
   trebleTameDb = 0,
+  // cello dynamic smoothing (18 ก.ค. · P'Aim "เสียงโดดๆ หลายจังหวะ"): the arranger's accent/contour
+  // dynamics read as musical on the piano but make the cello POP on high/accented notes (measured:
+  // one note +7 dB over its neighbours). Compress the CELLO melody's per-note level toward its own
+  // median (piano keeps its dynamics untouched). 0 = full arranger dynamics; 1 = flat.
+  celloEven = 0,
   // G (18 ก.ค.): a warm CHAMBER convolution reverb to put 2-3 m of distance between the mic and the
   // instruments and melt the close-mic bite "for free". 0 = the arranger's default reverb; > 0 = wet
   // amount of the chamber (replaces the default space for BOTH piano and cello, same room).
@@ -680,17 +685,33 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
     const TREBLE_FREQ = 2200
     const KARO_PITCHES = [36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84]
     const nearestKaro = (m) => KARO_PITCHES.reduce((a, b) => Math.abs(b - m) < Math.abs(a - m) ? b : a, KARO_PITCHES[0])
-    let celloDest = busIn, tameNode = null
+    // cello chain: outputs → (treble tame) → (compressor) → reverb bus.
+    // DYNAMIC SMOOTHING (celloEven · P'Aim "เสียงโดดๆ"): a compressor on the cello sum pulls down the
+    // notes that jump out in LEVEL (arranger accents on high/phrase notes read as pops on the more
+    // present cello timbre). Catches the peak whatever its cause; the piano keeps its own dynamics.
+    let busEntry = busIn
+    if (celloEven > 0) {
+      const comp = ctx.createDynamicsCompressor()
+      comp.threshold.value = -12 - celloEven * 14   // −12 … −26 dB
+      comp.ratio.value = 2 + celloEven * 4          // 2 … 6
+      comp.knee.value = 6
+      comp.attack.value = 0.008
+      comp.release.value = 0.18
+      const mk = ctx.createGain(); mk.gain.value = Math.pow(10, (celloEven * 4) / 20)  // makeup for the pull-down
+      comp.connect(mk).connect(busIn)
+      busEntry = comp
+    }
+    let celloDest = busEntry, tameNode = null
     if (trebleTameDb > 0) {
       tameNode = ctx.createBiquadFilter()
       tameNode.type = 'highshelf'
       tameNode.frequency.value = TREBLE_FREQ
       tameNode.gain.value = 0
-      tameNode.connect(busIn)
+      tameNode.connect(busEntry)
       celloDest = tameNode
     }
     output.disconnect()
-    output.connect(celloDest)                          // → (treble tame) → same reverb room as piano
+    output.connect(celloDest)                          // → (treble tame) → (compressor) → reverb room
     // NEGATIVE DELAY (PM 16 ก.ค. · docs/pm/audio-round2-techniques.md): a bowed note ramps up, so
     // firing it ON the beat lands it LATE against the piano's instant attack (measured: piano
     // reaches half level in 0 ms; these cellos in 40/55/250 ms). Fire it early by its own measured

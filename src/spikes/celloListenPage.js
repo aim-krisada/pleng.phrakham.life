@@ -16,7 +16,8 @@ const log = (m) => { $('#log').textContent = m }
 
 // live tuning state — starts at the values P'Aim approved / the measured fixes
 const state = {
-  tame: 8, vib: VIBRATO.maxDepthCents, head: 0.05, headKind: 'mp', shift: 10, arc: 0, balance: 1,
+  songNo: SONG_NO, full: FULL,
+  tame: 8, even: 0.5, vib: VIBRATO.maxDepthCents, head: 0.05, headKind: 'mp', shift: 10, arc: 0, balance: 1,
   chamber: 0, vibGain: 0, vibUnsteady: 0, vibBow: 0, vibMin: VIB_MIN_SEC, fileLevel: 1,
   resonance: false, roundRobin: false,
 }
@@ -28,7 +29,7 @@ const celloCfg = () => ({
   headStrength: state.head, bodyShiftMs: state.shift,
   vibratoCents: state.vib, vibMinNoteSec: state.vibMin, vibGainDb: state.vibGain,
   vibUnsteady: state.vibUnsteady, vibBowPressure: state.vibBow,
-  fileLevelAmount: state.fileLevel, trebleTameDb: state.tame,
+  fileLevelAmount: state.fileLevel, trebleTameDb: state.tame, celloEven: state.even,
   arcSpreadDb: state.arc, bowRoundRobin: state.roundRobin, pianoResonance: state.resonance,
   chamberWet: state.chamber,
 })
@@ -36,8 +37,10 @@ const celloCfg = () => ({
 // ── the knobs: label = what it is + what it helps; hint = ◀ left · right ▶ ─────────────────────
 const pct = (v) => `${Math.round(v * 100)}%`
 const KNOBS = [
-  { key: 'tame',  label: '🎛 ความสม่ำเสมอ — กดโน้ต "แหบ" (ที่ถูกดึงเสียง) ให้เท่าโน้ต "ทุ้ม"', L: 'แหบ (เดิม)', R: 'สม่ำเสมอ',
+  { key: 'tame',  label: '🎛 ความสม่ำเสมอเนื้อเสียง — กดโน้ต "แหบ" (ถูกดึงเสียง) ให้เท่าโน้ต "ทุ้ม"', L: 'แหบ (เดิม)', R: 'สม่ำเสมอ',
     min: 0, max: 28, step: 1, fmt: (v) => v === 0 ? 'แหบ (เดิม)' : v >= 28 ? 'เท่ากันสุด' : `${v}` },
+  { key: 'even',  label: '🎚 ความสม่ำเสมอความดัง — ลดโน้ตที่ดังโดดออกมา', L: 'มีดัง-เบา (เดิม)', R: 'นิ่ง/เรียบ',
+    min: 0, max: 1, step: 0.05, fmt: (v) => v === 0 ? 'เดิม' : `${Math.round(v * 100)}%` },
   { key: 'vib',   label: 'สั่นนิ้ว — ความโหยหวน/มีชีวิต', L: 'ไม่สั่น', R: 'สั่นลึก',
     min: 0, max: 22, step: 1, fmt: (v) => v === 0 ? 'ไม่สั่น' : `${v}` },
   { key: 'head',  label: 'ความแรงหัวโน้ต — ความเป็นจังหวะ', L: 'ไม่มีหัว (นุ่ม)', R: 'หัวชัด',
@@ -94,9 +97,22 @@ function stopAll() {
 let song = null, range = null, baseMakeup = 1, songBpm = null, renderSeq = 0
 
 async function loadSong() {
-  const { data, error } = await supabase.from('songs').select('*').eq('number', SONG_NO).limit(1).single()
+  const { data, error } = await supabase.from('songs').select('*').eq('number', state.songNo).limit(1).single()
   if (error) throw new Error('โหลดเพลงไม่ได้: ' + error.message)
   return data
+}
+
+// populate the song picker once (number + title), so P'Aim can audition across the whole library
+async function loadSongList() {
+  const sel = $('#songSel'); if (!sel) return
+  const { data } = await supabase.from('songs').select('number,title_th').order('number')
+  for (const s of (data || [])) {
+    const o = document.createElement('option')
+    o.value = s.number; o.textContent = `#${s.number} ${s.title_th || ''}`
+    if (s.number === state.songNo) o.selected = true
+    sel.appendChild(o)
+  }
+  sel.addEventListener('change', (e) => { state.songNo = Number(e.target.value); stopAll(); main() })
 }
 
 const PRESETS = [
@@ -191,12 +207,10 @@ function buildKnobs() {
 
 async function main() {
   try {
-    buildKnobs()
-    $('#stopBtn')?.addEventListener('click', stopAll)
     log('กำลังโหลดเพลง …')
     song = await loadSong()
     songBpm = song.content?.bpm
-    range = FULL ? null : excerptRange(song.content, { bpm: songBpm, targetSec: 20 })
+    range = state.full ? null : excerptRange(song.content, { bpm: songBpm, targetSec: 20 })
     $('#songname').textContent = `เพลง #${song.number} ${song.title_th || ''} · คีย์ ${song.content?.key ?? '?'} · ${songBpm ?? 92} bpm`
       + (range ? ' · ท่อนแรก ~20 วิ' : ' · ทั้งเพลง ~80 วิ')
 
@@ -220,4 +234,10 @@ async function main() {
   } catch (e) { log('พัง: ' + e.message); console.error(e) }
 }
 
+// one-time setup (NOT re-run on song change): knobs, stop button, song picker, length toggle
+buildKnobs()
+$('#stopBtn')?.addEventListener('click', stopAll)
+$('#fullSong')?.addEventListener('change', (e) => { state.full = e.target.checked; stopAll(); main() })
+if ($('#fullSong')) $('#fullSong').checked = state.full
+loadSongList()
 main()
