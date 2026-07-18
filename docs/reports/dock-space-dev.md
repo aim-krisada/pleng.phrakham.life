@@ -1,80 +1,48 @@
-# รายงาน dev — dock-space / คืนพื้นที่ editor
+# รายงาน dev — dock-space / คืนพื้นที่ editor (engine lane)
 
-**สาย:** dev (engine + logic lane · HYBRID SOP §3.0)
-**branch:** `dock-space-dev` (แตกจาก `studio-shell-redesign` @ `fdd233f` — **ไม่ใช่ `uxui-standing`** ตามคำเตือนสเปก)
-**สถานะ:** 🟡 **read-only prep เสร็จ — phase-A build plan รอ PM เคาะ + SA ตอบ Q1/Q3** · ⛔ ยังไม่เขียน engine code
-**ไฟล์ของ dev:** `src/components/DockKey.vue` (engine · **แชร์พระคำ 2-host**) เท่านั้น · **ไม่แตะ `EditorMode.vue`/`editItems`/toolbox** (= lane ของ UX)
-
----
-
-## 1 · verify แล้ว: โครงจริง + เลขบรรทัด (ฐานปัจจุบัน · DockKey.vue 629 บรรทัด)
-
-| ส่วน | บรรทัด | จะทำอะไรใน phase A |
-|---|---|---|
-| `defineProps` | `:23-30` | **เพิ่ม prop `autoHide` (Boolean, default `false`)** — พระคำ opt-in เท่านั้น |
-| `.dk-host` template | `:260` | ห่อ dock ใน `.dk-shift` + เพิ่ม `.dk-peek` handle (ดู §2) |
-| `.dk-host` CSS | `:468` | +class `.dk-shift`/`.dk-peek` + `transform` transition |
-| collapse `transition()` | `:157` | **ไม่แตะ** — hide-on-scroll เป็นชั้นแยกจาก collapsed |
-| drag inline transform | `:168,203` เขียน `d.style.transform` บน `.dk-dock` | ⚠️ **hide ต้องเลี่ยงชั้นนี้** → translateY ที่ `.dk-shift`/`.dk-host` ไม่ใช่ `.dk-dock` (กัน inline transform ชนกัน) |
-| ⚙ setting panel | `:404` iterate `settingItems` (จาก `props.items`) | **แทรกแถว engine-owned "ปิดหลบอัตโนมัติ" เมื่อ `autoHide` เปิด** (ไม่ยัดใน editItems = ไม่ล้ำ lane UX) |
-| `onMounted`/`onUnmounted` | `:234/241` | add/remove scroll + reduced-motion listener |
-| `mobile`/matchMedia 760 · `cap` | `:75/78/235` | **phase C ไม่ใช่ A** (width-cap) — ไม่แตะรอบนี้ |
-
-**สรุป:** phase-A engine work ทั้งหมดอยู่ใน `DockKey.vue` ล้วน · **แยก lane กับ UX สนิท** (UX = `editItems` slim + toolbox ใน `EditorMode.vue`) → ขนานได้ ไม่ชนไฟล์
+**สาย:** dev (engine + logic · HYBRID SOP §3.0) · **branch:** `dock-space-dev` (rebased บน `dock-space-ux` `10a3207` ตาม PM · ไม่ใช่ main/base เปล่า)
+**สถานะ:** 🟢 **engine ครบ 4 ชิ้น commit + test แล้ว — รอ (1) UX wire `:auto-hide` (2) PM sequence EditorMode wiring (3) 2-host phrakham gate**
+**ไฟล์:** `src/components/DockKey.vue` + `DockKey.test.js` **เท่านั้น** (verify: `git diff 10a3207..HEAD` = แตะ 2 ไฟล์นี้ล้วน · **ไม่แตะ EditorMode/editItems/toolbox/save** = lane UX)
+**🎧 Network URL:** **http://192.168.1.124:5313/#/studio** (curl 200 · ⚠️ IP `10.189.195.98` ตายแล้ว ใช้ `192.168.1.124`)
 
 ---
 
-## 2 · phase-A engine design (hide-on-scroll + a11y toggle)
+## สิ่งที่ส่งมอบ (4 commit · ตาม SA feasibility ทุกข้อ)
 
-### 2.1 prop `auto-hide` (2-host กันพระคำเจ็บ)
-- `autoHide: { type: Boolean, default: false }` — ค่า default **false** = พระคำ read-aloud island **พฤติกรรมเดิมเป๊ะ** ถ้าไม่ส่ง prop
-- editor เปิดใช้: **UX** ใส่ `:auto-hide="true"` ที่ `<DockKey>` ใน `EditorMode.vue:2994` (1 บรรทัด · lane UX — PM sequence ให้ UX ใส่ หรือ dev ใส่ตอน wiring pass)
+| # | commit | ทำอะไร | SA ref |
+|---|---|---|---|
+| 1 🥇 | `1cd032c` | **slot render ใน ⚙ panel** (`kind:'slot'`) + `panelOpenId` (one-at-a-time ตัวที่ 2 · เปิด popover ใน ⚙ โดย ⚙ ไม่ปิด) | **unblock UX** ย้าย soundctl/export เข้า ⚙ |
+| 2 | `3955a1f` | **hide-on-scroll** · prop `auto-hide` (default **false** · พระคำ opt-in) · window scroll · rAF+directional delta (ลง>8 ซ่อน · ขึ้น>4 คืน) · `.dk-shift` wrapper (translateY แยกจาก drag transform บน `.dk-dock`) · peek handle · a11y toggle ⚙ + `prefers-reduced-motion`→off + focus-guard | Q1·Q3 |
+| 3 | `27f5d9b` | **cap=f(width)** · `clamp(floor(w/50),3,14)` · observe `documentElement` (full-width ref · **ไม่ใช่ dock** = กัน feedback loop) ผ่าน `ro` ที่เคยว่าง · `mobile` derive จาก width เดียวกัน · **แก้ Fold-jump 760** · ปุ่มคง `--touch-min` 44/42/40 | Q4 |
+| 4 | `e406e29` | **keyboard-aware** · `visualViewport` height drop >150px = คีย์บอร์ด (URL-bar ~60-100px แยกออก) · fallback focusin · ไม่แตะ meta · keyboardUp guard hide-on-scroll ด้วย | Q2 |
 
-### 2.2 hide-on-scroll (Material BottomAppBar pattern)
-- state: `autoHidden = ref(false)` · เปิดทำงานเมื่อ `props.autoHide === true` เท่านั้น
-- **แยก translate จาก drag:** ห่อ `.dk-dock` ด้วย `.dk-shift` (ตัวใหม่ ไม่มี inline transform) → `.dk-shift.hidden { transform: translateY(calc(100% + 16px)); transition: transform .22s ease }`. `.dk-dock` ยังถือ inline `transform` ของ drag/collapse ได้อิสระ (คนละ element = ไม่ชน)
-- **peek handle:** `.dk-peek` = ปุ่มจิ๋ว (grip icon · `aria-label="แสดงแถบเครื่องมือ"`) เป็น **พี่น้องของ `.dk-shift` ใน `.dk-host` (ไม่โดน translate)** → เห็นตลอดตอนซ่อน · แตะ = `autoHidden=false` + คืน dock
-- **reducer แยกเป็น pure fn (test ได้ใน jsdom):**
-  ```
-  function nextHidden(prevY, curY, hidden) {
-    const dy = curY - prevY
-    if (dy > 24) return true       // เลื่อนลง > 24px → ซ่อน (debounce jitter)
-    if (dy < -8) return false      // เลื่อนขึ้นนิดเดียว → คืน (Material: reveal ไวกว่า hide)
-    return hidden                  // ในช่วง dead-zone → คงเดิม
-  }
-  ```
-  onScroll handler แค่อ่าน `window.scrollY` (หรือ container ตาม SA Q1) → เรียก reducer → set ref · `{ passive: true }`
-- **ไม่ซ่อนขณะ:** dock `collapsed` (มินิอยู่แล้ว) · popover เปิด (`openId !== null`) · drag (`gp !== null`) — กัน UX สะดุด
-
-### 2.3 a11y (WCAG · Material · spec §6)
-- **`prefers-reduced-motion: reduce` → default auto-hide = OFF** (proxy ของ AT · Material เตือน hide ทำ AT หาแถบไม่เจอ) · ผู้ใช้เปิดกลับเองได้ผ่าน toggle → **ยืนยันกับ SA (Q3)** ว่า proxy นี้พอ หรือให้ default ON + no-animation
-- **toggle "ปิดหลบอัตโนมัติ" ใน ⚙:** engine-owned · persist `pleng.dockkey.<storeKey>.autohideoff` (คู่กับ pins/collapsed/alpha `:47-49`) · render เฉพาะเมื่อ `autoHide` prop เปิด → พระคำไม่เห็นแถวนี้
-- peek handle + toggle มี `aria-label` ครบ · respect `env(safe-area-inset-bottom)` (มีแล้ว `:614`)
-
-### 2.4 test (Tier A jsdom + Tier B ตามได้จริง)
-- **Tier A (vitest · jsdom):** (1) `autoHide=false` → ไม่ผูก listener/ไม่ซ่อนเลย (พระคำ regression gate) (2) `nextHidden()` pure reducer: ลง>24→hidden · ขึ้น<-8→show · dead-zone→คงเดิม (3) toggle persist localStorage + reload อ่านคืน (4) mock `matchMedia('(prefers-reduced-motion: reduce)')` → default off
-- **Tier B (Claude Browser MCP · เมื่อรันแอปจริง):** scroll จริงซ่อน dock · peek คืน · ไม่ซ่อนตอน popover/drag/collapsed · วัด 344/390/690/834/desktop no h-scroll
-- ⚠️ **worktree caveat:** preview MCP เกาะ primary dir ไม่ใช่ worktree นี้ → self-verify ด้วย `node` import + `curl 127.0.0.1:<port>` 200 (ตาม CLAUDE.md) · Tier-B real-scroll ยืนยันตอน merge
+**guards ครบ (hide ไม่ลั่นกลางแก้):** ไม่ซ่อนเมื่อ popover เปิด · คีย์บอร์ดขึ้น · focus อยู่ใน dock · กำลังลาก
 
 ---
 
-## 3 · dependency กับ SA (บล็อกเฉพาะบางจุด)
-- **Q1 scroll container (window vs wrapper):** กระทบว่า onScroll ฟัง `window` หรือ preview-float wrapper · **สเปก §2 = window scroll** → เริ่มด้วย window แต่ทำ container ให้ inject ได้ (prop/detect) เผื่อ SA ชี้ wrapper
-- **Q3 AT-detect:** กระทบ default ตอน reduced-motion (OFF vs ON+no-anim) — **ผมเสนอ default OFF** รอ SA ฟันธง
-- Q2 (visualViewport) / Q4 (width-cap) / Q5 (scope filter) = **phase C/B ไม่บล็อก phase A**
+## verify (self · ก่อนส่ง tester)
+
+- **Tester A (vitest/jsdom) — DockKey +13 tests → 29 tests เขียว** (มี real mounted component + real scroll/resize/vv events + assert class จริง):
+  - slot-in-panel: render `#cell-<id>` ใน ⚙ · popover เปิดโดย ⚙ ไม่ปิด
+  - hide-on-scroll: off-by-default (พระคำ regression) · ลง→ซ่อน+peek · ขึ้น→คืน · top dead-zone · popover guard · peek คืน · toggle persist · reduced-motion off
+  - cap=f(width): wide merge/narrow 2 rows+dk-m · pinned pack น้อยแถวลงเมื่อกว้าง (ต่อเนื่อง ไม่กระโดด 760)
+  - keyboard: vv drop>150 ซ่อน+คืน · URL-bar collapse ~90px ไม่นับเป็นคีย์บอร์ด
+- **full suite: 728 tests pass** · build ✓ · **0 Vue warning** · (`notationLint` แดง = pre-existing `process.exit(0)` · 72/72 ผ่านข้างใน · ยืนยันไม่เกี่ยว)
+- **live smoke (Browser MCP → worktree 5313):** `.dk-shift` render จริงในแอป · **0 console error** · hostDisplay flex (mount ไม่พัง layout)
+
+### ⚠️ device-matrix Tier-B (344/390/690/834/desktop) — ทำที่ integration
+- **hide/keyboard/peek** วัดสด "ตัวเลข" ไม่ได้ตอนนี้เพราะ **editor ยังไม่ผ่าน `:auto-hide`** (= EditorMode · lane UX/PM-sequence) → dock live ยังพฤติกรรมเดิม
+- **worktree caveat:** Browser pane อ่าน dock 0-width (dock ต้องอยู่สถานะ edit จริง + pane rendering quirk) → เชื่อ Tier-A + compile ตาม `CLAUDE.md`
+- **→ device-matrix พร้อมตัวเลข = tester Tier-B gate หลัง wire + serve บนฐาน** (SOP GATE 2)
 
 ---
 
-## 4 · 2-host DoD (บังคับก่อน merge)
-1. `autoHide` default false → พระคำ island ต้องเหมือนเดิมทุกจอ (regression)
-2. rebuild `pk-dock-island.js` ฝั่งพระคำ (repo `phrakham.life2` consume `@pleng`) + สโม๊คทั้ง 2 host
-3. test เขียวทั้ง Tier A + Tier B
+## ต้องทำต่อ (นอก lane ผม · PM sequence)
+
+1. **UX/EditorMode wiring (1 บรรทัด):** ใส่ `:auto-hide="true"` ที่ `<DockKey ... >` (`EditorMode.vue:2994`) — **ผมไม่แตะ EditorMode ตามกฎ 1-file-1-lane** · PM สลับให้ dev ทำ wiring pass หลัง UX วาง toolbox เสร็จ
+2. **UX:** set `soundctl`/`export` เป็น `default:'inSetting', pinnable` ใน `editItems` (ตอนนี้ทำได้แล้ว — #1 ปลดล็อก)
+3. **🔴 2-host DoD (phrakham · ต้องประสาน pk PM):** engine เปลี่ยน → **rebuild `pk-dock-island.js` + gate พระคำ 344/690/768** · **new behavior หลัง prop `auto-hide` (พระคำไม่ opt-in = เหมือนเดิม)** · always-on ที่กระทบพระคำ = **cap=f(width)** (island ~4-5 ปุ่ม → cap แทบไม่ bind = low-risk แต่ต้อง gate) · slot-in-panel กระทบเฉพาะถ้าพระคำมี slot ใน ⚙ (ไม่มี)
 
 ---
 
-## 5 · Network URL (มือถือทดสอบ)
-- ยังไม่ start dev server (read-only prep) · **เมื่อ PM เคาะให้ build → รัน `npm run dev -- --host --port 5312` แล้วเติม `http://<IP>:5312/#/studio` ที่นี่**
-
----
-
-**ขอ PM:** (1) เคาะ phase-A plan + sequence UX/dev บน `EditorMode.vue` (ผมแตะแค่ `DockKey.vue`) (2) relay SA Q1+Q3 → ผมเริ่ม build phase A ได้ทันที · *dev prep · 2026-07-18*
+*dev · engine lane · 2026-07-18 · commit `1cd032c`/`3955a1f`/`27f5d9b`/`e406e29` · รอ PM sequence + P'Aim ลองรวมตอน integrate*
