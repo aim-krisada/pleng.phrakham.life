@@ -39,9 +39,40 @@
 
 ---
 
-## TASK 2 — free-form dock resize (แบบ 2 · width→reflow) ⏳ กำลังทำ
-(รายละเอียดเพิ่มเมื่อเสร็จ · reuse engine cap=f(width) + flex-wrap ที่เพิ่ง fix)
+## TASK 2 — free-form dock resize (แบบ 2 · window-style · width→reflow) ✅ commit `d1eeb8a`
+
+**โจทย์เดิมพี่เปา:** ตั้ง *ความกว้าง* dock เอง → ปุ่ม reflow ขึ้น/ลงแถว (ไม่ใช่ zoom ทั้งแถบ). reuse engine `cap=f(width)` + `.dk-row flex-wrap` ที่เพิ่ง fix → ตั้งกว้างแคบ = ปุ่มขึ้นแถวใหม่ · **ปุ่มไม่เคยเล็กกว่า `--touch-min`**.
+
+### ออกแบบ (world-class · ux-platform-patterns §1 touch≠pointer)
+- **prop `resizable` (default FALSE)** — พระคำ/host ที่ไม่ opt-in = ปิดสนิท · **pleng editor ตั้ง `:resizable="true"`** (= EditorMode 1 บรรทัด · **lane dev/PM — ผมไม่แตะ EditorMode**, ดู flag ล่าง)
+- **desktop = drag handle** ลอยขอบขวา dock (`@media hover` pointer เท่านั้น · half-width ตามเมาส์จากจุดกลาง · **ดับเบิลคลิก → AUTO**)
+- **มือถือ/keyboard = สไลเดอร์ "ความกว้างแถบ" ใน ⚙** (touch ลากขอบไม่ได้ · §1) + ปุ่ม **↺ คืน AUTO**
+- **persist ต่อ storeKey** (`pleng.dockkey.<key>.width`) · null = AUTO (fit-content)
+- **CSS:** `width: var(--dk-w, fit-content)` · `min-width:min-content` (floor = ปุ่มกว้างสุด · ไม่บีบ target) · `max-width` คุมไม่เกินจอ + hover reserve ที่ handle ยื่น
+- **cap มาจากความกว้างที่เลือก** เมื่อ resize (ไม่งั้นจากจอ) · **`mobile` metric ยึดจอ** (dock แคบบน desktop คง 44px)
+- **auto-hide + resize อิสระต่อกัน** (เลือกความกว้างแล้ว dock ซ่อนตอนเลื่อน = ความกว้างคงอยู่)
+
+### verify real-browser (Edge headless · viewport เป๊ะ)
+| ท่า | ผล |
+|---|---|
+| desktop **drag handle** 367→322→192px | reflow **1→2→3 แถว** · minBtnH คง **44** · 0 overflow |
+| desktop **ดับเบิลคลิก handle** | → AUTO (367 · 1 แถว · storage เคลียร์) |
+| **persist** reload | ความกว้างคงอยู่ ✅ |
+| **↺ reset** | → AUTO ✅ |
+| **auto-hide + resize coexist** | resize แล้ว scroll ลง → ซ่อน+peek · **ความกว้างคงอยู่** ✅ |
+| mobile 390 **สไลเดอร์**→150 | reflow **4 แถว** · handle ซ่อน (touch) · minBtnH 42 · 0 overflow |
+| **2-host inert** (island rebuild @344) | ไม่มี handle/width-row/`--dk-w` · overflow 0 ✅ |
+- **+7 Tier-A tests** (DockKey 36 · resize inert-by-default · handle/slider render · slider set+persist+cap · clamp <120 · ↺ reset · coexist auto-hide) · **743 tests · build ✓**
+
+### flag → PM (wiring · ไม่ใช่ผม)
+- **`:resizable="true"` บน `<DockKey>` ใน `EditorMode.vue`** (ปัจจุบัน `:auto-hide="true"` @ราว :3181) = **1 บรรทัด · lane EditorMode (dev อื่น/B109 หรือ PM สั่ง)** — ผมไม่แตะ EditorMode ตามกฎ 1-file-1-lane · เหมือนตอน dock-space dev ส่ง `auto-hide` แล้วให้ wiring ตามหลัง. **จนกว่าจะ wire = resize ยัง inert บน editor** (พร้อมใช้ทันทีเมื่อเติม prop)
 
 ---
 
-*dev · 2026-07-18 · `dockkey-fix-resize` · commit `2e238f0` · ⛔ ไม่ merge เอง (PM only)*
+## หมายเหตุ verify (เครื่องมือ)
+- **Edge headless (puppeteer-core + msedge)** ตั้ง viewport เป๊ะ 344 ได้ (MCP Browser pane <755 ไม่ได้ · Claude-in-Chrome ไม่ connect) · วัด `documentElement.scrollWidth − innerWidth` + dock rect/scrollWidth/rows/heights
+- harness (untracked · ไม่ commit): mount `DockKey.vue` จริงด้วย item set ของ island (faithful + stress) + rebuild `pk-dock-island.js` จริง + Noto Sans Thai
+
+---
+
+*dev · 2026-07-18 · `dockkey-fix-resize` · commits `2e238f0`(T1) `d1eeb8a`(T2) · ⛔ ไม่ merge เอง (PM only)*
