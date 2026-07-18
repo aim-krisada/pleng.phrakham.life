@@ -1,19 +1,19 @@
-<title>DockKey — mockup v3 (2 delta จริง: ลากปรับขนาด + มือถือหน้าเต็มจอ)</title>
+<title>DockKey — mockup v4 (แบบ 2: ปรับความกว้าง → ปุ่ม reflow)</title>
 <style>
   :root{
     --brand:#8B4513;--bg:#F3ECE1;--card:#FBF7F0;--ink:#2A2320;--muted:#8A7E72;--line:#E4D9C8;
-    --sel:rgba(139,69,19,.12);--shadow:0 8px 26px rgba(60,40,20,.18);--new:#1E6E4B;--new-bg:rgba(30,110,75,.12);--scale:1;
+    --sel:rgba(139,69,19,.12);--shadow:0 8px 26px rgba(60,40,20,.18);--new:#1E6E4B;--new-bg:rgba(30,110,75,.12);
+    --dk-w:420px; /* THE resize variable = dock WIDTH (not scale). engine reflows to fit. */
   }
-  @media (prefers-color-scheme:dark){:root{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;
-    --sel:rgba(214,158,102,.18);--brand:#D69E66;--new:#5FBF92;--new-bg:rgba(95,191,146,.16);--shadow:0 8px 26px rgba(0,0,0,.55)}}
+  @media (prefers-color-scheme:dark){:root{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;--sel:rgba(214,158,102,.18);--brand:#D69E66;--new:#5FBF92;--new-bg:rgba(95,191,146,.16);--shadow:0 8px 26px rgba(0,0,0,.55)}}
   :root[data-theme="dark"]{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;--sel:rgba(214,158,102,.18);--brand:#D69E66;--new:#5FBF92;--new-bg:rgba(95,191,146,.16);--shadow:0 8px 26px rgba(0,0,0,.55)}
   :root[data-theme="light"]{--brand:#8B4513;--bg:#F3ECE1;--card:#FBF7F0;--ink:#2A2320;--muted:#8A7E72;--line:#E4D9C8;--sel:rgba(139,69,19,.12);--new:#1E6E4B;--new-bg:rgba(30,110,75,.12);--shadow:0 8px 26px rgba(60,40,20,.18)}
   *{box-sizing:border-box}body{margin:0}
   .wrap{font:15px/1.6 system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;color:var(--ink);background:var(--bg);padding:22px 16px 60px;min-height:100%}
   .inner{max-width:920px;margin:0 auto}
   .eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:700;margin:0 0 6px}
-  h1{font-size:1.36rem;line-height:1.25;margin:0 0 4px;text-wrap:balance}
-  .sub{color:var(--muted);margin:0 0 14px;font-size:.94rem}
+  h1{font-size:1.34rem;line-height:1.25;margin:0 0 4px;text-wrap:balance}
+  .sub{color:var(--muted);margin:0 0 12px;font-size:.93rem}
   .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin:0 0 14px}.legend b{color:var(--ink)}
   .dotk{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle;margin-right:5px}.k-e{background:var(--line)}.k-n{background:var(--new)}
   .modes{display:inline-flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:14px}
@@ -22,55 +22,50 @@
 
   .stage{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;margin:0 auto}
   .stage.mobile{width:390px;max-width:100%}.stage.desktop{width:100%;max-width:860px}
-  .ed{padding:16px 16px 96px;min-height:300px;position:relative}
-  .ed .ln{font-size:1.1rem;margin:0 0 10px}.ed .num{font-weight:600;color:var(--brand)}
+  .ed{padding:16px 16px 26px;min-height:320px;position:relative}
+  .ed .ln{font-size:1.08rem;margin:0 0 8px}.ed .num{font-weight:600;color:var(--brand)}
   .tip{font-size:.78rem;color:var(--muted);background:var(--sel);border-radius:9px;padding:9px 12px;display:inline-block}
+  .rowcount{font-size:.72rem;color:var(--new);font-weight:700;margin-top:6px}
 
-  /* real dock (preserved structure) */
-  .dockwrap{position:absolute;left:0;right:0;bottom:14px;display:flex;justify-content:center;pointer-events:none}
+  .dockwrap{display:flex;justify-content:center;width:100%;margin-top:24px}
+  /* dock WIDTH = the resize var; buttons keep size, flex-wrap repacks (reflow = แบบ 2) */
   .dock{pointer-events:auto;position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
-    padding:calc(7px*var(--scale));display:inline-flex;flex-direction:column;gap:calc(5px*var(--scale));max-width:calc(100% - 20px)}
-  .keys{display:flex;gap:calc(4px*var(--scale));justify-content:center;flex-wrap:wrap;margin-bottom:calc(4px*var(--scale))}
-  .key{min-width:calc(30px*var(--scale));height:calc(38px*var(--scale));border:1px solid var(--line);background:var(--bg);border-radius:8px;color:var(--ink);font-weight:600;cursor:default;font-size:calc(.85rem*var(--scale))}
-  .drow{display:flex;gap:calc(5px*var(--scale));justify-content:center;flex-wrap:wrap}
-  .db{min-width:calc(44px*var(--scale));height:calc(44px*var(--scale));border:0;background:transparent;color:var(--brand);border-radius:11px;cursor:pointer;
-    display:inline-flex;align-items:center;justify-content:center;font-size:calc(1.1rem*var(--scale));padding:0 6px}
-  .db:hover{background:var(--sel)}.db.prime{background:var(--brand);color:#fff;min-width:calc(74px*var(--scale));font-size:calc(.9rem*var(--scale));font-weight:600}
-  .db.gear.on{background:var(--sel)}
-  /* NEW #1 desktop resize handle */
-  .rz{position:absolute;top:-10px;right:-10px;width:28px;height:28px;border-radius:50%;background:var(--new);color:#fff;border:2px solid var(--card);
-    cursor:nwse-resize;display:none;align-items:center;justify-content:center;font-size:.85rem;box-shadow:0 2px 6px rgba(0,0,0,.3);touch-action:none}
-  .stage.desktop .rz{display:inline-flex}.rz::after{content:"⤡"}
-  .szlabel{position:absolute;top:-30px;left:50%;transform:translateX(-50%);font-size:.68rem;background:var(--ink);color:var(--card);padding:2px 8px;border-radius:6px;white-space:nowrap;opacity:0;transition:opacity .15s}
-  .dock.sizing .szlabel{opacity:1}
+    padding:7px;display:flex;flex-direction:column;gap:5px;width:var(--dk-w);max-width:calc(100% - 20px)}
+  .keys{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;padding-bottom:5px;border-bottom:1px dashed var(--line)}
+  .key{min-width:32px;height:38px;border:1px solid var(--line);background:var(--bg);border-radius:8px;color:var(--ink);font-weight:600;cursor:default}
+  .drow{display:flex;gap:5px;justify-content:center;flex-wrap:wrap} /* wraps by width = reflow */
+  .db{width:44px;height:44px;min-width:44px;border:0;background:transparent;color:var(--brand);border-radius:11px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:1.1rem}
+  .db:hover{background:var(--sel)}.db.prime{background:var(--brand);color:#fff;width:auto;padding:0 12px;font-size:.9rem;font-weight:600}
+  .db.grip{color:var(--muted);cursor:grab}.db.gear.on{background:var(--sel)}
+  /* NEW #1 desktop width-resize handle (drag horizontally = set width) */
+  .rzx{position:absolute;top:50%;right:-9px;transform:translateY(-50%);width:16px;height:52px;border-radius:9px;background:var(--new);border:2px solid var(--card);
+    cursor:ew-resize;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.28);touch-action:none}
+  .stage.desktop .rzx{display:inline-flex}.rzx::after{content:"⋮⋮";color:#fff;font-size:.7rem;letter-spacing:-2px}
+  .wlabel{position:absolute;top:-28px;left:50%;transform:translateX(-50%);font-size:.68rem;background:var(--ink);color:var(--card);padding:2px 8px;border-radius:6px;white-space:nowrap;opacity:0;transition:opacity .15s}
+  .dock.sizing .wlabel{opacity:1}
 
-  /* existing settings popover (desktop) — PRESERVED */
-  .pop{position:absolute;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%);width:290px;max-width:92vw;background:var(--card);
-    border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:10px;display:none;z-index:20}
+  .pop{position:absolute;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%);width:290px;max-width:92vw;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:10px;display:none;z-index:20}
   .pop.show{display:block}
-  /* mobile full-screen settings — NEW #2 (same items, full-screen) */
   .sheet{position:absolute;inset:0;background:var(--card);z-index:40;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
   .sheet.up{transform:translateY(0)}
   .sheet-top{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
   .sheet-top h2{font-size:1.05rem;margin:0;flex:1}
   .done{font:inherit;font-size:.92rem;font-weight:700;border:0;background:var(--brand);color:#fff;border-radius:10px;padding:9px 18px;cursor:pointer;min-height:44px}
   .sheet-body{padding:6px 12px 24px;overflow:auto;flex:1}
-
-  /* settings rows (mirror the REAL dk-panel) */
   .prow{display:flex;align-items:center;gap:9px;padding:9px 8px;border-radius:9px}
   .prow .mi{color:var(--brand);width:20px;text-align:center}.prow .pl{flex:1;font-size:.88rem}
   .sw{width:42px;height:24px;border:0;border-radius:12px;background:#c9c0b3;position:relative;cursor:pointer;flex:0 0 auto}
   .sw[aria-checked="true"]{background:var(--brand)}.sw::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}.sw[aria-checked="true"]::after{left:20px}
   .sel-c{font:inherit;font-size:.82rem;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--card);color:var(--ink);min-height:34px}
-  .rng{width:96px;accent-color:var(--brand)}
+  .rng{width:100%;accent-color:var(--brand)}.rng.trans{width:96px}
   .pin{border:1px solid var(--line);background:var(--card);color:var(--brand);border-radius:7px;min-width:30px;height:30px;cursor:pointer}
   .mv{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:6px;padding:2px 7px;font-size:.8rem;cursor:pointer}
-  /* the ONE new settings row (mobile size slider) */
-  .prow.newrow{background:var(--new-bg);border:1px solid var(--new)}
+  .prow.newrow{background:var(--new-bg);border:1px solid var(--new);flex-wrap:wrap}
+  .prow.newrow .pl{flex-basis:100%;margin-bottom:4px}
   .tag-n{font-size:.6rem;font-weight:800;letter-spacing:.05em;color:var(--new);background:var(--card);border-radius:5px;padding:2px 6px;text-transform:uppercase;margin-left:6px}
   .sec-head{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:10px 8px 4px}
 
-  .notes{display:grid;grid-template-columns:1fr;gap:12px;margin-top:24px}
+  .notes{display:grid;grid-template-columns:1fr;gap:12px;margin-top:22px}
   @media(min-width:680px){.notes{grid-template-columns:1fr 1fr}}
   .nc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}.nc h3{margin:0 0 8px;font-size:1rem}.nc p{margin:0 0 6px;font-size:.87rem;color:var(--muted)}.nc b{color:var(--ink)}
   .foot{color:var(--muted);font-size:.8rem;margin-top:22px;text-align:center;line-height:1.6}.foot a{color:var(--brand)}
@@ -78,10 +73,10 @@
 </style>
 
 <div class="wrap"><div class="inner">
-  <p class="eyebrow">pleng · UX/UI · DockKey · v3 (แก้ตาม PM/P'Aim)</p>
-  <h1>แถบเครื่องมือเดิม — เพิ่มแค่ 2 อย่าง: ลากปรับขนาด + มือถือตั้งค่าเต็มจอ</h1>
-  <p class="sub">หน้าตั้งค่า ⚙ เดิม (วนซ้ำ/คอร์ด/ความเร็ว/แสดงผล/โปร่งใส/ปัก) <b>เก็บครบไม่แตะ</b> · สลับ 📱/🖥️ ดูของใหม่ 2 อย่าง</p>
-  <p class="legend"><span><span class="dotk k-e"></span><b>ของเดิม</b> (ปุ่ม · ⚙ ตั้งค่า · ปัก · โปร่งใส · เมนู)</span><span><span class="dotk k-n"></span><b>ใหม่ 2 อย่าง</b> (ลากปรับขนาด · มือถือตั้งค่าเต็มจอ)</span></p>
+  <p class="eyebrow">pleng · UX/UI · DockKey · v4 (แบบ 2 · reflow)</p>
+  <h1>ปรับ*ความกว้าง*แถบได้อิสระ → ปุ่มจัดเรียงใหม่เอง (ไม่ใช่ซูมทั้งก้อน)</h1>
+  <p class="sub">กว้างขึ้น = ปุ่มต่อแถวมากขึ้น/แถวน้อยลง · แคบลง = ปุ่มขึ้นบรรทัดใหม่ · <b>ปุ่มขนาดเท่าเดิม 44px เสมอ</b> · ⚙/ปัก/โปร่งใส/เมนู/grip เดิมครบ</p>
+  <p class="legend"><span><span class="dotk k-e"></span><b>ของเดิม</b> (ปุ่ม · ⚙ · ปัก · โปร่งใส · เมนู · grip · reflow engine)</span><span><span class="dotk k-n"></span><b>ใหม่ 2 อย่าง</b> (คุมความกว้าง→reflow · มือถือ ⚙ เต็มจอ)</span></p>
 
   <div class="modes" role="group" aria-label="อุปกรณ์">
     <button id="mMobile" aria-pressed="true">📱 มือถือ (พี่เปา)</button>
@@ -91,18 +86,21 @@
   <div class="stage mobile" id="stage">
     <div class="ed">
       <p class="ln"><span class="num">1 2 3</span> พระ-เจ้า-ทรง · <span class="num">5 – 3</span> รัก-เรา</p>
-      <p class="tip" id="tip">📱 กด ⚙ → หน้าตั้งค่า<b>เต็มจอ</b> (ของเดิมครบ + สไลเดอร์ขนาดใหม่) · กด “เสร็จ” กลับจุดเดิม</p>
+      <p class="tip" id="tip">📱 กด ⚙ → หน้าตั้งค่า<b>เต็มจอ</b> · เลื่อน “ความกว้างแถบ” = ปุ่ม reflow (ไม่ใช่ซูม) · “เสร็จ” กลับจุดเดิม</p>
+      <p class="rowcount" id="rowcount"></p>
       <div class="dockwrap"><div class="dock" id="dock">
-        <span class="szlabel" id="szlabel">ขนาด 100%</span>
-        <div class="rz" id="rz" title="ลากปรับขนาดแถบ (เดสก์ท็อป)" aria-label="ลากปรับขนาดแถบ"></div>
+        <span class="wlabel" id="wlabel">กว้าง 420px</span>
+        <div class="rzx" id="rzx" title="ลากปรับความกว้างแถบ (เดสก์ท็อป)" aria-label="ลากปรับความกว้างแถบ"></div>
         <div class="keys">
-          <button class="key">1</button><button class="key">2</button><button class="key">3</button><button class="key">–</button><button class="key">|</button>
+          <button class="key">1</button><button class="key">2</button><button class="key">3</button><button class="key">4</button><button class="key">5</button><button class="key">–</button><button class="key">|</button>
         </div>
-        <div class="drow">
+        <div class="drow" id="drow">
+          <button class="db grip" title="ลากย้าย/ย่อแถบ (เดิม)">⋮⋮</button>
           <button class="db" title="ย้อน">↶</button>
           <button class="db" title="ทำซ้ำ">↷</button>
           <button class="db" title="ฟังท่อน">▶</button>
-          <button class="db prime" title="บันทึก/ส่งตรวจ">✈ ส่งตรวจ</button>
+          <button class="db prime" title="ส่งตรวจ">✈ ส่งตรวจ</button>
+          <button class="db" title="ฟังทั้งเพลง">⏵</button>
           <button class="db" title="ขนาดตัวอักษร">Aa</button>
           <button class="db gear" id="gear" aria-haspopup="dialog" title="ตั้งค่า">⚙</button>
         </div>
@@ -116,79 +114,84 @@
   </div>
 
   <div class="notes">
-    <div class="nc"><h3>ของใหม่ที่ 1 — ลากปรับ*ขนาด* (free-form)</h3>
-      <p><b>เดสก์ท็อป:</b> ลากจุดเขียวมุมแถบ → ย่อ/ขยาย<b>ต่อเนื่อง</b> (ไม่ใช่ 3 ขนาดตายตัว)</p>
-      <p><b>มือถือ:</b> นิ้วลากมุมเล็งยาก (SOP: ห้าม drag-resize บน touch) → ใช้ <b>สไลเดอร์ขนาด</b>ในตั้งค่า (ต่อเนื่องเหมือนกัน · reuse แพทเทิร์นสไลเดอร์โปร่งใสเดิม)</p>
-      <p style="font-size:.8rem">มีพื้นขั้นต่ำ: ปุ่มไม่เล็กกว่า 44px (WCAG)</p>
+    <div class="nc"><h3>ของใหม่ที่ 1 — คุม*ความกว้าง* → reflow (แบบ 2)</h3>
+      <p><b>เดสก์ท็อป:</b> ลากที่จับเขียวขอบขวา → ตั้งความกว้างแถบ → engine จัดปุ่มลงแถวใหม่ตามความกว้าง (engine เดิมทำ reflow อยู่แล้ว)</p>
+      <p><b>มือถือ:</b> นิ้วลากขอบเล็งยาก (SOP §1) → <b>สไลเดอร์ “ความกว้างแถบ”</b> ในตั้งค่า (คุมความกว้าง→reflow เหมือนกัน · touch-safe)</p>
+      <p style="font-size:.8rem"><b>ไม่ใช่ซูม:</b> ปุ่มขนาดเท่าเดิม 44px เสมอ · footprint เล็กลงมาจาก “จำนวนปุ่มต่อแถว” ไม่ใช่ย่อปุ่ม</p>
     </div>
     <div class="nc"><h3>ของใหม่ที่ 2 — มือถือ ⚙ = เต็มจอ</h3>
-      <p>วันนี้ ⚙ เปิด popover เล็กบนจอ 360px = คับ → เปลี่ยนเป็น<b>หน้าเต็มจอ</b> (ของเดิมครบทุกอย่าง) เลือกเสร็จกด “เสร็จ” กลับจุดเดิม</p>
-      <p style="font-size:.8rem">เดสก์ท็อป = popover เดิม (จอกว้างพอ) · Material full-screen dialog</p>
+      <p>⚙ วันนี้เปิด popover เล็กบนจอ 360px = คับ → <b>หน้าเต็มจอ</b> (ของเดิมครบ + สไลเดอร์ความกว้าง) เลือกเสร็จกลับจุดเดิม</p>
+      <p style="font-size:.8rem">เดสก์ท็อป = popover เดิม · Material full-screen dialog</p>
     </div>
   </div>
-  <p class="foot">mockup v3 · UX/UI seat · โครง dock จริง (⚙/ปัก/โปร่งใส/เมนู เก็บครบ) · <a href="../us/dockkey-config.md">dockkey-config.md</a> · <a href="../ux-platform-patterns.md">SOP</a></p>
+  <p class="foot">mockup v4 · UX/UI seat · reflow ใช้ engine เดิม (buildRows/cap/flex-wrap) · <a href="../us/dockkey-config.md">dockkey-config.md</a> · <a href="../ux-platform-patterns.md">SOP</a></p>
 </div></div>
 
 <script>
 (function(){
-  var mode='mobile', scale=1, SMIN=0.86, SMAX=1.45; // 44px floor at scale 1; base rendered a touch smaller footprint via <1? keep 1=44
+  var mode='mobile', WMIN=150, WMAX=640;
   var root=document.documentElement,dock=document.getElementById('dock'),pop=document.getElementById('pop'),
       sheet=document.getElementById('sheet'),sheetBody=document.getElementById('sheetBody'),stage=document.getElementById('stage'),
-      szlabel=document.getElementById('szlabel');
-  function setScale(s){ scale=Math.max(SMIN,Math.min(SMAX,s)); root.style.setProperty('--scale',scale.toFixed(3));
-    szlabel.textContent='ขนาด '+Math.round(scale*100)+'%'; var rng=document.getElementById('rngSize'); if(rng) rng.value=Math.round(scale*100); }
+      wlabel=document.getElementById('wlabel'),drow=document.getElementById('drow'),rowcount=document.getElementById('rowcount');
+  var width=420;
+  function reportRows(){
+    // count visual rows by grouping button offsetTop
+    var tops={}; [].forEach.call(drow.children,function(b){tops[b.offsetTop]=1});
+    var n=Object.keys(tops).length; rowcount.textContent = n? ('ปุ่มล่าง: '+drow.children.length+' ปุ่ม → '+n+' แถว (reflow ตามความกว้าง)') : '';
+  }
+  function setWidth(w){ width=Math.max(WMIN,Math.min(WMAX,w)); root.style.setProperty('--dk-w',Math.round(width)+'px');
+    wlabel.textContent='กว้าง '+Math.round(width)+'px'; var r=document.getElementById('rngW'); if(r) r.value=Math.round(width);
+    requestAnimationFrame(reportRows); }
 
-  // EXISTING settings items (mirror real dk-panel) + the ONE new row (size slider, mobile)
-  function settingsHTML(withSize){
+  function settingsHTML(withWidth){
     var rows=[
-      {mi:'🔁',pl:'เล่นวนซ้ำ',ctrl:'<button class="sw" role="switch" aria-checked="false" aria-label="เล่นวนซ้ำ"></button>'},
-      {mi:'🎸',pl:'คอร์ด',ctrl:'<select class="sel-c" aria-label="คอร์ด"><option>แสดง</option><option>ซ่อน</option></select>'},
-      {mi:'⏩',pl:'ความเร็ว',ctrl:'<select class="sel-c" aria-label="ความเร็ว"><option>1.0×</option><option>0.75×</option><option>1.25×</option></select>'},
-      {mi:'👁',pl:'แสดงผล',ctrl:'<select class="sel-c" aria-label="แสดงผล"><option>ตัวเลข</option><option>คอร์ด</option></select>'},
-      {mi:'◐',pl:'ความโปร่งใส',ctrl:'<input class="rng" type="range" min="40" max="100" value="96" aria-label="ความโปร่งใส">'}
+      {mi:'🔁',pl:'เล่นวนซ้ำ',c:'<button class="sw" role="switch" aria-checked="false" aria-label="เล่นวนซ้ำ"></button>'},
+      {mi:'🎸',pl:'คอร์ด',c:'<select class="sel-c" aria-label="คอร์ด"><option>แสดง</option><option>ซ่อน</option></select>'},
+      {mi:'⏩',pl:'ความเร็ว',c:'<select class="sel-c" aria-label="ความเร็ว"><option>1.0×</option><option>0.75×</option></select>'},
+      {mi:'👁',pl:'แสดงผล',c:'<select class="sel-c" aria-label="แสดงผล"><option>ตัวเลข</option><option>คอร์ด</option></select>'},
+      {mi:'◐',pl:'ความโปร่งใส',c:'<input class="rng trans" type="range" min="40" max="100" value="96" aria-label="ความโปร่งใส">'}
     ];
     var pins=[['💾','บันทึกร่าง'],['⬇','ดาวน์โหลด'],['👁','ดูผลทั้งเพลง']];
     var h='';
-    if(withSize){ h+='<div class="sec-head">ขนาดแถบ</div>'+
-      '<div class="prow newrow"><span class="mi">⤡</span><span class="pl">ขนาดแถบ<span class="tag-n">ใหม่</span></span>'+
-      '<input class="rng" id="rngSize" type="range" min="86" max="145" value="'+Math.round(scale*100)+'" aria-label="ขนาดแถบ"></div>'; }
+    if(withWidth){ h+='<div class="sec-head">ความกว้างแถบ</div>'+
+      '<div class="prow newrow"><span class="pl">ความกว้างแถบ<span class="tag-n">ใหม่ · reflow ไม่ใช่ซูม</span></span>'+
+      '<input class="rng" id="rngW" type="range" min="'+WMIN+'" max="'+WMAX+'" value="'+Math.round(width)+'" aria-label="ความกว้างแถบ"></div>'; }
     h+='<div class="sec-head">การเล่น / แสดงผล (ของเดิม)</div>';
-    h+=rows.map(function(r){return '<div class="prow"><span class="mi">'+r.mi+'</span><span class="pl">'+r.pl+'</span>'+r.ctrl+'</div>'}).join('');
+    h+=rows.map(function(r){return '<div class="prow"><span class="mi">'+r.mi+'</span><span class="pl">'+r.pl+'</span>'+r.c+'</div>'}).join('');
     h+='<div class="sec-head">ปุ่มบนแถบ · ปัก 📌 (ของเดิม)</div>';
     h+=pins.map(function(p){return '<div class="prow"><span class="mi">'+p[0]+'</span><span class="pl">'+p[1]+'</span><button class="mv">▲</button><button class="mv">▼</button><button class="pin">📌</button></div>'}).join('');
     return h;
   }
   function wire(scope){
     scope.querySelectorAll('.sw').forEach(function(sw){sw.onclick=function(){sw.setAttribute('aria-checked',sw.getAttribute('aria-checked')!=='true')}});
-    var rng=scope.querySelector('#rngSize'); if(rng) rng.oninput=function(){ setScale(+rng.value/100); };
+    var r=scope.querySelector('#rngW'); if(r) r.oninput=function(){ setWidth(+r.value); };
   }
-  function openSettings(){
-    document.getElementById('gear').classList.add('on');
+  function openSettings(){ document.getElementById('gear').classList.add('on');
     if(mode==='mobile'){ sheetBody.innerHTML=settingsHTML(true); wire(sheetBody); sheet.classList.add('up'); }
-    else { pop.innerHTML=settingsHTML(false); wire(pop); pop.classList.add('show'); } // desktop: size via drag, not slider
-  }
+    else { pop.innerHTML=settingsHTML(false); wire(pop); pop.classList.add('show'); } }
   function closeSettings(){ pop.classList.remove('show'); sheet.classList.remove('up'); document.getElementById('gear').classList.remove('on'); }
   document.getElementById('gear').onclick=function(e){ e.stopPropagation(); (sheet.classList.contains('up')||pop.classList.contains('show'))?closeSettings():openSettings(); };
   document.getElementById('done').onclick=closeSettings;
   document.addEventListener('click',function(e){ if(mode==='desktop'&&pop.classList.contains('show')&&!e.target.closest('#pop')&&!e.target.closest('#gear')) closeSettings(); });
   document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeSettings(); });
 
-  // NEW #1: desktop free-form drag-resize
-  var rz=document.getElementById('rz'), start=null, sc0=1;
-  rz.addEventListener('pointerdown',function(e){ e.stopPropagation(); start=e.clientX+e.clientY; sc0=scale; dock.classList.add('sizing'); try{rz.setPointerCapture(e.pointerId)}catch(_){}});
-  rz.addEventListener('pointermove',function(e){ if(start==null)return; var d=(e.clientX+e.clientY)-start; setScale(sc0 + d/260); });
-  rz.addEventListener('pointerup',function(){ start=null; dock.classList.remove('sizing'); });
+  // NEW #1 desktop: drag handle sets WIDTH (horizontal) → reflow
+  var rzx=document.getElementById('rzx'), sx=null, w0=0;
+  rzx.addEventListener('pointerdown',function(e){ e.stopPropagation(); sx=e.clientX; w0=width; dock.classList.add('sizing'); try{rzx.setPointerCapture(e.pointerId)}catch(_){}});
+  rzx.addEventListener('pointermove',function(e){ if(sx==null)return; setWidth(w0 + (e.clientX-sx)*2); });
+  rzx.addEventListener('pointerup',function(){ sx=null; dock.classList.remove('sizing'); });
 
   function setMode(m){ mode=m; closeSettings();
     stage.classList.toggle('mobile',m==='mobile'); stage.classList.toggle('desktop',m==='desktop');
     document.getElementById('mMobile').setAttribute('aria-pressed',m==='mobile');
     document.getElementById('mDesktop').setAttribute('aria-pressed',m==='desktop');
     document.getElementById('tip').innerHTML = m==='mobile'
-      ? '📱 กด ⚙ → หน้าตั้งค่า<b>เต็มจอ</b> (ของเดิมครบ + สไลเดอร์ขนาดใหม่) · กด “เสร็จ” กลับจุดเดิม'
-      : '🖥️ ลาก<b>จุดเขียวมุมแถบ</b> ปรับขนาดต่อเนื่อง · กด ⚙ = popover เดิม (ของเดิมครบ)';
+      ? '📱 กด ⚙ → หน้าตั้งค่า<b>เต็มจอ</b> · เลื่อน “ความกว้างแถบ” = ปุ่ม reflow (ไม่ใช่ซูม) · “เสร็จ” กลับจุดเดิม'
+      : '🖥️ ลาก<b>ที่จับเขียวขอบขวา</b> ปรับความกว้าง → ปุ่มจัดแถวใหม่เอง · กด ⚙ = popover เดิม';
+    setWidth(m==='mobile'?320:width);
   }
   document.getElementById('mMobile').onclick=function(){setMode('mobile')};
   document.getElementById('mDesktop').onclick=function(){setMode('desktop')};
-  setScale(1);
+  setWidth(320); requestAnimationFrame(reportRows);
 })();
 </script>
