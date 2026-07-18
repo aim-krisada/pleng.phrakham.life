@@ -1,261 +1,243 @@
-<title>คืนพื้นที่หน้าจอ 🔽 — mockup (dock หลบเอง + toolbox ไปหา element)</title>
+<title>คืนพื้นที่หน้าจอ 🔽 — mockup (dock หลบเอง + จัดปุ่ม + toolbox)</title>
 <style>
-  :root{
-    --brand:#8B4513;--bg:#F3ECE1;--card:#FBF7F0;--ink:#2A2320;--muted:#8A7E72;--line:#E4D9C8;
-    --sel:rgba(139,69,19,.14);--sel-line:rgba(139,69,19,.55);--shadow:0 8px 26px rgba(60,40,20,.18);--new:#1E6E4B;--new-bg:rgba(30,110,75,.12);
-  }
-  @media (prefers-color-scheme:dark){:root{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;--sel:rgba(214,158,102,.18);--sel-line:rgba(214,158,102,.7);--brand:#D69E66;--new:#5FBF92;--new-bg:rgba(95,191,146,.16);--shadow:0 8px 26px rgba(0,0,0,.55)}}
-  :root[data-theme="dark"]{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;--sel:rgba(214,158,102,.18);--sel-line:rgba(214,158,102,.7);--brand:#D69E66;--new:#5FBF92;--new-bg:rgba(95,191,146,.16);--shadow:0 8px 26px rgba(0,0,0,.55)}
-  :root[data-theme="light"]{--brand:#8B4513;--bg:#F3ECE1;--card:#FBF7F0;--ink:#2A2320;--muted:#8A7E72;--line:#E4D9C8;--sel:rgba(139,69,19,.14);--sel-line:rgba(139,69,19,.55);--new:#1E6E4B;--new-bg:rgba(30,110,75,.12);--shadow:0 8px 26px rgba(60,40,20,.18)}
+  :root{--brand:#8B4513;--bg:#F3ECE1;--card:#FBF7F0;--ink:#2A2320;--muted:#8A7E72;--line:#E4D9C8;
+    --sel:rgba(139,69,19,.14);--sel-line:rgba(139,69,19,.55);--shadow:0 8px 26px rgba(60,40,20,.18);--new:#1E6E4B;--new-bg:rgba(30,110,75,.12);--warn:#B4531A}
+  @media (prefers-color-scheme:dark){:root{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;--sel:rgba(214,158,102,.18);--sel-line:rgba(214,158,102,.7);--brand:#D69E66;--new:#5FBF92;--new-bg:rgba(95,191,146,.16);--shadow:0 8px 26px rgba(0,0,0,.55);--warn:#E0844A}}
+  :root[data-theme="dark"]{--bg:#1C1815;--card:#241F1B;--ink:#EDE4D6;--muted:#A99C8C;--line:#3A3129;--sel:rgba(214,158,102,.18);--sel-line:rgba(214,158,102,.7);--brand:#D69E66;--new:#5FBF92;--new-bg:rgba(95,191,146,.16);--shadow:0 8px 26px rgba(0,0,0,.55);--warn:#E0844A}
+  :root[data-theme="light"]{--brand:#8B4513;--bg:#F3ECE1;--card:#FBF7F0;--ink:#2A2320;--muted:#8A7E72;--line:#E4D9C8;--sel:rgba(139,69,19,.14);--sel-line:rgba(139,69,19,.55);--new:#1E6E4B;--new-bg:rgba(30,110,75,.12);--warn:#B4531A}
   *{box-sizing:border-box}body{margin:0}
   .wrap{font:15px/1.6 system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;color:var(--ink);background:var(--bg);padding:22px 16px 60px;min-height:100%}
   .inner{max-width:920px;margin:0 auto}
   .eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:700;margin:0 0 6px}
-  h1{font-size:1.34rem;line-height:1.25;margin:0 0 4px;text-wrap:balance}
-  .sub{color:var(--muted);margin:0 0 14px;font-size:.93rem}
-  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
-  .modes{display:inline-flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px}
-  .modes button{font:inherit;font-size:.88rem;font-weight:600;border:0;background:transparent;color:var(--muted);padding:8px 14px;border-radius:999px;cursor:pointer;min-height:40px}
+  h1{font-size:1.32rem;line-height:1.25;margin:0 0 4px;text-wrap:balance}
+  .sub{color:var(--muted);margin:0 0 12px;font-size:.92rem}
+  .steps{background:var(--new-bg);border:1px solid var(--new);border-radius:12px;padding:11px 14px;margin:0 0 14px;font-size:.88rem;line-height:1.9}.steps b{color:var(--new)}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .modes{display:inline-flex;gap:3px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px;flex-wrap:wrap}
+  .modes button{font:inherit;font-size:.82rem;font-weight:600;border:0;background:transparent;color:var(--muted);padding:7px 12px;border-radius:999px;cursor:pointer;min-height:38px}
   .modes button[aria-pressed="true"]{background:var(--brand);color:#fff}
-  .srtoggle{display:inline-flex;align-items:center;gap:7px;font-size:.82rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--card);cursor:pointer}
+  .srtoggle{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:6px 11px;background:var(--card);cursor:pointer}
   .srtoggle[aria-pressed="true"]{border-color:var(--new);color:var(--new)}
 
   .stage{position:relative;background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden;margin:0 auto;display:flex;flex-direction:column}
-  .stage.mobile{width:390px;max-width:100%;height:560px}.stage.desktop{width:100%;max-width:760px;height:520px}
-  .topbar{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .stage.mobile{width:390px;max-width:100%;height:540px}.stage.desktop{width:100%;max-width:760px;height:520px}
+  .topbar{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line);flex:0 0 auto;z-index:5}
   .topbar .t{font-weight:700;color:var(--brand);font-size:.95rem}.topbar .sp{flex:1}
-  .reclaim{font-size:.7rem;color:var(--new);font-weight:700;opacity:0;transition:opacity .2s}.reclaim.on{opacity:1}
+  .reclaim{font-size:.68rem;color:var(--new);font-weight:700;opacity:0;transition:opacity .2s}.reclaim.on{opacity:1}
+  .icobtn{width:38px;height:38px;border:0;background:transparent;color:var(--ink);border-radius:9px;cursor:pointer;font-size:1rem}
+  .icobtn:hover{background:var(--sel)}
 
-  /* scrollable song content */
-  .song{flex:1;overflow-y:auto;padding:14px 16px 20px;position:relative;scroll-behavior:smooth}
-  .ln{margin:0 0 14px;font-size:1.06rem;line-height:2.1}
-  .note{display:inline-block;padding:1px 4px;border-radius:6px;cursor:pointer;position:relative}
-  .note .n{font-weight:600;color:var(--brand);font-variant-numeric:tabular-nums}
-  .note .s{font-size:.82rem;color:var(--muted)}
+  .song{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px 18px;position:relative}
+  .sech{font-size:.78rem;font-weight:700;color:var(--brand);margin:8px 0 6px}
+  .ln{margin:0 0 12px;font-size:1.04rem;line-height:1.9}
+  .note{display:inline-block;padding:1px 4px;border-radius:6px;cursor:pointer}
+  .note .n{font-weight:600;color:var(--brand);font-variant-numeric:tabular-nums}.note .s{font-size:.8rem;color:var(--muted)}
   .note.sel{background:var(--sel);outline:2px solid var(--sel-line)}
-  .sech{font-size:.8rem;font-weight:700;color:var(--brand);margin:2px 0 8px}
-
-  /* contextual toolbox (summon at element) */
-  .tbx{position:absolute;z-index:20;display:none;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:4px}
+  .tbx{position:absolute;z-index:20;display:none;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:4px;max-width:calc(100% - 12px)}
   .tbx.show{display:inline-flex}
-  /* icon-only buttons so the toolbox fits the narrowest screen (Fold 344) — labels via aria */
-  .tbx button{font:inherit;font-size:1.02rem;border:0;background:transparent;color:var(--ink);border-radius:8px;width:40px;height:40px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
-  .tbx button:hover{background:var(--sel)}.tbx button.more{color:var(--muted)}
-  .tbx .tag{font-size:.64rem;color:var(--brand);font-weight:800;padding:0 5px;align-self:center;border-right:1px solid var(--line);margin-right:1px}
+  .tbx button{font:inherit;font-size:1.02rem;border:0;background:transparent;color:var(--ink);border-radius:8px;width:40px;height:40px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .tbx button:hover{background:var(--sel)}.tbx .tag{font-size:.62rem;color:var(--brand);font-weight:800;padding:0 5px;align-self:center;border-right:1px solid var(--line);margin-right:1px;flex:0 0 auto}
 
-  /* dock (slim essential) — conditional: hides on scroll / keyboard */
-  .dock{flex:0 0 auto;display:flex;gap:6px;justify-content:center;align-items:center;padding:9px;border-top:1px solid var(--line);background:var(--card);
-    transition:transform .26s cubic-bezier(.4,0,.2,1),opacity .2s;position:relative;z-index:10}
-  .dock.hidden{transform:translateY(100%);opacity:0;pointer-events:none}
-  .db{width:44px;height:44px;border:0;background:transparent;color:var(--brand);border-radius:11px;cursor:pointer;font-size:1.1rem;display:inline-flex;align-items:center;justify-content:center}
-  .db:hover{background:var(--sel)}.db.grip{color:var(--muted)}.db.prime{background:var(--brand);color:#fff;width:auto;padding:0 14px;font-size:.88rem;font-weight:600}
-  /* peek handle when dock hidden */
-  .peek{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);z-index:11;width:54px;height:20px;border-radius:10px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);display:none;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
-  .peek.show{display:inline-flex}.peek::after{content:"⋯";font-size:1rem;line-height:0}
+  .dock{flex:0 0 auto;display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap;padding:9px;border-top:1px solid var(--line);background:var(--card);
+    transition:transform .26s cubic-bezier(.4,0,.2,1),opacity .18s;z-index:10}
+  .dock.hidden{transform:translateY(105%);opacity:0;pointer-events:none}
+  .db{width:44px;height:44px;border:0;background:transparent;color:var(--brand);border-radius:11px;cursor:pointer;font-size:1.08rem;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .db:hover{background:var(--sel)}.db.grip{color:var(--muted)}.db.prime{background:var(--brand);color:#fff;width:auto;padding:0 14px;font-size:.86rem;font-weight:600}.db.gear.on{background:var(--sel)}
+  .peek{position:absolute;left:50%;bottom:7px;transform:translateX(-50%);z-index:11;padding:4px 14px;border-radius:11px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);display:none;cursor:pointer;color:var(--muted);font-size:.9rem}
+  .peek.show{display:inline-block}
 
-  /* simulated keyboard */
   .kbd{position:absolute;left:0;right:0;bottom:0;height:0;overflow:hidden;background:linear-gradient(var(--line),var(--card));border-top:1px solid var(--line);z-index:15;transition:height .24s;display:flex;flex-wrap:wrap;gap:4px;padding:0 8px;align-content:flex-start}
-  .kbd.up{height:170px;padding:8px}
-  .kbd span{flex:1 0 8%;min-width:26px;height:32px;background:var(--card);border:1px solid var(--line);border-radius:6px}
+  .kbd.up{height:160px;padding:8px}
+  .kbd span{flex:1 0 8%;min-width:26px;height:30px;background:var(--card);border:1px solid var(--line);border-radius:6px}
   .kbd .msg{flex-basis:100%;font-size:.72rem;color:var(--muted);text-align:center;margin-top:4px}
-  /* toolbox docked above keyboard */
-  .kbtbx{position:absolute;left:0;right:0;bottom:170px;z-index:16;display:none;gap:2px;justify-content:center;background:var(--card);border-top:1px solid var(--line);padding:6px}
-  .kbtbx.show{display:flex}.kbtbx button{font:inherit;font-size:.82rem;border:1px solid var(--line);background:var(--card);color:var(--brand);border-radius:8px;padding:8px 10px;min-height:40px;cursor:pointer}
+  .kbtbx{position:absolute;left:0;right:0;bottom:160px;z-index:16;display:none;gap:4px;justify-content:center;background:var(--card);border-top:1px solid var(--line);padding:6px}
+  .kbtbx.show{display:flex}.kbtbx button{font:inherit;font-size:1rem;border:1px solid var(--line);background:var(--card);color:var(--brand);border-radius:8px;width:42px;height:40px;cursor:pointer}
 
-  .notes{display:grid;grid-template-columns:1fr;gap:12px;margin-top:22px}
-  @media(min-width:680px){.notes{grid-template-columns:1fr 1fr 1fr}}
-  .nc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px}.nc h3{margin:0 0 7px;font-size:.98rem}.nc p{margin:0;font-size:.85rem;color:var(--muted)}.nc b{color:var(--ink)}
-  .thesis{background:var(--new-bg);border:1px solid var(--new);border-radius:12px;padding:12px 14px;margin:0 0 14px;font-size:.9rem}.thesis b{color:var(--new)}
-  /* glanceable before/after concept */
-  .concept{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin:0 0 20px}
-  .cf{width:158px}
-  .cframe{width:158px;height:230px;border:3px solid var(--line);border-radius:20px;overflow:hidden;background:var(--card);position:relative;display:flex;flex-direction:column}
-  .csong{flex:1;padding:9px 9px 0;overflow:hidden}
-  .cl{font-size:.62rem;line-height:1.7;color:var(--muted);white-space:nowrap}.cl .n{color:var(--brand);font-weight:700}
-  .cdim{opacity:.35}
-  .cdockbig{border-top:1px solid var(--line);background:var(--sel);padding:6px;display:flex;flex-direction:column;gap:4px}
-  .cdockbig .r{display:flex;gap:4px;justify-content:center}.cdockbig .b{width:22px;height:20px;border-radius:5px;background:var(--card);border:1px solid var(--line)}
-  .cpeek{position:absolute;left:50%;bottom:7px;transform:translateX(-50%);width:34px;height:12px;border-radius:6px;background:var(--card);border:1px solid var(--line);color:var(--muted);font-size:.6rem;text-align:center;line-height:10px}
-  .ctbx{position:absolute;top:64px;left:24px;background:var(--card);border:1px solid var(--sel-line);border-radius:8px;box-shadow:var(--shadow);padding:3px;display:flex;gap:2px}
-  .ctbx .b{width:17px;height:17px;border-radius:4px;background:var(--sel);font-size:.6rem;text-align:center;line-height:17px;color:var(--brand)}
+  /* ⚙ settings — full-screen (mobile) / popover (desktop) with add/hide/reorder */
+  .sheet{position:absolute;inset:0;background:var(--card);z-index:40;transform:translateY(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+  .sheet.up{transform:translateY(0)}
+  .stage.desktop .sheet{inset:auto;bottom:64px;right:12px;width:300px;height:auto;max-height:400px;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);transform:translateY(8px);opacity:0;pointer-events:none;transition:opacity .15s,transform .15s}
+  .stage.desktop .sheet.up{transform:translateY(0);opacity:1;pointer-events:auto}
+  .sheet-top{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--line)}.sheet-top h2{font-size:1rem;margin:0;flex:1}
+  .done{font:inherit;font-size:.9rem;font-weight:700;border:0;background:var(--brand);color:#fff;border-radius:9px;padding:8px 16px;cursor:pointer;min-height:40px}
+  .sheet-body{padding:8px 12px 20px;overflow:auto;flex:1}
+  .sec-head{font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:10px 6px 4px}
+  .picker{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+  .picker li{display:flex;align-items:center;gap:8px;padding:8px;border-radius:9px;background:var(--bg);font-size:.86rem}
+  .picker .pi{color:var(--brand);width:18px;text-align:center}.picker .pn{flex:1}
+  .picker li.off{opacity:.5}.picker li.off .pi{filter:grayscale(1)}
+  .picker .mv,.picker .pin{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--brand);border-radius:7px;min-width:32px;height:32px;cursor:pointer}
+  .picker li.locked .pin{opacity:.3}
+
+  .concept{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:0 0 18px}.cf{width:150px}
+  .cframe{width:150px;height:216px;border:3px solid var(--line);border-radius:20px;overflow:hidden;background:var(--card);position:relative;display:flex;flex-direction:column}
+  .csong{flex:1;padding:8px 8px 0;overflow:hidden}.cl{font-size:.6rem;line-height:1.7;color:var(--muted);white-space:nowrap}.cl .n{color:var(--brand);font-weight:700}.cdim{opacity:.35}
+  .cdockbig{border-top:1px solid var(--line);background:var(--sel);padding:5px;display:flex;flex-direction:column;gap:3px}.cdockbig .r{display:flex;gap:3px;justify-content:center}.cdockbig .b{width:20px;height:18px;border-radius:4px;background:var(--card);border:1px solid var(--line)}
+  .cpeek{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);width:32px;height:11px;border-radius:6px;background:var(--card);border:1px solid var(--line);color:var(--muted);font-size:.55rem;text-align:center;line-height:9px}
+  .ctbx{position:absolute;top:60px;left:22px;background:var(--card);border:1px solid var(--sel-line);border-radius:7px;box-shadow:var(--shadow);padding:2px;display:flex;gap:2px}.ctbx .b{width:15px;height:15px;border-radius:3px;background:var(--sel);font-size:.55rem;text-align:center;line-height:15px;color:var(--brand)}
   .cnote-hl{background:var(--sel);outline:1.5px solid var(--sel-line);border-radius:3px;padding:0 2px}
-  .clabel{font-size:.76rem;text-align:center;padding:8px 4px 0;font-weight:700}.cbad{color:var(--warn)}.cgood{color:var(--new)}
-  .carrow{display:flex;align-items:center;font-size:1.5rem;color:var(--muted)}
-  .foot{color:var(--muted);font-size:.8rem;margin-top:22px;text-align:center;line-height:1.6}.foot a{color:var(--brand)}
-  @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}}
+  .clabel{font-size:.74rem;text-align:center;padding:7px 4px 0;font-weight:700}.cbad{color:var(--warn)}.cgood{color:var(--new)}.carrow{display:flex;align-items:center;font-size:1.4rem;color:var(--muted)}
+
+  .notes{display:grid;grid-template-columns:1fr;gap:11px;margin-top:20px}@media(min-width:680px){.notes{grid-template-columns:1fr 1fr}}
+  .nc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}.nc h3{margin:0 0 6px;font-size:.96rem}.nc p{margin:0;font-size:.84rem;color:var(--muted)}.nc b{color:var(--ink)}
+  .foot{color:var(--muted);font-size:.8rem;margin-top:20px;text-align:center;line-height:1.6}.foot a{color:var(--brand)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
 <div class="wrap"><div class="inner">
-  <p class="eyebrow">pleng · UX/UI · คืนพื้นที่ editor (root fix)</p>
-  <h1>ให้แถบเครื่องมือ “หลบเอง” ไม่ใช่ให้พี่เปามานั่งย่อ</h1>
-  <p class="sub">รากปัญหา = dock แย่งพื้นที่เนื้อเพลง · ทางแก้ระดับโลก = แถบ<b>มีเงื่อนไข</b> (โผล่เฉพาะตอนต้องใช้) ไม่ใช่แค่ทำให้เล็กลง</p>
+  <p class="eyebrow">pleng · UX/UI · คืนพื้นที่ editor</p>
+  <h1>แถบเครื่องมือ “หลบเอง” + จัดปุ่มเองได้ + เครื่องมือไปหาโน้ต</h1>
+  <p class="sub">รากปัญหา = dock กินพื้นที่เนื้อเพลง → แก้ด้วย “แถบมีเงื่อนไข” (โผล่เฉพาะตอนต้องใช้) + คุมปุ่มเอง</p>
+
   <div class="concept">
-    <div class="cf">
-      <div class="cframe">
-        <div class="csong">
-          <div class="cl"><span class="n">1 2 3</span> พระ-เจ้า-ทรง</div>
-          <div class="cl"><span class="n">5 – 3</span> รัก-เรา</div>
-          <div class="cl cdim">···</div>
-        </div>
-        <div class="cdockbig">
-          <div class="r"><span class="b"></span><span class="b"></span><span class="b"></span><span class="b"></span></div>
-          <div class="r"><span class="b"></span><span class="b"></span><span class="b"></span><span class="b"></span></div>
-          <div class="r"><span class="b"></span><span class="b"></span><span class="b"></span></div>
-        </div>
-      </div>
-      <p class="clabel cbad">❌ วันนี้ — แถบกินพื้นที่ แย่งเนื้อเพลง</p>
-    </div>
+    <div class="cf"><div class="cframe">
+      <div class="csong"><div class="cl"><span class="n">1 2 3</span> พระ-เจ้า</div><div class="cl"><span class="n">5 – 3</span> รัก</div><div class="cl cdim">···</div></div>
+      <div class="cdockbig"><div class="r"><span class="b"></span><span class="b"></span><span class="b"></span><span class="b"></span></div><div class="r"><span class="b"></span><span class="b"></span><span class="b"></span><span class="b"></span></div><div class="r"><span class="b"></span><span class="b"></span><span class="b"></span></div></div>
+    </div><p class="clabel cbad">❌ วันนี้ — แถบกินพื้นที่</p></div>
     <div class="carrow">→</div>
-    <div class="cf">
-      <div class="cframe">
-        <div class="csong">
-          <div class="cl"><span class="n">1 <span class="cnote-hl">2</span> 3</span> พระ-เจ้า-ทรง</div>
-          <div class="cl"><span class="n">5 – 3</span> รัก-เรา</div>
-          <div class="cl"><span class="n">6 5 3</span> พระ-องค์-ทรง</div>
-          <div class="cl"><span class="n">2 1</span> ดี-งาม</div>
-          <div class="cl"><span class="n">1 2 3</span> ขอ-สรร-เสริญ</div>
-          <div class="cl"><span class="n">5 6</span> พระ-นาม</div>
-        </div>
-        <div class="ctbx"><span class="b">▲</span><span class="b">▼</span><span class="b">♪</span><span class="b">🗑</span></div>
-        <div class="cpeek">⋯</div>
-      </div>
-      <p class="clabel cgood">✅ ใหม่ — แถบหลบเอง · เครื่องมือไปหาโน้ต · จอคืนพื้นที่</p>
-    </div>
+    <div class="cf"><div class="cframe">
+      <div class="csong"><div class="cl"><span class="n">1 <span class="cnote-hl">2</span> 3</span> พระ-เจ้า</div><div class="cl"><span class="n">5 – 3</span> รัก</div><div class="cl"><span class="n">6 5 3</span> พระ-องค์</div><div class="cl"><span class="n">2 1</span> ดี-งาม</div><div class="cl"><span class="n">1 2 3</span> ขอ-สรร</div><div class="cl"><span class="n">5 6</span> พระ-นาม</div></div>
+      <div class="ctbx"><span class="b">▲</span><span class="b">▼</span><span class="b">♪</span><span class="b">🗑</span></div><div class="cpeek">⋯</div>
+    </div><p class="clabel cgood">✅ ใหม่ — จอคืนพื้นที่</p></div>
   </div>
-  <p class="thesis"><b>ลองเอง (แตะเล่นได้):</b> ① <b>เลื่อน</b>เนื้อเพลงลง → dock หลบหาย (จอคืนพื้นที่) เลื่อนขึ้น → กลับมา · ② <b>แตะโน้ต/บรรทัด</b> → เครื่องมือโผล่ตรงนั้น · ③ กด <b>“พิมพ์”</b> → แป้นขึ้น dock ซ่อน เครื่องมือเกาะเหนือแป้น</p>
+
+  <p class="steps"><b>ลองแตะเล่น 4 อย่าง:</b> ① <b>เลื่อนเนื้อเพลงลง</b> → dock หลบ (เลื่อนขึ้น/แตะ ⋯ กลับมา) · ② <b>แตะ ⚙</b> → เพิ่ม/ซ่อน/จัดลำดับปุ่ม (ปุ่มบนแถบเปลี่ยนสด) · ③ <b>แตะโน้ต</b> → เครื่องมือโผล่ที่โน้ต · ④ <b>แตะ ⌨</b> → แป้นขึ้น dock ซ่อน เครื่องมือเกาะเหนือแป้น</p>
 
   <div class="controls">
     <div class="modes" role="group" aria-label="อุปกรณ์" id="devs">
       <button data-w="344" data-touch="1" aria-pressed="false">Fold พับ 344</button>
-      <button data-w="390" data-touch="1" aria-pressed="true">📱 มือถือ 390</button>
+      <button data-w="390" data-touch="1" aria-pressed="true">📱 390</button>
       <button data-w="690" data-touch="1" aria-pressed="false">Fold กาง 690</button>
       <button data-w="834" data-touch="1" aria-pressed="false">Tablet 834</button>
       <button data-w="1120" data-touch="0" aria-pressed="false">🖥️ Desktop</button>
     </div>
-    <button class="srtoggle" id="srBtn" aria-pressed="false">🦻 screen reader (ไม่ auto-hide)</button>
-    <span class="reclaim" id="keptNote" style="color:var(--new);font-size:.78rem;font-weight:700;opacity:0">✓ คง state ข้ามอุปกรณ์</span>
+    <button class="srtoggle" id="srBtn" aria-pressed="false">🦻 screen reader</button>
+    <span class="reclaim" id="keptNote" style="color:var(--new);font-size:.76rem;font-weight:700;opacity:0">✓ คง state</span>
   </div>
 
   <div class="stage mobile" id="stage">
-    <div class="topbar"><span class="t">เพลงพระพร</span><span class="sp"></span><span class="reclaim" id="reclaim">▲ คืนพื้นที่แล้ว</span>
-      <button class="db" style="width:38px;height:38px;font-size:1rem" id="typeBtn" title="จำลองพิมพ์">⌨</button></div>
-    <div class="song" id="song">
-      <p class="sech">ท่อน 1</p>
-      <p class="ln" id="lnA">
-        <span class="note" data-el="โน้ต"><span class="n">1</span> <span class="s">พระ</span></span>
-        <span class="note" data-el="โน้ต"><span class="n">2</span> <span class="s">เจ้า</span></span>
-        <span class="note" data-el="โน้ต"><span class="n">3</span> <span class="s">ทรง</span></span>
-        <span class="note" data-el="โน้ต"><span class="n">5</span> <span class="s">รัก</span></span>
-      </p>
-      <p class="ln"><span class="note" data-el="โน้ต"><span class="n">6</span> <span class="s">พระ</span></span>
-        <span class="note" data-el="โน้ต"><span class="n">5</span> <span class="s">องค์</span></span>
-        <span class="note" data-el="โน้ต"><span class="n">3</span> <span class="s">ดี</span></span></p>
-      <p class="sech">ท่อน 2</p>
-      <p class="ln"><span class="note" data-el="โน้ต"><span class="n">1</span> <span class="s">ขอ</span></span>
-        <span class="note" data-el="โน้ต"><span class="n">2</span> <span class="s">สรร</span></span>
-        <span class="note" data-el="โน้ต"><span class="n">3</span> <span class="s">เสริญ</span></span></p>
-      <p class="ln"><span class="note" data-el="โน้ต"><span class="n">5</span> <span class="s">พระ</span></span>
-        <span class="note" data-el="โน้ต"><span class="n">6</span> <span class="s">นาม</span></span></p>
-      <p class="sech">ท่อน 3</p>
-      <p class="ln"><span class="note" data-el="โน้ต"><span class="n">3</span> <span class="s">ตลอด</span></span>
-        <span class="note" data-el="โน้ต"><span class="n">2</span> <span class="s">ไป</span></span>
-        <span class="note" data-el="โน้ต"><span class="n">1</span> <span class="s">นิรันดร์</span></span></p>
-      <p class="ln" style="color:var(--muted);font-size:.85rem">… เลื่อนดูต่อ — สังเกตว่า dock หลบให้เนื้อเพลง …</p>
-      <p class="ln"><span class="note" data-el="โน้ต"><span class="n">5</span> <span class="s">อา</span></span>
-        <span class="note" data-el="โน้ต"><span class="n">5</span> <span class="s">เมน</span></span></p>
-      <div class="tbx" id="tbx"></div>
-    </div>
+    <div class="topbar"><span class="t">เพลงพระพร</span><span class="sp"></span><span class="reclaim" id="reclaim">▲ คืนพื้นที่</span>
+      <button class="icobtn" id="typeBtn" title="จำลองพิมพ์">⌨</button></div>
+    <div class="song" id="song"></div>
     <div class="kbtbx" id="kbtbx"></div>
-    <div class="dock" id="dock">
-      <button class="db grip" title="ลากย้าย/ย่อ">⋮⋮</button>
-      <button class="db" title="ย้อน">↶</button>
-      <button class="db" title="ทำซ้ำ">↷</button>
-      <button class="db" title="ฟัง">▶</button>
-      <button class="db prime" title="ส่งตรวจ">✈ ส่งตรวจ</button>
-      <button class="db" title="ตั้งค่า (ที่เหลือ)">⚙</button>
-    </div>
-    <button class="peek" id="peek" title="แตะเพื่อกาง dock" aria-label="กางแถบเครื่องมือ"></button>
+    <div class="dock" id="dock"></div>
+    <button class="peek" id="peek" aria-label="กางแถบเครื่องมือ">⋯ กางแถบ</button>
     <div class="kbd" id="kbd" aria-hidden="true"><span class="msg">แป้นพิมพ์ · dock หลบ · เครื่องมือเกาะเหนือแป้น</span></div>
+    <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="จัดการปุ่ม"><div class="sheet-top"><h2>จัดการปุ่มบนแถบ</h2><button class="done" id="done">เสร็จ</button></div><div class="sheet-body" id="sheetBody"></div></div>
   </div>
 
   <div class="notes">
-    <div class="nc"><h3>① ซ่อนตอนอ่าน/scroll</h3><p>เลื่อนดูเพลง → dock เลื่อนหาย คืนพื้นที่ · เลื่อนขึ้น/แตะ ⋯ กลับมา · <b>Apple: Safari ซ่อน toolbar ตอน scroll · Material hideOnScroll</b></p></div>
-    <div class="nc"><h3>② เครื่องมือไปหา element</h3><p>แตะโน้ต/บรรทัด → toolbox โผล่ตรงนั้น = <b>ไม่ต้องมีแถบใหญ่ถาวร</b> (Material floating selection · §10 ที่ออกแบบไว้)</p></div>
-    <div class="nc"><h3>③ พิมพ์ → เกาะเหนือแป้น</h3><p>คีย์บอร์ดขึ้น → dock ซ่อน (โดนบังอยู่แล้ว) เครื่องมือเกาะเหนือแป้น · <b>iOS inputAccessoryView · Google Docs</b></p></div>
+    <div class="nc"><h3>① หลบตอนเลื่อน · ② จัดปุ่มเอง</h3><p>เลื่อน→dock หลบคืนพื้นที่ (Apple/Material hideOnScroll) · ⚙→ปัก/ถอน/เลื่อนปุ่ม (ของเดิมใน DockKey มีแล้ว)</p></div>
+    <div class="nc"><h3>③ เครื่องมือไปหาโน้ต · ④ เหนือแป้น</h3><p>แตะโน้ต→toolbox โผล่ที่นั่น (Material floating selection · §10) · พิมพ์→dock ซ่อน toolbox เหนือแป้น (iOS/Docs)</p></div>
   </div>
-  <p class="foot">mockup · UX/UI seat · “conditional not smaller” · 🦻 เปิด screen reader = dock ไม่ auto-hide (Material a11y) · <a href="../us/dock-space-reclaim.md">dock-space-reclaim.md</a></p>
+  <p class="foot">mockup · UX/UI seat · “conditional not smaller” · 🦻 SR = ไม่ auto-hide (Material a11y) · <a href="../us/dock-space-reclaim.md">dock-space-reclaim.md</a></p>
 </div></div>
 
 <script>
 (function(){
-  var mode='mobile', srMode=false, sel=null, typing=false;
+  var mode='mobile', srMode=false, sel=null, typing=false, lastY=0;
   var stage=document.getElementById('stage'),song=document.getElementById('song'),dock=document.getElementById('dock'),
       peek=document.getElementById('peek'),tbx=document.getElementById('tbx'),reclaim=document.getElementById('reclaim'),
-      kbd=document.getElementById('kbd'),kbtbx=document.getElementById('kbtbx');
-  var lastY=0;
+      kbd=document.getElementById('kbd'),kbtbx=document.getElementById('kbtbx'),sheet=document.getElementById('sheet'),sheetBody=document.getElementById('sheetBody');
 
-  function hideDock(on){ if(typing) on=true;
-    dock.classList.toggle('hidden',on && !srMode || (on&&typing));
-    peek.classList.toggle('show', on && !srMode && !typing);
-    reclaim.classList.toggle('on', on && !typing);
+  // ---- song content (tall → real scroll range) ----
+  var LINES=[['1 2 3','พระ-เจ้า-ทรง'],['5 – 3','รัก-เรา-นัก'],['6 5 3','พระ-องค์-ดี'],['2 1','เสมอ'],
+    ['1 2 3','ขอ-สรร-เสริญ'],['5 6 5','พระ-นาม-พระ'],['3 2 1','องค์-ตลอด-ไป'],['1 1','นิรันดร์'],
+    ['3 5 6','ความ-รัก-มั่น'],['5 3 2','คง-ไม่-เปลี่ยน'],['1 2 3','ชั่ว-นิ-รันดร์'],['5 5','อา-เมน']];
+  var songHTML='';
+  ['ท่อน 1','ท่อน 2','ท่อน 3'].forEach(function(sec,si){
+    songHTML+='<p class="sech">'+sec+'</p>';
+    LINES.slice(si*4,si*4+4).concat(LINES.slice(0,2)).forEach(function(L){
+      songHTML+='<p class="ln">'+L[0].split(' ').map(function(n,i){return '<span class="note" data-el="โน้ต"><span class="n">'+n+'</span> <span class="s">'+(L[1].split('-')[i]||'')+'</span></span>';}).join(' ')+'</p>';
+    });
+  });
+  song.innerHTML=songHTML+'<div class="tbx" id="tbxEl"></div>';
+  tbx=document.getElementById('tbxEl');
+
+  // ---- dock buttons (state-driven so ⚙ add/hide/reorder changes them live) ----
+  var BTNS=[
+    {id:'grip',ic:'⋮⋮',name:'ที่จับ/ย่อ',on:true,lock:true,cls:'grip'},
+    {id:'undo',ic:'↶',name:'ย้อน',on:true},
+    {id:'redo',ic:'↷',name:'ทำซ้ำ',on:true},
+    {id:'play',ic:'▶',name:'ฟังท่อน',on:true},
+    {id:'save',ic:'✈ ส่งตรวจ',name:'บันทึก/ส่งตรวจ',on:true,cls:'prime'},
+    {id:'playAll',ic:'⏵',name:'ฟังทั้งเพลง',on:false},
+    {id:'download',ic:'⬇',name:'ดาวน์โหลด',on:false},
+    {id:'scale',ic:'Aa',name:'ขนาดตัวอักษร',on:true,lock:true},
+    {id:'gear',ic:'⚙',name:'ตั้งค่า/จัดปุ่ม',on:true,lock:true,cls:'gear'}
+  ];
+  function renderDock(){
+    dock.innerHTML='';
+    BTNS.filter(function(b){return b.on}).forEach(function(b){
+      var el=document.createElement('button');
+      el.className='db'+(b.cls?(' '+b.cls):''); el.setAttribute('aria-label',b.name); el.title=b.name; el.textContent=b.ic;
+      if(b.id==='gear') el.onclick=function(e){e.stopPropagation();toggleSheet();};
+      dock.appendChild(el);
+    });
   }
-  // ① hide on scroll (unless screen-reader mode)
+
+  // ① hide-on-scroll (reliable: hide when scrolled past a small offset going down)
   song.addEventListener('scroll',function(){
     if(srMode||typing) return;
-    var y=song.scrollTop;
-    if(y>lastY+6 && y>20){ hideDock(true); tbx.classList.remove('show'); if(sel){sel.classList.remove('sel');sel=null;} }
-    else if(y<lastY-6){ hideDock(false); }
+    var y=song.scrollTop, down=y>lastY;
+    if(down && y>24){ setHidden(true); tbx.classList.remove('show'); if(sel){sel.classList.remove('sel');sel=null;} }
+    else if(!down){ setHidden(false); }
     lastY=y;
   });
-  peek.onclick=function(){ hideDock(false); };
+  function setHidden(on){ dock.classList.toggle('hidden',on); peek.classList.toggle('show',on&&!typing); reclaim.classList.toggle('on',on&&!typing); }
+  peek.onclick=function(){ setHidden(false); song.scrollTop=Math.max(0,song.scrollTop-4); };
 
-  // ② summon toolbox at element
+  // ② ⚙ add/hide/reorder (live)
+  function sheetHTML(){
+    return '<div class="sec-head">แตะ 📌 เพิ่ม/ถอนปุ่มบนแถบ · ▲▼ จัดลำดับ (เปลี่ยนสดบนแถบ)</div><ul class="picker" id="picker">'+
+      BTNS.map(function(b,i){return '<li class="'+(b.on?'':'off')+(b.lock?' locked':'')+'"><span class="pi">'+(b.cls==='prime'?'✈':b.ic)+'</span><span class="pn">'+b.name+'</span>'+
+        (b.on&&!b.lock?'<button class="mv" data-mv="'+b.id+'" data-d="-1" aria-label="เลื่อนขึ้น">▲</button><button class="mv" data-mv="'+b.id+'" data-d="1" aria-label="เลื่อนลง">▼</button>':'')+
+        '<button class="pin" data-pin="'+b.id+'"'+(b.lock?' disabled':'')+' aria-label="'+(b.on?'ถอน':'เพิ่ม')+'">'+(b.lock?'🔒':(b.on?'📌':'＋'))+'</button></li>';}).join('')+'</ul>';
+  }
+  function openSheet(){ sheetBody.innerHTML=sheetHTML(); sheet.classList.add('up'); document.querySelector('.db.gear').classList.add('on'); }
+  function closeSheet(){ sheet.classList.remove('up'); var g=document.querySelector('.db.gear'); if(g)g.classList.remove('on'); }
+  function toggleSheet(){ sheet.classList.contains('up')?closeSheet():openSheet(); }
+  document.getElementById('done').onclick=closeSheet;
+  sheetBody.addEventListener('click',function(e){
+    var pin=e.target.closest('[data-pin]'), mv=e.target.closest('[data-mv]');
+    if(pin&&!pin.disabled){ var b=BTNS.find(function(x){return x.id===pin.getAttribute('data-pin')}); b.on=!b.on; renderDock(); sheetBody.innerHTML=sheetHTML(); }
+    if(mv){ var id=mv.getAttribute('data-mv'),d=+mv.getAttribute('data-d'),i=BTNS.findIndex(function(x){return x.id===id}),j=i+d;
+      if(j>0&&j<BTNS.length){ var t=BTNS[i];BTNS[i]=BTNS[j];BTNS[j]=t; renderDock(); sheetBody.innerHTML=sheetHTML(); } }
+  });
+
+  // ③ toolbox at note
   song.addEventListener('click',function(e){
     var el=e.target.closest('.note'); if(!el){ if(sel){sel.classList.remove('sel');sel=null;tbx.classList.remove('show');} return; }
     if(sel) sel.classList.remove('sel'); sel=el; el.classList.add('sel');
-    tbx.innerHTML='<span class="tag">'+el.getAttribute('data-el')+'</span>'+
-      '<button aria-label="ทบเสียงขึ้น (จุดบน)">▲</button>'+
-      '<button aria-label="ทบเสียงลง (จุดล่าง)">▼</button>'+
-      '<button aria-label="เขบ็ต">♪</button>'+
-      '<button aria-label="เอื้อน">⌒</button>'+
-      '<button aria-label="ลบ">🗑</button>'+
-      '<button class="more" aria-label="เพิ่มเติม">⋯</button>';
+    tbx.innerHTML='<span class="tag">'+el.getAttribute('data-el')+'</span><button aria-label="จุดบน">▲</button><button aria-label="จุดล่าง">▼</button><button aria-label="เขบ็ต">♪</button><button aria-label="เอื้อน">⌒</button><button aria-label="ลบ">🗑</button><button class="more" aria-label="เพิ่มเติม">⋯</button>';
     tbx.classList.add('show');
-    var sr=song.getBoundingClientRect(), r=el.getBoundingClientRect();
-    var tw=tbx.offsetWidth, left=r.left-sr.left+song.scrollLeft+r.width/2-tw/2;
-    left=Math.max(6,Math.min(left, song.clientWidth-tw-6));
+    var sr=song.getBoundingClientRect(), r=el.getBoundingClientRect(), tw=tbx.offsetWidth;
+    var left=r.left-sr.left+r.width/2-tw/2; left=Math.max(6,Math.min(left, song.clientWidth-tw-6));
     var top=r.top-sr.top+song.scrollTop-tbx.offsetHeight-8; if(top<song.scrollTop+2) top=r.bottom-sr.top+song.scrollTop+8;
     tbx.style.left=left+'px'; tbx.style.top=top+'px';
   });
 
-  // ③ keyboard sim
+  // ④ keyboard
   document.getElementById('typeBtn').onclick=function(){
-    typing=!typing;
-    kbd.classList.toggle('up',typing);
-    dock.classList.toggle('hidden',typing);       // dock hides while typing
+    typing=!typing; kbd.classList.toggle('up',typing); dock.classList.toggle('hidden',typing);
     peek.classList.remove('show'); reclaim.classList.remove('on');
-    if(typing){ kbtbx.innerHTML='<button>·บน</button><button>·ล่าง</button><button>เขบ็ต</button><button>◀ ▶ พยางค์</button>'; kbtbx.classList.add('show'); tbx.classList.remove('show'); if(sel){sel.classList.remove('sel');sel=null;} }
+    if(typing){ kbtbx.innerHTML='<button aria-label="จุดบน">▲</button><button aria-label="จุดล่าง">▼</button><button aria-label="เขบ็ต">♪</button><button aria-label="พยางค์ซ้าย">◀</button><button aria-label="พยางค์ขวา">▶</button>'; kbtbx.classList.add('show'); tbx.classList.remove('show'); if(sel){sel.classList.remove('sel');sel=null;} closeSheet(); }
     else kbtbx.classList.remove('show');
   };
 
-  // 🦻 screen-reader mode: no auto-hide
-  document.getElementById('srBtn').onclick=function(){
-    srMode=!srMode; this.setAttribute('aria-pressed',srMode);
-    if(srMode){ hideDock(false); }
-  };
+  // 🦻 screen-reader: no auto-hide
+  document.getElementById('srBtn').onclick=function(){ srMode=!srMode; this.setAttribute('aria-pressed',srMode); if(srMode) setHidden(false); };
 
-  function setDevice(btn){
-    var w=+btn.getAttribute('data-w'), touch=btn.getAttribute('data-touch')==='1';
-    [].forEach.call(document.querySelectorAll('#devs button'),function(b){b.setAttribute('aria-pressed',b===btn)});
-    mode = touch?'mobile':'desktop';
-    stage.classList.toggle('mobile',touch); stage.classList.toggle('desktop',!touch);
-    stage.style.width=w+'px'; stage.style.maxWidth='100%'; stage.style.height=(touch?560:520)+'px';
-    // ⭐ continuity: DON'T reset — selected note, scroll, typed state all persist (dock just reflows)
-    var kn=document.getElementById('keptNote'); kn.style.opacity='1'; setTimeout(function(){kn.style.opacity='0'},1500);
-    if(sel){ // re-anchor toolbox to the still-selected element at the new width
-      requestAnimationFrame(function(){ if(sel) sel.click(); });
-    }
-  }
-  document.getElementById('devs').addEventListener('click',function(e){var b=e.target.closest('button[data-w]'); if(b) setDevice(b);});
+  // device presets (continuity: keep sel/scroll/BTNS state)
+  document.getElementById('devs').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-w]'); if(!b) return;
+    var w=+b.getAttribute('data-w'), touch=b.getAttribute('data-touch')==='1';
+    [].forEach.call(this.children,function(c){c.setAttribute('aria-pressed',c===b)});
+    mode=touch?'mobile':'desktop'; stage.classList.toggle('mobile',touch); stage.classList.toggle('desktop',!touch);
+    stage.style.width=w+'px'; stage.style.maxWidth='100%'; stage.style.height=(touch?540:520)+'px';
+    var kn=document.getElementById('keptNote'); kn.style.opacity='1'; setTimeout(function(){kn.style.opacity='0'},1400);
+  });
+
+  renderDock();
 })();
 </script>
