@@ -100,4 +100,18 @@
 - **positioning:** toolbox anchor เหนือ `.seg-col` (บนสุดคอลัมน์) — ตอนแก้ syllable (ล่างสุด) toolbox อยู่บน = ห่าง · **UX จูน CSS ได้** (structure พร้อม)
 - **bar/line/section** = pass ถัดไป · **device-matrix editor = tester GATE2** (จริง ไม่ใช่ pane)
 
-*dev · 2026-07-18 · engine `1a6d27e`/`59763c2`/`b6d9f97`/`932cca5` + 2-host `aa8516e` + joint-pass `b4dad62` · ⛔ ไม่ merge เอง (PM merge dev+ux)*
+---
+
+## 8 · PM 4-flag decisions applied (`47119e3`)
+
+PM เคาะ (crossed กับ v2 reconciliation → apply บนโครง v2):
+1. **octave = activeInput pattern → คงไว้ · ไม่ย้าย NoteBoxes** → **re-add `octaveShift` + ▼▲** เข้า toolbox (v2 เคย drop ตาม UX comment · PM override)
+2. **beam/slur → defer backlog** (ไม่มี function · ⛔ ห้ามใส่ปุ่มตาย) — ไม่ใส่ ✅
+3. **🔴 continuity (SA §7) → ทำแล้ว:** `selSlot` sticky (◀▶ selection แยกจาก `focusedSlot` live ที่ยังคุม overflow-strip) · **ไม่ล้างตอน blur** → พับ/หมุน/ปิดแป้น ◀▶+toolbox อยู่ · `onSegFocus`: โฟกัส note→`selSlot=-1` (โชว์ octave ▼▲) · โฟกัส syllable→`selSlot=slot` (โชว์ ◀▶) · ล้างเฉพาะ outside pointer · **ไม่มี forced refocus = ไม่ loop กับ keyboard-aware** (ที่ PM เตือน)
+4. **bar/line/section → phase 2** (หลัง integration)
+
+**toolbox แบ่งกลุ่มตาม selection:** note = `[▼▲ octave] ┊ [⧉ ✕]` · syllable = `[◀ ▶] ┊ [⧉ ✕]` (mutually exclusive)
+**verify jsdom (+2 = 7 contextual):** octave ▲ ผ่าน toolbox `"5"→"5'"` · ◀▶ selection survive blur (sticky) · **735 tests · build ✓**
+**⚠️ ต้อง verify บนของจริง (pane ทำไม่ได้):** พับ/หมุน จริงเก็บ selection · hide-on-scroll ยิงจริงตอนเลื่อน (คง window listener) → **tester GATE2 device**
+
+*dev · 2026-07-18 · engine `1a6d27e`/`59763c2`/`b6d9f97`/`932cca5` + 2-host `aa8516e` + joint-pass `b4dad62` + continuity/octave `47119e3` · ⛔ ไม่ merge เอง (PM merge dev+ux)*
