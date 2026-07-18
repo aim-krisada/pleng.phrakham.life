@@ -10,7 +10,8 @@
 - **P'Aim เปิด window เองในแต่ละ dir** (spawn_task สร้าง worktree ทิ้ง ไม่เกาะ dir — อย่า spawn ที่นั่งถาวร) · **1 ไฟล์ 1 สาย PM จัดคิว** · ยกรายงานเข้าฐานทันที
 
 **🔴 P'Aim decision ค้าง (session หน้าถาม/รอ):**
-1. **RLS leak = P'Aim เลือก ข. (เร่งตรวจ batch ก่อนเปิด) · พี่เปาเป็นคนตรวจ** → ✅ **SA นับเสร็จ (`78e93fe` §4.5):** 94 ยังไม่ตรวจ = clean 22(กดได้เลย)·tiny 11(แก้≤2)·moderate 28·heavy 33·เนื้อว่าง 0 · verified วันนี้ 32 → **✓clean+tiny = public 65** (SA แนะ batch แรก · เร็ว ไม่ block) · ⚠️ เกณฑ์เช็คแค่โครงสร้าง(พยางค์ตรงโน้ต) ไม่ใช่ "ตรวจผ่าน" — พี่เปายังต้องดูตาก่อนกด ✓ · **รอ P'Aim: ตรวจ batch ไหนก่อนเปิด → PM รัน `db/005`** (⛔ PO run SQL)
+1. **RLS leak → ✅ P'Aim สั่งปิดเลย (18 ก.ค.): "ไม่รอพี่เปา · ปิดช่องโหว่ได้เลย"** — public เหลือ verified-only (~32 วันนี้) · พี่เปาทยอยตรวจเองเมื่อพร้อม (เพลงโผล่เพิ่มเมื่อกด ✓) · SQL `db/005-verified-read-rls.sql` **ยกเข้าฐานแล้ว** (`studio-shell-redesign`) · ⛔ **PO รันเองใน Supabase SQL Editor** (PM ส่งขั้นตอนให้ P'Aim แล้ว 18 ก.ค. · รอ P'Aim กดรัน+ยืนยัน anon count = verified) · SA batch-readiness (clean 22/tiny 11) = เก็บไว้เป็น backlog พี่เปา ไม่ block การปิด
+   - 🔔 **B108 ใหม่:** P'Aim อยากให้ระบบเตือน (ระฆัง) ว่ามีเพลงส่งเข้ามา+ค้างรอตรวจกี่เพลง → **จ่าย SA/UX พิจารณา** (ต่อยอดชิป `📨 n รอตรวจ` orientation 2a) · `docs/backlog.md B108`
 2. **dock-config GATE 1:** P'Aim ลอง mockup https://claude.ai/code/artifact/555c023e-4bdb-46b4-a894-05509fbd559d → เคาะทิศ → UX ทำ DS ส่ง dev · **DockKey แชร์ 2 เว็บจริง (แก้ engine=2 เว็บ · regression พระคำต้อง test 2 host)**
 3. **toolbox (hover/tap contextual) = banked** หลัง dock-config · mockup https://claude.ai/code/artifact/234933b6... · เฟส A/B รอ P'Aim
 
