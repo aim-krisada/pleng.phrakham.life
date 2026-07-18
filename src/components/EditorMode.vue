@@ -325,6 +325,20 @@ function setSyl(row, i, val) {
 // A missing/extra syllable in the middle shifts every later word off its note. These
 // insert/remove one slot and RIPPLE the rest across the whole ข้อ (past bars & lines).
 const focusedSlot = ref(-1) // global slot index whose ◀ ▶ tools are shown
+// dock-space joint-pass: the NOTE ("li-bi-si") whose contextual toolbox is open. Set on any
+// focus inside its .seg-col (note box OR syllable box — focusin bubbles), so the ONE merged
+// toolbox shows in every mode. SA §7 continuity: this is STICKY — it is NOT cleared on blur, so
+// folding/rotating/closing the keyboard (which blurs the input) keeps the toolbox + selection.
+// It is replaced when another note is focused, and cleared by an explicit pointer-down outside.
+const focusedSeg = ref('')
+function onSegOutside(e) {
+  if (!e.target.closest?.('.seg-col') && !e.target.closest?.('.slot-tools')) focusedSeg.value = ''
+}
+watch(focusedSeg, (v) => {
+  if (v) setTimeout(() => document.addEventListener('mousedown', onSegOutside), 0)
+  else document.removeEventListener('mousedown', onSegOutside)
+})
+onUnmounted(() => document.removeEventListener('mousedown', onSegOutside))
 function slotIdx(li, bi, si, k) {
   return (slotStarts.value[`${li}-${bi}-${si}`] ?? 0) + k - 1
 }
@@ -2883,7 +2897,21 @@ defineExpose({
             <!-- one column per note: chord on top, note box, then the syllable box
                  directly under its note (edit everything here — no duplicate preview) -->
             <div v-if="!barShown(li, bi)" class="seg-strip">
-              <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col">
+              <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col" @focusin="focusedSeg = `${li}-${bi}-${si}`">
+                <!-- dock-space merged contextual toolbox (§10): ONE on-selection set per note,
+                     hoisted to .seg-col so it shows in EVERY mode — a note-box focus outside the
+                     lens, or a syllable focus in the lens (both bubble to this seg-col's focusin).
+                     ◀▶ align the focused syllable (lens-only, acts on focusedSlot); ⧉/✕ copy·delete
+                     the note (bar,si). .slot-tools CSS anchors it above the column + clamps to 344. -->
+                <span v-if="focusedSeg === `${li}-${bi}-${si}`" class="slot-tools">
+                  <template v-if="focusedSlot >= 0">
+                    <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(focusedSlot)">◀</button>
+                    <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(focusedSlot)">▶</button>
+                    <span class="slot-div" aria-hidden="true"></span>
+                  </template>
+                  <button class="secondary slot-btn" aria-label="คัดลอกโน้ตนี้" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" @mousedown.prevent @click="duplicateSegment(bar, si)"><Icon name="copy" :size="13" /></button>
+                  <button class="secondary slot-btn slot-del" aria-label="ลบโน้ตนี้" title="ลบโน้ตนี้ (ห้องยังอยู่)" @mousedown.prevent @click="removeSegment(bar, si)">✕</button>
+                </span>
                 <div class="chord-row">
                   <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell">
                     <ComboSelect
@@ -2910,19 +2938,6 @@ defineExpose({
                 <span v-if="lensActive" class="syl-boxes">
                   <span v-for="(cell, bx) in sylCells(li, bi, si, seg.note)" :key="bx" class="syl-slot">
                     <template v-if="cell.slot !== null">
-                      <!-- dock-space contextual toolbox (UX template · dev.grouping) — anchored on-selection,
-                           2 groups: [◀ ▶ พยางค์ · lens-only] ┊ [⧉ คัดลอก · ✕ ลบ โน้ต · ทุกโหมด]. icon-only +
-                           fit-344 clamp + overflow (มีแล้ว). ปุ่มใช้ handler เดิม (pullSlot/pushSlot/duplicate/removeSegment).
-                           🔧 DEV wiring pass: (1) เพิ่ม trigger `|| focusedSeg === si` (โฟกัสโน้ตนอก lens) แล้ว hoist กล่องนี้
-                           ขึ้นระดับ .seg-col ให้โผล่ทุกโหมด (2) ลบ .seg-tools (:2936) ออกเมื่อ focusedSeg พร้อม (เลี่ยง dup)
-                           (3) octave ↑↓ = NoteBoxes child (แยก) · (4) continuity: เก็บ selection ref อิสระจาก blur. -->
-                      <span v-if="focusedSlot === cell.slot" class="slot-tools">
-                        <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(cell.slot)">◀</button>
-                        <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(cell.slot)">▶</button>
-                        <span class="slot-div" aria-hidden="true"></span>
-                        <button class="secondary slot-btn" aria-label="คัดลอกโน้ตนี้" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" @mousedown.prevent @click="duplicateSegment(bar, si)"><Icon name="copy" :size="13" /></button>
-                        <button class="secondary slot-btn" aria-label="ลบโน้ตนี้" title="ลบโน้ตนี้ (ห้องยังอยู่)" @mousedown.prevent @click="removeSegment(bar, si)">✕</button>
-                      </span>
                       <input
                         class="syl-box"
                         :class="{ 'syl-empty': !cell.held && !sylAt(lensRow, cell.slot), 'syl-held': cell.held }"
@@ -2939,13 +2954,7 @@ defineExpose({
                     <span v-else class="syl-spacer" aria-hidden="true"></span>
                   </span>
                 </span>
-                <!-- B098: NOTE-level tools (this ตัวโน้ต only) — คัดลอกโน้ต + ลบโน้ต. The bar-
-                     level twins (คัดลอกห้อง/ลบห้อง) live in the bar foot below, so it is clear
-                     which control acts on one note vs the whole ห้อง. -->
-                <span class="seg-tools">
-                  <button class="secondary tiny seg-copy" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" aria-label="คัดลอกโน้ตนี้" @click="duplicateSegment(bar, si)"><Icon name="copy" :size="13" /></button>
-                  <button class="secondary tiny seg-del" title="ลบโน้ตนี้ (ห้องยังอยู่)" aria-label="ลบโน้ตนี้" @click="removeSegment(bar, si)">✕</button>
-                </span>
+                <!-- note copy/delete moved UP into the hoisted merged toolbox (dock-space §10) -->
               </div>
             </div>
             <!-- ดูผล: the same bar drawn clean (jianpu render) — REPLACES the edit grid, not
@@ -3337,7 +3346,9 @@ defineExpose({
 /* one bar = a strip of note-columns (chord / notes / syllable) that reads left to
    right; segments wrap only if the bar is very long */
 .seg-strip { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
-.seg-col { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+/* position:relative so the hoisted merged toolbox (.slot-tools, absolute bottom:100%) anchors
+   above THIS note column (dock-space §10) */
+.seg-col { position: relative; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .seg-col :deep(.combo input) { color: var(--chord-red); font-weight: 700; }
 .seg-col :deep(.note-boxes) { flex-wrap: nowrap; }
 /* chord row: one cell above each note box (same 46px + 3px gap so it lines up) */
@@ -3364,10 +3375,7 @@ defineExpose({
 .chord-btn.chord-add:hover { opacity: 1; }
 .chord-pick { position: absolute; left: 0; top: 0; z-index: 20; }
 /* B098: note-level tools (คัดลอกโน้ต + ลบโน้ต) sit together under each note column */
-.seg-tools { display: inline-flex; gap: 4px; align-self: flex-start; }
-.seg-copy { color: var(--muted); padding: 2px 6px; }
-.seg-del { color: var(--muted); padding: 2px 8px; }
-.seg-del:hover { color: var(--red); }
+/* .seg-tools removed — note copy/delete merged into the hoisted .slot-tools toolbox (dock-space §10) */
 /* plain-language "how to" overview card */
 .how-to { background: var(--cream); border-color: var(--brand); }
 .how-to ol { line-height: 1.5; }
@@ -3418,6 +3426,8 @@ defineExpose({
 .slot-btn { min-width: 30px; min-height: 26px; padding: 2px 6px; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
 /* divider ระหว่าง 2 กลุ่มใน contextual toolbox: [◀▶ พยางค์] ┊ [คัดลอก/ลบ โน้ต] */
 .slot-div { width: 1px; align-self: stretch; margin: 2px 2px; background: var(--line); flex: 0 0 auto; }
+.slot-del { color: var(--muted); }
+.slot-del:hover { color: var(--red); }
 /* ===== editor-section-ux: "โครงเพลง" rail rows + canvas section header ===== */
 /* screen-reader-only live region (reorder announcements) */
 .sr-only {
@@ -4643,13 +4653,7 @@ defineExpose({
 @media (hover: hover) {
   .ed-clip-x:hover { border-color: var(--brand); color: var(--brand); }
 }
-/* the note-level tools (คัดลอก/ลบ โน้ต) are quiet until you hover / focus the column */
-.seg-col .seg-tools { opacity: 0; transition: opacity 0.12s; }
-.seg-col:hover .seg-tools,
-.seg-col:focus-within .seg-tools { opacity: 1; }
-@media (hover: none) {
-  .seg-col .seg-tools { opacity: 1; }
-}
+/* (.seg-tools reveal CSS removed — the merged toolbox now reveals via focusedSeg on-selection) */
 .sheet-head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
 .only-print { display: none; }
 @media print {
