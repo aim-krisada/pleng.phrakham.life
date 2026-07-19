@@ -19,10 +19,15 @@ const log = (m) => { $('#log').textContent = m }
 // +3 dB in level AND treble; the same G#4 is warm when arc leaves it soft). vibrato measured innocent
 // (vib0 == vib20 at every harsh spot) so it stays where P'Aim had it (20). Reset button restores these.
 const DEFAULTS = {
+  // soft = 1 → start at the softest (deep low-pass ~1100 Hz, zero harsh high tone) per P'Aim 19 ก.ค.
+  soft: 1,
   tame: 18, even: 0.10, vib: 20, head: 0, headKind: 'mp', shift: 10, arc: 0, trading: 0, balance: 1,
   chamber: 0, vibGain: 0, vibUnsteady: 0, vibBow: 0, vibMin: VIB_MIN_SEC, fileLevel: 1,
   resonance: false, roundRobin: false,
 }
+// deep-soften knob (0..1) → low-pass cutoff Hz. 0 = off (brightest); 1 = darkest (~1100 Hz, below the
+// 1.5-2.5 kHz harsh-formant band so soft=1 removes the แหบ entirely, not just attenuates it).
+const softHz = (v) => v > 0 ? Math.round(6000 * Math.pow(1100 / 6000, v)) : 0
 const DEFAULT_KEYS = Object.keys(DEFAULTS)
 
 // persist the whole tune across reloads (this page is now P'Aim's cello tuning bench, not a one-shot)
@@ -45,12 +50,15 @@ const celloCfg = () => ({
   vibUnsteady: state.vibUnsteady, vibBowPressure: state.vibBow,
   fileLevelAmount: state.fileLevel, trebleTameDb: state.tame, celloEven: state.even,
   arcSpreadDb: state.arc, trading: state.trading, bowRoundRobin: state.roundRobin, pianoResonance: state.resonance,
-  chamberWet: state.chamber,
+  chamberWet: state.chamber, softLowpassHz: softHz(state.soft),
 })
 
 // ── the knobs: label = what it is + what it helps; hint = ◀ left · right ▶ ─────────────────────
 const pct = (v) => `${Math.round(v * 100)}%`
 const KNOBS = [
+  { key: 'soft',  label: '🌙 ความนุ่มลึก — ตัดโทนสูงที่แสบทิ้ง (เริ่มนุ่มสุด → เปิดโทนสูงกลับทีละนิดจนก่อนแหบ)',
+    L: 'สว่าง (ปิด)', R: 'นุ่ม/ทึบสุด', min: 0, max: 1, step: 0.05,
+    fmt: (v) => v === 0 ? 'ปิด (สว่างสุด)' : `${softHz(v)} Hz${v >= 1 ? ' (นุ่มสุด)' : ''}` },
   { key: 'tame',  label: '🎛 ความสม่ำเสมอเนื้อเสียง — กดโน้ต "แหบ" (ถูกดึงเสียง) ให้เท่าโน้ต "ทุ้ม"', L: 'แหบ (เดิม)', R: 'สม่ำเสมอ',
     min: 0, max: 28, step: 1, fmt: (v) => v === 0 ? 'แหบ (เดิม)' : v >= 28 ? 'เท่ากันสุด' : `${v}` },
   { key: 'even',  label: '🎚 ความสม่ำเสมอความดัง — ลดโน้ตที่ดังโดดออกมา', L: 'มีดัง-เบา (เดิม)', R: 'นิ่ง/เรียบ',

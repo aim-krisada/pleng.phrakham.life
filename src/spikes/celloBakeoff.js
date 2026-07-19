@@ -590,6 +590,13 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
   // instruments and melt the close-mic bite "for free". 0 = the arranger's default reverb; > 0 = wet
   // amount of the chamber (replaces the default space for BOTH piano and cello, same room).
   chamberWet = 0,
+  // DEEP SOFTEN (P'Aim 19 ก.ค. · "เชลโลจริงใน YouTube นุ่มกว่ามาก · ของเรายังแหบ · เริ่มจากนุ่มที่สุดก่อน"):
+  // a true LOW-PASS on the whole cello. The treble-tame high-shelf can only ATTENUATE the harsh
+  // presence band (measured: it never fully reaches >1.5 kHz); a low-pass REMOVES everything above its
+  // cutoff, so the pitch-shift "แหบ" formants are gone, not just reduced. This is the "start softest"
+  // control: low cutoff = darkest/smoothest (no harsh high tone at all), then open it back up by ear
+  // until just before the แหบ returns. 0 = off (no low-pass) = the brightest, today's sound.
+  softLowpassHz = 0,
   pianoResonance = false } = {}) {
   const { perf, cfg, bpm: useBpm } = buildPerformance(content, { bpm, range, songId })
   const spb = 60 / useBpm
@@ -732,6 +739,17 @@ export async function renderClip(content, { variantId, bpm, range, songId, trans
       const mk = ctx.createGain(); mk.gain.value = Math.pow(10, (celloEven * 4) / 20)  // makeup for the pull-down
       comp.connect(mk).connect(busIn)
       busEntry = comp
+    }
+    // DEEP SOFTEN low-pass (P'Aim 19 ก.ค.) — sits AFTER tame/compressor so it darkens everything the
+    // cello sends to the room (body + head + up-bow). Q=0.5 = a gentle, non-resonant rolloff (no peak
+    // at the cutoff). Only built when asked (>0) so softLowpassHz=0 is byte-identical to before.
+    if (softLowpassHz > 0) {
+      const lp = ctx.createBiquadFilter()
+      lp.type = 'lowpass'
+      lp.frequency.value = softLowpassHz
+      lp.Q.value = 0.5
+      lp.connect(busEntry)
+      busEntry = lp
     }
     let celloDest = busEntry, tameNode = null
     if (trebleTameDb > 0) {
