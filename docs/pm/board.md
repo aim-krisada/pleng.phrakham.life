@@ -26,7 +26,7 @@
   - ✅ **PM ตรวจสอบเอง (claude-in-chrome 1440px · เปิด ⚙ อ่านแถวจริง):** ⚙ 13 แถวมี **"ตั้งค่า"(setting) จริง** (move-not-remove) = setting button อยู่ครบ (ตอบ P'Aim "รวม setting button ด้วย") · เข้า editor mode เองไม่ได้ (login/song) → เช็ก practice/sheet dock (feature ตรงกัน)
   - ✅ **P'Aim เคาะ R4 final: "คงปุ่มสำคัญถอนไม่ได้ + ทุกปุ่มเลือกตำแหน่งได้"** = ⚙/grip ▲▼ ได้/ถอนไม่ได้ (คงไว้) · bar buttons ▲▼ · (inSetting ปักก่อนถึง ▲▼ = นุแอนซ์)
   - ✅ **tester R4-verify editor dock PASS (`a92086f`):** 8/8 ปุ่มบนแถบ ▲▼ ครบ ไม่มีขาด · **ถอนไม่ได้: grip·⚙·soundctl·export (slot/สำคัญ)** · ถอนได้: undo·redo·play·playAll · keypad=ชุด · pinnable→pin→ได้ ▲▼ ทันที · **ตรง P'Aim R4 final เป๊ะ**
-  - 🆕 **P'Aim ขอ: ⚙ แบ่งเป็นส่วนตาม horizontal row ของ dock** (▲▼ เห็นชัดว่าปุ่มไปส่วนไหน) → **จ่ายสาย Design (SA+UX รวม · `local_284b3dbe`) ออกแบบ** (map panelItems→sections: keypad/row1/row2/pinned + header) → P'Aim รีวิว → dev implement (DockKey.vue) · design-first
+  - 🆕 **⚙ panel design (Design `local_284b3dbe` · design-first) — P'Aim iterate:** (a) ✅ sections design เสร็จ (`cb3e698` · 5 section = mirror dock rows + header + mini-diagram) (b) 🔴 P'Aim +3: **เพิ่มไอคอนทุกแถว (⚙/grip/download ช่องว่าง) · section ต้องชัดกว่านี้ ("not obvious") · ทำ ⚙ panel ลากย้ายได้ (movable window)** → Design รวมเข้า → **P'Aim รีวิว → dev implement**
   - ▶ **P'Aim ลอง tactile → deploy (ประสาน pk-PM 2-host)** — หลัง ⚙ sections ลงตัว
 
 ## 🎵 เฟอร์มาต้า (สาย 2 · คู่ขนาน · P'Aim อนุมัติเริ่ม 18 ก.ค.)
