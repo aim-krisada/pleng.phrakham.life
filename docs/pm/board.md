@@ -21,7 +21,8 @@
   - ✅ **dev แก้ 2 เสร็จ (`febda9a` · §รอบ2b):** (1) **pin กลับ 📌 แดงเดิม** (ลบ ✕/＋ ทำเกิน · toggle=ถอน+persist) (2) **กระพริบ: ต้นเหตุ = ResizeObserver feedback loop → แก้ (key คงที่ 44 + ลบ RO คำนวณจาก descriptor) → `stable_after_release`** · คงครบ floor44/ควบคุมครบ/warn/mobile diff0/2-host/710 tests
   - ✅ **tester re-gate `febda9a` PASS** (flicker stable_after_release · พินแดงไม่มี ✕/＋ · ไม่ regress · 710 tests)
   - 🔴 **P'Aim ลอง preview febda9a → พินแดง+กระพริบ OK ✅ · เจอ 2 ปรับ (รอบ 3):** (1) **⚙ ต้องแสดงทุกปุ่ม** + จัด/เข้า-ออกได้ทุกปุ่ม (ตอนนี้แค่ subset · gear/grip ย้ายได้ถอนไม่ได้ safety) (2) **hug-content สูง — ห้ามเหลือที่ว่างเปล่า** ("ปรับสูงที่ว่างเต็มควรแคบได้") · จ่าย dev แล้ว · สเปก §รอบ3+FA
-  - ▶ pm28 รอ dev รอบ3 → tester functional → P'Aim ลอง tactile
+  - ✅ **dev รอบ 3 เสร็จ (`1930fa4`):** (1) ⚙ = ทุกปุ่ม (9 แถว) · ▲▼ reorder row1+row2 · **grip/⚙ ย้ายได้ถอนไม่ได้** (▲▼ ไม่มี 📌) · อื่น 📌+▲▼ · keypad คงชุด (2) **hug-content: ลบ min-height → ลากลง 600 box สูง 250 (ชิด content · gap 11px padding)** · ไม่ regress (พินแดง/ไม่กระพริบ/mobile diff0/2-host/710 tests)
+  - ▶ **tester functional re-gate `1930fa4`** dispatched (⚙ ทุกปุ่ม real-click · grip/⚙ ถอนไม่ได้ · hug-content) → pass → **P'Aim ลอง preview อีก (tactile + ของใหม่)**
 
 ## 🎵 เฟอร์มาต้า (สาย 2 · คู่ขนาน · P'Aim อนุมัติเริ่ม 18 ก.ค.)
 - brief พร้อม `docs/us/fermata-hold.md` (ปัญหา 4 · ต้นเหตุ `midi.js` 1.75x คงที่ · บท Gemini · meeting-room)
