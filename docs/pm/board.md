@@ -35,6 +35,8 @@
     - ✅ **PM GATE รับ (จาก tester)** → 🎯 **ส่ง P'Aim ลอง preview 127.0.0.1:5342 (⚙ ใหม่ + tactile)**
     - 🔴 **2-host: จ่าย pk-PM (`local_43cdd55a`) rebuild island + smoke 344/690/768** (⚙ redesign ไม่ prop-gated → กระทบ island) · **BLOCK deploy จนพระคำยืนยัน**
     - 🔴 **P'Aim ลอง ⚙ จริง → ปรับ §C (window):** "ลากได้ไม่ครบ · หน้าเซ็ตติ้งไม่ต้องยึดกล่อง · เป็นวินโดว์ของมันที่เคลื่อนย้ายง่ายๆ ดูเต็มจอง่ายๆ · **ไม่ต้องหล่อ (ย้ำ 2 รอบ)**" → Design revise §C (`991eefc` · standalone window · clamp หลวม · ⛶maximize · **ตัด diagram+reset ออก KISS**) → **P'Aim อนุมัติ "ให้ dev สร้างเลย"** → ✅ **จ่าย dev BUILD §C (`local_e20ebbbd` · บน 755b927):** panel→fixed window กลางจอ · ลากทั่วจอ · ⛶เต็มจอ · Esc/focus · คง §A/B/D+fixed rule · mobile diff0 → tester → P'Aim · 🔴 2-host: re-ping pk-PM ตอน §C เสร็จ
+    - ✅ **dev §C เสร็จ (`f8d77a3`):** ⚙ = **`<Teleport to=body>` + fixed** เปิดกลางจอ อิสระจาก dock (verify: ลาก dock มี transform → ⚙ ยัง centered viewport) · ลากพ้นจอได้ (title bar≥40) · ⛶เต็มจอ · Esc/focus/keyboard-drag/non-modal · **ตัด reset+diagram** · **mobile: Teleport disabled → inline round30 เป๊ะ** · คง §A/B/D+fixed · 712 tests
+    - ▶ **tester functional-gate §C `f8d77a3`** (standalone·ลากทั่วจอ·⛶·Esc·no-regress) + **re-ping pk-PM smoke island `f8d77a3`** (Teleport กระทบ island desktop) → pass+2host → PM gate → **P'Aim ลอง** → deploy
   - ▶ **P'Aim ลอง tactile → deploy (ประสาน pk-PM 2-host)** — หลัง ⚙ sections ลงตัว
 
 ## 🎵 เฟอร์มาต้า (สาย 2 · คู่ขนาน · P'Aim อนุมัติเริ่ม 18 ก.ค.)
