@@ -12,9 +12,10 @@
 |---|---|
 | **เก็บค่า hold เป็นอะไร** | ✅ **จำนวนบีตสัมบูรณ์ที่โน้ตดัง (absolute) — ไม่ใช่ formula สด** · แก้ได้ต่อโน้ต (ตรง MuseScore "Time stretch") (§3) |
 | **เก็บที่ไหน** | ✅ **ฟิลด์ `holds` แยกบน segment (key = index โน้ต)** — **ไม่ยัดใน note string** (string = สัญลักษณ์ `^` jianpu SSOT · §3) |
+| **1 ค่า คุมทั้ง playback + sheet** | ✅ **ค่าเดียว (`holds[i]`) อ่านโดยทั้ง `midi.js` และ `SongSheet.vue`** → ตรงกันเสมอ (ตรง P'Aim CORE SPEC) |
 | **playback** | ✅ note ดัง = hold beats (แทน ×1.75) · **อยู่นอก bar-math** (ห้องยังนับตามที่เขียน = ที่แก้ "ห้องถัดไปหลุด") |
-| **sheet ซ่อนตัวเลข** | ✅ **ฟรีโดยดีไซน์** + **ยืนยันถูกหลักสากล** (Gould "Behind Bars" · §6) |
-| **default auto-suggest** | ✅ **"เติมจนจบห้องของโน้ตนั้น"** — SA วินิจฉัยว่าถูกสำหรับ pleng (ลงดาวน์บีตถัดไป = แก้ "หลุด") · fallback ~2× ถ้าไม่ใช่โน้ตท้ายห้อง (§5-6) |
+| **sheet แสดงค่ายังไง (correctness)** | ✅ **สัญลักษณ์เฟอร์มาต้า (+เลือก variant สั้น/ปกติ/ยาว ตามค่า)** — **ไม่โชว์เลขดิบ · ไม่วาดโน้ตยาวตามค่า** (วาดยาว = พังจำนวนบีตในห้อง + อ่านผิดเป็นจังหวะ · §6) |
+| **default auto-suggest** | ✅ **"เติมจนจบห้องของโน้ตนั้น"** — ถูกสำหรับ pleng (ลงดาวน์บีตถัดไป = แก้ "หลุด") · fallback ~2× ถ้าไม่ใช่โน้ตท้ายห้อง · **ปรับแล้ว persist** (§5-6) |
 | **UI ตั้งค่า hold** | → **UX** (4 แนวทาง · §7) · SA ยืนยัน feasible ทุกแบบ |
 
 ---
@@ -51,11 +52,12 @@ stanza line = array ของ `{ type:'segment', note:'5^ 3 2', chord }` · **`n
 //  โน้ตตัวที่ 0 (5^) หน่วงเพิ่ม 2 บีต · โน้ตอื่นไม่มี = เล่นปกติ
 ```
 - **ทำไมไม่ยัดใน note string:** ลอง `5^2` → parser อ่าน `2` เป็น**โน้ตตัวถัดไป** (ชนกับลำดับโน้ตจริง `5^ 2` = เฟอร์มาต้า5 + โน้ต2) → **string syntax ชนแน่ · ทิ้ง** · string = สัญลักษณ์ jianpu (SSOT) · hold = พารามิเตอร์ performance (คนละชั้น · ตรง mission "string=ความจริงโน้ต · เครื่องมือช่วยเป็นชั้นบน")
-- **sheet ซ่อนเลขได้ฟรี:** เลขไม่อยู่ใน string → sheet เรนเดอร์ `^` เป็นสัญลักษณ์เหมือนเดิม ไม่เห็นเลข ✅
+- **`holds[i]` = แหล่งเดียว อ่านโดยทั้ง playback และ sheet** (ตรง P'Aim: 1 ค่าคุมทั้งคู่ · §6 วิธี sheet แสดง) → ไม่มีทางไม่ตรงกัน
 - **backward-compat:** เพลงเก่ามี `^` แต่ไม่มี `holds` → ใช้ auto-suggest (materialize ตอนแก้ครั้งแรก) · ไม่ต้อง migrate ทั้งคลัง
 
-### 3.3 playback = นอก bar-math (ตัวแก้ "ห้องหลุด")
-- note duration = `baseBeats + holds[i]` (แทน `×1.75`) · **`beatCount`/bar-status ไม่แตะ hold** (ห้องยังนับตามโน้ตที่เขียน) → sheet+validation แม่น · playback หน่วงตามค่าที่ตั้ง
+### 3.3 playback + sheet อ่านค่าเดียวกัน · แต่ **ห้องนับตามโน้ตที่เขียนเสมอ** (ตัวแก้ "ห้องหลุด")
+- **playback:** note ดัง = `holds[i]` (แทน `×1.75`) · **sheet:** สัญลักษณ์เฟอร์มาต้า (+variant ตามค่า · §6) — **ทั้งคู่จากค่าเดียว = ตรงกัน**
+- **🔴 invariant สำคัญ:** `beatCount`/bar-status **ไม่แตะ hold** · **โน้ตบน sheet คงค่าที่เขียน (ไม่ยืดโน้ต/ไม่เติม `-`)** → ห้องยังนับครบตาม time signature · ไม่งั้นห้องเพี้ยน + นักดนตรีอ่านผิดว่าเป็นจังหวะจริง (§6)
 
 ---
 
@@ -67,7 +69,7 @@ stanza line = array ของ `{ type:'segment', note:'5^ 3 2', chord }` · **`n
 | `midi.js` | แทน `if(t.fermata) d*=1.75` → `d = base + holdFor(seg, tokenIdx)` (default = auto-suggest ถ้าไม่มีค่า) · thread `holds` เข้า build loop (มี li/bi/si แล้ว) | เล็ก-กลาง |
 | `songModel.js` | ยอมรับ `holds` optional บน segment (additive · v1 ไม่มี = ปกติ) | เล็ก |
 | `EditorMode.vue` | โชว์+แก้ค่า hold ต่อโน้ตเฟอร์มาต้า (UI = UX) | กลาง (UX นำ) |
-| `SongSheet.vue` | **ไม่แตะ** (สัญลักษณ์อยู่แล้ว · เลขไม่เข้า string) | 0 |
+| `SongSheet.vue` | **อ่าน `holds` → เลือกสัญลักษณ์เฟอร์มาต้า (+variant สั้น/ปกติ/ยาว ตามค่า)** · **ไม่เติม `-`/ไม่ยืดโน้ต · ไม่โชว์เลข** | เล็ก |
 | migration | **ไม่ต้อง** (`holds` optional · auto-suggest เติมตอนแก้) | 0 |
 
 **สรุป feasibility:** ✅ **refine · จุดต่อชัด · ไม่รื้อ model/scheduler** · sheet+migration = ฟรี
@@ -96,7 +98,16 @@ stanza line = array ของ `{ type:'segment', note:'5^ 3 2', chord }` · **`n
 
 4. **ค่า hold ควรเป็นจังหวะกลม:** default "เติมจนจบห้อง" ให้ค่าเป็นเศษบีตลงตัวอยู่แล้ว · แนะ **สเต็ป 0.5 บีต** (ครึ่ง/เต็ม) — เป็นธรรมชาติ + UI ง่าย + ตรงกับ bar-fill math (ไม่ต้องอิสระ)
 
-**Sources:** [MuseScore — Fermata time stretch](https://musescore.org/en/node/276202) · [MuseScore — Default time stretch 200% MS4](https://github.com/musescore/MuseScore/issues/15569) · [Wikipedia — Fermata](https://en.wikipedia.org/wiki/Fermata) · [Ultimate Music Theory — Fermata](https://ultimatemusictheory.com/articulation-fermata/) · Gould, Elaine — *Behind Bars* (engraving reference · pause = symbol placement, no written duration)
+5. **⭐ sheet แสดงค่านั้นให้ถูกยังไง (ประเด็นที่ P'Aim มอบให้ฟันธง):**
+   **✅ ถูก = สัญลักษณ์เฟอร์มาต้า (เลือก variant ตามค่า) · ❌ ไม่ใช่ "วาดโน้ตยาวตามค่า" · ❌ ไม่ใช่เลขดิบ**
+   - **ทำไมห้ามวาดโน้ตยาว/เติม `-`:** จำนวนบีตในห้องจะเกิน time signature (ห้องพัง) + **นักดนตรีอ่านผิดว่าเป็นจังหวะเมตริกจริง** ทั้งที่เฟอร์มาต้า = เวลานอกเมตร (ดุลพินิจ) → ผิดหลัก engraving
+   - **✅ วิธีถูก = symbol variant:** MusicXML/MuseScore มีสัญลักษณ์ **สั้น(angled) · ปกติ(round) · ยาว(square)** สื่อความยาวสัมพัทธ์ **ด้วยรูปทรง ไม่ใช่ตัวเลข/ความยาวโน้ต** · MuseScore ผูก **สัญลักษณ์ ↔ playback จาก intent เดียว** = ตรง P'Aim "1 ค่าคุมทั้งคู่ ให้ตรงกัน" เป๊ะ
+   - **map ค่า → variant (SA เสนอ):** hold ≤ ~2 บีต = ปกติ · > ~2 = ยาว (square) · น้อย = สั้น(angled) · **แต่ผู้อ่าน pleng = อาสาสมัคร ไม่ใช่นักดนตรี** → **default = สัญลักษณ์ปกติเดี่ยว** (variant = enhancement · UX ตัดสินว่าคนทั่วไปแยกออกไหม)
+   - **สรุป correctness:** 1 ค่า → playback (หน่วงจริง) + sheet (สัญลักษณ์/variant) · **โน้ตคงค่าที่เขียน · ห้องนับครบ · ไม่มีเลขดิบ** = ตรงทั้ง P'Aim intent และหลักสากล
+
+> **หมายเหตุถึง P'Aim (ค้านด้วยมาตรฐาน · เคารพ intent):** CORE SPEC เขียน "โน้ตยาวตามค่า" — SA อ่านมาตรฐานแล้ว **การวาดโน้ตให้ยาวจริงบนแผ่นทำไม่ได้** (พังจำนวนบีต + อ่านผิดเป็นจังหวะ) · **แต่ intent "sheet สะท้อนค่า + ตรงกับ playback จากค่าเดียว" บรรลุได้เต็มด้วย symbol variant** (สั้น/ปกติ/ยาว) ซึ่งเป็นวิธีมาตรฐานที่ MuseScore ใช้จริง — **ได้ตามที่พี่เอมต้องการ + ถูกหลักสากล**
+
+**Sources:** [MuseScore — Fermata time stretch](https://musescore.org/en/node/276202) · [MuseScore — Default time stretch 200% MS4](https://github.com/musescore/MuseScore/issues/15569) · [MuseScore Handbook — Breaths & pauses (short/long fermata)](https://handbook.musescore.org/notation/expressive-markings/breaths-and-pauses) · [Wikipedia — Fermata](https://en.wikipedia.org/wiki/Fermata) · [Ultimate Music Theory — Fermata](https://ultimatemusictheory.com/articulation-fermata/) · Gould, Elaine — *Behind Bars* (engraving · pause = symbol placement, no written duration) · MusicXML fermata shapes (normal/angled/square variants)
 
 ---
 
