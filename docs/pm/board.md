@@ -28,7 +28,8 @@
   - ✅ **tester R4-verify editor dock PASS (`a92086f`):** 8/8 ปุ่มบนแถบ ▲▼ ครบ ไม่มีขาด · **ถอนไม่ได้: grip·⚙·soundctl·export (slot/สำคัญ)** · ถอนได้: undo·redo·play·playAll · keypad=ชุด · pinnable→pin→ได้ ▲▼ ทันที · **ตรง P'Aim R4 final เป๊ะ**
   - 🆕 **⚙ panel design (Design `local_284b3dbe` · design-first) — P'Aim iterate:** (a) ✅ sections design เสร็จ (`cb3e698` · 5 section = mirror dock rows + header + mini-diagram) (b) 🔴 P'Aim +4: **(1) เพิ่มไอคอนทุกแถว (⚙/grip/download ช่องว่าง) (2) section ต้องชัดกว่านี้ ("not obvious") (3) ⚙ popup ลากย้ายได้ (movable window) (4) grip + ⚙ ยึดแถวล่างสุดเสมอ · grip ซ้าย · ⚙ ติดขวา grip · ตายตัว (ตัด ▲▼ · เดิม verify มี ▲▼ = P'Aim สั่งให้ 2 ตัวนี้ fixed แทน · ⚙ ย้ายจากขวาสุด→ติด grip)** → Design รวมเข้า → **P'Aim รีวิว → dev implement (layout rankOf/anchor + ⚙ panel)**
     - ✅ **Design fold 3 ข้อแรกเสร็จ (`5260aa9`):** §A `panelIcon` fallback (grip/⚙/download ไอคอนครบ · panel-only) · §B **การ์ด section** (พื้น/กรอบมน + header ตัวหนา+ไอคอน + spacing ≥12 · WCAG contrast) แทนเส้นบาง · §C **title bar ลากได้** (reuse grip-drag→`panelPos`/`clampPanel` · ✕ปิด+↺รีเซ็ต · keyboard-move) · mockup อัป
-    - ▶ **รอ Design fold ข้อ 4 (grip+⚙ ยึดล่างซ้าย · queued)** → ครบ 4 → **PM เอา mockup รวมให้ P'Aim รีวิวทีเดียว** → dev implement
+    - ✅ **Design fold ครบ 4 (`7430e39`)** → PM เอา mockup รวมให้ P'Aim รีวิว
+    - 🔴 **P'Aim แก้กฎ fixed/movable (รีวิว mockup):** **ยกเว้นแค่ 2 (grip+⚙) = ยึดที่ · ที่เหลือทุกปุ่มย้าย+ถอนได้ (พินแดงทุกกลุ่ม)** → **ผิดที่ต้องแก้: soundctl/export (slot) ตอนนี้ล็อกถอนไม่ได้ด้วย → ต้องปลดล็อก (เหลือ NEVER_MANAGE แค่ grip+gear)** · 🟡 keypad band ถอดได้ไหม = รอ P'Aim (default เดา=ถอดได้) → Design อัป → P'Aim รีวิว → dev
   - ▶ **P'Aim ลอง tactile → deploy (ประสาน pk-PM 2-host)** — หลัง ⚙ sections ลงตัว
 
 ## 🎵 เฟอร์มาต้า (สาย 2 · คู่ขนาน · P'Aim อนุมัติเริ่ม 18 ก.ค.)
