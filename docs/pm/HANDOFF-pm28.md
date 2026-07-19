@@ -22,7 +22,8 @@
 **🎛️ A. dock-resize + ⚙ panel redesign — เกือบจบ · รอ 2 อย่างก่อน deploy**
 - branch `dock-resize` (จากรอบ 30) · commit **`f8d77a3`** · 🎧 preview http://127.0.0.1:5342/#/studio (localhost = เครื่องเดียวกับ P'Aim)
 - ของที่ทำ+ tester PASS หมด: ลากขอบปรับขนาด (2 แกน · pointer · **ไม่ gate hover** = จุดพัง 3 รอบแก้แล้ว) · ปุ่มสเกล floor 44 wrap · min+warn · hug-content · **⚙ panel:** ไอคอนครบ · การ์ด section · **grip+⚙ ยึดล่างซ้าย ตายตัว (ยกเว้นแค่ 2 นี้ · ที่เหลือถอด/ย้ายได้หมด รวม keypad)** · **⚙ = standalone window (Teleport · ลากทั่วจอ · ⛶เต็มจอ · Esc)** · mobile=รอบ30 diff0 · 712 tests
-- **เหลือ:** (1) **P'Aim ลอง preview + tactile drag ยืนยัน** (2) **2-host พระคำ:** pk-PM (pm8→pm9) smoke `pk-dock-island` @ f8d77a3 (⚙ redesign ไม่ prop-gated → กระทบ island desktop) → verdict · **BLOCK deploy จนพระคำผ่าน** · deploy = pleng+พระคำ คู่กัน (DockKey เดียว)
+- **เหลือ:** (1) **P'Aim ลอง preview + tactile drag ยืนยัน** → deploy ได้เมื่อ P'Aim อนุมัติ
+- **🟢 2-host (อัปเดต pk pm9 · P'Aim ตัดสิน):** **ไม่บล็อก deploy เพลงแล้ว** — พระคำ island import `@pleng/DockKey` ที่ *build-time* → **pleng deploy ไม่กระทบพระคำ live จน phrakham rebuild island เอง** · P'Aim สั่งพระคำ **รอเพลงนิ่งจริงก่อน ค่อย smoke ทีเดียว** (island ใช้ ⚙ จริง = images/alpha/gvhelp · §C teleport กระทบตอน rebuild แน่ · แค่ยังไม่ใช่ตอนนี้) · **เมื่อ lock DockKey (pleng deploy เสร็จ) → ping pk pm** (`list_sessions` · cwd `…/phrakham.life2-pm`) rebuild+smoke 344/690/768 รอบเดียวจบ
 - session: dev `local_e20ebbbd` · tester `local_9f001e0f` · pk-PM `local_43cdd55a`
 
 **🎵 B. fermata (หน่วงเสียงตั้งค่าได้) — design เสร็จ · รอ host-move**
