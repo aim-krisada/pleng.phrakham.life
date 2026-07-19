@@ -18,11 +18,14 @@
   - ✅ **tester re-gate `26f0b34`:** root cause (corner clip) VERIFIED หายด้วย real hit-test (elementFromPoint) · mechanics ผ่านครบ · **2 ข้อ tactile (drag gesture + keypad click) tester env ขับไม่ได้ → P'Aim ยืนยัน (ไม่ fake PASS)**
   - 🔴 **P'Aim ลอง preview จริง เจอ 2 (18 ก.ค.):** (1) **กระพริบค้างตอนหยุดลาก (pointerup)** = บั๊ก (2) **R4 ไปเพิ่ม ✕/＋ ใหม่แทน 📌 พินแดงเดิม = ทำเกิน** — P'Aim "จะเปลี่ยนทำไม ทำเกินทำไม" · **จ่าย dev แก้: กลับพินแดงเดิม (ลบ ✕/＋) + แก้กระพริบ** · สเปก R4 revised
   - 🔴 **P'Aim สั่งปรับ SOP:** เพิ่ม **§6 #10 (ใช้ของเดิมเป๊ะ ห้ามทำเกิน/redesign)** + **#11 (gate functional "ทำได้จริง" ไม่ใช่กลไก · PM ดูตาเปล่า)** · [[feedback_refine_not_redesign]]
-  - ▶ pm28 รอ dev แก้ (พินแดง+กระพริบ) → tester re-gate → P'Aim
+  - ✅ **dev แก้ 2 เสร็จ (`febda9a` · §รอบ2b):** (1) **pin กลับ 📌 แดงเดิม** (ลบ ✕/＋ ทำเกิน · toggle=ถอน+persist) (2) **กระพริบ: ต้นเหตุ = ResizeObserver feedback loop → แก้ (key คงที่ 44 + ลบ RO คำนวณจาก descriptor) → `stable_after_release`** · คงครบ floor44/ควบคุมครบ/warn/mobile diff0/2-host/710 tests
+  - ▶ **tester re-gate `febda9a`** (flicker นิ่ง + พินแดง + ไม่ regress) dispatched → 2 ข้อ tactile คงให้ P'Aim → pass → P'Aim ลอง preview อีกที (updated)
 
 ## 🎵 เฟอร์มาต้า (สาย 2 · คู่ขนาน · P'Aim อนุมัติเริ่ม 18 ก.ค.)
 - brief พร้อม `docs/us/fermata-hold.md` (ปัญหา 4 · ต้นเหตุ `midi.js` 1.75x คงที่ · บท Gemini · meeting-room)
-- ▶ **จ่าย SA แล้ว (`local_6904d4be`) — design-first:** โมเดลข้อมูล hold + feasibility (boolean→per-note hold · playback ผูก · auto-suggest · editor-shows/sheet-hides) + แยกข้อที่ต้อง Gemini + flag UX (UI ตั้งค่า 4 แนวทาง) → `docs/reports/fermata-design-sa.md` → **P'Aim รีวิวก่อน build** · base รอบ 30 · ไม่ชน dock-resize (คนละไฟล์) (desktop-only · mobile=P'เปา ไม่กระทบ · ถ้าไม่ชอบ feel = rollback ง่ายเหมือนวันนี้) · 📌 tester note: mechanic พิสูจน์บน Surface profile แล้ว · เหลือ "ความรู้สึกลากจริงด้วยเมาส์" = P'Aim ยืนยันเอง
+- ✅ **SA design เสร็จ (`06fbbd0` · `fermata-design-sa.md`):** ต้นเหตุ = **"ค่า" ผิด (×1.75 คงที่) ไม่ใช่กลไก** (scheduler ถูก) · **hold = บีตสัมบูรณ์ · เก็บ `holds` แยกจาก note string** (5^2 ชน) · **playback นอก bar-math = แก้ห้องหลุด · sheet ซ่อนเลขฟรี** (เลขไม่อยู่ใน string) · no-migrate · refine (`notation.js`/`SongSheet.vue` ไม่แตะ · `midi.js` เล็ก) · **4 correctness = SA ฟันธงเอง (ไม่ Gemini · msg queued)**
+- ✅ **CORE SPEC ชัด (P'Aim):** ค่าเดียวปรับได้ · **คุมทั้งเล่น+แผ่นตรงกัน** · เริ่ม=แนะนำ · ปรับ=เก็บใหม่
+- ▶ **จ่าย UX แล้ว (`local_284b3dbe`):** UI ตั้งค่า hold (4 แนวทาง lean ก+ง · ฟันธง 1 · ฟังทันที · ห้ามบังโน้ต · 44px) → ประกอบ SA+UX → **P'Aim รีวิว 1 ครั้ง** → build (base รอบ 30) (desktop-only · mobile=P'เปา ไม่กระทบ · ถ้าไม่ชอบ feel = rollback ง่ายเหมือนวันนี้) · 📌 tester note: mechanic พิสูจน์บน Surface profile แล้ว · เหลือ "ความรู้สึกลากจริงด้วยเมาส์" = P'Aim ยืนยันเอง
 
 
 **🧨 วันนี้ = วันหนักสุด (P'Aim):** resize saga วน 3 รอบ (root = Surface P'Aim `@media(hover)`=false → `.dk-resize` display:none ซ่อนสนิท · [[feedback_verify_hover_on_real_browser]]) + แถบลอย contextual toolbox บังคอร์ด + สไลเดอร์กระพริบ → **P'Aim สั่ง "เอาเวอร์ชันนิ่งล่าสุดขึ้น ทิ้งของวันนี้ทั้งหมด เริ่มใหม่"**
