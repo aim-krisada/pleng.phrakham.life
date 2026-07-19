@@ -40,4 +40,5 @@
 - **Mobile ≤760px: diff = 0 จากรอบ 30** (พิสูจน์: เปิด ≤760px แล้วเหมือนเดิมทุกอย่าง)
 - unit tests เขียว · build ✓ · เขียน test ครอบ R2 floor + R3 min/warn
 - self-verify device-matrix (กว้างหลายค่า desktop + จำลอง pointer) + เขียน `docs/reports/<branch>.md`
-- ⛔ **ไม่ relay P'Aim เอง · ไม่ merge · ไม่แตะ live** → รายงาน PM `pm28` → **PM verify บน claude-in-chrome เครื่อง P'Aim (Surface touch) ก่อน** แล้ว PM ส่ง P'Aim ครั้งเดียว
+- ⛔ **ไม่ relay P'Aim เอง · ไม่ merge · ไม่แตะ live** → รายงาน PM `pm28`
+- **กระบวนการ gate (PM ไม่ทดสอบเอง):** dev เขียน **unit test** + self-smoke → **tester ตรวจ unit + integration + device-matrix** (รวม profile Surface `hover:none/pointer:coarse` ต้องลากได้จริง · mobile ≤760px diff=0) → **PM gate จากหลักฐาน tester** → PM ส่ง P'Aim ครั้งเดียว
