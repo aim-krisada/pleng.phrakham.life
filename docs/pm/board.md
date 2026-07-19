@@ -18,7 +18,11 @@
   - ✅ **tester re-gate `26f0b34`:** root cause (corner clip) VERIFIED หายด้วย real hit-test (elementFromPoint) · mechanics ผ่านครบ · **2 ข้อ tactile (drag gesture + keypad click) tester env ขับไม่ได้ → P'Aim ยืนยัน (ไม่ fake PASS)**
   - 🔴 **P'Aim ลอง preview จริง เจอ 2 (18 ก.ค.):** (1) **กระพริบค้างตอนหยุดลาก (pointerup)** = บั๊ก (2) **R4 ไปเพิ่ม ✕/＋ ใหม่แทน 📌 พินแดงเดิม = ทำเกิน** — P'Aim "จะเปลี่ยนทำไม ทำเกินทำไม" · **จ่าย dev แก้: กลับพินแดงเดิม (ลบ ✕/＋) + แก้กระพริบ** · สเปก R4 revised
   - 🔴 **P'Aim สั่งปรับ SOP:** เพิ่ม **§6 #10 (ใช้ของเดิมเป๊ะ ห้ามทำเกิน/redesign)** + **#11 (gate functional "ทำได้จริง" ไม่ใช่กลไก · PM ดูตาเปล่า)** · [[feedback_refine_not_redesign]]
-  - ▶ pm28 รอ dev แก้ (พินแดง+กระพริบ) → tester re-gate → P'Aim (desktop-only · mobile=P'เปา ไม่กระทบ · ถ้าไม่ชอบ feel = rollback ง่ายเหมือนวันนี้) · 📌 tester note: mechanic พิสูจน์บน Surface profile แล้ว · เหลือ "ความรู้สึกลากจริงด้วยเมาส์" = P'Aim ยืนยันเอง
+  - ▶ pm28 รอ dev แก้ (พินแดง+กระพริบ) → tester re-gate → P'Aim
+
+## 🎵 เฟอร์มาต้า (สาย 2 · คู่ขนาน · P'Aim อนุมัติเริ่ม 18 ก.ค.)
+- brief พร้อม `docs/us/fermata-hold.md` (ปัญหา 4 · ต้นเหตุ `midi.js` 1.75x คงที่ · บท Gemini · meeting-room)
+- ▶ **จ่าย SA แล้ว (`local_6904d4be`) — design-first:** โมเดลข้อมูล hold + feasibility (boolean→per-note hold · playback ผูก · auto-suggest · editor-shows/sheet-hides) + แยกข้อที่ต้อง Gemini + flag UX (UI ตั้งค่า 4 แนวทาง) → `docs/reports/fermata-design-sa.md` → **P'Aim รีวิวก่อน build** · base รอบ 30 · ไม่ชน dock-resize (คนละไฟล์) (desktop-only · mobile=P'เปา ไม่กระทบ · ถ้าไม่ชอบ feel = rollback ง่ายเหมือนวันนี้) · 📌 tester note: mechanic พิสูจน์บน Surface profile แล้ว · เหลือ "ความรู้สึกลากจริงด้วยเมาส์" = P'Aim ยืนยันเอง
 
 
 **🧨 วันนี้ = วันหนักสุด (P'Aim):** resize saga วน 3 รอบ (root = Surface P'Aim `@media(hover)`=false → `.dk-resize` display:none ซ่อนสนิท · [[feedback_verify_hover_on_real_browser]]) + แถบลอย contextual toolbox บังคอร์ด + สไลเดอร์กระพริบ → **P'Aim สั่ง "เอาเวอร์ชันนิ่งล่าสุดขึ้น ทิ้งของวันนี้ทั้งหมด เริ่มใหม่"**
