@@ -19,7 +19,9 @@
   - 🔴 **P'Aim ลอง preview จริง เจอ 2 (18 ก.ค.):** (1) **กระพริบค้างตอนหยุดลาก (pointerup)** = บั๊ก (2) **R4 ไปเพิ่ม ✕/＋ ใหม่แทน 📌 พินแดงเดิม = ทำเกิน** — P'Aim "จะเปลี่ยนทำไม ทำเกินทำไม" · **จ่าย dev แก้: กลับพินแดงเดิม (ลบ ✕/＋) + แก้กระพริบ** · สเปก R4 revised
   - 🔴 **P'Aim สั่งปรับ SOP:** เพิ่ม **§6 #10 (ใช้ของเดิมเป๊ะ ห้ามทำเกิน/redesign)** + **#11 (gate functional "ทำได้จริง" ไม่ใช่กลไก · PM ดูตาเปล่า)** · [[feedback_refine_not_redesign]]
   - ✅ **dev แก้ 2 เสร็จ (`febda9a` · §รอบ2b):** (1) **pin กลับ 📌 แดงเดิม** (ลบ ✕/＋ ทำเกิน · toggle=ถอน+persist) (2) **กระพริบ: ต้นเหตุ = ResizeObserver feedback loop → แก้ (key คงที่ 44 + ลบ RO คำนวณจาก descriptor) → `stable_after_release`** · คงครบ floor44/ควบคุมครบ/warn/mobile diff0/2-host/710 tests
-  - ▶ **tester re-gate `febda9a`** (flicker นิ่ง + พินแดง + ไม่ regress) dispatched → 2 ข้อ tactile คงให้ P'Aim → pass → P'Aim ลอง preview อีกที (updated)
+  - ✅ **tester re-gate `febda9a` PASS** (flicker stable_after_release · พินแดงไม่มี ✕/＋ · ไม่ regress · 710 tests)
+  - 🔴 **P'Aim ลอง preview febda9a → พินแดง+กระพริบ OK ✅ · เจอ 2 ปรับ (รอบ 3):** (1) **⚙ ต้องแสดงทุกปุ่ม** + จัด/เข้า-ออกได้ทุกปุ่ม (ตอนนี้แค่ subset · gear/grip ย้ายได้ถอนไม่ได้ safety) (2) **hug-content สูง — ห้ามเหลือที่ว่างเปล่า** ("ปรับสูงที่ว่างเต็มควรแคบได้") · จ่าย dev แล้ว · สเปก §รอบ3+FA
+  - ▶ pm28 รอ dev รอบ3 → tester functional → P'Aim ลอง tactile
 
 ## 🎵 เฟอร์มาต้า (สาย 2 · คู่ขนาน · P'Aim อนุมัติเริ่ม 18 ก.ค.)
 - brief พร้อม `docs/us/fermata-hold.md` (ปัญหา 4 · ต้นเหตุ `midi.js` 1.75x คงที่ · บท Gemini · meeting-room)
