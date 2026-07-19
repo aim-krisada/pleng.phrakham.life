@@ -12,6 +12,8 @@
 **ฟันธง:** **จัด `panelItems` เป็น section ตาม "แถวจริง" ของ dock (บนลงล่าง = mirror จอ)** พร้อม **header + เส้นแบ่ง + แผนภาพ dock ย่อ** → ลิสต์กลายเป็น "แผนที่ของแถบจริง" · **▲▼ = เรียงภายในแถวของตัวเอง** (ปุ่มไม่ข้ามแถว = ตามโค้ดจริง `barRowOf`) → หายงงทันที
 **ไม่แตะ logic reorder/pin** — grouping + header ล้วน (presentational) · dev แค่ group ตาม `sectionOf(it)` + render header · **low-risk**
 
+**อัปเดต (P'Aim รีวิว 18 ก.ค. · fold 3 ข้อ):** §A **ไอคอนครบทุกแถว** (grip/⚙/ดาวน์โหลด ตอนนี้ช่องไอคอนว่าง) · §B **section แยกให้เด่น** (P'Aim: "not obvious" — เส้นบางไม่พอ → การ์ด/พื้นหลัง) · §C **⚙ panel ลากย้ายได้** (movable window · reuse grip-drag ของ dock)
+
 ---
 
 ## 1 · โครง dock จริง (verify) = section ที่ต้อง mirror
@@ -44,44 +46,49 @@ const SECTIONS = ['keypad','pinned','row2','row1','drawer'] // บน→ล่�
 - **panelItems เดิมไม่เปลี่ยน** — แค่เพิ่ม keypad entry (read-only) เพื่อแผนที่ครบ (ถ้าไม่อยากยุ่ง = ข้าม section 1 · โชว์เป็นแค่หัวแผนภาพ)
 - section ว่าง = ซ่อน (เช่น ไม่มี pinned)
 
-## 3 · Mockup (panel มี section · desktop)
+## 3 · Mockup (panel มี section + title bar ลากได้ + ไอคอนครบ · desktop)
 
 ```
-┌─ ⚙ ตั้งค่าแถบเครื่องมือ ─────────────────────┐
-│  ┌ แผนภาพแถบ (mirror) ┐                       │
-│  │ ▔▔▔ แป้นสัญลักษณ์   │  ← หัวแผนที่ กดเลื่อนไปหมวด │
-│  │ ▭▭  ปักหมุด         │                       │
-│  │ ▭▭▭ สั่งงาน          │                       │
-│  │ ▭▭▭▭ หลัก (grip…⚙)  │                       │
-│  └────────────────────┘                       │
-│                                               │
-│ ▎แป้นสัญลักษณ์  · อยู่บนสุด · คงที่            │  ← section header + hint
-│   🎹 แป้นโน้ต                        (คงที่)   │
-│ ─────────────────────────────────────────    │
-│ ▎ปักหมุด  · เหนือแถวสั่งงาน                    │
-│   🔊 เสียงดนตรี            [▲][▼]      📌●     │
-│ ─────────────────────────────────────────    │
-│ ▎แถวสั่งงาน (แถว 2)                            │
-│   💾 บันทึก               [▲][▼]      📌●     │
-│   📝 บันทึกร่าง            [▲][▼]      📌●     │
-│ ─────────────────────────────────────────    │
-│ ▎แถวหลัก (แถว 1) · ล่างสุด ติดขอบจอ            │
-│   ⠿ ย้าย/ย่อ (grip)      [▲][▼]      🔒       │
-│   ↩ ย้อน                 [▲][▼]      📌●     │
-│   ↪ ทำซ้ำ                [▲][▼]      📌●     │
-│   ▶ ฟังท่อน              [▲][▼]      📌●     │
-│   ⚙ ตั้งค่า (gear)        [▲][▼]      🔒       │
-│ ─────────────────────────────────────────    │
-│ ▎ยังไม่อยู่บนแถบ · แตะ 📌 เพิ่ม                │
-│   ⬇ ดาวน์โหลด                        📌○     │
-│   ⛶ ดูผลทั้งเพลง                      📌○     │
-└───────────────────────────────────────────────┘
+╔═ ⠿  ⚙ ตั้งค่าแถบเครื่องมือ            ↺  ✕ ═╗  ← TITLE BAR = ที่จับลาก (§C) + ปิด/รีเซ็ต
+║  ┌ แผนภาพแถบ (mirror จอ) ┐                  ║
+║  │ ▔▔▔ แป้นสัญลักษณ์       │                  ║
+║  │ ▭▭  ปักหมุด            │                  ║
+║  │ ▭▭▭ สั่งงาน             │                  ║
+║  │ ▭▭▭▭ หลัก (grip…⚙)     │                  ║
+║  └───────────────────────┘                  ║
+║ ╭───────────────────────────────────────╮  ║  ← §B: การ์ด section (common-region)
+║ │ ▩ แป้นสัญลักษณ์  · บนสุด · คงที่         │  ║     header เด่น (ตัวหนา+ไอคอนหมวด)
+║ │  🎹 แป้นโน้ต                    (คงที่)  │  ║
+║ ╰───────────────────────────────────────╯  ║
+║ ╭───────────────────────────────────────╮  ║
+║ │ 📌 ปักหมุด  · เหนือแถวสั่งงาน            │  ║
+║ │  🔊 เสียงดนตรี          [▲][▼]     📌● │  ║
+║ ╰───────────────────────────────────────╯  ║
+║ ╭───────────────────────────────────────╮  ║
+║ │ ▤ แถวสั่งงาน (แถว 2)                    │  ║
+║ │  💾 บันทึก             [▲][▼]     📌● │  ║
+║ │  ⬇ ดาวน์โหลด           [▲][▼]     📌● │  ║  ← §A: export ได้ ⬇ (เดิมว่าง)
+║ ╰───────────────────────────────────────╯  ║
+║ ╭───────────────────────────────────────╮  ║
+║ │ ▤ แถวหลัก (แถว 1) · ล่างสุด ติดขอบจอ    │  ║
+║ │  ⠿ ย้าย/ย่อ            [▲][▼]     🔒  │  ║  ← §A: grip ได้ ⠿ (เดิมว่าง)
+║ │  ↩ ย้อน               [▲][▼]     📌● │  ║
+║ │  ↪ ทำซ้ำ              [▲][▼]     📌● │  ║
+║ │  ▶ ฟังท่อน            [▲][▼]     📌● │  ║
+║ │  ⚙ ตั้งค่า             [▲][▼]     🔒  │  ║  ← §A: gear ได้ ⚙ (เดิมว่าง · "setting icon")
+║ ╰───────────────────────────────────────╯  ║
+║ ╭───────────────────────────────────────╮  ║
+║ │ ➕ ยังไม่อยู่บนแถบ · แตะ 📌 เพิ่ม        │  ║
+║ │  ⛶ ดูผลทั้งเพลง                   📌○ │  ║
+║ ╰───────────────────────────────────────╯  ║
+╚═════════════════════════════════════════════╝
 ```
-- **หัวแผนภาพ** = dock ย่อ 4 ชั้นตามจริง → เห็นทันทีว่าแต่ละ section = แถวไหนบนจอ (natural mapping)
-- **section header** = ชื่อ + **hint ตำแหน่ง** ("ล่างสุด ติดขอบจอ") + เส้นแบ่ง (Gestalt common-region)
-- **▲▼ อยู่ในกรอบ section** → ชัดว่าเลื่อนได้แค่ในแถวนี้ (ปุ่มไม่กระโดดข้ามแถว)
-- **🔒** = grip/⚙ ย้ายได้แต่ถอนไม่ได้ (แทน 📌 ที่กดไม่ได้ · สื่อ "ล็อกบนแถบ")
-- **📌● / 📌○** = อยู่บนแถบ / เพิ่มได้ (คงสัญลักษณ์เดิม · P'Aim เคยปฏิเสธ ✕/＋)
+- **title bar** = ที่จับลากทั้งหน้าต่าง (§C) + ✕ ปิด + ↺ รีเซ็ตตำแหน่ง · เป็นทั้ง header หน้าต่าง + drag handle
+- **การ์ด section** (§B) = พื้นหลัง/กรอบมน + header เด่น (ตัวหนา + ไอคอนหมวด) + เว้นช่องระหว่างการ์ด → แยก **obvious** (Gestalt common-region · ไม่ใช่แค่เส้น)
+- **ไอคอนครบทุกแถว** (§A) — grip=⠿ · ⚙=settings · ดาวน์โหลด=⬇ (เดิม `.dk-mi` ว่าง)
+- **หัวแผนภาพ** = dock ย่อ 4 ชั้น → map section→แถวจริง (natural mapping)
+- **▲▼ อยู่ในการ์ด section** → เลื่อนได้แค่ในแถวนี้ (ไม่ข้ามแถว)
+- **🔒** = grip/⚙ ย้ายได้ ถอนไม่ได้ · **📌●/📌○** = อยู่บนแถบ / เพิ่มได้ (สัญลักษณ์เดิม)
 
 ## 4 · พฤติกรรม ▲▼ (แก้จุดที่ P'Aim งง)
 
@@ -98,17 +105,54 @@ const SECTIONS = ['keypad','pinned','row2','row1','drawer'] // บน→ล่�
 - **🔒 grip/⚙:** `aria-disabled`/บอก "ล็อกบนแถบ ถอนไม่ได้" (ไม่ใช่แค่ไอคอน)
 - ปุ่มทุกตัว ≥44px (WCAG 2.5.5 · มีแล้วใน `.dk-mv`/`.dk-pin` — Design ยืนยันคงไว้)
 
+## 5A · ไอคอนครบทุกแถว (P'Aim ข้อ 1 · "add setting icon")
+
+**verify:** `.dk-mi` เรนเดอร์ `<Icon :name="it.icon" />` · **item ที่ไม่มี `icon` = ช่องว่าง:** `grip`(kind grip) · `setting`(kind gear · = "setting icon" ที่ P'Aim ชี้) · `export`(kind slot) → 3 แถวนี้ไอคอนหาย
+**แก้ (fallback · ไม่แตะ bar rendering):** panel ใช้ `panelIcon(it)` = `it.icon` ก่อน แล้ว fallback ตาม id/kind:
+
+```js
+const ICON_FALLBACK = { grip: 'grip-vertical', setting: 'settings', export: 'download' }
+const KIND_FALLBACK = { grip: 'grip-vertical', gear: 'settings', keys: 'piano', slot: 'square-dashed' }
+const panelIcon = (it) => it.icon || ICON_FALLBACK[it.id] || KIND_FALLBACK[it.kind] || 'square'
+// .dk-mi → <Icon :name="panelIcon(it)" :size="16" />
+```
+- lucide ids (มีจริง · [[reference_lucide_icons]]): `grip-vertical` · `settings` (⚙ = แถวตั้งค่า) · `download` (⬇ ดาวน์โหลด) · `audio-lines`(soundctl มีแล้ว) · `piano`(แป้น)
+- **ทำไม fallback ไม่ยัด `icon` ลง descriptor:** grip/gear เรนเดอร์บนแถบแบบพิเศษ (ไม่ผ่าน `.mi`) · เพิ่ม `icon` เสี่ยงกระทบ bar · fallback เฉพาะ panel = ปลอดภัย · **ทุกแถวมีไอคอนแน่นอน**
+
+## 5B · section แยกให้เด่น (P'Aim ข้อ 2 · "not obvious")
+
+เส้นบาง = อ่อนไป → ยก **common-region ให้ชัด** (Gestalt: พื้นหลัง/กรอบร่วม > เส้น > ระยะ):
+- **การ์ด section** — แต่ละ section = กล่องมน `.dk-section` พื้นหลังต่างจาก panel (เช่น `var(--surface-2)`/tint อ่อน) + เว้นระหว่างการ์ด **≥12px**
+- **header เด่น** `.dk-shead` — **ตัวหนา** + ไอคอนหมวด + สี/พื้นแตกต่าง (ไม่ใช่ข้อความเทาจาง) + hint ตำแหน่งบรรทัดเดียวกัน
+- **contrast ผ่าน** WCAG 1.4.11 (พื้น/กรอบ ≥3:1 กับ panel) · 1.4.3 (header text ≥4.5:1)
+- (option) tint หัวการ์ดต่างเฉดเบา ๆ ต่อ section → แยกด้วยสี + กล่อง (redundant coding · ไม่พึ่งสีอย่างเดียว = 1.4.1)
+
+## 5C · ⚙ panel ลากย้ายได้ (P'Aim ข้อ 3 · "make setting window movable")
+
+**reuse pattern grip-drag ของ dock** (`pos` + `gripDown/gripMove/gripUp` + `clampDock` · verify มีจริง) → generalize ให้ panel:
+- **ที่จับลาก = title bar** (`⠿ ⚙ ตั้งค่าแถบเครื่องมือ`) — `@pointerdown` บน header → ลากทั้ง `.dk-panel` (แยก state `panelPos` ของตัวเอง · ไม่ปนกับ dock `pos`)
+- **clamp ในจอ** — reuse แนว `clampDock` (margin 6px · ไม่ให้ title bar หลุดจอ = ลากกลับได้เสมอ)
+- **✕ ปิด · ↺ รีเซ็ตตำแหน่ง** (กลับจุด default ใต้ ⚙) — กันลากหายมุมจอ
+- **a11y (WCAG 2.1.1 keyboard):** title bar focusable → **ลูกศร = ขยับทีละ ~16px** + Esc ปิด · ไม่พึ่ง pointer อย่างเดียว · `role="dialog"` + `aria-label` (movable panel) · announce ไม่จำเป็น (ตำแหน่งเป็น visual)
+- **persist (option):** จำ `panelPos` ใน localStorage (เหมือน dock) — เฟส 2 ได้ ไม่บังคับ
+- **mobile คงเดิม** (P'Aim สั่ง) — จอเล็กลากยาก · panel = anchored/sheet เหมือนเดิม · drag = desktop only (เช็ก `!mobile`)
+- **⚠️ ตอนลาก:** ปิด popover ซ้อน/รักษา openId='setting' · `clampPops` เดิมจับ .dk-pop อยู่แล้ว — ประสานกับ panelPos
+
 ## 6 · มาตรฐานอ้างอิง (อ่านเอง · ไม่ Gemini)
 
 - **grouped settings list + section header/divider = แพตเทิร์นมาตรฐาน:** [Apple HIG — Lists (grouped/inset · Settings)](https://developer.apple.com/design/human-interface-guidelines/lists-and-tables) · [Material — List subheaders & dividers](https://m3.material.io/components/lists/guidelines) · Gestalt **common region + proximity** (เส้น/กรอบ = จัดกลุ่มการรับรู้)
 - **natural mapping (panel ↔ ตำแหน่งจริงบนจอ):** Norman, *The Design of Everyday Things* — control layout ควร map กับสิ่งที่มันคุมเชิงพื้นที่ → แผนภาพ dock ย่อ + เรียง section บน→ล่างตามจอ
 - **reorder ด้วยปุ่ม + ประกาศตำแหน่ง (ไม่พึ่ง drag):** [WAI-ARIA APG](https://www.w3.org/WAI/ARIA/apg/) · WCAG 2.1.1 / 4.1.3 — keyboard+touch เข้าถึง, screen reader รู้ผล
 - **1.3.1 Info & Relationships:** [WCAG](https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html) — โครงกลุ่มต้องอยู่ใน markup (group/heading) ไม่ใช่แค่ภาพ
+- **การ์ด/inset group เด่นกว่าเส้น (§B):** [Apple HIG — inset-grouped lists](https://developer.apple.com/design/human-interface-guidelines/lists-and-tables) · [Material — cards/containers](https://m3.material.io/components/cards) · WCAG **1.4.11** Non-text Contrast (กรอบ/พื้น ≥3:1) · Gestalt common-region > line
+- **ไอคอนต่อรายการ = scannability (§A):** ทุกแถวมี glyph นำ → กวาดตาเร็ว (NN/g icon+label) · lucide id มีจริง [[reference_lucide_icons]]
+- **movable/draggable panel (§C):** ที่จับ = title bar (แพตเทิร์นหน้าต่างสากล) · keyboard-move + clamp (WCAG 2.1.1) · [WAI-ARIA APG — dialog (movable)](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/) · reuse dock grip-drag = 1 กลไก 2 ที่ (consistency)
 
 ## 7 · dev contract (§3.0 · Design ส่ง spec · dev = DockKey lane)
 
-- **dev (logic):** `sectionOf(it)` + `sections` computed (group `panelItems` · §2) + live-region ประกาศผลย้าย · **ไม่แตะ** `moveOrder`/`movePin`/`togglePin`/`toggleOff` (reorder เดิมทำงานต่อ)
-- **Design (presentation):** template header + เส้นแบ่ง + แผนภาพ dock ย่อ + CSS (`.dk-section`/`.dk-shead`/`.dk-diagram`) + 🔒 state + hint copy + aria strings · ส่งเป็น spec นี้ (ไม่แก้ไฟล์พร้อม dev)
+- **dev (logic):** `sectionOf(it)` + `sections` computed (§2) + `panelIcon(it)` fallback (§A) + live-region ผลย้าย + **movable panel** (§C: `panelPos` + drag handlers บน title bar + `clampPanel` reuse `clampDock` + keyboard-move) · **ไม่แตะ** `moveOrder`/`movePin`/`togglePin`/`toggleOff`
+- **Design (presentation):** template — title bar (drag handle+✕+↺) · การ์ด section + header เด่น (§B) · แผนภาพ dock ย่อ · ไอคอนทุกแถว · 🔒 state · CSS (`.dk-section`/`.dk-shead`/`.dk-diagram`/`.dk-titlebar`) · hint copy · aria strings · ส่ง spec นี้ (ไม่แก้ไฟล์พร้อม dev)
+- **3 ข้อ P'Aim:** §A ไอคอนครบ (fallback map) · §B การ์ด section (common-region · not-obvious→obvious) · §C ลากย้ายได้ (reuse grip-drag)
 - **mobile:** ปัจจุบัน panel = `settingItems` ล้วน (ไม่ reorder) → **ใส่ header กลุ่มได้ (อ่านง่ายขึ้น) แต่ปัญหา ▲▼ = desktop** · ขอบเขตนี้เน้น desktop (ที่ reorder อยู่) · mobile คงพฤติกรรมเดิม
 - **2-host (พระคำ):** grouping = presentational · ไม่กระทบ island (พระคำ dock เล็ก · ไม่เปิด reorder) — ยืนยันตอน dev build
 
