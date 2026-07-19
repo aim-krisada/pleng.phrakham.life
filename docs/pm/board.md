@@ -25,7 +25,9 @@
   - ✅✅ **tester re-gate 3 PASS (`b9af0cb`):** ⚙ 9 แถว real-click reorder+persist · grip/⚙/slot ▲▼ ไม่มี 📌 (safety) · **hug-content: ลากลง+400 box 252 (content 230 · gap 22 padding) ไม่ค้าง** · ไม่ regress (พินแดง/ไม่กระพริบ/floor44/mobile diff0/2-host/710 tests)
   - ✅ **PM ตรวจสอบเอง (claude-in-chrome 1440px · เปิด ⚙ อ่านแถวจริง):** ⚙ 13 แถวมี **"ตั้งค่า"(setting) จริง** (move-not-remove) = setting button อยู่ครบ (ตอบ P'Aim "รวม setting button ด้วย") · เข้า editor mode เองไม่ได้ (login/song) → เช็ก practice/sheet dock (feature ตรงกัน)
   - ✅ **P'Aim เคาะ R4 final: "คงปุ่มสำคัญถอนไม่ได้ + ทุกปุ่มเลือกตำแหน่งได้"** = ⚙/grip ▲▼ ได้/ถอนไม่ได้ (คงไว้) · bar buttons ▲▼ · (inSetting ปักก่อนถึง ▲▼ = นุแอนซ์)
-  - ▶ **tester เช็กเจาะจง editor dock** (ทุกปุ่ม ▲▼ · ⚙/grip ถอนไม่ได้) → ผ่าน → **P'Aim ลอง tactile → deploy (ประสาน pk-PM 2-host)**
+  - ▶ **tester เช็กเจาะจง editor dock** (ทุกปุ่ม ▲▼ · ⚙/grip ถอนไม่ได้) — P'Aim ยืนยันจากรูป editor ⚙ ครบ (ย้อน/ทำซ้ำ/ฟังท่อน/เสียงดนตรี/ตั้งค่า/ฟังทั้งเพลง/ดาวน์โหลด · ▲▼+📌)
+  - 🆕 **P'Aim ขอ: ⚙ แบ่งเป็นส่วนตาม horizontal row ของ dock** (▲▼ เห็นชัดว่าปุ่มไปส่วนไหน) → **จ่ายสาย Design (SA+UX รวม · `local_284b3dbe`) ออกแบบ** (map panelItems→sections: keypad/row1/row2/pinned + header) → P'Aim รีวิว → dev implement (DockKey.vue) · design-first
+  - ▶ **P'Aim ลอง tactile → deploy (ประสาน pk-PM 2-host)** — หลัง ⚙ sections ลงตัว
 
 ## 🎵 เฟอร์มาต้า (สาย 2 · คู่ขนาน · P'Aim อนุมัติเริ่ม 18 ก.ค.)
 - brief พร้อม `docs/us/fermata-hold.md` (ปัญหา 4 · ต้นเหตุ `midi.js` 1.75x คงที่ · บท Gemini · meeting-room)
