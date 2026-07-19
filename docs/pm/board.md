@@ -1,6 +1,6 @@
 # PM board — pleng (ไม้ต่อ · refreshed 2026-07-18 ค่ำ · หลัง ROLLBACK → live รอบ 30)
 
-> 🤝 **HANDOFF (18 ก.ค. ค่ำ · P'Aim ขอส่งมอบ): อ่าน `docs/pm/HANDOFF-2026-07-18.md` ก่อน** — สรุปครบจบในตัว (live=รอบ30 · git/DB state · sessions · บทเรียน · เฟอร์มาต้า→Gemini · งานค้าง)
+> 🤝🤝 **HANDOFF → pl pm ใหม่ (18 ก.ค. ค่ำ · P'Aim สั่ง): อ่าน `docs/pm/HANDOFF-pm28.md` ก่อน** — 🔴 **โครงทีมใหม่: 1 session/feature = full-stack (SA+UX+UI+dev)** · live=รอบ30 · dock/⚙ เกือบจบ (รอ P'Aim ลอง+พระคำ 2-host) · fermata design เสร็จ(รอ host-move) · git/DB/sessions/บทเรียน ครบ · (เก่า `HANDOFF-2026-07-18.md`)
 
 ## 🟢🔴 IN FLIGHT (pm28 · 18 ก.ค. ค่ำ) — live=รอบ30 · 🆕 dock-resize-desktop จ่าย dev แล้ว (P'Aim ให้โอกาสใหม่ · งานเดียวชัดๆ)
 
