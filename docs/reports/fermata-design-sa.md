@@ -6,16 +6,16 @@
 
 ---
 
-## 0 · สรุป — ฟันธง data model (SA) + แยกส่วนที่ต้อง Gemini
+## 0 · สรุป — ฟันธง data model + correctness (SA อ่านมาตรฐานเอง · ไม่ปรึกษา G)
 
 | | |
 |---|---|
-| **เก็บค่า hold เป็นอะไร** | ✅ **จำนวนบีตสัมบูรณ์ที่ "เพิ่ม" (absolute added beats)** — ไม่ใช่ตัวคูณ ไม่ใช่ formula สด (SA ฟันธง · §3) |
-| **เก็บที่ไหน** | ✅ **ฟิลด์ `holds` แยกบน segment (key = index โน้ตในเซกเมนต์)** — **ไม่ยัดใน note string** (string เก็บสัญลักษณ์ `^` เป็น jianpu SSOT · §3) |
-| **playback** | ✅ note ดัง = baseBeats + hold (แทน ×1.75) · **อยู่นอก bar-math** (ห้องยังนับ 4 บีตเท่าเดิม = ที่แก้ "ห้องถัดไปหลุด") |
-| **sheet ซ่อนตัวเลข** | ✅ **ฟรีโดยดีไซน์** — เลขอยู่นอก string · sheet เรนเดอร์ `^` เป็นสัญลักษณ์อยู่แล้ว ไม่เห็นเลข |
-| **auto-suggest "เติมจนจบห้อง"** | 🟡 **ต้อง Gemini ยืนยันหลักดนตรี** (§5-6) · SA ทำได้แต่ correctness = ดนตรี |
-| **UI ตั้งค่า hold** | → **UX** (4 แนวทาง · §7) · SA ยืนยัน feasible ทุกแบบ (แค่ set ตัวเลข) |
+| **เก็บค่า hold เป็นอะไร** | ✅ **จำนวนบีตสัมบูรณ์ที่โน้ตดัง (absolute) — ไม่ใช่ formula สด** · แก้ได้ต่อโน้ต (ตรง MuseScore "Time stretch") (§3) |
+| **เก็บที่ไหน** | ✅ **ฟิลด์ `holds` แยกบน segment (key = index โน้ต)** — **ไม่ยัดใน note string** (string = สัญลักษณ์ `^` jianpu SSOT · §3) |
+| **playback** | ✅ note ดัง = hold beats (แทน ×1.75) · **อยู่นอก bar-math** (ห้องยังนับตามที่เขียน = ที่แก้ "ห้องถัดไปหลุด") |
+| **sheet ซ่อนตัวเลข** | ✅ **ฟรีโดยดีไซน์** + **ยืนยันถูกหลักสากล** (Gould "Behind Bars" · §6) |
+| **default auto-suggest** | ✅ **"เติมจนจบห้องของโน้ตนั้น"** — SA วินิจฉัยว่าถูกสำหรับ pleng (ลงดาวน์บีตถัดไป = แก้ "หลุด") · fallback ~2× ถ้าไม่ใช่โน้ตท้ายห้อง (§5-6) |
+| **UI ตั้งค่า hold** | → **UX** (4 แนวทาง · §7) · SA ยืนยัน feasible ทุกแบบ |
 
 ---
 
@@ -42,7 +42,8 @@ stanza line = array ของ `{ type:'segment', note:'5^ 3 2', chord }` · **`n
 - ✅ **intuitive:** "ลากเพิ่มอีก N บีต" เข้าใจง่ายกว่า "×1.75"
 - ✅ **honest-to-sheet:** ค่าที่เก็บ = ค่าที่เล่นเป๊ะ (ไม่มี formula/mask ซ่อน) · MP3==live (deterministic ไม่สุ่ม)
 - ✅ **editable:** ผู้ใช้บวก/ลบได้ตรง ๆ
-- ❌ ตัวคูณ (ของเดิม) = ตัวที่ unintuitive + ผิด · ❌ formula สด "เติมจนจบห้อง" ตอน play = แก้เองไม่ได้/ไม่โชว์ค่า → **materialize เป็นเลขจริงตอนใส่** (auto-suggest คำนวณครั้งเดียว → เก็บเป็นเลข → แก้ได้)
+- ⚖️ **absolute vs ตัวคูณ (MuseScore ใช้ตัวคูณ "Time stretch"):** มาตรฐานเก็บเป็น**ตัวคูณ** (§6) · แต่ **pleng เลือก absolute beats** เพราะ (1) default = "เติมจนจบห้อง" เป็นค่า absolute โดยธรรมชาติ (2) ผู้ใช้ไม่เป็นดนตรี "ค้าง N บีต" ง่ายกว่า "×2" (3) honest-to-sheet เท่ากัน — **ทั้งคู่แทนการค้างเสียงเดียวกัน · absolute = เหมาะ pleng** (trade-off: ถ้าเปลี่ยนค่าโน้ตฐานทีหลัง hold ไม่ auto-scale — เฟอร์มาต้าแก้ไม่บ่อย · re-tune ได้)
+- ❌ **formula สด** "เติมจนจบห้อง" ตอน play = แก้เองไม่ได้/ไม่โชว์ค่า → **materialize เป็นเลขจริงตอนใส่** (คำนวณครั้งเดียว → เก็บเลข → แก้ได้)
 
 ### 3.2 เก็บที่ **`holds` แยกบน segment · key = index โน้ตในเซกเมนต์** (ไม่ยัดใน string)
 ```jsonc
@@ -73,23 +74,29 @@ stanza line = array ของ `{ type:'segment', note:'5^ 3 2', chord }` · **`n
 
 ---
 
-## 5 · auto-suggest "เติมจนจบห้อง" (SA เสนอ · Gemini ยืนยันหลักดนตรี)
+## 5 · auto-suggest default (SA วินิจฉัยเอง)
 
-**ข้อเสนอ SA:** ตอนใส่ `^` → คำนวณ hold ให้ **โน้ต(+hold) ยืดจนถึงบีตที่ห้องคาดหวัง** (`expectedBeats(bar) − beatsBefore − baseBeats` ของโน้ตนั้น) = "เติมช่องว่างที่เหลือในห้อง" → เก็บเป็นเลข
-- ✅ ทำได้ (มี `expectedBeats`/`beatCount` แล้ว)
-- 🟡 **แต่ "ถูกหลักดนตรีไหม" = Gemini** — เฟอร์มาต้ามาตรฐานไม่ผูกกับ "จบห้อง" เสมอ (มันคือ "ค้างตามใจคนเล่น") · อาจมี default ที่ดีกว่า (เช่น ×คงที่ · หรือ +ครึ่งของค่าโน้ต) → ถาม Gemini ก่อนล็อก heuristic
+**default = "เติมจนจบห้องของโน้ตเฟอร์มาต้า"** (`expectedBeats(bar) − beatsBefore` = โน้ตดังจนสุดห้อง) → เก็บเป็นเลข (materialize · แก้ได้)
+- **ทำไมถูกสำหรับ pleng (ไม่ใช่กฎเฟอร์มาต้าทั่วไป แต่ถูกในบริบทนี้):** ปัญหาจริง = "ห้องถัดไปหลุด/น่าทิ่ม" · pleng เล่นโน้ต**เรียงตามเวลาสะสม** → ถ้า hold = เติมจนจบห้อง **โน้ตถัดไปเริ่มที่ดาวน์บีตห้องถัดไปพอดี** = กลุ่มร้องกลับเข้าพร้อมกัน (congregational restart) = **แก้อาการตรงจุด** โดยไม่ต้องแตะ scheduler
+- **🔴 edge case (SA flag):** ถ้าเฟอร์มาต้า **ไม่ใช่โน้ตท้ายห้อง** → "เติมจนจบห้อง" จะกลืนโน้ตที่เหลือในห้อง → **fallback = ~2× ค่าโน้ต** (มาตรฐาน "twice as long" · §6) หรือเติมถึงโน้ตถัดไป · dev ต้องเช็ก position ก่อนใช้ heuristic
+- มี `expectedBeats`/`beatCount` แล้ว → ทำได้
 
 ---
 
-## 6 · คำถาม Gemini (correctness ดนตรี — แยกจากที่ SA ฟันธงเอง)
+## 6 · ⭐ SA correctness ruling — อ่านมาตรฐานเอง (ไม่ outsource · `feedback_never_ask_user_what_is_correct`)
 
-**SA ฟันธงเองแล้ว (ไม่ต้องถาม):** ค่า=บีตสัมบูรณ์ · เก็บ `holds` แยก string · playback นอก bar-math · sheet ซ่อนเลขโดยดีไซน์ · feasibility
+**เปิดมาตรฐานจริง 2026-07-18 · ทุกข้อมีอ้างอิง:**
 
-**ต้องถาม Gemini (G-URL เฟอร์มาต้า `.../e492655ece30f5d2` · P'Aim เปิด Chromium+login เอง):**
-1. MuseScore/Sibelius/Finale จัดการ **ระยะเวลาเล่นเฟอร์มาต้า** อย่างไร — ตัวคูณคงที่ หรือ **แก้ได้ต่อโน้ต**? (ยืนยันทิศ "ค่าแก้ได้")
-2. **auto-suggest ที่ถูกหลักดนตรี** — "เติมจนจบห้อง" ใช่ไหม หรือมี default มาตรฐานกว่า (×คงที่ / เท่าตัว / ตามบริบท)? สำหรับผู้ใช้ **ไม่เป็นดนตรี**
-3. ยืนยัน: **แผ่นพิมพ์โชว์แค่สัญลักษณ์ 𝄐 ไม่โชว้ตัวเลข** = หลักสากล engraving?
-4. (เสริม) ค่า hold ควร **เป็นจังหวะกลม (ครึ่ง/เต็มบีต)** หรือ **อิสระ** เพื่อความเป็นธรรมชาติ?
+1. **โปรแกรมมาตรฐานจัดการ duration เฟอร์มาต้ายังไง → แก้ได้ต่อโน้ต (ยืนยันทิศ):**
+   **MuseScore 4** มี property **"Time stretch" แก้ได้ต่อเฟอร์มาต้า** (Properties → Playback) · **default = 2.0× (200%)** (MS3 เดิม = 100% · เปลี่ยนใน MS4) · หลายเครื่องมือพร้อมกัน = เอา**ยาวสุด** → **"ค่าแก้ได้" = ถูกตามมาตรฐาน · ของเดิม pleng (1.75 ตายตัว แก้ไม่ได้) = ผิด** [MuseScore handbook/forum]
+
+2. **default ที่ถูกหลักดนตรี:** เฟอร์มาต้า = **"ค้างตามใจคนเล่น/วาทยกร · แต่ ~2 เท่าเป็นค่าที่พบบ่อย"** (discretionary · no fixed value) [Wikipedia · Ultimate Music Theory] → **~2× = default มาตรฐานสากล** · **แต่ pleng เลือก "เติมจนจบห้อง" เป็น default เพราะบริบทเฉพาะ** (sequential playback + กลุ่มร้องกลับเข้าดาวน์บีต · §5) — ทั้งคู่ยอมรับได้ · SA แนะ: **default = เติมจนจบห้อง (โน้ตท้ายห้อง) · ~2× (โน้ตกลางห้อง) · เสมอแก้ได้**
+
+3. **แผ่นพิมพ์โชว์สัญลักษณ์ล้วน ไม่มีตัวเลข = ถูกหลักสากล (ยืนยัน):** duration ของเฟอร์มาต้า**เป็นดุลพินิจคนเล่น ไม่เขียนเป็นตัวเลขบนสกอร์** · engraving (Gould **"Behind Bars"**) กำหนดแค่ **บีตที่ pause ตกต้องตรงกันทุกแนว** ไม่ใช่เขียนค่าเวลา → **sheet โชว์ 𝄐 อย่างเดียว = ถูก** (ตัวเลขในหน้าแก้ไข = เครื่องมือ ไม่ใช่ notation) [Gould "Behind Bars" · Wikipedia]
+
+4. **ค่า hold ควรเป็นจังหวะกลม:** default "เติมจนจบห้อง" ให้ค่าเป็นเศษบีตลงตัวอยู่แล้ว · แนะ **สเต็ป 0.5 บีต** (ครึ่ง/เต็ม) — เป็นธรรมชาติ + UI ง่าย + ตรงกับ bar-fill math (ไม่ต้องอิสระ)
+
+**Sources:** [MuseScore — Fermata time stretch](https://musescore.org/en/node/276202) · [MuseScore — Default time stretch 200% MS4](https://github.com/musescore/MuseScore/issues/15569) · [Wikipedia — Fermata](https://en.wikipedia.org/wiki/Fermata) · [Ultimate Music Theory — Fermata](https://ultimatemusictheory.com/articulation-fermata/) · Gould, Elaine — *Behind Bars* (engraving reference · pause = symbol placement, no written duration)
 
 ---
 
@@ -103,7 +110,8 @@ SA ยืนยัน **ทั้ง 4 แนวทาง feasible** (ทุก�
 ---
 
 ## 8 · ⛔ ที่ยังไม่ทำ
-- ไม่เขียนโค้ด/ไม่ merge · รอ P'Aim เคาะ design (SA data-model + UX UI + Gemini correctness) 1 ครั้ง → dev build (branch จากรอบ 30 `2f4177e`)
+- ไม่เขียนโค้ด/ไม่ merge · รอ P'Aim เคาะ design (SA data-model + correctness ใบนี้ + UX UI) 1 ครั้ง → dev build (branch จากรอบ 30 `2f4177e`)
+- **ไม่ปรึกษา Gemini** (P'Aim สั่ง · SA อ่านมาตรฐานเองแล้ว §6)
 
 ---
 
