@@ -2,7 +2,10 @@
 
 > 🤝 **HANDOFF (18 ก.ค. ค่ำ · P'Aim ขอส่งมอบ): อ่าน `docs/pm/HANDOFF-2026-07-18.md` ก่อน** — สรุปครบจบในตัว (live=รอบ30 · git/DB state · sessions · บทเรียน · เฟอร์มาต้า→Gemini · งานค้าง)
 
-## 🟢🔴 IN FLIGHT (pm28 · 18 ก.ค. ค่ำ) — ROLLBACK แล้ว: live = รอบ 30 · redesign editor รอเริ่มใหม่
+## 🟢🔴 IN FLIGHT (pm28 · 18 ก.ค. ค่ำ) — live=รอบ30 · 🆕 dock-resize-desktop จ่าย dev แล้ว (P'Aim ให้โอกาสใหม่ · งานเดียวชัดๆ)
+
+**🆕 งานสด (P'Aim อนุมัติสเปกเต็ม · จ่าย dev `local_e20ebbbd` แล้ว):** สเปก `docs/us/dock-resize-desktop.md` — DockKey รอบ 30 → **desktop ลากขอบปรับขนาดกล่องอิสระ 2 แกน · ปุ่มสเกลอัตโนมัติ+reflow · floor 24px WCAG2.2AA · min-size+แจ้งเตือน(ลดปุ่มก่อน) · ⚙ เดิมต่อยอดถอน/จัดลำดับทุกปุ่ม · persist · mobile ≤760px ไม่แตะเลย** · branch จาก `2f4177e` · **🔴 ห้าม gate ด้วย @media(hover)/pointer-type (Surface P'Aim=false หมด) · Pointer Events ล้วน · โซนโปร่งใส** · ⛔ dev ไม่ relay P'Aim/ไม่ merge/ไม่ live → **PM verify บน claude-in-chrome เครื่อง P'Aim ก่อน → ส่ง P'Aim ครั้งเดียว** · ▶ pm28 รอ dev เสร็จ → verify → ส่ง
+
 
 **🧨 วันนี้ = วันหนักสุด (P'Aim):** resize saga วน 3 รอบ (root = Surface P'Aim `@media(hover)`=false → `.dk-resize` display:none ซ่อนสนิท · [[feedback_verify_hover_on_real_browser]]) + แถบลอย contextual toolbox บังคอร์ด + สไลเดอร์กระพริบ → **P'Aim สั่ง "เอาเวอร์ชันนิ่งล่าสุดขึ้น ทิ้งของวันนี้ทั้งหมด เริ่มใหม่"**
 
