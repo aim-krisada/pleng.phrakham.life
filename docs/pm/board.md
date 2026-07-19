@@ -30,6 +30,7 @@
     - ✅ **Design fold 3 ข้อแรกเสร็จ (`5260aa9`):** §A `panelIcon` fallback (grip/⚙/download ไอคอนครบ · panel-only) · §B **การ์ด section** (พื้น/กรอบมน + header ตัวหนา+ไอคอน + spacing ≥12 · WCAG contrast) แทนเส้นบาง · §C **title bar ลากได้** (reuse grip-drag→`panelPos`/`clampPanel` · ✕ปิด+↺รีเซ็ต · keyboard-move) · mockup อัป
     - ✅ **Design fold ครบ 4 (`7430e39`)** → PM เอา mockup รวมให้ P'Aim รีวิว
     - 🔴 **P'Aim แก้กฎ fixed/movable (รีวิว mockup):** **ยกเว้นแค่ 2 (grip+⚙) = ยึดที่ · ที่เหลือทุกปุ่มย้าย+ถอนได้ (พินแดงทุกกลุ่ม)** → **ผิดที่ต้องแก้: soundctl/export (slot) ตอนนี้ล็อกถอนไม่ได้ด้วย → ต้องปลดล็อก (เหลือ NEVER_MANAGE แค่ grip+gear)** · ✅ **P'Aim เคาะ: "ถอดได้ทุกอย่าง ยกเว้น grip กับ setting"** → **NEVER_MANAGE = grip+gear เท่านั้น** · keypad band = ถอด/ย้ายได้ (unit · มีพินแดง) · slot removable → Design อัปให้ตรง (`3e517ad`) → **P'Aim อนุมัติ "ให้ dev สร้างเลย"** → ✅ **จ่าย dev BUILD แล้ว (`local_e20ebbbd` · branch dock-resize):** §A panelIcon · §B card sections · §C popup ลากได้ · §D grip+⚙ ยึด · NEVER_MANAGE=grip/gear เท่านั้น · keypad+slot removable · 🔴 2-host verify island · mobile diff0 · ห้าม regress → tester → P'Aim
+    - ✅ **Design spec final ครบไม่มี pending (`5cc96ae`):** keypad fold แล้ว · `NEVER_MANAGE=['grip','gear']` · ทุกอย่างอื่น 📌+▲▼ · keypad band=unit ถอด/ย้าย · dev contract ครบ → dev อ่านสเปกนี้ build (P'Aim อนุมัติแล้ว "สร้างเลย" · ไม่ต้อง re-review)
   - ▶ **P'Aim ลอง tactile → deploy (ประสาน pk-PM 2-host)** — หลัง ⚙ sections ลงตัว
 
 ## 🎵 เฟอร์มาต้า (สาย 2 · คู่ขนาน · P'Aim อนุมัติเริ่ม 18 ก.ค.)
