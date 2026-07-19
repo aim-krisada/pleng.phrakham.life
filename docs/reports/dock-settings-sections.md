@@ -12,7 +12,7 @@
 **ฟันธง:** **จัด `panelItems` เป็น section ตาม "แถวจริง" ของ dock (บนลงล่าง = mirror จอ)** พร้อม **header + เส้นแบ่ง + แผนภาพ dock ย่อ** → ลิสต์กลายเป็น "แผนที่ของแถบจริง" · **▲▼ = เรียงภายในแถวของตัวเอง** (ปุ่มไม่ข้ามแถว = ตามโค้ดจริง `barRowOf`) → หายงงทันที
 **ไม่แตะ logic reorder/pin** — grouping + header ล้วน (presentational) · dev แค่ group ตาม `sectionOf(it)` + render header · **low-risk**
 
-**อัปเดต (P'Aim รีวิว 18 ก.ค. · fold 3 ข้อ):** §A **ไอคอนครบทุกแถว** (grip/⚙/ดาวน์โหลด ตอนนี้ช่องไอคอนว่าง) · §B **section แยกให้เด่น** (P'Aim: "not obvious" — เส้นบางไม่พอ → การ์ด/พื้นหลัง) · §C **⚙ panel ลากย้ายได้** (movable window · reuse grip-drag ของ dock)
+**อัปเดต (P'Aim รีวิว 18 ก.ค. · fold 4 ข้อ):** §A **ไอคอนครบทุกแถว** (grip/⚙/ดาวน์โหลด ตอนนี้ช่องไอคอนว่าง) · §B **section แยกให้เด่น** (P'Aim: "not obvious" — เส้นบางไม่พอ → การ์ด/พื้นหลัง) · §C **⚙ panel ลากย้ายได้** (movable window · reuse grip-drag ของ dock) · §D **grip+⚙ ยึดแถวล่างสุด ซ้าย-ติดกัน ตายตัว** (grip ซ้ายสุด · ⚙ ติดขวา grip · ตัด ▲▼ — ต่างจาก §C: §D = ปุ่มบนแถบ · §C = หน้าต่าง popup)
 
 ---
 
@@ -25,7 +25,7 @@ DockKey เรนเดอร์ **บน→ล่าง:** `keysBands` → pinn
 | **1. แป้นสัญลักษณ์** | `keysBands` (kind `keys` · `NEVER_MANAGE`) | อ่านอย่างเดียว (คงที่ · บนสุด) — โชว์ให้แผนที่ครบ |
 | **2. ปุ่มปักหมุด** | `isPinned(id)` (pinned rows) | ▲▼ = `movePin` · 📌 = ถอน (→ ลิ้นชัก) |
 | **3. แถวสั่งงาน (แถว 2)** | `place.row===2` & ไม่ `isOff` | ▲▼ = `moveOrder` ในแถว 2 · 📌 ถอน (ถ้า manageable) |
-| **4. แถวหลัก (แถว 1)** | `place.row===1` & ไม่ `isOff` | ▲▼ = `moveOrder` ในแถว 1 · grip/⚙ ย้ายได้ **ถอนไม่ได้** |
+| **4. แถวหลัก (แถว 1 · ล่างสุด)** | `place.row===1` & ไม่ `isOff` | **grip(ซ้ายสุด)+⚙(ติดขวา grip) = ยึดที่ ตายตัว ไม่มี ▲▼/📌 (§D)** · ที่เหลือ (ย้อน/ทำซ้ำ/ฟัง) ▲▼=`moveOrder` |
 | **5. ไม่อยู่บนแถบ (ลิ้นชัก)** | `isOff(id)` หรือ `pinnable` ที่ยังไม่ปัก | 📌 = เพิ่มขึ้นแถบ · ไม่มี ▲▼ (ยังไม่มีตำแหน่ง) |
 
 ## 2 · `sectionOf(it)` (dev เขียน computed · Design กำหนด mapping)
@@ -54,7 +54,7 @@ const SECTIONS = ['keypad','pinned','row2','row1','drawer'] // บน→ล่�
 ║  │ ▔▔▔ แป้นสัญลักษณ์       │                  ║
 ║  │ ▭▭  ปักหมุด            │                  ║
 ║  │ ▭▭▭ สั่งงาน             │                  ║
-║  │ ▭▭▭▭ หลัก (grip…⚙)     │                  ║
+║  │ ▭▭▭▭ หลัก (grip·⚙ …)   │                  ║
 ║  └───────────────────────┘                  ║
 ║ ╭───────────────────────────────────────╮  ║  ← §B: การ์ด section (common-region)
 ║ │ ▩ แป้นสัญลักษณ์  · บนสุด · คงที่         │  ║     header เด่น (ตัวหนา+ไอคอนหมวด)
@@ -71,11 +71,12 @@ const SECTIONS = ['keypad','pinned','row2','row1','drawer'] // บน→ล่�
 ║ ╰───────────────────────────────────────╯  ║
 ║ ╭───────────────────────────────────────╮  ║
 ║ │ ▤ แถวหลัก (แถว 1) · ล่างสุด ติดขอบจอ    │  ║
-║ │  ⠿ ย้าย/ย่อ            [▲][▼]     🔒  │  ║  ← §A: grip ได้ ⠿ (เดิมว่าง)
+║ │  ⠿ ย้าย/ย่อ                 🔒 ยึดที่ │  ║  ← §D: grip ซ้ายสุด · ตายตัว (ไม่มี ▲▼)
+║ │  ⚙ ตั้งค่า                   🔒 ยึดที่ │  ║  ← §D: ⚙ ติดขวา grip · ตายตัว · §A ไอคอน settings
+║ │  ┈┈┈┈ ↓ ปุ่มด้านล่างเลื่อนได้ ↓ ┈┈┈┈  │  ║
 ║ │  ↩ ย้อน               [▲][▼]     📌● │  ║
 ║ │  ↪ ทำซ้ำ              [▲][▼]     📌● │  ║
 ║ │  ▶ ฟังท่อน            [▲][▼]     📌● │  ║
-║ │  ⚙ ตั้งค่า             [▲][▼]     🔒  │  ║  ← §A: gear ได้ ⚙ (เดิมว่าง · "setting icon")
 ║ ╰───────────────────────────────────────╯  ║
 ║ ╭───────────────────────────────────────╮  ║
 ║ │ ➕ ยังไม่อยู่บนแถบ · แตะ 📌 เพิ่ม        │  ║
@@ -96,6 +97,7 @@ const SECTIONS = ['keypad','pinned','row2','row1','drawer'] // บน→ล่�
 - **ทำไมย้ายข้ามแถวไม่ได้ = ถูก:** แต่ละแถวมีบทบาท (หลัก/สั่งงาน) · การ section ทำให้ **ข้อจำกัดนี้มองเห็นได้** แทนที่จะซ่อนในลิสต์แบน → นี่คือคำตอบตรงปัญหา
 - **ย้าย "ออก/เข้า" แถบ = 📌** (row/pinned ↔ ลิ้นชัก) — ปุ่มเลื่อน section อัตโนมัติเมื่อกด 📌 (เห็นมันวิ่งไปอยู่หมวดใหม่ = feedback)
 - **ปลายแถว** = ▲/▼ disabled (มีแล้ว `reIndex===0`/`reLen-1`) — ไม่หลุด section
+- **grip/⚙ = ไม่มี ▲▼ เลย** (§D · ยึดที่) — ปุ่มที่เลื่อนได้เริ่มหลัง ⚙ เสมอ
 
 ## 5 · a11y (WCAG · บังคับ · อ้างมาตรฐานเอง)
 
@@ -138,6 +140,24 @@ const panelIcon = (it) => it.icon || ICON_FALLBACK[it.id] || KIND_FALLBACK[it.ki
 - **mobile คงเดิม** (P'Aim สั่ง) — จอเล็กลากยาก · panel = anchored/sheet เหมือนเดิม · drag = desktop only (เช็ก `!mobile`)
 - **⚠️ ตอนลาก:** ปิด popover ซ้อน/รักษา openId='setting' · `clampPops` เดิมจับ .dk-pop อยู่แล้ว — ประสานกับ panelPos
 
+## 5D · grip + ⚙ ยึดแถวล่างสุด ซ้าย-ติดกัน ตายตัว (P'Aim ข้อ 4)
+
+**P'Aim:** grip = ซ้ายสุด · ⚙ = ติดขวา grip ทันที · **แถวล่างสุดเสมอ · ย้ายไม่ได้** ("grip left, setting next to it always") — ต่างจาก §C (§C = หน้าต่าง popup ลากได้ · §D = ปุ่ม grip/⚙ **บนแถบ** ตายตัว)
+
+**verify + เปลี่ยนอะไร (dock layout · `rankOf`/anchor):**
+| ปุ่ม | เดิม | เป็น (§D) |
+|---|---|---|
+| **grip** | `anchor:'left'` (rank 0) | คงเดิม — ซ้ายสุด · **+ ตัด ▲▼** |
+| **⚙ setting** | `anchor:'right'` (rank 1000 = ขวาสุด) | **`anchor:'rightOf:grip'`** (rank ~0.01 = ติดขวา grip) · **+ ตัด ▲▼** |
+| อื่น (ย้อน/ทำซ้ำ/ฟัง/soundctl) | reorder ได้ | คงเดิม — เริ่ม **หลัง ⚙** |
+
+- **row1 ใหม่:** `[⠿ grip][⚙][↩][↪][▶][🔊]…` (grip+⚙ ยึดหัวแถว · ที่เหลือเลื่อนได้ต่อท้าย)
+- **ตัด reorder ของ grip/⚙:** `canReorder` เดิมรวม grip/⚙ → **เพิ่มกันออก:** `canReorder = !mobile && barRowOf(it) && !['grip','gear'].includes(it.kind)` · และ `applyOrder`/`rankOf` ต้อง **ล็อก grip=ตำแหน่ง 0 · ⚙=1 เสมอ** (barOrder ของผู้ใช้เรียงได้เฉพาะ index ≥2) — dev คุม
+- **row1 = "bottommost"** ยืนยัน: rows เรนเดอร์ `keys→pinned→row2→row1` = row1 ล่างสุดติดขอบจอ (ตรงที่ P'Aim ต้องการ) — ไม่ต้องแตะลำดับแถว แค่ล็อก grip/⚙ ในแถว
+- **สะท้อนใน ⚙ panel (§1-3):** grip/⚙ อยู่ **บนสุดของ section แถวหลัก** · แสดง **🔒 "ยึดที่"** · ไม่มี ▲▼ ไม่มี 📌 (label/aria "ล็อกบนแถบ ซ้ายสุด/ถัดจากซ้าย")
+- **เหตุผล (world-class ยังโอเค):** จับ **2 ปุ่มควบคุม (chrome: ย้าย+ตั้งค่า) รวมไว้มุมเดียว ตายตัว** = ตำแหน่งเดาได้เสมอ (predictable · muscle-memory) · ปุ่ม "ทำงาน" (action) ไล่จากซ้ายไปขวา — coherent (ต่าง toolbar-end convention แต่ P'Aim ต้องการ grouping chrome ซ้าย = ยอมรับได้ · consistency > convention ที่นี่)
+- **2-host:** พระคำ island ก็ได้ grip/⚙ ยึดเหมือนกัน (anchor เปลี่ยนใน DockKey = ทั้ง 2 host) — ยืนยันตอน build ว่า island ไม่พัง (island เล็ก · grip/⚙ ยังจำเป็น)
+
 ## 6 · มาตรฐานอ้างอิง (อ่านเอง · ไม่ Gemini)
 
 - **grouped settings list + section header/divider = แพตเทิร์นมาตรฐาน:** [Apple HIG — Lists (grouped/inset · Settings)](https://developer.apple.com/design/human-interface-guidelines/lists-and-tables) · [Material — List subheaders & dividers](https://m3.material.io/components/lists/guidelines) · Gestalt **common region + proximity** (เส้น/กรอบ = จัดกลุ่มการรับรู้)
@@ -150,9 +170,9 @@ const panelIcon = (it) => it.icon || ICON_FALLBACK[it.id] || KIND_FALLBACK[it.ki
 
 ## 7 · dev contract (§3.0 · Design ส่ง spec · dev = DockKey lane)
 
-- **dev (logic):** `sectionOf(it)` + `sections` computed (§2) + `panelIcon(it)` fallback (§A) + live-region ผลย้าย + **movable panel** (§C: `panelPos` + drag handlers บน title bar + `clampPanel` reuse `clampDock` + keyboard-move) · **ไม่แตะ** `moveOrder`/`movePin`/`togglePin`/`toggleOff`
-- **Design (presentation):** template — title bar (drag handle+✕+↺) · การ์ด section + header เด่น (§B) · แผนภาพ dock ย่อ · ไอคอนทุกแถว · 🔒 state · CSS (`.dk-section`/`.dk-shead`/`.dk-diagram`/`.dk-titlebar`) · hint copy · aria strings · ส่ง spec นี้ (ไม่แก้ไฟล์พร้อม dev)
-- **3 ข้อ P'Aim:** §A ไอคอนครบ (fallback map) · §B การ์ด section (common-region · not-obvious→obvious) · §C ลากย้ายได้ (reuse grip-drag)
+- **dev (logic):** `sectionOf(it)` + `sections` computed (§2) + `panelIcon(it)` fallback (§A) + live-region ผลย้าย + **movable panel** (§C: `panelPos` + drag บน title bar + `clampPanel` reuse `clampDock` + keyboard-move) + **§D dock layout:** ⚙ anchor `right`→`rightOf:grip` · `canReorder` กัน grip/gear · `applyOrder` ล็อก grip=0/⚙=1 · **ไม่แตะ** `movePin`/`togglePin`/`toggleOff` + `moveOrder` (เดิมทำงานต่อ เฉพาะกัน grip/⚙)
+- **Design (presentation):** template — title bar (drag handle+✕+↺) · การ์ด section + header เด่น (§B) · แผนภาพ dock ย่อ · ไอคอนทุกแถว (§A) · 🔒"ยึดที่" grip/⚙ (§D) · CSS (`.dk-section`/`.dk-shead`/`.dk-diagram`/`.dk-titlebar`/`.dk-locked`) · hint copy · aria strings · ส่ง spec นี้ (ไม่แก้ไฟล์พร้อม dev)
+- **4 ข้อ P'Aim:** §A ไอคอนครบ · §B การ์ด section (obvious) · §C popup ลากได้ · **§D grip+⚙ ยึดล่างซ้าย ตายตัว**
 - **mobile:** ปัจจุบัน panel = `settingItems` ล้วน (ไม่ reorder) → **ใส่ header กลุ่มได้ (อ่านง่ายขึ้น) แต่ปัญหา ▲▼ = desktop** · ขอบเขตนี้เน้น desktop (ที่ reorder อยู่) · mobile คงพฤติกรรมเดิม
 - **2-host (พระคำ):** grouping = presentational · ไม่กระทบ island (พระคำ dock เล็ก · ไม่เปิด reorder) — ยืนยันตอน dev build
 
