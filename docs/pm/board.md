@@ -22,7 +22,8 @@
   - ✅ **tester re-gate `febda9a` PASS** (flicker stable_after_release · พินแดงไม่มี ✕/＋ · ไม่ regress · 710 tests)
   - 🔴 **P'Aim ลอง preview febda9a → พินแดง+กระพริบ OK ✅ · เจอ 2 ปรับ (รอบ 3):** (1) **⚙ ต้องแสดงทุกปุ่ม** + จัด/เข้า-ออกได้ทุกปุ่ม (ตอนนี้แค่ subset · gear/grip ย้ายได้ถอนไม่ได้ safety) (2) **hug-content สูง — ห้ามเหลือที่ว่างเปล่า** ("ปรับสูงที่ว่างเต็มควรแคบได้") · จ่าย dev แล้ว · สเปก §รอบ3+FA
   - ✅ **dev รอบ 3 เสร็จ (`1930fa4`):** (1) ⚙ = ทุกปุ่ม (9 แถว) · ▲▼ reorder row1+row2 · **grip/⚙ ย้ายได้ถอนไม่ได้** (▲▼ ไม่มี 📌) · อื่น 📌+▲▼ · keypad คงชุด (2) **hug-content: ลบ min-height → ลากลง 600 box สูง 250 (ชิด content · gap 11px padding)** · ไม่ regress (พินแดง/ไม่กระพริบ/mobile diff0/2-host/710 tests)
-  - ▶ **tester functional re-gate `1930fa4`** dispatched (⚙ ทุกปุ่ม real-click · grip/⚙ ถอนไม่ได้ · hug-content) → pass → **P'Aim ลอง preview อีก (tactile + ของใหม่)**
+  - ✅✅ **tester re-gate 3 PASS (`b9af0cb`):** ⚙ 9 แถว real-click reorder+persist · grip/⚙/slot ▲▼ ไม่มี 📌 (safety) · **hug-content: ลากลง+400 box 252 (content 230 · gap 22 padding) ไม่ค้าง** · ไม่ regress (พินแดง/ไม่กระพริบ/floor44/mobile diff0/2-host/710 tests)
+  - 🎯 **ส่ง P'Aim ลอง preview febda9a→1930fa4 (127.0.0.1:5342):** ทุกอย่างที่ P'Aim เจอทุกรอบ = แก้+verified หมด · เหลือ tactile drag = P'Aim ยืนยัน → OK → deploy (ประสาน pk-PM 2-host ก่อน)
 
 ## 🎵 เฟอร์มาต้า (สาย 2 · คู่ขนาน · P'Aim อนุมัติเริ่ม 18 ก.ค.)
 - brief พร้อม `docs/us/fermata-hold.md` (ปัญหา 4 · ต้นเหตุ `midi.js` 1.75x คงที่ · บท Gemini · meeting-room)
