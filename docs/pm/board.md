@@ -47,8 +47,10 @@
 - ✅ **CORE SPEC ชัด (P'Aim):** ค่าเดียวปรับได้ · **คุมทั้งเล่น+แผ่นตรงกัน** · เริ่ม=แนะนำ · ปรับ=เก็บใหม่
 - ✅ **SA อัป CORE SPEC + sheet correctness (`ffb845a`):** `holds[i]` แหล่งเดียว (playback+sheet ตรงกัน) · **sheet = สัญลักษณ์ 𝄐 (variant สั้น/ปกติ/ยาว ตามค่า · MusicXML/MuseScore) ไม่วาดโน้ตยาว (พังห้อง) ไม่โชว์เลข** · **ค้าน P'Aim อย่างเคารพว่า "โน้ตยาว" ผิด engraving แต่ intent ได้เต็มด้วย variant** · `SongSheet.vue` อ่าน holds เลือก glyph
 - ✅ **UX UI เสร็จ (`74e051e`):** ฟันธง **ค (ค่าแนะนำ+▲▼ step 0.5) + ง (▶ฟังทันที)** · ไม่เอา ก ลากยืด (มือถือพลาดง่าย+ไม่โชว์ค่า) · default=แนะนำ+persist · 44px
-- 🔴 **host-base issue (UX flag · PM ต้องแก้):** UX วาง UI บน **contextual toolbox = มากับ dock-space รอบ 31 ที่ทิ้งไป (ไม่มีในรอบ 30)** → **ย้าย host เป็น chip ใต้โน้ต (รอบ 30 มีจริง)** ก่อนประกอบ
-- ▶ **ประกอบ SA+UX (สายเดียวหลังรวม) แก้ host → P'Aim รีวิว 1 ครั้ง → build (base รอบ 30)**
+- 🔴 **host-base issue (UX flag · PM แก้แล้วใน brief):** UX วาง UI บน **contextual toolbox = มากับ dock-space รอบ 31 ที่ทิ้งไป (ไม่มีในรอบ 30)** → **ย้าย host เป็น chip ใต้โน้ต (รอบ 30 มีจริง)** ก่อนประกอบ
+- 🟢 **PM รีวิวบท Gemini (P'Aim ส่งมา 19 ก.ค. `Downloads/การคำนวณค่า-Fermata`):** Gemini เชียร์ default **×2.0 คงที่** → **PM ปฏิเสธ · ยึด bar-fill ของ SA** (×2.0 ไม่การันตีจบหัวห้องถัดไป = อาการเดิมไม่หาย · Gemini ไม่รู้บริบท sequential+congregational restart) · Gemini ยืนยันแค่ "มี default + แก้ได้ = ถูกทาง" ตรงกับเรา
+- ✅ **BUILD brief พร้อม (pl pm29 · `docs/us/fermata-build.md`):** full-stack 1 session · base รอบ 30 `2f4177e` · host=chip ใต้โน้ต (verify attach จริง) · data-model SA + UI UX (ค+ง) · default bar-fill · `--host` · unit→P'Aim preview→tester→gate
+- ▶ **จ่าย full-stack session (1 คนทำครบ SA+UX+UI+dev) — รอ P'Aim เปิด/เลือก session ปลายทาง**
 
 ## 🔄 ORG: SA+UX รวมเป็น "Design" สายเดียว (P'Aim 18 ก.ค. · กลับจากแยก 17 ก.ค.)
 - เหตุ: 2 session = PM ประสาน+ชน base/host คนละมุม (fermata: UX วาง UI บน toolbox ที่ถูกทิ้ง) · รวม = 1 คนถือทั้ง feasibility+UX · roster/SOP §1.1 + memory `pleng-roster-3-seats` อัปแล้ว
@@ -122,7 +124,7 @@ _(ประวัติ HAND-OFF + งานก่อน deploy รอบ 31 ด
 2. **dock-config GATE 1:** P'Aim ลอง mockup https://claude.ai/code/artifact/555c023e-4bdb-46b4-a894-05509fbd559d → เคาะทิศ → UX ทำ DS ส่ง dev · **DockKey แชร์ 2 เว็บจริง (แก้ engine=2 เว็บ · regression พระคำต้อง test 2 host)**
 3. **toolbox (hover/tap contextual) = banked** หลัง dock-config · mockup https://claude.ai/code/artifact/234933b6... · เฟส A/B รอ P'Aim
 
-**🎯 PM session ปัจจุบัน = `pm28` (18 ก.ค.)** — สายอื่น ping/รายงานกลับที่นี่ · ครั้งหน้า `pm29`
+**🎯 PM session ปัจจุบัน = `pm29` (19 ก.ค.)** — สายอื่น ping/รายงานกลับที่นี่ · ครั้งหน้า `pm30`
 
 **🔔 จ่ายแล้ว 18 ก.ค.: B108 ระฆังเตือน → UX นำ + SA feasibility คู่** (send_message ทั้ง 2 สาย · design ก่อน · build ต่อคิวหลัง dock-config · ระวังชนไฟล์ shell/IdentityStrip กับ orientation 2a)
 
