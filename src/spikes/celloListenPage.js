@@ -14,15 +14,27 @@ const SONG_NO = Number(q.get('song') || 1)
 const FULL = q.get('full') != null
 const log = (m) => { $('#log').textContent = m }
 
-// live tuning state — starts at the values P'Aim approved / the measured fixes
-const state = {
-  songNo: SONG_NO, full: FULL,
-  // RESTORED to the "นุ่มมาก" baseline (commit 52b659c) for the regression hunt: vib 22 + even 0.5 =
-  // the state P'Aim last called good. See docs/music/handoff-cello-regression.md.
-  tame: 8, even: 0.5, vib: VIBRATO.maxDepthCents, head: 0.05, headKind: 'mp', shift: 10, arc: 0, trading: 0, balance: 1,
+// DEFAULT tune — P'Aim's own settings (18 ก.ค. tuning session) + the measured fix: arc → 0.
+// arc=10 was proven to be the "แสบ/ลำโพงแตก" driver on solo cello (it pushes the 40-55s climax notes
+// +3 dB in level AND treble; the same G#4 is warm when arc leaves it soft). vibrato measured innocent
+// (vib0 == vib20 at every harsh spot) so it stays where P'Aim had it (20). Reset button restores these.
+const DEFAULTS = {
+  tame: 18, even: 0.10, vib: 20, head: 0, headKind: 'mp', shift: 10, arc: 0, trading: 0, balance: 1,
   chamber: 0, vibGain: 0, vibUnsteady: 0, vibBow: 0, vibMin: VIB_MIN_SEC, fileLevel: 1,
   resonance: false, roundRobin: false,
 }
+const DEFAULT_KEYS = Object.keys(DEFAULTS)
+
+// persist the whole tune across reloads (this page is now P'Aim's cello tuning bench, not a one-shot)
+const LS_KEY = 'cello-tune-v1'
+const loadSaved = () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') } catch { return {} } }
+const saveState = () => { try { localStorage.setItem(LS_KEY, JSON.stringify(state)) } catch {} }
+
+// live tuning state = DEFAULTS ← saved (localStorage) ← URL params (a shared ?song/?full link still wins)
+const state = { songNo: SONG_NO, full: FULL, ...DEFAULTS }
+Object.assign(state, loadSaved())
+if (q.get('song') != null) state.songNo = SONG_NO
+if (q.get('full') != null) state.full = true
 
 // build the cello render config from the live knobs
 const celloCfg = () => ({
@@ -43,7 +55,7 @@ const KNOBS = [
     min: 0, max: 28, step: 1, fmt: (v) => v === 0 ? 'แหบ (เดิม)' : v >= 28 ? 'เท่ากันสุด' : `${v}` },
   { key: 'even',  label: '🎚 ความสม่ำเสมอความดัง — ลดโน้ตที่ดังโดดออกมา', L: 'มีดัง-เบา (เดิม)', R: 'นิ่ง/เรียบ',
     min: 0, max: 1, step: 0.05, fmt: (v) => v === 0 ? 'เดิม' : `${Math.round(v * 100)}%` },
-  { key: 'vib',   label: 'สั่นนิ้ว / vibrato — ความโหยหวน (ปิดอยู่ · ดันขึ้น 5-8 = โหยหวนพอดี · 22 = เทปยืด)',
+  { key: 'vib',   label: 'สั่นนิ้ว / vibrato — ความโหยหวน (5-8 = โหยหวนพอดี · 22 = เทปยืด · วัดแล้วไม่ทำให้แสบ)',
     L: 'ปิด (นิ่ง)', R: 'สั่นลึก', min: 0, max: 22, step: 1, fmt: (v) => v === 0 ? 'ปิด' : `${v}${v >= 18 ? ' (เทปยืด)' : ''}` },
   { key: 'head',  label: 'ความแรงหัวโน้ต — ความเป็นจังหวะ', L: 'ไม่มีหัว (นุ่ม)', R: 'หัวชัด',
     min: 0, max: 0.5, step: 0.01, fmt: (v) => v === 0 ? 'ไม่มีหัว' : pct(v) },
@@ -116,7 +128,7 @@ async function loadSongList() {
     if (s.number === state.songNo) o.selected = true
     sel.appendChild(o)
   }
-  sel.addEventListener('change', (e) => { state.songNo = Number(e.target.value); stopAll(); main() })
+  sel.addEventListener('change', (e) => { state.songNo = Number(e.target.value); saveState(); stopAll(); main() })
 }
 
 const PRESETS = [
@@ -193,24 +205,76 @@ function buildKnobs() {
         <div class="khint">◀ ${k.L} · ${k.R} ▶</div>`
     }
     ;(k.adv ? $('#knobsAdv') : $('#knobs')).appendChild(box)
-    // init + wire
+    // init + wire (every change also persists the tune to localStorage)
     if (k.type === 'toggle') {
       const el = box.querySelector('input')
       el.checked = !!state[k.key]
-      el.addEventListener('change', (e) => { state[k.key] = e.target.checked; reRenderCello() })
+      el.addEventListener('change', (e) => { state[k.key] = e.target.checked; saveState(); reRenderCello() })
     } else if (k.type === 'select') {
       const el = box.querySelector('select')
       el.value = state[k.key]
-      el.addEventListener('change', (e) => { state[k.key] = e.target.value; reRenderCello() })
+      el.addEventListener('change', (e) => { state[k.key] = e.target.value; saveState(); reRenderCello() })
     } else {
       const el = box.querySelector('input'), val = box.querySelector(`[data-kv="${k.key}"]`)
       el.value = String(state[k.key])
       const show = () => { val.textContent = k.fmt ? k.fmt(state[k.key]) : `${state[k.key]}` }
       el.addEventListener('input', (e) => { state[k.key] = Number(e.target.value); show() })
-      el.addEventListener('change', reRenderCello)
+      el.addEventListener('change', () => { saveState(); reRenderCello() })
       show()
     }
   }
+}
+
+// push the current state back onto every knob's DOM (after Import / Reset)
+function applyStateToUI() {
+  for (const k of KNOBS) {
+    const el = document.querySelector(`[data-k="${k.key}"]`)
+    if (!el) continue
+    if (k.type === 'toggle') el.checked = !!state[k.key]
+    else if (k.type === 'select') el.value = state[k.key]
+    else {
+      el.value = String(state[k.key])
+      const val = document.querySelector(`[data-kv="${k.key}"]`)
+      if (val) val.textContent = k.fmt ? k.fmt(state[k.key]) : `${state[k.key]}`
+    }
+  }
+  const fs = document.querySelector('#fullSong'); if (fs) fs.checked = state.full
+}
+
+// ── Export / Import the tune as a JSON file (a permanent, shareable tuning preset) ────────────────
+function exportSettings() {
+  const payload = { app: 'cello-tune', v: 1, savedAt: new Date().toISOString(), settings: state }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = `cello-tune-song${state.songNo}.json`; a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  log('บันทึกไฟล์ตั้งค่าแล้ว — cello-tune-song' + state.songNo + '.json')
+}
+function importSettings(file) {
+  const r = new FileReader()
+  r.onload = () => {
+    try {
+      const obj = JSON.parse(r.result)
+      const s = obj && obj.settings ? obj.settings : obj   // accept the wrapped payload or a bare state
+      if (!s || typeof s !== 'object') throw new Error('รูปแบบไฟล์ไม่ถูก')
+      const songChanged = s.songNo != null && Number(s.songNo) !== Number(state.songNo)
+      Object.assign(state, s)
+      applyStateToUI()
+      saveState()
+      if (songChanged) {
+        const sel = document.querySelector('#songSel'); if (sel) sel.value = String(state.songNo)
+        stopAll(); main()
+      } else { reRenderCello() }
+      log('โหลดค่าจากไฟล์แล้ว ✓')
+    } catch (e) { log('โหลดไฟล์ไม่ได้: ' + e.message) }
+  }
+  r.readAsText(file)
+}
+function resetSettings() {
+  Object.assign(state, DEFAULTS)
+  applyStateToUI(); saveState(); reRenderCello()
+  log('คืนค่าเริ่มต้นแล้ว (arc=0 · vib=20 · tame=18)')
 }
 
 async function main() {
@@ -248,7 +312,11 @@ async function main() {
 // one-time setup (NOT re-run on song change): knobs, stop button, song picker, length toggle
 buildKnobs()
 $('#stopBtn')?.addEventListener('click', stopAll)
-$('#fullSong')?.addEventListener('change', (e) => { state.full = e.target.checked; stopAll(); main() })
+$('#fullSong')?.addEventListener('change', (e) => { state.full = e.target.checked; saveState(); stopAll(); main() })
 if ($('#fullSong')) $('#fullSong').checked = state.full
+$('#exportBtn')?.addEventListener('click', exportSettings)
+$('#importBtn')?.addEventListener('click', () => $('#importFile')?.click())
+$('#importFile')?.addEventListener('change', (e) => { if (e.target.files[0]) importSettings(e.target.files[0]); e.target.value = '' })
+$('#resetBtn')?.addEventListener('click', resetSettings)
 loadSongList()
 main()

@@ -60,6 +60,11 @@
   .knob select { font: inherit; padding: .4rem .5rem; border-radius: 8px; min-height: 40px }
   .ktog { display: flex; align-items: center; gap: .5rem; font-weight: 600; font-size: .92rem; cursor: pointer; min-height: 40px }
   .ktog input { width: 20px; height: 20px }
+  .setbar { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 .8rem }
+  .setbar button { font: inherit; font-weight: 600; font-size: .85rem; padding: .5rem .8rem; min-height: 40px;
+    border-radius: 10px; border: 1px solid var(--acc); background: var(--card); color: var(--acc); cursor: pointer; }
+  .setbar button:hover { background: var(--accbg) }
+  .setbar .reset { border-color: var(--bd); color: var(--mut) }
   details.adv { margin: .2rem 0 1rem }
   details.adv summary { cursor: pointer; padding: .6rem .2rem; font-weight: 600; color: var(--acc); font-size: .92rem }
   details.adv[open] summary { margin-bottom: .5rem }
@@ -81,7 +86,13 @@
 
   <div id="cards"></div>
 
-  <div class="khead">🎛 ปรับเสียง — เลื่อนแล้ว <b>กด "เล่น" อันเชลโลซ้ำ</b> เพื่อฟังค่าใหม่</div>
+  <div class="khead">🎛 ปรับเสียง — เลื่อนแล้ว <b>กด "เล่น" อันเชลโลซ้ำ</b> เพื่อฟังค่าใหม่ · ค่าจำอัตโนมัติ (reload ไม่หาย)</div>
+  <div class="setbar">
+    <button id="exportBtn" type="button">💾 บันทึกไฟล์ (JSON)</button>
+    <button id="importBtn" type="button">📂 โหลดไฟล์</button>
+    <button id="resetBtn" class="reset" type="button">↺ คืนค่าเริ่มต้น</button>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+  </div>
   <div id="knobs"></div>
   <details class="adv"><summary>ปุ่มขั้นสูง (ปรับละเอียด · เผื่ออยากลองทุกอย่าง)</summary>
     <div id="knobsAdv"></div>
@@ -97,8 +108,9 @@
 
   <div class="foot">
     ทั้ง 3 อันใช้เปียโนร่างทองตัวเดียวกัน เพลงเดียวกัน ท่อนเดียวกัน ปรับให้ดังเท่ากันแล้ว — ต่างกันแค่เชลโล ·
-    ค่าเชลโลที่ตั้งไว้ = ที่พี่เอมเคาะเอง (ตัวลาก p · หัว mp 5% · เลื่อน 10ms) + ตัวแก้ "วินาที-14" ·
-    อยากได้ทั้งเพลง (~80 วิ) เติม <code>?full</code> ท้าย URL · อยากปรับเองทีละปุ่มไปที่หน้า debug <code>/docs/spikes/cello-marcato.html</code>
+    <b>ค่าเริ่มต้น</b> = ที่พี่เอมจูนเอง (tame 18 · vib 20 · shift 10ms) + <b>arc=0</b> (วัดแล้ว arc คือตัวทำ "แสบ/ลำโพงแตก") ·
+    ค่าจำใน localStorage อัตโนมัติ · <b>บันทึกไฟล์/โหลดไฟล์</b> = เก็บชุดจูนเป็น JSON ถาวร ·
+    อยากได้ทั้งเพลง (~80 วิ) เติม <code>?full</code> ท้าย URL · หน้า debug ครบปุ่ม <code>/docs/spikes/cello-marcato.html</code>
   </div>
 
   <script type="module" src="/src/spikes/celloListenPage.js"></script>
