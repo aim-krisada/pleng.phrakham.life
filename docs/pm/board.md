@@ -36,7 +36,9 @@
     - 🔴 **2-host: จ่าย pk-PM (`local_43cdd55a`) rebuild island + smoke 344/690/768** (⚙ redesign ไม่ prop-gated → กระทบ island) · **BLOCK deploy จนพระคำยืนยัน**
     - 🔴 **P'Aim ลอง ⚙ จริง → ปรับ §C (window):** "ลากได้ไม่ครบ · หน้าเซ็ตติ้งไม่ต้องยึดกล่อง · เป็นวินโดว์ของมันที่เคลื่อนย้ายง่ายๆ ดูเต็มจอง่ายๆ · **ไม่ต้องหล่อ (ย้ำ 2 รอบ)**" → Design revise §C (`991eefc` · standalone window · clamp หลวม · ⛶maximize · **ตัด diagram+reset ออก KISS**) → **P'Aim อนุมัติ "ให้ dev สร้างเลย"** → ✅ **จ่าย dev BUILD §C (`local_e20ebbbd` · บน 755b927):** panel→fixed window กลางจอ · ลากทั่วจอ · ⛶เต็มจอ · Esc/focus · คง §A/B/D+fixed rule · mobile diff0 → tester → P'Aim · 🔴 2-host: re-ping pk-PM ตอน §C เสร็จ
     - ✅ **dev §C เสร็จ (`f8d77a3`):** ⚙ = **`<Teleport to=body>` + fixed** เปิดกลางจอ อิสระจาก dock (verify: ลาก dock มี transform → ⚙ ยัง centered viewport) · ลากพ้นจอได้ (title bar≥40) · ⛶เต็มจอ · Esc/focus/keyboard-drag/non-modal · **ตัด reset+diagram** · **mobile: Teleport disabled → inline round30 เป๊ะ** · คง §A/B/D+fixed · 712 tests
-    - ▶ **tester functional-gate §C `f8d77a3`** (standalone·ลากทั่วจอ·⛶·Esc·no-regress) + **re-ping pk-PM smoke island `f8d77a3`** (Teleport กระทบ island desktop) → pass+2host → PM gate → **P'Aim ลอง** → deploy
+    - ✅✅ **tester §C PASS (`4c86556`):** standalone (dock transform -350,-250 → ⚙ center 633 ไม่ขยับ = Teleport อิสระ) · loose clamp (ลากพ้นจอ · 40×40 จับกลับ) · ⛶เต็มจอ · title bar ⛶+✕ (ไม่มี reset) · Esc/non-modal/click-in-no-close/keyboard-drag · **mobile375=รอบ30** (Teleport disabled·`dk-panel-flat`) · 712 tests
+    - ✅ **PM GATE รับ** → 🎯 **ส่ง P'Aim ลอง preview 5342 (⚙ window + customize + tactile)**
+    - 🔴 **2-host: pk-PM รับเรื่อง (pm8→pm9 handoff · smoke island `f8d77a3` ใน pk board RESUME) · ไม่ด่วน (พระคำ live ไม่กระทบ · ยังไม่ merge)** · pk pm9 ping verdict กลับ · **BLOCK deploy จนพระคำยืนยัน**
   - ▶ **P'Aim ลอง tactile → deploy (ประสาน pk-PM 2-host)** — หลัง ⚙ sections ลงตัว
 
 ## 🎵 เฟอร์มาต้า (สาย 2 · คู่ขนาน · P'Aim อนุมัติเริ่ม 18 ก.ค.)
