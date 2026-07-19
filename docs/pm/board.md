@@ -25,7 +25,14 @@
 - brief พร้อม `docs/us/fermata-hold.md` (ปัญหา 4 · ต้นเหตุ `midi.js` 1.75x คงที่ · บท Gemini · meeting-room)
 - ✅ **SA design เสร็จ (`06fbbd0` · `fermata-design-sa.md`):** ต้นเหตุ = **"ค่า" ผิด (×1.75 คงที่) ไม่ใช่กลไก** (scheduler ถูก) · **hold = บีตสัมบูรณ์ · เก็บ `holds` แยกจาก note string** (5^2 ชน) · **playback นอก bar-math = แก้ห้องหลุด · sheet ซ่อนเลขฟรี** (เลขไม่อยู่ใน string) · no-migrate · refine (`notation.js`/`SongSheet.vue` ไม่แตะ · `midi.js` เล็ก) · ✅ **SA ฟันธง correctness เอง อ้างมาตรฐาน (ไม่ Gemini · `867ea0e` §6):** MuseScore "Time stretch" แก้ได้ต่อโน้ต default 2× (→ 1.75 คงที่ผิด) · pleng เลือก **bar-fill default** (บริบทเล่นเรียงเวลา+ร้องกลับ downbeat · fallback ~2× ถ้าไม่ท้ายห้อง) · Gould: sheet สัญลักษณ์ล้วน · step 0.5 บีต · sources: MuseScore/Wikipedia/UMT/Gould · **ไม่มี dependency Gemini**
 - ✅ **CORE SPEC ชัด (P'Aim):** ค่าเดียวปรับได้ · **คุมทั้งเล่น+แผ่นตรงกัน** · เริ่ม=แนะนำ · ปรับ=เก็บใหม่
-- ▶ **จ่าย UX แล้ว (`local_284b3dbe`):** UI ตั้งค่า hold (4 แนวทาง lean ก+ง · ฟันธง 1 · ฟังทันที · ห้ามบังโน้ต · 44px) → ประกอบ SA+UX → **P'Aim รีวิว 1 ครั้ง** → build (base รอบ 30) (desktop-only · mobile=P'เปา ไม่กระทบ · ถ้าไม่ชอบ feel = rollback ง่ายเหมือนวันนี้) · 📌 tester note: mechanic พิสูจน์บน Surface profile แล้ว · เหลือ "ความรู้สึกลากจริงด้วยเมาส์" = P'Aim ยืนยันเอง
+- ✅ **SA อัป CORE SPEC + sheet correctness (`ffb845a`):** `holds[i]` แหล่งเดียว (playback+sheet ตรงกัน) · **sheet = สัญลักษณ์ 𝄐 (variant สั้น/ปกติ/ยาว ตามค่า · MusicXML/MuseScore) ไม่วาดโน้ตยาว (พังห้อง) ไม่โชว์เลข** · **ค้าน P'Aim อย่างเคารพว่า "โน้ตยาว" ผิด engraving แต่ intent ได้เต็มด้วย variant** · `SongSheet.vue` อ่าน holds เลือก glyph
+- ✅ **UX UI เสร็จ (`74e051e`):** ฟันธง **ค (ค่าแนะนำ+▲▼ step 0.5) + ง (▶ฟังทันที)** · ไม่เอา ก ลากยืด (มือถือพลาดง่าย+ไม่โชว์ค่า) · default=แนะนำ+persist · 44px
+- 🔴 **host-base issue (UX flag · PM ต้องแก้):** UX วาง UI บน **contextual toolbox = มากับ dock-space รอบ 31 ที่ทิ้งไป (ไม่มีในรอบ 30)** → **ย้าย host เป็น chip ใต้โน้ต (รอบ 30 มีจริง)** ก่อนประกอบ
+- ▶ **ประกอบ SA+UX (สายเดียวหลังรวม) แก้ host → P'Aim รีวิว 1 ครั้ง → build (base รอบ 30)**
+
+## 🔄 ORG: SA+UX รวมเป็น "Design" สายเดียว (P'Aim 18 ก.ค. · กลับจากแยก 17 ก.ค.)
+- เหตุ: 2 session = PM ประสาน+ชน base/host คนละมุม (fermata: UX วาง UI บน toolbox ที่ถูกทิ้ง) · รวม = 1 คนถือทั้ง feasibility+UX · roster/SOP §1.1 + memory `pleng-roster-3-seats` อัปแล้ว
+- **DockKey = core lib แชร์ พระคำ+เพลง** (P'Aim ย้ำ) — resize/pin แก้ใน `DockKey.vue` กลาง prop-gated (พระคำ inert) · **deploy = rebuild island พระคำ + gate 2-host (ประสาน pk-PM) ห้าม deploy เดี่ยว** · [[pleng-dockkey-shared-single-source]] (desktop-only · mobile=P'เปา ไม่กระทบ · ถ้าไม่ชอบ feel = rollback ง่ายเหมือนวันนี้) · 📌 tester note: mechanic พิสูจน์บน Surface profile แล้ว · เหลือ "ความรู้สึกลากจริงด้วยเมาส์" = P'Aim ยืนยันเอง
 
 
 **🧨 วันนี้ = วันหนักสุด (P'Aim):** resize saga วน 3 รอบ (root = Surface P'Aim `@media(hover)`=false → `.dk-resize` display:none ซ่อนสนิท · [[feedback_verify_hover_on_real_browser]]) + แถบลอย contextual toolbox บังคอร์ด + สไลเดอร์กระพริบ → **P'Aim สั่ง "เอาเวอร์ชันนิ่งล่าสุดขึ้น ทิ้งของวันนี้ทั้งหมด เริ่มใหม่"**

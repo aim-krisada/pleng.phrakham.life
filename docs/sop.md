@@ -14,15 +14,15 @@
 2. **PM คุมมาตรฐาน** ISO/IEC 29110-5-4 + `ui-standards.md` · **ส่ง P'Aim เฉพาะงาน ~100%** (ผ่าน gate แล้ว) · P'Aim ตรวจทิศทาง/ยกตัวอย่าง ไม่ใช่ QA
 3. **defect ของ P'Aim → ยกระดับ SOP/automation** ให้ดักครั้งหน้า (แก้ที่ process ไม่โทษคน)
 
-### 1.1 · Roster: 3 ที่นั่งคิดถาวร + Dev/Tester ต่องาน
+### 1.1 · Roster: ที่นั่งคิดถาวร + Dev/Tester ต่องาน · **🔄 18 ก.ค.: SA+UX รวมเป็น "Design" สายเดียว** (P'Aim กลับจากที่แยก 17 ก.ค. · 2 session = ประสาน+ชน base/host คนละมุม เช่น fermata UX วาง UI บน toolbox ที่ถูกทิ้ง · รวม 1 คนถือทั้ง feasibility+UX = ภาพเดียว) · [[pleng-roster-3-seats]]
 ```
 P'Aim ─คุย─ PM (หน้าด่านเดียว · จัดคิวไฟล์ · funnel ภาษาคน)
-          ┌─────┴─────┐
-     SA (ถาวร)   UX/UI (ถาวร)   ← ถือภาพรวมในโดเมนตัวเอง · รายงานเข้า PM
-          └─────┬─────┘
+              │
+        Design (SA+UX รวม · ถาวร)  ← feasibility/data + flow/visual/consistent · ฟันธง correctness เอง (อ่านมาตรฐาน ไม่ Gemini)
+              │
         Dev / Tester ← จ่ายต่องาน · ใช้แล้วปิด · worktree แยก (ไม่ถาวร)
 ```
-- **PM/SA/UX = ถาวร** (worktree+session ยาว · ถือภาพรวม ไม่ต้อง re-brief) = ตัวแก้ "ไม่มีใครเห็นภาพรวม"
+- **PM + Design(SA+UX) = ถาวร** (worktree+session ยาว · ถือภาพรวม ไม่ต้อง re-brief) = ตัวแก้ "ไม่มีใครเห็นภาพรวม" · (§1.3/§2 อ้าง SA·UX แยก = อ่านเป็น Design สายเดียวหลัง 18 ก.ค.)
 - **Dev/Tester = disposable** (มือทำแยกไม่ให้ชนโค้ด · หัวคิดรวมเป็นภาพเดียว) · ⛔ อย่าทำถาวร
 - **worktree ถาวร:** `-pm` · `-sa` · `-uxui` (คนละ branch ยาว) · **เปิดโดย P'Aim เปิด window เองใน dir** (`spawn_task` สร้าง worktree ทิ้ง ไม่เกาะ dir ถาวร)
 
