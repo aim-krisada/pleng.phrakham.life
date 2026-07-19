@@ -14,7 +14,7 @@
 
 **อัปเดต (P'Aim รีวิว 18 ก.ค. · fold 4 ข้อ):** §A **ไอคอนครบทุกแถว** (grip/⚙/ดาวน์โหลด ตอนนี้ช่องไอคอนว่าง) · §B **section แยกให้เด่น** (P'Aim: "not obvious" — เส้นบางไม่พอ → การ์ด/พื้นหลัง) · §C **⚙ panel ลากย้ายได้** (movable window · reuse grip-drag ของ dock) · §D **grip+⚙ ยึดแถวล่างสุด ซ้าย-ติดกัน ตายตัว** (grip ซ้ายสุด · ⚙ ติดขวา grip · ตัด ▲▼ — ต่างจาก §C: §D = ปุ่มบนแถบ · §C = หน้าต่าง popup)
 
-> **🔴 กฎ fixed/movable (P'Aim ยืนยัน final · หัวใจ):** **ยึดที่มีแค่ 2 = grip + ⚙** (ไม่ ▲▼ ไม่ 📌) · **ปุ่มอื่น *ทุกตัว* = ย้ายได้ (▲▼) + ถอนได้ (📌 พินแดง) — ทุก section ต้องมี 📌** · **แก้ที่ผิด:** `soundctl`(เสียงดนตรี) + `export`(ดาวน์โหลด) = kind `slot` → โค้ดล็อกถอนไม่ได้ (อยู่ใน `NEVER_MANAGE` ผ่าน `SLOT_KINDS`) = **ผิดกฎ** → slot ต้องถอน/ย้ายได้เหมือนปุ่มปกติ (การวาด slot cell = คนละเรื่องกับ removability) · **keypad (แป้นตัวเลข) = 🟡 รอ P'Aim** (ถอดได้/คงเสมอ · default เดา = ถอดได้)
+> **🔴 กฎ fixed/movable (P'Aim ยืนยัน final · หัวใจ):** **ยึดที่มีแค่ 2 = grip + ⚙** (ไม่ ▲▼ ไม่ 📌) · **ปุ่มอื่น *ทุกตัว* = ย้ายได้ (▲▼) + ถอนได้ (📌 พินแดง) — ทุก section ต้องมี 📌** · **แก้ที่ผิด:** `soundctl`(เสียงดนตรี) + `export`(ดาวน์โหลด) = kind `slot` → โค้ดล็อกถอนไม่ได้ (อยู่ใน `NEVER_MANAGE` ผ่าน `SLOT_KINDS`) = **ผิดกฎ** → slot ต้องถอน/ย้ายได้เหมือนปุ่มปกติ (การวาด slot cell = คนละเรื่องกับ removability) · **keypad (แป้นสัญลักษณ์) = P'Aim เคาะแล้ว: ถอด/ย้ายได้ทั้ง unit** (📌 + ▲▼ ระดับ band · ถอด = ไม่มีแป้นโน้ต · เพิ่มกลับใน ⚙ · P'Aim ยอมรับ)
 
 ---
 
@@ -24,7 +24,7 @@ DockKey เรนเดอร์ **บน→ล่าง:** `keysBands` → pinn
 
 | section (บน→ล่าง) | มาจาก (โค้ด) | ในนั้นทำอะไรได้ |
 |---|---|---|
-| **1. แป้นสัญลักษณ์** | `keysBands` (kind `keys`) | 🟡 **รอ P'Aim:** ถอดทั้งชุดได้ (มี 📌) / คงเสมอ · default เดา = ถอดได้ (ยกเว้นแค่ grip/⚙) |
+| **1. แป้นสัญลักษณ์** | `keysBands` (kind `keys`) | **ถอด/ย้ายได้ทั้ง unit** (📌 ถอดทั้ง band + ▲▼ ระดับ band) · ถอด→ไม่มีแป้นโน้ต เพิ่มกลับใน ⚙ |
 | **2. ปุ่มปักหมุด** | `isPinned(id)` (pinned rows) | ▲▼ = `movePin` · 📌 = ถอน (→ ลิ้นชัก) |
 | **3. แถวสั่งงาน (แถว 2)** | `place.row===2` & ไม่ `isOff` | ▲▼ = `moveOrder` ในแถว 2 · 📌 ถอน (ถ้า manageable) |
 | **4. แถวหลัก (แถว 1 · ล่างสุด)** | `place.row===1` & ไม่ `isOff` | **grip(ซ้ายสุด)+⚙(ติดขวา grip) = ยึดที่ ตายตัว ไม่มี ▲▼/📌 (§D)** · ที่เหลือ (ย้อน/ทำซ้ำ/ฟัง) ▲▼=`moveOrder` |
@@ -59,8 +59,8 @@ const SECTIONS = ['keypad','pinned','row2','row1','drawer'] // บน→ล่�
 ║  │ ▭▭▭▭ หลัก (grip·⚙ …)   │                  ║
 ║  └───────────────────────┘                  ║
 ║ ╭───────────────────────────────────────╮  ║  ← §B: การ์ด section (common-region)
-║ │ ▩ แป้นสัญลักษณ์  · บนสุด · คงที่         │  ║     header เด่น (ตัวหนา+ไอคอนหมวด)
-║ │  🎹 แป้นโน้ต                    (คงที่)  │  ║
+║ │ ▩ แป้นสัญลักษณ์ (ทั้งชุด) [▲][▼]   📌● │  ║  ← 1 unit: ถอด/ย้ายได้ทั้ง band
+║ │  🎹 โน้ต · จุด · เขบ็ต …        (ตัวอย่าง) │  ║
 ║ ╰───────────────────────────────────────╯  ║
 ║ ╭───────────────────────────────────────╮  ║
 ║ │ 📌 ปักหมุด  · เหนือแถวสั่งงาน            │  ║
@@ -173,7 +173,7 @@ const panelIcon = (it) => it.icon || ICON_FALLBACK[it.id] || KIND_FALLBACK[it.ki
 
 ## 7 · dev contract (§3.0 · Design ส่ง spec · dev = DockKey lane)
 
-- **dev (logic):** `sectionOf(it)` + `sections` computed (§2) + `panelIcon(it)` fallback (§A) + live-region ผลย้าย + **movable panel** (§C: `panelPos` + drag บน title bar + `clampPanel` reuse `clampDock` + keyboard-move) + **§D dock layout:** ⚙ anchor `right`→`rightOf:grip` · `canReorder` กัน grip/gear · `applyOrder` ล็อก grip=0/⚙=1 · **🔴 กฎ fixed:** **`NEVER_MANAGE = ['grip','gear']` เท่านั้น** (เอา `SLOT_KINDS`+`keys` ออก → soundctl/export ถอน/ย้ายได้ · keys รอ P'Aim) — `isManageable` slot=true → ได้ 📌 (toggleOff) · slot cell drawing (#cell-*) แยกจาก removability · **ไม่แตะ** `movePin`/`togglePin`/`toggleOff`/`moveOrder` (เดิมทำงานต่อ)
+- **dev (logic):** `sectionOf(it)` + `sections` computed (§2) + `panelIcon(it)` fallback (§A) + live-region ผลย้าย + **movable panel** (§C: `panelPos` + drag บน title bar + `clampPanel` reuse `clampDock` + keyboard-move) + **§D dock layout:** ⚙ anchor `right`→`rightOf:grip` · `canReorder` กัน grip/gear · `applyOrder` ล็อก grip=0/⚙=1 · **🔴 กฎ fixed (P'Aim เคาะเต็ม):** **`NEVER_MANAGE = ['grip','gear']` เท่านั้น** (เอา `SLOT_KINDS`+`keys` ออกทั้งคู่) → soundctl/export (slot) ถอน/ย้ายได้ · **keypad band ถอด/ย้ายได้ทั้ง unit** (📌+▲▼ ระดับ band · toggleOff ทั้งชุด · ถ้ามี band เดียว ▲▼ disabled) · `isManageable` slot/keys=true → ได้ 📌 · slot cell drawing (#cell-*) แยกจาก removability · **ไม่แตะ** `movePin`/`togglePin`/`toggleOff`/`moveOrder` (เดิมทำงานต่อ)
 - **Design (presentation):** template — title bar (drag handle+✕+↺) · การ์ด section + header เด่น (§B) · แผนภาพ dock ย่อ · ไอคอนทุกแถว (§A) · 🔒"ยึดที่" grip/⚙ (§D) · CSS (`.dk-section`/`.dk-shead`/`.dk-diagram`/`.dk-titlebar`/`.dk-locked`) · hint copy · aria strings · ส่ง spec นี้ (ไม่แก้ไฟล์พร้อม dev)
 - **4 ข้อ P'Aim:** §A ไอคอนครบ · §B การ์ด section (obvious) · §C popup ลากได้ · **§D grip+⚙ ยึดล่างซ้าย ตายตัว**
 - **mobile:** ปัจจุบัน panel = `settingItems` ล้วน (ไม่ reorder) → **ใส่ header กลุ่มได้ (อ่านง่ายขึ้น) แต่ปัญหา ▲▼ = desktop** · ขอบเขตนี้เน้น desktop (ที่ reorder อยู่) · mobile คงพฤติกรรมเดิม
