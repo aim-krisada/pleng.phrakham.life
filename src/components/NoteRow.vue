@@ -34,7 +34,16 @@ const model = computed(() => {
   return { groups: gs, beams }
 })
 const groups = computed(() => model.value.groups)
-const beams = computed(() => model.value.beams)
+// One drawn bar per BEAM LEVEL (B110), not one per run: a run that mixes เขบ็ต 1 ชั้น and
+// 2 ชั้น (`.7_. 1__`) gets a full level-1 bar over the whole run plus a level-2 bar over
+// only the sixteenths — a lone sixteenth getting a short partial beam (ขีดหัก).
+const beams = computed(() =>
+  model.value.beams.flatMap((b) =>
+    b.levels && b.levels.length
+      ? b.levels
+      : [{ level: 1, start: b.start, end: b.end, partial: null }],
+  ),
+)
 const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
 
 // --- Engraved slur/tie geometry (B076) ------------------------------------------------
@@ -140,13 +149,32 @@ const vArc = {
   },
 }
 
-// v-beam="{ start, end, u2 }" — draw ONE continuous underline (a beam) spanning the first
-// through last note of a same-beat run (issues2). The per-note underlines leave lyric-driven
-// gaps between the digits; this bar bridges them into a single beam, overlaying the existing
-// border-bottoms at the same y/thickness so it simply reads as one line. Positioned against
-// the .note-row and re-measured on layout/resize/print. If there is no layout (jsdom), it
-// hides itself and the per-note underlines remain as a graceful fallback.
+// v-beam="{ level, start, end, partial }" — draw ONE beam bar spanning the first through
+// last note it covers (issues2). The per-note underlines leave lyric-driven gaps between the
+// digits; this bar bridges them into a single beam, overlaying the existing border-bottoms at
+// the same y/thickness so it simply reads as one line. Positioned against the .note-row and
+// re-measured on layout/resize/print. If there is no layout (jsdom), it hides itself and the
+// per-note underlines remain as a graceful fallback.
+//
+// B110 — geometry is per LEVEL now. We anchor on the digit's CONTENT bottom (its own
+// underline border stripped off), because a `.num.u2` box is 4px taller than a `.num.u1`
+// box; measuring raw rect.bottom made the y depend on which note happened to be first.
+// From that baseline every level sits where the old `4px double` border drew it:
+//   level 1 → baseline .. +1.5   ·   level 2 → +2.5 .. +4   ·   level 3 → +5 .. +6.5
+// so an all-eighths run and an all-sixteenths run come out pixel-identical to before (A4).
+const BEAM_TH = 1.5 // bar thickness — matches `.num.u1`'s border-bottom
+const BEAM_GAP = 1 // white space between two beam levels — matches the `double` border
+const BEAM_STUB_MIN = 3 // a fractional beam never shrinks below this, however tight the gap
 const liveBeams = new Set()
+// The digit a partial beam points AT — the note it shares the beam with, one slot before
+// (partial 'left') or after (partial 'right') it. Used only to clamp the stub's reach.
+function neighbourRect(row, b) {
+  const idx = b.partial === 'left' ? b.start - 1 : b.end + 1
+  const el = row.querySelector(`.nt[data-idx="${idx}"] .num`)
+  if (!el) return null
+  const r = el.getBoundingClientRect()
+  return r.width ? r : null
+}
 function applyBeam(el) {
   const b = el.__beam
   const row = el.parentElement
@@ -158,12 +186,37 @@ function applyBeam(el) {
   const a = first.getBoundingClientRect()
   const c = last.getBoundingClientRect()
   if (!a.width || !rr.width) { el.style.display = 'none'; return }
-  const th = b.u2 ? 4 : 1.5
+  // strip the measured digit's own underline border so every level shares one baseline
+  let border = 0
+  if (typeof getComputedStyle === 'function') {
+    const w = parseFloat(getComputedStyle(first).borderBottomWidth)
+    if (!Number.isNaN(w)) border = w
+  }
+  const baseline = a.bottom - border
+  const level = b.level || 1
+  let left = a.left - rr.left
+  let width = Math.max(0, c.right - a.left)
+  if (b.partial) {
+    // ขีดหัก (fractional beam). Gould, *Behind Bars*: a fractional beam runs about ONE
+    // notehead — in numbered notation the "notehead" is the digit, so the stub covers this
+    // digit and reaches a further digit-width toward the note it is beamed to. It is then
+    // CLAMPED to half the white gap, so the stub can never reach the neighbouring digit —
+    // the eye must still read a break, or it looks like a full beam again.
+    const nb = neighbourRect(row, b)
+    let ext = a.width
+    if (nb) {
+      const gap = b.partial === 'left' ? a.left - nb.right : nb.left - a.right
+      if (gap > 0) ext = Math.min(ext, gap / 2)
+    }
+    ext = Math.max(BEAM_STUB_MIN, ext)
+    width = a.width + ext
+    if (b.partial === 'left') left -= ext
+  }
   el.style.display = ''
-  el.style.left = a.left - rr.left + 'px'
-  el.style.width = Math.max(0, c.right - a.left) + 'px'
-  el.style.height = th + 'px'
-  el.style.top = a.bottom - rr.top - th + 'px'
+  el.style.left = left + 'px'
+  el.style.width = width + 'px'
+  el.style.height = BEAM_TH + 'px'
+  el.style.top = baseline - rr.top + (level - 1) * (BEAM_TH + BEAM_GAP) + 'px'
 }
 function applyAllBeams() { for (const el of liveBeams) applyBeam(el) }
 if (typeof window !== 'undefined') {
@@ -178,6 +231,16 @@ if (typeof window !== 'undefined') {
     document.fonts.ready.then(applyAllBeams).catch(() => {})
   }
 }
+// Coalesce a re-measure of every live beam into ONE pass on the next frame, so several rows
+// becoming visible at once (a whole tab appearing) cost a single sweep, not one per row.
+let allBeamsQueued = false
+function scheduleAllBeams() {
+  if (allBeamsQueued) return
+  allBeamsQueued = true
+  const run = () => { allBeamsQueued = false; applyAllBeams() }
+  if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(run)
+  else run()
+}
 const vBeam = {
   mounted(el, binding) {
     el.__beam = binding.value
@@ -186,9 +249,30 @@ const vBeam = {
     if (typeof requestAnimationFrame !== 'undefined') {
       requestAnimationFrame(() => requestAnimationFrame(() => applyBeam(el)))
     }
+    const target = el.parentElement || el
     if (typeof ResizeObserver !== 'undefined') {
       el.__beamRO = new ResizeObserver(() => applyBeam(el))
-      el.__beamRO.observe(el.parentElement || el)
+      el.__beamRO.observe(target)
+    }
+    // B114 — แผ่นเพลง is kept MOUNTED behind `v-show` (Studio.vue), so a NoteRow mounts
+    // while its tab is still `display:none`: every rect reads 0, applyBeam hides the bar,
+    // and the reader sees NO beams at all. Nothing ever asked it to measure again — an
+    // element with no box has no ResizeObserver box to change, so the RO above is not a
+    // dependable signal for "an ancestor stopped being display:none". IntersectionObserver
+    // is: an unrendered element never intersects, and the moment it gains a rendered box on
+    // screen the observer delivers an entry. That is the real event, so there is no timer
+    // and no polling here. When it fires we re-measure ALL live bars (coalesced to one
+    // frame), because one row appearing means the whole sheet just appeared — that keeps
+    // bars further down the page correct too, not only the row that tripped the observer.
+    // Guarded on `display === 'none'` so ordinary scrolling of an already-measured sheet
+    // costs nothing.
+    if (typeof IntersectionObserver !== 'undefined') {
+      el.__beamIO = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting && el.style.display === 'none') scheduleAllBeams()
+        }
+      })
+      el.__beamIO.observe(target)
     }
   },
   updated(el, binding) {
@@ -200,6 +284,10 @@ const vBeam = {
     if (el.__beamRO) {
       el.__beamRO.disconnect()
       delete el.__beamRO
+    }
+    if (el.__beamIO) {
+      el.__beamIO.disconnect()
+      delete el.__beamIO
     }
   },
 }
@@ -267,9 +355,13 @@ const vBeam = {
          positioned over the digits by v-beam so consecutive beamed notes read as one beam. -->
     <i
       v-for="b in beams"
-      :key="'beam-' + b.start"
+      :key="'beam-' + b.level + '-' + b.start"
       class="beam"
-      :class="{ 'beam-u2': b.u2 }"
+      :class="['beam-l' + b.level, b.partial ? 'beam-partial' : '']"
+      :data-beam-level="b.level"
+      :data-beam-start="b.start"
+      :data-beam-end="b.end"
+      :data-beam-partial="b.partial || ''"
       v-beam="b"
       aria-hidden="true"
     ></i>
@@ -328,16 +420,13 @@ const vBeam = {
    sixteenths — a เอื้อน within a beat engraved like the reference songbook, distinct from the
    arc used for phrase melismas that span beats. Drawn as a bar (v-beam measures its left/width/
    top over the digits) that overlays the per-note border-bottoms and bridges the lyric-driven
-   gaps between them into a single line. u2 = double bar (sixteenths). */
+   gaps between them into a single line. B110: ONE bar per beam LEVEL — level 2 only spans
+   the notes that are really sixteenths, and a lone sixteenth gets a short partial stub —
+   so a mixed run no longer shows two lines under a one-underline note. */
 .beam {
   position: absolute;
   background: currentColor;
   pointer-events: none;
-}
-.beam.beam-u2 {
-  background: none;
-  border-top: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
 }
 /* accidental: smaller than the digit, floating at its upper-left WITHOUT
    widening the digit column — so octave dots stay exactly under the digit */

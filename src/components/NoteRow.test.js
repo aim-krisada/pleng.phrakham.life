@@ -137,3 +137,179 @@ describe('NoteRow beaming (issues2)', () => {
     w.unmount()
   })
 })
+
+// B110 — the beam OVERLAY is drawn one bar per beam LEVEL, so a run that mixes เขบ็ต 1 ชั้น
+// and 2 ชั้น no longer paints a double bar over the 1-ชั้น note. jsdom has no layout, so the
+// pixel geometry is verified live in the browser (docs/reports/b110-beam-levels.md); what is
+// assertable here is the STRUCTURE NoteRow emits — which is the contract v-beam draws from.
+describe('NoteRow beam levels (B110)', () => {
+  const bars = (notes) =>
+    mount(NoteRow, { props: { notes } })
+      .findAll('.beam')
+      .map((b) => {
+        const d = b.attributes()
+        return `L${d['data-beam-level']}:${d['data-beam-start']}-${d['data-beam-end']}` +
+          (d['data-beam-partial'] ? '/' + d['data-beam-partial'] : '')
+      })
+
+  it('.7_. 1__ — TWO bars: a full level 1 and a LEFT stub at level 2', () => {
+    expect(bars('.7_. 1__')).toEqual(['L1:0-1', 'L2:1-1/left'])
+  })
+
+  it('1__ .7_. — the level-2 stub points RIGHT when the sixteenth leads', () => {
+    expect(bars('1__ .7_.')).toEqual(['L1:0-1', 'L2:0-0/right'])
+  })
+
+  it('5_ 6__ 7_ — a sixteenth between two eighths gets a LEFT stub', () => {
+    expect(bars('5_ 6__ 7_')).toEqual(['L1:0-2', 'L2:1-1/left'])
+  })
+
+  it('A4 — all eighths still draw exactly ONE bar (no regression)', () => {
+    expect(bars('5_ 6_')).toEqual(['L1:0-1'])
+  })
+
+  it('A4 — all sixteenths still draw a full double beam (two bars, same span)', () => {
+    expect(bars('1__ 2__ 3__ 4__')).toEqual(['L1:0-3', 'L2:0-3'])
+  })
+
+  it('adjacent sixteenths make ONE full level-2 bar, not two stubs', () => {
+    expect(bars('1_ 2__ 3__')).toEqual(['L1:0-2', 'L2:1-2'])
+  })
+
+  it('the old single-thickness .beam-u2 class is gone (every bar is one 1.5px line)', () => {
+    const w = mount(NoteRow, { props: { notes: '1__ 2__ 3__ 4__' } })
+    expect(w.findAll('.beam-u2').length).toBe(0)
+  })
+
+  // A4 fallback — with no layout (jsdom / some print paths) every bar hides itself and the
+  // per-note underlines (.num.u1 / .num.u2) carry the reading, which were ALWAYS per-note
+  // correct. This is the graceful degradation that must survive.
+  it('no layout → bars hide themselves and per-note underlines remain correct', () => {
+    const w = mount(NoteRow, { props: { notes: '.7_. 1__' }, attachTo: document.body })
+    for (const b of w.findAll('.beam')) expect(b.element.style.display).toBe('none')
+    const nums = w.findAll('.num')
+    expect(nums[0].classes()).toContain('u1') // the dotted eighth keeps ONE underline
+    expect(nums[1].classes()).toContain('u2') // the sixteenth keeps TWO
+    w.unmount()
+  })
+})
+
+// B114 — a NoteRow can MOUNT while its tab is still `display:none` (Studio.vue keeps all
+// three modes mounted behind `v-show`). Every rect then reads 0, applyBeam hides each bar,
+// and nothing has asked it to measure again. This test drives exactly that sequence:
+//
+//   1. mount with NO layout (every rect 0)      → bars hide themselves
+//   2. let the mount-time rAF passes run        → still no layout, still hidden
+//   3. layout appears (the tab was shown)       → but no resize / no RO delivery
+//   4. the browser reports the row is rendered  → bars must measure themselves
+//
+// Step 4 is an IntersectionObserver delivery. On the pre-B114 code no IntersectionObserver
+// is constructed at all, so the first assertion fails — this test genuinely discriminates.
+describe('NoteRow beams re-measure when their tab becomes visible (B114)', () => {
+  const LAYOUT = { on: false }
+  let realRect, realIO, ioInstances
+
+  // fake geometry: the row is 100x40; digit i sits at x = i*20 .. i*20+10, bottom 30
+  function fakeRect() {
+    if (!LAYOUT.on) return { left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 }
+    if (this.classList && this.classList.contains('note-row')) {
+      return { left: 0, right: 100, top: 0, bottom: 40, width: 100, height: 40 }
+    }
+    const nt = this.closest && this.closest('.nt')
+    if (nt) {
+      const i = Number(nt.dataset.idx || 0)
+      return { left: i * 20, right: i * 20 + 10, top: 10, bottom: 30, width: 10, height: 20 }
+    }
+    return { left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 }
+  }
+
+  beforeEach(() => {
+    LAYOUT.on = false
+    ioInstances = []
+    realRect = Element.prototype.getBoundingClientRect
+    realIO = global.IntersectionObserver
+    Element.prototype.getBoundingClientRect = fakeRect
+    global.IntersectionObserver = class {
+      constructor(cb) { this.cb = cb; this.targets = []; ioInstances.push(this) }
+      observe(t) { this.targets.push(t) }
+      disconnect() { this.targets = [] }
+    }
+  })
+
+  afterEach(() => {
+    Element.prototype.getBoundingClientRect = realRect
+    global.IntersectionObserver = realIO
+  })
+
+  const settle = () => new Promise((r) => setTimeout(r, 60))
+
+  it('a bar mounted in a hidden tab measures itself once the row is reported visible', async () => {
+    const w = mount(NoteRow, { props: { notes: '.7_. 1__' }, attachTo: document.body })
+    await settle() // the mount-time rAF passes run here — still no layout, so still hidden
+    const bars = w.findAll('.beam')
+    expect(bars.length).toBe(2)
+    for (const b of bars) expect(b.element.style.display).toBe('none')
+
+    // the observer must exist and must watch the ROW (the element that gains a box), not
+    // the zero-sized bar itself — this is what pre-B114 code is missing entirely
+    expect(ioInstances.length).toBe(2)
+    for (const io of ioInstances) {
+      expect(io.targets.length).toBe(1)
+      expect(io.targets[0].classList.contains('note-row')).toBe(true)
+    }
+
+    // the tab is shown: layout exists, but NOTHING fires resize and no RO is delivered
+    LAYOUT.on = true
+    expect(bars[0].element.style.display).toBe('none') // still stale — nobody asked yet
+
+    // ...now the browser reports the row is rendered on screen
+    ioInstances[0].cb([{ isIntersecting: true }])
+    await settle()
+
+    for (const b of w.findAll('.beam')) expect(b.element.style.display).not.toBe('none')
+    w.unmount()
+  })
+
+  it('one row appearing re-measures EVERY bar, so bars further down the sheet are correct', async () => {
+    const w = mount(NoteRow, { props: { notes: '.7_. 1__' }, attachTo: document.body })
+    await settle()
+    LAYOUT.on = true
+    // only the FIRST bar's observer fires; the second bar must be measured too
+    ioInstances[0].cb([{ isIntersecting: true }])
+    await settle()
+    const bars = w.findAll('.beam')
+    // level 1 spans digit0.left(0) .. digit1.right(30); baseline = digit bottom (30)
+    expect(bars[0].element.style.width).toBe('30px')
+    expect(bars[0].element.style.top).toBe('30px')
+    // level 2 is the stub on the sixteenth: digit1 (20..30) + ext = min(10, gap 10 / 2) = 5
+    expect(bars[1].element.style.width).toBe('15px')
+    expect(bars[1].element.style.left).toBe('15px')
+    expect(bars[1].element.style.top).toBe('32.5px')
+    w.unmount()
+  })
+
+  it('an already-measured bar does not re-sweep on ordinary scrolling', async () => {
+    const w = mount(NoteRow, { props: { notes: '.7_. 1__' }, attachTo: document.body })
+    await settle()
+    LAYOUT.on = true
+    ioInstances[0].cb([{ isIntersecting: true }])
+    await settle()
+    // scrolling delivers more intersections; with every bar already measured the guard
+    // (display !== 'none') means no further work is scheduled and nothing changes
+    const before = w.findAll('.beam').map((b) => b.element.getAttribute('style'))
+    ioInstances[0].cb([{ isIntersecting: true }])
+    ioInstances[1].cb([{ isIntersecting: true }])
+    await settle()
+    expect(w.findAll('.beam').map((b) => b.element.getAttribute('style'))).toEqual(before)
+    w.unmount()
+  })
+
+  it('beforeprint still re-measures every bar (A6 unchanged)', async () => {
+    const w = mount(NoteRow, { props: { notes: '.7_. 1__' }, attachTo: document.body })
+    await settle()
+    LAYOUT.on = true
+    window.dispatchEvent(new Event('beforeprint'))
+    for (const b of w.findAll('.beam')) expect(b.element.style.display).not.toBe('none')
+    w.unmount()
+  })
+})
