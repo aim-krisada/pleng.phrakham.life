@@ -15,6 +15,15 @@
 
 > 🤝🤝 **HANDOFF → pl pm ใหม่ (20 ก.ค. เย็น): อ่าน `docs/pm/HANDOFF-pm35.md` ก่อน** — **live = รอบ 35 `94199d6`** · **ไม่มีงานค้างกลางอากาศ** · ตั้งชื่อตัวเอง **`pm36`**
 
+## 🔬 IN FLIGHT (pm35 · แทรกก่อน B112 — **P'Aim สั่ง "แก้แล้วค่อย deploy"**) — B118 เส้นโค้ง slur ขาด
+- **พี่เปา 20 ก.ค.:** *"เส้น slur โค้งไม่ต่อเนื่องกัน"* — โค้งที่คลุมโน้ตข้ามห้อง **ขาดเป็น 2 ท่อน** ตรงเส้นแบ่งห้อง (ในหน้าแก้ไข) · รูป `pleng2-pow-bug-report/isues24` (3 รูป) · เคส `6 1 - -` ต่อ `7 - 6 -`
+- 🔑 **PM verify แล้ว: โค้ดที่ต้องใช้มีอยู่แล้ว** — `SongSheet.vue:265-320` (issues5) ใช้ `slurSpans` + `arcPlan` + `buildArc` จัดการ cross-segment ครบ (รวมกรณี line-wrap แบ่งครึ่งตาม engraving + `hideHalf` ซ่อนโค้งเศษเฉพาะเมื่อวาดตัวแทนได้) · **`EditorMode.vue` ยังวาดทีละกล่องแยกกัน** → เอาแนวทางเดียวกันมาใช้
+- ⚠️ **จุดที่กินเวลาจริง = DOM หน้าแก้ไข ≠ แผ่นเพลง** (โน้ตอยู่ในกล่องที่มี padding/border ของตัวเอง → selector/การวัดพิกัดต่างกัน) · สั่งแล้วว่า **ถ้าแยกเป็นฟังก์ชันร่วมได้ให้ทำ** (กัน drift 2 ชุด [[pleng-shared-core-shell-deep]]) **แต่ถ้าต้องรื้อ `SongSheet.vue` เยอะ = หยุด ping PM**
+- **PM ประเมิน ~ครึ่งวัน** (เอาของที่มีอยู่มาใช้ ไม่ต้องคิดใหม่) · สั่ง agent ไว้ว่า **ถ้าพบว่าใหญ่กว่านี้ ให้หยุด ping PM ทันที อย่าฝืน**
+- 🟢 **จ่าย full-stack agent แล้ว** · worktree `pleng-slur` · branch `b118-slur-continuous` จาก **`94199d6` (รอบ 35 live)** · :5395
+- **AC:** A1 โค้งเดียวต่อเนื่อง · A2 line-wrap แบ่งครึ่งถูก engraving · **A3 ห้าม regress** (slur ในห้องเดียว B062/B076 · แผ่นเพลง · **beam รอบ 35** — `NoteRow.vue` แชร์กัน) · A4 เสียงห้ามเปลี่ยน (MIDI diff) · A5 พิมพ์ · A6 มือถือ · A7 tests+build · A8 กวาดคลัง (ระบุขอบเขต anon ห้ามเคลม 100%)
+- ▶ **ถัดไป:** dev → tester (session แยก) → PM gate → P'Aim/พี่เปาเคาะ → **deploy รอบ 36** → แล้วค่อย B112
+
 ## ▶ RESUME (pm35 ปิดงาน 20 ก.ค. · สายหน้าอ่านนี่ก่อน)
 **LIVE = รอบ 35 `94199d6`** (bundle `assets/index-0T7X4x_B.js` · CSS `index-AX6xWeFW.css`) — ยืนยันจาก bundle จริง + วัด B111 บนหน้า live แล้ว
 ⚠️ **verify ด้วย commit stamp ไม่ใช่ชื่อไฟล์** — GH Actions build ได้ hash คนละตัวกับ build ในเครื่อง (ของเราได้ `DdCOmry4`)
