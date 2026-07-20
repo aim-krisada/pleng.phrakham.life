@@ -53,7 +53,11 @@
 - ✅ **G เห็นด้วยกับดีไซน์เรา (P'Aim ยืนยัน 19 ก.ค.)** → เดินหน้า
 - ✅ **fermata แยกขาดจาก DockKey ใหม่ (PM verify รอบ 30):** ชิปอยู่ใน `EditorMode` โซนแก้โน้ต (`.slot-tools` มีจริงรอบ30) · **ไม่แตะ `DockKey.vue`** → ไม่กระทบ DockKey redesign ที่ยังไม่นิ่ง · ไม่มี 2-host พระคำ · P'Aim: เอา fermata ขึ้นก่อนบนของนิ่ง
 - 🟢 **จ่าย full-stack session แล้ว (P'Aim สั่ง PM สร้างเอง):** worktree `C:/gl/krisada/pleng-fermata` branch `fermata-hold` จากรอบ30 `2f4177e` · 1 session ทำ wireframe→design→dev · **tester แยก session (จ่ายทีหลัง)** · dev `--host` :5350
-- ▶ **Milestone 1 = wireframe บนโค้ดจริงก่อน แล้วหยุด → P'Aim ดู/เคาะ → M2 wire logic** (P'Aim: ขอดู wireframe ก่อน · ไม่ใช่ mockup ทิ้ง = สร้างบน EditorMode จริง)
+- ✅ **M1 wireframe เสร็จ (`512b92c`):** ชิปใต้โน้ต (Teleport body · hover-safe · 44px · verify Chrome hover:none) · host ใหม่ (round30 ไม่มี contextual toolbox ตามคาด)
+- ✅ **P'Aim+พี่เปา รีวิว → MINIMALIST:** ตัด "ค้าง"(งง)/▶ฟัง(ฟังทั้งท่อนแล้ว)/แถบ▓▓▓/↺แนะนำ → **เหลือ `𝄐 – N +`** · แก้บนโค้ดจริง (`6bf53e2`)
+- ✅ **P'Aim ถาม 44px จำเป็นไหม → PM ตอบมาตรฐาน:** WCAG 2.2 **AA = 24px** (2.5.8) · 44 = AAA (2.5.5 เกินไป) · ปุ่มพี่น้อง `.ed-mini` = 30px → **ย่อ +/- เหลือ 30px** (`98e5d43`) · มือถือเด้ง 44 (width-query ไม่ใช่ hover)
+- ✅✅ **P'Aim เคาะ wireframe "ลงตัวแล้ว" → จ่าย M2 (logic เต็ม):** holds absolute · auto-suggest bar-fill (+fallback ~2× กลางห้อง) · step 0.5 · midi.js เลิก ×1.75 (bar-math ไม่นับ hold) · SongSheet สัญลักษณ์ล้วน · persist · backward-compat · unit test · คง look 30px · ไม่แตะ DockKey
+- ▶ **รอ M2 เสร็จ → จ่าย tester session (แยก) → PM gate → P'Aim เคาะ deploy รอบ 31**
 
 ## 🔄 ORG: SA+UX รวมเป็น "Design" สายเดียว (P'Aim 18 ก.ค. · กลับจากแยก 17 ก.ค.)
 - เหตุ: 2 session = PM ประสาน+ชน base/host คนละมุม (fermata: UX วาง UI บน toolbox ที่ถูกทิ้ง) · รวม = 1 คนถือทั้ง feasibility+UX · roster/SOP §1.1 + memory `pleng-roster-3-seats` อัปแล้ว
