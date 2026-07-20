@@ -50,6 +50,13 @@
 - 🔧 **future polish (tester flag · ไม่บล็อก):** ชิปอาจทับแป้นตอนโน้ตอยู่ล่างสุดจอเตี้ย (positioning เดิม · เลื่อนโน้ตขึ้นก็กดได้) → ทำ ticket
 - 🆕 **tablet layout (P'Aim consult · งานแยก future):** rail 288px กินที่บนแท็บเล็ต (768-1024 ตกโหมด desktop) → KISS = ขยับ drawer breakpoint 760→~900 ใช้ลิ้นชักที่มีอยู่ (แถมได้ยุบโครงเพลงฟรี) · จูน px บนแท็บเล็ตจริง
 
+## 📐 tablet rail → drawer + โครงเพลงยุบได้ (P'Aim สั่ง 20 ก.ค. · งานแยกจาก fermata)
+- brief `docs/us/tablet-rail-drawer.md` · worktree `pleng-drawer` branch `tablet-rail-drawer` จากรอบ 31 `68b25ca` · :5360
+- ✅ **dev wireframe → P'Aim เคาะ:** breakpoint 900 (≤900 drawer · ≥901 side rail) · drawer 340px (P'Aim: คงไว้ ไม่ขยาย) · โครงเพลงยุบได้ **default-open** · ทำนอง default-closed
+- ✅ **dev ปิดงาน (`047a7a7`):** +เทสต์ TRD1-6 · 713 passed · build OK · diff แค่ EditorMode.vue+test · fermata/DockKey/sheet ไม่แตะ · phone≤760 diff0 · desktop side rail diff0 · report+checklist
+- 🔬 **tester session จ่ายแล้ว** (9 ข้อ · real browser ทุกความกว้าง + hover:none + keyboard) → `tablet-rail-drawer-tester.md`
+- ▶ **รอ tester → PM gate → P'Aim → deploy รอบ 32** (หลัง fermata รอบ 31 ขึ้น live ก่อน)
+
 ## 🎵 เฟอร์มาต้า — ประวัติ design (สาย 2 · P'Aim อนุมัติเริ่ม 18 ก.ค.)
 - brief พร้อม `docs/us/fermata-hold.md` (ปัญหา 4 · ต้นเหตุ `midi.js` 1.75x คงที่ · บท Gemini · meeting-room)
 - ✅ **SA design เสร็จ (`06fbbd0` · `fermata-design-sa.md`):** ต้นเหตุ = **"ค่า" ผิด (×1.75 คงที่) ไม่ใช่กลไก** (scheduler ถูก) · **hold = บีตสัมบูรณ์ · เก็บ `holds` แยกจาก note string** (5^2 ชน) · **playback นอก bar-math = แก้ห้องหลุด · sheet ซ่อนเลขฟรี** (เลขไม่อยู่ใน string) · no-migrate · refine (`notation.js`/`SongSheet.vue` ไม่แตะ · `midi.js` เล็ก) · ✅ **SA ฟันธง correctness เอง อ้างมาตรฐาน (ไม่ Gemini · `867ea0e` §6):** MuseScore "Time stretch" แก้ได้ต่อโน้ต default 2× (→ 1.75 คงที่ผิด) · pleng เลือก **bar-fill default** (บริบทเล่นเรียงเวลา+ร้องกลับ downbeat · fallback ~2× ถ้าไม่ท้ายห้อง) · Gould: sheet สัญลักษณ์ล้วน · step 0.5 บีต · sources: MuseScore/Wikipedia/UMT/Gould · **ไม่มี dependency Gemini**
