@@ -34,7 +34,16 @@ const model = computed(() => {
   return { groups: gs, beams }
 })
 const groups = computed(() => model.value.groups)
-const beams = computed(() => model.value.beams)
+// One drawn bar per BEAM LEVEL (B110), not one per run: a run that mixes เขบ็ต 1 ชั้น and
+// 2 ชั้น (`.7_. 1__`) gets a full level-1 bar over the whole run plus a level-2 bar over
+// only the sixteenths — a lone sixteenth getting a short partial beam (ขีดหัก).
+const beams = computed(() =>
+  model.value.beams.flatMap((b) =>
+    b.levels && b.levels.length
+      ? b.levels
+      : [{ level: 1, start: b.start, end: b.end, partial: null }],
+  ),
+)
 const ACC_GLYPH = { '#': '♯', b: '♭', n: '♮' }
 
 // --- Engraved slur/tie geometry (B076) ------------------------------------------------
@@ -140,12 +149,21 @@ const vArc = {
   },
 }
 
-// v-beam="{ start, end, u2 }" — draw ONE continuous underline (a beam) spanning the first
-// through last note of a same-beat run (issues2). The per-note underlines leave lyric-driven
-// gaps between the digits; this bar bridges them into a single beam, overlaying the existing
-// border-bottoms at the same y/thickness so it simply reads as one line. Positioned against
-// the .note-row and re-measured on layout/resize/print. If there is no layout (jsdom), it
-// hides itself and the per-note underlines remain as a graceful fallback.
+// v-beam="{ level, start, end, partial }" — draw ONE beam bar spanning the first through
+// last note it covers (issues2). The per-note underlines leave lyric-driven gaps between the
+// digits; this bar bridges them into a single beam, overlaying the existing border-bottoms at
+// the same y/thickness so it simply reads as one line. Positioned against the .note-row and
+// re-measured on layout/resize/print. If there is no layout (jsdom), it hides itself and the
+// per-note underlines remain as a graceful fallback.
+//
+// B110 — geometry is per LEVEL now. We anchor on the digit's CONTENT bottom (its own
+// underline border stripped off), because a `.num.u2` box is 4px taller than a `.num.u1`
+// box; measuring raw rect.bottom made the y depend on which note happened to be first.
+// From that baseline every level sits where the old `4px double` border drew it:
+//   level 1 → baseline .. +1.5   ·   level 2 → +2.5 .. +4   ·   level 3 → +5 .. +6.5
+// so an all-eighths run and an all-sixteenths run come out pixel-identical to before (A4).
+const BEAM_TH = 1.5 // bar thickness — matches `.num.u1`'s border-bottom
+const BEAM_GAP = 1 // white space between two beam levels — matches the `double` border
 const liveBeams = new Set()
 function applyBeam(el) {
   const b = el.__beam
@@ -158,12 +176,28 @@ function applyBeam(el) {
   const a = first.getBoundingClientRect()
   const c = last.getBoundingClientRect()
   if (!a.width || !rr.width) { el.style.display = 'none'; return }
-  const th = b.u2 ? 4 : 1.5
+  // strip the measured digit's own underline border so every level shares one baseline
+  let border = 0
+  if (typeof getComputedStyle === 'function') {
+    const w = parseFloat(getComputedStyle(first).borderBottomWidth)
+    if (!Number.isNaN(w)) border = w
+  }
+  const baseline = a.bottom - border
+  const level = b.level || 1
+  let left = a.left - rr.left
+  let width = Math.max(0, c.right - a.left)
+  if (b.partial) {
+    // ขีดหัก: cover this digit and reach part-way toward the note it is beamed to, so the
+    // stub reads as pointing INTO the beam rather than as a stray tick.
+    const ext = Math.max(4, a.width * 0.5)
+    width = a.width + ext
+    if (b.partial === 'left') left -= ext
+  }
   el.style.display = ''
-  el.style.left = a.left - rr.left + 'px'
-  el.style.width = Math.max(0, c.right - a.left) + 'px'
-  el.style.height = th + 'px'
-  el.style.top = a.bottom - rr.top - th + 'px'
+  el.style.left = left + 'px'
+  el.style.width = width + 'px'
+  el.style.height = BEAM_TH + 'px'
+  el.style.top = baseline - rr.top + (level - 1) * (BEAM_TH + BEAM_GAP) + 'px'
 }
 function applyAllBeams() { for (const el of liveBeams) applyBeam(el) }
 if (typeof window !== 'undefined') {
@@ -267,9 +301,13 @@ const vBeam = {
          positioned over the digits by v-beam so consecutive beamed notes read as one beam. -->
     <i
       v-for="b in beams"
-      :key="'beam-' + b.start"
+      :key="'beam-' + b.level + '-' + b.start"
       class="beam"
-      :class="{ 'beam-u2': b.u2 }"
+      :class="['beam-l' + b.level, b.partial ? 'beam-partial' : '']"
+      :data-beam-level="b.level"
+      :data-beam-start="b.start"
+      :data-beam-end="b.end"
+      :data-beam-partial="b.partial || ''"
       v-beam="b"
       aria-hidden="true"
     ></i>
@@ -328,16 +366,13 @@ const vBeam = {
    sixteenths — a เอื้อน within a beat engraved like the reference songbook, distinct from the
    arc used for phrase melismas that span beats. Drawn as a bar (v-beam measures its left/width/
    top over the digits) that overlays the per-note border-bottoms and bridges the lyric-driven
-   gaps between them into a single line. u2 = double bar (sixteenths). */
+   gaps between them into a single line. B110: ONE bar per beam LEVEL — level 2 only spans
+   the notes that are really sixteenths, and a lone sixteenth gets a short partial stub —
+   so a mixed run no longer shows two lines under a one-underline note. */
 .beam {
   position: absolute;
   background: currentColor;
   pointer-events: none;
-}
-.beam.beam-u2 {
-  background: none;
-  border-top: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
 }
 /* accidental: smaller than the digit, floating at its upper-left WITHOUT
    widening the digit column — so octave dots stay exactly under the digit */
