@@ -1,4 +1,4 @@
--- 010 — Give song_drafts its own category/theme (B104 "หมวดหาย").
+-- 010 — Give song_drafts its own category/theme (B108 "หมวดหาย").
 -- Run once in the Supabase SQL Editor, AFTER 002/003/004 (independent of 005-009).
 --
 -- ℹ️ NUMBERING: the PM brief said "008". 008 (notifications) and 009 (security-hardening)
