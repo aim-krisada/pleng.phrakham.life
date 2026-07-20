@@ -1,4 +1,7 @@
-# B110 — เส้นขเบ็ดถูกลากผิดชั้นเมื่อโน้ตติดกัน (beam levels)
+# B111 — เส้นขเบ็ดถูกลากผิดชั้นเมื่อโน้ตติดกัน (beam levels)
+
+> ⚠️ **เลขที่ถูกต้อง = B111** (B110 ถูกใช้ไปแล้วกับ Sound Lab — PM จ่ายงานไปก่อนตรวจเลข)
+> **branch/worktree ยังชื่อ `b110-beam-levels` / `pleng-beam` ตามเดิม** (agent ทำงานอยู่ ไม่เปลี่ยนกลางคัน) — ชื่อ branch ไม่ตรงเลข ticket โดยตั้งใจ
 
 **ที่มา:** พี่เปา · `OneDrive/4 Personal/pleng.phrakham.life/pleng2-pow-bug-report/issue24`
 **ฐาน:** `origin/main` = รอบ 34 `c7f60a3` (แตกจาก main ตรง — งาน render ล้วน ไม่พัน dock)
