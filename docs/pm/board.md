@@ -60,7 +60,12 @@
 - ✅✅ **M2 เสร็จ (`28f9b39`):** holds absolute (prune/round-trip) · auto-suggest `suggestHoldForBar` (bar-fill +2× fallback · min0.5 · step0.5) · midi.js เลิก×1.75 (bar-math ไม่นับ hold=ตัวแก้ drift · MP3=live) · sheet สัญลักษณ์ล้วน · chip ผูก holds จริง+persist · backward-compat · 702 tests+build✓ (notationLint fail = pre-existing บน base) · คง look 30px · DockKey ไม่แตะ · report `pleng-fermata/docs/reports/fermata-hold.md`
 - 🎯 **P'Aim ลองของจริง** localhost:5350 (ค่าแนะนำ3 · +/-0.5 persist · เล่นลงหัวห้อง · แผ่นสัญลักษณ์)
 - 🔬 **tester session แยกจ่ายแล้ว** (7 ข้อ: suggest·persist·timing·sheet·backward·mobile diff0·DockKey untouched · real browser+Surface hover:none · no fake PASS) → รายงาน `fermata-tester.md`
-- ▶ **รอ tester + P'Aim ลอง → PM gate จากหลักฐาน → P'Aim เคาะ deploy รอบ 31**
+- ✅ **badge editor-only เพิ่ม (P'Aim ขอ · `81a3458`):** `𝄐N` มุมโน้ตในหน้าแก้ไข (เห็นค่าทั้งบรรทัดไม่ต้องกด) · `.no-print` → แผ่นสัญลักษณ์ล้วน (มาตรฐาน Gould · verify 3 ทาง) · +6 tests
+- ✅✅ **tester GATE = PASS 9/9 (`81a3458` · report `fermata-tester.md`):** suggest·persist·timing(ลงหัวห้อง)·sheet symbol-only·backward·mobile diff0·DockKey untouched·badge·**badge ไม่ปรินต์** · 702+build✓ · verify บน hover:none จริง · no fake PASS
+- ✅ **PM GATE รับ (จากหลักฐาน tester)**
+- 🙏 **3 จุด tester ขับไม่ได้ → P'Aim ยืนยันใช้จริง:** (1) save/reopen เพลงจริง persist (2) เปิดเพลงเก่า backward-compat (3) **Ctrl+P/PDF จริงไม่มีเลข** (feedback_verify_print_from_pdf)
+- ▶ **P'Aim ลอง 3 จุด → สั่ง go → PM deploy รอบ 31 (merge `fermata-hold`→main · แตกจาก main ตรง ไม่พัน dock-space · PM only)**
+- 🆕 **P'Aim ขอ (แยกจาก fermata · ยังรอเคาะ):** "โครงเพลง" ยุบได้ (mirror ทำนอง) + จอแคบหดอัตโนมัติ · PM แนะ ยังไม่ทำ drag-resize มือ (ซ้ำรอย dock) → file แยก จ่าย session ใหม่
 
 ## 🔄 ORG: SA+UX รวมเป็น "Design" สายเดียว (P'Aim 18 ก.ค. · กลับจากแยก 17 ก.ค.)
 - เหตุ: 2 session = PM ประสาน+ชน base/host คนละมุม (fermata: UX วาง UI บน toolbox ที่ถูกทิ้ง) · รวม = 1 คนถือทั้ง feasibility+UX · roster/SOP §1.1 + memory `pleng-roster-3-seats` อัปแล้ว
