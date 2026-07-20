@@ -50,7 +50,10 @@
 - 🔴 **host-base issue (UX flag · PM แก้แล้วใน brief):** UX วาง UI บน **contextual toolbox = มากับ dock-space รอบ 31 ที่ทิ้งไป (ไม่มีในรอบ 30)** → **ย้าย host เป็น chip ใต้โน้ต (รอบ 30 มีจริง)** ก่อนประกอบ
 - 🟢 **PM รีวิวบท Gemini (P'Aim ส่งมา 19 ก.ค. `Downloads/การคำนวณค่า-Fermata`):** Gemini เชียร์ default **×2.0 คงที่** → **PM ปฏิเสธ · ยึด bar-fill ของ SA** (×2.0 ไม่การันตีจบหัวห้องถัดไป = อาการเดิมไม่หาย · Gemini ไม่รู้บริบท sequential+congregational restart) · Gemini ยืนยันแค่ "มี default + แก้ได้ = ถูกทาง" ตรงกับเรา
 - ✅ **BUILD brief พร้อม (pl pm29 · `docs/us/fermata-build.md`):** full-stack 1 session · base รอบ 30 `2f4177e` · host=chip ใต้โน้ต (verify attach จริง) · data-model SA + UI UX (ค+ง) · default bar-fill · `--host` · unit→P'Aim preview→tester→gate
-- ▶ **จ่าย full-stack session (1 คนทำครบ SA+UX+UI+dev) — รอ P'Aim เปิด/เลือก session ปลายทาง**
+- ✅ **G เห็นด้วยกับดีไซน์เรา (P'Aim ยืนยัน 19 ก.ค.)** → เดินหน้า
+- ✅ **fermata แยกขาดจาก DockKey ใหม่ (PM verify รอบ 30):** ชิปอยู่ใน `EditorMode` โซนแก้โน้ต (`.slot-tools` มีจริงรอบ30) · **ไม่แตะ `DockKey.vue`** → ไม่กระทบ DockKey redesign ที่ยังไม่นิ่ง · ไม่มี 2-host พระคำ · P'Aim: เอา fermata ขึ้นก่อนบนของนิ่ง
+- 🟢 **จ่าย full-stack session แล้ว (P'Aim สั่ง PM สร้างเอง):** worktree `C:/gl/krisada/pleng-fermata` branch `fermata-hold` จากรอบ30 `2f4177e` · 1 session ทำ wireframe→design→dev · **tester แยก session (จ่ายทีหลัง)** · dev `--host` :5350
+- ▶ **Milestone 1 = wireframe บนโค้ดจริงก่อน แล้วหยุด → P'Aim ดู/เคาะ → M2 wire logic** (P'Aim: ขอดู wireframe ก่อน · ไม่ใช่ mockup ทิ้ง = สร้างบน EditorMode จริง)
 
 ## 🔄 ORG: SA+UX รวมเป็น "Design" สายเดียว (P'Aim 18 ก.ค. · กลับจากแยก 17 ก.ค.)
 - เหตุ: 2 session = PM ประสาน+ชน base/host คนละมุม (fermata: UX วาง UI บน toolbox ที่ถูกทิ้ง) · รวม = 1 คนถือทั้ง feasibility+UX · roster/SOP §1.1 + memory `pleng-roster-3-seats` อัปแล้ว
