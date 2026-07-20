@@ -1,9 +1,9 @@
-# PM board — pleng (ไม้ต่อ · refreshed 2026-07-20 · live = รอบ 33)
+# PM board — pleng (ไม้ต่อ · refreshed 2026-07-20 · live = รอบ 34)
 
 > 🤝🤝 **HANDOFF → pl pm ใหม่ (20 ก.ค.): อ่าน `docs/pm/HANDOFF-pm29.md` ก่อน** — live=รอบ32 · **งานค้างกลางอากาศ: `guide-r33` อัปคู่มือ (agent ผูกกับ pm29 → ตรวจเองจาก branch)** · ตั้งชื่อตัวเอง `pm30`
 
 ## ▶ RESUME (pm29 ปิดงาน 20 ก.ค. · สายหน้าอ่านนี่ก่อน)
-**LIVE = รอบ 33 `23f2e19`** (bundle `index-ChN1uBZJ.js`) — รอบ31 fermata + รอบ32 tablet-drawer + **รอบ33 คู่มือ** · deploy+ยืนยัน live ครบทุกรอบ
+**LIVE = รอบ 34 `c7f60a3`** (bundle `index-BIao-yy-.js`) — รอบ31 fermata + รอบ32 tablet-drawer + รอบ33 คู่มือ + **รอบ34 B108 แก้เพลงย้ายเล่มเอง (db/010 รันแล้ว)** · deploy+ยืนยัน live ครบทุกรอบ
 - ✅ **จบไปแล้ว 2 ฟีเจอร์:** (1) **fermata หน่วงเสียงตั้งค่าได้** (default 2 · +/- 0.5 · badge `𝄐N` ในหน้าแก้ · แผ่นพิมพ์สัญลักษณ์ล้วน) (2) **แท็บเล็ต rail→ลิ้นชัก @900 + โครงเพลงยุบได้ default-open**
 - 🙏 **ค้างให้ P'Aim/พี่เปา ยืนยันบน live:** save/reopen persist · เพลงเก่า backward-compat · **Ctrl+P/PDF จริงต้องไม่มีเลข** (feedback_verify_print_from_pdf)
 - 🔧 **ค้างทำต่อ (ไม่บล็อก):** ชิป fermata อาจทับแป้นตอนโน้ตอยู่ล่างสุดจอเตี้ย (tester flag · positioning เดิม)
