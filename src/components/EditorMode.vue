@@ -953,14 +953,10 @@ onUnmounted(() => {
   window.removeEventListener('resize', onChipReflow)
   window.visualViewport?.removeEventListener('resize', onChipReflow)
 })
-// meter fill % (dual-coding with the number) — 4 จังหวะ reads full; min sliver stays visible
-const fcMeterPct = computed(() => Math.max(6, Math.min(100, (fcHold.value / 4) * 100)))
 const fcHoldLabel = computed(() => (Number.isInteger(fcHold.value) ? String(fcHold.value) : fcHold.value.toFixed(1)))
-// M1 stub behaviour: +/- move the LOCAL stub so the meter/number are seen to react; ▶/↺ inert.
+// M1 stub behaviour: +/- move the LOCAL stub so the number is seen to react (not persisted).
 function fcInc() { fcHold.value = Math.min(FC_MAX_STUB, fcHold.value + 0.5); nextTick(placeChip) }
 function fcDec() { fcHold.value = Math.max(0.5, fcHold.value - 0.5); nextTick(placeChip) }
-function fcReset() { fcHold.value = FERMATA_HOLD_STUB /* M2: = suggestHold(seg, tokenIdx) */ }
-function fcHear() { /* M2: play just this note + tail at the current hold */ }
 
 // ---------- line/bar/segment operations (act on the active stanza) ----------
 // B098: add a ห้อง and drop the cursor straight into its (empty) note box, so the user
@@ -2465,15 +2461,10 @@ defineExpose({
         role="group"
         aria-label="ตั้งค่าการค้างเสียงของเฟอร์มาต้า"
       >
-        <span class="fc-tag"><span class="fc-sym" aria-hidden="true">𝄐</span> ค้าง</span>
+        <span class="fc-sym" aria-hidden="true">𝄐</span>
         <button class="fc-step" aria-label="ค้างสั้นลง" @mousedown.prevent @click="fcDec">–</button>
-        <span class="fc-gauge" aria-hidden="true">
-          <span class="fc-meter"><span class="fc-meter-fill" :style="{ width: fcMeterPct + '%' }"></span></span>
-          <span class="fc-value">{{ fcHoldLabel }} จังหวะ</span>
-        </span>
+        <span class="fc-value" aria-live="polite" :aria-label="`ค้าง ${fcHoldLabel} จังหวะ`">{{ fcHoldLabel }}</span>
         <button class="fc-step" aria-label="ค้างยาวขึ้น" @mousedown.prevent @click="fcInc">+</button>
-        <button class="fc-act" aria-label="ฟังเสียงค้างของโน้ตนี้" @mousedown.prevent @click="fcHear"><span aria-hidden="true">▶</span> ฟัง</button>
-        <button class="fc-act fc-suggest" aria-label="คืนค่าที่ระบบแนะนำ" @mousedown.prevent @click="fcReset"><span aria-hidden="true">↺</span> แนะนำ</button>
       </div>
     </Teleport>
     <!-- editor chrome teleported into the app-wide ShellBar — only while this mode is on
@@ -3399,24 +3390,22 @@ defineExpose({
 /* ===== เฟอร์มาต้า "ค้าง" chip — floating per-note hold control (host under the note) ===== */
 /* Teleported to <body>; Vue scoped-style attr still applies to teleported nodes. Position is
    set inline (fixed left/top, clamped in JS). Everything always visible — no hover/pointer gate. */
+/* Minimalist (P'Aim): just  𝄐  [ – ]  N  [ + ]  — no label / meter / ฟัง / แนะนำ. */
 .fermata-chip {
   position: fixed;
   z-index: 60;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   max-width: calc(100vw - 16px);
-  padding: 6px 8px;
+  padding: 4px 6px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
   font-size: 14px;
 }
-.fc-tag { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--brand); white-space: nowrap; }
-.fc-sym { font-size: 20px; line-height: 1; }
+.fc-sym { font-size: 20px; line-height: 1; color: var(--brand); padding: 0 2px; }
 .fc-step {
   min-width: var(--touch-min); min-height: var(--touch-min);
   font-size: 22px; font-weight: 700; line-height: 1;
@@ -3425,20 +3414,11 @@ defineExpose({
   flex: 0 0 auto;
 }
 .fc-step:active { background: #eef2f7; }
-.fc-gauge { display: inline-flex; flex-direction: column; align-items: stretch; gap: 3px; min-width: 96px; }
-.fc-meter { height: 8px; border-radius: 4px; background: #edf1f5; overflow: hidden; }
-.fc-meter-fill { display: block; height: 100%; background: var(--brand); border-radius: 4px; transition: width 0.12s ease; }
-.fc-value { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink, #222); text-align: center; white-space: nowrap; }
-.fc-act {
-  min-height: var(--touch-min); padding: 0 12px;
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 14px; font-weight: 600;
-  color: var(--brand); background: #fff;
-  border: 1px solid var(--brand); border-radius: 10px; cursor: pointer;
-  white-space: nowrap; flex: 0 0 auto;
+.fc-value {
+  min-width: 28px; text-align: center;
+  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 16px;
+  color: var(--ink, #222);
 }
-.fc-act:active { background: rgba(139, 69, 19, 0.08); }
-.fc-suggest { color: var(--muted); border-color: var(--line); }
 /* ===== editor-section-ux: "โครงเพลง" rail rows + canvas section header ===== */
 /* screen-reader-only live region (reorder announcements) */
 .sr-only {
