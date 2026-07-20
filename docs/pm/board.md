@@ -1,4 +1,14 @@
-# PM board — pleng (ไม้ต่อ · refreshed 2026-07-18 ค่ำ · หลัง ROLLBACK → live รอบ 30)
+# PM board — pleng (ไม้ต่อ · refreshed 2026-07-20 · live = รอบ 32)
+
+## ▶ RESUME (pm29 ปิดงาน 20 ก.ค. · สายหน้าอ่านนี่ก่อน)
+**LIVE = รอบ 32 `047a7a7`** (fermata รอบ31 + tablet-drawer รอบ32 · ทั้งคู่ deploy+ยืนยัน live แล้ว)
+- ✅ **จบไปแล้ว 2 ฟีเจอร์:** (1) **fermata หน่วงเสียงตั้งค่าได้** (default 2 · +/- 0.5 · badge `𝄐N` ในหน้าแก้ · แผ่นพิมพ์สัญลักษณ์ล้วน) (2) **แท็บเล็ต rail→ลิ้นชัก @900 + โครงเพลงยุบได้ default-open**
+- 🙏 **ค้างให้ P'Aim/พี่เปา ยืนยันบน live:** save/reopen persist · เพลงเก่า backward-compat · **Ctrl+P/PDF จริงต้องไม่มีเลข** (feedback_verify_print_from_pdf)
+- 🔧 **ค้างทำต่อ (ไม่บล็อก):** ชิป fermata อาจทับแป้นตอนโน้ตอยู่ล่างสุดจอเตี้ย (tester flag · positioning เดิม)
+- 🆕 **งานใหญ่ที่ P'Aim คุยกับ G ไว้ (ยังไม่ทำ · ควร file เข้า backlog ก่อนแตกงาน):** editor overhaul — measure grid · layer/track · **multi-voice ลูกคู่ (ไม่มีในโมเดลเลย = งานโมเดลใหญ่)** · **D.C./Fine/Segno picker + resolver (ตอนนี้เป็น text เฉย ๆ เล่นไม่กระโดด)** · DockKey redesign (windowed/flat-list setting) · ดู `docs/reports/current-editor-audit.md`
+- 📌 **DockKey ใหม่ยังไม่นิ่ง — P'Aim ไม่อยากใช้จนกว่าจะนิ่ง** (branch `dock-resize` `f8d77a3` ค้าง · ไม่ได้ deploy)
+- 🧹 worktree ที่เสร็จแล้ว: `pleng-fermata`(:5350) · `pleng-drawer`(:5360) — merged เข้า main แล้ว ลบได้ถ้าไม่ใช้
+
 
 > 🤝🤝 **HANDOFF → pl pm ใหม่ (18 ก.ค. ค่ำ · P'Aim สั่ง): อ่าน `docs/pm/HANDOFF-pm28.md` ก่อน** — 🔴 **โครงทีมใหม่: 1 session/feature = full-stack (SA+UX+UI+dev)** · live=รอบ30 · dock/⚙ เกือบจบ (รอ P'Aim ลอง+พระคำ 2-host) · fermata design เสร็จ(รอ host-move) · git/DB/sessions/บทเรียน ครบ · (เก่า `HANDOFF-2026-07-18.md`)
 
@@ -56,8 +66,8 @@
 - ✅ **dev wireframe → P'Aim เคาะ:** breakpoint 900 (≤900 drawer · ≥901 side rail) · drawer 340px (P'Aim: คงไว้ ไม่ขยาย) · โครงเพลงยุบได้ **default-open** · ทำนอง default-closed
 - ✅ **dev ปิดงาน (`047a7a7`):** +เทสต์ TRD1-6 · 713 passed · build OK · diff แค่ EditorMode.vue+test · fermata/DockKey/sheet ไม่แตะ · phone≤760 diff0 · desktop side rail diff0 · report+checklist
 - ✅✅ **tester PASS 9/9 (`047a7a7`) + PM GATE รับ** — width matrix ถูก · โครงเพลงยุบ default-open · hover:none/keyboard/WCAG · ไม่ regress · 713 tests
-- ❓ **รอ P'Aim เคาะ 1 จุด:** ▾ ยุบโครงเพลงเป็น global → มือถือมี ▾ ด้วย (PM แนะคงไว้ · หรือซ่อนบนมือถือให้เป๊ะเดิม)
-- ▶ **fermata รอบ 31 live แล้ว → รอ P'Aim เคาะ ▾ → PM deploy drawer รอบ 32** (merge `tablet-rail-drawer`→main · ยังไม่ merge)
+- ✅ **▾ global (มือถือมีด้วย) = คงไว้** (PM แนะ · P'Aim สั่ง deploy = รับตามนั้น)
+- ✅✅ **DEPLOYED + LIVE รอบ 32 ยืนยัน (`047a7a7` · bundle `index-CYE2eUjR.js`)** — push `68b25ca..047a7a7` fast-forward · GitHub ฟื้นแล้ว build ~2 นาที
 
 ## 🎵 เฟอร์มาต้า — ประวัติ design (สาย 2 · P'Aim อนุมัติเริ่ม 18 ก.ค.)
 - brief พร้อม `docs/us/fermata-hold.md` (ปัญหา 4 · ต้นเหตุ `midi.js` 1.75x คงที่ · บท Gemini · meeting-room)
