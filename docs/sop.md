@@ -32,6 +32,7 @@ P'Aim: *"ทำไมไม่ทำเป็น component ที่เอาไ
 - **ฐาน = `studio-shell-redesign`** ไม่ใช่ `main` · push ฐาน = `git push origin HEAD:studio-shell-redesign`
 - ⛔ **`main` = auto-deploy** merge ผิด = ขึ้นเว็บทันที
 - **selective-merge:** ก่อน deploy ถ้า branch แตกมานาน → ฐานแตะไฟล์เดียวกันไหม? ไม่แตะ = checkout เฉพาะไฟล์ · แตะแล้ว = rebase/merge จริง · ⛔ ห้าม full-merge branch เก่า = revert ของที่ live อยู่
+- **วิธี deploy ที่ใช้จริง (รอบ 37):** `studio-shell-redesign` แตกจาก `main` (main มี deploy ที่ยังไม่ back-merge เช่น B113/B118) → **cherry-pick เฉพาะ commit ของงาน** ขึ้น worktree ใหม่จาก `origin/main` แล้ว push `HEAD:main` · ได้ของงานอย่างเดียว main เก็บ divergent ของตัวเองไว้ · **build ใน worktree นั้น:** junction `node_modules` มาจาก dir หลัก (`cmd //c mklink //J`) แล้วค่อยลบ junction ก่อน `git worktree remove` (ไม่งั้นลบ node_modules จริง) · **verify:** curl bundle บน live หา commit stamp ไม่ใช่ชื่อไฟล์
 - **dev server เปิดด้วย `--host` เสมอ** ให้ P'Aim/พี่เปาทดสอบบนมือถือจริงผ่าน WiFi · **อย่าปิด server ตอนจบงาน** ค้างไว้ให้เปิดตรวจได้ · ใส่ทั้ง URL `localhost` และ Network ท้ายรายงาน
 - **Windows:** `vite` หายทั้งที่เมื่อกี้ยังใช้ได้ = `node_modules/.bin` ถูก OneDrive/antivirus กวาด → `npm install` ใหม่
 - **Supabase:** การเขียนฐานข้อมูล = P'Aim รัน SQL เอง
