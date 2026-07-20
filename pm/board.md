@@ -1,6 +1,18 @@
-# PM board — pleng (ไม้ต่อ · refreshed 2026-07-20 · live = รอบ 35)
+# PM board — pleng (ไม้ต่อ · refreshed 2026-07-20 · live = รอบ 36)
 
-## 🎉 DEPLOY รอบ 35 LIVE `94199d6` (20 ก.ค. · P'Aim สั่ง "deploy")
+## 🎉 DEPLOY รอบ 36 LIVE `ddbae2d` (20 ก.ค. · P'Aim สั่ง "go deploy")
+- **ของที่ขึ้น (1):** 🎼 **B118 เส้นโค้ง tie/slur ข้ามห้องต่อเป็นเส้นเดียวในหน้าแก้ไข** (พี่เปาแจ้ง) · สร้าง `src/lib/slurArcs.js` ใช้ร่วมแผ่นเพลง+หน้าแก้ไข · แตะแค่ `EditorMode.vue`+`SongSheet.vue` · **`NoteRow.vue`/`notation.js`/`midi.js` 0 บรรทัด → เสียงไม่เปลี่ยน beam รอบ 35 ปลอดภัย**
+- **git:** merge `ddbae2d` (parents 94199d6+661ebd0) = B118 บน main เป๊ะทุกไบต์ · push `94199d6..ddbae2d`
+- **✅ verify prod:** bundle รอบ 35 `index-0T7X4x_B.js` → **`index-BzDxnIYe.js`** · มี stamp **`ddbae2d`** ไม่มี `94199d6`
+- **✅ human-eye (P'Aim ยืนยันเอง):** เส้นบนจอ "ต่อแล้ว" · **พิมพ์ PDF "เส้นต่อ"** — ผ่านทั้งจอและกระดาษ
+- **หลักฐานก่อน deploy:** 766 tests ผ่าน (`notationLint` fail = pre-existing · `process.exit(0)` · B118 ไม่แตะไฟล์นั้น 0 บรรทัด — พิสูจน์แล้ว)
+- **🧹 worktree ลบได้:** `pleng-slur` · `pleng-deploy36` · `pleng-t-b118` · `pleng-t-b118base`
+- **▶ ถัดไป:** **B112 เล่นต่อตอนปิดจอ** (P'Aim ยืนยันแล้ว · ยืม `pk-audio.js` จากพระคำ · 🔴 ไม่ใช่ drop-in) · B117 ถามพี่เปา (มัดคาน) · B115 back เด้งผิดชั้น
+- ⚠️ **Antigravity หมด quota** → ระบบ 2 ค่ายพักไว้ (ไม่ลบ) · เหลือ 1 session ทำครบทุกบทบาท + §1.3 ตรวจคนละชั้นกับที่ลงมือ · กติกา = `pair/pair-sop.md`
+
+---
+
+## (ประวัติ) DEPLOY รอบ 35 LIVE `94199d6` (20 ก.ค. · P'Aim สั่ง "deploy")
 - **ของที่ขึ้น (3):** 🎼 **B111 เส้นขเบ็ดถูกชั้น** (1 ชั้นได้ 1 เส้น · 2 ชั้นได้ 2 เส้น · ขีดสั้น partial beam ชี้เข้าหาเพื่อน) · 🛡️ **B114 เลิกพึ่ง rAF** (IntersectionObserver วัดคานใหม่เมื่อแถวเข้าจอ — ประกัน ไม่ใช่แก้บั๊กที่พิสูจน์แล้ว) · 📝 **B113 ชื่อเพลงเต็มบนการ์ด** (wrap แทน ellipsis · รายการกว้างพอดีชื่อยาวสุด)
 - **git:** merge 2 branch เข้า `main` ผ่าน worktree `pleng-deploy35` (branch `deploy-r35`) · push `c7f60a3..94199d6` · **PM only ตามกติกา**
 - **✅ verify prod (ไม่ใช่ push=ขึ้น):** live JS `assets/index-0T7X4x_B.js` (GH Actions build hash ≠ local `DdCOmry4` = ปกติ) **มี stamp `94199d6` · ไม่มี `c7f60a3`** · CSS `index-AX6xWeFW.css` มี `fit-content`×2 + `overflow-wrap:anywhere` · **`contain:inline-size` หายแล้ว** = B113 ขึ้นจริง
