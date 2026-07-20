@@ -44,7 +44,8 @@
 ## 🚀 เฟอร์มาต้า — DEPLOYED รอบ 31 (P'Aim สั่ง go 20 ก.ค.)
 - ✅ **P'Aim เปลี่ยน default → 2 คงที่เสมอ** (`68b25ca` · ลอง live แล้ว) · tester re-verify PASS (mid-bar ก็ 𝄐2 · 707 tests) · PM gate รับ
 - 🚀 **DEPLOY: push `2f4177e..68b25ca` → origin/main สำเร็จ** (fast-forward สะอาด) · โค้ดปลอดภัยบน main
-- ⚠️ **แต่ยังไม่ขึ้น live — GitHub Actions OUTAGE (partial · githubstatus ยืนยัน):** run `68b25ca` ค้าง "queued" 20+ นาที ไม่เริ่ม · **ไม่ใช่บั๊กเรา** · จะ deploy เองเมื่อ GitHub ฟื้น · poll เฝ้า (bkuly8uzc)
+- ✅✅ **LIVE รอบ 31 ยืนยัน (`68b25ca` · bundle `index-BcHUdFru.js`)** — GitHub Actions ล่ม ~32 นาที แล้วฟื้น deploy เอง (ไม่ใช่บั๊กเรา) · fermata อยู่ live แล้ว
+- 🎯 **P'Aim/พี่เปา ยืนยัน 3 จุดบน live:** save/reopen persist · เพลงเก่า · Ctrl+P ไม่มีเลข
 - ✅ **ไม่กระทบพระคำ 2-host** — fermata ไม่แตะ `DockKey.vue` → ไม่ต้อง smoke island
 - 🙏 **P'Aim ยืนยันใช้จริงตอน live:** save/reopen persist · เพลงเก่า backward-compat · Ctrl+P ไม่มีเลข
 - 🔧 **future polish (tester flag · ไม่บล็อก):** ชิปอาจทับแป้นตอนโน้ตอยู่ล่างสุดจอเตี้ย (positioning เดิม · เลื่อนโน้ตขึ้นก็กดได้) → ทำ ticket
@@ -54,8 +55,9 @@
 - brief `docs/us/tablet-rail-drawer.md` · worktree `pleng-drawer` branch `tablet-rail-drawer` จากรอบ 31 `68b25ca` · :5360
 - ✅ **dev wireframe → P'Aim เคาะ:** breakpoint 900 (≤900 drawer · ≥901 side rail) · drawer 340px (P'Aim: คงไว้ ไม่ขยาย) · โครงเพลงยุบได้ **default-open** · ทำนอง default-closed
 - ✅ **dev ปิดงาน (`047a7a7`):** +เทสต์ TRD1-6 · 713 passed · build OK · diff แค่ EditorMode.vue+test · fermata/DockKey/sheet ไม่แตะ · phone≤760 diff0 · desktop side rail diff0 · report+checklist
-- 🔬 **tester session จ่ายแล้ว** (9 ข้อ · real browser ทุกความกว้าง + hover:none + keyboard) → `tablet-rail-drawer-tester.md`
-- ▶ **รอ tester → PM gate → P'Aim → deploy รอบ 32** (หลัง fermata รอบ 31 ขึ้น live ก่อน)
+- ✅✅ **tester PASS 9/9 (`047a7a7`) + PM GATE รับ** — width matrix ถูก · โครงเพลงยุบ default-open · hover:none/keyboard/WCAG · ไม่ regress · 713 tests
+- ❓ **รอ P'Aim เคาะ 1 จุด:** ▾ ยุบโครงเพลงเป็น global → มือถือมี ▾ ด้วย (PM แนะคงไว้ · หรือซ่อนบนมือถือให้เป๊ะเดิม)
+- ▶ **fermata รอบ 31 live แล้ว → รอ P'Aim เคาะ ▾ → PM deploy drawer รอบ 32** (merge `tablet-rail-drawer`→main · ยังไม่ merge)
 
 ## 🎵 เฟอร์มาต้า — ประวัติ design (สาย 2 · P'Aim อนุมัติเริ่ม 18 ก.ค.)
 - brief พร้อม `docs/us/fermata-hold.md` (ปัญหา 4 · ต้นเหตุ `midi.js` 1.75x คงที่ · บท Gemini · meeting-room)
