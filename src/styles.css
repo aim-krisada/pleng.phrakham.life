@@ -129,8 +129,12 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); width:
    every page (shell root bug). The 100% cap keeps it inside the viewport; the design
    width still applies on wider screens. min-width:0 lets the flex item shrink too. */
 .container { max-width: min(var(--container), 100%); margin: 0 auto; padding: var(--sp-4); }
-/* content takes all the slack in the column so the footer is pushed to the bottom */
-main.container { flex: 1 0 auto; min-width: 0; }
+/* content takes all the slack in the column so the footer is pushed to the bottom.
+   width:100% (not the flex default of shrink-to-content) so every page is the SAME
+   width — min(900px,100%) — regardless of how long its content is. Without it a page
+   with short rows (the bookshelf) collapsed narrow and clipped the search placeholder,
+   while a page with long song titles grew wide: inconsistent between views (P'Aim). */
+main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
 /* the Studio shell is a wider, Google-Docs-style workspace (rail + editor) */
 .container.studio-wide { max-width: min(var(--container-wide), 100%); }
 @media (max-width: 480px) { .container { padding: var(--sp-3); } }
