@@ -81,11 +81,11 @@ describe('fermata holds — glanceable badge is editor-only, never on the sheet'
     expect(badges[0].classes()).toContain('no-print')
   })
 
-  it('shows the SUGGESTED value on a fermata note that has no stored hold yet', async () => {
-    // "5^" alone in a 4/4 bar → suggested bar-fill = 3 (fills the 4-beat bar from a quarter)
+  it('shows the DEFAULT value (2) on a fermata note that has no stored hold yet', async () => {
+    // P'Aim: a fresh fermata defaults to a constant 2 beats, regardless of bar position.
     const wrapper = mountEditor(songWith([{ type: 'segment', note: '5^' }]))
     await nextTick()
-    expect(wrapper.find('.note-boxes .note-hold').text()).toBe('𝄐3')
+    expect(wrapper.find('.note-boxes .note-hold').text()).toBe('𝄐2')
   })
 
   it('the sheet render (NoteRow) shows the 𝄐 symbol but NO hold-number badge', async () => {

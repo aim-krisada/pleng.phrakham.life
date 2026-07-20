@@ -120,49 +120,20 @@ export function expectedBeats(timeSignature) {
 // "next bar comes in off"). These pure helpers are the single source of the default + the grid.
 export const HOLD_STEP = 0.5 // edit granularity (half a beat)
 export const HOLD_MIN = 0.5 // a fermata note holds at least half a beat
+export const HOLD_DEFAULT = 2 // default hold for a fresh fermata (P'Aim: a predictable 2 beats, always)
 
 // snap to the 0.5-beat grid
 export function snapHalf(x) {
   return Math.round((Number(x) || 0) / HOLD_STEP) * HOLD_STEP
 }
 
-// The suggested hold (beats to ADD) from already-measured inputs:
-//   beatsBefore  written beats of everything in the bar before the fermata note
-//   base         the fermata note's own written beats (its box + any '-' extension boxes)
-//   expected     expectedBeats(timeSignature) — the bar length, or null if unknown
-//   isLastInBar  the fermata note is the last NOTE of its bar
-// Rule (SA §5): last note of the bar → "fill to the end of the bar" so the next note lands on the
-// next downbeat (expected − beatsBefore − base). A fermata in the MIDDLE of a bar would swallow the
-// notes after it, so fall back to ~2× the written note (add `base` → total = 2× "twice as long",
-// the notation-standard default). Never below HOLD_MIN; snapped to the 0.5 grid.
-export function suggestHoldBeats({ beatsBefore = 0, base = 1, expected = null, isLastInBar = true } = {}) {
-  let add = isLastInBar && expected != null ? expected - beatsBefore - base : base
-  if (!Number.isFinite(add)) add = base
-  return Math.max(HOLD_MIN, snapHalf(add))
-}
-
-// Suggested hold for the fermata box at `fermIdx` inside a bar given as the flat list of note-box
-// strings (whitespace tokens across every segment of the bar, in order — the same indexing the
-// editor's NoteBoxes and the stored `holds` keys use). Measures beatsBefore/base/isLast and defers
-// to suggestHoldBeats. Shared by the editor chip (materialise) and midi.js (backward-compat).
-export function suggestHoldForBar(flatBoxes, fermIdx, timeSignature) {
-  const boxes = flatBoxes || []
-  const expected = expectedBeats(timeSignature)
-  const beatsOf = (s) => beatCount(parseNotes(s))
-  const isExt = (s) => s === '-' || s === '–'
-  const isAttack = (s) => {
-    const n = parseNotes(s).find((t) => t.type === 'note')
-    return !!n && n.pitch !== '0' // a real new note (a rest 0 is not a fresh attack)
-  }
-  let beatsBefore = 0
-  for (let k = 0; k < fermIdx; k++) beatsBefore += beatsOf(boxes[k])
-  // base = the fermata box + any '-' extension boxes that belong to the SAME note
-  let base = beatsOf(boxes[fermIdx])
-  let k = fermIdx + 1
-  while (k < boxes.length && isExt(boxes[k])) { base += beatsOf(boxes[k]); k++ }
-  let isLastInBar = true
-  for (let m = k; m < boxes.length; m++) { if (isAttack(boxes[m])) { isLastInBar = false; break } }
-  return suggestHoldBeats({ beatsBefore, base, expected, isLastInBar })
+// The default hold (beats to ADD) for a fermata note with no stored value. P'Aim's decision
+// (tried live): a constant, predictable 2 beats REGARDLESS of bar position — not a computed
+// bar-fill. It stays per-note editable (– / +, 0.5 step, min 0.5), so if a bar needs the next
+// note on the downbeat the user just adjusts. Signature kept (flatBoxes/fermIdx/timeSignature)
+// so callers are unchanged; the bar context is intentionally ignored now.
+export function suggestHoldForBar(/* flatBoxes, fermIdx, timeSignature */) {
+  return HOLD_DEFAULT
 }
 
 // Box index (whitespace token index) of each NOTE token of a segment, in source order. Lets a

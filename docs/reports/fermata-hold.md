@@ -12,10 +12,10 @@ No `ค้าง` label / no `▶ฟัง` / no meter / no `↺แนะนำ`
 - **Data model:** each segment may carry `holds: { boxIdx: beats }` — ABSOLUTE beats to ADD, out of the note
   string (so `5^` never collides with the next note). `holds[i]` is the single source read by playback and used
   by the editor. Additive/optional; v1 and old v2 songs without it are unaffected — no library migration.
-- **Auto-suggest default** (`suggestHoldForBar`, `notation.js`): when a fermata note has no stored hold →
-  **fill to the end of its bar** (`expected − beatsBefore − base`) so the next note lands on the next downbeat;
-  **fallback ~2× the written note** when the fermata is NOT the last note of the bar. Step 0.5, min 0.5, soft
-  ceiling ~2 bars. Snapped to the 0.5 grid.
+- **Default** (`suggestHoldForBar` → `HOLD_DEFAULT`, `notation.js`): when a fermata note has no stored hold, the
+  default is a **constant 2 beats, always** (P'Aim's decision after trying it live — predictable, NOT a bar-fill,
+  regardless of bar position). Still per-note editable: step 0.5, min 0.5, soft ceiling ~2 bars. If a bar needs
+  the next note on the downbeat the user just adjusts.
 - **Playback** (`midi.js`): the old `d *= 1.75` is gone. A fermata note now sounds `written + holdFor(seg, box)`
   (`holdFor` = stored value, else the suggested default). The hold is added ONCE to the note's duration.
   🔴 Invariant kept: `beatCount`/bar math never sees the hold, so bars still sum to the time signature (the drift
@@ -37,16 +37,17 @@ No `ค้าง` label / no `▶ฟัง` / no meter / no `↺แนะนำ`
 ## Files touched
 | File | Change |
 |---|---|
-| `src/lib/notation.js` | pure helpers: `HOLD_STEP/HOLD_MIN`, `snapHalf`, `suggestHoldBeats`, `suggestHoldForBar`, `noteBoxIndices`, `storedHold` |
+| `src/lib/notation.js` | pure helpers: `HOLD_STEP/HOLD_MIN/HOLD_DEFAULT`, `snapHalf`, `suggestHoldForBar` (returns the constant default), `noteBoxIndices`, `storedHold` |
 | `src/lib/midi.js` | removed `FERMATA_FACTOR`; `buildFermataHolds` + `holdFor`; hold added at the note (not per box); bar math untouched |
 | `src/components/EditorMode.vue` | chip wired to real `holds`; auto-suggest; serialize/deserialize + `pruneHolds` |
 | `src/components/NoteBoxes.vue` | additive `note-active`/`note-inactive` emits (v-model unchanged) |
 | `src/components/SongSheet.vue` | none (symbol already from `^`) |
 
 ## Tests / build
-- `npx vitest run` → **702 passed**. New: `src/lib/midi.fermata.test.js` (rewritten for the hold model — stored
-  value, hold-once, bar-fill suggest, mid-bar 2× fallback, min-0.5, bar-count-unchanged) and
-  `src/components/EditorMode.fermata.test.js` (holds round-trip + prune + snap).
+- `npx vitest run` → **707 passed**. `src/lib/midi.fermata.test.js` (hold model — stored value, hold-once,
+  constant default = 2, bar-count-unchanged), `src/components/EditorMode.fermata.test.js` (holds round-trip +
+  prune + snap + editor badge shows default 2 + sheet render has no badge), `src/components/NoteBoxes.test.js`
+  (badge renders `𝄐N` / `.no-print` / absent when no labels).
 - One pre-existing unrelated suite (`src/lib/notationLint.test.mjs`) "fails" only because it calls
   `process.exit(0)` — identical on the clean base; not this feature.
 - `npx vite build` → OK.
@@ -57,11 +58,11 @@ No `ค้าง` label / no `▶ฟัง` / no meter / no `↺แนะนำ`
   appears under the note. `+/-` change the hold by 0.5.
 
 ## Tester checklist
-1. **Default suggest:** a lone `5^` in a 4/4 bar shows **3** (fills the bar). A `5^` mid-bar (`5^ 3 1`) shows a
-   `~2×` value. Value never < 0.5.
+1. **Default value:** a fresh fermata (`5^`, anywhere in any bar) defaults to **2** in the chip and the `𝄐2`
+   badge — a flat constant, NOT a bar-fill. Then `+/-` still adjust by 0.5 (min 0.5).
 2. **Edit + persist:** `+/-` change the number by 0.5; reopen the song → the value is retained (holds saved).
-3. **Playback timing:** the note after a bar-fill fermata starts on the **next bar's downbeat** (no drift); bars
-   still count correctly (beat status ✓ unchanged by the hold). MP3 export matches live.
+3. **Playback timing:** a fermata note sounds `written + hold` (default `written + 2`); bars still count
+   correctly (beat status ✓ unchanged by the hold — no drift). MP3 export matches live.
 4. **Glanceable badge:** every fermata note in the EDITOR shows a small `𝄐N` at its top-right (stored or
    suggested value); it updates as `+/-` change the value; it appears without opening the chip.
 5. **Sheet / PRINT stays symbol-only (critical):** the read-only sheet AND the printed PDF show only the `𝄐`

@@ -62,20 +62,19 @@ let activeEnsemble = []
 // Fermata hold (𝄐). The note is held an EDITABLE, absolute number of extra beats — stored per
 // note-box in `seg.holds` (SA design), read by BOTH playback (here) and the editor. A fermata note
 // sounds `written + hold` beats: written = its normal length (digit + any '-' boxes), hold = the
-// stored value or, when none is stored (old songs / just-added ^), the suggested default
-// (suggestHoldForBar: "fill to the end of the bar" so the next note lands on the next downbeat, or
-// ~2× mid-bar). This REPLACES the old fixed ×1.75 factor — the factor couldn't be edited and never
-// aligned the next bar. The hold is added to the note's DURATION only; bar counting (beatCount) is
-// untouched, so bars still sum to the time signature (the fix for "the next bar drifts").
+// stored value or, when none is stored (old songs / just-added ^), the default HOLD_DEFAULT (a
+// constant 2 beats, P'Aim's choice; still per-note editable). This REPLACES the old fixed 1.75
+// factor. The hold is added to the note's DURATION only; bar counting (beatCount) is untouched, so
+// bars still sum to the time signature (the fix for "the next bar drifts").
 function tokenBeats(t, tripletFactor) {
   let d = 1 / 2 ** t.underlines
   d *= DOT_FACTOR[t.dots] ?? 1 // . ×1.5 · .. ×1.75
   return d * tripletFactor // fermata hold is added at the note level (see songToNotes), not here
 }
 
-// Precompute the suggested hold for every fermata note-box that has NO stored hold. Keyed by the
-// segment object → { [boxIdx]: addBeats }. Runs a full-bar pass (with lookahead) so "fill to end of
-// bar" can see whether the fermata is the last note; a metric bar opens at a 'bar' or 'repeat-start'.
+// Precompute the default hold for every fermata note-box that has NO stored hold. Keyed by the
+// segment object -> { [boxIdx]: addBeats }. The default is the constant HOLD_DEFAULT (via
+// suggestHoldForBar); the walk just locates the fermata boxes.
 function buildFermataHolds(lines, timeSignature) {
   const resolve = new Map()
   for (const line of lines || []) {

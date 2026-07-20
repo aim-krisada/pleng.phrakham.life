@@ -2,9 +2,9 @@
 //
 // THE MODEL (M2): a fermata note sounds `written + hold` beats, where `hold` is an EDITABLE
 // absolute number of beats stored per note-box in `seg.holds` (out of the note string). When no
-// hold is stored the value is the SUGGESTED default: "fill to the end of the bar" so the next note
-// lands on the next downbeat (last note of the bar), else ~2× the written note (mid-bar). This
-// replaced the old fixed ×1.75 factor, which could not be edited and never aligned the next bar.
+// hold is stored the value is the DEFAULT — a constant 2 beats (P'Aim's choice), regardless of bar
+// position; still per-note editable. This replaced the old fixed ×1.75 factor, which could not be
+// edited. The default was briefly a bar-fill computation; P'Aim changed it to a flat 2 after trying it.
 //
 // INVARIANT guarded here: the hold is added to the note's DURATION only — bar counting (beatCount)
 // never sees it, so bars still sum to the time signature (the fix for "the next bar drifts").
@@ -49,40 +49,32 @@ describe('fermata hold — stored value drives the duration', () => {
   })
 })
 
-describe('fermata hold — auto-suggested default (no stored hold)', () => {
-  it('fills to the end of the bar so the NEXT note lands on the next downbeat', () => {
-    // bar 1 = "5^" (a quarter) in 4/4; bar 2 = "3". Suggested hold = fill the bar (3 more beats),
-    // so 5^ sounds 4 beats and 3 starts exactly on beat 4 (the next downbeat).
-    const notes = songToNotes({
-      key: 'C', timeSignature: '4/4',
-      lines: [[seg('5^'), { type: 'bar' }, seg('3')]],
-    })
-    const held = notes[0]
+describe('fermata hold — default is a constant 2 beats (no stored hold)', () => {
+  it('a fresh fermata holds a default of 2 extra beats, regardless of bar position', () => {
+    // P'Aim: predictable, always 2 — not a bar-fill. "5^" (a quarter) → sounds 1 written + 2 = 3.
+    const notes = songToNotes({ key: 'C', timeSignature: '4/4', lines: [[seg('5^'), { type: 'bar' }, seg('3')]] })
+    expect(notes[0].beats).toBeCloseTo(1 + 2, 6)
     const next = notes[notes.length - 1]
-    expect(held.beats).toBeCloseTo(4, 6) // written 1 + suggested 3
     const startOfNext = notes.slice(0, -1).reduce((s, n) => s + n.beats, 0)
-    expect(startOfNext).toBeCloseTo(4, 6) // downbeat of bar 2
-    expect(next.midi).toBe(64) // E — the note after the hold, re-attacked
+    expect(startOfNext).toBeCloseTo(3, 6) // the next note starts after written(1) + default(2)
+    expect(next.midi).toBe(64) // E — re-attacked after the hold
   })
 
-  it('a MID-bar fermata falls back to ~2× the written note (does not swallow later notes)', () => {
-    // "5^ 3 1" in 4/4: 5^ is NOT the last note → fallback = add the written value (1) → total 2.
-    const notes = songToNotes({ key: 'C', timeSignature: '4/4', lines: [[seg('5^ 3 1')]] })
-    expect(notes[0].beats).toBeCloseTo(2, 6) // 1 written + 1 suggested (2×)
-    expect(notes[1].beats).toBeCloseTo(1, 6) // the 3 is untouched
-    expect(notes[2].beats).toBeCloseTo(1, 6) // the 1 is untouched
+  it('is the SAME 2 whether the fermata is last in the bar or in the middle', () => {
+    // last-note bar and mid-bar both default to +2 (no bar-fill, no 2× — a flat constant).
+    const lastNote = songToNotes({ key: 'C', timeSignature: '4/4', lines: [[seg('1 1 5^')]] })
+    expect(lastNote[2].beats).toBeCloseTo(1 + 2, 6)
+    const midBar = songToNotes({ key: 'C', timeSignature: '4/4', lines: [[seg('5^ 3 1')]] })
+    expect(midBar[0].beats).toBeCloseTo(1 + 2, 6) // 5^ → 1 + 2
+    expect(midBar[1].beats).toBeCloseTo(1, 6) // the 3 is untouched
+    expect(midBar[2].beats).toBeCloseTo(1, 6) // the 1 is untouched
   })
 
-  it('the pure suggester agrees: last-note fills the bar, mid-note doubles', () => {
-    expect(suggestHoldForBar(['5^'], 0, '4/4')).toBeCloseTo(3, 6) // fill 4-beat bar from a quarter
-    expect(suggestHoldForBar(['1', '1', '5^'], 2, '4/4')).toBeCloseTo(1, 6) // 3 beats before → +1
-    expect(suggestHoldForBar(['5^', '3', '1'], 0, '4/4')).toBeCloseTo(1, 6) // mid-bar → 2× (add 1)
-    expect(suggestHoldForBar(['5^'], 0, undefined)).toBeCloseTo(1, 6) // no time sig → 2× fallback
-  })
-
-  it('never suggests below the 0.5-beat minimum', () => {
-    // a fermata on a note that already fills the bar → bar-fill is 0, clamped up to 0.5.
-    expect(suggestHoldForBar(['1', '1', '1', '5^'], 3, '4/4')).toBeCloseTo(0.5, 6)
+  it('the pure default is a constant 2 (bar context ignored)', () => {
+    expect(suggestHoldForBar(['5^'], 0, '4/4')).toBe(2)
+    expect(suggestHoldForBar(['1', '1', '5^'], 2, '4/4')).toBe(2)
+    expect(suggestHoldForBar(['5^', '3', '1'], 0, '4/4')).toBe(2)
+    expect(suggestHoldForBar(['5^'], 0, undefined)).toBe(2) // no time sig → still 2
   })
 })
 
