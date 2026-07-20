@@ -1,7 +1,8 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { displayChord } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, slurSpans, arcPlan } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, slurSpans } from '../lib/notation.js'
+import { buildArc, planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
@@ -181,34 +182,12 @@ const rootEl = ref(null)
 // SVG would only paint on the first page. { [li]: { paths: [{d,key}], w, h } }.
 const lineArcs = ref({})
 
-// One engraved tie: a filled lens (thin points at each note, thickest at the apex),
-// bowing above the digits — same look as NoteRow's arcs, drawn at line scale.
-function buildArc(x1, x2, yTop, h) {
-  const span = Math.max(x2 - x1, 6)
-  const y = yTop + h * 0.14 // just above the digit, in the octave-dot band
-  const rise = Math.min(Math.max(span * 0.12, h * 0.16), h * 0.42)
-  const th = Math.max(h * 0.06, 1.1) // apex thickness
-  const cx1 = x1 + span * 0.24
-  const cx2 = x2 - span * 0.24
-  const top = y - rise
-  const r = (n) => n.toFixed(1)
-  const d =
-    `M${r(x1)},${r(y)} C${r(cx1)},${r(top)} ${r(cx2)},${r(top)} ${r(x2)},${r(y)}` +
-    ` C${r(cx2)},${r(top + th)} ${r(cx1)},${r(top + th)} ${r(x1)},${r(y)} Z`
-  return { d, key: `${x1.toFixed(0)}_${x2.toFixed(0)}_${yTop.toFixed(0)}` }
-}
-
-// NoteRow half-arcs we've hidden because the overlay replaces them — restored before every
-// re-measure so hide/draw never drift apart (a half only stays hidden while its overlay
-// arc is actually drawn; a wrapped tie we skip keeps both NoteRow halves as a fallback).
-let hiddenHalves = []
-function restoreHalves() {
-  for (const el of hiddenHalves) el.style.display = ''
-  hiddenHalves = []
-}
-function hideHalf(el) {
-  if (el) { el.style.display = 'none'; hiddenHalves.push(el) }
-}
+// The engraved-arc geometry (buildArc / planArcs) and the hidden-half bookkeeping now live
+// in lib/slurArcs.js, because the EDITOR draws the very same arcs over its own per-ห้อง
+// previews (B118) and the two surfaces must not drift apart.
+const halves = makeHalfHider()
+const restoreHalves = halves.restore
+const hideHalf = halves.hide
 
 function measureTies() {
   const root = rootEl.value
@@ -279,32 +258,15 @@ function measureTies() {
         const openNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.open.si}"] .nt[data-idx="${sp.open.idx}"]`)
         const closeNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.close.si}"] .nt[data-idx="${sp.close.idx}"]`)
         if (!openNt || !closeNt) continue
-        const ao = openNt.getBoundingClientRect()
-        const bc = closeNt.getBoundingClientRect()
-        if (!ao.width || !bc.width) continue
-        const h = Math.max(ao.height, bc.height)
-        const xOpen = ao.left + ao.width / 2 - lr.left
-        const xClose = bc.left + bc.width / 2 - lr.left
-        const produced = []
-        if (arcPlan(ao, bc, h) === 'single') {
-          // both anchors on the same visual row → one continuous arc over the bar line
-          const yTop = Math.min(ao.top, bc.top) - lr.top
-          if (xClose - xOpen >= 2) produced.push(buildArc(xOpen, xClose, yTop, h))
-        } else {
-          // a line wrap fell between them → two halves: open→end-of-its-row, and
-          // start-of-close-row→close (edges = the outermost .nt on each visual row so the
-          // arc never runs past the notes). Standard engraving for a slur split by a system.
-          let rowRight = xOpen
-          let rowLeft = xClose
-          for (const el of nts) {
-            const r = el.getBoundingClientRect()
-            if (!r.width) continue
-            if (Math.abs(r.top - ao.top) <= h * 0.6) rowRight = Math.max(rowRight, r.right - lr.left)
-            if (Math.abs(r.top - bc.top) <= h * 0.6) rowLeft = Math.min(rowLeft, r.left - lr.left)
-          }
-          if (rowRight - xOpen >= 2) produced.push(buildArc(xOpen, rowRight, ao.top - lr.top, h))
-          if (xClose - rowLeft >= 2) produced.push(buildArc(rowLeft, xClose, bc.top - lr.top, h))
-        }
+        // single continuous arc when both anchors sit on the same visual row, or the
+        // standard two-half engraving when a line wrap fell between them — shared with the
+        // editor's overlay so both surfaces split a wrapped slur identically (B118).
+        const produced = planArcs(
+          openNt.getBoundingClientRect(),
+          closeNt.getBoundingClientRect(),
+          lr,
+          nts.map((el) => el.getBoundingClientRect()),
+        )
         // only claim (hide) the stray NoteRow arc once we actually drew a replacement — a
         // wrap we couldn't measure keeps NoteRow's own arc as a fallback (like ties above).
         if (produced.length) {
