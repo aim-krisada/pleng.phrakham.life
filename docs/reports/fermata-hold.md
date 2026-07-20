@@ -25,6 +25,12 @@ No `ค้าง` label / no `▶ฟัง` / no meter / no `↺แนะนำ`
 - **Chip** (`EditorMode.vue` + `NoteBoxes.vue`): shows under a focused note that has `^`; the number reads
   `holds[boxIdx]` (or the suggested default when none is stored); `[–]/[+]` write/persist `holds[boxIdx]` live.
   Backward-compat: an old `^` note shows the suggested value; the first `+/-` materialises it.
+- **Glanceable badge** (`NoteBoxes.vue`, EDITOR-ONLY): a tiny `𝄐N` superscript at the top-right of every
+  fermata note-box shows the current hold (stored, or suggested when none set) so a whole line's holds read at
+  a glance without opening each chip. It updates live as `+/-` change the value. 🔴 It is an authoring aid, NOT
+  notation: `.no-print`, rendered only by `NoteBoxes` (the sheet uses `NoteRow`) → it can NEVER reach the
+  printed sheet / PDF. The printed sheet stays symbol-only (Gould, *Behind Bars* — fermata duration is
+  discretionary, never a written number).
 - **Persistence:** `holds` round-trips through the editor's serialize/deserialize; on save, holds are **pruned**
   to boxes that still carry a `^` (so a value orphaned by editing/deleting a note can't linger).
 
@@ -56,10 +62,15 @@ No `ค้าง` label / no `▶ฟัง` / no meter / no `↺แนะนำ`
 2. **Edit + persist:** `+/-` change the number by 0.5; reopen the song → the value is retained (holds saved).
 3. **Playback timing:** the note after a bar-fill fermata starts on the **next bar's downbeat** (no drift); bars
    still count correctly (beat status ✓ unchanged by the hold). MP3 export matches live.
-4. **Sheet:** the printed/preview sheet shows only the `𝄐` symbol — no number, note not stretched, no `-` added.
-5. **Backward-compat:** an existing `^` song with no `holds` still holds on playback (suggested) and shows a
-   suggested value in the chip; nothing else changes.
-6. **Mobile diff = 0 vs round 30:** the chip appears ONLY on fermata notes; non-fermata editing is unchanged.
+4. **Glanceable badge:** every fermata note in the EDITOR shows a small `𝄐N` at its top-right (stored or
+   suggested value); it updates as `+/-` change the value; it appears without opening the chip.
+5. **Sheet / PRINT stays symbol-only (critical):** the read-only sheet AND the printed PDF show only the `𝄐`
+   symbol — NO number, note not stretched, no `-` added. **Verify the actual print/PDF output, not just the
+   DOM** (print the sheet → open the PDF → confirm no digit near any fermata). The badge is `.no-print` and
+   lives only in the editor, so it must be absent from every print.
+6. **Backward-compat:** an existing `^` song with no `holds` still holds on playback (suggested) and shows a
+   suggested value in the chip + badge; nothing else changes.
+7. **Mobile diff = 0 vs round 30:** the chip appears ONLY on fermata notes; non-fermata editing is unchanged.
    Steppers 30×30 (≤760px bump to 44). No `@media(hover)` gating — verify controls stay visible on Surface
    (`hover:none` with a mouse).
 
