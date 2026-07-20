@@ -6,7 +6,11 @@ import { ref, watch, nextTick } from 'vue'
 // Backspace on an empty box removes it and steps back.
 // v-model stays the plain space-joined note string, so storage is unchanged.
 const props = defineProps({ modelValue: { type: String, default: '' } })
-const emit = defineEmits(['update:modelValue'])
+// note-active / note-inactive let the parent (EditorMode) attach a per-note tool
+// (the เฟอร์มาต้า "ค้าง" chip) under the focused box. v-model contract is unchanged;
+// these are purely additive. Payload carries the box index (= token index within the
+// segment), the current value, and the input element so the parent can position off it.
+const emit = defineEmits(['update:modelValue', 'note-active', 'note-inactive'])
 
 function toBoxes(s) {
   const t = (s || '').trim()
@@ -124,6 +128,19 @@ function addBox() {
   boxes.value.push('')
   focusBox(boxes.value.length - 1)
 }
+
+// ---- per-note focus reporting (for the เฟอร์มาต้า chip host) ----
+// Emit on focus AND on every input while focused, so the chip appears the instant a
+// `^` is typed / tapped from the palette and updates as the token changes.
+function reportActive(i, el) {
+  emit('note-active', { index: i, value: boxes.value[i] ?? '', el })
+}
+function onBoxFocus(i, e) {
+  reportActive(i, e.target)
+}
+function onBoxBlur() {
+  emit('note-inactive')
+}
 </script>
 
 <template>
@@ -135,7 +152,9 @@ function addBox() {
       :value="b"
       autocomplete="off"
       autocapitalize="off"
-      @input="onInput(i, $event)"
+      @focus="onBoxFocus(i, $event)"
+      @blur="onBoxBlur"
+      @input="onInput(i, $event); reportActive(i, $event.target)"
       @keydown="onKey(i, $event)"
     />
     <button type="button" class="note-box add" tabindex="-1" @click="addBox">+</button>

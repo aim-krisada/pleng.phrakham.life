@@ -890,6 +890,78 @@ function insertSym(sym) {
   activeInput.focus()
 }
 
+// ---------- เฟอร์มาต้า "ค้าง" chip (per-note hold control) ----------
+// HOST (round-30): a floating bar UNDER the focused fermata note — teleported to <body>
+// (position:fixed) so it clears transformed ancestors, floats above the grid, and can be
+// clamped to the viewport. It shows only when a focused note-box carries a fermata (`^`).
+//   layout:  𝄐 ค้าง  [ – ]  ▓▓▓░ N จังหวะ  [ + ]   ▶ ฟัง   ↺ แนะนำ
+// ⚠️ MILESTONE 1 = PRESENTATION ONLY. The hold value is a LOCAL STUB (not persisted, not
+// read by midi.js/SongSheet.vue yet); ▶ฟัง / ↺แนะนำ are inert. The real `holds[i]` model,
+// auto-suggest, playback and sheet symbol land in Milestone 2.
+const FERMATA_HOLD_STUB = 2 // placeholder จังหวะ until M2 reads/writes holds[i]
+const FC_MAX_STUB = 8
+const fermataChip = ref(null) // { li, bi, si, tokenIdx, el } | null — which fermata note is focused
+const chipEl = ref(null)
+const chipPos = reactive({ left: 0, top: 0 })
+const fcHold = ref(FERMATA_HOLD_STUB) // M1 local stub only
+
+function noteHasFermata(v) {
+  return typeof v === 'string' && v.includes('^')
+}
+function onNoteActive(li, bi, si, { index, value, el }) {
+  if (noteHasFermata(value)) {
+    fermataChip.value = { li, bi, si, tokenIdx: index, el }
+    fcHold.value = FERMATA_HOLD_STUB // M2: = holdFor(seg, index) ?? suggestHold(...)
+    nextTick(placeChip)
+  } else if (fermataChip.value && fermataChip.value.el === el) {
+    fermataChip.value = null // `^` was removed from the focused box → drop the chip
+  }
+}
+function onNoteInactive() {
+  // Chip buttons use @mousedown.prevent, so tapping them never blurs the note-box; a real
+  // blur therefore means focus truly left the note area → hide the chip.
+  fermataChip.value = null
+}
+// Place the fixed chip under (or, if no room, above) the focused note-box, clamped to the
+// viewport horizontally. Flipping above handles the mobile keyboard covering the lower edge.
+function placeChip() {
+  const chip = fermataChip.value
+  if (!chip || !chip.el || !chip.el.isConnected) return
+  const r = chip.el.getBoundingClientRect()
+  const cw = chipEl.value?.offsetWidth || 320
+  const ch = chipEl.value?.offsetHeight || 52
+  const vw = window.innerWidth
+  const vh = window.visualViewport?.height || window.innerHeight
+  const gap = 6
+  let left = r.left + r.width / 2 - cw / 2
+  left = Math.max(8, Math.min(left, vw - cw - 8))
+  let top = r.bottom + gap
+  if (top + ch > vh - 8) top = Math.max(8, r.top - ch - gap) // flip above (keyboard-aware)
+  chipPos.left = Math.round(left)
+  chipPos.top = Math.round(top)
+}
+function onChipReflow() {
+  if (fermataChip.value) placeChip()
+}
+onMounted(() => {
+  window.addEventListener('scroll', onChipReflow, true)
+  window.addEventListener('resize', onChipReflow)
+  window.visualViewport?.addEventListener('resize', onChipReflow)
+})
+onUnmounted(() => {
+  window.removeEventListener('scroll', onChipReflow, true)
+  window.removeEventListener('resize', onChipReflow)
+  window.visualViewport?.removeEventListener('resize', onChipReflow)
+})
+// meter fill % (dual-coding with the number) — 4 จังหวะ reads full; min sliver stays visible
+const fcMeterPct = computed(() => Math.max(6, Math.min(100, (fcHold.value / 4) * 100)))
+const fcHoldLabel = computed(() => (Number.isInteger(fcHold.value) ? String(fcHold.value) : fcHold.value.toFixed(1)))
+// M1 stub behaviour: +/- move the LOCAL stub so the meter/number are seen to react; ▶/↺ inert.
+function fcInc() { fcHold.value = Math.min(FC_MAX_STUB, fcHold.value + 0.5); nextTick(placeChip) }
+function fcDec() { fcHold.value = Math.max(0.5, fcHold.value - 0.5); nextTick(placeChip) }
+function fcReset() { fcHold.value = FERMATA_HOLD_STUB /* M2: = suggestHold(seg, tokenIdx) */ }
+function fcHear() { /* M2: play just this note + tail at the current hold */ }
+
 // ---------- line/bar/segment operations (act on the active stanza) ----------
 // B098: add a ห้อง and drop the cursor straight into its (empty) note box, so the user
 // can keep typing notes without reaching for the mouse. Focus after nextTick once the new
@@ -2380,6 +2452,30 @@ defineExpose({
 
 <template>
   <div style="padding-bottom: 150px">
+    <!-- เฟอร์มาต้า "ค้าง" chip — floating host UNDER the focused fermata note (teleported to
+         <body> so position:fixed clears transformed ancestors and clamps to the viewport).
+         M1 = presentation: value is a stub, ▶ฟัง/↺แนะนำ inert. Every control is always
+         visible (NO @media(hover)/pointer gating — Surface reports hover:none with a mouse). -->
+    <Teleport to="body">
+      <div
+        v-if="fermataChip"
+        ref="chipEl"
+        class="fermata-chip no-print"
+        :style="{ left: chipPos.left + 'px', top: chipPos.top + 'px' }"
+        role="group"
+        aria-label="ตั้งค่าการค้างเสียงของเฟอร์มาต้า"
+      >
+        <span class="fc-tag"><span class="fc-sym" aria-hidden="true">𝄐</span> ค้าง</span>
+        <button class="fc-step" aria-label="ค้างสั้นลง" @mousedown.prevent @click="fcDec">–</button>
+        <span class="fc-gauge" aria-hidden="true">
+          <span class="fc-meter"><span class="fc-meter-fill" :style="{ width: fcMeterPct + '%' }"></span></span>
+          <span class="fc-value">{{ fcHoldLabel }} จังหวะ</span>
+        </span>
+        <button class="fc-step" aria-label="ค้างยาวขึ้น" @mousedown.prevent @click="fcInc">+</button>
+        <button class="fc-act" aria-label="ฟังเสียงค้างของโน้ตนี้" @mousedown.prevent @click="fcHear"><span aria-hidden="true">▶</span> ฟัง</button>
+        <button class="fc-act fc-suggest" aria-label="คืนค่าที่ระบบแนะนำ" @mousedown.prevent @click="fcReset"><span aria-hidden="true">↺</span> แนะนำ</button>
+      </div>
+    </Teleport>
     <!-- editor chrome teleported into the app-wide ShellBar — only while this mode is on
          (the shell owns the mode toggle + the static title for view/sheet) -->
     <Teleport to="#shell-title">
@@ -2802,7 +2898,11 @@ defineExpose({
                     >{{ p - 1 === 0 && seg.chord ? seg.chord : '+' }}</button>
                   </span>
                 </div>
-                <NoteBoxes v-model="seg.note" />
+                <NoteBoxes
+                  v-model="seg.note"
+                  @note-active="onNoteActive(li, bi, si, $event)"
+                  @note-inactive="onNoteInactive"
+                />
                 <span v-if="lensActive" class="syl-boxes">
                   <span v-for="(cell, bx) in sylCells(li, bi, si, seg.note)" :key="bx" class="syl-slot">
                     <template v-if="cell.slot !== null">
@@ -3296,6 +3396,49 @@ defineExpose({
   white-space: nowrap;
 }
 .slot-btn { min-width: 30px; min-height: 26px; padding: 2px 6px; font-size: 12px; }
+/* ===== เฟอร์มาต้า "ค้าง" chip — floating per-note hold control (host under the note) ===== */
+/* Teleported to <body>; Vue scoped-style attr still applies to teleported nodes. Position is
+   set inline (fixed left/top, clamped in JS). Everything always visible — no hover/pointer gate. */
+.fermata-chip {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100vw - 16px);
+  padding: 6px 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  font-size: 14px;
+}
+.fc-tag { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--brand); white-space: nowrap; }
+.fc-sym { font-size: 20px; line-height: 1; }
+.fc-step {
+  min-width: var(--touch-min); min-height: var(--touch-min);
+  font-size: 22px; font-weight: 700; line-height: 1;
+  color: var(--brand); background: #f7fafc;
+  border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  flex: 0 0 auto;
+}
+.fc-step:active { background: #eef2f7; }
+.fc-gauge { display: inline-flex; flex-direction: column; align-items: stretch; gap: 3px; min-width: 96px; }
+.fc-meter { height: 8px; border-radius: 4px; background: #edf1f5; overflow: hidden; }
+.fc-meter-fill { display: block; height: 100%; background: var(--brand); border-radius: 4px; transition: width 0.12s ease; }
+.fc-value { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink, #222); text-align: center; white-space: nowrap; }
+.fc-act {
+  min-height: var(--touch-min); padding: 0 12px;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 14px; font-weight: 600;
+  color: var(--brand); background: #fff;
+  border: 1px solid var(--brand); border-radius: 10px; cursor: pointer;
+  white-space: nowrap; flex: 0 0 auto;
+}
+.fc-act:active { background: rgba(139, 69, 19, 0.08); }
+.fc-suggest { color: var(--muted); border-color: var(--line); }
 /* ===== editor-section-ux: "โครงเพลง" rail rows + canvas section header ===== */
 /* screen-reader-only live region (reorder announcements) */
 .sr-only {
