@@ -1,4 +1,17 @@
-# PM board — pleng (ไม้ต่อ · refreshed 2026-07-20 · live = รอบ 34)
+# PM board — pleng (ไม้ต่อ · refreshed 2026-07-20 · live = รอบ 35)
+
+## 🎉 DEPLOY รอบ 35 LIVE `94199d6` (20 ก.ค. · P'Aim สั่ง "deploy")
+- **ของที่ขึ้น (3):** 🎼 **B111 เส้นขเบ็ดถูกชั้น** (1 ชั้นได้ 1 เส้น · 2 ชั้นได้ 2 เส้น · ขีดสั้น partial beam ชี้เข้าหาเพื่อน) · 🛡️ **B114 เลิกพึ่ง rAF** (IntersectionObserver วัดคานใหม่เมื่อแถวเข้าจอ — ประกัน ไม่ใช่แก้บั๊กที่พิสูจน์แล้ว) · 📝 **B113 ชื่อเพลงเต็มบนการ์ด** (wrap แทน ellipsis · รายการกว้างพอดีชื่อยาวสุด)
+- **git:** merge 2 branch เข้า `main` ผ่าน worktree `pleng-deploy35` (branch `deploy-r35`) · push `c7f60a3..94199d6` · **PM only ตามกติกา**
+- **✅ verify prod (ไม่ใช่ push=ขึ้น):** live JS `assets/index-0T7X4x_B.js` (GH Actions build hash ≠ local `DdCOmry4` = ปกติ) **มี stamp `94199d6` · ไม่มี `c7f60a3`** · CSS `index-AX6xWeFW.css` มี `fit-content`×2 + `overflow-wrap:anywhere` · **`contain:inline-size` หายแล้ว** = B113 ขึ้นจริง
+- **✅ PM วัด B111 บน live จริง (เพลง #101 · เคสปน u1+u2):** L1 x35.6 w33.6 คลุมทั้ง run · L2 x52.3 w16.8 (partial ซ้าย) → **`u1` ได้ 1 เส้น · `u2` ได้ 2 เส้น** · buildStamp บนหน้า = `94199d6`
+- **หลักฐานก่อน deploy:** 753 tests ผ่าน (`notationLint` fail = pre-existing) · build ✓ · tester gate PASS ทั้ง 2 งาน · **MIDI byte-identical 109 เพลง** (เสียงไม่เปลี่ยนแม้แต่ตัวเดียว)
+- **▶ ค้างให้ P'Aim/พี่เปา ยืนยันบน live:** พิมพ์ PDF จริงอีกรอบ (ตอนนี้ยืนยันแล้วว่าถูก แต่บนโค้ดก่อน merge) · มือถือจริง
+- **▶ ถัดไป:** **B117 ถามพี่เปา** ("โน้ตชุดเร็ว `4 3 2 1` ที่แต่ละตัวมีคำของตัวเอง อยากให้มัดติดกันไหม" — คลังมัดแค่ 10.9% ถ้ามัดตามจังหวะได้ 68.7%) · **B112 เล่นต่อตอนปิดจอ** (P'Aim ยืนยันแล้ว · คิวถัดไป) · B115 ปุ่ม back เด้งผิดชั้น
+- **🧹 worktree ที่ merge แล้ว ลบได้:** `pleng-beam` · `pleng-names` · `pleng-t-b111` · `pleng-t-b113` · `pleng-t-b113-base` · `pleng-deploy35` (36 worktrees ค้างในระบบ — ควรกวาด)
+
+---
+
 
 > 🤝🤝 **HANDOFF → pl pm ใหม่ (20 ก.ค.): อ่าน `docs/pm/HANDOFF-pm29.md` ก่อน** — live=รอบ32 · **งานค้างกลางอากาศ: `guide-r33` อัปคู่มือ (agent ผูกกับ pm29 → ตรวจเองจาก branch)** · ตั้งชื่อตัวเอง `pm30`
 
