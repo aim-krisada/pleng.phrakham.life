@@ -131,7 +131,6 @@ onMounted(async () => {
         aria-label="ค้นหาเพลง"
         placeholder="ค้นหา: ชื่อเพลง หมายเลข เนื้อร้อง คีย์ หรือโน้ตตัวเลข (เช่น 5 5 6 1)"
       />
-      <p class="search-hint muted">พิมพ์แล้วเจอทันที — ค้นข้ามทุกเล่ม ไม่ต้องเข้าเล่มก่อน</p>
       <p v-if="dbError" class="muted db-note">
         ยังเชื่อมต่อฐานข้อมูลไม่ได้ — แสดงเพลงตัวอย่างไปก่อน
       </p>
@@ -221,35 +220,23 @@ onMounted(async () => {
       <p v-if="inBook.length === 0" class="muted empty">ยังไม่มีเพลงในเล่มนี้</p>
     </section>
 
-    <!-- ===== LEVEL 1 · bookshelf (landing) ===== -->
+    <!-- ===== LEVEL 1 · bookshelf (landing) — one vertical list, same as the songs ===== -->
     <section v-else>
-      <div class="level-head">
-        <h2>เลือกเล่ม</h2>
-        <span class="count muted">{{ shelf.length }} เล่ม</span>
-        <span v-if="loggedIn" class="count progress" aria-live="polite">
-          ✓ ตรวจแล้ว {{ progress.verified }} / ทั้งหมด {{ progress.total }}
-        </span>
-      </div>
-      <div class="book-grid">
+      <div class="book-list">
         <button
           v-for="b in shelf"
           :key="b.code"
           type="button"
-          class="book-card"
+          class="book-row"
           :class="{ fallback: b.fallback }"
           @click="openBook(b.code)"
         >
-          <span class="bk-body">
-            <span class="bk-name">{{ b.name }}</span>
-            <span class="bk-count">{{ b.count }} เพลง</span>
-          </span>
+          <span class="bk-name">{{ b.name }}</span>
+          <span class="bk-count">{{ b.count }} เพลง</span>
           <span class="chev" aria-hidden="true">›</span>
         </button>
       </div>
       <p v-if="shelf.length === 0" class="muted empty">{{ booksEmptyMsg }}</p>
-      <div class="note-banner muted">
-        เล่ม = เหมือน “หนังสือ” · เพลง = เหมือน “ข้อ” — เลือกเล่มเพื่อดูเพลงเรียงตามเลขในเล่มนั้น
-      </div>
     </section>
   </div>
 </template>
@@ -261,7 +248,6 @@ onMounted(async () => {
    interactive target is >= --touch-min (44px) tall (WCAG 2.5.5 / 2.5.8). */
 
 .search-block { margin-bottom: var(--sp-5); }
-.search-hint { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); }
 .db-note { margin: var(--sp-2) 0 0; }
 
 /* single, full-width search field — no wrapping card */
@@ -341,26 +327,20 @@ onMounted(async () => {
 }
 
 /* ---- LEVEL 1 · bookshelf grid: 1 col (phone) → 2 (>=480) → 3 (>=768, PC) ---- */
-.book-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--sp-3);
-}
-@media (min-width: 480px) { .book-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 768px) { .book-grid { grid-template-columns: repeat(3, 1fr); } }
-.book-card {
+/* ---- LEVEL 1 · one row per book — the SAME vertical list as the songs (song-row),
+   single column at every width (desktop + mobile). The 5px brown left spine stays: it
+   marks the book category (P'Aim: keep). ---- */
+/* full-width rows, aligned to the search box above (P'Aim: กล่องยาวเท่าช่อง search) */
+.book-list { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; }
+.book-row {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
   background: var(--bg);
-  /* phrakham .hl-card parity: 14px radius + border #e7dcca (was 10px + --line #e0d6c8).
-     #e7dcca is a literal — it's phrakham's card-border warm cream, distinct from pleng's
-     --line #e0d6c8 (kept for every other border). The 5px brown left stripe stays: it marks
-     the book category (P'Aim: keep) — phrakham has no equivalent card, so it's pleng-only. */
-  border: 1px solid #e7dcca;
+  border: 1px solid var(--line);
   border-left: 5px solid var(--brand);
-  border-radius: 14px;
-  padding: var(--sp-4);
+  border-radius: 10px;
+  padding: var(--sp-3) var(--sp-4);
   cursor: pointer;
   text-align: left;
   color: var(--ink);
@@ -368,14 +348,12 @@ onMounted(async () => {
   min-height: var(--touch-min);
   width: 100%;
 }
-.book-card:hover { background: var(--cream-hover); }
-.book-card .bk-body { flex: 1; min-width: 0; }
-.book-card .bk-name { display: block; font-weight: 700; color: var(--brand); font-size: var(--fs-lg); }
-.book-card .bk-count { display: block; color: var(--muted); font-size: var(--fs-sm); }
-.book-card .chev { color: var(--muted); font-size: var(--fs-lg); }
-/* the 5px coloured left border IS the spine (no per-book code/icon — P'Aim: keep simple) */
-.book-card.fallback { border-left-color: var(--line); }
-.book-card.fallback .bk-name { color: var(--muted); }
+.book-row:hover { background: var(--cream-hover); }
+.book-row .bk-name { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--brand); }
+.book-row .bk-count { flex: 0 0 auto; color: var(--muted); font-size: var(--fs-sm); }
+.book-row .chev { flex: 0 0 auto; color: var(--muted); font-size: var(--fs-lg); }
+.book-row.fallback { border-left-color: var(--line); }
+.book-row.fallback .bk-name { color: var(--muted); }
 
 /* ---- LEVEL 2 · one row per song: number (tabular, right) + title (wraps) + key ---- */
 /* Width = fit-content, capped at 100%. The list is exactly as wide as its longest row
@@ -385,7 +363,11 @@ onMounted(async () => {
    the viewport; titles now wrap — .ttl white-space:normal + overflow-wrap:anywhere — so a
    long title grows taller, never wider, and max-width:100% keeps it inside a phone: no
    horizontal scroll at any width.) */
-.song-list { display: flex; flex-direction: column; gap: var(--sp-1); width: fit-content; max-width: 100%; }
+/* fills the stable content column (same as .book-list) so every row aligns to the search
+   box above and the width never reflows with title length — the Google/Material pattern of a
+   fixed-width centred column (P'Aim). Was fit-content, which shrank the list to its longest
+   title and left it out of line with the search box. */
+.song-list { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; }
 .song-row {
   display: flex;
   align-items: flex-start;
@@ -505,12 +487,4 @@ onMounted(async () => {
 .scripture-tag { margin-top: var(--sp-1); font-size: var(--fs-xs); }
 
 .empty { padding: var(--sp-4) 0; }
-.note-banner {
-  background: var(--cream);
-  border: 1px dashed var(--line);
-  border-radius: 10px;
-  padding: var(--sp-3) var(--sp-4);
-  margin-top: var(--sp-5);
-  font-size: var(--fs-sm);
-}
 </style>

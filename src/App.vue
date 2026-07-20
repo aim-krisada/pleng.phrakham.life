@@ -16,9 +16,9 @@ const router = useRouter()
 // manage menus · mode toggle), so the site-wide AppHeader steps back there. A song
 // opens in that surface too (/song/:id), gated to view-only for non-editors.
 const isStudio = computed(() => route.path === '/studio' || route.path.startsWith('/song/'))
-// Home is the song list itself (like the Docs home) — no redundant title; the brand
-// links there. Other static pages still name themselves.
-const pageTitle = computed(() => ({ '/guide': 'คู่มือ', '/about': 'เกี่ยวกับเรา' })[route.path] || '')
+// No shell-title on the static pages: /guide and /about each already have a nav link of
+// the same name (highlighted when active), so a title here only duplicated the menu item
+// (P'Aim). The song surface (/song, /studio) shows its own title via the Studio chrome.
 // Supabase email links land as #access_token=…; the hash-router sees a bogus route
 // and blanks the page. For any of them, send the app back home — the header panel
 // (set-password, or the email-changed note) then shows over the normal catalog.
@@ -86,7 +86,7 @@ watch(() => route.path, () => nextTick(scheduleDockClear))
 </script>
 
 <template>
-  <ShellBar :title="pageTitle" />
+  <ShellBar />
   <main class="container" :class="{ 'studio-wide': isStudio }">
     <router-view />
   </main>
