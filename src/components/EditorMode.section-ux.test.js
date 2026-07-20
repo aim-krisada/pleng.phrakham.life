@@ -2,7 +2,7 @@
 // with inline rename, drag/▲▼ reorder, a canvas section header, melody as a background
 // group, and the bottom "ลำดับเพลง" block removed. These assert the NEW shell only; the
 // note/word/beat editor is covered by the other EditorMode suites (SX7 regression gate).
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
@@ -218,5 +218,103 @@ describe('editor-section-ux — โครงเพลง rail shell', () => {
     expect(arr[2].stanza).toBe('B') // inherited from the previous row
     // the new row is now the selected lens (ready to type immediately — P8)
     expect(w.findAll('.srow')[2].classes()).toContain('sel')
+  })
+})
+
+// tablet-rail-drawer — on tablet the 288px side rail becomes the EXISTING slide-in drawer
+// (breakpoint raised 760 → 900) and "โครงเพลง" gets a collapse toggle (default OPEN, unlike
+// "ทำนอง" which stays default closed). These assert the shell behaviour only.
+// Fake matchMedia so isMobileView()/toggleCatalog resolve for a chosen viewport width — jsdom
+// has no layout, so the drawer-vs-collapse decision (which is JS, driven by matchMedia) is what
+// we test here; the CSS breakpoint itself is verified live in docs/reports/tablet-rail-drawer.md.
+function fakeViewport(px) {
+  window.matchMedia = (q) => {
+    const m = /max-width:\s*(\d+)px/.exec(q)
+    const max = m ? Number(m[1]) : Infinity
+    return {
+      matches: px <= max,
+      media: q,
+      onchange: null,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent() { return false },
+    }
+  }
+}
+const mainToggle = (w) => w.findAll('.rg-toggle.rg-main').find((b) => b.text().includes('โครงเพลง'))
+
+describe('tablet-rail-drawer — rail → drawer on tablet + "โครงเพลง" collapse', () => {
+  const realMM = window.matchMedia
+  afterEach(() => { window.matchMedia = realMM })
+
+  it('TRD1: ≤900 (768/834/900 tablet) — breadcrumb OPENS the drawer (rail gets .open, not desktop collapse)', async () => {
+    for (const px of [768, 834, 900]) {
+      fakeViewport(px)
+      const w = mountEd()
+      await nextTick()
+      expect(w.find('.rail').classes(), `px=${px} start closed`).not.toContain('open')
+      await w.find('.ed-crumb').trigger('click')
+      await nextTick()
+      expect(w.find('.rail').classes(), `px=${px} drawer open`).toContain('open')
+      expect(w.find('.studio-app').classes(), `px=${px} not collapse`).not.toContain('rail-hidden')
+      w.unmount()
+    }
+  })
+
+  it('TRD2: ≥901 (901/1024/1280 desktop) — breadcrumb COLLAPSES the side rail, never a drawer', async () => {
+    for (const px of [901, 1024, 1280]) {
+      fakeViewport(px)
+      const w = mountEd()
+      await nextTick()
+      await w.find('.ed-crumb').trigger('click')
+      await nextTick()
+      expect(w.find('.studio-app').classes(), `px=${px} desktop collapse`).toContain('rail-hidden')
+      expect(w.find('.rail').classes(), `px=${px} no drawer`).not.toContain('open')
+      w.unmount()
+    }
+  })
+
+  it('TRD3: phone ≤760 unchanged — breadcrumb opens the drawer, the ✕ (rail-x) closes it', async () => {
+    fakeViewport(375)
+    const w = mountEd()
+    await nextTick()
+    await w.find('.ed-crumb').trigger('click')
+    await nextTick()
+    expect(w.find('.rail').classes()).toContain('open')
+    await w.find('.rail-x').trigger('click') // rail-mhead close button → closeDrawer()
+    await nextTick()
+    expect(w.find('.rail').classes()).not.toContain('open')
+  })
+
+  it('TRD4: "โครงเพลง" has a ▾ toggle, DEFAULT OPEN (aria-expanded=true, rows render without a click)', async () => {
+    const w = mountEd()
+    await nextTick()
+    const main = mainToggle(w)
+    expect(main).toBeTruthy()
+    expect(main.attributes('aria-expanded')).toBe('true') // primary section — open by default
+    expect(w.findAll('.srow').length).toBe(2)
+  })
+
+  it('TRD5: clicking "โครงเพลง" collapses then expands its rows', async () => {
+    const w = mountEd()
+    await nextTick()
+    await mainToggle(w).trigger('click') // collapse
+    await nextTick()
+    expect(mainToggle(w).attributes('aria-expanded')).toBe('false')
+    expect(w.findAll('.srow').length).toBe(0)
+    await mainToggle(w).trigger('click') // expand
+    await nextTick()
+    expect(mainToggle(w).attributes('aria-expanded')).toBe('true')
+    expect(w.findAll('.srow').length).toBe(2)
+  })
+
+  it('TRD6: "ทำนอง (โน้ต)" stays DEFAULT CLOSED (regression guard — different default from โครงเพลง)', async () => {
+    const w = mountEd()
+    await nextTick()
+    const mel = w.findAll('.rg-toggle').find((b) => b.text().includes('ทำนอง (โน้ต)'))
+    expect(mel.attributes('aria-expanded')).toBe('false')
+    expect(w.findAll('.rail-rowwrap.mel').length).toBe(0)
   })
 })

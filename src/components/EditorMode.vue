@@ -225,6 +225,7 @@ const editingLabelId = ref(-1) // arrangement index whose label is being renamed
 const editingLabelWhere = ref('') // 'rail' | 'canvas' — which surface opened the input
 const labelSnapshot = ref('') // pre-edit label, restored on Esc
 const melodyOpen = ref(false) // "ทำนอง (โน้ต)" secondary group — collapsed by default
+const mainOpen = ref(true) // "โครงเพลง" primary group — OPEN by default (used often; collapsible to save space)
 const dragFromRow = ref(-1) // drag reorder: source index (mouse DnD + touch pointer)
 const dragOverRow = ref(-1) // current drop-target index (drop indicator)
 const reorderMsg = ref('') // aria-live text announcing the new order (WCAG 2.5.7 fallback)
@@ -1963,7 +1964,9 @@ watch(barMenuOpen, (v) => {
 })
 onUnmounted(() => document.removeEventListener('mousedown', onBarMenuOutside))
 function isMobileView() {
-  return window.matchMedia('(max-width: 760px)').matches
+  // ≤900px = "drawer" band: phones AND portrait tablets (768/834) use the slide-in rail.
+  // Wide tablets / desktop (≥901, e.g. 1024 landscape) keep the sticky side rail.
+  return window.matchMedia('(max-width: 900px)').matches
 }
 function toggleCatalog() {
   if (isMobileView()) drawerOpen.value = !drawerOpen.value
@@ -2592,7 +2595,10 @@ defineExpose({
         <!-- ===== โครงเพลง — the one list of ท่อน (arrangement rows), in singing order.
              Drag ⠿ or ▲▼ to reorder · click a name to rename · ♪ picks its melody. Replaces
              the old 3 groups (ทำนอง / เนื้อร้อง / ขั้นสูง→ลำดับเพลง) and the bottom block. ===== -->
-        <div class="rail-group rg-main">โครงเพลง</div>
+        <button class="rail-group rg-toggle rg-main" :aria-expanded="mainOpen" @click="mainOpen = !mainOpen">
+          <Icon name="chevron-down" :size="14" class="rg-chev" :class="{ 'rg-chev-open': mainOpen }" /> โครงเพลง
+        </button>
+        <template v-if="mainOpen">
         <p class="rail-hint no-print">ลากจัดลำดับ · คลิกชื่อเพื่อแก้</p>
         <div
           v-for="(row, ri) in arrangement"
@@ -2645,6 +2651,7 @@ defineExpose({
           <button v-if="arrangement.length > 1" class="srow-del" title="ลบท่อนนี้" aria-label="ลบท่อนนี้" @click.stop="removeRow(ri)"><Icon name="trash-2" :size="14" /></button>
         </div>
         <button class="addsec" @click="addRow(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มท่อน</button>
+        </template>
 
         <div class="rail-sep"></div>
         <!-- ทำนอง (โน้ต): secondary group, collapsed — for editing notes / reusing a melody.
@@ -4150,7 +4157,12 @@ defineExpose({
 .rail-sep { border-top: 1px solid var(--line); margin: 6px 4px; }
 .rail-backdrop { display: none; }
 
-@media (max-width: 760px) {
+/* ≤900px = tablet + phone "drawer" band: the 288px side rail becomes a slide-in
+   drawer so portrait tablets (768/834) get the full width for writing notes.
+   Phones (≤760) are a subset — their rules are unchanged. Wide tablet / desktop
+   (≥901, e.g. 1024 landscape) keep the sticky side rail. Paired with isMobileView()
+   at 900px so the breadcrumb trigger opens the drawer (not collapse) in this band. */
+@media (max-width: 900px) {
   .studio-app { display: block; }
   .rail {
     position: fixed;
