@@ -1,16 +1,16 @@
 # เริ่มที่นี่ — session ของ pleng.phrakham.life
 
-เปิด Claude session ใหม่ในโฟลเดอร์นี้ แล้วพิมพ์บรรทัดเดียว: **`อ่าน docs/pm/pm.md`**
+เปิด Claude session ใหม่ในโฟลเดอร์นี้ แล้วพิมพ์บรรทัดเดียว: **`อ่าน pm/pm.md`**
 
 **1 session ทำครบทุกอย่าง** — วางแผน · ออกแบบ · เขียน · ทดสอบ
 ไม่มีการแยก PM / SA / dev / tester อีกแล้ว (เปลี่ยน 20 ก.ค. 2026) ⇒ **ไม่มีการจ่ายงาน ไม่มีการส่งไม้ต่อ**
 
 ## อ่านตามลำดับ
 
-1. **[`docs/pair/pair-sop.md`](../pair/pair-sop.md)** — กฎการทำงาน **ฉบับเดียว ใช้ทั้ง 2 โปรเจกต์** · หลักฐานเบื้องหลังกฎ → [`evidence.md`](../pair/evidence.md)
-2. **[`docs/sop.md`](../sop.md)** — เรื่องเฉพาะเพลง (ทำบนโค้ดจริงห้าม mockup ทิ้ง · อัปคู่มือทุกครั้ง · ฐาน branch · Supabase)
-3. **[`docs/ui-standards.md`](../ui-standards.md)** + [`ux-platform-patterns.md`](../ux-platform-patterns.md) — มาตรฐาน UI/a11y
-4. **[`docs/pm/board.md`](board.md)** — สถานะสด · **อ่านหัว ▶ RESUME พอ อย่าอ่านทั้งไฟล์**
+1. **[`pair/pair-sop.md`](../pair/pair-sop.md)** — กฎการทำงาน **ฉบับเดียว ใช้ทั้ง 2 โปรเจกต์** · หลักฐานเบื้องหลังกฎ → [`evidence.md`](../pair/evidence.md)
+2. **[`docs/sop.md`](../docs/sop.md)** — เรื่องเฉพาะเพลง (ทำบนโค้ดจริงห้าม mockup ทิ้ง · อัปคู่มือทุกครั้ง · ฐาน branch · Supabase)
+3. **[`docs/ui-standards.md`](../docs/ui-standards.md)** + [`ux-platform-patterns.md`](../docs/ux-platform-patterns.md) — มาตรฐาน UI/a11y
+4. **[`pm/board.md`](board.md)** — สถานะสด · **อ่านหัว ▶ RESUME พอ อย่าอ่านทั้งไฟล์**
 
 ## 2 กฎที่ใช้ทุกวัน
 
@@ -33,4 +33,4 @@
 
 ## ตอนนี้ถึงไหน
 
-[`docs/pm/board.md`](board.md) หัว **▶ RESUME**
+[`pm/board.md`](board.md) หัว **▶ RESUME**

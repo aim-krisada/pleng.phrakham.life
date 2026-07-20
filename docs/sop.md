@@ -1,8 +1,8 @@
 # pleng.phrakham.life — กติกาเฉพาะโปรเจกต์นี้
 
 **กติกาการทำงานไม่ได้อยู่ที่นี่แล้ว** — มีฉบับเดียว ใช้ทั้ง 2 โปรเจกต์ ทุก session:
-### 👉 [`docs/pair/pair-sop.md`](pair/pair-sop.md)
-หลักฐานเบื้องหลังแต่ละกฎ → [`docs/pair/evidence.md`](pair/evidence.md)
+### 👉 [`pair/pair-sop.md`](../pair/pair-sop.md)
+หลักฐานเบื้องหลังแต่ละกฎ → [`pair/evidence.md`](../pair/evidence.md)
 
 ไฟล์นี้เหลือไว้เฉพาะเรื่องที่จริงกับเพลงเท่านั้น
 *(20 ก.ค. 2026: เนื้อหากระบวนการทั้งหมดถูกยุบขึ้นไปที่ `pair-sop.md` · ดูของเดิมได้จาก git history)*
