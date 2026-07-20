@@ -41,7 +41,15 @@
     - 🟢 **2-host UPDATE (pk pm9 · P'Aim ตัดสิน): ไม่บล็อก deploy เพลงแล้ว** — island import `@pleng/DockKey` build-time → pleng deploy ไม่กระทบพระคำ live จน phrakham rebuild island เอง · **P'Aim สั่งพระคำรอเพลงนิ่งก่อน smoke ทีเดียว** (island ใช้ ⚙ จริง=images/alpha/gvhelp · §C teleport กระทบตอน rebuild) · **lock DockKey แล้ว → ping pk pm rebuild+smoke 344/690/768** · **deploy เพลงได้เมื่อ P'Aim อนุมัติ (ไม่ต้องรอพระคำ)**
   - ▶ **P'Aim ลอง tactile → deploy (ประสาน pk-PM 2-host)** — หลัง ⚙ sections ลงตัว
 
-## 🎵 เฟอร์มาต้า (สาย 2 · คู่ขนาน · P'Aim อนุมัติเริ่ม 18 ก.ค.)
+## 🚀 เฟอร์มาต้า — DEPLOYED รอบ 31 (P'Aim สั่ง go 20 ก.ค.)
+- ✅ **P'Aim เปลี่ยน default → 2 คงที่เสมอ** (`68b25ca` · ลอง live แล้ว) · tester re-verify PASS (mid-bar ก็ 𝄐2 · 707 tests) · PM gate รับ
+- 🚀 **DEPLOY: push `2f4177e..68b25ca` → origin/main** (fast-forward สะอาด · origin/main ยัง=รอบ30 ตอน push) · GH Actions building · poll เฝ้า live (bazr1mfk1)
+- ✅ **ไม่กระทบพระคำ 2-host** — fermata ไม่แตะ `DockKey.vue` → ไม่ต้อง smoke island
+- 🙏 **P'Aim ยืนยันใช้จริงตอน live:** save/reopen persist · เพลงเก่า backward-compat · Ctrl+P ไม่มีเลข
+- 🔧 **future polish (tester flag · ไม่บล็อก):** ชิปอาจทับแป้นตอนโน้ตอยู่ล่างสุดจอเตี้ย (positioning เดิม · เลื่อนโน้ตขึ้นก็กดได้) → ทำ ticket
+- 🆕 **tablet layout (P'Aim consult · งานแยก future):** rail 288px กินที่บนแท็บเล็ต (768-1024 ตกโหมด desktop) → KISS = ขยับ drawer breakpoint 760→~900 ใช้ลิ้นชักที่มีอยู่ (แถมได้ยุบโครงเพลงฟรี) · จูน px บนแท็บเล็ตจริง
+
+## 🎵 เฟอร์มาต้า — ประวัติ design (สาย 2 · P'Aim อนุมัติเริ่ม 18 ก.ค.)
 - brief พร้อม `docs/us/fermata-hold.md` (ปัญหา 4 · ต้นเหตุ `midi.js` 1.75x คงที่ · บท Gemini · meeting-room)
 - ✅ **SA design เสร็จ (`06fbbd0` · `fermata-design-sa.md`):** ต้นเหตุ = **"ค่า" ผิด (×1.75 คงที่) ไม่ใช่กลไก** (scheduler ถูก) · **hold = บีตสัมบูรณ์ · เก็บ `holds` แยกจาก note string** (5^2 ชน) · **playback นอก bar-math = แก้ห้องหลุด · sheet ซ่อนเลขฟรี** (เลขไม่อยู่ใน string) · no-migrate · refine (`notation.js`/`SongSheet.vue` ไม่แตะ · `midi.js` เล็ก) · ✅ **SA ฟันธง correctness เอง อ้างมาตรฐาน (ไม่ Gemini · `867ea0e` §6):** MuseScore "Time stretch" แก้ได้ต่อโน้ต default 2× (→ 1.75 คงที่ผิด) · pleng เลือก **bar-fill default** (บริบทเล่นเรียงเวลา+ร้องกลับ downbeat · fallback ~2× ถ้าไม่ท้ายห้อง) · Gould: sheet สัญลักษณ์ล้วน · step 0.5 บีต · sources: MuseScore/Wikipedia/UMT/Gould · **ไม่มี dependency Gemini**
 - ✅ **CORE SPEC ชัด (P'Aim):** ค่าเดียวปรับได้ · **คุมทั้งเล่น+แผ่นตรงกัน** · เริ่ม=แนะนำ · ปรับ=เก็บใหม่
