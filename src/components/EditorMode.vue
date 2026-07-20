@@ -961,6 +961,23 @@ function editorSuggestHold(li, bi, si, tokenIdx) {
   if (fermIdx < 0) return HOLD_MIN
   return suggestHoldForBar(flatBoxes, fermIdx, opts.timeSignature)
 }
+// Glanceable EDITOR-ONLY hold labels for one segment's note boxes: { boxIdx: 'N' } for every box
+// that carries a fermata — the stored hold, or the suggested default when none is set yet. Read by
+// NoteBoxes to draw the tiny .no-print 𝄐N badge (never printed — the sheet uses NoteRow). Reactive
+// on seg.note + seg.holds, so it updates the instant the chip's +/- changes the value.
+function noteHoldLabels(li, bi, si) {
+  const seg = lines.value[li]?.bars[bi]?.segments[si]
+  if (!seg) return {}
+  const boxes = (seg.note || '').trim() ? seg.note.trim().split(/\s+/) : []
+  const out = {}
+  boxes.forEach((str, bx) => {
+    if (!parseNotes(str).some((t) => t.type === 'note' && t.fermata)) return
+    const stored = storedHold(seg, bx)
+    const v = stored != null ? stored : editorSuggestHold(li, bi, si, bx)
+    out[bx] = Number.isInteger(v) ? String(v) : v.toFixed(1)
+  })
+  return out
+}
 function onNoteActive(li, bi, si, { index, value, el }) {
   if (noteHasFermata(value)) {
     fermataChip.value = { li, bi, si, tokenIdx: index, el }
@@ -2952,6 +2969,7 @@ defineExpose({
                 </div>
                 <NoteBoxes
                   v-model="seg.note"
+                  :hold-labels="noteHoldLabels(li, bi, si)"
                   @note-active="onNoteActive(li, bi, si, $event)"
                   @note-inactive="onNoteInactive"
                 />

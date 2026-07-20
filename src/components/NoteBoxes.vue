@@ -5,7 +5,15 @@ import { ref, watch, nextTick } from 'vue'
 // Enter / space -> next box (created if needed) · arrows move across boxes ·
 // Backspace on an empty box removes it and steps back.
 // v-model stays the plain space-joined note string, so storage is unchanged.
-const props = defineProps({ modelValue: { type: String, default: '' } })
+const props = defineProps({
+  modelValue: { type: String, default: '' },
+  // EDITOR-ONLY glanceable fermata hold values, keyed by note-box index: { boxIdx: 'N' }.
+  // The parent (EditorMode) supplies the stored-or-suggested hold; we render it as a tiny
+  // .no-print superscript so a whole line's holds read at a glance without opening each chip.
+  // This is an authoring aid — NEVER notation; it can never reach the printed sheet (SongSheet
+  // uses NoteRow, not this component, and the badge is .no-print regardless).
+  holdLabels: { type: Object, default: () => ({}) },
+})
 // note-active / note-inactive let the parent (EditorMode) attach a per-note tool
 // (the เฟอร์มาต้า "ค้าง" chip) under the focused box. v-model contract is unchanged;
 // these are purely additive. Payload carries the box index (= token index within the
@@ -145,24 +153,50 @@ function onBoxBlur() {
 
 <template>
   <span ref="root" class="note-boxes">
-    <input
-      v-for="(b, i) in boxes"
-      :key="i"
-      class="note-box"
-      :value="b"
-      autocomplete="off"
-      autocapitalize="off"
-      @focus="onBoxFocus(i, $event)"
-      @blur="onBoxBlur"
-      @input="onInput(i, $event); reportActive(i, $event.target)"
-      @keydown="onKey(i, $event)"
-    />
+    <span v-for="(b, i) in boxes" :key="i" class="note-box-cell">
+      <input
+        class="note-box"
+        :value="b"
+        autocomplete="off"
+        autocapitalize="off"
+        @focus="onBoxFocus(i, $event)"
+        @blur="onBoxBlur"
+        @input="onInput(i, $event); reportActive(i, $event.target)"
+        @keydown="onKey(i, $event)"
+      />
+      <!-- editor-only glanceable fermata hold (𝄐 N) — .no-print, never on the sheet -->
+      <sup
+        v-if="holdLabels[i] != null"
+        class="note-hold no-print"
+        :aria-label="`ค้าง ${holdLabels[i]} จังหวะ`"
+      >𝄐{{ holdLabels[i] }}</sup>
+    </span>
     <button type="button" class="note-box add" tabindex="-1" @click="addBox">+</button>
   </span>
 </template>
 
 <style scoped>
 .note-boxes { display: inline-flex; gap: 3px; flex-wrap: wrap; align-items: center; }
+/* one note = one cell (input + its glanceable hold badge, positioned at the top-right corner) */
+.note-box-cell { position: relative; display: inline-flex; }
+.note-hold {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--brand);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0 3px;
+  pointer-events: none; /* purely informational — taps go to the note box / chip */
+  white-space: nowrap;
+}
 .note-box {
   width: 46px;
   text-align: center;

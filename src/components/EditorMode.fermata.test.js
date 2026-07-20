@@ -70,3 +70,31 @@ describe('fermata holds — round-trip through the editor', () => {
     expect(firstSeg(wrapper).holds).toEqual({ 0: 1.5 })
   })
 })
+
+describe('fermata holds — glanceable badge is editor-only, never on the sheet', () => {
+  it('renders a 𝄐N badge in the editable note boxes for a fermata note', async () => {
+    const wrapper = mountEditor(songWith([{ type: 'segment', note: '5^', holds: { 0: 3 } }]))
+    await nextTick()
+    const badges = wrapper.findAll('.note-boxes .note-hold')
+    expect(badges.length).toBe(1)
+    expect(badges[0].text()).toBe('𝄐3')
+    expect(badges[0].classes()).toContain('no-print')
+  })
+
+  it('shows the SUGGESTED value on a fermata note that has no stored hold yet', async () => {
+    // "5^" alone in a 4/4 bar → suggested bar-fill = 3 (fills the 4-beat bar from a quarter)
+    const wrapper = mountEditor(songWith([{ type: 'segment', note: '5^' }]))
+    await nextTick()
+    expect(wrapper.find('.note-boxes .note-hold').text()).toBe('𝄐3')
+  })
+
+  it('the sheet render (NoteRow) shows the 𝄐 symbol but NO hold-number badge', async () => {
+    const wrapper = mountEditor(songWith([{ type: 'segment', note: '5^', holds: { 0: 3 } }]))
+    await nextTick()
+    // the read-only jianpu render (SongSheet → NoteRow) draws the fermata symbol...
+    expect(wrapper.findAll('.fermata').length).toBeGreaterThan(0)
+    // ...but the number badge exists ONLY inside the editable note boxes, never in a sheet render.
+    expect(wrapper.findAll('.ed-bar-live .note-hold').length).toBe(0)
+    expect(wrapper.findAll('.ed-bar-render .note-hold').length).toBe(0)
+  })
+})
