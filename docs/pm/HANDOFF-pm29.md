@@ -6,22 +6,17 @@
 ---
 
 ## 1. LIVE / GIT (สำคัญสุด)
-- **LIVE = รอบ 32 `047a7a7`** (`origin/main` · bundle `index-CYE2eUjR.js` · ยืนยันจาก bundle จริงแล้ว)
-- ประกอบด้วย: **รอบ 31 `68b25ca` = fermata** + **รอบ 32 `047a7a7` = tablet drawer**
+- **LIVE = รอบ 33 `23f2e19`** (`origin/main` · bundle `index-ChN1uBZJ.js` · **ยืนยันจาก bundle จริงแล้ว**) · วิธียืนยัน: `curl` หน้าแรก → หา `assets/index-*.js` → grep commit ใน bundle
+- ประกอบด้วย: **รอบ 31 `68b25ca` = fermata** + **รอบ 32 `047a7a7` = tablet drawer** + **รอบ 33 `23f2e19` = คู่มือ**
 - deploy = push เข้า `main` → GH Actions auto (⚠️ 20 ก.ค. GitHub Actions ล่ม ~32 นาที run ค้าง "queued" — **ถ้าเจออีกให้รอ ไม่ต้องแก้อะไร** เช็ก githubstatus.com)
 - **⛔ ห้าม merge main / deploy จน P'Aim สั่ง**
 - base งานทั่วไป = `studio-shell-redesign` · **แต่ 2 ฟีเจอร์นี้แตกจาก main ตรง** (เลี่ยง dock-space ที่ทิ้ง) — ดูให้ดีก่อนเลือกฐาน
 
-## 2. 🔴 งานค้างกลางอากาศ (เช็กก่อนอย่างอื่น)
-**`guide-r33` — อัปคู่มือ (กำลังทำตอน pm29 ปิด session)**
-- worktree `C:/gl/krisada/pleng-guide` · branch `guide-r33` (จากรอบ 32) · port 5370
-- สั่งไป 2 อย่าง: (A) เขียนคู่มือให้ครอบ **fermata + tablet drawer** (B) **กู้ของจาก branch เก่า `guide-update`**
-- ⚠️ **agent ตัวนี้ผูกกับ session pm29 — รายงานจะไม่ถึงสายใหม่** → สายใหม่ **ตรวจเองจาก branch:** `git log --oneline guide-r33` + `docs/reports/guide-r33.md` ใน worktree
-- ถ้าเสร็จแล้ว: gate → ให้ P'Aim ดู → deploy รอบ 33 · ถ้ายังไม่เสร็จ/ไม่มีอะไร: สั่งใหม่ได้จาก brief เดิม
-
-**`guide-update` (branch เก่า `1393eed`) — ห้ามลบ ห้าม force**
-- ค้าง **116 commits** หลัง main · มีของจริง: Guide.vue refresh + **About.vue การ์ดเครดิต/แหล่งอ้างอิง**
-- ⛔ **ห้าม full-merge** (จะ revert ของ live) — ให้ port ทีละส่วน (งานนี้มอบให้ `guide-r33` แล้ว)
+## 2. ✅ คู่มือ — จบแล้ว (รอบ 33)
+- **คู่มืออัปแล้วขึ้น live รอบ 33 `23f2e19`** — ครอบ fermata (วิธีใส่ · ± ครึ่งจังหวะ · เริ่มต้น 2 · ป้าย `𝄐N` · **แผ่นพิมพ์ไม่มีเลข + เหตุผล**) + โครงเพลง ▾ / ลิ้นชักจอแคบ · ภาษาคนล้วน ไม่มีศัพท์พิกเซล
+- **`guide-update` (branch เก่า `1393eed`) — ตรวจแล้วไม่มีอะไรตกหล่น:** การ์ดเครดิต About + Guide ② + ไอคอน อยู่บน live ก่อนหน้าแล้ว (เหมือนกันเป๊ะ) · เหลือ 2 บรรทัดที่ของปัจจุบันถูกกว่า จึงไม่เอากลับ · **branch ยังอยู่ที่ `1393eed` ไม่ถูกแตะ — ลบได้ถ้า P'Aim โอเค**
+- ⚠️ **`𝄐` glyph risk (ยังไม่เคลียร์):** บาง Android/iOS อาจไม่มีฟอนต์ → เห็นเป็นกล่อง □ · **กระทบของที่ live แล้วด้วย** (ชิป · badge · แผ่น) · P'Aim กำลังเช็กบนมือถือจริง — ถ้าเป็นกล่อง ต้องเปลี่ยนเป็นไอคอน SVG วาดเอง
+  - เพลงที่มีเฟอร์มาต้าจริงบน live (14 เพลง) เช่น **#777** `7f8b920e-4a96-42f8-b518-8a6bf7e32db4` · **#760** (4 ตัว) `de9d58d5-1b1d-4532-a03a-b44e295a20d8` · **#97** `093a1a7e-1a38-43a4-8633-572ddf425cd2`
 
 ## 3. 🙏 ค้างให้ P'Aim/พี่เปา ยืนยันบน live (ยังไม่ได้ยืนยัน)
 1. แก้เพลง → ปิด → เปิดใหม่ **ค่า fermata ยังอยู่ไหม** (tester ขับ DB จริงไม่ได้ ไม่มี auth)
@@ -49,8 +44,8 @@
 ## 7. 🧹 ความสะอาด
 - **ปิดแล้ว:** dev server :5350 (fermata) · :5360 (drawer)
 - **worktree merged แล้ว ลบได้:** `pleng-fermata` · `pleng-drawer` (`git worktree remove ../pleng-fermata`)
-- **worktree ที่ยังใช้:** `pleng-guide` (guide-r33 · port 5370)
+- **worktree merged แล้วเช่นกัน:** `pleng-guide` (guide-r33 · deploy แล้ว) · ปิด :5370 ได้
 - memory sync ขึ้น OneDrive แล้ว (177 ไฟล์)
 
 ---
-*pm29 · 2026-07-20 · live รอบ 32 · fermata + tablet drawer ขึ้นแล้ว*
+*pm29 · 2026-07-20 · live รอบ 33 · fermata + tablet drawer + คู่มือ ขึ้นครบแล้ว*
