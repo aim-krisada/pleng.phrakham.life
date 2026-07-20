@@ -3,7 +3,7 @@ import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from
 import { onBeforeRouteLeave } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, HOLD_STEP, HOLD_MIN, snapHalf } from '../lib/notation.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
@@ -112,13 +112,33 @@ function deserializeLine(items) {
       line.bars.push(bar)
       bar = barShell()
     } else if (it.type === 'segment') {
-      bar.segments.push({ chord: it.chord || '', note: it.note || '', lyric: it.lyric || '' })
+      const seg = { chord: it.chord || '', note: it.note || '', lyric: it.lyric || '' }
+      // fermata hold values (absolute beats per note-box) — carried through unchanged; pruned
+      // to boxes that still hold a fermata on save so stale keys can't linger.
+      if (it.holds && typeof it.holds === 'object') seg.holds = { ...it.holds }
+      bar.segments.push(seg)
     }
   }
   line.bars.push(bar)
   line.bars = line.bars.filter((b) => b.segments.length)
   if (!line.bars.length) line.bars = [newBar()]
   return line
+}
+
+// Keep only the holds whose note-box still carries a fermata (`^`) and are on the 0.5 grid — so a
+// value orphaned by editing/deleting the note (box indices shift) never persists. Returns null when
+// nothing is left, so a clean segment stays free of a `holds` key.
+function pruneHolds(note, holds) {
+  if (!holds || typeof holds !== 'object') return null
+  const boxes = (note || '').trim() ? note.trim().split(/\s+/) : []
+  const out = {}
+  for (const [k, v] of Object.entries(holds)) {
+    const bi = Number(k)
+    const box = boxes[bi]
+    if (box == null || !Number.isFinite(Number(v))) continue
+    if (parseNotes(box).some((t) => t.type === 'note' && t.fermata)) out[bi] = Math.max(HOLD_MIN, snapHalf(v))
+  }
+  return Object.keys(out).length ? out : null
 }
 
 // A stanza is a melody — segments carry no lyric (the arrangement supplies words),
@@ -137,6 +157,8 @@ function serializeLine(line) {
     for (const s of b.segments) {
       const seg = { type: 'segment', chord: s.chord, note: s.note }
       if (s.lyric) seg.lyric = s.lyric
+      const holds = pruneHolds(s.note, s.holds)
+      if (holds) seg.holds = holds
       items.push(seg)
     }
     if (b.repeatEnd) items.push({ type: 'repeat-end' })
@@ -891,27 +913,58 @@ function insertSym(sym) {
 }
 
 // ---------- เฟอร์มาต้า "ค้าง" chip (per-note hold control) ----------
-// HOST (round-30): a floating bar UNDER the focused fermata note — teleported to <body>
-// (position:fixed) so it clears transformed ancestors, floats above the grid, and can be
+// HOST (round-30): a minimalist floating bar UNDER the focused fermata note — teleported to
+// <body> (position:fixed) so it clears transformed ancestors, floats above the grid, and can be
 // clamped to the viewport. It shows only when a focused note-box carries a fermata (`^`).
-//   layout:  𝄐 ค้าง  [ – ]  ▓▓▓░ N จังหวะ  [ + ]   ▶ ฟัง   ↺ แนะนำ
-// ⚠️ MILESTONE 1 = PRESENTATION ONLY. The hold value is a LOCAL STUB (not persisted, not
-// read by midi.js/SongSheet.vue yet); ▶ฟัง / ↺แนะนำ are inert. The real `holds[i]` model,
-// auto-suggest, playback and sheet symbol land in Milestone 2.
-const FERMATA_HOLD_STUB = 2 // placeholder จังหวะ until M2 reads/writes holds[i]
-const FC_MAX_STUB = 8
+//   layout:  𝄐  [ – ]  N  [ + ]
+// The number reads/writes the real `holds[boxIdx]` on the segment (absolute beats). When the note
+// has no stored hold yet (old song / freshly-added ^) it shows the SUGGESTED default (bar-fill /
+// ~2× mid-bar); the first +/- persists it. midi.js reads the same value → playback matches; the
+// sheet shows only the 𝄐 symbol (holds live out of the note string, so the sheet is unchanged).
 const fermataChip = ref(null) // { li, bi, si, tokenIdx, el } | null — which fermata note is focused
 const chipEl = ref(null)
 const chipPos = reactive({ left: 0, top: 0 })
-const fcHold = ref(FERMATA_HOLD_STUB) // M1 local stub only
+const fermataSuggested = ref(HOLD_MIN) // suggested default for the focused note (recomputed on focus)
 
 function noteHasFermata(v) {
   return typeof v === 'string' && v.includes('^')
 }
+// the segment object the chip is bound to (the same object NoteBoxes v-models)
+const fermataSeg = computed(() => {
+  const c = fermataChip.value
+  if (!c) return null
+  return lines.value[c.li]?.bars[c.bi]?.segments[c.si] || null
+})
+// the value shown: the stored hold if the user has set one, else the suggested default
+const fcHold = computed(() => {
+  const c = fermataChip.value
+  const seg = fermataSeg.value
+  if (!c || !seg) return HOLD_MIN
+  const stored = storedHold(seg, c.tokenIdx)
+  return stored != null ? stored : fermataSuggested.value
+})
+// soft ceiling ~2 bars (no hard max, per spec — the stepper just stops climbing past it)
+const fcMax = computed(() => 2 * (expectedBeats(opts.timeSignature) || 4))
+// suggested default (SA: fill to end of the bar, else ~2× mid-bar) for the focused fermata note
+function editorSuggestHold(li, bi, si, tokenIdx) {
+  const bar = lines.value[li]?.bars[bi]
+  if (!bar) return HOLD_MIN
+  const flatBoxes = []
+  let fermIdx = -1
+  bar.segments.forEach((seg, sIdx) => {
+    const boxes = (seg.note || '').trim() ? seg.note.trim().split(/\s+/) : []
+    boxes.forEach((str, bx) => {
+      if (sIdx === si && bx === tokenIdx) fermIdx = flatBoxes.length
+      flatBoxes.push(str)
+    })
+  })
+  if (fermIdx < 0) return HOLD_MIN
+  return suggestHoldForBar(flatBoxes, fermIdx, opts.timeSignature)
+}
 function onNoteActive(li, bi, si, { index, value, el }) {
   if (noteHasFermata(value)) {
     fermataChip.value = { li, bi, si, tokenIdx: index, el }
-    fcHold.value = FERMATA_HOLD_STUB // M2: = holdFor(seg, index) ?? suggestHold(...)
+    fermataSuggested.value = editorSuggestHold(li, bi, si, index)
     nextTick(placeChip)
   } else if (fermataChip.value && fermataChip.value.el === el) {
     fermataChip.value = null // `^` was removed from the focused box → drop the chip
@@ -954,9 +1007,17 @@ onUnmounted(() => {
   window.visualViewport?.removeEventListener('resize', onChipReflow)
 })
 const fcHoldLabel = computed(() => (Number.isInteger(fcHold.value) ? String(fcHold.value) : fcHold.value.toFixed(1)))
-// M1 stub behaviour: +/- move the LOCAL stub so the number is seen to react (not persisted).
-function fcInc() { fcHold.value = Math.min(FC_MAX_STUB, fcHold.value + 0.5); nextTick(placeChip) }
-function fcDec() { fcHold.value = Math.max(0.5, fcHold.value - 0.5); nextTick(placeChip) }
+// write the hold to the segment's holds map (materialise on the first edit), keeping undo/dirty in
+// sync via the same reactive arrangement every other edit uses.
+function setHold(v) {
+  const c = fermataChip.value
+  const seg = fermataSeg.value
+  if (!c || !seg) return
+  if (!seg.holds) seg.holds = {}
+  seg.holds[c.tokenIdx] = Math.max(HOLD_MIN, snapHalf(v))
+}
+function fcInc() { setHold(Math.min(fcMax.value, fcHold.value + HOLD_STEP)); nextTick(placeChip) }
+function fcDec() { setHold(Math.max(HOLD_MIN, fcHold.value - HOLD_STEP)); nextTick(placeChip) }
 
 // ---------- line/bar/segment operations (act on the active stanza) ----------
 // B098: add a ห้อง and drop the cursor straight into its (empty) note box, so the user

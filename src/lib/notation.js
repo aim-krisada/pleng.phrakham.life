@@ -112,6 +112,77 @@ export function expectedBeats(timeSignature) {
   return (Number(m[1]) * 4) / Number(m[2])
 }
 
+// ---------- fermata hold (𝄐) — absolute beats a note is held BEYOND its written value -----
+// The hold is stored per note-box in a segment's `holds: {boxIdx: beats}` map (out of the note
+// string, so it can't collide with the next note — SA design). ONE value read by both playback
+// (midi.js adds it to the note's duration) and, indirectly, the editor chip. It is NEVER counted
+// by beatCount — bars always sum their WRITTEN beats, so a hold can't drift the bar (the fix for
+// "next bar comes in off"). These pure helpers are the single source of the default + the grid.
+export const HOLD_STEP = 0.5 // edit granularity (half a beat)
+export const HOLD_MIN = 0.5 // a fermata note holds at least half a beat
+
+// snap to the 0.5-beat grid
+export function snapHalf(x) {
+  return Math.round((Number(x) || 0) / HOLD_STEP) * HOLD_STEP
+}
+
+// The suggested hold (beats to ADD) from already-measured inputs:
+//   beatsBefore  written beats of everything in the bar before the fermata note
+//   base         the fermata note's own written beats (its box + any '-' extension boxes)
+//   expected     expectedBeats(timeSignature) — the bar length, or null if unknown
+//   isLastInBar  the fermata note is the last NOTE of its bar
+// Rule (SA §5): last note of the bar → "fill to the end of the bar" so the next note lands on the
+// next downbeat (expected − beatsBefore − base). A fermata in the MIDDLE of a bar would swallow the
+// notes after it, so fall back to ~2× the written note (add `base` → total = 2× "twice as long",
+// the notation-standard default). Never below HOLD_MIN; snapped to the 0.5 grid.
+export function suggestHoldBeats({ beatsBefore = 0, base = 1, expected = null, isLastInBar = true } = {}) {
+  let add = isLastInBar && expected != null ? expected - beatsBefore - base : base
+  if (!Number.isFinite(add)) add = base
+  return Math.max(HOLD_MIN, snapHalf(add))
+}
+
+// Suggested hold for the fermata box at `fermIdx` inside a bar given as the flat list of note-box
+// strings (whitespace tokens across every segment of the bar, in order — the same indexing the
+// editor's NoteBoxes and the stored `holds` keys use). Measures beatsBefore/base/isLast and defers
+// to suggestHoldBeats. Shared by the editor chip (materialise) and midi.js (backward-compat).
+export function suggestHoldForBar(flatBoxes, fermIdx, timeSignature) {
+  const boxes = flatBoxes || []
+  const expected = expectedBeats(timeSignature)
+  const beatsOf = (s) => beatCount(parseNotes(s))
+  const isExt = (s) => s === '-' || s === '–'
+  const isAttack = (s) => {
+    const n = parseNotes(s).find((t) => t.type === 'note')
+    return !!n && n.pitch !== '0' // a real new note (a rest 0 is not a fresh attack)
+  }
+  let beatsBefore = 0
+  for (let k = 0; k < fermIdx; k++) beatsBefore += beatsOf(boxes[k])
+  // base = the fermata box + any '-' extension boxes that belong to the SAME note
+  let base = beatsOf(boxes[fermIdx])
+  let k = fermIdx + 1
+  while (k < boxes.length && isExt(boxes[k])) { base += beatsOf(boxes[k]); k++ }
+  let isLastInBar = true
+  for (let m = k; m < boxes.length; m++) { if (isAttack(boxes[m])) { isLastInBar = false; break } }
+  return suggestHoldBeats({ beatsBefore, base, expected, isLastInBar })
+}
+
+// Box index (whitespace token index) of each NOTE token of a segment, in source order. Lets a
+// char-level parse (midi.js) map a fermata note back to the `holds` key the editor wrote.
+export function noteBoxIndices(noteString) {
+  const t = (noteString || '').trim()
+  const boxes = t ? t.split(/\s+/) : []
+  const out = []
+  boxes.forEach((box, bi) => {
+    for (const tok of parseNotes(box)) if (tok.type === 'note') out.push(bi)
+  })
+  return out
+}
+
+// The stored hold (beats to add), clamped to the minimum, or null when the box has none.
+export function storedHold(seg, boxIdx) {
+  const v = seg && seg.holds && seg.holds[boxIdx]
+  return v != null && Number.isFinite(Number(v)) ? Math.max(HOLD_MIN, Number(v)) : null
+}
+
 // Group slur/triplet spans: returns [{ group: null|'slur'|'triplet', tokens: [...] }]
 export function groupNotes(tokens) {
   const out = []
