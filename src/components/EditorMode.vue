@@ -3406,11 +3406,13 @@ defineExpose({
   font-size: 14px;
 }
 .fc-sym { font-size: 20px; line-height: 1; color: var(--brand); padding: 0 2px; }
+/* size family with the bar-foot .ed-mini tools (30x30, P'Aim "just right") */
 .fc-step {
-  min-width: var(--touch-min); min-height: var(--touch-min);
-  font-size: 22px; font-weight: 700; line-height: 1;
-  color: var(--brand); background: #f7fafc;
-  border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 30px; min-height: 30px; padding: 4px;
+  font-size: 18px; font-weight: 700; line-height: 1;
+  color: var(--brand); background: #fff;
+  border: 1px solid var(--line); border-radius: 7px; cursor: pointer;
   flex: 0 0 auto;
 }
 .fc-step:active { background: #eef2f7; }
@@ -4662,7 +4664,8 @@ defineExpose({
 
   /* header + inline action buttons → full 44px hit targets */
   .ed-ico,
-  .ed-mini { min-width: var(--touch-min); min-height: var(--touch-min); }
+  .ed-mini,
+  .fc-step { min-width: var(--touch-min); min-height: var(--touch-min); }
   .ed-crumb,
   .ed-verify,
   .ed-settings-toggle,
