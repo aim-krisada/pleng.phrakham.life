@@ -1,9 +1,10 @@
 <script setup>
-import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, HOLD_STEP, HOLD_MIN, snapHalf } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, HOLD_STEP, HOLD_MIN, snapHalf, slurSpans } from '../lib/notation.js'
+import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
@@ -2511,6 +2512,150 @@ watch([activeStanza, lines], () => {
   shownBars.value = {}
 })
 
+// ---------- B118: cross-ห้อง tie / slur arcs over the live preview ----------
+// Each ห้อง renders as its OWN mini-SongSheet (barContent), so a tie or slur that runs from
+// one ห้อง into the next has no component that can span the barline: NoteRow drew a dangling
+// ~15px stub on each side and the curve read as broken in two
+// (พี่เปา, 20 ก.ค. — "เส้น slur โค้งไม่ต่อเนื่องกัน"; the แผ่นเพลง sheet gets this right
+// because there the whole line lives in ONE SongSheet).
+//
+// Fix: measure the real note positions across the whole .ed-strip and draw the pair as ONE
+// arc in a strip-level overlay, reusing the SAME geometry the sheet uses (lib/slurArcs.js).
+// Arcs that live INSIDE a single ห้อง are deliberately not touched — that bar's own
+// SongSheet already draws them correctly (B062/B076/B099), so there is nothing to regress.
+const edArcs = ref({})
+const edHalves = makeHalfHider()
+const edRoot = ref(null)
+
+// every note element of one line, in reading order, tagged with the ห้อง it sits in
+function stripNotes(strip) {
+  const out = []
+  strip.querySelectorAll('.ed-bar').forEach((barEl) => {
+    const bi = barEl.dataset.bar
+    barEl.querySelectorAll('.ed-bar-live .note-row .nt').forEach((nt) => out.push({ nt, bi, barEl }))
+  })
+  return out
+}
+
+// the flat note strings of one line's ห้อง, left→right, plus a map back to the DOM: entry i
+// is the i-th segment of the line, and lives in ห้อง `bi` as that bar's LOCAL segment `si`
+// (each mini-sheet numbers its own segments from 0, so data-seg is always "0-<local si>").
+function stripSegments(li) {
+  const line = lines.value[li]
+  const notes = []
+  const where = []
+  if (!line) return { notes, where }
+  line.bars.forEach((bar, bi) => {
+    bar.segments.forEach((seg, si) => {
+      notes.push(seg.note || '')
+      where.push({ bi, si })
+    })
+  })
+  return { notes, where }
+}
+
+function measureEdArcs() {
+  edHalves.restore()
+  const root = edRoot.value
+  if (!root) { edArcs.value = {}; return }
+  const byLine = {}
+  root.querySelectorAll('.ed-strip[data-li]').forEach((strip) => {
+    const li = strip.dataset.li
+    const sr = strip.getBoundingClientRect()
+    if (!sr.width) return // no layout yet (hidden tab / preview off) — keep the fallback
+    const nts = stripNotes(strip)
+    if (!nts.length) return
+    const rowRects = nts.map((r) => r.nt.getBoundingClientRect())
+    const arcs = []
+    // claim the two stubs only once a replacement arc actually exists, so anything we
+    // cannot measure keeps NoteRow's own halves as a visible fallback (same rule as sheet)
+    const draw = (openNt, closeNt, claim) => {
+      const produced = planArcs(openNt.getBoundingClientRect(), closeNt.getBoundingClientRect(), sr, rowRects)
+      if (!produced.length) return
+      claim()
+      arcs.push(...produced)
+    }
+    // --- cross-ห้อง TIES ---
+    // Walk back over the '-' extension dashes so the arc starts at the real source DIGIT,
+    // not at the last dash of a held run ("2 - - - | ~2") — the same skip the sheet does.
+    nts.forEach((rec, i) => {
+      if (!rec.nt.classList.contains('tie-end')) return
+      let pi = i - 1
+      while (pi >= 0 && nts[pi].nt.classList.contains('nt-ext')) pi--
+      const src = nts[pi]
+      if (!src || src.bi === rec.bi) return // same ห้อง → its own mini-sheet already drew it
+      draw(src.nt, rec.nt, () => {
+        // we know the exact source note here, so hide ITS start-hook precisely (a segment
+        // can hold several tie-starts — grabbing the segment's first would miss this one)
+        edHalves.hide(src.nt.querySelector('.tie-start-arc'))
+        edHalves.hide(rec.nt.querySelector('.tie-end-arc'))
+      })
+    })
+    // --- cross-ห้อง SLURS ---
+    // slurSpans pairs a '(' with its ')' across segment boundaries; keep only the pairs whose
+    // two ends land in DIFFERENT ห้อง (anything inside one ห้อง is that mini-sheet's job).
+    const { notes: segNotes, where } = stripSegments(Number(li))
+    for (const sp of slurSpans(segNotes)) {
+      const o = where[sp.open.si]
+      const c = where[sp.close.si]
+      if (!o || !c || o.bi === c.bi) continue
+      const sel = (w, idx) => strip.querySelector(
+        `.ed-bar[data-bar="${li}-${w.bi}"] .ed-bar-live .segment[data-seg="0-${w.si}"] .nt[data-idx="${idx}"]`,
+      )
+      const openNt = sel(o, sp.open.idx)
+      const closeNt = sel(c, sp.close.idx)
+      if (!openNt || !closeNt) continue
+      draw(openNt, closeNt, () => {
+        // NoteRow's stray one-note arc sits on the .note-group that holds the dangling '('
+        const grp = openNt.closest('.note-group')
+        edHalves.hide(grp && grp.querySelector('.slur-arc'))
+      })
+    }
+    if (arcs.length) byLine[li] = { paths: arcs, w: sr.width, h: sr.height }
+  })
+  edArcs.value = byLine
+}
+
+// Debounce on a timer, NOT requestAnimationFrame: rAF is paused in a non-painting tab, and
+// the sheet hit exactly this bug (B111/B114) — arcs stayed unpainted until a manual resize.
+let edArcTimer = 0
+function scheduleEdArcs() {
+  clearTimeout(edArcTimer)
+  edArcTimer = setTimeout(measureEdArcs, 16)
+}
+let edArcRO = null
+onMounted(() => {
+  nextTick(scheduleEdArcs)
+  // web fonts swap in after first paint and move every note — re-measure once they settle,
+  // otherwise the first measure runs on pre-font (often zero) widths and draws nothing
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(scheduleEdArcs).catch(() => {})
+  }
+  if (typeof ResizeObserver !== 'undefined' && edRoot.value) {
+    edArcRO = new ResizeObserver(scheduleEdArcs)
+    edArcRO.observe(edRoot.value)
+  }
+  if (typeof window !== 'undefined') window.addEventListener('resize', scheduleEdArcs)
+})
+onBeforeUnmount(() => {
+  if (edArcRO) edArcRO.disconnect()
+  if (typeof window !== 'undefined') window.removeEventListener('resize', scheduleEdArcs)
+  clearTimeout(edArcTimer)
+  edHalves.restore()
+})
+// any edit reflows the notes (and the ตัวอย่างสด toggle adds/removes the previews entirely)
+watch(
+  [lines, livePreview, barLayout, activeStanza, lensRow, () => opts.key],
+  () => nextTick(scheduleEdArcs),
+  { deep: true },
+)
+// Studio keeps the editor MOUNTED and only v-shows it, so onMounted runs while the editor is
+// still display:none — every rect is 0 there and the first measure can draw nothing. Re-measure
+// the moment แก้ไข actually becomes visible. This is an explicit signal on purpose: relying on
+// the ResizeObserver alone repeats B111/B114, where arcs stayed unpainted until a manual resize
+// because the observer never fired in a non-painting tab.
+watch(() => props.active, (on) => { if (on) nextTick(scheduleEdArcs) })
+
 // ---------- studio shell (phase 4: menus/panels) ----------
 // Set-once / occasional things live in menus now (เพลง = New/Open/Properties,
 // จัดการ = drafts/history/download/delete) opened as panels, so the editor page
@@ -2623,7 +2768,9 @@ defineExpose({
 </script>
 
 <template>
-  <div style="padding-bottom: 150px">
+  <!-- edRoot: the measuring root for the B118 cross-ห้อง arc overlay (a ResizeObserver here
+       re-measures every line's arcs whenever the editor reflows) -->
+  <div ref="edRoot" style="padding-bottom: 150px">
     <!-- เฟอร์มาต้า "ค้าง" chip — floating host UNDER the focused fermata note (teleported to
          <body> so position:fixed clears transformed ancestors and clamps to the viewport).
          M1 = presentation: value is a stub, ▶ฟัง/↺แนะนำ inert. Every control is always
@@ -3028,7 +3175,24 @@ defineExpose({
            read+edit surface — note boxes (ripple) with a lyric box under each note (ripple),
            aligned in one column, chords on top. No separate sheet preview (would duplicate
            this and overflow the screen). -->
-      <div class="ed-strip" :class="'lay-' + barLayout">
+      <div class="ed-strip" :class="'lay-' + barLayout" :data-li="li">
+        <!-- B118: a tie/slur that runs from one ห้อง into the next is drawn HERE, at strip
+             level, because each ห้อง renders as its own mini-SongSheet and none of them can
+             span a barline on its own — without this the curve broke into two stubs
+             (พี่เปา: "เส้น slur โค้งไม่ต่อเนื่องกัน"). Arcs INSIDE one ห้อง are untouched:
+             that bar's own SongSheet still draws them (B062/B076). -->
+        <svg
+          v-if="edArcs[li]"
+          class="ed-arc-layer no-print"
+          :viewBox="`0 0 ${edArcs[li].w} ${edArcs[li].h}`"
+          :width="edArcs[li].w"
+          :height="edArcs[li].h"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path v-for="a in edArcs[li].paths" :key="a.key" :d="a.d" />
+        </svg>
         <template v-for="(bar, bi) in line.bars" :key="bi">
           <span v-if="bi > 0" class="ed-barline" aria-hidden="true"></span>
           <div
@@ -4675,7 +4839,20 @@ defineExpose({
 /* the strip: bars laid out per the layout toggle (B035).
    lay-stack = 1 ห้อง/แถว (each bar its own full-width row) · lay-flow = ห้องต่อกัน (side by
    side, wrapping only when very long). stack is the default (matches the prototype). */
-.ed-strip { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.ed-strip { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; position: relative; }
+/* B118: cross-ห้อง tie/slur overlay. Absolute so it never becomes a flex item of the strip,
+   and pointer-events:none so it can't steal a tap from the note/lyric boxes underneath.
+   Screen-only (.no-print): printing goes through the แผ่นเพลง sheet, which draws its own. */
+.ed-arc-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 2;
+}
+/* same ink as the sheet's .tie-overlay so an arc looks identical on both surfaces */
+.ed-arc-layer path { fill: var(--note-blue); stroke: none; }
 .ed-strip.lay-flow { flex-direction: row; }
 .ed-strip.lay-stack { flex-direction: column; align-items: stretch; gap: 8px; }
 .ed-strip.lay-stack .ed-barline { display: none; } /* 1 bar/row — no vertical barline needed */
