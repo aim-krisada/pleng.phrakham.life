@@ -1,6 +1,6 @@
 # PM board — pleng (ไม้ต่อ · refreshed 2026-07-20 · live = รอบ 32)
 
-> 🤝🤝 **HANDOFF → pl pm ใหม่ (20 ก.ค.): อ่าน `docs/pm/HANDOFF-pm29.md` ก่อน** — live=รอบ32 · **งานค้างกลางอากาศ: `guide-r33` อัปคู่มือ (agent ผูกกับ pm29 → ตรวจเองจาก branch)** · กฎใหม่ SOP §4.1 แก้ซอฟต์แวร์ต้องอัปคู่มือเสมอ · ตั้งชื่อตัวเอง `pm30`
+> 🤝🤝 **HANDOFF → pl pm ใหม่ (20 ก.ค.): อ่าน `docs/pm/HANDOFF-pm29.md` ก่อน** — live=รอบ32 · **งานค้างกลางอากาศ: `guide-r33` อัปคู่มือ (agent ผูกกับ pm29 → ตรวจเองจาก branch)** · ตั้งชื่อตัวเอง `pm30`
 
 ## ▶ RESUME (pm29 ปิดงาน 20 ก.ค. · สายหน้าอ่านนี่ก่อน)
 **LIVE = รอบ 32 `047a7a7`** (fermata รอบ31 + tablet-drawer รอบ32 · ทั้งคู่ deploy+ยืนยัน live แล้ว)
