@@ -137,3 +137,59 @@ describe('NoteRow beaming (issues2)', () => {
     w.unmount()
   })
 })
+
+// B110 — the beam OVERLAY is drawn one bar per beam LEVEL, so a run that mixes เขบ็ต 1 ชั้น
+// and 2 ชั้น no longer paints a double bar over the 1-ชั้น note. jsdom has no layout, so the
+// pixel geometry is verified live in the browser (docs/reports/b110-beam-levels.md); what is
+// assertable here is the STRUCTURE NoteRow emits — which is the contract v-beam draws from.
+describe('NoteRow beam levels (B110)', () => {
+  const bars = (notes) =>
+    mount(NoteRow, { props: { notes } })
+      .findAll('.beam')
+      .map((b) => {
+        const d = b.attributes()
+        return `L${d['data-beam-level']}:${d['data-beam-start']}-${d['data-beam-end']}` +
+          (d['data-beam-partial'] ? '/' + d['data-beam-partial'] : '')
+      })
+
+  it('.7_. 1__ — TWO bars: a full level 1 and a LEFT stub at level 2', () => {
+    expect(bars('.7_. 1__')).toEqual(['L1:0-1', 'L2:1-1/left'])
+  })
+
+  it('1__ .7_. — the level-2 stub points RIGHT when the sixteenth leads', () => {
+    expect(bars('1__ .7_.')).toEqual(['L1:0-1', 'L2:0-0/right'])
+  })
+
+  it('5_ 6__ 7_ — a sixteenth between two eighths gets a LEFT stub', () => {
+    expect(bars('5_ 6__ 7_')).toEqual(['L1:0-2', 'L2:1-1/left'])
+  })
+
+  it('A4 — all eighths still draw exactly ONE bar (no regression)', () => {
+    expect(bars('5_ 6_')).toEqual(['L1:0-1'])
+  })
+
+  it('A4 — all sixteenths still draw a full double beam (two bars, same span)', () => {
+    expect(bars('1__ 2__ 3__ 4__')).toEqual(['L1:0-3', 'L2:0-3'])
+  })
+
+  it('adjacent sixteenths make ONE full level-2 bar, not two stubs', () => {
+    expect(bars('1_ 2__ 3__')).toEqual(['L1:0-2', 'L2:1-2'])
+  })
+
+  it('the old single-thickness .beam-u2 class is gone (every bar is one 1.5px line)', () => {
+    const w = mount(NoteRow, { props: { notes: '1__ 2__ 3__ 4__' } })
+    expect(w.findAll('.beam-u2').length).toBe(0)
+  })
+
+  // A4 fallback — with no layout (jsdom / some print paths) every bar hides itself and the
+  // per-note underlines (.num.u1 / .num.u2) carry the reading, which were ALWAYS per-note
+  // correct. This is the graceful degradation that must survive.
+  it('no layout → bars hide themselves and per-note underlines remain correct', () => {
+    const w = mount(NoteRow, { props: { notes: '.7_. 1__' }, attachTo: document.body })
+    for (const b of w.findAll('.beam')) expect(b.element.style.display).toBe('none')
+    const nums = w.findAll('.num')
+    expect(nums[0].classes()).toContain('u1') // the dotted eighth keeps ONE underline
+    expect(nums[1].classes()).toContain('u2') // the sixteenth keeps TWO
+    w.unmount()
+  })
+})

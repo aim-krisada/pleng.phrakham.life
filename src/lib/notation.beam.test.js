@@ -68,3 +68,61 @@ describe('beamGroups — syllable-based beaming (issue8)', () => {
     expect(runs('{1_ 2_ 3_}', ['a', 'b', 'c'])).toEqual([])
   })
 })
+
+// --- B110 — GOLDEN tests: one beam bar PER LEVEL ---------------------------------------
+// พี่เปา: "พิมพ์ขเบ็ด 1 ชั้น แต่โชว์เป็น 2 ชั้น". The old code collapsed a run to a single
+// `u2` flag, so ONE sixteenth in a run thickened the whole run. beamGroups now returns a
+// `levels` structure: level 1 spans the whole run, each higher level spans only the notes
+// that really own it, and a lone note at a level gets a PARTIAL beam (ขีดหัก) pointing at
+// the note it is beamed to. These cases are B110's acceptance criteria.
+const levels = (note, syl) =>
+  beamGroups(note, syl).beams.map((b) =>
+    b.levels.map((l) => `L${l.level}:${l.start}-${l.end}${l.partial ? '/' + l.partial : ''}`),
+  )
+
+describe('beamGroups — beam levels (B110)', () => {
+  // เพลง 751 ข้อ 1 ห้อง "7. 1" — dotted eighth (1 underline) beamed to a sixteenth (2).
+  // Level 1 must still span BOTH; level 2 must touch only the sixteenth, as a stub.
+  it('.7_. 1__ — level 1 over the whole run, level 2 a LEFT stub on the sixteenth only', () => {
+    expect(levels('.7_. 1__', null)).toEqual([['L1:0-1', 'L2:1-1/left']])
+  })
+
+  // mirrored: the sixteenth leads, so its stub must point RIGHT (into the beam)
+  it('1__ .7_. — the stub flips to RIGHT when the sixteenth starts the run', () => {
+    expect(levels('1__ .7_.', null)).toEqual([['L1:0-1', 'L2:0-0/right']])
+  })
+
+  // a lone sixteenth in the MIDDLE has a note before it in the run → points left
+  it('5_ 6__ 7_ — a sixteenth between two eighths gets a LEFT stub', () => {
+    expect(levels('5_ 6__ 7_', null)).toEqual([['L1:0-2', 'L2:1-1/left']])
+  })
+
+  // A4 — no regression: a uniform run keeps exactly the shape it had before B110
+  it('all eighths → level 1 only (unchanged)', () => {
+    expect(levels('5_ 6_', null)).toEqual([['L1:0-1']])
+  })
+
+  it('all sixteenths → level 1 and level 2 both span the whole run (unchanged double beam)', () => {
+    expect(levels('1__ 2__ 3__ 4__', null)).toEqual([['L1:0-3', 'L2:0-3']])
+  })
+
+  // two ADJACENT sixteenths are a real span, never two stubs
+  it('1_ 2__ 3__ — adjacent sixteenths give one FULL level-2 span, not partials', () => {
+    expect(levels('1_ 2__ 3__', null)).toEqual([['L1:0-2', 'L2:1-2']])
+  })
+
+  // The level walk is written for ANY depth, but parseNotes hard-caps underlines at 2
+  // (notation.js:46 `while (s[j] === '_' && underlines < 2)`), so 3 underlines is not
+  // reachable from a note string today. Pin that cap here: if it is ever raised, this test
+  // fails and whoever raises it must also check the level-3 geometry in NoteRow.
+  it('parseNotes caps underlines at 2, so no level 3 can be produced today', () => {
+    expect(levels('1_ 2___', null)).toEqual([['L1:0-1', 'L2:1-1/left']])
+  })
+
+  // the legacy flag is still exported (callers/tests that only ask "any sixteenth?")
+  it('u2 stays available for legacy callers but no longer drives drawing', () => {
+    const b = beamGroups('.7_. 1__', null).beams[0]
+    expect(b.u2).toBe(true)
+    expect(b.levels.length).toBe(2)
+  })
+})

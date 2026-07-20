@@ -164,7 +164,17 @@ const vArc = {
 // so an all-eighths run and an all-sixteenths run come out pixel-identical to before (A4).
 const BEAM_TH = 1.5 // bar thickness — matches `.num.u1`'s border-bottom
 const BEAM_GAP = 1 // white space between two beam levels — matches the `double` border
+const BEAM_STUB_MIN = 3 // a fractional beam never shrinks below this, however tight the gap
 const liveBeams = new Set()
+// The digit a partial beam points AT — the note it shares the beam with, one slot before
+// (partial 'left') or after (partial 'right') it. Used only to clamp the stub's reach.
+function neighbourRect(row, b) {
+  const idx = b.partial === 'left' ? b.start - 1 : b.end + 1
+  const el = row.querySelector(`.nt[data-idx="${idx}"] .num`)
+  if (!el) return null
+  const r = el.getBoundingClientRect()
+  return r.width ? r : null
+}
 function applyBeam(el) {
   const b = el.__beam
   const row = el.parentElement
@@ -187,9 +197,18 @@ function applyBeam(el) {
   let left = a.left - rr.left
   let width = Math.max(0, c.right - a.left)
   if (b.partial) {
-    // ขีดหัก: cover this digit and reach part-way toward the note it is beamed to, so the
-    // stub reads as pointing INTO the beam rather than as a stray tick.
-    const ext = Math.max(4, a.width * 0.5)
+    // ขีดหัก (fractional beam). Gould, *Behind Bars*: a fractional beam runs about ONE
+    // notehead — in numbered notation the "notehead" is the digit, so the stub covers this
+    // digit and reaches a further digit-width toward the note it is beamed to. It is then
+    // CLAMPED to half the white gap, so the stub can never reach the neighbouring digit —
+    // the eye must still read a break, or it looks like a full beam again.
+    const nb = neighbourRect(row, b)
+    let ext = a.width
+    if (nb) {
+      const gap = b.partial === 'left' ? a.left - nb.right : nb.left - a.right
+      if (gap > 0) ext = Math.min(ext, gap / 2)
+    }
+    ext = Math.max(BEAM_STUB_MIN, ext)
     width = a.width + ext
     if (b.partial === 'left') left -= ext
   }
