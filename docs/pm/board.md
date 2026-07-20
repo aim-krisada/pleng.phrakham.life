@@ -57,7 +57,10 @@
 - ✅ **P'Aim+พี่เปา รีวิว → MINIMALIST:** ตัด "ค้าง"(งง)/▶ฟัง(ฟังทั้งท่อนแล้ว)/แถบ▓▓▓/↺แนะนำ → **เหลือ `𝄐 – N +`** · แก้บนโค้ดจริง (`6bf53e2`)
 - ✅ **P'Aim ถาม 44px จำเป็นไหม → PM ตอบมาตรฐาน:** WCAG 2.2 **AA = 24px** (2.5.8) · 44 = AAA (2.5.5 เกินไป) · ปุ่มพี่น้อง `.ed-mini` = 30px → **ย่อ +/- เหลือ 30px** (`98e5d43`) · มือถือเด้ง 44 (width-query ไม่ใช่ hover)
 - ✅✅ **P'Aim เคาะ wireframe "ลงตัวแล้ว" → จ่าย M2 (logic เต็ม):** holds absolute · auto-suggest bar-fill (+fallback ~2× กลางห้อง) · step 0.5 · midi.js เลิก ×1.75 (bar-math ไม่นับ hold) · SongSheet สัญลักษณ์ล้วน · persist · backward-compat · unit test · คง look 30px · ไม่แตะ DockKey
-- ▶ **รอ M2 เสร็จ → จ่าย tester session (แยก) → PM gate → P'Aim เคาะ deploy รอบ 31**
+- ✅✅ **M2 เสร็จ (`28f9b39`):** holds absolute (prune/round-trip) · auto-suggest `suggestHoldForBar` (bar-fill +2× fallback · min0.5 · step0.5) · midi.js เลิก×1.75 (bar-math ไม่นับ hold=ตัวแก้ drift · MP3=live) · sheet สัญลักษณ์ล้วน · chip ผูก holds จริง+persist · backward-compat · 702 tests+build✓ (notationLint fail = pre-existing บน base) · คง look 30px · DockKey ไม่แตะ · report `pleng-fermata/docs/reports/fermata-hold.md`
+- 🎯 **P'Aim ลองของจริง** localhost:5350 (ค่าแนะนำ3 · +/-0.5 persist · เล่นลงหัวห้อง · แผ่นสัญลักษณ์)
+- 🔬 **tester session แยกจ่ายแล้ว** (7 ข้อ: suggest·persist·timing·sheet·backward·mobile diff0·DockKey untouched · real browser+Surface hover:none · no fake PASS) → รายงาน `fermata-tester.md`
+- ▶ **รอ tester + P'Aim ลอง → PM gate จากหลักฐาน → P'Aim เคาะ deploy รอบ 31**
 
 ## 🔄 ORG: SA+UX รวมเป็น "Design" สายเดียว (P'Aim 18 ก.ค. · กลับจากแยก 17 ก.ค.)
 - เหตุ: 2 session = PM ประสาน+ชน base/host คนละมุม (fermata: UX วาง UI บน toolbox ที่ถูกทิ้ง) · รวม = 1 คนถือทั้ง feasibility+UX · roster/SOP §1.1 + memory `pleng-roster-3-seats` อัปแล้ว
