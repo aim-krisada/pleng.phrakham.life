@@ -43,7 +43,8 @@
 
 ## 🚀 เฟอร์มาต้า — DEPLOYED รอบ 31 (P'Aim สั่ง go 20 ก.ค.)
 - ✅ **P'Aim เปลี่ยน default → 2 คงที่เสมอ** (`68b25ca` · ลอง live แล้ว) · tester re-verify PASS (mid-bar ก็ 𝄐2 · 707 tests) · PM gate รับ
-- 🚀 **DEPLOY: push `2f4177e..68b25ca` → origin/main** (fast-forward สะอาด · origin/main ยัง=รอบ30 ตอน push) · GH Actions building · poll เฝ้า live (bazr1mfk1)
+- 🚀 **DEPLOY: push `2f4177e..68b25ca` → origin/main สำเร็จ** (fast-forward สะอาด) · โค้ดปลอดภัยบน main
+- ⚠️ **แต่ยังไม่ขึ้น live — GitHub Actions OUTAGE (partial · githubstatus ยืนยัน):** run `68b25ca` ค้าง "queued" 20+ นาที ไม่เริ่ม · **ไม่ใช่บั๊กเรา** · จะ deploy เองเมื่อ GitHub ฟื้น · poll เฝ้า (bkuly8uzc)
 - ✅ **ไม่กระทบพระคำ 2-host** — fermata ไม่แตะ `DockKey.vue` → ไม่ต้อง smoke island
 - 🙏 **P'Aim ยืนยันใช้จริงตอน live:** save/reopen persist · เพลงเก่า backward-compat · Ctrl+P ไม่มีเลข
 - 🔧 **future polish (tester flag · ไม่บล็อก):** ชิปอาจทับแป้นตอนโน้ตอยู่ล่างสุดจอเตี้ย (positioning เดิม · เลื่อนโน้ตขึ้นก็กดได้) → ทำ ticket
