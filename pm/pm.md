@@ -10,7 +10,8 @@
 1. **[`pair/pair-sop.md`](../pair/pair-sop.md)** — กฎการทำงาน **ฉบับเดียว ใช้ทั้ง 2 โปรเจกต์** · หลักฐานเบื้องหลังกฎ → [`evidence.md`](../pair/evidence.md)
 2. **[`docs/sop.md`](../docs/sop.md)** — เรื่องเฉพาะเพลง (ทำบนโค้ดจริงห้าม mockup ทิ้ง · อัปคู่มือทุกครั้ง · ฐาน branch · Supabase)
 3. **[`docs/ui-standards.md`](../docs/ui-standards.md)** + [`ux-platform-patterns.md`](../docs/ux-platform-patterns.md) — มาตรฐาน UI/a11y
-4. **[`pm/board.md`](board.md)** — สถานะสด · **อ่านหัว ▶ RESUME พอ อย่าอ่านทั้งไฟล์**
+4. **`work/`** — งานค้าง 1 folder/งาน · **`ls work/` = เห็นทั้งหมด** เปิด `task.md` เฉพาะงานที่หยิบ · **แทน `board.md` แล้ว** (20 ก.ค.)
+   ⛔ **ห้ามอ่าน `closed/` ตอน boot** — เป็นรั้วกันทำซ้ำ P'Aim ถือ index เอง (กติกา: `pair/pair-sop.md §1.1`)
 
 ## 2 กฎที่ใช้ทุกวัน
 
@@ -33,4 +34,4 @@
 
 ## ตอนนี้ถึงไหน
 
-[`pm/board.md`](board.md) หัว **▶ RESUME**
+`ls work/` — แต่ละ folder = งานค้าง 1 งาน · ว่าง = ไม่มีค้าง · **LIVE = รอบ 37 `b3d188f`**
