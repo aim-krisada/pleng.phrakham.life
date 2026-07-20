@@ -179,6 +179,15 @@ const opts = reactive({ key: 'C', timeSignature: '4/4', bpm: null })
 // verified flag of the loaded song (songs.verified) — surfaced as the "✓ ตรวจแล้ว" toggle
 const verified = ref(false)
 
+// B104 (หมวดหาย) — `category`/`theme` are columns on `songs` ONLY; `song_drafts` has neither.
+// So after loading a DRAFT row, meta.category/meta.theme are a GUESS ('anuchon' fallback), not
+// data. Publishing that guess silently re-filed songs from เล่มใหญ่ into อนุชน. `bookKnown`
+// records whether meta.category/theme come from a genuine source:
+//   true  = read off a published `songs` row, resolved from the draft's song_id, or picked by
+//           the user in the ธีม/หมวด dropdowns → safe to write
+//   false = we only have the fallback → the publish path must NOT write it over what is stored
+const bookKnown = ref(true)
+
 // B060: song settings live inline now (no "เพลง ▾" menu needed). ธีม = the 8 themes the
 // library uses (from the songs.theme column); หมวด = the book/collection code (anuchon =
 // ไทยอนุชน 120 · docs/pm/book-codes.md). Both are set-and-forget dropdowns so พี่เปา can
@@ -1278,7 +1287,10 @@ function applyRow(data) {
   meta.number = data.number
   meta.title_th = data.title_th
   meta.title_en = data.title_en
-  // category/theme/verified exist on published songs (not on draft rows) — default when absent
+  // category/theme/verified exist on published songs (not on draft rows) — default when absent.
+  // B104: remember WHETHER the row actually carried a หมวด. A `songs` row (select('*')) always
+  // has the key (even if null); a `song_drafts` row never does → that is a guess, not data.
+  bookKnown.value = Object.prototype.hasOwnProperty.call(data ?? {}, 'category')
   meta.category = data.category ?? 'anuchon'
   meta.theme = data.theme ?? ''
   verified.value = data.verified ?? false
@@ -1317,6 +1329,7 @@ function resetForm() {
   meta.title_en = ''
   meta.category = 'anuchon'
   meta.theme = ''
+  bookKnown.value = true // a brand-new blank song: the defaults ARE the value (nothing to lose)
   verified.value = false
   opts.key = 'C'
   opts.timeSignature = '4/4'
@@ -1359,7 +1372,35 @@ async function loadDrafts() {
   pendingDrafts.value = (data ?? []).filter((d) => d.status === 'pending')
 }
 
-function loadDraft(d) {
+// B104 — read the หมวด/ธีม that are actually stored for a published song and put them in the
+// editor. The published `songs` row is the source of truth; a draft row cannot carry them.
+// Returns true when it really got them (so the caller can tell "resolved" from "still a guess").
+async function resolveBook(songId) {
+  if (!songId) return false
+  const { data, error } = await supabase
+    .from('songs')
+    .select('category, theme')
+    .eq('id', songId)
+    .single()
+  if (error || !data || !Object.prototype.hasOwnProperty.call(data, 'category')) return false
+  meta.category = data.category ?? 'anuchon'
+  meta.theme = data.theme ?? ''
+  bookKnown.value = true
+  return true
+}
+
+// B104 — the ธีม/หมวด dropdowns. A pick made by a human is a genuine value, so it unlocks the
+// publish write even when the editor started from a draft row that could not carry one.
+function pickCategory(v) {
+  meta.category = v
+  bookKnown.value = true
+}
+function pickTheme(v) {
+  meta.theme = v
+  bookKnown.value = true
+}
+
+async function loadDraft(d) {
   applyRow(d)
   editingId.value = d.song_id
   currentDraftId.value = d.id
@@ -1367,6 +1408,9 @@ function loadDraft(d) {
   reviewComment.value = d.review_comment || ''
   saveMsg.value = d.status === 'rejected' && d.review_comment ? '↩ ถูกส่งกลับ: ' + d.review_comment : ''
   nextTick(resetHistory)
+  // B104: a draft of an EXISTING song → show that song's real หมวด/ธีม instead of the
+  // 'anuchon' fallback applyRow() had to use. (A draft of a NEW song has no song to ask.)
+  if (!bookKnown.value && d.song_id) await resolveBook(d.song_id)
 }
 
 const draftRow = () => ({
@@ -1449,8 +1493,15 @@ async function saveDirect() {
   delete row.status
   // category/theme are columns on `songs` (not on `song_drafts`) — set them only on the
   // published write. draftRow() stays lean so saving a draft never touches these columns.
-  row.category = meta.category || 'anuchon'
-  row.theme = meta.theme || null
+  // B104: write them ONLY when they are genuine (loaded from the song / resolved from the
+  // draft's song_id / picked by the user). On an UPDATE with a guessed value we omit both
+  // keys — PostgREST leaves omitted columns untouched, so the song keeps its stored หมวด/ธีม
+  // instead of being silently re-filed into อนุชน. An INSERT has nothing to preserve, so the
+  // defaults still apply there.
+  if (!editingId.value || bookKnown.value) {
+    row.category = meta.category || 'anuchon'
+    row.theme = meta.theme || null
+  }
   if (!row.title_th) {
     saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
     return false
@@ -1497,6 +1548,14 @@ async function approve() {
     saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
     return
   }
+  // B104: the draft the approver is reviewing carries no หมวด/ธีม. Before publishing over an
+  // EXISTING song, make sure we hold its real values — approve_and_publish() coalesces a missing
+  // category but assigns theme outright, so publishing with a guess would wipe the ธีม. If we
+  // cannot read them, refuse rather than corrupt (transient failure → just press again).
+  if (!bookKnown.value && d.song_id && !(await resolveBook(d.song_id))) {
+    saveMsg.value = '❌ อ่านหมวด/ธีมเดิมของเพลงไม่สำเร็จ — ยังไม่เผยแพร่ กรุณาลองใหม่'
+    return
+  }
   // B093: lint the melody → tag review_flags (keep DA flags) + warn, but never block publish
   const { flags, count } = reviewFlagsForPublish()
   lastLintCount.value = count
@@ -1505,9 +1564,13 @@ async function approve() {
     title_th: meta.title_th.trim(),
     title_en: meta.title_en?.trim() || null,
     content: JSON.parse(JSON.stringify(previewContent.value)),
-    category: meta.category || 'anuchon',
-    theme: meta.theme || null,
     review_flags: flags,
+  }
+  // only send หมวด/ธีม when they are genuine (see saveDirect) — omitted keys let the RPC keep
+  // the song's stored category, and a brand-new song falls back to its own 'anuchon' default
+  if (bookKnown.value) {
+    p_song.category = meta.category || 'anuchon'
+    p_song.theme = meta.theme || null
   }
   // B028: "approve + publish" is ONE logical event. The RPC writes the published song AND
   // flips the draft to approved in a single transaction, tagging both audit rows with the
@@ -2524,6 +2587,8 @@ defineExpose({
   history, histPos,
   // B100 leave-warning tests: dirty flag + save/load clean checkpoints.
   isDirty, saveDirect,
+  // B104 หมวดหาย: whether meta.category/theme are genuine + the two publish paths that gate on it.
+  bookKnown, approve, pickCategory, reviewingDraft,
 })
 </script>
 
@@ -2713,8 +2778,9 @@ defineExpose({
         <label>คีย์<ComboSelect v-model="opts.key" :options="KEYS" width="100%" /></label>
         <label>จังหวะ<ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom width="100%" /></label>
         <label>ความเร็ว (BPM)<input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" /></label>
-        <label>ธีม<ComboSelect v-model="meta.theme" :options="themeOptions" width="100%" /></label>
-        <label>หมวด<ComboSelect v-model="meta.category" :options="CATEGORY_OPTIONS" width="100%" /></label>
+        <!-- B104: a value the user actually picks IS genuine — mark it so publish may write it -->
+        <label>ธีม<ComboSelect :model-value="meta.theme" :options="themeOptions" width="100%" @update:model-value="pickTheme" /></label>
+        <label>หมวด<ComboSelect :model-value="meta.category" :options="CATEGORY_OPTIONS" width="100%" @update:model-value="pickCategory" /></label>
       </div>
     </div>
 
