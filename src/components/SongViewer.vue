@@ -137,7 +137,11 @@ const printTitle = computed(() => {
 // "no edit affordances in the reading surface regardless of tier" AC (US-A01 AC3) — P'Aim now
 // wants ฝึกร้อง to be the one surface: enter → sing → ✏️ edit by right. This step = select +
 // navigate (typing/ripple + chord-symbol popups + save come next).
-const canEdit = computed(() => props.tier !== 'anon' && props.tier !== 'guest')
+// Editing is OPEN TO EVERYONE — the 3-tier model (mission.md) lets even Tier 0 (ไม่ล็อกอิน /
+// คนทำเพลงภายนอก) แก้ · พิมพ์ · upload/download JSON. Only SAVING TO THE SERVER (draft/publish)
+// needs login; an anon keeps work via Download/Upload JSON. So the ✏️ shows for all; the save
+// step (D) is where the tier gate lives (logged-in → server · anon → download JSON).
+const canEdit = computed(() => true)
 const editMode = ref(false)
 // every selectable NOTE across the WHOLE song, in reading order, keyed by the {li, si, syk}
 // that SongSheet's @seek emits — syk = the note-box slot (same index midi.js/NoteRow's data-idx
