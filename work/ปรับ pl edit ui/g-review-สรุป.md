@@ -18,5 +18,19 @@ G อ่าน `บทวิเคราะห์-สถาปัตยกรร
 1. อย่าบังคับผู้ใช้อ่านได้แบบเดียว — ต้องสลับ compact↔church ได้จาก data core ชุดเดียว
 2. index mapping source↔resolved ต้องนิ่งมาก ไม่งั้นคลิกแก้โน้ตแล้วกระทบข้ออื่น "โปรแกรมรวน" → แก้ด้วย `_source` pointer ข้างบน
 
+## เพิ่ม: หลายภาษา (G รอบ 3)
+G เสนอ (ต่อยอด v2 ไม่รื้อ schema):
+- **per-language melisma:** stanza เก็บทำนองมาตรฐาน · arrangement row แต่ละภาษาใส่ `melismaOverrides:[{slotIndex,noteSpan}]` ทับเฉพาะที่ภาษาตัวเองเอื้อนต่าง (อังกฤษ 2 โน้ต=1 พยางค์ · ไทย 2 โน้ต=2 พยางค์ บนทำนองเดียว) · parser คำนวณ syllableSlots dynamic ตาม override
+- **ภาษา ≠ voice = คนละมิติ (orthogonal):** voice=timeline/pitch (ร้องขนาน) · language=presentation · โครง nested `syllables:{ lead:{th:[],en:[]}, response:{th:[],en:[]} }`
+- อ้างว่า backward-compatible เพลงเก่าไม่มี override อ่าน slot จากทำนองปกติ
+
+### 🔴 ข้อสังเกตของ Claude (โปรแกรมเมอร์) — ต้นทุนที่ G ประเมินต่ำไป
+G ถูกเรื่องสถาปัตยกรรม **แต่ schema ไม่ใช่ที่ที่งานอยู่** — งานจริง+เสี่ยงอยู่ที่ `syllables` เปลี่ยนรูปจาก **flat `[...]`** เป็น **nested `{voice:{lang}}`** · **editor tooling ทั้งชุด (syllable box · shift ◀▶ · paragraph editor · auto-split) สมมติว่า syllables เป็น flat array** → ต้องรื้อ/ห่อใหม่หมด
+- **นี่คือสิ่งที่ [[pleng-bilingual-approach]] เตือนไว้เป๊ะ:** "อย่าทำ native `{en,th}` slot = แพงสุด รื้อ syllable-editor/shift-tool/paragraph ทั้งหมด" · Amazing Grace พิสูจน์แล้วว่า **interlinear แบบ render-only (จับคู่ 2 row) ทำได้ 0 โค้ด**
+- **trade-off จริงที่ P'Aim ต้องเคาะ:**
+  - **A (nested ของ G):** ยืดหยุ่นสุด รองรับ per-language melisma + multi-voice · **แต่รื้อ editor tooling (แพง ตามที่ experiment เจอ)**
+  - **B (render-only 2-row เดิม):** interlinear ได้ฟรี 0 โค้ด · **แต่รับ per-language melisma ต่างกันไม่ได้** (ต้องร้อง syllabic เท่ากัน)
+- **ทางสายกลางที่ผมเสนอ:** เริ่ม B (render-only) ให้ใช้ได้ก่อน · เก็บ A (melismaOverride) ไว้เป็น optional เฉพาะเพลงที่ต้องการจริง — ค่อยเติมทีหลังโดยไม่บล็อกงานอื่น
+
 ## record เต็ม
 transcript: `ceo/tools/meeting-room/meetings/2026-07-21-pleng-edit-ui-arch/meeting_discussion.md`
