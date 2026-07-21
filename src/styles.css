@@ -136,7 +136,10 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); width:
    while a page with long song titles grew wide: inconsistent between views (P'Aim). */
 main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
 /* the Studio shell is a wider, Google-Docs-style workspace (rail + editor) */
-.container.studio-wide { max-width: min(var(--container-wide), 100%); }
+/* P'Aim 21 ก.ค.: the editor uses the FULL screen width on big monitors (was capped 1160px, so a
+   large screen left the right side empty). More width = more room per ห้อง = note boxes need not
+   shrink as much. Small screens are already 100% via the min(). */
+.container.studio-wide { max-width: min(1920px, 100%); }
 @media (max-width: 480px) { .container { padding: var(--sp-3); } }
 
 /* navbar tools (download) — mirrors phrakham.life2 .pk-tool */

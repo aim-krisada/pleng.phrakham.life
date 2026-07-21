@@ -4775,6 +4775,16 @@ defineExpose({
    side, wrapping only when very long). stack is the default (matches the prototype). */
 .ed-strip { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
 .ed-strip.lay-flow { flex-direction: row; }
+/* P'Aim 21 ก.ค. TRIAL — ห้องเท่ากัน ไม่ยืดหด: every ห้อง in a line splits the width EQUALLY
+   (flex:1), so a 2-note bar and a 6-note bar are the same width. Notes inside spread to fill and
+   shrink (down to a readable floor) when crowded — so the line fits ONE row with no h-scroll.
+   Only a genuinely over-long line wraps, at a bar boundary (never mid-bar). */
+.ed-strip.lay-flow .ed-bar { flex: 1 1 0; min-width: 150px; }
+.ed-strip.lay-flow .seg-strip { flex-wrap: nowrap; gap: 8px; justify-content: space-evenly; width: 100%; }
+.ed-strip.lay-flow .seg-col { flex: 1 1 0; min-width: 0; align-items: center; }
+.ed-strip.lay-flow :deep(.note-boxes) { flex-wrap: nowrap; justify-content: center; width: 100%; }
+/* note boxes shrink to fit their share (26px floor keeps them tappable/readable), cap at 46px */
+.ed-strip.lay-flow :deep(.note-box:not(.add)) { flex: 1 1 0; min-width: 26px; max-width: 46px; width: auto; }
 .ed-strip.lay-stack { flex-direction: column; align-items: stretch; gap: 8px; }
 .ed-strip.lay-stack .ed-barline { display: none; } /* 1 bar/row — no vertical barline needed */
 .ed-strip.lay-stack .ed-bar { width: 100%; }
