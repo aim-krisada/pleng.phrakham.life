@@ -771,9 +771,12 @@ function onSeek({ li, si, syk }) {
    Bottom-right, in the thumb zone, riding ABOVE the play dock so listening keeps working. */
 .sv-fab {
   position: fixed;
-  right: 20px;
-  /* clear the fixed play dock (~160px) + the iOS home indicator */
-  bottom: calc(180px + env(safe-area-inset-bottom, 0px));
+  right: 24px;
+  /* desktop/tablet: the play dock is a CENTERED pill (bottom:8px, ≤700px wide), so the FAB
+     drops to the same baseline in the bottom-right CORNER — it reads as a companion control on
+     the dock's line, balanced against the centered dock + page margin. On a phone the dock goes
+     nearly full-width, so the FAB lifts ABOVE it (media query below) to avoid overlap. */
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   z-index: 40;
   width: 56px;
   height: 56px;
@@ -793,8 +796,9 @@ function onSeek({ li, si, syk }) {
 .sv-fab:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
 /* editing → a green "done" (✓), the Google-Docs affordance to leave edit mode */
 .sv-fab.editing { background: #16a34a; }
-@media (max-width: 480px) {
-  .sv-fab { bottom: calc(224px + env(safe-area-inset-bottom, 0px)); }
+/* phone: the dock is ~full-width at the bottom, so lift the FAB clear of it */
+@media (max-width: 640px) {
+  .sv-fab { right: 16px; bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* while editing, a slim hint bar above the sheet */
