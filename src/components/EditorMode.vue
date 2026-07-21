@@ -12,7 +12,6 @@ import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import SongSheet from './SongSheet.vue'
-import InlineSheetEditor from './InlineSheetEditor.vue'
 import NoteBoxes from './NoteBoxes.vue'
 import ComboSelect from './ComboSelect.vue'
 import Icon from './Icon.vue'
@@ -259,6 +258,84 @@ const activeStanzaContent = computed(() => {
     return serial
   })
   return { version: 2, key: opts.key, timeSignature: opts.timeSignature, lines }
+})
+
+// ---- inline edit ON the real sheet (P'Aim 21 ก.ค. — "ปุ่มดินสอบนแผ่นที่แสดงถูกอยู่แล้ว") ----
+// The display IS the sheet (SongSheet). The ✏️ turns that same sheet editable: tap a note/word
+// (mobile) or use ← → (keyboard) to SELECT it — highlighted right on the sheet. Typing/ripple +
+// chord/symbol popups come in the next steps; this step is select + navigate only.
+// Every selectable note, in reading order. The atom of editing is a NOTE-BOX (a note, a held
+// '-', or a rest) — NOT a word — so a melody with no words yet is still fully selectable. syk
+// = the note-box slot within the segment, the SAME index midi.js/NoteRow use (data-idx), so
+// the highlight (playing-syl → NoteRow's active + the .syl span) lands on the exact note.
+const inlineCells = computed(() => {
+  const cells = []
+  activeStanzaContent.value.lines.forEach((line, li) => {
+    let si = -1
+    for (const item of line) {
+      if (item.type !== 'segment') continue
+      si++
+      let slot = 0
+      for (const kind of noteBoxKinds(item.note || '')) {
+        if (kind === 'struct') continue // slur/triplet brackets aren't their own note
+        cells.push({ li, si, syk: slot })
+        slot++
+      }
+    }
+  })
+  return cells
+})
+const selIdx = ref(-1) // index into inlineCells of the selected note/word (-1 = none)
+const selCell = computed(() => (selIdx.value >= 0 ? inlineCells.value[selIdx.value] || null : null))
+function selectAt(li, si, syk) {
+  const i = inlineCells.value.findIndex((c) => c.li === li && c.si === si && c.syk === syk)
+  if (i >= 0) selIdx.value = i
+}
+// a word (.syl) click is @click.stop in SongSheet, so it never bubbles — catch it via @seek
+function onInlineSeek({ li, si, syk }) {
+  selectAt(li, si, syk)
+}
+// a NOTE click bubbles to this wrapper — read the exact note from .nt[data-idx] inside its
+// .segment[data-seg], so a wordless melody note selects precisely (segment @seek only knew syk 0).
+function onInlinePick(e) {
+  const nt = e.target.closest?.('.nt[data-idx]')
+  if (!nt) return
+  const seg = nt.closest('.segment[data-seg]')
+  if (!seg) return
+  const [li, si] = seg.dataset.seg.split('-').map(Number)
+  selectAt(li, si, Number(nt.dataset.idx))
+}
+// ← → move the selection one note/word; ↑ ↓ jump a whole line (navigation only in this step)
+function moveSel(step) {
+  const n = inlineCells.value.length
+  if (!n) return
+  if (selIdx.value < 0) { selIdx.value = step > 0 ? 0 : n - 1; return }
+  selIdx.value = Math.max(0, Math.min(selIdx.value + step, n - 1))
+}
+function moveSelLine(dir) {
+  const cells = inlineCells.value
+  const cur = selCell.value
+  if (!cur) { moveSel(dir); return }
+  const targetLi = cur.li + dir
+  // land on the same segment index on the target line, or the nearest available
+  let best = -1
+  cells.forEach((c, i) => {
+    if (c.li !== targetLi) return
+    if (best < 0 || Math.abs(c.si - cur.si) < Math.abs(cells[best].si - cur.si)) best = i
+  })
+  if (best >= 0) selIdx.value = best
+}
+function onInlineKey(e) {
+  if (e.key === 'ArrowRight') { e.preventDefault(); moveSel(1) }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); moveSel(-1) }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); moveSelLine(1) }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); moveSelLine(-1) }
+  else if (e.key === 'Home') { e.preventDefault(); selIdx.value = 0 }
+  else if (e.key === 'End') { e.preventDefault(); selIdx.value = inlineCells.value.length - 1 }
+}
+// entering edit mode drops the selection on the first note so ← → have an anchor
+watch(inlineEdit, (on) => {
+  if (on && selIdx.value < 0 && inlineCells.value.length) selIdx.value = 0
 })
 
 const previewContent = computed(() => ({
@@ -3099,9 +3176,27 @@ defineExpose({
           @click="inlineEdit = !inlineEdit"
         ><Icon :name="inlineEdit ? 'check' : 'pencil'" :size="15" /> {{ inlineEdit ? 'เสร็จ' : 'แก้' }}</button>
       </div>
-      <InlineSheetEditor v-if="inlineEdit" :stanza="stanzas[activeStanza]" />
-      <div v-else class="ise-panel-view">
-        <SongSheet :content="activeStanzaContent" mode="full" chord-system="letter" :display-key="opts.key" />
+      <!-- ONE sheet for both ดู and แก้ — the display is already correct, so editing happens
+           right on it (P'Aim 21 ก.ค.). ✏️ on → the sheet is focusable + interactive: tap a
+           note/word or use ← → to select (highlighted here). Typing comes next. -->
+      <div
+        class="ise-panel-view"
+        :class="{ 'ise-editing': inlineEdit }"
+        :tabindex="inlineEdit ? 0 : -1"
+        :role="inlineEdit ? 'textbox' : null"
+        :aria-label="inlineEdit ? 'แก้โน้ต/คำบนแผ่นเพลง — แตะเลือก หรือใช้ลูกศร' : null"
+        @keydown="inlineEdit && onInlineKey($event)"
+        @click="inlineEdit && onInlinePick($event)"
+      >
+        <SongSheet
+          :content="activeStanzaContent"
+          mode="full"
+          chord-system="letter"
+          :display-key="opts.key"
+          :interactive="inlineEdit"
+          :playing-syl="inlineEdit ? selCell : null"
+          @seek="onInlineSeek"
+        />
       </div>
     </div>
 
@@ -5104,5 +5199,13 @@ defineExpose({
   border: 1px solid var(--line, #e2e8f0);
   border-radius: 10px;
   padding: 16px;
+}
+/* ✏️ on — the sheet itself becomes the edit surface: a soft focus ring shows it is "live",
+   and a text caret hint invites tapping a note/word. */
+.ise-panel-view.ise-editing {
+  cursor: text;
+  outline: none;
+  border-color: var(--brand, #8b4513);
+  box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.12);
 }
 </style>
