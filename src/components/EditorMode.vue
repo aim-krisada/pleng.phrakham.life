@@ -371,10 +371,26 @@ function onSegFocus(e, li, bi, si) {
   anchorToolbox(e.target) // centre the toolbox on the actually-focused element
 }
 function onSegOutside(e) {
-  if (!e.target.closest?.('.seg-col') && !e.target.closest?.('.slot-tools')) {
+  // keep the toolbar open while interacting with it (or the note/syllable it edits)
+  if (!e.target.closest?.('.seg-col') && !e.target.closest?.('.slot-tools') && !e.target.closest?.('.ed-toolbar')) {
     focusedSeg.value = ''
     selSlot.value = -1
   }
+}
+
+// ===== unified contextual toolbar — step 1 (P'Aim 21 ก.ค.) =====
+// The per-bar action buttons used to repeat under EVERY ห้อง (เปลืองที่). Show them only on the
+// ห้อง the user clicked into — i.e. the bar that holds the focused note. barToolsOn(li,bi) is the
+// gate; every other bar keeps only its ✓/❌ beat status. (Next steps fold note/บรรทัด/ข้อ tools
+// into this same one-place toolbar.)
+const toolCtx = computed(() => {
+  if (!focusedSeg.value) return null
+  const [li, bi, si] = focusedSeg.value.split('-').map(Number)
+  return { li, bi, si }
+})
+function barToolsOn(li, bi) {
+  const c = toolCtx.value
+  return !!c && c.li === li && c.bi === bi
 }
 watch(focusedSeg, (v) => {
   if (v) setTimeout(() => document.addEventListener('mousedown', onSegOutside), 0)
@@ -3171,7 +3187,11 @@ defineExpose({
               <span v-if="bar.repeatStart" class="ed-bar-mark" title="เริ่มเล่นซ้ำ">‖:</span>
               <span v-if="bar.repeatEnd" class="ed-bar-mark" title="วนกลับ">:‖</span>
               <span v-if="bar.volta" class="ed-bar-mark" :title="bar.volta === 1 ? 'ห้องจบรอบแรก' : 'ห้องจบรอบสอง'">{{ bar.volta }}.</span>
-              <span class="ed-bar-acts">
+              <!-- P'Aim: the bar tools used to repeat under EVERY ห้อง (เปลืองที่). Now they only
+                   take space on the ห้อง you clicked into (its note is focused) — every other bar
+                   keeps just its ✓/❌ beat-status. Hidden via CSS (kept in the DOM) so keyboard/AT
+                   reach them only when the bar is active, and nothing else changes. -->
+              <span class="ed-bar-acts" :class="{ 'bar-tools-off': !barToolsOn(li, bi) }">
                 <button class="ed-mini" title="ฟังห้องนี้" aria-label="ฟังห้องนี้" @click="playBar(li, bi)"><Icon name="play" :size="14" /></button>
                 <button class="ed-mini" :class="{ on: barShown(li, bi) }" :aria-pressed="barShown(li, bi)" title="ดูผล — สลับ แก้ ⇄ แผ่นเพลง (ห้องนี้)" aria-label="ดูผลห้องนี้" @click="toggleBarShown(li, bi)"><Icon name="music" :size="14" /></button>
                 <!-- B092: bar move/copy/delete surfaced out of the ⋯ popover — one tap, no menu.
@@ -3183,7 +3203,7 @@ defineExpose({
                 <button class="ed-mini bar-act-wide" title="ทำซ้ำทั้งห้องนี้ (วางเป็นห้องถัดไปทันที) — ถ้าอยากวางที่ท่อนอื่น ใช้ ⋯ › คัดลอกห้อง" aria-label="ทำซ้ำห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)"><Icon name="copy" :size="14" /></button>
                 <button class="ed-mini danger-ic bar-act-wide" title="ลบทั้งห้องนี้ (ทุกโน้ตในห้อง)" aria-label="ลบห้องนี้" @click="removeBar(line, bi)"><Icon name="trash-2" :size="14" /></button>
               </span>
-              <span class="ed-bar-more-wrap">
+              <span class="ed-bar-more-wrap" :class="{ 'bar-tools-off': !barToolsOn(li, bi) }">
                 <button
                   class="ed-mini"
                   :class="{ on: barMenuOpen === `${li}-${bi}` }"
@@ -4752,6 +4772,11 @@ defineExpose({
 .ed-bar-pickup.on { background: var(--brand); color: #fff; }
 .ed-bar-acts { display: inline-flex; gap: 4px; margin-left: auto; }
 .ed-bar-more-wrap { position: relative; }
+/* P'Aim: bar tools only take space on the ห้อง you clicked into — hide on every other bar */
+.ed-bar-acts.bar-tools-off,
+.ed-bar-more-wrap.bar-tools-off { display: none; }
+/* push the ✓/❌ status to the right when the action row is hidden, so the foot stays tidy */
+.ed-bar-acts.bar-tools-off + * { margin-left: auto; }
 /* ดูผล render: the clean bar drawn in place of the edit grid (tap to go back to editing) */
 .ed-bar-render {
   border: 1px dashed var(--brand);
