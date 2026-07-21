@@ -234,13 +234,32 @@ const activeStanzaId = computed(() => stanzas.value[activeStanza.value]?.id ?? '
 // stanza (โหมดดู); the pencil flips to the inline editor (โหมดแก้). Built alongside the old
 // box grid (which stays below, untouched) so nothing breaks while it grows step by step.
 const inlineEdit = ref(false) // false = ดู (sheet) · true = แก้ (inline)
-// the active stanza rendered as a sheet-shaped content object (v1-flat lines) for โหมดดู
-const activeStanzaContent = computed(() => ({
-  version: 2,
-  key: opts.key,
-  timeSignature: opts.timeSignature,
-  lines: (stanzas.value[activeStanza.value]?.lines || []).map(serializeLine),
-}))
+// the active stanza rendered as a sheet-shaped content object (v1-flat lines) for โหมดดู.
+// A v2 melody carries no words of its own, so — like barContent — pull the selected verse's
+// (lens) syllables in under each note at their global slot offset, so the ดู sheet reads like
+// the singer's sheet (notes + เนื้อ) instead of a bare melody.
+const activeStanzaContent = computed(() => {
+  const src = stanzas.value[activeStanza.value]?.lines || []
+  const withWords = lensActive.value && lensRow.value
+  // one running syllable-slot counter across the whole stanza, in the SAME reading order
+  // (lines → bars → segments) that slotStarts accumulates — so every note's word lines up.
+  let slot = 0
+  const lines = src.map((line) => {
+    const serial = serializeLine(line)
+    for (const item of serial) {
+      if (item.type !== 'segment') continue
+      const n = syllableSlots(item.note || '')
+      if (withWords) {
+        const slots = lensRow.value.syllables.slice(slot, slot + n)
+        item.lyric = joinSyllables(slots)
+        item.syllables = slots
+      }
+      slot += n
+    }
+    return serial
+  })
+  return { version: 2, key: opts.key, timeSignature: opts.timeSignature, lines }
+})
 
 const previewContent = computed(() => ({
   version: 2,
