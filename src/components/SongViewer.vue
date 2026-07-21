@@ -829,6 +829,17 @@ function onSeek({ li, si, syk }) {
 @media (max-width: 480px) {
   .sheet-scale { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
 }
+/* Reading-view tidy ("ง่าย" · P'Aim 21 ก.ค.) — the notation size is LOCKED at the standard
+   (like MuseScore/Soundslice: fixed staff size + a separate Aa zoom, never per-song rescaling).
+   To stop it sitting cramped on the left of a wide screen, center the sheet block as a page:
+   width shrinks to its content and centers, so wide screens get even margins instead of dead
+   right space. Screen only — the A4 print sheet (แผ่นเพลง mode) is untouched. Justifying each
+   line to the right margin ("เต็มสูตร") is the next step. */
+.sheet-scale :deep(.sheet-root) {
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+}
 
 /* B107 — "loading real piano" hint, a small pill sitting just above the fixed dock. Purely
    informational (the synth is already playing); fades in, never blocks interaction. */
