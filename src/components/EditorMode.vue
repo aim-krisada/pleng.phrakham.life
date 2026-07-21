@@ -717,6 +717,32 @@ function focusRow(i) {
     lensChoice.value = i
   }
 }
+
+// click-to-edit (issue6/7): click a bar on the whole-song preview → jump the cursor to that
+// exact bar in the EXISTING editor. Uses the provenance resolveContent already stamps
+// (_stanza / _stanzaLine / _entryIndex) — no new surface, no schema change. `si` is the
+// segment index within the resolved line (SongSheet's seg.si), mapped back to the source bar.
+function jumpToSource({ li, si }) {
+  const rLine = resolvedPreview.value.lines?.[li]
+  if (!rLine) return
+  const st = stanzas.value.find((s) => s.id === rLine._stanza)
+  const srcLine = st?.lines?.[rLine._stanzaLine]
+  if (!srcLine) return
+  // find which bar the si-th segment sits in
+  let count = -1
+  let targetBar = 0
+  for (let b = 0; b < srcLine.bars.length; b++) {
+    let hit = false
+    for (let s = 0; s < srcLine.bars[b].segments.length; s++) {
+      if (++count === si) { targetBar = b; hit = true; break }
+    }
+    if (hit) break
+  }
+  // focusRow points activeStanza + lens at the clicked verse; then focus the bar once its
+  // note boxes have re-rendered for the (possibly newly) active stanza.
+  if (rLine._entryIndex != null && rLine._entryIndex >= 0) focusRow(rLine._entryIndex)
+  nextTick(() => nextTick(() => focusBar(rLine._stanzaLine, targetBar, false)))
+}
 // reorder a ท่อน from → to (shared by ▲▼ and drag) — the moved row stays selected.
 function moveRowTo(from, to) {
   if (from < 0 || to < 0 || from === to) return
@@ -3357,7 +3383,8 @@ defineExpose({
              (font-size, not transform → keeps SongSheet's tie overlay measuring real px),
              so there is no horizontal scroll and no clipped column. -->
         <div class="ed-float-page" :style="previewPageStyle">
-          <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
+          <!-- click-to-edit (issue6/7): tap a bar here → cursor jumps to it in the editor -->
+          <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" interactive @seek="jumpToSource" />
         </div>
       </div>
       <!-- resize by dragging this bottom-right corner (desktop only; mobile is full-screen) -->
