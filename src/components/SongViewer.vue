@@ -160,7 +160,11 @@ const inlineCells = computed(() => {
   return cells
 })
 const selIdx = ref(-1)
+const selLayer = ref('note') // 'note' | 'word' — which layer of the selected cell is being edited
 const selCell = computed(() => (selIdx.value >= 0 ? inlineCells.value[selIdx.value] || null : null))
+// the selection handed to SongSheet (separate from playback highlight) — a note+word column
+// with the active layer flagged. null when not editing / nothing selected.
+const editSel = computed(() => (selCell.value ? { ...selCell.value, layer: selLayer.value } : null))
 function selectAt(li, si, syk) {
   const i = inlineCells.value.findIndex((c) => c.li === li && c.si === si && c.syk === syk)
   if (i >= 0) selIdx.value = i
@@ -202,6 +206,7 @@ function onInlinePick(e) {
   if (!seg) return
   const [li, si] = seg.dataset.seg.split('-').map(Number)
   selectAt(li, si, Number(nt.dataset.idx))
+  selLayer.value = 'note' // tapped the note glyph → edit the NOTE
 }
 function toggleEdit() {
   editMode.value = !editMode.value
@@ -648,8 +653,10 @@ onUnmounted(() => {
 // tap a syllable/note in the sheet → jump playback there (US H1). Find the note's index
 // in the CURRENT play order and start from it, in the current key.
 function onSeek({ li, si, syk }) {
-  // ✏️ on: a tap SELECTS the note/word for editing instead of jumping playback
-  if (editMode.value) { selectAt(li, si, syk); return }
+  // ✏️ on: a tap SELECTS the note/word for editing instead of jumping playback. A word (.syl)
+  // is @click.stop so it only reaches here → edit the WORD; a note-area tap also fires this
+  // (syk 0) but onInlinePick runs after and overrides to the exact note + layer 'note'.
+  if (editMode.value) { selectAt(li, si, syk); selLayer.value = 'word'; return }
   const notes = playNotes.value
   let idx = notes.findIndex((n) => n.li === li && n.si === si && n.syk === syk)
   if (idx < 0) idx = notes.findIndex((n) => n.li === li && n.si === si) // rest/blank slot
@@ -669,17 +676,9 @@ function onSeek({ li, si, syk }) {
       <div v-if="song.scripture" class="scripture-tag muted">📖 {{ song.scripture }}</div>
     </div>
 
-    <!-- ✏️ edit — lives here in ฝึกร้อง (shown only by right). Enter → the sheet becomes the
-         edit surface (P'Aim 21 ก.ค.); no separate แก้ไข mode. -->
-    <div v-if="canEdit" class="sv-edit-bar no-print">
-      <button
-        class="sv-pencil"
-        :class="{ on: editMode }"
-        :aria-pressed="editMode"
-        :title="editMode ? 'ออกจากโหมดแก้ (กลับไปฝึกร้อง)' : 'แก้โน้ต/คำบนแผ่นนี้'"
-        @click="toggleEdit"
-      ><Icon :name="editMode ? 'check' : 'pencil'" :size="16" /> {{ editMode ? 'เสร็จ' : 'แก้ไข' }}</button>
-      <span v-if="editMode" class="sv-edit-hint">แตะโน้ต/คำ หรือใช้ ← → ↑ ↓ เพื่อเลือก · พิมพ์แก้ได้เร็ว ๆ นี้</span>
+    <!-- while editing: a small hint + autosave note ride above the sheet -->
+    <div v-if="editMode" class="sv-edit-hint no-print" role="status">
+      แตะ<b>โน้ต</b>เพื่อแก้โน้ต · แตะ<b>คำ</b>เพื่อแก้คำ · ← → ↑ ↓ เลื่อน · พิมพ์แก้ได้เร็ว ๆ นี้
     </div>
 
     <div
@@ -702,12 +701,26 @@ function onSeek({ li, si, syk }) {
         :show-lyric="showLyric"
         :display-key="displayKey"
         :playing-seg="playingSeg"
-        :playing-syl="editMode ? selCell : playingSyl"
+        :playing-syl="playingSyl"
+        :edit-sel="editMode ? editSel : null"
         interactive
         :song-title="printTitle"
         @seek="onSeek"
       />
     </div>
+
+    <!-- ✏️ edit — a floating round action button (Google-Docs pattern), bottom-right above the
+         play dock, shown only by right. Tap = enter edit; while editing it becomes ✓ เสร็จ.
+         The play dock stays put so you can listen while you edit. -->
+    <button
+      v-if="canEdit"
+      class="sv-fab no-print"
+      :class="{ editing: editMode }"
+      :aria-pressed="editMode"
+      :title="editMode ? 'เสร็จ — กลับไปฝึกร้อง' : 'แก้ไขเพลงนี้'"
+      :aria-label="editMode ? 'เสร็จการแก้ไข' : 'แก้ไขเพลงนี้'"
+      @click="toggleEdit"
+    ><Icon :name="editMode ? 'check' : 'pencil'" :size="24" /></button>
 
     <!-- B107: on first play the chosen instrument's samples download (~2–3 MB, cached after);
          this pill shows the progress, like the MP3 export. Playback starts once it's ready.
@@ -754,41 +767,50 @@ function onSeek({ li, si, syk }) {
 </template>
 
 <style scoped>
-/* ✏️ edit affordance — a right-aligned button above the sheet, shown only to editors.
-   On → the sheet gets a soft focus ring and a text caret, inviting a tap to select. */
-.sv-edit-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  margin: 2px 0 8px;
-}
-.sv-pencil {
+/* ✏️ edit — a floating action button (Material/Google-Docs pattern), shown only to editors.
+   Bottom-right, in the thumb zone, riding ABOVE the play dock so listening keeps working. */
+.sv-fab {
+  position: fixed;
+  right: 20px;
+  /* clear the fixed play dock (~160px) + the iOS home indicator */
+  bottom: calc(180px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  width: 56px;
+  height: 56px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 6px 14px;
-  border: 1px solid var(--line, #e2e8f0);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--text, #0f172a);
-  font-weight: 700;
-  cursor: pointer;
-}
-.sv-pencil:hover { border-color: var(--brand, #8b4513); }
-.sv-pencil.on {
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
   background: var(--brand, #8b4513);
-  border-color: var(--brand, #8b4513);
   color: #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
 }
-.sv-edit-hint { color: var(--muted, #64748b); font-size: 13px; margin-right: auto; }
+.sv-fab:hover { box-shadow: 0 5px 16px rgba(0, 0, 0, 0.34); transform: translateY(-1px); }
+.sv-fab:active { transform: translateY(0); }
+.sv-fab:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* editing → a green "done" (✓), the Google-Docs affordance to leave edit mode */
+.sv-fab.editing { background: #16a34a; }
+@media (max-width: 480px) {
+  .sv-fab { bottom: calc(224px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* while editing, a slim hint bar above the sheet */
+.sv-edit-hint {
+  color: var(--muted, #64748b);
+  font-size: 13px;
+  margin: 2px 0 8px;
+}
+.sv-edit-hint b { color: var(--text, #0f172a); }
+
+/* the sheet is the edit surface — a soft focus ring shows it is "live" */
 .sheet-scale.sv-editing {
   cursor: text;
   outline: none;
   border-radius: 10px;
-  box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.12);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
 }
 
 /* Leave room so the fixed transport dock (S4 <StudioDock>/<SingTransport>) never covers

@@ -12,6 +12,11 @@ const props = defineProps({
   // beaming (issue8): a beam breaks before a note that starts a NEW word. null (v1 / not
   // supplied) → beat-only beaming, unchanged.
   syllables: { type: Array, default: null },
+  // inline-edit selection: the slot index of the note being EDITED (or -1), and whether the
+  // NOTE layer is the one being edited (vs its word). A separate visual from `active` (which
+  // is the moving playback highlight) so both can show at once in different colours.
+  sel: { type: Number, default: -1 },
+  selActive: { type: Boolean, default: false },
 })
 // flatten groups but stamp each rendered token with its running slot index so the
 // template can match `active` without re-counting across the nested v-for.
@@ -227,7 +232,7 @@ const vBeam = {
         v-for="(t, ti) in g.tokens"
         :key="ti"
         :data-idx="t.idx"
-        :class="['nt', t.type === 'ext' ? 'nt-ext' : '', t.beamed ? 'beamed' : '', t.type === 'note' && t.dots ? 'dotted' : '', t.type === 'note' && t.dots === 2 ? 'dbldot' : '', t.type === 'note' && t.accidental ? 'has-acc' : '', t.tieStart ? 'tie-start' : '', t.tieEnd ? 'tie-end' : '', t.idx === active ? 'nt-playing' : '']"
+        :class="['nt', t.type === 'ext' ? 'nt-ext' : '', t.beamed ? 'beamed' : '', t.type === 'note' && t.dots ? 'dotted' : '', t.type === 'note' && t.dots === 2 ? 'dbldot' : '', t.type === 'note' && t.accidental ? 'has-acc' : '', t.tieStart ? 'tie-start' : '', t.tieEnd ? 'tie-end' : '', t.idx === active ? 'nt-playing' : '', t.idx === sel ? 'nt-sel' : '', t.idx === sel && selActive ? 'nt-sel-active' : '']"
       >
         <!-- tie across a bar (B062): each side draws a smooth SVG half-arc that rises to
              the segment edge, so the two halves in adjacent segments meet over the bar
@@ -297,6 +302,19 @@ const vBeam = {
   color: var(--brand, #8b4513);
   background: rgba(139, 69, 19, 0.16);
   border-radius: 5px;
+}
+/* inline-edit selection on the NOTE — a distinct BLUE box (edit) vs the brown playback pill,
+   so a note can be "being edited" and "sounding" at the same time and stay readable. The box
+   sits on the whole cell (digit + octave dots) so the selected note reads as one target. */
+.nt-sel {
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.1);
+  box-shadow: inset 0 0 0 1.5px rgba(37, 99, 235, 0.45);
+}
+/* the note LAYER is the one being edited (vs its word) — stronger, solid border */
+.nt-sel-active {
+  background: rgba(37, 99, 235, 0.18);
+  box-shadow: inset 0 0 0 2px #2563eb;
 }
 /* fixed-height spacer above/below the digit — reserves room for ONE dot level so
    every note (0, 1 or 2 dots) keeps the same height and the digits stay aligned */

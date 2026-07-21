@@ -11,6 +11,9 @@ const props = defineProps({
   displayKey: { type: String, default: '' }, // transpose target; '' = original
   playingSeg: { type: Object, default: null }, // { li, si } currently sounding
   playingSyl: { type: Object, default: null }, // { li, si, syk } syllable+note sounding now (B006)
+  // inline-edit selection (separate from playback): { li, si, syk, layer:'note'|'word' }. Boxes
+  // the selected note + its word as one column; the active layer (note or word) is stronger.
+  editSel: { type: Object, default: null },
   interactive: { type: Boolean, default: false }, // tap a syllable/note to jump there (reader)
   songTitle: { type: String, default: '' }, // prints as the centered heading above the song
   // Independent layer flags (B024 "แสดงผล" menu). null = fall back to `mode` so every
@@ -156,6 +159,18 @@ function activeNote(li, si) {
   const p = props.playingSyl
   return p && p.li === li && p.si === si && p.syk != null ? p.syk : -1
 }
+// which note-slot in this segment is SELECTED for editing (NoteRow draws the blue box), or -1
+function editNote(li, si) {
+  const s = props.editSel
+  return s && s.li === li && s.si === si && s.syk != null ? s.syk : -1
+}
+// is a given syllable the one selected for editing?
+function isEditSyl(li, si, k) {
+  const s = props.editSel
+  return !!(s && s.li === li && s.si === si && s.syk === k)
+}
+const editNoteActive = computed(() => props.editSel?.layer === 'note')
+const editWordActive = computed(() => props.editSel?.layer === 'word')
 // per-syllable highlight (v2 only): the exact word sounding now
 function isSyl(li, si, k) {
   const p = props.playingSyl
@@ -410,7 +425,7 @@ watch(
             @click="seek(row.li, seg.si)"
           >
             <span v-if="chordOn(row.first)" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
-            <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :syllables="seg.syllables || null" :active="activeNote(row.li, seg.si)" />&nbsp;</span>
+            <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :syllables="seg.syllables || null" :active="activeNote(row.li, seg.si)" :sel="editNote(row.li, seg.si)" :sel-active="editNoteActive" />&nbsp;</span>
             <!-- v2: one span per syllable-bearing note -> highlight walks note by note (B006). -->
             <template v-if="sl">
               <!-- FULL display: syllable spans spread UNDER the notes (flex, karaoke alignment). -->
@@ -419,7 +434,7 @@ watch(
                   v-for="(w, k) in seg.syllables"
                   :key="k"
                   class="syl"
-                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
+                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k), 'syl-sel': isEditSyl(row.li, seg.si, k), 'syl-sel-active': isEditSyl(row.li, seg.si, k) && editWordActive }"
                   :data-syl="`${row.li}-${seg.si}-${k}`"
                   @click.stop="seek(row.li, seg.si, k)"
                 >{{ w || ' ' }}</span>
@@ -430,7 +445,7 @@ watch(
               <span v-else-if="seg.syllables" class="lyric lyric-words">
                 <template v-for="(w, k) in seg.syllables" :key="k"><span
                   class="syl"
-                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
+                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k), 'syl-sel': isEditSyl(row.li, seg.si, k), 'syl-sel-active': isEditSyl(row.li, seg.si, k) && editWordActive }"
                   :data-syl="`${row.li}-${seg.si}-${k}`"
                   @click.stop="seek(row.li, seg.si, k)"
                 >{{ w }}</span>{{ w ? ' ' : '' }}</template>
@@ -518,6 +533,21 @@ watch(
   color: #fff;
   font-weight: 700;
 }
+/* inline-edit selection on the WORD — a BLUE box matching the note's, so note+word read as
+   one selected column, distinct from the brown playback highlight (both can show at once). */
+.syl-sel {
+  background: rgba(37, 99, 235, 0.1);
+  box-shadow: inset 0 0 0 1.5px rgba(37, 99, 235, 0.45);
+}
+/* the WORD layer is the one being edited (vs its note) — stronger, solid border */
+.syl-sel-active {
+  background: rgba(37, 99, 235, 0.18);
+  box-shadow: inset 0 0 0 2px #2563eb;
+}
+/* while a word is selected for editing, the brown playback highlight still wins its own look
+   if the two coincide (playback sweeping over the note you're editing) — layer order keeps
+   both legible: the blue box is inset, the brown fill sits on top with white text. */
+.syl-sel.syl-playing { color: #fff; }
 /* B090 — end-of-song final barline ‖ = a THIN stroke + a THICK stroke (music standard).
    The shared .bar-final (styles.css) drew this as border-left+border-right on one 5px box,
    which read as a single line (พี่เปา). Render it instead as two bars — like .repeat-mark —
