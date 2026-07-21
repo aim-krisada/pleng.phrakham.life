@@ -59,7 +59,9 @@
 **WIP inline-edit (branch `editor-usability`) — ทำ *ต่อ* ไม่เริ่มใหม่:**
 - ✅ done (commit `7ceb3c4` step A + `3e45ae0`/`17d0ba9`): pencil `toggleEdit()`→`editMode` · คลิกโน้ต/คำ→`selectAt(li,si,syk)` เลือก cell (`selCell`/`selIdx`/`selLayer`=note|word) · `editSel` ส่ง `SongSheet` วาด cursor/ไฮไลต์ · เปิดทุก tier (`canEdit=true`) เกตที่ save · แก้บนแผ่นฝึกร้องจริง (เลิก `InlineSheetEditor.vue` แยก — ลบแล้ว)
 - 🔜 **next increment (step B — พิมพ์):** ดักคีย์ตอน editMode+เลือกโน้ต → **พิมพ์ 1-7 = เปลี่ยนโน้ต (ทับ)** · space/ลูกศร เลื่อน → แล้วค่อย ripple(insert)/ลบ 2 แบบ/คีย์เนื้อ (`space`/`-`/`_`/`~`)
-- ⚠️ **คำถามสถาปัตย์ต้องเคลียร์ก่อนพิมพ์ (อย่าก๊อป logic):** `SongViewer` เป็น reader → ต้องมี write-path เข้า v2 content · mutation helpers (`setSyl`/`pushSlot`/`pullSlot`) อยู่ใน `EditorMode.vue` → **ควรยกขึ้นเป็น lib กลาง** ให้ reader-edit + EditorMode ใช้ร่วม (แก้ที่เดียว · ไม่บวม · ตรง reuse) — เปิดไฟล์ยืนยันตอนเริ่ม step B
+- ✅ **สถาปัตย์ resolved (เปิดโค้ดแล้ว 22 ก.ค.):** `EditorMode.vue` เป็นเจ้าของโมเดลเขียนได้ = `stanzas`/`arrangement` ref + `setSyl`(`:317`)/`pushSlot`(`:429`)/`pullSlot`(`:436`) ผูกกับ `lensRow`/`activeStanza`(`:192,223`) · `SongViewer.vue` = reader ล้วน (รับ `props.song` อ่านอย่างเดียว · `resolveContent` · ไม่มี write-path `:127`)
+  → **step B = refactor: ยกโมเดลแก้ไข (stanzas/arrangement + setSyl/pushSlot/pullSlot + selection) ออกเป็น composable กลาง `useSongEdit`/`lib/songEdit` ให้ reader-edit + EditorMode ใช้ร่วม (reuse ไม่ก๊อป)** → แล้วต่อ keydown 1-7 บน SongViewer editMode
+  → ⚠️ แตะ `EditorMode` 245KB ที่มี test เยอะ — ทำทีละก้าว · รัน `EditorMode.*.test.js` เป็น guard · verify worktree (node + curl)
 - verify (worktree): node import `src/lib/*` + `curl 127.0.0.1:<port>` · preview attach ไม่ถึง worktree · **ห้าม deploy/merge main**
 - ฝั่งโครงสร้าง (Drawer การ์ด + Make-Unique) + selection-driven (ซ่อนตาม scope) = ทำหลัง inline core (ดู US EPIC C/D)
 - ฝั่งสมอง (D.C./Segno · compact) = อีกสาย ทำทีหลัง
