@@ -20,5 +20,11 @@
 - `brief-over-haul-รวม.md` — brief ที่ส่ง G Pro รอบปิด
 - `แปลงโน้ตเพลงเป็นอัลกอริทึม.md` — บทสนทนา G ต้นทาง (P'Aim ↔ G เรื่องกฎเจียนพู่)
 
-## ผูกกับ `work/editor-ux/`
-บั๊ก daily ส่วนใหญ่ (ลบเพลง·preview·คลิกแก้·2คอร์ด) ถูกดูดเข้า over-haul นี้ · เหลือ 3 อันเล็กไม่เกี่ยวโครง (issue20·issues15.2·issues17) แก้แยกได้ ไม่ต้องรอ
+## บั๊ก editor daily ที่ over-haul นี้ต้องแก้ (= acceptance · เดิมอยู่ folder `editor-ux` ยุบเข้ามาแล้ว)
+- **issues10** ลบทั้งเพลง หาปุ่มไม่เจอ → Structure Dock ปุ่ม global [🗑️ ลบเพลง]
+- **issues6** คลิกโน้ตใน preview → เด้งไปแก้ → Click-to-Edit (`_source` trace)
+- **issues7** preview เล็ก ขยายไม่ได้ → Live Sheet เป็นหน้าหลัก 80%
+- **issue21** พิมพ์ 2 คอร์ด/ห้องไม่ได้ → บรรทัด [คอร์ด] อิสระใน Inspector
+- **issues4** โครงเพลง collapse ให้เหมือนทำนอง → ยุบ 2 panel เป็นอันเดียว
+- **issue20** แถบบนติดตอนเลื่อน → layout Live Sheet ใหม่กำหนดเอง (moot ในของเดิม)
+_(บั๊กเล็กที่ไม่เกี่ยว over-haul: issues15.2 แถบดำ · issues17 review badge → อยู่ `work/loose-bugs/`)_
