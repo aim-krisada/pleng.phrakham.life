@@ -330,7 +330,7 @@ function printSheet() {
 
     <!-- ===== ดู — reading / sing-along view (WT-A owns SongViewer) ===== -->
     <div v-show="mode === 'view'">
-      <SongViewer v-if="viewerSong" :song="viewerSong" @dock="viewDock = $event" />
+      <SongViewer v-if="viewerSong" :song="viewerSong" :tier="tier" @dock="viewDock = $event" />
       <p v-else class="muted" style="padding: 16px">ยังไม่มีเพลงให้แสดง — ไปที่ “แก้” เพื่อเริ่มสร้างเพลง</p>
     </div>
 

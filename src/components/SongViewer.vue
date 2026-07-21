@@ -22,8 +22,10 @@ import { presetCfg, recommendRecipe, songFeatures } from '../lib/arranger/preset
 import { buildArrangeCfg, readTechniques } from '../lib/arranger/techniques.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
+import { noteBoxKinds } from '../lib/notation.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
+import Icon from './Icon.vue'
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
 // view-only for everyone, so it is accepted but not used to gate anything — there are
@@ -129,6 +131,82 @@ const printTitle = computed(() => {
   if (!s) return ''
   return (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
 })
+
+// ---- edit ON this sheet (P'Aim 21 ก.ค.) — the pencil lives HERE in ฝึกร้อง, not a separate
+// mode. The display is already correct, so we edit right on it. NOTE: this reverses the old
+// "no edit affordances in the reading surface regardless of tier" AC (US-A01 AC3) — P'Aim now
+// wants ฝึกร้อง to be the one surface: enter → sing → ✏️ edit by right. This step = select +
+// navigate (typing/ripple + chord-symbol popups + save come next).
+const canEdit = computed(() => props.tier !== 'anon' && props.tier !== 'guest')
+const editMode = ref(false)
+// every selectable NOTE across the WHOLE song, in reading order, keyed by the {li, si, syk}
+// that SongSheet's @seek emits — syk = the note-box slot (same index midi.js/NoteRow's data-idx
+// use), so a melody with no words yet is still fully selectable.
+const inlineCells = computed(() => {
+  const cells = []
+  ;(resolved.value?.lines || []).forEach((line, li) => {
+    let si = -1
+    for (const item of line) {
+      if (item.type !== 'segment') continue
+      si++
+      let slot = 0
+      for (const kind of noteBoxKinds(item.note || '')) {
+        if (kind === 'struct') continue // slur/triplet brackets aren't their own note
+        cells.push({ li, si, syk: slot })
+        slot++
+      }
+    }
+  })
+  return cells
+})
+const selIdx = ref(-1)
+const selCell = computed(() => (selIdx.value >= 0 ? inlineCells.value[selIdx.value] || null : null))
+function selectAt(li, si, syk) {
+  const i = inlineCells.value.findIndex((c) => c.li === li && c.si === si && c.syk === syk)
+  if (i >= 0) selIdx.value = i
+}
+function moveSel(step) {
+  const n = inlineCells.value.length
+  if (!n) return
+  if (selIdx.value < 0) { selIdx.value = step > 0 ? 0 : n - 1; return }
+  selIdx.value = Math.max(0, Math.min(selIdx.value + step, n - 1))
+}
+function moveSelLine(dir) {
+  const cells = inlineCells.value
+  const cur = selCell.value
+  if (!cur) { moveSel(dir); return }
+  const targetLi = cur.li + dir
+  let best = -1
+  cells.forEach((c, i) => {
+    if (c.li !== targetLi) return
+    if (best < 0 || Math.abs(c.si - cur.si) < Math.abs(cells[best].si - cur.si)) best = i
+  })
+  if (best >= 0) selIdx.value = best
+}
+function onInlineKey(e) {
+  if (!editMode.value) return
+  if (e.key === 'ArrowRight') { e.preventDefault(); moveSel(1) }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); moveSel(-1) }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); moveSelLine(1) }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); moveSelLine(-1) }
+  else if (e.key === 'Home') { e.preventDefault(); selIdx.value = 0 }
+  else if (e.key === 'End') { e.preventDefault(); selIdx.value = inlineCells.value.length - 1 }
+}
+// a note click bubbles to the wrapper — read the exact note from .nt[data-idx] in its
+// .segment[data-seg] (a word .syl is @click.stop, so it comes back through onSeek instead)
+function onInlinePick(e) {
+  if (!editMode.value) return
+  const nt = e.target.closest?.('.nt[data-idx]')
+  if (!nt) return
+  const seg = nt.closest('.segment[data-seg]')
+  if (!seg) return
+  const [li, si] = seg.dataset.seg.split('-').map(Number)
+  selectAt(li, si, Number(nt.dataset.idx))
+}
+function toggleEdit() {
+  editMode.value = !editMode.value
+  if (editMode.value && selIdx.value < 0 && inlineCells.value.length) selIdx.value = 0
+}
 // B053 — source book(s) + scripture caption, same data + label helper as the catalog card
 // (SongList). Shown once at the top of the reading surface so a singer sees where the song
 // comes from without leaving ฝึกร้อง. book_refs → human labels via lib/bookCodes.
@@ -570,6 +648,8 @@ onUnmounted(() => {
 // tap a syllable/note in the sheet → jump playback there (US H1). Find the note's index
 // in the CURRENT play order and start from it, in the current key.
 function onSeek({ li, si, syk }) {
+  // ✏️ on: a tap SELECTS the note/word for editing instead of jumping playback
+  if (editMode.value) { selectAt(li, si, syk); return }
   const notes = playNotes.value
   let idx = notes.findIndex((n) => n.li === li && n.si === si && n.syk === syk)
   if (idx < 0) idx = notes.findIndex((n) => n.li === li && n.si === si) // rest/blank slot
@@ -589,7 +669,30 @@ function onSeek({ li, si, syk }) {
       <div v-if="song.scripture" class="scripture-tag muted">📖 {{ song.scripture }}</div>
     </div>
 
-    <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: readingFontScale + 'rem' }">
+    <!-- ✏️ edit — lives here in ฝึกร้อง (shown only by right). Enter → the sheet becomes the
+         edit surface (P'Aim 21 ก.ค.); no separate แก้ไข mode. -->
+    <div v-if="canEdit" class="sv-edit-bar no-print">
+      <button
+        class="sv-pencil"
+        :class="{ on: editMode }"
+        :aria-pressed="editMode"
+        :title="editMode ? 'ออกจากโหมดแก้ (กลับไปฝึกร้อง)' : 'แก้โน้ต/คำบนแผ่นนี้'"
+        @click="toggleEdit"
+      ><Icon :name="editMode ? 'check' : 'pencil'" :size="16" /> {{ editMode ? 'เสร็จ' : 'แก้ไข' }}</button>
+      <span v-if="editMode" class="sv-edit-hint">แตะโน้ต/คำ หรือใช้ ← → ↑ ↓ เพื่อเลือก · พิมพ์แก้ได้เร็ว ๆ นี้</span>
+    </div>
+
+    <div
+      ref="sheetWrap"
+      class="sheet-scale"
+      :class="{ 'sv-editing': editMode }"
+      :style="{ fontSize: readingFontScale + 'rem' }"
+      :tabindex="editMode ? 0 : -1"
+      :role="editMode ? 'textbox' : null"
+      :aria-label="editMode ? 'แก้โน้ต/คำบนแผ่นเพลง — แตะเลือก หรือใช้ลูกศร' : null"
+      @keydown="onInlineKey"
+      @click="onInlinePick"
+    >
       <SongSheet
         :content="resolved"
         :mode="sheetMode"
@@ -599,7 +702,7 @@ function onSeek({ li, si, syk }) {
         :show-lyric="showLyric"
         :display-key="displayKey"
         :playing-seg="playingSeg"
-        :playing-syl="playingSyl"
+        :playing-syl="editMode ? selCell : playingSyl"
         interactive
         :song-title="printTitle"
         @seek="onSeek"
@@ -651,6 +754,43 @@ function onSeek({ li, si, syk }) {
 </template>
 
 <style scoped>
+/* ✏️ edit affordance — a right-aligned button above the sheet, shown only to editors.
+   On → the sheet gets a soft focus ring and a text caret, inviting a tap to select. */
+.sv-edit-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin: 2px 0 8px;
+}
+.sv-pencil {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 14px;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text, #0f172a);
+  font-weight: 700;
+  cursor: pointer;
+}
+.sv-pencil:hover { border-color: var(--brand, #8b4513); }
+.sv-pencil.on {
+  background: var(--brand, #8b4513);
+  border-color: var(--brand, #8b4513);
+  color: #fff;
+}
+.sv-edit-hint { color: var(--muted, #64748b); font-size: 13px; margin-right: auto; }
+.sheet-scale.sv-editing {
+  cursor: text;
+  outline: none;
+  border-radius: 10px;
+  box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.12);
+}
+
 /* Leave room so the fixed transport dock (S4 <StudioDock>/<SingTransport>) never covers
    the last line while singing. The dock is ~147px on wider screens but grows to ~191px
    once its controls wrap at ≤480px; add the iOS home-indicator inset on top so the last
