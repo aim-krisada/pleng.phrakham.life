@@ -1,31 +1,46 @@
-# งานช้าง: Editor over-haul (2 เป้า — มาตรฐานดนตรี + editor ใช้ง่าย)
+# งานช้าง: Editor over-haul — **HANDOFF (21 ก.ค. session เต็ม · ต่อ session ใหม่)**
 
-**สถานะ: ดีไซน์ล็อกแล้ว (21 ก.ค. · Claude + G Pro 4 รอบ) — session หน้าเริ่ม implement ได้เลย ไม่ต้องออกแบบใหม่**
+> **เริ่ม session ใหม่:** `อ่าน pm/pm.md` → เปิดไฟล์นี้ → อ่าน "ดีไซน์ที่ล็อก" ให้จบ **ก่อนเขียนโค้ด** (pair-sop §9.0)
+> ⛔ อย่าเดา อย่าลัด — session นี้เสียเวลาหลายรอบเพราะทำก่อนเข้าใจ (ดู"บทเรียน"ล่าง)
 
-## 👉 อ่านอันเดียว: `DESIGN-editor-overhaul.md` (บลูพรินต์ฉบับปิด)
-- §A โมเดล = flat rows + attribute (voice/lang) · ไม่รื้อ tooling
-- §B editor UX = Live Sheet + Contextual Inspector (คลิกห้อง=แก้ตรงนั้น)
-- §C หลุมพราง 3 + §D edit-scope ที่ต้องอุด
-- §E ลำดับลงมือ
+## 🎯 ดีไซน์ที่ล็อกแล้ว = **หน้าแก้แบบ Inline editor** (P'Aim ตกผลึก 21 ก.ค.)
 
-## ลำดับ implement (จาก §E)
-1. **D.C./D.S./Fine/Segno resolver** — gap 1 · เล่นเสียง · 🔴 นัดหูพี่เปา verify ก่อนเริ่ม
-2. **Editor UX over-haul** (Live Sheet + Structure Dock + Inspector) — **ทำ wireframe บนโค้ดจริงก่อน (M1) → P'Aim เคาะ → implement** · 🔴 นัดตาพี่เปา
-3. Alignment Validator ขยาย (หลุมพราง 1) ทำคู่กับ #2
-4. View/Print Filter + custom jianpu keyboard = เฟสถัดไป
+หน้าแก้เดิม (ช่อง input ต่อโน้ต) → เปลี่ยนเป็น **แก้ inline บนตัว render** (WYSIWYG จริง · มาตรฐานโลกแบบ MuseScore/Flat.io/Soundslice):
 
-## ⛔ สเปกต้นทาง — ต้องอ่านให้ครบก่อนเขียนโค้ด (pair-sop §9.0 · อย่าเชื่อป้าย "background")
-- `แปลงโน้ตเพลงเป็นอัลกอริทึม.md` — **บทสนทนา P'Aim ↔ Gemini = สเปกตัวจริง** โจทย์คือ *โครงสร้างเพลง* (repeat/volta/D.C./ท่อนรับ/compact display) ไม่ใช่ WYSIWYG editor
-- `บทวิเคราะห์-สถาปัตยกรรม.md` — Claude เทียบข้อเสนอ G กับโค้ดจริง (v2 มี ~70% แล้ว · gap จริง 4 ข้อ)
-- `g-review-สรุป.md` — G รีวิว schema + จัดลำดับ gap + issue6 = คลิก preview → เด้ง cursor ไป source ใน editor เดิม (ไม่ใช่ป๊อปอัพใหม่)
-- `brief-over-haul-รวม.md` — brief ที่ส่ง G Pro รอบปิด
-- ⚠️ **`DESIGN-editor-overhaul.md` (Live Sheet + Inspector) = P'Aim บอก 21 ก.ค. ว่าไม่ใช่ทิศที่ต้องการ** — แผ่นเพลงคงไว้เพื่อพิมพ์ · ใช้ editor เดิม · ปัญหาหลักพี่เปา = ห้องดูยาก/ไม่เท่ากัน + คลิกห้องแล้วโฟกัสทั้งห้อง (ไม่ใช่แค่กล่องโน้ต)
+- **โน้ต + เนื้อ = ข้อความ render เสมอ** (เหมือนแผ่นเพลง/เอกสาร) — **ไม่มีช่อง input เต็มไปหมด**
+- **cursor ตัวเดียว + ไฮไลต์โน้ตที่กำลังแก้** (กรอบ/สีอ่อน) บอกตำแหน่ง — ไม่ใช่ช่องพิมพ์ แค่ตัวชี้ (ไฮไลต์สำคัญ: cursor เปล่าๆ บนมือถือหา/เลื่อนยาก · ไฮไลต์ = เห็นชัด+เป้าแตะใหญ่)
+- **คีย์บอร์ดพิมพ์เหมือน Word:** พิมพ์เลข→ขึ้นตรง cursor สด · เว้นวรรค/ลูกศร เลื่อน · backspace ลบ · **ripple เกิดเองเหมือนพิมพ์ข้อความ** (ripple = กลไกเลื่อนพยางค์/โน้ตตอนแทรก/ลบ · ต้องทำงานปกติ · logic เดิมใช้ได้ `pushSlot`/`pullSlot`/`setSyl`)
+- **คลิกตรงไหน → cursor ไปตรงนั้น** (กดตรงไหนแก้ตรงนั้น)
+- **คอร์ด + สัญลักษณ์พิเศษ (จุด octave · ขีดครึ่งจังหวะ · #) = popup เด้งบนโน้ตที่เลือก** (switchable) — โดยเฉพาะมือถือที่คีย์บอร์ดไม่มีปุ่มพวกนี้ · ใช้รายการคอร์ดเดิม (`chordOptions(key)`)
+- **เต็มจอบนจอใหญ่ · ไม่มี h-scroll · ทำงานทั้ง desktop + มือถือ** (world-class + responsive = เงื่อนไขทุกงาน)
+- **ไม่ต้องมีหน้า/พรีวิว "ดูผล" แยกอีกแล้ว** (แก้ inline = เห็นผลเลย) → ตัดทิ้ง: ตัวอย่างสด · ดูผลทั้งเพลง(ลอย) · ดูผลต่อห้อง · **เหลือแค่แผ่นเพลงพิมพ์ A4** (render ชุดเดียวกัน + ธีมพิมพ์ · ทำทีหลัง)
 
-## บั๊ก editor daily ที่ over-haul นี้ต้องแก้ (= acceptance · เดิมอยู่ folder `editor-ux` ยุบเข้ามาแล้ว)
-- **issues10** ลบทั้งเพลง หาปุ่มไม่เจอ → Structure Dock ปุ่ม global [🗑️ ลบเพลง]
-- **issues6** คลิกโน้ตใน preview → เด้งไปแก้ → Click-to-Edit (`_source` trace)
-- **issues7** preview เล็ก ขยายไม่ได้ → Live Sheet เป็นหน้าหลัก 80%
-- **issue21** พิมพ์ 2 คอร์ด/ห้องไม่ได้ → บรรทัด [คอร์ด] อิสระใน Inspector
-- **issues4** โครงเพลง collapse ให้เหมือนทำนอง → ยุบ 2 panel เป็นอันเดียว
-- **issue20** แถบบนติดตอนเลื่อน → layout Live Sheet ใหม่กำหนดเอง (moot ในของเดิม)
-_(บั๊กเล็กที่ไม่เกี่ยว over-haul: issues15.2 แถบดำ · issues17 review badge → อยู่ `work/loose-bugs/`)_
+**วิธีทำที่เลือกไว้:** ข้อความ render + ช่องรับคีย์ที่มองไม่เห็นซ้อน + วาด cursor/ไฮไลต์ระหว่างตัวโน้ต (เทคนิค editor โค้ด/Word) · ทำเป็นขั้นๆ ไม่รื้อทีเดียวจนพัง
+
+## ✅ ทำไปแล้ว (branch `editor-usability` แตกจาก `studio-shell-redesign`)
+`git worktree` = `C:\gl\krisada\pleng-editor-ux` · dev: `npm run dev -- --host --port 5310`
+1. `5177a5e` click-to-edit: คลิกห้องใน preview → cursor เด้งไปห้องนั้นในหน้าแก้ (`_source`/`jumpToSource`)
+2. `11abfd3` toolbar ห้องโผล่เฉพาะห้องที่คลิก (เลิกกระจายทุกห้อง)
+3. `0ba5324` ยุบ toolbar โน้ตลอย + ห้อง เป็นแถบเดียว
+4. `e04db61` แถบโชว์ทีละ level + ปุ่มสลับเร็ว (โน้ต↔ห้อง · `toolLevel`/`barToolsOn`/`pickBar`) — **บรรทัด/ข้อ ยังไม่ทำ**
+5. `91aacbd`→`09124d7` ลองห้องเท่ากัน(ย่อกล่อง)+เต็มจอ → **ย่อกล่อง revert แล้ว** (ทำพยางค์เยื้องโน้ต 17px = "ripple ดูพัง") · **เต็มจอ (studio-wide → 1920px) เก็บไว้**
+
+⚠️ งานเก่าทั้งหมด (toolbar/level/click-to-edit) จะถูก inline editor แทนบางส่วน — **อ่านดีไซน์ก่อน ค่อยตัดสินว่าเก็บอะไร** (แถบ level + popup คอร์ด น่าเอามาต่อ)
+📦 branch `editor-ux-overhaul` = Live Sheet เก่า (ผิดทิศ · P'Aim ไม่เอา) **เก็บไว้ ไม่ลบ ไม่ใช้เป็นฐาน**
+
+## 🔴 บทเรียน session นี้ (อย่าทำซ้ำ — เต็มใน [[feedback_editor_stepwise_direction]] + pair-sop §9.0)
+- **ทำ 1 ขั้น → หยุด → ให้ดู → รอ** · อย่าตัดสินใจเอง อย่าทำเกินที่สั่ง
+- **คุยภาษาคน** (ห้ามศัพท์ `_source`/`data-bar`/increment) · P'Aim = เสียงผู้ใช้ ไม่ใช่คนตั้งมาตรฐาน (มาตรฐาน = หน้าที่เรา อ้างของจริง)
+- **ระดับโลก = เราไปหาเอง + ฟันธงให้สอดคล้อง** (เคยฟันธง "ทั้งห้อง" ขัดกับที่ตัวเองพูด "ระดับโลก=ไม่มีกล่อง" → P'Aim จับได้)
+- **"กดได้จริง" ต้องวัด** — คลิกจริง/elementFromPoint ไม่ใช่แค่ querySelector เจอ ([[pleng-dom-exists-vs-visible]])
+- **แผ่นเพลง = ไว้พิมพ์** ไม่ใช่พื้นที่แก้ · หน้าแก้ = inline
+
+## แหล่งสเปกต้นทาง (อ่านให้ครบ)
+- บทสนทนา P'Aim↔Gemini: `แปลงโน้ตเพลงเป็นอัลกอริทึม.md` (โครงเพลง: repeat/volta/D.C./ท่อนรับ/Layout Engine)
+- `บทวิเคราะห์-สถาปัตยกรรม.md` · `g-review-สรุป.md` (v2 มี ~70% · gap 4 ข้อ · flat-rows+attribute)
+- ⛔ `DESIGN-editor-overhaul.md` (Live Sheet) = **P'Aim ไม่เอาทิศนั้น** (superseded โดย inline ข้างบน)
+
+## ต่อไป (session ใหม่)
+1. อ่านดีไซน์ inline ข้างบน + สเปกต้นทาง ให้ครบ → ทวนโจทย์ให้ P'Aim ยืนยัน
+2. วางโครง inline editor ทีละส่วน (render ข้อความ → cursor/ไฮไลต์ → ดักคีย์พิมพ์สด+ripple → popup คอร์ด/สัญลักษณ์) · หยุดให้ดูทีละส่วน
+3. ฝั่งสมอง (D.C./Segno · compact display) = อีกสาย ทำทีหลัง
