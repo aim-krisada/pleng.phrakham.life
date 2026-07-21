@@ -14,11 +14,12 @@
 3. Alignment Validator ขยาย (หลุมพราง 1) ทำคู่กับ #2
 4. View/Print Filter + custom jianpu keyboard = เฟสถัดไป
 
-## background trail (ไม่ต้องอ่านถ้าไม่เถียงดีไซน์)
-- `บทวิเคราะห์-สถาปัตยกรรม.md` — Claude เทียบข้อเสนอ G กับโค้ดจริง (v2 มี ~70% แล้ว)
-- `g-review-สรุป.md` — G รีวิว schema + จัดลำดับ gap + เหตุผล
+## ⛔ สเปกต้นทาง — ต้องอ่านให้ครบก่อนเขียนโค้ด (pair-sop §9.0 · อย่าเชื่อป้าย "background")
+- `แปลงโน้ตเพลงเป็นอัลกอริทึม.md` — **บทสนทนา P'Aim ↔ Gemini = สเปกตัวจริง** โจทย์คือ *โครงสร้างเพลง* (repeat/volta/D.C./ท่อนรับ/compact display) ไม่ใช่ WYSIWYG editor
+- `บทวิเคราะห์-สถาปัตยกรรม.md` — Claude เทียบข้อเสนอ G กับโค้ดจริง (v2 มี ~70% แล้ว · gap จริง 4 ข้อ)
+- `g-review-สรุป.md` — G รีวิว schema + จัดลำดับ gap + issue6 = คลิก preview → เด้ง cursor ไป source ใน editor เดิม (ไม่ใช่ป๊อปอัพใหม่)
 - `brief-over-haul-รวม.md` — brief ที่ส่ง G Pro รอบปิด
-- `แปลงโน้ตเพลงเป็นอัลกอริทึม.md` — บทสนทนา G ต้นทาง (P'Aim ↔ G เรื่องกฎเจียนพู่)
+- ⚠️ **`DESIGN-editor-overhaul.md` (Live Sheet + Inspector) = P'Aim บอก 21 ก.ค. ว่าไม่ใช่ทิศที่ต้องการ** — แผ่นเพลงคงไว้เพื่อพิมพ์ · ใช้ editor เดิม · ปัญหาหลักพี่เปา = ห้องดูยาก/ไม่เท่ากัน + คลิกห้องแล้วโฟกัสทั้งห้อง (ไม่ใช่แค่กล่องโน้ต)
 
 ## บั๊ก editor daily ที่ over-haul นี้ต้องแก้ (= acceptance · เดิมอยู่ folder `editor-ux` ยุบเข้ามาแล้ว)
 - **issues10** ลบทั้งเพลง หาปุ่มไม่เจอ → Structure Dock ปุ่ม global [🗑️ ลบเพลง]
