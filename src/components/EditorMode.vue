@@ -371,8 +371,10 @@ function onSegFocus(e, li, bi, si) {
   anchorToolbox(e.target) // centre the toolbox on the actually-focused element
 }
 function onSegOutside(e) {
-  // keep the toolbar open while interacting with it (or the note/syllable it edits)
-  if (!e.target.closest?.('.seg-col') && !e.target.closest?.('.slot-tools') && !e.target.closest?.('.ed-toolbar')) {
+  // keep the selection (and its toolbar) alive while interacting with the note/syllable boxes
+  // OR the one bar toolbar (foot) — the note tools now live there, so clicking them must not
+  // clear focus. Clicking anywhere else closes it.
+  if (!e.target.closest?.('.seg-col') && !e.target.closest?.('.ed-bar-foot')) {
     focusedSeg.value = ''
     selSlot.value = -1
   }
@@ -3090,24 +3092,9 @@ defineExpose({
                  directly under its note (edit everything here — no duplicate preview) -->
             <div v-if="!barShown(li, bi)" class="seg-strip">
               <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col" @focusin="onSegFocus($event, li, bi, si)">
-                <!-- dock-space merged contextual toolbox (§10): ONE on-selection set per note,
-                     hoisted to .seg-col so it shows in EVERY mode. The selection is STICKY (selSlot
-                     /focusedSeg survive blur → fold/rotate/keyboard-close keep it · SA §7). Groups
-                     are mutually exclusive by what's selected: a NOTE box → octave ▼▲; a SYLLABLE →
-                     ◀▶ align. ⧉/✕ copy·delete the note (bar,si) always. Anchored + 344-clamped by CSS. -->
-                <span v-if="focusedSeg === `${li}-${bi}-${si}`" class="slot-tools" :style="tbxStyle">
-                  <template v-if="selSlot >= 0">
-                    <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(selSlot)">◀</button>
-                    <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(selSlot)">▶</button>
-                  </template>
-                  <template v-else>
-                    <button class="secondary slot-btn" aria-label="ลดเสียงลงหนึ่งช่วงเสียง" title="ลดเสียงลงหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(-1)">▼</button>
-                    <button class="secondary slot-btn" aria-label="เพิ่มเสียงขึ้นหนึ่งช่วงเสียง" title="เพิ่มเสียงขึ้นหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(1)">▲</button>
-                  </template>
-                  <span class="slot-div" aria-hidden="true"></span>
-                  <button class="secondary slot-btn" aria-label="คัดลอกโน้ตนี้" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" @mousedown.prevent @click="duplicateSegment(bar, si)"><Icon name="copy" :size="13" /></button>
-                  <button class="secondary slot-btn slot-del" aria-label="ลบโน้ตนี้" title="ลบโน้ตนี้ (ห้องยังอยู่)" @mousedown.prevent @click="removeSegment(bar, si)">✕</button>
-                </span>
+                <!-- P'Aim 21 ก.ค.: the floating per-note toolbox used to pop up SEPARATELY from the
+                     bar toolbar (two toolbars at once = ซ้ำซ้อน). The note tools now live in the ONE
+                     bar foot toolbar below (.ed-note-acts), so a click shows a single toolbar. -->
                 <div class="chord-row">
                   <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell" @keydown.esc="editingChord = null">
                     <!-- B109: Enter=ยืนยันคอร์ด via allow-custom (accept the typed value, not just a
@@ -3187,11 +3174,27 @@ defineExpose({
               <span v-if="bar.repeatStart" class="ed-bar-mark" title="เริ่มเล่นซ้ำ">‖:</span>
               <span v-if="bar.repeatEnd" class="ed-bar-mark" title="วนกลับ">:‖</span>
               <span v-if="bar.volta" class="ed-bar-mark" :title="bar.volta === 1 ? 'ห้องจบรอบแรก' : 'ห้องจบรอบสอง'">{{ bar.volta }}.</span>
-              <!-- P'Aim: the bar tools used to repeat under EVERY ห้อง (เปลืองที่). Now they only
-                   take space on the ห้อง you clicked into (its note is focused) — every other bar
-                   keeps just its ✓/❌ beat-status. Hidden via CSS (kept in the DOM) so keyboard/AT
-                   reach them only when the bar is active, and nothing else changes. -->
+              <!-- P'Aim 21 ก.ค.: note tools folded into this ONE toolbar (were a separate floating box
+                   = ซ้ำซ้อน). Shown when a note in THIS ห้อง is focused. ▼▲ octave (or ◀▶ when a
+                   syllable box is picked) + copy/delete the note. @mousedown.prevent keeps the note
+                   box focused so the tools act on it. -->
+              <span v-if="barToolsOn(li, bi)" class="ed-note-acts">
+                <span class="ed-grp-label" aria-hidden="true">โน้ต</span>
+                <template v-if="selSlot >= 0">
+                  <button class="ed-mini" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(selSlot)">◀</button>
+                  <button class="ed-mini" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(selSlot)">▶</button>
+                </template>
+                <template v-else>
+                  <button class="ed-mini" aria-label="ลดเสียงลงหนึ่งช่วงเสียง" title="ลดเสียงลงหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(-1)">▼</button>
+                  <button class="ed-mini" aria-label="เพิ่มเสียงขึ้นหนึ่งช่วงเสียง" title="เพิ่มเสียงขึ้นหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(1)">▲</button>
+                </template>
+                <button class="ed-mini" aria-label="คัดลอกโน้ตนี้" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" @mousedown.prevent @click="duplicateSegment(bar, toolCtx?.si)"><Icon name="copy" :size="14" /></button>
+                <button class="ed-mini danger-ic" aria-label="ลบโน้ตนี้" title="ลบโน้ตนี้ (ห้องยังอยู่)" @mousedown.prevent @click="removeSegment(bar, toolCtx?.si)">✕</button>
+                <span class="ed-grp-div" aria-hidden="true"></span>
+              </span>
+              <!-- the bar tools + the ⋯ menu. Same one toolbar; shown only on the clicked ห้อง. -->
               <span class="ed-bar-acts" :class="{ 'bar-tools-off': !barToolsOn(li, bi) }">
+                <span class="ed-grp-label" aria-hidden="true">ห้อง</span>
                 <button class="ed-mini" title="ฟังห้องนี้" aria-label="ฟังห้องนี้" @click="playBar(li, bi)"><Icon name="play" :size="14" /></button>
                 <button class="ed-mini" :class="{ on: barShown(li, bi) }" :aria-pressed="barShown(li, bi)" title="ดูผล — สลับ แก้ ⇄ แผ่นเพลง (ห้องนี้)" aria-label="ดูผลห้องนี้" @click="toggleBarShown(li, bi)"><Icon name="music" :size="14" /></button>
                 <!-- B092: bar move/copy/delete surfaced out of the ⋯ popover — one tap, no menu.
@@ -4752,7 +4755,13 @@ defineExpose({
 .ed-bar { display: flex; flex-direction: column; gap: 6px; border-radius: 8px; padding: 4px 2px 2px; }
 .ed-bar .seg-strip { gap: 10px; flex-wrap: nowrap; }
 .ed-bar.bar-playing { background: var(--cream); box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.15); }
-.ed-bar-foot { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.ed-bar-foot { display: flex; align-items: center; gap: 6px; font-size: 12px; flex-wrap: wrap; }
+/* the ONE bar toolbar (P'Aim): note group + bar group, clearly separated so the two ⧉/✕ read
+   as different scopes. Responsive: wraps on a narrow screen (world-class + responsive-ready). */
+.ed-note-acts { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+.ed-note-acts + .ed-bar-acts { margin-left: 0; } /* the note group already pushed to the right */
+.ed-grp-label { font-size: 11px; color: var(--muted); font-weight: 700; padding: 0 2px; }
+.ed-grp-div { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; }
 .ed-bar-status { color: var(--muted); }
 .ed-bar-status.bad { color: var(--red); font-weight: 700; }
 .ed-bar-mark { font-family: 'Courier New', monospace; font-weight: 700; color: var(--brand); font-size: 12px; }
