@@ -12,6 +12,7 @@ import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import SongSheet from './SongSheet.vue'
+import InlineSheetEditor from './InlineSheetEditor.vue'
 import NoteBoxes from './NoteBoxes.vue'
 import ComboSelect from './ComboSelect.vue'
 import Icon from './Icon.vue'
@@ -227,6 +228,19 @@ const lines = computed({
   },
 })
 const activeStanzaId = computed(() => stanzas.value[activeStanza.value]?.id ?? '')
+
+// ---------- inline editor over-haul (P'Aim 21 ก.ค.) — STEP 1 -----------------------------
+// The new "แก้แบบพิมพ์บนแผ่นเพลง" surface. Default = a read-only jianpu sheet of the active
+// stanza (โหมดดู); the pencil flips to the inline editor (โหมดแก้). Built alongside the old
+// box grid (which stays below, untouched) so nothing breaks while it grows step by step.
+const inlineEdit = ref(false) // false = ดู (sheet) · true = แก้ (inline)
+// the active stanza rendered as a sheet-shaped content object (v1-flat lines) for โหมดดู
+const activeStanzaContent = computed(() => ({
+  version: 2,
+  key: opts.key,
+  timeSignature: opts.timeSignature,
+  lines: (stanzas.value[activeStanza.value]?.lines || []).map(serializeLine),
+}))
 
 const previewContent = computed(() => ({
   version: 2,
@@ -3049,6 +3063,29 @@ defineExpose({
       <button class="ed-clip-x" aria-label="ยกเลิกการคัดลอก" title="ยกเลิกการคัดลอก" @click="clearClip">✕ ยกเลิก</button>
     </div>
 
+    <!-- ===== inline editor over-haul (STEP 1) — new "แก้แบบพิมพ์บนแผ่นเพลง" surface.
+         Default = read-only jianpu sheet of this ท่อน (โหมดดู); the ✏️ flips to inline edit.
+         Built above the old box grid (kept below, untouched) so it can grow step by step. ===== -->
+    <div class="ise-panel no-print">
+      <div class="ise-panel-head">
+        <span class="ise-panel-title">{{ inlineEdit ? 'กำลังแก้ (พิมพ์บนแผ่นเพลง)' : 'แผ่นเพลง' }}</span>
+        <span class="ise-panel-tag">ใหม่ · กำลังพัฒนา</span>
+        <span class="ise-panel-grow"></span>
+        <button
+          class="ise-pencil"
+          :class="{ on: inlineEdit }"
+          :aria-pressed="inlineEdit"
+          :title="inlineEdit ? 'ออกจากโหมดแก้ (กลับไปดูแผ่นเพลง)' : 'แก้โน้ตบนแผ่นเพลง'"
+          :aria-label="inlineEdit ? 'ออกจากโหมดแก้' : 'เข้าโหมดแก้ (พิมพ์บนแผ่นเพลง)'"
+          @click="inlineEdit = !inlineEdit"
+        ><Icon :name="inlineEdit ? 'check' : 'pencil'" :size="15" /> {{ inlineEdit ? 'เสร็จ' : 'แก้' }}</button>
+      </div>
+      <InlineSheetEditor v-if="inlineEdit" :stanza="stanzas[activeStanza]" />
+      <div v-else class="ise-panel-view">
+        <SongSheet :content="activeStanzaContent" mode="full" chord-system="letter" :display-key="opts.key" />
+      </div>
+    </div>
+
     <!-- line editor (edits the ACTIVE stanza) — clean strip like the wireframe: the
          busy per-line / per-bar controls are tucked behind ⋯ so the notes read first,
          but every one of them is still here (revealed on tap, never removed) -->
@@ -4999,5 +5036,54 @@ defineExpose({
   .cs-del { min-width: var(--touch-min); min-height: var(--touch-min); }
   .updown button { width: 34px; height: 40px; font-size: 11px; }
   .addsec { min-height: var(--touch-min); }
+}
+
+/* ===== inline editor over-haul (STEP 1) panel ===== */
+.ise-panel {
+  margin: 4px 0 18px;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 12px;
+  background: var(--surface-2, #f8fafc);
+  padding: 10px;
+}
+.ise-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.ise-panel-title { font-weight: 700; color: var(--text, #0f172a); }
+.ise-panel-tag {
+  font-size: 11px;
+  color: var(--muted, #64748b);
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.ise-panel-grow { flex: 1; }
+.ise-pencil {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text, #0f172a);
+  font-weight: 600;
+  cursor: pointer;
+}
+.ise-pencil:hover { border-color: var(--brand, #8b4513); }
+.ise-pencil.on {
+  background: var(--brand, #8b4513);
+  border-color: var(--brand, #8b4513);
+  color: #fff;
+}
+.ise-panel-view {
+  background: #fff;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 10px;
+  padding: 16px;
 }
 </style>
