@@ -252,6 +252,28 @@ export function withRestAt(content, loc) {
   return withSegmentNote(content, at, boxes.join(' '), content.arrangement)
 }
 
+// Set the word under the cursor to `text` in THIS verse only (live lyric typing). Pads with
+// blanks up to the slot if the verse is short, and trims trailing blanks. Only the one entry
+// changes; other verses + the melody are untouched. Returns the same content on a no-op.
+export function withSetSyllable(content, loc, text) {
+  const { resolvedLine, si, syk } = loc
+  if (!content || !Array.isArray(content.arrangement) || !resolvedLine) return content
+  const ei = resolvedLine._entryIndex
+  const entry = content.arrangement[ei]
+  const stanza = (content.stanzas || []).find((s) => s.id === resolvedLine._stanza)
+  if (!entry || !stanza) return content
+  const g = stanzaGlobalSlot(stanza, resolvedLine._stanzaLine, si, syk)
+  const val = text || ''
+  const syl = (entry.syllables || []).slice()
+  while (syl.length <= g) syl.push('')
+  if (syl[g] === val) return content
+  syl[g] = val
+  while (syl.length && syl[syl.length - 1] === '') syl.pop()
+  const newArr = content.arrangement.slice()
+  newArr[ei] = { ...entry, syllables: syl }
+  return { ...content, arrangement: newArr }
+}
+
 // Clear ONLY the word under the cursor — blank that one syllable in THIS verse (the resolved
 // line's arrangement entry), leaving the note and every other verse untouched. "ลบอันไหน
 // อันนั้นหาย": deleting on the word layer removes just the word. No ripple.

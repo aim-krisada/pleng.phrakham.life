@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withClearedSyllable, withOctaveShift, withAccidental } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -262,31 +262,47 @@ function moveLineJump(dir) {
 // predictable "กด 1 = ใส่ 1 ตรงที่อยู่"). 'insert' (push the rest right) is the toggle for adding
 // notes. The Insert key flips it.
 const typeMode = ref('overwrite')
-function onInlineKey(e) {
+function toggleTypeMode() { typeMode.value = typeMode.value === 'insert' ? 'overwrite' : 'insert' }
+// All keys arrive at the hidden capture <input> (focused on selection so the device keyboard
+// opens: numeric for a note, Thai text for a word). NOTE layer: digits/arrows/delete are
+// commands. WORD layer: text flows into the input (→ withSetSyllable), and ← → only leave the
+// word when the caret is at its edge; ↑ ↓ / space / Enter navigate.
+function onCaptureKey(e) {
   if (!editMode.value) return
   const ctrl = e.ctrlKey || e.metaKey
-  if (e.key === 'ArrowRight') { e.preventDefault(); ctrl ? moveBar(1) : moveHoriz(1) }
-  else if (e.key === 'ArrowLeft') { e.preventDefault(); ctrl ? moveBar(-1) : moveHoriz(-1) }
+  const word = selLayer.value === 'word'
+  const el = e.target
+  const atStart = word && (el.selectionStart ?? 0) === 0 && (el.selectionEnd ?? 0) === 0
+  const atEnd = word && (el.selectionStart ?? 0) >= el.value.length && (el.selectionEnd ?? 0) >= el.value.length
+  if (e.key === 'ArrowRight') { if (ctrl) { e.preventDefault(); moveBar(1) } else if (!word || atEnd) { e.preventDefault(); moveHoriz(1) } }
+  else if (e.key === 'ArrowLeft') { if (ctrl) { e.preventDefault(); moveBar(-1) } else if (!word || atStart) { e.preventDefault(); moveHoriz(-1) } }
   else if (e.key === 'ArrowDown') { e.preventDefault(); ctrl ? moveLineJump(1) : moveVert(1) }
   else if (e.key === 'ArrowUp') { e.preventDefault(); ctrl ? moveLineJump(-1) : moveVert(-1) }
-  else if (e.key === 'Home') { e.preventDefault(); curIdx.value = 0 }
-  else if (e.key === 'End') { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
-  else if (e.key === 'Insert') { e.preventDefault(); typeMode.value = typeMode.value === 'insert' ? 'overwrite' : 'insert' }
-  // type a scale digit (0–7) — only on a NOTE unit (lyric typing is a later step). Insert adds a
-  // note + ripples every verse's words; overwrite changes just this note. Then step to the next note.
-  else if (selLayer.value === 'note' && /^[0-7]$/.test(e.key)) {
+  else if (e.key === 'Insert') { e.preventDefault(); toggleTypeMode() }
+  else if (e.key === 'Enter') { e.preventDefault(); moveHoriz(1) }
+  else if (e.key === ' ') { e.preventDefault(); word ? moveHoriz(1) : moveUnit(1) } // space = next syllable/unit
+  else if (!word && e.key === 'Home') { e.preventDefault(); curIdx.value = 0 }
+  else if (!word && e.key === 'End') { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
+  // NOTE layer: digit = set the note; Delete = ลบอยู่กับที่ (rest); Backspace = เอาออกทั้งช่อง.
+  else if (!word && /^[0-7]$/.test(e.key)) {
     e.preventDefault()
     if (typeMode.value === 'insert') insertDigit(e.key)
     else { overwriteDigit(e.key); advanceNote() }
   }
-  // deletes (note layer for now — word-layer delete is the next step):
-  //  • Backspace = ลบดึงชิด (remove note, words pull tight)  • Delete = ลบไม่ชิด (note → rest)
-  // Delete = ลบอยู่กับที่ (ช่องคงอยู่): note→rest, word→blank.
-  // Backspace = เอาออกทั้งช่อง (โน้ต+คำ) ให้สั้นลง — จากโน้ตหรือคำก็ได้.
-  else if (e.key === 'Delete') { e.preventDefault(); deleteSel() }
-  else if (e.key === 'Backspace') { e.preventDefault(); removeCell() }
-  // Space advances one fine unit (note ↔ word).
-  else if (e.key === ' ') { e.preventDefault(); moveUnit(1) }
+  else if (!word && e.key === 'Delete') { e.preventDefault(); deleteSel() }
+  else if (!word && e.key === 'Backspace') { e.preventDefault(); removeCell() }
+  // WORD layer: an empty word + Backspace removes the whole cell; otherwise let the text edit
+  // (native) — onCaptureInput writes it back to the syllable.
+  else if (word && e.key === 'Backspace' && el.value === '') { e.preventDefault(); removeCell() }
+}
+// WORD layer: mirror the input's text into the current verse's syllable, live.
+function onCaptureInput(e) {
+  if (selLayer.value !== 'word') { e.target.value = ''; return } // note layer stays empty
+  const loc = cellLoc()
+  if (!loc) return
+  markTyping()
+  const next = withSetSyllable(props.song.content, loc, e.target.value)
+  if (next !== props.song.content) emit('update-content', next)
 }
 // resolve the selected NOTE's source address, or null (note ops only)
 function selLoc() {
@@ -333,6 +349,54 @@ function markTyping() {
 // re-anchor + un-dim whenever the selection moves (a click/tap = "show me the tools")
 watch(selCell, () => { dimPopup.value = false; nextTick(updateNoteRect) })
 watch(editMode, (on) => { if (on) nextTick(updateNoteRect); else noteRect.value = null })
+
+// ---- capture input: brings up the device keyboard + carries lyric text (batch B) ----
+// A single <input> focused whenever a cell is selected. Focusing it opens the phone keyboard
+// (numeric for a note, Thai text for a word); on desktop the physical keyboard just works.
+const captureInput = ref(null)
+// the word under the cursor, read from THIS verse (resolved line's per-segment syllables)
+const currentWord = computed(() => {
+  const c = selCell.value
+  if (!c) return ''
+  const line = resolved.value?.lines?.[c.li]
+  if (!line) return ''
+  let si = -1
+  for (const it of line) {
+    if (it.type !== 'segment') continue
+    si++
+    if (si === c.si) return it.syllables?.[c.syk] ?? ''
+  }
+  return ''
+})
+// position the (mostly invisible) input right over the selected cell so the caret/keyboard
+// context sits there; a word shows its text, a note stays transparent (just holds focus).
+const captureStyle = computed(() => {
+  const r = noteRect.value
+  if (!r) return { display: 'none' }
+  const base = { position: 'fixed', left: r.left + 'px', top: r.top + 'px', height: Math.max(18, r.bottom - r.top) + 'px' }
+  return selLayer.value === 'word'
+    ? { ...base, minWidth: Math.max(r.width, 44) + 'px' }
+    : { ...base, width: Math.max(r.width, 12) + 'px', opacity: 0, pointerEvents: 'none' }
+})
+async function focusCapture() {
+  await nextTick()
+  updateNoteRect()
+  const el = captureInput.value
+  if (!el || !editMode.value || !selCell.value) return
+  if (selLayer.value === 'word') {
+    if (el.value !== currentWord.value) el.value = currentWord.value
+    el.focus({ preventScroll: true })
+    const n = el.value.length
+    el.setSelectionRange?.(n, n)
+  } else {
+    el.value = ''
+    el.focus({ preventScroll: true })
+  }
+}
+// refocus + reload the field only when the SELECTION moves (curIdx), not on every content edit,
+// so live lyric typing isn't interrupted (same cell → same curIdx → no refocus).
+watch(curIdx, () => focusCapture())
+watch(editMode, (on) => { if (on) focusCapture() })
 // overwrite the selected note's pitch and tell the owner (Studio) — never touch props.song.
 function overwriteDigit(digit) {
   const loc = selLoc()
@@ -914,12 +978,25 @@ function onSeek({ li, si, syk }) {
       class="sheet-scale"
       :class="{ 'sv-editing': editMode }"
       :style="{ fontSize: readingFontScale + 'rem' }"
-      :tabindex="editMode ? 0 : -1"
-      :role="editMode ? 'textbox' : null"
-      :aria-label="editMode ? 'แก้โน้ต/คำบนแผ่นเพลง — แตะเลือก หรือใช้ลูกศร' : null"
-      @keydown="onInlineKey"
       @click="onInlinePick"
     >
+      <!-- the focused capture field — opens the device keyboard on a phone (numeric for a note,
+           Thai text for a word) and carries the typed lyric. Sits over the selected cell. -->
+      <input
+        v-if="editMode && selCell"
+        ref="captureInput"
+        class="sv-capture no-print"
+        :class="{ 'on-word': selLayer === 'word' }"
+        :inputmode="selLayer === 'word' ? 'text' : 'numeric'"
+        :style="captureStyle"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        aria-label="ช่องพิมพ์แก้โน้ต/คำ"
+        @keydown="onCaptureKey"
+        @input="onCaptureInput"
+      />
       <SongSheet
         :content="resolved"
         :mode="sheetMode"
@@ -1072,6 +1149,27 @@ function onSeek({ li, si, syk }) {
   outline: none;
   border-radius: 10px;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+/* the capture input — positioned over the selected cell (inline styles set top/left/size).
+   A note keeps it invisible (opacity:0 inline) just to hold keyboard focus; a WORD shows the
+   text being typed, styled to read as editing on the sheet. */
+.sv-capture {
+  z-index: 46;
+  margin: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  padding: 0;
+}
+.sv-capture.on-word {
+  color: var(--ink, #0f172a);
+  background: #fff;
+  border: 2px solid var(--brand, #8b4513);
+  border-radius: 6px;
+  padding: 0 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  text-align: center;
+  outline: none;
 }
 
 /* Leave room so the fixed transport dock (S4 <StudioDock>/<SingTransport>) never covers

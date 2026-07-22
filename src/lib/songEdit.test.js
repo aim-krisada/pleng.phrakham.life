@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   noteBoxes, boxIndexForSlot, setNotePitch, locateSegment, withNotePitch,
   insertBoxAtSlot, removeBoxAtSlot, withInsertedNote, withDeletedNote, withRestAt,
-  withOctaveShift, withAccidental, withClearedSyllable,
+  withOctaveShift, withAccidental, withClearedSyllable, withSetSyllable,
 } from './songEdit.js'
 
 const loc0 = (syk) => ({ resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk })
@@ -191,6 +191,20 @@ describe('withClearedSyllable — clears just the one word, only in this verse',
   it('is a no-op on an already-blank word', () => {
     const c = { version: 2, stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 2' }]] }], arrangement: [{ stanza: 'A', syllables: ['a'] }] }
     expect(withClearedSyllable(c, { resolvedLine: { _stanza: 'A', _stanzaLine: 0, _entryIndex: 0 }, si: 0, syk: 1 })).toBe(c)
+  })
+})
+
+describe('withSetSyllable — live lyric typing (this verse only)', () => {
+  it('sets the word at the cursor, keeping other verses ===', () => {
+    const before = wordy()
+    const after = withSetSyllable(before, { resolvedLine: { _stanza: 'A', _stanzaLine: 0, _entryIndex: 0 }, si: 0, syk: 1 }, 'ใหม่')
+    expect(after.arrangement[0].syllables).toEqual(['โอ', 'ใหม่', 'เจ้า'])
+    expect(after.arrangement[1]).toBe(before.arrangement[1]) // verse 2 untouched
+  })
+  it('pads a short verse up to the slot', () => {
+    const c = { version: 2, stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 2 3' }]] }], arrangement: [{ stanza: 'A', syllables: ['a'] }] }
+    const after = withSetSyllable(c, { resolvedLine: { _stanza: 'A', _stanzaLine: 0, _entryIndex: 0 }, si: 0, syk: 2 }, 'z')
+    expect(after.arrangement[0].syllables).toEqual(['a', '', 'z'])
   })
 })
 
