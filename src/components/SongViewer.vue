@@ -467,23 +467,18 @@ function accidentalSel(acc) {
   const next = withAccidental(props.song.content, loc, acc)
   if (next !== props.song.content) emit('update-content', next)
 }
-// ---- the input bar taps ----
-// The bar is the note keypad. A number/symbol snaps the cursor onto the current cell's NOTE
-// (so pressing a digit = note entry, even if a word was last selected), then runs the same
-// edit funcs the physical keys use. ◀ ▶ walk the SAME note↔word sequence as the arrows — the
-// mobile equivalent of ← → (no hardware keyboard).
-function barStep(dir) { moveUnit(dir) }
-function barType(d) {
-  if (curIdx.value < 0) return
-  gotoCellNote(selCell.value)
-  if (typeMode.value === 'insert') insertDigit(d)
-  else { overwriteDigit(d); advanceNote() }
+// ---- toolbar taps (special buttons only — digits/text come from the device keyboard) ----
+// Every button uses @mousedown.prevent (in NoteInputBar) so the capture input keeps focus and
+// the phone keyboard stays open. After each we re-focus the input to be safe.
+function barNav(dir) {
+  if (dir === 'left') moveHoriz(-1)
+  else if (dir === 'right') moveHoriz(1)
+  else if (dir === 'up') moveVert(-1)
+  else if (dir === 'down') moveVert(1)
+  focusCapture()
 }
-function barOctave(dir) { if (curIdx.value >= 0) { gotoCellNote(selCell.value); octaveSel(dir) } }
-function barAccidental(acc) { if (curIdx.value >= 0) { gotoCellNote(selCell.value); accidentalSel(acc) } }
-// ⌫ ลบ respects the CURRENT layer (don't snap to note): a word-unit tap clears the word, a
-// note-unit tap turns the note into a rest.
-function barDelete() { if (curIdx.value >= 0) deleteSel() }
+function barOctave(dir) { if (curIdx.value >= 0) { gotoCellNote(selCell.value); octaveSel(dir); focusCapture() } }
+function barAccidental(acc) { if (curIdx.value >= 0) { gotoCellNote(selCell.value); accidentalSel(acc); focusCapture() } }
 // a note click bubbles to the wrapper — read the exact note from .nt[data-idx] in its
 // .segment[data-seg] (a word .syl is @click.stop, so it comes back through onSeek instead)
 function onInlinePick(e) {
@@ -970,7 +965,7 @@ function onSeek({ li, si, syk }) {
 
     <!-- while editing: a small hint + autosave note ride above the sheet -->
     <div v-if="editMode" class="sv-edit-hint no-print" role="status">
-พิมพ์เลข <b>1–7</b> ลงตรงโน้ตที่เลือก · <b>← →</b> ซ้าย-ขวา · <b>↓</b> โน้ต→คำ · <b>↑</b> คำ→โน้ต · <b>Ctrl+← → / ↑ ↓</b> ข้ามห้อง/บรรทัด · <b>Delete</b> ลบอยู่กับที่ (โน้ต→ตัวหยุด/คำ→ว่าง) · <b>Backspace</b> เอาออกทั้งช่อง
+แตะโน้ตแล้วพิมพ์เลข · แตะคำแล้วพิมพ์เนื้อ (คีย์บอร์ดขึ้นเอง) · <b>← → ↑ ↓</b> เลื่อน · ปุ่มพิเศษ (สูง/ต่ำ · ♯♭ · แทรก/ทับ) อยู่ในแถบ · <b>Delete</b> ลบอยู่กับที่ · <b>Backspace</b> เอาออกทั้งช่อง
     </div>
 
     <div
@@ -1081,12 +1076,10 @@ function onSeek({ li, si, syk }) {
       :anchor="isWide ? noteRect : null"
       :dimmed="dimPopup"
       :mode="typeMode"
-      @digit="barType"
+      @nav="barNav"
       @octave="barOctave"
       @accidental="barAccidental"
       @toggle-mode="typeMode = typeMode === 'insert' ? 'overwrite' : 'insert'"
-      @backspace="barDelete"
-      @step="barStep"
     />
   </div>
 </template>
