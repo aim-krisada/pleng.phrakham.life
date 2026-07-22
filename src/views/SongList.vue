@@ -214,7 +214,7 @@ onMounted(async () => {
         :aria-selected="browseMode === 'shelf'"
         @click="selectMode('shelf')"
       >
-        <span class="chip-star" aria-hidden="true">📚</span> {{ t('list.booksChip') }}
+        <span class="chip-star" aria-hidden="true">📚</span><span class="chip-label">{{ t('list.booksChip') }}</span>
       </button>
       <button
         type="button"
@@ -224,7 +224,7 @@ onMounted(async () => {
         :aria-selected="browseMode === 'fav'"
         @click="selectMode('fav')"
       >
-        <span class="chip-star" aria-hidden="true">★</span> {{ t('list.favChip') }}
+        <span class="chip-star" aria-hidden="true">★</span><span class="chip-label">{{ t('list.favChip') }}</span>
         <span v-if="favSongs.length" class="chip-count">{{ favSongs.length }}</span>
       </button>
       <button
@@ -235,7 +235,7 @@ onMounted(async () => {
         :aria-selected="browseMode === 'playlists'"
         @click="selectMode('playlists')"
       >
-        <span class="chip-star" aria-hidden="true">🎵</span> {{ t('playlist.chip') }}
+        <span class="chip-star" aria-hidden="true">🎵</span><span class="chip-label">{{ t('playlist.chip') }}</span>
         <span v-if="playlists.length" class="chip-count">{{ playlists.length }}</span>
       </button>
     </div>
@@ -686,25 +686,53 @@ onMounted(async () => {
 
 .empty { padding: var(--sp-4) 0; }
 
-/* ---- browse filter chips (★ รายการโปรด) ---- */
+/* ---- browse view selector (📚 เล่ม · ★ รายการโปรด · 🎵 เพลย์ลิสต์) ----
+   A full-width SEGMENTED control: 3 equal segments on one row that never wraps (P'Aim/ปราณี
+   22 ก.ค. — wrapping left an ugly gap). Same shape as the ⚙ segmented controls, so the whole
+   app reads as one system. The count badge shows only where there's room (≥480px); on phones
+   the label alone keeps all three in a single row. */
 .browse-chips {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
+  width: 100%;
   margin: 0 0 var(--sp-4);
-}
-.fav-chip { display: inline-flex; align-items: center; gap: var(--sp-2); }
-.fav-chip .chip-star { color: var(--accent); font-size: 1.05em; line-height: 1; }
-/* ON = vivid marigold with dark text (matches the filled ★) — white on marigold would fail AA */
-.fav-chip.on,
-.books-chip.on { background: var(--accent); border-color: var(--accent); color: var(--ink); }
-.fav-chip.on .chip-star { color: var(--ink); }
-.fav-chip .chip-count {
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  background: rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--line);
   border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.browse-chips .facet-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: var(--touch-min);
   padding: 0 var(--sp-2);
+  border: none;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.browse-chips .facet-chip:first-child { border-left: none; }
+.browse-chips .facet-chip.on { background: var(--accent); color: var(--ink); font-weight: 700; }
+@media (hover: hover) { .browse-chips .facet-chip:not(.on):hover { background: var(--cream-hover); } }
+.browse-chips .chip-star { flex: 0 0 auto; line-height: 1; }
+.browse-chips .chip-label { overflow: hidden; text-overflow: ellipsis; }
+.browse-chips .chip-count { display: none; font-weight: 700; flex: 0 0 auto; }
+@media (min-width: 480px) {
+  .browse-chips .chip-count {
+    display: inline; font-size: var(--fs-xs);
+    background: rgba(0, 0, 0, 0.12); border-radius: 10px; padding: 0 var(--sp-2);
+  }
+}
+/* very narrow phones (≤360): trim the gap/padding + a hair smaller so 3 labels never clip */
+@media (max-width: 360px) {
+  .browse-chips .facet-chip { gap: 3px; padding: 0 var(--sp-1); font-size: var(--fs-xs); }
 }
 
 /* the star holds the first line when a long title wraps (matches .no/.key) */
