@@ -18,10 +18,11 @@
 // every open, so the Vue-rendered links are trapped correctly.
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { shellMenu, siteFont, setSiteFont } from '../store.js'
-import { t, locale, setLocale, isReady, LOCALES } from '../i18n/index.js'
+import { shellMenu } from '../store.js'
+import { t } from '../i18n/index.js'
 import ProfileTool from './ProfileTool.vue'
 import InstallAppTool from './InstallAppTool.vue'
+import SettingsControls from './SettingsControls.vue'
 import Icon from './Icon.vue'
 
 defineProps({ title: { type: String, default: '' } })
@@ -202,37 +203,7 @@ async function goSearch() {
           <Icon name="settings" :size="24" />
         </button>
         <div v-if="shellMenu === 'settings'" class="sb-dropdown sb-mode-menu" role="menu" @click.stop>
-          <!-- ภาษา (UI language) — ไทย default; zh/en shown but "เร็วๆ นี้" until their dict lands -->
-          <div class="sb-lang">
-            <div class="sb-lang-lbl">{{ t('lang.label') }}</div>
-            <div class="sb-lang-opts" role="radiogroup" :aria-label="t('lang.label')">
-              <button
-                v-for="l in LOCALES"
-                :key="l.code"
-                type="button"
-                role="radio"
-                :aria-checked="locale === l.code"
-                :class="{ on: locale === l.code }"
-                :disabled="!isReady(l.code)"
-                @click="setLocale(l.code)"
-              >
-                {{ l.native }}<span v-if="!isReady(l.code)" class="sb-lang-soon">{{ t('lang.soon') }}</span>
-              </button>
-            </div>
-          </div>
-          <div class="sb-font">
-            <div class="sb-font-lbl">{{ t('font.label') }}</div>
-            <div class="sb-font-opts" role="radiogroup" :aria-label="t('font.label')">
-              <button type="button" role="radio" :aria-checked="siteFont === 'default'" :class="{ on: siteFont === 'default' }" @click="setSiteFont('default')">
-                <span class="sb-font-eg">ก&nbsp;ข&nbsp;ค</span>
-                {{ t('font.loopless') }}
-              </button>
-              <button type="button" role="radio" :aria-checked="siteFont === 'looped'" :class="{ on: siteFont === 'looped' }" @click="setSiteFont('looped')">
-                <span class="sb-font-eg looped">ก&nbsp;ข&nbsp;ค</span>
-                {{ t('font.looped') }}
-              </button>
-            </div>
-          </div>
+          <SettingsControls />
         </div>
       </div>
 
@@ -274,37 +245,8 @@ async function goSearch() {
         <!-- "ติดตั้งแอพ" affordance — self-contained (lib/pwaInstall.js). An action row per
              docs/ds/menu-drawer-spec.md §3. Renders nothing when already installed. -->
         <InstallAppTool />
-        <!-- ภาษา (UI language) — same registry as the desktop ⚙; zh/en = "เร็วๆ นี้" for now -->
-        <div class="sb-lang" @click.stop>
-          <div class="sb-lang-lbl">{{ t('lang.label') }}</div>
-          <div class="sb-lang-opts" role="radiogroup" :aria-label="t('lang.label')">
-            <button
-              v-for="l in LOCALES"
-              :key="l.code"
-              type="button"
-              role="radio"
-              :aria-checked="locale === l.code"
-              :class="{ on: locale === l.code }"
-              :disabled="!isReady(l.code)"
-              @click="setLocale(l.code)"
-            >
-              {{ l.native }}<span v-if="!isReady(l.code)" class="sb-lang-soon">{{ t('lang.soon') }}</span>
-            </button>
-          </div>
-        </div>
-        <div class="sb-font" @click.stop>
-          <div class="sb-font-lbl">{{ t('font.label') }}</div>
-          <div class="sb-font-opts" role="radiogroup" :aria-label="t('font.label')">
-            <button type="button" role="radio" :aria-checked="siteFont === 'default'" :class="{ on: siteFont === 'default' }" @click="setSiteFont('default')">
-              <span class="sb-font-eg">ก&nbsp;ข&nbsp;ค</span>
-              {{ t('font.loopless') }}
-            </button>
-            <button type="button" role="radio" :aria-checked="siteFont === 'looped'" :class="{ on: siteFont === 'looped' }" @click="setSiteFont('looped')">
-              <span class="sb-font-eg looped">ก&nbsp;ข&nbsp;ค</span>
-              {{ t('font.looped') }}
-            </button>
-          </div>
-        </div>
+        <!-- ภาษา + ตัวอักษรไทย — same shared control as the desktop ⚙ (SettingsControls) -->
+        <SettingsControls @click.stop />
       </div>
     </aside>
 
