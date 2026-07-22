@@ -289,6 +289,9 @@ function onCaptureKey(e) {
     if (typeMode.value === 'insert') insertDigit(e.key)
     else { overwriteDigit(e.key); advanceNote() }
   }
+  // desktop keyboard shortcuts for the note marks that ARE on a physical keyboard (so they need
+  // no button): # = sharp, b = flat (jianpu convention, same as the old note boxes).
+  else if (!word && (e.key === '#' || e.key === 'b')) { e.preventDefault(); accidentalSel(e.key) }
   else if (!word && e.key === 'Delete') { e.preventDefault(); deleteSel() }
   else if (!word && e.key === 'Backspace') { e.preventDefault(); removeCell() }
   // WORD layer: an empty word + Backspace removes the whole cell; otherwise let the text edit
@@ -326,6 +329,15 @@ function cellLoc() {
 const WIDE_MIN = 768
 const isWide = ref(typeof window !== 'undefined' ? window.innerWidth >= WIDE_MIN : true)
 function onResizeWidth() { isWide.value = window.innerWidth >= WIDE_MIN; updateNoteRect() }
+// When to show the toolbar (NoteInputBar):
+//  • Desktop (popup): only for a NOTE (the octave/mode buttons a keyboard lacks) — words edit
+//    inline with no popup. Needs an anchor rect.
+//  • Mobile (bar): whenever a cell is selected (it carries the arrows the on-screen keyboard
+//    lacks; note ops appear only on the note layer).
+const showToolbar = computed(() => {
+  if (!editMode.value || !selCell.value) return false
+  return isWide.value ? (selLayer.value === 'note' && !!noteRect.value) : true
+})
 // the selected note's on-screen rect — the desktop popup anchors to it (floats above/below,
 // never covering it). Re-read after any selection change and while scrolling.
 const noteRect = ref(null)
@@ -1071,8 +1083,9 @@ function onSeek({ li, si, syk }) {
          bottom keyboard-accessory bar on a phone (the only way to enter notes without a hardware
          keyboard). Chosen by width, never hover/pointer. Same edit engine via bar* handlers. -->
     <NoteInputBar
-      v-if="editMode && (!isWide || noteRect)"
+      v-if="showToolbar"
       :variant="isWide ? 'popup' : 'bar'"
+      :layer="selLayer"
       :anchor="isWide ? noteRect : null"
       :dimmed="dimPopup"
       :mode="typeMode"
@@ -1154,15 +1167,19 @@ function onSeek({ li, si, syk }) {
   font: inherit;
   padding: 0;
 }
+/* WORD edit = INLINE, seamless: sit exactly over the word, same font, opaque sheet background
+   (covers the underlying word cleanly), no box — just a thin brand underline as the "editing"
+   cue + the caret. Reads as typing on the sheet, not a floating dialog. */
 .sv-capture.on-word {
   color: var(--ink, #0f172a);
-  background: #fff;
-  border: 2px solid var(--brand, #8b4513);
-  border-radius: 6px;
-  padding: 0 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  background: var(--surface, #fff);
+  border: none;
+  border-bottom: 2px solid var(--brand, #8b4513);
+  border-radius: 0;
+  padding: 0;
   text-align: center;
   outline: none;
+  caret-color: var(--brand, #8b4513);
 }
 
 /* Leave room so the fixed transport dock (S4 <StudioDock>/<SingTransport>) never covers

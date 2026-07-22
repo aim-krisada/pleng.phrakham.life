@@ -12,11 +12,16 @@ import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 
 const props = defineProps({
   variant: { type: String, default: 'bar' }, // 'bar' | 'popup'
+  layer: { type: String, default: 'note' }, // 'note' | 'word' — which controls to show
   anchor: { type: Object, default: null }, // selected-cell rect {top,bottom,left,width} (popup)
   dimmed: { type: Boolean, default: false }, // fade + click-through while typing (popup)
   mode: { type: String, default: 'overwrite' }, // 'insert' | 'overwrite' — the แทรก/ทับ state
 })
 const emit = defineEmits(['octave', 'accidental', 'toggle-mode', 'nav'])
+const helpOpen = ref(false)
+// which controls to show: arrows on mobile only; note ops only on the note layer; accidentals
+// only on mobile (desktop types # / b). The (i) keyboard help shows on the desktop popup.
+
 
 // ---- popup positioning (desktop): float above the note's line, else below; clamp on-screen ----
 const rootEl = ref(null)
@@ -72,21 +77,34 @@ onUnmounted(() => {
         <button class="nib-key nib-nav" aria-label="ขึ้น" title="ขึ้น" @click="emit('nav', 'up')">↑</button>
         <button class="nib-key nib-nav" aria-label="ลง" title="ลง" @click="emit('nav', 'down')">↓</button>
         <button class="nib-key nib-nav" aria-label="ขวา" title="ขวา" @click="emit('nav', 'right')">→</button>
-        <span class="nib-sep" aria-hidden="true"></span>
+        <span v-if="layer === 'note'" class="nib-sep" aria-hidden="true"></span>
       </template>
 
-      <button class="nib-key" title="สูงขึ้นหนึ่งช่วง (จุดบนโน้ต)" aria-label="สูงขึ้นหนึ่งช่วง" @click="emit('octave', 1)"><b>สูง</b> ↑</button>
-      <button class="nib-key" title="ต่ำลงหนึ่งช่วง (จุดล่างโน้ต)" aria-label="ต่ำลงหนึ่งช่วง" @click="emit('octave', -1)"><b>ต่ำ</b> ↓</button>
-      <button class="nib-key nib-acc" title="ครึ่งเสียงขึ้น (ชาร์ป)" aria-label="ชาร์ป" @click="emit('accidental', '#')">♯</button>
-      <button class="nib-key nib-acc" title="ครึ่งเสียงลง (แฟลต)" aria-label="แฟลต" @click="emit('accidental', 'b')">♭</button>
-      <span class="nib-sep" aria-hidden="true"></span>
+      <!-- note ops (octave has no keyboard key → button on both; accidentals only on mobile,
+           desktop types # / b; toggle also a status indicator). Hidden on the word layer. -->
+      <template v-if="layer === 'note'">
+        <button class="nib-key" title="สูงขึ้นหนึ่งช่วง (จุดบนโน้ต)" aria-label="สูงขึ้นหนึ่งช่วง" @click="emit('octave', 1)"><b>สูง</b> ↑</button>
+        <button class="nib-key" title="ต่ำลงหนึ่งช่วง (จุดล่างโน้ต)" aria-label="ต่ำลงหนึ่งช่วง" @click="emit('octave', -1)"><b>ต่ำ</b> ↓</button>
+        <template v-if="variant === 'bar'">
+          <button class="nib-key nib-acc" title="ครึ่งเสียงขึ้น (ชาร์ป)" aria-label="ชาร์ป" @click="emit('accidental', '#')">♯</button>
+          <button class="nib-key nib-acc" title="ครึ่งเสียงลง (แฟลต)" aria-label="แฟลต" @click="emit('accidental', 'b')">♭</button>
+        </template>
+        <button
+          class="nib-key nib-mode" :class="{ ins: mode === 'insert' }"
+          :aria-label="mode === 'insert' ? 'โหมดแทรก (แตะเปลี่ยนเป็นทับ)' : 'โหมดทับ (แตะเปลี่ยนเป็นแทรก)'"
+          :title="mode === 'insert' ? 'แทรก — พิมพ์แล้วเพิ่มโน้ต ดันตัวอื่นไปขวา' : 'ทับ — พิมพ์แล้วเปลี่ยนเฉพาะโน้ตที่เลือก'"
+          @click="emit('toggle-mode')"
+        >{{ mode === 'insert' ? 'แทรก' : 'ทับ' }}</button>
+      </template>
 
-      <button
-        class="nib-key nib-mode" :class="{ ins: mode === 'insert' }"
-        :aria-label="mode === 'insert' ? 'โหมดแทรก (แตะเปลี่ยนเป็นทับ)' : 'โหมดทับ (แตะเปลี่ยนเป็นแทรก)'"
-        :title="mode === 'insert' ? 'แทรก — พิมพ์แล้วเพิ่มโน้ต ดันตัวอื่นไปขวา' : 'ทับ — พิมพ์แล้วเปลี่ยนเฉพาะโน้ตที่เลือก'"
-        @click="emit('toggle-mode')"
-      >{{ mode === 'insert' ? 'แทรก' : 'ทับ' }}</button>
+      <!-- (i) keyboard help — desktop popup: which keys do what (things with no button) -->
+      <button v-if="variant === 'popup'" class="nib-key nib-help" :aria-expanded="helpOpen" aria-label="คีย์ลัดคีย์บอร์ด" title="คีย์ลัดคีย์บอร์ด" @click="helpOpen = !helpOpen">i</button>
+    </div>
+    <div v-if="variant === 'popup' && helpOpen" class="nib-helpbox" role="note">
+      <b>คีย์บอร์ด (โหมดแก้):</b><br />
+      <b>1–7</b> = โน้ต · <b>#</b> = ชาร์ป · <b>b</b> = แฟลต<br />
+      <b>← → ↑ ↓</b> = เลื่อน · <b>Ctrl+← → / ↑ ↓</b> = ข้ามห้อง/บรรทัด<br />
+      <b>Insert</b> = สลับแทรก/ทับ · <b>Delete</b> = ลบอยู่กับที่ · <b>Backspace</b> = เอาออกทั้งช่อง
     </div>
   </div>
 </template>
@@ -157,4 +175,18 @@ onUnmounted(() => {
 }
 .nib-mode.ins { background: var(--brand, #8b4513); color: #fff; }
 .nib-sep { flex: 0 0 auto; width: 1px; align-self: stretch; background: var(--line, #d9d0c4); margin: 4px 2px; }
+/* (i) keyboard help */
+.nib-help { font-style: italic; font-weight: 700; min-width: var(--touch-min, 44px); }
+.nib-helpbox {
+  margin-top: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ink, #0f172a);
+  background: var(--cream, #faf6ef);
+  border: 1px solid var(--line, #d9d0c4);
+  border-radius: 8px;
+  max-width: 320px;
+}
+.nib-helpbox b { color: var(--brand, #8b4513); }
 </style>
