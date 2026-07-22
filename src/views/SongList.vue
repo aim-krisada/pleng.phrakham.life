@@ -32,7 +32,13 @@ const router = useRouter()
 // the 🎵 playlists manager. Chips switch it; search still overrides everything (US-G1).
 const browseMode = ref('shelf') // 'shelf' | 'fav' | 'playlists'
 const favOnly = computed(() => browseMode.value === 'fav')
-function toggleMode(m) { browseMode.value = browseMode.value === m ? 'shelf' : m }
+// A radio-style selector (เล่ม · ★ · 🎵) — exactly one active. "เล่ม" is always present so
+// returning to the bookshelf is one tap (P'Aim: มาจากโปรด/เพลย์ลิสต์แล้วต้องเลือกเล่มได้).
+// Picking เล่ม also resets the drill to the book grid so it always means "choose a book".
+function selectMode(m) {
+  browseMode.value = m
+  if (m === 'shelf') { level.value = 'books'; activeBook.value = null; window.scrollTo(0, 0) }
+}
 
 // ★ favorites (localStorage · no account · lib/favorites.js) — sits alongside the bookshelf.
 const favSongs = computed(() => {
@@ -199,13 +205,24 @@ onMounted(async () => {
 
     <!-- browse filter chips — ★ รายการโปรด rides alongside the bookshelf (US-G1.2), never
          replacing the default landing. Hidden while searching (results override the browse). -->
-    <div v-if="!loading && !searching" class="browse-chips no-print">
+    <div v-if="!loading && !searching" class="browse-chips no-print" role="tablist" :aria-label="t('list.booksChip')">
+      <button
+        type="button"
+        class="facet-chip books-chip"
+        role="tab"
+        :class="{ on: browseMode === 'shelf' }"
+        :aria-selected="browseMode === 'shelf'"
+        @click="selectMode('shelf')"
+      >
+        <span class="chip-star" aria-hidden="true">📚</span> {{ t('list.booksChip') }}
+      </button>
       <button
         type="button"
         class="facet-chip fav-chip"
+        role="tab"
         :class="{ on: browseMode === 'fav' }"
-        :aria-pressed="browseMode === 'fav'"
-        @click="toggleMode('fav')"
+        :aria-selected="browseMode === 'fav'"
+        @click="selectMode('fav')"
       >
         <span class="chip-star" aria-hidden="true">★</span> {{ t('list.favChip') }}
         <span v-if="favSongs.length" class="chip-count">{{ favSongs.length }}</span>
@@ -213,9 +230,10 @@ onMounted(async () => {
       <button
         type="button"
         class="facet-chip pl-chip"
+        role="tab"
         :class="{ on: browseMode === 'playlists' }"
-        :aria-pressed="browseMode === 'playlists'"
-        @click="toggleMode('playlists')"
+        :aria-selected="browseMode === 'playlists'"
+        @click="selectMode('playlists')"
       >
         <span class="chip-star" aria-hidden="true">🎵</span> {{ t('playlist.chip') }}
         <span v-if="playlists.length" class="chip-count">{{ playlists.length }}</span>
@@ -678,7 +696,8 @@ onMounted(async () => {
 .fav-chip { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .fav-chip .chip-star { color: var(--accent); font-size: 1.05em; line-height: 1; }
 /* ON = vivid marigold with dark text (matches the filled ★) — white on marigold would fail AA */
-.fav-chip.on { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+.fav-chip.on,
+.books-chip.on { background: var(--accent); border-color: var(--accent); color: var(--ink); }
 .fav-chip.on .chip-star { color: var(--ink); }
 .fav-chip .chip-count {
   font-size: var(--fs-xs);

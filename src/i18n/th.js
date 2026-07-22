@@ -42,6 +42,7 @@ export default {
   },
   list: {
     searchPlaceholder: 'ค้นหาเพลง',
+    booksChip: 'เล่ม',
     favChip: 'รายการโปรด',
     favTitle: '★ รายการโปรด',
     favEmpty: 'ยังไม่มีรายการโปรด — แตะรูปดาว ☆ ที่เพลงเพื่อบันทึกไว้ที่นี่',
