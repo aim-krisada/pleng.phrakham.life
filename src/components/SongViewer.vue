@@ -234,10 +234,40 @@ function selLoc() {
   if (!rline || !rline._stanza) return null
   return { resolvedLine: rline, si: cell.si, syk: cell.syk }
 }
+
+// ---- input surface: popup (desktop) vs bottom bar (mobile) ----
+// Choose by VIEWPORT WIDTH, never hover/pointer (Surface = touch+mouse reports coarse).
+const WIDE_MIN = 768
+const isWide = ref(typeof window !== 'undefined' ? window.innerWidth >= WIDE_MIN : true)
+function onResizeWidth() { isWide.value = window.innerWidth >= WIDE_MIN; updateNoteRect() }
+// the selected note's on-screen rect — the desktop popup anchors to it (floats above/below,
+// never covering it). Re-read after any selection change and while scrolling.
+const noteRect = ref(null)
+function updateNoteRect() {
+  if (!editMode.value || !sheetWrap.value) { noteRect.value = null; return }
+  // anchor to the selected note glyph; fall back to the selected word (word layer)
+  const el = sheetWrap.value.querySelector('.nt-sel-active, .nt-sel, .syl-sel-active, .syl-sel')
+  if (!el) { noteRect.value = null; return }
+  const r = el.getBoundingClientRect()
+  noteRect.value = { top: r.top, bottom: r.bottom, left: r.left, width: r.width }
+}
+// fade-on-type: while typing/editing quickly the popup dims + goes click-through; a >1s pause
+// (or clicking a note) brings it back — G's "quiet assistant". Bar variant ignores this.
+const dimPopup = ref(false)
+let typingTimer = null
+function markTyping() {
+  dimPopup.value = true
+  if (typingTimer) clearTimeout(typingTimer)
+  typingTimer = setTimeout(() => { dimPopup.value = false }, 1000)
+}
+// re-anchor + un-dim whenever the selection moves (a click/tap = "show me the tools")
+watch(selCell, () => { dimPopup.value = false; nextTick(updateNoteRect) })
+watch(editMode, (on) => { if (on) nextTick(updateNoteRect); else noteRect.value = null })
 // overwrite the selected note's pitch and tell the owner (Studio) — never touch props.song.
 function overwriteDigit(digit) {
   const loc = selLoc()
   if (!loc) return
+  markTyping()
   const next = withNotePitch(props.song.content, loc, digit)
   if (next !== props.song.content) emit('update-content', next)
 }
@@ -247,6 +277,7 @@ function overwriteDigit(digit) {
 function insertDigit(digit) {
   const loc = selLoc()
   if (!loc) return
+  markTyping()
   const next = withInsertedNote(props.song.content, loc, digit)
   if (next !== props.song.content) { emit('update-content', next); selIdx.value = selIdx.value + 1 }
 }
@@ -254,6 +285,7 @@ function insertDigit(digit) {
 function deleteNote() {
   const loc = selLoc()
   if (!loc) return
+  markTyping()
   const next = withDeletedNote(props.song.content, loc)
   if (next !== props.song.content) { emit('update-content', next); selIdx.value = Math.max(0, selIdx.value - 1) }
 }
@@ -262,6 +294,7 @@ function deleteNote() {
 function restNote() {
   const loc = selLoc()
   if (!loc) return
+  markTyping()
   const next = withRestAt(props.song.content, loc)
   if (next !== props.song.content) emit('update-content', next)
 }
@@ -269,12 +302,14 @@ function restNote() {
 function octaveSel(dir) {
   const loc = selLoc()
   if (!loc) return
+  markTyping()
   const next = withOctaveShift(props.song.content, loc, dir)
   if (next !== props.song.content) emit('update-content', next)
 }
 function accidentalSel(acc) {
   const loc = selLoc()
   if (!loc) return
+  markTyping()
   const next = withAccidental(props.song.content, loc, acc)
   if (next !== props.song.content) emit('update-content', next)
 }
@@ -486,6 +521,7 @@ const SCROLL_PAUSE_MS = 3500
 let pausedScrollUntil = 0
 function onUserScroll() {
   if (playing.value) pausedScrollUntil = Date.now() + SCROLL_PAUSE_MS
+  if (editMode.value) updateNoteRect() // keep the desktop popup glued to the scrolling note
 }
 async function scrollToPlaying() {
   if (!sheetWrap.value) return
@@ -738,10 +774,14 @@ onMounted(() => {
   selectAllSecs() // B105: first-load default = every ท่อน ticked (the identity watcher isn't immediate)
   window.addEventListener('wheel', onUserScroll, { passive: true })
   window.addEventListener('touchmove', onUserScroll, { passive: true })
+  window.addEventListener('resize', onResizeWidth)
+  nextTick(() => { isWide.value = window.innerWidth >= WIDE_MIN }) // re-read once layout has a real width
 })
 onUnmounted(() => {
   window.removeEventListener('wheel', onUserScroll)
   window.removeEventListener('touchmove', onUserScroll)
+  window.removeEventListener('resize', onResizeWidth)
+  if (typingTimer) clearTimeout(typingTimer)
   stopPlayback()
 })
 
@@ -773,7 +813,7 @@ function onSeek({ li, si, syk }) {
 
     <!-- while editing: a small hint + autosave note ride above the sheet -->
     <div v-if="editMode" class="sv-edit-hint no-print" role="status">
-      แตะ<b>โน้ต</b>เลือก แล้วใช้แถบล่างพิมพ์เลข/สัญลักษณ์ · บนคอมพิมพ์ <b>1–7</b> ได้เลย · <b>Backspace</b> ลบชิด · <b>Delete</b> เว้นช่องว่าง · แตะ<b>คำ</b>เลือกคำ
+      แตะ<b>โน้ต</b>เลือก แล้วพิมพ์เลข <b>1–7</b> หรือใช้แถบเครื่องมือ · <b>Backspace</b> ลบ · ← → ↑ ↓ เลื่อน · แตะ<b>คำ</b>เลือกคำ
     </div>
 
     <div
@@ -861,11 +901,15 @@ function onSeek({ li, si, syk }) {
       @set-all="setAll"
     />
 
-    <!-- EPIC C — the note-input bar (number pad + jianpu symbols + แทรก/ทับ). Appears while
-         editing; makes note entry work on a phone (no hardware keyboard). Reuses the shared
-         edit engine via SongViewer's bar* handlers. -->
+    <!-- EPIC C — the note-input surface (number pad + jianpu symbols + แทรก/ทับ). While editing:
+         a floating popup glued to the selected note on a WIDE screen (fades while you type), or a
+         bottom keyboard-accessory bar on a phone (the only way to enter notes without a hardware
+         keyboard). Chosen by width, never hover/pointer. Same edit engine via bar* handlers. -->
     <NoteInputBar
-      v-if="editMode"
+      v-if="editMode && (!isWide || noteRect)"
+      :variant="isWide ? 'popup' : 'bar'"
+      :anchor="isWide ? noteRect : null"
+      :dimmed="dimPopup"
       :mode="typeMode"
       @digit="barType"
       @octave="barOctave"

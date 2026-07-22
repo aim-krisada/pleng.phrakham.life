@@ -1,21 +1,58 @@
 <script setup>
-// The contextual note-input bar (EPIC C · locked ground-up wireframe: "[123] [♯♭·] … 🎼โครง").
-// A bottom keyboard-accessory that appears while editing a note on the sheet, so the number
-// pad + jianpu symbols are always in the thumb zone — this is what makes editing work on a
-// PHONE (พี่เปา's bottleneck), where there is no hardware keyboard. Desktop keeps its physical
-// keys AND this bar. It is a THIN presenter: it just emits intents; SongViewer runs the shared
-// edit engine (lib/songEdit). Chord picker + desktop float-near-cursor + fade-on-type = next step.
-defineProps({
+// The contextual note-input surface (EPIC C · locked design). Two presentations, ONE set of
+// keys — the presentation is chosen by VIEWPORT WIDTH, never by hover/pointer (a touch laptop
+// like the Surface reports pointer:coarse even with a mouse, so hover-gating hides controls):
+//   • variant "popup"  (desktop / wide) — floats anchored to the selected note, above or below
+//     its line so it never covers the note; fades + goes click-through while typing fast, and
+//     reappears on pause / when a note is clicked ("ผู้ช่วยเงียบขรึม").
+//   • variant "bar" (mobile / narrow) — a keyboard-accessory pinned to the bottom, the only way
+//     to enter notes on a phone (no hardware keyboard — พี่เปา's bottleneck).
+// It is a THIN presenter: it emits intents; SongViewer runs the shared edit engine (lib/songEdit).
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+
+const props = defineProps({
+  variant: { type: String, default: 'bar' }, // 'bar' | 'popup'
+  anchor: { type: Object, default: null }, // selected-note rect {top,bottom,left,width} (popup)
+  dimmed: { type: Boolean, default: false }, // fade + click-through while typing (popup)
   mode: { type: String, default: 'insert' }, // 'insert' | 'overwrite' — the แทรก/ทับ state
 })
 const emit = defineEmits(['digit', 'octave', 'accidental', 'toggle-mode', 'backspace', 'rest'])
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7']
+
+// ---- popup positioning: float above the note's line, or below if there is no room above,
+// and clamp horizontally so it never runs off screen. Never covers the anchor note itself. ----
+const rootEl = ref(null)
+const pos = ref({ top: 0, left: 0 })
+function place() {
+  if (props.variant !== 'popup' || !props.anchor || !rootEl.value) return
+  const el = rootEl.value
+  const w = el.offsetWidth || 320
+  const h = el.offsetHeight || 56
+  const a = props.anchor
+  const gap = 10
+  let top = a.top - h - gap // prefer ABOVE the note's line
+  if (top < 8) top = a.bottom + gap // no room above → go below
+  let left = a.left + a.width / 2 - w / 2 // centre on the note
+  left = Math.max(8, Math.min(left, window.innerWidth - w - 8))
+  pos.value = { top: Math.round(top), left: Math.round(left) }
+}
+watch(() => props.anchor, () => nextTick(place), { deep: true })
+watch(() => props.variant, () => nextTick(place))
+onMounted(() => { nextTick(place); window.addEventListener('resize', place) })
+onUnmounted(() => window.removeEventListener('resize', place))
 </script>
 
 <template>
-  <div class="nib no-print" role="toolbar" aria-label="แป้นพิมพ์โน้ต">
+  <div
+    ref="rootEl"
+    class="nib no-print"
+    :class="[variant === 'popup' ? 'nib-pop' : 'nib-bar', { dimmed: variant === 'popup' && dimmed }]"
+    :style="variant === 'popup' ? { top: pos.top + 'px', left: pos.left + 'px' } : null"
+    role="toolbar"
+    aria-label="แป้นพิมพ์โน้ต"
+  >
     <div class="nib-scroll">
-      <!-- แทรก/ทับ — moved here from the sheet header so it rides next to your hand -->
+      <!-- แทรก/ทับ — next to your hand -->
       <button
         class="nib-key nib-mode" :class="{ ins: mode === 'insert' }"
         :aria-label="mode === 'insert' ? 'โหมดแทรก (แตะเพื่อเปลี่ยนเป็นทับ)' : 'โหมดทับ (แตะเพื่อเปลี่ยนเป็นแทรก)'"
@@ -24,39 +61,51 @@ const DIGITS = ['1', '2', '3', '4', '5', '6', '7']
       >{{ mode === 'insert' ? 'แทรก' : 'ทับ' }}</button>
       <span class="nib-sep" aria-hidden="true"></span>
 
-      <!-- scale digits -->
       <button v-for="d in DIGITS" :key="d" class="nib-key nib-num" :aria-label="'โน้ต ' + d" @click="emit('digit', d)">{{ d }}</button>
       <span class="nib-sep" aria-hidden="true"></span>
 
-      <!-- octave + accidentals -->
       <button class="nib-key" title="ยกเสียงสูงขึ้นหนึ่งช่วง (จุดบนโน้ต)" aria-label="สูงขึ้นหนึ่งช่วงเสียง" @click="emit('octave', 1)"><b>สูง</b> ↑</button>
       <button class="nib-key" title="ลดเสียงต่ำลงหนึ่งช่วง (จุดล่างโน้ต)" aria-label="ต่ำลงหนึ่งช่วงเสียง" @click="emit('octave', -1)"><b>ต่ำ</b> ↓</button>
       <button class="nib-key nib-acc" title="ครึ่งเสียงขึ้น (ชาร์ป)" aria-label="ชาร์ป" @click="emit('accidental', '#')">♯</button>
       <button class="nib-key nib-acc" title="ครึ่งเสียงลง (แฟลต)" aria-label="แฟลต" @click="emit('accidental', 'b')">♭</button>
       <span class="nib-sep" aria-hidden="true"></span>
 
-      <!-- deletes: ลบชิด (pull tight) · ตัวหยุด (leave a gap = rest) -->
-      <button class="nib-key nib-del" title="ลบโน้ต ดึงตัวที่เหลือมาชิด" aria-label="ลบโน้ตดึงชิด" @click="emit('backspace')">⌫ ลบ</button>
-      <button class="nib-key" title="เปลี่ยนเป็นตัวหยุด (เงียบ) ตำแหน่งอื่นไม่ขยับ" aria-label="เปลี่ยนเป็นตัวหยุด" @click="emit('rest')">ตัวหยุด</button>
+      <button class="nib-key nib-del" title="ลบโน้ต/คำที่เลือก" aria-label="ลบสิ่งที่เลือก" @click="emit('backspace')">⌫ ลบ</button>
+      <button class="nib-key" title="เปลี่ยนโน้ตเป็นตัวหยุด (เงียบ) คำยังอยู่" aria-label="เปลี่ยนเป็นตัวหยุด" @click="emit('rest')">ตัวหยุด</button>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* keyboard-accessory bar: fixed to the bottom, full width, above the safe-area inset. It is
-   the primary bottom control while editing (the play transport steps aside — locked wireframe
-   context B). Horizontal scroll if the keys don't fit a narrow phone; the page never scrolls. */
 .nib {
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #d9d0c4);
+  box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.12);
+  z-index: 45;
+}
+/* mobile — keyboard-accessory pinned to the bottom, full width */
+.nib-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 45;
-  background: var(--surface, #fff);
-  border-top: 1px solid var(--line, #d9d0c4);
-  box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.12);
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
 }
+/* desktop — a floating popup anchored to the selected note (top/left set inline) */
+.nib-pop {
+  position: fixed;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+  padding: 6px;
+  transition: opacity 0.15s ease;
+}
+/* fades + goes click-through while typing fast, so it never hides the notes you are entering */
+.nib-pop.dimmed { opacity: 0.12; pointer-events: none; }
 .nib-scroll {
   display: flex;
   align-items: center;
@@ -88,11 +137,9 @@ const DIGITS = ['1', '2', '3', '4', '5', '6', '7']
 .nib-key:active { transform: translateY(1px); }
 .nib-key:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
 .nib-key b { font-size: 12px; font-weight: 700; }
-/* the number keys are the stars — bigger digit, monospace like the sheet's notation */
 .nib-num { font-family: 'Courier New', monospace; font-weight: 700; font-size: 19px; color: var(--note-blue, #1d4ed8); min-width: 40px; }
 .nib-acc { font-size: 20px; }
 .nib-del { color: var(--brand, #8b4513); }
-/* แทรก/ทับ — filled when active so the current mode is unmistakable */
 .nib-mode {
   font-size: 13px; font-weight: 700;
   border-color: var(--brand, #8b4513); color: var(--brand, #8b4513);
