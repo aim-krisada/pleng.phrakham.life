@@ -65,3 +65,27 @@
 - verify (worktree): node import `src/lib/*` + `curl 127.0.0.1:<port>` · preview attach ไม่ถึง worktree · **ห้าม deploy/merge main**
 - ฝั่งโครงสร้าง (Drawer การ์ด + Make-Unique) + selection-driven (ซ่อนตาม scope) = ทำหลัง inline core (ดู US EPIC C/D)
 - ฝั่งสมอง (D.C./Segno · compact) = อีกสาย ทำทีหลัง
+
+---
+
+## ▶ STATE 22 ก.ค. (ค่ำ) — handoff ต่อ session ใหม่ (inline edit)
+
+**branch `editor-usability` (worktree pleng-editor-ux · dev `npm run dev -- --host --port 5310`) — commit ล่าสุด `ff444ca`. ทำ *ต่อ* จากนี้ ไม่เริ่มใหม่.**
+
+เครื่องมือแก้ทั้งหมดอยู่ 3 ไฟล์: `lib/songEdit.js` (pure engine + tests `songEdit.test.js`) · `components/NoteInputBar.vue` (แถบ/ป็อปอัพ) · `components/SongViewer.vue` (orchestrator). เทสต์ ~204–224 ผ่าน (รัน `npx vitest run src/components/EditorMode src/components/SongViewer.play.test.js src/components/SongSheet.test.js src/lib/songEdit.test.js`).
+
+**ทำเสร็จ + P'Aim ตรวจผ่าน:**
+- เลือก/นำทาง 2D: ← → ในแถว · ↓ โน้ต→คำ / คำ→โน้ตบรรทัดล่าง · ↑ กลับ · Ctrl+←→ ข้ามห้อง · Ctrl+↑↓ ข้ามบรรทัด
+- **ช่องพิมพ์โฟกัส → คีย์บอร์ดจริง** (แป้นเลข=โน้ต · แป้นไทย=เนื้อ) · แก้ **เนื้อร้อง inline** ได้ (`.sv-capture` on-word เนียน ไม่มีกล่องลอย) · กดดินสอโฟกัสทันที (ไม่ต้องคลิกซ้ำ)
+- พิมพ์เลข = **ทับ default ลงตรงโน้ต + อยู่ที่โน้ตเดิม** (ไม่เด้ง ใส่ octave/♯ ต่อได้) · Enter/→/space = ไปโน้ตถัดไป · **แทรก = แทรกหลัง** (Insert สลับโหมด)
+- คีย์บนคอม: `#`=ชาร์ป `b`=แฟลต · octave/♯♭ = ปุ่มใน popup (คอม) / แถบ (มือถือ)
+- ลบ: **Delete**=อยู่กับที่ (โน้ต→ตัวหยุด · คำ→ว่าง) · **Backspace**=เอาออกทั้งช่อง (ลบโน้ตหมดห้อง คอร์ดหายเอง)
+- **คอร์ด**: ปุ่ม picker ใส่/เปลี่ยน/ล้าง (`withChord` · chordOptions)
+- แถบปุ่มพิเศษ: คอม=popup ลอยข้างโน้ต (grip ลากได้ · (i)ฟ้า help · หลบใต้ header ไม่โดนบัง) · มือถือ=แถบเหนือคีย์บอร์ด (visualViewport) + ลูกศร ← ↑ ↓ →
+- ripple เนื้อทุกข้อที่แชร์ทำนอง
+
+**ยังค้าง (P'Aim ยังไม่เคาะ/ยังไม่ทำ):**
+1. **จัดคำแป๊ะใต้โน้ต** — ตอนนี้เหลื่อม ~1–8px (มีกลไก bug 010 กระจายอยู่แล้ว · residual จากขอบโน้ต octave/acc). จะแป๊ะ 0px ต้องรื้อ layout แผ่นเพลงเป็น **ตาราง** = แตะ NoteRow (คาน/เส้นโยง) + `styles.css` แชร์ + **ต้องพิมพ์ PDF จริงตรวจ**. รอ P'Aim เคาะ: รับ ~1–8px หรือรื้อ.
+2. **เทสต์มือถือจริง (โดยเฉพาะ iOS)** — คีย์บอร์ดเด้ง · แถบลอยเหนือคีย์บอร์ด (visualViewport) · พิมพ์เนื้อไทย · ลูกศร. verify ใน pane ไม่ได้ (PM มอบ P'Aim/tester).
+
+**merge = งานสุดท้าย · PM (pl pm 39) เป็นคน merge เข้า base `studio-shell-redesign`.** ก่อน merge: pull base ล่าสุด + `npm install` (base เพิ่ม dep `qrcode-generator`) · watch conflict `styles.css`. ห้าม merge เอง · ห้าม deploy/main.
