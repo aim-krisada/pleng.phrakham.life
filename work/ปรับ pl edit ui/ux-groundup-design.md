@@ -112,6 +112,15 @@
 ## Responsive + a11y
 fluid 320→∞ (360/375/412 · Fold · tablet · desktop · 2 orientation) · target ≥44 · ไม่มี h-scroll · touch=full-screen/bottom-sheet · pointer=popover/แถบ · contrast ≥4.5 · focus-visible · theme tokens · ไอคอนมี aria-label · FAB เคารพ safe-area
 
+## UI i18n — ภาษาแอป (เผื่อ ไทย/จีน/อังกฤษ · P'Aim 22 ก.ค.)
+**นี่คือภาษาของ interface (ปุ่ม/เมนู/ข้อความแอป) — คนละเรื่องกับเนื้อเพลงหลายภาษา (US-F1)** · **เผื่อตอนนี้ = ถูก+ถูกเวลา** (retrofit ทีหลังแพง)
+- **externalize ข้อความ UI ทุกตัวผ่าน layer เดียว** (`t('key')` + `src/i18n/th.js`…) — ห้าม hard-code ไทยกระจาย · ตอนนี้เติมแค่ `th` · เพิ่ม `zh`/`en` = เพิ่มไฟล์ locale (ไม่รื้อ)
+- **ตัวสลับภาษาใน ☰/ตั้งค่า** (ไทย default · 中文 · English) · detect ภาษาเบราว์เซอร์ครั้งแรก · จำใน **localStorage (ไม่มี account)** ตรง mission
+- **layout ยืดหยุ่นรับความยาวต่างภาษา** — จีนสั้น/อังกฤษยาวกว่าไทย → ห้ามปุ่ม/ป้ายกว้างตายตัว (สอดคล้อง responsive อยู่แล้ว)
+- **font stack ครอบ ไทย + CJK (จีน) + Latin** — ให้ตัวจีนไม่กล่อง (เพิ่ม CJK fallback)
+- **ship ไทยก่อน** · โครงพร้อม zh/en · ไม่ต้องแปลครบตอนนี้ (แค่ "เผื่อ" โครง)
+- **กระทบทั้ง 2 สาย** — string ที่เขียนใหม่ต้องผ่าน `t()` ตั้งแต่แรก (สาย 2 กำลังเขียน UI = ต้องรู้ก่อน)
+
 ## Reuse ตอน build (ของมีครบ — UX เป็นรูปทรงใหม่ ไม่ใช่ฟีเจอร์ใหม่)
 - แผ่นเพลง+ไฮไลต์+Play = `SongViewer`/`SongSheet` (มี) · แก้ inline = ดีไซน์ที่ล็อก + `useSongEdit` (สาย 1) · โครง Drawer = โครงเพลง rail เดิม · ค้น/bookshelf = `SongList` (คง) · แชร์/★/playlist = `lib/share·favorites·playlists` (ใหม่) · print/download = `ExportTool` (มี)
 - **net-new จริง:** ปุ่ม ＋สร้าง (ที่ถูกที่), ✏️ บนแผ่น, ↗แชร์+QR, ★, playlist, ยุบ shell/☰, ตัด mode tabs
