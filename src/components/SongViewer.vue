@@ -158,6 +158,7 @@ const inlineCells = computed(() => {
     const ei = line._entryIndex ?? 0 // which ท่อน (verse) this display line belongs to
     let si = -1
     let bi = 0 // ห้อง (bar) ordinal within the line — bumped at each bar marker
+    let col = 0 // note COLUMN within the line (the word sits in the same column, below)
     for (const item of line) {
       if (item.type === 'bar') { bi++; continue }
       if (item.type !== 'segment') continue
@@ -165,8 +166,9 @@ const inlineCells = computed(() => {
       let slot = 0
       for (const kind of noteBoxKinds(item.note || '')) {
         if (kind === 'struct') continue // slur/triplet brackets aren't their own note
-        cells.push({ li, si, syk: slot, bi, ei })
+        cells.push({ li, si, syk: slot, bi, ei, col })
         slot++
+        col++
       }
     }
   })
@@ -195,30 +197,47 @@ function selectUnit(li, si, syk, layer) {
 }
 // point the cursor at a whole cell's NOTE unit (coarse jumps + typing land on the note)
 function gotoCellNote(cell) { if (cell) selectUnit(cell.li, cell.si, cell.syk, 'note') }
-// ← → : one fine unit (note↔word interleaved)
+// Arrows move in the ACTUAL on-screen direction (notes = top row, that note's word = the row
+// just below it, lines stacked downward). Never gate on hover/pointer — plain geometry.
+// interleaved single step (note→word→note…) — used by the mobile ◀ ▶ and Space (no ↑↓ there)
 function moveUnit(step) {
   const n = editUnits.value.length
   if (!n) return
   if (curIdx.value < 0) { curIdx.value = step > 0 ? 0 : n - 1; return }
   curIdx.value = Math.max(0, Math.min(curIdx.value + step, n - 1))
 }
-// after typing a note, jump to the NEXT note unit (skip its word) — melody-entry flow
+// after typing a note, jump to the NEXT note (skip its word) — melody-entry flow
 function advanceNote() { curIdx.value = Math.min(curIdx.value + 2, lastNoteIdx.value) }
-// ↑ ↓ : nearest note on the line above/below (บรรทัด), keeping it on the note layer
-function moveLine(dir) {
-  const cells = inlineCells.value
-  const cur = selCell.value
-  if (!cur) { moveUnit(dir > 0 ? 1 : -1); return }
-  const targetLi = cur.li + dir
-  let best = null
-  cells.forEach((c) => {
-    if (c.li !== targetLi) return
-    if (!best || Math.abs(c.si - cur.si) < Math.abs(best.si - cur.si)) best = c
+// land on the nearest unit of (targetLi, layer) to the given column
+function gotoLineLayer(targetLi, col, layer) {
+  let bestI = -1, bestD = Infinity
+  editUnits.value.forEach((u, i) => {
+    if (u.li !== targetLi || u.layer !== layer) return
+    const d = Math.abs(u.col - col)
+    if (d < bestD) { bestD = d; bestI = i }
   })
-  gotoCellNote(best)
+  if (bestI >= 0) curIdx.value = bestI
 }
-// Ctrl+← → : jump by ห้อง (bar). Next = first note of the next bar; Prev = first note of THIS
-// bar, or the previous bar if already at its start (text-editor word-jump feel).
+// ← → : one step LEFT/RIGHT within the SAME row (note→note or word→word = same parity, ±2)
+function moveHoriz(step) {
+  const t = curIdx.value + step * 2
+  if (t >= 0 && t < editUnits.value.length) curIdx.value = t
+}
+// ↓ ↑ : one step DOWN/UP as drawn. down: note→its word, word→next line's note.
+// up: word→its note, note→previous line's word.
+function moveVert(dir) {
+  const u = curUnit.value
+  if (!u) { moveUnit(dir > 0 ? 1 : -1); return }
+  if (dir > 0) {
+    if (u.layer === 'note') curIdx.value = curIdx.value + 1 // down to its word
+    else gotoLineLayer(u.li + 1, u.col, 'note') // word → note of the line below
+  } else {
+    if (u.layer === 'word') curIdx.value = curIdx.value - 1 // up to its note
+    else gotoLineLayer(u.li - 1, u.col, 'word') // note → word of the line above
+  }
+}
+// Ctrl+← → : skip a whole ห้อง (bar). Next = first note of the next bar; Prev = first note of
+// this bar, else the previous bar (text-editor word-jump feel).
 function moveBar(dir) {
   const cells = inlineCells.value
   const cur = selCell.value
@@ -226,31 +245,18 @@ function moveBar(dir) {
   const ci = cells.findIndex((c) => c.li === cur.li && c.si === cur.si && c.syk === cur.syk)
   const key = (c) => `${c.li}-${c.bi}`
   if (dir > 0) {
-    const target = cells.slice(ci + 1).find((c) => key(c) !== key(cells[ci]))
-    gotoCellNote(target)
+    gotoCellNote(cells.slice(ci + 1).find((c) => key(c) !== key(cells[ci])))
   } else {
     const barStart = cells.slice(0, ci).reverse().find((c) => key(c) !== key(cells[ci]))
     if (!barStart) { gotoCellNote(cells[0]); return }
-    // step to the FIRST cell of the previous bar
-    const prevKey = key(barStart)
-    gotoCellNote(cells.find((c) => key(c) === prevKey) || barStart)
+    gotoCellNote(cells.find((c) => key(c) === key(barStart)) || barStart)
   }
 }
-// Ctrl+↑ ↓ : jump by ท่อน (verse) — first note of the prev/next arrangement entry (ei)
-function moveVerse(dir) {
-  const cells = inlineCells.value
-  const cur = selCell.value
-  if (!cur) { moveUnit(dir > 0 ? 1 : -1); return }
-  const ci = cells.findIndex((c) => c.li === cur.li && c.si === cur.si && c.syk === cur.syk)
-  const curEi = cells[ci]?.ei
-  let target = null
-  if (dir > 0) {
-    target = cells.slice(ci + 1).find((c) => c.ei !== curEi) // first cell of the next verse
-  } else {
-    const prevEi = [...cells.slice(0, ci)].reverse().find((c) => c.ei < curEi)?.ei
-    if (prevEi != null) target = cells.find((c) => c.ei === prevEi) // first cell of the previous verse
-  }
-  gotoCellNote(target)
+// Ctrl+↑ ↓ : skip a whole บรรทัด (line) — nearest note of the line above/below
+function moveLineJump(dir) {
+  const u = curUnit.value
+  if (!u) { moveUnit(dir > 0 ? 1 : -1); return }
+  gotoLineLayer(u.li + dir, u.col, 'note')
 }
 // how a typed digit behaves — 'insert' (default: a new note pushes the rest right, like typing
 // in Word) or 'overwrite' (replace just this note). AC-B1.3. The Insert key flips it.
@@ -258,10 +264,10 @@ const typeMode = ref('insert')
 function onInlineKey(e) {
   if (!editMode.value) return
   const ctrl = e.ctrlKey || e.metaKey
-  if (e.key === 'ArrowRight') { e.preventDefault(); ctrl ? moveBar(1) : moveUnit(1) }
-  else if (e.key === 'ArrowLeft') { e.preventDefault(); ctrl ? moveBar(-1) : moveUnit(-1) }
-  else if (e.key === 'ArrowDown') { e.preventDefault(); ctrl ? moveVerse(1) : moveLine(1) }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); ctrl ? moveVerse(-1) : moveLine(-1) }
+  if (e.key === 'ArrowRight') { e.preventDefault(); ctrl ? moveBar(1) : moveHoriz(1) }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); ctrl ? moveBar(-1) : moveHoriz(-1) }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); ctrl ? moveLineJump(1) : moveVert(1) }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); ctrl ? moveLineJump(-1) : moveVert(-1) }
   else if (e.key === 'Home') { e.preventDefault(); curIdx.value = 0 }
   else if (e.key === 'End') { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
   else if (e.key === 'Insert') { e.preventDefault(); typeMode.value = typeMode.value === 'insert' ? 'overwrite' : 'insert' }
@@ -868,7 +874,7 @@ function onSeek({ li, si, syk }) {
 
     <!-- while editing: a small hint + autosave note ride above the sheet -->
     <div v-if="editMode" class="sv-edit-hint no-print" role="status">
-พิมพ์เลข <b>1–7</b> เปลี่ยนโน้ต · <b>← →</b> เดินทีละหน่วย (โน้ต↔คำ) · <b>↑ ↓</b> ข้ามบรรทัด · <b>Ctrl+← →</b> ข้ามห้อง · <b>Ctrl+↑ ↓</b> ข้ามท่อน · <b>Backspace</b> ลบ (บนมือถือใช้ปุ่ม ◀ ▶ ในแถบ)
+พิมพ์เลข <b>1–7</b> · <b>← →</b> ซ้าย-ขวาในแถว · <b>↓</b> โน้ต→คำ · <b>↑</b> คำ→โน้ต · <b>Ctrl+← →</b> ข้ามห้อง · <b>Ctrl+↑ ↓</b> ข้ามบรรทัด · <b>Backspace</b> ลบ (มือถือใช้ปุ่ม ◀ ▶)
     </div>
 
     <div
