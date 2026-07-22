@@ -2,7 +2,12 @@ import { describe, it, expect } from 'vitest'
 import {
   noteBoxes, boxIndexForSlot, setNotePitch, locateSegment, withNotePitch,
   insertBoxAtSlot, removeBoxAtSlot, withInsertedNote, withDeletedNote, withRestAt,
+  withOctaveShift, withAccidental,
 } from './songEdit.js'
+
+const loc0 = (syk) => ({ resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk })
+const oneNote = (note) => ({ version: 2, stanzas: [{ id: 'A', lines: [[{ type: 'segment', note }]] }], arrangement: [{ stanza: 'A', syllables: [] }] })
+const noteOf = (c) => c.stanzas[0].lines[0][0].note
 
 describe('noteBoxes', () => {
   it('splits on whitespace; empty → one blank slot', () => {
@@ -157,7 +162,7 @@ describe('withDeletedNote — shrinks the melody + closes the slot in every vers
     const c = { version: 2, stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 0 3' }]] }], arrangement: [{ stanza: 'A', syllables: [] }] }
     expect(withRestAt(c, { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk: 1 })).toBe(c)
   })
-  it('an unrelated stanza is left untouched', () => {
+  it('an unrelated stanza is left untouched (delete)', () => {
     const c = {
       version: 2,
       stanzas: [
@@ -172,5 +177,32 @@ describe('withDeletedNote — shrinks the melody + closes the slot in every vers
     const after = withDeletedNote(c, { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk: 0 })
     expect(after.arrangement[0].syllables).toEqual(['b'])
     expect(after.arrangement[1]).toBe(c.arrangement[1]) // B verse untouched (===)
+  })
+})
+
+describe('withOctaveShift', () => {
+  it('up = drop a low dot, else add a high apostrophe', () => {
+    expect(noteOf(withOctaveShift(oneNote('.5 1'), loc0(0), 1))).toBe('5 1') // low → middle
+    expect(noteOf(withOctaveShift(oneNote('5 1'), loc0(0), 1))).toBe("5' 1") // middle → high
+  })
+  it('down = drop a high apostrophe, else add a low dot', () => {
+    expect(noteOf(withOctaveShift(oneNote("5' 1"), loc0(0), -1))).toBe('5 1')
+    expect(noteOf(withOctaveShift(oneNote('5 1'), loc0(0), -1))).toBe('.5 1')
+  })
+  it('leaves a rest (0) or hold (-) untouched', () => {
+    const c = oneNote('0 -')
+    expect(withOctaveShift(c, loc0(0), 1)).toBe(c)
+    expect(withOctaveShift(c, loc0(1), -1)).toBe(c)
+  })
+})
+
+describe('withAccidental', () => {
+  it('adds, and toggles off when pressed again', () => {
+    expect(noteOf(withAccidental(oneNote('5 1'), loc0(0), '#'))).toBe('#5 1')
+    expect(noteOf(withAccidental(oneNote('#5 1'), loc0(0), '#'))).toBe('5 1') // toggle off
+    expect(noteOf(withAccidental(oneNote('#5 1'), loc0(0), 'b'))).toBe('b5 1') // swap # → b
+  })
+  it('keeps a tie-end (~) marker in front of the accidental', () => {
+    expect(noteOf(withAccidental(oneNote('~5'), loc0(0), 'b'))).toBe('~b5')
   })
 })

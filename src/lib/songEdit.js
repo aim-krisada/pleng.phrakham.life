@@ -195,6 +195,48 @@ export function withDeletedNote(content, loc) {
   return withSegmentNote(content, at, newNote, rippleVerses(content, stanza.id, g, 'delete'))
 }
 
+// ---------- octave + accidental (same jianpu rules as EditorMode.octaveShift) ----------
+// One box token, shifted one octave: up = drop a leading low dot else add a high ' ; down =
+// drop a trailing high ' else add a low dot. Mirrors EditorMode so a note behaves the same
+// in both editors. Only real notes 1–7 (a rest 0 / hold '-' is left alone).
+function shiftBoxOctave(tok, dir) {
+  if (!/[1-7]/.test(tok)) return tok
+  if (dir > 0) return tok.startsWith('.') ? tok.slice(1) : tok + "'"
+  return tok.endsWith("'") ? tok.slice(0, -1) : '.' + tok
+}
+// Toggle a sharp/flat at the FRONT of the token (jianpu puts the accidental before the digit,
+// like NoteBoxes.fixAccidental). Pressing the same accidental again clears it.
+function toggleBoxAccidental(tok, acc) {
+  if (!/[1-7]/.test(tok)) return tok
+  let tie = ''
+  let v = tok
+  if (v.startsWith('~')) { tie = '~'; v = v.slice(1) } // keep a tie-end marker in front
+  const cur = v[0] === '#' || v[0] === 'b' || v[0] === 'n' ? v[0] : ''
+  const rest = cur ? v.slice(1) : v
+  return tie + (cur === acc ? '' : acc) + rest
+}
+function withBoxTransform(content, loc, fn) {
+  const { resolvedLine, si, syk } = loc
+  const at = locateSegment(content, resolvedLine, si)
+  if (!at) return content
+  const seg = content.stanzas[at.stanzaIndex].lines[at.lineIndex][at.segIndex]
+  const boxes = noteBoxes(seg.note || '')
+  const bi = boxIndexForSlot(seg.note || '', syk)
+  if (bi < 0) return content
+  const next = fn(boxes[bi])
+  if (next === boxes[bi]) return content
+  boxes[bi] = next
+  return withSegmentNote(content, at, boxes.join(' '), content.arrangement)
+}
+// Shift the selected note one octave (dir +1 up / −1 down). No ripple.
+export function withOctaveShift(content, loc, dir) {
+  return withBoxTransform(content, loc, (tok) => shiftBoxOctave(tok, dir))
+}
+// Toggle sharp ('#') or flat ('b') on the selected note. No ripple.
+export function withAccidental(content, loc, acc) {
+  return withBoxTransform(content, loc, (tok) => toggleBoxAccidental(tok, acc))
+}
+
 // "Leave-a-gap" delete: turn the note into a REST (0) but KEEP its slot, so the following
 // notes and every verse's words stay exactly where they are (the MuseScore/Dorico "Delete →
 // rest" behaviour). No ripple — the slot count is unchanged.

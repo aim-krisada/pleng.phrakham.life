@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withOctaveShift, withAccidental } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -26,6 +26,7 @@ import { bookRefLabels } from '../lib/bookCodes.js'
 import { noteBoxKinds } from '../lib/notation.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
+import NoteInputBar from './NoteInputBar.vue'
 import Icon from './Icon.vue'
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
@@ -264,6 +265,32 @@ function restNote() {
   const next = withRestAt(props.song.content, loc)
   if (next !== props.song.content) emit('update-content', next)
 }
+// octave ± and sharp/flat on the selected note (no ripple — the slot count is unchanged).
+function octaveSel(dir) {
+  const loc = selLoc()
+  if (!loc) return
+  const next = withOctaveShift(props.song.content, loc, dir)
+  if (next !== props.song.content) emit('update-content', next)
+}
+function accidentalSel(acc) {
+  const loc = selLoc()
+  if (!loc) return
+  const next = withAccidental(props.song.content, loc, acc)
+  if (next !== props.song.content) emit('update-content', next)
+}
+// ---- the input bar taps ----
+// The bar is the NOTE keypad, so a tap targets the note layer of the selected column (even
+// if a word was last tapped). Each tap routes through the SAME edit funcs the keys use.
+function barType(d) {
+  if (selIdx.value < 0) return
+  selLayer.value = 'note'
+  if (typeMode.value === 'insert') insertDigit(d)
+  else { overwriteDigit(d); moveSel(1) }
+}
+function barOctave(dir) { if (selIdx.value >= 0) { selLayer.value = 'note'; octaveSel(dir) } }
+function barAccidental(acc) { if (selIdx.value >= 0) { selLayer.value = 'note'; accidentalSel(acc) } }
+function barBackspace() { if (selIdx.value >= 0) { selLayer.value = 'note'; deleteNote() } }
+function barRest() { if (selIdx.value >= 0) { selLayer.value = 'note'; restNote() } }
 // a note click bubbles to the wrapper — read the exact note from .nt[data-idx] in its
 // .segment[data-seg] (a word .syl is @click.stop, so it comes back through onSeek instead)
 function onInlinePick(e) {
@@ -746,19 +773,7 @@ function onSeek({ li, si, syk }) {
 
     <!-- while editing: a small hint + autosave note ride above the sheet -->
     <div v-if="editMode" class="sv-edit-hint no-print" role="status">
-      <span>แตะ<b>โน้ต</b>เลือก แล้วพิมพ์เลข <b>1–7</b> · <b>Backspace</b> ลบชิด · <b>Delete</b> เว้นช่องว่าง · ← → ↑ ↓ เลื่อน · แตะ<b>คำ</b>เลือกคำ</span>
-      <span class="sv-mode" role="group" aria-label="โหมดพิมพ์โน้ต">
-        <button
-          class="sv-mode-btn" :class="{ on: typeMode === 'insert' }" :aria-pressed="typeMode === 'insert'"
-          title="แทรก — พิมพ์แล้วเพิ่มโน้ตใหม่ ดันตัวอื่นไปขวา"
-          @click="typeMode = 'insert'"
-        >แทรก</button>
-        <button
-          class="sv-mode-btn" :class="{ on: typeMode === 'overwrite' }" :aria-pressed="typeMode === 'overwrite'"
-          title="ทับ — พิมพ์แล้วเปลี่ยนเฉพาะโน้ตที่เลือก บรรทัดไม่ขยับ"
-          @click="typeMode = 'overwrite'"
-        >ทับ</button>
-      </span>
+      แตะ<b>โน้ต</b>เลือก แล้วใช้แถบล่างพิมพ์เลข/สัญลักษณ์ · บนคอมพิมพ์ <b>1–7</b> ได้เลย · <b>Backspace</b> ลบชิด · <b>Delete</b> เว้นช่องว่าง · แตะ<b>คำ</b>เลือกคำ
     </div>
 
     <div
@@ -812,8 +827,10 @@ function onSeek({ li, si, syk }) {
     </div>
 
     <!-- the sing dock — DockKey core engine, fed the ITEMS_SING descriptor list by
-         <SingTransport>. Fixed at the bottom; the engine owns collapse/drag/Setting/clamp. -->
+         <SingTransport>. Fixed at the bottom; the engine owns collapse/drag/Setting/clamp.
+         While editing, it steps aside for the note-input bar (locked wireframe context B). -->
     <SingTransport
+      v-show="!editMode"
       :playing="playing"
       :loop="loop"
       :frac="frac"
@@ -842,6 +859,20 @@ function onSeek({ li, si, syk }) {
       @jump="onJump"
       @toggle-section="toggleSection"
       @set-all="setAll"
+    />
+
+    <!-- EPIC C — the note-input bar (number pad + jianpu symbols + แทรก/ทับ). Appears while
+         editing; makes note entry work on a phone (no hardware keyboard). Reuses the shared
+         edit engine via SongViewer's bar* handlers. -->
+    <NoteInputBar
+      v-if="editMode"
+      :mode="typeMode"
+      @digit="barType"
+      @octave="barOctave"
+      @accidental="barAccidental"
+      @toggle-mode="typeMode = typeMode === 'insert' ? 'overwrite' : 'insert'"
+      @backspace="barBackspace"
+      @rest="barRest"
     />
   </div>
 </template>
@@ -874,8 +905,13 @@ function onSeek({ li, si, syk }) {
 .sv-fab:hover { box-shadow: 0 5px 16px rgba(0, 0, 0, 0.34); transform: translateY(-1px); }
 .sv-fab:active { transform: translateY(0); }
 .sv-fab:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
-/* editing → a green "done" (✓), the Google-Docs affordance to leave edit mode */
-.sv-fab.editing { background: #16a34a; }
+/* editing → a green "done" (✓), the Google-Docs affordance to leave edit mode. While
+   editing, the play dock is hidden and the ~60px note-input bar sits at the bottom, so the
+   FAB drops to just above THAT bar (same on desktop + phone). */
+.sv-fab.editing {
+  background: #16a34a;
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+}
 /* phone: the dock is ~full-width at the bottom, so lift the FAB clear of it */
 @media (max-width: 640px) {
   .sv-fab { right: 16px; bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
@@ -892,26 +928,6 @@ function onSeek({ li, si, syk }) {
   flex-wrap: wrap;
 }
 .sv-edit-hint b { color: var(--text, #0f172a); }
-/* แทรก/ทับ mode toggle — a small segmented control (like Word's INS/OVR) */
-.sv-mode {
-  display: inline-flex;
-  border: 1px solid var(--line, #d9d0c4);
-  border-radius: 8px;
-  overflow: hidden;
-  flex: 0 0 auto;
-}
-.sv-mode-btn {
-  border: none;
-  background: transparent;
-  color: var(--muted, #64748b);
-  font: inherit;
-  font-size: 12px;
-  padding: 4px 10px;
-  min-height: 30px;
-  cursor: pointer;
-}
-.sv-mode-btn.on { background: var(--brand, #8b4513); color: #fff; font-weight: 700; }
-.sv-mode-btn:focus-visible { outline: 2px solid rgba(37, 99, 235, 0.5); outline-offset: -2px; }
 
 /* the sheet is the edit surface — a soft focus ring shows it is "live" */
 .sheet-scale.sv-editing {
