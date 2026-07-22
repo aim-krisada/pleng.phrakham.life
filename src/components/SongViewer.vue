@@ -343,8 +343,11 @@ const showToolbar = computed(() => {
 const noteRect = ref(null)
 function updateNoteRect() {
   if (!editMode.value || !sheetWrap.value) { noteRect.value = null; return }
-  // anchor to the selected note glyph; fall back to the selected word (word layer)
-  const el = sheetWrap.value.querySelector('.nt-sel-active, .nt-sel, .syl-sel-active, .syl-sel')
+  // anchor to the element of the CURRENT layer — the word span for word edits, the note glyph
+  // for notes (a note+word column stacks the note ABOVE the word, so mixing them mis-places the
+  // inline field ~30px high).
+  const sel = selLayer.value === 'word' ? '.syl-sel-active, .syl-sel' : '.nt-sel-active, .nt-sel'
+  const el = sheetWrap.value.querySelector(sel)
   if (!el) { noteRect.value = null; return }
   const r = el.getBoundingClientRect()
   noteRect.value = { top: r.top, bottom: r.bottom, left: r.left, width: r.width }
@@ -384,16 +387,23 @@ const currentWord = computed(() => {
 // context sits there; a word shows its text, a note stays transparent (just holds focus).
 const captureStyle = computed(() => {
   const r = noteRect.value
-  if (!r) return { display: 'none' }
-  const base = { position: 'fixed', left: r.left + 'px', top: r.top + 'px', height: Math.max(18, r.bottom - r.top) + 'px' }
+  // no rect yet (just entered edit) — keep it off-screen but FOCUSABLE (display:none can't be
+  // focused, which is why pressing the pencil used to need a second click to start typing)
+  if (!r) return { position: 'fixed', left: '-9999px', top: '0', width: '1px', height: '1px', opacity: 0 }
+  const h = Math.max(16, r.bottom - r.top)
+  const base = { position: 'fixed', left: r.left + 'px', top: r.top + 'px', height: h + 'px' }
+  // WORD: an explicit width that hugs the word (a text input would otherwise default to ~20
+  // chars ≈ 216px and float over its neighbours) — grows a little so a few characters fit.
   return selLayer.value === 'word'
-    ? { ...base, minWidth: Math.max(r.width, 44) + 'px' }
+    ? { ...base, width: Math.max(r.width + 10, 32) + 'px' }
     : { ...base, width: Math.max(r.width, 12) + 'px', opacity: 0, pointerEvents: 'none' }
 })
 async function focusCapture() {
   await nextTick()
+  // Find the field via the DOM, not the template ref — on the FIRST mount (pressing the pencil)
+  // the ref can lag a tick, which is why focus used to need a second click.
+  const el = captureInput.value || sheetWrap.value?.querySelector('.sv-capture')
   updateNoteRect()
-  const el = captureInput.value
   if (!el || !editMode.value || !selCell.value) return
   if (selLayer.value === 'word') {
     if (el.value !== currentWord.value) el.value = currentWord.value
@@ -1166,6 +1176,10 @@ function onSeek({ li, si, syk }) {
   background: transparent;
   font: inherit;
   padding: 0;
+  min-height: 0; /* beat the global input min-height so it hugs the word's line height */
+  min-width: 0;
+  box-sizing: border-box;
+  line-height: 1.1;
 }
 /* WORD edit = INLINE, seamless: sit exactly over the word, same font, opaque sheet background
    (covers the underlying word cleanly), no box — just a thin brand underline as the "editing"
