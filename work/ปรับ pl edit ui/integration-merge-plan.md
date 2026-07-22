@@ -25,6 +25,10 @@
 - **รันเทสต์เต็ม** (`*.test.js` โดยเฉพาะ `EditorMode.*` 211) · **verify live** (localhost + มือถือจริง) · ไม่ h-scroll · WCAG target
 - P'Aim verify รอบสุดท้ายก่อน **main/deploy** (สั่ง go เท่านั้น)
 
+## งาน post-merge (หลัง 3 สาย land แล้ว)
+- **wire ปุ่มแชร์/เพลย์ลิสต์ บนหน้าเพลง (`Studio.vue` = lane สาย 1)** — engine พร้อมจากสาย 2: `↗ แชร์` = `buildSongUrl` + เปิด `ShareSheet`/`nativeShare` · `⋮ เพิ่มเข้าเพลย์ลิสต์` = `toggleSong` (`lib/playlists`) · ทำได้หลัง branch สาย 2 merge (engine ถึงจะอยู่บน base) · เข้าชุดกับ song-shell ground-up (§1.5: ตัด tab · Play · ✏️ · ↗ · ⋮ · footer)
+- **แปล zh/en (PM):** ดึง key จาก `src/i18n/th.js` (namespace: brand/nav/action/a11y/font/lang/list/share/playlist) → เพิ่ม `zh.js`/`en.js` key เดียวกัน + register ใน `src/i18n/index.js` (DICTS) · ทำหลัง i18n merge เข้า base (เลี่ยงแตะ worktree สาย 2 ที่ยัง active)
+
 ## หมายเหตุ
 - 3 สายอยู่คนละ worktree → ไม่ชน live ระหว่างทำ · เจอกันแค่ตอน merge นี้
 - ถ้าสายไหนเผลอแตะไฟล์นอกขอบเขต (เช่น home/nav แตะ Studio.vue) = PM จับตอน pre-merge review แล้วให้แก้ก่อน
