@@ -189,7 +189,6 @@ const selCell = computed(() =>
 const selLayer = computed(() => curUnit.value?.layer ?? 'note') // derived — no separate ref
 // the selection handed to SongSheet — {li,si,syk,layer}. null when not editing / nothing selected.
 const editSel = computed(() => curUnit.value)
-const lastNoteIdx = computed(() => Math.max(0, (inlineCells.value.length - 1) * 2)) // last NOTE unit
 // select an exact unit (cell + layer) — clicks/taps use this
 function selectUnit(li, si, syk, layer) {
   const i = editUnits.value.findIndex((u) => u.li === li && u.si === si && u.syk === syk && u.layer === layer)
@@ -206,8 +205,6 @@ function moveUnit(step) {
   if (curIdx.value < 0) { curIdx.value = step > 0 ? 0 : n - 1; return }
   curIdx.value = Math.max(0, Math.min(curIdx.value + step, n - 1))
 }
-// after typing a note, jump to the NEXT note (skip its word) — melody-entry flow
-function advanceNote() { curIdx.value = Math.min(curIdx.value + 2, lastNoteIdx.value) }
 // land on the nearest unit of (targetLi, layer) to the given column
 function gotoLineLayer(targetLi, col, layer) {
   let bestI = -1, bestD = Infinity
@@ -284,10 +281,12 @@ function onCaptureKey(e) {
   else if (!word && e.key === 'Home') { e.preventDefault(); curIdx.value = 0 }
   else if (!word && e.key === 'End') { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
   // NOTE layer: digit = set the note; Delete = ลบอยู่กับที่ (rest); Backspace = เอาออกทั้งช่อง.
+  // Overwrite STAYS on the note (so you can add octave / ♯♭ to it before moving — P'Aim); use
+  // ← → / space to move on. Insert still advances so a new melody flows left-to-right.
   else if (!word && /^[0-7]$/.test(e.key)) {
     e.preventDefault()
     if (typeMode.value === 'insert') insertDigit(e.key)
-    else { overwriteDigit(e.key); advanceNote() }
+    else overwriteDigit(e.key)
   }
   // desktop keyboard shortcuts for the note marks that ARE on a physical keyboard (so they need
   // no button): # = sharp, b = flat (jianpu convention, same as the old note boxes).
