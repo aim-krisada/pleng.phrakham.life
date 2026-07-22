@@ -15,8 +15,79 @@ import {
   FALLBACK_KEY,
 } from '../lib/bookshelf.js'
 import { session } from '../store.js'
+import { favorites, isFavorite } from '../lib/favorites.js'
+import FavStar from '../components/FavStar.vue'
+import ShareSheet from '../components/ShareSheet.vue'
+import { t } from '../i18n/index.js'
+import {
+  playlists, getList, createList, renameList, deleteList,
+  toggleSong, inList, removeSong, encodeList, listToFile,
+} from '../lib/playlists.js'
+import { buildListUrl } from '../lib/share.js'
+import { filterSongs as filterForPicker } from '../lib/songSearch.js'
 
 const router = useRouter()
+
+// Browse mode over the (non-search) landing: the default bookshelf, the ★ favorites filter, or
+// the 🎵 playlists manager. Chips switch it; search still overrides everything (US-G1).
+const browseMode = ref('shelf') // 'shelf' | 'fav' | 'playlists'
+const favOnly = computed(() => browseMode.value === 'fav')
+// A radio-style selector (เล่ม · ★ · 🎵) — exactly one active. "เล่ม" is always present so
+// returning to the bookshelf is one tap (P'Aim: มาจากโปรด/เพลย์ลิสต์แล้วต้องเลือกเล่มได้).
+// Picking เล่ม also resets the drill to the book grid so it always means "choose a book".
+function selectMode(m) {
+  browseMode.value = m
+  if (m === 'shelf') { level.value = 'books'; activeBook.value = null; window.scrollTo(0, 0) }
+}
+
+// ★ favorites (localStorage · no account · lib/favorites.js) — sits alongside the bookshelf.
+const favSongs = computed(() => {
+  favorites.value // reactive dep — recompute when a star toggles
+  return shownSongs.value.filter((s) => isFavorite(s.id))
+})
+
+// ---- 🎵 playlists manager (localStorage · no account · lib/playlists.js) ----
+const openListId = ref(null)          // null = list of playlists; else = one list's detail
+const newListName = ref('')
+const renamingId = ref(null)
+const renameName = ref('')
+const confirmDeleteId = ref(null)
+const adding = ref(false)             // detail: the add-songs picker is open
+const plQuery = ref('')
+const shareList = ref(null)           // a list object → open ShareSheet for it
+
+const openList = computed(() => (openListId.value ? getList(openListId.value) : null))
+// resolve a list's ids → song rows (respecting the public/verified gate), in stored order
+function listSongs(list) {
+  if (!list) return []
+  const map = new Map(shownSongs.value.map((s) => [String(s.id), s]))
+  return list.songIds.map((id) => map.get(String(id))).filter(Boolean)
+}
+const pickerResults = computed(() => (adding.value ? filterForPicker(shownSongs.value, plQuery.value).slice(0, 40) : []))
+
+function doCreate() {
+  const id = createList(newListName.value)
+  newListName.value = ''
+  openListId.value = id
+}
+function startRename(l) { renamingId.value = l.id; renameName.value = l.name }
+function commitRename() { if (renamingId.value) renameList(renamingId.value, renameName.value); renamingId.value = null }
+function doDelete(id) { deleteList(id); confirmDeleteId.value = null; if (openListId.value === id) openListId.value = null }
+function backToLists() { openListId.value = null; adding.value = false; plQuery.value = '' }
+
+// build the share payload for a list (link + QR + email + backup file) — no PII, ids + name only
+function shareTarget(list) {
+  const url = buildListUrl(encodeList(list))
+  return {
+    url,
+    title: t('share.listTitle', { name: list.name }),
+    shareText: t('share.listTitle', { name: list.name }),
+    email: true,
+    emailSubject: t('share.listEmailSubject', { name: list.name }),
+    emailBody: t('share.listEmailBody', { name: list.name }),
+    downloadFile: { name: `playlist-${list.name}.json`, data: listToFile(list) },
+  }
+}
 
 // public (anon) vs logged-in team. Drives the verified-only gate + the QA badge visibility.
 const loggedIn = computed(() => !!session.value)
@@ -51,13 +122,13 @@ const themes = computed(() =>
 )
 
 // a song is "flagged" when DA's review_flags array has entries (repeat / lint / words).
-const FLAG_LABEL = { repeat: 'ตั้งจุดซ้ำ (repeat)', lint: 'โน้ตอาจผิด (lint)', words: 'เนื้อ≠โน้ต' }
+const FLAG_KEY = { repeat: 'list.flagRepeat', lint: 'list.flagLint', words: 'list.flagWords' }
 function flagCount(s) {
   return Array.isArray(s.review_flags) ? s.review_flags.length : 0
 }
 function flagTitle(s) {
-  const kinds = (s.review_flags || []).map((f) => FLAG_LABEL[f] || f)
-  return kinds.length ? 'ต้องตรวจ: ' + kinds.join(' · ') : ''
+  const kinds = (s.review_flags || []).map((f) => (FLAG_KEY[f] ? t(FLAG_KEY[f]) : f))
+  return kinds.length ? t('list.flagPrefix', { kinds: kinds.join(' · ') }) : ''
 }
 
 // public visibility gate — the whole page derives from THIS, so counts, in-book lists and
@@ -81,9 +152,7 @@ const activeBookMeta = computed(() => shelf.value.find((b) => b.code === activeB
 // gate hid them all (none verified yet)" — else a public visitor sees "ยังไม่มีเพลงในระบบ"
 // while 100+ songs sit unverified. (Wording is a suggestion — PM/P'Aim can adjust.)
 const booksEmptyMsg = computed(() =>
-  !loggedIn.value && songs.value.length
-    ? 'เพลงกำลังอยู่ระหว่างตรวจทาน จะเปิดให้ชมเร็วๆ นี้'
-    : 'ยังไม่มีเพลงในระบบ',
+  !loggedIn.value && songs.value.length ? t('list.emptyPublic') : t('list.emptyNone'),
 )
 
 // ---- search results (existing flat list, narrowed by the review facets) ----
@@ -128,21 +197,56 @@ onMounted(async () => {
         v-model="query"
         type="search"
         class="song-search"
-        aria-label="ค้นหาเพลง"
-        placeholder="ค้นหา: ชื่อเพลง หมายเลข เนื้อร้อง คีย์ หรือโน้ตตัวเลข (เช่น 5 5 6 1)"
+        :aria-label="t('a11y.searchFull')"
+        :placeholder="t('list.searchPlaceholder')"
       />
-      <p v-if="dbError" class="muted db-note">
-        ยังเชื่อมต่อฐานข้อมูลไม่ได้ — แสดงเพลงตัวอย่างไปก่อน
-      </p>
+      <p v-if="dbError" class="muted db-note">{{ t('list.dbNote') }}</p>
     </div>
 
-    <p v-if="loading" class="muted">กำลังโหลด…</p>
+    <!-- browse filter chips — ★ รายการโปรด rides alongside the bookshelf (US-G1.2), never
+         replacing the default landing. Hidden while searching (results override the browse). -->
+    <div v-if="!loading && !searching" class="browse-chips no-print" role="tablist" :aria-label="t('list.booksChip')">
+      <button
+        type="button"
+        class="facet-chip books-chip"
+        role="tab"
+        :class="{ on: browseMode === 'shelf' }"
+        :aria-selected="browseMode === 'shelf'"
+        @click="selectMode('shelf')"
+      >
+        <span class="chip-star" aria-hidden="true">📚</span><span class="chip-label">{{ t('list.booksChip') }}</span>
+      </button>
+      <button
+        type="button"
+        class="facet-chip fav-chip"
+        role="tab"
+        :class="{ on: browseMode === 'fav' }"
+        :aria-selected="browseMode === 'fav'"
+        @click="selectMode('fav')"
+      >
+        <span class="chip-star" aria-hidden="true">★</span><span class="chip-label">{{ t('list.favChip') }}</span>
+        <span v-if="favSongs.length" class="chip-count">{{ favSongs.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="facet-chip pl-chip"
+        role="tab"
+        :class="{ on: browseMode === 'playlists' }"
+        :aria-selected="browseMode === 'playlists'"
+        @click="selectMode('playlists')"
+      >
+        <span class="chip-star" aria-hidden="true">🎵</span><span class="chip-label">{{ t('playlist.chip') }}</span>
+        <span v-if="playlists.length" class="chip-count">{{ playlists.length }}</span>
+      </button>
+    </div>
+
+    <p v-if="loading" class="muted">{{ t('list.loading') }}</p>
 
     <!-- ===== SEARCH · flat results across every book (overrides levels) ===== -->
     <section v-else-if="searching">
       <div class="level-head">
-        <h2>ผลการค้นหา</h2>
-        <span class="count muted" aria-live="polite">{{ results.length }} เพลง</span>
+        <h2>{{ t('list.results') }}</h2>
+        <span class="count muted" aria-live="polite">{{ t('list.countSongs', { n: results.length }) }}</span>
       </div>
       <!-- review facets = team QA tools → logged-in only (public sees only verified songs,
            so an "unverified" filter would be meaningless for them) -->
@@ -154,45 +258,136 @@ onMounted(async () => {
           :aria-pressed="onlyUnverified"
           @click="onlyUnverified = !onlyUnverified"
         >
-          ⚠️ เฉพาะที่ยังไม่ตรวจ
+          {{ t('list.onlyUnverified') }}
         </button>
-        <select v-model="theme" class="facet-select" aria-label="กรองตามธีม">
-          <option value="">ทุกธีม</option>
+        <select v-model="theme" class="facet-select" :aria-label="t('list.filterByTheme')">
+          <option value="">{{ t('list.allThemes') }}</option>
           <option v-for="t in themes" :key="t" :value="t">{{ t }}</option>
         </select>
       </div>
 
       <div class="song-grid">
         <router-link v-for="s in results" :key="s.id" :to="`/song/${s.id}`" class="card song-card">
+          <FavStar :id="s.id" class="card-fav" />
           <div class="song-card-head">
             <strong class="song-title">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</strong>
             <span class="head-tags">
-              <span v-if="loggedIn && flagCount(s)" class="badge warn" :title="flagTitle(s)">⚠️ ต้องตรวจ</span>
-              <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok" title="ตรวจแล้ว">✓ ตรวจแล้ว</span>
-              <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending" title="ยังไม่ตรวจ">ยังไม่ตรวจ</span>
-              <span class="key-chip">Key {{ s.content.key }}</span>
+              <span v-if="loggedIn && flagCount(s)" class="badge warn" :title="flagTitle(s)">{{ t('list.mustCheck') }}</span>
+              <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok" :title="t('list.verified')">{{ t('list.verified') }}</span>
+              <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending" :title="t('list.pending')">{{ t('list.pending') }}</span>
+              <span class="key-chip">{{ t('list.keyEn', { k: s.content.key }) }}</span>
             </span>
           </div>
           <div v-if="s.title_en" class="muted">{{ s.title_en }}</div>
           <div v-if="snippet(s.content)" class="muted">{{ snippet(s.content) }}…</div>
           <div v-if="s.theme" class="theme-tag muted">{{ s.theme }}</div>
           <div v-if="bookRefLabels(s.book_refs).length" class="src-tag muted">
-            แหล่งเพลง: {{ bookRefLabels(s.book_refs).join(' · ') }}
+            {{ t('list.srcSongs', { list: bookRefLabels(s.book_refs).join(' · ') }) }}
           </div>
-          <div v-if="s.scripture" class="scripture-tag muted">📖 {{ s.scripture }}</div>
+          <div v-if="s.scripture" class="scripture-tag muted">{{ t('list.scripture', { ref: s.scripture }) }}</div>
         </router-link>
       </div>
-      <p v-if="results.length === 0" class="muted empty" aria-live="polite">ไม่พบเพลงที่ค้นหา</p>
+      <p v-if="results.length === 0" class="muted empty" aria-live="polite">{{ t('list.noResults') }}</p>
+    </section>
+
+    <!-- ===== 🎵 PLAYLISTS manager (localStorage · no account · EPIC I) ===== -->
+    <section v-else-if="browseMode === 'playlists'">
+      <!-- level 1: all my playlists -->
+      <template v-if="!openList">
+        <div class="level-head"><h2>{{ t('playlist.title') }}</h2></div>
+        <div class="pl-create">
+          <input v-model="newListName" type="text" :placeholder="t('playlist.createName')" :aria-label="t('playlist.createName')" @keyup.enter="doCreate" />
+          <button type="button" class="pl-create-btn" @click="doCreate">{{ t('playlist.create') }}</button>
+        </div>
+        <div v-if="playlists.length" class="pl-list">
+          <div v-for="l in playlists" :key="l.id" class="pl-row">
+            <div class="pl-row-main">
+              <input v-if="renamingId === l.id" v-model="renameName" class="pl-rename" type="text" @keyup.enter="commitRename" @blur="commitRename" />
+              <button v-else type="button" class="pl-open" @click="openListId = l.id">
+                <span class="ttl">{{ l.name }}</span>
+                <span class="pl-count">{{ t('playlist.count', { n: l.songIds.length }) }}</span>
+              </button>
+              <div class="pl-row-actions">
+                <button type="button" class="pl-ico" :aria-label="t('playlist.share')" @click="shareList = shareTarget(l)">↗</button>
+                <button type="button" class="pl-ico" :aria-label="t('playlist.rename')" @click="startRename(l)">✎</button>
+                <button type="button" class="pl-ico" :aria-label="t('playlist.remove')" @click="confirmDeleteId = confirmDeleteId === l.id ? null : l.id">🗑</button>
+              </div>
+            </div>
+            <div v-if="confirmDeleteId === l.id" class="pl-confirm">
+              <span class="muted">{{ t('playlist.confirmDelete', { name: l.name }) }}</span>
+              <button type="button" class="pl-danger" @click="doDelete(l.id)">{{ t('playlist.remove') }}</button>
+              <button type="button" class="pl-cancel" @click="confirmDeleteId = null">{{ t('share.close') }}</button>
+            </div>
+          </div>
+        </div>
+        <p v-else class="muted empty">{{ t('playlist.empty') }}</p>
+      </template>
+
+      <!-- level 2: one playlist's songs + add-songs picker -->
+      <template v-else>
+        <button type="button" class="crumb" @click="backToLists">{{ t('playlist.back') }}</button>
+        <div class="level-head">
+          <h2>🎵 {{ openList.name }}</h2>
+          <span class="count muted">{{ t('playlist.count', { n: openList.songIds.length }) }}</span>
+          <button type="button" class="pl-ico" :aria-label="t('playlist.share')" @click="shareList = shareTarget(openList)">↗</button>
+        </div>
+        <div class="song-list">
+          <div v-for="s in listSongs(openList)" :key="s.id" class="song-row">
+            <span class="no">{{ s.number != null ? s.number : '–' }}</span>
+            <router-link :to="`/song/${s.id}`" class="ttl pl-song-ttl">{{ s.title_th }}</router-link>
+            <span v-if="s.content && s.content.key" class="key">{{ t('list.key', { k: s.content.key }) }}</span>
+            <button type="button" class="pl-remove" @click="removeSong(openList.id, s.id)">{{ t('playlist.removeSong') }}</button>
+          </div>
+        </div>
+        <p v-if="!openList.songIds.length" class="muted empty">{{ t('playlist.emptyList') }}</p>
+
+        <button type="button" class="pl-add-toggle" @click="adding = !adding">
+          {{ adding ? t('playlist.doneAdding') : t('playlist.addSongs') }}
+        </button>
+        <div v-if="adding" class="pl-picker">
+          <input v-model="plQuery" type="search" class="song-search" :placeholder="t('playlist.addSearchPlaceholder')" :aria-label="t('playlist.addSearchPlaceholder')" />
+          <div class="song-list">
+            <div v-for="s in pickerResults" :key="s.id" class="song-row">
+              <span class="no">{{ s.number != null ? s.number : '–' }}</span>
+              <span class="ttl">{{ s.title_th }}</span>
+              <button
+                type="button"
+                class="pl-add-song"
+                :class="{ in: inList(openList.id, s.id) }"
+                :aria-pressed="inList(openList.id, s.id)"
+                @click="toggleSong(openList.id, s.id)"
+              >{{ inList(openList.id, s.id) ? t('playlist.inList') : t('playlist.add') }}</button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </section>
+
+    <!-- ===== ★ FAVORITES · flat list of starred songs (overrides the book drill) ===== -->
+    <section v-else-if="favOnly">
+      <div class="level-head">
+        <h2>{{ t('list.favTitle') }}</h2>
+        <span class="count muted" aria-live="polite">{{ t('list.countSongs', { n: favSongs.length }) }}</span>
+      </div>
+      <div class="song-list">
+        <router-link v-for="s in favSongs" :key="s.id" :to="`/song/${s.id}`" class="song-row">
+          <span class="no">{{ s.number != null ? s.number : '–' }}</span>
+          <span class="ttl">{{ s.title_th }}</span>
+          <span v-if="s.content && s.content.key" class="key">{{ t('list.key', { k: s.content.key }) }}</span>
+          <FavStar :id="s.id" />
+        </router-link>
+      </div>
+      <p v-if="!favSongs.length" class="muted empty" aria-live="polite">{{ t('list.favEmpty') }}</p>
     </section>
 
     <!-- ===== LEVEL 2 · songs in the selected book, ordered by in-book number ===== -->
     <section v-else-if="level === 'songs'">
-      <button type="button" class="crumb" @click="backToBooks">← เล่มทั้งหมด</button>
+      <button type="button" class="crumb" @click="backToBooks">{{ t('list.allBooks') }}</button>
       <div class="level-head">
         <h2>{{ activeBookMeta ? activeBookMeta.name : '' }}</h2>
-        <span class="count muted">{{ inBook.length }} เพลง</span>
+        <span class="count muted">{{ t('list.countSongs', { n: inBook.length }) }}</span>
         <span v-if="loggedIn" class="count progress" aria-live="polite">
-          ✓ ตรวจแล้ว {{ bookProgress.verified }} / {{ bookProgress.total }}
+          {{ t('list.reviewed', { v: bookProgress.verified, t: bookProgress.total }) }}
         </span>
       </div>
       <div class="song-list">
@@ -204,20 +399,21 @@ onMounted(async () => {
         >
           <span class="no">{{ s.number != null ? s.number : '–' }}</span>
           <span class="ttl">{{ s.title_th }}</span>
-          <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok row-status" title="ตรวจแล้ว">✓ ตรวจแล้ว</span>
-          <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending row-status" title="ยังไม่ตรวจ">ยังไม่ตรวจ</span>
+          <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok row-status" :title="t('list.verified')">{{ t('list.verified') }}</span>
+          <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending row-status" :title="t('list.pending')">{{ t('list.pending') }}</span>
           <!-- book_refs = reference tag ("เล่มเล็ก 282"). Kept title-first: shown only where
                the row is wide enough (≥640px) so it never crushes the title into a sliver on
                a phone. Full list also lives on the search card + the song page. -->
           <span
             v-if="bookRefLabels(s.book_refs).length"
             class="ref"
-            :title="'อ้างอิง: ' + bookRefLabels(s.book_refs).join(' · ')"
+            :title="t('list.refTitle', { list: bookRefLabels(s.book_refs).join(' · ') })"
           >{{ bookRefLabels(s.book_refs).join(' · ') }}</span>
-          <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
+          <span v-if="s.content && s.content.key" class="key">{{ t('list.key', { k: s.content.key }) }}</span>
+          <FavStar :id="s.id" />
         </router-link>
       </div>
-      <p v-if="inBook.length === 0" class="muted empty">ยังไม่มีเพลงในเล่มนี้</p>
+      <p v-if="inBook.length === 0" class="muted empty">{{ t('list.noBookSongs') }}</p>
     </section>
 
     <!-- ===== LEVEL 1 · bookshelf (landing) — one vertical list, same as the songs ===== -->
@@ -232,12 +428,15 @@ onMounted(async () => {
           @click="openBook(b.code)"
         >
           <span class="bk-name">{{ b.name }}</span>
-          <span class="bk-count">{{ b.count }} เพลง</span>
+          <span class="bk-count">{{ t('list.countSongs', { n: b.count }) }}</span>
           <span class="chev" aria-hidden="true">›</span>
         </button>
       </div>
       <p v-if="shelf.length === 0" class="muted empty">{{ booksEmptyMsg }}</p>
     </section>
+
+    <!-- share a playlist (link + QR + email + backup) — opened from a 🎵 row's ↗ -->
+    <ShareSheet v-if="shareList" v-bind="shareList" @close="shareList = null" />
   </div>
 </template>
 
@@ -336,7 +535,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-left: 5px solid var(--brand);
   border-radius: 10px;
@@ -372,7 +571,7 @@ onMounted(async () => {
   display: flex;
   align-items: flex-start;
   gap: var(--sp-3);
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: var(--sp-3) var(--sp-4);
@@ -486,4 +685,110 @@ onMounted(async () => {
 .scripture-tag { margin-top: var(--sp-1); font-size: var(--fs-xs); }
 
 .empty { padding: var(--sp-4) 0; }
+
+/* ---- browse view selector (📚 เล่ม · ★ รายการโปรด · 🎵 เพลย์ลิสต์) ----
+   A full-width SEGMENTED control: 3 equal segments on one row that never wraps (P'Aim/ปราณี
+   22 ก.ค. — wrapping left an ugly gap). Same shape as the ⚙ segmented controls, so the whole
+   app reads as one system. The count badge shows only where there's room (≥480px); on phones
+   the label alone keeps all three in a single row. */
+.browse-chips {
+  display: flex;
+  width: 100%;
+  margin: 0 0 var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.browse-chips .facet-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: var(--touch-min);
+  padding: 0 var(--sp-2);
+  border: none;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.browse-chips .facet-chip:first-child { border-left: none; }
+.browse-chips .facet-chip.on { background: var(--accent); color: var(--ink); font-weight: 700; }
+@media (hover: hover) { .browse-chips .facet-chip:not(.on):hover { background: var(--cream-hover); } }
+.browse-chips .chip-star { flex: 0 0 auto; line-height: 1; }
+.browse-chips .chip-label { overflow: hidden; text-overflow: ellipsis; }
+.browse-chips .chip-count { display: none; font-weight: 700; flex: 0 0 auto; }
+@media (min-width: 480px) {
+  .browse-chips .chip-count {
+    display: inline; font-size: var(--fs-xs);
+    background: rgba(0, 0, 0, 0.12); border-radius: 10px; padding: 0 var(--sp-2);
+  }
+}
+/* very narrow phones (≤360): trim the gap/padding + a hair smaller so 3 labels never clip */
+@media (max-width: 360px) {
+  .browse-chips .facet-chip { gap: 3px; padding: 0 var(--sp-1); font-size: var(--fs-xs); }
+}
+
+/* the star holds the first line when a long title wraps (matches .no/.key) */
+.song-row .fav-star { align-self: flex-start; }
+
+/* search card gets its star in the top-right corner, clear of the wrapping title/tags */
+.song-card { position: relative; }
+.song-card .card-fav { position: absolute; top: var(--sp-2); right: var(--sp-2); }
+.song-card-head { padding-right: var(--touch-min); } /* reserve room so tags never sit under the star */
+
+/* ---- 🎵 playlists manager ---- */
+.pl-chip.on { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+.pl-create { display: flex; gap: var(--sp-2); margin: 0 0 var(--sp-4); }
+.pl-create input { flex: 1 1 auto; min-width: 0; }
+.pl-create-btn {
+  flex: 0 0 auto; min-height: var(--touch-min); border: none; border-radius: 10px;
+  background: var(--accent); color: var(--ink); font: inherit; font-weight: 700;
+  padding: 0 var(--sp-4); cursor: pointer; white-space: nowrap;
+}
+@media (hover: hover) { .pl-create-btn:hover { background: var(--accent-hover); } }
+.pl-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.pl-row { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.pl-row-main { display: flex; align-items: center; gap: var(--sp-2); padding-right: var(--sp-2); }
+.pl-open {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: var(--sp-3);
+  background: transparent; border: none; text-align: left; cursor: pointer;
+  padding: var(--sp-3) var(--sp-4); min-height: var(--touch-min); color: var(--ink); font: inherit;
+}
+.pl-open .ttl { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--brand); overflow-wrap: anywhere; }
+.pl-open .pl-count { flex: 0 0 auto; color: var(--muted); font-size: var(--fs-sm); }
+.pl-rename { flex: 1 1 auto; min-width: 0; margin: var(--sp-2); }
+.pl-row-actions { flex: 0 0 auto; display: flex; gap: 2px; }
+.pl-ico {
+  background: transparent; border: none; cursor: pointer; color: var(--brand); font-size: 1rem;
+  min-width: var(--touch-min); min-height: var(--touch-min); border-radius: 8px;
+}
+@media (hover: hover) { .pl-ico:hover { background: var(--cream-hover); } }
+.pl-confirm { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; padding: var(--sp-2) var(--sp-4) var(--sp-3); border-top: 1px dashed var(--line); }
+.pl-confirm .muted { flex: 1 1 auto; }
+.pl-danger { min-height: 36px; border: none; border-radius: 8px; background: var(--red); color: #fff; padding: 0 var(--sp-3); cursor: pointer; font: inherit; }
+.pl-cancel { min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--cream); color: var(--ink); padding: 0 var(--sp-3); cursor: pointer; font: inherit; }
+.pl-song-ttl { flex: 1 1 auto; min-width: 0; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+.pl-song-ttl:hover { text-decoration: underline; }
+.pl-remove, .pl-add-song {
+  flex: 0 0 auto; align-self: flex-start; min-height: 36px; border-radius: 8px;
+  padding: 0 var(--sp-3); cursor: pointer; font: inherit; font-size: var(--fs-sm);
+}
+.pl-remove { border: 1px solid var(--line); background: var(--cream); color: var(--ink); }
+.pl-add-song { border: 1px solid var(--accent); background: var(--accent); color: var(--ink); font-weight: 700; }
+.pl-add-song.in { background: var(--cream); border-color: var(--line); color: var(--muted); font-weight: 400; }
+.pl-add-toggle {
+  margin: var(--sp-4) 0; min-height: var(--touch-min); border: 1px solid var(--accent);
+  background: var(--surface); color: var(--brand); border-radius: 10px; padding: 0 var(--sp-4);
+  font: inherit; font-weight: 700; cursor: pointer;
+}
+@media (hover: hover) { .pl-add-toggle:hover { background: var(--cream-hover); } }
+.pl-picker { margin-top: var(--sp-2); }
+.pl-picker .song-search { margin-bottom: var(--sp-3); }
 </style>
