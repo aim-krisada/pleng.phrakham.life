@@ -15,8 +15,19 @@ import {
   FALLBACK_KEY,
 } from '../lib/bookshelf.js'
 import { session } from '../store.js'
+import { favorites, isFavorite } from '../lib/favorites.js'
+import FavStar from '../components/FavStar.vue'
 
 const router = useRouter()
+
+// ★ favorites filter (localStorage · no account · lib/favorites.js). A browse-level filter
+// that shows only songs the reader has starred on THIS device — sits alongside the bookshelf
+// (never replaces the default landing · US-G1.2). Search still overrides everything.
+const favOnly = ref(false)
+const favSongs = computed(() => {
+  favorites.value // reactive dep — recompute when a star toggles
+  return shownSongs.value.filter((s) => isFavorite(s.id))
+})
 
 // public (anon) vs logged-in team. Drives the verified-only gate + the QA badge visibility.
 const loggedIn = computed(() => !!session.value)
@@ -128,12 +139,27 @@ onMounted(async () => {
         v-model="query"
         type="search"
         class="song-search"
-        aria-label="ค้นหาเพลง"
-        placeholder="ค้นหา: ชื่อเพลง หมายเลข เนื้อร้อง คีย์ หรือโน้ตตัวเลข (เช่น 5 5 6 1)"
+        aria-label="ค้นหาเพลง — ชื่อเพลง หมายเลข เนื้อร้อง คีย์ หรือโน้ตตัวเลข"
+        placeholder="ค้นหาเพลง"
       />
       <p v-if="dbError" class="muted db-note">
         ยังเชื่อมต่อฐานข้อมูลไม่ได้ — แสดงเพลงตัวอย่างไปก่อน
       </p>
+    </div>
+
+    <!-- browse filter chips — ★ รายการโปรด rides alongside the bookshelf (US-G1.2), never
+         replacing the default landing. Hidden while searching (results override the browse). -->
+    <div v-if="!loading && !searching" class="browse-chips no-print">
+      <button
+        type="button"
+        class="facet-chip fav-chip"
+        :class="{ on: favOnly }"
+        :aria-pressed="favOnly"
+        @click="favOnly = !favOnly"
+      >
+        <span class="chip-star" aria-hidden="true">★</span> รายการโปรด
+        <span v-if="favSongs.length" class="chip-count">{{ favSongs.length }}</span>
+      </button>
     </div>
 
     <p v-if="loading" class="muted">กำลังโหลด…</p>
@@ -164,6 +190,7 @@ onMounted(async () => {
 
       <div class="song-grid">
         <router-link v-for="s in results" :key="s.id" :to="`/song/${s.id}`" class="card song-card">
+          <FavStar :id="s.id" class="card-fav" />
           <div class="song-card-head">
             <strong class="song-title">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</strong>
             <span class="head-tags">
@@ -183,6 +210,25 @@ onMounted(async () => {
         </router-link>
       </div>
       <p v-if="results.length === 0" class="muted empty" aria-live="polite">ไม่พบเพลงที่ค้นหา</p>
+    </section>
+
+    <!-- ===== ★ FAVORITES · flat list of starred songs (overrides the book drill) ===== -->
+    <section v-else-if="favOnly">
+      <div class="level-head">
+        <h2>★ รายการโปรด</h2>
+        <span class="count muted" aria-live="polite">{{ favSongs.length }} เพลง</span>
+      </div>
+      <div class="song-list">
+        <router-link v-for="s in favSongs" :key="s.id" :to="`/song/${s.id}`" class="song-row">
+          <span class="no">{{ s.number != null ? s.number : '–' }}</span>
+          <span class="ttl">{{ s.title_th }}</span>
+          <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
+          <FavStar :id="s.id" />
+        </router-link>
+      </div>
+      <p v-if="!favSongs.length" class="muted empty" aria-live="polite">
+        ยังไม่มีรายการโปรด — แตะรูปดาว ☆ ที่เพลงเพื่อบันทึกไว้ที่นี่
+      </p>
     </section>
 
     <!-- ===== LEVEL 2 · songs in the selected book, ordered by in-book number ===== -->
@@ -215,6 +261,7 @@ onMounted(async () => {
             :title="'อ้างอิง: ' + bookRefLabels(s.book_refs).join(' · ')"
           >{{ bookRefLabels(s.book_refs).join(' · ') }}</span>
           <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
+          <FavStar :id="s.id" />
         </router-link>
       </div>
       <p v-if="inBook.length === 0" class="muted empty">ยังไม่มีเพลงในเล่มนี้</p>
@@ -336,7 +383,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-left: 5px solid var(--brand);
   border-radius: 10px;
@@ -372,7 +419,7 @@ onMounted(async () => {
   display: flex;
   align-items: flex-start;
   gap: var(--sp-3);
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: var(--sp-3) var(--sp-4);
@@ -486,4 +533,32 @@ onMounted(async () => {
 .scripture-tag { margin-top: var(--sp-1); font-size: var(--fs-xs); }
 
 .empty { padding: var(--sp-4) 0; }
+
+/* ---- browse filter chips (★ รายการโปรด) ---- */
+.browse-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-4);
+}
+.fav-chip { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.fav-chip .chip-star { color: var(--accent); font-size: 1.05em; line-height: 1; }
+/* ON = vivid marigold with dark text (matches the filled ★) — white on marigold would fail AA */
+.fav-chip.on { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+.fav-chip.on .chip-star { color: var(--ink); }
+.fav-chip .chip-count {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  padding: 0 var(--sp-2);
+}
+
+/* the star holds the first line when a long title wraps (matches .no/.key) */
+.song-row .fav-star { align-self: flex-start; }
+
+/* search card gets its star in the top-right corner, clear of the wrapping title/tags */
+.song-card { position: relative; }
+.song-card .card-fav { position: absolute; top: var(--sp-2); right: var(--sp-2); }
+.song-card-head { padding-right: var(--touch-min); } /* reserve room so tags never sit under the star */
 </style>

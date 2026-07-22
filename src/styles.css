@@ -1,15 +1,37 @@
 :root {
-  /* Warm Study Room — same tokens as phrakham.life2 (see memory/pleng-ui-sop) */
-  --brand: #8b4513;
-  --ink: #2d2a26;
-  --muted: #757575;      /* 4.6:1 on white — AA */
-  --cream: #faf6f0;
-  --cream-hover: #f7f1e8;
-  --line: #e0d6c8;
-  --bg: #ffffff;
-  --footer-ink: #7a6a4e; /* 5:1 */
-  --stamp-ink: #827356;  /* 4.63:1 */
-  /* functional notation colours (kept per พี่เอม 6-Jul-2026) */
+  /* ===== Warm + vivid theme (LOCKED 22 ก.ค. · ux-groundup-design.md §Theme) =====
+     Base stays WARM + calm (cream page, readable amber text) so it feels อบอุ่น/สบายใจ;
+     the "สดใส" comes from the ACCENTS (marigold/coral/green/blue), never from repainting
+     the page. Every value here is verified for WCAG AA against where it is actually used. */
+
+  /* --brand = the identity amber. Deep marigold so it stays readable as TEXT (headings/
+     links/active) — 4.7:1 on the cream page — AND works as a fill under white text — 5.0:1.
+     Same dual role the old saddle-brown played, one shade more vivid + gold. */
+  --brand: #b45309;
+  --brand-hover: #8f4207; /* darker amber for a filled control's hover */
+  --ink: #362f28;         /* warm near-black body text — 12:1 on cream */
+  --muted: #6f6455;       /* warm grey caption — 5.4:1 on cream (AA for small text) */
+  --cream: #f4e9d7;       /* warm fill for inputs / chips / hover base (deeper than the page) */
+  --cream-hover: #ecdec7;
+  --line: #e6d9c3;        /* warm hairline border */
+  --bg: #fdf7ee;          /* warm cream page — calm, not clinical white */
+  --surface: #fffdf9;     /* cards / rows / dropdowns — near-white warm, floats on the cream */
+  --shell-bg: #fbf1e2;    /* header — warm, a touch deeper than the page (was cool #f8f9fa) */
+  --footer-ink: #7a6a4e;  /* 5:1 */
+  --stamp-ink: #827356;   /* 4.63:1 */
+
+  /* Vivid accents — the "สดใส". Marigold is the ONE primary CTA colour (＋สร้าง · ★ · active),
+     always paired with DARK text (--ink · 6:1) because white on bright marigold fails AA.
+     Coral = secondary highlight; green/blue = cheerful category set (chips/markers only). */
+  --accent: #f59e0b;         /* marigold — primary CTA / FAB / filled ★ / active chip */
+  --accent-hover: #e08e00;
+  --accent-soft: #fdecc8;    /* pale marigold wash for a soft-selected chip bg */
+  --secondary: #f26b4e;      /* warm coral */
+  --secondary-hover: #e2573a;
+  --cat-green: #3fa34d;
+  --cat-blue: #3e96d6;
+
+  /* functional notation colours (kept per พี่เอม 6-Jul-2026 · shown on the white sheet card) */
   --chord-red: #c0392b;  /* 5.2:1 on white */
   --note-blue: #2b6cb0;  /* 5.0:1 on white */
   --red: #c0392b;
@@ -206,7 +228,7 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  background: #f8f9fa;
+  background: var(--shell-bg);
   /* No bottom border — phrakham's navbar has none (live: border-bottom-width 0, both
      desktop + mobile). pleng had a 1px #e0d6c8 rule that master doesn't; dropped for parity. */
   padding: var(--sp-2) var(--sp-4);
@@ -233,6 +255,7 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   min-height: var(--touch-min);
   display: inline-flex;
   align-items: center;
+  gap: 8px;            /* icon ↔ wordmark (desktop shows both now) */
   white-space: nowrap;
 }
 .sb-caret,
@@ -333,12 +356,11 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
 .sb-dropdown a:focus-visible,
 .sb-item:focus-visible { background: rgba(139, 69, 19, 0.1); outline: none; }
 .sb-dropdown .icn { color: var(--brand); }
-/* Brand swaps per width (phrakham parity): DESKTOP = name only (icon hidden); MOBILE = the
-   app icon only (name hidden). Rules here are the desktop default; the mobile @media flips. */
-/* Mobile brand mark — 40×40 · radius 11px to match phrakham live (its .navbar-title::before
-   app icon = 40×40 · border-radius 11px). Was 28px/7px. 40 < the 44px touch targets in the row,
-   so it doesn't grow the bar height. */
-.sb-app-ico { display: none; flex: 0 0 auto; width: 40px; height: 40px; border-radius: 11px; object-fit: contain; }
+/* Brand mark (LOCKED 22 ก.ค.): the app icon shows on EVERY width for a consistent mark that
+   matches the favicon/PWA icon; the wordmark rides ALONGSIDE it on desktop and is hidden on
+   mobile (icon-only there — keeps the bar compact). Desktop icon = 30px next to the 22.5px
+   wordmark; the mobile @media grows it to 40px (icon-only) to match phrakham's app mark. */
+.sb-app-ico { display: block; flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; object-fit: contain; }
 .sb-brand-text { display: inline; }
 .sb-k { margin-left: auto; color: var(--muted); font-size: 0.8rem; }
 
@@ -397,6 +419,74 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   justify-content: center;
 }
 .sb-burger { display: none; } /* mobile only — shown in the mobile @media */
+
+/* ---- ＋ สร้างเพลงใหม่ — the app's ONE primary create action (single source of action) ----
+   Marigold (--accent) with DARK text (--ink · 6:1 AA — white on bright marigold would fail).
+   Desktop = a filled pill on the bar; mobile = the FAB + a drawer row (same /studio target).
+   Visibility is switched by WIDTH, never by hover (a mouse-on-Surface reports hover:none and
+   must not lose the button — memory: feedback_verify_hover_on_real_browser). */
+.sb-create {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent);
+  color: var(--ink);
+  border: none;
+  border-radius: 22px;
+  padding: 8px 16px;
+  min-height: var(--touch-min);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+@media (hover: hover) { .sb-create:hover { background: var(--accent-hover); } }
+
+/* Mobile FAB — thumb-zone, bottom-right, respects the safe-area. Base = hidden (desktop uses
+   the pill); the mobile @media shows it. ShellBar only renders it on the home route so it
+   never collides with the song page's bottom dock. */
+.sb-fab {
+  display: none;
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: 45;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  color: var(--ink);
+  border: none;
+  border-radius: 28px;
+  padding: 0 20px;
+  height: 56px;
+  font: inherit;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+@media (hover: hover) { .sb-fab:hover { background: var(--accent-hover); } }
+
+/* Drawer create row — a filled action at the TOP of the mobile ☰ menu (same destination). */
+.sb-drawer-create {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 17px var(--sp-3);
+  background: var(--accent);
+  color: var(--ink);
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  min-height: var(--touch-min);
+  font: inherit;
+  font-size: 17.34px;
+  font-weight: 700;
+  text-decoration: none;
+}
 
 /* ---- mobile drawer CONTENT (shell = the shared vanilla core src/lib/pk-drawer.js) ----
    The core owns the off-canvas positioning, left slide, scrim, cream background and the ×
@@ -500,8 +590,8 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   /* phrakham parity (P'Aim 13 ก.ค.): app ICON left (no name) · 🔍 + ☰ right; nav + tools move
      into the ☰ drawer. Studio's teleported #shell-menus still drops to a 2nd row below. */
   .shell-bar { gap: var(--sp-1) 6px; padding: var(--sp-2); flex-wrap: wrap; }
-  /* brand = icon only */
-  .sb-app-ico { display: block; }
+  /* brand = icon only (wordmark hidden); grow the mark to phrakham's 40×40 · radius 11 */
+  .sb-app-ico { display: block; width: 40px; height: 40px; border-radius: 11px; }
   .sb-brand-text { display: none; }
   /* 2px pad around the 40px icon → 44px brand, so the bar stays at phrakham's 65px height
      (the audit recorded pleng's mobile bar at 65 before the icon grew from 28→40). pleng's
@@ -515,6 +605,9 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   .sb-settings { display: none; }
   /* mobile-only hamburger */
   .sb-burger { display: inline-flex; }
+  /* create: swap the desktop pill for the FAB (rendered by ShellBar on the home route only) */
+  .sb-create { display: none; }
+  .sb-fab { display: inline-flex; }
   .sb-sep { display: none; }
   .sb-mode-label { display: none; }
   .sb-title,
@@ -552,8 +645,8 @@ button.danger { background: var(--red); }
 /* hover effects only on devices with a real pointer — on touch screens iOS
    keeps :hover "stuck" after a tap, which froze the hamburger in brown */
 @media (hover: hover) {
-  button:hover { background: #6d360f; }
-  button.secondary:hover { background: var(--cream-hover); border-color: var(--brand); } /* ghost hover → brown edge (phrakham parity) */
+  button:hover { background: var(--brand-hover); }
+  button.secondary:hover { background: var(--cream-hover); border-color: var(--brand); } /* ghost hover → amber edge */
   button.danger:hover { background: #9c2d21; }
   .pk-tool-btn:hover { background: rgba(0, 0, 0, 0.06); }
   .pk-tool-menu button:hover { background: var(--cream-hover); }

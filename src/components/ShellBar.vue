@@ -177,8 +177,17 @@ async function goSearch() {
     <div id="shell-menus" class="shell-menus"></div>
 
     <div class="sb-right">
-      <!-- 🔍 — go to the song search (home) and focus the search field -->
-      <button class="sb-icon-btn" aria-label="ค้นหาเพลง" @click="goSearch"><Icon name="search" :size="24" /></button>
+      <!-- ＋ สร้างเพลงใหม่ — the app's one primary CREATE action (single source of action).
+           Desktop = this filled pill; mobile hides it (the FAB + drawer row take over via CSS).
+           Bare /studio = a blank editor, no previous song state (AC-G2.2). -->
+      <router-link to="/studio" class="sb-create no-print">
+        <Icon name="file-plus" :size="20" /><span>สร้างเพลงใหม่</span>
+      </router-link>
+
+      <!-- 🔍 — go to the song search (home) and focus the search field. Hidden on the home
+           route: the search box is already on screen there, so the icon would be a duplicate
+           (AC-G4.1). Still shown on every other page as a shortcut back to search. -->
+      <button v-if="route.path !== '/'" class="sb-icon-btn" aria-label="ค้นหาเพลง" @click="goSearch"><Icon name="search" :size="24" /></button>
 
       <!-- ⚙ site settings (ตัวอักษรไทย) — desktop only; on mobile it lives in the drawer -->
       <div class="sb-menu sb-settings">
@@ -223,6 +232,11 @@ async function goSearch() {
          visibility off-canvas), NOT v-if'd, so the core keeps a stable node to slide + trap.
          On desktop it stays hidden off-canvas (the ☰ trigger is display:none). -->
     <aside ref="drawerPanel" class="sb-drawer-panel">
+      <!-- ＋ สร้างเพลงใหม่ — filled action at the TOP of the mobile menu (same /studio target as
+           the desktop pill + the FAB · single source of action). -->
+      <router-link to="/studio" class="sb-drawer-create" @click="closeMenus">
+        <Icon name="file-plus" :size="20" /><span>สร้างเพลงใหม่</span>
+      </router-link>
       <!-- Nav links = text only (design-system SSOT docs/ds/menu-drawer-spec.md §2: ไม่มีไอคอนหน้า).
            Desktop .sb-nav is already text-only; this mirrors it in the drawer. ↗ on พระคำ.ชีวิต is a
            text external-link marker (same as desktop .sb-ext), not a leading icon. -->
@@ -262,5 +276,11 @@ async function goSearch() {
          close on an outside click. The 'site' drawer is excluded — PKDrawer supplies its own
          scrim (and would double-dim behind it otherwise). -->
     <div v-if="shellMenu && shellMenu !== 'site'" class="sb-backdrop" aria-hidden="true" @click="closeMenus"></div>
+
+    <!-- Mobile create FAB — home route only (never over the song page's bottom dock). CSS shows
+         it only < 992px by WIDTH; on desktop it stays display:none even when rendered. -->
+    <router-link v-if="route.path === '/'" to="/studio" class="sb-fab no-print" aria-label="สร้างเพลงใหม่">
+      <Icon name="plus" :size="24" /><span>เพลงใหม่</span>
+    </router-link>
   </header>
 </template>
