@@ -162,6 +162,17 @@ describe('withDeletedNote — shrinks the melody + closes the slot in every vers
     const c = { version: 2, stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 0 3' }]] }], arrangement: [{ stanza: 'A', syllables: [] }] }
     expect(withRestAt(c, { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk: 1 })).toBe(c)
   })
+  it('emptying a segment removes the whole segment — its chord goes too', () => {
+    const c = {
+      version: 2,
+      stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '5', chord: 'G' }, { type: 'bar' }, { type: 'segment', note: '1', chord: 'C' }]] }],
+      arrangement: [{ stanza: 'A', syllables: ['a', 'b'] }],
+    }
+    const after = withDeletedNote(c, { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk: 0 })
+    // the first segment (note '5' + chord G) is gone entirely; bar + second segment remain
+    expect(after.stanzas[0].lines[0].map((it) => it.type + (it.chord ? ':' + it.chord : ''))).toEqual(['bar', 'segment:C'])
+    expect(after.arrangement[0].syllables).toEqual(['b'])
+  })
   it('an unrelated stanza is left untouched (delete)', () => {
     const c = {
       version: 2,

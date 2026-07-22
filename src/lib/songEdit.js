@@ -183,6 +183,8 @@ export function withInsertedNote(content, loc, digit) {
 }
 
 // Delete the note at the cursor slot (pull-tight), closing the slot in every linked verse.
+// If that empties the segment, the WHOLE segment is dropped — its chord goes with it (no orphan
+// chord left behind: "ลบโน้ตหมดแล้วคอร์ดหายเลย").
 export function withDeletedNote(content, loc) {
   const { resolvedLine, si, syk } = loc
   const at = locateSegment(content, resolvedLine, si)
@@ -192,7 +194,17 @@ export function withDeletedNote(content, loc) {
   if (boxIndexForSlot(seg.note || '', syk) < 0) return content
   const g = stanzaGlobalSlot(stanza, at.lineIndex, si, syk)
   const newNote = removeBoxAtSlot(seg.note || '', syk)
-  return withSegmentNote(content, at, newNote, rippleVerses(content, stanza.id, g, 'delete'))
+  const newArrangement = rippleVerses(content, stanza.id, g, 'delete')
+  if (newNote !== '') return withSegmentNote(content, at, newNote, newArrangement)
+  // segment emptied → remove the segment item entirely (drops its chord too)
+  const line = stanza.lines[at.lineIndex]
+  const newLine = line.slice()
+  newLine.splice(at.segIndex, 1)
+  const newLines = stanza.lines.slice()
+  newLines[at.lineIndex] = newLine
+  const newStanzas = content.stanzas.slice()
+  newStanzas[at.stanzaIndex] = { ...stanza, lines: newLines }
+  return { ...content, stanzas: newStanzas, arrangement: newArrangement }
 }
 
 // ---------- octave + accidental (same jianpu rules as EditorMode.octaveShift) ----------
