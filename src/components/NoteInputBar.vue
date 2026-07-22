@@ -16,7 +16,7 @@ const props = defineProps({
   dimmed: { type: Boolean, default: false }, // fade + click-through while typing (popup)
   mode: { type: String, default: 'insert' }, // 'insert' | 'overwrite' — the แทรก/ทับ state
 })
-const emit = defineEmits(['digit', 'octave', 'accidental', 'toggle-mode', 'backspace', 'rest', 'step'])
+const emit = defineEmits(['digit', 'octave', 'accidental', 'toggle-mode', 'backspace', 'step'])
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7']
 
 // ---- popup positioning: float above the note's line, or below if there is no room above,
@@ -75,8 +75,7 @@ onUnmounted(() => window.removeEventListener('resize', place))
       <button class="nib-key nib-acc" title="ครึ่งเสียงลง (แฟลต)" aria-label="แฟลต" @click="emit('accidental', 'b')">♭</button>
       <span class="nib-sep" aria-hidden="true"></span>
 
-      <button class="nib-key nib-del" title="ลบโน้ต/คำที่เลือก" aria-label="ลบสิ่งที่เลือก" @click="emit('backspace')">⌫ ลบ</button>
-      <button class="nib-key" title="เปลี่ยนโน้ตเป็นตัวหยุด (เงียบ) คำยังอยู่" aria-label="เปลี่ยนเป็นตัวหยุด" @click="emit('rest')">ตัวหยุด</button>
+      <button class="nib-key nib-del" title="ลบสิ่งที่เลือก — อยู่ที่โน้ต=เป็นตัวหยุด (คำอยู่) · อยู่ที่คำ=ลบคำ (โน้ตอยู่)" aria-label="ลบสิ่งที่เลือก" @click="emit('backspace')">⌫ ลบ</button>
     </div>
   </div>
 </template>

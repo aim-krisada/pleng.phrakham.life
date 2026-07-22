@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   noteBoxes, boxIndexForSlot, setNotePitch, locateSegment, withNotePitch,
   insertBoxAtSlot, removeBoxAtSlot, withInsertedNote, withDeletedNote, withRestAt,
-  withOctaveShift, withAccidental,
+  withOctaveShift, withAccidental, withClearedSyllable,
 } from './songEdit.js'
 
 const loc0 = (syk) => ({ resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk })
@@ -177,6 +177,20 @@ describe('withDeletedNote — shrinks the melody + closes the slot in every vers
     const after = withDeletedNote(c, { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk: 0 })
     expect(after.arrangement[0].syllables).toEqual(['b'])
     expect(after.arrangement[1]).toBe(c.arrangement[1]) // B verse untouched (===)
+  })
+})
+
+describe('withClearedSyllable — clears just the one word, only in this verse', () => {
+  it('blanks the selected word, keeps notes + other verses', () => {
+    const before = wordy() // stanza A · v1 ['โอ','พระ','เจ้า'] · v2 ['รัก','มั่น','คง']
+    const after = withClearedSyllable(before, { resolvedLine: { _stanza: 'A', _stanzaLine: 0, _entryIndex: 0 }, si: 0, syk: 1 })
+    expect(after.arrangement[0].syllables).toEqual(['โอ', '', 'เจ้า']) // only 'พระ' blanked (mid-slot kept)
+    expect(after.arrangement[1]).toBe(before.arrangement[1]) // verse 2 untouched (===)
+    expect(after.stanzas[0].lines[0][0].note).toBe('1 2 3') // notes untouched
+  })
+  it('is a no-op on an already-blank word', () => {
+    const c = { version: 2, stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 2' }]] }], arrangement: [{ stanza: 'A', syllables: ['a'] }] }
+    expect(withClearedSyllable(c, { resolvedLine: { _stanza: 'A', _stanzaLine: 0, _entryIndex: 0 }, si: 0, syk: 1 })).toBe(c)
   })
 })
 

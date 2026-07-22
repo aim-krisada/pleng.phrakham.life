@@ -251,3 +251,24 @@ export function withRestAt(content, loc) {
   boxes[bi] = '0' // a clean rest — the whole token, so no stray octave/underline marks
   return withSegmentNote(content, at, boxes.join(' '), content.arrangement)
 }
+
+// Clear ONLY the word under the cursor — blank that one syllable in THIS verse (the resolved
+// line's arrangement entry), leaving the note and every other verse untouched. "ลบอันไหน
+// อันนั้นหาย": deleting on the word layer removes just the word. No ripple.
+export function withClearedSyllable(content, loc) {
+  const { resolvedLine, si, syk } = loc
+  if (!content || !Array.isArray(content.arrangement) || !resolvedLine) return content
+  const ei = resolvedLine._entryIndex
+  const entry = content.arrangement[ei]
+  const stanza = (content.stanzas || []).find((s) => s.id === resolvedLine._stanza)
+  if (!entry || !stanza) return content
+  const g = stanzaGlobalSlot(stanza, resolvedLine._stanzaLine, si, syk)
+  const syl = entry.syllables || []
+  if (g >= syl.length || syl[g] === '' || syl[g] == null) return content // already blank
+  const next = syl.slice()
+  next[g] = ''
+  while (next.length && next[next.length - 1] === '') next.pop() // keep it tidy
+  const newArr = content.arrangement.slice()
+  newArr[ei] = { ...entry, syllables: next }
+  return { ...content, arrangement: newArr }
+}

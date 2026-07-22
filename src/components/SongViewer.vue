@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withOctaveShift, withAccidental } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedNote, withRestAt, withClearedSyllable, withOctaveShift, withAccidental } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -280,17 +280,24 @@ function onInlineKey(e) {
   }
   // deletes (note layer for now — word-layer delete is the next step):
   //  • Backspace = ลบดึงชิด (remove note, words pull tight)  • Delete = ลบไม่ชิด (note → rest)
-  else if (selLayer.value === 'note' && e.key === 'Backspace') { e.preventDefault(); deleteNote() }
-  else if (selLayer.value === 'note' && e.key === 'Delete') { e.preventDefault(); restNote() }
+  else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); deleteSel() }
   // Space advances one fine unit (note ↔ word).
   else if (e.key === ' ') { e.preventDefault(); moveUnit(1) }
 }
-// resolve the selected cell's source address, or null (needs the v2 tag to trace back)
+// resolve the selected NOTE's source address, or null (note ops only)
 function selLoc() {
   const cell = selCell.value
   if (!cell || selLayer.value !== 'note') return null
   const rline = resolved.value?.lines?.[cell.li]
   if (!rline || !rline._stanza) return null
+  return { resolvedLine: rline, si: cell.si, syk: cell.syk }
+}
+// resolve the current cell (any layer) — for the word ops that need _entryIndex
+function cellLoc() {
+  const cell = selCell.value
+  if (!cell) return null
+  const rline = resolved.value?.lines?.[cell.li]
+  if (!rline || rline._entryIndex == null) return null
   return { resolvedLine: rline, si: cell.si, syk: cell.syk }
 }
 
@@ -340,21 +347,27 @@ function insertDigit(digit) {
   const next = withInsertedNote(props.song.content, loc, digit)
   if (next !== props.song.content) { emit('update-content', next); curIdx.value = curIdx.value + 2 }
 }
-// delete the selected note (pull-tight); the cursor steps back one, like Backspace in text.
-function deleteNote() {
-  const loc = selLoc()
-  if (!loc) return
-  markTyping()
-  const next = withDeletedNote(props.song.content, loc)
-  if (next !== props.song.content) { emit('update-content', next); curIdx.value = Math.max(0, curIdx.value - 2) }
+// Delete = ลบเฉพาะสิ่งที่เลือก (P'Aim Q1): on the NOTE layer the note becomes a rest (its word
+// + timing stay); on the WORD layer only that word is cleared (the note stays). Nothing else
+// shifts, and other verses are untouched — "ลบอันไหนอันนั้นหาย".
+function deleteSel() {
+  if (selLayer.value === 'word') clearWord()
+  else restNote()
 }
-// leave-a-gap delete: the selected note becomes a rest (0), position unchanged; the cursor
-// stays on it so you can retype a pitch over it.
+// note layer → turn the note into a rest (0), keeping its slot + word; cursor stays on it.
 function restNote() {
   const loc = selLoc()
   if (!loc) return
   markTyping()
   const next = withRestAt(props.song.content, loc)
+  if (next !== props.song.content) emit('update-content', next)
+}
+// word layer → blank just this word in this verse; the note stays.
+function clearWord() {
+  const loc = cellLoc()
+  if (!loc) return
+  markTyping()
+  const next = withClearedSyllable(props.song.content, loc)
   if (next !== props.song.content) emit('update-content', next)
 }
 // octave ± and sharp/flat on the selected note (no ripple — the slot count is unchanged).
@@ -386,8 +399,9 @@ function barType(d) {
 }
 function barOctave(dir) { if (curIdx.value >= 0) { gotoCellNote(selCell.value); octaveSel(dir) } }
 function barAccidental(acc) { if (curIdx.value >= 0) { gotoCellNote(selCell.value); accidentalSel(acc) } }
-function barBackspace() { if (curIdx.value >= 0) { gotoCellNote(selCell.value); deleteNote() } }
-function barRest() { if (curIdx.value >= 0) { gotoCellNote(selCell.value); restNote() } }
+// ⌫ ลบ respects the CURRENT layer (don't snap to note): a word-unit tap clears the word, a
+// note-unit tap turns the note into a rest.
+function barDelete() { if (curIdx.value >= 0) deleteSel() }
 // a note click bubbles to the wrapper — read the exact note from .nt[data-idx] in its
 // .segment[data-seg] (a word .syl is @click.stop, so it comes back through onSeek instead)
 function onInlinePick(e) {
@@ -874,7 +888,7 @@ function onSeek({ li, si, syk }) {
 
     <!-- while editing: a small hint + autosave note ride above the sheet -->
     <div v-if="editMode" class="sv-edit-hint no-print" role="status">
-พิมพ์เลข <b>1–7</b> · <b>← →</b> ซ้าย-ขวาในแถว · <b>↓</b> โน้ต→คำ · <b>↑</b> คำ→โน้ต · <b>Ctrl+← →</b> ข้ามห้อง · <b>Ctrl+↑ ↓</b> ข้ามบรรทัด · <b>Backspace</b> ลบ (มือถือใช้ปุ่ม ◀ ▶)
+พิมพ์เลข <b>1–7</b> · <b>← →</b> ซ้าย-ขวาในแถว · <b>↓</b> โน้ต→คำ · <b>↑</b> คำ→โน้ต · <b>Ctrl+← →</b> ข้ามห้อง · <b>Ctrl+↑ ↓</b> ข้ามบรรทัด · <b>ลบ</b> อยู่ที่โน้ต=เป็นตัวหยุด/อยู่ที่คำ=ลบคำ (มือถือใช้ ◀ ▶)
     </div>
 
     <div
@@ -976,8 +990,7 @@ function onSeek({ li, si, syk }) {
       @octave="barOctave"
       @accidental="barAccidental"
       @toggle-mode="typeMode = typeMode === 'insert' ? 'overwrite' : 'insert'"
-      @backspace="barBackspace"
-      @rest="barRest"
+      @backspace="barDelete"
       @step="barStep"
     />
   </div>
