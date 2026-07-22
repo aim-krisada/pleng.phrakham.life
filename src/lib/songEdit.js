@@ -194,3 +194,18 @@ export function withDeletedNote(content, loc) {
   const newNote = removeBoxAtSlot(seg.note || '', syk)
   return withSegmentNote(content, at, newNote, rippleVerses(content, stanza.id, g, 'delete'))
 }
+
+// "Leave-a-gap" delete: turn the note into a REST (0) but KEEP its slot, so the following
+// notes and every verse's words stay exactly where they are (the MuseScore/Dorico "Delete →
+// rest" behaviour). No ripple — the slot count is unchanged.
+export function withRestAt(content, loc) {
+  const { resolvedLine, si, syk } = loc
+  const at = locateSegment(content, resolvedLine, si)
+  if (!at) return content
+  const seg = content.stanzas[at.stanzaIndex].lines[at.lineIndex][at.segIndex]
+  const boxes = noteBoxes(seg.note || '')
+  const bi = boxIndexForSlot(seg.note || '', syk)
+  if (bi < 0 || boxes[bi] === '0') return content // out of range or already a rest
+  boxes[bi] = '0' // a clean rest — the whole token, so no stray octave/underline marks
+  return withSegmentNote(content, at, boxes.join(' '), content.arrangement)
+}

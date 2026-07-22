@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   noteBoxes, boxIndexForSlot, setNotePitch, locateSegment, withNotePitch,
-  insertBoxAtSlot, removeBoxAtSlot, withInsertedNote, withDeletedNote,
+  insertBoxAtSlot, removeBoxAtSlot, withInsertedNote, withDeletedNote, withRestAt,
 } from './songEdit.js'
 
 describe('noteBoxes', () => {
@@ -144,6 +144,18 @@ describe('withDeletedNote — shrinks the melody + closes the slot in every vers
     expect(after.stanzas[0].lines[0][0].note).toBe('1 3')
     expect(after.arrangement[0].syllables).toEqual(['โอ', 'เจ้า'])
     expect(after.arrangement[1].syllables).toEqual(['รัก', 'คง'])
+  })
+  it('withRestAt leaves a rest (0) in place — no ripple, words stay put', () => {
+    const before = wordy()
+    const after = withRestAt(before, { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk: 1 })
+    expect(after.stanzas[0].lines[0][0].note).toBe('1 0 3') // middle note → rest, length kept
+    expect(after.arrangement).toBe(before.arrangement) // words untouched (=== , no ripple)
+    expect(after.arrangement[0].syllables).toEqual(['โอ', 'พระ', 'เจ้า'])
+    expect(after.arrangement[1].syllables).toEqual(['รัก', 'มั่น', 'คง'])
+  })
+  it('withRestAt is a no-op on a note that is already a rest', () => {
+    const c = { version: 2, stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 0 3' }]] }], arrangement: [{ stanza: 'A', syllables: [] }] }
+    expect(withRestAt(c, { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk: 1 })).toBe(c)
   })
   it('an unrelated stanza is left untouched', () => {
     const c = {

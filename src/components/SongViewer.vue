@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedNote, withDeletedNote } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -217,9 +217,11 @@ function onInlineKey(e) {
     if (typeMode.value === 'insert') insertDigit(e.key)
     else { overwriteDigit(e.key); moveSel(1) }
   }
-  // Backspace / Delete = ลบดึงชิด: drop the selected note, the rest (+ every verse's words)
-  // pull tight to close the gap.
-  else if (selLayer.value === 'note' && (e.key === 'Backspace' || e.key === 'Delete')) { e.preventDefault(); deleteNote() }
+  // Two deletes, the world-standard split (MuseScore/Dorico):
+  //  • Backspace = ลบดึงชิด — remove the note, the rest (+ every verse's words) pull tight.
+  //  • Delete    = ลบไม่ชิด — turn the note into a rest (0); the line's timing + words stay put.
+  else if (selLayer.value === 'note' && e.key === 'Backspace') { e.preventDefault(); deleteNote() }
+  else if (selLayer.value === 'note' && e.key === 'Delete') { e.preventDefault(); restNote() }
   // Space advances the cursor to the next note.
   else if (e.key === ' ') { e.preventDefault(); moveSel(1) }
 }
@@ -253,6 +255,14 @@ function deleteNote() {
   if (!loc) return
   const next = withDeletedNote(props.song.content, loc)
   if (next !== props.song.content) { emit('update-content', next); selIdx.value = Math.max(0, selIdx.value - 1) }
+}
+// leave-a-gap delete: the selected note becomes a rest (0), position unchanged; the cursor
+// stays on it so you can retype a pitch over it.
+function restNote() {
+  const loc = selLoc()
+  if (!loc) return
+  const next = withRestAt(props.song.content, loc)
+  if (next !== props.song.content) emit('update-content', next)
 }
 // a note click bubbles to the wrapper — read the exact note from .nt[data-idx] in its
 // .segment[data-seg] (a word .syl is @click.stop, so it comes back through onSeek instead)
@@ -736,7 +746,7 @@ function onSeek({ li, si, syk }) {
 
     <!-- while editing: a small hint + autosave note ride above the sheet -->
     <div v-if="editMode" class="sv-edit-hint no-print" role="status">
-      <span>แตะ<b>โน้ต</b>เลือก แล้วพิมพ์เลข <b>1–7</b> · <b>Backspace</b> ลบ · ← → ↑ ↓ เลื่อน · แตะ<b>คำ</b>เลือกคำ</span>
+      <span>แตะ<b>โน้ต</b>เลือก แล้วพิมพ์เลข <b>1–7</b> · <b>Backspace</b> ลบชิด · <b>Delete</b> เว้นช่องว่าง · ← → ↑ ↓ เลื่อน · แตะ<b>คำ</b>เลือกคำ</span>
       <span class="sv-mode" role="group" aria-label="โหมดพิมพ์โน้ต">
         <button
           class="sv-mode-btn" :class="{ on: typeMode === 'insert' }" :aria-pressed="typeMode === 'insert'"
