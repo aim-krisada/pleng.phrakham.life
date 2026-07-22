@@ -9,6 +9,7 @@
 // Buttons use @mousedown.prevent so tapping one never blurs the capture input → the keyboard
 // stays open on a phone.
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import Icon from './Icon.vue'
 
 const props = defineProps({
   variant: { type: String, default: 'bar' }, // 'bar' | 'popup'
@@ -39,6 +40,26 @@ function place() {
   left = Math.max(8, Math.min(left, window.innerWidth - w - 8))
   pos.value = { top: Math.round(top), left: Math.round(left) }
 }
+// ---- drag (desktop popup): a grip lets you nudge the popup out of the way. The offset
+// persists (added on top of the auto-anchored position) so it stays where you put it. ----
+const dragDx = ref(0)
+const dragDy = ref(0)
+let dragStart = null
+function onGripDown(e) {
+  dragStart = { x: e.clientX, y: e.clientY, dx: dragDx.value, dy: dragDy.value }
+  window.addEventListener('pointermove', onGripMove)
+  window.addEventListener('pointerup', onGripUp)
+}
+function onGripMove(e) {
+  if (!dragStart) return
+  dragDx.value = dragStart.dx + (e.clientX - dragStart.x)
+  dragDy.value = dragStart.dy + (e.clientY - dragStart.y)
+}
+function onGripUp() {
+  dragStart = null
+  window.removeEventListener('pointermove', onGripMove)
+  window.removeEventListener('pointerup', onGripUp)
+}
 // ---- keyboard-accessory positioning (mobile): sit just above the on-screen keyboard ----
 const kbInset = ref(0)
 function onVV() {
@@ -55,6 +76,8 @@ onMounted(() => {
 })
 onUnmounted(() => {
   window.removeEventListener('resize', place)
+  window.removeEventListener('pointermove', onGripMove)
+  window.removeEventListener('pointerup', onGripUp)
   const vv = window.visualViewport
   if (vv) { vv.removeEventListener('resize', onVV); vv.removeEventListener('scroll', onVV) }
 })
@@ -65,12 +88,14 @@ onUnmounted(() => {
     ref="rootEl"
     class="nib no-print"
     :class="[variant === 'popup' ? 'nib-pop' : 'nib-bar', { dimmed: variant === 'popup' && dimmed }]"
-    :style="variant === 'popup' ? { top: pos.top + 'px', left: pos.left + 'px' } : { bottom: kbInset + 'px' }"
+    :style="variant === 'popup' ? { top: (pos.top + dragDy) + 'px', left: (pos.left + dragDx) + 'px' } : { bottom: kbInset + 'px' }"
     role="toolbar"
     aria-label="เครื่องมือแก้โน้ต"
     @mousedown.prevent
   >
     <div class="nib-scroll">
+      <!-- drag grip (desktop popup) — nudge the toolbar out of the way -->
+      <button v-if="variant === 'popup'" class="nib-key nib-grip" aria-label="ลากย้ายแถบ" title="ลากเพื่อย้าย" @pointerdown="onGripDown"><Icon name="grip-vertical" :size="16" /></button>
       <!-- arrows — mobile only (on-screen keyboards have none; desktop uses the physical keys) -->
       <template v-if="variant === 'bar'">
         <button class="nib-key nib-nav" aria-label="ซ้าย" title="ซ้าย" @click="emit('nav', 'left')">←</button>
@@ -98,7 +123,7 @@ onUnmounted(() => {
       </template>
 
       <!-- (i) keyboard help — desktop popup: which keys do what (things with no button) -->
-      <button v-if="variant === 'popup'" class="nib-key nib-help" :aria-expanded="helpOpen" aria-label="คีย์ลัดคีย์บอร์ด" title="คีย์ลัดคีย์บอร์ด" @click="helpOpen = !helpOpen">i</button>
+      <button v-if="variant === 'popup'" class="nib-key nib-help" :class="{ on: helpOpen }" :aria-expanded="helpOpen" aria-label="คีย์ลัดคีย์บอร์ด" title="คีย์ลัดคีย์บอร์ด" @click="helpOpen = !helpOpen"><Icon name="info" :size="18" /></button>
     </div>
     <div v-if="variant === 'popup' && helpOpen" class="nib-helpbox" role="note">
       <b>คีย์บอร์ด (โหมดแก้):</b><br />
@@ -175,8 +200,12 @@ onUnmounted(() => {
 }
 .nib-mode.ins { background: var(--brand, #8b4513); color: #fff; }
 .nib-sep { flex: 0 0 auto; width: 1px; align-self: stretch; background: var(--line, #d9d0c4); margin: 4px 2px; }
-/* (i) keyboard help */
-.nib-help { font-style: italic; font-weight: 700; min-width: var(--touch-min, 44px); }
+/* (i) keyboard help — the standard blue info affordance (matches phrakham) */
+.nib-help { min-width: 36px; padding: 0 6px; color: #2563eb; border-color: #bfdbfe; background: #eff6ff; }
+.nib-help.on { background: #2563eb; color: #fff; border-color: #2563eb; }
+/* drag grip */
+.nib-grip { min-width: 28px; padding: 0 4px; color: var(--muted, #64748b); cursor: grab; touch-action: none; }
+.nib-grip:active { cursor: grabbing; }
 .nib-helpbox {
   margin-top: 6px;
   padding: 8px 10px;
