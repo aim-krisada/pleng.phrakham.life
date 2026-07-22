@@ -216,6 +216,7 @@ const vBeam = {
       v-for="(g, gi) in groups"
       :key="gi"
       :class="['note-group', g.group ? 'g-' + g.group : '']"
+      :style="{ '--span': g.tokens.length }"
     >
       <!-- slur (เอื้อน) = ONE continuous SVG arc over the whole group, at any length
            (B062). The `v-arc` directive (B076) measures the group's real width and rebuilds

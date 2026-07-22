@@ -623,8 +623,27 @@ input, select, textarea {
 }
 .segment .lyric { display: block; font-size: 1.06em; line-height: var(--lh-snug); } /* was body 1.8 — tighten within-line stack (Thai single line, diacritics fit at 1.4) */
 /* bug 010: spread the melody numbers across the segment width (set by the wider
-   lyric) instead of packing them left with a trailing gap. Song sheet only. */
-.song-line .segment .note .note-row { display: flex; width: 100%; justify-content: space-around; }
+   lyric) instead of packing them left with a trailing gap. Song sheet only. This is the
+   fallback path (v1 segments, or notes-hidden layers) — the count-matched space-around that
+   B011 replaces with a shared-column grid whenever a segment shows both notes + syllables. */
+.song-line .segment:not(.seg-grid) .note .note-row { display: flex; width: 100%; justify-content: space-around; }
+/* B011 — note↔syllable alignment via a shared-column grid.
+   The segment becomes an N-column grid (N = syllable-bearing note slots, set inline). Both
+   the melody row and the per-syllable lyric row are subgrids spanning all N columns, and each
+   .note-group is a subgrid spanning its own token count (--span, set by NoteRow) so every
+   note and every syllable — blank melisma slots included — lands in one shared column. A
+   syllable therefore sits exactly under its own note even when the word count differs from
+   the note count (melisma), which the old two-independent-flex-rows layout could not do.
+   .note-group keeps its box (NOT display:contents) so NoteRow's within-segment slur arc still
+   has its positioning parent; the beam <i> is measured from the .nt rects and is unaffected. */
+.song-line .segment.seg-grid { display: grid; grid-auto-flow: row; justify-items: center; align-items: start; }
+.song-line .segment.seg-grid .chord { grid-column: 1 / -1; justify-self: start; }
+.song-line .segment.seg-grid .note { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
+.song-line .segment.seg-grid .note .note-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; width: auto; }
+.song-line .segment.seg-grid .note .note-group { grid-column: span var(--span, 1); display: grid; grid-template-columns: subgrid; }
+.song-line .segment.seg-grid .note .note-group > .nt { justify-self: center; }
+.song-line .segment.seg-grid .lyric-syl { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; width: auto; }
+.song-line .segment.seg-grid .lyric-syl .syl { justify-self: center; text-align: center; }
 /* follow-along highlight: the segment (notes + lyric + chord) sounding now */
 .segment.seg-playing {
   background: rgba(139, 69, 19, 0.13);

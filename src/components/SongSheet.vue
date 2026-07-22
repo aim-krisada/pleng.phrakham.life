@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { displayChord } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, slurSpans, arcPlan } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, slurSpans, arcPlan, syllableSlots } from '../lib/notation.js'
 import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
@@ -168,6 +168,22 @@ function editNote(li, si) {
 function isEditSyl(li, si, k) {
   const s = props.editSel
   return !!(s && s.li === li && s.si === si && s.syk === k)
+}
+// B011 lyric alignment — when a segment shows BOTH its melody row and its per-syllable
+// lyric row (v2), lay the segment out as a grid whose columns are shared by the notes and
+// the syllables (one column per syllable-bearing note). Each syllable — including a blank
+// melisma slot — is then pinned directly under its own note, so a bar where the note count
+// differs from the visible word count (e.g. 3 notes / 2 words, one held across two notes)
+// still reads unambiguously. Returns the column count (= note slots) or 0 when the grid
+// should not apply (notes hidden, lyrics-only line, or v1 segment without syllable slots).
+// Columns = the segment's NOTE-BOX count (syllableSlots), NOT seg.syllables.length: a held /
+// tied note-box gets its own column even when the arrangement supplied no word for it (an
+// under-supplied verse, e.g. "1.~ ~1" with a single word), so every note keeps a column and
+// none wraps to a second row. Syllables auto-fill the leading columns; any trailing wordless
+// note-box (the tie/hold) simply leaves its column blank.
+function alignCols(seg, first) {
+  if (!(noteOn(first) && Array.isArray(seg.syllables) && !lineLyricsOnly(first))) return 0
+  return syllableSlots(seg.note || '')
 }
 const editNoteActive = computed(() => props.editSel?.layer === 'note')
 const editWordActive = computed(() => props.editSel?.layer === 'word')
@@ -420,7 +436,8 @@ watch(
             v-for="seg in part.segments"
             :key="seg.si"
             class="segment"
-            :class="{ 'seg-playing': isPlaying(row.li, seg.si) && !seg.syllables, 'seg-tap': interactive }"
+            :class="{ 'seg-playing': isPlaying(row.li, seg.si) && !seg.syllables, 'seg-tap': interactive, 'seg-grid': alignCols(seg, row.first) }"
+            :style="alignCols(seg, row.first) ? { gridTemplateColumns: `repeat(${alignCols(seg, row.first)}, auto)` } : null"
             :data-seg="`${row.li}-${seg.si}`"
             @click="seek(row.li, seg.si)"
           >
