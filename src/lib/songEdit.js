@@ -169,7 +169,8 @@ function withSegmentNote(content, at, newNote, newArrangement) {
   return { ...content, stanzas: newStanzas, arrangement: newArrangement }
 }
 
-// Insert a new note (pitch `digit`) at the cursor slot, rippling every linked verse.
+// Insert a new note (pitch `digit`) AFTER the cursor's note (P'Aim: แทรกหลัง — clearer, builds
+// left-to-right), rippling every linked verse. The new note lands at the next slot.
 export function withInsertedNote(content, loc, digit) {
   const { resolvedLine, si, syk } = loc
   const d = String(digit)
@@ -177,8 +178,8 @@ export function withInsertedNote(content, loc, digit) {
   const at = locateSegment(content, resolvedLine, si)
   if (!at) return content
   const stanza = content.stanzas[at.stanzaIndex]
-  const g = stanzaGlobalSlot(stanza, at.lineIndex, si, syk)
-  const newNote = insertBoxAtSlot(stanza.lines[at.lineIndex][at.segIndex].note || '', syk, d)
+  const g = stanzaGlobalSlot(stanza, at.lineIndex, si, syk) + 1 // open the slot AFTER the current
+  const newNote = insertBoxAtSlot(stanza.lines[at.lineIndex][at.segIndex].note || '', syk + 1, d)
   return withSegmentNote(content, at, newNote, rippleVerses(content, stanza.id, g, 'insert'))
 }
 

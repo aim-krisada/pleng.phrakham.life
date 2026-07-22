@@ -134,12 +134,13 @@ const wordy = () => ({
 })
 
 describe('withInsertedNote — grows the melody + ripples every linked verse', () => {
-  it('inserts a note and opens a blank syllable slot at that point in ALL verses', () => {
+  it('inserts a note AFTER the cursor + opens a blank syllable slot there in ALL verses', () => {
+    // cursor on slot 1 (note "2") → the new note lands after it: "1 2 4 3"
     const after = withInsertedNote(wordy(), { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk: 1 }, '4')
-    expect(after.stanzas[0].lines[0][0].note).toBe('1 4 2 3')
-    // both verses gain a blank at index 1, so words stay under their original notes
-    expect(after.arrangement[0].syllables).toEqual(['โอ', '', 'พระ', 'เจ้า'])
-    expect(after.arrangement[1].syllables).toEqual(['รัก', '', 'มั่น', 'คง'])
+    expect(after.stanzas[0].lines[0][0].note).toBe('1 2 4 3')
+    // both verses gain a blank at index 2 (after "พระ"/"มั่น"), words stay under their notes
+    expect(after.arrangement[0].syllables).toEqual(['โอ', 'พระ', '', 'เจ้า'])
+    expect(after.arrangement[1].syllables).toEqual(['รัก', 'มั่น', '', 'คง'])
   })
 })
 
