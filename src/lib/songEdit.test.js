@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { noteBoxes, boxIndexForSlot, setNotePitch, locateSegment, withNotePitch } from './songEdit.js'
+import {
+  noteBoxes, boxIndexForSlot, setNotePitch, locateSegment, withNotePitch,
+  insertBoxAtSlot, removeBoxAtSlot, withInsertedNote, withDeletedNote,
+} from './songEdit.js'
 
 describe('noteBoxes', () => {
   it('splits on whitespace; empty → one blank slot', () => {
@@ -98,5 +101,64 @@ describe('withNotePitch', () => {
   it('returns the same content when the edit is a no-op', () => {
     const c = song()
     expect(withNotePitch(c, { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk: 0 }, '1')).toBe(c)
+  })
+})
+
+describe('insertBoxAtSlot / removeBoxAtSlot', () => {
+  it('inserts a box at the slot, pushing later boxes right', () => {
+    expect(insertBoxAtSlot('1 2 3', 1, '5')).toBe('1 5 2 3')
+    expect(insertBoxAtSlot('1 2 3', 3, '5')).toBe('1 2 3 5') // past the end → append
+    expect(insertBoxAtSlot('', 0, '5')).toBe('5') // empty segment
+  })
+  it('removes a box at the slot, pulling later boxes left', () => {
+    expect(removeBoxAtSlot('1 2 3', 1)).toBe('1 3')
+    expect(removeBoxAtSlot('5', 0)).toBe('') // last box → empty
+    expect(removeBoxAtSlot('1 2', 9)).toBe('1 2') // out of range → unchanged
+  })
+})
+
+// a stanza with words on BOTH verses, to prove the ripple keeps every verse aligned
+const wordy = () => ({
+  version: 2,
+  key: 'C',
+  stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 2 3' }]] }],
+  arrangement: [
+    { stanza: 'A', label: '', syllables: ['โอ', 'พระ', 'เจ้า'] },
+    { stanza: 'A', label: 'ข้อ 2', syllables: ['รัก', 'มั่น', 'คง'] },
+  ],
+})
+
+describe('withInsertedNote — grows the melody + ripples every linked verse', () => {
+  it('inserts a note and opens a blank syllable slot at that point in ALL verses', () => {
+    const after = withInsertedNote(wordy(), { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk: 1 }, '4')
+    expect(after.stanzas[0].lines[0][0].note).toBe('1 4 2 3')
+    // both verses gain a blank at index 1, so words stay under their original notes
+    expect(after.arrangement[0].syllables).toEqual(['โอ', '', 'พระ', 'เจ้า'])
+    expect(after.arrangement[1].syllables).toEqual(['รัก', '', 'มั่น', 'คง'])
+  })
+})
+
+describe('withDeletedNote — shrinks the melody + closes the slot in every verse', () => {
+  it('deletes a note and pulls the words tight in ALL verses', () => {
+    const after = withDeletedNote(wordy(), { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk: 1 })
+    expect(after.stanzas[0].lines[0][0].note).toBe('1 3')
+    expect(after.arrangement[0].syllables).toEqual(['โอ', 'เจ้า'])
+    expect(after.arrangement[1].syllables).toEqual(['รัก', 'คง'])
+  })
+  it('an unrelated stanza is left untouched', () => {
+    const c = {
+      version: 2,
+      stanzas: [
+        { id: 'A', lines: [[{ type: 'segment', note: '1 2' }]] },
+        { id: 'B', lines: [[{ type: 'segment', note: '5 6' }]] },
+      ],
+      arrangement: [
+        { stanza: 'A', syllables: ['a', 'b'] },
+        { stanza: 'B', syllables: ['x', 'y'] },
+      ],
+    }
+    const after = withDeletedNote(c, { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk: 0 })
+    expect(after.arrangement[0].syllables).toEqual(['b'])
+    expect(after.arrangement[1]).toBe(c.arrangement[1]) // B verse untouched (===)
   })
 })

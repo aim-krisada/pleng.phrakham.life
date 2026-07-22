@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedNote, withDeletedNote } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -196,6 +196,10 @@ function moveSelLine(dir) {
   })
   if (best >= 0) selIdx.value = best
 }
+// how a typed digit behaves — 'insert' (the default: a new note pushes the rest right, like
+// typing in Word) or 'overwrite' (replace just this one note, the line doesn't move — for
+// fixing a wrong pitch). AC-B1.3. The Insert key (or the on-sheet toggle) flips it.
+const typeMode = ref('insert')
 function onInlineKey(e) {
   if (!editMode.value) return
   if (e.key === 'ArrowRight') { e.preventDefault(); moveSel(1) }
@@ -204,21 +208,51 @@ function onInlineKey(e) {
   else if (e.key === 'ArrowUp') { e.preventDefault(); moveSelLine(-1) }
   else if (e.key === 'Home') { e.preventDefault(); selIdx.value = 0 }
   else if (e.key === 'End') { e.preventDefault(); selIdx.value = inlineCells.value.length - 1 }
-  // type a scale digit (0–7) over the selected NOTE → change it, then step to the next
-  // note (Word-like sequential entry). Overwrite mode: only the one note changes, the
-  // line doesn't grow (insert/ripple + lyric keys are the next steps).
-  else if (selLayer.value === 'note' && /^[0-7]$/.test(e.key)) { e.preventDefault(); typeDigit(e.key); moveSel(1) }
-  // Space just advances the cursor to the next note (no edit yet).
+  else if (e.key === 'Insert') { e.preventDefault(); typeMode.value = typeMode.value === 'insert' ? 'overwrite' : 'insert' }
+  // type a scale digit (0–7) on the selected NOTE. Insert mode adds a new note here and
+  // pushes the rest right (words of every verse sharing this melody ripple with it);
+  // overwrite mode changes just this note. Then step to the next slot (Word-like entry).
+  else if (selLayer.value === 'note' && /^[0-7]$/.test(e.key)) {
+    e.preventDefault()
+    if (typeMode.value === 'insert') insertDigit(e.key)
+    else { overwriteDigit(e.key); moveSel(1) }
+  }
+  // Backspace / Delete = ลบดึงชิด: drop the selected note, the rest (+ every verse's words)
+  // pull tight to close the gap.
+  else if (selLayer.value === 'note' && (e.key === 'Backspace' || e.key === 'Delete')) { e.preventDefault(); deleteNote() }
+  // Space advances the cursor to the next note.
   else if (e.key === ' ') { e.preventDefault(); moveSel(1) }
 }
-// overwrite the selected note's pitch and tell the owner (Studio) — never touch props.song.
-function typeDigit(digit) {
+// resolve the selected cell's source address, or null (needs the v2 tag to trace back)
+function selLoc() {
   const cell = selCell.value
-  if (!cell || selLayer.value !== 'note') return
+  if (!cell || selLayer.value !== 'note') return null
   const rline = resolved.value?.lines?.[cell.li]
-  if (!rline || !rline._stanza) return // needs the v2 source tag to trace back
-  const next = withNotePitch(props.song.content, { resolvedLine: rline, si: cell.si, syk: cell.syk }, digit)
+  if (!rline || !rline._stanza) return null
+  return { resolvedLine: rline, si: cell.si, syk: cell.syk }
+}
+// overwrite the selected note's pitch and tell the owner (Studio) — never touch props.song.
+function overwriteDigit(digit) {
+  const loc = selLoc()
+  if (!loc) return
+  const next = withNotePitch(props.song.content, loc, digit)
   if (next !== props.song.content) emit('update-content', next)
+}
+// insert a new note at the cursor (ripple right); the cursor moves onto the note that got
+// pushed, so the next digit lands after this one (left-to-right entry). selIdx is set
+// directly (not moveSel) because the list is one longer after the emitted re-render.
+function insertDigit(digit) {
+  const loc = selLoc()
+  if (!loc) return
+  const next = withInsertedNote(props.song.content, loc, digit)
+  if (next !== props.song.content) { emit('update-content', next); selIdx.value = selIdx.value + 1 }
+}
+// delete the selected note (pull-tight); the cursor steps back one, like Backspace in text.
+function deleteNote() {
+  const loc = selLoc()
+  if (!loc) return
+  const next = withDeletedNote(props.song.content, loc)
+  if (next !== props.song.content) { emit('update-content', next); selIdx.value = Math.max(0, selIdx.value - 1) }
 }
 // a note click bubbles to the wrapper — read the exact note from .nt[data-idx] in its
 // .segment[data-seg] (a word .syl is @click.stop, so it comes back through onSeek instead)
@@ -702,7 +736,19 @@ function onSeek({ li, si, syk }) {
 
     <!-- while editing: a small hint + autosave note ride above the sheet -->
     <div v-if="editMode" class="sv-edit-hint no-print" role="status">
-      แตะ<b>โน้ต</b>เพื่อเลือก แล้วพิมพ์เลข <b>1–7</b> เปลี่ยนโน้ตได้เลย · ← → ↑ ↓ / เว้นวรรค เลื่อน · แตะ<b>คำ</b>เพื่อเลือกคำ
+      <span>แตะ<b>โน้ต</b>เลือก แล้วพิมพ์เลข <b>1–7</b> · <b>Backspace</b> ลบ · ← → ↑ ↓ เลื่อน · แตะ<b>คำ</b>เลือกคำ</span>
+      <span class="sv-mode" role="group" aria-label="โหมดพิมพ์โน้ต">
+        <button
+          class="sv-mode-btn" :class="{ on: typeMode === 'insert' }" :aria-pressed="typeMode === 'insert'"
+          title="แทรก — พิมพ์แล้วเพิ่มโน้ตใหม่ ดันตัวอื่นไปขวา"
+          @click="typeMode = 'insert'"
+        >แทรก</button>
+        <button
+          class="sv-mode-btn" :class="{ on: typeMode === 'overwrite' }" :aria-pressed="typeMode === 'overwrite'"
+          title="ทับ — พิมพ์แล้วเปลี่ยนเฉพาะโน้ตที่เลือก บรรทัดไม่ขยับ"
+          @click="typeMode = 'overwrite'"
+        >ทับ</button>
+      </span>
     </div>
 
     <div
@@ -830,8 +876,32 @@ function onSeek({ li, si, syk }) {
   color: var(--muted, #64748b);
   font-size: 13px;
   margin: 2px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .sv-edit-hint b { color: var(--text, #0f172a); }
+/* แทรก/ทับ mode toggle — a small segmented control (like Word's INS/OVR) */
+.sv-mode {
+  display: inline-flex;
+  border: 1px solid var(--line, #d9d0c4);
+  border-radius: 8px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.sv-mode-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted, #64748b);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  min-height: 30px;
+  cursor: pointer;
+}
+.sv-mode-btn.on { background: var(--brand, #8b4513); color: #fff; font-weight: 700; }
+.sv-mode-btn:focus-visible { outline: 2px solid rgba(37, 99, 235, 0.5); outline-offset: -2px; }
 
 /* the sheet is the edit surface — a soft focus ring shows it is "live" */
 .sheet-scale.sv-editing {

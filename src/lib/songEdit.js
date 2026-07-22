@@ -9,7 +9,7 @@
 // The note-box helpers below are string-level and shape-independent, so they work whether
 // the caller holds a stored segment (SongViewer) or an editor segment (EditorMode).
 
-import { noteBoxKinds } from './notation.js'
+import { noteBoxKinds, syllableSlots } from './notation.js'
 
 // Split a note string into its space-separated box tokens (one token per note box — the
 // same convention noteBoxKinds / NoteBoxes use). '' → [''] so an empty segment still has
@@ -94,4 +94,103 @@ export function withNotePitch(content, loc, digit) {
   const newStanzas = content.stanzas.slice()
   newStanzas[at.stanzaIndex] = { ...stanza, lines: newLines }
   return { ...content, stanzas: newStanzas }
+}
+
+// ---------- insert / delete a note box (with ripple) ----------
+// These GROW or SHRINK a melody, so the words of every verse that shares this stanza must
+// shift with it (AC-B1.4: "แทรก/ลบ ในทำนองที่ share → ripple ทุกข้อพร้อมกัน"). The syllable
+// array of an arrangement entry aligns 1:1 with the stanza's syllable-bearing note boxes in
+// reading order, so the insert/delete point in a segment maps to one GLOBAL slot index that
+// we open/close in each linked verse.
+
+// Insert `token` as a NEW box at slot syk (pushing the box at that slot right). At/after the
+// last slot → append. An empty segment ('') just becomes the token. Returns the note string.
+export function insertBoxAtSlot(noteStr, syk, token) {
+  const boxes = noteBoxes(noteStr)
+  if (boxes.length === 1 && boxes[0] === '') return token
+  let bi = boxIndexForSlot(noteStr, syk)
+  if (bi < 0) bi = boxes.length // append past the end
+  boxes.splice(bi, 0, token)
+  return boxes.join(' ')
+}
+
+// Remove the box at slot syk (following boxes pull left). '' when the segment empties.
+export function removeBoxAtSlot(noteStr, syk) {
+  const boxes = noteBoxes(noteStr)
+  const bi = boxIndexForSlot(noteStr, syk)
+  if (bi < 0) return noteStr
+  boxes.splice(bi, 1)
+  return boxes.length ? boxes.join(' ') : ''
+}
+
+// Global syllable-slot index of (segment #segOrdinal in line #lineIdx, slot syk) within a
+// stanza — the running count of syllable-bearing boxes over every earlier segment, all
+// lines, matching how resolveContent consumes an entry's `syllables` across the stanza.
+function stanzaGlobalSlot(stanza, lineIdx, segOrdinal, syk) {
+  let g = 0
+  for (let li = 0; li < (stanza.lines || []).length; li++) {
+    let seg = -1
+    for (const item of stanza.lines[li]) {
+      if (item?.type !== 'segment') continue
+      seg++
+      if (li === lineIdx && seg === segOrdinal) return g + syk
+      g += syllableSlots(item.note || '')
+    }
+  }
+  return g + syk
+}
+
+// open (insert) or close (delete) one syllable slot at global index g, in EVERY arrangement
+// entry that links this stanza. Returns a new arrangement array (untouched entries kept ===).
+function rippleVerses(content, stanzaId, g, mode) {
+  return (content.arrangement || []).map((entry) => {
+    if (entry.stanza !== stanzaId) return entry
+    const syl = (entry.syllables || []).slice()
+    if (mode === 'insert') {
+      syl.splice(Math.min(g, syl.length), 0, '') // open a blank slot (JS clamps start)
+    } else {
+      if (g < syl.length) syl.splice(g, 1) // close the slot
+      while (syl.length && syl[syl.length - 1] === '') syl.pop() // keep it tidy
+    }
+    return { ...entry, syllables: syl }
+  })
+}
+
+// helper: rebuild content with one segment's note replaced + the arrangement rippled
+function withSegmentNote(content, at, newNote, newArrangement) {
+  const stanza = content.stanzas[at.stanzaIndex]
+  const line = stanza.lines[at.lineIndex]
+  const newLine = line.slice()
+  newLine[at.segIndex] = { ...line[at.segIndex], note: newNote }
+  const newLines = stanza.lines.slice()
+  newLines[at.lineIndex] = newLine
+  const newStanzas = content.stanzas.slice()
+  newStanzas[at.stanzaIndex] = { ...stanza, lines: newLines }
+  return { ...content, stanzas: newStanzas, arrangement: newArrangement }
+}
+
+// Insert a new note (pitch `digit`) at the cursor slot, rippling every linked verse.
+export function withInsertedNote(content, loc, digit) {
+  const { resolvedLine, si, syk } = loc
+  const d = String(digit)
+  if (!/^[0-7]$/.test(d)) return content
+  const at = locateSegment(content, resolvedLine, si)
+  if (!at) return content
+  const stanza = content.stanzas[at.stanzaIndex]
+  const g = stanzaGlobalSlot(stanza, at.lineIndex, si, syk)
+  const newNote = insertBoxAtSlot(stanza.lines[at.lineIndex][at.segIndex].note || '', syk, d)
+  return withSegmentNote(content, at, newNote, rippleVerses(content, stanza.id, g, 'insert'))
+}
+
+// Delete the note at the cursor slot (pull-tight), closing the slot in every linked verse.
+export function withDeletedNote(content, loc) {
+  const { resolvedLine, si, syk } = loc
+  const at = locateSegment(content, resolvedLine, si)
+  if (!at) return content
+  const stanza = content.stanzas[at.stanzaIndex]
+  const seg = stanza.lines[at.lineIndex][at.segIndex]
+  if (boxIndexForSlot(seg.note || '', syk) < 0) return content
+  const g = stanzaGlobalSlot(stanza, at.lineIndex, si, syk)
+  const newNote = removeBoxAtSlot(seg.note || '', syk)
+  return withSegmentNote(content, at, newNote, rippleVerses(content, stanza.id, g, 'delete'))
 }
