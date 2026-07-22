@@ -3,11 +3,11 @@
 เปิด session ใหม่ในโฟลเดอร์นี้ → อ่าน `MEMORY.md` + **`ux-groundup-design.md` (LOCKED SSOT)** + ไฟล์นี้ → ทำ PM ต่อได้เลย · งานอยู่ในไฟล์ทั้งหมด (ไม่ผูก account)
 
 ## 3 สายขนาน (คนละ worktree/branch · state อยู่บน disk)
-1. **editor (สาย 1)** — session "ทำ inline edit step B" · branch `claude/peaceful-bhaskara-fe04fd` · dev :5310
-   - ✅ พิมพ์ 1-7 · ripple · Backspace=ลบชิด/Delete=rest · แถบลอย (popup คอม/แถบล่างมือถือ) · 211+ เทสต์
-   - 🟢 กำลังทำ: keyboard-nav (ลูกศร note↔เนื้อ · Ctrl+ลูกศร ห้อง/บรรทัด/ท่อน)
-   - TODO: song-shell ground-up (ตัด tab · Play hero · ✏️ · ↗ · ⋮ · footer) + wire ↗/⋮ (post-merge)
-   - **ยังไม่ merge** (สุดท้าย · หลัง keyboard-nav+song-shell เสร็จ · 211 เทสต์ต้องผ่าน)
+1. **editor (สาย 1)** — branch **`editor-usability`** (worktree `pleng-editor-ux` · dev :5310) · ⚠️ ไม่ใช่ `claude/peaceful-bhaskara-fe04fd` (นั่น handoff-docs เก่า ไม่มี impl)
+   - ✅ keyboard-first inline editor ครบ: 2D nav (←→↑↓ · Ctrl ข้ามห้อง/บรรทัด) · คีย์บอร์ดจริง (เลข=โน้ต/ไทย=เนื้อ) · แก้เนื้อ inline · Delete=อยู่กับที่/Backspace=ลบทั้งช่อง · chord picker · ripple ทุกข้อ · **224 เทสต์ผ่าน (>211)**
+   - ⏳ ค้าง: (1) **verify มือถือจริง** โดยเฉพาะ iOS (แถบลอยเหนือคีย์บอร์ด visualViewport — ทดสอบใน pane ไม่ได้) (2) งานถัดไป P'Aim เคาะ = **จัดคำแป๊ะใต้โน้ต** (แก้ SongSheet render — กระทบ ฝึกร้อง+A4 print+พรีวิว)
+   - TODO: song-shell ground-up (ตัด tab · Play hero · ✏️ · ↗ · ⋮ · footer) + wire ↗/⋮ (engine อยู่บน base แล้ว)
+   - **ยังไม่ merge** — สาย 1 จะแจ้ง PM เมื่อพร้อม · ตอน merge: rebase base + `npm install` (qrcode-generator) ก่อน
 2. **home/nav (สาย 2)** — branch `claude/eloquent-elion-ad2051`
    - ✅ **MERGED เข้า `studio-shell-redesign` แล้ว 22 ก.ค. (PM)** — gate ผ่าน: 759 เทสต์ผ่าน · ไม่มี conflict · อยู่ในเลน (ไม่แตะไฟล์ editor) · verify live: ธีมอุ่น+สดใส (#fdf7ee/#f59e0b/#f26b4e) · footer+build stamp ครบ · language switcher มี · 3-way selector/search/nav
    - เพิ่ม dep `qrcode-generator` (self-host QR) → **ต้อง `npm install` หลัง pull base**

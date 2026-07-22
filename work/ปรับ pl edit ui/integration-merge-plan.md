@@ -5,7 +5,7 @@
 ## 3 branch + ไฟล์ที่เป็นเจ้าของ
 | สาย | branch | ไฟล์หลัก |
 |---|---|---|
-| editor (สาย 1) | `claude/peaceful-bhaskara-fe04fd` | `EditorMode.vue` · `SongViewer.vue` · `SongSheet.vue` · `NoteRow.vue` · `useSongEdit`/`lib/songEdit` · contextual toolbar · `styles.css` (component styles ของ editor) |
+| editor (สาย 1) | **`editor-usability`** (worktree `pleng-editor-ux`) — ⚠️ NOT `claude/peaceful-bhaskara-fe04fd` (นั่นเป็น handoff-docs branch เก่า ไม่มีโค้ด impl) | `SongViewer.vue` · `SongSheet.vue` · `NoteInputBar.vue` · `lib/songEdit.js` · contextual toolbar/popup · `styles.css` (component styles ของ editor) |
 | home/nav (สาย 2) | `claude/eloquent-elion-ad2051` | `SongList.vue` · `ShellBar.vue` · `router.js` · `styles.css` (:root theme tokens) · `src/i18n/*` · `lib/favorites·share·playlists` · `FavStar.vue` · `Guide.vue` |
 | recolor (agent) | `worktree-agent-ae5a7059d627fcd07` | `public/*.png` (icon set) · `site.webmanifest` |
 
