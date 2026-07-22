@@ -92,6 +92,12 @@
 - ใช้เป็น **theme token จริงใน `styles.css`** (ของเดิมมี token อยู่แล้ว → เปลี่ยนค่า ไม่ hard-code) · verify คอนทราสต์จริง · light/dark ครบ
 - **ไม่ทำ mockup ทิ้ง** — ถ้าพี่อยากเห็นก่อน ผม render swatch สั้น ๆ หรือ apply เป็น token บนแอปจริงให้ดู
 
+## Footer (คงไว้เสมอ — สำคัญ · P'Aim ใช้ดู version)
+- **footer ต้องมีตลอด** — โชว์ site · **version/commit ที่ deploy จริง** · วันที่ (build stamp) · reuse `SiteFooter.vue` (`__BUILD_COMMIT__`)
+- P'Aim ใช้ footer เช็คว่าเว็บขึ้นรุ่นไหนแล้ว = ห้ามตัดทิ้งในดีไซน์มินิมอล
+- หน้าแรก/หน้าทั่วไป = footer ล่างสุดปกติ · หน้าเพลงเต็มจอ = footer ยังเข้าถึงได้ (ท้าย scroll / ใน ☰) ไม่หายไปเฉยๆ
+- (ธีมใหม่: footer โทนอุ่น · ข้อความ version สี muted อ่านได้ทั้ง light/dark)
+
 ## Responsive + a11y
 fluid 320→∞ (360/375/412 · Fold · tablet · desktop · 2 orientation) · target ≥44 · ไม่มี h-scroll · touch=full-screen/bottom-sheet · pointer=popover/แถบ · contrast ≥4.5 · focus-visible · theme tokens · ไอคอนมี aria-label · FAB เคารพ safe-area
 
