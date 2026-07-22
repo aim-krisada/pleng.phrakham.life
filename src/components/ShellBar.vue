@@ -19,6 +19,7 @@
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { shellMenu, siteFont, setSiteFont } from '../store.js'
+import { t, locale, setLocale, isReady, LOCALES } from '../i18n/index.js'
 import ProfileTool from './ProfileTool.vue'
 import InstallAppTool from './InstallAppTool.vue'
 import Icon from './Icon.vue'
@@ -134,15 +135,15 @@ async function goSearch() {
 
     <!-- Brand: mobile shows the app icon only (มุมซ้ายบน · ไม่มีชื่อ); desktop shows the name
          only (เพลง.พระคำ.ชีวิต · ไม่มี icon) — phrakham-style. One link; CSS swaps per width. -->
-    <router-link to="/" class="sb-brand" aria-label="หน้าแรก · เพลง.พระคำ.ชีวิต">
+    <router-link to="/" class="sb-brand" :aria-label="t('brand.home')">
       <img class="sb-app-ico" :src="appIcon" alt="" width="40" height="40" />
-      <span class="sb-brand-text">เพลง.พระคำ.ชีวิต</span>
+      <span class="sb-brand-text">{{ t('brand.name') }}</span>
     </router-link>
 
     <!-- Desktop inline nav (phrakham navbar-nav). Hidden on mobile → moves into the drawer.
          Order (P'Aim 13 ก.ค.): รายการเพลง · คู่มือ · พระคำ.ชีวิต↗ · เกี่ยวกับเรา. -->
     <nav class="sb-nav" aria-label="เมนูหลัก">
-      <router-link to="/" :class="{ here: route.path === '/' }">รายการเพลง</router-link>
+      <router-link to="/" :class="{ here: route.path === '/' }">{{ t('nav.songs') }}</router-link>
       <!-- คู่มือ ▾ — APG menu button opening 2 sub-guides (GATE 1). Shown to every tier. -->
       <div class="sb-menu sb-guide">
         <button
@@ -153,22 +154,22 @@ async function goSearch() {
           aria-haspopup="true"
           @click.stop="toggleGuide"
           @keydown="onGuideBtnKey"
-        >คู่มือ<span class="sb-chev" aria-hidden="true">▾</span></button>
+        >{{ t('nav.guide') }}<span class="sb-chev" aria-hidden="true">▾</span></button>
         <div
           v-if="shellMenu === 'guide'"
           ref="guideMenu"
           class="sb-dropdown sb-guide-menu"
           role="menu"
-          aria-label="คู่มือ"
+          :aria-label="t('nav.guide')"
           @keydown="onGuideMenuKey"
           @click.stop
         >
-          <router-link to="/guide" role="menuitem" :class="{ here: route.path === '/guide' }" @click="closeGuide(false)">คู่มือใช้งานโปรแกรม</router-link>
-          <router-link to="/notation" role="menuitem" :class="{ here: route.path === '/notation' }" @click="closeGuide(false)">คู่มือทำเพลง</router-link>
+          <router-link to="/guide" role="menuitem" :class="{ here: route.path === '/guide' }" @click="closeGuide(false)">{{ t('nav.guideUse') }}</router-link>
+          <router-link to="/notation" role="menuitem" :class="{ here: route.path === '/notation' }" @click="closeGuide(false)">{{ t('nav.guideMake') }}</router-link>
         </div>
       </div>
-      <a href="https://phrakham.life" class="sb-nav-ext">พระคำ.ชีวิต<span class="sb-ext" aria-hidden="true">↗</span></a>
-      <router-link to="/about" :class="{ here: route.path === '/about' }">เกี่ยวกับเรา</router-link>
+      <a href="https://phrakham.life" class="sb-nav-ext">{{ t('nav.phrakham') }}<span class="sb-ext" aria-hidden="true">↗</span></a>
+      <router-link to="/about" :class="{ here: route.path === '/about' }">{{ t('nav.about') }}</router-link>
     </nav>
 
     <div id="shell-title" class="shell-title-wrap">
@@ -181,13 +182,13 @@ async function goSearch() {
            Desktop = this filled pill; mobile hides it (the FAB + drawer row take over via CSS).
            Bare /studio = a blank editor, no previous song state (AC-G2.2). -->
       <router-link to="/studio" class="sb-create no-print">
-        <Icon name="file-plus" :size="20" /><span>สร้างเพลงใหม่</span>
+        <Icon name="file-plus" :size="20" /><span>{{ t('action.create') }}</span>
       </router-link>
 
       <!-- 🔍 — go to the song search (home) and focus the search field. Hidden on the home
            route: the search box is already on screen there, so the icon would be a duplicate
            (AC-G4.1). Still shown on every other page as a shortcut back to search. -->
-      <button v-if="route.path !== '/'" class="sb-icon-btn" aria-label="ค้นหาเพลง" @click="goSearch"><Icon name="search" :size="24" /></button>
+      <button v-if="route.path !== '/'" class="sb-icon-btn" :aria-label="t('action.search')" @click="goSearch"><Icon name="search" :size="24" /></button>
 
       <!-- ⚙ site settings (ตัวอักษรไทย) — desktop only; on mobile it lives in the drawer -->
       <div class="sb-menu sb-settings">
@@ -195,22 +196,40 @@ async function goSearch() {
           class="sb-icon-btn"
           :aria-expanded="shellMenu === 'settings'"
           aria-haspopup="true"
-          aria-label="ตั้งค่า"
+          :aria-label="t('action.settings')"
           @click.stop="toggleSettings"
         >
           <Icon name="settings" :size="24" />
         </button>
         <div v-if="shellMenu === 'settings'" class="sb-dropdown sb-mode-menu" role="menu" @click.stop>
+          <!-- ภาษา (UI language) — ไทย default; zh/en shown but "เร็วๆ นี้" until their dict lands -->
+          <div class="sb-lang">
+            <div class="sb-lang-lbl">{{ t('lang.label') }}</div>
+            <div class="sb-lang-opts" role="radiogroup" :aria-label="t('lang.label')">
+              <button
+                v-for="l in LOCALES"
+                :key="l.code"
+                type="button"
+                role="radio"
+                :aria-checked="locale === l.code"
+                :class="{ on: locale === l.code }"
+                :disabled="!isReady(l.code)"
+                @click="setLocale(l.code)"
+              >
+                {{ l.native }}<span v-if="!isReady(l.code)" class="sb-lang-soon">{{ t('lang.soon') }}</span>
+              </button>
+            </div>
+          </div>
           <div class="sb-font">
-            <div class="sb-font-lbl">ตัวอักษรไทย</div>
-            <div class="sb-font-opts" role="radiogroup" aria-label="ตัวอักษรไทย">
+            <div class="sb-font-lbl">{{ t('font.label') }}</div>
+            <div class="sb-font-opts" role="radiogroup" :aria-label="t('font.label')">
               <button type="button" role="radio" :aria-checked="siteFont === 'default'" :class="{ on: siteFont === 'default' }" @click="setSiteFont('default')">
                 <span class="sb-font-eg">ก&nbsp;ข&nbsp;ค</span>
-                ไม่มีหัว
+                {{ t('font.loopless') }}
               </button>
               <button type="button" role="radio" :aria-checked="siteFont === 'looped'" :class="{ on: siteFont === 'looped' }" @click="setSiteFont('looped')">
                 <span class="sb-font-eg looped">ก&nbsp;ข&nbsp;ค</span>
-                มีหัว
+                {{ t('font.looped') }}
               </button>
             </div>
           </div>
@@ -218,7 +237,7 @@ async function goSearch() {
       </div>
 
       <!-- ☰ hamburger — mobile only; the PKDrawer core wires its click + syncs aria-expanded. -->
-      <button ref="burgerBtn" class="sb-icon-btn sb-burger" aria-label="เมนู">
+      <button ref="burgerBtn" class="sb-icon-btn sb-burger" :aria-label="t('action.menu')">
         <Icon name="menu" :size="24" />
       </button>
 
@@ -235,36 +254,54 @@ async function goSearch() {
       <!-- ＋ สร้างเพลงใหม่ — filled action at the TOP of the mobile menu (same /studio target as
            the desktop pill + the FAB · single source of action). -->
       <router-link to="/studio" class="sb-drawer-create" @click="closeMenus">
-        <Icon name="file-plus" :size="20" /><span>สร้างเพลงใหม่</span>
+        <Icon name="file-plus" :size="20" /><span>{{ t('action.create') }}</span>
       </router-link>
       <!-- Nav links = text only (design-system SSOT docs/ds/menu-drawer-spec.md §2: ไม่มีไอคอนหน้า).
            Desktop .sb-nav is already text-only; this mirrors it in the drawer. ↗ on พระคำ.ชีวิต is a
            text external-link marker (same as desktop .sb-ext), not a leading icon. -->
       <nav class="sb-drawer-nav" @click="closeMenus">
-        <router-link to="/" :class="{ here: route.path === '/' }">รายการเพลง</router-link>
+        <router-link to="/" :class="{ here: route.path === '/' }">{{ t('nav.songs') }}</router-link>
         <!-- คู่มือ = 2 sub-guides (GATE 1). Flattened as two rows in the drawer (a menu-button
              popover isn't the mobile idiom); same 2 destinations, shown to every tier. -->
-        <router-link to="/guide" :class="{ here: route.path === '/guide' }">คู่มือใช้งานโปรแกรม</router-link>
-        <router-link to="/notation" :class="{ here: route.path === '/notation' }">คู่มือทำเพลง</router-link>
-        <a href="https://phrakham.life">พระคำ.ชีวิต <span class="sb-k">↗</span></a>
-        <router-link to="/about" :class="{ here: route.path === '/about' }">เกี่ยวกับเรา</router-link>
+        <router-link to="/guide" :class="{ here: route.path === '/guide' }">{{ t('nav.guideUse') }}</router-link>
+        <router-link to="/notation" :class="{ here: route.path === '/notation' }">{{ t('nav.guideMake') }}</router-link>
+        <a href="https://phrakham.life">{{ t('nav.phrakham') }} <span class="sb-k">↗</span></a>
+        <router-link to="/about" :class="{ here: route.path === '/about' }">{{ t('nav.about') }}</router-link>
       </nav>
       <div class="sb-drawer-sep" role="separator"></div>
       <div class="sb-drawer-tools">
-        <div class="sb-drawer-lbl">เครื่องมือ</div>
+        <div class="sb-drawer-lbl">{{ t('action.tools') }}</div>
         <!-- "ติดตั้งแอพ" affordance — self-contained (lib/pwaInstall.js). An action row per
              docs/ds/menu-drawer-spec.md §3. Renders nothing when already installed. -->
         <InstallAppTool />
+        <!-- ภาษา (UI language) — same registry as the desktop ⚙; zh/en = "เร็วๆ นี้" for now -->
+        <div class="sb-lang" @click.stop>
+          <div class="sb-lang-lbl">{{ t('lang.label') }}</div>
+          <div class="sb-lang-opts" role="radiogroup" :aria-label="t('lang.label')">
+            <button
+              v-for="l in LOCALES"
+              :key="l.code"
+              type="button"
+              role="radio"
+              :aria-checked="locale === l.code"
+              :class="{ on: locale === l.code }"
+              :disabled="!isReady(l.code)"
+              @click="setLocale(l.code)"
+            >
+              {{ l.native }}<span v-if="!isReady(l.code)" class="sb-lang-soon">{{ t('lang.soon') }}</span>
+            </button>
+          </div>
+        </div>
         <div class="sb-font" @click.stop>
-          <div class="sb-font-lbl">ตัวอักษรไทย</div>
-          <div class="sb-font-opts" role="radiogroup" aria-label="ตัวอักษรไทย">
+          <div class="sb-font-lbl">{{ t('font.label') }}</div>
+          <div class="sb-font-opts" role="radiogroup" :aria-label="t('font.label')">
             <button type="button" role="radio" :aria-checked="siteFont === 'default'" :class="{ on: siteFont === 'default' }" @click="setSiteFont('default')">
               <span class="sb-font-eg">ก&nbsp;ข&nbsp;ค</span>
-              ไม่มีหัว
+              {{ t('font.loopless') }}
             </button>
             <button type="button" role="radio" :aria-checked="siteFont === 'looped'" :class="{ on: siteFont === 'looped' }" @click="setSiteFont('looped')">
               <span class="sb-font-eg looped">ก&nbsp;ข&nbsp;ค</span>
-              มีหัว
+              {{ t('font.looped') }}
             </button>
           </div>
         </div>
@@ -279,8 +316,8 @@ async function goSearch() {
 
     <!-- Mobile create FAB — home route only (never over the song page's bottom dock). CSS shows
          it only < 992px by WIDTH; on desktop it stays display:none even when rendered. -->
-    <router-link v-if="route.path === '/'" to="/studio" class="sb-fab no-print" aria-label="สร้างเพลงใหม่">
-      <Icon name="plus" :size="24" /><span>เพลงใหม่</span>
+    <router-link v-if="route.path === '/'" to="/studio" class="sb-fab no-print" :aria-label="t('action.create')">
+      <Icon name="plus" :size="24" /><span>{{ t('action.createShort') }}</span>
     </router-link>
   </header>
 </template>

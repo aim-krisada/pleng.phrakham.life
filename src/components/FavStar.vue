@@ -6,6 +6,7 @@
 // (WCAG 2.5.8), so it's easy to tap on a phone.
 import { computed } from 'vue'
 import { isFavorite, toggleFavorite, favorites } from '../lib/favorites.js'
+import { t } from '../i18n/index.js'
 
 const props = defineProps({
   id: { type: [String, Number], required: true },
@@ -28,7 +29,7 @@ function toggle(e) {
     class="fav-star"
     :class="{ on }"
     :aria-pressed="on"
-    :aria-label="on ? 'เอาออกจากรายการโปรด' : 'เพิ่มเข้ารายการโปรด'"
+    :aria-label="on ? t('a11y.favRemove') : t('a11y.favAdd')"
     @click="toggle"
   >
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"

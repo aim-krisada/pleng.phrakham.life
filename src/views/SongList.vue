@@ -17,6 +17,7 @@ import {
 import { session } from '../store.js'
 import { favorites, isFavorite } from '../lib/favorites.js'
 import FavStar from '../components/FavStar.vue'
+import { t } from '../i18n/index.js'
 
 const router = useRouter()
 
@@ -62,13 +63,13 @@ const themes = computed(() =>
 )
 
 // a song is "flagged" when DA's review_flags array has entries (repeat / lint / words).
-const FLAG_LABEL = { repeat: 'ตั้งจุดซ้ำ (repeat)', lint: 'โน้ตอาจผิด (lint)', words: 'เนื้อ≠โน้ต' }
+const FLAG_KEY = { repeat: 'list.flagRepeat', lint: 'list.flagLint', words: 'list.flagWords' }
 function flagCount(s) {
   return Array.isArray(s.review_flags) ? s.review_flags.length : 0
 }
 function flagTitle(s) {
-  const kinds = (s.review_flags || []).map((f) => FLAG_LABEL[f] || f)
-  return kinds.length ? 'ต้องตรวจ: ' + kinds.join(' · ') : ''
+  const kinds = (s.review_flags || []).map((f) => (FLAG_KEY[f] ? t(FLAG_KEY[f]) : f))
+  return kinds.length ? t('list.flagPrefix', { kinds: kinds.join(' · ') }) : ''
 }
 
 // public visibility gate — the whole page derives from THIS, so counts, in-book lists and
@@ -92,9 +93,7 @@ const activeBookMeta = computed(() => shelf.value.find((b) => b.code === activeB
 // gate hid them all (none verified yet)" — else a public visitor sees "ยังไม่มีเพลงในระบบ"
 // while 100+ songs sit unverified. (Wording is a suggestion — PM/P'Aim can adjust.)
 const booksEmptyMsg = computed(() =>
-  !loggedIn.value && songs.value.length
-    ? 'เพลงกำลังอยู่ระหว่างตรวจทาน จะเปิดให้ชมเร็วๆ นี้'
-    : 'ยังไม่มีเพลงในระบบ',
+  !loggedIn.value && songs.value.length ? t('list.emptyPublic') : t('list.emptyNone'),
 )
 
 // ---- search results (existing flat list, narrowed by the review facets) ----
@@ -139,12 +138,10 @@ onMounted(async () => {
         v-model="query"
         type="search"
         class="song-search"
-        aria-label="ค้นหาเพลง — ชื่อเพลง หมายเลข เนื้อร้อง คีย์ หรือโน้ตตัวเลข"
-        placeholder="ค้นหาเพลง"
+        :aria-label="t('a11y.searchFull')"
+        :placeholder="t('list.searchPlaceholder')"
       />
-      <p v-if="dbError" class="muted db-note">
-        ยังเชื่อมต่อฐานข้อมูลไม่ได้ — แสดงเพลงตัวอย่างไปก่อน
-      </p>
+      <p v-if="dbError" class="muted db-note">{{ t('list.dbNote') }}</p>
     </div>
 
     <!-- browse filter chips — ★ รายการโปรด rides alongside the bookshelf (US-G1.2), never
@@ -157,18 +154,18 @@ onMounted(async () => {
         :aria-pressed="favOnly"
         @click="favOnly = !favOnly"
       >
-        <span class="chip-star" aria-hidden="true">★</span> รายการโปรด
+        <span class="chip-star" aria-hidden="true">★</span> {{ t('list.favChip') }}
         <span v-if="favSongs.length" class="chip-count">{{ favSongs.length }}</span>
       </button>
     </div>
 
-    <p v-if="loading" class="muted">กำลังโหลด…</p>
+    <p v-if="loading" class="muted">{{ t('list.loading') }}</p>
 
     <!-- ===== SEARCH · flat results across every book (overrides levels) ===== -->
     <section v-else-if="searching">
       <div class="level-head">
-        <h2>ผลการค้นหา</h2>
-        <span class="count muted" aria-live="polite">{{ results.length }} เพลง</span>
+        <h2>{{ t('list.results') }}</h2>
+        <span class="count muted" aria-live="polite">{{ t('list.countSongs', { n: results.length }) }}</span>
       </div>
       <!-- review facets = team QA tools → logged-in only (public sees only verified songs,
            so an "unverified" filter would be meaningless for them) -->
@@ -180,10 +177,10 @@ onMounted(async () => {
           :aria-pressed="onlyUnverified"
           @click="onlyUnverified = !onlyUnverified"
         >
-          ⚠️ เฉพาะที่ยังไม่ตรวจ
+          {{ t('list.onlyUnverified') }}
         </button>
-        <select v-model="theme" class="facet-select" aria-label="กรองตามธีม">
-          <option value="">ทุกธีม</option>
+        <select v-model="theme" class="facet-select" :aria-label="t('list.filterByTheme')">
+          <option value="">{{ t('list.allThemes') }}</option>
           <option v-for="t in themes" :key="t" :value="t">{{ t }}</option>
         </select>
       </div>
@@ -194,51 +191,49 @@ onMounted(async () => {
           <div class="song-card-head">
             <strong class="song-title">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</strong>
             <span class="head-tags">
-              <span v-if="loggedIn && flagCount(s)" class="badge warn" :title="flagTitle(s)">⚠️ ต้องตรวจ</span>
-              <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok" title="ตรวจแล้ว">✓ ตรวจแล้ว</span>
-              <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending" title="ยังไม่ตรวจ">ยังไม่ตรวจ</span>
-              <span class="key-chip">Key {{ s.content.key }}</span>
+              <span v-if="loggedIn && flagCount(s)" class="badge warn" :title="flagTitle(s)">{{ t('list.mustCheck') }}</span>
+              <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok" :title="t('list.verified')">{{ t('list.verified') }}</span>
+              <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending" :title="t('list.pending')">{{ t('list.pending') }}</span>
+              <span class="key-chip">{{ t('list.keyEn', { k: s.content.key }) }}</span>
             </span>
           </div>
           <div v-if="s.title_en" class="muted">{{ s.title_en }}</div>
           <div v-if="snippet(s.content)" class="muted">{{ snippet(s.content) }}…</div>
           <div v-if="s.theme" class="theme-tag muted">{{ s.theme }}</div>
           <div v-if="bookRefLabels(s.book_refs).length" class="src-tag muted">
-            แหล่งเพลง: {{ bookRefLabels(s.book_refs).join(' · ') }}
+            {{ t('list.srcSongs', { list: bookRefLabels(s.book_refs).join(' · ') }) }}
           </div>
-          <div v-if="s.scripture" class="scripture-tag muted">📖 {{ s.scripture }}</div>
+          <div v-if="s.scripture" class="scripture-tag muted">{{ t('list.scripture', { ref: s.scripture }) }}</div>
         </router-link>
       </div>
-      <p v-if="results.length === 0" class="muted empty" aria-live="polite">ไม่พบเพลงที่ค้นหา</p>
+      <p v-if="results.length === 0" class="muted empty" aria-live="polite">{{ t('list.noResults') }}</p>
     </section>
 
     <!-- ===== ★ FAVORITES · flat list of starred songs (overrides the book drill) ===== -->
     <section v-else-if="favOnly">
       <div class="level-head">
-        <h2>★ รายการโปรด</h2>
-        <span class="count muted" aria-live="polite">{{ favSongs.length }} เพลง</span>
+        <h2>{{ t('list.favTitle') }}</h2>
+        <span class="count muted" aria-live="polite">{{ t('list.countSongs', { n: favSongs.length }) }}</span>
       </div>
       <div class="song-list">
         <router-link v-for="s in favSongs" :key="s.id" :to="`/song/${s.id}`" class="song-row">
           <span class="no">{{ s.number != null ? s.number : '–' }}</span>
           <span class="ttl">{{ s.title_th }}</span>
-          <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
+          <span v-if="s.content && s.content.key" class="key">{{ t('list.key', { k: s.content.key }) }}</span>
           <FavStar :id="s.id" />
         </router-link>
       </div>
-      <p v-if="!favSongs.length" class="muted empty" aria-live="polite">
-        ยังไม่มีรายการโปรด — แตะรูปดาว ☆ ที่เพลงเพื่อบันทึกไว้ที่นี่
-      </p>
+      <p v-if="!favSongs.length" class="muted empty" aria-live="polite">{{ t('list.favEmpty') }}</p>
     </section>
 
     <!-- ===== LEVEL 2 · songs in the selected book, ordered by in-book number ===== -->
     <section v-else-if="level === 'songs'">
-      <button type="button" class="crumb" @click="backToBooks">← เล่มทั้งหมด</button>
+      <button type="button" class="crumb" @click="backToBooks">{{ t('list.allBooks') }}</button>
       <div class="level-head">
         <h2>{{ activeBookMeta ? activeBookMeta.name : '' }}</h2>
-        <span class="count muted">{{ inBook.length }} เพลง</span>
+        <span class="count muted">{{ t('list.countSongs', { n: inBook.length }) }}</span>
         <span v-if="loggedIn" class="count progress" aria-live="polite">
-          ✓ ตรวจแล้ว {{ bookProgress.verified }} / {{ bookProgress.total }}
+          {{ t('list.reviewed', { v: bookProgress.verified, t: bookProgress.total }) }}
         </span>
       </div>
       <div class="song-list">
@@ -250,21 +245,21 @@ onMounted(async () => {
         >
           <span class="no">{{ s.number != null ? s.number : '–' }}</span>
           <span class="ttl">{{ s.title_th }}</span>
-          <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok row-status" title="ตรวจแล้ว">✓ ตรวจแล้ว</span>
-          <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending row-status" title="ยังไม่ตรวจ">ยังไม่ตรวจ</span>
+          <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok row-status" :title="t('list.verified')">{{ t('list.verified') }}</span>
+          <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending row-status" :title="t('list.pending')">{{ t('list.pending') }}</span>
           <!-- book_refs = reference tag ("เล่มเล็ก 282"). Kept title-first: shown only where
                the row is wide enough (≥640px) so it never crushes the title into a sliver on
                a phone. Full list also lives on the search card + the song page. -->
           <span
             v-if="bookRefLabels(s.book_refs).length"
             class="ref"
-            :title="'อ้างอิง: ' + bookRefLabels(s.book_refs).join(' · ')"
+            :title="t('list.refTitle', { list: bookRefLabels(s.book_refs).join(' · ') })"
           >{{ bookRefLabels(s.book_refs).join(' · ') }}</span>
-          <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
+          <span v-if="s.content && s.content.key" class="key">{{ t('list.key', { k: s.content.key }) }}</span>
           <FavStar :id="s.id" />
         </router-link>
       </div>
-      <p v-if="inBook.length === 0" class="muted empty">ยังไม่มีเพลงในเล่มนี้</p>
+      <p v-if="inBook.length === 0" class="muted empty">{{ t('list.noBookSongs') }}</p>
     </section>
 
     <!-- ===== LEVEL 1 · bookshelf (landing) — one vertical list, same as the songs ===== -->
@@ -279,7 +274,7 @@ onMounted(async () => {
           @click="openBook(b.code)"
         >
           <span class="bk-name">{{ b.name }}</span>
-          <span class="bk-count">{{ b.count }} เพลง</span>
+          <span class="bk-count">{{ t('list.countSongs', { n: b.count }) }}</span>
           <span class="chev" aria-hidden="true">›</span>
         </button>
       </div>

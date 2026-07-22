@@ -1,0 +1,75 @@
+// Thai (ไทย) — the default + fallback locale. This is the SSOT for every UI string on the
+// shell / home / nav surfaces (สาย 2). Add src/i18n/zh.js + en.js later with the SAME keys to
+// translate; any key a translation is missing falls back to the Thai value here (i18n/index.js).
+// Keys are namespaced by surface. {n}/{k}/… are interpolation slots filled by t(key, params).
+export default {
+  brand: {
+    name: 'เพลง.พระคำ.ชีวิต',
+    home: 'หน้าแรก · เพลง.พระคำ.ชีวิต',
+  },
+  nav: {
+    songs: 'รายการเพลง',
+    guide: 'คู่มือ',
+    guideUse: 'คู่มือใช้งานโปรแกรม',
+    guideMake: 'คู่มือทำเพลง',
+    phrakham: 'พระคำ.ชีวิต',
+    about: 'เกี่ยวกับเรา',
+  },
+  action: {
+    create: 'สร้างเพลงใหม่',
+    createShort: 'เพลงใหม่',
+    search: 'ค้นหาเพลง',
+    settings: 'ตั้งค่า',
+    menu: 'เมนู',
+    tools: 'เครื่องมือ',
+  },
+  a11y: {
+    searchFull: 'ค้นหาเพลง — ชื่อเพลง หมายเลข เนื้อร้อง คีย์ หรือโน้ตตัวเลข',
+    favAdd: 'เพิ่มเข้ารายการโปรด',
+    favRemove: 'เอาออกจากรายการโปรด',
+  },
+  font: {
+    label: 'ตัวอักษรไทย',
+    loopless: 'ไม่มีหัว',
+    looped: 'มีหัว',
+  },
+  lang: {
+    label: 'ภาษา',
+    soon: 'เร็วๆ นี้',
+    th: 'ไทย',
+    zh: '中文',
+    en: 'English',
+  },
+  list: {
+    searchPlaceholder: 'ค้นหาเพลง',
+    favChip: 'รายการโปรด',
+    favTitle: '★ รายการโปรด',
+    favEmpty: 'ยังไม่มีรายการโปรด — แตะรูปดาว ☆ ที่เพลงเพื่อบันทึกไว้ที่นี่',
+    results: 'ผลการค้นหา',
+    countSongs: '{n} เพลง',
+    onlyUnverified: '⚠️ เฉพาะที่ยังไม่ตรวจ',
+    allThemes: 'ทุกธีม',
+    filterByTheme: 'กรองตามธีม',
+    noResults: 'ไม่พบเพลงที่ค้นหา',
+    allBooks: '← เล่มทั้งหมด',
+    noBookSongs: 'ยังไม่มีเพลงในเล่มนี้',
+    dbNote: 'ยังเชื่อมต่อฐานข้อมูลไม่ได้ — แสดงเพลงตัวอย่างไปก่อน',
+    loading: 'กำลังโหลด…',
+    mustCheck: '⚠️ ต้องตรวจ',
+    verified: '✓ ตรวจแล้ว',
+    pending: 'ยังไม่ตรวจ',
+    reviewed: '✓ ตรวจแล้ว {v} / {t}',
+    key: 'คีย์ {k}',
+    keyEn: 'Key {k}',
+    srcSongs: 'แหล่งเพลง: {list}',
+    refTitle: 'อ้างอิง: {list}',
+    scripture: '📖 {ref}',
+    emptyPublic: 'เพลงกำลังอยู่ระหว่างตรวจทาน จะเปิดให้ชมเร็วๆ นี้',
+    emptyNone: 'ยังไม่มีเพลงในระบบ',
+    // team QA flag labels (logged-in tooltips)
+    flagRepeat: 'ตั้งจุดซ้ำ (repeat)',
+    flagLint: 'โน้ตอาจผิด (lint)',
+    flagWords: 'เนื้อ≠โน้ต',
+    flagPrefix: 'ต้องตรวจ: {kinds}',
+  },
+}
