@@ -97,6 +97,12 @@
 - ใช้เป็น **theme token จริงใน `styles.css`** (ของเดิมมี token อยู่แล้ว → เปลี่ยนค่า ไม่ hard-code) · verify คอนทราสต์จริง · light/dark ครบ
 - **ไม่ทำ mockup ทิ้ง** — ถ้าพี่อยากเห็นก่อน ผม render swatch สั้น ๆ หรือ apply เป็น token บนแอปจริงให้ดู
 
+## Brand · โลโก้ · favicon · PWA icon
+- **โลโก้ปัจจุบัน = กุญแจซอล + ไม้กางเขน สีทอง** (`public/*.png` ครบชุด: favicon 16/32/ico · apple-touch 180 · android-chrome 192/512 · maskable 512 · hero) — mark ดีมาก (ดนตรี+ความเชื่อ) → **เก็บรูปทรงไว้ จำได้/มีความหมาย** · แค่ปรับสี
+- **recolor → มาริโกลด์ `#F59E0B`** (โทนใหม่ สดใส) ทั้งชุด icon + brand ในแอป = สีเดียวกับธีม · ⚠️ ต้องมี **source SVG** หรือผม regenerate ชุด PNG ใหม่ · **maskable ต้องเผื่อ safe-zone** (mark อยู่ในวงกลมปลอดภัย ~80%)
+- **manifest สีใหม่ (จาก clinical เดิม):** `background_color` #ffffff → **`#FDF7EE` ครีม** (splash) · `theme_color` #f8f9fa → **`#F59E0B` มาริโกลด์** (tint OS/status bar ให้ on-brand) — หรือครีมถ้าอยากซับเทิล (พี่เลือก)
+- **แสดง brand — แนะนำ: icon เสมอ + wordmark บนเดสก์ท็อป** · ตอนนี้ มือถือ=icon / เดสก์ท็อป=ชื่อล้วน → **เดสก์ท็อปไม่เห็น icon = brand ไม่ consistent** · โลโก้ต้องมีเพื่อ PWA/favicon อยู่แล้ว → ใช้เป็น mark เดียวทั้งแอป: **icon(ทุกจอ) + ชื่อ(เดสก์ท็อป)** · icon = ปุ่มกลับหน้าแรก ⌂ · เหตุผล = recognition + cohesion กับ favicon/PWA (NN/g)
+
 ## Footer (คงไว้เสมอ — สำคัญ · P'Aim ใช้ดู version)
 - **footer ต้องมีตลอด + เก็บข้อความเดิมครบ** (จาก `SiteFooter.vue`): บรรทัด 1 = `© ปี · เพลง.พระคำ.ชีวิต · pleng.phrakham.life · [ลิงก์ "ซอฟต์แวร์: GNU GPL v3" → /about]` · บรรทัด 2 = **build stamp** (วันที่ไทย + เวลา + `__BUILD_COMMIT__`) = ตัวที่พี่ใช้ดู version deploy
 - P'Aim ใช้ footer เช็คว่าเว็บขึ้นรุ่นไหนแล้ว = ห้ามตัดทิ้งในดีไซน์มินิมอล
