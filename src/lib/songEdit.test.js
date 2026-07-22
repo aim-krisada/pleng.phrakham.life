@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   noteBoxes, boxIndexForSlot, setNotePitch, locateSegment, withNotePitch,
   insertBoxAtSlot, removeBoxAtSlot, withInsertedNote, withDeletedNote, withRestAt,
-  withOctaveShift, withAccidental, withClearedSyllable, withSetSyllable,
+  withOctaveShift, withAccidental, withClearedSyllable, withSetSyllable, withChord,
 } from './songEdit.js'
 
 const loc0 = (syk) => ({ resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0, syk })
@@ -216,6 +216,23 @@ describe('withSetSyllable — live lyric typing (this verse only)', () => {
     const c = { version: 2, stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 2 3' }]] }], arrangement: [{ stanza: 'A', syllables: ['a'] }] }
     const after = withSetSyllable(c, { resolvedLine: { _stanza: 'A', _stanzaLine: 0, _entryIndex: 0 }, si: 0, syk: 2 }, 'z')
     expect(after.arrangement[0].syllables).toEqual(['a', '', 'z'])
+  })
+})
+
+describe('withChord — set / clear the segment chord', () => {
+  const chordSong = () => ({ version: 2, stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 2', chord: 'C' }]] }], arrangement: [{ stanza: 'A', syllables: [] }] })
+  const loc = { resolvedLine: { _stanza: 'A', _stanzaLine: 0 }, si: 0 }
+  it('sets a chord', () => {
+    expect(withChord(chordSong(), loc, 'G').stanzas[0].lines[0][0].chord).toBe('G')
+  })
+  it('clears the chord with "" (keeps the note)', () => {
+    const after = withChord(chordSong(), loc, '')
+    expect(after.stanzas[0].lines[0][0].chord).toBe('')
+    expect(after.stanzas[0].lines[0][0].note).toBe('1 2')
+  })
+  it('no-op when unchanged', () => {
+    const c = chordSong()
+    expect(withChord(c, loc, 'C')).toBe(c)
   })
 })
 

@@ -17,9 +17,12 @@ const props = defineProps({
   anchor: { type: Object, default: null }, // selected-cell rect {top,bottom,left,width} (popup)
   dimmed: { type: Boolean, default: false }, // fade + click-through while typing (popup)
   mode: { type: String, default: 'overwrite' }, // 'insert' | 'overwrite' — the แทรก/ทับ state
+  chords: { type: Array, default: () => [] }, // [{value,label}] for the key ('' = ไม่มีคอร์ด)
 })
-const emit = defineEmits(['octave', 'accidental', 'toggle-mode', 'nav'])
+const emit = defineEmits(['octave', 'accidental', 'toggle-mode', 'nav', 'chord'])
 const helpOpen = ref(false)
+const chordOpen = ref(false)
+function pickChord(v) { chordOpen.value = false; emit('chord', v) }
 // which controls to show: arrows on mobile only; note ops only on the note layer; accidentals
 // only on mobile (desktop types # / b). The (i) keyboard help shows on the desktop popup.
 
@@ -114,6 +117,7 @@ onUnmounted(() => {
           <button class="nib-key nib-acc" title="ครึ่งเสียงขึ้น (ชาร์ป)" aria-label="ชาร์ป" @click="emit('accidental', '#')">♯</button>
           <button class="nib-key nib-acc" title="ครึ่งเสียงลง (แฟลต)" aria-label="แฟลต" @click="emit('accidental', 'b')">♭</button>
         </template>
+        <button class="nib-key nib-chord" :class="{ on: chordOpen }" :aria-expanded="chordOpen" title="ใส่/เปลี่ยน/ลบคอร์ด" aria-label="คอร์ด" @click="chordOpen = !chordOpen">คอร์ด ▾</button>
         <button
           class="nib-key nib-mode" :class="{ ins: mode === 'insert' }"
           :aria-label="mode === 'insert' ? 'โหมดแทรก (แตะเปลี่ยนเป็นทับ)' : 'โหมดทับ (แตะเปลี่ยนเป็นแทรก)'"
@@ -124,6 +128,9 @@ onUnmounted(() => {
 
       <!-- (i) keyboard help — desktop popup: which keys do what (things with no button) -->
       <button v-if="variant === 'popup'" class="nib-key nib-help" :class="{ on: helpOpen }" :aria-expanded="helpOpen" aria-label="คีย์ลัดคีย์บอร์ด" title="คีย์ลัดคีย์บอร์ด" @click="helpOpen = !helpOpen"><Icon name="info" :size="18" /></button>
+    </div>
+    <div v-if="chordOpen" class="nib-chordbox" role="listbox" aria-label="เลือกคอร์ด">
+      <button v-for="c in chords" :key="c.value" class="nib-chorditem" :class="{ none: c.value === '' }" @click="pickChord(c.value)">{{ c.value === '' ? '— ไม่มีคอร์ด —' : c.value }}</button>
     </div>
     <div v-if="variant === 'popup' && helpOpen" class="nib-helpbox" role="note">
       <b>คีย์บอร์ด (โหมดแก้):</b><br />
@@ -206,6 +213,36 @@ onUnmounted(() => {
 /* drag grip */
 .nib-grip { min-width: 28px; padding: 0 4px; color: var(--muted, #64748b); cursor: grab; touch-action: none; }
 .nib-grip:active { cursor: grabbing; }
+/* chord button + picker */
+.nib-chord { font-size: 13px; font-weight: 700; }
+.nib-chord.on { background: var(--brand, #8b4513); color: #fff; border-color: var(--brand, #8b4513); }
+.nib-chordbox {
+  margin-top: 6px;
+  padding: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 320px;
+  max-height: 176px;
+  overflow-y: auto;
+  background: var(--cream, #faf6ef);
+  border: 1px solid var(--line, #d9d0c4);
+  border-radius: 8px;
+}
+.nib-chorditem {
+  min-width: 40px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line, #d9d0c4);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink, #0f172a);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.nib-chorditem:hover { border-color: var(--brand, #8b4513); color: var(--brand, #8b4513); }
+.nib-chorditem.none { flex: 1 0 100%; color: var(--muted, #64748b); }
 .nib-helpbox {
   margin-top: 6px;
   padding: 8px 10px;

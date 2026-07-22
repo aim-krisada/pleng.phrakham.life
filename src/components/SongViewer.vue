@@ -7,14 +7,14 @@
 // the 2-row dock (ไทม์ไลน์ · คีย์ · เลือกท่อน · transport · Aa · ⚙ + pin). Mounted directly
 // here; แผ่นเพลง and แก้ไข mount their own DockKey the same way.
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { KEYS } from '../lib/chords.js'
+import { KEYS, chordOptions } from '../lib/chords.js'
 import {
   playSong, playEnsemble, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
   effectiveOrder, buildPlayNotes,
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -488,6 +488,17 @@ function accidentalSel(acc) {
   markTyping()
   const next = withAccidental(props.song.content, loc, acc)
   if (next !== props.song.content) emit('update-content', next)
+}
+// the chord picker's options for the song's key ("— ไม่มีคอร์ด —" first = clear)
+const chordOpts = computed(() => chordOptions(props.song?.content?.key || 'C'))
+// set / clear the chord on the selected note's segment (chord '' = remove, keep the note)
+function setChord(chord) {
+  const loc = cellLoc()
+  if (!loc) return
+  markTyping()
+  const next = withChord(props.song.content, loc, chord)
+  if (next !== props.song.content) emit('update-content', next)
+  focusCapture()
 }
 // ---- toolbar taps (special buttons only — digits/text come from the device keyboard) ----
 // Every button uses @mousedown.prevent (in NoteInputBar) so the capture input keeps focus and
@@ -1099,9 +1110,11 @@ function onSeek({ li, si, syk }) {
       :anchor="isWide ? noteRect : null"
       :dimmed="dimPopup"
       :mode="typeMode"
+      :chords="chordOpts"
       @nav="barNav"
       @octave="barOctave"
       @accidental="barAccidental"
+      @chord="setChord"
       @toggle-mode="typeMode = typeMode === 'insert' ? 'overwrite' : 'insert'"
     />
   </div>

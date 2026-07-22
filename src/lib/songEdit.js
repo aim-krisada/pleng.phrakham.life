@@ -207,6 +207,30 @@ export function withDeletedNote(content, loc) {
   return { ...content, stanzas: newStanzas, arrangement: newArrangement }
 }
 
+// Set (or clear) the chord on the selected note's segment. chord='' = "ไม่มีคอร์ด" (clears it
+// without touching the note). No ripple. Returns same content on a no-op.
+export function withChord(content, loc, chord) {
+  const { resolvedLine, si } = loc
+  const at = locateSegment(content, resolvedLine, si)
+  if (!at) return content
+  const line = content.stanzas[at.stanzaIndex].lines[at.lineIndex]
+  const seg = line[at.segIndex]
+  if ((seg.chord || '') === (chord || '')) return content
+  const newLine = line.slice()
+  newLine[at.segIndex] = { ...seg, chord: chord || '' }
+  return withSegmentLine(content, at, newLine, content.arrangement)
+}
+
+// helper: rebuild content with one stanza line replaced + arrangement
+function withSegmentLine(content, at, newLine, newArrangement) {
+  const stanza = content.stanzas[at.stanzaIndex]
+  const newLines = stanza.lines.slice()
+  newLines[at.lineIndex] = newLine
+  const newStanzas = content.stanzas.slice()
+  newStanzas[at.stanzaIndex] = { ...stanza, lines: newLines }
+  return { ...content, stanzas: newStanzas, arrangement: newArrangement }
+}
+
 // ---------- octave + accidental (same jianpu rules as EditorMode.octaveShift) ----------
 // One box token, shifted one octave: up = drop a leading low dot else add a high ' ; down =
 // drop a trailing high ' else add a low dot. Mirrors EditorMode so a note behaves the same
