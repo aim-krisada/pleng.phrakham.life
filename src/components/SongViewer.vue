@@ -14,6 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
+import { withNotePitch } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -34,6 +35,10 @@ const props = defineProps({
   song: { type: Object, required: true },
   tier: { type: String, default: 'guest' },
 })
+// The reading surface stays a READER: it never mutates props.song. When the pencil is on
+// and a note is retyped, it hands the OWNER (Studio → liveSong, the live v2 SSOT) a new
+// content via `update-content`; that flows back down as props.song and the sheet re-renders.
+const emit = defineEmits(['update-content'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -199,6 +204,21 @@ function onInlineKey(e) {
   else if (e.key === 'ArrowUp') { e.preventDefault(); moveSelLine(-1) }
   else if (e.key === 'Home') { e.preventDefault(); selIdx.value = 0 }
   else if (e.key === 'End') { e.preventDefault(); selIdx.value = inlineCells.value.length - 1 }
+  // type a scale digit (0–7) over the selected NOTE → change it, then step to the next
+  // note (Word-like sequential entry). Overwrite mode: only the one note changes, the
+  // line doesn't grow (insert/ripple + lyric keys are the next steps).
+  else if (selLayer.value === 'note' && /^[0-7]$/.test(e.key)) { e.preventDefault(); typeDigit(e.key); moveSel(1) }
+  // Space just advances the cursor to the next note (no edit yet).
+  else if (e.key === ' ') { e.preventDefault(); moveSel(1) }
+}
+// overwrite the selected note's pitch and tell the owner (Studio) — never touch props.song.
+function typeDigit(digit) {
+  const cell = selCell.value
+  if (!cell || selLayer.value !== 'note') return
+  const rline = resolved.value?.lines?.[cell.li]
+  if (!rline || !rline._stanza) return // needs the v2 source tag to trace back
+  const next = withNotePitch(props.song.content, { resolvedLine: rline, si: cell.si, syk: cell.syk }, digit)
+  if (next !== props.song.content) emit('update-content', next)
 }
 // a note click bubbles to the wrapper — read the exact note from .nt[data-idx] in its
 // .segment[data-seg] (a word .syl is @click.stop, so it comes back through onSeek instead)
@@ -682,7 +702,7 @@ function onSeek({ li, si, syk }) {
 
     <!-- while editing: a small hint + autosave note ride above the sheet -->
     <div v-if="editMode" class="sv-edit-hint no-print" role="status">
-      แตะ<b>โน้ต</b>เพื่อแก้โน้ต · แตะ<b>คำ</b>เพื่อแก้คำ · ← → ↑ ↓ เลื่อน · พิมพ์แก้ได้เร็ว ๆ นี้
+      แตะ<b>โน้ต</b>เพื่อเลือก แล้วพิมพ์เลข <b>1–7</b> เปลี่ยนโน้ตได้เลย · ← → ↑ ↓ / เว้นวรรค เลื่อน · แตะ<b>คำ</b>เพื่อเลือกคำ
     </div>
 
     <div
