@@ -124,7 +124,7 @@ fluid 320→∞ (360/375/412 · Fold · tablet · desktop · 2 orientation) · t
 
 ### G cross-check i18n (22 ก.ค. · ยืนยัน world-class + refinements)
 - **word-break ไทย:** `word-break:keep-all; overflow-wrap:break-word;` (+`<wbr>`) ที่ label — ไทยไม่มีเว้นวรรค กันตัดกลางคำ
-- **font stack (system · offline · th+SC+TC):** `system-ui,-apple-system,"Segoe UI",Roboto,"Sukhumvit Set","Leelawadee UI","Thonburi","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","PingFang TC","Microsoft JhengHei","Noto Sans CJK TC",sans-serif` · **ไม่โหลด webfont จีน (3-10MB) — system พอ 100%**
+- **FONT = Hybrid Noto (G ฟันธง · แก้จากรอบแรก · ตรงกับที่ทีมใช้ Noto):** **UI chrome (ปุ่ม/เมนู/ข้อความแอป ทุกภาษา) = Noto self-host + subset** → brand consistent 100% ทุกเครื่อง · Noto Thai+Latin (WOFF2 subset) ~30-70KB/weight · Chinese-UI = subset เฉพาะ ~100-300 คำใน UI dict → <15KB · **รวม UI ทุกภาษา <150KB → pre-cache SW ได้ offline ชัวร์** · **แต่ "เนื้อเพลงจีน" (content อนาคต) = ใช้ system CJK** (PingFang/YaHei/Noto SC) เพราะ glyph เยอะเดายาก · full Noto SC/TC = 15-30MB ใหญ่ไป · unicode-range split ใช้ online ได้ แต่ offline PWA เดา pre-cache ไม่ได้ · fallback system กัน □ · helper ตอนทำ: @font-face + subset script + Vite PWA precache
 - **localStorage fallback → `navigator.language`** ถ้าอ่านไม่ได้ (Incognito/iOS ล้าง storage)
 - **lib: custom light layer ถูกแล้ว** สำหรับสเกลนี้ (<2KB · คุม dynamic registry 100%) · ระวัง pluralization → t() เผื่อ `{singular,plural}` (อังกฤษมีพหูพจน์ · ไทย/จีนไม่มี)
 - **ภาษายังไม่พร้อม: ซ่อน ไม่ใช่ disabled** (world-class · ลด noise) → **แก้ด้วยการแปล zh/en ให้ครบแล้วเปิดใช้เลย** (PM ทำ · string นิ่งแล้ว)
