@@ -5,7 +5,10 @@
 ## 3 สายขนาน (คนละ worktree/branch · state อยู่บน disk)
 1. **editor (สาย 1)** — branch **`editor-usability`** (worktree `pleng-editor-ux` · dev :5310) · ⚠️ ไม่ใช่ `claude/peaceful-bhaskara-fe04fd` (นั่น handoff-docs เก่า ไม่มี impl)
    - ✅ keyboard-first inline editor ครบ: 2D nav (←→↑↓ · Ctrl ข้ามห้อง/บรรทัด) · คีย์บอร์ดจริง (เลข=โน้ต/ไทย=เนื้อ) · แก้เนื้อ inline · Delete=อยู่กับที่/Backspace=ลบทั้งช่อง · chord picker · ripple ทุกข้อ · **224 เทสต์ผ่าน (>211)**
-   - ⏳ ค้าง: (1) **verify มือถือจริง** โดยเฉพาะ iOS (แถบลอยเหนือคีย์บอร์ด visualViewport — ทดสอบใน pane ไม่ได้) (2) งานถัดไป P'Aim เคาะ = **จัดคำแป๊ะใต้โน้ต** (แก้ SongSheet render — กระทบ ฝึกร้อง+A4 print+พรีวิว)
+   - **HANDOFF พร้อม (commit `f64c002`):** ทุกอย่าง commit ลง `editor-usability` + handoff เต็มท้าย `work/ปรับ pl edit ui/task.md` ("▶ STATE 22 ก.ค. (ค่ำ)") · session ใหม่: checkout branch + `npm install` + `npm run dev -- --host --port 5310` + อ่าน task.md ต่อได้เลย
+   - ⏳ ค้าง — **2 decision item รอ P'Aim:**
+     1. **จัดคำแป๊ะใต้โน้ต** — ตอนนี้เหลื่อม ~1–8px (มีกลไกจัดอยู่แล้ว) · จะได้ 0px ต้องรื้อแผ่นเป็น **ตาราง** → แตะ `NoteRow` + `styles.css` แชร์ + **ต้อง verify PDF จริง** (กระทบ A4 print) · P'Aim เคาะ: รับระดับนี้ / รื้อ
+     2. **iOS mobile verify** — P'Aim เทสต์เองเมื่อเสร็จกว่านี้ (เลื่อนแล้ว)
    - TODO: song-shell ground-up (ตัด tab · Play hero · ✏️ · ↗ · ⋮ · footer) + wire ↗/⋮ (engine อยู่บน base แล้ว)
    - **ยังไม่ merge** — สาย 1 จะแจ้ง PM เมื่อพร้อม · ตอน merge: rebase base + `npm install` (qrcode-generator) ก่อน
 2. **home/nav (สาย 2)** — branch `claude/eloquent-elion-ad2051`
