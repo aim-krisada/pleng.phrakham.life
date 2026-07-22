@@ -1,5 +1,7 @@
 # pleng — Ground-up UX/UI (world-class · รื้อใหม่ P'Aim อนุมัติ 22 ก.ค.)
 
+> ✅ **LOCKED — P'Aim "ok" 22 ก.ค. 2026** (ทิศ ground-up + ธีมอบอุ่น+สดใส + footer ครบ) = SSOT ดีไซน์ · build ตามนี้
+
 ออกแบบจากศูนย์ตาม user journey · ไม่ยึดโครงเก่า (โหมด/เมนู/layout เดิม = ไม่ใช่ข้อจำกัด) · reuse = รายละเอียดตอน build ไม่ใช่ตัวกำหนดรูปทรง
 **supersedes** wireframe เดิมใน `ux-redesign-home-nav.md` §2–§4 · integrate ดีไซน์ที่ล็อก (`design-locked-final.md`: พื้นผิวเดียว·ดินสอ·Play)
 
