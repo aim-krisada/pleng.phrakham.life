@@ -37,8 +37,13 @@ function place() {
   const h = el.offsetHeight || 48
   const a = props.anchor
   const gap = 10
+  // don't let the popup slide under the sticky app header — flip below the note when there's
+  // no room to clear it (P'Aim: "ไม่อยากให้ popup โดนบัง").
+  const bar = document.querySelector('.shell-bar')
+  const topMin = (bar ? bar.getBoundingClientRect().bottom : 0) + 6
   let top = a.top - h - gap
-  if (top < 8) top = a.bottom + gap
+  if (top < topMin) top = a.bottom + gap // no room above the header → go below the note
+  if (top + h > window.innerHeight - 6) top = Math.max(topMin, window.innerHeight - h - 6)
   let left = a.left + a.width / 2 - w / 2
   left = Math.max(8, Math.min(left, window.innerWidth - w - 8))
   pos.value = { top: Math.round(top), left: Math.round(left) }
