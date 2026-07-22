@@ -17,18 +17,71 @@ import {
 import { session } from '../store.js'
 import { favorites, isFavorite } from '../lib/favorites.js'
 import FavStar from '../components/FavStar.vue'
+import ShareSheet from '../components/ShareSheet.vue'
 import { t } from '../i18n/index.js'
+import {
+  playlists, getList, createList, renameList, deleteList,
+  toggleSong, inList, removeSong, encodeList, listToFile,
+} from '../lib/playlists.js'
+import { buildListUrl } from '../lib/share.js'
+import { filterSongs as filterForPicker } from '../lib/songSearch.js'
 
 const router = useRouter()
 
-// ★ favorites filter (localStorage · no account · lib/favorites.js). A browse-level filter
-// that shows only songs the reader has starred on THIS device — sits alongside the bookshelf
-// (never replaces the default landing · US-G1.2). Search still overrides everything.
-const favOnly = ref(false)
+// Browse mode over the (non-search) landing: the default bookshelf, the ★ favorites filter, or
+// the 🎵 playlists manager. Chips switch it; search still overrides everything (US-G1).
+const browseMode = ref('shelf') // 'shelf' | 'fav' | 'playlists'
+const favOnly = computed(() => browseMode.value === 'fav')
+function toggleMode(m) { browseMode.value = browseMode.value === m ? 'shelf' : m }
+
+// ★ favorites (localStorage · no account · lib/favorites.js) — sits alongside the bookshelf.
 const favSongs = computed(() => {
   favorites.value // reactive dep — recompute when a star toggles
   return shownSongs.value.filter((s) => isFavorite(s.id))
 })
+
+// ---- 🎵 playlists manager (localStorage · no account · lib/playlists.js) ----
+const openListId = ref(null)          // null = list of playlists; else = one list's detail
+const newListName = ref('')
+const renamingId = ref(null)
+const renameName = ref('')
+const confirmDeleteId = ref(null)
+const adding = ref(false)             // detail: the add-songs picker is open
+const plQuery = ref('')
+const shareList = ref(null)           // a list object → open ShareSheet for it
+
+const openList = computed(() => (openListId.value ? getList(openListId.value) : null))
+// resolve a list's ids → song rows (respecting the public/verified gate), in stored order
+function listSongs(list) {
+  if (!list) return []
+  const map = new Map(shownSongs.value.map((s) => [String(s.id), s]))
+  return list.songIds.map((id) => map.get(String(id))).filter(Boolean)
+}
+const pickerResults = computed(() => (adding.value ? filterForPicker(shownSongs.value, plQuery.value).slice(0, 40) : []))
+
+function doCreate() {
+  const id = createList(newListName.value)
+  newListName.value = ''
+  openListId.value = id
+}
+function startRename(l) { renamingId.value = l.id; renameName.value = l.name }
+function commitRename() { if (renamingId.value) renameList(renamingId.value, renameName.value); renamingId.value = null }
+function doDelete(id) { deleteList(id); confirmDeleteId.value = null; if (openListId.value === id) openListId.value = null }
+function backToLists() { openListId.value = null; adding.value = false; plQuery.value = '' }
+
+// build the share payload for a list (link + QR + email + backup file) — no PII, ids + name only
+function shareTarget(list) {
+  const url = buildListUrl(encodeList(list))
+  return {
+    url,
+    title: t('share.listTitle', { name: list.name }),
+    shareText: t('share.listTitle', { name: list.name }),
+    email: true,
+    emailSubject: t('share.listEmailSubject', { name: list.name }),
+    emailBody: t('share.listEmailBody', { name: list.name }),
+    downloadFile: { name: `playlist-${list.name}.json`, data: listToFile(list) },
+  }
+}
 
 // public (anon) vs logged-in team. Drives the verified-only gate + the QA badge visibility.
 const loggedIn = computed(() => !!session.value)
@@ -150,12 +203,22 @@ onMounted(async () => {
       <button
         type="button"
         class="facet-chip fav-chip"
-        :class="{ on: favOnly }"
-        :aria-pressed="favOnly"
-        @click="favOnly = !favOnly"
+        :class="{ on: browseMode === 'fav' }"
+        :aria-pressed="browseMode === 'fav'"
+        @click="toggleMode('fav')"
       >
         <span class="chip-star" aria-hidden="true">★</span> {{ t('list.favChip') }}
         <span v-if="favSongs.length" class="chip-count">{{ favSongs.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="facet-chip pl-chip"
+        :class="{ on: browseMode === 'playlists' }"
+        :aria-pressed="browseMode === 'playlists'"
+        @click="toggleMode('playlists')"
+      >
+        <span class="chip-star" aria-hidden="true">🎵</span> {{ t('playlist.chip') }}
+        <span v-if="playlists.length" class="chip-count">{{ playlists.length }}</span>
       </button>
     </div>
 
@@ -207,6 +270,79 @@ onMounted(async () => {
         </router-link>
       </div>
       <p v-if="results.length === 0" class="muted empty" aria-live="polite">{{ t('list.noResults') }}</p>
+    </section>
+
+    <!-- ===== 🎵 PLAYLISTS manager (localStorage · no account · EPIC I) ===== -->
+    <section v-else-if="browseMode === 'playlists'">
+      <!-- level 1: all my playlists -->
+      <template v-if="!openList">
+        <div class="level-head"><h2>{{ t('playlist.title') }}</h2></div>
+        <div class="pl-create">
+          <input v-model="newListName" type="text" :placeholder="t('playlist.createName')" :aria-label="t('playlist.createName')" @keyup.enter="doCreate" />
+          <button type="button" class="pl-create-btn" @click="doCreate">{{ t('playlist.create') }}</button>
+        </div>
+        <div v-if="playlists.length" class="pl-list">
+          <div v-for="l in playlists" :key="l.id" class="pl-row">
+            <div class="pl-row-main">
+              <input v-if="renamingId === l.id" v-model="renameName" class="pl-rename" type="text" @keyup.enter="commitRename" @blur="commitRename" />
+              <button v-else type="button" class="pl-open" @click="openListId = l.id">
+                <span class="ttl">{{ l.name }}</span>
+                <span class="pl-count">{{ t('playlist.count', { n: l.songIds.length }) }}</span>
+              </button>
+              <div class="pl-row-actions">
+                <button type="button" class="pl-ico" :aria-label="t('playlist.share')" @click="shareList = shareTarget(l)">↗</button>
+                <button type="button" class="pl-ico" :aria-label="t('playlist.rename')" @click="startRename(l)">✎</button>
+                <button type="button" class="pl-ico" :aria-label="t('playlist.remove')" @click="confirmDeleteId = confirmDeleteId === l.id ? null : l.id">🗑</button>
+              </div>
+            </div>
+            <div v-if="confirmDeleteId === l.id" class="pl-confirm">
+              <span class="muted">{{ t('playlist.confirmDelete', { name: l.name }) }}</span>
+              <button type="button" class="pl-danger" @click="doDelete(l.id)">{{ t('playlist.remove') }}</button>
+              <button type="button" class="pl-cancel" @click="confirmDeleteId = null">{{ t('share.close') }}</button>
+            </div>
+          </div>
+        </div>
+        <p v-else class="muted empty">{{ t('playlist.empty') }}</p>
+      </template>
+
+      <!-- level 2: one playlist's songs + add-songs picker -->
+      <template v-else>
+        <button type="button" class="crumb" @click="backToLists">{{ t('playlist.back') }}</button>
+        <div class="level-head">
+          <h2>🎵 {{ openList.name }}</h2>
+          <span class="count muted">{{ t('playlist.count', { n: openList.songIds.length }) }}</span>
+          <button type="button" class="pl-ico" :aria-label="t('playlist.share')" @click="shareList = shareTarget(openList)">↗</button>
+        </div>
+        <div class="song-list">
+          <div v-for="s in listSongs(openList)" :key="s.id" class="song-row">
+            <span class="no">{{ s.number != null ? s.number : '–' }}</span>
+            <router-link :to="`/song/${s.id}`" class="ttl pl-song-ttl">{{ s.title_th }}</router-link>
+            <span v-if="s.content && s.content.key" class="key">{{ t('list.key', { k: s.content.key }) }}</span>
+            <button type="button" class="pl-remove" @click="removeSong(openList.id, s.id)">{{ t('playlist.removeSong') }}</button>
+          </div>
+        </div>
+        <p v-if="!openList.songIds.length" class="muted empty">{{ t('playlist.emptyList') }}</p>
+
+        <button type="button" class="pl-add-toggle" @click="adding = !adding">
+          {{ adding ? t('playlist.doneAdding') : t('playlist.addSongs') }}
+        </button>
+        <div v-if="adding" class="pl-picker">
+          <input v-model="plQuery" type="search" class="song-search" :placeholder="t('playlist.addSearchPlaceholder')" :aria-label="t('playlist.addSearchPlaceholder')" />
+          <div class="song-list">
+            <div v-for="s in pickerResults" :key="s.id" class="song-row">
+              <span class="no">{{ s.number != null ? s.number : '–' }}</span>
+              <span class="ttl">{{ s.title_th }}</span>
+              <button
+                type="button"
+                class="pl-add-song"
+                :class="{ in: inList(openList.id, s.id) }"
+                :aria-pressed="inList(openList.id, s.id)"
+                @click="toggleSong(openList.id, s.id)"
+              >{{ inList(openList.id, s.id) ? t('playlist.inList') : t('playlist.add') }}</button>
+            </div>
+          </div>
+        </div>
+      </template>
     </section>
 
     <!-- ===== ★ FAVORITES · flat list of starred songs (overrides the book drill) ===== -->
@@ -280,6 +416,9 @@ onMounted(async () => {
       </div>
       <p v-if="shelf.length === 0" class="muted empty">{{ booksEmptyMsg }}</p>
     </section>
+
+    <!-- share a playlist (link + QR + email + backup) — opened from a 🎵 row's ↗ -->
+    <ShareSheet v-if="shareList" v-bind="shareList" @close="shareList = null" />
   </div>
 </template>
 
@@ -556,4 +695,53 @@ onMounted(async () => {
 .song-card { position: relative; }
 .song-card .card-fav { position: absolute; top: var(--sp-2); right: var(--sp-2); }
 .song-card-head { padding-right: var(--touch-min); } /* reserve room so tags never sit under the star */
+
+/* ---- 🎵 playlists manager ---- */
+.pl-chip.on { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+.pl-create { display: flex; gap: var(--sp-2); margin: 0 0 var(--sp-4); }
+.pl-create input { flex: 1 1 auto; min-width: 0; }
+.pl-create-btn {
+  flex: 0 0 auto; min-height: var(--touch-min); border: none; border-radius: 10px;
+  background: var(--accent); color: var(--ink); font: inherit; font-weight: 700;
+  padding: 0 var(--sp-4); cursor: pointer; white-space: nowrap;
+}
+@media (hover: hover) { .pl-create-btn:hover { background: var(--accent-hover); } }
+.pl-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.pl-row { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.pl-row-main { display: flex; align-items: center; gap: var(--sp-2); padding-right: var(--sp-2); }
+.pl-open {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: var(--sp-3);
+  background: transparent; border: none; text-align: left; cursor: pointer;
+  padding: var(--sp-3) var(--sp-4); min-height: var(--touch-min); color: var(--ink); font: inherit;
+}
+.pl-open .ttl { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--brand); overflow-wrap: anywhere; }
+.pl-open .pl-count { flex: 0 0 auto; color: var(--muted); font-size: var(--fs-sm); }
+.pl-rename { flex: 1 1 auto; min-width: 0; margin: var(--sp-2); }
+.pl-row-actions { flex: 0 0 auto; display: flex; gap: 2px; }
+.pl-ico {
+  background: transparent; border: none; cursor: pointer; color: var(--brand); font-size: 1rem;
+  min-width: var(--touch-min); min-height: var(--touch-min); border-radius: 8px;
+}
+@media (hover: hover) { .pl-ico:hover { background: var(--cream-hover); } }
+.pl-confirm { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; padding: var(--sp-2) var(--sp-4) var(--sp-3); border-top: 1px dashed var(--line); }
+.pl-confirm .muted { flex: 1 1 auto; }
+.pl-danger { min-height: 36px; border: none; border-radius: 8px; background: var(--red); color: #fff; padding: 0 var(--sp-3); cursor: pointer; font: inherit; }
+.pl-cancel { min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--cream); color: var(--ink); padding: 0 var(--sp-3); cursor: pointer; font: inherit; }
+.pl-song-ttl { flex: 1 1 auto; min-width: 0; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+.pl-song-ttl:hover { text-decoration: underline; }
+.pl-remove, .pl-add-song {
+  flex: 0 0 auto; align-self: flex-start; min-height: 36px; border-radius: 8px;
+  padding: 0 var(--sp-3); cursor: pointer; font: inherit; font-size: var(--fs-sm);
+}
+.pl-remove { border: 1px solid var(--line); background: var(--cream); color: var(--ink); }
+.pl-add-song { border: 1px solid var(--accent); background: var(--accent); color: var(--ink); font-weight: 700; }
+.pl-add-song.in { background: var(--cream); border-color: var(--line); color: var(--muted); font-weight: 400; }
+.pl-add-toggle {
+  margin: var(--sp-4) 0; min-height: var(--touch-min); border: 1px solid var(--accent);
+  background: var(--surface); color: var(--brand); border-radius: 10px; padding: 0 var(--sp-4);
+  font: inherit; font-weight: 700; cursor: pointer;
+}
+@media (hover: hover) { .pl-add-toggle:hover { background: var(--cream-hover); } }
+.pl-picker { margin-top: var(--sp-2); }
+.pl-picker .song-search { margin-bottom: var(--sp-3); }
 </style>
