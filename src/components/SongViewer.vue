@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedNote, withRestAt, withClearedSyllable, withOctaveShift, withAccidental } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withClearedSyllable, withOctaveShift, withAccidental } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -258,9 +258,10 @@ function moveLineJump(dir) {
   if (!u) { moveUnit(dir > 0 ? 1 : -1); return }
   gotoLineLayer(u.li + dir, u.col, 'note')
 }
-// how a typed digit behaves — 'insert' (default: a new note pushes the rest right, like typing
-// in Word) or 'overwrite' (replace just this note). AC-B1.3. The Insert key flips it.
-const typeMode = ref('insert')
+// how a typed digit behaves — DEFAULT 'overwrite' (a number lands right ON the current note,
+// predictable "กด 1 = ใส่ 1 ตรงที่อยู่"). 'insert' (push the rest right) is the toggle for adding
+// notes. The Insert key flips it.
+const typeMode = ref('overwrite')
 function onInlineKey(e) {
   if (!editMode.value) return
   const ctrl = e.ctrlKey || e.metaKey
@@ -280,7 +281,10 @@ function onInlineKey(e) {
   }
   // deletes (note layer for now — word-layer delete is the next step):
   //  • Backspace = ลบดึงชิด (remove note, words pull tight)  • Delete = ลบไม่ชิด (note → rest)
-  else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); deleteSel() }
+  // Delete = ลบอยู่กับที่ (ช่องคงอยู่): note→rest, word→blank.
+  // Backspace = เอาออกทั้งช่อง (โน้ต+คำ) ให้สั้นลง — จากโน้ตหรือคำก็ได้.
+  else if (e.key === 'Delete') { e.preventDefault(); deleteSel() }
+  else if (e.key === 'Backspace') { e.preventDefault(); removeCell() }
   // Space advances one fine unit (note ↔ word).
   else if (e.key === ' ') { e.preventDefault(); moveUnit(1) }
 }
@@ -369,6 +373,20 @@ function clearWord() {
   markTyping()
   const next = withClearedSyllable(props.song.content, loc)
   if (next !== props.song.content) emit('update-content', next)
+}
+// Backspace = remove the WHOLE cell (note box + its word slot in every verse) so the line
+// actually gets shorter. Works from either layer. Cursor steps back to the previous note.
+function removeCell() {
+  const loc = cellLoc()
+  if (!loc) return
+  markTyping()
+  const ci = Math.floor(curIdx.value / 2)
+  const wasLast = inlineCells.value.length <= 1
+  const next = withDeletedNote(props.song.content, loc)
+  if (next !== props.song.content) {
+    emit('update-content', next)
+    curIdx.value = wasLast ? -1 : Math.max(0, ci - 1) * 2
+  }
 }
 // octave ± and sharp/flat on the selected note (no ripple — the slot count is unchanged).
 function octaveSel(dir) {
@@ -888,7 +906,7 @@ function onSeek({ li, si, syk }) {
 
     <!-- while editing: a small hint + autosave note ride above the sheet -->
     <div v-if="editMode" class="sv-edit-hint no-print" role="status">
-พิมพ์เลข <b>1–7</b> · <b>← →</b> ซ้าย-ขวาในแถว · <b>↓</b> โน้ต→คำ · <b>↑</b> คำ→โน้ต · <b>Ctrl+← →</b> ข้ามห้อง · <b>Ctrl+↑ ↓</b> ข้ามบรรทัด · <b>ลบ</b> อยู่ที่โน้ต=เป็นตัวหยุด/อยู่ที่คำ=ลบคำ (มือถือใช้ ◀ ▶)
+พิมพ์เลข <b>1–7</b> ลงตรงโน้ตที่เลือก · <b>← →</b> ซ้าย-ขวา · <b>↓</b> โน้ต→คำ · <b>↑</b> คำ→โน้ต · <b>Ctrl+← → / ↑ ↓</b> ข้ามห้อง/บรรทัด · <b>Delete</b> ลบอยู่กับที่ (โน้ต→ตัวหยุด/คำ→ว่าง) · <b>Backspace</b> เอาออกทั้งช่อง
     </div>
 
     <div
