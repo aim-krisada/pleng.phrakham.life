@@ -155,76 +155,129 @@ const editMode = ref(false)
 const inlineCells = computed(() => {
   const cells = []
   ;(resolved.value?.lines || []).forEach((line, li) => {
+    const ei = line._entryIndex ?? 0 // which ท่อน (verse) this display line belongs to
     let si = -1
+    let bi = 0 // ห้อง (bar) ordinal within the line — bumped at each bar marker
     for (const item of line) {
+      if (item.type === 'bar') { bi++; continue }
       if (item.type !== 'segment') continue
       si++
       let slot = 0
       for (const kind of noteBoxKinds(item.note || '')) {
         if (kind === 'struct') continue // slur/triplet brackets aren't their own note
-        cells.push({ li, si, syk: slot })
+        cells.push({ li, si, syk: slot, bi, ei })
         slot++
       }
     }
   })
   return cells
 })
-const selIdx = ref(-1)
-const selLayer = ref('note') // 'note' | 'word' — which layer of the selected cell is being edited
-const selCell = computed(() => (selIdx.value >= 0 ? inlineCells.value[selIdx.value] || null : null))
-// the selection handed to SongSheet (separate from playback highlight) — a note+word column
-// with the active layer flagged. null when not editing / nothing selected.
-const editSel = computed(() => (selCell.value ? { ...selCell.value, layer: selLayer.value } : null))
-function selectAt(li, si, syk) {
-  const i = inlineCells.value.findIndex((c) => c.li === li && c.si === si && c.syk === syk)
-  if (i >= 0) selIdx.value = i
+// ONE cursor over BOTH layers — each note contributes two stops: the NOTE, then its LYRIC.
+// So ← → alone walks note → its word → next note → its word … and the keyboard never needs the
+// mouse to pick which layer to edit (world-standard inline editor). Note units sit at even
+// indices, word units at odd.
+const editUnits = computed(() =>
+  inlineCells.value.flatMap((c) => [{ ...c, layer: 'note' }, { ...c, layer: 'word' }]),
+)
+const curIdx = ref(-1)
+const curUnit = computed(() => (curIdx.value >= 0 ? editUnits.value[curIdx.value] || null : null))
+const selCell = computed(() =>
+  curUnit.value ? { li: curUnit.value.li, si: curUnit.value.si, syk: curUnit.value.syk } : null,
+)
+const selLayer = computed(() => curUnit.value?.layer ?? 'note') // derived — no separate ref
+// the selection handed to SongSheet — {li,si,syk,layer}. null when not editing / nothing selected.
+const editSel = computed(() => curUnit.value)
+const lastNoteIdx = computed(() => Math.max(0, (inlineCells.value.length - 1) * 2)) // last NOTE unit
+// select an exact unit (cell + layer) — clicks/taps use this
+function selectUnit(li, si, syk, layer) {
+  const i = editUnits.value.findIndex((u) => u.li === li && u.si === si && u.syk === syk && u.layer === layer)
+  if (i >= 0) curIdx.value = i
 }
-function moveSel(step) {
-  const n = inlineCells.value.length
+// point the cursor at a whole cell's NOTE unit (coarse jumps + typing land on the note)
+function gotoCellNote(cell) { if (cell) selectUnit(cell.li, cell.si, cell.syk, 'note') }
+// ← → : one fine unit (note↔word interleaved)
+function moveUnit(step) {
+  const n = editUnits.value.length
   if (!n) return
-  if (selIdx.value < 0) { selIdx.value = step > 0 ? 0 : n - 1; return }
-  selIdx.value = Math.max(0, Math.min(selIdx.value + step, n - 1))
+  if (curIdx.value < 0) { curIdx.value = step > 0 ? 0 : n - 1; return }
+  curIdx.value = Math.max(0, Math.min(curIdx.value + step, n - 1))
 }
-function moveSelLine(dir) {
+// after typing a note, jump to the NEXT note unit (skip its word) — melody-entry flow
+function advanceNote() { curIdx.value = Math.min(curIdx.value + 2, lastNoteIdx.value) }
+// ↑ ↓ : nearest note on the line above/below (บรรทัด), keeping it on the note layer
+function moveLine(dir) {
   const cells = inlineCells.value
   const cur = selCell.value
-  if (!cur) { moveSel(dir); return }
+  if (!cur) { moveUnit(dir > 0 ? 1 : -1); return }
   const targetLi = cur.li + dir
-  let best = -1
-  cells.forEach((c, i) => {
+  let best = null
+  cells.forEach((c) => {
     if (c.li !== targetLi) return
-    if (best < 0 || Math.abs(c.si - cur.si) < Math.abs(cells[best].si - cur.si)) best = i
+    if (!best || Math.abs(c.si - cur.si) < Math.abs(best.si - cur.si)) best = c
   })
-  if (best >= 0) selIdx.value = best
+  gotoCellNote(best)
 }
-// how a typed digit behaves — 'insert' (the default: a new note pushes the rest right, like
-// typing in Word) or 'overwrite' (replace just this one note, the line doesn't move — for
-// fixing a wrong pitch). AC-B1.3. The Insert key (or the on-sheet toggle) flips it.
+// Ctrl+← → : jump by ห้อง (bar). Next = first note of the next bar; Prev = first note of THIS
+// bar, or the previous bar if already at its start (text-editor word-jump feel).
+function moveBar(dir) {
+  const cells = inlineCells.value
+  const cur = selCell.value
+  if (!cur) { moveUnit(dir > 0 ? 1 : -1); return }
+  const ci = cells.findIndex((c) => c.li === cur.li && c.si === cur.si && c.syk === cur.syk)
+  const key = (c) => `${c.li}-${c.bi}`
+  if (dir > 0) {
+    const target = cells.slice(ci + 1).find((c) => key(c) !== key(cells[ci]))
+    gotoCellNote(target)
+  } else {
+    const barStart = cells.slice(0, ci).reverse().find((c) => key(c) !== key(cells[ci]))
+    if (!barStart) { gotoCellNote(cells[0]); return }
+    // step to the FIRST cell of the previous bar
+    const prevKey = key(barStart)
+    gotoCellNote(cells.find((c) => key(c) === prevKey) || barStart)
+  }
+}
+// Ctrl+↑ ↓ : jump by ท่อน (verse) — first note of the prev/next arrangement entry (ei)
+function moveVerse(dir) {
+  const cells = inlineCells.value
+  const cur = selCell.value
+  if (!cur) { moveUnit(dir > 0 ? 1 : -1); return }
+  const ci = cells.findIndex((c) => c.li === cur.li && c.si === cur.si && c.syk === cur.syk)
+  const curEi = cells[ci]?.ei
+  let target = null
+  if (dir > 0) {
+    target = cells.slice(ci + 1).find((c) => c.ei !== curEi) // first cell of the next verse
+  } else {
+    const prevEi = [...cells.slice(0, ci)].reverse().find((c) => c.ei < curEi)?.ei
+    if (prevEi != null) target = cells.find((c) => c.ei === prevEi) // first cell of the previous verse
+  }
+  gotoCellNote(target)
+}
+// how a typed digit behaves — 'insert' (default: a new note pushes the rest right, like typing
+// in Word) or 'overwrite' (replace just this note). AC-B1.3. The Insert key flips it.
 const typeMode = ref('insert')
 function onInlineKey(e) {
   if (!editMode.value) return
-  if (e.key === 'ArrowRight') { e.preventDefault(); moveSel(1) }
-  else if (e.key === 'ArrowLeft') { e.preventDefault(); moveSel(-1) }
-  else if (e.key === 'ArrowDown') { e.preventDefault(); moveSelLine(1) }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); moveSelLine(-1) }
-  else if (e.key === 'Home') { e.preventDefault(); selIdx.value = 0 }
-  else if (e.key === 'End') { e.preventDefault(); selIdx.value = inlineCells.value.length - 1 }
+  const ctrl = e.ctrlKey || e.metaKey
+  if (e.key === 'ArrowRight') { e.preventDefault(); ctrl ? moveBar(1) : moveUnit(1) }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); ctrl ? moveBar(-1) : moveUnit(-1) }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); ctrl ? moveVerse(1) : moveLine(1) }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); ctrl ? moveVerse(-1) : moveLine(-1) }
+  else if (e.key === 'Home') { e.preventDefault(); curIdx.value = 0 }
+  else if (e.key === 'End') { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
   else if (e.key === 'Insert') { e.preventDefault(); typeMode.value = typeMode.value === 'insert' ? 'overwrite' : 'insert' }
-  // type a scale digit (0–7) on the selected NOTE. Insert mode adds a new note here and
-  // pushes the rest right (words of every verse sharing this melody ripple with it);
-  // overwrite mode changes just this note. Then step to the next slot (Word-like entry).
+  // type a scale digit (0–7) — only on a NOTE unit (lyric typing is a later step). Insert adds a
+  // note + ripples every verse's words; overwrite changes just this note. Then step to the next note.
   else if (selLayer.value === 'note' && /^[0-7]$/.test(e.key)) {
     e.preventDefault()
     if (typeMode.value === 'insert') insertDigit(e.key)
-    else { overwriteDigit(e.key); moveSel(1) }
+    else { overwriteDigit(e.key); advanceNote() }
   }
-  // Two deletes, the world-standard split (MuseScore/Dorico):
-  //  • Backspace = ลบดึงชิด — remove the note, the rest (+ every verse's words) pull tight.
-  //  • Delete    = ลบไม่ชิด — turn the note into a rest (0); the line's timing + words stay put.
+  // deletes (note layer for now — word-layer delete is the next step):
+  //  • Backspace = ลบดึงชิด (remove note, words pull tight)  • Delete = ลบไม่ชิด (note → rest)
   else if (selLayer.value === 'note' && e.key === 'Backspace') { e.preventDefault(); deleteNote() }
   else if (selLayer.value === 'note' && e.key === 'Delete') { e.preventDefault(); restNote() }
-  // Space advances the cursor to the next note.
-  else if (e.key === ' ') { e.preventDefault(); moveSel(1) }
+  // Space advances one fine unit (note ↔ word).
+  else if (e.key === ' ') { e.preventDefault(); moveUnit(1) }
 }
 // resolve the selected cell's source address, or null (needs the v2 tag to trace back)
 function selLoc() {
@@ -272,14 +325,14 @@ function overwriteDigit(digit) {
   if (next !== props.song.content) emit('update-content', next)
 }
 // insert a new note at the cursor (ripple right); the cursor moves onto the note that got
-// pushed, so the next digit lands after this one (left-to-right entry). selIdx is set
-// directly (not moveSel) because the list is one longer after the emitted re-render.
+// pushed, so the next digit lands after this one (left-to-right entry). curIdx jumps +2 (to
+// the next NOTE unit) because the unit list is two longer after the emitted re-render.
 function insertDigit(digit) {
   const loc = selLoc()
   if (!loc) return
   markTyping()
   const next = withInsertedNote(props.song.content, loc, digit)
-  if (next !== props.song.content) { emit('update-content', next); selIdx.value = selIdx.value + 1 }
+  if (next !== props.song.content) { emit('update-content', next); curIdx.value = curIdx.value + 2 }
 }
 // delete the selected note (pull-tight); the cursor steps back one, like Backspace in text.
 function deleteNote() {
@@ -287,7 +340,7 @@ function deleteNote() {
   if (!loc) return
   markTyping()
   const next = withDeletedNote(props.song.content, loc)
-  if (next !== props.song.content) { emit('update-content', next); selIdx.value = Math.max(0, selIdx.value - 1) }
+  if (next !== props.song.content) { emit('update-content', next); curIdx.value = Math.max(0, curIdx.value - 2) }
 }
 // leave-a-gap delete: the selected note becomes a rest (0), position unchanged; the cursor
 // stays on it so you can retype a pitch over it.
@@ -314,18 +367,21 @@ function accidentalSel(acc) {
   if (next !== props.song.content) emit('update-content', next)
 }
 // ---- the input bar taps ----
-// The bar is the NOTE keypad, so a tap targets the note layer of the selected column (even
-// if a word was last tapped). Each tap routes through the SAME edit funcs the keys use.
+// The bar is the note keypad. A number/symbol snaps the cursor onto the current cell's NOTE
+// (so pressing a digit = note entry, even if a word was last selected), then runs the same
+// edit funcs the physical keys use. ◀ ▶ walk the SAME note↔word sequence as the arrows — the
+// mobile equivalent of ← → (no hardware keyboard).
+function barStep(dir) { moveUnit(dir) }
 function barType(d) {
-  if (selIdx.value < 0) return
-  selLayer.value = 'note'
+  if (curIdx.value < 0) return
+  gotoCellNote(selCell.value)
   if (typeMode.value === 'insert') insertDigit(d)
-  else { overwriteDigit(d); moveSel(1) }
+  else { overwriteDigit(d); advanceNote() }
 }
-function barOctave(dir) { if (selIdx.value >= 0) { selLayer.value = 'note'; octaveSel(dir) } }
-function barAccidental(acc) { if (selIdx.value >= 0) { selLayer.value = 'note'; accidentalSel(acc) } }
-function barBackspace() { if (selIdx.value >= 0) { selLayer.value = 'note'; deleteNote() } }
-function barRest() { if (selIdx.value >= 0) { selLayer.value = 'note'; restNote() } }
+function barOctave(dir) { if (curIdx.value >= 0) { gotoCellNote(selCell.value); octaveSel(dir) } }
+function barAccidental(acc) { if (curIdx.value >= 0) { gotoCellNote(selCell.value); accidentalSel(acc) } }
+function barBackspace() { if (curIdx.value >= 0) { gotoCellNote(selCell.value); deleteNote() } }
+function barRest() { if (curIdx.value >= 0) { gotoCellNote(selCell.value); restNote() } }
 // a note click bubbles to the wrapper — read the exact note from .nt[data-idx] in its
 // .segment[data-seg] (a word .syl is @click.stop, so it comes back through onSeek instead)
 function onInlinePick(e) {
@@ -335,12 +391,11 @@ function onInlinePick(e) {
   const seg = nt.closest('.segment[data-seg]')
   if (!seg) return
   const [li, si] = seg.dataset.seg.split('-').map(Number)
-  selectAt(li, si, Number(nt.dataset.idx))
-  selLayer.value = 'note' // tapped the note glyph → edit the NOTE
+  selectUnit(li, si, Number(nt.dataset.idx), 'note') // tapped the note glyph → edit the NOTE
 }
 function toggleEdit() {
   editMode.value = !editMode.value
-  if (editMode.value && selIdx.value < 0 && inlineCells.value.length) selIdx.value = 0
+  if (editMode.value && curIdx.value < 0 && editUnits.value.length) curIdx.value = 0
 }
 // B053 — source book(s) + scripture caption, same data + label helper as the catalog card
 // (SongList). Shown once at the top of the reading surface so a singer sees where the song
@@ -791,7 +846,7 @@ function onSeek({ li, si, syk }) {
   // ✏️ on: a tap SELECTS the note/word for editing instead of jumping playback. A word (.syl)
   // is @click.stop so it only reaches here → edit the WORD; a note-area tap also fires this
   // (syk 0) but onInlinePick runs after and overrides to the exact note + layer 'note'.
-  if (editMode.value) { selectAt(li, si, syk); selLayer.value = 'word'; return }
+  if (editMode.value) { selectUnit(li, si, syk, 'word'); return } // tapped a word → edit the WORD
   const notes = playNotes.value
   let idx = notes.findIndex((n) => n.li === li && n.si === si && n.syk === syk)
   if (idx < 0) idx = notes.findIndex((n) => n.li === li && n.si === si) // rest/blank slot
@@ -813,7 +868,7 @@ function onSeek({ li, si, syk }) {
 
     <!-- while editing: a small hint + autosave note ride above the sheet -->
     <div v-if="editMode" class="sv-edit-hint no-print" role="status">
-      แตะ<b>โน้ต</b>เลือก แล้วพิมพ์เลข <b>1–7</b> หรือใช้แถบเครื่องมือ · <b>Backspace</b> ลบ · ← → ↑ ↓ เลื่อน · แตะ<b>คำ</b>เลือกคำ
+พิมพ์เลข <b>1–7</b> เปลี่ยนโน้ต · <b>← →</b> เดินทีละหน่วย (โน้ต↔คำ) · <b>↑ ↓</b> ข้ามบรรทัด · <b>Ctrl+← →</b> ข้ามห้อง · <b>Ctrl+↑ ↓</b> ข้ามท่อน · <b>Backspace</b> ลบ (บนมือถือใช้ปุ่ม ◀ ▶ ในแถบ)
     </div>
 
     <div
@@ -917,6 +972,7 @@ function onSeek({ li, si, syk }) {
       @toggle-mode="typeMode = typeMode === 'insert' ? 'overwrite' : 'insert'"
       @backspace="barBackspace"
       @rest="barRest"
+      @step="barStep"
     />
   </div>
 </template>

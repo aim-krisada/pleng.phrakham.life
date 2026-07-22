@@ -16,7 +16,7 @@ const props = defineProps({
   dimmed: { type: Boolean, default: false }, // fade + click-through while typing (popup)
   mode: { type: String, default: 'insert' }, // 'insert' | 'overwrite' — the แทรก/ทับ state
 })
-const emit = defineEmits(['digit', 'octave', 'accidental', 'toggle-mode', 'backspace', 'rest'])
+const emit = defineEmits(['digit', 'octave', 'accidental', 'toggle-mode', 'backspace', 'rest', 'step'])
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7']
 
 // ---- popup positioning: float above the note's line, or below if there is no room above,
@@ -52,6 +52,11 @@ onUnmounted(() => window.removeEventListener('resize', place))
     aria-label="แป้นพิมพ์โน้ต"
   >
     <div class="nib-scroll">
+      <!-- ◀ ▶ — walk the note↔word sequence (the mobile equivalent of the ← → arrows) -->
+      <button class="nib-key nib-nav" title="ไปหน่วยก่อนหน้า (โน้ต/คำ)" aria-label="ก่อนหน้า" @click="emit('step', -1)">◀</button>
+      <button class="nib-key nib-nav" title="ไปหน่วยถัดไป (โน้ต/คำ)" aria-label="ถัดไป" @click="emit('step', 1)">▶</button>
+      <span class="nib-sep" aria-hidden="true"></span>
+
       <!-- แทรก/ทับ — next to your hand -->
       <button
         class="nib-key nib-mode" :class="{ ins: mode === 'insert' }"
@@ -140,6 +145,7 @@ onUnmounted(() => window.removeEventListener('resize', place))
 .nib-num { font-family: 'Courier New', monospace; font-weight: 700; font-size: 19px; color: var(--note-blue, #1d4ed8); min-width: 40px; }
 .nib-acc { font-size: 20px; }
 .nib-del { color: var(--brand, #8b4513); }
+.nib-nav { font-size: 18px; font-weight: 700; }
 .nib-mode {
   font-size: 13px; font-weight: 700;
   border-color: var(--brand, #8b4513); color: var(--brand, #8b4513);
