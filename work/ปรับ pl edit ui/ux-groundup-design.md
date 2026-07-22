@@ -122,6 +122,15 @@ fluid 320→∞ (360/375/412 · Fold · tablet · desktop · 2 orientation) · t
 - **ship ไทยก่อน** · โครงพร้อม zh/en · ไม่ต้องแปลครบตอนนี้ (แค่ "เผื่อ" โครง)
 - **กระทบทั้ง 2 สาย** — string ที่เขียนใหม่ต้องผ่าน `t()` ตั้งแต่แรก (สาย 2 กำลังเขียน UI = ต้องรู้ก่อน)
 
+### G cross-check i18n (22 ก.ค. · ยืนยัน world-class + refinements)
+- **word-break ไทย:** `word-break:keep-all; overflow-wrap:break-word;` (+`<wbr>`) ที่ label — ไทยไม่มีเว้นวรรค กันตัดกลางคำ
+- **font stack (system · offline · th+SC+TC):** `system-ui,-apple-system,"Segoe UI",Roboto,"Sukhumvit Set","Leelawadee UI","Thonburi","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","PingFang TC","Microsoft JhengHei","Noto Sans CJK TC",sans-serif` · **ไม่โหลด webfont จีน (3-10MB) — system พอ 100%**
+- **localStorage fallback → `navigator.language`** ถ้าอ่านไม่ได้ (Incognito/iOS ล้าง storage)
+- **lib: custom light layer ถูกแล้ว** สำหรับสเกลนี้ (<2KB · คุม dynamic registry 100%) · ระวัง pluralization → t() เผื่อ `{singular,plural}` (อังกฤษมีพหูพจน์ · ไทย/จีนไม่มี)
+- **ภาษายังไม่พร้อม: ซ่อน ไม่ใช่ disabled** (world-class · ลด noise) → **แก้ด้วยการแปล zh/en ให้ครบแล้วเปิดใช้เลย** (PM ทำ · string นิ่งแล้ว)
+- **เผื่อ:** `Intl.DateTimeFormat/NumberFormat` (native · th-TH → พ.ศ. อัตโนมัติ — footer ใช้ พ.ศ. อยู่แล้ว) · **CSS logical props** (`margin-inline-start`/`text-align:start`) เผื่อ RTL อนาคต
+- **แยก UI-lang vs content-lang:** search ต้อง index ทุกภาษาไม่ว่า UI เป็นอะไร · content fallback คงภาษาต้นฉบับเพลง (อย่าเอา UI lang บังคับเนื้อ) · line-height/font ของเนื้อเพลงจัดแยกจาก chrome
+
 ## Reuse ตอน build (ของมีครบ — UX เป็นรูปทรงใหม่ ไม่ใช่ฟีเจอร์ใหม่)
 - แผ่นเพลง+ไฮไลต์+Play = `SongViewer`/`SongSheet` (มี) · แก้ inline = ดีไซน์ที่ล็อก + `useSongEdit` (สาย 1) · โครง Drawer = โครงเพลง rail เดิม · ค้น/bookshelf = `SongList` (คง) · แชร์/★/playlist = `lib/share·favorites·playlists` (ใหม่) · print/download = `ExportTool` (มี)
 - **net-new จริง:** ปุ่ม ＋สร้าง (ที่ถูกที่), ✏️ บนแผ่น, ↗แชร์+QR, ★, playlist, ยุบ shell/☰, ตัด mode tabs
