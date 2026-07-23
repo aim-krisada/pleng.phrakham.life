@@ -10,6 +10,13 @@
 - worker ทุก session รายงานฟอร์แมตสั้นคงที่ · อ่าน artifact ครั้งเดียว บันทึก verdict แล้วไม่เปิดซ้ำ
 - **merge = PM เท่านั้น** (สายไม่ merge เอง) · **main = P'Aim สั่ง go เท่านั้น** (auto-deploy)
 
+## Self-maintenance (กัน pm-state บวม — สมอง PM ต้องเล็กเสมอ)
+- **อัตโนมัติ (ไม่ต้องสั่ง):** ทุกครั้งที่ **ปิด gate / merge สายเสร็จ** → (ก) ตัดรายการที่เสร็จออกจากตารางสถานะ+gate ของไฟล์นี้ ย่อเป็น 1 บรรทัดใน `decisions-log.md` · (ข) commit · (ค) sync memory ขึ้น OneDrive
+- **decisions-log ยาวเกิน** → ย้ายมติเก่าที่ resolved แล้วไป `decisions-archive.md` (rehydrate อ่านแค่ `pm-state` + `decisions-log` ล่าสุด · ไม่อ่าน archive)
+- **คำสั่งจากพี่ (จำง่าย):**
+  - **"PM เก็บงาน"** = ทำ self-maintenance เดี๋ยวนี้ (prune + archive + commit + sync)
+  - **"PM ต่อ"** = (session ใหม่/context หนัก) อ่าน `pm-state`+`decisions-log` = rehydrate แล้วทำต่อ
+
 ## SSOT pointers (รายละเอียดอยู่ที่นี่ — อย่า duplicate)
 - ideas ทั้งหมด: `docs/backlog.md` (B001–B121)
 - ดีไซน์ล็อก: `work/ปรับ pl edit ui/ux-groundup-design.md`
