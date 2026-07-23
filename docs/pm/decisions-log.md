@@ -18,11 +18,11 @@
 - 2026-07-23 · **เปิด Tester session ประจำ** (spun) รับงาน verify → verdict 4 บรรทัด · read-only · PM ไม่ verify เอง
 - 2026-07-23 · **PM operating model เข้า memory** (`feedback_pm_brain_on_disk` · ⭐⭐) ใช้ทุก PM ทุกโปรเจกต์ · แจ้ง pk pm ทำเหมือนกัน (พระคำ)
 - 2026-07-23 · **alignment 3 จุด (คำ/melisma/คอร์ด) PASS** บน `editor-usability` `8c508be` — Tester verify geometry จริง (คอร์ด 0.05px · คำ/เส้น 0.1px · 792 เทสต์) · pre-merge เหลือ: กวาดคลัง over-draw + P'Aim พิมพ์ PDF จริง
+- 2026-07-23 · **Tester #2 กวาดคลัง 149 เพลง — ไม่มี over-draw ยักษ์** (98% melisma 2 โน้ตปกติ) · alignment PASS ทุก breakpoint · เจอ artifact `"` 1 จุด + 5 เพลง judgment + 2 minor (B122 arcPlan≥3บรรทัด · B123 shell h-scroll 8px)
+- 2026-07-23 · P'Aim เคาะ **(ก) แก้ artifact `"` ก่อน แล้ว merge** — จ่าย editor แก้ render-side (ไม่แตะ DB)
 
 ## มติล็อกก่อนหน้า (ยกมาไว้อ่านครั้งเดียว)
 - ⛔ **ห้าม re-import/bulk-write 120 เพลง** — ทีมแก้ live อยู่ · migration ทำตอน app เสร็จ
 - คง **Vue3+Vite** (ไม่ Nuxt/Tailwind) · คง bookshelf หน้าแรก · ripple default · backspace ลบชิด
 - **แปล zh/en สุดท้าย** (หลัง string นิ่ง) · **ไม่ release จนเสร็จ** · **main = P'Aim สั่ง go เท่านั้น**
 - font = **Hybrid Noto** (UI self-host+subset · เนื้อจีน system CJK) · favorites/playlist **ไม่มี account** · **merge = PM เท่านั้น**
-- 2026-07-23 · **Tester #2 กวาดคลัง 149 เพลง — ไม่มี over-draw ยักษ์** (98% melisma 2 โน้ตปกติ) · alignment PASS ทุก breakpoint · เจอ artifact `"` 1 จุด + 5 เพลง judgment + 2 minor (B122 arcPlan≥3บรรทัด · B123 shell h-scroll 8px)
-- 2026-07-23 · P'Aim เคาะ **(ก) แก้ artifact `"` ก่อน แล้ว merge** — จ่าย editor แก้ render-side (ไม่แตะ DB)
