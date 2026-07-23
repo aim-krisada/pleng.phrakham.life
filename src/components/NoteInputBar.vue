@@ -21,8 +21,10 @@ const props = defineProps({
   mode: { type: String, default: 'overwrite' }, // 'insert' | 'overwrite' — the แทรก/ทับ state
   chords: { type: Array, default: () => [] }, // [{value,label}] for the key ('' = ไม่มีคอร์ด)
   hintNonce: { type: Number, default: 0 }, // bumped by the host when a new key position is learned
+  canUndo: { type: Boolean, default: false }, // ย้อน/ทำซ้ำ availability — the buttons must tell the truth
+  canRedo: { type: Boolean, default: false },
 })
-const emit = defineEmits(['octave', 'accidental', 'toggle-mode', 'nav', 'chord', 'symbol'])
+const emit = defineEmits(['octave', 'accidental', 'toggle-mode', 'nav', 'chord', 'symbol', 'undo', 'redo'])
 const helpOpen = ref(false)
 
 // ---- the symbol keys (DS note-symbol-set §4.1 / G17) ------------------------------------
@@ -172,6 +174,17 @@ onUnmounted(() => {
     <div class="nib-scroll">
       <!-- drag grip (desktop popup) — nudge the toolbar out of the way -->
       <button v-if="variant === 'popup'" class="nib-key nib-grip" aria-label="ลากย้ายแถบ" title="ลากเพื่อย้าย" @pointerdown="onGripDown"><Icon name="grip-vertical" :size="16" /></button>
+
+      <!-- ย้อน / ทำซ้ำ — same name, icon and order as the editor's dock on `main` (พี่เปาคุ้นมือ
+           อยู่แล้ว) with the shortcut printed ON the button, like the symbol keys. Disabled when
+           there is nothing to undo/redo: a control must never accept a press and do nothing. -->
+      <button class="nib-key nib-hist" :disabled="!canUndo" aria-label="ย้อน (Ctrl+Z)" @click="emit('undo')">
+        <Icon name="undo-2" :size="16" /><span class="nib-histtxt">ย้อน<em>Ctrl+Z</em></span>
+      </button>
+      <button class="nib-key nib-hist" :disabled="!canRedo" aria-label="ทำซ้ำ (Ctrl+Y)" @click="emit('redo')">
+        <Icon name="redo-2" :size="16" /><span class="nib-histtxt">ทำซ้ำ<em>Ctrl+Y</em></span>
+      </button>
+      <span class="nib-sep" aria-hidden="true"></span>
       <!-- arrows — mobile only (on-screen keyboards have none; desktop uses the physical keys) -->
       <template v-if="variant === 'bar'">
         <button class="nib-key nib-nav" aria-label="ซ้าย" title="ซ้าย" @click="emit('nav', 'left')">←</button>
@@ -318,6 +331,13 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 .nib-key:active { transform: translateY(1px); }
+.nib-key:disabled { opacity: 0.4; cursor: default; }
+.nib-key:disabled:active { transform: none; }
+/* ย้อน / ทำซ้ำ — icon + Thai name + the shortcut, printed on the button (never a tooltip) */
+.nib-hist { padding: 0 8px; gap: 5px; }
+.nib-histtxt { display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1.1; font-size: 12px; font-weight: 700; }
+.nib-histtxt em { font-style: normal; font-size: 10px; font-weight: 700; color: var(--brand, #8b4513); }
+.nib-hist:disabled .nib-histtxt em { color: var(--muted, #64748b); }
 .nib-key:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
 .nib-key b { font-size: 12px; font-weight: 700; }
 .nib-nav { font-size: 20px; font-weight: 700; min-width: 40px; }

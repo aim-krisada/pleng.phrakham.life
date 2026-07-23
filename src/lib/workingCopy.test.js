@@ -1,6 +1,6 @@
 // A-fix (23 ก.ค.) — the local working copy that stops โหมดแก้ inline losing work on reload.
 import { describe, it, expect } from 'vitest'
-import { keyFor, writeWorkingCopy, readWorkingCopy, clearWorkingCopy, hasRecoverable } from './workingCopy.js'
+import { keyFor, writeWorkingCopy, readWorkingCopy, clearWorkingCopy, hasRecoverable, contentStamp } from './workingCopy.js'
 
 // minimal Storage stand-in (the real one is injectable so this needs no browser)
 function fakeStore(broken = false) {
@@ -13,6 +13,21 @@ function fakeStore(broken = false) {
   }
 }
 const content = { key: 'C', stanzas: [{ id: 's1', lines: [] }] }
+
+describe('contentStamp — "is this the same music?"', () => {
+  it('ignores object key order (Postgres jsonb reorders; a rebuilt object does not)', () => {
+    // found live: the loaded song read as ยังไม่บันทึก, and ย้อน could not get back to บันทึกแล้ว
+    const fromDb = { bpm: 60, key: 'G', stanzas: [{ id: 'A', lines: [] }], version: 2 }
+    const rebuilt = { version: 2, key: 'G', bpm: 60, stanzas: [{ lines: [], id: 'A' }] }
+    expect(contentStamp(fromDb)).toBe(contentStamp(rebuilt))
+  })
+
+  it('still sees a real edit, and never reorders arrays (order IS the music)', () => {
+    const a = { stanzas: [{ id: 'A', lines: [['1', '2']] }] }
+    expect(contentStamp(a)).not.toBe(contentStamp({ stanzas: [{ id: 'A', lines: [['1', '3']] }] }))
+    expect(contentStamp(a)).not.toBe(contentStamp({ stanzas: [{ id: 'A', lines: [['2', '1']] }] }))
+  })
+})
 
 describe('workingCopy', () => {
   it('round-trips a copy under a per-song key', () => {

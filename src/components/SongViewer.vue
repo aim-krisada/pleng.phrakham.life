@@ -25,6 +25,7 @@ import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/s
 import { bookRefLabels } from '../lib/bookCodes.js'
 import { noteBoxKinds } from '../lib/notation.js'
 import { learnKey, loadLayoutMap } from '../lib/keyHints.js'
+import { createHistory, undoIntent } from '../lib/editHistory.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
 import NoteInputBar from './NoteInputBar.vue'
@@ -270,6 +271,65 @@ const SYMBOL_CHARS = "_.-~^(){}|n'"
 const layoutMap = ref(null)
 // bumped whenever a new position is learned, so the toolbar re-reads the hint store
 const hintNonce = ref(0)
+// ---- undo / redo (regression: the editor on `main` has always had it) -------------------
+// P'Aim: "ควรมีปุ่ม undo redo ด้วย ของเดิมมี พร้อม shortcut key". Same engine/behaviour as that
+// editor (lib/editHistory), pointed at the inline surface: the DOCUMENT is the song content
+// (so EVERY edit path is covered — notes, words, chords, chords cleared, insert/delete,
+// แทรก/ทับ, all 12 symbols — because they all flow through `update-content`), and the cursor
+// is the view that rides along, so undo puts you back where the edit happened.
+const history = createHistory()
+const canUndo = ref(false)
+const canRedo = ref(false)
+let applyingHistory = false
+function syncHistoryFlags() {
+  canUndo.value = history.canUndo()
+  canRedo.value = history.canRedo()
+}
+history.reset(props.song?.content ?? null, 0)
+syncHistoryFlags()
+// The history covers the EDITING SESSION: it starts when the pencil goes on and ends when it
+// goes off. Content changes that happen outside it (the shell finishing its load, a recovered
+// working copy being applied, the migration pass) are the starting point, NOT steps — recording
+// them made ย้อน jump back to a song state the user never typed.
+watch(
+  () => props.song?.content,
+  (c) => {
+    if (applyingHistory) return // replaying a step must not record it as a new one
+    if (!editMode.value) { history.reset(c ?? null, curIdx.value) } else { history.record(c ?? null, curIdx.value) }
+    syncHistoryFlags()
+  },
+)
+watch(editMode, (on) => {
+  // entering แก้ = a clean slate (nothing to undo yet — and the buttons say so)
+  if (on) history.reset(props.song?.content ?? null, curIdx.value)
+  syncHistoryFlags()
+})
+// a fresh song (switched in the picker) starts a fresh history — you cannot undo into another song
+watch(
+  () => props.song?.id ?? props.song?.title_th,
+  () => { history.reset(props.song?.content ?? null, curIdx.value); syncHistoryFlags() },
+)
+function applyHistoryStep(step) {
+  if (!step) return // nothing to undo/redo — the buttons are disabled, so this is belt+braces
+  applyingHistory = true
+  emit('update-content', step.doc)
+  if (typeof step.view === 'number') curIdx.value = Math.min(Math.max(step.view, -1), editUnits.value.length - 1)
+  nextTick(() => { applyingHistory = false })
+  syncHistoryFlags()
+  focusCapture()
+}
+function undoEdit() { applyHistoryStep(history.undo()) }
+function redoEdit() { applyHistoryStep(history.redo()) }
+// The shortcut must work while the caret is in the note/word field — that is where the user
+// is. One rule (lib/editHistory.undoIntent) serves both this window listener and the capture
+// field, so the two can never disagree.
+function onUndoKeys(e) {
+  if (!editMode.value) return
+  const intent = undoIntent(e)
+  if (!intent) return
+  e.preventDefault()
+  intent === 'redo' ? redoEdit() : undoEdit()
+}
 // how a typed digit behaves — DEFAULT 'overwrite' (a number lands right ON the current note,
 // predictable "กด 1 = ใส่ 1 ตรงที่อยู่"). 'insert' (push the rest right) is the toggle for adding
 // notes. The Insert key flips it.
@@ -281,6 +341,14 @@ function toggleTypeMode() { typeMode.value = typeMode.value === 'insert' ? 'over
 // word when the caret is at its edge; ↑ ↓ / space / Enter navigate.
 function onCaptureKey(e) {
   if (!editMode.value) return
+  // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y while typing — handled here as well as on the window, so a
+  // browser/IME that swallows the event before it bubbles cannot lose the shortcut.
+  const histIntent = undoIntent(e)
+  if (histIntent) {
+    e.preventDefault()
+    histIntent === 'redo' ? redoEdit() : undoEdit()
+    return
+  }
   // DS §4.1: learn where this character lives on THIS keyboard, from the key actually pressed.
   // The toolbar then shows it on that character's button, so the next time it can be typed
   // straight away. Measured only — a character never typed here simply has no hint.
@@ -627,6 +695,10 @@ function requestSave() {
     emit('save', 'file')
   }
 }
+// The edit surface's handlers, exposed so the tests can drive the SAME functions the UI does
+// (a test that reimplements the wiring proves nothing about the wiring).
+defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit, toggleEdit })
+
 function toggleEdit() {
   // leaving edit with work that is not stored anywhere must SAY so — never a silent exit
   if (editMode.value && props.saveState === 'dirty') {
@@ -1072,6 +1144,7 @@ const settingDescs = computed(() => [
 const hasSections = computed(() => sections.value.length > 0)
 
 onMounted(() => {
+  window.addEventListener('keydown', onUndoKeys)
   loadLayoutMap().then((m) => { layoutMap.value = m }) // for the symbol keys' "⇧ + 6" hints
   selectAllSecs() // B105: first-load default = every ท่อน ticked (the identity watcher isn't immediate)
   window.addEventListener('wheel', onUserScroll, { passive: true })
@@ -1085,6 +1158,7 @@ onMounted(() => {
   nextTick(() => { isWide.value = window.innerWidth >= WIDE_MIN }) // re-read once layout has a real width
 })
 onUnmounted(() => {
+  window.removeEventListener('keydown', onUndoKeys)
   window.removeEventListener('wheel', onUserScroll)
   window.removeEventListener('touchmove', onUserScroll)
   window.removeEventListener('scroll', onPageScroll, { capture: true })
@@ -1254,6 +1328,10 @@ function onSeek({ li, si, syk }) {
       :mode="typeMode"
       :chords="chordOpts"
       :hint-nonce="hintNonce"
+      :can-undo="canUndo"
+      :can-redo="canRedo"
+      @undo="undoEdit"
+      @redo="redoEdit"
       @symbol="applySymbol"
       @nav="barNav"
       @octave="barOctave"
