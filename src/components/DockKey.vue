@@ -745,7 +745,8 @@ const dockStyle = computed(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 90;
+  /* shared with phrakham (no styles.css there) → token + its historical value as fallback */
+  z-index: var(--z-dock, 90);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -820,7 +821,7 @@ const dockStyle = computed(() => {
    edge-drag · §1 → the ⚙ slider is the touch path); `@media (hover: hover)` reveals it.
    touch-action:none so a stray touch-drag isn't stolen by page scroll. */
 .dk-resize {
-  position: absolute; top: 50%; right: -16px; transform: translateY(-50%); z-index: 2;
+  position: absolute; top: 50%; right: -16px; transform: translateY(-50%); z-index: var(--z-sheet, 1);
   width: 16px; height: 34px; min-height: 0; padding: 0; border: 0; border-radius: 6px;
   display: none; align-items: center; justify-content: center;
   background: transparent; color: var(--muted); cursor: ew-resize; touch-action: none;
@@ -904,7 +905,7 @@ const dockStyle = computed(() => {
   pointer-events: auto;
   position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: 30;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: var(--z-popover, 30);
   width: max-content; max-width: calc(100vw - 24px); padding: 6px;
 }
 .dk-dd { min-width: 160px; }

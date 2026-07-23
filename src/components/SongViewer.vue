@@ -707,6 +707,11 @@ function onUserScroll() {
   if (playing.value) pausedScrollUntil = Date.now() + SCROLL_PAUSE_MS
   if (editMode.value) updateNoteRect() // keep the desktop popup glued to the scrolling note
 }
+// any scroll at all (incl. keyboard / scrollbar / auto-scroll) re-anchors the popup; unlike
+// onUserScroll this must NOT pause the follow-along, since the auto-scroll itself fires it.
+function onPageScroll() {
+  if (editMode.value) updateNoteRect()
+}
 async function scrollToPlaying() {
   if (!sheetWrap.value) return
   if (Date.now() < pausedScrollUntil) return // singer is reading elsewhere — don't snap back
@@ -958,12 +963,18 @@ onMounted(() => {
   selectAllSecs() // B105: first-load default = every ท่อน ticked (the identity watcher isn't immediate)
   window.addEventListener('wheel', onUserScroll, { passive: true })
   window.addEventListener('touchmove', onUserScroll, { passive: true })
+  // wheel/touchmove only cover a hand-scroll GESTURE. Keyboard scrolling (PageDown/space),
+  // dragging the scrollbar and the follow-along auto-scroll all move the page WITHOUT one, and
+  // the popup then kept its old viewport spot while the note slid away — that is how it ended up
+  // sitting in the header band (P'Aim 23 ก.ค.). A plain scroll listener catches every case.
+  window.addEventListener('scroll', onPageScroll, { capture: true, passive: true })
   window.addEventListener('resize', onResizeWidth)
   nextTick(() => { isWide.value = window.innerWidth >= WIDE_MIN }) // re-read once layout has a real width
 })
 onUnmounted(() => {
   window.removeEventListener('wheel', onUserScroll)
   window.removeEventListener('touchmove', onUserScroll)
+  window.removeEventListener('scroll', onPageScroll, { capture: true })
   window.removeEventListener('resize', onResizeWidth)
   if (typingTimer) clearTimeout(typingTimer)
   stopPlayback()
@@ -1130,7 +1141,7 @@ function onSeek({ li, si, syk }) {
      the dock's line, balanced against the centered dock + page margin. On a phone the dock goes
      nearly full-width, so the FAB lifts ABOVE it (media query below) to avoid overlap. */
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-  z-index: 40;
+  z-index: var(--z-dock);
   width: 56px;
   height: 56px;
   display: inline-flex;
@@ -1182,7 +1193,7 @@ function onSeek({ li, si, syk }) {
    A note keeps it invisible (opacity:0 inline) just to hold keyboard focus; a WORD shows the
    text being typed, styled to read as editing on the sheet. */
 .sv-capture {
-  z-index: 46;
+  z-index: var(--z-inline-edit);
   margin: 0;
   border: none;
   background: transparent;
@@ -1235,7 +1246,7 @@ function onSeek({ li, si, syk }) {
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(170px + env(safe-area-inset-bottom, 0px));
-  z-index: 20;
+  z-index: var(--z-sticky);
   pointer-events: none;
   background: var(--surface-2, #222);
   color: var(--text-1, #eee);

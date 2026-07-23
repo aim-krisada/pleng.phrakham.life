@@ -47,7 +47,7 @@
     /* the sliding panel — fixed, full-height, off-canvas until .is-open. The slide
        is a GPU transform; visibility is delayed on close so the slide-out plays out
        before the panel becomes unfocusable/inert. */
-    '.pk-drawer{position:fixed;top:0;bottom:0;z-index:1050;' +
+    '.pk-drawer{position:fixed;top:0;bottom:0;z-index:var(--z-drawer,1050);' +
     'display:flex;flex-direction:column;' +
     'width:min(86vw,360px);max-width:100vw;' +
     'background:var(--pk-cream,#FAF6F0);color:var(--pk-ink,#2D2A26);' +
@@ -68,7 +68,7 @@
     '.pk-drawer.is-open{transform:translateX(0);visibility:visible;' +
     'transition:transform .28s ease,visibility 0s}' +
     /* scrim — dim backdrop, click-to-close */
-    '.pk-drawer-scrim{position:fixed;inset:0;z-index:1040;' +
+    '.pk-drawer-scrim{position:fixed;inset:0;z-index:var(--z-scrim,1040);' +
     'background:rgba(45,42,38,.5);opacity:0;visibility:hidden;' +
     'transition:opacity .28s ease,visibility 0s linear .28s}' +
     '.pk-drawer-scrim.is-open{opacity:1;visibility:visible;' +

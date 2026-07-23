@@ -96,7 +96,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 .ss-scrim {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: var(--z-modal);
   background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: flex-end;          /* mobile = bottom-sheet */
