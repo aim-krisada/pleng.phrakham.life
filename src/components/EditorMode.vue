@@ -5,6 +5,7 @@ import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions, isValidChord } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, canonicalizeNote } from '../lib/notation.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
+import { mintMarkerIds, stripEditorMarkerIds, findOrphanFlows, allMarkerIds, voltaNums, isNonEmptyFlow } from '../lib/songFlow.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
@@ -85,29 +86,40 @@ function newSegment() {
 // beats are completed by another partial bar — a stanza-opening pickup paired with the
 // short final bar, or a bar split across a line. Flagged bars are validated as a GROUP
 // (their beats must sum to a whole number of bars), never red individually (B055).
+// R1 — a structural marker carries a permanent id so a verse's `flow` can reference it and
+// survive melody edits (repeatStartId/repeatEndId share one id per ‖: … :‖ pair). `repeatTimes`
+// = the melody's default rounds (R2, null = the 2× default). `voltaRaw` preserves a loaded
+// volta list (num:[2,3]) so the number-only UI doesn't silently collapse it on round-trip.
 function barShell() {
-  return { segments: [], repeatStart: false, repeatEnd: false, volta: 0, pickup: false }
+  return { segments: [], repeatStart: false, repeatEnd: false, volta: 0, pickup: false,
+    repeatStartId: '', repeatEndId: '', voltaId: '', repeatTimes: null, voltaRaw: null }
 }
 function newBar() {
   return { ...barShell(), segments: [newSegment()] }
 }
 function newLine() {
-  return { marker: '', cont: false, label: '', section: '', end: false, bars: [newBar()] }
+  return { marker: '', markerId: '', cont: false, label: '', section: '', end: false, bars: [newBar()] }
 }
 
 function deserializeLine(items) {
-  const line = { marker: '', cont: false, label: '', section: '', end: false, bars: [] }
+  const line = { marker: '', markerId: '', cont: false, label: '', section: '', end: false, bars: [] }
   let bar = barShell()
   for (const it of items) {
     if (it.type === 'continue') line.cont = true
     else if (it.type === 'section') line.section = it.name || ''
     else if (it.type === 'label') line.label = it.text || ''
     else if (it.type === 'end') line.end = true
-    else if (it.type === 'marker') line.marker = it.label || '***'
-    else if (it.type === 'repeat-start') bar.repeatStart = true
-    else if (it.type === 'repeat-end') bar.repeatEnd = true
+    else if (it.type === 'marker') { line.marker = it.label || '***'; line.markerId = it.id || '' }
+    else if (it.type === 'repeat-start') { bar.repeatStart = true; bar.repeatStartId = it.id || '' }
+    else if (it.type === 'repeat-end') { bar.repeatEnd = true; bar.repeatEndId = it.id || ''; bar.repeatTimes = it.times ?? null }
     else if (it.type === 'pickup') bar.pickup = true
-    else if (it.type === 'volta') bar.volta = it.num || 0
+    else if (it.type === 'volta') {
+      // R2 — num may be a single number OR a list [2,3]. The UI works in single numbers, so
+      // show the first, but keep the raw list to round-trip it faithfully when untouched.
+      bar.volta = Array.isArray(it.num) ? (Number(it.num[0]) || 0) : (Number(it.num) || 0)
+      bar.voltaRaw = Array.isArray(it.num) ? it.num.slice() : null
+      bar.voltaId = it.id || ''
+    }
     else if (it.type === 'bar') {
       line.bars.push(bar)
       bar = barShell()
@@ -127,19 +139,24 @@ function serializeLine(line) {
   const items = []
   if (line.section?.trim()) items.push({ type: 'section', name: line.section.trim() })
   if (line.cont) items.push({ type: 'continue' })
-  if (line.marker) items.push({ type: 'marker', label: line.marker })
+  if (line.marker) items.push({ type: 'marker', label: line.marker, ...(line.markerId ? { id: line.markerId } : {}) })
   line.bars.forEach((b, i) => {
     // a repeat-start IS the left barline; otherwise a plain barline between bars
-    if (b.repeatStart) items.push({ type: 'repeat-start' })
+    if (b.repeatStart) items.push({ type: 'repeat-start', ...(b.repeatStartId ? { id: b.repeatStartId } : {}) })
     else if (i > 0) items.push({ type: 'bar' })
     if (b.pickup) items.push({ type: 'pickup' })
-    if (b.volta) items.push({ type: 'volta', num: b.volta })
+    if (b.volta) {
+      // round-trip a loaded list exactly when the number-UI hasn't touched it (voltaRaw[0]
+      // still equals b.volta); otherwise the user edited it → emit the plain number.
+      const num = Array.isArray(b.voltaRaw) && Number(b.voltaRaw[0]) === Number(b.volta) ? b.voltaRaw : b.volta
+      items.push({ type: 'volta', num, ...(b.voltaId ? { id: b.voltaId } : {}) })
+    }
     for (const s of b.segments) {
       const seg = { type: 'segment', chord: s.chord, note: s.note }
       if (s.lyric) seg.lyric = s.lyric
       items.push(seg)
     }
-    if (b.repeatEnd) items.push({ type: 'repeat-end' })
+    if (b.repeatEnd) items.push({ type: 'repeat-end', ...(b.repeatEndId ? { id: b.repeatEndId } : {}), ...(b.repeatTimes != null ? { times: b.repeatTimes } : {}) })
   })
   if (line.label?.trim()) items.push({ type: 'label', text: line.label.trim() })
   if (line.end) items.push({ type: 'end' })
@@ -248,7 +265,7 @@ const lines = computed({
 })
 const activeStanzaId = computed(() => stanzas.value[activeStanza.value]?.id ?? '')
 
-const previewContent = computed(() => ({
+const previewContent = computed(() => mintMarkerIds({
   version: 2,
   key: opts.key,
   timeSignature: opts.timeSignature,
@@ -262,14 +279,41 @@ const previewContent = computed(() => ({
     // B102 — "ร้องรับทุกข้อ": the refrain is sung after every verse. Stored on the entry
     // (SSOT, visible in the downloaded JSON); playback (resolvePlayOrder) expands it.
     ...(r.afterEachVerse ? { afterEachVerse: true } : {}),
+    // R3 — per-verse repeat override (skip/times/ending/skipSections/jump/path). Only emitted
+    // when non-empty so the ~80% common verse stays clean in the saved JSON.
+    ...(isNonEmptyFlow(r.flow) ? { flow: normalizeFlow(r.flow) } : {}),
   })),
-}))
+  // R1 safety net — fill any marker id a UI toggle missed. Idempotent, preserves existing ids,
+  // so the saved content always round-trips id-stable even if a handler was bypassed.
+}).content)
+
+// Drop empty sub-fields from a flow so a directive the user cleared doesn't linger in the JSON.
+function normalizeFlow(flow) {
+  const out = {}
+  if (Array.isArray(flow.skip) && flow.skip.length) out.skip = [...flow.skip]
+  if (flow.times && Object.keys(flow.times).length) {
+    const t = {}
+    for (const [k, v] of Object.entries(flow.times)) if (v != null) t[k] = Number(v)
+    if (Object.keys(t).length) out.times = t
+  }
+  if (flow.ending != null) out.ending = Number(flow.ending)
+  if (flow.jump != null && flow.jump !== '') out.jump = flow.jump
+  if (Array.isArray(flow.skipSections) && flow.skipSections.length) out.skipSections = [...flow.skipSections]
+  if (Array.isArray(flow.path) && flow.path.length) out.path = [...flow.path]
+  return out
+}
 
 // The sheet + playback read v1-shaped `lines`, so resolve the arrangement first.
 const resolvedPreview = computed(() => ({
   ...previewContent.value,
   lines: resolveContent(previewContent.value),
 }))
+
+// R4 — flow directives that point at a repeat/section no longer in the song. Playback already
+// ignores them (never guesses); this drives the visible "กำพร้า" notice + the publish lint flag.
+const flowOrphans = computed(() => findOrphanFlows(previewContent.value))
+// marker ids currently in the song, for the flow editor's "which repeat" picker (R5).
+const markerIds = computed(() => [...allMarkerIds(previewContent.value)])
 
 // valid chords only, diatonic chords of the current key listed first. chordOptions
 // already leads with a "— ไม่มีคอร์ด —" entry (value ''), so the picker reuses it —
@@ -833,6 +877,103 @@ function toggleAfterEachVerse(i, on) {
   if (on) arrangement.value.forEach((r, k) => { r.afterEachVerse = k === i })
   else row.afterEachVerse = false
 }
+
+// ---- R3/R5 — per-verse repeat flow (patterns 2,3,4,6). Human-language controls that write
+// `arrangement[i].flow`; the melody is never copied. "มีค่า = ใช้ค่านั้น" precedence: an empty
+// flow is deleted so the ~80% common verse stays clean. See docs/ds/repeat-flow-override.md. ----
+const flowPanelOpen = ref(false) // "การวนของข้อนี้" section expanded on the current verse
+const flowAdvancedOpen = ref(false) // progressive disclosure — raw flow JSON (path / power edits)
+const flowJsonError = ref('')
+// the repeats (with ids) that belong to a verse's melody — drives the "เล่นกี่รอบ" controls
+function stanzaRepeats(stanzaId) {
+  const s = (previewContent.value.stanzas || []).find((x) => x.id === stanzaId)
+  const out = []
+  for (const line of s?.lines || []) for (const it of line) {
+    if (it.type === 'repeat-end' && it.id) out.push({ id: it.id, times: it.times ?? 2 })
+  }
+  return out
+}
+// the refrain (afterEachVerse) row, if any — its stanza is what skipSections drops after a verse
+const refrainStanza = computed(() => {
+  const r = arrangement.value.find((x) => x.afterEachVerse)
+  return r ? r.stanza : null
+})
+function ensureFlow(row) { if (!row.flow) row.flow = {}; return row.flow }
+// prune empties so a cleared control removes the whole flow (keeps saved JSON minimal)
+function tidyFlow(row) {
+  const f = row.flow
+  if (f && !isNonEmptyFlow(f)) row.flow = null
+}
+// pattern 2 — "ข้อนี้ไม่วนซ้ำ": skip every repeat for this verse (skip:["*"])
+function verseSkipAll(row) { return !!(row.flow && Array.isArray(row.flow.skip) && row.flow.skip.includes('*')) }
+function setVerseSkipAll(row, on) {
+  const f = ensureFlow(row)
+  f.skip = on ? ['*'] : (f.skip || []).filter((x) => x !== '*')
+  if (!f.skip.length) delete f.skip
+  tidyFlow(row)
+}
+// pattern 4 — "เล่นกี่รอบ" per repeat (times override; blank = melody default)
+function verseTimes(row, id) { return row.flow && row.flow.times ? (row.flow.times[id] ?? '') : '' }
+function setVerseTimes(row, id, val) {
+  const n = Number(val)
+  const f = ensureFlow(row)
+  if (!f.times) f.times = {}
+  if (val === '' || !Number.isFinite(n) || n < 1) delete f.times[id]
+  else f.times[id] = Math.floor(n)
+  if (!Object.keys(f.times).length) delete f.times
+  tidyFlow(row)
+}
+// pattern 3 — "เข้าห้องจบชุดที่ N" (forced ending; blank = melody default)
+function verseEnding(row) { return row.flow && row.flow.ending != null ? row.flow.ending : '' }
+function setVerseEnding(row, val) {
+  const n = Number(val)
+  const f = ensureFlow(row)
+  if (val === '' || !Number.isFinite(n) || n < 1) delete f.ending
+  else f.ending = Math.floor(n)
+  tidyFlow(row)
+}
+// pattern 6 — "ไม่ต้องร้องรับหลังข้อนี้": drop the refrain after this verse (skipSections)
+function verseSkipRefrain(row) {
+  const rs = refrainStanza.value
+  return !!(rs && row.flow && Array.isArray(row.flow.skipSections) && row.flow.skipSections.includes(rs))
+}
+function setVerseSkipRefrain(row, on) {
+  const rs = refrainStanza.value
+  if (!rs) return
+  const f = ensureFlow(row)
+  const set = new Set(f.skipSections || [])
+  if (on) set.add(rs); else set.delete(rs)
+  f.skipSections = [...set]
+  if (!f.skipSections.length) delete f.skipSections
+  tidyFlow(row)
+}
+// R4 — strip every orphan reference (skip/times/skipSections/path pointing at a deleted id or
+// section) from the flows, then tidy. Undo (docState) restores both the marker and the flow.
+function clearOrphanFlows() {
+  const ids = new Set(markerIds.value)
+  const stanzaIds = new Set(previewContent.value.stanzas.map((s) => s.id))
+  for (const row of arrangement.value) {
+    const f = row.flow
+    if (!isNonEmptyFlow(f)) continue
+    if (Array.isArray(f.skip)) f.skip = f.skip.filter((x) => x === '*' || ids.has(x))
+    if (f.times) for (const k of Object.keys(f.times)) if (!ids.has(k)) delete f.times[k]
+    if (Array.isArray(f.skipSections)) f.skipSections = f.skipSections.filter((x) => stanzaIds.has(x))
+    if (Array.isArray(f.path)) f.path = f.path.filter((x) => ids.has(x) || stanzaIds.has(x))
+    tidyFlow(row)
+  }
+}
+// advanced (progressive disclosure) — raw flow JSON, for `path` (pattern 8) + power edits
+function verseFlowJson(row) { return row.flow ? JSON.stringify(row.flow, null, 0) : '' }
+function setVerseFlowJson(row, text) {
+  const t = (text || '').trim()
+  if (!t) { row.flow = null; flowJsonError.value = ''; return }
+  try {
+    const parsed = JSON.parse(t)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) { row.flow = parsed; tidyFlow(row); flowJsonError.value = '' }
+    else flowJsonError.value = 'ต้องเป็นอ็อบเจกต์ เช่น {"skip":["*"]}'
+  } catch { flowJsonError.value = 'JSON ไม่ถูกต้อง' }
+}
+
 // ---- inline rename (rail row + canvas header edit the same row.label — P1/P5) ----
 function startRename(i, where) {
   labelSnapshot.value = arrangement.value[i]?.label ?? ''
@@ -1124,8 +1265,9 @@ function moveBar(li, bi, dir) {
 // Duplicate bar bi: drop an exact copy (chords + notes) right after it. Faster than
 // re-keying a repeated bar; tweak the copy afterwards.
 function duplicateBar(line, bi) {
-  const copy = JSON.parse(JSON.stringify(line.bars[bi]))
+  const copy = stripEditorMarkerIds(JSON.parse(JSON.stringify(line.bars[bi]))) // R1 rule 2: fresh ids
   line.bars.splice(bi + 1, 0, copy)
+  ensureEditorMarkerIds()
 }
 function removeSegment(bar, si) {
   bar.segments.splice(si, 1)
@@ -1149,8 +1291,9 @@ function copyLine(li) {
   const ls = s ? s.lines : lines.value
   const start = lineSlotStart(ls, li)
   const len = lineSlotLen(ls[li])
-  const copy = JSON.parse(JSON.stringify(ls[li]))
+  const copy = stripEditorMarkerIds(JSON.parse(JSON.stringify(ls[li]))) // R1 rule 2: fresh ids on the copy
   ls.splice(li + 1, 0, copy)
+  ensureEditorMarkerIds()
   if (s && len > 0)
     resliceRows(s.id, (p) => {
       while (p.length < start + len) p.push('')
@@ -1253,21 +1396,24 @@ function pasteBarAt(li) {
   if (clip.value?.kind !== 'bar') return
   const line = lines.value[li]
   if (!line) return
-  line.bars.push(JSON.parse(JSON.stringify(clip.value.data)))
+  line.bars.push(stripEditorMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))) // R1: fresh ids
+  ensureEditorMarkerIds()
 }
 // paste the copied บรรทัด at the end of the ACTIVE ท่อน (melody only)
 function pasteLineHere() {
   if (clip.value?.kind !== 'line') return
-  lines.value.push(JSON.parse(JSON.stringify(clip.value.data)))
+  lines.value.push(stripEditorMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))) // R1: fresh ids
   activeLine.value = lines.value.length - 1
+  ensureEditorMarkerIds()
 }
 // วางเป็นท่อนใหม่ — the headline: a fresh ท่อน (stanza) whose only บรรทัด is the copy, then
 // jump to it. Mirrors addStanza's shape (a new melody with no ข้อ yet — words added later).
 function pasteLineAsStanza() {
   if (clip.value?.kind !== 'line') return
-  stanzas.value.push({ id: nextStanzaId(), lines: [JSON.parse(JSON.stringify(clip.value.data))] })
+  stanzas.value.push({ id: nextStanzaId(), lines: [stripEditorMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))] }) // R1: fresh ids
   activeStanza.value = stanzas.value.length - 1
   activeLine.value = 0
+  ensureEditorMarkerIds()
 }
 
 // ---------- song list / picker ----------
@@ -1323,7 +1469,11 @@ function applyRow(data) {
   meta.theme = data.theme ?? ''
   verified.value = data.verified ?? false
   loadedFlags.value = Array.isArray(data.review_flags) ? data.review_flags : [] // B093: keep on publish
-  const { content, warnings } = migrateToV2(data.content)
+  const { content: migrated, warnings } = migrateToV2(data.content)
+  // R1 — mint permanent ids for any structural marker that lacks one, ON LOAD (existing ids are
+  // preserved, so a re-open is stable). The song on the server is untouched; the ids are written
+  // back only when the user saves (§6 — no bulk-write to the library).
+  const content = mintMarkerIds(migrated).content
   opts.key = content.key || 'C'
   opts.timeSignature = content.timeSignature || '4/4'
   opts.bpm = content.bpm ?? null
@@ -1338,6 +1488,7 @@ function applyRow(data) {
     syllables: [...(r.syllables || [])],
     key: r.key || '',
     afterEachVerse: !!r.afterEachVerse, // B102 — strophic "ร้องรับทุกข้อ" directive (round-trips)
+    flow: r.flow ? JSON.parse(JSON.stringify(r.flow)) : null, // R3 — per-verse repeat override
   }))
   if (!arrangement.value.length) {
     arrangement.value = [{ stanza: stanzas.value[0].id, label: '', syllables: [], key: '' }]
@@ -1564,6 +1715,9 @@ function lintSong() {
       }
     }
   }
+  // R4 — a flow directive pointing at a repeat/section that was deleted is ORPHAN. Playback
+  // already ignores it (never guesses); surface it here as a real issue so it is not silent.
+  for (const _ of flowOrphans.value) { count++; codes.add('flow-orphan') }
   return { count, codes: [...codes] }
 }
 // review_flags to write on publish: keep the song's non-lint flags (DA repeat marks etc.),
@@ -2332,9 +2486,43 @@ const crumbLabel = computed(() => {
 function curLine() {
   return lines.value[activeLine.value] || null
 }
+
+// R1 — assign a permanent id to every structural marker that lacks one, IN PLACE on the
+// editor model, filling only the gaps (existing ids are never reassigned → load→save→reload
+// is id-stable, the feature's #1 risk). repeat-start↔repeat-end are stack-paired and share
+// one `r` id; a marker gets `m`, a volta `v`. Returns true if anything was assigned.
+function ensureEditorMarkerIds() {
+  const taken = new Set()
+  for (const s of stanzas.value) for (const line of s.lines) {
+    if (line.markerId) taken.add(line.markerId)
+    for (const b of line.bars) { for (const k of ['repeatStartId', 'repeatEndId', 'voltaId']) if (b[k]) taken.add(b[k]) }
+  }
+  const free = (p) => { let n = 1; while (taken.has(p + n)) n++; const id = p + n; taken.add(id); return id }
+  let changed = false
+  for (const s of stanzas.value) {
+    const open = [] // open repeat-start bars awaiting their :‖ (flat, non-nested)
+    for (const line of s.lines) {
+      if (line.marker && !line.markerId) { line.markerId = free('m'); changed = true }
+      for (const b of line.bars) {
+        if (b.repeatStart) {
+          if (!b.repeatStartId) { b.repeatStartId = free('r'); changed = true }
+          open.push(b)
+        }
+        if (b.repeatEnd) {
+          const startBar = open.pop()
+          if (!b.repeatEndId) { b.repeatEndId = startBar ? startBar.repeatStartId : free('r'); changed = true }
+          else if (startBar && !startBar.repeatStartId) { startBar.repeatStartId = b.repeatEndId; changed = true }
+        }
+        if (b.volta && !b.voltaId) { b.voltaId = free('v'); changed = true }
+      }
+    }
+  }
+  return changed
+}
+
 function qHook() {
   const l = curLine()
-  if (l) l.marker = l.marker ? '' : '***'
+  if (l) { l.marker = l.marker ? '' : '***'; ensureEditorMarkerIds() }
 }
 // "ซ้ำ" wraps the whole active line in repeat marks — the model keeps them per bar (‖: on
 // the first bar, :‖ on the last), toggling off if the line is already wrapped.
@@ -2346,6 +2534,7 @@ function qRepeat() {
   const on = first.repeatStart && last.repeatEnd
   first.repeatStart = !on
   last.repeatEnd = !on
+  if (!on) ensureEditorMarkerIds()
 }
 // "จบรอบ" (volta) — the endings that differ between passes: เที่ยวแรกเล่นห้อง 1. · เที่ยวซ้ำ
 // ข้าม 1. ไปเล่น 2. The model keeps the mark PER BAR (midi.expandRepeats skips a bar whose
@@ -2359,7 +2548,8 @@ function qVolta() {
   const l = curLine()
   if (!l || !l.bars.length) return
   const next = (curLineVolta.value + 1) % 3 // none → 1 → 2 → none
-  l.bars.forEach((b) => { b.volta = next })
+  l.bars.forEach((b) => { b.volta = next; b.voltaRaw = null }) // a UI edit collapses any loaded list
+  if (next) ensureEditorMarkerIds()
 }
 function qCopyLine() {
   copyLine(activeLine.value)
@@ -2829,6 +3019,10 @@ defineExpose({
   opts, stanzas, arrangement, activeStanza, lensChoice,
   undo, redo, selectStanza, focusRow, addStanza, setSyl, applyChordAt,
   toggleAfterEachVerse, // B102 — "ร้องรับทุกข้อ" refrain directive helper (AC-5 tests)
+  // R3/R5 — per-verse repeat flow (patterns 2,3,4,6) + orphan/id derived state (R1/R4 tests)
+  setVerseSkipAll, verseSkipAll, setVerseTimes, verseTimes, setVerseEnding, verseEnding,
+  setVerseSkipRefrain, verseSkipRefrain, setVerseFlowJson, verseFlowJson, stanzaRepeats,
+  flowOrphans, markerIds, ensureEditorMarkerIds,
   history, histPos,
   // B100 leave-warning tests: dirty flag + save/load clean checkpoints.
   isDirty, saveDirect,
@@ -3186,6 +3380,69 @@ defineExpose({
         <button aria-label="ย้ายท่อนลง" :disabled="lensChoice === arrangement.length - 1" @click="moveRow(lensChoice, 1)">▼</button>
       </span>
       <button v-if="arrangement.length > 1" class="cs-del" title="ลบท่อนนี้" aria-label="ลบท่อนนี้" @click="removeRow(lensChoice)"><Icon name="trash-2" :size="15" /></button>
+    </div>
+
+    <!-- R5 — per-verse repeat flow (patterns 2,3,4,6). Progressive disclosure: the toggle only
+         appears when this verse's melody actually HAS a repeat, or there is a refrain to drop —
+         so the ~80% ordinary verse stays uncluttered. Hidden by complexity, never by tier
+         (memory pleng-edit-open-all-tiers): everyone who can edit sees it. -->
+    <div v-if="lensRow && (stanzaRepeats(lensRow.stanza).length || (refrainStanza && lensRow.stanza !== refrainStanza))" class="ed-flow no-print">
+      <button class="ed-flow-toggle" :aria-expanded="flowPanelOpen" @click="flowPanelOpen = !flowPanelOpen">
+        <Icon name="repeat" :size="14" /> การวนซ้ำของข้อนี้
+        <span v-if="isNonEmptyFlow(lensRow.flow)" class="ed-flow-dot" title="ข้อนี้วนต่างจากทำนอง">●</span>
+        <Icon name="chevron-down" :size="13" class="ed-flow-chev" :class="{ open: flowPanelOpen }" />
+      </button>
+      <div v-if="flowPanelOpen" class="ed-flow-body">
+        <p class="ed-flow-hint muted">ปกติทุกข้อวนซ้ำเหมือนทำนอง — ตั้งค่าที่นี่เฉพาะเมื่อข้อนี้ต้องวนต่างออกไป</p>
+        <!-- pattern 2 -->
+        <label v-if="stanzaRepeats(lensRow.stanza).length" class="ed-flow-row">
+          <input type="checkbox" :checked="verseSkipAll(lensRow)" @change="setVerseSkipAll(lensRow, $event.target.checked)" />
+          ข้อนี้ไม่วนซ้ำ (ร้องผ่านครั้งเดียว)
+        </label>
+        <!-- pattern 4 — per repeat, how many rounds this verse plays it -->
+        <template v-if="!verseSkipAll(lensRow)">
+          <label v-for="(rep, ri) in stanzaRepeats(lensRow.stanza)" :key="rep.id" class="ed-flow-row">
+            <span>เล่นซ้ำจุดที่ {{ ri + 1 }} จำนวน</span>
+            <input class="ed-flow-num" type="number" min="1" max="9" inputmode="numeric"
+              :placeholder="String(rep.times)" :value="verseTimes(lensRow, rep.id)"
+              :aria-label="'จำนวนรอบของจุดวนที่ ' + (ri + 1) + ' (ว่าง = ตามทำนอง ' + rep.times + ' รอบ)'"
+              @input="setVerseTimes(lensRow, rep.id, $event.target.value)" />
+            <span>รอบ <small class="muted">(ว่าง = ตามทำนอง {{ rep.times }})</small></span>
+          </label>
+        </template>
+        <!-- pattern 3 -->
+        <label class="ed-flow-row">
+          <span>เข้าห้องจบชุดที่</span>
+          <input class="ed-flow-num" type="number" min="1" max="9" inputmode="numeric"
+            placeholder="ตามทำนอง" :value="verseEnding(lensRow)" aria-label="บังคับห้องจบชุดที่ (ว่าง = ตามทำนอง)"
+            @input="setVerseEnding(lensRow, $event.target.value)" />
+          <small class="muted">(ว่าง = ตามทำนอง)</small>
+        </label>
+        <!-- pattern 6 — only when a refrain follows every verse -->
+        <label v-if="refrainStanza && lensRow.stanza !== refrainStanza" class="ed-flow-row">
+          <input type="checkbox" :checked="verseSkipRefrain(lensRow)" @change="setVerseSkipRefrain(lensRow, $event.target.checked)" />
+          ไม่ต้องร้องรับหลังข้อนี้
+        </label>
+        <!-- advanced (path / power edits) — progressive disclosure -->
+        <button class="ed-flow-adv-toggle" :aria-expanded="flowAdvancedOpen" @click="flowAdvancedOpen = !flowAdvancedOpen">
+          <Icon name="chevron-down" :size="12" class="ed-flow-chev" :class="{ open: flowAdvancedOpen }" /> ตั้งค่าขั้นสูง (JSON)
+        </button>
+        <div v-if="flowAdvancedOpen" class="ed-flow-adv">
+          <textarea class="ed-flow-json" rows="2" spellcheck="false"
+            :value="verseFlowJson(lensRow)" aria-label="flow ของข้อนี้ (JSON)"
+            placeholder='เช่น {"path":["r1","v2"]}'
+            @change="setVerseFlowJson(lensRow, $event.target.value)"></textarea>
+          <p v-if="flowJsonError" class="ed-flow-err" role="alert">{{ flowJsonError }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- R4 — a flow directive pointing at a deleted repeat/section is ORPHAN. Playback ignores
+         it (never guesses); this names it and lets the author clear it, so data never dies silently. -->
+    <div v-if="flowOrphans.length" class="ed-flow-orphan no-print" role="alert">
+      <Icon name="alert-triangle" :size="15" />
+      <span>ข้อ {{ flowOrphans.map((o) => o.entryIndex + 1).join(', ') }} สั่งวน/ข้ามเครื่องหมายที่ถูกลบไปแล้ว — ระบบจะร้องตามทำนองแทน</span>
+      <button class="ed-flow-orphan-fix" @click="clearOrphanFlows">ลบคำสั่งที่ค้าง</button>
     </div>
 
     <p v-if="lensActive" class="muted no-print" style="margin: 0 0 8px">
@@ -4079,6 +4336,53 @@ defineExpose({
 .cs-refrain { display: inline-flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
 .cs-refrain input { width: 16px; height: 16px; cursor: pointer; }
 .cs-grow { flex: 1; }
+
+/* R5 — per-verse repeat flow panel (patterns 2,3,4,6). Sits under the ท่อน header, collapsed
+   by default (progressive disclosure). Controls match the editor's sibling mini controls
+   (WCAG 2.5.8 AA: targets ≥24px tall, in the ~30px family — not pushed to 44px). */
+.ed-flow { margin: 0 0 8px; }
+.ed-flow-toggle, .ed-flow-adv-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 30px; padding: 4px 10px;
+  background: var(--cream); border: 1px solid var(--brand); border-radius: 8px;
+  color: var(--brand); font-size: 0.85rem; font-weight: 600; cursor: pointer;
+}
+.ed-flow-adv-toggle { background: transparent; border-color: transparent; font-weight: 500; padding-left: 2px; }
+.ed-flow-dot { color: #b45309; font-size: 0.7rem; }
+.ed-flow-chev { transition: transform 0.15s; }
+.ed-flow-chev.open { transform: rotate(180deg); }
+.ed-flow-body {
+  margin-top: 6px; padding: 10px 12px;
+  border: 1px solid var(--line, #e5d9c8); border-radius: 10px; background: #fff;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.ed-flow-hint { margin: 0 0 2px; font-size: 0.8rem; }
+.ed-flow-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  min-height: 30px; font-size: 0.9rem; color: var(--ink, #3a2f28); cursor: pointer;
+}
+.ed-flow-row input[type='checkbox'] { width: 18px; height: 18px; cursor: pointer; }
+.ed-flow-num {
+  width: 58px; min-height: 30px; padding: 3px 8px; text-align: center;
+  border: 1px solid var(--line, #cbb89a); border-radius: 6px; font-size: 0.9rem;
+}
+.ed-flow-json {
+  width: 100%; box-sizing: border-box; padding: 6px 8px; font-family: ui-monospace, monospace;
+  font-size: 0.8rem; border: 1px solid var(--line, #cbb89a); border-radius: 6px; resize: vertical;
+}
+.ed-flow-err { margin: 4px 0 0; color: #b91c1c; font-size: 0.8rem; }
+/* R4 — orphan-flow notice: a real, actionable warning, never a silent data loss. */
+.ed-flow-orphan {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0 0 8px; padding: 8px 12px;
+  background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px;
+  color: #92400e; font-size: 0.86rem;
+}
+.ed-flow-orphan-fix {
+  min-height: 28px; padding: 3px 10px; margin-left: auto;
+  background: #fff; border: 1px solid #f59e0b; border-radius: 6px;
+  color: #92400e; font-weight: 600; cursor: pointer;
+}
 .cs-del {
   display: inline-flex;
   align-items: center;

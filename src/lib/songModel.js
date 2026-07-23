@@ -210,13 +210,18 @@ function resolveStrophicOrder(content) {
   })
   const chorus = ranges[chorusIdx]
   if (!chorus) return null
+  const chorusStanza = arr[chorusIdx].stanza
   const order = []
   arr.forEach((entry, i) => {
     const r = ranges[i]
     if (!r) return
     order.push(r)
     if (i === chorusIdx) return // the refrain itself — never append the refrain after itself
-    if (i + 1 !== chorusIdx) order.push(chorus) // after a verse → sing the refrain (unless already next)
+    if (i + 1 === chorusIdx) return // the arrangement already writes the refrain next
+    // §4.1 "กางก่อน แล้วค่อยตัด": afterEachVerse expands the full sequence first; then a verse's
+    // flow.skipSections trims. A verse that skips the refrain's stanza gets no trailing refrain.
+    if (entry.flow && Array.isArray(entry.flow.skipSections) && entry.flow.skipSections.includes(chorusStanza)) return
+    order.push(chorus) // after a verse → sing the refrain
   })
   return order
 }
