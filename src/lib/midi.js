@@ -1,7 +1,7 @@
 // Melody playback with the Web Audio API — no external library.
 // Converts notation tokens (movable do) + key + BPM into scheduled oscillator notes.
 
-import { parseNotes, groupNotes, DOT_FACTOR, noteBoxIndices, storedHold, suggestHoldForBar } from './notation.js'
+import { parseNotes, groupNotes, DOT_FACTOR, noteBoxIndices, storedHold, suggestHoldForBar, degreeKey } from './notation.js'
 import { parseChord, chordToIntervals } from './chords.js'
 import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
 import { arrange } from './arranger/index.js'
@@ -169,7 +169,19 @@ export function songToNotes(content) {
     let bi = 0
     let si = -1
     let bar = { notes: [], repeatStart: false, repeatEnd: false, volta: 0 }
-    const flushBar = () => bars.push(bar)
+    // G20 — an accidental holds for the REST OF ITS BAR (变音记号: 同小节、同音名且同音高).
+    // Written once on the first note, every later note of the same degree AND octave in that
+    // bar sounds altered too; ♮ cancels it; the next bar starts clean. Until now playback read
+    // each token on its own, so the second note sounded a semitone low — while the lint has
+    // been telling users this rule exists (notationLint naturalMisuse). Resolved HERE, at
+    // pitch-calculation time only: nothing is written back to the song (the standard says the
+    // mark is not repeated, so adding it would be editing the user's work).
+    //   barAlt : degreeKey → '#' | 'b' in force for the current bar
+    //   tieCarry: R5 — a note tied ACROSS a barline keeps the pitch it was tied from, even
+    //             though the new bar itself starts clean for every other note.
+    let barAlt = new Map()
+    let tieCarry = null
+    const flushBar = () => { bars.push(bar); barAlt = new Map() }
     for (const item of line) {
       if (item.type === 'repeat-start') { bar.repeatStart = true; continue }
       if (item.type === 'repeat-end') { bar.repeatEnd = true; continue }
@@ -222,9 +234,18 @@ export function songToNotes(content) {
               prevMidi = null
             } else {
               let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
-              if (t.accidental === '#') midi += 1
-              if (t.accidental === 'b') midi -= 1
+              // resolve the accidental IN FORCE for this note (G20 · R1-R5). degreeKey is the
+              // lint's own "same note" test (pitch + octave), shared so the two cannot disagree.
+              const dkey = degreeKey(t)
+              let acc = t.accidental
+              if (acc === '#' || acc === 'b') barAlt.set(dkey, acc) // written here → holds on
+              else if (acc === 'n') barAlt.delete(dkey) // ♮ cancels for the rest of the bar
+              else acc = barAlt.get(dkey) || (t.tieEnd && tieCarry && tieCarry.key === dkey ? tieCarry.acc : '')
+              if (acc === '#') midi += 1
+              else if (acc === 'b') midi -= 1
               // natural (n) = no shift — the digit's diatonic pitch
+              // carry an alteration only over a tie (R5); any other note in the next bar starts clean
+              tieCarry = t.tieStart && (acc === '#' || acc === 'b') ? { key: dkey, acc } : null
               const last = bn[bn.length - 1]
               // A slur arc over two notes of the SAME pitch is a tie: hold the note,
               // do NOT re-attack the later one, but keep counting its beats. A slur
@@ -256,6 +277,12 @@ export function songToNotes(content) {
     flushBar()
   })
   // 2. expand repeats into play order, 3. flatten to a note list, 4. merge ties
+  // G20 · R6/R7 — accidentals were resolved above, per bar, BEFORE this expansion, so every
+  // repeat round and every unrolled copy of a bar carries that bar's own resolution and none
+  // of its neighbours': a repeated bar "starts counting again" each time through.
+  // ⚠️ SA notes R6/R7 are an INFERENCE from R3 (the scope is the bar, not the play order) —
+  // the sources do not state them outright. If that reading turns out to be wrong, this is the
+  // line to revisit: resolution would have to move after expandRepeats instead.
   const notes = []
   for (const bar of expandRepeats(bars)) for (const n of bar.notes) notes.push(n)
   return mergeTies(notes)

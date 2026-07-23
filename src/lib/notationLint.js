@@ -4,7 +4,7 @@
 // symbols and structural problems; it never guesses whether a pitch is the "right"
 // melody note — that still needs the ear.
 
-import { parseNotes, beatCount, expectedBeats, canonicalizeNote } from './notation.js'
+import { parseNotes, beatCount, expectedBeats, canonicalizeNote, degreeKey } from './notation.js'
 
 export const SEVERITY = { ERROR: 'error', WARNING: 'warning', HINT: 'hint' }
 
@@ -12,11 +12,8 @@ function fmtBeats(n) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
 }
 
-// A written "degree" for accidental tracking = pitch digit + octave, so a sharp on
-// 3 and a natural on 3 in the SAME octave refer to the same note.
-function degreeKey(t) {
-  return t.pitch + '@' + (t.high - t.low)
-}
+// degreeKey (pitch + octave — "the same note") now lives in notation.js, so the lint's rule
+// and playback's accidental scope (G20) are one definition, not two that can drift.
 
 // ♮ only cancels a # or b written earlier on the same degree in the same bar. A ♮
 // with no such preceding alteration does nothing — in movable-do the plain digit is
