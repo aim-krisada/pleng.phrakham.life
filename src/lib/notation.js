@@ -99,6 +99,15 @@ export function canonicalizeNoteString(str) {
   return String(str ?? '').replace(/\S+/g, canonicalizeNote)
 }
 
+// The written "degree" of a note token = pitch digit + octave. Two tokens with the same key
+// are THE SAME NOTE for accidental purposes: an accidental carries to a later note only when
+// both the scale degree and the octave match (变音记号: 同音名且同音高（同一个八度）).
+// This lived in notationLint.js, which has warned users by this rule all along; it moved here
+// so the lint and the PLAYBACK share one definition instead of drifting apart (G20).
+export function degreeKey(t) {
+  return t.pitch + '@' + (t.high - t.low)
+}
+
 // Character-level lexer — spaces between notes are OPTIONAL ("123" = "1 2 3").
 // A '.' directly before a digit is that digit's low-octave dot; a '.' at the
 // end of a note (not followed by a digit) is an augmentation dot.
