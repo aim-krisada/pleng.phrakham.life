@@ -1,7 +1,7 @@
 // Melody playback with the Web Audio API — no external library.
 // Converts notation tokens (movable do) + key + BPM into scheduled oscillator notes.
 
-import { parseNotes, groupNotes, DOT_FACTOR } from './notation.js'
+import { parseNotes, groupNotes, DOT_FACTOR, noteBoxIndices, storedHold, suggestHoldForBar } from './notation.js'
 import { parseChord, chordToIntervals } from './chords.js'
 import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
 import { arrange } from './arranger/index.js'
@@ -59,17 +59,59 @@ let activeSampler = null
 // violin), each its own wrapper; held here so stopPlayback() can silence every one.
 let activeEnsemble = []
 
-// Fermata hold multiplier. Notation software (Sibelius/MuseScore/Finale) stretches a fermata note
-// to 1.5–2× its written length on playback; 1.75 sits mid-range. It multiplies the note's WRITTEN
-// duration — a fermata on a half note (2 beats) plays 3.5, on a whole note (4) plays 7 — so every
-// box that makes up the note (the digit AND its '-' extensions) has to be scaled, not just the first.
-export const FERMATA_FACTOR = 1.75
-
+// Fermata hold (𝄐). The note is held an EDITABLE, absolute number of extra beats — stored per
+// note-box in `seg.holds` (SA design), read by BOTH playback (here) and the editor. A fermata note
+// sounds `written + hold` beats: written = its normal length (digit + any '-' boxes), hold = the
+// stored value or, when none is stored (old songs / just-added ^), the default HOLD_DEFAULT (a
+// constant 2 beats, P'Aim's choice; still per-note editable). This REPLACES the old fixed 1.75
+// factor. The hold is added to the note's DURATION only; bar counting (beatCount) is untouched, so
+// bars still sum to the time signature (the fix for "the next bar drifts").
 function tokenBeats(t, tripletFactor) {
   let d = 1 / 2 ** t.underlines
   d *= DOT_FACTOR[t.dots] ?? 1 // . ×1.5 · .. ×1.75
-  if (t.fermata) d *= FERMATA_FACTOR // playback only; bar counting ignores it
-  return d * tripletFactor
+  return d * tripletFactor // fermata hold is added at the note level (see songToNotes), not here
+}
+
+// Precompute the default hold for every fermata note-box that has NO stored hold. Keyed by the
+// segment object -> { [boxIdx]: addBeats }. The default is the constant HOLD_DEFAULT (via
+// suggestHoldForBar); the walk just locates the fermata boxes.
+function buildFermataHolds(lines, timeSignature) {
+  const resolve = new Map()
+  for (const line of lines || []) {
+    let barSegs = []
+    const bars = []
+    const flush = () => { if (barSegs.length) bars.push(barSegs); barSegs = [] }
+    for (const it of line) {
+      if (it.type === 'bar' || it.type === 'repeat-start') flush()
+      if (it.type === 'segment') barSegs.push(it)
+    }
+    flush()
+    for (const segs of bars) {
+      const flatBoxes = []
+      const locs = [] // {item, segBoxIdx, flatIdx}
+      for (const it of segs) {
+        const boxes = (it.note || '').trim() ? it.note.trim().split(/\s+/) : []
+        boxes.forEach((str, segBoxIdx) => { locs.push({ item: it, segBoxIdx, flatIdx: flatBoxes.length }); flatBoxes.push(str) })
+      }
+      for (const loc of locs) {
+        if (parseNotes(flatBoxes[loc.flatIdx]).some((t) => t.type === 'note' && t.fermata)) {
+          const add = suggestHoldForBar(flatBoxes, loc.flatIdx, timeSignature)
+          if (!resolve.has(loc.item)) resolve.set(loc.item, {})
+          resolve.get(loc.item)[loc.segBoxIdx] = add
+        }
+      }
+    }
+  }
+  return resolve
+}
+
+// Effective hold (beats to ADD) for the fermata note at box `boxIdx` of segment `seg`: the stored
+// value wins; otherwise the precomputed suggestion; 0 as a last resort.
+function holdFor(seg, boxIdx, suggested) {
+  const stored = storedHold(seg, boxIdx)
+  if (stored != null) return stored
+  const s = suggested && suggested.get(seg)
+  return s && s[boxIdx] != null ? s[boxIdx] : 0
 }
 
 // Walk bars honouring repeat marks: play to a repeat-end ':‖', jump back to the last
@@ -113,6 +155,9 @@ function expandRepeats(bars) {
 // Repeat/volta marks are expanded so playback actually loops.
 export function songToNotes(content) {
   const root = KEY_MIDI[content.key] ?? 60
+  // Suggested holds for any fermata note without a stored value (old songs / freshly-added ^),
+  // so playback still holds even before the note is opened in the editor (backward-compat).
+  const holdResolve = buildFermataHolds(content.lines, content.timeSignature)
   // Chord symbol currently in force (B104): a lead-sheet chord holds until the next one,
   // so we carry the last non-empty segment.chord forward and stamp every note (rests too)
   // with it. Done HERE, before expandRepeats, so a repeated section replays with its chords
@@ -159,14 +204,21 @@ export function songToNotes(content) {
       // '-' extension) advances it; brackets don't. This matches syllableSlots() so the
       // slot a played attack carries points at the same per-syllable span in SongSheet.
       let slot = -1
+      // map each NOTE token back to its whitespace-box index so a fermata note reads the
+      // hold the editor stored under that box (holds keys = box indices).
+      const boxIdxByNote = noteBoxIndices(item.note)
+      let noteOrd = -1
       for (const g of groupNotes(parseNotes(item.note))) {
         const f = g.group === 'triplet' ? 2 / 3 : 1
         let prevMidi = null // last pitched note in THIS group (for slur-over-same-pitch)
         for (const t of g.tokens) {
           if (t.type === 'note') {
             slot++
+            noteOrd++
+            // fermata hold (absolute beats), added ONCE to this note's duration (not per box)
+            const hold = t.fermata ? holdFor(item, boxIdxByNote[noteOrd], holdResolve) : 0
             if (t.pitch === '0') {
-              bn.push({ midi: null, beats: tokenBeats(t, f), fermata: !!t.fermata, li, bi, si, chord: curChord }) // rest: no syllable, chord rings on
+              bn.push({ midi: null, beats: tokenBeats(t, f) + hold, fermata: !!t.fermata, li, bi, si, chord: curChord }) // rest: no syllable, chord rings on
               prevMidi = null
             } else {
               let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
@@ -181,22 +233,22 @@ export function songToNotes(content) {
               // ACROSS bar lines too, not just within one bar.
               const slurTie = g.group === 'slur' && prevMidi === midi && last && last.midi === midi
               if (slurTie) {
-                last.beats += tokenBeats(t, f) // melisma: this slot holds no new word
+                last.beats += tokenBeats(t, f) + hold // melisma: this slot holds no new word
               } else {
                 // an attack: carry its slot so the highlight lands on this syllable
-                bn.push({ midi, beats: tokenBeats(t, f), fermata: !!t.fermata, tieOpen: !!t.tieStart, tieEnd: !!t.tieEnd, li, bi, si, syk: slot, chord: curChord })
+                bn.push({ midi, beats: tokenBeats(t, f) + hold, fermata: !!t.fermata, tieOpen: !!t.tieStart, tieEnd: !!t.tieEnd, li, bi, si, syk: slot, chord: curChord })
               }
               prevMidi = midi
             }
           } else if (t.type === 'ext') {
             slot++ // a '-' box holds the previous syllable — its own (blank) slot
-            // A '-' is part of the SAME note, so a fermata on that note stretches this beat too.
-            // Without this the ×1.75 covered only the first box and the hold got weaker the longer
-            // the note ran (2-beat note → 1.375× · 4-beat → 1.19×) — backwards, since a fermata is
-            // written on long phrase-ending notes precisely. Scaling each box == scaling the whole
-            // written note, so `1^ -` = (1+1)×1.75 = 3.5 beats. (พี่เปา issue12 · P'Aim "ไม่ลากเสียงจริง")
+            // A '-' is part of the SAME note, so it just adds its written beat. The fermata's
+            // hold was already added ONCE at the note (an absolute number of beats), so it must
+            // NOT be re-applied per extension box — that is what the old ×1.75-per-box rule did,
+            // and it is why a held note landed on 1.75 / 2.625 / 3.5 beats and pushed everything
+            // after it off the beat grid.
             const last = bn[bn.length - 1]
-            if (last) last.beats += 1 * f * (last.fermata ? FERMATA_FACTOR : 1)
+            if (last) last.beats += 1 * f
           }
         }
       }

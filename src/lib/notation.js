@@ -200,6 +200,53 @@ export function expectedBeats(timeSignature) {
   return (Number(m[1]) * 4) / Number(m[2])
 }
 
+// ---------- fermata hold (𝄐) — absolute beats a note is held BEYOND its written value -----
+// The hold is stored per note-box in a segment's `holds: {boxIdx: beats}` map (out of the note
+// string, so it can't collide with the next note — SA design). ONE value read by both playback
+// (midi.js adds it to the note's duration) and, indirectly, the editor chip. It is NEVER counted
+// by beatCount — bars always sum their WRITTEN beats, so a hold can't drift the bar (the fix for
+// "next bar comes in off"). These pure helpers are the single source of the default + the grid.
+// (Ported from `main`, which has run this model live; the base branch was still on the old
+// "multiply the written value by 1.75" rule, which lands notes on 1.75 / 2.625 / 3.5 beats and
+// pushes everything after them off the beat grid.)
+export const HOLD_STEP = 0.5 // edit granularity (half a beat)
+export const HOLD_MIN = 0.5 // a fermata note holds at least half a beat
+export const HOLD_DEFAULT = 2 // default hold for a fresh fermata (P'Aim: a predictable 2 beats, always)
+
+// snap to the 0.5-beat grid
+export function snapHalf(x) {
+  return Math.round((Number(x) || 0) / HOLD_STEP) * HOLD_STEP
+}
+
+// The default hold (beats to ADD) for a fermata note with no stored value. P'Aim's decision
+// (tried live): a constant, predictable 2 beats REGARDLESS of bar position — not a computed
+// bar-fill. It stays per-note editable (– / +, 0.5 step, min 0.5), so if a bar needs the next
+// note on the downbeat the user just adjusts. Signature kept (flatBoxes/fermIdx/timeSignature)
+// so callers are unchanged; the bar context is intentionally ignored now.
+export function suggestHoldForBar(/* flatBoxes, fermIdx, timeSignature */) {
+  return HOLD_DEFAULT
+}
+
+// Box index (whitespace token index) of each NOTE token of a segment, in source order. Lets a
+// char-level parse (midi.js) map a fermata note back to the `holds` key the editor wrote.
+// G1 note: parseNotes canonicalises each box's modifier ORDER before lexing, which never adds or
+// drops a token — so the note-per-box counting this relies on is unchanged by order-free input.
+export function noteBoxIndices(noteString) {
+  const t = (noteString || '').trim()
+  const boxes = t ? t.split(/\s+/) : []
+  const out = []
+  boxes.forEach((box, bi) => {
+    for (const tok of parseNotes(box)) if (tok.type === 'note') out.push(bi)
+  })
+  return out
+}
+
+// The stored hold (beats to add), clamped to the minimum, or null when the box has none.
+export function storedHold(seg, boxIdx) {
+  const v = seg && seg.holds && seg.holds[boxIdx]
+  return v != null && Number.isFinite(Number(v)) ? Math.max(HOLD_MIN, Number(v)) : null
+}
+
 // Group slur/triplet spans: returns [{ group: null|'slur'|'triplet', tokens: [...] }]
 export function groupNotes(tokens) {
   const out = []
