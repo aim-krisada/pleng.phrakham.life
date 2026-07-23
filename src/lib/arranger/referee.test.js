@@ -8,7 +8,7 @@
 //   (5) arrange() with the referee on is still pure (MP3 == live)
 import { describe, it, expect } from 'vitest'
 import { arrange } from './index.js'
-import { refereeNoClash, balanceFloor, legatoBass, REFEREE_GAP, MELODY_LEAD, AUDIBLE_FLOOR, BASS_LEGATO_OVERLAP } from './referee.js'
+import { refereeNoClash, balanceFloor, legatoBass, REFEREE_GAP, MELODY_LEAD, AUDIBLE_FLOOR, BASS_LEGATO_OVERLAP, PREECHO_LOOKAHEAD, PREECHO_MIN_GAIN } from './referee.js'
 import { rubato, humanizeTime } from './dynamics.js'
 import { mulberry32 } from './rng.js'
 import { buildChordVoice, phraseSectionsFromMelody, resolveSections } from '../midi.js'
@@ -87,6 +87,75 @@ describe('§1 conductor — no ลูกเล่น on top of the melody (clash
   it('refereeNoClash passes chords-only through untouched (no melody to protect)', () => {
     const chordsOnly = arrange([], CHORDS, { voices: 'chords', embellish: true }, META)
     expect(refereeNoClash(chordsOnly, {})).toBe(chordsOnly)
+  })
+})
+
+// REGRESSION — เพลง 33 "3 ตัวกลายเป็น 4 ตัว". The tune rests for a beat, then sings B4 three times;
+// the chord's sparkle drops a B4 into that rest, one beat early, at ~80% of the melody's loudness —
+// so the ear counts FOUR. It is not in the data and never drawn on the sheet, so only a playback
+// test can catch it. If anyone brings back the time-only conductor, these go red.
+describe('§1 conductor — a ลูกเล่น may not PRE-ECHO the note the tune is about to sing', () => {
+  // beat 4 rests; the tune attacks B4 (71) at beats 5, 6, 7 — the เพลง 33 shape, in miniature.
+  const preEchoCase = () => [
+    { role: 'melody', startBeat: 0, beats: 4, midi: 67, gain: 0.31 }, // long hold, then a 1-beat rest
+    { role: 'melody', startBeat: 5, beats: 1, midi: 71, gain: 0.31 },
+    { role: 'melody', startBeat: 6, beats: 1, midi: 71, gain: 0.31 },
+    { role: 'melody', startBeat: 7, beats: 1, midi: 71, gain: 0.31 },
+    { role: 'emb', startBeat: 4, midi: 71, gain: 0.245 }, // sparkle = the SAME pitch, 1 beat early
+  ]
+  it('drops an ornament sounding the next melody pitch (unison) one beat before its attack', () => {
+    const kept = refereeNoClash(preEchoCase(), {})
+    expect(kept.filter((e) => e.role === 'emb')).toEqual([])
+    expect(kept.filter((e) => e.role === 'melody')).toHaveLength(4) // the tune is never touched
+  })
+  it('drops it an OCTAVE away too — sparkle is by construction an octave-up doubling', () => {
+    const evs = preEchoCase()
+    evs[4].midi = 83 // B5 = the same chroma an octave up
+    expect(refereeNoClash(evs, {}).filter((e) => e.role === 'emb')).toEqual([])
+  })
+  it('keeps an ornament on a DIFFERENT pitch in the same gap (the fix cuts pitch, not the gap)', () => {
+    const evs = preEchoCase()
+    evs[4].midi = 74 // D5 — what the E7 chord gave, and what pi Pao heard as correct
+    expect(refereeNoClash(evs, {}).filter((e) => e.role === 'emb')).toHaveLength(1)
+  })
+  it('keeps a same-pitch ornament that is too QUIET to be mistaken for the tune', () => {
+    const evs = preEchoCase()
+    evs[4].gain = PREECHO_MIN_GAIN - 0.01 // a gapFill-level garnish, ~8 dB under the melody
+    expect(refereeNoClash(evs, {}).filter((e) => e.role === 'emb')).toHaveLength(1)
+  })
+  it('keeps a same-pitch ornament that is FAR from the attack (outside the look-ahead)', () => {
+    const evs = [
+      { role: 'melody', startBeat: 0, beats: 8, midi: 67, gain: 0.31 },
+      { role: 'melody', startBeat: 8, beats: 1, midi: 71, gain: 0.31 },
+      { role: 'emb', startBeat: 8 - PREECHO_LOOKAHEAD - 0.5, midi: 71, gain: 0.245 },
+    ]
+    expect(refereeNoClash(evs, {}).filter((e) => e.role === 'emb')).toHaveLength(1)
+  })
+  it('an ECHO (same pitch AFTER the tune sang it) is left alone — only pre-echo misleads', () => {
+    const evs = [
+      { role: 'melody', startBeat: 0, beats: 1, midi: 71, gain: 0.31 },
+      { role: 'melody', startBeat: 1, beats: 6, midi: 67, gain: 0.31 },
+      { role: 'emb', startBeat: 3, midi: 71, gain: 0.245 }, // in the hold, nothing coming after it
+    ]
+    expect(refereeNoClash(evs, {}).filter((e) => e.role === 'emb')).toHaveLength(1)
+  })
+  it('the rule is INTRINSIC — a full arrange() leaves zero pre-echoes with everything turned up', () => {
+    const evs = arrange(LINE, CHORDS, withRef(), META)
+    const mel = evs.filter((e) => e.role === 'melody').sort((a, b) => a.startBeat - b.startBeat)
+    const bad = evs.filter((e) => e.role === 'emb' && e.gain >= PREECHO_MIN_GAIN).filter((e) =>
+      mel.some((m) => m.startBeat > e.startBeat + 1e-9 && m.startBeat - e.startBeat <= PREECHO_LOOKAHEAD + 1e-9
+        && Math.abs(m.midi - e.midi) % 12 === 0 && Math.abs(m.midi - e.midi) <= 12))
+    expect(bad).toEqual([])
+  })
+  it('melody / bass / inner are never dropped by the pitch rule (control set)', () => {
+    const evs = [
+      { role: 'melody', startBeat: 2, beats: 1, midi: 71, gain: 0.31 },
+      { role: 'melody', startBeat: 1, beats: 1, midi: 71, gain: 0.31 }, // the tune repeating a pitch
+      { role: 'inner', startBeat: 0.5, midi: 71, gain: 0.3 },
+      { role: 'bass', startBeat: 0.5, midi: 47, gain: 0.3 },
+    ]
+    const kept = refereeNoClash(evs, {})
+    expect(kept).toHaveLength(4)
   })
 })
 
