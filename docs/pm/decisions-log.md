@@ -27,6 +27,8 @@
 - 2026-07-23 · **คอร์ด hotfix เสร็จ** `8678162` — ComboSelect เพิ่ม allow-custom+validate(parseChord) · 774 เทสต์ · real-browser verify · caveat slash-bass transpose = B124 (pre-existing) · deploy รอ P'Aim go
 - 2026-07-23 · **P'Aim GO deploy คอร์ด→main** (deploy หลัง Tester verify · production ต้อง verify)
 - 2026-07-23 · **song 16 "แห่ง": เอาเส้น authored `(3 2)` ที่ผิดออก** (P'Aim: ผิด=ผิดทั้งเพลง แก้ให้ถูก ไม่มีทางเลือก · **บทเรียน: seat แก้ให้ถูกเอง ไม่โยน choice ให้ P'Aim** — [[feedback_never_ask_user_what_is_correct]]) · แก้ 1 เพลง ผ่าน edit flow · ไม่บล็อก merge P2
+- 2026-07-23 · **Tester PASS both** (chord + melisma dedup) + จับ PM คลาดเคลื่อน 2 จุด: (1) chord validation แค่ root (junk-มี-root ผ่าน)=B125 (2) dedup ลบเฉพาะเส้นที่ทับ authored — tail-melisma (ข้า/ไป/น.) **ยังอยู่** (P'Aim judged 1-3 tail = ถูก แล้ว) · PM's "เหลือ 1 เส้น" จริงเฉพาะบาร์ที่มี authored · **บทเรียน: อย่าป้อน claim ตัวเลขไม่แม่นให้ Tester**
+- 2026-07-23 · **deploy คอร์ดติด: origin/main ขยับ ~15 commit** (B118/B110/B113/B108/hooks/pair-sop — deploy รอบที่ local worktree ไม่ได้ fetch) → FF ไม่ได้ · reset+cherry-pick เจอ conflict `EditorMode.vue` (chord vs B118) → **abort · จ่าย chord session rebase onto origin/main + resolve เอง** (production conflict = ไม่ hand-resolve · dispatch)
 
 ## มติล็อกก่อนหน้า (ยกมาไว้อ่านครั้งเดียว)
 - ⛔ **ห้าม re-import/bulk-write 120 เพลง** — ทีมแก้ live อยู่ · migration ทำตอน app เสร็จ
