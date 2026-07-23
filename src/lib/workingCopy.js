@@ -15,6 +15,24 @@
 // a full or blocked localStorage (Incognito/iOS) must never break editing.
 
 const PREFIX = 'pleng.inline.wc.'
+
+// A stable fingerprint of a song's content: same music = same string, whatever order the keys
+// happen to be in. Postgres `jsonb` hands back its own key order ("bpm" before "version"),
+// while an object rebuilt in JS keeps the author's order — so a plain JSON.stringify comparison
+// called an untouched song "ยังไม่บันทึก" and, after ย้อน, refused to go back to "บันทึกแล้ว".
+// Arrays keep their order (that IS the music); only object keys are sorted.
+export function contentStamp(value) {
+  const norm = (v) => {
+    if (Array.isArray(v)) return v.map(norm)
+    if (v && typeof v === 'object') {
+      const out = {}
+      for (const k of Object.keys(v).sort()) out[k] = norm(v[k])
+      return out
+    }
+    return v
+  }
+  return JSON.stringify(norm(value ?? null))
+}
 // A new song has no id yet; 'new' keeps its own slot so it cannot collide with a real song.
 export const keyFor = (songId) => PREFIX + (songId ?? 'new')
 
@@ -70,7 +88,7 @@ export function hasRecoverable(songId, serverContent, s) {
   const wc = readWorkingCopy(songId, s)
   if (!wc) return null
   try {
-    if (JSON.stringify(wc.content) === JSON.stringify(serverContent)) return null
+    if (contentStamp(wc.content) === contentStamp(serverContent)) return null
   } catch {
     return null
   }
