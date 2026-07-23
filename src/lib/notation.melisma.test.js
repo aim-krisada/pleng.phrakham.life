@@ -48,4 +48,27 @@ describe('melismaSpans', () => {
   it('ignores a leading blank with no worded note before it (no cross-line anchor)', () => {
     expect(melismaSpans([{ si: 0, note: '6 1', syllables: ['', 'b'] }])).toEqual([])
   })
+
+  // song 109 "เวลาก่อสร้างพระวิหาร" — a stray “ ” / . rode onto a note slot as its own
+  // syllable; it must not ANCHOR a melisma (Tester found a bogus arc), nor be swept into one.
+  it('does NOT anchor a melisma on a punctuation-only syllable (quote mark)', () => {
+    // “ (attack) followed by a blank attack note — the quote must not start an arc
+    expect(melismaSpans([{ si: 0, note: '6 1', syllables: ['“', ''] }])).toEqual([])
+  })
+
+  it('does NOT anchor on a bare period syllable', () => {
+    expect(melismaSpans([{ si: 0, note: '6 1', syllables: ['.', ''] }])).toEqual([])
+  })
+
+  it('treats a punctuation syllable as a barrier — a real word is not swept across it', () => {
+    // "a" (attack) then “ (attack) then blank: the quote stops the run, so no arc reaches it
+    expect(melismaSpans([{ si: 0, note: '1 6 6', syllables: ['a', '“', ''] }])).toEqual([])
+  })
+
+  it('still draws a real-word melisma that ends before a later punctuation note', () => {
+    // "a" + blank (arc a→blank), then “ starts nothing
+    expect(melismaSpans([{ si: 0, note: '1 6 6', syllables: ['a', '', '”'] }])).toEqual([
+      { open: { si: 0, idx: 0 }, close: { si: 0, idx: 1 }, sameSegment: true },
+    ])
+  })
 })

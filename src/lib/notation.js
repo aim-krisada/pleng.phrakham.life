@@ -329,6 +329,15 @@ export function slurSpans(noteStrings) {
 //            which equals the NoteRow token idx (data-idx) for that note.
 //   output — [{ open:{si,idx}, close:{si,idx}, sameSegment }], one per derived melisma.
 // A melisma is not tracked across a rendered-line boundary (each line resolves on its own).
+// A syllable that is punctuation ONLY — a stray quote/period that rode onto a note slot, with
+// no Thai/Latin letter or digit (e.g. the “ ” around a quoted line in song 109) — is NOT a sung
+// word: it must not ANCHOR a melisma (that drew a bogus arc). It also stays a run barrier (a
+// non-blank slot already stops a continuation), so a real word's melisma is not swept across it
+// either — the punctuation note simply carries no arc. `carriesWord` = has a letter or number.
+const HAS_LYRIC_CHAR = /[\p{L}\p{N}]/u
+function carriesWord(syl) {
+  return HAS_LYRIC_CHAR.test(syl || '')
+}
 export function melismaSpans(segments) {
   const flat = []
   for (const seg of segments || []) {
@@ -342,7 +351,7 @@ export function melismaSpans(segments) {
   let i = 0
   while (i < flat.length) {
     const a = flat[i]
-    if (a.syl && a.kind === 'attack') {
+    if (carriesWord(a.syl) && a.kind === 'attack') {
       let j = i + 1
       while (j < flat.length && !flat[j].syl && flat[j].kind === 'attack') j++
       if (j > i + 1) {
