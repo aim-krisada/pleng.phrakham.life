@@ -263,6 +263,19 @@
       "port": 5342
     },
     {
+      "name": "kpad",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "C:/gl/krisada/pleng.phrakham.life/.claude/worktrees/cool-herschel-200efb",
+        "--host",
+        "--port",
+        "5307",
+        "--strictPort"
+      ],
+      "port": 5307
+    },
+    {
       "name": "wireframe",
       "runtimeExecutable": "py",
       "runtimeArgs": [

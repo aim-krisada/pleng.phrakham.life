@@ -940,9 +940,16 @@ const dockStyle = computed(() => {
 .dk-btn.prime:hover { filter: brightness(1.06); background: var(--brand); }
 .dk-btn.danger { color: var(--red); }
 
-/* E1: full-width jianpu key band(s) — rows share their line (keys stretch, never wrap) */
+/* E1: full-width jianpu key band(s) — keys stretch to share their line, and WRAP when the line
+   can no longer hold them. `nowrap` here was the one thing in the dock that could out-vote the
+   viewport cap: the 11-key row's min-content is 11 × 30px + 10 × 4px = 370px, which lands in the
+   dock's `min-width: min-content` — and in CSS min-width beats max-width, so the dock rendered
+   390px wide inside a 360px screen and clipped 4 keys off the two ends, `1` (the most-typed
+   character in the whole library) among them. Wrapping keeps every key on screen down to 320px
+   while each stays 30px wide — above the 24px floor of WCAG 2.2 §2.5.8 AA — and keeps them all
+   visible, rather than hiding some behind a scroll gesture with no affordance. */
 .dk-keys { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
-.dk-keyrow { display: flex; flex-wrap: nowrap; gap: 4px; justify-content: center; }
+.dk-keyrow { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
 .dk-key {
   flex: 1 1 0; min-width: 30px; max-width: 56px; height: var(--touch-min); min-height: 0; padding: 0;
   border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink);
