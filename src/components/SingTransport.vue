@@ -330,15 +330,15 @@ const items = computed(() => {
 .st-seg.on { background: var(--brand); }
 .st-seg.cur { height: 10px; }
 /* D5: a clear tick at every section boundary so 2 ท่อน read as 2 parts, not one bar */
-.st-div { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 2px; height: 16px; background: #fff; border-radius: 1px; z-index: 2; pointer-events: none; }
-.st-kn { position: absolute; width: 16px; height: 16px; background: var(--brand); border: 3px solid #fff; border-radius: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); pointer-events: none; z-index: 3; }
+.st-div { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 2px; height: 16px; background: #fff; border-radius: 1px; z-index: var(--z-raised); pointer-events: none; }
+.st-kn { position: absolute; width: 16px; height: 16px; background: var(--brand); border: 3px solid #fff; border-radius: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); pointer-events: none; z-index: var(--z-sticky); }
 
 /* ===== popovers (slot-rendered · anchor to the DOCK right edge = same spot as every popup · §A) ===== */
 .st-selpanel, .st-fontpop {
   pointer-events: auto;
   position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: 30;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: var(--z-popover);
 }
 
 /* ===== เลือกท่อน trigger + panel ===== */

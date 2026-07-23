@@ -3614,7 +3614,7 @@ defineExpose({
   border-radius: 5px;
   font-weight: 700;
 }
-.chord-btn.chord-set { color: var(--chord-red); background: var(--cream); border: 1px solid var(--line); z-index: 2; }
+.chord-btn.chord-set { color: var(--chord-red); background: var(--cream); border: 1px solid var(--line); z-index: var(--z-raised); }
 .chord-btn.chord-add {
   color: var(--muted);
   background: transparent;
@@ -3623,7 +3623,7 @@ defineExpose({
   opacity: 0.5;
 }
 .chord-btn.chord-add:hover { opacity: 1; }
-.chord-pick { position: absolute; left: 0; top: 0; z-index: 20; }
+.chord-pick { position: absolute; left: 0; top: 0; z-index: var(--z-popover); }
 /* B098: note-level tools (คัดลอกโน้ต + ลบโน้ต) sit together under each note column */
 /* .seg-tools removed — note copy/delete merged into the hoisted .slot-tools toolbox (dock-space §10) */
 /* plain-language "how to" overview card */
@@ -3669,7 +3669,7 @@ defineExpose({
   border: 1px solid var(--line);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 5;
+  z-index: var(--z-popover);
   /* dock-space §5 / DS note 1 — contextual toolbox ห้ามล้มจอแคบสุด (Fold ~344): clamp
      ความกว้างไว้กับ viewport แล้วปุ่มที่เกินเลื่อนแนวนอนในตัว toolbox (icon-only + overflow).
      รองรับตอนเติม note tools (จุดบน/ล่าง · เขบ็ต · ลบ) เข้ามาโดยไม่ยื่นเลยจอ. */
@@ -3878,7 +3878,7 @@ defineExpose({
   margin-bottom: 10px;
   position: sticky;
   top: 58px;
-  z-index: 4;
+  z-index: var(--z-raised);
   box-shadow: 0 3px 8px rgba(45, 42, 38, 0.08);
 }
 /* B086: ▲▼ move-line buttons — plain glyphs sized to sit in the .ed-ico square */
@@ -3996,7 +3996,7 @@ defineExpose({
   position: fixed;
   top: 72px;
   right: 16px;
-  z-index: 95;
+  z-index: var(--z-popover);
   /* The sheet SCALES TO THE WINDOW (.ed-float-page), so this width sets the reading size: at the
      old 720px the song rendered at ~9px and พี่เปา could not read it (issues7). P'Aim then asked
      for "ใช้พื้นที่เต็ม" and reminded us not to bake fixed numbers in — so this tracks the screen
@@ -4098,7 +4098,7 @@ defineExpose({
   height: 18px;
   cursor: nwse-resize;
   touch-action: none;
-  z-index: 2;
+  z-index: var(--z-raised);
   background: linear-gradient(
     135deg,
     transparent 0 46%,
@@ -4124,7 +4124,7 @@ defineExpose({
   position: fixed;
   inset: 0;
   background: rgba(45, 42, 38, 0.55);
-  z-index: 100;
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -4145,7 +4145,7 @@ defineExpose({
 .studio-bar {
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: var(--z-nav);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -4229,7 +4229,7 @@ defineExpose({
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
   padding: 6px;
-  z-index: 60;
+  z-index: var(--z-in-nav-menu);
   display: flex;
   flex-direction: column;
 }
@@ -4264,7 +4264,7 @@ defineExpose({
 .sb-mode-item .mt { display: flex; flex-direction: column; line-height: 1.25; }
 .sb-mode-item .mt small { color: var(--muted); font-size: 0.8rem; }
 .sb-chk { margin-left: auto; color: var(--brand); font-weight: 700; }
-.sb-backdrop { position: fixed; inset: 0; z-index: 40; }
+.sb-backdrop { position: fixed; inset: 0; z-index: var(--z-in-nav-scrim); }
 .sb-cat {
   background: transparent;
   border: none;
@@ -4365,7 +4365,7 @@ defineExpose({
     height: 100dvh;
     width: 90%;
     max-width: 340px;
-    z-index: 80;
+    z-index: var(--z-drawer);
     border-radius: 0;
     max-height: none;
     transform: translateX(-102%);
@@ -4398,7 +4398,7 @@ defineExpose({
     position: fixed;
     inset: 0;
     background: rgba(30, 20, 5, 0.4);
-    z-index: 75;
+    z-index: var(--z-scrim);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -4426,7 +4426,7 @@ defineExpose({
 @media (min-width: 761px) {
   .edhead {
     position: sticky;
-    z-index: 20;
+    z-index: var(--z-sticky);
   }
 }
 /* breadcrumb button — opens the rail, shows "ท่อน A · ข้อ 1" (position only, not a menu) */
@@ -4501,7 +4501,7 @@ defineExpose({
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  z-index: 30;
+  z-index: var(--z-popover);
   min-width: 240px;
   background: #fff;
   border: 1px solid var(--line);
@@ -4611,7 +4611,7 @@ defineExpose({
   position: fixed;
   inset: 0;
   background: rgba(45, 42, 38, 0.5);
-  z-index: 95;
+  z-index: var(--z-popover);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -4843,7 +4843,7 @@ defineExpose({
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  z-index: 30;
+  z-index: var(--z-popover);
   min-width: 210px;
   background: #fff;
   border: 1px solid var(--line);
@@ -4897,7 +4897,7 @@ defineExpose({
 .ed-clip {
   position: sticky;
   top: 6px;
-  z-index: 5;
+  z-index: var(--z-raised);
   display: flex;
   align-items: center;
   gap: 8px;

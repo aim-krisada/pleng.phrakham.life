@@ -476,7 +476,7 @@ const MAP = [
   border-radius: 12px;
   position: sticky;
   top: 60px;
-  z-index: 5;
+  z-index: var(--z-raised);
 }
 .toc-link {
   display: inline-flex;

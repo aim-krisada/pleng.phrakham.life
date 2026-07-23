@@ -572,7 +572,7 @@ watch(
   left: 0;
   overflow: visible;
   pointer-events: none;
-  z-index: 1;
+  z-index: var(--z-sheet);
 }
 .tie-overlay path {
   fill: var(--note-blue);

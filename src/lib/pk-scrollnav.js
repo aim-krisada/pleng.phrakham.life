@@ -28,7 +28,7 @@
   var STYLE_ID = 'pk-scrollnav-style';
   var CSS =
     '.pk-scrollnav{position:fixed;right:max(1rem,env(safe-area-inset-right));' +
-    'bottom:calc(1rem + env(safe-area-inset-bottom));z-index:1020;display:flex;' +
+    'bottom:calc(1rem + env(safe-area-inset-bottom));z-index:var(--z-dock,1020);display:flex;' +
     'flex-direction:column;gap:.5rem;pointer-events:none}' +
     '.pk-sn-btn{pointer-events:auto;width:44px;height:44px;border-radius:50%;' +
     'display:flex;align-items:center;justify-content:center;cursor:pointer;' +

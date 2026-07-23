@@ -67,7 +67,7 @@ watch(open, async (v) => {
 }
 @media (hover: hover) { .ft-btn:hover { border-color: var(--brand); color: var(--brand); } }
 .ft-menu {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 60;
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: var(--z-popover);
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); padding: var(--sp-3);
   min-width: 190px; max-width: calc(100vw - var(--sp-4));
