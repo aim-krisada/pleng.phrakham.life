@@ -28,6 +28,8 @@
 - 2026-07-23 · **P'Aim GO deploy คอร์ด→main** (deploy หลัง Tester verify · production ต้อง verify)
 - 2026-07-23 · **song 16 "แห่ง": เอาเส้น authored `(3 2)` ที่ผิดออก** (P'Aim: ผิด=ผิดทั้งเพลง แก้ให้ถูก ไม่มีทางเลือก · **บทเรียน: seat แก้ให้ถูกเอง ไม่โยน choice ให้ P'Aim** — [[feedback_never_ask_user_what_is_correct]]) · แก้ 1 เพลง ผ่าน edit flow · ไม่บล็อก merge P2
 - 2026-07-23 · **Tester PASS both** (chord + melisma dedup) + จับ PM คลาดเคลื่อน 2 จุด: (1) chord validation แค่ root (junk-มี-root ผ่าน)=B125 (2) dedup ลบเฉพาะเส้นที่ทับ authored — tail-melisma (ข้า/ไป/น.) **ยังอยู่** (P'Aim judged 1-3 tail = ถูก แล้ว) · PM's "เหลือ 1 เส้น" จริงเฉพาะบาร์ที่มี authored · **บทเรียน: อย่าป้อน claim ตัวเลขไม่แม่นให้ Tester**
+- 2026-07-23 · **พี่เปา: ENTER = เลือก/ยืนยันคอร์ด** → รวมเข้างาน rebase ของ chord session (เลือกไฮไลต์ quick-pick + ยืนยันค่าพิมพ์เอง)
+- 2026-07-23 · **กฎกลาง §4: ห้ามรบกวน browser/server ที่ P'Aim ใช้อยู่** (P'Aim ratified ผ่าน pk pm · เคส audio-autoplay) — ทุก session (รวม PM serve preview) ใช้ Chromium ของตัวเอง (own port ≠9222 + own user-data-dir) · ห้าม kill ที่เขาดู · render ใหม่=port+URL ใหม่ · **แก้ recipe เดิมด้วย (9222→own port ที่ชนเบราว์เซอร์พี่)** · sync OneDrive · ไม่มี memory dupe
 - 2026-07-23 · **deploy คอร์ดติด: origin/main ขยับ ~15 commit** (B118/B110/B113/B108/hooks/pair-sop — deploy รอบที่ local worktree ไม่ได้ fetch) → FF ไม่ได้ · reset+cherry-pick เจอ conflict `EditorMode.vue` (chord vs B118) → **abort · จ่าย chord session rebase onto origin/main + resolve เอง** (production conflict = ไม่ hand-resolve · dispatch)
 
 ## มติล็อกก่อนหน้า (ยกมาไว้อ่านครั้งเดียว)
