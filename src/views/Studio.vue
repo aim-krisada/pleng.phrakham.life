@@ -683,7 +683,9 @@ function printSheet() {
 /* โหมดแผ่น (US-06): พิมพ์ is now the shared dock's print tool (N1). Leave room so the
    fixed dock never covers the last staff line. */
 .sheet-workspace {
-  padding-bottom: 88px;
+  /* the dock MEASURES itself into --dock-h (DockKey) — a hard-coded 88px was smaller than
+     the dock really is on a phone (214px at 360w), so the last staff line stayed covered. */
+  padding-bottom: calc(var(--dock-h, 88px) + 16px);
 }
 /* Aa scales the sheet on screen; print keeps the fixed A4 size (protect pagination) */
 .sheet-read-scale { font-size: inherit; }
