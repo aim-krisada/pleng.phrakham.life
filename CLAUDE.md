@@ -20,6 +20,9 @@ Live: https://pleng.phrakham.life
 ```sh
 npm install
 npm run dev          # port 5173
+npm test             # fast loop — everything except db/
+npm run test:all     # EVERYTHING incl. db/ (pglite) — must be green before a merge
+npm run test:db      # only db/
 ```
 Preview tools: `preview_start "dev"` (config in `.claude/launch.json`).
 
