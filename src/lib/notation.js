@@ -192,12 +192,46 @@ export function attackSlots(noteString) {
 //   beams  — [{ start, end, u2 }] one entry per beam run (start/end = token idx, u2 = the
 //            run has a sixteenth → double beam). NoteRow draws one continuous underline each.
 //
-// A beam breaks at every OLD boundary (integer beat edge · non-underlined token · rest 0 ·
-// '-' extension · triplet) AND, new for issue8, before any note that STARTS a new syllable.
-// syllables == null (v1 / not supplied) → no note is ever an attack → identical to the prior
-// beat-only behaviour (the graceful fallback).
+// A beam breaks at a non-underlined token · rest 0 · '-' extension · triplet · bar line, AND
+// (issue8) before any note that STARTS a new syllable.
+//
+// --- B120: a melisma beam is NOT cut by the beat edge ----------------------------------
+// It used to also break at every integer beat edge, which capped a beam at 2 eighths (one
+// beat) — พี่เปา: "เกิน 2 ช่อง เส้นไม่ลากติดกัน … ไม่ว่ากี่ช่อง ถ้าร้องเอื้อนหรือเว้นช่องเนื้อ
+// ต้องลากเส้นให้ต่อกัน". The reference songbook agrees: #698 line 2 beams `5 4 3` under ONE
+// line ACROSS the beat edge, and breaks only at `2`, where the next word starts. That is the
+// traditional VOCAL rule (beam = one sung syllable) the project already chose in issue8 —
+// the beat edge was a leftover of the older instrumental rule, and the two disagree past 2
+// notes. So the beat edge is dropped whenever we actually know the words.
+//
+// syllables == null (v1 / not supplied) → we do NOT know where words start, so no note is an
+// attack and a syllable-only rule would beam a whole bar together. There we keep the beat
+// edge: v1 rendering is unchanged, exactly as before (the graceful fallback).
+
+// --- B120: bar lines are beam barriers -------------------------------------------------
+// A beam never crosses a bar line (standard engraving, jianpu included). `parseNotes` treats
+// `|` as whitespace and DROPS it, so beamGroups never sees a bar at all — it used to be
+// masked entirely by the beat-edge break (a bar edge is always a beat edge, so the beam was
+// already cut there for the wrong reason). With the beat edge gone for sung melismas, the
+// barrier has to be explicit or a เอื้อน would beam straight through `|`.
+// Because `|` tokenises exactly like a space, the tokens of the parts either side of it are
+// the same tokens the whole string yields, in the same order — so counting the tokens of each
+// part gives the running idx at which each bar falls. Returns that set of idxs (the FIRST
+// token after each bar line).
+function barBreakIdx(noteString) {
+  const parts = String(noteString || '').split('|')
+  const breaks = new Set()
+  let n = 0
+  for (let i = 0; i < parts.length - 1; i++) {
+    for (const g of groupNotes(parseNotes(parts[i]))) n += g.tokens.length
+    breaks.add(n)
+  }
+  return breaks
+}
+
 export function beamGroups(noteString, syllables = null) {
   const gs = groupNotes(parseNotes(noteString))
+  const barBreaks = barBreakIdx(noteString)
   let idx = -1
   for (const g of gs) for (const t of g.tokens) t.idx = ++idx
 
@@ -205,7 +239,10 @@ export function beamGroups(noteString, syllables = null) {
   // with note + extension tokens in order (brackets & unreadable tokens bear no slot — the
   // same set syllableSlots()/noteBoxKinds() counts), so we walk with a running slot counter.
   const attacks = new Set()
-  if (Array.isArray(syllables)) {
+  // We only know where words START when a syllable array was supplied; that is what lets a
+  // beam follow the sung syllable instead of the beat (B120 note above).
+  const syllabic = Array.isArray(syllables)
+  if (syllabic) {
     let slot = -1
     for (const g of gs) {
       for (const t of g.tokens) {
@@ -239,14 +276,16 @@ export function beamGroups(noteString, syllables = null) {
   for (const g of gs) {
     const isTrip = g.group === 'triplet'
     for (const t of g.tokens) {
+      if (barBreaks.has(t.idx)) flush() // a beam never crosses a bar line (B120)
       if (t.type === 'note') {
         let dur = (1 / 2 ** t.underlines) * (DOT_FACTOR[t.dots] ?? 1)
         if (isTrip) dur = (dur * 2) / 3
         const startBeat = Math.floor(beat + 1e-9)
         const beamable = !isTrip && t.underlines > 0 && t.pitch !== '0'
-        // continue the current beam only for a เอื้อน note (no new word) that stays in the
-        // same beat; a new-word note (or a beat/kind boundary) flushes and starts fresh.
-        if (beamable && run.length > 0 && startBeat === runBeat && !attacks.has(t.idx)) {
+        // Continue the current beam for a เอื้อน note (no new word). A new-word note — or a
+        // kind boundary (rest / '-' / triplet / bar) — flushes and starts fresh. The beat
+        // edge only matters in the v1 fallback, where we have no words to beam by (B120).
+        if (beamable && run.length > 0 && (syllabic || startBeat === runBeat) && !attacks.has(t.idx)) {
           run.push(t)
         } else {
           flush()
