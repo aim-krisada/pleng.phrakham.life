@@ -4,6 +4,12 @@
 
 ## ▶ pl pm 41 เริ่มที่นี่ (handoff 23 ก.ค. ดึก)
 
+### 🟢 DEPLOY READINESS (ตรวจ 24 ก.ค. · `2026-07-24-deploy-readiness.md`) = พร้อม · 0 ตัวบล็อก
+- flow พี่เปา (หา/เปิด/แก้/พิมพ์) ใช้จบได้บน base `c037c47` · **main-only 27 commit = ของผู้ใช้ base ทำครบ (superset) → deploy ไม่ทำเว็บถอย** · rollback ได้ (v2 ฟอร์แมตเดียว 2 ฝั่ง ไม่ bump version)
+- **แนะ: ปล่อย base ที่ `/v2` คู่ตัวเก่าก่อน (ปลอดภัยสุด) + รัน db/011 ปิดรู theme** · branch ค้าง merge เหลือ 2: `deploy-v2-subpath` · `fix-keyboard-overlap`(partial รอได้)
+- ✅ **holds หลุดตอนเซฟ = ปิดแล้ว** (`4995752` เข้า base) — pass-through ทั่วไป (`editorSerde.js`) ฟิลด์แปลก/holds/คีย์อนาคตรอดหมด · คลังยังไม่พบความเสียหาย (10 เพลง holds ครบ · 0 item แปลก) · **เป็น prerequisite ของ flow engine → ping ให้ merge base แล้ว**
+- 🔴 **ต้องพี่เอม/พี่เปา:** ฟังจริง (Opus decode ในเบราว์เซอร์ยังไม่ผ่าน) · save→DB ตอนล็อกอิน · PDF จริง · มือถือเครื่องจริง — deploy-readiness พิสูจน์แทนไม่ได้
+
 **สภาพวันนี้:** base เดินหน้า **16 งาน** · เทสต์ **804 → 1085 ผ่าน** (PM รันเองทุก merge + build + ยืนยันบันเดิล) · **⛔ ยังไม่ deploy อะไรเลยทั้งวัน — เว็บจริงไม่ถูกแตะ**
 
 **base = `studio-shell-redesign`** ล่าสุด `e0d6fc0` (ยืนยันด้วย git log 23 ก.ค. ดึก · เลข `9811419` ที่เคยจดไว้ = ผิด) · main = `5661068` (chord hotfix)
