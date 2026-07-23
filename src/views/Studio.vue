@@ -23,9 +23,38 @@ import SongSheet from '../components/SongSheet.vue'
 import EditorMode from '../components/EditorMode.vue'
 import DockKey from '../components/DockKey.vue'
 import ExportTool from '../components/ExportTool.vue'
+import ShareSheet from '../components/ShareSheet.vue'
+import { buildSongUrl } from '../lib/share.js'
+import { t } from '../i18n/index.js'
 
 const route = useRoute()
 const router = useRouter()
+
+// ---------- ↗ แชร์ (EPIC H) — link + QR for the open song ----------
+// A song link is the hash route this page is already on, plus the key it is being read at when
+// that differs from the song's own (lib/share.js builds it). NO account / NO PII: nothing is
+// sent anywhere — the sheet only shows a URL the user already holds.
+// The incoming half of the same round-trip: a link opened at ?key= starts BOTH reading modes on
+// that key. Read once at setup so it is ready before either surface mounts.
+const linkKey = KEYS.includes(route.query?.key) ? String(route.query.key) : ''
+let linkKeyPending = !!linkKey
+// ฝึกร้อง owns its own คีย์ (SongViewer.displayKey) and reports it up; แผ่นเพลง's is sheetKey
+// here. Share whichever surface the user is actually looking at.
+const viewKey = ref('')
+const shareOpen = ref(false)
+const shareKey = computed(() => (mode.value === 'sheet' ? sheetKey.value : viewKey.value))
+const shareTarget = computed(() => {
+  const s = liveSong.value
+  if (!s?.id) return null
+  const name = titleText.value
+  // ?key= only when transposed away from the song's own key — an untouched song shares a clean link
+  const k = shareKey.value && shareKey.value !== s.content?.key ? shareKey.value : ''
+  return {
+    url: buildSongUrl(s.id, k),
+    title: t('share.songTitle', { name }),
+    shareText: name,
+  }
+})
 
 // three views on one surface: ดู (ร้องตาม) · แผ่น (พิมพ์) · แก้ (แก้ไข)
 const mode = ref('view')
@@ -285,7 +314,22 @@ const sheetChord = ref('letter')
 const sheetBook = ref('songbook') // 'songbook' = ทำนองครั้งเดียว · 'full' = โน้ตทุกเที่ยว
 const sheetKey = ref('C')
 const printAlpha = ref(0.96)
-watch(() => liveSong.value?.content?.key, (k) => { if (k) sheetKey.value = k }, { immediate: true })
+// Follow the open song's key. Keyed on the SONG (id) as well as the key itself: the editor is
+// mounted alongside and emits a blank draft (key 'C') before the routed song lands, so watching
+// the key value alone silently misses every song stored in C — the value never changes.
+watch(() => (liveSong.value ? `${liveSong.value.id}|${liveSong.value.content?.key}` : ''), () => {
+  const s = liveSong.value
+  const k = s?.content?.key
+  if (!k) return
+  // A shared link's ?key= wins ONCE, for the song it was opened on (EPIC H round-trip) — and
+  // only for a REAL song: spending it on the blank draft would leave the sheet on the stored key.
+  if (linkKeyPending && (s.number != null || (s.title_th || '').trim())) {
+    sheetKey.value = linkKey
+    linkKeyPending = false
+    return
+  }
+  sheetKey.value = k
+}, { immediate: true })
 
 const printDisplayDef = computed(() => DISPLAY_OPTS.find((o) => o.value === sheetDisplay.value) || DISPLAY_OPTS[0])
 const printShowChord = computed(() => printDisplayDef.value.chord && sheetChord.value !== 'hidden')
@@ -443,6 +487,21 @@ function printSheet() {
           />
         </div>
       </div>
+      <!-- ↗ แชร์ — one action for the open song, in EVERY mode (a reader in ฝึกร้อง/แผ่นเพลง
+           should not have to go anywhere to send the song on). Icon-only: the label lives in
+           aria-label + title, and the target is a full 44px on touch (see CSS). -->
+      <button
+        v-if="shareTarget"
+        type="button"
+        class="sb-share-btn"
+        :aria-label="t('share.songBtn')"
+        :title="t('share.songBtn')"
+        :aria-expanded="shareOpen"
+        aria-haspopup="dialog"
+        @click.stop="shareOpen = true"
+      >
+        <Icon name="share" :size="16" />
+      </button>
       <span class="sb-modes" role="group" aria-label="เลือกมุมมอง">
         <button
           v-for="m in MODES"
@@ -472,8 +531,10 @@ function printSheet() {
         :tier="tier"
         :save-state="inlineState"
         :save-error="inlineError"
+        :start-key="linkKey"
         @update-content="onViewerContent"
         @save="saveInlineDraft"
+        @key-change="viewKey = $event"
       />
       <p v-else class="muted" style="padding: 16px">ยังไม่มีเพลงให้แสดง — ไปที่ “แก้” เพื่อเริ่มสร้างเพลง</p>
     </div>
@@ -552,6 +613,10 @@ function printSheet() {
     />
     <!-- each mode now mounts its OWN DockKey (ฝึกร้อง=SongViewer · แผ่นเพลง=above · แก้ไข=EditorMode);
          the shared StudioDock is retired. -->
+
+    <!-- ↗ แชร์เพลงนี้ — the shared surface (link + QR + OS share). No email/backup row: that is
+         the playlist's shape; a song is just its link. -->
+    <ShareSheet v-if="shareOpen && shareTarget" v-bind="shareTarget" @close="shareOpen = false" />
   </div>
 </template>
 
@@ -641,6 +706,26 @@ function printSheet() {
     color: var(--ink);
   }
 }
+/* ↗ แชร์ — sits next to the mode switch; same 34px height as .sb-mode-btn so the two chrome
+   controls read as one row (WCAG 2.2 AA target size = 24px min; 34 desktop / 44 touch). */
+.sb-share-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  min-height: 34px;
+  min-width: 34px;
+  padding: 0 8px;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .sb-share-btn:hover { color: var(--brand); border-color: var(--brand); }
+}
+.sb-share-btn[aria-expanded='true'] { color: var(--brand); border-color: var(--brand); }
+
 .sheet-title {
   margin: 0 0 var(--sp-3);
   color: var(--brand);
@@ -721,6 +806,8 @@ function printSheet() {
   /* the mode switch (ฝึกร้อง·แผ่นเพลง·แก้ไข) goes icon-only on a phone — give each
      a full 44px touch target so the three are comfortably tappable */
   .sb-mode-btn { min-height: var(--touch-min); min-width: var(--touch-min); justify-content: center; }
+  /* ↗ แชร์ is icon-only at every width — give it the same full touch target on a phone */
+  .sb-share-btn { min-height: var(--touch-min); min-width: var(--touch-min); }
   /* ＋สร้างเพลงใหม่ is the panel's primary action — 44px on touch */
   .sb-song-new { min-height: var(--touch-min); }
   /* B008/B018: on a phone the panel is a viewport-inset sheet under the bar — full-width,

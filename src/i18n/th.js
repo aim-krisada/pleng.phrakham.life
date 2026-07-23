@@ -93,6 +93,7 @@ export default {
     emailPlaceholder: 'อีเมลผู้รับ',
     emailSend: 'ส่ง',
     download: '⬇ ดาวน์โหลดไฟล์สำรอง (.json)',
+    songBtn: 'แชร์เพลงนี้',
     songTitle: 'แชร์ "{name}"',
     listTitle: 'แชร์เพลย์ลิสต์ "{name}"',
     listEmailSubject: 'เพลย์ลิสต์: {name}',
