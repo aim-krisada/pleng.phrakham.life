@@ -64,6 +64,31 @@ export function meterOf(timeSignature) {
   return { barBeats, pulseBeats, pulses, compound, strongAt: 0, mediumAt, known: !!p }
 }
 
+// Where the bar grid actually starts, in quarter-beats, given the notes being played.
+//
+// The accompaniment's bars used to be anchored at played beat 0 — the song's first note. That is
+// only the downbeat when the song opens ON one. A song that opens with a pickup (ห้องยก: the
+// upbeat syllable before the first full bar, which 92 of the library's 163 songs have) puts beat 0
+// somewhere in the MIDDLE of a bar, so every bar-locked layer leans on the wrong beat for the
+// song's whole length — the melody and the accompaniment disagree about where the bar starts.
+// พี่เปา heard that as "คล่อมๆ จังหวะ".
+//
+// The pickup's length is not something to guess or hard-code: the notes carry their own bar
+// numbering (li/bi, from the sheet's own bar lines), so the opening bar's played length IS the
+// pickup whenever it comes out shorter than a full bar. Returns the offset to add to the grid,
+// 0 for a song that opens on a downbeat (which must therefore be completely unaffected).
+export function barOffsetFor(notes, meter) {
+  if (!meter || !meter.barBeats || !notes || !notes.length) return 0
+  const first = `${notes[0].li}|${notes[0].bi}`
+  let len = 0
+  for (const n of notes) {
+    if (`${n.li}|${n.bi}` !== first) break
+    len += n.beats || 0
+  }
+  // a full (or longer) opening bar = no pickup; otherwise the bar grid starts where it ends
+  return len > 0 && len < meter.barBeats - 1e-6 ? len : 0
+}
+
 // Stress weight for a position within the bar, as a fraction of the bar's own length.
 //   'strong' — the downbeat
 //   'medium' — the secondary stress (only in meters that have one)

@@ -62,7 +62,7 @@ const isOffBeat = (b) => Math.abs(b - Math.round(b)) > 0.05
 // secondary stress, not at Math.floor(beatsPerBar / 2) — see metricAccent below for why that was
 // wrong everywhere except 4/4. A meter with no secondary stress (3/4, 6/8 …) keeps only the
 // downbeat pulse, which is what a waltz or a 6/8 lilt actually does.
-export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = true, meter = null) {
+export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = true, meter = null, barOffset = 0) {
   const onsets = events.filter((e) => e.role === 'melody').map((e) => e.startBeat).sort((a, b) => a - b)
   if (!onsets.length) return events
   const m = meter || { barBeats: beatsPerBar, pulseBeats: 1, mediumAt: beatsPerBar >= 4 && beatsPerBar % 2 === 0 ? beatsPerBar / 2 : null }
@@ -81,7 +81,7 @@ export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = tr
     // making it correct for a compound meter, whose pulses are 1.5 quarter-notes apart and would
     // never survive whole-number rounding.
     const pb = m.pulseBeats || 1
-    const b = Math.round(e.startBeat / pb) * pb
+    const b = Math.round((e.startBeat - barOffset) / pb) * pb
     const inBar = ((b % m.barBeats) + m.barBeats) % m.barBeats
     // deep in a held note → keep the bar downbeat, plus (pulse on) the meter's secondary stress so
     // it doesn't go hollow. A meter without one (3/4, 6/8 …) keeps the downbeat alone.
