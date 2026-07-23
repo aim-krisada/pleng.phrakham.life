@@ -25,6 +25,8 @@
 - 2026-07-23 · **5-song melisma eyeball (P'Aim/พี่เปา): 1-3 เอื้อนถูก · 4=เส้นซ้อน(dedup bug) · 5="แห่ง"→โน้ต2 เกิน** → derive ~ดีแต่มี false-positive · จ่าย editor แก้ #4 dedup + #5 (ไม่ลบเส้นถูก 1-3) ก่อน merge
 - 2026-07-23 · **#4+#5 = ต้นเหตุเดียว: P2 วาดทับ authored `()` slur** (dedup เดิมเช็คไม่ครบ same-segment) → แก้ dedup (authored slur wins) `0c76e45` · 1-3 (blank-run ไม่มี `()`) ไม่โดนแตะ · **flag: เส้น "แห่ง" ที่เหลือ = authored `(3 2)` เดิม (pre-P2) → รอ P'Aim เคาะว่าจะเอาออกด้วยไหม (กระทบทุกข้อ · ไม่บล็อก merge P2)**
 - 2026-07-23 · **คอร์ด hotfix เสร็จ** `8678162` — ComboSelect เพิ่ม allow-custom+validate(parseChord) · 774 เทสต์ · real-browser verify · caveat slash-bass transpose = B124 (pre-existing) · deploy รอ P'Aim go
+- 2026-07-23 · **P'Aim GO deploy คอร์ด→main** (deploy หลัง Tester verify · production ต้อง verify)
+- 2026-07-23 · **song 16 "แห่ง": เอาเส้น authored `(3 2)` ที่ผิดออก** (P'Aim: ผิด=ผิดทั้งเพลง แก้ให้ถูก ไม่มีทางเลือก · **บทเรียน: seat แก้ให้ถูกเอง ไม่โยน choice ให้ P'Aim** — [[feedback_never_ask_user_what_is_correct]]) · แก้ 1 เพลง ผ่าน edit flow · ไม่บล็อก merge P2
 
 ## มติล็อกก่อนหน้า (ยกมาไว้อ่านครั้งเดียว)
 - ⛔ **ห้าม re-import/bulk-write 120 เพลง** — ทีมแก้ live อยู่ · migration ทำตอน app เสร็จ
