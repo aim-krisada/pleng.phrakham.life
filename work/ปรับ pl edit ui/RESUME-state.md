@@ -1,3 +1,5 @@
+> ⚠️ **entry point ใหม่ = `docs/pm/pm-state.md` + `docs/pm/decisions-log.md`** (สมอง PM · อ่านก่อน) · ไฟล์นี้เก็บรายละเอียด 3 สาย
+
 # RESUME — เพลง PM state (handoff ข้าม account/session · 22 ก.ค. 2026)
 
 เปิด session ใหม่ในโฟลเดอร์นี้ → อ่าน `MEMORY.md` + **`ux-groundup-design.md` (LOCKED SSOT)** + ไฟล์นี้ → ทำ PM ต่อได้เลย · งานอยู่ในไฟล์ทั้งหมด (ไม่ผูก account)
