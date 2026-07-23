@@ -35,10 +35,10 @@
 - 2026-07-23 · **PM operating model → กฎกลาง `C:\gl\CLAUDE.md` §4.5** (P'Aim: เพลง+พระคำ แนวเดียวกัน) — สมองบน disk/dispatch-only/Tester/session พอดีตัว/prune/commands/spun-session/seat-แก้ให้ถูกเอง · **prune memory `feedback_pm_brain_on_disk` (SSOT ที่ §4.5)** · live state ยังอยู่ `docs/pm/` ต่อโปรเจกต์ · แจ้ง pk pm ยึด §4.5
 - 2026-07-23 · **กฎกลาง §4: ห้ามรบกวน browser/server ที่ P'Aim ใช้อยู่** (P'Aim ratified ผ่าน pk pm · เคส audio-autoplay) — ทุก session (รวม PM serve preview) ใช้ Chromium ของตัวเอง (own port ≠9222 + own user-data-dir) · ห้าม kill ที่เขาดู · render ใหม่=port+URL ใหม่ · **แก้ recipe เดิมด้วย (9222→own port ที่ชนเบราว์เซอร์พี่)** · sync OneDrive · ไม่มี memory dupe
 - 2026-07-23 · **deploy คอร์ดติด: origin/main ขยับ ~15 commit** (B118/B110/B113/B108/hooks/pair-sop — deploy รอบที่ local worktree ไม่ได้ fetch) → FF ไม่ได้ · reset+cherry-pick เจอ conflict `EditorMode.vue` (chord vs B118) → **abort · จ่าย chord session rebase onto origin/main + resolve เอง** (production conflict = ไม่ hand-resolve · dispatch)
+- 2026-07-23 · **editor merged เข้า base `3a3e618`** (Tester job C slur PASS ก่อน) — code auto-merge สะอาด (B118+editor slur/styles.css region ไม่ชน textual) · conflict แค่ 2 planning doc (task.md/ux-groundup เก็บ base) · **Tester job D verify merged base** (semantic: B118+editor slur ร่วมกัน + build + suite) ก่อนปิด gate · base ไม่ deploy (main รอ P'Aim go)
 
 ## มติล็อกก่อนหน้า (ยกมาไว้อ่านครั้งเดียว)
 - ⛔ **ห้าม re-import/bulk-write 120 เพลง** — ทีมแก้ live อยู่ · migration ทำตอน app เสร็จ
 - คง **Vue3+Vite** (ไม่ Nuxt/Tailwind) · คง bookshelf หน้าแรก · ripple default · backspace ลบชิด
 - **แปล zh/en สุดท้าย** (หลัง string นิ่ง) · **ไม่ release จนเสร็จ** · **main = P'Aim สั่ง go เท่านั้น**
 - font = **Hybrid Noto** (UI self-host+subset · เนื้อจีน system CJK) · favorites/playlist **ไม่มี account** · **merge = PM เท่านั้น**
-- 2026-07-23 · **editor merged เข้า base `3a3e618`** (Tester job C slur PASS ก่อน) — code auto-merge สะอาด (B118+editor slur/styles.css region ไม่ชน textual) · conflict แค่ 2 planning doc (task.md/ux-groundup เก็บ base) · **Tester job D verify merged base** (semantic: B118+editor slur ร่วมกัน + build + suite) ก่อนปิด gate · base ไม่ deploy (main รอ P'Aim go)
