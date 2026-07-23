@@ -41,3 +41,4 @@
 - คง **Vue3+Vite** (ไม่ Nuxt/Tailwind) · คง bookshelf หน้าแรก · ripple default · backspace ลบชิด
 - **แปล zh/en สุดท้าย** (หลัง string นิ่ง) · **ไม่ release จนเสร็จ** · **main = P'Aim สั่ง go เท่านั้น**
 - font = **Hybrid Noto** (UI self-host+subset · เนื้อจีน system CJK) · favorites/playlist **ไม่มี account** · **merge = PM เท่านั้น**
+- 2026-07-23 · **editor merged เข้า base `3a3e618`** (Tester job C slur PASS ก่อน) — code auto-merge สะอาด (B118+editor slur/styles.css region ไม่ชน textual) · conflict แค่ 2 planning doc (task.md/ux-groundup เก็บ base) · **Tester job D verify merged base** (semantic: B118+editor slur ร่วมกัน + build + suite) ก่อนปิด gate · base ไม่ deploy (main รอ P'Aim go)
