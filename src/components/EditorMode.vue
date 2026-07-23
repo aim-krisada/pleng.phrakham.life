@@ -920,6 +920,36 @@ function pairInfo(row) {
   }
 }
 const pairInfos = computed(() => arrangement.value.map((row) => pairInfo(row)))
+// ---- โครงเพลง: structure chips (presentation only — docs/ds/song-structure.md §2) ----
+// A ท่อน row shows the structural marks its melody ALREADY carries (‖: :‖ · 1./2. · ‖ จบ ·
+// *** รับ), so the two ways of arranging a song read as one thing: drag the rail to change
+// the ORDER, type the mark on the bar to change what happens AT a bar — and each shows up
+// in the other. This derives from the existing stanza/bar state for DISPLAY only; nothing is
+// stored on the row (the bar owns the mark). A row with no marks renders no strip, so the
+// rail stays as quiet as it is today.
+function structureChips(row) {
+  const st = stanzas.value.find((s) => s.id === row.stanza)
+  if (!st) return []
+  const out = []
+  const seen = new Set()
+  const add = (key, text, title) => {
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push({ key, text, title })
+  }
+  if (row.afterEachVerse) add('every', '*** ร้องรับทุกข้อ', 'ท่อนนี้ร้องรับหลังทุกข้อ')
+  for (const line of st.lines || []) {
+    if (line.marker) add('marker', line.marker, 'ท่อนรับ / ท่อนฮุก')
+    for (const bar of line.bars || []) {
+      if (bar.repeatStart) add('rs', '‖:', 'เริ่มย้อนซ้ำที่ห้องนี้')
+      if (bar.repeatEnd) add('re', ':‖', 'ย้อนกลับไปเล่นซ้ำ')
+      if (bar.volta) add('v' + bar.volta, bar.volta + '.', 'ห้องจบรอบที่ ' + bar.volta)
+    }
+    if (line.end) add('end', '‖ จบเพลง', 'จบเพลงที่บรรทัดนี้')
+  }
+  return out
+}
+const structureChipRows = computed(() => arrangement.value.map((row) => structureChips(row)))
 const rowKeyOptions = computed(() => [{ value: '', label: 'คีย์เดิม' }, ...KEYS.map((k) => ({ value: k, label: k }))])
 
 // beats per bar vs. time signature — honest: unreadable input is an error, never a pass.
@@ -2864,9 +2894,8 @@ defineExpose({
              the old 3 groups (ทำนอง / เนื้อร้อง / ขั้นสูง→ลำดับเพลง) and the bottom block. ===== -->
         <div class="rail-group rg-main">โครงเพลง</div>
         <p class="rail-hint no-print">ลากจัดลำดับ · คลิกชื่อเพื่อแก้</p>
+        <div v-for="(row, ri) in arrangement" :key="ri" class="swrap">
         <div
-          v-for="(row, ri) in arrangement"
-          :key="ri"
           class="srow"
           :class="{ sel: ri === lensChoice, drag: ri === dragFromRow, over: ri === dragOverRow && ri !== dragFromRow }"
           draggable="true"
@@ -2913,6 +2942,16 @@ defineExpose({
             <button aria-label="ย้ายท่อนลง" :disabled="ri === arrangement.length - 1" @click="moveRow(ri, 1)">▼</button>
           </span>
           <button v-if="arrangement.length > 1" class="srow-del" title="ลบท่อนนี้" aria-label="ลบท่อนนี้" @click.stop="removeRow(ri)"><Icon name="trash-2" :size="14" /></button>
+        </div>
+        <!-- structure strip: the marks this ท่อน's melody already carries. Shown only when
+             there ARE marks, so a plain verse row looks exactly as it does today. Clicking a
+             chip opens that melody for editing (the bar owns the mark — the rail never
+             stores it). docs/ds/song-structure.md §2 -->
+        <ul v-if="structureChipRows[ri].length" class="sstrip" :aria-label="'สัญลักษณ์ใน' + rowLabel(row, ri)">
+          <li v-for="c in structureChipRows[ri]" :key="c.key">
+            <button class="schip" :title="c.title + ' — เปิดทำนองนี้เพื่อแก้'" @click.stop="railSelectRow(ri)">{{ c.text }}</button>
+          </li>
+        </ul>
         </div>
         <button class="addsec" @click="addRow(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มท่อน</button>
 
@@ -3929,6 +3968,38 @@ defineExpose({
 }
 .pair-badge.good { color: #fff; background: var(--ok); }
 .pair-badge.bad { color: #fff; background: var(--red); }
+/* ===== โครงเพลง structure strip (docs/ds/song-structure.md §2) =====
+   Second line of a ท่อน row, shown ONLY when that melody carries structural marks, so a
+   plain verse row is untouched. Indented past the grip+number so it reads as belonging to
+   the row above, not as a row of its own. Chips are buttons (24px min box per WCAG 2.2
+   2.5.8 AA via padding + line-height — matched to the row's other controls, not inflated
+   to 44px which is AAA), never hover-only: the label is the affordance. */
+.swrap { display: block; }
+.sstrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+  margin: -2px 0 6px;
+  padding: 0 6px 0 40px;
+}
+.schip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-family: var(--font-note, inherit);
+  color: var(--brand);
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.schip:hover { border-color: var(--brand); }
+.schip:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 /* MP2: melody list row shows a note preview under "ทำนอง X" */
 .mel-row { align-items: flex-start !important; }
 .mel-row-main { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
