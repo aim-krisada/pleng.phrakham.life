@@ -253,6 +253,26 @@ function measureTies() {
     const lr = lineEl.getBoundingClientRect()
     const nts = Array.from(lineEl.querySelectorAll('.note-row .nt'))
     const arcs = []
+    // B011b — pin each chord's LEFT edge over the FIRST note of its segment. The chord row
+    // spans all grid columns (so a long chord like C#dim / G7 never widens a note column and
+    // never overflows onto the next segment's sizing) — which parked it at the column's left
+    // edge, a few px LEFT of the centered note digit (พี่เอม: "คอร์ดเยื้อง"). We nudge it right
+    // by a transform (no box change → no ResizeObserver feedback loop) so its left corner sits
+    // exactly at the first note's left edge — lead-sheet style: the chord starts on the note it
+    // changes on and holds rightward. The offset is note.left − segment.left (independent of the
+    // chord's own transform), re-measured on the same resize / fonts / beforeprint pass as the
+    // arcs, so it stays correct at print scale too.
+    lineEl.querySelectorAll('.segment.seg-grid').forEach((seg) => {
+      const chord = seg.querySelector('.chord')
+      if (!chord) return
+      const note = seg.querySelector('.note-row .nt[data-idx="0"] .num')
+      if (!chord.textContent.trim() || !note) { chord.style.transform = ''; return }
+      const sr = seg.getBoundingClientRect()
+      const nr = note.getBoundingClientRect()
+      if (!sr.width || !nr.width) return
+      const dx = nr.left - sr.left
+      chord.style.transform = dx > 0.5 ? `translateX(${dx.toFixed(1)}px)` : ''
+    })
     nts.forEach((nt, i) => {
       if (!nt.classList.contains('tie-end')) return
       // The tie's SOURCE is the DIGIT this receiver ties back to. When that note is held by
