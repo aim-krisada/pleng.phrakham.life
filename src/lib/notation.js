@@ -11,12 +11,100 @@
 //   ( )  = slur/tie around a group  ·  { } = triplet around a group
 // Old data like "5. .5 2 1 3" parses unchanged.
 
+// ── Order-free modifiers (G1) ────────────────────────────────────────────────
+// Writers can't be expected to remember which modifier goes where: five of the
+// seven broken spots in the real library were nothing but a swapped order
+// ("5^." for "5.^", ".#4" for "#.4") and they failed SILENTLY — raw text printed
+// on the sheet, note skipped on playback. So a note box accepts its modifiers in
+// ANY order and we sort them back into the canonical form before parsing:
+//
+//   [~] [# | b | n] [.]* digit [']* [_]{0,2} [.]{0,2} [~] [^]
+//   tie-end accidental low-oct       high-oct beam  aug-dot tie-start fermata
+//
+// Two of them keep their side, because on this keyboard the same character means
+// two different things depending on it: '.' before the digit is a low-octave dot
+// and after it an augmentation dot; '~' before is a tie-END and after a tie-START.
+// Everything else (#/b/n, ' , _ , ^) has exactly one legal home, so wherever it was
+// typed we move it there. Reordering never adds or drops a character.
+const HIGH_OCTAVE_CHARS = "'‘’′" // straight + iOS smart quotes + prime
+const PRE_RANK = { '~': 0, '#': 1, b: 1, n: 1, '.': 2 }
+const POST_RANK = { '_': 1, '.': 2, '~': 3, '^': 4 } // high-octave marks = 0, below
+
+function isPitchDigit(c) {
+  return c >= '0' && c <= '7'
+}
+
+// Canonical order for ONE note box. Returns the string unchanged whenever we are
+// not certain it is a single note — no digit, more than one digit ("5..5", "123"),
+// an unknown character, or a modifier count the parser doesn't support (3 beams,
+// 3 aug dots, 2 accidentals). Staying loud beats guessing.
+export function canonicalizeNote(box) {
+  const s = String(box ?? '')
+  if (!s) return s
+  // group brackets ride along with the note in real data: "(5^", "4^)", "1_}"
+  let a = 0
+  let b = s.length
+  while (a < b && (s[a] === '(' || s[a] === '{')) a++
+  while (b > a && (s[b - 1] === ')' || s[b - 1] === '}')) b--
+  const core = s.slice(a, b)
+  let di = -1
+  for (let k = 0; k < core.length; k++) {
+    if (!isPitchDigit(core[k])) continue
+    if (di !== -1) return s // two digits in one box → not a single note
+    di = k
+  }
+  if (di === -1) return s
+  const pre = []
+  const post = []
+  let acc = 0
+  let beams = 0
+  let augDots = 0
+  for (let k = 0; k < core.length; k++) {
+    if (k === di) continue
+    const c = core[k]
+    const before = k < di
+    if (c === '#' || c === 'b' || c === 'n') {
+      if (++acc > 1) return s
+      pre.push([PRE_RANK[c], c])
+    } else if (c === '.') {
+      if (before) pre.push([PRE_RANK[c], c])
+      else if (++augDots > 2) return s
+      else post.push([POST_RANK[c], c])
+    } else if (c === '~') {
+      ;(before ? pre : post).push([(before ? PRE_RANK : POST_RANK)[c], c])
+    } else if (c === '_') {
+      if (++beams > 2) return s
+      post.push([POST_RANK[c], c])
+    } else if (c === '^') {
+      post.push([POST_RANK[c], c])
+    } else if (HIGH_OCTAVE_CHARS.includes(c)) {
+      post.push([0, c])
+    } else {
+      return s // unknown character → leave it alone so it still reads as an error
+    }
+  }
+  const join = (parts) =>
+    parts
+      .map((p, idx) => [p[0], idx, p[1]])
+      .sort((x, y) => x[0] - y[0] || x[1] - y[1]) // stable: keeps ".." / "''" order
+      .map((p) => p[2])
+      .join('')
+  return s.slice(0, a) + join(pre) + core[di] + join(post) + s.slice(b)
+}
+
+// Apply the canonical order to every space-separated box of a note string.
+// Boxes holding more than one note (the legacy spaceless "5..5" / "123" forms)
+// are handed to the lexer untouched, so their ambiguity rules are unaffected.
+export function canonicalizeNoteString(str) {
+  return String(str ?? '').replace(/\S+/g, canonicalizeNote)
+}
+
 // Character-level lexer — spaces between notes are OPTIONAL ("123" = "1 2 3").
 // A '.' directly before a digit is that digit's low-octave dot; a '.' at the
 // end of a note (not followed by a digit) is an augmentation dot.
 export function parseNotes(str) {
   if (!str) return []
-  const s = str
+  const s = canonicalizeNoteString(str)
   const tokens = []
   let i = 0
   while (i < s.length) {
