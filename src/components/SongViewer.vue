@@ -42,11 +42,16 @@ const props = defineProps({
   // just SHOWS it and asks for a save — so the user always knows whether the work is kept.
   saveState: { type: String, default: 'clean' },
   saveError: { type: String, default: '' },
+  // EPIC H — a shared link may carry the key it was shared at (?key=, lib/share.js). It is a
+  // STARTING point only: the listener's own คีย์ pick afterwards wins. '' = use the song's key.
+  startKey: { type: String, default: '' },
 })
 // The reading surface stays a READER: it never mutates props.song. When the pencil is on
 // and a note is retyped, it hands the OWNER (Studio → liveSong, the live v2 SSOT) a new
 // content via `update-content`; that flows back down as props.song and the sheet re-renders.
-const emit = defineEmits(['update-content', 'save'])
+// `key-change` reports the reading key up so the shell can share the song AT the key the
+// listener is actually reading (EPIC H round-trip). Read-only signal — nothing flows back down.
+const emit = defineEmits(['update-content', 'save', 'key-change'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -110,7 +115,29 @@ const showLyric = computed(() => displayDef.value.lyric)
 const sheetChordSystem = computed(() => (chordSystem.value === 'roman' ? 'roman' : 'letter'))
 const sheetMode = computed(() => (showLyric.value && !showNote.value && !showChord.value ? 'lyrics' : 'full'))
 
-const displayKey = ref(props.song?.content?.key || 'C')
+// EPIC H — a shared link can open the song at the key it was shared at (?key=). Only a key we
+// can actually render is honoured; anything else falls back to the song's own key, so a stale
+// or hand-typed link never strands the reader.
+// The rule: the link's key holds for the SONG THE LINK POINTED AT, until the reader picks a key
+// themselves. It cannot be a one-shot at mount — on a cold load the shell hands this surface a
+// BLANK song first (the editor is mounted alongside and emits its empty draft before the routed
+// song arrives), and the two load re-syncs below would then stamp the stored key over the link's.
+// Opening any OTHER song spends it, so the rest of the session reads each song at its own key.
+let pendingLinkKey = KEYS.includes(props.startKey) ? props.startKey : ''
+let linkKeySong = null // identity of the song the ?key= belongs to — the first real one we show
+// the editor's blank draft has neither a number nor a title; a real song has at least one
+const isRealSong = () => props.song?.number != null || !!(props.song?.title_th || '').trim()
+const songIdentity = () => `${props.song?.number}|${props.song?.title_th}`
+// what to show a song at when it LOADS (mount or a song switch) — the link's key or its own
+function keyOnLoad(storedKey) {
+  if (pendingLinkKey && isRealSong()) {
+    if (linkKeySong === null) linkKeySong = songIdentity()
+    if (linkKeySong === songIdentity()) return pendingLinkKey
+    pendingLinkKey = '' // a different song — the link has had its say
+  }
+  return storedKey || 'C'
+}
+const displayKey = ref(keyOnLoad(props.song?.content?.key))
 const playing = ref(false)
 // B107: which instrument the playback sounds on = the chosen lead (step 9: grand/felt/nylon/
 // violin/cello, all self-hosted). On first play its samples download while a progress pill shows
@@ -861,7 +888,7 @@ watch(
     const c = props.song?.content
     if (!c) return
     stopPlay()
-    displayKey.value = c.key || 'C'
+    displayKey.value = keyOnLoad(c.key)
     tempo.value = c.bpm || 92
     pausedIndex.value = 0
     posIndex.value = 0
@@ -879,8 +906,11 @@ watch(
 )
 watch(
   () => props.song?.content?.key,
-  (k) => { if (k) displayKey.value = k },
+  (k) => { if (k) displayKey.value = keyOnLoad(k) },
 )
+// EPIC H — tell the shell which key is being read, so ↗ แชร์ shares THIS key (immediate: the
+// shell must know before the user touches anything, incl. a link that opened on ?key=).
+watch(displayKey, (k) => emit('key-change', k), { immediate: true })
 
 // ---------- follow-along scroll (B016 + B038) ----------
 // Keep the sounding SYLLABLE in view (B038: aim at the exact [data-syl], not the whole
@@ -1129,7 +1159,8 @@ const settingDescs = computed(() => [
   },
   {
     id: 'key', icon: 'key-round', label: 'คีย์', kind: 'menu', value: displayKey.value, badge: displayKey.value,
-    options: keyOptions.value, onPick: (v) => (displayKey.value = v),
+    // the reader's own pick always wins from here on — and spends a shared link's ?key=
+    options: keyOptions.value, onPick: (v) => { pendingLinkKey = ''; displayKey.value = v },
   },
   {
     id: 'tempo', icon: 'gauge', label: 'ความเร็ว', kind: 'menu', value: tempo.value, badge: String(tempo.value),
