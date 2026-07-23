@@ -8,6 +8,7 @@
 // performance is reproducible (MP3 == live) and two loop passes differ but repeat.
 
 import { clampGainToLayer } from '../sampler.js'
+import { stressAt } from './meter.js'
 
 // R2.4 — Humanize velocity: nudge each attack's gain by ±`amount` (P'Aim locked ±6%).
 // GUARD (velocity-in-layer, §7b · P1 lesson): after the nudge, clamp gain into the sampler's
@@ -57,10 +58,15 @@ const isOffBeat = (b) => Math.abs(b - Math.round(b)) > 0.05
 // is a gentle HALF-NOTE PULSE: keep the bar downbeat AND the mid-bar beat, so a long held note still
 // has a soft pulse under it (fills the hole) while staying far calmer than full per-beat comp. `pulse`
 // (default on) is round 2's knob — set false to fall back to the old downbeat-only "ผ่อนสุด" feel.
-export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = true) {
+// `meter` (optional) = meterOf(timeSignature). The mid-bar pulse must land on the meter's real
+// secondary stress, not at Math.floor(beatsPerBar / 2) — see metricAccent below for why that was
+// wrong everywhere except 4/4. A meter with no secondary stress (3/4, 6/8 …) keeps only the
+// downbeat pulse, which is what a waltz or a 6/8 lilt actually does.
+export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = true, meter = null) {
   const onsets = events.filter((e) => e.role === 'melody').map((e) => e.startBeat).sort((a, b) => a - b)
   if (!onsets.length) return events
-  const mid = Math.floor(beatsPerBar / 2) // mid-bar pulse point (beat 3 in 4/4, beat 2 in 3/4)
+  const m = meter || { barBeats: beatsPerBar, pulseBeats: 1, mediumAt: beatsPerBar >= 4 && beatsPerBar % 2 === 0 ? beatsPerBar / 2 : null }
+  const mid = m.mediumAt // the meter's own secondary stress, or null when it has none
   const beatsHeld = (b) => {
     let last = -Infinity
     for (const o of onsets) { if (o <= b + 1e-6) last = o; else break }
@@ -69,28 +75,39 @@ export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = tr
   return events.filter((e) => {
     if (e.role !== 'inner') return true // bass / melody / embellishment untouched
     if (beatsHeld(e.startBeat) < holdBeats) return true // melody moving / just moved → full comp
-    const inBar = ((Math.round(e.startBeat) % beatsPerBar) + beatsPerBar) % beatsPerBar
-    // deep in a held note → keep the bar downbeat, plus (pulse on) the mid-bar beat so it doesn't
-    // go hollow. mid>0 guards 1- and 2-beat bars where mid would collide with / precede the downbeat.
-    return inBar === 0 || (pulse && mid > 0 && inBar === mid)
+    // Quantise onto the METER's pulse grid before comparing, which is what the old
+    // `Math.round(startBeat)` did for x/4 meters — an event sitting just off the pulse still
+    // counts as that pulse. Generalising it to pulseBeats keeps 4/4 and 3/4 bit-identical while
+    // making it correct for a compound meter, whose pulses are 1.5 quarter-notes apart and would
+    // never survive whole-number rounding.
+    const pb = m.pulseBeats || 1
+    const b = Math.round(e.startBeat / pb) * pb
+    const inBar = ((b % m.barBeats) + m.barBeats) % m.barBeats
+    // deep in a held note → keep the bar downbeat, plus (pulse on) the meter's secondary stress so
+    // it doesn't go hollow. A meter without one (3/4, 6/8 …) keeps the downbeat alone.
+    return Math.abs(inBar) < 1e-6 || (pulse && mid != null && Math.abs(inBar - mid) < 1e-6)
   })
 }
 
 // R2.2 — Metric accent: emphasise the downbeat of each bar, ease off the weak beats and the
 // off-beats, so the pulse breathes instead of every note hitting equally hard. Multiplies gain by
 // a position factor in [0.72, 1.0]. Reads beats-per-bar from the caller (time signature).
-export function metricAccent(events, beatsPerBar = 4) {
-  const mid = Math.floor(beatsPerBar / 2)
+// `meter` (optional) = meterOf(timeSignature). The secondary ("medium") stress used to be placed
+// at Math.floor(beatsPerBar / 2), which is the right beat for 4/4 and the wrong one for almost
+// everything else — a 3/4 bar came out strong-MEDIUM-weak, i.e. a waltz accented on beat 2, when
+// the standard is strong-weak-weak with no secondary stress at all. That is what พี่เปา heard as
+// "เสียงหนัก-เบาไปตกผิดที่", and it is why 4/4 was the one meter that sounded fine. stressAt()
+// reads the meter properly, and only gives a bar a secondary stress when the meter has one.
+export function metricAccent(events, beatsPerBar = 4, meter = null, barOffset = 0) {
+  const m = meter || { barBeats: beatsPerBar, pulseBeats: 1, mediumAt: beatsPerBar >= 4 && beatsPerBar % 2 === 0 ? beatsPerBar / 2 : null }
   for (const e of events) {
-    let f
     // Gentler spread than before (P'Aim 14 ก.ค. "กระแทกหนักไป"): the downbeat still leads the pulse
     // but no longer THUMPS — range narrowed to [0.8, 0.92] so beat 1 isn't a hard stab.
-    if (isOffBeat(e.startBeat)) f = 0.8
-    else {
-      const p = ((Math.round(e.startBeat) % beatsPerBar) + beatsPerBar) % beatsPerBar
-      f = p === 0 ? 0.92 : p === mid ? 0.86 : 0.82
-    }
-    e.gain *= f
+    // What counts as "between the beats" is the METER's business, not a fixed whole-number test:
+    // in 6/8 the second beat falls 1.5 quarter-notes in, and an isOffBeat()-style check ahead of
+    // the meter would demote that real beat to an off-beat. stressAt decides all four levels.
+    const s = stressAt(m, Math.round(e.startBeat * 4) / 4, barOffset)
+    e.gain *= s === 'strong' ? 0.92 : s === 'medium' ? 0.86 : s === 'weak' ? 0.82 : 0.8
   }
   return events
 }
