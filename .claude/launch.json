@@ -263,6 +263,19 @@
       "port": 5342
     },
     {
+      "name": "volta",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "C:/gl/krisada/pleng.phrakham.life/.claude/worktrees/reverent-cartwright-98e61f",
+        "--host",
+        "--port",
+        "5442",
+        "--strictPort"
+      ],
+      "port": 5442
+    },
+    {
       "name": "wireframe",
       "runtimeExecutable": "py",
       "runtimeArgs": [

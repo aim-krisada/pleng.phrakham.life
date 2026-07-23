@@ -64,6 +64,10 @@ const ICONS = {
   'circle-help': '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
   anchor: '<path d="M12 22V8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/><circle cx="12" cy="5" r="3"/>',
   'fishing-hook': '<path d="m17.586 11.414-5.93 5.93a1 1 0 0 1-8-8l3.137-3.137a.707.707 0 0 1 1.207.5V10"/><path d="M20.414 8.586 22 7"/><circle cx="19" cy="10" r="2"/>',
+  // volta (จบรอบ 1. / 2.) — the ending bracket as printed on a staff: a hook down at the
+  // left, then the horizontal that runs over the ending's bars. Drawn rather than a numeral
+  // because the number is the changing part, rendered as text next to the glyph.
+  volta: '<path d="M4 19V6h16"/>',
   repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
   copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   // ---- B101 flexible copy/paste (คัดลอก→วาง ข้ามท่อน) — Lucide names ----

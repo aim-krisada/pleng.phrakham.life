@@ -2347,6 +2347,20 @@ function qRepeat() {
   first.repeatStart = !on
   last.repeatEnd = !on
 }
+// "จบรอบ" (volta) — the endings that differ between passes: เที่ยวแรกเล่นห้อง 1. · เที่ยวซ้ำ
+// ข้าม 1. ไปเล่น 2. The model keeps the mark PER BAR (midi.expandRepeats skips a bar whose
+// volta ≠ the current pass), so a line that IS the ending has EVERY one of its bars tagged —
+// otherwise only the first bar of the ending would be skipped on the 2nd pass. The sheet
+// prints the number once at the head of the run (SongSheet collapses the repeats), which is
+// how a volta bracket is drawn. Mixed lines (1. and 2. inside one line) are set per bar in
+// the ⋯ ห้อง menu; here a mixed line reads as "no line-level volta" and the next click
+// makes the whole line จบรอบ 1 (undoable like any other edit).
+function qVolta() {
+  const l = curLine()
+  if (!l || !l.bars.length) return
+  const next = (curLineVolta.value + 1) % 3 // none → 1 → 2 → none
+  l.bars.forEach((b) => { b.volta = next })
+}
 function qCopyLine() {
   copyLine(activeLine.value)
 }
@@ -2381,6 +2395,19 @@ const curLineRepeat = computed(() => {
   const l = curLine()
   return !!(l && l.bars.length && l.bars[0].repeatStart && l.bars[l.bars.length - 1].repeatEnd)
 })
+// the line's volta, only when the WHOLE line carries the same one (a mixed line = 0, so the
+// header button never silently claims a state the line doesn't have)
+const curLineVolta = computed(() => {
+  const l = curLine()
+  if (!l || !l.bars.length) return 0
+  const v = l.bars[0].volta || 0
+  return v && l.bars.every((b) => (b.volta || 0) === v) ? v : 0
+})
+const voltaTitle = computed(() =>
+  curLineVolta.value
+    ? `บรรทัดนี้ = ห้องจบรอบ ${curLineVolta.value} — แตะเพื่อเปลี่ยนเป็น ${curLineVolta.value === 1 ? 'จบรอบ 2' : 'ไม่ใช่ห้องจบ'}`
+    : 'ทำให้บรรทัดที่กำลังแก้เป็นห้องจบรอบ (1. / 2.) — เที่ยวแรกเล่น 1. เที่ยวซ้ำเล่น 2.'
+)
 function toggleLineMore() {
   lineMoreOpen.value = !lineMoreOpen.value
 }
@@ -3054,6 +3081,15 @@ defineExpose({
       <span class="ed-quick" aria-label="โครงเพลงด่วน (บรรทัดที่กำลังแก้)">
         <button class="ed-ico" :class="{ on: curLineHook }" title="ทำเครื่องหมายท่อนฮุกให้บรรทัดที่กำลังแก้" aria-label="ท่อนฮุก" @click="qHook"><Icon name="fishing-hook" :size="16" /></button>
         <button class="ed-ico" :class="{ on: curLineRepeat }" title="เล่นซ้ำบรรทัดที่กำลังแก้ ‖: :‖" aria-label="เล่นซ้ำบรรทัด" @click="qRepeat"><Icon name="repeat" :size="16" /></button>
+        <!-- จบรอบ (volta) — the sibling of ‖: :‖ above: repeat says "play it twice", this says
+             "but end it differently the 2nd time". Cycles ไม่ใช่ → จบรอบ 1 → จบรอบ 2. -->
+        <button
+          class="ed-ico ed-volta"
+          :class="{ on: curLineVolta }"
+          :title="voltaTitle"
+          :aria-label="curLineVolta ? `ห้องจบรอบ ${curLineVolta} (แตะเพื่อเปลี่ยน)` : 'ทำเป็นห้องจบรอบ 1. / 2.'"
+          @click="qVolta"
+        ><Icon name="volta" :size="16" /><span v-if="curLineVolta" class="ed-volta-n" aria-hidden="true">{{ curLineVolta }}</span></button>
         <!-- B086: move the active line up/down; each verse's words follow the melody line -->
         <button class="ed-ico ed-mvline" title="ย้ายบรรทัดที่กำลังแก้ขึ้น (เนื้อทุกข้อตามไปด้วย)" aria-label="ย้ายบรรทัดขึ้น" :disabled="activeLine === 0" @click="moveLine(-1)"><span aria-hidden="true">▲</span></button>
         <button class="ed-ico ed-mvline" title="ย้ายบรรทัดที่กำลังแก้ลง (เนื้อทุกข้อตามไปด้วย)" aria-label="ย้ายบรรทัดลง" :disabled="activeLine === lines.length - 1" @click="moveLine(1)"><span aria-hidden="true">▼</span></button>
@@ -4594,6 +4630,10 @@ defineExpose({
 }
 .ed-ico.on { background: var(--cream); border-color: var(--brand); color: var(--brand); }
 .ed-ico.danger-ic { color: var(--red); }
+/* จบรอบ: the bracket glyph carries the round number so the button reads "1." / "2." at a
+   glance without a second control. gap 1px keeps the pair inside the 32px target. */
+.ed-volta { gap: 1px; }
+.ed-volta-n { font-size: 0.78rem; font-weight: 700; line-height: 1; }
 /* layout segmented control: 1 ห้อง/แถว ⇄ ต่อกัน */
 .ed-lay { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .ed-lay button {
@@ -5000,6 +5040,18 @@ defineExpose({
 .ed-bar-menu-row { display: flex; gap: 6px; }
 .ed-bar-menu-row .tiny { flex: 1; }
 .ed-bar-menu-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+/* the per-bar จบรอบ picker — a bare native select renders ~20px tall, under the WCAG 2.2 AA
+   24px target floor and out of scale with the checkbox rows around it */
+.ed-bar-menu-check select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 6px;
+  min-height: 28px;
+}
 .ed-addbar,
 .ed-addline {
   display: inline-flex;
