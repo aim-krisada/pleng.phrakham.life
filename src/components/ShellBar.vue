@@ -40,10 +40,67 @@ const appIcon = import.meta.env.BASE_URL + 'android-chrome-192x192.png'
 const burgerBtn = ref(null)
 const drawerPanel = ref(null)
 let drawer = null
-const desktopMq = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-  ? window.matchMedia('(min-width: 992px)') : null
+
+// ---- B123 (ชั่วคราว · รอแถบบนออกแบบใหม่) — collapse when the bar does not FIT -------------
+// The compact layout (☰ drawer + FAB) is the app's own, unchanged; only its trigger moved here.
+// It used to fire at a guessed 992px, but the full bar needs a fixed ~1394px no matter how
+// narrow the window is — every flex child is `flex: 0 1 auto` with `min-width: auto`, so
+// nothing can shrink — which left a horizontal scrollbar on every laptop under ~1395px of
+// viewport: 1366 (the most common one) by 43px, 1280 by 129px, 1200 by 209px, 1024 by 308px.
+// So: measure. The decision is always taken against the FULL bar's requirement (the class is
+// lifted for the measurement and put back in the same frame, before any paint), which is what
+// makes it stable — the answer never depends on the state we are currently in, so it cannot
+// oscillate. No width constant is left anywhere; add a button to the bar and the collapse point
+// moves by itself.
+// Two steps, cheapest first, so a desktop keeps looking like a desktop for as long as it fits:
+//   0 full        → everything inline
+//   1 .shell-tight → brand becomes the app icon (the wordmark costs ~164px and is the only
+//                    thing on the row that repeats information the icon already carries).
+//                    The nav links, mode switch and tools all stay inline — this is what saves
+//                    1280 and 1366, the two widths the team actually works on.
+//   2 .shell-compact → the app's existing ☰ layout (nav + ⚙ in the drawer, ＋ as the FAB).
+const LEVELS = ['', 'shell-tight', 'shell-compact']
+const barEl = ref(null)
+function syncShellFit() {
+  const bar = barEl.value
+  if (!bar || typeof document === 'undefined') return
+  const root = document.documentElement
+  const wasCompact = root.classList.contains('shell-compact')
+  // walk up the levels until it fits; each level is MEASURED, never assumed from a width
+  let level = 0
+  for (; level < LEVELS.length; level++) {
+    root.classList.remove('shell-tight', 'shell-compact')
+    if (LEVELS[level]) root.classList.add(LEVELS[level])
+    if (bar.scrollWidth <= bar.clientWidth + 1) break // +1 = sub-pixel rounding
+  }
+  if (level >= LEVELS.length) level = LEVELS.length - 1 // still short → the smallest we have
+  root.classList.remove('shell-tight', 'shell-compact')
+  if (LEVELS[level]) root.classList.add(LEVELS[level])
+  const compact = LEVELS[level] === 'shell-compact'
+  // leaving compact takes the ☰ away with it — an open off-canvas would be left with no
+  // trigger and no way back (this replaces the old fixed 992px media-query listener, which
+  // now fires at a width that has nothing to do with whether the ☰ is on screen).
+  if (wasCompact && !compact && drawer && drawer.isOpen()) drawer.close()
+}
+let fitRo = null
+let fitTimers = []
 
 onMounted(() => {
+  // Runs before the browser paints, so the first frame is already measured — no flash of a
+  // too-wide bar on a phone. Then keep it live: window resize covers rotate/fold, the
+  // ResizeObserver covers layout-driven width changes (a Studio menu teleported into the bar),
+  // fonts.ready + two settle timers cover the cold load (the first measure lands pre-font, and
+  // a background/automated tab runs NO rendering steps, so the observer alone can never fire).
+  syncShellFit()
+  window.addEventListener('resize', syncShellFit)
+  if (typeof ResizeObserver === 'function' && barEl.value) {
+    fitRo = new ResizeObserver(syncShellFit)
+    fitRo.observe(barEl.value)
+    fitRo.observe(document.documentElement)
+  }
+  document.fonts?.ready?.then(syncShellFit).catch(() => {})
+  fitTimers = [setTimeout(syncShellFit, 300), setTimeout(syncShellFit, 1200)]
+
   if (!window.PKDrawer || !burgerBtn.value || !drawerPanel.value) return
   drawer = window.PKDrawer.create({
     side: 'left',
@@ -56,15 +113,17 @@ onMounted(() => {
   })
   // Another menu (settings popover / Studio menu) taking the shared channel closes the drawer.
   watch(shellMenu, (v) => { if (v !== 'site' && drawer && drawer.isOpen()) drawer.close() })
-  // Crossing to desktop while open (rotate/resize): the ☰ is gone, so close the off-canvas.
-  if (desktopMq) desktopMq.addEventListener('change', onDesktop)
+  // (closing the drawer when the ☰ goes away is handled by syncShellFit — it knows when the
+  //  bar actually leaves compact, which a fixed-width media query no longer tracks.)
 })
 
-function onDesktop(e) { if (e.matches && drawer && drawer.isOpen()) drawer.close() }
-
 onUnmounted(() => {
-  if (desktopMq) desktopMq.removeEventListener('change', onDesktop)
   if (drawer) { drawer.destroy(); drawer = null }   // kill scrim/listeners (leak + HMR)
+  window.removeEventListener('resize', syncShellFit)
+  fitRo?.disconnect()
+  fitTimers.forEach(clearTimeout)
+  // no bar on the page → drop the state it owns (a stale class would compact the next page)
+  document.documentElement.classList.remove('shell-compact')
 })
 
 function toggleSettings() {
@@ -131,7 +190,7 @@ async function goSearch() {
 </script>
 
 <template>
-  <header class="shell-bar no-print">
+  <header ref="barEl" class="shell-bar no-print">
     <div id="shell-left" class="shell-slot"></div>
 
     <!-- Brand: mobile shows the app icon only (มุมซ้ายบน · ไม่มีชื่อ); desktop shows the name
