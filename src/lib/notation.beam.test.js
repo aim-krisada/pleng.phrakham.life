@@ -36,9 +36,84 @@ describe('beamGroups — syllable-based beaming (issue8)', () => {
     expect(runs('(6_ 5_)', ['ดี', ''])).toEqual([[0, 1]])
   })
 
-  it('a เอื้อน run that crosses a beat edge breaks at the edge, not into one long beam', () => {
+  it('every-note-its-own-word never beams, however many notes', () => {
     // 3(quarter) fills beat 1; "- 3_ 4_" ... every note its own word → all split
     expect(runs('3 - 3_ 4_ 5_ 6_', ['a', '', 'b', 'c', 'd', 'e'])).toEqual([])
+  })
+
+  // --- B120 (พี่เปา, 23 ก.ค.): a เอื้อน beam is NOT cut by the beat edge ------------------
+  // "เกิน 2 ช่อง เส้นไม่ลากติดกัน … ไม่ว่ากี่ช่อง ถ้าร้องเอื้อนหรือเว้นช่องเนื้อ ต้องลากเส้นให้ต่อกัน".
+  // Reference songbook #698 line 2 is the golden case: `5 4 3` under ONE line ACROSS the beat
+  // edge, then a SEPARATE line under `2` — because `2` is where the next word (พระ) starts.
+  it('รูป698: 5 4 3 beam as one across the beat edge; 2 (new word) breaks it', () => {
+    expect(runs('5_ 4_ 3_ 2_', ['วิต', '', '', 'พระ'])).toEqual([[0, 2]])
+  })
+
+  it('a เอื้อน run is unbroken at ANY length (3 · 4 · 6 slots)', () => {
+    expect(runs('5_ 4_ 3_', ['คำ', '', ''])).toEqual([[0, 2]])
+    expect(runs('5_ 4_ 3_ 2_', ['คำ', '', '', ''])).toEqual([[0, 3]])
+    expect(runs('5_ 4_ 3_ 2_ 1_ 6_', ['คำ', '', '', '', '', ''])).toEqual([[0, 5]])
+  })
+
+  it('blank word slots mid-run do not cut the beam (the pink empty boxes)', () => {
+    expect(runs('5_ 4_ 3_ 2_ 1_', ['วิต', '', '', '', 'พระ'])).toEqual([[0, 3]])
+  })
+
+  it('a beam never crosses a bar line', () => {
+    // `|` is dropped by parseNotes, so the barrier is explicit (barBreakIdx)
+    expect(runs('1_ 2_ | 3_ 4_', ['ก', '', '', ''])).toEqual([
+      [0, 1],
+      [2, 3],
+    ])
+    expect(runs('1_ 2_ 3_ | 4_ 5_ 6_', ['ก', '', '', '', '', ''])).toEqual([
+      [0, 2],
+      [3, 5],
+    ])
+  })
+
+  it('a rest / extension still cuts a long เอื้อน run', () => {
+    expect(runs('1_ 2_ 0 3_ 4_', ['ก', '', '', '', ''])).toEqual([
+      [0, 1],
+      [3, 4],
+    ])
+  })
+
+  // --- B110 levels: one bar per beam LEVEL (matters far more now runs are long) ----------
+  const lv = (note, syl) =>
+    beamGroups(note, syl).beams.map((b) =>
+      b.levels.map((l) => `${l.level}:${l.start}-${l.end}${l.partial ? '/' + l.partial : ''}`),
+    )
+
+  it('a run of eighths is ONE level-1 bar over the whole run', () => {
+    expect(lv('5_ 4_ 3_ 2_', ['คำ', '', '', ''])).toEqual([['1:0-3']])
+  })
+
+  it('sixteenths add a level-2 bar spanning only the sixteenths', () => {
+    // 1__ 2__ are sixteenths, 3_ is an eighth, 4__ 5__ sixteenths again
+    expect(lv('1__ 2__ 3_ 4__ 5__', ['คำ', '', '', '', ''])).toEqual([
+      ['1:0-4', '2:0-1', '2:3-4'],
+    ])
+  })
+
+  it('a lone sixteenth in a run gets a PARTIAL level-2 stub, not a full second bar', () => {
+    expect(lv('.7_. 1__ 2_', ['ก', '', ''])).toEqual([['1:0-2', '2:1-1/left']])
+  })
+
+  // Where the two bugs MEET (PM, 23 ก.ค.): a run that MIXES เขบ็ต 1/2 ชั้น *and* spans
+  // several beats. B120 is what makes the run long enough to mix, and B110 is what keeps
+  // level 2 off the notes that do not own it — a regression in either shows up here.
+  it('a mixed-level run spanning 2+ beats: level 1 unbroken, level 2 only on the sixteenths', () => {
+    // 4 sixteenths (beat 0) + 2 eighths (beat 1) + 2 sixteenths (beat 2) = 2.5 beats, so the
+    // old beat-edge rule chopped this into three separate runs.
+    expect(lv("1__ 2__ 3__ 4__ 5_ 6_ 7__ 1'__", ['คำ', '', '', '', '', '', '', ''])).toEqual([
+      ['1:0-7', '2:0-3', '2:6-7'],
+    ])
+  })
+
+  it('a mixed-level run ending in a lone sixteenth past the beat edge keeps a partial stub', () => {
+    expect(lv('1__ 2__ 3_ 4_ 5__', ['คำ', '', '', '', ''])).toEqual([
+      ['1:0-4', '2:0-1', '2:4-4/left'],
+    ])
   })
 
   it('a เอื้อน run of three within one beat beams all three', () => {
