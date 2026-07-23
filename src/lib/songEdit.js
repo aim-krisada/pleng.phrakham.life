@@ -9,7 +9,7 @@
 // The note-box helpers below are string-level and shape-independent, so they work whether
 // the caller holds a stored segment (SongViewer) or an editor segment (EditorMode).
 
-import { noteBoxKinds, syllableSlots } from './notation.js'
+import { noteBoxKinds, syllableSlots, canonicalizeNote } from './notation.js'
 
 // Split a note string into its space-separated box tokens (one token per note box — the
 // same convention noteBoxKinds / NoteBoxes use). '' → [''] so an empty segment still has
@@ -172,15 +172,91 @@ function withSegmentNote(content, at, newNote, newArrangement) {
 // Insert a new note (pitch `digit`) AFTER the cursor's note (P'Aim: แทรกหลัง — clearer, builds
 // left-to-right), rippling every linked verse. The new note lands at the next slot.
 export function withInsertedNote(content, loc, digit) {
-  const { resolvedLine, si, syk } = loc
   const d = String(digit)
   if (!/^[0-7]$/.test(d)) return content
+  return withInsertedBox(content, loc, d)
+}
+
+// Insert ANY box token next to the cursor's note — the generalisation of withInsertedNote so
+// the inline editor can type the structural symbols too ('-' hold · '(' ')' slur · '{' '}'
+// triplet). Two kinds of token, told apart by the SAME classifier the renderer uses
+// (noteBoxKinds), never by a hand-written list:
+//   • slot-bearing ('-' / a digit) — grows the melody, so every linked verse's syllables
+//     ripple exactly like an inserted note.
+//   • 'struct' (the four brackets) — carries no syllable slot, so NO ripple: adding a slur
+//     bracket must not shift anybody's words.
+// `before` puts the box on the LEFT of the cursor note (what an opening '(' / '{' means).
+export function withInsertedBox(content, loc, token, before = false) {
+  const { resolvedLine, si, syk } = loc
+  const tok = String(token ?? '')
+  if (!tok) return content
   const at = locateSegment(content, resolvedLine, si)
   if (!at) return content
   const stanza = content.stanzas[at.stanzaIndex]
-  const g = stanzaGlobalSlot(stanza, at.lineIndex, si, syk) + 1 // open the slot AFTER the current
-  const newNote = insertBoxAtSlot(stanza.lines[at.lineIndex][at.segIndex].note || '', syk + 1, d)
-  return withSegmentNote(content, at, newNote, rippleVerses(content, stanza.id, g, 'insert'))
+  const note = stanza.lines[at.lineIndex][at.segIndex].note || ''
+  const slot = syk + (before ? 0 : 1)
+  const newNote = insertBoxAtSlot(note, slot, tok)
+  if (newNote === note) return content
+  const bearsSlot = noteBoxKinds(tok)[0] !== 'struct'
+  const arrangement = bearsSlot
+    ? rippleVerses(content, stanza.id, stanzaGlobalSlot(stanza, at.lineIndex, si, syk) + (before ? 0 : 1), 'insert')
+    : content.arrangement
+  return withSegmentNote(content, at, newNote, arrangement)
+}
+
+// Insert a BAR LINE ('|') after the cursor's note. A bar is not a note box — in v2 it is its
+// own line item {type:'bar'} between two segments — so this SPLITS the segment at the cursor:
+// the boxes up to the cursor stay in place (keeping the segment's chord), a bar item follows,
+// and the remaining boxes become a new segment. The syllable slots are unchanged (same boxes,
+// same order), so no verse ripples. Splitting at the segment's last note just drops a bar in
+// after it (no empty segment left behind).
+export function withBarAfter(content, loc) {
+  const { resolvedLine, si, syk } = loc
+  const at = locateSegment(content, resolvedLine, si)
+  if (!at) return content
+  const stanza = content.stanzas[at.stanzaIndex]
+  const line = stanza.lines[at.lineIndex]
+  const seg = line[at.segIndex]
+  const boxes = noteBoxes(seg.note || '')
+  const bi = boxIndexForSlot(seg.note || '', syk)
+  if (bi < 0) return content
+  const head = boxes.slice(0, bi + 1)
+  const tail = boxes.slice(bi + 1)
+  const newLine = line.slice()
+  const items = [{ ...seg, note: head.join(' ') }, { type: 'bar' }]
+  if (tail.length) items.push({ type: 'segment', note: tail.join(' '), chord: '' })
+  newLine.splice(at.segIndex, 1, ...items)
+  return withSegmentLine(content, at, newLine, content.arrangement)
+}
+
+// ---------- the note MARKS that live on the box itself ----------
+// _ (เขบ็ต / beam) · . (จุดเพิ่มความยาว / augmentation dot) · ~ (โยงเสียง / tie) · ^ (fermata).
+// Each press CYCLES its own mark and touches nothing else, then the box is handed to the
+// parser's own canonicaliser (G1) so a mark typed in any order still lands in the canonical
+// spot — one grammar for the whole app, never a second parser here.
+//   '_'  0 → 1 → 2 → 0 underlines (เขบ็ต 1 ชั้น · 2 ชั้น · ตัวดำ)
+//   '.'  0 → 1 → 2 → 0 augmentation dots (×1.5 · ×1.75)
+//   '~'  tie start on/off      '^'  fermata on/off
+// Marks only make sense on a real note/rest box, so a '-' hold or a bracket is left alone.
+const MARK_CHARS = "_.~^"
+function cycleBoxMark(tok, ch) {
+  if (!/[0-7]/.test(tok)) return tok
+  const di = tok.search(/[0-7]/)
+  const head = tok.slice(0, di + 1)
+  const tail = tok.slice(di + 1) // everything AFTER the digit — where all four marks live
+  if (ch === '_' || ch === '.') {
+    const n = (tail.match(ch === '_' ? /_/g : /\./g) || []).length
+    const rest = tail.replace(ch === '_' ? /_/g : /\./g, '')
+    return head + rest + ch.repeat((n + 1) % 3)
+  }
+  // '~' / '^' — a plain on/off toggle
+  return tail.includes(ch) ? head + tail.split(ch).join('') : head + tail + ch
+}
+// Apply one mark character to the selected note. Returns the same content on a no-op (an
+// unsupported character, or a box that bears no note).
+export function withNoteMark(content, loc, ch) {
+  if (!MARK_CHARS.includes(ch)) return content
+  return withBoxTransform(content, loc, (tok) => canonicalizeNote(cycleBoxMark(tok, ch)))
 }
 
 // Delete the note at the cursor slot (pull-tight), closing the slot in every linked verse.
