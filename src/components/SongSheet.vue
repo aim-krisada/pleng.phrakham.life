@@ -325,7 +325,8 @@ function measureTies() {
       line.parts.forEach((p) => {
         if (p.segments) p.segments.forEach((s) => { notesBySi[s.si] = s.note || '' })
       })
-      const spans = slurSpans(notesBySi).filter((sp) => !sp.sameSegment)
+      const allSlurs = slurSpans(notesBySi)
+      const spans = allSlurs.filter((sp) => !sp.sameSegment)
       for (const sp of spans) {
         const openNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.open.si}"] .nt[data-idx="${sp.open.idx}"]`)
         const closeNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.close.si}"] .nt[data-idx="${sp.close.idx}"]`)
@@ -370,15 +371,20 @@ function measureTies() {
       // the reader would have to GUESS the note is held. Derive the span from the syllable
       // slots (melismaSpans) and draw it with the SAME overlay + buildArc as the ( ) slurs
       // above, so a held vowel reads as one engraved curve. NoteRow is untouched (no ( ) →
-      // no NoteRow arc to hide). Explicit ( ) spans already drawn above are skipped so a bar
-      // that has both an authored slur and a blank run is not double-arced.
+      // no NoteRow arc to hide). A derived span is SKIPPED when it overlaps ANY authored ( )
+      // slur — cross-segment (drawn here) AND within-segment (drawn by NoteRow) — so a bar
+      // that carries an explicit slur is never double-arced or stacked (the author's slur wins).
       const segsForLine = []
       line.parts.forEach((p) => {
         if (p.segments) p.segments.forEach((s) => segsForLine.push({ si: s.si, note: s.note || '', syllables: s.syllables || [] }))
       })
-      const drawn = new Set(spans.map((sp) => `${sp.open.si}:${sp.open.idx}>${sp.close.si}:${sp.close.idx}`))
+      // (si,idx) reading order is lexicographic (segments left→right, note idx within); two
+      // spans overlap iff each starts at/before the other ends.
+      const leTuple = (a, b) => a.si < b.si || (a.si === b.si && a.idx <= b.idx)
+      const overlapsAuthoredSlur = (sp) =>
+        allSlurs.some((e) => leTuple(sp.open, e.close) && leTuple(e.open, sp.close))
       for (const sp of melismaSpans(segsForLine)) {
-        if (drawn.has(`${sp.open.si}:${sp.open.idx}>${sp.close.si}:${sp.close.idx}`)) continue
+        if (overlapsAuthoredSlur(sp)) continue
         const openNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.open.si}"] .nt[data-idx="${sp.open.idx}"]`)
         const closeNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.close.si}"] .nt[data-idx="${sp.close.idx}"]`)
         if (!openNt || !closeNt) continue
