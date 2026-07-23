@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedNote, withInsertedBox, withBarAfter, withNoteMark, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -289,8 +289,22 @@ function onCaptureKey(e) {
     else overwriteDigit(e.key)
   }
   // desktop keyboard shortcuts for the note marks that ARE on a physical keyboard (so they need
-  // no button): # = sharp, b = flat (jianpu convention, same as the old note boxes).
-  else if (!word && (e.key === '#' || e.key === 'b')) { e.preventDefault(); accidentalSel(e.key) }
+  // no button): # = sharp, b = flat, n = natural (jianpu convention, same as the old note boxes).
+  else if (!word && (e.key === '#' || e.key === 'b' || e.key === 'n')) { e.preventDefault(); accidentalSel(e.key) }
+  // the rest of the jianpu symbol set, typed straight onto the sheet (B-fix 23 ก.ค.: these
+  // were silently dead, so a rhythm could not be fixed from the reading surface at all).
+  // MARKS ride on the selected note (each press cycles its own mark, order-free via G1):
+  //   _ เขบ็ต · . จุดเพิ่มความยาว · ~ โยงเสียง · ^ ยืดเสียง (fermata)
+  else if (!word && '_.~^'.includes(e.key)) { e.preventDefault(); markSel(e.key) }
+  // ' = ขึ้นหนึ่งช่วงเสียง — the parser's own high-octave character, so it does exactly what the
+  // สูง↑ button does. (',' and '!' are NOT wired: today's parser gives them no meaning and this
+  // fix invents none — see docs/reports/editor-gap-audit.md.)
+  else if (!word && (e.key === "'" || e.key === '’')) { e.preventDefault(); octaveSel(1) }
+  // STRUCTURE inserts a box of its own next to the cursor: '-' holds the note one more beat,
+  // ( ) wrap a slur/tie group, { } a triplet. An opening bracket lands BEFORE the note.
+  else if (!word && '-(){}'.includes(e.key)) { e.preventDefault(); insertBoxSel(e.key) }
+  // | = เส้นกั้นห้อง — not a note box: it splits the segment in two (see withBarAfter).
+  else if (!word && e.key === '|') { e.preventDefault(); barSel() }
   else if (!word && e.key === 'Delete') { e.preventDefault(); deleteSel() }
   else if (!word && e.key === 'Backspace') { e.preventDefault(); removeCell() }
   // WORD layer: an empty word + Backspace removes the whole cell; otherwise let the text edit
@@ -486,6 +500,36 @@ function accidentalSel(acc) {
   if (!loc) return
   markTyping()
   const next = withAccidental(props.song.content, loc, acc)
+  if (next !== props.song.content) emit('update-content', next)
+}
+// one of the four note marks (_ . ~ ^) on the selected note — cycles that mark only
+function markSel(ch) {
+  const loc = selLoc()
+  if (!loc) return
+  markTyping()
+  const next = withNoteMark(props.song.content, loc, ch)
+  if (next !== props.song.content) emit('update-content', next)
+}
+// a structural box next to the cursor: '-' / '(' / ')' / '{' / '}'. An OPENING bracket goes
+// before the note; everything else after it. '-' grows the melody, so the cursor steps onto
+// the new box (like typing a note in แทรก mode); a bracket bears no slot, so the cursor stays.
+function insertBoxSel(ch) {
+  const loc = selLoc()
+  if (!loc) return
+  markTyping()
+  const before = ch === '(' || ch === '{'
+  const next = withInsertedBox(props.song.content, loc, ch, before)
+  if (next !== props.song.content) {
+    emit('update-content', next)
+    if (ch === '-') curIdx.value = curIdx.value + 2
+  }
+}
+// | = split the segment here with a bar line
+function barSel() {
+  const loc = selLoc()
+  if (!loc) return
+  markTyping()
+  const next = withBarAfter(props.song.content, loc)
   if (next !== props.song.content) emit('update-content', next)
 }
 // the chord picker's options for the song's key ("— ไม่มีคอร์ด —" first = clear)
@@ -1008,7 +1052,8 @@ function onSeek({ li, si, syk }) {
 
     <!-- while editing: a small hint + autosave note ride above the sheet -->
     <div v-if="editMode" class="sv-edit-hint no-print" role="status">
-แตะโน้ตแล้วพิมพ์เลข · แตะคำแล้วพิมพ์เนื้อ (คีย์บอร์ดขึ้นเอง) · <b>← → ↑ ↓</b> เลื่อน · ปุ่มพิเศษ (สูง/ต่ำ · ♯♭ · แทรก/ทับ) อยู่ในแถบ · <b>Delete</b> ลบอยู่กับที่ · <b>Backspace</b> เอาออกทั้งช่อง
+แตะโน้ตแล้วพิมพ์เลข · แตะคำแล้วพิมพ์เนื้อ (คีย์บอร์ดขึ้นเอง) · <b>← → ↑ ↓</b> เลื่อน · ปุ่มพิเศษ (สูง/ต่ำ · ♯♭ · แทรก/ทับ) อยู่ในแถบ · <b>Delete</b> ลบอยู่กับที่ · <b>Backspace</b> เอาออกทั้งช่อง<br />
+สัญลักษณ์: <b>#</b> ♯ · <b>b</b> ♭ · <b>n</b> ♮ · <b>'</b> สูงหนึ่งช่วง · <b>_</b> เขบ็ต · <b>.</b> จุดเพิ่มความยาว · <b>~</b> โยงเสียง · <b>^</b> ยืดเสียง · <b>-</b> ลากเสียง · <b>( )</b> เอื้อน · <b>{ }</b> สามพยางค์ · <b>|</b> เส้นกั้นห้อง
     </div>
 
     <div
