@@ -25,6 +25,28 @@ import { clampGainToLayer } from '../sampler.js'
 // just under an eighth-note either side at common tempi — tight enough to allow a tail answer, wide
 // enough that a running melody (attacks every ~0.5 beat) leaves no room.
 export const REFEREE_GAP = 0.4
+// PRE-ECHO window (beats). The conductor used to judge a ลูกเล่น by TIME ALONE — "far enough from a
+// melody attack" = safe. But the gap right BEFORE an attack is the most dangerous place there is: an
+// ornament that lands there PLAYING THE PITCH THE TUNE IS ABOUT TO SING is not heard as decoration,
+// it is heard as an extra melody note ("3 ตัวกลายเป็น 4 ตัว" — เพลง 33, คอร์ด E → sparkle B4 one beat
+// before the tune's B4 B4 B4). Nothing caught it: the pitch is never drawn on the sheet and never in
+// the data — it exists only while playing. So the conductor now listens to PITCH as well as time.
+// 2 beats ≈ 1.4–1.7 s at worship tempi (70–90 bpm) — the span over which the ear still binds an
+// early sounding of a pitch to the accented arrival of that same pitch (an anacrusis / pickup is
+// heard as belonging to the beat it leads into). Past that the two read as separate events, so a
+// wider window would silence honest ornaments for no perceptual gain.
+export const PREECHO_LOOKAHEAD = 2
+// how far apart two pitches may be and still fuse into "the same note arriving early", in octaves.
+// 1 = unison or one octave (chroma identity is what the ear latches onto; sparkle is by construction
+// an octave-up doubling, which is exactly how the เพลง 33 case slipped through a unison-only check).
+// Two octaves apart the registers separate and it reads as a genuine shimmer, so it is left alone.
+export const PREECHO_OCTAVES = 1
+// only an ornament LOUD enough to be mistaken for the tune can pre-echo it. A garnish sitting far
+// under the melody (gapFill ≈ 0.041, chromaticApproach ≈ 0.039, octaveSwell ≈ 0.033 — all ~8× under
+// the 0.31 melody) is heard as texture and may keep echoing the coming pitch; it is sparkle, pinned
+// at MEL_BASE×0.7 ≈ 0.245 (only ~21% under the tune), that reads as a note. 0.12 ≈ 8 dB under the
+// melody = the audibility line the diagnosis measured with, so the detector and the fix agree.
+export const PREECHO_MIN_GAIN = 0.12
 // the right hand leads by ≥20%: every non-melody voice ≤ concurrent melody × LEAD. Absolute.
 export const MELODY_LEAD = 0.8
 // audible floor — a voice shaded down by many multiplied factors (accent × contour × section ×
@@ -40,15 +62,42 @@ export const BASS_LEGATO_OVERLAP = 0.2
 const melodyOnsets = (events) =>
   events.filter((e) => e.role === 'melody').map((e) => e.startBeat).sort((a, b) => a - b)
 
+const melodyAttacks = (events) =>
+  events.filter((e) => e.role === 'melody' && e.midi != null)
+    .map((e) => ({ beat: e.startBeat, midi: e.midi }))
+    .sort((a, b) => a.beat - b.beat)
+
 // §1 CONDUCTOR. Embellishments (sparkle / gapFill / chromaticApproach) and ลูกรับส่ง (answerFills)
-// are ALL role 'emb'. Keep one only when its onset sits in a melodic gap — at least `gap` beats from
-// the melody attack immediately before AND after it. melody / comp / bass are never touched here
-// (the tune and its foundation always play); only the optional ลูกเล่น are policed. Pure + returns a
-// NEW array. No melody at all (chords-only) → nothing to protect, pass through unchanged.
+// are ALL role 'emb'. Keep one only when BOTH tests pass:
+//   (a) TIME — its onset sits in a melodic gap, ≥ `gap` beats from the melody attack immediately
+//       before AND after it (nothing plays on top of the tune);
+//   (b) PITCH — it does not PRE-ECHO the tune: it may not sound the pitch (unison or octave) of a
+//       melody attack arriving within the next `preEcho` beats. Test (a) alone declared the gap
+//       before an attack safe, which is exactly where a same-pitch ornament turns into a phantom
+//       extra melody note.
+// melody / comp / bass are never touched here (the tune and its foundation always play); only the
+// optional ลูกเล่น are policed. Pure + returns a NEW array. No melody at all (chords-only) → nothing
+// to protect, pass through unchanged.
 export function refereeNoClash(events, cfg = {}) {
   const gap = cfg.refereeGap ?? REFEREE_GAP
+  const look = cfg.refereePreEcho ?? PREECHO_LOOKAHEAD
+  const octaves = cfg.refereePreEchoOctaves ?? PREECHO_OCTAVES
+  const minGain = cfg.refereePreEchoMinGain ?? PREECHO_MIN_GAIN
   const onsets = melodyOnsets(events)
   if (!onsets.length) return events
+  const attacks = melodyAttacks(events)
+  // does this ลูกเล่น sing a pitch the tune is about to sing? (same chroma, within `octaves` octaves,
+  // arriving inside the look-ahead window). Onsets are sorted, so stop at the first one past it.
+  const preEchoes = (e) => {
+    if (e.midi == null || look <= 0 || e.gain < minGain) return false
+    for (const a of attacks) {
+      if (a.beat <= e.startBeat + 1e-9) continue
+      if (a.beat - e.startBeat > look + 1e-9) break
+      const d = Math.abs(a.midi - e.midi)
+      if (d % 12 === 0 && d <= octaves * 12) return true
+    }
+    return false
+  }
   const clearOfMelody = (b) => {
     let prev = -Infinity
     let next = Infinity
@@ -58,7 +107,7 @@ export function refereeNoClash(events, cfg = {}) {
     }
     return b - prev >= gap - 1e-9 && next - b >= gap - 1e-9
   }
-  return events.filter((e) => e.role !== 'emb' || clearOfMelody(e.startBeat))
+  return events.filter((e) => e.role !== 'emb' || (clearOfMelody(e.startBeat) && !preEchoes(e)))
 }
 
 // §2 GUARD (balance floor). Run LAST, after every gain is final (post-clampAll). For each non-melody
