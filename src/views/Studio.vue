@@ -105,6 +105,12 @@ onUnmounted(() => {
 function onChange(song) {
   liveSong.value = song
 }
+// ฝึกร้อง's inline pencil edits the SAME live song, but hands up only the new v2 content
+// (it can't see id/title_en). Merge it onto liveSong so the SSOT keeps every field and all
+// surfaces (แผ่นเพลง, Download JSON, save) see the edit — exactly like the editor's change.
+function onViewerContent(content) {
+  if (liveSong.value) liveSong.value = { ...liveSong.value, content }
+}
 // save persistence stays inside the editor (it owns the editing state + Supabase writes);
 // this is the contract's observability hook, kept so the shell can react later if needed
 function onSave() {}
@@ -330,7 +336,7 @@ function printSheet() {
 
     <!-- ===== ดู — reading / sing-along view (WT-A owns SongViewer) ===== -->
     <div v-show="mode === 'view'">
-      <SongViewer v-if="viewerSong" :song="viewerSong" @dock="viewDock = $event" />
+      <SongViewer v-if="viewerSong" :song="viewerSong" :tier="tier" @update-content="onViewerContent" />
       <p v-else class="muted" style="padding: 16px">ยังไม่มีเพลงให้แสดง — ไปที่ “แก้” เพื่อเริ่มสร้างเพลง</p>
     </div>
 

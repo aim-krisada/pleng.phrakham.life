@@ -368,13 +368,49 @@ function onSegFocus(e, li, bi, si) {
   focusedSeg.value = `${li}-${bi}-${si}`
   // focus landed on a note box (not a syllable) → note-entry selection, no ◀▶
   if (e.target.classList?.contains('note-box')) selSlot.value = -1
+  toolLevel.value = 'note' // clicking/typing a note (or its lyric) selects the เนื้อ/โน้ต level
   anchorToolbox(e.target) // centre the toolbox on the actually-focused element
 }
 function onSegOutside(e) {
-  if (!e.target.closest?.('.seg-col') && !e.target.closest?.('.slot-tools')) {
+  // keep the selection (and its toolbar) alive while interacting with the note/syllable boxes
+  // OR the one bar toolbar (foot) — the note tools now live there, so clicking them must not
+  // clear focus. Clicking anywhere else closes it.
+  if (!e.target.closest?.('.seg-col') && !e.target.closest?.('.ed-bar-foot')) {
     focusedSeg.value = ''
     selSlot.value = -1
   }
+}
+
+// ===== unified contextual toolbar — step 1 (P'Aim 21 ก.ค.) =====
+// The per-bar action buttons used to repeat under EVERY ห้อง (เปลืองที่). Show them only on the
+// ห้อง the user clicked into — i.e. the bar that holds the focused note. barToolsOn(li,bi) is the
+// gate; every other bar keeps only its ✓/❌ beat status. (Next steps fold note/บรรทัด/ข้อ tools
+// into this same one-place toolbar.)
+const toolCtx = computed(() => {
+  if (!focusedSeg.value) return null
+  const [li, bi, si] = focusedSeg.value.split('-').map(Number)
+  return { li, bi, si }
+})
+function barToolsOn(li, bi) {
+  const c = toolCtx.value
+  return !!c && c.li === li && c.bi === bi
+}
+// which level the one toolbar is editing — set by clicking a note/ห้อง/บรรทัด/ข้อ, or by the
+// quick-switch tabs. Default 'note' (the smallest unit you click). The toolbar shows ONLY this
+// level's tools (P'Aim 21 ก.ค.: no more note+bar mixed in one view).
+const toolLevel = ref('note') // 'note' | 'bar' | 'line' | 'verse'
+const TOOL_LEVELS = [
+  { id: 'note', label: 'เนื้อ/โน้ต' },
+  { id: 'bar', label: 'ห้อง' },
+  { id: 'line', label: 'บรรทัด' },
+  { id: 'verse', label: 'ข้อ' },
+]
+// click the ห้อง area (not a note box) → select that bar + show ห้อง tools. Focusing the bar's
+// first note keeps toolCtx/barToolsOn pointed here (so the one toolbar renders on this bar).
+function pickBar(li, bi, e) {
+  if (e && e.target.closest('.note-box, .syl-box, .chord-cell, button, input, select, .ed-bar-foot')) return
+  focusedSeg.value = `${li}-${bi}-0`
+  toolLevel.value = 'bar'
 }
 watch(focusedSeg, (v) => {
   if (v) setTimeout(() => document.addEventListener('mousedown', onSegOutside), 0)
@@ -716,6 +752,32 @@ function focusRow(i) {
   } else {
     lensChoice.value = i
   }
+}
+
+// click-to-edit (issue6/7): click a bar on the whole-song preview → jump the cursor to that
+// exact bar in the EXISTING editor. Uses the provenance resolveContent already stamps
+// (_stanza / _stanzaLine / _entryIndex) — no new surface, no schema change. `si` is the
+// segment index within the resolved line (SongSheet's seg.si), mapped back to the source bar.
+function jumpToSource({ li, si }) {
+  const rLine = resolvedPreview.value.lines?.[li]
+  if (!rLine) return
+  const st = stanzas.value.find((s) => s.id === rLine._stanza)
+  const srcLine = st?.lines?.[rLine._stanzaLine]
+  if (!srcLine) return
+  // find which bar the si-th segment sits in
+  let count = -1
+  let targetBar = 0
+  for (let b = 0; b < srcLine.bars.length; b++) {
+    let hit = false
+    for (let s = 0; s < srcLine.bars[b].segments.length; s++) {
+      if (++count === si) { targetBar = b; hit = true; break }
+    }
+    if (hit) break
+  }
+  // focusRow points activeStanza + lens at the clicked verse; then focus the bar once its
+  // note boxes have re-rendered for the (possibly newly) active stanza.
+  if (rLine._entryIndex != null && rLine._entryIndex >= 0) focusRow(rLine._entryIndex)
+  nextTick(() => nextTick(() => focusBar(rLine._stanzaLine, targetBar, false)))
 }
 // reorder a ท่อน from → to (shared by ▲▼ and drag) — the moved row stays selected.
 function moveRowTo(from, to) {
@@ -3035,6 +3097,7 @@ defineExpose({
             class="ed-bar"
             :class="{ 'bar-playing': playingBar === `${li}-${bi}` }"
             :data-bar="`${li}-${bi}`"
+            @click="pickBar(li, bi, $event)"
           >
             <!-- A (editor-preview-refine): live jianpu preview of THIS ห้อง, in place right above
                  its edit boxes — the same render the sheet draws, updating as you type. Read-only;
@@ -3048,24 +3111,9 @@ defineExpose({
                  directly under its note (edit everything here — no duplicate preview) -->
             <div v-if="!barShown(li, bi)" class="seg-strip">
               <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col" @focusin="onSegFocus($event, li, bi, si)">
-                <!-- dock-space merged contextual toolbox (§10): ONE on-selection set per note,
-                     hoisted to .seg-col so it shows in EVERY mode. The selection is STICKY (selSlot
-                     /focusedSeg survive blur → fold/rotate/keyboard-close keep it · SA §7). Groups
-                     are mutually exclusive by what's selected: a NOTE box → octave ▼▲; a SYLLABLE →
-                     ◀▶ align. ⧉/✕ copy·delete the note (bar,si) always. Anchored + 344-clamped by CSS. -->
-                <span v-if="focusedSeg === `${li}-${bi}-${si}`" class="slot-tools" :style="tbxStyle">
-                  <template v-if="selSlot >= 0">
-                    <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(selSlot)">◀</button>
-                    <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(selSlot)">▶</button>
-                  </template>
-                  <template v-else>
-                    <button class="secondary slot-btn" aria-label="ลดเสียงลงหนึ่งช่วงเสียง" title="ลดเสียงลงหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(-1)">▼</button>
-                    <button class="secondary slot-btn" aria-label="เพิ่มเสียงขึ้นหนึ่งช่วงเสียง" title="เพิ่มเสียงขึ้นหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(1)">▲</button>
-                  </template>
-                  <span class="slot-div" aria-hidden="true"></span>
-                  <button class="secondary slot-btn" aria-label="คัดลอกโน้ตนี้" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" @mousedown.prevent @click="duplicateSegment(bar, si)"><Icon name="copy" :size="13" /></button>
-                  <button class="secondary slot-btn slot-del" aria-label="ลบโน้ตนี้" title="ลบโน้ตนี้ (ห้องยังอยู่)" @mousedown.prevent @click="removeSegment(bar, si)">✕</button>
-                </span>
+                <!-- P'Aim 21 ก.ค.: the floating per-note toolbox used to pop up SEPARATELY from the
+                     bar toolbar (two toolbars at once = ซ้ำซ้อน). The note tools now live in the ONE
+                     bar foot toolbar below (.ed-note-acts), so a click shows a single toolbar. -->
                 <div class="chord-row">
                   <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell" @keydown.esc="editingChord = null">
                     <!-- B109: Enter=ยืนยันคอร์ด via allow-custom (accept the typed value, not just a
@@ -3145,7 +3193,36 @@ defineExpose({
               <span v-if="bar.repeatStart" class="ed-bar-mark" title="เริ่มเล่นซ้ำ">‖:</span>
               <span v-if="bar.repeatEnd" class="ed-bar-mark" title="วนกลับ">:‖</span>
               <span v-if="bar.volta" class="ed-bar-mark" :title="bar.volta === 1 ? 'ห้องจบรอบแรก' : 'ห้องจบรอบสอง'">{{ bar.volta }}.</span>
-              <span class="ed-bar-acts">
+              <!-- P'Aim 21 ก.ค.: ONE toolbar that shows tools for the level you clicked, ONE at a
+                   time (no more note+ห้อง mixed). Quick-switch tabs flip the level; clicking a note
+                   → เนื้อ/โน้ต, clicking the ห้อง area → ห้อง. (บรรทัด/ข้อ come next.) -->
+              <span v-if="barToolsOn(li, bi)" class="ed-lvl-tabs" role="group" aria-label="เลือกระดับที่จะแก้">
+                <button
+                  v-for="lv in TOOL_LEVELS.filter(l => l.id === 'note' || l.id === 'bar')"
+                  :key="lv.id"
+                  class="ed-lvl-tab"
+                  :class="{ on: toolLevel === lv.id }"
+                  :aria-pressed="toolLevel === lv.id"
+                  @mousedown.prevent
+                  @click="toolLevel = lv.id"
+                >{{ lv.label }}</button>
+              </span>
+              <!-- เนื้อ/โน้ต tools: ▼▲ octave (or ◀▶ when a syllable box is picked) + copy/delete note -->
+              <span v-if="barToolsOn(li, bi) && toolLevel === 'note'" class="ed-note-acts">
+                <template v-if="selSlot >= 0">
+                  <button class="ed-mini" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(selSlot)">◀</button>
+                  <button class="ed-mini" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(selSlot)">▶</button>
+                </template>
+                <template v-else>
+                  <button class="ed-mini" aria-label="ลดเสียงลงหนึ่งช่วงเสียง" title="ลดเสียงลงหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(-1)">▼</button>
+                  <button class="ed-mini" aria-label="เพิ่มเสียงขึ้นหนึ่งช่วงเสียง" title="เพิ่มเสียงขึ้นหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(1)">▲</button>
+                </template>
+                <button class="ed-mini" aria-label="คัดลอกโน้ตนี้" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" @mousedown.prevent @click="duplicateSegment(bar, toolCtx?.si)"><Icon name="copy" :size="14" /></button>
+                <button class="ed-mini danger-ic" aria-label="ลบโน้ตนี้" title="ลบโน้ตนี้ (ห้องยังอยู่)" @mousedown.prevent @click="removeSegment(bar, toolCtx?.si)">✕</button>
+              </span>
+              <!-- ห้อง tools + the ⋯ menu. Kept in the DOM (CSS-hidden off-level) so keyboard/AT
+                   reach them only when ห้อง is the active level. -->
+              <span class="ed-bar-acts" :class="{ 'bar-tools-off': !(barToolsOn(li, bi) && toolLevel === 'bar') }">
                 <button class="ed-mini" title="ฟังห้องนี้" aria-label="ฟังห้องนี้" @click="playBar(li, bi)"><Icon name="play" :size="14" /></button>
                 <button class="ed-mini" :class="{ on: barShown(li, bi) }" :aria-pressed="barShown(li, bi)" title="ดูผล — สลับ แก้ ⇄ แผ่นเพลง (ห้องนี้)" aria-label="ดูผลห้องนี้" @click="toggleBarShown(li, bi)"><Icon name="music" :size="14" /></button>
                 <!-- B092: bar move/copy/delete surfaced out of the ⋯ popover — one tap, no menu.
@@ -3157,7 +3234,7 @@ defineExpose({
                 <button class="ed-mini bar-act-wide" title="ทำซ้ำทั้งห้องนี้ (วางเป็นห้องถัดไปทันที) — ถ้าอยากวางที่ท่อนอื่น ใช้ ⋯ › คัดลอกห้อง" aria-label="ทำซ้ำห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)"><Icon name="copy" :size="14" /></button>
                 <button class="ed-mini danger-ic bar-act-wide" title="ลบทั้งห้องนี้ (ทุกโน้ตในห้อง)" aria-label="ลบห้องนี้" @click="removeBar(line, bi)"><Icon name="trash-2" :size="14" /></button>
               </span>
-              <span class="ed-bar-more-wrap">
+              <span class="ed-bar-more-wrap" :class="{ 'bar-tools-off': !barToolsOn(li, bi) }">
                 <button
                   class="ed-mini"
                   :class="{ on: barMenuOpen === `${li}-${bi}` }"
@@ -3357,7 +3434,8 @@ defineExpose({
              (font-size, not transform → keeps SongSheet's tie overlay measuring real px),
              so there is no horizontal scroll and no clipped column. -->
         <div class="ed-float-page" :style="previewPageStyle">
-          <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
+          <!-- click-to-edit (issue6/7): tap a bar here → cursor jumps to it in the editor -->
+          <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" interactive @seek="jumpToSource" />
         </div>
       </div>
       <!-- resize by dragging this bottom-right corner (desktop only; mobile is full-screen) -->
@@ -4697,6 +4775,10 @@ defineExpose({
    side, wrapping only when very long). stack is the default (matches the prototype). */
 .ed-strip { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
 .ed-strip.lay-flow { flex-direction: row; }
+/* NOTE: the "equal-width ห้อง via shrinking boxes" trial was reverted — it misaligned syllables
+   from their notes (looked like ripple broken). The real fix is P'Aim's world-class direction:
+   render notes as compact text by default, and only the ห้อง you click turns into edit boxes
+   (edit-in-place per bar). That gives equal/compact bars WITHOUT shrinking input boxes. */
 .ed-strip.lay-stack { flex-direction: column; align-items: stretch; gap: 8px; }
 .ed-strip.lay-stack .ed-barline { display: none; } /* 1 bar/row — no vertical barline needed */
 .ed-strip.lay-stack .ed-bar { width: 100%; }
@@ -4705,7 +4787,22 @@ defineExpose({
 .ed-bar { display: flex; flex-direction: column; gap: 6px; border-radius: 8px; padding: 4px 2px 2px; }
 .ed-bar .seg-strip { gap: 10px; flex-wrap: nowrap; }
 .ed-bar.bar-playing { background: var(--cream); box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.15); }
-.ed-bar-foot { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.ed-bar-foot { display: flex; align-items: center; gap: 6px; font-size: 12px; flex-wrap: wrap; }
+/* the ONE bar toolbar (P'Aim): note group + bar group, clearly separated so the two ⧉/✕ read
+   as different scopes. Responsive: wraps on a narrow screen (world-class + responsive-ready). */
+/* quick-switch tabs: flip which level the one toolbar edits (P'Aim: สลับเร็ว, ไม่เกะกะ) */
+.ed-lvl-tabs { display: inline-flex; gap: 2px; margin-left: auto; }
+.ed-lvl-tab {
+  border: 1px solid var(--line); background: #fff; color: var(--muted);
+  border-radius: 6px; padding: 3px 9px; font-size: 11px; font-weight: 700; cursor: pointer;
+  min-height: 26px;
+}
+.ed-lvl-tab.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+.ed-lvl-tab:not(.on):hover { background: var(--cream); border-color: var(--brand); color: var(--brand); }
+.ed-note-acts { display: inline-flex; align-items: center; gap: 4px; }
+.ed-note-acts + .ed-bar-acts { margin-left: 0; } /* the note group already pushed to the right */
+.ed-grp-label { font-size: 11px; color: var(--muted); font-weight: 700; padding: 0 2px; }
+.ed-grp-div { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; }
 .ed-bar-status { color: var(--muted); }
 .ed-bar-status.bad { color: var(--red); font-weight: 700; }
 .ed-bar-mark { font-family: 'Courier New', monospace; font-weight: 700; color: var(--brand); font-size: 12px; }
@@ -4725,6 +4822,11 @@ defineExpose({
 .ed-bar-pickup.on { background: var(--brand); color: #fff; }
 .ed-bar-acts { display: inline-flex; gap: 4px; margin-left: auto; }
 .ed-bar-more-wrap { position: relative; }
+/* P'Aim: bar tools only take space on the ห้อง you clicked into — hide on every other bar */
+.ed-bar-acts.bar-tools-off,
+.ed-bar-more-wrap.bar-tools-off { display: none; }
+/* push the ✓/❌ status to the right when the action row is hidden, so the foot stays tidy */
+.ed-bar-acts.bar-tools-off + * { margin-left: auto; }
 /* ดูผล render: the clean bar drawn in place of the edit grid (tap to go back to editing) */
 .ed-bar-render {
   border: 1px dashed var(--brand);

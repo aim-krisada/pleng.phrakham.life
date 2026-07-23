@@ -74,14 +74,20 @@ describe('B098 — note vs bar copy/delete: 4 distinct actions at two scopes', (
     expect(byAria(w, 'ลบห้องนี้').length).toBe(2)
   })
 
-  it('scopes are visually separated: note tools sit in the seg-col, bar tools do NOT', async () => {
+  // P'Aim 21 ก.ค.: the note tools moved OUT of the seg-col into the ONE bar toolbar (foot), in a
+  // distinct "note" group (.ed-note-acts) next to the "bar" group (.ed-bar-acts) — so a click shows
+  // a single toolbar, and the two ⧉/✕ read as different scopes by their group, not two toolbars.
+  it('scopes are separated: note tools in the note group, bar tools in the bar group — one toolbar', async () => {
     const w = mountEd()
     await nextTick()
     await focusNote(w, 0)
-    expect(byAria(w, 'คัดลอกโน้ตนี้').every((b) => b.element.closest('.seg-col'))).toBe(true)
-    expect(byAria(w, 'ลบโน้ตนี้').every((b) => b.element.closest('.seg-col'))).toBe(true)
-    expect(byAria(w, 'ทำซ้ำห้องนี้').every((b) => !b.element.closest('.seg-col'))).toBe(true)
-    expect(byAria(w, 'ลบห้องนี้').every((b) => !b.element.closest('.seg-col'))).toBe(true)
+    expect(byAria(w, 'คัดลอกโน้ตนี้').every((b) => b.element.closest('.ed-note-acts'))).toBe(true)
+    expect(byAria(w, 'ลบโน้ตนี้').every((b) => b.element.closest('.ed-note-acts'))).toBe(true)
+    expect(byAria(w, 'ทำซ้ำห้องนี้').every((b) => b.element.closest('.ed-bar-acts') && !b.element.closest('.ed-note-acts'))).toBe(true)
+    expect(byAria(w, 'ลบห้องนี้').every((b) => b.element.closest('.ed-bar-acts'))).toBe(true)
+    // both groups live in the SAME one bar toolbar (foot) — not two separate toolbars
+    expect(byAria(w, 'คัดลอกโน้ตนี้').every((b) => b.element.closest('.ed-bar-foot'))).toBe(true)
+    expect(byAria(w, 'ลบห้องนี้').every((b) => b.element.closest('.ed-bar-foot'))).toBe(true)
   })
 
   it('COPY note: duplicates ONE segment in place — the bar stays, no bar added', async () => {

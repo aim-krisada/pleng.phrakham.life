@@ -169,6 +169,8 @@ export function resolveContent(content) {
       outLine._stanza = entry.stanza
       outLine._melodyFirst = melodyFirst
       outLine._entryIndex = ei // B102 — which arrangement entry this display line belongs to
+      outLine._stanzaLine = li // click-to-edit: source line index within its stanza, so a click
+                               // on the preview traces back to the exact editable line/bar
       out.push(outLine)
     })
   })

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { displayChord } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, slurSpans, arcPlan } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, slurSpans, arcPlan, syllableSlots, melismaSpans } from '../lib/notation.js'
 import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
@@ -11,6 +11,9 @@ const props = defineProps({
   displayKey: { type: String, default: '' }, // transpose target; '' = original
   playingSeg: { type: Object, default: null }, // { li, si } currently sounding
   playingSyl: { type: Object, default: null }, // { li, si, syk } syllable+note sounding now (B006)
+  // inline-edit selection (separate from playback): { li, si, syk, layer:'note'|'word' }. Boxes
+  // the selected note + its word as one column; the active layer (note or word) is stronger.
+  editSel: { type: Object, default: null },
   interactive: { type: Boolean, default: false }, // tap a syllable/note to jump there (reader)
   songTitle: { type: String, default: '' }, // prints as the centered heading above the song
   // Independent layer flags (B024 "แสดงผล" menu). null = fall back to `mode` so every
@@ -156,6 +159,34 @@ function activeNote(li, si) {
   const p = props.playingSyl
   return p && p.li === li && p.si === si && p.syk != null ? p.syk : -1
 }
+// which note-slot in this segment is SELECTED for editing (NoteRow draws the blue box), or -1
+function editNote(li, si) {
+  const s = props.editSel
+  return s && s.li === li && s.si === si && s.syk != null ? s.syk : -1
+}
+// is a given syllable the one selected for editing?
+function isEditSyl(li, si, k) {
+  const s = props.editSel
+  return !!(s && s.li === li && s.si === si && s.syk === k)
+}
+// B011 lyric alignment — when a segment shows BOTH its melody row and its per-syllable
+// lyric row (v2), lay the segment out as a grid whose columns are shared by the notes and
+// the syllables (one column per syllable-bearing note). Each syllable — including a blank
+// melisma slot — is then pinned directly under its own note, so a bar where the note count
+// differs from the visible word count (e.g. 3 notes / 2 words, one held across two notes)
+// still reads unambiguously. Returns the column count (= note slots) or 0 when the grid
+// should not apply (notes hidden, lyrics-only line, or v1 segment without syllable slots).
+// Columns = the segment's NOTE-BOX count (syllableSlots), NOT seg.syllables.length: a held /
+// tied note-box gets its own column even when the arrangement supplied no word for it (an
+// under-supplied verse, e.g. "1.~ ~1" with a single word), so every note keeps a column and
+// none wraps to a second row. Syllables auto-fill the leading columns; any trailing wordless
+// note-box (the tie/hold) simply leaves its column blank.
+function alignCols(seg, first) {
+  if (!(noteOn(first) && Array.isArray(seg.syllables) && !lineLyricsOnly(first))) return 0
+  return syllableSlots(seg.note || '')
+}
+const editNoteActive = computed(() => props.editSel?.layer === 'note')
+const editWordActive = computed(() => props.editSel?.layer === 'word')
 // per-syllable highlight (v2 only): the exact word sounding now
 function isSyl(li, si, k) {
   const p = props.playingSyl
@@ -222,6 +253,26 @@ function measureTies() {
     const lr = lineEl.getBoundingClientRect()
     const nts = Array.from(lineEl.querySelectorAll('.note-row .nt'))
     const arcs = []
+    // B011b — pin each chord's LEFT edge over the FIRST note of its segment. The chord row
+    // spans all grid columns (so a long chord like C#dim / G7 never widens a note column and
+    // never overflows onto the next segment's sizing) — which parked it at the column's left
+    // edge, a few px LEFT of the centered note digit (พี่เอม: "คอร์ดเยื้อง"). We nudge it right
+    // by a transform (no box change → no ResizeObserver feedback loop) so its left corner sits
+    // exactly at the first note's left edge — lead-sheet style: the chord starts on the note it
+    // changes on and holds rightward. The offset is note.left − segment.left (independent of the
+    // chord's own transform), re-measured on the same resize / fonts / beforeprint pass as the
+    // arcs, so it stays correct at print scale too.
+    lineEl.querySelectorAll('.segment.seg-grid').forEach((seg) => {
+      const chord = seg.querySelector('.chord')
+      if (!chord) return
+      const note = seg.querySelector('.note-row .nt[data-idx="0"] .num')
+      if (!chord.textContent.trim() || !note) { chord.style.transform = ''; return }
+      const sr = seg.getBoundingClientRect()
+      const nr = note.getBoundingClientRect()
+      if (!sr.width || !nr.width) return
+      const dx = nr.left - sr.left
+      chord.style.transform = dx > 0.5 ? `translateX(${dx.toFixed(1)}px)` : ''
+    })
     nts.forEach((nt, i) => {
       if (!nt.classList.contains('tie-end')) return
       // The tie's SOURCE is the DIGIT this receiver ties back to. When that note is held by
@@ -274,7 +325,8 @@ function measureTies() {
       line.parts.forEach((p) => {
         if (p.segments) p.segments.forEach((s) => { notesBySi[s.si] = s.note || '' })
       })
-      const spans = slurSpans(notesBySi).filter((sp) => !sp.sameSegment)
+      const allSlurs = slurSpans(notesBySi)
+      const spans = allSlurs.filter((sp) => !sp.sameSegment)
       for (const sp of spans) {
         const openNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.open.si}"] .nt[data-idx="${sp.open.idx}"]`)
         const closeNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.close.si}"] .nt[data-idx="${sp.close.idx}"]`)
@@ -311,6 +363,52 @@ function measureTies() {
           const grp = openNt.closest('.note-group')
           hideHalf(grp && grp.querySelector('.slur-arc'))
           arcs.push(...produced)
+        }
+      }
+      // --- derived melisma slurs (P2) -----------------------------------------------------
+      // A syllable held across several notes (a worded note + following blank 'attack' notes,
+      // e.g. "ดวง" over "6 1 6"[0]) carries no ( ) in the data, so nothing else draws an arc —
+      // the reader would have to GUESS the note is held. Derive the span from the syllable
+      // slots (melismaSpans) and draw it with the SAME overlay + buildArc as the ( ) slurs
+      // above, so a held vowel reads as one engraved curve. NoteRow is untouched (no ( ) →
+      // no NoteRow arc to hide). A derived span is SKIPPED when it overlaps ANY authored ( )
+      // slur — cross-segment (drawn here) AND within-segment (drawn by NoteRow) — so a bar
+      // that carries an explicit slur is never double-arced or stacked (the author's slur wins).
+      const segsForLine = []
+      line.parts.forEach((p) => {
+        if (p.segments) p.segments.forEach((s) => segsForLine.push({ si: s.si, note: s.note || '', syllables: s.syllables || [] }))
+      })
+      // (si,idx) reading order is lexicographic (segments left→right, note idx within); two
+      // spans overlap iff each starts at/before the other ends.
+      const leTuple = (a, b) => a.si < b.si || (a.si === b.si && a.idx <= b.idx)
+      const overlapsAuthoredSlur = (sp) =>
+        allSlurs.some((e) => leTuple(sp.open, e.close) && leTuple(e.open, sp.close))
+      for (const sp of melismaSpans(segsForLine)) {
+        if (overlapsAuthoredSlur(sp)) continue
+        const openNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.open.si}"] .nt[data-idx="${sp.open.idx}"]`)
+        const closeNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.close.si}"] .nt[data-idx="${sp.close.idx}"]`)
+        if (!openNt || !closeNt) continue
+        const ao = openNt.getBoundingClientRect()
+        const bc = closeNt.getBoundingClientRect()
+        if (!ao.width || !bc.width) continue
+        const h = Math.max(ao.height, bc.height)
+        const xOpen = ao.left + ao.width / 2 - lr.left
+        const xClose = bc.left + bc.width / 2 - lr.left
+        if (arcPlan(ao, bc, h) === 'single') {
+          const yTop = Math.min(ao.top, bc.top) - lr.top
+          if (xClose - xOpen >= 2) arcs.push(buildArc(xOpen, xClose, yTop, h))
+        } else {
+          // wrapped across a visual row break → two halves, same as the ( ) slur path
+          let rowRight = xOpen
+          let rowLeft = xClose
+          for (const el of nts) {
+            const r = el.getBoundingClientRect()
+            if (!r.width) continue
+            if (Math.abs(r.top - ao.top) <= h * 0.6) rowRight = Math.max(rowRight, r.right - lr.left)
+            if (Math.abs(r.top - bc.top) <= h * 0.6) rowLeft = Math.min(rowLeft, r.left - lr.left)
+          }
+          if (rowRight - xOpen >= 2) arcs.push(buildArc(xOpen, rowRight, ao.top - lr.top, h))
+          if (xClose - rowLeft >= 2) arcs.push(buildArc(rowLeft, xClose, bc.top - lr.top, h))
         }
       }
     }
@@ -405,12 +503,13 @@ watch(
             v-for="seg in part.segments"
             :key="seg.si"
             class="segment"
-            :class="{ 'seg-playing': isPlaying(row.li, seg.si) && !seg.syllables, 'seg-tap': interactive }"
+            :class="{ 'seg-playing': isPlaying(row.li, seg.si) && !seg.syllables, 'seg-tap': interactive, 'seg-grid': alignCols(seg, row.first) }"
+            :style="alignCols(seg, row.first) ? { gridTemplateColumns: `repeat(${alignCols(seg, row.first)}, auto)` } : null"
             :data-seg="`${row.li}-${seg.si}`"
             @click="seek(row.li, seg.si)"
           >
             <span v-if="chordOn(row.first)" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
-            <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :syllables="seg.syllables || null" :active="activeNote(row.li, seg.si)" />&nbsp;</span>
+            <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :syllables="seg.syllables || null" :active="activeNote(row.li, seg.si)" :sel="editNote(row.li, seg.si)" :sel-active="editNoteActive" />&nbsp;</span>
             <!-- v2: one span per syllable-bearing note -> highlight walks note by note (B006). -->
             <template v-if="sl">
               <!-- FULL display: syllable spans spread UNDER the notes (flex, karaoke alignment). -->
@@ -419,7 +518,7 @@ watch(
                   v-for="(w, k) in seg.syllables"
                   :key="k"
                   class="syl"
-                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
+                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k), 'syl-sel': isEditSyl(row.li, seg.si, k), 'syl-sel-active': isEditSyl(row.li, seg.si, k) && editWordActive }"
                   :data-syl="`${row.li}-${seg.si}-${k}`"
                   @click.stop="seek(row.li, seg.si, k)"
                 >{{ w || ' ' }}</span>
@@ -430,7 +529,7 @@ watch(
               <span v-else-if="seg.syllables" class="lyric lyric-words">
                 <template v-for="(w, k) in seg.syllables" :key="k"><span
                   class="syl"
-                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
+                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k), 'syl-sel': isEditSyl(row.li, seg.si, k), 'syl-sel-active': isEditSyl(row.li, seg.si, k) && editWordActive }"
                   :data-syl="`${row.li}-${seg.si}-${k}`"
                   @click.stop="seek(row.li, seg.si, k)"
                 >{{ w }}</span>{{ w ? ' ' : '' }}</template>
@@ -518,6 +617,21 @@ watch(
   color: #fff;
   font-weight: 700;
 }
+/* inline-edit selection on the WORD — a BLUE box matching the note's, so note+word read as
+   one selected column, distinct from the brown playback highlight (both can show at once). */
+.syl-sel {
+  background: rgba(37, 99, 235, 0.1);
+  box-shadow: inset 0 0 0 1.5px rgba(37, 99, 235, 0.45);
+}
+/* the WORD layer is the one being edited (vs its note) — stronger, solid border */
+.syl-sel-active {
+  background: rgba(37, 99, 235, 0.18);
+  box-shadow: inset 0 0 0 2px #2563eb;
+}
+/* while a word is selected for editing, the brown playback highlight still wins its own look
+   if the two coincide (playback sweeping over the note you're editing) — layer order keeps
+   both legible: the blue box is inset, the brown fill sits on top with white text. */
+.syl-sel.syl-playing { color: #fff; }
 /* B090 — end-of-song final barline ‖ = a THIN stroke + a THICK stroke (music standard).
    The shared .bar-final (styles.css) drew this as border-left+border-right on one 5px box,
    which read as a single line (พี่เปา). Render it instead as two bars — like .repeat-mark —

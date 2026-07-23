@@ -115,17 +115,17 @@ describe('B109 — bar / line keyboard navigation', () => {
   it('a jump carries the contextual toolbox to the new note automatically (focus → onSegFocus)', async () => {
     const w = mountEd()
     await nextTick()
-    noteInBar(w, '0-0').focus() // focusin → onSegFocus → focusedSeg = "0-0-0" → toolbox renders
+    noteInBar(w, '0-0').focus() // focusin → onSegFocus → focusedSeg = "0-0-0" → toolbar renders
     await nextTick()
-    let tb = w.find('.slot-tools')
+    let tb = w.find('.ed-note-acts')
     expect(tb.exists()).toBe(true)
     expect(tb.element.closest('[data-bar]')?.getAttribute('data-bar')).toBe('0-0')
     await key({ key: 'ArrowRight', ctrlKey: true }) // jumpBar → focusBar → .focus() on 0-1's note
     await nextTick()
-    tb = w.find('.slot-tools')
+    tb = w.find('.ed-note-acts')
     expect(tb.exists()).toBe(true)
-    // the ONE toolbox now lives in the jumped-to seg-col — UX gets anchor-follow for free (no need
-    // to set selSlot/focusedSeg manually: jump focuses a real element, which fires the handlers)
+    // the ONE bar toolbar now lives in the jumped-to bar's foot — anchor-follow for free (the jump
+    // focuses a real note element, which fires onSegFocus → barToolsOn moves to the new bar)
     expect(tb.element.closest('[data-bar]')?.getAttribute('data-bar')).toBe('0-1')
   })
 })

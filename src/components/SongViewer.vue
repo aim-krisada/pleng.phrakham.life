@@ -7,13 +7,14 @@
 // the 2-row dock (ไทม์ไลน์ · คีย์ · เลือกท่อน · transport · Aa · ⚙ + pin). Mounted directly
 // here; แผ่นเพลง and แก้ไข mount their own DockKey the same way.
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { KEYS } from '../lib/chords.js'
+import { KEYS, chordOptions } from '../lib/chords.js'
 import {
   playSong, playEnsemble, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
   effectiveOrder, buildPlayNotes,
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
+import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -22,8 +23,11 @@ import { presetCfg, recommendRecipe, songFeatures } from '../lib/arranger/preset
 import { buildArrangeCfg, readTechniques } from '../lib/arranger/techniques.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
+import { noteBoxKinds } from '../lib/notation.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
+import NoteInputBar from './NoteInputBar.vue'
+import Icon from './Icon.vue'
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
 // view-only for everyone, so it is accepted but not used to gate anything — there are
@@ -32,6 +36,10 @@ const props = defineProps({
   song: { type: Object, required: true },
   tier: { type: String, default: 'guest' },
 })
+// The reading surface stays a READER: it never mutates props.song. When the pencil is on
+// and a note is retyped, it hands the OWNER (Studio → liveSong, the live v2 SSOT) a new
+// content via `update-content`; that flows back down as props.song and the sheet re-renders.
+const emit = defineEmits(['update-content'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -129,6 +137,395 @@ const printTitle = computed(() => {
   if (!s) return ''
   return (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
 })
+
+// ---- edit ON this sheet (P'Aim 21 ก.ค.) — the pencil lives HERE in ฝึกร้อง, not a separate
+// mode. The display is already correct, so we edit right on it. NOTE: this reverses the old
+// "no edit affordances in the reading surface regardless of tier" AC (US-A01 AC3) — P'Aim now
+// wants ฝึกร้อง to be the one surface: enter → sing → ✏️ edit by right. This step = select +
+// navigate (typing/ripple + chord-symbol popups + save come next).
+// Editing is OPEN TO EVERYONE — the 3-tier model (mission.md) lets even Tier 0 (ไม่ล็อกอิน /
+// คนทำเพลงภายนอก) แก้ · พิมพ์ · upload/download JSON. Only SAVING TO THE SERVER (draft/publish)
+// needs login; an anon keeps work via Download/Upload JSON. So the ✏️ shows for all; the save
+// step (D) is where the tier gate lives (logged-in → server · anon → download JSON).
+const canEdit = computed(() => true)
+const editMode = ref(false)
+// every selectable NOTE across the WHOLE song, in reading order, keyed by the {li, si, syk}
+// that SongSheet's @seek emits — syk = the note-box slot (same index midi.js/NoteRow's data-idx
+// use), so a melody with no words yet is still fully selectable.
+const inlineCells = computed(() => {
+  const cells = []
+  ;(resolved.value?.lines || []).forEach((line, li) => {
+    const ei = line._entryIndex ?? 0 // which ท่อน (verse) this display line belongs to
+    let si = -1
+    let bi = 0 // ห้อง (bar) ordinal within the line — bumped at each bar marker
+    let col = 0 // note COLUMN within the line (the word sits in the same column, below)
+    for (const item of line) {
+      if (item.type === 'bar') { bi++; continue }
+      if (item.type !== 'segment') continue
+      si++
+      let slot = 0
+      for (const kind of noteBoxKinds(item.note || '')) {
+        if (kind === 'struct') continue // slur/triplet brackets aren't their own note
+        cells.push({ li, si, syk: slot, bi, ei, col })
+        slot++
+        col++
+      }
+    }
+  })
+  return cells
+})
+// ONE cursor over BOTH layers — each note contributes two stops: the NOTE, then its LYRIC.
+// So ← → alone walks note → its word → next note → its word … and the keyboard never needs the
+// mouse to pick which layer to edit (world-standard inline editor). Note units sit at even
+// indices, word units at odd.
+const editUnits = computed(() =>
+  inlineCells.value.flatMap((c) => [{ ...c, layer: 'note' }, { ...c, layer: 'word' }]),
+)
+const curIdx = ref(-1)
+const curUnit = computed(() => (curIdx.value >= 0 ? editUnits.value[curIdx.value] || null : null))
+const selCell = computed(() =>
+  curUnit.value ? { li: curUnit.value.li, si: curUnit.value.si, syk: curUnit.value.syk } : null,
+)
+const selLayer = computed(() => curUnit.value?.layer ?? 'note') // derived — no separate ref
+// the selection handed to SongSheet — {li,si,syk,layer}. null when not editing / nothing selected.
+const editSel = computed(() => curUnit.value)
+// select an exact unit (cell + layer) — clicks/taps use this
+function selectUnit(li, si, syk, layer) {
+  const i = editUnits.value.findIndex((u) => u.li === li && u.si === si && u.syk === syk && u.layer === layer)
+  if (i >= 0) curIdx.value = i
+}
+// point the cursor at a whole cell's NOTE unit (coarse jumps + typing land on the note)
+function gotoCellNote(cell) { if (cell) selectUnit(cell.li, cell.si, cell.syk, 'note') }
+// Arrows move in the ACTUAL on-screen direction (notes = top row, that note's word = the row
+// just below it, lines stacked downward). Never gate on hover/pointer — plain geometry.
+// interleaved single step (note→word→note…) — used by the mobile ◀ ▶ and Space (no ↑↓ there)
+function moveUnit(step) {
+  const n = editUnits.value.length
+  if (!n) return
+  if (curIdx.value < 0) { curIdx.value = step > 0 ? 0 : n - 1; return }
+  curIdx.value = Math.max(0, Math.min(curIdx.value + step, n - 1))
+}
+// land on the nearest unit of (targetLi, layer) to the given column
+function gotoLineLayer(targetLi, col, layer) {
+  let bestI = -1, bestD = Infinity
+  editUnits.value.forEach((u, i) => {
+    if (u.li !== targetLi || u.layer !== layer) return
+    const d = Math.abs(u.col - col)
+    if (d < bestD) { bestD = d; bestI = i }
+  })
+  if (bestI >= 0) curIdx.value = bestI
+}
+// ← → : one step LEFT/RIGHT within the SAME row (note→note or word→word = same parity, ±2)
+function moveHoriz(step) {
+  const t = curIdx.value + step * 2
+  if (t >= 0 && t < editUnits.value.length) curIdx.value = t
+}
+// ↓ ↑ : one step DOWN/UP as drawn. down: note→its word, word→next line's note.
+// up: word→its note, note→previous line's word.
+function moveVert(dir) {
+  const u = curUnit.value
+  if (!u) { moveUnit(dir > 0 ? 1 : -1); return }
+  if (dir > 0) {
+    if (u.layer === 'note') curIdx.value = curIdx.value + 1 // down to its word
+    else gotoLineLayer(u.li + 1, u.col, 'note') // word → note of the line below
+  } else {
+    if (u.layer === 'word') curIdx.value = curIdx.value - 1 // up to its note
+    else gotoLineLayer(u.li - 1, u.col, 'word') // note → word of the line above
+  }
+}
+// Ctrl+← → : skip a whole ห้อง (bar). Next = first note of the next bar; Prev = first note of
+// this bar, else the previous bar (text-editor word-jump feel).
+function moveBar(dir) {
+  const cells = inlineCells.value
+  const cur = selCell.value
+  if (!cur) { moveUnit(dir > 0 ? 1 : -1); return }
+  const ci = cells.findIndex((c) => c.li === cur.li && c.si === cur.si && c.syk === cur.syk)
+  const key = (c) => `${c.li}-${c.bi}`
+  if (dir > 0) {
+    gotoCellNote(cells.slice(ci + 1).find((c) => key(c) !== key(cells[ci])))
+  } else {
+    const barStart = cells.slice(0, ci).reverse().find((c) => key(c) !== key(cells[ci]))
+    if (!barStart) { gotoCellNote(cells[0]); return }
+    gotoCellNote(cells.find((c) => key(c) === key(barStart)) || barStart)
+  }
+}
+// Ctrl+↑ ↓ : skip a whole บรรทัด (line) — nearest note of the line above/below
+function moveLineJump(dir) {
+  const u = curUnit.value
+  if (!u) { moveUnit(dir > 0 ? 1 : -1); return }
+  gotoLineLayer(u.li + dir, u.col, 'note')
+}
+// how a typed digit behaves — DEFAULT 'overwrite' (a number lands right ON the current note,
+// predictable "กด 1 = ใส่ 1 ตรงที่อยู่"). 'insert' (push the rest right) is the toggle for adding
+// notes. The Insert key flips it.
+const typeMode = ref('overwrite')
+function toggleTypeMode() { typeMode.value = typeMode.value === 'insert' ? 'overwrite' : 'insert' }
+// All keys arrive at the hidden capture <input> (focused on selection so the device keyboard
+// opens: numeric for a note, Thai text for a word). NOTE layer: digits/arrows/delete are
+// commands. WORD layer: text flows into the input (→ withSetSyllable), and ← → only leave the
+// word when the caret is at its edge; ↑ ↓ / space / Enter navigate.
+function onCaptureKey(e) {
+  if (!editMode.value) return
+  const ctrl = e.ctrlKey || e.metaKey
+  const word = selLayer.value === 'word'
+  const el = e.target
+  const atStart = word && (el.selectionStart ?? 0) === 0 && (el.selectionEnd ?? 0) === 0
+  const atEnd = word && (el.selectionStart ?? 0) >= el.value.length && (el.selectionEnd ?? 0) >= el.value.length
+  if (e.key === 'ArrowRight') { if (ctrl) { e.preventDefault(); moveBar(1) } else if (!word || atEnd) { e.preventDefault(); moveHoriz(1) } }
+  else if (e.key === 'ArrowLeft') { if (ctrl) { e.preventDefault(); moveBar(-1) } else if (!word || atStart) { e.preventDefault(); moveHoriz(-1) } }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); ctrl ? moveLineJump(1) : moveVert(1) }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); ctrl ? moveLineJump(-1) : moveVert(-1) }
+  else if (e.key === 'Insert') { e.preventDefault(); toggleTypeMode() }
+  else if (e.key === 'Enter') { e.preventDefault(); moveHoriz(1) }
+  else if (e.key === ' ') { e.preventDefault(); word ? moveHoriz(1) : moveUnit(1) } // space = next syllable/unit
+  else if (!word && e.key === 'Home') { e.preventDefault(); curIdx.value = 0 }
+  else if (!word && e.key === 'End') { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
+  // NOTE layer: digit = set the note; Delete = ลบอยู่กับที่ (rest); Backspace = เอาออกทั้งช่อง.
+  // Overwrite STAYS on the note (so you can add octave / ♯♭ to it before moving — P'Aim); use
+  // ← → / space to move on. Insert still advances so a new melody flows left-to-right.
+  else if (!word && /^[0-7]$/.test(e.key)) {
+    e.preventDefault()
+    if (typeMode.value === 'insert') insertDigit(e.key)
+    else overwriteDigit(e.key)
+  }
+  // desktop keyboard shortcuts for the note marks that ARE on a physical keyboard (so they need
+  // no button): # = sharp, b = flat (jianpu convention, same as the old note boxes).
+  else if (!word && (e.key === '#' || e.key === 'b')) { e.preventDefault(); accidentalSel(e.key) }
+  else if (!word && e.key === 'Delete') { e.preventDefault(); deleteSel() }
+  else if (!word && e.key === 'Backspace') { e.preventDefault(); removeCell() }
+  // WORD layer: an empty word + Backspace removes the whole cell; otherwise let the text edit
+  // (native) — onCaptureInput writes it back to the syllable.
+  else if (word && e.key === 'Backspace' && el.value === '') { e.preventDefault(); removeCell() }
+}
+// WORD layer: mirror the input's text into the current verse's syllable, live.
+function onCaptureInput(e) {
+  if (selLayer.value !== 'word') { e.target.value = ''; return } // note layer stays empty
+  const loc = cellLoc()
+  if (!loc) return
+  markTyping()
+  const next = withSetSyllable(props.song.content, loc, e.target.value)
+  if (next !== props.song.content) emit('update-content', next)
+}
+// resolve the selected NOTE's source address, or null (note ops only)
+function selLoc() {
+  const cell = selCell.value
+  if (!cell || selLayer.value !== 'note') return null
+  const rline = resolved.value?.lines?.[cell.li]
+  if (!rline || !rline._stanza) return null
+  return { resolvedLine: rline, si: cell.si, syk: cell.syk }
+}
+// resolve the current cell (any layer) — for the word ops that need _entryIndex
+function cellLoc() {
+  const cell = selCell.value
+  if (!cell) return null
+  const rline = resolved.value?.lines?.[cell.li]
+  if (!rline || rline._entryIndex == null) return null
+  return { resolvedLine: rline, si: cell.si, syk: cell.syk }
+}
+
+// ---- input surface: popup (desktop) vs bottom bar (mobile) ----
+// Choose by VIEWPORT WIDTH, never hover/pointer (Surface = touch+mouse reports coarse).
+const WIDE_MIN = 768
+const isWide = ref(typeof window !== 'undefined' ? window.innerWidth >= WIDE_MIN : true)
+function onResizeWidth() { isWide.value = window.innerWidth >= WIDE_MIN; updateNoteRect() }
+// When to show the toolbar (NoteInputBar):
+//  • Desktop (popup): only for a NOTE (the octave/mode buttons a keyboard lacks) — words edit
+//    inline with no popup. Needs an anchor rect.
+//  • Mobile (bar): whenever a cell is selected (it carries the arrows the on-screen keyboard
+//    lacks; note ops appear only on the note layer).
+const showToolbar = computed(() => {
+  if (!editMode.value || !selCell.value) return false
+  return isWide.value ? (selLayer.value === 'note' && !!noteRect.value) : true
+})
+// the selected note's on-screen rect — the desktop popup anchors to it (floats above/below,
+// never covering it). Re-read after any selection change and while scrolling.
+const noteRect = ref(null)
+function updateNoteRect() {
+  if (!editMode.value || !sheetWrap.value) { noteRect.value = null; return }
+  // anchor to the element of the CURRENT layer — the word span for word edits, the note glyph
+  // for notes (a note+word column stacks the note ABOVE the word, so mixing them mis-places the
+  // inline field ~30px high).
+  const sel = selLayer.value === 'word' ? '.syl-sel-active, .syl-sel' : '.nt-sel-active, .nt-sel'
+  const el = sheetWrap.value.querySelector(sel)
+  if (!el) { noteRect.value = null; return }
+  const r = el.getBoundingClientRect()
+  noteRect.value = { top: r.top, bottom: r.bottom, left: r.left, width: r.width }
+}
+// fade-on-type: while typing/editing quickly the popup dims + goes click-through; a >1s pause
+// (or clicking a note) brings it back — G's "quiet assistant". Bar variant ignores this.
+const dimPopup = ref(false)
+let typingTimer = null
+function markTyping() {
+  dimPopup.value = true
+  if (typingTimer) clearTimeout(typingTimer)
+  typingTimer = setTimeout(() => { dimPopup.value = false }, 1000)
+}
+// re-anchor + un-dim whenever the selection moves (a click/tap = "show me the tools")
+watch(selCell, () => { dimPopup.value = false; nextTick(updateNoteRect) })
+watch(editMode, (on) => { if (on) nextTick(updateNoteRect); else noteRect.value = null })
+
+// ---- capture input: brings up the device keyboard + carries lyric text (batch B) ----
+// A single <input> focused whenever a cell is selected. Focusing it opens the phone keyboard
+// (numeric for a note, Thai text for a word); on desktop the physical keyboard just works.
+const captureInput = ref(null)
+// the word under the cursor, read from THIS verse (resolved line's per-segment syllables)
+const currentWord = computed(() => {
+  const c = selCell.value
+  if (!c) return ''
+  const line = resolved.value?.lines?.[c.li]
+  if (!line) return ''
+  let si = -1
+  for (const it of line) {
+    if (it.type !== 'segment') continue
+    si++
+    if (si === c.si) return it.syllables?.[c.syk] ?? ''
+  }
+  return ''
+})
+// position the (mostly invisible) input right over the selected cell so the caret/keyboard
+// context sits there; a word shows its text, a note stays transparent (just holds focus).
+const captureStyle = computed(() => {
+  const r = noteRect.value
+  // no rect yet (just entered edit) — keep it off-screen but FOCUSABLE (display:none can't be
+  // focused, which is why pressing the pencil used to need a second click to start typing)
+  if (!r) return { position: 'fixed', left: '-9999px', top: '0', width: '1px', height: '1px', opacity: 0 }
+  const h = Math.max(16, r.bottom - r.top)
+  const base = { position: 'fixed', left: r.left + 'px', top: r.top + 'px', height: h + 'px' }
+  // WORD: an explicit width that hugs the word (a text input would otherwise default to ~20
+  // chars ≈ 216px and float over its neighbours) — grows a little so a few characters fit.
+  return selLayer.value === 'word'
+    ? { ...base, width: Math.max(r.width + 10, 32) + 'px' }
+    : { ...base, width: Math.max(r.width, 12) + 'px', opacity: 0, pointerEvents: 'none' }
+})
+async function focusCapture() {
+  await nextTick()
+  // Find the field via the DOM, not the template ref — on the FIRST mount (pressing the pencil)
+  // the ref can lag a tick, which is why focus used to need a second click.
+  const el = captureInput.value || sheetWrap.value?.querySelector('.sv-capture')
+  updateNoteRect()
+  if (!el || !editMode.value || !selCell.value) return
+  if (selLayer.value === 'word') {
+    if (el.value !== currentWord.value) el.value = currentWord.value
+    el.focus({ preventScroll: true })
+    const n = el.value.length
+    el.setSelectionRange?.(n, n)
+  } else {
+    el.value = ''
+    el.focus({ preventScroll: true })
+  }
+}
+// refocus + reload the field only when the SELECTION moves (curIdx), not on every content edit,
+// so live lyric typing isn't interrupted (same cell → same curIdx → no refocus).
+watch(curIdx, () => focusCapture())
+watch(editMode, (on) => { if (on) focusCapture() })
+// overwrite the selected note's pitch and tell the owner (Studio) — never touch props.song.
+function overwriteDigit(digit) {
+  const loc = selLoc()
+  if (!loc) return
+  markTyping()
+  const next = withNotePitch(props.song.content, loc, digit)
+  if (next !== props.song.content) emit('update-content', next)
+}
+// insert a new note at the cursor (ripple right); the cursor moves onto the note that got
+// pushed, so the next digit lands after this one (left-to-right entry). curIdx jumps +2 (to
+// the next NOTE unit) because the unit list is two longer after the emitted re-render.
+function insertDigit(digit) {
+  const loc = selLoc()
+  if (!loc) return
+  markTyping()
+  const next = withInsertedNote(props.song.content, loc, digit)
+  if (next !== props.song.content) { emit('update-content', next); curIdx.value = curIdx.value + 2 }
+}
+// Delete = ลบเฉพาะสิ่งที่เลือก (P'Aim Q1): on the NOTE layer the note becomes a rest (its word
+// + timing stay); on the WORD layer only that word is cleared (the note stays). Nothing else
+// shifts, and other verses are untouched — "ลบอันไหนอันนั้นหาย".
+function deleteSel() {
+  if (selLayer.value === 'word') clearWord()
+  else restNote()
+}
+// note layer → turn the note into a rest (0), keeping its slot + word; cursor stays on it.
+function restNote() {
+  const loc = selLoc()
+  if (!loc) return
+  markTyping()
+  const next = withRestAt(props.song.content, loc)
+  if (next !== props.song.content) emit('update-content', next)
+}
+// word layer → blank just this word in this verse; the note stays.
+function clearWord() {
+  const loc = cellLoc()
+  if (!loc) return
+  markTyping()
+  const next = withClearedSyllable(props.song.content, loc)
+  if (next !== props.song.content) emit('update-content', next)
+}
+// Backspace = remove the WHOLE cell (note box + its word slot in every verse) so the line
+// actually gets shorter. Works from either layer. Cursor steps back to the previous note.
+function removeCell() {
+  const loc = cellLoc()
+  if (!loc) return
+  markTyping()
+  const ci = Math.floor(curIdx.value / 2)
+  const wasLast = inlineCells.value.length <= 1
+  const next = withDeletedNote(props.song.content, loc)
+  if (next !== props.song.content) {
+    emit('update-content', next)
+    curIdx.value = wasLast ? -1 : Math.max(0, ci - 1) * 2
+  }
+}
+// octave ± and sharp/flat on the selected note (no ripple — the slot count is unchanged).
+function octaveSel(dir) {
+  const loc = selLoc()
+  if (!loc) return
+  markTyping()
+  const next = withOctaveShift(props.song.content, loc, dir)
+  if (next !== props.song.content) emit('update-content', next)
+}
+function accidentalSel(acc) {
+  const loc = selLoc()
+  if (!loc) return
+  markTyping()
+  const next = withAccidental(props.song.content, loc, acc)
+  if (next !== props.song.content) emit('update-content', next)
+}
+// the chord picker's options for the song's key ("— ไม่มีคอร์ด —" first = clear)
+const chordOpts = computed(() => chordOptions(props.song?.content?.key || 'C'))
+// set / clear the chord on the selected note's segment (chord '' = remove, keep the note)
+function setChord(chord) {
+  const loc = cellLoc()
+  if (!loc) return
+  markTyping()
+  const next = withChord(props.song.content, loc, chord)
+  if (next !== props.song.content) emit('update-content', next)
+  focusCapture()
+}
+// ---- toolbar taps (special buttons only — digits/text come from the device keyboard) ----
+// Every button uses @mousedown.prevent (in NoteInputBar) so the capture input keeps focus and
+// the phone keyboard stays open. After each we re-focus the input to be safe.
+function barNav(dir) {
+  if (dir === 'left') moveHoriz(-1)
+  else if (dir === 'right') moveHoriz(1)
+  else if (dir === 'up') moveVert(-1)
+  else if (dir === 'down') moveVert(1)
+  focusCapture()
+}
+function barOctave(dir) { if (curIdx.value >= 0) { gotoCellNote(selCell.value); octaveSel(dir); focusCapture() } }
+function barAccidental(acc) { if (curIdx.value >= 0) { gotoCellNote(selCell.value); accidentalSel(acc); focusCapture() } }
+// a note click bubbles to the wrapper — read the exact note from .nt[data-idx] in its
+// .segment[data-seg] (a word .syl is @click.stop, so it comes back through onSeek instead)
+function onInlinePick(e) {
+  if (!editMode.value) return
+  const nt = e.target.closest?.('.nt[data-idx]')
+  if (!nt) return
+  const seg = nt.closest('.segment[data-seg]')
+  if (!seg) return
+  const [li, si] = seg.dataset.seg.split('-').map(Number)
+  selectUnit(li, si, Number(nt.dataset.idx), 'note') // tapped the note glyph → edit the NOTE
+}
+function toggleEdit() {
+  editMode.value = !editMode.value
+  if (editMode.value && curIdx.value < 0 && editUnits.value.length) curIdx.value = 0
+}
 // B053 — source book(s) + scripture caption, same data + label helper as the catalog card
 // (SongList). Shown once at the top of the reading surface so a singer sees where the song
 // comes from without leaving ฝึกร้อง. book_refs → human labels via lib/bookCodes.
@@ -308,6 +705,7 @@ const SCROLL_PAUSE_MS = 3500
 let pausedScrollUntil = 0
 function onUserScroll() {
   if (playing.value) pausedScrollUntil = Date.now() + SCROLL_PAUSE_MS
+  if (editMode.value) updateNoteRect() // keep the desktop popup glued to the scrolling note
 }
 async function scrollToPlaying() {
   if (!sheetWrap.value) return
@@ -560,16 +958,24 @@ onMounted(() => {
   selectAllSecs() // B105: first-load default = every ท่อน ticked (the identity watcher isn't immediate)
   window.addEventListener('wheel', onUserScroll, { passive: true })
   window.addEventListener('touchmove', onUserScroll, { passive: true })
+  window.addEventListener('resize', onResizeWidth)
+  nextTick(() => { isWide.value = window.innerWidth >= WIDE_MIN }) // re-read once layout has a real width
 })
 onUnmounted(() => {
   window.removeEventListener('wheel', onUserScroll)
   window.removeEventListener('touchmove', onUserScroll)
+  window.removeEventListener('resize', onResizeWidth)
+  if (typingTimer) clearTimeout(typingTimer)
   stopPlayback()
 })
 
 // tap a syllable/note in the sheet → jump playback there (US H1). Find the note's index
 // in the CURRENT play order and start from it, in the current key.
 function onSeek({ li, si, syk }) {
+  // ✏️ on: a tap SELECTS the note/word for editing instead of jumping playback. A word (.syl)
+  // is @click.stop so it only reaches here → edit the WORD; a note-area tap also fires this
+  // (syk 0) but onInlinePick runs after and overrides to the exact note + layer 'note'.
+  if (editMode.value) { selectUnit(li, si, syk, 'word'); return } // tapped a word → edit the WORD
   const notes = playNotes.value
   let idx = notes.findIndex((n) => n.li === li && n.si === si && n.syk === syk)
   if (idx < 0) idx = notes.findIndex((n) => n.li === li && n.si === si) // rest/blank slot
@@ -589,7 +995,35 @@ function onSeek({ li, si, syk }) {
       <div v-if="song.scripture" class="scripture-tag muted">📖 {{ song.scripture }}</div>
     </div>
 
-    <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: readingFontScale + 'rem' }">
+    <!-- while editing: a small hint + autosave note ride above the sheet -->
+    <div v-if="editMode" class="sv-edit-hint no-print" role="status">
+แตะโน้ตแล้วพิมพ์เลข · แตะคำแล้วพิมพ์เนื้อ (คีย์บอร์ดขึ้นเอง) · <b>← → ↑ ↓</b> เลื่อน · ปุ่มพิเศษ (สูง/ต่ำ · ♯♭ · แทรก/ทับ) อยู่ในแถบ · <b>Delete</b> ลบอยู่กับที่ · <b>Backspace</b> เอาออกทั้งช่อง
+    </div>
+
+    <div
+      ref="sheetWrap"
+      class="sheet-scale"
+      :class="{ 'sv-editing': editMode }"
+      :style="{ fontSize: readingFontScale + 'rem' }"
+      @click="onInlinePick"
+    >
+      <!-- the focused capture field — opens the device keyboard on a phone (numeric for a note,
+           Thai text for a word) and carries the typed lyric. Sits over the selected cell. -->
+      <input
+        v-if="editMode && selCell"
+        ref="captureInput"
+        class="sv-capture no-print"
+        :class="{ 'on-word': selLayer === 'word' }"
+        :inputmode="selLayer === 'word' ? 'text' : 'numeric'"
+        :style="captureStyle"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        aria-label="ช่องพิมพ์แก้โน้ต/คำ"
+        @keydown="onCaptureKey"
+        @input="onCaptureInput"
+      />
       <SongSheet
         :content="resolved"
         :mode="sheetMode"
@@ -600,11 +1034,25 @@ function onSeek({ li, si, syk }) {
         :display-key="displayKey"
         :playing-seg="playingSeg"
         :playing-syl="playingSyl"
+        :edit-sel="editMode ? editSel : null"
         interactive
         :song-title="printTitle"
         @seek="onSeek"
       />
     </div>
+
+    <!-- ✏️ edit — a floating round action button (Google-Docs pattern), bottom-right above the
+         play dock, shown only by right. Tap = enter edit; while editing it becomes ✓ เสร็จ.
+         The play dock stays put so you can listen while you edit. -->
+    <button
+      v-if="canEdit"
+      class="sv-fab no-print"
+      :class="{ editing: editMode }"
+      :aria-pressed="editMode"
+      :title="editMode ? 'เสร็จ — กลับไปฝึกร้อง' : 'แก้ไขเพลงนี้'"
+      :aria-label="editMode ? 'เสร็จการแก้ไข' : 'แก้ไขเพลงนี้'"
+      @click="toggleEdit"
+    ><Icon :name="editMode ? 'check' : 'pencil'" :size="24" /></button>
 
     <!-- B107: on first play the chosen instrument's samples download (~2–3 MB, cached after);
          this pill shows the progress, like the MP3 export. Playback starts once it's ready.
@@ -616,8 +1064,10 @@ function onSeek({ li, si, syk }) {
     </div>
 
     <!-- the sing dock — DockKey core engine, fed the ITEMS_SING descriptor list by
-         <SingTransport>. Fixed at the bottom; the engine owns collapse/drag/Setting/clamp. -->
+         <SingTransport>. Fixed at the bottom; the engine owns collapse/drag/Setting/clamp.
+         While editing, it steps aside for the note-input bar (locked wireframe context B). -->
     <SingTransport
+      v-show="!editMode"
       :playing="playing"
       :loop="loop"
       :frac="frac"
@@ -647,10 +1097,117 @@ function onSeek({ li, si, syk }) {
       @toggle-section="toggleSection"
       @set-all="setAll"
     />
+
+    <!-- EPIC C — the note-input surface (number pad + jianpu symbols + แทรก/ทับ). While editing:
+         a floating popup glued to the selected note on a WIDE screen (fades while you type), or a
+         bottom keyboard-accessory bar on a phone (the only way to enter notes without a hardware
+         keyboard). Chosen by width, never hover/pointer. Same edit engine via bar* handlers. -->
+    <NoteInputBar
+      v-if="showToolbar"
+      :variant="isWide ? 'popup' : 'bar'"
+      :layer="selLayer"
+      :anchor="isWide ? noteRect : null"
+      :dimmed="dimPopup"
+      :mode="typeMode"
+      :chords="chordOpts"
+      @nav="barNav"
+      @octave="barOctave"
+      @accidental="barAccidental"
+      @chord="setChord"
+      @toggle-mode="typeMode = typeMode === 'insert' ? 'overwrite' : 'insert'"
+    />
   </div>
 </template>
 
 <style scoped>
+/* ✏️ edit — a floating action button (Material/Google-Docs pattern), shown only to editors.
+   Bottom-right, in the thumb zone, riding ABOVE the play dock so listening keeps working. */
+.sv-fab {
+  position: fixed;
+  right: 24px;
+  /* desktop/tablet: the play dock is a CENTERED pill (bottom:8px, ≤700px wide), so the FAB
+     drops to the same baseline in the bottom-right CORNER — it reads as a companion control on
+     the dock's line, balanced against the centered dock + page margin. On a phone the dock goes
+     nearly full-width, so the FAB lifts ABOVE it (media query below) to avoid overlap. */
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--brand, #8b4513);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+.sv-fab:hover { box-shadow: 0 5px 16px rgba(0, 0, 0, 0.34); transform: translateY(-1px); }
+.sv-fab:active { transform: translateY(0); }
+.sv-fab:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* editing → a green "done" (✓), the Google-Docs affordance to leave edit mode. While
+   editing, the play dock is hidden and the ~60px note-input bar sits at the bottom, so the
+   FAB drops to just above THAT bar (same on desktop + phone). */
+.sv-fab.editing {
+  background: #16a34a;
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+}
+/* phone: the dock is ~full-width at the bottom, so lift the FAB clear of it */
+@media (max-width: 640px) {
+  .sv-fab { right: 16px; bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* while editing, a slim hint bar above the sheet */
+.sv-edit-hint {
+  color: var(--muted, #64748b);
+  font-size: 13px;
+  margin: 2px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sv-edit-hint b { color: var(--text, #0f172a); }
+
+/* the sheet is the edit surface — a soft focus ring shows it is "live" */
+.sheet-scale.sv-editing {
+  cursor: text;
+  outline: none;
+  border-radius: 10px;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+/* the capture input — positioned over the selected cell (inline styles set top/left/size).
+   A note keeps it invisible (opacity:0 inline) just to hold keyboard focus; a WORD shows the
+   text being typed, styled to read as editing on the sheet. */
+.sv-capture {
+  z-index: 46;
+  margin: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  padding: 0;
+  min-height: 0; /* beat the global input min-height so it hugs the word's line height */
+  min-width: 0;
+  box-sizing: border-box;
+  line-height: 1.1;
+}
+/* WORD edit = INLINE, seamless: sit exactly over the word, same font, opaque sheet background
+   (covers the underlying word cleanly), no box — just a thin brand underline as the "editing"
+   cue + the caret. Reads as typing on the sheet, not a floating dialog. */
+.sv-capture.on-word {
+  color: var(--ink, #0f172a);
+  background: var(--surface, #fff);
+  border: none;
+  border-bottom: 2px solid var(--brand, #8b4513);
+  border-radius: 0;
+  padding: 0;
+  text-align: center;
+  outline: none;
+  caret-color: var(--brand, #8b4513);
+}
+
 /* Leave room so the fixed transport dock (S4 <StudioDock>/<SingTransport>) never covers
    the last line while singing. The dock is ~147px on wider screens but grows to ~191px
    once its controls wrap at ≤480px; add the iOS home-indicator inset on top so the last
@@ -658,6 +1215,17 @@ function onSeek({ li, si, syk }) {
 .sheet-scale { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 480px) {
   .sheet-scale { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
+}
+/* Reading-view tidy ("ง่าย" · P'Aim 21 ก.ค.) — the notation size is LOCKED at the standard
+   (like MuseScore/Soundslice: fixed staff size + a separate Aa zoom, never per-song rescaling).
+   To stop it sitting cramped on the left of a wide screen, center the sheet block as a page:
+   width shrinks to its content and centers, so wide screens get even margins instead of dead
+   right space. Screen only — the A4 print sheet (แผ่นเพลง mode) is untouched. Justifying each
+   line to the right margin ("เต็มสูตร") is the next step. */
+.sheet-scale :deep(.sheet-root) {
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
 }
 
 /* B107 — "loading real piano" hint, a small pill sitting just above the fixed dock. Purely

@@ -60,7 +60,7 @@ describe('dock-space §10 — one hoisted contextual toolbox per note', () => {
     await nextTick()
     expect(w.find('.seg-tools').exists()).toBe(false)
     // and the toolbox is hidden until something is selected
-    expect(w.find('.slot-tools').exists()).toBe(false)
+    expect(w.find('.ed-note-acts').exists()).toBe(false)
   })
 
   it('focusing a NOTE box shows octave ▼▲ + copy + delete (no ◀▶ — nothing to align)', async () => {
@@ -68,7 +68,7 @@ describe('dock-space §10 — one hoisted contextual toolbox per note', () => {
     await nextTick()
     w.findAll('.note-box')[0].element.focus() // focusin → seg-col → focusedSeg, selSlot = -1
     await nextTick()
-    const st = w.find('.slot-tools')
+    const st = w.find('.ed-note-acts')
     expect(st.exists()).toBe(true)
     const aria = ariaOf(st)
     expect(aria.some((a) => a.includes('เพิ่มเสียงขึ้น'))).toBe(true) // ▲ octave up
@@ -84,7 +84,7 @@ describe('dock-space §10 — one hoisted contextual toolbox per note', () => {
     w.findAll('.note-box')[0].element.focus() // editorFocusIn sets activeInput
     await nextTick()
     expect(w.findAll('.note-box')[0].element.value).toBe('5')
-    const up = w.find('.slot-tools').findAll('button').find((b) => (b.attributes('aria-label') || '').includes('เพิ่มเสียงขึ้น'))
+    const up = w.find('.ed-note-acts').findAll('button').find((b) => (b.attributes('aria-label') || '').includes('เพิ่มเสียงขึ้น'))
     await up.trigger('click')
     await nextTick()
     expect(w.findAll('.note-box')[0].element.value).toBe("5'")
@@ -98,7 +98,7 @@ describe('dock-space §10 — one hoisted contextual toolbox per note', () => {
     await syl.trigger('focusin') // seg-col focusin → focusedSeg
     await syl.trigger('focus') // syllable → focusedSlot + selSlot
     await nextTick()
-    const st = w.find('.slot-tools')
+    const st = w.find('.ed-note-acts')
     expect(st.exists()).toBe(true)
     const aria = ariaOf(st)
     expect(aria.some((a) => a.includes('ดึงคำมาซ้าย'))).toBe(true) // ◀
@@ -115,12 +115,12 @@ describe('dock-space §10 — one hoisted contextual toolbox per note', () => {
     await syl.trigger('focusin')
     await syl.trigger('focus')
     await nextTick()
-    expect(ariaOf(w.find('.slot-tools')).some((a) => a.includes('ดึงคำมาซ้าย'))).toBe(true) // ◀ shown
+    expect(ariaOf(w.find('.ed-note-acts')).some((a) => a.includes('ดึงคำมาซ้าย'))).toBe(true) // ◀ shown
     syl.element.blur() // fold/rotate/keyboard-close
     await nextTick()
     // toolbox + ◀▶ still there (selSlot + focusedSeg both sticky), no refocus forced
-    expect(w.find('.slot-tools').exists()).toBe(true)
-    expect(ariaOf(w.find('.slot-tools')).some((a) => a.includes('ดึงคำมาซ้าย'))).toBe(true)
+    expect(w.find('.ed-note-acts').exists()).toBe(true)
+    expect(ariaOf(w.find('.ed-note-acts')).some((a) => a.includes('ดึงคำมาซ้าย'))).toBe(true)
   })
 
   it('copy in the toolbox duplicates the note (wired to duplicateSegment)', async () => {
@@ -129,24 +129,23 @@ describe('dock-space §10 — one hoisted contextual toolbox per note', () => {
     expect(w.findAll('.seg-col').length).toBe(1)
     w.findAll('.note-box')[0].element.focus()
     await nextTick()
-    const copy = w.find('.slot-tools').findAll('button').find((b) => (b.attributes('aria-label') || '').includes('คัดลอกโน้ตนี้'))
+    const copy = w.find('.ed-note-acts').findAll('button').find((b) => (b.attributes('aria-label') || '').includes('คัดลอกโน้ตนี้'))
     await copy.trigger('click')
     await nextTick()
     expect(w.findAll('.seg-col').length).toBe(2) // note duplicated
   })
 
-  // dock-space GATE2 concern A: the toolbox anchors to the FOCUSED element's x (not the segment
-  // centre). jsdom has no layout (getBoundingClientRect = 0) so the pixel value can't be asserted
-  // here — the real-Chrome pixel check is the tester's — but the mechanism must wire: focusing sets
-  // an inline left/transform on the toolbox (anchorToolbox → tbxStyle), not the static CSS left:50%.
-  it('anchoring: focusing a note applies an inline x-position to the toolbox', async () => {
+  // P'Aim 21 ก.ค.: the note tools are no longer a SEPARATE floating box anchored over the notes
+  // (that made two toolbars at once = ซ้ำซ้อน). They now sit in the ONE bar toolbar (foot), in the
+  // note group — so a single click shows a single toolbar.
+  it('the note tools sit in the ONE bar toolbar (foot), not a separate floating box', async () => {
     const w = mountEd(NOTE_SONG)
     await nextTick()
     w.findAll('.note-box')[0].element.focus()
     await nextTick()
-    const style = w.find('.slot-tools').attributes('style') || ''
-    expect(style).toContain('left') // positioned to the focused element, not CSS left:50%
-    expect(style).toContain('translateX') // includes the clamp-shift transform
+    const st = w.find('.ed-note-acts')
+    expect(st.exists()).toBe(true)
+    expect(st.element.closest('.ed-bar-foot')).toBeTruthy() // inside the one bar toolbar
   })
 
   it('continuity: the toolbox SURVIVES a blur (sticky focusedSeg), cleared only by an outside pointer', async () => {
@@ -156,12 +155,12 @@ describe('dock-space §10 — one hoisted contextual toolbox per note', () => {
     nb.focus()
     await nextTick()
     await new Promise((r) => setTimeout(r)) // let the outside-pointer listener attach (setTimeout 0, matches onBarMenuOutside)
-    expect(w.find('.slot-tools').exists()).toBe(true)
+    expect(w.find('.ed-note-acts').exists()).toBe(true)
     nb.blur() // fold/rotate/keyboard-close blurs the input
     await nextTick()
-    expect(w.find('.slot-tools').exists()).toBe(true) // still there — selection kept
+    expect(w.find('.ed-note-acts').exists()).toBe(true) // still there — selection kept
     document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })) // explicit outside tap
     await nextTick()
-    expect(w.find('.slot-tools').exists()).toBe(false) // now dismissed
+    expect(w.find('.ed-note-acts').exists()).toBe(false) // now dismissed
   })
 })
