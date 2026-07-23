@@ -59,7 +59,7 @@
 
 | กลไกมาตรฐาน | สเปกเขียนว่า | ตรงกับของเรา |
 |---|---|---|
-| **MusicXML `time-only`** [🔗](https://www.w3.org/2021/06/musicxml40/musicxml-reference/data-types/time-only/) | *"used to indicate that a particular playback- or listening-related element only applies particular times through a repeated section"* · รับ **ลิสต์เลขรอบคั่นจุลภาค** · ใช้ได้กับ `<sound>` `<note>` `<lyric>` `<tie>` ฯลฯ | **`flow.jump` · `flow.skip` · `flow.times`** — สั่งเป็น "รอบไหน" ได้โดย **ไม่ต้องคลี่** |
+| **MusicXML `time-only`** [🔗](https://www.w3.org/2021/06/musicxml40/musicxml-reference/data-types/time-only/) | *"used to indicate that a particular playback- or listening-related element only applies particular times through a repeated section"* · รับ **ลิสต์เลขรอบคั่นจุลภาค** · ใช้ได้กับ `<sound>` `<note>` `<lyric>` `<tie>` ฯลฯ | **`flow.jump` · `flow.skip` · `flow.times`** — สั่งเป็น "รอบไหน" ได้โดย **ไม่ต้องกางเป็น through-composed** |
 | **MEI `<volta>`** [🔗](https://music-encoding.org/guidelines/v5/elements/volta.html) | *"Sung text for a specific iteration of a repeated section of music"* · **parent = `<verse>` / `<refrain>`** · มีไว้สำหรับกรณี *"the musical notation is repeated, but the accompanying lyrics are not"* | **เคสเพลง 105 ตรงตัว** — โน้ตซ้ำแต่เนื้อไม่ซ้ำ |
 | **MEI `<expansion @plist>`** [🔗](https://music-encoding.org/guidelines/v5/elements/expansion.html) | *"Indicates how a section may be programmatically expanded into its through-composed form"* · `@plist` = **ลำดับ id ของ section/ending ตามลำดับเล่นจริง** (ตัวอย่างในสเปก: `#A #End1 #A #End2`) | **`flow.path` มีชื่อมาตรฐานอยู่แล้ว** — จัดโครงให้เหมือนกันจะ export ตรงๆ ได้ |
 
@@ -73,7 +73,7 @@
 | `tocoda` / `coda` | จุดเริ่ม / จุดหมายของการข้ามไป coda · **"By default, this jump occurs on the second pass through a repeated section"** | `flow.jump: "coda"` · **มาตรฐานระบุค่าปกติไว้ให้แล้ว = รอบที่ 2** |
 | `fine` | *"Follows the final note or rest in a movement with a da capo or dal segno direction"* | `[จบ]` / `kind:'fine'` |
 | `forward-repeat` | *"a forward repeat sign is implied but not displayed"* | เผื่อไว้: เพลงที่ย้อนกลับต้นโดยไม่มี `‖:` เขียนไว้ |
-| **`time-only`** | *"which times to apply the sound element if the sound element applies only particular times through a repeat"* | 🔴 **นี่คือตัวที่ทำให้ `flow.jump` รายข้อ export ได้โดยไม่ต้องคลี่** |
+| **`time-only`** | *"which times to apply the sound element if the sound element applies only particular times through a repeat"* | 🔴 **นี่คือตัวที่ทำให้ `flow.jump` รายข้อ export ได้โดยไม่ต้องกางเป็น through-composed** |
 
 ⚠️ **ข้อควรระวังที่ผมต้องระบุเอง ไม่ให้แกว่งไปอีกทาง:** `time-only` นับเป็น **"รอบที่เท่าไหร่ของท่อนที่ซ้ำ"**
 · แมปกับ "ข้อที่เท่าไหร่" ของเราได้ **เมื่อข้อนั้นคือรอบของการซ้ำจริงๆ** (เพลงสโตรฟิกทั่วไป = ใช่)
@@ -100,6 +100,12 @@
 
 **id ต้องถาวร ไม่ใช่ตำแหน่ง** — นี่คือการปิดกับดัก **broken reference** ที่ G เตือน
 (แก้ทำนองแล้วห้องเลื่อน/ถูกลบ → override ที่อ้างเลขห้องจะชี้ผิดเงียบๆ)
+
+> ✅ **และมาตรฐานทำแบบเดียวกัน** — MEI `<expansion @plist>` นิยามไว้ว่าเป็น
+> *"an ordered list of **identifiers** of descendant section, ending, lem, or rdg elements"*
+> [🔗](https://music-encoding.org/guidelines/v5/elements/expansion.html)
+> ⇒ **มาตรฐานอ้างลำดับการเล่นด้วย id ไม่ใช่ตำแหน่ง เหมือนกับที่เราตัดสินจากเหตุผลวิศวกรรม**
+> — เขียนอ้างไว้ตรงนี้เพื่อไม่ให้มีใครมาเถียงทีหลังว่า "ทำไมไม่ใช้เลขห้องให้ง่ายกว่า"
 ### 2.1.1 🔴 อ้างอิงพัง (broken reference) — ออกแบบให้จบ ไม่ใช่หมายเหตุท้ายไฟล์
 
 **นี่คือบั๊กตระกูล "ข้อมูลหายเงียบ"** (กลุ่มเดียวกับ B108) — ผู้ใช้ไม่รู้ตัวและกู้ไม่ได้
@@ -150,8 +156,13 @@ id ออกตอน**สร้างเครื่องหมาย** ติ
 > ⇒ **ยังคงหลัก "เจ้าของเดียวต่อข้อเท็จจริง"** จาก `song-structure.md` — เจ้าของถูกกำหนดตาม
 > **ขอบเขต** (ทำนอง = ทุกข้อ · แถว = ข้อนั้น) **ไม่ใช่เก็บซ้ำ 2 ที่**
 
-**ชื่อ pattern (ไม่ต้องประดิษฐ์เอง):** **Inheritance & Override** — ในเครื่องมือทำเพลง/ออกแบบเรียก
-**Master / Instance** หรือ *Template with Local Overrides*
+**ชื่อ pattern:** **Inheritance & Override** · ในวงการออกแบบ/เครื่องมือเรียก **Master / Instance**
+หรือ *Template with Local Overrides*
+
+> ⚠️ **ต้องเขียนกำกับ: ชื่อพวกนี้ไม่ใช่ศัพท์มาตรฐานดนตรี** — ยืมมาจากวงการซอฟต์แวร์/ออกแบบ ·
+> **มาตรฐานดนตรีไม่มีชื่อเรียกสำหรับ inherit + override** · ที่ MEI มีคือ `@copyof` / `@sameas`
+> ซึ่งเป็น **"สำเนา" คนละเรื่องกับ "สืบทอดแล้วทับบางส่วน"**
+> ⇒ ใช้ชื่อนี้ต่อได้เพื่อสื่อสารในทีม **แต่ห้ามให้ใครเข้าใจว่าเป็นศัพท์ทางการของมาตรฐานดนตรี**
 
 ⛔ **ห้ามใช้ชื่อ `endingOverride`** — *Ending* ในทางดนตรีแปลว่า **volta (ห้องจบรอบ)** เท่านั้น ·
 เคสเราคือ **การเดินเพลง (navigation flow)** คนละเรื่อง · ชื่อผิดทำให้คนรุ่นหลังใช้ผิดที่
@@ -248,10 +259,19 @@ id ออกตอน**สร้างเครื่องหมาย** ติ
 | R3 | `arrangement[i].flow` + **กฎทับค่า "มีค่า = ใช้ค่านั้น"** ในเอนจินลำดับการเล่นที่รวมแล้ว (G8a) | **M** | R5 | ❌ ไม่ — อ่านอย่างเดียว · เพลงที่ไม่มี `flow` ทำงานเหมือนเดิมทุกประการ |
 | R4 | lint: override ที่อ้าง id ที่ถูกลบ = **กำพร้า → เตือน ไม่ลบเงียบ ไม่เล่นมั่ว** | S | — | ❌ ไม่ |
 | R5 | UI แบบ 2-7 ผ่านคำสั่งภาษาคน + ช่องขั้นสูง (⛔ ไม่ทำ `path`) | M | — | ❌ ไม่ (ผู้ใช้ใส่เอง) |
-| R6 | **MusicXML export — เบากว่าที่เคยเขียนไว้มาก** · แบบ 2,3,4,7 ส่งออกได้ตรงๆ ด้วย **`time-only`** ⛔ **ไม่ต้องคลี่** · **คลี่จำเป็นเฉพาะ `path` และ `skipSections` ที่แมปไม่ลง** (ฝั่ง MEI มี `<expansion @plist>` รองรับ `path` อยู่แล้ว) | — (อยู่ใน gap #4) | — | ❌ ไม่ (อยู่ใน gap #4) |
+| R6 | **MusicXML export** · แบบ 2,3,4,7 **แมปกับ `time-only` ได้ในระดับสเปก** ⛔ ไม่ต้องกางเป็น **through-composed form** · กางจำเป็นเฉพาะ `path`/`skipSections` ที่แมปไม่ลง (ฝั่ง MEI มี `<expansion @plist>`) · 🔴 **ดูข้อจำกัดบังคับด้านล่างก่อนเขียนโค้ด** | — (อยู่ใน gap #4) | — | ❌ ไม่ (อยู่ใน gap #4) |
 
 **ลำดับ:** **R1 + R2** (เตรียมข้อมูล · ต้องเสร็จก่อนทุกอย่าง) → **R3** (เอนจิน · พิสูจน์ด้วย unit test
 ล้วน ไม่ต้องรอ UI) → **R4** → **R5** · R6 แยกไปกับงาน export
+
+### 🔴 ข้อจำกัดบังคับของ R6 — **"สเปกรองรับ ≠ โปรแกรมจริงทำตาม"**
+
+⛔ **ห้ามเขียน/ห้ามเคลมว่า "export แล้วเปิดในโปรแกรมอื่นได้ถูก"** จนกว่าจะมีคนทดสอบจริง
+**ยังไม่มีใครทดสอบว่า MuseScore / Finale / Sibelius / Verovio อ่าน `time-only` แล้ว *เล่นถูก* หรือไม่**
+· สิ่งที่ยืนยันได้ตอนนี้มีแค่ **"มาตรฐานรองรับ"** เท่านั้น
+· **`time-only` เป็นแอตทริบิวต์ฝั่ง playback** — โปรแกรมที่สนใจแต่การพิมพ์อาจมองข้ามได้โดยไม่ผิดสเปก
+⇒ **ตอนทำ R6 ต้องมีขั้นทดสอบกับโปรแกรมจริงก่อนประกาศว่าใช้ได้** · ถ้าโปรแกรมไหนไม่รองรับ
+ค่อยถอยไปกางเป็น through-composed สำหรับปลายทางนั้น (fallback ที่รู้ล่วงหน้าว่าอาจต้องใช้)
 
 ### 🔴 ข้อควรระวังของ R1 — ตัวเดียวที่แตะข้อมูลเดิม (PM เกทพิเศษ)
 - ⛔ **ห้าม bulk-write ลงคลัง** — ห้ามรันสคริปต์ไล่เติม id ให้ 170 เพลง (กฎบ้าน: ห้าม re-import/bulk-write)
