@@ -94,6 +94,27 @@ const ARC_BUILDERS = { slur: slurArc, tieStart: tieStartArc, tieEnd: tieEndArc }
 function applyArc(el, kind) {
   const build = ARC_BUILDERS[kind]
   if (!build) return
+  // Slur: anchor the arc span to the FIRST→LAST note-head CENTRES of its group, MEASURED like
+  // the beam — not a fixed % of the group box. A seg-grid column (B011) is sized to its (often
+  // wider) syllable, so the digit is centred inside a box wider than itself; the old
+  // left:8%/width:84% then started the arc at the column's left edge — overshooting left of the
+  // "3" and across the bar line (พี่เอม). Spanning centre→centre puts the tips on the noteheads,
+  // matching the overlay slurs (tie arcs are redrawn by SongSheet's overlay, so are unaffected).
+  if (kind === 'slur') {
+    const group = el.parentElement
+    const nums = group ? group.querySelectorAll('.nt .num') : null
+    if (group && nums && nums.length >= 2) {
+      const gr = group.getBoundingClientRect()
+      const a = nums[0].getBoundingClientRect()
+      const b = nums[nums.length - 1].getBoundingClientRect()
+      if (gr.width && a.width && b.width) {
+        const x0 = a.left + a.width / 2 - gr.left
+        const x1 = b.left + b.width / 2 - gr.left
+        el.style.left = x0.toFixed(1) + 'px'
+        el.style.width = Math.max(1, x1 - x0).toFixed(1) + 'px'
+      }
+    }
+  }
   // clientWidth = the SVG's own rendered box; setting viewBox width to it makes the x-axis
   // 1:1, so preserveAspectRatio="none" no longer distorts horizontally.
   const w = el.clientWidth || (el.getBoundingClientRect && el.getBoundingClientRect().width) || 0
