@@ -11,6 +11,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
 import { isValidChord } from '../lib/chords.js'
+import { readHints } from '../lib/keyHints.js'
 
 const props = defineProps({
   variant: { type: String, default: 'bar' }, // 'bar' | 'popup'
@@ -19,9 +20,51 @@ const props = defineProps({
   dimmed: { type: Boolean, default: false }, // fade + click-through while typing (popup)
   mode: { type: String, default: 'overwrite' }, // 'insert' | 'overwrite' — the แทรก/ทับ state
   chords: { type: Array, default: () => [] }, // [{value,label}] for the key ('' = ไม่มีคอร์ด)
+  hintNonce: { type: Number, default: 0 }, // bumped by the host when a new key position is learned
 })
-const emit = defineEmits(['octave', 'accidental', 'toggle-mode', 'nav', 'chord'])
+const emit = defineEmits(['octave', 'accidental', 'toggle-mode', 'nav', 'chord', 'symbol'])
 const helpOpen = ref(false)
+
+// ---- the symbol keys (DS note-symbol-set §4.1 / G17) ------------------------------------
+// The 12 characters the inline editor accepts. พี่เปา types happily but cannot FIND the
+// characters ("^ ไม่รู้อยู่ตรงไหนใน keyboard"), so each button is a key-equivalent label in the
+// Apple-HIG sense: line 1 IS the character it types (here the shortcut and the result are the
+// same thing), line 2 names it in Thai, line 3 shows where that key lives — measured on this
+// machine, never a guessed table, and omitted whenever we are not certain (lib/keyHints.js).
+// ⛔ No tooltip/hover anywhere: this laptop reports hover:none with a mouse attached.
+// ⛔ ',' and '!' are absent on purpose — the parser gives them no meaning yet.
+const SYMBOL_GROUPS = [
+  {
+    name: 'ความยาว',
+    keys: [
+      { ch: '_', th: 'เขบ็ต' },
+      { ch: '.', th: 'จุดเพิ่ม' },
+      { ch: '-', th: 'ลากเสียง' },
+      { ch: '~', th: 'โยงเสียง' },
+      { ch: '^', th: 'ยืดเสียง' },
+    ],
+  },
+  {
+    name: 'เสียง',
+    keys: [
+      { ch: 'n', th: 'เนเชอรัล' },
+      { ch: "'", th: 'สูงหนึ่งช่วง' },
+    ],
+  },
+  {
+    name: 'กลุ่ม/ห้อง',
+    keys: [
+      { ch: '(', th: 'เอื้อน เปิด' },
+      { ch: ')', th: 'เอื้อน ปิด' },
+      { ch: '{', th: 'สามพยางค์ เปิด' },
+      { ch: '}', th: 'สามพยางค์ ปิด' },
+      { ch: '|', th: 'กั้นห้อง' },
+    ],
+  },
+]
+// char → "⇧ + 6" style label, filled in as the user actually types each character
+const keyHints = ref(readHints())
+function refreshHints() { keyHints.value = readHints() }
 const chordOpen = ref(false)
 function pickChord(v) { chordOpen.value = false; chordText.value = ''; chordBad.value = false; emit('chord', v) }
 // Free text beside the quick-pick: the quick-pick only lists the key's common chords, but worship
@@ -87,6 +130,8 @@ function onVV() {
   const vv = window.visualViewport
   kbInset.value = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0
 }
+// a newly learned key position must appear on its button straight away
+watch(() => props.hintNonce, () => { refreshHints(); nextTick(place) })
 watch(() => props.anchor, () => nextTick(place), { deep: true })
 watch(() => props.variant, () => nextTick(place))
 // opening/closing the chord picker or the (i) help changes the popup's HEIGHT, and place()
@@ -156,6 +201,27 @@ onUnmounted(() => {
 
       <!-- (i) keyboard help — desktop popup: which keys do what (things with no button) -->
       <button v-if="variant === 'popup'" class="nib-key nib-help" :class="{ on: helpOpen }" :aria-expanded="helpOpen" aria-label="คีย์ลัดคีย์บอร์ด" title="คีย์ลัดคีย์บอร์ด" @click="helpOpen = !helpOpen"><Icon name="info" :size="18" /></button>
+    </div>
+
+    <!-- the symbol keys — grouped so 12 buttons read in about a second, and every button states
+         its own character + Thai name (+ the physical key, once this machine has told us). -->
+    <div v-if="layer === 'note'" class="nib-syms" role="group" aria-label="สัญลักษณ์โน้ต">
+      <div v-for="g in SYMBOL_GROUPS" :key="g.name" class="nib-symgroup">
+        <span class="nib-symlabel" aria-hidden="true">{{ g.name }}</span>
+        <div class="nib-symrow">
+          <button
+            v-for="k in g.keys"
+            :key="k.ch"
+            class="nib-sym"
+            :aria-label="`${k.th} (พิมพ์ ${k.ch})`"
+            @click="emit('symbol', k.ch)"
+          >
+            <span class="nib-symch">{{ k.ch }}</span>
+            <span class="nib-symth">{{ k.th }}</span>
+            <span v-if="keyHints[k.ch]" class="nib-symkey">{{ keyHints[k.ch] }}</span>
+          </button>
+        </div>
+      </div>
     </div>
     <div v-if="chordOpen" class="nib-chordbox" aria-label="เลือกคอร์ด">
       <!-- type-your-own: the quick-pick below is a shortcut, not the vocabulary limit -->
@@ -262,6 +328,62 @@ onUnmounted(() => {
 }
 .nib-mode.ins { background: var(--brand, #8b4513); color: #fff; }
 .nib-sep { flex: 0 0 auto; width: 1px; align-self: stretch; background: var(--line, #d9d0c4); margin: 4px 2px; }
+/* ---- symbol keys (DS §4.1) ------------------------------------------------------------
+   Grouped with a small caption per group so a dozen buttons stay scannable, and WRAPPING
+   rather than one long row — the bar was already 543px wide on a 412px phone (Tester), so
+   adding keys in a single line would have made that worse. Each key is a 3-line stack:
+   character (the answer) · Thai name · where that key is (only once measured). */
+.nib-syms { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.nib-symgroup { display: flex; align-items: flex-start; gap: 6px; }
+.nib-symlabel {
+  flex: 0 0 auto;
+  min-width: 52px;
+  padding-top: 10px;
+  font-size: 11px;
+  color: var(--muted, #64748b);
+}
+.nib-symrow { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.nib-sym {
+  flex: 0 0 auto;
+  min-width: 52px;
+  min-height: var(--touch-min, 44px);
+  padding: 3px 6px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border: 1px solid var(--line, #d9d0c4);
+  border-radius: 8px;
+  background: var(--cream, #faf6ef);
+  color: var(--ink, #0f172a);
+  font: inherit;
+  cursor: pointer;
+}
+.nib-sym:active { transform: translateY(1px); }
+.nib-sym:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* the character line is the ANSWER, so it must be legible on its own: a monospace face with a
+   fixed box keeps '_' and '.' — which otherwise sit on the baseline as near-invisible specks —
+   the same visual weight as '(' or '^'. */
+.nib-symch {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nib-symth { font-size: 10px; line-height: 1.2; color: var(--muted, #64748b); white-space: nowrap; }
+/* the key equivalent — pinned to the button, never a tooltip (hover does not exist here) */
+.nib-symkey {
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--brand, #8b4513);
+  white-space: nowrap;
+}
 /* (i) keyboard help — the standard blue info affordance (matches phrakham) */
 .nib-help { min-width: 36px; padding: 0 6px; color: #2563eb; border-color: #bfdbfe; background: #eff6ff; }
 .nib-help.on { background: #2563eb; color: #fff; border-color: #2563eb; }
