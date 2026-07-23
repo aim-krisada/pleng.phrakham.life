@@ -15,6 +15,8 @@
 - 2026-07-23 · **เลือกขนาดกระดาษพิมพ์ได้** (B121)
 - 2026-07-23 · **PM mode = จ่ายงาน+อ่านสรุปเท่านั้น** · สมอง PM บน disk (`docs/pm/`) · re-spawnable · verify จ่าย Tester
 - 2026-07-23 · **backlog คงที่ `docs/backlog.md`** (กล่องกลาง shared) · สมอง PM → `docs/pm/` — ไม่ย้าย backlog เข้า work/ (ผิด flow + คนอื่นหาไม่เจอ)
+- 2026-07-23 · **เปิด Tester session ประจำ** (spun) รับงาน verify → verdict 4 บรรทัด · read-only · PM ไม่ verify เอง
+- 2026-07-23 · **PM operating model เข้า memory** (`feedback_pm_brain_on_disk` · ⭐⭐) ใช้ทุก PM ทุกโปรเจกต์ · แจ้ง pk pm ทำเหมือนกัน (พระคำ)
 
 ## มติล็อกก่อนหน้า (ยกมาไว้อ่านครั้งเดียว)
 - ⛔ **ห้าม re-import/bulk-write 120 เพลง** — ทีมแก้ live อยู่ · migration ทำตอน app เสร็จ
