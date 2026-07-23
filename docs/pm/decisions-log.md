@@ -20,6 +20,7 @@
 - 2026-07-23 · **alignment 3 จุด (คำ/melisma/คอร์ด) PASS** บน `editor-usability` `8c508be` — Tester verify geometry จริง (คอร์ด 0.05px · คำ/เส้น 0.1px · 792 เทสต์) · pre-merge เหลือ: กวาดคลัง over-draw + P'Aim พิมพ์ PDF จริง
 - 2026-07-23 · **Tester #2 กวาดคลัง 149 เพลง — ไม่มี over-draw ยักษ์** (98% melisma 2 โน้ตปกติ) · alignment PASS ทุก breakpoint · เจอ artifact `"` 1 จุด + 5 เพลง judgment + 2 minor (B122 arcPlan≥3บรรทัด · B123 shell h-scroll 8px)
 - 2026-07-23 · P'Aim เคาะ **(ก) แก้ artifact `"` ก่อน แล้ว merge** — จ่าย editor แก้ render-side (ไม่แตะ DB)
+- 2026-07-23 · **พี่เปา: current editor ใส่ไม่ได้ทุกคอร์ด → จ่าย hotfix** (branch `chords-all-standard` จาก main) — engine (`parseChord`) รองรับครบแล้ว แก้แค่ input UI · branch จาก main (base ยังไม่ release · พี่เปาใช้เลย) · deploy รอ P'Aim go + port base
 
 ## มติล็อกก่อนหน้า (ยกมาไว้อ่านครั้งเดียว)
 - ⛔ **ห้าม re-import/bulk-write 120 เพลง** — ทีมแก้ live อยู่ · migration ทำตอน app เสร็จ
