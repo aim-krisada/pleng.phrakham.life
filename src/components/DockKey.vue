@@ -39,6 +39,7 @@ export function nextDockId() { return ++dockSeq }
 //           its one-at-a-time popover, and clamps any .dk-pop the slot renders.
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
+import { readKeyboardInset, keyboardIsUp, onKeyboardInset } from '../lib/keyboardInset.js'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
@@ -227,7 +228,11 @@ function revealDock() { autoHidden.value = false }
 let vv = null
 function syncKeyboard() {
   if (!vv) return
-  const up = (window.innerHeight - vv.height) > 150
+  // one shared measurement with the note toolbar (lib/keyboardInset): the visual viewport vs
+  // the LAYOUT viewport. The old `innerHeight - vv.height > 150` guessed in raw pixels — a
+  // number pad is shorter than 150px on some devices (so the dock never hid) and a folded
+  // Fold 6 screen makes 150px a much bigger share of the page than an unfolded one.
+  const up = keyboardIsUp(readKeyboardInset())
   if (up === keyboardUp.value) return
   keyboardUp.value = up
   if (props.autoHide && !autoHideOff.value) autoHidden.value = up // reduced-motion just skips the anim
@@ -441,6 +446,7 @@ watch([collapsed, () => props.message, () => props.items, userWidth, openId], as
 let ro = null
 let hro = null // watches the dock's own box → --dock-h
 let dockHTimers = [] // settle re-measures for --dock-h
+let stopKb = null // unsubscribe from the shared keyboard-inset feed
 let rmq = null // prefers-reduced-motion media query
 function syncReduce() { reduceMotion.value = rmq ? rmq.matches : false }
 onMounted(() => {
@@ -468,6 +474,9 @@ onMounted(() => {
   // keyboard-aware: visualViewport shrinks when the soft keyboard opens; focus is the fallback.
   vv = window.visualViewport || null
   vv?.addEventListener('resize', syncKeyboard)
+  // keep --kb-inset live even on a page with no note toolbar (the dock's own `bottom` reads it),
+  // and re-evaluate auto-hide on every keyboard move, not just a resize of the visual viewport.
+  stopKb = onKeyboardInset(() => syncKeyboard())
   document.addEventListener('focusin', onFocusIn)
   document.addEventListener('focusout', onFocusOut)
   // hide-on-scroll: reduced-motion forces auto-hide off; the window is the scroll container.
@@ -491,6 +500,7 @@ onUnmounted(() => {
   hro?.disconnect()
   window.removeEventListener('resize', syncDockHeight)
   dockHTimers.forEach(clearTimeout)
+  stopKb?.()
   // drop this dock from the registry (the var falls back to the tallest one still mounted,
   // and clears entirely when the last dock leaves — a stale value would strand a blank band)
   unregisterDockHeight(dockId)
@@ -809,7 +819,11 @@ const dockStyle = computed(() => {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  /* ride above the on-screen keyboard, like the note toolbar: --kb-inset is published by
+     lib/keyboardInset (0 when no keyboard, and 0 in browsers that shrink the page instead).
+     Auto-hide usually takes the dock away while typing, but it can be switched off — and
+     then `bottom: 0` parked it behind the keyboard. */
+  bottom: var(--kb-inset, 0px);
   /* shared with phrakham (no styles.css there) → token + its historical value as fallback */
   z-index: var(--z-dock, 90);
   display: flex;

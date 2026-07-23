@@ -11,6 +11,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
 import { isValidChord } from '../lib/chords.js'
+import { onKeyboardInset } from '../lib/keyboardInset.js'
 
 const props = defineProps({
   variant: { type: String, default: 'bar' }, // 'bar' | 'popup'
@@ -82,11 +83,12 @@ function onGripUp() {
   window.removeEventListener('pointerup', onGripUp)
 }
 // ---- keyboard-accessory positioning (mobile): sit just above the on-screen keyboard ----
+// The gap comes from lib/keyboardInset (visual viewport vs LAYOUT viewport — the box a
+// position:fixed bar is actually laid out in). Measuring it against `window.innerHeight`
+// instead put the bar half UNDER the keyboard on Samsung Browser / Fold 6 (พี่เอม, 23 ก.ค.):
+// the two boxes differ by the browser's bottom chrome, and the bar sank by exactly that much.
 const kbInset = ref(0)
-function onVV() {
-  const vv = window.visualViewport
-  kbInset.value = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0
-}
+let stopKb = null
 watch(() => props.anchor, () => nextTick(place), { deep: true })
 watch(() => props.variant, () => nextTick(place))
 // opening/closing the chord picker or the (i) help changes the popup's HEIGHT, and place()
@@ -101,16 +103,16 @@ onMounted(() => {
   // the note and, when there's no room, parked just BELOW the header instead of behind it.
   // capture:true so it also fires for scrolls inside any scrolling ancestor.
   window.addEventListener('scroll', place, { capture: true, passive: true })
-  const vv = window.visualViewport
-  if (vv) { vv.addEventListener('resize', onVV); vv.addEventListener('scroll', onVV); onVV() }
+  // one shared measurement for the whole app (dock + toolbar agree); fires immediately, and
+  // again on every keyboard open/close, keyboard-layout swap, rotate and fold/unfold.
+  stopKb = onKeyboardInset((px) => { kbInset.value = px })
 })
 onUnmounted(() => {
   window.removeEventListener('resize', place)
   window.removeEventListener('scroll', place, { capture: true })
   window.removeEventListener('pointermove', onGripMove)
   window.removeEventListener('pointerup', onGripUp)
-  const vv = window.visualViewport
-  if (vv) { vv.removeEventListener('resize', onVV); vv.removeEventListener('scroll', onVV) }
+  stopKb?.()
 })
 </script>
 
