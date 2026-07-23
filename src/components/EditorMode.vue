@@ -6,6 +6,10 @@ import { KEYS, TIME_SIGNATURES, chordOptions, isValidChord } from '../lib/chords
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, canonicalizeNote } from '../lib/notation.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
+import {
+  newSegment, barShell, newBar, newLine, deserializeLine, serializeLine,
+  rest, CONTENT_KEYS, STANZA_KEYS, ARRANGEMENT_KEYS,
+} from '../lib/editorSerde.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
@@ -74,77 +78,12 @@ watch(session, () => {
 // ---------- editing model (song model v2) ----------
 // A song is a set of MELODIES (stanzas, entered once, no lyrics) plus an
 // ARRANGEMENT (play order — each row links a stanza and supplies only its words).
-// The bar/segment editor below is unchanged: it edits the ACTIVE stanza's lines via
-// the `lines` computed, so all the existing line/bar/segment code keeps working.
-function newSegment() {
-  return { chord: '', note: '', lyric: '' }
-}
-// A bar can carry repeat marks: repeatStart '‖:' (loop back to here), repeatEnd ':‖'
-// (jump back to the last repeatStart), and volta 1/2 (this bar is the 1st / 2nd ending).
-// `pickup` (ห้องยก / anacrusis) marks a bar that is intentionally short because its
-// beats are completed by another partial bar — a stanza-opening pickup paired with the
-// short final bar, or a bar split across a line. Flagged bars are validated as a GROUP
-// (their beats must sum to a whole number of bars), never red individually (B055).
-function barShell() {
-  return { segments: [], repeatStart: false, repeatEnd: false, volta: 0, pickup: false }
-}
-function newBar() {
-  return { ...barShell(), segments: [newSegment()] }
-}
-function newLine() {
-  return { marker: '', cont: false, label: '', section: '', end: false, bars: [newBar()] }
-}
-
-function deserializeLine(items) {
-  const line = { marker: '', cont: false, label: '', section: '', end: false, bars: [] }
-  let bar = barShell()
-  for (const it of items) {
-    if (it.type === 'continue') line.cont = true
-    else if (it.type === 'section') line.section = it.name || ''
-    else if (it.type === 'label') line.label = it.text || ''
-    else if (it.type === 'end') line.end = true
-    else if (it.type === 'marker') line.marker = it.label || '***'
-    else if (it.type === 'repeat-start') bar.repeatStart = true
-    else if (it.type === 'repeat-end') bar.repeatEnd = true
-    else if (it.type === 'pickup') bar.pickup = true
-    else if (it.type === 'volta') bar.volta = it.num || 0
-    else if (it.type === 'bar') {
-      line.bars.push(bar)
-      bar = barShell()
-    } else if (it.type === 'segment') {
-      bar.segments.push({ chord: it.chord || '', note: it.note || '', lyric: it.lyric || '' })
-    }
-  }
-  line.bars.push(bar)
-  line.bars = line.bars.filter((b) => b.segments.length)
-  if (!line.bars.length) line.bars = [newBar()]
-  return line
-}
-
-// A stanza is a melody — segments carry no lyric (the arrangement supplies words),
-// so an empty lyric is dropped from the serialized item to keep the v2 JSON clean.
-function serializeLine(line) {
-  const items = []
-  if (line.section?.trim()) items.push({ type: 'section', name: line.section.trim() })
-  if (line.cont) items.push({ type: 'continue' })
-  if (line.marker) items.push({ type: 'marker', label: line.marker })
-  line.bars.forEach((b, i) => {
-    // a repeat-start IS the left barline; otherwise a plain barline between bars
-    if (b.repeatStart) items.push({ type: 'repeat-start' })
-    else if (i > 0) items.push({ type: 'bar' })
-    if (b.pickup) items.push({ type: 'pickup' })
-    if (b.volta) items.push({ type: 'volta', num: b.volta })
-    for (const s of b.segments) {
-      const seg = { type: 'segment', chord: s.chord, note: s.note }
-      if (s.lyric) seg.lyric = s.lyric
-      items.push(seg)
-    }
-    if (b.repeatEnd) items.push({ type: 'repeat-end' })
-  })
-  if (line.label?.trim()) items.push({ type: 'label', text: line.label.trim() })
-  if (line.end) items.push({ type: 'end' })
-  return items
-}
+// The bar/segment editor below edits the ACTIVE stanza's lines via the `lines` computed,
+// so all the existing line/bar/segment code keeps working. The line <-> stored-items
+// bridge (newSegment/newBar/newLine, deserializeLine, serializeLine) lives in
+// lib/editorSerde.js — it is LOSSLESS: anything the editor doesn't model (a segment's
+// `holds`, an imported symbol, a future field) round-trips untouched instead of being
+// dropped on save. See that file's header for the rule.
 
 const editingId = ref(null)
 const currentDraftId = ref(null)
@@ -212,6 +151,10 @@ const stanzas = ref([{ id: 'A', lines: [newLine()] }])
 const activeStanza = ref(0)
 const arrangement = ref([{ stanza: 'A', label: '', syllables: [], key: '' }])
 const migrateWarnings = ref([]) // set when a v1 song is auto-split on load (author reviews)
+// Data-safety: unknown keys the editor doesn't model, captured on load and spread back on save
+// so nothing is dropped (mirror of the segment/line pass-through in lib/editorSerde.js). Held at
+// the content top-level, per stanza (`_extra`), and per arrangement row (`_extra`).
+const contentExtras = ref({})
 
 // verse lens: which arrangement row's words to show under the active stanza's notes
 // (-1 = hidden). Lets the author type each syllable right under its note — the old
@@ -253,7 +196,9 @@ const previewContent = computed(() => ({
   key: opts.key,
   timeSignature: opts.timeSignature,
   bpm: opts.bpm || undefined,
-  stanzas: stanzas.value.map((s) => ({ id: s.id, lines: s.lines.map(serializeLine) })),
+  // spread the captured unknown top-level keys back (excludes version/key/… so no collision)
+  ...contentExtras.value,
+  stanzas: stanzas.value.map((s) => ({ id: s.id, lines: s.lines.map(serializeLine), ...(s._extra || {}) })),
   arrangement: arrangement.value.map((r) => ({
     stanza: r.stanza,
     label: r.label?.trim() || '',
@@ -262,6 +207,8 @@ const previewContent = computed(() => ({
     // B102 — "ร้องรับทุกข้อ": the refrain is sung after every verse. Stored on the entry
     // (SSOT, visible in the downloaded JSON); playback (resolvePlayOrder) expands it.
     ...(r.afterEachVerse ? { afterEachVerse: true } : {}),
+    // unknown per-row keys (a future per-verse directive, etc.) ride through untouched
+    ...(r._extra || {}),
   })),
 }))
 
@@ -1324,12 +1271,16 @@ function applyRow(data) {
   verified.value = data.verified ?? false
   loadedFlags.value = Array.isArray(data.review_flags) ? data.review_flags : [] // B093: keep on publish
   const { content, warnings } = migrateToV2(data.content)
+  // Data-safety: capture unknown top-level keys from the RAW content (before migrate, so v1
+  // extras survive too); they are spread back in previewContent so a save can't drop them.
+  contentExtras.value = rest(data.content, CONTENT_KEYS)
   opts.key = content.key || 'C'
   opts.timeSignature = content.timeSignature || '4/4'
   opts.bpm = content.bpm ?? null
   stanzas.value = (content.stanzas || []).map((s) => ({
     id: s.id,
     lines: (s.lines || []).map(deserializeLine),
+    _extra: rest(s, STANZA_KEYS), // unknown per-stanza keys ride through untouched
   }))
   if (!stanzas.value.length) stanzas.value = [{ id: 'A', lines: [newLine()] }]
   arrangement.value = (content.arrangement || []).map((r) => ({
@@ -1338,6 +1289,7 @@ function applyRow(data) {
     syllables: [...(r.syllables || [])],
     key: r.key || '',
     afterEachVerse: !!r.afterEachVerse, // B102 — strophic "ร้องรับทุกข้อ" directive (round-trips)
+    _extra: rest(r, ARRANGEMENT_KEYS), // unknown per-row keys ride through untouched
   }))
   if (!arrangement.value.length) {
     arrangement.value = [{ stanza: stanzas.value[0].id, label: '', syllables: [], key: '' }]
@@ -1364,6 +1316,7 @@ function resetForm() {
   opts.key = 'C'
   opts.timeSignature = '4/4'
   opts.bpm = null
+  contentExtras.value = {} // brand-new song carries no inherited unknown keys
   stanzas.value = [{ id: 'A', lines: [newLine()] }]
   arrangement.value = [{ stanza: 'A', label: '', syllables: [], key: '' }]
   activeStanza.value = 0
