@@ -2811,7 +2811,10 @@ defineExpose({
 </script>
 
 <template>
-  <div style="padding-bottom: 150px">
+  <!-- reserve the dock's REAL height (DockKey publishes --dock-h): the fixed dock is 214px
+       tall on a 360px phone, so the old flat 150px left the last note/lyric/chord controls
+       under it, untappable (🔴4). +24px keeps a finger-sized gap above the dock. -->
+  <div :style="{ paddingBottom: 'calc(var(--dock-h, 150px) + 24px)' }">
     <!-- editor chrome teleported into the app-wide ShellBar — only while this mode is on
          (the shell owns the mode toggle + the static title for view/sheet) -->
     <Teleport to="#shell-title">
