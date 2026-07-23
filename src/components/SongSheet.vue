@@ -74,6 +74,11 @@ const renderLines = computed(() =>
     const parts = []
     let si = -1
     let bar = null
+    // A volta ("จบรอบ") is stored PER BAR — every bar of an ending carries the mark so
+    // playback can skip the whole run (midi.expandRepeats). On paper the number is printed
+    // ONCE, at the head of the run, like the bracket over the ending. So repeats of the same
+    // number are collapsed; a repeat barline (or a different number) starts a new run.
+    let lastVolta = 0
     const flush = () => {
       if (bar && bar.segments.length) parts.push(bar)
       bar = null
@@ -96,13 +101,16 @@ const renderLines = computed(() =>
         parts.push({ type: 'end' })
       } else if (item.type === 'repeat-start') {
         flush()
+        lastVolta = 0
         parts.push({ type: 'repeat-start' })
       } else if (item.type === 'repeat-end') {
         flush()
+        lastVolta = 0
         parts.push({ type: 'repeat-end' })
       } else if (item.type === 'volta') {
         flush()
-        parts.push({ type: 'volta', num: item.num })
+        if ((item.num || 0) !== lastVolta) parts.push({ type: 'volta', num: item.num })
+        lastVolta = item.num || 0
       } else if (item.type === 'marker') {
         flush()
         parts.push({ type: 'marker', label: item.label })

@@ -169,8 +169,12 @@ check('R9: lone จบรอบ 2 (missing รอบ 1) → volta-incomplete',
   has(lintRepeatVolta([v(2)]), 'volta-incomplete'))
 check('R9: จบรอบ 2 before จบรอบ 1 → volta-order',
   has(lintRepeatVolta([v(2), v(1)]), 'volta-order'))
-check('R9: duplicate จบรอบ 1 1 2 → volta-order',
-  has(lintRepeatVolta([v(1), v(1), v(2)]), 'volta-order'))
+// 1 1 2 = a 1st ending TWO BARS long (each bar of an ending carries the mark, which is what
+// lets playback skip the whole run) — one ending, not the same round twice.
+check('R9: จบรอบ 1 spanning two bars (1 1 2) → no findings',
+  lintRepeatVolta([v(1), v(1), v(2)]).length === 0)
+check('R9: a round reused after another (1 2 1) → volta-order',
+  has(lintRepeatVolta([v(1), v(2), v(1)]), 'volta-order'))
 check('R9: three complete endings 1 2 3 → no findings',
   lintRepeatVolta([v(1), v(2), v(3)]).length === 0)
 check('R9: 1 2 (complete) does NOT flag volta-order',
