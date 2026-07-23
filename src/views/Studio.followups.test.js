@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({ route: null, push: null }))
 vi.mock('vue-router', () => ({
   useRoute: () => h.route,
   useRouter: () => ({ push: h.push }),
+  onBeforeRouteLeave: () => {}, // Studio guards the inline editor's unsaved work (A-fix)
 }))
 
 // chainable Supabase stub — every query resolves empty; nothing hits the network

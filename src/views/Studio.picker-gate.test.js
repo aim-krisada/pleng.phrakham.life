@@ -11,7 +11,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
 // no routed id → the shell just needs to mount; we drive the picker directly
-vi.mock('vue-router', () => ({ useRoute: () => ({ params: {} }), useRouter: () => ({ push() {} }) }))
+vi.mock('vue-router', () => ({ useRoute: () => ({ params: {} }), useRouter: () => ({ push() {} }), onBeforeRouteLeave: () => {} }))
 
 // chainable Supabase stub — every query resolves empty; this suite seeds songList directly so
 // the picker gate is tested in isolation from the network.

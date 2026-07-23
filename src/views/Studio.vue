@@ -5,7 +5,7 @@
 // evolve their own mode file without touching this shell (that is the whole point of
 // DS-04's contract: every mode takes { song, tier } and emits change / save).
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
@@ -14,7 +14,8 @@ import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
 import { downloadSong } from '../lib/jsonIO.js'
-import { tier, initAuth, shellMenu, currentSong, readingFontScale, setFontScale } from '../store.js'
+import { writeWorkingCopy, clearWorkingCopy, hasRecoverable } from '../lib/workingCopy.js'
+import { tier, canStore, session, saveDraftRow, initAuth, shellMenu, currentSong, readingFontScale, setFontScale } from '../store.js'
 import Icon from '../components/Icon.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 import SongViewer from '../components/SongViewer.vue'
@@ -51,6 +52,12 @@ async function loadSong(id) {
     title_en: data.title_en,
     content,
   }
+  // A-fix: a fresh load = clean, and any local work left over from a crash/reload is OFFERED
+  // (never auto-applied — the published song may have moved on since it was written).
+  inlineState.value = 'clean'
+  inlineError.value = ''
+  inlineDraftId.value = null
+  recovery.value = hasRecoverable(data.id, content)
 }
 
 onMounted(async () => {
@@ -109,8 +116,108 @@ function onChange(song) {
 // (it can't see id/title_en). Merge it onto liveSong so the SSOT keeps every field and all
 // surfaces (แผ่นเพลง, Download JSON, save) see the edit — exactly like the editor's change.
 function onViewerContent(content) {
-  if (liveSong.value) liveSong.value = { ...liveSong.value, content }
+  if (!liveSong.value) return
+  liveSong.value = { ...liveSong.value, content }
+  inlineState.value = 'dirty'
+  writeWorkingCopy(liveSong.value.id, content) // กันหาย: mirror it locally on every keystroke
 }
+
+// ---------- A-fix (23 ก.ค.): the inline editor's SAVE path ----------
+// โหมดแก้ inline shipped with one button ("เสร็จ") and no way to keep the work at all — a
+// reload wiped it silently (Tester, docs/reports/editor-gap-audit.md). The locked design
+// (ux-groundup-design.md, journey M-edit) calls for "สถานะ บันทึกแล้ว✓/ยังไม่บันทึก เห็นตลอด +
+// autosave working-copy กันหาย" and separate meanings for ร่าง/ส่งตรวจ/เผยแพร่. So:
+//   • every inline edit → local working copy (all tiers, incl. anon) + state 'dirty'
+//   • บันทึกร่าง (logged in) writes a DRAFT row — never the published song, so พี่เปา's live
+//     library cannot be overwritten from the reading surface. ส่งตรวจ/เผยแพร่ stay in แก้ไข,
+//     which owns the review flow.
+//   • anon → ดาวน์โหลด JSON (mission's tier-0 path). The gate is on STORING only; entering
+//     edit stays open to everyone.
+// The shell owns this because it holds the song row + the tier; SongViewer only shows the
+// state and asks.
+const inlineState = ref('clean') // clean | dirty | saving | saved | error
+const inlineError = ref('')
+const inlineDraftId = ref(null)
+// a local copy newer than the server's, offered for recovery when the song (re)opens
+const recovery = ref(null)
+
+async function saveInlineDraft(kind) {
+  const s = liveSong.value
+  if (!s) return
+  if (kind === 'file') {
+    // anon path — the JSON download IS their save; the work is now kept outside the browser
+    inlineState.value = 'saved'
+    inlineError.value = ''
+    clearWorkingCopy(s.id)
+    return
+  }
+  if (!canStore.value) return
+  inlineState.value = 'saving'
+  inlineError.value = ''
+  const row = {
+    song_id: s.id ?? null,
+    number: s.number ?? null,
+    title_th: (s.title_th || '').trim(),
+    title_en: s.title_en?.trim() || null,
+    content: JSON.parse(JSON.stringify(s.content)),
+    status: 'draft',
+  }
+  if (!row.title_th) {
+    inlineState.value = 'error'
+    inlineError.value = 'เพลงนี้ยังไม่มีชื่อภาษาไทย — ตั้งชื่อในโหมดแก้ไขก่อน'
+    return
+  }
+  // reuse this author's own open draft for the song instead of piling up new rows
+  if (!inlineDraftId.value && s.id) {
+    const { data } = await supabase
+      .from('song_drafts')
+      .select('id')
+      .eq('author_id', session.value.user.id)
+      .eq('song_id', s.id)
+      .in('status', ['draft', 'pending', 'rejected'])
+      .limit(1)
+    if (data?.[0]) inlineDraftId.value = data[0].id
+  }
+  const { id, error } = await saveDraftRow(row, inlineDraftId.value)
+  if (error) {
+    inlineState.value = 'error'
+    inlineError.value = error.message || 'บันทึกไม่สำเร็จ'
+    return // the local working copy stays — nothing is lost by a failed save
+  }
+  inlineDraftId.value = id
+  inlineState.value = 'saved'
+  clearWorkingCopy(s.id) // stored on the server now; the recovery copy has done its job
+}
+// offered after a crash/reload: take the local copy, or drop it
+function acceptRecovery() {
+  if (recovery.value && liveSong.value) {
+    liveSong.value = { ...liveSong.value, content: recovery.value.content }
+    inlineState.value = 'dirty'
+  }
+  recovery.value = null
+}
+function discardRecovery() {
+  clearWorkingCopy(liveSong.value?.id)
+  recovery.value = null
+}
+const recoveryWhen = computed(() =>
+  recovery.value ? new Date(recovery.value.savedAt).toLocaleString('th-TH') : '',
+)
+
+// Leaving with work that is not stored anywhere must never be silent (same guard EditorMode
+// has for its own surface — B100). The local working copy survives a reload, but the user
+// still has to be TOLD, or they will not know to come back for it.
+function onBeforeUnload(e) {
+  if (inlineState.value !== 'dirty') return
+  e.preventDefault()
+  e.returnValue = ''
+}
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
+onBeforeRouteLeave(() => {
+  if (inlineState.value !== 'dirty') return true
+  return window.confirm('งานที่แก้ในโหมดแก้ (✏️) ยังไม่ได้บันทึก — ออกจากหน้านี้เลยไหม?')
+})
 // save persistence stays inside the editor (it owns the editing state + Supabase writes);
 // this is the contract's observability hook, kept so the shell can react later if needed
 function onSave() {}
@@ -336,7 +443,21 @@ function printSheet() {
 
     <!-- ===== ดู — reading / sing-along view (WT-A owns SongViewer) ===== -->
     <div v-show="mode === 'view'">
-      <SongViewer v-if="viewerSong" :song="viewerSong" :tier="tier" @update-content="onViewerContent" />
+      <!-- A-fix: work left in the browser from a crash/reload — offered, never auto-applied -->
+      <div v-if="recovery" class="sv-recover no-print" role="status">
+        <span>พบงานที่แก้ไว้ในเครื่องแต่ยังไม่ได้บันทึก ({{ recoveryWhen }})</span>
+        <button class="rec-btn primary" @click="acceptRecovery">กู้คืนงานนั้น</button>
+        <button class="rec-btn" @click="discardRecovery">ทิ้ง ใช้ฉบับปัจจุบัน</button>
+      </div>
+      <SongViewer
+        v-if="viewerSong"
+        :song="viewerSong"
+        :tier="tier"
+        :save-state="inlineState"
+        :save-error="inlineError"
+        @update-content="onViewerContent"
+        @save="saveInlineDraft"
+      />
       <p v-else class="muted" style="padding: 16px">ยังไม่มีเพลงให้แสดง — ไปที่ “แก้” เพื่อเริ่มสร้างเพลง</p>
     </div>
 
@@ -418,6 +539,39 @@ function printSheet() {
 </template>
 
 <style scoped>
+/* A-fix: the recovery offer for local work found on (re)open. In flow above the sheet — it is
+   a decision to make once, not a floating layer, so it needs no z-index. */
+.sv-recover {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--warn-line, #fcd34d);
+  background: var(--warn-bg, #fffbeb);
+  color: var(--warn-text, #92400e);
+  font-size: 14px;
+}
+.rec-btn {
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: var(--surface, #fff);
+  color: var(--ink, #0f172a);
+  font-size: 13px;
+  cursor: pointer;
+}
+.rec-btn.primary {
+  margin-inline-start: auto;
+  border-color: var(--brand, #8b4513);
+  background: var(--brand, #8b4513);
+  color: #fff;
+  font-weight: 600;
+}
+
 /* teleported into #shell-title / #shell-menus — scoped styles still apply to elements
    this component renders, even when they live in the shared ShellBar */
 .sb-sep {

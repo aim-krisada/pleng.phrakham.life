@@ -35,11 +35,16 @@ import Icon from './Icon.vue'
 const props = defineProps({
   song: { type: Object, required: true },
   tier: { type: String, default: 'guest' },
+  // A-fix (23 ก.ค.): the save state of the inline edit, owned by the shell (Studio holds the
+  // song + the Supabase write). 'clean' | 'dirty' | 'saving' | 'saved' | 'error'. The editor
+  // just SHOWS it and asks for a save — so the user always knows whether the work is kept.
+  saveState: { type: String, default: 'clean' },
+  saveError: { type: String, default: '' },
 })
 // The reading surface stays a READER: it never mutates props.song. When the pencil is on
 // and a note is retyped, it hands the OWNER (Studio → liveSong, the live v2 SSOT) a new
 // content via `update-content`; that flows back down as props.song and the sheet re-renders.
-const emit = defineEmits(['update-content'])
+const emit = defineEmits(['update-content', 'save'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -566,7 +571,43 @@ function onInlinePick(e) {
   const [li, si] = seg.dataset.seg.split('-').map(Number)
   selectUnit(li, si, Number(nt.dataset.idx), 'note') // tapped the note glyph → edit the NOTE
 }
+// ---- save status (A-fix 23 ก.ค.) --------------------------------------------------------
+// The inline editor used to have exactly ONE button ("เสร็จ") and no way to keep the work:
+// a reload wiped it silently. It now states its state at all times and offers the save path
+// that fits the tier — the gate is on STORING, never on editing (mission 3-tier model):
+//   logged in → บันทึกร่าง into the server (draft, never overwrites the published song)
+//   anon      → บันทึกเป็นไฟล์ (JSON download) = their own copy, exactly as mission.md says
+// Either way the shell also mirrors every keystroke into a local working copy, so even a
+// crash/reload can be recovered.
+const canStoreServer = computed(() => props.tier !== 'anon' && props.tier !== 'guest')
+const SAVE_TEXT = {
+  clean: 'บันทึกแล้ว',
+  dirty: 'ยังไม่บันทึก',
+  saving: 'กำลังบันทึก…',
+  saved: 'บันทึกแล้ว',
+  error: 'บันทึกไม่สำเร็จ',
+}
+const saveText = computed(() => SAVE_TEXT[props.saveState] || SAVE_TEXT.clean)
+const saveIsSaved = computed(() => props.saveState === 'clean' || props.saveState === 'saved')
+const saveLabel = computed(() => (canStoreServer.value ? 'บันทึกร่าง' : 'บันทึกเป็นไฟล์'))
+function requestSave() {
+  if (props.saveState === 'saving') return
+  if (canStoreServer.value) emit('save')
+  else {
+    // anon keeps their work as JSON (mission tier-0 path). Fall back to the song this viewer
+    // holds when the shell store has none, so the download can never silently do nothing.
+    downloadSong(currentSong.value || props.song)
+    emit('save', 'file')
+  }
+}
 function toggleEdit() {
+  // leaving edit with work that is not stored anywhere must SAY so — never a silent exit
+  if (editMode.value && props.saveState === 'dirty') {
+    const ok = window.confirm(
+      `ยังไม่ได้บันทึกงานที่แก้ไว้\n\nกด "ตกลง" เพื่อออกจากโหมดแก้ (งานยังอยู่ในเครื่องจนกว่าจะปิดเว็บ)\nกด "ยกเลิก" แล้วกด "${saveLabel.value}" เพื่อเก็บงานก่อน`,
+    )
+    if (!ok) return
+  }
   editMode.value = !editMode.value
   if (editMode.value && curIdx.value < 0 && editUnits.value.length) curIdx.value = 0
 }
@@ -1050,6 +1091,24 @@ function onSeek({ li, si, syk }) {
       <div v-if="song.scripture" class="scripture-tag muted">📖 {{ song.scripture }}</div>
     </div>
 
+    <!-- while editing: the SAVE STATE is stated at all times (A-fix) — "ยังไม่บันทึก" vs
+         "บันทึกแล้ว ✓" plus the one save button that fits the tier. Sticky so it stays on
+         screen while scrolling a long song: the user must never have to guess. -->
+    <div v-if="editMode" class="sv-save-bar no-print">
+      <span class="sv-save-state" :class="saveIsSaved ? 'ok' : 'pending'" role="status" aria-live="polite">
+        <Icon v-if="saveIsSaved" name="check" :size="16" /><span v-else class="sv-save-dot" aria-hidden="true">●</span>
+        {{ saveText }}
+      </span>
+      <span v-if="saveState === 'error' && saveError" class="sv-save-err">{{ saveError }}</span>
+      <span v-if="!canStoreServer" class="sv-save-note">เข้าสู่ระบบเพื่อบันทึกเข้าเซิร์ฟเวอร์</span>
+      <button
+        class="sv-save-btn"
+        :disabled="saveState === 'saving'"
+        :title="canStoreServer ? 'บันทึกเป็นร่างในเซิร์ฟเวอร์ (ยังไม่เผยแพร่)' : 'บันทึกงานเป็นไฟล์ JSON เก็บไว้ในเครื่อง'"
+        @click="requestSave"
+      ><Icon :name="canStoreServer ? 'save' : 'download'" :size="16" /> {{ saveLabel }}</button>
+    </div>
+
     <!-- while editing: a small hint + autosave note ride above the sheet -->
     <div v-if="editMode" class="sv-edit-hint no-print" role="status">
 แตะโน้ตแล้วพิมพ์เลข · แตะคำแล้วพิมพ์เนื้อ (คีย์บอร์ดขึ้นเอง) · <b>← → ↑ ↓</b> เลื่อน · ปุ่มพิเศษ (สูง/ต่ำ · ♯♭ · แทรก/ทับ) อยู่ในแถบ · <b>Delete</b> ลบอยู่กับที่ · <b>Backspace</b> เอาออกทั้งช่อง<br />
@@ -1214,6 +1273,47 @@ function onSeek({ li, si, syk }) {
 @media (max-width: 640px) {
   .sv-fab { right: 16px; bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* A-fix: the save-state bar. STICKY (in flow, --z-sticky — not fixed, so it never fights the
+   shell bar or the bottom dock) so "ยังไม่บันทึก / บันทึกแล้ว ✓" and the save button stay in
+   view down a long song. Google-Docs pattern: state on the left, the action on the right. */
+.sv-save-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  margin: 0 0 6px;
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  font-size: 13px;
+}
+.sv-save-state { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.sv-save-state.ok { color: var(--ok, #15803d); }
+.sv-save-state.pending { color: var(--warn-text, #92400e); }
+.sv-save-dot { font-size: 10px; line-height: 1; }
+.sv-save-err { color: var(--danger, #b91c1c); }
+.sv-save-note { color: var(--muted, #64748b); }
+.sv-save-btn {
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--brand, #8b4513);
+  background: var(--brand, #8b4513);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sv-save-btn:disabled { opacity: 0.6; cursor: default; }
 
 /* while editing, a slim hint bar above the sheet */
 .sv-edit-hint {
