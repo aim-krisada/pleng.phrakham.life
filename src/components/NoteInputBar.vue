@@ -10,6 +10,7 @@
 // stays open on a phone.
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
+import { isValidChord } from '../lib/chords.js'
 
 const props = defineProps({
   variant: { type: String, default: 'bar' }, // 'bar' | 'popup'
@@ -22,7 +23,19 @@ const props = defineProps({
 const emit = defineEmits(['octave', 'accidental', 'toggle-mode', 'nav', 'chord'])
 const helpOpen = ref(false)
 const chordOpen = ref(false)
-function pickChord(v) { chordOpen.value = false; emit('chord', v) }
+function pickChord(v) { chordOpen.value = false; chordText.value = ''; chordBad.value = false; emit('chord', v) }
+// Free text beside the quick-pick: the quick-pick only lists the key's common chords, but worship
+// music also uses maj7, m7b5, sus2/4, add9, slash bass (G/B), °/+ … Anything `isValidChord` accepts
+// (lib/chords.js — the same gate the grid editor's chord cell uses) commits on Enter/✓; junk is
+// refused in place so a typo never lands in the song.
+const chordText = ref('')
+const chordBad = ref(false)
+function commitChordText() {
+  const q = chordText.value.trim()
+  if (!q) return
+  if (!isValidChord(q)) { chordBad.value = true; return }
+  pickChord(q)
+}
 // which controls to show: arrows on mobile only; note ops only on the note layer; accidentals
 // only on mobile (desktop types # / b). The (i) keyboard help shows on the desktop popup.
 
@@ -134,8 +147,32 @@ onUnmounted(() => {
       <!-- (i) keyboard help — desktop popup: which keys do what (things with no button) -->
       <button v-if="variant === 'popup'" class="nib-key nib-help" :class="{ on: helpOpen }" :aria-expanded="helpOpen" aria-label="คีย์ลัดคีย์บอร์ด" title="คีย์ลัดคีย์บอร์ด" @click="helpOpen = !helpOpen"><Icon name="info" :size="18" /></button>
     </div>
-    <div v-if="chordOpen" class="nib-chordbox" role="listbox" aria-label="เลือกคอร์ด">
-      <button v-for="c in chords" :key="c.value" class="nib-chorditem" :class="{ none: c.value === '' }" @click="pickChord(c.value)">{{ c.value === '' ? '— ไม่มีคอร์ด —' : c.value }}</button>
+    <div v-if="chordOpen" class="nib-chordbox" aria-label="เลือกคอร์ด">
+      <!-- type-your-own: the quick-pick below is a shortcut, not the vocabulary limit -->
+      <div class="nib-chordtype">
+        <input
+          v-model="chordText"
+          class="nib-chordinput"
+          :class="{ bad: chordBad }"
+          type="text"
+          inputmode="text"
+          autocapitalize="off"
+          autocorrect="off"
+          spellcheck="false"
+          placeholder="พิมพ์คอร์ดเอง เช่น F#m7b5, G/B"
+          aria-label="พิมพ์คอร์ดเอง"
+          :aria-invalid="chordBad"
+          @mousedown.stop
+          @touchstart.stop
+          @input="chordBad = false"
+          @keydown.enter.prevent="commitChordText"
+        />
+        <button class="nib-chordok" title="ใส่คอร์ดที่พิมพ์" aria-label="ใส่คอร์ดที่พิมพ์" @click="commitChordText">✓</button>
+      </div>
+      <div v-if="chordBad" class="nib-chorderr" role="alert">ไม่ใช่คอร์ดที่อ่านได้ — ต้องขึ้นต้นด้วย A–G (เช่น Bb, C#m7, G/B)</div>
+      <div class="nib-chordlist" role="listbox" aria-label="คอร์ดที่ใช้บ่อย">
+        <button v-for="c in chords" :key="c.value" class="nib-chorditem" :class="{ none: c.value === '' }" @click="pickChord(c.value)">{{ c.value === '' ? '— ไม่มีคอร์ด —' : c.value }}</button>
+      </div>
     </div>
     <div v-if="variant === 'popup' && helpOpen" class="nib-helpbox" role="note">
       <b>คีย์บอร์ด (โหมดแก้):</b><br />
@@ -225,14 +262,47 @@ onUnmounted(() => {
   margin-top: 6px;
   padding: 6px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  flex-direction: column;
+  gap: 6px;
   max-width: 320px;
-  max-height: 176px;
-  overflow-y: auto;
   background: var(--cream, #faf6ef);
   border: 1px solid var(--line, #d9d0c4);
   border-radius: 8px;
+}
+/* type-your-own row — stays put while the quick-pick list below scrolls */
+.nib-chordtype { display: flex; gap: 4px; }
+.nib-chordinput {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line, #d9d0c4);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink, #0f172a);
+  font: inherit;
+  font-size: 13px;
+}
+.nib-chordinput:focus { outline: 2px solid var(--brand, #8b4513); outline-offset: -1px; }
+.nib-chordinput.bad { border-color: #b91c1c; }
+.nib-chordok {
+  min-width: 34px;
+  min-height: 34px;
+  border: 1px solid var(--brand, #8b4513);
+  border-radius: 6px;
+  background: var(--brand, #8b4513);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.nib-chorderr { font-size: 12px; line-height: 1.5; color: #b91c1c; }
+.nib-chordlist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 176px;
+  overflow-y: auto;
 }
 .nib-chorditem {
   min-width: 40px;
