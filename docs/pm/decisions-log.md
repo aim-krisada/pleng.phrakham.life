@@ -38,6 +38,8 @@
 - 2026-07-23 · **editor merged เข้า base `3a3e618`** (Tester job C slur PASS ก่อน) — code auto-merge สะอาด (B118+editor slur/styles.css region ไม่ชน textual) · conflict แค่ 2 planning doc (task.md/ux-groundup เก็บ base)
 - 2026-07-23 · **✅ editor merge gate ปิด — Tester job D PASS:** merged base build ✅ + **804 เทสต์** · slur 3 ชนิดอยู่ร่วมกันถูก (within-seg 0.06px · cross-bar B118 0.05px · melisma dedup เท่าเดิม) · 141 คอร์ด 73/73 + P0 ไม่ถอย · ไม่มี double-arc (1 near-match = false positive ตรวจแล้ว) · **alignment/editor redesign ครบบน base** · main รอ P'Aim go
 
+- 2026-07-23 · **✅ คอร์ด hotfix LIVE production** — chord session rebase onto `b3e747b` (resolve EditorMode imports = เก็บทั้ง parseChord+B118) + ENTER-เลือกคอร์ด (4 เคส) · 809 เทสต์ · PM FF-push `main` `b3e747b→5661068` · **verify live: bundle มี `5661068` + placeholder "พิมพ์เองได้"** = พี่เปาใช้ได้ · ⚠️ main กับ base diverged → port chord เข้า base ก่อน full deploy ครั้งหน้า
+
 ## มติล็อกก่อนหน้า (ยกมาไว้อ่านครั้งเดียว)
 - ⛔ **ห้าม re-import/bulk-write 120 เพลง** — ทีมแก้ live อยู่ · migration ทำตอน app เสร็จ
 - คง **Vue3+Vite** (ไม่ Nuxt/Tailwind) · คง bookshelf หน้าแรก · ripple default · backspace ลบชิด
