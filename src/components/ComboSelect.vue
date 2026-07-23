@@ -5,12 +5,16 @@ import { ref, computed, watch, onMounted } from 'vue'
 // ArrowDown/Up move the highlight, Enter picks, Esc closes.
 // options: [{ value, label, search? }] or plain strings.
 // allowCustom lets the typed text itself become the value (e.g. custom time signature).
+// validate (only with allowCustom) gates that free text: a custom value is committed only
+// when validate(text) is truthy, so odd-but-valid input passes (e.g. a chord like "F#m7b5")
+// while genuine junk is rejected and the field snaps back. No validate = accept any text.
 const props = defineProps({
   modelValue: { type: [String, Number], default: '' },
   options: { type: Array, required: true },
   placeholder: { type: String, default: '' },
   ariaLabel: { type: String, default: '' },
   allowCustom: { type: Boolean, default: false },
+  validate: { type: Function, default: null },
   width: { type: String, default: '160px' },
   autofocus: { type: Boolean, default: false }, // open + focus on mount (inline pickers)
 })
@@ -52,13 +56,23 @@ function pick(o) {
   open.value = false
   hi.value = -1
 }
+// A typed value is a committable custom entry when allowCustom is on, it's non-empty, it isn't
+// already an option label, and (if a validate fn is given) it passes. Keeps invalid junk out.
+function customOk(q) {
+  return (
+    props.allowCustom &&
+    !!q &&
+    !norm.value.some((o) => o.label === q) &&
+    (!props.validate || props.validate(q))
+  )
+}
 function onBlur() {
   // delay so a click on an option lands first
   setTimeout(() => {
     if (!open.value) return
     open.value = false
     const q = text.value.trim()
-    if (props.allowCustom && q && !norm.value.some((o) => o.label === q)) {
+    if (customOk(q)) {
       emit('update:modelValue', q)
     } else if (filtered.value.length === 1) {
       pick(filtered.value[0])
@@ -78,11 +92,20 @@ function onKeydown(e) {
     hi.value = Math.max(hi.value - 1, 0)
     scrollToHi()
   } else if (e.key === 'Enter') {
+    // Enter = "select/confirm", keyboard-only (no mouse needed):
+    //  1. an item is highlighted (arrowed to) → pick it
+    //  2. the typed text exactly matches an option label → pick that option
+    //  3. non-custom picker with matches → pick the first
+    //  4. allow-custom + the typed text is valid → confirm the typed value
+    // (invalid/empty custom falls through: nothing commits, the list stays open to fix)
     e.preventDefault()
+    const q = text.value.trim()
+    const exact = norm.value.find((o) => o.label === q)
     if (hi.value >= 0 && filtered.value[hi.value]) pick(filtered.value[hi.value])
+    else if (exact) pick(exact)
     else if (filtered.value.length >= 1 && !props.allowCustom) pick(filtered.value[0])
-    else if (props.allowCustom && text.value.trim()) {
-      emit('update:modelValue', text.value.trim())
+    else if (customOk(q)) {
+      emit('update:modelValue', q)
       open.value = false
     }
   } else if (e.key === 'Escape') {
@@ -97,7 +120,8 @@ onMounted(() => {
 const listEl = ref(null)
 function scrollToHi() {
   const el = listEl.value?.children[hi.value]
-  el?.scrollIntoView({ block: 'nearest' })
+  // guarded: jsdom (tests) has no scrollIntoView, and keyboard nav must not throw there
+  if (typeof el?.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' })
 }
 </script>
 
