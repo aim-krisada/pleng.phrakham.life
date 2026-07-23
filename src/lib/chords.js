@@ -31,6 +31,15 @@ export function parseChord(chord) {
   return { root: m[1], rootIndex: idx, suffix, bass, bassIndex }
 }
 
+// Is this free text a chord the engine understands? The quick-pick lists common chords, but
+// worship music also uses maj7, m7b5, sus2/4, add9, slash bass (G/B), °/+ etc. Any string with a
+// valid root (+ verbatim quality/extension) (+ /bass) is committed and transposes correctly;
+// genuine junk (no valid root) is rejected. SINGLE SOURCE — every chord input surface gates on
+// this (grid editor's chord cell, inline editor's chord box). Don't re-implement per component.
+export function isValidChord(text) {
+  return typeof text === 'string' && parseChord(text) != null
+}
+
 // Transpose a chord by semitones, spelling for the target key
 export function transposeChord(chord, semitones, targetKey) {
   const p = parseChord(chord)
