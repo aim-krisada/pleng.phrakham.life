@@ -23,3 +23,4 @@
 - คง **Vue3+Vite** (ไม่ Nuxt/Tailwind) · คง bookshelf หน้าแรก · ripple default · backspace ลบชิด
 - **แปล zh/en สุดท้าย** (หลัง string นิ่ง) · **ไม่ release จนเสร็จ** · **main = P'Aim สั่ง go เท่านั้น**
 - font = **Hybrid Noto** (UI self-host+subset · เนื้อจีน system CJK) · favorites/playlist **ไม่มี account** · **merge = PM เท่านั้น**
+- 2026-07-23 · **alignment 3 จุด (คำ/melisma/คอร์ด) PASS** บน `editor-usability` `8c508be` — Tester verify geometry จริง (คอร์ด 0.05px · คำ/เส้น 0.1px · 792 เทสต์) · pre-merge เหลือ: กวาดคลัง over-draw + P'Aim พิมพ์ PDF จริง
