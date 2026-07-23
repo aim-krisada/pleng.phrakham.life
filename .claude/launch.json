@@ -2,6 +2,19 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "base",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5480",
+        "--strictPort"
+      ],
+      "port": 5480
+    },
+    {
       "name": "b092",
       "runtimeExecutable": "npx",
       "runtimeArgs": [

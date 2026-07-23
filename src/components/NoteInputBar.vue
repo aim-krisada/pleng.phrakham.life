@@ -89,14 +89,24 @@ function onVV() {
 }
 watch(() => props.anchor, () => nextTick(place), { deep: true })
 watch(() => props.variant, () => nextTick(place))
+// opening/closing the chord picker or the (i) help changes the popup's HEIGHT, and place()
+// clamps against the header + the viewport bottom using that height — so re-place after both.
+watch([chordOpen, helpOpen], () => nextTick(place))
 onMounted(() => {
   nextTick(place)
   window.addEventListener('resize', place)
+  // The popup is position:fixed but anchored to a note in the FLOW, so every scroll moves the
+  // note out from under it. Without this it kept its old viewport position and drifted into the
+  // sticky header band (P'Aim 23 ก.ค.: "ป๊อปอัปไปอยู่หลังเมนูบน"). Re-placing keeps it glued to
+  // the note and, when there's no room, parked just BELOW the header instead of behind it.
+  // capture:true so it also fires for scrolls inside any scrolling ancestor.
+  window.addEventListener('scroll', place, { capture: true, passive: true })
   const vv = window.visualViewport
   if (vv) { vv.addEventListener('resize', onVV); vv.addEventListener('scroll', onVV); onVV() }
 })
 onUnmounted(() => {
   window.removeEventListener('resize', place)
+  window.removeEventListener('scroll', place, { capture: true })
   window.removeEventListener('pointermove', onGripMove)
   window.removeEventListener('pointerup', onGripUp)
   const vv = window.visualViewport
@@ -188,7 +198,10 @@ onUnmounted(() => {
   background: var(--surface, #fff);
   border: 1px solid var(--line, #d9d0c4);
   box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.12);
-  z-index: 45;
+  /* ABOVE the sticky app header (--z-nav): this toolbar is anchored to the selected note and
+     follows the page as it scrolls, so it WILL reach the header band. At --z-nav-minus it
+     disappeared behind the top menu and its คอร์ด ▾ picker was unclickable (P'Aim 23 ก.ค.). */
+  z-index: var(--z-popover);
 }
 /* mobile — keyboard-accessory pinned to the bottom (bottom offset = keyboard height, inline) */
 .nib-bar {

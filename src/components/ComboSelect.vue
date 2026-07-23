@@ -163,7 +163,7 @@ function scrollToHi() {
 .combo input { width: 100%; }
 .combo-list {
   position: absolute;
-  z-index: 30;
+  z-index: var(--z-popover);
   top: 100%;
   left: 0;
   min-width: 100%;

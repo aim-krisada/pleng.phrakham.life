@@ -89,14 +89,58 @@
   --bp-sm: 480px;
   --bp-md: 768px;
   --bp-lg: 1024px;
+
+  /* ===== Layering ladder (SSOT — every z-index in the app reads a token from here) =====
+     Rule: NEVER write a bare z-index number in a component. Pick the tier that matches what
+     the element IS; if nothing fits, add a tier here (and say why) rather than inventing a
+     number locally. Numbers below are spread out so a tier can be nudged without a cascade.
+
+     Stacking-context gotcha (this is what broke the note toolbar, 23 ก.ค.): an ancestor with
+     z-index + position (or transform/filter/opacity<1/will-change) creates a stacking context,
+     and a descendant can NEVER paint above that ancestor's siblings, no matter its z-index.
+     `.shell-bar` is such an ancestor (sticky + --z-nav), so anything that must float ABOVE the
+     header has to be a SIBLING of the header in the body, not a child of it. Children of the
+     header therefore use the small in-nav sub-ladder at the bottom of this block.
+
+     Tier            used by
+     --z-sheet       painted layers inside the song sheet / notation rows
+     --z-raised      small in-flow raised bits (chips over a row, sticky sub-heads in a panel)
+     --z-sticky      in-page sticky heads + passive hints (inst-loading pill)
+     --z-dock        fixed bottom docks + FABs (play dock, DockKey, ✏️ FAB) — UNDER the header
+     --z-inline-edit the invisible capture input pinned over the note being typed on
+     --z-nav         the ONE shell bar (sticky app header)
+     --z-popover     menus · dropdowns · anchored popups (note-input popup, chord picker,
+                     tool menus) — ABOVE the header, because they are transient and anchored
+     --z-scrim       full-screen dim behind the mobile drawer  (value fixed by pk-drawer.js)
+     --z-drawer      the mobile off-canvas drawer               (value fixed by pk-drawer.js)
+     --z-modal       dialogs / bottom sheets (ShareSheet) — above the drawer
+     --z-toast       transient toasts / snackbars — always last
+     Shared cores (pk-drawer.js, DockKey.vue) hard-code their number as a var() FALLBACK so
+     phrakham, which does not load this file, keeps its current stacking. */
+  --z-sheet: 1;
+  --z-raised: 5;
+  --z-sticky: 20;
+  --z-dock: 40;
+  --z-inline-edit: 45;
+  --z-nav: 50;
+  --z-popover: 800;
+  --z-scrim: 1040;
+  --z-drawer: 1050;
+  --z-modal: 1200;
+  --z-toast: 1300;
+  /* in-nav sub-ladder — only for elements rendered INSIDE .shell-bar, where the header's own
+     stacking context flattens them to --z-nav anyway. They only order against each other. */
+  --z-in-nav-scrim: 1;   /* .sb-backdrop — click-away catcher */
+  --z-in-nav-fab: 2;     /* .sb-fab — stays tappable over the catcher, as before */
+  --z-in-nav-menu: 3;    /* .sb-dropdown / .pk-tool-menu — the open menu itself */
 }
 
 * { box-sizing: border-box; }
 
-/* B001 — the shared pk-scrollnav.js sits at z-index 1020 (to clear phrakham's navbar).
-   In pleng the editor dock is z-index 90, so pin the scroll buttons below it — on the
-   mobile editor the full-width dock then covers them instead of the two fighting. */
-.pk-scrollnav { z-index: 30 !important; }
+/* B001 — the shared pk-scrollnav.js defaults high (to clear phrakham's navbar). In pleng the
+   editor dock owns --z-dock, so pin the scroll buttons one tier BELOW it — on the mobile editor
+   the full-width dock then covers them instead of the two fighting at the same tier. */
+.pk-scrollnav { z-index: var(--z-sticky) !important; }
 
 /* text-size-adjust: 100% — DISABLE Chrome-mobile "font boosting" (auto-inflation). Without it,
    Chrome on Android enlarges text a moment after load to "improve readability", which widened the
@@ -191,7 +235,8 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   padding: 0.35rem 0;
-  z-index: 2000;
+  /* rendered inside .shell-bar → flattened to --z-nav; only orders against its siblings */
+  z-index: var(--z-in-nav-menu);
   min-width: 220px;
 }
 .pk-tool-menu button {
@@ -230,7 +275,7 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
 .shell-bar {
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: var(--z-nav);
   display: flex;
   align-items: center;
   gap: var(--sp-3);
@@ -333,7 +378,7 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
   padding: 6px;
-  z-index: 60;
+  z-index: var(--z-in-nav-menu);
   display: flex;
   flex-direction: column;
 }
@@ -460,7 +505,7 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   position: fixed;
   right: max(16px, env(safe-area-inset-right, 0px));
   bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-  z-index: 45;
+  z-index: var(--z-in-nav-fab);
   align-items: center;
   gap: 8px;
   background: var(--accent);
@@ -558,7 +603,7 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
 /* ⚙/☰ preference controls (ภาษา + ตัวอักษรไทย) live in SettingsControls.vue as compact
    SEGMENTED controls, with their styles scoped there — no global .sb-font-*/.sb-lang-* rules. */
 
-.sb-backdrop { position: fixed; inset: 0; z-index: 40; }
+.sb-backdrop { position: fixed; inset: 0; z-index: var(--z-in-nav-scrim); }
 @media (hover: hover) {
   .sb-brand:hover,
   .sb-caret:hover,

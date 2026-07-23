@@ -576,7 +576,7 @@ function printSheet() {
   pointer-events: auto;
   position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: 30;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: var(--z-popover);
   width: max-content; min-width: 230px; max-width: calc(100vw - 24px); padding: 12px;
 }
 .st-fonttitle { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
