@@ -1,71 +1,85 @@
 -- 011 — approve_and_publish must never wipe a field it was not told about (B108 "ประตูที่สอง").
--- Run once in the Supabase SQL Editor. Independent of 007/008/009. Requires 006 to be live.
+-- Run once in the Supabase SQL Editor. Requires db/010 (already live).
+--
+-- ⚠️ WRITTEN AGAINST THE LIVE FUNCTION, NOT AGAINST THE REPO. P'Aim ran
+--    `select pg_get_functiondef('public.approve_and_publish(uuid,jsonb,text)'::regprocedure);`
+--    on 23 Jul 2026 and what is deployed is the **db/004** body: the insert branch still
+--    credits `auth.uid()`. **db/006 (the author_id fix) was never deployed.** Everything below
+--    keeps `auth.uid()` exactly as it is — applying 006 as a side effect of this migration
+--    would be a second, unrequested behaviour change. 006 stays a separate decision for PM.
 --
 -- ─────────────────────────────────────────────────────────────────────────────────────────
--- BUG
+-- BUG — "we don't know" is written to the database as "delete it"
 -- ─────────────────────────────────────────────────────────────────────────────────────────
--- The UPDATE branch of approve_and_publish (db/004, unchanged by db/006) assigns four columns
--- OUTRIGHT from the payload:
+-- `p_song->>'x'` returns NULL both when the caller sent null AND when the caller never
+-- mentioned the field at all. Three assignments have nothing guarding them, on BOTH branches:
 --
---     number   = nullif(p_song->>'number','')::int
---     title_en = p_song->>'title_en'
---     theme    = p_song->>'theme'          <-- the one that is biting us
+--     number   = nullif(p_song->>'number','')::int     -- key absent → เลขเพลง cleared
+--     title_en = p_song->>'title_en'                   -- key absent → ชื่อ EN cleared
+--     theme    = p_song->>'theme'                      -- key absent → ธีม cleared
 --
--- `p_song->>'x'` is NULL both when the caller sent null AND when the caller never mentioned
--- the field at all. So a payload that omits `theme` does not mean "leave it alone" — it means
--- "set it to null". Every approve of a draft whose ธีม could not be resolved wiped the song's
--- ธีม, and the same shape would wipe title_en / number.
+-- Safe already (they coalesce onto the stored value) and therefore NOT touched here:
+--     title_th · content · category · review_flags.
 --
--- Impact measured on live data (read-only, 23 Jul 2026): 162 published songs · 80 carry a ธีม ·
--- 80 live outside เล่มอนุชน (เล่มใหญ่ 54 · เด็กเล็ก 26). Every one of those was one approve away
--- from losing it.
+-- The B108 client fix stops sending `theme` when it cannot resolve it, with the comment "an
+-- omitted key lets the RPC keep the stored one". That is true of `category` (coalesced) and
+-- FALSE of `theme` — omitting it is exactly what wipes it. The hole is still open today.
 --
--- ─────────────────────────────────────────────────────────────────────────────────────────
--- FIX — PATCH semantics: "key present = write it · key absent = keep what is stored"
--- ─────────────────────────────────────────────────────────────────────────────────────────
---     theme = case when p_song ? 'theme' then nullif(p_song->>'theme','') else theme end
---
--- `p_song ? 'theme'` asks whether the JSON object HAS the key, which is exactly the signal
--- the client already sends: EditorMode.approve() attaches `category`/`theme` only when that
--- field is genuine (B108 client fix, live on `main` and on the base branch alike).
---   * key absent  → unknown → the stored value is kept. Nothing can be lost.
---   * key present, real value → written, as before.
---   * key present, null/'' → the user deliberately cleared it → cleared, as before.
--- So clearing a ธีม on purpose still works; only the "we never knew" case changed, and it
--- changed from destroying data to leaving it alone.
---
--- Same treatment for `number` and `title_en` (identical shape, identical risk). `category`
--- keeps its coalesce and additionally ignores an empty string, so a blank can never blank a
--- book. `title_th` / `content` / `review_flags` already coalesced and are untouched.
---
--- The INSERT branch is byte-for-byte db/006 (including the author_id fix): a brand-new song
--- has no stored value to protect.
+-- Live impact, measured read-only 23 Jul 2026: 162 published songs · 80 carry a ธีม ·
+-- 80 live outside เล่มอนุชน (เล่มใหญ่ 54 · เด็กเล็ก 26) · every published song has a เลขเพลง.
 --
 -- ─────────────────────────────────────────────────────────────────────────────────────────
--- SAFETY
+-- FIX — ask "was the key sent?", never "is the value empty?"
 -- ─────────────────────────────────────────────────────────────────────────────────────────
--- * No data is read, written, moved or deleted. This migration only redefines one function.
--- * No downtime: `create or replace function` swaps the body inside one transaction. Calls in
---   flight finish on the old body, the next call uses the new one. Nothing is dropped, so the
---   grant, the signature and the oid all survive — nothing can hit a "function not found".
--- * The live v1 app on `main` keeps working unchanged: it always sends number, title_th,
---   title_en, content, review_flags, and sends category/theme only when known — the exact
---   contract this fix implements. No client change is required, in either direction.
--- * Strictly safer than today in every case: an argument we understand behaves as before, an
---   argument we do NOT understand now leaves the stored value alone instead of nulling it.
--- * Idempotent: re-running detects its own fix and exits with a notice.
--- * GUARDED: it refuses to run unless what is live is really the db/006 version. If someone
---   hand-edited the function on the server, this aborts and prints the live definition
---   instead of overwriting the edit. (Written because nobody could confirm from outside that
---   the server matched the repo — the publishable API key cannot read pg_proc.)
--- * Rollback: db/011-rollback-approve-keep-theme.sql restores db/006 exactly.
+--     theme = case when p_song ? 'theme' then p_song->>'theme' else theme end
 --
--- ⚠️ ORDER: SQL FIRST, code after (there is no code change in this fix, but if one follows).
---    The new behaviour is a superset of the old one, so old code + new SQL is a valid state.
+-- `?` tests key PRESENCE, so "no value" stays distinguishable from "the value is empty" —
+-- collapsing those two is the root of B108, and `coalesce` would collapse them again (it
+-- would also make it impossible to ever clear a ธีม on purpose).
+--
+-- Note the branch that runs when the key IS present is the **original expression, unchanged**.
+-- That is deliberate: for every payload that mentions a field, this function computes exactly
+-- what it computes today, bit for bit. Only the never-mentioned case changed, and it changed
+-- from destroying the stored value to leaving it alone.
+--
+-- INSERT branch (a brand-new song): same three fields, falling back to the DRAFT's own columns
+-- instead of NULL, and `category` now tries the draft before the 'anuchon' default — that
+-- default is the root of B108. `song_drafts.category`/`theme` exist since db/010 (live).
+--
+-- ─────────────────────────────────────────────────────────────────────────────────────────
+-- SAFETY — the three things PM asked to be proven, and where each is proven
+-- ─────────────────────────────────────────────────────────────────────────────────────────
+-- (ก) NO ROW OF DATA IS TOUCHED. This migration contains no insert/update/delete/alter/drop
+--     of any kind — one `create or replace function` and one `grant`, both metadata-only.
+--     Proven in db/011-approve-keep-theme.test.js: every row of songs / song_drafts /
+--     song_revisions is compared before and after, INCLUDING each row's xmin (the version
+--     stamp Postgres bumps on any write) — all identical.
+-- (ข) THE CHANGE ONLY EVER POINTS SAFER. Key sent → identical expression to today.
+--     Key not sent → keep what is stored, instead of nulling it. There is no third case.
+-- (ค) THE LIVE v1 APP KEEPS WORKING, IDENTICALLY. Verified against the DEPLOYED bundle
+--     (https://pleng.phrakham.life/assets/index-CSAfPjE3.js), not against the repo: it builds
+--         {number, title_th, title_en, content, review_flags}
+--     with all five keys ALWAYS present, then attaches `category`/`theme` only when that field
+--     is known. So for those five, `p_song ? 'key'` is always true and the function computes
+--     what it computes today, unchanged. For category/theme, key present → unchanged;
+--     key absent → the only case that changes, and it changes from wiping to keeping.
+--     Proven in the test file by replaying that exact payload through the OLD and the NEW
+--     function and diffing every column.
+--
+-- Also: no downtime (`create or replace` swaps the body in one transaction; nothing is
+-- dropped, so no call can land on a missing function and the grant/signature/oid survive);
+-- idempotent (a re-run detects itself and stops); and GUARDED — it reads the live definition
+-- first and refuses, changing nothing, if the server is not what P'Aim showed us.
+--
+-- ⚠️ ORDER: this is SQL-only — there is NO code change to deploy with it, in either order.
+--    New SQL + today's code = the fix working. Old SQL + today's code = today's bug.
+-- Rollback: db/011-rollback-approve-keep-theme.sql restores the live text verbatim.
 
 do $mig$
 declare
-  v_def text;
+  v_def text;   -- the live definition, verbatim (printed back on any mismatch)
+  v_bare text;  -- …with SQL comments stripped, so a comment can never satisfy a check
+  v_missing text;
 begin
   select pg_get_functiondef(p.oid) into v_def
   from pg_proc p
@@ -76,38 +90,55 @@ begin
 
   if v_def is null then
     raise exception
-      'STOP: public.approve_and_publish(uuid, jsonb, text) does not exist on this database. '
-      'Do not continue — report to PM.';
+      'STOP: public.approve_and_publish(uuid, jsonb, text) does not exist here. Report to PM.';
   end if;
 
-  -- already fixed? (idempotent re-run)
-  if v_def ~ 'p_song\s*\?\s*''theme''' then
-    raise notice '011 already applied — approve_and_publish already keeps an unmentioned theme. Nothing to do.';
+  v_bare := regexp_replace(v_def, '--[^' || chr(10) || ']*', '', 'g');
+
+  -- already applied? (idempotent re-run)
+  if v_bare ~ 'p_song\s*\?\s*''theme''' then
+    raise notice '011 already applied — approve_and_publish already keeps an unmentioned field. Nothing to do.';
     return;
   end if;
 
-  -- must be the db/006 version: the author_id fix has to be in place, otherwise this database
-  -- is behind the repo and replacing the body would silently apply 006 as a side effect.
-  if v_def !~ 'd\.author_id' then
-    raise exception
-      'STOP: the live function is not the db/006 version (the d.author_id fix is missing). '
-      'Run db/006 first, or report to PM. Live definition follows:%', chr(10) || v_def;
+  -- db/010 must be live: the new insert branch reads d.category / d.theme.
+  select string_agg(c, ', ') into v_missing
+  from unnest(array['category', 'theme']) c
+  where not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'song_drafts' and column_name = c
+  );
+  if v_missing is not null then
+    raise exception 'STOP: song_drafts is missing %. Run db/010-draft-category.sql first.', v_missing;
   end if;
 
-  -- must be the shape 011 expects — every assignment we are about to rewrite, and no column
-  -- outside the set db/006 knows about (someone may have extended it by hand).
-  if v_def !~ 'theme\s*=\s*p_song->>''theme'''
-     or v_def !~ 'number\s*=\s*nullif\(p_song->>''number'''
-     or v_def !~ 'title_en\s*=\s*p_song->>''title_en'''
-     or v_def !~ 'category\s*=\s*coalesce\(p_song->>''category'''
-     or v_def ~ 'book_refs|scripture|verified|slug' then
+  -- The live body P'Aim read out on 23 Jul: the db/004 text, insert branch crediting auth.uid().
+  -- (Checked on v_bare — db/006 mentions auth.uid() in a COMMENT while doing the opposite.)
+  if v_bare ~ 'd\.author_id' or v_bare !~ 'auth\.uid\(\)' then
     raise exception
-      'STOP: the live approve_and_publish differs from db/006 — it was changed outside the repo. '
-      'Nothing has been modified. Send the definition below to PM before running anything.%',
+      'STOP: the live function no longer credits auth.uid() — it changed since 23 Jul (db/006 '
+      'may have been run). Nothing was modified. Send the definition below to PM.%',
       chr(10) || v_def;
   end if;
 
-  raise notice 'Live function matches db/006. Replacing with the 011 version…';
+  -- …and the exact shape 011 rewrites: the three unguarded assignments, the four safe ones,
+  -- and no column outside what we were shown (someone may have extended it by hand).
+  if v_bare !~ 'theme\s*=\s*p_song->>''theme'''
+     or v_bare !~ 'title_en\s*=\s*p_song->>''title_en'''
+     or v_bare !~ 'number\s*=\s*nullif\(p_song->>''number'''
+     or v_bare !~ 'category\s*=\s*coalesce\(p_song->>''category'''
+     or v_bare !~ 'title_th\s*=\s*coalesce\(p_song->>''title_th'''
+     or v_bare !~ 'content\s*=\s*coalesce\(p_song->''content'''
+     or v_bare !~ 'review_flags\s*=\s*coalesce\(p_song->''review_flags'''
+     or v_bare !~ 'v_song_id\s*:=\s*d\.song_id'
+     or v_bare ~ 'book_refs|scripture|verified|slug' then
+    raise exception
+      'STOP: the live approve_and_publish is not the body we were shown on 23 Jul — it was '
+      'changed outside the repo. NOTHING has been modified. Send the definition below to PM.%',
+      chr(10) || v_def;
+  end if;
+
+  raise notice 'Live function matches what P''Aim read out on 23 Jul. Applying 011…';
 
   execute $ddl$
 create or replace function public.approve_and_publish(
@@ -137,29 +168,30 @@ begin
   perform set_config('app.audit_group', v_group::text, true);
 
   if d.song_id is null then
-    -- NEW song: nothing stored yet, so there is nothing to protect. Identical to db/006.
+    -- NEW song. A field the payload never mentioned falls back to the draft's own value
+    -- (db/010 gave song_drafts category/theme) instead of being written as NULL.
     insert into public.songs (number, title_th, title_en, content, category, theme, review_flags, author_id)
     values (
-      nullif(p_song->>'number', '')::int,
+      case when p_song ? 'number'   then nullif(p_song->>'number', '')::int else d.number   end,
       coalesce(p_song->>'title_th', d.title_th),
-      p_song->>'title_en',
+      case when p_song ? 'title_en' then p_song->>'title_en'                else d.title_en end,
       coalesce(p_song->'content', d.content),
-      coalesce(p_song->>'category', 'anuchon'),
-      p_song->>'theme',
+      coalesce(p_song->>'category', d.category, 'anuchon'),
+      case when p_song ? 'theme'    then p_song->>'theme'                   else d.theme    end,
       coalesce(p_song->'review_flags', '[]'::jsonb),
-      d.author_id          -- db/006: credit the draft's writer, not the approver
+      auth.uid()   -- UNCHANGED from the live db/004 body. db/006 is a separate decision.
     )
     returning id into v_song_id;
   else
     v_song_id := d.song_id;
-    -- EXISTING song: PATCH semantics — a key the caller did not send is a key we keep.
+    -- EXISTING song. A field the payload never mentioned keeps what is stored.
     update public.songs set
       number       = case when p_song ? 'number'   then nullif(p_song->>'number', '')::int else number   end,
       title_th     = coalesce(p_song->>'title_th', title_th),
-      title_en     = case when p_song ? 'title_en' then nullif(p_song->>'title_en', '')    else title_en end,
+      title_en     = case when p_song ? 'title_en' then p_song->>'title_en'                else title_en end,
       content      = coalesce(p_song->'content', content),
-      category     = coalesce(nullif(p_song->>'category', ''), category),
-      theme        = case when p_song ? 'theme'    then nullif(p_song->>'theme', '')       else theme    end,
+      category     = coalesce(p_song->>'category', category),
+      theme        = case when p_song ? 'theme'    then p_song->>'theme'                   else theme    end,
       review_flags = coalesce(p_song->'review_flags', review_flags)
     where id = v_song_id;
   end if;
@@ -181,7 +213,5 @@ end
 $mig$;
 
 -- --- Verify (read-only, run after) ---
---   select pg_get_functiondef(p.oid)
---   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
---   where n.nspname = 'public' and p.proname = 'approve_and_publish';
---   -- the UPDATE branch must read:  theme = case when p_song ? 'theme' then ... else theme end
+--   select pg_get_functiondef('public.approve_and_publish(uuid,jsonb,text)'::regprocedure);
+--   -- the ธีม line must read:  theme = case when p_song ? 'theme' then ... else theme end

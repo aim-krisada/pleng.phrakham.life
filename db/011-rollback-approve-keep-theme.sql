@@ -1,14 +1,17 @@
--- 011 ROLLBACK — put approve_and_publish back to exactly the db/006 version.
+-- 011 ROLLBACK — restore approve_and_publish to the body that is live today.
 --
--- Use only if 011 turns out to cause a problem. Note what "rolling back" means here: you are
--- restoring the version that WIPES a theme it was not told about (that is the bug 011 fixed).
--- Prefer reporting the problem over rolling back blindly.
+-- This is NOT the repo's db/006. It is the text P'Aim read out of production on 23 Jul 2026
+-- with `select pg_get_functiondef('public.approve_and_publish(uuid,jsonb,text)'::regprocedure);`
+-- — the db/004 body, insert branch crediting `auth.uid()`. Copied verbatim so that rolling
+-- back puts the server back exactly where it was, not where the repo thinks it was.
 --
--- Safe in the same way 011 is: it touches no data, only redefines the function, in one
--- transaction, with no drop — so no call can ever land on a missing function.
+-- Same safety as 011: no row of data is read for writing, none is written, none is deleted.
+-- One `create or replace`, in one transaction, with no drop — so no call can ever land on a
+-- missing function, and there is no downtime in either direction.
 --
--- The body below is db/006-author-id-fix.sql verbatim (author_id fix kept). db/011 refuses to
--- run unless the live function matched db/006, so this restores what was actually there.
+-- ⚠️ Rolling back restores the wiping behaviour (ธีม / ชื่อ EN / เลขเพลง disappear when the
+--    app cannot resolve them). Tell PM before rolling back — a report is usually the better
+--    move. There is no data to restore either way: 011 never changed any.
 
 create or replace function public.approve_and_publish(
   p_draft_id       uuid,
@@ -46,7 +49,7 @@ begin
       coalesce(p_song->>'category', 'anuchon'),
       p_song->>'theme',
       coalesce(p_song->'review_flags', '[]'::jsonb),
-      d.author_id
+      auth.uid()
     )
     returning id into v_song_id;
   else
