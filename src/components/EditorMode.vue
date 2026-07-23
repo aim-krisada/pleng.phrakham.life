@@ -3,7 +3,7 @@ import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from
 import { onBeforeRouteLeave } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions, isValidChord } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, canonicalizeNote } from '../lib/notation.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
@@ -991,6 +991,27 @@ function barStatus(li, bi) {
   const short = !joined && got > 0.01 && got < expBeats.value - 0.01
   return { text: `${pre}${fmt(got)}/${fmt(expBeats.value)} จังหวะ`, ok, short }
 }
+// G1 — a bar holding a note whose modifiers were written out of canonical order. Since
+// the parser now reads any order, such a bar counts its beats correctly and its ❌ goes
+// away — which would make the swap INVISIBLE, the very thing that let these five spots
+// sit unnoticed in the library. So the bar carries its own warning chip instead: what is
+// stored, what it is read as. The data is NOT touched; a person compares with the printed
+// original and decides (docs/ds/note-symbol-set.md §1.2.1 · lint rule R10).
+function barOrderWarn(li, bi) {
+  const bar = lines.value[li]?.bars[bi]
+  if (!bar) return []
+  return bar.segments
+    .flatMap((s) => String(s.note || '').split(/\s+/))
+    .filter(Boolean)
+    .filter((box) => canonicalizeNote(box) !== box)
+    .map((box) => ({ box, suggestion: canonicalizeNote(box) }))
+}
+function barOrderWarnLabel(li, bi) {
+  const w = barOrderWarn(li, bi)
+  if (!w.length) return ''
+  return `⚠ เขียนสลับลำดับ: ${w.map((x) => `${x.box} → อ่านเป็น ${x.suggestion}`).join(' · ')}`
+}
+
 function fmt(n) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
 }
@@ -3178,6 +3199,13 @@ defineExpose({
                 <template v-if="barStatus(li, bi).text">{{ barStatus(li, bi).text }} {{ barStatus(li, bi).ok ? '✓' : '❌' }}</template>
                 <template v-else>ห้อง {{ bi + 1 }}</template>
               </span>
+              <!-- G1: the swapped-order warning. The bar now READS fine, so without this
+                   chip nothing on screen would say the note was written out of order. -->
+              <span
+                v-if="barOrderWarn(li, bi).length"
+                class="ed-bar-order"
+                :title="`ตัวโน้ตเท่าเดิม สลับที่เท่านั้น — ระบบอ่านให้ถูกแล้ว แต่ไม่ได้แก้ข้อมูลให้ ถ้าไม่ตรงกับที่ตั้งใจ ให้เทียบกับหนังสือต้นฉบับก่อนแก้`"
+              >{{ barOrderWarnLabel(li, bi) }}</span>
               <!-- B055: a short bar can be a ห้องยก (pickup) whose beats finish in another
                    partial bar — offer the one-tap toggle right where the ❌ shows -->
               <button
@@ -4810,6 +4838,18 @@ defineExpose({
 .ed-bar-status { color: var(--muted); }
 .ed-bar-status.bad { color: var(--red); font-weight: 700; }
 .ed-bar-mark { font-family: 'Courier New', monospace; font-weight: 700; color: var(--brand); font-size: 12px; }
+/* G1: swapped-modifier-order chip. Amber, not the ❌ red — the bar is readable and its
+   beats are right; what needs a human is whether the ORDER matches the printed original. */
+.ed-bar-order {
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #7a4a00;
+  background: #fff7ed;
+  border: 1px solid #e0a800;
+}
 /* B055: ห้องยก (pickup) quick toggle — a small chip beside the beat status */
 .ed-bar-pickup {
   font-size: 11px;

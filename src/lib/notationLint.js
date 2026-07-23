@@ -4,7 +4,7 @@
 // symbols and structural problems; it never guesses whether a pitch is the "right"
 // melody note — that still needs the ear.
 
-import { parseNotes, beatCount, expectedBeats } from './notation.js'
+import { parseNotes, beatCount, expectedBeats, canonicalizeNote } from './notation.js'
 
 export const SEVERITY = { ERROR: 'error', WARNING: 'warning', HINT: 'hint' }
 
@@ -252,6 +252,30 @@ export function lintRepeatVolta(marks) {
   return [...repeatBalance(list), ...voltaConsistency(list)] // R8, R9
 }
 
+// R10 — a note whose modifiers were written out of canonical order. Since G1 the
+// parser accepts any order, so this no longer breaks the sheet — but stored data is
+// NOT rewritten behind anyone's back. The bar reports what is stored and how it is
+// being read, and a person decides: four of the seven broken spots in the library
+// need the printed original opened before anyone can say what was meant (e.g. three
+// '^' in a row on beamed notes in #760 may not be fermatas at all). Silently
+// tidying the string would erase that question forever.
+function modifierOrder(noteString) {
+  return String(noteString || '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((box) => canonicalizeNote(box) !== box)
+    .map((box) => ({
+      severity: SEVERITY.WARNING,
+      code: 'modifier-order',
+      message:
+        `${box} เขียนสลับลำดับ — ระบบอ่านให้เป็น ${canonicalizeNote(box)} ` +
+        `(ลำดับมาตรฐาน: ~ #b ♮ · จุดล่าง · เลข · จุดบน · ขีดเขบ็ต · จุดเพิ่มค่า · ~ · ^) ` +
+        `ตัวโน้ตเท่าเดิม สลับที่เท่านั้น · ถ้าไม่ตรงกับที่ตั้งใจ ให้เทียบกับหนังสือต้นฉบับก่อนแก้`,
+      box,
+      suggestion: canonicalizeNote(box),
+    }))
+}
+
 // Lint ONE bar. `noteString` is that bar's notes (no '|' — the caller splits bars,
 // matching how the editor already stores segments per bar). Options: { timeSignature }.
 // Returns [{ severity, code, message }], most structural problems first.
@@ -269,6 +293,7 @@ export function lintBar(noteString, { timeSignature } = {}) {
   }
 
   findings.push(...slurCrossesBar(tokens)) // R4
+  findings.push(...modifierOrder(noteString)) // R10
 
   const exp = expectedBeats(timeSignature)
   const hasNotes = tokens.some((t) => t.type === 'note' || t.type === 'ext')
