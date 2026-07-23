@@ -1,0 +1,57 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>SPIKE B — keyboard layout probe</title>
+<style>body{font:14px/1.5 monospace;padding:16px;max-width:900px}
+pre{background:#f4f4f4;padding:10px;white-space:pre-wrap}h2{margin:18px 0 6px}</style>
+<h1>SPIKE B — navigator.keyboard.getLayoutMap()</h1>
+<h2>1. มี API ไหม</h2><pre id="support"></pre>
+<h2>2. ค่าดิบที่ API คืนมา (ทุก entry)</h2><pre id="raw"></pre>
+<h2>3. อักขระที่เราต้องบอกตำแหน่ง — หาเจอไหมใน layout map</h2><pre id="target"></pre>
+<h2>4. ทางสำรอง: เรียนรู้จาก keydown จริง</h2>
+<p>พิมพ์อักขระเหล่านี้ในช่อง: <b>^ _ ~ ( ) { } #</b></p>
+<input id="probe" size="40" placeholder="พิมพ์ที่นี่">
+<pre id="learned"></pre>
+<script>
+const TARGETS = ['^','_','~','(',')','{','}','#',"'",',','.','-','b','n','1','2','3']
+const out = {}
+
+async function run() {
+  const has = !!(navigator.keyboard && navigator.keyboard.getLayoutMap)
+  document.getElementById('support').textContent = JSON.stringify({
+    'navigator.keyboard': typeof navigator.keyboard,
+    'getLayoutMap': has ? 'function' : 'MISSING',
+    ua: navigator.userAgent,
+    secureContext: window.isSecureContext,
+  }, null, 2)
+  out.support = has
+
+  if (!has) { document.getElementById('raw').textContent = 'N/A — ไม่มี API'; window.__SPIKE__ = out; return }
+
+  const map = await navigator.keyboard.getLayoutMap()
+  const entries = [...map.entries()]
+  out.size = entries.length
+  out.entries = Object.fromEntries(entries)
+  document.getElementById('raw').textContent =
+    `size = ${entries.length}\n` + entries.map(([c,v]) => `${c} -> ${JSON.stringify(v)}`).join('\n')
+
+  // ข้อชี้ขาด: อักขระที่ต้องกด Shift โผล่มาเป็น "ค่าของปุ่ม" ไหม
+  const found = {}
+  for (const t of TARGETS) {
+    const hit = entries.find(([, v]) => v === t)
+    found[t] = hit ? hit[0] : null
+  }
+  out.foundByChar = found
+  document.getElementById('target').textContent = TARGETS
+    .map((t) => `${t.padEnd(3)} -> ${found[t] ?? '❌ ไม่มีใน layout map (= ต้องกด Shift)'}`).join('\n')
+  window.__SPIKE__ = out
+}
+
+const learned = {}
+document.getElementById('probe').addEventListener('keydown', (e) => {
+  if (e.key.length !== 1) return
+  learned[e.key] = { code: e.code, shift: e.shiftKey, alt: e.altKey, ctrl: e.ctrlKey, key: e.key }
+  window.__LEARNED__ = learned
+  document.getElementById('learned').textContent = JSON.stringify(learned, null, 2)
+})
+run()
+</script>
