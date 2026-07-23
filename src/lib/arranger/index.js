@@ -30,6 +30,7 @@ import { embellishChord } from './embellish.js'
 import { answerFills, applySusCadence } from './fills.js'
 import { refereeNoClash, balanceFloor, legatoBass } from './referee.js'
 import { keyboard } from './instruments/keyboard.js'
+import { meterOf } from './meter.js'
 
 /** @typedef {Object} PerfEvent
  *  role     : 'melody' | 'bass' | 'inner' | 'emb'
@@ -50,12 +51,16 @@ function inRefrain(beat, sections) {
   return sections.some((s) => s.isRefrain && beat >= s.fromBeat && beat < s.toBeat)
 }
 
-// Parse "4/4" → beats-per-bar 4 (default 4). Only patterns that lock to the bar need it.
+// The length of ONE bar in quarter-note beats — the unit every startBeat is counted in.
+// This used to be the time signature's NUMERATOR, which is only the same number for x/4
+// meters: a 6/8 bar is 3 quarter-notes, not 6, so everything that locks to the bar (metric
+// accent, hold pulse, comping patterns, walking bass, answer fills) was treating two bars
+// as one and putting its strong beat on the wrong note. meterOf() derives it properly for
+// simple AND compound meters. A bare number keeps meaning "quarter-beats per bar".
 function beatsPerBar(meta) {
   const ts = meta && meta.timeSignature
-  if (typeof ts === 'string') { const n = parseInt(ts.split('/')[0], 10); if (n > 0) return n }
   if (typeof ts === 'number' && ts > 0) return ts
-  return 4
+  return meterOf(ts).barBeats
 }
 
 // Melody = the printed notes, one PerfEvent per sounding note (rests advance the beat clock but
@@ -100,6 +105,9 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   const wantMelody = voices !== 'chords'
   const wantChords = voices === 'chords' || voices === 'both'
   const bpb = beatsPerBar(meta)
+  // the meter itself (bar length + where its stress falls), so the dynamics layers stress the
+  // beat the meter actually stresses instead of guessing it from the bar length alone.
+  const meter = typeof meta.timeSignature === 'number' ? null : meterOf(meta.timeSignature)
   const rng = rngFor(meta.songId, meta.pass || 0)
   const dyn = cfg.dynamics || {}
 
@@ -167,9 +175,9 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   if (on) {
     // thin the comp under a held melody note first (fewer notes = real space), then shape gains.
     // cfg.holdPulse (default on) = the mid-bar pulse that keeps a long hold from going hollow.
-    if (cfg.easeUnderHold !== false) events = easeUnderHold(events, bpb, 2, cfg.holdPulse !== false)
+    if (cfg.easeUnderHold !== false) events = easeUnderHold(events, bpb, 2, cfg.holdPulse !== false, meter)
     if (dyn.section !== false) sectionDynamics(events, meta.sections, dyn.sectionMap)
-    if (dyn.accent !== false) metricAccent(events, bpb)
+    if (dyn.accent !== false) metricAccent(events, bpb, meter)
     if (dyn.contour !== false) melodicContour(events)
     if (dyn.cresc) crescendo(events, dyn.cresc)
     if (dyn.rubato !== false) rubato(events, meta.sections) // ท่อน-end breathe (§R2.8)
