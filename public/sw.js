@@ -12,18 +12,30 @@
 // Cache-versioned by name; bump SAMPLES_CACHE when the sample catalogue changes (keeps the mirror
 // in step with sampler.js's pleng-samples-v1). ACTIVATE prunes old versions.
 
-const APP_CACHE = 'pleng-app-v1'
-const SAMPLES_CACHE = 'pleng-samples-v1'
-const MANIFEST_URL = '/samples/manifest.json'
+// ---- SCOPE-RELATIVE (side-by-side /v2 deploy · docs/deploy-v2.md) -------------------------------
+// The same sw.js file is served at BOTH '/sw.js' (current version) and '/v2/sw.js' (the new one).
+// Registration is relative ('sw.js' from the page), so each gets the scope of its own folder — but
+// CacheStorage is per-ORIGIN, not per-scope, so hard-coded '/...' URLs and shared cache NAMES would
+// make the two versions read and evict each other's files. Everything below is derived from
+// `registration.scope` instead: ROOT is '/' for the current version and '/v2/' for the new one.
+const ROOT = new URL(self.registration.scope).pathname   // '/' | '/v2/'
+// '' at the root so the current version keeps its EXISTING cache names byte-for-byte (an update
+// must not orphan what visitors already have); '--v2' for the subfolder build.
+const SUFFIX = ROOT === '/' ? '' : '--' + ROOT.replace(/^\/|\/$/g, '').replace(/\//g, '-')
+
+const APP_CACHE = 'pleng-app-v1' + SUFFIX
+const SAMPLES_CACHE = 'pleng-samples-v1' + SUFFIX
+const SAMPLES_PATH = ROOT + 'samples/'
+const MANIFEST_URL = SAMPLES_PATH + 'manifest.json'
 // App-shell URLs we always want cached (the hashed assets are added at runtime on first fetch).
 // Includes the PWA manifest + install icons so an offline "add to home screen" still resolves
 // them (they're static public/ files, not in the hashed asset-manifest).
 const APP_SHELL = [
-  '/', '/index.html', '/favicon.ico', '/phrakham.ico',
-  '/site.webmanifest',
-  '/favicon-16x16.png', '/favicon-32x32.png', '/apple-touch-icon.png',
-  '/android-chrome-192x192.png', '/android-chrome-512x512.png',
-]
+  ROOT, 'index.html', 'favicon.ico', 'phrakham.ico',
+  'site.webmanifest',
+  'favicon-16x16.png', 'favicon-32x32.png', 'apple-touch-icon.png',
+  'android-chrome-192x192.png', 'android-chrome-512x512.png',
+].map((p) => (p === ROOT ? p : ROOT + p))
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
@@ -32,7 +44,11 @@ self.addEventListener('install', (event) => {
       const res = await fetch(MANIFEST_URL, { cache: 'no-cache' })
       if (res.ok) {
         const manifest = await res.json()
-        const urls = [MANIFEST_URL, ...(Array.isArray(manifest.precache) ? manifest.precache : [])]
+        // The manifest ships site-root paths ('/samples/…'), so rebase them onto THIS scope —
+        // otherwise the /v2 SW would fill its cache with the root deployment's 205 sample files
+        // (measured: 205 root paths inside pleng-samples-v1--v2 before this line existed).
+        const rebase = (u) => (ROOT === '/' ? u : String(u).replace(/^\/samples\//, SAMPLES_PATH))
+        const urls = [MANIFEST_URL, ...(Array.isArray(manifest.precache) ? manifest.precache.map(rebase) : [])]
         const cache = await caches.open(SAMPLES_CACHE)
         // Individually (not addAll) so one missing file can't abort the whole precache.
         await Promise.allSettled(urls.map(async (u) => {
@@ -48,7 +64,7 @@ self.addEventListener('install', (event) => {
       const cache = await caches.open(APP_CACHE)
       let assets = []
       try {
-        const r = await fetch('/asset-manifest.json', { cache: 'no-cache' })
+        const r = await fetch(ROOT + 'asset-manifest.json', { cache: 'no-cache' })
         if (r.ok) assets = await r.json()
       } catch { /* no manifest (dev) → shell only */ }
       const shell = [...APP_SHELL, ...(Array.isArray(assets) ? assets : [])]
@@ -62,9 +78,14 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
+    // Prune old versions of OUR caches only. A cache name carries the scope it belongs to
+    // ('…--v2'), so the root SW never deletes the /v2 build's files and vice versa — the two
+    // deployments share an origin but must not evict each other (docs/deploy-v2.md).
     const keep = new Set([APP_CACHE, SAMPLES_CACHE])
+    const mine = (n) => n.startsWith('pleng-') &&
+      (SUFFIX ? n.endsWith(SUFFIX) : !/--/.test(n))
     const names = await caches.keys()
-    await Promise.all(names.map((n) => (keep.has(n) ? null : caches.delete(n))))
+    await Promise.all(names.map((n) => (!mine(n) || keep.has(n) ? null : caches.delete(n))))
     await self.clients.claim()
   })())
 })
@@ -83,7 +104,13 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return // never touch cross-origin
 
   // Samples: cache-first (immutable content; the whole point of the offline precache).
-  if (url.pathname.startsWith('/samples/')) {
+  // Requests belonging to the OTHER deployment (e.g. '/assets/…' seen by the /v2 SW because the
+  // root SW's scope also covers this page on a first visit) are left to the network / the SW that
+  // owns them — caching them here would mix the two builds' shells in one cache.
+  if (!url.pathname.startsWith(ROOT)) return
+  if (ROOT === '/' && url.pathname.startsWith('/v2/')) return
+
+  if (url.pathname.startsWith(SAMPLES_PATH)) {
     event.respondWith((async () => {
       const cached = await caches.match(req, MATCH)
       if (cached) return cached
@@ -102,7 +129,7 @@ self.addEventListener('fetch', (event) => {
         const c = await caches.open(APP_CACHE); c.put(req, res.clone())
         return res
       } catch {
-        return (await caches.match(req, MATCH)) || (await caches.match('/index.html', MATCH)) || (await caches.match('/', MATCH)) || Response.error()
+        return (await caches.match(req, MATCH)) || (await caches.match(ROOT + 'index.html', MATCH)) || (await caches.match(ROOT, MATCH)) || Response.error()
       }
     })())
     return

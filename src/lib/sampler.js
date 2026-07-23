@@ -25,9 +25,13 @@
 // The same-origin mirror root (served from public/samples/ → /samples/ in dev + prod). `grand`
 // is kept as an explicit entry so the legacy host-agnostic contract (and its test) still holds;
 // production mirrors samples by editing this object only.
+// BASE_URL ('/' at the site root, '/v2/' for the side-by-side new-version build) keeps the mirror
+// pointing at THIS deployment's own copy — a hard-coded '/samples/' would make /v2 stream the
+// current version's samples and 404 on anything only /v2 ships (docs/deploy-v2.md).
+const MIRROR = (import.meta.env.BASE_URL || '/').replace(/^\.\//, '/') + 'samples/'
 export const SAMPLE_HOSTS = {
-  base: '/samples/',
-  grand: '/samples/splendid-grand/samples',
+  base: MIRROR,
+  grand: MIRROR + 'splendid-grand/samples',
 }
 
 // ---- Instrument registry (step 9) --------------------------------------------------------------
