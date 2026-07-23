@@ -14,7 +14,7 @@ import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
 import { downloadSong } from '../lib/jsonIO.js'
-import { writeWorkingCopy, clearWorkingCopy, hasRecoverable } from '../lib/workingCopy.js'
+import { writeWorkingCopy, clearWorkingCopy, hasRecoverable, contentStamp } from '../lib/workingCopy.js'
 import { tier, canStore, session, saveDraftRow, initAuth, shellMenu, currentSong, readingFontScale, setFontScale } from '../store.js'
 import Icon from '../components/Icon.vue'
 import ComboSelect from '../components/ComboSelect.vue'
@@ -55,6 +55,7 @@ async function loadSong(id) {
   // A-fix: a fresh load = clean, and any local work left over from a crash/reload is OFFERED
   // (never auto-applied — the published song may have moved on since it was written).
   inlineState.value = 'clean'
+  cleanContent.value = stamp(content) // the checkpoint "ยังไม่บันทึก" is measured against
   inlineError.value = ''
   inlineDraftId.value = null
   recovery.value = hasRecoverable(data.id, content)
@@ -118,8 +119,15 @@ function onChange(song) {
 function onViewerContent(content) {
   if (!liveSong.value) return
   liveSong.value = { ...liveSong.value, content }
-  inlineState.value = 'dirty'
-  writeWorkingCopy(liveSong.value.id, content) // กันหาย: mirror it locally on every keystroke
+  // "ยังไม่บันทึก" is a COMPARISON against the last saved checkpoint, not a one-way flag — so
+  // undoing back to the saved state honestly reads "บันทึกแล้ว" again (same rule as the
+  // editor's B100 dirty check). A flag would lie the moment ย้อน came along.
+  const same = stamp(content) === cleanContent.value
+  inlineState.value = same ? 'clean' : 'dirty'
+  // the local copy follows the document, undo included — never a stale snapshot of a state the
+  // user has already stepped away from
+  if (same) clearWorkingCopy(liveSong.value.id)
+  else writeWorkingCopy(liveSong.value.id, content) // กันหาย: mirrored on every keystroke
 }
 
 // ---------- A-fix (23 ก.ค.): the inline editor's SAVE path ----------
@@ -138,6 +146,15 @@ function onViewerContent(content) {
 const inlineState = ref('clean') // clean | dirty | saving | saved | error
 const inlineError = ref('')
 const inlineDraftId = ref(null)
+// the content as of the last load / successful save — what "ยังไม่บันทึก" is measured against.
+// contentStamp (not JSON.stringify) so the comparison is about the MUSIC, not about the key
+// order Postgres happens to return — that mismatch kept an untouched song marked ยังไม่บันทึก.
+const stamp = contentStamp
+const cleanContent = ref(stamp(null))
+function markInlineSaved() {
+  cleanContent.value = stamp(liveSong.value?.content)
+  inlineState.value = 'saved'
+}
 // a local copy newer than the server's, offered for recovery when the song (re)opens
 const recovery = ref(null)
 
@@ -146,7 +163,7 @@ async function saveInlineDraft(kind) {
   if (!s) return
   if (kind === 'file') {
     // anon path — the JSON download IS their save; the work is now kept outside the browser
-    inlineState.value = 'saved'
+    markInlineSaved()
     inlineError.value = ''
     clearWorkingCopy(s.id)
     return
@@ -185,7 +202,7 @@ async function saveInlineDraft(kind) {
     return // the local working copy stays — nothing is lost by a failed save
   }
   inlineDraftId.value = id
-  inlineState.value = 'saved'
+  markInlineSaved()
   clearWorkingCopy(s.id) // stored on the server now; the recovery copy has done its job
 }
 // offered after a crash/reload: take the local copy, or drop it
