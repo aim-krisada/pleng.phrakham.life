@@ -156,8 +156,9 @@ describe('R1 control — a song with NO markers is byte-identical after open+sav
     const w = mountEd(plain)
     await nextTick()
     const saved = w.vm.previewContent
-    // no structural markers → mintMarkerIds is a no-op → the melody line is unchanged
-    expect(saved.stanzas[0].lines[0]).toEqual([{ type: 'segment', chord: '', note: '1 2 3 4' }])
+    // no structural markers → mintMarkerIds is a no-op → the untouched melody line round-trips
+    // BYTE-IDENTICAL through the lossless serde (no `chord: ''` injected where none was stored)
+    expect(saved.stanzas[0].lines[0]).toEqual([{ type: 'segment', note: '1 2 3 4' }])
     expect(saved.arrangement[0].flow).toBeUndefined()
   })
 })
