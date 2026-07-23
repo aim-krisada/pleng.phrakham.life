@@ -24,6 +24,7 @@ import { buildArrangeCfg, readTechniques } from '../lib/arranger/techniques.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
 import { noteBoxKinds } from '../lib/notation.js'
+import { learnKey, loadLayoutMap } from '../lib/keyHints.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
 import NoteInputBar from './NoteInputBar.vue'
@@ -260,6 +261,15 @@ function moveLineJump(dir) {
   if (!u) { moveUnit(dir > 0 ? 1 : -1); return }
   gotoLineLayer(u.li + dir, u.col, 'note')
 }
+// The symbol characters the inline editor understands (the toolbar shows a button per
+// character; these are also what we learn keyboard positions for). ',' and '!' are absent:
+// the parser gives them no meaning yet.
+const SYMBOL_CHARS = "_.-~^(){}|n'"
+// the browser's measured keyboard layout (Chromium/Edge); null elsewhere — then a hint is only
+// composed for keys whose `code` IS the character (digits/letters). Never a guessed table.
+const layoutMap = ref(null)
+// bumped whenever a new position is learned, so the toolbar re-reads the hint store
+const hintNonce = ref(0)
 // how a typed digit behaves — DEFAULT 'overwrite' (a number lands right ON the current note,
 // predictable "กด 1 = ใส่ 1 ตรงที่อยู่"). 'insert' (push the rest right) is the toggle for adding
 // notes. The Insert key flips it.
@@ -271,6 +281,12 @@ function toggleTypeMode() { typeMode.value = typeMode.value === 'insert' ? 'over
 // word when the caret is at its edge; ↑ ↓ / space / Enter navigate.
 function onCaptureKey(e) {
   if (!editMode.value) return
+  // DS §4.1: learn where this character lives on THIS keyboard, from the key actually pressed.
+  // The toolbar then shows it on that character's button, so the next time it can be typed
+  // straight away. Measured only — a character never typed here simply has no hint.
+  if (selLayer.value !== 'word' && SYMBOL_CHARS.includes(e.key)) {
+    if (learnKey(e.key, e.code, e.shiftKey, layoutMap.value)) hintNonce.value++
+  }
   const ctrl = e.ctrlKey || e.metaKey
   const word = selLayer.value === 'word'
   const el = e.target
@@ -528,6 +544,17 @@ function insertBoxSel(ch) {
     emit('update-content', next)
     if (ch === '-') curIdx.value = curIdx.value + 2
   }
+}
+// ONE entry point for a symbol, whether it was TYPED or tapped on the toolbar (DS §4.1: the
+// buttons and the keyboard must be the same thing seen from two sides — never two code paths
+// that drift). The keyboard handler above and the bar's @symbol both land here.
+function applySymbol(ch) {
+  if ('_.~^'.includes(ch)) markSel(ch)
+  else if (ch === 'n' || ch === '#' || ch === 'b') accidentalSel(ch)
+  else if (ch === "'") octaveSel(1)
+  else if ('-(){}'.includes(ch)) insertBoxSel(ch)
+  else if (ch === '|') barSel()
+  focusCapture() // tapping a button must not steal the caret / close the phone keyboard
 }
 // | = split the segment here with a bar line
 function barSel() {
@@ -1045,6 +1072,7 @@ const settingDescs = computed(() => [
 const hasSections = computed(() => sections.value.length > 0)
 
 onMounted(() => {
+  loadLayoutMap().then((m) => { layoutMap.value = m }) // for the symbol keys' "⇧ + 6" hints
   selectAllSecs() // B105: first-load default = every ท่อน ticked (the identity watcher isn't immediate)
   window.addEventListener('wheel', onUserScroll, { passive: true })
   window.addEventListener('touchmove', onUserScroll, { passive: true })
@@ -1225,6 +1253,8 @@ function onSeek({ li, si, syk }) {
       :dimmed="dimPopup"
       :mode="typeMode"
       :chords="chordOpts"
+      :hint-nonce="hintNonce"
+      @symbol="applySymbol"
       @nav="barNav"
       @octave="barOctave"
       @accidental="barAccidental"

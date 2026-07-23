@@ -610,46 +610,60 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   .sb-cat:hover,
   .sb-text:hover { background: rgba(0, 0, 0, 0.06); }
 }
-@media (max-width: 991.98px) {
+/* ---- B123 (ชั่วคราว · รอแถบบนออกแบบใหม่) -----------------------------------------------
+   This WAS `@media (max-width: 991.98px)`. The compact layout itself is unchanged — only its
+   TRIGGER moved: ShellBar now measures whether the full bar actually fits and sets
+   `.shell-compact` on <html>, instead of guessing at 992px. The bar needs a fixed ~1394px, so
+   every laptop below ~1395px of viewport (1366 · 1280 · 1200 · 1024) carried a horizontal
+   scrollbar (B123). Nothing is hidden that the ☰ drawer / FAB does not already hold.
+   TO REMOVE when the top bar is redesigned: revert this commit — the rules below go back
+   inside their media query and ShellBar drops syncShellFit(). ------------------------------ */
+/* B123 step 1 (ชั่วคราว · ดูหัวข้อด้านล่าง) — the CHEAPEST thing to give up when the bar runs out
+   of room: the brand wordmark, whose meaning the app icon already carries. Nav links, the mode
+   switch and the tools all stay inline, so 1280 and 1366 still read as a desktop. ShellBar adds
+   this class only when it has MEASURED that the full bar does not fit. */
+:root.shell-tight .sb-app-ico { display: block; width: 32px; height: 32px; border-radius: 9px; }
+:root.shell-tight .sb-brand-text { display: none; }
+:root.shell-tight .sb-brand { padding: 2px 6px; }
+
   /* phrakham parity (P'Aim 13 ก.ค.): app ICON left (no name) · 🔍 + ☰ right; nav + tools move
      into the ☰ drawer. Studio's teleported #shell-menus still drops to a 2nd row below. */
-  .shell-bar { gap: var(--sp-1) 6px; padding: var(--sp-2); flex-wrap: wrap; }
+  :root.shell-compact .shell-bar { gap: var(--sp-1) 6px; padding: var(--sp-2); flex-wrap: wrap; }
   /* brand = icon only (wordmark hidden); grow the mark to phrakham's 40×40 · radius 11 */
-  .sb-app-ico { display: block; width: 40px; height: 40px; border-radius: 11px; }
-  .sb-brand-text { display: none; }
+  :root.shell-compact .sb-app-ico { display: block; width: 40px; height: 40px; border-radius: 11px; }
+  :root.shell-compact .sb-brand-text { display: none; }
   /* 2px pad around the 40px icon → 44px brand, so the bar stays at phrakham's 65px height
      (the audit recorded pleng's mobile bar at 65 before the icon grew from 28→40). pleng's
      shell-bar chrome runs ~3px taller than phrakham's navbar for the same brand box, so we
      match the bar HEIGHT (what reads side-by-side) rather than phrakham's 48px brand box —
      the 40px icon itself is identical. 44px = the WCAG touch-target floor, still met. */
-  .sb-brand { padding: 2px; }
+  :root.shell-compact .sb-brand { padding: 2px; }
   /* desktop-only chrome hidden on mobile → the nav links + ตัวอักษรไทย live in the drawer.
      Login stays in the bar (P'Aim 13 ก.ค.: icon outside the drawer, far right). */
-  .sb-nav,
-  .sb-settings { display: none; }
+  :root.shell-compact .sb-nav,
+:root.shell-compact .sb-settings { display: none; }
   /* mobile-only hamburger */
-  .sb-burger { display: inline-flex; }
+  :root.shell-compact .sb-burger { display: inline-flex; }
   /* create: swap the desktop pill for the FAB (rendered by ShellBar on the home route only) */
-  .sb-create { display: none; }
-  .sb-fab { display: inline-flex; }
-  .sb-sep { display: none; }
-  .sb-mode-label { display: none; }
-  .sb-title,
-  .sb-title-static,
-  .shell-title { font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sb-text { padding: 6px; }
+  :root.shell-compact .sb-create { display: none; }
+  :root.shell-compact .sb-fab { display: inline-flex; }
+  :root.shell-compact .sb-sep { display: none; }
+  :root.shell-compact .sb-mode-label { display: none; }
+  :root.shell-compact .sb-title,
+:root.shell-compact .sb-title-static,
+:root.shell-compact .shell-title { font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :root.shell-compact .sb-text { padding: 6px; }
   /* flex-basis 0 (not auto) so the title's content width doesn't force it onto its own
      row — brand + title + 🔍/☰ stay together on row 1, title truncates in between */
-  .shell-title-wrap { flex: 1 1 0; min-width: 0; }
+  :root.shell-compact .shell-title-wrap { flex: 1 1 0; min-width: 0; }
   /* order:10 drops #shell-menus (Studio's เพลง ▾ + mode switch) below the brand/title/tools row */
-  .shell-menus {
+  :root.shell-compact .shell-menus {
     order: 10;
     flex-basis: 100%;
     width: 100%;
     justify-content: flex-start;
     gap: 6px;
   }
-}
 
 /* ---------- buttons / inputs ---------- */
 button, .btn {
