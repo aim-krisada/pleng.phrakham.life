@@ -8,6 +8,7 @@ import { arrange } from './arranger/index.js'
 import { moduleForInstrument } from './arranger/instruments/index.js'
 import { mulberry32, seedFor } from './arranger/rng.js'
 import { resolveContent } from './songModel.js'
+import { voltaNums, repeatPasses, forcedEnding, allMarkerIds } from './songFlow.js'
 
 // Playback root MIDI per key. Every tonic is kept inside ONE comfortable window (G3..F#4 = 55..66)
 // so no key plays an octave higher than another (พี่เปา 14 ก.ค.: "คีย์ A สูงเกินไป · ขอโซน A4"). The
@@ -118,7 +119,29 @@ function holdFor(seg, boxIdx, suggested) {
 // repeat-start '‖:' (or the song start), and play again — twice by default. With voltas,
 // the 1st ending (volta 1) is played only on the 1st pass; on the 2nd pass its bars are
 // skipped and the 2nd ending (volta 2) is played instead. Returns the bars in play order.
-function expandRepeats(bars) {
+//
+// R3 — per-verse flow override: a bar carries `entryIndex` (which arrangement row it belongs
+// to). `flowByEntry[entryIndex]` (+ `knownIds`) lets ONE row diverge without copying the
+// melody: flow.skip → play a repeat once, flow.times → loop it a different count, flow.ending
+// → land on a different alternate ending. A row with no flow behaves byte-identically to
+// before (repeatPasses returns the melody default = repeat-end.times || 2).
+function expandRepeats(bars, { flowByEntry = null, knownIds = null } = {}) {
+  // How many passes each repeated section plays, keyed by its repeat-start bar index. Needed
+  // up front because a forced ending is chosen on the section's LAST pass, and the pass count
+  // lives on the repeat-END (seen later than the volta bars). Flat, non-nested repeats.
+  const passesByStart = {}
+  {
+    const stack = []
+    bars.forEach((bar, idx) => {
+      if (bar.repeatStart) stack.push(idx)
+      if (bar.repeatEnd) {
+        const s = stack.length ? stack.pop() : -1
+        const flow = flowByEntry ? flowByEntry[bar.entryIndex] : null
+        const p = repeatPasses(flow, bar.repeatEndId, bar.repeatTimes ?? 2, knownIds)
+        if (s >= 0) passesByStart[s] = p
+      }
+    })
+  }
   const out = []
   let i = 0
   let repStart = -1
@@ -126,19 +149,28 @@ function expandRepeats(bars) {
   let guard = 0
   while (i < bars.length && guard++ < 100000) {
     const bar = bars[i]
+    const flow = flowByEntry ? flowByEntry[bar.entryIndex] : null
     if (bar.repeatStart && i !== repStart) {
       repStart = i // entering a new repeated section from the front
       pass = 1
     }
-    if (bar.volta && bar.volta !== pass) {
-      i++ // this ending belongs to a different pass — skip it
-      continue
+    const nums = bar.voltaNums // this bar's alternate-ending number(s), [] = not an ending
+    if (nums && nums.length) {
+      const sectionPasses = passesByStart[repStart] ?? 1
+      const forced = forcedEnding(flow) // flow.ending: re-target the ending on the last pass
+      const take = forced != null && pass >= sectionPasses
+        ? nums.includes(forced) // last pass of this verse → take the forced ending
+        : nums.includes(pass) // otherwise the ending whose number matches this pass
+      if (!take) { i++; continue } // this ending belongs to a different pass — skip it
     }
     out.push(bar)
-    if (bar.repeatEnd && pass < 2) {
-      pass++
-      i = repStart >= 0 ? repStart : 0
-      continue
+    if (bar.repeatEnd) {
+      const passes = repeatPasses(flow, bar.repeatEndId, bar.repeatTimes ?? 2, knownIds)
+      if (pass < passes) {
+        pass++
+        i = repStart >= 0 ? repStart : 0
+        continue
+      }
     }
     i++
   }
@@ -163,12 +195,21 @@ export function songToNotes(content) {
   // with it. Done HERE, before expandRepeats, so a repeated section replays with its chords
   // intact. Attached now → buildChordVoice can sound "exactly the chords the sheet shows".
   let curChord = ''
+  // R3 — per-verse flow: which arrangement row each display line belongs to (resolveContent
+  // tags `_entryIndex`), and that row's flow directive + the set of real marker ids (so a flow
+  // pointing at a deleted marker is ignored, never guessed — §2.1.1). v1 songs have neither →
+  // flowByEntry stays null and playback is unchanged.
+  const arrangement = content.arrangement || []
+  const flowByEntry = arrangement.length ? arrangement.map((e) => (e && e.flow) || null) : null
+  const knownIds = flowByEntry ? allMarkerIds(content) : null
   // 1. group each line's notes into bars, tagging repeat/volta flags per bar
   const bars = []
+  const newBar = (entryIndex) => ({ notes: [], repeatStart: false, repeatEnd: false, repeatEndId: null, repeatTimes: 2, voltaNums: [], entryIndex })
   ;(content.lines || []).forEach((line, li) => {
+    const entryIndex = line._entryIndex // v2: which ข้อ this line came from (undefined for v1)
     let bi = 0
     let si = -1
-    let bar = { notes: [], repeatStart: false, repeatEnd: false, volta: 0 }
+    let bar = newBar(entryIndex)
     // G20 — an accidental holds for the REST OF ITS BAR (变音记号: 同小节、同音名且同音高).
     // Written once on the first note, every later note of the same degree AND octave in that
     // bar sounds altered too; ♮ cancels it; the next bar starts clean. Until now playback read
@@ -184,12 +225,17 @@ export function songToNotes(content) {
     const flushBar = () => { bars.push(bar); barAlt = new Map() }
     for (const item of line) {
       if (item.type === 'repeat-start') { bar.repeatStart = true; continue }
-      if (item.type === 'repeat-end') { bar.repeatEnd = true; continue }
-      if (item.type === 'volta') { bar.volta = item.num || 0; continue }
+      if (item.type === 'repeat-end') {
+        bar.repeatEnd = true
+        bar.repeatEndId = item.id ?? null // R1 id: flow.skip/times reference the repeat by this
+        if (item.times != null) bar.repeatTimes = Math.max(1, Math.floor(Number(item.times) || 2)) // R2 default rounds
+        continue
+      }
+      if (item.type === 'volta') { bar.voltaNums = voltaNums(item); continue } // R2 num may be a list
       if (item.type === 'bar') {
         flushBar()
         bi++
-        bar = { notes: [], repeatStart: false, repeatEnd: false, volta: 0 }
+        bar = newBar(entryIndex)
         continue
       }
       if (item.type !== 'segment') continue
@@ -284,7 +330,7 @@ export function songToNotes(content) {
   // the sources do not state them outright. If that reading turns out to be wrong, this is the
   // line to revisit: resolution would have to move after expandRepeats instead.
   const notes = []
-  for (const bar of expandRepeats(bars)) for (const n of bar.notes) notes.push(n)
+  for (const bar of expandRepeats(bars, { flowByEntry, knownIds })) for (const n of bar.notes) notes.push(n)
   return mergeTies(notes)
 }
 
