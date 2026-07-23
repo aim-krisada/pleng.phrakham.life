@@ -2,7 +2,7 @@
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { KEYS, TIME_SIGNATURES, chordOptions } from '../lib/chords.js'
+import { KEYS, TIME_SIGNATURES, chordOptions, parseChord } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, HOLD_STEP, HOLD_MIN, snapHalf, slurSpans } from '../lib/notation.js'
 import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
@@ -297,6 +297,12 @@ const resolvedPreview = computed(() => ({
 // picking that clears/merges a chord at a note (no duplicate "no chord" row).
 const chordOpts = computed(() => chordOptions(opts.key))
 const chordPickOpts = chordOpts
+
+// The quick-pick lists common chords, but worship music also uses maj7, m7b5, sus2/4, add9,
+// slash bass (G/B), °/+ etc. — anything the notation supports. So the chord field is free-text
+// (allow-custom): any string parseChord() accepts (a valid root [+ verbatim quality/extension]
+// [+ /bass]) is committed and transposes correctly; genuine junk (no valid root) is rejected.
+const isValidChord = (text) => parseChord(text) != null
 
 // ---------- verse lens (words under the notes) ----------
 // arrangement rows that link the stanza currently being edited
@@ -3218,8 +3224,10 @@ defineExpose({
                       v-if="chordEditing(li, bi, si, p - 1)"
                       :model-value="p - 1 === 0 ? seg.chord : ''"
                       :options="p - 1 === 0 ? chordPickOpts : chordOpts"
-                      placeholder="คอร์ด"
-                      aria-label="เลือกคอร์ด"
+                      allow-custom
+                      :validate="isValidChord"
+                      placeholder="คอร์ด (พิมพ์เองได้ เช่น F#m7b5, G/B)"
+                      aria-label="เลือกหรือพิมพ์คอร์ด"
                       width="120px"
                       class="chord-pick"
                       autofocus
