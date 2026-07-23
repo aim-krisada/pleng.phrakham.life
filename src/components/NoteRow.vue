@@ -258,6 +258,16 @@ if (typeof window !== 'undefined') {
     document.fonts.ready.then(applyAllBeams).catch(() => {})
   }
 }
+// Coalesce a re-measure of every live beam into ONE pass on the next frame, so several rows
+// becoming visible at once (a whole tab appearing) cost a single sweep, not one per row.
+let allBeamsQueued = false
+function scheduleAllBeams() {
+  if (allBeamsQueued) return
+  allBeamsQueued = true
+  const run = () => { allBeamsQueued = false; applyAllBeams() }
+  if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(run)
+  else run()
+}
 const vBeam = {
   mounted(el, binding) {
     el.__beam = binding.value
@@ -266,9 +276,28 @@ const vBeam = {
     if (typeof requestAnimationFrame !== 'undefined') {
       requestAnimationFrame(() => requestAnimationFrame(() => applyBeam(el)))
     }
+    const target = el.parentElement || el
     if (typeof ResizeObserver !== 'undefined') {
       el.__beamRO = new ResizeObserver(() => applyBeam(el))
-      el.__beamRO.observe(el.parentElement || el)
+      el.__beamRO.observe(target)
+    }
+    // B114 — แผ่นเพลง is kept MOUNTED behind `v-show`, so a NoteRow mounts while its tab is
+    // still `display:none`: every rect reads 0, applyBeam hides the bar, and the reader sees
+    // NO beams at all. (Measured live on this branch: a `.sheet-workspace` that is
+    // display:none holds a bar with width 0.) Nothing ever asks it to measure again — an
+    // element with no box has no ResizeObserver box to change, so the RO above is not a
+    // dependable signal for "an ancestor stopped being display:none". IntersectionObserver
+    // is: an unrendered element never intersects, and the moment it gains a rendered box on
+    // screen the observer delivers an entry. When it fires we re-measure ALL live bars
+    // (coalesced to one frame), because one row appearing means the whole sheet just
+    // appeared. Guarded on `display === 'none'` so ordinary scrolling costs nothing.
+    if (typeof IntersectionObserver !== 'undefined') {
+      el.__beamIO = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting && el.style.display === 'none') scheduleAllBeams()
+        }
+      })
+      el.__beamIO.observe(target)
     }
   },
   updated(el, binding) {
@@ -280,6 +309,10 @@ const vBeam = {
     if (el.__beamRO) {
       el.__beamRO.disconnect()
       delete el.__beamRO
+    }
+    if (el.__beamIO) {
+      el.__beamIO.disconnect()
+      delete el.__beamIO
     }
   },
 }
