@@ -202,7 +202,13 @@ function repeatBalance(marks) {
 // order (1 before 2) with no repeated number. A lone จบรอบ 1 (missing รอบ 2), a จบรอบ 2
 // with no รอบ 1, จบรอบ 2 written before จบรอบ 1, or the same round twice are all flagged.
 function voltaConsistency(marks) {
-  const nums = marks.filter((m) => m.type === 'volta').map((m) => Number(m.num))
+  // An ending that spans several bars carries the mark on EVERY one of its bars (that is how
+  // playback knows the whole run belongs to that pass), so consecutive identical numbers are
+  // ONE ending, not the same round written twice — collapse the run before judging order.
+  const nums = marks
+    .filter((m) => m.type === 'volta')
+    .map((m) => Number(m.num))
+    .filter((n, i, a) => n !== a[i - 1])
   if (!nums.length) return []
   const out = []
   const seen = new Set()
