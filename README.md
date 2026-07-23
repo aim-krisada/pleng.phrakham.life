@@ -29,6 +29,22 @@ npm install
 npm run dev
 ```
 
+## Test
+
+```sh
+npm test
+```
+
+| Script | Runs | Why |
+|---|---|---|
+| `npm test` | everything except `db/` | the fast loop you run while coding |
+| `npm run test:db` | only `db/` | migration/RLS tests on a real Postgres (pglite) — slow to boot (~11s), so they are not in the default run |
+| `npm run test:all` | **everything, one report** | run this before opening an MR, and it is what CI should run |
+| `npm run test:watch` | everything except `db/`, in watch mode | |
+
+`npm test` skipping `db/` is a speed trade-off, not a signal that those tests are optional —
+**`npm run test:all` is the one that must be green before a merge.**
+
 ## Song data shape (`songs.content` jsonb)
 
 ```json

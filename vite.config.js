@@ -44,6 +44,9 @@ export default defineConfig({
     __BUILD_COMMIT__: JSON.stringify(info.commit),
     __BUILD_TIME__: JSON.stringify(info.time),
   },
+  // Default config runs EVERYTHING (`npm run test:all`). The db/ carve-out lives in the `test` /
+  // `test:watch` scripts as a CLI --exclude, because vitest's CLI --exclude appends to the config
+  // list rather than replacing it — so an exclusion put here could not be lifted again from a script.
   test: {
     environment: 'jsdom',
     globals: true,
