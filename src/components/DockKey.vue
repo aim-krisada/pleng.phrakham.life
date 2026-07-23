@@ -1,3 +1,23 @@
+<script>
+// --- shared across ALL dock instances on the page (module scope, not per-component) ------
+// A page can hold more than one dock at a time (the sing transport and the editor's own
+// dock both mount, one of them collapsed), so each instance registers ITS height here and
+// --dock-h carries the TALLEST. A plain per-instance overwrite let a 109px collapsed dock
+// publish over the 214px one actually on screen — the under-reserved gap behind 🔴4.
+const dockHeights = new Map()
+let dockSeq = 0
+export function publishDockHeight() {
+  if (typeof document === 'undefined') return
+  const tallest = Math.max(0, ...dockHeights.values())
+  const root = document.documentElement
+  if (tallest > 0) root.style.setProperty('--dock-h', `${tallest}px`)
+  else root.style.removeProperty('--dock-h') // no dock left → no gap to reserve
+}
+export function registerDockHeight(id, h) { dockHeights.set(id, h); publishDockHeight() }
+export function unregisterDockHeight(id) { dockHeights.delete(id); publishDockHeight() }
+export function nextDockId() { return ++dockSeq }
+</script>
+
 <script setup>
 // DockKey — the ONE reusable dock "core engine" (library กลาง). Every studio page
 // (ฝึกร้อง · แผ่นเพลง · แก้ไข) hands it ONLY a list of button descriptors (`items`); the
@@ -374,6 +394,22 @@ function measureDock() {
   if (userWidth.value != null) { const c = clampWidth(userWidth.value); if (c !== userWidth.value) userWidth.value = c }
 }
 
+// ---------- publish the dock's live height so content can reserve room for it ----------
+// The dock is `position: fixed`, so the page below it has to leave a gap or the last row of
+// the song sits UNDER the dock and can never be tapped (🔴4, พี่เปา: 20 controls covered).
+// The gap used to be hard-coded (88px / 150px) while the dock's real height depends on the
+// viewport, wrapping, the message row and the user's own resize — it measured 214px on a
+// 360px phone. Publish the measured height instead so every consumer reserves exactly what
+// the dock takes. Shared with phrakham (no styles.css there), hence a JS-set var + fallback.
+// (the registry itself is module-scoped in the plain <script> block above — shared by
+// every dock instance on the page; this one just reports its own box into it)
+const dockId = nextDockId()
+function syncDockHeight() {
+  const host = hostEl.value
+  if (!host) return
+  registerDockHeight(dockId, Math.ceil(host.getBoundingClientRect().height))
+}
+
 // ---------- keep every popover on-screen (+8px · DS I5, no exceptions) ----------
 function clampPops() {
   const host = hostEl.value
@@ -391,9 +427,20 @@ function clampPops() {
   })
 }
 watch(openId, async () => { await nextTick(); clampPops() })
+// --dock-h again after anything that changes the dock's own height. The ResizeObserver
+// covers layout-driven changes when the page is being painted, but a tab that is in the
+// background (or an emulated/automated one) runs no rendering steps at all, so RO never
+// delivers and the gap would keep the height the dock had at mount. These are the state
+// changes that resize it, so the reserved gap follows the dock either way.
+watch([collapsed, () => props.message, () => props.items, userWidth, openId], async () => {
+  await nextTick()
+  syncDockHeight()
+}, { deep: true })
 
 // ---------- lifecycle ----------
 let ro = null
+let hro = null // watches the dock's own box → --dock-h
+let dockHTimers = [] // settle re-measures for --dock-h
 let rmq = null // prefers-reduced-motion media query
 function syncReduce() { reduceMotion.value = rmq ? rmq.matches : false }
 onMounted(() => {
@@ -403,6 +450,18 @@ onMounted(() => {
   syncWidth()
   ro = typeof ResizeObserver === 'function' ? new ResizeObserver(syncWidth) : null
   ro?.observe(document.documentElement)
+  // the dock's own height feeds --dock-h (collapse / resize / message row / rotate all move it).
+  // Safe from the cap→width feedback loop above: the content gap it drives cannot resize the dock.
+  syncDockHeight()
+  hro = typeof ResizeObserver === 'function' ? new ResizeObserver(syncDockHeight) : null
+  if (hostEl.value) hro?.observe(hostEl.value)
+  window.addEventListener('resize', syncDockHeight)
+  // the first measure lands before the web fonts swap in and before the icons paint, so the
+  // dock is still short at mount (109px measured against a settled 214px). Re-measure once
+  // fonts are ready and once more after the layout settles — timers fire even where the
+  // ResizeObserver does not (background / automated tabs), so the gap is never left short.
+  document.fonts?.ready?.then(syncDockHeight).catch(() => {})
+  dockHTimers = [setTimeout(syncDockHeight, 300), setTimeout(syncDockHeight, 1200)]
   window.addEventListener('resize', syncWidth)
   window.visualViewport?.addEventListener('resize', syncWidth)
   window.addEventListener('keydown', onEsc)
@@ -429,6 +488,12 @@ onUnmounted(() => {
   window.removeEventListener('scroll', onScroll)
   document.removeEventListener('mousedown', onOutside)
   ro?.disconnect()
+  hro?.disconnect()
+  window.removeEventListener('resize', syncDockHeight)
+  dockHTimers.forEach(clearTimeout)
+  // drop this dock from the registry (the var falls back to the tallest one still mounted,
+  // and clears entirely when the last dock leaves — a stale value would strand a blank band)
+  unregisterDockHeight(dockId)
 })
 
 // ---------- menu (native dropdown) ----------

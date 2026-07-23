@@ -448,6 +448,12 @@ onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', scheduleMeasure)
     window.addEventListener('beforeprint', measureTies)
+    // A rotation can land without a `resize` in some mobile browsers, and a tab that was
+    // hidden runs no rendering steps at all — so neither the ResizeObserver nor rAF fires
+    // while it is away and the arcs would stay measured for the OLD width. Re-measure on
+    // both so the geometry catches up as soon as the sheet is actually being looked at.
+    window.addEventListener('orientationchange', scheduleMeasure)
+    document.addEventListener('visibilitychange', scheduleMeasure)
   }
 })
 onBeforeUnmount(() => {
@@ -455,6 +461,8 @@ onBeforeUnmount(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', scheduleMeasure)
     window.removeEventListener('beforeprint', measureTies)
+    window.removeEventListener('orientationchange', scheduleMeasure)
+    document.removeEventListener('visibilitychange', scheduleMeasure)
   }
   clearTimeout(timer)
   restoreHalves()
@@ -478,12 +486,17 @@ watch(
       <!-- B069: cross-bar ties as ONE continuous arc, drawn in this line's own overlay so
            NoteRow's per-segment halves (hidden in JS) are replaced by a curve that spans the
            bar line. Per-line (not sheet-wide) so it prints on whatever page the line lands. -->
+      <!-- The box is sized in CSS (inset:0 → always exactly this line, at every width);
+           only the viewBox carries the measured px space. Baking the measured width/height
+           into the ATTRIBUTES made the overlay keep a desktop-sized box after the line got
+           narrower (a re-measure can lag — or never arrive in a background/emulated tab),
+           and an absolutely-positioned 760px box inside a 336px line still counts as
+           scrollable overflow: the document went 772px wide on a 360px phone and every
+           position:fixed control (✏️ / "เสร็จการแก้ไข") slid off-screen (🔴2, พี่เปา). -->
       <svg
         v-if="lineArcs[row.li]"
         class="tie-overlay"
         :viewBox="`0 0 ${lineArcs[row.li].w} ${lineArcs[row.li].h}`"
-        :width="lineArcs[row.li].w"
-        :height="lineArcs[row.li].h"
         preserveAspectRatio="none"
         aria-hidden="true"
       >
@@ -568,8 +581,12 @@ watch(
 .song-line { position: relative; }
 .tie-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
+  /* size from the LINE, never from a measured px value — the overlay can then never be
+     wider than the line it decorates, so it can never push the document (and the fixed
+     controls that hang off it) past the viewport, whatever the measure timing. */
+  inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: visible;
   pointer-events: none;
   z-index: var(--z-sheet);
