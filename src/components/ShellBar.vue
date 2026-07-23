@@ -23,6 +23,7 @@ import { t } from '../i18n/index.js'
 import ProfileTool from './ProfileTool.vue'
 import InstallAppTool from './InstallAppTool.vue'
 import SettingsControls from './SettingsControls.vue'
+import VersionSwitch from './VersionSwitch.vue'
 import Icon from './Icon.vue'
 
 defineProps({ title: { type: String, default: '' } })
@@ -199,6 +200,12 @@ async function goSearch() {
       <img class="sb-app-ico" :src="appIcon" alt="" width="40" height="40" />
       <span class="sb-brand-text">{{ t('brand.name') }}</span>
     </router-link>
+
+    <!-- "รุ่นทดลอง v2" state pill + one-tap switch back to the current version. Renders nothing
+         on the root build (docs/deploy-v2.md), so this is inert on today's live site. Sits beside
+         the brand so it is on every page and every width — a version you can be on without
+         noticing is the failure mode of running two deployments at once. -->
+    <VersionSwitch />
 
     <!-- Desktop inline nav (phrakham navbar-nav). Hidden on mobile → moves into the drawer.
          Order (P'Aim 13 ก.ค.): รายการเพลง · คู่มือ · พระคำ.ชีวิต↗ · เกี่ยวกับเรา. -->
