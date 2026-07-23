@@ -36,7 +36,7 @@
 ### สายที่วิ่งอยู่
 | สาย | ทำอะไร |
 |---|---|
-| **เอนจินการวนร้อง (R1-R5)** | ✅ **เสร็จ @`73ecdf4`** (`claude/serene-gauss-649304`) — เพลง 105 = `flow.skip` เล่นถูก · id round-trip เสถียร · R4 กำพร้าไม่หายเงียบ · test:all 1235 · 🔴 **แตกจาก base เก่า `c037c47` + แตะ save path เดียวกับ editorSerde → จ่าย Tester gate ก่อน merge** (merge base 4995752 เข้า → พิสูจน์ flow ไม่ถูกล้าง) · jump/path เก็บได้แต่ยังไม่เล่น (รอ segno marker + ตามสเปก) |
+| **เอนจินการวนร้อง (R1-R5)** | ✅ **เสร็จ + merge base เอง @`4651264`** (`claude/serene-gauss-649304`) — เพลง 105 `flow.skip` เล่นถูก · test:all **1246** · 🔴 **conflict จริงที่แก้แล้ว: editorSerde ทิ้ง marker id → engine พอร์ต marker-id เข้า editorSerde.js เอง** ⇒ 1 ไฟล์แบก 2 สัญญา → **Tester gate เพ่ง regression dataloss (holds/unknown รอดไหม) + visual sign-off** ก่อน PM merge · jump/path store-only ตามสเปก |
 | **SA ระบบโน้ต** (seat ถาวร) | ✅ **สเปก `docs/ds/repeat-flow-override.md` ปิดแล้ว @`e73da9d`** (branch `claude/nostalgic-perlman-7b5f10`) — ⚠️ ใบสั่ง dev ที่จ่ายไปอ้าง `1f4f715` (เก่ากว่า 1 รอบ) **ต้องบอก dev ให้ใช้ `e73da9d`** · ต่อไป: | 🔴 **ออกแบบ "โครงเพลง" ลากวาง↔สัญลักษณ์ ซิงก์กันเอง** + จบ/ย้อน/จบ1-2/ท่อนรับ + ปักหมุดเครื่องมือ · ยึดของเดิมในภาพ ห้ามรื้อ · ส่งเป็นภาพก่อนแตะโค้ด |
 | สาย G | หารือ G เรื่องแถบโหมดบนสุด (P'Aim เสนอเอาออกทั้งแถบ) · ⛔ ห้ามใครแตะแถบจนกว่าจะสรุป |
 | สายจังหวะ | ทำใบแจ้งแก้ข้อมูลโน้ต **12 เพลง** ให้พี่เปา (#108 หนักสุด 40/80 ห้อง) |
