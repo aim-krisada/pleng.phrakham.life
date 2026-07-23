@@ -189,8 +189,9 @@ export function attackSlots(noteString) {
 // `beamGroups(noteString, syllables)` returns { groups, beams }:
 //   groups — groupNotes(parseNotes(noteString)) with each token stamped `.idx` (the running
 //            slot NoteRow uses for data-idx) and `.beamed=true` on notes that join a beam.
-//   beams  — [{ start, end, u2 }] one entry per beam run (start/end = token idx, u2 = the
-//            run has a sixteenth → double beam). NoteRow draws one continuous underline each.
+//   beams  — [{ start, end, u2, levels }] one entry per beam run (start/end = token idx).
+//            `levels` (B110) = one bar per beam level with its OWN span — see beamLevels().
+//            NoteRow draws one <i class="beam"> per level entry.
 //
 // A beam breaks at a non-underlined token · rest 0 · '-' extension · triplet · bar line, AND
 // (issue8) before any note that STARTS a new syllable.
@@ -207,6 +208,39 @@ export function attackSlots(noteString) {
 // syllables == null (v1 / not supplied) → we do NOT know where words start, so no note is an
 // attack and a syllable-only rule would beam a whole bar together. There we keep the beat
 // edge: v1 rendering is unchanged, exactly as before (the graceful fallback).
+// --- B110: one bar PER BEAM LEVEL, not one flag per run --------------------------------
+// เขบ็ต 1 ชั้น = ขีดเดียว · 2 ชั้น = สองขีด. A run may MIX them (`.7_. 1__` — a dotted eighth
+// beamed to a sixteenth), and the old `u2: run.some(...)` collapsed the whole run to one
+// thickness, so the eighth was drawn with two lines too. Standard engraving instead draws
+// each beam level over exactly the notes that own it:
+//   level 1 — spans the whole run (every beamable note is at least an eighth)
+//   level 2 — spans only the maximal stretches of consecutive sixteenths
+//   a level-2 stretch of ONE note gets a PARTIAL beam (ขีดหัก) pointing at the note it is
+//   beamed to: 'left' when it has a neighbour before it in the run, else 'right'.
+// Returns [{ level, start, end, partial }] with start/end = token idx (start === end for a
+// partial). Generalised to any depth, so a 32nd (3 underlines) works the same way.
+// (Ported from `main` — B120 makes runs longer, so a run is now far more likely to mix
+// levels and the single-flag drawing would over-paint much more widely than before.)
+function beamLevels(run) {
+  const maxLevel = run.reduce((m, t) => Math.max(m, t.underlines || 0), 0)
+  const levels = []
+  for (let level = 1; level <= maxLevel; level++) {
+    let i = 0
+    while (i < run.length) {
+      if ((run[i].underlines || 0) < level) { i++; continue }
+      let j = i
+      while (j + 1 < run.length && (run[j + 1].underlines || 0) >= level) j++
+      levels.push({
+        level,
+        start: run[i].idx,
+        end: run[j].idx,
+        partial: j > i ? null : i > 0 ? 'left' : 'right',
+      })
+      i = j + 1
+    }
+  }
+  return levels
+}
 
 // --- B120: bar lines are beam barriers -------------------------------------------------
 // A beam never crosses a bar line (standard engraving, jianpu included). `parseNotes` treats
@@ -268,7 +302,10 @@ export function beamGroups(noteString, syllables = null) {
       beams.push({
         start: run[0].idx,
         end: run[run.length - 1].idx,
+        // kept for callers that only ask "does this run contain a sixteenth" — the
+        // DRAWING must use `levels` (a single u2 note no longer thickens the whole run).
         u2: run.some((t) => t.underlines >= 2),
+        levels: beamLevels(run),
       })
     }
     run = []

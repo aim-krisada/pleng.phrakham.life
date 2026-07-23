@@ -78,6 +78,44 @@ describe('beamGroups — syllable-based beaming (issue8)', () => {
     ])
   })
 
+  // --- B110 levels: one bar per beam LEVEL (matters far more now runs are long) ----------
+  const lv = (note, syl) =>
+    beamGroups(note, syl).beams.map((b) =>
+      b.levels.map((l) => `${l.level}:${l.start}-${l.end}${l.partial ? '/' + l.partial : ''}`),
+    )
+
+  it('a run of eighths is ONE level-1 bar over the whole run', () => {
+    expect(lv('5_ 4_ 3_ 2_', ['คำ', '', '', ''])).toEqual([['1:0-3']])
+  })
+
+  it('sixteenths add a level-2 bar spanning only the sixteenths', () => {
+    // 1__ 2__ are sixteenths, 3_ is an eighth, 4__ 5__ sixteenths again
+    expect(lv('1__ 2__ 3_ 4__ 5__', ['คำ', '', '', '', ''])).toEqual([
+      ['1:0-4', '2:0-1', '2:3-4'],
+    ])
+  })
+
+  it('a lone sixteenth in a run gets a PARTIAL level-2 stub, not a full second bar', () => {
+    expect(lv('.7_. 1__ 2_', ['ก', '', ''])).toEqual([['1:0-2', '2:1-1/left']])
+  })
+
+  // Where the two bugs MEET (PM, 23 ก.ค.): a run that MIXES เขบ็ต 1/2 ชั้น *and* spans
+  // several beats. B120 is what makes the run long enough to mix, and B110 is what keeps
+  // level 2 off the notes that do not own it — a regression in either shows up here.
+  it('a mixed-level run spanning 2+ beats: level 1 unbroken, level 2 only on the sixteenths', () => {
+    // 4 sixteenths (beat 0) + 2 eighths (beat 1) + 2 sixteenths (beat 2) = 2.5 beats, so the
+    // old beat-edge rule chopped this into three separate runs.
+    expect(lv("1__ 2__ 3__ 4__ 5_ 6_ 7__ 1'__", ['คำ', '', '', '', '', '', '', ''])).toEqual([
+      ['1:0-7', '2:0-3', '2:6-7'],
+    ])
+  })
+
+  it('a mixed-level run ending in a lone sixteenth past the beat edge keeps a partial stub', () => {
+    expect(lv('1__ 2__ 3_ 4_ 5__', ['คำ', '', '', '', ''])).toEqual([
+      ['1:0-4', '2:0-1', '2:4-4/left'],
+    ])
+  })
+
   it('a เอื้อน run of three within one beat beams all three', () => {
     // 4 sixteenths in beat 0, first has the word, rest blank → one beam over all four
     expect(runs('1__ 2__ 3__ 4__', ['คำ', '', '', ''])).toEqual([[0, 3]])
