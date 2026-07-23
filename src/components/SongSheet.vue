@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { displayChord } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, slurSpans, arcPlan, syllableSlots } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, slurSpans, arcPlan, syllableSlots, melismaSpans } from '../lib/notation.js'
 import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
@@ -342,6 +342,47 @@ function measureTies() {
           const grp = openNt.closest('.note-group')
           hideHalf(grp && grp.querySelector('.slur-arc'))
           arcs.push(...produced)
+        }
+      }
+      // --- derived melisma slurs (P2) -----------------------------------------------------
+      // A syllable held across several notes (a worded note + following blank 'attack' notes,
+      // e.g. "ดวง" over "6 1 6"[0]) carries no ( ) in the data, so nothing else draws an arc —
+      // the reader would have to GUESS the note is held. Derive the span from the syllable
+      // slots (melismaSpans) and draw it with the SAME overlay + buildArc as the ( ) slurs
+      // above, so a held vowel reads as one engraved curve. NoteRow is untouched (no ( ) →
+      // no NoteRow arc to hide). Explicit ( ) spans already drawn above are skipped so a bar
+      // that has both an authored slur and a blank run is not double-arced.
+      const segsForLine = []
+      line.parts.forEach((p) => {
+        if (p.segments) p.segments.forEach((s) => segsForLine.push({ si: s.si, note: s.note || '', syllables: s.syllables || [] }))
+      })
+      const drawn = new Set(spans.map((sp) => `${sp.open.si}:${sp.open.idx}>${sp.close.si}:${sp.close.idx}`))
+      for (const sp of melismaSpans(segsForLine)) {
+        if (drawn.has(`${sp.open.si}:${sp.open.idx}>${sp.close.si}:${sp.close.idx}`)) continue
+        const openNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.open.si}"] .nt[data-idx="${sp.open.idx}"]`)
+        const closeNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.close.si}"] .nt[data-idx="${sp.close.idx}"]`)
+        if (!openNt || !closeNt) continue
+        const ao = openNt.getBoundingClientRect()
+        const bc = closeNt.getBoundingClientRect()
+        if (!ao.width || !bc.width) continue
+        const h = Math.max(ao.height, bc.height)
+        const xOpen = ao.left + ao.width / 2 - lr.left
+        const xClose = bc.left + bc.width / 2 - lr.left
+        if (arcPlan(ao, bc, h) === 'single') {
+          const yTop = Math.min(ao.top, bc.top) - lr.top
+          if (xClose - xOpen >= 2) arcs.push(buildArc(xOpen, xClose, yTop, h))
+        } else {
+          // wrapped across a visual row break → two halves, same as the ( ) slur path
+          let rowRight = xOpen
+          let rowLeft = xClose
+          for (const el of nts) {
+            const r = el.getBoundingClientRect()
+            if (!r.width) continue
+            if (Math.abs(r.top - ao.top) <= h * 0.6) rowRight = Math.max(rowRight, r.right - lr.left)
+            if (Math.abs(r.top - bc.top) <= h * 0.6) rowLeft = Math.min(rowLeft, r.left - lr.left)
+          }
+          if (rowRight - xOpen >= 2) arcs.push(buildArc(xOpen, rowRight, ao.top - lr.top, h))
+          if (xClose - rowLeft >= 2) arcs.push(buildArc(rowLeft, xClose, bc.top - lr.top, h))
         }
       }
     }

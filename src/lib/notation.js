@@ -315,6 +315,48 @@ export function slurSpans(noteStrings) {
   return spans
 }
 
+// Derive melisma slur spans from the v2 syllable slots — WITHOUT needing an explicit ( ) in
+// the data. Jianpu vocal convention: a note that sounds a NEW pitch but carries no new word
+// (kind 'attack' with a blank syllable) is sung as a continuation of the previous syllable —
+// a melisma (เอื้อน). So a worded note followed by one or more blank 'attack' notes is ONE
+// melisma; we return an arc span from the worded note to the LAST such blank note, in the same
+// { open, close, sameSegment } shape as slurSpans, so SongSheet draws the same engraved arc it
+// draws for ( ). ONLY 'attack'+blank notes extend a melisma — a rest (0), a '-' extension, or a
+// tie (~) are NOT swept in (they are silence, or shown by their own dash / tie), which is what
+// keeps this from over-drawing a slur where none belongs.
+//   input  — segments of ONE rendered line, left→right: [{ si, note, syllables }]
+//            (syllables = v2 per-slot tokens; blank = held/no-word). idx = the slot index k,
+//            which equals the NoteRow token idx (data-idx) for that note.
+//   output — [{ open:{si,idx}, close:{si,idx}, sameSegment }], one per derived melisma.
+// A melisma is not tracked across a rendered-line boundary (each line resolves on its own).
+export function melismaSpans(segments) {
+  const flat = []
+  for (const seg of segments || []) {
+    const kinds = noteBoxKinds(seg.note || '').filter((k) => k !== 'struct')
+    const syls = seg.syllables || []
+    for (let k = 0; k < kinds.length; k++) {
+      flat.push({ si: seg.si, idx: k, kind: kinds[k], syl: (syls[k] || '').trim() })
+    }
+  }
+  const spans = []
+  let i = 0
+  while (i < flat.length) {
+    const a = flat[i]
+    if (a.syl && a.kind === 'attack') {
+      let j = i + 1
+      while (j < flat.length && !flat[j].syl && flat[j].kind === 'attack') j++
+      if (j > i + 1) {
+        const last = flat[j - 1]
+        spans.push({ open: { si: a.si, idx: a.idx }, close: { si: last.si, idx: last.idx }, sameSegment: a.si === last.si })
+      }
+      i = j
+    } else {
+      i++
+    }
+  }
+  return spans
+}
+
 // Decide how a cross-segment slur is drawn once its two anchor notes are MEASURED: a single
 // continuous arc when both notes sit on the same visual row (crossing a bar line within one
 // line), or a split arc (two halves, tail-of-row + head-of-next-row) when a line wrap fell
