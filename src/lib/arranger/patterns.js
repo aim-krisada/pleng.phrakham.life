@@ -14,6 +14,12 @@
 
 const G = (cfg) => cfg.chordGain ?? 0.055
 
+// Where the bar grid starts, in quarter-beats. A song that opens with a pickup (ห้องยก) has its
+// first FULL bar begin partway in, so "is this a downbeat" has to be measured from there and not
+// from played beat 0 — otherwise the comp's bar lines sit somewhere inside the melody's bars for
+// the whole song. arrange() puts it on cfg; absent/0 = the song opens on a downbeat.
+const OFF = (cfg) => cfg.barOffset || 0
+
 function ev(midi, startBeat, beats, gain, attack, decayTo, extra) {
   return { role: 'inner', inst: 'chord', midi, startBeat, beats, gain, attack, decayTo, timeShift: 0, ...extra }
 }
@@ -33,7 +39,7 @@ export function arpeggio(chordEvent, up, bpb, rng, cfg) {
   const out = []
   for (let b = 0; b < nb; b++) {
     const m = up[b % up.length]
-    const onDown = (Math.round(chordEvent.startBeat) + b) % bpb === 0
+    const onDown = (Math.round(chordEvent.startBeat - OFF(cfg)) + b) % bpb === 0
     out.push(ev(m, chordEvent.startBeat + b, Math.min(1.1, chordEvent.beats - b), g * (onDown ? 1.0 : 0.85), 0.02, null))
   }
   return out
@@ -50,7 +56,7 @@ export function arpeggioDense(chordEvent, up, bpb, rng, cfg) {
   for (let s = 0; s < steps; s++) {
     const at = chordEvent.startBeat + s * 0.5
     const m = up[s % up.length]
-    const onDown = Math.abs(((Math.round(at * 2) / 2) % bpb)) < 0.01 && Number.isInteger(at)
+    const onDown = Math.abs(((Math.round((at - OFF(cfg)) * 2) / 2) % bpb)) < 0.01 && Number.isInteger(at - OFF(cfg))
     out.push(ev(m, at, Math.min(0.6, chordEvent.beats - s * 0.5), g * (onDown ? 1.0 : 0.82), 0.02, null))
   }
   return out
@@ -100,7 +106,7 @@ export function waltz(chordEvent, up, bpb, rng, cfg) {
   const nb = Math.max(1, Math.round(chordEvent.beats))
   const out = []
   for (let b = 0; b < nb; b++) {
-    const beatInBar = (Math.round(chordEvent.startBeat) + b) % bpb
+    const beatInBar = (Math.round(chordEvent.startBeat - OFF(cfg)) + b) % bpb
     if (beatInBar === 0) continue // downbeat belongs to the bass
     for (const m of up) out.push(ev(m, chordEvent.startBeat + b, 0.9, g * 0.9, 0.02, 0.7))
   }

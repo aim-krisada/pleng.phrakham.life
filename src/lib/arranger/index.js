@@ -30,7 +30,7 @@ import { embellishChord } from './embellish.js'
 import { answerFills, applySusCadence } from './fills.js'
 import { refereeNoClash, balanceFloor, legatoBass } from './referee.js'
 import { keyboard } from './instruments/keyboard.js'
-import { meterOf } from './meter.js'
+import { meterOf, barOffsetFor } from './meter.js'
 
 /** @typedef {Object} PerfEvent
  *  role     : 'melody' | 'bass' | 'inner' | 'emb'
@@ -108,8 +108,16 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   // the meter itself (bar length + where its stress falls), so the dynamics layers stress the
   // beat the meter actually stresses instead of guessing it from the bar length alone.
   const meter = typeof meta.timeSignature === 'number' ? null : meterOf(meta.timeSignature)
+  // Where the accompaniment's bar lines fall. A song opening with a pickup starts its first FULL
+  // bar later than played beat 0, and the bar-locked layers must follow the melody's bars, not the
+  // clock. 0 for a song that opens on a downbeat, so those songs are untouched.
+  const barOffset = meter ? barOffsetFor(notes, meter) : 0
   const rng = rngFor(meta.songId, meta.pass || 0)
   const dyn = cfg.dynamics || {}
+  // Patterns / bass / fills each decide "is this a downbeat" from their own `% beatsPerBar`, so
+  // they need the same grid the dynamics layers use. Carried on cfg because that is the one
+  // object already threaded to every one of them; 0 leaves their arithmetic exactly as it was.
+  const bcfg = barOffset ? { ...cfg, barOffset } : cfg
 
   let events = []
   const voicedChords = [] // {startBeat,beats,up,bass} per chord — the chord tones ลูกรับส่ง draws on
@@ -141,7 +149,7 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
       prevUp = voiced.up
       voicedChords.push({ startBeat: evc.startBeat, beats: evc.beats, up: voiced.up, bass: voiced.bass })
       const useComp = inRefrain(evc.startBeat, meta.sections) ? refrainComp : comp
-      const compEvts = useComp(evc, voiced.up, bpb, rng, cfg)
+      const compEvts = useComp(evc, voiced.up, bpb, rng, bcfg)
       // sus → คลี่คลาย at a cadence chord (harmony-aware; uses melody already in `events` for the
       // clash guard). Edits compEvts in place before they join the stream.
       if (on && cfg.susCadence) applySusCadence(compEvts, evc.chord, evc.startBeat, evc.beats, events, cfg)
@@ -149,9 +157,9 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
       events.push(...bassMode(evc, voiced.bass, {
         nextBass: list[i + 1] ? list[i + 1].bass : null,
         slashBass: evc.slashBass, // slash chord: root first, then move to this (P'Aim)
-        keyRoot: meta.keyRoot ?? 40, beatsPerBar: bpb, rng, cfg,
+        keyRoot: meta.keyRoot ?? 40, beatsPerBar: bpb, rng, cfg: bcfg,
       }))
-      if (on) events.push(...embellishChord(evc, voiced, bpb, rng, cfg))
+      if (on) events.push(...embellishChord(evc, voiced, bpb, rng, bcfg))
     }
   }
 
@@ -159,7 +167,7 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   // that moment's chord tones (voicedChords). Needs BOTH hands present (melody + chords), the
   // arranger ON, and cfg.fills. Added before dynamics so accent/humanize shade the answer too.
   if (on && cfg.fills && wantMelody && wantChords) {
-    events.push(...answerFills(events, voicedChords, bpb, cfg))
+    events.push(...answerFills(events, voicedChords, bpb, bcfg))
   }
 
   // REFEREE §1 (วาทยกร · golden-piano) — no ลูกเล่น (embellishment / fill, all role 'emb') may sound
@@ -175,9 +183,9 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   if (on) {
     // thin the comp under a held melody note first (fewer notes = real space), then shape gains.
     // cfg.holdPulse (default on) = the mid-bar pulse that keeps a long hold from going hollow.
-    if (cfg.easeUnderHold !== false) events = easeUnderHold(events, bpb, 2, cfg.holdPulse !== false, meter)
+    if (cfg.easeUnderHold !== false) events = easeUnderHold(events, bpb, 2, cfg.holdPulse !== false, meter, barOffset)
     if (dyn.section !== false) sectionDynamics(events, meta.sections, dyn.sectionMap)
-    if (dyn.accent !== false) metricAccent(events, bpb, meter)
+    if (dyn.accent !== false) metricAccent(events, bpb, meter, barOffset)
     if (dyn.contour !== false) melodicContour(events)
     if (dyn.cresc) crescendo(events, dyn.cresc)
     if (dyn.rubato !== false) rubato(events, meta.sections) // ท่อน-end breathe (§R2.8)
