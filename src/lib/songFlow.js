@@ -19,6 +19,7 @@ export const MARK_ID_PREFIX = {
   marker: 'm',
   segno: 's',
   coda: 'c',
+  jump: 'j',
 }
 
 // Read a volta's ending number(s) as a de-duplicated list. R2: `num` may be a single
@@ -65,7 +66,7 @@ function scanMarks(lines) {
     for (const it of line || []) {
       if (!it || !it.type) continue
       if (it.type === 'repeat-start' || it.type === 'repeat-end' || it.type === 'volta' ||
-          it.type === 'marker' || it.type === 'segno' || it.type === 'coda') {
+          it.type === 'marker' || it.type === 'segno' || it.type === 'coda' || it.type === 'jump') {
         if (it.id) markerIds.add(it.id)
       }
     }
@@ -128,7 +129,7 @@ export function mintMarkerIds(content) {
           }
           return copy
         }
-        if (t === 'volta' || t === 'marker' || t === 'segno' || t === 'coda') {
+        if (t === 'volta' || t === 'marker' || t === 'segno' || t === 'coda' || t === 'jump') {
           if (it.id) return it
           changed = true
           return { ...it, id: nextFreeId(MARK_ID_PREFIX[t] || 'x', taken) }
@@ -151,8 +152,48 @@ export function stripEditorMarkerIds(node) {
   if ('repeatStartId' in node) node.repeatStartId = ''
   if ('repeatEndId' in node) node.repeatEndId = ''
   if ('voltaId' in node) node.voltaId = ''
+  if ('jumpId' in node) node.jumpId = '' // canonical {type:'jump'} markers (segno/coda/dc/ds/…)
   for (const b of node.bars || []) stripEditorMarkerIds(b)
   return node
+}
+
+// Normalise a serialized line item to its jump kind (segno|coda|to-coda|dc|ds|fine) or null.
+// Mirrors songModel.jumpKindOf / SongSheet's render contract so guards read the one shape.
+function jumpKindOf(it) {
+  if (!it || !it.type) return null
+  const norm = (k) => {
+    const s = String(k || '').toLowerCase().replace(/[\s._-]/g, '')
+    if (s === 'segno' || s === 'dalsegnomark') return 'segno'
+    if (s === 'coda' || s === 'codamark') return 'coda'
+    if (s === 'tocoda') return 'to-coda'
+    if (s === 'dc' || s === 'dacapo') return 'dc'
+    if (s === 'ds' || s === 'dalsegno') return 'ds'
+    if (s === 'fine') return 'fine'
+    return null
+  }
+  let kind = norm(it.type)
+  if (!kind && (it.type === 'jump' || it.type === 'marker')) kind = norm(it.kind)
+  return kind
+}
+
+// R4 (jump lane) — a jump command whose target marker is missing: a D.S. with no Segno, or a
+// To-Coda with no Coda. The resolver already fails SAFE on these (plays as written, never
+// guesses — songModel.resolveJumpOrder), this surfaces them so the lint can name the offender.
+// Returns [{ kind:'ds-orphan'|'tocoda-orphan' }]; empty when the jump routing is complete.
+// (D.C. is never orphan — the song start always exists. A lone Segno/Coda with no command is a
+// harmless unused marker, not an orphan.)
+export function findOrphanJumps(content) {
+  const kinds = new Set()
+  for (const s of content?.stanzas || [])
+    for (const line of s.lines || [])
+      for (const it of line || []) {
+        const k = jumpKindOf(it)
+        if (k) kinds.add(k)
+      }
+  const out = []
+  if (kinds.has('ds') && !kinds.has('segno')) out.push({ kind: 'ds-orphan' })
+  if (kinds.has('to-coda') && !kinds.has('coda')) out.push({ kind: 'tocoda-orphan' })
+  return out
 }
 
 // R3 — the per-repeat play plan the bar engine consults. Given a row's flow and a repeat's
