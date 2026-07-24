@@ -584,13 +584,25 @@ export function effectiveOrder(sections, selectedNames) {
 
 // The exact note list a play will use — the SSOT the viewer shares with playSong so the
 // progress dot, markers, scrub and ⏮/⏭ all measure against the same sequence.
-//   order : [{fromLi,toLi}, …] — concatenate each range's notes in order (B043 selection)
-//   range : {fromLi,toLi}      — a single section (legacy play-by-section)
+//   order : [{fromLi,toLi,fromSi?,toSi?}, …] — concatenate each range's notes in order (B043)
+//   range : {fromLi,toLi,fromSi?,toSi?}      — a single section (legacy play-by-section)
 //   neither → the whole song
+// Ranges carry OPTIONAL (li,si) endpoints (docs/ds/repeat-jumps-midbar.md): a mid-bar jump
+// target/exit is expressed as a fromSi/toSi on the boundary line so a range can start or end
+// PART-WAY through a bar. si is the segment index songToNotes stamps on every note. When fromSi/
+// toSi are absent the range spans the WHOLE line — byte-identical to the old line-level behaviour
+// (strophic order, section select), so nothing regresses.
+function inPlayRange(n, r) {
+  if (n.li < r.fromLi) return false
+  if (n.li === r.fromLi && r.fromSi != null && n.si < r.fromSi) return false
+  if (n.li > r.toLi) return false
+  if (n.li === r.toLi && r.toSi != null && n.si > r.toSi) return false
+  return true
+}
 export function buildPlayNotes(content, { order, range } = {}) {
   const all = songToNotes(content)
-  if (order && order.length) return order.flatMap((r) => all.filter((n) => n.li >= r.fromLi && n.li <= r.toLi))
-  if (range) return all.filter((n) => n.li >= range.fromLi && n.li <= range.toLi)
+  if (order && order.length) return order.flatMap((r) => all.filter((n) => inPlayRange(n, r)))
+  if (range) return all.filter((n) => inPlayRange(n, range))
   return all
 }
 
