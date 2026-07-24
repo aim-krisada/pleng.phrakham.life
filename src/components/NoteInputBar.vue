@@ -43,8 +43,9 @@ const emit = defineEmits(['octave', 'accidental', 'toggle-mode', 'nav', 'chord',
 // in the Apple-HIG sense: line 1 IS the character it types, line 2 names it in Thai, line 3
 // shows where that key lives — measured on this machine (lib/keyHints.js), omitted when unknown.
 // ⛔ No tooltip/hover anywhere: this laptop reports hover:none with a mouse attached.
-// ⛔ ',' and '!' are absent on purpose — the parser gives them no meaning yet (so they are not
-//    in the registry). Adding/removing a button = editing the registry, never this file.
+// Octave (' high / , low) is NOT on the strip: it has dedicated สูง↑ / ต่ำ↓ buttons above, so a
+// strip button would be a redundant third door (BI-009 §1) — the keys stay typeable, just off-strip.
+// Adding/removing a button = editing the registry (`onBar`), never this file.
 // char → "⇧ + 6" style label, filled in as the user actually types each character
 const keyHints = ref(readHints())
 watch(() => props.hintNonce, () => { keyHints.value = readHints() })
@@ -78,7 +79,8 @@ function commitChordText() {
       แตะโน้ตแล้วพิมพ์เลข <b>1–7</b> · แตะคำแล้วพิมพ์เนื้อ (คีย์บอร์ดขึ้นเอง)<br />
       <b>← → ↑ ↓</b> เลื่อน · <b>Ctrl+← →</b> ข้ามห้อง · <b>Ctrl+↑ ↓</b> ข้ามบรรทัด<br />
       <b>Insert</b> สลับแทรก/ทับ · <b>Delete</b> ลบอยู่กับที่ · <b>Backspace</b> เอาออกทั้งช่อง<br />
-      <b>#</b> ชาร์ป · <b>b</b> แฟลต · <b>Ctrl+Z / Ctrl+Y</b> ย้อน/ทำซ้ำ<br />
+      <b>#</b> ชาร์ป · <b>b</b> แฟลต · <b>'</b> เสียงสูง · <b>,</b> เสียงต่ำ · <b>Ctrl+Z / Ctrl+Y</b> ย้อน/ทำซ้ำ<br />
+      กดสัญลักษณ์เดิมซ้ำ = เอาออก (สลับใส่/ลบได้ทุกตัว) · <b>~</b> โยงโน้ตเสียงเดียวกันสองตัวให้ต่อเนื่อง<br />
       สัญลักษณ์อื่นกดจากปุ่มด้านล่างได้เลย — บนปุ่มมีทั้งตัวอักษร ชื่อไทย และตำแหน่งบนคีย์บอร์ด
     </div>
 
@@ -106,12 +108,8 @@ function commitChordText() {
       <!-- note ops (octave has no keyboard key → button on both; accidentals only on a phone,
            a desktop types # / b; แทรก/ทับ is also a status indicator). Hidden on the word layer. -->
       <template v-if="layer === 'note'">
-        <button class="nib-key" title="สูงขึ้นหนึ่งช่วง (จุดบนโน้ต)" aria-label="สูงขึ้นหนึ่งช่วง" @click="emit('octave', 1)"><b>สูง</b> ↑</button>
-        <button class="nib-key" title="ต่ำลงหนึ่งช่วง (จุดล่างโน้ต)" aria-label="ต่ำลงหนึ่งช่วง" @click="emit('octave', -1)"><b>ต่ำ</b> ↓</button>
-        <template v-if="!wide">
-          <button class="nib-key nib-acc" title="ครึ่งเสียงขึ้น (ชาร์ป)" aria-label="ชาร์ป" @click="emit('accidental', '#')">♯</button>
-          <button class="nib-key nib-acc" title="ครึ่งเสียงลง (แฟลต)" aria-label="แฟลต" @click="emit('accidental', 'b')">♭</button>
-        </template>
+        <button class="nib-key" title="สูงขึ้นหนึ่งช่วง (จุดบนโน้ต · พิมพ์ ' )" aria-label="สูงขึ้นหนึ่งช่วง" @click="emit('octave', 1)"><b>สูง</b> ↑</button>
+        <button class="nib-key" title="ต่ำลงหนึ่งช่วง (จุดล่างโน้ต · พิมพ์ , )" aria-label="ต่ำลงหนึ่งช่วง" @click="emit('octave', -1)"><b>ต่ำ</b> ↓</button>
         <button class="nib-key nib-chord" :class="{ on: chordOpen }" :aria-expanded="chordOpen" title="ใส่/เปลี่ยน/ลบคอร์ด" aria-label="คอร์ด" @click="chordOpen = !chordOpen">คอร์ด ▾</button>
         <button
           class="nib-key nib-mode" :class="{ ins: mode === 'insert' }"

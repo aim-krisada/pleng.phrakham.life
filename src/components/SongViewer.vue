@@ -842,9 +842,9 @@ function applySymbol(key) {
       const next = applySymbolToContent(props.song.content, loc, ch)
       if (next !== props.song.content) {
         emit('update-content', next)
-        // '-' grows the melody by one box, so the cursor steps onto the new box (like typing a
-        // note in แทรก mode); every other symbol bears no slot, so the cursor stays put.
-        if (ch === '-') curIdx.value = curIdx.value + 2
+        // The cursor STAYS on the note it acted on — every symbol is a toggle now (BI-003), so
+        // pressing the same key again must land on the same note to undo it (`-` inserted here,
+        // press `-` again removes it; `~` ties, press again unties). Moving on is ← → / space.
       }
     }
   }

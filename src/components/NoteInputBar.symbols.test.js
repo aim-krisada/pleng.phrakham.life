@@ -8,7 +8,9 @@ import { nextTick } from 'vue'
 import NoteInputBar from './NoteInputBar.vue'
 import { learnKey } from '../lib/keyHints.js'
 
-const WIRED = ['_', '.', '-', '~', '^', 'n', "'", '(', ')', '{', '}', '|']
+// #/b joined n as one accidental group (BI-009 §5); octave ' , left the strip for the สูง↑/ต่ำ↓
+// buttons (§1) but stay typeable off-strip.
+const WIRED = ['_', '.', '-', '~', '^', '#', 'b', 'n', '(', ')', '{', '}', '|']
 const mountBar = (props = {}) => mount(NoteInputBar, { props: { variant: 'popup', layer: 'note', ...props } })
 const chars = (w) => w.findAll('.nib-sym .nib-symch').map((n) => n.text())
 
@@ -19,9 +21,10 @@ describe('NoteInputBar — symbol keys', () => {
     expect(chars(mountBar())).toEqual(expect.arrayContaining(WIRED))
   })
 
-  it("never offers ',' or '!' — the parser gives them no meaning yet", () => {
+  it("keeps octave ' , OFF the strip (they have สูง↑/ต่ำ↓ buttons) and never offers '!'", () => {
     const c = chars(mountBar())
-    expect(c).not.toContain(',')
+    expect(c).not.toContain("'") // octave up — typeable, but not a redundant strip button (§1)
+    expect(c).not.toContain(',') // octave down — same
     expect(c).not.toContain('!')
     expect(c).toHaveLength(WIRED.length)
   })
