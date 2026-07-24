@@ -83,15 +83,24 @@ describe('SongViewer — inline save state', () => {
     expect(downloadSpy).not.toHaveBeenCalled()
   })
 
-  it('anon → may still EDIT; their save is the JSON file (gate is on storing only)', async () => {
+  it('anon → may still EDIT; save = JSON file; finish = "ส่งให้ทีม" flow (BI-007, not a dead button)', async () => {
     const w = mountViewer({ tier: 'anon', saveState: 'dirty' })
     expect(w.find('.sv-fab').exists()).toBe(true) // ✏️ open to every tier
     await enterEdit(w)
     expect(w.find('.sv-save-btn').text()).toContain('ดาวน์โหลด JSON')
-    expect(w.find('.sv-save-note').text()).toContain('เข้าสู่ระบบ')
+    // the finish button is present + ENABLED for anon (never a disabled publish button)
+    const finish = w.find('.sv-finish-btn')
+    expect(finish.text()).toContain('ส่งให้ทีม')
+    expect(finish.attributes('disabled')).toBeUndefined()
     await w.find('.sv-save-btn').trigger('click')
     expect(downloadSpy).toHaveBeenCalled()
     expect(w.emitted('save')[0]).toEqual(['file'])
+    // "ส่งให้ทีม" opens the submit flow (keep-a-file + email) with a login hint — never emits publish
+    await finish.trigger('click')
+    const card = w.find('.sv-flow-anon')
+    expect(card.exists()).toBe(true)
+    expect(card.text()).toContain('เข้าสู่ระบบ')
+    expect(w.emitted('save').filter((e) => e[0] === 'publish' || e[0] === 'pending')).toHaveLength(0)
   })
 
   // เสร็จ moved off the floating ✓ FAB and into the editor's own header row beside the save
