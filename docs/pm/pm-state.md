@@ -7,10 +7,10 @@
 
 ### 🎯 pm46 งานถัดไป = ASSEMBLE ชุด verified fixes (รอครบก่อน · กัน churn)
 - **base ที่ merge = `editor-port-repeat-markers @7afb038`** (⛔ ไม่ใช่ studio-shell — ดู LANDMINE) · assemble ลง integration branch ใหม่ off 7afb038 · **merge order (Explore):** BI-004(StructureDrawer ก่อน) → dc/ds → symbol/BI-005(SongViewer/symbol) → BI-006/BI-007(SongViewer/Studio) → new-song → hot-file SongViewer.vue = resolve ตามลำดับ
-- ✅ **CLEAN+Tester PASS พร้อม assemble:** BI-004 `@6549ae6` · dc/ds `@a31cce2` · BI-006 `@eae57c2` · (new-song `@db7ebce` verified · Tester `287afc35` กำลังปิด NOT PROVEN)
+- ✅ **CLEAN+Tester PASS พร้อม assemble:** BI-004 `@6549ae6` · dc/ds `@a31cce2` · BI-006 `@eae57c2` · **new-song `@db7ebce` Tester PASS** (create-in-inline/type/exit-no-trap/mobile44×44 · NOT PROVEN=server draft-save ต้อง creds · non-blocking)
 - ✅ **symbol `@011190e` TESTER PASS ครบ 6** (no-collision = P'Aim #1 ยืนยัน screenshot · tie/toggle/octave/มือถือ) = clean พร้อม assemble · flag ไม่บล็อก: help panel "วิธีใช้" auto-open ทับ strip @360 จน ×-dismiss (first-run friction · P'Aim/pm46 เคาะว่า file ไหม)
 - ✅ **BI-005 `@32e546c` TESTER PASS** (split-advance·no-clobber·latin·มือถือ360/412) — ⚠️ NOT closed: **IME composition จริง + OSK มือถือ** (CDP ทำไม่ได้ · acceptance ผ่าน · **ต้องมือถือจริง/P'Aim ก่อน ship**) · พร้อม assemble (logic solid)
-- 🧪 **รอ Tester:** new-song (Tester `287afc35`)
+- ✅ **new-song Tester PASS** (`287afc35` · verdict inbox `2026-07-24-tester-newsong.md`) — batch verified ครบทุกตัว = พร้อม assemble 100%
 - ✅ **BI-007 `@19d9813` P1+4 G-refinements เสร็จ** (Chip C `5c330050` · suite 1525 · label ภาษาหน้าที่ · Saved/Submitted · มือถือ pill+ดูขั้นตอน→vertical stepper · anon verified live) — **role editor/approver = P'Aim ทดสอบเองหลัง deploy** (ไม่ต้อง creds · dev :5486 ค้าง)
 - ✅ **BI-010 share `@82da968` (off 7afb038) merge-ready** — appBase() swap dev/LAN origin→https://pleng.phrakham.life คง sub-path (/v2 ถูก) · QR decoded=canonical (jsQR) · tests pass · NOT: eyeball QR pixel + phone scan จริง (P'Aim post-deploy) · issue9 header = queue build หลัง batch (base 7afb038)
 - ⚠️ **BI-007 tip merge = `@19d9813`** (ไม่ใช่ 5f93562=ก่อน refinements) · chain: 7afb038→eae57c2(BI-006)→5f93562→19d9813 · cherry-pick BI-007 = เอาทั้ง 5f93562+19d9813 · dev :5486 ค้าง (P'Aim ลอง role: approver="อนุมัติและเผยแพร่" · editor="ส่งให้ผู้อำนวยเพลงตรวจทาน")
