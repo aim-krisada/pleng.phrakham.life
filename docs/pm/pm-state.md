@@ -26,8 +26,9 @@
 
 **→ SA session ใหม่ = `optimistic-kare-b535ad` (local_dc0b2d2f · กำลังทำ): เมนู→⋮ (ข้อ4) + caret model (ข้อ5) + octave keyboard (ข้อ6) เข้า `docs/ds/editor-flow-polish.md` · G บังคับ · ประสาน Space=advance + keydown เดิม 382-423**
 
-### 🔄 หมุน session (token efficiency · P'Aim สั่ง 24 ก.ค.)
-- **อ่าน % context ตรงไม่ได้** → ตัดสินจากภาระงาน · **SA palette = หนักสุด สั่ง wind down + handoff** (`2026-07-24-sa-palette-HANDOFF.md`) ไม่รับงานใหม่ · **B idle** งานหน้าเปิดใหม่ · **C กลางงาน** จบ chunk ก่อนหมุน · กฎ: 1 chunk = 1 session · งานใหม่ = session เล็กสด
+### 🔄 หมุน session — **session-health pass = กฎถาวรใน §4.5 ข้อ 6 แล้ว** (auto ทุก "PM เก็บงาน" + ทุกปิด gate/merge)
+- **อ่าน % context ตรงไม่ได้ = heuristic** (done+idle / คุย G ≥2 / ≥3 deliverable) · กลาง chunk = ไม่แตะ · rotate = PM สั่ง wind down เอง งานหน้า = session ใหม่สด
+- **ผล pass 24 ก.ค. ~14:00:** C(B060)=กลาง chunk KEEP · SA caret=เพิ่งเริ่ม KEEP · SA palette/B/A/D=stopped done แล้ว · **ไม่มีตัวต้อง rotate**
 
 ### 🔵 สายที่วิ่งอยู่ (ทุกใบมี checklist G ครบ)
 | สาย | ทำอะไร | กันชน |
