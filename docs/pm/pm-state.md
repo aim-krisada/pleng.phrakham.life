@@ -9,6 +9,9 @@
 - **`integration/editor-fix-batch @717fb7a` (off 7afb038) = LIVE /v2** · รวม BI-004/dc-ds/symbol/BI-005/BI-006+007/new-song/BI-010 · test:all 1577/0-fail · `/v2/` bundle stamp 717fb7a · `/` (v1) stamp 393fe9e tree byte-identical ปลอดภัย · 0 SQL · deploy mechanism + assembler-caught-error → decisions-log (24 ก.ค. pm46)
 - 🧪 **จ่าย regression-tester ตรวจ integration ทั้งก้อน live /v2** (hot-file SongViewer.vue union 4 feature · แต่ละชิ้น verified แยกแล้ว = catch fast-follow) — running
 - 🔴 **P'Aim ทดสอบเองบน /v2 live:** BI-005 IME/มือถือจริง · BI-010 QR scan โทรศัพท์ · BI-007 role editor/approver (ล็อกอินจริง) · new-song server draft-save
+- 🎯 **เฟส POLISH (P'Aim สั่ง · ทุกงาน world-class + G consult บังคับ ผ่าน ai-bridge Chrome :9335):**
+  - **BI-011** ลบเส้นโค้งบนโน้ต (tie/slur) — session `567d43e1` running (เพิ่มเงื่อนไข G แล้ว)
+  - **BI-012** คอร์ด inline เหนือโน้ต + คีย์บอร์ดต่อเนื่อง — chip `task_8f43db68` (design+G→STOP gate→build)
 - ⏭️ **queue ต่อ (redeploy ทีละตัว):** issue9 lead-sheet header (SA design เสร็จ) · SB1 มือถือ (P'Aim คิด) · item1 repeat-marker เพิ่มเติม
 <!-- ARCHIVED assemble detail (ชิ้นย่อย verified) — ดู decisions-log 24 ก.ค. pm46 -->
 <details><summary>assemble detail (verified · shipped)</summary>
