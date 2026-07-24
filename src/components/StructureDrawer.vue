@@ -64,15 +64,23 @@ const cards = computed(() =>
 // radius). Set on card focus/hover; cleared on leave.
 const hlStanza = ref('')
 
-// cursor context, in words — "ห้อง 2 · บรรทัด 1 · ท่อน 3". null when nothing is selected.
+// cursor context, in words — "♫A · ห้อง 2 · บรรทัด 1 · ท่อน 3". Leads with the melody so a copied
+// bar/line always says which melody it came from (BI-018). null when nothing is selected.
 const cursorText = computed(() => {
   const c = props.cursor
   if (!c || c.stanzaId == null) return ''
-  const parts = [`ห้อง ${(c.barOrdinal ?? 0) + 1}`, `บรรทัด ${(c.lineIndex ?? 0) + 1}`]
+  const parts = [`♫${c.stanzaId}`, `ห้อง ${(c.barOrdinal ?? 0) + 1}`, `บรรทัด ${(c.lineIndex ?? 0) + 1}`]
   if (c.entryIndex != null) parts.push(`ท่อน ${c.entryIndex + 1}`)
   return parts.join(' · ')
 })
 const hasCursor = computed(() => !!(props.cursor && props.cursor.stanzaId != null))
+// which section (ข้อ N / รับ) the cursor's syllable belongs to — entryIndex is the arrangement
+// index, same index `cards` uses. Falls back to a plain "ท่อน N" if it can't be resolved.
+const cursorVerseLabel = computed(() => {
+  const c = props.cursor
+  if (!c || c.entryIndex == null) return ''
+  return cards.value[c.entryIndex]?.shown || `ท่อน ${c.entryIndex + 1}`
+})
 
 // ---- section actions (each emits a NEW content) ----
 const apply = (next) => { if (next && next !== props.content) emit('update-content', next) }
@@ -133,8 +141,20 @@ function onDragEnd() { dragFrom.value = -1; dragOver.value = -1 }
 // row/chip drags to reorder. Every action still routes through the pure engine.
 // ======================================================================================
 
-// which melody the outline shows: the cursor's, else the first (so reorder works with no note pick)
-const activeStanzaId = computed(() => props.cursor?.stanzaId ?? stanzas.value[0]?.id ?? '')
+// which melody the outline shows (BI-018 — the drawer is master-detail): an EXPLICIT pick from the
+// ทำนอง list wins; else it follows the sheet cursor; else the first (so reorder works with no note
+// pick). Tapping a note on the sheet clears the override → the outline re-syncs to that melody.
+const selStanzaOverride = ref('')
+const activeStanzaId = computed(() => {
+  const ids = stanzas.value.map((s) => s.id)
+  if (selStanzaOverride.value && ids.includes(selStanzaOverride.value)) return selStanzaOverride.value
+  return props.cursor?.stanzaId ?? stanzas.value[0]?.id ?? ''
+})
+function selectStanza(id) { selStanzaOverride.value = id }
+function jumpToCursor() { selStanzaOverride.value = '' } // re-sync the outline to the cursor's melody
+// the outline shows a DIFFERENT melody than the one the cursor sits in (user switched via the list)
+const desynced = computed(() =>
+  hasCursor.value && props.cursor.stanzaId && activeStanzaId.value !== props.cursor.stanzaId)
 const activeLines = computed(() => (stanzas.value.find((x) => x.id === activeStanzaId.value)?.lines) || [])
 
 // the line whose bars are expanded — follows the cursor, overridable by tapping a line row. The
@@ -143,6 +163,7 @@ const selLineOverride = ref(null)
 const selBarOverride = ref(null)
 watch(() => [props.cursor?.stanzaId, props.cursor?.lineIndex, props.cursor?.barOrdinal], () => {
   selLineOverride.value = null; selBarOverride.value = null
+  selStanzaOverride.value = '' // tapping a note on the sheet re-syncs the outline to its melody (BI-018)
 })
 const selLine = computed(() => {
   const n = activeLines.value.length
@@ -343,10 +364,27 @@ watch(() => props.open, (on) => {
           <span class="sd-sec-title">ทำนอง</span>
           <button class="sd-add" type="button" title="เพิ่มทำนองใหม่ (ว่าง)" @click="onAddStanza"><Icon name="plus" :size="14" /> ทำนองใหม่</button>
         </div>
+        <p v-if="multi" class="sd-mels-hint">เลือกทำนองที่จะดู/แก้ — โครงทำนองด้านล่างจะสลับตาม</p>
         <ul class="sd-mels" role="list">
-          <li v-for="s in stanzas" :key="s.id" class="sd-mel" :class="{ hl: hlStanza === s.id }" @mouseenter="hlStanza = s.id" @mouseleave="hlStanza = ''">
-            <span class="sd-mel-tag">♫ {{ s.id }}</span>
-            <span class="sd-mel-use">{{ stanzaUse[s.id] || 0 }} ท่อน · {{ (s.lines || []).length }} บรรทัด</span>
+          <li v-for="s in stanzas" :key="s.id" class="sd-mel" :class="{ hl: hlStanza === s.id, active: multi && s.id === activeStanzaId }">
+            <button
+              v-if="multi"
+              class="sd-mel-pick"
+              type="button"
+              :aria-pressed="s.id === activeStanzaId"
+              :title="`ดู/แก้โครงทำนอง ${s.id}`"
+              @click="selectStanza(s.id)"
+              @mouseenter="hlStanza = s.id"
+              @mouseleave="hlStanza = ''"
+            >
+              <span class="sd-mel-tag">♫ {{ s.id }}</span>
+              <span class="sd-mel-use">{{ stanzaUse[s.id] || 0 }} ท่อน · {{ (s.lines || []).length }} บรรทัด</span>
+              <span v-if="s.id === activeStanzaId" class="sd-mel-now">● กำลังแก้</span>
+            </button>
+            <div v-else class="sd-mel-pick static">
+              <span class="sd-mel-tag">♫ {{ s.id }}</span>
+              <span class="sd-mel-use">{{ stanzaUse[s.id] || 0 }} ท่อน · {{ (s.lines || []).length }} บรรทัด</span>
+            </div>
             <button class="sd-icon danger" type="button" :disabled="stanzas.length <= 1" aria-label="ลบทำนองนี้" :title="(stanzaUse[s.id]||0) > 0 ? 'ลบทำนอง (ท่อนที่ใช้จะถูกลบด้วย)' : 'ลบทำนอง'" @click="onRemoveStanza(s.id)"><Icon name="trash-2" :size="14" /></button>
           </li>
         </ul>
@@ -376,7 +414,23 @@ watch(() => props.open, (on) => {
         <!-- โครงทำนอง outline: lines (+ the selected line's bars) as a reorderable list with
              visible ▸ insertion points. Tap ▸ to paste; drag a row/chip or use ◀▶/▲▼ to reorder. -->
         <div class="sd-outline" v-if="activeLines.length">
-          <div class="sd-outline-cap">โครงทำนอง ♫{{ activeStanzaId }} · <span class="muted">ลากจับ <Icon name="grip-vertical" :size="11" /> หรือใช้ ▲▼ เพื่อจัดลำดับ</span></div>
+          <div class="sd-outline-title"><span class="sd-mel-badge">♫{{ activeStanzaId }}</span> โครงทำนอง {{ activeStanzaId }}</div>
+          <!-- breadcrumb: says which melody the outline is + where the cursor is. Two states —
+               synced (outline == cursor's melody) shows the full path; desynced (user switched to
+               another melody via the list) says so + offers a jump back to the cursor's melody. -->
+          <p class="sd-crumb" :class="{ desync: desynced }">
+            <template v-if="desynced">
+              กำลังดู <b>♫{{ activeStanzaId }}</b> · <span class="muted">เคอร์เซอร์อยู่ที่ {{ cursorVerseLabel }} (♫{{ cursor.stanzaId }})</span>
+              <button class="sd-crumb-jump" type="button" @click="jumpToCursor">ไปที่เคอร์เซอร์</button>
+            </template>
+            <template v-else-if="hasCursor">
+              กำลังแก้: <b>♫{{ activeStanzaId }}</b> › {{ cursorVerseLabel }} › บรรทัด {{ (cursor.lineIndex ?? 0) + 1 }} · ห้อง {{ (cursor.barOrdinal ?? 0) + 1 }}
+            </template>
+            <template v-else>
+              กำลังดูทำนอง <b>♫{{ activeStanzaId }}</b>
+            </template>
+          </p>
+          <div class="sd-outline-cap"><span class="muted">ลากจับ <Icon name="grip-vertical" :size="11" /> หรือใช้ ▲▼ เพื่อจัดลำดับ</span></div>
 
           <!-- insertion slot BEFORE the first line -->
           <button v-if="pasteLineMode" class="sd-slot line" type="button" aria-label="วางบรรทัดที่ตำแหน่งบนสุด" @click="onPasteLineAt(0)"><span class="sd-slot-mark">▸</span> วางบรรทัดที่นี่</button>
@@ -541,14 +595,35 @@ watch(() => props.open, (on) => {
 .sd-mini:focus-visible { outline: 2px solid var(--brand, #b45309); outline-offset: 1px; }
 .sd-lyric-hint { margin: 0; font-size: var(--fs-xs, 0.8rem); color: var(--muted, #6f6455); line-height: 1.4; }
 
+.sd-mels-hint { margin: 0 0 2px; font-size: var(--fs-xs, 0.8rem); color: var(--muted, #64748b); }
 .sd-mels { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .sd-mel {
-  display: flex; align-items: center; gap: 8px;
-  padding: 5px 8px; border: 1px solid var(--line, #e2e8f0); border-radius: 8px;
+  display: flex; align-items: center; gap: 4px;
+  padding: 2px 6px 2px 2px; border: 1px solid var(--line, #e2e8f0); border-radius: 9px;
+  transition: border-color .12s, background .12s;
 }
-.sd-mel.hl { border-color: var(--brand, #b45309); background: color-mix(in srgb, var(--brand, #b45309) 7%, var(--surface, #fff)); }
-.sd-mel-tag { font-weight: 700; color: var(--brand, #b45309); font-size: var(--fs-sm, 0.9rem); }
-.sd-mel-use { flex: 1; font-size: var(--fs-xs, 0.8rem); color: var(--muted, #64748b); }
+.sd-mel.hl { border-color: color-mix(in srgb, var(--brand, #b45309) 55%, var(--line, #e2e8f0)); }
+/* the ACTIVE melody — the one the outline below is showing. Border + tint + the text pill together
+   carry the state so it never depends on colour alone (WCAG 1.4.1). */
+.sd-mel.active { border-color: var(--brand, #b45309); background: color-mix(in srgb, var(--brand, #b45309) 8%, var(--surface, #fff)); }
+.sd-mel-pick {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 8px;
+  min-height: 34px; padding: 3px 6px;
+  border: none; border-radius: 6px; background: transparent;
+  font: inherit; text-align: left; color: inherit; cursor: pointer;
+}
+.sd-mel-pick.static { cursor: default; }
+button.sd-mel-pick:hover { background: color-mix(in srgb, var(--brand, #b45309) 6%, transparent); }
+.sd-mel-pick:focus-visible { outline: 2px solid var(--brand, #b45309); outline-offset: 1px; }
+.sd-mel-tag { font-weight: 700; color: var(--brand, #b45309); font-size: var(--fs-sm, 0.9rem); white-space: nowrap; }
+.sd-mel-use { flex: 1; min-width: 0; font-size: var(--fs-xs, 0.8rem); color: var(--muted, #64748b); }
+.sd-mel-now {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 1px 8px; border-radius: 999px;
+  background: var(--brand, #b45309); color: #fff;
+  font-size: var(--fs-xs, 0.8rem); font-weight: 700; white-space: nowrap;
+}
 
 .sd-hint { margin: 0; font-size: var(--fs-xs, 0.8rem); color: var(--ink, #0f172a); }
 .sd-hint.muted { color: var(--muted, #64748b); }
@@ -577,6 +652,31 @@ watch(() => props.open, (on) => {
 
 /* ── โครงทำนอง outline — reorderable lines + bars with visible insertion points (BI-004) ── */
 .sd-outline { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+/* the outline's own title + breadcrumb — always names the melody being edited (BI-018) */
+.sd-outline-title { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm, 0.9rem); font-weight: 700; color: var(--ink, #0f172a); }
+.sd-mel-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; min-height: 22px; padding: 0 6px;
+  border-radius: 6px; background: var(--brand, #b45309); color: #fff;
+  font-size: var(--fs-xs, 0.8rem); font-weight: 800;
+}
+.sd-crumb { margin: 2px 0 0; font-size: var(--fs-xs, 0.8rem); color: var(--ink, #0f172a); line-height: 1.5; }
+.sd-crumb b { color: var(--brand, #b45309); }
+.sd-crumb .muted { color: var(--muted, #64748b); }
+.sd-crumb.desync {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  padding: 4px 8px; border-radius: 8px;
+  background: color-mix(in srgb, var(--brand, #b45309) 7%, var(--surface, #fff));
+  border: 1px dashed color-mix(in srgb, var(--brand, #b45309) 45%, var(--line, #e2e8f0));
+}
+.sd-crumb-jump {
+  margin-left: auto; min-height: 24px; padding: 1px 8px;
+  border: 1px solid var(--brand, #b45309); border-radius: 999px;
+  background: transparent; color: var(--brand, #b45309);
+  font: inherit; font-size: var(--fs-xs, 0.8rem); font-weight: 600; cursor: pointer;
+}
+.sd-crumb-jump:hover { background: color-mix(in srgb, var(--brand, #b45309) 10%, transparent); }
+.sd-crumb-jump:focus-visible { outline: 2px solid var(--brand, #b45309); outline-offset: 1px; }
 .sd-outline-cap { font-size: var(--fs-xs, 0.8rem); color: var(--ink, #0f172a); font-weight: 600; margin-bottom: 2px; }
 .sd-outline-cap .muted { color: var(--muted, #64748b); font-weight: 400; }
 
@@ -662,6 +762,8 @@ watch(() => props.open, (on) => {
   .sd-close { min-width: var(--touch-min, 44px); min-height: var(--touch-min, 44px); }
   .sd-icon { min-height: 34px; min-width: 34px; }
   .sd-cp-btn { min-height: 40px; }
+  .sd-mel-pick { min-height: 44px; }
+  .sd-crumb-jump { min-height: 34px; }
   .sd-slot.line, .sd-slot.bar { min-height: 40px; }
   .sd-bar { min-height: 38px; }
   .sd-bar-mv, .sd-bar-copy { min-height: 34px; min-width: 30px; }
