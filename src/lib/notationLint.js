@@ -5,6 +5,7 @@
 // melody note — that still needs the ear.
 
 import { parseNotes, beatCount, expectedBeats, canonicalizeNote, degreeKey } from './notation.js'
+import { findOrphanJumps } from './songFlow.js'
 
 export const SEVERITY = { ERROR: 'error', WARNING: 'warning', HINT: 'hint' }
 
@@ -325,4 +326,70 @@ export function lintLine(noteString, { timeSignature } = {}) {
   return String(noteString || '')
     .split('|')
     .flatMap((bar, bi) => lintBar(bar, { timeSignature }).map((f) => ({ ...f, bar: bi })))
+}
+
+// Thai messages for an orphan jump command (a repeat directive whose target marker is missing).
+// The resolver already fails SAFE on these (plays as written, never guesses — songModel), so this
+// only NAMES the offender for the author. (findOrphanJumps → 'ds-orphan' | 'tocoda-orphan'.)
+const ORPHAN_JUMP_MSG = {
+  'ds-orphan': 'มี D.S. (ย้อนไปเครื่องหมายวน) แต่ไม่พบเครื่องหมายวน 𝄋 — เพิ่ม Segno ที่จุดย้อน หรือลบ D.S.',
+  'tocoda-orphan': 'มี “ไปโคดา” แต่ไม่พบโคดา 𝄌 — เพิ่ม Coda ที่ท่อนปิด หรือลบจุดไปโคดา',
+}
+
+// Lint a WHOLE v2 song (content.stanzas) and return findings the inline editor can show at the
+// spot they occur — the content-level counterpart of lintBar/lintLine (which take a note string).
+// Each stanza line's segments are grouped into bars the way the sheet + serializer do — a new bar
+// starts at a {type:'bar'} OR a {type:'repeat-start'} item (serializeLine emits repeat-start IN
+// PLACE OF a bar separator) — then lintBar runs per bar and lintRepeatVolta over the line's items.
+// Orphan repeat directives (D.S. with no Segno, To-Coda with no Coda) are surfaced song-wide.
+//
+// Returns { findings, count, codes }:
+//   findings — [{ stanzaId, lineIndex, barIndex?, ...lintFinding }] (barIndex on per-bar findings;
+//              song-level orphans carry neither line nor bar). The location lets the UI anchor the
+//              warning; the fields (severity, code, message) are lintBar/lintRepeatVolta verbatim.
+//   count/codes — the non-HINT tally + distinct rule codes, the same publish-gate shape
+//              EditorMode.lintSong produced, so both editors can read ONE lint pass (no drift).
+// Non-v2 content (no stanzas) → an empty result.
+export function lintContent(content, { timeSignature } = {}) {
+  const ts = timeSignature ?? content?.timeSignature
+  const findings = []
+  for (const stanza of content?.stanzas || []) {
+    const lines = Array.isArray(stanza?.lines) ? stanza.lines : []
+    lines.forEach((line, lineIndex) => {
+      const items = Array.isArray(line) ? line : []
+      let barIndex = 0
+      let notes = []
+      let opened = false // don't count a phantom bar before the first note / at a leading boundary
+      const flush = () => {
+        const noteStr = notes.join(' ').trim()
+        notes = []
+        if (noteStr) {
+          for (const f of lintBar(noteStr, { timeSignature: ts })) {
+            findings.push({ stanzaId: stanza.id, lineIndex, barIndex, ...f })
+          }
+        }
+        barIndex++
+      }
+      for (const it of items) {
+        if (!it || !it.type) continue
+        if (it.type === 'segment') { notes.push(it.note || ''); opened = true }
+        else if (it.type === 'bar' || it.type === 'repeat-start') {
+          if (opened) flush() // close the bar that just ended; ignore a boundary before any note
+          opened = true
+        }
+      }
+      if (opened) flush() // the final bar
+      for (const f of lintRepeatVolta(items)) findings.push({ stanzaId: stanza.id, lineIndex, ...f })
+    })
+  }
+  // song-wide: a repeat directive whose target marker was never placed (broken routing)
+  for (const o of findOrphanJumps(content)) {
+    findings.push({
+      severity: SEVERITY.WARNING,
+      code: o.kind, // 'ds-orphan' | 'tocoda-orphan'
+      message: ORPHAN_JUMP_MSG[o.kind] || 'จุดวนร้องไม่ครบ — ยังไม่ได้วางเครื่องหมายปลายทาง',
+    })
+  }
+  const nonHint = findings.filter((f) => f.severity !== SEVERITY.HINT)
+  return { findings, count: nonHint.length, codes: [...new Set(nonHint.map((f) => f.code))] }
 }
