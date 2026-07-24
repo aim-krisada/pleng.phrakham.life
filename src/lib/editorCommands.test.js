@@ -19,7 +19,7 @@ import {
   JUMP_PRESETS,
   applyJumpCommand,
 } from './editorCommands.js'
-import { withNoteMark, withInsertedBox, withAccidental, withOctaveShift, withBarAfter, withJumpMarker } from './songEdit.js'
+import { withNoteMark, withToggledBox, withAccidental, withOctaveShift, withToggledBar, withTie, withJumpMarker } from './songEdit.js'
 
 // one stanza (2 notes) + two verses linked to it, so a box insert's ripple is observable — the
 // same fixture shape songEdit.symbols.test.js uses, so the engine sees a realistic selection.
@@ -37,9 +37,10 @@ function makeContent() {
 const LINE = { _stanza: 's1', _stanzaLine: 0, _entryIndex: 0 }
 const at = (syk) => ({ resolvedLine: LINE, si: 0, syk })
 
-// the exact set that used to be hard-coded in SongViewer (`SYMBOL_CHARS`) and, in effect, across
-// NoteInputBar's SYMBOL_GROUPS. If the registry ever loses/gains an on-bar symbol, this fails.
-const ON_BAR = ['_', '.', '-', '~', '^', 'n', "'", '(', ')', '{', '}', '|']
+// the on-bar (toolbar-strip) character set. Octave (' ,) is deliberately OFF the strip now — it
+// has dedicated สูง↑/ต่ำ↓ buttons (BI-009 §1) — and #/b joined n as one accidental group (§5).
+// If the registry ever loses/gains an on-bar symbol, this fails.
+const ON_BAR = ['_', '.', '-', '~', '^', '#', 'b', 'n', '(', ')', '{', '}', '|']
 
 describe('registry = single source of the symbol set', () => {
   it('SYMBOL_CHARS is exactly the on-bar characters (was the hard-coded "_.-~^(){}|n\'")', () => {
@@ -47,32 +48,32 @@ describe('registry = single source of the symbol set', () => {
     expect(SYMBOL_CHARS.length).toBe(ON_BAR.length)
   })
 
-  it('SYMBOL_GROUPS reproduces the toolbar strip the const used to give, in order', () => {
+  it('SYMBOL_GROUPS reproduces the toolbar strip in order (#/b/n one accidental group)', () => {
     expect(SYMBOL_GROUPS.map((g) => g.name)).toEqual(['ความยาว', 'เสียง', 'กลุ่ม/ห้อง'])
     expect(SYMBOL_GROUPS.map((g) => g.keys.map((k) => k.ch))).toEqual([
       ['_', '.', '-', '~', '^'],
-      ['n', "'"],
+      ['#', 'b', 'n'],
       ['(', ')', '{', '}', '|'],
     ])
     for (const g of SYMBOL_GROUPS) for (const k of g.keys) expect(k.th.length).toBeGreaterThan(0)
   })
 
-  it('# and b are classified here but are NOT on the toolbar strip', () => {
-    expect(symbolBehavior('#')).toBe('accidental')
-    expect(symbolBehavior('b')).toBe('accidental')
-    expect([...SYMBOL_CHARS]).not.toContain('#')
-    expect([...SYMBOL_CHARS]).not.toContain('b')
+  it("octave ' and , are classified here but are NOT on the toolbar strip (BI-009 §1)", () => {
+    expect(symbolBehavior("'")).toBe('octaveUp')
+    expect(symbolBehavior(',')).toBe('octaveDown')
+    expect([...SYMBOL_CHARS]).not.toContain("'")
+    expect([...SYMBOL_CHARS]).not.toContain(',')
   })
 
   it('every entry has a behavior the dispatch understands — nothing dangling', () => {
-    const known = new Set(['mark', 'box', 'accidental', 'octaveUp', 'bar'])
+    const known = new Set(['mark', 'tie', 'box', 'accidental', 'octaveUp', 'octaveDown', 'bar'])
     for (const s of SYMBOLS) expect(known.has(s.behavior)).toBe(true)
   })
 
-  it("resolves aliases: ' and the curly quote ’ are the same command; junk is null", () => {
+  it("resolves aliases: ' and the curly quote ’ are the same command; , is low octave; junk is null", () => {
     expect(symbolForKey("'")).toBe("'")
     expect(symbolForKey('’')).toBe("'") // some keyboards emit U+2019 for the apostrophe key
-    expect(symbolForKey(',')).toBe(null) // parser gives it no meaning → not a symbol
+    expect(symbolForKey(',')).toBe(',') // now the low-octave key (BI-009 §2), still off the strip
     expect(symbolForKey('x')).toBe(null)
   })
 })
@@ -83,10 +84,12 @@ describe('⭐ drift-killer: the keyboard door and the button door are ONE dispat
   // content effect is identical for every registered symbol — and equals the raw engine call.
   const ENGINE = {
     mark: (c, loc, ch) => withNoteMark(c, loc, ch),
-    box: (c, loc, ch) => withInsertedBox(c, loc, ch, ch === '(' || ch === '{'),
+    tie: (c, loc) => withTie(c, loc),
+    box: (c, loc, ch) => withToggledBox(c, loc, ch, ch === '(' || ch === '{'),
     accidental: (c, loc, ch) => withAccidental(c, loc, ch),
     octaveUp: (c, loc) => withOctaveShift(c, loc, 1),
-    bar: (c, loc) => withBarAfter(c, loc),
+    octaveDown: (c, loc) => withOctaveShift(c, loc, -1),
+    bar: (c, loc) => withToggledBar(c, loc),
   }
 
   it('every symbol: keydown input, button input, and the raw engine all agree on content', () => {
@@ -119,7 +122,7 @@ describe('⭐ drift-killer: the keyboard door and the button door are ONE dispat
 
   it('a non-symbol key changes nothing on either door', () => {
     const c = makeContent()
-    expect(applySymbolToContent(c, at(0), ',')).toBe(c) // reference-equal = untouched
+    expect(applySymbolToContent(c, at(0), 'x')).toBe(c) // reference-equal = untouched
     expect(applySymbolToContent(c, at(0), '5')).toBe(c)
   })
 

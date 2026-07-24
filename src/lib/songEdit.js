@@ -9,7 +9,7 @@
 // The note-box helpers below are string-level and shape-independent, so they work whether
 // the caller holds a stored segment (SongViewer) or an editor segment (EditorMode).
 
-import { noteBoxKinds, syllableSlots, canonicalizeNote } from './notation.js'
+import { noteBoxKinds, syllableSlots, canonicalizeNote, parseNotes } from './notation.js'
 import { semitonesBetween, transposeChord, parseChord } from './chords.js'
 import { mintMarkerIds } from './songFlow.js'
 
@@ -206,6 +206,123 @@ export function withInsertedBox(content, loc, token, before = false) {
   return withSegmentNote(content, at, newNote, arrangement)
 }
 
+// Toggle a box token next to the cursor: if the neighbour where this box would be inserted is
+// ALREADY exactly this token, REMOVE it (with the same ripple an insert would open, reversed);
+// otherwise INSERT it (delegates to withInsertedBox). This is what makes every structural symbol
+// (`-` hold · `( ) { }` brackets) apply-AND-remove from one key (BI-003): pressing the same
+// symbol twice puts the melody back exactly where it started, instead of stacking a second copy.
+// `before` matches withInsertedBox: an opening bracket sits on the LEFT of the cursor note, so its
+// twin lives at bi-1; everything else sits on the RIGHT, at bi+1.
+export function withToggledBox(content, loc, token, before = false) {
+  const { resolvedLine, si, syk } = loc
+  const tok = String(token ?? '')
+  if (!tok) return content
+  const at = locateSegment(content, resolvedLine, si)
+  if (!at) return content
+  const stanza = content.stanzas[at.stanzaIndex]
+  const note = stanza.lines[at.lineIndex][at.segIndex].note || ''
+  const boxes = noteBoxes(note)
+  const bi = boxIndexForSlot(note, syk)
+  if (bi >= 0) {
+    const adj = before ? bi - 1 : bi + 1
+    if (adj >= 0 && adj < boxes.length && boxes[adj] === tok) {
+      // remove the neighbour we (or the user) added. A slot-bearing box ('-') closes its slot in
+      // every linked verse, exactly reversing the insert's open; a bracket bears no slot → no ripple.
+      const bearsSlot = noteBoxKinds(tok)[0] !== 'struct'
+      boxes.splice(adj, 1)
+      const newNote = boxes.length ? boxes.join(' ') : ''
+      const arrangement = bearsSlot
+        ? rippleVerses(content, stanza.id, stanzaGlobalSlot(stanza, at.lineIndex, si, syk) + (before ? 0 : 1), 'delete')
+        : content.arrangement
+      return withSegmentNote(content, at, newNote, arrangement)
+    }
+  }
+  return withInsertedBox(content, loc, tok, before)
+}
+
+// ---------- tie (โยงเสียง `~`) : join TWO same-pitch notes into one sustained sound ----------
+// A tie is a PAIR of marks, never one: the first note carries tie-start (`5~`), the second carries
+// tie-end (`~5`), and both must be the SAME written pitch. Only then does playback (midi.mergeTies)
+// fold them into one un-re-attacked sound and the sheet (NoteRow) draw the two half-arcs into one
+// curve. The old `~` set tie-start on ONE note, so nothing ever connected (BI-009 §3) — a half-arc
+// to nowhere, and a re-attack in playback. Pressing `~` on a note now ties it to the adjacent
+// same-pitch note (the NEXT box first — "hold this on into the next" — else the PREVIOUS), and
+// pressing `~` again UNTIES (clears both marks). A tie between DIFFERENT pitches is not a tie (that
+// is a slur / เอื้อน — the `( )` group), so with no same-pitch neighbour it is a no-op: we never
+// draw an arc that will not sound.
+function boxNote(tok) {
+  return parseNotes(tok).find((t) => t.type === 'note') || null
+}
+function samePitch(a, b) {
+  return !!a && !!b && a.pitch !== '0' && a.pitch === b.pitch && a.high - a.low === b.high - b.low
+}
+// Rebuild a box token from a parsed note with tie flags patched — canonical order so it re-parses
+// identically ( [~tieEnd] acc .low* digit '_high* _under* .aug* [~tieStart] [^] ). Any group bracket
+// riding on the same box in legacy data ("(5", "5)") is preserved around the rebuilt core, so a tie
+// never silently drops a slur/triplet wrapper.
+function noteWithTie(origTok, t, { tieStart = t.tieStart, tieEnd = t.tieEnd } = {}) {
+  const s = String(origTok ?? '')
+  let a = 0
+  let b = s.length
+  while (a < b && (s[a] === '(' || s[a] === '{')) a++
+  while (b > a && (s[b - 1] === ')' || s[b - 1] === '}')) b--
+  let core = ''
+  if (tieEnd) core += '~'
+  if (t.accidental) core += t.accidental
+  core += '.'.repeat(t.low)
+  core += t.pitch
+  core += "'".repeat(t.high)
+  core += '_'.repeat(t.underlines)
+  core += '.'.repeat(t.dots)
+  if (tieStart) core += '~'
+  if (t.fermata) core += '^'
+  return s.slice(0, a) + core + s.slice(b)
+}
+export function withTie(content, loc) {
+  const { resolvedLine, si, syk } = loc
+  const at = locateSegment(content, resolvedLine, si)
+  if (!at) return content
+  const seg = content.stanzas[at.stanzaIndex].lines[at.lineIndex][at.segIndex]
+  const boxes = noteBoxes(seg.note || '')
+  const bi = boxIndexForSlot(seg.note || '', syk)
+  if (bi < 0) return content
+  const cur = boxNote(boxes[bi])
+  if (!cur || cur.pitch === '0') return content // only a real pitched note can be tied
+  const nextIdx = bi + 1
+  const prevIdx = bi - 1
+  const next = nextIdx < boxes.length ? boxNote(boxes[nextIdx]) : null
+  const prev = prevIdx >= 0 ? boxNote(boxes[prevIdx]) : null
+  const commit = () => withSegmentNote(content, at, boxes.join(' '), content.arrangement)
+  const curTok = boxes[bi]
+  const nextTok = boxes[nextIdx]
+  const prevTok = boxes[prevIdx]
+  // already tied forward → untie
+  if (cur.tieStart && next && next.tieEnd && samePitch(cur, next)) {
+    boxes[bi] = noteWithTie(curTok, cur, { tieStart: false })
+    boxes[nextIdx] = noteWithTie(nextTok, next, { tieEnd: false })
+    return commit()
+  }
+  // already tied backward → untie
+  if (cur.tieEnd && prev && prev.tieStart && samePitch(cur, prev)) {
+    boxes[bi] = noteWithTie(curTok, cur, { tieEnd: false })
+    boxes[prevIdx] = noteWithTie(prevTok, prev, { tieStart: false })
+    return commit()
+  }
+  // tie forward to a same-pitch next note
+  if (samePitch(cur, next)) {
+    boxes[bi] = noteWithTie(curTok, cur, { tieStart: true })
+    boxes[nextIdx] = noteWithTie(nextTok, next, { tieEnd: true })
+    return commit()
+  }
+  // else tie backward to a same-pitch previous note
+  if (samePitch(cur, prev)) {
+    boxes[bi] = noteWithTie(curTok, cur, { tieEnd: true })
+    boxes[prevIdx] = noteWithTie(prevTok, prev, { tieStart: true })
+    return commit()
+  }
+  return content // nothing adjacent shares this pitch → not a tie
+}
+
 // Insert a BAR LINE ('|') after the cursor's note. A bar is not a note box — in v2 it is its
 // own line item {type:'bar'} between two segments — so this SPLITS the segment at the cursor:
 // the boxes up to the cursor stay in place (keeping the segment's chord), a bar item follows,
@@ -229,6 +346,34 @@ export function withBarAfter(content, loc) {
   if (tail.length) items.push({ type: 'segment', note: tail.join(' '), chord: '' })
   newLine.splice(at.segIndex, 1, ...items)
   return withSegmentLine(content, at, newLine, content.arrangement)
+}
+
+// Toggle a bar line: split after the cursor's note (withBarAfter), or — if the cursor is on the
+// LAST note of its segment and a bar item follows — REMOVE that bar, merging the next segment back
+// (its notes keep their order and slots, so no verse ripples). This gives `|` the same apply/remove
+// symmetry as every other symbol (BI-003): drop a bar, press `|` again on the same note to undo it.
+export function withToggledBar(content, loc) {
+  const { resolvedLine, si, syk } = loc
+  const at = locateSegment(content, resolvedLine, si)
+  if (!at) return content
+  const line = content.stanzas[at.stanzaIndex].lines[at.lineIndex]
+  const seg = line[at.segIndex]
+  const boxes = noteBoxes(seg.note || '')
+  const bi = boxIndexForSlot(seg.note || '', syk)
+  if (bi < 0) return content
+  const nextItem = line[at.segIndex + 1]
+  if (bi === boxes.length - 1 && nextItem && nextItem.type === 'bar') {
+    const newLine = line.slice()
+    const afterSeg = newLine[at.segIndex + 2]
+    if (afterSeg && afterSeg.type === 'segment') {
+      const mergedNote = [seg.note, afterSeg.note].filter(Boolean).join(' ')
+      newLine.splice(at.segIndex, 3, { ...seg, note: mergedNote, chord: seg.chord || afterSeg.chord || '' })
+    } else {
+      newLine.splice(at.segIndex + 1, 1) // trailing bar with nothing after → just drop it
+    }
+    return withSegmentLine(content, at, newLine, content.arrangement)
+  }
+  return withBarAfter(content, loc)
 }
 
 // ---------- the note MARKS that live on the box itself ----------

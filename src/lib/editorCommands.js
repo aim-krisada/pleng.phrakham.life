@@ -17,21 +17,28 @@
 // other file must import from here (AC-0.1: `grep "'_.~^'|'-(){}'|SYMBOL_CHARS|SYMBOL_GROUPS"
 // over src/` must find these literals here and nowhere else).
 
-import { withNoteMark, withInsertedBox, withAccidental, withOctaveShift, withBarAfter, withJumpMarker } from './songEdit.js'
+import { withNoteMark, withToggledBox, withAccidental, withOctaveShift, withToggledBar, withTie, withJumpMarker } from './songEdit.js'
 
 // `behavior` — the classification the two if/else tables used to each own a copy of. Each value
 // names the engine action the character triggers on the selected note (see `effectFor` below):
 //
-//   'mark'        markSel        _ . ~ ^   a mark that rides on the note (each press cycles it)
-//   'box'         insertBoxSel   - ( ) { } a structural box inserted next to the cursor
-//   'accidental'  accidentalSel  # b n     sharp / flat / natural
-//   'octaveUp'    octaveSel(1)   '         raise the note one octave
-//   'bar'         barSel         |         split the segment with a bar line
+//   'mark'        markSel        _ . ^     a mark that rides on the note (each press cycles it)
+//   'tie'         tieSel         ~         join this note to the adjacent same-pitch note (a PAIR)
+//   'box'         toggleBoxSel   - ( ) { } a structural box — insert, or remove if pressed again
+//   'accidental'  accidentalSel  # b n     sharp / flat / natural (one group — same mode)
+//   'octaveUp'    octaveSel(1)   '         raise the note one octave (dot moves ABOVE)
+//   'octaveDown'  octaveSel(-1)  ,         lower the note one octave (dot moves BELOW)
+//   'bar'         toggleBarSel   |         split the segment with a bar line, or remove it again
+//
+// Every behavior is symmetric — pressing the same key again undoes it (BI-003): marks cycle back to
+// 0, `~` unties, a box removes its twin, `|` merges the bar, `'`/`,` reverse each other. The engine
+// canonicalises placement, so a mark always lands in its ONE correct spot above/below the digit
+// automatically (BI-009 §2 auto-position) — the user never nudges a character before/after.
 //
 // `onBar`  — appears on the toolbar's symbol strip (and so is a key we learn a position for).
-//            `# b` are `onBar:false`: they get their own dedicated ♯ ♭ buttons (emitted via
-//            @accidental, not @symbol) and are standard physical keys with no hint — but the
-//            keyboard and applySymbol still classify them from HERE, not a separate table.
+//            `' ,` are `onBar:false`: octave has its own dedicated สูง↑ / ต่ำ↓ dock buttons, so the
+//            strip button would be a redundant third door (BI-009 §1) — but both stay TYPEABLE, and
+//            the keyboard/applySymbol still classify them from HERE, not a separate table.
 // `aliasKeys` — extra `e.key` values that route to the same command. The apostrophe key on some
 //            keyboards emits the curly quote ’ (U+2019); it must raise the octave exactly like '.
 export const SYMBOLS = [
@@ -39,20 +46,21 @@ export const SYMBOLS = [
   { id: 'sym-eighth',  ch: '_', group: 'ความยาว', th: 'เขบ็ต',    behavior: 'mark', onBar: true },
   { id: 'sym-dot',     ch: '.', group: 'ความยาว', th: 'จุดเพิ่ม',  behavior: 'mark', onBar: true },
   { id: 'sym-hold',    ch: '-', group: 'ความยาว', th: 'ลากเสียง', behavior: 'box',  onBar: true },
-  { id: 'sym-tie',     ch: '~', group: 'ความยาว', th: 'โยงเสียง', behavior: 'mark', onBar: true },
+  { id: 'sym-tie',     ch: '~', group: 'ความยาว', th: 'โยงเสียง', behavior: 'tie',  onBar: true },
   { id: 'sym-fermata', ch: '^', group: 'ความยาว', th: 'ยืดเสียง', behavior: 'mark', onBar: true },
-  // ── group เสียง (pitch) ───────────────────────────────────────────────────
-  { id: 'sym-natural',  ch: 'n', group: 'เสียง', th: 'เนเชอรัล',    behavior: 'accidental', onBar: true },
-  { id: 'sym-octaveup', ch: "'", group: 'เสียง', th: 'สูงหนึ่งช่วง', behavior: 'octaveUp',   onBar: true, aliasKeys: ['’'] },
+  // ── group เสียง (pitch) — accidentals are ONE group (#/b/n, same mode: BI-009 §5) ─────────
+  { id: 'sym-sharp',   ch: '#', group: 'เสียง', th: 'ชาร์ป',    behavior: 'accidental', onBar: true },
+  { id: 'sym-flat',    ch: 'b', group: 'เสียง', th: 'แฟลต',     behavior: 'accidental', onBar: true },
+  { id: 'sym-natural', ch: 'n', group: 'เสียง', th: 'เนเชอรัล', behavior: 'accidental', onBar: true },
   // ── group กลุ่ม/ห้อง (grouping / bar) ─────────────────────────────────────
   { id: 'sym-slur-open',  ch: '(', group: 'กลุ่ม/ห้อง', th: 'เอื้อน เปิด',    behavior: 'box', onBar: true },
   { id: 'sym-slur-close', ch: ')', group: 'กลุ่ม/ห้อง', th: 'เอื้อน ปิด',     behavior: 'box', onBar: true },
   { id: 'sym-trip-open',  ch: '{', group: 'กลุ่ม/ห้อง', th: 'สามพยางค์ เปิด', behavior: 'box', onBar: true },
   { id: 'sym-trip-close', ch: '}', group: 'กลุ่ม/ห้อง', th: 'สามพยางค์ ปิด',  behavior: 'box', onBar: true },
   { id: 'sym-bar',        ch: '|', group: 'กลุ่ม/ห้อง', th: 'กั้นห้อง',       behavior: 'bar', onBar: true },
-  // ── accidentals with their own physical keys — classified here, not on the strip ──
-  { id: 'sym-sharp', ch: '#', group: 'เสียง', th: 'ชาร์ป', behavior: 'accidental', onBar: false },
-  { id: 'sym-flat',  ch: 'b', group: 'เสียง', th: 'แฟลต',  behavior: 'accidental', onBar: false },
+  // ── octave — typeable only; the dock's สูง↑ / ต่ำ↓ buttons are the discoverable control ──
+  { id: 'sym-octaveup',   ch: "'", group: 'เสียง', th: 'สูงหนึ่งช่วง', behavior: 'octaveUp',   onBar: false, aliasKeys: ['’'] },
+  { id: 'sym-octavedown', ch: ',', group: 'เสียง', th: 'ต่ำหนึ่งช่วง', behavior: 'octaveDown', onBar: false },
 ]
 
 // ---- derivations (functions of the list, so a test can pass a modified list) ----------------
@@ -96,10 +104,12 @@ export function symbolIndex(symbols = SYMBOLS) {
 export function effectFor(behavior, content, loc, ch) {
   switch (behavior) {
     case 'mark':       return withNoteMark(content, loc, ch)
-    case 'box':        return withInsertedBox(content, loc, ch, ch === '(' || ch === '{')
+    case 'tie':        return withTie(content, loc)
+    case 'box':        return withToggledBox(content, loc, ch, ch === '(' || ch === '{')
     case 'accidental': return withAccidental(content, loc, ch)
     case 'octaveUp':   return withOctaveShift(content, loc, 1)
-    case 'bar':        return withBarAfter(content, loc)
+    case 'octaveDown': return withOctaveShift(content, loc, -1)
+    case 'bar':        return withToggledBar(content, loc)
     default:           return content // unknown char = no-op (parser gives it no meaning)
   }
 }
