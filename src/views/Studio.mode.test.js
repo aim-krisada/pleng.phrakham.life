@@ -155,6 +155,20 @@ describe('Studio shell — three modes on one surface (US-01)', () => {
       await nextTick()
       expect(wrapper.find('.sheet-workspace').isVisible()).toBe(true)
     })
+
+    // Leaving with unsaved work is announced in flow, with the way back — not with a dialog
+    // (the work is mirrored locally) and not with a floating toast (nothing floats over the
+    // sheet any more). G cross-check 24 ก.ค.
+    it('leaving with unsaved work shows an in-flow banner with a way back', async () => {
+      const wrapper = await openViewer(true)
+      expect(wrapper.find('.sv-leftdirty').exists()).toBe(false)
+      wrapper.findComponent(SongViewer).vm.$emit('left-dirty')
+      await nextTick()
+      const banner = wrapper.find('.sv-leftdirty')
+      expect(banner.exists()).toBe(true)
+      expect(banner.text()).toContain('ยังอยู่ครบ')
+      expect(banner.find('.rec-btn.primary').text()).toContain('กลับไปแก้')
+    })
   })
 
   it('gating flows from the store into every mode via the tier prop (DS-02/DS-04)', async () => {

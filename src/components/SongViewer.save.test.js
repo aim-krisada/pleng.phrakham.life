@@ -105,9 +105,24 @@ describe('SongViewer — inline save state', () => {
     expect(w.find('.sv-fab').exists()).toBe(false) // nothing floats over the sheet while editing
   })
 
-  it('leaving แก้ with unsaved work warns first, and stays put if refused', async () => {
+  // What decides whether leaving asks: can the work still be got back? (G cross-check 24 ก.ค.,
+  // Apple HIG Alerts / NN/g on confirmation dialogs — a modal you answer "yes" to twenty times a
+  // day protects nothing.) The shell mirrors every keystroke into localStorage, so the normal
+  // answer is "yes, recoverable" and leaving is a non-event that the shell announces in flow.
+  it('unsaved but recoverable → leaves without a dialog, and tells the shell', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const w = mountViewer({ saveState: 'dirty', recoverable: true })
+    await enterEdit(w)
+    await w.find('.sv-done-btn').trigger('click')
+    expect(confirm).not.toHaveBeenCalled()
+    expect(w.find('.sv-save-bar').exists()).toBe(false)
+    expect(w.emitted('left-dirty')).toBeTruthy() // the shell shows "work is safe · back to editing"
+    confirm.mockRestore()
+  })
+
+  it('unsaved AND unrecoverable (storage blocked) → asks, and stays put if refused', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    const w = mountViewer({ saveState: 'dirty' })
+    const w = mountViewer({ saveState: 'dirty', recoverable: false })
     await enterEdit(w)
     await w.find('.sv-done-btn').trigger('click') // press เสร็จ
     expect(confirm).toHaveBeenCalled()
@@ -118,13 +133,14 @@ describe('SongViewer — inline save state', () => {
     confirm.mockRestore()
   })
 
-  it('nothing to lose → เสร็จ leaves without a prompt', async () => {
+  it('nothing to lose → เสร็จ leaves without a prompt or a banner', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const w = mountViewer({ saveState: 'clean' })
     await enterEdit(w)
     await w.find('.sv-done-btn').trigger('click')
     expect(confirm).not.toHaveBeenCalled()
     expect(w.find('.sv-save-bar').exists()).toBe(false)
+    expect(w.emitted('left-dirty')).toBeFalsy()
     confirm.mockRestore()
   })
 
@@ -133,7 +149,7 @@ describe('SongViewer — inline save state', () => {
   // word even with unsaved work on screen. Both now go through this ONE gate.
   it('requestExitEdit is the single gate the shell tabs can use', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    const w = mountViewer({ saveState: 'dirty' })
+    const w = mountViewer({ saveState: 'dirty', recoverable: false })
     await enterEdit(w)
     expect(w.emitted('update:editing').at(-1)).toEqual([true]) // the shell is told
     expect(w.vm.requestExitEdit()).toBe(false) // refused → the tab must not switch

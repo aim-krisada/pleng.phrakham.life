@@ -42,6 +42,10 @@ const props = defineProps({
   // just SHOWS it and asks for a save — so the user always knows whether the work is kept.
   saveState: { type: String, default: 'clean' },
   saveError: { type: String, default: '' },
+  // whether the shell managed to mirror this edit into the local working copy. It decides
+  // whether leaving the editor with unsaved work is a non-event (the normal case) or the last
+  // chance to keep it (storage blocked/full) — see requestExitEdit.
+  recoverable: { type: Boolean, default: true },
   // EPIC H — a shared link may carry the key it was shared at (?key=, lib/share.js). It is a
   // STARTING point only: the listener's own คีย์ pick afterwards wins. '' = use the song's key.
   startKey: { type: String, default: '' },
@@ -51,7 +55,7 @@ const props = defineProps({
 // content via `update-content`; that flows back down as props.song and the sheet re-renders.
 // `key-change` reports the reading key up so the shell can share the song AT the key the
 // listener is actually reading (EPIC H round-trip). Read-only signal — nothing flows back down.
-const emit = defineEmits(['update-content', 'save', 'key-change', 'update:editing'])
+const emit = defineEmits(['update-content', 'save', 'key-change', 'update:editing', 'left-dirty'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -394,8 +398,13 @@ function onCaptureKey(e) {
   else if (e.key === 'Insert') { e.preventDefault(); toggleTypeMode() }
   else if (e.key === 'Enter') { e.preventDefault(); moveHoriz(1) }
   else if (e.key === ' ') { e.preventDefault(); word ? moveHoriz(1) : moveUnit(1) } // space = next syllable/unit
-  else if (!word && e.key === 'Home') { e.preventDefault(); curIdx.value = 0 }
-  else if (!word && e.key === 'End') { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
+  // Home / End = first / last note. Ctrl+Home / Ctrl+End do the same, because that is the pair
+  // a document editor trains your hands on (Docs/VS Code/Notion) — and on the WORD layer plain
+  // Home/End are left to the browser, where they mean "start/end of this word" as they should.
+  else if (!word && (e.key === 'Home' || (ctrl && e.key === 'Home'))) { e.preventDefault(); curIdx.value = 0 }
+  else if (!word && (e.key === 'End' || (ctrl && e.key === 'End'))) { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
+  else if (word && ctrl && e.key === 'Home') { e.preventDefault(); curIdx.value = 0 }
+  else if (word && ctrl && e.key === 'End') { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
   // NOTE layer: digit = set the note; Delete = ลบอยู่กับที่ (rest); Backspace = เอาออกทั้งช่อง.
   // Overwrite STAYS on the note (so you can add octave / ♯♭ to it before moving — P'Aim); use
   // ← → / space to move on. Insert still advances so a new melody flows left-to-right.
@@ -742,17 +751,27 @@ defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit,
 // Leaving the editor — ONE gate, wherever the request comes from (the ✓ button, or the shell's
 // mode tabs asking to take the user somewhere else). Returns true when we actually left, so the
 // caller can hold its own action back if the user says "no, let me save first".
-// Only DIRTY work asks; a saved song leaves silently, because a confirm you always answer "yes"
-// to teaches people to stop reading it.
+//
+// Whether it asks depends on ONE thing: can the work still be got back?
+//   • recoverable (the shell mirrored this edit into the local working copy — the normal case,
+//     including a brand-new song, which keeps its own 'new' slot) → LEAVE, no dialog. The work
+//     is in memory and on disk; the shell says so in a banner with a way straight back. A
+//     confirm you answer "yes" to twenty times a day is one people stop reading, and then it
+//     protects nothing (Apple HIG Alerts · NN/g on confirmation dialogs: modals are for
+//     irreversible consequences).
+//   • NOT recoverable (localStorage blocked or full — private mode, quota) → this really is the
+//     last chance, so ASK. That is the case the heuristic keeps modals for.
 function requestExitEdit() {
   if (!editMode.value) return true
-  if (props.saveState === 'dirty') {
+  const dirty = props.saveState === 'dirty'
+  if (dirty && !props.recoverable) {
     const ok = window.confirm(
-      `ยังไม่ได้บันทึกงานที่แก้ไว้\n\nกด "ตกลง" เพื่อออกจากโหมดแก้ (งานยังอยู่ในเครื่องจนกว่าจะปิดเว็บ)\nกด "ยกเลิก" แล้วกด "${saveLabel.value}" เพื่อเก็บงานก่อน`,
+      `ยังไม่ได้บันทึกงานที่แก้ไว้ และเบราว์เซอร์นี้เก็บสำเนากันหายไม่ได้\n\nกด "ตกลง" เพื่อออกจากโหมดแก้ (งานที่แก้จะหายเมื่อปิดหรือรีเฟรชหน้านี้)\nกด "ยกเลิก" แล้วกด "${saveLabel.value}" เพื่อเก็บงานก่อน`,
     )
     if (!ok) return false
   }
   editMode.value = false
+  if (dirty) emit('left-dirty')
   return true
 }
 function toggleEdit() {
