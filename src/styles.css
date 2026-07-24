@@ -950,6 +950,9 @@ footer.site-footer.footer-dock-clear {
      multi-page prints). The bottom margin reserves the band for the running footer —
      the footer content itself (site · page X of Y · date) is injected as @page margin
      boxes by lib/printChrome.js so all three share one baseline + size (US-I3).
+     The physical paper size (@page{size:A4|Letter|A5}, default A4) is also injected
+     there from the user's saved choice (B121 · lib/paperSize.js) — kept out of this
+     static rule so there is one source of truth for the size.
      Turn OFF the browser's own "Headers and footers" for a clean sheet. */
   @page { margin: 15mm 16mm 16mm; }
   body { background: #fff; }
