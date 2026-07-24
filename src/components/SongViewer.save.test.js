@@ -87,7 +87,7 @@ describe('SongViewer — inline save state', () => {
     const w = mountViewer({ tier: 'anon', saveState: 'dirty' })
     expect(w.find('.sv-fab').exists()).toBe(true) // ✏️ open to every tier
     await enterEdit(w)
-    expect(w.find('.sv-save-btn').text()).toContain('บันทึกเป็นไฟล์')
+    expect(w.find('.sv-save-btn').text()).toContain('ดาวน์โหลด JSON')
     expect(w.find('.sv-save-note').text()).toContain('เข้าสู่ระบบ')
     await w.find('.sv-save-btn').trigger('click')
     expect(downloadSpy).toHaveBeenCalled()

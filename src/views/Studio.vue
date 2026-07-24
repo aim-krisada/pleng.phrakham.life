@@ -14,7 +14,7 @@ import { visibleSongs } from '../lib/bookshelf.js'
 import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
-import { downloadSong } from '../lib/jsonIO.js'
+import { downloadSong, importSong } from '../lib/jsonIO.js'
 import { writeWorkingCopy, clearWorkingCopy, hasRecoverable, contentStamp } from '../lib/workingCopy.js'
 import { tier, canStore, session, saveDraftRow, initAuth, shellMenu, currentSong, readingFontScale, setFontScale } from '../store.js'
 import Icon from '../components/Icon.vue'
@@ -69,6 +69,10 @@ const editorNonce = ref(0)
 //   liveSong   : the current song incl. unsaved edits (editor emits `change`) · feeds ดู/แผ่น
 const loadedSong = ref(null)
 const liveSong = ref(null)
+// on-demand JSON import (US-C02): a status line for the ⋮ → "เปิดไฟล์ JSON" result —
+// friendly Thai reason on a bad file, or v1→v2 warnings the human should eyeball.
+const importMsg = ref('')
+const importWarn = ref(false)
 
 async function loadSong(id) {
   const { data } = await supabase.from('songs').select('*').eq('id', id).single()
@@ -500,6 +504,16 @@ function setMode(id) {
   mode.value = id
 }
 
+// ‹ back (บริบท B top bar: ‹ ชื่อ ✏️ ↗ ⋮) — the ONE return path now that the mode tab-strip is
+// gone. From a secondary surface (แผ่นเพลง / ตัวแก้แบบเต็ม) it returns to the default reading
+// surface; from reading it leaves the song for the catalog. Routed through setMode so leaving an
+// open ✏️ editor still hits its unsaved-work gate; the catalog leave is guarded by
+// onBeforeRouteLeave. Shown in EVERY mode (incl. แก้ไข) so the full editor is never a one-way trap.
+function goBack() {
+  if (mode.value !== 'view') { setMode('view'); return }
+  router.push('/')
+}
+
 // ---------- shell song picker (US-05) ----------
 // "เปิด/เลือกเพลง" lives on the shell (not inside the editor) so it works in EVERY mode:
 // a reader in ดู/แผ่น can jump to another song without first entering แก้. Picking a song
@@ -564,6 +578,58 @@ function openSong(id) {
   router.push('/song/' + id)
 }
 
+// เปิดไฟล์ JSON (US-C02, on-demand) — bring a downloaded/parser-produced song file back
+// into the SAME inline editor surface, without touching the DB. Routed through jsonIO's
+// importSong → validateSong (v1→v2 migrate + friendly Thai errors), so a bad file never
+// crashes and warnings surface. id stays null → it keeps the anon "ดาวน์โหลด JSON" path,
+// never a server row, until a Tier-1+ user chooses บันทึกร่าง.
+function openFile() {
+  closeMore()
+  // non-destructive: an unsaved ✏️ edit must not be clobbered by opening another file.
+  if (inlineState.value === 'dirty' &&
+      !window.confirm('งานที่แก้ (✏️) ยังไม่ได้บันทึก — เปิดไฟล์อื่นทับเลยไหม?')) return
+  const inp = document.createElement('input')
+  inp.type = 'file'
+  inp.accept = 'application/json,.json'
+  inp.onchange = async () => {
+    const file = inp.files && inp.files[0]
+    if (!file) return
+    const res = await importSong(file)
+    if (!res.ok) { importWarn.value = true; importMsg.value = res.error; return }
+    loadedSong.value = null // a file has no catalog row (no book_refs/scripture)
+    liveSong.value = {
+      id: null,
+      number: res.song.number,
+      title_th: res.song.title_th,
+      title_en: res.song.title_en,
+      category: null,
+      theme: null,
+      content: res.song.content,
+    }
+    inlineState.value = 'clean'
+    cleanContent.value = stamp(res.song.content)
+    cleanMeta.value = stamp(metaOf(liveSong.value))
+    metaKnown.category = false
+    metaKnown.theme = false
+    inlineError.value = ''
+    inlineDraftId.value = null
+    recovery.value = null
+    mode.value = 'view' // open on the reading/✏️ surface, not the old grid
+    // migrate warnings are {note, lyric, slots, got} — a syllable-vs-note mismatch. Render each
+    // as human Thai (not "[object Object]") so the creator knows exactly which line to eyeball.
+    const warnText = (res.warnings || []).map((w) =>
+      (typeof w === 'string')
+        ? w
+        : `คำร้อง “${w.lyric ?? ''}” (${w.got} พยางค์) ไม่พอดีกับโน้ต “${w.note ?? ''}” (${w.slots} เสียง)`,
+    )
+    importWarn.value = warnText.length > 0
+    importMsg.value = warnText.length
+      ? 'เปิดไฟล์แล้ว — มีจุดที่ควรตรวจ: ' + warnText.join(' · ')
+      : '📂 เปิดไฟล์ JSON แล้ว — แก้ต่อได้เลย'
+  }
+  inp.click()
+}
+
 // ---------- print (US-06 / US-I3) ----------
 // Just open the print dialog. The filename comes from document.title (set to the song
 // on load, above); the page layout — centered title + running footer — is owned by
@@ -591,10 +657,30 @@ function printSheet() {
       <button class="rec-btn" @click="leftDirty = false">ปิด</button>
     </div>
 
+    <!-- เปิดไฟล์ JSON result — a bad file's plain-Thai reason, or v1→v2 warnings to eyeball.
+         Persistent (role=status), not a disappearing toast (WCAG 3.3.1). -->
+    <div v-if="importMsg" class="sv-import-msg no-print" :class="{ warn: importWarn }" role="status">
+      <Icon :name="importWarn ? 'triangle-alert' : 'folder-open'" :size="16" />
+      <span>{{ importMsg }}</span>
+      <button class="rec-btn" @click="importMsg = ''">ปิด</button>
+    </div>
+
     <!-- shell chrome teleported into the app-wide ShellBar: static title (ดู/แผ่น) + the
          3-way mode switch (always visible). The editor teleports its own title input +
          เพลง/จัดการ menus while it is the active mode. -->
     <Teleport to="#shell-title">
+      <!-- ‹ back — always present (every mode incl. แก้ไข), the single return path since the mode
+           tab-strip was removed (บริบท B). Solves the "full editor is a one-way surface" gap. -->
+      <button
+        v-if="liveSong"
+        type="button"
+        class="sb-back-btn"
+        aria-label="กลับ"
+        title="กลับ"
+        @click="goBack"
+      >
+        <Icon name="chevron-left" :size="20" />
+      </button>
       <template v-if="mode !== 'edit'">
         <span class="sb-sep" aria-hidden="true"></span>
         <span class="sb-title-static">{{ titleText }}</span>
@@ -614,7 +700,7 @@ function printSheet() {
         aria-haspopup="dialog"
         @click.stop="shareOpen = true"
       >
-        <Icon name="share" :size="16" />
+        <Icon name="share-2" :size="16" />
       </button>
       <!-- ⋮ เพิ่มเติม (overflow) — the "less-common actions" for the open song (Material overflow
            pattern), rightmost of the shell actions per the locked design. This lane builds the
@@ -640,6 +726,22 @@ function printSheet() {
           @click.stop
           @keydown.esc="closeMore"
         >
+          <!-- พื้นผิว (surfaces) — the mode tab-strip is GONE (บริบท B): the sheet IS the surface,
+               ▶เล่น=ฝึกร้อง, ✏️=แก้ inline. The remaining real choices — แผ่นเพลง (to print) and
+               ตัวแก้แบบเต็ม (เดิม), the temp home for the un-ported caps — live here, de-emphasized.
+               setMode keeps the exit-gate so pressing one while ✏️ is open asks to leave first. -->
+          <button
+            v-for="m in MODES"
+            :key="m.id"
+            class="sb-mode-btn sb-mode-item"
+            role="menuitem"
+            :class="{ on: mode === m.id && !viewerEditing }"
+            :aria-pressed="mode === m.id && !viewerEditing"
+            @click="setMode(m.id)"
+          >
+            <Icon :name="m.icon" :size="16" /> {{ m.id === 'edit' ? 'ตัวแก้แบบเต็ม (เดิม)' : m.label }}
+          </button>
+          <div class="sb-more-sep" role="separator"></div>
           <button class="sb-more-item" role="menuitem" :aria-expanded="openOther" @click="openOther = !openOther">
             <Icon name="search" :size="16" /> เปิดเพลงอื่น…
           </button>
@@ -655,32 +757,22 @@ function printSheet() {
               @update:model-value="openSong"
             />
           </div>
+          <!-- ไฟล์ (File) group — import/export a song as its own JSON. "เปิดไฟล์ JSON" is a
+               sibling of "เปิดเพลงอื่น…" (both = open something into this surface); the divider
+               marks the File actions off from the library-open above. Anon carries their work
+               as a file; the gate is only บันทึกร่าง (server), owned by the editor. -->
+          <div class="sb-more-sep" role="separator"></div>
+          <button class="sb-more-item" role="menuitem" @click="openFile">
+            <Icon name="folder-open" :size="16" /> เปิดไฟล์ JSON…
+          </button>
+          <button v-if="liveSong" class="sb-more-item" role="menuitem" @click="closeMore(); downloadSong(liveSong)">
+            <Icon name="download" :size="16" /> ดาวน์โหลด JSON
+          </button>
         </div>
       </div>
-      <!-- the 3-way mode switch — HIDDEN while the inline (✏️) editor is open (item 2): the
-           editor has its own "เสร็จ"/Esc way out, and a tab that reads as current while you are
-           in an editor lies. Slide-fade only (opacity/transform), never display/width — so the
-           shell-bar height is unchanged and the sheet below never shifts (AC-2.3). -->
-      <span
-        class="sb-modes"
-        :class="{ 'sb-modes-hidden': viewerEditing }"
-        role="group"
-        aria-label="เลือกมุมมอง"
-        :aria-hidden="viewerEditing"
-      >
-        <button
-          v-for="m in MODES"
-          :key="m.id"
-          class="sb-mode-btn"
-          :class="{ on: mode === m.id && !viewerEditing }"
-          :aria-pressed="mode === m.id && !viewerEditing"
-          :tabindex="viewerEditing ? -1 : 0"
-          :title="viewerEditing ? m.title + ' — ออกจากโหมดแก้' : m.title"
-          @click="setMode(m.id)"
-        >
-          <Icon :name="m.icon" :size="16" /><span class="sb-mode-label">{{ m.label }}</span>
-        </button>
-      </span>
+      <!-- the 3-way mode tab strip is REMOVED (บริบท B): tabs [ฝึก][แผ่น][แก้] no longer exist.
+           แผ่นเพลง = default surface · ✏️ = แก้ inline (FAB, all tiers) · ▶เล่น = ฝึกร้อง ·
+           แผ่นเพลง(พิมพ์) + ตัวแก้แบบเต็ม(เดิม) live in the ⋮ menu above · ‹ back = the return path. -->
     </Teleport>
 
     <!-- ===== ดู — reading / sing-along view (WT-A owns SongViewer) ===== -->
@@ -842,6 +934,23 @@ function printSheet() {
   font-size: 14px;
 }
 
+/* เปิดไฟล์ JSON result banner — same in-flow shape as sv-leftdirty; the .warn tone
+   flags a rejected file or v1→v2 caveats the human should check. */
+.sv-import-msg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: var(--cream, #faf6ef);
+  color: var(--ink, #0f172a);
+  font-size: 14px;
+}
+.sv-import-msg.warn { border-color: #d97706; background: #fffbeb; }
+
 /* teleported into #shell-title / #shell-menus — scoped styles still apply to elements
    this component renders, even when they live in the shared ShellBar */
 .sb-sep {
@@ -974,6 +1083,24 @@ function printSheet() {
 }
 .sb-more-item:hover { border-color: var(--brand); color: var(--brand); }
 .sb-more-search { padding-top: 2px; }
+.sb-more-sep { height: 1px; background: var(--line); margin: 6px 2px; }
+/* surface switches inside ⋮ — same row shape as .sb-more-item; `.on` marks the current surface */
+.sb-mode-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: transparent; color: var(--ink); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 12px; font: inherit; min-height: 40px;
+  cursor: pointer; text-align: start;
+}
+.sb-mode-item:hover { border-color: var(--brand); color: var(--brand); }
+.sb-mode-item.on { border-color: var(--brand); color: var(--brand); font-weight: 600; }
+/* ‹ back — icon button on the shell top bar, present in every mode (44px touch target) */
+.sb-back-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; min-width: 44px; min-height: 44px;
+  background: transparent; border: 0; border-radius: 8px; color: var(--ink); cursor: pointer;
+}
+.sb-back-btn:hover { color: var(--brand); background: var(--cream, #faf6ef); }
+.sb-back-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
 
 /* โหมดแผ่น (US-06): พิมพ์ is now the shared dock's print tool (N1). Leave room so the
    fixed dock never covers the last staff line. */
