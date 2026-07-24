@@ -477,7 +477,7 @@ function onCaptureKey(e) {
   else if (e.key === 'ArrowUp') { e.preventDefault(); ctrl ? moveLineJump(-1) : moveVert(-1) }
   else if (e.key === 'Insert') { e.preventDefault(); toggleTypeMode() }
   else if (e.key === 'Enter') { e.preventDefault(); moveHoriz(1) }
-  else if (e.key === ' ') { e.preventDefault(); word ? moveHoriz(1) : moveUnit(1) } // space = next syllable/unit
+  else if (e.key === ' ') { e.preventDefault(); word ? splitWordAdvance(el) : moveUnit(1) } // space = split syllable / next unit
   // Home / End = first / last note. Ctrl+Home / Ctrl+End do the same, because that is the pair
   // a document editor trains your hands on (Docs/VS Code/Notion) — and on the WORD layer plain
   // Home/End are left to the browser, where they mean "start/end of this word" as they should.
@@ -537,6 +537,49 @@ function cellLoc() {
   const rline = resolved.value?.lines?.[cell.li]
   if (!rline || rline._entryIndex == null) return null
   return { resolvedLine: rline, si: cell.si, syk: cell.syk }
+}
+// BI-005 — the syllable address of ANY edit unit (not just the selected one), so a split can
+// carry the tail onto the next note. Same shape cellLoc() returns.
+function wordLocFor(unit) {
+  const rline = unit ? resolved.value?.lines?.[unit.li] : null
+  if (!rline || rline._entryIndex == null) return null
+  return { resolvedLine: rline, si: unit.si, syk: unit.syk }
+}
+// the word currently under a given unit (this verse) — to see whether the next note is free
+function syllableTextFor(unit) {
+  const line = unit ? resolved.value?.lines?.[unit.li] : null
+  if (!line) return ''
+  let si = -1
+  for (const it of line) {
+    if (it.type !== 'segment') continue
+    si++
+    if (si === unit.si) return it.syllables?.[unit.syk] ?? ''
+  }
+  return ''
+}
+// BI-005 ("v1 ดีกว่าเยอะ") — port v1's (EditorMode.onSylKey) lyric feel to the inline editor:
+// Space SPLITS the syllable at the caret — the text before stays on THIS note, the text after
+// flows onto the NEXT note — then the cursor advances. So a whole phrase can be typed into one
+// box and chopped note-by-note instead of clicking every cell. The tail only lands on a following
+// note that is EMPTY (never overwrites an existing lyric); otherwise space is a plain advance (the
+// live-typed text already sits in this box).
+function splitWordAdvance(el) {
+  const loc = cellLoc()
+  if (!loc) { moveHoriz(1); return }
+  const c = el.selectionStart ?? el.value.length
+  const head = el.value.slice(0, c)
+  const tail = el.value.slice(c)
+  const nextIdx = curIdx.value + 2
+  const nextUnit = editUnits.value[nextIdx]
+  if (tail && nextUnit && nextUnit.layer === 'word' && !syllableTextFor(nextUnit)) {
+    let next = withSetSyllable(props.song.content, loc, head)
+    const nloc = wordLocFor(nextUnit)
+    if (nloc) next = withSetSyllable(next, nloc, tail)
+    if (next !== props.song.content) emit('update-content', next)
+    curIdx.value = nextIdx // advance onto the carried tail (focusCapture reloads the field)
+    return
+  }
+  moveHoriz(1)
 }
 
 // ---- the editing FRAME (24 ก.ค.) --------------------------------------------------------
