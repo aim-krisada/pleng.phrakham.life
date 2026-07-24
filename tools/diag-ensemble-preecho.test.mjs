@@ -127,10 +127,10 @@ function preEchoes(decor, mel, { look = LOOK, octaves = OCTAVES, minRel = AUDIBL
 }
 
 // Run the real playEnsemble on one song and return classified, beat-space events.
-async function ensembleOf(raw, songId, { bpm = 72, lead = 'piano' } = {}) {
+async function ensembleOf(raw, songId, { bpm = 72, lead = 'piano', preEcho } = {}) {
   const content = resolve(raw)
   H.fires.length = 0; H.seq = 0; FAKE.reset()
-  const ok = await playEnsemble(content, { bpm, lead, songId, loop: false })
+  const ok = await playEnsemble(content, { bpm, lead, songId, loop: false, ...(preEcho ? { preEcho } : {}) })
   if (!ok || !H.fires.length) return null
   const spb = 60 / bpm
   const t0 = 0.25
@@ -220,6 +220,7 @@ describe.skipIf(!have)('ENSEMBLE pre-echo scan', () => {
       // detail at the CALIBRATED threshold — the exact criterion the 23-Jul diagnosis used.
       for (const skipCovered of [true, false]) {
         const hits = runs.map((x) => ({ ...x, p: preEchoes(x.r.ornament, x.r.mel, { skipCovered }) })).filter((x) => x.p.length)
+          .sort((a, b) => b.p.length - a.p.length)
         console.log(`\n  AT THE CALIBRATED LINE (rel ≥ ${AUDIBLE_REL.toFixed(3)}, ${skipCovered ? 'skip' : 'count'}-covered): ` +
           `${hits.reduce((s, x) => s + x.p.length, 0)} points / ${hits.length} songs`)
         for (const h of hits.slice(0, 8)) {
@@ -340,3 +341,34 @@ function stats(a) {
 }
 
 export { ensembleOf, preEchoes, refereeNoClash, AUDIBLE_REL, BUS }
+
+// ---------------------------------------------------------------- WHERE the rule actually bites
+// Renders need a clip window that CONTAINS a silenced ornament, otherwise the A/B is a placebo.
+// Diff the real fire list before/after and print the beat of every event the rule removed.
+describe.skipIf(!have)('vetoed events (for choosing render windows)', () => {
+  let songs
+  beforeAll(() => { songs = JSON.parse(fs.readFileSync(SNAP, 'utf8')) })
+
+  it('lists them', async () => {
+    const want = (process.env.PLENG_VETO || '747:violin,76:violin,118:violin,2:guitar,102:guitar,730:guitar,739:guitar')
+      .split(',').map((x) => { const [n, l] = x.split(':'); return { n: Number(n), lead: l } })
+    for (const w of want) {
+      const s = songs.find((x) => x.number === w.n)
+      if (!s) { console.log(`#${w.n} not found`); continue }
+      const bpm = Number(s.content?.bpm) || 72   // the RENDER uses the song's own bpm
+      const k = (fs2) => fs2.map((f) => `${f.inst}:${f.midi}@${f.beat.toFixed(3)}`)
+      const off = await ensembleOf(s.content, s.id, { bpm, lead: w.lead, preEcho: 'off' })
+      const on = await ensembleOf(s.content, s.id, { bpm, lead: w.lead, preEcho: 'all' })
+      if (!off || !on) { console.log(`#${w.n} no render`); continue }
+      const all = (r) => [...r.ornament, ...r.comp, ...r.mel.map((m) => ({ ...m, inst: 'MEL' }))]
+      const before = k(all(off)), after = new Set(k(all(on)))
+      const gone = before.filter((x) => !after.has(x))
+      console.log(`#${w.n} ${s.title_th} · lead=${w.lead} · bpm=${bpm} · removed ${gone.length}`)
+      for (const g of gone.slice(0, 6)) {
+        const beat = Number(g.split('@')[1])
+        console.log(`    ${g}  → ${(beat * 60 / bpm).toFixed(2)}s`)
+      }
+    }
+    expect(true).toBe(true)
+  }, 600000)
+})
