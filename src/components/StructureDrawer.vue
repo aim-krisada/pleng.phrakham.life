@@ -19,7 +19,7 @@ import {
   setVerseLabel, setAfterEachVerse, addStanza, removeStanza,
   copyBar, copyLine, pasteLineAsStanza,
   pasteBarAt, pasteLineAt, moveBarTo, moveLineTo,
-  duplicateBar, duplicateLine,
+  duplicateBar, duplicateLine, deleteLine,
   previewBars, previewLine,
 } from '../lib/songStructure.js'
 import { verseLyricText, withVerseText, segmentThai } from '../lib/songLyrics.js'
@@ -173,6 +173,19 @@ function onCopyLine() { const c = props.cursor; if (c && c.stanzaId != null) onC
 // duplicate-in-place (quick action on a row / chip)
 function onDupLineAt(li) { apply(duplicateLine(props.content, activeStanzaId.value, li)) }
 function onDupBarAt(li, bi) { apply(duplicateBar(props.content, activeStanzaId.value, li, bi)) }
+
+// delete a whole line — destructive, so it matches the sibling delete-ท่อน / delete-ทำนอง pattern
+// (immediate + the toolbar's persistent undo covers it; NO snackbar — the app has a deliberate
+// no-floating-toast design, and a visible undo button is a stronger affordance than a 5-second
+// toast · G consult 2026-07-24). Disabled on the last line so a melody never drops to zero lines;
+// after a delete, keep the selection on the line that slid into this slot (or the new last line).
+function onDeleteLineAt(li) {
+  if (activeLines.value.length <= 1) return
+  apply(deleteLine(props.content, activeStanzaId.value, li))
+  const lastAfter = activeLines.value.length - 2 // one fewer line once this apply lands
+  selLineOverride.value = Math.max(0, Math.min(lastAfter, li))
+  selBarOverride.value = null
+}
 
 // paste at a CHOSEN slot (index = insert before that line/bar; === count → at the end)
 function onPasteLineAt(index) { if (props.clip?.kind === 'line') apply(pasteLineAt(props.content, activeStanzaId.value, index, props.clip)) }
@@ -399,6 +412,7 @@ watch(() => props.open, (on) => {
                 <button class="sd-icon" type="button" :disabled="li === activeLines.length - 1" aria-label="เลื่อนบรรทัดลง" title="เลื่อนลง" @click.stop="onMoveLineTo(li, li + 1)"><Icon name="chevron-down" :size="14" /></button>
                 <button class="sd-icon" type="button" aria-label="คัดลอกบรรทัดนี้" title="คัดลอกบรรทัดนี้" @click.stop="onCopyLineAt(li)"><Icon name="clipboard-copy" :size="13" /></button>
                 <button class="sd-icon" type="button" aria-label="ทำซ้ำบรรทัดนี้" title="ทำซ้ำบรรทัดนี้ตรงนี้" @click.stop="onDupLineAt(li)"><Icon name="copy" :size="13" /></button>
+                <button class="sd-icon danger sd-del-line" type="button" :disabled="activeLines.length <= 1" aria-label="ลบบรรทัดนี้" :title="activeLines.length <= 1 ? 'ลบไม่ได้ — ทำนองต้องเหลืออย่างน้อย 1 บรรทัด' : 'ลบบรรทัดนี้ (เลิกทำได้ด้วยปุ่มย้อนกลับด้านบน)'" @click.stop="onDeleteLineAt(li)"><Icon name="trash-2" :size="13" /></button>
               </span>
             </div>
 
@@ -594,6 +608,9 @@ watch(() => props.open, (on) => {
 .sd-line-tag { font-size: var(--fs-xs, 0.8rem); font-weight: 700; color: var(--brand, #b45309); white-space: nowrap; }
 .sd-line-preview { flex: 1; min-width: 0; font-size: var(--fs-xs, 0.8rem); color: var(--muted, #64748b); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sd-line-acts { display: flex; align-items: center; gap: 1px; }
+/* the destructive ลบบรรทัด sits apart from the constructive ▲▼/copy/duplicate group (G 2026-07-24:
+   separate a destructive action so it is never mis-clicked); danger colour on hover only. */
+.sd-line-acts .sd-del-line { margin-left: 6px; border-left: 1px solid var(--line, #e2e8f0); border-radius: 0 7px 7px 0; padding-left: 6px; }
 
 /* a bar strip under the selected line */
 .sd-bars { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 3px 4px 3px 22px; }
