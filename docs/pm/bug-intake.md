@@ -8,7 +8,8 @@
 **severity:** S1 = prod พัง/ใช้ไม่ได้ · S2 = ใช้งานเสียบางกรณี · S3 = cosmetic/minor.
 
 **วงจรสถานะ (status):**
-- 🆕 `new` — รับ+triage แล้ว ยังไม่จ่าย
+- 🆕 `new` — รับ+triage แล้ว ยังไม่ส่ง/PM ยังไม่รับ
+- 📋 `pm-owned` — PM รับเรื่องแล้ว (triaged) · กำลังเคาะ routing กับ P'Aim ยังไม่จ่าย session
 - 🔧 `dispatched` — PM จ่ายให้ session/round แล้ว (กำลังแก้)
 - ☑️ `fixed` — dev แจ้งแก้เสร็จ แต่ intake ยังไม่ verify
 - ✅ `verified` — intake เปิดของจริงยืนยันหายแล้ว (ปิด)
@@ -24,15 +25,17 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 |----|----------|-----|-------|---------|
 | BI-001 | share ทับชื่อเพลงตอนย่อจอ | S2 | 🔧 dispatched | `411913fd` clever-einstein (SB1 top-bar) |
 | BI-002 | เล่นอยู่ กดดินสอ หยุดไม่ได้ | S2 | 🔧 dispatched | `a06948f3` "Port remaining" (**priority แรก**) |
-| BI-003 | ใส่เครื่องหมายแล้วลบ/ใส่ซ้ำไม่ได้ (บางตัวใช้ไม่ได้) | S2 | 🆕 new | — |
-| BI-004 | คัดลอก/วาง ห้อง+บรรทัด: ไม่รู้วางตรงไหน + เลื่อนทีละบรรทัด | S2 | 🆕 new | — |
-| BI-005 | พิมพ์เนื้อแล้วไปโน้ตถัดไปไม่ได้ (ต้องพิมพ์ทีละคำ) · "v1 ดีกว่าเยอะ" | S2 | 🆕 new | — |
-| BI-006 | เล่นเฉพาะห้องที่กำลังแก้ไม่ได้ (มีแค่ ทั้งเพลง/ท่อน/บรรทัด) | S3 | 🆕 new | — |
-| BI-007 | แก้เสร็จบันทึกจริงไม่ได้ ได้แค่ "บันทึกร่าง" — จะ publish เพลงยังไง? | S2 | 🆕 new | — |
+| BI-003 | ใส่เครื่องหมายแล้วลบ/ใส่ซ้ำไม่ได้ (บางตัวใช้ไม่ได้) | S2 | 📋 pm-owned | รอ routing (fresh session → CP-0 area) |
+| BI-004 | คัดลอก/วาง ห้อง+บรรทัด: ไม่รู้วางตรงไหน + เลื่อนทีละบรรทัด | S2 | 📋 pm-owned | รอ routing (fresh session → structure area) |
+| BI-005 | พิมพ์เนื้อแล้วไปโน้ตถัดไปไม่ได้ (ต้องพิมพ์ทีละคำ) · "v1 ดีกว่าเยอะ" | S2 | 📋 pm-owned | รอ routing (fresh session → flow-polish area) |
+| BI-006 | เล่นเฉพาะห้องที่กำลังแก้ไม่ได้ (มีแค่ ทั้งเพลง/ท่อน/บรรทัด) | S3 | 🆕 new | — (รอ PM รับ) |
+| BI-007 | แก้เสร็จบันทึกจริงไม่ได้ ได้แค่ "บันทึกร่าง" — จะ publish เพลงยังไง? | S2 | 🆕 new | — (design decision · รอ PM) |
 
 *เปิดอยู่: 7 · ปิดแล้ว (verified): 0*
 
-**หมายเหตุ:** BI-003/004/005 = feedback จากพี่เปาใช้ inline editor จริง (แหล่ง: `OneDrive\...\pleng2-pow-bug-report\issue1-3`) · ทั้ง 3 คือ "ใช้ยากกว่า v1" ในการแก้เพลง — เกี่ยวกับ session ที่กำลัง build editor อยู่โดยตรง.
+**หมายเหตุ:** BI-003/004/005 = feedback จากพี่เปาใช้ inline editor จริง (แหล่ง: `OneDrive\...\pleng2-pow-bug-report\issue1-3`) · ทั้ง 3 คือ "ใช้ยากกว่า v1" ในการแก้เพลง.
+**routing (PM 45):** 3 session ที่ map ไว้ (CP-0/structure/flow-polish) = **idle + merge เข้า base แล้ว** → บั๊ก = ฟีเจอร์ที่ ship แล้วยังไม่ดีพอ ⇒ fix = **จ่าย session สดใหม่ชี้ code area เดิม** (ไม่ revive session เก่า) · PM กำลังเคาะกับ P'Aim ว่าจ่ายตรงหรือผ่าน GitHub-issue workflow.
+**timeline:** /v2 go 20:00 **ผ่านแล้ว — v2 live (subpath ทดลอง) · v1 ปลอดภัย ไม่กระทบ** · BI-005 ยืนยัน editor ยังไม่พร้อม replace v1 → P'Aim **ยังไม่ทำ topology swap (v2→root)** ถูกต้องแล้ว · ไม่ต้อง rollback · แก้บั๊กแล้วค่อยเลื่อนขั้น.
 
 **รอ verify:** BI-002 = เข้าโหมดแก้แล้วเสียงหยุด + กดหยุดได้ · BI-001 = ย่อจอแล้วปุ่มไม่ทับชื่อ (แถบเดียว ไม่ wrap). เจ้าของ verify เอง + intake cross-check ตอน PM redeploy.
 
@@ -67,7 +70,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **repro:** เข้าโหมดแก้ → คลิกโน้ต → กดใส่เครื่องหมาย → พยายามลบออก/กดซ้ำ = ไม่ตอบสนอง · บางเครื่องหมายกดไม่ติดเลย
 - **รูป:** `bug-intake-assets/BI-003-1.png` (โน้ต "5" ถูกเลือก + sharp)
 - **triage:** valid · **S2** · เข้าข่าย symbol-registry/apply-symbol (toggle ลบ-ใส่ไม่สมมาตร + บางตัวไม่ถูก map) — ตรงกับงาน CP-0 "unify symbol registry (kill keydown-vs-applySymbol drift)" · fix แนว: ทำ apply/remove ให้ toggle ครบทุกเครื่องหมาย
-- **สถานะ:** 🆕 new · รอ PM จ่าย · verify: ใส่/ลบ/ใส่ซ้ำได้ครบทุกเครื่องหมาย
+- **สถานะ:** 📋 pm-owned · PM รับแล้ว รอ routing (fresh session ชี้ code area CP-0 · session เก่า idle+merged) · verify: ใส่/ลบ/ใส่ซ้ำได้ครบทุกเครื่องหมาย
 
 ---
 
@@ -78,7 +81,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **repro:** เข้าโหมดแก้ → คัดลอกบรรทัด → วาง → ไม่มี preview/ตัวชี้ว่าแทรกตรงไหน · จัดตำแหน่งได้แค่กดเลื่อนทีละบรรทัด
 - **รูป:** `bug-intake-assets/BI-004-1.png` (แผงคัดลอก/วาง + "คลิป: บรรทัด (บรรทัด 4)")
 - **triage:** valid · **S2** (usability — งานจริงช้ามาก) · ขาด insertion-point ที่มองเห็น (วางแทรกตรงไหน) + ไม่มี drag-to-reorder · เกี่ยวกับ session "Migrate song-structure editing + copy/paste into inline editor" · fix แนว: แสดงจุดแทรกก่อนวาง + เลือกตำแหน่งวางได้ + drag ย้ายบรรทัด/ห้อง
-- **สถานะ:** 🆕 new · รอ PM จ่าย · verify: วางแล้วเห็นชัดว่าแทรกที่ไหน + ย้ายตำแหน่งได้ไม่ต้องคลิกทีละบรรทัด
+- **สถานะ:** 📋 pm-owned · PM รับแล้ว รอ routing (fresh session ชี้ code area structure/copy-paste) · verify: วางแล้วเห็นชัดว่าแทรกที่ไหน + ย้ายตำแหน่งได้ไม่ต้องคลิกทีละบรรทัด
 
 ---
 
@@ -89,7 +92,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **repro:** เข้าโหมดแก้ → พิมพ์เนื้อในโน้ตหนึ่ง → คาดว่าพอจบคำ/เว้นวรรค จะเด้งไปช่องถัดไปเอง แต่ไม่เด้ง ต้องคลิกทีละช่อง
 - **รูป:** `bug-intake-assets/BI-005-1.png` (เนื้อ "องค์kj;" มีตัวอักษรอังกฤษหลุดเข้ามา — อาจมีปัญหา IME/โฟกัสด้วย)
 - **triage:** valid · **S2** (core editor UX — พี่เปาบอกตรงๆ ว่าแย่กว่า v1) · ขาด auto-advance ไป syllable/โน้ตถัดไปหลังพิมพ์ (v1 มี flow ต่อเนื่อง) · อาจมี IME/keydown leak (ตัวอักษร eng หลุด) · เกี่ยวกับ session flow-polish (caret/auto-scroll) · fix แนว: พิมพ์แล้ว auto-advance ช่องถัดไป (Enter/space/→) ให้ลื่นเทียบ v1
-- **สถานะ:** 🆕 new · รอ PM จ่าย · verify: ใส่เนื้อต่อเนื่องหลายพยางค์ได้โดยไม่ต้องคลิกทีละช่อง · ไม่มีตัวอักษรหลุด
+- **สถานะ:** 📋 pm-owned · PM รับแล้ว รอ routing (fresh session ชี้ code area flow-polish) · verify: ใส่เนื้อต่อเนื่องหลายพยางค์ได้โดยไม่ต้องคลิกทีละช่อง · ไม่มีตัวอักษรหลุด
 
 ---
 
