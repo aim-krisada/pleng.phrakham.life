@@ -26,6 +26,7 @@ import { bookRefLabels } from '../lib/bookCodes.js'
 import { noteBoxKinds } from '../lib/notation.js'
 import { learnKey, loadLayoutMap } from '../lib/keyHints.js'
 import { SYMBOL_CHARS, symbolForKey, applySymbolToContent } from '../lib/editorCommands.js'
+import { lintContent, SEVERITY } from '../lib/notationLint.js'
 import { createHistory, undoIntent } from '../lib/editHistory.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
@@ -1046,6 +1047,41 @@ const structureOpen = ref(false)
 const clip = ref(null) // { kind:'bar'|'line', data, from } | null
 function toggleStructure() { structureOpen.value = !structureOpen.value; if (structureOpen.value) settingsOpen.value = false }
 watch(editMode, (on) => { if (!on) structureOpen.value = false })
+
+// ตรวจโน้ต (notation lint) — brought onto the inline surface from the old boxed editor, which only
+// ran the full rule set at publish. lintContent walks the whole v2 song and returns findings the
+// author sees at the spot (ท่อน/บรรทัด/ห้อง): จังหวะไม่ครบ · ตัวพิมพ์อ่านไม่ได้ · ♮ ผิด · เอื้อน/โยงคร่อม ·
+// repeat/volta ไม่สมดุล · ลำดับ modifier · จุดวนร้อง (D.S./Coda) ไม่ครบ. HINT-level advice is left out of
+// the count (it is not a problem). Reactive to every edit — props.song.content is a NEW object per
+// immutable edit, so the computed refreshes as you type.
+const SEV_RANK = { [SEVERITY.ERROR]: 0, [SEVERITY.WARNING]: 1, [SEVERITY.HINT]: 2 }
+const lintResult = computed(() => lintContent(props.song?.content))
+const lintItems = computed(() =>
+  lintResult.value.findings
+    .filter((f) => f.severity !== SEVERITY.HINT)
+    .slice()
+    .sort((a, b) =>
+      (SEV_RANK[a.severity] - SEV_RANK[b.severity]) ||
+      ((a.lineIndex ?? -1) - (b.lineIndex ?? -1)) ||
+      ((a.barIndex ?? -1) - (b.barIndex ?? -1))),
+)
+const lintCount = computed(() => lintItems.value.length)
+const lintHasError = computed(() => lintItems.value.some((f) => f.severity === SEVERITY.ERROR))
+// a finding's location in human words — ท่อน (only when the song has more than one) · บรรทัด · ห้อง;
+// a song-level finding (an orphan jump, no line) reads "ทั้งเพลง".
+function lintWhere(f) {
+  if (f.lineIndex == null) return 'ทั้งเพลง'
+  const stanzas = props.song?.content?.stanzas || []
+  const ord = stanzas.findIndex((s) => s.id === f.stanzaId) + 1
+  const parts = []
+  if (stanzas.length > 1 && ord > 0) parts.push(`ท่อน ${ord}`)
+  parts.push(`บรรทัด ${f.lineIndex + 1}`)
+  if (f.barIndex != null) parts.push(`ห้อง ${f.barIndex + 1}`)
+  return parts.join(' · ')
+}
+const lintOpen = ref(false)
+function toggleLint() { lintOpen.value = !lintOpen.value }
+watch(editMode, (on) => { if (!on) lintOpen.value = false })
 // The cursor's source address (which melody line + bar + verse), for the drawer's คัดลอก/วาง.
 // Maps the display cursor back through the resolved line's provenance tags. null when unselected.
 const structCursor = computed(() => {
@@ -1747,6 +1783,18 @@ function onSeek({ li, si, syk }) {
           <!-- 🎼 โครงเพลง — จัดลำดับท่อน (ข้อ/รับ) · เลือก/แยกทำนอง · คัดลอก/วาง ห้อง/บรรทัด/ท่อน.
                Structure editing used to live only in the old boxed editor; this brings it onto the
                one-surface pencil flow beside ตั้งค่าเพลง (both are document-level editing actions). -->
+          <!-- ตรวจโน้ต — the notation lint, ported from the old editor's publish-time check onto the
+               inline surface. A quiet ✓ while clean, an amber/red count when there is something to
+               look at; tap to see each issue with its ท่อน/บรรทัด/ห้อง and what to fix. -->
+          <button
+            class="sv-lint-btn"
+            type="button"
+            :class="{ 'has-error': lintHasError, 'has-warn': lintCount && !lintHasError, clean: !lintCount }"
+            :aria-expanded="lintOpen"
+            :aria-pressed="lintOpen"
+            :title="lintCount ? `ตรวจโน้ต — พบ ${lintCount} จุดที่ควรตรวจ` : 'ตรวจโน้ต — ไม่พบปัญหา'"
+            @click="toggleLint"
+          ><Icon :name="lintCount ? 'triangle-alert' : 'badge-check'" :size="16" /> <span class="sv-settings-lbl">{{ lintCount ? `ตรวจโน้ต ${lintCount}` : 'ตรวจโน้ต' }}</span></button>
           <button
             class="sv-structure-btn"
             type="button"
@@ -1777,6 +1825,27 @@ function onSeek({ li, si, syk }) {
             <Icon name="check" :size="16" /> เสร็จ
           </button>
         </div>
+
+      <!-- ตรวจโน้ต result — a plain problems list (like Docs' spell-check panel): each issue names
+           its spot and what to check. Anchored under the save bar, does not float over the sheet. -->
+      <div v-if="editMode && lintOpen" class="sv-lint-panel no-print" role="dialog" aria-label="ผลตรวจโน้ต" @keydown.esc="lintOpen = false">
+        <div class="sv-lint-head">
+          <strong>ตรวจโน้ต</strong>
+          <span class="sv-lint-sub">{{ lintCount ? `พบ ${lintCount} จุดที่ควรตรวจ` : 'ไม่พบปัญหา' }}</span>
+          <button class="sv-lint-close" type="button" aria-label="ปิด" @click="lintOpen = false"><Icon name="x" :size="16" /></button>
+        </div>
+        <p v-if="!lintCount" class="sv-lint-empty"><Icon name="badge-check" :size="18" /> โน้ตผ่านการตรวจ — ไม่พบจังหวะขาด สัญลักษณ์ผิด หรือจุดวนร้องไม่ครบ</p>
+        <ul v-else class="sv-lint-list">
+          <li v-for="(f, i) in lintItems" :key="i" class="sv-lint-item" :class="f.severity">
+            <Icon name="triangle-alert" :size="15" class="sv-lint-ic" aria-hidden="true" />
+            <span class="sv-lint-sev-label">{{ f.severity === 'error' ? 'ผิด' : 'ควรตรวจ' }}</span>
+            <div class="sv-lint-body">
+              <span class="sv-lint-where">{{ lintWhere(f) }}</span>
+              <span class="sv-lint-msg">{{ f.message }}</span>
+            </div>
+          </li>
+        </ul>
+      </div>
 
       <!-- B060 — the settings themselves. Non-modal beside the sheet on a wide screen, a
            full-screen page on a phone (SongSettings owns that split). Lives inside the frame so
@@ -2127,7 +2196,8 @@ function onSeek({ li, si, syk }) {
    so the two read as one bar. WCAG 2.2 AA target size is 24px; matching the sibling at 32
    clears it without inflating one button to 44 and breaking the row (brief 24 ก.ค.). */
 .sv-settings-btn,
-.sv-structure-btn {
+.sv-structure-btn,
+.sv-lint-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2142,15 +2212,57 @@ function onSeek({ li, si, syk }) {
   cursor: pointer;
 }
 .sv-settings-btn[aria-pressed='true'],
-.sv-structure-btn[aria-pressed='true'] { border-color: var(--brand, #8b4513); color: var(--brand, #8b4513); }
+.sv-structure-btn[aria-pressed='true'],
+.sv-lint-btn[aria-pressed='true'] { border-color: var(--brand, #8b4513); color: var(--brand, #8b4513); }
 .sv-settings-btn:focus-visible,
-.sv-structure-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+.sv-structure-btn:focus-visible,
+.sv-lint-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* ตรวจโน้ต chip — severity colours the border + text (not colour alone: the icon glyph and the
+   count/word carry the same meaning, WCAG 1.4.1). clean = a quiet green tick; warn = amber; error
+   = red. Kept as the OUTLINE style of the sibling chips so the row reads as one control group. */
+.sv-lint-btn.clean { color: var(--cat-green, #3fa34d); border-color: var(--line, #e2e8f0); }
+.sv-lint-btn.has-warn { color: var(--brand, #b45309); border-color: color-mix(in srgb, var(--brand, #b45309) 45%, var(--line, #e2e8f0)); }
+.sv-lint-btn.has-error { color: var(--red, #c0392b); border-color: color-mix(in srgb, var(--red, #c0392b) 50%, var(--line, #e2e8f0)); }
+.sv-lint-btn.has-warn[aria-pressed='true'] { border-color: var(--brand, #b45309); }
+.sv-lint-btn.has-error[aria-pressed='true'] { border-color: var(--red, #c0392b); }
 /* phone: the row gets tight — keep the icon, drop the word, and take a full touch target */
 @media (max-width: 640px) {
   .sv-settings-lbl { display: none; }
   .sv-settings-btn,
-  .sv-structure-btn { min-height: var(--touch-min, 44px); min-width: var(--touch-min, 44px); justify-content: center; padding: 0 10px; }
+  .sv-structure-btn,
+  .sv-lint-btn { min-height: var(--touch-min, 44px); min-width: var(--touch-min, 44px); justify-content: center; padding: 0 10px; }
 }
+
+/* ตรวจโน้ต panel — a plain problems list under the save bar (Docs spell-check pattern). A flex
+   child of the frame, ABOVE the sheet scroll region, so it never floats over the notes. */
+.sv-lint-panel {
+  flex: 0 0 auto;
+  margin: 0 0 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #e2e8f0);
+  max-height: 34vh;
+  overflow-y: auto;
+  font-size: 13px;
+}
+.sv-lint-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.sv-lint-head strong { color: var(--ink, #0f172a); }
+.sv-lint-sub { color: var(--muted, #6f6455); font-size: 12px; }
+.sv-lint-close { margin-inline-start: auto; display: inline-flex; align-items: center; justify-content: center; min-width: 28px; min-height: 28px; border: 0; background: transparent; color: var(--muted, #6f6455); border-radius: 6px; cursor: pointer; }
+.sv-lint-close:hover { background: color-mix(in srgb, var(--ink, #362f28) 8%, transparent); }
+.sv-lint-close:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+.sv-lint-empty { display: flex; align-items: center; gap: 8px; margin: 4px 2px; color: var(--cat-green, #3fa34d); }
+.sv-lint-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.sv-lint-item { display: grid; grid-template-columns: auto auto 1fr; align-items: start; gap: 8px; padding: 6px 6px; border-radius: 6px; }
+.sv-lint-item + .sv-lint-item { border-top: 1px solid color-mix(in srgb, var(--line, #e2e8f0) 70%, transparent); }
+.sv-lint-ic { margin-top: 2px; flex: 0 0 auto; }
+.sv-lint-item.error .sv-lint-ic, .sv-lint-item.error .sv-lint-sev-label { color: var(--red, #c0392b); }
+.sv-lint-item.warning .sv-lint-ic, .sv-lint-item.warning .sv-lint-sev-label { color: var(--brand, #b45309); }
+.sv-lint-sev-label { font-size: 11px; font-weight: 700; padding-top: 2px; white-space: nowrap; }
+.sv-lint-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sv-lint-where { font-weight: 600; color: var(--ink, #362f28); font-size: 12px; }
+.sv-lint-msg { color: var(--muted, #6f6455); line-height: 1.4; }
 
 /* ฟังตอนแก้ — the transport inside the pencil. Sized to the save bar's own button (32px tall),
    which clears the WCAG 2.2 AA 24px target floor without towering over its siblings. Plain

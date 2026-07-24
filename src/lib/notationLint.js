@@ -352,35 +352,95 @@ const ORPHAN_JUMP_MSG = {
 // Non-v2 content (no stanzas) → an empty result.
 export function lintContent(content, { timeSignature } = {}) {
   const ts = timeSignature ?? content?.timeSignature
+  const exp = expectedBeats(ts)
   const findings = []
+  // reading-order list of every bar, with the flags the beat check needs. A bar starts at a
+  // {type:'bar'} OR {type:'repeat-start'} item; a {type:'pickup'} in the bar marks it a pickup
+  // (anacrusis / ห้องต่อกัน); a line carrying {type:'continue'} joins its FIRST bar to the previous
+  // line's last bar (barStatus's cross-line join). `contHead` tags that first bar.
+  const bars = []
   for (const stanza of content?.stanzas || []) {
     const lines = Array.isArray(stanza?.lines) ? stanza.lines : []
     lines.forEach((line, lineIndex) => {
       const items = Array.isArray(line) ? line : []
-      let barIndex = 0
-      let notes = []
-      let opened = false // don't count a phantom bar before the first note / at a leading boundary
+      const isCont = items.some((it) => it?.type === 'continue')
+      let barIndex = 0, notes = [], pickup = false, opened = false
+      const lineBars = []
       const flush = () => {
-        const noteStr = notes.join(' ').trim()
-        notes = []
-        if (noteStr) {
-          for (const f of lintBar(noteStr, { timeSignature: ts })) {
-            findings.push({ stanzaId: stanza.id, lineIndex, barIndex, ...f })
-          }
-        }
-        barIndex++
+        lineBars.push({ stanzaId: stanza.id, lineIndex, barIndex, noteStr: notes.join(' ').trim(), pickup })
+        notes = []; pickup = false; barIndex++
       }
       for (const it of items) {
         if (!it || !it.type) continue
         if (it.type === 'segment') { notes.push(it.note || ''); opened = true }
-        else if (it.type === 'bar' || it.type === 'repeat-start') {
-          if (opened) flush() // close the bar that just ended; ignore a boundary before any note
-          opened = true
-        }
+        else if (it.type === 'pickup') { pickup = true; opened = true }
+        else if (it.type === 'bar' || it.type === 'repeat-start') { if (opened) flush(); opened = true }
       }
-      if (opened) flush() // the final bar
+      if (opened) flush()
+      if (isCont && lineBars.length) lineBars[0].contHead = true
+      bars.push(...lineBars)
       for (const f of lintRepeatVolta(items)) findings.push({ stanzaId: stanza.id, lineIndex, ...f })
     })
+  }
+  // every per-bar rule EXCEPT beats (beats is computed below WITH pickup/continuation grouping, so
+  // a valid anacrusis or a bar split across a line break is never wrongly flagged "จังหวะไม่ครบ").
+  for (const b of bars) {
+    if (!b.noteStr) continue
+    for (const f of lintBar(b.noteStr, { timeSignature: ts })) {
+      if (f.code === 'beats') continue
+      findings.push({ stanzaId: b.stanzaId, lineIndex: b.lineIndex, barIndex: b.barIndex, ...f })
+    }
+  }
+  // ---- beats, grouped exactly like EditorMode.barStatus / pickupCheck ----
+  if (exp != null) {
+    const beatsOf = (b) => beatCount(parseNotes(b.noteStr || ''))
+    const whole = (sum) => sum > 0.01 && Math.abs(sum / exp - Math.round(sum / exp)) < 0.01
+    const flagBeats = (b, got) => findings.push({
+      stanzaId: b.stanzaId, lineIndex: b.lineIndex, barIndex: b.barIndex,
+      severity: SEVERITY.WARNING, code: 'beats',
+      message: `จังหวะในห้องนี้ ${fmtBeats(got)}/${fmtBeats(exp)} — ไม่ครบตามอัตราจังหวะ ${ts}`,
+    })
+    const consumed = new Set()
+    // (a) continuation join — a contHead bar completes with the previous bar; check the pair's sum
+    for (let i = 1; i < bars.length; i++) {
+      if (!bars[i].contHead) continue
+      const grp = [bars[i - 1], bars[i]]
+      grp.forEach((b) => consumed.add(b))
+      const sum = grp.reduce((a, b) => a + beatsOf(b), 0)
+      if (!whole(sum)) findings.push({
+        stanzaId: bars[i].stanzaId, lineIndex: bars[i].lineIndex, barIndex: bars[i].barIndex,
+        severity: SEVERITY.WARNING, code: 'beats',
+        message: `จังหวะห้องต่อกัน ${fmtBeats(sum)} — ไม่ครบตามอัตราจังหวะ ${ts}`,
+      })
+    }
+    // (b) pickup groups — a RUN of ≥2 adjacent pickup bars sums to whole bars; the remaining
+    //     isolated pickups (a stanza-opening anacrusis + its short final partner) sum together.
+    const isolated = []
+    for (let i = 0; i < bars.length; ) {
+      if (!bars[i].pickup || consumed.has(bars[i])) { i++; continue }
+      let j = i
+      while (j < bars.length && bars[j].pickup && !consumed.has(bars[j])) j++
+      const run = bars.slice(i, j)
+      if (run.length >= 2) {
+        run.forEach((b) => consumed.add(b))
+        const sum = run.reduce((a, b) => a + beatsOf(b), 0)
+        if (!whole(sum)) flagBeats(run[run.length - 1], sum)
+      } else { isolated.push(run[0]); consumed.add(run[0]) }
+      i = j
+    }
+    if (isolated.length) {
+      const sum = isolated.reduce((a, b) => a + beatsOf(b), 0)
+      if (!whole(sum)) for (const b of isolated) flagBeats(b, beatsOf(b))
+    }
+    // (c) every other bar — a plain, self-contained bar must fill the meter on its own
+    for (const b of bars) {
+      if (consumed.has(b) || !b.noteStr) continue
+      const toks = parseNotes(b.noteStr)
+      if (toks.some((t) => t.type === 'raw')) continue // 'unreadable' already reported by lintBar
+      if (!toks.some((t) => t.type === 'note' || t.type === 'ext')) continue // no notes → nothing to count
+      const got = beatCount(toks)
+      if (Math.abs(got - exp) > 0.01) flagBeats(b, got)
+    }
   }
   // song-wide: a repeat directive whose target marker was never placed (broken routing)
   for (const o of findOrphanJumps(content)) {

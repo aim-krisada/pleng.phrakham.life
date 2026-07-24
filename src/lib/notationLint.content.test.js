@@ -62,6 +62,44 @@ describe('lintContent — bar grouping matches the serializer (no drift on repea
   })
 })
 
+describe('lintContent — beats respect pickups/continuations (no crying wolf on an anacrusis)', () => {
+  const pickup = () => ({ type: 'pickup' })
+  const cont = () => ({ type: 'continue' })
+
+  it('a plain bar that does not fill the meter IS flagged (the check still works)', () => {
+    const s = song([stz('A', [seg('1 2')])]) // 2 of 4 beats, no pickup
+    expect(lintContent(s).codes).toContain('beats')
+  })
+
+  it('an anacrusis pair (opening ½ + short final ½) that sums to a whole bar is NOT flagged', () => {
+    // 6/8 = 3 beats/bar. Opening pickup "3_" (½) + a full bar + a short final pickup "3_ 3_ 3_ 3_ 3_"
+    // (2½) → the two isolated pickups sum to 3 = one whole bar. Real hymns look exactly like this.
+    const s = song([{ id: 'A', lines: [[
+      pickup(), seg('3_'),                          // bar 0: opening anacrusis ½ beat  (pickup)
+      { type: 'bar' }, seg('1 1 1'),                // bar 1: a full 3-beat bar
+      { type: 'bar' }, pickup(), seg('3_ 3_ 3_ 3_ 3_'), // bar 2: short final 2½ beats (pickup)
+    ]] }], '6/8')
+    expect(lintContent(s).findings.some((f) => f.code === 'beats')).toBe(false)
+  })
+
+  it('pickup bars whose group does NOT sum to a whole bar ARE flagged', () => {
+    // one isolated pickup of ½ beat, nothing to complete it → 0.5 is not a whole number of bars
+    const s = song([{ id: 'A', lines: [[pickup(), seg('3_'), { type: 'bar' }, seg('1 1 1')]] }], '6/8')
+    expect(lintContent(s).findings.some((f) => f.code === 'beats')).toBe(true)
+  })
+
+  it('a bar split across a line break (continuation) is checked as the joined pair, not each half', () => {
+    // bar A-end "1 1" (2) + the cont line's first bar "1 1" (2) = 4 = a whole 4/4 bar → not flagged
+    const s = song([
+      { id: 'A', lines: [[seg('1 1 1 1'), { type: 'bar' }, seg('1 1')]] }, // last bar is only 2 beats…
+      { id: 'B', lines: [[cont(), seg('1 1'), { type: 'bar' }, seg('1 1 1 1')]] }, // …completed by the cont head
+    ], '4/4')
+    // the join completes → NO beats finding on the A tail or the B head
+    const bad = lintContent(s).findings.filter((f) => f.code === 'beats')
+    expect(bad).toEqual([])
+  })
+})
+
 describe('lintContent — per-line structure findings equal lintRepeatVolta, located', () => {
   it('an unbalanced repeat is surfaced on its line (no barIndex)', () => {
     const items = [seg('1'), { type: 'repeat-end' }] // a :‖ with no ‖: → imbalance
