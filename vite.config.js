@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { execSync } from 'node:child_process'
+import devServeEncodedPublicNames from './tools/vite-dev-public-encoded.mjs'
 
 // Build stamp: git commit at BUILD time (what is actually deployed, not source
 // HEAD read later) — same principle as phrakham.life2's etl/gen_version.py.
@@ -39,7 +40,10 @@ function assetManifest() {
 // base './' works both on GitHub Pages project path and the custom domain
 export default defineConfig({
   base: './',
-  plugins: [vue(), assetManifest()],
+  // devServeEncodedPublicNames is apply:'serve' — dev server only, no effect on the build. It
+  // rescues public/ files whose name contains a URI-reserved character (the `#` piano samples),
+  // which vite dev otherwise answers with index.html. See tools/vite-dev-public-encoded.mjs.
+  plugins: [vue(), assetManifest(), devServeEncodedPublicNames()],
   define: {
     __BUILD_COMMIT__: JSON.stringify(info.commit),
     __BUILD_TIME__: JSON.stringify(info.time),
