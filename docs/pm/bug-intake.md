@@ -33,7 +33,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 | BI-007 | แก้เสร็จบันทึกจริงไม่ได้ ได้แค่ "บันทึกร่าง" — จะ publish เพลงยังไง? | S2 | 📐 design-pending | SA "completion flow" (spec → P'Aim เคาะ) |
 | BI-008 | แทรก/ลบโน้ตพัง · Delete=Backspace ไม่ต่าง · แก้ผิดตรงจุดไม่ได้ | S2 | 🔧 dispatched | **Chip A** (folded · caret spec) |
 | BI-009 | ระบบเครื่องหมาย: ' ซ้ำ สูง/ต่ำ · auto-position · ~ ไม่เชื่อม · ( ) ต่างยังไง · เพิ่ม #/b คู่ n | S2 | 🔧 dispatched | **symbol-pass** `970da39d` |
-| BI-010 | Share/QR ใช้ origin 127.0.0.1 → สแกนมือถือเปิดไม่ได้ (refused/unreachable) | S2 | 🆕 new | (share URL builder · lib/share|urlState) |
+| BI-010 | Share/QR ใช้ origin 127.0.0.1 → สแกนมือถือเปิดไม่ได้ (refused/unreachable) | S2 | 🔧 dispatched | fresh session (share.js/qr.js isolated) |
 
 *เปิดอยู่: 10 · fixed รอ verify: 1 (BI-002) · ปิดแล้ว (verified): 0*
 
@@ -170,4 +170,4 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **รูป:** `bug-intake-assets/BI-010-1.png` (ป็อปอัป share + QR + ลิงก์ 127.0.0.1) · `BI-010-2-samsung.jpg` · `BI-010-3-chrome.jpg`
 - **วิเคราะห์ (root cause):** ตัวสร้างลิงก์แชร์ใช้ `window.location.origin` ตรงๆ → บน dev/preview/LAN ได้ `127.0.0.1:<port>` ซึ่ง**บนมือถือ = ตัวมือถือเอง** เปิดไม่ได้ · (โค้ดแชร์อยู่ `src/lib/share.js` / `qr.js` / `urlState.js` + `ShareSheet` — ดู memory pleng-share-playlist)
 - **triage:** valid · **S2** · หมายเหตุสำคัญ: **บน production จริง (`pleng.phrakham.life`) origin = โดเมนจริง → QR อาจใช้ได้ที่นั่น** · แต่ (1) use-case QR = "สแกนจากจอ PC → มือถือ" ตอน dev/demo/LAN พังแน่ (2) ควร robust ไม่ผูกกับ origin · **fix แนว: build ลิงก์แชร์จาก canonical public base URL (คงที่) ไม่ใช่ `window.location.origin`** (รองรับ /v2 subpath + LAN test + demo) · ถ้าจงใจให้ test บน LAN = ใช้ LAN IP ไม่ใช่ 127.0.0.1
-- **สถานะ:** 🆕 new · รอ PM จ่าย · verify: กด share บน dev/preview → ลิงก์/QR = โดเมน public ที่เปิดจากมือถือได้จริง (ไม่ใช่ 127.0.0.1)
+- **สถานะ:** 🔧 dispatched · fresh session (share.js/qr.js isolated ไม่ชน editor chips) · verify: กด share บน dev/preview → ลิงก์/QR = โดเมน public ที่เปิดจากมือถือได้จริง (ไม่ใช่ 127.0.0.1)
