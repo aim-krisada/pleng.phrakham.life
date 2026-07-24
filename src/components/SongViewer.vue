@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedNote, withInsertedBox, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -248,7 +248,7 @@ const editSel = computed(() => curUnit.value)
 // select an exact unit (cell + layer) — clicks/taps use this
 function selectUnit(li, si, syk, layer) {
   const i = editUnits.value.findIndex((u) => u.li === li && u.si === si && u.syk === syk && u.layer === layer)
-  if (i >= 0) curIdx.value = i
+  if (i >= 0) { caretAtEnd.value = false; curIdx.value = i }
 }
 // point the cursor at a whole cell's NOTE unit (coarse jumps + typing land on the note)
 function gotoCellNote(cell) { if (cell) selectUnit(cell.li, cell.si, cell.syk, 'note') }
@@ -258,6 +258,7 @@ function gotoCellNote(cell) { if (cell) selectUnit(cell.li, cell.si, cell.syk, '
 function moveUnit(step) {
   const n = editUnits.value.length
   if (!n) return
+  caretAtEnd.value = false
   if (curIdx.value < 0) { curIdx.value = step > 0 ? 0 : n - 1; return }
   curIdx.value = Math.max(0, Math.min(curIdx.value + step, n - 1))
 }
@@ -269,7 +270,7 @@ function gotoLineLayer(targetLi, col, layer) {
     const d = Math.abs(u.col - col)
     if (d < bestD) { bestD = d; bestI = i }
   })
-  if (bestI >= 0) curIdx.value = bestI
+  if (bestI >= 0) { caretAtEnd.value = false; curIdx.value = bestI }
 }
 // ← → : one step LEFT/RIGHT within the SAME row (note→note or word→word = same parity, ±2)
 function moveHoriz(step) {
@@ -280,6 +281,7 @@ function moveHoriz(step) {
 // up: word→its note, note→previous line's word.
 function moveVert(dir) {
   const u = curUnit.value
+  caretAtEnd.value = false
   if (!u) { moveUnit(dir > 0 ? 1 : -1); return }
   if (dir > 0) {
     if (u.layer === 'note') curIdx.value = curIdx.value + 1 // down to its word
@@ -383,7 +385,24 @@ function onUndoKeys(e) {
 // predictable "กด 1 = ใส่ 1 ตรงที่อยู่"). 'insert' (push the rest right) is the toggle for adding
 // notes. The Insert key flips it.
 const typeMode = ref('overwrite')
-function toggleTypeMode() { typeMode.value = typeMode.value === 'insert' ? 'overwrite' : 'insert' }
+// BI-008 (DS editor-flow-polish §5) — TWO cursor modes with two shapes:
+//   • ทับ / overwrite (default) = a BLOCK on one note. Typing a digit overwrites its pitch.
+//   • แทรก / insert            = a LINE CARET *between* notes. Typing a digit inserts a new note
+//     at the caret and pushes the rest right (Dorico/Sibelius insert). The caret can sit before
+//     the first note (g0) — so you can finally add a note ahead of the melody — or after the last.
+// The Insert key flips the mode (and the shape). `curIdx` still names the anchor note cell; the
+// one caret position curIdx cannot name — AFTER the last note of the line (gN) — is held by
+// `caretAtEnd`. Every plain navigation (click / ↑↓ / bar / line / Home·End) drops it back to false
+// via `resetCaretEnd()`; only the caret ops below carry it.
+const insertMode = computed(() => typeMode.value === 'insert')
+const caretAtEnd = ref(false)
+function resetCaretEnd() { caretAtEnd.value = false }
+function toggleTypeMode() { typeMode.value = insertMode.value ? 'overwrite' : 'insert'; caretAtEnd.value = false }
+// note cells of the CURRENT line in order (their `col` is the cell index within the line)
+const lineCells = computed(() => {
+  const u = curUnit.value
+  return u ? inlineCells.value.filter((c) => c.li === u.li) : []
+})
 // All keys arrive at the hidden capture <input> (focused on selection so the device keyboard
 // opens: numeric for a note, Thai text for a word). NOTE layer: digits/arrows/delete are
 // commands. WORD layer: text flows into the input (→ withSetSyllable), and ← → only leave the
@@ -416,8 +435,10 @@ function onCaptureKey(e) {
   const el = e.target
   const atStart = word && (el.selectionStart ?? 0) === 0 && (el.selectionEnd ?? 0) === 0
   const atEnd = word && (el.selectionStart ?? 0) >= el.value.length && (el.selectionEnd ?? 0) >= el.value.length
-  if (e.key === 'ArrowRight') { if (ctrl) { e.preventDefault(); moveBar(1) } else if (!word || atEnd) { e.preventDefault(); moveHoriz(1) } }
-  else if (e.key === 'ArrowLeft') { if (ctrl) { e.preventDefault(); moveBar(-1) } else if (!word || atStart) { e.preventDefault(); moveHoriz(-1) } }
+  // ← → : NOTE layer walks the caret (insert = between notes · overwrite = block per note); on the
+  // WORD layer it only leaves the word once the text caret is at the word's edge.
+  if (e.key === 'ArrowRight') { if (ctrl) { e.preventDefault(); moveBar(1) } else if (!word) { e.preventDefault(); insertMode.value ? moveCaret(1) : moveHoriz(1) } else if (atEnd) { e.preventDefault(); moveHoriz(1) } }
+  else if (e.key === 'ArrowLeft') { if (ctrl) { e.preventDefault(); moveBar(-1) } else if (!word) { e.preventDefault(); insertMode.value ? moveCaret(-1) : moveHoriz(-1) } else if (atStart) { e.preventDefault(); moveHoriz(-1) } }
   else if (e.key === 'ArrowDown') { e.preventDefault(); ctrl ? moveLineJump(1) : moveVert(1) }
   else if (e.key === 'ArrowUp') { e.preventDefault(); ctrl ? moveLineJump(-1) : moveVert(-1) }
   else if (e.key === 'Insert') { e.preventDefault(); toggleTypeMode() }
@@ -426,16 +447,15 @@ function onCaptureKey(e) {
   // Home / End = first / last note. Ctrl+Home / Ctrl+End do the same, because that is the pair
   // a document editor trains your hands on (Docs/VS Code/Notion) — and on the WORD layer plain
   // Home/End are left to the browser, where they mean "start/end of this word" as they should.
-  else if (!word && (e.key === 'Home' || (ctrl && e.key === 'Home'))) { e.preventDefault(); curIdx.value = 0 }
-  else if (!word && (e.key === 'End' || (ctrl && e.key === 'End'))) { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
-  else if (word && ctrl && e.key === 'Home') { e.preventDefault(); curIdx.value = 0 }
-  else if (word && ctrl && e.key === 'End') { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
-  // NOTE layer: digit = set the note; Delete = ลบอยู่กับที่ (rest); Backspace = เอาออกทั้งช่อง.
-  // Overwrite STAYS on the note (so you can add octave / ♯♭ to it before moving — P'Aim); use
-  // ← → / space to move on. Insert still advances so a new melody flows left-to-right.
+  else if (!word && (e.key === 'Home' || (ctrl && e.key === 'Home'))) { e.preventDefault(); caretAtEnd.value = false; curIdx.value = 0 }
+  else if (!word && (e.key === 'End' || (ctrl && e.key === 'End'))) { e.preventDefault(); caretAtEnd.value = false; curIdx.value = editUnits.value.length - 1 }
+  else if (word && ctrl && e.key === 'Home') { e.preventDefault(); caretAtEnd.value = false; curIdx.value = 0 }
+  else if (word && ctrl && e.key === 'End') { e.preventDefault(); caretAtEnd.value = false; curIdx.value = editUnits.value.length - 1 }
+  // NOTE layer: digit = ทับ (overwrite the covered note, stays put so you can add ♯♭/octave) or
+  // แทรก (insert a new note at the caret, cursor rides right). '0' = ตัวหยุด (rest) in place.
   else if (!word && /^[0-7]$/.test(e.key)) {
     e.preventDefault()
-    if (typeMode.value === 'insert') insertDigit(e.key)
+    if (insertMode.value) insertAtCaret(e.key)
     else overwriteDigit(e.key)
   }
   // The whole jianpu symbol set, typed straight onto the sheet — # b n (accidentals, on a
@@ -445,8 +465,8 @@ function onCaptureKey(e) {
   // symbol, then `applySymbol` classifies it — the SAME path the toolbar buttons take. The
   // keydown handler must never re-implement the classification (that was CP-0's silent drift).
   else if (!word && symbolForKey(e.key)) { e.preventDefault(); applySymbol(e.key) }
-  else if (!word && e.key === 'Delete') { e.preventDefault(); deleteSel() }
-  else if (!word && e.key === 'Backspace') { e.preventDefault(); removeCell() }
+  else if (!word && e.key === 'Delete') { e.preventDefault(); deleteRight() }
+  else if (!word && e.key === 'Backspace') { e.preventDefault(); deleteLeft() }
   // WORD layer: an empty word + Backspace removes the whole cell; otherwise let the text edit
   // (native) — onCaptureInput writes it back to the syllable.
   else if (word && e.key === 'Backspace' && el.value === '') { e.preventDefault(); removeCell() }
@@ -618,6 +638,17 @@ const captureStyle = computed(() => {
     ? { ...base, width: Math.max(r.width + 10, 32) + 'px' }
     : { ...base, width: Math.max(r.width, 12) + 'px', opacity: 0, pointerEvents: 'none' }
 })
+// BI-008 — the INSERT-mode Line Caret: a blinking vertical bar at the caret position (the left
+// edge of the covered note, or the right edge of the last note when the caret is at gN). Shown
+// only in แทรก mode on the NOTE layer, so the two cursor shapes never look alike.
+const showCaret = computed(() => editMode.value && insertMode.value && selLayer.value === 'note' && !!noteRect.value)
+const caretStyle = computed(() => {
+  const r = noteRect.value
+  if (!r) return { display: 'none' }
+  const h = Math.max(16, r.bottom - r.top)
+  const x = caretAtEnd.value ? r.left + r.width : r.left
+  return { position: 'fixed', left: x + 'px', top: r.top + 'px', height: h + 'px' }
+})
 async function focusCapture() {
   await nextTick()
   // Find the field via the DOM, not the template ref — on the FIRST mount (pressing the pencil)
@@ -646,14 +677,80 @@ function overwriteDigit(digit) {
   const next = withNotePitch(props.song.content, loc, digit)
   if (next !== props.song.content) emit('update-content', next)
 }
-// insert a new note at the cursor (ripple right); the cursor moves onto the note that got
-// pushed, so the next digit lands after this one (left-to-right entry). curIdx jumps +2 (to
-// the next NOTE unit) because the unit list is two longer after the emitted re-render.
-function insertDigit(digit) {
+// the note-edit address of ANY cell (like selLoc but for a cell other than the selected one) —
+// used to delete the note on the far side of the caret.
+function noteLocForCell(cell) {
+  const rline = cell ? resolved.value?.lines?.[cell.li] : null
+  if (!rline || !rline._stanza) return null
+  return { resolvedLine: rline, si: cell.si, syk: cell.syk }
+}
+// ← → in INSERT mode: walk the line caret one slot between notes — including g0 (before the first
+// note) and gN (after the last, held by caretAtEnd). Within a line the caret glides past a bar
+// line ('|') with no extra stop because the bar is its own item, not a note cell.
+function moveCaret(dir) {
+  const u = curUnit.value
+  if (!u) { moveHoriz(dir); return }
+  const n = lineCells.value.length
+  if (dir > 0) {
+    if (caretAtEnd.value) return
+    if (u.col >= n - 1) { caretAtEnd.value = true; return }
+    curIdx.value += 2
+  } else {
+    if (caretAtEnd.value) { caretAtEnd.value = false; return }
+    if (u.col > 0) curIdx.value -= 2 // else already before the first note of the line — stay
+  }
+}
+// INSERT mode digit: put a NEW note at the caret. Before the covered note (caret between notes)
+// or after the last one (caret at gN). The cursor rides one step right so a run flows L→R; the
+// caret keeps its before/after character (caretAtEnd is preserved).
+function insertAtCaret(digit) {
   const loc = selLoc()
   if (!loc) return
-  const next = withInsertedNote(props.song.content, loc, digit)
+  const next = withInsertedBox(props.song.content, loc, digit, !caretAtEnd.value)
   if (next !== props.song.content) { emit('update-content', next); curIdx.value = curIdx.value + 2 }
+}
+// Backspace = delete the note to the LEFT of the caret, caret steps left (text-editor back-delete).
+// In BLOCK (overwrite) mode "left of the block" behaves like the old remove-cell (delete + step back).
+function deleteLeft() {
+  if (!insertMode.value) { removeCell(); return }
+  const u = curUnit.value
+  if (!u) return
+  if (caretAtEnd.value) {
+    // left of the gN caret = the last note itself
+    const remain = lineCells.value.length - 1
+    const next = withDeletedNote(props.song.content, selLoc())
+    if (next !== props.song.content) {
+      emit('update-content', next)
+      if (remain <= 0) { caretAtEnd.value = false; curIdx.value = Math.max(-1, curIdx.value - 2) }
+      else curIdx.value = curIdx.value - 2 // caret stays at the (new) end
+    }
+    return
+  }
+  if (u.col <= 0) return // caret before the first note of the line — nothing to the left here
+  const prev = lineCells.value[u.col - 1]
+  const next = withDeletedNote(props.song.content, noteLocForCell(prev))
+  if (next !== props.song.content) { emit('update-content', next); curIdx.value = curIdx.value - 2 }
+}
+// Delete = delete the note to the RIGHT of the caret, caret stays (text-editor forward-delete).
+// In BLOCK mode "right of the block" = the covered note → delete it and pull the next note in.
+// (Making a note a REST moved to typing '0' — DS §5, so Delete has one meaning in both modes.)
+function deleteRight() {
+  const u = curUnit.value
+  if (!u) return
+  if (insertMode.value && caretAtEnd.value) return // nothing to the right past the last note
+  const atLineEnd = u.col >= lineCells.value.length - 1
+  const next = withDeletedNote(props.song.content, selLoc())
+  if (next === props.song.content) return
+  emit('update-content', next)
+  if (insertMode.value) {
+    // caret stays; if it was on the last note, the line is now shorter → drop the caret to gN
+    if (atLineEnd) { curIdx.value = Math.max(0, curIdx.value - 2); caretAtEnd.value = true }
+  } else {
+    // block stays at this slot and shows the note that pulled in; clamp if we deleted the last
+    const total = inlineCells.value.length - 1
+    if (total <= 0) curIdx.value = -1
+    else curIdx.value = Math.min(curIdx.value, (total - 1) * 2)
+  }
 }
 // Delete = ลบเฉพาะสิ่งที่เลือก (P'Aim Q1): on the NOTE layer the note becomes a rest (its word
 // + timing stay); on the WORD layer only that word is cleared (the note stays). Nothing else
@@ -738,8 +835,10 @@ function setChord(chord) {
 // Every button uses @mousedown.prevent (in NoteInputBar) so the capture input keeps focus and
 // the phone keyboard stays open. After each we re-focus the input to be safe.
 function barNav(dir) {
-  if (dir === 'left') moveHoriz(-1)
-  else if (dir === 'right') moveHoriz(1)
+  // ◀ ▶ walk the caret between notes in แทรก mode (so mobile can insert before the first note too),
+  // and the block per note in ทับ mode — matching the ← → keys.
+  if (dir === 'left') selLayer.value === 'note' && insertMode.value ? moveCaret(-1) : moveHoriz(-1)
+  else if (dir === 'right') selLayer.value === 'note' && insertMode.value ? moveCaret(1) : moveHoriz(1)
   else if (dir === 'up') moveVert(-1)
   else if (dir === 'down') moveVert(1)
   focusCapture()
@@ -1527,10 +1626,13 @@ function onSeek({ li, si, syk }) {
         <div
           ref="sheetWrap"
           class="sheet-scale"
-          :class="{ 'sv-editing': editMode, 'sv-settings-open': settingsOpen }"
+          :class="{ 'sv-editing': editMode, 'sv-settings-open': settingsOpen, 'sv-mode-insert': editMode && insertMode }"
           :style="{ fontSize: readingFontScale + 'rem' }"
           @click="onInlinePick"
         >
+          <!-- BI-008 — the INSERT-mode line caret (blinking vertical bar between notes). Distinct
+               from the block box so you always know whether typing will overwrite or insert. -->
+          <div v-if="showCaret" class="sv-caret no-print" :style="caretStyle" aria-hidden="true"></div>
           <!-- the focused capture field — opens the device keyboard on a phone (numeric for a
                note, Thai text for a word) and carries the typed lyric. Sits over the selected cell. -->
           <input
@@ -1586,7 +1688,7 @@ function onSeek({ li, si, syk }) {
         @octave="barOctave"
         @accidental="barAccidental"
         @chord="setChord"
-        @toggle-mode="typeMode = typeMode === 'insert' ? 'overwrite' : 'insert'"
+        @toggle-mode="toggleTypeMode"
       />
     </div>
 
@@ -1848,6 +1950,25 @@ function onSeek({ li, si, syk }) {
   min-width: 0;
   box-sizing: border-box;
   line-height: 1.1;
+}
+/* BI-008 — INSERT-mode LINE CARET: a thin brand-coloured vertical bar that blinks between notes,
+   so แทรก mode never looks like the ทับ block. */
+.sv-caret {
+  width: 2px;
+  z-index: var(--z-inline-edit);
+  background: var(--brand, #8b4513);
+  border-radius: 1px;
+  pointer-events: none;
+  animation: sv-caret-blink 1.06s steps(1, end) infinite;
+}
+@keyframes sv-caret-blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .sv-caret { animation: none; } }
+/* in แทรก mode the caret IS the cursor, so drop the note block box down to a faint tint — the
+   selected note stays legible but never reads as an overwrite block. */
+.sv-mode-insert :deep(.nt-sel),
+.sv-mode-insert :deep(.nt-sel-active) {
+  box-shadow: none;
+  background: rgba(139, 69, 19, 0.07);
 }
 /* WORD edit = INLINE, seamless: sit exactly over the word, same font, opaque sheet background
    (covers the underlying word cleanly), no box — just a thin brand underline as the "editing"
