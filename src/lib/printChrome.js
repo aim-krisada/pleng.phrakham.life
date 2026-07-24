@@ -8,6 +8,7 @@
 // our own buttons. counter(page)/counter(pages) resolve only inside @page, which is
 // why the footer has to live here and not in a normal element.
 import { SITE_NAME } from './songName.js'
+import { paperSizeCss } from './paperSize.js'
 
 const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
@@ -17,11 +18,14 @@ export function thaiPrintDate(d = new Date()) {
   return `พิมพ์เมื่อ ${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${beYear}`
 }
 
-// The @page footer CSS for a given date string. One shared font decl so all three
-// boxes read as a single line.
-export function footerCss(dateStr) {
+// The @page CSS for a given date string. One shared font decl so all three footer
+// boxes read as a single line. `sizeCss` (A4/Letter/A5) is optional — when given it
+// pins the physical paper via `@page{size:…}` so the printout matches the user's
+// choice; omit it (or pass falsy) to leave the browser's default paper untouched.
+export function footerCss(dateStr, sizeCss) {
   const f = "font-family:'Noto Sans Thai','Noto Sans',sans-serif;font-size:9pt;color:#555;"
   return '@media print{@page{'
+    + (sizeCss ? `size:${sizeCss};` : '')
     + `@bottom-left{content:"${SITE_NAME}";${f}}`
     + `@bottom-center{content:"หน้า " counter(page) " ของ " counter(pages);${f}}`
     + `@bottom-right{content:"${dateStr}";${f}}`
@@ -41,7 +45,7 @@ export function initPrintChrome() {
       el.id = STYLE_ID
       document.head.appendChild(el)
     }
-    el.textContent = footerCss(thaiPrintDate())
+    el.textContent = footerCss(thaiPrintDate(), paperSizeCss())
   }
   const after = () => document.getElementById(STYLE_ID)?.remove()
   window.addEventListener('beforeprint', before)
