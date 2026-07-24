@@ -1,8 +1,17 @@
 name: Deploy to GitHub Pages
 
+# TWO VERSIONS, ONE SITE (docs/deploy-v2.md)
+#   /      = `main`                  — the version พี่เปา uses every day
+#   /v2/   = `studio-shell-redesign` — the new one, same Supabase database, so it can be tried
+#                                      for real before it replaces the current app
+#
+# GitHub Pages has no partial deploy: `deploy-pages` REPLACES the whole site with the uploaded
+# artifact every run. So a workflow that built only one branch would delete the other version on
+# every push. This one always builds BOTH and uploads them together — whichever branch triggered
+# it — which is why the trigger lists both branches and why the file must be IDENTICAL on both.
 on:
   push:
-    branches: [main]
+    branches: [main, studio-shell-redesign]
   workflow_dispatch:
 
 permissions:
@@ -24,16 +33,56 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # ---- the live version (root) — always from main, never from the triggering branch --------
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: v1
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: v1/package-lock.json
       - run: npm ci
+        working-directory: v1
       - run: npm run build
+        working-directory: v1
+
+      # ---- the new version (/v2/) --------------------------------------------------------------
+      # continue-on-error on BOTH steps is deliberate and is the whole safety story: the new
+      # version is a work in progress, and a broken build there must never stop the live version
+      # from deploying. If either step fails the run carries on and simply ships the site without
+      # /v2 — visitors at the root are unaffected.
+      - uses: actions/checkout@v4
+        with:
+          ref: studio-shell-redesign
+          path: v2
+      - id: v2install
+        continue-on-error: true
+        run: npm ci
+        working-directory: v2
+      - id: v2build
+        if: steps.v2install.outcome == 'success'
+        continue-on-error: true
+        run: npm run build
+        working-directory: v2
+        env:
+          PLENG_V2: '1' # → vite base '/v2/' + the in-app "รุ่นทดลอง v2" switcher
+
+      # ---- combine: root = v1's dist, plus v1/dist/v2 = v2's dist ------------------------------
+      - name: Nest the v2 build under the site root
+        if: steps.v2build.outcome == 'success'
+        run: |
+          rm -rf v1/dist/v2
+          cp -r v2/dist v1/dist/v2
+      - name: Report what is being deployed
+        run: |
+          echo "root : $(ls v1/dist | tr '\n' ' ')"
+          if [ -d v1/dist/v2 ]; then echo "/v2/ : included"; else echo "/v2/ : NOT included (v2 build failed or skipped)"; fi
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: v1/dist
       - id: deployment
         uses: actions/deploy-pages@v4
