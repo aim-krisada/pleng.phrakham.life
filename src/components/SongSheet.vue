@@ -62,6 +62,48 @@ function chordText(chord) {
   })
 }
 
+// ── Jump / navigation markers — RENDER contract (Segno 𝄋 · Coda 𝄌 · D.C./D.S. · To Coda ·
+// Fine). This lane only DRAWS them; the engine/editor lane owns the marker DATA. An item is
+// a jump marker when it is `{type:'jump', kind, al?}`, a dedicated per-symbol type
+// (`segno` `coda` `to-coda` `dc` `ds` `fine`), or a generic `{type:'marker', kind}` — we
+// normalise all three so whatever shape that lane emits renders the same. A plain
+// `{type:'marker', label}` (no kind) is untouched → still the old free-text section marker.
+//   kind: 'segno'|'coda'|'to-coda'|'dc'|'ds'|'fine' · al (dc/ds only): 'fine'|'coda'.
+// Segno/Coda draw as inline SVG — deterministic, so no missing-font tofu (▯) on Windows
+// Chrome, where the U+1D10B/1D10C musical glyphs aren't reliably covered. The final barline
+// ‖ ("จบเพลง") stays the existing `end` mark. Position comes from the item's own spot in the
+// line, so a mid-bar marker (mid-bar lane) renders wherever it sits — not bar-boundary only.
+function normJumpKind(k) {
+  const s = String(k || '').toLowerCase().replace(/[\s._-]/g, '')
+  if (s === 'segno' || s === 'dalsegnomark') return 'segno'
+  if (s === 'coda' || s === 'codamark') return 'coda'
+  if (s === 'tocoda') return 'to-coda'
+  if (s === 'dc' || s === 'dacapo') return 'dc'
+  if (s === 'ds' || s === 'dalsegno') return 'ds'
+  if (s === 'fine') return 'fine'
+  return null
+}
+function classifyJump(item) {
+  if (!item) return null
+  let kind = normJumpKind(item.type)
+  if (!kind && (item.type === 'jump' || item.type === 'marker')) kind = normJumpKind(item.kind)
+  if (!kind) return null
+  let al = null
+  if (kind === 'dc' || kind === 'ds') {
+    const a = normJumpKind(item.al)
+    al = a === 'fine' || a === 'coda' ? a : null
+  }
+  return { kind, al }
+}
+// The letter directives' printed text (Segno/Coda render as glyphs, so they have no text).
+function jumpLabel(part) {
+  if (part.kind === 'dc') return part.al === 'fine' ? 'D.C. al Fine' : part.al === 'coda' ? 'D.C. al Coda' : 'D.C.'
+  if (part.kind === 'ds') return part.al === 'fine' ? 'D.S. al Fine' : part.al === 'coda' ? 'D.S. al Coda' : 'D.S.'
+  if (part.kind === 'to-coda') return 'To Coda'
+  if (part.kind === 'fine') return 'Fine'
+  return ''
+}
+
 // Group each line into bar-units so the line can WRAP at bar boundaries (no
 // horizontal scroll) instead of overflowing — a bar never splits across rows.
 // Segments carry si (index within the line) for playback highlight + auto-scroll.
@@ -84,6 +126,12 @@ const renderLines = computed(() =>
       bar = null
     }
     for (const item of line) {
+      const jm = classifyJump(item)
+      if (jm) {
+        flush()
+        parts.push({ type: 'jump', kind: jm.kind, al: jm.al })
+        continue
+      }
       if (item.type === 'segment') {
         si++
         if (!bar) bar = { type: 'bar', barLine: false, segments: [] }
@@ -518,6 +566,24 @@ watch(
         <span v-else-if="part.type === 'repeat-start'" v-show="noteOn(row.first)" class="repeat-mark rep-start" aria-label="เริ่มเล่นซ้ำ"><i class="rep-bar" /><i class="rep-thin" /><i class="rep-dots" /></span>
         <span v-else-if="part.type === 'repeat-end'" v-show="noteOn(row.first)" class="repeat-mark rep-end" aria-label="วนกลับไปเล่นซ้ำ"><i class="rep-dots" /><i class="rep-thin" /><i class="rep-bar" /></span>
         <span v-else-if="part.type === 'volta'" v-show="noteOn(row.first)" class="volta-tag">{{ part.num }}.</span>
+        <!-- Segno / Coda — drawn as inline SVG (no font glyph → no tofu on Windows Chrome). -->
+        <span v-else-if="part.type === 'jump' && part.kind === 'segno'" class="jump-mark jump-sign" role="img" aria-label="Segno (เครื่องหมายวน)">
+          <svg class="jm-glyph" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15 7 C15 4 9 5 9 8 C9 11 15 11 15 14 C15 17 9 18 9 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            <line x1="7" y1="17" x2="17" y2="7" stroke="currentColor" stroke-width="1.5" />
+            <circle cx="16.1" cy="9.4" r="1.2" fill="currentColor" />
+            <circle cx="7.9" cy="14.6" r="1.2" fill="currentColor" />
+          </svg>
+        </span>
+        <span v-else-if="part.type === 'jump' && part.kind === 'coda'" class="jump-mark jump-sign" role="img" aria-label="Coda (ท่อนปิดท้าย)">
+          <svg class="jm-glyph" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="6.6" fill="none" stroke="currentColor" stroke-width="1.6" />
+            <line x1="12" y1="2.6" x2="12" y2="21.4" stroke="currentColor" stroke-width="1.6" />
+            <line x1="2.6" y1="12" x2="21.4" y2="12" stroke="currentColor" stroke-width="1.6" />
+          </svg>
+        </span>
+        <!-- D.C. / D.S. / To Coda / Fine — italic serif directive text at its own spot. -->
+        <span v-else-if="part.type === 'jump'" class="jump-mark jump-text">{{ jumpLabel(part) }}</span>
         <span v-else class="bar-group">
           <span v-if="part.barLine && noteOn(row.first)" class="bar-line" aria-hidden="true"></span>
           <span
@@ -675,6 +741,44 @@ watch(
 }
 .bar-final .bf-thin { width: 2px; background: #8a7a62; }
 .bar-final .bf-thick { width: 4px; background: #8a7a62; }
+/* Jump / navigation markers — Segno 𝄋 · Coda 𝄌 (SVG glyphs) and the D.C./D.S./To Coda/Fine
+   directives. Repeats made VISIBLE on the sheet + A4 print for the hymn-book form. Each rides
+   inline at the marker's own spot; the line is flex-wrap so it never forces a horizontal
+   scroll. They stay drawn in every layer preset (incl. lyrics-only) — a singer needs the
+   jumps even on a words-only sheet — with the raised offset dropped when there is no chord/
+   note row above (mirrors .bar-final). */
+.jump-mark {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: top;
+  white-space: nowrap;
+}
+/* Segno/Coda drawn in the brand tone (WCAG-strong on cream); a music sign, so it sits raised
+   toward the chord row — reads as "above the bar" like standard engraving. */
+.jump-sign {
+  color: var(--brand, #8b4513);
+  margin: 0.15em 0.4em 0;
+}
+.jm-glyph {
+  width: 1.45em;
+  height: 1.45em;
+  display: block;
+}
+/* D.C./D.S./To Coda/Fine — italic serif, the standard music-directive convention. Pure Latin,
+   so no font-fallback risk. --ink keeps AA contrast in the light theme. */
+.jump-text {
+  font-family: Georgia, 'Times New Roman', 'Noto Serif', serif;
+  font-style: italic;
+  font-weight: 600;
+  font-size: 0.9em;
+  color: var(--ink, #2a2118);
+  margin: 0.4em 0.4em 0;
+  letter-spacing: 0.01em;
+}
+.sheet-mode-lyrics .jump-sign,
+.sheet-mode-lyrics .jump-text { margin-top: 0; }
+.sheet-no-chord :deep(.jump-sign),
+.sheet-no-chord :deep(.jump-text) { margin-top: 0; }
 /* B065 — with a chord row above, the barline/repeat marks carry margin-top:1em to drop
    past that row onto the note line. When the chord layer is hidden (เนื้อ+โน้ต / โน้ตล้วน)
    there is no chord row, so that 1em pushed the barline BELOW the notes and the digits

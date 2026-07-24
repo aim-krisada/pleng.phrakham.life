@@ -39,6 +39,13 @@ export function barShell() {
 export function newBar() {
   return { ...barShell(), segments: [newSegment()] }
 }
+// A bar carries structural (play-order) meaning even with no note of its own when it holds a
+// repeat boundary, a volta ending, or a pickup. Used to keep such bars through the empty-bar
+// filter so a note-less ‖: / :‖ / 1./2. ending / pickup survives a load→edit→save round-trip.
+export function barHasMarker(b) {
+  return !!(b && (b.repeatStart || b.repeatEnd || b.volta || b.pickup ||
+    b.repeatStartId || b.repeatEndId || b.voltaId))
+}
 export function newLine() {
   return { marker: '', markerId: '', cont: false, label: '', section: '', end: false, bars: [newBar()] }
 }
@@ -125,7 +132,12 @@ export function deserializeLine(items) {
     }
   }
   line.bars.push(bar)
-  line.bars = line.bars.filter((b) => b.segments.length)
+  // Drop only TRULY empty bars. A segment-less bar that still carries a structural marker
+  // (a repeat ‖: :‖ , a 1./2. volta ending, or a pickup) is melody/play-order data — losing it
+  // changes how many times a phrase is sung. Keep those; they re-emit correctly on serialize
+  // even without a note of their own. (Audit 🟡-2, 2026-07-24: previously the note-less ending
+  // bar was filtered out and the repeat/volta vanished on an edit-save.)
+  line.bars = line.bars.filter((b) => b.segments.length || barHasMarker(b))
   if (!line.bars.length) line.bars = [newBar()]
   if (unknown.length) line._unknown = unknown
   // passthrough support (defineProperty so these internals never show up in editableShape/clones

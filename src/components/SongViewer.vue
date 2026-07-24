@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedNote, withInsertedBox, withBarAfter, withNoteMark, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -25,10 +25,12 @@ import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/s
 import { bookRefLabels } from '../lib/bookCodes.js'
 import { noteBoxKinds } from '../lib/notation.js'
 import { learnKey, loadLayoutMap } from '../lib/keyHints.js'
+import { SYMBOL_CHARS, symbolForKey, applySymbolToContent } from '../lib/editorCommands.js'
 import { createHistory, undoIntent } from '../lib/editHistory.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
 import NoteInputBar from './NoteInputBar.vue'
+import SongSettings from './SongSettings.vue'
 import Icon from './Icon.vue'
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
@@ -42,6 +44,10 @@ const props = defineProps({
   // just SHOWS it and asks for a save — so the user always knows whether the work is kept.
   saveState: { type: String, default: 'clean' },
   saveError: { type: String, default: '' },
+  // whether the shell managed to mirror this edit into the local working copy. It decides
+  // whether leaving the editor with unsaved work is a non-event (the normal case) or the last
+  // chance to keep it (storage blocked/full) — see requestExitEdit.
+  recoverable: { type: Boolean, default: true },
   // EPIC H — a shared link may carry the key it was shared at (?key=, lib/share.js). It is a
   // STARTING point only: the listener's own คีย์ pick afterwards wins. '' = use the song's key.
   startKey: { type: String, default: '' },
@@ -51,7 +57,10 @@ const props = defineProps({
 // content via `update-content`; that flows back down as props.song and the sheet re-renders.
 // `key-change` reports the reading key up so the shell can share the song AT the key the
 // listener is actually reading (EPIC H round-trip). Read-only signal — nothing flows back down.
-const emit = defineEmits(['update-content', 'save', 'key-change'])
+// `update-meta` (B060) is the same idea for the song's ROW fields (เลข · ชื่อไทย · ชื่ออังกฤษ ·
+// ธีม · หมวด), which live on the songs row and not in `content` — the ⚙ ตั้งค่าเพลง panel hands
+// up a patch and the owner merges it, exactly as it does with a new content.
+const emit = defineEmits(['update-content', 'update-meta', 'update-music', 'save', 'key-change', 'update:editing', 'left-dirty'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -162,6 +171,19 @@ const posIndex = ref(0)
 // plays, all sections show as selected; the singer unticks the ones to drop. Empty (via
 // "ไม่เลือก") still falls back to the whole song, unchanged.
 const selectedSecs = ref(new Set())
+// ---- ฟังตอนแก้ (P'Aim 24 ก.ค.) — a song-maker works แก้ → ฟัง → แก้ → ฟัง, so listening must
+// not cost an exit from the pencil. There is NO second audio path: a scope preview is the same
+// startPlay/playSong call the dock makes, with `order` narrowed to the range under the cursor.
+// previewOrder ≠ null ONLY while a scoped preview sounds (stopPlay + the natural end clear it),
+// so "playing with no preview" always means the whole song.
+const previewOrder = ref(null) // [{name,fromLi,toLi}] — the narrowed play order
+const previewScope = ref(null) // 'line' | 'section' — which button is lit
+const previewLabel = ref('') // what that scope is, in words (shown while it sounds)
+function clearPreview() {
+  previewOrder.value = null
+  previewScope.value = null
+  previewLabel.value = ''
+}
 
 const resolved = computed(() =>
   props.song ? { ...props.song.content, lines: resolveContent(props.song.content) } : null,
@@ -290,9 +312,8 @@ function moveLineJump(dir) {
   gotoLineLayer(u.li + dir, u.col, 'note')
 }
 // The symbol characters the inline editor understands (the toolbar shows a button per
-// character; these are also what we learn keyboard positions for). ',' and '!' are absent:
-// the parser gives them no meaning yet.
-const SYMBOL_CHARS = "_.-~^(){}|n'"
+// character; these are also what we learn keyboard positions for). SYMBOL_CHARS is derived from
+// the single registry (lib/editorCommands.js) = its on-bar entries — no second list here.
 // the browser's measured keyboard layout (Chromium/Edge); null elsewhere — then a hint is only
 // composed for keys whose `code` IS the character (digits/letters). Never a guessed table.
 const layoutMap = ref(null)
@@ -352,6 +373,7 @@ function redoEdit() { applyHistoryStep(history.redo()) }
 // field, so the two can never disagree.
 function onUndoKeys(e) {
   if (!editMode.value) return
+  if (transportKey(e)) return // ฟังบรรทัด/ท่อน · Esc หยุด (transportKey owns preventDefault)
   const intent = undoIntent(e)
   if (!intent) return
   e.preventDefault()
@@ -368,11 +390,18 @@ function toggleTypeMode() { typeMode.value = typeMode.value === 'insert' ? 'over
 // word when the caret is at its edge; ↑ ↓ / space / Enter navigate.
 function onCaptureKey(e) {
   if (!editMode.value) return
+  // ฟังบรรทัด/ท่อน (Ctrl+Enter / Ctrl+Shift+Enter) + Esc หยุด — checked FIRST so plain Enter
+  // keeps meaning "next unit" and the transport never steals a typing key.
+  if (transportKey(e)) return
   // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y while typing — handled here as well as on the window, so a
-  // browser/IME that swallows the event before it bubbles cannot lose the shortcut.
+  // browser/IME that swallows the event before it bubbles cannot lose the shortcut. stopPropagation
+  // is REQUIRED (same reasoning as transportKey): the capture field sees the key first, and without
+  // it the SAME event bubbles to the window listener (onUndoKeys), which runs undo/redo a SECOND
+  // time — one Ctrl+Z then undoing two steps at once (caught 24 ก.ค.: typed 5→4→7, one ย้อน gave 5,3,3).
   const histIntent = undoIntent(e)
   if (histIntent) {
     e.preventDefault()
+    e.stopPropagation()
     histIntent === 'redo' ? redoEdit() : undoEdit()
     return
   }
@@ -394,8 +423,13 @@ function onCaptureKey(e) {
   else if (e.key === 'Insert') { e.preventDefault(); toggleTypeMode() }
   else if (e.key === 'Enter') { e.preventDefault(); moveHoriz(1) }
   else if (e.key === ' ') { e.preventDefault(); word ? moveHoriz(1) : moveUnit(1) } // space = next syllable/unit
-  else if (!word && e.key === 'Home') { e.preventDefault(); curIdx.value = 0 }
-  else if (!word && e.key === 'End') { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
+  // Home / End = first / last note. Ctrl+Home / Ctrl+End do the same, because that is the pair
+  // a document editor trains your hands on (Docs/VS Code/Notion) — and on the WORD layer plain
+  // Home/End are left to the browser, where they mean "start/end of this word" as they should.
+  else if (!word && (e.key === 'Home' || (ctrl && e.key === 'Home'))) { e.preventDefault(); curIdx.value = 0 }
+  else if (!word && (e.key === 'End' || (ctrl && e.key === 'End'))) { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
+  else if (word && ctrl && e.key === 'Home') { e.preventDefault(); curIdx.value = 0 }
+  else if (word && ctrl && e.key === 'End') { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
   // NOTE layer: digit = set the note; Delete = ลบอยู่กับที่ (rest); Backspace = เอาออกทั้งช่อง.
   // Overwrite STAYS on the note (so you can add octave / ♯♭ to it before moving — P'Aim); use
   // ← → / space to move on. Insert still advances so a new melody flows left-to-right.
@@ -404,23 +438,13 @@ function onCaptureKey(e) {
     if (typeMode.value === 'insert') insertDigit(e.key)
     else overwriteDigit(e.key)
   }
-  // desktop keyboard shortcuts for the note marks that ARE on a physical keyboard (so they need
-  // no button): # = sharp, b = flat, n = natural (jianpu convention, same as the old note boxes).
-  else if (!word && (e.key === '#' || e.key === 'b' || e.key === 'n')) { e.preventDefault(); accidentalSel(e.key) }
-  // the rest of the jianpu symbol set, typed straight onto the sheet (B-fix 23 ก.ค.: these
-  // were silently dead, so a rhythm could not be fixed from the reading surface at all).
-  // MARKS ride on the selected note (each press cycles its own mark, order-free via G1):
-  //   _ เขบ็ต · . จุดเพิ่มความยาว · ~ โยงเสียง · ^ ยืดเสียง (fermata)
-  else if (!word && '_.~^'.includes(e.key)) { e.preventDefault(); markSel(e.key) }
-  // ' = ขึ้นหนึ่งช่วงเสียง — the parser's own high-octave character, so it does exactly what the
-  // สูง↑ button does. (',' and '!' are NOT wired: today's parser gives them no meaning and this
-  // fix invents none — see docs/reports/editor-gap-audit.md.)
-  else if (!word && (e.key === "'" || e.key === '’')) { e.preventDefault(); octaveSel(1) }
-  // STRUCTURE inserts a box of its own next to the cursor: '-' holds the note one more beat,
-  // ( ) wrap a slur/tie group, { } a triplet. An opening bracket lands BEFORE the note.
-  else if (!word && '-(){}'.includes(e.key)) { e.preventDefault(); insertBoxSel(e.key) }
-  // | = เส้นกั้นห้อง — not a note box: it splits the segment in two (see withBarAfter).
-  else if (!word && e.key === '|') { e.preventDefault(); barSel() }
+  // The whole jianpu symbol set, typed straight onto the sheet — # b n (accidentals, on a
+  // physical keyboard so they need no button), the four marks _ . ~ ^ that ride on the note, the
+  // structural boxes - ( ) { }, the high-octave ' (and the curly-quote ’ some keyboards emit),
+  // and the | bar line. ⛔ ONE dispatch: `symbolForKey` (the registry) decides if a key is a
+  // symbol, then `applySymbol` classifies it — the SAME path the toolbar buttons take. The
+  // keydown handler must never re-implement the classification (that was CP-0's silent drift).
+  else if (!word && symbolForKey(e.key)) { e.preventDefault(); applySymbol(e.key) }
   else if (!word && e.key === 'Delete') { e.preventDefault(); deleteSel() }
   else if (!word && e.key === 'Backspace') { e.preventDefault(); removeCell() }
   // WORD layer: an empty word + Backspace removes the whole cell; otherwise let the text edit
@@ -432,7 +456,6 @@ function onCaptureInput(e) {
   if (selLayer.value !== 'word') { e.target.value = ''; return } // note layer stays empty
   const loc = cellLoc()
   if (!loc) return
-  markTyping()
   const next = withSetSyllable(props.song.content, loc, e.target.value)
   if (next !== props.song.content) emit('update-content', next)
 }
@@ -453,22 +476,50 @@ function cellLoc() {
   return { resolvedLine: rline, si: cell.si, syk: cell.syk }
 }
 
-// ---- input surface: popup (desktop) vs bottom bar (mobile) ----
-// Choose by VIEWPORT WIDTH, never hover/pointer (Surface = touch+mouse reports coarse).
+// ---- the editing FRAME (24 ก.ค.) --------------------------------------------------------
+// While the pencil is on, the editing surface becomes an app frame under the shell bar: the
+// sheet scrolls in its own region and the tool dock is a flex child BESIDE it. Before this the
+// dock floated over the sheet — hit-testing every visible glyph on the real app showed up to
+// 92 of 279 note/word cells hidden behind it at 1280 (and every visible cell at 360), which is
+// exactly the line you are typing on. In a frame it cannot cover a cell at ANY scroll offset,
+// and it never moves, so the same tool stays under the same finger all day.
+// `frameTop` = the sticky shell bar's real height (it changes with width / when login wraps),
+// measured rather than hard-coded. `kbInset` lifts the frame's floor above a phone's on-screen
+// keyboard, so the dock rides just over it as a keyboard accessory does.
 const WIDE_MIN = 768
 const isWide = ref(typeof window !== 'undefined' ? window.innerWidth >= WIDE_MIN : true)
-function onResizeWidth() { isWide.value = window.innerWidth >= WIDE_MIN; updateNoteRect() }
-// When to show the toolbar (NoteInputBar):
-//  • Desktop (popup): only for a NOTE (the octave/mode buttons a keyboard lacks) — words edit
-//    inline with no popup. Needs an anchor rect.
-//  • Mobile (bar): whenever a cell is selected (it carries the arrows the on-screen keyboard
-//    lacks; note ops appear only on the note layer).
-const showToolbar = computed(() => {
-  if (!editMode.value || !selCell.value) return false
-  return isWide.value ? (selLayer.value === 'note' && !!noteRect.value) : true
-})
-// the selected note's on-screen rect — the desktop popup anchors to it (floats above/below,
-// never covering it). Re-read after any selection change and while scrolling.
+const frameTop = ref(56)
+const kbInset = ref(0)
+function measureFrame() {
+  const bar = typeof document !== 'undefined' ? document.querySelector('.shell-bar') : null
+  frameTop.value = bar ? Math.round(bar.getBoundingClientRect().bottom) : 56
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null
+  kbInset.value = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0
+}
+function onResizeWidth() {
+  isWide.value = window.innerWidth >= WIDE_MIN
+  measureFrame()
+  updateNoteRect()
+}
+// the dock is part of the editor's chrome, not a per-selection popup: it is there the whole
+// time the pencil is on, so its buttons never appear/disappear under the user's hand.
+const showToolbar = computed(() => editMode.value)
+// วิธีใช้ — a permanent 6-line block used to ride above the sheet (72px at 1280 · 226px at 360
+// = 28% of a phone screen). It now lives behind the dock's ? button, which is always visible,
+// and it OPENS BY ITSELF the first time this browser ever edits, so a newcomer still meets it.
+// (The lesson we are respecting: a control that is only in a menu gets used 0 times.)
+const HELP_SEEN_KEY = 'pleng.editHelpSeen'
+const helpOpen = ref(false)
+function markHelpSeen() {
+  try { localStorage.setItem(HELP_SEEN_KEY, '1') } catch { /* private mode — just show it again */ }
+}
+function setHelpOpen(v) {
+  helpOpen.value = v
+  if (v) markHelpSeen()
+  focusCapture()
+}
+// the selected cell's on-screen rect — the (invisible) capture input is pinned over it so the
+// caret and the device keyboard sit where the user is looking. Re-read on selection + scroll.
 const noteRect = ref(null)
 function updateNoteRect() {
   if (!editMode.value || !sheetWrap.value) { noteRect.value = null; return }
@@ -481,18 +532,15 @@ function updateNoteRect() {
   const r = el.getBoundingClientRect()
   noteRect.value = { top: r.top, bottom: r.bottom, left: r.left, width: r.width }
 }
-// fade-on-type: while typing/editing quickly the popup dims + goes click-through; a >1s pause
-// (or clicking a note) brings it back — G's "quiet assistant". Bar variant ignores this.
-const dimPopup = ref(false)
-let typingTimer = null
-function markTyping() {
-  dimPopup.value = true
-  if (typingTimer) clearTimeout(typingTimer)
-  typingTimer = setTimeout(() => { dimPopup.value = false }, 1000)
-}
-// re-anchor + un-dim whenever the selection moves (a click/tap = "show me the tools")
-watch(selCell, () => { dimPopup.value = false; nextTick(updateNoteRect) })
-watch(editMode, (on) => { if (on) nextTick(updateNoteRect); else noteRect.value = null })
+watch(selCell, () => nextTick(updateNoteRect))
+watch(editMode, (on) => {
+  if (!on) { noteRect.value = null; return }
+  measureFrame()
+  let seen = true
+  try { seen = localStorage.getItem(HELP_SEEN_KEY) === '1' } catch { seen = false }
+  if (!seen) { helpOpen.value = true; markHelpSeen() }
+  nextTick(updateNoteRect)
+})
 
 // ---- capture input: brings up the device keyboard + carries lyric text (batch B) ----
 // A single <input> focused whenever a cell is selected. Focusing it opens the phone keyboard
@@ -552,7 +600,6 @@ watch(editMode, (on) => { if (on) focusCapture() })
 function overwriteDigit(digit) {
   const loc = selLoc()
   if (!loc) return
-  markTyping()
   const next = withNotePitch(props.song.content, loc, digit)
   if (next !== props.song.content) emit('update-content', next)
 }
@@ -562,7 +609,6 @@ function overwriteDigit(digit) {
 function insertDigit(digit) {
   const loc = selLoc()
   if (!loc) return
-  markTyping()
   const next = withInsertedNote(props.song.content, loc, digit)
   if (next !== props.song.content) { emit('update-content', next); curIdx.value = curIdx.value + 2 }
 }
@@ -577,7 +623,6 @@ function deleteSel() {
 function restNote() {
   const loc = selLoc()
   if (!loc) return
-  markTyping()
   const next = withRestAt(props.song.content, loc)
   if (next !== props.song.content) emit('update-content', next)
 }
@@ -585,7 +630,6 @@ function restNote() {
 function clearWord() {
   const loc = cellLoc()
   if (!loc) return
-  markTyping()
   const next = withClearedSyllable(props.song.content, loc)
   if (next !== props.song.content) emit('update-content', next)
 }
@@ -594,7 +638,6 @@ function clearWord() {
 function removeCell() {
   const loc = cellLoc()
   if (!loc) return
-  markTyping()
   const ci = Math.floor(curIdx.value / 2)
   const wasLast = inlineCells.value.length <= 1
   const next = withDeletedNote(props.song.content, loc)
@@ -607,57 +650,36 @@ function removeCell() {
 function octaveSel(dir) {
   const loc = selLoc()
   if (!loc) return
-  markTyping()
   const next = withOctaveShift(props.song.content, loc, dir)
   if (next !== props.song.content) emit('update-content', next)
 }
 function accidentalSel(acc) {
   const loc = selLoc()
   if (!loc) return
-  markTyping()
   const next = withAccidental(props.song.content, loc, acc)
   if (next !== props.song.content) emit('update-content', next)
 }
-// one of the four note marks (_ . ~ ^) on the selected note — cycles that mark only
-function markSel(ch) {
-  const loc = selLoc()
-  if (!loc) return
-  markTyping()
-  const next = withNoteMark(props.song.content, loc, ch)
-  if (next !== props.song.content) emit('update-content', next)
-}
-// a structural box next to the cursor: '-' / '(' / ')' / '{' / '}'. An OPENING bracket goes
-// before the note; everything else after it. '-' grows the melody, so the cursor steps onto
-// the new box (like typing a note in แทรก mode); a bracket bears no slot, so the cursor stays.
-function insertBoxSel(ch) {
-  const loc = selLoc()
-  if (!loc) return
-  markTyping()
-  const before = ch === '(' || ch === '{'
-  const next = withInsertedBox(props.song.content, loc, ch, before)
-  if (next !== props.song.content) {
-    emit('update-content', next)
-    if (ch === '-') curIdx.value = curIdx.value + 2
+// ONE entry point for a symbol, whether it was TYPED (keydown passes e.key) or tapped on the
+// toolbar (@symbol passes the button char). DS §4.1: the buttons and the keyboard must be the
+// same thing seen from two sides — never two code paths that drift. Classification lives in the
+// single registry (lib/editorCommands.js): `symbolForKey` resolves the key to its canonical
+// character (so the curly quote ’ raises the octave just like '), and `applySymbolToContent`
+// maps it to the engine action. This function only wires that pure result to the song + cursor.
+function applySymbol(key) {
+  const ch = symbolForKey(key)
+  if (ch) {
+    const loc = selLoc()
+    if (loc) {
+      const next = applySymbolToContent(props.song.content, loc, ch)
+      if (next !== props.song.content) {
+        emit('update-content', next)
+        // '-' grows the melody by one box, so the cursor steps onto the new box (like typing a
+        // note in แทรก mode); every other symbol bears no slot, so the cursor stays put.
+        if (ch === '-') curIdx.value = curIdx.value + 2
+      }
+    }
   }
-}
-// ONE entry point for a symbol, whether it was TYPED or tapped on the toolbar (DS §4.1: the
-// buttons and the keyboard must be the same thing seen from two sides — never two code paths
-// that drift). The keyboard handler above and the bar's @symbol both land here.
-function applySymbol(ch) {
-  if ('_.~^'.includes(ch)) markSel(ch)
-  else if (ch === 'n' || ch === '#' || ch === 'b') accidentalSel(ch)
-  else if (ch === "'") octaveSel(1)
-  else if ('-(){}'.includes(ch)) insertBoxSel(ch)
-  else if (ch === '|') barSel()
   focusCapture() // tapping a button must not steal the caret / close the phone keyboard
-}
-// | = split the segment here with a bar line
-function barSel() {
-  const loc = selLoc()
-  if (!loc) return
-  markTyping()
-  const next = withBarAfter(props.song.content, loc)
-  if (next !== props.song.content) emit('update-content', next)
 }
 // the chord picker's options for the song's key ("— ไม่มีคอร์ด —" first = clear)
 const chordOpts = computed(() => chordOptions(props.song?.content?.key || 'C'))
@@ -665,7 +687,6 @@ const chordOpts = computed(() => chordOptions(props.song?.content?.key || 'C'))
 function setChord(chord) {
   const loc = cellLoc()
   if (!loc) return
-  markTyping()
   const next = withChord(props.song.content, loc, chord)
   if (next !== props.song.content) emit('update-content', next)
   focusCapture()
@@ -722,21 +743,62 @@ function requestSave() {
     emit('save', 'file')
   }
 }
+// ---- ⚙ ตั้งค่าเพลง (B060) --------------------------------------------------------------
+// พี่เปา asked for this on 9 ก.ค.: the song's own settings had to be edited in the OTHER
+// editor, so keying a song meant bouncing between two surfaces. The panel lives here now.
+// It is only offered while ✏️ is on — it is an editing action, not a reading one.
+const settingsOpen = ref(false)
+function toggleSettings() { settingsOpen.value = !settingsOpen.value }
+watch(editMode, (on) => { if (!on) settingsOpen.value = false })
+// row fields → straight up to the owner (Studio holds the songs row).
+function onSettingsMeta(patch) { emit('update-meta', patch) }
+// content fields (คีย์ · จังหวะ · ความเร็ว) → handed UP as a patch, not applied here. The
+// owner (Studio) holds the live song, so it applies the patch to the freshest content there
+// is — this surface's `song` prop is a snapshot that only refreshes on re-render, and two
+// settings changed in the same tick would then write the second one over the first.
+//   คีย์ = a TRANSPOSE (lib/songEdit.withSongKey → lib/chords): the jianpu numbers are scale
+//   degrees so they stand, the absolute chord letters move with the key. One key engine, the
+//   same one the reading transpose uses; sheet and playback both read content.key, so what is
+//   printed is what is heard.
+function onSettingsMusic(patch) { emit('update-music', patch) }
+
 // The edit surface's handlers, exposed so the tests can drive the SAME functions the UI does
 // (a test that reimplements the wiring proves nothing about the wiring).
-defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit, toggleEdit })
+defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit, toggleEdit, requestExitEdit, playScope, playWholeFromEditor, toggleSettings, onSettingsMusic, onSettingsMeta })
 
-function toggleEdit() {
-  // leaving edit with work that is not stored anywhere must SAY so — never a silent exit
-  if (editMode.value && props.saveState === 'dirty') {
+// Leaving the editor — ONE gate, wherever the request comes from (the ✓ button, or the shell's
+// mode tabs asking to take the user somewhere else). Returns true when we actually left, so the
+// caller can hold its own action back if the user says "no, let me save first".
+//
+// Whether it asks depends on ONE thing: can the work still be got back?
+//   • recoverable (the shell mirrored this edit into the local working copy — the normal case,
+//     including a brand-new song, which keeps its own 'new' slot) → LEAVE, no dialog. The work
+//     is in memory and on disk; the shell says so in a banner with a way straight back. A
+//     confirm you answer "yes" to twenty times a day is one people stop reading, and then it
+//     protects nothing (Apple HIG Alerts · NN/g on confirmation dialogs: modals are for
+//     irreversible consequences).
+//   • NOT recoverable (localStorage blocked or full — private mode, quota) → this really is the
+//     last chance, so ASK. That is the case the heuristic keeps modals for.
+function requestExitEdit() {
+  if (!editMode.value) return true
+  const dirty = props.saveState === 'dirty'
+  if (dirty && !props.recoverable) {
     const ok = window.confirm(
-      `ยังไม่ได้บันทึกงานที่แก้ไว้\n\nกด "ตกลง" เพื่อออกจากโหมดแก้ (งานยังอยู่ในเครื่องจนกว่าจะปิดเว็บ)\nกด "ยกเลิก" แล้วกด "${saveLabel.value}" เพื่อเก็บงานก่อน`,
+      `ยังไม่ได้บันทึกงานที่แก้ไว้ และเบราว์เซอร์นี้เก็บสำเนากันหายไม่ได้\n\nกด "ตกลง" เพื่อออกจากโหมดแก้ (งานที่แก้จะหายเมื่อปิดหรือรีเฟรชหน้านี้)\nกด "ยกเลิก" แล้วกด "${saveLabel.value}" เพื่อเก็บงานก่อน`,
     )
-    if (!ok) return
+    if (!ok) return false
   }
-  editMode.value = !editMode.value
-  if (editMode.value && curIdx.value < 0 && editUnits.value.length) curIdx.value = 0
+  editMode.value = false
+  if (dirty) emit('left-dirty')
+  return true
 }
+function toggleEdit() {
+  if (editMode.value) { requestExitEdit(); return }
+  editMode.value = true
+  if (curIdx.value < 0 && editUnits.value.length) curIdx.value = 0
+}
+// the shell needs to know, so its mode tabs can tell the truth about where the user is
+watch(editMode, (on) => emit('update:editing', on), { immediate: true })
 // B053 — source book(s) + scripture caption, same data + label helper as the catalog card
 // (SongList). Shown once at the top of the reading surface so a singer sees where the song
 // comes from without leaving ฝึกร้อง. book_refs → human labels via lib/bookCodes.
@@ -793,12 +855,13 @@ const allSelected = computed(() => tags.value.length > 0 && selectedSecs.value.s
 const strophicOrder = computed(() => resolvePlayOrder(props.song?.content) ?? undefined)
 // a partial ท่อน selection → ranges (undefined when every ท่อน is picked = whole song)
 const selectionOrder = computed(() => (allSelected.value ? undefined : effectiveOrder(sections.value, selectedSecs.value)))
-// what actually PLAYS: an explicit selection wins; otherwise the strophic default (or, with no
-// directive, undefined = whole song in display order — byte-identical to before B102).
-const order = computed(() => selectionOrder.value ?? strophicOrder.value)
+// what actually PLAYS: a scope preview from the pencil wins (ฟังท่อนนี้ / ฟังบรรทัดนี้ — it is a
+// deliberate, temporary narrowing); then an explicit selection; otherwise the strophic default
+// (or, with no directive, undefined = whole song in display order — byte-identical to before B102).
+const order = computed(() => previewOrder.value ?? selectionOrder.value ?? strophicOrder.value)
 // true ONLY when a strict subset is selected — then play/full indices differ and must be
 // mapped. A strophic whole-song play has playNotes === fullNotes, so mapping stays identity.
-const isSelectionSubset = computed(() => !!selectionOrder.value)
+const isSelectionSubset = computed(() => !!(previewOrder.value || selectionOrder.value))
 const playNotes = computed(() => (resolved.value ? buildPlayNotes(resolved.value, { order: order.value }) : []))
 const totalNotes = computed(() => playNotes.value.length)
 
@@ -955,6 +1018,7 @@ function stopPlay() {
   playingSeg.value = null
   playingSyl.value = null
   instrumentLoading.value = false // hide the "loading piano" pill if we cancel mid-download
+  clearPreview() // a scope preview never outlives the sound it named
 }
 // Play the current order (selection, or the whole song) from a note index. All playback
 // paths route through here so `order` stays the single source of what plays.
@@ -1002,6 +1066,7 @@ async function startPlay(startIndex = 0) {
     playingSyl.value = null
     pausedIndex.value = 0
     posIndex.value = 0
+    clearPreview() // the scope has finished sounding — the label must not keep claiming it
   }
 }
 function togglePlay() {
@@ -1012,6 +1077,89 @@ function togglePlay() {
     startPlay(pausedIndex.value) // resume from where we stopped (0 = fresh)
   }
 }
+
+// ---------- ฟังตอนแก้ — the transport that lives INSIDE the pencil (P'Aim 24 ก.ค.) ----------
+// Everything here funnels into the same startPlay() the dock uses, so the golden piano, the
+// สไตล์/ประกาย recipe, the shared pitch rule and the per-verse flow are byte-identical to
+// โหมดฟัง. The ONLY difference a preview makes is `order` — which lines get scheduled.
+//
+// Why the LINE is the small unit (and the ท่อน the big one): a single note carries no musical
+// information on its own — you cannot hear "wrong" without the phrase around it — while a whole
+// ท่อน is 20–40 s of waiting for a one-note fix. A บรรทัด is the phrase a song-maker actually
+// thinks in, and it is what the sheet already draws as one row, so "ฟังบรรทัดนี้" needs no
+// explaining. ท่อนนี้ sits next to it for the wider check (does the fix still fit the verse?).
+// Both are ONE tap — a scope menu would double the clicks of the loop this whole task exists to fix.
+function lineScopeLabel(li) {
+  const sec = sections.value.find((s) => li >= s.fromLi && li <= s.toLi)
+  // _stanzaLine = the line's index inside its own ท่อน, so the number matches what the singer
+  // counts on the page rather than a running total across the song.
+  const n = (resolved.value?.lines?.[li]?._stanzaLine ?? li) + 1
+  return sec ? `ท่อน ${sec.name} · บรรทัดที่ ${n}` : `บรรทัดที่ ${n}`
+}
+// The range under the cursor. 'section' falls back to the whole song when the song has no
+// ท่อน markers at all (a single unlabelled lyric block) — never a silent no-op.
+function scopeRange(scope) {
+  const li = curUnit.value?.li
+  if (li == null) return null
+  if (scope === 'section') {
+    const sec = sections.value.find((s) => li >= s.fromLi && li <= s.toLi)
+    if (!sec) return null
+    return { fromLi: sec.fromLi, toLi: sec.toLi, name: sec.name, label: `ท่อน ${sec.name}` }
+  }
+  return { fromLi: li, toLi: li, name: null, label: lineScopeLabel(li) }
+}
+const canPlayLine = computed(() => !!scopeRange('line'))
+const canPlaySection = computed(() => !!scopeRange('section'))
+// ▶ ท่อนนี้ / ▶ บรรทัดนี้ — press the lit one again to stop.
+function playScope(scope) {
+  if (playing.value && previewScope.value === scope) { stopPlay(); pausedIndex.value = 0; posIndex.value = 0; return }
+  const r = scopeRange(scope)
+  if (!r) return
+  stopPlay() // also clears any previous preview, so the label can never lie
+  previewScope.value = scope
+  previewOrder.value = [{ name: r.name, fromLi: r.fromLi, toLi: r.toLi }]
+  previewLabel.value = r.label
+  pausedIndex.value = 0
+  startPlay(0)
+  focusCapture() // hand the caret straight back — the loop is แก้ → ฟัง → แก้, not แก้ → ฟัง → คลิก → แก้
+}
+// ▶ ทั้งเพลง — the dock's own play/pause, reachable from inside the pencil. Pressing it during
+// a scope preview widens to the whole song rather than pausing.
+function playWholeFromEditor() {
+  if (playing.value) {
+    const wasPreview = !!previewOrder.value
+    pausedIndex.value = wasPreview ? 0 : playedIndex.value
+    stopPlay()
+    if (!wasPreview) return // it was a genuine pause of the whole song
+  }
+  startPlay(pausedIndex.value)
+  focusCapture()
+}
+// what is sounding right now, in words — a partial play must always say what it is playing
+const editPlayLabel = computed(() => (playing.value ? previewLabel.value || 'ทั้งเพลง' : ''))
+// which button is lit. Named computeds (rather than an inline comparison in the template) keep
+// every string literal inside a dynamic :name a real icon id — the Icon coverage gate.
+const isWholePlaying = computed(() => playing.value && !previewScope.value)
+const isSectionPlaying = computed(() => previewScope.value === 'section')
+const isLinePlaying = computed(() => previewScope.value === 'line')
+// Keyboard, for the hands that never leave the notes. Ctrl+Enter = this line, Ctrl+Shift+Enter =
+// this ท่อน, Esc = stop. Duplicated onto the capture field AND the window so an IME that swallows
+// the event before it bubbles cannot lose it (same reasoning as the undo shortcut).
+// It stops propagation itself: the capture field sees the key first and the window listener would
+// otherwise see the SAME event and run the action a second time — and since each button toggles,
+// the second run stopped the playback the first had just started (caught in the browser, 24 ก.ค.).
+function transportKey(e) {
+  if (!editMode.value) return false
+  const act = e.key === 'Escape' && playing.value ? () => stopPlay()
+    : e.key === 'Enter' && (e.ctrlKey || e.metaKey) ? () => playScope(e.shiftKey ? 'section' : 'line')
+      : null
+  if (!act) return false
+  e.preventDefault()
+  e.stopPropagation()
+  act()
+  return true
+}
+
 // move the playhead to a note index: while playing → jump the audio there; paused → just
 // park the dot so ▶ resumes from it.
 function seekToIndex(idx) {
@@ -1186,7 +1334,11 @@ onMounted(() => {
   // sitting in the header band (P'Aim 23 ก.ค.). A plain scroll listener catches every case.
   window.addEventListener('scroll', onPageScroll, { capture: true, passive: true })
   window.addEventListener('resize', onResizeWidth)
-  nextTick(() => { isWide.value = window.innerWidth >= WIDE_MIN }) // re-read once layout has a real width
+  // a phone's on-screen keyboard shrinks the VISUAL viewport only — watch it so the frame's
+  // floor (and with it the tool dock) lifts above the keyboard instead of hiding behind it
+  const vv = window.visualViewport
+  if (vv) { vv.addEventListener('resize', measureFrame); vv.addEventListener('scroll', measureFrame) }
+  nextTick(() => { isWide.value = window.innerWidth >= WIDE_MIN; measureFrame() }) // re-read once layout has a real width
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onUndoKeys)
@@ -1194,7 +1346,8 @@ onUnmounted(() => {
   window.removeEventListener('touchmove', onUserScroll)
   window.removeEventListener('scroll', onPageScroll, { capture: true })
   window.removeEventListener('resize', onResizeWidth)
-  if (typingTimer) clearTimeout(typingTimer)
+  const vv = window.visualViewport
+  if (vv) { vv.removeEventListener('resize', measureFrame); vv.removeEventListener('scroll', measureFrame) }
   stopPlayback()
 })
 
@@ -1217,90 +1370,193 @@ function onSeek({ li, si, syk }) {
 
 <template>
   <div>
-    <!-- B053: แหล่งเพลง (source books) + scripture reference — small captions above the
-         sheet, mirroring the catalog card. Only render when the song actually has them. -->
-    <div v-if="refLabels.length || song.scripture" class="song-refs">
-      <div v-if="refLabels.length" class="src-tag muted">แหล่งเพลง: {{ refLabels.join(' · ') }}</div>
-      <div v-if="song.scripture" class="scripture-tag muted">📖 {{ song.scripture }}</div>
-    </div>
-
-    <!-- while editing: the SAVE STATE is stated at all times (A-fix) — "ยังไม่บันทึก" vs
-         "บันทึกแล้ว ✓" plus the one save button that fits the tier. Sticky so it stays on
-         screen while scrolling a long song: the user must never have to guess. -->
-    <div v-if="editMode" class="sv-save-bar no-print">
-      <span class="sv-save-state" :class="saveIsSaved ? 'ok' : 'pending'" role="status" aria-live="polite">
-        <Icon v-if="saveIsSaved" name="check" :size="16" /><span v-else class="sv-save-dot" aria-hidden="true">●</span>
-        {{ saveText }}
-      </span>
-      <span v-if="saveState === 'error' && saveError" class="sv-save-err">{{ saveError }}</span>
-      <span v-if="!canStoreServer" class="sv-save-note">เข้าสู่ระบบเพื่อบันทึกเข้าเซิร์ฟเวอร์</span>
-      <button
-        class="sv-save-btn"
-        :disabled="saveState === 'saving'"
-        :title="canStoreServer ? 'บันทึกเป็นร่างในเซิร์ฟเวอร์ (ยังไม่เผยแพร่)' : 'บันทึกงานเป็นไฟล์ JSON เก็บไว้ในเครื่อง'"
-        @click="requestSave"
-      ><Icon :name="canStoreServer ? 'save' : 'download'" :size="16" /> {{ saveLabel }}</button>
-    </div>
-
-    <!-- while editing: a small hint + autosave note ride above the sheet -->
-    <div v-if="editMode" class="sv-edit-hint no-print" role="status">
-แตะโน้ตแล้วพิมพ์เลข · แตะคำแล้วพิมพ์เนื้อ (คีย์บอร์ดขึ้นเอง) · <b>← → ↑ ↓</b> เลื่อน · ปุ่มพิเศษ (สูง/ต่ำ · ♯♭ · แทรก/ทับ) อยู่ในแถบ · <b>Delete</b> ลบอยู่กับที่ · <b>Backspace</b> เอาออกทั้งช่อง<br />
-สัญลักษณ์: <b>#</b> ♯ · <b>b</b> ♭ · <b>n</b> ♮ · <b>'</b> สูงหนึ่งช่วง · <b>_</b> เขบ็ต · <b>.</b> จุดเพิ่มความยาว · <b>~</b> โยงเสียง · <b>^</b> ยืดเสียง · <b>-</b> ลากเสียง · <b>( )</b> เอื้อน · <b>{ }</b> สามพยางค์ · <b>|</b> เส้นกั้นห้อง
-    </div>
-
+    <!-- The editing FRAME. While the pencil is off this is a plain wrapper and the page scrolls
+         as usual; while it is on, the frame pins itself under the shell bar, the sheet scrolls
+         inside .sv-doc, and the tool dock is a sibling BELOW it — so the dock can never cover a
+         note or a word at any scroll position (measured 24 ก.ค.: it used to hide up to 92 of 279
+         visible cells). `--sv-top` is the measured shell-bar height; `--sv-kb` is the phone
+         keyboard's height, so the dock rides just above it. -->
     <div
-      ref="sheetWrap"
-      class="sheet-scale"
-      :class="{ 'sv-editing': editMode }"
-      :style="{ fontSize: readingFontScale + 'rem' }"
-      @click="onInlinePick"
+      class="sv-surface"
+      :class="{ 'sv-frame': editMode }"
+      :style="editMode ? { '--sv-top': frameTop + 'px', '--sv-kb': kbInset + 'px' } : null"
     >
-      <!-- the focused capture field — opens the device keyboard on a phone (numeric for a note,
-           Thai text for a word) and carries the typed lyric. Sits over the selected cell. -->
-      <input
-        v-if="editMode && selCell"
-        ref="captureInput"
-        class="sv-capture no-print"
-        :class="{ 'on-word': selLayer === 'word' }"
-        :inputmode="selLayer === 'word' ? 'text' : 'numeric'"
-        :style="captureStyle"
-        autocomplete="off"
-        autocapitalize="off"
-        autocorrect="off"
-        spellcheck="false"
-        aria-label="ช่องพิมพ์แก้โน้ต/คำ"
-        @keydown="onCaptureKey"
-        @input="onCaptureInput"
+      <!-- the editor's header: SAVE STATE stated at all times (A-fix) — "ยังไม่บันทึก" vs
+           "บันทึกแล้ว ✓" — plus the save button that fits the tier and the way out. It is a flex
+           child of the frame, ABOVE the scroll region: it used to be `position: sticky` inside it,
+           which meant it sat on top of the first line of every verse as you scrolled (measured:
+           34 cells hidden behind it). Nothing in the editor floats over the sheet any more. -->
+      <div v-if="editMode" class="sv-save-bar no-print">
+          <span class="sv-save-state" :class="saveIsSaved ? 'ok' : 'pending'" role="status" aria-live="polite">
+            <Icon v-if="saveIsSaved" name="check" :size="16" /><span v-else class="sv-save-dot" aria-hidden="true">●</span>
+            {{ saveText }}
+          </span>
+          <!-- ฟังตอนแก้ (P'Aim 24 ก.ค.) — the แก้ → ฟัง → แก้ loop must close without leaving the
+               pencil. Three plain buttons, always drawn, never behind a gesture: the whole song,
+               the ท่อน under the cursor, the บรรทัด under the cursor. Same audio path as โหมดฟัง
+               (startPlay) — only `order` differs, so nothing about the sound can drift. -->
+          <span class="sv-play-group" role="group" aria-label="ฟังเพลงขณะแก้">
+            <button
+              class="sv-play-btn"
+              :class="{ on: isWholePlaying }"
+              :aria-pressed="isWholePlaying"
+              title="ฟังทั้งเพลง (กดอีกครั้งเพื่อพัก)"
+              @click="playWholeFromEditor"
+            ><Icon :name="isWholePlaying ? 'pause' : 'play'" :size="16" /> ทั้งเพลง</button>
+            <button
+              class="sv-play-btn"
+              :class="{ on: isSectionPlaying }"
+              :aria-pressed="isSectionPlaying"
+              :disabled="!canPlaySection"
+              title="ฟังเฉพาะท่อนที่กำลังแก้ (Ctrl+Shift+Enter)"
+              @click="playScope('section')"
+            ><Icon :name="isSectionPlaying ? 'square' : 'play'" :size="16" /> ท่อนนี้</button>
+            <button
+              class="sv-play-btn"
+              :class="{ on: isLinePlaying }"
+              :aria-pressed="isLinePlaying"
+              :disabled="!canPlayLine"
+              title="ฟังเฉพาะบรรทัดที่กำลังแก้ (Ctrl+Enter)"
+              @click="playScope('line')"
+            ><Icon :name="isLinePlaying ? 'square' : 'play'" :size="16" /> บรรทัดนี้</button>
+          </span>
+          <!-- a partial play must SAY what it is playing — never leave the ear guessing -->
+          <span v-if="editPlayLabel" class="sv-play-now" role="status" aria-live="polite">
+            กำลังเล่น: {{ editPlayLabel }}
+          </span>
+          <span v-if="saveState === 'error' && saveError" class="sv-save-err">{{ saveError }}</span>
+          <span v-if="!canStoreServer" class="sv-save-note">เข้าสู่ระบบเพื่อบันทึกเข้าเซิร์ฟเวอร์</span>
+          <!-- B060 ⚙ ตั้งค่าเพลง — the song's เลข/ชื่อ/คีย์/จังหวะ/ความเร็ว/ธีม/หมวด, right here
+               in the editor instead of over in the old grid editor. Belongs to THE DOCUMENT, so
+               it sits with the save controls (not with the note-level dock). Added beside the
+               save/done buttons without moving lane A's เสร็จ or lane B's ฟัง group. -->
+          <button
+            class="sv-settings-btn"
+            type="button"
+            :aria-expanded="settingsOpen"
+            :aria-pressed="settingsOpen"
+            title="ตั้งค่าเพลง — เลขเพลง ชื่อ คีย์ จังหวะ ความเร็ว ธีม หมวด"
+            @click="toggleSettings"
+          ><Icon name="settings" :size="16" /> <span class="sv-settings-lbl">ตั้งค่าเพลง</span></button>
+          <button
+            class="sv-save-btn"
+            :disabled="saveState === 'saving'"
+            :title="canStoreServer ? 'บันทึกเป็นร่างในเซิร์ฟเวอร์ (ยังไม่เผยแพร่)' : 'บันทึกงานเป็นไฟล์ JSON เก็บไว้ในเครื่อง'"
+            @click="requestSave"
+          ><Icon :name="canStoreServer ? 'save' : 'download'" :size="16" /> {{ saveLabel }}</button>
+          <!-- "เสร็จ" lives HERE, beside the save state, instead of on a floating round button:
+               a big fixed FAB is one more thing sitting on top of the sheet, and it collided with
+               the dock once the dock took real height. Editor actions belong in the editor's own
+               header (Docs/Sheets/Word all do this); the ✏️ FAB stays only as the way IN. -->
+          <button class="sv-done-btn" title="เสร็จ — กลับไปฝึกร้อง" aria-label="เสร็จการแก้ไข" @click="requestExitEdit">
+            <Icon name="check" :size="16" /> เสร็จ
+          </button>
+        </div>
+
+      <!-- B060 — the settings themselves. Non-modal beside the sheet on a wide screen, a
+           full-screen page on a phone (SongSettings owns that split). Lives inside the frame so
+           it rides with the editor; position:fixed, so its place in the DOM is not its place on
+           screen. -->
+      <SongSettings
+        v-if="editMode"
+        :open="settingsOpen"
+        :number="song.number"
+        :title-th="song.title_th || ''"
+        :title-en="song.title_en || ''"
+        :category="song.category || ''"
+        :theme="song.theme || ''"
+        :song-key="song.content && song.content.key ? song.content.key : 'C'"
+        :time-signature="song.content && song.content.timeSignature ? song.content.timeSignature : '4/4'"
+        :bpm="song.content ? song.content.bpm : null"
+        @meta="onSettingsMeta"
+        @music="onSettingsMusic"
+        @close="settingsOpen = false"
       />
-      <SongSheet
-        :content="resolved"
-        :mode="sheetMode"
-        :chord-system="sheetChordSystem"
-        :show-chord="showChord"
-        :show-note="showNote"
-        :show-lyric="showLyric"
-        :display-key="displayKey"
-        :playing-seg="playingSeg"
-        :playing-syl="playingSyl"
-        :edit-sel="editMode ? editSel : null"
-        interactive
-        :song-title="printTitle"
-        @seek="onSeek"
+
+      <div class="sv-doc">
+        <!-- B053: แหล่งเพลง (source books) + scripture reference — small captions above the
+             sheet, mirroring the catalog card. Only render when the song actually has them. -->
+        <div v-if="refLabels.length || song.scripture" class="song-refs">
+          <div v-if="refLabels.length" class="src-tag muted">แหล่งเพลง: {{ refLabels.join(' · ') }}</div>
+          <div v-if="song.scripture" class="scripture-tag muted">📖 {{ song.scripture }}</div>
+        </div>
+
+        <div
+          ref="sheetWrap"
+          class="sheet-scale"
+          :class="{ 'sv-editing': editMode, 'sv-settings-open': settingsOpen }"
+          :style="{ fontSize: readingFontScale + 'rem' }"
+          @click="onInlinePick"
+        >
+          <!-- the focused capture field — opens the device keyboard on a phone (numeric for a
+               note, Thai text for a word) and carries the typed lyric. Sits over the selected cell. -->
+          <input
+            v-if="editMode && selCell"
+            ref="captureInput"
+            class="sv-capture no-print"
+            :class="{ 'on-word': selLayer === 'word' }"
+            :inputmode="selLayer === 'word' ? 'text' : 'numeric'"
+            :style="captureStyle"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            aria-label="ช่องพิมพ์แก้โน้ต/คำ"
+            @keydown="onCaptureKey"
+            @input="onCaptureInput"
+          />
+          <SongSheet
+            :content="resolved"
+            :mode="sheetMode"
+            :chord-system="sheetChordSystem"
+            :show-chord="showChord"
+            :show-note="showNote"
+            :show-lyric="showLyric"
+            :display-key="displayKey"
+            :playing-seg="playingSeg"
+            :playing-syl="playingSyl"
+            :edit-sel="editMode ? editSel : null"
+            interactive
+            :song-title="printTitle"
+            @seek="onSeek"
+          />
+        </div>
+      </div>
+
+      <!-- the tool dock — DOCKED, not floating: a flex child of the frame, so it takes its own
+           room instead of sitting on top of the words being typed. Same engine via bar* handlers. -->
+      <NoteInputBar
+        v-if="showToolbar"
+        :layer="selLayer"
+        :wide="isWide"
+        :mode="typeMode"
+        :chords="chordOpts"
+        :hint-nonce="hintNonce"
+        :can-undo="canUndo"
+        :can-redo="canRedo"
+        :help-open="helpOpen"
+        @update:help-open="setHelpOpen"
+        @undo="undoEdit"
+        @redo="redoEdit"
+        @symbol="applySymbol"
+        @nav="barNav"
+        @octave="barOctave"
+        @accidental="barAccidental"
+        @chord="setChord"
+        @toggle-mode="typeMode = typeMode === 'insert' ? 'overwrite' : 'insert'"
       />
     </div>
 
     <!-- ✏️ edit — a floating round action button (Google-Docs pattern), bottom-right above the
-         play dock, shown only by right. Tap = enter edit; while editing it becomes ✓ เสร็จ.
-         The play dock stays put so you can listen while you edit. -->
+         play dock. It is the way IN only: once editing, "เสร็จ" sits in the editor's own save
+         bar, so nothing floats over the sheet while the user is typing on it. -->
     <button
-      v-if="canEdit"
+      v-if="canEdit && !editMode"
       class="sv-fab no-print"
-      :class="{ editing: editMode }"
-      :aria-pressed="editMode"
-      :title="editMode ? 'เสร็จ — กลับไปฝึกร้อง' : 'แก้ไขเพลงนี้'"
-      :aria-label="editMode ? 'เสร็จการแก้ไข' : 'แก้ไขเพลงนี้'"
+      title="แก้ไขเพลงนี้"
+      aria-label="แก้ไขเพลงนี้"
       @click="toggleEdit"
-    ><Icon :name="editMode ? 'check' : 'pencil'" :size="24" /></button>
+    ><Icon name="pencil" :size="24" /></button>
 
     <!-- B107: on first play the chosen instrument's samples download (~2–3 MB, cached after);
          this pill shows the progress, like the MP3 export. Playback starts once it's ready.
@@ -1346,34 +1602,45 @@ function onSeek({ li, si, syk }) {
       @set-all="setAll"
     />
 
-    <!-- EPIC C — the note-input surface (number pad + jianpu symbols + แทรก/ทับ). While editing:
-         a floating popup glued to the selected note on a WIDE screen (fades while you type), or a
-         bottom keyboard-accessory bar on a phone (the only way to enter notes without a hardware
-         keyboard). Chosen by width, never hover/pointer. Same edit engine via bar* handlers. -->
-    <NoteInputBar
-      v-if="showToolbar"
-      :variant="isWide ? 'popup' : 'bar'"
-      :layer="selLayer"
-      :anchor="isWide ? noteRect : null"
-      :dimmed="dimPopup"
-      :mode="typeMode"
-      :chords="chordOpts"
-      :hint-nonce="hintNonce"
-      :can-undo="canUndo"
-      :can-redo="canRedo"
-      @undo="undoEdit"
-      @redo="redoEdit"
-      @symbol="applySymbol"
-      @nav="barNav"
-      @octave="barOctave"
-      @accidental="barAccidental"
-      @chord="setChord"
-      @toggle-mode="typeMode = typeMode === 'insert' ? 'overwrite' : 'insert'"
-    />
   </div>
 </template>
 
 <style scoped>
+/* ---------- the editing frame (24 ก.ค.) --------------------------------------------------
+   Reading: .sv-surface / .sv-doc are inert wrappers and the page scrolls normally.
+   Editing:  the surface becomes an app frame pinned under the sticky shell bar. The sheet gets
+   its own scroll region (.sv-doc) and the tool dock is the next flex child, so the dock OWNS
+   its space instead of floating over the words. That is what makes "0 cells covered at any
+   scroll" achievable at all — a fixed/floating palette always covers whatever is beneath it.
+   z-index sits at --z-dock (40), one tier BELOW the shell bar (--z-nav 50), so the mode tabs,
+   the ☰ menu and every dropdown stay on top and clickable while editing. */
+.sv-frame {
+  position: fixed;
+  top: var(--sv-top, 56px);
+  left: 0;
+  right: 0;
+  /* the phone's on-screen keyboard eats the bottom of the viewport — lift the whole frame so
+     the dock rides just above it, the way a keyboard accessory bar does */
+  bottom: var(--sv-kb, 0px);
+  z-index: var(--z-dock);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg, #fff);
+}
+.sv-frame > .sv-doc {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--sp-4, 16px);
+}
+/* printing must never see the frame — an A4 sheet is one long document, not a viewport */
+@media print {
+  .sv-frame { position: static; display: block; }
+  .sv-frame > .sv-doc { overflow: visible; padding: 0; }
+}
+
 /* ✏️ edit — a floating action button (Material/Google-Docs pattern), shown only to editors.
    Bottom-right, in the thumb zone, riding ABOVE the play dock so listening keeps working. */
 .sv-fab {
@@ -1401,25 +1668,17 @@ function onSeek({ li, si, syk }) {
 .sv-fab:hover { box-shadow: 0 5px 16px rgba(0, 0, 0, 0.34); transform: translateY(-1px); }
 .sv-fab:active { transform: translateY(0); }
 .sv-fab:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
-/* editing → a green "done" (✓), the Google-Docs affordance to leave edit mode. While
-   editing, the play dock is hidden and the ~60px note-input bar sits at the bottom, so the
-   FAB drops to just above THAT bar (same on desktop + phone). */
-.sv-fab.editing {
-  background: #16a34a;
-  bottom: calc(74px + env(safe-area-inset-bottom, 0px));
-}
 /* phone: the dock is ~full-width at the bottom, so lift the FAB clear of it */
 @media (max-width: 640px) {
   .sv-fab { right: 16px; bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
 }
 
-/* A-fix: the save-state bar. STICKY (in flow, --z-sticky — not fixed, so it never fights the
-   shell bar or the bottom dock) so "ยังไม่บันทึก / บันทึกแล้ว ✓" and the save button stay in
-   view down a long song. Google-Docs pattern: state on the left, the action on the right. */
+/* A-fix: the save-state bar = the editor's header row. A flex child of the frame (NOT sticky
+   inside the scroll region — sticky meant it covered the first line of whatever you scrolled
+   past), so "ยังไม่บันทึก / บันทึกแล้ว ✓" and the save button are always on screen and never on
+   top of the song. Google-Docs pattern: state on the left, the actions on the right. */
 .sv-save-bar {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1454,17 +1713,76 @@ function onSeek({ li, si, syk }) {
 }
 .sv-save-btn:disabled { opacity: 0.6; cursor: default; }
 
-/* while editing, a slim hint bar above the sheet */
-.sv-edit-hint {
-  color: var(--muted, #64748b);
-  font-size: 13px;
-  margin: 2px 0 8px;
-  display: flex;
+/* B060 ⚙ ตั้งค่าเพลง — a secondary control in the same 32px row as บันทึกร่าง (its sibling),
+   so the two read as one bar. WCAG 2.2 AA target size is 24px; matching the sibling at 32
+   clears it without inflating one button to 44 and breaking the row (brief 24 ก.ค.). */
+.sv-settings-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: var(--surface, #fff);
+  color: var(--ink, #0f172a);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
 }
-.sv-edit-hint b { color: var(--text, #0f172a); }
+.sv-settings-btn[aria-pressed='true'] { border-color: var(--brand, #8b4513); color: var(--brand, #8b4513); }
+.sv-settings-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* phone: the row gets tight — keep the icon, drop the word, and take a full touch target */
+@media (max-width: 640px) {
+  .sv-settings-lbl { display: none; }
+  .sv-settings-btn { min-height: var(--touch-min, 44px); min-width: var(--touch-min, 44px); justify-content: center; padding: 0 10px; }
+}
+
+/* ฟังตอนแก้ — the transport inside the pencil. Sized to the save bar's own button (32px tall),
+   which clears the WCAG 2.2 AA 24px target floor without towering over its siblings. Plain
+   buttons in normal flow: no hover gate, no gesture, visible the whole time edit mode is on. */
+.sv-play-group { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sv-play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: var(--surface, #fff);
+  color: var(--text, #0f172a);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sv-play-btn:hover:not(:disabled) { border-color: var(--brand, #8b4513); }
+.sv-play-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* the scope that is sounding right now reads as pressed (not merely tinted) */
+.sv-play-btn.on {
+  border-color: var(--brand, #8b4513);
+  background: var(--brand, #8b4513);
+  color: #fff;
+}
+.sv-play-btn:disabled { opacity: 0.5; cursor: default; }
+.sv-play-now { color: var(--brand, #8b4513); font-weight: 600; }
+
+/* ✓ เสร็จ — the way out, beside the save state. Green like the old FAB so the affordance is
+   recognisable, 34px tall to match .sv-save-btn (WCAG 2.2 AA target size = 24px min). */
+.sv-done-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 14px;
+  border-radius: 8px;
+  border: 1px solid #16a34a;
+  background: #16a34a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
 
 /* the sheet is the edit surface — a soft focus ring shows it is "live" */
 .sheet-scale.sv-editing {
@@ -1508,9 +1826,20 @@ function onSeek({ li, si, syk }) {
    once its controls wrap at ≤480px; add the iOS home-indicator inset on top so the last
    line clears on notched phones too. (Clearance tracks the dock height, which S4 owns.) */
 .sheet-scale { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
+/* B060 — while ⚙ ตั้งค่าเพลง is open on a wide screen the panel is docked on the right, so the
+   sheet steps aside instead of being covered (measured at 1280: 2 note/word cells sat under the
+   panel before this). A docked panel that hides the thing you are tuning is worse than useless —
+   the whole reason it is non-modal is that คีย์/จังหวะ change what is drawn. On a phone the panel
+   is full-screen, so there is nothing to make room for. */
+@media (min-width: 761px) {
+  .sheet-scale.sv-settings-open { padding-right: 348px; }
+}
 @media (max-width: 480px) {
   .sheet-scale { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
 }
+/* while editing there IS no fixed dock to clear — the tool dock is in flow below the sheet's
+   scroll region — so that reserve would just be dead space at the end of every song. */
+.sheet-scale.sv-editing { padding-bottom: var(--sp-4, 16px); }
 /* Reading-view tidy ("ง่าย" · P'Aim 21 ก.ค.) — the notation size is LOCKED at the standard
    (like MuseScore/Soundslice: fixed staff size + a separate Aa zoom, never per-song rescaling).
    To stop it sitting cramped on the left of a wide screen, center the sheet block as a page:

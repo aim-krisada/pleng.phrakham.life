@@ -2,6 +2,19 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "b060",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "C:/gl/krisada/pleng.phrakham.life/.claude/worktrees/loving-bhabha-f96d06",
+        "--host",
+        "--port",
+        "5461",
+        "--strictPort"
+      ],
+      "port": 5461
+    },
+    {
       "name": "base",
       "runtimeExecutable": "npx",
       "runtimeArgs": [
@@ -246,7 +259,14 @@
     {
       "name": "euf",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", ".", "--host", "--port", "5413", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5413",
+        "--strictPort"
+      ],
       "port": 5413
     },
     {

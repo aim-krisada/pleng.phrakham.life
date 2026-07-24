@@ -46,11 +46,17 @@ function store(s) {
 }
 
 // Mirror the in-progress content. `savedAt` is what the restore prompt shows the user.
-export function writeWorkingCopy(songId, content, at = Date.now(), s) {
+// B060 — `meta` (optional) mirrors the ⚙ ตั้งค่าเพลง half of the document (เลข · ชื่อ · ธีม ·
+// หมวด). It rides ALONGSIDE the content, never inside it, so a copy written by an older version
+// (no meta) still reads back fine and a renamed song is not lost on a crash either.
+export function writeWorkingCopy(songId, content, at = Date.now(), s, meta = null) {
   const st = store(s)
   if (!st || !content) return false
   try {
-    st.setItem(keyFor(songId), JSON.stringify({ v: 1, songId: songId ?? null, savedAt: at, content }))
+    st.setItem(
+      keyFor(songId),
+      JSON.stringify({ v: 1, songId: songId ?? null, savedAt: at, content, ...(meta ? { meta } : {}) }),
+    )
     return true
   } catch {
     return false // quota / private mode — the editor keeps working, just without recovery
@@ -84,11 +90,16 @@ export function clearWorkingCopy(songId, s) {
 
 // Is the stored copy worth offering? Only when it actually DIFFERS from what the server just
 // gave us — otherwise a saved-then-reopened song would nag about nothing.
-export function hasRecoverable(songId, serverContent, s) {
+// B060 — the settings count as work too: a copy whose MUSIC matches the server but whose ⚙
+// ตั้งค่าเพลง differ (a rename the user never got to save) is still worth offering. `serverMeta`
+// is compared only when the copy carries one, so pre-B060 copies behave exactly as before.
+export function hasRecoverable(songId, serverContent, s, serverMeta = null) {
   const wc = readWorkingCopy(songId, s)
   if (!wc) return null
   try {
-    if (contentStamp(wc.content) === contentStamp(serverContent)) return null
+    const sameContent = contentStamp(wc.content) === contentStamp(serverContent)
+    const sameMeta = !wc.meta || contentStamp(wc.meta) === contentStamp(serverMeta)
+    if (sameContent && sameMeta) return null
   } catch {
     return null
   }

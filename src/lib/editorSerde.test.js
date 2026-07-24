@@ -161,3 +161,79 @@ describe('editorSerde — lossless round-trip', () => {
     expect(src.mystery.a).toBe(1) // clone, not a live reference
   })
 })
+
+// The `holds` field lost in the live DB was NOT the plain number the fixture above uses — it is an
+// OBJECT keyed by note-box index → beats, sitting on a `^` (fermata) note, sometimes across several
+// boxes. These fixtures are copied VERBATIM from the affected published songs (audit re-derived
+// 2026-07-24: 10 songs would lose holds under the pre-fix serde). This pins the fix to the exact
+// production shape so a future serializer that special-cases numeric `holds` can't quietly drop it.
+describe('editorSerde — holds survives in its real production shape (object, fermata note)', () => {
+  // #27 กระซิบ (simple) · #732 พระองค์ละมงกุฎ (repeated) · #760 (multi-box + fractional)
+  const REAL_LINE = [
+    { note: '3^ 0', type: 'segment', chord: 'B', holds: { 0: 3 } },
+    { type: 'bar' },
+    { note: '5_.^ 4__', type: 'segment', chord: 'E', holds: { 0: 1 } },
+    { type: 'bar' },
+    { note: '(5^ #4_^ 4^) 0_', type: 'segment', chord: 'D7', holds: { 0: 0.5, 1: 1, 2: 1.5 } },
+    { note: '2_ 2_ 2_ 3_ 3_^ #4_', type: 'segment', chord: 'A7', holds: { 4: 0.5 } },
+  ]
+
+  it('open → save untouched keeps every holds object byte-for-byte', () => {
+    const out = serializeLine(deserializeLine(REAL_LINE))
+    expect(j(out)).toBe(j(REAL_LINE)) // exact — ordering + fractional values included
+  })
+
+  it('editing the holds-bearing segment (structural rebuild) still keeps its holds object', () => {
+    const line = deserializeLine(REAL_LINE)
+    line.bars[0].segments[0].chord = 'Bm7' // touch the segment → forces the rebuild path
+    const out = serializeLine(line)
+    const seg = out.find((it) => it.type === 'segment' && it.note === '3^ 0')
+    expect(seg.chord).toBe('Bm7') // edit applied
+    expect(seg.holds).toEqual({ 0: 3 }) // multi-key object preserved exactly
+    // the OTHER holds segments (untouched within the same edited line) survive too
+    expect(out.find((it) => it.note === '(5^ #4_^ 4^) 0_').holds).toEqual({ 0: 0.5, 1: 1, 2: 1.5 })
+    expect(out.find((it) => it.note === '2_ 2_ 2_ 3_ 3_^ #4_').holds).toEqual({ 4: 0.5 })
+  })
+})
+
+// Melody SSOT must be 100% (P'Aim, gate-level 2026-07-24): a repeat boundary and a volta ending
+// are play-order data — losing one changes how many times a phrase is sung, which IS the melody.
+// Audit 🟡-2 found these vanish when they sit on a note-less bar and the line is edited (the empty
+// -bar filter dropped the whole bar). `rebuild()` deletes the byte-for-byte passthrough anchors so
+// serializeLine is FORCED down the structural path — exactly what happens when the author edits
+// somewhere else on the line. These pin the fix (barHasMarker keeps marker-only bars).
+function rebuild(items) {
+  const line = deserializeLine(items)
+  delete line._source // force the structural rebuild instead of the untouched-line passthrough
+  delete line._pristine
+  return serializeLine(line)
+}
+describe('editorSerde — a repeat / volta / pickup on a note-LESS bar survives an edit-rebuild (🟡-2)', () => {
+  it('a :‖ repeat-end with times on the trailing note-less bar is NOT dropped', () => {
+    const items = [{ type: 'segment', chord: 'C', note: '1' }, { type: 'bar' }, { type: 'repeat-end', times: 2 }]
+    expect(rebuild(items)).toEqual(items) // the whole repeat (play twice) survives
+  })
+
+  it('a 1./2. volta ending on a note-less bar is NOT dropped', () => {
+    const items = [
+      { type: 'segment', chord: 'C', note: '1' }, { type: 'bar' },
+      { type: 'volta', num: 2 }, { type: 'bar' },
+      { type: 'segment', chord: 'G', note: '3' },
+    ]
+    expect(rebuild(items)).toEqual(items)
+  })
+
+  it('a ‖: … :‖ pair whose closing bar has no note of its own round-trips', () => {
+    const items = [
+      { type: 'repeat-start' }, { type: 'segment', chord: 'C', note: '1' },
+      { type: 'bar' }, { type: 'repeat-end' },
+    ]
+    expect(rebuild(items)).toEqual(items)
+  })
+
+  it('a genuinely empty bar (no note, no marker) is still dropped — no phantom bars', () => {
+    // an author who clears a bar to nothing should not leave a stray {type:'bar'} behind
+    const out = rebuild([{ type: 'segment', chord: 'C', note: '1' }, { type: 'bar' }])
+    expect(out).toEqual([{ type: 'segment', chord: 'C', note: '1' }])
+  })
+})
