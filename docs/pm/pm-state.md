@@ -10,7 +10,7 @@
 - 🧪 **จ่าย regression-tester ตรวจ integration ทั้งก้อน live /v2** (hot-file SongViewer.vue union 4 feature · แต่ละชิ้น verified แยกแล้ว = catch fast-follow) — running
 - 🔴 **P'Aim ทดสอบเองบน /v2 live:** BI-005 IME/มือถือจริง · BI-010 QR scan โทรศัพท์ · BI-007 role editor/approver (ล็อกอินจริง) · new-song server draft-save
 - 🔒 **MILESTONE นี้ scope ปิดแล้ว (P'Aim "ขอพอแค่นี้จริงๆ สำหรับ milestone นี้")** — ไม่รับ feature ใหม่ · ที่เหลือ = execute/gate/land ที่จ่ายไปทั้งหมด แล้ว redeploy · ทุกงาน world-class + G consult "ทุกเรื่อง มีเหตุผลว่าควรเป็นยังไงดีที่สุด"
-- ✅ **BI-014 gate: อนุมัติ Option A** (คลิกว่าง=คง selection+คืน focus · G ยืนยัน 2 รอบ · ตรง mental model) → building (`321ffe2e`) · ⚠️ SongViewer.vue hot-file
+- ✅ **BI-014 PASS merge-ready** `bi014-blank-click-focus @9c1bc7a` (Option A) — VERIFIED real-browser: เมาส์คลิกว่าง→ยัง focus พิมพ์ต่อได้ · touch→OSK ปิด · SongViewer.vue เดียว (+31/-1) · ⚠️ **merge หลัง BI-011/012** (แตะ onInlinePick+.sheet-scale binding · diff เล็ก resolve ง่าย) · NOT: มือถือจริง · touch highlight ค้างหลัง blur (G รับได้ · จะ clear ด้วยต้องถาม P'Aim = follow-up)
 - **BI-017** ปุ่ม "สร้างเพลงใหม่" ในแผงตั้งค่าเพลงยังไปหน้าเก่า (db7ebce แก้แค่ปุ่ม ＋ shell · ตกหล่นจุดนี้) — chip `task_f9a74487` wire ทุก entry→inline
 - **BI-012 discoverability = deliverable หลัก Phase 2** (P'Aim: chord ไม่มี help เลย ปุ่มเขียนแค่ "คอร์ด" · ไอเดียปุ่ม ◀▶ เพิ่มตำแหน่งคอร์ด) → consult G เจาะ discoverability + ประเมินไอเดียลูกศร มีเหตุผลฟันธง
 - 🎯 **เฟส POLISH (P'Aim สั่ง · ทุกงาน world-class + G consult บังคับ ผ่าน ai-bridge Chrome :9335):**
