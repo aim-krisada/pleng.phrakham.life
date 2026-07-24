@@ -23,7 +23,9 @@
   - **BI-014** คลิกข้างๆแล้ว highlight ค้างแต่พิมพ์ต่อไม่ได้ (focus↔highlight ไม่ sync) — chip `task_2c46146b` (analyze+G→STOP gate)
   - **BI-013** ลบบรรทัดใน StructureDrawer — audit ยืนยัน **หายจริง** (แถว sd-line มีแค่ ▲▼/คัดลอก/ทำซ้ำ · มี trash เฉพาะท่อน/ทำนอง ไม่มีของบรรทัด) → chip `task_ccd80630` (reuse onDelete pattern + undo/ยืนยัน + G)
 - ✅ **audit `a6f51224` DONE (717fb7a):** BI-001..010 + item3/4 **present ครบทุกตัว** · **SB1 desktop = clean LIVE จริง** (single bar · ไม่มี share/⋮ ซ้ำ · ShellBar.vue:36/217/256/263) — **desktop ดีแล้ว แต่ ship ไปทั้งที่พี่เอม HOLD** · **SB1 มือถือ = ยังเป็น stopgap** (song ↗+⋮ ตก 2 แถวบนจอเล็ก · flag "รอแถบบนออกแบบใหม่" styles.css:625) = ตรงกับที่ HOLD ไว้ → **PM แนะ KEEP desktop (world-class) · มือถือคง temp รอ redesign** (รอ P'Aim veto)
-  - 🧪 regression-tester `f09d703b` running (batch รวม live /v2)
+  - ✅ **regression-tester `f09d703b` PASS** (batch 7 ตัวอยู่ร่วมกัน live /v2 · ไม่มีข้อมูลหาย/crash/error/ชนกัน · จับ false-alarm resize-artifact เอง · verdict inbox `2026-07-24-tester-integration-regression.md`) → **batch live ยืนยันปลอดภัย** · wound down
+    - **NOT PROVEN (real-device/login · P'Aim test):** audio auto-stop BI-006 · marker insert→render breadcrumb · BI-007 role (anon/editor/approver) · mobile keypad key size fresh-360
+    - **obs low-sev (P'Aim judgment):** share จาก /v2 ได้ลิงก์ `/#/` (v1) — น่าจะ intended (canonical + future-proof ตอน v2→root · DB เดียวเปิดได้) · live songs โชว์ "ตรวจโน้ต 12" = validation flag เดิม ไม่เกี่ยว batch
 - ⏭️ **queue ต่อ (redeploy ทีละตัว):** issue9 lead-sheet header (SA design เสร็จ) · SB1 มือถือ (P'Aim คิด) · item1 repeat-marker เพิ่มเติม
 <!-- ARCHIVED assemble detail (ชิ้นย่อย verified) — ดู decisions-log 24 ก.ค. pm46 -->
 <details><summary>assemble detail (verified · shipped)</summary>
