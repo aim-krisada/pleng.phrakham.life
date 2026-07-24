@@ -14,9 +14,11 @@
 **merge = PM · ทุก worker ping merge-ready → PM fast-forward studio-shell-redesign + push (Actions redeploy)**
 | # | งาน | worker | สถานะ |
 |---|---|---|---|
-| BI-002 | **เสียงค้าง: กด ✏️ ตอนเล่นเพลง แล้วหยุดไม่ได้** → เข้าโหมดแก้ให้ stop playback | `a06948f3` (RUNNING) | 🔴 priority แรก |
-| SB1+SB2 | **แถบบนสะอาด** (ลบ share/⋮ ซ้ำ · แถบเดียว `‹ ชื่อ ↗ ⋮`) `@55171ef` desktop ✓ + **▶ Play hero** | `411913fd` (RUNNING) | SB1 done รอ **P'Aim confirm มือถือ** ([:5321](http://192.168.1.124:5321/)) → redeploy · SB2 ทำต่อ · = redeploy #2 · BI-001 อยู่ในนี้ |
-| #4 | port DISPLAY เข้า inline: **lint** → paste-syllable → repeat-markers UI (engine banked test 1478 · spec `marker-entry-ui.md`@02cde29) | `a06948f3` | หลัง BI-002 |
+| SB1 | **แถบบนสะอาด** (ลบ share/⋮ ซ้ำ · แถบเดียว `‹ ชื่อ ↗ ⋮` · home-shell declutter) | `411913fd` | 🟢 **MERGE-READY `@55171ef`** (test 1429 · desktop ✓) = **redeploy #1** · รอ **P'Aim confirm มือถือ** ([:5321](http://192.168.1.124:5321/)) แล้ว PM merge+push · BI-001 อยู่ในนี้ |
+| #4 lint | **ป้าย "ตรวจโน้ต" ในตัวแก้ inline** (✓เขียว/เหลือง+พาเนลปัญหา · reactive · แก้ wolf-cry pickup) | `a06948f3` | 🟢 **MERGE-READY `@2a972b8`** (test 1482 · SongViewer.vue · รวม item1-engine dormant harmless) = redeploy · แยก item4-ล้วนได้ถ้าอยาก |
+| BI-002 | **เสียงค้าง: กด ✏️ ตอนเล่นเพลง แล้วหยุดไม่ได้** → เข้าโหมดแก้ให้ stop playback | `a06948f3` | 🔴🔴 **สถานะไม่ชัด — ถาม port-remaining แล้ว** (รายงาน lint ไม่พูดถึง BI-002 · สั่งให้ทำก่อน · PM 44 เช็กด่วน · P'Aim จับตา) |
+| SB2 | ▶ Play hero + secondary→⋮ | `411913fd` | 🔴 **HOLD = P'Aim DECISION** (dock = P'Aim จูนเอง 13 ก.ค. + DockKey shared phrakham = regression risk · ⛔ ห้าม blind-restructure · ต้อง P'Aim sign-off) |
+| #4 ต่อ | paste-syllable → repeat-markers UI (engine banked · spec `marker-entry-ui.md`@02cde29) | `a06948f3` | หลัง BI-002 · กำลังทำ paste |
 | #5 | **header แก้ inline** (lead-sheet · 2 synced surface กับ ⚙ · design เสร็จ `docs/ds/song-header-inline-edit.md`) → build | design `534ea90d` done | รอ dispatch build |
 
 **hot-file `SongViewer.vue`:** BI-002+#4 (`a06948f3`) กับ SB2 (`411913fd`) แชร์ → 2 สายประสาน region เอง (edit-toggle/lint vs reading-transport) · merge base ก่อน commit
