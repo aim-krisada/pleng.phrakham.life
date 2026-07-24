@@ -1018,7 +1018,7 @@ const SAVE_TEXT = {
 }
 const saveText = computed(() => SAVE_TEXT[props.saveState] || SAVE_TEXT.clean)
 const saveIsSaved = computed(() => props.saveState === 'clean' || props.saveState === 'saved')
-const saveLabel = computed(() => (canStoreServer.value ? 'บันทึกร่าง' : 'บันทึกเป็นไฟล์'))
+const saveLabel = computed(() => (canStoreServer.value ? 'บันทึกร่าง' : 'ดาวน์โหลด JSON'))
 function requestSave() {
   if (props.saveState === 'saving') return
   if (canStoreServer.value) emit('save')
