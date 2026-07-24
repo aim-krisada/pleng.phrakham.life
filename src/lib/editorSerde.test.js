@@ -5,8 +5,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   deserializeLine, serializeLine, rest,
-  CONTENT_KEYS, STANZA_KEYS, ARRANGEMENT_KEYS, newLine, newSegment,
+  CONTENT_KEYS, STANZA_KEYS, ARRANGEMENT_KEYS, newLine, newSegment, emptyContent,
 } from './editorSerde.js'
+import { noteBoxKinds } from './notation.js'
+import { resolveContent } from './songModel.js'
 
 // full content <-> editState round-trip, mirroring EditorMode.applyRow / previewContent, so the
 // test proves the WHOLE pipeline (content top-level + stanza + arrangement + line) not just lines.
@@ -259,5 +261,36 @@ describe('editorSerde — a repeat / volta / pickup on a note-LESS bar survives 
     // an author who clears a bar to nothing should not leave a stray {type:'bar'} behind
     const out = rebuild([{ type: 'segment', chord: 'C', note: '1' }, { type: 'bar' }])
     expect(out).toEqual([{ type: 'segment', chord: 'C', note: '1' }])
+  })
+})
+
+// The blank-song contract for the inline editor's "＋ เพลงใหม่": a brand-new song must render as
+// ONE editable note cell so the author can type immediately. An empty note ('') yields only a
+// 'struct' kind (no cell) — the blank-song trap — so emptyContent seeds a rest ('0'), which IS a
+// slot-bearing cell. If someone re-blanks the seed, these go RED (the inline editor would be dead).
+describe('emptyContent — the inline editor blank-song contract', () => {
+  it('is a valid v2 content: one stanza, one line, one arrangement entry', () => {
+    const c = emptyContent()
+    expect(c.version).toBe(2)
+    expect(c.stanzas).toHaveLength(1)
+    expect(c.stanzas[0].lines).toHaveLength(1)
+    expect(c.arrangement).toHaveLength(1)
+    expect(c.arrangement[0].stanza).toBe(c.stanzas[0].id)
+  })
+
+  it('seeds a slot-bearing note (a rest) — NOT an empty note, so it renders one editable cell', () => {
+    const c = emptyContent()
+    const seg = resolveContent(c)[0][0]
+    // the note must produce a non-'struct' box (an empty '' would yield only 'struct' → no cell)
+    expect(noteBoxKinds(seg.note).some((k) => k !== 'struct')).toBe(true)
+    expect(seg.note).toBe('0') // canonical jianpu rest — a valid standalone first beat
+  })
+
+  it('each call returns a fresh, independent object (no shared mutable state)', () => {
+    const a = emptyContent()
+    const b = emptyContent()
+    expect(a).not.toBe(b)
+    a.stanzas[0].lines[0].push({ type: 'segment', note: '1' })
+    expect(b.stanzas[0].lines[0]).toHaveLength(1) // b untouched
   })
 })
