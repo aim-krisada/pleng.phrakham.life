@@ -155,8 +155,11 @@ function onViewerContent(content) {
   inlineState.value = same ? 'clean' : 'dirty'
   // the local copy follows the document, undo included — never a stale snapshot of a state the
   // user has already stepped away from
-  if (same) clearWorkingCopy(liveSong.value.id)
-  else writeWorkingCopy(liveSong.value.id, content) // กันหาย: mirrored on every keystroke
+  if (same) { clearWorkingCopy(liveSong.value.id); workCopySafe.value = true }
+  // กันหาย: mirrored on every keystroke. writeWorkingCopy tells us whether it LANDED (private
+  // mode / quota make it fail), and that answer decides how hard we have to argue when the user
+  // leaves the editor with unsaved work — see SongViewer.requestExitEdit.
+  else workCopySafe.value = writeWorkingCopy(liveSong.value.id, content)
 }
 
 // ---------- A-fix (23 ก.ค.): the inline editor's SAVE path ----------
@@ -175,6 +178,9 @@ function onViewerContent(content) {
 const inlineState = ref('clean') // clean | dirty | saving | saved | error
 const inlineError = ref('')
 const inlineDraftId = ref(null)
+// did the last mirror to localStorage actually land? false = private mode / quota, i.e. the
+// work exists ONLY in this page's memory and a reload really would lose it.
+const workCopySafe = ref(true)
 // the content as of the last load / successful save — what "ยังไม่บันทึก" is measured against.
 // contentStamp (not JSON.stringify) so the comparison is about the MUSIC, not about the key
 // order Postgres happens to return — that mismatch kept an untouched song marked ยังไม่บันทึก.
@@ -366,6 +372,41 @@ const MODES = [
   { id: 'edit', label: 'แก้ไข', icon: 'pencil', title: 'แก้ไข' },
 ]
 
+// ---------- the mode tabs vs the inline (✏️) editor — 24 ก.ค. ----------
+// The ✏️ editor lives INSIDE ฝึกร้อง, so while it is open the tab strip was lying twice over:
+// "ฝึกร้อง" showed as the current view although the user was clearly in an editor, and pressing
+// it did literally nothing (verified: no state change, no dialog) — a dead control in the middle
+// of the screen, which reads as "the site is broken". The other two tabs did switch, but walked
+// out of the editor without a word even with unsaved work on screen.
+// So: the tabs are the shell's ONE way of saying where you are. While the inline editor is open
+// no tab is current, and pressing ANY of them means "take me out of the editor" — routed through
+// the editor's own exit gate, which asks only when there is unsaved work (an always-on confirm
+// is one people learn to click through).
+const viewerRef = ref(null)
+const viewerEditing = ref(false)
+// Leaving the editor with unsaved work is announced HERE, not with a dialog, and not with a
+// floating toast either: this whole task was about taking floating things off the sheet, so it
+// is an in-flow banner in the same shape as the recovery offer below it. It says where the work
+// went and gives one click back — and it stays until the user acts, because an auto-dismissing
+// message about unsaved work is a message half the people never see.
+const leftDirty = ref(false)
+function onLeftDirty() { leftDirty.value = true }
+function resumeEditing() {
+  leftDirty.value = false
+  mode.value = 'view'
+  nextTick(() => viewerRef.value?.toggleEdit?.())
+}
+// saving (or undoing back to the saved state) makes the banner untrue — drop it
+watch(inlineState, (s) => { if (s !== 'dirty') leftDirty.value = false })
+
+function setMode(id) {
+  if (viewerEditing.value) {
+    // requestExitEdit returns false when the user chose "let me save first" — then we stay put
+    if (viewerRef.value?.requestExitEdit && !viewerRef.value.requestExitEdit()) return
+  }
+  mode.value = id
+}
+
 // ---------- shell song picker (US-05) ----------
 // "เปิด/เลือกเพลง" lives on the shell (not inside the editor) so it works in EVERY mode:
 // a reader in ดู/แผ่น can jump to another song without first entering แก้. Picking a song
@@ -442,6 +483,16 @@ function printSheet() {
 
 <template>
   <div>
+    <!-- left the ✏️ editor with unsaved work — say so in flow, above whatever mode they went to,
+         with the way straight back. No dialog (the work is mirrored locally, so nothing is at
+         stake) and no floating toast (nothing floats over the sheet any more). -->
+    <div v-if="leftDirty" class="sv-leftdirty no-print" role="status">
+      <Icon name="pencil" :size="16" />
+      <span>ออกจากโหมดแก้แล้ว · งานที่ยังไม่บันทึกยังอยู่ครบ (เก็บสำเนาไว้ในเครื่องให้แล้ว)</span>
+      <button class="rec-btn primary" @click="resumeEditing">กลับไปแก้ต่อ</button>
+      <button class="rec-btn" @click="leftDirty = false">ปิด</button>
+    </div>
+
     <!-- shell chrome teleported into the app-wide ShellBar: static title (ดู/แผ่น) + the
          3-way mode switch (always visible). The editor teleports its own title input +
          เพลง/จัดการ menus while it is the active mode. -->
@@ -507,10 +558,10 @@ function printSheet() {
           v-for="m in MODES"
           :key="m.id"
           class="sb-mode-btn"
-          :class="{ on: mode === m.id }"
-          :aria-pressed="mode === m.id"
-          :title="m.title"
-          @click="mode = m.id"
+          :class="{ on: mode === m.id && !viewerEditing }"
+          :aria-pressed="mode === m.id && !viewerEditing"
+          :title="viewerEditing ? m.title + ' — ออกจากโหมดแก้' : m.title"
+          @click="setMode(m.id)"
         >
           <Icon :name="m.icon" :size="16" /><span class="sb-mode-label">{{ m.label }}</span>
         </button>
@@ -527,14 +578,18 @@ function printSheet() {
       </div>
       <SongViewer
         v-if="viewerSong"
+        ref="viewerRef"
         :song="viewerSong"
         :tier="tier"
         :save-state="inlineState"
         :save-error="inlineError"
+        :recoverable="workCopySafe"
         :start-key="linkKey"
         @update-content="onViewerContent"
         @save="saveInlineDraft"
         @key-change="viewKey = $event"
+        @update:editing="viewerEditing = $event"
+        @left-dirty="onLeftDirty"
       />
       <p v-else class="muted" style="padding: 16px">ยังไม่มีเพลงให้แสดง — ไปที่ “แก้” เพื่อเริ่มสร้างเพลง</p>
     </div>
@@ -652,6 +707,22 @@ function printSheet() {
   background: var(--brand, #8b4513);
   color: #fff;
   font-weight: 600;
+}
+
+/* "you left the editor, the work is safe, here is the way back" — same in-flow shape as the
+   recovery offer above, one tone calmer (this is information, not a decision that can go wrong) */
+.sv-leftdirty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: var(--cream, #faf6ef);
+  color: var(--ink, #0f172a);
+  font-size: 14px;
 }
 
 /* teleported into #shell-title / #shell-menus — scoped styles still apply to elements
