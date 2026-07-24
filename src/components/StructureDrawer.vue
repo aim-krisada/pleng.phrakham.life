@@ -20,6 +20,7 @@ import {
   copyBar, copyLine, pasteBarInLine, pasteLineInStanza, pasteLineAsStanza,
   duplicateBar, duplicateLine, moveBar, moveLine,
 } from '../lib/songStructure.js'
+import { verseLyricText, withVerseText, segmentThai } from '../lib/songLyrics.js'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -81,6 +82,25 @@ function onRetag(i, stanzaId) { apply(setVerseStanza(props.content, i, stanzaId)
 function onMakeUnique(i) { apply(makeVerseUnique(props.content, i)) }
 function onRename(i, e) { apply(setVerseLabel(props.content, i, e.target.value)) }
 function onRefrain(i, e) { apply(setAfterEachVerse(props.content, i, e.target.checked)) }
+
+// แก้เนื้อทั้งข้อ — the bulk-lyric textarea (ported from the old boxed editor's per-verse "type the
+// words" box). One verse open at a time; a LOCAL buffer holds the text so typing / Thai IME never
+// fights a props-driven re-render, and the mapping onto the melody's attack notes only happens when
+// the author commits (ลงโน้ต / ✂). See lib/songLyrics.js for the mapping.
+const lyricEditing = ref(-1) // arrangement index whose textarea is open (-1 = none)
+const lyricBuf = ref('')
+function openLyric(i) {
+  if (lyricEditing.value === i) { lyricEditing.value = -1; return } // toggle closed
+  const r = arrangement.value[i]
+  lyricBuf.value = r ? verseLyricText(props.content, r.stanza, r.syllables || []) : ''
+  lyricEditing.value = i
+}
+function applyLyric(i) { apply(withVerseText(props.content, i, lyricBuf.value)) }
+function autoSegmentLyric(i) {
+  lyricBuf.value = segmentThai(lyricBuf.value).join(' ') // show the split in the box…
+  apply(withVerseText(props.content, i, lyricBuf.value)) // …and land it on the notes
+}
+watch(() => props.open, (o) => { if (!o) lyricEditing.value = -1 }) // close with the drawer
 
 // ---- melody (stanza) actions ----
 function onAddStanza() { apply(addStanza(props.content)) }
@@ -224,10 +244,33 @@ watch(() => props.open, (on) => {
             </div>
 
             <div class="sd-card-acts">
+              <button class="sd-icon" type="button" :class="{ on: lyricEditing === card.i }" :aria-expanded="lyricEditing === card.i" :aria-label="`แก้เนื้อทั้งข้อที่ ${card.i + 1}`" title="แก้เนื้อทั้งข้อ — วาง/พิมพ์เนื้อทั้งท่อน แล้วลงโน้ตอัตโนมัติ" @click="openLyric(card.i)"><Icon name="file-text" :size="15" /></button>
               <button class="sd-icon" type="button" :disabled="card.i === 0" aria-label="เลื่อนขึ้น" title="เลื่อนขึ้น" @click="onMove(card.i, -1)"><Icon name="chevron-up" :size="15" /></button>
               <button class="sd-icon" type="button" :disabled="card.i === cards.length - 1" aria-label="เลื่อนลง" title="เลื่อนลง" @click="onMove(card.i, 1)"><Icon name="chevron-down" :size="15" /></button>
               <button class="sd-icon" type="button" aria-label="ทำซ้ำท่อนนี้" title="ทำซ้ำท่อน (เนื้อ+ทำนองเดิม)" @click="onDuplicate(card.i)"><Icon name="copy" :size="15" /></button>
               <button class="sd-icon danger" type="button" :disabled="cards.length <= 1" aria-label="ลบท่อนนี้" title="ลบท่อน" @click="onDelete(card.i)"><Icon name="trash-2" :size="15" /></button>
+            </div>
+
+            <!-- แก้เนื้อทั้งข้อ — paste/type a whole verse; each space-separated word lands on the next
+                 attack note (held/rest notes stay blank). ✂ splits spaceless Thai first. Ported from
+                 the old boxed editor's per-verse textarea; the mapping is lib/songLyrics.js. -->
+            <div v-if="lyricEditing === card.i" class="sd-lyric no-print">
+              <label class="sd-lyric-lbl" :for="`sd-lyric-${card.i}`">เนื้อทั้งข้อ — เว้นวรรคระหว่างคำ (แต่ละคำลงโน้ตถัดไป)</label>
+              <textarea
+                :id="`sd-lyric-${card.i}`"
+                class="sd-lyric-ta"
+                v-model="lyricBuf"
+                rows="3"
+                spellcheck="false"
+                placeholder="วางหรือพิมพ์เนื้อร้องทั้งท่อนที่นี่ แล้วกด “ลงโน้ต”…"
+                @keydown.esc="lyricEditing = -1"
+              ></textarea>
+              <div class="sd-lyric-acts">
+                <button class="sd-mini" type="button" title="แยกคำไทยที่พิมพ์/วางติดกันให้เป็นคำ ๆ (ใช้พจนานุกรมในเบราว์เซอร์)" @click="autoSegmentLyric(card.i)">✂ แยกคำไทย</button>
+                <button class="sd-mini primary" type="button" title="ลงเนื้อนี้บนโน้ตของท่อน" @click="applyLyric(card.i)"><Icon name="check" :size="13" /> ลงโน้ต</button>
+                <button class="sd-mini ghost" type="button" @click="lyricEditing = -1">ปิด</button>
+              </div>
+              <p class="sd-lyric-hint">แต่ละคำไปลงโน้ตตัวถัดไป · โน้ตลาก/พักเว้นว่าง · ใช้ยัติภังค์ (-) เชื่อมพยางค์ในคำเดียว</p>
             </div>
           </li>
         </ul>
@@ -325,7 +368,7 @@ watch(() => props.open, (on) => {
 
 .sd-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .sd-card {
-  display: flex; align-items: stretch; gap: 6px;
+  display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap;
   padding: 6px; border: 1px solid var(--line, #e2e8f0); border-radius: 10px;
   background: var(--surface, #fff); transition: border-color .12s, background .12s, box-shadow .12s;
 }
@@ -367,7 +410,20 @@ watch(() => props.open, (on) => {
 .sd-icon:hover:not(:disabled) { border-color: var(--line, #e2e8f0); background: color-mix(in srgb, var(--ink, #0f172a) 5%, transparent); }
 .sd-icon:disabled { opacity: .35; cursor: default; }
 .sd-icon.danger:hover:not(:disabled) { color: #dc2626; border-color: #fca5a5; }
+.sd-icon.on { border-color: var(--brand, #b45309); color: var(--brand, #b45309); background: color-mix(in srgb, var(--brand, #b45309) 8%, transparent); }
 .sd-icon:focus-visible { outline: 2px solid var(--brand, #b45309); outline-offset: 1px; }
+
+/* แก้เนื้อทั้งข้อ — the per-verse bulk-lyric textarea, wraps full-width below the card row */
+.sd-lyric { flex: 1 0 100%; display: flex; flex-direction: column; gap: 6px; margin-top: 4px; padding: 8px; border: 1px solid color-mix(in srgb, var(--brand, #b45309) 30%, var(--line, #e2e8f0)); border-radius: 8px; background: color-mix(in srgb, var(--brand, #b45309) 4%, var(--surface, #fff)); }
+.sd-lyric-lbl { font-size: var(--fs-xs, 0.8rem); font-weight: 600; color: var(--ink, #362f28); }
+.sd-lyric-ta { width: 100%; box-sizing: border-box; resize: vertical; min-height: 3.2em; padding: 6px 8px; border: 1px solid var(--line, #e2e8f0); border-radius: 6px; background: var(--surface, #fff); color: var(--ink, #362f28); font: inherit; font-size: var(--fs-sm, 0.9rem); line-height: 1.5; }
+.sd-lyric-ta:focus-visible { outline: 2px solid var(--brand, #b45309); outline-offset: 1px; }
+.sd-lyric-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.sd-mini.primary { border-color: var(--brand, #b45309); color: var(--brand, #b45309); font-weight: 600; }
+.sd-mini.primary:hover { background: color-mix(in srgb, var(--brand, #b45309) 10%, transparent); }
+.sd-mini.ghost { color: var(--muted, #64748b); }
+.sd-mini:focus-visible { outline: 2px solid var(--brand, #b45309); outline-offset: 1px; }
+.sd-lyric-hint { margin: 0; font-size: var(--fs-xs, 0.8rem); color: var(--muted, #6f6455); line-height: 1.4; }
 
 .sd-mels { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .sd-mel {
