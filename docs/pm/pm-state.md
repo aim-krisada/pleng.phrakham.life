@@ -9,6 +9,10 @@
 - **`integration/editor-fix-batch @717fb7a` (off 7afb038) = LIVE /v2** · รวม BI-004/dc-ds/symbol/BI-005/BI-006+007/new-song/BI-010 · test:all 1577/0-fail · `/v2/` bundle stamp 717fb7a · `/` (v1) stamp 393fe9e tree byte-identical ปลอดภัย · 0 SQL · deploy mechanism + assembler-caught-error → decisions-log (24 ก.ค. pm46)
 - 🧪 **จ่าย regression-tester ตรวจ integration ทั้งก้อน live /v2** (hot-file SongViewer.vue union 4 feature · แต่ละชิ้น verified แยกแล้ว = catch fast-follow) — running
 - 🔴 **P'Aim ทดสอบเองบน /v2 live:** BI-005 IME/มือถือจริง · BI-010 QR scan โทรศัพท์ · BI-007 role editor/approver (ล็อกอินจริง) · new-song server draft-save
+- 🔒 **MILESTONE นี้ scope ปิดแล้ว (P'Aim "ขอพอแค่นี้จริงๆ สำหรับ milestone นี้")** — ไม่รับ feature ใหม่ · ที่เหลือ = execute/gate/land ที่จ่ายไปทั้งหมด แล้ว redeploy · ทุกงาน world-class + G consult "ทุกเรื่อง มีเหตุผลว่าควรเป็นยังไงดีที่สุด"
+- ✅ **BI-014 gate: อนุมัติ Option A** (คลิกว่าง=คง selection+คืน focus · G ยืนยัน 2 รอบ · ตรง mental model) → building (`321ffe2e`) · ⚠️ SongViewer.vue hot-file
+- **BI-017** ปุ่ม "สร้างเพลงใหม่" ในแผงตั้งค่าเพลงยังไปหน้าเก่า (db7ebce แก้แค่ปุ่ม ＋ shell · ตกหล่นจุดนี้) — chip `task_f9a74487` wire ทุก entry→inline
+- **BI-012 discoverability = deliverable หลัก Phase 2** (P'Aim: chord ไม่มี help เลย ปุ่มเขียนแค่ "คอร์ด" · ไอเดียปุ่ม ◀▶ เพิ่มตำแหน่งคอร์ด) → consult G เจาะ discoverability + ประเมินไอเดียลูกศร มีเหตุผลฟันธง
 - 🎯 **เฟส POLISH (P'Aim สั่ง · ทุกงาน world-class + G consult บังคับ ผ่าน ai-bridge Chrome :9335):**
   - **BI-011** ลบเส้นโค้งบนโน้ต (tie/slur) — session `567d43e1` running (เพิ่มเงื่อนไข G แล้ว)
   - **BI-012** คอร์ด inline — ✅ **Phase1 design+G เสร็จ · PM GATE อนุมัติ Phase2 build** (session `2347770c`) · finding: keyboard-continuous **มีอยู่แล้ว** (กด c→พิมพ์→Space เด้งถัดไป · G-reviewed) = REFINE ไม่ rebuild · gap: (1) click/tap โซนคอร์ดเปิด (2) **discoverability**=สำคัญสุด(P'Aim ไม่รู้ว่ามี) affordance+first-run hint (3) desktop caret vs touch chip (4) Tab/ghost-preview/aria · D6=KEEP ปุ่มล่างรอบนี้ · spec `docs/ds/bi012-chord-entry.md`
