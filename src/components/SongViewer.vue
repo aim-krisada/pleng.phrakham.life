@@ -162,6 +162,19 @@ const posIndex = ref(0)
 // plays, all sections show as selected; the singer unticks the ones to drop. Empty (via
 // "ไม่เลือก") still falls back to the whole song, unchanged.
 const selectedSecs = ref(new Set())
+// ---- ฟังตอนแก้ (P'Aim 24 ก.ค.) — a song-maker works แก้ → ฟัง → แก้ → ฟัง, so listening must
+// not cost an exit from the pencil. There is NO second audio path: a scope preview is the same
+// startPlay/playSong call the dock makes, with `order` narrowed to the range under the cursor.
+// previewOrder ≠ null ONLY while a scoped preview sounds (stopPlay + the natural end clear it),
+// so "playing with no preview" always means the whole song.
+const previewOrder = ref(null) // [{name,fromLi,toLi}] — the narrowed play order
+const previewScope = ref(null) // 'line' | 'section' — which button is lit
+const previewLabel = ref('') // what that scope is, in words (shown while it sounds)
+function clearPreview() {
+  previewOrder.value = null
+  previewScope.value = null
+  previewLabel.value = ''
+}
 
 const resolved = computed(() =>
   props.song ? { ...props.song.content, lines: resolveContent(props.song.content) } : null,
@@ -352,6 +365,7 @@ function redoEdit() { applyHistoryStep(history.redo()) }
 // field, so the two can never disagree.
 function onUndoKeys(e) {
   if (!editMode.value) return
+  if (transportKey(e)) { e.preventDefault(); return } // ฟังบรรทัด/ท่อน · Esc หยุด
   const intent = undoIntent(e)
   if (!intent) return
   e.preventDefault()
@@ -368,6 +382,9 @@ function toggleTypeMode() { typeMode.value = typeMode.value === 'insert' ? 'over
 // word when the caret is at its edge; ↑ ↓ / space / Enter navigate.
 function onCaptureKey(e) {
   if (!editMode.value) return
+  // ฟังบรรทัด/ท่อน (Ctrl+Enter / Ctrl+Shift+Enter) + Esc หยุด — checked FIRST so plain Enter
+  // keeps meaning "next unit" and the transport never steals a typing key.
+  if (transportKey(e)) { e.preventDefault(); return }
   // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y while typing — handled here as well as on the window, so a
   // browser/IME that swallows the event before it bubbles cannot lose the shortcut.
   const histIntent = undoIntent(e)
@@ -724,7 +741,7 @@ function requestSave() {
 }
 // The edit surface's handlers, exposed so the tests can drive the SAME functions the UI does
 // (a test that reimplements the wiring proves nothing about the wiring).
-defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit, toggleEdit })
+defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit, toggleEdit, playScope, playWholeFromEditor })
 
 function toggleEdit() {
   // leaving edit with work that is not stored anywhere must SAY so — never a silent exit
@@ -793,12 +810,13 @@ const allSelected = computed(() => tags.value.length > 0 && selectedSecs.value.s
 const strophicOrder = computed(() => resolvePlayOrder(props.song?.content) ?? undefined)
 // a partial ท่อน selection → ranges (undefined when every ท่อน is picked = whole song)
 const selectionOrder = computed(() => (allSelected.value ? undefined : effectiveOrder(sections.value, selectedSecs.value)))
-// what actually PLAYS: an explicit selection wins; otherwise the strophic default (or, with no
-// directive, undefined = whole song in display order — byte-identical to before B102).
-const order = computed(() => selectionOrder.value ?? strophicOrder.value)
+// what actually PLAYS: a scope preview from the pencil wins (ฟังท่อนนี้ / ฟังบรรทัดนี้ — it is a
+// deliberate, temporary narrowing); then an explicit selection; otherwise the strophic default
+// (or, with no directive, undefined = whole song in display order — byte-identical to before B102).
+const order = computed(() => previewOrder.value ?? selectionOrder.value ?? strophicOrder.value)
 // true ONLY when a strict subset is selected — then play/full indices differ and must be
 // mapped. A strophic whole-song play has playNotes === fullNotes, so mapping stays identity.
-const isSelectionSubset = computed(() => !!selectionOrder.value)
+const isSelectionSubset = computed(() => !!(previewOrder.value || selectionOrder.value))
 const playNotes = computed(() => (resolved.value ? buildPlayNotes(resolved.value, { order: order.value }) : []))
 const totalNotes = computed(() => playNotes.value.length)
 
@@ -955,6 +973,7 @@ function stopPlay() {
   playingSeg.value = null
   playingSyl.value = null
   instrumentLoading.value = false // hide the "loading piano" pill if we cancel mid-download
+  clearPreview() // a scope preview never outlives the sound it named
 }
 // Play the current order (selection, or the whole song) from a note index. All playback
 // paths route through here so `order` stays the single source of what plays.
@@ -1002,6 +1021,7 @@ async function startPlay(startIndex = 0) {
     playingSyl.value = null
     pausedIndex.value = 0
     posIndex.value = 0
+    clearPreview() // the scope has finished sounding — the label must not keep claiming it
   }
 }
 function togglePlay() {
@@ -1012,6 +1032,81 @@ function togglePlay() {
     startPlay(pausedIndex.value) // resume from where we stopped (0 = fresh)
   }
 }
+
+// ---------- ฟังตอนแก้ — the transport that lives INSIDE the pencil (P'Aim 24 ก.ค.) ----------
+// Everything here funnels into the same startPlay() the dock uses, so the golden piano, the
+// สไตล์/ประกาย recipe, the shared pitch rule and the per-verse flow are byte-identical to
+// โหมดฟัง. The ONLY difference a preview makes is `order` — which lines get scheduled.
+//
+// Why the LINE is the small unit (and the ท่อน the big one): a single note carries no musical
+// information on its own — you cannot hear "wrong" without the phrase around it — while a whole
+// ท่อน is 20–40 s of waiting for a one-note fix. A บรรทัด is the phrase a song-maker actually
+// thinks in, and it is what the sheet already draws as one row, so "ฟังบรรทัดนี้" needs no
+// explaining. ท่อนนี้ sits next to it for the wider check (does the fix still fit the verse?).
+// Both are ONE tap — a scope menu would double the clicks of the loop this whole task exists to fix.
+function lineScopeLabel(li) {
+  const sec = sections.value.find((s) => li >= s.fromLi && li <= s.toLi)
+  // _stanzaLine = the line's index inside its own ท่อน, so the number matches what the singer
+  // counts on the page rather than a running total across the song.
+  const n = (resolved.value?.lines?.[li]?._stanzaLine ?? li) + 1
+  return sec ? `ท่อน ${sec.name} · บรรทัดที่ ${n}` : `บรรทัดที่ ${n}`
+}
+// The range under the cursor. 'section' falls back to the whole song when the song has no
+// ท่อน markers at all (a single unlabelled lyric block) — never a silent no-op.
+function scopeRange(scope) {
+  const li = curUnit.value?.li
+  if (li == null) return null
+  if (scope === 'section') {
+    const sec = sections.value.find((s) => li >= s.fromLi && li <= s.toLi)
+    if (!sec) return null
+    return { fromLi: sec.fromLi, toLi: sec.toLi, name: sec.name, label: `ท่อน ${sec.name}` }
+  }
+  return { fromLi: li, toLi: li, name: null, label: lineScopeLabel(li) }
+}
+const canPlayLine = computed(() => !!scopeRange('line'))
+const canPlaySection = computed(() => !!scopeRange('section'))
+// ▶ ท่อนนี้ / ▶ บรรทัดนี้ — press the lit one again to stop.
+function playScope(scope) {
+  if (playing.value && previewScope.value === scope) { stopPlay(); pausedIndex.value = 0; posIndex.value = 0; return }
+  const r = scopeRange(scope)
+  if (!r) return
+  stopPlay() // also clears any previous preview, so the label can never lie
+  previewScope.value = scope
+  previewOrder.value = [{ name: r.name, fromLi: r.fromLi, toLi: r.toLi }]
+  previewLabel.value = r.label
+  pausedIndex.value = 0
+  startPlay(0)
+  focusCapture() // hand the caret straight back — the loop is แก้ → ฟัง → แก้, not แก้ → ฟัง → คลิก → แก้
+}
+// ▶ ทั้งเพลง — the dock's own play/pause, reachable from inside the pencil. Pressing it during
+// a scope preview widens to the whole song rather than pausing.
+function playWholeFromEditor() {
+  if (playing.value) {
+    const wasPreview = !!previewOrder.value
+    pausedIndex.value = wasPreview ? 0 : playedIndex.value
+    stopPlay()
+    if (!wasPreview) return // it was a genuine pause of the whole song
+  }
+  startPlay(pausedIndex.value)
+  focusCapture()
+}
+// what is sounding right now, in words — a partial play must always say what it is playing
+const editPlayLabel = computed(() => (playing.value ? previewLabel.value || 'ทั้งเพลง' : ''))
+// which button is lit. Named computeds (rather than an inline comparison in the template) keep
+// every string literal inside a dynamic :name a real icon id — the Icon coverage gate.
+const isWholePlaying = computed(() => playing.value && !previewScope.value)
+const isSectionPlaying = computed(() => previewScope.value === 'section')
+const isLinePlaying = computed(() => previewScope.value === 'line')
+// Keyboard, for the hands that never leave the notes. Ctrl+Enter = this line, Ctrl+Shift+Enter =
+// this ท่อน, Esc = stop. Duplicated onto the capture field AND the window so an IME that swallows
+// the event before it bubbles cannot lose it (same reasoning as the undo shortcut).
+function transportKey(e) {
+  if (!editMode.value) return false
+  if (e.key === 'Escape' && playing.value) { stopPlay(); return true }
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { playScope(e.shiftKey ? 'section' : 'line'); return true }
+  return false
+}
+
 // move the playhead to a note index: while playing → jump the audio there; paused → just
 // park the dot so ▶ resumes from it.
 function seekToIndex(idx) {
@@ -1231,6 +1326,39 @@ function onSeek({ li, si, syk }) {
       <span class="sv-save-state" :class="saveIsSaved ? 'ok' : 'pending'" role="status" aria-live="polite">
         <Icon v-if="saveIsSaved" name="check" :size="16" /><span v-else class="sv-save-dot" aria-hidden="true">●</span>
         {{ saveText }}
+      </span>
+      <!-- ฟังตอนแก้ (P'Aim 24 ก.ค.) — the แก้ → ฟัง → แก้ loop must close without leaving the
+           pencil. Three plain buttons, always drawn, never behind a gesture: the whole song,
+           the ท่อน under the cursor, the บรรทัด under the cursor. Same audio path as โหมดฟัง
+           (startPlay) — only `order` differs, so nothing about the sound can drift. -->
+      <span class="sv-play-group" role="group" aria-label="ฟังเพลงขณะแก้">
+        <button
+          class="sv-play-btn"
+          :class="{ on: isWholePlaying }"
+          :aria-pressed="isWholePlaying"
+          title="ฟังทั้งเพลง (กดอีกครั้งเพื่อพัก)"
+          @click="playWholeFromEditor"
+        ><Icon :name="isWholePlaying ? 'pause' : 'play'" :size="16" /> ทั้งเพลง</button>
+        <button
+          class="sv-play-btn"
+          :class="{ on: isSectionPlaying }"
+          :aria-pressed="isSectionPlaying"
+          :disabled="!canPlaySection"
+          title="ฟังเฉพาะท่อนที่กำลังแก้ (Ctrl+Shift+Enter)"
+          @click="playScope('section')"
+        ><Icon :name="isSectionPlaying ? 'square' : 'play'" :size="16" /> ท่อนนี้</button>
+        <button
+          class="sv-play-btn"
+          :class="{ on: isLinePlaying }"
+          :aria-pressed="isLinePlaying"
+          :disabled="!canPlayLine"
+          title="ฟังเฉพาะบรรทัดที่กำลังแก้ (Ctrl+Enter)"
+          @click="playScope('line')"
+        ><Icon :name="isLinePlaying ? 'square' : 'play'" :size="16" /> บรรทัดนี้</button>
+      </span>
+      <!-- a partial play must SAY what it is playing — never leave the ear guessing -->
+      <span v-if="editPlayLabel" class="sv-play-now" role="status" aria-live="polite">
+        กำลังเล่น: {{ editPlayLabel }}
       </span>
       <span v-if="saveState === 'error' && saveError" class="sv-save-err">{{ saveError }}</span>
       <span v-if="!canStoreServer" class="sv-save-note">เข้าสู่ระบบเพื่อบันทึกเข้าเซิร์ฟเวอร์</span>
@@ -1453,6 +1581,35 @@ function onSeek({ li, si, syk }) {
   cursor: pointer;
 }
 .sv-save-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* ฟังตอนแก้ — the transport inside the pencil. Sized to the save bar's own button (32px tall),
+   which clears the WCAG 2.2 AA 24px target floor without towering over its siblings. Plain
+   buttons in normal flow: no hover gate, no gesture, visible the whole time edit mode is on. */
+.sv-play-group { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sv-play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: var(--surface, #fff);
+  color: var(--text, #0f172a);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sv-play-btn:hover:not(:disabled) { border-color: var(--brand, #8b4513); }
+.sv-play-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* the scope that is sounding right now reads as pressed (not merely tinted) */
+.sv-play-btn.on {
+  border-color: var(--brand, #8b4513);
+  background: var(--brand, #8b4513);
+  color: #fff;
+}
+.sv-play-btn:disabled { opacity: 0.5; cursor: default; }
+.sv-play-now { color: var(--brand, #8b4513); font-weight: 600; }
 
 /* while editing, a slim hint bar above the sheet */
 .sv-edit-hint {
