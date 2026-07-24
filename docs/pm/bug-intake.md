@@ -29,7 +29,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 | BI-004 | คัดลอก/วาง ห้อง+บรรทัด: ไม่รู้วางตรงไหน + เลื่อนทีละบรรทัด | S2 | 📋 pm-owned | **Chip B** (รอ P'Aim launch) |
 | BI-005 | พิมพ์เนื้อแล้วไปโน้ตถัดไปไม่ได้ (ต้องพิมพ์ทีละคำ) · "v1 ดีกว่าเยอะ" | S2 | 📋 pm-owned | **Chip A** (flagship · รอ launch) |
 | BI-006 | เล่นเฉพาะห้องที่กำลังแก้ไม่ได้ (มีแค่ ทั้งเพลง/ท่อน/บรรทัด) | S3 | 📋 pm-owned | **Chip C** (รอ P'Aim launch) |
-| BI-007 | แก้เสร็จบันทึกจริงไม่ได้ ได้แค่ "บันทึกร่าง" — จะ publish เพลงยังไง? | S2 | 📋 pm-owned | **Chip C** (design-set · รอ launch) |
+| BI-007 | แก้เสร็จบันทึกจริงไม่ได้ ได้แค่ "บันทึกร่าง" — จะ publish เพลงยังไง? | S2 | 📋 pm-owned | **Chip C** (design SA · รอ spec) |
 
 *เปิดอยู่: 7 · ปิดแล้ว (verified): 0*
 
@@ -121,6 +121,9 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **รูป:** `bug-intake-assets/BI-007-1.png` (แถบมี "บันทึกร่าง" + "เสร็จ")
 - **triage:** valid · **S2** (workflow-blocking + design-gap) · **ตรงกับที่ intake ชูธงไว้ก่อนแล้ว:** inline ✏️ เซฟเป็น "ร่าง" เท่านั้น (โดยดีไซน์) · การเอาร่างขึ้นเป็นเพลงจริง = review/publish คนละหน้า → **ผู้ใช้จริงไม่เข้าใจ flow นี้** · ต้อง PM/design ตัดสิน: (ก) เพิ่มปุ่ม publish/ส่งอนุมัติที่นี่ให้ชัด หรือ (ข) อธิบาย flow ในตัว UI ว่า "บันทึกร่างแล้ว → ขั้นต่อไปทำอะไร" · "เสร็จ" ปัจจุบันน่าจะแค่ออกจากโหมดแก้ ไม่ใช่ publish (ต้องยืนยัน)
 - **หมายเหตุ:** ไม่ใช่ "bug" ล้วน แต่เป็น **design-gap** — flow business (ใครมีสิทธิ์ publish) ต้อง PM/P'Aim เคาะ
-- **🎯 design direction (P'Aim เคาะ):** เพิ่มปุ่ม **Publish always-visible** · ไม่ล็อกอิน/สิทธิ์ไม่ถึง = **disabled + hint** บอกเหตุผล
-  - **intake flag (PM รับไปทำให้ถูก):** ด่านจริงคือ **สิทธิ์ (tier)** ไม่ใช่แค่ล็อกอิน — พี่เปาล็อกอินอยู่แล้วตอนงง · สถานะปุ่มควรตาม tier: ไม่ล็อกอิน→เทา+"เข้าสู่ระบบ" · editor→**"ส่งอนุมัติ"** (มีทางไปต่อ ไม่ใช่ dead button) · approver→**"Publish"** กดได้ · session ต้องอ่านโค้ดจริง (Supabase RLS + `approve_and_publish` RPC) ว่า gate จริงคืออะไร แล้วให้ hint ตรง · + ยืนยันปุ่ม "เสร็จ" เดิม = exit-edit-only จริงไหม แยกบทบาทกับ Publish
-- **สถานะ:** 📋 pm-owned · **Chip C** · design-set · verify: ผู้ใช้แก้เสร็จแล้วรู้ชัดว่าต้องทำอะไรต่อ (publish/ส่งอนุมัติ ตามสิทธิ์) · ปุ่ม disabled มี hint ตรงเงื่อนไขจริง
+- **🎯 ทิศล่าสุด (P'Aim 2026-07-24):** P'Aim **มอบให้ทีมออกแบบ full flow ให้ดีที่สุดเอง — "ผมไม่คิดแล้ว"** → ต้อง **design pass (SA)** ก่อน build:
+  - ไอเดียเดิมของ P'Aim (Publish always-visible + disabled/hint) = **1 input ไม่ใช่สเปกล็อก**
+  - SA ออกแบบ full completion-flow (แก้เสร็จ→draft→submit→approve→publish) ครบ role anon/editor/approver + **คุย G + เซฟ transcript** (SOP)
+  - อ่าน gate จริง (Supabase RLS + `approve_and_publish` RPC) — ออกแบบบนความจริง
+  - **เทียบ v1 ให้ ≥ v1** (พี่เปาว่า v2 แย่กว่า) · เสนอ P'Aim ผ่าน PM บน real component → P'Aim เคาะเอา/ไม่เอา
+- **สถานะ:** 📋 pm-owned · **Chip C** · **design (SA) · รอ spec** (ยังไม่ build ปุ่ม publish จนได้ spec) · ส่วน BI-006 "เล่นห้องนี้" build ได้เลยไม่ต้องรอ · verify: ผู้ใช้แก้เสร็จแล้วรู้ชัดว่าทำอะไรต่อ (ตามสิทธิ์) · flow จบงาน ≥ v1
