@@ -19,7 +19,7 @@ import {
   JUMP_PRESETS,
   applyJumpCommand,
 } from './editorCommands.js'
-import { withNoteMark, withToggledBox, withAccidental, withOctaveShift, withToggledBar, withTie, withJumpMarker } from './songEdit.js'
+import { withNoteMark, withToggledBox, withToggledSlur, withAccidental, withOctaveShift, withToggledBar, withTie, withJumpMarker } from './songEdit.js'
 
 // one stanza (2 notes) + two verses linked to it, so a box insert's ripple is observable — the
 // same fixture shape songEdit.symbols.test.js uses, so the engine sees a realistic selection.
@@ -66,7 +66,7 @@ describe('registry = single source of the symbol set', () => {
   })
 
   it('every entry has a behavior the dispatch understands — nothing dangling', () => {
-    const known = new Set(['mark', 'tie', 'box', 'accidental', 'octaveUp', 'octaveDown', 'bar'])
+    const known = new Set(['mark', 'tie', 'slur', 'box', 'accidental', 'octaveUp', 'octaveDown', 'bar'])
     for (const s of SYMBOLS) expect(known.has(s.behavior)).toBe(true)
   })
 
@@ -85,6 +85,7 @@ describe('⭐ drift-killer: the keyboard door and the button door are ONE dispat
   const ENGINE = {
     mark: (c, loc, ch) => withNoteMark(c, loc, ch),
     tie: (c, loc) => withTie(c, loc),
+    slur: (c, loc, ch) => withToggledSlur(c, loc, ch),
     box: (c, loc, ch) => withToggledBox(c, loc, ch, ch === '(' || ch === '{'),
     accidental: (c, loc, ch) => withAccidental(c, loc, ch),
     octaveUp: (c, loc) => withOctaveShift(c, loc, 1),

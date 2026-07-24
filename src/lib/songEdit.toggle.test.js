@@ -69,18 +69,41 @@ describe('BI-003 — every symbol applies AND removes from the same key', () => 
     expect(c.arrangement.map((e) => e.syllables)).toEqual([['a', 'b'], ['d', 'e']])
   })
 
-  it('slur ( ) and triplet { } brackets insert then remove; verses never shift', () => {
-    for (const [open, close] of [['(', ')'], ['{', '}']]) {
-      let c = press(makeContent('1 2', ['a', 'b'], ['d', 'e']), 0, open) // opener BEFORE the note
-      expect(noteOf(c)).toBe(`${open} 1 2`)
-      c = press(c, 1, close) // closing bracket AFTER the 2nd note (slot 1 is the '2')
-      expect(noteOf(c)).toBe(`${open} 1 2 ${close}`)
-      expect(c.arrangement.map((e) => e.syllables)).toEqual([['a', 'b'], ['d', 'e']]) // no ripple
-      c = press(c, 0, open) // re-press removes the opener
-      expect(noteOf(c)).toBe(`1 2 ${close}`)
-      c = press(c, 1, close) // re-press removes the closer
-      expect(noteOf(c)).toBe('1 2')
-    }
+  it('triplet { } brackets insert then remove; verses never shift', () => {
+    const [open, close] = ['{', '}']
+    let c = press(makeContent('1 2', ['a', 'b'], ['d', 'e']), 0, open) // opener BEFORE the note
+    expect(noteOf(c)).toBe(`${open} 1 2`)
+    c = press(c, 1, close) // closing bracket AFTER the 2nd note (slot 1 is the '2')
+    expect(noteOf(c)).toBe(`${open} 1 2 ${close}`)
+    expect(c.arrangement.map((e) => e.syllables)).toEqual([['a', 'b'], ['d', 'e']]) // no ripple
+    c = press(c, 0, open) // re-press removes the opener
+    expect(noteOf(c)).toBe(`1 2 ${close}`)
+    c = press(c, 1, close) // re-press removes the closer
+    expect(noteOf(c)).toBe('1 2')
+  })
+
+  it('BI-011b — a slur ( ) is ONE object: either key on either endpoint removes the WHOLE pair', () => {
+    // authoring is still two presses: opener before the first note, closer after the last
+    let c = press(makeContent('1 2', ['a', 'b'], ['d', 'e']), 0, '(')
+    expect(noteOf(c)).toBe('( 1 2')
+    c = press(c, 1, ')')
+    expect(noteOf(c)).toBe('( 1 2 )')
+    expect(c.arrangement.map((e) => e.syllables)).toEqual([['a', 'b'], ['d', 'e']]) // no ripple
+    // re-press ( on the FIRST note now clears BOTH brackets (was: left a dangling ")")
+    expect(noteOf(press(c, 0, '('))).toBe('1 2')
+    // re-press ) on the LAST note also clears BOTH
+    expect(noteOf(press(c, 1, ')'))).toBe('1 2')
+    // and EITHER key works from EITHER endpoint (MuseScore/Dorico: a slur is one relational object)
+    expect(noteOf(press(c, 1, '('))).toBe('1 2')
+    expect(noteOf(press(c, 0, ')'))).toBe('1 2')
+  })
+
+  it('BI-011b — removes a FUSED legacy slur ("(6 1)"), the dominant imported form (556 vs 2)', () => {
+    // real data fuses the bracket onto the note token; pressing ( used to STACK a second bracket
+    expect(noteOf(press(makeContent('(6 1)'), 0, '('))).toBe('6 1') // opener note
+    expect(noteOf(press(makeContent('(6 1)'), 1, ')'))).toBe('6 1') // closer note
+    // marks on the fused notes survive the strip (only the parenthesis is removed)
+    expect(noteOf(press(makeContent('(.6_ 1_)'), 0, '('))).toBe('.6_ 1_')
   })
 
   it('bar | splits then merges back on the same note', () => {

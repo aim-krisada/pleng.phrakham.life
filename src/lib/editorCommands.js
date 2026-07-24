@@ -17,14 +17,15 @@
 // other file must import from here (AC-0.1: `grep "'_.~^'|'-(){}'|SYMBOL_CHARS|SYMBOL_GROUPS"
 // over src/` must find these literals here and nowhere else).
 
-import { withNoteMark, withToggledBox, withAccidental, withOctaveShift, withToggledBar, withTie, withJumpMarker } from './songEdit.js'
+import { withNoteMark, withToggledBox, withToggledSlur, withAccidental, withOctaveShift, withToggledBar, withTie, withJumpMarker } from './songEdit.js'
 
 // `behavior` — the classification the two if/else tables used to each own a copy of. Each value
 // names the engine action the character triggers on the selected note (see `effectFor` below):
 //
 //   'mark'        markSel        _ . ^     a mark that rides on the note (each press cycles it)
 //   'tie'         tieSel         ~         join this note to the adjacent same-pitch note (a PAIR)
-//   'box'         toggleBoxSel   - ( ) { } a structural box — insert, or remove if pressed again
+//   'slur'        toggleSlur     ( )       a phrase arc — one object; either key removes the whole pair
+//   'box'         toggleBoxSel   - { }     a structural box — insert, or remove if pressed again
 //   'accidental'  accidentalSel  # b n     sharp / flat / natural (one group — same mode)
 //   'octaveUp'    octaveSel(1)   '         raise the note one octave (dot moves ABOVE)
 //   'octaveDown'  octaveSel(-1)  ,         lower the note one octave (dot moves BELOW)
@@ -53,8 +54,8 @@ export const SYMBOLS = [
   { id: 'sym-flat',    ch: 'b', group: 'เสียง', th: 'แฟลต',     behavior: 'accidental', onBar: true },
   { id: 'sym-natural', ch: 'n', group: 'เสียง', th: 'เนเชอรัล', behavior: 'accidental', onBar: true },
   // ── group กลุ่ม/ห้อง (grouping / bar) ─────────────────────────────────────
-  { id: 'sym-slur-open',  ch: '(', group: 'กลุ่ม/ห้อง', th: 'เอื้อน เปิด',    behavior: 'box', onBar: true },
-  { id: 'sym-slur-close', ch: ')', group: 'กลุ่ม/ห้อง', th: 'เอื้อน ปิด',     behavior: 'box', onBar: true },
+  { id: 'sym-slur-open',  ch: '(', group: 'กลุ่ม/ห้อง', th: 'เอื้อน เปิด',    behavior: 'slur', onBar: true },
+  { id: 'sym-slur-close', ch: ')', group: 'กลุ่ม/ห้อง', th: 'เอื้อน ปิด',     behavior: 'slur', onBar: true },
   { id: 'sym-trip-open',  ch: '{', group: 'กลุ่ม/ห้อง', th: 'สามพยางค์ เปิด', behavior: 'box', onBar: true },
   { id: 'sym-trip-close', ch: '}', group: 'กลุ่ม/ห้อง', th: 'สามพยางค์ ปิด',  behavior: 'box', onBar: true },
   { id: 'sym-bar',        ch: '|', group: 'กลุ่ม/ห้อง', th: 'กั้นห้อง',       behavior: 'bar', onBar: true },
@@ -105,6 +106,7 @@ export function effectFor(behavior, content, loc, ch) {
   switch (behavior) {
     case 'mark':       return withNoteMark(content, loc, ch)
     case 'tie':        return withTie(content, loc)
+    case 'slur':       return withToggledSlur(content, loc, ch)
     case 'box':        return withToggledBox(content, loc, ch, ch === '(' || ch === '{')
     case 'accidental': return withAccidental(content, loc, ch)
     case 'octaveUp':   return withOctaveShift(content, loc, 1)

@@ -10,7 +10,7 @@
 // currently out of sync with package-lock (so `npm ci` skips it and vitest cannot resolve it in this
 // worktree). This split keeps the BI-011 coverage runnable regardless of that pre-existing drift.
 import { describe, it, expect } from 'vitest'
-import { activeSymbolsAt, withTie, withToggledBox, withNoteMark, withAccidental } from './songEdit.js'
+import { activeSymbolsAt, withTie, withToggledBox, withToggledSlur, withNoteMark, withAccidental } from './songEdit.js'
 
 function makeContent(note, a = ['a', 'b', 'c'], d = ['d', 'e', 'f']) {
   return {
@@ -35,15 +35,24 @@ describe('BI-011 — activeSymbolsAt lights exactly the symbols a re-press would
     expect(noteOf(withTie(c, at(1)))).toBe('6 6 2')
   })
 
-  it('a slur lights ( on its FIRST note and ) on its LAST note', () => {
-    let c = withToggledBox(makeContent('6 5 2'), at(0), '(', true) // ( before note 6
-    c = withToggledBox(c, at(1), ')', false) // ) after note 5
+  it('a separate slur lights ( on its FIRST note and ) on its LAST note', () => {
+    let c = withToggledSlur(makeContent('6 5 2'), at(0), '(') // ( before note 6
+    c = withToggledSlur(c, at(1), ')') // ) after note 5
     expect(noteOf(c)).toBe('( 6 5 ) 2')
     expect(active(c, 0)).toEqual(['(']) // note 6 bears the opener
     expect(active(c, 1)).toEqual([')']) // note 5 bears the closer
     expect(active(c, 2)).toEqual([]) // the trailing 2 sits outside the slur
-    // lit ⇔ removable: re-pressing each lit bracket removes it
-    expect(noteOf(withToggledBox(c, at(0), '(', true))).toBe('6 5 ) 2')
+    // lit ⇔ removable: re-pressing the lit bracket now clears the WHOLE pair (BI-011b)
+    expect(noteOf(withToggledSlur(c, at(0), '('))).toBe('6 5 2')
+  })
+
+  it('BI-011b — a FUSED slur ("(6 5) 2") also lights ( / ) (was dark → looked unremovable)', () => {
+    const c = makeContent('(6 5) 2') // legacy imported form: bracket fused on the note token
+    expect(active(c, 0)).toEqual(['(']) // note 6 carries the fused opener
+    expect(active(c, 1)).toEqual([')']) // note 5 carries the fused closer
+    expect(active(c, 2)).toEqual([]) // the trailing 2 is outside
+    // lit ⇔ removable: the fused pair strips cleanly from either endpoint
+    expect(noteOf(withToggledSlur(c, at(0), '('))).toBe('6 5 2')
   })
 
   it('marks / fermata / accidental stack as active on one note', () => {

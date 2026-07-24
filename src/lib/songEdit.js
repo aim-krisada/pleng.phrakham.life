@@ -240,6 +240,127 @@ export function withToggledBox(content, loc, token, before = false) {
   return withInsertedBox(content, loc, tok, before)
 }
 
+// ---------- slur (เอื้อน `( )`) : ONE phrase arc over 2+ notes, a single removable object -------
+// A slur is authored as a `(` before its first note and a `)` after its last. Those brackets sit
+// EITHER as their own boxes ("( 6 1 )") OR — the overwhelming form in imported data (a library
+// scan found 556 fused vs 2 separate) — FUSED onto the note token ("(6 … 1)"), and the pair may
+// span several segments / bar lines of one line. withToggledBox only ever recognised a SEPARATE
+// "(" box sitting right beside the cursor, so on the fused form pressing `(` again did not remove
+// the slur — it STACKED a second bracket (BI-011 claimed slur-removal but only ever proved the tie
+// `~`; P'Aim caught that "กด ( ก็ไม่หาย"). This resolves the WHOLE line into slur pairs and, like
+// MuseScore / Dorico (a slur is one relational object, not two characters — G consult 2026-07-24),
+// removes the ENTIRE pair from ANY note it touches by EITHER slur key. A still-unmatched opener is
+// dropped on its own (undo a half-authored slur); a note under no slur ADDS an endpoint — `(`
+// before, `)` after — keeping the unchanged two-press authoring. Brackets bear no syllable slot, so
+// nothing ever ripples the linked verses.
+function hasOpenBracket(tok) { return String(tok)[0] === '(' }
+function hasCloseBracket(tok) { const s = String(tok); return s[s.length - 1] === ')' }
+function stripOneOpen(tok) { const s = String(tok); return s[0] === '(' ? s.slice(1) : s }
+function stripOneClose(tok) { const s = String(tok); return s[s.length - 1] === ')' ? s.slice(0, -1) : s }
+
+// Apply a set of box edits to ONE line and rebuild content. `edits` = [{ itemIdx, boxIdx, tok }];
+// tok === '' (or null) deletes the box. Edits are grouped per segment and applied high-index-first
+// so earlier deletions never shift a later box index. Structural sharing: only touched segments are
+// cloned. No arrangement ripple — slur brackets carry no syllable slot.
+function withLineBoxEdits(content, at, edits) {
+  const stanza = content.stanzas[at.stanzaIndex]
+  const line = stanza.lines[at.lineIndex]
+  const byItem = new Map()
+  for (const e of edits) {
+    if (!byItem.has(e.itemIdx)) byItem.set(e.itemIdx, [])
+    byItem.get(e.itemIdx).push(e)
+  }
+  const newLine = line.slice()
+  for (const [itemIdx, list] of byItem) {
+    const boxes = noteBoxes(line[itemIdx].note || '')
+    list.sort((a, b) => b.boxIdx - a.boxIdx) // high index first
+    for (const e of list) {
+      const t = e.tok == null ? '' : String(e.tok)
+      if (t === '') boxes.splice(e.boxIdx, 1)
+      else boxes[e.boxIdx] = t
+    }
+    newLine[itemIdx] = { ...line[itemIdx], note: boxes.length ? boxes.join(' ') : '' }
+  }
+  const newLines = stanza.lines.slice()
+  newLines[at.lineIndex] = newLine
+  const newStanzas = content.stanzas.slice()
+  newStanzas[at.stanzaIndex] = { ...stanza, lines: newLines }
+  return { ...content, stanzas: newStanzas }
+}
+
+export function withToggledSlur(content, loc, ch) {
+  const at = locateSegment(content, loc.resolvedLine, loc.si)
+  if (!at) return content
+  const line = content.stanzas[at.stanzaIndex].lines[at.lineIndex]
+
+  // Flatten every SEGMENT item's boxes into one line-level sequence (remembering the box's home so
+  // an edit can be written back), then match ( ) into pairs with a stack — innermost pops first.
+  const flat = []
+  line.forEach((item, itemIdx) => {
+    if (item?.type !== 'segment') return
+    noteBoxes(item.note || '').forEach((tok, boxIdx) => flat.push({ itemIdx, boxIdx, tok }))
+  })
+  const pairs = []
+  const stack = []
+  flat.forEach((f, i) => {
+    if (hasOpenBracket(f.tok)) stack.push(i)
+    if (hasCloseBracket(f.tok) && stack.length) pairs.push({ openFlat: stack.pop(), closeFlat: i })
+  })
+
+  // Where is the selected note in the flattened line?
+  const selNote = line[at.segIndex].note || ''
+  const selBox = boxIndexForSlot(selNote, loc.syk)
+  if (selBox < 0) return content
+  const selFlat = flat.findIndex((f) => f.itemIdx === at.segIndex && f.boxIdx === selBox)
+  if (selFlat < 0) return content
+
+  // 1) selected note lies within a matched pair (endpoint OR middle) → remove the WHOLE pair,
+  //    innermost (smallest span) first so an outer phrase slur is never stripped by mistake.
+  let target = null
+  for (const p of pairs) {
+    if (selFlat >= p.openFlat && selFlat <= p.closeFlat) {
+      if (!target || p.closeFlat - p.openFlat < target.closeFlat - target.openFlat) target = p
+    }
+  }
+  if (target) {
+    const o = flat[target.openFlat]
+    const c = flat[target.closeFlat]
+    if (target.openFlat === target.closeFlat) {
+      // both brackets fused on one box ("(6)") → strip both at once
+      const t = stripOneClose(stripOneOpen(o.tok))
+      return withLineBoxEdits(content, at, [{ itemIdx: o.itemIdx, boxIdx: o.boxIdx, tok: t }])
+    }
+    return withLineBoxEdits(content, at, [
+      { itemIdx: o.itemIdx, boxIdx: o.boxIdx, tok: stripOneOpen(o.tok) },
+      { itemIdx: c.itemIdx, boxIdx: c.boxIdx, tok: stripOneClose(c.tok) },
+    ])
+  }
+
+  // 2) a dangling (unmatched) bracket the pressed key owns — fused on this note, or a SEPARATE box
+  //    right beside it → remove just that one (undo a half-authored slur before its twin exists).
+  const selTok = flat[selFlat].tok
+  const prev = flat[selFlat - 1]
+  const next = flat[selFlat + 1]
+  if (ch === '(') {
+    if (hasOpenBracket(selTok)) {
+      return withLineBoxEdits(content, at, [{ itemIdx: at.segIndex, boxIdx: selBox, tok: stripOneOpen(selTok) }])
+    }
+    if (prev && prev.itemIdx === at.segIndex && prev.tok === '(') {
+      return withLineBoxEdits(content, at, [{ itemIdx: prev.itemIdx, boxIdx: prev.boxIdx, tok: '' }])
+    }
+  } else if (ch === ')') {
+    if (hasCloseBracket(selTok)) {
+      return withLineBoxEdits(content, at, [{ itemIdx: at.segIndex, boxIdx: selBox, tok: stripOneClose(selTok) }])
+    }
+    if (next && next.itemIdx === at.segIndex && next.tok === ')') {
+      return withLineBoxEdits(content, at, [{ itemIdx: next.itemIdx, boxIdx: next.boxIdx, tok: '' }])
+    }
+  }
+
+  // 3) no slur here → ADD an endpoint (unchanged authoring): opener before, closer after.
+  return withInsertedBox(content, loc, ch, ch === '(')
+}
+
 // ---------- tie (โยงเสียง `~`) : join TWO same-pitch notes into one sustained sound ----------
 // A tie is a PAIR of marks, never one: the first note carries tie-start (`5~`), the second carries
 // tie-end (`~5`), and both must be the SAME written pitch. Only then does playback (midi.mergeTies)
@@ -351,9 +472,14 @@ export function activeSymbolsAt(content, loc) {
     if (cur.dots > 0) out.push('.') // aug dot (octave-low `.` is `cur.low`, a different key)
     if (cur.accidental) out.push(cur.accidental) // '#' | 'b' | 'n'
   }
+  // slur brackets light `(` on the opener note / `)` on the closer note — whether the bracket rides
+  // FUSED on the note token ("(6", "1)"; the dominant imported form) or sits as its OWN box beside
+  // it ("( 6", "6 )"). Mirrors withToggledSlur's toggle-OFF so a lit key and a working removal are
+  // the same fact seen twice (CP-0). Fused test on the token; separate test on the neighbour box.
+  const tok = boxes[bi]
+  if (tok[0] === '(' || boxes[bi - 1] === '(') out.push('(')
+  if (tok[tok.length - 1] === ')' || boxes[bi + 1] === ')') out.push(')')
   // structural brackets are their OWN boxes beside the note — same sides withToggledBox removes from
-  if (boxes[bi - 1] === '(') out.push('(')
-  if (boxes[bi + 1] === ')') out.push(')')
   if (boxes[bi - 1] === '{') out.push('{')
   if (boxes[bi + 1] === '}') out.push('}')
   if (boxes[bi + 1] === '-') out.push('-')
