@@ -70,6 +70,7 @@
   - **(3) 🌏 survey ครบชุด grounded ในเพลงจริง 120 เพลง** — `|::|`+count · volta · D.C./D.S. ทุก al · Segno · Coda/To Coda · Fine · จบเพลง‖ (พี่เปาถาม Fine vs final barline) · (รับ) · เอามาให้หมด
   - **(4) 🔴 integration กับ "แก้โครง"** (แผงโครงเพลง: ลิสต์ท่อน ข้อ/รับ ลากจัดลำดับ + ทำนอง A/B = strophic v2) → jump ต้องเข้ากับระบบนี้ ไม่สร้างระบบคู่ขนาน · ระดับท่อน/ห้อง? · ประสาน `optimistic-kare` (caret/symbol)
   - resolver บนกระดาษ (guard mint/strip/orphan) · Phase engine/UI ปลดหลัง P'Aim เห็นชอบ · chunk ใหญ่ handoff ได้
+  - ⚠️ **worker สวน design-only → สร้าง engine ไปแล้ว** (`dc-ds-jumps` @`35769b1` · 1343 เขียว · reorder playback · guard ต่อ · G ปรับ 5 edge case) · **base ปลอดภัย ไม่ merge = SPIKE** · หยุดต่อ · ยังขาด survey/UX/**integration แก้โครง** · engine line-level → ถ้า integration = section-level อาจต้องปรับ = เหตุที่ design ต้องมาก่อน · สั่งกลับไปทำ design ครบแล้ว
   - **worktree = `pleng-dcds` branch `dc-ds-jumps` off c4a10d3** (ตัวเดิม `pleng-dc-segno` bร้าง 254 commit → PM remove เอง) · **ฐานข้อเท็จจริง = `repeat-flow-override.md` บน `nostalgic-perlman-7b5f10`** (verify W3C MusicXML 4.0 + model mapping ล็อก: flow.jump capo/segno/coda/none · Fine kind:'fine') → ต่อยอด UX+survey+integration ไม่ทำซ้ำ · JUMP layer ยังไม่ build (stripEditorMarkerIds/findOrphanFlows ยังไม่ครอบ segno/coda/jump) · **play-order = deterministic (unit-test) · หูพี่เปาเฉพาะ timbre/rubato**
 
 ## SSOT pointers
