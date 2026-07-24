@@ -23,6 +23,7 @@ import {
   previewBars, previewLine,
 } from '../lib/songStructure.js'
 import { verseLyricText, withVerseText, segmentThai } from '../lib/songLyrics.js'
+import { usePointerReorder } from '../lib/pointerReorder.js'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -111,19 +112,18 @@ function onRemoveStanza(id) {
   apply(removeStanza(props.content, id))
 }
 
-// ---- section-card drag reorder (pointer enhancement; ▲▼ is the accessible primary) ----
-const dragFrom = ref(-1)
-const dragOver = ref(-1)
-function onDragStart(i, e) { dragFrom.value = i; if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move' }
-function onDragOver(i, e) { e.preventDefault(); dragOver.value = i }
-function onDrop(i) {
-  if (dragFrom.value >= 0 && dragFrom.value !== i) {
-    // moveVerse(from, to) — dropping onto card i places the dragged row at i's slot
-    apply(moveVerseBy(props.content, dragFrom.value, i - dragFrom.value))
-  }
-  dragFrom.value = -1; dragOver.value = -1
-}
-function onDragEnd() { dragFrom.value = -1; dragOver.value = -1 }
+// ---- section-card drag reorder (pointer-based; ▲▼ is the accessible primary) ----
+// The grip is the ONLY drag surface (the card carries a rename input + melody <select> + buttons,
+// so a whole-card draggable would fight them). moveVerseBy takes a signed step from the row.
+const cardsEl = ref(null)
+const announce = ref('') // aria-live: reorder result for screen readers
+const cardRows = () => (cardsEl.value ? Array.from(cardsEl.value.querySelectorAll('.sd-card')) : [])
+const cardDrag = usePointerReorder({
+  axis: 'y',
+  getRows: cardRows,
+  onReorder: (from, to) => apply(moveVerseBy(props.content, from, to - from)),
+  onAnnounce: (from, to) => { announce.value = `ย้ายท่อนที่ ${from + 1} ไปตำแหน่งที่ ${to + 1}` },
+})
 
 // ======================================================================================
 // คัดลอก / วาง · จัดลำดับ — a visible structure OUTLINE (BI-004)
@@ -184,30 +184,25 @@ function onClearClip() { emit('set-clip', null) }
 function onMoveLineTo(li, to) { apply(moveLineTo(props.content, activeStanzaId.value, li, to)); if (selLineOverride.value != null) selLineOverride.value = Math.max(0, Math.min(activeLines.value.length - 1, to)) }
 function onMoveBarTo(li, bi, to) { apply(moveBarTo(props.content, activeStanzaId.value, li, bi, to)); selBarOverride.value = to }
 
-// drag reorder — bars within a line, lines within the melody. ▸ slots + ◀▶/▲▼ stay the primary.
-const dragKind = ref(null)     // 'line' | 'bar' | null
-const dragLineFrom = ref(-1)
-const dragBarLine = ref(-1)
-const dragBarFrom = ref(-1)
-const dropSlot = ref(-1)       // which slot is hovered, for the drop-here highlight
-function onLineDragStart(li, e) { dragKind.value = 'line'; dragLineFrom.value = li; if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move' }
-function onLineDragEnd() { dragKind.value = null; dragLineFrom.value = -1; dropSlot.value = -1 }
-function onDropLine(slot) {
-  const from = dragLineFrom.value
-  if (from >= 0) { const dest = slot > from ? slot - 1 : slot; apply(moveLineTo(props.content, activeStanzaId.value, from, dest)) }
-  onLineDragEnd()
-}
-function onBarDragStart(li, bi, e) {
-  dragKind.value = 'bar'; dragBarLine.value = li; dragBarFrom.value = bi
-  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
-  e.stopPropagation()
-}
-function onBarDragEnd() { dragKind.value = null; dragBarLine.value = -1; dragBarFrom.value = -1; dropSlot.value = -1 }
-function onDropBar(li, slot) {
-  const from = dragBarFrom.value
-  if (from >= 0 && li === dragBarLine.value) { const dest = slot > from ? slot - 1 : slot; apply(moveBarTo(props.content, activeStanzaId.value, li, from, dest)) }
-  onBarDragEnd()
-}
+// pointer drag reorder — lines within the melody, bars within the selected line. The grip is the
+// only drag surface; ◀▶/▲▼ stay the accessible primary. Same mechanism as the section cards.
+const outlineEl = ref(null)
+const lineRows = () => (outlineEl.value ? Array.from(outlineEl.value.querySelectorAll('.sd-line')) : [])
+// only the selected line's bar strip is ever in the DOM, so query bars from the outline root
+// (a `ref` on .sd-bars would be array-collected because it lives inside a v-for).
+const barRows = () => (outlineEl.value ? Array.from(outlineEl.value.querySelectorAll('.sd-bar')) : [])
+const lineDrag = usePointerReorder({
+  axis: 'y',
+  getRows: lineRows,
+  onReorder: (from, to) => { apply(moveLineTo(props.content, activeStanzaId.value, from, to)); if (selLineOverride.value != null) selLineOverride.value = to },
+  onAnnounce: (from, to) => { announce.value = `ย้ายบรรทัดที่ ${from + 1} ไปตำแหน่งที่ ${to + 1}` },
+})
+const barDrag = usePointerReorder({
+  axis: 'x',
+  getRows: barRows,
+  onReorder: (from, to) => { apply(moveBarTo(props.content, activeStanzaId.value, selLine.value, from, to)); selBarOverride.value = to },
+  onAnnounce: (from, to) => { announce.value = `ย้ายห้องที่ ${from + 1} ไปตำแหน่งที่ ${to + 1}` },
+})
 
 // focus the first card's rename when the drawer opens (parity with SongSettings)
 const body = ref(null)
@@ -250,21 +245,16 @@ watch(() => props.open, (on) => {
           </button>
         </div>
 
-        <ul class="sd-cards" role="list">
+        <ul class="sd-cards" role="list" ref="cardsEl">
           <li
             v-for="card in cards"
             :key="card.i"
             class="sd-card"
-            :class="{ hl: hlStanza && hlStanza === card.stanza, drop: dragOver === card.i, dragging: dragFrom === card.i }"
-            draggable="true"
-            @dragstart="onDragStart(card.i, $event)"
-            @dragover="onDragOver(card.i, $event)"
-            @drop="onDrop(card.i)"
-            @dragend="onDragEnd"
+            :class="{ hl: hlStanza && hlStanza === card.stanza, dragging: cardDrag.isDragging(card.i), 'drop-above': cardDrag.dropAbove(card.i), 'drop-below': cardDrag.dropBelow(card.i) }"
             @mouseenter="hlStanza = card.stanza"
             @mouseleave="hlStanza = ''"
           >
-            <span class="sd-grip" aria-hidden="true" title="ลากเพื่อจัดลำดับ"><Icon name="grip-vertical" :size="14" /></span>
+            <span class="sd-grip" aria-hidden="true" title="ลากเพื่อจัดลำดับ" @pointerdown="cardDrag.start($event, card.i)"><Icon name="grip-vertical" :size="14" /></span>
 
             <div class="sd-card-main">
               <div class="sd-card-row1">
@@ -375,23 +365,19 @@ watch(() => props.open, (on) => {
 
         <!-- โครงทำนอง outline: lines (+ the selected line's bars) as a reorderable list with
              visible ▸ insertion points. Tap ▸ to paste; drag a row/chip or use ◀▶/▲▼ to reorder. -->
-        <div class="sd-outline" v-if="activeLines.length">
+        <div class="sd-outline" v-if="activeLines.length" ref="outlineEl">
           <div class="sd-outline-cap">โครงทำนอง ♫{{ activeStanzaId }} · <span class="muted">ลากจับ <Icon name="grip-vertical" :size="11" /> หรือใช้ ▲▼ เพื่อจัดลำดับ</span></div>
 
-          <!-- insertion slot BEFORE the first line -->
+          <!-- insertion slot BEFORE the first line (clip paste only) -->
           <button v-if="pasteLineMode" class="sd-slot line" type="button" aria-label="วางบรรทัดที่ตำแหน่งบนสุด" @click="onPasteLineAt(0)"><span class="sd-slot-mark">▸</span> วางบรรทัดที่นี่</button>
-          <div v-else-if="dragKind === 'line'" class="sd-slot line drop" @dragover.prevent @drop="onDropLine(0)" aria-hidden="true"></div>
 
           <template v-for="(ln, li) in activeLines" :key="li">
             <div
               class="sd-line"
-              :class="{ sel: li === selLine, dragging: dragLineFrom === li }"
-              draggable="true"
-              @dragstart="onLineDragStart(li, $event)"
-              @dragend="onLineDragEnd"
+              :class="{ sel: li === selLine, dragging: lineDrag.isDragging(li), 'drop-above': lineDrag.dropAbove(li), 'drop-below': lineDrag.dropBelow(li) }"
               @click="selectLine(li)"
             >
-              <span class="sd-grip" aria-hidden="true" title="ลากเพื่อจัดลำดับบรรทัด"><Icon name="grip-vertical" :size="13" /></span>
+              <span class="sd-grip" aria-hidden="true" title="ลากเพื่อจัดลำดับบรรทัด" @pointerdown="lineDrag.start($event, li)"><Icon name="grip-vertical" :size="13" /></span>
               <span class="sd-line-tag">บรรทัด {{ li + 1 }}</span>
               <span class="sd-line-preview">{{ linePreview(ln) }}</span>
               <span class="sd-line-acts">
@@ -405,14 +391,11 @@ watch(() => props.open, (on) => {
             <!-- the selected line's bars — a reorderable strip with ▸ bar insertion points -->
             <div v-if="li === selLine" class="sd-bars">
               <button v-if="pasteBarMode" class="sd-slot bar" type="button" aria-label="วางห้องที่ต้นบรรทัด" title="วางห้องที่นี่" @click="onPasteBarAt(li, 0)">▸</button>
-              <span v-else-if="dragKind === 'bar' && dragBarLine === li" class="sd-slot bar drop" @dragover.prevent @drop="onDropBar(li, 0)" aria-hidden="true"></span>
               <template v-for="(b, bi) in barsOf(ln)" :key="bi">
                 <span
                   class="sd-bar"
-                  :class="{ sel: bi === selBar, dragging: dragBarLine === li && dragBarFrom === bi }"
-                  draggable="true"
-                  @dragstart="onBarDragStart(li, bi, $event)"
-                  @dragend="onBarDragEnd"
+                  :class="{ sel: bi === selBar, dragging: barDrag.isDragging(bi), 'drop-before': barDrag.dropAbove(bi), 'drop-after': barDrag.dropBelow(bi) }"
+                  @pointerdown="barDrag.start($event, bi)"
                   @click.stop="selectBar(bi)"
                   :title="`ห้อง ${bi + 1}`"
                 >
@@ -424,15 +407,15 @@ watch(() => props.open, (on) => {
                   <button class="sd-bar-copy" type="button" aria-label="คัดลอกห้องนี้" title="คัดลอกห้องนี้" @click.stop="onCopyBarAt(li, bi)"><Icon name="clipboard-copy" :size="11" /></button>
                 </span>
                 <button v-if="pasteBarMode" class="sd-slot bar" type="button" :aria-label="`วางห้องหลังห้อง ${bi + 1}`" title="วางห้องที่นี่" @click="onPasteBarAt(li, bi + 1)">▸</button>
-                <span v-else-if="dragKind === 'bar' && dragBarLine === li" class="sd-slot bar drop" @dragover.prevent @drop="onDropBar(li, bi + 1)" aria-hidden="true"></span>
               </template>
             </div>
 
-            <!-- insertion slot AFTER this line -->
+            <!-- insertion slot AFTER this line (clip paste only) -->
             <button v-if="pasteLineMode" class="sd-slot line" type="button" :aria-label="`วางบรรทัดหลังบรรทัด ${li + 1}`" @click="onPasteLineAt(li + 1)"><span class="sd-slot-mark">▸</span> วางบรรทัดที่นี่</button>
-            <div v-else-if="dragKind === 'line'" class="sd-slot line drop" @dragover.prevent @drop="onDropLine(li + 1)" aria-hidden="true"></div>
           </template>
         </div>
+        <!-- screen-reader announcement of a completed reorder (grab/move via ▲▼ or drag) -->
+        <p class="sr-only" aria-live="polite">{{ announce }}</p>
       </section>
 
       <p class="sd-foot">ทุกการเปลี่ยนแปลงบันทึกพร้อมเพลง — ดูสถานะ “บันทึกแล้ว / ยังไม่บันทึก” ที่แถบด้านบน</p>
@@ -489,9 +472,24 @@ watch(() => props.open, (on) => {
   background: var(--surface, #fff); transition: border-color .12s, background .12s, box-shadow .12s;
 }
 .sd-card.hl { border-color: var(--brand, #b45309); background: color-mix(in srgb, var(--brand, #b45309) 7%, var(--surface, #fff)); }
+.sd-card { position: relative; }
 .sd-card.dragging { opacity: .5; }
-.sd-card.drop { box-shadow: 0 -2px 0 0 var(--brand, #b45309) inset; }
-.sd-grip { display: flex; align-items: center; color: var(--muted, #94a3b8); cursor: grab; }
+/* drop indicator — a solid 2px accent line at the edge the dragged row would land against */
+.sd-card.drop-above::before,
+.sd-card.drop-below::after,
+.sd-line.drop-above::before,
+.sd-line.drop-below::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 3px;
+  background: var(--brand, #b45309); border-radius: 2px; z-index: 2; pointer-events: none;
+}
+.sd-card.drop-above::before, .sd-line.drop-above::before { top: -3px; }
+.sd-card.drop-below::after, .sd-line.drop-below::after { bottom: -3px; }
+.sd-grip {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 26px; align-self: stretch;
+  color: var(--muted, #94a3b8); cursor: grab; touch-action: none; user-select: none;
+}
+.sd-grip:active { cursor: grabbing; }
 .sd-card-main { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .sd-card-row1 { display: flex; align-items: center; gap: 6px; }
 .sd-rename {
@@ -582,6 +580,7 @@ watch(() => props.open, (on) => {
 
 /* a line row */
 .sd-line {
+  position: relative;
   display: flex; align-items: center; gap: 6px;
   padding: 5px 6px; border: 1px solid var(--line, #e2e8f0); border-radius: 9px;
   background: var(--surface, #fff); cursor: pointer;
@@ -598,15 +597,24 @@ watch(() => props.open, (on) => {
 /* a bar strip under the selected line */
 .sd-bars { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 3px 4px 3px 22px; }
 .sd-bar {
+  position: relative;
   display: inline-flex; align-items: center; gap: 4px;
   min-height: 30px; padding: 2px 6px;
   border: 1px solid var(--line, #e2e8f0); border-radius: 7px;
-  background: var(--surface, #fff); cursor: grab;
+  background: var(--surface, #fff); cursor: grab; touch-action: pan-y; user-select: none;
   font-size: var(--fs-xs, 0.8rem); color: var(--ink, #0f172a);
 }
+.sd-bar:active { cursor: grabbing; }
 .sd-bar:hover { border-color: color-mix(in srgb, var(--brand, #b45309) 55%, var(--line, #e2e8f0)); }
 .sd-bar.sel { border-color: var(--brand, #b45309); background: color-mix(in srgb, var(--brand, #b45309) 10%, var(--surface, #fff)); }
 .sd-bar.dragging { opacity: .45; }
+/* horizontal drop indicator — a solid 3px accent bar on the side the dragged chip would land */
+.sd-bar.drop-before::before, .sd-bar.drop-after::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 3px;
+  background: var(--brand, #b45309); border-radius: 2px; z-index: 2; pointer-events: none;
+}
+.sd-bar.drop-before::before { left: -3px; }
+.sd-bar.drop-after::after { right: -3px; }
 .sd-bar-notes { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sd-bar-move { display: inline-flex; gap: 1px; }
 .sd-bar-mv {
@@ -647,10 +655,9 @@ watch(() => props.open, (on) => {
 }
 .sd-slot.bar:hover { background: color-mix(in srgb, var(--brand, #b45309) 18%, var(--surface, #fff)); }
 .sd-slot.bar:focus-visible { outline: 2px solid var(--brand, #b45309); outline-offset: 1px; }
-/* drop zones shown while dragging — thin until hovered */
-.sd-slot.line.drop { min-height: 10px; padding: 0; border-style: dashed; border-width: 2px; background: transparent; }
-.sd-slot.bar.drop { min-width: 12px; min-height: 30px; padding: 0; border-width: 2px; background: transparent; }
-.sd-slot.drop:hover { background: color-mix(in srgb, var(--brand, #b45309) 22%, var(--surface, #fff)); }
+
+/* screen-reader-only live region (reorder announcements) */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* Phone / narrow: full-screen page (parity with SongSettings). */
 @media (max-width: 760px) {
@@ -661,6 +668,7 @@ watch(() => props.open, (on) => {
   }
   .sd-close { min-width: var(--touch-min, 44px); min-height: var(--touch-min, 44px); }
   .sd-icon { min-height: 34px; min-width: 34px; }
+  .sd-grip { min-width: 40px; }
   .sd-cp-btn { min-height: 40px; }
   .sd-slot.line, .sd-slot.bar { min-height: 40px; }
   .sd-bar { min-height: 38px; }
