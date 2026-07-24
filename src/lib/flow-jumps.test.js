@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest'
 import { resolvePlayOrder, resolveContent } from './songModel.js'
 import { buildPlayNotes } from './midi.js'
-import { findOrphanFlows, stripEditorMarkerIds, hasMarkerType } from './songFlow.js'
+import { findOrphanFlows, stripEditorMarkerIds, hasMarkerType, mintMarkerIds } from './songFlow.js'
 
 // one line per stanza → li == stanza index. `extra` lets a stanza carry a marker item.
 const seg = (note) => ({ type: 'segment', note })
@@ -179,5 +179,21 @@ describe('paste-dedup + marker-type guards (songFlow)', () => {
     const s = song([stanza('A', '1', [{ type: 'segno' }])], [{ stanza: 'A' }])
     expect(hasMarkerType(s, 'segno')).toBe(true)
     expect(hasMarkerType(s, 'coda')).toBe(false)
+  })
+
+  it('PASTE-DUP: a stripped (id-less) Segno re-mints to a FRESH, non-colliding id', () => {
+    // simulate a paste: stanza already has segno "s1"; the pasted copy arrives with NO id
+    // (stripEditorMarkerIds cleared it). mint must give the copy a new id, never reuse s1.
+    const pasted = {
+      version: 2, key: 'C', timeSignature: '4/4',
+      stanzas: [{ id: 'A', lines: [[seg('1'), { type: 'segno', id: 's1' }, seg('2'), { type: 'segno' }]] }],
+      arrangement: [{ stanza: 'A' }],
+    }
+    const { content, changed } = mintMarkerIds(pasted)
+    const segnos = content.stanzas[0].lines[0].filter((i) => i.type === 'segno')
+    expect(changed).toBe(true)
+    expect(segnos[0].id).toBe('s1') // existing id preserved
+    expect(segnos[1].id).toBe('s2') // fresh id, NOT a duplicate of s1
+    expect(segnos[0].id).not.toBe(segnos[1].id)
   })
 })
