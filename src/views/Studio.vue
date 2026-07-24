@@ -9,7 +9,7 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent } from '../lib/songModel.js'
 import { withSongKey } from '../lib/songEdit.js'
-import { songHaystack } from '../lib/songSearch.js'
+import { songHaystack, searchSongs } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
 import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
@@ -512,49 +512,54 @@ async function loadSongList() {
     .order('number', { ascending: true })
   songList.value = data ?? []
 }
-// searchable options (ชื่อ · เลข · เนื้อร้อง · โน้ต — same haystack as the catalog page).
 // GATE (reuse bookshelf.visibleSongs — same source SongList + EditorMode use): anon sees only
 // verified songs, team sees all. computed on tier so it re-filters on login/logout without
-// reloading the list. Without this the shell's "เปิดเพลงที่มีอยู่" picker leaks unverified
-// songs to the public — a separate code path from EditorMode's own picker (round-24 leak #2).
+// reloading the list. Without this the shell's "เปิดเพลงอื่น" picker leaks unverified songs to
+// the public — a separate code path from EditorMode's own picker (round-24 leak #2). Both the
+// option list AND the ranked search below read this SAME gated list, so neither can leak.
+const gatedSongs = computed(() => visibleSongs(songList.value, tier.value !== 'anon'))
+// searchable options (ชื่อ · เลข · เนื้อร้อง · โน้ต — same haystack as the catalog page).
 const pickerOptions = computed(() =>
-  visibleSongs(songList.value, tier.value !== 'anon').map((s) => ({
+  gatedSongs.value.map((s) => ({
     value: s.id,
     label: (s.number != null ? s.number + '. ' : '') + s.title_th,
     search: songHaystack(s),
   })),
 )
+// Ranked matching for the picker — hand ComboSelect the note-aware / fuzzy / book-ref engine
+// (songSearch.searchSongs) instead of its substring `.includes`, so "5561" finds the melody
+// "5 5 6 1", a 1-char typo still lands, and "ล.282" resolves by book reference. Returns the
+// gated song ids best-first; ComboSelect renders those options in that order.
+function rankSongs(query) {
+  return searchSongs(gatedSongs.value, query).map((r) => r.song.id)
+}
 
-// the "เพลง ▾" menu shares the app-wide one-menu-at-a-time state (shellMenu)
+// the ⋮ เพิ่มเติม (overflow) menu shares the app-wide one-menu-at-a-time state (shellMenu).
+// Locked design (ux-groundup-design.md): the shell actions read ‹back · title · ✏️edit ·
+// ↗share · ⋮more — "less-common actions" (Material overflow pattern) live behind ⋮, and
+// "สร้างเพลงใหม่" is GONE from here (create lives on the home catalog only, per P'Aim).
 const openMenu = shellMenu
+// "เปิดเพลงอื่น…" expands to a search box INSIDE the menu (no stacked dialog); reset each open.
+const openOther = ref(false)
 // B018: on a phone the panel is a viewport-inset sheet (see CSS) anchored just under
 // the shell bar. The bar height varies (2-row on mobile · login wraps), so we read its
 // real bottom on open instead of hard-coding a value that would overlap or gap.
 const panelTop = ref(56)
-function toggleSongMenu() {
-  openMenu.value = openMenu.value === 'song' ? null : 'song'
-  if (openMenu.value === 'song') {
+function toggleMoreMenu() {
+  openMenu.value = openMenu.value === 'more' ? null : 'more'
+  if (openMenu.value === 'more') {
+    openOther.value = false
     nextTick(() => {
       const bar = document.querySelector('.shell-bar')
       if (bar) panelTop.value = Math.round(bar.getBoundingClientRect().bottom)
     })
   }
 }
-// S2: create-new from the panel → a blank editor. Remount EditorMode (nonce) so it
-// resets cleanly, drop the loaded song, and switch to แก้ไข. Navigate to a bare /studio
-// when we were on /song/:id so the URL matches "no song open".
-function createNew() {
-  openMenu.value = null
-  loadedSong.value = null
-  liveSong.value = null
-  editorNonce.value++
-  mode.value = 'edit'
-  if (route.params.id) router.push('/studio')
-}
+function closeMore() { openMenu.value = null; openOther.value = false }
 // S2: จิ้มเพลง = เปิดเลย (no OK button). ComboSelect emits the id on click/Enter; we open
-// it right away, keeping the current mode (US-05). Same-song pick just closes the panel.
+// it right away, keeping the current mode (US-05). Same-song pick just closes the menu.
 function openSong(id) {
-  openMenu.value = null
+  closeMore()
   if (!id || id === liveSong.value?.id) return
   router.push('/song/' + id)
 }
@@ -596,41 +601,6 @@ function printSheet() {
       </template>
     </Teleport>
     <Teleport to="#shell-menus">
-      <!-- "เพลง ▾" (S2) — one panel: สร้างเพลงใหม่ (top) + ค้นหา/เปิด. Shown in อ่าน/แผ่น
-           modes; in แก้ไข the editor teleports its own richer "เพลง"/"จัดการ" menus, so this
-           button steps aside (no duplicate — moves toward B003). -->
-      <div v-if="mode !== 'edit'" class="sb-menu">
-        <button
-          class="sb-text sb-open-btn"
-          :aria-expanded="openMenu === 'song'"
-          aria-haspopup="true"
-          @click.stop="toggleSongMenu"
-        >
-          <Icon name="file-music" :size="16" /><span class="sb-open-label">เพลง</span><Icon name="chevron-down" :size="14" class="chev" />
-        </button>
-        <div
-          v-if="openMenu === 'song'"
-          class="sb-dropdown sb-song-panel"
-          :style="{ '--sb-panel-top': panelTop + 'px' }"
-          role="menu"
-          @click.stop
-          @keydown.esc="openMenu = null"
-        >
-          <button class="sb-song-new" @click="createNew">
-            <Icon name="file-plus" :size="18" /> สร้างเพลงใหม่
-          </button>
-          <div class="sb-song-sep"><span>หรือเปิดเพลงที่มีอยู่</span></div>
-          <ComboSelect
-            :model-value="''"
-            :options="pickerOptions"
-            placeholder="พิมพ์ค้นหา: ชื่อ เลข เนื้อร้อง โน้ต…"
-            aria-label="ค้นหาเพลงเพื่อเปิด — จิ้มเพลงเพื่อเปิดทันที"
-            width="100%"
-            autofocus
-            @update:model-value="openSong"
-          />
-        </div>
-      </div>
       <!-- ↗ แชร์ — one action for the open song, in EVERY mode (a reader in ฝึกร้อง/แผ่นเพลง
            should not have to go anywhere to send the song on). Icon-only: the label lives in
            aria-label + title, and the target is a full 44px on touch (see CSS). -->
@@ -646,13 +616,65 @@ function printSheet() {
       >
         <Icon name="share" :size="16" />
       </button>
-      <span class="sb-modes" role="group" aria-label="เลือกมุมมอง">
+      <!-- ⋮ เพิ่มเติม (overflow) — the "less-common actions" for the open song (Material overflow
+           pattern), rightmost of the shell actions per the locked design. This lane builds the
+           CONTAINER + "เปิดเพลงอื่น…"; print/download/★/➕/⚙ slots are wired by their own lanes.
+           ⛔ no "สร้างเพลงใหม่" here (create = home catalog). Shown in อ่าน/แผ่น; in แก้ไข the editor
+           teleports its own richer menus, so ⋮ steps aside. -->
+      <div v-if="mode !== 'edit'" class="sb-menu">
+        <button
+          class="sb-text sb-more-btn"
+          :aria-expanded="openMenu === 'more'"
+          aria-haspopup="menu"
+          aria-label="เพิ่มเติม"
+          title="เพิ่มเติม"
+          @click.stop="toggleMoreMenu"
+        >
+          <Icon name="more-vertical" :size="18" />
+        </button>
+        <div
+          v-if="openMenu === 'more'"
+          class="sb-dropdown sb-more-panel"
+          :style="{ '--sb-panel-top': panelTop + 'px' }"
+          role="menu"
+          @click.stop
+          @keydown.esc="closeMore"
+        >
+          <button class="sb-more-item" role="menuitem" :aria-expanded="openOther" @click="openOther = !openOther">
+            <Icon name="search" :size="16" /> เปิดเพลงอื่น…
+          </button>
+          <div v-if="openOther" class="sb-more-search">
+            <ComboSelect
+              :model-value="''"
+              :options="pickerOptions"
+              :rank-fn="rankSongs"
+              placeholder="พิมพ์ค้นหา: ชื่อ เลข เนื้อร้อง โน้ต…"
+              aria-label="ค้นหาเพลงเพื่อเปิด — จิ้มเพลงเพื่อเปิดทันที"
+              width="100%"
+              autofocus
+              @update:model-value="openSong"
+            />
+          </div>
+        </div>
+      </div>
+      <!-- the 3-way mode switch — HIDDEN while the inline (✏️) editor is open (item 2): the
+           editor has its own "เสร็จ"/Esc way out, and a tab that reads as current while you are
+           in an editor lies. Slide-fade only (opacity/transform), never display/width — so the
+           shell-bar height is unchanged and the sheet below never shifts (AC-2.3). -->
+      <span
+        class="sb-modes"
+        :class="{ 'sb-modes-hidden': viewerEditing }"
+        role="group"
+        aria-label="เลือกมุมมอง"
+        :aria-hidden="viewerEditing"
+      >
         <button
           v-for="m in MODES"
           :key="m.id"
           class="sb-mode-btn"
           :class="{ on: mode === m.id && !viewerEditing }"
           :aria-pressed="mode === m.id && !viewerEditing"
+          :tabindex="viewerEditing ? -1 : 0"
           :title="viewerEditing ? m.title + ' — ออกจากโหมดแก้' : m.title"
           @click="setMode(m.id)"
         >
@@ -846,6 +868,18 @@ function printSheet() {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 2px;
+  /* item 2 — slide-fade when the inline editor hides/shows the tabs. Opacity + transform ONLY
+     (never display/width), so the box keeps its space and the shell-bar height never changes →
+     the sheet below does not shift (AC-2.3). */
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.sb-modes-hidden {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-modes { transition: none; }
 }
 .sb-mode-btn {
   display: inline-flex;
@@ -899,54 +933,47 @@ function printSheet() {
   font-size: var(--fs-xl);
 }
 
-/* "เพลง ▾" panel (S2) — teleported into the shared ShellBar */
-.sb-open-btn {
+/* ⋮ เพิ่มเติม (overflow) — teleported into the shared ShellBar. The trigger is an icon button
+   sized like ↗ แชร์ (same 34px height, 44px touch) so the shell actions read as one row. */
+.sb-more-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  min-height: 34px;
+  min-width: 34px;
+  padding: 0 8px;
+  cursor: pointer;
 }
-.sb-song-panel {
+@media (hover: hover) {
+  .sb-more-btn:hover { color: var(--brand); border-color: var(--brand); }
+}
+.sb-more-btn[aria-expanded='true'] { color: var(--brand); border-color: var(--brand); }
+.sb-more-panel {
   min-width: 300px;
-  gap: 8px;
+  gap: 6px;
 }
-/* ＋สร้างเพลงใหม่ — the prominent primary action at the top of the panel */
-.sb-song-new {
+/* menu rows — a plain full-width item; "เปิดเพลงอื่น…" reveals the search box below it */
+.sb-more-item {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  background: var(--brand);
-  color: #fff;
-  border: none;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   font: inherit;
-  font-weight: 700;
   min-height: 40px;
   cursor: pointer;
+  text-align: start;
 }
-.sb-song-new:hover {
-  filter: brightness(1.05);
-}
-.sb-song-new .icn {
-  color: #fff;
-}
-/* "หรือเปิดเพลงที่มีอยู่" divider */
-.sb-song-sep {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 0.85rem;
-  margin: 2px 0;
-}
-.sb-song-sep::before,
-.sb-song-sep::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--line);
-}
+.sb-more-item:hover { border-color: var(--brand); color: var(--brand); }
+.sb-more-search { padding-top: 2px; }
 
 /* โหมดแผ่น (US-06): พิมพ์ is now the shared dock's print tool (N1). Leave room so the
    fixed dock never covers the last staff line. */
@@ -962,8 +989,7 @@ function printSheet() {
 }
 
 @media (max-width: 760px) {
-  .sb-mode-label,
-  .sb-open-label {
+  .sb-mode-label {
     display: none;
   }
   .sb-title-static {
@@ -972,13 +998,13 @@ function printSheet() {
   /* the mode switch (ฝึกร้อง·แผ่นเพลง·แก้ไข) goes icon-only on a phone — give each
      a full 44px touch target so the three are comfortably tappable */
   .sb-mode-btn { min-height: var(--touch-min); min-width: var(--touch-min); justify-content: center; }
-  /* ↗ แชร์ is icon-only at every width — give it the same full touch target on a phone */
+  /* ↗ แชร์ · ⋮ เพิ่มเติม are icon-only at every width — full touch target on a phone */
   .sb-share-btn { min-height: var(--touch-min); min-width: var(--touch-min); }
-  /* ＋สร้างเพลงใหม่ is the panel's primary action — 44px on touch */
-  .sb-song-new { min-height: var(--touch-min); }
+  .sb-more-btn { min-height: var(--touch-min); min-width: var(--touch-min); }
+  .sb-more-item { min-height: var(--touch-min); }
   /* B008/B018: on a phone the panel is a viewport-inset sheet under the bar — full-width,
      can't run off either edge, whatever the button's x position. */
-  .sb-song-panel {
+  .sb-more-panel {
     position: fixed;
     top: var(--sb-panel-top, 56px);
     left: var(--sp-2);

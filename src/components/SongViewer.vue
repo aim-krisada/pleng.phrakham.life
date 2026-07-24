@@ -7,14 +7,14 @@
 // the 2-row dock (ไทม์ไลน์ · คีย์ · เลือกท่อน · transport · Aa · ⚙ + pin). Mounted directly
 // here; แผ่นเพลง and แก้ไข mount their own DockKey the same way.
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { KEYS, chordOptions } from '../lib/chords.js'
+import { KEYS, chordOptions, isValidChord } from '../lib/chords.js'
 import {
   playSong, playEnsemble, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
   effectiveOrder, buildPlayNotes,
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedNote, withInsertedBox, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -382,8 +382,43 @@ function onUndoKeys(e) {
 // how a typed digit behaves — DEFAULT 'overwrite' (a number lands right ON the current note,
 // predictable "กด 1 = ใส่ 1 ตรงที่อยู่"). 'insert' (push the rest right) is the toggle for adding
 // notes. The Insert key flips it.
+//
+// item 4 (2-mode caret) — the two modes now wear two cursor SHAPES so the hand knows which is
+// live (VS Code/Word overtype ↔ insert): 'overwrite' = a BLOCK covering one note (the existing
+// .nt-sel highlight); 'insert' = a thin blinking LINE CARET sitting BETWEEN notes at `caretGap`.
+// caretGap is a gap index in [0 .. inlineCells.length]: g sits BEFORE note-cell g, and g ===
+// length is the gap AFTER the last note. gap 0 (g0) is the position before the very first note —
+// which is what lets you insert a note ahead of it ("insert 5 before 2"). Block mode ignores it.
 const typeMode = ref('overwrite')
-function toggleTypeMode() { typeMode.value = typeMode.value === 'insert' ? 'overwrite' : 'insert' }
+const caretGap = ref(0)
+const noteCellCount = computed(() => inlineCells.value.length)
+// keep the (invisible) capture input near the caret so the physical/phone keyboard stays put:
+// point curIdx at the note the caret sits at (or the last note when it is past the end).
+function syncCurIdxToCaret() {
+  const n = noteCellCount.value
+  if (!n) return
+  curIdx.value = Math.min(caretGap.value, n - 1) * 2 // the note UNIT (even index) of that cell
+}
+// move the line caret one gap left/right (insert mode). Clamped to [0, N] so it can reach both
+// g0 (before the first note) and gN (after the last).
+function moveCaret(dir) {
+  caretGap.value = Math.max(0, Math.min(caretGap.value + dir, noteCellCount.value))
+  syncCurIdxToCaret()
+}
+function toggleTypeMode() {
+  typeMode.value = typeMode.value === 'insert' ? 'overwrite' : 'insert'
+  // entering แทรก: drop the line caret just BEFORE the note that was selected (its left edge),
+  // so pressing Insert then typing inserts ahead of it — and from g0 you can precede the first note.
+  if (typeMode.value === 'insert') {
+    const ci = curIdx.value >= 0 ? Math.floor(curIdx.value / 2) : 0
+    caretGap.value = Math.max(0, Math.min(ci, noteCellCount.value))
+  }
+}
+// item 5 (keyboard octave) — `.` is a DEAD-KEY prefix: while armed, the NEXT digit becomes a LOW
+// note (.5), matching the parser SSOT (notation.js: a dot BEFORE the digit = low octave; a dot
+// AFTER = augmentation). If the next key is not a digit the '.' resolves to a plain aug dot. A
+// faint pending indicator shows the armed state; Esc (or any resolve) clears it. One-shot, no timeout.
+const pendingLow = ref(false)
 // All keys arrive at the hidden capture <input> (focused on selection so the device keyboard
 // opens: numeric for a note, Thai text for a word). NOTE layer: digits/arrows/delete are
 // commands. WORD layer: text flows into the input (→ withSetSyllable), and ← → only leave the
@@ -416,8 +451,26 @@ function onCaptureKey(e) {
   const el = e.target
   const atStart = word && (el.selectionStart ?? 0) === 0 && (el.selectionEnd ?? 0) === 0
   const atEnd = word && (el.selectionStart ?? 0) >= el.value.length && (el.selectionEnd ?? 0) >= el.value.length
-  if (e.key === 'ArrowRight') { if (ctrl) { e.preventDefault(); moveBar(1) } else if (!word || atEnd) { e.preventDefault(); moveHoriz(1) } }
-  else if (e.key === 'ArrowLeft') { if (ctrl) { e.preventDefault(); moveBar(-1) } else if (!word || atStart) { e.preventDefault(); moveHoriz(-1) } }
+  // Esc — leave the pencil (item 2). A pending low-octave dead key eats the first Esc (cancels
+  // it); an open chord popup owns Esc itself (it holds focus — see onChordKey), so none reaches here.
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    if (pendingLow.value) { pendingLow.value = false; return }
+    requestExitEdit()
+    return
+  }
+  // item 5 dead-key resolution — once '.' is armed the NEXT key decides: a digit → a LOW note
+  // (.5); anything else → the '.' was a plain augmentation dot on the current note, then that key
+  // still runs its normal job below (so '.' then Enter = 5. and move on).
+  if (!word && pendingLow.value) {
+    if (/^[0-7]$/.test(e.key)) { e.preventDefault(); pendingLow.value = false; typeLowDigit(e.key); return }
+    pendingLow.value = false
+    applySymbol('.')
+  }
+  // insert mode moves the LINE CARET one gap; overwrite mode moves the BLOCK by one note (±2 units)
+  const insNote = !word && typeMode.value === 'insert'
+  if (e.key === 'ArrowRight') { if (ctrl) { e.preventDefault(); moveBar(1) } else if (!word || atEnd) { e.preventDefault(); insNote ? moveCaret(1) : moveHoriz(1) } }
+  else if (e.key === 'ArrowLeft') { if (ctrl) { e.preventDefault(); moveBar(-1) } else if (!word || atStart) { e.preventDefault(); insNote ? moveCaret(-1) : moveHoriz(-1) } }
   else if (e.key === 'ArrowDown') { e.preventDefault(); ctrl ? moveLineJump(1) : moveVert(1) }
   else if (e.key === 'ArrowUp') { e.preventDefault(); ctrl ? moveLineJump(-1) : moveVert(-1) }
   else if (e.key === 'Insert') { e.preventDefault(); toggleTypeMode() }
@@ -430,23 +483,31 @@ function onCaptureKey(e) {
   else if (!word && (e.key === 'End' || (ctrl && e.key === 'End'))) { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
   else if (word && ctrl && e.key === 'Home') { e.preventDefault(); curIdx.value = 0 }
   else if (word && ctrl && e.key === 'End') { e.preventDefault(); curIdx.value = editUnits.value.length - 1 }
-  // NOTE layer: digit = set the note; Delete = ลบอยู่กับที่ (rest); Backspace = เอาออกทั้งช่อง.
-  // Overwrite STAYS on the note (so you can add octave / ♯♭ to it before moving — P'Aim); use
-  // ← → / space to move on. Insert still advances so a new melody flows left-to-right.
+  // item 3 — CHORD at the cursor: `c` opens the chord popup right over this note (the MAIN way to
+  // add/edit a chord now; the toolbar คอร์ด ▾ stays as a fallback). 'c' collides with nothing —
+  // digits own 0-7, the marks/accidentals own their own keys. Ctrl+C is left to the browser (copy).
+  else if (!word && (e.key === 'c' || e.key === 'C') && !ctrl) { e.preventDefault(); openChordPopup() }
+  // item 5 — arm the low-octave dead key ('.'); the next key resolves it (handled above). Must
+  // come BEFORE the generic symbol branch, which would otherwise apply '.' as an aug dot at once.
+  else if (!word && e.key === '.') { e.preventDefault(); pendingLow.value = true }
+  // NOTE layer: a digit sets the note. Overwrite (block) STAYS on the note so you can add octave /
+  // ♯♭ before moving (P'Aim); ← → / space move on. Insert drops the digit at the LINE CARET.
   else if (!word && /^[0-7]$/.test(e.key)) {
     e.preventDefault()
-    if (typeMode.value === 'insert') insertDigit(e.key)
+    if (typeMode.value === 'insert') insertAtCaret(e.key)
     else overwriteDigit(e.key)
   }
-  // The whole jianpu symbol set, typed straight onto the sheet — # b n (accidentals, on a
-  // physical keyboard so they need no button), the four marks _ . ~ ^ that ride on the note, the
+  // The rest of the jianpu symbol set, typed straight onto the sheet — # b n (accidentals, on a
+  // physical keyboard so they need no button), the marks _ ~ ^ that ride on the note, the
   // structural boxes - ( ) { }, the high-octave ' (and the curly-quote ’ some keyboards emit),
   // and the | bar line. ⛔ ONE dispatch: `symbolForKey` (the registry) decides if a key is a
   // symbol, then `applySymbol` classifies it — the SAME path the toolbar buttons take. The
   // keydown handler must never re-implement the classification (that was CP-0's silent drift).
   else if (!word && symbolForKey(e.key)) { e.preventDefault(); applySymbol(e.key) }
-  else if (!word && e.key === 'Delete') { e.preventDefault(); deleteSel() }
-  else if (!word && e.key === 'Backspace') { e.preventDefault(); removeCell() }
+  // item 4 — Delete = ลบขวา (pull-tight forward delete) · Backspace = ลบซ้าย (แล้วถอย). The old
+  // Delete=rest-in-place moved to typing 0 (overwriteDigit('0')), so the direction is text-standard.
+  else if (!word && e.key === 'Delete') { e.preventDefault(); deleteRight() }
+  else if (!word && e.key === 'Backspace') { e.preventDefault(); deleteLeft() }
   // WORD layer: an empty word + Backspace removes the whole cell; otherwise let the text edit
   // (native) — onCaptureInput writes it back to the syllable.
   else if (word && e.key === 'Backspace' && el.value === '') { e.preventDefault(); removeCell() }
@@ -531,10 +592,40 @@ function updateNoteRect() {
   if (!el) { noteRect.value = null; return }
   const r = el.getBoundingClientRect()
   noteRect.value = { top: r.top, bottom: r.bottom, left: r.left, width: r.width }
+  updateCaretRect()
 }
-watch(selCell, () => nextTick(updateNoteRect))
+// item 4 — the LINE CARET's on-screen rect (insert mode only). It sits at the LEFT edge of the
+// note-cell at the gap, or at the RIGHT edge of the last note when the caret is past the end (gN).
+const caretRect = ref(null)
+function updateCaretRect() {
+  if (!editMode.value || typeMode.value !== 'insert' || !sheetWrap.value) { caretRect.value = null; return }
+  const n = noteCellCount.value
+  if (!n) { caretRect.value = null; return }
+  const g = Math.max(0, Math.min(caretGap.value, n))
+  const atEnd = g >= n
+  const cell = inlineCells.value[atEnd ? n - 1 : g]
+  const el = cell && sheetWrap.value.querySelector(`.segment[data-seg="${cell.li}-${cell.si}"] .nt[data-idx="${cell.syk}"]`)
+  if (!el) { caretRect.value = null; return }
+  const r = el.getBoundingClientRect()
+  caretRect.value = { top: r.top, height: Math.max(16, r.bottom - r.top), x: atEnd ? r.right : r.left }
+}
+watch([caretGap, typeMode], () => nextTick(updateCaretRect))
+// item 1 — keep the edit point IN VIEW. When ↑↓/←→ move the caret past the visible edge of the
+// scrolling sheet, bring it back — block:'nearest' (only when it is actually leaving; no jump to
+// center → keeps spatial memory + no jitter on fast typing) and behavior:'auto' (instant → arrow
+// bursts never queue/cancel a smooth animation). The save-bar (top) and the tool dock / phone
+// keyboard (bottom) are flex SIBLINGS outside .sv-doc, so they can't cover the cell; scroll-padding
+// on .sv-doc adds a little breathing room anyway. Real-Chrome behaviour (scrollIntoView has been
+// silent inside the browser pane — memory pleng-agent-browser-not-rendering).
+function scrollCaretIntoView() {
+  if (!editMode.value || !sheetWrap.value) return
+  const sel = selLayer.value === 'word' ? '.syl-sel-active, .syl-sel' : '.nt-sel-active, .nt-sel'
+  const el = sheetWrap.value.querySelector(sel)
+  el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
+}
+watch(selCell, () => nextTick(() => { updateNoteRect(); scrollCaretIntoView() }))
 watch(editMode, (on) => {
-  if (!on) { noteRect.value = null; return }
+  if (!on) { noteRect.value = null; caretRect.value = null; pendingLow.value = false; closeChordPopup(); return }
   measureFrame()
   let seen = true
   try { seen = localStorage.getItem(HELP_SEEN_KEY) === '1' } catch { seen = false }
@@ -603,14 +694,90 @@ function overwriteDigit(digit) {
   const next = withNotePitch(props.song.content, loc, digit)
   if (next !== props.song.content) emit('update-content', next)
 }
-// insert a new note at the cursor (ripple right); the cursor moves onto the note that got
-// pushed, so the next digit lands after this one (left-to-right entry). curIdx jumps +2 (to
-// the next NOTE unit) because the unit list is two longer after the emitted re-render.
-function insertDigit(digit) {
+// resolve an ARBITRARY inline note cell (not just the selected one) to its source address, so
+// insert/delete can act at the line caret's gap rather than only under the block cursor.
+function locForCell(cell) {
+  if (!cell) return null
+  const rline = resolved.value?.lines?.[cell.li]
+  if (!rline || !rline._stanza) return null
+  return { resolvedLine: rline, si: cell.si, syk: cell.syk }
+}
+// item 4 — INSERT a note at the line caret (insert mode). gap g < N → insert to the LEFT of
+// note-cell g (so from g0 the new note precedes the first note); gap N → append after the last
+// note. The caret then advances one gap (left-to-right entry). `low` (item 5) drops the new note
+// an octave in the SAME emit, so `.5` is one undo step. With no notes yet, fall back to setting
+// the selected cell's pitch so the very first digit is never lost.
+function insertAtCaret(digit, low = false) {
+  const c = props.song.content
+  const n = noteCellCount.value
+  if (!n) {
+    const loc0 = selLoc()
+    if (!loc0) return
+    let nx = withNotePitch(c, loc0, digit)
+    if (low) nx = withOctaveShift(nx, loc0, -1)
+    if (nx !== c) emit('update-content', nx)
+    return
+  }
+  const g = Math.max(0, Math.min(caretGap.value, n))
+  const before = g < n
+  const loc = locForCell(inlineCells.value[before ? g : n - 1])
+  if (!loc) return
+  let next = withInsertedBox(c, loc, digit, before)
+  if (next === c) return
+  if (low) next = withOctaveShift(next, { ...loc, syk: loc.syk + (before ? 0 : 1) }, -1)
+  emit('update-content', next)
+  caretGap.value = g + 1
+  nextTick(syncCurIdxToCaret)
+}
+// item 5 — type a LOW-octave note by keyboard (the `.` dead key). Insert mode routes through the
+// caret; overwrite mode sets the covered note's pitch then drops it an octave, both in ONE emit
+// (so `.5` is a single undo step, and a no-op pitch — retyping the same digit — still gets the dot).
+function typeLowDigit(digit) {
+  if (typeMode.value === 'insert') { insertAtCaret(digit, true); return }
   const loc = selLoc()
   if (!loc) return
-  const next = withInsertedNote(props.song.content, loc, digit)
-  if (next !== props.song.content) { emit('update-content', next); curIdx.value = curIdx.value + 2 }
+  const c = props.song.content
+  let next = withNotePitch(c, loc, digit)
+  next = withOctaveShift(next, loc, -1)
+  if (next !== c) emit('update-content', next)
+}
+// item 4 — Backspace deletes the note to the LEFT of the caret and steps the caret back
+// (Wikipedia: "deletes the character before the cursor"). In block mode this is the existing
+// "remove the covered cell, step back". Both pull the following notes tight (withDeletedNote).
+function deleteLeft() {
+  if (typeMode.value === 'insert') {
+    const g = caretGap.value
+    if (g <= 0) return
+    const loc = locForCell(inlineCells.value[g - 1])
+    if (!loc) return
+    const next = withDeletedNote(props.song.content, loc)
+    if (next !== props.song.content) { emit('update-content', next); caretGap.value = g - 1; nextTick(syncCurIdxToCaret) }
+    return
+  }
+  removeCell()
+}
+// item 4 — Delete deletes the note to the RIGHT of the caret, pull-tight (forward delete). In
+// block mode "the note to the right of the caret" IS the covered note, so Delete removes it and
+// pulls the next one into its place (this REPLACES the old Delete=rest; "rest in place" is now
+// made by typing 0). The bar line '|' is a separate line item, never a note cell, so a forward
+// delete at a bar's end naturally skips the '|' and removes the first note of the next bar.
+function deleteRight() {
+  if (typeMode.value === 'insert') {
+    const g = caretGap.value
+    if (g >= noteCellCount.value) return
+    const loc = locForCell(inlineCells.value[g])
+    if (!loc) return
+    const next = withDeletedNote(props.song.content, loc)
+    if (next !== props.song.content) { emit('update-content', next); nextTick(syncCurIdxToCaret) }
+    return
+  }
+  const loc = selLoc()
+  if (!loc) return
+  const next = withDeletedNote(props.song.content, loc)
+  if (next !== props.song.content) {
+    emit('update-content', next) // cursor stays put (the next note pulls into this slot); clamp after
+    nextTick(() => { const max = editUnits.value.length - 1; if (curIdx.value > max) curIdx.value = Math.max(-1, max) })
+  }
 }
 // Delete = ลบเฉพาะสิ่งที่เลือก (P'Aim Q1): on the NOTE layer the note becomes a rest (its word
 // + timing stay); on the WORD layer only that word is cleared (the note stays). Nothing else
@@ -691,6 +858,124 @@ function setChord(chord) {
   if (next !== props.song.content) emit('update-content', next)
   focusCapture()
 }
+// ---- item 3: chord AT the cursor (the MAIN path) ------------------------------------------
+// A popup that appears right ON the note (not a far toolbar): press `c`, type, and the chord
+// lands on that note. Space confirms + advances to the next note (MuseScore 4 chord-symbol flow),
+// so a whole line's chords go in without touching the mouse. The engine is the SAME withChord /
+// isValidChord the toolbar uses — this only adds the at-cursor entry surface.
+const chordPopupOpen = ref(false)
+const chordDraft = ref('')
+const chordBad = ref(false)
+const chordPristine = ref(true) // untouched popup + Enter must NOT delete an existing chord
+const chordPopInput = ref(null)
+// the chord currently on the selected note's segment (pre-fills the popup, select-all so a type
+// overwrites it) — read from the resolved line, same walk selCell/currentWord use.
+const chordAtCursor = computed(() => {
+  const c = selCell.value
+  if (!c) return ''
+  const line = resolved.value?.lines?.[c.li]
+  if (!line) return ''
+  let si = -1
+  for (const it of line) {
+    if (it.type !== 'segment') continue
+    si++
+    if (si === c.si) return it.chord || ''
+  }
+  return ''
+})
+function openChordPopup() {
+  if (!selCell.value) return
+  chordDraft.value = chordAtCursor.value
+  chordPristine.value = true
+  chordBad.value = false
+  chordPopupOpen.value = true
+  nextTick(() => {
+    const el = chordPopInput.value
+    if (el) { el.focus(); el.select() } // pre-fill + select-all → typing overwrites (G · verified UX)
+  })
+}
+function closeChordPopup() {
+  chordPopupOpen.value = false
+  chordBad.value = false
+}
+// commit the popup's text. dirty-checking (G): a PRISTINE popup + Enter is just a close (the
+// existing chord is kept, never silently deleted); you must clear the text yourself to delete.
+// Returns true when it committed/closed cleanly, false when it refused invalid text (stays open).
+function commitChordPopup() {
+  const q = chordDraft.value.trim()
+  if (chordPristine.value) return true // untouched → nothing to write, nothing to delete
+  if (q === '') { setChord(''); return true } // cleared on purpose → delete the chord
+  if (!isValidChord(q)) { chordBad.value = true; return false } // junk → refuse in place
+  setChord(q)
+  return true
+}
+// advance to the NEXT note and reopen the popup, so chords can be keyed in a run (Space). Skips
+// the word units (chords live on notes). Uses the flat note-cell list so it crosses bars/lines.
+function chordNextNote() {
+  const cells = inlineCells.value
+  const cur = selCell.value
+  const ci = cur ? cells.findIndex((c) => c.li === cur.li && c.si === cur.si && c.syk === cur.syk) : -1
+  const next = cells[ci + 1]
+  if (!next) { closeChordPopup(); focusCapture(); return } // no more notes — just close
+  gotoCellNote(next)
+  nextTick(openChordPopup)
+}
+// jump the caret to the FIRST note of the NEXT bar and reopen (Ctrl+Space — for a chord that
+// holds across a whole bar). moveBar already lands on the next bar's first note.
+function chordNextBar() {
+  moveBar(1)
+  nextTick(openChordPopup)
+}
+function pickChordFromPopup(v) {
+  setChord(v)
+  closeChordPopup()
+  focusCapture()
+}
+// mobile delete (≥24px trash) — poking the keyboard to blank the text is annoying on a phone (G)
+function deleteChordFromPopup() {
+  setChord('')
+  closeChordPopup()
+  focusCapture()
+}
+function onChordKey(e) {
+  chordPristine.value = false
+  if (e.key === 'Enter') {
+    e.preventDefault(); e.stopPropagation()
+    if (commitChordPopup()) { closeChordPopup(); focusCapture() }
+  } else if (e.key === ' ') {
+    // Space = confirm + advance to the next note + reopen (chord names carry no spaces, so a
+    // space can only mean "next"). Invalid text holds the popup open.
+    e.preventDefault(); e.stopPropagation()
+    if (e.ctrlKey || e.metaKey) { if (commitChordPopup()) chordNextBar() }
+    else if (commitChordPopup()) chordNextNote()
+  } else if (e.key === 'Escape') {
+    // cancel: keep the existing chord (drop the typed edit), close, and hand focus back to the
+    // note cell so the arrows work at once (G pitfall: Esc otherwise drops focus to <body>).
+    e.preventDefault(); e.stopPropagation()
+    closeChordPopup()
+    focusCapture()
+  }
+  // Tab is deliberately NOT bound (a11y focus traversal — MuseScore 4 freed it too). Other keys
+  // (typing, ↑↓ within the field) fall through to the native input.
+}
+// place the popup ABOVE the note by default; if that would push it off the top (or under the
+// save-bar) drop it BELOW instead. On a phone the on-screen keyboard shrinks the visual viewport —
+// clamp the popup so it stays above the keyboard (visualViewport.height + offsetTop) rather than
+// hiding behind it (§3 mobile: "ป๊อปอัปเหนือแป้นพิมพ์เสมอ").
+const CHORD_POP_H = 118 // approx popup height for the above/below decision (measured-enough)
+const chordPopStyle = computed(() => {
+  const r = noteRect.value
+  if (!r) return { display: 'none' }
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null
+  const vTop = vv ? vv.offsetTop : 0
+  const vBottom = vv ? vv.offsetTop + vv.height : (typeof window !== 'undefined' ? window.innerHeight : 800)
+  const above = r.top - CHORD_POP_H - 6
+  const placeBelow = above < vTop + 8
+  const style = { position: 'fixed', left: Math.max(8, r.left) + 'px', 'z-index': 'var(--z-inline-edit)' }
+  if (placeBelow) style.top = Math.min(r.bottom + 6, vBottom - CHORD_POP_H - 8) + 'px'
+  else style.top = above + 'px'
+  return style
+})
 // ---- toolbar taps (special buttons only — digits/text come from the device keyboard) ----
 // Every button uses @mousedown.prevent (in NoteInputBar) so the capture input keeps focus and
 // the phone keyboard stays open. After each we re-focus the input to be safe.
@@ -1335,11 +1620,17 @@ onMounted(() => {
   window.addEventListener('scroll', onPageScroll, { capture: true, passive: true })
   window.addEventListener('resize', onResizeWidth)
   // a phone's on-screen keyboard shrinks the VISUAL viewport only — watch it so the frame's
-  // floor (and with it the tool dock) lifts above the keyboard instead of hiding behind it
+  // floor (and with it the tool dock) lifts above the keyboard instead of hiding behind it. item 1:
+  // ALSO re-scroll the caret into view once the keyboard has finished pushing the viewport (a
+  // scrollIntoView fired before it settles computes the wrong position — G's visualViewport pitfall).
   const vv = window.visualViewport
-  if (vv) { vv.addEventListener('resize', measureFrame); vv.addEventListener('scroll', measureFrame) }
+  if (vv) { vv.addEventListener('resize', onViewportResize); vv.addEventListener('scroll', measureFrame) }
   nextTick(() => { isWide.value = window.innerWidth >= WIDE_MIN; measureFrame() }) // re-read once layout has a real width
 })
+function onViewportResize() {
+  measureFrame()
+  if (editMode.value) nextTick(() => { updateCaretRect(); scrollCaretIntoView() })
+}
 onUnmounted(() => {
   window.removeEventListener('keydown', onUndoKeys)
   window.removeEventListener('wheel', onUserScroll)
@@ -1347,7 +1638,7 @@ onUnmounted(() => {
   window.removeEventListener('scroll', onPageScroll, { capture: true })
   window.removeEventListener('resize', onResizeWidth)
   const vv = window.visualViewport
-  if (vv) { vv.removeEventListener('resize', measureFrame); vv.removeEventListener('scroll', measureFrame) }
+  if (vv) { vv.removeEventListener('resize', onViewportResize); vv.removeEventListener('scroll', measureFrame) }
   stopPlayback()
 })
 
@@ -1505,6 +1796,74 @@ function onSeek({ li, si, syk }) {
             @keydown="onCaptureKey"
             @input="onCaptureInput"
           />
+          <!-- item 4 — the LINE CARET (insert mode): a thin blinking bar BETWEEN notes, visually
+               distinct from the block (so the hand knows insert vs overwrite). Sits at the caret gap. -->
+          <span
+            v-if="editMode && typeMode === 'insert' && caretRect"
+            class="sv-linecaret no-print"
+            :style="{ left: caretRect.x + 'px', top: caretRect.top + 'px', height: caretRect.height + 'px' }"
+            aria-hidden="true"
+          ></span>
+          <!-- item 5 — pending low-octave indicator: a faint dot at the caret the instant '.' is
+               armed, so the user sees a low note is coming BEFORE typing the digit (guards the
+               "meant an aug dot" slip). -->
+          <span
+            v-if="editMode && pendingLow && noteRect"
+            class="sv-pending-low no-print"
+            :style="{ left: noteRect.left + 'px', top: noteRect.top + 'px' }"
+            aria-hidden="true"
+          >.</span>
+          <!-- item 3 — chord AT the cursor: the popup appears right over the note. Space confirms +
+               advances; Enter confirms + closes; Esc cancels; the ♩ trash deletes (mobile). -->
+          <div
+            v-if="editMode && chordPopupOpen && noteRect"
+            class="sv-chordpop no-print"
+            :style="chordPopStyle"
+            role="dialog"
+            aria-label="ใส่คอร์ดบนโน้ตนี้"
+            @mousedown.stop
+            @click.stop
+          >
+            <div class="sv-chordpop-row">
+              <input
+                ref="chordPopInput"
+                v-model="chordDraft"
+                class="sv-chordpop-input"
+                :class="{ bad: chordBad }"
+                type="text"
+                inputmode="text"
+                autocomplete="off"
+                autocapitalize="off"
+                autocorrect="off"
+                spellcheck="false"
+                placeholder="คอร์ด เช่น G, Am, F#m7, G/B"
+                aria-label="พิมพ์คอร์ด — Space ยืนยันไปโน้ตถัดไป · Enter ยืนยัน · Esc ยกเลิก"
+                :aria-invalid="chordBad"
+                @keydown="onChordKey"
+                @input="chordBad = false"
+              />
+              <button
+                class="sv-chordpop-del"
+                type="button"
+                title="ลบคอร์ด"
+                aria-label="ลบคอร์ดออกจากโน้ตนี้"
+                @mousedown.prevent
+                @click="deleteChordFromPopup"
+              ><Icon name="trash-2" :size="16" /></button>
+            </div>
+            <div v-if="chordBad" class="sv-chordpop-err" role="alert">ไม่ใช่คอร์ดที่อ่านได้ — ขึ้นต้นด้วย A–G</div>
+            <div class="sv-chordpop-list" role="listbox" aria-label="คอร์ดที่ใช้บ่อยในคีย์นี้">
+              <button
+                v-for="c in chordOpts"
+                :key="c.value"
+                class="sv-chordpop-chip"
+                :class="{ none: c.value === '' }"
+                type="button"
+                @mousedown.prevent
+                @click="pickChordFromPopup(c.value)"
+              >{{ c.value === '' ? '— ไม่มีคอร์ด —' : c.value }}</button>
+            </div>
+          </div>
           <SongSheet
             :content="resolved"
             :mode="sheetMode"
@@ -1634,6 +1993,10 @@ function onSeek({ li, si, syk }) {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 var(--sp-4, 16px);
+  /* item 1 — auto-scroll breathing room: keep the caret a little clear of the top/bottom edges
+     when scrollIntoView({block:'nearest'}) brings it back into view. */
+  scroll-padding-top: 12px;
+  scroll-padding-bottom: 28px;
 }
 /* printing must never see the frame — an A4 sheet is one long document, not a viewport */
 @media print {
@@ -1820,6 +2183,95 @@ function onSeek({ li, si, syk }) {
   outline: none;
   caret-color: var(--brand, #8b4513);
 }
+
+/* item 4 — the LINE CARET (insert mode). A thin blinking vertical bar between notes, clearly
+   different from the block highlight so the hand knows insert ≠ overwrite (G: the two modes must
+   not look alike). position:fixed — anchored to the measured caret rect, like the capture field. */
+.sv-linecaret {
+  position: fixed;
+  width: 2px;
+  background: var(--brand, #8b4513);
+  z-index: var(--z-inline-edit);
+  pointer-events: none;
+  animation: sv-caret-blink 1.05s step-end infinite;
+}
+@keyframes sv-caret-blink { 0%, 55% { opacity: 1; } 56%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .sv-linecaret { animation: none; } }
+
+/* item 5 — pending low-octave indicator: a faint low dot shown the moment '.' is armed, so the
+   user sees a LOW note is coming before typing the digit. Sits just under the note's left edge. */
+.sv-pending-low {
+  position: fixed;
+  z-index: var(--z-inline-edit);
+  pointer-events: none;
+  color: var(--brand, #8b4513);
+  opacity: 0.5;
+  font-weight: 700;
+  transform: translateY(0.5em);
+  animation: sv-pending-blink 0.8s step-end infinite;
+}
+@keyframes sv-pending-blink { 0%, 60% { opacity: 0.55; } 61%, 100% { opacity: 0.15; } }
+@media (prefers-reduced-motion: reduce) { .sv-pending-low { animation: none; } }
+
+/* item 3 — chord-at-cursor popup. Small card anchored over the note (chordPopStyle decides
+   above/below + keeps it above the phone keyboard). Input first (auto-focus), then the key's
+   common chords as chips. font-size ≥16px so iOS Safari never zooms the page on focus. */
+.sv-chordpop {
+  width: min(280px, 92vw);
+  padding: 8px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #d9d0c4);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sv-chordpop-row { display: flex; gap: 6px; }
+.sv-chordpop-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line, #d9d0c4);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink, #0f172a);
+  font: inherit;
+  font-size: 16px; /* ⛔ never below 16px — iOS Safari zooms the page on focus otherwise */
+}
+.sv-chordpop-input:focus { outline: 2px solid var(--brand, #8b4513); outline-offset: -1px; }
+.sv-chordpop-input.bad { border-color: #b91c1c; }
+.sv-chordpop-del {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px; /* WCAG 2.5.8 AA target size (24px min) — comfortably cleared */
+  border: 1px solid var(--line, #d9d0c4);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--danger, #b91c1c);
+  cursor: pointer;
+}
+.sv-chordpop-del:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+.sv-chordpop-err { font-size: 12px; line-height: 1.4; color: #b91c1c; }
+.sv-chordpop-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 132px; overflow-y: auto; }
+.sv-chordpop-chip {
+  min-width: 40px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line, #d9d0c4);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink, #0f172a);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.sv-chordpop-chip:hover { border-color: var(--brand, #8b4513); color: var(--brand, #8b4513); }
+.sv-chordpop-chip.none { flex: 1 0 100%; color: var(--muted, #64748b); }
 
 /* Leave room so the fixed transport dock (S4 <StudioDock>/<SingTransport>) never covers
    the last line while singing. The dock is ~147px on wider screens but grows to ~191px
