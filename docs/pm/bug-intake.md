@@ -37,6 +37,9 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 
 *เปิดอยู่: 10 · fixed รอ verify: 1 (BI-002) · ปิดแล้ว (verified): 0*
 
+**⏸️ ยังไม่ triage (hold ตาม P'Aim 2026-07-24):** issue8 + issue9 ในโฟลเดอร์พี่เปา (`pleng2-pow-bug-report`) **มีเนื้อหาแล้วแต่ intake ยังไม่เปิดอ่าน** — P'Aim เคาะ "ไม่ดึงตอนนี้" · รอ P'Aim สั่งค่อยดึงมา triage (อย่าถือว่า 10 BI = ครบทุก issue). *(PM เคยระบุ issue9≈header จัดการแล้ว — ยังไม่ยืนยันด้วยการเปิดโฟลเดอร์จริง)*
+**PM ณ 2026-07-24:** rotate pm45→**pm46** · report ผ่าน inbox `C:\gl\pm-inbox\pleng\` + ping "pl pm" เลขสูงสุด (ไม่ archived).
+
 **routing สุดท้าย (PM 45 · จับกลุ่มตามไฟล์ กัน merge ชนบน hot-file SongViewer.vue):**
 - **Chip A** = BI-005 + BI-008 (caret/input model บนแผ่น · SongViewer.vue · มี caret spec) — flagship "v1 ดีกว่าเยอะ"
 - **Chip B** = BI-004 (copy/paste โครงสร้าง · StructureDrawer/songStructure)
