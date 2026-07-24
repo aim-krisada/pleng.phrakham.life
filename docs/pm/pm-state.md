@@ -52,7 +52,11 @@
 **เพลง 33 · ต้นฉบับ `E` · บน production เป็น `E7`** — พี่เปาแก้เองเพื่อกลบบั๊กเสียง (ปิดแล้ว) → **หลัง deploy ต้องรัน `tools/restore-song33-chord-E.sql` คืนเป็น E ทันที** (มี guard + rollback · แตะเพลงเดียว) ไม่งั้นเพลงผิดต้นฉบับถาวรและไม่มีใครจำได้ว่าทำไม
 
 ### คิวถัดไป (ยังไม่จ่าย · เรียงตามที่ผู้ใช้เจ็บ)
-**🔒 คิวไฟล์ร้อน `SongViewer.vue` (ทีละตัว):** **Ctrl+Z** (จ่าย B แล้ว · 1 บรรทัด stopPropagation + เทสต์ keydown จริง) → **C/B060** integrate save-bar → **CP-0** → **B091**
+**🔒 คิว BUILD ไฟล์ร้อน `SongViewer.vue`/`NoteInputBar.vue` (ทีละตัว · P'Aim สั่ง build 24 ก.ค.):**
+1. 🔵 **CP-0 กำลัง build** (`task_b469ee81` session ใหม่) — ยุบทะเบียนสัญลักษณ์เป็น `src/lib/noteSymbols.js` แหล่งเดียว · keydown ต้องเรียก dispatch เดียวกับปุ่ม (ปิด drift 4 จุด) · pure refactor พฤติกรรมเดิม · AC-0.3 เทสต์ทุกสัญลักษณ์ 2 เส้นทางต้องเท่ากัน · **first+alone บนไฟล์ร้อน** · ⛔ ไม่แตะ EditorMode.vue ไม่ build palette
+2. **editor-flow-polish** (auto-scroll/ซ่อนแท็บ/คอร์ด-ตรงจุด/caret 2 โหมด/Delete ดึงชิด/octave/เมนู⋮ · spec `editor-flow-polish.md` · เช็ก keydown :387-459)
+3. **repeat-jumps + mid-bar** ((ก) ปิด mid-bar design+G (ข) ต่อยอด spike line-level→mid-bar (ค) build · spec `repeat-jumps.md`)
+4. **B091** ล้างเฉพาะโน้ตทั้งบรรทัด
 🔴 **CP-0 = ไม่ใช่ยุบ 2 ที่ แต่ 4 ที่** (SA เปิดซอร์สอ่านเอง): (1) `NoteInputBar.vue:38` SYMBOL_GROUPS (2) `SongViewer.vue:295` SYMBOL_CHARS (3) `SongViewer.vue:405-421` keydown จัดประเภท **ชุด 1** (4) `SongViewer.vue:646` applySymbol จัดประเภท **ชุด 2 ซ้ำ** · **keydown ไม่เรียก applySymbol = drift จริงวันนี้** (คอมเมนต์ 644 เขียนว่า "never two code paths that drift" แต่มันมี 2) → ใบสั่ง CP-0 ต้องบังคับ keydown เรียก applySymbol ปิด drift · AC พร้อม `docs/ds/command-palette-acceptance.md` (AC-0.3 unit test ล้วน · AC-1.7 event-log + denominator guard)
 **คอร์ดกดแล้วพิมพ์เลือกเลย** (พี่เปาบอกตอนนี้หลายคลิก) · **ย้าย/คัดลอก/วาง ห้อง·บรรทัด·ข้อ** — 🔴 ใบนี้ต้องมีข้อบังคับ **"id ของเครื่องหมายต้องออกใหม่ตอนวาง"** ไม่งั้น `flow` ชี้กำกวม = เล่นผิดเงียบ · **ยกโครงเพลง+การวนซ้ำ+เพิ่มบรรทัด/ห้อง+พิมพ์ เข้าตัวแก้ใหม่** (แล้วค่อยตัดแถบแท็บ) · ช่องไฟระหว่างห้อง · ชาร์ป-แฟลตในป๊อปอัป · อาการ "melody เกิน" 7.3% (รอหูพี่เปา) · `db/006` author_id (ไม่เคย deploy · P'Aim เคาะเอง) · ตัวแปลงไฟล์นำเข้าสร้างของพังซ้ำได้ · B120 หน้ากากแบบอนุชน · B121 เลือกขนาดกระดาษ · B122-B126 · 163/170 เพลงไม่มีระดับ verse จากป้ายท่อนตัวเอง (เหมือนกัน 2 เส้นทาง = ไม่ใช่บั๊ก)
 
