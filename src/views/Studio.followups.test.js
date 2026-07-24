@@ -59,26 +59,40 @@ beforeEach(() => {
   document.body.innerHTML = '<div id="shell-title"></div><div id="shell-menus"></div>'
 })
 
-const openBtn = () => document.querySelector('#shell-menus .sb-open-btn')
+// item 6 — "เพลง ▾" became the ⋮ เพิ่มเติม overflow. Open it, then reveal "เปิดเพลงอื่น…" to
+// get the search box (สร้างเพลงใหม่ is gone — create lives on the home catalog now).
+const moreBtn = () => document.querySelector('#shell-menus .sb-more-btn')
+const openOther = async () => { document.querySelector('#shell-menus .sb-more-item')?.click(); await nextTick() }
 const modeBtns = () => [...document.querySelectorAll('#shell-menus .sb-mode-btn')]
 const isEditActive = (w) => w.findComponent(EditorMode).props('active')
 
-describe('Studio shell — "เพลง ▾" panel on the shell (US-05 / S2)', () => {
-  it('the "เพลง ▾" button shows in อ่าน/แผ่น; in แก้ไข the editor owns the menu (no dup, B003)', async () => {
+describe('Studio shell — ⋮ เพิ่มเติม overflow on the shell (US-05 / item 6)', () => {
+  it('the ⋮ button shows in อ่าน/แผ่น; in แก้ไข the editor owns the menu (no dup, B003)', async () => {
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
     const [view, sheet, edit] = modeBtns()
-    view.click(); await nextTick(); expect(openBtn()).toBeTruthy()
-    sheet.click(); await nextTick(); expect(openBtn()).toBeTruthy()
-    edit.click(); await nextTick(); expect(openBtn()).toBeFalsy()
+    view.click(); await nextTick(); expect(moreBtn()).toBeTruthy()
+    sheet.click(); await nextTick(); expect(moreBtn()).toBeTruthy()
+    edit.click(); await nextTick(); expect(moreBtn()).toBeFalsy()
+  })
+
+  it('no "สร้างเพลงใหม่" in the menu (create lives on home) — only "เปิดเพลงอื่น…"', async () => {
+    const w = mount(Studio, { global: { stubs } })
+    await nextTick()
+    modeBtns()[0].click(); await nextTick() // ดู
+    moreBtn().click(); await nextTick() // open ⋮
+    expect(document.querySelector('.sb-song-new')).toBeFalsy() // create button is gone
+    const item = document.querySelector('#shell-menus .sb-more-item')
+    expect(item.textContent).toContain('เปิดเพลงอื่น')
   })
 
   it('จิ้มเพลง = เปิดเลย — picking a song navigates to /song/:id immediately (no OK button)', async () => {
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
-    modeBtns()[0].click(); await nextTick() // ดู (so the "เพลง ▾" button is present)
-    openBtn().click(); await nextTick() // open the panel
-    expect(document.querySelector('.sb-open-go')).toBeFalsy() // there is no OK button anymore
+    modeBtns()[0].click(); await nextTick() // ดู
+    moreBtn().click(); await nextTick() // open ⋮
+    await openOther() // reveal the search box
+    expect(document.querySelector('.sb-open-go')).toBeFalsy() // no OK button
     w.findComponent({ name: 'ComboSelect' }).vm.$emit('update:modelValue', 'song-42')
     await nextTick()
     expect(h.push).toHaveBeenCalledWith('/song/song-42') // opened on pick, no extra click
@@ -90,7 +104,8 @@ describe('Studio shell — "เพลง ▾" panel on the shell (US-05 / S2)', 
     modeBtns()[0].click(); await nextTick() // switch to ดู
     expect(isEditActive(w)).toBe(false)
 
-    openBtn().click(); await nextTick()
+    moreBtn().click(); await nextTick()
+    await openOther()
     w.findComponent({ name: 'ComboSelect' }).vm.$emit('update:modelValue', 'song-7')
     await nextTick(); await nextTick() // let the route watcher run
     expect(h.route.params.id).toBe('song-7') // the song did switch

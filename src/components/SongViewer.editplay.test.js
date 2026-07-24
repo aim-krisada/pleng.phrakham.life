@@ -218,19 +218,23 @@ describe('ฟังตอนแก้ — a song-maker can hear without leaving 
     expect(w.find('.sv-play-now').exists()).toBe(true) // still sounding, not toggled back off
   })
 
-  it('Esc stops, and only when something is playing (it must not eat the key otherwise)', async () => {
+  it('Esc while playing STOPS the sound (and stays in the pencil); with nothing playing Esc leaves the pencil (item 2)', async () => {
     const w = await enterEditOn(mountViewer(), 1)
     const esc = () => {
       const e = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
       w.find('.sv-capture').element.dispatchEvent(e)
       return e
     }
-    expect(esc().defaultPrevented).toBe(false) // nothing playing → the key passes through
     await w.vm.playScope('line')
     await flushPromises()
-    expect(esc().defaultPrevented).toBe(true)
+    expect(esc().defaultPrevented).toBe(true) // stops the scope preview…
     await nextTick()
     expect(w.find('.sv-play-now').exists()).toBe(false)
+    expect(w.vm.editMode).toBe(true) // …but Esc-while-playing only silenced it, stayed in แก้
+    // now that nothing is playing, Esc is the keyboard way OUT of the pencil (item 2)
+    expect(esc().defaultPrevented).toBe(true)
+    await nextTick()
+    expect(w.vm.editMode).toBe(false)
   })
 
   it('leaving the pencil leaves no scope behind — the dock plays the whole song again', async () => {

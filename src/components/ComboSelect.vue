@@ -17,6 +17,12 @@ const props = defineProps({
   validate: { type: Function, default: null },
   width: { type: String, default: '160px' },
   autofocus: { type: Boolean, default: false }, // open + focus on mount (inline pickers)
+  // Ranked matching delegated to a real search engine. Given the RAW typed query it returns the
+  // option VALUES that match, best-first; ComboSelect then shows those options in that order
+  // instead of its own substring `.includes`. Used by the song picker to reach songSearch's
+  // note-aware / fuzzy / book-ref ranking (a plain substring can't find "5561" in "5 5 6 1" or
+  // survive a 1-char typo). No rankFn = the built-in substring filter, unchanged.
+  rankFn: { type: Function, default: null },
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -34,8 +40,14 @@ const selectedLabel = computed(
 watch(selectedLabel, (l) => { if (!open.value) text.value = l }, { immediate: true })
 
 const filtered = computed(() => {
-  const q = text.value.trim().toLowerCase()
+  const raw = text.value.trim()
+  const q = raw.toLowerCase()
   if (!q || q === selectedLabel.value.toLowerCase()) return norm.value
+  // ranked path: let the engine decide which options match AND their order (best-first)
+  if (props.rankFn) {
+    const byValue = new Map(norm.value.map((o) => [o.value, o]))
+    return props.rankFn(raw).map((v) => byValue.get(v)).filter(Boolean)
+  }
   return norm.value.filter((o) => (o.search ?? o.label).toLowerCase().includes(q))
 })
 watch(filtered, () => { if (hi.value >= filtered.value.length) hi.value = filtered.value.length - 1 })
