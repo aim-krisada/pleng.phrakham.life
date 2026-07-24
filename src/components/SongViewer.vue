@@ -1048,10 +1048,10 @@ function requestSave() {
 const completionModel = computed(() => {
   if (!canStoreServer.value) {
     return {
-      steps: ['แก้ไข', 'เก็บไฟล์', 'ส่งให้ทีม', 'ทีมตรวจ', 'ขึ้นคลัง'],
+      steps: ['แก้ไข', 'เก็บไฟล์', 'ส่งให้ทีมงาน', 'ทีมตรวจ', 'ขึ้นคลัง'],
       current: 0, tone: 'anon',
       statusText: 'งานนี้เก็บอยู่ในเครื่องคุณ',
-      nextText: 'กด “ส่งให้ทีม” — ดาวน์โหลดไฟล์แล้วส่งอีเมลให้ทีมนำขึ้นคลัง',
+      nextText: 'กด “ส่งข้อเสนอแนะให้ทีมงาน” — ดาวน์โหลดไฟล์แล้วส่งอีเมลให้ทีมงานนำขึ้นคลัง',
       rejectComment: '',
     }
   }
@@ -1061,20 +1061,20 @@ const completionModel = computed(() => {
       steps: ['แก้ไข', 'เผยแพร่แล้ว'],
       current: published ? 1 : 0, tone: published ? 'approved' : 'draft',
       statusText: published ? 'เผยแพร่ขึ้นคลังแล้ว' : 'แก้ฉบับที่เผยแพร่',
-      nextText: published ? 'อยู่บนเว็บแล้ว — แก้ต่อได้ทันที (กดเผยแพร่ซ้ำเพื่ออัปเดต)' : 'กด “เผยแพร่” = ขึ้นคลังทันที',
+      nextText: published ? 'อยู่บนเว็บแล้ว — แก้ต่อได้ทันที (กด “อนุมัติและเผยแพร่” ซ้ำเพื่ออัปเดต)' : 'กด “อนุมัติและเผยแพร่” = ขึ้นคลังทันที',
       rejectComment: '',
     }
   }
-  const steps = ['แก้ไข', 'เก็บร่าง', 'ส่งตรวจ', 'รออนุมัติ', 'เผยแพร่แล้ว']
+  const steps = ['แก้ไข', 'เก็บร่าง', 'ส่งตรวจทาน', 'รออนุมัติ', 'เผยแพร่แล้ว']
   switch (props.draftStatus) {
     case 'pending':
-      return { steps, current: 3, tone: 'pending', statusText: 'รอตรวจ', nextText: 'ทีมผู้อนุมัติกำลังพิจารณา — จะแจ้งเมื่อขึ้นคลัง/ส่งกลับ (ถอนกลับมาแก้ได้)', rejectComment: '' }
+      return { steps, current: 3, tone: 'pending', statusText: 'ส่งตรวจทานแล้ว · รออนุมัติ', nextText: 'ผู้อำนวยเพลงกำลังตรวจทาน — จะแจ้งเมื่อขึ้นคลัง/ส่งกลับ (ถอนกลับมาแก้ได้)', rejectComment: '' }
     case 'approved':
       return { steps, current: 4, tone: 'approved', statusText: 'ขึ้นคลังแล้ว', nextText: 'อยู่บนเว็บแล้ว · แก้ต่อได้เป็นร่างใหม่', rejectComment: '' }
     case 'rejected':
-      return { steps, current: 0, tone: 'rejected', statusText: 'ถูกส่งกลับให้แก้', nextText: 'แก้ตามความเห็นผู้ตรวจ แล้วกด “ส่งตรวจ” อีกครั้ง', rejectComment: props.reviewComment }
+      return { steps, current: 0, tone: 'rejected', statusText: 'ถูกส่งกลับให้แก้', nextText: 'แก้ตามความเห็นผู้อำนวยเพลง แล้วกด “ส่งให้ผู้อำนวยเพลงตรวจทาน” อีกครั้ง', rejectComment: props.reviewComment }
     default: // draft, or no draft yet
-      return { steps, current: 1, tone: 'draft', statusText: 'ร่าง', nextText: 'พร้อมแล้วกด “ส่งตรวจ” → ทีมผู้อนุมัติจะรับไปพิจารณา', rejectComment: '' }
+      return { steps, current: 1, tone: 'draft', statusText: 'บันทึกร่างแล้ว', nextText: 'พร้อมแล้วกด “ส่งให้ผู้อำนวยเพลงตรวจทาน” → จะรับไปพิจารณานำขึ้นคลัง', rejectComment: '' }
   }
 })
 // the auto-save micro-status the stepper shows (editor+ only): idle | saving | saved
@@ -1084,6 +1084,10 @@ const autoSaveState = computed(() => {
   if (props.saveState === 'dirty' || props.saveState === 'error') return 'idle'
   return 'saved'
 })
+// G-review #3 — a steady reassurance beside the save controls that drafts are kept without a
+// button press, so the user doesn't worry (and doesn't confuse "เก็บร่าง" with "ส่งตรวจ"). Only
+// while working on a draft (an editor that has NOT yet submitted / been published).
+const showAutosaveNote = computed(() => canStoreServer.value && !canApprove.value && props.draftStatus !== 'pending' && props.draftStatus !== 'approved')
 
 // ONE primary finish button, adaptive by role + state (never a disabled dead-button — spec §4):
 // anon = "ส่งให้ทีม" (download + email) · editor = "ส่งตรวจ" (submit) or "ถอนกลับมาแก้" while รอตรวจ
@@ -1094,11 +1098,13 @@ const finishKind = computed(() => {
   if (canApprove.value) return 'publish'
   return isPending.value ? 'withdraw' : 'submit'
 })
+// G-review (2026-07-24): drop system jargon for FUNCTION language — say what the button DOES for
+// whom, so a user who doesn't know "publish/draft/approver" still understands.
 const FINISH = {
-  anon: { label: 'ส่งให้ทีม', icon: 'send', title: 'ส่งเพลงให้ทีมนำขึ้นคลัง (ดาวน์โหลด + อีเมล)' },
-  publish: { label: 'เผยแพร่', icon: 'globe', title: 'เผยแพร่ขึ้นคลังเพลง — คนอื่นเห็นทันที' },
-  submit: { label: 'ส่งตรวจ', icon: 'send', title: 'ส่งงานให้ผู้ดูแลตรวจและนำขึ้นคลัง' },
-  withdraw: { label: 'ถอนกลับมาแก้', icon: 'pencil', title: 'ดึงร่างที่รอตรวจกลับมาแก้ต่อ' },
+  anon: { label: 'ส่งข้อเสนอแนะให้ทีมงาน', icon: 'send', title: 'ส่งเพลงให้ทีมงานพิจารณานำขึ้นคลัง (ดาวน์โหลดไฟล์ + อีเมล)' },
+  publish: { label: 'อนุมัติและเผยแพร่', icon: 'globe', title: 'เผยแพร่ขึ้นคลังเพลงทันที — คนอื่นเห็นเลย' },
+  submit: { label: 'ส่งให้ผู้อำนวยเพลงตรวจทาน', icon: 'send', title: 'ส่งงานให้ผู้อำนวยเพลงตรวจทานและนำขึ้นคลัง' },
+  withdraw: { label: 'ถอนกลับมาแก้', icon: 'pencil', title: 'ดึงงานที่รอตรวจทานกลับมาแก้ต่อ' },
 }
 const finish = computed(() => FINISH[finishKind.value])
 const submittedCard = ref(false) // D-D post-submit confirmation
@@ -1945,6 +1951,8 @@ function onSeek({ li, si, syk }) {
             title="ตั้งค่าเพลง — เลขเพลง ชื่อ คีย์ จังหวะ ความเร็ว ธีม หมวด"
             @click="toggleSettings"
           ><Icon name="settings" :size="16" /> <span class="sv-settings-lbl">ตั้งค่าเพลง</span></button>
+          <!-- G-review #3 — steady reassurance that drafts save themselves (near the buttons). -->
+          <span v-if="showAutosaveNote" class="sv-autosave-note"><Icon name="check" :size="13" /> ระบบบันทึกร่างอัตโนมัติ</span>
           <!-- บันทึกร่าง = SECONDARY now (BI-007 D-C): auto-save keeps the work, so this is a manual
                backup, not the finish. anon keeps "ดาวน์โหลด JSON" (their own copy). -->
           <button
@@ -2436,6 +2444,16 @@ function onSeek({ li, si, syk }) {
 }
 .sv-flow-x:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
 .sv-flow-anon { flex-direction: column; padding-inline-end: 34px; }
+
+/* G-review #3 — the auto-save reassurance caption beside the save controls */
+.sv-autosave-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted, #64748b);
+  font-size: 12px;
+}
+@media (max-width: 640px) { .sv-autosave-note { display: none; } } /* the stepper already says it on phones */
 
 /* B060 ⚙ ตั้งค่าเพลง — a secondary control in the same 32px row as บันทึกร่าง (its sibling),
    so the two read as one bar. WCAG 2.2 AA target size is 24px; matching the sibling at 32

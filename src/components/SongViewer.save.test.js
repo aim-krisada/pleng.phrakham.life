@@ -90,7 +90,7 @@ describe('SongViewer — inline save state', () => {
     expect(w.find('.sv-save-btn').text()).toContain('ดาวน์โหลด JSON')
     // the finish button is present + ENABLED for anon (never a disabled publish button)
     const finish = w.find('.sv-finish-btn')
-    expect(finish.text()).toContain('ส่งให้ทีม')
+    expect(finish.text()).toContain('ทีมงาน') // function-language label (G-review #2)
     expect(finish.attributes('disabled')).toBeUndefined()
     await w.find('.sv-save-btn').trigger('click')
     expect(downloadSpy).toHaveBeenCalled()

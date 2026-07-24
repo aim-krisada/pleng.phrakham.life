@@ -12,7 +12,7 @@
 //     "รอตรวจ" the moment ส่งตรวจ succeeds (same precedent as the pending-alert banner).
 //   • aria-current="step" marks the active node (M3 / Apple stepper guidance).
 //   • Targets: this bar is read-only text; the only control is the compact ⓘ, kept ≥24px.
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   // ordered pipeline labels, e.g. ['แก้ไข','เก็บร่าง','ส่งตรวจ','รออนุมัติ','เผยแพร่แล้ว']
@@ -40,11 +40,28 @@ const toneInfo = computed(() => TONE[props.tone] || TONE.draft)
 const autoText = computed(() =>
   props.autoSave === 'saving' ? 'กำลังเก็บอัตโนมัติ…' : props.autoSave === 'saved' ? 'เก็บอัตโนมัติแล้ว' : '',
 )
+// G-review #4 — on a phone the full 5-node timeline is noise (M3/HIG: context > timeline). The bar
+// collapses to the status PILL + one-line next-step; the whole ladder is one tap away. Desktop
+// shows the ladder inline (the toggle is hidden by CSS), so this state is phone-only in effect.
+const expanded = ref(false)
 </script>
 
 <template>
-  <div class="cs-bar no-print" :class="'t-' + tone">
-    <!-- the pipeline: ✓ done · ● current (aria-current) · ○ future -->
+  <div class="cs-bar no-print" :class="['t-' + tone, { 'cs-expanded': expanded }]">
+    <!-- status + next: one live region so the change is announced once, coherently. On a phone this
+         PILL is the whole bar; the ladder below is one tap away. -->
+    <div class="cs-say" role="status" aria-live="polite">
+      <span class="cs-chip"><span aria-hidden="true">{{ toneInfo.glyph }}</span> {{ statusText || toneInfo.label }}</span>
+      <!-- phone-only toggle to reveal the full ladder (hidden on desktop, where it's always shown) -->
+      <button class="cs-toggle" type="button" :aria-expanded="expanded" @click="expanded = !expanded">
+        {{ expanded ? 'ซ่อนขั้นตอน ▴' : 'ดูขั้นตอน ▾' }}
+      </button>
+      <span v-if="autoText" class="cs-auto">· {{ autoText }}</span>
+      <span v-if="nextText" class="cs-next"><b>ขั้นต่อไป:</b> {{ nextText }}</span>
+    </div>
+
+    <!-- the pipeline: ✓ done · ● current (aria-current) · ○ future. Always shown on desktop; on a
+         phone it hides until the toggle expands it (cs-expanded). -->
     <ol class="cs-steps" aria-label="ขั้นตอนการทำงานของเพลงนี้">
       <li
         v-for="(s, i) in steps"
@@ -57,13 +74,6 @@ const autoText = computed(() =>
         <span class="cs-label">{{ s }}</span>
       </li>
     </ol>
-
-    <!-- status + next: one live region so the change is announced once, coherently -->
-    <div class="cs-say" role="status" aria-live="polite">
-      <span class="cs-chip"><span aria-hidden="true">{{ toneInfo.glyph }}</span> {{ statusText || toneInfo.label }}</span>
-      <span v-if="autoText" class="cs-auto">· {{ autoText }}</span>
-      <span v-if="nextText" class="cs-next"><b>ขั้นต่อไป:</b> {{ nextText }}</span>
-    </div>
 
     <!-- a returned draft keeps its reviewer comment on the surface (was a saveMsg that flickered) -->
     <p v-if="rejectComment" class="cs-reject">↩ ผู้ตรวจส่งกลับ: “{{ rejectComment }}”</p>
@@ -159,7 +169,7 @@ const autoText = computed(() =>
 .t-approved .cs-chip { background: #d7f2dd; }
 .t-review .cs-chip { background: #fefcbf; }
 .cs-auto { color: var(--muted); font-size: 12.5px; }
-.cs-next { color: var(--muted); }
+.cs-next { color: var(--muted); flex-basis: 100%; }
 .cs-next b { color: var(--ink); font-weight: 700; }
 .cs-reject {
   margin: 0;
@@ -169,14 +179,40 @@ const autoText = computed(() =>
   color: #822;
   font-size: 13px;
 }
+/* G-review #4 — the phone-only "ดูขั้นตอน" toggle. Hidden on desktop (the ladder shows inline). */
+.cs-toggle {
+  display: none;
+  margin-inline-start: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--brand);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
 
-/* ===== narrow screens (พี่เปา's phone) — keep you-are-here clear without overflow.
-   Non-current step labels collapse to their node dots; the current label stays. This is the
-   M3 "condensed stepper" idea: the active node is always named, siblings become progress dots. */
+/* ===== phone (พี่เปา's device) — context > timeline (G-review #4 · M3/HIG). The bar becomes a
+   status PILL + one-line next-step; the full ladder is behind the "ดูขั้นตอน" toggle, and expands
+   as a VERTICAL stepper (a compact bottom-sheet feel, in-flow so it needs no overlay). */
 @media (max-width: 480px) {
-  .cs-step.done .cs-label,
-  .cs-step.todo .cs-label { display: none; }
-  .cs-step:not(:first-child)::before { width: 10px; }
-  .cs-node { width: 20px; height: 20px; }
+  .cs-toggle { display: inline-block; }
+  .cs-steps { display: none; }
+  .cs-expanded .cs-steps {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  /* vertical ladder: the connector runs DOWN the left of each node, and every label shows */
+  .cs-expanded .cs-step:not(:first-child)::before {
+    width: 2px;
+    height: 12px;
+    margin: -6px 0 -2px 10px;
+  }
+  .cs-expanded .cs-step { align-items: center; }
 }
 </style>

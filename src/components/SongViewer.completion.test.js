@@ -62,10 +62,10 @@ describe('BI-007 — the primary finish button, adaptive by role + state', () =>
     expect(w.emitted('save').at(-1)).toEqual(['publish'])
   })
 
-  it('editor (draft) → "ส่งตรวจ" emits save pending AND shows the post-submit card', async () => {
+  it('editor (draft) → "ส่งให้ผู้อำนวยเพลงตรวจทาน" emits save pending AND shows the post-submit card', async () => {
     const w = mountViewer({ tier: 'editor', saveState: 'dirty', draftStatus: 'draft' })
     await enterEdit(w)
-    expect(finish(w).text()).toContain('ส่งตรวจ')
+    expect(finish(w).text()).toContain('ตรวจทาน') // function-language label (G-review #2)
     await finish(w).trigger('click')
     expect(w.emitted('save').at(-1)).toEqual(['pending'])
     await w.setProps({ draftStatus: 'pending' })
@@ -82,10 +82,10 @@ describe('BI-007 — the primary finish button, adaptive by role + state', () =>
     expect(w.emitted('save')).toBeFalsy()
   })
 
-  it('anon → "ส่งให้ทีม" opens the download+email flow (enabled route, not a disabled publish)', async () => {
+  it('anon → "ส่งข้อเสนอแนะให้ทีมงาน" opens the download+email flow (enabled route, not a disabled publish)', async () => {
     const w = mountViewer({ tier: 'anon', saveState: 'dirty' })
     await enterEdit(w)
-    expect(finish(w).text()).toContain('ส่งให้ทีม')
+    expect(finish(w).text()).toContain('ทีมงาน') // function-language label (G-review #2)
     await finish(w).trigger('click')
     const card = w.find('.sv-flow-anon')
     expect(card.exists()).toBe(true)
@@ -100,7 +100,7 @@ describe('BI-007 — the you-are-here stepper (role×status model)', () => {
   it('editor lane = 5 steps; the current node tracks draftStatus', async () => {
     const w = mountViewer({ tier: 'editor', draftStatus: 'pending' })
     await enterEdit(w)
-    expect(stepper(w).props('steps')).toEqual(['แก้ไข', 'เก็บร่าง', 'ส่งตรวจ', 'รออนุมัติ', 'เผยแพร่แล้ว'])
+    expect(stepper(w).props('steps')).toEqual(['แก้ไข', 'เก็บร่าง', 'ส่งตรวจทาน', 'รออนุมัติ', 'เผยแพร่แล้ว'])
     expect(stepper(w).props('current')).toBe(3) // รออนุมัติ
     expect(stepper(w).props('tone')).toBe('pending')
   })
@@ -115,7 +115,7 @@ describe('BI-007 — the you-are-here stepper (role×status model)', () => {
     const w = mountViewer({ tier: 'anon' })
     await enterEdit(w)
     expect(stepper(w).props('tone')).toBe('anon')
-    expect(stepper(w).props('steps')).toContain('ส่งให้ทีม')
+    expect(stepper(w).props('steps')).toContain('ส่งให้ทีมงาน')
   })
 
   it('rejected → the model carries the reviewer comment through to the stepper', async () => {
@@ -123,6 +123,17 @@ describe('BI-007 — the you-are-here stepper (role×status model)', () => {
     await enterEdit(w)
     expect(stepper(w).props('tone')).toBe('rejected')
     expect(stepper(w).props('rejectComment')).toBe('คีย์ยังผิด')
+  })
+
+  // G-review #3 — a steady "ระบบบันทึกร่างอัตโนมัติ" reassurance while an editor works a draft;
+  // gone once submitted (รอตรวจ) or for an approver (they publish, not auto-save).
+  it('shows the auto-save reassurance for an editor draft, not when pending / for an approver', async () => {
+    const draft = mountViewer({ tier: 'editor', draftStatus: 'draft' }); await enterEdit(draft)
+    expect(draft.find('.sv-autosave-note').text()).toContain('ระบบบันทึกร่างอัตโนมัติ')
+    const pending = mountViewer({ tier: 'editor', draftStatus: 'pending' }); await enterEdit(pending)
+    expect(pending.find('.sv-autosave-note').exists()).toBe(false)
+    const appr = mountViewer({ tier: 'approver' }); await enterEdit(appr)
+    expect(appr.find('.sv-autosave-note').exists()).toBe(false)
   })
 
   it('เสร็จ is still exit-only — it never publishes/submits (distinct from finish)', async () => {

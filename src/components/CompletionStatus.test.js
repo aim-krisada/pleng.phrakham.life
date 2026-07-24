@@ -44,4 +44,17 @@ describe('CompletionStatus — the you-are-here stepper', () => {
     expect(mountCS({ steps: EDITOR_STEPS, autoSave: 'saved' }).find('.cs-auto').text()).toContain('เก็บอัตโนมัติแล้ว')
     expect(mountCS({ steps: EDITOR_STEPS, autoSave: 'idle' }).find('.cs-auto').exists()).toBe(false)
   })
+
+  // G-review #4 — the phone "ดูขั้นตอน" toggle expands the ladder (mobile shows a pill by default;
+  // desktop hides the toggle via CSS and shows the ladder inline).
+  it('the ดูขั้นตอน toggle flips the expanded state', async () => {
+    const w = mountCS({ steps: EDITOR_STEPS, current: 1 })
+    const toggle = w.find('.cs-toggle')
+    expect(toggle.exists()).toBe(true)
+    expect(w.find('.cs-bar').classes()).not.toContain('cs-expanded')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    await toggle.trigger('click')
+    expect(w.find('.cs-bar').classes()).toContain('cs-expanded')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+  })
 })
