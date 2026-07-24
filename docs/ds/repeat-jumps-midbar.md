@@ -143,12 +143,13 @@ snap-to-attack เหมือนกัน · เป้ากด ≥24px (WCAG 2
 
 ## 4. delta ที่ engine ต้องแก้ (Phase 2 · พิสูจน์ feasible · ยังไม่ลงโค้ด)
 
-| ฟังก์ชัน | เดิม (line-level) | แก้เป็น (mid-bar) |
+| ฟังก์ชัน | เดิม (line-level) | แก้เป็น (mid-bar + canonical shape §7) |
 |---|---|---|
-| `scanFlowMarkers` (`songModel.js:258`) | คืน `{liSegno,liFine,liToCoda,liCoda}` | คืน `(li,si)` ต่อ marker (anchor rule §1) — ต้องเดินโน้ตในบรรทัดหา si ของ attack ที่/ก่อน/หลัง marker |
-| `returnRanges`/`resolveJumpOrder`/`entryRanges` | endpoint = `li` | endpoint = `{li,si}` · `cut`/`returnFrom` เป็น (li,si) |
-| `buildPlayNotes` (`midi.js:592`) | `n.li>=fromLi && n.li<=toLi` | เทียบ composite `(n.li,n.si)` แบบ lexicographic (li ก่อน แล้ว si) · **back-compat: range ที่ไม่มี si = ทั้งบรรทัด (si -∞..+∞)** |
-| guards (mint/strip/orphan · `songFlow.js`) | คีย์ที่ id | **ไม่เปลี่ยนรูป** — คีย์ id ไม่ใช่ตำแหน่ง |
+| `resolveJumpOrder` (`songModel.js:295`) | หา arrangement entry ที่มี `flow.jump` | หา **jump line item** `{type:'jump',kind:'dc'\|'ds'}` แล้วยิงที่ **(li,si) ของมัน** (§7) — mid-bar native |
+| `scanFlowMarkers` (`songModel.js:258`) | คืน `{liSegno,liFine,liToCoda,liCoda}` | คืน `(li,si)` ต่อ marker (anchor rule §1) — เดินโน้ตในบรรทัดหา si ของ attack ที่/ก่อน/หลัง marker |
+| `returnRanges`/`entryRanges` | endpoint = `li` | endpoint = `{li,si}` · `cut`/`returnFrom` เป็น (li,si) |
+| `buildPlayNotes` (`midi.js:592`) | `n.li>=fromLi && n.li<=toLi` | เทียบ composite `(n.li,n.si)` แบบ lexicographic · **back-compat: range ไม่มี si = ทั้งบรรทัด (si -∞..+∞)** |
+| guards (mint/strip/orphan · `songFlow.js`) | คีย์ที่ id (มี segno/coda) | **เพิ่ม kind `jump`/`dc`/`ds`/`to-coda`/`fine`** ให้ mint id + strip ตอน paste + orphan-check (§7) |
 
 **back-compat สำคัญ:** strophic order + jump ที่ตกขอบบรรทัดพอดี → si = ขอบ (0 หรือ ∞) → ผลลัพธ์เท่าเดิม byte-for-byte
 กับ v1. mid-bar เป็น **superset**.
@@ -190,3 +191,61 @@ snap-to-attack เหมือนกัน · เป้ากด ≥24px (WCAG 2
 - ⚠️ **nested mid-bar jump** = ยังใช้ข้อจำกัด v1 (รอบย้อนเดียว · `dc-ds-jump-flow.md §7`).
 - 🔴 **accidental (§2 i) + tie (ii) + tuplet (iii) + melisma (iv)** = ต้องมี unit test พิสูจน์ใน Phase 2 (derive
   คาดหวังจากโมเดล ไม่ใช่สัญชาตญาณ · memory `pleng-compare-to-model-not-intuition`).
+
+---
+
+## 7. 🔴 Canonical marker data shape (cross-lane SSOT — engine + render + entry อ่านชุดเดียว)
+
+PM 42: glyph-render lane merged base `7425b15` (`SongSheet.vue:64-105`) วาด glyph จาก **marker ที่เป็น item
+ในบรรทัด** แต่ engine spike เก็บ jump ที่ `flow.jump` (ระดับ arrangement) = **2 โมเดล → drift เงียบ**. ผมเป็น
+เจ้าของโมเดล → เคาะ **ชุดข้อมูล marker มาตรฐานชุดเดียว** ให้ทั้ง 3 lane อ่านตรงกัน. (design-only จน PM gate)
+
+### 7.1 render lane ส่งอะไรมาแล้ว (อ่านของจริง `SongSheet.vue`)
+render **normalize 3 รูป** ให้วาดเหมือนกัน + **positioned จาก item's own spot = mid-bar safe อยู่แล้ว**:
+1. `{type:'jump', kind, al?}` ← **canonical**
+2. type เฉพาะ: `{type:'segno'}` `{type:'coda'}` `{type:'to-coda'}` `{type:'dc'}` `{type:'ds'}` `{type:'fine'}`
+3. generic `{type:'marker', kind}`
+· `kind ∈ segno|coda|to-coda|dc|ds|fine` · `al` (เฉพาะ dc/ds) `∈ fine|coda` · final barline = `{type:'end'}` เดิม
+· `{type:'marker', label}` (ไม่มี kind) = section marker ข้อความเดิม ไม่ยุ่ง
+
+### 7.2 🎯 การตัดสินใจ: **ทุกสัญลักษณ์นำทาง = line item รูปเดียว** (superset ของ render's shape)
+
+```jsonc
+{ "type":"jump", "kind":"segno|coda|to-coda|dc|ds|fine", "al":"fine|coda"?, "id":"m1" }
+{ "type":"end" }   // จบเพลง ‖ (final barline) — คงเดิม (145 เพลง)
+```
+- **kind vocab = ตรง render เป๊ะ** · **`al`** (dc/ds) = exit-target · **`id`** = ถาวร (มินต์) render มองข้ามได้ (ไม่ใช้วาด)
+  → **superset ของรูปที่ render ship แล้ว = render ไม่ต้อง rework** (เขาบอกว่า normalise ให้ · แค่ id เป็น field เกิน)
+- **pairing To-Coda ↔ Coda = `id` เดียวกัน + kind ต่างกัน** (`to-coda` = source · `coda` = target) — เลิกใช้ field
+  `role` ของ spike (kind สื่อ role อยู่แล้ว · ตรง render vocab)
+- **`al` แทน field `to`** ที่ handoff เสนอ (`{jump,to}`) — align ชื่อกับ render's `al` ที่ ship แล้ว กัน divergence
+- รับ legacy 3 รูป (§7.1) แล้ว normalize เข้ารูป canonical ตอนอ่าน (เหมือน render ทำ) — ของเก่าไม่พัง
+
+### 7.3 🔴 D.C./D.S. อยู่ที่ไหน — **line item (positioned) ไม่ใช่ flow directive** (เปลี่ยนจาก design ที่ merge)
+
+**merged design (`repeat-jumps.md §2.3`) วาง D.C./D.S. = "directive ระดับท่อน" (`flow.jump`).**
+**mid-bar บังคับให้เปลี่ยน:** `flow.jump` ระดับ entry ยิงได้แค่ "ท้าย entry" = line-level เท่านั้น · จะยิง**กลางห้อง**
+ต้องมี**ตำแหน่ง** → D.C./D.S. ต้องเป็น **line item ที่ (li,si)** เหมือน Segno/Coda. + render ก็วาด dc/ds เป็น line
+item อยู่แล้ว → **รวมเป็น line item ชุดเดียว = ตรงกันทั้ง 3 lane + mid-bar native + เลิก dual-model**.
+
+| สัญลักษณ์ | เก็บที่ (canonical) | เหตุ |
+|---|---|---|
+| Segno · Coda · To-Coda · Fine · D.C. · D.S. · end | **line item** (SSOT · positioned (li,si)) | render+entry+resolver อ่านที่เดียว · mid-bar ได้ |
+| **Drawer "🎼โครง" badge** ("↩ ย้อนต้น → Coda") | **projection** (สแกน lines ของ entry หา jump item) | โชว์ภาษาคน · ไม่ใช่ SSOT (กัน 2 ที่) |
+| `flow.times`/`skip`/`skipSections`/`afterEachVerse` | **คงที่ arrangement** (ไม่แตะ) | per-verse melody-reuse ของจริง · คนละเรื่องกับ jump command |
+
+⇒ resolver Phase-2 เปลี่ยนจาก "หา entry ที่มี `flow.jump`" → "หา jump line item แล้วยิงที่ (li,si) ของมัน".
+`flow.jump` (spike) = deprecated · Drawer อ่านจาก line item แทน.
+
+### 7.4 guards (บังคับ · `songFlow.js`)
+- `mintMarkerIds` — มินต์ `id` ให้ **ทุก jump kind** (segno/coda/to-coda/dc/ds/fine · เดิมทำแค่ segno/coda)
+- `stripEditorMarkerIds` — เคลียร์ id ตอน copy-paste ทุก kind (กัน 2 marker id ซ้ำ)
+- `findOrphanFlows` — `ds` ไม่มี segno target / `to-coda` ไม่มี coda คู่ id = กำพร้า → เพิกเฉย เล่นตามเขียน ⛔ ไม่เดา
+
+### 7.5 known-limit + สิ่งที่ต้องบอก P'Aim (no silent gap)
+- ⚠️ **dc/ds/marker บน stanza ที่ถูกใช้ซ้ำหลายข้อ (strophic reuse)** → jump/marker ถูกเจอทุกครั้งที่ stanza เล่น.
+  เคสจริง D.C./D.S. อยู่ท่อนปิดท้ายที่ไม่ reuse → ยิงครั้งเดียว ถูก · per-verse gating = forward-compat (defer).
+  (เป็น family เดียวกับ marker-on-reused-stanza ที่ resolver เลือก first-occurrence อยู่แล้ว · `dc-ds-jump-flow.md §2`)
+- 🔴 **เปลี่ยน design ที่ merge** (D.C./D.S. ย้ายจาก flow directive → line item) — **PM relay ให้ P'Aim** ว่านี่คือ
+  refinement ที่ mid-bar + render-alignment บังคับ (ไม่ใช่เพิ่มของเล่น · ลด drift + ได้ mid-bar). Drawer UX ยังเห็น
+  "ระดับท่อน" เหมือนเดิม (เป็น projection) — ผู้ใช้ไม่รู้สึกต่าง.
