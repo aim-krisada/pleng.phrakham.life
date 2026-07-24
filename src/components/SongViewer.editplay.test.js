@@ -203,6 +203,36 @@ describe('ฟังตอนแก้ — a song-maker can hear without leaving 
     expect(w.find('.sv-play-now').text()).toContain('ทั้งเพลง')
   })
 
+  // Regression (caught by pressing the key in a real browser, 24 ก.ค.): the shortcut is wired on
+  // BOTH the capture field and the window (an IME can swallow the event before it bubbles). One
+  // press therefore reached the handler twice — and because the button toggles, the second run
+  // stopped the playback the first had just started, so the key looked completely dead.
+  it('Ctrl+Enter acts ONCE even though it is handled on the field and on the window', async () => {
+    const w = await enterEditOn(mountViewer(), 1)
+    const cap = w.find('.sv-capture')
+    expect(cap.exists()).toBe(true)
+    cap.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }))
+    await flushPromises()
+    expect(playSongSpy).toHaveBeenCalledTimes(1)
+    expect(lastOpts().order).toEqual([{ name: null, fromLi: 1, toLi: 1 }])
+    expect(w.find('.sv-play-now').exists()).toBe(true) // still sounding, not toggled back off
+  })
+
+  it('Esc stops, and only when something is playing (it must not eat the key otherwise)', async () => {
+    const w = await enterEditOn(mountViewer(), 1)
+    const esc = () => {
+      const e = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+      w.find('.sv-capture').element.dispatchEvent(e)
+      return e
+    }
+    expect(esc().defaultPrevented).toBe(false) // nothing playing → the key passes through
+    await w.vm.playScope('line')
+    await flushPromises()
+    expect(esc().defaultPrevented).toBe(true)
+    await nextTick()
+    expect(w.find('.sv-play-now').exists()).toBe(false)
+  })
+
   it('leaving the pencil leaves no scope behind — the dock plays the whole song again', async () => {
     const w = await enterEditOn(mountViewer(), 1)
     await w.vm.playScope('line')

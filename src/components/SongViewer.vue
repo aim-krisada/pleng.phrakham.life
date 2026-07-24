@@ -365,7 +365,7 @@ function redoEdit() { applyHistoryStep(history.redo()) }
 // field, so the two can never disagree.
 function onUndoKeys(e) {
   if (!editMode.value) return
-  if (transportKey(e)) { e.preventDefault(); return } // ฟังบรรทัด/ท่อน · Esc หยุด
+  if (transportKey(e)) return // ฟังบรรทัด/ท่อน · Esc หยุด (transportKey owns preventDefault)
   const intent = undoIntent(e)
   if (!intent) return
   e.preventDefault()
@@ -384,7 +384,7 @@ function onCaptureKey(e) {
   if (!editMode.value) return
   // ฟังบรรทัด/ท่อน (Ctrl+Enter / Ctrl+Shift+Enter) + Esc หยุด — checked FIRST so plain Enter
   // keeps meaning "next unit" and the transport never steals a typing key.
-  if (transportKey(e)) { e.preventDefault(); return }
+  if (transportKey(e)) return
   // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y while typing — handled here as well as on the window, so a
   // browser/IME that swallows the event before it bubbles cannot lose the shortcut.
   const histIntent = undoIntent(e)
@@ -1100,11 +1100,19 @@ const isLinePlaying = computed(() => previewScope.value === 'line')
 // Keyboard, for the hands that never leave the notes. Ctrl+Enter = this line, Ctrl+Shift+Enter =
 // this ท่อน, Esc = stop. Duplicated onto the capture field AND the window so an IME that swallows
 // the event before it bubbles cannot lose it (same reasoning as the undo shortcut).
+// It stops propagation itself: the capture field sees the key first and the window listener would
+// otherwise see the SAME event and run the action a second time — and since each button toggles,
+// the second run stopped the playback the first had just started (caught in the browser, 24 ก.ค.).
 function transportKey(e) {
   if (!editMode.value) return false
-  if (e.key === 'Escape' && playing.value) { stopPlay(); return true }
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { playScope(e.shiftKey ? 'section' : 'line'); return true }
-  return false
+  const act = e.key === 'Escape' && playing.value ? () => stopPlay()
+    : e.key === 'Enter' && (e.ctrlKey || e.metaKey) ? () => playScope(e.shiftKey ? 'section' : 'line')
+      : null
+  if (!act) return false
+  e.preventDefault()
+  e.stopPropagation()
+  act()
+  return true
 }
 
 // move the playhead to a note index: while playing → jump the audio there; paused → just
