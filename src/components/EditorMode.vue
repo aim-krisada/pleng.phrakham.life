@@ -3355,7 +3355,7 @@ defineExpose({
         <label class="ed-flow-row">
           <span>เข้าห้องจบชุดที่</span>
           <input class="ed-flow-num" type="number" min="1" max="9" inputmode="numeric"
-            placeholder="ตามทำนอง" :value="verseEnding(lensRow)" aria-label="บังคับห้องจบชุดที่ (ว่าง = ตามทำนอง)"
+            placeholder="—" :value="verseEnding(lensRow)" aria-label="บังคับห้องจบชุดที่ (ว่าง = ตามทำนอง)"
             @input="setVerseEnding(lensRow, $event.target.value)" />
           <small class="muted">(ว่าง = ตามทำนอง)</small>
         </label>
@@ -3381,7 +3381,7 @@ defineExpose({
     <!-- R4 — a flow directive pointing at a deleted repeat/section is ORPHAN. Playback ignores
          it (never guesses); this names it and lets the author clear it, so data never dies silently. -->
     <div v-if="flowOrphans.length" class="ed-flow-orphan no-print" role="alert">
-      <Icon name="alert-triangle" :size="15" />
+      <Icon name="triangle-alert" :size="15" />
       <span>ข้อ {{ flowOrphans.map((o) => o.entryIndex + 1).join(', ') }} สั่งวน/ข้ามเครื่องหมายที่ถูกลบไปแล้ว — ระบบจะร้องตามทำนองแทน</span>
       <button class="ed-flow-orphan-fix" @click="clearOrphanFlows">ลบคำสั่งที่ค้าง</button>
     </div>
@@ -4319,10 +4319,13 @@ defineExpose({
   background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px;
   color: #92400e; font-size: 0.86rem;
 }
+/* same 30px family as the panel's other controls (.ed-flow-toggle / .ed-flow-num) — inline-flex
+   so min-height is the real height, not a floor the button overshoots on its own line box. */
 .ed-flow-orphan-fix {
-  min-height: 28px; padding: 3px 10px; margin-left: auto;
+  display: inline-flex; align-items: center;
+  min-height: 30px; padding: 3px 10px; margin-left: auto;
   background: #fff; border: 1px solid #f59e0b; border-radius: 6px;
-  color: #92400e; font-weight: 600; cursor: pointer;
+  color: #92400e; font-size: 0.85rem; font-weight: 600; cursor: pointer;
 }
 .cs-del {
   display: inline-flex;
