@@ -12,7 +12,8 @@
 - ✅ **BI-005 `@32e546c` TESTER PASS** (split-advance·no-clobber·latin·มือถือ360/412) — ⚠️ NOT closed: **IME composition จริง + OSK มือถือ** (CDP ทำไม่ได้ · acceptance ผ่าน · **ต้องมือถือจริง/P'Aim ก่อน ship**) · พร้อม assemble (logic solid)
 - 🧪 **รอ Tester:** new-song (Tester `287afc35`)
 - ✅ **BI-007 `@19d9813` P1+4 G-refinements เสร็จ** (Chip C `5c330050` · suite 1525 · label ภาษาหน้าที่ · Saved/Submitted · มือถือ pill+ดูขั้นตอน→vertical stepper · anon verified live) — **role editor/approver = P'Aim ทดสอบเองหลัง deploy** (ไม่ต้อง creds · dev :5486 ค้าง)
-- 🔧 building: BI-010 share `15a77dff` · issue9 header (design ผ่าน · queue build หลัง batch · base 7afb038)
+- ✅ **BI-010 share `@82da968` (off 7afb038) merge-ready** — appBase() swap dev/LAN origin→https://pleng.phrakham.life คง sub-path (/v2 ถูก) · QR decoded=canonical (jsQR) · tests pass · NOT: eyeball QR pixel + phone scan จริง (P'Aim post-deploy) · issue9 header = queue build หลัง batch (base 7afb038)
+- ⚠️ **BI-007 tip merge = `@19d9813`** (ไม่ใช่ 5f93562=ก่อน refinements) · chain: 7afb038→eae57c2(BI-006)→5f93562→19d9813 · cherry-pick BI-007 = เอาทั้ง 5f93562+19d9813 · dev :5486 ค้าง (P'Aim ลอง role: approver="อนุมัติและเผยแพร่" · editor="ส่งให้ผู้อำนวยเพลงตรวจทาน")
 - **Tester `287afc35` = standby regression-check integration** (มี scripts: real-DnD · mobile-emu · WebAudio-RMS)
 - **deploy = ยังไม่ทำ** · bundle+batch = ship ตอน P'Aim สั่ง (ต้อง FF ssr→integrated tip + cherry-pick deploy.yml 132a041)
 
@@ -61,7 +62,7 @@
 | symbol-pass `257400f4` | **BI-003** + **BI-009** ระบบเครื่องหมาย `@011190e` | ✅✅✅ **CLEAN + TESTER PASS ครบ 6:** **no-collision = P'Aim #1 "น่าอนาถ" FIXED (screenshot)** · ~ TIE+arc · toggle ครบ · octave บน/ล่างถูก · มือถือ360/412 target46×44 · เอา ' ออกแถบคงพิมพ์ +`,`ต่ำ +#/b · **พร้อม assemble** · NOT: cross-barline ~ (ใช้ -) · flag first-run help-panel overlay@360 |
 | 📖 **นิยาม symbol (symbol-pass ตอบ · durable):** `()` = เอื้อน/slur (คนละ pitch ใน 1 พยางค์) · `~` = tie (pitch เดียว sustain) · `-` = ต่อเสียง +1 beat · `#/b/n` = กลุ่มเดียว (jianpu 变音) | | ตอบพี่เปา/อัปเดต Guide ได้ |
 | item1 dc/ds `31412dcd` | **ใส่ D.C./D.S./Segno/Coda/Fine เอง** `@a31cce2` | ✅✅✅ **CLEAN + TESTER PASS ครบ 4:** glyph render · directive จริง (breadcrumb) · interaction · มือถือ360/412 · polish auto-scroll fixed+verified@360 · build-stamp ยืนยัน serve branch · **พร้อม assemble** · NOT: ear-test เสียงตาม jump (model โอเค · follow-up) |
-| BI-010 `15a77dff` | **share/QR ใช้ 127.0.0.1 มือถือเปิดไม่ได้** (S2 · repro 2 มือถือ) | 🔧 dispatched (base 7afb038 · share.js/qr.js/urlState canonical base · isolated ไม่ชน editor) |
+| BI-010 `ca5ea240` | **share/QR ใช้ 127.0.0.1 มือถือเปิดไม่ได้** (S2) | ✅ **merge-ready `@82da968`** (appBase swap dev/LAN→pleng.phrakham.life คง sub-path · QR decoded=canonical · tests pass · isolated share.js) · NOT: phone scan จริง (P'Aim post-deploy) |
 | BI-007 build `4ed20d3d` | **completion-flow** (spec `docs/ds/edit-completion-flow.md` @35a4ce3) | 🔧 **P'Aim เคาะแล้ว = capability-based (มาตรฐาน CMS):** ปุ่มจบงานปรับตาม capability (มีเผยแพร่→"เผยแพร่เลย"+รอง"บันทึกร่าง"เลือกได้ · แก้อย่างเดียว→"ส่งตรวจ") + stepper+auto-save+ยืนยัน · ไม่แตะ RLS · **TODO แยก: grant พี่เปา approver (data 1 row) → เผยแพร่เองได้** |
 | BI-001 SB1 | แถบบน | ⏸️ พัก (P'Aim คิด) |
 | BI-002 | เสียงค้าง | ✅ fixed (ใน bundle รอ ship) |
