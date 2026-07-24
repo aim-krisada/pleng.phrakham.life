@@ -42,8 +42,8 @@
 **กติกากันชนที่ใช้ได้ผล:** แต่ละสายเป็นเจ้าของพื้นที่ตัวเอง · **merge base ล่าสุดเข้าสาขาตัวเองก่อน commit สุดท้ายเสมอ** · ต้องแตะพื้นที่คนอื่น = **ping PM ก่อน ห้ามแก้ทับ**
 
 ### 📋 รอ P'Aim (ไม่บล็อกงาน)
-- 🎧 **ฟังเสียงแล้วบอกแค่ "ชอบอันไหน"** — `audio-2026-07-23-preecho\` (โน้ตผีเพลง 33) · `audio-2026-07-24-rubato\` (ยืดหายใจก่อนขึ้นท่อน) · `audio-2026-07-24-ensemble\` (ไวโอลิน 3 คู่ + กีตาร์ 1 · **ชอบ B = สแกนคลังแล้วเปิดให้ไวโอลิน · ชอบ A/แยกไม่ออก = ปล่อยเดิม**) · `audio-2026-07-24-ensemble-sections\`
-- **deploy: พร้อม 0 บล็อก** → เคาะว่าปล่อย `/v2` คู่ตัวเก่าเลยไหม + รัน db/011 · ต้องเขายืนยันเองด้วยหู/มือถือ/PDF/เซฟตอนล็อกอิน (ตรวจแทนไม่ได้)
+- ✅ **เสียง = ปิดประเด็น (P'Aim 24 ก.ค.):** P'Aim ฟังเองไม่รู้ · **P'Pao บอกโอเค** → **"ขึ้นได้แล้วค่อยแก้"** = ship-first-fix-later · ⛔ **ไม่ใช่ตัวบล็อก deploy อีกต่อไป** (เลิกรอฟัง 4 ชุด)
+- 🚀 **DEPLOY = ทางเร็วสุดสู่ผู้ใช้ที่รออยู่** (ทุกอย่างยัง pre-deploy · เว็บจริงยังตัวเก่า) · เสียงปลดแล้ว → เหลือ prep: `/v2` คู่ตัวเก่า · เรียง SQL (`reset-verified-false.sql` = กับดักแคตตาล็อกว่าง · db/011) · คืนคอร์ดเพลง 33 · **main/deploy = P'Aim สั่ง go เท่านั้น**
 - ✅ **คอขวด Gemini เคลียร์ครบ 3 สาย (24 ก.ค. หลัง Surface รีสตาร์ท):** A (transcript รอดก่อนรีสตาร์ท) · palette (Pro รอบ · https://gemini.google.com/app/9a95feba7af5ea3d) · B060 (Pro · `docs/meetings/2026-07-24-b060-song-settings/`) · **กฎใหม่ข้อ 6 ในกระดานป้าย** = เปลี่ยนชื่อหน้าต่าง+แถบสี+monitor ฟ้องเมื่อเบราว์เซอร์ตาย (README อัปเดต · ที่มา: ป้าย 4 ใบ URL เดียวกัน P'Aim กดผิดหน้าต่าง + หน้าต่างถูกปิดระหว่างไล่หา + monitor กลืน exception)
 - **2 คำถาม cross-ref จากหนังสือ:** (ก) **"อ.NNN" ชี้เล่มไหน** — ไม่ใช่อนุชน (เลข 3 หลักเกิน 120) · น่าจะ "เล่มบทเพลง.pdf" 53MB (ข) **"238=/233=" เขียนด้วยมือ** ที่หัว #432/#515 = เลขเล่มไหน · + เพลง (อ.842) ถูกขีดฆ่าปากกาแดงในเล่มใหญ่ใบ 335 (ตั้งใจตัด?)
   → ตอบแล้ว PM spawn SA ทำ audit อนุชนต่อ (hold อยู่)
@@ -57,10 +57,20 @@
 2. **editor-flow-polish** (auto-scroll/ซ่อนแท็บ/คอร์ด-ตรงจุด/caret 2 โหมด/Delete ดึงชิด/octave/เมนู⋮ · spec `editor-flow-polish.md` · เช็ก keydown :387-459)
 3. **repeat-jumps UI ใส่จุดย้อนในตัวแก้** (รอคิว · ส่วน engine แยกไปทำขนานแล้ว ↓)
 4. **B091** ล้างเฉพาะโน้ตทั้งบรรทัด
+**🔴 #1 gap (audit) — ยังไม่อยู่ในคิว ต้องดันขึ้นหัวหลัง CP-0:** **ยกแก้โครง (drawer การ์ดท่อน) + copy/paste/move ห้อง·บรรทัด·ข้อ เข้าตัวแก้ใหม่** (ตอนนี้อยู่เฉพาะ EditorMode เก่า) → แล้วตัดแท็บ+ตัวเก่า = gate สู่ "สมบูรณ์"
 
-**⚡ ขนานได้ (คนละไฟล์ ไม่ชนคิว hot-file):** 🔵 **repeat มิดบาร์ design+engine** (`task_55e1f134` session ใหม่) — Phase1 ปิด mid-bar design + **G Pro** (docs · ping PM gate ก่อน engine) · Phase2 ต่อยอด spike line-level→mid-bar บน `songModel/midi/songFlow` (คนละไฟล์ SongViewer = ขนาน CP-0 ได้) · ⛔ ไม่แตะ SongViewer/EditorMode (UI ใส่ = คิว hot-file)
+**⚡ ขนานได้ (คนละไฟล์ · จ่ายแล้ว P'Aim สั่งเร่ง 24 ก.ค.):**
+- 🔵 **repeat glyph render** (`task_b4f86d1a` · SongSheet.vue) — วาด 𝄋𝄌 D.C./D.S./Fine/‖ บนแผ่น+พิมพ์ · ไม่แตะ editor/engine
+- 🔵 **B121 ขนาดกระดาษ** (`task_dd1ee908` · print CSS/DownloadTool) — เลือก A4/Letter · งานเล็ก
+- 🔵 **repeat มิดบาร์ design+engine** (`task_55e1f134` session ใหม่) — Phase1 ปิด mid-bar design + **G Pro** (docs · ping PM gate ก่อน engine) · Phase2 ต่อยอด spike line-level→mid-bar บน `songModel/midi/songFlow` (คนละไฟล์ SongViewer = ขนาน CP-0 ได้) · ⛔ ไม่แตะ SongViewer/EditorMode (UI ใส่ = คิว hot-file)
 🔴 **CP-0 = ไม่ใช่ยุบ 2 ที่ แต่ 4 ที่** (SA เปิดซอร์สอ่านเอง): (1) `NoteInputBar.vue:38` SYMBOL_GROUPS (2) `SongViewer.vue:295` SYMBOL_CHARS (3) `SongViewer.vue:405-421` keydown จัดประเภท **ชุด 1** (4) `SongViewer.vue:646` applySymbol จัดประเภท **ชุด 2 ซ้ำ** · **keydown ไม่เรียก applySymbol = drift จริงวันนี้** (คอมเมนต์ 644 เขียนว่า "never two code paths that drift" แต่มันมี 2) → ใบสั่ง CP-0 ต้องบังคับ keydown เรียก applySymbol ปิด drift · AC พร้อม `docs/ds/command-palette-acceptance.md` (AC-0.3 unit test ล้วน · AC-1.7 event-log + denominator guard)
 **คอร์ดกดแล้วพิมพ์เลือกเลย** (พี่เปาบอกตอนนี้หลายคลิก) · **ย้าย/คัดลอก/วาง ห้อง·บรรทัด·ข้อ** — 🔴 ใบนี้ต้องมีข้อบังคับ **"id ของเครื่องหมายต้องออกใหม่ตอนวาง"** ไม่งั้น `flow` ชี้กำกวม = เล่นผิดเงียบ · **ยกโครงเพลง+การวนซ้ำ+เพิ่มบรรทัด/ห้อง+พิมพ์ เข้าตัวแก้ใหม่** (แล้วค่อยตัดแถบแท็บ) · ช่องไฟระหว่างห้อง · ชาร์ป-แฟลตในป๊อปอัป · อาการ "melody เกิน" 7.3% (รอหูพี่เปา) · `db/006` author_id (ไม่เคย deploy · P'Aim เคาะเอง) · ตัวแปลงไฟล์นำเข้าสร้างของพังซ้ำได้ · B120 หน้ากากแบบอนุชน · B121 เลือกขนาดกระดาษ · B122-B126 · 163/170 เพลงไม่มีระดับ verse จากป้ายท่อนตัวเอง (เหมือนกัน 2 เส้นทาง = ไม่ใช่บั๊ก)
+
+## 🔍 Completeness gaps (audit 24 ก.ค. · เทียบดีไซน์ล็อก vs base จริง)
+- **🔴 #1 = migration ยังไม่จบ (gate สู่ "สมบูรณ์"):** ตัวแก้ใหม่ (SongViewer.vue) ทำ note/sharp-flat/octave/chord/symbol/settings/save/undo/mobile ได้ · **แต่ยัง "แก้โครง (drawer การ์ดท่อน)" + "copy/paste/move ห้อง·บรรทัด·ข้อ" ไม่ได้ = อยู่เฉพาะ EditorMode.vue เก่า** · แท็บ 3 อัน (ฝึก/แผ่น/แก้) ยังอยู่ · **ต้องยก 2 อย่างนี้เข้าตัวใหม่ก่อน แล้วตัดแท็บ+ตัวเก่า** ← ยังไม่อยู่ในคิว build ปัจจุบัน (queue = polish+repeat) · ความเสี่ยง: old editor ไม่ถูก drain แท็บไม่ถูกตัด = split-brain ถาวร
+- **🪤 กับดัก deploy (data):** `reset-verified-false.sql` (B089) ยังไม่รัน → public เห็นเฉพาะ verified · รันผิดจังหวะ = **แคตตาล็อกสาธารณะว่างเกือบหมด** · `import-ties.sql` ต้องคู่กับ render fix · **57 เพลง flag tie/slur ยังไม่แก้** + import เคยสลับ melody↔lyrics = หนี้คุณภาพข้อมูล
+- **deferred (ล็อกไว้ แต่ยังไม่มีโค้ด):** **dark mode = ABSENT ทั้งที่ดีไซน์ล็อกต้องมี** · zh/en (มีแค่ th ไม่มี switcher) · Ctrl+K palette (spec เฉย ๆ) · MusicXML export · B120 เนื้อล้วน/B121 ขนาดกระดาษ · audio B104/106/107 ยังไม่ยืนยันเข้า base
+- **ปล่อยได้แม้ migration ไม่จบ:** ตัวแก้เก่าเป็น fallback → **deploy /v2 คู่ตัวเก่าได้ (ship-fast)** · "สมบูรณ์" ค่อยวัดตอน migration จบ
 
 ## กติกาถาวร
 ⛔ ห้าม re-import/bulk-write 120 เพลง · ⛔ merge = PM เท่านั้น · ⛔ main/deploy = P'Aim สั่ง go เท่านั้น · ⛔ SQL = เพิ่มอย่างเดียว ต้องมี guard + rollback · ⛔ ห้ามแตะ server/เบราว์เซอร์ที่ P'Aim ใช้ (:5480 · Chrome 9222) · ⛔ **ห้ามกั้น UI ด้วย `@media(hover)`** (เครื่อง P'Aim รายงาน hover:none ทั้งที่มีเมาส์) · **บั๊กที่ทำข้อมูลหายเงียบ = กลุ่มเดียวที่ห้ามปล่อย** · reuse engine · Vue3+Vite
