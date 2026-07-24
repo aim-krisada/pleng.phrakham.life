@@ -2,7 +2,29 @@
 
 > **สมองอยู่บน disk** → PM ตายเกิดใหม่ได้ · เก็บ **สั้น** · จบแล้วตัดออกทันที · มติ → `decisions-log.md` · เก่า → `decisions-archive.md`
 
-## ▶ pl pm 44 เริ่มที่นี่ (handoff 24 ก.ค. ~20:00 · จาก pm 43 · session เต็ม)
+## ▶ pl pm 46 เริ่มที่นี่ (handoff 24 ก.ค. ดึก · จาก pm45 · P'Aim สั่ง "PM เก็บงาน + session ใหม่")
+> **pm46: ตั้ง title ตัวเองเป็น "pl pm 46" ก่อน** (workers หา PM จาก title prefix "pl pm" เลขสูงสุด · §4.5 r9) · report-back หลักผ่าน inbox `C:\gl\pm-inbox\pleng\`
+
+### 🎯 pm46 งานถัดไป = ASSEMBLE ชุด verified fixes (รอครบก่อน · กัน churn)
+- **base ที่ merge = `editor-port-repeat-markers @7afb038`** (⛔ ไม่ใช่ studio-shell — ดู LANDMINE) · assemble ลง integration branch ใหม่ off 7afb038 · **merge order (Explore):** BI-004(StructureDrawer ก่อน) → dc/ds → symbol/BI-005(SongViewer/symbol) → BI-006/BI-007(SongViewer/Studio) → new-song → hot-file SongViewer.vue = resolve ตามลำดับ
+- ✅ **CLEAN+Tester PASS พร้อม assemble:** BI-004 `@6549ae6` · dc/ds `@a31cce2` · BI-006 `@eae57c2` · (new-song `@db7ebce` verified · Tester `287afc35` กำลังปิด NOT PROVEN)
+- 🧪 **รอ Tester:** symbol `@011190e` (Tester `b4a45f0e`) · BI-005 `@32e546c` (Tester `4158d34e`)
+- 🟡 **BI-007 `@5f93562`** (Chip C `5c330050` apply 4 G-refinements อยู่) — anon verified · **role editor/approver = P'Aim ทดสอบเองหลัง deploy** (ไม่ต้อง creds)
+- 🔧 building: BI-010 share `15a77dff` · issue9 header (design ผ่าน · queue build หลัง batch · base 7afb038)
+- **Tester `287afc35` = standby regression-check integration** (มี scripts: real-DnD · mobile-emu · WebAudio-RMS)
+- **deploy = ยังไม่ทำ** · bundle+batch = ship ตอน P'Aim สั่ง (ต้อง FF ssr→integrated tip + cherry-pick deploy.yml 132a041)
+
+### ⏸️ HOLD/รอ P'Aim
+- **SB1 มือถือ** (P'Aim ขอเวลาคิด · bundle SB1+BI-002+lint+paste รอ ship) · **topology swap** (defer · bug ยังเยอะ) · **MR ai-bridge** ceo!13+ai-bridge!32 (รอ approve) · **issue8** = ไม่ดึง (P'Aim เคาะ) · **BI-007 role + audio-follows-jump ear-test** = P'Aim หลัง deploy
+
+
+### 🚨🚨 CRITICAL BASE/DEPLOY LANDMINE (Explore pm45 · ยืนยันด้วย git)
+- **`studio-shell-redesign` tip = c90c18f = commit เอกสาร PM ล้วน (bug-intake) · diverged ออกจาก editor** (สืบจาก dac3970 = ก่อนรวม editor · **ไม่มี** StructureDrawer/songStructure · SongViewer เก่า)
+- ⛔⛔ **ห้าม deploy จาก studio-shell-redesign ตอนนี้ = /v2 REGRESS เป็นตัวไม่มี editor** · live /v2 ปัจจุบัน = `132a041` (บน branch prewarm-probe · deploy.yml build ref=ssr แต่ตอน go-live ssr ชี้ 132a041 · ตอนนี้ ssr ขยับหนี editor แล้ว)
+- ✅ **canonical editor base = `editor-port-repeat-markers` (7afb038)** = editor สมบูรณ์สุด (superset ของ live code · มี SB1 55171ef + BI-002 fix + integration-cp +502 SongViewer) — **ทุก fix ต้อง rebase/merge บนนี้**
+- **ก่อน deploy รอบหน้า:** FF ssr → editor-integrated tip **+ cherry-pick deploy.yml ของ 132a041** (editor-port ไม่มี deploy.yml) — ไม่งั้น build config หาย
+- **worker base ผิด (ผมสั่ง ssr ผิดเอง) ต้อง rebase → 7afb038:** Chip A (bi005-bi003) · symbol-pass · Chip C · BI-004 (อยู่ sleepy-chatelet เก่า rebase ตอน merge) · dc/ds `31412dcd` ถูกแล้ว (off 7afb038)
+- **merge order (Explore):** bundle(7afb038 เป็น base)→lint → BI-004(StructureDrawer ใหญ่สุด land ก่อน) → BI-005/003/009(SongViewer+symbol เป็น pass เดียว) → dc/ds(last · editorCommands/songStructure)
 
 ### 🎉 สถานะใหญ่: /v2 LIVE บน production แล้ว (deploy สำเร็จ+verified ก่อน 20:00)
 - **`https://pleng.phrakham.life/v2/` = ตัวใหม่ live** (stamp `132a041` · แท็บหาย · ตัวแก้ inline ครบ · import/export ใน ⋮ · share-2 · ฟังได้ · 0 loss)
@@ -14,23 +36,49 @@
 **merge = PM · ทุก worker ping merge-ready → PM fast-forward studio-shell-redesign + push (Actions redeploy)**
 | # | งาน | worker | สถานะ |
 |---|---|---|---|
-| SB1 | **แถบบนสะอาด** (ลบ share/⋮ ซ้ำ · แถบเดียว `‹ ชื่อ ↗ ⋮` · home-shell declutter) | `411913fd` | 🟢 **MERGE-READY `@55171ef`** (test 1429 · desktop ✓) = **redeploy #1** · รอ **P'Aim confirm มือถือ** ([:5321](http://192.168.1.124:5321/)) แล้ว PM merge+push · BI-001 อยู่ในนี้ |
-| #4 lint | **ป้าย "ตรวจโน้ต" ในตัวแก้ inline** (✓เขียว/เหลือง+พาเนลปัญหา · reactive · แก้ wolf-cry pickup) | `a06948f3` | 🟢 **MERGE-READY `@2a972b8`** (test 1482 · SongViewer.vue · รวม item1-engine dormant harmless) = redeploy · แยก item4-ล้วนได้ถ้าอยาก |
-| BI-002 | **เสียงค้าง: กด ✏️ ตอนเล่นเพลง แล้วหยุดไม่ได้** → เข้าโหมดแก้ให้ stop playback | `a06948f3` | 🔴🔴 **สถานะไม่ชัด — ถาม port-remaining แล้ว** (รายงาน lint ไม่พูดถึง BI-002 · สั่งให้ทำก่อน · PM 44 เช็กด่วน · P'Aim จับตา) |
-| SB2 | ▶ Play hero + secondary→⋮ | `411913fd` | 🔴 **HOLD = P'Aim DECISION** (dock = P'Aim จูนเอง 13 ก.ค. + DockKey shared phrakham = regression risk · ⛔ ห้าม blind-restructure · ต้อง P'Aim sign-off) |
+| **📦 BUNDLE** | **branch `editor-port-repeat-markers @7afb038` (base @55171ef=SB1 · test:all 1498 เขียว) = SB1 + BI-002-fix + lint + paste พร้อม FF+redeploy รอบเดียว** | `a06948f3` (wound down) + `411913fd` | ⏸️ **HOLD — P'Aim ขอเวลาคิด SB1 (pm45 "มีปัญหาเยอะที่อยากแก้")** · fix เสียงค้าง+lint+paste รอ ship พ่วง SB1 · ยังไม่ redeploy จนพี่เอมพร้อม |
+| ├ SB1 | แถบบนสะอาด (ShellBar.vue · BI-001 อยู่ในนี้) | | desktop ✓ · รอมือถือ |
+| ├ BI-002 fix | เสียงค้าง กด✏️ตอนเล่น `@7afb038` | | ✅ verified (stopPlay=เส้นทาง ⏹ · audio-state test ไม่ใช่ภาพ) |
+| ├ item4 lint | ป้ายตรวจโน้ต `@2a972b8` | | ✅ verified live (pickup-aware) |
+| └ item3 paste | วางเนื้อ→attack `@c85062c` | | ✅ verified live (StructureDrawer.vue) |
+| SB2 | ▶ Play hero + secondary→⋮ | `411913fd` | ✅ **RESOLVED = KEEP dock (P'Aim เคาะ pm45): "dock ดีอยู่แล้ว ไม่แตะ"** → จบแค่ส่วนปลอดภัย `@0cc866f` (download→⚙) · ⛔ ไม่ย้ายคีย์/เสียงดนตรีออกบาร์ · ▶ accent = เฉพาะ visual เบาไม่ restructure (ไม่ชัวร์=ไม่ทำ) |
 | #4 ต่อ | paste-syllable → repeat-markers UI (engine banked · spec `marker-entry-ui.md`@02cde29) | `a06948f3` | หลัง BI-002 · กำลังทำ paste |
 | #5 | **header แก้ inline** (lead-sheet · 2 synced surface กับ ⚙ · design เสร็จ `docs/ds/song-header-inline-edit.md`) → build | design `534ea90d` done | รอ dispatch build |
+| **issue9** | **lead-sheet metadata header (DISPLAY)** — ชื่อลงบรรทัดเต็ม + `คีย์·อัตราจังหวะ·ความเร็ว` ใต้ชื่อ + scripture · **เฟส 1 เท่านั้น** (ไม่เอา credits/ลิขสิทธิ์) · คีย์=current (ต้นฉบับ=ปกติ · shift=บอก) · bpm null=ซ่อน | SA design (dispatched) | 🔧 ร่าง spec `docs/ds/` · เช็คมาตรฐาน transposed-key ผ่าน G · ยังไม่ build |
 
-**hot-file `SongViewer.vue`:** BI-002+#4 (`a06948f3`) กับ SB2 (`411913fd`) แชร์ → 2 สายประสาน region เอง (edit-toggle/lint vs reading-transport) · merge base ก่อน commit
+### 🐛 บั๊ก editor batch (pm45 · พี่เปา user จริง · "แก้เพลงใช้ยากกว่า v1" · SSOT `docs/pm/bug-intake.md`)
+**P'Aim เคาะ: จ่าย fix เลย · เคลียร์ทั้ง 9 issues = scope session PM นี้ · ทุกตัวมีเจ้าภาพ:**
+| chip/session | บั๊ก | สถานะ |
+|---|---|---|
+| A `08953bf8` | **BI-005** พิมพ์เนื้อ split-advance | ✅ **BI-005 `@32e546c` +1 สะอาดบน 7afb038 · re-verified (suite 1498)** · 🧪 รอ Tester (มือถือ/IME) · Chip A ~จบ scope → wind down · 🔑 **BI-008 + §6 octave + chord-popup มีบน 7afb038 อยู่แล้ว = ship bundle หายเอง ไม่ต้อง build** (live /v2=132a041 ยังไม่มี → พี่เปาเลยเจอ) |
+| B `28a324dd` | **BI-004** copy/paste ห้อง+บรรทัด `@6549ae6` (on 7afb038) | ✅✅✅ **CLEAN + TESTER PASS ครบ** (drag · insertion-point · มือถือ360/412 overflow=0 · slot 26px≥AA วัดจริง) = **ชิ้นแรกสมบูรณ์ · #1 ใน merge order** · HOLD รอ assemble batch |
+| C `5c330050` | **BI-006** เล่นห้องนี้ + **BI-007-full** | ✅✅ **BI-006 `@eae57c2` TESTER PASS by-ear** (วัด RMS · เล่นเฉพาะห้อง auto-stop ตาม caret) = ตัวที่ 3 พิสูจน์ · **BI-007 `@5f93562` เสร็จบน base จริง** (harvest CompletionStatus + 4 G-refinements · anon verified live · **role editor/approver ยัง jsdom → ต้อง login จริง (P'Aim ลองเอง/หา creds)**) · 1523 pass · 2 commit แยก · standby assemble |
+| ~~BI-007-build `dfe14ace`~~ | | ✅ **stood down** (build บน EditorMode พื้นผิวผิด · ปิด server · component ส่งต่อ Chip C harvest) |
+| new-song-inline `b6c152b9` | **ปุ่ม "＋ เพลงใหม่" เข้า inline editor** (P'Aim สั่ง pm45) | ✅ **merge-ready `@db7ebce` (base ถูก 7afb038)** · verified live: กด→เพลงเปล่าเปิด inline · พิมพ์ได้ทันที · blank-trap แก้ (seed rest '0') · escapable · SongViewer chrome-only เล็ก · 🧪 Tester `287afc35` (พิมพ์จริง+server save) · NOT PROVEN: keystroke method+server draft |
+| symbol-pass `257400f4` | **BI-003** + **BI-009** ระบบเครื่องหมาย | ✅ **REBASED บน base ถูก `@011190e` (on 7afb038) · re-verified** (conflict union สะอาด · suite 1507 · live TIE 3→2/BOX/OCTAVE) · toggle ครบ · ~ TIE · เอา ' ออกแถบคงพิมพ์ +`,`ต่ำ +#/b · **แก้ปุ่มชนที่ P'Aim หงุดหงิด** · 🧪 Tester `bbb441c6` (ปุ่มไม่ชน+arc+มือถือ) · NOT PROVEN: cross-barline ~ (ใช้ -) · applySymbol=hot-file seq กับ Chip A |
+| 📖 **นิยาม symbol (symbol-pass ตอบ · durable):** `()` = เอื้อน/slur (คนละ pitch ใน 1 พยางค์) · `~` = tie (pitch เดียว sustain) · `-` = ต่อเสียง +1 beat · `#/b/n` = กลุ่มเดียว (jianpu 变音) | | ตอบพี่เปา/อัปเดต Guide ได้ |
+| item1 dc/ds `31412dcd` | **ใส่ D.C./D.S./Segno/Coda/Fine เอง** `@a31cce2` | ✅✅✅ **CLEAN + TESTER PASS ครบ 4:** glyph render · directive จริง (breadcrumb) · interaction · มือถือ360/412 · polish auto-scroll fixed+verified@360 · build-stamp ยืนยัน serve branch · **พร้อม assemble** · NOT: ear-test เสียงตาม jump (model โอเค · follow-up) |
+| BI-010 `15a77dff` | **share/QR ใช้ 127.0.0.1 มือถือเปิดไม่ได้** (S2 · repro 2 มือถือ) | 🔧 dispatched (base 7afb038 · share.js/qr.js/urlState canonical base · isolated ไม่ชน editor) |
+| BI-007 build `4ed20d3d` | **completion-flow** (spec `docs/ds/edit-completion-flow.md` @35a4ce3) | 🔧 **P'Aim เคาะแล้ว = capability-based (มาตรฐาน CMS):** ปุ่มจบงานปรับตาม capability (มีเผยแพร่→"เผยแพร่เลย"+รอง"บันทึกร่าง"เลือกได้ · แก้อย่างเดียว→"ส่งตรวจ") + stepper+auto-save+ยืนยัน · ไม่แตะ RLS · **TODO แยก: grant พี่เปา approver (data 1 row) → เผยแพร่เองได้** |
+| BI-001 SB1 | แถบบน | ⏸️ พัก (P'Aim คิด) |
+| BI-002 | เสียงค้าง | ✅ fixed (ใน bundle รอ ship) |
+
+### 🎼 dc/ds (D.C./D.S./Segno/Coda/Fine) — Explore ยืนยัน (pm45)
+- **แสดงบนแผ่น = มีครบ** (SongSheet.vue `classifyJump`/`jumpLabel` · SVG segno/coda · เทสต์) ถ้าข้อมูลเพลงมี item jump
+- **ใส่เอง/แก้เองในตัวแก้ = ❌ ไม่มี** — palette มีแค่โน้ต · ⋮ ได้แค่ free-text "ป้าย" (→`{type:label}` ข้อความเปล่า ไม่ใช่ marker จริง) · **มีปุ่มเฉพาะ `|: :|` + 1st/2nd ending เท่านั้น** · **engine jump ไม่มีบน base** (อยู่บน musing-carson branch `editor-port-repeat-markers` ยังไม่ merge · เป็น engine ล้วน)
+- = ที่พี่เปา/P'Aim รู้สึกว่า "dc ds ไม่มี" ถูกต้อง · งาน = **item1 repeat-marker UI** (spec `docs/ds/marker-entry-ui.md` + engine bank + handoff `C:\gl\pm-inbox\pleng\2026-07-24-editor-port-item1-ui-handoff.md`) · design ผ่าน G Pro 2 รอบแล้ว
+- ✅ **P'Aim เคาะ pm45: "จ่ายงานเลย" (build ไม่รอ G ซ่อม)** → chip `439701c9` launched · base off `editor-port-repeat-markers @7afb038` (มี engine · base ยังไม่มี) · §8 G-consult UI-flow = deferred เขียนคำถามไว้ · verify ต้องใส่ marker จริง→เป็น marker จริง (ไม่ใช่ label เปล่า)
+
+**hot-file `SongViewer.vue`:** bundle (`a06948f3` wound down) landed แล้วเป็นของ base · chip A + item1-UI จะแตะต่อ → **merge ตามลำดับ PM · rebase หลัง bundle land**
 
 ### 🔴 รอ P'Aim เคาะ (ไม่บล็อก · ตามสะดวก)
 1. 📱 **SB1 มือถือ** = แถวเดียวไหม (→ redeploy) + **logo มือถือ** เอาออก/คงไว้ (ทีมเอาออกตาม mockup · veto ได้)
-2. 🔀 **topology swap: v2→root · v1→/v1 · ถอดป้าย ⇄** — plan เสร็จ `docs/deploy-v2-promote-plan.md` (deploy-prep `8294e63a`): **v2→root ง่ายมาก (ป้าย ⇄ หายเอง)** · งานจริง = v1→/v1: **Option B (แนะนำ ~15น · online ครบ · offline-PWA ไม่เป๊ะ · v1=fallback เลิกอยู่แล้ว)** vs A(~1ชม เป๊ะ) · `/v2/` links redirect ครบ · SW cache-bump · ~30-45น รวม · เสี่ยงกลาง-สูง(แตะ root คนใช้ทุกวัน) · rollback ~3น · **แนะทำหลัง top-bar สะอาด** · plan-ก่อน-execute · P'Aim go
+2. 🔀 **topology swap: v2→root · v1→/v1** — ⏸️ **DEFER (P'Aim pm45: "ยังไม่ย้าย bug ยังเยอะ")** · ทำหลัง editor bugs นิ่ง (BI-005 ยืนยัน editor ยังไม่พร้อม replace v1) · plan เสร็จ `docs/deploy-v2-promote-plan.md` (deploy-prep `8294e63a`): **v2→root ง่ายมาก (ป้าย ⇄ หายเอง)** · งานจริง = v1→/v1: **Option B (แนะนำ ~15น · online ครบ · offline-PWA ไม่เป๊ะ · v1=fallback เลิกอยู่แล้ว)** vs A(~1ชม เป๊ะ) · `/v2/` links redirect ครบ · SW cache-bump · ~30-45น รวม · เสี่ยงกลาง-สูง(แตะ root คนใช้ทุกวัน) · rollback ~3น · **แนะทำหลัง top-bar สะอาด** · plan-ก่อน-execute · P'Aim go
 3. 🐛 **bug-workflow ใหม่ (P'Aim เสนอ · PM เห็นด้วย):** per-bug = 1 session → วิเคราะห์+repro+สร้าง **GitHub issue** (evidence) → ping PM → PM จ่าย fix (session ไม่ fix เอง · search กันซ้ำก่อน) · **ต้องเช็ก: issues เปิด + token scope `aim-krisada/pleng.phrakham.life`** (`GITHUB_TOKEN_PHRAKHAM` ครอบไหม) → PM เสนอ set up template+เช็ก token
 
 ### 🧵 สาย support
 - **bug-intake channel** `1290d01f` (idle · `docs/pm/bug-intake.md` BI-NNN · P'Aim ส่ง bug ผ่านช่องนี้ · batch ยกเว้น S1) — กำลังจะ evolve เป็น per-bug-session (ข้อ 3)
-- **ai-bridge** `2cac6a71` — 🔴 **G automation พัง** (CDP driver/Python 3.14) → ประเมิน `enteam/ai-bridge` แทน (มี waiting-web แจ้ง P'Aim) · **อ่าน inbox `2026-07-24-ai-bridge-adopt.md`** · G consult ทุกสาย DEFER จนซ่อม
+- **ai-bridge** `2cac6a71` — ✅ **G-consult ซ่อมแล้ว!** root cause = เกาะ :9222 busy (ไม่ใช่ Py3.14) · P'Aim เคาะ Chrome เฉพาะ :9335 · **เครื่องมือใช้ได้ `C:\gl\.aibridge\` (bridge.py/daemon.py · `ask G/N <id> "..."` · transcript auto-save)** พิสูจน์ 2 session + N citation · จ่ายต่อ: (1) รัน G-review **BI-007 completion-flow** → feed Chip C (2) commit tool → `ceo/tools/`? ยืนยัน P'Aim · ⚠️ :9222 P'Aim ดับตอนเทสต์ (แจ้งแล้ว) · G-defer ยกเลิกได้แล้ว
 - **melody 100%** `df00094f` done รอบ 1 (worklist Tier1 11 เพลงจังหวะ · Tier2 16 เนื้อ · `2026-07-24-melody-correctness-audit.md`) → เส้นทาง 100% = `tools/pdf-melody-diff.mjs` จ่ายต่อได้
 - **midbar repeat engine** `cf8a3d91` done `daa8c7f` (test 1386 · **merge HELD** · dormant จน marker-entry UI = #4-repeat ขึ้น) + glyph normalise `+id/+al/pair-by-kind` ตอน landing
 
