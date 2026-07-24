@@ -163,6 +163,59 @@ describe('accidental safety — a mid-bar return keeps the bar’s accidental (r
   })
 })
 
+describe('tie / tuplet / melisma safety — a multi-note segment is ATOMIC to a marker (never split)', () => {
+  // A marker is a line item, so it can only sit BETWEEN segments; ties (~ / same-pitch slur),
+  // held notes (-), tuplets ({}) and melismas (diff-pitch slur ()) all live INSIDE one segment
+  // and share ONE si. So a jump can never land mid-tuplet / mid-tie / mid-melisma — the whole
+  // unit replays intact with every note's own pitch + beats. These tests prove the resolver
+  // keeps such a unit whole across the jump (no split, no re-attack, no re-timing).
+  it('TUPLET {1 2 3} replays as three intact notes (beats 2/3 each), never split mid-triplet', () => {
+    const notes = pitched(play(song(
+      [
+        stanza('A', [J('segno'), seg('{1 2 3}'), J('fine'), seg('9')]),
+        stanza('B', [seg('1'), J('ds', 'fine')]),
+      ],
+      [{ stanza: 'A' }, { stanza: 'B' }],
+    )))
+    // the return (last notes) is exactly the triplet: 3 notes, midi 60/62/64, each ~2/3 beat.
+    const ret = notes.slice(-3)
+    expect(ret.map((n) => n.li)).toEqual([0, 0, 0])
+    expect(ret.map((n) => n.si)).toEqual([0, 0, 0]) // all one si → un-splittable
+    expect(ret.map((n) => n.midi)).toEqual([60, 62, 64])
+    ret.forEach((n) => expect(n.beats).toBeCloseTo(2 / 3, 5))
+  })
+
+  it('MELISMA (1 2) (diff-pitch slur) replays both notes intact', () => {
+    const notes = pitched(play(song(
+      [
+        stanza('A', [J('segno'), seg('(1 2)'), J('fine'), seg('9')]),
+        stanza('B', [seg('1'), J('ds', 'fine')]),
+      ],
+      [{ stanza: 'A' }, { stanza: 'B' }],
+    )))
+    const ret = notes.slice(-2)
+    expect(ret.map((n) => n.midi)).toEqual([60, 62])
+    expect(ret.map((n) => n.si)).toEqual([0, 0])
+  })
+
+  it('HELD / TIE (5 -) keeps its extended beats on the return (no re-timing, no re-attack)', () => {
+    const notes = pitched(play(song(
+      [
+        stanza('A', [J('segno'), seg('5 -'), J('fine'), seg('9')]),
+        stanza('B', [seg('1'), J('ds', 'fine')]),
+      ],
+      [{ stanza: 'A' }, { stanza: 'B' }],
+    )))
+    // '5 -' is ONE attack (midi 67) whose '-' extends it to 2 beats; the return replays that one
+    // note with its full 2 beats — not a fresh 1-beat attack.
+    const firstPass5 = notes.find((n) => n.li === 0 && n.si === 0 && n.midi === 67)
+    const ret = notes[notes.length - 1]
+    expect(ret.midi).toBe(67)
+    expect(ret.beats).toBe(firstPass5.beats)
+    expect(ret.beats).toBe(2)
+  })
+})
+
 describe('safety / guards / no-op', () => {
   it('no jump command → null order (whole-song playback unchanged)', () => {
     expect(resolvePlayOrder(song(
