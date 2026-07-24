@@ -390,10 +390,14 @@ function onCaptureKey(e) {
   // keeps meaning "next unit" and the transport never steals a typing key.
   if (transportKey(e)) return
   // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y while typing — handled here as well as on the window, so a
-  // browser/IME that swallows the event before it bubbles cannot lose the shortcut.
+  // browser/IME that swallows the event before it bubbles cannot lose the shortcut. stopPropagation
+  // is REQUIRED (same reasoning as transportKey): the capture field sees the key first, and without
+  // it the SAME event bubbles to the window listener (onUndoKeys), which runs undo/redo a SECOND
+  // time — one Ctrl+Z then undoing two steps at once (caught 24 ก.ค.: typed 5→4→7, one ย้อน gave 5,3,3).
   const histIntent = undoIntent(e)
   if (histIntent) {
     e.preventDefault()
+    e.stopPropagation()
     histIntent === 'redo' ? redoEdit() : undoEdit()
     return
   }
