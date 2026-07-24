@@ -2,12 +2,21 @@
 
 > **สมองอยู่บน disk** → PM ตายเกิดใหม่ได้ (อ่านไฟล์นี้ + `decisions-log.md` พอ) · เก็บให้ **สั้น** · จบแล้วตัดออกทันที · มติ → `decisions-log.md` · เก่า → `decisions-archive.md`
 
-## ▶ pl pm 42 เริ่มที่นี่ (handoff 24 ก.ค. เช้า · จาก pm 41)
+## ▶ pl pm 43 เริ่มที่นี่ (handoff 24 ก.ค. 17:00 · จาก pm 42 · session เต็ม)
 
-**base = `studio-shell-redesign` @ `79b468f`** (A+B+Ctrl+Z merged · palette+AC docs) · `npm run test:all` = **1315 ผ่าน / 10 skip** · build ผ่าน (PM รันเองทุก merge)
-**⛔ เว็บจริงยังไม่ถูกแตะเลยตั้งแต่ 23 ก.ค.** — `main` = `5661068`
-**🔥 ไฟล์ร้อน `SongViewer.vue` — จ่ายทีละตัว ห้ามขนาน** · คิว: ~~A~~✅ ~~B~~✅ ~~Ctrl+Z~~✅ → **C** (B060 save-bar 6 ปุ่ม · กำลัง integrate → PM merge) → **CP-0** → **B091**
-**🖥 พรีวิว PM ให้พี่เอมดู:** `npx vite . --host --port 5478` จาก worktree -pm (base) · http://localhost:5478 · http://10.24.43.98:5478 (มือถือ) · ⛔ ไม่ใช่ :5480 (ของพี่เอม)
+**🎯 GOAL แข็ง: 20:00 ศุกร์ 24 ก.ค. = /v2 พร้อม deploy + ใช้ได้จริง** (P'Aim สั่ง 17:00 · คนวางแผนรอ) · **token efficiency สูงสุด** (P'Aim ย้ำ)
+**base = `studio-shell-redesign` @ `9eca713`** (code ล่าสุด `7425b15`) · `test:all` = **1367 ผ่าน/10 skip** · build ✓ (PM รันเองทุก merge) · **เว็บจริง `main` = `5661068` (ยังไม่แตะ)**
+**เข้า base แล้ว 24 ก.ค.:** A(3จุดเจ็บ) · B(ปุ่มฟัง) · Ctrl+Z · C(B060 ตั้งค่าเพลง) · CP-0(ยุบสัญลักษณ์) · B121(กระดาษ) · glyph(𝄋𝄌) + specs
+
+### 🚀 แผน deploy 20:00 (ship-fast)
+- **ปล่อย base เป็น /v2 คู่ตัวเก่า** — ของบน base **ใช้ได้จริงแล้ว** (หน้าแรก·ตัวแก้ inline·ฟัง·ค้นหา·แชร์·พิมพ์) · **ตัวแก้เก่า=fallback แก้โครง/copy-paste** → ไม่ต้องรอ build ใหญ่
+- 🔵 **deploy-prep session** (`task_d010af5d`) กำลังทำ runbook + stage /v2 config + เรียง SQL → `docs/deploy-v2-runbook.md` + inbox `2026-07-24-deploy-prep.md`
+- 🔴 **1 decision รอ P'Aim:** verified-gate — `reset-verified-false.sql` ทำ public เห็นเฉพาะ verified · **รันผิด = แคตตาล็อกสาธารณะว่าง** → เคาะ gate ON/OFF ก่อน go
+- 🔴 **หนี้ต้องคืนหลัง deploy:** `tools/restore-song33-chord-E.sql` (E7→E · มี guard)
+- **deploy/main/SQL = P'Aim สั่ง go เท่านั้น**
+
+### ⭐⭐ ลำดับความสำคัญ (P'Aim 24 ก.ค.)
+> **"สำคัญคือ UI และ engine ทำเพลง"** · **เสียง = ปิดประเด็นแล้ว (P'Pao โอเค · ship-first-fix-later · ไม่บล็อก)** · กีตาร์/ไวโอลิน/รวมวง = "ได้แค่ไหนแค่นั้น"
 
 ### ⭐⭐ ลำดับความสำคัญ (P'Aim 24 ก.ค. · ใช้ตัดสินทุกการจ่ายงาน)
 > **"สำคัญคือ UI และ engine ทำเพลง"** · **เสียง = เปียโนเสียงทองอย่างเดียวให้ perfect พอ** · cello / piano+cello ทีหลัง · **กีตาร์ · ไวโอลิน · รวมวง = "ได้แค่ไหนแค่นั้น"** (ไม่ใช่ตัวบล็อก)
@@ -16,15 +25,16 @@
 **(PM ลืมมา 2 ครั้ง · P'Aim ทักเอง "การออกแบบ อย่าลืมให้เอสเอคุยกับจีนะ" → แก้ที่กระบวนการ ไม่ใช่จำเอา)**
 1. **คุย G ก่อนตัดสินใจออกแบบทุกครั้ง** (ไม่ใช่ทางเลือก) · 2. **เซฟ transcript เต็มลง disk → path ใน `EVIDENCE`** (เล่าลอยๆ = ไม่นับ ปิด gate ไม่ได้) · 3. **ชื่อแชต `pleng-<หัวข้อ-อังกฤษ>-YYYY-MM-DD`** · 4. **ติด Sign in → worker เรียก P'Aim ผ่านป้าย `C:\gl\pm-inbox\_ขอความช่วยเหลือ\README.md` เองได้เลย ไม่ต้องผ่าน PM** ⛔ ห้ามกรอกรหัสผ่าน · Chromium ของ session ตัวเอง (⛔ ไม่ใช่ 9222) · 5. ⛔ **อย่าคุยแบบขอตรายาง** ตามต่อ 1-2 รอบ · **G เคย hallucinate จนถอนคำ 2 ครั้ง → ตรวจเองก่อนใช้**
 
-### 🆕 พี่เอมใช้พรีวิวจริง 24 ก.ค. → editor flow polish (spec ก่อน · G บังคับ · dev สร้างหลัง C · **จ่าย session ใหม่สด ไม่ใช่ SA palette ที่ context บวม**)
-**สเปกข้อ 1-3 เสร็จ merge `3d3fcad`** (`docs/ds/editor-flow-polish.md` + transcript G) — SA จับ G ผิด 2 จุด: (ก) MuseScore4 เอา Tab ออก → ใช้ **Space=ยืนยัน+ไปโน้ตถัดไป** (ข) chord-delete เก็บในป๊อปอัป (Del/Backspace จองลบโน้ตแล้ว `SongViewer.vue:422-423`) · **ต้นตอ "ซ่อนแท็บ" = SongViewer โหมดแก้ emit สถานะขึ้น Studio ไม่ได้ → เพิ่ม emit 1 จุด + ปุ่มเสร็จเดิม + Esc ลำดับชั้น (ปิดป๊อปอัปก่อน) + sticky กัน layout shift**
-🔴 **NOT PROVEN → ใส่ในใบสั่ง dev บังคับ:** คีย์ `C`(ป๊อปอัปคอร์ด)+`Ctrl+Space`(ข้ามห้อง) ยังไม่เช็กชน keydown เดิม `SongViewer.vue:382-423` · scrollIntoView ต้องเทสต์ Chrome จริง (เคยเงียบใน browser pane)
-4. ✅ **เมนู "เพลง ▾" → P'Aim เคาะ: ย้ายเข้า ⋮ เพิ่มเติม** (เอา create ออก=ซ้ำหน้าแรก · "เปิดเพลงอื่น"เข้า ⋮ + ต่อ `filterSongs` จริง) · v-if mode!=edit อยู่แล้ว = คนละเรื่อง "ซ่อนแท็บตอนแก้"
-5. 🆕 **พี่เปา: caret/insert/delete model** — (ก) "ใส่ 5 ก่อน 2" แทรกหน้าไม่ได้ (ข) เสนอสลับ Del↔Backspace · **PM วินิจฉัย: ต้นตอเดียว = cursor แบบ "เลือกทับตัว" ไม่ใช่ "ระหว่างตัว"** → แก้ราก caret ระหว่างตัว → แทรกหน้า + Del(ขวา)/Backspace(ซ้าย) ตามมาตรฐาน text editor ออกมาถูกเอง ⛔ ไม่สลับปุ่มดื้อๆ
+### 🔵 LANES ที่วิ่งอยู่ (ณ 17:00 · ทั้งหมด fresh session · ping กลับ pm 43)
+| lane | task | ไฟล์ | หมายเหตุ |
+|---|---|---|---|
+| **deploy-prep** | `d010af5d` | docs/config | runbook /v2 + SQL order · 🔴 gate deadline 20:00 |
+| **editor-flow-polish build** | `72e66dc4` | SongViewer(keydown/caret) + Studio | spec `editor-flow-polish.md` (merged) · เช็ก keydown ไม่ชน · **แชร์ SongViewer กับ structure-migration → merge base ก่อน commit · PM เรียง merge** |
+| **structure-migration (ยกแก้โครง+copy/paste)** | `005a4a43` | StructureDrawer ใหม่ + SongViewer(drawer region) | #1 gap · 🔴 paste ต้อง re-mint marker id · ⛔ ไม่ตัดแท็บเก่า · big chunk |
+| **midbar (repeat design+engine)** | `local_cf8a3d91` | songModel/midi/songFlow (คนละไฟล์) | design-only จน PM gate · G ผ่าน tool ใหม่ · 🔴 ต้องเคาะ **canonical marker shape** (render อ่าน `{type:jump…}` · engine ใช้ `flow.jump`) แล้วบอก glyph lane |
+**กติกา shared SongViewer:** merge base ก่อน commit · ห้ามทับของอีกเลน · PM เรียงลำดับ merge (แบบ A/B/C save-bar) · **merge=PM เท่านั้น**
 
-6. 🆕 **พี่เปา: พิมพ์ octave ด้วยคีย์บอร์ดล้วน (B2)** — `.5`=ต่ำ (จุดก่อนเลข) · `5'`=สูง (apostrophe หลังเลข) · **"แบบที่เคยเป็น" = RESTORE ของเดิม ไม่ออกแบบใหม่** (เปิด EditorMode.vue/NoteInputBar.vue/notation.js ดูของเดิม) · คีย์บอร์ดล้วน=เดสก์ท็อป ปุ่มยังอยู่สำหรับมือถือ · `.`/`'` ห้ามชน keydown 382-423
-
-**✅ สเปกครบ merge `4922418`** (`editor-flow-polish.md` PART2 §4-6 + 25 AC + ตาราง keydown ไม่ชน :387-459) — เมนู→⋮(search engine จริง) · **cursor 2 โหมด** (Block ทับ / Insert→Line Caret ระหว่างโน้ต) · **Delete=แบบ Word ดึงชิด (P'Aim ย้อน Q1) rest=พิมพ์ 0** · octave `.5`/`5'` (parser SSOT) · **dev เช็ก keydown :387-459 ก่อน implement** · SA wind down (จบ chunk)
+**สเปก editor ที่ merge แล้ว (ให้ build อ่าน):** `docs/ds/editor-flow-polish.md` (PART1-2: auto-scroll·ซ่อนแท็บ·คอร์ด-ตรงจุด·cursor 2 โหมด·Delete ดึงชิด rest=0·octave .5/5'·เมนู→⋮) · `command-palette.md`+acceptance · `repeat-jumps.md`+`dc-ds-jump-flow.md`
 
 ### 🔄 หมุน session — **session-health pass = กฎถาวรใน §4.5 ข้อ 6 แล้ว** (auto ทุก "PM เก็บงาน" + ทุกปิด gate/merge)
 - **อ่าน % context ตรงไม่ได้ = heuristic** (done+idle / คุย G ≥2 / ≥3 deliverable) · กลาง chunk = ไม่แตะ · rotate = PM สั่ง wind down เอง งานหน้า = session ใหม่สด
