@@ -56,14 +56,40 @@ const song = {
   },
 }
 
+// A one-line song split into two ห้อง (bar marker between them), so "ฟังห้องนี้" is genuinely
+// narrower than "ฟังบรรทัดนี้" — bar 0 = segment si 0, bar 1 = segment si 1 (BI-006).
+const barSong = {
+  number: 8,
+  title_th: 'สองห้อง',
+  content: {
+    version: 2,
+    key: 'C',
+    bpm: 90,
+    timeSignature: '4/4',
+    stanzas: [
+      {
+        id: 'A',
+        lines: [
+          [
+            { type: 'segment', note: '1 2', chord: 'C' },
+            { type: 'bar' },
+            { type: 'segment', note: '3 4', chord: 'G' },
+          ],
+        ],
+      },
+    ],
+    arrangement: [{ stanza: 'A', label: 'ข้อ 1', syllables: ['ก', 'ข', 'ค', 'ง'] }],
+  },
+}
+
 // SongSheet is stubbed everywhere else in this component's suites — the sheet's own rendering is
 // covered by SongSheet.test.js, and stubbing keeps these assertions about the audio wiring.
 const SongSheetStub = { props: ['content'], template: '<div class="sheet-stub" />' }
 
 const mounted = []
-function mountViewer() {
+function mountViewer(s = song) {
   const w = mount(SongViewer, {
-    props: { song, tier: 'guest' },
+    props: { song: s, tier: 'guest' },
     global: { stubs: { SongSheet: SongSheetStub, SingTransport: true, NoteInputBar: true, Icon: true } },
     attachTo: document.body,
   })
@@ -105,12 +131,37 @@ describe('ฟังตอนแก้ — a song-maker can hear without leaving 
     expect(playBtns(w).length).toBe(0) // reading: no edit transport
     await enterEditOn(w, 0)
     const labels = playBtns(w).map((b) => b.text())
-    expect(labels.length).toBe(3)
+    expect(labels.length).toBe(4)
     expect(labels.join(' ')).toContain('ทั้งเพลง')
     expect(labels.join(' ')).toContain('ท่อนนี้')
     expect(labels.join(' ')).toContain('บรรทัดนี้')
+    expect(labels.join(' ')).toContain('ห้องนี้') // BI-006 — the finest fine-tune unit
     // none of them is gated behind hover/pointer — they are plain in-flow buttons
     for (const b of playBtns(w)) expect(b.element.hasAttribute('disabled')).toBe(false)
+  })
+
+  // BI-006 (พี่เปา): "กดเล่นเฉพาะห้องที่แก้อยู่ไม่ได้" — ฟังห้องนี้ narrows to the caret's ห้อง via
+  // fromSi/toSi (the same range inPlayRange already honours), so a one-note fix is checked alone.
+  it('ฟังห้องนี้ schedules exactly the caret bar — not the rest of the line', async () => {
+    const w = mountViewer(barSong)
+    await enterEditOn(w, 0) // caret on the first segment → bar 0 (si 0)
+    await w.vm.playScope('bar')
+    await flushPromises()
+    expect(playSongSpy).toHaveBeenCalledTimes(1)
+    expect(lastOpts().order).toEqual([{ name: null, fromLi: 0, toLi: 0, fromSi: 0, toSi: 0 }])
+    expect(new Set(scheduled().map((s) => s.split(':')[1]))).toEqual(new Set(['0'])) // only si 0
+  })
+
+  it('ฟังห้องนี้ follows the caret to the SECOND ห้อง of the same line', async () => {
+    const w = mountViewer(barSong)
+    w.vm.toggleEdit()
+    await nextTick()
+    w.vm.selectUnit(0, 1, 0, 'note') // caret on the second segment → bar 1 (si 1)
+    await nextTick()
+    await w.vm.playScope('bar')
+    await flushPromises()
+    expect(lastOpts().order).toEqual([{ name: null, fromLi: 0, toLi: 0, fromSi: 1, toSi: 1 }])
+    expect(new Set(scheduled().map((s) => s.split(':')[1]))).toEqual(new Set(['1'])) // only si 1
   })
 
   it('ฟังบรรทัดนี้ schedules exactly the cursor line — nothing before, nothing after', async () => {

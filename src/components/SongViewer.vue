@@ -1455,10 +1455,22 @@ function scopeRange(scope) {
     if (!sec) return null
     return { fromLi: sec.fromLi, toLi: sec.toLi, name: sec.name, label: `ท่อน ${sec.name}` }
   }
+  if (scope === 'bar') {
+    // BI-006 (พี่เปา) — just the ห้อง the caret sits in: the finest fine-tune unit. Reuses the
+    // fromSi/toSi range that inPlayRange already honours (built for mid-bar repeat jumps), so no
+    // engine change — the play narrows to this line's segments in the caret's bar (curUnit.bi).
+    const bi = curUnit.value?.bi
+    if (bi == null) return null
+    const cells = inlineCells.value.filter((c) => c.li === li && c.bi === bi)
+    if (!cells.length) return null
+    const sis = cells.map((c) => c.si)
+    return { fromLi: li, toLi: li, fromSi: Math.min(...sis), toSi: Math.max(...sis), name: null, label: `${lineScopeLabel(li)} · ห้องที่ ${bi + 1}` }
+  }
   return { fromLi: li, toLi: li, name: null, label: lineScopeLabel(li) }
 }
 const canPlayLine = computed(() => !!scopeRange('line'))
 const canPlaySection = computed(() => !!scopeRange('section'))
+const canPlayBar = computed(() => !!scopeRange('bar'))
 // ▶ ท่อนนี้ / ▶ บรรทัดนี้ — press the lit one again to stop.
 function playScope(scope) {
   if (playing.value && previewScope.value === scope) { stopPlay(); pausedIndex.value = 0; posIndex.value = 0; return }
@@ -1466,7 +1478,8 @@ function playScope(scope) {
   if (!r) return
   stopPlay() // also clears any previous preview, so the label can never lie
   previewScope.value = scope
-  previewOrder.value = [{ name: r.name, fromLi: r.fromLi, toLi: r.toLi }]
+  // fromSi/toSi (BI-006 bar scope) narrow the single line to one ห้อง; absent for line/section.
+  previewOrder.value = [{ name: r.name, fromLi: r.fromLi, toLi: r.toLi, fromSi: r.fromSi, toSi: r.toSi }]
   previewLabel.value = r.label
   pausedIndex.value = 0
   startPlay(0)
@@ -1491,6 +1504,7 @@ const editPlayLabel = computed(() => (playing.value ? previewLabel.value || 'ท
 const isWholePlaying = computed(() => playing.value && !previewScope.value)
 const isSectionPlaying = computed(() => previewScope.value === 'section')
 const isLinePlaying = computed(() => previewScope.value === 'line')
+const isBarPlaying = computed(() => previewScope.value === 'bar')
 // Keyboard, for the hands that never leave the notes. Ctrl+Enter = this line, Ctrl+Shift+Enter =
 // this ท่อน, Esc = stop. Duplicated onto the capture field AND the window so an IME that swallows
 // the event before it bubbles cannot lose it (same reasoning as the undo shortcut).
@@ -1774,6 +1788,16 @@ function onSeek({ li, si, syk }) {
               title="ฟังเฉพาะบรรทัดที่กำลังแก้ (Ctrl+Enter)"
               @click="playScope('line')"
             ><Icon :name="isLinePlaying ? 'square' : 'play'" :size="16" /> บรรทัดนี้</button>
+            <!-- BI-006 (พี่เปา): the finest unit — just the ห้อง the caret is in, for checking one
+                 fix without waiting through the whole บรรทัด. Same audio path (playScope). -->
+            <button
+              class="sv-play-btn"
+              :class="{ on: isBarPlaying }"
+              :aria-pressed="isBarPlaying"
+              :disabled="!canPlayBar"
+              title="ฟังเฉพาะห้องที่กำลังแก้"
+              @click="playScope('bar')"
+            ><Icon :name="isBarPlaying ? 'square' : 'play'" :size="16" /> ห้องนี้</button>
           </span>
           <!-- a partial play must SAY what it is playing — never leave the ear guessing -->
           <span v-if="editPlayLabel" class="sv-play-now" role="status" aria-live="polite">
