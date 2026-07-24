@@ -841,10 +841,10 @@ function printSheet() {
       >
         <Icon name="chevron-left" :size="20" />
       </button>
-      <template v-if="mode !== 'edit'">
-        <span class="sb-sep" aria-hidden="true"></span>
-        <span class="sb-title-static">{{ titleText }}</span>
-      </template>
+      <!-- issue9: the song title is NO LONGER teleported into the app bar in view/sheet modes
+           (it was truncated with "…" there). Each reading surface now owns a full, wrapping
+           title — ดู/ฝึกร้อง = SongViewer's .lead-header, แผ่นเพลง = the card's .sheet-title.
+           Edit mode still teleports its own editable title input (EditorMode), untouched. -->
     </Teleport>
     <Teleport to="#shell-menus">
       <!-- ↗ แชร์ — one action for the open song, in EVERY mode (a reader in ฝึกร้อง/แผ่นเพลง

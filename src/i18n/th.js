@@ -105,6 +105,14 @@ export default {
     listEmailSubject: 'เพลย์ลิสต์: {name}',
     listEmailBody: 'เปิดเพลย์ลิสต์ "{name}" ได้ที่ลิงก์นี้:',
   },
+  // issue9 lead-sheet header — ชื่อเพลง + แถบ คีย์ · อัตราจังหวะ · ความเร็ว เหนือแผ่นเพลง
+  leadHeader: {
+    metaLabel: 'ข้อมูลเพลง',
+    key: 'คีย์',
+    orig: 'ต้นฉบับ',
+    time: 'อัตราจังหวะ',
+    tempo: 'ความเร็ว',
+  },
   // playlists manager (SongList · EPIC I)
   playlist: {
     chip: 'เพลย์ลิสต์',

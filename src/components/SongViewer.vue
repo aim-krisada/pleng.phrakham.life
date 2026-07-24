@@ -37,6 +37,7 @@ import CompletionStatus from './CompletionStatus.vue'
 import { mailtoLink } from '../lib/share.js'
 import StructureDrawer from './StructureDrawer.vue'
 import Icon from './Icon.vue'
+import { t } from '../i18n/index.js'
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
 // view-only for everyone, so it is accepted but not used to gate anything — there are
@@ -201,6 +202,28 @@ const printTitle = computed(() => {
   const s = props.song
   if (!s) return ''
   return (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
+})
+
+// ---- issue9 lead-sheet header (DISPLAY only) — the song title moves onto its own full line
+// above the sheet (it used to be teleported into the app bar and truncated with "…"), with a
+// Key · Time · Tempo meta strip in the international lead-sheet order. All inputs already exist
+// (no model change). `leadTitle` reuses `printTitle` (same "141. โอ…"/เพลง-fallback text).
+// `displayKey` (line 158) is the LIVE transpose value, so the strip stays reactive to a key
+// change in the dock. Display honesty: an absent bpm/timeSignature is HIDDEN here — NOT the
+// synth's fallback-92 (`tempo`, line 167) — because a wrong tempo/meter on a chart is worse
+// than none.
+const leadTitleEn = computed(() => (props.song?.title_en || '').trim())
+const origKey = computed(() => props.song?.content?.key || '')
+const isTransposed = computed(
+  () => !!displayKey.value && !!origKey.value && displayKey.value !== origKey.value,
+)
+const timeSig = computed(() => {
+  const t = props.song?.content?.timeSignature
+  return typeof t === 'string' && t.trim() ? t.trim() : ''
+})
+const bpmVal = computed(() => {
+  const b = props.song?.content?.bpm
+  return Number.isFinite(b) && b > 0 ? b : null
 })
 
 // ---- edit ON this sheet (P'Aim 21 ก.ค.) — the pencil lives HERE in ฝึกร้อง, not a separate
@@ -2448,6 +2471,33 @@ function onSeek({ li, si, syk }) {
       />
 
       <div class="sv-doc">
+        <!-- issue9: lead-sheet header — the song title on its own full-width line (wraps, never
+             truncates) + a Key · Time · Tempo meta strip, above the sheet. Screen-only; print
+             keeps SongSheet's centered .sheet-print-title. -->
+        <header class="lead-header no-print">
+          <h1 class="lead-title">{{ printTitle }}</h1>
+          <div v-if="leadTitleEn" class="lead-subtitle">{{ leadTitleEn }}</div>
+
+          <dl class="lead-meta" :aria-label="t('leadHeader.metaLabel')">
+            <div class="lm-item">
+              <dt class="sr-only">{{ t('leadHeader.key') }}</dt>
+              <dd>
+                <span class="lm-label">{{ t('leadHeader.key') }}</span>
+                <span class="lm-key">{{ displayKey }}</span>
+                <span v-if="isTransposed" class="lm-orig">· {{ t('leadHeader.orig') }} {{ origKey }}</span>
+              </dd>
+            </div>
+            <div v-if="timeSig" class="lm-item">
+              <dt class="sr-only">{{ t('leadHeader.time') }}</dt>
+              <dd class="lm-time">{{ timeSig }}</dd>
+            </div>
+            <div v-if="bpmVal" class="lm-item">
+              <dt class="sr-only">{{ t('leadHeader.tempo') }}</dt>
+              <dd class="lm-tempo">♩ = {{ bpmVal }}</dd>
+            </div>
+          </dl>
+        </header>
+
         <!-- B053: แหล่งเพลง (source books) + scripture reference — small captions above the
              sheet, mirroring the catalog card. Only render when the song actually has them. -->
         <div v-if="refLabels.length || song.scripture" class="song-refs">
@@ -3257,5 +3307,76 @@ function onSeek({ li, si, syk }) {
 .song-refs .src-tag,
 .song-refs .scripture-tag {
   font-size: var(--fs-sm);
+}
+
+/* issue9 — lead-sheet header: title on its own full line + Key · Time · Tempo meta strip.
+   S0 tokens only (theme-aware / dark-mode-safe); no hard-coded colors, no new tokens. */
+.lead-header {
+  margin: 0 0 var(--sp-3);
+}
+.lead-title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink);
+  overflow-wrap: break-word; /* long Thai title wraps, never clips */
+}
+.lead-subtitle {
+  margin-top: 2px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--muted);
+}
+.lead-meta {
+  /* <dl> reset → a horizontal wrapping strip */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--sp-2);
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}
+.lead-meta .lm-item {
+  display: flex;
+  align-items: baseline;
+}
+.lead-meta .lm-item + .lm-item::before {
+  /* separator dot between rendered items only — an omitted item leaves no orphan dot */
+  content: '·';
+  margin-right: var(--sp-2);
+  color: var(--muted);
+}
+.lead-meta dd {
+  margin: 0;
+}
+.lm-label {
+  color: var(--muted);
+  margin-right: 4px;
+}
+.lm-key {
+  font-weight: 700;
+}
+.lm-orig {
+  color: var(--muted);
+  font-weight: 500;
+  margin-left: 4px;
+  font-size: 0.92em;
+}
+.lm-time,
+.lm-tempo {
+  font-variant-numeric: tabular-nums;
+}
+.lead-header .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>
