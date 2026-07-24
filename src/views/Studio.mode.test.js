@@ -44,8 +44,17 @@ beforeEach(() => {
   document.body.innerHTML = '<div id="shell-title"></div><div id="shell-menus"></div>'
 })
 
-function modeButtons() {
+// The mode tab-strip is gone (บริบท B). Navigation now: ‹ back returns any secondary surface
+// to the reading view; the ⋮ overflow holds the surface switches (แผ่นเพลง / ตัวแก้แบบเต็ม).
+async function modeButtons() {
+  const more = document.querySelector('#shell-menus .sb-more-btn')
+  if (more && more.getAttribute('aria-expanded') !== 'true') { more.click(); await nextTick() }
   return [...document.querySelectorAll('#shell-menus .sb-mode-btn')]
+}
+// ‹ back — the return path to the reading view (present in every mode, incl. แก้ไข).
+async function back() {
+  document.querySelector('#shell-title .sb-back-btn')?.click()
+  await nextTick()
 }
 
 describe('Studio shell — three modes on one surface (US-01)', () => {
@@ -55,28 +64,29 @@ describe('Studio shell — three modes on one surface (US-01)', () => {
     expect(wrapper.findComponent(EditorMode).props('active')).toBe(true)
   })
 
-  it('renders one component per mode (ดู→Viewer · แผ่น→Sheet · แก้→Editor)', async () => {
+  it('renders one component per mode (‹→Viewer · ⋮แผ่น→Sheet · ⋮ตัวแก้เต็ม→Editor)', async () => {
     const wrapper = mount(Studio, { global: { stubs } })
     await nextTick()
-    const [view, sheet, edit] = modeButtons()
-    expect(modeButtons().length).toBe(3)
 
-    // give the shell a song so the reading surfaces have something to show
+    // bare /studio opens in the full editor; give the shell a song so the reading surfaces show
     wrapper.findComponent(EditorMode).vm.$emit('change', {
       id: null, number: null, title_th: 'x', title_en: '',
       content: { version: 2, key: 'C', timeSignature: '4/4', stanzas: [], arrangement: [] },
     })
     await nextTick()
 
-    // the editor is always mounted (v-show) so its state persists; assert via `active`
-    view.click(); await nextTick()
+    // ‹ back → the reading view (the editor is always mounted via v-show; assert via `active`)
+    await back()
     expect(wrapper.findComponent(EditorMode).props('active')).toBe(false)
     expect(wrapper.findComponent(SongViewer).exists()).toBe(true)
+    expect((await modeButtons()).length).toBe(3) // three surface switches live in the ⋮
 
-    sheet.click(); await nextTick()
+    // ⋮ → แผ่นเพลง
+    ;(await modeButtons())[1].click(); await nextTick()
     expect(wrapper.findComponent(SongSheet).exists()).toBe(true)
 
-    edit.click(); await nextTick()
+    // ⋮ → ตัวแก้แบบเต็ม (เดิม)
+    ;(await modeButtons())[2].click(); await nextTick()
     expect(wrapper.findComponent(EditorMode).props('active')).toBe(true)
   })
 
@@ -89,9 +99,8 @@ describe('Studio shell — three modes on one surface (US-01)', () => {
     wrapper.findComponent(EditorMode).vm.$emit('change', edited)
     await nextTick()
 
-    // … switch to ดู and the reading view receives that same song (work survived)
-    modeButtons()[0].click()
-    await nextTick()
+    // … ‹ back to the reading view and it receives that same song (work survived)
+    await back()
     expect(wrapper.findComponent(SongViewer).props('song')).toMatchObject({ number: 7, title_th: 'เพลงทดสอบ' })
   })
 
@@ -103,7 +112,8 @@ describe('Studio shell — three modes on one surface (US-01)', () => {
       content: { version: 2, key: 'C', timeSignature: '4/4', stanzas: [], arrangement: [] },
     })
     await nextTick()
-    modeButtons()[1].click() // แผ่น
+    await back() // ‹ → reading view (the ⋮ is hidden in edit; reach the sheet from view)
+    ;(await modeButtons())[1].click() // ⋮ → แผ่น
     await nextTick()
     // title prints in the sheet body (<h2>), NOT passed into SongSheet's footer
     expect(wrapper.find('.sheet-title').text()).toBe('7. เพลงทดสอบ')
@@ -118,12 +128,13 @@ describe('Studio shell — three modes on one surface (US-01)', () => {
       SongViewer: {
         name: 'SongViewer', props: ['song'], emits: ['update:editing'],
         template: '<div class="stub-viewer" />',
-        mounted() { this.$emit('update:editing', true) },
         methods: { requestExitEdit: () => ok },
       },
     })
 
-    // get the shell into ฝึกร้อง with a song, which is where the ✏️ editor lives
+    // get the shell into ฝึกร้อง with a song, then open the inline ✏️ editor. Order matters:
+    // ‹ back reaches the reading view FIRST (nothing is being edited yet, so it is not gated),
+    // and only THEN does the viewer report ✏️ is on — matching a real click-into-edit.
     async function openViewer(ok) {
       const wrapper = mount(Studio, { global: { stubs: { ...stubs, ...exitStub(ok) } } })
       await nextTick()
@@ -132,26 +143,27 @@ describe('Studio shell — three modes on one surface (US-01)', () => {
         content: { version: 2, key: 'C', timeSignature: '4/4', stanzas: [], arrangement: [] },
       })
       await nextTick()
-      modeButtons()[0].click() // ฝึกร้อง → the viewer mounts and reports that ✏️ is on
+      await back() // ‹ → ฝึกร้อง (reading view)
+      wrapper.findComponent(SongViewer).vm.$emit('update:editing', true) // now the ✏️ editor opens
       await nextTick(); await nextTick()
       return wrapper
     }
 
     it('no tab reads as current while editing — so pressing one is a real change', async () => {
       await openViewer(true)
-      expect(modeButtons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'false'])
+      expect((await modeButtons()).map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'false'])
     })
 
     it('pressing a tab asks the editor to leave first, and obeys a refusal', async () => {
       const wrapper = await openViewer(false)
-      modeButtons()[1].click() // แผ่นเพลง
+      ;(await modeButtons())[1].click() // ⋮ → แผ่นเพลง
       await nextTick()
       expect(wrapper.find('.sheet-workspace').isVisible()).toBe(false) // refused → we stayed put
     })
 
     it('an accepted exit lets the tab through', async () => {
       const wrapper = await openViewer(true)
-      modeButtons()[1].click() // แผ่นเพลง
+      ;(await modeButtons())[1].click() // ⋮ → แผ่นเพลง
       await nextTick()
       expect(wrapper.find('.sheet-workspace').isVisible()).toBe(true)
     })

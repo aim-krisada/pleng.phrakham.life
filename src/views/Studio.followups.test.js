@@ -63,24 +63,40 @@ beforeEach(() => {
 // get the search box (สร้างเพลงใหม่ is gone — create lives on the home catalog now).
 const moreBtn = () => document.querySelector('#shell-menus .sb-more-btn')
 const openOther = async () => { document.querySelector('#shell-menus .sb-more-item')?.click(); await nextTick() }
-const modeBtns = () => [...document.querySelectorAll('#shell-menus .sb-mode-btn')]
+// surface switches moved into the ⋮ overflow (บริบท B) — open it first, then read them
+const modeBtns = async () => {
+  const more = moreBtn()
+  if (more && more.getAttribute('aria-expanded') !== 'true') { more.click(); await nextTick() }
+  return [...document.querySelectorAll('#shell-menus .sb-mode-btn')]
+}
 const isEditActive = (w) => w.findComponent(EditorMode).props('active')
+// bare /studio opens in the full editor. Give it a song, then ‹ back to the reading view —
+// where the ⋮ (and the picker) live — matching how the shell is actually used.
+async function readyView(w) {
+  w.findComponent(EditorMode).vm.$emit('change', {
+    id: null, number: 7, title_th: 'x', title_en: '',
+    content: { version: 2, key: 'C', timeSignature: '4/4', stanzas: [], arrangement: [] },
+  })
+  await nextTick()
+  document.querySelector('#shell-title .sb-back-btn')?.click() // ‹ → reading view
+  await nextTick()
+}
 
 describe('Studio shell — ⋮ เพิ่มเติม overflow on the shell (US-05 / item 6)', () => {
   it('the ⋮ button shows in อ่าน/แผ่น; in แก้ไข the editor owns the menu (no dup, B003)', async () => {
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
-    const [view, sheet, edit] = modeBtns()
-    view.click(); await nextTick(); expect(moreBtn()).toBeTruthy()
-    sheet.click(); await nextTick(); expect(moreBtn()).toBeTruthy()
-    edit.click(); await nextTick(); expect(moreBtn()).toBeFalsy()
+    await readyView(w) // ‹ → reading view; the ⋮ is there
+    expect(moreBtn()).toBeTruthy()
+    ;(await modeBtns())[1].click(); await nextTick(); expect(moreBtn()).toBeTruthy() // ⋮ → แผ่น: still there
+    ;(await modeBtns())[2].click(); await nextTick(); expect(moreBtn()).toBeFalsy() // ⋮ → ตัวแก้เต็ม: editor owns menu
   })
 
   it('no "สร้างเพลงใหม่" in the menu (create lives on home) — only "เปิดเพลงอื่น…"', async () => {
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
-    modeBtns()[0].click(); await nextTick() // ดู
-    moreBtn().click(); await nextTick() // open ⋮
+    await readyView(w) // ‹ → ดู
+    await modeBtns() // opens the ⋮
     expect(document.querySelector('.sb-song-new')).toBeFalsy() // create button is gone
     const item = document.querySelector('#shell-menus .sb-more-item')
     expect(item.textContent).toContain('เปิดเพลงอื่น')
@@ -89,8 +105,8 @@ describe('Studio shell — ⋮ เพิ่มเติม overflow on the shell
   it('จิ้มเพลง = เปิดเลย — picking a song navigates to /song/:id immediately (no OK button)', async () => {
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
-    modeBtns()[0].click(); await nextTick() // ดู
-    moreBtn().click(); await nextTick() // open ⋮
+    await readyView(w) // ‹ → ดู
+    await modeBtns() // opens the ⋮
     await openOther() // reveal the search box
     expect(document.querySelector('.sb-open-go')).toBeFalsy() // no OK button
     w.findComponent({ name: 'ComboSelect' }).vm.$emit('update:modelValue', 'song-42')
@@ -101,10 +117,10 @@ describe('Studio shell — ⋮ เพิ่มเติม overflow on the shell
   it('opening a song from ดู stays in ดู — never jumps into แก้', async () => {
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
-    modeBtns()[0].click(); await nextTick() // switch to ดู
+    await readyView(w) // ‹ → ดู
     expect(isEditActive(w)).toBe(false)
 
-    moreBtn().click(); await nextTick()
+    await modeBtns() // opens the ⋮
     await openOther()
     w.findComponent({ name: 'ComboSelect' }).vm.$emit('update:modelValue', 'song-7')
     await nextTick(); await nextTick() // let the route watcher run
@@ -118,7 +134,8 @@ describe('Studio shell — print in โหมดแผ่น (US-06)', () => {
     const spy = vi.spyOn(window, 'print').mockImplementation(() => {})
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
-    modeBtns()[1].click(); await nextTick() // switch to แผ่น
+    await readyView(w) // ‹ → ดู, then ⋮ → แผ่น
+    ;(await modeBtns())[1].click(); await nextTick()
     // print is the prime button on the แผ่นเพลง DockKey (ITEMS_PRINT), no separate toolbar
     const btn = w.find('.dk-dock [data-cell="print"]')
     expect(btn.exists()).toBe(true)

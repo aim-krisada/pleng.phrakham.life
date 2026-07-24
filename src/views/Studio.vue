@@ -504,6 +504,16 @@ function setMode(id) {
   mode.value = id
 }
 
+// ‹ back (บริบท B top bar: ‹ ชื่อ ✏️ ↗ ⋮) — the ONE return path now that the mode tab-strip is
+// gone. From a secondary surface (แผ่นเพลง / ตัวแก้แบบเต็ม) it returns to the default reading
+// surface; from reading it leaves the song for the catalog. Routed through setMode so leaving an
+// open ✏️ editor still hits its unsaved-work gate; the catalog leave is guarded by
+// onBeforeRouteLeave. Shown in EVERY mode (incl. แก้ไข) so the full editor is never a one-way trap.
+function goBack() {
+  if (mode.value !== 'view') { setMode('view'); return }
+  router.push('/')
+}
+
 // ---------- shell song picker (US-05) ----------
 // "เปิด/เลือกเพลง" lives on the shell (not inside the editor) so it works in EVERY mode:
 // a reader in ดู/แผ่น can jump to another song without first entering แก้. Picking a song
@@ -659,6 +669,18 @@ function printSheet() {
          3-way mode switch (always visible). The editor teleports its own title input +
          เพลง/จัดการ menus while it is the active mode. -->
     <Teleport to="#shell-title">
+      <!-- ‹ back — always present (every mode incl. แก้ไข), the single return path since the mode
+           tab-strip was removed (บริบท B). Solves the "full editor is a one-way surface" gap. -->
+      <button
+        v-if="liveSong"
+        type="button"
+        class="sb-back-btn"
+        aria-label="กลับ"
+        title="กลับ"
+        @click="goBack"
+      >
+        <Icon name="chevron-left" :size="20" />
+      </button>
       <template v-if="mode !== 'edit'">
         <span class="sb-sep" aria-hidden="true"></span>
         <span class="sb-title-static">{{ titleText }}</span>
@@ -704,6 +726,22 @@ function printSheet() {
           @click.stop
           @keydown.esc="closeMore"
         >
+          <!-- พื้นผิว (surfaces) — the mode tab-strip is GONE (บริบท B): the sheet IS the surface,
+               ▶เล่น=ฝึกร้อง, ✏️=แก้ inline. The remaining real choices — แผ่นเพลง (to print) and
+               ตัวแก้แบบเต็ม (เดิม), the temp home for the un-ported caps — live here, de-emphasized.
+               setMode keeps the exit-gate so pressing one while ✏️ is open asks to leave first. -->
+          <button
+            v-for="m in MODES"
+            :key="m.id"
+            class="sb-mode-btn sb-mode-item"
+            role="menuitem"
+            :class="{ on: mode === m.id && !viewerEditing }"
+            :aria-pressed="mode === m.id && !viewerEditing"
+            @click="setMode(m.id)"
+          >
+            <Icon :name="m.icon" :size="16" /> {{ m.id === 'edit' ? 'ตัวแก้แบบเต็ม (เดิม)' : m.label }}
+          </button>
+          <div class="sb-more-sep" role="separator"></div>
           <button class="sb-more-item" role="menuitem" :aria-expanded="openOther" @click="openOther = !openOther">
             <Icon name="search" :size="16" /> เปิดเพลงอื่น…
           </button>
@@ -732,30 +770,9 @@ function printSheet() {
           </button>
         </div>
       </div>
-      <!-- the 3-way mode switch — HIDDEN while the inline (✏️) editor is open (item 2): the
-           editor has its own "เสร็จ"/Esc way out, and a tab that reads as current while you are
-           in an editor lies. Slide-fade only (opacity/transform), never display/width — so the
-           shell-bar height is unchanged and the sheet below never shifts (AC-2.3). -->
-      <span
-        class="sb-modes"
-        :class="{ 'sb-modes-hidden': viewerEditing }"
-        role="group"
-        aria-label="เลือกมุมมอง"
-        :aria-hidden="viewerEditing"
-      >
-        <button
-          v-for="m in MODES"
-          :key="m.id"
-          class="sb-mode-btn"
-          :class="{ on: mode === m.id && !viewerEditing }"
-          :aria-pressed="mode === m.id && !viewerEditing"
-          :tabindex="viewerEditing ? -1 : 0"
-          :title="viewerEditing ? m.title + ' — ออกจากโหมดแก้' : m.title"
-          @click="setMode(m.id)"
-        >
-          <Icon :name="m.icon" :size="16" /><span class="sb-mode-label">{{ m.label }}</span>
-        </button>
-      </span>
+      <!-- the 3-way mode tab strip is REMOVED (บริบท B): tabs [ฝึก][แผ่น][แก้] no longer exist.
+           แผ่นเพลง = default surface · ✏️ = แก้ inline (FAB, all tiers) · ▶เล่น = ฝึกร้อง ·
+           แผ่นเพลง(พิมพ์) + ตัวแก้แบบเต็ม(เดิม) live in the ⋮ menu above · ‹ back = the return path. -->
     </Teleport>
 
     <!-- ===== ดู — reading / sing-along view (WT-A owns SongViewer) ===== -->
@@ -1067,6 +1084,23 @@ function printSheet() {
 .sb-more-item:hover { border-color: var(--brand); color: var(--brand); }
 .sb-more-search { padding-top: 2px; }
 .sb-more-sep { height: 1px; background: var(--line); margin: 6px 2px; }
+/* surface switches inside ⋮ — same row shape as .sb-more-item; `.on` marks the current surface */
+.sb-mode-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: transparent; color: var(--ink); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 12px; font: inherit; min-height: 40px;
+  cursor: pointer; text-align: start;
+}
+.sb-mode-item:hover { border-color: var(--brand); color: var(--brand); }
+.sb-mode-item.on { border-color: var(--brand); color: var(--brand); font-weight: 600; }
+/* ‹ back — icon button on the shell top bar, present in every mode (44px touch target) */
+.sb-back-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; min-width: 44px; min-height: 44px;
+  background: transparent; border: 0; border-radius: 8px; color: var(--ink); cursor: pointer;
+}
+.sb-back-btn:hover { color: var(--brand); background: var(--cream, #faf6ef); }
+.sb-back-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
 
 /* โหมดแผ่น (US-06): พิมพ์ is now the shared dock's print tool (N1). Leave room so the
    fixed dock never covers the last staff line. */
