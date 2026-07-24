@@ -26,21 +26,22 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 |----|----------|-----|-------|---------|
 | BI-001 | share ทับชื่อเพลงตอนย่อจอ | S2 | 🔧 dispatched | `411913fd` SB1 (รอ verify) |
 | BI-002 | เล่นอยู่ กดดินสอ หยุดไม่ได้ | S2 | ☑️ fixed | `a06948f3` — merge-ready · รอ intake cross-check หลัง redeploy |
-| BI-003 | ใส่เครื่องหมายแล้วลบ/ใส่ซ้ำไม่ได้ (บางตัวใช้ไม่ได้) | S2 | 🔧 dispatched | **Chip A** (building) |
+| BI-003 | ใส่เครื่องหมายแล้วลบ/ใส่ซ้ำไม่ได้ (บางตัวใช้ไม่ได้) | S2 | 🔧 dispatched | **symbol-pass** `970da39d` (ย้ายจาก Chip A) |
 | BI-004 | คัดลอก/วาง ห้อง+บรรทัด: ไม่รู้วางตรงไหน + เลื่อนทีละบรรทัด | S2 | 🔧 dispatched | **Chip B** (building) |
-| BI-005 | พิมพ์เนื้อแล้วไปโน้ตถัดไปไม่ได้ (ต้องพิมพ์ทีละคำ) · "v1 ดีกว่าเยอะ" | S2 | 🔧 dispatched | **Chip A** flagship (building) |
+| BI-005 | พิมพ์เนื้อแล้วไปโน้ตถัดไปไม่ได้ (ต้องพิมพ์ทีละคำ) · "v1 ดีกว่าเยอะ" | S2 | 🔧 dispatched | **Chip A** caret/input (คู่ BI-008) |
 | BI-006 | เล่นเฉพาะห้องที่กำลังแก้ไม่ได้ (มีแค่ ทั้งเพลง/ท่อน/บรรทัด) | S3 | 🔧 dispatched | **Chip C** (building · BI-007 hold ออก) |
 | BI-007 | แก้เสร็จบันทึกจริงไม่ได้ ได้แค่ "บันทึกร่าง" — จะ publish เพลงยังไง? | S2 | 📐 design-pending | SA "completion flow" (spec → P'Aim เคาะ) |
-| BI-008 | แทรก/ลบโน้ตพัง · Delete=Backspace ไม่ต่าง · แก้ผิดตรงจุดไม่ได้ | S2 | 🆕 new | (overlap Chip A · SongViewer edit) |
-| BI-009 | ระบบเครื่องหมาย: ' ซ้ำ สูง/ต่ำ · auto-position · ~ ไม่เชื่อม · ( ) ต่างยังไง · เพิ่ม #/b คู่ n | S2 | 🆕 new | (symbol design · SA + CP-0) |
+| BI-008 | แทรก/ลบโน้ตพัง · Delete=Backspace ไม่ต่าง · แก้ผิดตรงจุดไม่ได้ | S2 | 🔧 dispatched | **Chip A** (folded · caret spec) |
+| BI-009 | ระบบเครื่องหมาย: ' ซ้ำ สูง/ต่ำ · auto-position · ~ ไม่เชื่อม · ( ) ต่างยังไง · เพิ่ม #/b คู่ n | S2 | 🔧 dispatched | **symbol-pass** `970da39d` |
 
-*เปิดอยู่: 9 · fixed รอ verify: 1 (BI-002) · ปิดแล้ว (verified): 0*
+*เปิดอยู่: 9 · fixed รอ verify: 1 (BI-002) · ปิดแล้ว (verified): 0 · **ทุกตัวมีเจ้าภาพแล้ว***
 
 **routing สุดท้าย (PM 45 · จับกลุ่มตามไฟล์ กัน merge ชนบน hot-file SongViewer.vue):**
-- **Chip A** = BI-005 + BI-003 (พิมพ์/แก้บนแผ่น · SongViewer.vue + symbol lib) — flagship "v1 ดีกว่าเยอะ"
+- **Chip A** = BI-005 + BI-008 (caret/input model บนแผ่น · SongViewer.vue · มี caret spec) — flagship "v1 ดีกว่าเยอะ"
 - **Chip B** = BI-004 (copy/paste โครงสร้าง · StructureDrawer/songStructure)
-- **Chip C** = BI-006 + BI-007 (transport "เล่นห้องนี้" + ปุ่ม Publish)
-- พอ P'Aim กด launch chip → PM ping กลับ → intake tag 🔧 dispatched.
+- **Chip C** = BI-006 (transport "เล่นห้องนี้") · [BI-007 แยกไป SA design]
+- **symbol-pass** `970da39d` = BI-003 + BI-009 (ระบบเครื่องหมายทั้งชุด · อ่านโค้ดจริงตอบ ~/()/'/n + แก้บั๊ก + จัดชุดตามมาตรฐาน jianpu)
+- **SA design** = BI-007 (completion/publish flow)
 
 **หมายเหตุ:** BI-003/004/005 = feedback จากพี่เปาใช้ inline editor จริง (แหล่ง: `OneDrive\...\pleng2-pow-bug-report\issue1-3`) · ทั้ง 3 คือ "ใช้ยากกว่า v1" ในการแก้เพลง.
 **routing (PM 45):** 3 session ที่ map ไว้ (CP-0/structure/flow-polish) = **idle + merge เข้า base แล้ว** → บั๊ก = ฟีเจอร์ที่ ship แล้วยังไม่ดีพอ ⇒ fix = **จ่าย session สดใหม่ชี้ code area เดิม** (ไม่ revive session เก่า) · PM กำลังเคาะกับ P'Aim ว่าจ่ายตรงหรือผ่าน GitHub-issue workflow.
@@ -79,7 +80,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **repro:** เข้าโหมดแก้ → คลิกโน้ต → กดใส่เครื่องหมาย → พยายามลบออก/กดซ้ำ = ไม่ตอบสนอง · บางเครื่องหมายกดไม่ติดเลย
 - **รูป:** `bug-intake-assets/BI-003-1.png` (โน้ต "5" ถูกเลือก + sharp)
 - **triage:** valid · **S2** · เข้าข่าย symbol-registry/apply-symbol (toggle ลบ-ใส่ไม่สมมาตร + บางตัวไม่ถูก map) — ตรงกับงาน CP-0 "unify symbol registry (kill keydown-vs-applySymbol drift)" · fix แนว: ทำ apply/remove ให้ toggle ครบทุกเครื่องหมาย
-- **สถานะ:** 🔧 dispatched · **Chip A** launched กำลัง building (SongViewer.vue + symbol lib · คู่กับ BI-005) · verify: ใส่/ลบ/ใส่ซ้ำได้ครบทุกเครื่องหมาย
+- **สถานะ:** 🔧 dispatched · **ย้ายไป symbol-pass `970da39d`** (รวมกับ BI-009 · ออกแบบระบบเครื่องหมายทั้งชุดตามมาตรฐาน jianpu) · verify: ใส่/ลบ/ใส่ซ้ำได้ครบทุกเครื่องหมาย
 
 ---
 
@@ -140,7 +141,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **repro:** เข้าโหมดแก้ → กด Insert แทรกโน้ต → caret เด้งไปตำแหน่งอื่น · Delete/Backspace ให้ผลเหมือนกัน (ทั้งที่ help บอก Delete=ลบอยู่กับที่ / Backspace=เอาออกทั้งช่อง) · พิมพ์เลขผิดแล้วแก้ทับตรงจุดไม่ได้ ต้องลบยกช่อง
 - **รูป:** `bug-intake-assets/BI-008-1.png` (โหมดแก้เต็ม + help แสดง Insert/Delete/Backspace shortcuts)
 - **triage:** valid · **S2** (core editing พัง — caret/insert/delete ไม่ทำงานตามที่ help บอก · แก้ในตำแหน่งไม่ได้ = งานแก้เพลงติดหนัก) · **overlap code area กับ Chip A** (SongViewer keydown/edit เดียวกับ BI-005/003) → PM พิจารณา fold เข้า Chip A หรือจ่าย session ชี้จุดเดียวกัน · fix แนว: Insert แทรกที่ caret จริง · Delete≠Backspace ตาม spec · แก้ทับตัวเลข/เครื่องหมายในตำแหน่งได้
-- **สถานะ:** 🆕 new · รอ PM จ่าย · verify: แทรกที่ caret ตรงจุด · Delete/Backspace ต่างกันตาม help · พิมพ์ผิดแก้ทับได้ไม่ต้องลบยกช่อง
+- **สถานะ:** 🔧 dispatched · **Chip A (folded · คู่กับ BI-005)** — reframe Chip A = caret/input model · มี caret spec ให้ implement · verify: แทรกที่ caret ตรงจุด · Delete/Backspace ต่างกันตาม help · พิมพ์ผิดแก้ทับได้ไม่ต้องลบยกช่อง
 
 ---
 
@@ -156,4 +157,4 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **รูป:** `bug-intake-assets/BI-009-1.png` (แถบเครื่องหมายเต็มแถว)
 - **triage:** valid · **S2** (ผสม bug + design) · แยกเป็น: **bug** = ~ ไม่เชื่อม (ข้อ 3) · **design** = dedupe '/สูงต่ำ + auto-position + จัดกลุ่ม accidental n/#/b + นิยาม ()/~ ให้ชัด (ข้อ 1,2,4,5) · **code area = symbol registry (CP-0 `8e92391c` area) + ต้อง design pass (SA)** เพราะแตะนิยามเครื่องหมายทั้งชุด · เกี่ยวโยง BI-003 (symbols ลบ/ใส่ซ้ำ) → ควรออกแบบ symbol system รวมทีเดียว
 - **หมายเหตุ:** ข้อ 3,4 มีคำถาม "ตอนนี้ทำงานยังไง" — ต้องให้ session อ่านโค้ดจริงตอบ + ตัดสินว่าพฤติกรรมปัจจุบันถูกไหม
-- **สถานะ:** 🆕 new · เสนอ PM: รวมกับ BI-003 เป็น **design pass ระบบเครื่องหมาย** (SA + อ่านโค้ดจริง) · verify: '/สูงต่ำ ไม่ซ้ำ (พิมพ์ได้) · ' auto-position ถูก · ~ เชื่อมจริง · ()/accidental นิยามชัด + n/#/b จัดกลุ่มเดียว
+- **สถานะ:** 🔧 dispatched · **symbol-pass `970da39d`** (รวมกับ BI-003 · session อ่านโค้ดจริงตอบ ~/()/'/n + แก้บั๊ก ~/apply-remove + จัดชุดตามมาตรฐาน jianpu · escalate เฉพาะรสนิยมจริง) · verify: '/สูงต่ำ ไม่ซ้ำ (พิมพ์ได้) · ' auto-position ถูก · ~ เชื่อมจริง · ()/accidental นิยามชัด + n/#/b จัดกลุ่มเดียว
