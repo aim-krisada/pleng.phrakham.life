@@ -61,7 +61,7 @@
 **🔴 #1 gap (audit) — ยังไม่อยู่ในคิว ต้องดันขึ้นหัวหลัง CP-0:** **ยกแก้โครง (drawer การ์ดท่อน) + copy/paste/move ห้อง·บรรทัด·ข้อ เข้าตัวแก้ใหม่** (ตอนนี้อยู่เฉพาะ EditorMode เก่า) → แล้วตัดแท็บ+ตัวเก่า = gate สู่ "สมบูรณ์"
 
 **⚡ ขนานได้ (คนละไฟล์ · จ่ายแล้ว P'Aim สั่งเร่ง 24 ก.ค.):**
-- 🔵 **repeat glyph render** (`task_b4f86d1a` · SongSheet.vue) — วาด 𝄋𝄌 D.C./D.S./Fine/‖ บนแผ่น+พิมพ์ · ไม่แตะ editor/engine
+- ✅ **repeat glyph render merge `7425b15`** (SongSheet.vue · SVG กันตัวแตก · test 1367 · วางจาก marker's spot=mid-bar safe · render nothing จน marker มี=ไม่ regress) · 🔴 **contract = `{type:'jump',kind,al?}` item ในบรรทัด · แต่ engine spike เก็บ `flow.jump` = อาจคนละโมเดล → สั่ง midbar เคาะ "canonical marker shape ชุดเดียว" (engine+render+entry อ่านตรงกัน) แล้ว render normalise ตาม**
 - ✅ **B121 ขนาดกระดาษ merge `4edfe2c`** (A4/Letter/A5 · PDF พิสูจน์ขนาดเปลี่ยนจริง · test 1344)
 - 🔴 **G/N consult เปลี่ยนวิธี (P'Aim 24-Jul · กฎ §4.5 ข้อ 10):** ใช้ **meeting-room tool ตัวเดียวร่วม :9222 (ล็อกอินครั้งเดียว)** · แต่ละ session แชทเอง · N=แสวงหา 1-5 · บรีฟยาว=อัปโหลดไฟล์ · ⛔ เลิก hand-roll หน้าต่าง Gemini · verify/render คง own-port · **midbar = หน้าต่างสุดท้ายที่ hand-roll (จบรอบนี้แล้วเลิก)**
 - 🔵 **repeat มิดบาร์ design+engine** (`task_55e1f134` session ใหม่) — Phase1 ปิด mid-bar design + **G Pro** (docs · ping PM gate ก่อน engine) · Phase2 ต่อยอด spike line-level→mid-bar บน `songModel/midi/songFlow` (คนละไฟล์ SongViewer = ขนาน CP-0 ได้) · ⛔ ไม่แตะ SongViewer/EditorMode (UI ใส่ = คิว hot-file)
