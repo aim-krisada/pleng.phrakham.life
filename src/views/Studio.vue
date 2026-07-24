@@ -605,9 +605,16 @@ function openFile() {
     inlineDraftId.value = null
     recovery.value = null
     mode.value = 'view' // open on the reading/✏️ surface, not the old grid
-    importWarn.value = res.warnings.length > 0
-    importMsg.value = res.warnings.length
-      ? 'เปิดไฟล์แล้ว — มีจุดที่ควรตรวจ: ' + res.warnings.join(' · ')
+    // migrate warnings are {note, lyric, slots, got} — a syllable-vs-note mismatch. Render each
+    // as human Thai (not "[object Object]") so the creator knows exactly which line to eyeball.
+    const warnText = (res.warnings || []).map((w) =>
+      (typeof w === 'string')
+        ? w
+        : `คำร้อง “${w.lyric ?? ''}” (${w.got} พยางค์) ไม่พอดีกับโน้ต “${w.note ?? ''}” (${w.slots} เสียง)`,
+    )
+    importWarn.value = warnText.length > 0
+    importMsg.value = warnText.length
+      ? 'เปิดไฟล์แล้ว — มีจุดที่ควรตรวจ: ' + warnText.join(' · ')
       : '📂 เปิดไฟล์ JSON แล้ว — แก้ต่อได้เลย'
   }
   inp.click()
