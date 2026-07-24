@@ -22,7 +22,9 @@
 4. ✅ **เมนู "เพลง ▾" → P'Aim เคาะ: ย้ายเข้า ⋮ เพิ่มเติม** (เอา create ออก=ซ้ำหน้าแรก · "เปิดเพลงอื่น"เข้า ⋮ + ต่อ `filterSongs` จริง) · v-if mode!=edit อยู่แล้ว = คนละเรื่อง "ซ่อนแท็บตอนแก้"
 5. 🆕 **พี่เปา: caret/insert/delete model** — (ก) "ใส่ 5 ก่อน 2" แทรกหน้าไม่ได้ (ข) เสนอสลับ Del↔Backspace · **PM วินิจฉัย: ต้นตอเดียว = cursor แบบ "เลือกทับตัว" ไม่ใช่ "ระหว่างตัว"** → แก้ราก caret ระหว่างตัว → แทรกหน้า + Del(ขวา)/Backspace(ซ้าย) ตามมาตรฐาน text editor ออกมาถูกเอง ⛔ ไม่สลับปุ่มดื้อๆ
 
-**→ จ่าย SA session ใหม่สด: เพิ่มข้อ 4 (เมนู→⋮) + ออกแบบข้อ 5 (caret model) เข้า `docs/ds/editor-flow-polish.md` · G บังคับ · ต้องประสานกับ Space=advance (คอร์ด) + keydown เดิม 382-423**
+6. 🆕 **พี่เปา: พิมพ์ octave ด้วยคีย์บอร์ดล้วน (B2)** — `.5`=ต่ำ (จุดก่อนเลข) · `5'`=สูง (apostrophe หลังเลข) · **"แบบที่เคยเป็น" = RESTORE ของเดิม ไม่ออกแบบใหม่** (เปิด EditorMode.vue/NoteInputBar.vue/notation.js ดูของเดิม) · คีย์บอร์ดล้วน=เดสก์ท็อป ปุ่มยังอยู่สำหรับมือถือ · `.`/`'` ห้ามชน keydown 382-423
+
+**→ SA session ใหม่ = `optimistic-kare-b535ad` (local_dc0b2d2f · กำลังทำ): เมนู→⋮ (ข้อ4) + caret model (ข้อ5) + octave keyboard (ข้อ6) เข้า `docs/ds/editor-flow-polish.md` · G บังคับ · ประสาน Space=advance + keydown เดิม 382-423**
 
 ### 🔄 หมุน session (token efficiency · P'Aim สั่ง 24 ก.ค.)
 - **อ่าน % context ตรงไม่ได้** → ตัดสินจากภาระงาน · **SA palette = หนักสุด สั่ง wind down + handoff** (`2026-07-24-sa-palette-HANDOFF.md`) ไม่รับงานใหม่ · **B idle** งานหน้าเปิดใหม่ · **C กลางงาน** จบ chunk ก่อนหมุน · กฎ: 1 chunk = 1 session · งานใหม่ = session เล็กสด
