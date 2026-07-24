@@ -11,7 +11,10 @@
 - 🔴 **P'Aim ทดสอบเองบน /v2 live:** BI-005 IME/มือถือจริง · BI-010 QR scan โทรศัพท์ · BI-007 role editor/approver (ล็อกอินจริง) · new-song server draft-save
 - 🎯 **เฟส POLISH (P'Aim สั่ง · ทุกงาน world-class + G consult บังคับ ผ่าน ai-bridge Chrome :9335):**
   - **BI-011** ลบเส้นโค้งบนโน้ต (tie/slur) — session `567d43e1` running (เพิ่มเงื่อนไข G แล้ว)
-  - **BI-012** คอร์ด inline เหนือโน้ต + คีย์บอร์ดต่อเนื่อง — chip `task_8f43db68` (design+G→STOP gate→build)
+  - **BI-012** คอร์ด inline เหนือโน้ต + คีย์บอร์ดต่อเนื่อง — `task_8f43db68` running (design+G→STOP gate→build)
+  - **BI-014** คลิกข้างๆแล้ว highlight ค้างแต่พิมพ์ต่อไม่ได้ (focus↔highlight ไม่ sync) — chip `task_2c46146b` (analyze+G→STOP gate)
+  - **BI-013** ลบบรรทัดใน StructureDrawer (ไม่มีถังขยะ · ต้อง undo+ยืนยัน) — รอ audit `a6f51224` ยืนยันว่าหายจริงก่อนจ่าย build
+  - 🔍 **audit `a6f51224` running:** verify SB1 desktop/mobile ใน 717fb7a (⚠️ อาจ ship SB1 desktop ติด base 7afb038 ทั้งที่ HOLD) + delete-line มี/ไม่มี + BI-001..010 presence · 🧪 regression-tester `f09d703b` running (batch รวม live /v2)
 - ⏭️ **queue ต่อ (redeploy ทีละตัว):** issue9 lead-sheet header (SA design เสร็จ) · SB1 มือถือ (P'Aim คิด) · item1 repeat-marker เพิ่มเติม
 <!-- ARCHIVED assemble detail (ชิ้นย่อย verified) — ดู decisions-log 24 ก.ค. pm46 -->
 <details><summary>assemble detail (verified · shipped)</summary>
