@@ -64,8 +64,12 @@
 - **ที่ทำงานจริงวันนี้:** `|: :|` + volta 1st/2nd (เมนูห้อง) เท่านั้น · เอนจิน R1-R5 ทำ per-verse ไม่ทำ go-back jump
 - **ช่องโหว่ = ทั้งโมเดล+UI แต่โมเดลใกล้กว่า** — `songFlow.js:14-21` จอง prefix segno/coda + mint id แล้ว · `flow.jump` serialize แล้วแต่**ไม่มีใครอ่าน** · seam อยู่ `songModel.js:185`
 - **แผนแก้ (staged):** (1) UI: ยก Segno/Coda + D.S./D.C. jump จาก JSON textarea ขึ้นเมนูห้อง (ถูก · โมเดล mint รองรับแล้ว) (2) **engine: resolver อ่าน jump→เรียงลำดับเล่น/พิมพ์** (งานจริง · ก่อนหน้านี้ UI ใดๆ = ป้ายโกหก) · 🔴 **ต้องผ่าน guard เดิม** `mintMarkerIds`/`stripEditorMarkerIds`/`findOrphanFlows` (กัน id ซ้ำ=เล่นผิดเงียบ · JSON textarea วันนี้ bypass = อันตราย)
-- **✅ P'Aim: DESIGN อย่างเดียวก่อน ⛔ ยังไม่ลงโค้ด** (session `local_73ac8a99` `charming-lichterman`) — เหตุ: ตกลง design เข้ากับทิศทางปัจจุบันก่อน แล้วโค้ดปรับนิดเดียว · สโคป = `docs/ds/repeat-jumps.md` (design+AC ไม่มีโค้ด) · **ประสานกับ SA caret (`optimistic-kare`) ให้วิธีใส่ D.C./D.S./Segno/Coda เข้าชุด keyboard/symbol เดียวกัน** · ออกแบบ resolver บนกระดาษ (ผ่าน guard mint/strip/orphan) · คุย G (semantics+URL) · Phase engine/UI = ปลดหลัง P'Aim เห็นชอบดีไซน์
-- 🆕 **พี่เปาถาม "ใส่จบเพลงยังไง"** → รวมเข้าดีไซน์ D.C./D.S.: **Fine** (จุดจบตอนย้อน) vs **‖ final barline "จบเพลง"** (toggle มีอยู่แล้ว `EditorMode.vue:3435`) ต่างกันยังไง + สัมพันธ์ D.C. al Fine
+- **✅ P'Aim ยกระดับ: DESIGN อย่างเดียว ⛔ ไม่ลงโค้ด · ยกเป็น "ระบบวนร้อง/นำทางครบชุด"** (session `local_73ac8a99`) — สโคป `docs/ds/repeat-jumps.md`:
+  - **(1) D.C./D.S. ซับซ้อน → คุย G จนตกผลึกจริง** ทุก edge case (al Coda+To Coda+Fine ในเพลงเดียว · pass แรก vs ย้อน) · URL ทุกข้อ
+  - **(2) world-class UX/UI** — เทียบ MuseScore/Sibelius/iReal ให้ผู้ใช้(คนทำเพลงโบสถ์)ใส่ไม่งง · WCAG+มือถือ
+  - **(3) 🌏 survey ครบชุด grounded ในเพลงจริง 120 เพลง** — `|::|`+count · volta · D.C./D.S. ทุก al · Segno · Coda/To Coda · Fine · จบเพลง‖ (พี่เปาถาม Fine vs final barline) · (รับ) · เอามาให้หมด
+  - **(4) 🔴 integration กับ "แก้โครง"** (แผงโครงเพลง: ลิสต์ท่อน ข้อ/รับ ลากจัดลำดับ + ทำนอง A/B = strophic v2) → jump ต้องเข้ากับระบบนี้ ไม่สร้างระบบคู่ขนาน · ระดับท่อน/ห้อง? · ประสาน `optimistic-kare` (caret/symbol)
+  - resolver บนกระดาษ (guard mint/strip/orphan) · Phase engine/UI ปลดหลัง P'Aim เห็นชอบ · chunk ใหญ่ handoff ได้
 
 ## SSOT pointers
 `docs/backlog.md` · 🔴 **repeat-flow spec = อยู่บน branch `nostalgic-perlman-7b5f10` ไม่เคย merge base** (ไฟล์ `docs/ds/repeat-flow-override.md`+`note-symbol-set.md` ไม่มีบน base) → **spec จริงบน base = header ใน `src/lib/songFlow.js:1-15` + `docs/song-model-v2.md:223-237`** (cherry-pick doc มาถ้าต้องใช้) · `work/ปรับ pl edit ui/ux-groundup-design.md` (ดีไซน์ล็อก) · `evidence-2026-07-24-ui-gap-audit/REPORT-ui-gap-audit.md` (**สถานะ UI ล่าสุด**) · `C:\gl\pm-inbox\pleng\` (รายงานทุกสาย) · `C:\gl\pm-inbox\_ขอความช่วยเหลือ\` (ป้ายเรียก P'Aim)
