@@ -10,6 +10,7 @@
 **วงจรสถานะ (status):**
 - 🆕 `new` — รับ+triage แล้ว ยังไม่ส่ง/PM ยังไม่รับ
 - 📋 `pm-owned` — PM รับเรื่องแล้ว (triaged) · กำลังเคาะ routing กับ P'Aim ยังไม่จ่าย session
+- 📐 `design-pending` — เป็น design decision · จ่าย SA ออกแบบ spec ก่อน build (ยังไม่ลงมือ code)
 - 🔧 `dispatched` — PM จ่ายให้ session/round แล้ว (กำลังแก้)
 - ☑️ `fixed` — dev แจ้งแก้เสร็จ แต่ intake ยังไม่ verify
 - ✅ `verified` — intake เปิดของจริงยืนยันหายแล้ว (ปิด)
@@ -23,15 +24,15 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 
 | ID | อาการย่อ | Sev | สถานะ | จ่ายให้ |
 |----|----------|-----|-------|---------|
-| BI-001 | share ทับชื่อเพลงตอนย่อจอ | S2 | 🔧 dispatched | `411913fd` clever-einstein (SB1 top-bar) |
-| BI-002 | เล่นอยู่ กดดินสอ หยุดไม่ได้ | S2 | 🔧 dispatched | `a06948f3` "Port remaining" (**priority แรก**) |
-| BI-003 | ใส่เครื่องหมายแล้วลบ/ใส่ซ้ำไม่ได้ (บางตัวใช้ไม่ได้) | S2 | 📋 pm-owned | **Chip A** (รอ P'Aim launch) |
-| BI-004 | คัดลอก/วาง ห้อง+บรรทัด: ไม่รู้วางตรงไหน + เลื่อนทีละบรรทัด | S2 | 📋 pm-owned | **Chip B** (รอ P'Aim launch) |
-| BI-005 | พิมพ์เนื้อแล้วไปโน้ตถัดไปไม่ได้ (ต้องพิมพ์ทีละคำ) · "v1 ดีกว่าเยอะ" | S2 | 📋 pm-owned | **Chip A** (flagship · รอ launch) |
-| BI-006 | เล่นเฉพาะห้องที่กำลังแก้ไม่ได้ (มีแค่ ทั้งเพลง/ท่อน/บรรทัด) | S3 | 📋 pm-owned | **Chip C** (รอ P'Aim launch) |
-| BI-007 | แก้เสร็จบันทึกจริงไม่ได้ ได้แค่ "บันทึกร่าง" — จะ publish เพลงยังไง? | S2 | 📋 pm-owned | **Chip C** (design SA · รอ spec) |
+| BI-001 | share ทับชื่อเพลงตอนย่อจอ | S2 | 🔧 dispatched | `411913fd` SB1 (รอ verify) |
+| BI-002 | เล่นอยู่ กดดินสอ หยุดไม่ได้ | S2 | ☑️ fixed | `a06948f3` — merge-ready · รอ intake cross-check หลัง redeploy |
+| BI-003 | ใส่เครื่องหมายแล้วลบ/ใส่ซ้ำไม่ได้ (บางตัวใช้ไม่ได้) | S2 | 🔧 dispatched | **Chip A** (building) |
+| BI-004 | คัดลอก/วาง ห้อง+บรรทัด: ไม่รู้วางตรงไหน + เลื่อนทีละบรรทัด | S2 | 🔧 dispatched | **Chip B** (building) |
+| BI-005 | พิมพ์เนื้อแล้วไปโน้ตถัดไปไม่ได้ (ต้องพิมพ์ทีละคำ) · "v1 ดีกว่าเยอะ" | S2 | 🔧 dispatched | **Chip A** flagship (building) |
+| BI-006 | เล่นเฉพาะห้องที่กำลังแก้ไม่ได้ (มีแค่ ทั้งเพลง/ท่อน/บรรทัด) | S3 | 🔧 dispatched | **Chip C** (building · BI-007 hold ออก) |
+| BI-007 | แก้เสร็จบันทึกจริงไม่ได้ ได้แค่ "บันทึกร่าง" — จะ publish เพลงยังไง? | S2 | 📐 design-pending | SA "completion flow" (spec → P'Aim เคาะ) |
 
-*เปิดอยู่: 7 · ปิดแล้ว (verified): 0*
+*เปิดอยู่: 7 · fixed รอ verify: 1 (BI-002) · ปิดแล้ว (verified): 0*
 
 **routing สุดท้าย (PM 45 · จับกลุ่มตามไฟล์ กัน merge ชนบน hot-file SongViewer.vue):**
 - **Chip A** = BI-005 + BI-003 (พิมพ์/แก้บนแผ่น · SongViewer.vue + symbol lib) — flagship "v1 ดีกว่าเยอะ"
@@ -65,7 +66,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **repro:** เปิดหน้าเพลง → กด ▶ เล่น → ระหว่างเล่นกดดินสอ ✏️ → เสียงเล่นต่อ ไม่มีทางหยุด
 - **รูป:** `bug-intake-assets/BI-002-1.png` (transport เล่นอยู่ 3:12 + ดินสอ)
 - **triage:** valid · **S2** (บน /v2 รุ่นทดลอง · เสียงค้างเล่นไม่หยุด = ใช้งานเสีย) · น่าจะเป็น: เข้าโหมดแก้ไม่ได้ stop playback engine + แถบ transport ถูกซ่อน · fix แนว: เข้าโหมดแก้ให้ stop playback (หรือคงปุ่ม stop เข้าถึงได้)
-- **สถานะ:** 🔧 dispatched → session `a06948f3` "Port remaining" (ถือ SongViewer.vue = ไม่ชน) · **priority แรกก่อนงานอื่นของเขา** (P'Aim สั่ง) · redeploy ทันทีที่แก้เสร็จ · verify: เข้าโหมดแก้แล้วเสียงหยุด + กดหยุดได้
+- **สถานะ:** ☑️ **fixed (merge-ready)** → session `a06948f3` แจ้งแก้เสร็จ · **intake ยังไม่ปิด** — รอ redeploy แล้ว cross-check ของจริง (เข้าโหมดแก้แล้วเสียงหยุด + กดหยุดได้) → ผ่านจึง ✅ verified
 
 ---
 
@@ -76,7 +77,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **repro:** เข้าโหมดแก้ → คลิกโน้ต → กดใส่เครื่องหมาย → พยายามลบออก/กดซ้ำ = ไม่ตอบสนอง · บางเครื่องหมายกดไม่ติดเลย
 - **รูป:** `bug-intake-assets/BI-003-1.png` (โน้ต "5" ถูกเลือก + sharp)
 - **triage:** valid · **S2** · เข้าข่าย symbol-registry/apply-symbol (toggle ลบ-ใส่ไม่สมมาตร + บางตัวไม่ถูก map) — ตรงกับงาน CP-0 "unify symbol registry (kill keydown-vs-applySymbol drift)" · fix แนว: ทำ apply/remove ให้ toggle ครบทุกเครื่องหมาย
-- **สถานะ:** 📋 pm-owned · **Chip A** (SongViewer.vue + symbol lib · คู่กับ BI-005) · รอ P'Aim launch · verify: ใส่/ลบ/ใส่ซ้ำได้ครบทุกเครื่องหมาย
+- **สถานะ:** 🔧 dispatched · **Chip A** launched กำลัง building (SongViewer.vue + symbol lib · คู่กับ BI-005) · verify: ใส่/ลบ/ใส่ซ้ำได้ครบทุกเครื่องหมาย
 
 ---
 
@@ -87,7 +88,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **repro:** เข้าโหมดแก้ → คัดลอกบรรทัด → วาง → ไม่มี preview/ตัวชี้ว่าแทรกตรงไหน · จัดตำแหน่งได้แค่กดเลื่อนทีละบรรทัด
 - **รูป:** `bug-intake-assets/BI-004-1.png` (แผงคัดลอก/วาง + "คลิป: บรรทัด (บรรทัด 4)")
 - **triage:** valid · **S2** (usability — งานจริงช้ามาก) · ขาด insertion-point ที่มองเห็น (วางแทรกตรงไหน) + ไม่มี drag-to-reorder · เกี่ยวกับ session "Migrate song-structure editing + copy/paste into inline editor" · fix แนว: แสดงจุดแทรกก่อนวาง + เลือกตำแหน่งวางได้ + drag ย้ายบรรทัด/ห้อง
-- **สถานะ:** 📋 pm-owned · **Chip B** (StructureDrawer/songStructure) · รอ P'Aim launch · verify: วางแล้วเห็นชัดว่าแทรกที่ไหน + ย้ายตำแหน่งได้ไม่ต้องคลิกทีละบรรทัด
+- **สถานะ:** 🔧 dispatched · **Chip B** launched กำลัง building (StructureDrawer/songStructure) · verify: วางแล้วเห็นชัดว่าแทรกที่ไหน + ย้ายตำแหน่งได้ไม่ต้องคลิกทีละบรรทัด
 
 ---
 
@@ -98,7 +99,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **repro:** เข้าโหมดแก้ → พิมพ์เนื้อในโน้ตหนึ่ง → คาดว่าพอจบคำ/เว้นวรรค จะเด้งไปช่องถัดไปเอง แต่ไม่เด้ง ต้องคลิกทีละช่อง
 - **รูป:** `bug-intake-assets/BI-005-1.png` (เนื้อ "องค์kj;" มีตัวอักษรอังกฤษหลุดเข้ามา — อาจมีปัญหา IME/โฟกัสด้วย)
 - **triage:** valid · **S2** (core editor UX — พี่เปาบอกตรงๆ ว่าแย่กว่า v1) · ขาด auto-advance ไป syllable/โน้ตถัดไปหลังพิมพ์ (v1 มี flow ต่อเนื่อง) · อาจมี IME/keydown leak (ตัวอักษร eng หลุด) · เกี่ยวกับ session flow-polish (caret/auto-scroll) · fix แนว: พิมพ์แล้ว auto-advance ช่องถัดไป (Enter/space/→) ให้ลื่นเทียบ v1
-- **สถานะ:** 📋 pm-owned · **Chip A** (flagship "v1 ดีกว่าเยอะ" · SongViewer.vue · คู่กับ BI-003) · รอ P'Aim launch · verify: ใส่เนื้อต่อเนื่องหลายพยางค์ได้โดยไม่ต้องคลิกทีละช่อง · ไม่มีตัวอักษรหลุด
+- **สถานะ:** 🔧 dispatched · **Chip A** launched กำลัง building (flagship "v1 ดีกว่าเยอะ" · SongViewer.vue · คู่กับ BI-003) · verify: ใส่เนื้อต่อเนื่องหลายพยางค์ได้โดยไม่ต้องคลิกทีละช่อง · ไม่มีตัวอักษรหลุด
 
 ---
 
@@ -109,7 +110,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **repro:** เข้าโหมดแก้ → เลือกห้องที่แก้ → ไม่มีปุ่ม "เล่นห้องนี้" (เล่นได้แค่ระดับ ทั้งเพลง/ท่อน/บรรทัด) → ต้องฟังทั้งบรรทัดเพื่อเช็กห้องเดียว
 - **รูป:** `bug-intake-assets/BI-006-1.png` (แถบเล่น 3 ระดับ ไม่มีระดับห้อง)
 - **triage:** valid · **S3** (feature gap — ขาด granularity ระดับ "ห้อง"; ไม่ใช่ของพัง แต่ช่วยตอน fine-tune) · fix แนว: เพิ่ม "เล่นห้องนี้" (เล่นเฉพาะ bar ที่ caret อยู่)
-- **สถานะ:** 📋 pm-owned · **Chip C** (transport · คู่กับ BI-007) · รอ P'Aim launch · verify: เลือกห้องแล้วกดเล่นเฉพาะห้องนั้นได้
+- **สถานะ:** 🔧 dispatched · **Chip C** กำลัง building (transport "เล่นห้องนี้" · BI-007 hold ออกจาก chip แล้ว) · verify: เลือกห้องแล้วกดเล่นเฉพาะห้องนั้นได้
 
 ---
 
@@ -126,4 +127,4 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
   - SA ออกแบบ full completion-flow (แก้เสร็จ→draft→submit→approve→publish) ครบ role anon/editor/approver + **คุย G + เซฟ transcript** (SOP)
   - อ่าน gate จริง (Supabase RLS + `approve_and_publish` RPC) — ออกแบบบนความจริง
   - **เทียบ v1 ให้ ≥ v1** (พี่เปาว่า v2 แย่กว่า) · เสนอ P'Aim ผ่าน PM บน real component → P'Aim เคาะเอา/ไม่เอา
-- **สถานะ:** 📋 pm-owned · **Chip C** · **design (SA) · รอ spec** (ยังไม่ build ปุ่ม publish จนได้ spec) · ส่วน BI-006 "เล่นห้องนี้" build ได้เลยไม่ต้องรอ · verify: ผู้ใช้แก้เสร็จแล้วรู้ชัดว่าทำอะไรต่อ (ตามสิทธิ์) · flow จบงาน ≥ v1
+- **สถานะ:** 📐 **design-pending** · จ่าย SA session "completion flow" แล้ว (ออกแบบทุกสิทธิ์ + อ่าน RLS/`approve_and_publish` จริง + เทียบ v1 + spec บน real component · G-consult deferred เพราะ G พัง → เขียนคำถาม G ไว้ก่อน) → เสนอ P'Aim ผ่าน PM เคาะเอา/ไม่เอา · build หลังได้ spec · verify: ผู้ใช้แก้เสร็จแล้วรู้ชัดว่าทำอะไรต่อ (ตามสิทธิ์) · flow จบงาน ≥ v1
