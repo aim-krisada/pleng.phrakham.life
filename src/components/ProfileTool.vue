@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import {
-  session, profile, legacy, recovering, inviteMode, emailChanged,
+  session, profile, legacy, recovering, inviteMode, emailChanged, loginRequest,
   login, logout, updatePassword, requestPasswordReset, updateDisplayName, updateEmail, changePassword,
 } from '../store.js'
 import Icon from './Icon.vue'
@@ -30,6 +30,10 @@ const pwOk = ref('')
 
 // A reset/invite/email-change link should pop the panel open automatically.
 watch([recovering, emailChanged], ([r, e]) => { if (r || e) open.value = true }, { immediate: true })
+
+// BI-007: the editor's "เข้าสู่ระบบ" link (anon submit flow) bumps loginRequest → open the
+// account panel to its login form, so a team member can sign in without hunting for the navbar.
+watch(loginRequest, () => { if (!session.value) { forgot.value = false; editing.value = false; open.value = true } })
 
 // New-password strength rules — every rule must pass before saving.
 const pwRules = computed(() => {

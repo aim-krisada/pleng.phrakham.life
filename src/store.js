@@ -191,6 +191,13 @@ export function setEditorStyle(v) { if (PLAY_STYLES.includes(v)) editorStyle.val
 // the app-wide ShellBar and a page's teleported menus are one open-at-a-time system.
 export const shellMenu = ref(null)
 
+// BI-007: an anon in the editor wants the team to publish their work — the "เข้าสู่ระบบ"
+// link lives on that surface, but the login form is ProfileTool up in the app-wide ShellBar
+// (a different component tree). A bumped counter is the one-way signal that opens it, so the
+// two are wired through the single store instead of prop-drilling across the shell.
+export const loginRequest = ref(0)
+export function requestLogin() { loginRequest.value++ }
+
 // Supabase email links (recovery / invite / email change) land as
 // #access_token=…&type=X. Read the type synchronously at load, before supabase-js
 // parses and strips the fragment — the hash router would otherwise treat it as a

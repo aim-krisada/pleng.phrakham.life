@@ -25,6 +25,8 @@ import RevisionHistory from './RevisionHistory.vue'
 import DockKey from './DockKey.vue'
 import ExportTool from './ExportTool.vue'
 import SoundControl from './SoundControl.vue'
+import CompletionStatus from './CompletionStatus.vue'
+import { mailtoLink } from '../lib/share.js'
 
 // ---------- mode contract (DS-04) ----------
 // EditorMode is the "แก้ไข" surface, extracted whole from Studio.vue. The shell owns
@@ -50,7 +52,7 @@ const emit = defineEmits(['change', 'save', 'dock'])
 const notationHelpUrl = import.meta.env.BASE_URL + '#/notation'
 
 // ---------- auth + role (gating comes from the store via props.tier · DS-02) ----------
-import { session, legacy, shellMenu, saveDraftRow, readingFontScale,
+import { session, legacy, shellMenu, saveDraftRow, requestLogin, readingFontScale,
   editorSound, editorEnsemble, editorInstrument, editorStyle,
   setEditorSound, setEditorEnsemble, setEditorInstrument, setEditorStyle } from '../store.js'
 
@@ -94,6 +96,18 @@ const currentDraftId = ref(null)
 // the only navigation-set part of the identity; everything else about "whose version is
 // this" is derived from it + the loaded drafts (see openPendingDraft / reviewingDraft).
 const openDraft = ref(null)
+// BI-007 — the status of the work THIS author has in the editor right now, from their own
+// point of view, as the single source the you-are-here stepper (CompletionStatus) reads.
+// openDraft only exists after a draft is LOADED; a freshly-saved draft never sets it, so the
+// stepper couldn't otherwise tell "just sent for review" from "editing". This ref is set at
+// every transition: load a draft (its status) · save a draft ('draft'/'pending') · publish
+// ('approved') · new/blank (null). null = a new or published song being edited ("แก้ไข" step).
+const draftStatus = ref(null)
+// BI-007 D-D: an editor pressed ส่งตรวจ and it succeeded → show the persistent "sent!" card
+// with "ดูงานของฉัน / แก้ต่อ" (instead of a saveMsg that flickers away, G4).
+const submitDone = ref(false)
+// BI-007 D-C: background draft auto-save state, surfaced in the CompletionStatus bar.
+const autoSaveState = ref('idle') // 'idle' | 'saving' | 'saved'
 const reviewComment = ref('')
 const pickerId = ref('')
 const meta = reactive({ number: null, title_th: '', title_en: '', category: 'anuchon', theme: '' })
@@ -1366,6 +1380,8 @@ async function loadSong(id) {
   editingId.value = data.id
   currentDraftId.value = null
   openDraft.value = null
+  draftStatus.value = null // BI-007: a freshly loaded published song = "แก้ไข" step
+  submitDone.value = false
   saveMsg.value = ''
   nextTick(resetHistory)
 }
@@ -1427,6 +1443,8 @@ function resetForm() {
   editingId.value = null
   currentDraftId.value = null
   openDraft.value = null
+  draftStatus.value = null // BI-007: blank song → stepper at "แก้ไข"
+  submitDone.value = false
   meta.number = null
   meta.title_th = ''
   meta.title_en = ''
@@ -1564,8 +1582,12 @@ async function loadDraft(d) {
   editingId.value = d.song_id
   currentDraftId.value = d.id
   openDraft.value = d
+  draftStatus.value = d.status // BI-007: the stepper follows the loaded draft's real status
+  submitDone.value = false // reopening work clears any lingering "sent!" card
   reviewComment.value = d.review_comment || ''
-  saveMsg.value = d.status === 'rejected' && d.review_comment ? '↩ ถูกส่งกลับ: ' + d.review_comment : ''
+  // BI-007: the returned-for-fixes note now rides the persistent CompletionStatus bar
+  // (rejectComment), not the dock's saveMsg that flickered away on scroll/reload (G2).
+  saveMsg.value = ''
   nextTick(resetHistory)
   // B108: a draft of an EXISTING song → show that song's real หมวด/ธีม instead of the
   // 'anuchon' fallback applyRow() had to use. (A draft of a NEW song has no song to ask.)
@@ -1586,11 +1608,14 @@ const draftRow = () => ({
   theme: themeKnown.value ? meta.theme || null : null,
 })
 
-async function saveDraft(status) {
-  saveMsg.value = ''
+// `silent` (BI-007 auto-save): a background draft write must not steal saveMsg / re-announce
+// success — the CompletionStatus bar shows "เก็บอัตโนมัติแล้ว" instead. A missing title on a
+// silent pass is a no-op (nothing to nag about yet), not a warning toast.
+async function saveDraft(status, { silent = false } = {}) {
+  if (!silent) saveMsg.value = ''
   const row = draftRow()
   if (!row.title_th) {
-    saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
+    if (!silent) saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
     return
   }
   emit('save', status === 'pending' ? 'pending' : 'draft')
@@ -1609,12 +1634,23 @@ async function saveDraft(status) {
   // the store owns the Supabase write (DS-D01); the editor owns which draft it edits
   const { id, error } = await saveDraftRow(row, currentDraftId.value)
   if (id) currentDraftId.value = id
-  saveMsg.value = error
-    ? '❌ บันทึกไม่สำเร็จ: ' + error.message
-    : status === 'pending'
-      ? '📨 ส่งตรวจแล้ว — รอผู้อนุมัติ'
-      : '💾 บันทึกร่างแล้ว (ยังไม่เผยแพร่)'
-  if (!error) markClean() // B100: a persisted draft is no longer "unsaved"
+  if (error) {
+    saveMsg.value = '❌ บันทึกไม่สำเร็จ: ' + error.message // errors always speak, even on auto-save
+    autoSaveState.value = 'idle'
+  } else {
+    // BI-007: the stepper is the persistent status now; keep the transient saveMsg quiet for a
+    // manual บันทึกร่าง (the bar already says "ร่าง · เก็บอัตโนมัติแล้ว") and reserve the loud
+    // confirmation for ส่งตรวจ → the dismissible post-submit card (submitDone), not a flickering line.
+    draftStatus.value = status // BI-007: single source for the you-are-here stepper
+    if (status === 'pending') {
+      submitDone.value = true // opens the "ส่งแล้ว — ทีมรับไปพิจารณา" card (D-D)
+      saveMsg.value = ''
+    } else {
+      saveMsg.value = silent ? saveMsg.value : '' // manual draft save → bar shows it, no toast
+      if (silent) autoSaveState.value = 'saved'
+    }
+    markClean() // B100: a persisted draft is no longer "unsaved"
+  }
   loadDrafts()
 }
 
@@ -1693,6 +1729,7 @@ async function saveDirect() {
   } else {
     saveMsg.value =
       count > 0 ? `⚠️ เผยแพร่แล้ว — แต่พบปัญหาโน้ต ${count} จุด (ติดป้ายไว้ให้ตรวจ)` : '✅ เผยแพร่แล้ว'
+    draftStatus.value = 'approved' // BI-007: the stepper lands on "เผยแพร่แล้ว"
     markClean() // B100: a published song is no longer "unsaved"
     loadedFlags.value = flags // keep in sync so a same-session re-publish preserves them
     // publishing from one's own draft closes that draft
@@ -1759,6 +1796,7 @@ async function approve() {
     count > 0
       ? `✅ อนุมัติและเผยแพร่แล้ว — แต่พบปัญหาโน้ต ${count} จุด (ติดป้ายไว้ให้ตรวจ)`
       : '✅ อนุมัติและเผยแพร่แล้ว'
+  draftStatus.value = 'approved' // BI-007: stepper → "เผยแพร่แล้ว"
   openDraft.value = null
   currentDraftId.value = null
   loadDrafts()
@@ -2165,6 +2203,115 @@ onBeforeRouteLeave(() => {
   return window.confirm('มีงานที่ยังไม่บันทึก ถ้าออกจากหน้านี้งานที่แก้ไว้จะหาย — ออกเลยไหม?')
 })
 
+// ---------- BI-007 D-C: auto-save the draft (Google-Docs pattern) ----------
+// The old model made "บันทึกร่าง" (save) and "ส่งตรวจ" (submit) compete on one row, so พี่เปา
+// pressed the familiar save and got stranded at draft (G3). Auto-save removes the need to press
+// save at all: an editor's changes persist by themselves, so the ONE prime button unambiguously
+// means "finish / send on". Only the editor path auto-saves — an approver edits the published
+// song directly (no draft), and a legacy backend has no drafts table; a background write there
+// would be wrong. Never auto-save while reviewing (approver-only, already excluded by !isApprover).
+const canAutoSave = computed(() => loggedIn.value && !isApprover.value && !legacy.value)
+let autoTimer = null
+watch(
+  () => (canAutoSave.value ? docState() : null),
+  () => {
+    if (!canAutoSave.value || !isDirty.value || !meta.title_th.trim()) return
+    autoSaveState.value = 'saving'
+    clearTimeout(autoTimer)
+    // 2.5s after typing stops (M3 debounce range) — long enough not to write on every keystroke,
+    // short enough that a dock/close/reload can't beat it and lose the draft (one of the 5 G's).
+    autoTimer = setTimeout(() => {
+      if (canAutoSave.value && isDirty.value && meta.title_th.trim()) saveDraft('draft', { silent: true })
+      else autoSaveState.value = 'idle'
+    }, 2500)
+  },
+)
+onUnmounted(() => clearTimeout(autoTimer))
+
+// ---------- BI-007 D-A: you-are-here model for the CompletionStatus bar ----------
+// One computed turns the role + draftStatus + review getters into the stepper's props. It is the
+// single place that decides "which pipeline, which step, what to say next" so the bar, the button
+// and the confirmation card can never disagree (they all read derived state, one source).
+const completionModel = computed(() => {
+  const t = (d) => {
+    if (!d) return ''
+    try {
+      return new Date(d).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    } catch {
+      return ''
+    }
+  }
+  // anon — the ceiling is "hand it to the team" (RLS: can't store), so a distinct 5-step lane.
+  if (!loggedIn.value) {
+    return {
+      steps: ['แก้ไข', 'เก็บไฟล์', 'ส่งให้ทีม', 'ทีมตรวจ', 'ขึ้นคลัง'],
+      current: 0,
+      tone: 'anon',
+      statusText: 'งานนี้เก็บอยู่ในเครื่องคุณ',
+      nextText: 'กด “ส่งให้ทีม” — ดาวน์โหลดไฟล์แล้วส่งอีเมลให้ทีมนำขึ้นคลัง',
+      rejectComment: '',
+    }
+  }
+  // approver reviewing SOMEONE ELSE's pending draft — a short 2-step review lane.
+  if (reviewingDraft.value) {
+    return {
+      steps: ['ตรวจร่าง', 'ตัดสิน'],
+      current: 0,
+      tone: 'review',
+      statusText: 'กำลังตรวจฉบับร่างของ ' + draftAuthor(reviewingDraft.value),
+      nextText: 'อนุมัติ = ขึ้นคลังทันที · ส่งกลับ = ผู้เขียนแก้ต่อ',
+      rejectComment: '',
+    }
+  }
+  // approver editing the published song — publish is one click, so a short 2-step lane.
+  if (isApprover.value) {
+    const published = draftStatus.value === 'approved'
+    return {
+      steps: ['แก้ไข', 'เผยแพร่แล้ว'],
+      current: published ? 1 : 0,
+      tone: published ? 'approved' : 'draft',
+      statusText: published ? 'เผยแพร่ขึ้นคลังแล้ว' : (editingId.value ? 'แก้ฉบับที่เผยแพร่' : 'เพลงใหม่'),
+      nextText: published ? 'อยู่บนเว็บแล้ว — แก้ต่อได้ทันที' : 'กด “เผยแพร่” = ขึ้นคลังทันที',
+      rejectComment: '',
+    }
+  }
+  // editor — the full draft → review → publish lane the button walks through.
+  const steps = ['แก้ไข', 'เก็บร่าง', 'ส่งตรวจ', 'รออนุมัติ', 'เผยแพร่แล้ว']
+  const when = openDraft.value?.updated_at
+  switch (draftStatus.value) {
+    case 'pending':
+      return { steps, current: 3, tone: 'pending', statusText: 'รอตรวจ' + (t(when) ? ' — ส่งเมื่อ ' + t(when) : ''), nextText: 'ทีมผู้อนุมัติกำลังพิจารณา — จะแจ้งเมื่อขึ้นคลัง/ส่งกลับ', rejectComment: '' }
+    case 'approved':
+      return { steps, current: 4, tone: 'approved', statusText: 'ขึ้นคลังแล้ว', nextText: 'อยู่บนเว็บแล้ว · แก้ต่อได้เป็นร่างใหม่', rejectComment: '' }
+    case 'rejected':
+      return { steps, current: 0, tone: 'rejected', statusText: 'ถูกส่งกลับให้แก้', nextText: 'แก้ตามความเห็นผู้ตรวจ แล้วกด “ส่งตรวจ” อีกครั้ง', rejectComment: reviewComment.value }
+    case 'draft':
+      return { steps, current: 1, tone: 'draft', statusText: 'ร่าง', nextText: 'พร้อมแล้วกด “ส่งตรวจ” → ทีมผู้อนุมัติจะรับไปพิจารณา', rejectComment: '' }
+    default: // no draft yet — a new/blank or a published song being edited
+      return { steps, current: 0, tone: 'draft', statusText: 'ร่าง', nextText: 'พร้อมแล้วกด “ส่งตรวจ” → ทีมผู้อนุมัติจะรับไปพิจารณา', rejectComment: '' }
+  }
+})
+
+// ---------- BI-007 D-B: anon "ส่งให้ทีม" submit flow ----------
+function openSubmitFlow() {
+  openPanel('submit')
+}
+function submitEmail() {
+  // mailto only — no PII stored, no backend. The .json (downloaded via the same card) is the
+  // payload the team re-imports; the address is typed by the sender in their own mail app.
+  window.location.href = mailtoLink({
+    to: 'pleng@phrakham.life',
+    subject: 'ขอส่งเพลงขึ้นคลัง: ' + (meta.title_th || '(ยังไม่ตั้งชื่อ)'),
+    body:
+      'สวัสดีทีมพระคำ\n\nผมแก้/คีย์เพลง "' + (meta.title_th || '') + '" ไว้ อยากให้ช่วยตรวจและนำขึ้นคลังครับ\n' +
+      'ได้แนบไฟล์ .json ที่ดาวน์โหลดจากเว็บมาด้วย (กดปุ่ม “ดาวน์โหลดไฟล์เพลง” ในหน้านั้นก่อนส่ง)\n\nขอบคุณครับ',
+  })
+}
+function goLogin() {
+  closePanel()
+  requestLogin() // opens the ShellBar ProfileTool login (store signal — different component tree)
+}
+
 // ---------- floating toolbar + sheet overlay ----------
 const showSheet = ref(false)
 // D2/D4 — the primary action states what it will DO and to WHOSE work, and it refuses to
@@ -2252,6 +2399,12 @@ const editItems = computed(() => [
   { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', default: 'inSetting', pinnable: true },
   { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
   { id: 'save', kind: 'btn', name: saveName.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
+  // BI-007 G1: anon had NO finish button at all (both save + prime were hidden:!loggedIn) → an
+  // editor from outside the team hit a dead end. Give them the prime seat too — one enabled
+  // button that walks the real path (download JSON + email the team), never a disabled publish
+  // that lies "you'll be able to press this". Shares row 2 col 1 span 2 with 'save'; the mutually
+  // exclusive `hidden` (this shows only when logged OUT) keeps exactly one prime on the bar.
+  { id: 'finish', kind: 'btn', name: 'ส่งให้ทีมนำขึ้นคลัง', label: 'ส่งให้ทีม', icon: 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: openSubmitFlow, hidden: loggedIn.value },
   // dock-space slim (UX presentation · P'Aim: dock กินพื้นที่): ฟังทั้งเพลง = ใช้นาน ๆ ครั้ง →
   // ย้ายเข้า ⚙ (ยังกดได้ · ปักกลับขึ้นแถบได้) เพื่อลด footprint row 2 · kind:btn → ⚙ render run ปุ่มได้จริง.
   { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', default: 'inSetting', pinnable: true, run: playFull, hidden: playing.value },
@@ -2896,7 +3049,7 @@ function manageDelete() {
 // sheet is still the 🎼 mode button.
 const panelTitle = computed(
   () =>
-    ({ open: 'เลือกเพลงเพื่อแก้', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ' })[
+    ({ open: 'เลือกเพลงเพื่อแก้', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ', submit: 'ส่งเพลงให้ทีมนำขึ้นคลัง' })[
       activePanel.value
     ] || '',
 )
@@ -2913,6 +3066,8 @@ watch(
     editingId.value = s.id ?? null
     currentDraftId.value = null
     openDraft.value = null
+    draftStatus.value = null // BI-007: shell handed us a fresh song → stepper at "แก้ไข"
+    submitDone.value = false
     saveMsg.value = ''
     nextTick(resetHistory)
   },
@@ -2953,6 +3108,9 @@ defineExpose({
   isDirty, saveDirect,
   // B108 หมวดหาย: per-field knownness + the two publish paths that gate on it.
   categoryKnown, themeKnown, approve, pickCategory, pickTheme, reviewingDraft,
+  // BI-007 completion flow: the single status source + the derived you-are-here model, the
+  // post-submit card flag, auto-save state, and the anon submit-flow opener (AC tests).
+  draftStatus, submitDone, autoSaveState, completionModel, openSubmitFlow, canAutoSave, reviewComment,
 })
 </script>
 
@@ -3167,6 +3325,31 @@ defineExpose({
         </li>
       </ul>
     </div>
+
+    <!-- BI-007 D-D — the "sent for review" confirmation, persistent + dismissible (not the
+         saveMsg that flickered away, G4). Shown only to the editor who just pressed ส่งตรวจ. -->
+    <div v-if="submitDone" class="card submit-done no-print" role="status" aria-live="polite">
+      <strong>📨 ส่งตรวจแล้ว — ทีมผู้อนุมัติจะรับไปพิจารณา</strong>
+      <span class="muted"> ติดตามสถานะได้ที่ “งานร่างของฉัน” · จะขึ้นคลังเมื่อได้รับอนุมัติ</span>
+      <div class="sd-actions">
+        <button class="sd-go" @click="openPanel('drafts')">ดูงานของฉัน</button>
+        <button @click="submitDone = false">แก้ต่อ</button>
+      </div>
+    </div>
+
+    <!-- BI-007 D-A — the persistent you-are-here bar (แก้ → ส่ง → อนุมัติ → เผยแพร่). Inline
+         above the edit header, never inside the auto-hiding dock, so status survives scroll +
+         reload (G2). Every fact comes from completionModel (one source · role-aware). -->
+    <CompletionStatus
+      class="ed-completion"
+      :steps="completionModel.steps"
+      :current="completionModel.current"
+      :tone="completionModel.tone"
+      :status-text="completionModel.statusText"
+      :next-text="completionModel.nextText"
+      :reject-comment="completionModel.rejectComment"
+      :auto-save="autoSaveState"
+    />
 
     <!-- ===== edit header (edhead) — ps2 prototype §③: breadcrumb OPENS the rail (the rail
          is the only navigation, no duplicate ท่อน/ข้อ dropdowns · B031/B003/E1) · in-context
@@ -3872,6 +4055,37 @@ defineExpose({
           </template>
           <div class="panel-foot"><button class="secondary" @click="closePanel">ปิด</button></div>
         </div>
+
+        <!-- BI-007 D-B — anon "ส่งให้ทีม" flow. No account, no backend, no PII: download the
+             song as JSON, then open a prefilled email to the team who publish it. A 3-step
+             card so the path is obvious, not a dead-ended editor (G1). -->
+        <div v-else-if="activePanel === 'submit'">
+          <p class="muted" style="margin: 0 0 12px">
+            คุณแก้เพลงได้เต็มที่โดยไม่ต้องเข้าสู่ระบบ — งานเก็บอยู่ในเครื่องคุณ.
+            อยากให้ขึ้นคลังกลางให้คนอื่นเห็น ส่งให้ทีมพระคำนำขึ้นให้ 3 ขั้นตอน:
+          </p>
+          <ol class="submit-steps">
+            <li>
+              <b>ดาวน์โหลดไฟล์เพลง</b> (.json) เก็บงานของคุณ
+              <div style="margin-top: 6px">
+                <button class="sd-go" @click="downloadJson"><Icon name="download" :size="15" /> ดาวน์โหลดไฟล์เพลง</button>
+              </div>
+            </li>
+            <li>
+              <b>แนบไฟล์นั้นส่งอีเมลถึงทีม</b> ที่ <a href="mailto:pleng@phrakham.life">pleng@phrakham.life</a>
+              <div style="margin-top: 6px">
+                <button class="sd-go" @click="submitEmail"><Icon name="send" :size="15" /> เปิดอีเมลถึงทีม</button>
+              </div>
+            </li>
+            <li><b>ทีมตรวจแล้วนำขึ้นคลัง</b> — เพลงจะปรากฏบนเว็บให้ทุกคนใช้</li>
+          </ol>
+          <p class="muted" style="margin: 12px 0 0; font-size: 13px">
+            เป็นสมาชิกทีมอยู่แล้ว?
+            <a href="#" @click.prevent="goLogin">เข้าสู่ระบบ</a>
+            เพื่อส่งตรวจได้ในเว็บเลย ไม่ต้องส่งอีเมล
+          </p>
+          <div class="panel-foot"><button class="secondary" @click="closePanel">ปิด</button></div>
+        </div>
       </div>
     </div>
   </div>
@@ -4382,6 +4596,19 @@ defineExpose({
 .pa-actions button { min-height: 44px; }
 .pa-actions .pa-go { background: var(--brand); color: #fff; border-color: var(--brand); }
 .migrate-note { background: #fffbeb; border-color: #f6e05e; }
+/* BI-007 D-D — "sent for review" confirmation (green = success, but the ✉ + text carry it too) */
+.submit-done {
+  background: #eef9f0;
+  border-color: var(--cat-green);
+  border-left: 4px solid var(--cat-green);
+}
+.sd-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+.sd-actions button { min-height: 44px; }
+.sd-go { background: var(--brand); color: #fff; border-color: var(--brand); display: inline-flex; align-items: center; gap: 6px; }
+/* BI-007 D-B — anon submit-flow steps in the panel */
+.submit-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 12px; }
+.submit-steps > li { line-height: 1.5; }
+.submit-steps .sd-go { min-height: 40px; }
 .rev-row { border-top: 1px solid var(--line); padding: 8px 0; margin-top: 8px; }
 .line-active { border-color: var(--brand); }
 .bar-playing {
