@@ -51,6 +51,7 @@ const ICONS = {
   // share-2 (Lucide) — 3 connected nodes = "send this on / share"; the song-page ↗ uses this,
   // distinct from `share` above which stays the iOS-Safari glyph for the PWA install hint.
   'share-2': '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>',
+  'chevron-left': '<path d="m15 18-6-6 6-6"/>',
   maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
   plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
   // pairs with `plus` for the preview window's font zoom (issues7 · P'Aim "ปุ่มขยาย font ในหน้านั้นเอง")
