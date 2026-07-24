@@ -31,7 +31,7 @@
 | **deploy-prep** | `d010af5d` | docs/config | runbook /v2 + SQL order · 🔴 gate deadline 20:00 |
 | **editor-flow-polish build** | `72e66dc4` | SongViewer(keydown/caret) + Studio | spec `editor-flow-polish.md` (merged) · เช็ก keydown ไม่ชน · **แชร์ SongViewer กับ structure-migration → merge base ก่อน commit · PM เรียง merge** |
 | **structure-migration (ยกแก้โครง+copy/paste)** | `005a4a43` | StructureDrawer ใหม่ + SongViewer(drawer region) | #1 gap · 🔴 paste ต้อง re-mint marker id · ⛔ ไม่ตัดแท็บเก่า · big chunk |
-| **midbar (repeat engine)** | `local_cf8a3d91` | songModel/midi/songFlow (คนละไฟล์) | ✅ design merge `c3340c2` (mid-bar=superset line-level·0 regression·G จับ tuplet/เอื้อน) · **Phase 2 engine APPROVED เดินต่อ** (parallel·นอก deadline) · 🔴 ก่อน commit ต้องล็อก **canonical marker shape** (render `{type:jump…}` vs engine `flow.jump`) แล้วบอก glyph lane normalise |
+| **midbar (repeat engine)** | `local_cf8a3d91` | songModel/midi/songFlow (คนละไฟล์) | ✅ design+shape เคาะ (`c474d90` §7) · **Phase 2 engine GO** (parallel·นอก deadline) · **canonical shape = line-item ชุดเดียว: `{type:'jump',kind:'segno\|coda\|to-coda\|dc\|ds\|fine', al?, id}` + `{type:'end'}`** (D.C./D.S. ย้าย flow→item เพราะ mid-bar · pair by id) · 🟡 **pm 43: จ่าย glyph lane normalise `+id/+al/pair-by-id` ตอน engine landing** · ping pm 43 ตอนเสร็จ |
 **กติกา shared SongViewer:** merge base ก่อน commit · ห้ามทับของอีกเลน · PM เรียงลำดับ merge (แบบ A/B/C save-bar) · **merge=PM เท่านั้น**
 
 **สเปก editor ที่ merge แล้ว (ให้ build อ่าน):** `docs/ds/editor-flow-polish.md` (PART1-2: auto-scroll·ซ่อนแท็บ·คอร์ด-ตรงจุด·cursor 2 โหมด·Delete ดึงชิด rest=0·octave .5/5'·เมนู→⋮) · `command-palette.md`+acceptance · `repeat-jumps.md`+`dc-ds-jump-flow.md`
