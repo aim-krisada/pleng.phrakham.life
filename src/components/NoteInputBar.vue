@@ -17,6 +17,7 @@ import { ref, watch } from 'vue'
 import Icon from './Icon.vue'
 import { isValidChord } from '../lib/chords.js'
 import { readHints } from '../lib/keyHints.js'
+import { SYMBOL_GROUPS } from '../lib/editorCommands.js'
 
 const props = defineProps({
   layer: { type: String, default: 'note' }, // 'note' | 'word' — which controls apply
@@ -36,42 +37,14 @@ const props = defineProps({
 const emit = defineEmits(['octave', 'accidental', 'toggle-mode', 'nav', 'chord', 'symbol', 'undo', 'redo', 'update:helpOpen'])
 
 // ---- the symbol keys (DS note-symbol-set §4.1 / G17) ------------------------------------
-// The 12 characters the inline editor accepts. พี่เปา types happily but cannot FIND the
-// characters ("^ ไม่รู้อยู่ตรงไหนใน keyboard"), so each button is a key-equivalent label in the
-// Apple-HIG sense: line 1 IS the character it types (here the shortcut and the result are the
-// same thing), line 2 names it in Thai, line 3 shows where that key lives — measured on this
-// machine, never a guessed table, and omitted whenever we are not certain (lib/keyHints.js).
+// The characters the inline editor accepts come from the SINGLE registry (lib/editorCommands.js
+// → SYMBOL_GROUPS, the on-bar entries grouped in list order). พี่เปา types happily but cannot
+// FIND the characters ("^ ไม่รู้อยู่ตรงไหนใน keyboard"), so each button is a key-equivalent label
+// in the Apple-HIG sense: line 1 IS the character it types, line 2 names it in Thai, line 3
+// shows where that key lives — measured on this machine (lib/keyHints.js), omitted when unknown.
 // ⛔ No tooltip/hover anywhere: this laptop reports hover:none with a mouse attached.
-// ⛔ ',' and '!' are absent on purpose — the parser gives them no meaning yet.
-const SYMBOL_GROUPS = [
-  {
-    name: 'ความยาว',
-    keys: [
-      { ch: '_', th: 'เขบ็ต' },
-      { ch: '.', th: 'จุดเพิ่ม' },
-      { ch: '-', th: 'ลากเสียง' },
-      { ch: '~', th: 'โยงเสียง' },
-      { ch: '^', th: 'ยืดเสียง' },
-    ],
-  },
-  {
-    name: 'เสียง',
-    keys: [
-      { ch: 'n', th: 'เนเชอรัล' },
-      { ch: "'", th: 'สูงหนึ่งช่วง' },
-    ],
-  },
-  {
-    name: 'กลุ่ม/ห้อง',
-    keys: [
-      { ch: '(', th: 'เอื้อน เปิด' },
-      { ch: ')', th: 'เอื้อน ปิด' },
-      { ch: '{', th: 'สามพยางค์ เปิด' },
-      { ch: '}', th: 'สามพยางค์ ปิด' },
-      { ch: '|', th: 'กั้นห้อง' },
-    ],
-  },
-]
+// ⛔ ',' and '!' are absent on purpose — the parser gives them no meaning yet (so they are not
+//    in the registry). Adding/removing a button = editing the registry, never this file.
 // char → "⇧ + 6" style label, filled in as the user actually types each character
 const keyHints = ref(readHints())
 watch(() => props.hintNonce, () => { keyHints.value = readHints() })

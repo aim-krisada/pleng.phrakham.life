@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedNote, withInsertedBox, withBarAfter, withNoteMark, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedNote, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -25,6 +25,7 @@ import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/s
 import { bookRefLabels } from '../lib/bookCodes.js'
 import { noteBoxKinds } from '../lib/notation.js'
 import { learnKey, loadLayoutMap } from '../lib/keyHints.js'
+import { SYMBOL_CHARS, symbolForKey, applySymbolToContent } from '../lib/editorCommands.js'
 import { createHistory, undoIntent } from '../lib/editHistory.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
@@ -311,9 +312,8 @@ function moveLineJump(dir) {
   gotoLineLayer(u.li + dir, u.col, 'note')
 }
 // The symbol characters the inline editor understands (the toolbar shows a button per
-// character; these are also what we learn keyboard positions for). ',' and '!' are absent:
-// the parser gives them no meaning yet.
-const SYMBOL_CHARS = "_.-~^(){}|n'"
+// character; these are also what we learn keyboard positions for). SYMBOL_CHARS is derived from
+// the single registry (lib/editorCommands.js) = its on-bar entries — no second list here.
 // the browser's measured keyboard layout (Chromium/Edge); null elsewhere — then a hint is only
 // composed for keys whose `code` IS the character (digits/letters). Never a guessed table.
 const layoutMap = ref(null)
@@ -438,23 +438,13 @@ function onCaptureKey(e) {
     if (typeMode.value === 'insert') insertDigit(e.key)
     else overwriteDigit(e.key)
   }
-  // desktop keyboard shortcuts for the note marks that ARE on a physical keyboard (so they need
-  // no button): # = sharp, b = flat, n = natural (jianpu convention, same as the old note boxes).
-  else if (!word && (e.key === '#' || e.key === 'b' || e.key === 'n')) { e.preventDefault(); accidentalSel(e.key) }
-  // the rest of the jianpu symbol set, typed straight onto the sheet (B-fix 23 ก.ค.: these
-  // were silently dead, so a rhythm could not be fixed from the reading surface at all).
-  // MARKS ride on the selected note (each press cycles its own mark, order-free via G1):
-  //   _ เขบ็ต · . จุดเพิ่มความยาว · ~ โยงเสียง · ^ ยืดเสียง (fermata)
-  else if (!word && '_.~^'.includes(e.key)) { e.preventDefault(); markSel(e.key) }
-  // ' = ขึ้นหนึ่งช่วงเสียง — the parser's own high-octave character, so it does exactly what the
-  // สูง↑ button does. (',' and '!' are NOT wired: today's parser gives them no meaning and this
-  // fix invents none — see docs/reports/editor-gap-audit.md.)
-  else if (!word && (e.key === "'" || e.key === '’')) { e.preventDefault(); octaveSel(1) }
-  // STRUCTURE inserts a box of its own next to the cursor: '-' holds the note one more beat,
-  // ( ) wrap a slur/tie group, { } a triplet. An opening bracket lands BEFORE the note.
-  else if (!word && '-(){}'.includes(e.key)) { e.preventDefault(); insertBoxSel(e.key) }
-  // | = เส้นกั้นห้อง — not a note box: it splits the segment in two (see withBarAfter).
-  else if (!word && e.key === '|') { e.preventDefault(); barSel() }
+  // The whole jianpu symbol set, typed straight onto the sheet — # b n (accidentals, on a
+  // physical keyboard so they need no button), the four marks _ . ~ ^ that ride on the note, the
+  // structural boxes - ( ) { }, the high-octave ' (and the curly-quote ’ some keyboards emit),
+  // and the | bar line. ⛔ ONE dispatch: `symbolForKey` (the registry) decides if a key is a
+  // symbol, then `applySymbol` classifies it — the SAME path the toolbar buttons take. The
+  // keydown handler must never re-implement the classification (that was CP-0's silent drift).
+  else if (!word && symbolForKey(e.key)) { e.preventDefault(); applySymbol(e.key) }
   else if (!word && e.key === 'Delete') { e.preventDefault(); deleteSel() }
   else if (!word && e.key === 'Backspace') { e.preventDefault(); removeCell() }
   // WORD layer: an empty word + Backspace removes the whole cell; otherwise let the text edit
@@ -669,43 +659,27 @@ function accidentalSel(acc) {
   const next = withAccidental(props.song.content, loc, acc)
   if (next !== props.song.content) emit('update-content', next)
 }
-// one of the four note marks (_ . ~ ^) on the selected note — cycles that mark only
-function markSel(ch) {
-  const loc = selLoc()
-  if (!loc) return
-  const next = withNoteMark(props.song.content, loc, ch)
-  if (next !== props.song.content) emit('update-content', next)
-}
-// a structural box next to the cursor: '-' / '(' / ')' / '{' / '}'. An OPENING bracket goes
-// before the note; everything else after it. '-' grows the melody, so the cursor steps onto
-// the new box (like typing a note in แทรก mode); a bracket bears no slot, so the cursor stays.
-function insertBoxSel(ch) {
-  const loc = selLoc()
-  if (!loc) return
-  const before = ch === '(' || ch === '{'
-  const next = withInsertedBox(props.song.content, loc, ch, before)
-  if (next !== props.song.content) {
-    emit('update-content', next)
-    if (ch === '-') curIdx.value = curIdx.value + 2
+// ONE entry point for a symbol, whether it was TYPED (keydown passes e.key) or tapped on the
+// toolbar (@symbol passes the button char). DS §4.1: the buttons and the keyboard must be the
+// same thing seen from two sides — never two code paths that drift. Classification lives in the
+// single registry (lib/editorCommands.js): `symbolForKey` resolves the key to its canonical
+// character (so the curly quote ’ raises the octave just like '), and `applySymbolToContent`
+// maps it to the engine action. This function only wires that pure result to the song + cursor.
+function applySymbol(key) {
+  const ch = symbolForKey(key)
+  if (ch) {
+    const loc = selLoc()
+    if (loc) {
+      const next = applySymbolToContent(props.song.content, loc, ch)
+      if (next !== props.song.content) {
+        emit('update-content', next)
+        // '-' grows the melody by one box, so the cursor steps onto the new box (like typing a
+        // note in แทรก mode); every other symbol bears no slot, so the cursor stays put.
+        if (ch === '-') curIdx.value = curIdx.value + 2
+      }
+    }
   }
-}
-// ONE entry point for a symbol, whether it was TYPED or tapped on the toolbar (DS §4.1: the
-// buttons and the keyboard must be the same thing seen from two sides — never two code paths
-// that drift). The keyboard handler above and the bar's @symbol both land here.
-function applySymbol(ch) {
-  if ('_.~^'.includes(ch)) markSel(ch)
-  else if (ch === 'n' || ch === '#' || ch === 'b') accidentalSel(ch)
-  else if (ch === "'") octaveSel(1)
-  else if ('-(){}'.includes(ch)) insertBoxSel(ch)
-  else if (ch === '|') barSel()
   focusCapture() // tapping a button must not steal the caret / close the phone keyboard
-}
-// | = split the segment here with a bar line
-function barSel() {
-  const loc = selLoc()
-  if (!loc) return
-  const next = withBarAfter(props.song.content, loc)
-  if (next !== props.song.content) emit('update-content', next)
 }
 // the chord picker's options for the song's key ("— ไม่มีคอร์ด —" first = clear)
 const chordOpts = computed(() => chordOptions(props.song?.content?.key || 'C'))
