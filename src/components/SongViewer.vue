@@ -1143,6 +1143,11 @@ function toggleEdit() {
 }
 // the shell needs to know, so its mode tabs can tell the truth about where the user is
 watch(editMode, (on) => emit('update:editing', on), { immediate: true })
+// BI-002 — entering the editor STOPS playback. The reading transport (SingTransport) is hidden the
+// moment the pencil turns on, so a song left playing became unstoppable — the audio ran on with no
+// visible ⏹ (P'Aim: "เสียงค้าง"). Stop on the transition IN only (the watch fires on change, so the
+// edit-mode ฟัง buttons that START playback AFTER we are already in edit mode are never cut off).
+watch(editMode, (on) => { if (on) stopPlay() })
 // B053 — source book(s) + scripture caption, same data + label helper as the catalog card
 // (SongList). Shown once at the top of the reading surface so a singer sees where the song
 // comes from without leaving ฝึกร้อง. book_refs → human labels via lib/bookCodes.
