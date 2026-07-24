@@ -4,9 +4,9 @@
 
 ## ▶ pl pm 42 เริ่มที่นี่ (handoff 24 ก.ค. เช้า · จาก pm 41)
 
-**base = `studio-shell-redesign` @ `e8ce270`** (A+B merged · palette+AC docs) · `npm run test:all` = **1314 ผ่าน / 10 skip** · build ผ่าน (PM รันเองทุก merge)
+**base = `studio-shell-redesign` @ `79b468f`** (A+B+Ctrl+Z merged · palette+AC docs) · `npm run test:all` = **1315 ผ่าน / 10 skip** · build ผ่าน (PM รันเองทุก merge)
 **⛔ เว็บจริงยังไม่ถูกแตะเลยตั้งแต่ 23 ก.ค.** — `main` = `5661068`
-**🔥 ไฟล์ร้อน `SongViewer.vue` — จ่ายทีละตัว ห้ามขนาน** · คิว: ~~A~~✅ ~~B~~✅ → **Ctrl+Z** (จ่าย B แล้ว) → **C** (B060 save-bar · PM integrate) → **CP-0** → B091
+**🔥 ไฟล์ร้อน `SongViewer.vue` — จ่ายทีละตัว ห้ามขนาน** · คิว: ~~A~~✅ ~~B~~✅ ~~Ctrl+Z~~✅ → **C** (B060 save-bar 6 ปุ่ม · กำลัง integrate → PM merge) → **CP-0** → **B091**
 **🖥 พรีวิว PM ให้พี่เอมดู:** `npx vite . --host --port 5478` จาก worktree -pm (base) · http://localhost:5478 · http://10.24.43.98:5478 (มือถือ) · ⛔ ไม่ใช่ :5480 (ของพี่เอม)
 
 ### ⭐⭐ ลำดับความสำคัญ (P'Aim 24 ก.ค. · ใช้ตัดสินทุกการจ่ายงาน)
