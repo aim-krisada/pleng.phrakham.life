@@ -860,9 +860,18 @@ export function phraseSectionsFromMelody(notes, holdBeats = 3) {
   }
   const ds = secs.map(density).filter((d) => d > 0).sort((a, b) => a - b)
   const median = ds.length ? ds[Math.floor(ds.length / 2)] : 0
+  // `isRefrain` (strict, 1.5×) and `level` (the loud/soft tier) answer DIFFERENT questions, so they
+  // are tagged separately. isRefrain = "is this the hook?" — only the arranger reads it, and only a
+  // genuinely busier phrase should swap in a fuller refrain comp. level = "how full does โหมดรวมวง
+  // play here?" — the ensemble is its ONLY reader (midi.js levelAt). Split level at the MEDIAN, not
+  // at 1.5×: in most songs no phrase clears the strict bar, so a shared tag would mark every phrase
+  // 'verse' and leave the whole song pinned at the sparse level — เต็มวง จืด, the opposite of the
+  // flat-at-full it replaced. At the median there is always at least one fuller phrase, and a song
+  // of a single phrase stays 'chorus' = exactly what the ensemble played before it had sections.
   return secs.map((s, i) => {
-    const active = median > 0 && density(s) >= median * 1.5
-    return { name: `วรรค ${i + 1}`, fromBeat: s.fromBeat, toBeat: s.toBeat, level: active ? 'chorus' : 'verse', isRefrain: active }
+    const d = density(s)
+    const active = median > 0 && d >= median * 1.5
+    return { name: `วรรค ${i + 1}`, fromBeat: s.fromBeat, toBeat: s.toBeat, level: median > 0 && d < median ? 'verse' : 'chorus', isRefrain: active }
   })
 }
 
@@ -998,9 +1007,15 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     const notes = from > 0 ? fullNotes.slice(from) : fullNotes
     const chordEvents = buildChordVoice(notes)
     const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
-    // §6b.2 REAL sections (verse โปร่ง → chorus เต็ม) — a beat→level lookup from the sheet's labels.
-    // No sections → whole song = chorus (never breaks).
-    const sections = sectionBeatRanges(content, notes)
+    // §6b.2 REAL sections (verse โปร่ง → chorus เต็ม) — a beat→level lookup from the sheet's ท่อน.
+    // resolveSections = the SAME function the solo path (playSong) and the MP3 export call: the
+    // label path PLUS the melody-phrase fallback (golden-piano §3b). Calling sectionBeatRanges
+    // directly here left 56/170 songs — the ones whose labels yield < 2 sections — with NO
+    // sections at all, so levelAt() answered 'chorus' everywhere: the verse→chorus dynamics went
+    // flat and the violin countermelody (gated on 'chorus') played the whole song through.
+    // Songs that already had ≥2 labelled ท่อน are untouched — resolveSections returns those labels
+    // unchanged. Still never empty, so the `|| 'chorus'` default below only guards the impossible.
+    const sections = resolveSections(content, notes)
     const levelAt = (beat) => { const s = sections.find((x) => beat >= x.fromBeat && beat < x.toBeat); return s ? s.level : 'chorus' }
     const secGain = (beat) => ENS.sectionGain[levelAt(beat)]
     // §6b.2 Option 1 — phrase-end GAPS (a long held/rest melody note ≥2.5 beats) where the violin
