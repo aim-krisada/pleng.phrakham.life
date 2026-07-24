@@ -22,10 +22,12 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 
 | ID | อาการย่อ | Sev | สถานะ | จ่ายให้ |
 |----|----------|-----|-------|---------|
-| BI-001 | share ทับชื่อเพลงตอนย่อจอ | S2 | 🔧 dispatched | round-2 SB1 top-bar |
-| BI-002 | เล่นอยู่ กดดินสอ หยุดไม่ได้ | S2 | 🆕 new | — (รอ ping PM) |
+| BI-001 | share ทับชื่อเพลงตอนย่อจอ | S2 | 🔧 dispatched | `411913fd` clever-einstein (SB1 top-bar) |
+| BI-002 | เล่นอยู่ กดดินสอ หยุดไม่ได้ | S2 | 🔧 dispatched | `a06948f3` "Port remaining" (**priority แรก**) |
 
 *เปิดอยู่: 2 · ปิดแล้ว (verified): 0*
+
+**รอ verify:** BI-002 = เข้าโหมดแก้แล้วเสียงหยุด + กดหยุดได้ · BI-001 = ย่อจอแล้วปุ่มไม่ทับชื่อ (แถบเดียว ไม่ wrap). เจ้าของ verify เอง + intake cross-check ตอน PM redeploy.
 
 ---
 
@@ -36,7 +38,7 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **repro:** เปิดหน้าดูเพลง → ค่อยๆ ลดความกว้าง viewport → ปุ่มเริ่มเบียด/ทับ title
 - **รูป:** `bug-intake-assets/BI-001-1.png` (back/branch/⋮ เบียดกัน) · `BI-001-2.png` (share/⋮/"สร้างเพลงใหม่" ทับ "กับเรา")
 - **triage:** valid · **S2** (ไม่พัง prod แต่ใช้งานเสียตอนแคบ) · น่าจะเป็น header ไม่ responsive (ปุ่ม+title แชร์บรรทัดเดียว) · fix แนว: wrap / ยุบปุ่มเป็นไอคอน / title ellipsis
-- **สถานะ:** จ่ายแล้ว round-2 (SB1 top-bar cleanup — share/⋮ ซ้ำ + responsive) · **ไม่ใช่ของใหม่** · จะ verify หลัง round-2 ปิด
+- **สถานะ:** 🔧 dispatched → session `411913fd` clever-einstein (SB1 = ShellBar top-bar cleanup แถบเดียวสะอาด + responsive) · verify: ย่อจอแล้วปุ่มไม่ทับชื่อ (แถบเดียว ไม่ wrap)
 
 ---
 
@@ -47,4 +49,4 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **repro:** เปิดหน้าเพลง → กด ▶ เล่น → ระหว่างเล่นกดดินสอ ✏️ → เสียงเล่นต่อ ไม่มีทางหยุด
 - **รูป:** `bug-intake-assets/BI-002-1.png` (transport เล่นอยู่ 3:12 + ดินสอ)
 - **triage:** valid · **S2** (บน /v2 รุ่นทดลอง · เสียงค้างเล่นไม่หยุด = ใช้งานเสีย) · น่าจะเป็น: เข้าโหมดแก้ไม่ได้ stop playback engine + แถบ transport ถูกซ่อน · fix แนว: เข้าโหมดแก้ให้ stop playback (หรือคงปุ่ม stop เข้าถึงได้)
-- **สถานะ:** ใหม่ · ยังไม่จ่าย · สะสมรอ ping PM เป็นชุดหลัง /v2 push
+- **สถานะ:** 🔧 dispatched → session `a06948f3` "Port remaining" (ถือ SongViewer.vue = ไม่ชน) · **priority แรกก่อนงานอื่นของเขา** (P'Aim สั่ง) · redeploy ทันทีที่แก้เสร็จ · verify: เข้าโหมดแก้แล้วเสียงหยุด + กดหยุดได้
