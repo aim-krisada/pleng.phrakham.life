@@ -114,6 +114,9 @@ const ICONS = {
   // VIEWBOX below): grip keeps its native x≈9/15, the chevron is shifted right +14.
   'dock-grip-expand': '<circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/><g transform="translate(14,0)"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></g>',
   'dock-grip-collapse': '<circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/><g transform="translate(14,0)"><path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/></g>',
+  // marker-entry UI: โหมดมือโปร (wrench) + the "แตะโน้ตที่จะวาง" pointer hint (hand-pointer)
+  wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  'hand-pointer': '<path d="M22 14a8 8 0 0 1-8 8"/><path d="M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1"/><path d="M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10"/><path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
 }
 // Most icons share Lucide's 24×24 canvas; a few (the fused dock glyph) are wider. Any
 // name absent here falls back to '0 0 24 24'.

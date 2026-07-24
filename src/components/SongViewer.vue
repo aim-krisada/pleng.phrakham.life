@@ -14,7 +14,8 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedBox, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedBox, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord, withJumpMarker, removeJumpMarker, updateJumpMarker } from '../lib/songEdit.js'
+import { findOrphanJumps } from '../lib/songFlow.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -25,7 +26,7 @@ import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/s
 import { bookRefLabels } from '../lib/bookCodes.js'
 import { noteBoxKinds } from '../lib/notation.js'
 import { learnKey, loadLayoutMap } from '../lib/keyHints.js'
-import { SYMBOL_CHARS, symbolForKey, applySymbolToContent } from '../lib/editorCommands.js'
+import { SYMBOL_CHARS, symbolForKey, applySymbolToContent, JUMP_PRESETS, JUMP_COMMANDS, applyJumpCommand } from '../lib/editorCommands.js'
 import { lintContent, SEVERITY } from '../lib/notationLint.js'
 import { createHistory, undoIntent } from '../lib/editHistory.js'
 import SongSheet from './SongSheet.vue'
@@ -448,6 +449,16 @@ function onCaptureKey(e) {
   if (selLayer.value !== 'word' && SYMBOL_CHARS.includes(e.key)) {
     if (learnKey(e.key, e.code, e.shiftKey, layoutMap.value)) hintNonce.value++
   }
+  // Ctrl+K (⌘K) — open the ใส่สัญลักษณ์วน/นำทาง menu (jump/navigation markers). stopPropagation for
+  // the same reason as undo: the capture field sees the key first, and the window listener would
+  // otherwise fire a second time. Ctrl+K collides with nothing the note/word layer types. When the
+  // general command palette (docs/ds/command-palette.md) later lands, this delegates to it and
+  // markers become one of its categories — for now it is the marker menu's keyboard door (spec §3.1).
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault(); e.stopPropagation()
+    toggleMarkerMenu()
+    return
+  }
   const ctrl = e.ctrlKey || e.metaKey
   const word = selLayer.value === 'word'
   const el = e.target
@@ -458,6 +469,10 @@ function onCaptureKey(e) {
   if (e.key === 'Escape') {
     e.preventDefault()
     if (pendingLow.value) { pendingLow.value = false; return }
+    // Esc closes the layers the pencil owns before it leaves the pencil (AC-9): disarm a pending
+    // marker drop, then the ใส่สัญลักษณ์วน/นำทาง menu — only a bare Esc exits the editor.
+    if (armedDrop.value >= 0) { armedDrop.value = -1; return }
+    if (markerMenuOpen.value) { markerMenuOpen.value = false; markerNeedNote.value = false; return }
     requestExitEdit()
     return
   }
@@ -999,7 +1014,11 @@ function onInlinePick(e) {
   const seg = nt.closest('.segment[data-seg]')
   if (!seg) return
   const [li, si] = seg.dataset.seg.split('-').map(Number)
-  selectUnit(li, si, Number(nt.dataset.idx), 'note') // tapped the note glyph → edit the NOTE
+  const syk = Number(nt.dataset.idx)
+  // A jump-marker placeholder is armed → this tap DROPS the marker on the note (spec §3.2 point 3:
+  // "แตะ chip → แตะโน้ตปลายทาง"), it does NOT move the edit selection.
+  if (armedDrop.value >= 0) { placeArmedFromTap(li, si, syk); return }
+  selectUnit(li, si, syk, 'note') // tapped the note glyph → edit the NOTE
 }
 // ---- save status (A-fix 23 ก.ค.) --------------------------------------------------------
 // The inline editor used to have exactly ONE button ("เสร็จ") and no way to keep the work:
@@ -1082,6 +1101,169 @@ function lintWhere(f) {
 const lintOpen = ref(false)
 function toggleLint() { lintOpen.value = !lintOpen.value }
 watch(editMode, (on) => { if (!on) lintOpen.value = false })
+
+// ---- ใส่สัญลักษณ์วน/นำทาง (D.C./D.S./Segno/Coda/To-Coda/Fine) — the ENTRY UI (marker-entry-ui.md) --
+// Song-makers could RENDER these markers but never INSERT one: the note-key strip can't carry a
+// {kind,al} structured marker, and typing a "label" only made cosmetic text. This wires the entry
+// surface onto the already-built engine — it reads the ONE registry (editorCommands JUMP_PRESETS /
+// JUMP_COMMANDS) so the ⋮ button, the Ctrl+K accelerator, and any future palette can't drift (CP-0).
+// withJumpMarker / applyJumpCommand do the insert; mintMarkerIds (inside them) auto-links a
+// To-Coda↔Coda / Segno↔D.S. pair BY KIND on every insert, so the dropzone only has to drop the right
+// KIND at the right note — the id pairing is the engine's job (the iReal "can't-break-routing" idea).
+const markerMenuOpen = ref(false)
+const markerProMode = ref(false)       // false = plain-Thai presets; true = one-piece-at-a-time commands
+const markerNeedNote = ref(false)      // "เลือกโน้ตก่อน" hint when the caret is not on a note
+// placeholders a chosen preset still needs the user to DROP (its place[].drop entries). Grows as
+// chips on the panel; each: { kind, placed }. Cleared when the menu/editor closes.
+const pendingDrops = ref([])
+const armedDrop = ref(-1)              // index of the chip armed for a note tap, or -1
+
+const JUMP_KIND_LABEL = {
+  segno: '𝄋 เครื่องหมายวน', coda: '𝄌 โคดา', 'to-coda': 'ไปโคดา',
+  fine: 'Fine (จุดจบ)', dc: 'D.C.', ds: 'D.S.',
+}
+function jumpKindLabel(kind) { return JUMP_KIND_LABEL[kind] || kind }
+
+function toggleMarkerMenu() {
+  markerMenuOpen.value = !markerMenuOpen.value
+  if (markerMenuOpen.value) { settingsOpen.value = false; structureOpen.value = false; lintOpen.value = false }
+  else { markerNeedNote.value = false }
+}
+watch(editMode, (on) => { if (!on) { markerMenuOpen.value = false; pendingDrops.value = []; armedDrop.value = -1; markerNeedNote.value = false } })
+
+// (a marker anchors to a NOTE cell; the tap handlers resolve it via the existing locForCell(cell).)
+
+// choose a plain-Thai preset (e.g. "D.S. al Coda"): place its COMMAND at the caret immediately, then
+// grow a chip for each placeholder the routing still needs (drop:true) so nothing is left implicit.
+function chooseJumpPreset(preset) {
+  const loc = selLoc()
+  if (!loc) { markerNeedNote.value = true; return }
+  markerNeedNote.value = false
+  const cmd = preset.place.find((p) => !p.drop) || preset.place[0]
+  const next = applyJumpCommand(props.song.content, loc, { kind: cmd.kind, al: cmd.al })
+  if (next !== props.song.content) emit('update-content', next)
+  pendingDrops.value = preset.place.filter((p) => p.drop).map((p) => ({ kind: p.kind, placed: false }))
+  armedDrop.value = pendingDrops.value.length ? 0 : -1     // arm the first placeholder for a tap
+  markerProMode.value = false
+  focusCapture()
+}
+
+// pro mode: drop ONE command at the caret (for someone who knows the theory / a routing no preset covers)
+function chooseJumpCommand(cmd) {
+  const loc = selLoc()
+  if (!loc) { markerNeedNote.value = true; return }
+  markerNeedNote.value = false
+  const next = applyJumpCommand(props.song.content, loc, { kind: cmd.kind })
+  if (next !== props.song.content) emit('update-content', next)
+  focusCapture()
+}
+
+// place the idx-th pending placeholder on a note loc (from a tap, or the caret via placeDropAtCaret).
+function placeDropAt(idx, loc) {
+  const d = pendingDrops.value[idx]
+  if (!d || d.placed || !loc) return
+  const next = withJumpMarker(props.song.content, loc, { kind: d.kind })
+  if (next !== props.song.content) emit('update-content', next)   // mintMarkerIds auto-links the pair
+  const arr = pendingDrops.value.slice(); arr[idx] = { ...d, placed: true }; pendingDrops.value = arr
+  armedDrop.value = arr.findIndex((x) => !x.placed)               // arm the next unplaced, or -1 when done
+}
+function placeDropAtCaret(idx) {
+  const loc = selLoc()
+  if (!loc) { markerNeedNote.value = true; return }
+  markerNeedNote.value = false
+  placeDropAt(idx, loc)
+}
+// A single note tap fires BOTH onSeek (SongSheet's emit) and onInlinePick (the wrapper) — for
+// SELECTION that is harmless (the second just re-selects), but for a DROP each would consume a
+// different chip. This guard makes one physical tap place exactly one marker; the flag clears on
+// the next microtask, after both same-tick handlers have run. (syk is irrelevant to jump placement —
+// withJumpMarker anchors to the SEGMENT si — so whichever handler wins lands on the same spot.)
+let dropTapGuard = false
+function placeArmedFromTap(li, si, syk) {
+  if (armedDrop.value < 0 || dropTapGuard) return
+  dropTapGuard = true
+  Promise.resolve().then(() => { dropTapGuard = false })
+  placeDropAt(armedDrop.value, locForCell({ li, si, syk }))
+}
+function armDrop(idx) { armedDrop.value = armedDrop.value === idx ? -1 : idx; markerNeedNote.value = false }
+function clearPendingDrops() { pendingDrops.value = []; armedDrop.value = -1 }
+
+// orphan guard (AC-3) — the engine SSOT, so it never disagrees with playback. A leftover pending
+// chip OR a routing the resolver can't complete (findOrphanJumps) both surface as a persistent notice.
+const orphanJumps = computed(() => findOrphanJumps(props.song?.content) || [])
+// findOrphanJumps reports {kind:'ds-orphan'} (a D.S. with no Segno to return to) / {kind:'tocoda-orphan'}
+// (a To Coda with no Coda to jump to) — spell the MISSING partner so the fix is obvious.
+const ORPHAN_LABEL = {
+  'ds-orphan': 'ยังไม่ได้วาง 𝄋 เครื่องหมายวน (จุดที่ D.S. ย้อนไป)',
+  'tocoda-orphan': 'ยังไม่ได้วาง 𝄌 โคดา (จุดที่ ไปโคดา กระโดดไป)',
+}
+const orphanText = computed(() =>
+  [...new Set(orphanJumps.value.map((o) => ORPHAN_LABEL[o.kind] || o.kind))].join(' · '))
+
+// every jump marker currently in the song, in reading order — the edit/delete list (AC-7) and the
+// "มีอยู่แล้ว" awareness. {id, kind, al, stanzaIndex, lineIndex} walked straight off the stored model.
+const placedMarkers = computed(() => {
+  const c = props.song?.content
+  if (!c?.stanzas) return []
+  const out = []
+  c.stanzas.forEach((s, sIdx) => (s.lines || []).forEach((line, lIdx) => {
+    if (!Array.isArray(line)) return
+    line.forEach((it) => { if (it && it.type === 'jump' && it.id) out.push({ id: it.id, kind: it.kind, al: it.al, stanzaIndex: sIdx, lineIndex: lIdx }) })
+  }))
+  return out
+})
+const jumpsPresent = computed(() => placedMarkers.value.length > 0)
+
+// delete a placed marker. A dc/ds COMMAND owns a routing (Segno/Coda it points at); offer to remove
+// the whole set so no orphan is left (spec §5 delete-cascade). Its partners are the segno/coda/to-coda
+// markers of the SAME song — we clear them all when the user confirms a full-set delete.
+function deleteMarker(m) {
+  const partnersOf = (kind, al) => {
+    if (kind === 'ds') return al === 'coda' ? ['segno', 'to-coda', 'coda'] : ['segno']
+    if (kind === 'dc') return al === 'coda' ? ['to-coda', 'coda'] : []
+    return []
+  }
+  const partners = partnersOf(m.kind, m.al)
+  let content = props.song.content
+  if (partners.length && typeof window !== 'undefined' &&
+      window.confirm(`ลบ ${jumpDirectiveLabel(m)} พร้อมจุดที่มันชี้ไป (${partners.map(jumpKindLabel).join(' · ')}) ด้วยไหม?\n\nกด "ตกลง" = ลบทั้งชุด · "ยกเลิก" = ลบเฉพาะคำสั่งนี้`)) {
+    // remove partners (each unique id whose kind is a partner)
+    for (const pm of placedMarkers.value) {
+      if (pm.id !== m.id && partners.includes(pm.kind)) content = removeJumpMarker(content, pm.id)
+    }
+  }
+  content = removeJumpMarker(content, m.id)
+  if (content !== props.song.content) emit('update-content', content)
+}
+// change a placed marker's kind/al in place (edit popup)
+function changeMarker(id, patch) {
+  const next = updateJumpMarker(props.song.content, id, patch)
+  if (next !== props.song.content) emit('update-content', next)
+}
+function jumpDirectiveLabel(m) {
+  if (m.kind === 'dc') return m.al === 'fine' ? 'D.C. al Fine' : m.al === 'coda' ? 'D.C. al Coda' : 'D.C.'
+  if (m.kind === 'ds') return m.al === 'fine' ? 'D.S. al Fine' : m.al === 'coda' ? 'D.S. al Coda' : 'D.S.'
+  return jumpKindLabel(m.kind)
+}
+
+// breadcrumb "ลำดับเล่นจริง" (AC-6) — the deterministic play order from resolvePlayOrder, spelled in
+// human words so the author sees the routing WITHOUT tracing arrows. Each range → the section name of
+// its first display line (or ท่อน N). Updates live because it is a computed over props.song.content.
+const playOrderCrumbs = computed(() => {
+  const c = props.song?.content
+  const order = resolvePlayOrder(c)
+  const lines = resolved.value?.lines || []
+  if (!Array.isArray(order) || !order.length) return []
+  const sectionOf = (li) => {
+    const rl = lines[li]
+    const sec = Array.isArray(rl) ? rl.find((it) => it && it.type === 'section') : null
+    if (sec?.name) return sec.name
+    const ei = rl?._entryIndex
+    return ei != null ? `ท่อน ${ei + 1}` : `บรรทัด ${li + 1}`
+  }
+  return order.map((r) => sectionOf(r.fromLi))
+})
+const showBreadcrumb = computed(() => jumpsPresent.value && playOrderCrumbs.value.length > 1)
 // The cursor's source address (which melody line + bar + verse), for the drawer's คัดลอก/วาง.
 // Maps the display cursor back through the resolved line's provenance tags. null when unselected.
 const structCursor = computed(() => {
@@ -1108,7 +1290,9 @@ function onSettingsMusic(patch) { emit('update-music', patch) }
 
 // The edit surface's handlers, exposed so the tests can drive the SAME functions the UI does
 // (a test that reimplements the wiring proves nothing about the wiring).
-defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit, toggleEdit, requestExitEdit, playScope, playWholeFromEditor, toggleSettings, onSettingsMusic, onSettingsMeta })
+defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit, toggleEdit, requestExitEdit, playScope, playWholeFromEditor, toggleSettings, onSettingsMusic, onSettingsMeta,
+  // marker-entry UI (for tests that drive the SAME handlers the panel does)
+  toggleMarkerMenu, chooseJumpPreset, chooseJumpCommand, placeDropAtCaret, armDrop, deleteMarker, changeMarker, pendingDrops, placedMarkers, orphanJumps, playOrderCrumbs })
 
 // Leaving the editor — ONE gate, wherever the request comes from (the ✓ button, or the shell's
 // mode tabs asking to take the user somewhere else). Returns true when we actually left, so the
@@ -1709,6 +1893,10 @@ onUnmounted(() => {
 // tap a syllable/note in the sheet → jump playback there (US H1). Find the note's index
 // in the CURRENT play order and start from it, in the current key.
 function onSeek({ li, si, syk }) {
+  // ✏️ on + a marker placeholder armed → drop it on this cell's note (a word tap still anchors the
+  // marker to its note; markers carry no syllable). onInlinePick handles the note-glyph tap; this
+  // covers a word (.syl @click.stop) tap so either target places the armed marker.
+  if (editMode.value && armedDrop.value >= 0) { placeArmedFromTap(li, si, syk); return }
   // ✏️ on: a tap SELECTS the note/word for editing instead of jumping playback. A word (.syl)
   // is @click.stop so it only reaches here → edit the WORD; a note-area tap also fires this
   // (syk 0) but onInlinePick runs after and overrides to the exact note + layer 'note'.
@@ -1800,6 +1988,18 @@ function onSeek({ li, si, syk }) {
             :title="lintCount ? `ตรวจโน้ต — พบ ${lintCount} จุดที่ควรตรวจ` : 'ตรวจโน้ต — ไม่พบปัญหา'"
             @click="toggleLint"
           ><Icon :name="lintCount ? 'triangle-alert' : 'badge-check'" :size="16" /> <span class="sv-settings-lbl">{{ lintCount ? `ตรวจโน้ต ${lintCount}` : 'ตรวจโน้ต' }}</span></button>
+          <!-- ใส่สัญลักษณ์วน/นำทาง (D.C./D.S./Segno/Coda/Fine) — the ⋮ door (spec §3.1). Ctrl+K opens
+               the same menu. An amber dot marks a routing that still needs a marker dropped. -->
+          <button
+            class="sv-marker-btn"
+            type="button"
+            :class="{ 'has-pending': pendingDrops.some((d) => !d.placed) || orphanJumps.length }"
+            :aria-expanded="markerMenuOpen"
+            :aria-pressed="markerMenuOpen"
+            aria-haspopup="menu"
+            title="ใส่สัญลักษณ์วน/นำทาง — ย้อนต้น (D.C.) · ย้อนเครื่องหมายวน (D.S.) · โคดา · Fine (Ctrl+K)"
+            @click="toggleMarkerMenu"
+          ><Icon name="repeat" :size="16" /> <span class="sv-settings-lbl">วน/นำทาง</span></button>
           <button
             class="sv-structure-btn"
             type="button"
@@ -1850,6 +2050,120 @@ function onSeek({ li, si, syk }) {
             </div>
           </li>
         </ul>
+      </div>
+
+      <!-- ใส่สัญลักษณ์วน/นำทาง — the marker-entry panel (spec docs/ds/marker-entry-ui.md). Anchored
+           under the save bar like ตรวจโน้ต; never floats over the sheet. Reads the registry only. -->
+      <div v-if="editMode && markerMenuOpen" class="sv-marker-panel no-print" role="dialog" aria-label="ใส่สัญลักษณ์วน/นำทาง" @keydown.esc="toggleMarkerMenu">
+        <div class="sv-marker-head">
+          <strong>ใส่สัญลักษณ์วน/นำทาง</strong>
+          <span class="sv-marker-sub">ย้อนต้น (D.C.) · ย้อนเครื่องหมายวน (D.S.) · โคดา · Fine</span>
+          <button class="sv-marker-close" type="button" aria-label="ปิด" @click="toggleMarkerMenu"><Icon name="x" :size="16" /></button>
+        </div>
+
+        <!-- select a NOTE first — a marker anchors to a note; say so instead of failing silently -->
+        <p v-if="markerNeedNote" class="sv-marker-note" role="alert">
+          <Icon name="info" :size="16" /> แตะโน้ตที่จะให้สัญลักษณ์ไปอยู่ก่อน แล้วเลือกอีกครั้ง
+        </p>
+
+        <!-- STEP 1 — pick a routing. Plain-Thai presets first (no theory needed); โหมดมือโปร below. -->
+        <div v-if="!markerProMode" class="sv-marker-presets" role="listbox" aria-label="รูปแบบการวนร้อง">
+          <button
+            v-for="p in JUMP_PRESETS"
+            :key="p.id"
+            class="sv-marker-preset"
+            type="button"
+            role="option"
+            @click="chooseJumpPreset(p)"
+          ><Icon name="repeat" :size="16" class="sv-marker-preset-ic" aria-hidden="true" /> {{ p.th }}</button>
+          <button class="sv-marker-promode" type="button" @click="markerProMode = true">
+            <Icon name="wrench" :size="15" /> โหมดมือโปร (วางทีละชิ้น)
+          </button>
+        </div>
+        <div v-else class="sv-marker-presets" role="listbox" aria-label="สัญลักษณ์ทีละชิ้น">
+          <button
+            v-for="cmd in JUMP_COMMANDS"
+            :key="cmd.id"
+            class="sv-marker-preset"
+            type="button"
+            role="option"
+            @click="chooseJumpCommand(cmd)"
+          >{{ cmd.th }}</button>
+          <button class="sv-marker-promode" type="button" @click="markerProMode = false">
+            <Icon name="chevron-left" :size="15" /> กลับไปรูปแบบสำเร็จ
+          </button>
+        </div>
+
+        <!-- STEP 2 — dropzone: place each placeholder the routing still needs (auto-linked on drop) -->
+        <div v-if="pendingDrops.length" class="sv-marker-drops">
+          <p class="sv-marker-drops-lead">ยังต้องวาง — แตะชิป แล้วแตะโน้ตที่จะวาง (หรือกด “วางที่เคอร์เซอร์”):</p>
+          <div class="sv-marker-chips">
+            <span
+              v-for="(d, i) in pendingDrops"
+              :key="i"
+              class="sv-marker-chip"
+              :class="{ placed: d.placed, armed: armedDrop === i }"
+            >
+              <button
+                class="sv-marker-chip-main"
+                type="button"
+                :disabled="d.placed"
+                :aria-pressed="armedDrop === i"
+                @click="armDrop(i)"
+              >
+                <Icon v-if="d.placed" name="check" :size="15" />
+                <Icon v-else-if="armedDrop === i" name="hand-pointer" :size="15" />
+                {{ jumpKindLabel(d.kind) }}
+              </button>
+              <button
+                v-if="!d.placed"
+                class="sv-marker-chip-here"
+                type="button"
+                title="วางที่โน้ตที่เลือกอยู่"
+                @click="placeDropAtCaret(i)"
+              >วางที่เคอร์เซอร์</button>
+            </span>
+          </div>
+          <p v-if="armedDrop >= 0 && !pendingDrops[armedDrop].placed" class="sv-marker-armhint">
+            <Icon name="hand-pointer" :size="15" /> แตะโน้ตบนแผ่นเพลงเพื่อวาง {{ jumpKindLabel(pendingDrops[armedDrop].kind) }}
+          </p>
+          <button v-if="pendingDrops.every((d) => d.placed)" class="sv-marker-done" type="button" @click="clearPendingDrops">
+            <Icon name="check" :size="15" /> วางครบแล้ว
+          </button>
+        </div>
+
+        <!-- orphan guard (AC-3) — a routing missing its partner. Persists until fixed. -->
+        <p v-if="orphanText" class="sv-marker-orphan" role="alert">
+          <Icon name="triangle-alert" :size="16" /> {{ orphanText }}
+        </p>
+
+        <!-- ลำดับเล่นจริง (AC-6) — the deterministic play order, in words, live. -->
+        <div v-if="showBreadcrumb" class="sv-marker-crumbs">
+          <span class="sv-marker-crumbs-lead">ลำดับเล่นจริง:</span>
+          <span class="sv-marker-crumb-list">
+            <template v-for="(c, i) in playOrderCrumbs" :key="i"><span class="sv-marker-crumb">{{ c }}</span><span v-if="i < playOrderCrumbs.length - 1" class="sv-marker-arrow" aria-hidden="true"> ➔ </span></template>
+          </span>
+        </div>
+
+        <!-- placed markers — edit (kind/al) or delete, with delete-cascade (AC-7) -->
+        <div v-if="placedMarkers.length" class="sv-marker-list">
+          <p class="sv-marker-list-lead">สัญลักษณ์ในเพลงนี้</p>
+          <div v-for="m in placedMarkers" :key="m.id" class="sv-marker-row">
+            <span class="sv-marker-row-label">{{ jumpDirectiveLabel(m) }}</span>
+            <span v-if="m.kind === 'dc' || m.kind === 'ds'" class="sv-marker-al">
+              <label>จบที่:
+                <select :value="m.al || ''" @change="changeMarker(m.id, { al: $event.target.value || null })">
+                  <option value="">— (เล่นต่อจนจบ)</option>
+                  <option value="fine">Fine</option>
+                  <option value="coda">โคดา</option>
+                </select>
+              </label>
+            </span>
+            <button class="sv-marker-del" type="button" :title="`ลบ ${jumpDirectiveLabel(m)}`" :aria-label="`ลบ ${jumpDirectiveLabel(m)}`" @click="deleteMarker(m)">
+              <Icon name="trash-2" :size="15" />
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- B060 — the settings themselves. Non-modal beside the sheet on a wide screen, a
@@ -2268,6 +2582,88 @@ function onSeek({ li, si, syk }) {
 .sv-lint-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .sv-lint-where { font-weight: 600; color: var(--ink, #362f28); font-size: 12px; }
 .sv-lint-msg { color: var(--muted, #6f6455); line-height: 1.4; }
+
+/* ---- ใส่สัญลักษณ์วน/นำทาง — the ⋮ button + its panel (marker-entry-ui.md) ---------------------- */
+/* the trigger matches its save-bar siblings (ตรวจโน้ต/โครงเพลง/ตั้งค่าเพลง) so the row reads as one group */
+.sv-marker-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 32px; padding: 4px 12px; border-radius: 8px;
+  border: 1px solid var(--line, #e2e8f0); background: var(--surface, #fff);
+  color: var(--ink, #0f172a); font: inherit; font-size: 13px; cursor: pointer;
+}
+.sv-marker-btn[aria-pressed='true'] { border-color: var(--brand, #8b4513); color: var(--brand, #8b4513); }
+.sv-marker-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* an unfinished routing (a pending drop or an orphan) glows amber — colour is NOT the only signal:
+   the panel's orphan banner and the pending chips carry the same meaning in words (WCAG 1.4.1). */
+.sv-marker-btn.has-pending { border-color: color-mix(in srgb, var(--brand, #b45309) 55%, var(--line, #e2e8f0)); color: var(--brand, #b45309); }
+@media (max-width: 640px) {
+  .sv-marker-btn { min-height: var(--touch-min, 44px); min-width: var(--touch-min, 44px); justify-content: center; padding: 0 10px; }
+}
+
+/* panel — same anchored card as ตรวจโน้ต; a flex child above the sheet, never floating over notes */
+.sv-marker-panel {
+  flex: 0 0 auto; margin: 0 0 6px; padding: 10px 12px; border-radius: 8px;
+  background: var(--surface, #fff); border: 1px solid var(--line, #e2e8f0);
+  max-height: 46vh; overflow-y: auto; font-size: 13px;
+}
+.sv-marker-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.sv-marker-head strong { color: var(--ink, #0f172a); }
+.sv-marker-sub { color: var(--muted, #6f6455); font-size: 12px; }
+.sv-marker-close { margin-inline-start: auto; display: inline-flex; align-items: center; justify-content: center; min-width: 28px; min-height: 28px; border: 0; background: transparent; color: var(--muted, #6f6455); border-radius: 6px; cursor: pointer; }
+.sv-marker-close:hover { background: color-mix(in srgb, var(--ink, #362f28) 8%, transparent); }
+.sv-marker-close:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+.sv-marker-note { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 6px 8px; border-radius: 6px; background: color-mix(in srgb, var(--brand, #b45309) 10%, transparent); color: var(--brand, #b45309); }
+
+/* STEP 1 — routing list. Each row a full-width tap target (≥40px), left-aligned like a menu. */
+.sv-marker-presets { display: flex; flex-direction: column; gap: 4px; }
+.sv-marker-preset {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: start;
+  min-height: 40px; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--line, #e2e8f0); background: var(--surface, #fff);
+  color: var(--ink, #0f172a); font: inherit; font-size: 13px; cursor: pointer;
+}
+.sv-marker-preset:hover { border-color: color-mix(in srgb, var(--brand, #b45309) 40%, var(--line, #e2e8f0)); background: color-mix(in srgb, var(--brand, #b45309) 6%, transparent); }
+.sv-marker-preset:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+.sv-marker-preset-ic { flex: 0 0 auto; color: var(--brand, #b45309); }
+.sv-marker-promode { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; margin-top: 2px; padding: 4px 8px; border: 0; background: transparent; color: var(--muted, #6f6455); font: inherit; font-size: 12px; cursor: pointer; border-radius: 6px; }
+.sv-marker-promode:hover { color: var(--brand, #b45309); text-decoration: underline; }
+
+/* STEP 2 — dropzone chips */
+.sv-marker-drops { margin-top: 10px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--line, #e2e8f0) 70%, transparent); }
+.sv-marker-drops-lead { margin: 0 0 6px; color: var(--muted, #6f6455); font-size: 12px; }
+.sv-marker-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sv-marker-chip { display: inline-flex; align-items: stretch; border-radius: 8px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--brand, #b45309) 45%, var(--line, #e2e8f0)); }
+.sv-marker-chip.placed { border-color: var(--cat-green, #3fa34d); }
+.sv-marker-chip.armed { box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand, #b45309) 55%, transparent); }
+.sv-marker-chip-main { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 10px; border: 0; background: color-mix(in srgb, var(--brand, #b45309) 8%, transparent); color: var(--ink, #362f28); font: inherit; font-size: 13px; cursor: pointer; }
+.sv-marker-chip.placed .sv-marker-chip-main { background: color-mix(in srgb, var(--cat-green, #3fa34d) 12%, transparent); color: var(--cat-green, #2f7d3a); cursor: default; }
+.sv-marker-chip-main[aria-pressed='true'] { background: color-mix(in srgb, var(--brand, #b45309) 20%, transparent); font-weight: 600; }
+.sv-marker-chip-here { min-height: 34px; padding: 4px 8px; border: 0; border-inline-start: 1px solid color-mix(in srgb, var(--brand, #b45309) 30%, var(--line, #e2e8f0)); background: transparent; color: var(--brand, #b45309); font: inherit; font-size: 12px; cursor: pointer; }
+.sv-marker-chip-here:hover { background: color-mix(in srgb, var(--brand, #b45309) 10%, transparent); }
+.sv-marker-chip-main:focus-visible, .sv-marker-chip-here:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: -1px; }
+.sv-marker-armhint { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; color: var(--brand, #b45309); font-size: 12px; }
+.sv-marker-done { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; margin-top: 8px; padding: 4px 12px; border-radius: 8px; border: 1px solid var(--cat-green, #3fa34d); background: color-mix(in srgb, var(--cat-green, #3fa34d) 10%, transparent); color: var(--cat-green, #2f7d3a); font: inherit; font-size: 13px; cursor: pointer; }
+
+/* orphan banner (AC-3) */
+.sv-marker-orphan { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; padding: 6px 8px; border-radius: 6px; background: color-mix(in srgb, var(--red, #c0392b) 8%, transparent); color: var(--red, #c0392b); }
+
+/* ลำดับเล่นจริง breadcrumb (AC-6) */
+.sv-marker-crumbs { margin-top: 10px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--line, #e2e8f0) 70%, transparent); line-height: 1.7; }
+.sv-marker-crumbs-lead { color: var(--muted, #6f6455); font-size: 12px; margin-inline-end: 6px; }
+.sv-marker-crumb { display: inline-block; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--brand, #b45309) 8%, transparent); color: var(--ink, #362f28); }
+.sv-marker-arrow { color: var(--muted, #6f6455); }
+
+/* placed-markers list — edit al / delete (AC-7) */
+.sv-marker-list { margin-top: 10px; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--line, #e2e8f0) 70%, transparent); }
+.sv-marker-list-lead { margin: 0 0 6px; color: var(--muted, #6f6455); font-size: 12px; }
+.sv-marker-row { display: flex; align-items: center; gap: 10px; padding: 5px 2px; }
+.sv-marker-row + .sv-marker-row { border-top: 1px solid color-mix(in srgb, var(--line, #e2e8f0) 60%, transparent); }
+.sv-marker-row-label { font-weight: 600; color: var(--ink, #362f28); }
+.sv-marker-al { color: var(--muted, #6f6455); font-size: 12px; }
+.sv-marker-al select { font: inherit; font-size: 12px; padding: 2px 4px; border-radius: 6px; border: 1px solid var(--line, #e2e8f0); background: var(--surface, #fff); color: var(--ink, #362f28); }
+.sv-marker-del { margin-inline-start: auto; display: inline-flex; align-items: center; justify-content: center; min-width: 28px; min-height: 28px; border: 1px solid transparent; background: transparent; color: var(--red, #c0392b); border-radius: 6px; cursor: pointer; }
+.sv-marker-del:hover { background: color-mix(in srgb, var(--red, #c0392b) 10%, transparent); }
+.sv-marker-del:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 1px; }
 
 /* ฟังตอนแก้ — the transport inside the pencil. Sized to the save bar's own button (32px tall),
    which clears the WCAG 2.2 AA 24px target floor without towering over its siblings. Plain
