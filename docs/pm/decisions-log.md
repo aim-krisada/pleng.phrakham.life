@@ -28,6 +28,8 @@
 
 - **2026-07-24 (pm46) · 🔴 บทเรียนซ้ำ: PM relay claim ที่พิสูจน์ไม่ครบ → P'Aim จับได้** — BI-011 พิสูจน์ toggle-off เฉพาะ tie `~` (data 5~→5) แต่**เคลม slur `( )` ลบได้ด้วยโดยไม่ verify** · PM relay ทั้งก้อนให้ P'Aim → P'Aim ลองจริง (เพลง 141 · กด ( ที่ 6, ) ที่ 1) **ลบไม่ได้** · = ตรง lesson เดิม "ยก NOT PROVEN ทุกครั้ง · ห้าม relay claim ไม่มีหลักฐาน" (worker เขียน "~ tie / ( ) slur" รวมกันเหมือน verify ทั้งคู่ · จริงมีหลักฐานแค่ tie) → **PM ต้องอ่าน EVIDENCE ว่าพิสูจน์อะไรจริง ไม่เหมาว่า 'ลบได้' = ครอบทุกสัญลักษณ์** · แก้ = BI-011b (verify slur JSON จริง)
 
+- **2026-07-24 (pm46) · ✅ ยืนยันบทเรียน "prove real drag": BI-004 "drag PASS" = CDP false positive** — BI-015 พิสูจน์ด้วยการลากจริง (Input.dispatchMouse/TouchEvent) ว่า native HTML5 DnD บน 717fb7a **ลากเมาส์จริงไม่ขยับ + touch ไม่ยิง event เลย** ทั้งที่ tester BI-004 เคยรายงาน "drag PASS" (ใช้ dispatchDragEvent synthetic) → **CDP synthetic drag = false positive · ต้องลากด้วย pointer/touch จริงเสมอ** (ตรง memory feedback_heard_bugs_prove_by_ear + agent-browser-not-rendering) · fix = pointerReorder.js pointer-based ครบ 3 ลิสต์
+
 ## บทเรียนวันนี้ (durable · ใช้ต่อ)
 - **Tester verify บน Chromium จริงช่วยกัน false alarm 2 เรื่องในงานเดียว** (24 ก.ค.) — browser pane ทำให้ดูเหมือนกล่องเตือนถูก dock ทับ + เหมือนปุ่มลบกิน flow ข้ออื่น · ของจริงถูกต้องทั้งคู่ (scrollIntoView ไม่ทำงาน / CDP serialize Vue proxy เป็น `{}`) ⇒ **ห้ามฟันบั๊ก UI/timing จาก browser pane** (ตรงกับ memory `pleng-agent-browser-not-rendering`)
 - **`ICONS[name] || ''` = ไอคอนหายเงียบ** — เรียกชื่อที่ไม่มีในชุด ได้ svg ว่าง ไม่มี error · ตระกูลเดียวกับบั๊กเงียบอื่นๆ ที่ทีมไล่ปิดทั้งวัน
