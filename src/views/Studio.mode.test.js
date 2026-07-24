@@ -36,7 +36,7 @@ import EditorMode from '../components/EditorMode.vue'
 const stubs = {
   SongViewer: { name: 'SongViewer', props: ['song'], template: '<div class="stub-viewer" />' },
   SongSheet: { name: 'SongSheet', props: ['content', 'songTitle'], template: '<div class="stub-sheet" />' },
-  EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active'], emits: ['change', 'save'], template: '<div class="stub-editor" />' },
+  EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active'], emits: ['change', 'save', 'new-song'], template: '<div class="stub-editor" />' },
   Icon: true,
 }
 
@@ -58,10 +58,43 @@ async function back() {
 }
 
 describe('Studio shell — three modes on one surface (US-01)', () => {
-  it('a bare /studio opens in the editor mode', async () => {
+  // BI-017 — a bare /studio is the app's primary CREATE action (shell ＋สร้างเพลงใหม่ pill /
+  // drawer / FAB, About's "ห้องทำเพลง" link). It must open the INLINE editor (a blank editable
+  // song on the reading surface), NOT the legacy full grid editor. (Before: it dumped every
+  // create into EditorMode — the reported bug. The legacy editor is still reachable on purpose
+  // via ⋮ → "ตัวแก้แบบเต็ม (เดิม)".)
+  it('a bare /studio opens the inline editor with a blank song (not the legacy full editor)', async () => {
     const wrapper = mount(Studio, { global: { stubs } })
     await nextTick()
-    expect(wrapper.findComponent(EditorMode).props('active')).toBe(true)
+    expect(wrapper.findComponent(EditorMode).props('active')).toBe(false)
+    const viewer = wrapper.findComponent(SongViewer)
+    expect(viewer.exists()).toBe(true)
+    // a blank editable song is seeded (title empty, one renderable v2 note box)
+    expect(viewer.props('song')).toMatchObject({ title_th: '' })
+    expect(viewer.props('song').content.version).toBe(2)
+  })
+
+  // BI-017 — the "สร้างเพลงใหม่" button INSIDE the legacy full editor must land in the SAME
+  // inline create flow as every other create action (single source of create), not reset the old
+  // grid in place. It emits 'new-song'; the shell answers with createNewSong → inline blank song.
+  it('the legacy editor\'s สร้างเพลงใหม่ (new-song) lands in the inline editor, not the old grid', async () => {
+    const wrapper = mount(Studio, { global: { stubs } })
+    await nextTick()
+    // simulate having entered the legacy full editor on an existing song
+    wrapper.findComponent(EditorMode).vm.$emit('change', {
+      id: 42, number: 9, title_th: 'เพลงเดิม', title_en: '',
+      content: { version: 2, key: 'C', timeSignature: '4/4', stanzas: [], arrangement: [] },
+    })
+    await nextTick()
+    // its "สร้างเพลงใหม่" → new-song
+    wrapper.findComponent(EditorMode).vm.$emit('new-song')
+    await nextTick()
+    // the legacy editor is no longer the active surface; a blank inline song is seeded
+    expect(wrapper.findComponent(EditorMode).props('active')).toBe(false)
+    const viewer = wrapper.findComponent(SongViewer)
+    expect(viewer.exists()).toBe(true)
+    expect(viewer.props('song')).toMatchObject({ title_th: '' })
+    expect(viewer.props('song').number).toBe(null)
   })
 
   it('renders one component per mode (‹→Viewer · ⋮แผ่น→Sheet · ⋮ตัวแก้เต็ม→Editor)', async () => {
