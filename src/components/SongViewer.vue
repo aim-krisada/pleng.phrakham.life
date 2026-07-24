@@ -1117,6 +1117,14 @@ const markerNeedNote = ref(false)      // "เลือกโน้ตก่อ�
 // chips on the panel; each: { kind, placed }. Cleared when the menu/editor closes.
 const pendingDrops = ref([])
 const armedDrop = ref(-1)              // index of the chip armed for a note tap, or -1
+const dropZoneRef = ref(null)          // the STEP-2 dropzone, so newly-grown chips scroll into view
+// On a short screen the panel scrolls internally (max-height), so the dropzone that appends when a
+// preset is chosen can land below the panel's own fold (and below the note-key dock). Bring it into
+// the panel's view the moment it appears — the panel's visible area sits ABOVE the dock, so the
+// chips end up reachable without the user hunting for them (Tester, short-screen finding 24 ก.ค.).
+watch(() => pendingDrops.value.length, (n, prev) => {
+  if (n > 0 && n !== prev) nextTick(() => dropZoneRef.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
+})
 
 const JUMP_KIND_LABEL = {
   segno: '𝄋 เครื่องหมายวน', coda: '𝄌 โคดา', 'to-coda': 'ไปโคดา',
@@ -2095,7 +2103,7 @@ function onSeek({ li, si, syk }) {
         </div>
 
         <!-- STEP 2 — dropzone: place each placeholder the routing still needs (auto-linked on drop) -->
-        <div v-if="pendingDrops.length" class="sv-marker-drops">
+        <div v-if="pendingDrops.length" ref="dropZoneRef" class="sv-marker-drops">
           <p class="sv-marker-drops-lead">ยังต้องวาง — แตะชิป แล้วแตะโน้ตที่จะวาง (หรือกด “วางที่เคอร์เซอร์”):</p>
           <div class="sv-marker-chips">
             <span
