@@ -14,7 +14,7 @@
 - **BI-017** ปุ่ม "สร้างเพลงใหม่" ในแผงตั้งค่าเพลงยังไปหน้าเก่า (db7ebce แก้แค่ปุ่ม ＋ shell · ตกหล่นจุดนี้) — chip `task_f9a74487` wire ทุก entry→inline
 - **BI-012 discoverability = deliverable หลัก Phase 2** (P'Aim: chord ไม่มี help เลย ปุ่มเขียนแค่ "คอร์ด" · ไอเดียปุ่ม ◀▶ เพิ่มตำแหน่งคอร์ด) → consult G เจาะ discoverability + ประเมินไอเดียลูกศร มีเหตุผลฟันธง
 - 🎯 **เฟส POLISH (P'Aim สั่ง · ทุกงาน world-class + G consult บังคับ ผ่าน ai-bridge Chrome :9335):**
-  - **BI-011** ลบเส้นโค้งบนโน้ต (tie/slur) — session `567d43e1` running (เพิ่มเงื่อนไข G แล้ว)
+  - ✅ **BI-011 PASS merge-ready** `bi011-remove-top-curve @4764b28` — วิธีลบมีอยู่แล้ว (เลือกโน้ต→กดปุ่มสัญลักษณ์เดิมซ้ำ · ~ tie / ( ) slur) · แก้ = **active-state ปุ่มติดสว่าง+aria-pressed+"ใส่แล้ว กดเพื่อเอาออก"** (discoverability) · vitest 43/43 · ไฟล์ songEdit.js+SongViewer.vue(hot)+NoteInputBar.vue · ⚠️ merge order (SongViewer hot-file)
   - **BI-012** คอร์ด inline — ✅ **Phase1 design+G เสร็จ · PM GATE อนุมัติ Phase2 build** (session `2347770c`) · finding: keyboard-continuous **มีอยู่แล้ว** (กด c→พิมพ์→Space เด้งถัดไป · G-reviewed) = REFINE ไม่ rebuild · gap: (1) click/tap โซนคอร์ดเปิด (2) **discoverability**=สำคัญสุด(P'Aim ไม่รู้ว่ามี) affordance+first-run hint (3) desktop caret vs touch chip (4) Tab/ghost-preview/aria · D6=KEEP ปุ่มล่างรอบนี้ · spec `docs/ds/bi012-chord-entry.md`
   - **issue9 BUILD** ย้ายชื่อเพลง+meta(คีย์·จังหวะ·ความเร็ว)+scripture เหนือเนื้อ — **P'Aim priority รอบนี้** (ทวงว่ายังไม่ทำ) · SA design+G เสร็จแล้ว → chip `task_1b479280` build (display phase1 ไม่แตะ DB · bpm null=ซ่อน · displayKey มีอยู่)
   - **BI-015** ลาก grip บรรทัดไม่ move (bug ใหม่) — ⚠️ BI-004 tester เคยว่า drag PASS แต่ใช้ CDP synthetic → chip `task_2bfde98b` repro pointer จริง+fix+G
