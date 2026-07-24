@@ -262,8 +262,10 @@ async function goSearch() {
            (AC-G4.1). Still shown on every other page as a shortcut back to search. -->
       <button v-if="route.path !== '/' && !isSong" class="sb-icon-btn" :aria-label="t('action.search')" @click="goSearch"><Icon name="search" :size="24" /></button>
 
-      <!-- ⚙ site settings (ตัวอักษรไทย) — desktop only; on mobile it lives in the drawer -->
-      <div class="sb-menu sb-settings">
+      <!-- ⚙ site settings (ตัวอักษรไทย) — desktop only; on mobile it lives in the drawer.
+           Esc closes it from anywhere inside (button or the segmented controls) — the .sb-backdrop
+           already handles click-outside; this adds the keyboard half (WAI-ARIA APG · BI-016). -->
+      <div class="sb-menu sb-settings" @keydown.esc="closeMenus">
         <button
           class="sb-icon-btn"
           :aria-expanded="shellMenu === 'settings'"
