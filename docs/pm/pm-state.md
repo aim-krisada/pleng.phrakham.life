@@ -9,8 +9,9 @@
 - **base ที่ merge = `editor-port-repeat-markers @7afb038`** (⛔ ไม่ใช่ studio-shell — ดู LANDMINE) · assemble ลง integration branch ใหม่ off 7afb038 · **merge order (Explore):** BI-004(StructureDrawer ก่อน) → dc/ds → symbol/BI-005(SongViewer/symbol) → BI-006/BI-007(SongViewer/Studio) → new-song → hot-file SongViewer.vue = resolve ตามลำดับ
 - ✅ **CLEAN+Tester PASS พร้อม assemble:** BI-004 `@6549ae6` · dc/ds `@a31cce2` · BI-006 `@eae57c2` · (new-song `@db7ebce` verified · Tester `287afc35` กำลังปิด NOT PROVEN)
 - ✅ **symbol `@011190e` TESTER PASS ครบ 6** (no-collision = P'Aim #1 ยืนยัน screenshot · tie/toggle/octave/มือถือ) = clean พร้อม assemble · flag ไม่บล็อก: help panel "วิธีใช้" auto-open ทับ strip @360 จน ×-dismiss (first-run friction · P'Aim/pm46 เคาะว่า file ไหม)
-- 🧪 **รอ Tester:** BI-005 `@32e546c` (Tester `4158d34e`) · new-song (Tester `287afc35`)
-- 🟡 **BI-007 `@5f93562`** (Chip C `5c330050` apply 4 G-refinements อยู่) — anon verified · **role editor/approver = P'Aim ทดสอบเองหลัง deploy** (ไม่ต้อง creds)
+- ✅ **BI-005 `@32e546c` TESTER PASS** (split-advance·no-clobber·latin·มือถือ360/412) — ⚠️ NOT closed: **IME composition จริง + OSK มือถือ** (CDP ทำไม่ได้ · acceptance ผ่าน · **ต้องมือถือจริง/P'Aim ก่อน ship**) · พร้อม assemble (logic solid)
+- 🧪 **รอ Tester:** new-song (Tester `287afc35`)
+- ✅ **BI-007 `@19d9813` P1+4 G-refinements เสร็จ** (Chip C `5c330050` · suite 1525 · label ภาษาหน้าที่ · Saved/Submitted · มือถือ pill+ดูขั้นตอน→vertical stepper · anon verified live) — **role editor/approver = P'Aim ทดสอบเองหลัง deploy** (ไม่ต้อง creds · dev :5486 ค้าง)
 - 🔧 building: BI-010 share `15a77dff` · issue9 header (design ผ่าน · queue build หลัง batch · base 7afb038)
 - **Tester `287afc35` = standby regression-check integration** (มี scripts: real-DnD · mobile-emu · WebAudio-RMS)
 - **deploy = ยังไม่ทำ** · bundle+batch = ship ตอน P'Aim สั่ง (ต้อง FF ssr→integrated tip + cherry-pick deploy.yml 132a041)
