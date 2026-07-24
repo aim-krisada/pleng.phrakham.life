@@ -17,7 +17,7 @@
 // other file must import from here (AC-0.1: `grep "'_.~^'|'-(){}'|SYMBOL_CHARS|SYMBOL_GROUPS"
 // over src/` must find these literals here and nowhere else).
 
-import { withNoteMark, withInsertedBox, withAccidental, withOctaveShift, withBarAfter } from './songEdit.js'
+import { withNoteMark, withInsertedBox, withAccidental, withOctaveShift, withBarAfter, withJumpMarker } from './songEdit.js'
 
 // `behavior` — the classification the two if/else tables used to each own a copy of. Each value
 // names the engine action the character triggers on the selected note (see `effectFor` below):
@@ -125,3 +125,49 @@ export function symbolForKey(key) { return _idx.byKey.get(key) ?? null }
 
 // canonical char → behavior string, or null. Exposed mainly for the drift-killer test.
 export function symbolBehavior(ch) { return _idx.behavior.get(ch) ?? null }
+
+// ---- flow / navigation commands (repeat/jump markers) — a PARALLEL registry to SYMBOLS[] -------
+// jump markers differ from note keys in three ways (docs/ds/marker-entry-ui.md §0), so they are a
+// SEPARATE list rather than more SYMBOLS entries: (1) RARE → they live behind Ctrl+K / the ⋮ menu,
+// NOT on the note-key strip, so they never steal a key the everyday typist uses; (2) they INSERT a
+// new line item {type:'jump'} instead of marking the selected note (behavior 'jump' → withJumpMarker,
+// a structured {kind,al} payload, not a single char); (3) presets place a SET of them at once. The
+// CP-0 discipline still holds — this is the ONE list the keyboard palette AND the ⋮ menu read, so
+// the two doors can never drift (the drift-killer test proves it).
+//
+// kind ∈ segno|coda|to-coda|dc|ds|fine. `anchor` (before|after) = which side of the caret note the
+// marker lands on; it mirrors songEdit.JUMP_ANCHOR and is exposed here for the UI's "where will it
+// go" hint. `al` (fine|coda) only ever rides a dc/ds command (the explicit exit target).
+export const JUMP_COMMANDS = [
+  { id: 'jm-segno',  kind: 'segno',   th: 'เครื่องหมายวน 𝄋 (จุดที่ D.S. ย้อนมา)', anchor: 'before' },
+  { id: 'jm-coda',   kind: 'coda',    th: 'โคดา 𝄌 (ท่อนปิดท้ายที่กระโดดไป)',      anchor: 'before' },
+  { id: 'jm-tocoda', kind: 'to-coda', th: 'ไปโคดา (จุดออกกลางเพลงตอนย้อน)',        anchor: 'after'  },
+  { id: 'jm-fine',   kind: 'fine',    th: 'Fine (จุดจบตอนย้อนกลับมา)',            anchor: 'after'  },
+  { id: 'jm-dc',     kind: 'dc',      th: 'D.C. (ย้อนต้นเพลง)',                    anchor: 'after'  },
+  { id: 'jm-ds',     kind: 'ds',      th: 'D.S. (ย้อนไปเครื่องหมายวน)',            anchor: 'after'  },
+]
+
+// preset = a ready-made routing in plain Thai (docs/ds/marker-entry-ui.md §2). `place` lists the
+// markers the preset drops; `drop:true` = a placeholder the user still has to position (the entry
+// UI grows a chip for each and auto-links ids on drop). The first entry (no drop) is placed at the
+// caret immediately; the command carries `al` so the exit is chosen, never inferred.
+export const JUMP_PRESETS = [
+  { id: 'p-dc',      th: 'ย้อนต้นเพลง (D.C.)',                    place: [{ kind: 'dc' }] },
+  { id: 'p-dc-fine', th: 'ย้อนต้น แล้วจบที่ Fine (D.C. al Fine)', place: [{ kind: 'dc', al: 'fine' }, { kind: 'fine', drop: true }] },
+  { id: 'p-dc-coda', th: 'ย้อนต้น แล้วข้ามไปโคดา (D.C. al Coda)', place: [{ kind: 'dc', al: 'coda' }, { kind: 'to-coda', drop: true }, { kind: 'coda', drop: true }] },
+  { id: 'p-ds',      th: 'ย้อนไปเครื่องหมายวน (D.S.)',            place: [{ kind: 'ds' }, { kind: 'segno', drop: true }] },
+  { id: 'p-ds-fine', th: 'ย้อน 𝄋 แล้วจบที่ Fine (D.S. al Fine)', place: [{ kind: 'ds', al: 'fine' }, { kind: 'segno', drop: true }, { kind: 'fine', drop: true }] },
+  { id: 'p-ds-coda', th: 'ย้อน 𝄋 แล้วข้ามไปโคดา (D.S. al Coda)', place: [{ kind: 'ds', al: 'coda' }, { kind: 'segno', drop: true }, { kind: 'to-coda', drop: true }, { kind: 'coda', drop: true }] },
+]
+
+// the set of kinds the registry knows — a preset/command kind not here is rejected (never guessed).
+const JUMP_KINDS = new Set(JUMP_COMMANDS.map((c) => c.kind))
+
+// dispatch ONE jump command onto content at loc — the ⋮-menu / Ctrl+K equivalent of
+// applySymbolToContent, kept here so keyboard + menu share this single entry point. `kind` must be
+// a JUMP_COMMANDS kind; `al` only rides dc/ds. Content-only (caret movement is the caller's job),
+// so it is trivially unit-testable. Returns content unchanged for an unknown kind / no loc.
+export function applyJumpCommand(content, loc, { kind, al } = {}) {
+  if (!JUMP_KINDS.has(kind) || !loc) return content
+  return withJumpMarker(content, loc, { kind, al })
+}

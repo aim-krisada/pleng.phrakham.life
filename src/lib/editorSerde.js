@@ -156,9 +156,24 @@ export function serializeLine(line) {
     return clone(line._source)
   }
   const items = []
+  // Re-emit each `_unknown` item at its ORIGINAL segment anchor (`after` = number of segments that
+  // preceded it on load), not lumped at the line end. A flow marker ({type:'jump'} D.S./Coda/…)
+  // that the old bar/segment editor can't model is an unknown item whose POSITION is its whole
+  // meaning — a mid-bar D.S. dumped to the line end silently reroutes playback. Anchored re-emit
+  // keeps it exactly between the same two notes across an edit-save. (Trailing unknowns — after ≥
+  // the segment count — keep the end placement, so nothing else shifts.) The inline editor stores
+  // jumps in v2 verbatim and never hits this path; this guards the OLD editor while both coexist.
+  const totalSegs = line.bars.reduce((n, b) => n + (b.segments?.length || 0), 0)
+  const unknowns = (line._unknown || []).map((u) => ({ after: u.after || 0, item: u.item, done: false }))
+  const flushUnknownsAt = (segCount) => {
+    if (segCount >= totalSegs) return // trailing anchors are emitted at the end, in load order
+    for (const u of unknowns) if (!u.done && u.after === segCount) { items.push(clone(u.item)); u.done = true }
+  }
   if (line.section?.trim()) items.push({ type: 'section', name: line.section.trim() })
   if (line.cont) items.push({ type: 'continue' })
   if (line.marker) items.push({ type: 'marker', label: line.marker, ...(line.markerId ? { id: line.markerId } : {}) })
+  flushUnknownsAt(0) // an unknown anchored before the first note
+  let segSeen = 0
   line.bars.forEach((b, i) => {
     // R1 — the id rides on the repeat-start / repeat-end / volta item so a verse's flow keeps
     // referencing the same repeat after the melody is edited.
@@ -181,16 +196,14 @@ export function serializeLine(line) {
       if (s.lyric) seg.lyric = s.lyric
       else delete seg.lyric
       items.push(seg)
+      flushUnknownsAt(++segSeen) // an unknown anchored right after this note
     }
     if (b.repeatEnd) items.push({ type: 'repeat-end', ...(b.repeatEndId ? { id: b.repeatEndId } : {}), ...(b.repeatTimes != null ? { times: b.repeatTimes } : {}) })
   })
   if (line.label?.trim()) items.push({ type: 'label', text: line.label.trim() })
   if (line.end) items.push({ type: 'end' })
-  // re-emit anything the editor couldn't model. Anchored insertion for the common cases (before
-  // any segment / trailing), so an untouched-but-not-detected line still keeps them in place.
-  if (line._unknown && line._unknown.length) {
-    for (const u of line._unknown) items.push(clone(u.item))
-  }
+  // trailing unknowns (anchored at/after the last note) keep the line-end placement, in load order
+  for (const u of unknowns) if (!u.done) items.push(clone(u.item))
   return items
 }
 

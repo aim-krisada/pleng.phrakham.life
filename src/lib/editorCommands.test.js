@@ -15,8 +15,11 @@ import {
   symbolBehavior,
   effectFor,
   applySymbolToContent,
+  JUMP_COMMANDS,
+  JUMP_PRESETS,
+  applyJumpCommand,
 } from './editorCommands.js'
-import { withNoteMark, withInsertedBox, withAccidental, withOctaveShift, withBarAfter } from './songEdit.js'
+import { withNoteMark, withInsertedBox, withAccidental, withOctaveShift, withBarAfter, withJumpMarker } from './songEdit.js'
 
 // one stanza (2 notes) + two verses linked to it, so a box insert's ripple is observable — the
 // same fixture shape songEdit.symbols.test.js uses, so the engine sees a realistic selection.
@@ -158,5 +161,58 @@ describe('effectFor — the pure classification→engine table (belt + braces)',
   it('unknown behavior is a no-op, never a throw', () => {
     const c = makeContent()
     expect(effectFor('nonsense', c, at(0), '?')).toBe(c)
+  })
+})
+
+// AC-10 — the jump registry (JUMP_COMMANDS / JUMP_PRESETS) is the ONE source the keyboard palette
+// and the ⋮ menu read, exactly like the note-symbol registry above. These prove a preset can never
+// reference a kind the command list doesn't define (the drift a second hard-coded table would let
+// in), and that the single dispatch (applyJumpCommand) routes to the same engine the UI would call.
+const CANONICAL_KINDS = ['segno', 'coda', 'to-coda', 'dc', 'ds', 'fine']
+
+describe('⭐ jump registry = single source of the flow-marker set', () => {
+  it('JUMP_COMMANDS covers exactly the canonical kinds, once each', () => {
+    const kinds = JUMP_COMMANDS.map((c) => c.kind)
+    expect([...kinds].sort()).toEqual([...CANONICAL_KINDS].sort())
+    expect(new Set(kinds).size).toBe(kinds.length) // no duplicate
+    for (const c of JUMP_COMMANDS) {
+      expect(c.th.length).toBeGreaterThan(0) // every command has a plain-Thai label
+      expect(['before', 'after']).toContain(c.anchor)
+    }
+  })
+
+  it('every preset only places kinds the command list defines (no typo can slip a dead kind in)', () => {
+    const known = new Set(JUMP_COMMANDS.map((c) => c.kind))
+    for (const p of JUMP_PRESETS) {
+      expect(p.th.length).toBeGreaterThan(0)
+      expect(p.place.length).toBeGreaterThan(0)
+      for (const step of p.place) {
+        expect(known.has(step.kind)).toBe(true)
+        // `al` only ever rides a dc/ds command; never a bare marker
+        if (step.al) expect(['dc', 'ds']).toContain(step.kind)
+        if (step.al) expect(['fine', 'coda']).toContain(step.al)
+      }
+    }
+  })
+
+  it("each preset's FIRST step is the command (dc/ds) — placed at the caret; the rest are placeholders", () => {
+    for (const p of JUMP_PRESETS) {
+      expect(['dc', 'ds']).toContain(p.place[0].kind)
+      expect(p.place[0].drop).toBeFalsy() // the command lands immediately, not as a chip
+      for (const step of p.place.slice(1)) expect(step.drop).toBe(true)
+    }
+  })
+
+  it('applyJumpCommand routes a command to the SAME engine the UI would call (one dispatch)', () => {
+    const c = makeContent()
+    const viaDispatch = applyJumpCommand(c, at(0), { kind: 'dc', al: 'coda' })
+    const viaEngine = withJumpMarker(c, at(0), { kind: 'dc', al: 'coda' })
+    expect(viaDispatch).toEqual(viaEngine)
+  })
+
+  it('applyJumpCommand rejects an unknown kind / no selection (no-op, same ref)', () => {
+    const c = makeContent()
+    expect(applyJumpCommand(c, at(0), { kind: 'garbage' })).toBe(c)
+    expect(applyJumpCommand(c, null, { kind: 'dc' })).toBe(c)
   })
 })

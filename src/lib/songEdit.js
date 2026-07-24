@@ -11,6 +11,7 @@
 
 import { noteBoxKinds, syllableSlots, canonicalizeNote } from './notation.js'
 import { semitonesBetween, transposeChord, parseChord } from './chords.js'
+import { mintMarkerIds } from './songFlow.js'
 
 // Split a note string into its space-separated box tokens (one token per note box — the
 // same convention noteBoxKinds / NoteBoxes use). '' → [''] so an empty segment still has
@@ -465,4 +466,104 @@ export function withSongKey(content, newKey) {
     out.lines = mapLine(content.lines)
   }
   return out
+}
+
+// ---------- flow / navigation markers (D.C. / D.S. / Segno / Coda / To-Coda / Fine) ----------
+// A jump marker is a LINE ITEM {type:'jump', kind, al?, id} inserted BETWEEN segments — the exact
+// shape songModel.scanFlowMarkers / SongSheet.classifyJump read (canonical shape locked in
+// docs/ds/repeat-jumps-midbar.md §7; entry UI spec docs/ds/marker-entry-ui.md §6). It never lives
+// mid-segment: the parser keeps {}/()/~/- inside one segment, so a marker snaps to a segment
+// boundary and can still land MID-BAR (between two segments of one bar). It carries no syllable
+// slot, so it never ripples a verse. kind ∈ segno|coda|to-coda|dc|ds|fine; al (only on dc/ds) ∈
+// fine|coda. `anchor` decides the side of the caret note the marker lands on — entry markers
+// (segno, coda) go BEFORE the note, exit markers + jump commands (to-coda, fine, dc, ds) go AFTER
+// — matching how scanFlowMarkers reads a marker's play position from its slot in the item stream.
+const JUMP_ANCHOR = { segno: 'before', coda: 'before', 'to-coda': 'after', fine: 'after', dc: 'after', ds: 'after' }
+
+// Normalise a loose kind string to the canonical set (mirrors songModel.jumpKindOf / songFlow), or
+// null. So callers may pass 'D.C.'/'da capo'/'dal segno' etc. and still get one stored shape.
+function normJumpKind(kind) {
+  const s = String(kind || '').toLowerCase().replace(/[\s._-]/g, '')
+  if (s === 'segno') return 'segno'
+  if (s === 'coda') return 'coda'
+  if (s === 'tocoda') return 'to-coda'
+  if (s === 'dc' || s === 'dacapo') return 'dc'
+  if (s === 'ds' || s === 'dalsegno') return 'ds'
+  if (s === 'fine') return 'fine'
+  return null
+}
+
+// Insert a jump marker at loc (a resolved-line address { resolvedLine, si }). Returns a NEW content
+// with the marker spliced into the addressed stanza line, ids minted (songFlow.mintMarkerIds), and
+// every untouched part shared. Returns `content` unchanged when the kind is unknown or loc does not
+// resolve to a note — the caller can skip a no-op emit.
+export function withJumpMarker(content, loc, { kind, al } = {}) {
+  const k = normJumpKind(kind)
+  if (!k) return content
+  const { resolvedLine, si } = loc || {}
+  const at = locateSegment(content, resolvedLine, si)
+  if (!at) return content
+  const line = content.stanzas[at.stanzaIndex].lines[at.lineIndex]
+  const insertAt = at.segIndex + (JUMP_ANCHOR[k] === 'before' ? 0 : 1)
+  const item = { type: 'jump', kind: k }
+  if ((k === 'dc' || k === 'ds') && (al === 'fine' || al === 'coda')) item.al = al
+  const newLine = line.slice()
+  newLine.splice(insertAt, 0, item)
+  const stanza = content.stanzas[at.stanzaIndex]
+  const newLines = stanza.lines.slice()
+  newLines[at.lineIndex] = newLine
+  const newStanzas = content.stanzas.slice()
+  newStanzas[at.stanzaIndex] = { ...stanza, lines: newLines }
+  return mintMarkerIds({ ...content, stanzas: newStanzas }).content // assign the permanent id
+}
+
+// Remove the jump marker with the given id. Returns a NEW content (untouched stanzas/lines kept
+// ===), or `content` unchanged when no marker matches. Deleting a dc/ds command with its paired
+// placeholder markers (cascade) is a UI concern — this removes exactly one item by id.
+export function removeJumpMarker(content, id) {
+  if (!content || !id || !Array.isArray(content.stanzas)) return content
+  let changed = false
+  const stanzas = content.stanzas.map((s) => {
+    let sChanged = false
+    const lines = (s.lines || []).map((line) => {
+      if (!Array.isArray(line) || !line.some((it) => it && it.type === 'jump' && it.id === id)) return line
+      sChanged = true; changed = true
+      return line.filter((it) => !(it && it.type === 'jump' && it.id === id))
+    })
+    return sChanged ? { ...s, lines } : s
+  })
+  return changed ? { ...content, stanzas } : content
+}
+
+// Change a jump marker's kind and/or al in place (by id). Passing kind changes the symbol; passing
+// al ('fine'|'coda') sets the exit on a dc/ds command, al=null/'' clears it. al is dropped whenever
+// the (resulting) kind is not a dc/ds command. Returns a NEW content, or `content` unchanged on a
+// no-match / unknown kind.
+export function updateJumpMarker(content, id, { kind, al } = {}) {
+  if (!content || !id || !Array.isArray(content.stanzas)) return content
+  const k = kind == null ? undefined : normJumpKind(kind)
+  if (kind != null && !k) return content // an explicit but unrecognised kind is a no-op, never a wipe
+  let changed = false
+  const stanzas = content.stanzas.map((s) => {
+    let sChanged = false
+    const lines = (s.lines || []).map((line) => {
+      if (!Array.isArray(line) || !line.some((it) => it && it.type === 'jump' && it.id === id)) return line
+      sChanged = true; changed = true
+      return line.map((it) => {
+        if (!(it && it.type === 'jump' && it.id === id)) return it
+        const next = { ...it }
+        if (k) next.kind = k
+        const kk = k || it.kind
+        if (kk === 'dc' || kk === 'ds') {
+          if (al === 'fine' || al === 'coda') next.al = al
+          else if (al === null || al === '') delete next.al
+        } else {
+          delete next.al // a non-command marker never carries an exit target
+        }
+        return next
+      })
+    })
+    return sChanged ? { ...s, lines } : s
+  })
+  return changed ? { ...content, stanzas } : content
 }

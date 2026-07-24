@@ -153,6 +153,30 @@ describe('editorSerde — lossless round-trip', () => {
     expect(out.some((it) => it.type === 'ornament' && it.kind === 'mordent')).toBe(true)
   })
 
+  // A jump marker ({type:'jump'}) is an unknown item to the old bar/segment editor, and its
+  // POSITION is its meaning: a mid-bar D.S./Segno dumped to the line end silently reroutes
+  // playback. On an edited line the marker must stay between the SAME two notes — not just survive.
+  // (The inline editor stores jumps in v2 verbatim; this guards the OLD editor while both coexist.)
+  it('a MID-LINE jump marker keeps its position between the same notes across an edit', () => {
+    const src = [
+      { type: 'segment', note: '1', chord: 'C' },
+      { type: 'segment', note: '2' },
+      { type: 'jump', kind: 'segno', id: 'j1' }, // sits BETWEEN note 2 and note 3
+      { type: 'segment', note: '3' },
+    ]
+    const untouched = serializeLine(deserializeLine(src))
+    expect(untouched).toEqual(src) // pristine → byte-for-byte
+
+    const line = deserializeLine(src)
+    line.bars[0].segments[0].note = '5' // edit note 1 → forces the structural rebuild path
+    const out = serializeLine(line)
+    const ji = out.findIndex((it) => it.type === 'jump')
+    expect(out[ji]).toEqual({ type: 'jump', kind: 'segno', id: 'j1' }) // survived, fields intact
+    // and still anchored between note 2 and note 3 (the segno's whole meaning), not at the line end
+    expect(out[ji - 1]).toMatchObject({ type: 'segment', note: '2' })
+    expect(out[ji + 1]).toMatchObject({ type: 'segment', note: '3' })
+  })
+
   it('rest() returns only the unknown keys, deep-cloned (no shared references)', () => {
     const src = { id: 'A', lines: [], mystery: { a: 1 } }
     const r = rest(src, STANZA_KEYS)
