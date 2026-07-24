@@ -1120,11 +1120,11 @@ const armedDrop = ref(-1)              // index of the chip armed for a note tap
 const dropZoneRef = ref(null)          // the STEP-2 dropzone, so newly-grown chips scroll into view
 // On a short screen the panel scrolls internally (max-height), so the dropzone that appends when a
 // preset is chosen can land below the panel's own fold (and below the note-key dock). Bring it into
-// the panel's view the moment it appears — the panel's visible area sits ABOVE the dock, so the
-// chips end up reachable without the user hunting for them (Tester, short-screen finding 24 ก.ค.).
-watch(() => pendingDrops.value.length, (n, prev) => {
-  if (n > 0 && n !== prev) nextTick(() => dropZoneRef.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
-})
+// the panel's view — the panel's visible area sits ABOVE the dock, so the chips end up reachable
+// without the user hunting for them (Tester short-screen finding 24 ก.ค.). Instant, NOT smooth:
+// smooth scrollIntoView silently no-ops on a nested overflow container in some Chromium builds
+// (measured), so the chips would stay below the fold — instant is reliable.
+function scrollDropsIntoView() { nextTick(() => dropZoneRef.value?.scrollIntoView({ block: 'nearest' })) }
 
 const JUMP_KIND_LABEL = {
   segno: '𝄋 เครื่องหมายวน', coda: '𝄌 โคดา', 'to-coda': 'ไปโคดา',
@@ -1153,6 +1153,7 @@ function chooseJumpPreset(preset) {
   pendingDrops.value = preset.place.filter((p) => p.drop).map((p) => ({ kind: p.kind, placed: false }))
   armedDrop.value = pendingDrops.value.length ? 0 : -1     // arm the first placeholder for a tap
   markerProMode.value = false
+  if (pendingDrops.value.length) scrollDropsIntoView()     // reveal the new chips (short-screen)
   focusCapture()
 }
 
