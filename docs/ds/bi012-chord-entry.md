@@ -181,4 +181,32 @@ the surface by device.** No new chord model, no new parser.
 7. Tests + real-browser verify at 360/412/desktop widths.
 
 ## Open question for PM/P'Aim (preference, not correctness)
-- D6: remove the redundant bottom "คอร์ด ▾" once inline ships, or keep both? (Recommend keep now.)
+- D6: remove the redundant bottom "คอร์ด ▾" once inline ships, or keep both? (PM: KEEP both this round.)
+
+---
+
+## Round-2 build (PM + P'Aim: discoverability is THE deliverable · G round 4)
+
+P'Aim: *"เข้าใจแล้ว แต่ไม่มีอะไรช่วย… ปุ่มเขียนแค่ 'คอร์ด' ไม่รู้ใช้ยังไง"* — the run works but is
+invisible. He proposed surfacing advance on the dock ◀▶ arrows. G round 4
+(`…-233143.md`) ranked the discoverability patterns and evaluated his idea:
+
+- **G ranking:** (1) **shortcut-on-a-visible-control = CRITICAL**, (2) **field micro-copy = HIGH**,
+  (3) target ＋ affordance = MODERATE *but only on the selected note* (＋ on every note = visual
+  noise), (4) first-run coach mark = LOW/annoying, (5) tour = worst.
+- **On P'Aim's arrow idea:** don't overload the ◀▶ note-nav arrows (breaks their meaning) — instead
+  give a **dedicated visible advance button** on the popup that *also shows the Space shortcut*. That
+  honours his intent (a visible advance for non-keyboard users) the world-class way.
+
+**Built (round 2):**
+1. Popup advance button is **always visible** (desktop too), "โน้ตถัดไป [Space]" — visible control +
+   teaches the shortcut (G#1).
+2. Input placeholder teaches: "พิมพ์คอร์ด เช่น G, Am · Space = ถัดไป" (G#2).
+3. ＋ affordance **only on the selected note** (G#3 — all slots stay clickable; no whole-sheet noise).
+4. Removed the first-run coach mark (G#4). Dock button relabelled **"＋ คอร์ด"**; a bridge tip inside
+   its box points to the on-sheet run.
+5. **Invalid text = keep + soft-mark** (PM gate, no silent data loss): whatever is typed is KEPT and
+   marked red (`chord-invalid`, dotted) so the editor fixes it later; Space still advances; audio/
+   transpose skip unparseable chords. (Superseded round-1's "write valid only".) Engine untouched.
+
+Verified on real browser (1280 + 375) + 1577 tests pass (only the pre-existing db/004 fails).
