@@ -188,7 +188,9 @@ export function resolveContent(content) {
 // (D.C./D.S./Coda): they add more cases here; the display pass never changes.
 export function resolvePlayOrder(content) {
   if (!isV2(content)) return null
-  return resolveStrophicOrder(content)
+  const strophic = resolveStrophicOrder(content)
+  const jumped = resolveJumpOrder(content, strophic)
+  return jumped ?? strophic
 }
 
 // Strophic "ร้องรับทุกข้อ" (afterEachVerse): the refrain is sung after EVERY verse, but the
@@ -224,4 +226,94 @@ function resolveStrophicOrder(content) {
     order.push(chorus) // after a verse → sing the refrain
   })
   return order
+}
+
+// ---------- Phase 2: D.C./D.S./Segno/Coda/Fine jump resolver ----------
+// See docs/ds/dc-ds-jump-flow.md. A per-entry `flow.jump` ("capo" | "segno") fires at the END
+// of its arrangement entry: "capo" (D.C.) returns to the song start, "segno" (D.S.) to the
+// first Segno marker. On the RETURN pass the engine observes Fine (stop) or a To-Coda→Coda
+// pair (jump) — both IGNORED on the first pass (W3C: tocoda default "second time through").
+// al-Fine vs al-Coda emerges from which markers exist; Coda wins if both are present (the
+// play flow reaches To-Coda before Fine). Expressed as display-line {fromLi,toLi} ranges so
+// buildPlayNotes concatenates them exactly like the strophic + bar-level (‖: :‖) mechanisms.
+// Returns null when there is no (resolvable) jump — the caller then uses the strophic/natural
+// order. v1 is line-level: markers are observed at their display line's boundary (Segno/Coda
+// at the start, Fine/To-Coda at the end); mid-line precision and suppressing ‖: :‖ inside the
+// returned span are documented v2 limits.
+
+// index each display line by its source arrangement entry → ranges[entryIndex] = {fromLi,toLi}
+function entryRanges(lines) {
+  const ranges = []
+  lines.forEach((line, li) => {
+    const e = line._entryIndex
+    if (e == null) return
+    if (!ranges[e]) ranges[e] = { fromLi: li, toLi: li }
+    else ranges[e].toLi = li
+  })
+  return ranges
+}
+
+// first display line (in play order) that carries each flow marker. A role-less Coda pair
+// falls back to position: the first Coda item is the To-Coda source, the second the target.
+function scanFlowMarkers(lines) {
+  let liSegno = null
+  let liFine = null
+  const codas = []
+  lines.forEach((line, li) => {
+    for (const it of line || []) {
+      if (!it || !it.type) continue
+      if (it.type === 'segno') { if (liSegno == null) liSegno = li }
+      else if (it.type === 'coda') codas.push({ li, role: it.role })
+      else if ((it.type === 'marker' && it.kind === 'fine') || it.type === 'fine') {
+        if (liFine == null) liFine = li
+      }
+    }
+  })
+  const src = codas.find((c) => c.role === 'source')
+  const tgt = codas.find((c) => c.role === 'target')
+  let liToCoda = null
+  let liCoda = null
+  if (src && tgt) { liToCoda = src.li; liCoda = tgt.li }
+  else if (!src && !tgt && codas.length >= 2) { liToCoda = codas[0].li; liCoda = codas[1].li }
+  return { liSegno, liFine, liToCoda, liCoda }
+}
+
+// the return-pass ranges for a resolved jump. returnFrom = 0 (capo) or the segno line.
+function returnRanges(returnFrom, marks, lastLi) {
+  const { liFine, liToCoda, liCoda } = marks
+  if (liToCoda != null && liCoda != null) {
+    // al Coda (wins over Fine): play to the To-Coda, jump to the Coda, play to the end
+    return [{ fromLi: returnFrom, toLi: liToCoda }, { fromLi: liCoda, toLi: lastLi }]
+  }
+  if (liFine != null) return [{ fromLi: returnFrom, toLi: liFine }] // al Fine — stop at Fine
+  return [{ fromLi: returnFrom, toLi: lastLi }] // plain D.C./D.S. — replay to the end
+}
+
+// Build the full play order when a jump is present; null when there is none (or it is orphan).
+// `base` = the strophic order if any, else the natural per-entry order. Post-jump arrangement
+// entries are dropped (unreachable — the movement ends at Fine/Coda).
+function resolveJumpOrder(content, base) {
+  const arr = content.arrangement || []
+  const jIdx = arr.findIndex((e) => {
+    const j = e && e.flow && e.flow.jump
+    return j === 'capo' || j === 'segno'
+  })
+  if (jIdx < 0) return null
+  const lines = resolveContent(content)
+  if (!lines.length) return null
+  const lastLi = lines.length - 1
+  const marks = scanFlowMarkers(lines)
+  const jump = arr[jIdx].flow.jump
+  let returnFrom
+  if (jump === 'capo') returnFrom = 0
+  else {
+    if (marks.liSegno == null) return null // orphan D.S. — no segno marker; play as written
+    returnFrom = marks.liSegno
+  }
+  const entR = entryRanges(lines)
+  const cut = entR[jIdx] ? entR[jIdx].toLi : lastLi
+  const baseOrder = base && base.length ? base : entR.filter(Boolean)
+  // keep base ranges up to (and including) the jump entry; drop unreachable post-jump entries
+  const kept = baseOrder.filter((r) => r.fromLi <= cut)
+  return kept.concat(returnRanges(returnFrom, marks, lastLi))
 }

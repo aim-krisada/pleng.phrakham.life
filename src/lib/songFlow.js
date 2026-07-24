@@ -80,6 +80,17 @@ export function allMarkerIds(content) {
   return ids
 }
 
+// True when any stanza carries at least one structural marker of `type` (e.g. 'segno',
+// 'coda'). Used by the jump resolver + orphan lint: `flow.jump:"segno"` with no segno marker
+// anywhere is an ORPHAN — the engine must not guess a jump, it plays as written (§2.1.1).
+export function hasMarkerType(content, type) {
+  for (const s of content?.stanzas || [])
+    for (const line of s.lines || [])
+      for (const it of line || [])
+        if (it && it.type === type) return true
+  return false
+}
+
 // The next unused numeric id for a prefix, given the set of ids already taken. Deterministic:
 // smallest positive integer whose `${prefix}${n}` is free. So filling gaps is stable and a
 // re-run never reassigns an id that already exists (the round-trip-stability guarantee).
@@ -151,6 +162,8 @@ export function stripEditorMarkerIds(node) {
   if ('repeatStartId' in node) node.repeatStartId = ''
   if ('repeatEndId' in node) node.repeatEndId = ''
   if ('voltaId' in node) node.voltaId = ''
+  if ('segnoId' in node) node.segnoId = '' // D.S. target — a pasted Segno must re-mint (no dup id)
+  if ('codaId' in node) node.codaId = '' // Coda source/target — same reason
   for (const b of node.bars || []) stripEditorMarkerIds(b)
   return node
 }
@@ -195,6 +208,7 @@ export function findOrphanFlows(content) {
   if (!content || !Array.isArray(content.arrangement)) return []
   const ids = allMarkerIds(content)
   const stanzaIds = new Set((content.stanzas || []).map((s) => s.id))
+  const hasSegno = hasMarkerType(content, 'segno') // for the jump:"segno" orphan check
   const out = []
   content.arrangement.forEach((entry, entryIndex) => {
     const flow = entry && entry.flow
@@ -211,6 +225,9 @@ export function findOrphanFlows(content) {
     for (const ref of flow.path || []) {
       if (!ids.has(ref) && !stanzaIds.has(ref)) out.push({ entryIndex, kind: 'path', ref })
     }
+    // D.S. (jump:"segno") whose segno target was deleted → orphan; the resolver ignores it and
+    // plays as written. "capo"/"none" can never orphan (the song start always exists).
+    if (flow.jump === 'segno' && !hasSegno) out.push({ entryIndex, kind: 'jump', ref: 'segno' })
   })
   return out
 }
