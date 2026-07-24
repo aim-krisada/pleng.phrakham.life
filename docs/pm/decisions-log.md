@@ -23,6 +23,9 @@
   - **BI-011** ลบเส้นโค้งด้านบนโน้ต (tie/slur arc) — ทำให้ลบได้ + discoverable (session `567d43e1` running · เพิ่มเงื่อนไข G แล้ว)
   - **BI-012** ใส่คอร์ด **inline เหนือโน้ตตรงตำแหน่ง** (แทน popup ปุ่มล่าง) + **คีย์บอร์ดต่อเนื่อง** (พิมพ์คอร์ด→advance โน้ตถัดไป · ทำทั้งเพลงด้วยคีย์บอร์ด) · design+G→STOP gate→build · pattern อ้าง MuseScore chord-mode/iReal · popup อาจกลายเป็น mobile fallback (สอดคล้องมติ octave-keyboard: คีย์บอร์ด=power desktop · ปุ่ม=มือถือ)
 
+- **2026-07-24 (pm46) · G-consult = บังคับทุกการเปลี่ยนที่เกี่ยว design (P'Aim ย้ำ · durable · กว้างกว่าเดิม):** ไม่ใช่แค่งาน SA design — **ทุก fix ที่แตะ UX/UI/behavior ต้องปรึกษา G มีเหตุผลฟันธงว่า world-class ควรเป็นยังไง** ก่อนเคาะ · ผ่าน ai-bridge Chrome :9335 · เซฟ transcript ใส่ EVIDENCE · = ต่อยอด memory feedback_sa_must_consult_g_every_design (ขยาย scope)
+- **2026-07-24 (pm46) · ⚠️ infra risk (BI-011 session เจอ · must-fix ก่อน redeploy รอบหน้า):** lockfile drift — `smplr` + `qrcode-generator` อยู่ package.json แต่อาจไม่อยู่ package-lock → `npm ci` (ใน deploy.yml build /v2) พังได้ → **assemble batch polish รอบหน้าต้องรัน `npm install` sync lock + commit ก่อน · gate ที่ test:all/npm ci เขียว** (deploy 717fb7a ผ่านมาได้ = lock บน 717fb7a น่าจะ OK · drift อาจอยู่บน branch polish) · continue-on-error /v2 = ถ้าพังแค่ /v2 ไม่ update, / v1 ปลอดภัย
+
 ## บทเรียนวันนี้ (durable · ใช้ต่อ)
 - **Tester verify บน Chromium จริงช่วยกัน false alarm 2 เรื่องในงานเดียว** (24 ก.ค.) — browser pane ทำให้ดูเหมือนกล่องเตือนถูก dock ทับ + เหมือนปุ่มลบกิน flow ข้ออื่น · ของจริงถูกต้องทั้งคู่ (scrollIntoView ไม่ทำงาน / CDP serialize Vue proxy เป็น `{}`) ⇒ **ห้ามฟันบั๊ก UI/timing จาก browser pane** (ตรงกับ memory `pleng-agent-browser-not-rendering`)
 - **`ICONS[name] || ''` = ไอคอนหายเงียบ** — เรียกชื่อที่ไม่มีในชุด ได้ svg ว่าง ไม่มี error · ตระกูลเดียวกับบั๊กเงียบอื่นๆ ที่ทีมไล่ปิดทั้งวัน
