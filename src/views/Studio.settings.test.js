@@ -241,30 +241,27 @@ describe('B060 — ตั้งค่าเพลง lives in the inline editor'
     expect(row.title_th).toBe('แค่เปลี่ยนชื่อ')
   })
 
-  it('the settings close with the pencil — they are part of the editor, not the reader', async () => {
+  it('the settings close when you leave edit mode — they are part of the editor, not the reader', async () => {
     const w = await openSettings()
     expect(panel(w).find('.ss-panel').exists()).toBe(true)
-    await w.find('.sv-fab').trigger('click') // ✓ เสร็จ
+    // lane B moved the way OUT to the ✓ เสร็จ button in the save-bar (the FAB is now the way IN
+    // only). Leaving edit mode must fold the settings away with it.
+    await w.find('.sv-done-btn').trigger('click')
     await nextTick()
     expect(panel(w).exists()).toBe(false)
   })
 })
 
-// The panel and its trigger are only useful if a real pointer can reach them. Both were
-// measured COVERED on the live app before this ordering was set (the note popup sat on the
-// save bar at 1280; the save bar + note bar cut across the full-screen panel at 412), so the
-// ladder is pinned here — a future re-shuffle has to break this test first.
-describe('B060 — the settings surface must out-rank the editing overlays', () => {
+// On a phone the settings panel is a full-screen page, so it must out-rank the two editing
+// overlays it covers — the save-bar header and the docked note toolbar (both at popover level or
+// below in lane B's docked-frame design). It rides at --z-drawer so a real pointer reaches its
+// fields (measured COVERED at 412 before this: the save bar cut across ชื่อ/คีย์).
+describe('B060 — the settings panel out-ranks the editing overlays', () => {
   const read = (p) => readFileSync(join(process.cwd(), 'src', p), 'utf8')
   const tier = (name) => Number(new RegExp(`${name}:\\s*(\\d+)`).exec(read('styles.css'))[1])
 
-  it('save bar (⚙ trigger) sits above the anchored note popup', () => {
-    expect(read('components/SongViewer.vue')).toContain('z-index: var(--z-editbar')
-    expect(tier('--z-editbar')).toBeGreaterThan(tier('--z-popover'))
-  })
-
-  it('the panel itself sits above the save bar (it is full-screen on a phone)', () => {
+  it('the panel sits above the popover layer (full-screen on a phone covers the whole editor)', () => {
     expect(read('components/SongSettings.vue')).toContain('z-index: var(--z-drawer')
-    expect(tier('--z-drawer')).toBeGreaterThan(tier('--z-editbar'))
+    expect(tier('--z-drawer')).toBeGreaterThan(tier('--z-popover'))
   })
 })

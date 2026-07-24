@@ -39,12 +39,23 @@ const emit = defineEmits(['meta', 'music', 'close'])
 
 const panel = ref(null)
 const firstField = ref(null)
-// focus the first field when the panel opens — a keyboard user lands IN the panel, not behind it
+// Desktop: the panel is docked on the right and must sit BELOW the editor's save-bar, or it
+// covers บันทึก + เสร็จ (measured at 1280 after lane B put 6 buttons on that bar). The bar wraps,
+// so its height isn't fixed — measure its real bottom on open and anchor the panel there. Phone
+// is full-screen (CSS forces top:0), so this value is ignored there.
+const topPx = ref(96)
 watch(
   () => props.open,
-  // preventScroll: focusing must not scroll the panel body — it opened at the top and the
-  // first field belongs at the top (measured: without it the header clipped เลขเพลง)
-  (on) => { if (on) nextTick(() => firstField.value?.focus?.({ preventScroll: true })) },
+  (on) => {
+    if (!on) return
+    nextTick(() => {
+      // preventScroll: focusing must not scroll the panel body — it opened at the top and the
+      // first field belongs at the top (measured: without it the header clipped เลขเพลง)
+      firstField.value?.focus?.({ preventScroll: true })
+      const bar = document.querySelector('.sv-save-bar')
+      if (bar) topPx.value = Math.round(bar.getBoundingClientRect().bottom + 8)
+    })
+  },
 )
 
 // เลขเพลง — a blank box means "no number" (null), never 0. Anything non-numeric is ignored
@@ -70,6 +81,7 @@ function setBpm(e) {
     class="ss-panel no-print"
     role="region"
     aria-label="ตั้งค่าเพลง"
+    :style="{ '--ss-top': topPx + 'px' }"
     @keydown.esc.stop="emit('close')"
   >
     <header class="ss-head">
@@ -263,10 +275,14 @@ function setBpm(e) {
 .ss-foot { margin: 4px 0 0; font-size: var(--fs-xs, 0.8rem); color: var(--muted, #64748b); }
 
 /* Phone / narrow: a full-screen settings page (Material full-screen dialog · iOS pushed
-   settings). A 320px panel on a 360px screen would BE the screen with none of the benefits. */
+   settings). A 320px panel on a 360px screen would BE the screen with none of the benefits.
+   It fills from the editor's save-bar bottom (--ss-top, measured on open) to the bottom of the
+   viewport — starting there, NOT at 0, so it never lands under the app shell bar: lane B's
+   .sv-frame is a fixed stacking context that traps this panel below the shell, and a top:0 panel
+   then had its ✕ covered by the shell's icons (measured at 412). Below the shell, no overlap. */
 @media (max-width: 760px) {
   .ss-panel {
-    top: 0;
+    top: var(--ss-top, 56px);
     right: 0;
     left: 0;
     bottom: 0;

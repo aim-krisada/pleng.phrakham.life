@@ -124,13 +124,6 @@
   --z-inline-edit: 45;
   --z-nav: 50;
   --z-popover: 800;
-  /* the editor's own sticky action bar (save state · ⚙ ตั้งค่าเพลง · บันทึก). It sits ABOVE
-     anchored popovers on purpose: the note popup is anchored to the selected note and lands on
-     this bar whenever the cursor is near the top of the song (measured at 1280: popup
-     55–545 × 132–336, straight over it), which left its buttons unreachable. Persistent chrome
-     that must always answer > a transient popup the user can drag. Ladder order matters more
-     than the number: popover < editbar < scrim. */
-  --z-editbar: 900;
   --z-scrim: 1040;
   --z-drawer: 1050;
   --z-modal: 1200;
@@ -159,6 +152,12 @@ html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Always reserve the scrollbar's gutter. Without it the page width jumps by ~15px whenever
+     the document stops being taller than the window — which is exactly what happens on entering
+     the ✏️ editor (its frame takes the sheet out of page flow), and the shell bar then re-fitted
+     itself into a different layout mid-edit (measured: shell-compact → shell-tight at 1280).
+     Reserving the gutter keeps every page and every mode the same width. */
+  scrollbar-gutter: stable;
 }
 
 body {

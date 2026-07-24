@@ -179,4 +179,28 @@ describe('SongViewer — ย้อน / ทำซ้ำ', () => {
     expect(noteStr(w)).toBe('1 2')
     expect(syls(w)).toEqual(['ก', 'ข'])
   })
+
+  // Regression (24 ก.ค.): ONE Ctrl+Z undid TWO edits. The capture field's keydown handler ran
+  // undo, then the SAME native event bubbled to the window listener which ran it again — because
+  // the field handler forgot stopPropagation (the transport path already had it). This test only
+  // catches the bug because it (a) makes TWO distinct history steps — the clock is advanced past
+  // BURST_MS so the two edits don't coalesce — and (b) delivers the key as a REAL bubbling
+  // keydown on the field. A test that called vm.undoEdit() directly would see one call and pass
+  // even with the double-handler present.
+  it('one Ctrl+Z undoes exactly ONE edit, not two (real bubbling key)', async () => {
+    vi.useFakeTimers()
+    try {
+      const w = mountHost()
+      await enterEdit(w)
+      await press(w, '5') // '1 2' → '5 2'  (step 1)
+      vi.advanceTimersByTime(500) // past the 400ms burst → the next edit is its own step
+      await press(w, '6') // '5 2' → '6 2'  (step 2)
+      expect(noteStr(w)).toBe('6 2')
+      await press(w, 'z', { ctrlKey: true }) // ONE press
+      // exactly one step back. Before the fix this landed on '1 2' (both steps undone at once).
+      expect(noteStr(w)).toBe('5 2')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
