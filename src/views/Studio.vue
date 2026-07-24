@@ -16,7 +16,7 @@ import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
 import { downloadSong, importSong } from '../lib/jsonIO.js'
 import { writeWorkingCopy, clearWorkingCopy, hasRecoverable, contentStamp } from '../lib/workingCopy.js'
-import { tier, canStore, session, saveDraftRow, initAuth, shellMenu, currentSong, readingFontScale, setFontScale } from '../store.js'
+import { tier, canStore, canApprove, session, saveDraftRow, publishSongRow, initAuth, shellMenu, currentSong, readingFontScale, setFontScale } from '../store.js'
 import Icon from '../components/Icon.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 import SongViewer from '../components/SongViewer.vue'
@@ -103,8 +103,33 @@ async function loadSong(id) {
   metaKnown.theme = data.theme != null
   inlineError.value = ''
   inlineDraftId.value = null
+  inlineDraftStatus.value = null
+  inlineReviewComment.value = ''
   recovery.value = hasRecoverable(data.id, content, undefined, metaOf(liveSong.value))
+  loadOpenDraft(data.id) // BI-007 G2 — pick up this song's open draft so the stepper survives reload
 }
+
+// find the author's open draft for a song (id + status + rejection note) → the stepper.
+async function loadOpenDraft(songId) {
+  if (!session.value || !songId) return
+  const { data } = await supabase
+    .from('song_drafts')
+    .select('id, status, review_comment, updated_at')
+    .eq('author_id', session.value.user.id)
+    .eq('song_id', songId)
+    .in('status', ['draft', 'pending', 'rejected'])
+    .order('updated_at', { ascending: false })
+    .limit(1)
+  const d = data?.[0]
+  if (!d) return
+  inlineDraftId.value = d.id
+  inlineDraftStatus.value = d.status
+  inlineReviewComment.value = d.review_comment || ''
+}
+// initAuth is async, so a routed song can load BEFORE we know who the user is (session still null,
+// loadOpenDraft bails). Re-read the open draft the moment auth resolves, so the stepper shows
+// รอตรวจ/ถูกส่งกลับ without a manual reload.
+watch(session, (s) => { if (s && liveSong.value?.id && inlineDraftStatus.value == null) loadOpenDraft(liveSong.value.id) })
 
 onMounted(async () => {
   initAuth()
@@ -222,7 +247,24 @@ function syncInlineState() {
   // leaves the editor with unsaved work — see SongViewer.requestExitEdit. B060: the ⚙ settings
   // half (metaOf) rides along so a rename/คีย์ change survives a crash too.
   else workCopySafe.value = writeWorkingCopy(s.id, s.content, undefined, undefined, metaOf(s))
+  // BI-007 D-C — auto-save the draft (Google-Docs pattern) so "บันทึกร่าง" stops being a thing the
+  // user must remember, and work can't be lost (G3). Debounced; editor+ only; and NOT while a draft
+  // is already รอตรวจ/เผยแพร่แล้ว (those need an explicit ถอน/แก้ต่อ, not a silent overwrite).
+  if (!same && canStore.value && inlineDraftStatus.value !== 'pending' && inlineDraftStatus.value !== 'approved') {
+    scheduleAutoSave()
+  }
 }
+let autoSaveTimer = null
+function scheduleAutoSave() {
+  clearTimeout(autoSaveTimer)
+  autoSaveTimer = setTimeout(() => {
+    if (inlineState.value === 'dirty' && canStore.value &&
+        inlineDraftStatus.value !== 'pending' && inlineDraftStatus.value !== 'approved') {
+      saveInlineDraft('draft', { auto: true })
+    }
+  }, 2500)
+}
+onUnmounted(() => clearTimeout(autoSaveTimer))
 
 // ---------- A-fix (23 ก.ค.): the inline editor's SAVE path ----------
 // โหมดแก้ inline shipped with one button ("เสร็จ") and no way to keep the work at all — a
@@ -240,6 +282,12 @@ function syncInlineState() {
 const inlineState = ref('clean') // clean | dirty | saving | saved | error
 const inlineError = ref('')
 const inlineDraftId = ref(null)
+// BI-007 — the review status of THIS song's open draft ('draft'|'pending'|'rejected'|'approved'|
+// null=none) + any rejection note. Drives the you-are-here stepper so the surface can say
+// "รอตรวจ / ถูกส่งกลับ" persistently (not a saveMsg that vanishes with the dock). Set on load +
+// every save.
+const inlineDraftStatus = ref(null)
+const inlineReviewComment = ref('')
 // did the last mirror to localStorage actually land? false = private mode / quota, i.e. the
 // work exists ONLY in this page's memory and a reload really would lose it.
 const workCopySafe = ref(true)
@@ -270,7 +318,13 @@ function markInlineSaved() {
 // a local copy newer than the server's, offered for recovery when the song (re)opens
 const recovery = ref(null)
 
-async function saveInlineDraft(kind) {
+// The inline editor's save channel (BI-007 completion-flow). `kind`:
+//   'file'    → anon Download-JSON (their own copy leaves the browser)
+//   'draft'   → บันทึกร่าง / auto-save (editor+ · a private draft, never the live song)
+//   'pending' → ส่งตรวจ (editor submits the draft for review → status='pending')
+//   'publish' → เผยแพร่ (approver only → writes straight to the public `songs` table)
+// opts.auto = a debounced auto-save: never nag on a title-less song, just keep the working copy.
+async function saveInlineDraft(kind, opts = {}) {
   const s = liveSong.value
   if (!s) return
   if (kind === 'file') {
@@ -280,7 +334,9 @@ async function saveInlineDraft(kind) {
     clearWorkingCopy(s.id)
     return
   }
+  if (kind === 'publish') { await publishInline(s); return }
   if (!canStore.value) return
+  const status = kind === 'pending' ? 'pending' : 'draft'
   inlineState.value = 'saving'
   inlineError.value = ''
   const row = {
@@ -289,7 +345,7 @@ async function saveInlineDraft(kind) {
     title_th: (s.title_th || '').trim(),
     title_en: s.title_en?.trim() || null,
     content: JSON.parse(JSON.stringify(s.content)),
-    status: 'draft',
+    status,
     // B108 — send หมวด/ธีม ONLY when that field is genuine (read off the row, or picked by a
     // human in ⚙ ตั้งค่าเพลง). A guess written here would be published over what is stored and
     // silently re-file the song / wipe its theme — the exact bug db/010 + the knownness flags
@@ -298,6 +354,7 @@ async function saveInlineDraft(kind) {
     ...(metaKnown.theme && s.theme ? { theme: s.theme } : {}),
   }
   if (!row.title_th) {
+    if (opts.auto) { inlineState.value = 'dirty'; return } // auto-save never nags
     inlineState.value = 'error'
     // B060 — the name is now settable right here (⚙ ตั้งค่าเพลง), so point at that, not at
     // the other editor
@@ -322,8 +379,54 @@ async function saveInlineDraft(kind) {
     return // the local working copy stays — nothing is lost by a failed save
   }
   inlineDraftId.value = id
+  inlineDraftStatus.value = status // stepper flips to เก็บร่าง / รอตรวจ at once
+  if (status === 'pending') inlineReviewComment.value = ''
   markInlineSaved()
   clearWorkingCopy(s.id) // stored on the server now; the recovery copy has done its job
+}
+
+// BI-007 — approver "เผยแพร่": push the edited song straight to the public list. Mirrors the
+// careful bits of EditorMode.saveDirect: write หมวด/ธีม only when genuine (B108 knownness) so a
+// guessed value never re-files the song, and preserve an existing song's stored values by
+// OMITTING the column (PostgREST leaves omitted columns untouched). Existing song = UPDATE; a
+// brand-new one = INSERT with the author. review_flags/lint stay in the full แก้ไข publish path.
+async function publishInline(s) {
+  if (!canApprove.value) return // approver-only; RLS enforces it too
+  inlineState.value = 'saving'
+  inlineError.value = ''
+  const row = {
+    number: s.number ?? null,
+    title_th: (s.title_th || '').trim(),
+    title_en: s.title_en?.trim() || null,
+    content: JSON.parse(JSON.stringify(s.content)),
+  }
+  if (!row.title_th) {
+    inlineState.value = 'error'
+    inlineError.value = 'เพลงนี้ยังไม่มีชื่อภาษาไทย — ใส่ชื่อใน ⚙ ตั้งค่าเพลง ก่อน'
+    return
+  }
+  if (!s.id || metaKnown.category) row.category = s.category || 'anuchon'
+  if (!s.id || metaKnown.theme) row.theme = s.theme || null
+  const { id, error } = await publishSongRow(row, s.id)
+  if (error) {
+    inlineState.value = 'error'
+    inlineError.value = error.message || 'เผยแพร่ไม่สำเร็จ'
+    return
+  }
+  if (!s.id && id) liveSong.value = { ...liveSong.value, id }
+  inlineDraftStatus.value = 'approved' // stepper → เผยแพร่แล้ว
+  markInlineSaved()
+  clearWorkingCopy(id || s.id)
+  loadSongList() // the edit is live — refresh the picker/catalog source
+}
+
+// BI-007 — "ถอนกลับมาแก้": an editor pulls a รอตรวจ draft back to แก้ (pending → draft) to edit +
+// resubmit. Own draft only (RLS). The stepper flips back on success.
+async function withdrawInlineDraft() {
+  if (!inlineDraftId.value || !canStore.value) return
+  const { error } = await supabase.from('song_drafts').update({ status: 'draft' }).eq('id', inlineDraftId.value)
+  if (error) { inlineError.value = error.message || 'ถอนร่างไม่สำเร็จ'; inlineState.value = 'error'; return }
+  inlineDraftStatus.value = 'draft'
 }
 // offered after a crash/reload: take the local copy, or drop it
 function acceptRecovery() {
@@ -791,11 +894,14 @@ function printSheet() {
         :save-state="inlineState"
         :save-error="inlineError"
         :recoverable="workCopySafe"
+        :draft-status="inlineDraftStatus"
+        :review-comment="inlineReviewComment"
         :start-key="linkKey"
         @update-content="onViewerContent"
         @update-meta="onViewerMeta"
         @update-music="onViewerMusic"
         @save="saveInlineDraft"
+        @withdraw="withdrawInlineDraft"
         @key-change="viewKey = $event"
         @update:editing="viewerEditing = $event"
         @left-dirty="onLeftDirty"

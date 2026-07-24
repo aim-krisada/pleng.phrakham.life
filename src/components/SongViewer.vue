@@ -33,6 +33,8 @@ import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
 import NoteInputBar from './NoteInputBar.vue'
 import SongSettings from './SongSettings.vue'
+import CompletionStatus from './CompletionStatus.vue'
+import { mailtoLink } from '../lib/share.js'
 import StructureDrawer from './StructureDrawer.vue'
 import Icon from './Icon.vue'
 
@@ -51,6 +53,10 @@ const props = defineProps({
   // whether leaving the editor with unsaved work is a non-event (the normal case) or the last
   // chance to keep it (storage blocked/full) — see requestExitEdit.
   recoverable: { type: Boolean, default: true },
+  // BI-007 — this song's open-draft status ('draft'|'pending'|'rejected'|'approved'|null) and any
+  // rejection note, owned by the shell. Drives the you-are-here stepper + the finish button.
+  draftStatus: { type: String, default: null },
+  reviewComment: { type: String, default: '' },
   // EPIC H — a shared link may carry the key it was shared at (?key=, lib/share.js). It is a
   // STARTING point only: the listener's own คีย์ pick afterwards wins. '' = use the song's key.
   startKey: { type: String, default: '' },
@@ -63,7 +69,7 @@ const props = defineProps({
 // `update-meta` (B060) is the same idea for the song's ROW fields (เลข · ชื่อไทย · ชื่ออังกฤษ ·
 // ธีม · หมวด), which live on the songs row and not in `content` — the ⚙ ตั้งค่าเพลง panel hands
 // up a patch and the owner merges it, exactly as it does with a new content.
-const emit = defineEmits(['update-content', 'update-meta', 'update-music', 'save', 'key-change', 'update:editing', 'left-dirty'])
+const emit = defineEmits(['update-content', 'update-meta', 'update-music', 'save', 'withdraw', 'key-change', 'update:editing', 'left-dirty'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -1072,6 +1078,9 @@ function onInlinePick(e) {
 // Either way the shell also mirrors every keystroke into a local working copy, so even a
 // crash/reload can be recovered.
 const canStoreServer = computed(() => props.tier !== 'anon' && props.tier !== 'guest')
+// BI-007 — the REAL publish ceiling (store.js / db/002 RLS): approver writes `songs`; editor tops
+// out at "ส่งตรวจ" (a review draft); anon can only keep a file + ask the team.
+const canApprove = computed(() => props.tier === 'approver')
 const SAVE_TEXT = {
   clean: 'บันทึกแล้ว',
   dirty: 'ยังไม่บันทึก',
@@ -1092,6 +1101,95 @@ function requestSave() {
     emit('save', 'file')
   }
 }
+
+// ---- BI-007 completion flow — the you-are-here model + the one adaptive finish button ---------
+// completionModel (harvested from the stood-down EditorMode build, adapted to the inline surface)
+// = the role×status state machine the CompletionStatus stepper reads. anon 5-step / editor 5-step
+// / approver 2-step lanes. The inline editor never reviews OTHERS' drafts (that stays in แก้ไข), so
+// there is no 'review' lane here.
+const completionModel = computed(() => {
+  if (!canStoreServer.value) {
+    return {
+      steps: ['แก้ไข', 'เก็บไฟล์', 'ส่งให้ทีมงาน', 'ทีมตรวจ', 'ขึ้นคลัง'],
+      current: 0, tone: 'anon',
+      statusText: 'งานนี้เก็บอยู่ในเครื่องคุณ',
+      nextText: 'กด “ส่งข้อเสนอแนะให้ทีมงาน” — ดาวน์โหลดไฟล์แล้วส่งอีเมลให้ทีมงานนำขึ้นคลัง',
+      rejectComment: '',
+    }
+  }
+  if (canApprove.value) {
+    const published = props.draftStatus === 'approved'
+    return {
+      steps: ['แก้ไข', 'เผยแพร่แล้ว'],
+      current: published ? 1 : 0, tone: published ? 'approved' : 'draft',
+      statusText: published ? 'เผยแพร่ขึ้นคลังแล้ว' : 'แก้ฉบับที่เผยแพร่',
+      nextText: published ? 'อยู่บนเว็บแล้ว — แก้ต่อได้ทันที (กด “อนุมัติและเผยแพร่” ซ้ำเพื่ออัปเดต)' : 'กด “อนุมัติและเผยแพร่” = ขึ้นคลังทันที',
+      rejectComment: '',
+    }
+  }
+  const steps = ['แก้ไข', 'เก็บร่าง', 'ส่งตรวจทาน', 'รออนุมัติ', 'เผยแพร่แล้ว']
+  switch (props.draftStatus) {
+    case 'pending':
+      return { steps, current: 3, tone: 'pending', statusText: 'ส่งตรวจทานแล้ว · รออนุมัติ', nextText: 'ผู้อำนวยเพลงกำลังตรวจทาน — จะแจ้งเมื่อขึ้นคลัง/ส่งกลับ (ถอนกลับมาแก้ได้)', rejectComment: '' }
+    case 'approved':
+      return { steps, current: 4, tone: 'approved', statusText: 'ขึ้นคลังแล้ว', nextText: 'อยู่บนเว็บแล้ว · แก้ต่อได้เป็นร่างใหม่', rejectComment: '' }
+    case 'rejected':
+      return { steps, current: 0, tone: 'rejected', statusText: 'ถูกส่งกลับให้แก้', nextText: 'แก้ตามความเห็นผู้อำนวยเพลง แล้วกด “ส่งให้ผู้อำนวยเพลงตรวจทาน” อีกครั้ง', rejectComment: props.reviewComment }
+    default: // draft, or no draft yet
+      return { steps, current: 1, tone: 'draft', statusText: 'บันทึกร่างแล้ว', nextText: 'พร้อมแล้วกด “ส่งให้ผู้อำนวยเพลงตรวจทาน” → จะรับไปพิจารณานำขึ้นคลัง', rejectComment: '' }
+  }
+})
+// the auto-save micro-status the stepper shows (editor+ only): idle | saving | saved
+const autoSaveState = computed(() => {
+  if (!canStoreServer.value) return 'idle'
+  if (props.saveState === 'saving') return 'saving'
+  if (props.saveState === 'dirty' || props.saveState === 'error') return 'idle'
+  return 'saved'
+})
+// G-review #3 — a steady reassurance beside the save controls that drafts are kept without a
+// button press, so the user doesn't worry (and doesn't confuse "เก็บร่าง" with "ส่งตรวจ"). Only
+// while working on a draft (an editor that has NOT yet submitted / been published).
+const showAutosaveNote = computed(() => canStoreServer.value && !canApprove.value && props.draftStatus !== 'pending' && props.draftStatus !== 'approved')
+
+// ONE primary finish button, adaptive by role + state (never a disabled dead-button — spec §4):
+// anon = "ส่งให้ทีม" (download + email) · editor = "ส่งตรวจ" (submit) or "ถอนกลับมาแก้" while รอตรวจ
+// · approver = "เผยแพร่" (writes songs). The pressable label always states the real outcome.
+const isPending = computed(() => props.draftStatus === 'pending')
+const finishKind = computed(() => {
+  if (!canStoreServer.value) return 'anon'
+  if (canApprove.value) return 'publish'
+  return isPending.value ? 'withdraw' : 'submit'
+})
+// G-review (2026-07-24): drop system jargon for FUNCTION language — say what the button DOES for
+// whom, so a user who doesn't know "publish/draft/approver" still understands.
+const FINISH = {
+  anon: { label: 'ส่งข้อเสนอแนะให้ทีมงาน', icon: 'send', title: 'ส่งเพลงให้ทีมงานพิจารณานำขึ้นคลัง (ดาวน์โหลดไฟล์ + อีเมล)' },
+  publish: { label: 'อนุมัติและเผยแพร่', icon: 'globe', title: 'เผยแพร่ขึ้นคลังเพลงทันที — คนอื่นเห็นเลย' },
+  submit: { label: 'ส่งให้ผู้อำนวยเพลงตรวจทาน', icon: 'send', title: 'ส่งงานให้ผู้อำนวยเพลงตรวจทานและนำขึ้นคลัง' },
+  withdraw: { label: 'ถอนกลับมาแก้', icon: 'pencil', title: 'ดึงงานที่รอตรวจทานกลับมาแก้ต่อ' },
+}
+const finish = computed(() => FINISH[finishKind.value])
+const submittedCard = ref(false) // D-D post-submit confirmation
+const anonCard = ref(false) // D-B anon "ส่งให้ทีม" explainer
+function requestFinish() {
+  if (props.saveState === 'saving') return
+  const kind = finishKind.value
+  if (kind === 'anon') { anonCard.value = true; return }
+  if (kind === 'publish') { emit('save', 'publish'); return }
+  if (kind === 'withdraw') { emit('withdraw'); return }
+  emit('save', 'pending')
+  submittedCard.value = true
+}
+function anonDownload() { downloadSong(currentSong.value || props.song); emit('save', 'file') }
+const mailtoHref = computed(() => {
+  const title = (props.song?.number != null ? props.song.number + '. ' : '') + (props.song?.title_th || 'เพลง')
+  return mailtoLink({
+    to: 'pleng@phrakham.life',
+    subject: 'ขอส่งเพลงขึ้นคลัง: ' + title,
+    body: 'สวัสดีทีมพระคำ\n\nขอส่งเพลง "' + title + '" ให้ช่วยตรวจและนำขึ้นคลังครับ/ค่ะ\n(ได้แนบไฟล์ .json ที่ดาวน์โหลดจากเว็บมาด้วย — กด “ดาวน์โหลด JSON” ในหน้านั้นก่อนส่ง)\n\nขอบคุณครับ/ค่ะ',
+  })
+})
+watch(() => props.draftStatus, (s) => { if (s !== 'pending') submittedCard.value = false })
 // ---- ⚙ ตั้งค่าเพลง (B060) --------------------------------------------------------------
 // พี่เปา asked for this on 9 ก.ค.: the song's own settings had to be edited in the OTHER
 // editor, so keying a song meant bouncing between two surfaces. The panel lives here now.
@@ -1342,7 +1440,7 @@ function onSettingsMusic(patch) { emit('update-music', patch) }
 
 // The edit surface's handlers, exposed so the tests can drive the SAME functions the UI does
 // (a test that reimplements the wiring proves nothing about the wiring).
-defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit, toggleEdit, requestExitEdit, playScope, playWholeFromEditor, toggleSettings, onSettingsMusic, onSettingsMeta,
+defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit, toggleEdit, requestExitEdit, playScope, playWholeFromEditor, requestSave, requestFinish, toggleSettings, onSettingsMusic, onSettingsMeta,
   // marker-entry UI (for tests that drive the SAME handlers the panel does)
   toggleMarkerMenu, chooseJumpPreset, chooseJumpCommand, placeDropAtCaret, armDrop, deleteMarker, changeMarker, pendingDrops, placedMarkers, orphanJumps, playOrderCrumbs })
 
@@ -1691,10 +1789,22 @@ function scopeRange(scope) {
     if (!sec) return null
     return { fromLi: sec.fromLi, toLi: sec.toLi, name: sec.name, label: `ท่อน ${sec.name}` }
   }
+  if (scope === 'bar') {
+    // BI-006 (พี่เปา) — just the ห้อง the caret sits in: the finest fine-tune unit. Reuses the
+    // fromSi/toSi range that inPlayRange already honours (built for mid-bar repeat jumps), so no
+    // engine change — the play narrows to this line's segments in the caret's bar (curUnit.bi).
+    const bi = curUnit.value?.bi
+    if (bi == null) return null
+    const cells = inlineCells.value.filter((c) => c.li === li && c.bi === bi)
+    if (!cells.length) return null
+    const sis = cells.map((c) => c.si)
+    return { fromLi: li, toLi: li, fromSi: Math.min(...sis), toSi: Math.max(...sis), name: null, label: `${lineScopeLabel(li)} · ห้องที่ ${bi + 1}` }
+  }
   return { fromLi: li, toLi: li, name: null, label: lineScopeLabel(li) }
 }
 const canPlayLine = computed(() => !!scopeRange('line'))
 const canPlaySection = computed(() => !!scopeRange('section'))
+const canPlayBar = computed(() => !!scopeRange('bar'))
 // ▶ ท่อนนี้ / ▶ บรรทัดนี้ — press the lit one again to stop.
 function playScope(scope) {
   if (playing.value && previewScope.value === scope) { stopPlay(); pausedIndex.value = 0; posIndex.value = 0; return }
@@ -1702,7 +1812,8 @@ function playScope(scope) {
   if (!r) return
   stopPlay() // also clears any previous preview, so the label can never lie
   previewScope.value = scope
-  previewOrder.value = [{ name: r.name, fromLi: r.fromLi, toLi: r.toLi }]
+  // fromSi/toSi (BI-006 bar scope) narrow the single line to one ห้อง; absent for line/section.
+  previewOrder.value = [{ name: r.name, fromLi: r.fromLi, toLi: r.toLi, fromSi: r.fromSi, toSi: r.toSi }]
   previewLabel.value = r.label
   pausedIndex.value = 0
   startPlay(0)
@@ -1727,6 +1838,7 @@ const editPlayLabel = computed(() => (playing.value ? previewLabel.value || 'ท
 const isWholePlaying = computed(() => playing.value && !previewScope.value)
 const isSectionPlaying = computed(() => previewScope.value === 'section')
 const isLinePlaying = computed(() => previewScope.value === 'line')
+const isBarPlaying = computed(() => previewScope.value === 'bar')
 // Keyboard, for the hands that never leave the notes. Ctrl+Enter = this line, Ctrl+Shift+Enter =
 // this ท่อน, Esc = stop. Duplicated onto the capture field AND the window so an IME that swallows
 // the event before it bubbles cannot lose it (same reasoning as the undo shortcut).
@@ -1976,6 +2088,20 @@ function onSeek({ li, si, syk }) {
       :class="{ 'sv-frame': editMode }"
       :style="editMode ? { '--sv-top': frameTop + 'px', '--sv-kb': kbInset + 'px' } : null"
     >
+      <!-- BI-007 D-A — the persistent you-are-here stepper: where this song is in the
+           แก้→ร่าง→ส่งตรวจ→เผยแพร่ journey + what to do next. In normal flow (not the dock), so it
+           never vanishes on scroll/reload (fixes G2/G4). Shown for every tier (anon has its own
+           5-step "ส่งให้ทีม" lane). Fed by the role×status completionModel. -->
+      <CompletionStatus
+        v-if="editMode"
+        :steps="completionModel.steps"
+        :current="completionModel.current"
+        :tone="completionModel.tone"
+        :status-text="completionModel.statusText"
+        :next-text="completionModel.nextText"
+        :reject-comment="completionModel.rejectComment"
+        :auto-save="autoSaveState"
+      />
       <!-- the editor's header: SAVE STATE stated at all times (A-fix) — "ยังไม่บันทึก" vs
            "บันทึกแล้ว ✓" — plus the save button that fits the tier and the way out. It is a flex
            child of the frame, ABOVE the scroll region: it used to be `position: sticky` inside it,
@@ -2014,13 +2140,22 @@ function onSeek({ li, si, syk }) {
               title="ฟังเฉพาะบรรทัดที่กำลังแก้ (Ctrl+Enter)"
               @click="playScope('line')"
             ><Icon :name="isLinePlaying ? 'square' : 'play'" :size="16" /> บรรทัดนี้</button>
+            <!-- BI-006 (พี่เปา): the finest unit — just the ห้อง the caret is in, for checking one
+                 fix without waiting through the whole บรรทัด. Same audio path (playScope). -->
+            <button
+              class="sv-play-btn"
+              :class="{ on: isBarPlaying }"
+              :aria-pressed="isBarPlaying"
+              :disabled="!canPlayBar"
+              title="ฟังเฉพาะห้องที่กำลังแก้"
+              @click="playScope('bar')"
+            ><Icon :name="isBarPlaying ? 'square' : 'play'" :size="16" /> ห้องนี้</button>
           </span>
           <!-- a partial play must SAY what it is playing — never leave the ear guessing -->
           <span v-if="editPlayLabel" class="sv-play-now" role="status" aria-live="polite">
             กำลังเล่น: {{ editPlayLabel }}
           </span>
           <span v-if="saveState === 'error' && saveError" class="sv-save-err">{{ saveError }}</span>
-          <span v-if="!canStoreServer" class="sv-save-note">เข้าสู่ระบบเพื่อบันทึกเข้าเซิร์ฟเวอร์</span>
           <!-- B060 ⚙ ตั้งค่าเพลง — the song's เลข/ชื่อ/คีย์/จังหวะ/ความเร็ว/ธีม/หมวด, right here
                in the editor instead of over in the old grid editor. Belongs to THE DOCUMENT, so
                it sits with the save controls (not with the note-level dock). Added beside the
@@ -2068,19 +2203,59 @@ function onSeek({ li, si, syk }) {
             title="ตั้งค่าเพลง — เลขเพลง ชื่อ คีย์ จังหวะ ความเร็ว ธีม หมวด"
             @click="toggleSettings"
           ><Icon name="settings" :size="16" /> <span class="sv-settings-lbl">ตั้งค่าเพลง</span></button>
+          <!-- G-review #3 — steady reassurance that drafts save themselves (near the buttons). -->
+          <span v-if="showAutosaveNote" class="sv-autosave-note"><Icon name="check" :size="13" /> ระบบบันทึกร่างอัตโนมัติ</span>
+          <!-- บันทึกร่าง = SECONDARY now (BI-007 D-C): auto-save keeps the work, so this is a manual
+               backup, not the finish. anon keeps "ดาวน์โหลด JSON" (their own copy). -->
           <button
             class="sv-save-btn"
             :disabled="saveState === 'saving'"
-            :title="canStoreServer ? 'บันทึกเป็นร่างในเซิร์ฟเวอร์ (ยังไม่เผยแพร่)' : 'บันทึกงานเป็นไฟล์ JSON เก็บไว้ในเครื่อง'"
+            :title="canStoreServer ? 'เก็บร่างเดี๋ยวนี้ (ปกติระบบเก็บอัตโนมัติให้แล้ว)' : 'บันทึกงานเป็นไฟล์ JSON เก็บไว้ในเครื่อง'"
             @click="requestSave"
           ><Icon :name="canStoreServer ? 'save' : 'download'" :size="16" /> {{ saveLabel }}</button>
+          <!-- BI-007 — the ONE primary finish button, adaptive by role + state (anon ส่งให้ทีม ·
+               editor ส่งตรวจ/ถอนกลับมาแก้ · approver เผยแพร่). Always the best action the tier
+               allows — never a disabled dead-button. -->
+          <button
+            class="sv-finish-btn"
+            :disabled="saveState === 'saving'"
+            :title="finish.title"
+            @click="requestFinish"
+          ><Icon :name="finish.icon" :size="16" /> {{ finish.label }}</button>
           <!-- "เสร็จ" lives HERE, beside the save state, instead of on a floating round button:
                a big fixed FAB is one more thing sitting on top of the sheet, and it collided with
                the dock once the dock took real height. Editor actions belong in the editor's own
                header (Docs/Sheets/Word all do this); the ✏️ FAB stays only as the way IN. -->
-          <button class="sv-done-btn" title="เสร็จ — กลับไปฝึกร้อง" aria-label="เสร็จการแก้ไข" @click="requestExitEdit">
+          <button class="sv-done-btn" title="เสร็จ — กลับไปฝึกร้อง (ไม่ได้ส่งหรือเผยแพร่)" aria-label="เสร็จการแก้ไข" @click="requestExitEdit">
             <Icon name="check" :size="16" /> เสร็จ
           </button>
+        </div>
+
+        <!-- BI-007 D-D — post-submit confirmation (editor): the "ส่งตรวจ" moment must not vanish as
+             a toast. A calm inline card that says it landed + what happens next. -->
+        <div v-if="editMode && submittedCard && isPending" class="sv-flow-card no-print" role="status" aria-live="polite">
+          <Icon name="send" :size="18" class="sv-flow-ic" />
+          <div class="sv-flow-body">
+            <b>ส่งตรวจแล้ว 🎉</b>
+            <span>ทีมผู้อนุมัติรับงานไปพิจารณาแล้ว — จะขึ้นคลังเมื่ออนุมัติ ระหว่างนี้ยัง “ถอนกลับมาแก้” ได้</span>
+          </div>
+          <button class="sv-flow-x" aria-label="ปิด" @click="submittedCard = false"><Icon name="x" :size="16" /></button>
+        </div>
+
+        <!-- BI-007 D-B — the anon "ส่งให้ทีม" flow: no server account, so the path is keep-a-file +
+             email the team (WT-C). An ENABLED route, not a disabled publish button that misleads. -->
+        <div v-if="editMode && anonCard" class="sv-flow-card sv-flow-anon no-print" role="dialog" aria-label="ส่งเพลงให้ทีม">
+          <button class="sv-flow-x" aria-label="ปิด" @click="anonCard = false"><Icon name="x" :size="16" /></button>
+          <div class="sv-flow-body">
+            <b>ส่งเพลงให้ทีมนำขึ้นคลัง</b>
+            <ol class="sv-flow-steps">
+              <li><b>ดาวน์โหลดไฟล์เพลง</b> (JSON) เก็บงานของคุณ<br />
+                <button class="sv-flow-act" @click="anonDownload"><Icon name="download" :size="15" /> ดาวน์โหลด JSON</button></li>
+              <li><b>แนบไฟล์นั้นส่งอีเมล</b>ถึงทีม แล้วทีมจะตรวจและนำขึ้นคลังให้<br />
+                <a class="sv-flow-act" :href="mailtoHref"><Icon name="send" :size="15" /> เปิดอีเมลถึงทีม</a></li>
+            </ol>
+            <p class="sv-flow-note">ทีมมีบัญชีอยู่แล้ว? <b>เข้าสู่ระบบ</b> (เมนูมุมขวาบน) เพื่อส่งตรวจได้ในเว็บเลย</p>
+          </div>
         </div>
 
       <!-- ตรวจโน้ต result — a plain problems list (like Docs' spell-check panel): each issue names
@@ -2546,6 +2721,8 @@ function onSeek({ li, si, syk }) {
 .sv-save-dot { font-size: 10px; line-height: 1; }
 .sv-save-err { color: var(--danger, #b91c1c); }
 .sv-save-note { color: var(--muted, #64748b); }
+/* บันทึกร่าง = SECONDARY (outline) — auto-save carries the work, so the filled PRIMARY beside it
+   is the finish action (ส่งตรวจ/เผยแพร่/ส่งให้ทีม). Standard draft→publish hierarchy. BI-007. */
 .sv-save-btn {
   margin-inline-start: auto;
   display: inline-flex;
@@ -2555,13 +2732,94 @@ function onSeek({ li, si, syk }) {
   padding: 4px 14px;
   border-radius: 8px;
   border: 1px solid var(--brand, #8b4513);
-  background: var(--brand, #8b4513);
-  color: #fff;
+  background: var(--surface, #fff);
+  color: var(--brand, #8b4513);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
+.sv-save-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--brand, #8b4513) 8%, transparent); }
 .sv-save-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* BI-007 — the PRIMARY finish button (filled brand). Its label follows the tier/state. */
+.sv-finish-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--brand, #8b4513);
+  background: var(--brand, #8b4513);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sv-finish-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.sv-finish-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+.sv-finish-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* BI-007 — inline flow cards (post-submit confirmation · anon ส่งให้ทีม). Calm, in normal flow,
+   dismissible — HIG/M3: a persistent state change is a card, not a snackbar. */
+.sv-flow-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--brand, #8b4513);
+  background: color-mix(in srgb, var(--brand, #8b4513) 6%, var(--surface, #fff));
+  font-size: 13px;
+}
+.sv-flow-ic { color: var(--brand, #8b4513); flex: 0 0 auto; margin-top: 1px; }
+.sv-flow-body { display: flex; flex-direction: column; gap: 3px; }
+.sv-flow-body > b { font-size: 13.5px; }
+.sv-flow-steps { margin: 4px 0 0; padding-inline-start: 18px; display: flex; flex-direction: column; gap: 8px; }
+.sv-flow-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  min-height: 30px;
+  padding: 3px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--brand, #8b4513);
+  background: var(--surface, #fff);
+  color: var(--brand, #8b4513);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.sv-flow-note { margin: 8px 0 0; color: var(--muted, #64748b); font-size: 12.5px; }
+.sv-flow-x {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  display: inline-flex;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--muted, #64748b);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.sv-flow-x:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+.sv-flow-anon { flex-direction: column; padding-inline-end: 34px; }
+
+/* G-review #3 — the auto-save reassurance caption beside the save controls */
+.sv-autosave-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted, #64748b);
+  font-size: 12px;
+}
+@media (max-width: 640px) { .sv-autosave-note { display: none; } } /* the stepper already says it on phones */
 
 /* B060 ⚙ ตั้งค่าเพลง — a secondary control in the same 32px row as บันทึกร่าง (its sibling),
    so the two read as one bar. WCAG 2.2 AA target size is 24px; matching the sibling at 32
