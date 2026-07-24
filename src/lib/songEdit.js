@@ -323,6 +323,83 @@ export function withTie(content, loc) {
   return content // nothing adjacent shares this pitch → not a tie
 }
 
+// ---------- slur / triplet bracket removal from ANY note in the span (BI-011a) ----------
+// Real songs store a group bracket ATTACHED to a digit ("(3 1)", "(6_ 7)", "1)") and a slur may
+// SPAN SEGMENTS ("(3 - 2" then "1) -"). withToggledBox only ever removed a SEPARATE "(" box next
+// to the cursor, so on real data pressing ( / ) did nothing and the arc could not be removed
+// (BI-011 field report). These match the WHOLE bracket group enclosing the selected note across
+// the entire line — wherever its open/close live, attached or separate — so removal works from
+// the head, the MIDDLE, or the tail note, and never leaves a dangling half-bracket.
+
+// every segment of a resolved line, in reading order: { si, at, note }
+function segNotesOfLine(content, resolvedLine) {
+  const out = []
+  for (let si = 0; ; si++) {
+    const at = locateSegment(content, resolvedLine, si)
+    if (!at) break
+    out.push({ si, at, note: content.stanzas[at.stanzaIndex].lines[at.lineIndex][at.segIndex].note || '' })
+  }
+  return out
+}
+
+// The bracket group `open`…`close` enclosing the note at `loc`, matched across the whole LINE.
+// Returns { open:{si,bi}, close:{si,bi} } (segment index + raw box index of the bracket-bearing
+// boxes) or null. Depth-aware (nesting → innermost enclosing pair). Handles a box that both opens
+// and closes ("(6)" self-group).
+export function bracketSpanAt(content, loc, open, close) {
+  if (!loc) return null
+  const { resolvedLine, si, syk } = loc
+  const segs = segNotesOfLine(content, resolvedLine)
+  if (!segs.length) return null
+  const flat = [] // one entry per box across the line: { si, bi, tok }
+  for (const s of segs) noteBoxes(s.note).forEach((tok, bi) => flat.push({ si: s.si, bi, tok }))
+  const selSeg = segs.find((s) => s.si === si)
+  if (!selSeg) return null
+  const selBi = boxIndexForSlot(selSeg.note, syk)
+  if (selBi < 0) return null
+  const selFlat = flat.findIndex((x) => x.si === si && x.bi === selBi)
+  if (selFlat < 0) return null
+  const stack = []
+  let best = null
+  for (let i = 0; i < flat.length; i++) {
+    const tok = flat[i].tok
+    if (tok.includes(close)) { const o = stack.length ? stack.pop() : null; if (o != null && o <= selFlat && i >= selFlat) best = { o, i } }
+    if (tok.includes(open)) stack.push(i)
+    if (tok.includes(open) && tok.includes(close) && i === selFlat) best = { o: i, i } // "(6)" self-group
+  }
+  if (!best) return null
+  return { open: { si: flat[best.o].si, bi: flat[best.o].bi }, close: { si: flat[best.i].si, bi: flat[best.i].bi } }
+}
+
+// Strip the `open` from its box and the `close` from its box for the bracket group enclosing
+// `loc`. Edits one segment (same-segment group) or two (cross-segment). Returns content unchanged
+// when the note is in no such group. A box left empty (a SEPARATE "(" / ")") is dropped. Brackets
+// bear no syllable slot, so verses never ripple.
+export function withBracketRemovedAt(content, loc, open, close) {
+  const span = bracketSpanAt(content, loc, open, close)
+  if (!span) return content
+  const { resolvedLine } = loc
+  const edits = new Map() // si -> { at, boxes }
+  const ensure = (si) => {
+    if (!edits.has(si)) {
+      const at = locateSegment(content, resolvedLine, si)
+      const note = content.stanzas[at.stanzaIndex].lines[at.lineIndex][at.segIndex].note || ''
+      edits.set(si, { at, boxes: noteBoxes(note) })
+    }
+    return edits.get(si)
+  }
+  const eo = ensure(span.open.si)
+  eo.boxes[span.open.bi] = eo.boxes[span.open.bi].replace(open, '') // first opener on that box
+  const ec = ensure(span.close.si)
+  { const t = ec.boxes[span.close.bi]; const j = t.lastIndexOf(close); ec.boxes[span.close.bi] = j < 0 ? t : t.slice(0, j) + t.slice(j + 1) }
+  let next = content
+  for (const { at, boxes } of edits.values()) {
+    const newNote = boxes.filter((b) => b !== '').join(' ')
+    next = withSegmentNote(next, at, newNote, next.arrangement) // structure indices stable (note-only edit)
+  }
+  return next
+}
+
 // Which symbol characters are ALREADY ON the note at `loc` — so the toolbar can light the
 // matching key (an active/pressed state), the standard text-editor toggle affordance: a person
 // who sees an arc over a note but does not know how to remove it now sees the `~` (or `(` / `)`)
@@ -351,13 +428,37 @@ export function activeSymbolsAt(content, loc) {
     if (cur.dots > 0) out.push('.') // aug dot (octave-low `.` is `cur.low`, a different key)
     if (cur.accidental) out.push(cur.accidental) // '#' | 'b' | 'n'
   }
-  // structural brackets are their OWN boxes beside the note — same sides withToggledBox removes from
-  if (boxes[bi - 1] === '(') out.push('(')
-  if (boxes[bi + 1] === ')') out.push(')')
-  if (boxes[bi - 1] === '{') out.push('{')
-  if (boxes[bi + 1] === '}') out.push('}')
-  if (boxes[bi + 1] === '-') out.push('-')
+  // slur / triplet: light BOTH keys on EVERY note inside the group (head, middle, tail) — the
+  // group is matched across the whole line (bracketSpanAt), so an attached "(3" or a bracket in
+  // another segment still lights the key on a middle note. Pressing either key then removes the
+  // whole group (see editorCommands.effectFor). This replaces the old separate-box adjacency
+  // check, which never fired on real (attached) data.
+  if (bracketSpanAt(content, loc, '(', ')')) { out.push('('); out.push(')') }
+  if (bracketSpanAt(content, loc, '{', '}')) { out.push('{'); out.push('}') }
+  if (boxes[bi + 1] === '-') out.push('-') // '-' hold is always its own box beside the note
   return out
+}
+
+// The active marks on the note at `loc` as FRIENDLY chips (BI-011c) — one entry per human concept,
+// each with the removal `act` the UI dispatches. Unlike activeSymbolsAt (per-key, for lighting the
+// toolbar) this COLLAPSES a slur's two keys into one "เอื้อน ✕" chip, so on a phone (no hover, no
+// toolbar scanning) the user sees exactly what is on the selected note and removes it in one tap.
+//   act: 'slur' | 'triplet' → withBracketRemovedAt · anything else → applySymbol(act) (a toggle).
+export function activeMarksAt(content, loc) {
+  const syms = activeSymbolsAt(content, loc)
+  const has = (c) => syms.includes(c)
+  const marks = []
+  if (has('~')) marks.push({ act: '~', label: 'โยงเสียง' })
+  if (has('(') && has(')')) marks.push({ act: 'slur', label: 'เอื้อน' })
+  if (has('{') && has('}')) marks.push({ act: 'triplet', label: 'สามพยางค์' })
+  if (has('-')) marks.push({ act: '-', label: 'ลากเสียง' })
+  if (has('^')) marks.push({ act: '^', label: 'ยืดเสียง' })
+  if (has('_')) marks.push({ act: '_', label: 'เขบ็ต' })
+  if (has('.')) marks.push({ act: '.', label: 'จุดเพิ่ม' })
+  if (has('#')) marks.push({ act: '#', label: 'ชาร์ป' })
+  if (has('b')) marks.push({ act: 'b', label: 'แฟลต' })
+  if (has('n')) marks.push({ act: 'n', label: 'เนเชอรัล' })
+  return marks
 }
 
 // Insert a BAR LINE ('|') after the cursor's note. A bar is not a note box — in v2 it is its
