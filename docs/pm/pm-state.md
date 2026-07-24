@@ -19,7 +19,10 @@
 ### 🆕 พี่เอมใช้พรีวิวจริง 24 ก.ค. → editor flow polish (spec ก่อน · G บังคับ · dev สร้างหลัง C · **จ่าย session ใหม่สด ไม่ใช่ SA palette ที่ context บวม**)
 **สเปกข้อ 1-3 เสร็จ merge `3d3fcad`** (`docs/ds/editor-flow-polish.md` + transcript G) — SA จับ G ผิด 2 จุด: (ก) MuseScore4 เอา Tab ออก → ใช้ **Space=ยืนยัน+ไปโน้ตถัดไป** (ข) chord-delete เก็บในป๊อปอัป (Del/Backspace จองลบโน้ตแล้ว `SongViewer.vue:422-423`) · **ต้นตอ "ซ่อนแท็บ" = SongViewer โหมดแก้ emit สถานะขึ้น Studio ไม่ได้ → เพิ่ม emit 1 จุด + ปุ่มเสร็จเดิม + Esc ลำดับชั้น (ปิดป๊อปอัปก่อน) + sticky กัน layout shift**
 🔴 **NOT PROVEN → ใส่ในใบสั่ง dev บังคับ:** คีย์ `C`(ป๊อปอัปคอร์ด)+`Ctrl+Space`(ข้ามห้อง) ยังไม่เช็กชน keydown เดิม `SongViewer.vue:382-423` · scrollIntoView ต้องเทสต์ Chrome จริง (เคยเงียบใน browser pane)
-4. 🟡 **เมนู "เพลง ▾"** — Explore เสร็จ: **ซ้ำหน้าแรกทั้งหมด + ค้นหาอ่อนกว่า (substring เฉย ๆ · โฆษณา "ค้นโน้ต/เลข" แต่ไม่ทำงานจริง) · ไม่มีอะไร unique** · ดีไซน์ล็อก 22 ก.ค.: create=หน้าแรกเท่านั้น · "เปิดเพลงอื่น"=เข้า ⋮ เพิ่มเติม · **เมนูนี้ v-if mode!=edit อยู่แล้ว = คนละเรื่องกับ "ซ่อนแท็บตอนแก้"** · palette แทนไม่ได้ (edit-only + ไม่ทำ cross-song) · **🔴 รอ P'Aim เคาะ: ⋮ (ตามล็อก) vs เก็บเห็นตลอด (กระโดดเพลงเร็ว)** → เคาะแล้ว session ใหม่เพิ่มเข้าสเปก
+4. ✅ **เมนู "เพลง ▾" → P'Aim เคาะ: ย้ายเข้า ⋮ เพิ่มเติม** (เอา create ออก=ซ้ำหน้าแรก · "เปิดเพลงอื่น"เข้า ⋮ + ต่อ `filterSongs` จริง) · v-if mode!=edit อยู่แล้ว = คนละเรื่อง "ซ่อนแท็บตอนแก้"
+5. 🆕 **พี่เปา: caret/insert/delete model** — (ก) "ใส่ 5 ก่อน 2" แทรกหน้าไม่ได้ (ข) เสนอสลับ Del↔Backspace · **PM วินิจฉัย: ต้นตอเดียว = cursor แบบ "เลือกทับตัว" ไม่ใช่ "ระหว่างตัว"** → แก้ราก caret ระหว่างตัว → แทรกหน้า + Del(ขวา)/Backspace(ซ้าย) ตามมาตรฐาน text editor ออกมาถูกเอง ⛔ ไม่สลับปุ่มดื้อๆ
+
+**→ จ่าย SA session ใหม่สด: เพิ่มข้อ 4 (เมนู→⋮) + ออกแบบข้อ 5 (caret model) เข้า `docs/ds/editor-flow-polish.md` · G บังคับ · ต้องประสานกับ Space=advance (คอร์ด) + keydown เดิม 382-423**
 
 ### 🔄 หมุน session (token efficiency · P'Aim สั่ง 24 ก.ค.)
 - **อ่าน % context ตรงไม่ได้** → ตัดสินจากภาระงาน · **SA palette = หนักสุด สั่ง wind down + handoff** (`2026-07-24-sa-palette-HANDOFF.md`) ไม่รับงานใหม่ · **B idle** งานหน้าเปิดใหม่ · **C กลางงาน** จบ chunk ก่อนหมุน · กฎ: 1 chunk = 1 session · งานใหม่ = session เล็กสด
