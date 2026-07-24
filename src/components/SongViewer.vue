@@ -29,6 +29,7 @@ import { createHistory, undoIntent } from '../lib/editHistory.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
 import NoteInputBar from './NoteInputBar.vue'
+import SongSettings from './SongSettings.vue'
 import Icon from './Icon.vue'
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
@@ -55,7 +56,10 @@ const props = defineProps({
 // content via `update-content`; that flows back down as props.song and the sheet re-renders.
 // `key-change` reports the reading key up so the shell can share the song AT the key the
 // listener is actually reading (EPIC H round-trip). Read-only signal — nothing flows back down.
-const emit = defineEmits(['update-content', 'save', 'key-change', 'update:editing', 'left-dirty'])
+// `update-meta` (B060) is the same idea for the song's ROW fields (เลข · ชื่อไทย · ชื่ออังกฤษ ·
+// ธีม · หมวด), which live on the songs row and not in `content` — the ⚙ ตั้งค่าเพลง panel hands
+// up a patch and the owner merges it, exactly as it does with a new content.
+const emit = defineEmits(['update-content', 'update-meta', 'update-music', 'save', 'key-change', 'update:editing', 'left-dirty'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -765,9 +769,28 @@ function requestSave() {
     emit('save', 'file')
   }
 }
+// ---- ⚙ ตั้งค่าเพลง (B060) --------------------------------------------------------------
+// พี่เปา asked for this on 9 ก.ค.: the song's own settings had to be edited in the OTHER
+// editor, so keying a song meant bouncing between two surfaces. The panel lives here now.
+// It is only offered while ✏️ is on — it is an editing action, not a reading one.
+const settingsOpen = ref(false)
+function toggleSettings() { settingsOpen.value = !settingsOpen.value }
+watch(editMode, (on) => { if (!on) settingsOpen.value = false })
+// row fields → straight up to the owner (Studio holds the songs row).
+function onSettingsMeta(patch) { emit('update-meta', patch) }
+// content fields (คีย์ · จังหวะ · ความเร็ว) → handed UP as a patch, not applied here. The
+// owner (Studio) holds the live song, so it applies the patch to the freshest content there
+// is — this surface's `song` prop is a snapshot that only refreshes on re-render, and two
+// settings changed in the same tick would then write the second one over the first.
+//   คีย์ = a TRANSPOSE (lib/songEdit.withSongKey → lib/chords): the jianpu numbers are scale
+//   degrees so they stand, the absolute chord letters move with the key. One key engine, the
+//   same one the reading transpose uses; sheet and playback both read content.key, so what is
+//   printed is what is heard.
+function onSettingsMusic(patch) { emit('update-music', patch) }
+
 // The edit surface's handlers, exposed so the tests can drive the SAME functions the UI does
 // (a test that reimplements the wiring proves nothing about the wiring).
-defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit, toggleEdit, requestExitEdit, playScope, playWholeFromEditor })
+defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit, toggleEdit, requestExitEdit, playScope, playWholeFromEditor, toggleSettings, onSettingsMusic, onSettingsMeta })
 
 // Leaving the editor — ONE gate, wherever the request comes from (the ✓ button, or the shell's
 // mode tabs asking to take the user somewhere else). Returns true when we actually left, so the
@@ -1429,6 +1452,18 @@ function onSeek({ li, si, syk }) {
           </span>
           <span v-if="saveState === 'error' && saveError" class="sv-save-err">{{ saveError }}</span>
           <span v-if="!canStoreServer" class="sv-save-note">เข้าสู่ระบบเพื่อบันทึกเข้าเซิร์ฟเวอร์</span>
+          <!-- B060 ⚙ ตั้งค่าเพลง — the song's เลข/ชื่อ/คีย์/จังหวะ/ความเร็ว/ธีม/หมวด, right here
+               in the editor instead of over in the old grid editor. Belongs to THE DOCUMENT, so
+               it sits with the save controls (not with the note-level dock). Added beside the
+               save/done buttons without moving lane A's เสร็จ or lane B's ฟัง group. -->
+          <button
+            class="sv-settings-btn"
+            type="button"
+            :aria-expanded="settingsOpen"
+            :aria-pressed="settingsOpen"
+            title="ตั้งค่าเพลง — เลขเพลง ชื่อ คีย์ จังหวะ ความเร็ว ธีม หมวด"
+            @click="toggleSettings"
+          ><Icon name="settings" :size="16" /> <span class="sv-settings-lbl">ตั้งค่าเพลง</span></button>
           <button
             class="sv-save-btn"
             :disabled="saveState === 'saving'"
@@ -1444,6 +1479,26 @@ function onSeek({ li, si, syk }) {
           </button>
         </div>
 
+      <!-- B060 — the settings themselves. Non-modal beside the sheet on a wide screen, a
+           full-screen page on a phone (SongSettings owns that split). Lives inside the frame so
+           it rides with the editor; position:fixed, so its place in the DOM is not its place on
+           screen. -->
+      <SongSettings
+        v-if="editMode"
+        :open="settingsOpen"
+        :number="song.number"
+        :title-th="song.title_th || ''"
+        :title-en="song.title_en || ''"
+        :category="song.category || ''"
+        :theme="song.theme || ''"
+        :song-key="song.content && song.content.key ? song.content.key : 'C'"
+        :time-signature="song.content && song.content.timeSignature ? song.content.timeSignature : '4/4'"
+        :bpm="song.content ? song.content.bpm : null"
+        @meta="onSettingsMeta"
+        @music="onSettingsMusic"
+        @close="settingsOpen = false"
+      />
+
       <div class="sv-doc">
         <!-- B053: แหล่งเพลง (source books) + scripture reference — small captions above the
              sheet, mirroring the catalog card. Only render when the song actually has them. -->
@@ -1455,7 +1510,7 @@ function onSeek({ li, si, syk }) {
         <div
           ref="sheetWrap"
           class="sheet-scale"
-          :class="{ 'sv-editing': editMode }"
+          :class="{ 'sv-editing': editMode, 'sv-settings-open': settingsOpen }"
           :style="{ fontSize: readingFontScale + 'rem' }"
           @click="onInlinePick"
         >
@@ -1684,6 +1739,31 @@ function onSeek({ li, si, syk }) {
 }
 .sv-save-btn:disabled { opacity: 0.6; cursor: default; }
 
+/* B060 ⚙ ตั้งค่าเพลง — a secondary control in the same 32px row as บันทึกร่าง (its sibling),
+   so the two read as one bar. WCAG 2.2 AA target size is 24px; matching the sibling at 32
+   clears it without inflating one button to 44 and breaking the row (brief 24 ก.ค.). */
+.sv-settings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: var(--surface, #fff);
+  color: var(--ink, #0f172a);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sv-settings-btn[aria-pressed='true'] { border-color: var(--brand, #8b4513); color: var(--brand, #8b4513); }
+.sv-settings-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* phone: the row gets tight — keep the icon, drop the word, and take a full touch target */
+@media (max-width: 640px) {
+  .sv-settings-lbl { display: none; }
+  .sv-settings-btn { min-height: var(--touch-min, 44px); min-width: var(--touch-min, 44px); justify-content: center; padding: 0 10px; }
+}
+
 /* ฟังตอนแก้ — the transport inside the pencil. Sized to the save bar's own button (32px tall),
    which clears the WCAG 2.2 AA 24px target floor without towering over its siblings. Plain
    buttons in normal flow: no hover gate, no gesture, visible the whole time edit mode is on. */
@@ -1772,6 +1852,14 @@ function onSeek({ li, si, syk }) {
    once its controls wrap at ≤480px; add the iOS home-indicator inset on top so the last
    line clears on notched phones too. (Clearance tracks the dock height, which S4 owns.) */
 .sheet-scale { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
+/* B060 — while ⚙ ตั้งค่าเพลง is open on a wide screen the panel is docked on the right, so the
+   sheet steps aside instead of being covered (measured at 1280: 2 note/word cells sat under the
+   panel before this). A docked panel that hides the thing you are tuning is worse than useless —
+   the whole reason it is non-modal is that คีย์/จังหวะ change what is drawn. On a phone the panel
+   is full-screen, so there is nothing to make room for. */
+@media (min-width: 761px) {
+  .sheet-scale.sv-settings-open { padding-right: 348px; }
+}
 @media (max-width: 480px) {
   .sheet-scale { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
 }

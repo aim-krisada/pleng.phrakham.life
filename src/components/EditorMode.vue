@@ -11,6 +11,7 @@ import {
   newSegment, barShell, newBar, newLine, deserializeLine, serializeLine,
   rest, CONTENT_KEYS, STANZA_KEYS, ARRANGEMENT_KEYS,
 } from '../lib/editorSerde.js'
+import { THEME_OPTIONS, CATEGORY_OPTIONS } from '../lib/songMeta.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
@@ -125,26 +126,9 @@ const isKnown = (row, key) => row != null && row[key] != null
 // library uses (from the songs.theme column); หมวด = the book/collection code (anuchon =
 // ไทยอนุชน 120 · docs/pm/book-codes.md). Both are set-and-forget dropdowns so พี่เปา can
 // fill them without fear of leaving the page.
-const THEMES = [
-  'กิตติคุณ',
-  'ความสุขแห่งความรอด',
-  'คริสตจักร',
-  'ประสบการณ์',
-  'พระคัมภีร์',
-  'มอบถวาย',
-  'รักปรารถนา',
-  'อาณาจักร',
-]
-const themeOptions = [{ value: '', label: '— ไม่ระบุธีม —' }, ...THEMES.map((t) => ({ value: t, label: t }))]
-// The 3 canonical books (P'Aim 12 ก.ค. — see docs/ds/home-redesign.md §Taxonomy) are the ONLY
-// choices in the "หมวด" ComboSelect. Hard lock: no allow-custom — a value not in this list must
-// not stick, so an editor can only pick one of the 3 books. Extending the taxonomy (rename or a
-// 4th book) is an admin job (B096, deferred), not a free-text field. 1 song = 1 book (single-select).
-const CATEGORY_OPTIONS = [
-  { value: 'lem-yai', label: 'เล่มใหญ่' },
-  { value: 'anuchon', label: 'อนุชน' },
-  { value: 'dek-lek', label: 'เด็กเล็ก' },
-]
+// The two lists now live in lib/songMeta.js — the inline editor (SongViewer's ✏️) offers the
+// SAME settings, and a taxonomy copied per editor is exactly how B108 wiped themes.
+const themeOptions = THEME_OPTIONS
 
 // melodies + play order (v2). An arrangement row stores its words as a `syllables`
 // array (one token per syllable-bearing note) so the per-note lyric boxes under the

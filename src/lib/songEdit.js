@@ -10,6 +10,7 @@
 // the caller holds a stored segment (SongViewer) or an editor segment (EditorMode).
 
 import { noteBoxKinds, syllableSlots, canonicalizeNote } from './notation.js'
+import { semitonesBetween, transposeChord, parseChord } from './chords.js'
 
 // Split a note string into its space-separated box tokens (one token per note box — the
 // same convention noteBoxKinds / NoteBoxes use). '' → [''] so an empty segment still has
@@ -406,4 +407,62 @@ export function withClearedSyllable(content, loc) {
   const newArr = content.arrangement.slice()
   newArr[ei] = { ...entry, syllables: next }
   return { ...content, arrangement: newArr }
+}
+
+// ---------- the song's KEY (B060 ตั้งค่าเพลง) ----------
+// Changing a song's key TRANSPOSES it. The melody is stored as scale degrees (movable-do
+// jianpu), so it follows the key by itself — but the chords are stored as ABSOLUTE letters
+// ("C", "G/B"), so they must move by the same interval or the harmony stops matching the
+// numbers. That is the whole edit: same music, new key.
+//
+// The interval + the spelling come from lib/chords.js (semitonesBetween/transposeChord) — the
+// SAME pair displayChord uses to show the sheet at a transposed reading key, so a song stored
+// AT key X reads exactly like the old song read when transposed TO X. No second key engine.
+//
+// Everything else is left alone: only `key` and the segments' `chord` strings differ, so a
+// verse's flow, marker ids, holds and any field this editor does not model ride through
+// untouched (structural sharing — untouched lines/stanzas keep their identity).
+// One chord, moved by `semis` and spelled for the target key. transposeChord keeps the whole
+// suffix verbatim — including a slash bass — which is a DISPLAY gap pinned in
+// chords.standard.test.js ("G/B" up a tone shows "A/B", not "A/C#"). A wrong bass shown for a
+// moment is one thing; writing it into the song is another, so here the bass is moved through
+// the SAME transposeChord (a bare note is just a chord with no quality). No new key engine.
+function moveChord(chord, semis, targetKey) {
+  const p = parseChord(chord)
+  if (!p || !p.bass) return transposeChord(chord, semis, targetKey)
+  const cut = p.suffix.indexOf('/')
+  const head = transposeChord(p.root + p.suffix.slice(0, cut), semis, targetKey)
+  return head + '/' + transposeChord(p.bass, semis, targetKey)
+}
+
+export function withSongKey(content, newKey) {
+  if (!content || !newKey || content.key === newKey) return content
+  const semis = semitonesBetween(content.key || 'C', newKey)
+  const mapLine = (line) => {
+    if (!Array.isArray(line)) return line
+    let touched = false
+    const next = line.map((item) => {
+      if (!item || item.type !== 'segment' || !item.chord) return item
+      const moved = moveChord(item.chord, semis, newKey)
+      if (moved === item.chord) return item
+      touched = true
+      return { ...item, chord: moved }
+    })
+    return touched ? next : line
+  }
+  const out = { ...content, key: newKey }
+  if (Array.isArray(content.stanzas)) {
+    out.stanzas = content.stanzas.map((s) => {
+      if (!Array.isArray(s?.lines)) return s
+      let touched = false
+      const lines = s.lines.map((l) => { const n = mapLine(l); if (n !== l) touched = true; return n })
+      return touched ? { ...s, lines } : s
+    })
+  }
+  // a v1-shaped content (flat `lines`) transposes the same way — never leave a song's chords
+  // behind just because it has not been migrated yet
+  if (Array.isArray(content.lines)) {
+    out.lines = mapLine(content.lines)
+  }
+  return out
 }
