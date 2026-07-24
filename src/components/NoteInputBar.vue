@@ -28,6 +28,9 @@ const props = defineProps({
   mode: { type: String, default: 'overwrite' }, // 'insert' | 'overwrite' — the แทรก/ทับ state
   chords: { type: Array, default: () => [] }, // [{value,label}] for the key ('' = ไม่มีคอร์ด)
   hintNonce: { type: Number, default: 0 }, // bumped by the host when a new key position is learned
+  // the symbol chars already ON the selected note (['~','('...]) — each matching key shows a
+  // pressed/active state so the toggle-to-remove is visible: a lit key says "press again = เอาออก".
+  activeSymbols: { type: Array, default: () => [] },
   canUndo: { type: Boolean, default: false }, // ย้อน/ทำซ้ำ availability — the buttons must tell the truth
   canRedo: { type: Boolean, default: false },
   // วิธีใช้ starts OPEN for someone who has never edited before and CLOSED afterwards; the
@@ -80,7 +83,8 @@ function commitChordText() {
       <b>← → ↑ ↓</b> เลื่อน · <b>Ctrl+← →</b> ข้ามห้อง · <b>Ctrl+↑ ↓</b> ข้ามบรรทัด<br />
       <b>Insert</b> สลับแทรก/ทับ · <b>Delete</b> ลบอยู่กับที่ · <b>Backspace</b> เอาออกทั้งช่อง<br />
       <b>#</b> ชาร์ป · <b>b</b> แฟลต · <b>'</b> เสียงสูง · <b>,</b> เสียงต่ำ · <b>Ctrl+Z / Ctrl+Y</b> ย้อน/ทำซ้ำ<br />
-      กดสัญลักษณ์เดิมซ้ำ = เอาออก (สลับใส่/ลบได้ทุกตัว) · <b>~</b> โยงโน้ตเสียงเดียวกันสองตัวให้ต่อเนื่อง<br />
+      <b>ปุ่มที่ติดสว่าง = ใส่ไว้แล้วบนโน้ตที่เลือก · กดซ้ำ = เอาออก</b> (สลับใส่/ลบได้ทุกตัว)<br />
+      <b>เส้นโค้งบนโน้ต:</b> <b>~</b> โยงเสียงเดียวกันสองตัว (เลือกโน้ตแล้วกด <b>~</b> ซ้ำ = เอาเส้นออก) · <b>( )</b> เอื้อน คร่อมหลายโน้ต (เอาออกโดยกด <b>(</b> ที่โน้ตหัว และ <b>)</b> ที่โน้ตท้าย)<br />
       สัญลักษณ์อื่นกดจากปุ่มด้านล่างได้เลย — บนปุ่มมีทั้งตัวอักษร ชื่อไทย และตำแหน่งบนคีย์บอร์ด
     </div>
 
@@ -129,7 +133,9 @@ function commitChordText() {
               v-for="k in g.keys"
               :key="k.ch"
               class="nib-sym"
-              :aria-label="`${k.th} (พิมพ์ ${k.ch})`"
+              :class="{ on: activeSymbols.includes(k.ch) }"
+              :aria-pressed="activeSymbols.includes(k.ch)"
+              :aria-label="activeSymbols.includes(k.ch) ? `${k.th} — ใส่แล้ว (กดเพื่อเอาออก)` : `${k.th} (พิมพ์ ${k.ch})`"
               @click="emit('symbol', k.ch)"
             >
               <span class="nib-symch">{{ k.ch }}</span>
@@ -268,6 +274,16 @@ function commitChordText() {
 }
 .nib-sym:active { transform: translateY(1px); }
 .nib-sym:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* ON — this symbol is ALREADY on the selected note, so this same key removes it (BI-011). The
+   brand fill is the standard toolbar toggle affordance (same as แทรก's .ins): the person who
+   could not find how to take an arc off now sees the ~ / ( / ) key lit and presses it again. */
+.nib-sym.on {
+  background: var(--brand, #8b4513);
+  border-color: var(--brand, #8b4513);
+}
+.nib-sym.on .nib-symch { color: #fff; }
+.nib-sym.on .nib-symth,
+.nib-sym.on .nib-symkey { color: rgba(255, 255, 255, 0.85); }
 /* the character line is the ANSWER, so it must be legible on its own: a monospace face with a
    fixed box keeps '_' and '.' — which otherwise sit on the baseline as near-invisible specks —
    the same visual weight as '(' or '^'. */

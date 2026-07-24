@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedBox, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord, withJumpMarker, removeJumpMarker, updateJumpMarker } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedBox, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord, withJumpMarker, removeJumpMarker, updateJumpMarker, activeSymbolsAt } from '../lib/songEdit.js'
 import { findOrphanJumps } from '../lib/songFlow.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
@@ -914,6 +914,13 @@ function applySymbol(key) {
   }
   focusCapture() // tapping a button must not steal the caret / close the phone keyboard
 }
+// the symbol keys already applied to the SELECTED note — the toolbar lights each matching key so
+// the toggle-to-remove is discoverable (a lit `~` says "press again to take the arc off"). Empty
+// on the word layer or with no note selected. Recomputes on selection or content change.
+const activeSymbols = computed(() => {
+  const loc = selLoc()
+  return loc ? activeSymbolsAt(props.song.content, loc) : []
+})
 // the chord picker's options for the song's key ("— ไม่มีคอร์ด —" first = clear)
 const chordOpts = computed(() => chordOptions(props.song?.content?.key || 'C'))
 // set / clear the chord on the selected note's segment (chord '' = remove, keep the note)
@@ -2574,6 +2581,7 @@ function onSeek({ li, si, syk }) {
         :mode="typeMode"
         :chords="chordOpts"
         :hint-nonce="hintNonce"
+        :active-symbols="activeSymbols"
         :can-undo="canUndo"
         :can-redo="canRedo"
         :help-open="helpOpen"

@@ -323,6 +323,43 @@ export function withTie(content, loc) {
   return content // nothing adjacent shares this pitch → not a tie
 }
 
+// Which symbol characters are ALREADY ON the note at `loc` — so the toolbar can light the
+// matching key (an active/pressed state), the standard text-editor toggle affordance: a person
+// who sees an arc over a note but does not know how to remove it now sees the `~` (or `(` / `)`)
+// key already lit, telling them "press this again to take it off". The predicates MIRROR each
+// symbol's toggle-OFF condition in this file (withTie / withToggledBox / withNoteMark /
+// withAccidental) so a lit key and a working removal are the same fact seen twice — never two
+// tables that can disagree (CP-0 discipline). Returns a plain array (a Set is not prop-friendly).
+// `|` (bar) and octave (' ,) are intentionally omitted: a bar line and an octave dot are already
+// plainly visible on the sheet, and octave has its own dedicated dock buttons, not a strip key.
+export function activeSymbolsAt(content, loc) {
+  const out = []
+  if (!loc) return out
+  const { resolvedLine, si, syk } = loc
+  const at = locateSegment(content, resolvedLine, si)
+  if (!at) return out
+  const seg = content.stanzas[at.stanzaIndex].lines[at.lineIndex][at.segIndex]
+  const note = seg?.note || ''
+  const boxes = noteBoxes(note)
+  const bi = boxIndexForSlot(note, syk)
+  if (bi < 0) return out
+  const cur = boxNote(boxes[bi]) // parsed pitched note riding this box (null for a bare bracket)
+  if (cur) {
+    if (cur.tieStart || cur.tieEnd) out.push('~') // a tie half-arc rides this note
+    if (cur.fermata) out.push('^')
+    if (cur.underlines > 0) out.push('_')
+    if (cur.dots > 0) out.push('.') // aug dot (octave-low `.` is `cur.low`, a different key)
+    if (cur.accidental) out.push(cur.accidental) // '#' | 'b' | 'n'
+  }
+  // structural brackets are their OWN boxes beside the note — same sides withToggledBox removes from
+  if (boxes[bi - 1] === '(') out.push('(')
+  if (boxes[bi + 1] === ')') out.push(')')
+  if (boxes[bi - 1] === '{') out.push('{')
+  if (boxes[bi + 1] === '}') out.push('}')
+  if (boxes[bi + 1] === '-') out.push('-')
+  return out
+}
+
 // Insert a BAR LINE ('|') after the cursor's note. A bar is not a note box — in v2 it is its
 // own line item {type:'bar'} between two segments — so this SPLITS the segment at the cursor:
 // the boxes up to the cursor stay in place (keeping the segment's chord), a bar item follows,
