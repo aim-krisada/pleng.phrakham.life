@@ -48,6 +48,9 @@ const ICONS = {
   // Safari share glyph (box + up-arrow) the manual "เพิ่มไปยังหน้าจอหลัก" hint points at.
   smartphone: '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
   share: '<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/>',
+  // share-2 (Lucide) — 3 connected nodes = "send this on / share"; the song-page ↗ uses this,
+  // distinct from `share` above which stays the iOS-Safari glyph for the PWA install hint.
+  'share-2': '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>',
   maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
   plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
   // pairs with `plus` for the preview window's font zoom (issues7 · P'Aim "ปุ่มขยาย font ในหน้านั้นเอง")

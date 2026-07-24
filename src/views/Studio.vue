@@ -678,7 +678,7 @@ function printSheet() {
         aria-haspopup="dialog"
         @click.stop="shareOpen = true"
       >
-        <Icon name="share" :size="16" />
+        <Icon name="share-2" :size="16" />
       </button>
       <!-- ⋮ เพิ่มเติม (overflow) — the "less-common actions" for the open song (Material overflow
            pattern), rightmost of the shell actions per the locked design. This lane builds the
