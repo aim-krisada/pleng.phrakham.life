@@ -4,10 +4,11 @@
 // All editing lives in EditorMode; reading lives in SongViewer / SongSheet. A/B/C/D can
 // evolve their own mode file without touching this shell (that is the whole point of
 // DS-04's contract: every mode takes { song, tier } and emits change / save).
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent } from '../lib/songModel.js'
+import { withSongKey } from '../lib/songEdit.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
 import { songBasename } from '../lib/songName.js'
@@ -79,15 +80,26 @@ async function loadSong(id) {
     number: data.number,
     title_th: data.title_th,
     title_en: data.title_en,
+    // B060 — หมวด/ธีม are catalog columns on the row (not in `content`), and the inline
+    // ⚙ ตั้งค่าเพลง edits them, so the live song has to carry them or an edit would have
+    // nowhere to land. B108 knownness: a value READ OFF THE ROW is genuine; null means the
+    // song has none stored, and stays null until a human picks one (see saveInlineDraft).
+    category: data.category ?? null,
+    theme: data.theme ?? null,
     content,
   }
   // A-fix: a fresh load = clean, and any local work left over from a crash/reload is OFFERED
   // (never auto-applied — the published song may have moved on since it was written).
   inlineState.value = 'clean'
   cleanContent.value = stamp(content) // the checkpoint "ยังไม่บันทึก" is measured against
+  cleanMeta.value = stamp(metaOf(liveSong.value)) // …and the same checkpoint for the settings
+  // B108 knownness, per field: a value we READ off this row is genuine; a null is not a value,
+  // so it stays unknown until a human picks one in ⚙ ตั้งค่าเพลง.
+  metaKnown.category = data.category != null
+  metaKnown.theme = data.theme != null
   inlineError.value = ''
   inlineDraftId.value = null
-  recovery.value = hasRecoverable(data.id, content)
+  recovery.value = hasRecoverable(data.id, content, undefined, metaOf(liveSong.value))
 }
 
 onMounted(async () => {
@@ -138,9 +150,12 @@ onUnmounted(() => {
   currentSong.value = null
 })
 
-// the editor pushes every edit up here → previews follow + no work is lost on a switch
+// the editor pushes every edit up here → previews follow + no work is lost on a switch.
+// EditorMode's payload has no หมวด/ธีม (it keeps those in its own meta and writes them on its
+// own publish path), so carry the ones we loaded rather than letting a mode switch blank them.
 function onChange(song) {
-  liveSong.value = song
+  const keep = liveSong.value
+  liveSong.value = { category: keep?.category ?? null, theme: keep?.theme ?? null, ...song }
 }
 // ฝึกร้อง's inline pencil edits the SAME live song, but hands up only the new v2 content
 // (it can't see id/title_en). Merge it onto liveSong so the SSOT keeps every field and all
@@ -148,15 +163,57 @@ function onChange(song) {
 function onViewerContent(content) {
   if (!liveSong.value) return
   liveSong.value = { ...liveSong.value, content }
-  // "ยังไม่บันทึก" is a COMPARISON against the last saved checkpoint, not a one-way flag — so
-  // undoing back to the saved state honestly reads "บันทึกแล้ว" again (same rule as the
-  // editor's B100 dirty check). A flag would lie the moment ย้อน came along.
-  const same = stamp(content) === cleanContent.value
+  syncInlineState()
+}
+// B060 — the inline ⚙ ตั้งค่าเพลง edits the song's ROW fields (เลข · ชื่อไทย · ชื่ออังกฤษ ·
+// ธีม · หมวด); คีย์/จังหวะ/ความเร็ว live in `content` and come through onViewerContent above.
+// Same rule as an edit to the music: it lands on the live song, marks ยังไม่บันทึก, and is
+// mirrored into the local working copy so a crash cannot take it silently.
+function onViewerMeta(patch) {
+  if (!liveSong.value || !patch) return
+  liveSong.value = { ...liveSong.value, ...patch }
+  // B108 — a value a HUMAN picked is genuine, so that field may be written on save. Judged
+  // strictly per field: picking a ธีม says nothing about whether the หมวด on screen is real.
+  if ('category' in patch) metaKnown.category = true
+  if ('theme' in patch) metaKnown.theme = true
+  syncInlineState()
+}
+// B060 — the musical half of ⚙ ตั้งค่าเพลง (คีย์ · จังหวะ · ความเร็ว), which lives in
+// `content`. Applied HERE, on the live song, so two settings changed in quick succession both
+// land (the viewer's `song` prop is a snapshot of the last render).
+//   คีย์ = a real transpose: withSongKey moves the chords with the key (lib/songEdit → the same
+//   lib/chords the reading transpose uses). The numbers are scale degrees and stay as printed.
+function onViewerMusic(patch) {
+  const cur = liveSong.value?.content
+  if (!cur || !patch) return
+  let next = cur
+  if (patch.key) next = withSongKey(next, patch.key)
+  if (patch.timeSignature && (next.timeSignature || '') !== patch.timeSignature) {
+    next = { ...next, timeSignature: patch.timeSignature }
+  }
+  if ('bpm' in patch) {
+    const bpm = patch.bpm == null ? null : Number(patch.bpm)
+    if ((next.bpm ?? null) !== bpm) {
+      next = { ...next }
+      if (bpm == null) delete next.bpm // "no tempo stored" is an absent key, not a null
+      else next.bpm = bpm
+    }
+  }
+  if (next !== cur) onViewerContent(next)
+}
+// "ยังไม่บันทึก" is a COMPARISON against the last saved checkpoint, not a one-way flag — so
+// undoing back to the saved state honestly reads "บันทึกแล้ว" again (same rule as the
+// editor's B100 dirty check). A flag would lie the moment ย้อน came along. Both halves of the
+// document count: the music AND the settings.
+function syncInlineState() {
+  const s = liveSong.value
+  if (!s) return
+  const same = stamp(s.content) === cleanContent.value && stamp(metaOf(s)) === cleanMeta.value
   inlineState.value = same ? 'clean' : 'dirty'
   // the local copy follows the document, undo included — never a stale snapshot of a state the
   // user has already stepped away from
-  if (same) clearWorkingCopy(liveSong.value.id)
-  else writeWorkingCopy(liveSong.value.id, content) // กันหาย: mirrored on every keystroke
+  if (same) clearWorkingCopy(s.id)
+  else writeWorkingCopy(s.id, s.content, undefined, undefined, metaOf(s)) // กันหาย: on every keystroke
 }
 
 // ---------- A-fix (23 ก.ค.): the inline editor's SAVE path ----------
@@ -180,8 +237,23 @@ const inlineDraftId = ref(null)
 // order Postgres happens to return — that mismatch kept an untouched song marked ยังไม่บันทึก.
 const stamp = contentStamp
 const cleanContent = ref(stamp(null))
+// B060 — the settings half of the same checkpoint. The row fields the inline ⚙ panel can edit;
+// `content` (คีย์/จังหวะ/ความเร็ว) is covered by cleanContent, so the two together are the
+// whole document the inline editor can change.
+const metaOf = (s) => ({
+  number: s?.number ?? null,
+  title_th: s?.title_th ?? '',
+  title_en: s?.title_en ?? null,
+  category: s?.category ?? null,
+  theme: s?.theme ?? null,
+})
+const cleanMeta = ref(stamp(metaOf(null)))
+// B108 knownness, per field (see loadSong / onViewerMeta): only a field we positively
+// established may be written on save — never a fallback, or the library gets re-filed silently.
+const metaKnown = reactive({ category: false, theme: false })
 function markInlineSaved() {
   cleanContent.value = stamp(liveSong.value?.content)
+  cleanMeta.value = stamp(metaOf(liveSong.value))
   inlineState.value = 'saved'
 }
 // a local copy newer than the server's, offered for recovery when the song (re)opens
@@ -207,10 +279,18 @@ async function saveInlineDraft(kind) {
     title_en: s.title_en?.trim() || null,
     content: JSON.parse(JSON.stringify(s.content)),
     status: 'draft',
+    // B108 — send หมวด/ธีม ONLY when that field is genuine (read off the row, or picked by a
+    // human in ⚙ ตั้งค่าเพลง). A guess written here would be published over what is stored and
+    // silently re-file the song / wipe its theme — the exact bug db/010 + the knownness flags
+    // exist to stop. An omitted field lands as null = "unknown", which the publish path preserves.
+    ...(metaKnown.category && s.category ? { category: s.category } : {}),
+    ...(metaKnown.theme && s.theme ? { theme: s.theme } : {}),
   }
   if (!row.title_th) {
     inlineState.value = 'error'
-    inlineError.value = 'เพลงนี้ยังไม่มีชื่อภาษาไทย — ตั้งชื่อในโหมดแก้ไขก่อน'
+    // B060 — the name is now settable right here (⚙ ตั้งค่าเพลง), so point at that, not at
+    // the other editor
+    inlineError.value = 'เพลงนี้ยังไม่มีชื่อภาษาไทย — ใส่ชื่อใน ⚙ ตั้งค่าเพลง ก่อน'
     return
   }
   // reuse this author's own open draft for the song instead of piling up new rows
@@ -237,7 +317,12 @@ async function saveInlineDraft(kind) {
 // offered after a crash/reload: take the local copy, or drop it
 function acceptRecovery() {
   if (recovery.value && liveSong.value) {
-    liveSong.value = { ...liveSong.value, content: recovery.value.content }
+    // B060 — the copy carries the ⚙ settings too when it was written by a version that stored
+    // them; an older copy has none, and then the loaded row's values stand (never blanked).
+    const meta = recovery.value.meta || {}
+    liveSong.value = { ...liveSong.value, ...meta, content: recovery.value.content }
+    if (meta.category != null) metaKnown.category = true
+    if (meta.theme != null) metaKnown.theme = true
     inlineState.value = 'dirty'
   }
   recovery.value = null
@@ -272,11 +357,18 @@ function onSave() {}
 // B053 — carry the song's source books (book_refs) + scripture reference through to the
 // reading view so ฝึกร้อง shows the same "แหล่งเพลง"/📖 captions as the catalog card. These
 // live on the raw DB row (loadedSong), not on liveSong, so read them from there.
+// B060 — the ⚙ ตั้งค่าเพลง panel inside ฝึกร้อง's ✏️ editor edits ชื่ออังกฤษ/ธีม/หมวด too, so
+// they travel down with the rest (they come back up as an `update-meta` patch). NOT `id`: the
+// reading surface seeds MP3 export/arranger from what it is handed, and this stays a display
+// shape, not the row.
 const viewerSong = computed(() =>
   liveSong.value
     ? {
         number: liveSong.value.number,
         title_th: liveSong.value.title_th,
+        title_en: liveSong.value.title_en,
+        category: liveSong.value.category,
+        theme: liveSong.value.theme,
         content: liveSong.value.content,
         book_refs: loadedSong.value?.book_refs,
         scripture: loadedSong.value?.scripture,
@@ -533,6 +625,8 @@ function printSheet() {
         :save-error="inlineError"
         :start-key="linkKey"
         @update-content="onViewerContent"
+        @update-meta="onViewerMeta"
+        @update-music="onViewerMusic"
         @save="saveInlineDraft"
         @key-change="viewKey = $event"
       />
