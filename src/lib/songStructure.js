@@ -74,6 +74,18 @@ export function lineSlotStart(lines, li) {
 const toModel = (line) => deserializeLine(Array.isArray(line) ? line : [])
 const fromModel = (model) => serializeLine(model)
 
+// ---- read-only previews for the structure outline UI (no mutation) ----
+// The bars of a stored line as light objects { notes } — for rendering the reorderable bar strip.
+export function previewBars(line) {
+  return toModel(Array.isArray(line) ? line : []).bars.map((b) => ({
+    notes: (b.segments || []).map((s) => (s.note || '').trim()).filter(Boolean).join(' '),
+  }))
+}
+// A short one-line text preview of a stored line's notes (bars separated by │) — the outline row.
+export function previewLine(line) {
+  return previewBars(line).map((b) => b.notes || '·').join('  │  ')
+}
+
 // Rebuild content with stanza `si`'s lines replaced (structural sharing elsewhere).
 function withStanzaLines(content, si, newLines) {
   const stanza = content.stanzas[si]
@@ -305,6 +317,60 @@ export function pasteLineAsStanza(content, fragment) {
   return remintMarkers({ ...content, stanzas: stanzasOf(content).concat([stanza]) })
 }
 
+// ---- paste AT A CHOSEN INDEX (BI-004: the user picks the insertion point) ----
+// paste a copied BAR *before* bar `index` in the target line (index === bar count → at the end).
+// Melody only; OPENS blank word-slots at the insertion's flat offset so every verse's existing
+// words stay under their notes (parity with duplicateBar's ripple — inserting mid-line would
+// otherwise shove all following words one bar out of alignment). fresh ids via mint.
+export function pasteBarAt(content, stanzaId, lineIndex, index, fragment) {
+  if (fragment?.kind !== 'bar') return content
+  const at = lineAt(content, stanzaId, lineIndex)
+  if (!at) return content
+  const model = toModel(clone(at.line))
+  const bi = Math.max(0, Math.min(model.bars.length, index | 0))
+  const barData = stripEditorMarkerIds(clone(fragment.data))
+  const added = barSlotLen(barData)
+  // flat slot offset of the insertion point = line start + slots of the bars before it
+  let g = lineSlotStart(at.lines, lineIndex)
+  for (let k = 0; k < bi; k++) g += barSlotLen(model.bars[k])
+  model.bars.splice(bi, 0, barData)
+  const newLines = at.lines.slice()
+  newLines[lineIndex] = fromModel(model)
+  let out = withStanzaLines(content, at.si, newLines)
+  if (added > 0) {
+    const newArr = resliceVerses(out, stanzaId, (p) => {
+      while (p.length < g) p.push('')
+      p.splice(g, 0, ...Array(added).fill('')) // blank slots for the pasted bar's notes
+    })
+    out = { ...out, arrangement: newArr }
+  }
+  return remintMarkers(out)
+}
+// paste a copied LINE *before* line `index` in the melody (index === line count → at the end).
+// Melody only (no words carried); OPENS blank word-slots at the insertion's flat offset so the
+// following lines' words stay aligned. fresh ids via mint.
+export function pasteLineAt(content, stanzaId, index, fragment) {
+  if (fragment?.kind !== 'line') return content
+  const si = stanzaIndexById(content, stanzaId)
+  if (si < 0) return content
+  const origLines = content.stanzas[si].lines || []
+  const li = Math.max(0, Math.min(origLines.length, index | 0))
+  const lineSer = fromModel(stripEditorMarkerIds(clone(fragment.data)))
+  const added = lineSlotLen(lineSer)
+  const g = lineSlotStart(origLines, li) // flat offset where the new line's words would begin
+  const newLines = origLines.slice()
+  newLines.splice(li, 0, lineSer)
+  let out = withStanzaLines(content, si, newLines)
+  if (added > 0) {
+    const newArr = resliceVerses(out, stanzaId, (p) => {
+      while (p.length < g) p.push('')
+      p.splice(g, 0, ...Array(added).fill('')) // blank slots for the pasted line's notes
+    })
+    out = { ...out, arrangement: newArr }
+  }
+  return remintMarkers(out)
+}
+
 // slots a single editor-model bar bears (Σ syllableSlots over its segments).
 function barSlotLen(bar) {
   let n = 0
@@ -418,6 +484,60 @@ export function moveLine(content, stanzaId, lineIndex, dir) {
       ...p.slice(start, start + lenI), // line i's words move down
       ...p.slice(end),
     ]
+    while (next.length && !((next[next.length - 1] || '').trim())) next.pop()
+    return { ...row, syllables: next }
+  })
+  out = { ...out, arrangement: newArr }
+  return remintMarkers(out)
+}
+
+// ---- move to an ABSOLUTE index (BI-004: drag-to-reorder, one drop instead of N clicks) ----
+// Move bar `from` to sit at index `to` within its line (no word ripple — bars keep their slot
+// order, parity with moveBar). Single-line only; use moveBar to hop across lines.
+export function moveBarTo(content, stanzaId, lineIndex, from, to) {
+  const at = lineAt(content, stanzaId, lineIndex)
+  if (!at) return content
+  const model = toModel(clone(at.line))
+  const n = model.bars.length
+  if (from < 0 || from >= n) return content
+  const dest = Math.max(0, Math.min(n - 1, to | 0))
+  if (dest === from) return content
+  const [b] = model.bars.splice(from, 1)
+  model.bars.splice(dest, 0, b)
+  const newLines = at.lines.slice()
+  newLines[lineIndex] = fromModel(model)
+  return remintMarkers(withStanzaLines(content, at.si, newLines))
+}
+// Move line `from` to sit at index `to` within its melody, CARRYING every verse's words
+// (generalises moveLine's adjacent swap to an arbitrary drop). Rebuilds each verse's syllables
+// by re-assembling its per-line slices in the new line order, so words follow their melody.
+export function moveLineTo(content, stanzaId, from, to) {
+  const si = stanzaIndexById(content, stanzaId)
+  if (si < 0) return content
+  const lines = content.stanzas[si].lines || []
+  const n = lines.length
+  if (from < 0 || from >= n) return content
+  const dest = Math.max(0, Math.min(n - 1, to | 0))
+  if (dest === from) return content
+  // new order as original-index list
+  const order = Array.from({ length: n }, (_, i) => i)
+  const [f] = order.splice(from, 1)
+  order.splice(dest, 0, f)
+  const newLines = order.map((i) => lines[i])
+  let out = withStanzaLines(content, si, newLines)
+  // per-line slot ranges in the ORIGINAL order, to reassemble words in the NEW order
+  const lens = lines.map((ln) => lineSlotLen(ln))
+  const starts = []
+  let s = 0
+  for (let i = 0; i < n; i++) { starts.push(s); s += lens[i] }
+  const total = s
+  const newArr = arrangementOf(out).map((row) => {
+    if (row.stanza !== stanzaId) return row
+    const p = (row.syllables || []).slice()
+    while (p.length < total) p.push('')
+    const next = []
+    for (const i of order) next.push(...p.slice(starts[i], starts[i] + lens[i]))
+    next.push(...p.slice(total)) // any tail beyond mapped slots
     while (next.length && !((next[next.length - 1] || '').trim())) next.pop()
     return { ...row, syllables: next }
   })
