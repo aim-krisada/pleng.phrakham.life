@@ -1,0 +1,319 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/gl/krisada/pleng.phrakham.life/.claude/worktrees/quizzical-easley-7eaeac[39m
+
+[90mstdout[2m | tools/diag-ensemble-preecho.test.mjs[2m > [22m[2mENSEMBLE pre-echo scan[2m > [22m[2mscans the library
+[22m[39m
+==============================================================================
+bus=dry lead=piano bpm=72 · 170 songs (0 skipped)
+CONTROL melody-split == SSOT attacks : 170/170
+CONTROL stray (unclassified) events   : 0
+songs where sectionBeatRanges()==[]  : 26 (whole song treated as chorus)
+  loudness vs melody · violin  n= 15415  min 0.141 · p50 0.219 · p90 0.316 · max 0.404
+  loudness vs melody · grace   n=     0  —
+  loudness vs melody · arp     n= 32270  min 0.121 · p50 0.251 · p90 0.309 · max 0.474
+  loudness vs melody · bass    n= 13709  min 0.048 · p50 0.100 · p90 0.122 · max 0.199
+
+  pre-echo points (170 songs) — rows: loudness floor · cols: "inside a ringing melody note"
+  minRel       ORN skip-covered  ORN count-covered    COMP skip   COMP count
+  0.387*                      0                  1            2            7
+  0.250                       4                517         1091         5266
+  0.100                     262               2467         2210        10889
+  0.000                     262               2467         2494        11805
+  (* = the 23-Jul diagnosis's audibility line, 0.12/0.31 of the melody)
+
+  AT THE CALIBRATED LINE (rel ≥ 0.387, skip-covered): 0 points / 0 songs
+
+  AT THE CALIBRATED LINE (rel ≥ 0.387, count-covered): 1 points / 1 songs
+   #75 ข้าต้องการเป็นผู้มีชัยชนะ: violin@b30.50 midi76 lead1.989b ±12 rel0.39 (covered)
+
+  loosest reading: 116 songs carry an ornament that sounds a coming melody pitch
+   #776 สุดแสนรุ่งโรจน์ราศีปรีดิ์เปรม: 121 — violin@b7.00 midi78 lead1b ±12 rel0.17 (covered) | violin@b10.50 midi80 lead1.514b ±12 rel0.32 (covered) | violin@b16.00 midi80 lead1.012b ±12 rel0.21 (covered)
+   #778 พระคัมภีร์สัญญาเก่าและใหม่: 88 — violin@b2.30 midi83 lead1.714b ±12 rel0.19 (covered) | violin@b5.00 midi78 lead1.001b ±12 rel0.14 (covered) | violin@b7.00 midi78 lead1.002b ±12 rel0.20 (covered)
+   #749 ดูแสงฉายประกายรัศมี: 79 — violin@b7.00 midi81 lead0.987b ±12 rel0.19 (covered) | violin@b31.00 midi81 lead1.004b ±12 rel0.20 | violin@b38.30 midi81 lead0.687b ±12 rel0.18 (covered)
+   #26 โอ พ่อยอดชาย: 74 — violin@b5.00 midi77 lead0.001b ±12 rel0.14 (covered) | violin@b11.00 midi77 lead1.989b ±12 rel0.35 (covered) | violin@b17.50 midi79 lead1.49b ±12 rel0.24 (covered)
+   #771 เขาคอยเมืองแห่งหนึ่ง: 64 — violin@b3.30 midi81 lead1.199b ±12 rel0.21 (covered) | violin@b6.00 midi78 lead1b ±12 rel0.21 (covered) | violin@b7.30 midi81 lead0.705b ±12 rel0.22 (covered)
+   #758 ที่เบธาเนีย: 61 — violin@b40.00 midi79 lead1.013b ±12 rel0.20 (covered) | violin@b53.00 midi76 lead1.991b ±12 rel0.32 (covered) | violin@b62.50 midi79 lead1.509b ±12 rel0.33 (covered)
+   #770 ซาเล็มคือเมืองรุ่งเรืองทรงสร้างสรรค์: 56 — violin@b1.00 midi81 lead0.986b ±12 rel0.23 (covered) | violin@b5.00 midi77 lead1.508b ±12 rel0.18 (covered) | violin@b9.00 midi81 lead1b ±12 rel0.17 (covered)
+   #762 พระองค์เจ้าข้าเฝ้ารอเสด็จมานาน: 55 — violin@b5.00 midi81 lead0.998b ±12 rel0.20 (covered) | violin@b6.30 midi84 lead0.191b ±12 rel0.18 (covered) | violin@b21.00 midi81 lead1.007b ±12 rel0.17
+   #729 พระเยซูคนรักของข้า: 54 — violin@b1.00 midi80 lead1.004b ±12 rel0.16 (covered) | violin@b13.00 midi80 lead0.996b ±12 rel0.14 (covered) | violin@b14.30 midi83 lead0.713b ±12 rel0.18 (covered)
+   #757 ข้าลืมพระองค์ใกล้กลับมาไหม?: 52 — violin@b1.00 midi80 lead0.994b ±12 rel0.17 (covered) | violin@b7.00 midi78 lead1.009b ±12 rel0.17 (covered) | violin@b11.00 midi76 lead0.988b ±12 rel0.30 (covered)
+
+==============================================================================
+bus=dry lead=guitar bpm=72 · 170 songs (0 skipped)
+CONTROL melody-split == SSOT attacks : 170/170
+CONTROL stray (unclassified) events   : 0
+songs where sectionBeatRanges()==[]  : 26 (whole song treated as chorus)
+  loudness vs melody · violin  n= 15415  min 0.145 · p50 0.226 · p90 0.326 · max 0.417
+  loudness vs melody · grace   n=  3120  min 0.448 · p50 0.771 · p90 1.001 · max 1.737
+  loudness vs melody · arp     n= 32270  min 0.125 · p50 0.259 · p90 0.318 · max 0.489
+  loudness vs melody · bass    n= 13709  min 0.050 · p50 0.104 · p90 0.126 · max 0.209
+
+  pre-echo points (170 songs) — rows: loudness floor · cols: "inside a ringing melody note"
+  minRel       ORN skip-covered  ORN count-covered    COMP skip   COMP count
+  0.387*                      4                550           17           52
+  0.250                      13               1113         1184         5946
+  0.100                     263               2976         2213        10922
+  0.000                     263               2976         2439        11664
+  (* = the 23-Jul diagnosis's audibility line, 0.12/0.31 of the melody)
+
+  AT THE CALIBRATED LINE (rel ≥ 0.387, skip-covered): 4 points / 4 songs
+   #2 ของขวัญ: grace@b67.43 midi72 lead1.081b ±0 rel0.69
+   #102 ทำการกับพระคริสต์: grace@b334.94 midi66 lead1.044b ±0 rel0.72
+   #730 คนบาปจงฟังเสียงพระเมตตา: grace@b111.94 midi57 lead1.548b ±0 rel0.81
+   #739 บนไม้กางเขนพระผู้ช่วยวางวาย: grace@b127.93 midi57 lead1.805b ±0 rel0.86
+
+  AT THE CALIBRATED LINE (rel ≥ 0.387, count-covered): 550 points / 127 songs
+   #1 พระเจ้าเป็นความรัก: grace@b53.95 midi64 lead1.047b ±0 rel0.79 (covered) | grace@b55.94 midi59 lead1.56b ±0 rel0.94 (covered) | grace@b121.95 midi64 lead1.055b ±0 rel0.82 (covered)
+   #2 ของขวัญ: grace@b67.43 midi72 lead1.081b ±0 rel0.69
+   #3 ในโลกนี้: grace@b149.95 midi69 lead1.043b ±0 rel1.00 (covered)
+   #4 พระเยซูเข้าสู่ใจข้า: grace@b89.95 midi69 lead1.046b ±0 rel0.55 (covered) | grace@b90.93 midi67 lead1.079b ±0 rel0.69 (covered)
+   #5 ดอกไม้ในป่า: grace@b26.93 midi67 lead1.069b ±0 rel0.83 (covered) | grace@b98.95 midi60 lead1.054b ±0 rel0.70 (covered) | grace@b106.94 midi67 lead1.044b ±0 rel0.74 (covered)
+   #8 พระองค์ทรงเป็นดาวประจำรุ่ง: grace@b118.94 midi62 lead1.551b ±0 rel0.61 (covered) | grace@b150.95 midi62 lead1.557b ±0 rel0.62 (covered)
+   #9 พระเจ้ารักโลก: grace@b21.94 midi52 lead1.066b ±0 rel0.89 (covered)
+   #11 ขอบพระคุณ: grace@b63.93 midi62 lead1.064b ±0 rel1.04 (covered) | grace@b136.93 midi60 lead1.065b ±0 rel0.51 (covered) | grace@b152.94 midi69 lead1.071b ±0 rel0.65 (covered)
+
+  loosest reading: 157 songs carry an ornament that sounds a coming melody pitch
+   #776 สุดแสนรุ่งโรจน์ราศีปรีดิ์เปรม: 146 — violin@b7.00 midi78 lead0.987b ±12 rel0.18 (covered) | violin@b10.50 midi80 lead1.512b ±12 rel0.31 (covered) | violin@b16.00 midi80 lead1.011b ±12 rel0.18 (covered)
+   #778 พระคัมภีร์สัญญาเก่าและใหม่: 94 — violin@b2.30 midi83 lead1.694b ±12 rel0.19 (covered) | violin@b5.00 midi78 lead0.999b ±12 rel0.16 | violin@b7.00 midi78 lead1.011b ±12 rel0.19 (covered)
+   #26 โอ พ่อยอดชาย: 87 — grace@b3.94 midi65 lead1.061b ±0 rel1.02 (covered) | violin@b5.00 midi77 lead0.002b ±12 rel0.16 (covered) | violin@b17.50 midi79 lead1.492b ±12 rel0.24 (covered)
+   #749 ดูแสงฉายประกายรัศมี: 80 — violin@b7.00 midi81 lead1.01b ±12 rel0.21 | violin@b31.00 midi81 lead0.987b ±12 rel0.20 (covered) | violin@b38.30 midi81 lead0.71b ±12 rel0.18 (covered)
+   #758 ที่เบธาเนีย: 80 — grace@b21.94 midi67 lead1.069b ±0 rel0.89 (covered) | grace@b39.94 midi67 lead1.065b ±0 rel0.88 (covered) | violin@b40.00 midi79 lead1.002b ±12 rel0.19 (covered)
+   #770 ซาเล็มคือเมืองรุ่งเรืองทรงสร้างสรรค์: 66 — violin@b1.00 midi81 lead0.995b ±12 rel0.24 (covered) | grace@b1.94 midi67 lead1.553b ±0 rel0.72 (covered) | violin@b5.00 midi77 lead1.492b ±12 rel0.19 (covered)
+   #771 เขาคอยเมืองแห่งหนึ่ง: 66 — violin@b3.30 midi81 lead1.193b ±12 rel0.21 (covered) | violin@b6.00 midi78 lead1.006b ±12 rel0.22 (covered) | violin@b7.30 midi81 lead0.713b ±12 rel0.22 (covered)
+   #96 โปรดให้ใจข้าซื่อตรง: 55 — violin@b1.50 midi80 lead1.999b ±12 rel0.26 (covered) | violin@b21.75 midi80 lead1.739b ±12 rel0.32 (covered) | violin@b26.00 midi78 lead1.991b ±12 rel0.25 (covered)
+   #729 พระเยซูคนรักของข้า: 55 — violin@b1.00 midi80 lead0.996b ±12 rel0.16 (covered) | violin@b13.00 midi80 lead0.998b ±12 rel0.16 (covered) | violin@b14.30 midi83 lead0.711b ±12 rel0.19 (covered)
+   #762 พระองค์เจ้าข้าเฝ้ารอเสด็จมานาน: 55 — violin@b5.00 midi81 lead0.999b ±12 rel0.18 (covered) | violin@b6.30 midi84 lead0.204b ±12 rel0.21 (covered) | violin@b21.00 midi81 lead1.01b ±12 rel0.18
+
+==============================================================================
+bus=dry lead=violin bpm=72 · 170 songs (0 skipped)
+CONTROL melody-split == SSOT attacks : 170/170
+CONTROL stray (unclassified) events   : 0
+songs where sectionBeatRanges()==[]  : 26 (whole song treated as chorus)
+  loudness vs melody · violin  n= 15415  min 0.281 · p50 0.437 · p90 0.631 · max 0.806
+  loudness vs melody · grace   n=  3483  min 0.396 · p50 0.684 · p90 0.891 · max 1.544
+  loudness vs melody · arp     n= 32270  min 0.242 · p50 0.500 · p90 0.615 · max 0.947
+  loudness vs melody · bass    n= 13709  min 0.096 · p50 0.201 · p90 0.244 · max 0.405
+
+  pre-echo points (170 songs) — rows: loudness floor · cols: "inside a ringing melody note"
+  minRel       ORN skip-covered  ORN count-covered    COMP skip   COMP count
+  0.387*                    145               2061         1672         9092
+  0.250                     264               3065         1912         9956
+  0.100                     264               3065         2439        11664
+  0.000                     264               3065         2439        11664
+  (* = the 23-Jul diagnosis's audibility line, 0.12/0.31 of the melody)
+
+  AT THE CALIBRATED LINE (rel ≥ 0.387, skip-covered): 145 points / 56 songs
+   #2 ของขวัญ: violin@b67.30 midi84 lead1.214b ±12 rel0.40 | grace@b67.42 midi72 lead1.093b ±0 rel0.61
+   #3 ในโลกนี้: violin@b63.30 midi83 lead1.203b ±12 rel0.39
+   #10 แม้โลกนี้มีความทุกข์ตรม: violin@b50.00 midi80 lead0.001b ±12 rel0.47
+   #11 ขอบพระคุณ: violin@b82.00 midi79 lead1.006b ±12 rel0.46
+   #13 อย่าถาม: violin@b147.00 midi80 lead0.991b ±12 rel0.39
+   #16 ทรงเป็นอยู่ในข้า: violin@b284.00 midi79 lead1.012b ±12 rel0.41
+   #18 คลื่นชีวิต: violin@b6.00 midi78 lead0.013b ±12 rel0.41 | violin@b10.00 midi80 lead0.011b ±12 rel0.45 | violin@b22.00 midi78 lead0.005b ±12 rel0.44
+   #21 เมื่อข้าได้พบพระองค์ครั้งแรก: violin@b39.00 midi77 lead0.002b ±12 rel0.49
+
+  AT THE CALIBRATED LINE (rel ≥ 0.387, count-covered): 2061 points / 156 songs
+   #1 พระเจ้าเป็นความรัก: violin@b6.00 midi76 lead1.492b ±12 rel0.46 (covered) | violin@b13.50 midi80 lead1.995b ±12 rel0.58 (covered) | violin@b14.00 midi83 lead1.998b ±12 rel0.65 (covered)
+   #2 ของขวัญ: violin@b6.00 midi81 lead1.5b ±12 rel0.50 (covered) | violin@b14.00 midi79 lead1.992b ±12 rel0.45 (covered) | violin@b20.00 midi76 lead0.007b ±12 rel0.45 (covered)
+   #3 ในโลกนี้: violin@b2.75 midi76 lead1.262b ±12 rel0.67 (covered) | violin@b10.25 midi81 lead1.236b ±12 rel0.53 (covered) | violin@b34.75 midi76 lead1.254b ±12 rel0.57 (covered)
+   #4 พระเยซูเข้าสู่ใจข้า: violin@b54.00 midi76 lead1.998b ±12 rel0.48 (covered) | grace@b89.93 midi69 lead1.058b ±0 rel0.49 (covered) | violin@b90.30 midi81 lead0.691b ±12 rel0.40 (covered)
+   #5 ดอกไม้ในป่า: violin@b22.30 midi81 lead0.687b ±12 rel0.41 (covered) | grace@b26.92 midi67 lead1.081b ±0 rel0.74 (covered) | violin@b47.00 midi84 lead1.009b ±12 rel0.56 (covered)
+   #7 พระเจ้าทรงสร้างเราด้วยเหตุใด: violin@b2.25 midi80 lead1.496b ±12 rel0.47 (covered) | violin@b18.25 midi80 lead1.512b ±12 rel0.47 (covered) | violin@b32.00 midi83 lead0.998b ±12 rel0.74 (covered)
+   #8 พระองค์ทรงเป็นดาวประจำรุ่ง: violin@b2.00 midi79 lead1.006b ±12 rel0.39 (covered) | violin@b14.50 midi81 lead1.495b ±12 rel0.53 (covered) | violin@b15.00 midi84 lead1.999b ±12 rel0.59 (covered)
+   #9 พระเจ้ารักโลก: grace@b21.93 midi52 lead1.078b ±0 rel0.79 (covered)
+
+  loosest reading: 158 songs carry an ornament that sounds a coming melody pitch
+   #776 สุดแสนรุ่งโรจน์ราศีปรีดิ์เปรม: 148 — violin@b7.00 midi78 lead0.987b ±12 rel0.35 (covered) | violin@b10.50 midi80 lead1.512b ±12 rel0.61 (covered) | violin@b16.00 midi80 lead1.011b ±12 rel0.35 (covered)
+   #778 พระคัมภีร์สัญญาเก่าและใหม่: 94 — violin@b2.30 midi83 lead1.694b ±12 rel0.38 (covered) | violin@b5.00 midi78 lead0.999b ±12 rel0.30 | violin@b7.00 midi78 lead1.011b ±12 rel0.38 (covered)
+   #26 โอ พ่อยอดชาย: 89 — grace@b3.93 midi65 lead1.073b ±0 rel0.91 (covered) | violin@b5.00 midi77 lead0.002b ±12 rel0.31 (covered) | violin@b17.50 midi79 lead1.492b ±12 rel0.47 (covered)
+   #749 ดูแสงฉายประกายรัศมี: 83 — grace@b4.92 midi60 lead1.07b ±0 rel0.63 (covered) | violin@b7.00 midi81 lead1.01b ±12 rel0.41 | violin@b31.00 midi81 lead0.987b ±12 rel0.39 (covered)
+   #758 ที่เบธาเนีย: 81 — grace@b21.93 midi67 lead1.081b ±0 rel0.79 (covered) | grace@b39.93 midi67 lead1.077b ±0 rel0.79 (covered) | violin@b40.00 midi79 lead1.002b ±12 rel0.37 (covered)
+   #771 เขาคอยเมืองแห่งหนึ่ง: 67 — violin@b3.30 midi81 lead1.193b ±12 rel0.42 (covered) | violin@b6.00 midi78 lead1.006b ±12 rel0.42 (covered) | violin@b7.30 midi81 lead0.713b ±12 rel0.42 (covered)
+   #770 ซาเล็มคือเมืองรุ่งเรืองทรงสร้างสรรค์: 66 — violin@b1.00 midi81 lead0.995b ±12 rel0.46 (covered) | grace@b1.92 midi67 lead1.565b ±0 rel0.64 (covered) | violin@b5.00 midi77 lead1.492b ±12 rel0.37 (covered)
+   #762 พระองค์เจ้าข้าเฝ้ารอเสด็จมานาน: 56 — violin@b5.00 midi81 lead0.999b ±12 rel0.35 (covered) | violin@b6.30 midi84 lead0.204b ±12 rel0.40 (covered) | violin@b21.00 midi81 lead1.01b ±12 rel0.35
+   #96 โปรดให้ใจข้าซื่อตรง: 55 — violin@b1.50 midi80 lead1.999b ±12 rel0.50 (covered) | violin@b21.75 midi80 lead1.739b ±12 rel0.62 (covered) | violin@b26.00 midi78 lead1.991b ±12 rel0.48 (covered)
+   #729 พระเยซูคนรักของข้า: 55 — violin@b1.00 midi80 lead0.996b ±12 rel0.32 (covered) | violin@b13.00 midi80 lead0.998b ±12 rel0.32 (covered) | violin@b14.30 midi83 lead0.711b ±12 rel0.37 (covered)
+
+==============================================================================
+bus=wet lead=piano bpm=72 · 170 songs (0 skipped)
+CONTROL melody-split == SSOT attacks : 170/170
+CONTROL stray (unclassified) events   : 0
+songs where sectionBeatRanges()==[]  : 26 (whole song treated as chorus)
+  loudness vs melody · violin  n= 15415  min 0.157 · p50 0.244 · p90 0.352 · max 0.450
+  loudness vs melody · grace   n=     0  —
+  loudness vs melody · arp     n= 32270  min 0.121 · p50 0.251 · p90 0.309 · max 0.474
+  loudness vs melody · bass    n= 13709  min 0.051 · p50 0.109 · p90 0.132 · max 0.215
+
+  pre-echo points (170 songs) — rows: loudness floor · cols: "inside a ringing melody note"
+  minRel       ORN skip-covered  ORN count-covered    COMP skip   COMP count
+  0.387*                      0                 34            2            7
+  0.250                      42                832         1091         5266
+  0.100                     262               2467         2299        11238
+  0.000                     262               2467         2494        11805
+  (* = the 23-Jul diagnosis's audibility line, 0.12/0.31 of the melody)
+
+  AT THE CALIBRATED LINE (rel ≥ 0.387, skip-covered): 0 points / 0 songs
+
+  AT THE CALIBRATED LINE (rel ≥ 0.387, count-covered): 34 points / 20 songs
+   #2 ของขวัญ: violin@b39.00 midi83 lead1.494b ±12 rel0.41 (covered)
+   #3 ในโลกนี้: violin@b191.25 midi85 lead1.753b ±12 rel0.41 (covered)
+   #8 พระองค์ทรงเป็นดาวประจำรุ่ง: violin@b63.00 midi84 lead1.002b ±12 rel0.41 (covered)
+   #10 แม้โลกนี้มีความทุกข์ตรม: violin@b47.00 midi78 lead1.004b ±12 rel0.40 (covered)
+   #15 มนุษย์เป็นผู้ใดเล่า?: violin@b39.00 midi78 lead1.494b ±12 rel0.41 (covered)
+   #26 โอ พ่อยอดชาย: violin@b179.00 midi77 lead1.998b ±12 rel0.41 (covered) | violin@b419.00 midi77 lead1.992b ±12 rel0.41 (covered)
+   #32 ในเวลาเช่นนี้: violin@b5.25 midi78 lead0.751b ±12 rel0.40 (covered) | violin@b29.25 midi78 lead0.741b ±12 rel0.42 (covered) | violin@b57.50 midi78 lead1.005b ±12 rel0.42 (covered)
+   #75 ข้าต้องการเป็นผู้มีชัยชนะ: violin@b30.50 midi76 lead1.989b ±12 rel0.43 (covered) | violin@b158.50 midi76 lead1.997b ±12 rel0.39 (covered)
+
+  loosest reading: 116 songs carry an ornament that sounds a coming melody pitch
+   #776 สุดแสนรุ่งโรจน์ราศีปรีดิ์เปรม: 121 — violin@b7.00 midi78 lead1b ±12 rel0.19 (covered) | violin@b10.50 midi80 lead1.514b ±12 rel0.36 (covered) | violin@b16.00 midi80 lead1.012b ±12 rel0.24 (covered)
+   #778 พระคัมภีร์สัญญาเก่าและใหม่: 88 — violin@b2.30 midi83 lead1.714b ±12 rel0.21 (covered) | violin@b5.00 midi78 lead1.001b ±12 rel0.16 (covered) | violin@b7.00 midi78 lead1.002b ±12 rel0.22 (covered)
+   #749 ดูแสงฉายประกายรัศมี: 79 — violin@b7.00 midi81 lead0.987b ±12 rel0.21 (covered) | violin@b31.00 midi81 lead1.004b ±12 rel0.22 | violin@b38.30 midi81 lead0.687b ±12 rel0.21 (covered)
+   #26 โอ พ่อยอดชาย: 74 — violin@b5.00 midi77 lead0.001b ±12 rel0.16 (covered) | violin@b11.00 midi77 lead1.989b ±12 rel0.38 (covered) | violin@b17.50 midi79 lead1.49b ±12 rel0.27 (covered)
+   #771 เขาคอยเมืองแห่งหนึ่ง: 64 — violin@b3.30 midi81 lead1.199b ±12 rel0.23 (covered) | violin@b6.00 midi78 lead1b ±12 rel0.23 (covered) | violin@b7.30 midi81 lead0.705b ±12 rel0.25 (covered)
+   #758 ที่เบธาเนีย: 61 — violin@b40.00 midi79 lead1.013b ±12 rel0.23 (covered) | violin@b53.00 midi76 lead1.991b ±12 rel0.36 (covered) | violin@b62.50 midi79 lead1.509b ±12 rel0.37 (covered)
+   #770 ซาเล็มคือเมืองรุ่งเรืองทรงสร้างสรรค์: 56 — violin@b1.00 midi81 lead0.986b ±12 rel0.26 (covered) | violin@b5.00 midi77 lead1.508b ±12 rel0.20 (covered) | violin@b9.00 midi81 lead1b ±12 rel0.19 (covered)
+   #762 พระองค์เจ้าข้าเฝ้ารอเสด็จมานาน: 55 — violin@b5.00 midi81 lead0.998b ±12 rel0.22 (covered) | violin@b6.30 midi84 lead0.191b ±12 rel0.21 (covered) | violin@b21.00 midi81 lead1.007b ±12 rel0.19
+   #729 พระเยซูคนรักของข้า: 54 — violin@b1.00 midi80 lead1.004b ±12 rel0.18 (covered) | violin@b13.00 midi80 lead0.996b ±12 rel0.16 (covered) | violin@b14.30 midi83 lead0.713b ±12 rel0.20 (covered)
+   #757 ข้าลืมพระองค์ใกล้กลับมาไหม?: 52 — violin@b1.00 midi80 lead0.994b ±12 rel0.19 (covered) | violin@b7.00 midi78 lead1.009b ±12 rel0.19 (covered) | violin@b11.00 midi76 lead0.988b ±12 rel0.33 (covered)
+
+==============================================================================
+bus=wet lead=guitar bpm=72 · 170 songs (0 skipped)
+CONTROL melody-split == SSOT attacks : 170/170
+CONTROL stray (unclassified) events   : 0
+songs where sectionBeatRanges()==[]  : 26 (whole song treated as chorus)
+  loudness vs melody · violin  n= 15415  min 0.159 · p50 0.248 · p90 0.357 · max 0.456
+  loudness vs melody · grace   n=  3120  min 0.448 · p50 0.771 · p90 1.001 · max 1.737
+  loudness vs melody · arp     n= 32270  min 0.123 · p50 0.254 · p90 0.313 · max 0.481
+  loudness vs melody · bass    n= 13709  min 0.053 · p50 0.111 · p90 0.134 · max 0.222
+
+  pre-echo points (170 songs) — rows: loudness floor · cols: "inside a ringing melody note"
+  minRel       ORN skip-covered  ORN count-covered    COMP skip   COMP count
+  0.387*                      4                593            5           20
+  0.250                      48               1400         1134         5635
+  0.100                     263               2976         2267        11133
+  0.000                     263               2976         2439        11664
+  (* = the 23-Jul diagnosis's audibility line, 0.12/0.31 of the melody)
+
+  AT THE CALIBRATED LINE (rel ≥ 0.387, skip-covered): 4 points / 4 songs
+   #2 ของขวัญ: grace@b67.43 midi72 lead1.081b ±0 rel0.69
+   #102 ทำการกับพระคริสต์: grace@b334.94 midi66 lead1.044b ±0 rel0.72
+   #730 คนบาปจงฟังเสียงพระเมตตา: grace@b111.94 midi57 lead1.548b ±0 rel0.81
+   #739 บนไม้กางเขนพระผู้ช่วยวางวาย: grace@b127.93 midi57 lead1.805b ±0 rel0.86
+
+  AT THE CALIBRATED LINE (rel ≥ 0.387, count-covered): 593 points / 132 songs
+   #1 พระเจ้าเป็นความรัก: grace@b53.95 midi64 lead1.047b ±0 rel0.79 (covered) | grace@b55.94 midi59 lead1.56b ±0 rel0.94 (covered) | grace@b121.95 midi64 lead1.055b ±0 rel0.82 (covered)
+   #2 ของขวัญ: violin@b39.00 midi83 lead1.5b ±12 rel0.41 (covered) | grace@b67.43 midi72 lead1.081b ±0 rel0.69
+   #3 ในโลกนี้: grace@b149.95 midi69 lead1.043b ±0 rel1.00 (covered) | violin@b191.25 midi85 lead1.753b ±12 rel0.40 (covered)
+   #4 พระเยซูเข้าสู่ใจข้า: grace@b89.95 midi69 lead1.046b ±0 rel0.55 (covered) | grace@b90.93 midi67 lead1.079b ±0 rel0.69 (covered)
+   #5 ดอกไม้ในป่า: grace@b26.93 midi67 lead1.069b ±0 rel0.83 (covered) | grace@b98.95 midi60 lead1.054b ±0 rel0.70 (covered) | grace@b106.94 midi67 lead1.044b ±0 rel0.74 (covered)
+   #7 พระเจ้าทรงสร้างเราด้วยเหตุใด: violin@b32.00 midi83 lead0.998b ±12 rel0.42 (covered)
+   #8 พระองค์ทรงเป็นดาวประจำรุ่ง: violin@b63.00 midi84 lead0.989b ±12 rel0.41 (covered) | grace@b118.94 midi62 lead1.551b ±0 rel0.61 (covered) | grace@b150.95 midi62 lead1.557b ±0 rel0.62 (covered)
+   #9 พระเจ้ารักโลก: grace@b21.94 midi52 lead1.066b ±0 rel0.89 (covered)
+
+  loosest reading: 157 songs carry an ornament that sounds a coming melody pitch
+   #776 สุดแสนรุ่งโรจน์ราศีปรีดิ์เปรม: 146 — violin@b7.00 midi78 lead0.987b ±12 rel0.20 (covered) | violin@b10.50 midi80 lead1.512b ±12 rel0.34 (covered) | violin@b16.00 midi80 lead1.011b ±12 rel0.20 (covered)
+   #778 พระคัมภีร์สัญญาเก่าและใหม่: 94 — violin@b2.30 midi83 lead1.694b ±12 rel0.21 (covered) | violin@b5.00 midi78 lead0.999b ±12 rel0.17 | violin@b7.00 midi78 lead1.011b ±12 rel0.21 (covered)
+   #26 โอ พ่อยอดชาย: 87 — grace@b3.94 midi65 lead1.061b ±0 rel1.02 (covered) | violin@b5.00 midi77 lead0.002b ±12 rel0.17 (covered) | violin@b17.50 midi79 lead1.492b ±12 rel0.27 (covered)
+   #749 ดูแสงฉายประกายรัศมี: 80 — violin@b7.00 midi81 lead1.01b ±12 rel0.23 | violin@b31.00 midi81 lead0.987b ±12 rel0.22 (covered) | violin@b38.30 midi81 lead0.71b ±12 rel0.20 (covered)
+   #758 ที่เบธาเนีย: 80 — grace@b21.94 midi67 lead1.069b ±0 rel0.89 (covered) | grace@b39.94 midi67 lead1.065b ±0 rel0.88 (covered) | violin@b40.00 midi79 lead1.002b ±12 rel0.21 (covered)
+   #770 ซาเล็มคือเมืองรุ่งเรืองทรงสร้างสรรค์: 66 — violin@b1.00 midi81 lead0.995b ±12 rel0.26 (covered) | grace@b1.94 midi67 lead1.553b ±0 rel0.72 (covered) | violin@b5.00 midi77 lead1.492b ±12 rel0.21 (covered)
+   #771 เขาคอยเมืองแห่งหนึ่ง: 66 — violin@b3.30 midi81 lead1.193b ±12 rel0.24 (covered) | violin@b6.00 midi78 lead1.006b ±12 rel0.24 (covered) | violin@b7.30 midi81 lead0.713b ±12 rel0.24 (covered)
+   #96 โปรดให้ใจข้าซื่อตรง: 55 — violin@b1.50 midi80 lead1.999b ±12 rel0.28 (covered) | violin@b21.75 midi80 lead1.739b ±12 rel0.35 (covered) | violin@b26.00 midi78 lead1.991b ±12 rel0.27 (covered)
+   #729 พระเยซูคนรักของข้า: 55 — violin@b1.00 midi80 lead0.996b ±12 rel0.18 (covered) | violin@b13.00 midi80 lead0.998b ±12 rel0.18 (covered) | violin@b14.30 midi83 lead0.711b ±12 rel0.21 (covered)
+   #762 พระองค์เจ้าข้าเฝ้ารอเสด็จมานาน: 55 — violin@b5.00 midi81 lead0.999b ±12 rel0.20 (covered) | violin@b6.30 midi84 lead0.204b ±12 rel0.23 (covered) | violin@b21.00 midi81 lead1.01b ±12 rel0.20
+
+==============================================================================
+bus=wet lead=violin bpm=72 · 170 songs (0 skipped)
+CONTROL melody-split == SSOT attacks : 170/170
+CONTROL stray (unclassified) events   : 0
+songs where sectionBeatRanges()==[]  : 26 (whole song treated as chorus)
+  loudness vs melody · violin  n= 15415  min 0.281 · p50 0.437 · p90 0.631 · max 0.806
+  loudness vs melody · grace   n=  3483  min 0.396 · p50 0.684 · p90 0.891 · max 1.544
+  loudness vs melody · arp     n= 32270  min 0.217 · p50 0.449 · p90 0.552 · max 0.850
+  loudness vs melody · bass    n= 13709  min 0.093 · p50 0.195 · p90 0.237 · max 0.393
+
+  pre-echo points (170 songs) — rows: loudness floor · cols: "inside a ringing melody note"
+  minRel       ORN skip-covered  ORN count-covered    COMP skip   COMP count
+  0.387*                    145               2061         1445         7933
+  0.250                     264               3065         1887         9904
+  0.100                     264               3065         2439        11664
+  0.000                     264               3065         2439        11664
+  (* = the 23-Jul diagnosis's audibility line, 0.12/0.31 of the melody)
+
+  AT THE CALIBRATED LINE (rel ≥ 0.387, skip-covered): 145 points / 56 songs
+   #2 ของขวัญ: violin@b67.30 midi84 lead1.214b ±12 rel0.40 | grace@b67.42 midi72 lead1.093b ±0 rel0.61
+   #3 ในโลกนี้: violin@b63.30 midi83 lead1.203b ±12 rel0.39
+   #10 แม้โลกนี้มีความทุกข์ตรม: violin@b50.00 midi80 lead0.001b ±12 rel0.47
+   #11 ขอบพระคุณ: violin@b82.00 midi79 lead1.006b ±12 rel0.46
+   #13 อย่าถาม: violin@b147.00 midi80 lead0.991b ±12 rel0.39
+   #16 ทรงเป็นอยู่ในข้า: violin@b284.00 midi79 lead1.012b ±12 rel0.41
+   #18 คลื่นชีวิต: violin@b6.00 midi78 lead0.013b ±12 rel0.41 | violin@b10.00 midi80 lead0.011b ±12 rel0.45 | violin@b22.00 midi78 lead0.005b ±12 rel0.44
+   #21 เมื่อข้าได้พบพระองค์ครั้งแรก: violin@b39.00 midi77 lead0.002b ±12 rel0.49
+
+  AT THE CALIBRATED LINE (rel ≥ 0.387, count-covered): 2061 points / 156 songs
+   #1 พระเจ้าเป็นความรัก: violin@b6.00 midi76 lead1.492b ±12 rel0.46 (covered) | violin@b13.50 midi80 lead1.995b ±12 rel0.58 (covered) | violin@b14.00 midi83 lead1.998b ±12 rel0.65 (covered)
+   #2 ของขวัญ: violin@b6.00 midi81 lead1.5b ±12 rel0.50 (covered) | violin@b14.00 midi79 lead1.992b ±12 rel0.45 (covered) | violin@b20.00 midi76 lead0.007b ±12 rel0.45 (covered)
+   #3 ในโลกนี้: violin@b2.75 midi76 lead1.262b ±12 rel0.67 (covered) | violin@b10.25 midi81 lead1.236b ±12 rel0.53 (covered) | violin@b34.75 midi76 lead1.254b ±12 rel0.57 (covered)
+   #4 พระเยซูเข้าสู่ใจข้า: violin@b54.00 midi76 lead1.998b ±12 rel0.48 (covered) | grace@b89.93 midi69 lead1.058b ±0 rel0.49 (covered) | violin@b90.30 midi81 lead0.691b ±12 rel0.40 (covered)
+   #5 ดอกไม้ในป่า: violin@b22.30 midi81 lead0.687b ±12 rel0.41 (covered) | grace@b26.92 midi67 lead1.081b ±0 rel0.74 (covered) | violin@b47.00 midi84 lead1.009b ±12 rel0.56 (covered)
+   #7 พระเจ้าทรงสร้างเราด้วยเหตุใด: violin@b2.25 midi80 lead1.496b ±12 rel0.47 (covered) | violin@b18.25 midi80 lead1.512b ±12 rel0.47 (covered) | violin@b32.00 midi83 lead0.998b ±12 rel0.74 (covered)
+   #8 พระองค์ทรงเป็นดาวประจำรุ่ง: violin@b2.00 midi79 lead1.006b ±12 rel0.39 (covered) | violin@b14.50 midi81 lead1.495b ±12 rel0.53 (covered) | violin@b15.00 midi84 lead1.999b ±12 rel0.59 (covered)
+   #9 พระเจ้ารักโลก: grace@b21.93 midi52 lead1.078b ±0 rel0.79 (covered)
+
+  loosest reading: 158 songs carry an ornament that sounds a coming melody pitch
+   #776 สุดแสนรุ่งโรจน์ราศีปรีดิ์เปรม: 148 — violin@b7.00 midi78 lead0.987b ±12 rel0.35 (covered) | violin@b10.50 midi80 lead1.512b ±12 rel0.61 (covered) | violin@b16.00 midi80 lead1.011b ±12 rel0.35 (covered)
+   #778 พระคัมภีร์สัญญาเก่าและใหม่: 94 — violin@b2.30 midi83 lead1.694b ±12 rel0.38 (covered) | violin@b5.00 midi78 lead0.999b ±12 rel0.30 | violin@b7.00 midi78 lead1.011b ±12 rel0.38 (covered)
+   #26 โอ พ่อยอดชาย: 89 — grace@b3.93 midi65 lead1.073b ±0 rel0.91 (covered) | violin@b5.00 midi77 lead0.002b ±12 rel0.31 (covered) | violin@b17.50 midi79 lead1.492b ±12 rel0.47 (covered)
+   #749 ดูแสงฉายประกายรัศมี: 83 — grace@b4.92 midi60 lead1.07b ±0 rel0.63 (covered) | violin@b7.00 midi81 lead1.01b ±12 rel0.41 | violin@b31.00 midi81 lead0.987b ±12 rel0.39 (covered)
+   #758 ที่เบธาเนีย: 81 — grace@b21.93 midi67 lead1.081b ±0 rel0.79 (covered) | grace@b39.93 midi67 lead1.077b ±0 rel0.79 (covered) | violin@b40.00 midi79 lead1.002b ±12 rel0.37 (covered)
+   #771 เขาคอยเมืองแห่งหนึ่ง: 67 — violin@b3.30 midi81 lead1.193b ±12 rel0.42 (covered) | violin@b6.00 midi78 lead1.006b ±12 rel0.42 (covered) | violin@b7.30 midi81 lead0.713b ±12 rel0.42 (covered)
+   #770 ซาเล็มคือเมืองรุ่งเรืองทรงสร้างสรรค์: 66 — violin@b1.00 midi81 lead0.995b ±12 rel0.46 (covered) | grace@b1.92 midi67 lead1.565b ±0 rel0.64 (covered) | violin@b5.00 midi77 lead1.492b ±12 rel0.37 (covered)
+   #762 พระองค์เจ้าข้าเฝ้ารอเสด็จมานาน: 56 — violin@b5.00 midi81 lead0.999b ±12 rel0.35 (covered) | violin@b6.30 midi84 lead0.204b ±12 rel0.40 (covered) | violin@b21.00 midi81 lead1.01b ±12 rel0.35
+   #96 โปรดให้ใจข้าซื่อตรง: 55 — violin@b1.50 midi80 lead1.999b ±12 rel0.50 (covered) | violin@b21.75 midi80 lead1.739b ±12 rel0.62 (covered) | violin@b26.00 midi78 lead1.991b ±12 rel0.48 (covered)
+   #729 พระเยซูคนรักของข้า: 55 — violin@b1.00 midi80 lead0.996b ±12 rel0.32 (covered) | violin@b13.00 midi80 lead0.998b ±12 rel0.32 (covered) | violin@b14.30 midi83 lead0.711b ±12 rel0.37 (covered)
+
+[90mstdout[2m | tools/diag-ensemble-preecho.test.mjs[2m > [22m[2mwhat refereeNoClash would remove from the ensemble[2m > [22m[2mmeasures the collateral
+[22m[39m
+==============================================================================
+refereeNoClash applied verbatim to ENSEMBLE ornaments · lead=piano
+  ornament events            : 15415
+  removed by BOTH tests      : 6576 (42.7%)
+  removed by the TIME test   : 6566 (42.6%)   ← the "must sit in a melodic gap" rule
+  removed by the PITCH test  : 10 (0.1%)   ← the actual pre-echo fix
+
+==============================================================================
+refereeNoClash applied verbatim to ENSEMBLE ornaments · lead=guitar
+  ornament events            : 18535
+  removed by BOTH tests      : 9696 (52.3%)
+  removed by the TIME test   : 9686 (52.3%)   ← the "must sit in a melodic gap" rule
+  removed by the PITCH test  : 556 (3.0%)   ← the actual pre-echo fix
+  idiomatic graces           : 3120/3120 removed (100.0%)
+
+==============================================================================
+refereeNoClash applied verbatim to ENSEMBLE ornaments · lead=violin
+  ornament events            : 18898
+  removed by BOTH tests      : 10947 (57.9%)
+  removed by the TIME test   : 10049 (53.2%)   ← the "must sit in a melodic gap" rule
+  removed by the PITCH test  : 2107 (11.1%)   ← the actual pre-echo fix
+  idiomatic graces           : 3483/3483 removed (100.0%)
+
+[90mstdout[2m | tools/diag-ensemble-preecho.test.mjs[2m > [22m[2mCONTROL — solo path (arrange) with the same detector[2m > [22m[2mreproduces before=1 / after=0
+[22m[39m
+==============================================================================
+CONTROL · solo path, identical detector & thresholds
+  conductor pitch-test OFF : 1 pre-echo points   #100 ขอสรรเสริญพระเจ้าโดยไม่หยุดยั้ง ×1 (rel 0.80)
+  conductor pitch-test ON  : 0 pre-echo points
+  solo ornament loudness vs melody : min 0.159 · p50 0.243 · p90 0.280 · max 0.800
+  (compare ensemble violin: p50 0.219 · max 0.404 — the ensemble ornament never
+   reaches the loudness band where sparkle lives)
+
+ [32m✓[39m tools/diag-ensemble-preecho.test.mjs [2m([22m[2m3 tests[22m[2m)[22m[33m 6555[2mms[22m[39m
+   [33m[2m✓[22m[39m ENSEMBLE pre-echo scan[2m > [22mscans the library [33m5125[2mms[22m[39m
+   [33m[2m✓[22m[39m what refereeNoClash would remove from the ensemble[2m > [22mmeasures the collateral [33m994[2mms[22m[39m
+   [33m[2m✓[22m[39m CONTROL — solo path (arrange) with the same detector[2m > [22mreproduces before=1 / after=0 [33m401[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 06:13:58
+[2m   Duration [22m 7.72s[2m (transform 125ms, setup 0ms, collect 174ms, tests 6.55s, environment 597ms, prepare 96ms)[22m
+

@@ -18,7 +18,7 @@
 // no user toggle) — they're discipline rules, not tastes, and they're what let the "เปิดหมด" default
 // (every ลูกเล่น on) stay clean instead of turning to mud.
 
-import { clampGainToLayer } from '../sampler.js'
+import { clampGainToLayer, FIRED_GAINS } from '../sampler.js'
 
 // beats of clearance a ลูกเล่น needs on EACH side of its onset, away from any melody ATTACK. Inside
 // this it is "on top of" the tune (a clash); outside it, it sits in a real melodic gap. 0.4 beat ≈
@@ -47,6 +47,11 @@ export const PREECHO_OCTAVES = 1
 // at MEL_BASE×0.7 ≈ 0.245 (only ~21% under the tune), that reads as a note. 0.12 ≈ 8 dB under the
 // melody = the audibility line the diagnosis measured with, so the detector and the fix agree.
 export const PREECHO_MIN_GAIN = 0.12
+// The SAME line expressed as a FRACTION of the melody (0.12 / 0.31 ≈ 0.387). The solo path can use
+// the absolute number because every gain there is on one scale; the ensemble (playEnsemble) mixes
+// each role through its own bus, so an absolute 0.12 would mean a different loudness per voice.
+// Both callers must police the same PERCEPTUAL line, so the ratio is the portable form of it.
+export const PREECHO_MIN_GAIN_RATIO = PREECHO_MIN_GAIN / FIRED_GAINS.melody
 // the right hand leads by ≥20%: every non-melody voice ≤ concurrent melody × LEAD. Absolute.
 export const MELODY_LEAD = 0.8
 // audible floor — a voice shaded down by many multiplied factors (accent × contour × section ×
@@ -62,10 +67,38 @@ export const BASS_LEGATO_OVERLAP = 0.2
 const melodyOnsets = (events) =>
   events.filter((e) => e.role === 'melody').map((e) => e.startBeat).sort((a, b) => a - b)
 
-const melodyAttacks = (events) =>
+export const melodyAttacks = (events) =>
   events.filter((e) => e.role === 'melody' && e.midi != null)
     .map((e) => ({ beat: e.startBeat, midi: e.midi }))
     .sort((a, b) => a.beat - b.beat)
+
+// THE PITCH RULE — the one shared piece of discipline (PM 24 ก.ค.). "Does this ornament sing a pitch
+// the tune is about to sing?" — same chroma, within `octaves` octaves, arriving inside the look-ahead
+// window, and loud enough to be mistaken for the tune rather than heard as texture.
+//
+// It lives alone, pure, and BOTH playback paths call THIS function — the solo/arrange() conductor
+// below, and playEnsemble (โหมดรวมวง), which has its own hand-rolled scheduler and never runs
+// arrange(). Copying the rule into the ensemble would have made two rules that drift; the ensemble
+// deliberately does NOT take the conductor's other (TIME) rule, because measurement showed that rule
+// would delete 43–58% of the ensemble's ornaments and 100% of its idiomatic graces — a grace sits
+// 50 ms before its own note ON PURPOSE (an acciaccatura), so a "must be in a melodic gap" test kills
+// every one. See docs/reports/ensemble-preecho.md.
+//
+//   ev      : { midi, startBeat, gain } — gain on whatever scale `minGain` is expressed in
+//   attacks : melodyAttacks(...) — MUST be sorted by beat (we stop at the first one past the window)
+export function preEchoesMelody(ev, attacks, cfg = {}) {
+  const look = cfg.look ?? PREECHO_LOOKAHEAD
+  const octaves = cfg.octaves ?? PREECHO_OCTAVES
+  const minGain = cfg.minGain ?? PREECHO_MIN_GAIN
+  if (ev.midi == null || look <= 0 || ev.gain < minGain) return false
+  for (const a of attacks) {
+    if (a.beat <= ev.startBeat + 1e-9) continue
+    if (a.beat - ev.startBeat > look + 1e-9) break
+    const d = Math.abs(a.midi - ev.midi)
+    if (d % 12 === 0 && d <= octaves * 12) return true
+  }
+  return false
+}
 
 // §1 CONDUCTOR. Embellishments (sparkle / gapFill / chromaticApproach) and ลูกรับส่ง (answerFills)
 // are ALL role 'emb'. Keep one only when BOTH tests pass:
@@ -86,18 +119,8 @@ export function refereeNoClash(events, cfg = {}) {
   const onsets = melodyOnsets(events)
   if (!onsets.length) return events
   const attacks = melodyAttacks(events)
-  // does this ลูกเล่น sing a pitch the tune is about to sing? (same chroma, within `octaves` octaves,
-  // arriving inside the look-ahead window). Onsets are sorted, so stop at the first one past it.
-  const preEchoes = (e) => {
-    if (e.midi == null || look <= 0 || e.gain < minGain) return false
-    for (const a of attacks) {
-      if (a.beat <= e.startBeat + 1e-9) continue
-      if (a.beat - e.startBeat > look + 1e-9) break
-      const d = Math.abs(a.midi - e.midi)
-      if (d % 12 === 0 && d <= octaves * 12) return true
-    }
-    return false
-  }
+  // (b) PITCH — the shared rule, the same function playEnsemble calls (§ preEchoesMelody above).
+  const preEchoes = (e) => preEchoesMelody(e, attacks, { look, octaves, minGain })
   const clearOfMelody = (b) => {
     let prev = -Infinity
     let next = Infinity

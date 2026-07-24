@@ -5,6 +5,7 @@ import { parseNotes, groupNotes, DOT_FACTOR, noteBoxIndices, storedHold, suggest
 import { parseChord, chordToIntervals } from './chords.js'
 import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
 import { arrange } from './arranger/index.js'
+import { preEchoesMelody, PREECHO_MIN_GAIN_RATIO } from './arranger/referee.js'
 import { moduleForInstrument } from './arranger/instruments/index.js'
 import { mulberry32, seedFor } from './arranger/rng.js'
 import { resolveContent } from './songModel.js'
@@ -881,7 +882,25 @@ export function resolveSections(content, notes) {
   return phrases.length > labelled.length ? phrases : labelled
 }
 
-export async function playEnsemble(content, { bpm = 72, loop = false, onNote, onProgress, order, range, transpose = 0, startIndex = 0, lead = 'piano', onInstrumentPending, songId } = {}) {
+// Which leads the shared PRE-ECHO rule polices in โหมดรวมวง today. GUITAR only, on purpose (PM 24 ก.ค.):
+// its hammer-on grace was measured at 0.69–0.86 of the tune's own loudness — the same band as the
+// sparkle P'Pao actually HEARD as a phantom note in เพลง 33 (0.80) — so the class is ear-confirmed
+// and closing it needs no further evidence. เปียโนนำ (the default) measured ZERO points, so it is
+// untouched by construction: the piano lead has no grace at all. ไวโอลินนำ measured 145 points but
+// that is a NUMBER, not an ear — silencing them changes the character of a whole mode, so it waits
+// for P'Aim's A/B judgement. `preEcho: 'all'` turns the violin on for rendering that A/B; 'off'
+// renders the "before" side. Do not flip the default without the ear test.
+// Evidence: docs/reports/ensemble-preecho.md
+// Dry level of each role's mix bus (§6b.2 roleBus). Needed to compare an ornament's loudness with
+// the tune's when the two sit on DIFFERENT buses.
+export const ENS_BUS = { grand: 1.0, cello: 0.16, violin: 0.62, nylon: 0.9 }
+
+export const PREECHO_ENSEMBLE_LEADS = new Set(['guitar'])
+
+export async function playEnsemble(content, { bpm = 72, loop = false, onNote, onProgress, order, range, transpose = 0, startIndex = 0, lead = 'piano', onInstrumentPending, songId, preEcho = 'default' } = {}) {
+  // 'default' = the ear-confirmed scope only · 'all' = every lead's grace · 'off' = pre-fix behaviour
+  const policePreEcho = preEcho === 'all' || (preEcho !== 'off' && PREECHO_ENSEMBLE_LEADS.has(lead))
+  const policeViolin = preEcho === 'all'   // ไวโอลินนำ / violin ลูกเล่น — held for the ear test
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   try { const b = ctx.createBuffer(1, 1, 22050); const s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0) } catch { /* not fatal */ }
   await ctx.resume()
@@ -1003,6 +1022,37 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     const tEnd = t0 + totalBeats * spb
     const TJ = 0.012, VJ = 0.06
 
+    // The tune's attacks in beat-space — what the shared PITCH rule checks an ornament against.
+    // Built from THIS pass's notes so a seek/loop pass can't compare against the wrong list.
+    const attacks = []
+    { let ab = 0; for (const n of notes) { if (n.midi != null) attacks.push({ beat: ab, midi: n.midi }); ab += n.beats } }
+    // A grace that sings the pitch the tune is about to sing is not heard as decoration, it's heard
+    // as an extra melody note ("3 ตัวกลายเป็น 4 ตัว"). Same rule, same function as the solo path's
+    // conductor — NOT a copy (referee.js § preEchoesMelody). Its loudness is compared as a RATIO of
+    // the melody note it leans on: both go through the same instrument and the same bus, so the
+    // ratio IS the perceptual comparison, no mix maths needed. Vetoing a grace never touches the
+    // tune, the comp or the bass — only the ornament disappears.
+    const graceVetoed = (midi, atBeat, relGain) =>
+      policePreEcho && preEchoesMelody({ midi, startBeat: atBeat, gain: relGain }, attacks, { minGain: PREECHO_MIN_GAIN_RATIO })
+
+    // The violin's ลูกเล่น sit on a DIFFERENT bus from the lead, so (unlike a grace) their loudness
+    // can only be compared to the tune after the mix. We record what the GUIDE layer actually fired
+    // (below) and compare effective levels = fire gain × that role's dry bus level.
+    // ⚠ Off by default — this is the ไวโอลินนำ case P'Aim has not judged by ear yet (`preEcho:'all'`).
+    const melodyEff = []
+    const melBusLevel = lead === 'guitar' ? ENS_BUS.nylon : lead === 'violin' ? ENS_BUS.violin : ENS_BUS.grand
+    const melEffAt = (b) => {
+      let prev = null
+      for (const m of melodyEff) { if (m.beat <= b + 1e-9) prev = m; else break }
+      return (prev || melodyEff[0])?.eff || 0
+    }
+    const violinVetoed = (midi, atBeat, gain) => {
+      if (!policeViolin) return false
+      const ref = melEffAt(atBeat)
+      if (!ref) return false
+      return preEchoesMelody({ midi, startBeat: atBeat, gain: (gain * ENS_BUS.violin) / ref }, attacks, { minGain: PREECHO_MIN_GAIN_RATIO })
+    }
+
     // GUIDE layer (ONE melody line) on the LEAD instrument, × section gain (verse quieter → chorus
     // full). piano swells long notes · violin sings long + slide-in · guitar fingerpicks + a
     // hammer-on grace. Only the lead plays the tune; the violin NEVER doubles it.
@@ -1014,13 +1064,20 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
         const t = t0 + beat * spb + TJ * rnd()
         const d = n.beats * spb
         if (lead === 'guitar') {
-          if (n.beats >= 1 && rng() < 0.18) melInst.fire(n.midi - 2 + T, t - 0.05, 0.12, 0.42 * gd) // hammer/slide
+          // NB the rng() draw happens exactly as before whether or not the grace is vetoed — the
+          // humanize stream must not shift, or silencing one ornament would re-roll the whole song.
+          const wantGrace = n.beats >= 1 && rng() < 0.18
+          if (wantGrace && !graceVetoed(n.midi - 2, beat, 0.42 / 0.56)) melInst.fire(n.midi - 2 + T, t - 0.05, 0.12, 0.42 * gd) // hammer/slide
           melInst.fire(n.midi + T, t, Math.max(0.6, d + 0.4), 0.56 * gd) // plucked, rings
+          melodyEff.push({ beat, eff: (0.56 * gd) * melBusLevel })
         } else if (lead === 'violin') {
-          if (n.beats >= 1 && rng() < 0.2) melInst.fire(n.midi - 2 + T, t - 0.06, 0.2, 0.28 * gd) // slide-in grace
+          const wantGrace = n.beats >= 1 && rng() < 0.2
+          if (wantGrace && !graceVetoed(n.midi - 2, beat, 0.28 / 0.42)) melInst.fire(n.midi - 2 + T, t - 0.06, 0.2, 0.28 * gd) // slide-in grace
           melInst.fire(n.midi + T, t, Math.max(0.9, d + 0.6), 0.42 * gd) // violin sings long
+          melodyEff.push({ beat, eff: (0.42 * gd) * melBusLevel })
         } else {
           melInst.fire(n.midi + T, t, n.beats >= 3 ? d + 0.5 : Math.max(0.5, d + 0.3), 0.52 * gd)
+          melodyEff.push({ beat, eff: (0.52 * gd) * melBusLevel })
         }
       }
       beat += n.beats
@@ -1056,7 +1113,11 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
           ? [{ p: tones[tones.length - 1], d: 0.5 }, { p: tones[tones.length - 2], d: 0.5 }, { p: tones[Math.max(0, tones.length - 3)], d: 1.0 }]
           : [{ p: tones[Math.max(0, tones.length - 3)], d: 0.5 }, { p: tones[Math.max(0, tones.length - 2)], d: 0.5 }, { p: tones[tones.length - 1], d: 1.0 }]
         let b = startBeat
-        for (const s of seq) { vi.fire(s.p + T, t0 + b * spb, s.d * spb + 0.25, ENS.fill * secGain(g.beat) * (s.d >= 1 ? 1 : 0.9)); b += s.d }
+        for (const s of seq) {
+          const vg = ENS.fill * secGain(g.beat) * (s.d >= 1 ? 1 : 0.9)
+          if (!violinVetoed(s.p, b, vg)) vi.fire(s.p + T, t0 + b * spb, s.d * spb + 0.25, vg)
+          b += s.d
+        }
       })
       for (const e of chordEvents) {
         if (levelAt(e.startBeat) !== 'chorus') continue
@@ -1069,11 +1130,11 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
         if (room < 0.6) continue
         const pick = tones[Math.min(tones.length - 1, 1)]
         if (e.beats >= 3 && tones.length >= 2) {
-          vi.fire(pick + T, t0 + enter * spb, 1.1 * spb + 0.2, ENS.counter)
+          if (!violinVetoed(pick, enter, ENS.counter)) vi.fire(pick + T, t0 + enter * spb, 1.1 * spb + 0.2, ENS.counter)
           const nxt = tones[Math.min(tones.length - 1, 2)]
-          vi.fire(nxt + T, t0 + (enter + 1.3) * spb, Math.min(room - 1.3, 1.4) * spb + 0.3, ENS.counter)
+          if (!violinVetoed(nxt, enter + 1.3, ENS.counter)) vi.fire(nxt + T, t0 + (enter + 1.3) * spb, Math.min(room - 1.3, 1.4) * spb + 0.3, ENS.counter)
         } else {
-          vi.fire(pick + T, t0 + enter * spb, Math.min(room, 1.6) * spb + 0.3, ENS.counter)
+          if (!violinVetoed(pick, enter, ENS.counter)) vi.fire(pick + T, t0 + enter * spb, Math.min(room, 1.6) * spb + 0.3, ENS.counter)
         }
       }
     }
