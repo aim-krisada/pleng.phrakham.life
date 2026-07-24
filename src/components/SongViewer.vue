@@ -62,7 +62,7 @@ const props = defineProps({
 // `update-meta` (B060) is the same idea for the song's ROW fields (เลข · ชื่อไทย · ชื่ออังกฤษ ·
 // ธีม · หมวด), which live on the songs row and not in `content` — the ⚙ ตั้งค่าเพลง panel hands
 // up a patch and the owner merges it, exactly as it does with a new content.
-const emit = defineEmits(['update-content', 'update-meta', 'update-music', 'save', 'key-change', 'update:editing', 'left-dirty'])
+const emit = defineEmits(['update-content', 'update-meta', 'update-music', 'save', 'key-change', 'update:editing', 'left-dirty', 'new-song'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -1108,7 +1108,7 @@ function onSettingsMusic(patch) { emit('update-music', patch) }
 
 // The edit surface's handlers, exposed so the tests can drive the SAME functions the UI does
 // (a test that reimplements the wiring proves nothing about the wiring).
-defineExpose({ applySymbol, setChord, deleteSel, selectUnit, undoEdit, redoEdit, toggleEdit, requestExitEdit, playScope, playWholeFromEditor, toggleSettings, onSettingsMusic, onSettingsMeta })
+defineExpose({ applySymbol, setChord, deleteSel, selectUnit, focusFirstUnit, undoEdit, redoEdit, toggleEdit, requestExitEdit, playScope, playWholeFromEditor, toggleSettings, onSettingsMusic, onSettingsMeta })
 
 // Leaving the editor — ONE gate, wherever the request comes from (the ✓ button, or the shell's
 // mode tabs asking to take the user somewhere else). Returns true when we actually left, so the
@@ -1140,6 +1140,15 @@ function toggleEdit() {
   if (editMode.value) { requestExitEdit(); return }
   editMode.value = true
   if (curIdx.value < 0 && editUnits.value.length) curIdx.value = 0
+}
+// Put the caret on the FIRST editable unit and hand it the keyboard. Used when the song under an
+// already-open pencil is swapped out (the shell's "＋ เพลงใหม่") — toggleEdit's on-entry seeding
+// never runs then, so a stale curIdx from the old song would leave the new blank song with no
+// caret and nothing to type into. Force the selection to change (-1 → 0) so watch(curIdx) fires
+// focusCapture even when the old index was already 0. No-op when there is nothing to select.
+function focusFirstUnit() {
+  curIdx.value = -1
+  nextTick(() => { curIdx.value = editUnits.value.length ? 0 : -1 })
 }
 // the shell needs to know, so its mode tabs can tell the truth about where the user is
 watch(editMode, (on) => emit('update:editing', on), { immediate: true })
@@ -1788,6 +1797,18 @@ function onSeek({ li, si, syk }) {
           <!-- 🎼 โครงเพลง — จัดลำดับท่อน (ข้อ/รับ) · เลือก/แยกทำนอง · คัดลอก/วาง ห้อง/บรรทัด/ท่อน.
                Structure editing used to live only in the old boxed editor; this brings it onto the
                one-surface pencil flow beside ตั้งค่าเพลง (both are document-level editing actions). -->
+          <!-- ＋ เพลงใหม่ — start a brand-new blank song WITHOUT leaving the pencil (the create
+               action used to live only on the home catalog). Studio owns the song row + the
+               unsaved-work guard, so this only asks for the intent; it swaps in a blank song and
+               keeps ✏️ on so the author can type at once. A "create" affordance (file-plus), kept
+               as the leading chip of the document-tool cluster; the ghost-chip style + label
+               collapse match its siblings so the row still reads as one control group. -->
+          <button
+            class="sv-newsong-btn"
+            type="button"
+            title="สร้างเพลงใหม่ — เริ่มเพลงเปล่าในตัวแก้นี้ทันที"
+            @click="$emit('new-song')"
+          ><Icon name="file-plus" :size="16" /> <span class="sv-settings-lbl">เพลงใหม่</span></button>
           <!-- ตรวจโน้ต — the notation lint, ported from the old editor's publish-time check onto the
                inline surface. A quiet ✓ while clean, an amber/red count when there is something to
                look at; tap to see each issue with its ท่อน/บรรทัด/ห้อง and what to fix. -->
@@ -2202,7 +2223,8 @@ function onSeek({ li, si, syk }) {
    clears it without inflating one button to 44 and breaking the row (brief 24 ก.ค.). */
 .sv-settings-btn,
 .sv-structure-btn,
-.sv-lint-btn {
+.sv-lint-btn,
+.sv-newsong-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2216,6 +2238,12 @@ function onSeek({ li, si, syk }) {
   font-size: 13px;
   cursor: pointer;
 }
+/* ＋ เพลงใหม่ — same ghost chip as its siblings, but a "create" affordance: the icon + label take
+   the brand colour so it reads as an action that makes something new (not a toggle over the open
+   song like ตรวจโน้ต/โครงเพลง/ตั้งค่าเพลง). Hover firms the brand edge, matching .sv-play-btn. */
+.sv-newsong-btn { color: var(--brand, #8b4513); font-weight: 600; }
+.sv-newsong-btn:hover { border-color: var(--brand, #8b4513); }
+.sv-newsong-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
 .sv-settings-btn[aria-pressed='true'],
 .sv-structure-btn[aria-pressed='true'],
 .sv-lint-btn[aria-pressed='true'] { border-color: var(--brand, #8b4513); color: var(--brand, #8b4513); }
@@ -2235,7 +2263,8 @@ function onSeek({ li, si, syk }) {
   .sv-settings-lbl { display: none; }
   .sv-settings-btn,
   .sv-structure-btn,
-  .sv-lint-btn { min-height: var(--touch-min, 44px); min-width: var(--touch-min, 44px); justify-content: center; padding: 0 10px; }
+  .sv-lint-btn,
+  .sv-newsong-btn { min-height: var(--touch-min, 44px); min-width: var(--touch-min, 44px); justify-content: center; padding: 0 10px; }
 }
 
 /* ตรวจโน้ต panel — a plain problems list under the save bar (Docs spell-check pattern). A flex

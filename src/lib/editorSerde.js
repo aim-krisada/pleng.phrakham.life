@@ -50,6 +50,29 @@ export function newLine() {
   return { marker: '', markerId: '', cont: false, label: '', section: '', end: false, bars: [newBar()] }
 }
 
+// A brand-new blank song's stored `content` (v2). One stanza (A) with one line whose single note
+// is a REST ('0'), and one arrangement entry pointing at it. The rest is deliberate: the inline
+// editor (SongViewer) builds its editable cells from noteBoxKinds(), and a truly-empty note ('')
+// yields only a 'struct' kind — no cell — so a blank song would render with nothing to select or
+// type into (the blank-song trap). A rest is a real, slot-bearing note box: it renders as one
+// editable cell, takes the caret, and the first digit typed overwrites it (setNotePitch('0',…)=the
+// digit). '0' (not '-') because in jianpu '0' is a rest — valid as a standalone first beat —
+// whereas '-' prolongs a PREVIOUS note, which is notation-nonsense at the very start. So the author
+// sees one empty beat and types straight over it — no dead surface, no extra tap. Built from the
+// same shells the editor uses (newLine → serializeLine) so the shape matches a saved-then-reopened
+// new song exactly; the defaults ARE the value (nothing stored to lose).
+export function emptyContent() {
+  const line = newLine()
+  line.bars[0].segments[0].note = '0' // a single rest = the first editable beat (see note above)
+  return {
+    version: 2,
+    key: 'C',
+    timeSignature: '4/4',
+    stanzas: [{ id: 'A', lines: [serializeLine(line)] }],
+    arrangement: [{ stanza: 'A', label: '', syllables: [], key: '' }],
+  }
+}
+
 // The line-item `type`s the editor understands. Anything else is preserved via `_unknown`.
 const KNOWN_ITEM_TYPES = new Set([
   'continue', 'section', 'label', 'end', 'marker',

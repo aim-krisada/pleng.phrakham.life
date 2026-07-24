@@ -9,6 +9,7 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent } from '../lib/songModel.js'
 import { withSongKey } from '../lib/songEdit.js'
+import { emptyContent } from '../lib/editorSerde.js'
 import { songHaystack, searchSongs } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
 import { songBasename } from '../lib/songName.js'
@@ -514,6 +515,62 @@ function goBack() {
   router.push('/')
 }
 
+// ＋ เพลงใหม่ from INSIDE the inline editor (SongViewer emits `new-song`) — start a fresh blank
+// song without going back to the home catalog. The shell owns the song row + the unsaved-work
+// state, so the create lives here (SongViewer only asks). Behaviour mirrors the home "＋ เพลงใหม่"
+// (a blank editable song) but keeps the author on the SAME inline surface, editing at once.
+function createNewSong() {
+  // Guard the current work. The inline editor mirrors every edit into a per-song local working
+  // copy, so switching to a new song leaves the old work RECOVERABLE (reopen that song) — no need
+  // to nag. Only the truly-unrecoverable case (private mode / quota, workCopySafe === false) is a
+  // real last chance, so that is the only time we ask. Same heuristic as SongViewer.requestExitEdit.
+  if (inlineState.value === 'dirty' && !workCopySafe.value) {
+    const ok = window.confirm(
+      'งานที่แก้ยังไม่ได้บันทึก และเบราว์เซอร์นี้เก็บสำเนากันหายไม่ได้ — เริ่มเพลงใหม่เลยไหม? (งานที่แก้ไว้จะหาย)',
+    )
+    if (!ok) return
+  }
+  // A brand-new blank song = the smallest renderable/typeable v2 content (one empty note box),
+  // built from the shared editorSerde factory so it matches a saved-then-reopened new song exactly.
+  const blank = {
+    id: null,
+    number: null,
+    title_th: '',
+    title_en: null,
+    category: null,
+    theme: null,
+    content: emptyContent(),
+  }
+  loadedSong.value = blank
+  liveSong.value = { ...blank, content: JSON.parse(JSON.stringify(blank.content)) }
+  // reset every per-song piece of shell state so nothing from the previous song bleeds through
+  metaKnown.category = false // a blank song's หมวด/ธีม are UNKNOWN (not the defaults) — never written on save
+  metaKnown.theme = false
+  inlineDraftId.value = null // this new song has no open draft row yet
+  inlineError.value = ''
+  recovery.value = null // a fresh song offers nothing to recover
+  leftDirty.value = false
+  // the new blank IS the checkpoint — it opens "บันทึกแล้ว", turning dirty on the first keystroke
+  cleanContent.value = stamp(liveSong.value.content)
+  cleanMeta.value = stamp(metaOf(liveSong.value))
+  inlineState.value = 'clean'
+  workCopySafe.value = true
+  mode.value = 'view' // the inline editor lives inside ฝึกร้อง (view) — stay here, don't jump to the full editor
+  // Reflect "a new, unsaved song" in the URL (drop the old /song/:id) WITHOUT a remount — Studio is
+  // already mounted, so the route watcher sees id→undefined (guarded, a no-op) and the state we just
+  // set stands. replace (not push) so ‹ back / browser-back don't step onto the previous song.
+  if (route.params.id) router.replace('/studio')
+  // Turn the pencil ON so the author can type immediately (create → type, no extra tap). nextTick so
+  // SongViewer has re-rendered with the blank song before we drive its edit state. When it was
+  // already editing (the usual case — this button lives inside the pencil) toggleEdit's on-entry
+  // caret-seed never runs, so place the caret on the blank song's first note ourselves and hand it
+  // the keyboard, so a digit typed right away lands with no extra click.
+  nextTick(() => {
+    if (!viewerEditing.value) viewerRef.value?.toggleEdit?.()
+    nextTick(() => viewerRef.value?.focusFirstUnit?.())
+  })
+}
+
 // ---------- shell song picker (US-05) ----------
 // "เปิด/เลือกเพลง" lives on the shell (not inside the editor) so it works in EVERY mode:
 // a reader in ดู/แผ่น can jump to another song without first entering แก้. Picking a song
@@ -799,6 +856,7 @@ function printSheet() {
         @key-change="viewKey = $event"
         @update:editing="viewerEditing = $event"
         @left-dirty="onLeftDirty"
+        @new-song="createNewSong"
       />
       <p v-else class="muted" style="padding: 16px">ยังไม่มีเพลงให้แสดง — ไปที่ “แก้” เพื่อเริ่มสร้างเพลง</p>
     </div>
