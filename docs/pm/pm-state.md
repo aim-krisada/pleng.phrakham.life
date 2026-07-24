@@ -16,7 +16,8 @@
 - **deploy = ยังไม่ทำ** · bundle+batch = ship ตอน P'Aim สั่ง (ต้อง FF ssr→integrated tip + cherry-pick deploy.yml 132a041)
 
 ### ⏸️ HOLD/รอ P'Aim
-- **SB1 มือถือ** (P'Aim ขอเวลาคิด · bundle SB1+BI-002+lint+paste รอ ship) · **topology swap** (defer · bug ยังเยอะ) · **MR ai-bridge** ceo!13+ai-bridge!32 (รอ approve) · **issue8** = ไม่ดึง (P'Aim เคาะ) · **BI-007 role + audio-follows-jump ear-test** = P'Aim หลัง deploy
+- **SB1 มือถือ** (P'Aim ขอเวลาคิด · bundle SB1+BI-002+lint+paste รอ ship) · **topology swap** (defer · bug ยังเยอะ) · **issue8** = ไม่ดึง (P'Aim เคาะ) · **BI-007 role + audio-follows-jump ear-test** = P'Aim หลัง deploy
+- **ai-bridge:** ✅ **MR ceo!13 MERGED** (P'Aim เลือก ceo/tools · tool home = `krisada/ceo` tools/aibridge/ · daemon UP :9335) · ⏳ ค้าง: enteam/ai-bridge !32 pointer (เคาะว่าเก็บ pointer ไหม) · broadcast SOP "ทุก session ใช้ `bridge.py ask G/N` เลิก meeting-room CDP" ยังไม่ทำ (pm46 broadcast ตอน session ใหม่ spin) · "waiting-web page" ที่ P'Aim จำ = ยังไม่ confirm หมายถึง tool ไหน
 
 
 ### 🚨🚨 CRITICAL BASE/DEPLOY LANDMINE (Explore pm45 · ยืนยันด้วย git)
