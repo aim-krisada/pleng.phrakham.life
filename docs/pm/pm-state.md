@@ -24,7 +24,7 @@
 
 6. 🆕 **พี่เปา: พิมพ์ octave ด้วยคีย์บอร์ดล้วน (B2)** — `.5`=ต่ำ (จุดก่อนเลข) · `5'`=สูง (apostrophe หลังเลข) · **"แบบที่เคยเป็น" = RESTORE ของเดิม ไม่ออกแบบใหม่** (เปิด EditorMode.vue/NoteInputBar.vue/notation.js ดูของเดิม) · คีย์บอร์ดล้วน=เดสก์ท็อป ปุ่มยังอยู่สำหรับมือถือ · `.`/`'` ห้ามชน keydown 382-423
 
-**→ SA session ใหม่ = `optimistic-kare-b535ad` (local_dc0b2d2f · กำลังทำ): เมนู→⋮ (ข้อ4) + caret model (ข้อ5) + octave keyboard (ข้อ6) เข้า `docs/ds/editor-flow-polish.md` · G บังคับ · ประสาน Space=advance + keydown เดิม 382-423**
+**✅ สเปกครบ merge `4922418`** (`editor-flow-polish.md` PART2 §4-6 + 25 AC + ตาราง keydown ไม่ชน :387-459) — เมนู→⋮(search engine จริง) · **cursor 2 โหมด** (Block ทับ / Insert→Line Caret ระหว่างโน้ต) · **Delete=แบบ Word ดึงชิด (P'Aim ย้อน Q1) rest=พิมพ์ 0** · octave `.5`/`5'` (parser SSOT) · **dev เช็ก keydown :387-459 ก่อน implement** · SA wind down (จบ chunk)
 
 ### 🔄 หมุน session — **session-health pass = กฎถาวรใน §4.5 ข้อ 6 แล้ว** (auto ทุก "PM เก็บงาน" + ทุกปิด gate/merge)
 - **อ่าน % context ตรงไม่ได้ = heuristic** (done+idle / คุย G ≥2 / ≥3 deliverable) · กลาง chunk = ไม่แตะ · rotate = PM สั่ง wind down เอง งานหน้า = session ใหม่สด
