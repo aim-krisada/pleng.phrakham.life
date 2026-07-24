@@ -109,6 +109,54 @@ describe('Studio shell — three modes on one surface (US-01)', () => {
     expect(wrapper.find('.sheet-title').text()).toBe('7. เพลงทดสอบ')
   })
 
+  // 24 ก.ค. — the tab strip vs the ✏️ inline editor (which lives INSIDE ฝึกร้อง).
+  // Before: ฝึกร้อง read as the current view while the user was clearly in an editor, and
+  // pressing it did nothing at all — a dead control reads as "the site is broken". The other
+  // two switched away without a word, unsaved work and all.
+  describe('the mode tabs while the ✏️ editor is open', () => {
+    const exitStub = (ok) => ({
+      SongViewer: {
+        name: 'SongViewer', props: ['song'], emits: ['update:editing'],
+        template: '<div class="stub-viewer" />',
+        mounted() { this.$emit('update:editing', true) },
+        methods: { requestExitEdit: () => ok },
+      },
+    })
+
+    // get the shell into ฝึกร้อง with a song, which is where the ✏️ editor lives
+    async function openViewer(ok) {
+      const wrapper = mount(Studio, { global: { stubs: { ...stubs, ...exitStub(ok) } } })
+      await nextTick()
+      wrapper.findComponent(EditorMode).vm.$emit('change', {
+        id: null, number: 7, title_th: 'เพลงทดสอบ', title_en: '',
+        content: { version: 2, key: 'C', timeSignature: '4/4', stanzas: [], arrangement: [] },
+      })
+      await nextTick()
+      modeButtons()[0].click() // ฝึกร้อง → the viewer mounts and reports that ✏️ is on
+      await nextTick(); await nextTick()
+      return wrapper
+    }
+
+    it('no tab reads as current while editing — so pressing one is a real change', async () => {
+      await openViewer(true)
+      expect(modeButtons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'false'])
+    })
+
+    it('pressing a tab asks the editor to leave first, and obeys a refusal', async () => {
+      const wrapper = await openViewer(false)
+      modeButtons()[1].click() // แผ่นเพลง
+      await nextTick()
+      expect(wrapper.find('.sheet-workspace').isVisible()).toBe(false) // refused → we stayed put
+    })
+
+    it('an accepted exit lets the tab through', async () => {
+      const wrapper = await openViewer(true)
+      modeButtons()[1].click() // แผ่นเพลง
+      await nextTick()
+      expect(wrapper.find('.sheet-workspace').isVisible()).toBe(true)
+    })
+  })
+
   it('gating flows from the store into every mode via the tier prop (DS-02/DS-04)', async () => {
     const wrapper = mount(Studio, { global: { stubs } })
     await nextTick()

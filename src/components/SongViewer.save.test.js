@@ -94,15 +94,26 @@ describe('SongViewer — inline save state', () => {
     expect(w.emitted('save')[0]).toEqual(['file'])
   })
 
+  // เสร็จ moved off the floating ✓ FAB and into the editor's own header row beside the save
+  // state (24 ก.ค.): a fixed round button is one more thing sitting on top of the sheet, and it
+  // collided with the tool dock once the dock stopped floating. The ✏️ FAB is now the way IN only.
+  it('เสร็จ lives in the editor header; the ✏️ FAB is only the way in', async () => {
+    const w = mountViewer({ saveState: 'clean' })
+    expect(w.find('.sv-fab').exists()).toBe(true)
+    await enterEdit(w)
+    expect(w.find('.sv-done-btn').exists()).toBe(true)
+    expect(w.find('.sv-fab').exists()).toBe(false) // nothing floats over the sheet while editing
+  })
+
   it('leaving แก้ with unsaved work warns first, and stays put if refused', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     const w = mountViewer({ saveState: 'dirty' })
     await enterEdit(w)
-    await w.find('.sv-fab').trigger('click') // press เสร็จ
+    await w.find('.sv-done-btn').trigger('click') // press เสร็จ
     expect(confirm).toHaveBeenCalled()
     expect(w.find('.sv-save-bar').exists()).toBe(true) // refused → still editing
     confirm.mockReturnValue(true)
-    await w.find('.sv-fab').trigger('click')
+    await w.find('.sv-done-btn').trigger('click')
     expect(w.find('.sv-save-bar').exists()).toBe(false)
     confirm.mockRestore()
   })
@@ -111,9 +122,28 @@ describe('SongViewer — inline save state', () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const w = mountViewer({ saveState: 'clean' })
     await enterEdit(w)
-    await w.find('.sv-fab').trigger('click')
+    await w.find('.sv-done-btn').trigger('click')
     expect(confirm).not.toHaveBeenCalled()
     expect(w.find('.sv-save-bar').exists()).toBe(false)
+    confirm.mockRestore()
+  })
+
+  // The shell's mode tabs are the other way out of the editor, and they were the hole: ฝึกร้อง
+  // did nothing at all (the editor lives inside ฝึกร้อง), and the other two walked out without a
+  // word even with unsaved work on screen. Both now go through this ONE gate.
+  it('requestExitEdit is the single gate the shell tabs can use', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const w = mountViewer({ saveState: 'dirty' })
+    await enterEdit(w)
+    expect(w.emitted('update:editing').at(-1)).toEqual([true]) // the shell is told
+    expect(w.vm.requestExitEdit()).toBe(false) // refused → the tab must not switch
+    await nextTick()
+    expect(w.find('.sv-save-bar').exists()).toBe(true)
+    confirm.mockReturnValue(true)
+    expect(w.vm.requestExitEdit()).toBe(true)
+    await nextTick()
+    expect(w.find('.sv-save-bar').exists()).toBe(false)
+    expect(w.emitted('update:editing').at(-1)).toEqual([false])
     confirm.mockRestore()
   })
 })

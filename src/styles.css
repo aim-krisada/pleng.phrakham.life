@@ -152,6 +152,12 @@ html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Always reserve the scrollbar's gutter. Without it the page width jumps by ~15px whenever
+     the document stops being taller than the window — which is exactly what happens on entering
+     the ✏️ editor (its frame takes the sheet out of page flow), and the shell bar then re-fitted
+     itself into a different layout mid-edit (measured: shell-compact → shell-tight at 1280).
+     Reserving the gutter keeps every page and every mode the same width. */
+  scrollbar-gutter: stable;
 }
 
 body {

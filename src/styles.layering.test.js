@@ -67,15 +67,26 @@ describe('z-index ladder', () => {
 })
 
 describe('the components that broke', () => {
-  it('NoteInputBar floats at the popover tier', () => {
+  // 24 ก.ค. — the toolbar no longer floats AT ALL. It used to be a popup anchored to the
+  // selected note (hence the z-index fights above); hit-testing the real app showed it hiding
+  // up to 92 of 279 visible note/word cells, i.e. the line being typed on. It is a docked flex
+  // child of the editing frame now, so the only way it can go back to covering the sheet is if
+  // someone gives it a position/z-index again. That is what this test forbids.
+  it('NoteInputBar is DOCKED — it never positions itself over the sheet', () => {
     const nib = readFileSync(join(SRC, 'components/NoteInputBar.vue'), 'utf8')
-    expect(nib).toMatch(/z-index:\s*var\(--z-popover\)/)
+    const style = nib.slice(nib.indexOf('<style'))
+    expect(style, 'the tool dock must not be fixed/absolute — it takes its own room in the frame')
+      .not.toMatch(/position:\s*(fixed|absolute)/)
+    expect(style, 'a docked toolbar needs no stacking tier: nothing is under it')
+      .not.toMatch(/z-index\s*:/)
   })
 
-  it('NoteInputBar re-places itself on scroll (it is fixed but anchored to a note)', () => {
-    const nib = readFileSync(join(SRC, 'components/NoteInputBar.vue'), 'utf8')
-    expect(nib).toMatch(/addEventListener\('scroll', place/)
-    expect(nib).toMatch(/removeEventListener\('scroll', place/)
+  it('the editing frame keeps the sheet in its own scroll region', () => {
+    const sv = readFileSync(join(SRC, 'components/SongViewer.vue'), 'utf8')
+    // the frame sits one tier BELOW the shell bar, so the mode tabs stay clickable while editing
+    expect(sv).toMatch(/\.sv-frame\s*\{[^}]*position:\s*fixed/)
+    expect(sv).toMatch(/\.sv-frame\s*\{[^}]*z-index:\s*var\(--z-dock\)/)
+    expect(sv).toMatch(/\.sv-frame\s*>\s*\.sv-doc\s*\{[^}]*overflow-y:\s*auto/)
   })
 
   it('the shell bar owns --z-nav', () => {

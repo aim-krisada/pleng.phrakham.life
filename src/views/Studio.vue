@@ -366,6 +366,26 @@ const MODES = [
   { id: 'edit', label: 'แก้ไข', icon: 'pencil', title: 'แก้ไข' },
 ]
 
+// ---------- the mode tabs vs the inline (✏️) editor — 24 ก.ค. ----------
+// The ✏️ editor lives INSIDE ฝึกร้อง, so while it is open the tab strip was lying twice over:
+// "ฝึกร้อง" showed as the current view although the user was clearly in an editor, and pressing
+// it did literally nothing (verified: no state change, no dialog) — a dead control in the middle
+// of the screen, which reads as "the site is broken". The other two tabs did switch, but walked
+// out of the editor without a word even with unsaved work on screen.
+// So: the tabs are the shell's ONE way of saying where you are. While the inline editor is open
+// no tab is current, and pressing ANY of them means "take me out of the editor" — routed through
+// the editor's own exit gate, which asks only when there is unsaved work (an always-on confirm
+// is one people learn to click through).
+const viewerRef = ref(null)
+const viewerEditing = ref(false)
+function setMode(id) {
+  if (viewerEditing.value) {
+    // requestExitEdit returns false when the user chose "let me save first" — then we stay put
+    if (viewerRef.value?.requestExitEdit && !viewerRef.value.requestExitEdit()) return
+  }
+  mode.value = id
+}
+
 // ---------- shell song picker (US-05) ----------
 // "เปิด/เลือกเพลง" lives on the shell (not inside the editor) so it works in EVERY mode:
 // a reader in ดู/แผ่น can jump to another song without first entering แก้. Picking a song
@@ -507,10 +527,10 @@ function printSheet() {
           v-for="m in MODES"
           :key="m.id"
           class="sb-mode-btn"
-          :class="{ on: mode === m.id }"
-          :aria-pressed="mode === m.id"
-          :title="m.title"
-          @click="mode = m.id"
+          :class="{ on: mode === m.id && !viewerEditing }"
+          :aria-pressed="mode === m.id && !viewerEditing"
+          :title="viewerEditing ? m.title + ' — ออกจากโหมดแก้' : m.title"
+          @click="setMode(m.id)"
         >
           <Icon :name="m.icon" :size="16" /><span class="sb-mode-label">{{ m.label }}</span>
         </button>
@@ -527,6 +547,7 @@ function printSheet() {
       </div>
       <SongViewer
         v-if="viewerSong"
+        ref="viewerRef"
         :song="viewerSong"
         :tier="tier"
         :save-state="inlineState"
@@ -535,6 +556,7 @@ function printSheet() {
         @update-content="onViewerContent"
         @save="saveInlineDraft"
         @key-change="viewKey = $event"
+        @update:editing="viewerEditing = $event"
       />
       <p v-else class="muted" style="padding: 16px">ยังไม่มีเพลงให้แสดง — ไปที่ “แก้” เพื่อเริ่มสร้างเพลง</p>
     </div>
