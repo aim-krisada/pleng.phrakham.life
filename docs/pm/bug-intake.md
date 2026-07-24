@@ -33,8 +33,9 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 | BI-007 | แก้เสร็จบันทึกจริงไม่ได้ ได้แค่ "บันทึกร่าง" — จะ publish เพลงยังไง? | S2 | 📐 design-pending | SA "completion flow" (spec → P'Aim เคาะ) |
 | BI-008 | แทรก/ลบโน้ตพัง · Delete=Backspace ไม่ต่าง · แก้ผิดตรงจุดไม่ได้ | S2 | 🔧 dispatched | **Chip A** (folded · caret spec) |
 | BI-009 | ระบบเครื่องหมาย: ' ซ้ำ สูง/ต่ำ · auto-position · ~ ไม่เชื่อม · ( ) ต่างยังไง · เพิ่ม #/b คู่ n | S2 | 🔧 dispatched | **symbol-pass** `970da39d` |
+| BI-010 | Share/QR ใช้ origin 127.0.0.1 → สแกนมือถือเปิดไม่ได้ (refused/unreachable) | S2 | 🆕 new | (share URL builder · lib/share|urlState) |
 
-*เปิดอยู่: 9 · fixed รอ verify: 1 (BI-002) · ปิดแล้ว (verified): 0 · **ทุกตัวมีเจ้าภาพแล้ว***
+*เปิดอยู่: 10 · fixed รอ verify: 1 (BI-002) · ปิดแล้ว (verified): 0*
 
 **routing สุดท้าย (PM 45 · จับกลุ่มตามไฟล์ กัน merge ชนบน hot-file SongViewer.vue):**
 - **Chip A** = BI-005 + BI-008 (caret/input model บนแผ่น · SongViewer.vue · มี caret spec) — flagship "v1 ดีกว่าเยอะ"
@@ -158,3 +159,15 @@ intake อัปเดตสถานะเมื่อ PM/dev รายงา�
 - **triage:** valid · **S2** (ผสม bug + design) · แยกเป็น: **bug** = ~ ไม่เชื่อม (ข้อ 3) · **design** = dedupe '/สูงต่ำ + auto-position + จัดกลุ่ม accidental n/#/b + นิยาม ()/~ ให้ชัด (ข้อ 1,2,4,5) · **code area = symbol registry (CP-0 `8e92391c` area) + ต้อง design pass (SA)** เพราะแตะนิยามเครื่องหมายทั้งชุด · เกี่ยวโยง BI-003 (symbols ลบ/ใส่ซ้ำ) → ควรออกแบบ symbol system รวมทีเดียว
 - **หมายเหตุ:** ข้อ 3,4 มีคำถาม "ตอนนี้ทำงานยังไง" — ต้องให้ session อ่านโค้ดจริงตอบ + ตัดสินว่าพฤติกรรมปัจจุบันถูกไหม
 - **สถานะ:** 🔧 dispatched · **symbol-pass `970da39d`** (รวมกับ BI-003 · session อ่านโค้ดจริงตอบ ~/()/'/n + แก้บั๊ก ~/apply-remove + จัดชุดตามมาตรฐาน jianpu · escalate เฉพาะรสนิยมจริง) · verify: '/สูงต่ำ ไม่ซ้ำ (พิมพ์ได้) · ' auto-position ถูก · ~ เชื่อมจริง · ()/accidental นิยามชัด + n/#/b จัดกลุ่มเดียว
+
+---
+
+## BI-010 — Share/QR ใช้ origin 127.0.0.1 → สแกนบนมือถือเปิดไม่ได้
+- **วันที่รับ:** 2026-07-24 (พี่เปา · issue10 · repro จริง 2 มือถือ)
+- **หน้า/คอมโพเนนต์:** ป็อปอัป Share (QR + ลิงก์ + คัดลอกลิงก์ + แชร์ผ่านแอป) · ตัวสร้าง URL แชร์
+- **อาการ:** ปุ่ม share สร้าง QR/ลิงก์ = `http://127.0.0.1:5457/#/song/33c26a91-...` (= `window.location.origin` ของ dev/preview server ในเครื่อง) · ป็อปอัปเขียน "สแกน QR เพื่อเปิดบนมือถือ" แต่พอสแกนจริง → เปิดไม่ได้
+- **หลักฐาน repro (2 เครื่อง):** `BI-010-2-samsung.jpg` = "This site can't be reached · null is unreachable" · `BI-010-3-chrome.jpg` = "127.0.0.1 refused to connect · ERR_CONNECTION_REFUSED"
+- **รูป:** `bug-intake-assets/BI-010-1.png` (ป็อปอัป share + QR + ลิงก์ 127.0.0.1) · `BI-010-2-samsung.jpg` · `BI-010-3-chrome.jpg`
+- **วิเคราะห์ (root cause):** ตัวสร้างลิงก์แชร์ใช้ `window.location.origin` ตรงๆ → บน dev/preview/LAN ได้ `127.0.0.1:<port>` ซึ่ง**บนมือถือ = ตัวมือถือเอง** เปิดไม่ได้ · (โค้ดแชร์อยู่ `src/lib/share.js` / `qr.js` / `urlState.js` + `ShareSheet` — ดู memory pleng-share-playlist)
+- **triage:** valid · **S2** · หมายเหตุสำคัญ: **บน production จริง (`pleng.phrakham.life`) origin = โดเมนจริง → QR อาจใช้ได้ที่นั่น** · แต่ (1) use-case QR = "สแกนจากจอ PC → มือถือ" ตอน dev/demo/LAN พังแน่ (2) ควร robust ไม่ผูกกับ origin · **fix แนว: build ลิงก์แชร์จาก canonical public base URL (คงที่) ไม่ใช่ `window.location.origin`** (รองรับ /v2 subpath + LAN test + demo) · ถ้าจงใจให้ test บน LAN = ใช้ LAN IP ไม่ใช่ 127.0.0.1
+- **สถานะ:** 🆕 new · รอ PM จ่าย · verify: กด share บน dev/preview → ลิงก์/QR = โดเมน public ที่เปิดจากมือถือได้จริง (ไม่ใช่ 127.0.0.1)
