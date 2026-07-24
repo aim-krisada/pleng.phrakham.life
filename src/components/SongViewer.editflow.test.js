@@ -235,3 +235,82 @@ describe('editor flow polish — chord at cursor (item 3)', () => {
     expect(viewer(w).vm.editMode).toBe(true)
   })
 })
+
+// BI-012 — chord entry: click-above-note + continuous keyboard run.
+describe('BI-012 — chord entry (click slot + keyboard run)', () => {
+  // two single-note segments on one line — so "advance" must cross to a different segment (si).
+  const twoSeg = () => ({
+    version: 2, key: 'C', timeSignature: '4/4',
+    stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1', chord: '' }, { type: 'segment', note: '2', chord: '' }]] }],
+    arrangement: [{ stanza: 'A', label: '', syllables: ['ก', 'ข'] }],
+  })
+  const segs = (w) => line0(w).filter((i) => i.type === 'segment')
+
+  it('clicking the chord slot above a note opens the popup on that note (the literal ask #1)', async () => {
+    const w = mountHost(content('1 2'))
+    await enterEdit(w)
+    const slot = w.findAll('.chord.chord-edit')[0]
+    expect(slot.exists()).toBe(true)
+    await slot.trigger('click')
+    await nextTick(); await nextTick()
+    expect(viewer(w).vm.chordPopupOpen).toBe(true)
+  })
+
+  it('empty chord slots carry the ＋ affordance in edit mode', async () => {
+    const w = mountHost(twoSeg())
+    await enterEdit(w)
+    expect(w.findAll('.chord.chord-empty').length).toBeGreaterThan(0)
+    expect(w.find('.chord .chord-add').text()).toBe('＋')
+  })
+
+  it('Space commits the chord and advances to the NEXT segment (the run key)', async () => {
+    const w = mountHost(twoSeg())
+    await enterEdit(w) // selects segment 0
+    await press(w, 'c')
+    const inp = w.find('.sv-chordpop-input')
+    inp.element.value = 'G'
+    await inp.trigger('input')
+    await inp.trigger('keydown', { key: ' ' })
+    await nextTick(); await nextTick()
+    expect(segs(w)[0].chord).toBe('G')          // committed on segment 0
+    expect(viewer(w).vm.selCell.si).toBe(1)     // advanced to segment 1
+    expect(viewer(w).vm.chordPopupOpen).toBe(true) // reopened for the run
+  })
+
+  it('Tab also commits + advances (web-form muscle memory)', async () => {
+    const w = mountHost(twoSeg())
+    await enterEdit(w)
+    await press(w, 'c')
+    const inp = w.find('.sv-chordpop-input')
+    inp.element.value = 'F'
+    await inp.trigger('input')
+    await inp.trigger('keydown', { key: 'Tab' })
+    await nextTick(); await nextTick()
+    expect(segs(w)[0].chord).toBe('F')
+    expect(viewer(w).vm.selCell.si).toBe(1)
+  })
+
+  it('junk text is NOT written, but Space still advances (soft-mark, never traps the run)', async () => {
+    const w = mountHost(twoSeg())
+    await enterEdit(w)
+    await press(w, 'c')
+    const inp = w.find('.sv-chordpop-input')
+    inp.element.value = 'Xyz'
+    await inp.trigger('input')
+    await inp.trigger('keydown', { key: ' ' })
+    await nextTick(); await nextTick()
+    expect(segs(w)[0].chord).toBe('')        // junk left unwritten (engine stays clean)
+    expect(viewer(w).vm.selCell.si).toBe(1)  // but the caret still moved on
+  })
+
+  it('Shift+Space steps BACK a segment', async () => {
+    const w = mountHost(twoSeg())
+    await enterEdit(w)
+    viewer(w).vm.selectUnit(0, 1, 0, 'note') // start on segment 1
+    await nextTick()
+    await press(w, 'c')
+    await w.find('.sv-chordpop-input').trigger('keydown', { key: ' ', shiftKey: true })
+    await nextTick(); await nextTick()
+    expect(viewer(w).vm.selCell.si).toBe(0) // stepped back to segment 0
+  })
+})

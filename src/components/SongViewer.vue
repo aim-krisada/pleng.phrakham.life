@@ -949,41 +949,98 @@ const chordAtCursor = computed(() => {
   }
   return ''
 })
+// BI-012 — open a fresh chord entry ON a note by CLICK/TAP of the slot above it (the pencil is on).
+// Selects that note's cell then opens the popup over it — the same surface `c` and the run use.
+function onChordEdit({ li, si }) {
+  const cell = inlineCells.value.find((c) => c.li === li && c.si === si)
+  if (!cell) return
+  gotoCellNote(cell)
+  nextTick(openChordPopup)
+}
+// first-run hint: the continuous run (type → Space → next note) is invisible, so the first few
+// times chord entry is OPENED FRESH (not on an advance-reopen) show a one-line "Space = next note"
+// coach that fades once seen. Counted in localStorage so it doesn't nag every session.
+const CHORD_HINT_KEY = 'pleng.chordHint.v1'
+const chordHintShown = ref(0)
+try { chordHintShown.value = Number(localStorage.getItem(CHORD_HINT_KEY) || 0) } catch { chordHintShown.value = 0 }
+const chordHintOn = computed(() => chordHintShown.value < 3)
 function openChordPopup() {
   if (!selCell.value) return
+  const wasOpen = chordPopupOpen.value // an advance-reopen keeps it open; a fresh open was closed
   chordDraft.value = chordAtCursor.value
   chordPristine.value = true
   chordBad.value = false
   chordPopupOpen.value = true
+  if (!wasOpen && chordHintOn.value) {
+    chordHintShown.value++
+    try { localStorage.setItem(CHORD_HINT_KEY, String(chordHintShown.value)) } catch { /* private mode */ }
+  }
   nextTick(() => {
     const el = chordPopInput.value
     if (el) { el.focus(); el.select() } // pre-fill + select-all → typing overwrites (G · verified UX)
   })
 }
+// live parse-preview under the caret (G r3): NO blocking dropdown — chords are 1–4 chars, so a
+// dropdown just fights the Space run. Instead show how the text parses (F#m7 → F♯m7) so a beginner
+// sees the app understood it, red when it isn't a readable chord. Pure preview; commit stays on Space/Enter.
+const chordPreview = computed(() => {
+  const q = chordDraft.value.trim()
+  if (!q || chordPristine.value) return null
+  const pretty = q.replace(/#/g, '♯').replace(/b/g, '♭') // # → ♯, b → ♭ (b in a chord is always a flat)
+  return { text: pretty, ok: isValidChord(q) }
+})
+// aria-live anchor announcement — read the current chord slot's bar so a screen reader follows the
+// caret as Space walks the song (G a11y).
+const chordAnchorLabel = computed(() => {
+  if (!chordPopupOpen.value) return ''
+  const c = selCell.value
+  if (!c) return ''
+  const cell = inlineCells.value.find((x) => x.li === c.li && x.si === c.si && x.syk === c.syk)
+  const bar = cell ? cell.bi + 1 : '?'
+  return `${chordAtCursor.value ? 'แก้คอร์ด ' + chordAtCursor.value : 'ใส่คอร์ด'} · ห้อง ${bar}`
+})
 function closeChordPopup() {
   chordPopupOpen.value = false
   chordBad.value = false
 }
-// commit the popup's text. dirty-checking (G): a PRISTINE popup + Enter is just a close (the
-// existing chord is kept, never silently deleted); you must clear the text yourself to delete.
-// Returns true when it committed/closed cleanly, false when it refused invalid text (stays open).
-function commitChordPopup() {
+// write the popup's text to the note. NEVER traps the run (BI-012, G r3 "soft-mark, never hard-block"):
+// pristine = keep the existing chord; empty = clear it; a valid chord is written; junk is left
+// UNWRITTEN (only VALID chords enter the model — the engine + audio stay clean) but the caret still
+// advances, so one typo can't stop the keyboard run. The live preview pill already flags junk while
+// typing, so nothing is silently swallowed without warning.
+function commitChordDraft() {
+  if (chordPristine.value) return // untouched → keep existing chord
   const q = chordDraft.value.trim()
-  if (chordPristine.value) return true // untouched → nothing to write, nothing to delete
-  if (q === '') { setChord(''); return true } // cleared on purpose → delete the chord
-  if (!isValidChord(q)) { chordBad.value = true; return false } // junk → refuse in place
+  if (q === '') { setChord(''); return } // cleared on purpose → delete the chord
+  if (!isValidChord(q)) { chordBad.value = true; return } // junk → mark, but don't write (never trap)
   setChord(q)
-  return true
 }
-// advance to the NEXT note and reopen the popup, so chords can be keyed in a run (Space). Skips
-// the word units (chords live on notes). Uses the flat note-cell list so it crosses bars/lines.
+// advance to the next CHORD SLOT and reopen the popup, so chords can be keyed in a run (Space).
+// A chord lives on a SEGMENT, so this skips the other note-boxes of the current segment and lands on
+// the first note of the NEXT segment — one Space = one chord slot forward (not one note-box, which
+// would stop twice on a beamed/melisma segment that shares a single chord). Crosses bars/lines.
 function chordNextNote() {
   const cells = inlineCells.value
   const cur = selCell.value
-  const ci = cur ? cells.findIndex((c) => c.li === cur.li && c.si === cur.si && c.syk === cur.syk) : -1
-  const next = cells[ci + 1]
-  if (!next) { closeChordPopup(); focusCapture(); return } // no more notes — just close
+  if (!cur) { closeChordPopup(); focusCapture(); return }
+  const ci = cells.findIndex((c) => c.li === cur.li && c.si === cur.si && c.syk === cur.syk)
+  const next = cells.slice(ci + 1).find((c) => c.li !== cur.li || c.si !== cur.si) // first note of next segment
+  if (!next) { closeChordPopup(); focusCapture(); return } // no more chord slots — just close
   gotoCellNote(next)
+  nextTick(openChordPopup)
+}
+// mirror of chordNextNote — Shift+Space / Shift+Tab step BACK a chord slot (G non-expert key set), so
+// a mis-keyed chord is one step back to fix, still without the mouse. Lands on the FIRST note of the
+// previous segment (where its chord is pinned).
+function chordPrevNote() {
+  const cells = inlineCells.value
+  const cur = selCell.value
+  if (!cur) { closeChordPopup(); focusCapture(); return }
+  const ci = cells.findIndex((c) => c.li === cur.li && c.si === cur.si && c.syk === cur.syk)
+  const prevAny = [...cells.slice(0, ci)].reverse().find((c) => c.li !== cur.li || c.si !== cur.si)
+  if (!prevAny) { closeChordPopup(); focusCapture(); return }
+  const first = cells.find((c) => c.li === prevAny.li && c.si === prevAny.si) || prevAny
+  gotoCellNote(first)
   nextTick(openChordPopup)
 }
 // jump the caret to the FIRST note of the NEXT bar and reopen (Ctrl+Space — for a chord that
@@ -997,6 +1054,13 @@ function pickChordFromPopup(v) {
   closeChordPopup()
   focusCapture()
 }
+// mobile "โน้ตถัดไป ►" — the touch equivalent of Space (soft keyboards lack an easy Space), so a
+// phone user still runs the whole song from one surface without dismissing the keyboard.
+function advanceFromButton() {
+  chordPristine.value = false
+  commitChordDraft()
+  chordNextNote()
+}
 // mobile delete (≥24px trash) — poking the keyboard to blank the text is annoying on a phone (G)
 function deleteChordFromPopup() {
   setChord('')
@@ -1006,14 +1070,25 @@ function deleteChordFromPopup() {
 function onChordKey(e) {
   chordPristine.value = false
   if (e.key === 'Enter') {
+    // Enter = commit + EXIT chord mode (end of a line/song). Never traps on junk (write valid only).
     e.preventDefault(); e.stopPropagation()
-    if (commitChordPopup()) { closeChordPopup(); focusCapture() }
+    commitChordDraft(); closeChordPopup(); focusCapture()
   } else if (e.key === ' ') {
-    // Space = confirm + advance to the next note + reopen (chord names carry no spaces, so a
-    // space can only mean "next"). Invalid text holds the popup open.
+    // Space = commit + ADVANCE to the next note + reopen — the continuous-run key (chord names carry
+    // no spaces, so a space can only mean "next"). Ctrl = next bar · Shift = previous note. Advances
+    // even on junk (soft-mark, never trap — G r3), so one typo can't stop the run.
     e.preventDefault(); e.stopPropagation()
-    if (e.ctrlKey || e.metaKey) { if (commitChordPopup()) chordNextBar() }
-    else if (commitChordPopup()) chordNextNote()
+    commitChordDraft()
+    if (e.ctrlKey || e.metaKey) chordNextBar()
+    else if (e.shiftKey) chordPrevNote()
+    else chordNextNote()
+  } else if (e.key === 'Tab') {
+    // Tab / Shift+Tab = commit + next / previous note — the web-form muscle-memory alias for the run
+    // (G non-expert key set). Bound here so focus can't escape the run mid-song.
+    e.preventDefault(); e.stopPropagation()
+    commitChordDraft()
+    if (e.shiftKey) chordPrevNote()
+    else chordNextNote()
   } else if (e.key === 'Escape') {
     // cancel: keep the existing chord (drop the typed edit), close, and hand focus back to the
     // note cell so the arrows work at once (G pitfall: Esc otherwise drops focus to <body>).
@@ -1021,8 +1096,7 @@ function onChordKey(e) {
     closeChordPopup()
     focusCapture()
   }
-  // Tab is deliberately NOT bound (a11y focus traversal — MuseScore 4 freed it too). Other keys
-  // (typing, ↑↓ within the field) fall through to the native input.
+  // Other keys (typing, ↑↓ within the field) fall through to the native input.
 }
 // place the popup ABOVE the note by default; if that would push it off the top (or under the
 // save-bar) drop it BELOW instead. On a phone the on-screen keyboard shrinks the visual viewport —
@@ -2496,8 +2570,11 @@ function onSeek({ li, si, syk }) {
             :style="{ left: noteRect.left + 'px', top: noteRect.top + 'px' }"
             aria-hidden="true"
           >.</span>
-          <!-- item 3 — chord AT the cursor: the popup appears right over the note. Space confirms +
-               advances; Enter confirms + closes; Esc cancels; the ♩ trash deletes (mobile). -->
+          <!-- BI-012 — chord AT the cursor: opens on the note (click the slot above it, or `c`).
+               DESKTOP power path = lean caret: type → Space commit+advance to the next note → run the
+               whole song, no mouse (Tab/Shift+Tab too; Enter exits; Esc cancels). A live parse-preview
+               replaces any dropdown. MOBILE fallback (narrow) adds the quick-pick chips + a
+               "โน้ตถัดไป ►" button, since soft keyboards lack an easy Space. -->
           <div
             v-if="editMode && chordPopupOpen && noteRect"
             class="sv-chordpop no-print"
@@ -2520,11 +2597,20 @@ function onSeek({ li, si, syk }) {
                 autocorrect="off"
                 spellcheck="false"
                 placeholder="คอร์ด เช่น G, Am, F#m7, G/B"
-                aria-label="พิมพ์คอร์ด — Space ยืนยันไปโน้ตถัดไป · Enter ยืนยัน · Esc ยกเลิก"
+                aria-label="พิมพ์คอร์ด — Space ยืนยันไปโน้ตถัดไป · Tab ถัดไป · Enter ยืนยัน · Esc ยกเลิก"
                 :aria-invalid="chordBad"
                 @keydown="onChordKey"
                 @input="chordBad = false"
               />
+              <button
+                v-if="!isWide"
+                class="sv-chordpop-next"
+                type="button"
+                title="ยืนยัน + ไปโน้ตถัดไป"
+                aria-label="ยืนยันคอร์ดแล้วไปโน้ตถัดไป"
+                @mousedown.prevent
+                @click="advanceFromButton"
+              >โน้ตถัดไป <span aria-hidden="true">→</span></button>
               <button
                 class="sv-chordpop-del"
                 type="button"
@@ -2534,8 +2620,17 @@ function onSeek({ li, si, syk }) {
                 @click="deleteChordFromPopup"
               ><Icon name="trash-2" :size="16" /></button>
             </div>
-            <div v-if="chordBad" class="sv-chordpop-err" role="alert">ไม่ใช่คอร์ดที่อ่านได้ — ขึ้นต้นด้วย A–G</div>
-            <div class="sv-chordpop-list" role="listbox" aria-label="คอร์ดที่ใช้บ่อยในคีย์นี้">
+            <!-- live parse-preview (no dropdown): shows how the text reads, red when it isn't a chord. -->
+            <div v-if="chordPreview" class="sv-chordpop-preview" :class="{ bad: !chordPreview.ok }" aria-hidden="true">
+              <template v-if="chordPreview.ok"><Icon name="check" :size="13" /> {{ chordPreview.text }}</template>
+              <template v-else>ยังไม่ใช่คอร์ด</template>
+            </div>
+            <!-- first-run coach for the continuous run (desktop; fades after a few opens). -->
+            <div v-else-if="isWide && chordHintOn" class="sv-chordpop-hint" aria-hidden="true">
+              <kbd>Space</kbd> ไปโน้ตถัดไป · <kbd>Esc</kbd> ออก
+            </div>
+            <div v-if="chordBad" class="sv-chordpop-err" role="alert">ไม่ใช่คอร์ดที่อ่านได้ — ขึ้นต้นด้วย A–G (เช่น Bb, C#m7, G/B)</div>
+            <div v-if="!isWide" class="sv-chordpop-list" role="listbox" aria-label="คอร์ดที่ใช้บ่อยในคีย์นี้">
               <button
                 v-for="c in chordOpts"
                 :key="c.value"
@@ -2546,6 +2641,8 @@ function onSeek({ li, si, syk }) {
                 @click="pickChordFromPopup(c.value)"
               >{{ c.value === '' ? '— ไม่มีคอร์ด —' : c.value }}</button>
             </div>
+            <!-- screen-reader anchor: follows the caret as Space walks the song (G a11y). -->
+            <div class="sv-sr-only" aria-live="polite">{{ chordAnchorLabel }}</div>
           </div>
           <SongSheet
             :content="resolved"
@@ -2559,8 +2656,10 @@ function onSeek({ li, si, syk }) {
             :playing-syl="playingSyl"
             :edit-sel="editMode ? editSel : null"
             interactive
+            :editing="editMode"
             :song-title="printTitle"
             @seek="onSeek"
+            @chordedit="onChordEdit"
           />
         </div>
       </div>
@@ -3159,6 +3258,58 @@ function onSeek({ li, si, syk }) {
   cursor: pointer;
 }
 .sv-chordpop-del:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* BI-012 mobile advance button — the touch equivalent of Space. */
+.sv-chordpop-next {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 36px; /* WCAG 2.5.8 AA target size */
+  padding: 0 10px;
+  border: 1px solid var(--brand, #8b4513);
+  border-radius: 8px;
+  background: var(--brand, #8b4513);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sv-chordpop-next:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* BI-012 live parse-preview pill (replaces any dropdown). */
+.sv-chordpop-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--brand, #8b4513) 12%, transparent);
+  color: var(--brand, #8b4513);
+}
+.sv-chordpop-preview.bad { background: rgba(185, 28, 28, 0.1); color: #b91c1c; }
+/* BI-012 first-run coach for the continuous run. */
+.sv-chordpop-hint { font-size: 12px; line-height: 1.4; color: var(--muted, #64748b); }
+.sv-chordpop-hint kbd {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 1px 5px;
+  border: 1px solid var(--line, #d9d0c4);
+  border-radius: 4px;
+  background: var(--surface-2, #f4efe7);
+}
+.sv-sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 .sv-chordpop-err { font-size: 12px; line-height: 1.4; color: #b91c1c; }
 .sv-chordpop-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 132px; overflow-y: auto; }
 .sv-chordpop-chip {
