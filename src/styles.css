@@ -784,6 +784,13 @@ input, select, textarea {
 }
 .segment .chord.chord-edit:hover .chord-add,
 .segment .chord.chord-edit:focus-visible .chord-add { opacity: 0.85; }
+/* BI-012 — a stored chord that isn't readable is KEPT (no silent data loss) but soft-marked so the
+   editor can fix it later. Only while editing; a plain viewer/print just sees the text. */
+.segment .chord.chord-invalid {
+  color: #b91c1c;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
 .segment .note {
   display: block;
   color: var(--note-blue);

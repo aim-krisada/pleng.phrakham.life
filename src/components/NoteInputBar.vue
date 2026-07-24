@@ -110,7 +110,7 @@ function commitChordText() {
       <template v-if="layer === 'note'">
         <button class="nib-key" title="สูงขึ้นหนึ่งช่วง (จุดบนโน้ต · พิมพ์ ' )" aria-label="สูงขึ้นหนึ่งช่วง" @click="emit('octave', 1)"><b>สูง</b> ↑</button>
         <button class="nib-key" title="ต่ำลงหนึ่งช่วง (จุดล่างโน้ต · พิมพ์ , )" aria-label="ต่ำลงหนึ่งช่วง" @click="emit('octave', -1)"><b>ต่ำ</b> ↓</button>
-        <button class="nib-key nib-chord" :class="{ on: chordOpen }" :aria-expanded="chordOpen" title="ใส่/เปลี่ยน/ลบคอร์ด" aria-label="คอร์ด" @click="chordOpen = !chordOpen">คอร์ด ▾</button>
+        <button class="nib-key nib-chord" :class="{ on: chordOpen }" :aria-expanded="chordOpen" title="ใส่/เปลี่ยน/ลบคอร์ด — หรือคลิกช่องเหนือโน้ตแล้วพิมพ์รัวได้ (Space = ถัดไป)" aria-label="ใส่คอร์ด" @click="chordOpen = !chordOpen">＋ คอร์ด ▾</button>
         <button
           class="nib-key nib-mode" :class="{ ins: mode === 'insert' }"
           :aria-label="mode === 'insert' ? 'โหมดแทรก (แตะเปลี่ยนเป็นทับ)' : 'โหมดทับ (แตะเปลี่ยนเป็นแทรก)'"
@@ -150,6 +150,9 @@ function commitChordText() {
     </div>
 
     <div v-if="chordOpen" class="nib-chordbox" aria-label="เลือกคอร์ด">
+      <!-- bridge to the on-sheet run (BI-012): this dock box is the simple fallback; point users to
+           the faster inline flow so they can discover it. -->
+      <p class="nib-chordtip">💡 หรือ<strong>คลิกช่องเหนือโน้ต</strong>แล้วพิมพ์ — กด <kbd>Space</kbd> ยืนยัน+ไปโน้ตถัดไป ใส่รัวทั้งเพลงได้</p>
       <!-- type-your-own: the quick-pick below is a shortcut, not the vocabulary limit -->
       <div class="nib-chordtype">
         <input
@@ -328,6 +331,11 @@ function commitChordText() {
   background: var(--cream, #faf6ef);
   border: 1px solid var(--line, #d9d0c4);
   border-radius: 8px;
+}
+.nib-chordtip { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted, #64748b); }
+.nib-chordtip kbd {
+  font-family: inherit; font-size: 11px; padding: 1px 5px;
+  border: 1px solid var(--line, #d9d0c4); border-radius: 4px; background: #fff;
 }
 /* type-your-own row — stays put while the quick-pick list below scrolls */
 .nib-chordtype { display: flex; gap: 4px; }

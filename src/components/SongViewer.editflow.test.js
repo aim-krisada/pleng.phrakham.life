@@ -256,11 +256,14 @@ describe('BI-012 — chord entry (click slot + keyboard run)', () => {
     expect(viewer(w).vm.chordPopupOpen).toBe(true)
   })
 
-  it('empty chord slots carry the ＋ affordance in edit mode', async () => {
+  it('the ＋ affordance shows ONLY on the selected note, not every empty slot (G r4 #3 — no noise)', async () => {
     const w = mountHost(twoSeg())
-    await enterEdit(w)
-    expect(w.findAll('.chord.chord-empty').length).toBeGreaterThan(0)
-    expect(w.find('.chord .chord-add').text()).toBe('＋')
+    await enterEdit(w) // selects segment 0
+    expect(w.findAll('.chord.chord-empty').length).toBe(2) // both empty slots stay clickable
+    const adds = w.findAll('.chord .chord-add')
+    expect(adds.length).toBe(1) // but only the SELECTED note advertises the ＋
+    expect(w.find('.segment[data-seg="0-0"] .chord-add').exists()).toBe(true)
+    expect(w.find('.segment[data-seg="0-1"] .chord-add').exists()).toBe(false)
   })
 
   it('Space commits the chord and advances to the NEXT segment (the run key)', async () => {
@@ -290,7 +293,7 @@ describe('BI-012 — chord entry (click slot + keyboard run)', () => {
     expect(viewer(w).vm.selCell.si).toBe(1)
   })
 
-  it('junk text is NOT written, but Space still advances (soft-mark, never traps the run)', async () => {
+  it('junk text is KEPT + soft-marked (no silent data loss), and Space still advances (never traps)', async () => {
     const w = mountHost(twoSeg())
     await enterEdit(w)
     await press(w, 'c')
@@ -299,8 +302,10 @@ describe('BI-012 — chord entry (click slot + keyboard run)', () => {
     await inp.trigger('input')
     await inp.trigger('keydown', { key: ' ' })
     await nextTick(); await nextTick()
-    expect(segs(w)[0].chord).toBe('')        // junk left unwritten (engine stays clean)
-    expect(viewer(w).vm.selCell.si).toBe(1)  // but the caret still moved on
+    expect(segs(w)[0].chord).toBe('Xyz')     // kept, not discarded (PM gate: no silent data loss)
+    expect(viewer(w).vm.selCell.si).toBe(1)  // and the caret still moved on
+    // the kept-but-unreadable chord is soft-marked red on the sheet so the editor fixes it later
+    expect(w.find('.segment[data-seg="0-0"] .chord').classes()).toContain('chord-invalid')
   })
 
   it('Shift+Space steps BACK a segment', async () => {
