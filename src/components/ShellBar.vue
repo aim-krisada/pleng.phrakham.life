@@ -16,7 +16,7 @@
 // all a11y baked once). This component only owns the CONTENT of the panel (Vue nav +
 // เครื่องมือ); the core owns the off-canvas SHELL. The core re-queries focusables on
 // every open, so the Vue-rendered links are trapped correctly.
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { shellMenu } from '../store.js'
 import { t } from '../i18n/index.js'
@@ -28,6 +28,11 @@ import Icon from './Icon.vue'
 defineProps({ title: { type: String, default: '' } })
 const route = useRoute()
 const router = useRouter()
+
+// บริบท B (context-B, ux-groundup): on a song / studio route the top bar is the CONTEXTUAL
+// song bar (‹ ชื่อ · ↗ · ⋮), not the home shell. The inline home nav + "สร้างเพลงใหม่" pill
+// step aside so the song page reads as one clean bar; they stay reachable in ☰ (and create on home).
+const isSong = computed(() => route.path === '/studio' || route.path.startsWith('/song/'))
 // App icon shown as the whole brand on mobile (phrakham-style top-left app mark). P'Aim's
 // 192px glowing-book icon; BASE_URL keeps it resolving on both hosts.
 const appIcon = import.meta.env.BASE_URL + 'android-chrome-192x192.png'
@@ -190,7 +195,7 @@ async function goSearch() {
 </script>
 
 <template>
-  <header ref="barEl" class="shell-bar no-print">
+  <header ref="barEl" class="shell-bar no-print" :class="{ 'sb-song': isSong }">
     <div id="shell-left" class="shell-slot"></div>
 
     <!-- Brand: mobile shows the app icon only (มุมซ้ายบน · ไม่มีชื่อ); desktop shows the name
@@ -202,7 +207,7 @@ async function goSearch() {
 
     <!-- Desktop inline nav (phrakham navbar-nav). Hidden on mobile → moves into the drawer.
          Order (P'Aim 13 ก.ค.): รายการเพลง · คู่มือ · พระคำ.ชีวิต↗ · เกี่ยวกับเรา. -->
-    <nav class="sb-nav" aria-label="เมนูหลัก">
+    <nav v-if="!isSong" class="sb-nav" aria-label="เมนูหลัก">
       <router-link to="/" :class="{ here: route.path === '/' }">{{ t('nav.songs') }}</router-link>
       <!-- คู่มือ ▾ — APG menu button opening 2 sub-guides (GATE 1). Shown to every tier. -->
       <div class="sb-menu sb-guide">
@@ -241,14 +246,14 @@ async function goSearch() {
       <!-- ＋ สร้างเพลงใหม่ — the app's one primary CREATE action (single source of action).
            Desktop = this filled pill; mobile hides it (the FAB + drawer row take over via CSS).
            Bare /studio = a blank editor, no previous song state (AC-G2.2). -->
-      <router-link to="/studio" class="sb-create no-print">
+      <router-link v-if="!isSong" to="/studio" class="sb-create no-print">
         <Icon name="file-plus" :size="20" /><span>{{ t('action.create') }}</span>
       </router-link>
 
       <!-- 🔍 — go to the song search (home) and focus the search field. Hidden on the home
            route: the search box is already on screen there, so the icon would be a duplicate
            (AC-G4.1). Still shown on every other page as a shortcut back to search. -->
-      <button v-if="route.path !== '/'" class="sb-icon-btn" :aria-label="t('action.search')" @click="goSearch"><Icon name="search" :size="24" /></button>
+      <button v-if="route.path !== '/' && !isSong" class="sb-icon-btn" :aria-label="t('action.search')" @click="goSearch"><Icon name="search" :size="24" /></button>
 
       <!-- ⚙ site settings (ตัวอักษรไทย) — desktop only; on mobile it lives in the drawer -->
       <div class="sb-menu sb-settings">

@@ -670,6 +670,17 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
     justify-content: flex-start;
     gap: 6px;
   }
+  /* บริบท B (context-B): the mode-tab strip that once needed shell-menus' own full-width row is
+     gone — on a song/studio route only ↗share + ⋮ remain, so let them flow INLINE on row 1
+     (‹ ชื่อ ↗ ⋮ = one clean bar, no wasted 2nd row). The title shrinks (ellipsis) between them. */
+  :root.shell-compact .shell-bar.sb-song .shell-menus {
+    order: 0;
+    flex-basis: auto;
+    width: auto;
+  }
+  /* On the phone song bar the ‹ back already returns to the catalog, so the brand mark is
+     redundant — drop it (context-B mockup starts at ‹) to give the song title real width. */
+  :root.shell-compact .shell-bar.sb-song .sb-brand { display: none; }
 
 /* ---------- buttons / inputs ---------- */
 button, .btn {
