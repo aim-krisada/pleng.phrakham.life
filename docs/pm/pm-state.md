@@ -53,7 +53,8 @@
 
 ### คิวถัดไป (ยังไม่จ่าย · เรียงตามที่ผู้ใช้เจ็บ)
 **🔒 คิว BUILD ไฟล์ร้อน `SongViewer.vue`/`NoteInputBar.vue` (ทีละตัว · P'Aim สั่ง build 24 ก.ค.):**
-1. 🔵 **CP-0 กำลัง build** (`task_b469ee81` session ใหม่) — ยุบทะเบียนสัญลักษณ์เป็น `src/lib/noteSymbols.js` แหล่งเดียว · keydown ต้องเรียก dispatch เดียวกับปุ่ม (ปิด drift 4 จุด) · pure refactor พฤติกรรมเดิม · AC-0.3 เทสต์ทุกสัญลักษณ์ 2 เส้นทางต้องเท่ากัน · **first+alone บนไฟล์ร้อน** · ⛔ ไม่แตะ EditorMode.vue ไม่ build palette
+1. ✅ **CP-0 merge เข้า base `2e6ba27`** — registry เดียว `src/lib/editorCommands.js` (ไม่ใช่ noteSymbols · ตาม AC/tester grep) · keydown+ปุ่มใช้ dispatch เดียว ลบตารางซ้ำ 2 ชุด net −53 บรรทัด · drift-killer test ทุกสัญลักษณ์ 2 ประตูเท่ากัน + synthetic · **test:all 1342 · build ✓** (PM verify) · พฤติกรรมเดิมเป๊ะ · **ยังไม่พิสูจน์: DOM keystroke จริงในเบราว์เซอร์** (พิสูจน์ที่ shared dispatch)
+   → **ปลด hot-file แล้ว · ตัวถัดไปบน SongViewer.vue = editor-flow-polish + ยกแก้โครง/copy-paste (serialize)**
 2. **editor-flow-polish** (auto-scroll/ซ่อนแท็บ/คอร์ด-ตรงจุด/caret 2 โหมด/Delete ดึงชิด/octave/เมนู⋮ · spec `editor-flow-polish.md` · เช็ก keydown :387-459)
 3. **repeat-jumps UI ใส่จุดย้อนในตัวแก้** (รอคิว · ส่วน engine แยกไปทำขนานแล้ว ↓)
 4. **B091** ล้างเฉพาะโน้ตทั้งบรรทัด
