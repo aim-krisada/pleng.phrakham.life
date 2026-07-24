@@ -31,6 +31,7 @@ import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
 import NoteInputBar from './NoteInputBar.vue'
 import SongSettings from './SongSettings.vue'
+import StructureDrawer from './StructureDrawer.vue'
 import Icon from './Icon.vue'
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
@@ -748,8 +749,30 @@ function requestSave() {
 // editor, so keying a song meant bouncing between two surfaces. The panel lives here now.
 // It is only offered while ✏️ is on — it is an editing action, not a reading one.
 const settingsOpen = ref(false)
-function toggleSettings() { settingsOpen.value = !settingsOpen.value }
+function toggleSettings() { settingsOpen.value = !settingsOpen.value; if (settingsOpen.value) structureOpen.value = false }
 watch(editMode, (on) => { if (!on) settingsOpen.value = false })
+
+// 🎼 โครงเพลง (structure drawer) — the section/melody manager + คัดลอก/วาง, brought onto the
+// inline surface from the old boxed editor. Same open-while-editing rule as ตั้งค่าเพลง; the two
+// side panels never share the screen (both would dock at the same spot), so opening one closes
+// the other. `clip` is the คัดลอก buffer — view state that must survive the drawer closing, so it
+// lives here (not inside the drawer).
+const structureOpen = ref(false)
+const clip = ref(null) // { kind:'bar'|'line', data, from } | null
+function toggleStructure() { structureOpen.value = !structureOpen.value; if (structureOpen.value) settingsOpen.value = false }
+watch(editMode, (on) => { if (!on) structureOpen.value = false })
+// The cursor's source address (which melody line + bar + verse), for the drawer's คัดลอก/วาง.
+// Maps the display cursor back through the resolved line's provenance tags. null when unselected.
+const structCursor = computed(() => {
+  const u = curUnit.value
+  const rl = u ? resolved.value?.lines?.[u.li] : null
+  if (!u || !rl || rl._stanza == null) return null
+  return { stanzaId: rl._stanza, lineIndex: rl._stanzaLine ?? 0, barOrdinal: u.bi ?? 0, entryIndex: rl._entryIndex }
+})
+// A structure/clip edit produces a whole new content — same channel as every note/word edit.
+function onStructureContent(next) {
+  if (next && next !== props.song.content) emit('update-content', next)
+}
 // row fields → straight up to the owner (Studio holds the songs row).
 function onSettingsMeta(patch) { emit('update-meta', patch) }
 // content fields (คีย์ · จังหวะ · ความเร็ว) → handed UP as a patch, not applied here. The
@@ -1430,6 +1453,17 @@ function onSeek({ li, si, syk }) {
                in the editor instead of over in the old grid editor. Belongs to THE DOCUMENT, so
                it sits with the save controls (not with the note-level dock). Added beside the
                save/done buttons without moving lane A's เสร็จ or lane B's ฟัง group. -->
+          <!-- 🎼 โครงเพลง — จัดลำดับท่อน (ข้อ/รับ) · เลือก/แยกทำนอง · คัดลอก/วาง ห้อง/บรรทัด/ท่อน.
+               Structure editing used to live only in the old boxed editor; this brings it onto the
+               one-surface pencil flow beside ตั้งค่าเพลง (both are document-level editing actions). -->
+          <button
+            class="sv-structure-btn"
+            type="button"
+            :aria-expanded="structureOpen"
+            :aria-pressed="structureOpen"
+            title="โครงเพลง — ลำดับท่อน (ข้อ/รับ) · ทำนอง · คัดลอก/วาง"
+            @click="toggleStructure"
+          ><Icon name="list-ordered" :size="16" /> <span class="sv-settings-lbl">โครงเพลง</span></button>
           <button
             class="sv-settings-btn"
             type="button"
@@ -1471,6 +1505,19 @@ function onSeek({ li, si, syk }) {
         @meta="onSettingsMeta"
         @music="onSettingsMusic"
         @close="settingsOpen = false"
+      />
+
+      <!-- 🎼 โครงเพลง drawer — same fixed side-panel/phone-full-screen shape as SongSettings.
+           Dumb over lib/songStructure: every action hands a new content up via @update-content. -->
+      <StructureDrawer
+        v-if="editMode"
+        :open="structureOpen"
+        :content="song.content"
+        :cursor="structCursor"
+        :clip="clip"
+        @update-content="onStructureContent"
+        @set-clip="clip = $event"
+        @close="structureOpen = false"
       />
 
       <div class="sv-doc">
@@ -1716,7 +1763,8 @@ function onSeek({ li, si, syk }) {
 /* B060 ⚙ ตั้งค่าเพลง — a secondary control in the same 32px row as บันทึกร่าง (its sibling),
    so the two read as one bar. WCAG 2.2 AA target size is 24px; matching the sibling at 32
    clears it without inflating one button to 44 and breaking the row (brief 24 ก.ค.). */
-.sv-settings-btn {
+.sv-settings-btn,
+.sv-structure-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1730,12 +1778,15 @@ function onSeek({ li, si, syk }) {
   font-size: 13px;
   cursor: pointer;
 }
-.sv-settings-btn[aria-pressed='true'] { border-color: var(--brand, #8b4513); color: var(--brand, #8b4513); }
-.sv-settings-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+.sv-settings-btn[aria-pressed='true'],
+.sv-structure-btn[aria-pressed='true'] { border-color: var(--brand, #8b4513); color: var(--brand, #8b4513); }
+.sv-settings-btn:focus-visible,
+.sv-structure-btn:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
 /* phone: the row gets tight — keep the icon, drop the word, and take a full touch target */
 @media (max-width: 640px) {
   .sv-settings-lbl { display: none; }
-  .sv-settings-btn { min-height: var(--touch-min, 44px); min-width: var(--touch-min, 44px); justify-content: center; padding: 0 10px; }
+  .sv-settings-btn,
+  .sv-structure-btn { min-height: var(--touch-min, 44px); min-width: var(--touch-min, 44px); justify-content: center; padding: 0 10px; }
 }
 
 /* ฟังตอนแก้ — the transport inside the pencil. Sized to the save bar's own button (32px tall),
