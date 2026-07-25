@@ -17,7 +17,9 @@
 ### 🎯🎯 ทิศใหม่ (P'Aim 2026-07-25 · เหนืองานย่อยทั้งหมด) — SONG-MAKER FIRST · เลิกปะผุ
 - P'Aim: v2 ปัจจุบัน = "ปะผุระดับใหญ่" (ยกเครื่องใหม่โดยไม่ทำภาพรวมก่อน) · **ทิศ = เริ่มจาก "คนทำเพลง" ให้ใช้ดีจริงก่อน** แล้วค่อยขยาย
 - **ลำดับที่ P'Aim สั่ง (ทำทีละก้าว · ก้าวก่อนไม่ครบ ห้ามข้าม):** (1) **user story + journey ของคนทำเพลง อย่างเดียว ให้ครบสมบูรณ์** → (2) จัดกลุ่ม function ตามมาตรฐาน → (3) mockup (บน component จริง dev-ready) ให้ P'Aim ดู → (4) build · ⛔ ห้ามทำ 2/3/4 จน (1) ครบ
-- **🚀 จ่ายก้าว (1) แล้ว: `task_80a7288b`** (design-only · docs/us/songmaker.md · G บังคับหา "ขาดอะไร" · DoC method · STOP รอ PM gate) — running/รอ P'Aim กด chip
+- **✅ ก้าว (1) ผ่าน gate + P'Aim approve แล้ว** — `docs/us/songmaker.md @ae01ba8` (journey 10 สเตจ + ~35 stories · G adversarial 3 รอบ · north-star + **import/verify first-class** Stage 10+M11.2-6 ควบคู่พิมพ์มือ · P'Aim: "พี่เปาใช้จริง ต้องมีตัวช่วย") · 6 จุด ⚠️ ให้ dev verify ตอน build
+- **🚀 จ่ายก้าว (2) แล้ว: `task_f5726ecc`** (จัดกลุ่ม function/IA ตามมาตรฐาน · ไม่ใช่ mockup · reconcile DockKey-เก็บ/ไม่รื้อ engine + ตอบ play-dock-in-edit · G adversarial · STOP รอ gate) — running
+- **ค้างถาม P'Aim (ไม่บล็อกก้าว 2):** มีเพลงจริงต้อง modulation/ย้อนกลางห้องไหม (จัดลำดับ build) · ลำดับ build ที่ PM แนะ = input-parity → D.C./D.S. → modulation/display
 - **งานย่อยทั้งหมดยุบเข้าใต้ทิศนี้:** ย้อน/D.C./D.S. = function ใน journey (ไม่แก้เดี่ยว) · /v2 header nav (design เสร็จ ถือไว้) · SB1/SB2 · completion-flow BI-007 · BI-xxx = เลิกไล่ทีละอัน · ⛔ ไม่แตะ engine (แข็งแล้ว ~70%)
 - **บทเรียน P'Aim ย้ำ:** อย่าเสียเวลาไล่ว่า "G ผิดตรงไหน" = แก้ตัว · เราอยู่หน้างานจริงต้องทำให้ดีเอง
 
