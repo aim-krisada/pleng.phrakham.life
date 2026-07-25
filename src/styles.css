@@ -758,6 +758,39 @@ input, select, textarea {
   font-family: 'Courier New', monospace;
   font-size: 0.94em;
 }
+/* BI-012 — pencil on: the chord slot above each note is a click/tap target. A real, ≥24px
+   hit-area even when empty, so a chord can be entered right where it sits. */
+.segment .chord.chord-edit {
+  cursor: pointer;
+  border-radius: 4px;
+  min-width: 1.5em;
+  padding: 0 2px;
+  transition: background 0.12s ease;
+}
+.segment .chord.chord-edit:hover,
+.segment .chord.chord-edit:focus-visible {
+  background: color-mix(in srgb, var(--chord-red) 12%, transparent);
+  outline: none;
+}
+.segment .chord.chord-edit:focus-visible { box-shadow: 0 0 0 2px var(--chord-red); }
+/* the "add a chord here" affordance on notes that have none yet — visible (not hover-only, so it
+   works on touch too) but muted so a full song of empty slots never reads as clutter. */
+.segment .chord.chord-empty { min-height: 1.375em; }
+.segment .chord .chord-add {
+  color: var(--chord-red);
+  opacity: 0.4;
+  font-weight: 700;
+  font-family: system-ui, sans-serif;
+}
+.segment .chord.chord-edit:hover .chord-add,
+.segment .chord.chord-edit:focus-visible .chord-add { opacity: 0.85; }
+/* BI-012 — a stored chord that isn't readable is KEPT (no silent data loss) but soft-marked so the
+   editor can fix it later. Only while editing; a plain viewer/print just sees the text. */
+.segment .chord.chord-invalid {
+  color: #b91c1c;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
 .segment .note {
   display: block;
   color: var(--note-blue);

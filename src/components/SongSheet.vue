@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
-import { displayChord } from '../lib/chords.js'
+import { displayChord, isValidChord } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, slurSpans, arcPlan, syllableSlots, melismaSpans } from '../lib/notation.js'
 import NoteRow from './NoteRow.vue'
 
@@ -27,8 +27,12 @@ const props = defineProps({
   // (verse number + words), like a printed hymn book. Off = every line keeps its own layers
   // (the ฝึกร้อง/sing view + editor preview never set this, so notes stay on every verse).
   songbook: { type: Boolean, default: false },
+  // BI-012: the pencil is on. Turns the chord slot above each note into a click/tap target
+  // (a real hit-area even when empty) so a chord can be entered right where it sits, and shows a
+  // faint "＋" affordance on notes that have no chord yet — the discoverable way into chord entry.
+  editing: { type: Boolean, default: false },
 })
-const emit = defineEmits(['seek'])
+const emit = defineEmits(['seek', 'chordedit'])
 
 // Resolve each layer: an explicit flag wins; otherwise derive from the coarse `mode`
 // (full = chord+note+lyric · lyrics = lyric only) — the pre-B024 contract.
@@ -252,6 +256,22 @@ function isSyl(li, si, k) {
 // playback there (US H1 "แตะ = กระโดด"). syk defaults to the segment's first slot.
 function seek(li, si, syk = 0) {
   if (props.interactive) emit('seek', { li, si, syk })
+}
+// BI-012: clicking the chord slot above a note (pencil on) opens chord entry ON that note, instead
+// of the tap falling through to `seek` (which would jump playback / select the note for note-edit).
+function onChordSlot(e, li, si) {
+  e.stopPropagation()
+  emit('chordedit', { li, si })
+}
+// BI-012: the ＋ affordance shows only over the CURRENTLY SELECTED note (G r4 #3 — a ＋ over every
+// empty note is visual noise on a full sheet). All empty slots stay clickable regardless.
+function isSelSeg(li, si) {
+  return !!props.editSel && props.editSel.li === li && props.editSel.si === si
+}
+// BI-012: is a stored chord readable? Unreadable text is KEPT (never discarded — no silent data loss)
+// but soft-marked red so the editor spots it and fixes it later. Audio/transpose already skip it.
+function chordReadable(chord) {
+  return isValidChord(chord)
 }
 
 // ---- B069: cross-bar ties as ONE continuous line-level arc -------------------
@@ -595,7 +615,17 @@ watch(
             :data-seg="`${row.li}-${seg.si}`"
             @click="seek(row.li, seg.si)"
           >
-            <span v-if="chordOn(row.first)" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
+            <span
+              v-if="chordOn(row.first)"
+              class="chord"
+              :class="{ 'chord-edit': editing, 'chord-empty': editing && !seg.chord, 'chord-invalid': editing && seg.chord && !chordReadable(seg.chord) }"
+              :role="editing ? 'button' : null"
+              :tabindex="editing ? 0 : null"
+              :aria-label="editing ? (seg.chord ? `แก้คอร์ด ${seg.chord}` : 'เพิ่มคอร์ดบนโน้ตนี้') : null"
+              @click="editing && onChordSlot($event, row.li, seg.si)"
+              @keydown.enter.prevent="editing && emit('chordedit', { li: row.li, si: seg.si })"
+              @keydown.space.prevent="editing && emit('chordedit', { li: row.li, si: seg.si })"
+            >{{ chordText(seg.chord) }}<span v-if="editing && !seg.chord && isSelSeg(row.li, seg.si)" class="chord-add" aria-hidden="true">＋</span>&nbsp;</span>
             <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :syllables="seg.syllables || null" :active="activeNote(row.li, seg.si)" :sel="editNote(row.li, seg.si)" :sel-active="editNoteActive" />&nbsp;</span>
             <!-- v2: one span per syllable-bearing note -> highlight walks note by note (B006). -->
             <template v-if="sl">
