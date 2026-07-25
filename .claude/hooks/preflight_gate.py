@@ -11,6 +11,10 @@ feedback_verify_layer_report). The hook is the enforcement layer memory can't be
 """
 import sys, json, re, io
 
+# --- identity (P'Aim 2026-07-25: named + versioned · universal across all projects) ---
+HOOK_NAME = "hook ตรวจการทำงาน (work-verification gate)"
+HOOK_VERSION = "1.0.0"   # 1.0.0 = evidence gate + G-VERIFY gate (design/build completeness)
+
 CLAIM = re.compile(
     r'(ขึ้นเว็บ|published|deployed|deploy\s*เสร็จ|go\s*live|จบงาน|'
     r'ผ่านหมด|เสร็จสมบูรณ์|verified\s*live|พร้อม\s*publish|ส่งขึ้น\s*production|live\s*แล้ว|'
@@ -89,6 +93,9 @@ def last_assistant_text(path):
 
 
 def main():
+    if '--version' in sys.argv or '-v' in sys.argv:
+        print(f"{HOOK_NAME} v{HOOK_VERSION}")
+        sys.exit(0)
     try:
         data = json.load(sys.stdin)
     except Exception:
@@ -98,12 +105,13 @@ def main():
     text = last_assistant_text(data.get('transcript_path', ''))
     if not text:
         sys.exit(0)
+    tag = f"[{HOOK_NAME} v{HOOK_VERSION}]\n"
     # G-verify gate first (design/build completeness/correctness needs evidence + G-VERIFY)
     if GATE_CLAIM.search(text) and not (EVIDENCE.search(text) and GVERIFY.search(text)):
-        print(GATE_REMINDER, file=sys.stderr)
+        print(tag + GATE_REMINDER, file=sys.stderr)
         sys.exit(2)
     if CLAIM.search(text) and not EVIDENCE.search(text):
-        print(REMINDER, file=sys.stderr)
+        print(tag + REMINDER, file=sys.stderr)
         sys.exit(2)                      # block the stop, feed reason to model
     sys.exit(0)
 
