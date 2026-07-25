@@ -12,6 +12,8 @@
 - **rollback (พร้อม 1 คำสั่ง):** `git push --force-with-lease origin v1-frozen:main` (main→16906d8 · ssr ไม่แตะ)
 - **🔵 follow-up หลัง consolidation:** (1) base pointer `studio-shell-redesign`→`main` ใน **app-repo CLAUDE.md + docs/README.md + docs/mission.md** (⚠️ commit main = redeploy → batch ทีเดียว) (2) teardown throwaway `pleng-consolidate-dryrun`/`pleng-dryrun-v2`/`pleng-main-deploy-stage` + serve :8791 (3) keep origin/ssr จน stable แล้วค่อย `--delete` (in-flight bi0xx branches merge เข้า main ใหม่สะอาด ไม่ต้อง rebase)
 
+### ⭐ NORTH STAR ตัวแก้ (P'Aim 2026-07-25 · คุมทุกก้าว) — ง่ายสำหรับคนไม่รู้ดนตรี + ขั้นสูงสำหรับคนรู้ดนตรี + world-class ทั้ง (ก) ดนตรี (ข) ซอฟต์แวร์ · เครื่องมือ(สัญลักษณ์)ครบตามมาตรฐาน jianpu · import+verify = flow จริง (ทีมใช้ AI process หนังสือเพลง → import → ตรวจ/แก้ ควบคู่พิมพ์มือ)
+
 ### 🎯🎯 ทิศใหม่ (P'Aim 2026-07-25 · เหนืองานย่อยทั้งหมด) — SONG-MAKER FIRST · เลิกปะผุ
 - P'Aim: v2 ปัจจุบัน = "ปะผุระดับใหญ่" (ยกเครื่องใหม่โดยไม่ทำภาพรวมก่อน) · **ทิศ = เริ่มจาก "คนทำเพลง" ให้ใช้ดีจริงก่อน** แล้วค่อยขยาย
 - **ลำดับที่ P'Aim สั่ง (ทำทีละก้าว · ก้าวก่อนไม่ครบ ห้ามข้าม):** (1) **user story + journey ของคนทำเพลง อย่างเดียว ให้ครบสมบูรณ์** → (2) จัดกลุ่ม function ตามมาตรฐาน → (3) mockup (บน component จริง dev-ready) ให้ P'Aim ดู → (4) build · ⛔ ห้ามทำ 2/3/4 จน (1) ครบ
