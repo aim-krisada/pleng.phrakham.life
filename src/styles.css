@@ -606,8 +606,12 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
 .sb-danger,
 .sb-danger .icn { color: var(--red); }
 .sb-dropdown .sep { border-top: 1px solid var(--line); margin: 4px 6px; }
-/* ⚙/☰ preference controls (ภาษา + ตัวอักษรไทย) live in SettingsControls.vue as compact
-   SEGMENTED controls, with their styles scoped there — no global .sb-font-*/.sb-lang-* rules. */
+/* preference controls (language + Thai typeface) live in SettingsControls.vue as compact
+   segmented controls, with their styles scoped there. No global rules for them are needed here.
+   WARNING (BI-016): never write a CSS class glob ending in a star right before a slash in a
+   comment. That two-character sequence closes the comment early and silently drops the very
+   next rule — which is exactly how the .sb-backdrop rule below got dropped, killing click-
+   outside for every shell menu. Keep this block free of that sequence. */
 
 .sb-backdrop { position: fixed; inset: 0; z-index: var(--z-in-nav-scrim); }
 @media (hover: hover) {
