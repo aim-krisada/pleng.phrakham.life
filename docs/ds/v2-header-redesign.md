@@ -1,121 +1,156 @@
-# DS — /v2 header: beta framing, version switch & back-navigation
+# DS — Unified self-contained app-shell navigation
 
-Design-only spec. Answers P'Aim's question: the three things on the /v2 top bar
-(label **"v2 รุ่นทดลอง"**, switch **⇄**, back **‹**) — is this the best UX, and *what is
-`‹` even for?* Proposal for PM gate + P'Aim's go. **No app code touched here.**
+Design-only spec (PM gate + P'Aim's go). **No app code touched.** Supersedes the earlier
+"three-button patch" — P'Aim rejected that as incremental. This is one navigation **system**
+for the whole app, identical across **installed PWA (standalone) · desktop-web · mobile-web**,
+depending on **no browser back/forward or chrome at all**.
+
+Origin question still answered: the label **"v2 รุ่นทดลอง"**, switch **⇄**, and back **‹** are
+not tuned individually — they are dissolved into, or moved out of, a single coherent nav model.
 
 ---
 
-## 1. What is actually on the bar today (investigated live, not guessed)
+## 0. Why a system, not a patch (the core requirement)
 
-Live-verified on `https://pleng.phrakham.life/v2/` (deployed `studio-shell-redesign@00aa719`),
-desktop 1280 + phone song-bar state.
+An installed PWA runs in `display: standalone` — **no address bar, no browser back button**.
+MDN is explicit: *a standalone PWA "still effectively runs in a browser window, even if the
+usual browser UI elements, such as the address bar or back button, aren't visible"* → **the app
+must implement its own in-app back navigation.**
+[MDN – Making PWAs installable](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable)
 
-| # | Element | Source | What it does | Scope |
-|---|---|---|---|---|
-| a | Brand **เพลง.พระคำ.ชีวิต** / app icon | `ShellBar.vue` (`.sb-brand`) | `router-link` → `/` (v2 home) | in-app |
-| b | Pill **`[v2] รุ่นทดลอง ⇄`** | `VersionSwitch.vue`, mounted at `ShellBar.vue:213` | ONE `<a href="/">` → **v1 root** (carries the same song on shared routes via `SHARED_ROUTES`) | **cross-version (global)** |
-| c | **`‹`** back "กลับ" | `Studio.vue:836` teleported into `#shell-title`, handler `goBack()` (`Studio.vue:619`) | edit/sheet mode → view mode; view mode → `router.push('/')` (catalog). Present only when a song is open (`liveSong`). | **in-app, one step (local)** |
+So navigation cannot be an afterthought bolted to the header — it must be a first-class,
+self-sufficient system that behaves **the same** whether or not any browser chrome exists.
 
-So (1) "label" + (2) "⇄" that P'Aim sees are **one fused pill** — a state badge that is
-*also* a big button that leaves v2 entirely. (3) `‹` is a separate, unrelated control.
+## 1. The app's navigation hierarchy (defined, from source)
 
-**Why each exists (honest read):**
-- **Pill** — while v2 runs beside v1 on the same domain + Supabase DB, a reader who lands
-  on /v2 must answer "which am I on?" and "how do I get back?". The badge answers both.
-- **`‹`** — added when the mode tab-strip was removed; it is the single return path so the
-  full editor / song view is not a one-way surface. **It is the app's back button.**
+```
+Level 0  Catalog / Home            /                (SongList) — the START destination
+Level 1  Song                      /song/:id        (Studio)
+            modes (lateral):  view ฝึกร้อง (default) · sheet แผ่นเพลง
+            deeper action:    edit แก้ไข ✏️ (full editor — mutates the song)
+Siblings (via app menu):  New song /studio · คู่มือ /guide · ทำเพลง /notation · เกี่ยวกับเรา /about
+Aux:  Shared playlist /list
+```
 
-## 2. 🔴 The risk P'Aim flagged — proven, not assumed
+"Up / back / home" is now defined **once**, by hierarchy, and works identically everywhere:
 
-**Is `‹` the only way back on mobile / installed PWA?** → On the phone song bar, **yes, in
-practice.**
+| You are at | **Up** goes to | Shown? |
+|---|---|---|
+| Catalog `/` (start) | — | **No Up** (Up never exits the app) |
+| Song · view/sheet | Catalog | Yes |
+| Song · edit ✏️ | Song · view | Yes (one level, then Up again → Catalog) |
 
-Proven live: forcing the phone song-bar state (`shell-compact` + `sb-song`) the CSS rule
-`:root.shell-compact .shell-bar.sb-song .sb-brand { display:none }` (`styles.css:687`)
-**hides the brand**. The remaining left-edge affordances become, left→right:
+This is **Material "Up" navigation** — verified: *"The Up button appears in the app bar… Within
+your app's task, the Up and Back buttons behave identically"* and *"the Up button does not appear
+[at the start destination], because the Up button never exits the app."*
+[Android – Principles of navigation](https://developer.android.com/guide/navigation/principles)
 
-1. **the amber pill** (x≈14, most prominent) → jumps to **v1** (leaves v2), and
-2. the small **`‹`** (x≈88) → the real "back to song list".
+Hierarchical Up (not browser-style history arrows) is deliberately chosen: it is **predictable
+regardless of how the user arrived** — QR link, shared link, search, deep link all land with a
+correct Up target, whereas session-history arrows (à la Spotify's `‹ ›`) would not. Android's Up
+even walks a *synthetic* back stack on deep links for exactly this reason (same source).
 
-An installed PWA in standalone display has **no browser back button**. So on a phone the
-*only* obvious in-app return to the catalog is `‹` (the sole fallback is ☰ → รายการเพลง,
-a non-obvious 2-tap). **Therefore `‹` must NOT simply be deleted — it is the primary back.**
+## 2. The one leading control — a **labeled Up button**
 
-Worse, the current order is a trap: the biggest, most colourful element (the pill) is the
-one a user is most likely to tap to "go back", but it throws them into a *different version*,
-while the actual back is the small chevron beside it.
+The single navigation affordance in the leading slot, on every non-start surface, identical on
+all three surfaces:
 
-## 3. What world-class does (Material 3 + Apple HIG — verified, not paraphrased)
+- **Icon + destination label:** on a song → **`‹ รายการเพลง`**; in the full editor → **`‹ ดูเพลง`**.
+  The label is what makes it *intentional and elegant on desktop* (not a bare mobile chevron —
+  the exact complaint) and *unambiguous everywhere* (today's `‹` silently means different things).
+- **Self-contained:** it is an in-app control; it renders and works the same with or without
+  browser chrome. This is the PWA requirement met (§0).
+- **Absent only on the catalog** (start destination — §1).
 
-Consulted G (2 rounds; transcripts in `_evidence/`). G's directional advice matched the
-analysis; its citations were then **independently verified** (G's URLs were vague — the
-hallucination risk):
+Desktop intentionality follows M3/HIG: an IconButton at a **48×48** target with a visible hover
+state **plus the text label**, living in the app bar's leading area (M3 reserves the leading area
+for the single navigation icon; actions go trailing/overflow).
+[M3 – Top app bar](https://m3.material.io/components/app-bars/guidelines) ·
+[Apple HIG – Navigation & search](https://developer.apple.com/design/human-interface-guidelines/navigation-and-search)
 
-- **M3 Top app bar** — the **leading** slot is *the* navigation icon; **actions live on the
-  right**, least-used going into the **overflow (⋮)** for "help, settings, and feedback".
-  Verified: navigationIcon = *"The primary icon for navigation. Appears on the left"*
-  (canonical example = a **back arrow**); actions = *"appear on the right of the app bar."*
-  — [M3 app bars](https://m3.material.io/components/app-bars/guidelines) ·
-  [Android app-bars](https://developer.android.com/develop/ui/compose/components/app-bars) ·
-  [M3 menus](https://m3.material.io/components/menus/guidelines)
-- **Apple HIG** — the back button sits at the **leading edge** of the navigation bar and is
-  reserved for retracing the hierarchy; don't crowd the nav area with unrelated controls.
-  — [HIG Navigation & search](https://developer.apple.com/design/human-interface-guidelines/navigation-and-search)
-- **Gestalt (proximity/similarity)** — a pill placed next to `‹` reads as *one navigation
-  group*, inviting accidental taps; and mixing a **local**-scope control (`‹`) with a
-  **global**-scope one (switch versions) side-by-side is a scope-confusion / cognitive-load error.
-- **Beta on production, honestly** — persistent, medium-contrast **state badge** next to the
-  title (not a bright call-to-action), plus **just-in-time scoped warnings** at the actually-
-  broken feature, and a **switch-back** exit kept available (GitHub feature-preview pattern:
-  "trade a little UI to set the right expectation"). A pop-up alert to announce beta is
-  discouraged (HIG).
+**Home is not a second button.** For a 2-level hierarchy, Up from a song lands directly on the
+catalog (= home), so a separate Home control is redundant on the narrow mobile/standalone bar and
+would overcrowd the leading area (target-spacing / visual-clutter). Rule: **Up-only** where space
+is tight; the brand wordmark may remain purely as identity on desktop (where there is room), but
+the *primary return* everywhere is the one labeled Up. (This finally justifies today's "brand
+hidden on the phone song bar" — but only because Up is now labeled and clearly returns to
+รายการเพลง.)
 
-## 4. Recommendation — one direction (not a menu)
+## 3. Where you are — collapsed 2-item "breadcrumb"
 
-Split the three roles that are currently mashed together; put each where the standard says.
+The Up label names the **parent**; the current **title** names **where you are**. Together they
+are a two-item breadcrumb ("up + current") — the right depth for this hierarchy. Full multi-crumb
+breadcrumbs are **not** warranted: they are unhelpful for 1–2-level structures.
+[NN/g – Breadcrumbs](https://www.nngroup.com/articles/breadcrumbs/) ·
+[WAI-ARIA APG – Breadcrumb](https://www.w3.org/WAI/ARIA/apg/patterns/breadcrumb/)
 
-### 4.1 `‹` back — **KEEP. Leave it as the leading navigation icon.**
-It is the M3/HIG-correct leading element and the proven primary back on mobile/PWA. This is
-the direct answer to *"what is `‹` for?"* — **it is the back button; on a phone it is the
-only visible way back to the list.** (Minor: keep its edit→view→catalog step logic as-is.)
+Edit mode adds a small **`แก้ไข`** state chip after the title, so the deeper level is visible
+without a URL bar.
 
-### 4.2 Version switch — **move OFF the leading edge to the right, into overflow (⋮) / menu.**
-Change it from an amber pill beside `‹` to a plain menu item on the right:
-> **ใช้รุ่นปัจจุบัน (v1)** — เสถียร ใช้บนเวทีได้
+## 4. Version-switch + beta — integrated, out of the nav
 
-Keep the existing "carry me to the same song in v1" behaviour (`SHARED_ROUTES`). On the phone
-song bar it joins the ⋮ overflow. This removes the accidental-tap trap, the cross-version
-confusion, and the scope clash — exactly where M3 puts secondary/global actions.
+These are **environment/build** concerns, not navigation. They leave the leading area entirely.
 
-### 4.3 Beta signaling — **keep an honest, non-interactive `v2 · เบต้า` badge by the brand/title.**
-A small, medium-contrast **state marker** (not a button, doesn't navigate) that stays visible
-so "which am I on?" is always answered. It is *separate* from the switch control.
+- **Beta status = a non-interactive tonal badge in the TITLE slot**, next to the app/song title:
+  **`v2 · เบต้า`**. It is a status marker, never a button. (M3: *"Badges can be attached to other
+  components, such as icons or text, to convey … status."* The title slot may carry inline status;
+  the *leading-icon* slot is what is reserved for navigation only — so this does not conflict.)
+  [M3 – Badges](https://m3.material.io/components/badges/guidelines)
+- **Switch to stable = an action in the right-side app menu / overflow (⋮):**
+  **"ออกจากรุ่นทดลอง → ไปรุ่นปัจจุบัน (v1)"**, carrying the same song across (keep today's
+  `SHARED_ROUTES` behaviour). M3/HIG put global secondary actions in the trailing/overflow area,
+  never in the leading nav slot.
 
-### 4.4 Bug honesty — **just-in-time + one first-run banner.**
-- A one-time **dismissible** strip under the header on first entry to /v2:
-  *"กำลังลองรุ่นทดลอง v2 — พบปัญหากดสลับกลับรุ่นปัจจุบันได้ตลอด [สลับกลับ v1]"*. After dismiss it
-  stays gone; the switch remains in ⋮.
-- A small **⚠️ scoped note** at features that genuinely don't work yet (e.g. D.C./D.S. repeat),
-  right where a user would rely on them.
+This removes the accidental-tap trap (a bright pill that *looked* like back but left v2 entirely)
+and the local-vs-global scope collision, while keeping the safety exit one tap away.
 
-### Resulting phone song bar
-`‹  [ชื่อเพลง]  … ↗  ⋮`  — one clean navigation icon on the left; version-switch + secondary
-actions on the right; the `v2·เบต้า` badge rides with the brand/title, not as a bright button.
+## 5. The three surfaces — one layout, three densities
 
-## 5. ⚠️ Strategic flag for P'Aim (not ours to decide)
+```
+DESKTOP-WEB            [brand เพลง.พระคำ.ชีวิต]   ‹ รายการเพลง · ｢ชื่อเพลง｣ v2·เบต้า        ↗  ⋮
+                        home / identity (room)     labeled Up + location + status        actions
 
-De-emphasising "รุ่นทดลอง" makes the header cleaner, **but v2 still has real bugs** (D.C./D.S.
-repeat not working). Bleaching the beta framing to near-invisible while those remain risks a
-worship leader treating v2 as stable, hitting a broken repeat **live on stage** ("ต้องชัวร์
-100% บนเวที"), and losing trust. **Recommendation: keep honest beta framing** (§4.3–4.4) and
-keep the switch-back exit easy to find. **Tone/prominence of the badge and whether to soften
-"รุ่นทดลอง" is P'Aim's call** — this spec defaults to honest-but-tidy, not hidden.
+MOBILE-WEB             ‹ รายการเพลง   ｢ชื่อเพลง｣ v2·เบต้า                                  ↗ ⋮
+& INSTALLED-PWA        labeled Up (primary return; reaches home in 1 press)  status       actions
+(standalone)          └ identical control + identical Up targets — no browser chrome relied on
+```
+
+- Catalog (start) on every surface: **no Up**; brand/home + search + create + menu, as today.
+- Song · edit ✏️: leading becomes **`‹ ดูเพลง`**, title gains the **`แก้ไข`** chip; Up again → catalog.
+
+## 6. Accessibility (must-haves, verified)
+
+- **Target ≥ 48×48 dp** (Material) / **44 pt** (HIG) for the Up control.
+  [M3 accessibility](https://m3.material.io/foundations/accessible-design/accessibility-basics)
+- **`aria-label` names the destination** — e.g. `aria-label="ย้อนกลับไปรายการเพลง"` — so the label
+  isn't only visual. [WAI-ARIA APG – Names & labels](https://www.w3.org/WAI/ARIA/apg/practices/names-and-labels/)
+- **Focus management on navigate:** move focus to the new view's `<h1>` / main region so keyboard
+  and screen-reader users aren't stranded. [WCAG 2.4.3 Focus Order](https://www.w3.org/WAI/WCAG21/Understanding/focus-order.html)
+
+## 7. What changes vs today (delta, for the eventual build task)
+
+| Today | New |
+|---|---|
+| bare `‹` (ambiguous: edit→view OR view→catalog) | **labeled Up** `‹ รายการเพลง` / `‹ ดูเพลง` — destination stated |
+| amber pill `v2 รุ่นทดลอง ⇄` in the leading area, jumps to v1 | pill removed; **`v2·เบต้า` status badge** by the title + **switch in ⋮** |
+| brand hidden on mobile song bar → home unclear | Up-only on mobile is *intentional* (Up = home in 1 press); brand=identity on desktop |
+| no location cue without the URL bar | **up-label + title (+`แก้ไข` chip)** = 2-item breadcrumb |
+| relies implicitly on browser back on web | **self-contained Up** — identical in standalone PWA |
+
+## 8. ⚠️ Strategic flag for P'Aim (unchanged — his call)
+
+v2 still has real bugs (e.g. D.C./D.S. repeat not working). Keeping an honest **`v2·เบต้า`** badge
++ an easy switch-to-v1 is deliberate: a worship leader must not mistake v2 for stable and hit a
+broken repeat live on stage. **How prominent the beta framing should be is P'Aim's decision;** this
+spec defaults to honest-but-integrated, not hidden.
 
 ---
 
 ### Evidence
-- Live DOM findings: §1–§2 (measured on the deployed /v2, desktop + forced phone song-bar).
-- G transcripts: `docs/ds/_evidence/g-round1.md`, `g-round2.md`
-  (also `C:\gl\.aibridge\transcripts\pleng-v2-header-2026-07-25-G-*.md`).
-- Standards independently verified via the M3 / Android / HIG URLs cited in §3.
+- Standards independently verified (exact wording captured) via the Android / MDN / M3 / WAI-ARIA
+  / WCAG / NN/g URLs cited inline above.
+- G Pro consult (brief attached via `--file`): `docs/ds/_evidence/g-unified-nav-round1.md`,
+  `g-unified-nav-round2.md`, brief `g-brief-unified-nav.md`. G confirmed the four load-bearing
+  citations and verified proposals A–D (labeled hierarchical Up; Up-only on mobile for a 2-level
+  hierarchy; beta badge in the title slot; switch in overflow).
+- Live DOM findings (earlier rounds): `g-round1.md`, `g-round2.md`.
