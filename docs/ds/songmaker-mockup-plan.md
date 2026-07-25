@@ -179,5 +179,33 @@
 
 ---
 
+## 3.1 G design-review (adversarial · 3AI บังคับ) + คำตัดสิน Claude
+
+`bridge.py ask G pleng-mockup-songmaker-2026-07-25` — ถามเชิงรุก 5 ข้อ (M3/HIG/WCAG/PD violations · mobile collision · inline-vs-drawer split · missing affordance). **transcript (EVIDENCE):** `C:\gl\.aibridge\transcripts\pleng-mockup-songmaker-2026-07-25-G-20260725-152418.md`. **Claude ตัดสินเอง (G ยกพื้น ไม่ใช่ตรายาง).**
+
+**รับ → เติมเป็น note ให้ mockup/step-4 (valid catch):**
+| G ชี้ | คำตัดสิน | ทำอะไร |
+|---|---|---|
+| Q3b · CAB 5 action ล้น 360 | **รับ** | ✅ แก้แล้ว — action label → icon-only ≤420px (`.sm-cab-lbl` hidden · target 40px คงไว้) |
+| Q3a · แป้นโน้ต S4 ชนคีย์บอร์ด OS บนมือถือ (พิมพ์เนื้อ) | **รับ (สำคัญ)** | **step-4 behavior:** S4 keypad ↔ OS keyboard = **สลับตาม edit-target** — caret ที่โน้ต=โชว์ keypad (ไม่มี OS kbd) · caret ที่เนื้อ=OS keyboard (keypad ยุบ) · ไม่โชว์สองคีย์บอร์ดพร้อมกัน · note ใน `songmaker-mockup-plan §4` |
+| Q1/Q3c · S6+S7 bottom-sheet ซ้อนกันบนมือถือ (M3 ห้าม stack 2 modal sheet) | **รับ (สำคัญ)** | **step-4 behavior:** เปิด S6 ขณะ S7 เปิด = **ปิด S7 ก่อน (mutual-exclusive)** ไม่ stack · หรือ note-tap ถูกระงับระหว่าง S7 เปิด |
+| Q4 · D.S.(S7) ↔ Segno(S5) เป็นคู่ semantic · แยกที่อยู่ = verify target ยาก | **รับบางส่วน (split คงเดิม — IA §4 ตัดสินแล้ว)** | **step-4 refinement:** เลือกคำสั่ง D.S. ใน S7 → **cross-highlight** Segno anchor บนแผ่น (S9) + lint "D.S. ไม่มี Segno" (S9 มีแล้ว) → verify ได้โดยไม่ต้องเปิด-ปิด drawer |
+| Q2 · duration marks ถูกฝังหลัง "สัญลักษณ์เพิ่ม" | **รับบางส่วน (premise คลาด)** | **clarify:** duration ที่ใช้บ่อย (`_` เขบ็ต · `.` จุดประ · `-` ลาก · `~` tie) = อยู่บน **S4 keypad (เห็นตลอด)** ไม่ได้ฝัง · S6 advanced = เฉพาะ **ที่หายาก** (1/16 double-beam · grace · fermata · caesura · `%` · accidental-as-button) — PD ถูกต้อง |
+| S3 FAB morph = layout jump | **รับ (minor)** | step-4: animate transition read→edit (ไม่ instant) |
+
+**ปฏิเสธ + เหตุ (กัน reviewer อนาคตยกซ้ำ):**
+- **Q1 · S4 ปน primary (ส่งตรวจ) + keypad = ผิด M3 bottom app bar** → **reject** — DockKey **LOCKED โดย P'Aim** · M3 bottom app bar รองรับ emphasized/primary action ได้ · keypad = **input-view** ไม่ใช่ bar action (IA §8.1 C1) · Save/Submit อยู่ S4 เพราะ thumb-reach (IA §8.1 reject-list ตัดสินแล้ว)
+- **Q5a · SATB / multi-voice เลขซ้อน** → **reject** — **de-scope แล้ว** ([[pleng-ssot-scope-musicxml-not-staff]] · IA §5) · แนวร้อง = flat-row `voice` attribute ([[pleng-bilingual-approach]]) · G ไม่รู้มติ de-scope
+- **Q5b · vocal-range preview ตอน transpose** → backlog (nice-to-have · ไม่ใช่ gap ของ editor step นี้)
+- **Q5c · Thai combining marks (สระ/วรรณยุกต์) alignment editor** → **ไม่ใช่ missing surface** — จัดการด้วยโมเดล 1 พยางค์/โน้ต (US-M3.1/3.2) + step-4 input-robustness (คู่ IME M2.1 AC3) · syllable cluster เก็บ marks ในพยางค์เดียว
+- **Q5d · audio scrubbing (ลากฟังทีละห้อง)** → IA §7 ตัดสินแล้ว: edit-mode = **scoped listen** (ห้อง/ท่อน/จาก caret) + Space · full transport = read-mode · tap-โน้ต-เพื่อฟัง = consideration (มี `onSeek` ใน SongViewer แล้ว)
+
+---
+
 ## 4. ⛔ ไม่ wire ในก้าวนี้ (= ก้าว 4 logic)
 พฤติกรรมจริงทั้งหมด: พิมพ์จริง/auto-advance · caret จริง · โมเดล jump/modulation/pickup · drag reorder จริง · playback scope · import parser จริง · autosave/offline. mockup = **layout + รูปลักษณ์ + progressive disclosure + ยืนยันบ้านครบ** เท่านั้น. control ขั้นสูงที่ยังไม่มี logic = แสดงเป็นปุ่ม/ช่องจริงที่กดเปิดชั้นได้ (visual) · ผูก handler = ก้าว 4.
+
+**step-4 behavior notes (จาก G-review · §3.1 · ให้ dev ยึด):**
+1. **S4 keypad ↔ OS keyboard = mutual-exclusive by edit-target** — caret ที่โน้ต → keypad (ไม่มี OS kbd) · caret ที่เนื้อ → OS keyboard + keypad ยุบ · ห้ามโชว์สองคีย์บอร์ดพร้อมกัน (กัน canvas เหลือ <150px บนมือถือ)
+2. **S6 ↔ S7 บนมือถือ = ห้าม stack 2 bottom-sheet** — เปิดตัวหนึ่งปิดอีกตัว (mutual-exclusive) หรือระงับ note-tap ระหว่าง S7 เปิด
+3. **D.S.(S7) → cross-highlight Segno anchor (S5/S9)** เมื่อเลือกคำสั่งกระโดด (verify target โดยไม่เปิด-ปิด drawer)

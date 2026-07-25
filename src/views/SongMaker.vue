@@ -149,9 +149,9 @@ const SURFACES = [
       <button class="sm-cab-x" @click="multiSelect = false" aria-label="ยกเลิกเลือก"><Icon name="x" :size="18" /></button>
       <b>เลือก 3 ห้อง</b>
       <span class="sm-cab-acts">
-        <button @click="log('move-range')"><Icon name="move" :size="16" /> ย้าย</button>
-        <button @click="log('copy-range')"><Icon name="copy" :size="16" /> คัดลอก</button>
-        <button class="danger" @click="log('del-range')"><Icon name="trash-2" :size="16" /> ลบ</button>
+        <button @click="log('move-range')"><Icon name="move" :size="16" /> <span class="sm-cab-lbl">ย้าย</span></button>
+        <button @click="log('copy-range')"><Icon name="copy" :size="16" /> <span class="sm-cab-lbl">คัดลอก</span></button>
+        <button class="danger" @click="log('del-range')"><Icon name="trash-2" :size="16" /> <span class="sm-cab-lbl">ลบ</span></button>
       </span>
     </div>
 
@@ -316,5 +316,11 @@ const SURFACES = [
   .sm-switch button span { display: none; }
   .sm-struct span { display: none; }
   .sm-root { padding: var(--sp-2) var(--sp-3) 0; }
+}
+/* G-review Q3b: CAB action labels drop to icon-only on a narrow phone so ×+count+3 actions
+   never overflow 360px (WCAG target sizes preserved — icons stay 40px). */
+@media (max-width: 420px) {
+  .sm-cab-lbl { display: none; }
+  .sm-cab-strip { gap: 8px; }
 }
 </style>
