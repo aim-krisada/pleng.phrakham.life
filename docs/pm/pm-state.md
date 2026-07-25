@@ -21,6 +21,7 @@
 - **✅ scope+UI preview (view) เสร็จ+PM gate (ดูภาพเอง):** แท็บ [ทำนอง ๑][ทำนอง ๒] บน SongViewer จริง · สลับ→เนื้อเปลี่ยน ทำนองเหมือนเป๊ะ · โมเดลเพิ่มแค่ `lyricSets[]` ไม่แตะ engine · effort: view ถูก v1/v2 พอกัน · edit แพงกว่าบน v1 → เสนอ ship view ทั้งคู่ก่อน · แผนรวม 717-1/-2 (SQL guard · P'Aim สั่ง) · **⚠️ เนื้อ preview=พยางค์สมมติ · ทำนองจริง DB ยังไม่ verify**
 - **✅ editor preview เสร็จ+PM gate (ดู 3 ภาพเอง) + P'Aim: "design ok":** แท็บ [ทำนอง ๑][๒][＋เพิ่มชุด] · เลือก=แก้เนื้อชุดนั้น · ป้าย affordance เปลี่ยนตามเลือก (โน้ต=ใช้ร่วมทุกชุด · คำ=เฉพาะชุด) · ＋=ทำนองมาครบ เนื้อว่าง · บน SongViewer จริง
 - **✅ P'Aim: editor design ok แต่ "หารือ n g ก่อน dev" → จ่าย consult (task_c01a2e71):** G+N ตรวจ editor UX (แท็บต่อชุด world-class? · ป้ายใช้ร่วมชัดพอ? · flow เพิ่มชุด · จอรก?) → transcript+ข้อเสนอให้ P'Aim เคาะ **ก่อน build** · รอ inbox `2026-07-25-717-editor-gn.md`
+- **🔴 ข้อกำหนด build 717 (P'Aim 25 ก.ค.): data = SSOT ตรงมาตรฐาน ไม่ใช่ render-only** — `lyricSets` ต้อง map ตรง MusicXML `<lyric number>` / MEI `<verse>` (หลายเนื้อบนโน้ตชุดเดียว) → อนาคต **export MusicXML ทำต่อได้ ไม่ต้องรื้อ** (export feature เอง = ยัง parked · gap รู้อยู่ `pleng-ssot-scope-musicxml-not-staff`) · แท็บ = render layer เท่านั้น
 - **ค้าง (หลัง G+N + P'Aim ok):** build 717 ดู/สลับ ทั้ง v1+v2 + edit บน v2 (v1 edit แยก) · รวมข้อมูล 717-1/-2 (SQL · P'Aim สั่ง · อ่าน DB ยืนยันทำนองก่อน)
 
 ### 🏠 ทะยอยปรับ v2 หน้าแรก (P'Aim 25 ก.ค. pm48 · งานแรกของ "ปรับ v2 ทีละส่วน")
