@@ -1079,10 +1079,38 @@ function barOctave(dir) { if (curIdx.value >= 0) { gotoCellNote(selCell.value); 
 function barAccidental(acc) { if (curIdx.value >= 0) { gotoCellNote(selCell.value); accidentalSel(acc); focusCapture() } }
 // a note click bubbles to the wrapper — read the exact note from .nt[data-idx] in its
 // .segment[data-seg] (a word .syl is @click.stop, so it comes back through onSeek instead)
+// BI-014 — the editor's invariant is "visible selection ⟺ keyboard focus": while a cell is
+// highlighted the user must be able to keep typing it. A plain click on the BLANK part of the
+// sheet (padding, the gap between cells — anything that is not a note, a word, or a control)
+// otherwise lets the browser move focus off the hidden capture <input> to <body>: the highlight
+// stayed but typing died (P'Aim's report). We keep focus by preventing the mousedown's default
+// focus-shift — the same trick NoteInputBar's buttons use (@mousedown.prevent). MOUSE ONLY: on a
+// touch device a tap on empty space should stay free to dismiss the on-screen keyboard (the
+// natural gesture; the editor also has an explicit เสร็จ / Esc exit), so we never preventDefault
+// there. Google Docs / Notion keep the caret the same way on a margin click.
+let lastPointerType = 'mouse'
+function onSheetPointerDown(e) { lastPointerType = e.pointerType || 'mouse' }
+function isInteractiveSheetTarget(t) {
+  return !!(t && t.closest && t.closest(
+    '.nt[data-idx], .syl, .sv-capture, .sv-chordpop, button, a, input, textarea, select, [role="button"], [contenteditable]',
+  ))
+}
+function onSheetMouseDown(e) {
+  if (!editMode.value || !selCell.value) return
+  if (lastPointerType && lastPointerType !== 'mouse') return // touch/pen → allow blur (OSK dismiss)
+  if (isInteractiveSheetTarget(e.target)) return // a real edit target / control handles its own focus
+  e.preventDefault() // blank space + mouse → keep the capture input focused (selection stays live)
+}
 function onInlinePick(e) {
   if (!editMode.value) return
   const nt = e.target.closest?.('.nt[data-idx]')
-  if (!nt) return
+  if (!nt) {
+    // Safety net: if a mouse click on empty space still slipped focus off the capture field
+    // (onSheetMouseDown's preventDefault should stop this), pull it back so the highlighted cell
+    // stays editable. Touch is left to blur so the on-screen keyboard can close.
+    if (selCell.value && lastPointerType === 'mouse' && document.activeElement !== captureInput.value) focusCapture()
+    return
+  }
   const seg = nt.closest('.segment[data-seg]')
   if (!seg) return
   const [li, si] = seg.dataset.seg.split('-').map(Number)
@@ -2510,6 +2538,8 @@ function onSeek({ li, si, syk }) {
           class="sheet-scale"
           :class="{ 'sv-editing': editMode, 'sv-settings-open': settingsOpen }"
           :style="{ fontSize: readingFontScale + 'rem' }"
+          @pointerdown="onSheetPointerDown"
+          @mousedown="onSheetMouseDown"
           @click="onInlinePick"
         >
           <!-- the focused capture field — opens the device keyboard on a phone (numeric for a
