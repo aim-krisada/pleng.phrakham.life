@@ -16,7 +16,7 @@
   - **TIER 2 = build/model note (ไม่ใช่ surface ใหม่):** B1 Segno/Coda หลายจุดต้องมี id (design โมเดล §4.1(1) เผื่อ >1 target) · B2 after-jump replay (play-order · dev ยืนยันกับ resolvePlayOrder) · B3 open ending niche (low)
   - **TIER 3 = IA nuance ปรับตอน mockup:** keypad=input-view ไม่ใช่ 4-action bar slot · transpose freq band (อาจ F3) · display-tools แยกจาก nav-drawer · dynamics ขี่ M6.8 text · metronome/bar-number=optional render
   - **REJECT/de-scope (⛔ อย่าเติม):** chord-diagram→backlog · fingering→ชน jianpu · articulation low · SATB/MusicXML-export de-scope แล้ว · **Save-in-S4 + Segno-in-S5 = ทางเลือกถูกแล้ว** (N strawman · เหตุผลเราถูกกว่า)
-  - **🔵 รอ P'Aim เคาะ:** OK ให้จ่าย session fold 6 gaps เข้า US+IA (+ Tier2/3 notes) แล้วไปก้าว 3 mockup?
+  - **✅ P'Aim เคาะ "เติมทั้ง 6 ข้อ" → จ่าย session fold แล้ว (task_89a8523a):** fold 6 Tier-1 + B1-3 notes + C1-6 nuance + reject-notes เข้า `docs/us/songmaker.md`+`docs/ds/songmaker-ia.md` บน branch `songmaker-docs` (off studio-shell-redesign · docs อยู่ใน git history ไม่ใช่ working tree) · รอ inbox → PM gate ว่าครบ → เสนอ P'Aim → **ก้าว 3 mockup**
 - **ก้าว 3 (หลัง fold gaps + P'Aim เคาะ) = mockup วาง component ของเดิมตามผัง IA · บน component จริง dev-ready · ⛔ ไม่รื้อ engine · ครบทุก function · P'Aim ดู UI ก่อน dev (กฎ 3AI+UI-review)**
 - **N corpus พร้อม:** `_resource/for_n/` 18 .md (Material/MusicXML/SMuFL/MEI) + `_IMPORT-MANIFEST.md` · P'Aim import เอง + paste 4 HIG URL (website source) + Behind Bars PDF (text สะอาด 423pg) = คลังอ้างอิงมาตรฐานให้ทุกงาน
 
