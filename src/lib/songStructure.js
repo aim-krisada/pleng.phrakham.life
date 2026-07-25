@@ -406,6 +406,29 @@ export function duplicateBar(content, stanzaId, lineIndex, barOrdinal) {
   }
   return remintMarkers(out)
 }
+// Delete line `lineIndex` from a melody AND drop that line's word-slice from every verse on this
+// melody — the exact inverse of duplicateLine/pasteLineAt's ripple, so the following lines' words
+// stay under their notes (deleting a middle line must not shove every later word up by this line's
+// slot count). Never orphans a melody to ZERO lines: floors at 1 (the drawer disables the button
+// on the last line; this no-op is belt+braces, mirroring deleteVerse/removeStanza). Fresh ids.
+export function deleteLine(content, stanzaId, lineIndex) {
+  const at = lineAt(content, stanzaId, lineIndex)
+  if (!at) return content
+  if (at.lines.length <= 1) return content // keep every melody with ≥1 line
+  const start = lineSlotStart(at.lines, lineIndex)
+  const len = lineSlotLen(at.line)
+  const newLines = at.lines.slice()
+  newLines.splice(lineIndex, 1)
+  let out = withStanzaLines(content, at.si, newLines)
+  if (len > 0) {
+    const newArr = resliceVerses(out, stanzaId, (p) => {
+      if (p.length > start) p.splice(start, len) // remove this line's word slice
+    })
+    out = { ...out, arrangement: newArr }
+  }
+  return remintMarkers(out)
+}
+
 // Duplicate line `lineIndex` right after itself AND carry every verse's words for that line
 // (parity with EditorMode.copyLine — B088). Fresh marker ids on the copy.
 export function duplicateLine(content, stanzaId, lineIndex) {

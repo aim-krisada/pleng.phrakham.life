@@ -7,7 +7,7 @@ import {
   addVerse, deleteVerse, moveVerse, moveVerseBy, duplicateVerse, setVerseStanza, makeVerseUnique,
   addStanza, removeStanza,
   copyBar, copyLine, pasteBarInLine, pasteLineInStanza, pasteLineAsStanza,
-  duplicateBar, duplicateLine, moveBar, moveLine,
+  duplicateBar, duplicateLine, deleteLine, moveBar, moveLine,
   lineSlotLen, lineSlotStart,
 } from './songStructure.js'
 import { allMarkerIds, findOrphanFlows, mintMarkerIds } from './songFlow.js'
@@ -186,6 +186,52 @@ describe('duplicate / move — words follow the melody', () => {
     const c = moveBar(shared(), 'A', 0, 0, 1) // line0 has ONE bar → moving right hops it to line1 front
     expect(notesOf(c.stanzas[0].lines[0])).toEqual([]) // emptied line keeps ≥1 (empty) bar
     expect(notesOf(c.stanzas[0].lines[1])).toEqual(['1 2 3', '4 5'])
+  })
+})
+
+// ======================================================================================
+// BI-013 — deleteLine removes a melody line AND its word slice (inverse of duplicate/paste)
+// ======================================================================================
+describe('deleteLine — drops the line + its word slice, floors at 1', () => {
+  it('deletes the SECOND line and removes only that line\'s words from every verse', () => {
+    const c = deleteLine(shared(), 'A', 1) // line1 bears slots 3..4 (d e / s t)
+    expect(c.stanzas[0].lines.map((l) => notesOf(l)[0])).toEqual(['1 2 3'])
+    expect(c.arrangement[0].syllables).toEqual(['a', 'b', 'c']) // d e removed, a b c stay aligned
+    expect(c.arrangement[1].syllables).toEqual(['p', 'q', 'r'])
+  })
+  it('deletes the FIRST line and shifts each verse\'s words up cleanly', () => {
+    const c = deleteLine(shared(), 'A', 0) // line0 bears slots 0..2 (a b c / p q r)
+    expect(c.stanzas[0].lines.map((l) => notesOf(l)[0])).toEqual(['4 5'])
+    expect(c.arrangement[0].syllables).toEqual(['d', 'e'])
+    expect(c.arrangement[1].syllables).toEqual(['s', 't'])
+  })
+  it('never drops a melody below one line (last-line delete is a no-op)', () => {
+    const one = { version: 2, key: 'C', stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 2 3' }]] }],
+      arrangement: [{ stanza: 'A', label: '', syllables: ['a', 'b', 'c'] }] }
+    const c = deleteLine(one, 'A', 0)
+    expect(c.stanzas[0].lines.length).toBe(1)
+    expect(c).toBe(one) // untouched — same reference (the drawer disables the button here too)
+  })
+  it('returns a NEW content object so undo records the step', () => {
+    const src = shared()
+    const c = deleteLine(src, 'A', 1)
+    expect(c).not.toBe(src)
+    expect(src.stanzas[0].lines.length).toBe(2) // source untouched (pure)
+  })
+  it('re-mints marker ids when a marked line is deleted (no shared ids)', () => {
+    // two-line marked melody; delete the plain line, the marked line's ids must stay unique
+    const two = mintMarkerIds({
+      version: 2, key: 'C',
+      stanzas: [{ id: 'A', lines: [
+        [{ type: 'segment', note: '1 2' }],
+        [{ type: 'repeat-start' }, { type: 'segment', note: '3 4' }, { type: 'repeat-end', times: 2 }],
+      ] }],
+      arrangement: [{ stanza: 'A', label: '', syllables: ['a', 'b', 'c', 'd'] }],
+    }).content
+    const c = deleteLine(two, 'A', 0)
+    const ids = idsIn(c)
+    expect(ids.length).toBe(new Set(ids).size) // all unique
+    expect(c.stanzas[0].lines.length).toBe(1)
   })
 })
 

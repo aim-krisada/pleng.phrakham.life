@@ -70,6 +70,35 @@ describe('StructureDrawer — actions emit new content', () => {
   })
 })
 
+describe('StructureDrawer — ลบบรรทัด (BI-013)', () => {
+  // a two-line melody so the outline shows two rows and delete is enabled
+  const twoLine = () => ({
+    version: 2, key: 'C', timeSignature: '4/4',
+    stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 2 3' }], [{ type: 'segment', note: '4 5' }]] }],
+    arrangement: [
+      { stanza: 'A', label: 'ข้อ 1', syllables: ['a', 'b', 'c', 'd', 'e'] },
+      { stanza: 'A', label: 'ข้อ 2', syllables: ['p', 'q', 'r', 's', 't'] },
+    ],
+  })
+  it('every line row has a delete button; clicking it removes that line + its words', () => {
+    const w = mountDrawer({ content: twoLine() })
+    const rows = w.findAll('.sd-line')
+    expect(rows.length).toBe(2)
+    expect(rows[0].find('.sd-del-line').exists()).toBe(true)
+    rows[1].find('.sd-del-line').trigger('click') // delete line 2 ("4 5")
+    const c = lastContent(w)
+    expect(c.stanzas[0].lines.map((l) => l.filter((i) => i.type === 'segment').map((i) => i.note)[0])).toEqual(['1 2 3'])
+    expect(c.arrangement[0].syllables).toEqual(['a', 'b', 'c']) // d e dropped
+    expect(c.arrangement[1].syllables).toEqual(['p', 'q', 'r'])
+  })
+  it('delete is DISABLED on the last remaining line (never orphan a melody)', () => {
+    const w = mountDrawer() // fixture = one line
+    const del = w.find('.sd-line .sd-del-line')
+    expect(del.exists()).toBe(true)
+    expect(del.attributes('disabled')).toBeDefined()
+  })
+})
+
 describe('StructureDrawer — คัดลอก/วาง follows the cursor', () => {
   const cursor = { stanzaId: 'A', lineIndex: 0, barOrdinal: 0, entryIndex: 0 }
   it('with no cursor the copy/paste buttons are disabled', () => {
