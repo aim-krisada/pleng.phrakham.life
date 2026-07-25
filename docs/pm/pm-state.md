@@ -6,11 +6,11 @@
 > **pm47: ตั้ง title ตัวเอง "pl pm 47" ก่อน** (workers หา PM จาก title prefix "pl pm" เลขสูงสุด) · report-back หลัก = inbox `C:\gl\pm-inbox\pleng\`
 > **⚠️⚠️ อ่าน memory `feedback_follow_exactly_and_guard` (โหลดอัตโนมัติ) ก่อนทำอะไร** — P'Aim โมโหมากรอบ pm46 (พลาดครั้งที่ 4): relay "เสร็จ" ที่ไม่จริง + ไม่เตือนของที่เห็นว่าผิด · **หน้าที่ = (1) ทำตามคำสั่งเป๊ะ เกทที่ผลจริงไม่ใช่ proxy(เทสเขียว/render) (2) เตือนเมื่อเห็นผิด/เสี่ยง · ไม่พูด "เสร็จ" จนพิสูจน์ชั้นจริง(เปิดของจริง)**
 
-### 🔴 งานสด #1 — DEPLOY CONSOLIDATION (P'Aim เคาะแนวแล้ว · dry-run กำลังรัน)
-- **P'Aim เลือก:** รวมเป็น **main branch เดียว** (ไม่สลับ topology · ผู้ใช้ไม่กระทบ): **main = โค้ด v2** · **v1 แช่แข็งเป็น tag `v1-frozen`** · deploy.yml trigger `[main]` อย่างเดียว build **v1(tag)→root** + **v2(main,PLENG_V2=1)→/v2** = **ไม่มี ssr · ไม่มี run แดง · ไม่มี empty-commit hack** · เหตุ: ssr แดงทุกรอบเพราะ deploy.yml trigger ทั้ง main+ssr แต่ env-protection ให้เฉพาะ main deploy
-- **✅ dry-run `task_3a0e519c` DONE · VERDICT pass** (throwaway · ไม่แตะ prod) · หลักฐาน inbox `2026-07-25-deploy-consolidate-dryrun.md` — พิสูจน์ที่ real HTTP+browser (127.0.0.1:8791): **root→v1 stamp 16906d8 · /v2→v2 · ทั้งคู่ 200 · ไม่ปนกัน · git push = fast-forward (ไม่ force)** · **land commands + rollback (force-with-lease main→16906d8, ssr ไม่แตะ) + branch re-target notes = อยู่ใน inbox** · local serve ยัง live :8791
-  - **🔴 ACTION ค้างของ pm47 (รอ P'Aim go เท่านั้น):** เอาหลักฐานให้ P'Aim ดู/eyeball → **P'Aim สั่ง go** → execute land (คำสั่งใน inbox: tag v1-frozen · commit-tree main=v2 · deploy.yml [main]-only · push) → **verify LIVE จริง** (เปิด root=v1 · /v2=v2 · Actions เขียว · NOT PROVEN เดิม = Actions runner จริงยังไม่รัน) → rollback พร้อม · ⛔ ห้าม push จน P'Aim go
-- **5 ด่านที่สัญญา P'Aim:** (1) ไม่แตะ prod จน P'Aim เห็นหลักฐาน dry-run (2) STOP+โชว์คำสั่ง+rollback ก่อน push (3) เกทที่ live จริงไม่ใช่เทสเขียว (4) v1 tag แช่แข็ง+rollback 1 คำสั่ง (5) สำเร็จ=P'Aim เปิด root=v1 /v2=v2 เอง
+### ✅ DEPLOY CONSOLIDATION — LANDED + VERIFIED LIVE (2026-07-25 pm47 · P'Aim สั่ง go)
+- **สำเร็จ+พิสูจน์ชั้นจริง (curl served-bytes + Actions API):** origin/main=`9c6730c` (tree=v2 + deploy.yml `[main]`-only) · tag `v1-frozen`→16906d8 (root) · **Actions run เดียว เขียว** (30139760308 success) · **root/ = v1 (มี 16906d8, ไม่มี switcher, 200)** · **/v2/ = v2 (มี 9c6730c + รุ่นทดลอง, 200)** · ไม่ปนกัน · origin/ssr=`00aa719` ไม่ถูกแตะ · **ssr-แดงหายจริง (ไม่มี ssr run โผล่)** · land ทำแบบ plumbing (main ถูก worktree จับ → detached + push HEAD:main แทน branch -f) · รายละเอียด→decisions-log 25 ก.ค.
+- **ยังไม่พิสูจน์:** P'Aim eyeball เอง (ด่าน #5) · UI คลิกจริงใน browser (curl=served layer) · PWA SW transition
+- **rollback (พร้อม 1 คำสั่ง):** `git push --force-with-lease origin v1-frozen:main` (main→16906d8 · ssr ไม่แตะ)
+- **🔵 follow-up หลัง consolidation:** (1) base pointer `studio-shell-redesign`→`main` ใน **app-repo CLAUDE.md + docs/README.md + docs/mission.md** (⚠️ commit main = redeploy → batch ทีเดียว) (2) teardown throwaway `pleng-consolidate-dryrun`/`pleng-dryrun-v2`/`pleng-main-deploy-stage` + serve :8791 (3) keep origin/ssr จน stable แล้วค่อย `--delete` (in-flight bi0xx branches merge เข้า main ใหม่สะอาด ไม่ต้อง rebase)
 
 ### 🔴 งานใหญ่ค้าง #2 — repeat/ย้อน (D.C./D.S.) ยังไม่ทำงานจริง (โจทย์หลัก P'Aim · เคยหลุด 4 รอบ)
 - **สถานะจริง (verify 00aa719):** ‖::‖/volta/ร้องรับทุกข้อ ใส่ได้แต่**อยู่ในตัวแก้เก่า (EditorMode) ไม่ใช่ดินสอ ✏️** · **D.C./D.S./Segno/Coda/Fine = พิมพ์ได้แค่ป้าย free-text ไม่ย้อนจริง** · ย้อนมิดบาร์+Ctrl+K = ไม่ได้ทำ
@@ -68,7 +68,8 @@
 - **ai-bridge:** ✅ **MR ceo!13 MERGED** (P'Aim เลือก ceo/tools · tool home = `krisada/ceo` tools/aibridge/ · daemon UP :9335) · ⏳ ค้าง: enteam/ai-bridge !32 pointer (เคาะว่าเก็บ pointer ไหม) · broadcast SOP "ทุก session ใช้ `bridge.py ask G/N` เลิก meeting-room CDP" ยังไม่ทำ (pm46 broadcast ตอน session ใหม่ spin) · "waiting-web page" ที่ P'Aim จำ = ยังไม่ confirm หมายถึง tool ไหน
 
 
-### ✅ deploy mechanism (RESOLVED — pm45 landmine เข้าใจผิด · assembler+PM git-verified 24 ก.ค.)
+### ⚠️ deploy mechanism (SUPERSEDED 25 ก.ค. pm47 by CONSOLIDATION — เก็บไว้อ่านประวัติ · ของจริงตอนนี้ = main เดียว, redeploy = commit บน main ธรรมดา)
+### ✅ deploy mechanism เดิม (RESOLVED — pm45 landmine เข้าใจผิด · assembler+PM git-verified 24 ก.ค.)
 - **`origin/studio-shell-redesign` = ตัว /v2 live จริง** (ไม่ใช่ c90c18f=PM docs local) · **canonical editor base = `7afb038`** · integration `717fb7a` LIVE แล้ว
 - **redeploy /v2 = empty commit บน main** (PAT ไม่มี actions:write) → workflow (identical main+ssr · trigger push:[main,ssr]+dispatch) build v1 จาก main + v2 จาก ssr เสมอ · **env-protection: เฉพาะ main deploy ได้ · ssr-run FAIL เสมอ**
 - ⛔ **local -pm ssr (PM docs) ≠ origin/ssr (app) — ห้าม push -pm ssr ไป origin** · รายละเอียด → decisions-log 24 ก.ค. pm46
