@@ -7,11 +7,12 @@
 > **report-back หลัก = inbox `C:\gl\pm-inbox\pleng\`** (set title ตัวเองผ่าน tool ไม่ได้ → inbox คือหลัก · workers หา PM จาก prefix "pl pm")
 > **กติกาใหม่ทุกงาน (pm47 วางไว้):** (1) **DoC front-gate** — derive ครบ + G adversarial ("ขาดอะไร") ก่อน build (2) **G-VERIFY hook v1.0.0 = user-level `~/.claude/hooks/preflight_gate.py` ครอบทุกโปรเจกต์** (เคลม design ครบ/ถูก ต้องมี evidence + `G-VERIFY:` · infra ไม่ต้อง) (3) **PM เปิด transcript G เองก่อนบอก "G ผ่าน"** ไม่เชื่อสรุป worker
 
-### 🎯 งานสด: SONG-MAKER FIRST (re-layout ตัวแก้ · ไม่ rebuild) — รอ P'Aim เคาะก่อนก้าว 3
+### 🎯 งานสด: SONG-MAKER FIRST (re-layout ตัวแก้ · ไม่ rebuild) — 🔵 N ตรวจก้าว 1+2 (P'Aim สั่ง 25 ก.ค. pm48)
 - **ก้าว 1 ✅ approve** `docs/us/songmaker.md @ae01ba8` (journey 10 สเตจ + ~35 stories · import/verify first-class · north-star)
 - **ก้าว 2 ✅ gated + G-verified (PM อ่าน transcript เอง)** `docs/ds/songmaker-ia.md @18571d9` (62 function → 10 surface S1-S10 · กฎ inline=local/drawer=macro · progressive disclosure พื้นฐาน/ขั้นสูง · play-in-edit=scoped listen)
-- **🔴 รอ P'Aim เคาะก่อนก้าว 3:** (1) จ่าย **G รอบ 2** ให้ IA ไหม / รับ 1 รอบ (PM ว่า 1 รอบพอ) (2) **4 ข้อ §9:** D.C./Segno split(จุด=inline/คำสั่ง=drawer) · โหมดแก้ตัด transport เต็ม+ฟังทั้งเพลงลง⚙ · import=หน้าแยก · ลำดับ build → **PM แนะรับ 3 ข้อแรก + build order = input-parity→D.C./D.S.→import** (3) **พี่เปาใช้เวลา พิมพ์มือ vs ตรวจ import มากกว่ากัน** + มีเพลงจริงต้อง modulation/ย้อนกลางห้องไหม (จัดลำดับ)
-- **ก้าว 3 (หลังเคาะ) = mockup วาง component ของเดิมตามผัง IA · บน component จริง dev-ready · ⛔ ไม่รื้อ engine · ครบทุก function (ไม่งั้นปะผุ)**
+- **§9 ปิดแล้ว (PM ตัดสิน 3 ข้อมาตรฐานเอง + P'Aim เคาะ build order pm48):** (1) D.C./Segno split ✅รับ (จุดปัก=S5 inline · คำสั่งกระโดด=S7 drawer) (2) โหมดแก้ตัด transport เต็ม ✅รับ (เหลือ scoped listen + ฟังทั้งเพลงลง⚙ + คง Space) (3) import=หน้า/โหมดแยก ✅รับ (HIG modes-for-tasks) (4) **build order = P'Aim เคาะ "แก้ตรงจุด/พิมพ์ (S5) ก่อน"** · **G รอบ 2 = ไม่ต้อง (PM ว่า 1 รอบพอ)**
+- **🔵 GATE ก่อนก้าว 3 (P'Aim สั่ง pm48):** ให้ **N ตรวจก้าว 1+2 ก่อน ไล่ทีละก้าว** — N เพิ่งมี corpus มาตรฐาน (18 md: Material/MusicXML/SMuFL/MEI + HIG) → หา "จุดหลุด" เติมก่อน mockup · N notebooks = **Pleng source 1/2/3** (id: `7b8ac29d…`/`16421df5…`/`527cd15f…`) · corpus = `OneDrive\…\pleng.phrakham.life\_resource\for_n\` · **จ่าย session แล้ว** (ai-bridge · adversarial "ขาดอะไร" · ⚠️ N approve ใต้แรงกด → เปิดของจริง) · รอ inbox
+- **ก้าว 3 (หลัง N + P'Aim เคาะ) = mockup วาง component ของเดิมตามผัง IA · บน component จริง dev-ready · ⛔ ไม่รื้อ engine · ครบทุก function (ไม่งั้นปะผุ)**
 - **N corpus พร้อม:** `_resource/for_n/` 18 .md (Material/MusicXML/SMuFL/MEI) + `_IMPORT-MANIFEST.md` · P'Aim import เอง + paste 4 HIG URL (website source) + Behind Bars PDF (text สะอาด 423pg) = คลังอ้างอิงมาตรฐานให้ทุกงาน
 
 ### ✅ DEPLOY CONSOLIDATION — LANDED + VERIFIED LIVE (2026-07-25 pm47 · P'Aim สั่ง go)
