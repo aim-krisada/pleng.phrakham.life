@@ -14,6 +14,10 @@
 > **🔵 P'Aim dismiss คำถามเลือกฐาน = ยังไม่ตัดสิน · รอคำสั่งถัดไป · PM ห้าม proceed/จ่ายงาน จน P'Aim สั่ง.**
 > **⛔ ก้าว 3 mockup เดิม (task_5c156160) = ยกเลิก · ล็อกทำนอง (task_224df994) + งานอื่น = P'Aim STOP ไว้ · อย่าปลุกจน P'Aim สั่ง.**
 
+### 🏠 ทะยอยปรับ v2 หน้าแรก (P'Aim 25 ก.ค. pm48 · งานแรกของ "ปรับ v2 ทีละส่วน")
+- **ข้อเสนอ P'Aim:** หน้าแรก=รายการเพลง (มองเป็น "specialized file explorer") · รวม จัดการเพลง (สร้าง/เปิด-รายการ/ลบ/นำเข้า) เป็น **เมนู "เพลง"** = File menu (New/Open/Delete/Import) · **เอาปุ่มส้ม "สร้างเพลงใหม่" เด่นเดี่ยวออก ทั้ง desktop+mobile** (create เป็นแค่ 1 op ไม่ควรเด่นกว่าเพื่อน) · (เมนูแก้โน้ตยังอยู่บนแผ่น/dock — คนละชั้น)
+- **P'Aim สั่งปรึกษา N+G ก่อน → จ่ายแล้ว (task_3b6be3a2):** 4 คำถาม (File-menu world-class? · create เด่น FAB vs tuck? · home=file-explorer? · desktop vs mobile) → transcript+ทางเลือกให้ P'Aim เคาะ · รอ inbox `2026-07-25-home-songmenu-options.md`
+
 ### 📥 พี่เปา (user จริง) แจ้งผ่าน P'Aim (25 ก.ค. pm48) — 2 เรื่อง
 1. **🔴 บั๊ก (อาจ data loss · ด่วน): ใส่ `-` ในเลขเพลง (717-1/717-2) → เพลงหายทั้งคู่** · **จ่าย session ตรวจ read-only แล้ว (task_ae699484):** (A) ข้อมูลยังอยู่ใน Supabase ไหม (B) ใช้ `-` ได้ไหมจริง (C) ต้นเหตุ (save/filter/parse number เป็นเลข→NaN?) · ⛔ SELECT อย่างเดียว · รอ inbox `2026-07-25-bug-dash-in-song-number.md` → ถ้าเป็นบั๊ก PM จ่าย fix แยก
 2. **feature: เตือน+กันชื่อเพลงซ้ำในเล่มเดียวกัน** (title ซ้ำใน songbook → warn + block) · ครอบ **สร้างใหม่ + แก้ไข** (อย่างน้อย · P'Aim) + **import** (PM แนะเพิ่ม · dup เข้าทาง batch ได้ · รอ P'Aim veto) · = requirement song-maker (fold M1.4 ตั้งค่าเพลง/ชื่อ · design+3AI ทีหลัง)
