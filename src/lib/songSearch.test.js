@@ -448,11 +448,14 @@ describe('fuzzyDistance — approximate substring primitive', () => {
 })
 
 describe('searchSongs — ranked results', () => {
-  it('returns exact matches before fuzzy ones', () => {
-    // both songs get 'พระ' somewhere; v1 title contains it (exact), keep order
+  it('ranks a title match above a lyrics-only match (phrase-first)', () => {
+    // Both songs contain 'พระ': v1 title 'พระเจ้าดีต่อฉัน' starts with it (title-prefix
+    // boost), v2 has it only in its lyrics. Title-boost orders v1 first and scores it
+    // strictly below v2 — previously both scored 0 and order was catalog-incidental.
     const results = searchSongs(catalog, 'พระ')
-    expect(results.every((r) => r.score === 0)).toBe(true)
     expect(results.map((r) => r.song)).toEqual([v1, v2])
+    expect(results[0].score).toBeLessThan(results[1].score)
+    expect(results[1].score).toBe(0) // v2: exact lyric hit, no title boost
   })
 
   it('drops non-matches', () => {
