@@ -192,7 +192,18 @@ export function scoreSong(song, query) {
     return refs.some((r) => r && r.book === bref.book && r.no === bref.no) ? 0 : null
   }
   const hay = songHaystack(song)
-  if (hay.includes(q)) return 0
+  if (hay.includes(q)) {
+    // Phrase-first ranking (title-boost): among exact-substring hits, a song whose TITLE
+    // carries the typed phrase outranks one that only has it deep in the lyrics/notes, and
+    // a title that STARTS with the phrase (prefix) outranks a mid-title match. All three
+    // are still exact hits — the negative tiers just order them ahead of the plain
+    // lyric/number/notes hit (0), so a typed phrase surfaces the song people mean first.
+    const titleTh = normalize(song.title_th ?? '')
+    const titleEn = normalize(song.title_en ?? '')
+    if (titleTh.startsWith(q) || titleEn.startsWith(q)) return -2
+    if (titleTh.includes(q) || titleEn.includes(q)) return -1
+    return 0
+  }
   // Note path: a melody query matches space-insensitively. Reduce both the query and
   // the song's notes to bare scale degrees and test substring — so "5561", "55 61" and
   // "5 5 6 1" all find the song whose notes are "5 5 6 1 3". Only runs for note-shaped
@@ -220,11 +231,14 @@ export function scoreSong(song, query) {
   return d <= maxErr ? d : null
 }
 
-// Filter to matching songs, order preserved (catalog order). Fuzzy + lyrics aware.
+// Filter to matching songs, ranked best-first. Reuses searchSongs so the catalog page
+// and the Studio picker get phrase-first ordering (exact title-prefix → title → lyric →
+// melody → fuzzy) with no call-site change; ties keep catalog order (stable). Empty query
+// returns the full catalog untouched. Fuzzy + lyrics aware.
 export function filterSongs(songs, query) {
   const q = normalize(query)
   if (!q) return songs
-  return songs.filter((s) => scoreSong(s, q) !== null)
+  return searchSongs(songs, q).map((r) => r.song)
 }
 
 // Ranked search for a picker UI: best matches first, ties keep catalog order.
