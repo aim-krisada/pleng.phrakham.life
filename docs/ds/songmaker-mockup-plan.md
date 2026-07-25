@@ -105,6 +105,14 @@
 |48| ป้ายคำสั่งการร้อง (เดี่ยว/พร้อม/สร้อย) | F3 | S7 | "＋ป้ายคำสั่ง" ใน drawer | bottom-sheet | A | ✅ |
 |49| ลบท่อน/ข้อ (เตือนถ้าใช้ทำนองร่วม) | F3 | S7 | เมนูการ์ด "ลบ" (ยืนยัน) | เหมือนกัน | B | ✅ |
 
+### M6-LOCK — ล็อกทำนอง per-stanza (P'Aim + พี่เปา 2026-07-25 · melody = SSOT 100%) (3)
+> พอทำนองนิ่ง → ล็อก stanza นั้น → แก้ **เนื้อร้อง** (verse ใด ๆ) ได้ปกติ แต่ **โน้ต/ความยาว/โครงทำนอง** แก้ไม่ได้จนปลดล็อก (กันทำนองเพี้ยนตอนแก้เนื้อ). ⚠️ ตำแหน่งเป๊ะ PM จะ confirm เมื่อ fold เข้า IA เสร็จ — mockup เผื่อที่ + affordance ไว้.
+| # | Function | Freq | Surface | Desktop | Mobile | PD | ✅ |
+|--|--|--|--|--|--|--|--|
+|76| toggle "🔒 ล็อกทำนอง" ต่อ stanza | F3 | **S7** | ปุ่มล็อก/ปลดล็อกบนการ์ดท่อน | bottom-sheet card | B | ✅ |
+|77| ตัวบ่งชี้ stanza ล็อกอยู่ (โน้ตล็อก) | F5 | **S9** | badge 🔒 บนท่อนที่ล็อก (แผ่น + การ์ด) | เหมือนกัน | B | ✅ |
+|78| stanza ล็อก → กันแก้โน้ต/ความยาว (แก้เนื้อได้) + affordance | F1 | **S5** | โน้ตล็อก = read-only + hint · เนื้อแก้ได้ | เหมือนกัน | B | ✅ |
+
 ### M7 — ตรวจความถูกต้อง (2)
 | # | Function | Freq | Surface | Desktop | Mobile | PD | ✅ |
 |--|--|--|--|--|--|--|--|
@@ -152,7 +160,7 @@
 |74| skip เพลงยาก + วนกลับ | F6 | S10 | ปุ่ม "ข้ามไว้ก่อน" | เหมือนกัน | B | ✅ |
 |75| guardrail mass-approve (เตือนถ้ายังมีเสี่ยง) | F6 | S9→S10 | dialog เตือนก่อน bulk | เหมือนกัน | B | ✅ |
 
-> **นับรวม: 75 rows** (ครอบ ~65 function หลัก + AC ย่อยที่เป็น control แยก · N-review fold ครบ: repeat-count #36 · measure-repeat #37 · multi-select→action-bar #46 · caesura/breath ใน #13 · meter-change #25). **ไม่มี function orphan** — ทุกตัวมี ✅ บ้านใน mockup ตาม surface. รายการ "build flag / ไม่มี UI" (#8 IME, #57 autosave) = พฤติกรรม ไม่ใช่ control → สะท้อนที่ signal/hint แทน.
+> **นับรวม: 78 rows** (ครอบ ~65 function หลัก + AC ย่อยที่เป็น control แยก · N-review fold ครบ: repeat-count #36 · measure-repeat #37 · multi-select→action-bar #46 · caesura/breath ใน #13 · meter-change #25 · **+ melody-lock #76-78 · P'Aim+พี่เปา 2026-07-25**). **ไม่มี function orphan** — ทุกตัวมี ✅ บ้านใน mockup ตาม surface. รายการ "build flag / ไม่มี UI" (#8 IME, #57 autosave) = พฤติกรรม ไม่ใช่ control → สะท้อนที่ signal/hint แทน.
 
 ---
 

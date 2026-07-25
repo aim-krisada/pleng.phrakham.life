@@ -200,6 +200,8 @@ const SURFACES = [
         <!-- REAL render — interactive tap → S6 accessory. A lint ⚠ + selected caret are overlaid. -->
         <div class="sm-sheet-wrap" @click="selectNote">
           <div class="sm-lint" data-s="S9" title="จังหวะในห้องนี้ไม่ครบ (ไม่นับห้องยก)"><Icon name="alert-circle" :size="15" /> ห้อง 2 จังหวะไม่ครบ</div>
+          <!-- S9 · melody-lock indicator (P'Aim+พี่เปา) — ท่อนนี้ทำนองล็อก: แก้เนื้อได้ แก้โน้ตไม่ได้ -->
+          <div class="sm-lock" data-s="S9" title="ทำนองท่อนนี้ถูกล็อก — แก้เนื้อได้ แก้โน้ต/ความยาวไม่ได้จนปลดล็อก (S7)"><Icon name="lock" :size="14" /> ข้อ 1: ทำนองล็อก</div>
           <SongSheet
             :content="sheetContent"
             mode="full"
@@ -210,6 +212,7 @@ const SURFACES = [
             song-title=""
           />
           <p class="sm-caret-hint" v-if="subMode === 'edit'"><Icon name="mouse-pointer-click" :size="13" /> แตะโน้ต/คำ = cursor ไปตรงนั้น → เปิดเครื่องมือ (S6)</p>
+          <p class="sm-caret-hint locked" v-if="subMode === 'edit'"><Icon name="lock" :size="13" /> ท่อนที่ล็อกทำนอง (ข้อ 1): แก้เนื้อร้องได้ · แตะโน้ต/ความยาว = ถูกกัน (ปลดล็อกที่ S7 โครงสร้าง)</p>
         </div>
       </div>
 
@@ -297,7 +300,9 @@ const SURFACES = [
 .sm-inline-tools button:hover { border-color: var(--brand); color: var(--brand); }
 .sm-sheet-wrap { position: relative; border: 1px solid var(--line); border-radius: 12px; padding: var(--sp-4); background: #fff; }
 .sm-lint { position: absolute; top: 8px; right: 8px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--red); background: #fff; border: 1px solid #eab3ad; border-radius: 999px; padding: 3px 9px; }
+.sm-lock { position: absolute; top: 8px; left: 8px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--brand); background: #f4efe6; border: 1px solid var(--brand); border-radius: 999px; padding: 3px 9px; }
 .sm-caret-hint { display: flex; align-items: center; gap: 5px; font-size: var(--fs-xs); color: var(--muted); margin: var(--sp-3) 0 0; }
+.sm-caret-hint.locked { color: var(--brand); margin-top: var(--sp-1); }
 
 /* ---- S3 FAB ---- */
 .sm-fab { position: fixed; right: 22px; bottom: 26px; z-index: 60; width: 60px; height: 60px; border-radius: 18px; border: none; background: var(--brand); color: #fff; box-shadow: 0 8px 24px rgba(139, 69, 19, 0.4); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }

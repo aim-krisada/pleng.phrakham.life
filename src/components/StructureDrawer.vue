@@ -22,9 +22,9 @@ defineProps({
   sections: {
     type: Array,
     default: () => [
-      { id: 's1', name: 'ข้อ 1', melody: 'A', verses: 3, shared: true },
-      { id: 's2', name: 'ร้องรับ', melody: 'B', verses: 1, shared: false, hook: true },
-      { id: 's3', name: 'ท่อนส่ง', melody: 'C', verses: 1, shared: false },
+      { id: 's1', name: 'ข้อ 1', melody: 'A', verses: 3, shared: true, locked: true },
+      { id: 's2', name: 'ร้องรับ', melody: 'B', verses: 1, shared: false, hook: true, locked: false },
+      { id: 's3', name: 'ท่อนส่ง', melody: 'C', verses: 1, shared: false, locked: false },
     ],
   },
 })
@@ -53,7 +53,7 @@ const DIRECTIVES = ['เดี่ยว', 'พร้อมกัน', 'ดนต
 
     <!-- section cards (Material list · draggable) -->
     <ul class="sd-cards" role="list">
-      <li v-for="s in sections" :key="s.id" class="sd-card" :class="{ hook: s.hook }">
+      <li v-for="s in sections" :key="s.id" class="sd-card" :class="{ hook: s.hook, locked: s.locked }">
         <button class="sd-drag" aria-label="ลากเพื่อจัดลำดับ"><Icon name="grip-vertical" :size="16" /></button>
         <div class="sd-card-main">
           <div class="sd-card-top">
@@ -65,6 +65,11 @@ const DIRECTIVES = ['เดี่ยว', 'พร้อมกัน', 'ดนต
             <span v-if="s.hook" class="sd-badge hook">รับ (ร้องซ้ำ)</span>
             <button class="sd-verse" @click="emit('act', 'add-verse', { id: s.id })"><Icon name="plus" :size="14" /> เพิ่มข้อ</button>
           </div>
+          <!-- 🔒 lock melody per-stanza (P'Aim+พี่เปา · melody=SSOT) — locked = แก้เนื้อได้ แก้โน้ตไม่ได้ -->
+          <button class="sd-lock" :class="{ on: s.locked }" :aria-pressed="s.locked" @click="emit('act', 'toggle-lock', { id: s.id })">
+            <Icon :name="s.locked ? 'lock' : 'lock-open'" :size="14" />
+            {{ s.locked ? 'ทำนองล็อก — แตะเพื่อปลด' : 'ล็อกทำนอง' }}
+          </button>
         </div>
         <div class="sd-card-menu">
           <button class="sd-more" aria-label="เพิ่มเติม" :aria-expanded="menuFor === s.id" @click="menuFor = menuFor === s.id ? null : s.id"><Icon name="more-vertical" :size="18" /></button>
@@ -116,6 +121,10 @@ const DIRECTIVES = ['เดี่ยว', 'พร้อมกัน', 'ดนต
   border-radius: 12px; padding: var(--sp-2); background: var(--cream);
 }
 .sd-card.hook { border-color: var(--brand); }
+.sd-card.locked { background: #f4efe6; }
+.sd-lock { display: inline-flex; align-items: center; gap: 5px; margin-top: var(--sp-2); border: 1px solid var(--line); background: #fff; color: var(--muted); border-radius: 999px; padding: 5px 11px; font: inherit; font-size: var(--fs-xs); cursor: pointer; min-height: 32px; }
+.sd-lock:hover { border-color: var(--brand); color: var(--brand); }
+.sd-lock.on { border-color: var(--brand); background: var(--brand); color: #fff; font-weight: 600; }
 .sd-drag { border: none; background: transparent; color: var(--muted); cursor: grab; padding: 6px 2px; min-height: 40px; align-self: center; }
 .sd-card-main { flex: 1; min-width: 0; }
 .sd-card-top { display: flex; align-items: center; gap: var(--sp-2); }
