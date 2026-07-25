@@ -13,7 +13,7 @@ import sys, json, re, io
 
 # --- identity (P'Aim 2026-07-25: named + versioned · universal across all projects) ---
 HOOK_NAME = "hook ตรวจการทำงาน (work-verification gate)"
-HOOK_VERSION = "1.0.0"   # 1.0.0 = evidence gate + G-VERIFY gate (design/build completeness)
+HOOK_VERSION = "1.1.0"   # 1.1.0 = narrow GATE to verdict-language + scrub code/quotes (cut false-fire on discussing the gate itself)
 
 CLAIM = re.compile(
     r'(ขึ้นเว็บ|published|deployed|deploy\s*เสร็จ|go\s*live|จบงาน|'
@@ -35,11 +35,20 @@ EVIDENCE = re.compile(
 # the floor of completeness/correctness, it does NOT replace judgment; G has hallucinated
 # standards before). Infra/deploy facts (curl / HTTP 200 / git push) are NOT covered here —
 # they need only the evidence block; G does not adjudicate an HTTP 200.
+# v1.1.0: only VERDICT-language (a worker/PM handing a deliverable off as done+correct).
+# Goal/topic words ("ครบตามมาตรฐาน", "Definition of Complete") and infra gate words
+# ("ปิด gate", "gate ผ่าน") were removed — they appear constantly in normal PM discussion
+# and caused false-fires. Matched against SCRUBBED text (code spans / quotes stripped) so
+# QUOTING a trigger (e.g. listing `PASS`/`merge-ready`) does not fire.
 GATE_CLAIM = re.compile(
-    r'(\bPASS\b|merge[\s-]*ready|ครบ(ตาม|ทุก)?มาตรฐาน|ครบสมบูรณ์|เสร็จสมบูรณ์|'
-    r'ปิด\s*gate|gate\s*ผ่าน|ถูกต้องครบ|verified\s*correct|complete\s*per\b|'
-    r'definition\s*of\s*complete|\bDoC\b\s*(ผ่าน|verified|ครบ))',
+    r'(\bPASS\b|merge[\s-]*ready|ถูกต้องครบ|verified\s*correct|\bDoC\b\s*(ผ่าน|verified))',
     re.I)
+
+def scrub(text):
+    text = re.sub(r'```.*?```', ' ', text, flags=re.S)   # fenced code blocks
+    text = re.sub(r'`[^`]*`', ' ', text)                 # inline `code`
+    text = re.sub(r'(?m)^\s*>.*$', ' ', text)            # > blockquotes (past-mistake recounts)
+    return text
 GVERIFY = re.compile(r'G-VERIFY', re.I)
 GATE_REMINDER = (
     "G-VERIFY GATE — you claim a design/build deliverable is complete/correct but are "
@@ -106,11 +115,12 @@ def main():
     if not text:
         sys.exit(0)
     tag = f"[{HOOK_NAME} v{HOOK_VERSION}]\n"
+    scr = scrub(text)   # match claims on scrubbed text; find evidence/G-VERIFY on original
     # G-verify gate first (design/build completeness/correctness needs evidence + G-VERIFY)
-    if GATE_CLAIM.search(text) and not (EVIDENCE.search(text) and GVERIFY.search(text)):
+    if GATE_CLAIM.search(scr) and not (EVIDENCE.search(text) and GVERIFY.search(text)):
         print(tag + GATE_REMINDER, file=sys.stderr)
         sys.exit(2)
-    if CLAIM.search(text) and not EVIDENCE.search(text):
+    if CLAIM.search(scr) and not EVIDENCE.search(text):
         print(tag + REMINDER, file=sys.stderr)
         sys.exit(2)                      # block the stop, feed reason to model
     sys.exit(0)
