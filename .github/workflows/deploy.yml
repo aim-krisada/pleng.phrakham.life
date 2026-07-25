@@ -1,17 +1,19 @@
 name: Deploy to GitHub Pages
 
-# TWO VERSIONS, ONE SITE (docs/deploy-v2.md)
-#   /      = `main`                  — the version พี่เปา uses every day
-#   /v2/   = `studio-shell-redesign` — the new one, same Supabase database, so it can be tried
-#                                      for real before it replaces the current app
+# TWO VERSIONS, ONE SITE — single branch (docs/deploy-v2.md)
+#   /      = tag `v1-frozen` — the frozen live version พี่เปา uses every day (never changes)
+#   /v2/   = `main`          — the new one (v2 codebase), same Supabase database, tried for real
+#                             before it replaces the current app
 #
-# GitHub Pages has no partial deploy: `deploy-pages` REPLACES the whole site with the uploaded
-# artifact every run. So a workflow that built only one branch would delete the other version on
-# every push. This one always builds BOTH and uploads them together — whichever branch triggered
-# it — which is why the trigger lists both branches and why the file must be IDENTICAL on both.
+# History: main used to carry v1 and a separate `studio-shell-redesign` branch carried v2, so the
+# workflow had to trigger on BOTH branches and stay byte-identical on each — every /v2 redeploy
+# needed an empty commit on main. Now main carries v2 and v1 is pinned at tag `v1-frozen`, so this
+# workflow triggers on main ALONE: one push, one green run, no cross-branch duplicate, no empty
+# commit. GitHub Pages still has no partial deploy (deploy-pages REPLACES the whole site), so we
+# always build BOTH and upload them together.
 on:
   push:
-    branches: [main, studio-shell-redesign]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -33,10 +35,12 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # ---- the live version (root) — always from main, never from the triggering branch --------
+      # ---- the live version (root) — always from the frozen tag, never from main ----------------
+      # v1-frozen is a fixed, known-good snapshot (the current live v1). Its build is deterministic,
+      # so root always ships. base is './' (v1's vite.config.js), which serves correctly at root.
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: v1-frozen
           path: v1
       - uses: actions/setup-node@v4
         with:
@@ -48,14 +52,14 @@ jobs:
       - run: npm run build
         working-directory: v1
 
-      # ---- the new version (/v2/) --------------------------------------------------------------
-      # continue-on-error on BOTH steps is deliberate and is the whole safety story: the new
-      # version is a work in progress, and a broken build there must never stop the live version
-      # from deploying. If either step fails the run carries on and simply ships the site without
-      # /v2 — visitors at the root are unaffected.
+      # ---- the new version (/v2/) — from main --------------------------------------------------
+      # continue-on-error on BOTH steps is deliberate and is the whole safety story: v2 (main) is a
+      # work in progress, and a broken build here must never stop the live version (root, from the
+      # frozen tag) from deploying. If either step fails the run carries on and simply ships the
+      # site without /v2 — visitors at the root are unaffected.
       - uses: actions/checkout@v4
         with:
-          ref: studio-shell-redesign
+          ref: main
           path: v2
       - id: v2install
         continue-on-error: true
