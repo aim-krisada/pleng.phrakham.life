@@ -13,7 +13,8 @@
 - ✅ **BI-014 PASS merge-ready** `bi014-blank-click-focus @9c1bc7a` (Option A) — VERIFIED real-browser: เมาส์คลิกว่าง→ยัง focus พิมพ์ต่อได้ · touch→OSK ปิด · SongViewer.vue เดียว (+31/-1) · ⚠️ **merge หลัง BI-011/012** (แตะ onInlinePick+.sheet-scale binding · diff เล็ก resolve ง่าย) · NOT: มือถือจริง · touch highlight ค้างหลัง blur (G รับได้ · จะ clear ด้วยต้องถาม P'Aim = follow-up)
 - ✅ **BI-017 PASS merge-ready** `bi017-create-new-routing @c8208e4` — root: bare `/studio` (ไม่มี :id) → onMounted mode=edit=EditorMode เก่า · ทั้ง 5 ทางเข้า (pill/drawer/FAB/About/ปุ่มในการ์ด⚙) ตกหน้าเก่า (db7ebce แก้แค่ chip) → wire รวมจุดเดียว createNewSong · 1571 tests · G ไม่ปรึกษา=ถูก (wiring ตาม principle เดิม) · ⚠️ HOT Studio.vue/EditorMode.vue
 - **BI-012 discoverability = deliverable หลัก Phase 2** (P'Aim: chord ไม่มี help เลย ปุ่มเขียนแค่ "คอร์ด" · ไอเดียปุ่ม ◀▶ เพิ่มตำแหน่งคอร์ด) → consult G เจาะ discoverability + ประเมินไอเดียลูกศร มีเหตุผลฟันธง
-- 🎯 **เฟส POLISH (P'Aim สั่ง · ทุกงาน world-class + G consult บังคับ ผ่าน ai-bridge Chrome :9335):**
+- 🚀🚀 **POLISH BATCH (9 fix) LIVE บน /v2 `00aa719` แล้ว (2026-07-25 · deploy+verified live · PM assemble เอง)** — BI-011/012/013/014/015/016/017/018 + issue9 · v1 ปลอดภัย (16906d8 tree เดิม) · รายละเอียด+2 integration-fix → decisions-log 25 ก.ค. · **รอ P'Aim:** (1) เพลง 141 เอื้อน "ถึง"/"พักตร์" ถูกไหม (melisma ไม่ใช่ slur · ถูก=ปล่อย/ไม่ถูก=melisma-edit follow-up) (2) SB1 desktop เก็บไหม (แนะเก็บ) · **follow-up:** ลบห้อง(bar) · melisma-edit · sticky-toolbar บังคอร์ดมือถือ · typo คอร์ดละเอียด · SB1 มือถือ
+- <details><summary>เฟส POLISH — รายละเอียดรายตัว (LIVE แล้ว · ตัดตอน PM เก็บงาน)</summary>
   - 🟡 **BI-011 active-state merge-ready** `@4764b28` (ปุ่มติดสว่าง+aria-pressed · vitest 43/43) — ✅ tie `~` toggle-off พิสูจน์แล้ว · ⚠️ **slur `( )` toggle-off เคลมแต่ไม่ได้ verify → P'Aim จับได้ว่าลบไม่ได้จริง (เพลง 141 · 6–1)**
   - ✅ **BI-011 (a+c) PASS merge-ready** `bi011-remove-top-curve @294533f` (3 commits บน @4764b28) — root 141: slur เก็บวงเล็บติดเลข `(3 1)` + คร่อม segment · โค้ดเดิมลบแค่ `(` เดี่ยว → กดไม่เกิด + ปุ่มไม่ติดโน้ตกลาง/ท้าย · แก้: `bracketSpanAt/withBracketRemovedAt` (line-level depth-aware ข้าม segment) เลือกโน้ตไหนก็ลบทั้งเส้น + ชิป [เอื้อน ✕] · **พิสูจน์สด JSON `(3 1)`→`3 1` arc 1→0 · undo คืน · 107 tests** · docs/ds/bi011-remove-arc.md · ⚠️ HOT songEdit.js+SongViewer.vue · **= สาย slur ที่จะ merge** (drop BI-011b `@3330525` ที่ซ้ำ · แต่เก็บ finding)
   - ✅ **141 RESOLVED (Explore `ad1ae25d` · query Supabase จริง+รัน notation.js):** เส้น 6→1 = **melisma arc (เอื้อน)** ไม่ใช่ slur — ทั้งเพลง 141 **ไม่มีวงเล็บ ( ) เลย** · เกิดจากโน้ต `1` มีพยางค์ว่าง "" (สระค้างของ "ถึง"/"พักตร์" ร้องคร่อม 6→1) · ปุ่ม ( ) ลบไม่ได้เพราะไม่มีอะไรให้ลบ = **ถูกต้องทางดนตรี** (BI-011 อ้าง `(3 1)` = ผิด) · **ถาม P'Aim: เอื้อนตรงนั้นถูกไหม** (ถูก=ปล่อย · ไม่ถูก=แก้ข้อมูลพยางค์ = melisma-edit follow-up) · slur ( ) fix ยังดี ใช้กับเพลงมี slur จริง (26/949bc4ba)
@@ -43,6 +44,8 @@
 - ⚠️ **BI-007 tip merge = `@19d9813`** (ไม่ใช่ 5f93562=ก่อน refinements) · chain: 7afb038→eae57c2(BI-006)→5f93562→19d9813 · cherry-pick BI-007 = เอาทั้ง 5f93562+19d9813 · dev :5486 ค้าง (P'Aim ลอง role: approver="อนุมัติและเผยแพร่" · editor="ส่งให้ผู้อำนวยเพลงตรวจทาน")
 - **Tester `287afc35` = standby regression-check integration** (มี scripts: real-DnD · mobile-emu · WebAudio-RMS)
 - **deploy = ✅ DONE (717fb7a live /v2)** · mechanism จริง = trigger บน main (empty commit) → workflow build v2 จาก ssr · ดู decisions-log
+</details>
+
 </details>
 
 ### ⏸️ HOLD/รอ P'Aim
