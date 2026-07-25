@@ -12,7 +12,14 @@
 - **rollback (พร้อม 1 คำสั่ง):** `git push --force-with-lease origin v1-frozen:main` (main→16906d8 · ssr ไม่แตะ)
 - **🔵 follow-up หลัง consolidation:** (1) base pointer `studio-shell-redesign`→`main` ใน **app-repo CLAUDE.md + docs/README.md + docs/mission.md** (⚠️ commit main = redeploy → batch ทีเดียว) (2) teardown throwaway `pleng-consolidate-dryrun`/`pleng-dryrun-v2`/`pleng-main-deploy-stage` + serve :8791 (3) keep origin/ssr จน stable แล้วค่อย `--delete` (in-flight bi0xx branches merge เข้า main ใหม่สะอาด ไม่ต้อง rebase)
 
-### 🔴 งานใหญ่ค้าง #2 — repeat/ย้อน (D.C./D.S.) ยังไม่ทำงานจริง (โจทย์หลัก P'Aim · เคยหลุด 4 รอบ)
+### 🎯🎯 ทิศใหม่ (P'Aim 2026-07-25 · เหนืองานย่อยทั้งหมด) — SONG-MAKER FIRST · เลิกปะผุ
+- P'Aim: v2 ปัจจุบัน = "ปะผุระดับใหญ่" (ยกเครื่องใหม่โดยไม่ทำภาพรวมก่อน) · **ทิศ = เริ่มจาก "คนทำเพลง" ให้ใช้ดีจริงก่อน** แล้วค่อยขยาย
+- **ลำดับที่ P'Aim สั่ง (ทำทีละก้าว · ก้าวก่อนไม่ครบ ห้ามข้าม):** (1) **user story + journey ของคนทำเพลง อย่างเดียว ให้ครบสมบูรณ์** → (2) จัดกลุ่ม function ตามมาตรฐาน → (3) mockup (บน component จริง dev-ready) ให้ P'Aim ดู → (4) build · ⛔ ห้ามทำ 2/3/4 จน (1) ครบ
+- **🚀 จ่ายก้าว (1) แล้ว: `task_80a7288b`** (design-only · docs/us/songmaker.md · G บังคับหา "ขาดอะไร" · DoC method · STOP รอ PM gate) — running/รอ P'Aim กด chip
+- **งานย่อยทั้งหมดยุบเข้าใต้ทิศนี้:** ย้อน/D.C./D.S. = function ใน journey (ไม่แก้เดี่ยว) · /v2 header nav (design เสร็จ ถือไว้) · SB1/SB2 · completion-flow BI-007 · BI-xxx = เลิกไล่ทีละอัน · ⛔ ไม่แตะ engine (แข็งแล้ว ~70%)
+- **บทเรียน P'Aim ย้ำ:** อย่าเสียเวลาไล่ว่า "G ผิดตรงไหน" = แก้ตัว · เราอยู่หน้างานจริงต้องทำให้ดีเอง
+
+### 🔴 งานใหญ่ค้าง #2 — repeat/ย้อน (D.C./D.S.) ยังไม่ทำงานจริง (ยุบเข้า journey คนทำเพลงข้างบน · ไม่แก้เดี่ยว)
 - **สถานะจริง (verify 00aa719):** ‖::‖/volta/ร้องรับทุกข้อ ใส่ได้แต่**อยู่ในตัวแก้เก่า (EditorMode) ไม่ใช่ดินสอ ✏️** · **D.C./D.S./Segno/Coda/Fine = พิมพ์ได้แค่ป้าย free-text ไม่ย้อนจริง** · ย้อนมิดบาร์+Ctrl+K = ไม่ได้ทำ
 - **P'Aim สั่ง (โมโห):** "ต้องย้อนได้จริง**ทุกบทเพลงตามมาตรฐาน**ใน 2 ไฟล์ `work/ปรับ pl edit ui/แปลงโน้ตเพลงเป็นอัลกอริทึม.md` + `บทวิเคราะห์-สถาปัตยกรรม.md`" · **ต้องอยู่ในดินสอ ✏️ (เลิกตัวแก้เก่า) · ต้องเล่นย้อนจริง** · ⛔ pm47 ห้ามจ่ายจนอ่าน 2 ไฟล์นั้นเป็นโจทย์ก่อน + verify ด้วยการเปิดเพลงจริงกดเล่น (ไม่ใช่ render/เทส) · (pm46 เผลอจ่าย chip นี้ก่อนตกลง → P'Aim หยุด → dismiss แล้ว)
 - ทำ **หลัง** deploy consolidation เสร็จ (หรือแล้วแต่ P'Aim)
