@@ -1,8 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
-import { displayChord } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, slurSpans } from '../lib/notation.js'
-import { buildArc, planArcs, makeHalfHider } from '../lib/slurArcs.js'
+import { displayChord, isValidChord } from '../lib/chords.js'
+import { parseNotes, beatCount, expectedBeats, slurSpans, arcPlan, syllableSlots, melismaSpans } from '../lib/notation.js'
 import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
@@ -12,6 +11,9 @@ const props = defineProps({
   displayKey: { type: String, default: '' }, // transpose target; '' = original
   playingSeg: { type: Object, default: null }, // { li, si } currently sounding
   playingSyl: { type: Object, default: null }, // { li, si, syk } syllable+note sounding now (B006)
+  // inline-edit selection (separate from playback): { li, si, syk, layer:'note'|'word' }. Boxes
+  // the selected note + its word as one column; the active layer (note or word) is stronger.
+  editSel: { type: Object, default: null },
   interactive: { type: Boolean, default: false }, // tap a syllable/note to jump there (reader)
   songTitle: { type: String, default: '' }, // prints as the centered heading above the song
   // Independent layer flags (B024 "แสดงผล" menu). null = fall back to `mode` so every
@@ -25,8 +27,12 @@ const props = defineProps({
   // (verse number + words), like a printed hymn book. Off = every line keeps its own layers
   // (the ฝึกร้อง/sing view + editor preview never set this, so notes stay on every verse).
   songbook: { type: Boolean, default: false },
+  // BI-012: the pencil is on. Turns the chord slot above each note into a click/tap target
+  // (a real hit-area even when empty) so a chord can be entered right where it sits, and shows a
+  // faint "＋" affordance on notes that have no chord yet — the discoverable way into chord entry.
+  editing: { type: Boolean, default: false },
 })
-const emit = defineEmits(['seek'])
+const emit = defineEmits(['seek', 'chordedit'])
 
 // Resolve each layer: an explicit flag wins; otherwise derive from the coarse `mode`
 // (full = chord+note+lyric · lyrics = lyric only) — the pre-B024 contract.
@@ -60,6 +66,48 @@ function chordText(chord) {
   })
 }
 
+// ── Jump / navigation markers — RENDER contract (Segno 𝄋 · Coda 𝄌 · D.C./D.S. · To Coda ·
+// Fine). This lane only DRAWS them; the engine/editor lane owns the marker DATA. An item is
+// a jump marker when it is `{type:'jump', kind, al?}`, a dedicated per-symbol type
+// (`segno` `coda` `to-coda` `dc` `ds` `fine`), or a generic `{type:'marker', kind}` — we
+// normalise all three so whatever shape that lane emits renders the same. A plain
+// `{type:'marker', label}` (no kind) is untouched → still the old free-text section marker.
+//   kind: 'segno'|'coda'|'to-coda'|'dc'|'ds'|'fine' · al (dc/ds only): 'fine'|'coda'.
+// Segno/Coda draw as inline SVG — deterministic, so no missing-font tofu (▯) on Windows
+// Chrome, where the U+1D10B/1D10C musical glyphs aren't reliably covered. The final barline
+// ‖ ("จบเพลง") stays the existing `end` mark. Position comes from the item's own spot in the
+// line, so a mid-bar marker (mid-bar lane) renders wherever it sits — not bar-boundary only.
+function normJumpKind(k) {
+  const s = String(k || '').toLowerCase().replace(/[\s._-]/g, '')
+  if (s === 'segno' || s === 'dalsegnomark') return 'segno'
+  if (s === 'coda' || s === 'codamark') return 'coda'
+  if (s === 'tocoda') return 'to-coda'
+  if (s === 'dc' || s === 'dacapo') return 'dc'
+  if (s === 'ds' || s === 'dalsegno') return 'ds'
+  if (s === 'fine') return 'fine'
+  return null
+}
+function classifyJump(item) {
+  if (!item) return null
+  let kind = normJumpKind(item.type)
+  if (!kind && (item.type === 'jump' || item.type === 'marker')) kind = normJumpKind(item.kind)
+  if (!kind) return null
+  let al = null
+  if (kind === 'dc' || kind === 'ds') {
+    const a = normJumpKind(item.al)
+    al = a === 'fine' || a === 'coda' ? a : null
+  }
+  return { kind, al }
+}
+// The letter directives' printed text (Segno/Coda render as glyphs, so they have no text).
+function jumpLabel(part) {
+  if (part.kind === 'dc') return part.al === 'fine' ? 'D.C. al Fine' : part.al === 'coda' ? 'D.C. al Coda' : 'D.C.'
+  if (part.kind === 'ds') return part.al === 'fine' ? 'D.S. al Fine' : part.al === 'coda' ? 'D.S. al Coda' : 'D.S.'
+  if (part.kind === 'to-coda') return 'To Coda'
+  if (part.kind === 'fine') return 'Fine'
+  return ''
+}
+
 // Group each line into bar-units so the line can WRAP at bar boundaries (no
 // horizontal scroll) instead of overflowing — a bar never splits across rows.
 // Segments carry si (index within the line) for playback highlight + auto-scroll.
@@ -72,11 +120,22 @@ const renderLines = computed(() =>
     const parts = []
     let si = -1
     let bar = null
+    // A volta ("จบรอบ") is stored PER BAR — every bar of an ending carries the mark so
+    // playback can skip the whole run (midi.expandRepeats). On paper the number is printed
+    // ONCE, at the head of the run, like the bracket over the ending. So repeats of the same
+    // number are collapsed; a repeat barline (or a different number) starts a new run.
+    let lastVolta = 0
     const flush = () => {
       if (bar && bar.segments.length) parts.push(bar)
       bar = null
     }
     for (const item of line) {
+      const jm = classifyJump(item)
+      if (jm) {
+        flush()
+        parts.push({ type: 'jump', kind: jm.kind, al: jm.al })
+        continue
+      }
       if (item.type === 'segment') {
         si++
         if (!bar) bar = { type: 'bar', barLine: false, segments: [] }
@@ -94,13 +153,16 @@ const renderLines = computed(() =>
         parts.push({ type: 'end' })
       } else if (item.type === 'repeat-start') {
         flush()
+        lastVolta = 0
         parts.push({ type: 'repeat-start' })
       } else if (item.type === 'repeat-end') {
         flush()
+        lastVolta = 0
         parts.push({ type: 'repeat-end' })
       } else if (item.type === 'volta') {
         flush()
-        parts.push({ type: 'volta', num: item.num })
+        if ((item.num || 0) !== lastVolta) parts.push({ type: 'volta', num: item.num })
+        lastVolta = item.num || 0
       } else if (item.type === 'marker') {
         flush()
         parts.push({ type: 'marker', label: item.label })
@@ -157,6 +219,34 @@ function activeNote(li, si) {
   const p = props.playingSyl
   return p && p.li === li && p.si === si && p.syk != null ? p.syk : -1
 }
+// which note-slot in this segment is SELECTED for editing (NoteRow draws the blue box), or -1
+function editNote(li, si) {
+  const s = props.editSel
+  return s && s.li === li && s.si === si && s.syk != null ? s.syk : -1
+}
+// is a given syllable the one selected for editing?
+function isEditSyl(li, si, k) {
+  const s = props.editSel
+  return !!(s && s.li === li && s.si === si && s.syk === k)
+}
+// B011 lyric alignment — when a segment shows BOTH its melody row and its per-syllable
+// lyric row (v2), lay the segment out as a grid whose columns are shared by the notes and
+// the syllables (one column per syllable-bearing note). Each syllable — including a blank
+// melisma slot — is then pinned directly under its own note, so a bar where the note count
+// differs from the visible word count (e.g. 3 notes / 2 words, one held across two notes)
+// still reads unambiguously. Returns the column count (= note slots) or 0 when the grid
+// should not apply (notes hidden, lyrics-only line, or v1 segment without syllable slots).
+// Columns = the segment's NOTE-BOX count (syllableSlots), NOT seg.syllables.length: a held /
+// tied note-box gets its own column even when the arrangement supplied no word for it (an
+// under-supplied verse, e.g. "1.~ ~1" with a single word), so every note keeps a column and
+// none wraps to a second row. Syllables auto-fill the leading columns; any trailing wordless
+// note-box (the tie/hold) simply leaves its column blank.
+function alignCols(seg, first) {
+  if (!(noteOn(first) && Array.isArray(seg.syllables) && !lineLyricsOnly(first))) return 0
+  return syllableSlots(seg.note || '')
+}
+const editNoteActive = computed(() => props.editSel?.layer === 'note')
+const editWordActive = computed(() => props.editSel?.layer === 'word')
 // per-syllable highlight (v2 only): the exact word sounding now
 function isSyl(li, si, k) {
   const p = props.playingSyl
@@ -166,6 +256,22 @@ function isSyl(li, si, k) {
 // playback there (US H1 "แตะ = กระโดด"). syk defaults to the segment's first slot.
 function seek(li, si, syk = 0) {
   if (props.interactive) emit('seek', { li, si, syk })
+}
+// BI-012: clicking the chord slot above a note (pencil on) opens chord entry ON that note, instead
+// of the tap falling through to `seek` (which would jump playback / select the note for note-edit).
+function onChordSlot(e, li, si) {
+  e.stopPropagation()
+  emit('chordedit', { li, si })
+}
+// BI-012: the ＋ affordance shows only over the CURRENTLY SELECTED note (G r4 #3 — a ＋ over every
+// empty note is visual noise on a full sheet). All empty slots stay clickable regardless.
+function isSelSeg(li, si) {
+  return !!props.editSel && props.editSel.li === li && props.editSel.si === si
+}
+// BI-012: is a stored chord readable? Unreadable text is KEPT (never discarded — no silent data loss)
+// but soft-marked red so the editor spots it and fixes it later. Audio/transpose already skip it.
+function chordReadable(chord) {
+  return isValidChord(chord)
 }
 
 // ---- B069: cross-bar ties as ONE continuous line-level arc -------------------
@@ -182,12 +288,34 @@ const rootEl = ref(null)
 // SVG would only paint on the first page. { [li]: { paths: [{d,key}], w, h } }.
 const lineArcs = ref({})
 
-// The engraved-arc geometry (buildArc / planArcs) and the hidden-half bookkeeping now live
-// in lib/slurArcs.js, because the EDITOR draws the very same arcs over its own per-ห้อง
-// previews (B118) and the two surfaces must not drift apart.
-const halves = makeHalfHider()
-const restoreHalves = halves.restore
-const hideHalf = halves.hide
+// One engraved tie: a filled lens (thin points at each note, thickest at the apex),
+// bowing above the digits — same look as NoteRow's arcs, drawn at line scale.
+function buildArc(x1, x2, yTop, h) {
+  const span = Math.max(x2 - x1, 6)
+  const y = yTop + h * 0.14 // just above the digit, in the octave-dot band
+  const rise = Math.min(Math.max(span * 0.12, h * 0.16), h * 0.42)
+  const th = Math.max(h * 0.06, 1.1) // apex thickness
+  const cx1 = x1 + span * 0.24
+  const cx2 = x2 - span * 0.24
+  const top = y - rise
+  const r = (n) => n.toFixed(1)
+  const d =
+    `M${r(x1)},${r(y)} C${r(cx1)},${r(top)} ${r(cx2)},${r(top)} ${r(x2)},${r(y)}` +
+    ` C${r(cx2)},${r(top + th)} ${r(cx1)},${r(top + th)} ${r(x1)},${r(y)} Z`
+  return { d, key: `${x1.toFixed(0)}_${x2.toFixed(0)}_${yTop.toFixed(0)}` }
+}
+
+// NoteRow half-arcs we've hidden because the overlay replaces them — restored before every
+// re-measure so hide/draw never drift apart (a half only stays hidden while its overlay
+// arc is actually drawn; a wrapped tie we skip keeps both NoteRow halves as a fallback).
+let hiddenHalves = []
+function restoreHalves() {
+  for (const el of hiddenHalves) el.style.display = ''
+  hiddenHalves = []
+}
+function hideHalf(el) {
+  if (el) { el.style.display = 'none'; hiddenHalves.push(el) }
+}
 
 function measureTies() {
   const root = rootEl.value
@@ -201,6 +329,26 @@ function measureTies() {
     const lr = lineEl.getBoundingClientRect()
     const nts = Array.from(lineEl.querySelectorAll('.note-row .nt'))
     const arcs = []
+    // B011b — pin each chord's LEFT edge over the FIRST note of its segment. The chord row
+    // spans all grid columns (so a long chord like C#dim / G7 never widens a note column and
+    // never overflows onto the next segment's sizing) — which parked it at the column's left
+    // edge, a few px LEFT of the centered note digit (พี่เอม: "คอร์ดเยื้อง"). We nudge it right
+    // by a transform (no box change → no ResizeObserver feedback loop) so its left corner sits
+    // exactly at the first note's left edge — lead-sheet style: the chord starts on the note it
+    // changes on and holds rightward. The offset is note.left − segment.left (independent of the
+    // chord's own transform), re-measured on the same resize / fonts / beforeprint pass as the
+    // arcs, so it stays correct at print scale too.
+    lineEl.querySelectorAll('.segment.seg-grid').forEach((seg) => {
+      const chord = seg.querySelector('.chord')
+      if (!chord) return
+      const note = seg.querySelector('.note-row .nt[data-idx="0"] .num')
+      if (!chord.textContent.trim() || !note) { chord.style.transform = ''; return }
+      const sr = seg.getBoundingClientRect()
+      const nr = note.getBoundingClientRect()
+      if (!sr.width || !nr.width) return
+      const dx = nr.left - sr.left
+      chord.style.transform = dx > 0.5 ? `translateX(${dx.toFixed(1)}px)` : ''
+    })
     nts.forEach((nt, i) => {
       if (!nt.classList.contains('tie-end')) return
       // The tie's SOURCE is the DIGIT this receiver ties back to. When that note is held by
@@ -253,26 +401,90 @@ function measureTies() {
       line.parts.forEach((p) => {
         if (p.segments) p.segments.forEach((s) => { notesBySi[s.si] = s.note || '' })
       })
-      const spans = slurSpans(notesBySi).filter((sp) => !sp.sameSegment)
+      const allSlurs = slurSpans(notesBySi)
+      const spans = allSlurs.filter((sp) => !sp.sameSegment)
       for (const sp of spans) {
         const openNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.open.si}"] .nt[data-idx="${sp.open.idx}"]`)
         const closeNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.close.si}"] .nt[data-idx="${sp.close.idx}"]`)
         if (!openNt || !closeNt) continue
-        // single continuous arc when both anchors sit on the same visual row, or the
-        // standard two-half engraving when a line wrap fell between them — shared with the
-        // editor's overlay so both surfaces split a wrapped slur identically (B118).
-        const produced = planArcs(
-          openNt.getBoundingClientRect(),
-          closeNt.getBoundingClientRect(),
-          lr,
-          nts.map((el) => el.getBoundingClientRect()),
-        )
+        const ao = openNt.getBoundingClientRect()
+        const bc = closeNt.getBoundingClientRect()
+        if (!ao.width || !bc.width) continue
+        const h = Math.max(ao.height, bc.height)
+        const xOpen = ao.left + ao.width / 2 - lr.left
+        const xClose = bc.left + bc.width / 2 - lr.left
+        const produced = []
+        if (arcPlan(ao, bc, h) === 'single') {
+          // both anchors on the same visual row → one continuous arc over the bar line
+          const yTop = Math.min(ao.top, bc.top) - lr.top
+          if (xClose - xOpen >= 2) produced.push(buildArc(xOpen, xClose, yTop, h))
+        } else {
+          // a line wrap fell between them → two halves: open→end-of-its-row, and
+          // start-of-close-row→close (edges = the outermost .nt on each visual row so the
+          // arc never runs past the notes). Standard engraving for a slur split by a system.
+          let rowRight = xOpen
+          let rowLeft = xClose
+          for (const el of nts) {
+            const r = el.getBoundingClientRect()
+            if (!r.width) continue
+            if (Math.abs(r.top - ao.top) <= h * 0.6) rowRight = Math.max(rowRight, r.right - lr.left)
+            if (Math.abs(r.top - bc.top) <= h * 0.6) rowLeft = Math.min(rowLeft, r.left - lr.left)
+          }
+          if (rowRight - xOpen >= 2) produced.push(buildArc(xOpen, rowRight, ao.top - lr.top, h))
+          if (xClose - rowLeft >= 2) produced.push(buildArc(rowLeft, xClose, bc.top - lr.top, h))
+        }
         // only claim (hide) the stray NoteRow arc once we actually drew a replacement — a
         // wrap we couldn't measure keeps NoteRow's own arc as a fallback (like ties above).
         if (produced.length) {
           const grp = openNt.closest('.note-group')
           hideHalf(grp && grp.querySelector('.slur-arc'))
           arcs.push(...produced)
+        }
+      }
+      // --- derived melisma slurs (P2) -----------------------------------------------------
+      // A syllable held across several notes (a worded note + following blank 'attack' notes,
+      // e.g. "ดวง" over "6 1 6"[0]) carries no ( ) in the data, so nothing else draws an arc —
+      // the reader would have to GUESS the note is held. Derive the span from the syllable
+      // slots (melismaSpans) and draw it with the SAME overlay + buildArc as the ( ) slurs
+      // above, so a held vowel reads as one engraved curve. NoteRow is untouched (no ( ) →
+      // no NoteRow arc to hide). A derived span is SKIPPED when it overlaps ANY authored ( )
+      // slur — cross-segment (drawn here) AND within-segment (drawn by NoteRow) — so a bar
+      // that carries an explicit slur is never double-arced or stacked (the author's slur wins).
+      const segsForLine = []
+      line.parts.forEach((p) => {
+        if (p.segments) p.segments.forEach((s) => segsForLine.push({ si: s.si, note: s.note || '', syllables: s.syllables || [] }))
+      })
+      // (si,idx) reading order is lexicographic (segments left→right, note idx within); two
+      // spans overlap iff each starts at/before the other ends.
+      const leTuple = (a, b) => a.si < b.si || (a.si === b.si && a.idx <= b.idx)
+      const overlapsAuthoredSlur = (sp) =>
+        allSlurs.some((e) => leTuple(sp.open, e.close) && leTuple(e.open, sp.close))
+      for (const sp of melismaSpans(segsForLine)) {
+        if (overlapsAuthoredSlur(sp)) continue
+        const openNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.open.si}"] .nt[data-idx="${sp.open.idx}"]`)
+        const closeNt = lineEl.querySelector(`.segment[data-seg="${li}-${sp.close.si}"] .nt[data-idx="${sp.close.idx}"]`)
+        if (!openNt || !closeNt) continue
+        const ao = openNt.getBoundingClientRect()
+        const bc = closeNt.getBoundingClientRect()
+        if (!ao.width || !bc.width) continue
+        const h = Math.max(ao.height, bc.height)
+        const xOpen = ao.left + ao.width / 2 - lr.left
+        const xClose = bc.left + bc.width / 2 - lr.left
+        if (arcPlan(ao, bc, h) === 'single') {
+          const yTop = Math.min(ao.top, bc.top) - lr.top
+          if (xClose - xOpen >= 2) arcs.push(buildArc(xOpen, xClose, yTop, h))
+        } else {
+          // wrapped across a visual row break → two halves, same as the ( ) slur path
+          let rowRight = xOpen
+          let rowLeft = xClose
+          for (const el of nts) {
+            const r = el.getBoundingClientRect()
+            if (!r.width) continue
+            if (Math.abs(r.top - ao.top) <= h * 0.6) rowRight = Math.max(rowRight, r.right - lr.left)
+            if (Math.abs(r.top - bc.top) <= h * 0.6) rowLeft = Math.min(rowLeft, r.left - lr.left)
+          }
+          if (rowRight - xOpen >= 2) arcs.push(buildArc(xOpen, rowRight, ao.top - lr.top, h))
+          if (xClose - rowLeft >= 2) arcs.push(buildArc(rowLeft, xClose, bc.top - lr.top, h))
         }
       }
     }
@@ -312,6 +524,12 @@ onMounted(() => {
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', scheduleMeasure)
     window.addEventListener('beforeprint', measureTies)
+    // A rotation can land without a `resize` in some mobile browsers, and a tab that was
+    // hidden runs no rendering steps at all — so neither the ResizeObserver nor rAF fires
+    // while it is away and the arcs would stay measured for the OLD width. Re-measure on
+    // both so the geometry catches up as soon as the sheet is actually being looked at.
+    window.addEventListener('orientationchange', scheduleMeasure)
+    document.addEventListener('visibilitychange', scheduleMeasure)
   }
 })
 onBeforeUnmount(() => {
@@ -319,6 +537,8 @@ onBeforeUnmount(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', scheduleMeasure)
     window.removeEventListener('beforeprint', measureTies)
+    window.removeEventListener('orientationchange', scheduleMeasure)
+    document.removeEventListener('visibilitychange', scheduleMeasure)
   }
   clearTimeout(timer)
   restoreHalves()
@@ -342,12 +562,17 @@ watch(
       <!-- B069: cross-bar ties as ONE continuous arc, drawn in this line's own overlay so
            NoteRow's per-segment halves (hidden in JS) are replaced by a curve that spans the
            bar line. Per-line (not sheet-wide) so it prints on whatever page the line lands. -->
+      <!-- The box is sized in CSS (inset:0 → always exactly this line, at every width);
+           only the viewBox carries the measured px space. Baking the measured width/height
+           into the ATTRIBUTES made the overlay keep a desktop-sized box after the line got
+           narrower (a re-measure can lag — or never arrive in a background/emulated tab),
+           and an absolutely-positioned 760px box inside a 336px line still counts as
+           scrollable overflow: the document went 772px wide on a 360px phone and every
+           position:fixed control (✏️ / "เสร็จการแก้ไข") slid off-screen (🔴2, พี่เปา). -->
       <svg
         v-if="lineArcs[row.li]"
         class="tie-overlay"
         :viewBox="`0 0 ${lineArcs[row.li].w} ${lineArcs[row.li].h}`"
-        :width="lineArcs[row.li].w"
-        :height="lineArcs[row.li].h"
         preserveAspectRatio="none"
         aria-hidden="true"
       >
@@ -361,18 +586,47 @@ watch(
         <span v-else-if="part.type === 'repeat-start'" v-show="noteOn(row.first)" class="repeat-mark rep-start" aria-label="เริ่มเล่นซ้ำ"><i class="rep-bar" /><i class="rep-thin" /><i class="rep-dots" /></span>
         <span v-else-if="part.type === 'repeat-end'" v-show="noteOn(row.first)" class="repeat-mark rep-end" aria-label="วนกลับไปเล่นซ้ำ"><i class="rep-dots" /><i class="rep-thin" /><i class="rep-bar" /></span>
         <span v-else-if="part.type === 'volta'" v-show="noteOn(row.first)" class="volta-tag">{{ part.num }}.</span>
+        <!-- Segno / Coda — drawn as inline SVG (no font glyph → no tofu on Windows Chrome). -->
+        <span v-else-if="part.type === 'jump' && part.kind === 'segno'" class="jump-mark jump-sign" role="img" aria-label="Segno (เครื่องหมายวน)">
+          <svg class="jm-glyph" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15 7 C15 4 9 5 9 8 C9 11 15 11 15 14 C15 17 9 18 9 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            <line x1="7" y1="17" x2="17" y2="7" stroke="currentColor" stroke-width="1.5" />
+            <circle cx="16.1" cy="9.4" r="1.2" fill="currentColor" />
+            <circle cx="7.9" cy="14.6" r="1.2" fill="currentColor" />
+          </svg>
+        </span>
+        <span v-else-if="part.type === 'jump' && part.kind === 'coda'" class="jump-mark jump-sign" role="img" aria-label="Coda (ท่อนปิดท้าย)">
+          <svg class="jm-glyph" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="6.6" fill="none" stroke="currentColor" stroke-width="1.6" />
+            <line x1="12" y1="2.6" x2="12" y2="21.4" stroke="currentColor" stroke-width="1.6" />
+            <line x1="2.6" y1="12" x2="21.4" y2="12" stroke="currentColor" stroke-width="1.6" />
+          </svg>
+        </span>
+        <!-- D.C. / D.S. / To Coda / Fine — italic serif directive text at its own spot. -->
+        <span v-else-if="part.type === 'jump'" class="jump-mark jump-text">{{ jumpLabel(part) }}</span>
         <span v-else class="bar-group">
           <span v-if="part.barLine && noteOn(row.first)" class="bar-line" aria-hidden="true"></span>
           <span
             v-for="seg in part.segments"
             :key="seg.si"
             class="segment"
-            :class="{ 'seg-playing': isPlaying(row.li, seg.si) && !seg.syllables, 'seg-tap': interactive }"
+            :class="{ 'seg-playing': isPlaying(row.li, seg.si) && !seg.syllables, 'seg-tap': interactive, 'seg-grid': alignCols(seg, row.first) }"
+            :style="alignCols(seg, row.first) ? { gridTemplateColumns: `repeat(${alignCols(seg, row.first)}, auto)` } : null"
             :data-seg="`${row.li}-${seg.si}`"
             @click="seek(row.li, seg.si)"
           >
-            <span v-if="chordOn(row.first)" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
-            <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :syllables="seg.syllables || null" :active="activeNote(row.li, seg.si)" />&nbsp;</span>
+            <span
+              v-if="chordOn(row.first)"
+              class="chord"
+              :class="{ 'chord-edit': editing, 'chord-empty': editing && !seg.chord, 'chord-invalid': editing && seg.chord && !chordReadable(seg.chord) }"
+              :role="editing ? 'button' : null"
+              :tabindex="editing ? 0 : null"
+              :aria-label="editing ? (seg.chord ? `แก้คอร์ด ${seg.chord}` : 'เพิ่มคอร์ดบนโน้ตนี้') : null"
+              @click="editing && onChordSlot($event, row.li, seg.si)"
+              @keydown.enter.prevent="editing && emit('chordedit', { li: row.li, si: seg.si })"
+              @keydown.space.prevent="editing && emit('chordedit', { li: row.li, si: seg.si })"
+            >{{ chordText(seg.chord) }}<span v-if="editing && !seg.chord && isSelSeg(row.li, seg.si)" class="chord-add" aria-hidden="true">＋</span>&nbsp;</span>
+            <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :syllables="seg.syllables || null" :active="activeNote(row.li, seg.si)" :sel="editNote(row.li, seg.si)" :sel-active="editNoteActive" />&nbsp;</span>
             <!-- v2: one span per syllable-bearing note -> highlight walks note by note (B006). -->
             <template v-if="sl">
               <!-- FULL display: syllable spans spread UNDER the notes (flex, karaoke alignment). -->
@@ -381,7 +635,7 @@ watch(
                   v-for="(w, k) in seg.syllables"
                   :key="k"
                   class="syl"
-                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
+                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k), 'syl-sel': isEditSyl(row.li, seg.si, k), 'syl-sel-active': isEditSyl(row.li, seg.si, k) && editWordActive }"
                   :data-syl="`${row.li}-${seg.si}-${k}`"
                   @click.stop="seek(row.li, seg.si, k)"
                 >{{ w || ' ' }}</span>
@@ -392,7 +646,7 @@ watch(
               <span v-else-if="seg.syllables" class="lyric lyric-words">
                 <template v-for="(w, k) in seg.syllables" :key="k"><span
                   class="syl"
-                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
+                  :class="{ 'syl-playing': isSyl(row.li, seg.si, k), 'syl-sel': isEditSyl(row.li, seg.si, k), 'syl-sel-active': isEditSyl(row.li, seg.si, k) && editWordActive }"
                   :data-syl="`${row.li}-${seg.si}-${k}`"
                   @click.stop="seek(row.li, seg.si, k)"
                 >{{ w }}</span>{{ w ? ' ' : '' }}</template>
@@ -431,11 +685,15 @@ watch(
 .song-line { position: relative; }
 .tie-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
+  /* size from the LINE, never from a measured px value — the overlay can then never be
+     wider than the line it decorates, so it can never push the document (and the fixed
+     controls that hang off it) past the viewport, whatever the measure timing. */
+  inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: visible;
   pointer-events: none;
-  z-index: 1;
+  z-index: var(--z-sheet);
 }
 .tie-overlay path {
   fill: var(--note-blue);
@@ -480,6 +738,21 @@ watch(
   color: #fff;
   font-weight: 700;
 }
+/* inline-edit selection on the WORD — a BLUE box matching the note's, so note+word read as
+   one selected column, distinct from the brown playback highlight (both can show at once). */
+.syl-sel {
+  background: rgba(37, 99, 235, 0.1);
+  box-shadow: inset 0 0 0 1.5px rgba(37, 99, 235, 0.45);
+}
+/* the WORD layer is the one being edited (vs its note) — stronger, solid border */
+.syl-sel-active {
+  background: rgba(37, 99, 235, 0.18);
+  box-shadow: inset 0 0 0 2px #2563eb;
+}
+/* while a word is selected for editing, the brown playback highlight still wins its own look
+   if the two coincide (playback sweeping over the note you're editing) — layer order keeps
+   both legible: the blue box is inset, the brown fill sits on top with white text. */
+.syl-sel.syl-playing { color: #fff; }
 /* B090 — end-of-song final barline ‖ = a THIN stroke + a THICK stroke (music standard).
    The shared .bar-final (styles.css) drew this as border-left+border-right on one 5px box,
    which read as a single line (พี่เปา). Render it instead as two bars — like .repeat-mark —
@@ -498,6 +771,44 @@ watch(
 }
 .bar-final .bf-thin { width: 2px; background: #8a7a62; }
 .bar-final .bf-thick { width: 4px; background: #8a7a62; }
+/* Jump / navigation markers — Segno 𝄋 · Coda 𝄌 (SVG glyphs) and the D.C./D.S./To Coda/Fine
+   directives. Repeats made VISIBLE on the sheet + A4 print for the hymn-book form. Each rides
+   inline at the marker's own spot; the line is flex-wrap so it never forces a horizontal
+   scroll. They stay drawn in every layer preset (incl. lyrics-only) — a singer needs the
+   jumps even on a words-only sheet — with the raised offset dropped when there is no chord/
+   note row above (mirrors .bar-final). */
+.jump-mark {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: top;
+  white-space: nowrap;
+}
+/* Segno/Coda drawn in the brand tone (WCAG-strong on cream); a music sign, so it sits raised
+   toward the chord row — reads as "above the bar" like standard engraving. */
+.jump-sign {
+  color: var(--brand, #8b4513);
+  margin: 0.15em 0.4em 0;
+}
+.jm-glyph {
+  width: 1.45em;
+  height: 1.45em;
+  display: block;
+}
+/* D.C./D.S./To Coda/Fine — italic serif, the standard music-directive convention. Pure Latin,
+   so no font-fallback risk. --ink keeps AA contrast in the light theme. */
+.jump-text {
+  font-family: Georgia, 'Times New Roman', 'Noto Serif', serif;
+  font-style: italic;
+  font-weight: 600;
+  font-size: 0.9em;
+  color: var(--ink, #2a2118);
+  margin: 0.4em 0.4em 0;
+  letter-spacing: 0.01em;
+}
+.sheet-mode-lyrics .jump-sign,
+.sheet-mode-lyrics .jump-text { margin-top: 0; }
+.sheet-no-chord :deep(.jump-sign),
+.sheet-no-chord :deep(.jump-text) { margin-top: 0; }
 /* B065 — with a chord row above, the barline/repeat marks carry margin-top:1em to drop
    past that row onto the note line. When the chord layer is hidden (เนื้อ+โน้ต / โน้ตล้วน)
    there is no chord row, so that 1em pushed the barline BELOW the notes and the digits

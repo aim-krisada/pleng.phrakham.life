@@ -4,7 +4,7 @@
 // mini, and menu dropdowns. Page-drawn cells (timeline/aa) are provided as empty slots.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { nextTick, h } from 'vue'
 import DockKey from './DockKey.vue'
 
 Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function () {}
@@ -86,6 +86,47 @@ describe('DockKey ⚙ Setting page', () => {
     const w = mountDK()
     expect(w.findAll('.dk-row')).toHaveLength(2) // no extra pinned row
     expect(w.findAll('[data-cell="key"]')).toHaveLength(1) // drawn once, by row 2
+  })
+
+  // A slot kind (soundctl · export) moved into ⚙ (default:'inSetting') must have its page-drawn
+  // cell rendered INSIDE the panel row via #cell-<id> — before this the panel rendered nothing
+  // for a slot, so UX could not move soundctl/export off the bar.
+  it('a slot in the Setting page renders its #cell-<id> content', async () => {
+    const its = [...items(), { id: 'sound', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', default: 'inSetting', pinnable: true }]
+    const w = mount(DockKey, {
+      props: { items: its, storeKey: 'test', alpha: 0.96 },
+      slots: {
+        'cell-timeslide': '<span class="my-time" />', 'cell-scale': '<button class="my-aa" />',
+        'cell-sound': '<button class="my-sound">เสียง</button>',
+      },
+      global: { stubs: { Icon: true } },
+      attachTo: document.body,
+    })
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    expect(w.find('.dk-panel [data-setting="sound"] .my-sound').exists()).toBe(true)
+  })
+
+  // Opening a panel slot's inner control uses panelOpenId (a second one-at-a-time tracker), so
+  // it must NOT flip openId off 'setting' and close the ⚙ page. The scoped `open`/`toggle` given
+  // to the slot are panel-local; the panel stays open.
+  it('a panel slot opens its own popover WITHOUT closing the ⚙ page', async () => {
+    const its = [...items(), { id: 'sound', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', default: 'inSetting', pinnable: true }]
+    const w = mount(DockKey, {
+      props: { items: its, storeKey: 'test', alpha: 0.96 },
+      slots: {
+        'cell-timeslide': '<span class="my-time" />', 'cell-scale': '<button class="my-aa" />',
+        'cell-sound': (p) => h('span', [h('button', { class: 'my-sound', onClick: p.toggle }), p.open ? h('div', { class: 'my-pop' }) : null]),
+      },
+      global: { stubs: { Icon: true } },
+      attachTo: document.body,
+    })
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    await w.find('.dk-panel [data-setting="sound"] .my-sound').trigger('click')
+    await nextTick()
+    expect(w.find('.my-pop').exists()).toBe(true) // inner popover opened
+    expect(w.find('.dk-panel').exists()).toBe(true) // ⚙ page still open
   })
 
   it('a toggle in the Setting page calls its onToggle', async () => {
@@ -179,6 +220,169 @@ describe('DockKey phase-2 schema (E1 keys band · E2 prime/label)', () => {
   })
 })
 
+describe('DockKey cap = f(width)', () => {
+  let iwDesc
+  beforeEach(() => { iwDesc = Object.getOwnPropertyDescriptor(window, 'innerWidth') })
+  afterEach(() => { if (iwDesc) Object.defineProperty(window, 'innerWidth', iwDesc) })
+  const setWidth = (px) => Object.defineProperty(window, 'innerWidth', { configurable: true, value: px })
+
+  it('wide viewport merges row2 into row1 (one row); narrow keeps two + dk-m', () => {
+    const packable = () => [
+      { id: 'grip', kind: 'grip', name: 'ย้าย', place: { anchor: 'left', row: 1 } },
+      { id: 'print', kind: 'btn', name: 'พิมพ์', icon: 'printer', place: { anchor: 'rightOf:grip', row: 1 }, run },
+      { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
+      { id: 'save', kind: 'btn', name: 'บันทึก', label: 'บันทึก', icon: 'send', place: { row: 2, col: 1 }, run },
+    ]
+    setWidth(1200)
+    const wide = mountDK({ items: packable() })
+    expect(wide.findAll('.dk-row')).toHaveLength(1) // merged
+    expect(wide.find('.dk-dock').classes()).not.toContain('dk-m')
+
+    setWidth(400)
+    const narrow = mountDK({ items: packable() })
+    expect(narrow.findAll('.dk-row')).toHaveLength(2) // not merged on narrow
+    expect(narrow.find('.dk-dock').classes()).toContain('dk-m')
+  })
+
+  it('cap grows with width: the same pinned set packs into FEWER rows when wider (no 760 jump)', () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ id: 'p' + i, kind: 'btn', name: 'p' + i, icon: 'x', default: 'inSetting', pinnable: true, run }))
+    const base = () => [
+      { id: 'grip', kind: 'grip', name: 'g', place: { anchor: 'left', row: 1 } },
+      { id: 'setting', kind: 'gear', name: 's', place: { anchor: 'right', row: 1 } },
+      ...many,
+    ]
+    localStorage.setItem('pleng.dockkey.test.pins', JSON.stringify(many.map((m) => m.id)))
+    setWidth(1400) // cap 14 → 12 pinned in one row
+    const wideRows = mountDK({ items: base() }).findAll('.dk-row').length
+    setWidth(300) // cap 6 → 12 pinned across two rows
+    const narrowRows = mountDK({ items: base() }).findAll('.dk-row').length
+    expect(narrowRows).toBeGreaterThan(wideRows)
+  })
+})
+
+describe('DockKey hide-on-scroll (auto-hide)', () => {
+  let rafOrig, scrollDesc
+  beforeEach(() => {
+    rafOrig = globalThis.requestAnimationFrame
+    globalThis.requestAnimationFrame = (cb) => { cb(); return 0 } // run the rAF-gate synchronously
+    scrollDesc = Object.getOwnPropertyDescriptor(window, 'scrollY')
+  })
+  afterEach(() => {
+    globalThis.requestAnimationFrame = rafOrig
+    if (scrollDesc) Object.defineProperty(window, 'scrollY', scrollDesc)
+  })
+  const scrollTo = async (w, y) => {
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: y })
+    window.dispatchEvent(new Event('scroll'))
+    await nextTick()
+    return w
+  }
+
+  it('never hides when auto-hide is off (default) — phrakham stays put', async () => {
+    const w = mountDK() // autoHide defaults false
+    await scrollTo(w, 300)
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+    expect(w.find('.dk-peek').exists()).toBe(false)
+  })
+
+  it('scroll DOWN past the threshold hides the dock + shows the peek; scroll UP reveals', async () => {
+    const w = mountDK({ autoHide: true })
+    await scrollTo(w, 120) // down 120 (> 8, past the top dead-zone) → hide
+    expect(w.find('.dk-shift.hidden').exists()).toBe(true)
+    expect(w.find('.dk-peek').exists()).toBe(true)
+    await scrollTo(w, 60) // up 60 → reveal
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+    expect(w.find('.dk-peek').exists()).toBe(false)
+  })
+
+  it('does NOT hide near the very top (no jitter at the page head)', async () => {
+    const w = mountDK({ autoHide: true })
+    await scrollTo(w, 30) // within the top dead-zone (<=40)
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+  })
+
+  it('does NOT hide while a popover is open (guard)', async () => {
+    const w = mountDK({ autoHide: true })
+    await w.find('[data-cell="key"] .dk-pbtn').trigger('click') // open a menu
+    await nextTick()
+    await scrollTo(w, 200)
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+  })
+
+  it('the peek handle brings the dock back', async () => {
+    const w = mountDK({ autoHide: true })
+    await scrollTo(w, 120)
+    expect(w.find('.dk-peek').exists()).toBe(true)
+    await w.find('.dk-peek').trigger('click')
+    await nextTick()
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+  })
+
+  it('the ⚙ "ซ่อนแถบเมื่อเลื่อนอ่าน" toggle turns auto-hide off + persists', async () => {
+    const w = mountDK({ autoHide: true })
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    await w.find('.dk-prow-ah .dk-switch').trigger('click') // turn OFF
+    expect(localStorage.getItem('pleng.dockkey.test.autohideoff')).toBe('1')
+    await w.find('.dk-gear').trigger('click') // close panel
+    await nextTick()
+    await scrollTo(w, 200)
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false) // stays visible
+  })
+
+  it('prefers-reduced-motion disables auto-hide', async () => {
+    const mmOrig = window.matchMedia
+    window.matchMedia = (q) => ({ matches: q.includes('reduce'), media: q, addEventListener() {}, removeEventListener() {} })
+    const w = mountDK({ autoHide: true })
+    await scrollTo(w, 200)
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+    window.matchMedia = mmOrig
+  })
+})
+
+describe('DockKey keyboard-aware hide', () => {
+  let vvDesc, ihDesc
+  const makeVV = (h) => {
+    const L = {}
+    return {
+      height: h, width: 1024,
+      addEventListener(ev, cb) { (L[ev] ||= []).push(cb) },
+      removeEventListener(ev, cb) { L[ev] = (L[ev] || []).filter((x) => x !== cb) },
+      _set(h2) { this.height = h2; (L.resize || []).forEach((cb) => cb()) },
+    }
+  }
+  beforeEach(() => {
+    vvDesc = Object.getOwnPropertyDescriptor(window, 'visualViewport')
+    ihDesc = Object.getOwnPropertyDescriptor(window, 'innerHeight')
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 })
+  })
+  afterEach(() => {
+    if (vvDesc) Object.defineProperty(window, 'visualViewport', vvDesc); else delete window.visualViewport
+    if (ihDesc) Object.defineProperty(window, 'innerHeight', ihDesc)
+  })
+
+  it('keyboard up (visualViewport height drop >150px) hides the dock; closing reveals it', async () => {
+    const vv = makeVV(800)
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: vv })
+    const w = mountDK({ autoHide: true })
+    vv._set(480) // drop 320 > 150 → keyboard
+    await nextTick()
+    expect(w.find('.dk-shift.hidden').exists()).toBe(true)
+    vv._set(800) // keyboard closed
+    await nextTick()
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+  })
+
+  it('a URL-bar collapse (~90px) is NOT treated as a keyboard', async () => {
+    const vv = makeVV(800)
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: vv })
+    const w = mountDK({ autoHide: true })
+    vv._set(710) // drop 90 < 150
+    await nextTick()
+    expect(w.find('.dk-shift.hidden').exists()).toBe(false)
+  })
+})
+
 describe('DockKey collapse-in-place', () => {
   it('a grip tap collapses to the [grip][⚙] mini (DS I7)', async () => {
     const w = mountDK()
@@ -201,5 +405,90 @@ describe('DockKey collapse-in-place', () => {
     await w.find('.dk-mini .dk-gear').trigger('click')
     await nextTick()
     expect(w.find('.dk-mini').exists()).toBe(false)
+  })
+})
+
+describe('DockKey free-form resize (แบบ 2 · width→reflow)', () => {
+  let iwDesc
+  beforeEach(() => { iwDesc = Object.getOwnPropertyDescriptor(window, 'innerWidth'); Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 }) })
+  afterEach(() => { if (iwDesc) Object.defineProperty(window, 'innerWidth', iwDesc) })
+
+  it('is INERT by default (no handle · no width row · no --dk-w) — phrakham unchanged', async () => {
+    const w = mountDK() // resizable defaults false
+    expect(w.find('.dk-resize').exists()).toBe(false)
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    expect(w.find('.dk-prow-rz').exists()).toBe(false)
+    expect(w.find('.dk-dock').attributes('style') || '').not.toContain('--dk-w')
+  })
+
+  it('resizable → renders the drag handle + the ⚙ width slider', async () => {
+    const w = mountDK({ resizable: true })
+    expect(w.find('.dk-resize').exists()).toBe(true)
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    expect(w.find('.dk-prow-rz input[type=range]').exists()).toBe(true)
+  })
+
+  it('the ⚙ slider sets an explicit width (--dk-w) + persists per storeKey; cap follows the chosen width', async () => {
+    const w = mountDK({ resizable: true })
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    const slider = w.find('.dk-prow-rz input[type=range]')
+    await slider.setValue('160')
+    await nextTick()
+    expect(localStorage.getItem('pleng.dockkey.test.width')).toBe('160')
+    await w.find('.dk-gear').trigger('click') // close panel
+    await nextTick()
+    expect(w.find('.dk-dock').attributes('style')).toContain('--dk-w: 160px')
+  })
+
+  it('a persisted width is restored on mount (resizable), and ignored when not resizable', () => {
+    localStorage.setItem('pleng.dockkey.test.width', '220')
+    const on = mountDK({ resizable: true })
+    expect(on.find('.dk-dock').attributes('style')).toContain('--dk-w: 220px')
+    const off = mountDK({ resizable: false })
+    expect(off.find('.dk-dock').attributes('style') || '').not.toContain('--dk-w')
+  })
+
+  it('a width below MIN_W (120) is clamped, not stored raw', async () => {
+    const w = mountDK({ resizable: true })
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    await w.find('.dk-prow-rz input[type=range]').setValue('40') // below floor
+    await nextTick()
+    expect(Number(localStorage.getItem('pleng.dockkey.test.width'))).toBeGreaterThanOrEqual(120)
+  })
+
+  it('↺ reset returns to AUTO (clears --dk-w + storage)', async () => {
+    localStorage.setItem('pleng.dockkey.test.width', '180')
+    const w = mountDK({ resizable: true })
+    expect(w.find('.dk-dock').attributes('style')).toContain('--dk-w: 180px')
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    await w.find('.dk-prow-rz .dk-mv').trigger('click') // ↺
+    await nextTick()
+    expect(localStorage.getItem('pleng.dockkey.test.width')).toBe(null)
+    await w.find('.dk-gear').trigger('click')
+    await nextTick()
+    expect(w.find('.dk-dock').attributes('style') || '').not.toContain('--dk-w')
+  })
+
+  it('resize + auto-hide are independent (a chosen width survives the dock hiding)', async () => {
+    const rafOrig = globalThis.requestAnimationFrame
+    globalThis.requestAnimationFrame = (cb) => { cb(); return 0 }
+    const scrollDesc = Object.getOwnPropertyDescriptor(window, 'scrollY')
+    try {
+      localStorage.setItem('pleng.dockkey.test.width', '200')
+      const w = mountDK({ resizable: true, autoHide: true })
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: 200 })
+      window.dispatchEvent(new Event('scroll'))
+      await nextTick()
+      expect(w.find('.dk-shift.hidden').exists()).toBe(true) // hidden
+      expect(w.find('.dk-dock').attributes('style')).toContain('--dk-w: 200px') // width preserved
+    } finally {
+      globalThis.requestAnimationFrame = rafOrig
+      if (scrollDesc) Object.defineProperty(window, 'scrollY', scrollDesc)
+    }
   })
 })

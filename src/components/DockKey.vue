@@ -1,3 +1,23 @@
+<script>
+// --- shared across ALL dock instances on the page (module scope, not per-component) ------
+// A page can hold more than one dock at a time (the sing transport and the editor's own
+// dock both mount, one of them collapsed), so each instance registers ITS height here and
+// --dock-h carries the TALLEST. A plain per-instance overwrite let a 109px collapsed dock
+// publish over the 214px one actually on screen — the under-reserved gap behind 🔴4.
+const dockHeights = new Map()
+let dockSeq = 0
+export function publishDockHeight() {
+  if (typeof document === 'undefined') return
+  const tallest = Math.max(0, ...dockHeights.values())
+  const root = document.documentElement
+  if (tallest > 0) root.style.setProperty('--dock-h', `${tallest}px`)
+  else root.style.removeProperty('--dock-h') // no dock left → no gap to reserve
+}
+export function registerDockHeight(id, h) { dockHeights.set(id, h); publishDockHeight() }
+export function unregisterDockHeight(id) { dockHeights.delete(id); publishDockHeight() }
+export function nextDockId() { return ++dockSeq }
+</script>
+
 <script setup>
 // DockKey — the ONE reusable dock "core engine" (library กลาง). Every studio page
 // (ฝึกร้อง · แผ่นเพลง · แก้ไข) hands it ONLY a list of button descriptors (`items`); the
@@ -27,6 +47,14 @@ const props = defineProps({
   storeKey: { type: String, default: 'dock' },
   alpha: { type: Number, default: 0.96 }, // v-model:alpha (transparency of the dock)
   message: { type: String, default: '' }, // transient status line floated above the dock
+  // hide-on-scroll: reclaim screen while reading (Material BottomAppBar). OFF by default so
+  // the shared phrakham read-aloud island keeps its old behaviour — a host opts IN per page.
+  autoHide: { type: Boolean, default: false },
+  // free-form resize (แบบ 2 · window-style · P'Pao): the user sets the dock WIDTH → buttons
+  // reflow into more/fewer rows (reuse cap=f(width) + .dk-row flex-wrap). Desktop = drag handle;
+  // mobile = a width slider in ⚙ (touch-safe · no edge-drag on touch · ux-platform-patterns §1).
+  // OFF by default so phrakham (and any host not opting in) is unchanged.
+  resizable: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:alpha'])
 
@@ -71,11 +99,55 @@ onMounted(() => {
 })
 watch(() => props.alpha, (v) => { try { localStorage.setItem(LS_ALPHA.value, String(v)) } catch { /* ignore */ } })
 
-// ---------- viewport (cap = fill the width at 44px · WCAG 2.2 AA · DS I6) ----------
-const mobile = ref(false)
-let mq = null
-function syncMobile() { mobile.value = mq ? mq.matches : false }
-const cap = computed(() => (mobile.value ? 7 : 14))
+// ---------- viewport (cap = f(width) · continuous · WCAG 2.2 AA · DS I6 · §4) ----------
+// A single binary matchMedia(760) made `cap` jump 7↔14, so an unfolding Fold (690–768) crossed
+// 760 and the dock snapped rows. Derive `cap` from the LIVE full width instead (measured off the
+// document, NOT the dock — a fixed/auto-width dock would feed its own width back into cap · SA Q4).
+// Buttons keep their --touch-min floor (44/42/40 via CSS); a narrow width reflows to MORE rows,
+// it never shrinks the target.
+const PER_BTN = 50 // ≈ one 44px button + 7px gap; the budget one dock button occupies
+const containerWidth = ref(typeof window !== 'undefined' ? (window.innerWidth || 1024) : 1024)
+function readWidth() {
+  return (typeof window !== 'undefined' &&
+    (window.visualViewport?.width || document.documentElement?.clientWidth || window.innerWidth)) || 1024
+}
+function syncWidth() {
+  containerWidth.value = readWidth()
+  // rotate/fold to a narrower screen → a persisted width wider than the viewport must shrink so the
+  // dock never exceeds the screen (continuity: the layout reflows, the chosen width just re-clamps).
+  if (userWidth.value != null) { const c = clampWidth(userWidth.value); if (c !== userWidth.value) userWidth.value = c }
+  nextTick(measureDock)
+}
+
+// ---------- free-form resize (แบบ 2 · window-style · width→reflow · §resizable prop) ----------
+// A user-chosen dock width, persisted per storeKey. null = AUTO (fit-content · cap from the viewport
+// as above). When set, `cap` derives from THIS width (not the viewport) so a narrower dock reflows
+// to more rows — no feedback loop here because the width is a fixed user input, not the dock's own
+// measured size (SA Q4 only forbids feeding the dock's *measured* width back into cap). CSS floors
+// the box at min-content (widest single button) and caps it at the viewport, so the number can't
+// push a button below its --touch-min floor or past the screen.
+const MIN_W = 120 // ≈ 2 buttons; CSS min-width:min-content floors the actual render at the widest item
+function maxW() { return Math.min(700, readWidth() - 20) } // never wider than the viewport (matches CSS)
+function clampWidth(w) { return Math.max(MIN_W, Math.min(maxW(), Math.round(w))) }
+const LS_WIDTH = computed(() => `pleng.dockkey.${props.storeKey}.width`)
+function loadWidth() {
+  try { const n = parseInt(localStorage.getItem(LS_WIDTH.value) || '', 10); return Number.isFinite(n) && n > 0 ? n : null } catch { return null }
+}
+const userWidth = ref(props.resizable ? loadWidth() : null)
+watch(userWidth, (v) => {
+  try { if (v) localStorage.setItem(LS_WIDTH.value, String(v)); else localStorage.removeItem(LS_WIDTH.value) } catch { /* ignore */ }
+})
+// the width the ⚙ slider shows/edits: the chosen width, or (when AUTO) the current live dock width
+// so the slider starts where the eye sees it instead of jumping.
+const measuredWidth = ref(0)
+const sliderWidth = computed(() => userWidth.value || measuredWidth.value || maxW())
+
+// cap derives from the CHOSEN width when resizing, else the viewport (auto).
+const cap = computed(() => Math.max(3, Math.min(14, Math.floor((userWidth.value || containerWidth.value) / PER_BTN))))
+// `mobile` (tighter gaps · suppress the wide row-merge · smaller --touch-min) stays tied to the
+// VIEWPORT, not the chosen dock width — a narrow dock on a desktop must keep 44px targets, and a
+// wide dock on a phone must keep the phone's tighter metrics.
+const mobile = computed(() => containerWidth.value <= 760)
 
 // ---------- one popover at a time (menu · setting · a slot cell) ----------
 const openId = ref(null) // item id | 'setting' | null
@@ -90,6 +162,87 @@ watch(openId, (v) => {
   if (v) setTimeout(() => document.addEventListener('mousedown', onOutside), 0)
   else document.removeEventListener('mousedown', onOutside)
 })
+
+// A slot cell (soundctl · export) can live INSIDE the ⚙ Setting page once a page moves it to
+// `default:'inSetting'`. Its trigger must NOT reuse `openId`: that is 'setting' while the panel
+// is open, and toggling it to the item id would close the panel (one-at-a-time). `panelOpenId`
+// is a SECOND, panel-local one-at-a-time tracker, so the ⚙ page stays open while the inner
+// popover toggles. Reset it whenever the panel itself closes.
+const panelOpenId = ref(null)
+function togglePanelOpen(id) { panelOpenId.value = panelOpenId.value === id ? null : id }
+function closePanel() { panelOpenId.value = null }
+watch(openId, (v) => { if (v !== 'setting') panelOpenId.value = null })
+watch(panelOpenId, async () => { await nextTick(); clampPops() })
+
+// ---------- hide-on-scroll (§2 · reclaim space while reading · engine · 2-host opt-in) ----------
+// The editor scrolls the WINDOW (no overflow wrapper — SA Q1); the preview is position:fixed and
+// separate. Scrolling DOWN slides the whole dock off the bottom; a small peek handle stays to
+// bring it back; scrolling UP reveals it again. Driven by an rAF-gated DIRECTIONAL delta (not a
+// time-debounce, which feels laggy — SA), and never fires while a popover is open, the keyboard
+// is up, the dock has focus, or the user is dragging (so the bar never vanishes mid-action).
+const autoHidden = ref(false)
+const keyboardUp = ref(false) // set by the visualViewport watcher (added in the keyboard phase)
+// user override + reduced-motion → auto-hide OFF (Material: hiding chrome hurts AT/低-motion users;
+// there is no screen-reader API, so a ⚙ toggle + reduced-motion + focus-guard is the standard).
+const LS_AUTOHIDEOFF = computed(() => `pleng.dockkey.${props.storeKey}.autohideoff`)
+const autoHideOff = ref(localStorage.getItem(LS_AUTOHIDEOFF.value) === '1')
+const reduceMotion = ref(false)
+watch(autoHideOff, (v) => {
+  try { localStorage.setItem(LS_AUTOHIDEOFF.value, v ? '1' : '0') } catch { /* ignore */ }
+  if (v) autoHidden.value = false
+})
+const autoHideEnabled = computed(() => props.autoHide && !autoHideOff.value && !reduceMotion.value)
+
+// Pure reducer (unit-tested in jsdom, which has no layout): decide the next hidden state from a
+// scroll delta. Down past +8px hides; any upward past -4px reveals immediately; a guard (popover
+// open · keyboard up · focus/drag in dock) or being near the very top never hides.
+function nextHidden(dy, hidden, { guarded = false, atTop = false } = {}) {
+  if (dy < -4) return false
+  if (dy > 8 && !guarded && !atTop) return true
+  return hidden
+}
+function focusInsideDock() { return !!hostEl.value?.contains(document.activeElement) }
+function isGuarded() {
+  return openId.value !== null || panelOpenId.value !== null || keyboardUp.value || gp !== null || focusInsideDock()
+}
+let lastY = 0, rafPending = false
+function onScroll() {
+  if (!autoHideEnabled.value || rafPending) return
+  rafPending = true
+  requestAnimationFrame(() => {
+    rafPending = false
+    const y = window.scrollY || window.pageYOffset || 0
+    autoHidden.value = nextHidden(y - lastY, autoHidden.value, { guarded: isGuarded(), atTop: y <= 40 })
+    lastY = y
+  })
+}
+function revealDock() { autoHidden.value = false }
+
+// ---------- keyboard-aware (§3 · mobile soft-keyboard occludes the dock → hide it) ----------
+// On a phone the keyboard covers the bottom dock; hide it so the page's contextual toolbox (which
+// the PAGE floats above the keyboard) is unobstructed. Detect via visualViewport height drop >150px
+// — URL-bar collapse is only ~60-100px, so 150 cleanly separates the two (SA Q2). No meta change
+// (`interactive-widget=resizes-content` would stop visualViewport from shrinking · SA). Fallback:
+// focusin/out on a text field, used only when visualViewport is absent.
+let vv = null
+function syncKeyboard() {
+  if (!vv) return
+  const up = (window.innerHeight - vv.height) > 150
+  if (up === keyboardUp.value) return
+  keyboardUp.value = up
+  if (props.autoHide && !autoHideOff.value) autoHidden.value = up // reduced-motion just skips the anim
+}
+function isTextTarget(t) { return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) }
+function onFocusIn(e) {
+  if (vv || !isTextTarget(e.target)) return // visualViewport is authoritative when present
+  keyboardUp.value = true
+  if (props.autoHide && !autoHideOff.value) autoHidden.value = true
+}
+function onFocusOut() {
+  if (vv) return
+  keyboardUp.value = false
+  if (props.autoHide && !autoHideOff.value) autoHidden.value = false
+}
 
 // ---------- ENGINE: order row 1 by anchor, row 2 by column, pinned → rows on top ----------
 // rank a row-1 item from its anchor so [grip … leftOf:setting][setting] lays out in order.
@@ -211,6 +364,52 @@ function gripUp() {
   if (!moved) transition(!collapsed.value) // a clean tap → collapse/expand in place
 }
 
+// ---------- resize: drag the handle to set the dock WIDTH (desktop pointer · §resizable) ----------
+// The dock stays centred (host is align-items:center), so the intuitive window-from-centre model is
+// "half-width follows the pointer": width = 2 × |pointerX − dockCentreX|, clamped [MIN_W, viewport].
+// Buttons never shrink (CSS keeps --touch-min + min-content); only the row count changes. Touch has
+// no reliable edge-drag (finger can't aim · §1) so the handle is pointer-only (CSS @media hover) and
+// the ⚙ width slider is the touch/keyboard path. Double-click (or Esc) → back to AUTO (fit-content).
+let rz = null
+function resizeDown(e) {
+  const d = dockEl(); if (!d) return
+  const r = d.getBoundingClientRect()
+  rz = { cx: r.left + r.width / 2 }
+  try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* pointer still tracks */ }
+  e.preventDefault(); e.stopPropagation()
+}
+function resizeMove(e) {
+  if (!rz) return
+  userWidth.value = clampWidth(Math.abs(e.clientX - rz.cx) * 2)
+  nextTick(clampPops)
+  e.preventDefault()
+}
+function resizeUp() { rz = null }
+function resizeAuto() { userWidth.value = null } // double-click handle → AUTO width again
+// keep a live read of the actual rendered dock width (so the ⚙ slider starts at what the eye sees
+// while AUTO, and so a persisted width that no longer fits the viewport is re-clamped on resize).
+function measureDock() {
+  const d = dockEl()
+  if (d) measuredWidth.value = Math.round(d.getBoundingClientRect().width)
+  if (userWidth.value != null) { const c = clampWidth(userWidth.value); if (c !== userWidth.value) userWidth.value = c }
+}
+
+// ---------- publish the dock's live height so content can reserve room for it ----------
+// The dock is `position: fixed`, so the page below it has to leave a gap or the last row of
+// the song sits UNDER the dock and can never be tapped (🔴4, พี่เปา: 20 controls covered).
+// The gap used to be hard-coded (88px / 150px) while the dock's real height depends on the
+// viewport, wrapping, the message row and the user's own resize — it measured 214px on a
+// 360px phone. Publish the measured height instead so every consumer reserves exactly what
+// the dock takes. Shared with phrakham (no styles.css there), hence a JS-set var + fallback.
+// (the registry itself is module-scoped in the plain <script> block above — shared by
+// every dock instance on the page; this one just reports its own box into it)
+const dockId = nextDockId()
+function syncDockHeight() {
+  const host = hostEl.value
+  if (!host) return
+  registerDockHeight(dockId, Math.ceil(host.getBoundingClientRect().height))
+}
+
 // ---------- keep every popover on-screen (+8px · DS I5, no exceptions) ----------
 function clampPops() {
   const host = hostEl.value
@@ -228,22 +427,73 @@ function clampPops() {
   })
 }
 watch(openId, async () => { await nextTick(); clampPops() })
+// --dock-h again after anything that changes the dock's own height. The ResizeObserver
+// covers layout-driven changes when the page is being painted, but a tab that is in the
+// background (or an emulated/automated one) runs no rendering steps at all, so RO never
+// delivers and the gap would keep the height the dock had at mount. These are the state
+// changes that resize it, so the reserved gap follows the dock either way.
+watch([collapsed, () => props.message, () => props.items, userWidth, openId], async () => {
+  await nextTick()
+  syncDockHeight()
+}, { deep: true })
 
 // ---------- lifecycle ----------
 let ro = null
+let hro = null // watches the dock's own box → --dock-h
+let dockHTimers = [] // settle re-measures for --dock-h
+let rmq = null // prefers-reduced-motion media query
+function syncReduce() { reduceMotion.value = rmq ? rmq.matches : false }
 onMounted(() => {
-  mq = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 760px)') : null
-  syncMobile()
-  mq?.addEventListener?.('change', syncMobile)
-  window.addEventListener('resize', syncMobile)
+  // cap = f(width): observe the DOCUMENT width (the full-width ref) — never the dock itself, or
+  // cap→button count→dock width→cap would form a feedback loop (SA Q4). visualViewport.width also
+  // reflects pinch-zoom; window resize covers rotate/fold; RO covers layout-driven width changes.
+  syncWidth()
+  ro = typeof ResizeObserver === 'function' ? new ResizeObserver(syncWidth) : null
+  ro?.observe(document.documentElement)
+  // the dock's own height feeds --dock-h (collapse / resize / message row / rotate all move it).
+  // Safe from the cap→width feedback loop above: the content gap it drives cannot resize the dock.
+  syncDockHeight()
+  hro = typeof ResizeObserver === 'function' ? new ResizeObserver(syncDockHeight) : null
+  if (hostEl.value) hro?.observe(hostEl.value)
+  window.addEventListener('resize', syncDockHeight)
+  // the first measure lands before the web fonts swap in and before the icons paint, so the
+  // dock is still short at mount (109px measured against a settled 214px). Re-measure once
+  // fonts are ready and once more after the layout settles — timers fire even where the
+  // ResizeObserver does not (background / automated tabs), so the gap is never left short.
+  document.fonts?.ready?.then(syncDockHeight).catch(() => {})
+  dockHTimers = [setTimeout(syncDockHeight, 300), setTimeout(syncDockHeight, 1200)]
+  window.addEventListener('resize', syncWidth)
+  window.visualViewport?.addEventListener('resize', syncWidth)
   window.addEventListener('keydown', onEsc)
+  // keyboard-aware: visualViewport shrinks when the soft keyboard opens; focus is the fallback.
+  vv = window.visualViewport || null
+  vv?.addEventListener('resize', syncKeyboard)
+  document.addEventListener('focusin', onFocusIn)
+  document.addEventListener('focusout', onFocusOut)
+  // hide-on-scroll: reduced-motion forces auto-hide off; the window is the scroll container.
+  rmq = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null
+  syncReduce()
+  rmq?.addEventListener?.('change', syncReduce)
+  lastY = window.scrollY || window.pageYOffset || 0
+  window.addEventListener('scroll', onScroll, { passive: true })
 })
 onUnmounted(() => {
-  mq?.removeEventListener?.('change', syncMobile)
-  window.removeEventListener('resize', syncMobile)
+  rmq?.removeEventListener?.('change', syncReduce)
+  window.removeEventListener('resize', syncWidth)
+  window.visualViewport?.removeEventListener('resize', syncWidth)
+  vv?.removeEventListener('resize', syncKeyboard)
+  document.removeEventListener('focusin', onFocusIn)
+  document.removeEventListener('focusout', onFocusOut)
   window.removeEventListener('keydown', onEsc)
+  window.removeEventListener('scroll', onScroll)
   document.removeEventListener('mousedown', onOutside)
   ro?.disconnect()
+  hro?.disconnect()
+  window.removeEventListener('resize', syncDockHeight)
+  dockHTimers.forEach(clearTimeout)
+  // drop this dock from the registry (the var falls back to the tallest one still mounted,
+  // and clears entirely when the last dock leaves — a stale value would strand a blank band)
+  unregisterDockHeight(dockId)
 })
 
 // ---------- menu (native dropdown) ----------
@@ -254,12 +504,23 @@ function pickMenu(it, value) { it.control?.onPick?.(value); close() }
 // Every slot cell keeps its NATURAL width so the dock hugs its content and no cell can be
 // squeezed under its min-content (which made the timeline's total-time overflow into คีย์ · B1).
 function cellFlex() { return '0 0 auto' }
+
+// expanded-dock inline style: the drag-move transform (if any) + the chosen resize width (if any).
+const dockStyle = computed(() => {
+  const s = {}
+  if (pos.value) s.transform = `translate(${pos.value.x}px, ${pos.value.y}px)`
+  if (userWidth.value) s['--dk-w'] = userWidth.value + 'px'
+  return s
+})
 </script>
 
 <template>
   <div ref="hostEl" class="dk-host no-print" :style="{ '--a': alpha }">
     <p v-if="message" class="dk-msg" role="status">{{ message }}</p>
 
+    <!-- hide-on-scroll shifts the WHOLE dock (mini + full) off-screen as one; it wraps both
+         states so the translateY never fights the per-dock drag transform on .dk-dock (§2). -->
+    <div class="dk-shift" :class="{ hidden: autoHidden }">
     <!-- collapsed → mini [grip][⚙] in place (DS I7). grip tap = expand · drag = move -->
     <div v-if="collapsed" class="dk-dock dk-mini" :style="pos ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : {}">
       <button
@@ -276,7 +537,20 @@ function cellFlex() { return '0 0 auto' }
     </div>
 
     <!-- expanded → the full dock: keys band(s) · pinned rows · row 2 · row 1 (core) -->
-    <div v-else class="dk-dock" :class="{ 'dk-m': mobile }" :style="pos ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : {}">
+    <div v-else class="dk-dock" :class="{ 'dk-m': mobile, 'dk-sized': userWidth != null, 'dk-rz': resizable }" :style="dockStyle">
+      <!-- resize handle (แบบ 2 · desktop pointer only · CSS @media hover) — drag to set the dock
+           WIDTH → rows reflow · double-click → AUTO. Touch uses the ⚙ width slider instead. -->
+      <button
+        v-if="resizable"
+        class="dk-resize"
+        aria-label="ลากปรับความกว้างแถบ · ดับเบิลคลิกคืนอัตโนมัติ"
+        title="ลากปรับความกว้าง · ดับเบิลคลิก = อัตโนมัติ"
+        @pointerdown="resizeDown"
+        @pointermove="resizeMove"
+        @pointerup="resizeUp"
+        @pointercancel="resizeUp"
+        @dblclick="resizeAuto"
+      ><Icon name="grip-vertical" :size="14" /></button>
       <!-- E1: full-width note-key band(s) (edit palette) — above every row, no overflow -->
       <div v-for="band in keysBands" :key="band.id" class="dk-keys" role="toolbar" :aria-label="band.name || 'แป้นสัญลักษณ์'">
         <div v-for="(krow, kri) in band.rows" :key="kri" class="dk-keyrow">
@@ -402,15 +676,70 @@ function cellFlex() { return '0 0 auto' }
       <!-- ===== ⚙ Setting page — every item's home · adjust inline · ▲▼ · 📌 (DS §3) ===== -->
       <!-- a settings FORM, not a menu — its rows are controls, not menuitems (a11y 4.1.2) -->
       <div v-if="openId === 'setting'" class="dk-pop dk-panel" role="group" aria-label="ตั้งค่า" @click.stop>
+        <!-- a11y: let the user turn OFF hide-on-scroll (persisted). Shown only when the page opts
+             into auto-hide; disabled + forced off under reduced-motion (no screen-reader API · §6). -->
+        <div v-if="autoHide" class="dk-prow dk-prow-ah" data-setting="__autohide">
+          <span class="dk-mi"><Icon name="chevrons-down-up" :size="16" /></span>
+          <span class="dk-pl">ซ่อนแถบเมื่อเลื่อนอ่าน</span>
+          <span class="dk-pc">
+            <button
+              class="dk-switch"
+              :class="{ on: !autoHideOff && !reduceMotion }"
+              role="switch"
+              :aria-checked="!autoHideOff && !reduceMotion"
+              :disabled="reduceMotion"
+              aria-label="ซ่อนแถบเมื่อเลื่อนอ่าน"
+              @click.stop="autoHideOff = !autoHideOff"
+            ><span class="dk-switch-k"></span></button>
+          </span>
+        </div>
+        <!-- free-form width (แบบ 2): the touch/keyboard path for resize (the drag handle is pointer
+             -only). Slider sets the dock width → rows reflow; ↺ returns to AUTO (hug content). Shown
+             only when the host opts into :resizable (phrakham has no width control). -->
+        <div v-if="resizable" class="dk-prow dk-prow-rz" data-setting="__width">
+          <span class="dk-mi"><Icon name="move-horizontal" :size="16" /></span>
+          <span class="dk-pl">ความกว้างแถบ</span>
+          <span class="dk-pc">
+            <input
+              class="dk-prange"
+              type="range"
+              :min="MIN_W"
+              :max="maxW()"
+              step="8"
+              :value="sliderWidth"
+              aria-label="ความกว้างแถบ"
+              @input="userWidth = clampWidth(+$event.target.value)"
+            />
+            <span class="dk-slval">{{ userWidth ? userWidth + 'px' : 'อัตโนมัติ' }}</span>
+            <button
+              class="dk-mv"
+              :disabled="userWidth == null"
+              aria-label="คืนความกว้างอัตโนมัติ"
+              title="คืนอัตโนมัติ (กว้างตามเนื้อหา)"
+              @click.stop="resizeAuto"
+            >↺</button>
+          </span>
+        </div>
         <div v-for="it in settingItems" :key="it.id" class="dk-prow" :data-setting="it.id">
           <span class="dk-mi"><Icon :name="it.icon" :size="16" /></span>
           <span class="dk-pl">{{ it.name }}</span>
           <span class="dk-pc">
+            <!-- a page-drawn cell (soundctl · export) moved into ⚙ (default:'inSetting'): the
+                 engine lays out the row, the PAGE renders the control via #cell-<id>. Uses the
+                 panel-local open state so opening it keeps the ⚙ page open (see panelOpenId). -->
+            <slot
+              v-if="SLOT_KINDS.includes(it.kind)"
+              :name="`cell-${it.id}`"
+              :item="it"
+              :open="panelOpenId === it.id"
+              :toggle="() => togglePanelOpen(it.id)"
+              :close="closePanel"
+            />
             <!-- issues9: a `btn` row used to render an EMPTY control cell — icon, name, pin, and
                  nothing to press — so the only way to run the command was to pin it onto the bar
                  first. Give it a real run button so every row in this panel does what it says. -->
             <button
-              v-if="it.kind === 'btn'"
+              v-else-if="it.kind === 'btn'"
               class="dk-prun"
               :disabled="it.disabled"
               :aria-label="it.name"
@@ -460,6 +789,17 @@ function cellFlex() { return '0 0 auto' }
         </div>
       </div>
     </div>
+    </div><!-- /.dk-shift -->
+
+    <!-- peek handle — the only thing left when the dock hid on scroll; tap to bring it back
+         (always reachable so AT/keyboard users can recover the bar · §6). -->
+    <button
+      v-if="autoHidden"
+      class="dk-peek"
+      aria-label="แสดงแถบเครื่องมือ"
+      title="แสดงแถบเครื่องมือ"
+      @click="revealDock"
+    ><Icon name="chevron-up" :size="20" /></button>
   </div>
 </template>
 
@@ -470,7 +810,8 @@ function cellFlex() { return '0 0 auto' }
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 90;
+  /* shared with phrakham (no styles.css there) → token + its historical value as fallback */
+  z-index: var(--z-dock, 90);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -488,6 +829,38 @@ function cellFlex() { return '0 0 auto' }
   max-width: 92vw;
   font-size: 13px;
 }
+/* hide-on-scroll: the shift wrapper carries the whole dock down off-screen (its own translateY,
+   kept off .dk-dock so the drag transform is never overwritten). Layout box stays in flow. */
+.dk-shift {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.22s ease;
+  will-change: transform;
+}
+.dk-shift.hidden { transform: translateY(calc(100% + 24px)); }
+/* peek handle — out of flow (fixed) so it stays put while the shift slides away; always tappable */
+.dk-peek {
+  pointer-events: auto;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  width: 56px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 13px 13px 6px 6px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--muted);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+}
+@media (hover: hover) { .dk-peek:hover { color: var(--brand); border-color: var(--brand); } }
+@media (prefers-reduced-motion: reduce) { .dk-shift { transition: none; } }
 .dk-dock {
   pointer-events: auto;
   position: relative;
@@ -500,14 +873,42 @@ function cellFlex() { return '0 0 auto' }
   padding: 10px; /* D1: comfortable breathing room around the button rows */
 }
 /* The dock is a FLOATING TOOLBOX (P'Aim): it hugs its content on EVERY side — width = the
-   widest row's natural button width, never the screen, and NO min-width padding it out (D3
-   · แผ่นเพลง had trailing space after ⚙). Shrinks to the viewport only on very narrow phones. */
-.dk-dock { width: fit-content; max-width: min(700px, calc(100vw - 16px)); }
+   widest row's natural button width, never the screen. AUTO = fit-content; free-form resize sets
+   `--dk-w` (แบบ 2). `- 20px` = the host's 10px L/R padding. `min-width: min-content` floors BOTH
+   modes at the widest single button (with .dk-row flex-wrap that is one button, not a whole row) so
+   the chosen width can never squeeze a button below its --touch-min or clip it; max-width keeps the
+   dock inside the viewport (the 344 fix + the resize ceiling in one). */
+.dk-dock { width: var(--dk-w, fit-content); min-width: min-content; max-width: min(700px, calc(100vw - 20px)); }
 .dk-dock.dk-mini { width: auto; min-width: 0; max-width: none; display: inline-flex; gap: 8px; padding: 7px 9px; }
+/* resize handle — a vertical grip that floats just OUTSIDE the dock's right edge (in the host's
+   gutter · vertically centred) so it never overlaps a button or the keys band. A vertical dot-bar
+   reads as a horizontal drag affordance (like a column resizer). Pointer-only (touch can't
+   edge-drag · §1 → the ⚙ slider is the touch path); `@media (hover: hover)` reveals it.
+   touch-action:none so a stray touch-drag isn't stolen by page scroll. */
+.dk-resize {
+  position: absolute; top: 50%; right: -16px; transform: translateY(-50%); z-index: var(--z-sheet, 1);
+  width: 16px; height: 34px; min-height: 0; padding: 0; border: 0; border-radius: 6px;
+  display: none; align-items: center; justify-content: center;
+  background: transparent; color: var(--muted); cursor: ew-resize; touch-action: none;
+}
+@media (hover: hover) {
+  .dk-resize { display: inline-flex; }
+  .dk-resize:hover { color: var(--brand); background: var(--cream); }
+  /* reserve the handle's 16px overhang (+ margin) so a max-width dock on a NARROW hover window
+     can never poke the handle past the viewport. Only on hover devices (the handle is hidden on
+     touch, so mobile keeps the full 100vw-20 cap). */
+  .dk-dock.dk-rz { max-width: min(700px, calc(100vw - 44px)); }
+}
+.dk-sized { transition: width 0.03s linear; } /* width edits stay near-instant, just un-janked */
 
 /* rows pack left-to-right at each button's natural size (grip first · ⚙ at the end of the
-   cluster). No justify/space-between — the buttons stay grouped, not pinned to both edges. */
-.dk-row { display: flex; align-items: center; gap: 7px; }
+   cluster). No justify/space-between — the buttons stay grouped, not pinned to both edges.
+   flex-wrap: a row whose natural width exceeds the (clamped) dock REFLOWS to more lines instead
+   of overflowing the viewport — the last button (⚙) was clipped ~+23px past a 344 Fold-cover when
+   a wide pill (▶ ฟังบทความ) + menu chip pushed the nowrap row past min(700, 100vw). Buttons keep
+   their --touch-min floor; only the row count grows (the cap=f(width) intent, guaranteed in CSS
+   so it holds for ANY host/font/glyph width — pleng editor AND the phrakham island · 2-host). */
+.dk-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .dk-row + .dk-row { margin-top: 9px; }
 .dk-cell { display: inline-flex; align-items: center; min-width: 0; }
 
@@ -539,9 +940,16 @@ function cellFlex() { return '0 0 auto' }
 .dk-btn.prime:hover { filter: brightness(1.06); background: var(--brand); }
 .dk-btn.danger { color: var(--red); }
 
-/* E1: full-width jianpu key band(s) — rows share their line (keys stretch, never wrap) */
+/* E1: full-width jianpu key band(s) — keys stretch to share their line, and WRAP when the line
+   can no longer hold them. `nowrap` here was the one thing in the dock that could out-vote the
+   viewport cap: the 11-key row's min-content is 11 × 30px + 10 × 4px = 370px, which lands in the
+   dock's `min-width: min-content` — and in CSS min-width beats max-width, so the dock rendered
+   390px wide inside a 360px screen and clipped 4 keys off the two ends, `1` (the most-typed
+   character in the whole library) among them. Wrapping keeps every key on screen down to 320px
+   while each stays 30px wide — above the 24px floor of WCAG 2.2 §2.5.8 AA — and keeps them all
+   visible, rather than hiding some behind a scroll gesture with no affordance. */
 .dk-keys { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
-.dk-keyrow { display: flex; flex-wrap: nowrap; gap: 4px; justify-content: center; }
+.dk-keyrow { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
 .dk-key {
   flex: 1 1 0; min-width: 30px; max-width: 56px; height: var(--touch-min); min-height: 0; padding: 0;
   border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink);
@@ -569,7 +977,7 @@ function cellFlex() { return '0 0 auto' }
   pointer-events: auto;
   position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: 30;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: var(--z-popover, 30);
   width: max-content; max-width: calc(100vw - 24px); padding: 6px;
 }
 .dk-dd { min-width: 160px; }

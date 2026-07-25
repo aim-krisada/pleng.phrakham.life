@@ -1,0 +1,34 @@
+<!doctype html>
+<!--
+  Evidence render for "ฟังตอนแก้" (PM 24 ก.ค.).
+
+  It mounts the REAL SongViewer with a REAL song and PRESSES THE REAL BUTTONS in the DOM — the
+  dock's ▶ for โหมดฟัง, and the pencil's ทั้งเพลง / ท่อนนี้ / บรรทัดนี้ for the editor. Nothing about
+  the audio path is re-implemented here, so what comes out is what a person hears.
+
+  The trick (same as ensemble-preecho-render): playSong builds its AudioContext from
+  `window.AudioContext`, so we hand it an OfflineAudioContext behind a facade. sampler.js
+  duck-types "offline" on `startRendering` and injects the big-lookahead scheduler, without which
+  every note past ~200 ms renders silent.
+
+  ONE render per page load (midi.js caches its context in a module global), driven by the query:
+    ?number=141&mode=listen-whole
+    ?number=141&mode=edit-whole
+    ?number=141&mode=edit-line&li=1
+    ?number=141&mode=edit-section&li=1
+  listen-whole and edit-whole must come out BIT-IDENTICAL — that is the proof that the editor did
+  not grow a second, different-sounding audio path.
+
+  Not shipped. Driven by tools/render-editor-scope.mjs.
+-->
+<html><head><meta charset="utf-8"><title>ฟังตอนแก้ — evidence render</title>
+<style>body{font-family:system-ui;max-width:52rem;margin:2rem auto;padding:0 1rem}
+#log{white-space:pre-wrap;font-family:monospace;font-size:.85rem;background:#f2f2f2;padding:.75rem;border-radius:8px}
+#stage{position:absolute;left:-10000px;top:0;width:1280px}</style>
+</head><body>
+<h1>ฟังตอนแก้ — evidence render</h1>
+<div id="log">…</div>
+<audio id="au" controls></audio>
+<div id="stage"></div>
+<script type="module" src="/docs/spikes/editor-scope-render.js"></script>
+</body></html>

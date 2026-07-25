@@ -33,3 +33,21 @@ describe('footerCss (@page margin boxes, one shared size)', () => {
     expect(css.match(/font-size:9pt/g)).toHaveLength(3)
   })
 })
+
+describe('footerCss @page size (B121 — enforce chosen paper)', () => {
+  it('omits @page size when none given → browser default paper (back-compat)', () => {
+    // guard against matching the footer's font-size: check for the page-size decl
+    expect(footerCss('x')).not.toContain('{size:')
+  })
+
+  it('pins the chosen paper size inside @page', () => {
+    expect(footerCss('x', 'A4')).toContain('@page{size:A4;')
+    expect(footerCss('x', 'Letter')).toContain('size:Letter;')
+    expect(footerCss('x', 'A5')).toContain('size:A5;')
+  })
+
+  it('size precedes the margin boxes (valid @page ordering)', () => {
+    const css = footerCss('x', 'Letter')
+    expect(css.indexOf('size:Letter')).toBeLessThan(css.indexOf('@bottom-left'))
+  })
+})

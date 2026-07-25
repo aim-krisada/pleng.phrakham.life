@@ -1,15 +1,37 @@
 :root {
-  /* Warm Study Room — same tokens as phrakham.life2 (see memory/pleng-ui-sop) */
-  --brand: #8b4513;
-  --ink: #2d2a26;
-  --muted: #757575;      /* 4.6:1 on white — AA */
-  --cream: #faf6f0;
-  --cream-hover: #f7f1e8;
-  --line: #e0d6c8;
-  --bg: #ffffff;
-  --footer-ink: #7a6a4e; /* 5:1 */
-  --stamp-ink: #827356;  /* 4.63:1 */
-  /* functional notation colours (kept per พี่เอม 6-Jul-2026) */
+  /* ===== Warm + vivid theme (LOCKED 22 ก.ค. · ux-groundup-design.md §Theme) =====
+     Base stays WARM + calm (cream page, readable amber text) so it feels อบอุ่น/สบายใจ;
+     the "สดใส" comes from the ACCENTS (marigold/coral/green/blue), never from repainting
+     the page. Every value here is verified for WCAG AA against where it is actually used. */
+
+  /* --brand = the identity amber. Deep marigold so it stays readable as TEXT (headings/
+     links/active) — 4.7:1 on the cream page — AND works as a fill under white text — 5.0:1.
+     Same dual role the old saddle-brown played, one shade more vivid + gold. */
+  --brand: #b45309;
+  --brand-hover: #8f4207; /* darker amber for a filled control's hover */
+  --ink: #362f28;         /* warm near-black body text — 12:1 on cream */
+  --muted: #6f6455;       /* warm grey caption — 5.4:1 on cream (AA for small text) */
+  --cream: #f4e9d7;       /* warm fill for inputs / chips / hover base (deeper than the page) */
+  --cream-hover: #ecdec7;
+  --line: #e6d9c3;        /* warm hairline border */
+  --bg: #fdf7ee;          /* warm cream page — calm, not clinical white */
+  --surface: #fffdf9;     /* cards / rows / dropdowns — near-white warm, floats on the cream */
+  --shell-bg: #fbf1e2;    /* header — warm, a touch deeper than the page (was cool #f8f9fa) */
+  --footer-ink: #7a6a4e;  /* 5:1 */
+  --stamp-ink: #827356;   /* 4.63:1 */
+
+  /* Vivid accents — the "สดใส". Marigold is the ONE primary CTA colour (＋สร้าง · ★ · active),
+     always paired with DARK text (--ink · 6:1) because white on bright marigold fails AA.
+     Coral = secondary highlight; green/blue = cheerful category set (chips/markers only). */
+  --accent: #f59e0b;         /* marigold — primary CTA / FAB / filled ★ / active chip */
+  --accent-hover: #e08e00;
+  --accent-soft: #fdecc8;    /* pale marigold wash for a soft-selected chip bg */
+  --secondary: #f26b4e;      /* warm coral */
+  --secondary-hover: #e2573a;
+  --cat-green: #3fa34d;
+  --cat-blue: #3e96d6;
+
+  /* functional notation colours (kept per พี่เอม 6-Jul-2026 · shown on the white sheet card) */
   --chord-red: #c0392b;  /* 5.2:1 on white */
   --note-blue: #2b6cb0;  /* 5.0:1 on white */
   --red: #c0392b;
@@ -67,14 +89,58 @@
   --bp-sm: 480px;
   --bp-md: 768px;
   --bp-lg: 1024px;
+
+  /* ===== Layering ladder (SSOT — every z-index in the app reads a token from here) =====
+     Rule: NEVER write a bare z-index number in a component. Pick the tier that matches what
+     the element IS; if nothing fits, add a tier here (and say why) rather than inventing a
+     number locally. Numbers below are spread out so a tier can be nudged without a cascade.
+
+     Stacking-context gotcha (this is what broke the note toolbar, 23 ก.ค.): an ancestor with
+     z-index + position (or transform/filter/opacity<1/will-change) creates a stacking context,
+     and a descendant can NEVER paint above that ancestor's siblings, no matter its z-index.
+     `.shell-bar` is such an ancestor (sticky + --z-nav), so anything that must float ABOVE the
+     header has to be a SIBLING of the header in the body, not a child of it. Children of the
+     header therefore use the small in-nav sub-ladder at the bottom of this block.
+
+     Tier            used by
+     --z-sheet       painted layers inside the song sheet / notation rows
+     --z-raised      small in-flow raised bits (chips over a row, sticky sub-heads in a panel)
+     --z-sticky      in-page sticky heads + passive hints (inst-loading pill)
+     --z-dock        fixed bottom docks + FABs (play dock, DockKey, ✏️ FAB) — UNDER the header
+     --z-inline-edit the invisible capture input pinned over the note being typed on
+     --z-nav         the ONE shell bar (sticky app header)
+     --z-popover     menus · dropdowns · anchored popups (note-input popup, chord picker,
+                     tool menus) — ABOVE the header, because they are transient and anchored
+     --z-scrim       full-screen dim behind the mobile drawer  (value fixed by pk-drawer.js)
+     --z-drawer      the mobile off-canvas drawer               (value fixed by pk-drawer.js)
+     --z-modal       dialogs / bottom sheets (ShareSheet) — above the drawer
+     --z-toast       transient toasts / snackbars — always last
+     Shared cores (pk-drawer.js, DockKey.vue) hard-code their number as a var() FALLBACK so
+     phrakham, which does not load this file, keeps its current stacking. */
+  --z-sheet: 1;
+  --z-raised: 5;
+  --z-sticky: 20;
+  --z-dock: 40;
+  --z-inline-edit: 45;
+  --z-nav: 50;
+  --z-popover: 800;
+  --z-scrim: 1040;
+  --z-drawer: 1050;
+  --z-modal: 1200;
+  --z-toast: 1300;
+  /* in-nav sub-ladder — only for elements rendered INSIDE .shell-bar, where the header's own
+     stacking context flattens them to --z-nav anyway. They only order against each other. */
+  --z-in-nav-scrim: 1;   /* .sb-backdrop — click-away catcher */
+  --z-in-nav-fab: 2;     /* .sb-fab — stays tappable over the catcher, as before */
+  --z-in-nav-menu: 3;    /* .sb-dropdown / .pk-tool-menu — the open menu itself */
 }
 
 * { box-sizing: border-box; }
 
-/* B001 — the shared pk-scrollnav.js sits at z-index 1020 (to clear phrakham's navbar).
-   In pleng the editor dock is z-index 90, so pin the scroll buttons below it — on the
-   mobile editor the full-width dock then covers them instead of the two fighting. */
-.pk-scrollnav { z-index: 30 !important; }
+/* B001 — the shared pk-scrollnav.js defaults high (to clear phrakham's navbar). In pleng the
+   editor dock owns --z-dock, so pin the scroll buttons one tier BELOW it — on the mobile editor
+   the full-width dock then covers them instead of the two fighting at the same tier. */
+.pk-scrollnav { z-index: var(--z-sticky) !important; }
 
 /* text-size-adjust: 100% — DISABLE Chrome-mobile "font boosting" (auto-inflation). Without it,
    Chrome on Android enlarges text a moment after load to "improve readability", which widened the
@@ -86,11 +152,20 @@ html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Always reserve the scrollbar's gutter. Without it the page width jumps by ~15px whenever
+     the document stops being taller than the window — which is exactly what happens on entering
+     the ✏️ editor (its frame takes the sheet out of page flow), and the shell bar then re-fitted
+     itself into a different layout mid-edit (measured: shell-compact → shell-tight at 1280).
+     Reserving the gutter keeps every page and every mode the same width. */
+  scrollbar-gutter: stable;
 }
 
 body {
   margin: 0;
-  font-family: 'Noto Sans', 'Noto Sans Thai', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Thai + Latin + CJK(จีน) — the CJK system families (PingFang/YaHei/Hiragino/Noto SC) keep
+     Chinese from rendering as tofu boxes when the UI language = 中文 (i18n-ready · P'Aim 22 ก.ค.);
+     they load from the OS, no webfont fetch. Thai/Latin stay first so nothing changes for now. */
+  font-family: 'Noto Sans', 'Noto Sans Thai', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB', system-ui, -apple-system, 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--ink);
   font-size: var(--fs-base);
@@ -107,7 +182,7 @@ body {
    (chords/numbers) are untouched, so switching fetches just the ~9KB looped Thai woff2 and
    only when a reader opts in. Specificity (:root[data-font] body) beats the base body rule. */
 :root[data-font='looped'] body {
-  font-family: 'Noto Sans', 'Noto Sans Thai Looped', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Noto Sans', 'Noto Sans Thai Looped', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 a { color: var(--brand); }
@@ -136,7 +211,10 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); width:
    while a page with long song titles grew wide: inconsistent between views (P'Aim). */
 main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
 /* the Studio shell is a wider, Google-Docs-style workspace (rail + editor) */
-.container.studio-wide { max-width: min(var(--container-wide), 100%); }
+/* P'Aim 21 ก.ค.: the editor uses the FULL screen width on big monitors (was capped 1160px, so a
+   large screen left the right side empty). More width = more room per ห้อง = note boxes need not
+   shrink as much. Small screens are already 100% via the min(). */
+.container.studio-wide { max-width: min(1920px, 100%); }
 @media (max-width: 480px) { .container { padding: var(--sp-3); } }
 
 /* navbar tools (download) — mirrors phrakham.life2 .pk-tool */
@@ -163,7 +241,8 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   padding: 0.35rem 0;
-  z-index: 2000;
+  /* rendered inside .shell-bar → flattened to --z-nav; only orders against its siblings */
+  z-index: var(--z-in-nav-menu);
   min-width: 220px;
 }
 .pk-tool-menu button {
@@ -202,11 +281,11 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
 .shell-bar {
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: var(--z-nav);
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  background: #f8f9fa;
+  background: var(--shell-bg);
   /* No bottom border — phrakham's navbar has none (live: border-bottom-width 0, both
      desktop + mobile). pleng had a 1px #e0d6c8 rule that master doesn't; dropped for parity. */
   padding: var(--sp-2) var(--sp-4);
@@ -233,6 +312,7 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   min-height: var(--touch-min);
   display: inline-flex;
   align-items: center;
+  gap: 8px;            /* icon ↔ wordmark (desktop shows both now) */
   white-space: nowrap;
 }
 .sb-caret,
@@ -304,11 +384,13 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
   padding: 6px;
-  z-index: 60;
+  z-index: var(--z-in-nav-menu);
   display: flex;
   flex-direction: column;
 }
-.sb-dropdown.sb-mode-menu { left: auto; right: 0; }
+/* settings popover hugs its compact content (segmented controls size to text) instead of the
+   shared 234px min — so it isn't a big box with the controls floating left (P'Aim 22 ก.ค.). */
+.sb-dropdown.sb-mode-menu { left: auto; right: 0; min-width: 0; width: max-content; max-width: calc(100vw - 20px); }
 .sb-dropdown a,
 .sb-item {
   display: flex;
@@ -333,12 +415,11 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
 .sb-dropdown a:focus-visible,
 .sb-item:focus-visible { background: rgba(139, 69, 19, 0.1); outline: none; }
 .sb-dropdown .icn { color: var(--brand); }
-/* Brand swaps per width (phrakham parity): DESKTOP = name only (icon hidden); MOBILE = the
-   app icon only (name hidden). Rules here are the desktop default; the mobile @media flips. */
-/* Mobile brand mark — 40×40 · radius 11px to match phrakham live (its .navbar-title::before
-   app icon = 40×40 · border-radius 11px). Was 28px/7px. 40 < the 44px touch targets in the row,
-   so it doesn't grow the bar height. */
-.sb-app-ico { display: none; flex: 0 0 auto; width: 40px; height: 40px; border-radius: 11px; object-fit: contain; }
+/* Brand mark (LOCKED 22 ก.ค.): the app icon shows on EVERY width for a consistent mark that
+   matches the favicon/PWA icon; the wordmark rides ALONGSIDE it on desktop and is hidden on
+   mobile (icon-only there — keeps the bar compact). Desktop icon = 30px next to the 22.5px
+   wordmark; the mobile @media grows it to 40px (icon-only) to match phrakham's app mark. */
+.sb-app-ico { display: block; flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; object-fit: contain; }
 .sb-brand-text { display: inline; }
 .sb-k { margin-left: auto; color: var(--muted); font-size: 0.8rem; }
 
@@ -397,6 +478,74 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   justify-content: center;
 }
 .sb-burger { display: none; } /* mobile only — shown in the mobile @media */
+
+/* ---- ＋ สร้างเพลงใหม่ — the app's ONE primary create action (single source of action) ----
+   Marigold (--accent) with DARK text (--ink · 6:1 AA — white on bright marigold would fail).
+   Desktop = a filled pill on the bar; mobile = the FAB + a drawer row (same /studio target).
+   Visibility is switched by WIDTH, never by hover (a mouse-on-Surface reports hover:none and
+   must not lose the button — memory: feedback_verify_hover_on_real_browser). */
+.sb-create {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent);
+  color: var(--ink);
+  border: none;
+  border-radius: 22px;
+  padding: 8px 16px;
+  min-height: var(--touch-min);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+@media (hover: hover) { .sb-create:hover { background: var(--accent-hover); } }
+
+/* Mobile FAB — thumb-zone, bottom-right, respects the safe-area. Base = hidden (desktop uses
+   the pill); the mobile @media shows it. ShellBar only renders it on the home route so it
+   never collides with the song page's bottom dock. */
+.sb-fab {
+  display: none;
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: var(--z-in-nav-fab);
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  color: var(--ink);
+  border: none;
+  border-radius: 28px;
+  padding: 0 20px;
+  height: 56px;
+  font: inherit;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+@media (hover: hover) { .sb-fab:hover { background: var(--accent-hover); } }
+
+/* Drawer create row — a filled action at the TOP of the mobile ☰ menu (same destination). */
+.sb-drawer-create {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 17px var(--sp-3);
+  background: var(--accent);
+  color: var(--ink);
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  min-height: var(--touch-min);
+  font: inherit;
+  font-size: 17.34px;
+  font-weight: 700;
+  text-decoration: none;
+}
 
 /* ---- mobile drawer CONTENT (shell = the shared vanilla core src/lib/pk-drawer.js) ----
    The core owns the off-canvas positioning, left slide, scrim, cream background and the ×
@@ -457,82 +606,85 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
 .sb-danger,
 .sb-danger .icn { color: var(--red); }
 .sb-dropdown .sep { border-top: 1px solid var(--line); margin: 4px 6px; }
-/* per-user Thai typeface toggle inside the site (brand ▾) menu — a small radiogroup.
-   Each sample renders in its OWN cut (forced font-family below) so both previews are
-   accurate whatever is currently active. */
-.sb-font { padding: 6px 10px 4px; }
-.sb-font-lbl { font-size: var(--fs-xs); color: var(--muted); padding: 0 2px 6px; }
-.sb-font-opts { display: flex; gap: 6px; }
-.sb-font-opts button {
-  flex: 1;
-  min-height: var(--touch-min);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  background: #fff;
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 6px 8px;
-  font: inherit;
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-.sb-font-opts button.on {
-  border-color: var(--brand);
-  color: var(--brand);
-  background: rgba(139, 69, 19, 0.08);
-  font-weight: 700;
-}
-.sb-font-eg { font-size: 1.1rem; font-family: 'Noto Sans Thai', sans-serif; }
-.sb-font-eg.looped { font-family: 'Noto Sans Thai Looped', 'Noto Sans Thai', sans-serif; }
-@media (hover: hover) { .sb-font-opts button:not(.on):hover { border-color: var(--brand); } }
-.sb-backdrop { position: fixed; inset: 0; z-index: 40; }
+/* preference controls (language + Thai typeface) live in SettingsControls.vue as compact
+   segmented controls, with their styles scoped there. No global rules for them are needed here.
+   WARNING (BI-016): never write a CSS class glob ending in a star right before a slash in a
+   comment. That two-character sequence closes the comment early and silently drops the very
+   next rule — which is exactly how the .sb-backdrop rule below got dropped, killing click-
+   outside for every shell menu. Keep this block free of that sequence. */
+
+.sb-backdrop { position: fixed; inset: 0; z-index: var(--z-in-nav-scrim); }
 @media (hover: hover) {
   .sb-brand:hover,
   .sb-caret:hover,
   .sb-cat:hover,
   .sb-text:hover { background: rgba(0, 0, 0, 0.06); }
 }
-@media (max-width: 991.98px) {
+/* ---- B123 (ชั่วคราว · รอแถบบนออกแบบใหม่) -----------------------------------------------
+   This WAS `@media (max-width: 991.98px)`. The compact layout itself is unchanged — only its
+   TRIGGER moved: ShellBar now measures whether the full bar actually fits and sets
+   `.shell-compact` on <html>, instead of guessing at 992px. The bar needs a fixed ~1394px, so
+   every laptop below ~1395px of viewport (1366 · 1280 · 1200 · 1024) carried a horizontal
+   scrollbar (B123). Nothing is hidden that the ☰ drawer / FAB does not already hold.
+   TO REMOVE when the top bar is redesigned: revert this commit — the rules below go back
+   inside their media query and ShellBar drops syncShellFit(). ------------------------------ */
+/* B123 step 1 (ชั่วคราว · ดูหัวข้อด้านล่าง) — the CHEAPEST thing to give up when the bar runs out
+   of room: the brand wordmark, whose meaning the app icon already carries. Nav links, the mode
+   switch and the tools all stay inline, so 1280 and 1366 still read as a desktop. ShellBar adds
+   this class only when it has MEASURED that the full bar does not fit. */
+:root.shell-tight .sb-app-ico { display: block; width: 32px; height: 32px; border-radius: 9px; }
+:root.shell-tight .sb-brand-text { display: none; }
+:root.shell-tight .sb-brand { padding: 2px 6px; }
+
   /* phrakham parity (P'Aim 13 ก.ค.): app ICON left (no name) · 🔍 + ☰ right; nav + tools move
      into the ☰ drawer. Studio's teleported #shell-menus still drops to a 2nd row below. */
-  .shell-bar { gap: var(--sp-1) 6px; padding: var(--sp-2); flex-wrap: wrap; }
-  /* brand = icon only */
-  .sb-app-ico { display: block; }
-  .sb-brand-text { display: none; }
+  :root.shell-compact .shell-bar { gap: var(--sp-1) 6px; padding: var(--sp-2); flex-wrap: wrap; }
+  /* brand = icon only (wordmark hidden); grow the mark to phrakham's 40×40 · radius 11 */
+  :root.shell-compact .sb-app-ico { display: block; width: 40px; height: 40px; border-radius: 11px; }
+  :root.shell-compact .sb-brand-text { display: none; }
   /* 2px pad around the 40px icon → 44px brand, so the bar stays at phrakham's 65px height
      (the audit recorded pleng's mobile bar at 65 before the icon grew from 28→40). pleng's
      shell-bar chrome runs ~3px taller than phrakham's navbar for the same brand box, so we
      match the bar HEIGHT (what reads side-by-side) rather than phrakham's 48px brand box —
      the 40px icon itself is identical. 44px = the WCAG touch-target floor, still met. */
-  .sb-brand { padding: 2px; }
+  :root.shell-compact .sb-brand { padding: 2px; }
   /* desktop-only chrome hidden on mobile → the nav links + ตัวอักษรไทย live in the drawer.
      Login stays in the bar (P'Aim 13 ก.ค.: icon outside the drawer, far right). */
-  .sb-nav,
-  .sb-settings { display: none; }
+  :root.shell-compact .sb-nav,
+:root.shell-compact .sb-settings { display: none; }
   /* mobile-only hamburger */
-  .sb-burger { display: inline-flex; }
-  .sb-sep { display: none; }
-  .sb-mode-label { display: none; }
-  .sb-title,
-  .sb-title-static,
-  .shell-title { font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sb-text { padding: 6px; }
+  :root.shell-compact .sb-burger { display: inline-flex; }
+  /* create: swap the desktop pill for the FAB (rendered by ShellBar on the home route only) */
+  :root.shell-compact .sb-create { display: none; }
+  :root.shell-compact .sb-fab { display: inline-flex; }
+  :root.shell-compact .sb-sep { display: none; }
+  :root.shell-compact .sb-mode-label { display: none; }
+  :root.shell-compact .sb-title,
+:root.shell-compact .sb-title-static,
+:root.shell-compact .shell-title { font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :root.shell-compact .sb-text { padding: 6px; }
   /* flex-basis 0 (not auto) so the title's content width doesn't force it onto its own
      row — brand + title + 🔍/☰ stay together on row 1, title truncates in between */
-  .shell-title-wrap { flex: 1 1 0; min-width: 0; }
+  :root.shell-compact .shell-title-wrap { flex: 1 1 0; min-width: 0; }
   /* order:10 drops #shell-menus (Studio's เพลง ▾ + mode switch) below the brand/title/tools row */
-  .shell-menus {
+  :root.shell-compact .shell-menus {
     order: 10;
     flex-basis: 100%;
     width: 100%;
     justify-content: flex-start;
     gap: 6px;
   }
-}
+  /* บริบท B (context-B): the mode-tab strip that once needed shell-menus' own full-width row is
+     gone — on a song/studio route only ↗share + ⋮ remain, so let them flow INLINE on row 1
+     (‹ ชื่อ ↗ ⋮ = one clean bar, no wasted 2nd row). The title shrinks (ellipsis) between them. */
+  :root.shell-compact .shell-bar.sb-song .shell-menus {
+    order: 0;
+    flex-basis: auto;
+    width: auto;
+  }
+  /* On the phone song bar the ‹ back already returns to the catalog, so the brand mark is
+     redundant — drop it (context-B mockup starts at ‹) to give the song title real width. */
+  :root.shell-compact .shell-bar.sb-song .sb-brand { display: none; }
 
 /* ---------- buttons / inputs ---------- */
 button, .btn {
@@ -552,8 +704,8 @@ button.danger { background: var(--red); }
 /* hover effects only on devices with a real pointer — on touch screens iOS
    keeps :hover "stuck" after a tap, which froze the hamburger in brown */
 @media (hover: hover) {
-  button:hover { background: #6d360f; }
-  button.secondary:hover { background: var(--cream-hover); border-color: var(--brand); } /* ghost hover → brown edge (phrakham parity) */
+  button:hover { background: var(--brand-hover); }
+  button.secondary:hover { background: var(--cream-hover); border-color: var(--brand); } /* ghost hover → amber edge */
   button.danger:hover { background: #9c2d21; }
   .pk-tool-btn:hover { background: rgba(0, 0, 0, 0.06); }
   .pk-tool-menu button:hover { background: var(--cream-hover); }
@@ -610,6 +762,39 @@ input, select, textarea {
   font-family: 'Courier New', monospace;
   font-size: 0.94em;
 }
+/* BI-012 — pencil on: the chord slot above each note is a click/tap target. A real, ≥24px
+   hit-area even when empty, so a chord can be entered right where it sits. */
+.segment .chord.chord-edit {
+  cursor: pointer;
+  border-radius: 4px;
+  min-width: 1.5em;
+  padding: 0 2px;
+  transition: background 0.12s ease;
+}
+.segment .chord.chord-edit:hover,
+.segment .chord.chord-edit:focus-visible {
+  background: color-mix(in srgb, var(--chord-red) 12%, transparent);
+  outline: none;
+}
+.segment .chord.chord-edit:focus-visible { box-shadow: 0 0 0 2px var(--chord-red); }
+/* the "add a chord here" affordance on notes that have none yet — visible (not hover-only, so it
+   works on touch too) but muted so a full song of empty slots never reads as clutter. */
+.segment .chord.chord-empty { min-height: 1.375em; }
+.segment .chord .chord-add {
+  color: var(--chord-red);
+  opacity: 0.4;
+  font-weight: 700;
+  font-family: system-ui, sans-serif;
+}
+.segment .chord.chord-edit:hover .chord-add,
+.segment .chord.chord-edit:focus-visible .chord-add { opacity: 0.85; }
+/* BI-012 — a stored chord that isn't readable is KEPT (no silent data loss) but soft-marked so the
+   editor can fix it later. Only while editing; a plain viewer/print just sees the text. */
+.segment .chord.chord-invalid {
+  color: #b91c1c;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
 .segment .note {
   display: block;
   color: var(--note-blue);
@@ -620,8 +805,27 @@ input, select, textarea {
 }
 .segment .lyric { display: block; font-size: 1.06em; line-height: var(--lh-snug); } /* was body 1.8 — tighten within-line stack (Thai single line, diacritics fit at 1.4) */
 /* bug 010: spread the melody numbers across the segment width (set by the wider
-   lyric) instead of packing them left with a trailing gap. Song sheet only. */
-.song-line .segment .note .note-row { display: flex; width: 100%; justify-content: space-around; }
+   lyric) instead of packing them left with a trailing gap. Song sheet only. This is the
+   fallback path (v1 segments, or notes-hidden layers) — the count-matched space-around that
+   B011 replaces with a shared-column grid whenever a segment shows both notes + syllables. */
+.song-line .segment:not(.seg-grid) .note .note-row { display: flex; width: 100%; justify-content: space-around; }
+/* B011 — note↔syllable alignment via a shared-column grid.
+   The segment becomes an N-column grid (N = syllable-bearing note slots, set inline). Both
+   the melody row and the per-syllable lyric row are subgrids spanning all N columns, and each
+   .note-group is a subgrid spanning its own token count (--span, set by NoteRow) so every
+   note and every syllable — blank melisma slots included — lands in one shared column. A
+   syllable therefore sits exactly under its own note even when the word count differs from
+   the note count (melisma), which the old two-independent-flex-rows layout could not do.
+   .note-group keeps its box (NOT display:contents) so NoteRow's within-segment slur arc still
+   has its positioning parent; the beam <i> is measured from the .nt rects and is unaffected. */
+.song-line .segment.seg-grid { display: grid; grid-auto-flow: row; justify-items: center; align-items: start; }
+.song-line .segment.seg-grid .chord { grid-column: 1 / -1; justify-self: start; }
+.song-line .segment.seg-grid .note { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
+.song-line .segment.seg-grid .note .note-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; width: auto; }
+.song-line .segment.seg-grid .note .note-group { grid-column: span var(--span, 1); display: grid; grid-template-columns: subgrid; }
+.song-line .segment.seg-grid .note .note-group > .nt { justify-self: center; }
+.song-line .segment.seg-grid .lyric-syl { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; width: auto; }
+.song-line .segment.seg-grid .lyric-syl .syl { justify-self: center; text-align: center; }
 /* follow-along highlight: the segment (notes + lyric + chord) sounding now */
 .segment.seg-playing {
   background: rgba(139, 69, 19, 0.13);
@@ -794,6 +998,9 @@ footer.site-footer.footer-dock-clear {
      multi-page prints). The bottom margin reserves the band for the running footer —
      the footer content itself (site · page X of Y · date) is injected as @page margin
      boxes by lib/printChrome.js so all three share one baseline + size (US-I3).
+     The physical paper size (@page{size:A4|Letter|A5}, default A4) is also injected
+     there from the user's saved choice (B121 · lib/paperSize.js) — kept out of this
+     static rule so there is one source of truth for the size.
      Turn OFF the browser's own "Headers and footers" for a clean sheet. */
   @page { margin: 15mm 16mm 16mm; }
   body { background: #fff; }

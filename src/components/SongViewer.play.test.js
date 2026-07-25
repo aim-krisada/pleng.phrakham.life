@@ -265,7 +265,11 @@ describe('SongViewer play / stop / resume (US-A01)', () => {
     })
     expect(w.props('tier')).toBe('editor')
     expect(w.emitted('save')).toBeUndefined()
-    expect(w.html()).not.toContain('บันทึก')
+    // No save affordance while READING. Asserted on rendered controls, not raw html():
+    // the save bar (A-fix) carries the word "บันทึก" in its source comment, and a comment
+    // is not an affordance. It renders only once ✏️ is on — see SongViewer.save.test.js.
+    expect(w.find('.sv-save-bar').exists()).toBe(false)
+    expect(w.findAll('button').some((b) => b.text().includes('บันทึก'))).toBe(false)
   })
 })
 

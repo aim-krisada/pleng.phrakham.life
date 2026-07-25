@@ -1,0 +1,27 @@
+<!doctype html>
+<!--
+  A/B render for the ENSEMBLE pre-echo rule (PM 24 ก.ค.).
+
+  Renders through the REAL playEnsemble — not a re-implementation. The trick: playEnsemble builds its
+  AudioContext from `window.AudioContext`, so we hand it an OfflineAudioContext. sampler.js duck-types
+  offline on `startRendering` and injects the big-lookahead scheduler itself, so notes past 200 ms are
+  not silent (the bug fixed in the P3 spike).
+
+  ONE render per page load (playEnsemble caches its context in a module global), driven by the query
+  string, so every clip is a clean room:
+    ?number=747&lead=violin&pre=off&atBeat=6&pad=3&tail=6
+  A and B differ ONLY in `pre` — same songId ⇒ same humanize seed ⇒ the same performance, with the
+  vetoed ornament missing. The clip is cropped AFTER a full-length render, so cropping cannot change
+  what was scheduled.
+
+  Not shipped. Driven by tools/render-ensemble-ab.mjs.
+-->
+<html><head><meta charset="utf-8"><title>ensemble pre-echo A/B render</title>
+<style>body{font-family:system-ui;max-width:44rem;margin:2rem auto;padding:0 1rem}
+#log{white-space:pre-wrap;font-family:monospace;font-size:.85rem;background:#f2f2f2;padding:.75rem;border-radius:8px}</style>
+</head><body>
+<h1>ensemble pre-echo — A/B render</h1>
+<div id="log">…</div>
+<audio id="au" controls></audio>
+<script type="module" src="/docs/spikes/ensemble-preecho-render.js"></script>
+</body></html>

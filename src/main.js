@@ -27,9 +27,15 @@ createApp(App).use(router).mount('#app')
 // B107 step 9 — PWA service worker: precache the self-hosted instrument samples + app shell so the
 // site loads and plays offline (a church with no signal). Registered in PRODUCTION only — a SW
 // intercepting the Vite dev server's on-the-fly modules fights HMR, so offline is tested against a
-// real build (`vite build` + `vite preview`). base is './', deployed at the domain root → /sw.js.
+// real build (`vite build` + `vite preview`).
+//
+// Registered from BASE_URL, not a bare 'sw.js': the side-by-side /v2 deploy (docs/deploy-v2.md)
+// serves the same file at /sw.js and /v2/sw.js, and the script's own folder becomes its SCOPE. So
+// the root build controls '/' and the /v2 build controls only '/v2/' — sw.js then derives every
+// path and cache name from `registration.scope`, and the two never evict each other's files.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => { /* SW optional — app still works online */ })
+    const swUrl = (import.meta.env.BASE_URL || './') + 'sw.js'
+    navigator.serviceWorker.register(swUrl).catch(() => { /* SW optional — app still works online */ })
   })
 }

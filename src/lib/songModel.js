@@ -169,6 +169,8 @@ export function resolveContent(content) {
       outLine._stanza = entry.stanza
       outLine._melodyFirst = melodyFirst
       outLine._entryIndex = ei // B102 — which arrangement entry this display line belongs to
+      outLine._stanzaLine = li // click-to-edit: source line index within its stanza, so a click
+                               // on the preview traces back to the exact editable line/bar
       out.push(outLine)
     })
   })
@@ -186,7 +188,9 @@ export function resolveContent(content) {
 // (D.C./D.S./Coda): they add more cases here; the display pass never changes.
 export function resolvePlayOrder(content) {
   if (!isV2(content)) return null
-  return resolveStrophicOrder(content)
+  const strophic = resolveStrophicOrder(content)
+  const jumped = resolveJumpOrder(content, strophic)
+  return jumped ?? strophic
 }
 
 // Strophic "ร้องรับทุกข้อ" (afterEachVerse): the refrain is sung after EVERY verse, but the
@@ -208,13 +212,157 @@ function resolveStrophicOrder(content) {
   })
   const chorus = ranges[chorusIdx]
   if (!chorus) return null
+  const chorusStanza = arr[chorusIdx].stanza
   const order = []
   arr.forEach((entry, i) => {
     const r = ranges[i]
     if (!r) return
     order.push(r)
     if (i === chorusIdx) return // the refrain itself — never append the refrain after itself
-    if (i + 1 !== chorusIdx) order.push(chorus) // after a verse → sing the refrain (unless already next)
+    if (i + 1 === chorusIdx) return // the arrangement already writes the refrain next
+    // §4.1 "กางก่อน แล้วค่อยตัด": afterEachVerse expands the full sequence first; then a verse's
+    // flow.skipSections trims. A verse that skips the refrain's stanza gets no trailing refrain.
+    if (entry.flow && Array.isArray(entry.flow.skipSections) && entry.flow.skipSections.includes(chorusStanza)) return
+    order.push(chorus) // after a verse → sing the refrain
   })
   return order
+}
+
+// ---------- Phase 2 (mid-bar): D.C./D.S./Segno/Coda/Fine jump resolver ----------
+// See docs/ds/repeat-jumps-midbar.md. CANONICAL MARKER SHAPE (§7): every navigation symbol is
+// a LINE ITEM {type:'jump', kind, al?, id} — kind: segno|coda|to-coda|dc|ds|fine — the same
+// shape the glyph-render lane (SongSheet.vue) draws. Legacy per-type items ({type:'segno'},
+// {type:'marker',kind:'fine'}) normalise in. A dc/ds item IS the jump command and fires at ITS
+// OWN (li,si), so the jump can land MID-BAR (not just at a line boundary). Segno/Coda/Fine/
+// To-Coda are position markers. al ('fine'|'coda') rides on the dc/ds item = the explicit exit
+// target (repeat-jumps §2.2: al-Fine vs al-Coda is chosen, not inferred).
+//
+// Play order is expressed as display-line ranges with (li,si) ENDPOINTS
+// [{fromLi,fromSi?,toLi,toSi?}] so buildPlayNotes concatenates them exactly like the strophic +
+// bar-level (‖: :‖) mechanisms; a range with fromSi/toSi absent spans the WHOLE line (the
+// line-level / strophic order — byte-identical, regression 0). Returns null when there is no
+// (resolvable) jump → the caller uses the strophic/natural order.
+
+// Normalise a line item to its jump kind, or null. Mirrors SongSheet.vue's render contract so
+// engine + render read one shape. A plain {type:'marker', label} (no kind) is NOT a jump.
+function jumpKindOf(it) {
+  if (!it || !it.type) return null
+  const norm = (k) => {
+    const s = String(k || '').toLowerCase().replace(/[\s._-]/g, '')
+    if (s === 'segno' || s === 'dalsegnomark') return 'segno'
+    if (s === 'coda' || s === 'codamark') return 'coda'
+    if (s === 'tocoda') return 'to-coda'
+    if (s === 'dc' || s === 'dacapo') return 'dc'
+    if (s === 'ds' || s === 'dalsegno') return 'ds'
+    if (s === 'fine') return 'fine'
+    return null
+  }
+  let kind = norm(it.type)
+  if (!kind && (it.type === 'jump' || it.type === 'marker')) kind = norm(it.kind)
+  return kind
+}
+function normAl(al) {
+  const s = String(al || '').toLowerCase()
+  return s === 'fine' || s === 'coda' ? s : null
+}
+// Cheap pre-check: is there a dc/ds jump command anywhere? Avoids a resolveContent pass for the
+// ~100% of songs that have no jump.
+function hasJumpCommand(content) {
+  for (const s of content?.stanzas || [])
+    for (const line of s.lines || [])
+      for (const it of line || []) {
+        const k = jumpKindOf(it)
+        if (k === 'dc' || k === 'ds') return true
+      }
+  return false
+}
+function cmpPos(a, b) {
+  if (!a || !b) return 0
+  if (a.li !== b.li) return a.li - b.li
+  return (a.si == null ? -Infinity : a.si) - (b.si == null ? -Infinity : b.si)
+}
+
+// Scan the resolved display lines for every jump marker, recording each as (li,si). si is the
+// SEGMENT index songToNotes assigns (segments advance si; bars/markers/repeat do not) — so the
+// anchor lands on a real note. Return-target markers (segno, coda) anchor to the FIRST segment
+// AT/AFTER the item (si = segments before it). Exit markers + jump commands (fine, to-coda, dc,
+// ds) anchor to the LAST segment BEFORE the item (si = segments before it − 1). Records the
+// FIRST occurrence of each in play order (nested jumps are a v1 known-limit).
+function scanFlowMarkers(lines) {
+  let segno = null, fine = null, dc = null, ds = null
+  const codas = [], toCodas = []
+  lines.forEach((line, li) => {
+    let seg = -1 // si of the last segment seen so far (matches songToNotes)
+    for (const it of line || []) {
+      if (it && it.type === 'segment') { seg++; continue }
+      const kind = jumpKindOf(it)
+      if (!kind) continue
+      const before = seg // last note before the marker
+      const atAfter = seg + 1 // first note at/after the marker
+      if (kind === 'segno') { if (!segno) segno = { li, si: atAfter } }
+      else if (kind === 'coda') codas.push({ li, si: atAfter })
+      else if (kind === 'to-coda') toCodas.push({ li, si: before })
+      else if (kind === 'fine') { if (!fine) fine = { li, si: before } }
+      else if (kind === 'dc') { if (!dc) dc = { li, si: before, al: normAl(it.al) } }
+      else if (kind === 'ds') { if (!ds) ds = { li, si: before, al: normAl(it.al) } }
+    }
+  })
+  return { segno, fine, dc, ds, coda: codas[0] || null, toCoda: toCodas[0] || null }
+}
+
+// The return-pass ranges for a resolved jump. `from` = {li,si} of the return target (segno, or
+// {li:0,si:null} for capo). al ('fine'|'coda'|null) is the explicit exit; when null it is
+// inferred from the markers present (Coda wins over Fine — the play flow reaches To-Coda first).
+function returnRanges(from, marks, al, lastLi) {
+  const codaPair = !!(marks.toCoda && marks.coda)
+  const codaRanges = () => [
+    // al Coda: play to the To-Coda, jump to the Coda, play to the end
+    { fromLi: from.li, fromSi: from.si, toLi: marks.toCoda.li, toSi: marks.toCoda.si },
+    { fromLi: marks.coda.li, fromSi: marks.coda.si, toLi: lastLi, toSi: null },
+  ]
+  const fineRange = () => [{ fromLi: from.li, fromSi: from.si, toLi: marks.fine.li, toSi: marks.fine.si }]
+  // Explicit al chooses the exit (repeat-jumps §2.2); al=null infers, Coda winning over Fine
+  // (the play flow reaches To-Coda before Fine). When the requested exit's marker is MISSING the
+  // jump degrades gracefully — try the other exit, else plain replay — never a broken route.
+  if (al === 'coda' && codaPair) return codaRanges()
+  if (al === 'fine' && marks.fine) return fineRange()
+  if (al == null && codaPair) return codaRanges() // inferred al Coda
+  if (marks.fine) return fineRange() // al Fine, or graceful fallback when the Coda is missing
+  if (codaPair) return codaRanges() // last resort (al='fine' asked but no Fine; a Coda exists)
+  return [{ fromLi: from.li, fromSi: from.si, toLi: lastLi, toSi: null }] // plain D.C./D.S.
+}
+
+// Build the full play order when a jump is present; null when there is none (or it is orphan).
+// `base` = the strophic order if any, else the natural whole-song order. First pass plays up to
+// the jump command's own note; then the return pass. Post-jump material is unreachable (the
+// movement ends at Fine/Coda/end) and dropped.
+function resolveJumpOrder(content, base) {
+  if (!isV2(content) || !hasJumpCommand(content)) return null
+  const lines = resolveContent(content)
+  if (!lines.length) return null
+  const lastLi = lines.length - 1
+  const marks = scanFlowMarkers(lines)
+  // which command fires (nested unsupported): the earliest in play order
+  let cmd = null
+  if (marks.dc && marks.ds) cmd = cmpPos(marks.dc, marks.ds) <= 0
+    ? { ...marks.dc, jump: 'capo' } : { ...marks.ds, jump: 'segno' }
+  else if (marks.dc) cmd = { ...marks.dc, jump: 'capo' }
+  else if (marks.ds) cmd = { ...marks.ds, jump: 'segno' }
+  if (!cmd) return null
+  let from
+  if (cmd.jump === 'capo') from = { li: 0, si: null } // D.C. → song start
+  else {
+    if (!marks.segno) return null // orphan D.S. — no segno marker; play as written (never guess)
+    from = marks.segno // D.S. → the segno (may be mid-bar)
+  }
+  const baseOrder = base && base.length ? base : [{ fromLi: 0, toLi: lastLi }]
+  // keep base ranges up to the jump command's position, cutting the range that spans it
+  const kept = []
+  for (const r of baseOrder) {
+    if (r.fromLi > cmd.li) break // range entirely after the jump line → unreachable first pass
+    if (r.toLi < cmd.li) { kept.push(r); continue } // range entirely before → keep whole
+    kept.push({ fromLi: r.fromLi, fromSi: r.fromSi ?? null, toLi: cmd.li, toSi: cmd.si })
+    break
+  }
+  return kept.concat(returnRanges(from, marks, cmd.al, lastLi))
 }

@@ -1,0 +1,78 @@
+# รายงาน dev — dockkey-fix-resize (DockKey engine · 2-host)
+
+**สาย:** dev (engine only · `DockKey.vue`) · **branch:** `dockkey-fix-resize` (จาก `studio-shell-redesign`) · pushed origin
+**ไฟล์ที่แตะ:** `src/components/DockKey.vue` **เท่านั้น** (⛔ ไม่แตะ `EditorMode.vue` = lane B109/dev อื่น)
+**🎧 Network URL:** http://10.189.195.98:5361/#/studio (editor) · dev server `--host` 5361 (IP เปลี่ยนบ่อย — เช็ก vite Network line ก่อนใช้)
+**สถานะ:** 🟢 **TASK 1 เสร็จ + commit `2e238f0` + verified real-browser** — phrakham unblock · ⏳ TASK 2 (free-form resize) กำลังทำต่อ
+
+---
+
+## TASK 1 — fix cap=f(width) 344 overflow (LIVE REGRESSION · blocks phrakham) ✅
+
+### root cause
+`cap=f(width)` (`27f5d9b`) นับ *จำนวนปุ่ม* แต่ไม่รู้ *ความกว้าง px จริง* ของปุ่ม → แถวปุ่มกว้าง (island พระคำ: `[grip][▶ ฟังบทความ pill][version chip][Aa][⚙]`) ยังเป็น **flex row เดียว `nowrap`**. เมื่อความกว้างธรรมชาติเกิน `min(700, 100vw)` กล่อง dock clamp แต่แถว **reflow ไม่ได้** → ปุ่มขวาสุด (⚙) **ถูกตัด ~+23px เลยขอบจอ 344** (Fold cover). ตรงกับที่ phrakham PM วัด (367px / +23) และ P'Aim เคยบ่น "ปุ่มขวาหลุดขอบ".
+
+### fix (CSS-only · `DockKey.vue`)
+1. **`.dk-row { flex-wrap: wrap }`** — แถวที่กว้างเกินกล่อง (clamp แล้ว) **reflow ขึ้นแถวใหม่** แทนล้นจอ · ปุ่มคง `--touch-min` (44/42/40) · เพิ่มแค่ *จำนวนแถว* = เจตนา cap=f(width) แต่**การันตีใน CSS ทุก host/font/glyph** (pleng editor + island พระคำ)
+2. **`.dk-dock`**: `max-width: min(700px, calc(100vw - 20px))` (เดิม −16px · dock กว้างกว่ากล่อง host ~4px เพราะ host padding 10px×2) + **`min-width: 0`** ให้ flex item ย่อถึง cap แทนถูก min-content ของแถว nowrap ดันเกิน
+
+**⛔ ไม่เปลี่ยน prop/พฤติกรรม** — `auto-hide` default false คงเดิม · auto-hide/keyboard-aware/toolbox anchor/pins/transparency/popover-clamp ไม่แตะ. **2-host:** พระคำได้ safety net ตอน rebuild โดย**หน้าตาปกติไม่เปลี่ยนเลย** (bundle base กับ fix วัดได้ **เท่ากันเป๊ะ** 313px/1 แถว เมื่อ content พอดี · ต่างกันเฉพาะตอนจะ clip → base ตัด, fix wrap).
+
+### verify (real-browser · Edge headless · viewport เป๊ะ · MCP pane ทำ <755 ไม่ได้)
+เครื่องมือ: puppeteer-core + Edge · วัด `documentElement.scrollWidth − innerWidth` (h-overflow) + `.dk-dock` scrollWidth/rect/rows
+
+| จอ | pleng editor route | island replica (faithful) | island replica (**stress** · label กว้างกว่าจริง) | **REAL rebuilt island** (Noto Sans Thai) |
+|---|---|---|---|---|
+| **344** | h-ovf **0** ✅ | 0 ✅ (317px 1 แถว) | **base: 366px ⚙ ตัด +24** → **fix: 332px wrap 2 แถว 0** ✅ | 0 ✅ (313px 1 แถว) |
+| **360** | 0 ✅ | 0 ✅ | 0 ✅ (wrap) | 0 ✅ |
+| **390** | 0 ✅ | 0 ✅ | 0 ✅ (wrap) | 0 ✅ |
+| **690** | 0 ✅ | 0 ✅ | — | 0 ✅ |
+| **834/768** | 0 ✅ | 0 ✅ | — | 0 ✅ (768) |
+| **1280** | 0 ✅ | 0 ✅ (367px 1 แถว = hug content คงเดิม) | — | — |
+
+- **before/after ชี้ชัด (stress @344):** base = content scrollWidth **366** ในกล่อง 340 → ⚙ ขอบขวา 368 > 344 (**ตัด**) · fix = **332** ≤ กล่อง · wrap 2 แถว (สูง 40→83) · **0 clip**
+- **2-host self-check:** rebuild `pk-dock-island.js` จาก DockKey ของผม (`PLENG_SRC=<worktree>/src` · **output → scratch ไม่แตะ phrakham tree**) · 15 modules · CSS มี `flex-wrap:wrap` + `calc(100vw - 20px)` (scoped `721f1083`) · วัดด้วย **Noto Sans Thai จริง** = 0 overflow ทุกจอ · เทียบ bundle base (pre-fix) = พฤติกรรมเดียวกันเมื่อพอดี, ต่างเฉพาะตอน clip
+- **tests:** DockKey 36/36 ✅ · full suite **736 pass** (notationLint `process.exit(0)` = pre-existing) · **build ✓**
+
+### flag → PM (นอก scope regression · ไม่แก้เงียบ)
+- **keys band (`.dk-keyrow`) ยังเป็น `nowrap`** — ที่ 344 palette 11 คีย์ (min-width 30px) มี **internal spill เล็กน้อย** (scrollWidth 341 vs กล่อง 324, ~8px/ข้าง centered) → **อยู่ในจอ ไม่ล้น document · เป็นของเดิม** (ผมไม่แตะ `.dk-keyrow`; spill ตั้งแต่ก่อน dock-space เพราะ 341 > กล่องเก่า 328). เหมือนที่ tester เคยจัด note-boxes เป็น backlog แยก → **ไม่แก้ในนี้** (เปลี่ยน layout palette ที่พี่เปาใช้ทุกวัน = ต้อง design sign-off). ถ้า PM อยากให้ wrap คีย์ที่จอแคบ = จ่ายงานแยก
+
+---
+
+## TASK 2 — free-form dock resize (แบบ 2 · window-style · width→reflow) ✅ commit `d1eeb8a`
+
+**โจทย์เดิมพี่เปา:** ตั้ง *ความกว้าง* dock เอง → ปุ่ม reflow ขึ้น/ลงแถว (ไม่ใช่ zoom ทั้งแถบ). reuse engine `cap=f(width)` + `.dk-row flex-wrap` ที่เพิ่ง fix → ตั้งกว้างแคบ = ปุ่มขึ้นแถวใหม่ · **ปุ่มไม่เคยเล็กกว่า `--touch-min`**.
+
+### ออกแบบ (world-class · ux-platform-patterns §1 touch≠pointer)
+- **prop `resizable` (default FALSE)** — พระคำ/host ที่ไม่ opt-in = ปิดสนิท · **pleng editor ตั้ง `:resizable="true"`** (= EditorMode 1 บรรทัด · **lane dev/PM — ผมไม่แตะ EditorMode**, ดู flag ล่าง)
+- **desktop = drag handle** ลอยขอบขวา dock (`@media hover` pointer เท่านั้น · half-width ตามเมาส์จากจุดกลาง · **ดับเบิลคลิก → AUTO**)
+- **มือถือ/keyboard = สไลเดอร์ "ความกว้างแถบ" ใน ⚙** (touch ลากขอบไม่ได้ · §1) + ปุ่ม **↺ คืน AUTO**
+- **persist ต่อ storeKey** (`pleng.dockkey.<key>.width`) · null = AUTO (fit-content)
+- **CSS:** `width: var(--dk-w, fit-content)` · `min-width:min-content` (floor = ปุ่มกว้างสุด · ไม่บีบ target) · `max-width` คุมไม่เกินจอ + hover reserve ที่ handle ยื่น
+- **cap มาจากความกว้างที่เลือก** เมื่อ resize (ไม่งั้นจากจอ) · **`mobile` metric ยึดจอ** (dock แคบบน desktop คง 44px)
+- **auto-hide + resize อิสระต่อกัน** (เลือกความกว้างแล้ว dock ซ่อนตอนเลื่อน = ความกว้างคงอยู่)
+
+### verify real-browser (Edge headless · viewport เป๊ะ)
+| ท่า | ผล |
+|---|---|
+| desktop **drag handle** 367→322→192px | reflow **1→2→3 แถว** · minBtnH คง **44** · 0 overflow |
+| desktop **ดับเบิลคลิก handle** | → AUTO (367 · 1 แถว · storage เคลียร์) |
+| **persist** reload | ความกว้างคงอยู่ ✅ |
+| **↺ reset** | → AUTO ✅ |
+| **auto-hide + resize coexist** | resize แล้ว scroll ลง → ซ่อน+peek · **ความกว้างคงอยู่** ✅ |
+| mobile 390 **สไลเดอร์**→150 | reflow **4 แถว** · handle ซ่อน (touch) · minBtnH 42 · 0 overflow |
+| **2-host inert** (island rebuild @344) | ไม่มี handle/width-row/`--dk-w` · overflow 0 ✅ |
+- **+7 Tier-A tests** (DockKey 36 · resize inert-by-default · handle/slider render · slider set+persist+cap · clamp <120 · ↺ reset · coexist auto-hide) · **743 tests · build ✓**
+
+### flag → PM (wiring · ไม่ใช่ผม)
+- **`:resizable="true"` บน `<DockKey>` ใน `EditorMode.vue`** (ปัจจุบัน `:auto-hide="true"` @ราว :3181) = **1 บรรทัด · lane EditorMode (dev อื่น/B109 หรือ PM สั่ง)** — ผมไม่แตะ EditorMode ตามกฎ 1-file-1-lane · เหมือนตอน dock-space dev ส่ง `auto-hide` แล้วให้ wiring ตามหลัง. **จนกว่าจะ wire = resize ยัง inert บน editor** (พร้อมใช้ทันทีเมื่อเติม prop)
+
+---
+
+## หมายเหตุ verify (เครื่องมือ)
+- **Edge headless (puppeteer-core + msedge)** ตั้ง viewport เป๊ะ 344 ได้ (MCP Browser pane <755 ไม่ได้ · Claude-in-Chrome ไม่ connect) · วัด `documentElement.scrollWidth − innerWidth` + dock rect/scrollWidth/rows/heights
+- harness (untracked · ไม่ commit): mount `DockKey.vue` จริงด้วย item set ของ island (faithful + stress) + rebuild `pk-dock-island.js` จริง + Noto Sans Thai
+
+---
+
+*dev · 2026-07-18 · `dockkey-fix-resize` · commits `2e238f0`(T1) `d1eeb8a`(T2) · ⛔ ไม่ merge เอง (PM only)*

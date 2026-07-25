@@ -45,3 +45,23 @@ this happens — the CLI build is what breaks first.
 ## 7. Avoid ambiguous English UI jargon with พี่เอม
 e.g. "chrome" (the UI frame/shell) was read as the Chrome browser. Use Thai or
 expand the term on first use.
+
+## 8. One z-index ladder in `styles.css` — never a bare number in a component
+Every `z-index` reads a `--z-*` token from the ladder in `src/styles.css` (`--z-sheet`
+→ `--z-toast`). Bare numbers in components drift apart and silently invert: the note
+toolbar sat at 45 while the sticky header sat at 50, so the toolbar and its `คอร์ด ▾`
+picker painted **behind** the header (พี่เอม, 23 ก.ค.).
+- **Stacking-context trap:** an ancestor with `z-index` + `position` (or `transform` /
+  `filter` / `opacity<1` / `will-change`) traps its children — they can never paint
+  above that ancestor's siblings. `.shell-bar` is one, so anything inside it uses the
+  small `--z-in-nav-*` sub-ladder; anything that must float **above** the header must be
+  a sibling of the header, not a child.
+- **A fixed element anchored to page content must re-place on `scroll`.** `wheel` +
+  `touchmove` only cover a hand-scroll gesture — keyboard scrolling, dragging the
+  scrollbar and auto-scroll fire neither, so the anchor goes stale and the popup drifts
+  into the header band.
+- **Shared cores** (`pk-drawer.js`, `DockKey.vue`) also run in phrakham, which does not
+  load `styles.css` — write `var(--z-drawer, 1050)`, keeping the old number as fallback.
+- Guarded by `src/styles.layering.test.js` (ladder is ascending, popover > nav, and no
+  bare number left in `src/`). Verify occlusion with `document.elementFromPoint()` on a
+  real browser — `querySelector` finding the node proves nothing about being clickable.

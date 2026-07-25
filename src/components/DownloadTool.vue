@@ -3,6 +3,13 @@ import { ref, computed } from 'vue'
 import { currentSong, soundMode } from '../store.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { songBasename } from '../lib/songName.js'
+import { PAPER_SIZES, paperSize, setPaperSize } from '../lib/paperSize.js'
+
+// Chosen paper's label ("A4"/"Letter"/"A5") for the print button — the on-screen
+// echo of what the printout will use.
+const paperLabel = computed(
+  () => PAPER_SIZES.find((p) => p.id === paperSize.value)?.label || 'A4',
+)
 
 // Top-right navbar download tool (like phrakham.life2's) — shown only while a
 // song is open in the viewer.
@@ -111,7 +118,25 @@ function downloadJson() {
       </svg>
     </button>
     <div v-if="open" class="pk-tool-menu" role="menu">
-      <button role="menuitem" @click="printPdf">🖨️ พิมพ์ / บันทึกเป็น PDF (A4)</button>
+      <!-- Paper size for print / Save-as-PDF. Radiogroup = keyboard + screen-reader
+           friendly (arrow keys move, label announces the group). Choice is remembered
+           (localStorage); the print button below echoes it. -->
+      <fieldset class="pk-paper">
+        <legend class="pk-paper-lbl">ขนาดกระดาษ</legend>
+        <div class="pk-paper-opts">
+          <label v-for="p in PAPER_SIZES" :key="p.id" class="pk-paper-opt">
+            <input
+              type="radio"
+              name="pk-paper-size"
+              :value="p.id"
+              :checked="paperSize === p.id"
+              @change="setPaperSize(p.id)"
+            />
+            <span>{{ p.label }}</span>
+          </label>
+        </div>
+      </fieldset>
+      <button role="menuitem" @click="printPdf">🖨️ พิมพ์ / บันทึกเป็น PDF ({{ paperLabel }})</button>
       <button role="menuitem" @click="downloadJson">⬇️ ดาวน์โหลดข้อมูลเพลง (JSON)</button>
       <button role="menuitem" :disabled="mp3Busy" @click="downloadMp3">
         <template v-if="!mp3Busy">⬇️ ดาวน์โหลดเสียง (MP3)</template>
@@ -155,6 +180,52 @@ function downloadJson() {
    top-right tool button, so cap its width and let long labels wrap instead of overflow) */
 .pk-tool-menu {
   max-width: calc(100vw - var(--sp-4));
+}
+/* Paper-size picker — a compact segmented radiogroup at the top of the menu. Native
+   radios (accessible + keyboard) styled as pill segments; the checked one fills brand. */
+.pk-paper {
+  border: 0;
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2) var(--sp-2);
+}
+.pk-paper-lbl {
+  padding: 0 0 var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.pk-paper-opts {
+  display: flex;
+  gap: var(--sp-1);
+}
+.pk-paper-opt {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-min);
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  user-select: none;
+}
+/* keep the native radio in the a11y tree (focus + SR) but let the pill be the visual */
+.pk-paper-opt input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.pk-paper-opt:has(input:checked) {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  font-weight: 700;
+}
+.pk-paper-opt:has(input:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 /* MP3 export: dim the item while encoding; show any failure reason below the menu */
 .pk-tool-menu button[disabled] {
