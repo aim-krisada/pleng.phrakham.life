@@ -17,6 +17,7 @@
 ### 🎯🎯 ทิศใหม่ (P'Aim 2026-07-25 · เหนืองานย่อยทั้งหมด) — SONG-MAKER FIRST · เลิกปะผุ
 - P'Aim: v2 ปัจจุบัน = "ปะผุระดับใหญ่" (ยกเครื่องใหม่โดยไม่ทำภาพรวมก่อน) · **ทิศ = เริ่มจาก "คนทำเพลง" ให้ใช้ดีจริงก่อน** แล้วค่อยขยาย
 - **ลำดับที่ P'Aim สั่ง (ทำทีละก้าว · ก้าวก่อนไม่ครบ ห้ามข้าม):** (1) **user story + journey ของคนทำเพลง อย่างเดียว ให้ครบสมบูรณ์** → (2) จัดกลุ่ม function ตามมาตรฐาน → (3) mockup (บน component จริง dev-ready) ให้ P'Aim ดู → (4) build · ⛔ ห้ามทำ 2/3/4 จน (1) ครบ
+- **🔑 SCOPE ชัด (P'Aim 2026-07-25):** ของที่มี **ดีอยู่แล้ว = reuse · ⛔ ไม่ build/รื้อใหม่ทั้งหมด · ไม่แตะ engine** · ก้าว 3 = **re-layout + วาง component ใหม่** ให้ง่าย + progressive disclosure มาตรฐานสากล (ไม่ใช่เขียนของใหม่) · **แต่ implementation ต้องครบทุก function ไม่งั้นปะผุอีก** → PM เกทที่ความครบของ inventory ก้าว 2 ก่อนไป layout
 - **✅ ก้าว (1) ผ่าน gate + P'Aim approve แล้ว** — `docs/us/songmaker.md @ae01ba8` (journey 10 สเตจ + ~35 stories · G adversarial 3 รอบ · north-star + **import/verify first-class** Stage 10+M11.2-6 ควบคู่พิมพ์มือ · P'Aim: "พี่เปาใช้จริง ต้องมีตัวช่วย") · 6 จุด ⚠️ ให้ dev verify ตอน build
 - **🚀 จ่ายก้าว (2) แล้ว: `task_f5726ecc`** (จัดกลุ่ม function/IA ตามมาตรฐาน · ไม่ใช่ mockup · reconcile DockKey-เก็บ/ไม่รื้อ engine + ตอบ play-dock-in-edit · G adversarial · STOP รอ gate) — running
 - **ค้างถาม P'Aim (ไม่บล็อกก้าว 2):** มีเพลงจริงต้อง modulation/ย้อนกลางห้องไหม (จัดลำดับ build) · ลำดับ build ที่ PM แนะ = input-parity → D.C./D.S. → modulation/display
