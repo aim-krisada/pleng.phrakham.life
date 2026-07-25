@@ -23,6 +23,30 @@ EVIDENCE = re.compile(
     r'(หลักฐาน:|evidence:|proof:|ยังไม่พิสูจน์:|not\s*proven:|raw\s*output|verified:)',
     re.I)
 
+# --- G-verify gate (P'Aim 2026-07-25 · universal way-of-working) ------------------------
+# A claim that a DESIGN/BUILD deliverable is complete/correct must carry BOTH an evidence
+# block AND a `G-VERIFY:` marker. G-VERIFY ≠ "G approved" — it means: G was used
+# adversarially ("what is missing / what is wrong"), every standard claim was re-checked
+# at its REAL source (URL + element name), and the seat/PM made the final call (G raises
+# the floor of completeness/correctness, it does NOT replace judgment; G has hallucinated
+# standards before). Infra/deploy facts (curl / HTTP 200 / git push) are NOT covered here —
+# they need only the evidence block; G does not adjudicate an HTTP 200.
+GATE_CLAIM = re.compile(
+    r'(\bPASS\b|merge[\s-]*ready|ครบ(ตาม|ทุก)?มาตรฐาน|ครบสมบูรณ์|เสร็จสมบูรณ์|'
+    r'ปิด\s*gate|gate\s*ผ่าน|ถูกต้องครบ|verified\s*correct|complete\s*per\b|'
+    r'definition\s*of\s*complete|\bDoC\b\s*(ผ่าน|verified|ครบ))',
+    re.I)
+GVERIFY = re.compile(r'G-VERIFY', re.I)
+GATE_REMINDER = (
+    "G-VERIFY GATE — you claim a design/build deliverable is complete/correct but are "
+    "missing the G-verify evidence. Do NOT end the turn. A completeness/correctness claim "
+    "needs BOTH:\n"
+    "  1) an evidence block (หลักฐาน: + ยังไม่พิสูจน์:)\n"
+    "  2) a `G-VERIFY: <path>` line — G used adversarially ('what is missing/wrong'), every "
+    "standard claim re-checked at its real source (URL/element), seat/PM made the final "
+    "call. G-VERIFY is NOT 'G approved'.\n"
+    "If G was not consulted, or you cannot cite it, say so plainly instead of claiming complete.")
+
 REMINDER = (
     "PRE-FLIGHT GATE — your message claims the deliverable is shipped/done but has "
     "NO evidence block. Do not end the turn yet. Re-verify at a DIFFERENT layer than "
@@ -74,6 +98,10 @@ def main():
     text = last_assistant_text(data.get('transcript_path', ''))
     if not text:
         sys.exit(0)
+    # G-verify gate first (design/build completeness/correctness needs evidence + G-VERIFY)
+    if GATE_CLAIM.search(text) and not (EVIDENCE.search(text) and GVERIFY.search(text)):
+        print(GATE_REMINDER, file=sys.stderr)
+        sys.exit(2)
     if CLAIM.search(text) and not EVIDENCE.search(text):
         print(REMINDER, file=sys.stderr)
         sys.exit(2)                      # block the stop, feed reason to model
