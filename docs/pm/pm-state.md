@@ -2,9 +2,17 @@
 
 > **สมองอยู่บน disk** → PM ตายเกิดใหม่ได้ · เก็บ **สั้น** · จบแล้วตัดออกทันที · มติ → `decisions-log.md` · เก่า → `decisions-archive.md`
 
-## ▶▶ pl pm 47 เริ่มที่นี่ (handoff 2026-07-25 · จาก pm46 · P'Aim สั่ง "PM เก็บงาน + session ใหม่" context เกือบเต็ม)
-> **pm47: ตั้ง title ตัวเอง "pl pm 47" ก่อน** (workers หา PM จาก title prefix "pl pm" เลขสูงสุด) · report-back หลัก = inbox `C:\gl\pm-inbox\pleng\`
-> **⚠️⚠️ อ่าน memory `feedback_follow_exactly_and_guard` (โหลดอัตโนมัติ) ก่อนทำอะไร** — P'Aim โมโหมากรอบ pm46 (พลาดครั้งที่ 4): relay "เสร็จ" ที่ไม่จริง + ไม่เตือนของที่เห็นว่าผิด · **หน้าที่ = (1) ทำตามคำสั่งเป๊ะ เกทที่ผลจริงไม่ใช่ proxy(เทสเขียว/render) (2) เตือนเมื่อเห็นผิด/เสี่ยง · ไม่พูด "เสร็จ" จนพิสูจน์ชั้นจริง(เปิดของจริง)**
+## ▶▶ pl pm 48 เริ่มที่นี่ (handoff 2026-07-25 · จาก pm47 · P'Aim สั่ง "เก็บ PM" context ใกล้เต็ม)
+> **อ่าน 2 memory ก่อนทำอะไร (auto-load):** `feedback_follow_exactly_and_guard` (ทำตามเป๊ะ+กันพลาด · เกทผลจริงไม่ใช่ proxy) + `feedback_definition_of_complete` ("ครบ"=สืบจากแหล่งจริง+G ตรวจเชิงรุก · ไม่ถาม P'Aim "พอไหม" · G-VERIFY=ตรวจซ้ำ+ตัดสินเอง ไม่ใช่ G-อนุมัติ)
+> **report-back หลัก = inbox `C:\gl\pm-inbox\pleng\`** (set title ตัวเองผ่าน tool ไม่ได้ → inbox คือหลัก · workers หา PM จาก prefix "pl pm")
+> **กติกาใหม่ทุกงาน (pm47 วางไว้):** (1) **DoC front-gate** — derive ครบ + G adversarial ("ขาดอะไร") ก่อน build (2) **G-VERIFY hook v1.0.0 = user-level `~/.claude/hooks/preflight_gate.py` ครอบทุกโปรเจกต์** (เคลม design ครบ/ถูก ต้องมี evidence + `G-VERIFY:` · infra ไม่ต้อง) (3) **PM เปิด transcript G เองก่อนบอก "G ผ่าน"** ไม่เชื่อสรุป worker
+
+### 🎯 งานสด: SONG-MAKER FIRST (re-layout ตัวแก้ · ไม่ rebuild) — รอ P'Aim เคาะก่อนก้าว 3
+- **ก้าว 1 ✅ approve** `docs/us/songmaker.md @ae01ba8` (journey 10 สเตจ + ~35 stories · import/verify first-class · north-star)
+- **ก้าว 2 ✅ gated + G-verified (PM อ่าน transcript เอง)** `docs/ds/songmaker-ia.md @18571d9` (62 function → 10 surface S1-S10 · กฎ inline=local/drawer=macro · progressive disclosure พื้นฐาน/ขั้นสูง · play-in-edit=scoped listen)
+- **🔴 รอ P'Aim เคาะก่อนก้าว 3:** (1) จ่าย **G รอบ 2** ให้ IA ไหม / รับ 1 รอบ (PM ว่า 1 รอบพอ) (2) **4 ข้อ §9:** D.C./Segno split(จุด=inline/คำสั่ง=drawer) · โหมดแก้ตัด transport เต็ม+ฟังทั้งเพลงลง⚙ · import=หน้าแยก · ลำดับ build → **PM แนะรับ 3 ข้อแรก + build order = input-parity→D.C./D.S.→import** (3) **พี่เปาใช้เวลา พิมพ์มือ vs ตรวจ import มากกว่ากัน** + มีเพลงจริงต้อง modulation/ย้อนกลางห้องไหม (จัดลำดับ)
+- **ก้าว 3 (หลังเคาะ) = mockup วาง component ของเดิมตามผัง IA · บน component จริง dev-ready · ⛔ ไม่รื้อ engine · ครบทุก function (ไม่งั้นปะผุ)**
+- **N corpus พร้อม:** `_resource/for_n/` 18 .md (Material/MusicXML/SMuFL/MEI) + `_IMPORT-MANIFEST.md` · P'Aim import เอง + paste 4 HIG URL (website source) + Behind Bars PDF (text สะอาด 423pg) = คลังอ้างอิงมาตรฐานให้ทุกงาน
 
 ### ✅ DEPLOY CONSOLIDATION — LANDED + VERIFIED LIVE (2026-07-25 pm47 · P'Aim สั่ง go)
 - **สำเร็จ+พิสูจน์ชั้นจริง (curl served-bytes + Actions API):** origin/main=`9c6730c` (tree=v2 + deploy.yml `[main]`-only) · tag `v1-frozen`→16906d8 (root) · **Actions run เดียว เขียว** (30139760308 success) · **root/ = v1 (มี 16906d8, ไม่มี switcher, 200)** · **/v2/ = v2 (มี 9c6730c + รุ่นทดลอง, 200)** · ไม่ปนกัน · origin/ssr=`00aa719` ไม่ถูกแตะ · **ssr-แดงหายจริง (ไม่มี ssr run โผล่)** · land ทำแบบ plumbing (main ถูก worktree จับ → detached + push HEAD:main แทน branch -f) · รายละเอียด→decisions-log 25 ก.ค.
@@ -19,18 +27,15 @@
 - **ลำดับที่ P'Aim สั่ง (ทำทีละก้าว · ก้าวก่อนไม่ครบ ห้ามข้าม):** (1) **user story + journey ของคนทำเพลง อย่างเดียว ให้ครบสมบูรณ์** → (2) จัดกลุ่ม function ตามมาตรฐาน → (3) mockup (บน component จริง dev-ready) ให้ P'Aim ดู → (4) build · ⛔ ห้ามทำ 2/3/4 จน (1) ครบ
 - **🔑 SCOPE ชัด (P'Aim 2026-07-25):** ของที่มี **ดีอยู่แล้ว = reuse · ⛔ ไม่ build/รื้อใหม่ทั้งหมด · ไม่แตะ engine** · ก้าว 3 = **re-layout + วาง component ใหม่** ให้ง่าย + progressive disclosure มาตรฐานสากล (ไม่ใช่เขียนของใหม่) · **แต่ implementation ต้องครบทุก function ไม่งั้นปะผุอีก** → PM เกทที่ความครบของ inventory ก้าว 2 ก่อนไป layout
 - **✅ ก้าว (1) ผ่าน gate + P'Aim approve แล้ว** — `docs/us/songmaker.md @ae01ba8` (journey 10 สเตจ + ~35 stories · G adversarial 3 รอบ · north-star + **import/verify first-class** Stage 10+M11.2-6 ควบคู่พิมพ์มือ · P'Aim: "พี่เปาใช้จริง ต้องมีตัวช่วย") · 6 จุด ⚠️ ให้ dev verify ตอน build
-- **🚀 จ่ายก้าว (2) แล้ว: `task_f5726ecc`** (จัดกลุ่ม function/IA ตามมาตรฐาน · ไม่ใช่ mockup · reconcile DockKey-เก็บ/ไม่รื้อ engine + ตอบ play-dock-in-edit · G adversarial · STOP รอ gate) — running
-- **ค้างถาม P'Aim (ไม่บล็อกก้าว 2):** มีเพลงจริงต้อง modulation/ย้อนกลางห้องไหม (จัดลำดับ build) · ลำดับ build ที่ PM แนะ = input-parity → D.C./D.S. → modulation/display
-- **งานย่อยทั้งหมดยุบเข้าใต้ทิศนี้:** ย้อน/D.C./D.S. = function ใน journey (ไม่แก้เดี่ยว) · /v2 header nav (design เสร็จ ถือไว้) · SB1/SB2 · completion-flow BI-007 · BI-xxx = เลิกไล่ทีละอัน · ⛔ ไม่แตะ engine (แข็งแล้ว ~70%)
+- **✅ ก้าว (2) เสร็จ+gated** (`task_f5726ecc` · IA `docs/ds/songmaker-ia.md @18571d9`) — สถานะ+สิ่งรอเคาะ = ดู handoff pm48 บนสุด
+- **งานย่อยทั้งหมดยุบเข้าใต้ทิศนี้:** ย้อน/D.C./D.S. = function ใน journey (ไม่แก้เดี่ยว) · /v2 header nav (design เสร็จ `docs/ds/v2-header-redesign.md` · ถือไว้) · SB1/SB2 · completion-flow BI-007 · BI-xxx = เลิกไล่ทีละอัน · ⛔ ไม่แตะ engine (แข็งแล้ว ~70%)
 - **บทเรียน P'Aim ย้ำ:** อย่าเสียเวลาไล่ว่า "G ผิดตรงไหน" = แก้ตัว · เราอยู่หน้างานจริงต้องทำให้ดีเอง
 
-### 🔴 งานใหญ่ค้าง #2 — repeat/ย้อน (D.C./D.S.) ยังไม่ทำงานจริง (ยุบเข้า journey คนทำเพลงข้างบน · ไม่แก้เดี่ยว)
-- **สถานะจริง (verify 00aa719):** ‖::‖/volta/ร้องรับทุกข้อ ใส่ได้แต่**อยู่ในตัวแก้เก่า (EditorMode) ไม่ใช่ดินสอ ✏️** · **D.C./D.S./Segno/Coda/Fine = พิมพ์ได้แค่ป้าย free-text ไม่ย้อนจริง** · ย้อนมิดบาร์+Ctrl+K = ไม่ได้ทำ
-- **P'Aim สั่ง (โมโห):** "ต้องย้อนได้จริง**ทุกบทเพลงตามมาตรฐาน**ใน 2 ไฟล์ `work/ปรับ pl edit ui/แปลงโน้ตเพลงเป็นอัลกอริทึม.md` + `บทวิเคราะห์-สถาปัตยกรรม.md`" · **ต้องอยู่ในดินสอ ✏️ (เลิกตัวแก้เก่า) · ต้องเล่นย้อนจริง** · ⛔ pm47 ห้ามจ่ายจนอ่าน 2 ไฟล์นั้นเป็นโจทย์ก่อน + verify ด้วยการเปิดเพลงจริงกดเล่น (ไม่ใช่ render/เทส) · (pm46 เผลอจ่าย chip นี้ก่อนตกลง → P'Aim หยุด → dismiss แล้ว)
-- ทำ **หลัง** deploy consolidation เสร็จ (หรือแล้วแต่ P'Aim)
+### 🔎 repeat/ย้อน (D.C./D.S.) — ยังไม่ทำงานจริง (verify 00aa719: พิมพ์ได้แค่ป้าย free-text · ‖::‖/volta อยู่ในตัวแก้เก่า) · **ยุบเป็น function ใน journey คนทำเพลง (M6.4) · โจทย์ = 2 ไฟล์ `work/ปรับ pl edit ui/แปลงโน้ต…` + `บทวิเคราะห์-สถาปัตยกรรม.md` · verify by ear เปิดเพลงจริงกดเล่น** (ไม่ใช่ render/เทส)
 
-### session-health (pm46 ปิด): dry-run `task_3a0e519c` DONE (local serve :8791 ยัง live · teardown cmd ใน inbox) · worker อื่น wound down หมด · G/N consult = ai-bridge `ceo/tools/aibridge` (กฎกลางใหม่)
-### 🔒 preflight hook แข็งขึ้น (pm46 · `.claude/hooks/preflight_gate.py`): จับคำ relay-done-on-proxy เพิ่ม (PASS/merge-ready/ใช้ได้/ย้อนได้/works/LIVE) → บังคับต้องมี block หลักฐาน ไม่งั้น harness บล็อก · verified 5 เคส · governs PM session เท่านั้น
+### session-health (pm47 ปิด): worker เพลงทุกตัว wound down (journey/IA/resource-convert/header/deploy-dryrun done · ที่รัน = phrakham/pk-pm ไม่ใช่ของเรา) · G/N consult = ai-bridge `ceo/tools/aibridge` (`--file` แนบ · pull ceo ก่อน)
+
+<!-- ════ ด้านล่างนี้ = ประวัติ pm45-46 (batch/polish/deploy shipped) · เก็บอ้างอิง · มติอยู่ decisions-log · pm48 prune เพิ่มได้ ════ -->
 
 ### 🚀 pm46 · BATCH แก้ editor 7 ตัว LIVE บน /v2 แล้ว (deploy สำเร็จ+verified live · 24 ก.ค. ~22:35)
 - **`integration/editor-fix-batch @717fb7a` (off 7afb038) = LIVE /v2** · รวม BI-004/dc-ds/symbol/BI-005/BI-006+007/new-song/BI-010 · test:all 1577/0-fail · `/v2/` bundle stamp 717fb7a · `/` (v1) stamp 393fe9e tree byte-identical ปลอดภัย · 0 SQL · deploy mechanism + assembler-caught-error → decisions-log (24 ก.ค. pm46)
