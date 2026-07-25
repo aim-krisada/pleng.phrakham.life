@@ -42,7 +42,7 @@ const props = defineProps({
   tier: { type: String, default: 'anon' },
   active: { type: Boolean, default: false },
 })
-const emit = defineEmits(['change', 'save', 'dock'])
+const emit = defineEmits(['change', 'save', 'dock', 'new-song'])
 
 // help-in-context (notation-standard · ทางเสริม ข): the song-maker's standard opens in a NEW
 // tab so in-progress keying is never lost (Tier 0 has no autosave). BASE_URL keeps the hash
@@ -2286,11 +2286,15 @@ const viewMode = ref('edit')
 function toggleMenu(m) {
   openMenu.value = openMenu.value === m ? null : m
 }
+// BI-017 — "สร้างเพลงใหม่" inside the legacy full editor must land in the SAME place as every
+// other create action: the inline ＋เพลงใหม่ flow (a blank editable song on the reading surface,
+// pencil on). So it asks the shell (Studio.createNewSong) instead of resetting the old grid in
+// place — one create flow everywhere, per P'Aim's single-source-of-create. (This already
+// discarded the current grid work without asking; leaving for the inline editor is no more lossy
+// and the shell guards the truly-unrecoverable case.)
 function fileNew() {
   openMenu.value = null
-  viewMode.value = 'edit'
-  pickerId.value = ''
-  resetForm()
+  emit('new-song')
 }
 // B071: "ออกจากเพลงนี้" (fileClose) was removed — P'Aim found it confusing and unneeded.
 function scrollToCard(id) {

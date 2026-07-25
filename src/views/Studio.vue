@@ -139,10 +139,13 @@ onMounted(async () => {
     await loadSong(route.params.id)
     mode.value = 'view' // a routed song opens in a reading view (US-01 AC1)
   } else {
-    // a bare /studio is a brand-new song → straight to the editor
-    loadedSong.value = null
-    liveSong.value = null
-    mode.value = 'edit'
+    // BI-017 — a bare /studio is the app's PRIMARY create action (shell ＋สร้างเพลงใหม่
+    // pill / drawer / FAB all navigate here). It opens the SAME inline editor as ＋เพลงใหม่
+    // from inside the pencil (createNewSong): a blank editable song on the reading surface
+    // with the pencil already on, NOT the legacy full grid editor. (Before: mode='edit'
+    // dumped every create into the old EditorMode — the reported bug.) The legacy editor is
+    // still reachable on purpose via ⋮ → "ตัวแก้แบบเต็ม (เดิม)".
+    createNewSong()
   }
 })
 // Switching songs while the shell stays mounted (the "เปิดเพลง" picker, or browser
@@ -1038,6 +1041,7 @@ function printSheet() {
       :active="mode === 'edit'"
       @change="onChange"
       @save="onSave"
+      @new-song="createNewSong"
     />
     <!-- each mode now mounts its OWN DockKey (ฝึกร้อง=SongViewer · แผ่นเพลง=above · แก้ไข=EditorMode);
          the shared StudioDock is retired. -->
