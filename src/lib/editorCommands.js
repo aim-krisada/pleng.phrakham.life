@@ -17,7 +17,7 @@
 // other file must import from here (AC-0.1: `grep "'_.~^'|'-(){}'|SYMBOL_CHARS|SYMBOL_GROUPS"
 // over src/` must find these literals here and nowhere else).
 
-import { withNoteMark, withToggledBox, withAccidental, withOctaveShift, withToggledBar, withTie, withJumpMarker } from './songEdit.js'
+import { withNoteMark, withToggledBox, withAccidental, withOctaveShift, withToggledBar, withTie, withJumpMarker, bracketSpanAt, withBracketRemovedAt } from './songEdit.js'
 
 // `behavior` — the classification the two if/else tables used to each own a copy of. Each value
 // names the engine action the character triggers on the selected note (see `effectFor` below):
@@ -98,6 +98,24 @@ export function symbolIndex(symbols = SYMBOLS) {
   return { byKey, behavior }
 }
 
+// 'box' dispatch — a slur ( ) or triplet { } is a TOGGLE that must work from any note in the
+// group (BI-011a). If the selected note is already INSIDE a ( )/{ } group, pressing either key
+// removes the WHOLE group (attached or separate brackets, across segments); otherwise it inserts
+// the bracket next to the cursor (the add path, unchanged). '-' hold keeps its own toggle.
+function effectForBox(content, loc, ch) {
+  if (ch === '(' || ch === ')') {
+    return bracketSpanAt(content, loc, '(', ')')
+      ? withBracketRemovedAt(content, loc, '(', ')')
+      : withToggledBox(content, loc, ch, ch === '(')
+  }
+  if (ch === '{' || ch === '}') {
+    return bracketSpanAt(content, loc, '{', '}')
+      ? withBracketRemovedAt(content, loc, '{', '}')
+      : withToggledBox(content, loc, ch, ch === '{')
+  }
+  return withToggledBox(content, loc, ch, false) // '-' hold sits on the right of the cursor
+}
+
 // the pure classification→engine dispatch. This is the ONE table that used to be duplicated in
 // the keydown handler and applySymbol; both now go through here. Content-only (cursor movement
 // is the caller's concern) so it is trivially unit-testable for path equivalence.
@@ -105,7 +123,7 @@ export function effectFor(behavior, content, loc, ch) {
   switch (behavior) {
     case 'mark':       return withNoteMark(content, loc, ch)
     case 'tie':        return withTie(content, loc)
-    case 'box':        return withToggledBox(content, loc, ch, ch === '(' || ch === '{')
+    case 'box':        return effectForBox(content, loc, ch)
     case 'accidental': return withAccidental(content, loc, ch)
     case 'octaveUp':   return withOctaveShift(content, loc, 1)
     case 'octaveDown': return withOctaveShift(content, loc, -1)

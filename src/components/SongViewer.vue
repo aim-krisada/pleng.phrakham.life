@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
-import { withNotePitch, withInsertedBox, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord, withJumpMarker, removeJumpMarker, updateJumpMarker } from '../lib/songEdit.js'
+import { withNotePitch, withInsertedBox, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord, withJumpMarker, removeJumpMarker, updateJumpMarker, activeSymbolsAt, activeMarksAt, withBracketRemovedAt } from '../lib/songEdit.js'
 import { findOrphanJumps } from '../lib/songFlow.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
@@ -936,6 +936,33 @@ function applySymbol(key) {
     }
   }
   focusCapture() // tapping a button must not steal the caret / close the phone keyboard
+}
+// the symbol keys already applied to the SELECTED note — the toolbar lights each matching key so
+// the toggle-to-remove is discoverable (a lit `~` says "press again to take the arc off"). Empty
+// on the word layer or with no note selected. Recomputes on selection or content change.
+const activeSymbols = computed(() => {
+  const loc = selLoc()
+  return loc ? activeSymbolsAt(props.song.content, loc) : []
+})
+// the same marks as friendly chips (BI-011c) — the phone-first "what is on this note" affordance:
+// one [เอื้อน ✕] chip per human concept, tap ✕ = remove. Empty on the word layer / no selection.
+const activeMarks = computed(() => {
+  const loc = selLoc()
+  return loc ? activeMarksAt(props.song.content, loc) : []
+})
+// remove one active mark from the selected note (the chip's ✕). A slur/triplet is a group removed
+// wherever its brackets live (withBracketRemovedAt); every other mark is a plain key toggle-off.
+function removeMark(act) {
+  const loc = selLoc()
+  if (!loc) { focusCapture(); return }
+  if (act === 'slur' || act === 'triplet') {
+    const [open, close] = act === 'slur' ? ['(', ')'] : ['{', '}']
+    const next = withBracketRemovedAt(props.song.content, loc, open, close)
+    if (next !== props.song.content) emit('update-content', next)
+    focusCapture()
+  } else {
+    applySymbol(act) // the same toggle the key press uses (already re-focuses the caret)
+  }
 }
 // the chord picker's options for the song's key ("— ไม่มีคอร์ด —" first = clear)
 const chordOpts = computed(() => chordOptions(props.song?.content?.key || 'C'))
@@ -2738,6 +2765,9 @@ function onSeek({ li, si, syk }) {
         :mode="typeMode"
         :chords="chordOpts"
         :hint-nonce="hintNonce"
+        :active-symbols="activeSymbols"
+        :active-marks="activeMarks"
+        @remove-mark="removeMark"
         :can-undo="canUndo"
         :can-redo="canRedo"
         :help-open="helpOpen"

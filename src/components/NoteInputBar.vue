@@ -28,13 +28,19 @@ const props = defineProps({
   mode: { type: String, default: 'overwrite' }, // 'insert' | 'overwrite' — the แทรก/ทับ state
   chords: { type: Array, default: () => [] }, // [{value,label}] for the key ('' = ไม่มีคอร์ด)
   hintNonce: { type: Number, default: 0 }, // bumped by the host when a new key position is learned
+  // the symbol chars already ON the selected note (['~','('...]) — each matching key shows a
+  // pressed/active state so the toggle-to-remove is visible: a lit key says "press again = เอาออก".
+  activeSymbols: { type: Array, default: () => [] },
+  // the same marks as friendly chips (BI-011c) [{act,label}] — a phone-first "what is on this
+  // note" row: one [เอื้อน ✕] per concept, tapping ✕ removes it in a single touch (no hover).
+  activeMarks: { type: Array, default: () => [] },
   canUndo: { type: Boolean, default: false }, // ย้อน/ทำซ้ำ availability — the buttons must tell the truth
   canRedo: { type: Boolean, default: false },
   // วิธีใช้ starts OPEN for someone who has never edited before and CLOSED afterwards; the
   // host owns the memory (localStorage) so the dock stays presentational.
   helpOpen: { type: Boolean, default: false },
 })
-const emit = defineEmits(['octave', 'accidental', 'toggle-mode', 'nav', 'chord', 'symbol', 'undo', 'redo', 'update:helpOpen'])
+const emit = defineEmits(['octave', 'accidental', 'toggle-mode', 'nav', 'chord', 'symbol', 'undo', 'redo', 'update:helpOpen', 'remove-mark'])
 
 // ---- the symbol keys (DS note-symbol-set §4.1 / G17) ------------------------------------
 // The characters the inline editor accepts come from the SINGLE registry (lib/editorCommands.js
@@ -80,8 +86,25 @@ function commitChordText() {
       <b>← → ↑ ↓</b> เลื่อน · <b>Ctrl+← →</b> ข้ามห้อง · <b>Ctrl+↑ ↓</b> ข้ามบรรทัด<br />
       <b>Insert</b> สลับแทรก/ทับ · <b>Delete</b> ลบอยู่กับที่ · <b>Backspace</b> เอาออกทั้งช่อง<br />
       <b>#</b> ชาร์ป · <b>b</b> แฟลต · <b>'</b> เสียงสูง · <b>,</b> เสียงต่ำ · <b>Ctrl+Z / Ctrl+Y</b> ย้อน/ทำซ้ำ<br />
-      กดสัญลักษณ์เดิมซ้ำ = เอาออก (สลับใส่/ลบได้ทุกตัว) · <b>~</b> โยงโน้ตเสียงเดียวกันสองตัวให้ต่อเนื่อง<br />
+      <b>ปุ่มที่ติดสว่าง = ใส่ไว้แล้วบนโน้ตที่เลือก · กดซ้ำ = เอาออก</b> (สลับใส่/ลบได้ทุกตัว) · หรือแตะชิป <b>บนโน้ตนี้: …✕</b> ด้านบน = เอาออกในแตะเดียว<br />
+      <b>เส้นโค้งบนโน้ต:</b> <b>~</b> โยงเสียงเดียวกันสองตัว · <b>( )</b> เอื้อน คร่อมหลายโน้ต — เลือกโน้ต<b>ตัวไหนก็ได้</b>ที่มีเส้นโค้ง แล้วกดปุ่มเดิม (หรือชิป) = เส้นโค้งหายทั้งเส้น<br />
       สัญลักษณ์อื่นกดจากปุ่มด้านล่างได้เลย — บนปุ่มมีทั้งตัวอักษร ชื่อไทย และตำแหน่งบนคีย์บอร์ด
+    </div>
+
+    <!-- active-marks chips (BI-011c) — "สิ่งที่อยู่บนโน้ตนี้": one chip per mark on the selected
+         note, each removed with a single tap on ✕. This is the phone-first answer to "how do I
+         take this off" — no hover, no scanning the key strip, no guessing which key toggles. Only
+         shows on the note layer with at least one mark. The keys below ALSO light (activeSymbols),
+         so desktop keyers see it there too; the chip is the discoverable one-tap door on touch. -->
+    <div v-if="layer === 'note' && activeMarks.length" class="nib-marks" role="group" aria-label="สัญลักษณ์บนโน้ตที่เลือก">
+      <span class="nib-marks-label" aria-hidden="true">บนโน้ตนี้:</span>
+      <button
+        v-for="m in activeMarks"
+        :key="m.act"
+        class="nib-mark"
+        :aria-label="`เอา${m.label}ออก`"
+        @click="emit('remove-mark', m.act)"
+      >{{ m.label }} <span class="nib-mark-x" aria-hidden="true">✕</span></button>
     </div>
 
     <div class="nib-row">
@@ -129,7 +152,9 @@ function commitChordText() {
               v-for="k in g.keys"
               :key="k.ch"
               class="nib-sym"
-              :aria-label="`${k.th} (พิมพ์ ${k.ch})`"
+              :class="{ on: activeSymbols.includes(k.ch) }"
+              :aria-pressed="activeSymbols.includes(k.ch)"
+              :aria-label="activeSymbols.includes(k.ch) ? `${k.th} — ใส่แล้ว (กดเพื่อเอาออก)` : `${k.th} (พิมพ์ ${k.ch})`"
               @click="emit('symbol', k.ch)"
             >
               <span class="nib-symch">{{ k.ch }}</span>
@@ -204,6 +229,47 @@ function commitChordText() {
   flex-wrap: wrap;
   gap: 6px;
 }
+/* active-marks chip row (BI-011c) — sits above the key strip, high-contrast so it reads as
+   "these are ON, tap ✕ to remove". Chips wrap; each is a full touch target. */
+.nib-marks {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.nib-marks-label { flex: 0 0 auto; font-size: 12px; color: var(--muted, #64748b); }
+.nib-mark {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--touch-min, 44px);
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--brand, #8b4513);
+  border-radius: 999px;
+  background: var(--brand, #8b4513);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.nib-mark:active { transform: translateY(1px); }
+.nib-mark:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* the ✕ reads as the remove control — a filled circle so it is an obvious hit, not decoration */
+.nib-mark-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 12px;
+  line-height: 1;
+}
 .nib-key {
   flex: 0 0 auto;
   min-width: var(--touch-min, 44px);
@@ -271,6 +337,16 @@ function commitChordText() {
 }
 .nib-sym:active { transform: translateY(1px); }
 .nib-sym:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+/* ON — this symbol is ALREADY on the selected note, so this same key removes it (BI-011). The
+   brand fill is the standard toolbar toggle affordance (same as แทรก's .ins): the person who
+   could not find how to take an arc off now sees the ~ / ( / ) key lit and presses it again. */
+.nib-sym.on {
+  background: var(--brand, #8b4513);
+  border-color: var(--brand, #8b4513);
+}
+.nib-sym.on .nib-symch { color: #fff; }
+.nib-sym.on .nib-symth,
+.nib-sym.on .nib-symkey { color: rgba(255, 255, 255, 0.85); }
 /* the character line is the ANSWER, so it must be legible on its own: a monospace face with a
    fixed box keeps '_' and '.' — which otherwise sit on the baseline as near-invisible specks —
    the same visual weight as '(' or '^'. */
