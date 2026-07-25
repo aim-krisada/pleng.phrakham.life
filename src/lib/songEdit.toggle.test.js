@@ -76,9 +76,7 @@ describe('BI-003 — every symbol applies AND removes from the same key', () => 
       c = press(c, 1, close) // closing bracket AFTER the 2nd note (slot 1 is the '2')
       expect(noteOf(c)).toBe(`${open} 1 2 ${close}`)
       expect(c.arrangement.map((e) => e.syllables)).toEqual([['a', 'b'], ['d', 'e']]) // no ripple
-      c = press(c, 0, open) // re-press removes the opener
-      expect(noteOf(c)).toBe(`1 2 ${close}`)
-      c = press(c, 1, close) // re-press removes the closer
+      c = press(c, 0, open) // re-press removes the WHOLE bracket pair from any note in the span (BI-011 — no dangling half-bracket)
       expect(noteOf(c)).toBe('1 2')
     }
   })

@@ -548,7 +548,7 @@ watch(() => props.open, (on) => {
 .sd-line.drop-above::before,
 .sd-line.drop-below::after {
   content: ''; position: absolute; left: 0; right: 0; height: 3px;
-  background: var(--brand, #b45309); border-radius: 2px; z-index: 2; pointer-events: none;
+  background: var(--brand, #b45309); border-radius: 2px; z-index: var(--z-raised, 5); pointer-events: none;
 }
 .sd-card.drop-above::before, .sd-line.drop-above::before { top: -3px; }
 .sd-card.drop-below::after, .sd-line.drop-below::after { bottom: -3px; }
@@ -728,7 +728,7 @@ button.sd-mel-pick:hover { background: color-mix(in srgb, var(--brand, #b45309) 
 /* horizontal drop indicator — a solid 3px accent bar on the side the dragged chip would land */
 .sd-bar.drop-before::before, .sd-bar.drop-after::after {
   content: ''; position: absolute; top: 0; bottom: 0; width: 3px;
-  background: var(--brand, #b45309); border-radius: 2px; z-index: 2; pointer-events: none;
+  background: var(--brand, #b45309); border-radius: 2px; z-index: var(--z-raised, 5); pointer-events: none;
 }
 .sd-bar.drop-before::before { left: -3px; }
 .sd-bar.drop-after::after { right: -3px; }
