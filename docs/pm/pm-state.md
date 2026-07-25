@@ -156,7 +156,8 @@
 - **ship-fast, fix-faster** · ขึ้นผิด=บั๊กแก้ทีหลัง · ⛔ เว้นกลุ่มเดียว = **ข้อมูลหายเงียบ+กู้ไม่ได้** (เกทเสมอ)
 
 ## ☑️ CHECKLIST ใบสั่งงานออกแบบ (บังคับ)
-1. **คุย G ก่อนตัดสินใจออกแบบ** (ตอนนี้ G พัง → DEFER/ai-bridge · design-first บนมาตรฐาน+ดีไซน์ล็อกไปก่อน) · 2. เซฟ transcript → EVIDENCE · 3. ชื่อแชต `pleng-<หัวข้อ>-YYYY-MM-DD` · 4. ⛔ ไม่ขอตรายาง ตามต่อ 1-2 รอบ · **G เคย hallucinate ถอนคำ 2 ครั้ง → ตรวจเอง**
+0. **🔴 ก่อน code: ทุกก้าวผ่าน 3AI (C ร่าง→N เทียบมาตรฐาน→G หาช่องโหว่) ครบก่อนขยับ + P'Aim ดู UI (mockup) ก่อน dev** (P'Aim สั่ง pm48 · memory `feedback_3ai_each_step_then_paim_ui` · เกทบน transcript จริง · กันปะผุ)
+1. **คุย G/N ผ่าน ai-bridge** (`ceo/tools/aibridge` :9335) · 2. เซฟ transcript → EVIDENCE · 3. ชื่อแชต `pleng-<หัวข้อ>-YYYY-MM-DD` · 4. ⛔ ไม่ขอตรายาง ตามต่อ 1-2 รอบ · **G/N เคย hallucinate/approve ใต้แรงกด → ตรวจ citation จริงเอง**
 
 ## กติกาถาวร
 ⛔ re-import/bulk-write 120 เพลง · ⛔ **merge = PM เท่านั้น** · ⛔ **main/deploy/SQL = P'Aim สั่ง go** · ⛔ SQL เพิ่มอย่างเดียว + guard/rollback · ⛔ ไม่แตะ server/browser P'Aim (:5480·Chrome 9222) · ⛔ **ไม่กั้น UI ด้วย `@media(hover)`** (เครื่อง P'Aim hover:none ทั้งที่มีเมาส์) · reuse engine · Vue3+Vite · **PM = จ่ายงาน+อ่านสรุป+gate · ไม่ code/ไม่ส่องโค้ดเอง** (§4.5)
