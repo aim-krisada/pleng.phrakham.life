@@ -22,7 +22,9 @@
 
 ### 🏠 ทะยอยปรับ v2 หน้าแรก (P'Aim 25 ก.ค. pm48 · งานแรกของ "ปรับ v2 ทีละส่วน")
 - **ข้อเสนอ P'Aim:** หน้าแรก=รายการเพลง (มองเป็น "specialized file explorer") · รวม จัดการเพลง (สร้าง/เปิด-รายการ/ลบ/นำเข้า) เป็น **เมนู "เพลง"** = File menu (New/Open/Delete/Import) · **เอาปุ่มส้ม "สร้างเพลงใหม่" เด่นเดี่ยวออก ทั้ง desktop+mobile** (create เป็นแค่ 1 op ไม่ควรเด่นกว่าเพื่อน) · (เมนูแก้โน้ตยังอยู่บนแผ่น/dock — คนละชั้น)
-- **P'Aim สั่งปรึกษา N+G ก่อน → จ่ายแล้ว (task_3b6be3a2):** 4 คำถาม (File-menu world-class? · create เด่น FAB vs tuck? · home=file-explorer? · desktop vs mobile) → transcript+ทางเลือกให้ P'Aim เคาะ · รอ inbox `2026-07-25-home-songmenu-options.md`
+- **✅ N+G ตอบ (`2026-07-25-home-songmenu-options.md`):** หน้าแรก=รายการเพลง ✅ (N ขอ**การ์ดมีข้อมูล**) · เมนู File-style ⚠️**ทั้งคู่ค้าน** (ล้าสมัย+ซ่อนคำสั่ง) → แยกคำสั่งตามบริบท · ปุ่มสร้าง G/N เถียง → **P'Aim เคาะ** · mental model = **Media Library** (Spotify) ไม่ใช่ file-explorer · เลิกยัดใน ☰
+- **✅ P'Aim เคาะ (25 ก.ค.):** (1) **Media Library** = รับ (v2 เกือบเป็นอยู่แล้ว · แถวเพลง→การ์ด · ไม่รื้อ) (2) **ปุ่มสร้าง = B** (เข้าถึงทุกคน แต่ไม่เด่น · **ไม่ใช่ A/login-gate** เพราะ anon สร้าง/แก้ได้ เก็บ JSON) (3) **เอาปุ่มสลับ ⇄ + "รุ่นทดลอง" ออก** (ให้ v2 ดู live · v2-only · v1 ไม่แตะ)
+- **🔵 home-tidy = ยังไม่จ่าย (รอ bundle):** การ์ด + ปุ่มสร้าง B (ไม่เด่น) + เอา ⇄/"รุ่นทดลอง" ออก → 1 ก้อน + UI preview → P'Aim ดู ก่อน build · **รอ P'Aim สั่งเริ่ม** (หลัง 717/search นิ่ง)
 
 ### 📥 พี่เปา (user จริง) แจ้งผ่าน P'Aim (25 ก.ค. pm48) — 2 เรื่อง
 1. **🔴 บั๊ก (อาจ data loss · ด่วน): ใส่ `-` ในเลขเพลง (717-1/717-2) → เพลงหายทั้งคู่** · **จ่าย session ตรวจ read-only แล้ว (task_ae699484):** (A) ข้อมูลยังอยู่ใน Supabase ไหม (B) ใช้ `-` ได้ไหมจริง (C) ต้นเหตุ (save/filter/parse number เป็นเลข→NaN?) · ⛔ SELECT อย่างเดียว · รอ inbox `2026-07-25-bug-dash-in-song-number.md` → ถ้าเป็นบั๊ก PM จ่าย fix แยก
@@ -192,7 +194,8 @@
 
 ## 🔎 พี่เปา: search ไม่ดี (25 ก.ค. pm48) — จ่ายตรวจแล้ว task_2764707d
 - **ตรวจเสร็จ:** สาเหตุจริง = **ผลไม่จัดอันดับ** (เพลงตรงเป๊ะจมล่างใต้ fuzzy · ไม่ใช่คำกระจาย) · rank มีในโค้ดแล้ว หน้าจอเรียกตัวไม่ rank · แก้ **ไฟล์เดียว songSearch.js** (filterSongs sort-by-score + title-boost) · **v1/v2 โค้ดเดียวเป๊ะ (blob ff9b140) แก้ครั้งเดียว** · (ชื่อจริง "ยามพระเจ้าอยู่ร่วมกับเรา" ไม่มี "พวก")
-- **P'Aim อนุมัติ → จ่าย dev build (task_26ce12fc):** implement + `test:all` เขียว + พิสูจน์ผลจริง (พิมพ์ "ยามพระ"→เด้งบนสุด) · v1+v2 · ⛔ ไม่ deploy/ไม่ขยับ tag (P'Aim ตัดสิน deploy ทีหลัง) · รอ inbox `2026-07-25-search-fix-done.md`
+- **✅ fix เสร็จ+verified** `claude/jovial-carson-117c44 @95ed6f3` (songSearch.js · test:all 1361 pass · corpus จริง "ยามพระ" 38→0 บนสุด)
+- **✅ P'Aim สั่ง "deploy search ทั้ง v1 v2" → จ่าย deploy (task_a659de93):** merge main(→/v2) + cherry-pick+ขยับ tag v1-frozen(→root) ตาม mechanism จริง · gate build/test · **verify ชั้นจริง (curl served + live search ทั้ง 2 รุ่น พิมพ์ "ยามพระ"→บนสุด)** + rollback · ⛔ PM ห้ามเคลม live จน verify ครบ · รอ inbox `2026-07-25-search-deploy.md`
 
 ## ⭐⭐ ลำดับความสำคัญถาวร (P'Aim)
 - **"สำคัญคือ UI และ engine ทำเพลง"** · **MusicScore/เมโลดี้ = SSOT ต้อง 100% · เสียง(timbre) ไม่ต้อง 100%** (piano ทองพอ · กีตาร์/ไวโอลิน/รวมวง = ได้แค่ไหนแค่นั้น)
