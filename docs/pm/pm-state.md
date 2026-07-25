@@ -8,7 +8,8 @@
 
 ### 🔴 งานสด #1 — DEPLOY CONSOLIDATION (P'Aim เคาะแนวแล้ว · dry-run กำลังรัน)
 - **P'Aim เลือก:** รวมเป็น **main branch เดียว** (ไม่สลับ topology · ผู้ใช้ไม่กระทบ): **main = โค้ด v2** · **v1 แช่แข็งเป็น tag `v1-frozen`** · deploy.yml trigger `[main]` อย่างเดียว build **v1(tag)→root** + **v2(main,PLENG_V2=1)→/v2** = **ไม่มี ssr · ไม่มี run แดง · ไม่มี empty-commit hack** · เหตุ: ssr แดงทุกรอบเพราะ deploy.yml trigger ทั้ง main+ssr แต่ env-protection ให้เฉพาะ main deploy
-- **🧪 dry-run session `task_3a0e519c` RUNNING** (throwaway ล้วน · ⛔ ห้ามแตะ prod) → จะเขียน inbox `2026-07-25-deploy-consolidate-dryrun.md` + ping "pl pm" เลขสูงสุด · **พอมันรายงาน pm47 ต้อง:** อ่านหลักฐาน (local serve root=v1 · /v2=v2 stamp จริง) → **เอาให้ P'Aim ดูก่อน → P'Aim go → ค่อย execute land** (ตามคำสั่งใน report) → **verify LIVE จริง (เปิด URL ดู stamp)** → rollback พร้อม
+- **✅ dry-run `task_3a0e519c` DONE · VERDICT pass** (throwaway · ไม่แตะ prod) · หลักฐาน inbox `2026-07-25-deploy-consolidate-dryrun.md` — พิสูจน์ที่ real HTTP+browser (127.0.0.1:8791): **root→v1 stamp 16906d8 · /v2→v2 · ทั้งคู่ 200 · ไม่ปนกัน · git push = fast-forward (ไม่ force)** · **land commands + rollback (force-with-lease main→16906d8, ssr ไม่แตะ) + branch re-target notes = อยู่ใน inbox** · local serve ยัง live :8791
+  - **🔴 ACTION ค้างของ pm47 (รอ P'Aim go เท่านั้น):** เอาหลักฐานให้ P'Aim ดู/eyeball → **P'Aim สั่ง go** → execute land (คำสั่งใน inbox: tag v1-frozen · commit-tree main=v2 · deploy.yml [main]-only · push) → **verify LIVE จริง** (เปิด root=v1 · /v2=v2 · Actions เขียว · NOT PROVEN เดิม = Actions runner จริงยังไม่รัน) → rollback พร้อม · ⛔ ห้าม push จน P'Aim go
 - **5 ด่านที่สัญญา P'Aim:** (1) ไม่แตะ prod จน P'Aim เห็นหลักฐาน dry-run (2) STOP+โชว์คำสั่ง+rollback ก่อน push (3) เกทที่ live จริงไม่ใช่เทสเขียว (4) v1 tag แช่แข็ง+rollback 1 คำสั่ง (5) สำเร็จ=P'Aim เปิด root=v1 /v2=v2 เอง
 
 ### 🔴 งานใหญ่ค้าง #2 — repeat/ย้อน (D.C./D.S.) ยังไม่ทำงานจริง (โจทย์หลัก P'Aim · เคยหลุด 4 รอบ)
@@ -16,7 +17,8 @@
 - **P'Aim สั่ง (โมโห):** "ต้องย้อนได้จริง**ทุกบทเพลงตามมาตรฐาน**ใน 2 ไฟล์ `work/ปรับ pl edit ui/แปลงโน้ตเพลงเป็นอัลกอริทึม.md` + `บทวิเคราะห์-สถาปัตยกรรม.md`" · **ต้องอยู่ในดินสอ ✏️ (เลิกตัวแก้เก่า) · ต้องเล่นย้อนจริง** · ⛔ pm47 ห้ามจ่ายจนอ่าน 2 ไฟล์นั้นเป็นโจทย์ก่อน + verify ด้วยการเปิดเพลงจริงกดเล่น (ไม่ใช่ render/เทส) · (pm46 เผลอจ่าย chip นี้ก่อนตกลง → P'Aim หยุด → dismiss แล้ว)
 - ทำ **หลัง** deploy consolidation เสร็จ (หรือแล้วแต่ P'Aim)
 
-### session-health (pm46 ปิด): เหลือ running ตัวเดียว = dry-run `task_3a0e519c` · worker อื่น wound down หมด · G/N consult = ai-bridge `ceo/tools/aibridge` (กฎกลางใหม่ · §4.5 ข้อ 10)
+### session-health (pm46 ปิด): dry-run `task_3a0e519c` DONE (local serve :8791 ยัง live · teardown cmd ใน inbox) · worker อื่น wound down หมด · G/N consult = ai-bridge `ceo/tools/aibridge` (กฎกลางใหม่)
+### 🔒 preflight hook แข็งขึ้น (pm46 · `.claude/hooks/preflight_gate.py`): จับคำ relay-done-on-proxy เพิ่ม (PASS/merge-ready/ใช้ได้/ย้อนได้/works/LIVE) → บังคับต้องมี block หลักฐาน ไม่งั้น harness บล็อก · verified 5 เคส · governs PM session เท่านั้น
 
 ### 🚀 pm46 · BATCH แก้ editor 7 ตัว LIVE บน /v2 แล้ว (deploy สำเร็จ+verified live · 24 ก.ค. ~22:35)
 - **`integration/editor-fix-batch @717fb7a` (off 7afb038) = LIVE /v2** · รวม BI-004/dc-ds/symbol/BI-005/BI-006+007/new-song/BI-010 · test:all 1577/0-fail · `/v2/` bundle stamp 717fb7a · `/` (v1) stamp 393fe9e tree byte-identical ปลอดภัย · 0 SQL · deploy mechanism + assembler-caught-error → decisions-log (24 ก.ค. pm46)
