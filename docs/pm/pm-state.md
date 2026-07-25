@@ -7,7 +7,13 @@
 > **report-back หลัก = inbox `C:\gl\pm-inbox\pleng\`** (set title ตัวเองผ่าน tool ไม่ได้ → inbox คือหลัก · workers หา PM จาก prefix "pl pm")
 > **กติกาใหม่ทุกงาน (pm47 วางไว้):** (1) **DoC front-gate** — derive ครบ + G adversarial ("ขาดอะไร") ก่อน build (2) **G-VERIFY hook v1.0.0 = user-level `~/.claude/hooks/preflight_gate.py` ครอบทุกโปรเจกต์** (เคลม design ครบ/ถูก ต้องมี evidence + `G-VERIFY:` · infra ไม่ต้อง) (3) **PM เปิด transcript G เองก่อนบอก "G ผ่าน"** ไม่เชื่อสรุป worker
 
-### 🎯 งานสด: SONG-MAKER FIRST (re-layout ตัวแก้ · ไม่ rebuild) — 🔵 N ตรวจก้าว 1+2 (P'Aim สั่ง 25 ก.ค. pm48)
+### 🎯 งานสด: SONG-MAKER FIRST — 🔴🔴 ก้าว 3 พลาด · P'Aim STOP ทุก session · reset (pm48 · 25 ก.ค.)
+> **P'Aim หงุดหงิดหนัก + ไม่เชื่อ PM ตอนนี้** (PM พลาด: ส่ง mockup ว่า "ดี" ทั้งที่ popup เยอะ=ขัดคีย์บอร์ดต่อเนื่อง · แล้วแก้ผิดทางไป lock v2). **บทเรียน: ไม้บรรทัด = "ทำเพลงง่ายขึ้นจริงไหม" ไม่ใช่ v1/v2/completeness/ภาพสวย · ของดีต้องเก็บ (คีย์บอร์ดต่อเนื่อง) · redesign เพื่อเก็บดี ทิ้งไม่ดี.**
+> **P'Aim สั่งชัด: (1) ก้าว 3 เริ่มใหม่ (2) ⛔ PM ห้ามคิด/ตัดสินเอง — ไปถาม G+N ว่าก้าว 3 ควรเป็นยังไง เอา transcript จริง + ตัวเลือกภาษาง่ายๆ มาให้ P'Aim ตัดสิน (3) โจทย์ = เร็วสุด+กระทบน้อยสุด+world-class · มี v1+v2 · ไม่ต้อง lock v2 เริ่มใหม่ได้.**
+> **จ่ายแล้ว task_870050c4** (ถาม G+N 3 คำถาม: editing model keyboard-first/popup · v1-vs-v2-vs-เริ่มใหม่ · ก้าว 3 มีอะไร → options ให้ P'Aim เลือก) · รอ inbox `2026-07-25-step3-gn-options.md`.
+> **⛔ ก้าว 3 mockup เดิม (task_5c156160) = ยกเลิก · ล็อกทำนอง (task_224df994) + งานอื่น = P'Aim STOP ไว้ · อย่าปลุกจน P'Aim สั่ง.**
+
+### (เดิม) SONG-MAKER FIRST (re-layout ตัวแก้ · ไม่ rebuild)
 - **ก้าว 1 ✅ approve** `docs/us/songmaker.md @ae01ba8` (journey 10 สเตจ + ~35 stories · import/verify first-class · north-star)
 - **ก้าว 2 ✅ gated + G-verified (PM อ่าน transcript เอง)** `docs/ds/songmaker-ia.md @18571d9` (62 function → 10 surface S1-S10 · กฎ inline=local/drawer=macro · progressive disclosure พื้นฐาน/ขั้นสูง · play-in-edit=scoped listen)
 - **§9 ปิดแล้ว (PM ตัดสิน 3 ข้อมาตรฐานเอง + P'Aim เคาะ build order pm48):** (1) D.C./Segno split ✅รับ (จุดปัก=S5 inline · คำสั่งกระโดด=S7 drawer) (2) โหมดแก้ตัด transport เต็ม ✅รับ (เหลือ scoped listen + ฟังทั้งเพลงลง⚙ + คง Space) (3) import=หน้า/โหมดแยก ✅รับ (HIG modes-for-tasks) (4) **build order = P'Aim เคาะ "แก้ตรงจุด/พิมพ์ (S5) ก่อน"** · **G รอบ 2 = ไม่ต้อง (PM ว่า 1 รอบพอ)**
