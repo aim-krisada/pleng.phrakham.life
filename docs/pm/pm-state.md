@@ -193,10 +193,8 @@
 ## 🔴 กฎถาวร (P'Aim confirm 25 ก.ค. pm48): FIX ต้องครอบทั้ง v1 + v2 — memory `pleng-fixes-cover-v1-and-v2`
 - **ทุกอย่างจากนี้ การปรับต้องรองรับทั้ง v1 (root) และ v2 (/v2)** · v1 เดิม frozen (v1-frozen 16906d8) → **เลิก frozen · co-maintained · deploy 2 ที่** · ทุกใบสั่ง fix ต้องระบุไฟล์ v1&v2 (โค้ดเดียวกัน=แก้ครั้งเดียว deploy 2 ที่ · diverged=แก้ทั้งคู่) · **CONFIRMED — locked**
 
-## 🔎 พี่เปา: search ไม่ดี (25 ก.ค. pm48) — จ่ายตรวจแล้ว task_2764707d
-- **ตรวจเสร็จ:** สาเหตุจริง = **ผลไม่จัดอันดับ** (เพลงตรงเป๊ะจมล่างใต้ fuzzy · ไม่ใช่คำกระจาย) · rank มีในโค้ดแล้ว หน้าจอเรียกตัวไม่ rank · แก้ **ไฟล์เดียว songSearch.js** (filterSongs sort-by-score + title-boost) · **v1/v2 โค้ดเดียวเป๊ะ (blob ff9b140) แก้ครั้งเดียว** · (ชื่อจริง "ยามพระเจ้าอยู่ร่วมกับเรา" ไม่มี "พวก")
-- **✅ fix เสร็จ+verified** `claude/jovial-carson-117c44 @95ed6f3` (songSearch.js · test:all 1361 pass · corpus จริง "ยามพระ" 38→0 บนสุด)
-- **✅ P'Aim สั่ง "deploy search ทั้ง v1 v2" → จ่าย deploy (task_a659de93):** merge main(→/v2) + cherry-pick+ขยับ tag v1-frozen(→root) ตาม mechanism จริง · gate build/test · **verify ชั้นจริง (curl served + live search ทั้ง 2 รุ่น พิมพ์ "ยามพระ"→บนสุด)** + rollback · ⛔ PM ห้ามเคลม live จน verify ครบ · รอ inbox `2026-07-25-search-deploy.md`
+## ✅✅ search phrase-first fix = LIVE + VERIFIED บน root(v1)+/v2 (25 ก.ค. pm48 · P'Aim go)
+- แก้ไฟล์เดียว `songSearch.js` (filterSongs sort-by-score + title-boost) · **main @f187950 (FF) · tag v1-frozen→9160a10 (16906d8+fix)** · Actions run 30162821385 เขียว (รันเดียว ไม่มีแดง) · served bundle ทั้ง 2 รุ่นมี fix · **live "ยามพระ" → "ยามพระเจ้าอยู่ร่วมกับเรา" #1 ทั้ง root+/v2** · topology intact (root ไม่มี "รุ่นทดลอง") · rollback 2 คำสั่งพร้อม · **NOT PROVEN: P'Aim eyeball เอง** (session ยิง event บนโค้ด+ข้อมูลจริง ไม่ใช่พิมพ์มือ · ไม่มี PNG) · = **fix แรก pm48 ที่ขึ้นทั้ง 2 รุ่นสำเร็จ** (พิสูจน์กฎ v1+v2 โค้ดเดียว deploy ได้จริง)
 
 ## ⭐⭐ ลำดับความสำคัญถาวร (P'Aim)
 - **"สำคัญคือ UI และ engine ทำเพลง"** · **MusicScore/เมโลดี้ = SSOT ต้อง 100% · เสียง(timbre) ไม่ต้อง 100%** (piano ทองพอ · กีตาร์/ไวโอลิน/รวมวง = ได้แค่ไหนแค่นั้น)
