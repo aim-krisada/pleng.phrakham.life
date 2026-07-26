@@ -315,6 +315,13 @@ function onAddLyricSet() {
 const confirmDelSet = ref(-1) // set index pending delete (-1 = no dialog)
 const delSetBtn = ref(null) // the 🗑 that opened the confirm — focus returns here on cancel
 const cancelDelBtn = ref(null)
+const okDelBtn = ref(null)
+// aria-modal="true" is only true if focus cannot wander off behind the scrim. Two buttons, so
+// the trap is a toggle rather than a list walk.
+function cycleConfirmFocus() {
+  const el = document.activeElement === cancelDelBtn.value ? okDelBtn.value : cancelDelBtn.value
+  el?.focus()
+}
 const setMsg = ref('') // aria-live: what the delete actually did (lives OUTSIDE the tab strip)
 function askDeleteLyricSet() {
   if ((lyricSets.value?.length || 0) <= 1) return // guard — the button is disabled as well
@@ -2877,31 +2884,42 @@ function onSeek({ li, si, syk }) {
               @click="askDeleteLyricSet"
             ><Icon name="trash-2" :size="14" /> {{ t('lyricSet.del') }}</button>
           </div>
-          <!-- destructive confirm — NAMES the set being deleted and states what survives. Esc
-               cancels; focus opens on ยกเลิก (see askDeleteLyricSet). role="alertdialog" without
-               aria-modal: this is an inline confirm and the rest of the page stays reachable, so
-               claiming modality would be a lie to a screen reader. -->
+          <!-- destructive confirm — a REAL modal (the app's ShareSheet shape: fixed scrim at
+               --z-modal, centred card), not an inline card under the strip. In edit mode the
+               sheet has its own scroll region, and on a 360px phone that region measures ~31px
+               tall between the save bar and the tool dock — an inline confirm renders INSIDE it,
+               so its question scrolls out of sight and the person is left looking at a bare red
+               button. A confirm that can be clipped is not a confirm. Escaping the container
+               also makes aria-modal="true" honest: the scrim swallows the page behind it, Esc
+               and a scrim click cancel, and Tab cycles between the two buttons. -->
           <div
             v-if="confirmDelSet >= 0"
-            class="lset-confirm"
-            role="alertdialog"
-            aria-labelledby="lset-confirm-t"
-            aria-describedby="lset-confirm-d"
+            class="lset-confirm-scrim"
+            @click.self="cancelDeleteLyricSet"
             @keydown.esc.stop="cancelDeleteLyricSet"
+            @keydown.tab.prevent="cycleConfirmFocus"
           >
-            <p id="lset-confirm-t" class="lset-confirm-t">
-              {{ t('lyricSet.confirmTitle', { name: lyricSetLabels[confirmDelSet] }) }}
-            </p>
-            <p id="lset-confirm-d" class="lset-confirm-d">
-              {{ t('lyricSet.confirmBody') }} <b>{{ t('lyricSet.confirmKeep') }}</b>
-            </p>
-            <div class="lset-confirm-btns">
-              <button ref="cancelDelBtn" class="lset-confirm-cancel" @click="cancelDeleteLyricSet">
-                {{ t('lyricSet.confirmCancel') }}
-              </button>
-              <button class="lset-confirm-del" @click="doDeleteLyricSet">
-                <Icon name="trash-2" :size="14" /> {{ t('lyricSet.confirmDel') }}
-              </button>
+            <div
+              class="lset-confirm"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="lset-confirm-t"
+              aria-describedby="lset-confirm-d"
+            >
+              <p id="lset-confirm-t" class="lset-confirm-t">
+                {{ t('lyricSet.confirmTitle', { name: lyricSetLabels[confirmDelSet] }) }}
+              </p>
+              <p id="lset-confirm-d" class="lset-confirm-d">
+                {{ t('lyricSet.confirmBody') }} <b>{{ t('lyricSet.confirmKeep') }}</b>
+              </p>
+              <div class="lset-confirm-btns">
+                <button ref="cancelDelBtn" class="lset-confirm-cancel" @click="cancelDeleteLyricSet">
+                  {{ t('lyricSet.confirmCancel') }}
+                </button>
+                <button ref="okDelBtn" class="lset-confirm-del" @click="doDeleteLyricSet">
+                  <Icon name="trash-2" :size="14" /> {{ t('lyricSet.confirmDel') }}
+                </button>
+              </div>
             </div>
           </div>
           <!-- a screen reader hears WHICH words are on the sheet now; sighted users read it in
@@ -3278,16 +3296,29 @@ function onSeek({ li, si, syk }) {
   .lset-del { min-height: 44px; }
 }
 
-/* the confirm — a card under the strip, not a floating dialog: it belongs to the set you just
-   pointed at, and nothing on this surface floats over the words (the editing frame's rule). */
+/* the confirm — the app's own modal shape (cf. ShareSheet): a fixed scrim at --z-modal, above
+   the tool dock and the shell bar, so the question is always where the eye already is and can
+   never be clipped by the editing frame's ~31px scroll region on a phone. */
+.lset-confirm-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 1200);
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
 .lset-confirm {
-  margin: 10px auto 0;
+  width: 100%;
   max-width: 360px;
-  padding: 14px 16px;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 16px;
   border: 1px solid var(--red, #c0392b);
   border-radius: 12px;
   background: var(--surface, #fff);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, .14);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .3);
   text-align: center;
 }
 .lset-confirm-t { margin: 0 0 4px; font-weight: 700; color: var(--ink, #2b2b2b); }

@@ -161,6 +161,48 @@ describe('SongViewer /v2 — the confirm gate', () => {
 
   // Apple HIG "Alerts": for a destructive action the SAFE choice is the default. v1 focuses ลบ
   // and binds Enter to it, so a held Enter from the tab strip deletes a set nobody chose.
+  // Found at 360px in a real browser, not by a test: in edit mode the sheet has its own scroll
+  // region, and on a phone that region measures ~31px between the save bar and the tool dock. An
+  // inline confirm renders INSIDE it, so the question scrolls out of sight and the person is left
+  // looking at a bare red button. It is a modal now — same shape as the app's ShareSheet.
+  it('is a modal over the page, not a card inside the scrolling sheet', async () => {
+    const w = await enterEdit(mountSong(threeSetSong()))
+    await w.find('.lset-del').trigger('click')
+    await nextTick()
+    const scrim = w.find('.lset-confirm-scrim')
+    expect(scrim.exists()).toBe(true)
+    expect(scrim.find('.lset-confirm').exists()).toBe(true)
+    // the confirm must NOT live inside the sheet's scroll region
+    expect(w.find('.sheet-scale').element.contains(scrim.element)).toBe(false)
+    const box = w.find('.lset-confirm')
+    expect(box.attributes('role')).toBe('alertdialog')
+    expect(box.attributes('aria-modal')).toBe('true')
+    expect(box.attributes('aria-labelledby')).toBe('lset-confirm-t')
+  })
+
+  it('clicking the scrim cancels — the safe way out of a mis-tap', async () => {
+    const w = await enterEdit(mountSong(threeSetSong()))
+    await w.find('.lset-del').trigger('click')
+    await nextTick()
+    await w.find('.lset-confirm-scrim').trigger('click')
+    await nextTick()
+    expect(w.find('.lset-confirm').exists()).toBe(false)
+    expect(contentOf(w).lyricSets).toHaveLength(3)
+  })
+
+  it('Tab cannot wander off behind the scrim — aria-modal has to be true', async () => {
+    const w = mount(Harness, { props: { initial: threeSetSong() }, attachTo: document.body })
+    await enterEdit(w)
+    await w.find('.lset-del').trigger('click')
+    await nextTick(); await nextTick()
+    expect(document.activeElement.className).toContain('lset-confirm-cancel')
+    await w.find('.lset-confirm-scrim').trigger('keydown.tab')
+    expect(document.activeElement.className).toContain('lset-confirm-del')
+    await w.find('.lset-confirm-scrim').trigger('keydown.tab')
+    expect(document.activeElement.className).toContain('lset-confirm-cancel')
+    w.unmount()
+  })
+
   it('opens with focus on ยกเลิก, not on the destructive button', async () => {
     // focus assertions need the tree attached to the document
     const w = mount(Harness, { props: { initial: threeSetSong() }, attachTo: document.body })

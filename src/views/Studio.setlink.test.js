@@ -181,6 +181,21 @@ describe('Studio — a link whose lyric set is GONE says so', () => {
     expect(noticeBox(w)).toBeTruthy()
   })
 
+  // G-VERIFY, 26 ก.ค. — the one finding that survived source-checking: the shell stays mounted
+  // while a DIFFERENT song is loaded into it, so a notice raised for the linked song would sit
+  // there accusing a song that has nothing to do with the link.
+  it('does not follow the reader to the NEXT song opened in the same shell', async () => {
+    const w = await openLink({ set: 'sGONE' })
+    expect(noticeBox(w)).toBeTruthy()
+
+    w.findComponent(EditorMode).vm.$emit('change', {
+      id: 'other-9', number: 9, title_th: 'อีกเพลง', title_en: '',
+      content: { version: 2, key: 'E', timeSignature: '4/4', stanzas: [{ id: 'A', lines: [line('1')] }], arrangement: [{ stanza: 'A', label: '', syllables: [] }] },
+    })
+    await nextTick(); await nextTick()
+    expect(noticeBox(w)).toBeFalsy()
+  })
+
   it('the notice is a dismissible status, not a toast that vanishes unread (WCAG 3.3.1)', async () => {
     const w = await openLink({ set: 'sGONE' })
     const box = noticeBox(w)

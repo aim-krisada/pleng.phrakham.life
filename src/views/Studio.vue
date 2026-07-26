@@ -49,7 +49,13 @@ let linkSetPending = !!linkSetId
 // …and when that id names a set this song no longer has, the reader is told (see the watcher
 // below). Silence would be the one failure mode a share link cannot have: the same URL opening
 // different words, looking exactly like it always did.
-const linkSetMissing = ref(false)
+//
+// Holds the SONG the notice is about, not a bare boolean: this shell stays mounted while a
+// different song is loaded into it, and a boolean would leave the notice sitting over a song
+// that has nothing to do with the link (G-VERIFY, 26 ก.ค.). Binding it to the id makes it
+// self-correcting — no reset to remember on any of the paths that swap the song.
+const linkSetMissingFor = ref('')
+const linkSetMissing = computed(() => !!linkSetMissingFor.value && linkSetMissingFor.value === liveSong.value?.id)
 // which set the reading surface should START on (SongViewer applies it once, like start-key)
 const startSet = ref(0)
 // ฝึกร้อง owns its own คีย์ (SongViewer.displayKey) and reports it up; แผ่นเพลง's is sheetKey
@@ -592,7 +598,7 @@ watch(() => (liveSong.value ? `${liveSong.value.id}|${liveSong.value.content?.ke
     // wrong words), but we must not hand those words over AS the ones the link pointed at. Say
     // so once, quietly, in the same in-flow status strip as every other notice on this surface.
     const sets = Array.isArray(s.content?.lyricSets) ? s.content.lyricSets : []
-    linkSetMissing.value = !sets.some((x) => x?.id === linkSetId)
+    linkSetMissingFor.value = sets.some((x) => x?.id === linkSetId) ? '' : (s.id || '')
     linkSetPending = false
   }
   if (linkKeyPending && (s.number != null || (s.title_th || '').trim())) {
@@ -888,7 +894,7 @@ function printSheet() {
     <div v-if="linkSetMissing" class="sv-import-msg no-print" role="status">
       <Icon name="info" :size="16" />
       <span>{{ t('lyricSet.linkGone') }}</span>
-      <button class="rec-btn" @click="linkSetMissing = false">ปิด</button>
+      <button class="rec-btn" @click="linkSetMissingFor = ''">ปิด</button>
     </div>
 
     <!-- เปิดไฟล์ JSON result — a bad file's plain-Thai reason, or v1→v2 warnings to eyeball.
