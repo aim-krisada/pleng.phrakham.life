@@ -244,3 +244,45 @@ describe('EditorMode — naming a lyric set', () => {
     expect('lyricSets' in w.vm.previewContent).toBe(false) // still byte-identical
   })
 })
+
+// 717 — the editor opens on the set the READER was on. The tabs exist so a singer can pick
+// their words; landing on set 1 every time means the first thing an author does in แก้ไข is
+// re-pick the set they already picked in ดู. Studio carries the reader's tab across as
+// `initialSet`, and the editor adopts it on the way IN (props.active flipping true).
+describe('EditorMode — 717 opens on the reader’s set', () => {
+  const mountAt = (song, initialSet, active = false) =>
+    mount(EditorMode, {
+      props: { song, tier: 'approver', active, initialSet },
+      attachTo: document.body,
+      global: { stubs: { Icon: true, 'router-link': true, SongSheet: true, StudioDock: true, DockKey: true, ComboSelect: true } },
+    })
+
+  it.each([0, 1])('entering แก้ไข with the reader on set %i selects that set', async (set) => {
+    const w = mountAt(song717, set)
+    await w.setProps({ active: true }) // ดู → แก้ไข
+    await nextTick()
+    expect(w.vm.activeSet).toBe(set)
+  })
+
+  it('the row lens lands on a row of that set, so the first edit targets it', async () => {
+    const w = mountAt(song717, 1)
+    await w.setProps({ active: true })
+    await nextTick()
+    expect(w.vm.arrangement[w.vm.lensChoice].set).toBe(1)
+  })
+
+  it('a set deleted since the reader picked it clamps instead of going out of range', async () => {
+    const w = mountAt(song717, 5) // only 2 sets exist
+    await w.setProps({ active: true })
+    await nextTick()
+    expect(w.vm.activeSet).toBe(1) // clamped to the last set, never undefined
+  })
+
+  it('back-compat — an ordinary song ignores initialSet and stays on set 0', async () => {
+    const w = mountAt(plainSong, 1)
+    await w.setProps({ active: true })
+    await nextTick()
+    expect(w.vm.activeSet).toBe(0)
+    expect('lyricSets' in w.vm.previewContent).toBe(false) // and still saves byte-identical
+  })
+})

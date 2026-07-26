@@ -28,6 +28,9 @@ const router = useRouter()
 
 // three views on one surface: ดู (ร้องตาม) · แผ่น (พิมพ์) · แก้ (แก้ไข)
 const mode = ref('view')
+// 717 — the lyric set the reader is on in ดู, carried across to แก้ไข so switching mode keeps
+// the set you were looking at. 0 for every ordinary song (they never emit).
+const viewSet = ref(0)
 // bumped to force a fresh (blank) EditorMode when "สร้างเพลงใหม่" is used from the
 // "เพลง ▾" panel — remounting is the clean way to reset the editor from the shell
 // without reaching into its internal state (S2 create-new).
@@ -330,7 +333,7 @@ function printSheet() {
 
     <!-- ===== ดู — reading / sing-along view (WT-A owns SongViewer) ===== -->
     <div v-show="mode === 'view'">
-      <SongViewer v-if="viewerSong" :song="viewerSong" @dock="viewDock = $event" />
+      <SongViewer v-if="viewerSong" :song="viewerSong" @dock="viewDock = $event" @set="viewSet = $event" />
       <p v-else class="muted" style="padding: 16px">ยังไม่มีเพลงให้แสดง — ไปที่ “แก้” เพื่อเริ่มสร้างเพลง</p>
     </div>
 
@@ -403,6 +406,7 @@ function printSheet() {
       :song="loadedSong"
       :tier="tier"
       :active="mode === 'edit'"
+      :initial-set="viewSet"
       @change="onChange"
       @save="onSave"
     />

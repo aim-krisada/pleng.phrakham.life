@@ -36,6 +36,10 @@ const props = defineProps({
   song: { type: Object, default: null },
   tier: { type: String, default: 'anon' },
   active: { type: Boolean, default: false },
+  // 717 — which lyric set the reader was on in ดู. Coming into แก้ไข on the set you were just
+  // looking at is the whole point of the tabs; landing on set 1 every time means the first
+  // thing you do is re-pick the set you already picked. 0 for every ordinary song.
+  initialSet: { type: Number, default: 0 },
 })
 const emit = defineEmits(['change', 'save', 'dock'])
 
@@ -255,6 +259,18 @@ function selectSet(i) {
   const gi = arrangement.value.findIndex((r) => (r.set ?? 0) === i)
   if (gi >= 0) focusRow(gi) // jump the lens to a row of this set so editing targets it
 }
+// 717 — adopt the reader's tab on the way IN to แก้ไข (not on every render), so ดู → แก้ไข
+// lands on the set that was on screen. Clamped, because the set could have been deleted in
+// this editor since. Only for a song that actually declares sets — everything else is set 0
+// already and must not have its row lens moved.
+watch(
+  () => props.active,
+  (on) => {
+    if (!on || lyricSets.value.length <= 1) return
+    const i = Math.min(Math.max(0, props.initialSet | 0), lyricSets.value.length - 1)
+    if (i !== activeSet.value) selectSet(i)
+  },
+)
 // ＋ เพิ่มชุด — a new WORD set over the SAME melody. First press bootstraps: the existing rows
 // become set 0, then a fresh empty row (linked to the shared stanza) is added as the new set.
 function addLyricSet() {

@@ -32,6 +32,8 @@ const props = defineProps({
   song: { type: Object, required: true },
   tier: { type: String, default: 'guest' },
 })
+// 717 — which lyric set the reader switched to, so the shell can open แก้ไข on that same set.
+const emit = defineEmits(['set'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -143,11 +145,12 @@ watch(() => props.song?.id, () => { activeSet.value = 0 })
 // that is no longer on screen. Treat it like opening the song afresh — stop, rewind, re-tick
 // every ท่อน — otherwise a tick left over from the previous set makes the selection a strict
 // subset and playback quietly drops to "only the ท่อน you picked" instead of the whole song.
-watch(activeSet, () => {
+watch(activeSet, (i) => {
   stopPlay()
   pausedIndex.value = 0
   posIndex.value = 0
   nextTick(selectAllSecs) // tags are recomputed from the NEW set's sheet — tick after that
+  emit('set', i) // so แก้ไข opens on the set that was on screen (Studio → EditorMode)
 })
 
 // WAI-ARIA tabs pattern: ← → Home End move between tabs (roving tabindex below), so the
