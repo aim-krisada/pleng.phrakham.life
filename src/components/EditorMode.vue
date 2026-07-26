@@ -233,6 +233,36 @@ const activeStanza = ref(0)
 const arrangement = ref([{ stanza: 'A', label: '', syllables: [], key: '' }])
 const migrateWarnings = ref([]) // set when a v1 song is auto-split on load (author reviews)
 
+// ---------- 717 multi-lyric: lyric SETS (แบบ — one melody, several word sets you SWITCH) ----
+// A set groups arrangement rows via `row.set`; a row with set==null is shared across all sets.
+// `lyricSets` empty = an ordinary song (no set tabs, everything is one set). This is the AUTHOR
+// side of the same model the reader (SongViewer) already switches on: content.lyricSets[] +
+// arrangement[].set → maps to MusicXML <lyric number>. Notes/chords (the stanza) stay shared.
+const THAI_DIGITS = ['๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙', '๑๐']
+const lyricSets = ref([]) // [{ label }] — >0 shows the set tabs in the editor
+const activeSet = ref(0)
+// the tabs to render: a song with no declared sets still shows "ทำนอง ๑" so ＋ เพิ่มชุด can
+// bootstrap the second set (matches the reader: tabs only actually appear once >1 set exists).
+const setTabs = computed(() => (lyricSets.value.length ? lyricSets.value : [{ label: 'ทำนอง ๑' }]))
+function selectSet(i) {
+  activeSet.value = i
+  const gi = arrangement.value.findIndex((r) => (r.set ?? 0) === i)
+  if (gi >= 0) focusRow(gi) // jump the lens to a row of this set so editing targets it
+}
+// ＋ เพิ่มชุด — a new WORD set over the SAME melody. First press bootstraps: the existing rows
+// become set 0, then a fresh empty row (linked to the shared stanza) is added as the new set.
+function addLyricSet() {
+  if (!lyricSets.value.length) {
+    lyricSets.value = [{ label: 'ทำนอง ๑' }]
+    arrangement.value.forEach((r) => { if (r.set == null) r.set = 0 })
+  }
+  const idx = lyricSets.value.length
+  lyricSets.value.push({ label: 'ทำนอง ' + (THAI_DIGITS[idx] || idx + 1) })
+  const stanza = arrangement.value.find((r) => (r.set ?? 0) === 0)?.stanza || stanzas.value[0]?.id || 'A'
+  arrangement.value.push({ stanza, set: idx, label: '', syllables: [], key: '' })
+  selectSet(idx)
+}
+
 // verse lens: which arrangement row's words to show under the active stanza's notes
 // (-1 = hidden). Lets the author type each syllable right under its note — the old
 // "words with the melody" feel, now per syllable (a blank box marks a missing word).
@@ -275,11 +305,17 @@ const previewContent = computed(() => ({
   timeSignature: opts.timeSignature,
   bpm: opts.bpm || undefined,
   stanzas: stanzas.value.map((s) => ({ id: s.id, lines: s.lines.map(serializeLine) })),
+  // 717: only emit lyricSets when the author actually made >1 set, so ordinary songs stay
+  // byte-identical (no lyricSets key, no `set` on rows).
+  ...(lyricSets.value.length > 1 ? { lyricSets: lyricSets.value.map((s) => ({ label: s.label })) } : {}),
   arrangement: arrangement.value.map((r) => ({
     stanza: r.stanza,
     label: r.label?.trim() || '',
     syllables: r.syllables.map((t) => (t || '').trim()),
     ...(r.key ? { key: r.key } : {}),
+    // 717 — which lyric set this row belongs to (omitted when there are no sets, so the
+    // entry stays clean; a row with no `set` is shared across every set).
+    ...(lyricSets.value.length > 1 && r.set != null ? { set: r.set } : {}),
     // B102 — "ร้องรับทุกข้อ": the refrain is sung after every verse. Stored on the entry
     // (SSOT, visible in the downloaded JSON); playback (resolvePlayOrder) expands it.
     ...(r.afterEachVerse ? { afterEachVerse: true } : {}),
@@ -681,7 +717,11 @@ function addRow() {
   // type words immediately (SX5/P8: no "เลือกทำนอง" step to understand first).
   const prev = arrangement.value[arrangement.value.length - 1]
   const stanza = prev?.stanza || activeStanzaId.value || stanzas.value[0].id
-  arrangement.value.push({ stanza, label: '', syllables: [], key: '' })
+  // 717 — a ท่อน added while a set is active belongs to that set (so it stays with the set's
+  // words when the tabs filter). Ordinary songs (no sets) leave `set` undefined.
+  const row = { stanza, label: '', syllables: [], key: '' }
+  if (lyricSets.value.length) row.set = activeSet.value
+  arrangement.value.push(row)
   focusRow(arrangement.value.length - 1)
 }
 function removeRow(i) {
@@ -1328,11 +1368,15 @@ function applyRow(data) {
     label: r.label || '',
     syllables: [...(r.syllables || [])],
     key: r.key || '',
+    ...(r.set != null ? { set: r.set } : {}), // 717 — which lyric set (round-trips)
     afterEachVerse: !!r.afterEachVerse, // B102 — strophic "ร้องรับทุกข้อ" directive (round-trips)
   }))
   if (!arrangement.value.length) {
     arrangement.value = [{ stanza: stanzas.value[0].id, label: '', syllables: [], key: '' }]
   }
+  // 717 — load the lyric sets (empty for ordinary songs) and start on the first set
+  lyricSets.value = Array.isArray(content.lyricSets) ? content.lyricSets.map((s) => ({ label: s.label || '' })) : []
+  activeSet.value = 0
   activeStanza.value = 0
   activeLine.value = 0
   migrateWarnings.value = warnings
@@ -2850,6 +2894,7 @@ defineExpose({
         <p class="rail-hint no-print">ลากจัดลำดับ · คลิกชื่อเพื่อแก้</p>
         <div
           v-for="(row, ri) in arrangement"
+          v-show="!lyricSets.length || (row.set ?? 0) === activeSet"
           :key="ri"
           class="srow"
           :class="{ sel: ri === lensChoice, drag: ri === dragFromRow, over: ri === dragOverRow && ri !== dragFromRow }"
@@ -3060,6 +3105,26 @@ defineExpose({
     </p>
     <!-- aria-live: announce the new order after a drag/▲▼ move (WCAG 2.5.7 · screen readers) -->
     <div class="sr-only" aria-live="polite">{{ reorderMsg }}</div>
+
+    <!-- ===== 717 multi-lyric — lyric-SET tabs (one melody, several word sets you SWITCH).
+         Picking a tab targets that set's ท่อน for editing; ＋ เพิ่มชุด makes a new set on the
+         SAME melody (words empty). Ordinary songs still show "ทำนอง ๑" + ＋ so a 2nd set is
+         one tap away. The shared-melody contract is stated right under the tabs. ===== -->
+    <div class="eset-bar no-print">
+      <div class="eset-tabs" role="tablist" aria-label="เลือกชุดเนื้อร้อง">
+        <button
+          v-for="(ls, i) in setTabs"
+          :key="i"
+          class="eset-tab"
+          :class="{ active: activeSet === i }"
+          role="tab"
+          :aria-selected="activeSet === i ? 'true' : 'false'"
+          @click="selectSet(i)"
+        >{{ ls.label }}</button>
+        <button class="eset-add" title="เพิ่มเนื้อร้องชุดใหม่บนทำนองเดิม" aria-label="เพิ่มชุดเนื้อร้อง" @click="addLyricSet">＋ เพิ่มชุด</button>
+      </div>
+      <p class="eset-hint">♪ โน้ต/คอร์ด = ทำนองเดียว ใช้ร่วม<b>ทุกชุด</b> · พิมพ์เนื้อ = เฉพาะ “{{ setTabs[activeSet]?.label }}”</p>
+    </div>
 
     <!-- ===== canvas section header for the selected ท่อน — rename + melody + reorder right
          where you edit (SX2/SX3/SX5). The note/word/beat editor below is unchanged (SX7). ===== -->
@@ -4013,6 +4078,28 @@ defineExpose({
   padding: 6px 8px;
   font-size: 1rem;
   resize: vertical;
+}
+/* ---- 717 multi-lyric: lyric-SET tabs in the editor (matches the reader's segmented tabs) ---- */
+.eset-bar { display: flex; flex-direction: column; align-items: center; margin: 2px 0 10px; }
+.eset-tabs {
+  display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 2px;
+  padding: 3px; border: 1px solid var(--line, #e0d6c8); border-radius: 999px; background: var(--cream, #faf6f0);
+}
+.eset-tab {
+  appearance: none; border: 0; min-height: 38px; padding: 0 16px; border-radius: 999px;
+  background: transparent; color: var(--muted, #757575); font: inherit; font-weight: 600; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.eset-tab:hover:not(.active) { background: color-mix(in srgb, var(--brand, #8b4513) 10%, transparent); }
+.eset-tab.active { background: var(--brand, #8b4513); color: #fff; }
+.eset-add {
+  appearance: none; min-height: 38px; margin-left: 4px; padding: 0 14px; border: 1px dashed var(--brand, #8b4513);
+  border-radius: 999px; background: transparent; color: var(--brand, #8b4513); font: inherit; font-weight: 600; cursor: pointer;
+}
+.eset-add:hover { background: color-mix(in srgb, var(--brand, #8b4513) 12%, transparent); }
+.eset-hint {
+  margin: 6px 0 0; padding: 3px 12px; border-radius: 8px; background: var(--cream, #faf6f0);
+  color: var(--muted, #757575); font-size: 0.82rem;
 }
 /* small buttons still meet the 24x24 target size (WCAG 2.2 2.5.8) */
 .tiny { padding: 4px 10px; font-size: 13px; min-height: 28px; min-width: 28px; }
