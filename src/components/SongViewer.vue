@@ -725,7 +725,7 @@ function onSeek({ li, si, syk }) {
       :selected="selectedSecs"
       :has-sections="hasSections"
       :settings="settingDescs"
-      :content="song && song.content"
+      :content="setContent"
       :filename-base="printTitle"
       :on-json="downloadJson"
       :mp3-bpm="Number(tempo) || 0"

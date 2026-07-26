@@ -632,4 +632,29 @@ describe('SongViewer — 717 multi-lyric playback', () => {
     expect(content.arrangement).toHaveLength(3) // nothing filtered out
     expect(order).toHaveLength(4) // ข้อ1·รับ ข้อ2·รับ — unchanged from before 717
   })
+
+  it.each([0, 1])('set %i: the MP3 export gets the SAME set the reader is on', async (set) => {
+    // MP3 renders from ExportTool's `content` prop — audioExport derives both the sheet and
+    // the play order from it alone. Hand it the raw song and the export ignores the tab: on
+    // the real 717 that was 696 notes (both sets back to back, set 0's refrain spliced through
+    // set 1's verses) instead of 232.
+    const w = mountViewer(twoSetSong)
+    await nextTick()
+    await w.findAll('.lset-tab')[set].trigger('click')
+    await nextTick()
+    const exported = w.findComponent({ name: 'ExportTool' }).props('content')
+    expect(exported.arrangement).toHaveLength(4)
+    expect(exported.arrangement.every((e) => e.set === set)).toBe(true)
+  })
+
+  it('the MP3 export of an ordinary song is handed the song unchanged', async () => {
+    const plain = {
+      number: 9,
+      title_th: 'ธรรมดา',
+      content: { ...twoSetSong.content, lyricSets: undefined, arrangement: [{ stanza: 'A', label: '', syllables: [] }] },
+    }
+    const w = mountViewer(plain)
+    await nextTick()
+    expect(w.findComponent({ name: 'ExportTool' }).props('content')).toEqual(plain.content)
+  })
 })
