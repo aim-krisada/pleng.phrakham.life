@@ -186,5 +186,14 @@ check('R8+R9: ‖: ... 1. :‖ 2. → clean',
 check('lintRepeatVolta(undefined) → no findings', lintRepeatVolta(undefined).length === 0)
 check('lintRepeatVolta([]) → no findings', lintRepeatVolta([]).length === 0)
 
-console.log(`\nnotationLint: ${pass} passed, ${fail} failed`)
-process.exit(fail ? 1 : 0)
+// This file is a dependency-free standalone runner (`node src/lib/notationLint.test.mjs`);
+// the checks above ran at load time and tallied pass/fail. Under vitest, `process.exit` is
+// intercepted and a file with no suite errors, so register ONE aggregate test asserting the
+// tally is clean (a real regression fails it with the count). Standalone, keep the old exit.
+if (process.env.VITEST) {
+  const { test, expect } = await import('vitest')
+  test(`notationLint: ${pass} standalone checks pass`, () => expect(fail).toBe(0))
+} else {
+  console.log(`\nnotationLint: ${pass} passed, ${fail} failed`)
+  process.exit(fail ? 1 : 0)
+}
