@@ -271,6 +271,16 @@ watch(
     if (i !== activeSet.value) selectSet(i)
   },
 )
+
+// ---- progressive disclosure (P'Aim, 26 ก.ค.) --------------------------------------------
+// ONE set — which is nearly the whole library — shows no tabs at all, only a light
+// "＋ เพิ่มชุดเนื้อร้อง" way in, so an ordinary song pays nothing for a feature it doesn't use.
+//
+// MORE THAN ONE shows the strip OPEN, never folded. The reader folds its switcher because you
+// choose a set once and then sing; in here the active set is the thing you are typing into, so
+// hiding it behind a fold would make "which words am I editing?" a click away at all times
+// (P'Aim, 26 ก.ค.: "โหมดแก้ไข ต้องสลับชุดได้ง่าย").
+const hasManySets = computed(() => lyricSets.value.length > 1)
 // ＋ เพิ่มชุด — a new WORD set over the SAME melody. First press bootstraps: the existing rows
 // become set 0, then a fresh empty row (linked to the shared stanza) is added as the new set.
 function addLyricSet() {
@@ -3222,7 +3232,22 @@ defineExpose({
          SAME melody (words empty). Ordinary songs still show "ทำนอง ๑" + ＋ so a 2nd set is
          one tap away. The shared-melody contract is stated right under the tabs. ===== -->
     <div class="eset-bar no-print">
-      <div class="eset-tabs" role="tablist" aria-label="เลือกชุดเนื้อร้อง">
+      <!-- ONE SET (≈ the whole library): no tabs, no accordion, nothing to read past — just a
+           light way in, so making a second set stays one tap away without charging every
+           ordinary song for the feature (P'Aim, 26 ก.ค.). -->
+      <button
+        v-if="!hasManySets"
+        class="eset-add-lone"
+        title="เพิ่มเนื้อร้องชุดใหม่บนทำนองเดิม (โน้ตใช้ร่วมกัน)"
+        @click="addLyricSet"
+      >＋ เพิ่มชุดเนื้อร้อง</button>
+
+      <!-- MORE THAN ONE SET: the strip stands OPEN. The reader folds its switcher because you
+           choose a set once and then sing; here the active set is what your typing goes into, so
+           it must be readable and switchable without a click (P'Aim, 26 ก.ค.). v-if, not v-show,
+           on the one-set case: that song must not carry a hidden tablist a screen reader could
+           still meet — the feature simply is not there for it yet. -->
+      <div v-if="hasManySets" id="eset-tabs" class="eset-tabs" role="tablist" aria-label="เลือกชุดเนื้อร้อง">
         <template v-for="(ls, i) in setTabs" :key="i">
           <!-- inline rename, same pattern as renaming a ท่อน: Enter=เก็บ · Esc=ยกเลิก · ออกจากช่อง=เก็บ -->
           <input
@@ -3242,7 +3267,7 @@ defineExpose({
             :class="{ active: activeSet === i }"
             role="tab"
             :aria-selected="activeSet === i ? 'true' : 'false'"
-            :title="lyricSets.length > 1 ? 'ดับเบิลคลิกเพื่อตั้งชื่อชุดนี้' : ''"
+            title="ดับเบิลคลิกเพื่อตั้งชื่อชุดนี้"
             @click="selectSet(i)"
             @dblclick="startRenameSet(i)"
           >{{ ls.display }}</button>
@@ -3250,20 +3275,20 @@ defineExpose({
         <button class="eset-add" title="เพิ่มเนื้อร้องชุดใหม่บนทำนองเดิม" aria-label="เพิ่มชุดเนื้อร้อง" @click="addLyricSet">＋ เพิ่มชุด</button>
         <button
           class="eset-rename-btn"
-          :disabled="lyricSets.length <= 1"
-          :title="lyricSets.length <= 1 ? 'มีเนื้อชุดเดียว — ชื่อเพลงคือชื่อชุดนี้อยู่แล้ว' : 'ตั้งชื่อชุดเนื้อที่เลือกอยู่ (เนื้อคนละแบบ ควรคนละชื่อ)'"
-          :aria-label="lyricSets.length <= 1 ? 'ตั้งชื่อชุด (ปิดอยู่ — มีชุดเดียว)' : 'ตั้งชื่อชุด ' + (setTabs[activeSet]?.display || '')"
+          title="ตั้งชื่อชุดเนื้อที่เลือกอยู่ (เนื้อคนละแบบ ควรคนละชื่อ)"
+          :aria-label="'ตั้งชื่อชุด ' + (setTabs[activeSet]?.display || '')"
           @click="startRenameSet(activeSet)"
         ><Icon name="pencil" :size="14" /> ตั้งชื่อชุด</button>
         <button
           class="eset-del"
-          :disabled="lyricSets.length <= 1"
-          :title="lyricSets.length <= 1 ? 'เพลงต้องมีเนื้ออย่างน้อย 1 ชุด — ลบไม่ได้' : 'ลบชุดเนื้อที่เลือกอยู่ (เนื้อชุดนี้จะหาย · ทำนองยังอยู่)'"
-          :aria-label="lyricSets.length <= 1 ? 'ลบชุดเนื้อ (ปิดอยู่ — ต้องมีอย่างน้อย 1 ชุด)' : 'ลบชุด ' + (setTabs[activeSet]?.display || '')"
+          title="ลบชุดเนื้อที่เลือกอยู่ (เนื้อชุดนี้จะหาย · ทำนองยังอยู่)"
+          :aria-label="'ลบชุด ' + (setTabs[activeSet]?.display || '')"
           @click="askRemoveLyricSet(activeSet)"
         ><Icon name="trash-2" :size="14" /> ลบชุดนี้</button>
+        <!-- the shared-melody contract belongs WITH the choice, so it costs nothing while the
+             panel is folded and is right there the moment you pick a set to type into -->
+        <p class="eset-hint">♪ โน้ต/คอร์ด = ทำนองเดียว ใช้ร่วม<b>ทุกชุด</b> · พิมพ์เนื้อ = เฉพาะ “{{ setTabs[activeSet]?.display }}”</p>
       </div>
-      <p class="eset-hint">♪ โน้ต/คอร์ด = ทำนองเดียว ใช้ร่วม<b>ทุกชุด</b> · พิมพ์เนื้อ = เฉพาะ “{{ setTabs[activeSet]?.display }}”</p>
       <!-- destructive confirm — names the set, gives a keyboard path (Enter=ลบ · Esc=ยกเลิก) -->
       <div v-if="confirmDelSet >= 0" class="eset-confirm" role="alertdialog" aria-modal="true" aria-labelledby="eset-confirm-t" @keydown.esc="cancelRemoveLyricSet" @keydown.enter.prevent="doRemoveLyricSet">
         <p id="eset-confirm-t" class="eset-confirm-t">ลบ “{{ setTabs[confirmDelSet]?.display }}” ?</p>
@@ -4229,8 +4254,36 @@ defineExpose({
   font-size: 1rem;
   resize: vertical;
 }
-/* ---- 717 multi-lyric: lyric-SET tabs in the editor (matches the reader's segmented tabs) ---- */
+/* ---- 717 multi-lyric: lyric-SET tabs in the editor (matches the reader's segmented tabs) ----
+   Progressive disclosure (P'Aim, 26 ก.ค.): one set → only .eset-add-lone, a text link's weight
+   of chrome. More than one → the strip itself, standing OPEN — the reader may fold its switcher
+   away, an editor may not fold away the thing you are typing into. Same shapes and the same
+   38/44px targets as the reader's switcher, so the two read as one control. */
 .eset-bar { display: flex; flex-direction: column; align-items: center; margin: 2px 0 10px; max-width: 100%; }
+/* the ONE-set entry point: quiet on purpose — nearly every song in the library renders this and
+   only this, so it must not look like a feature the author has to deal with */
+.eset-add-lone {
+  appearance: none;
+  min-height: 38px;
+  padding: 4px 12px;
+  border: 1px dashed var(--line, #e0d6c8);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted, #757575);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.eset-add-lone:hover {
+  border-color: var(--brand, #8b4513);
+  color: var(--brand, #8b4513);
+  background: color-mix(in srgb, var(--brand, #8b4513) 8%, transparent);
+}
+.eset-add-lone:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
+@media (pointer: coarse) {
+  .eset-add-lone { min-height: 44px; }
+}
 .eset-tabs {
   display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 100%;
   padding: 3px; border: 1px solid var(--line, #e0d6c8); border-radius: 21px; background: var(--cream, #faf6f0);
@@ -4269,8 +4322,11 @@ defineExpose({
   border-radius: 999px; background: transparent; color: var(--brand, #8b4513); font: inherit; font-weight: 600; cursor: pointer;
 }
 .eset-add:hover { background: color-mix(in srgb, var(--brand, #8b4513) 12%, transparent); }
+/* the hint now lives INSIDE the wrapping strip — its own full-width row under the controls,
+   never squeezed in beside a pill */
 .eset-hint {
-  margin: 6px 0 0; padding: 3px 12px; border-radius: 8px; background: var(--cream, #faf6f0);
+  flex: 1 0 100%; text-align: center;
+  margin: 4px 0 0; padding: 3px 12px; border-radius: 8px; background: var(--cream, #faf6f0);
   color: var(--muted, #757575); font-size: 0.82rem;
 }
 /* ลบชุด — destructive: red, set apart from the ＋ add affordance */

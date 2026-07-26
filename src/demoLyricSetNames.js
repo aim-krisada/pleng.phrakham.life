@@ -4,7 +4,10 @@
 // index.html), and it never writes: the catalog mode stubs `fetch` so nothing hits the DB.
 //
 //   (no param)  reader — the set tabs above the sheet
-//   ?ed=1       editor — the set tab strip (＋ เพิ่มชุด · ✏ ตั้งชื่อชุด · 🗑 ลบชุดนี้)
+//   ?ed=1       editor — the collapsed set switcher (กางแล้วมี ＋ เพิ่มชุด · ✏ ตั้งชื่อชุด · 🗑 ลบชุดนี้)
+//   ?sets=1     the ORDINARY case: a song with ONE set of words (≈ the whole library). The
+//               reader shows no switcher at all; the editor shows only ＋ เพิ่มชุดเนื้อร้อง.
+//   ?open=1     leave the set switcher EXPANDED (reader or editor)
 //   ?ed=1&rename=1   editor with the rename field open on the active set
 //   ?list=1&q=…      catalog + search box pre-filled (real filterSongs over fixtures)
 import { createApp, h, ref } from 'vue'
@@ -96,7 +99,9 @@ if (mode === 'list') {
       : realFetch(url, opts)
 }
 
-const song = ref(song717)
+// ?sets=1 → an ordinary one-set song, so the progressive disclosure can be photographed on
+// the same page as the two-set case
+const song = ref(q.get('sets') === '1' ? otherSongs[0] : song717)
 function onUpdateContent(content) {
   song.value = { ...song.value, content }
 }
@@ -121,9 +126,12 @@ createApp(Root).use(router).mount('#app')
 
 // Harness-only params so a headless screenshot captures each state through the REAL controls.
 setTimeout(() => {
+  // both switchers are collapsed by default now — open the right one first, the way a tap does
+  const wantOpen = q.get('open') === '1' || q.get('rename') === '1' || Number(q.get('set') || 0) > 0
+  if (wantOpen) document.querySelector(mode === 'edit' ? '.eset-summary' : '.lset-summary')?.click()
   const set = Number(q.get('set') || 0)
-  if (set) document.querySelectorAll('.lset-tab')[set]?.click()
-  if (q.get('rename') === '1') document.querySelector('.eset-rename-btn')?.click()
+  if (set) setTimeout(() => document.querySelectorAll('.lset-tab')[set]?.click(), 120)
+  if (q.get('rename') === '1') setTimeout(() => document.querySelector('.eset-rename-btn')?.click(), 140)
   const query = q.get('q')
   if (query) {
     const box = document.querySelector('input[type="search"], .search-input, #song-search')

@@ -31,11 +31,6 @@ import SingTransport from './SingTransport.vue'
 const props = defineProps({
   song: { type: Object, required: true },
   tier: { type: String, default: 'guest' },
-  // TEMPORARY A/B for P'Aim's pick (26 ก.ค.) — the collapsed switcher's "N ชุด" badge.
-  //   true  = variant B: collapsed, but the badge still says the song HAS other words.
-  //   false = variant A: collapsed, name only (exactly as ordered).
-  // Delete this prop and keep the winner once P'Aim decides.
-  setBadge: { type: Boolean, default: true },
 })
 // 717 — which lyric set the reader switched to, so the shell can open แก้ไข on that same set.
 const emit = defineEmits(['set'])
@@ -714,8 +709,10 @@ function onSeek({ li, si, syk }) {
       >
         <span class="lset-summary-k">ชุดเนื้อร้อง:</span>
         <span class="lset-summary-v">{{ activeSetName }}</span>
-        <!-- variant B — the singer can see the song HAS other words without opening anything -->
-        <span v-if="setBadge" class="lset-count">{{ lyricSets.length }} ชุด</span>
+        <!-- the COUNT is what P'Aim settled on (26 ก.ค.): a singer must learn this song has
+             other words without having to open anything first — progressive disclosure, not
+             a hidden feature. -->
+        <span class="lset-count">{{ lyricSets.length }} ชุด</span>
         <span class="lset-chev" aria-hidden="true">{{ setsOpen ? '▴' : '▾' }}</span>
       </button>
       <div
@@ -861,8 +858,8 @@ function onSeek({ li, si, syk }) {
 /* the NAME is the one thing that must survive a glance — it is what tells the singer which
    words are on the sheet while everything else is folded away */
 .lset-summary-v { font-weight: 700; color: var(--brand, #8b4513); overflow-wrap: anywhere; flex: 0 1 auto; min-width: 0; }
-/* variant B — "N ชุด". A count, not an action: quiet, but enough that nobody sings this song
-   for a year without learning it has another set of words. */
+/* "N ชุด" — a count, not an action: quiet, but enough that nobody sings this song for a year
+   without learning it has another set of words. */
 .lset-count {
   flex: 0 0 auto;
   padding: 1px 8px;

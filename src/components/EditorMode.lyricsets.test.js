@@ -288,3 +288,63 @@ describe('EditorMode — 717 opens on the reader’s set', () => {
     expect('lyricSets' in w.vm.previewContent).toBe(false) // and still saves byte-identical
   })
 })
+
+// ---- progressive disclosure in the EDITOR (P'Aim, 26 ก.ค.) -------------------------------
+// One set — nearly the whole library — pays nothing for this feature: no tabs at all, just a
+// quiet way in. More than one shows the strip OPEN: in here the active set is what you are
+// typing into, so it must never be a click away ("โหมดแก้ไข ต้องสลับชุดได้ง่าย").
+describe('EditorMode — the set bar appears only when there is something to choose', () => {
+  const SET1 = 'บรรดาคนบาป เชิญท่านเข้ามา'
+  const SET2 = 'ผู้ที่ถูกบาปทำร้ายจงมา'
+  const named717 = {
+    ...song717,
+    id: 's5',
+    title_th: SET1,
+    content: {
+      ...song717.content,
+      lyricSets: [{ name: SET1, label: SET1 }, { name: SET2, label: SET2 }],
+    },
+  }
+
+  it('one set: no tabs at all — only the light ＋ เพิ่มชุดเนื้อร้อง way in', () => {
+    const w = mountEd(plainSong)
+    expect(w.find('.eset-tabs').exists()).toBe(false) // not even hidden: not rendered
+    expect(w.find('.eset-hint').exists()).toBe(false)
+    expect(w.find('.eset-del').exists()).toBe(false)
+    const add = w.find('.eset-add-lone')
+    expect(add.exists()).toBe(true)
+    expect(add.text()).toContain('เพิ่มชุดเนื้อร้อง')
+  })
+
+  it('two sets: the strip is OPEN — an editor must never hide what you are typing into', () => {
+    const w = mountEd(named717)
+    expect(w.find('.eset-add-lone').exists()).toBe(false)
+    const tabs = w.find('.eset-tabs')
+    expect(tabs.exists()).toBe(true)
+    expect(tabs.attributes('style') || '').not.toContain('display: none')
+    expect(w.findAll('.eset-tab').map((t) => t.text())).toEqual([SET1, SET2])
+    expect(w.find('.eset-hint').text()).toContain(SET1) // and it says which set the words go to
+  })
+
+  it('＋ เพิ่มชุด turns a one-set song into the full strip', async () => {
+    const w = mountEd(plainSong)
+    await w.find('.eset-add-lone').trigger('click')
+    await nextTick(); await nextTick()
+    expect(w.vm.previewContent.lyricSets).toHaveLength(2)
+    expect(w.find('.eset-tabs').exists()).toBe(true)
+    expect(w.find('.eset-add-lone').exists()).toBe(false)
+  })
+
+  it('deleting back down to one set folds the whole bar away again', async () => {
+    const w = mountEd(named717)
+    w.vm.askRemoveLyricSet(1); w.vm.doRemoveLyricSet()
+    await nextTick()
+    expect(w.find('.eset-tabs').exists()).toBe(false)
+    expect(w.find('.eset-add-lone').exists()).toBe(true)
+  })
+
+  it('no Thai numeral anywhere in the editor’s set bar', () => {
+    const w = mountEd(song717) // legacy label-only data
+    expect(w.find('.eset-bar').text()).not.toMatch(/[๐-๙]/)
+  })
+})

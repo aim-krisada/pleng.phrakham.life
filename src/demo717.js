@@ -53,21 +53,35 @@ const demoSong = {
   },
 }
 
+// The ORDINARY case — one set of words, i.e. nearly every song in the library. Used to prove
+// the progressive disclosure: the reader shows no switcher at all, and the editor shows only
+// the light ＋ เพิ่มชุดเนื้อร้อง way in (?sets=1).
+const oneSetSong = {
+  ...demoSong,
+  id: 'demo-plain',
+  number: 1,
+  title_th: 'ตัวอย่างเพลงปกติ — เนื้อชุดเดียว',
+  content: {
+    version: 2,
+    key: 'C',
+    timeSignature: '4/4',
+    bpm: 88,
+    stanzas: [stanzaA],
+    arrangement: [{ stanza: 'A', label: '', syllables: demoSong.content.arrangement[0].syllables }],
+  },
+}
+
 // The owner holds the song; SongViewer (the editor) PROPOSES a new content up via
 // update-content and the owner applies it — the real editor→owner path. Same id → the
 // active tab is preserved across edits (e.g. ＋ เพิ่มชุด keeps you on the new set).
-const song = ref(demoSong)
+const song = ref(new URLSearchParams(location.search).get('sets') === '1' ? oneSetSong : demoSong)
 function onUpdateContent(content) {
   song.value = { ...song.value, content }
 }
 
-// evidence-only switch for the A/B P'Aim is picking between (26 ก.ค.):
-//   ?badge=0 — variant A: the collapsed switcher shows the set name only
-const setBadge = new URLSearchParams(location.search).get('badge') !== '0'
-
 createApp({
   render: () => h('div', { style: 'max-width:820px;margin:0 auto;padding:12px' }, [
-    h(SongViewer, { song: song.value, tier: 'team', setBadge, 'onUpdate-content': onUpdateContent }),
+    h(SongViewer, { song: song.value, tier: 'team', 'onUpdate-content': onUpdateContent }),
   ]),
 }).mount('#app')
 
