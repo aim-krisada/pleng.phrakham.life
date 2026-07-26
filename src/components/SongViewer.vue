@@ -13,7 +13,7 @@ import {
   effectiveOrder, buildPlayNotes,
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
-import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
+import { resolveContent, resolvePlayOrder, lyricSetName } from '../lib/songModel.js'
 import { withNotePitch, withInsertedBox, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord, withJumpMarker, removeJumpMarker, updateJumpMarker, activeSymbolsAt, activeMarksAt, withBracketRemovedAt } from '../lib/songEdit.js'
 import { findOrphanJumps } from '../lib/songFlow.js'
 import { downloadSong } from '../lib/jsonIO.js'
@@ -195,13 +195,58 @@ function clearPreview() {
   previewLabel.value = ''
 }
 
+// 717 multi-lyric — one number, one melody (stanza), several lyric SETS you SWITCH between
+// (not stack). content.lyricSets = [{name}]; each arrangement entry tags its set via `set`
+// (index) — an entry with NO `set` is SHARED across every set (e.g. a common refrain). Tabs
+// show only when a song declares >1 set → zero impact on all existing songs. The set is
+// chosen INSIDE resolveContent (opts.set), so every resolved line keeps its original
+// `_entryIndex` and the inline editor still writes to the right arrangement entry.
+const lyricSets = computed(() => {
+  const ls = props.song?.content?.lyricSets
+  return Array.isArray(ls) && ls.length > 1 ? ls : null
+})
+const activeSet = ref(0)
+// Each set's own name ("ชื่อของเนื้อชุดนั้น"), not a positional caption: different words are
+// a different song to whoever sings them. lyricSetName() keeps the `label` and "ทำนอง ๑/๒"
+// fallbacks, so already-saved 717 songs read exactly as before.
+const lyricSetLabels = computed(() => (lyricSets.value || []).map((ls, i) => lyricSetName(ls, i)))
+// reset the active tab only when the SONG changes (not on every edit), so a live edit keeps
+// you on the set you're viewing.
+watch(() => props.song?.id, () => { activeSet.value = 0 })
+// what to hand the model: undefined for every ordinary song (nothing to filter), so the
+// resolve path is byte-identical unless a song opts in.
+const setOpt = computed(() => (lyricSets.value ? { set: activeSet.value } : undefined))
+
+// WAI-ARIA tabs pattern: ← → Home End move between tabs (roving tabindex below), so the
+// switch is reachable without a pointer.
+function onSetKey(e) {
+  const n = lyricSets.value?.length || 0
+  if (!n) return
+  const k = e.key
+  let next = -1
+  if (k === 'ArrowRight') next = (activeSet.value + 1) % n
+  else if (k === 'ArrowLeft') next = (activeSet.value - 1 + n) % n
+  else if (k === 'Home') next = 0
+  else if (k === 'End') next = n - 1
+  else return
+  e.preventDefault()
+  activeSet.value = next
+  nextTick(() => e.currentTarget?.querySelectorAll('.lset-tab')[next]?.focus())
+}
+
 const resolved = computed(() =>
-  props.song ? { ...props.song.content, lines: resolveContent(props.song.content) } : null,
+  props.song
+    ? { ...props.song.content, lines: resolveContent(props.song.content, setOpt.value) }
+    : null,
 )
 const printTitle = computed(() => {
   const s = props.song
   if (!s) return ''
-  return (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
+  const base = (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
+  // print takes the SELECTED set only, so the paper has to say which one — otherwise two
+  // printouts of the same song number carry different words under the same heading.
+  const set = lyricSets.value ? lyricSetLabels.value[activeSet.value] : ''
+  return set ? base + ' — ' + set : base
 })
 
 // ---- issue9 lead-sheet header (DISPLAY only) — the song title moves onto its own full line
@@ -1541,7 +1586,7 @@ function jumpDirectiveLabel(m) {
 // its first display line (or ท่อน N). Updates live because it is a computed over props.song.content.
 const playOrderCrumbs = computed(() => {
   const c = props.song?.content
-  const order = resolvePlayOrder(c)
+  const order = resolvePlayOrder(c, setOpt.value)
   const lines = resolved.value?.lines || []
   if (!Array.isArray(order) || !order.length) return []
   const sectionOf = (li) => {
@@ -1684,7 +1729,7 @@ const allSelected = computed(() => tags.value.length > 0 && selectedSecs.value.s
 // song carries no directive. This is the DEFAULT "whole song" play order; a partial ท่อน
 // selection (below) overrides it. resolvePlayOrder reads the same content the sheet resolves,
 // so its display-line ranges line up 1:1 with resolved.value.lines.
-const strophicOrder = computed(() => resolvePlayOrder(props.song?.content) ?? undefined)
+const strophicOrder = computed(() => resolvePlayOrder(props.song?.content, setOpt.value) ?? undefined)
 // a partial ท่อน selection → ranges (undefined when every ท่อน is picked = whole song)
 const selectionOrder = computed(() => (allSelected.value ? undefined : effectiveOrder(sections.value, selectedSecs.value)))
 // what actually PLAYS: a scope preview from the pencil wins (ฟังท่อนนี้ / ฟังบรรทัดนี้ — it is a
@@ -2622,11 +2667,37 @@ function onSeek({ li, si, syk }) {
           <div v-if="song.scripture" class="scripture-tag muted">📖 {{ song.scripture }}</div>
         </div>
 
+        <!-- 717 multi-lyric — segmented tabs to switch the WORDS under the SAME melody. Only
+             for a song that declares >1 lyric set; not printed (print takes the chosen set,
+             and printTitle names it on the paper). -->
+        <div v-if="lyricSets" class="lyric-set-wrap no-print">
+          <div class="lyric-set-tabs" role="tablist" :aria-label="t('lyricSet.tablist')" @keydown="onSetKey">
+            <button
+              v-for="(ls, i) in lyricSets"
+              :key="i"
+              class="lset-tab"
+              :class="{ active: activeSet === i }"
+              role="tab"
+              :id="`lset-tab-${i}`"
+              aria-controls="lset-panel"
+              :aria-selected="activeSet === i ? 'true' : 'false'"
+              :tabindex="activeSet === i ? 0 : -1"
+              @click="activeSet = i"
+            >{{ lyricSetLabels[i] }}</button>
+          </div>
+          <!-- a screen reader hears WHICH words are on the sheet now; sighted users see it in
+               the lit tab. .sv-sr-only (not .sr-only, which is scoped to .lead-header). -->
+          <p class="sv-sr-only" aria-live="polite">{{ t('lyricSet.now', { name: lyricSetLabels[activeSet] }) }}</p>
+        </div>
+
         <div
           ref="sheetWrap"
           class="sheet-scale"
           :class="{ 'sv-editing': editMode, 'sv-settings-open': settingsOpen }"
           :style="{ fontSize: readingFontScale + 'rem' }"
+          :id="lyricSets ? 'lset-panel' : null"
+          :role="lyricSets ? 'tabpanel' : null"
+          :aria-labelledby="lyricSets ? `lset-tab-${activeSet}` : null"
           @pointerdown="onSheetPointerDown"
           @mousedown="onSheetMouseDown"
           @click="onInlinePick"
@@ -2842,6 +2913,59 @@ function onSeek({ li, si, syk }) {
 </template>
 
 <style scoped>
+/* ---------- 717 multi-lyric — segmented tabs (Material 3 segmented button) --------------
+   One melody, several lyric sets you switch between. Centered above the sheet, brand-tinted
+   active segment, WCAG target size. Reuses the app's --brand token. */
+.lyric-set-wrap { display: flex; flex-direction: column; align-items: center; max-width: 100%; }
+.lyric-set-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  max-width: 100%;
+  margin: 4px auto 10px;
+  padding: 3px;
+  border: 1px solid var(--line, #e2d9c8);
+  /* A set NAME is a real Thai phrase (~25 chars), not the old "ทำนอง ๑" caption, so two of
+     them do not fit side by side on a 360px phone. The strip WRAPS instead of overflowing
+     (M3 lets long tab labels reflow; a scrolling strip would hide the very name the singer
+     is choosing between). Corner radius stays pill-like on one row and reads as a rounded
+     card once it wraps to two — 999px would bow a two-row strip. */
+  border-radius: 21px;
+  background: var(--surface-2, #f5efe3);
+}
+.lset-tab {
+  appearance: none;
+  border: 0;
+  min-height: 38px;
+  padding: 7px 18px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2, #6b5d45);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  /* grow: wrapped rows fill their line so stacked names align instead of looking ragged.
+     min-width:0 + overflow-wrap: a single name longer than the whole viewport still wraps
+     inside its own pill rather than pushing the page sideways. */
+  flex: 1 1 auto;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  text-align: center;
+}
+.lset-tab:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
+/* Touch: WCAG 2.5.8 (AA) only asks 24px, but HIG says 44pt and M3 says 48dp for a finger —
+   align UP on coarse pointers. Growing a target can never hide anything, so a device that
+   mis-reports pointer:coarse (Surface with a mouse) is harmless here. */
+@media (pointer: coarse) {
+  .lset-tab { min-height: 44px; }
+}
+.lset-tab:hover:not(.active) { background: color-mix(in srgb, var(--brand, #8b4513) 10%, transparent); }
+.lset-tab.active { background: var(--brand, #8b4513); color: #fff; }
+
 /* ---------- the editing frame (24 ก.ค.) --------------------------------------------------
    Reading: .sv-surface / .sv-doc are inert wrappers and the page scrolls normally.
    Editing:  the surface becomes an app frame pinned under the sticky shell bar. The sheet gets

@@ -220,10 +220,19 @@ function normalizeFlow(flow) {
   return out
 }
 
+// 717 multi-lyric — a song may carry several lyric SETS under one melody (`content.lyricSets`
+// + a per-row `set`, both pass-through keys this editor preserves but doesn't model yet). The
+// preview must show ONE set — the set of the row under the lens — because two sets stacked
+// read as "ข้อ 1 / ข้อ 2", which is a different song than either of them. No lyric sets → the
+// option is inert and the preview is byte-identical to before.
+const previewSet = computed(() => {
+  const s = arrangement.value[lensChoice.value]?._extra?.set
+  return Number.isInteger(s) ? s : 0
+})
 // The sheet + playback read v1-shaped `lines`, so resolve the arrangement first.
 const resolvedPreview = computed(() => ({
   ...previewContent.value,
-  lines: resolveContent(previewContent.value),
+  lines: resolveContent(previewContent.value, { set: previewSet.value }),
 }))
 
 // R4 — flow directives that point at a repeat/section no longer in the song. Playback already

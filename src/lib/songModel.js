@@ -4,6 +4,50 @@ export function isV2(content) {
   return !!(content && Array.isArray(content.stanzas))
 }
 
+// 717 multi-lyric — Thai ordinals for the positional fallback name of a lyric set.
+export const THAI_DIGITS = ['๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙', '๑๐']
+
+// The human name of ONE lyric set — the single source of truth for reader, editor,
+// search and print, so a set is never named two different things in two places.
+//
+// Two sets of words under one melody are DIFFERENT SONGS to the people who sing them
+// ("different words must have different names" — P'Aim), so a set carries its own
+// `name`. Older 717 data wrote the positional caption into `label`; data older still
+// (and any set an author never named) carries neither and falls back to the positional
+// "ทำนอง ๑/๒" the app has always shown. Never drop the `label` fallback: it is what
+// every already-saved 717 song has.
+export function lyricSetName(set, i) {
+  const name = (set?.name || '').trim()
+  if (name) return name
+  const label = (set?.label || '').trim()
+  if (label) return label
+  return 'ทำนอง ' + (THAI_DIGITS[i] || i + 1)
+}
+
+// How many lyric SETS a song declares — 0 for every ordinary song (incl. all ~120 in the
+// library today), so every set-aware branch below is dead code unless a song opts in.
+export function lyricSetCount(content) {
+  const ls = content?.lyricSets
+  return Array.isArray(ls) && ls.length > 1 ? ls.length : 0
+}
+
+// 717 multi-lyric — several sets of WORDS under ONE melody, which you SWITCH between (not
+// stack). `content.lyricSets = [{name}]`; each arrangement entry tags its set with `set`
+// (index), and an entry with NO `set` is SHARED by every set (a common refrain).
+//
+// Returns the predicate that keeps one set's entries, or null when the song has no sets
+// (→ nothing is filtered, byte-identical to before). An out-of-range/absent `set` option
+// falls back to the FIRST set — never to the concatenation, which would render the two
+// sets as "ข้อ 1 / ข้อ 2" and mean a different song than either.
+export function lyricSetFilter(content, opts) {
+  const n = lyricSetCount(content)
+  if (!n) return null
+  const want = Number.isInteger(opts?.set) && opts.set >= 0 && opts.set < n ? opts.set : 0
+  const f = (entry) => (entry?.set ?? want) === want
+  f.set = want
+  return f
+}
+
 // Split a v1 lyric string into syllable tokens the v2 way: spaces = word breaks,
 // hyphens = same-word syllable breaks. One syllable per token; a token keeps a
 // leading '-' when it continues the previous syllable's word (so "ส-ถิตย์" round-
@@ -104,8 +148,13 @@ export function melodyLineSignature(line, expBeats) {
   return groups.map((b) => b.join(' ')).join(' | ')
 }
 
-export function resolveContent(content) {
+// `opts.set` (717 multi-lyric) picks WHICH lyric set is written out — see lyricSetFilter.
+// Filtered-out entries are skipped, but a surviving entry keeps its ORIGINAL arrangement
+// index in `_entryIndex`, so click-to-edit / withSetSyllable still write to the right
+// entry of the unfiltered content.
+export function resolveContent(content, opts) {
   if (!content || !Array.isArray(content.stanzas)) return content?.lines || []
+  const inSet = lyricSetFilter(content, opts)
   const byId = {}
   for (const s of content.stanzas) byId[s.id] = s
   const out = []
@@ -119,9 +168,22 @@ export function resolveContent(content) {
   //       whose 1st and 3rd lines share a tune (not adjacent) is never collapsed → its words
   //       stay in reading order.
   const seenStanza = new Set()
+  // The entries THIS sheet writes out (all of them when the song has no lyric sets). The
+  // "ข้อ N" default below counts within this list, not the raw arrangement: on a song with
+  // two lyric sets, each set is its own reading of the song — its first unlabelled verse is
+  // ข้อ 1, and a set holding a single lyric block stays heading-free like any other song.
+  // Original arrangement index → its position on THIS sheet. With no lyric sets nothing is
+  // filtered, so seq === ei and seqOf.size === arrangement.length — the numbering every
+  // existing song already gets, unchanged down to an entry naming a stanza that isn't there.
+  const seqOf = new Map()
+  ;(content.arrangement || []).forEach((e, i) => {
+    if (!inSet || inSet(e)) seqOf.set(i, seqOf.size)
+  })
   ;(content.arrangement || []).forEach((entry, ei) => {
+    if (inSet && !inSet(entry)) return // 717 — a different set's words: not on THIS sheet
     const stanza = byId[entry.stanza]
     if (!stanza) return
+    const seq = seqOf.get(ei) ?? ei // position within THIS sheet (= ei when there are no sets)
     const stanzaFirst = !seenStanza.has(entry.stanza)
     seenStanza.add(entry.stanza)
     const syls = entry.syllables || []
@@ -139,7 +201,7 @@ export function resolveContent(content) {
       // arrangement entry is unlabelled) stays heading-free as before.
       if (li === 0) {
         const label = (entry.label || '').trim()
-        const name = label || ((content.arrangement || []).length > 1 ? `ข้อ ${ei + 1}` : '')
+        const name = label || (seqOf.size > 1 ? `ข้อ ${seq + 1}` : '')
         if (name) {
           const marker = { type: 'section', name }
           if (entry.afterEachVerse) marker.rubric = 'ร้องรับทุกข้อ'
@@ -186,10 +248,12 @@ export function resolveContent(content) {
 // Returns null when the song has no directive → the caller plays the whole song in display
 // order (byte-identical to today). This is the dispatch seam for Phase 2 jump symbols
 // (D.C./D.S./Coda): they add more cases here; the display pass never changes.
-export function resolvePlayOrder(content) {
+// `opts.set` rides through to resolveContent so the returned display-line ranges line up
+// 1:1 with the sheet the reader is actually looking at (717 multi-lyric).
+export function resolvePlayOrder(content, opts) {
   if (!isV2(content)) return null
-  const strophic = resolveStrophicOrder(content)
-  const jumped = resolveJumpOrder(content, strophic)
+  const strophic = resolveStrophicOrder(content, opts)
+  const jumped = resolveJumpOrder(content, strophic, opts)
   return jumped ?? strophic
 }
 
@@ -198,11 +262,14 @@ export function resolvePlayOrder(content) {
 // the arrangement already places it there next). Returns null when no section carries the
 // directive. Each arrangement entry expands to a contiguous run of display lines, so an entry
 // maps to one {fromLi,toLi} range.
-function resolveStrophicOrder(content) {
+function resolveStrophicOrder(content, opts) {
   const arr = content.arrangement || []
-  const chorusIdx = arr.findIndex((e) => e && e.afterEachVerse)
+  const inSet = lyricSetFilter(content, opts)
+  // the refrain of THIS lyric set — another set's refrain is not on this sheet, so it can
+  // never be the one inserted after these verses
+  const chorusIdx = arr.findIndex((e) => e && e.afterEachVerse && (!inSet || inSet(e)))
   if (chorusIdx < 0) return null
-  const lines = resolveContent(content)
+  const lines = resolveContent(content, opts)
   const ranges = [] // ranges[entryIndex] = {fromLi,toLi}
   lines.forEach((line, li) => {
     const e = line._entryIndex
@@ -336,9 +403,9 @@ function returnRanges(from, marks, al, lastLi) {
 // `base` = the strophic order if any, else the natural whole-song order. First pass plays up to
 // the jump command's own note; then the return pass. Post-jump material is unreachable (the
 // movement ends at Fine/Coda/end) and dropped.
-function resolveJumpOrder(content, base) {
+function resolveJumpOrder(content, base, opts) {
   if (!isV2(content) || !hasJumpCommand(content)) return null
-  const lines = resolveContent(content)
+  const lines = resolveContent(content, opts)
   if (!lines.length) return null
   const lastLi = lines.length - 1
   const marks = scanFlowMarkers(lines)
