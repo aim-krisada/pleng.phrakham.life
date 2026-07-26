@@ -138,6 +138,17 @@ const lyricSetLabels = computed(() => (lyricSets.value || []).map((ls, i) => lyr
 // reset the active tab only when the SONG changes (not on every edit), so a live edit keeps
 // you on the set you're viewing.
 watch(() => props.song?.id, () => { activeSet.value = 0 })
+// Switching set swaps the WORDS wholesale: different ท่อน, different line count, so every
+// index the transport is holding (the ท่อน ticks, the play position) now refers to a sheet
+// that is no longer on screen. Treat it like opening the song afresh — stop, rewind, re-tick
+// every ท่อน — otherwise a tick left over from the previous set makes the selection a strict
+// subset and playback quietly drops to "only the ท่อน you picked" instead of the whole song.
+watch(activeSet, () => {
+  stopPlay()
+  pausedIndex.value = 0
+  posIndex.value = 0
+  nextTick(selectAllSecs) // tags are recomputed from the NEW set's sheet — tick after that
+})
 
 // WAI-ARIA tabs pattern: ← → Home End move between tabs (roving tabindex below), so the
 // switch is reachable without a pointer.
@@ -156,15 +167,23 @@ function onSetKey(e) {
   nextTick(() => e.currentTarget?.querySelectorAll('.lset-tab')[next]?.focus())
 }
 
+// The song as the SELECTED set — the SSOT every downstream consumer must read (sheet, play
+// order, export). Filtering here and nowhere else is what keeps them in step: a consumer that
+// reads props.song.content instead sees the OTHER set's entries too, and any display-line
+// index it computes is an index into a different, longer sheet (see strophicOrder below).
+// No lyric sets → the song object passes through untouched, byte-identical to before 717.
+const setContent = computed(() => {
+  const content = props.song?.content
+  if (!content) return null
+  if (!lyricSets.value || !Array.isArray(content.arrangement)) return content
+  const arrangement = content.arrangement.filter(
+    (e) => (e.set ?? activeSet.value) === activeSet.value,
+  )
+  return { ...content, arrangement }
+})
 const resolved = computed(() => {
-  if (!props.song) return null
-  let content = props.song.content
-  if (lyricSets.value && Array.isArray(content.arrangement)) {
-    const arrangement = content.arrangement.filter(
-      (e) => (e.set ?? activeSet.value) === activeSet.value,
-    )
-    content = { ...content, arrangement }
-  }
+  const content = setContent.value
+  if (!content) return null
   return { ...content, lines: resolveContent(content) }
 })
 const printTitle = computed(() => {
@@ -229,7 +248,12 @@ const allSelected = computed(() => tags.value.length > 0 && selectedSecs.value.s
 // song carries no directive. This is the DEFAULT "whole song" play order; a partial ท่อน
 // selection (below) overrides it. resolvePlayOrder reads the same content the sheet resolves,
 // so its display-line ranges line up 1:1 with resolved.value.lines.
-const strophicOrder = computed(() => resolvePlayOrder(props.song?.content) ?? undefined)
+// 717 — that "same content" MUST be the set-filtered one (setContent, not props.song.content).
+// resolvePlayOrder returns {fromLi,toLi} ranges into the sheet IT resolved, so handing it the
+// unfiltered song while playNotes runs on the filtered sheet indexes the wrong lines: on 717
+// the refrain (a set-0 entry carrying afterEachVerse) got replayed once per entry of EVERY
+// set — 464/551 notes instead of 232, with the other set's verses spliced in.
+const strophicOrder = computed(() => resolvePlayOrder(setContent.value) ?? undefined)
 // a partial ท่อน selection → ranges (undefined when every ท่อน is picked = whole song)
 const selectionOrder = computed(() => (allSelected.value ? undefined : effectiveOrder(sections.value, selectedSecs.value)))
 // what actually PLAYS: an explicit selection wins; otherwise the strophic default (or, with no

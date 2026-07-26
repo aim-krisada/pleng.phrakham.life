@@ -510,3 +510,126 @@ describe('SongViewer edit-then-sing re-sync (B064)', () => {
     expect(keyBadge(w).text()).toBe('G')
   })
 })
+
+// ---------------------------------------------------------------------------------------
+// 717 multi-lyric — playback must follow the SELECTED lyric set.
+//
+// The sheet already filtered to the chosen set; the play ORDER is the second input, and it is
+// a list of {fromLi,toLi} ranges INTO a resolved sheet. Resolve it from the unfiltered song
+// while the notes come from the filtered sheet and "line 7" means two different things — which
+// is exactly what happened: on song 717 the refrain (a set-0 entry flagged ร้องรับทุกข้อ) got
+// replayed once per entry of EVERY set, and set 1 played its verses out of order.
+//
+// midi is stubbed here as everywhere else in this file, but resolveContent / resolvePlayOrder
+// come from songModel.js and are NOT stubbed — so `content` and `order` below are the real
+// values the real component computed.
+const setLine = (n) => [{ type: 'segment', note: n, chord: 'C' }]
+const setEntry = (set, label, extra = {}) => ({
+  stanza: label === 'รับ' ? 'B' : 'A',
+  set,
+  label,
+  syllables: [],
+  ...extra,
+})
+// 717's shape: ONE melody, two sets of words, and the sets spell the refrain differently —
+// set 0 writes it once and flags ร้องรับทุกข้อ, set 1 writes it out after each verse and flags
+// nothing. That asymmetry is what the old wiring tripped on.
+const twoSetSong = {
+  number: 717,
+  title_th: 'สองชุดเนื้อ',
+  content: {
+    version: 2,
+    key: 'C',
+    timeSignature: '4/4',
+    lyricSets: [{ name: 'ชุดหนึ่ง' }, { name: 'ชุดสอง' }],
+    stanzas: [
+      { id: 'A', lines: [setLine('1'), setLine('2')] },
+      { id: 'B', lines: [setLine('3'), setLine('4')] },
+    ],
+    arrangement: [
+      setEntry(0, ''),
+      setEntry(0, 'รับ', { afterEachVerse: true }),
+      setEntry(0, 'ข้อ2'),
+      setEntry(0, 'ข้อ3'),
+      setEntry(1, ''),
+      setEntry(1, 'รับ'),
+      setEntry(1, 'ข้อ2'),
+      setEntry(1, 'รับ'),
+    ],
+  },
+}
+
+async function playSet(w, i) {
+  const tabs = w.findAll('.lset-tab')
+  if (tabs.length) await tabs[i].trigger('click')
+  await nextTick()
+  await playBtn(w).trigger('click')
+  return { content: lastPlay()[0], order: lastOpts().order }
+}
+
+describe('SongViewer — 717 multi-lyric playback', () => {
+  it.each([0, 1])('set %i: only that set’s words reach the engine', async (set) => {
+    const w = mountViewer(twoSetSong)
+    await nextTick()
+    const { content } = await playSet(w, set)
+    expect(content.arrangement).toHaveLength(4)
+    expect(content.arrangement.every((e) => e.set === set)).toBe(true)
+  })
+
+  it.each([0, 1])('set %i: every play-order range lands inside the sheet being played', async (set) => {
+    // the invariant the bug violated — ranges indexed a 16-line sheet while the notes came
+    // from an 8-line one, so they pointed at the other set's verses and past the end.
+    const w = mountViewer(twoSetSong)
+    await nextTick()
+    const { content, order } = await playSet(w, set)
+    for (const r of order || []) {
+      expect(r.fromLi).toBeGreaterThanOrEqual(0)
+      expect(r.toLi, `set ${set}: range ${r.fromLi}-${r.toLi} vs ${content.lines.length} lines`).toBeLessThan(content.lines.length)
+    }
+  })
+
+  it('set 0 repeats the refrain once per verse — not once per entry of every set', async () => {
+    const w = mountViewer(twoSetSong)
+    await nextTick()
+    const { order } = await playSet(w, 0)
+    expect(order).toHaveLength(6) // ข้อ1·รับ ข้อ2·รับ ข้อ3·รับ
+    expect(order.filter((r) => r.fromLi === 2 && r.toLi === 3)).toHaveLength(3)
+  })
+
+  it('set 1 carries no strophic directive, so it plays in written order', async () => {
+    const w = mountViewer(twoSetSong)
+    await nextTick()
+    const { order } = await playSet(w, 1)
+    expect(order).toBeUndefined()
+  })
+
+  it('switching tabs re-resolves the order for the newly selected set', async () => {
+    const w = mountViewer(twoSetSong)
+    await nextTick()
+    expect((await playSet(w, 0)).order).toHaveLength(6)
+    expect((await playSet(w, 1)).order).toBeUndefined()
+    expect((await playSet(w, 0)).order).toHaveLength(6)
+  })
+
+  it('back-compat — a song with no lyricSets shows no tabs and is not filtered', async () => {
+    const plain = {
+      number: 9,
+      title_th: 'ธรรมดา',
+      content: {
+        ...twoSetSong.content,
+        lyricSets: undefined,
+        arrangement: [
+          { stanza: 'A', label: '', syllables: [] },
+          { stanza: 'B', label: 'รับ', syllables: [], afterEachVerse: true },
+          { stanza: 'A', label: 'ข้อ2', syllables: [] },
+        ],
+      },
+    }
+    const w = mountViewer(plain)
+    await nextTick()
+    expect(w.findAll('.lset-tab')).toHaveLength(0)
+    const { content, order } = await playSet(w, 0)
+    expect(content.arrangement).toHaveLength(3) // nothing filtered out
+    expect(order).toHaveLength(4) // ข้อ1·รับ ข้อ2·รับ — unchanged from before 717
+  })
+})
