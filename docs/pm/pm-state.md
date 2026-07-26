@@ -78,6 +78,12 @@
 - **✅ C+N+G ตอบ (`2026-07-26-delete-recyclebin-consult.md`) + P'Aim: ถังขยะ = v2 อย่างเดียว (v1 จะทิ้ง):** ของตอนนี้ = hard-delete 1 จุด (EditorMode.vue:1803) ไม่มีถังขยะ · role แค่ editor|approver (admin=approver) · **best (3 ตรง):** soft-delete `deleted_at` → หน้า /trash แยก (กู้/ลบถาวร/เทถัง) · 30 วัน auto-purge pg_cron รายวัน · **ลบ=Undo toast · modal เฉพาะลบถาวร/เทถัง** · editor เห็นถังตัวเอง/approver เห็นหมด · มือถือ ⋮ ก่อน · **C ท้วง: reuse `author_id` ไม่เพิ่ม created_by** · **⚠️ groundwork: deploy db/006 (ownership) + migration deleted_at/cron/RLS + client .select · เพลงเก่า 120 ไม่มีเจ้าของ = approver-delete-only จน backfill · ต้องเช็ก live Supabase ก่อนเขียน migration** · **⏸️ P'Aim: "ระบบลบรอ" (26 ก.ค.) — ยังไม่เริ่ม · ผลปรึกษาพร้อมใช้เมื่อสั่ง**
 - **แล้ว bundle home-tidy 1 ก้อน** (การ์ด + create/นำเข้าหัวรายการ + per-card ⋮ share/download + เอา ⇄/"รุ่นทดลอง" ออก) → UI preview → P'Aim ดู ก่อน build · **ลบ = แยกออกจาก bundle นี้ (ทำเต็มระบบตาม consult)**
 
+### 📥 พี่เปา แจ้ง (26 ก.ค. pm48) — แท็บชุดเนื้อ
+- **"tab ท่อน 1,2,… ที่เพิ่งเพิ่ม ตัวหนังสือใหญ่ไป"** → **P'Aim สั่ง 3 ข้อ:** ลดขนาดตัวอักษรเท่าองค์ประกอบข้างเคียง · **เลขอารบิก 1,2,3 แทนเลขไทย ๑๒๓** · **ทำเป็น accordion (ยุบ) เพราะไม่ได้ใช้บ่อย**
+- **จ่ายแล้ว (task_1f219499):** STEP 0 หาให้เจอก่อนว่าหมายถึงจุดไหน (reader tabs / editor tabs / rail · ต้นทางเลขไทยน่าจะที่ `lyricSetName()` songModel.js) · ทำทั้ง 2 สาย · ลดแค่ font-size **ห้ามลด target (24 AA / 44 coarse)** · accordion หัวข้อต้องบอกชุดปัจจุบัน
+- **⚠️ PM guard ที่ต้องให้ P'Aim เคาะ:** ยุบ accordion = **ผู้ใช้อาจไม่รู้ว่าเพลงนี้มี 2 ชุด** (discoverability) → สั่งทำ PNG 2 แบบ **A** ยุบตามสั่ง · **B** ยุบแต่โชว์ชื่อชุดปัจจุบัน+ป้ายจำนวนชุด → **STOP ส่งภาพให้ P'Aim เลือกก่อนปิดงาน**
+- ชนไฟล์กับงานแก้เสียง v1 (`717-set-scope-v1` แตะ SongViewer play order) → **PM merge เรียงคิว: เสียงก่อน แล้ว UI**
+
 ### 📥 พี่เปา (user จริง) แจ้งผ่าน P'Aim (25 ก.ค. pm48) — 2 เรื่อง
 1. **🔴 บั๊ก (อาจ data loss · ด่วน): ใส่ `-` ในเลขเพลง (717-1/717-2) → เพลงหายทั้งคู่** · **จ่าย session ตรวจ read-only แล้ว (task_ae699484):** (A) ข้อมูลยังอยู่ใน Supabase ไหม (B) ใช้ `-` ได้ไหมจริง (C) ต้นเหตุ (save/filter/parse number เป็นเลข→NaN?) · ⛔ SELECT อย่างเดียว · รอ inbox `2026-07-25-bug-dash-in-song-number.md` → ถ้าเป็นบั๊ก PM จ่าย fix แยก
 2. **feature: เตือน+กันชื่อเพลงซ้ำในเล่มเดียวกัน** (title ซ้ำใน songbook → warn + block) · ครอบ **สร้างใหม่ + แก้ไข** (อย่างน้อย · P'Aim) + **import** (PM แนะเพิ่ม · dup เข้าทาง batch ได้ · รอ P'Aim veto) · = requirement song-maker (fold M1.4 ตั้งค่าเพลง/ชื่อ · design+3AI ทีหลัง)
