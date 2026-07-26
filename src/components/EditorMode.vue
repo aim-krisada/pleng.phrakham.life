@@ -130,6 +130,31 @@ function deserializeLine(items) {
   return line
 }
 
+// ---- data-safety: never destroy what this editor does not model -------------------------
+// This editor rebuilds `content` from its own state on every save, so any key it does not
+// itself know about used to vanish the first time someone pressed บันทึก. The permanent
+// lyric-set `id` a shared link points at is the first such key (migration 2026-07-26) and
+// will not be the last, so the rule is general, NOT a whitelist of one more field: capture
+// every unknown key on load, spread it back on save. (Same pass-through the /v2 editor uses
+// — src/lib/editorSerde.js there; kept local here to keep the frozen v1 line's diff small.)
+// The key lists below must stay in step with what previewContent actually emits, or a key
+// the editor DOES model would be stashed twice.
+const CONTENT_KEYS = ['version', 'key', 'timeSignature', 'bpm', 'stanzas', 'arrangement', 'lyricSets', 'lines']
+const STANZA_KEYS = ['id', 'lines']
+const ARRANGEMENT_KEYS = ['stanza', 'label', 'syllables', 'key', 'set', 'afterEachVerse']
+const LYRIC_SET_KEYS = ['name', 'label']
+// Every key of `obj` the editor does not model, deep-cloned so the captured copy can never
+// alias (and be mutated through) the loaded row.
+function rest(obj, known) {
+  const out = {}
+  if (!obj || typeof obj !== 'object') return out
+  const set = new Set(known)
+  for (const k of Object.keys(obj)) {
+    if (!set.has(k)) out[k] = JSON.parse(JSON.stringify(obj[k]))
+  }
+  return out
+}
+
 // Keep only the holds whose note-box still carries a fermata (`^`) and are on the 0.5 grid — so a
 // value orphaned by editing/deleting the note (box indices shift) never persists. Returns null when
 // nothing is left, so a clean segment stays free of a `holds` key.
@@ -387,6 +412,10 @@ const dragOverRow = ref(-1) // current drop-target index (drop indicator)
 const reorderMsg = ref('') // aria-live text announcing the new order (WCAG 2.5.7 fallback)
 const vFocus = { mounted: (el) => { el.focus(); el.select?.() } } // autofocus an inline input
 
+// unknown content top-level keys captured on load (see rest() above); the per-stanza,
+// per-arrangement-row and per-lyric-set ones ride on each item's own `_extra`.
+const contentExtras = ref({})
+
 const saveMsg = ref('')
 const playing = ref(false)
 // B093: review_flags loaded with the song (so publish keeps DA/other flags and only
@@ -409,16 +438,27 @@ const previewContent = computed(() => ({
   key: opts.key,
   timeSignature: opts.timeSignature,
   bpm: opts.bpm || undefined,
-  stanzas: stanzas.value.map((s) => ({ id: s.id, lines: s.lines.map(serializeLine) })),
+  // unknown top-level keys captured on load, spread back untouched (CONTENT_KEYS excludes
+  // everything emitted here, so this can never collide with a field the editor owns)
+  ...contentExtras.value,
+  stanzas: stanzas.value.map((s) => ({
+    id: s.id,
+    lines: s.lines.map(serializeLine),
+    ...(s._extra || {}), // unknown per-stanza keys
+  })),
   // 717: only emit lyricSets when the author actually made >1 set, so ordinary songs stay
   // byte-identical (no lyricSets key, no `set` on rows).
   // Emit only the keys a set actually carries: an unnamed set stays `{label}` (byte-identical
-  // to every 717 song saved so far), a named one carries `name` + the matching `label`.
+  // to every 717 song saved so far), a named one carries `name` + the matching `label` —
+  // then every key this editor does NOT model rides back out of `_extra` untouched, so a
+  // save can never be the thing that deletes a field a newer version wrote (the `id` behind
+  // a shared ?set= link is the first, and will not be the last).
   ...(lyricSets.value.length > 1
     ? {
         lyricSets: lyricSets.value.map((s) => ({
           ...(s.name?.trim() ? { name: s.name.trim() } : {}),
           ...(s.label?.trim() ? { label: s.label.trim() } : {}),
+          ...(s._extra || {}),
         })),
       }
     : {}),
@@ -433,6 +473,7 @@ const previewContent = computed(() => ({
     // B102 — "ร้องรับทุกข้อ": the refrain is sung after every verse. Stored on the entry
     // (SSOT, visible in the downloaded JSON); playback (resolvePlayOrder) expands it.
     ...(r.afterEachVerse ? { afterEachVerse: true } : {}),
+    ...(r._extra || {}), // unknown per-row keys (a future per-verse directive)
   })),
 }))
 
@@ -1472,9 +1513,14 @@ function applyRow(data) {
   opts.key = content.key || 'C'
   opts.timeSignature = content.timeSignature || '4/4'
   opts.bpm = content.bpm ?? null
+  // Data-safety (see rest() at the top): stash every key this editor does not model so save
+  // spreads it back instead of deleting it. Read off the RAW row, not the migrated copy — a v1
+  // song's own keys are already in CONTENT_KEYS (`lines`), so nothing v1-shaped leaks into v2.
+  contentExtras.value = rest(data.content, CONTENT_KEYS)
   stanzas.value = (content.stanzas || []).map((s) => ({
     id: s.id,
     lines: (s.lines || []).map(deserializeLine),
+    _extra: rest(s, STANZA_KEYS),
   }))
   if (!stanzas.value.length) stanzas.value = [{ id: 'A', lines: [newLine()] }]
   arrangement.value = (content.arrangement || []).map((r) => ({
@@ -1488,13 +1534,23 @@ function applyRow(data) {
     // set at all and its row would be invisible in every tab.
     ...(lyricSetIndex(r.set) != null ? { set: lyricSetIndex(r.set) } : {}),
     afterEachVerse: !!r.afterEachVerse, // B102 — strophic "ร้องรับทุกข้อ" directive (round-trips)
+    _extra: rest(r, ARRANGEMENT_KEYS),
   }))
   if (!arrangement.value.length) {
     arrangement.value = [{ stanza: stanzas.value[0].id, label: '', syllables: [], key: '' }]
   }
-  // 717 — load the lyric sets (empty for ordinary songs) and start on the first set
+  // 717 — load the lyric sets (empty for ordinary songs) and start on the first set.
+  // Data-safety: this editor only MODELS name + label, so every OTHER key a set carries is
+  // stashed in `_extra` and spread back on save. Rebuilding a set as {name,label} silently
+  // destroyed anything this version doesn't know about — e.g. the permanent `id` a shared
+  // ?set= link points at, which the migration writes and this editor would have erased on
+  // the first save, breaking every link already handed out.
   lyricSets.value = Array.isArray(content.lyricSets)
-    ? content.lyricSets.map((s) => ({ name: s?.name || '', label: s?.label || '' }))
+    ? content.lyricSets.map((s) => ({
+        name: s?.name || '',
+        label: s?.label || '',
+        _extra: rest(s, LYRIC_SET_KEYS),
+      }))
     : []
   activeSet.value = 0
   editingSetId.value = -1
@@ -1520,6 +1576,7 @@ function resetForm() {
   opts.key = 'C'
   opts.timeSignature = '4/4'
   opts.bpm = null
+  contentExtras.value = {} // a brand-new song inherits no unknown keys from the last one
   stanzas.value = [{ id: 'A', lines: [newLine()] }]
   arrangement.value = [{ stanza: 'A', label: '', syllables: [], key: '' }]
   activeStanza.value = 0
