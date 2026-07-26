@@ -121,9 +121,31 @@ const posIndex = ref(0)
 // "ไม่เลือก") still falls back to the whole song, unchanged.
 const selectedSecs = ref(new Set())
 
-const resolved = computed(() =>
-  props.song ? { ...props.song.content, lines: resolveContent(props.song.content) } : null,
-)
+// 717 multi-lyric — one number, one melody (stanza), several lyric SETS you SWITCH between
+// (not stack). content.lyricSets = [{label}]; each arrangement entry tags its set via `set`
+// (index) — an entry with NO `set` is SHARED across every set (e.g. a common refrain). Tabs
+// show only when a song declares >1 set → zero impact on all existing songs. The filter runs
+// BEFORE resolveContent so the render/print/highlight engine is untouched (songModel locked).
+const lyricSets = computed(() => {
+  const ls = props.song?.content?.lyricSets
+  return Array.isArray(ls) && ls.length > 1 ? ls : null
+})
+const activeSet = ref(0)
+// reset the active tab only when the SONG changes (not on every edit), so a live edit keeps
+// you on the set you're viewing.
+watch(() => props.song?.id, () => { activeSet.value = 0 })
+
+const resolved = computed(() => {
+  if (!props.song) return null
+  let content = props.song.content
+  if (lyricSets.value && Array.isArray(content.arrangement)) {
+    const arrangement = content.arrangement.filter(
+      (e) => (e.set ?? activeSet.value) === activeSet.value,
+    )
+    content = { ...content, arrangement }
+  }
+  return { ...content, lines: resolveContent(content) }
+})
 const printTitle = computed(() => {
   const s = props.song
   if (!s) return ''
@@ -589,6 +611,22 @@ function onSeek({ li, si, syk }) {
       <div v-if="song.scripture" class="scripture-tag muted">📖 {{ song.scripture }}</div>
     </div>
 
+    <!-- 717 multi-lyric — segmented tabs to switch the words under the SAME melody. Only for
+         a song that declares >1 lyric set; not printed (print chooses/stacks sets separately). -->
+    <div v-if="lyricSets" class="lyric-set-wrap no-print">
+      <div class="lyric-set-tabs" role="tablist" aria-label="เลือกเนื้อร้อง">
+        <button
+          v-for="(ls, i) in lyricSets"
+          :key="i"
+          class="lset-tab"
+          :class="{ active: activeSet === i }"
+          role="tab"
+          :aria-selected="activeSet === i ? 'true' : 'false'"
+          @click="activeSet = i"
+        >{{ ls.label }}</button>
+      </div>
+    </div>
+
     <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: readingFontScale + 'rem' }">
       <SongSheet
         :content="resolved"
@@ -651,6 +689,35 @@ function onSeek({ li, si, syk }) {
 </template>
 
 <style scoped>
+/* ---------- 717 multi-lyric — segmented tabs (Material 3 segmented button) --------------
+   One melody, several lyric sets you switch between. Centered above the sheet, brand-tinted
+   active segment, WCAG target size (≥38px tall). Reuses the app's --brand token. */
+.lyric-set-wrap { display: flex; flex-direction: column; align-items: center; }
+.lyric-set-tabs {
+  display: inline-flex;
+  gap: 2px;
+  margin: 4px auto 10px;
+  padding: 3px;
+  border: 1px solid var(--line, #e2d9c8);
+  border-radius: 999px;
+  background: var(--surface-2, #f5efe3);
+}
+.lset-tab {
+  appearance: none;
+  border: 0;
+  min-height: 38px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2, #6b5d45);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.lset-tab:hover:not(.active) { background: color-mix(in srgb, var(--brand, #8b4513) 10%, transparent); }
+.lset-tab.active { background: var(--brand, #8b4513); color: #fff; }
+
 /* Leave room so the fixed transport dock (S4 <StudioDock>/<SingTransport>) never covers
    the last line while singing. The dock is ~147px on wider screens but grows to ~191px
    once its controls wrap at ≤480px; add the iOS home-indicator inset on top so the last
