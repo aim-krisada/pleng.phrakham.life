@@ -5,7 +5,7 @@
 // The other half — and the one that matters for the ~120 songs already in the library — is
 // that a song with NO lyricSets resolves exactly as before, down to the provenance tags.
 import { describe, it, expect } from 'vitest'
-import { resolveContent, resolvePlayOrder, lyricSetName, lyricSetCount, lyricSetFilter } from './songModel.js'
+import { resolveContent, resolvePlayOrder, lyricSetName, isSetCaption, lyricSetCount, lyricSetFilter } from './songModel.js'
 
 const seg = (note, chord) => ({ type: 'segment', note, chord })
 const wordsOf = (lines) =>
@@ -216,41 +216,49 @@ describe('resolvePlayOrder — 717 lyric sets', () => {
   })
 })
 
-describe('lyricSetName — one name per set, everywhere', () => {
-  it('uses the set’s own name', () => {
-    expect(lyricSetName({ name: 'ชื่อจริง' }, 0)).toBe('ชื่อจริง')
+// พี่เปา used the shipped feature and asked for sequential captions (via P'Aim, 26 ก.ค.):
+// "ไม่ต้องใส่ชื่อ". lyricSetName is the ONE place that decides this, so pinning it here pins the
+// reader tabs, the collapsed switcher, the editor tabs and the printed heading at once.
+describe('lyricSetName — one caption per POSITION, everywhere', () => {
+  it('reads the position, not the set', () => {
+    expect(lyricSetName({}, 0)).toBe('เนื้อร้องที่ 1')
+    expect(lyricSetName(undefined, 1)).toBe('เนื้อร้องที่ 2')
+    expect(lyricSetName({}, 2)).toBe('เนื้อร้องที่ 3')
   })
-  it('name wins over the older label', () => {
-    expect(lyricSetName({ name: 'ชื่อจริง', label: 'ทำนอง ๑' }, 0)).toBe('ชื่อจริง')
-  })
-  it('falls back to `label` — what every 717 song saved so far carries', () => {
-    expect(lyricSetName({ label: 'ชุดเก่า' }, 0)).toBe('ชุดเก่า')
-  })
-  it('falls back to the positional caption when a set is unnamed', () => {
-    expect(lyricSetName({}, 0)).toBe('ทำนอง 1')
-    expect(lyricSetName(undefined, 1)).toBe('ทำนอง 2')
-    expect(lyricSetName({ name: '  ', label: '' }, 1)).toBe('ทำนอง 2')
+  it('a stored `name`/`label` is IGNORED for display — in every shape it comes in', () => {
+    // song 717 as it sits in the DB today: name and label both hold the set's first line
+    expect(lyricSetName({ name: 'ชื่อจริง', label: 'ชื่อจริง' }, 0)).toBe('เนื้อร้องที่ 1')
+    expect(lyricSetName({ name: 'ชื่อจริง', label: 'ทำนอง ๑' }, 0)).toBe('เนื้อร้องที่ 1')
+    expect(lyricSetName({ label: 'ชุดเก่า' }, 1)).toBe('เนื้อร้องที่ 2')
+    // the retired captions cannot leak back through either
+    expect(lyricSetName({ label: 'ทำนอง ๑' }, 0)).toBe('เนื้อร้องที่ 1')
+    expect(lyricSetName({ name: 'ทำนอง ๒' }, 0)).toBe('เนื้อร้องที่ 1') // position wins, always
   })
   it('counts in arabic all the way — one numeral system, no base change mid-list', () => {
-    expect(lyricSetName({}, 9)).toBe('ทำนอง 10')
-    expect(lyricSetName({}, 10)).toBe('ทำนอง 11')
+    expect(lyricSetName({}, 9)).toBe('เนื้อร้องที่ 10')
+    expect(lyricSetName({}, 10)).toBe('เนื้อร้องที่ 11')
+  })
+  it('the caption is what RENUMBERS a delete: index in, caption out', () => {
+    // delete the middle of three and the survivor is read at index 1 → "เนื้อร้องที่ 2".
+    // Nothing is stored, so there is no stale number to migrate (the DB is never rewritten).
+    const survivors = [{ label: 'ทำนอง ๑' }, { label: 'ทำนอง ๓' }] // set 2 was deleted
+    expect(survivors.map((s, i) => lyricSetName(s, i)))
+      .toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2'])
   })
 })
 
-// พี่เปา read the tabs and P'Aim ordered arabic digits (26 ก.ค.). The fallback above is the
-// live path, but an earlier editor also SAVED the Thai caption into `label`, and we never
-// rewrite the database to fix a caption — so the stored legacy form is normalised on render.
-describe('lyricSetName — the saved Thai caption reads in arabic (no DB migration)', () => {
-  it('normalises a stored positional caption, keeping its number', () => {
-    expect(lyricSetName({ label: 'ทำนอง ๑' }, 0)).toBe('ทำนอง 1')
-    expect(lyricSetName({ label: 'ทำนอง ๒' }, 1)).toBe('ทำนอง 2')
-    expect(lyricSetName({ label: 'ทำนอง ๑๐' }, 9)).toBe('ทำนอง 10')
-    expect(lyricSetName({ name: 'ทำนอง ๒' }, 0)).toBe('ทำนอง 2') // number kept, NOT re-derived
+// The stored name is not displayed, but it is still DATA — hidden search text that keeps a set
+// findable by the wording a church remembers. isSetCaption is how search tells that data apart
+// from app chrome it must never index.
+describe('isSetCaption — chrome vs. a name somebody typed', () => {
+  it('recognises the caption in all three shapes it has ever taken', () => {
+    for (const s of ['เนื้อร้องที่ 1', 'เนื้อร้องที่ 12', 'ทำนอง 2', 'ทำนอง ๒', 'ทำนอง ๑๐', ' ทำนอง 3 ']) {
+      expect(isSetCaption(s)).toBe(true)
+    }
   })
-  it('leaves a real NAME alone even when it contains a Thai numeral', () => {
-    // a name is free text and must round-trip byte-identical — only the exact caption matches
-    expect(lyricSetName({ name: 'ชุดที่ ๒ ของโบสถ์' }, 0)).toBe('ชุดที่ ๒ ของโบสถ์')
-    expect(lyricSetName({ name: 'ทำนอง ๑ สำหรับเด็ก' }, 0)).toBe('ทำนอง ๑ สำหรับเด็ก')
-    expect(lyricSetName({ label: 'เพลง ๑' }, 0)).toBe('เพลง ๑')
+  it('leaves real free text alone, even when it contains the words or a Thai numeral', () => {
+    for (const s of ['ชุดที่ ๒ ของโบสถ์', 'ทำนอง ๑ สำหรับเด็ก', 'เนื้อร้องที่ 2 ของโบสถ์เรา', 'เพลง ๑', '', undefined]) {
+      expect(isSetCaption(s)).toBe(false)
+    }
   })
 })

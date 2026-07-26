@@ -30,7 +30,7 @@
 import { deserializeLine, serializeLine, newLine } from './editorSerde.js'
 import { stripEditorMarkerIds, mintMarkerIds } from './songFlow.js'
 import { syllableSlots } from './notation.js'
-import { setCaption, lyricSetIndex } from './songModel.js'
+import { lyricSetIndex } from './songModel.js'
 
 const clone = (x) => JSON.parse(JSON.stringify(x))
 
@@ -590,12 +590,16 @@ export function addLyricSet(content) {
   const existing = Array.isArray(content?.lyricSets) ? content.lyricSets : []
   let sets = existing.slice()
   let nextArr = arr.slice()
+  // A new set carries NO caption in its data (26 ก.ค.): the caption is derived from the set's
+  // POSITION at render time (lyricSetName), so writing it into the row would only bake in a number
+  // that goes stale the moment a middle set is deleted — and the stale copy would then leak into
+  // search. An empty set object is enough: >1 set shows the tabs, the caption comes from the index.
   if (sets.length <= 1) {
-    sets = [{ name: '', label: setCaption(0) }]
+    sets = [{}]
     nextArr = nextArr.map((r) => ({ ...r, set: 0 }))
   }
   const idx = sets.length
-  sets.push({ name: '', label: setCaption(idx) })
+  sets.push({})
   // the new set's first row hangs off the SAME melody the first set uses, so the author types
   // words straight onto notes that are already there
   const stanza = nextArr.find((r) => lyricSetIndex(r.set) === 0)?.stanza || stanzas[0].id

@@ -4,41 +4,45 @@ export function isV2(content) {
   return !!(content && Array.isArray(content.stanzas))
 }
 
-// 717 multi-lyric — the positional caption for a lyric set nobody has named yet.
+// 717 multi-lyric — the SEQUENTIAL caption of a lyric set: เนื้อร้องที่ 1 · เนื้อร้องที่ 2 · …
 //
-// ARABIC digits, not Thai (P'Aim, 26 ก.ค., after พี่เปา read the tabs). Everything else the
-// app numbers on screen is Arabic — ท่อน 1 · ข้อ 1 · the jianpu keypad · the completion
-// steps — so the Thai numeral here was the ONE Thai digit anywhere in the UI. It also used to
-// change base mid-list ("ทำนอง ๑๐" at i=9 but "ทำนอง 11" at i=10); one numeral system ends that.
+// Positional, never a name (P'Aim, 26 ก.ค., relaying พี่เปา after he used the shipped feature:
+// "ในส่วนของชื่อ ให้เขียนว่า เนื้อร้องที่ 1 เนื้อร้องที่ 2 เนื้อร้องที่ 3 ไปเรื่อยๆ ไม่ต้องใส่ชื่อ").
+// A set's stored name is its own FIRST LINE, not a title, so the tabs read as two long Thai
+// phrases the singer has to parse before choosing; a number is one glance and matches how the
+// rest of the app labels things it counts (ท่อน 1 · ข้อ 1 · the completion steps).
+//
+// ARABIC digits: every other number the app puts on screen is Arabic, and the retired Thai form
+// even changed base mid-list ("ทำนอง ๑๐" at i=9 but "ทำนอง 11" at i=10).
 export function setCaption(i) {
-  return 'ทำนอง ' + (i + 1)
+  return 'เนื้อร้องที่ ' + (i + 1)
 }
 
-// An earlier editor SAVED that caption into `label`, so a set stored before this change can
-// still carry "ทำนอง ๑" as its text. We never rewrite the database to fix a caption, so the
-// legacy form is normalised at RENDER time instead — and only in its exact caption shape, so a
-// real set name that happens to contain a Thai numeral is left untouched (a name is free text
-// and must round-trip byte-identical).
-const LEGACY_CAPTION = /^ทำนอง\s*[๐-๙]+$/
-const THAI_TO_ARABIC = { '๐': '0', '๑': '1', '๒': '2', '๓': '3', '๔': '4', '๕': '5', '๖': '6', '๗': '7', '๘': '8', '๙': '9' }
-function arabicIfCaption(s) {
-  return LEGACY_CAPTION.test(s) ? s.replace(/[๐-๙]/g, (d) => THAI_TO_ARABIC[d]) : s
+// Is this stored text merely a caption the APP wrote, rather than something a person named?
+// Covers the current shape and both retired ones — "ทำนอง 1" and its Thai-digit ancestor
+// "ทำนอง ๑" — because earlier editors saved the caption of the day into `label`. We never
+// rewrite the database to clean that up, so the shapes are recognised at read time instead.
+// Search uses this to keep app chrome out of the index (songSearch.lyricSetNames).
+const CAPTION_SHAPES = [/^เนื้อร้องที่\s*[0-9๐-๙]+$/, /^ทำนอง\s*[0-9๐-๙]+$/]
+export function isSetCaption(s) {
+  const t = (s || '').trim()
+  return !!t && CAPTION_SHAPES.some((re) => re.test(t))
 }
 
-// The human name of ONE lyric set — the single source of truth for reader, editor,
-// search and print, so a set is never named two different things in two places.
+// What ONE lyric set is CALLED ON SCREEN — the single source of truth for reader tabs, the
+// collapsed switcher, the editor tabs, the catalog card and the printed heading, so a set is
+// never captioned two different things in two places.
 //
-// Two sets of words under one melody are DIFFERENT SONGS to the people who sing them
-// ("different words must have different names" — P'Aim), so a set carries its own
-// `name`. Older 717 data wrote the positional caption into `label`; data older still
-// (and any set an author never named) carries neither and falls back to the positional
-// caption the app has always shown. Never drop the `label` fallback: it is what
-// every already-saved 717 song has.
+// Always the positional caption; the stored `name`/`label` is deliberately NOT displayed
+// (P'Aim, 26 ก.ค. — see setCaption). The stored wording is not deleted either: it stays on the
+// row and stays SEARCHABLE as hidden search text (songSearch.lyricSetNames), so a church that
+// knows a set by its own first line still finds the song even though no screen shows that line
+// as a title. Findability does not DEPEND on it — every set's words are indexed syllable by
+// syllable — it only keeps the remembered wording ranked like a title.
+//
+// `set` is unused on purpose: it stays in the signature because it is what every call site
+// already holds, and it is the seam a future "named sets" feature would need back.
 export function lyricSetName(set, i) {
-  const name = (set?.name || '').trim()
-  if (name) return arabicIfCaption(name)
-  const label = (set?.label || '').trim()
-  if (label) return arabicIfCaption(label)
   return setCaption(i)
 }
 

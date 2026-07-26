@@ -117,11 +117,14 @@ describe('Studio แผ่นเพลง — prints the selected lyric set (717
     expect(printedSets(w).every((s) => s === 0)).toBe(true)
   })
 
-  it('the printed heading names the set, so two papers are told apart', async () => {
+  it('the printed heading carries the set, so two papers are told apart', async () => {
+    // by NUMBER since 26 ก.ค. — the paper says what the singer read on screen. The stored names
+    // ('ชุดหนึ่ง'/'ชุดสอง' in this fixture) must not reach the heading.
     const t0 = (await openSheet(song717, 0)).findComponent(SongSheet).props('songTitle')
     const t1 = (await openSheet(song717, 1)).findComponent(SongSheet).props('songTitle')
-    expect(t0).toContain('ชุดหนึ่ง')
-    expect(t1).toContain('ชุดสอง')
+    expect(t0).toContain('เนื้อร้องที่ 1')
+    expect(t1).toContain('เนื้อร้องที่ 2')
+    expect(t0).not.toContain('ชุดหนึ่ง')
     expect(t0).not.toBe(t1)
   })
 

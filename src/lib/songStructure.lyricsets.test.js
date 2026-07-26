@@ -30,9 +30,21 @@ describe('addLyricSet — the ＋ behind /v2’s inline editor', () => {
     expect(next.stanzas).toEqual(plain().stanzas) // melody untouched
   })
 
-  it('the new set is named with the arabic positional caption', () => {
+  it('the new set is captioned by POSITION, and stores no caption of its own', () => {
     const next = addLyricSet(plain())
-    expect(next.lyricSets.map((s, i) => lyricSetName(s, i))).toEqual(['ทำนอง 1', 'ทำนอง 2'])
+    expect(next.lyricSets.map((s, i) => lyricSetName(s, i))).toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2'])
+    // nothing written down = nothing to go stale when a middle set is deleted later
+    expect(next.lyricSets).toEqual([{}, {}])
+  })
+
+  it('deleting a middle set renumbers the survivors (3 sets, drop the 2nd → 1 and 2)', () => {
+    const three = addLyricSet(addLyricSet(plain()))
+    expect(three.lyricSets.map((s, i) => lyricSetName(s, i)))
+      .toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2', 'เนื้อร้องที่ 3'])
+    const two = deleteLyricSet(three, 1)
+    expect(two.lyricSets.map((s, i) => lyricSetName(s, i)))
+      .toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2'])
+    expect(two.arrangement.map((r) => r.set)).toEqual([0, 1])
   })
 
   it('a THIRD set appends without disturbing the first two', () => {

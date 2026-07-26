@@ -77,7 +77,7 @@ describe('SongViewer /v2 — 717 lyric sets + back-compat', () => {
     const w = mountSong(twoSetSong)
     const tabs = w.findAll('.lset-tab')
     expect(tabs).toHaveLength(2)
-    expect(tabs[0].text()).toBe('ทำนอง 1')
+    expect(tabs[0].text()).toBe('เนื้อร้องที่ 1')
     expect(tabs[0].classes()).toContain('active')
   })
 
@@ -106,9 +106,10 @@ describe('SongViewer /v2 — 717 lyric sets + back-compat', () => {
   })
 })
 
-// ---- set NAMES (P'Aim: "different words must have different names") ----------------------
-// Two sets of words are two different songs to whoever sings them, so each set carries its
-// own name.
+// ---- set CAPTIONS are SEQUENTIAL (พี่เปา via P'Aim, 26 ก.ค.) -----------------------------
+// "ในส่วนของชื่อ ให้เขียนว่า เนื้อร้องที่ 1 เนื้อร้องที่ 2 ... ไม่ต้องใส่ชื่อ". A set's stored name is
+// its own first line, so the tabs were two long Thai phrases to read before choosing. The tab
+// now reads its POSITION, whatever the row happens to store.
 const SET1 = 'เนื้อร้องชุดที่หนึ่งของเพลงนี้'
 const SET2 = 'เนื้อร้องชุดที่สองของเพลงนี้'
 const withSets = (lyricSets) => ({
@@ -116,31 +117,31 @@ const withSets = (lyricSets) => ({
   content: { ...twoSetSong.content, lyricSets },
 })
 
-describe('SongViewer /v2 — lyric-set names', () => {
-  it('shows each set’s own `name` on its tab', () => {
-    // the merge SQL writes name AND label with the same value
+describe('SongViewer /v2 — lyric-set captions are sequential, never the stored name', () => {
+  it('a stored `name`+`label` is NOT displayed — the tab reads its position', () => {
+    // the merge SQL writes name AND label with the same value (live song 717's shape)
     const w = mountSong(withSets([{ name: SET1, label: SET1 }, { name: SET2, label: SET2 }]))
-    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual([SET1, SET2])
+    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2'])
+    // and the name appears NOWHERE in the switcher, not even in a title/aria attribute
+    expect(w.find('.lyric-set-wrap').html()).not.toContain(SET1)
+    expect(w.find('.lyric-set-wrap').html()).not.toContain(SET2)
   })
 
-  it('`name` wins over `label` when they disagree', () => {
-    const w = mountSong(withSets([{ name: SET1, label: 'ทำนอง ๑' }, { name: SET2, label: 'ทำนอง ๒' }]))
-    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual([SET1, SET2])
-  })
-
-  it('back-compat: label-only sets (song 717 as it sits in the DB today) read — in arabic', () => {
+  it('a legacy caption stored in `label` is not displayed either (no "ทำนอง" survives)', () => {
     const w = mountSong(withSets([{ label: 'ทำนอง ๑' }, { label: 'ทำนอง ๒' }]))
-    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['ทำนอง 1', 'ทำนอง 2'])
+    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2'])
+    expect(w.find('.lyric-set-wrap').text()).not.toContain('ทำนอง')
   })
 
-  it('back-compat: no name AND no label falls back to the positional ทำนอง 1/2', () => {
+  it('a set carrying nothing at all reads the same — the caption is derived, not stored', () => {
     const w = mountSong(withSets([{}, {}]))
-    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['ทำนอง 1', 'ทำนอง 2'])
+    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2'])
   })
 
-  it('a blank/whitespace name does not blank the tab — it falls back', () => {
-    const w = mountSong(withSets([{ name: '   ', label: 'ทำนอง ๑' }, { name: '' }]))
-    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['ทำนอง 1', 'ทำนอง 2'])
+  it('counts on past 2 in order (a 3-set song reads 1·2·3)', () => {
+    const w = mountSong(withSets([{ name: SET1 }, {}, { label: 'ทำนอง ๓' }]))
+    expect(w.findAll('.lset-tab').map((t) => t.text()))
+      .toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2', 'เนื้อร้องที่ 3'])
   })
 
   it('no Thai numeral reaches the tabs — the app numbers everything else in arabic', () => {
@@ -164,12 +165,12 @@ describe('SongViewer /v2 — lyric-set names', () => {
   })
 
   it('a live region announces which set is showing', async () => {
-    const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    const w = mountSong(withSets([{}, {}]))
     const live = w.find('[aria-live="polite"]')
-    expect(live.text()).toContain(SET1)
+    expect(live.text()).toContain('เนื้อร้องที่ 1')
     await w.findAll('.lset-tab')[1].trigger('click')
     await nextTick()
-    expect(w.find('[aria-live="polite"]').text()).toContain(SET2)
+    expect(w.find('[aria-live="polite"]').text()).toContain('เนื้อร้องที่ 2')
   })
 
   it('← → Home End move between tabs (keyboard, no pointer)', async () => {
@@ -185,13 +186,16 @@ describe('SongViewer /v2 — lyric-set names', () => {
     expect(w.findAll('.lset-tab')[0].attributes('aria-selected')).toBe('true')
   })
 
-  it('the print heading names the set being printed (print = the selected set only)', async () => {
+  it('the print heading carries the set being printed (print = the selected set only)', async () => {
+    // two printouts of the same song number carry DIFFERENT words, so the paper has to say which
+    // — now by number, matching what the singer read on screen when they pressed print
     const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
     const viewer = w.findComponent(SongViewer)
-    expect(viewer.vm.printTitle).toBe('717. 717 — ' + SET1)
+    expect(viewer.vm.printTitle).toBe('717. 717 — เนื้อร้องที่ 1')
     await w.findAll('.lset-tab')[1].trigger('click')
     await nextTick()
-    expect(viewer.vm.printTitle).toBe('717. 717 — ' + SET2)
+    expect(viewer.vm.printTitle).toBe('717. 717 — เนื้อร้องที่ 2')
+    expect(viewer.vm.printTitle).not.toContain(SET2)
   })
 
   // ---- hostile state (adversarial review, 26 ก.ค.) ----
@@ -272,12 +276,13 @@ describe('SongViewer /v2 — lyric-set names', () => {
 // Collapsed by default, but the summary must still SAY which words are on the sheet: folding
 // the tabs away must not fold away the answer to "what am I singing?".
 describe('SongViewer /v2 — the lyric-set switcher is a collapsed disclosure', () => {
-  it('starts collapsed, and the summary names the set on the sheet', () => {
+  it('starts collapsed, and the summary still says which set is on the sheet', () => {
     const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
     const sum = w.find('.lset-summary')
     expect(sum.exists()).toBe(true)
     expect(sum.attributes('aria-expanded')).toBe('false')
-    expect(sum.text()).toContain(SET1) // the singer still knows WHICH words these are
+    expect(sum.text()).toContain('เนื้อร้องที่ 1') // the singer still knows WHICH words these are
+    expect(sum.text()).not.toContain(SET1) // …by number, not by the stored first line
     expect(w.find('.lyric-set-tabs').attributes('style')).toContain('display: none')
   })
 
@@ -300,7 +305,7 @@ describe('SongViewer /v2 — the lyric-set switcher is a collapsed disclosure', 
     await nextTick()
     const sum = w.find('.lset-summary')
     expect(sum.attributes('aria-expanded')).toBe('false') // a choice closes the chooser
-    expect(sum.text()).toContain(SET2)
+    expect(sum.text()).toContain('เนื้อร้องที่ 2')
     expect(w.text()).toContain('เนื้อสองเอ') // and the WORDS actually changed
     expect(w.text()).not.toContain('เนื้อหนึ่งเอ')
   })

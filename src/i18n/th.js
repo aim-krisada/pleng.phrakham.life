@@ -109,7 +109,10 @@ export default {
   lyricSet: {
     tablist: 'เลือกเนื้อร้อง',
     now: 'กำลังแสดงเนื้อร้อง: {name}',
-    otherSets: '♪ ทำนองเดียวกัน อีกชุด: {names}',
+    // A COUNT, not a list (26 ก.ค.): the sets are captioned by position, so naming them on a
+    // catalog card would print "เนื้อร้องที่ 1 · เนื้อร้องที่ 2" and say nothing actionable. What a
+    // searcher needs is that this song has words the card's own snippet (set 1's) does not show.
+    otherSets: '♪ ทำนองเดียวกัน · {n} ชุดเนื้อร้อง',
     // the collapsed switcher: "ชุดเนื้อร้อง: <ชื่อชุดที่กำลังดู>  [2 ชุด]  ▾"
     summaryKey: 'ชุดเนื้อร้อง:',
     count: '{n} ชุด',
