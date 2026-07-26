@@ -7,6 +7,7 @@
 // half-remembered line with a typo or two still finds the song.
 
 import { bookName, parseBookRefQuery } from './bookCodes.js'
+import { lyricSetName } from './songModel.js'
 
 // A melody-sequence hit is exact (contiguous substring, no fuzzing) but ranks just after
 // an exact number/title/lyric hit (score 0). Small positive so that for a union query
@@ -55,6 +56,29 @@ export function lyricsText(content) {
     .filter((i) => i.type === 'segment')
     .map((i) => i.lyric)
     .join(' ')
+}
+
+// 717 multi-lyric — the names of a song's lyric sets. A song row stores only ONE
+// title (`title_th`, the first set's), so without this the second set's name — a name
+// people know the song by — is unfindable in the catalog. Emits `name` and, when it
+// differs, the older `label` too, so both generations of 717 data are searchable.
+export function lyricSetNames(content) {
+  const sets = content?.lyricSets
+  if (!Array.isArray(sets) || sets.length < 2) return []
+  const out = []
+  for (let i = 0; i < sets.length; i++) {
+    const s = sets[i]
+    const name = (s?.name || '').trim()
+    const label = (s?.label || '').trim()
+    if (name) out.push(name)
+    if (label && label !== name) out.push(label)
+    if (!name && !label) out.push(lyricSetName(s, i))
+  }
+  return out
+}
+
+export function lyricSetsText(content) {
+  return lyricSetNames(content).join(' ')
 }
 
 export function notesText(content) {
@@ -124,6 +148,7 @@ export function songHaystack(song) {
       String(song.number ?? ''),
       song.title_th,
       song.title_en ?? '',
+      lyricSetsText(song.content ?? {}),
       song.content?.key ?? '',
       lyricsText(song.content ?? {}),
       notesText(song.content ?? {}),
@@ -198,10 +223,15 @@ export function scoreSong(song, query) {
     // a title that STARTS with the phrase (prefix) outranks a mid-title match. All three
     // are still exact hits — the negative tiers just order them ahead of the plain
     // lyric/number/notes hit (0), so a typed phrase surfaces the song people mean first.
-    const titleTh = normalize(song.title_th ?? '')
-    const titleEn = normalize(song.title_en ?? '')
-    if (titleTh.startsWith(q) || titleEn.startsWith(q)) return -2
-    if (titleTh.includes(q) || titleEn.includes(q)) return -1
+    //
+    // A lyric-set NAME ranks as a title (717): to the people who sing the second set of
+    // words, that name IS the song's title — it just can't live in `title_th`, which
+    // holds the first set's. Typing it must surface this song, not bury it under songs
+    // that merely happen to contain the phrase somewhere in their lyrics.
+    const titles = [normalize(song.title_th ?? ''), normalize(song.title_en ?? '')]
+      .concat(lyricSetNames(song.content ?? {}).map(normalize))
+    if (titles.some((t) => t && t.startsWith(q))) return -2
+    if (titles.some((t) => t && t.includes(q))) return -1
     return 0
   }
   // Note path: a melody query matches space-insensitively. Reduce both the query and

@@ -4,6 +4,26 @@ export function isV2(content) {
   return !!(content && Array.isArray(content.stanzas))
 }
 
+// 717 multi-lyric — Thai ordinals for the positional fallback name of a lyric set.
+export const THAI_DIGITS = ['๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙', '๑๐']
+
+// The human name of ONE lyric set — the single source of truth for reader, editor,
+// search and print, so a set is never named two different things in two places.
+//
+// Two sets of words under one melody are DIFFERENT SONGS to the people who sing them
+// ("different words must have different names" — P'Aim), so a set carries its own
+// `name`. Older 717 data wrote the positional caption into `label`; data older still
+// (and any set an author never named) carries neither and falls back to the positional
+// "ทำนอง ๑/๒" the app has always shown. Never drop the `label` fallback: it is what
+// every already-saved 717 song has.
+export function lyricSetName(set, i) {
+  const name = (set?.name || '').trim()
+  if (name) return name
+  const label = (set?.label || '').trim()
+  if (label) return label
+  return 'ทำนอง ' + (THAI_DIGITS[i] || i + 1)
+}
+
 // Split a v1 lyric string into syllable tokens the v2 way: spaces = word breaks,
 // hyphens = same-word syllable breaks. One syllable per token; a token keeps a
 // leading '-' when it continues the previous syllable's word (so "ส-ถิตย์" round-

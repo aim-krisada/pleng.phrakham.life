@@ -13,7 +13,7 @@ import {
   effectiveOrder, buildPlayNotes,
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
-import { resolveContent, resolvePlayOrder } from '../lib/songModel.js'
+import { resolveContent, resolvePlayOrder, lyricSetName } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -131,9 +131,30 @@ const lyricSets = computed(() => {
   return Array.isArray(ls) && ls.length > 1 ? ls : null
 })
 const activeSet = ref(0)
+// Each set's own name ("บรรดาคนบาป เชิญท่านเข้ามา"), not a positional caption: different
+// words are a different song to whoever sings them. lyricSetName() keeps the `label` and
+// "ทำนอง ๑/๒" fallbacks, so already-saved 717 songs read exactly as before.
+const lyricSetLabels = computed(() => (lyricSets.value || []).map((ls, i) => lyricSetName(ls, i)))
 // reset the active tab only when the SONG changes (not on every edit), so a live edit keeps
 // you on the set you're viewing.
 watch(() => props.song?.id, () => { activeSet.value = 0 })
+
+// WAI-ARIA tabs pattern: ← → Home End move between tabs (roving tabindex below), so the
+// switch is reachable without a pointer.
+function onSetKey(e) {
+  const n = lyricSets.value?.length || 0
+  if (!n) return
+  const k = e.key
+  let next = -1
+  if (k === 'ArrowRight') next = (activeSet.value + 1) % n
+  else if (k === 'ArrowLeft') next = (activeSet.value - 1 + n) % n
+  else if (k === 'Home') next = 0
+  else if (k === 'End') next = n - 1
+  else return
+  e.preventDefault()
+  activeSet.value = next
+  nextTick(() => e.currentTarget?.querySelectorAll('.lset-tab')[next]?.focus())
+}
 
 const resolved = computed(() => {
   if (!props.song) return null
@@ -149,7 +170,11 @@ const resolved = computed(() => {
 const printTitle = computed(() => {
   const s = props.song
   if (!s) return ''
-  return (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
+  const base = (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
+  // print takes the SELECTED set only, so the paper has to say which one — otherwise two
+  // printouts of the same song number carry different words under the same heading.
+  const set = lyricSets.value ? lyricSetLabels.value[activeSet.value] : ''
+  return set ? base + ' — ' + set : base
 })
 // B053 — source book(s) + scripture caption, same data + label helper as the catalog card
 // (SongList). Shown once at the top of the reading surface so a singer sees where the song
@@ -614,20 +639,30 @@ function onSeek({ li, si, syk }) {
     <!-- 717 multi-lyric — segmented tabs to switch the words under the SAME melody. Only for
          a song that declares >1 lyric set; not printed (print chooses/stacks sets separately). -->
     <div v-if="lyricSets" class="lyric-set-wrap no-print">
-      <div class="lyric-set-tabs" role="tablist" aria-label="เลือกเนื้อร้อง">
+      <div class="lyric-set-tabs" role="tablist" aria-label="เลือกเนื้อร้อง" @keydown="onSetKey">
         <button
           v-for="(ls, i) in lyricSets"
           :key="i"
           class="lset-tab"
           :class="{ active: activeSet === i }"
           role="tab"
+          :id="`lset-tab-${i}`"
+          aria-controls="lset-panel"
           :aria-selected="activeSet === i ? 'true' : 'false'"
+          :tabindex="activeSet === i ? 0 : -1"
           @click="activeSet = i"
-        >{{ ls.label }}</button>
+        >{{ lyricSetLabels[i] }}</button>
       </div>
     </div>
 
-    <div ref="sheetWrap" class="sheet-scale" :style="{ fontSize: readingFontScale + 'rem' }">
+    <div
+      ref="sheetWrap"
+      class="sheet-scale"
+      :style="{ fontSize: readingFontScale + 'rem' }"
+      :id="lyricSets ? 'lset-panel' : null"
+      :role="lyricSets ? 'tabpanel' : null"
+      :aria-labelledby="lyricSets ? `lset-tab-${activeSet}` : null"
+    >
       <SongSheet
         :content="resolved"
         :mode="sheetMode"
@@ -692,21 +727,29 @@ function onSeek({ li, si, syk }) {
 /* ---------- 717 multi-lyric — segmented tabs (Material 3 segmented button) --------------
    One melody, several lyric sets you switch between. Centered above the sheet, brand-tinted
    active segment, WCAG target size (≥38px tall). Reuses the app's --brand token. */
-.lyric-set-wrap { display: flex; flex-direction: column; align-items: center; }
+.lyric-set-wrap { display: flex; flex-direction: column; align-items: center; max-width: 100%; }
 .lyric-set-tabs {
   display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 2px;
+  max-width: 100%;
   margin: 4px auto 10px;
   padding: 3px;
   border: 1px solid var(--line, #e2d9c8);
-  border-radius: 999px;
+  /* A set NAME is a real Thai phrase (~25 chars), not the old "ทำนอง ๑" caption, so two of
+     them do not fit side by side on a 360px phone. The strip WRAPS instead of overflowing
+     (M3 lets long tab labels reflow; a scrolling strip would hide the very name the singer
+     is choosing between). Corner radius stays pill-like on one row and reads as a rounded
+     card once it wraps to two — 999px would bow a two-row strip. */
+  border-radius: 21px;
   background: var(--surface-2, #f5efe3);
 }
 .lset-tab {
   appearance: none;
   border: 0;
   min-height: 38px;
-  padding: 0 18px;
+  padding: 7px 18px;
   border-radius: 999px;
   background: transparent;
   color: var(--ink-2, #6b5d45);
@@ -714,7 +757,17 @@ function onSeek({ li, si, syk }) {
   font-weight: 600;
   cursor: pointer;
   transition: background .15s, color .15s;
+  /* grow: wrapped rows fill their line so stacked names align instead of looking ragged.
+     min-width:0 + overflow-wrap: a single name longer than the whole viewport still wraps
+     inside its own pill rather than pushing the page sideways. */
+  flex: 1 1 auto;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  text-align: center;
 }
+.lset-tab:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
 .lset-tab:hover:not(.active) { background: color-mix(in srgb, var(--brand, #8b4513) 10%, transparent); }
 .lset-tab.active { background: var(--brand, #8b4513); color: #fff; }
 

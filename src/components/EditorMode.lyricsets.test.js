@@ -138,3 +138,97 @@ describe('EditorMode — 717 lyric sets save shape + back-compat', () => {
     expect(pc.stanzas).toHaveLength(1)
   })
 })
+
+// ---- naming a set ("different words must have different names") --------------------------
+describe('EditorMode — naming a lyric set', () => {
+  const SET1 = 'บรรดาคนบาป เชิญท่านเข้ามา'
+  const SET2 = 'ผู้ที่ถูกบาปทำร้ายจงมา'
+  // the shape the merge SQL writes: both `name` and `label`, same value
+  const named717 = {
+    ...song717,
+    id: 's4',
+    title_th: SET1,
+    content: {
+      ...song717.content,
+      lyricSets: [{ name: SET1, label: SET1 }, { name: SET2, label: SET2 }],
+    },
+  }
+  const rename = async (w, i, v) => {
+    w.vm.startRenameSet(i)
+    await nextTick()
+    w.vm.setNameDraft = v
+    w.vm.commitRenameSet()
+    await nextTick()
+  }
+
+  it('round-trips a named song exactly — same keys in, same keys out', () => {
+    const pc = mountEd(named717).vm.previewContent
+    expect(pc.lyricSets).toEqual([{ name: SET1, label: SET1 }, { name: SET2, label: SET2 }])
+  })
+
+  it('the tabs show the set NAMES, not ทำนอง ๑/๒', () => {
+    const w = mountEd(named717)
+    expect(w.findAll('.eset-tab').map((t) => t.text())).toEqual([SET1, SET2])
+  })
+
+  it('renaming writes `name` AND keeps `label` in step (deployed readers render label)', async () => {
+    const w = mountEd(song717) // label-only legacy song
+    await rename(w, 1, SET2)
+    expect(w.vm.previewContent.lyricSets).toEqual([
+      { label: 'ทำนอง ๑' }, // untouched set stays byte-identical
+      { name: SET2, label: SET2 },
+    ])
+    expect(w.findAll('.eset-tab')[1].text()).toBe(SET2)
+  })
+
+  it('trims, and clearing the name restores the positional ทำนอง ๒', async () => {
+    const w = mountEd(song717)
+    await rename(w, 1, '   ' + SET2 + '  ')
+    expect(w.vm.previewContent.lyricSets[1]).toEqual({ name: SET2, label: SET2 })
+    await rename(w, 1, '   ')
+    expect(w.vm.previewContent.lyricSets[1]).toEqual({ label: 'ทำนอง ๒' })
+    expect(w.findAll('.eset-tab')[1].text()).toBe('ทำนอง ๒')
+  })
+
+  it('Esc cancels — the name is left as it was', async () => {
+    const w = mountEd(named717)
+    w.vm.startRenameSet(1)
+    await nextTick()
+    w.vm.setNameDraft = 'ชื่อที่ไม่ได้ตั้งใจ'
+    w.vm.cancelRenameSet()
+    await nextTick()
+    expect(w.vm.previewContent.lyricSets[1].name).toBe(SET2)
+  })
+
+  it('a new set opens its name field, pre-filled with the default', async () => {
+    const w = mountEd(plainSong)
+    w.vm.addLyricSet()
+    await nextTick(); await nextTick() // addLyricSet opens the rename on the next tick
+    expect(w.vm.editingSetId).toBe(1)
+    expect(w.vm.setNameDraft).toBe('ทำนอง ๒')
+    expect(w.find('.eset-rename').exists()).toBe(true)
+    // naming it lands in the saved shape
+    w.vm.setNameDraft = SET2
+    w.vm.commitRenameSet()
+    await nextTick()
+    expect(w.vm.previewContent.lyricSets[1]).toEqual({ name: SET2, label: SET2 })
+  })
+
+  it('back-compat: a set the author never names saves as {label} only — no junk keys', async () => {
+    const w = mountEd(plainSong)
+    w.vm.addLyricSet()
+    await nextTick(); await nextTick()
+    w.vm.cancelRenameSet() // author dismissed the name field
+    await nextTick()
+    expect(w.vm.previewContent.lyricSets).toEqual([{ label: 'ทำนอง ๑' }, { label: 'ทำนอง ๒' }])
+  })
+
+  it('an ordinary song cannot rename its lone set (its name IS title_th)', async () => {
+    const w = mountEd(plainSong)
+    w.vm.startRenameSet(0)
+    await nextTick()
+    expect(w.vm.editingSetId).toBe(-1)
+    expect(w.find('.eset-rename').exists()).toBe(false)
+    expect('lyricSets' in w.vm.previewContent).toBe(false) // still byte-identical
+  })
+})

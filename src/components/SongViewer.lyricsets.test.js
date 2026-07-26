@@ -94,3 +94,84 @@ describe('SongViewer — 717 lyric sets + back-compat', () => {
     expect(w.text()).not.toContain('เนื้อหนึ่งเอ')
   })
 })
+
+// ---- set NAMES (P'Aim: "different words must have different names") ----------------------
+// Two sets of words are two different songs to whoever sings them, so each set carries its
+// own name. The real names from song 717 are used so a failure reads as the actual bug.
+const SET1 = 'บรรดาคนบาป เชิญท่านเข้ามา'
+const SET2 = 'ผู้ที่ถูกบาปทำร้ายจงมา'
+const withSets = (lyricSets) => ({
+  ...twoSetSong,
+  content: { ...twoSetSong.content, lyricSets },
+})
+
+describe('SongViewer — lyric-set names', () => {
+  it('shows each set’s own `name` on its tab', () => {
+    // the merge SQL writes name AND label with the same value
+    const w = mountSong(withSets([{ name: SET1, label: SET1 }, { name: SET2, label: SET2 }]))
+    const tabs = w.findAll('.lset-tab')
+    expect(tabs[0].text()).toBe(SET1)
+    expect(tabs[1].text()).toBe(SET2)
+  })
+
+  it('`name` wins over `label` when they disagree', () => {
+    const w = mountSong(withSets([{ name: SET1, label: 'ทำนอง ๑' }, { name: SET2, label: 'ทำนอง ๒' }]))
+    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual([SET1, SET2])
+  })
+
+  it('back-compat: label-only sets (every 717 song saved so far) still read as before', () => {
+    const w = mountSong(withSets([{ label: 'ทำนอง ๑' }, { label: 'ทำนอง ๒' }]))
+    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['ทำนอง ๑', 'ทำนอง ๒'])
+  })
+
+  it('back-compat: no name AND no label falls back to the positional ทำนอง ๑/๒', () => {
+    const w = mountSong(withSets([{}, {}]))
+    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['ทำนอง ๑', 'ทำนอง ๒'])
+  })
+
+  it('a blank/whitespace name does not blank the tab — it falls back', () => {
+    const w = mountSong(withSets([{ name: '   ', label: 'ทำนอง ๑' }, { name: '' }]))
+    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['ทำนอง ๑', 'ทำนอง ๒'])
+  })
+
+  it('tabs are a proper ARIA tablist: selected state, roving tabindex, panel link', async () => {
+    const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    const tabs = w.findAll('.lset-tab')
+    expect(tabs[0].attributes('aria-selected')).toBe('true')
+    expect(tabs[1].attributes('aria-selected')).toBe('false')
+    expect(tabs[0].attributes('tabindex')).toBe('0')
+    expect(tabs[1].attributes('tabindex')).toBe('-1') // roving: only the active tab is tabbable
+    const panel = w.find('#lset-panel')
+    expect(panel.attributes('role')).toBe('tabpanel')
+    expect(tabs[0].attributes('aria-controls')).toBe('lset-panel')
+    expect(panel.attributes('aria-labelledby')).toBe(tabs[0].attributes('id'))
+  })
+
+  it('← → Home End move between tabs (keyboard, no pointer)', async () => {
+    const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    const list = w.find('.lyric-set-tabs')
+    await list.trigger('keydown', { key: 'ArrowRight' })
+    expect(w.findAll('.lset-tab')[1].attributes('aria-selected')).toBe('true')
+    await list.trigger('keydown', { key: 'ArrowRight' }) // wraps back to the first
+    expect(w.findAll('.lset-tab')[0].attributes('aria-selected')).toBe('true')
+    await list.trigger('keydown', { key: 'End' })
+    expect(w.findAll('.lset-tab')[1].attributes('aria-selected')).toBe('true')
+    await list.trigger('keydown', { key: 'Home' })
+    expect(w.findAll('.lset-tab')[0].attributes('aria-selected')).toBe('true')
+  })
+
+  it('the print heading names the set being printed (print = the selected set only)', async () => {
+    const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    const viewer = w.findComponent({ name: 'SongViewer' })
+    expect(viewer.vm.printTitle).toBe('717. 717 — ' + SET1)
+    await w.findAll('.lset-tab')[1].trigger('click')
+    await nextTick()
+    expect(viewer.vm.printTitle).toBe('717. 717 — ' + SET2)
+  })
+
+  it('back-compat: an ordinary song’s print heading is untouched (no set suffix, no tabpanel)', () => {
+    const w = mountSong(plainSong)
+    expect(w.findComponent({ name: 'SongViewer' }).vm.printTitle).toBe('1. เพลงปกติ')
+    expect(w.find('#lset-panel').exists()).toBe(false)
+  })
+})

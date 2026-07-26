@@ -5,6 +5,7 @@ import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { filterSongs, snippet, normalize } from '../lib/songSearch.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
+import { lyricSetName } from '../lib/songModel.js'
 import {
   orderedBooks,
   songsInBook,
@@ -58,6 +59,21 @@ function flagCount(s) {
 function flagTitle(s) {
   const kinds = (s.review_flags || []).map((f) => FLAG_LABEL[f] || f)
   return kinds.length ? 'ต้องตรวจ: ' + kinds.join(' · ') : ''
+}
+
+// 717 multi-lyric — a song row carries ONE title (the first set's), so the other sets' names
+// are invisible on the card even though people search by them. Show the ones that add
+// information (anything not already the title) so a hit on the second name explains itself.
+function otherSetNames(s) {
+  const sets = s?.content?.lyricSets
+  if (!Array.isArray(sets) || sets.length < 2) return []
+  const title = normalize(s.title_th ?? '')
+  const out = []
+  for (let i = 0; i < sets.length; i++) {
+    const n = lyricSetName(sets[i], i)
+    if (normalize(n) !== title && !out.includes(n)) out.push(n)
+  }
+  return out
 }
 
 // public visibility gate — the whole page derives from THIS, so counts, in-book lists and
@@ -174,6 +190,9 @@ onMounted(async () => {
             </span>
           </div>
           <div v-if="s.title_en" class="muted">{{ s.title_en }}</div>
+          <div v-if="otherSetNames(s).length" class="lset-tag muted">
+            ♪ ทำนองเดียวกัน อีกชุด: {{ otherSetNames(s).join(' · ') }}
+          </div>
           <div v-if="snippet(s.content)" class="muted">{{ snippet(s.content) }}…</div>
           <div v-if="s.theme" class="theme-tag muted">{{ s.theme }}</div>
           <div v-if="bookRefLabels(s.book_refs).length" class="src-tag muted">
@@ -485,6 +504,8 @@ onMounted(async () => {
 .theme-tag { margin-top: var(--sp-1); font-size: var(--fs-xs); display: inline-block; }
 .src-tag,
 .scripture-tag { margin-top: var(--sp-1); font-size: var(--fs-xs); }
+/* 717 — the other lyric set's name; wraps rather than widening the card on a phone */
+.lset-tag { margin-top: var(--sp-1); font-size: var(--fs-xs); overflow-wrap: anywhere; }
 
 .empty { padding: var(--sp-4) 0; }
 </style>

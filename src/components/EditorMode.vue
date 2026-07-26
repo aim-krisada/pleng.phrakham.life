@@ -6,7 +6,7 @@ import { KEYS, TIME_SIGNATURES, chordOptions, parseChord } from '../lib/chords.j
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, HOLD_STEP, HOLD_MIN, snapHalf, slurSpans } from '../lib/notation.js'
 import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
-import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
+import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, THAI_DIGITS } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
@@ -238,12 +238,18 @@ const migrateWarnings = ref([]) // set when a v1 song is auto-split on load (aut
 // `lyricSets` empty = an ordinary song (no set tabs, everything is one set). This is the AUTHOR
 // side of the same model the reader (SongViewer) already switches on: content.lyricSets[] +
 // arrangement[].set → maps to MusicXML <lyric number>. Notes/chords (the stanza) stay shared.
-const THAI_DIGITS = ['๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙', '๑๐']
-const lyricSets = ref([]) // [{ label }] — >0 shows the set tabs in the editor
+const lyricSets = ref([]) // [{ name, label }] — >0 shows the set tabs in the editor
 const activeSet = ref(0)
 // the tabs to render: a song with no declared sets still shows "ทำนอง ๑" so ＋ เพิ่มชุด can
 // bootstrap the second set (matches the reader: tabs only actually appear once >1 set exists).
-const setTabs = computed(() => (lyricSets.value.length ? lyricSets.value : [{ label: 'ทำนอง ๑' }]))
+// `display` = the name the author sees everywhere (tab, hint, delete confirm) — resolved by
+// the shared lyricSetName(), so editor and reader can never disagree about a set's name.
+const setTabs = computed(() =>
+  (lyricSets.value.length ? lyricSets.value : [{ label: 'ทำนอง ๑' }]).map((s, i) => ({
+    ...s,
+    display: lyricSetName(s, i),
+  })),
+)
 function selectSet(i) {
   activeSet.value = i
   const gi = arrangement.value.findIndex((r) => (r.set ?? 0) === i)
@@ -253,14 +259,47 @@ function selectSet(i) {
 // become set 0, then a fresh empty row (linked to the shared stanza) is added as the new set.
 function addLyricSet() {
   if (!lyricSets.value.length) {
-    lyricSets.value = [{ label: 'ทำนอง ๑' }]
+    lyricSets.value = [{ name: '', label: 'ทำนอง ๑' }]
     arrangement.value.forEach((r) => { if (r.set == null) r.set = 0 })
   }
   const idx = lyricSets.value.length
-  lyricSets.value.push({ label: 'ทำนอง ' + (THAI_DIGITS[idx] || idx + 1) })
+  lyricSets.value.push({ name: '', label: 'ทำนอง ' + (THAI_DIGITS[idx] || idx + 1) })
   const stanza = arrangement.value.find((r) => (r.set ?? 0) === 0)?.stanza || stanzas.value[0]?.id || 'A'
   arrangement.value.push({ stanza, set: idx, label: '', syllables: [], key: '' })
   selectSet(idx)
+  // A second set of words is a DIFFERENT song to whoever sings it, so its name is the first
+  // thing to fill in — open the rename inline, pre-filled+selected so Esc keeps the default.
+  nextTick(() => startRenameSet(idx))
+}
+
+// ---- naming a lyric set (P'Aim: "different words must have different names") ------------
+// The row stores `name`; `label` is kept in step with it so an already-deployed reader (which
+// renders `label`) never shows a blank tab. Only offered once a song really has >1 set — with
+// one set the song's name IS title_th, and previewContent would drop a lone set's name anyway.
+const editingSetId = ref(-1) // lyric-set index being renamed (-1 = none)
+const setNameDraft = ref('')
+function startRenameSet(i) {
+  if (lyricSets.value.length <= 1 || !lyricSets.value[i]) return
+  editingSetId.value = i
+  setNameDraft.value = setTabs.value[i]?.display || ''
+}
+function commitRenameSet() {
+  const i = editingSetId.value
+  editingSetId.value = -1
+  const set = lyricSets.value[i]
+  if (i < 0 || !set) return
+  const v = setNameDraft.value.trim()
+  if (v) {
+    set.name = v
+    set.label = v
+  } else {
+    // cleared → back to the positional caption the app has always shown
+    set.name = ''
+    set.label = 'ทำนอง ' + (THAI_DIGITS[i] || i + 1)
+  }
+}
+function cancelRenameSet() {
+  editingSetId.value = -1
 }
 // ลบชุดเนื้อ — destructive, so a styled confirm (naming the set) gates it. Deletes ONLY that
 // set's words (rows tagged r.set === i); the shared melody (stanzas) and any shared entry
@@ -280,7 +319,7 @@ function doRemoveLyricSet() {
   const i = confirmDelSet.value
   confirmDelSet.value = -1
   if (i < 0 || lyricSets.value.length <= 1) return
-  const label = setTabs.value[i]?.label || `ทำนอง ${i + 1}`
+  const label = setTabs.value[i]?.display || `ทำนอง ${i + 1}`
   // drop this set's rows (explicit r.set === i); shared rows (set == null) are untouched
   arrangement.value = arrangement.value.filter((r) => r.set !== i)
   // reindex sets after i down by one so labels/indices stay contiguous
@@ -343,7 +382,16 @@ const previewContent = computed(() => ({
   stanzas: stanzas.value.map((s) => ({ id: s.id, lines: s.lines.map(serializeLine) })),
   // 717: only emit lyricSets when the author actually made >1 set, so ordinary songs stay
   // byte-identical (no lyricSets key, no `set` on rows).
-  ...(lyricSets.value.length > 1 ? { lyricSets: lyricSets.value.map((s) => ({ label: s.label })) } : {}),
+  // Emit only the keys a set actually carries: an unnamed set stays `{label}` (byte-identical
+  // to every 717 song saved so far), a named one carries `name` + the matching `label`.
+  ...(lyricSets.value.length > 1
+    ? {
+        lyricSets: lyricSets.value.map((s) => ({
+          ...(s.name?.trim() ? { name: s.name.trim() } : {}),
+          ...(s.label?.trim() ? { label: s.label.trim() } : {}),
+        })),
+      }
+    : {}),
   arrangement: arrangement.value.map((r) => ({
     stanza: r.stanza,
     label: r.label?.trim() || '',
@@ -1411,8 +1459,11 @@ function applyRow(data) {
     arrangement.value = [{ stanza: stanzas.value[0].id, label: '', syllables: [], key: '' }]
   }
   // 717 — load the lyric sets (empty for ordinary songs) and start on the first set
-  lyricSets.value = Array.isArray(content.lyricSets) ? content.lyricSets.map((s) => ({ label: s.label || '' })) : []
+  lyricSets.value = Array.isArray(content.lyricSets)
+    ? content.lyricSets.map((s) => ({ name: s?.name || '', label: s?.label || '' }))
+    : []
   activeSet.value = 0
+  editingSetId.value = -1
   activeStanza.value = 0
   activeLine.value = 0
   migrateWarnings.value = warnings
@@ -3148,28 +3199,50 @@ defineExpose({
          one tap away. The shared-melody contract is stated right under the tabs. ===== -->
     <div class="eset-bar no-print">
       <div class="eset-tabs" role="tablist" aria-label="เลือกชุดเนื้อร้อง">
-        <button
-          v-for="(ls, i) in setTabs"
-          :key="i"
-          class="eset-tab"
-          :class="{ active: activeSet === i }"
-          role="tab"
-          :aria-selected="activeSet === i ? 'true' : 'false'"
-          @click="selectSet(i)"
-        >{{ ls.label }}</button>
+        <template v-for="(ls, i) in setTabs" :key="i">
+          <!-- inline rename, same pattern as renaming a ท่อน: Enter=เก็บ · Esc=ยกเลิก · ออกจากช่อง=เก็บ -->
+          <input
+            v-if="editingSetId === i"
+            v-focus
+            v-model="setNameDraft"
+            class="eset-rename"
+            maxlength="60"
+            :aria-label="'ชื่อชุดเนื้อร้องที่ ' + (i + 1)"
+            @keydown.enter.prevent="commitRenameSet"
+            @keydown.esc.prevent="cancelRenameSet"
+            @blur="commitRenameSet"
+          />
+          <button
+            v-else
+            class="eset-tab"
+            :class="{ active: activeSet === i }"
+            role="tab"
+            :aria-selected="activeSet === i ? 'true' : 'false'"
+            :title="lyricSets.length > 1 ? 'ดับเบิลคลิกเพื่อตั้งชื่อชุดนี้' : ''"
+            @click="selectSet(i)"
+            @dblclick="startRenameSet(i)"
+          >{{ ls.display }}</button>
+        </template>
         <button class="eset-add" title="เพิ่มเนื้อร้องชุดใหม่บนทำนองเดิม" aria-label="เพิ่มชุดเนื้อร้อง" @click="addLyricSet">＋ เพิ่มชุด</button>
+        <button
+          class="eset-rename-btn"
+          :disabled="lyricSets.length <= 1"
+          :title="lyricSets.length <= 1 ? 'มีเนื้อชุดเดียว — ชื่อเพลงคือชื่อชุดนี้อยู่แล้ว' : 'ตั้งชื่อชุดเนื้อที่เลือกอยู่ (เนื้อคนละแบบ ควรคนละชื่อ)'"
+          :aria-label="lyricSets.length <= 1 ? 'ตั้งชื่อชุด (ปิดอยู่ — มีชุดเดียว)' : 'ตั้งชื่อชุด ' + (setTabs[activeSet]?.display || '')"
+          @click="startRenameSet(activeSet)"
+        ><Icon name="pencil" :size="14" /> ตั้งชื่อชุด</button>
         <button
           class="eset-del"
           :disabled="lyricSets.length <= 1"
           :title="lyricSets.length <= 1 ? 'เพลงต้องมีเนื้ออย่างน้อย 1 ชุด — ลบไม่ได้' : 'ลบชุดเนื้อที่เลือกอยู่ (เนื้อชุดนี้จะหาย · ทำนองยังอยู่)'"
-          :aria-label="lyricSets.length <= 1 ? 'ลบชุดเนื้อ (ปิดอยู่ — ต้องมีอย่างน้อย 1 ชุด)' : 'ลบชุด ' + (setTabs[activeSet]?.label || '')"
+          :aria-label="lyricSets.length <= 1 ? 'ลบชุดเนื้อ (ปิดอยู่ — ต้องมีอย่างน้อย 1 ชุด)' : 'ลบชุด ' + (setTabs[activeSet]?.display || '')"
           @click="askRemoveLyricSet(activeSet)"
         ><Icon name="trash-2" :size="14" /> ลบชุดนี้</button>
       </div>
-      <p class="eset-hint">♪ โน้ต/คอร์ด = ทำนองเดียว ใช้ร่วม<b>ทุกชุด</b> · พิมพ์เนื้อ = เฉพาะ “{{ setTabs[activeSet]?.label }}”</p>
+      <p class="eset-hint">♪ โน้ต/คอร์ด = ทำนองเดียว ใช้ร่วม<b>ทุกชุด</b> · พิมพ์เนื้อ = เฉพาะ “{{ setTabs[activeSet]?.display }}”</p>
       <!-- destructive confirm — names the set, gives a keyboard path (Enter=ลบ · Esc=ยกเลิก) -->
       <div v-if="confirmDelSet >= 0" class="eset-confirm" role="alertdialog" aria-modal="true" aria-labelledby="eset-confirm-t" @keydown.esc="cancelRemoveLyricSet" @keydown.enter.prevent="doRemoveLyricSet">
-        <p id="eset-confirm-t" class="eset-confirm-t">ลบ “{{ setTabs[confirmDelSet]?.label }}” ?</p>
+        <p id="eset-confirm-t" class="eset-confirm-t">ลบ “{{ setTabs[confirmDelSet]?.display }}” ?</p>
         <p class="eset-confirm-d">เนื้อร้องชุดนี้จะหายทั้งหมด (กู้ไม่ได้ในหน้านี้) · <b>ทำนองยังอยู่</b></p>
         <div class="eset-confirm-btns">
           <button class="secondary" @click="cancelRemoveLyricSet">ยกเลิก</button>
@@ -4133,16 +4206,32 @@ defineExpose({
   resize: vertical;
 }
 /* ---- 717 multi-lyric: lyric-SET tabs in the editor (matches the reader's segmented tabs) ---- */
-.eset-bar { display: flex; flex-direction: column; align-items: center; margin: 2px 0 10px; }
+.eset-bar { display: flex; flex-direction: column; align-items: center; margin: 2px 0 10px; max-width: 100%; }
 .eset-tabs {
-  display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 2px;
-  padding: 3px; border: 1px solid var(--line, #e0d6c8); border-radius: 999px; background: var(--cream, #faf6f0);
+  display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 100%;
+  padding: 3px; border: 1px solid var(--line, #e0d6c8); border-radius: 21px; background: var(--cream, #faf6f0);
 }
 .eset-tab {
-  appearance: none; border: 0; min-height: 38px; padding: 0 16px; border-radius: 999px;
+  appearance: none; border: 0; min-height: 38px; padding: 7px 16px; border-radius: 999px;
   background: transparent; color: var(--muted, #757575); font: inherit; font-weight: 600; cursor: pointer;
   transition: background .15s, color .15s;
+  /* a set NAME is a full Thai phrase — wrap it inside the pill instead of pushing the
+     editor sideways (same rule as the reader's tabs) */
+  max-width: 100%; min-width: 0; overflow-wrap: anywhere; line-height: 1.35; text-align: center;
 }
+/* inline rename field — sized like the tab it replaces so the strip doesn't jump */
+.eset-rename {
+  min-height: 38px; min-width: 180px; max-width: 100%; padding: 4px 12px;
+  border: 2px solid var(--brand, #8b4513); border-radius: 999px;
+  background: #fff; color: var(--ink, #2b2b2b); font: inherit; font-weight: 600; text-align: center;
+}
+.eset-rename-btn {
+  appearance: none; display: inline-flex; align-items: center; gap: 4px;
+  min-height: 38px; margin-left: 4px; padding: 0 14px; border: 1px solid var(--brand, #8b4513);
+  border-radius: 999px; background: transparent; color: var(--brand, #8b4513); font: inherit; font-weight: 600; cursor: pointer;
+}
+.eset-rename-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--brand, #8b4513) 12%, transparent); }
+.eset-rename-btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--line, #e0d6c8); color: var(--muted, #757575); }
 .eset-tab:hover:not(.active) { background: color-mix(in srgb, var(--brand, #8b4513) 10%, transparent); }
 .eset-tab.active { background: var(--brand, #8b4513); color: #fff; }
 .eset-add {
