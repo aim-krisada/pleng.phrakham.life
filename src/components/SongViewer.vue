@@ -13,7 +13,7 @@ import {
   effectiveOrder, buildPlayNotes,
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
-import { resolveContent, resolvePlayOrder, lyricSetName } from '../lib/songModel.js'
+import { resolveContent, resolvePlayOrder, lyricSetName, scopeToLyricSet } from '../lib/songModel.js'
 import { withNotePitch, withInsertedBox, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord, withJumpMarker, removeJumpMarker, updateJumpMarker, activeSymbolsAt, activeMarksAt, withBracketRemovedAt } from '../lib/songEdit.js'
 import { findOrphanJumps } from '../lib/songFlow.js'
 import { downloadSong } from '../lib/jsonIO.js'
@@ -218,9 +218,26 @@ watch(() => props.song?.id, () => { activeSet.value = 0 })
 // an out-of-range set, so the sheet stays correct, but the tab bar would show nothing selected
 // and aria-labelledby would name a tab that no longer exists. Clamp the state too.
 watch(() => lyricSets.value?.length || 0, (n) => { if (activeSet.value >= n) activeSet.value = 0 })
+// Switching set swaps the WORDS wholesale: different ท่อน, different line count, so every
+// index the transport is holding (the ท่อน ticks, the play position) now refers to a sheet
+// that is no longer on screen. Treat it like opening the song afresh — stop, rewind, re-tick
+// every ท่อน — otherwise a tick left over from the previous set makes the selection a strict
+// subset and playback quietly drops to "only the ท่อน you picked" instead of the whole song.
+watch(activeSet, () => {
+  stopPlay()
+  pausedIndex.value = 0
+  posIndex.value = 0
+  nextTick(selectAllSecs) // tags are recomputed from the NEW set's sheet — tick after that
+})
 // what to hand the model: undefined for every ordinary song (nothing to filter), so the
 // resolve path is byte-identical unless a song opts in.
 const setOpt = computed(() => (lyricSets.value ? { set: activeSet.value } : undefined))
+// …and the same choice baked into a standalone song, for the export path (MP3 + its size/length
+// estimate), which derives everything from `content` alone and so cannot be handed an option.
+// Read-only: its `_entryIndex` values index the narrowed arrangement, not the original.
+const exportContent = computed(() =>
+  props.song ? scopeToLyricSet(props.song.content, activeSet.value) : null,
+)
 
 // WAI-ARIA tabs pattern: ← → Home End move between tabs (roving tabindex below), so the
 // switch is reachable without a pointer.
@@ -2900,7 +2917,7 @@ function onSeek({ li, si, syk }) {
       :selected="selectedSecs"
       :has-sections="hasSections"
       :settings="settingDescs"
-      :content="song && song.content"
+      :content="exportContent"
       :filename-base="printTitle"
       :on-json="downloadJson"
       :mp3-bpm="Number(tempo) || 0"

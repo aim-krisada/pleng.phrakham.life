@@ -62,6 +62,29 @@ export function lyricSetFilter(content, opts) {
   return f
 }
 
+// The song narrowed to ONE lyric set, as a standalone song.
+//
+// For the sheet, the set rides along as an option (resolveContent(content, {set})) so every
+// surviving line can keep its ORIGINAL `_entryIndex` and the inline editor still writes back
+// to the right entry. The export path deliberately takes no options — audioExport derives the
+// sheet AND the play order from `content` alone, so no caller can forget one of them — so it
+// needs the choice baked into the content instead. Hence this: filter the arrangement, and
+// leave a single-element `lyricSets` behind so lyricSetCount() reads 0 and nothing filters a
+// second time (which would silently snap the export back to set 0).
+//
+// `_entryIndex` on the result indexes the NARROWED arrangement, so this is for read-only
+// consumers (export, estimate). Never feed it to anything that writes back.
+// Returns the content untouched when the song declares no sets.
+export function scopeToLyricSet(content, set) {
+  if (!lyricSetCount(content)) return content
+  const inSet = lyricSetFilter(content, { set })
+  return {
+    ...content,
+    lyricSets: [content.lyricSets[inSet.set]],
+    arrangement: (content.arrangement || []).filter(inSet),
+  }
+}
+
 // Split a v1 lyric string into syllable tokens the v2 way: spaces = word breaks,
 // hyphens = same-word syllable breaks. One syllable per token; a token keeps a
 // leading '-' when it continues the previous syllable's word (so "ส-ถิตย์" round-

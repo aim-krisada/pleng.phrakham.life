@@ -514,3 +514,158 @@ describe('SongViewer edit-then-sing re-sync (B064)', () => {
     expect(keyBadge(w).text()).toBe('G')
   })
 })
+
+// ---------------------------------------------------------------------------------------
+// 717 multi-lyric — playback must follow the SELECTED lyric set.
+//
+// On this line the set is chosen INSIDE resolveContent (opts.set), so `content.arrangement`
+// stays whole and `content.lines` is the filtered sheet — surviving lines keep their ORIGINAL
+// `_entryIndex` so the inline editor still writes to the right entry. resolvePlayOrder takes
+// the same opts, so its {fromLi,toLi} ranges index that same filtered sheet. These tests pin
+// that agreement: give the two sides different sets and a range means a different verse.
+//
+// midi is stubbed here as everywhere else in this file, but resolveContent / resolvePlayOrder
+// come from songModel.js and are NOT stubbed — so `content` and `order` are the real values
+// the real component computed.
+const setLine = (n) => [{ type: 'segment', note: n, chord: 'C' }]
+const setEntry = (set, label, extra = {}) => ({
+  stanza: label === 'รับ' ? 'B' : 'A',
+  set,
+  label,
+  syllables: [],
+  ...extra,
+})
+// 717's shape: ONE melody, two sets of words, the sets spelling the refrain differently —
+// set 0 writes it once and flags ร้องรับทุกข้อ, set 1 writes it out after each verse and flags
+// nothing.
+const twoSetSong = {
+  number: 717,
+  title_th: 'สองชุดเนื้อ',
+  content: {
+    version: 2,
+    key: 'C',
+    timeSignature: '4/4',
+    lyricSets: [{ name: 'ชุดหนึ่ง' }, { name: 'ชุดสอง' }],
+    stanzas: [
+      { id: 'A', lines: [setLine('1'), setLine('2')] },
+      { id: 'B', lines: [setLine('3'), setLine('4')] },
+    ],
+    arrangement: [
+      setEntry(0, ''),
+      setEntry(0, 'รับ', { afterEachVerse: true }),
+      setEntry(0, 'ข้อ2'),
+      setEntry(0, 'ข้อ3'),
+      setEntry(1, ''),
+      setEntry(1, 'รับ'),
+      setEntry(1, 'ข้อ2'),
+      setEntry(1, 'รับ'),
+    ],
+  },
+}
+
+async function playSet(w, i) {
+  const tabs = w.findAll('.lset-tab')
+  if (tabs.length) await tabs[i].trigger('click')
+  await nextTick()
+  await playBtn(w).trigger('click')
+  return { content: lastPlay()[0], order: lastOpts().order }
+}
+// which lyric set each rendered line belongs to, read back through its provenance tag
+const lineSets = (content) =>
+  (content.lines || [])
+    .map((l) => (l._entryIndex == null ? null : content.arrangement[l._entryIndex]?.set))
+    .filter((s) => s != null)
+
+describe('SongViewer — 717 multi-lyric playback', () => {
+  it.each([0, 1])('set %i: only that set’s words are on the sheet handed to the engine', async (set) => {
+    const w = mountViewer(twoSetSong)
+    await nextTick()
+    const { content } = await playSet(w, set)
+    expect(content.lines).toHaveLength(8) // 4 blocks × 2 melody lines
+    expect(lineSets(content).every((s) => s === set), `set ${set} leaked: ${lineSets(content).join(',')}`).toBe(true)
+  })
+
+  it.each([0, 1])('set %i: every play-order range lands inside the sheet being played', async (set) => {
+    const w = mountViewer(twoSetSong)
+    await nextTick()
+    const { content, order } = await playSet(w, set)
+    for (const r of order || []) {
+      expect(r.fromLi).toBeGreaterThanOrEqual(0)
+      expect(r.toLi, `set ${set}: range ${r.fromLi}-${r.toLi} vs ${content.lines.length} lines`).toBeLessThan(content.lines.length)
+    }
+  })
+
+  it('set 0 repeats the refrain once per verse — not once per entry of every set', async () => {
+    const w = mountViewer(twoSetSong)
+    await nextTick()
+    const { order } = await playSet(w, 0)
+    expect(order).toHaveLength(6) // ข้อ1·รับ ข้อ2·รับ ข้อ3·รับ
+    expect(order.filter((r) => r.fromLi === 2 && r.toLi === 3)).toHaveLength(3)
+  })
+
+  it('set 1 carries no strophic directive, so it plays in written order', async () => {
+    const w = mountViewer(twoSetSong)
+    await nextTick()
+    expect((await playSet(w, 1)).order).toBeUndefined()
+  })
+
+  it('switching tabs re-resolves the order for the newly selected set', async () => {
+    const w = mountViewer(twoSetSong)
+    await nextTick()
+    expect((await playSet(w, 0)).order).toHaveLength(6)
+    expect((await playSet(w, 1)).order).toBeUndefined()
+    expect((await playSet(w, 0)).order).toHaveLength(6)
+  })
+
+  it('back-compat — a song with no lyricSets shows no tabs and is not filtered', async () => {
+    const plain = {
+      number: 9,
+      title_th: 'ธรรมดา',
+      content: {
+        ...twoSetSong.content,
+        lyricSets: undefined,
+        arrangement: [
+          { stanza: 'A', label: '', syllables: [] },
+          { stanza: 'B', label: 'รับ', syllables: [], afterEachVerse: true },
+          { stanza: 'A', label: 'ข้อ2', syllables: [] },
+        ],
+      },
+    }
+    const w = mountViewer(plain)
+    await nextTick()
+    expect(w.findAll('.lset-tab')).toHaveLength(0)
+    const { content, order } = await playSet(w, 0)
+    expect(content.lines).toHaveLength(6) // all 3 blocks, nothing filtered out
+    expect(order).toHaveLength(4) // ข้อ1·รับ ข้อ2·รับ — unchanged from before 717
+  })
+
+  it.each([0, 1])('set %i: the MP3 export gets the SAME set the reader is on', async (set) => {
+    // MP3 renders from ExportTool's `content` prop, and audioExport derives both the sheet and
+    // the play order from it alone (no options) — so the choice has to be baked in, which is
+    // what scopeToLyricSet does. Handed the raw song, the export silently defaulted to set 0
+    // no matter which tab was showing.
+    const w = mountViewer(twoSetSong)
+    await nextTick()
+    await w.findAll('.lset-tab')[set].trigger('click')
+    await nextTick()
+    await openSettings(w) // on this line the export cell lives in the ⚙ page (default: inSetting)
+    const exported = w.findComponent({ name: 'ExportTool' }).props('content')
+    expect(exported.arrangement).toHaveLength(4)
+    expect(exported.arrangement.every((e) => e.set === set)).toBe(true)
+    expect(exported.lyricSets).toHaveLength(1) // reads as an ordinary song → no second filter
+  })
+
+  it('the MP3 export of an ordinary song is handed the song unchanged', async () => {
+    const plain = {
+      number: 9,
+      title_th: 'ธรรมดา',
+      content: { ...twoSetSong.content, lyricSets: undefined, arrangement: [{ stanza: 'A', label: '', syllables: [] }] },
+    }
+    const w = mountViewer(plain)
+    await nextTick()
+    await openSettings(w)
+    // toEqual, not toBe: the component sees a reactive proxy of the song. Object identity
+    // (scopeToLyricSet returns the very same object) is pinned in songModel.setscope.
+    expect(w.findComponent({ name: 'ExportTool' }).props('content')).toEqual(plain.content)
+  })
+})
