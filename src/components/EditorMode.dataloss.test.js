@@ -159,6 +159,58 @@ describe('EditorMode (v1) — unknown fields survive load → save', () => {
   })
 })
 
+// ── the maintenance hazard behind the whole pass-through ───────────────────────────────────
+// `_extra` is spread LAST, so if a key the editor DOES emit ever went missing from its
+// CONTENT_KEYS / STANZA_KEYS / ARRANGEMENT_KEYS / LYRIC_SET_KEYS list, rest() would stash a
+// stale copy of it and that stale copy would silently overwrite the author's edit on save.
+// The lists are only correct while they cover everything previewContent emits at that level —
+// so assert exactly that, against a song whose every modelled key carries a value.
+describe('EditorMode (v1) — the key lists cover everything previewContent emits', () => {
+  const FULL = {
+    id: 'song-3',
+    number: 1,
+    title_th: 'ครบทุกคีย์',
+    title_en: '',
+    content: {
+      version: 2,
+      key: 'F',
+      timeSignature: '3/4',
+      bpm: 112,
+      stanzas: [{ id: 'A', lines: [[{ type: 'segment', chord: 'F', note: '1' }]] }],
+      lyricSets: [
+        { name: 'ชุด 1', label: 'ชุด 1' },
+        { name: 'ชุด 2', label: 'ชุด 2' },
+      ],
+      arrangement: [
+        { stanza: 'A', label: 'ร้อง 1', syllables: ['พระ'], key: 'G', set: 0, afterEachVerse: true },
+        { stanza: 'A', label: 'ร้อง 2', syllables: ['เจ้า'], set: 1 },
+      ],
+    },
+  }
+
+  it('no _extra bucket holds a key the editor emits at that level', () => {
+    const w = mountEd(FULL)
+    const s = inner(w)
+    const pc = w.vm.previewContent
+    const clash = (extra, emitted) => Object.keys(extra || {}).filter((k) => k in emitted)
+    // content level: contentExtras vs the top-level keys previewContent emits
+    expect(clash(s.contentExtras, pc)).toEqual([])
+    // and each per-item bucket vs the item that item produced
+    s.stanzas.forEach((x, i) => expect(clash(x._extra, pc.stanzas[i])).toEqual([]))
+    s.arrangement.forEach((x, i) => expect(clash(x._extra, pc.arrangement[i])).toEqual([]))
+    s.lyricSets.forEach((x, i) => expect(clash(x._extra, pc.lyricSets[i])).toEqual([]))
+    // every bucket is in fact EMPTY for this song — it carries nothing the editor can't model
+    expect(s.contentExtras).toEqual({})
+    expect(s.stanzas.map((x) => x._extra)).toEqual([{}])
+    expect(s.arrangement.map((x) => x._extra)).toEqual([{}, {}])
+    expect(s.lyricSets.map((x) => x._extra)).toEqual([{}, {}])
+  })
+
+  it('a song using every modelled key round-trips byte-identical', () => {
+    expect(clone(mountEd(FULL).vm.previewContent)).toEqual(FULL.content)
+  })
+})
+
 // ── the regression the blocker really needs: EDITING must not cost an unrelated field ──────
 describe('EditorMode (v1) — editing the words never drops an unrelated field', () => {
   it('typing a syllable keeps every id and every unknown key', async () => {
@@ -210,6 +262,34 @@ describe('EditorMode (v1) — editing the words never drops an unrelated field',
     await nextTick()
     const pc = w.vm.previewContent
     expect(pc.lyricSets.map((x) => x.id)).toEqual(['s0a7d42c7e7', 's9c0000000'])
+  })
+
+  // G-verify (adversarial, 2026-07-26) claimed `_extra` would leak into the DB after an undo,
+  // because the snapshot JSON.stringify's stanzas/arrangement WITH their `_extra` and restores
+  // them. previewContent builds a fresh literal per item (it never spreads `s` itself), so it
+  // should not — but undo/redo IS a real user path, so pin it instead of arguing about it.
+  it('undo/redo keeps the unknowns and still leaks no _extra into what gets written', async () => {
+    const w = mountEd(RICH)
+    inner(w).arrangement[0].syllables[0] = 'องค์'
+    await nextTick()
+    w.vm.undo()
+    await nextTick()
+    w.vm.redo()
+    await nextTick()
+    const pc = clone(w.vm.previewContent)
+    expect([...allKeys(pc)].filter((k) => k.startsWith('_') && k !== '_future')).toEqual([])
+    expect(pc.stanzas[0].mystery).toEqual({ imported: 'keep-me' })
+    expect(pc.arrangement[0].futureFlag).toBe('repeat-each')
+    expect(pc.lyricSets.map((s) => s.id)).toEqual(['s0a7d42c7e7', 's3b87476c4f'])
+  })
+
+  // …and the same review's other live concern: `_extra` now rides inside docState(), so a song
+  // must still open CLEAN — otherwise every reader who merely opens #717 gets the
+  // "มีงานที่ยังไม่บันทึก" nag on the way out (B100).
+  it('a song carrying unknown keys still opens clean (no false unsaved-work warning)', async () => {
+    const w = mountEd(RICH)
+    await nextTick()
+    expect(w.vm.isDirty).toBe(false)
   })
 
   it('an ordinary song stays ordinary through an edit — the pass-through adds nothing', async () => {
