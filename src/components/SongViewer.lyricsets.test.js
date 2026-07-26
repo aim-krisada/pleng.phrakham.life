@@ -250,13 +250,6 @@ describe('SongViewer /v2 — lyric-set names', () => {
 // ---- the switcher folds away (P'Aim, 26 ก.ค. — "accordion, ยุบได้ เพราะไม่ได้ใช้บ่อย") ----
 // Collapsed by default, but the summary must still SAY which words are on the sheet: folding
 // the tabs away must not fold away the answer to "what am I singing?".
-const setBadgeHarness = {
-  components: { SongViewer },
-  props: { song: { type: Object, required: true }, setBadge: { type: Boolean, default: true } },
-  template: `<div><SongViewer :song="song" :set-badge="setBadge" tier="guest" /></div>`,
-}
-const mountVariant = (song, setBadge) => mount(setBadgeHarness, { props: { song, setBadge } })
-
 describe('SongViewer /v2 — the lyric-set switcher is a collapsed disclosure', () => {
   it('starts collapsed, and the summary names the set on the sheet', () => {
     const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
@@ -303,13 +296,14 @@ describe('SongViewer /v2 — the lyric-set switcher is a collapsed disclosure', 
     expect(w.findAll('.lset-tab')[1].attributes('aria-selected')).toBe('true') // Esc ≠ undo
   })
 
-  it('variant B shows the set count; variant A does not (P’Aim picks)', () => {
-    const b = mountVariant(withSets([{ name: SET1 }, { name: SET2 }]), true)
-    expect(b.find('.lset-count').exists()).toBe(true)
-    expect(b.find('.lset-count').text()).toBe('2 ชุด')
-    const a = mountVariant(withSets([{ name: SET1 }, { name: SET2 }]), false)
-    expect(a.find('.lset-count').exists()).toBe(false)
-    expect(a.find('.lset-summary').text()).toContain(SET1) // A still names the set
+  it('the collapsed summary always carries the COUNT (P’Aim, 26 ก.ค.)', () => {
+    // progressive disclosure: you must be able to learn this song has other words WITHOUT
+    // opening anything — a switcher that folds away silently would hide the whole feature.
+    const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    expect(w.find('.lset-count').text()).toBe('2 ชุด')
+    expect(w.find('.lset-summary').attributes('aria-expanded')).toBe('false')
+    const three = mountSong(withSets([{ name: SET1 }, { name: SET2 }, { name: 'ค' }]))
+    expect(three.find('.lset-count').text()).toBe('3 ชุด')
   })
 
   it('back-compat: an ordinary song gets no summary at all', () => {

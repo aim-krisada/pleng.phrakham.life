@@ -70,15 +70,12 @@ const plainSong = {
 
 const q = new URLSearchParams(location.search)
 const which = q.get('song') === 'plain' ? plainSong : demoSong
-// evidence-only switches for the A/B P'Aim is picking between (26 ก.ค.):
-//   ?badge=0 — variant A: the collapsed switcher shows the set name only
-//   ?open=1  — capture the disclosure in its EXPANDED state
-const setBadge = q.get('badge') !== '0'
+// evidence-only switch: ?open=1 captures the disclosure in its EXPANDED state
 
 createApp({
   setup() {
     const song = ref(which)
-    return () => h('div', { style: 'padding:8px' }, [h(SongViewer, { song: song.value, tier: 'guest', setBadge })])
+    return () => h('div', { style: 'padding:8px' }, [h(SongViewer, { song: song.value, tier: 'guest' })])
   },
 }).mount('#app')
 
