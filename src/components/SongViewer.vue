@@ -133,9 +133,10 @@ const lyricSets = computed(() => {
   return Array.isArray(ls) && ls.length > 1 ? ls : null
 })
 const activeSet = ref(0)
-// Each set's own name ("บรรดาคนบาป เชิญท่านเข้ามา"), not a positional caption: different
-// words are a different song to whoever sings them. lyricSetName() keeps the `label` and
-// positional-caption fallbacks, so already-saved 717 songs read exactly as before.
+// The positional caption ("เนื้อร้องที่ 1", "เนื้อร้องที่ 2"), never the set's stored name
+// (พี่เปา via P'Aim, 26 ก.ค.: "ไม่ต้องใส่ชื่อ") — a set's stored name is its own first line, so
+// the tabs were two long Thai phrases to read before choosing. lyricSetName() is the one place
+// that decides this, shared with the editor, the catalog card and the printed heading.
 const lyricSetLabels = computed(() => (lyricSets.value || []).map((ls, i) => lyricSetName(ls, i)))
 const activeSetName = computed(() => lyricSetLabels.value[activeSet.value] || '')
 // reset the active tab only when the SONG changes (not on every edit), so a live edit keeps

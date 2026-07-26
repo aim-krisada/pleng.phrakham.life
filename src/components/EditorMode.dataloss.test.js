@@ -225,16 +225,17 @@ describe('EditorMode (v1) — editing the words never drops an unrelated field',
     expect(pc.stanzas[0].mystery).toEqual({ imported: 'keep-me' })
   })
 
-  it('renaming a set keeps that set’s id AND the other set’s id', async () => {
+  // The editor no longer authors a set's name (the tabs are positional since 26 ก.ค.), so the
+  // question is no longer "does a rename keep the ids" but the stricter one: does editing the
+  // WORDS leave the whole set row — the name nobody displays, the id a share link points at, the
+  // importer's own fields — exactly as it was found?
+  it('editing a set’s words touches nothing else on the set row', async () => {
     const w = mountEd(RICH)
-    const s = inner(w)
-    s.startRenameSet(0) // exactly what the ✎ on the set tab does
-    s.setNameDraft = 'ชื่อใหม่'
-    s.commitRenameSet()
+    const before = clone(w.vm.previewContent.lyricSets)
+    inner(w).arrangement[0].syllables[0] = 'องค์'
     await nextTick()
     const pc = w.vm.previewContent
-    expect(pc.lyricSets[0].name).toBe('ชื่อใหม่') // the rename landed
-    expect(pc.lyricSets[0].label).toBe('ชื่อใหม่')
+    expect(pc.lyricSets).toEqual(before) // name, label, id, origin — all byte-identical
     expect(pc.lyricSets.map((x) => x.id)).toEqual(['s0a7d42c7e7', 's3b87476c4f'])
     expect(pc.lyricSets[1].origin).toBe('da-import')
   })
@@ -247,7 +248,8 @@ describe('EditorMode (v1) — editing the words never drops an unrelated field',
     expect(pc.lyricSets).toHaveLength(3)
     expect(pc.lyricSets.slice(0, 2).map((x) => x.id)).toEqual(['s0a7d42c7e7', 's3b87476c4f'])
     expect(pc.lyricSets[2].id).toBeUndefined() // a brand-new set has no id until one is minted
-    expect(Object.keys(pc.lyricSets[2]).sort()).toEqual(['label'])
+    // and no caption either: it is derived from position, so there is nothing to store
+    expect(Object.keys(pc.lyricSets[2])).toEqual([])
   })
 
   it('deleting a set keeps the surviving sets’ ids', async () => {

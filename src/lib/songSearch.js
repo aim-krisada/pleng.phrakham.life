@@ -7,7 +7,7 @@
 // half-remembered line with a typo or two still finds the song.
 
 import { bookName, parseBookRefQuery } from './bookCodes.js'
-import { lyricSetName } from './songModel.js'
+import { isSetCaption } from './songModel.js'
 
 // A melody-sequence hit is exact (contiguous substring, no fuzzing) but ranks just after
 // an exact number/title/lyric hit (score 0). Small positive so that for a union query
@@ -58,26 +58,31 @@ export function lyricsText(content) {
     .join(' ')
 }
 
-// 717 multi-lyric — the names of a song's lyric sets. A song row stores only ONE
-// title (`title_th`, the first set's), so without this the second set's name — a name
-// people know the song by — is unfindable in the catalog.
+// 717 multi-lyric — a song's stored lyric-set names, as HIDDEN SEARCH TEXT.
 //
-// Emits, per set: what the TAB SHOWS (lyricSetName — so typing exactly what you read on
-// screen finds the song, including a legacy Thai caption now displayed in arabic), plus the
-// raw stored `name`/`label` when they differ from it, so nobody loses the wording they
-// remember. Duplicates are skipped; everything here only pads a search haystack.
+// A song row stores only ONE title (`title_th`, the first set's), so without this the second
+// set's name — a name people know the song by — is unfindable in the catalog.
+//
+// Since 26 ก.ค. no screen shows those names any more (the tabs read "เนื้อร้องที่ N"), which
+// makes this the one place the stored wording still earns its keep: invisible in the UI, still
+// findable in search. It is a RANKING aid, not the safety net — every set's words are indexed
+// syllable by syllable via lyricsText, so a set's first line finds its song even when the set
+// carries no name at all.
+//
+// The positional CAPTION is deliberately not emitted. It is app chrome, byte-identical on every
+// multi-set song, so indexing it would make "เนื้อร้อง" a title-prefix hit on all of them and
+// bury the songs whose actual words somebody typed. Caption-shaped stored values are skipped for
+// the same reason: earlier editors saved the caption of the day into `label`, and after a middle
+// set is deleted those captions no longer even match the position they sit at.
 export function lyricSetNames(content) {
   const sets = content?.lyricSets
   if (!Array.isArray(sets) || sets.length < 2) return []
   const out = []
-  for (let i = 0; i < sets.length; i++) {
-    const s = sets[i]
-    const name = (s?.name || '').trim()
-    const label = (s?.label || '').trim()
-    const shown = lyricSetName(s, i)
-    out.push(shown)
-    if (name && name !== shown) out.push(name)
-    if (label && label !== name && label !== shown) out.push(label)
+  for (const s of sets) {
+    for (const raw of [s?.name, s?.label]) {
+      const t = (raw || '').trim()
+      if (t && !isSetCaption(t) && !out.includes(t)) out.push(t)
+    }
   }
   return out
 }
@@ -232,7 +237,9 @@ export function scoreSong(song, query) {
     // A lyric-set NAME ranks as a title (717): to the people who sing the second set of
     // words, that name IS the song's title — it just can't live in `title_th`, which
     // holds the first set's. Typing it must surface this song, not bury it under songs
-    // that merely happen to contain the phrase somewhere in their lyrics.
+    // that merely happen to contain the phrase somewhere in their lyrics. Still true now
+    // that the tabs no longer display those names: what a church calls the words it sings
+    // does not stop being this song's title just because the screen shows a number.
     const titles = [normalize(song.title_th ?? ''), normalize(song.title_en ?? '')]
       .concat(lyricSetNames(song.content ?? {}).map(normalize))
     if (titles.some((t) => t && t.startsWith(q))) return -2

@@ -346,12 +346,12 @@ const migrateWarnings = ref([]) // set when a v1 song is auto-split on load (aut
 // arrangement[].set → maps to MusicXML <lyric number>. Notes/chords (the stanza) stay shared.
 const lyricSets = ref([]) // [{ name, label }] — >0 shows the set tabs in the editor
 const activeSet = ref(0)
-// the tabs to render: a song with no declared sets still shows "ทำนอง 1" so ＋ เพิ่มชุด can
+// the tabs to render: a song with no declared sets still shows "เนื้อร้องที่ 1" so ＋ เพิ่มชุด can
 // bootstrap the second set (matches the reader: tabs only actually appear once >1 set exists).
-// `display` = the name the author sees everywhere (tab, hint, delete confirm) — resolved by
-// the shared lyricSetName(), so editor and reader can never disagree about a set's name.
+// `display` = the caption the author sees everywhere (tab, hint, delete confirm) — resolved by
+// the shared lyricSetName(), so editor and reader can never caption a set differently.
 const setTabs = computed(() =>
-  (lyricSets.value.length ? lyricSets.value : [{ label: setCaption(0) }]).map((s, i) => ({
+  (lyricSets.value.length ? lyricSets.value : [{}]).map((s, i) => ({
     ...s,
     display: lyricSetName(s, i),
   })),
@@ -385,53 +385,23 @@ watch(
 const hasManySets = computed(() => lyricSets.value.length > 1)
 // ＋ เพิ่มชุด — a new WORD set over the SAME melody. First press bootstraps: the existing rows
 // become set 0, then a fresh empty row (linked to the shared stanza) is added as the new set.
+// A new set carries NO caption in its data (26 ก.ค.). The caption is derived from the set's
+// POSITION at render time, so writing it into the row would only bake in a number that goes stale
+// the moment a middle set is deleted — and the stale copy would then leak into search. An empty
+// set object is enough for the reader: >1 set shows the tabs, lyricSetName supplies the text.
 function addLyricSet() {
   if (!lyricSets.value.length) {
-    lyricSets.value = [{ name: '', label: setCaption(0) }]
+    lyricSets.value = [{}]
     arrangement.value.forEach((r) => { if (r.set == null) r.set = 0 })
   }
   const idx = lyricSets.value.length
-  lyricSets.value.push({ name: '', label: setCaption(idx) })
+  lyricSets.value.push({})
   const stanza = arrangement.value.find((r) => (r.set ?? 0) === 0)?.stanza || stanzas.value[0]?.id || 'A'
   arrangement.value.push({ stanza, set: idx, label: '', syllables: [], key: '' })
   selectSet(idx)
-  // A second set of words is a DIFFERENT song to whoever sings it, so its name is the first
-  // thing to fill in — open the rename inline, pre-filled+selected so Esc keeps the default.
-  // Focus lands in that field, so SAY so: a screen-reader user must not be dropped into an
-  // input with no idea what appeared (the same aria-live channel the delete uses).
-  removeSetMsg.value = `เพิ่มชุดเนื้อร้องแล้ว · กำลังตั้งชื่อชุดที่ ${idx + 1}`
-  nextTick(() => startRenameSet(idx))
-}
-
-// ---- naming a lyric set (P'Aim: "different words must have different names") ------------
-// The row stores `name`; `label` is kept in step with it so an already-deployed reader (which
-// renders `label`) never shows a blank tab. Only offered once a song really has >1 set — with
-// one set the song's name IS title_th, and previewContent would drop a lone set's name anyway.
-const editingSetId = ref(-1) // lyric-set index being renamed (-1 = none)
-const setNameDraft = ref('')
-function startRenameSet(i) {
-  if (lyricSets.value.length <= 1 || !lyricSets.value[i]) return
-  editingSetId.value = i
-  setNameDraft.value = setTabs.value[i]?.display || ''
-}
-function commitRenameSet() {
-  const i = editingSetId.value
-  editingSetId.value = -1
-  const set = lyricSets.value[i]
-  if (i < 0 || !set) return
-  const v = setNameDraft.value.trim()
-  if (v) {
-    set.name = v
-    set.label = v
-  } else {
-    // cleared → back to the positional caption the app has always shown
-    set.name = ''
-    set.label = setCaption(i)
-  }
-  removeSetMsg.value = `ตั้งชื่อชุดเป็น “${lyricSetName(set, i)}” แล้ว`
-}
-function cancelRenameSet() {
-  editingSetId.value = -1
+  // The new set is now the one your typing goes into, and on a small screen the tab strip may be
+  // off-screen — so say which set that is (the same aria-live channel the delete uses).
+  removeSetMsg.value = `เพิ่มชุดเนื้อร้องแล้ว · กำลังพิมพ์ที่ ${setCaption(idx)}`
 }
 // ลบชุดเนื้อ — destructive, so a styled confirm (naming the set) gates it. Deletes ONLY that
 // set's words (rows tagged r.set === i); the shared melody (stanzas) and any shared entry
@@ -451,10 +421,12 @@ function doRemoveLyricSet() {
   const i = confirmDelSet.value
   confirmDelSet.value = -1
   if (i < 0 || lyricSets.value.length <= 1) return
-  const label = setTabs.value[i]?.display || `ทำนอง ${i + 1}`
+  const label = setTabs.value[i]?.display || setCaption(i)
   // drop this set's rows (explicit r.set === i); shared rows (set == null) are untouched
   arrangement.value = arrangement.value.filter((r) => r.set !== i)
-  // reindex sets after i down by one so labels/indices stay contiguous
+  // reindex sets after i down by one so the remaining sets stay contiguous — which is also what
+  // RENUMBERS the captions: delete the middle of three and the last one now reads "เนื้อร้องที่ 2"
+  // because the caption comes from its position, with nothing stored to go stale.
   arrangement.value.forEach((r) => { if (r.set != null && r.set > i) r.set -= 1 })
   lyricSets.value.splice(i, 1)
   // one set left → back to an ordinary song: no lyricSets, no `set` keys (byte-identical)
@@ -525,11 +497,12 @@ const previewContent = computed(() => ({
   })),
   // 717: only emit lyricSets when the author actually made >1 set, so ordinary songs stay
   // byte-identical (no lyricSets key, no `set` on rows).
-  // Emit only the keys a set actually carries: an unnamed set stays `{label}` (byte-identical
-  // to every 717 song saved so far), a named one carries `name` + the matching `label` —
-  // then every key this editor does NOT model rides back out of `_extra` untouched, so a
-  // save can never be the thing that deletes a field a newer version wrote (the `id` behind
-  // a shared ?set= link is the first, and will not be the last).
+  // Emit only the keys a set actually carries. A set made here now carries NO caption at all
+  // (`{}` — the caption is positional, see addLyricSet), while a set that was SAVED with a
+  // `name`/`label` keeps it byte-identical: the editor no longer authors those fields but it must
+  // never be the thing that deletes them, because they are still what makes the wording a church
+  // remembers findable in search. Every key this editor does not model likewise rides back out of
+  // `_extra` untouched (the `id` behind a shared ?set= link is one, and will not be the last).
   ...(lyricSets.value.length > 1
     ? {
         lyricSets: lyricSets.value.map((s) => ({
@@ -1630,7 +1603,6 @@ function applyRow(data) {
       }))
     : []
   activeSet.value = 0
-  editingSetId.value = -1
   activeStanza.value = 0
   activeLine.value = 0
   migrateWarnings.value = warnings
@@ -3382,37 +3354,20 @@ defineExpose({
            on the one-set case: that song must not carry a hidden tablist a screen reader could
            still meet — the feature simply is not there for it yet. -->
       <div v-if="hasManySets" id="eset-tabs" class="eset-tabs" role="tablist" aria-label="เลือกชุดเนื้อร้อง">
-        <template v-for="(ls, i) in setTabs" :key="i">
-          <!-- inline rename, same pattern as renaming a ท่อน: Enter=เก็บ · Esc=ยกเลิก · ออกจากช่อง=เก็บ -->
-          <input
-            v-if="editingSetId === i"
-            v-focus
-            v-model="setNameDraft"
-            class="eset-rename"
-            maxlength="60"
-            :aria-label="'ชื่อชุดเนื้อร้องที่ ' + (i + 1)"
-            @keydown.enter.prevent="commitRenameSet"
-            @keydown.esc.prevent="cancelRenameSet"
-            @blur="commitRenameSet"
-          />
-          <button
-            v-else
-            class="eset-tab"
-            :class="{ active: activeSet === i }"
-            role="tab"
-            :aria-selected="activeSet === i ? 'true' : 'false'"
-            title="ดับเบิลคลิกเพื่อตั้งชื่อชุดนี้"
-            @click="selectSet(i)"
-            @dblclick="startRenameSet(i)"
-          >{{ ls.display }}</button>
-        </template>
-        <button class="eset-add" title="เพิ่มเนื้อร้องชุดใหม่บนทำนองเดิม" aria-label="เพิ่มชุดเนื้อร้อง" @click="addLyricSet">＋ เพิ่มชุด</button>
+        <!-- No rename affordance (26 ก.ค.): a tab reads "เนื้อร้องที่ N" from its POSITION, so a
+             name the author types would be stored and never shown — an invitation to work that
+             visibly does nothing. The `name` field itself is untouched in the data; it is simply
+             no longer authored here. -->
         <button
-          class="eset-rename-btn"
-          title="ตั้งชื่อชุดเนื้อที่เลือกอยู่ (เนื้อคนละแบบ ควรคนละชื่อ)"
-          :aria-label="'ตั้งชื่อชุด ' + (setTabs[activeSet]?.display || '')"
-          @click="startRenameSet(activeSet)"
-        ><Icon name="pencil" :size="14" /> ตั้งชื่อชุด</button>
+          v-for="(ls, i) in setTabs"
+          :key="i"
+          class="eset-tab"
+          :class="{ active: activeSet === i }"
+          role="tab"
+          :aria-selected="activeSet === i ? 'true' : 'false'"
+          @click="selectSet(i)"
+        >{{ ls.display }}</button>
+        <button class="eset-add" title="เพิ่มเนื้อร้องชุดใหม่บนทำนองเดิม" aria-label="เพิ่มชุดเนื้อร้อง" @click="addLyricSet">＋ เพิ่มชุด</button>
         <button
           class="eset-del"
           title="ลบชุดเนื้อที่เลือกอยู่ (เนื้อชุดนี้จะหาย · ทำนองยังอยู่)"
@@ -4426,29 +4381,15 @@ defineExpose({
   appearance: none; border: 0; min-height: 38px; padding: 7px 16px; border-radius: 999px;
   background: transparent; color: var(--muted, #757575); font: inherit; font-weight: 600; cursor: pointer;
   transition: background .15s, color .15s;
-  /* a set NAME is a full Thai phrase — wrap it inside the pill instead of pushing the
-     editor sideways (same rule as the reader's tabs) */
+  /* the caption is short now ("เนื้อร้องที่ 2"), but keep the wrap rules: they cost nothing and
+     hold the strip inside the editor at 360px whatever the count reaches */
   max-width: 100%; min-width: 0; overflow-wrap: anywhere; line-height: 1.35; text-align: center;
 }
-/* inline rename field — sized like the tab it replaces so the strip doesn't jump */
-.eset-rename {
-  min-height: 38px; min-width: 180px; max-width: 100%; padding: 4px 12px;
-  border: 2px solid var(--brand, #8b4513); border-radius: 999px;
-  background: #fff; color: var(--ink, #2b2b2b); font: inherit; font-weight: 600; text-align: center;
-}
-.eset-rename-btn {
-  appearance: none; display: inline-flex; align-items: center; gap: 4px;
-  min-height: 38px; margin-left: 4px; padding: 0 14px; border: 1px solid var(--brand, #8b4513);
-  border-radius: 999px; background: transparent; color: var(--brand, #8b4513); font: inherit; font-weight: 600; cursor: pointer;
-}
-.eset-rename-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--brand, #8b4513) 12%, transparent); }
-.eset-rename-btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--line, #e0d6c8); color: var(--muted, #757575); }
 .eset-tab:hover:not(.active) { background: color-mix(in srgb, var(--brand, #8b4513) 10%, transparent); }
 /* same focus ring + coarse-pointer target as the reader's tabs (consistent identification) */
-.eset-tab:focus-visible,
-.eset-rename-btn:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
+.eset-tab:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
 @media (pointer: coarse) {
-  .eset-tab, .eset-rename, .eset-rename-btn { min-height: 44px; }
+  .eset-tab { min-height: 44px; }
 }
 .eset-tab.active { background: var(--brand, #8b4513); color: #fff; }
 .eset-add {

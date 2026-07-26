@@ -5,7 +5,6 @@ import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { filterSongs, snippet, normalize } from '../lib/songSearch.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
-import { lyricSetName } from '../lib/songModel.js'
 import {
   orderedBooks,
   songsInBook,
@@ -61,19 +60,16 @@ function flagTitle(s) {
   return kinds.length ? 'ต้องตรวจ: ' + kinds.join(' · ') : ''
 }
 
-// 717 multi-lyric — a song row carries ONE title (the first set's), so the other sets' names
-// are invisible on the card even though people search by them. Show the ones that add
-// information (anything not already the title) so a hit on the second name explains itself.
-function otherSetNames(s) {
+// 717 multi-lyric — a song row carries ONE title and ONE snippet, both from the FIRST set, so a
+// card can match a line the card itself never shows. This line is what explains that: the song
+// has more than one set of words under one melody.
+//
+// A COUNT, not a list of names (26 ก.ค.): the sets are captioned by position now, so listing them
+// would print "เนื้อร้องที่ 1 · เนื้อร้องที่ 2" and tell the reader nothing they can act on. The
+// count is the same fact the reader's collapsed switcher already leads with ("2 ชุด").
+function lyricSetCount(s) {
   const sets = s?.content?.lyricSets
-  if (!Array.isArray(sets) || sets.length < 2) return []
-  const title = normalize(s.title_th ?? '')
-  const out = []
-  for (let i = 0; i < sets.length; i++) {
-    const n = lyricSetName(sets[i], i)
-    if (normalize(n) !== title && !out.includes(n)) out.push(n)
-  }
-  return out
+  return Array.isArray(sets) && sets.length > 1 ? sets.length : 0
 }
 
 // public visibility gate — the whole page derives from THIS, so counts, in-book lists and
@@ -190,8 +186,8 @@ onMounted(async () => {
             </span>
           </div>
           <div v-if="s.title_en" class="muted">{{ s.title_en }}</div>
-          <div v-if="otherSetNames(s).length" class="lset-tag muted">
-            ♪ ทำนองเดียวกัน อีกชุด: {{ otherSetNames(s).join(' · ') }}
+          <div v-if="lyricSetCount(s)" class="lset-tag muted">
+            ♪ ทำนองเดียวกัน · {{ lyricSetCount(s) }} ชุดเนื้อร้อง
           </div>
           <div v-if="snippet(s.content)" class="muted">{{ snippet(s.content) }}…</div>
           <div v-if="s.theme" class="theme-tag muted">{{ s.theme }}</div>

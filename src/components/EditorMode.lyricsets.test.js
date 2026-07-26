@@ -141,8 +141,12 @@ describe('EditorMode — 717 lyric sets save shape + back-compat', () => {
   })
 })
 
-// ---- naming a set ("different words must have different names") --------------------------
-describe('EditorMode — naming a lyric set', () => {
+// ---- captioning a set: sequential, and NOT authored here (พี่เปา via P'Aim, 26 ก.ค.) ------
+// A tab reads "เนื้อร้องที่ N" from the set's POSITION. So there is nothing to name: the rename
+// affordance is gone from the editor, and a new set is stored with no caption in it at all. What
+// must NOT change is the data — a name already in the row is still carried through on save,
+// because it is what keeps the wording a church remembers findable in search.
+describe('EditorMode — lyric-set captions are positional, and not authored', () => {
   const SET1 = 'บรรดาคนบาป เชิญท่านเข้ามา'
   const SET2 = 'ผู้ที่ถูกบาปทำร้ายจงมา'
   // the shape the merge SQL writes: both `name` and `label`, same value
@@ -155,95 +159,89 @@ describe('EditorMode — naming a lyric set', () => {
       lyricSets: [{ name: SET1, label: SET1 }, { name: SET2, label: SET2 }],
     },
   }
-  const rename = async (w, i, v) => {
-    w.vm.startRenameSet(i)
-    await nextTick()
-    w.vm.setNameDraft = v
-    w.vm.commitRenameSet()
-    await nextTick()
-  }
 
   it('round-trips a named song exactly — same keys in, same keys out', () => {
+    // the editor stopped SHOWING these names; it must not start DELETING them
     const pc = mountEd(named717).vm.previewContent
     expect(pc.lyricSets).toEqual([{ name: SET1, label: SET1 }, { name: SET2, label: SET2 }])
   })
 
-  it('the tabs show the set NAMES, not ทำนอง ๑/๒', () => {
+  it('the tabs read เนื้อร้องที่ 1/2 even when the row stores a name', () => {
     const w = mountEd(named717)
-    expect(w.findAll('.eset-tab').map((t) => t.text())).toEqual([SET1, SET2])
+    expect(w.findAll('.eset-tab').map((t) => t.text())).toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2'])
+    expect(w.find('.eset-bar').text()).not.toContain(SET2)
   })
 
-  it('renaming writes `name` AND keeps `label` in step (deployed readers render label)', async () => {
-    const w = mountEd(song717) // label-only legacy song
-    await rename(w, 1, SET2)
-    expect(w.vm.previewContent.lyricSets).toEqual([
-      { label: 'ทำนอง ๑' }, // untouched set stays byte-identical
-      { name: SET2, label: SET2 },
-    ])
-    expect(w.findAll('.eset-tab')[1].text()).toBe(SET2)
-  })
-
-  it('trims, and clearing the name restores the positional ทำนอง 2 (arabic)', async () => {
-    const w = mountEd(song717)
-    await rename(w, 1, '   ' + SET2 + '  ')
-    expect(w.vm.previewContent.lyricSets[1]).toEqual({ name: SET2, label: SET2 })
-    await rename(w, 1, '   ')
-    expect(w.vm.previewContent.lyricSets[1]).toEqual({ label: 'ทำนอง 2' })
-    expect(w.findAll('.eset-tab')[1].text()).toBe('ทำนอง 2')
-  })
-
-  it('Esc cancels — the name is left as it was', async () => {
+  it('there is no rename affordance left to confuse anyone', () => {
     const w = mountEd(named717)
-    w.vm.startRenameSet(1)
-    await nextTick()
-    w.vm.setNameDraft = 'ชื่อที่ไม่ได้ตั้งใจ'
-    w.vm.cancelRenameSet()
-    await nextTick()
-    expect(w.vm.previewContent.lyricSets[1].name).toBe(SET2)
+    expect(w.find('.eset-rename').exists()).toBe(false)
+    expect(w.find('.eset-rename-btn').exists()).toBe(false)
+    expect(w.find('.eset-bar').text()).not.toContain('ตั้งชื่อ')
+    // and no hidden path either: dblclick on a tab used to open the field
+    expect(w.vm.startRenameSet).toBeUndefined()
   })
 
-  it('a new set opens its name field, pre-filled with the default', async () => {
+  it('a new set is stored with NO caption — nothing to go stale, nothing to name', async () => {
     const w = mountEd(plainSong)
     w.vm.addLyricSet()
-    await nextTick(); await nextTick() // addLyricSet opens the rename on the next tick
-    expect(w.vm.editingSetId).toBe(1)
-    expect(w.vm.setNameDraft).toBe('ทำนอง 2')
-    expect(w.find('.eset-rename').exists()).toBe(true)
-    // naming it lands in the saved shape
-    w.vm.setNameDraft = SET2
-    w.vm.commitRenameSet()
     await nextTick()
-    expect(w.vm.previewContent.lyricSets[1]).toEqual({ name: SET2, label: SET2 })
+    expect(w.vm.previewContent.lyricSets).toEqual([{}, {}])
+    expect(w.findAll('.eset-tab').map((t) => t.text())).toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2'])
   })
 
-  it('back-compat: a set the author never names saves as {label} only — no junk keys', async () => {
+  it('announces which set your typing now goes into (aria-live)', async () => {
     const w = mountEd(plainSong)
     w.vm.addLyricSet()
-    await nextTick(); await nextTick()
-    w.vm.cancelRenameSet() // author dismissed the name field
     await nextTick()
-    expect(w.vm.previewContent.lyricSets).toEqual([{ label: 'ทำนอง 1' }, { label: 'ทำนอง 2' }])
-  })
-
-  it('announces add + rename on the aria-live channel (focus moves into the name field)', async () => {
-    const w = mountEd(plainSong)
-    w.vm.addLyricSet()
-    await nextTick(); await nextTick()
     expect(w.vm.removeSetMsg).toContain('เพิ่มชุดเนื้อร้องแล้ว')
-    w.vm.setNameDraft = SET2
-    w.vm.commitRenameSet()
-    await nextTick()
-    expect(w.vm.removeSetMsg).toContain(SET2)
+    expect(w.vm.removeSetMsg).toContain('เนื้อร้องที่ 2')
     expect(w.find('.sr-only[aria-live="polite"], span[aria-live="polite"]').exists()).toBe(true)
   })
+})
 
-  it('an ordinary song cannot rename its lone set (its name IS title_th)', async () => {
-    const w = mountEd(plainSong)
-    w.vm.startRenameSet(0)
+// ---- deleting a middle set RENUMBERS the rest (P'Aim, 26 ก.ค.) ----------------------------
+// "ลบชุด 2 จาก 3 ชุด → เหลือ เนื้อร้องที่ 1 กับ เนื้อร้องที่ 2". This is the case a stored caption
+// would get wrong, which is why the caption is derived from position and never written down.
+describe('EditorMode — deleting a middle set renumbers the captions', () => {
+  const legacyCaptions = {
+    id: 's6', number: 717, title_th: '717x3', title_en: '',
+    content: {
+      version: 2, key: 'C', timeSignature: '4/4',
+      // deliberately the WORST data: three sets each carrying a stale caption of its own
+      lyricSets: [{ label: 'ทำนอง ๑' }, { label: 'ทำนอง ๒' }, { label: 'ทำนอง ๓' }],
+      stanzas: [{ id: 'A', lines: [[{ type: 'segment', chord: 'C', note: '1 2' }]] }],
+      arrangement: [
+        { stanza: 'A', set: 0, syllables: ['หนึ่งเอ', 'หนึ่งบี'] },
+        { stanza: 'A', set: 1, syllables: ['สองเอ', 'สองบี'] },
+        { stanza: 'A', set: 2, syllables: ['สามเอ', 'สามบี'] },
+      ],
+    },
+  }
+
+  it('three sets read 1·2·3', () => {
+    expect(mountEd(legacyCaptions).findAll('.eset-tab').map((t) => t.text()))
+      .toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2', 'เนื้อร้องที่ 3'])
+  })
+
+  it('deleting the MIDDLE one leaves 1·2 — not 1·3', async () => {
+    const w = mountEd(legacyCaptions)
+    w.vm.askRemoveLyricSet(1)
+    w.vm.doRemoveLyricSet()
     await nextTick()
-    expect(w.vm.editingSetId).toBe(-1)
-    expect(w.find('.eset-rename').exists()).toBe(false)
-    expect('lyricSets' in w.vm.previewContent).toBe(false) // still byte-identical
+    expect(w.findAll('.eset-tab').map((t) => t.text())).toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2'])
+    // the surviving set is the third one's WORDS under the second one's caption
+    const pc = w.vm.previewContent
+    expect(pc.arrangement.find((r) => r.set === 1).syllables).toContain('สามเอ')
+  })
+
+  it('the delete confirm and its announcement use the caption, never a stored name', async () => {
+    const w = mountEd(legacyCaptions)
+    w.vm.askRemoveLyricSet(1)
+    await nextTick()
+    expect(w.find('.eset-confirm-t').text()).toContain('เนื้อร้องที่ 2')
+    w.vm.doRemoveLyricSet()
+    await nextTick()
+    expect(w.vm.removeSetMsg).toContain('เนื้อร้องที่ 2')
   })
 })
 
@@ -322,8 +320,9 @@ describe('EditorMode — the set bar appears only when there is something to cho
     const tabs = w.find('.eset-tabs')
     expect(tabs.exists()).toBe(true)
     expect(tabs.attributes('style') || '').not.toContain('display: none')
-    expect(w.findAll('.eset-tab').map((t) => t.text())).toEqual([SET1, SET2])
-    expect(w.find('.eset-hint').text()).toContain(SET1) // and it says which set the words go to
+    expect(w.findAll('.eset-tab').map((t) => t.text())).toEqual(['เนื้อร้องที่ 1', 'เนื้อร้องที่ 2'])
+    // and it still says which set the words go to — by caption now
+    expect(w.find('.eset-hint').text()).toContain('เนื้อร้องที่ 1')
   })
 
   it('＋ เพิ่มชุด turns a one-set song into the full strip', async () => {
