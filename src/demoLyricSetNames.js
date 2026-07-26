@@ -115,9 +115,9 @@ const router = createRouter({
   history: createWebHashHistory(),
   routes: [{ path: '/:pathMatch(.*)*', component: Root }],
 })
-createApp({ render: () => h('div', [h('div', { id: 'shell-title' }), h('div', { id: 'shell-menus' }), h(Root)]) })
-  .use(router)
-  .mount('#app')
+// #shell-title / #shell-menus (EditorMode's teleport targets) live in the HTML, not here —
+// see the comment in demo-lyricset-names.html.
+createApp(Root).use(router).mount('#app')
 
 // Harness-only params so a headless screenshot captures each state through the REAL controls.
 setTimeout(() => {
