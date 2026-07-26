@@ -536,15 +536,20 @@ onMounted(async () => {
 /* 717 — "พบใน เนื้อร้องที่ N": which set of words carried the phrase that was typed. Shown only
    when that is NOT the set previewed by default, so an ordinary card never grows a chip that
    says nothing. inline-block = the chip is only as wide as its text, on its own line above the
-   preview it explains. Brand on cream measures 4.7:1, clearing WCAG 2.2 AA (4.5:1) for the
-   --fs-xs size; it stays legible with colour ignored because the fact is in the words. */
+   preview it explains.
+   Colour: --ink on --cream, with --brand carrying the emphasis as the OUTLINE. Brand text on
+   cream was measured live at 6.59:1 here but only 4.18:1 in the /v2 theme (--brand #b45309 on
+   --cream #f4e9d7) — under the 4.5:1 WCAG 2.2 AA floor for text this size. ink/cream measures
+   13.3:1 and 11.0:1, and the two tokens move together in any future dark theme, so the chip
+   stays AA wherever the palette goes; the brand border is decorative and still clears the 3:1
+   non-text floor. Nothing is colour-only either way: the fact is in the words. */
 .found-in {
   display: inline-block;
   margin-top: var(--sp-1);
   font-size: var(--fs-xs);
-  color: var(--brand);
+  color: var(--ink);
   background: var(--cream);
-  border: 1px solid var(--line);
+  border: 1px solid var(--brand);
   border-radius: 12px;
   padding: 1px var(--sp-2);
   overflow-wrap: anywhere;
