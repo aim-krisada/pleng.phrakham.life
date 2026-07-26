@@ -3,7 +3,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
-import { filterSongs, snippet, normalize } from '../lib/songSearch.js'
+import { filterSongs, searchSnippet, normalize } from '../lib/songSearch.js'
+import { lyricSetName } from '../lib/songModel.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
 import {
   orderedBooks,
@@ -60,9 +61,8 @@ function flagTitle(s) {
   return kinds.length ? 'ต้องตรวจ: ' + kinds.join(' · ') : ''
 }
 
-// 717 multi-lyric — a song row carries ONE title and ONE snippet, both from the FIRST set, so a
-// card can match a line the card itself never shows. This line is what explains that: the song
-// has more than one set of words under one melody.
+// 717 multi-lyric — this song has more than one set of words under one melody, so the card's
+// single preview line cannot be the whole story.
 //
 // A COUNT, not a list of names (26 ก.ค.): the sets are captioned by position now, so listing them
 // would print "เนื้อร้องที่ 1 · เนื้อร้องที่ 2" and tell the reader nothing they can act on. The
@@ -105,6 +105,33 @@ const results = computed(() => {
   if (theme.value) list = list.filter((s) => s.theme === theme.value)
   return list
 })
+
+// 717 — the preview line, and WHICH set of words it was taken from.
+//
+// The card used to preview the FIRST set always, while search reads EVERY set — so typing a
+// line from set 2 returned a card containing none of the words typed, and nothing on it to
+// explain why. searchSnippet previews the set that actually carries the query; `set > 0` is
+// what earns the "พบใน เนื้อร้องที่ N" label.
+//
+// Computed once per song per query rather than once per template mention: the template needs
+// the text and the set index in three places, and this keeps those call sites plain.
+const snips = computed(() => {
+  const q = query.value
+  const m = new Map()
+  for (const s of results.value) m.set(s.id, searchSnippet(s.content, q))
+  return m
+})
+const EMPTY_SNIP = { text: '', set: 0, sets: 0 }
+function snip(s) {
+  return snips.value.get(s.id) || EMPTY_SNIP
+}
+
+// "พบใน เนื้อร้องที่ 2". The caption comes from lyricSetName — the ONE place that names a set —
+// so the card can never disagree with the reader tabs, the print heading or the editor.
+function foundInLabel(s) {
+  const i = snip(s).set
+  return 'พบใน ' + lyricSetName(s.content?.lyricSets?.[i], i)
+}
 
 function openBook(code) {
   activeBook.value = code
@@ -186,10 +213,14 @@ onMounted(async () => {
             </span>
           </div>
           <div v-if="s.title_en" class="muted">{{ s.title_en }}</div>
-          <div v-if="lyricSetCount(s)" class="lset-tag muted">
+          <!-- 717 — the plain "this song has N sets" line, and the sharper "your words are in
+               set N" label. Only one of them ever shows: the label already implies the song has
+               more than one set, so printing the count beside it is noise. -->
+          <div v-if="lyricSetCount(s) && !snip(s).set" class="lset-tag muted">
             ♪ ทำนองเดียวกัน · {{ lyricSetCount(s) }} ชุดเนื้อร้อง
           </div>
-          <div v-if="snippet(s.content)" class="muted">{{ snippet(s.content) }}…</div>
+          <div v-if="snip(s).set" class="found-in">{{ foundInLabel(s) }}</div>
+          <div v-if="snip(s).text" class="muted">{{ snip(s).text }}…</div>
           <div v-if="s.theme" class="theme-tag muted">{{ s.theme }}</div>
           <div v-if="bookRefLabels(s.book_refs).length" class="src-tag muted">
             แหล่งเพลง: {{ bookRefLabels(s.book_refs).join(' · ') }}
@@ -502,6 +533,22 @@ onMounted(async () => {
 .scripture-tag { margin-top: var(--sp-1); font-size: var(--fs-xs); }
 /* 717 — the other lyric set's name; wraps rather than widening the card on a phone */
 .lset-tag { margin-top: var(--sp-1); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+/* 717 — "พบใน เนื้อร้องที่ N": which set of words carried the phrase that was typed. Shown only
+   when that is NOT the set previewed by default, so an ordinary card never grows a chip that
+   says nothing. inline-block = the chip is only as wide as its text, on its own line above the
+   preview it explains. Brand on cream measures 4.7:1, clearing WCAG 2.2 AA (4.5:1) for the
+   --fs-xs size; it stays legible with colour ignored because the fact is in the words. */
+.found-in {
+  display: inline-block;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--brand);
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1px var(--sp-2);
+  overflow-wrap: anywhere;
+}
 
 .empty { padding: var(--sp-4) 0; }
 </style>
