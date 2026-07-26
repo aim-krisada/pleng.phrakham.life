@@ -7,7 +7,7 @@
 // half-remembered line with a typo or two still finds the song.
 
 import { bookName, parseBookRefQuery } from './bookCodes.js'
-import { isSetCaption } from './songModel.js'
+import { isSetCaption, lyricSetIndex } from './songModel.js'
 
 // A melody-sequence hit is exact (contiguous substring, no fuzzing) but ranks just after
 // an exact number/title/lyric hit (score 0). Small positive so that for a union query
@@ -132,6 +132,102 @@ export function isNoteQuery(q) {
 
 export function snippet(content, len = 60) {
   return lyricsText(content).replace(/\s+/g, ' ').slice(0, len)
+}
+
+// ---------- 717 — WHICH lyric set did this search match? ----------
+//
+// A song can carry several sets of WORDS under one melody. Every set's words are indexed
+// (lyricsText walks the WHOLE arrangement), so typing a line from set 2 has always found the
+// song. The CARD, though, has always previewed the FIRST set — so the reader got a result
+// whose visible text does not contain a single word they typed, with nothing on it to explain
+// why the song came up.
+//
+// Until 26 ก.ค. the card also printed each set's stored name, which happens to BE that set's
+// own first line, so the gap was hidden by coincidence. Sets are captioned by position now
+// ("เนื้อร้องที่ N"), the coincidence is gone, and the confusion is what a reader actually sees.
+//
+// Fix in two halves, both below: preview the set whose own words carry the query, and let the
+// card say which set that was.
+
+// One lyric set's words as plain search text. Each arrangement entry tags its set with `set`
+// (an index); an entry with NO set is SHARED — a common refrain — and so belongs to every
+// set's text. v1-shaped content (no arrangement) has no sets at all: its whole lyric is the
+// answer, which keeps every caller below inert for an ordinary song.
+export function lyricSetText(content, i) {
+  const arr = content?.arrangement
+  if (!Array.isArray(arr)) return lyricsText(content)
+  return arr
+    .filter((e) => {
+      const s = lyricSetIndex(e?.set)
+      return s == null || s === i
+    })
+    .map((e) => syllablesToText(e.syllables))
+    .join(' ')
+}
+
+// How many lyric SETS a song declares — 0 unless it declares more than one. Every set-aware
+// branch here is dead code for a song that does not opt in (which is all ~120 but 717).
+function setCount(content) {
+  const ls = content?.lyricSets
+  return Array.isArray(ls) && ls.length > 1 ? ls.length : 0
+}
+
+// The index of the lyric set whose OWN words carry `query`; 0 when none of them do.
+//
+// Three passes, cheapest first, mirroring scoreSong so the card agrees with the ranking that
+// put the song on screen: exact substring → space-insensitive substring (Thai has no word
+// spaces, so a remembered line gets typed with arbitrary spacing) → fuzzy. The fuzzy pass
+// takes the CLOSEST set, not the first one inside the budget: two sets of one hymn share a
+// melody and a lot of vocabulary, so with a 3-edit budget both can qualify and only the
+// nearest is the one that was actually typed.
+//
+// Returns 0 whenever the query matched something that is not a set's words — the number, the
+// title, the key, the melody, a book reference, a set's stored name — so those searches keep
+// the first set's preview exactly as before.
+//
+// The positional CAPTION is never consulted, for the same reason lyricSetNames keeps it out of
+// the index: it is byte-identical app chrome on every multi-set song, so matching against it
+// would badge all of them with whatever set happened to be checked first.
+export function matchedLyricSet(content, query) {
+  const n = setCount(content)
+  if (n < 2) return 0
+  const q = normalize(query)
+  if (!q) return 0
+  const texts = []
+  for (let i = 0; i < n; i++) texts.push(normalize(lyricSetText(content, i)))
+  for (let i = 0; i < n; i++) if (texts[i].includes(q)) return i
+  const qc = compact(q)
+  if (!qc) return 0
+  const compacted = texts.map(compact)
+  for (let i = 0; i < n; i++) if (compacted[i].includes(qc)) return i
+  const maxErr = fuzzyBudget(qc)
+  if (maxErr === 0) return 0
+  let best = 0
+  let bestD = maxErr + 1
+  for (let i = 0; i < n; i++) {
+    const d = fuzzyDistance(compacted[i], qc, maxErr)
+    if (d < bestD) {
+      bestD = d
+      best = i
+    }
+  }
+  return bestD <= maxErr ? best : 0
+}
+
+// The catalog card's preview line, taken from the set the query actually matched.
+//
+// Returns { text, set, sets }: `sets` is 0 for every single-set song and `set` is that set's
+// index. The card shows its "พบใน …" label only when `set > 0`, so an ordinary card never
+// grows a chip, and a multi-set card carries one only when it says something the preview
+// itself does not (progressive disclosure).
+//
+// A single-set song is routed straight through the untouched `snippet` — byte-identical to
+// before, deliberately: this changes what a MULTI-set card previews, nothing else.
+export function searchSnippet(content, query, len = 60) {
+  const sets = setCount(content)
+  if (!sets) return { text: snippet(content, len), set: 0, sets: 0 }
+  const set = matchedLyricSet(content, query)
+  return { text: lyricSetText(content, set).replace(/\s+/g, ' ').trim().slice(0, len), set, sets }
 }
 
 // Searchable text for a song's book references (B053): people look a song up by the

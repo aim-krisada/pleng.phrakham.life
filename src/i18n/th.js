@@ -113,6 +113,12 @@ export default {
     // catalog card would print "เนื้อร้องที่ 1 · เนื้อร้องที่ 2" and say nothing actionable. What a
     // searcher needs is that this song has words the card's own snippet (set 1's) does not show.
     otherSets: '♪ ทำนองเดียวกัน · {n} ชุดเนื้อร้อง',
+    // …unless the search matched a set the card is NOT previewing, in which case the card says
+    // WHICH set instead. That is the actionable fact — it replaces the count above rather than
+    // joining it, since a card that names set 2 has already said the song has more than one.
+    // {name} is always lyricSetName(), never a locally built string, so the card cannot caption
+    // a set differently from the reader tabs / print heading / editor.
+    foundIn: 'พบใน {name}',
     // the collapsed switcher: "ชุดเนื้อร้อง: <ชื่อชุดที่กำลังดู>  [2 ชุด]  ▾"
     summaryKey: 'ชุดเนื้อร้อง:',
     count: '{n} ชุด',
