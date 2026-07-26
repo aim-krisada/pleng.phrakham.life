@@ -24,6 +24,32 @@ export function lyricSetName(set, i) {
   return 'ทำนอง ' + (THAI_DIGITS[i] || i + 1)
 }
 
+// Read an arrangement entry's `set` as an index. Anything that isn't a whole number —
+// absent, blank, junk — reads as null = SHARED by every set.
+//
+// Numeric STRINGS count. "1" is what any tool that stringifies its JSON writes (an import
+// script, a hand-edited row, a SQL cast). Compared with `===` against a number a string set
+// would match NO set at all, so that entry would vanish from every tab — an EMPTY or
+// half-missing sheet, which is a worse failure than any wrong-words case the feature exists
+// to prevent. The library is safe today only because the merge SQL happened to write ints;
+// this makes the CODE safe instead of relying on that.
+export function lyricSetIndex(v) {
+  // Only a number or a numeric string is a set. Coercing anything else would invent one:
+  // Number([]) is 0 and Number(true) is 1, so an empty array or a stray boolean would quietly
+  // claim membership of a real set instead of reading as shared.
+  if (typeof v !== 'number' && typeof v !== 'string') return null
+  if (v === '') return null
+  const n = Number(v)
+  return Number.isInteger(n) ? n : null
+}
+
+// Does this arrangement entry belong on the sheet for lyric set `active`?
+// An entry with no `set` is SHARED (e.g. a common refrain) and appears on every set's sheet.
+export function inLyricSet(entry, active) {
+  const s = lyricSetIndex(entry?.set)
+  return s == null || s === active
+}
+
 // Split a v1 lyric string into syllable tokens the v2 way: spaces = word breaks,
 // hyphens = same-word syllable breaks. One syllable per token; a token keeps a
 // leading '-' when it continues the previous syllable's word (so "ส-ถิตย์" round-

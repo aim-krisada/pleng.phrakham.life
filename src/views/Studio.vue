@@ -7,7 +7,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { migrateToV2, resolveContent } from '../lib/songModel.js'
+import { migrateToV2, resolveContent, lyricSetName, inLyricSet } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
 import { songBasename } from '../lib/songName.js'
@@ -127,16 +127,36 @@ const viewerSong = computed(() =>
       }
     : null,
 )
-const sheetContent = computed(() => {
+// 717 — แผ่นเพลง has no set switcher of its own, so it prints the set the reader last chose in
+// ดู (viewSet · the first set until they pick one). Printing the raw song instead ran the sets
+// together as ข้อ 1..13 — one sheet of words nobody sings in that order.
+const sheetSetContent = computed(() => {
   const c = liveSong.value?.content
+  if (!c) return null
+  const sets = Array.isArray(c.lyricSets) && c.lyricSets.length > 1
+  if (!sets || !Array.isArray(c.arrangement)) return c
+  return { ...c, arrangement: c.arrangement.filter((e) => inLyricSet(e, viewSet.value)) }
+})
+const sheetContent = computed(() => {
+  const c = sheetSetContent.value
   if (!c) return { key: 'C', timeSignature: '4/4', lines: [] }
   return { ...c, lines: resolveContent(c) } // SongSheet reads v1-shaped `lines`
+})
+// The name of the set on the paper. Two printouts of the same song number otherwise carry
+// different words under an identical heading — same reason ฝึกร้อง stamps it (SongViewer).
+// Screen chrome (the app-bar title) keeps plain `titleText`.
+const sheetSetName = computed(() => {
+  const ls = liveSong.value?.content?.lyricSets
+  return Array.isArray(ls) && ls.length > 1 ? lyricSetName(ls[viewSet.value], viewSet.value) : ''
 })
 const titleText = computed(() => {
   const s = liveSong.value
   if (!s) return 'เพลง'
   return (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
 })
+const sheetPrintTitle = computed(() =>
+  sheetSetName.value ? titleText.value + ' — ' + sheetSetName.value : titleText.value,
+)
 
 // ---------- แผ่นเพลง (print) dock — DockKey fed ITEMS_PRINT (DS dockkey-print-edit §1) ----------
 // The sheet used to be locked to ครบ · สมุดเพลง · ตัวอักษร · คีย์เดิม. These controls let the
@@ -355,7 +375,7 @@ function printSheet() {
             :show-note="printShowNote"
             :show-lyric="printShowLyric"
             :display-key="sheetKey"
-            :song-title="titleText"
+            :song-title="sheetPrintTitle"
             :songbook="sheetBook === 'songbook'"
           />
         </div>
@@ -365,7 +385,7 @@ function printSheet() {
       <DockKey :items="printItems" store-key="print" v-model:alpha="printAlpha">
         <template #cell-export="{ open, toggle, close }">
           <ExportTool
-            :content="liveSong && liveSong.content"
+            :content="sheetSetContent"
             :filename-base="printBasename"
             :on-json="() => downloadSong(liveSong)"
             :open="open"

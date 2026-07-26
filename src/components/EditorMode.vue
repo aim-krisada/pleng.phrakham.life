@@ -6,7 +6,7 @@ import { KEYS, TIME_SIGNATURES, chordOptions, parseChord } from '../lib/chords.j
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, HOLD_STEP, HOLD_MIN, snapHalf, slurSpans } from '../lib/notation.js'
 import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
-import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, THAI_DIGITS } from '../lib/songModel.js'
+import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, THAI_DIGITS } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
@@ -1472,7 +1472,11 @@ function applyRow(data) {
     label: r.label || '',
     syllables: [...(r.syllables || [])],
     key: r.key || '',
-    ...(r.set != null ? { set: r.set } : {}), // 717 — which lyric set (round-trips)
+    // 717 — which lyric set (round-trips). Normalised to a NUMBER at this boundary so every
+    // comparison below (selectSet · the row filter · delete/renumber · the save payload) can
+    // stay a plain `===`. A stringified "1" from an import/SQL cast would otherwise match no
+    // set at all and its row would be invisible in every tab.
+    ...(lyricSetIndex(r.set) != null ? { set: lyricSetIndex(r.set) } : {}),
     afterEachVerse: !!r.afterEachVerse, // B102 — strophic "ร้องรับทุกข้อ" directive (round-trips)
   }))
   if (!arrangement.value.length) {

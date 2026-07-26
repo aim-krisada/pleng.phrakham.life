@@ -13,7 +13,7 @@ import {
   effectiveOrder, buildPlayNotes,
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
-import { resolveContent, resolvePlayOrder, lyricSetName } from '../lib/songModel.js'
+import { resolveContent, resolvePlayOrder, lyricSetName, inLyricSet } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
@@ -179,9 +179,7 @@ const setContent = computed(() => {
   const content = props.song?.content
   if (!content) return null
   if (!lyricSets.value || !Array.isArray(content.arrangement)) return content
-  const arrangement = content.arrangement.filter(
-    (e) => (e.set ?? activeSet.value) === activeSet.value,
-  )
+  const arrangement = content.arrangement.filter((e) => inLyricSet(e, activeSet.value))
   return { ...content, arrangement }
 })
 const resolved = computed(() => {
