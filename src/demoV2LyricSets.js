@@ -80,3 +80,6 @@ createApp({
 }).mount('#app')
 
 if (q.get('open') === '1') setTimeout(() => document.querySelector('.lset-summary')?.click(), 200)
+// ?edit=1 — enter the inline (✏️) editor, which is the only editor /v2 has. The set
+// switcher must come UP expanded there, and a one-set song must offer ＋ เพิ่มชุดเนื้อร้อง.
+if (q.get('edit') === '1') setTimeout(() => document.querySelector('.sv-fab')?.click(), 250)

@@ -252,6 +252,11 @@ const exportContent = computed(() =>
 const setsOpen = ref(false)
 const setsPanel = ref(null)
 const summaryBtn = ref(null)
+// G-verify, 26 ก.ค. (the one finding that survived source-checking): a role="tabpanel" whose
+// tablist is not present is a broken widget — the sheet was claiming to be the panel of tabs a
+// screen-reader user could not reach. So the TAB semantics only exist while the tabs do. While
+// folded the sheet is just the sheet, and the summary button is what names the current set.
+const setTabsVisible = computed(() => !!lyricSets.value && (editMode.value || setsOpen.value))
 function toggleSets() {
   setsOpen.value = !setsOpen.value
   // opening lands you on the CHOICE, not back at the top of the panel (APG: move focus to the
@@ -2817,9 +2822,9 @@ function onSeek({ li, si, syk }) {
           :class="{ 'sv-editing': editMode, 'sv-settings-open': settingsOpen }"
           :style="{ fontSize: readingFontScale + 'rem' }"
           :id="lyricSets ? 'lset-panel' : null"
-          :role="lyricSets ? 'tabpanel' : null"
-          :aria-labelledby="lyricSets ? `lset-tab-${activeSet}` : null"
-          :tabindex="lyricSets && !editMode ? 0 : null"
+          :role="setTabsVisible ? 'tabpanel' : null"
+          :aria-labelledby="setTabsVisible ? `lset-tab-${activeSet}` : null"
+          :tabindex="setTabsVisible && !editMode ? 0 : null"
           @pointerdown="onSheetPointerDown"
           @mousedown="onSheetMouseDown"
           @click="onInlinePick"
