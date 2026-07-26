@@ -141,6 +141,7 @@ describe('SongViewer — lyric-set names', () => {
 
   it('tabs are a proper ARIA tablist: selected state, roving tabindex, panel link', async () => {
     const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    await w.find('.lset-summary').trigger('click') // tab semantics only exist while the tabs do
     const tabs = w.findAll('.lset-tab')
     expect(tabs[0].attributes('aria-selected')).toBe('true')
     expect(tabs[1].attributes('aria-selected')).toBe('false')
@@ -253,5 +254,21 @@ describe('SongViewer — the lyric-set switcher is a collapsed disclosure', () =
 
   it('back-compat: an ordinary song gets no summary at all', () => {
     expect(mountSong(plainSong).find('.lset-summary').exists()).toBe(false)
+  })
+
+  // G-verify (26 ก.ค.) — the one finding that survived source-checking. A role="tabpanel" whose
+  // tablist is nowhere on the page is a broken widget: the sheet was naming itself after a tab
+  // no screen-reader user could reach. Folded, the sheet is just the sheet.
+  it('the sheet is only a tabpanel while the tabs are actually there', async () => {
+    const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    const folded = w.find('.sheet-scale')
+    expect(folded.attributes('role')).toBeUndefined()
+    expect(folded.attributes('aria-labelledby')).toBeUndefined()
+    await w.find('.lset-summary').trigger('click')
+    const open = w.find('.sheet-scale')
+    expect(open.attributes('role')).toBe('tabpanel')
+    expect(open.attributes('aria-labelledby')).toBe('lset-tab-0')
+    // the id stays put throughout, so the tabs' aria-controls always resolves
+    expect(w.find('#lset-panel').exists()).toBe(true)
   })
 })
