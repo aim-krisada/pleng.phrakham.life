@@ -39,12 +39,26 @@ export function lyricSetCount(content) {
 // (→ nothing is filtered, byte-identical to before). An out-of-range/absent `set` option
 // falls back to the FIRST set — never to the concatenation, which would render the two
 // sets as "ข้อ 1 / ข้อ 2" and mean a different song than either.
+// Read a `set` value as an index. Anything that isn't a whole number — absent, blank, junk —
+// reads as null = SHARED. Numeric strings count ("1" is what a tool that stringifies its JSON
+// writes): under `===` a string set would match no set at all and the sheet would come out
+// EMPTY, which is a worse failure than any wrong-words case this feature is meant to prevent.
+function setIndex(v) {
+  if (v == null || v === '') return null
+  const n = Number(v)
+  return Number.isInteger(n) ? n : null
+}
+
 export function lyricSetFilter(content, opts) {
   const n = lyricSetCount(content)
   if (!n) return null
-  const want = Number.isInteger(opts?.set) && opts.set >= 0 && opts.set < n ? opts.set : 0
-  const f = (entry) => (entry?.set ?? want) === want
-  f.set = want
+  const want = setIndex(opts?.set)
+  const use = want != null && want >= 0 && want < n ? want : 0
+  const f = (entry) => {
+    const s = setIndex(entry?.set)
+    return s == null || s === use
+  }
+  f.set = use
   return f
 }
 
@@ -280,13 +294,21 @@ function resolveStrophicOrder(content, opts) {
   const chorus = ranges[chorusIdx]
   if (!chorus) return null
   const chorusStanza = arr[chorusIdx].stanza
+  // The entry that comes next ON THIS SHEET. With no lyric sets that is simply i+1; with sets,
+  // the entries between can belong to another set and are not written out here, so a raw i+1
+  // would miss the "the arrangement already writes the refrain next" case and sing the refrain
+  // twice in a row.
+  const nextShown = (i) => {
+    for (let k = i + 1; k < arr.length; k++) if (ranges[k]) return k
+    return -1
+  }
   const order = []
   arr.forEach((entry, i) => {
     const r = ranges[i]
     if (!r) return
     order.push(r)
     if (i === chorusIdx) return // the refrain itself — never append the refrain after itself
-    if (i + 1 === chorusIdx) return // the arrangement already writes the refrain next
+    if (nextShown(i) === chorusIdx) return // the arrangement already writes the refrain next
     // §4.1 "กางก่อน แล้วค่อยตัด": afterEachVerse expands the full sequence first; then a verse's
     // flow.skipSections trims. A verse that skips the refrain's stanza gets no trailing refrain.
     if (entry.flow && Array.isArray(entry.flow.skipSections) && entry.flow.skipSections.includes(chorusStanza)) return

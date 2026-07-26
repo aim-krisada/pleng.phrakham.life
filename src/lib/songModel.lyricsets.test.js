@@ -90,12 +90,38 @@ describe('resolveContent — 717 lyric sets', () => {
     expect(resolveContent(twoSets(), { set: 1 })[0]._melodyFirst).toBe(true)
   })
 
+  // ---- hostile data (adversarial review, 26 ก.ค.) — the sheet must never come out EMPTY ----
+  it('a NUMERIC-STRING `set` ("0"/"1") still selects, instead of blanking the sheet', () => {
+    // a tool that stringifies its JSON writes set:"1"; under a raw === that entry matches no
+    // set at all and every verse disappears — a worse failure than the stacking this fixes.
+    const c = twoSets()
+    c.arrangement = [
+      { stanza: 'A', set: '0', syllables: ['หนึ่งเอ', 'หนึ่งบี'] },
+      { stanza: 'A', set: '1', syllables: ['สองเอ', 'สองบี'] },
+    ]
+    expect(wordsOf(resolveContent(c, { set: 0 }))).toEqual(['หนึ่งเอ', 'หนึ่งบี'])
+    expect(wordsOf(resolveContent(c, { set: 1 }))).toEqual(['สองเอ', 'สองบี'])
+  })
+
+  it('a junk `set` reads as SHARED (shown everywhere), never as hidden', () => {
+    const c = twoSets()
+    c.arrangement = [
+      { stanza: 'A', set: 0, syllables: ['หนึ่งเอ', 'หนึ่งบี'] },
+      { stanza: 'A', set: 1, syllables: ['สองเอ', 'สองบี'] },
+      { stanza: 'B', set: 'ไม่รู้', syllables: ['รับรวม'] },
+    ]
+    expect(wordsOf(resolveContent(c, { set: 0 }))).toContain('รับรวม')
+    expect(wordsOf(resolveContent(c, { set: 1 }))).toContain('รับรวม')
+  })
+
   it('an out-of-range or junk `set` falls back to the first set (never to stacking)', () => {
-    for (const bad of [{ set: 9 }, { set: -1 }, { set: '1' }, { set: null }, {}]) {
+    for (const bad of [{ set: 9 }, { set: -1 }, { set: 1.5 }, { set: 'ข' }, { set: null }, {}]) {
       const w = wordsOf(resolveContent(twoSets(), bad))
       expect(w).toContain('หนึ่งเอ')
       expect(w).not.toContain('สองเอ')
     }
+    // …but a numeric STRING is a real index, not junk — it is what a stringifying tool writes
+    expect(wordsOf(resolveContent(twoSets(), { set: '1' }))).toContain('สองเอ')
   })
 })
 
@@ -153,6 +179,33 @@ describe('resolvePlayOrder — 717 lyric sets', () => {
         expect(r.toLi).toBeLessThan(lines.length)
       }
     }
+  })
+
+  it('the refrain is NOT sung twice when the entry between belongs to another set', () => {
+    // arrangement: [verse(set0), verse(set1), refrain(set0), verse(set0)]. On set 0's sheet the
+    // refrain follows the first verse directly, so nothing may be appended after that verse —
+    // but the entry physically next in the array is set 1's, so a raw i+1 adjacency test misses
+    // it and the refrain lands twice in a row.
+    const c = {
+      version: 2, key: 'C', timeSignature: '4/4',
+      lyricSets: [{ name: 'ก' }, { name: 'ข' }],
+      stanzas: [
+        { id: 'A', lines: [[seg('1 2', 'C')]] },
+        { id: 'B', lines: [[seg('3', 'G')]] },
+      ],
+      arrangement: [
+        { stanza: 'A', set: 0, syllables: ['ก1', 'ก2'] },
+        { stanza: 'A', set: 1, syllables: ['ข1', 'ข2'] },
+        { stanza: 'B', set: 0, afterEachVerse: true, syllables: ['ร'] },
+        { stanza: 'A', set: 0, syllables: ['ก3', 'ก4'] },
+      ],
+    }
+    // display lines of set 0: 0 = verse1, 1 = refrain, 2 = verse2
+    // play order: verse1 · refrain · verse2 · refrain — the refrain never twice running
+    expect(resolvePlayOrder(c, { set: 0 })).toEqual([
+      { fromLi: 0, toLi: 0 }, { fromLi: 1, toLi: 1 },
+      { fromLi: 2, toLi: 2 }, { fromLi: 1, toLi: 1 },
+    ])
   })
 
   it('set 0 expands its refrain after each verse; set 1 (no refrain of its own) does not', () => {

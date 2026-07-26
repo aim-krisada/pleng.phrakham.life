@@ -188,6 +188,53 @@ describe('SongViewer /v2 — lyric-set names', () => {
     expect(viewer.vm.printTitle).toBe('717. 717 — ' + SET2)
   })
 
+  // ---- hostile state (adversarial review, 26 ก.ค.) ----
+  it('a set disappearing without the song id changing does not leave a dangling tab', async () => {
+    // the id watcher can't see this: the same song object comes back with one set deleted.
+    const three = withSets([{ name: 'ก' }, { name: 'ข' }, { name: 'ค' }])
+    const w = mountSong(three)
+    await w.findAll('.lset-tab')[2].trigger('click')
+    await nextTick()
+    expect(w.findAll('.lset-tab')[2].attributes('aria-selected')).toBe('true')
+    // now the third set is gone, same id
+    await w.setProps({ song: { ...three, content: { ...three.content, lyricSets: [{ name: 'ก' }, { name: 'ข' }] } } })
+    await nextTick()
+    const tabs = w.findAll('.lset-tab')
+    expect(tabs).toHaveLength(2)
+    expect(tabs[0].attributes('aria-selected')).toBe('true') // clamped back, not "nothing selected"
+    // …and the panel names a tab that actually exists
+    expect(w.find('#lset-panel').attributes('aria-labelledby')).toBe(tabs[0].attributes('id'))
+  })
+
+  it('the play-order breadcrumb numbers ท่อน by position on THIS sheet, not by raw index', () => {
+    // set 1's only verse is arrangement[1]; it is ท่อน 1 of that set, not ท่อน 2.
+    const jumpy = {
+      number: 717, title_th: '717',
+      content: {
+        version: 2, key: 'C', timeSignature: '4/4',
+        lyricSets: [{ name: SET1 }, { name: SET2 }],
+        stanzas: [{ id: 'A', lines: [[
+          { type: 'segment', note: '1 2', chord: 'C' },
+          { type: 'jump', kind: 'segno' }, { type: 'jump', kind: 'dc' },
+        ]] }],
+        arrangement: [
+          { stanza: 'A', set: 0, syllables: ['ก1', 'ก2'] },
+          { stanza: 'A', set: 1, syllables: ['ข1', 'ข2'] },
+        ],
+      },
+    }
+    const w = mountSong(jumpy)
+    const vm = w.findComponent(SongViewer).vm
+    expect(vm.playOrderCrumbs.every((c) => c === 'ท่อน 1')).toBe(true)
+  })
+
+  it('the tabpanel is reachable by keyboard when it holds no focusable content (WAI-ARIA APG)', () => {
+    const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    expect(w.find('#lset-panel').attributes('tabindex')).toBe('0')
+    // an ordinary song is not a tabpanel at all, so it gains no tab stop
+    expect(mountSong(plainSong).find('.sheet-scale').attributes('tabindex')).toBeUndefined()
+  })
+
   it('back-compat: an ordinary song’s print heading is untouched (no set suffix, no tabpanel)', () => {
     const w = mountSong(plainSong)
     expect(w.findComponent(SongViewer).vm.printTitle).toBe('1. เพลงปกติ')

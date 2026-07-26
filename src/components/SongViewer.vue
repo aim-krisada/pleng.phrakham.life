@@ -213,6 +213,11 @@ const lyricSetLabels = computed(() => (lyricSets.value || []).map((ls, i) => lyr
 // reset the active tab only when the SONG changes (not on every edit), so a live edit keeps
 // you on the set you're viewing.
 watch(() => props.song?.id, () => { activeSet.value = 0 })
+// …and a set can also disappear WITHOUT the id changing (an edit deletes one; the song object
+// is replaced carrying the same id — or the same undefined id). resolveContent already clamps
+// an out-of-range set, so the sheet stays correct, but the tab bar would show nothing selected
+// and aria-labelledby would name a tab that no longer exists. Clamp the state too.
+watch(() => lyricSets.value?.length || 0, (n) => { if (activeSet.value >= n) activeSet.value = 0 })
 // what to hand the model: undefined for every ordinary song (nothing to filter), so the
 // resolve path is byte-identical unless a song opts in.
 const setOpt = computed(() => (lyricSets.value ? { set: activeSet.value } : undefined))
@@ -1594,7 +1599,12 @@ const playOrderCrumbs = computed(() => {
     const sec = Array.isArray(rl) ? rl.find((it) => it && it.type === 'section') : null
     if (sec?.name) return sec.name
     const ei = rl?._entryIndex
-    return ei != null ? `ท่อน ${ei + 1}` : `บรรทัด ${li + 1}`
+    if (ei == null) return `บรรทัด ${li + 1}`
+    // number the ท่อน by its position ON THIS SHEET, not by its raw arrangement index — with
+    // lyric sets the entries in between belong to another set and aren't here, so a raw index
+    // would call the second set's only verse "ท่อน 2". Identical without sets (contiguous).
+    const seq = [...new Set(lines.map((l) => l?._entryIndex).filter((x) => x != null))].indexOf(ei)
+    return `ท่อน ${(seq < 0 ? ei : seq) + 1}`
   }
   return order.map((r) => sectionOf(r.fromLi))
 })
@@ -2698,6 +2708,7 @@ function onSeek({ li, si, syk }) {
           :id="lyricSets ? 'lset-panel' : null"
           :role="lyricSets ? 'tabpanel' : null"
           :aria-labelledby="lyricSets ? `lset-tab-${activeSet}` : null"
+          :tabindex="lyricSets && !editMode ? 0 : null"
           @pointerdown="onSheetPointerDown"
           @mousedown="onSheetMouseDown"
           @click="onInlinePick"
