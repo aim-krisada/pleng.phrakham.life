@@ -43,9 +43,15 @@ export function appBase() {
   return (isLocalOrigin(loc) ? PUBLIC_ORIGIN : loc.origin) + path
 }
 
-export function buildSongUrl(id, key) {
+// `set` = a lyric set's PERMANENT id (songModel.lyricSetIdAt), never its position — delete a
+// set and a positional link would silently start pointing at different words. Omitted for
+// every ordinary song and for the first set, so the common link stays clean.
+export function buildSongUrl(id, key, set) {
   const base = appBase() + '#/song/' + encodeURIComponent(id)
-  return key ? base + '?key=' + encodeURIComponent(key) : base
+  const q = []
+  if (key) q.push('key=' + encodeURIComponent(key))
+  if (set) q.push('set=' + encodeURIComponent(set))
+  return q.length ? base + '?' + q.join('&') : base
 }
 
 export function buildListUrl(encoded) {

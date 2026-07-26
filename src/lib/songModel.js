@@ -42,6 +42,64 @@ export function lyricSetName(set, i) {
   return setCaption(i)
 }
 
+// ---------- 717 — a lyric set's PERMANENT id (what a shared link points at) ----------
+//
+// A share link is a public promise: someone puts it in a group chat and it has to still mean
+// the same words next year. A positional `?set=1` cannot promise that — delete the first set
+// and every link already out there silently starts pointing at different words, with nobody
+// to notice. So a set carries its own `id`, minted once and never reused.
+//
+// Sets saved before this carry no id. They get one on the next save (mintLyricSetIds), and
+// until then a link simply falls back to the first set — reading old data must never throw.
+
+// A short, URL-safe, collision-resistant id. crypto.randomUUID where it exists (browsers and
+// modern node); otherwise random bytes, so this stays usable in a plain test runner.
+function newSetId() {
+  const uuid =
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '')
+      : Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
+  return 's' + uuid.slice(0, 10)
+}
+
+// The id of set `i`, or '' when that set has none yet (old data) — never invented on the fly:
+// an id that changes between reads would be worse than no id at all.
+export function lyricSetIdAt(content, i) {
+  const ls = content?.lyricSets
+  return (Array.isArray(ls) && typeof ls[i]?.id === 'string' && ls[i].id) || ''
+}
+
+// Resolve a shared link's `?set=<id>` back to an index. Anything unresolvable — an unknown id,
+// a deleted set, junk, nothing at all — falls back to the FIRST set rather than erroring or
+// showing an empty sheet: a link that opens the wrong words is recoverable, one that opens
+// nothing is not.
+export function lyricSetIndexById(content, id) {
+  if (!lyricSetCount(content) || !id) return 0
+  const i = content.lyricSets.findIndex((s) => s?.id === id)
+  return i >= 0 ? i : 0
+}
+
+// Give every set an id, minting only for those without one — so ids already handed out in
+// links are never rewritten. Returns the content UNTOUCHED (same object) when there is
+// nothing to do, which is every ordinary song and every already-minted one, so callers on
+// the save path can apply it unconditionally.
+export function mintLyricSetIds(content) {
+  if (!lyricSetCount(content)) return content
+  const seen = new Set()
+  let changed = false
+  const lyricSets = content.lyricSets.map((s) => {
+    const id = typeof s?.id === 'string' ? s.id : ''
+    // a duplicated id would make two sets indistinguishable to a link — re-mint the later one
+    if (id && !seen.has(id)) { seen.add(id); return s }
+    changed = true
+    let next = newSetId()
+    while (seen.has(next)) next = newSetId()
+    seen.add(next)
+    return { ...s, id: next }
+  })
+  return changed ? { ...content, lyricSets } : content
+}
+
 // How many lyric SETS a song declares — 0 for every ordinary song (incl. all ~120 in the
 // library today), so every set-aware branch below is dead code unless a song opts in.
 export function lyricSetCount(content) {

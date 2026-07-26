@@ -7,7 +7,7 @@
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { migrateToV2, resolveContent, lyricSetName, scopeToLyricSet } from '../lib/songModel.js'
+import { migrateToV2, resolveContent, lyricSetName, scopeToLyricSet, lyricSetIdAt, lyricSetIndexById, mintLyricSetIds } from '../lib/songModel.js'
 import { withSongKey } from '../lib/songEdit.js'
 import { emptyContent } from '../lib/editorSerde.js'
 import { songHaystack, searchSongs } from '../lib/songSearch.js'
@@ -40,6 +40,14 @@ const router = useRouter()
 // that key. Read once at setup so it is ready before either surface mounts.
 const linkKey = KEYS.includes(route.query?.key) ? String(route.query.key) : ''
 let linkKeyPending = !!linkKey
+// …and ?set=<permanent id> opens on that lyric set. Resolved against the SONG once it lands
+// (the id means nothing without it), and an id that no longer exists falls back to the first
+// set rather than erroring — a link that opens the wrong words is recoverable, one that opens
+// nothing is not.
+const linkSetId = typeof route.query?.set === 'string' ? route.query.set : ''
+let linkSetPending = !!linkSetId
+// which set the reading surface should START on (SongViewer applies it once, like start-key)
+const startSet = ref(0)
 // ฝึกร้อง owns its own คีย์ (SongViewer.displayKey) and reports it up; แผ่นเพลง's is sheetKey
 // here. Share whichever surface the user is actually looking at.
 const viewKey = ref('')
@@ -51,8 +59,12 @@ const shareTarget = computed(() => {
   const name = titleText.value
   // ?key= only when transposed away from the song's own key — an untouched song shares a clean link
   const k = shareKey.value && shareKey.value !== s.content?.key ? shareKey.value : ''
+  // ?set= only when the reader moved OFF the first set, and always by the set's permanent id:
+  // a positional link would start pointing at different words the moment a set is deleted.
+  // A set saved before ids existed has none yet — share it positionless rather than wrongly.
+  const setId = viewSet.value > 0 ? lyricSetIdAt(s.content, viewSet.value) : ''
   return {
-    url: buildSongUrl(s.id, k),
+    url: buildSongUrl(s.id, k, setId),
     title: t('share.songTitle', { name }),
     shareText: name,
   }
@@ -351,7 +363,10 @@ async function saveInlineDraft(kind, opts = {}) {
     number: s.number ?? null,
     title_th: (s.title_th || '').trim(),
     title_en: s.title_en?.trim() || null,
-    content: JSON.parse(JSON.stringify(s.content)),
+    // 717 — mint a permanent id for any lyric set that has none, so a shared ?set= link keeps
+    // meaning the same words after a set is added or deleted. No-op for every ordinary song
+    // and for sets already minted, so ids handed out in links are never rewritten.
+    content: JSON.parse(JSON.stringify(mintLyricSetIds(s.content))),
     status,
     // B108 — send หมวด/ธีม ONLY when that field is genuine (read off the row, or picked by a
     // human in ⚙ ตั้งค่าเพลง). A guess written here would be published over what is stored and
@@ -405,7 +420,10 @@ async function publishInline(s) {
     number: s.number ?? null,
     title_th: (s.title_th || '').trim(),
     title_en: s.title_en?.trim() || null,
-    content: JSON.parse(JSON.stringify(s.content)),
+    // 717 — mint a permanent id for any lyric set that has none, so a shared ?set= link keeps
+    // meaning the same words after a set is added or deleted. No-op for every ordinary song
+    // and for sets already minted, so ids handed out in links are never rewritten.
+    content: JSON.parse(JSON.stringify(mintLyricSetIds(s.content))),
   }
   if (!row.title_th) {
     inlineState.value = 'error'
@@ -555,6 +573,14 @@ watch(() => (liveSong.value ? `${liveSong.value.id}|${liveSong.value.content?.ke
   if (!k) return
   // A shared link's ?key= wins ONCE, for the song it was opened on (EPIC H round-trip) — and
   // only for a REAL song: spending it on the blank draft would leave the sheet on the stored key.
+  // ?set= is spent BEFORE the ?key= branch below, which returns early to protect the link's
+  // key from the stored-key re-sync. A link carrying both must land both.
+  if (linkSetPending && (s.number != null || (s.title_th || '').trim())) {
+    const i = lyricSetIndexById(s.content, linkSetId)
+    startSet.value = i
+    viewSet.value = i // แผ่นเพลง follows the shared link too
+    linkSetPending = false
+  }
   if (linkKeyPending && (s.number != null || (s.title_th || '').trim())) {
     sheetKey.value = linkKey
     linkKeyPending = false
@@ -979,6 +1005,7 @@ function printSheet() {
         :draft-status="inlineDraftStatus"
         :review-comment="inlineReviewComment"
         :start-key="linkKey"
+        :start-set="startSet"
         @set="viewSet = $event"
         @update-content="onViewerContent"
         @update-meta="onViewerMeta"
