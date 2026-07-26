@@ -30,6 +30,7 @@
 import { deserializeLine, serializeLine, newLine } from './editorSerde.js'
 import { stripEditorMarkerIds, mintMarkerIds } from './songFlow.js'
 import { syllableSlots } from './notation.js'
+import { setCaption, lyricSetIndex } from './songModel.js'
 
 const clone = (x) => JSON.parse(JSON.stringify(x))
 
@@ -566,4 +567,62 @@ export function moveLineTo(content, stanzaId, from, to) {
   })
   out = { ...out, arrangement: newArr }
   return remintMarkers(out)
+}
+
+// ======================================================================================
+// LYRIC SETS — several sets of WORDS under ONE melody, which you SWITCH between (717)
+// ======================================================================================
+// The inline editor is the only editor /v2 has, so a person editing there must be able to make
+// a second set of words without going back to the v1 editor (P'Aim, 26 ก.ค.). These mirror the
+// v1 editor's add/delete exactly, as pure content ops on the same seam as every other structure
+// action — so the reader, the print path and songModel's filter all keep working unchanged.
+
+// ＋ เพิ่มชุดเนื้อร้อง — a new WORD set over the SAME melody, words empty.
+//
+// The FIRST press bootstraps an ordinary song: it declares `lyricSets`, and tags every existing
+// arrangement row as set 0. Tagging matters — an untagged row is SHARED by every set, so without
+// this the song's existing words would appear under the new set too, which is precisely the
+// "two sets stacked" reading the whole feature exists to prevent.
+export function addLyricSet(content) {
+  const stanzas = stanzasOf(content)
+  if (!stanzas.length) return content
+  const arr = arrangementOf(content)
+  const existing = Array.isArray(content?.lyricSets) ? content.lyricSets : []
+  let sets = existing.slice()
+  let nextArr = arr.slice()
+  if (sets.length <= 1) {
+    sets = [{ name: '', label: setCaption(0) }]
+    nextArr = nextArr.map((r) => ({ ...r, set: 0 }))
+  }
+  const idx = sets.length
+  sets.push({ name: '', label: setCaption(idx) })
+  // the new set's first row hangs off the SAME melody the first set uses, so the author types
+  // words straight onto notes that are already there
+  const stanza = nextArr.find((r) => lyricSetIndex(r.set) === 0)?.stanza || stanzas[0].id
+  nextArr.push({ stanza, set: idx, label: '', syllables: [], key: '' })
+  return remintMarkers({ ...content, lyricSets: sets, arrangement: nextArr })
+}
+
+// 🗑 ลบชุดนี้ — drop ONE set's words. The shared melody (stanzas) and every SHARED row (no `set`)
+// survive; later sets shift down so the indices stay contiguous. Deleting down to one set
+// COLLAPSES the song back to an ordinary one — `lyricSets` gone and every `set` key stripped —
+// so it round-trips byte-identical to a song that never had sets. The last set can't be deleted.
+export function deleteLyricSet(content, index) {
+  const sets = Array.isArray(content?.lyricSets) ? content.lyricSets : []
+  if (sets.length <= 1 || index < 0 || index >= sets.length) return content
+  const arr = arrangementOf(content)
+  const kept = arr.filter((r) => lyricSetIndex(r.set) !== index)
+  const reindexed = kept.map((r) => {
+    const s = lyricSetIndex(r.set)
+    return s != null && s > index ? { ...r, set: s - 1 } : { ...r }
+  })
+  const nextSets = sets.filter((_, i) => i !== index)
+  if (nextSets.length <= 1) {
+    const { lyricSets, ...rest } = content
+    return remintMarkers({
+      ...rest,
+      arrangement: reindexed.map(({ set, ...row }) => row),
+    })
+  }
+  return remintMarkers({ ...content, lyricSets: nextSets, arrangement: reindexed })
 }

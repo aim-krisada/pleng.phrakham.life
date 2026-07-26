@@ -113,6 +113,10 @@ export default {
     // the collapsed switcher: "ชุดเนื้อร้อง: <ชื่อชุดที่กำลังดู>  [2 ชุด]  ▾"
     summaryKey: 'ชุดเนื้อร้อง:',
     count: '{n} ชุด',
+    // /v2's inline (✏️) editor is the only editor it has, so a new set of WORDS is made here
+    add: '＋ เพิ่มชุด',
+    addLone: '＋ เพิ่มชุดเนื้อร้อง',
+    addTitle: 'เพิ่มเนื้อร้องชุดใหม่บนทำนองเดิม (โน้ตใช้ร่วมกัน)',
   },
   // issue9 lead-sheet header — ชื่อเพลง + แถบ คีย์ · อัตราจังหวะ · ความเร็ว เหนือแผ่นเพลง
   leadHeader: {

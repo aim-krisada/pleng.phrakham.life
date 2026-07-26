@@ -14,6 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder, lyricSetName, scopeToLyricSet } from '../lib/songModel.js'
+import { addLyricSet } from '../lib/songStructure.js'
 import { withNotePitch, withInsertedBox, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord, withJumpMarker, removeJumpMarker, updateJumpMarker, activeSymbolsAt, activeMarksAt, withBracketRemovedAt } from '../lib/songEdit.js'
 import { findOrphanJumps } from '../lib/songFlow.js'
 import { downloadSong } from '../lib/jsonIO.js'
@@ -262,8 +263,22 @@ function toggleSets() {
 // the sets without the panel shutting under them.
 function pickSet(i) {
   activeSet.value = i
+  // while editing the strip stays open (there is no summary to hand focus back to) — folding it
+  // would hide the very thing the next keystroke writes into
+  if (editMode.value) return
   setsOpen.value = false
   nextTick(() => summaryBtn.value?.focus())
+}
+
+// ＋ เพิ่มชุดเนื้อร้อง — /v2's inline editor is the only editor it has, so making a new set of
+// words has to be possible here (P'Aim, 26 ก.ค.). Pure content op on the same seam as every
+// other structure action; the shell owns the save. Land on the set that was just created, so
+// the author types into it rather than hunting for where it went.
+function onAddLyricSet() {
+  const next = addLyricSet(props.song.content)
+  if (next === props.song.content) return
+  emit('update-content', next)
+  nextTick(() => { activeSet.value = (next.lyricSets?.length || 1) - 1 })
 }
 
 // WAI-ARIA tabs pattern: ← → Home End move between tabs (roving tabindex below), so the
@@ -2728,12 +2743,15 @@ function onSeek({ li, si, syk }) {
           <div v-if="song.scripture" class="scripture-tag muted">📖 {{ song.scripture }}</div>
         </div>
 
-        <!-- 717 multi-lyric — the WORDS under the SAME melody, switched by segmented tabs that
-             live inside a COLLAPSED disclosure (you choose a set once, then sing). The summary
-             always names the set currently on the sheet. Only for a song that declares >1 lyric
-             set; not printed (print takes the chosen set, and printTitle names it on the paper). -->
+        <!-- 717 multi-lyric — the WORDS under the SAME melody, switched by segmented tabs.
+             READING folds them into a disclosure whose summary names the set on the sheet and
+             says how many exist (you choose once, then sing). EDITING never folds: the active
+             set is what your typing goes into, so it has to be readable and switchable without
+             a click (P'Aim, 26 ก.ค.). Not printed — print takes the chosen set and printTitle
+             names it on the paper. -->
         <div v-if="lyricSets" class="lyric-set-wrap no-print">
           <button
+            v-if="!editMode"
             ref="summaryBtn"
             class="lset-summary"
             :class="{ open: setsOpen }"
@@ -2750,7 +2768,7 @@ function onSeek({ li, si, syk }) {
             <span class="lset-chev" aria-hidden="true">{{ setsOpen ? '▴' : '▾' }}</span>
           </button>
           <div
-            v-show="setsOpen"
+            v-show="editMode || setsOpen"
             id="lset-tabs"
             ref="setsPanel"
             class="lyric-set-tabs"
@@ -2770,11 +2788,27 @@ function onSeek({ li, si, syk }) {
               :tabindex="activeSet === i ? 0 : -1"
               @click="pickSet(i)"
             >{{ lyricSetLabels[i] }}</button>
+            <!-- /v2 has no separate editor, so this is the only place someone can make a THIRD
+                 set of words — without it they would have to go back to the v1 editor. -->
+            <button
+              v-if="editMode"
+              class="lset-add"
+              :title="t('lyricSet.addTitle')"
+              @click="onAddLyricSet"
+            >{{ t('lyricSet.add') }}</button>
           </div>
           <!-- a screen reader hears WHICH words are on the sheet now; sighted users read it in
                the summary. The tabs can be folded away, so this is the only spoken confirmation.
                .sv-sr-only (not .sr-only, which is scoped to .lead-header). -->
           <p class="sv-sr-only" aria-live="polite">{{ t('lyricSet.now', { name: activeSetName }) }}</p>
+        </div>
+        <!-- ONE set (≈ the whole library): the reader shows nothing at all, and the editor shows
+             only this — a light way in, so a second set stays one tap away without charging every
+             ordinary song for a feature it does not use (P'Aim, 26 ก.ค. · progressive disclosure). -->
+        <div v-else-if="editMode" class="lyric-set-wrap no-print">
+          <button class="lset-add-lone" :title="t('lyricSet.addTitle')" @click="onAddLyricSet">
+            {{ t('lyricSet.addLone') }}
+          </button>
         </div>
 
         <div
@@ -3061,8 +3095,42 @@ function onSeek({ li, si, syk }) {
   white-space: nowrap;
 }
 .lset-chev { flex: 0 0 auto; font-size: 0.75rem; opacity: 0.7; }
+
+/* ＋ เพิ่มชุด — only in the editor. Dashed, brand-tinted, deliberately lighter than a tab: it
+   MAKES something rather than selects it, and it must never be mistaken for the set you are on.
+   .lset-add-lone is the one-set case, which renders alone with no strip around it. */
+.lset-add,
+.lset-add-lone {
+  appearance: none;
+  min-height: 38px;
+  padding: 4px 14px;
+  border: 1px dashed var(--brand, #8b4513);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--brand, #8b4513);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.lset-add-lone {
+  /* the ordinary song's only set chrome — quieter still, so it reads as an offer, not a control */
+  margin: 4px auto 6px;
+  border-color: var(--line, #e2d9c8);
+  color: var(--ink-2, #6b5d45);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+.lset-add:hover,
+.lset-add-lone:hover { background: color-mix(in srgb, var(--brand, #8b4513) 10%, transparent); }
+.lset-add-lone:hover { border-color: var(--brand, #8b4513); color: var(--brand, #8b4513); }
+.lset-add:focus-visible,
+.lset-add-lone:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
 @media (pointer: coarse) {
-  .lset-summary { min-height: 44px; }
+  .lset-summary,
+  .lset-add,
+  .lset-add-lone { min-height: 44px; }
 }
 .lyric-set-tabs {
   display: inline-flex;

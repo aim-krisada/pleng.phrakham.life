@@ -310,3 +310,76 @@ describe('SongViewer /v2 — the lyric-set switcher is a collapsed disclosure', 
     expect(mountSong(plainSong).find('.lset-summary').exists()).toBe(false)
   })
 })
+
+// ---- EDITING never folds the switcher (P'Aim, 26 ก.ค.) -----------------------------------
+// /v2 has no separate editor — the inline ✏️ one is it — so the folded switcher IS the control
+// the person editing needs. Reading folds; editing must not, or "which words am I typing into?"
+// is a click away at all times. And since this is the only editor, a NEW set of words has to be
+// makeable from here too.
+describe('SongViewer /v2 — the switcher in the inline editor', () => {
+  const enterEdit = async (w) => {
+    w.findComponent(SongViewer).vm.toggleEdit()
+    await nextTick(); await nextTick()
+    return w
+  }
+
+  it('entering edit mode opens the tabs and drops the fold control', async () => {
+    const w = await enterEdit(mountSong(withSets([{ name: SET1 }, { name: SET2 }])))
+    expect(w.find('.lyric-set-tabs').attributes('style') || '').not.toContain('display: none')
+    expect(w.find('.lset-summary').exists()).toBe(false) // nothing to collapse it with
+    expect(w.findAll('.lset-tab')).toHaveLength(2)
+  })
+
+  it('picking a set while editing leaves the tabs open', async () => {
+    const w = await enterEdit(mountSong(withSets([{ name: SET1 }, { name: SET2 }])))
+    await w.findAll('.lset-tab')[1].trigger('click')
+    await nextTick()
+    expect(w.findAll('.lset-tab')[1].attributes('aria-selected')).toBe('true')
+    expect(w.find('.lyric-set-tabs').attributes('style') || '').not.toContain('display: none')
+  })
+
+  it('leaving edit mode folds it back, and the summary returns', async () => {
+    const w = await enterEdit(mountSong(withSets([{ name: SET1 }, { name: SET2 }])))
+    w.findComponent(SongViewer).vm.toggleEdit()
+    await nextTick(); await nextTick()
+    expect(w.find('.lset-summary').exists()).toBe(true)
+    expect(w.find('.lset-summary').attributes('aria-expanded')).toBe('false')
+    expect(w.find('.lyric-set-tabs').attributes('style')).toContain('display: none')
+  })
+
+  it('a MULTI-set song gets ＋ เพิ่มชุด in the strip while editing, and never while reading', async () => {
+    const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    expect(w.find('.lset-add').exists()).toBe(false)
+    await enterEdit(w)
+    expect(w.find('.lset-add').exists()).toBe(true)
+  })
+
+  it('a ONE-set song gets only the light ＋ เพิ่มชุดเนื้อร้อง — and only while editing', async () => {
+    const w = mountSong(plainSong)
+    expect(w.find('.lset-add-lone').exists()).toBe(false) // reading an ordinary song: nothing
+    expect(w.find('.lyric-set-wrap').exists()).toBe(false)
+    await enterEdit(w)
+    const add = w.find('.lset-add-lone')
+    expect(add.exists()).toBe(true)
+    expect(add.text()).toContain('เพิ่มชุดเนื้อร้อง')
+    expect(w.find('.lyric-set-tabs').exists()).toBe(false) // still no tabs — there is one set
+  })
+
+  it('＋ on a one-set song proposes the two-set content up to the shell', async () => {
+    const w = await enterEdit(mountSong(plainSong))
+    await w.find('.lset-add-lone').trigger('click')
+    await nextTick()
+    const viewer = w.findComponent(SongViewer)
+    const emitted = viewer.emitted('update-content')
+    expect(emitted).toBeTruthy()
+    const next = emitted[emitted.length - 1][0]
+    expect(next.lyricSets).toHaveLength(2)
+    // the song's existing words become set 0 — untagged they would show under the new set too
+    expect(next.arrangement[0].set).toBe(0)
+    expect(next.arrangement[0].syllables).toEqual(['กา', 'ขา'])
+    expect(next.arrangement[1].set).toBe(1)
+    expect(next.arrangement[1].syllables).toEqual([])
+    // …and the viewer never mutated the song it was given
+    expect('lyricSets' in plainSong.content).toBe(false)
+  })
+})
