@@ -66,6 +66,8 @@ describe('EditorMode — 717 lyric sets save shape + back-compat', () => {
   it('a 717 song round-trips lyricSets + arrangement[].set', () => {
     const pc = mountEd(song717).vm.previewContent
     expect(pc.lyricSets).toHaveLength(2)
+    // the SAVED text is never rewritten by opening the editor — arabic is a display rule
+    // (lyricSetName), not a migration. Editing a song must not silently rewrite its data.
     expect(pc.lyricSets[1].label).toBe('ทำนอง ๒')
     expect(pc.arrangement.map((r) => r.set)).toEqual([0, 1])
   })
@@ -181,13 +183,13 @@ describe('EditorMode — naming a lyric set', () => {
     expect(w.findAll('.eset-tab')[1].text()).toBe(SET2)
   })
 
-  it('trims, and clearing the name restores the positional ทำนอง ๒', async () => {
+  it('trims, and clearing the name restores the positional ทำนอง 2 (arabic)', async () => {
     const w = mountEd(song717)
     await rename(w, 1, '   ' + SET2 + '  ')
     expect(w.vm.previewContent.lyricSets[1]).toEqual({ name: SET2, label: SET2 })
     await rename(w, 1, '   ')
-    expect(w.vm.previewContent.lyricSets[1]).toEqual({ label: 'ทำนอง ๒' })
-    expect(w.findAll('.eset-tab')[1].text()).toBe('ทำนอง ๒')
+    expect(w.vm.previewContent.lyricSets[1]).toEqual({ label: 'ทำนอง 2' })
+    expect(w.findAll('.eset-tab')[1].text()).toBe('ทำนอง 2')
   })
 
   it('Esc cancels — the name is left as it was', async () => {
@@ -205,7 +207,7 @@ describe('EditorMode — naming a lyric set', () => {
     w.vm.addLyricSet()
     await nextTick(); await nextTick() // addLyricSet opens the rename on the next tick
     expect(w.vm.editingSetId).toBe(1)
-    expect(w.vm.setNameDraft).toBe('ทำนอง ๒')
+    expect(w.vm.setNameDraft).toBe('ทำนอง 2')
     expect(w.find('.eset-rename').exists()).toBe(true)
     // naming it lands in the saved shape
     w.vm.setNameDraft = SET2
@@ -220,7 +222,7 @@ describe('EditorMode — naming a lyric set', () => {
     await nextTick(); await nextTick()
     w.vm.cancelRenameSet() // author dismissed the name field
     await nextTick()
-    expect(w.vm.previewContent.lyricSets).toEqual([{ label: 'ทำนอง ๑' }, { label: 'ทำนอง ๒' }])
+    expect(w.vm.previewContent.lyricSets).toEqual([{ label: 'ทำนอง 1' }, { label: 'ทำนอง 2' }])
   })
 
   it('announces add + rename on the aria-live channel (focus moves into the name field)', async () => {

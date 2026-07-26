@@ -6,7 +6,7 @@ import { KEYS, TIME_SIGNATURES, chordOptions, parseChord } from '../lib/chords.j
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, HOLD_STEP, HOLD_MIN, snapHalf, slurSpans } from '../lib/notation.js'
 import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
-import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, THAI_DIGITS } from '../lib/songModel.js'
+import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, setCaption } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
@@ -244,12 +244,12 @@ const migrateWarnings = ref([]) // set when a v1 song is auto-split on load (aut
 // arrangement[].set → maps to MusicXML <lyric number>. Notes/chords (the stanza) stay shared.
 const lyricSets = ref([]) // [{ name, label }] — >0 shows the set tabs in the editor
 const activeSet = ref(0)
-// the tabs to render: a song with no declared sets still shows "ทำนอง ๑" so ＋ เพิ่มชุด can
+// the tabs to render: a song with no declared sets still shows "ทำนอง 1" so ＋ เพิ่มชุด can
 // bootstrap the second set (matches the reader: tabs only actually appear once >1 set exists).
 // `display` = the name the author sees everywhere (tab, hint, delete confirm) — resolved by
 // the shared lyricSetName(), so editor and reader can never disagree about a set's name.
 const setTabs = computed(() =>
-  (lyricSets.value.length ? lyricSets.value : [{ label: 'ทำนอง ๑' }]).map((s, i) => ({
+  (lyricSets.value.length ? lyricSets.value : [{ label: setCaption(0) }]).map((s, i) => ({
     ...s,
     display: lyricSetName(s, i),
   })),
@@ -275,11 +275,11 @@ watch(
 // become set 0, then a fresh empty row (linked to the shared stanza) is added as the new set.
 function addLyricSet() {
   if (!lyricSets.value.length) {
-    lyricSets.value = [{ name: '', label: 'ทำนอง ๑' }]
+    lyricSets.value = [{ name: '', label: setCaption(0) }]
     arrangement.value.forEach((r) => { if (r.set == null) r.set = 0 })
   }
   const idx = lyricSets.value.length
-  lyricSets.value.push({ name: '', label: 'ทำนอง ' + (THAI_DIGITS[idx] || idx + 1) })
+  lyricSets.value.push({ name: '', label: setCaption(idx) })
   const stanza = arrangement.value.find((r) => (r.set ?? 0) === 0)?.stanza || stanzas.value[0]?.id || 'A'
   arrangement.value.push({ stanza, set: idx, label: '', syllables: [], key: '' })
   selectSet(idx)
@@ -314,7 +314,7 @@ function commitRenameSet() {
   } else {
     // cleared → back to the positional caption the app has always shown
     set.name = ''
-    set.label = 'ทำนอง ' + (THAI_DIGITS[i] || i + 1)
+    set.label = setCaption(i)
   }
   removeSetMsg.value = `ตั้งชื่อชุดเป็น “${lyricSetName(set, i)}” แล้ว`
 }

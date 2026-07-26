@@ -34,14 +34,15 @@ const plainSong = {
 describe('songSearch — lyric-set names are indexed (717)', () => {
   it('lyricSetNames: reads `name`, and the older `label` when it differs', () => {
     expect(lyricSetNames(song717.content)).toEqual([SET1, SET2])
-    // legacy 717 data (label only) is still indexed
+    // legacy 717 data (label only) is still indexed — under BOTH the arabic text now on the
+    // tab (type what you see and you find it) and the raw Thai text still in the database
     expect(lyricSetNames({ lyricSets: [{ label: 'ทำนอง ๑' }, { label: 'ทำนอง ๒' }] }))
-      .toEqual(['ทำนอง ๑', 'ทำนอง ๒'])
+      .toEqual(['ทำนอง 1', 'ทำนอง ๑', 'ทำนอง 2', 'ทำนอง ๒'])
     // name and label disagree → BOTH searchable (nobody loses the name they remember)
     expect(lyricSetNames({ lyricSets: [{ name: 'ใหม่', label: 'เก่า' }, { label: 'ข' }] }))
       .toEqual(['ใหม่', 'เก่า', 'ข'])
     // neither → the positional fallback, so a set is never unnamed in the index
-    expect(lyricSetNames({ lyricSets: [{}, {}] })).toEqual(['ทำนอง ๑', 'ทำนอง ๒'])
+    expect(lyricSetNames({ lyricSets: [{}, {}] })).toEqual(['ทำนอง 1', 'ทำนอง 2'])
   })
 
   it('back-compat: songs with no lyricSets (and a lone set) contribute nothing', () => {

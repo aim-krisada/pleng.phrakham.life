@@ -61,21 +61,28 @@ function onUpdateContent(content) {
   song.value = { ...song.value, content }
 }
 
+// evidence-only switch for the A/B P'Aim is picking between (26 ก.ค.):
+//   ?badge=0 — variant A: the collapsed switcher shows the set name only
+const setBadge = new URLSearchParams(location.search).get('badge') !== '0'
+
 createApp({
   render: () => h('div', { style: 'max-width:820px;margin:0 auto;padding:12px' }, [
-    h(SongViewer, { song: song.value, tier: 'team', 'onUpdate-content': onUpdateContent }),
+    h(SongViewer, { song: song.value, tier: 'team', setBadge, 'onUpdate-content': onUpdateContent }),
   ]),
 }).mount('#app')
 
 // Harness-only URL params so a headless screenshot can capture each state via the REAL
 // controls (same path a user's tap takes):
 //   ?set=N     — select lyric-set tab N (view)
+//   ?open=1    — leave the lyric-set disclosure EXPANDED
 //   ?mode=edit — enter แก้ไข (click the ✏️ FAB)
 //   &add=1     — then click ＋ เพิ่มชุด (adds a 3rd set on the same melody)
 const q = new URLSearchParams(location.search)
 setTimeout(() => {
   if (q.get('mode') === 'edit') document.querySelector('.sv-fab')?.click()
   const set = Number(q.get('set') || 0)
+  // the tabs live inside the collapsed disclosure now — open it first, the way a tap does
+  if (set || q.get('open') === '1') document.querySelector('.lset-summary')?.click()
   if (set) setTimeout(() => document.querySelectorAll('.lset-tab')[set]?.click(), 120)
   if (q.get('add') === '1') setTimeout(() => document.querySelector('.lset-add')?.click(), 220)
   // &pick=<word> — select the syllable with that text, so the screenshot shows the caret +
