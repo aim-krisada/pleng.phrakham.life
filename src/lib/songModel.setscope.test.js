@@ -6,7 +6,7 @@
 // a >1 `lyricSets` behind and resolveContent filters a SECOND time, snapping the export back
 // to set 0 no matter which tab the reader is on.
 import { describe, it, expect } from 'vitest'
-import { resolveContent, resolvePlayOrder, scopeToLyricSet, lyricSetCount } from './songModel.js'
+import { resolveContent, resolvePlayOrder, scopeToLyricSet, lyricSetCount, lyricSetIndex } from './songModel.js'
 
 const line = (n) => [{ type: 'segment', note: n }]
 const entry = (set, label, extra = {}) => ({ stanza: label === 'รับ' ? 'B' : 'A', set, label, syllables: [], ...extra })
@@ -72,5 +72,33 @@ describe('scopeToLyricSet', () => {
 
   it('leaves the melody alone — one set is still the whole song’s tune', () => {
     expect(scopeToLyricSet(content, 1).stanzas).toBe(content.stanzas)
+  })
+})
+
+// Reading an entry's `set` robustly. Only a number or a numeric string is a set — coercing
+// anything else invents one (Number([]) is 0, Number(true) is 1), which would quietly hand a
+// junk row membership of a real set instead of leaving it SHARED.
+describe('lyricSetIndex', () => {
+  it('reads whole numbers and NUMERIC STRINGS', () => {
+    expect(lyricSetIndex(0)).toBe(0)
+    expect(lyricSetIndex(2)).toBe(2)
+    expect(lyricSetIndex('0')).toBe(0)
+    expect(lyricSetIndex('1')).toBe(1) // a stringified set must not vanish from every tab
+  })
+
+  it('reads absent / blank / junk as SHARED (null), never as a real set', () => {
+    for (const v of [null, undefined, '', 'x', {}, [], true, false, NaN, 1.5, Infinity]) {
+      expect(lyricSetIndex(v), String(v)).toBeNull()
+    }
+  })
+
+  it('a set written as strings still resolves to a complete sheet', () => {
+    const strung = {
+      ...content,
+      arrangement: content.arrangement.map((e) => ({ ...e, set: String(e.set) })),
+    }
+    // same line count as the int-typed original — no row silently dropped
+    expect(resolveContent(strung, { set: 1 })).toHaveLength(resolveContent(content, { set: 1 }).length)
+    expect(scopeToLyricSet(strung, 1).arrangement).toHaveLength(4)
   })
 })

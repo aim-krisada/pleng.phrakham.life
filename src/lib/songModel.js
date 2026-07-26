@@ -43,11 +43,16 @@ export function lyricSetCount(content) {
 // reads as null = SHARED. Numeric strings count ("1" is what a tool that stringifies its JSON
 // writes): under `===` a string set would match no set at all and the sheet would come out
 // EMPTY, which is a worse failure than any wrong-words case this feature is meant to prevent.
-function setIndex(v) {
-  if (v == null || v === '') return null
+// Only a number or a numeric string is a set. Coercing anything else would invent one:
+// Number([]) is 0 and Number(true) is 1, so an empty array or a stray boolean would quietly
+// claim membership of a real set instead of reading as shared.
+export function lyricSetIndex(v) {
+  if (typeof v !== 'number' && typeof v !== 'string') return null
+  if (v === '') return null
   const n = Number(v)
   return Number.isInteger(n) ? n : null
 }
+const setIndex = lyricSetIndex
 
 export function lyricSetFilter(content, opts) {
   const n = lyricSetCount(content)

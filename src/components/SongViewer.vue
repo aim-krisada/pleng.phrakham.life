@@ -70,7 +70,8 @@ const props = defineProps({
 // `update-meta` (B060) is the same idea for the song's ROW fields (เลข · ชื่อไทย · ชื่ออังกฤษ ·
 // ธีม · หมวด), which live on the songs row and not in `content` — the ⚙ ตั้งค่าเพลง panel hands
 // up a patch and the owner merges it, exactly as it does with a new content.
-const emit = defineEmits(['update-content', 'update-meta', 'update-music', 'save', 'withdraw', 'key-change', 'update:editing', 'left-dirty', 'new-song'])
+// 'set' = which lyric set the reader switched to, so the shell can print/export the same one.
+const emit = defineEmits(['update-content', 'update-meta', 'update-music', 'save', 'withdraw', 'key-change', 'update:editing', 'left-dirty', 'new-song', 'set'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -223,11 +224,12 @@ watch(() => lyricSets.value?.length || 0, (n) => { if (activeSet.value >= n) act
 // that is no longer on screen. Treat it like opening the song afresh — stop, rewind, re-tick
 // every ท่อน — otherwise a tick left over from the previous set makes the selection a strict
 // subset and playback quietly drops to "only the ท่อน you picked" instead of the whole song.
-watch(activeSet, () => {
+watch(activeSet, (i) => {
   stopPlay()
   pausedIndex.value = 0
   posIndex.value = 0
   nextTick(selectAllSecs) // tags are recomputed from the NEW set's sheet — tick after that
+  emit('set', i) // so แผ่นเพลง prints/exports the set that was on screen
 })
 // what to hand the model: undefined for every ordinary song (nothing to filter), so the
 // resolve path is byte-identical unless a song opts in.

@@ -7,7 +7,7 @@
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { migrateToV2, resolveContent } from '../lib/songModel.js'
+import { migrateToV2, resolveContent, lyricSetName, scopeToLyricSet } from '../lib/songModel.js'
 import { withSongKey } from '../lib/songEdit.js'
 import { emptyContent } from '../lib/editorSerde.js'
 import { songHaystack, searchSongs } from '../lib/songSearch.js'
@@ -60,6 +60,9 @@ const shareTarget = computed(() => {
 
 // three views on one surface: ดู (ร้องตาม) · แผ่น (พิมพ์) · แก้ (แก้ไข)
 const mode = ref('view')
+// 717 — the lyric set the reader is on in ดู, carried across so แผ่นเพลง prints/exports the
+// same one. 0 for every ordinary song (they never emit).
+const viewSet = ref(0)
 // bumped to force a fresh (blank) EditorMode when "สร้างเพลงใหม่" is used from the
 // "เพลง ▾" panel — remounting is the clean way to reset the editor from the shell
 // without reaching into its internal state (S2 create-new).
@@ -493,16 +496,35 @@ const viewerSong = computed(() =>
       }
     : null,
 )
+// 717 — แผ่นเพลง has no set switcher of its own, so it prints the set the reader last chose in
+// ดู (viewSet · the first set until they pick one). Printed the raw song, resolveContent fell
+// back to the FIRST set and quietly handed set 2's reader set 1's paper.
+// The sheet resolves with `{set}` (not scopeToLyricSet) so its lines keep their ORIGINAL
+// `_entryIndex`, same as the reading surface.
 const sheetContent = computed(() => {
   const c = liveSong.value?.content
   if (!c) return { key: 'C', timeSignature: '4/4', lines: [] }
-  return { ...c, lines: resolveContent(c) } // SongSheet reads v1-shaped `lines`
+  return { ...c, lines: resolveContent(c, { set: viewSet.value }) } // SongSheet reads v1-shaped `lines`
+})
+// …and the export path gets the choice baked in, since audioExport takes no options.
+const sheetExportContent = computed(() =>
+  liveSong.value?.content ? scopeToLyricSet(liveSong.value.content, viewSet.value) : null,
+)
+// The name of the set on the paper. Two printouts of the same song number otherwise carry
+// different words under an identical heading — same reason ฝึกร้อง stamps it (SongViewer).
+// Screen chrome (the app-bar title) keeps plain `titleText`.
+const sheetSetName = computed(() => {
+  const ls = liveSong.value?.content?.lyricSets
+  return Array.isArray(ls) && ls.length > 1 ? lyricSetName(ls[viewSet.value], viewSet.value) : ''
 })
 const titleText = computed(() => {
   const s = liveSong.value
   if (!s) return 'เพลง'
   return (s.number != null ? s.number + '. ' : '') + (s.title_th || 'เพลง')
 })
+const sheetPrintTitle = computed(() =>
+  sheetSetName.value ? titleText.value + ' — ' + sheetSetName.value : titleText.value,
+)
 
 // ---------- แผ่นเพลง (print) dock — DockKey fed ITEMS_PRINT (DS dockkey-print-edit §1) ----------
 // The sheet used to be locked to ครบ · สมุดเพลง · ตัวอักษร · คีย์เดิม. These controls let the
@@ -957,6 +979,7 @@ function printSheet() {
         :draft-status="inlineDraftStatus"
         :review-comment="inlineReviewComment"
         :start-key="linkKey"
+        @set="viewSet = $event"
         @update-content="onViewerContent"
         @update-meta="onViewerMeta"
         @update-music="onViewerMusic"
@@ -988,7 +1011,7 @@ function printSheet() {
             :show-note="printShowNote"
             :show-lyric="printShowLyric"
             :display-key="sheetKey"
-            :song-title="titleText"
+            :song-title="sheetPrintTitle"
             :songbook="sheetBook === 'songbook'"
           />
         </div>
@@ -998,7 +1021,7 @@ function printSheet() {
       <DockKey :items="printItems" store-key="print" v-model:alpha="printAlpha">
         <template #cell-export="{ open, toggle, close }">
           <ExportTool
-            :content="liveSong && liveSong.content"
+            :content="sheetExportContent"
             :filename-base="printBasename"
             :on-json="() => downloadSong(liveSong)"
             :open="open"
