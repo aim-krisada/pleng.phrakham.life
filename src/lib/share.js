@@ -44,8 +44,12 @@ export function appBase() {
 }
 
 // `set` = a lyric set's PERMANENT id (songModel.lyricSetIdAt), never its position — delete a
-// set and a positional link would silently start pointing at different words. Omitted for
-// every ordinary song and for the first set, so the common link stays clean.
+// set and a positional link would silently start pointing at different words.
+//
+// The caller passes an id for EVERY set of a multi-set song, the first one included: a link
+// shared off set 1 without it does not mean "set 1", it means "whichever set happens to be
+// first", and deleting set 1 silently repoints every copy of that link already in a group chat.
+// An ordinary song has nothing to disambiguate, so its link stays clean and set-less.
 export function buildSongUrl(id, key, set) {
   const base = appBase() + '#/song/' + encodeURIComponent(id)
   const q = []

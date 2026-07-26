@@ -126,6 +126,26 @@ export default {
     add: '＋ เพิ่มชุด',
     addLone: '＋ เพิ่มชุดเนื้อร้อง',
     addTitle: 'เพิ่มเนื้อร้องชุดใหม่บนทำนองเดิม (โน้ตใช้ร่วมกัน)',
+    // 🗑 ลบชุดนี้ — /v2 ships the ＋ that MAKES a set, so it has to ship the way out of one too.
+    // Every string says the same two things: what goes (this set's WORDS) and what stays (the
+    // melody) — the one thing a person needs to be sure of before pressing a destructive button.
+    del: 'ลบชุดนี้',
+    delTitle: 'ลบชุดเนื้อร้องที่เลือกอยู่ (เนื้อชุดนี้จะหาย · ทำนองยังอยู่)',
+    delAria: 'ลบ {name}',
+    // shown on the disabled button — a control that refuses has to say why (WCAG 3.3.1)
+    delLastTitle: 'ลบไม่ได้ — เพลงต้องเหลือเนื้อร้องอย่างน้อย 1 ชุด',
+    confirmTitle: 'ลบ “{name}” ?',
+    confirmBody: 'เนื้อร้องชุดนี้จะหายทั้งหมด (กู้ไม่ได้ในหน้านี้) ·',
+    confirmKeep: 'ทำนองยังอยู่',
+    confirmCancel: 'ยกเลิก',
+    confirmDel: 'ลบชุดนี้',
+    // aria-live after the delete: the captions RENUMBER, so say what is left, not just "ลบแล้ว"
+    deleted: 'ลบ {name} แล้ว · เหลือ {n} ชุด',
+    deletedLast: 'ลบ {name} แล้ว · เหลือเนื้อร้องชุดเดียว',
+    // A shared link names a set by its PERMANENT id. When that set is gone (deleted, or the song
+    // collapsed back to one set) the link still opens the song — one that opens nothing is worse —
+    // but the first set's words must NOT be passed off as the ones the link pointed at.
+    linkGone: 'เนื้อร้องชุดที่ลิงก์นี้ชี้ไว้ถูกลบไปแล้ว · กำลังแสดงเนื้อร้องชุดแรกแทน',
   },
   // issue9 lead-sheet header — ชื่อเพลง + แถบ คีย์ · อัตราจังหวะ · ความเร็ว เหนือแผ่นเพลง
   leadHeader: {

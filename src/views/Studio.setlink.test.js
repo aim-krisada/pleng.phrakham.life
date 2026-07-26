@@ -140,3 +140,54 @@ describe('Studio — a shared ?set= link opens on that lyric set', () => {
     expect(lyricSetIdAt(plain.content, 0)).toBe('')
   })
 })
+
+// Now that a set can be DELETED from /v2, "falls back to the first set" is no longer the whole
+// answer. Falling back keeps the link usable — one that opens nothing is worse — but handing the
+// first set's words over in silence, looking exactly like the link always did, is the one failure
+// a public link cannot have. So the fallback is SAID, once, quietly.
+describe('Studio — a link whose lyric set is GONE says so', () => {
+  const GONE = /ถูกลบไปแล้ว/
+  const noticeBox = (w) => w.findAll('.sv-import-msg').find((n) => GONE.test(n.text()))
+
+  it('an unknown set id opens the first set AND tells the reader why', async () => {
+    const w = await openLink({ set: 'sGONE' })
+    expect(startSetOf(w)).toBe(0) // still opens — never an error, never a blank sheet
+    expect(noticeBox(w)).toBeTruthy()
+  })
+
+  it('a set id that still exists says NOTHING — no notice on the common path', async () => {
+    expect(noticeBox(await openLink({ set: 'sTWO' }))).toBeFalsy()
+  })
+
+  it('the first set’s own id is silent too — the link kept its promise', async () => {
+    expect(noticeBox(await openLink({ set: 'sONE' }))).toBeFalsy()
+  })
+
+  it('no ?set= at all is silent — nothing was promised', async () => {
+    expect(noticeBox(await openLink({}))).toBeFalsy()
+  })
+
+  it('a link that outlived the sets entirely (song collapsed back to one) still says so', async () => {
+    const collapsed = {
+      id: 's717', number: 717, title_th: 'สองชุดเนื้อ', title_en: '',
+      content: {
+        version: 2, key: 'C', timeSignature: '4/4',
+        stanzas: [{ id: 'A', lines: [line('1')] }],
+        arrangement: [{ stanza: 'A', label: '', syllables: [] }],
+      },
+    }
+    const w = await openLink({ set: 'sTWO' }, collapsed)
+    expect(startSetOf(w)).toBe(0)
+    expect(noticeBox(w)).toBeTruthy()
+  })
+
+  it('the notice is a dismissible status, not a toast that vanishes unread (WCAG 3.3.1)', async () => {
+    const w = await openLink({ set: 'sGONE' })
+    const box = noticeBox(w)
+    expect(box.attributes('role')).toBe('status')
+    const close = box.findAll('button').find((b) => /ปิด/.test(b.text()))
+    expect(close).toBeTruthy()
+    await close.trigger('click')
+    expect(noticeBox(w)).toBeFalsy()
+  })
+})

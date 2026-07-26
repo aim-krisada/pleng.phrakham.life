@@ -14,7 +14,7 @@ import {
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder, lyricSetName, scopeToLyricSet } from '../lib/songModel.js'
-import { addLyricSet } from '../lib/songStructure.js'
+import { addLyricSet, deleteLyricSet } from '../lib/songStructure.js'
 import { withNotePitch, withInsertedBox, withDeletedNote, withRestAt, withClearedSyllable, withSetSyllable, withOctaveShift, withAccidental, withChord, withJumpMarker, removeJumpMarker, updateJumpMarker, activeSymbolsAt, activeMarksAt, withBracketRemovedAt } from '../lib/songEdit.js'
 import { findOrphanJumps } from '../lib/songFlow.js'
 import { downloadSong } from '../lib/jsonIO.js'
@@ -303,6 +303,48 @@ function onAddLyricSet() {
   if (next === props.song.content) return
   emit('update-content', next)
   nextTick(() => { activeSet.value = (next.lyricSets?.length || 1) - 1 })
+}
+
+// 🗑 ลบชุดนี้ — the way OUT of a set. /v2 ships the ＋ that makes one, so a set added by mistake
+// has to be removable here too; until now only the v1 editor could take one away, which on this
+// site meant "permanent". Same pure content op both sites share (songStructure.deleteLyricSet),
+// so the two stay ONE behaviour: this set's WORDS go, the melody (stanzas) and every shared row
+// stay, the sets after it renumber (delete the middle of three → 1 · 2, never 1 · 3), and the
+// last set can never be deleted — down to one set the song COLLAPSES back to an ordinary one
+// with no `lyricSets` and no leftover `set` keys.
+const confirmDelSet = ref(-1) // set index pending delete (-1 = no dialog)
+const delSetBtn = ref(null) // the 🗑 that opened the confirm — focus returns here on cancel
+const cancelDelBtn = ref(null)
+const setMsg = ref('') // aria-live: what the delete actually did (lives OUTSIDE the tab strip)
+function askDeleteLyricSet() {
+  if ((lyricSets.value?.length || 0) <= 1) return // guard — the button is disabled as well
+  confirmDelSet.value = activeSet.value
+  // Focus lands on ยกเลิก, not on the destructive button (Apple HIG "Alerts": for a destructive
+  // action the SAFE choice is the default). v1 focuses ลบ and binds Enter to it — a held Enter
+  // from the tab strip then deletes a set nobody chose to delete. Esc still cancels; ลบ needs a
+  // deliberate press. This is the one place /v2 deliberately diverges from v1's dialog.
+  nextTick(() => cancelDelBtn.value?.focus())
+}
+function cancelDeleteLyricSet() {
+  confirmDelSet.value = -1
+  nextTick(() => delSetBtn.value?.focus())
+}
+function doDeleteLyricSet() {
+  const i = confirmDelSet.value
+  confirmDelSet.value = -1
+  if (i < 0 || (lyricSets.value?.length || 0) <= 1) return
+  const name = lyricSetLabels.value[i] || ''
+  const next = deleteLyricSet(props.song.content, i)
+  if (next === props.song.content) return
+  emit('update-content', next)
+  const left = next.lyricSets?.length || 1
+  // Land on the set ABOVE the deleted one (v1 does the same): delete set 2 of 3 and you are on
+  // what is now set 1, never on a blank strip. Set it here rather than leaving it to the clamp
+  // watcher, which only runs on the next flush — long enough for the sheet to flash set 1.
+  activeSet.value = Math.min(Math.max(0, i - 1), left - 1)
+  setMsg.value = left > 1
+    ? t('lyricSet.deleted', { name, n: left })
+    : t('lyricSet.deletedLast', { name })
 }
 
 // WAI-ARIA tabs pattern: ← → Home End move between tabs (roving tabindex below), so the
@@ -1727,7 +1769,9 @@ function onSettingsMusic(patch) { emit('update-music', patch) }
 // (a test that reimplements the wiring proves nothing about the wiring).
 defineExpose({ applySymbol, setChord, deleteSel, selectUnit, focusFirstUnit, undoEdit, redoEdit, toggleEdit, requestExitEdit, playScope, playWholeFromEditor, requestSave, requestFinish, toggleSettings, onSettingsMusic, onSettingsMeta,
   // marker-entry UI (for tests that drive the SAME handlers the panel does)
-  toggleMarkerMenu, chooseJumpPreset, chooseJumpCommand, placeDropAtCaret, armDrop, deleteMarker, changeMarker, pendingDrops, placedMarkers, orphanJumps, playOrderCrumbs })
+  toggleMarkerMenu, chooseJumpPreset, chooseJumpCommand, placeDropAtCaret, armDrop, deleteMarker, changeMarker, pendingDrops, placedMarkers, orphanJumps, playOrderCrumbs,
+  // 717 lyric sets — exposed so a test can drive the same guard the disabled button relies on
+  askDeleteLyricSet, confirmDelSet })
 
 // Leaving the editor — ONE gate, wherever the request comes from (the ✓ button, or the shell's
 // mode tabs asking to take the user somewhere else). Returns true when we actually left, so the
@@ -2820,6 +2864,45 @@ function onSeek({ li, si, syk }) {
               :title="t('lyricSet.addTitle')"
               @click="onAddLyricSet"
             >{{ t('lyricSet.add') }}</button>
+            <!-- …and the way OUT of a set. Destructive, so it is red and set apart from ＋ rather
+                 than sitting in the row of pills you tap to switch. Disabled (with the reason in
+                 its tooltip) when only one set is left — a song must always have words. -->
+            <button
+              v-if="editMode"
+              ref="delSetBtn"
+              class="lset-del"
+              :disabled="lyricSets.length <= 1"
+              :title="lyricSets.length > 1 ? t('lyricSet.delTitle') : t('lyricSet.delLastTitle')"
+              :aria-label="t('lyricSet.delAria', { name: activeSetName })"
+              @click="askDeleteLyricSet"
+            ><Icon name="trash-2" :size="14" /> {{ t('lyricSet.del') }}</button>
+          </div>
+          <!-- destructive confirm — NAMES the set being deleted and states what survives. Esc
+               cancels; focus opens on ยกเลิก (see askDeleteLyricSet). role="alertdialog" without
+               aria-modal: this is an inline confirm and the rest of the page stays reachable, so
+               claiming modality would be a lie to a screen reader. -->
+          <div
+            v-if="confirmDelSet >= 0"
+            class="lset-confirm"
+            role="alertdialog"
+            aria-labelledby="lset-confirm-t"
+            aria-describedby="lset-confirm-d"
+            @keydown.esc.stop="cancelDeleteLyricSet"
+          >
+            <p id="lset-confirm-t" class="lset-confirm-t">
+              {{ t('lyricSet.confirmTitle', { name: lyricSetLabels[confirmDelSet] }) }}
+            </p>
+            <p id="lset-confirm-d" class="lset-confirm-d">
+              {{ t('lyricSet.confirmBody') }} <b>{{ t('lyricSet.confirmKeep') }}</b>
+            </p>
+            <div class="lset-confirm-btns">
+              <button ref="cancelDelBtn" class="lset-confirm-cancel" @click="cancelDeleteLyricSet">
+                {{ t('lyricSet.confirmCancel') }}
+              </button>
+              <button class="lset-confirm-del" @click="doDeleteLyricSet">
+                <Icon name="trash-2" :size="14" /> {{ t('lyricSet.confirmDel') }}
+              </button>
+            </div>
           </div>
           <!-- a screen reader hears WHICH words are on the sheet now; sighted users read it in
                the summary. The tabs can be folded away, so this is the only spoken confirmation.
@@ -2834,6 +2917,10 @@ function onSeek({ li, si, syk }) {
             {{ t('lyricSet.addLone') }}
           </button>
         </div>
+        <!-- the delete announcement lives OUT here on purpose: deleting the second-to-last set
+             collapses the song and unmounts the whole tab strip, so a live region inside it would
+             be torn out in the same tick and the result would never be spoken. -->
+        <p class="sv-sr-only" aria-live="polite">{{ setMsg }}</p>
 
         <div
           ref="sheetWrap"
@@ -3151,11 +3238,84 @@ function onSeek({ li, si, syk }) {
 .lset-add-lone:hover { border-color: var(--brand, #8b4513); color: var(--brand, #8b4513); }
 .lset-add:focus-visible,
 .lset-add-lone:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
+
+/* 🗑 ลบชุดนี้ — destructive, so it reads as its OWN kind of control: red outline instead of the
+   brand tint, and pushed away from ＋ by a real gap so a mis-tap next to "add" cannot land on
+   "delete". Same pill geometry and same 38/44px target as its neighbours (WCAG 2.5.8 AA, aligned
+   up to HIG's 44pt on a finger) — only the colour and the distance say "careful". */
+.lset-del {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 38px;
+  margin-left: 10px;
+  padding: 4px 14px;
+  border: 1px solid var(--red, #c0392b);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--red, #c0392b);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.lset-del:hover:not(:disabled) { background: color-mix(in srgb, var(--red, #c0392b) 10%, transparent); }
+.lset-del:focus-visible { outline: 2px solid var(--red, #c0392b); outline-offset: 2px; }
+/* the last set can't go — the button stays PRESENT (so the affordance doesn't blink out of
+   existence) but inert, with the reason in its tooltip */
+.lset-del:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: var(--line, #e2d9c8);
+  color: var(--ink-2, #6b5d45);
+}
 @media (pointer: coarse) {
   .lset-summary,
   .lset-add,
-  .lset-add-lone { min-height: 44px; }
+  .lset-add-lone,
+  .lset-del { min-height: 44px; }
 }
+
+/* the confirm — a card under the strip, not a floating dialog: it belongs to the set you just
+   pointed at, and nothing on this surface floats over the words (the editing frame's rule). */
+.lset-confirm {
+  margin: 10px auto 0;
+  max-width: 360px;
+  padding: 14px 16px;
+  border: 1px solid var(--red, #c0392b);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .14);
+  text-align: center;
+}
+.lset-confirm-t { margin: 0 0 4px; font-weight: 700; color: var(--ink, #2b2b2b); }
+.lset-confirm-d { margin: 0 0 12px; font-size: 0.85rem; color: var(--ink-2, #6b5d45); }
+.lset-confirm-btns { display: flex; gap: 8px; justify-content: center; }
+.lset-confirm-cancel,
+.lset-confirm-del {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+/* ยกเลิก is where focus opens, so it must not look like the afterthought */
+.lset-confirm-cancel {
+  border: 1px solid var(--line, #e2d9c8);
+  background: var(--surface-2, #f5efe3);
+  color: var(--ink, #2b2b2b);
+}
+.lset-confirm-del { border: 0; background: var(--red, #c0392b); color: #fff; }
+.lset-confirm-cancel:focus-visible,
+.lset-confirm-del:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
 .lyric-set-tabs {
   display: inline-flex;
   flex-wrap: wrap;

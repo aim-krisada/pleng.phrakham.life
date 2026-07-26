@@ -7,7 +7,7 @@
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { migrateToV2, resolveContent, lyricSetName, scopeToLyricSet, lyricSetIdAt, lyricSetIndexById, mintLyricSetIds } from '../lib/songModel.js'
+import { migrateToV2, resolveContent, lyricSetName, scopeToLyricSet, lyricSetCount, lyricSetIdAt, lyricSetIndexById, mintLyricSetIds } from '../lib/songModel.js'
 import { withSongKey } from '../lib/songEdit.js'
 import { emptyContent } from '../lib/editorSerde.js'
 import { songHaystack, searchSongs } from '../lib/songSearch.js'
@@ -46,6 +46,10 @@ let linkKeyPending = !!linkKey
 // nothing is not.
 const linkSetId = typeof route.query?.set === 'string' ? route.query.set : ''
 let linkSetPending = !!linkSetId
+// …and when that id names a set this song no longer has, the reader is told (see the watcher
+// below). Silence would be the one failure mode a share link cannot have: the same URL opening
+// different words, looking exactly like it always did.
+const linkSetMissing = ref(false)
 // which set the reading surface should START on (SongViewer applies it once, like start-key)
 const startSet = ref(0)
 // ฝึกร้อง owns its own คีย์ (SongViewer.displayKey) and reports it up; แผ่นเพลง's is sheetKey
@@ -59,10 +63,14 @@ const shareTarget = computed(() => {
   const name = titleText.value
   // ?key= only when transposed away from the song's own key — an untouched song shares a clean link
   const k = shareKey.value && shareKey.value !== s.content?.key ? shareKey.value : ''
-  // ?set= only when the reader moved OFF the first set, and always by the set's permanent id:
-  // a positional link would start pointing at different words the moment a set is deleted.
+  // ?set= on EVERY link out of a multi-set song — the first set included — and always by the
+  // set's permanent id. The first set used to be shared positionless "for a clean link", which
+  // quietly made the link mean "whichever set is first" instead of "this one". Now that a set
+  // can be DELETED from this surface, deleting set 1 promotes set 2 into its place and every
+  // link already handed out starts opening different words with nobody to notice. An ordinary
+  // song (0 sets) still shares a clean, set-less link — nothing to disambiguate there.
   // A set saved before ids existed has none yet — share it positionless rather than wrongly.
-  const setId = viewSet.value > 0 ? lyricSetIdAt(s.content, viewSet.value) : ''
+  const setId = lyricSetCount(s.content) ? lyricSetIdAt(s.content, viewSet.value) : ''
   return {
     url: buildSongUrl(s.id, k, setId),
     title: t('share.songTitle', { name }),
@@ -579,6 +587,12 @@ watch(() => (liveSong.value ? `${liveSong.value.id}|${liveSong.value.content?.ke
     const i = lyricSetIndexById(s.content, linkSetId)
     startSet.value = i
     viewSet.value = i // แผ่นเพลง follows the shared link too
+    // The set this link NAMED may be gone — deleted, or the song collapsed back to one set. We
+    // still open it on the first set (a link that opens nothing is worse than one that opens the
+    // wrong words), but we must not hand those words over AS the ones the link pointed at. Say
+    // so once, quietly, in the same in-flow status strip as every other notice on this surface.
+    const sets = Array.isArray(s.content?.lyricSets) ? s.content.lyricSets : []
+    linkSetMissing.value = !sets.some((x) => x?.id === linkSetId)
     linkSetPending = false
   }
   if (linkKeyPending && (s.number != null || (s.title_th || '').trim())) {
@@ -866,6 +880,15 @@ function printSheet() {
       <span>ออกจากโหมดแก้แล้ว · งานที่ยังไม่บันทึกยังอยู่ครบ (เก็บสำเนาไว้ในเครื่องให้แล้ว)</span>
       <button class="rec-btn primary" @click="resumeEditing">กลับไปแก้ต่อ</button>
       <button class="rec-btn" @click="leftDirty = false">ปิด</button>
+    </div>
+
+    <!-- the shared ?set= link named a lyric set this song no longer has. Same in-flow status
+         strip as the others (persistent, dismissible, never a toast that vanishes before it is
+         read — WCAG 3.3.1) and worded as information, not an error: the song still opened. -->
+    <div v-if="linkSetMissing" class="sv-import-msg no-print" role="status">
+      <Icon name="info" :size="16" />
+      <span>{{ t('lyricSet.linkGone') }}</span>
+      <button class="rec-btn" @click="linkSetMissing = false">ปิด</button>
     </div>
 
     <!-- เปิดไฟล์ JSON result — a bad file's plain-Thai reason, or v1→v2 warnings to eyeball.
