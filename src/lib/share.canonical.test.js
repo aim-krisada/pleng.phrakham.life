@@ -67,3 +67,28 @@ describe('buildSongUrl / buildListUrl never leak a dev origin (BI-010)', () => {
     expect(url).not.toMatch(/127\.0\.0\.1|localhost/)
   })
 })
+
+// 717 — a shared link may also carry WHICH lyric set it was shared on, by the set's PERMANENT
+// id (songModel.lyricSetIdAt), never its position: delete a set and a positional link would
+// silently start pointing at different words.
+describe('buildSongUrl — ?set= carries a permanent set id', () => {
+  const ID = '27bc45e4-87e6-4c2c-87ca-2b271e382e8d'
+  beforeEach(() => setLocation({ origin: PUBLIC, pathname: '/', hostname: 'pleng.phrakham.life', protocol: 'https:' }))
+
+  it('omits ?set= for an ordinary song / the first set — the common link stays clean', () => {
+    expect(buildSongUrl(ID)).toBe(PUBLIC + '/#/song/' + ID)
+    expect(buildSongUrl(ID, '', '')).toBe(PUBLIC + '/#/song/' + ID)
+  })
+
+  it('adds ?set= alone when the key is untouched', () => {
+    expect(buildSongUrl(ID, '', 'sABC123')).toBe(PUBLIC + '/#/song/' + ID + '?set=sABC123')
+  })
+
+  it('carries key AND set together', () => {
+    expect(buildSongUrl(ID, 'G', 'sABC123')).toBe(PUBLIC + '/#/song/' + ID + '?key=G&set=sABC123')
+  })
+
+  it('encodes the set id — a link is user-supplied text by the time it comes back', () => {
+    expect(buildSongUrl(ID, '', 'a b&c=d')).toContain('set=a%20b%26c%3Dd')
+  })
+})

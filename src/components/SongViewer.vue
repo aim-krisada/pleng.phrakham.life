@@ -61,6 +61,9 @@ const props = defineProps({
   // EPIC H — a shared link may carry the key it was shared at (?key=, lib/share.js). It is a
   // STARTING point only: the listener's own คีย์ pick afterwards wins. '' = use the song's key.
   startKey: { type: String, default: '' },
+  // …and which lyric SET to open on, already resolved from the link's ?set=<permanent id> by
+  // the shell. Same deal as startKey: a STARTING point only — the reader's own tab wins after.
+  startSet: { type: Number, default: 0 },
 })
 // The reading surface stays a READER: it never mutates props.song. When the pencil is on
 // and a note is retyped, it hands the OWNER (Studio → liveSong, the live v2 SSOT) a new
@@ -219,6 +222,22 @@ watch(() => props.song?.id, () => { activeSet.value = 0 })
 // an out-of-range set, so the sheet stays correct, but the tab bar would show nothing selected
 // and aria-labelledby would name a tab that no longer exists. Clamp the state too.
 watch(() => lyricSets.value?.length || 0, (n) => { if (activeSet.value >= n) activeSet.value = 0 })
+// A shared ?set= link opens on its set — ONCE, and only for a REAL song: the editor mounts a
+// blank draft alongside, so spending the link on that would drop the reader back on set 1 the
+// moment the routed song lands. Same guard shape as ?key= above. Declared AFTER the two
+// watchers that reset activeSet so it runs last in the flush and they cannot stomp it.
+let pendingLinkSet = props.startSet > 0 ? props.startSet : 0
+watch(
+  () => `${isRealSong()}|${lyricSets.value?.length || 0}|${props.startSet}`,
+  () => {
+    if (!pendingLinkSet && props.startSet > 0) pendingLinkSet = props.startSet // resolved late by the shell
+    const n = lyricSets.value?.length || 0
+    if (!pendingLinkSet || !isRealSong() || !n) return // sets not loaded yet — retry when they are
+    activeSet.value = Math.min(pendingLinkSet, n - 1) // a deleted set clamps, never goes blank
+    pendingLinkSet = 0
+  },
+  { immediate: true },
+)
 // Switching set swaps the WORDS wholesale: different ท่อน, different line count, so every
 // index the transport is holding (the ท่อน ticks, the play position) now refers to a sheet
 // that is no longer on screen. Treat it like opening the song afresh — stop, rewind, re-tick
