@@ -83,4 +83,58 @@ describe('EditorMode — 717 lyric sets save shape + back-compat', () => {
     const newRow = pc.arrangement.find((r) => r.set === 1)
     expect(newRow.syllables).toEqual([])
   })
+
+  // ---- ลบชุด (delete a lyric set) ----
+  const song3 = {
+    id: 's3', number: 717, title_th: '717x3', title_en: '',
+    content: {
+      version: 2, key: 'C', timeSignature: '4/4',
+      lyricSets: [{ label: 'ทำนอง ๑' }, { label: 'ทำนอง ๒' }, { label: 'ทำนอง ๓' }],
+      stanzas: [{ id: 'A', lines: [[{ type: 'segment', chord: 'C', note: '1 2' }]] }],
+      arrangement: [
+        { stanza: 'A', set: 0, syllables: ['หนึ่งเอ', 'หนึ่งบี'] },
+        { stanza: 'A', set: 1, syllables: ['สองเอ', 'สองบี'] },
+        { stanza: 'A', set: 2, syllables: ['สามเอ', 'สามบี'] },
+      ],
+    },
+  }
+  const removeSet = (w, i) => { w.vm.askRemoveLyricSet(i); w.vm.doRemoveLyricSet() }
+
+  it('deletes a MIDDLE set: its rows go, later sets reindex, melody stays', async () => {
+    const w = mountEd(song3)
+    removeSet(w, 1) // delete ทำนอง ๒
+    await nextTick()
+    const pc = w.vm.previewContent
+    expect(pc.lyricSets).toHaveLength(2)
+    // set 0 kept as-is; former set 2 reindexed to 1; the ทำนอง ๒ words are gone
+    expect(pc.arrangement.map((r) => r.set)).toEqual([0, 1])
+    const words = pc.arrangement.flatMap((r) => r.syllables)
+    expect(words).toContain('หนึ่งเอ')
+    expect(words).toContain('สามเอ')
+    expect(words).not.toContain('สองเอ')
+    expect(pc.stanzas).toHaveLength(1) // melody untouched
+  })
+
+  it('deleting down to ONE set collapses to an ordinary song (no lyricSets / no set keys)', async () => {
+    const w = mountEd(song3)
+    removeSet(w, 2)
+    await nextTick()
+    removeSet(w, 1)
+    await nextTick()
+    const pc = w.vm.previewContent
+    expect('lyricSets' in pc).toBe(false)
+    expect(pc.arrangement.every((r) => !('set' in r))).toBe(true)
+    expect(pc.arrangement.flatMap((r) => r.syllables)).toContain('หนึ่งเอ') // set 0 words survive
+    expect(pc.stanzas).toHaveLength(1)
+  })
+
+  it('never deletes the LAST set (guard)', async () => {
+    const w = mountEd(song3)
+    removeSet(w, 2); await nextTick()
+    removeSet(w, 1); await nextTick() // now collapsed to ordinary (lyricSets empty)
+    removeSet(w, 0); await nextTick() // guard: no-op, still has its one row + melody
+    const pc = w.vm.previewContent
+    expect(pc.arrangement.length).toBeGreaterThanOrEqual(1)
+    expect(pc.stanzas).toHaveLength(1)
+  })
 })

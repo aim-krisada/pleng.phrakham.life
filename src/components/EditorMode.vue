@@ -262,6 +262,42 @@ function addLyricSet() {
   arrangement.value.push({ stanza, set: idx, label: '', syllables: [], key: '' })
   selectSet(idx)
 }
+// ลบชุดเนื้อ — destructive, so a styled confirm (naming the set) gates it. Deletes ONLY that
+// set's words (rows tagged r.set === i); the shared melody (stanzas) and any shared entry
+// (no `set`) survive. The last set can never be deleted (a song needs ≥1 set of words). When
+// one set is left the song COLLAPSES back to an ordinary song — lyricSets cleared and every
+// `set` key stripped — so it round-trips byte-identical to a never-717 song.
+const confirmDelSet = ref(-1) // set index pending delete (-1 = no dialog)
+const removeSetMsg = ref('') // aria-live announcement after a delete
+function askRemoveLyricSet(i) {
+  if (lyricSets.value.length <= 1) return // guard (button is also disabled)
+  confirmDelSet.value = i
+}
+function cancelRemoveLyricSet() {
+  confirmDelSet.value = -1
+}
+function doRemoveLyricSet() {
+  const i = confirmDelSet.value
+  confirmDelSet.value = -1
+  if (i < 0 || lyricSets.value.length <= 1) return
+  const label = setTabs.value[i]?.label || `ทำนอง ${i + 1}`
+  // drop this set's rows (explicit r.set === i); shared rows (set == null) are untouched
+  arrangement.value = arrangement.value.filter((r) => r.set !== i)
+  // reindex sets after i down by one so labels/indices stay contiguous
+  arrangement.value.forEach((r) => { if (r.set != null && r.set > i) r.set -= 1 })
+  lyricSets.value.splice(i, 1)
+  // one set left → back to an ordinary song: no lyricSets, no `set` keys (byte-identical)
+  if (lyricSets.value.length <= 1) {
+    lyricSets.value = []
+    arrangement.value.forEach((r) => { delete r.set })
+  }
+  if (!arrangement.value.length) {
+    arrangement.value.push({ stanza: stanzas.value[0]?.id || 'A', label: '', syllables: [], key: '' })
+  }
+  activeSet.value = Math.min(Math.max(0, i - 1), Math.max(0, (lyricSets.value.length || 1) - 1))
+  nextTick(() => selectSet(activeSet.value))
+  removeSetMsg.value = `ลบ “${label}” แล้ว`
+}
 
 // verse lens: which arrangement row's words to show under the active stanza's notes
 // (-1 = hidden). Lets the author type each syllable right under its note — the old
@@ -3122,8 +3158,25 @@ defineExpose({
           @click="selectSet(i)"
         >{{ ls.label }}</button>
         <button class="eset-add" title="เพิ่มเนื้อร้องชุดใหม่บนทำนองเดิม" aria-label="เพิ่มชุดเนื้อร้อง" @click="addLyricSet">＋ เพิ่มชุด</button>
+        <button
+          class="eset-del"
+          :disabled="lyricSets.length <= 1"
+          :title="lyricSets.length <= 1 ? 'เพลงต้องมีเนื้ออย่างน้อย 1 ชุด — ลบไม่ได้' : 'ลบชุดเนื้อที่เลือกอยู่ (เนื้อชุดนี้จะหาย · ทำนองยังอยู่)'"
+          :aria-label="lyricSets.length <= 1 ? 'ลบชุดเนื้อ (ปิดอยู่ — ต้องมีอย่างน้อย 1 ชุด)' : 'ลบชุด ' + (setTabs[activeSet]?.label || '')"
+          @click="askRemoveLyricSet(activeSet)"
+        ><Icon name="trash-2" :size="14" /> ลบชุดนี้</button>
       </div>
       <p class="eset-hint">♪ โน้ต/คอร์ด = ทำนองเดียว ใช้ร่วม<b>ทุกชุด</b> · พิมพ์เนื้อ = เฉพาะ “{{ setTabs[activeSet]?.label }}”</p>
+      <!-- destructive confirm — names the set, gives a keyboard path (Enter=ลบ · Esc=ยกเลิก) -->
+      <div v-if="confirmDelSet >= 0" class="eset-confirm" role="alertdialog" aria-modal="true" aria-labelledby="eset-confirm-t" @keydown.esc="cancelRemoveLyricSet" @keydown.enter.prevent="doRemoveLyricSet">
+        <p id="eset-confirm-t" class="eset-confirm-t">ลบ “{{ setTabs[confirmDelSet]?.label }}” ?</p>
+        <p class="eset-confirm-d">เนื้อร้องชุดนี้จะหายทั้งหมด (กู้ไม่ได้ในหน้านี้) · <b>ทำนองยังอยู่</b></p>
+        <div class="eset-confirm-btns">
+          <button class="secondary" @click="cancelRemoveLyricSet">ยกเลิก</button>
+          <button class="eset-confirm-del" v-focus @click="doRemoveLyricSet"><Icon name="trash-2" :size="14" /> ลบชุดนี้</button>
+        </div>
+      </div>
+      <span class="sr-only" aria-live="polite">{{ removeSetMsg }}</span>
     </div>
 
     <!-- ===== canvas section header for the selected ท่อน — rename + melody + reorder right
@@ -4100,6 +4153,25 @@ defineExpose({
 .eset-hint {
   margin: 6px 0 0; padding: 3px 12px; border-radius: 8px; background: var(--cream, #faf6f0);
   color: var(--muted, #757575); font-size: 0.82rem;
+}
+/* ลบชุด — destructive: red, set apart from the ＋ add affordance */
+.eset-del {
+  appearance: none; display: inline-flex; align-items: center; gap: 4px;
+  min-height: 38px; margin-left: 8px; padding: 0 14px; border: 1px solid var(--red, #c0392b);
+  border-radius: 999px; background: transparent; color: var(--red, #c0392b); font: inherit; font-weight: 600; cursor: pointer;
+}
+.eset-del:hover:not(:disabled) { background: color-mix(in srgb, var(--red, #c0392b) 10%, transparent); }
+.eset-del:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--line, #e0d6c8); color: var(--muted, #757575); }
+.eset-confirm {
+  margin: 10px auto 0; max-width: 360px; padding: 14px 16px; border: 1px solid var(--red, #c0392b);
+  border-radius: 12px; background: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.14); text-align: center;
+}
+.eset-confirm-t { margin: 0 0 4px; font-weight: 700; color: var(--ink, #2b2b2b); }
+.eset-confirm-d { margin: 0 0 12px; font-size: 0.85rem; color: var(--muted, #757575); }
+.eset-confirm-btns { display: flex; gap: 8px; justify-content: center; }
+.eset-confirm-del {
+  appearance: none; display: inline-flex; align-items: center; gap: 4px; min-height: 38px; padding: 0 16px;
+  border: 0; border-radius: 8px; background: var(--red, #c0392b); color: #fff; font: inherit; font-weight: 600; cursor: pointer;
 }
 /* small buttons still meet the 24x24 target size (WCAG 2.2 2.5.8) */
 .tiny { padding: 4px 10px; font-size: 13px; min-height: 28px; min-width: 28px; }
