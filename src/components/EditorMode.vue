@@ -91,42 +91,93 @@ function newSegment() {
 // short final bar, or a bar split across a line. Flagged bars are validated as a GROUP
 // (their beats must sum to a whole number of bars), never red individually (B055).
 function barShell() {
-  return { segments: [], repeatStart: false, repeatEnd: false, volta: 0, pickup: false }
+  // The id/times/volta-list fields below are DATA-SAFETY CARRIERS, not editable state: v1 has no
+  // UI that writes them (the marker toolbar lives in the /v2 editor), so only the line serde
+  // reads and re-emits them. They exist so a load → save round-trip on `/` cannot strip the flow
+  // anchors (`id`) and round counts (`times`) a newer editor wrote to the SAME database — an `id`
+  // dropped while `arrangement[].flow` survives leaves a directive pointing at nothing, which
+  // songFlow treats as an orphan and silently ignores (→ the wrong number of repeats is sung).
+  return { segments: [], repeatStart: false, repeatEnd: false, volta: 0, pickup: false,
+    repeatStartId: '', repeatEndId: '', voltaId: '', repeatTimes: null }
 }
 function newBar() {
   return { ...barShell(), segments: [newSegment()] }
 }
 function newLine() {
-  return { marker: '', cont: false, label: '', section: '', end: false, bars: [newBar()] }
+  return { marker: '', markerId: '', cont: false, label: '', section: '', end: false, bars: [newBar()] }
+}
+// A bar carries play-order meaning even with no note of its own when it holds a repeat boundary,
+// a volta ending or a pickup. Used by the empty-bar filter so a note-less ‖: / :‖ / 1./2. ending
+// survives a load → save round-trip instead of being deleted together with its (empty) bar.
+function barHasMarker(b) {
+  return !!(b && (b.repeatStart || b.repeatEnd || b.volta || b.pickup ||
+    b.repeatStartId || b.repeatEndId || b.voltaId))
+}
+
+const clone = (x) => JSON.parse(JSON.stringify(x))
+
+// An id identifies ONE marker, so a COPY must never inherit it: two items sharing an id make a
+// verse's `flow` ambiguous (the directive would silently apply to a copy nobody asked for). v1 has
+// no UI that mints ids, so a copy simply gets none — the /v2 editor does the same on every clone
+// path (stripEditorMarkerIds, "R1 rule 2: fresh ids"). Covers `_unknown` items too, because an
+// imported jump/segno carries its id in the same namespace (songFlow scans every item's `id`).
+function stripMarkerIds(node) {
+  if (!node || typeof node !== 'object') return node
+  if ('markerId' in node) node.markerId = ''
+  for (const u of node._unknown || []) if (u.item && typeof u.item === 'object') delete u.item.id
+  // accepts either a line (has `bars`) or a single bar (has `segments`) — both are copied shapes
+  const bars = Array.isArray(node.bars) ? node.bars : Array.isArray(node.segments) ? [node] : []
+  for (const b of bars) {
+    b.repeatStartId = ''
+    b.repeatEndId = ''
+    b.voltaId = ''
+  }
+  return node
 }
 
 function deserializeLine(items) {
-  const line = { marker: '', cont: false, label: '', section: '', end: false, bars: [] }
+  const src = Array.isArray(items) ? items : []
+  const line = { marker: '', markerId: '', cont: false, label: '', section: '', end: false, bars: [] }
   let bar = barShell()
-  for (const it of items) {
-    if (it.type === 'continue') line.cont = true
-    else if (it.type === 'section') line.section = it.name || ''
-    else if (it.type === 'label') line.label = it.text || ''
-    else if (it.type === 'end') line.end = true
-    else if (it.type === 'marker') line.marker = it.label || '***'
-    else if (it.type === 'repeat-start') bar.repeatStart = true
-    else if (it.type === 'repeat-end') bar.repeatEnd = true
-    else if (it.type === 'pickup') bar.pickup = true
-    else if (it.type === 'volta') bar.volta = it.num || 0
-    else if (it.type === 'bar') {
+  // item types this editor has no branch for (an imported symbol, a {type:'jump'} D.S./Coda, a
+  // future token): kept whole and anchored to the note they followed, so a save never deletes
+  // them. Anchoring matters — a mid-line D.S. moved to the line end silently reroutes playback.
+  const unknown = []
+  let segCount = 0
+  for (const it of src) {
+    if (it?.type === 'continue') line.cont = true
+    else if (it?.type === 'section') line.section = it.name || ''
+    else if (it?.type === 'label') line.label = it.text || ''
+    else if (it?.type === 'end') line.end = true
+    else if (it?.type === 'marker') { line.marker = it.label || '***'; line.markerId = it.id || '' }
+    else if (it?.type === 'repeat-start') { bar.repeatStart = true; bar.repeatStartId = it.id || '' }
+    else if (it?.type === 'repeat-end') {
+      bar.repeatEnd = true
+      bar.repeatEndId = it.id || ''
+      bar.repeatTimes = it.times ?? null
+    } else if (it?.type === 'pickup') bar.pickup = true
+    else if (it?.type === 'volta') { bar.volta = it.num || 0; bar.voltaId = it.id || '' }
+    else if (it?.type === 'bar') {
       line.bars.push(bar)
       bar = barShell()
-    } else if (it.type === 'segment') {
-      const seg = { chord: it.chord || '', note: it.note || '', lyric: it.lyric || '' }
+    } else if (it?.type === 'segment') {
+      // `_raw` = the whole original item, so a per-segment key this version does not model
+      // (today's `holds` was one; tomorrow's will be another) rides through untouched. The
+      // editor still reads/writes only chord/note/lyric on the segment itself.
+      const seg = { chord: it.chord || '', note: it.note || '', lyric: it.lyric || '', _raw: clone(it) }
       // fermata hold values (absolute beats per note-box) — carried through unchanged; pruned
       // to boxes that still hold a fermata on save so stale keys can't linger.
       if (it.holds && typeof it.holds === 'object') seg.holds = { ...it.holds }
       bar.segments.push(seg)
-    }
+      segCount++
+    } else unknown.push({ after: segCount, item: clone(it) })
   }
   line.bars.push(bar)
-  line.bars = line.bars.filter((b) => b.segments.length)
+  // Drop only TRULY empty bars — a segment-less bar that still carries a repeat/volta/pickup is
+  // play-order data, and losing it changes how many times a phrase is sung.
+  line.bars = line.bars.filter((b) => b.segments.length || barHasMarker(b))
   if (!line.bars.length) line.bars = [newBar()]
+  if (unknown.length) line._unknown = unknown
   return line
 }
 
@@ -175,26 +226,52 @@ function pruneHolds(note, holds) {
 // so an empty lyric is dropped from the serialized item to keep the v2 JSON clean.
 function serializeLine(line) {
   const items = []
+  // Re-emit each `_unknown` item at the segment it was anchored to on load (`after` = how many
+  // notes preceded it), never lumped at the line end: for a {type:'jump'} D.S./Coda the POSITION
+  // is the whole meaning. Trailing anchors (at/after the last note) keep the end placement.
+  const totalSegs = line.bars.reduce((n, b) => n + (b.segments?.length || 0), 0)
+  const unknowns = (line._unknown || []).map((u) => ({ after: u.after || 0, item: u.item, done: false }))
+  const flushUnknownsAt = (segCount) => {
+    if (segCount >= totalSegs) return
+    for (const u of unknowns) if (!u.done && u.after === segCount) { items.push(clone(u.item)); u.done = true }
+  }
   if (line.section?.trim()) items.push({ type: 'section', name: line.section.trim() })
   if (line.cont) items.push({ type: 'continue' })
-  if (line.marker) items.push({ type: 'marker', label: line.marker })
+  if (line.marker) items.push({ type: 'marker', label: line.marker, ...(line.markerId ? { id: line.markerId } : {}) })
+  flushUnknownsAt(0) // an unknown anchored before the first note
+  let segSeen = 0
   line.bars.forEach((b, i) => {
     // a repeat-start IS the left barline; otherwise a plain barline between bars
-    if (b.repeatStart) items.push({ type: 'repeat-start' })
+    if (b.repeatStart) items.push({ type: 'repeat-start', ...(b.repeatStartId ? { id: b.repeatStartId } : {}) })
     else if (i > 0) items.push({ type: 'bar' })
     if (b.pickup) items.push({ type: 'pickup' })
-    if (b.volta) items.push({ type: 'volta', num: b.volta })
+    if (b.volta) items.push({ type: 'volta', num: b.volta, ...(b.voltaId ? { id: b.voltaId } : {}) })
     for (const s of b.segments) {
-      const seg = { type: 'segment', chord: s.chord, note: s.note }
+      // start from the ORIGINAL item so unknown segment keys survive, then refresh only what this
+      // editor owns. A brand-new segment (no `_raw`) yields the classic { type, chord, note[, …] }.
+      const seg = s._raw ? clone(s._raw) : {}
+      seg.type = 'segment'
+      seg.chord = s.chord
+      seg.note = s.note
       if (s.lyric) seg.lyric = s.lyric
+      else delete seg.lyric
       const holds = pruneHolds(s.note, s.holds)
       if (holds) seg.holds = holds
+      else delete seg.holds
+      delete seg._raw // a nested carrier can never reach the database
       items.push(seg)
+      flushUnknownsAt(++segSeen) // an unknown anchored right after this note
     }
-    if (b.repeatEnd) items.push({ type: 'repeat-end' })
+    // the round count (`times`) and the flow anchor (`id`) ride back out with the repeat they
+    // belong to, so a verse's `flow` keeps pointing at a repeat that still exists
+    if (b.repeatEnd) {
+      items.push({ type: 'repeat-end', ...(b.repeatEndId ? { id: b.repeatEndId } : {}),
+        ...(b.repeatTimes != null ? { times: b.repeatTimes } : {}) })
+    }
   })
   if (line.label?.trim()) items.push({ type: 'label', text: line.label.trim() })
   if (line.end) items.push({ type: 'end' })
+  for (const u of unknowns) if (!u.done) items.push(clone(u.item)) // trailing, in load order
   return items
 }
 
@@ -1310,7 +1387,7 @@ function moveBar(li, bi, dir) {
 // Duplicate bar bi: drop an exact copy (chords + notes) right after it. Faster than
 // re-keying a repeated bar; tweak the copy afterwards.
 function duplicateBar(line, bi) {
-  const copy = JSON.parse(JSON.stringify(line.bars[bi]))
+  const copy = stripMarkerIds(JSON.parse(JSON.stringify(line.bars[bi]))) // one id = one marker
   line.bars.splice(bi + 1, 0, copy)
 }
 function removeSegment(bar, si) {
@@ -1335,7 +1412,7 @@ function copyLine(li) {
   const ls = s ? s.lines : lines.value
   const start = lineSlotStart(ls, li)
   const len = lineSlotLen(ls[li])
-  const copy = JSON.parse(JSON.stringify(ls[li]))
+  const copy = stripMarkerIds(JSON.parse(JSON.stringify(ls[li]))) // one id = one marker
   ls.splice(li + 1, 0, copy)
   if (s && len > 0)
     resliceRows(s.id, (p) => {
@@ -1439,19 +1516,19 @@ function pasteBarAt(li) {
   if (clip.value?.kind !== 'bar') return
   const line = lines.value[li]
   if (!line) return
-  line.bars.push(JSON.parse(JSON.stringify(clip.value.data)))
+  line.bars.push(stripMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))) // one id = one marker
 }
 // paste the copied บรรทัด at the end of the ACTIVE ท่อน (melody only)
 function pasteLineHere() {
   if (clip.value?.kind !== 'line') return
-  lines.value.push(JSON.parse(JSON.stringify(clip.value.data)))
+  lines.value.push(stripMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))) // one id = one marker
   activeLine.value = lines.value.length - 1
 }
 // วางเป็นท่อนใหม่ — the headline: a fresh ท่อน (stanza) whose only บรรทัด is the copy, then
 // jump to it. Mirrors addStanza's shape (a new melody with no ข้อ yet — words added later).
 function pasteLineAsStanza() {
   if (clip.value?.kind !== 'line') return
-  stanzas.value.push({ id: nextStanzaId(), lines: [JSON.parse(JSON.stringify(clip.value.data))] })
+  stanzas.value.push({ id: nextStanzaId(), lines: [stripMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))] }) // one id = one marker
   activeStanza.value = stanzas.value.length - 1
   activeLine.value = 0
 }
