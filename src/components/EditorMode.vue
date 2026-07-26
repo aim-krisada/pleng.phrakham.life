@@ -269,6 +269,9 @@ function addLyricSet() {
   selectSet(idx)
   // A second set of words is a DIFFERENT song to whoever sings it, so its name is the first
   // thing to fill in — open the rename inline, pre-filled+selected so Esc keeps the default.
+  // Focus lands in that field, so SAY so: a screen-reader user must not be dropped into an
+  // input with no idea what appeared (the same aria-live channel the delete uses).
+  removeSetMsg.value = `เพิ่มชุดเนื้อร้องแล้ว · กำลังตั้งชื่อชุดที่ ${idx + 1}`
   nextTick(() => startRenameSet(idx))
 }
 
@@ -297,6 +300,7 @@ function commitRenameSet() {
     set.name = ''
     set.label = 'ทำนอง ' + (THAI_DIGITS[i] || i + 1)
   }
+  removeSetMsg.value = `ตั้งชื่อชุดเป็น “${lyricSetName(set, i)}” แล้ว`
 }
 function cancelRenameSet() {
   editingSetId.value = -1
@@ -4233,6 +4237,12 @@ defineExpose({
 .eset-rename-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--brand, #8b4513) 12%, transparent); }
 .eset-rename-btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--line, #e0d6c8); color: var(--muted, #757575); }
 .eset-tab:hover:not(.active) { background: color-mix(in srgb, var(--brand, #8b4513) 10%, transparent); }
+/* same focus ring + coarse-pointer target as the reader's tabs (consistent identification) */
+.eset-tab:focus-visible,
+.eset-rename-btn:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
+@media (pointer: coarse) {
+  .eset-tab, .eset-rename, .eset-rename-btn { min-height: 44px; }
+}
 .eset-tab.active { background: var(--brand, #8b4513); color: #fff; }
 .eset-add {
   appearance: none; min-height: 38px; margin-left: 4px; padding: 0 14px; border: 1px dashed var(--brand, #8b4513);

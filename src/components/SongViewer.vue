@@ -768,6 +768,12 @@ function onSeek({ li, si, syk }) {
   text-align: center;
 }
 .lset-tab:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
+/* Touch: WCAG 2.5.8 (AA) only asks 24px, but HIG says 44pt and M3 says 48dp for a finger —
+   align UP on coarse pointers. Growing a target can never hide anything, so a device that
+   mis-reports pointer:coarse (Surface with a mouse) is harmless here. */
+@media (pointer: coarse) {
+  .lset-tab { min-height: 44px; }
+}
 .lset-tab:hover:not(.active) { background: color-mix(in srgb, var(--brand, #8b4513) 10%, transparent); }
 .lset-tab.active { background: var(--brand, #8b4513); color: #fff; }
 

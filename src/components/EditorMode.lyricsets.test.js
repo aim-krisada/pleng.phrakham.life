@@ -223,6 +223,18 @@ describe('EditorMode — naming a lyric set', () => {
     expect(w.vm.previewContent.lyricSets).toEqual([{ label: 'ทำนอง ๑' }, { label: 'ทำนอง ๒' }])
   })
 
+  it('announces add + rename on the aria-live channel (focus moves into the name field)', async () => {
+    const w = mountEd(plainSong)
+    w.vm.addLyricSet()
+    await nextTick(); await nextTick()
+    expect(w.vm.removeSetMsg).toContain('เพิ่มชุดเนื้อร้องแล้ว')
+    w.vm.setNameDraft = SET2
+    w.vm.commitRenameSet()
+    await nextTick()
+    expect(w.vm.removeSetMsg).toContain(SET2)
+    expect(w.find('.sr-only[aria-live="polite"], span[aria-live="polite"]').exists()).toBe(true)
+  })
+
   it('an ordinary song cannot rename its lone set (its name IS title_th)', async () => {
     const w = mountEd(plainSong)
     w.vm.startRenameSet(0)
