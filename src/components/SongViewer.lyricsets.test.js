@@ -77,7 +77,7 @@ describe('SongViewer /v2 — 717 lyric sets + back-compat', () => {
     const w = mountSong(twoSetSong)
     const tabs = w.findAll('.lset-tab')
     expect(tabs).toHaveLength(2)
-    expect(tabs[0].text()).toBe('ทำนอง ๑')
+    expect(tabs[0].text()).toBe('ทำนอง 1')
     expect(tabs[0].classes()).toContain('active')
   })
 
@@ -128,19 +128,24 @@ describe('SongViewer /v2 — lyric-set names', () => {
     expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual([SET1, SET2])
   })
 
-  it('back-compat: label-only sets (song 717 as it sits in the DB today) read as before', () => {
+  it('back-compat: label-only sets (song 717 as it sits in the DB today) read — in arabic', () => {
     const w = mountSong(withSets([{ label: 'ทำนอง ๑' }, { label: 'ทำนอง ๒' }]))
-    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['ทำนอง ๑', 'ทำนอง ๒'])
+    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['ทำนอง 1', 'ทำนอง 2'])
   })
 
-  it('back-compat: no name AND no label falls back to the positional ทำนอง ๑/๒', () => {
+  it('back-compat: no name AND no label falls back to the positional ทำนอง 1/2', () => {
     const w = mountSong(withSets([{}, {}]))
-    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['ทำนอง ๑', 'ทำนอง ๒'])
+    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['ทำนอง 1', 'ทำนอง 2'])
   })
 
   it('a blank/whitespace name does not blank the tab — it falls back', () => {
     const w = mountSong(withSets([{ name: '   ', label: 'ทำนอง ๑' }, { name: '' }]))
-    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['ทำนอง ๑', 'ทำนอง ๒'])
+    expect(w.findAll('.lset-tab').map((t) => t.text())).toEqual(['ทำนอง 1', 'ทำนอง 2'])
+  })
+
+  it('no Thai numeral reaches the tabs — the app numbers everything else in arabic', () => {
+    const w = mountSong(withSets([{}, {}, {}]))
+    expect(w.find('.lyric-set-wrap').text()).not.toMatch(/[๐-๙]/)
   })
 
   it('tabs are a proper ARIA tablist: selected state, roving tabindex, panel link', () => {
@@ -239,5 +244,75 @@ describe('SongViewer /v2 — lyric-set names', () => {
     const w = mountSong(plainSong)
     expect(w.findComponent(SongViewer).vm.printTitle).toBe('1. เพลงปกติ')
     expect(w.find('#lset-panel').exists()).toBe(false)
+  })
+})
+
+// ---- the switcher folds away (P'Aim, 26 ก.ค. — "accordion, ยุบได้ เพราะไม่ได้ใช้บ่อย") ----
+// Collapsed by default, but the summary must still SAY which words are on the sheet: folding
+// the tabs away must not fold away the answer to "what am I singing?".
+const setBadgeHarness = {
+  components: { SongViewer },
+  props: { song: { type: Object, required: true }, setBadge: { type: Boolean, default: true } },
+  template: `<div><SongViewer :song="song" :set-badge="setBadge" tier="guest" /></div>`,
+}
+const mountVariant = (song, setBadge) => mount(setBadgeHarness, { props: { song, setBadge } })
+
+describe('SongViewer /v2 — the lyric-set switcher is a collapsed disclosure', () => {
+  it('starts collapsed, and the summary names the set on the sheet', () => {
+    const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    const sum = w.find('.lset-summary')
+    expect(sum.exists()).toBe(true)
+    expect(sum.attributes('aria-expanded')).toBe('false')
+    expect(sum.text()).toContain(SET1) // the singer still knows WHICH words these are
+    expect(w.find('.lyric-set-tabs').attributes('style')).toContain('display: none')
+  })
+
+  it('the summary opens and closes the tabs, and says so to a screen reader', async () => {
+    const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    const sum = w.find('.lset-summary')
+    expect(sum.attributes('aria-controls')).toBe('lset-tabs')
+    expect(w.find('#lset-tabs').exists()).toBe(true)
+    await sum.trigger('click')
+    expect(w.find('.lset-summary').attributes('aria-expanded')).toBe('true')
+    expect(w.find('.lyric-set-tabs').attributes('style') || '').not.toContain('display: none')
+    await w.find('.lset-summary').trigger('click')
+    expect(w.find('.lset-summary').attributes('aria-expanded')).toBe('false')
+  })
+
+  it('picking a set applies it, folds the panel back and re-labels the summary', async () => {
+    const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    await w.find('.lset-summary').trigger('click')
+    await w.findAll('.lset-tab')[1].trigger('click')
+    await nextTick()
+    const sum = w.find('.lset-summary')
+    expect(sum.attributes('aria-expanded')).toBe('false') // a choice closes the chooser
+    expect(sum.text()).toContain(SET2)
+    expect(w.text()).toContain('เนื้อสองเอ') // and the WORDS actually changed
+    expect(w.text()).not.toContain('เนื้อหนึ่งเอ')
+  })
+
+  it('arrow keys browse without the panel shutting; Esc closes without changing the set', async () => {
+    const w = mountSong(withSets([{ name: SET1 }, { name: SET2 }]))
+    await w.find('.lset-summary').trigger('click')
+    const list = w.find('.lyric-set-tabs')
+    await list.trigger('keydown', { key: 'ArrowRight' })
+    expect(w.find('.lset-summary').attributes('aria-expanded')).toBe('true') // still browsable
+    expect(w.findAll('.lset-tab')[1].attributes('aria-selected')).toBe('true')
+    await list.trigger('keydown', { key: 'Escape' })
+    expect(w.find('.lset-summary').attributes('aria-expanded')).toBe('false')
+    expect(w.findAll('.lset-tab')[1].attributes('aria-selected')).toBe('true') // Esc ≠ undo
+  })
+
+  it('variant B shows the set count; variant A does not (P’Aim picks)', () => {
+    const b = mountVariant(withSets([{ name: SET1 }, { name: SET2 }]), true)
+    expect(b.find('.lset-count').exists()).toBe(true)
+    expect(b.find('.lset-count').text()).toBe('2 ชุด')
+    const a = mountVariant(withSets([{ name: SET1 }, { name: SET2 }]), false)
+    expect(a.find('.lset-count').exists()).toBe(false)
+    expect(a.find('.lset-summary').text()).toContain(SET1) // A still names the set
+  })
+
+  it('back-compat: an ordinary song gets no summary at all', () => {
+    expect(mountSong(plainSong).find('.lset-summary').exists()).toBe(false)
   })
 })

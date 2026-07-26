@@ -45,6 +45,11 @@ import { t } from '../i18n/index.js'
 const props = defineProps({
   song: { type: Object, required: true },
   tier: { type: String, default: 'guest' },
+  // TEMPORARY A/B for P'Aim's pick (26 ก.ค.) — the collapsed switcher's "N ชุด" badge.
+  //   true  = variant B: collapsed, but the badge still says the song HAS other words.
+  //   false = variant A: collapsed, name only (exactly as ordered).
+  // Delete this prop and keep the winner once P'Aim decides.
+  setBadge: { type: Boolean, default: true },
   // A-fix (23 ก.ค.): the save state of the inline edit, owned by the shell (Studio holds the
   // song + the Supabase write). 'clean' | 'dirty' | 'saving' | 'saved' | 'error'. The editor
   // just SHOWS it and asks for a save — so the user always knows whether the work is kept.
@@ -208,12 +213,13 @@ const lyricSets = computed(() => {
 })
 const activeSet = ref(0)
 // Each set's own name ("ชื่อของเนื้อชุดนั้น"), not a positional caption: different words are
-// a different song to whoever sings them. lyricSetName() keeps the `label` and "ทำนอง ๑/๒"
-// fallbacks, so already-saved 717 songs read exactly as before.
+// a different song to whoever sings them. lyricSetName() keeps the `label` and positional-
+// caption fallbacks, so already-saved 717 songs read exactly as before.
 const lyricSetLabels = computed(() => (lyricSets.value || []).map((ls, i) => lyricSetName(ls, i)))
+const activeSetName = computed(() => lyricSetLabels.value[activeSet.value] || '')
 // reset the active tab only when the SONG changes (not on every edit), so a live edit keeps
 // you on the set you're viewing.
-watch(() => props.song?.id, () => { activeSet.value = 0 })
+watch(() => props.song?.id, () => { activeSet.value = 0; setsOpen.value = false })
 // …and a set can also disappear WITHOUT the id changing (an edit deletes one; the song object
 // is replaced carrying the same id — or the same undefined id). resolveContent already clamps
 // an out-of-range set, so the sheet stays correct, but the tab bar would show nothing selected
@@ -241,12 +247,43 @@ const exportContent = computed(() =>
   props.song ? scopeToLyricSet(props.song.content, activeSet.value) : null,
 )
 
+// ---- the switcher is a DISCLOSURE around the tabs (P'Aim, 26 ก.ค.) ----------------------
+// You pick your set once and then sing; an always-open strip spent permanent space above the
+// words on a control used once per song. Collapsed, the summary still NAMES the set on the
+// sheet, so the singer always knows which words these are (a bare "▾ ชุดเนื้อร้อง" would hide
+// that). Disclosure pattern (WAI-ARIA APG): a real <button> with aria-expanded + aria-controls
+// over the panel; the tablist inside keeps its own tab semantics unchanged.
+const setsOpen = ref(false)
+const setsPanel = ref(null)
+const summaryBtn = ref(null)
+function toggleSets() {
+  setsOpen.value = !setsOpen.value
+  // opening lands you on the CHOICE, not back at the top of the panel (APG: move focus to the
+  // active tab so ← → work immediately)
+  if (setsOpen.value) nextTick(() => setsPanel.value?.querySelectorAll('.lset-tab')[activeSet.value]?.focus())
+}
+// Pointer/Enter on a tab = a decision → apply it and close, focus back on the summary that now
+// reads the new name. Arrow keys (below) only MOVE the selection, so a keyboard user can browse
+// the sets without the panel shutting under them.
+function pickSet(i) {
+  activeSet.value = i
+  setsOpen.value = false
+  nextTick(() => summaryBtn.value?.focus())
+}
+
 // WAI-ARIA tabs pattern: ← → Home End move between tabs (roving tabindex below), so the
 // switch is reachable without a pointer.
 function onSetKey(e) {
   const n = lyricSets.value?.length || 0
   if (!n) return
   const k = e.key
+  // Esc closes the disclosure without changing the set (APG) and returns focus to the summary.
+  if (k === 'Escape') {
+    e.preventDefault()
+    setsOpen.value = false
+    nextTick(() => summaryBtn.value?.focus())
+    return
+  }
   let next = -1
   if (k === 'ArrowRight') next = (activeSet.value + 1) % n
   else if (k === 'ArrowLeft') next = (activeSet.value - 1 + n) % n
@@ -2696,11 +2733,34 @@ function onSeek({ li, si, syk }) {
           <div v-if="song.scripture" class="scripture-tag muted">📖 {{ song.scripture }}</div>
         </div>
 
-        <!-- 717 multi-lyric — segmented tabs to switch the WORDS under the SAME melody. Only
-             for a song that declares >1 lyric set; not printed (print takes the chosen set,
-             and printTitle names it on the paper). -->
+        <!-- 717 multi-lyric — the WORDS under the SAME melody, switched by segmented tabs that
+             live inside a COLLAPSED disclosure (you choose a set once, then sing). The summary
+             always names the set currently on the sheet. Only for a song that declares >1 lyric
+             set; not printed (print takes the chosen set, and printTitle names it on the paper). -->
         <div v-if="lyricSets" class="lyric-set-wrap no-print">
-          <div class="lyric-set-tabs" role="tablist" :aria-label="t('lyricSet.tablist')" @keydown="onSetKey">
+          <button
+            ref="summaryBtn"
+            class="lset-summary"
+            :class="{ open: setsOpen }"
+            :aria-expanded="setsOpen ? 'true' : 'false'"
+            aria-controls="lset-tabs"
+            @click="toggleSets"
+          >
+            <span class="lset-summary-k">{{ t('lyricSet.summaryKey') }}</span>
+            <span class="lset-summary-v">{{ activeSetName }}</span>
+            <!-- variant B — the singer can see the song HAS other words without opening anything -->
+            <span v-if="setBadge" class="lset-count">{{ t('lyricSet.count', { n: lyricSets.length }) }}</span>
+            <span class="lset-chev" aria-hidden="true">{{ setsOpen ? '▴' : '▾' }}</span>
+          </button>
+          <div
+            v-show="setsOpen"
+            id="lset-tabs"
+            ref="setsPanel"
+            class="lyric-set-tabs"
+            role="tablist"
+            :aria-label="t('lyricSet.tablist')"
+            @keydown="onSetKey"
+          >
             <button
               v-for="(ls, i) in lyricSets"
               :key="i"
@@ -2711,12 +2771,13 @@ function onSeek({ li, si, syk }) {
               aria-controls="lset-panel"
               :aria-selected="activeSet === i ? 'true' : 'false'"
               :tabindex="activeSet === i ? 0 : -1"
-              @click="activeSet = i"
+              @click="pickSet(i)"
             >{{ lyricSetLabels[i] }}</button>
           </div>
-          <!-- a screen reader hears WHICH words are on the sheet now; sighted users see it in
-               the lit tab. .sv-sr-only (not .sr-only, which is scoped to .lead-header). -->
-          <p class="sv-sr-only" aria-live="polite">{{ t('lyricSet.now', { name: lyricSetLabels[activeSet] }) }}</p>
+          <!-- a screen reader hears WHICH words are on the sheet now; sighted users read it in
+               the summary. The tabs can be folded away, so this is the only spoken confirmation.
+               .sv-sr-only (not .sr-only, which is scoped to .lead-header). -->
+          <p class="sv-sr-only" aria-live="polite">{{ t('lyricSet.now', { name: activeSetName }) }}</p>
         </div>
 
         <div
@@ -2945,8 +3006,67 @@ function onSeek({ li, si, syk }) {
 <style scoped>
 /* ---------- 717 multi-lyric — segmented tabs (Material 3 segmented button) --------------
    One melody, several lyric sets you switch between. Centered above the sheet, brand-tinted
-   active segment, WCAG target size. Reuses the app's --brand token. */
+   active segment, WCAG target size. Reuses the app's --brand token.
+
+   TYPE SIZE (พี่เปา, 26 ก.ค. — "ตัวหนังสือใหญ่ไป"): the tabs used to inherit --fs-base (18px)
+   from <body> while the sheet they label renders at 1rem/16px, so a control read once per song
+   was the biggest text above the words. They now sit at 1rem — measured equal to .sheet-scale,
+   equal to the editor's own .eset-tab, and inside M3's label-large / HIG's segmented-control
+   range for a tab label. Only font-size shrinks: min-height (38px, and 44px on a coarse
+   pointer) is untouched, so the TARGET still clears WCAG 2.5.8 AA with room to spare. */
 .lyric-set-wrap { display: flex; flex-direction: column; align-items: center; max-width: 100%; }
+
+/* the collapsed disclosure — reads "ชุดเนื้อร้อง: <name of the set on the sheet> ▾". Sized and
+   weighted like a caption, not a heading: it must not compete with the song's own title. */
+.lset-summary {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* NOT flex-wrap: a long set name at 360px used to push the ▾ onto a line of its own, which
+     reads as a stray mark rather than "this opens". The name wraps INSIDE its own box instead
+     (min-width:0 + overflow-wrap below) and the caret stays beside it, the way a select does. */
+  flex-wrap: nowrap;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 38px;
+  margin: 4px auto 6px;
+  padding: 5px 14px;
+  border: 1px solid var(--line, #e2d9c8);
+  border-radius: 999px;
+  background: var(--surface-2, #f5efe3);
+  color: var(--ink-2, #6b5d45);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.lset-summary:hover { background: color-mix(in srgb, var(--brand, #8b4513) 8%, var(--surface-2, #f5efe3)); }
+.lset-summary:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
+.lset-summary.open { border-color: var(--brand, #8b4513); }
+/* the fixed parts never wrap — only the NAME does, so the caption can't break into
+   "ชุดเนื้อ / ร้อง:" on a 360px phone while the name still has room to reflow */
+.lset-summary-k { font-weight: 400; opacity: 0.8; flex: 0 0 auto; white-space: nowrap; }
+/* the NAME is the one thing that must survive a glance — it is what tells the singer which
+   words are on the sheet while everything else is folded away */
+.lset-summary-v { font-weight: 700; color: var(--brand, #8b4513); overflow-wrap: anywhere; flex: 0 1 auto; min-width: 0; }
+/* variant B — "N ชุด". A count, not an action: quiet, but enough that nobody sings this song
+   for a year without learning it has another set of words. */
+.lset-count {
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand, #8b4513) 14%, transparent);
+  color: var(--brand, #8b4513);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.lset-chev { flex: 0 0 auto; font-size: 0.75rem; opacity: 0.7; }
+@media (pointer: coarse) {
+  .lset-summary { min-height: 44px; }
+}
 .lyric-set-tabs {
   display: inline-flex;
   flex-wrap: wrap;
@@ -2973,6 +3093,7 @@ function onSeek({ li, si, syk }) {
   background: transparent;
   color: var(--ink-2, #6b5d45);
   font: inherit;
+  font-size: 1rem; /* = .sheet-scale, = the editor's .eset-tab (was --fs-base 18px) */
   font-weight: 600;
   cursor: pointer;
   transition: background .15s, color .15s;

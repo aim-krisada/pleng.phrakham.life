@@ -4,8 +4,26 @@ export function isV2(content) {
   return !!(content && Array.isArray(content.stanzas))
 }
 
-// 717 multi-lyric — Thai ordinals for the positional fallback name of a lyric set.
-export const THAI_DIGITS = ['๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙', '๑๐']
+// 717 multi-lyric — the positional caption for a lyric set nobody has named yet.
+//
+// ARABIC digits, not Thai (P'Aim, 26 ก.ค., after พี่เปา read the tabs). Everything else the
+// app numbers on screen is Arabic — ท่อน 1 · ข้อ 1 · the jianpu keypad · the completion
+// steps — so the Thai numeral here was the ONE Thai digit anywhere in the UI. It also used to
+// change base mid-list ("ทำนอง ๑๐" at i=9 but "ทำนอง 11" at i=10); one numeral system ends that.
+export function setCaption(i) {
+  return 'ทำนอง ' + (i + 1)
+}
+
+// An earlier editor SAVED that caption into `label`, so a set stored before this change can
+// still carry "ทำนอง ๑" as its text. We never rewrite the database to fix a caption, so the
+// legacy form is normalised at RENDER time instead — and only in its exact caption shape, so a
+// real set name that happens to contain a Thai numeral is left untouched (a name is free text
+// and must round-trip byte-identical).
+const LEGACY_CAPTION = /^ทำนอง\s*[๐-๙]+$/
+const THAI_TO_ARABIC = { '๐': '0', '๑': '1', '๒': '2', '๓': '3', '๔': '4', '๕': '5', '๖': '6', '๗': '7', '๘': '8', '๙': '9' }
+function arabicIfCaption(s) {
+  return LEGACY_CAPTION.test(s) ? s.replace(/[๐-๙]/g, (d) => THAI_TO_ARABIC[d]) : s
+}
 
 // The human name of ONE lyric set — the single source of truth for reader, editor,
 // search and print, so a set is never named two different things in two places.
@@ -14,14 +32,14 @@ export const THAI_DIGITS = ['๑', '๒', '๓', '๔', '๕', '๖', '๗', '�
 // ("different words must have different names" — P'Aim), so a set carries its own
 // `name`. Older 717 data wrote the positional caption into `label`; data older still
 // (and any set an author never named) carries neither and falls back to the positional
-// "ทำนอง ๑/๒" the app has always shown. Never drop the `label` fallback: it is what
+// caption the app has always shown. Never drop the `label` fallback: it is what
 // every already-saved 717 song has.
 export function lyricSetName(set, i) {
   const name = (set?.name || '').trim()
-  if (name) return name
+  if (name) return arabicIfCaption(name)
   const label = (set?.label || '').trim()
-  if (label) return label
-  return 'ทำนอง ' + (THAI_DIGITS[i] || i + 1)
+  if (label) return arabicIfCaption(label)
+  return setCaption(i)
 }
 
 // How many lyric SETS a song declares — 0 for every ordinary song (incl. all ~120 in the

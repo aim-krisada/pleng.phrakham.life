@@ -68,11 +68,18 @@ const plainSong = {
   },
 }
 
-const which = new URLSearchParams(location.search).get('song') === 'plain' ? plainSong : demoSong
+const q = new URLSearchParams(location.search)
+const which = q.get('song') === 'plain' ? plainSong : demoSong
+// evidence-only switches for the A/B P'Aim is picking between (26 ก.ค.):
+//   ?badge=0 — variant A: the collapsed switcher shows the set name only
+//   ?open=1  — capture the disclosure in its EXPANDED state
+const setBadge = q.get('badge') !== '0'
 
 createApp({
   setup() {
     const song = ref(which)
-    return () => h('div', { style: 'padding:8px' }, [h(SongViewer, { song: song.value, tier: 'guest' })])
+    return () => h('div', { style: 'padding:8px' }, [h(SongViewer, { song: song.value, tier: 'guest', setBadge })])
   },
 }).mount('#app')
+
+if (q.get('open') === '1') setTimeout(() => document.querySelector('.lset-summary')?.click(), 200)

@@ -224,14 +224,33 @@ describe('lyricSetName — one name per set, everywhere', () => {
     expect(lyricSetName({ name: 'ชื่อจริง', label: 'ทำนอง ๑' }, 0)).toBe('ชื่อจริง')
   })
   it('falls back to `label` — what every 717 song saved so far carries', () => {
-    expect(lyricSetName({ label: 'ทำนอง ๑' }, 0)).toBe('ทำนอง ๑')
+    expect(lyricSetName({ label: 'ชุดเก่า' }, 0)).toBe('ชุดเก่า')
   })
-  it('falls back to the positional ทำนอง ๑/๒ when a set is unnamed', () => {
-    expect(lyricSetName({}, 0)).toBe('ทำนอง ๑')
-    expect(lyricSetName(undefined, 1)).toBe('ทำนอง ๒')
-    expect(lyricSetName({ name: '  ', label: '' }, 1)).toBe('ทำนอง ๒')
+  it('falls back to the positional caption when a set is unnamed', () => {
+    expect(lyricSetName({}, 0)).toBe('ทำนอง 1')
+    expect(lyricSetName(undefined, 1)).toBe('ทำนอง 2')
+    expect(lyricSetName({ name: '  ', label: '' }, 1)).toBe('ทำนอง 2')
   })
-  it('past the Thai-digit table it keeps counting in arabic rather than blanking', () => {
+  it('counts in arabic all the way — one numeral system, no base change mid-list', () => {
+    expect(lyricSetName({}, 9)).toBe('ทำนอง 10')
     expect(lyricSetName({}, 10)).toBe('ทำนอง 11')
+  })
+})
+
+// พี่เปา read the tabs and P'Aim ordered arabic digits (26 ก.ค.). The fallback above is the
+// live path, but an earlier editor also SAVED the Thai caption into `label`, and we never
+// rewrite the database to fix a caption — so the stored legacy form is normalised on render.
+describe('lyricSetName — the saved Thai caption reads in arabic (no DB migration)', () => {
+  it('normalises a stored positional caption, keeping its number', () => {
+    expect(lyricSetName({ label: 'ทำนอง ๑' }, 0)).toBe('ทำนอง 1')
+    expect(lyricSetName({ label: 'ทำนอง ๒' }, 1)).toBe('ทำนอง 2')
+    expect(lyricSetName({ label: 'ทำนอง ๑๐' }, 9)).toBe('ทำนอง 10')
+    expect(lyricSetName({ name: 'ทำนอง ๒' }, 0)).toBe('ทำนอง 2') // number kept, NOT re-derived
+  })
+  it('leaves a real NAME alone even when it contains a Thai numeral', () => {
+    // a name is free text and must round-trip byte-identical — only the exact caption matches
+    expect(lyricSetName({ name: 'ชุดที่ ๒ ของโบสถ์' }, 0)).toBe('ชุดที่ ๒ ของโบสถ์')
+    expect(lyricSetName({ name: 'ทำนอง ๑ สำหรับเด็ก' }, 0)).toBe('ทำนอง ๑ สำหรับเด็ก')
+    expect(lyricSetName({ label: 'เพลง ๑' }, 0)).toBe('เพลง ๑')
   })
 })

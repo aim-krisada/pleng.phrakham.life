@@ -60,8 +60,12 @@ export function lyricsText(content) {
 
 // 717 multi-lyric — the names of a song's lyric sets. A song row stores only ONE
 // title (`title_th`, the first set's), so without this the second set's name — a name
-// people know the song by — is unfindable in the catalog. Emits `name` and, when it
-// differs, the older `label` too, so both generations of 717 data are searchable.
+// people know the song by — is unfindable in the catalog.
+//
+// Emits, per set: what the TAB SHOWS (lyricSetName — so typing exactly what you read on
+// screen finds the song, including a legacy Thai caption now displayed in arabic), plus the
+// raw stored `name`/`label` when they differ from it, so nobody loses the wording they
+// remember. Duplicates are skipped; everything here only pads a search haystack.
 export function lyricSetNames(content) {
   const sets = content?.lyricSets
   if (!Array.isArray(sets) || sets.length < 2) return []
@@ -70,9 +74,10 @@ export function lyricSetNames(content) {
     const s = sets[i]
     const name = (s?.name || '').trim()
     const label = (s?.label || '').trim()
-    if (name) out.push(name)
-    if (label && label !== name) out.push(label)
-    if (!name && !label) out.push(lyricSetName(s, i))
+    const shown = lyricSetName(s, i)
+    out.push(shown)
+    if (name && name !== shown) out.push(name)
+    if (label && label !== name && label !== shown) out.push(label)
   }
   return out
 }

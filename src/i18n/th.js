@@ -110,6 +110,9 @@ export default {
     tablist: 'เลือกเนื้อร้อง',
     now: 'กำลังแสดงเนื้อร้อง: {name}',
     otherSets: '♪ ทำนองเดียวกัน อีกชุด: {names}',
+    // the collapsed switcher: "ชุดเนื้อร้อง: <ชื่อชุดที่กำลังดู>  [2 ชุด]  ▾"
+    summaryKey: 'ชุดเนื้อร้อง:',
+    count: '{n} ชุด',
   },
   // issue9 lead-sheet header — ชื่อเพลง + แถบ คีย์ · อัตราจังหวะ · ความเร็ว เหนือแผ่นเพลง
   leadHeader: {
