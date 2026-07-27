@@ -29,7 +29,7 @@ Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function 
 Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function () {}
 
 import SongViewer from './SongViewer.vue'
-import { setEnsembleMode, setLeadInstrument, setSoundMode } from '../store.js'
+import { setEnsembleMode, setLeadInstrument, setSoundMode, ensembleMode } from '../store.js'
 
 // two ท่อน × two lines each, so "this line" and "this ท่อน" are genuinely different ranges
 const song = {
@@ -220,8 +220,10 @@ describe('ฟังตอนแก้ — a song-maker can hear without leaving 
     expect(editOpts.order).not.toEqual(listenOpts.order)
   })
 
+  // PIANO-ONLY (P'Aim 2026-07-27): เต็มวง is off the picker, so the setter no longer accepts it.
+  // The engine stays wired for the restore — drive the ref directly to keep this branch covered.
   it('รวมวง in the pencil goes through playEnsemble — the same branch โหมดฟัง takes', async () => {
-    setEnsembleMode('ensemble')
+    ensembleMode.value = 'ensemble'
     const w = await enterEditOn(mountViewer(), 0)
     await w.vm.playScope('line')
     await flushPromises()
