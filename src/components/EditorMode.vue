@@ -1365,7 +1365,27 @@ const pickerOptions = computed(() => [
   })),
 ])
 
-watch(pickerId, (id) => loadSong(id))
+// Switching songs from the picker replaces the whole document. Ask first when there is
+// unsaved work — and on "ยกเลิก" bounce the picker back to the song still on screen, so the
+// dropdown can never name one song while the editor holds another.
+//
+// `skipWatch` lets a caller that has ALREADY asked (the bounce write itself, deleteSong) move
+// the picker without a second question. It holds the exact value it is allowed to swallow,
+// not a bare boolean: any other change falls through to the guard, so a stale flag can never
+// eat a real switch and make it vanish silently (G, 2026-07-27).
+const NO_SKIP = Symbol('no-skip')
+let skipWatch = NO_SKIP
+watch(pickerId, (id, prev) => {
+  const skip = skipWatch
+  skipWatch = NO_SKIP
+  if (skip !== NO_SKIP && skip === id) return
+  if (!confirmDiscard('เปิดเพลงอื่น')) {
+    skipWatch = prev
+    pickerId.value = prev
+    return
+  }
+  loadSong(id)
+})
 
 async function loadSong(id) {
   if (!id) return resetForm()
@@ -1569,6 +1589,7 @@ function pickTheme(v) {
 }
 
 async function loadDraft(d) {
+  if (!confirmDiscard('เปิดร่างนี้')) return
   applyRow(d)
   editingId.value = d.song_id
   currentDraftId.value = d.id
@@ -1816,6 +1837,7 @@ async function deleteSong() {
   saveMsg.value = error ? '❌ ลบไม่สำเร็จ: ' + error.message : '🗑️ ลบแล้ว'
   if (!error) {
     resetForm()
+    skipWatch = '' // the song is gone; do not ask whether to keep edits to it
     pickerId.value = ''
     loadSongList()
   }
@@ -1849,7 +1871,15 @@ async function restore(rev) {
   // B028: history entries carry a full "after" snapshot; fall back to legacy new_row
   const r = rev.after ?? rev.new_row
   if (!r) return
-  if (!window.confirm('ย้อนเพลงกลับไปเป็นเวอร์ชันนี้?')) return
+  // one dialog, not two — when there is unsaved work the question says what will be lost
+  if (
+    !window.confirm(
+      isDirty.value
+        ? 'มีงานที่ยังไม่บันทึก ถ้าย้อนเพลงกลับไปเป็นเวอร์ชันนี้งานที่แก้ไว้จะหาย — ย้อนเลยไหม?'
+        : 'ย้อนเพลงกลับไปเป็นเวอร์ชันนี้?',
+    )
+  )
+    return
   const { error } = await supabase
     .from('songs')
     .update({ number: r.number, title_th: r.title_th, title_en: r.title_en, content: r.content })
@@ -2157,6 +2187,10 @@ onUnmounted(() => window.removeEventListener('keydown', onNavKeys))
 //   • in-app route change → our confirm dialog (KISS: window.confirm, like the rest of the
 //     editor's confirms — B094's shared dialog is still backlog).
 //   • tab close / refresh → the browser's own beforeunload prompt (its wording can't be set).
+//   • anything that REPLACES the document in place (switch song from the picker, open a
+//     draft, roll back to an old version, import a JSON) → confirmDiscard() below. Leaving
+//     the page was guarded; overwriting the page without leaving it was not, so unsaved work
+//     vanished with no question asked (P'Aim 2026-07-27 — silent, unrecoverable loss).
 const cleanDoc = ref(docState())
 const isDirty = computed(() => docState() !== cleanDoc.value)
 function markClean() {
@@ -2173,6 +2207,12 @@ onBeforeRouteLeave(() => {
   if (!isDirty.value) return true
   return window.confirm('มีงานที่ยังไม่บันทึก ถ้าออกจากหน้านี้งานที่แก้ไว้จะหาย — ออกเลยไหม?')
 })
+// One gate for every in-place replacement of the document. Clean = never ask (asking when
+// there is nothing to lose only teaches people to click through the question).
+function confirmDiscard(what) {
+  if (!isDirty.value) return true
+  return window.confirm(`มีงานที่ยังไม่บันทึก ถ้า${what}งานที่แก้ไว้จะหาย — ${what}เลยไหม?`)
+}
 
 // ---------- floating toolbar + sheet overlay ----------
 const showSheet = ref(false)
@@ -2882,6 +2922,8 @@ function manageUpload() {
     if (!file) return
     try {
       const data = JSON.parse(await file.text())
+      // asked here, not before the file chooser: backing out of the chooser should cost nothing
+      if (!confirmDiscard('นำเข้าไฟล์นี้')) return
       applyRow({
         number: data.number ?? null,
         title_th: data.title_th || '',
@@ -2964,6 +3006,8 @@ defineExpose({
   history, histPos,
   // B100 leave-warning tests: dirty flag + save/load clean checkpoints.
   isDirty, saveDirect,
+  // 2026-07-27 unsaved-guard: the in-place replacements the picker/history/import drive.
+  pickerId, restore, songList,
   // B108 หมวดหาย: per-field knownness + the two publish paths that gate on it.
   categoryKnown, themeKnown, approve, pickCategory, pickTheme, reviewingDraft,
 })
