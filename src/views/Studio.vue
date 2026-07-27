@@ -223,7 +223,7 @@ const songList = ref([])
 async function loadSongList() {
   const { data } = await supabase
     .from('songs')
-    .select('id, number, title_th, title_en, content, verified')
+    .select('id, number, title_th, title_en, content, verified, category')
     .order('number', { ascending: true })
   songList.value = data ?? []
 }
