@@ -60,6 +60,9 @@ describe('similar (warn) tier', () => {
   })
   it('is strict about very short names (one character = another word)', () => {
     expect(isSimilarTitle('รัก', 'รู้')).toBe(false)
+    // G's alert-fatigue case: a short title whose LOOSE key matches is still not a warning
+    expect(titleKeyLoose('สิบ')).toBe(titleKeyLoose('สีบ'))
+    expect(isSimilarTitle('สิบ', 'สีบ')).toBe(false)
   })
   it('editDistance caps out instead of walking the whole matrix', () => {
     expect(editDistance('abcdefgh', 'zzzzzzzz', 1)).toBe(2)

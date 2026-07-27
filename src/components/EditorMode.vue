@@ -1405,7 +1405,12 @@ const conflictLinks = computed(() => {
 // THE GATE. Returns true when the write may go ahead. An identical name in the same เล่ม is
 // refused; only an approver may force past it, and only through an explicit confirm that
 // names the song being duplicated (never a button you can click through by habit).
+// Set for ONE save when an approver knowingly published a duplicate — it becomes the row's
+// `duplicate_ok` flag, which is what lets db/011's partial index allow that one row through
+// while still refusing everything else (a bulk import never sets it).
+const forcedDuplicate = ref(false)
 function passTitleGate(what, selfId = editingId.value) {
+  forcedDuplicate.value = false
   const c = conflictsFor(selfId)
   if (c.level !== 'block') return true
   const names = c.blocking.map(conflictLabel).join(' · ')
@@ -1419,6 +1424,7 @@ function passTitleGate(what, selfId = editingId.value) {
       `กด "ตกลง" เฉพาะเมื่อแน่ใจว่าเป็นคนละเพลงจริงๆ`,
   )
   if (!ok) saveMsg.value = `ยกเลิก${what} — ชื่อซ้ำกับ ${names}`
+  forcedDuplicate.value = ok
   return ok
 }
 
@@ -1751,15 +1757,23 @@ async function saveDirect() {
   const { flags, count } = reviewFlagsForPublish()
   lastLintCount.value = count
   row.review_flags = flags
-  let error
-  if (editingId.value) {
-    ;({ error } = await supabase.from('songs').update(row).eq('id', editingId.value))
-  } else {
+  // B-DUP — carry the approver's knowing exception into the row (see db/011 §2). Only on the
+  // save they confirmed; a normal save never sends it, so it can never be sticky.
+  if (forcedDuplicate.value) row.duplicate_ok = true
+  const write = async () => {
+    if (editingId.value) return await supabase.from('songs').update(row).eq('id', editingId.value)
     row.author_id = session.value?.user?.id
-    const res = await supabase.from('songs').insert(row).select('id').single()
-    error = res.error
-    if (res.data) editingId.value = res.data.id
+    return await supabase.from('songs').insert(row).select('id').single()
   }
+  let res = await write()
+  // db/011 may not have been run yet — then the column does not exist and the write is
+  // rejected for a reason that has nothing to do with the song. Drop the flag and save.
+  if (res.error && row.duplicate_ok && /duplicate_ok/.test(res.error.message || '')) {
+    delete row.duplicate_ok
+    res = await write()
+  }
+  let error = res.error
+  if (!editingId.value && res.data) editingId.value = res.data.id
   if (error) {
     // B-DUP — db/011 (if P'Aim has run it) refuses a duplicate title at the database, which
     // is also the last line under the bulk-import door. Say that in the user's words instead

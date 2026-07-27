@@ -53,24 +53,39 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------------
--- §2. The guard itself. A UNIQUE INDEX (not a trigger) — it is checked by the database on
---     every insert/update from every client, cannot be forgotten, and costs nothing to read.
+-- §2. The guard itself — a PARTIAL unique index, checked by the database on every write from
+--     every client (app, REST, a bulk-import script), and impossible to forget.
 --     Songs with no เล่ม are compared with each other under one bucket, never against a
 --     filed song (same rule as the app: we cannot know which เล่ม they were meant for).
 --
+--     Why partial, and why the extra column: a plain unique index would also kill the
+--     approver's "these really are two different songs" escape hatch that P'Aim asked for
+--     (G, 27 ก.ค.). `duplicate_ok` is that hatch, and it is deliberately awkward — the row
+--     must SAY it is a knowing exception. A bulk import that does not set it (none do) is
+--     still refused; the app sets it only after an approver answered a confirm that named
+--     the song being duplicated.
+--
 --     ⚠️ This will FAIL while the §0 duplicates exist. That is intended — resolve them first.
---     ⚠️ It also removes the approver's "force it through anyway" escape hatch that the app
---        offers: with this index in place a forced duplicate is refused by the database and
---        the app shows that refusal. If P'Aim wants the escape hatch kept, run §1 + §3 only
---        (report the duplicates) and leave this index out — say which, and the app follows.
 -- ---------------------------------------------------------------------------
+alter table public.songs
+  add column if not exists duplicate_ok boolean not null default false;
+
+comment on column public.songs.duplicate_ok is
+  'B-DUP: an approver knowingly allowed this song to share a title inside its เล่ม. Never set by an import.';
+
 create unique index if not exists songs_one_title_per_book
-  on public.songs (coalesce(category, '__none__'), public.song_title_key(title_th));
+  on public.songs (coalesce(category, '__none__'), public.song_title_key(title_th))
+  where duplicate_ok is false;
 
 comment on index public.songs_one_title_per_book is
   'B-DUP: one song title per เล่ม (category). Same title in another เล่ม is allowed.';
 
 commit;
+
+-- KNOWN GAP, on purpose: `approve_and_publish()` (db/002) writes through an RPC whose
+-- signature this migration does not change, so an approver publishing a DRAFT cannot set
+-- duplicate_ok and will simply be refused by the index. Publishing the same song from the
+-- editor (เผยแพร่) carries the flag and works. Widen the RPC only if P'Aim hits that case.
 
 -- ---------------------------------------------------------------------------
 -- §3. Standing report — run any time to see what would clash today.

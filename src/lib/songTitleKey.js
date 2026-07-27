@@ -103,8 +103,11 @@ export function isSimilarTitle(a, b) {
   const ka = titleKeyLoose(a)
   const kb = titleKeyLoose(b)
   if (!ka || !kb) return false
-  if (ka === kb) return true
+  // Short names are compared strictly, INCLUDING the loose-key match: on a 3-character title
+  // a swapped vowel is a different word, not drift ("สิบ" vs "สืบ"), and a warning nobody
+  // believes is a warning everybody clicks through (G, 27 ก.ค. — alert fatigue).
   if (Math.min(ka.length, kb.length) < 4) return false
+  if (ka === kb) return true
   return editDistance(ka, kb, 1) <= 1
 }
 
