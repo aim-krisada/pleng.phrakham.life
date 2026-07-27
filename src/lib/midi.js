@@ -8,6 +8,7 @@ import { arrange } from './arranger/index.js'
 import { moduleForInstrument } from './arranger/instruments/index.js'
 import { mulberry32, seedFor } from './arranger/rng.js'
 import { resolveContent } from './songModel.js'
+import { preEchoesMelody, PREECHO_MIN_GAIN_RATIO } from './arranger/referee.js'
 
 // Playback root MIDI per key. Every tonic is kept inside ONE comfortable window (G3..F#4 = 55..66)
 // so no key plays an octave higher than another (พี่เปา 14 ก.ค.: "คีย์ A สูงเกินไป · ขอโซน A4"). The
@@ -806,7 +807,61 @@ export function resolveSections(content, notes) {
   return phrases.length > labelled.length ? phrases : labelled
 }
 
-export async function playEnsemble(content, { bpm = 72, loop = false, onNote, onProgress, order, range, transpose = 0, startIndex = 0, lead = 'piano', onInstrumentPending, songId } = {}) {
+// ---- โหมดรวมวง · the GUIDE (melody) layer as PURE DATA -----------------------------------------
+// playEnsemble has its own hand-rolled scheduler and never runs arrange(), so the referee that keeps
+// the solo path honest (referee.js § preEchoesMelody) never saw the ensemble's ornaments at all: on
+// v1 the guitar/violin lead's grace note could still sing the pitch the tune was about to sing —
+// "3 ตัวกลายเป็น 4 ตัว" — the very thing the solo path was fixed for. This function is where the
+// ensemble's guide decisions now live, in one pure place, so the SAME rule applies to both paths and
+// a headless audit can measure the real thing instead of a re-implementation of it.
+//
+// Returns one entry per sounding melody note: { midi, beat, beats, gd, tJit, grace }. `grace` is the
+// ornament that survived the referee, or null (either it was never drawn, or it was vetoed).
+// The rng stream lives HERE and is consumed in exactly the original order — the humanize draws must
+// not shift, or silencing one ornament would re-roll the whole song's feel.
+// Which leads the referee polices BY DEFAULT. Only กีตาร์นำ — the hammer-on grace P'Aim judged by
+// ear. ไวโอลินนำ's slide-in is held out of the default on purpose (same stance as the solo path's
+// violin ลูกเล่น: not yet judged); `preEcho: 'all'` turns it on for that A/B.
+export const PREECHO_ENSEMBLE_LEADS = new Set(['guitar'])
+export function ensembleGuideEvents(notes, { lead = 'piano', seedBase = 0, pass = 0, secGain = () => 1, accent = () => 1, contour = () => 1, preEcho = 'default', rng: rngIn } = {}) {
+  // The caller may hand in ITS rng so the shared humanize stream keeps advancing across the guide
+  // layer and the comp/bass layer that draws after it — exactly as when this was one inline loop.
+  const rng = rngIn || mulberry32((seedBase ^ (pass * 0x9e37)) >>> 0)
+  const rnd = () => rng() * 2 - 1
+  const VJ = 0.06
+  const policePreEcho = preEcho === 'all' || (preEcho !== 'off' && PREECHO_ENSEMBLE_LEADS.has(lead))
+  // the tune's attacks in beat-space — what the shared PITCH rule checks an ornament against.
+  // Built from THIS pass's notes so a seek/loop pass can't compare against the wrong list.
+  const attacks = []
+  { let ab = 0; for (const n of notes) { if (n.midi != null) attacks.push({ beat: ab, midi: n.midi }); ab += n.beats } }
+  // A grace's loudness is compared as a RATIO of the melody note it leans on: both go through the
+  // same instrument and the same bus, so the ratio IS the perceptual comparison, no mix maths
+  // needed. Vetoing a grace never touches the tune, the comp or the bass — only the ornament goes.
+  const graceVetoed = (midi, atBeat, relGain) =>
+    policePreEcho && preEchoesMelody({ midi, startBeat: atBeat, gain: relGain }, attacks, { minGain: PREECHO_MIN_GAIN_RATIO })
+
+  const out = []
+  let beat = 0
+  for (let i = 0; i < notes.length; i++) {
+    const n = notes[i]
+    if (n.midi != null) {
+      const gd = accent(beat) * contour(i) * (1 + VJ * rnd()) * secGain(beat)
+      const tJit = rnd()
+      let grace = null
+      if (lead === 'guitar') {
+        // NB the rng() draw happens exactly as before whether or not the grace is vetoed.
+        if (n.beats >= 1 && rng() < 0.18 && !graceVetoed(n.midi - 2, beat, 0.42 / 0.56)) grace = { midi: n.midi - 2 }
+      } else if (lead === 'violin') {
+        if (n.beats >= 1 && rng() < 0.2 && !graceVetoed(n.midi - 2, beat, 0.28 / 0.42)) grace = { midi: n.midi - 2 }
+      }
+      out.push({ midi: n.midi, beat, beats: n.beats, gd, tJit, grace })
+    }
+    beat += n.beats
+  }
+  return out
+}
+
+export async function playEnsemble(content, { bpm = 72, loop = false, onNote, onProgress, order, range, transpose = 0, startIndex = 0, lead = 'piano', onInstrumentPending, songId, preEcho = 'default' } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   try { const b = ctx.createBuffer(1, 1, 22050); const s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0) } catch { /* not fatal */ }
   await ctx.resume()
@@ -931,24 +986,22 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     // GUIDE layer (ONE melody line) on the LEAD instrument, × section gain (verse quieter → chorus
     // full). piano swells long notes · violin sings long + slide-in · guitar fingerpicks + a
     // hammer-on grace. Only the lead plays the tune; the violin NEVER doubles it.
-    let beat = 0
-    for (let i = 0; i < notes.length; i++) {
-      const n = notes[i]
-      if (n.midi != null && melInst) {
-        const gd = accent(beat) * contour(i) * (1 + VJ * rnd()) * secGain(beat)
-        const t = t0 + beat * spb + TJ * rnd()
-        const d = n.beats * spb
-        if (lead === 'guitar') {
-          if (n.beats >= 1 && rng() < 0.18) melInst.fire(n.midi - 2 + T, t - 0.05, 0.12, 0.42 * gd) // hammer/slide
-          melInst.fire(n.midi + T, t, Math.max(0.6, d + 0.4), 0.56 * gd) // plucked, rings
-        } else if (lead === 'violin') {
-          if (n.beats >= 1 && rng() < 0.2) melInst.fire(n.midi - 2 + T, t - 0.06, 0.2, 0.28 * gd) // slide-in grace
-          melInst.fire(n.midi + T, t, Math.max(0.9, d + 0.6), 0.42 * gd) // violin sings long
-        } else {
-          melInst.fire(n.midi + T, t, n.beats >= 3 ? d + 0.5 : Math.max(0.5, d + 0.3), 0.52 * gd)
-        }
+    // The DECISIONS (which notes, which graces survive the pre-echo referee) are made by the pure
+    // ensembleGuideEvents() below — the same function tools/audit-preecho-ensemble.mjs runs headless.
+    // Only the fire() calls live here, so a headless audit and the real "ฟัง" can never disagree.
+    for (const g of ensembleGuideEvents(notes, { lead, seedBase, pass, secGain, accent, contour, preEcho, rng })) {
+      if (!melInst) break
+      const t = t0 + g.beat * spb + TJ * g.tJit
+      const d = g.beats * spb
+      if (lead === 'guitar') {
+        if (g.grace) melInst.fire(g.grace.midi + T, t - 0.05, 0.12, 0.42 * g.gd) // hammer/slide
+        melInst.fire(g.midi + T, t, Math.max(0.6, d + 0.4), 0.56 * g.gd) // plucked, rings
+      } else if (lead === 'violin') {
+        if (g.grace) melInst.fire(g.grace.midi + T, t - 0.06, 0.2, 0.28 * g.gd) // slide-in grace
+        melInst.fire(g.midi + T, t, Math.max(0.9, d + 0.6), 0.42 * g.gd) // violin sings long
+      } else {
+        melInst.fire(g.midi + T, t, g.beats >= 3 ? d + 0.5 : Math.max(0.5, d + 0.3), 0.52 * g.gd)
       }
-      beat += n.beats
     }
 
     // COMP + BASS — grand arpeggio (front · movement) + cello bass (re-bow ~3 beats · one-shot §6b.1).
