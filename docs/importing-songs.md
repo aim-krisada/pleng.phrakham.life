@@ -118,7 +118,9 @@ Use this to catch mistakes — see the validator below.
 4. Write two files into `song-data\`:
    - `NNN-slug.json` — pretty-printed `{ "number": N, "title_th": "…", "title_en": null,
      "content": { … } }` (slug = a short ascii name).
-   - `NNN-slug.sql` — the upsert (template below).
+   - `NNN-slug.sql` — a copy of `tools/song-import-template.sql` with the blanks
+     filled in (template section below). It is **add-only** — it can never overwrite
+     a song that is already in the library.
 5. **Validate** (see script) — fix any bar whose beats ≠ the time signature, and any
    segment whose syllable count ≠ its attack-note count.
 6. Report to P'Aim: the `.sql` path to run in Supabase SQL Editor, and a note that the
@@ -126,14 +128,47 @@ Use this to catch mistakes — see the validator below.
    seeds, P'Pao fixes"). Flag any bars you were unsure of.
 
 ### SQL template (`NNN-slug.sql`)
-```sql
--- Seed song #NN — run in Supabase SQL Editor
-insert into public.songs (number, title_th, title_en, content)
-values (NN, 'ชื่อเพลงไทย', null, $json$ <<the content JSON on one line>> $json$::jsonb)
-on conflict (number) do update
-  set title_th = excluded.title_th, title_en = excluded.title_en, content = excluded.content;
-```
-(`$json$…$json$` is a dollar-quoted string so you don't have to escape the quotes inside.)
+
+**Copy `tools/song-import-template.sql`** and fill in `<CATEGORY> <NUMBER> <TITLE_TH>
+<TITLE_EN> <CONTENT JSON>`. Do not hand-roll the SQL.
+
+It has two parts, and you run them in order:
+
+1. **ขั้นที่ 1 — ดูก่อน** (`select …`): read-only. Shows whether that เล่ม+เลขเพลง is
+   already taken, by which song, when it was last edited.
+2. **ขั้นที่ 2 — เพิ่มเพลง**: adds the song **only if the slot is free**. If a different
+   song is sitting there it writes **nothing at all** and stops with a red error naming
+   the song it found. Re-running the same import is harmless (it just says
+   `⏩ มีอยู่แล้ว`).
+
+`$json$…$json$` is a dollar-quoted string so you don't have to escape the quotes inside.
+
+> ### ⛔ ห้ามใช้ `on conflict (number) do update … set content = excluded.content`
+> That is what this playbook used to say, and it is a data-loss bug: if the เลขเพลง
+> happens to match a song that พี่เปา already fixed, it **overwrites the whole song
+> silently, with no undo**. Anything you write by hand must be add-only.
+
+### ถ้าเจอเลขชนต้องทำยังไง (อ่านตรงนี้ ไม่ต้องรู้ SQL ก็ได้)
+
+"เลขชน" = เลขเพลงที่คุณจะใส่ **มีเพลงอื่นอยู่ตรงนั้นแล้ว** ระบบจะ **ไม่ยอมเขียนทับ** และขึ้นเป็น
+ข้อความสีแดงบอกว่าเจอเพลงชื่ออะไร ตรงนี้คือ**ระบบทำงานถูกแล้ว ไม่ใช่พัง** — มันเพิ่งกันไม่ให้งาน
+ของคนอื่นหายไป
+
+ทำตามนี้:
+
+1. **ดูข้อความสีแดง** ว่าเลขไหนชน และเพลงเดิมชื่ออะไร
+2. **ตอบตัวเองว่าเป็นเพลงเดียวกันไหม**
+   - **คนละเพลง** → แปลว่าเราจดเลขผิด · เปิดหนังสือดูเลขเพลงที่ถูก แก้ `<NUMBER>` แล้วรันขั้นที่ 2 ใหม่
+   - **เพลงเดียวกัน แต่ของเราใหม่กว่า/ครบกว่า** → อย่ารีบทับ **ถามพี่เอมก่อนเสมอ** เพราะของเดิมอาจเป็น
+     งานที่พี่เปาแก้ไว้แล้ว การทับจะทำให้หายไป
+   - **เพลงเดียวกัน และของเดิมดีอยู่แล้ว** → ไม่ต้องทำอะไร ข้ามเพลงนี้ไป
+3. **ถ้าตกลงกันแล้วว่าจะทับจริง ๆ** → ใช้ `tools/song-overwrite-template.sql` (คนละไฟล์
+   โดยตั้งใจ) ต้องเอา **ชื่อเดิม** กับ **ลายนิ้วมือแถวเดิม** ที่เห็นจากขั้นที่ 1 มาใส่ ถ้ามีใครแก้
+   เพลงนั้นหลังจากที่คุณดู มันจะไม่ยอมทับและบอกให้ไปดูใหม่
+
+> **ทำไมถึงยุ่งขนาดนี้:** เพลงในคลังพี่เปาแก้มือทีละเพลง เขียนทับ 1 ครั้ง = งานหลายชั่วโมงหาย
+> และไม่มีใครรู้ตัวจนกว่าจะเปิดเพลงนั้นอีกที ระบบเลยถูกออกแบบให้ "เพิ่มได้ ทับไม่ได้" เป็นค่าเริ่มต้น
+> — ประวัติของเดิมยังเก็บอยู่ใน `public.song_revisions` แต่อย่าไปพึ่ง ดูก่อนทับดีกว่า
 
 ### Validator (run from the repo root; read-only, no repo changes)
 Write this to a temp file OUTSIDE the repo (e.g. your scratchpad), run it, then delete it.

@@ -6,9 +6,41 @@
 -- Safety proven app-side (tools/verify_ties.mjs): syllable slots + beats UNCHANGED,
 --   0 syllable/beat mismatch delta, arc tokens parse. Run AFTER import-all-120.sql.
 -- Covers 48 songs / 193 arcs encoded. Uncertain arcs were flagged, not guessed.
+--
+-- ⚠️⚠️ THIS FILE OVERWRITES `content` FOR 48 SONGS, WHOLESALE, WITH NO PER-SONG CHECK.
+--    It was written as a ONE-SHOT to run straight after import-all-120.sql, and it has
+--    already been run. Re-running it now would throw away every melody edit the team has
+--    made to those 48 songs since — silently, with no undo. It is therefore ARMED OFF:
+--    it refuses to run unless you deliberately opt in (step B below), which nothing does
+--    by accident (guard added 27 ก.ค.).
+--
+--    ⛔ Do NOT re-arm it just to "re-apply the ties". If you need to change ties today,
+--       go song by song with tools/song-overwrite-template.sql, which refuses to write
+--       over a song that changed after you looked at it.
+--
+-- ── STEP A · LOOK FIRST (read-only). Anything edited since the ties import would be lost:
+--    select number, title_th, verified, updated_at
+--      from public.songs
+--     where category = 'anuchon'
+--       and number in (1,2,3,5,6,12,14,17,18,19,20,22,26,31,32,33,47,49,53,55,56,59,63,69,
+--                      72,75,77,80,81,82,84,85,87,88,90,95,96,98,100,101,104,107,109,110,
+--                      111,112,117,118)
+--     order by updated_at desc;
+--
+-- ── STEP B · ARM IT (only if step A said it is safe, and P'Aim agreed). Run this line
+--    in the SAME execution, immediately before the rest of this file:
+--       set local pleng.confirm_overwrite = 'ties-overwrite-48-songs';
 -- ============================================================================
 
 begin;
+
+-- The safety catch. Without step B this raises and the whole file rolls back untouched.
+do $$
+begin
+  if coalesce(current_setting('pleng.confirm_overwrite', true), '') <> 'ties-overwrite-48-songs' then
+    raise exception '⛔ สคริปต์นี้เขียนทับเนื้อเพลง 48 เพลงทั้งก้อน — ไม่ได้เขียนอะไรเลย. ถ้าตั้งใจจริง อ่านหัวไฟล์ ทำ STEP A (ดูก่อน) แล้ว STEP B (ปลดล็อก). สำหรับแก้ทีละเพลง ใช้ tools/song-overwrite-template.sql';
+  end if;
+end $$;
 
 -- ties/slurs song #1 [anuchon] — content-only update (idempotent)
 update public.songs set content = $json${"key": "E", "stanzas": [{"id": "A", "lines": [[{"note": ".5. .5_ .5 .6", "type": "segment", "chord": "E"}, {"type": "bar"}, {"note": "1 - - .6_ 1_", "type": "segment", "chord": "C#m"}, {"type": "bar"}, {"note": "2_ 2_ 2_ 2_", "type": "segment", "chord": "F#m"}, {"note": "2 1_ 3_", "type": "segment", "chord": "B"}, {"type": "bar"}, {"note": "~3 - -", "type": "segment", "chord": "E"}], [{"note": "2_ 3_", "type": "segment", "chord": ""}, {"type": "bar"}, {"note": "5. 6_ 5 3", "type": "segment", "chord": "G#m"}, {"type": "bar"}, {"note": "2. 3_ 2 1", "type": "segment", "chord": "F#m"}, {"type": "bar"}, {"note": ".6. .5_ .6 1_ 3_", "type": "segment", "chord": "A"}, {"type": "bar"}, {"note": "2 - - -", "type": "segment", "chord": "B"}], [{"note": ".5. .5_ .5 .6", "type": "segment", "chord": "E"}, {"type": "bar"}, {"note": "1 - - .6_ 1_", "type": "segment", "chord": "C#m"}, {"type": "bar"}, {"note": "2_ 2_ 2_ 2_", "type": "segment", "chord": "F#m"}, {"note": "2 1_ 3_", "type": "segment", "chord": "B"}, {"type": "bar"}, {"note": "~3 - -", "type": "segment", "chord": "E"}], [{"note": "2_ 3_", "type": "segment", "chord": ""}, {"type": "bar"}, {"note": "5. 6_ 5 3", "type": "segment", "chord": "G#m"}, {"type": "bar"}, {"note": "2. 3_ 2 1", "type": "segment", "chord": "F#m"}, {"type": "bar"}, {"note": ".6. .5_ .6 1", "type": "segment", "chord": "A"}, {"type": "bar"}, {"note": "2 - - 1", "type": "segment", "chord": "B"}, {"type": "bar"}, {"note": "1 - -", "type": "segment", "chord": "E"}]]}, {"id": "B", "lines": [[{"note": "3_ 5_", "type": "segment", "chord": ""}, {"type": "bar"}, {"note": "6 - 6_ 7_ 6_ 5_", "type": "segment", "chord": "C#m"}, {"type": "bar"}, {"note": "3 - - 3_ 2_", "type": "segment", "chord": "G#m"}, {"type": "bar"}, {"note": "1. 1_", "type": "segment", "chord": "A"}, {"note": "2 1_ 2_", "type": "segment", "chord": "B"}, {"type": "bar"}, {"note": "3 - -", "type": "segment", "chord": "E"}], [{"note": "6_ 7_", "type": "segment", "chord": ""}, {"type": "bar"}, {"note": "1. 1_", "type": "segment", "chord": "C#m"}, {"note": "7 5", "type": "segment", "chord": "G#m"}, {"type": "bar"}, {"note": "6. 6_", "type": "segment", "chord": "A"}, {"note": "5 3", "type": "segment", "chord": "E"}, {"type": "bar"}, {"note": "2. 1_ 2 6", "type": "segment", "chord": "F#"}, {"type": "bar"}, {"note": "5 - - -", "type": "segment", "chord": "B"}], [{"note": ".5. .5_ .5 .6", "type": "segment", "chord": "E"}, {"type": "bar"}, {"note": "1 - - .6_ 1_", "type": "segment", "chord": "C#m"}, {"type": "bar"}, {"note": "2_ 2_ 2_ 2_", "type": "segment", "chord": "F#m"}, {"note": "2 1_ 3_", "type": "segment", "chord": "B"}, {"type": "bar"}, {"note": "~3 - -", "type": "segment", "chord": "E"}], [{"note": "2_ 3_", "type": "segment", "chord": ""}, {"type": "bar"}, {"note": "5. 6_ 5 3", "type": "segment", "chord": "G#m"}, {"type": "bar"}, {"note": "2. 3_ 2 1", "type": "segment", "chord": "F#m"}, {"type": "bar"}, {"note": ".6. .5_ .6 1", "type": "segment", "chord": "A"}, {"type": "bar"}, {"note": "2 - - 1", "type": "segment", "chord": "B"}, {"type": "bar"}, {"note": "1 - - -", "type": "segment", "chord": "E"}]]}], "version": 2, "arrangement": [{"label": "ร้อง 1", "stanza": "A", "syllables": ["พระ", "เจ้า", "เป็น", "ความ", "รัก", "", "", "ให้", "ข้า", "พัก", "ใน", "ทุ่ง", "หญ้า", "ริม", "ฝั่ง", "น้ำ", "ทรง", "", "", "ช่วย", "นำ", "สำ", "รวจ", "ใจ", "ข้า", "ที่", "มืด", "มน", "ร่วม", "ผ่าน", "พ้น", "แต่", "ละ", "วัน", "พระ", "", "", "", "เจ้า", "เป็น", "ความ", "รัก", "ทรง", "", "", "ปก", "ปัก", "รัก", "ษา", "ใน", "ความ", "ทุกข์", "ตรม", "พระ", "คุณ", "", "", "อัน", "อุ", "ดม", "เพื่อ", "ข้า", "ทรง", "เตรียม", "ไว้", "แม้", "มี", "ภัย", "ไม่", "แปร", "เปลี่ยน", "ไป", "", "", "", "", "", ""]}, {"label": "รับ", "stanza": "B", "syllables": ["ใน", "โลก", "นี้", "", "พระ", "คุณ", "ส", "ถิ", "ต", "", "", "รัก", "ส", "นิ", "ท", "ใน", "จิต", "ทุก", "เว", "", "", "ลา", "พระ", "เจ้า", "ทรง", "ประ", "ทาน", "พระ", "คุณ", "หนุน", "นำ", "พา", "ร่วม", "ดำ", "เนิน", "ชี", "", "", "", "วา", "พระ", "เจ้า", "เป็น", "ความ", "", "", "รัก", "ให้", "ข้า", "พัก", "ใน", "ทุ่ง", "หญ้า", "ริม", "ฝั่ง", "น้ำ", "", "", "ความ", "อิ่ม", "หนำ", "ชื่น", "ชม", "ล้น", "ไหล", "ใน", "ดวง", "ใจ", "แม้", "มี", "ภัย", "ไม่", "แปร", "", "", "เปลี่ยน", "ไป", "", "", ""]}], "timeSignature": "4/4"}$json$::jsonb

@@ -27,31 +27,23 @@
 
 begin;
 
--- 1. Safety guard — refuse to clobber a different song sitting in this slot.
+-- 1. Safety guard — refuse to touch this slot unless it is free, or already holds
+--    EXACTLY this song. Matching the TITLE alone is not enough: same title + edited
+--    content would have been overwritten silently (fixed 27 ก.ค.).
 do $$
 begin
   if exists (
     select 1 from public.songs
     where category = 'anuchon' and number = 900
-      and coalesce(title_en, '') <> 'Amazing Grace'
+      and (coalesce(title_en, '') <> 'Amazing Grace'
+           or content is distinct from $json${"key":"G","version":2,"timeSignature":"3/4","headerKey":"G","stanzas":[{"id":"A","lines":[[{"note":"0 0 .5","type":"segment","chord":"G"},{"type":"bar"},{"note":"1. 3_ 1","type":"segment","chord":"G"},{"type":"bar"},{"note":"3. 2_ 1","type":"segment","chord":"C"},{"type":"bar"},{"note":"1 - -","type":"segment","chord":"G"}],[{"note":".5 1. 3_","type":"segment","chord":"G"},{"type":"bar"},{"note":"1_ 3_ 2 -","type":"segment","chord":"D"}],[{"note":".5 1. 3_","type":"segment","chord":"G"},{"type":"bar"},{"note":"1. 3_ 1'","type":"segment","chord":"C"},{"type":"bar"},{"note":"6 5 -","type":"segment","chord":"G"}],[{"note":"1. 3_ 1","type":"segment","chord":"D"},{"type":"bar"},{"note":"3_ 2_ 1 -","type":"segment","chord":"G"}]]}],"arrangement":[{"label":"Verse 1 (EN)","stanza":"A","syllables":["","","A","ma","zing","grace","how","sweet","the","sound","","","that","saved","a","wretch","like","me","","I","once","was","lost","but","now","am","found","","was","blind","but","now","I","see",""]},{"label":"ร้อง 1 (ไทย)","stanza":"A","syllables":["","","พระ","คุณ","ล้ำ","เลิศ","ประ","-เสริฐ","เกิน","คำ","","","ช่วย","คน","บาป","อย่าง","ฉัน","ไว้","","เคย","หลง","ทาง","ไกล","บัด","-นี้","กลับ","-มา","","เคย","มืด","บอด","นี้","ตา","เห็น",""]},{"label":"Verse 2 (EN)","stanza":"A","syllables":["","","'Twas","grace","that","taught","my","heart","to","fear","","","and","grace","my","fears","re","-lieved","","how","pre","-cious","did","that","grace","ap","-pear","","the","hour","I","first","be","-lieved",""]}],"copyright_note":{"words_en":"John Newton, 1779 — public domain worldwide.","tune":"New Britain (Virginia Harmony, 1835) — public domain.","words_th":"แปลไทยแบบร้องได้ แต่งขึ้นเองสำหรับทดสอบระบบ (มอบให้เป็นสาธารณะ / CC0). ไม่ใช้คำแปลไทยฉบับตีพิมพ์ใด ๆ เพื่อเลี่ยงลิขสิทธิ์ผู้แปล.","notation_note":"ทำนองบันทึกแบบ 1 พยางค์/1 โน้ต (syllabic) ตามที่ร้องในโบสถ์ทั่วไป — melisma (เอื้อนหลายเสียงต่อพยางค์) ของฉบับดั้งเดิมถูกทำให้เรียบเพื่อให้ตรงกับโมเดล v2 (1 พยางค์/attack note). ควรให้นักดนตรี (พี่เปา) ตรวจเสียงก่อนใช้จริง."}}$json$::jsonb)
   ) then
-    raise exception 'slot anuchon/900 is occupied by a different song — choose another number and re-run';
+    raise exception '⛔ ช่อง anuchon/900 มีเพลงอื่น (หรือเพลงนี้ที่ถูกแก้ไปแล้ว) อยู่ — ไม่ได้เขียนทับอะไรเลย. เลือกเลขอื่น หรือถ้าตั้งใจจะทับ ใช้ tools/song-overwrite-template.sql';
   end if;
 end $$;
 
--- 2a. Update in place if Amazing Grace is already in this slot (re-run path).
-update public.songs set
-  title_th     = 'พระคุณล้ำเลิศ (Amazing Grace)',
-  title_en     = 'Amazing Grace',
-  theme        = 'พระคุณ',
-  verified     = false,
-  scripture    = 'เอเฟซัส 2:8',
-  book_refs    = '[]'::jsonb,
-  review_flags = '["test","melody-syllabic","pd-cc0"]'::jsonb,
-  content      = $json${"key":"G","version":2,"timeSignature":"3/4","headerKey":"G","stanzas":[{"id":"A","lines":[[{"note":"0 0 .5","type":"segment","chord":"G"},{"type":"bar"},{"note":"1. 3_ 1","type":"segment","chord":"G"},{"type":"bar"},{"note":"3. 2_ 1","type":"segment","chord":"C"},{"type":"bar"},{"note":"1 - -","type":"segment","chord":"G"}],[{"note":".5 1. 3_","type":"segment","chord":"G"},{"type":"bar"},{"note":"1_ 3_ 2 -","type":"segment","chord":"D"}],[{"note":".5 1. 3_","type":"segment","chord":"G"},{"type":"bar"},{"note":"1. 3_ 1'","type":"segment","chord":"C"},{"type":"bar"},{"note":"6 5 -","type":"segment","chord":"G"}],[{"note":"1. 3_ 1","type":"segment","chord":"D"},{"type":"bar"},{"note":"3_ 2_ 1 -","type":"segment","chord":"G"}]]}],"arrangement":[{"label":"Verse 1 (EN)","stanza":"A","syllables":["","","A","ma","zing","grace","how","sweet","the","sound","","","that","saved","a","wretch","like","me","","I","once","was","lost","but","now","am","found","","was","blind","but","now","I","see",""]},{"label":"ร้อง 1 (ไทย)","stanza":"A","syllables":["","","พระ","คุณ","ล้ำ","เลิศ","ประ","-เสริฐ","เกิน","คำ","","","ช่วย","คน","บาป","อย่าง","ฉัน","ไว้","","เคย","หลง","ทาง","ไกล","บัด","-นี้","กลับ","-มา","","เคย","มืด","บอด","นี้","ตา","เห็น",""]},{"label":"Verse 2 (EN)","stanza":"A","syllables":["","","'Twas","grace","that","taught","my","heart","to","fear","","","and","grace","my","fears","re","-lieved","","how","pre","-cious","did","that","grace","ap","-pear","","the","hour","I","first","be","-lieved",""]}],"copyright_note":{"words_en":"John Newton, 1779 — public domain worldwide.","tune":"New Britain (Virginia Harmony, 1835) — public domain.","words_th":"แปลไทยแบบร้องได้ แต่งขึ้นเองสำหรับทดสอบระบบ (มอบให้เป็นสาธารณะ / CC0). ไม่ใช้คำแปลไทยฉบับตีพิมพ์ใด ๆ เพื่อเลี่ยงลิขสิทธิ์ผู้แปล.","notation_note":"ทำนองบันทึกแบบ 1 พยางค์/1 โน้ต (syllabic) ตามที่ร้องในโบสถ์ทั่วไป — melisma (เอื้อนหลายเสียงต่อพยางค์) ของฉบับดั้งเดิมถูกทำให้เรียบเพื่อให้ตรงกับโมเดล v2 (1 พยางค์/attack note). ควรให้นักดนตรี (พี่เปา) ตรวจเสียงก่อนใช้จริง."}}$json$::jsonb
-where category = 'anuchon' and number = 900;
-
--- 2b. Otherwise insert it (first-run path). Guarded by NOT EXISTS so re-runs no-op.
+-- 2. Insert — add-only. The guard above proved the slot is free or holds exactly this
+--    song, so NOT EXISTS makes a re-run a clean no-op.
 insert into public.songs
   (number, title_th, title_en, category, theme, verified, scripture, book_refs, review_flags, content)
 select
