@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — ความปลอดภัยเมื่อมีหลายคนแก้เพลง (pleng)</title>
+<style>
+/* ===== theme tokens copied VERBATIM from src/styles.css @ origin/main (27978bf) ===== */
+:root{
+  --brand:#b45309; --brand-hover:#8f4207; --ink:#362f28; --muted:#6f6455;
+  --cream:#f4e9d7; --cream-hover:#ecdec7; --line:#e6d9c3; --bg:#fdf7ee;
+  --surface:#fffdf9; --shell-bg:#fbf1e2; --footer-ink:#7a6a4e;
+  --accent:#f59e0b; --accent-hover:#e08e00; --accent-soft:#fdecc8;
+  --secondary:#f26b4e; --secondary-hover:#e2573a;
+  --cat-green:#3fa34d; --cat-blue:#3e96d6;
+  --chord-red:#c0392b; --note-blue:#2b6cb0; --red:#c0392b;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+  --fs-xs:.78rem; --fs-sm:.9rem; --fs-md:.98rem; --fs-base:1.125rem; --fs-lg:1.15rem;
+  --fs-xl:1.4rem; --fs-2xl:1.75rem;
+  --lh-tight:1.25; --lh-snug:1.4; --lh-normal:1.6;
+  --tap:44px; --r:10px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#e9e0d2;color:var(--ink);
+  font-family:"Sarabun","Noto Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:var(--fs-base);line-height:var(--lh-normal)}
+
+/* ===== harness chrome (NOT part of the design — grey, clearly outside the phone/desktop frame) ===== */
+.harness{max-width:1180px;margin:0 auto;padding:var(--sp-6) var(--sp-4) 64px}
+.harness h1{font-size:var(--fs-2xl);margin:0 0 var(--sp-2);color:#2c2620}
+.harness .sub{color:#5b5348;font-size:var(--fs-sm);margin:0 0 var(--sp-5);line-height:var(--lh-snug)}
+.bar{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center;
+  background:#f7f2ea;border:1px solid #d9cfbe;border-radius:var(--r);padding:var(--sp-3);margin-bottom:var(--sp-5)}
+.bar .lbl{font-size:var(--fs-sm);color:#5b5348;margin-right:var(--sp-1)}
+.tab{min-height:var(--tap);padding:0 var(--sp-4);border:1px solid #cdbfa8;background:#fff;
+  color:var(--ink);border-radius:8px;font:inherit;font-size:var(--fs-md);cursor:pointer}
+.tab:hover{background:var(--cream-hover)}
+.tab[aria-selected="true"]{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.tab:focus-visible{outline:3px solid var(--note-blue);outline-offset:2px}
+.stage{display:flex;gap:var(--sp-6);align-items:flex-start;flex-wrap:wrap}
+.frame{background:#fff;border-radius:14px;box-shadow:0 6px 24px rgba(54,47,40,.16);overflow:hidden;
+  border:1px solid #cdbfa8}
+.frame > figcaption{background:#f7f2ea;border-bottom:1px solid #d9cfbe;padding:var(--sp-2) var(--sp-3);
+  font-size:var(--fs-xs);color:#5b5348;letter-spacing:.02em}
+.frame.desktop{flex:1 1 620px;min-width:400px}
+.frame.mobile{flex:0 0 360px;width:360px}
+.viewport{background:var(--bg);overflow:hidden}
+.frame.mobile .viewport{width:360px}
+.note{background:#fff8e6;border:1px solid #e8d9ae;border-left:4px solid var(--accent);
+  border-radius:8px;padding:var(--sp-3) var(--sp-4);margin:var(--sp-5) 0 0;font-size:var(--fs-sm);
+  line-height:var(--lh-snug);color:#4a4136}
+.note b{color:#2c2620}
+.note code{background:#f2e8d6;padding:1px 5px;border-radius:4px;font-size:.9em}
+
+/* ===== app shell (mirrors ShellBar) ===== */
+.shell{background:var(--shell-bg);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);min-height:56px}
+.shell .up{min-width:var(--tap);min-height:var(--tap);display:inline-flex;align-items:center;
+  justify-content:center;gap:6px;border:none;background:transparent;color:var(--brand);
+  font:inherit;font-size:var(--fs-md);border-radius:8px;cursor:pointer;padding:0 var(--sp-2)}
+.shell .up:hover{background:var(--cream-hover)}
+.shell .title{font-weight:700;font-size:var(--fs-lg);flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shell .beta{font-size:var(--fs-xs);background:var(--accent-soft);color:#7a4a00;
+  border:1px solid #e3c37e;border-radius:999px;padding:1px 8px;font-weight:600;flex:none}
+.body{padding:var(--sp-4)}
+
+/* ===== presence banner (moment ก) ===== */
+.banner{display:flex;gap:var(--sp-3);align-items:flex-start;border-radius:var(--r);
+  padding:var(--sp-3) var(--sp-4);margin-bottom:var(--sp-4);border:1px solid;line-height:var(--lh-snug)}
+.banner .ico{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;
+  font-size:var(--fs-md);font-weight:700;color:#fff}
+.banner .txt{flex:1;min-width:0}
+.banner .hd{font-weight:700;font-size:var(--fs-md)}
+.banner .sm{font-size:var(--fs-sm);color:var(--muted);margin-top:2px}
+.banner .acts{display:flex;gap:var(--sp-2);margin-top:var(--sp-3);flex-wrap:wrap}
+.b-info{background:#eef5fb;border-color:#bcd9ef}
+.b-info .ico{background:var(--note-blue)}
+.b-warn{background:var(--accent-soft);border-color:#e3c37e}
+.b-warn .ico{background:#a9650a}
+.b-danger{background:#fdeceb;border-color:#f0bdb7}
+.b-danger .ico{background:var(--red)}
+.b-ok{background:#eaf6ec;border-color:#bfe0c5}
+.b-ok .ico{background:var(--cat-green)}
+
+/* ===== buttons ===== */
+.btn{min-height:var(--tap);padding:0 var(--sp-4);border-radius:8px;font:inherit;font-size:var(--fs-md);
+  cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+  display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:hover{background:var(--cream-hover)}
+.btn:focus-visible{outline:3px solid var(--note-blue);outline-offset:2px}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--ink);font-weight:700}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-brand{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.btn-brand:hover{background:var(--brand-hover)}
+.btn-danger{background:var(--red);border-color:var(--red);color:#fff;font-weight:600}
+.btn-danger:hover{background:#a5312a}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--brand)}
+.btn-ghost:hover{background:var(--cream-hover)}
+.btn-sm{min-height:36px;padding:0 var(--sp-3);font-size:var(--fs-sm)}
+
+/* ===== song sheet stand-in ===== */
+.sheet{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:var(--sp-4)}
+.sheet.locked{opacity:.72}
+.sheet h2{margin:0 0 var(--sp-1);font-size:var(--fs-xl)}
+.sheet .meta{color:var(--muted);font-size:var(--fs-sm);margin-bottom:var(--sp-4)}
+.ln{margin-bottom:var(--sp-3)}
+.ln .ch{color:var(--chord-red);font-size:var(--fs-sm);font-weight:700;letter-spacing:.08em}
+.ln .nt{color:var(--note-blue);font-size:var(--fs-sm);letter-spacing:.14em}
+.ln .ly{font-size:var(--fs-base);letter-spacing:.02em}
+.ro{display:inline-flex;align-items:center;gap:6px;background:var(--cream);border:1px solid var(--line);
+  border-radius:999px;padding:3px 12px;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-3)}
+
+/* ===== toast / snackbar ===== */
+.toastwrap{padding:var(--sp-4);background:#efe6d7;border-top:1px dashed #cdbfa8}
+.toastwrap .cap{font-size:var(--fs-xs);color:#6b6255;margin-bottom:var(--sp-2)}
+.toast{background:#2f2a24;color:#fdf7ee;border-radius:var(--r);padding:var(--sp-3) var(--sp-4);
+  display:flex;align-items:center;gap:var(--sp-3);box-shadow:0 4px 16px rgba(0,0,0,.28);
+  font-size:var(--fs-md);line-height:var(--lh-snug)}
+.toast .t{flex:1;min-width:0}
+.toast .act{min-height:36px;padding:0 var(--sp-3);border-radius:8px;border:1px solid #6a6157;
+  background:transparent;color:#ffd591;font:inherit;font-size:var(--fs-md);font-weight:700;cursor:pointer;flex:none}
+.toast .act:hover{background:#413a32}
+.toast .x{min-width:36px;min-height:36px;border:none;background:transparent;color:#cfc5b6;
+  font-size:1.2rem;cursor:pointer;border-radius:8px;flex:none}
+.toast .x:hover{background:#413a32}
+
+/* ===== modal ===== */
+.scrim{background:rgba(54,47,40,.5);padding:var(--sp-5);display:grid;place-items:center;min-height:300px}
+.modal{background:var(--surface);border-radius:14px;padding:var(--sp-5);max-width:440px;width:100%;
+  box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.modal h3{margin:0 0 var(--sp-2);font-size:var(--fs-xl);line-height:var(--lh-tight)}
+.modal p{margin:0 0 var(--sp-4);font-size:var(--fs-md);color:#4a4136;line-height:var(--lh-snug)}
+.modal .acts{display:flex;gap:var(--sp-2);justify-content:flex-end;flex-wrap:wrap}
+
+/* ===== conflict two-up ===== */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
+.frame.mobile .two{grid-template-columns:1fr}
+.col{border:1px solid var(--line);border-radius:var(--r);background:#fff;overflow:hidden}
+.col header{padding:var(--sp-2) var(--sp-3);font-size:var(--fs-sm);font-weight:700;
+  border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px}
+.col.mine header{background:var(--accent-soft);color:#7a4a00}
+.col.theirs header{background:#eef5fb;color:#1d4a72}
+.col .in{padding:var(--sp-3);font-size:var(--fs-sm);line-height:var(--lh-snug)}
+.del{color:var(--red);text-decoration:line-through;opacity:.75}
+.add{color:#1d6b2b;background:#e6f4e9;border-radius:3px;padding:0 3px}
+
+/* ===== trash ===== */
+.trashrow{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3);
+  border:1px solid var(--line);border-radius:var(--r);background:var(--surface);margin-bottom:var(--sp-2)}
+.trashrow .n{flex:none;width:44px;height:44px;border-radius:8px;background:var(--cream);
+  display:grid;place-items:center;font-weight:700;color:var(--muted);font-size:var(--fs-sm)}
+.trashrow .m{flex:1;min-width:0}
+.trashrow .m .t1{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trashrow .m .t2{font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trashrow .r{display:flex;gap:var(--sp-2);flex:none}
+.frame.mobile .trashrow{flex-wrap:wrap}
+.frame.mobile .trashrow .r{width:100%;margin-top:var(--sp-2)}
+.frame.mobile .trashrow .r .btn{flex:1}
+.days{display:inline-block;font-size:var(--fs-xs);border-radius:999px;padding:1px 8px;
+  border:1px solid #e3c37e;background:var(--accent-soft);color:#7a4a00;font-weight:600}
+.days.soon{border-color:#f0bdb7;background:#fdeceb;color:#8c2b23}
+.trashhead{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  margin-bottom:var(--sp-3);flex-wrap:wrap}
+.trashhead .h{font-size:var(--fs-xl);font-weight:700}
+.hint{font-size:var(--fs-sm);color:var(--muted);margin:0 0 var(--sp-4);line-height:var(--lh-snug)}
+.empty{text-align:center;padding:var(--sp-8) var(--sp-4);color:var(--muted)}
+.scene{display:none}
+.scene.on{display:block}
+/* state switcher for moment ข — lives OUTSIDE the banners so no state is ever unreachable */
+.switch{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center;
+  background:#f7f2ea;border-bottom:1px dashed #cdbfa8;padding:var(--sp-2) var(--sp-3)}
+.switch .cap2{font-size:var(--fs-xs);color:#6b6255;width:100%}
+</style>
+</head>
+<body>
+<div class="harness">
+  <h1>ความปลอดภัยเมื่อมีหลายคนแก้เพลง — mockup 5 จังหวะ</h1>
+  <p class="sub">
+    คู่กับสเปก <code>docs/ds/multi-editor-safety.md</code> ·
+    สีและตัวอักษรทั้งหมดคัดลอกจาก <code>src/styles.css</code> ของจริง (origin/main @ 27978bf) ·
+    ซ้าย = desktop · ขวา = 360px · ปุ่มในกรอบกดได้จริงตามที่ระบุ
+  </p>
+
+  <div class="bar" role="tablist" aria-label="เลือกจังหวะ">
+    <span class="lbl">จังหวะ:</span>
+    <button class="tab" role="tab" aria-selected="true"  data-s="a">ก · เปิดเพลงที่มีคนแก้อยู่</button>
+    <button class="tab" role="tab" aria-selected="false" data-s="b">ข · ขอสิทธิ์ / ถูกปฏิเสธ</button>
+    <button class="tab" role="tab" aria-selected="false" data-s="c">ค · เซฟชนกัน</button>
+    <button class="tab" role="tab" aria-selected="false" data-s="d">ง · ลบ + Undo</button>
+    <button class="tab" role="tab" aria-selected="false" data-s="e">จ · หน้าถังขยะ</button>
+  </div>
+
+  <div id="scenes"></div>
+</div>
+
+<script>
+/* Each scene is rendered into BOTH frames so desktop + 360px come from ONE source of truth
+   — the only difference is the CSS width, exactly as it would be in the real app. */
+
+const SHELL = (title) => `
+  <div class="shell">
+    <button class="up">‹ คลังเพลง</button>
+    <span class="title">${title}</span>
+    <span class="beta">เบต้า</span>
+  </div>`;
+
+const SHEET = (locked) => `
+  <div class="sheet ${locked ? 'locked' : ''}">
+    <h2>เพลงที่ 717</h2>
+    <div class="meta">คีย์ F · 4/4 · เล่มใหญ่</div>
+    <div class="ln"><div class="ch">F&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Bb</div>
+      <div class="nt">5. 3_ 3_ 2_ 1 | 1. .6_ .6 .5</div>
+      <div class="ly">— บรรทัดทำนองและคำร้อง —</div></div>
+    <div class="ln"><div class="ch">F&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;G</div>
+      <div class="nt">.5 1 | 3 1 | 2 - - 0</div>
+      <div class="ly">— บรรทัดทำนองและคำร้อง —</div></div>
+  </div>`;
+
+const SCENES = {
+
+/* ── ก · เปิดเพลงที่มีคนแก้อยู่ ─────────────────────────────────────────── */
+a: () => `
+  ${SHELL('เพลงที่ 717')}
+  <div class="body">
+    <div class="banner b-info">
+      <span class="ico" aria-hidden="true">ป</span>
+      <span class="txt">
+        <span class="hd">พี่เปากำลังแก้เพลงนี้อยู่</span>
+        <span class="sm">อัปเดตล่าสุดเมื่อ 20 วินาทีที่แล้ว</span>
+        <span class="acts">
+          <button class="btn btn-brand btn-sm" data-go="b">ขอสิทธิ์แก้</button>
+          <button class="btn btn-sm">ดูอย่างเดียว</button>
+        </span>
+      </span>
+    </div>
+    <span class="ro">🔒 โหมดอ่านอย่างเดียว — ยังเปลี่ยนคีย์ / พิมพ์ / โหลด JSON ได้ตามปกติ</span>
+    ${SHEET(true)}
+  </div>`,
+
+/* ── ข · ขอสิทธิ์ / ถูกปฏิเสธ ───────────────────────────────────────────── */
+b: () => `
+  ${SHELL('เพลงที่ 717')}
+  <div class="switch">
+    <span class="cap2">คนขอเห็นอะไร — กดสลับดูได้ทั้ง 3 ทางออก:</span>
+    <button class="btn btn-sm" data-set="pending">① รอตอบ</button>
+    <button class="btn btn-sm" data-set="denied">② ถูกปฏิเสธ</button>
+    <button class="btn btn-sm" data-set="timeout">③ ไม่มีใครตอบ</button>
+  </div>
+  <div class="body">
+    <div class="banner b-info" id="pending">
+      <span class="ico" aria-hidden="true">⏳</span>
+      <span class="txt">
+        <span class="hd">ส่งคำขอแล้ว — รอพี่เปาตอบ</span>
+        <span class="sm">ถ้าไม่ตอบใน 2 นาที ระบบจะให้คุณแก้ต่อได้เอง</span>
+      </span>
+    </div>
+    <div class="banner b-warn" id="denied" hidden>
+      <span class="ico" aria-hidden="true">!</span>
+      <span class="txt">
+        <span class="hd">ตอนนี้ยังแก้ไม่ได้ — พี่เปาขอทำให้เสร็จก่อน</span>
+        <span class="sm">ไม่ถาวร · พอเขาแก้เสร็จหรือหยุดไป 15 นาที คุณเข้าแก้ได้เอง</span>
+        <span class="acts">
+          <button class="btn btn-brand btn-sm">เตือนฉันเมื่อว่าง</button>
+          <button class="btn btn-sm">ดูอย่างเดียว</button>
+        </span>
+      </span>
+    </div>
+    <div class="banner b-ok" id="timeout" hidden>
+      <span class="ico" aria-hidden="true">✓</span>
+      <span class="txt">
+        <span class="hd">ไม่มีการตอบกลับ — แก้ต่อได้เลย</span>
+        <span class="sm">ระบบกันงานทับกันให้อยู่แล้ว ถ้าพี่เปากลับมาเซฟ คุณจะเห็นทันที</span>
+        <span class="acts"><button class="btn btn-primary btn-sm">เริ่มแก้</button></span>
+      </span>
+    </div>
+    ${SHEET(true)}
+  </div>
+  <div class="toastwrap">
+    <div class="cap">▼ สิ่งที่ <b>พี่เปา (คนที่กำลังแก้อยู่)</b> เห็นบนจอเขา ณ วินาทีนั้น</div>
+    <div class="toast">
+      <span class="t">สมชายขอแก้เพลง 717</span>
+      <button class="act">ให้</button>
+      <button class="act">ไม่ให้</button>
+      <button class="x" aria-label="ปิด">×</button>
+    </div>
+  </div>`,
+
+/* ── ค · เซฟชนกัน ───────────────────────────────────────────────────────── */
+c: () => `
+  ${SHELL('เพลงที่ 717')}
+  <div class="body">
+    <div class="banner b-danger">
+      <span class="ico" aria-hidden="true">!</span>
+      <span class="txt">
+        <span class="hd">พี่เปาเพิ่งบันทึกเพลงนี้ ตอนที่คุณกำลังแก้อยู่</span>
+        <span class="sm"><b>งานของคุณยังอยู่ครบทุกตัวอักษร</b> — ยังไม่มีอะไรหาย เลือกได้ว่าจะเอาแบบไหน</span>
+      </span>
+    </div>
+    <div class="two">
+      <div class="col mine">
+        <header>✏️ ของคุณ (ยังไม่ได้บันทึก)</header>
+        <div class="in">
+          บรรทัด 3 · คำร้อง<br>
+          <span class="add">แก้คำที่ 4 เป็นคำใหม่</span>
+        </div>
+      </div>
+      <div class="col theirs">
+        <header>👤 ของพี่เปา (บันทึกแล้วเมื่อ 12 วินาทีที่แล้ว)</header>
+        <div class="in">
+          บรรทัด 3 · คอร์ด<br>
+          <span class="del">Bb</span> → <span class="add">Bbmaj7</span>
+        </div>
+      </div>
+    </div>
+    <div class="banner b-info" style="margin-top:var(--sp-4)">
+      <span class="ico" aria-hidden="true">i</span>
+      <span class="txt">
+        <span class="sm">ไม่ว่าเลือกอะไร ของอีกฝ่ายไม่หาย — เก็บไว้ในประวัติเพลงทุกเวอร์ชัน ย้อนได้เสมอ</span>
+        <span class="acts">
+          <button class="btn btn-primary">ใช้ของฉัน (เขียนทับ)</button>
+          <button class="btn">เอาของพี่เปา แล้วแก้ใหม่</button>
+          <button class="btn btn-ghost">ดูทั้งเพลงเทียบกัน</button>
+        </span>
+      </span>
+    </div>
+  </div>
+  <div class="toastwrap">
+    <div class="cap">▼ ตอน autosave ร่างชนกัน — <b>ห้ามเด้ง error รบกวน</b> แค่เปลี่ยนสถานะเงียบ ๆ</div>
+    <div class="toast" style="background:#4a4136">
+      <span class="t">● ยังไม่บันทึก · มีคนแก้เพลงนี้</span>
+      <button class="act">ดู</button>
+    </div>
+  </div>`,
+
+/* ── ง · ลบ + Undo ──────────────────────────────────────────────────────── */
+d: () => `
+  ${SHELL('เพลงที่ 717')}
+  <div class="body">
+    <span class="ro">การ์ดเพลงหายออกจากรายการทันที (optimistic) แล้ว toast ขึ้นข้างล่าง</span>
+    ${SHEET(false)}
+  </div>
+  <div class="toastwrap">
+    <div class="cap">▼ ①  ย้ายลงถังขยะ = <b>ไม่มี modal</b> (กู้ได้ ไม่ต้องขวาง) — M3 snackbar + undo</div>
+    <div class="toast">
+      <span class="t">ย้าย “เพลงที่ 717” ลงถังขยะแล้ว</span>
+      <button class="act">เลิกทำ</button>
+      <button class="x" aria-label="ปิด">×</button>
+    </div>
+    <div class="cap" style="margin-top:var(--sp-4)">
+      ▼ ②  <b>ลบออกจากคลังถาวร</b> = ต้องมี modal (ทำลายจริง · HIG: เตือนก่อนทำลายข้อมูล)
+    </div>
+  </div>
+  <div class="scrim">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mt">
+      <h3 id="mt">ลบ “เพลงที่ 717” ออกจากคลังถาวร?</h3>
+      <p>เพลงจะหายจากคลังและกู้จากถังขยะไม่ได้อีก ·
+         ประวัติว่า <b>ใครทำอะไรเมื่อไหร่</b> ยังถูกเก็บไว้ตามระบบตรวจสอบ</p>
+      <div class="acts">
+        <button class="btn">ยกเลิก</button>
+        <button class="btn btn-danger">ลบออกจากคลังถาวร</button>
+      </div>
+    </div>
+  </div>`,
+
+/* ── จ · หน้าถังขยะ ─────────────────────────────────────────────────────── */
+e: () => `
+  ${SHELL('ถังขยะ')}
+  <div class="body">
+    <div class="trashhead">
+      <span class="h">ถังขยะ</span>
+      <button class="btn btn-sm">เทถังทั้งหมด</button>
+    </div>
+    <p class="hint">เพลงในถังจะถูกลบออกจากคลังถาวรอัตโนมัติหลัง 30 วัน ·
+      คุณเห็นเพลงที่คุณลบ · ผู้อนุมัติเห็นทั้งหมด</p>
+
+    <div class="trashrow">
+      <span class="n">717</span>
+      <span class="m">
+        <span class="t1">เพลงที่ 717</span>
+        <span class="t2">ลบโดย พี่เปา · เมื่อวานนี้ · <span class="days">เหลือ 29 วัน</span></span>
+      </span>
+      <span class="r">
+        <button class="btn btn-brand btn-sm">กู้คืน</button>
+        <button class="btn btn-sm">ลบถาวร</button>
+      </span>
+    </div>
+
+    <div class="trashrow">
+      <span class="n">32</span>
+      <span class="m">
+        <span class="t1">นมัสการพระบิดา</span>
+        <span class="t2">ลบโดย สมชาย · 28 วันที่แล้ว · <span class="days soon">เหลือ 2 วัน</span></span>
+      </span>
+      <span class="r">
+        <button class="btn btn-brand btn-sm">กู้คืน</button>
+        <button class="btn btn-sm">ลบถาวร</button>
+      </span>
+    </div>
+
+    <div class="trashrow">
+      <span class="n">—</span>
+      <span class="m">
+        <span class="t1">เพลงใหม่ยังไม่มีชื่อ</span>
+        <span class="t2">ลบโดย คุณ · 3 วันที่แล้ว · <span class="days">เหลือ 27 วัน</span></span>
+      </span>
+      <span class="r">
+        <button class="btn btn-brand btn-sm">กู้คืน</button>
+        <button class="btn btn-sm">ลบถาวร</button>
+      </span>
+    </div>
+  </div>`
+};
+
+const NOTES = {
+a:`<b>จังหวะ ก —</b> นี่คือจุดที่ไอเดีย <b>checkout</b> ของ P'Aim อยู่: เปิดมาแล้ว
+   <b>ไม่ได้หลุดเข้าไปพิมพ์ทับทันที</b> ต้องตั้งใจกดถึงเข้าแก้ · แต่ไม่ได้ <i>บล็อก</i> —
+   เพราะการบล็อกจะสร้างทางตันเมื่อคนถือปิดแท็บไปแล้ว (ข้อบังคับ D3) ·
+   สังเกตว่า <b>อ่าน/เปลี่ยนคีย์/พิมพ์/โหลด JSON ยังทำได้ครบ</b> — ล็อกเฉพาะการแก้`,
+b:`<b>จังหวะ ข —</b> ทางออกมีเสมอ ไม่มีทางตัน: ตอบ <b>ให้</b> / ตอบ <b>ไม่ให้</b> (ชั่วคราว มีวันหมดอายุ) /
+   <b>ไม่ตอบเลย → 2 นาทีแล้วปล่อยผ่าน</b> · กรอบล่างคือจอของคนที่กำลังแก้อยู่ ·
+   ⚠️ <b>WCAG 2.2 SC 2.2.1 (Level A)</b> บังคับว่าก่อน claim หมดอายุ 15 นาที
+   ต้องมี toast <code>“ยังแก้อยู่ไหม? [ยังอยู่]”</code> ค้าง ≥ 20 วินาที และต่ออายุได้ ≥ 10 ครั้ง`,
+c:`<b>จังหวะ ค — สำคัญที่สุด</b> · แถบนี้ขึ้น <b>ทันทีที่อีกฝ่ายกดเซฟ</b> ไม่ใช่ตอนเรากดเซฟ →
+   ตัดเส้นทาง “พิมพ์ไป 20 นาทีแล้วค่อยรู้ว่าชน” ทิ้ง ซึ่งเป็นข้อเสียเดียวที่แท้จริงของ optimistic lock
+   (และเป็นข้อที่ G ท้วงว่าจะกลายเป็น worst-of-both-worlds) ·
+   ปุ่ม <b>“ใช้ของฉัน (เขียนทับ)” ต้องกดแล้วสำเร็จเสมอ</b> — พี่เปาเซฟวันละ 20-40 เพลง งานห้ามสะดุด (D2)`,
+d:`<b>จังหวะ ง —</b> ลบเข้าถัง = <b>ไม่มี modal</b> (กู้ได้ ไม่ต้องขวางทาง) · ลบถาวร = <b>ต้องมี modal</b> ·
+   ⚠️ toast หายเองใน ~2-3.5 วินาที <b>จึงพึ่งเป็นทางกู้คืนจริงไม่ได้</b> — ทางกู้คืนจริงคือหน้าถังขยะ 30 วัน
+   (แบบเดียวกับ Gmail/Drive) · และคำในกล่องเขียนว่า <b>“ลบออกจากคลังถาวร”</b> ไม่ใช่ “ลบทิ้งทั้งหมด”
+   เพราะประวัติว่าใครทำอะไรยังอยู่จริง — ห้ามสัญญาเกินจริง`,
+e:`<b>จังหวะ จ —</b> route แยก <code>/trash</code> เข้าจาก nav หลัก (ไม่ใช่ filter ปนในลิสต์) ·
+   “เหลือ N วัน” แบบ iOS Photos · แดงเมื่อใกล้หมดอายุ ·
+   editor เห็นถังของตัวเอง · approver เห็นทั้งหมด ·
+   ที่ 360px ปุ่มตกลงมาเป็นแถวเต็มความกว้าง ไม่บีบจนต่ำกว่า 44px`
+};
+
+const host = document.getElementById('scenes');
+function render(key){
+  const html = SCENES[key]();
+  host.innerHTML = `
+    <div class="stage">
+      <figure class="frame desktop" style="margin:0">
+        <figcaption>DESKTOP — ยืดตามความกว้าง</figcaption>
+        <div class="viewport">${html}</div>
+      </figure>
+      <figure class="frame mobile" style="margin:0">
+        <figcaption>360 px — มือถือแคบสุดที่รองรับ</figcaption>
+        <div class="viewport">${html}</div>
+      </figure>
+    </div>
+    <p class="note">${NOTES[key]}</p>`;
+
+  // scene-local interactions (both frames independently)
+  host.querySelectorAll('[data-set]').forEach(b=>{
+    b.addEventListener('click', e=>{
+      const root = e.target.closest('.viewport');
+      const want = b.dataset.set;
+      ['pending','denied','timeout'].forEach(id=>{
+        const el = root.querySelector('#'+id);
+        if (el) el.hidden = (id !== want);
+      });
+    });
+  });
+  host.querySelectorAll('[data-go]').forEach(b=>{
+    b.addEventListener('click', ()=> select(b.dataset.go));
+  });
+}
+function select(key){
+  document.querySelectorAll('.tab').forEach(t=>
+    t.setAttribute('aria-selected', String(t.dataset.s === key)));
+  render(key);
+}
+document.querySelectorAll('.tab').forEach(t=>
+  t.addEventListener('click', ()=> select(t.dataset.s)));
+render('a');
+</script>
+</body>
+</html>
