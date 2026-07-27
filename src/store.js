@@ -1,5 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import { supabase } from './supabase.js'
+import { ENABLED_ENSEMBLES, ENABLED_INSTRUMENTS } from './lib/soundOptions.js'
 
 // Song currently open in the viewer — drives the navbar download tool.
 export const currentSong = ref(null)
@@ -146,8 +147,12 @@ export function resetArrangeOverrides() { arrangeOverrides.value = {} }
 // auto-filled accompaniment). Step 9 ships all five SOLO instruments (samples self-hosted); เต็มวง
 // (auto-filled accompaniment) is still "เร็ว ๆ นี้" while SA designs the ensemble sound. The picks
 // persist so someone's chosen instrument survives reloads (§6a localStorage).
+// PIANO-ONLY (P'Aim 2026-07-27): the allowed sets come from soundOptions.js (ENABLED_*), the ONE
+// switch. That is deliberate — it also closes the stale-pick trap: someone who left "เต็มวง" or
+// "กีตาร์" in localStorage fails the `includes()` below and falls back to เดี่ยว + เปียโน instead
+// of sitting on a mode the UI can no longer show (which used to mean "กดฟังแล้วเงียบ").
 const ENSEMBLE_KEY = 'pleng.ensembleMode'
-const ENSEMBLE_MODES = ['solo', 'ensemble']
+const ENSEMBLE_MODES = ENABLED_ENSEMBLES
 // DEFAULT (หน้าฝึกร้อง · P'Aim 13 ก.ค. final จากภาพ): เปียโนเดี่ยว (รวม · เดี่ยว · เปียโน · บรรเลง).
 // (หน้าแก้เพลง มี state แยก editorEnsemble ที่ default = solo สำหรับพี่เปาตรวจโน้ต.)
 export const ensembleMode = ref((() => {
@@ -155,10 +160,9 @@ export const ensembleMode = ref((() => {
   return 'solo'
 })())
 watch(ensembleMode, (v) => { try { localStorage.setItem(ENSEMBLE_KEY, v) } catch { /* ignore */ } })
-// Instruments the picker can actually SELECT. LAUNCH scope (P'Aim 13 ก.ค.) = เปียโน + กีตาร์ only;
-// felt/violin/cello are wired + self-hosted but stay "เร็ว ๆ นี้" (disabled in the UI) until P'Aim
-// signs off on each. Add one here + drop its `disabled` in soundOptions.js to enable it.
-export const READY_INSTRUMENTS = ['grand', 'nylon']
+// Instruments the picker can actually SELECT (see ENABLED_INSTRUMENTS in soundOptions.js — the
+// single switch). Same fallback story as ENSEMBLE_MODES above.
+export const READY_INSTRUMENTS = ENABLED_INSTRUMENTS
 const INSTR_KEY = 'pleng.leadInstrument'
 export const leadInstrument = ref((() => {
   try { const v = localStorage.getItem(INSTR_KEY); if (READY_INSTRUMENTS.includes(v)) return v } catch { /* ignore */ }

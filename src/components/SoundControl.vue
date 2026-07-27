@@ -22,6 +22,16 @@ const props = defineProps({
 })
 const emit = defineEmits(['toggle', 'close'])
 
+// A choice group with only ONE selectable value is not a choice — showing a lone radio button is
+// visual noise and makes people wonder what they missed. So hide the whole group (PIANO-ONLY,
+// P'Aim 2026-07-27: การบรรเลง + เครื่องดนตรี collapse to one value each → both disappear, leaving
+// อารมณ์/สไตล์ as the piano's 3 modes). Generic on purpose: flip PIANO_ONLY off in soundOptions.js
+// and the groups come back on their own, here and in the แก้เพลง dock. Non-'menu' groups
+// (slider / advanced) carry no options and are never hidden by this rule.
+// NOTE: the แก้เพลง dock supplies groups with NO `kind` at all (they are plain choice groups), so
+// "no kind" must count as 'menu' here — otherwise the rule would silently skip that whole page.
+const shown = (g) => (g.kind && g.kind !== 'menu') || (g.options?.filter((o) => !o.disabled).length ?? 0) > 1
+
 const labelOf = (g) => {
   const o = g.options.find((x) => x.value === g.value)
   return o ? o.short || o.label : ''
@@ -46,7 +56,7 @@ function pick(g, o) {
 
   <div v-if="open" class="dk-pop sc-pop" role="group" aria-label="เสียงดนตรี" @click.stop>
     <div class="sc-head">เสียงดนตรี</div>
-    <div v-for="g in groups" :key="g.key" class="sc-grp">
+    <div v-for="g in groups.filter(shown)" :key="g.key" class="sc-grp">
       <!-- ปรับละเอียด (ROUND 2): a collapsible panel of per-technique controls (toggle/slider/choice)
            so the listener switches each on/off to find what's the problem (P'Aim 14 ก.ค.) -->
       <template v-if="g.kind === 'advanced'">

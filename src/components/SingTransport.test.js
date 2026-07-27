@@ -206,7 +206,10 @@ describe('⚙ Setting page', () => {
     const settings = [
       ...base.settings,
       { id: 'sound', icon: 'volume-2', label: 'เสียงที่เล่น', kind: 'menu', value: 'both', badge: 'รวม', options: [{ value: 'melody', label: 'ทำนอง', short: 'ทำนอง' }, { value: 'both', label: 'รวม', short: 'รวม' }], onPick: () => {} },
-      { id: 'ensemble', icon: 'blend', label: 'การบรรเลง', kind: 'menu', value: 'solo', badge: 'เดี่ยว', options: [{ value: 'solo', label: 'เดี่ยว', short: 'เดี่ยว' }, { value: 'ensemble', label: 'เต็มวง', short: 'เต็มวง', disabled: true }], onPick: () => {} },
+      // NOTE: two ENABLED options here on purpose — a group with only one selectable value is
+      // hidden entirely (PIANO-ONLY rule, SoundControl.hide-single.test.js). This fixture is about
+      // the popover's layout + greying, so it keeps the group alive and greys a THIRD option.
+      { id: 'ensemble', icon: 'blend', label: 'การบรรเลง', kind: 'menu', value: 'solo', badge: 'เดี่ยว', options: [{ value: 'solo', label: 'เดี่ยว', short: 'เดี่ยว' }, { value: 'duo', label: 'คู่', short: 'คู่' }, { value: 'ensemble', label: 'เต็มวง', short: 'เต็มวง', disabled: true }], onPick: () => {} },
       { id: 'instrument', icon: 'music', label: 'เครื่องดนตรี', kind: 'menu', value: 'grand', badge: 'เปียโน', options: [{ value: 'grand', label: 'เปียโน', short: 'เปียโน' }, { value: 'violin', label: 'ไวโอลิน', short: 'ไวโอลิน' }], onPick: onPickInstr },
       { id: 'style', icon: 'sliders-horizontal', label: 'อารมณ์', kind: 'menu', value: 'arrangement', badge: 'บรรเลง', options: [{ value: 'arrangement', label: 'บรรเลง', short: 'บรรเลง' }, { value: 'plain', label: 'ตรงโน้ต', short: 'ตรงโน้ต' }], onPick: () => {} },
     ]
