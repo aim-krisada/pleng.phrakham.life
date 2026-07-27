@@ -1340,7 +1340,9 @@ const songList = ref([])
 async function loadSongList() {
   const { data } = await supabase
     .from('songs')
-    .select('id, number, title_th, title_en, content, verified')
+    // `category` = the song's เล่ม — needed by the B-DUP check (a duplicate is per เล่ม).
+    // Without it every song reads as "unfiled" and a real duplicate looks like a different book.
+    .select('id, number, title_th, title_en, content, verified, category')
     .order('number', { ascending: true })
   songList.value = data ?? []
 }
