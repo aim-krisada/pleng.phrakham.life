@@ -414,7 +414,7 @@ watch(
 
 // ---------- follow-along scroll (B016 + B038) ----------
 // Keep the sounding SYLLABLE in view (B038: aim at the exact [data-syl], not the whole
-// segment). When the user scrolls by hand, auto-scroll steps aside ~3.5s.
+// segment). When the user scrolls by hand, auto-scroll steps aside ~3.5s. Otherwise the sung line is re-centred (block:'center') whenever it drifts above the app bar or down behind the fixed transport dock — a karaoke follow, not the old block:'nearest' that let it hide at the very bottom (พี่เปา, 2026-07-27).
 const SCROLL_PAUSE_MS = 3500
 let pausedScrollUntil = 0
 function onUserScroll() {
@@ -436,7 +436,7 @@ async function scrollToPlaying() {
   const el = sheetWrap.value.querySelector(sel)
   if (!el) return
   const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  el.scrollIntoView({ block: 'nearest', inline: 'center', behavior: smooth ? 'smooth' : 'auto' })
+  const r = el.getBoundingClientRect(); if (r.top < 96 || r.bottom > window.innerHeight - 240) el.scrollIntoView({ block: 'center', inline: 'center', behavior: smooth ? 'smooth' : 'auto' })
 }
 watch(playingSyl, scrollToPlaying)
 watch(playingSeg, (seg) => { if (!playingSyl.value) scrollToPlaying(seg) })
