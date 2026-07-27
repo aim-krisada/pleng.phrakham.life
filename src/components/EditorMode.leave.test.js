@@ -229,6 +229,35 @@ describe('EditorMode — unsaved work is not replaced in place without asking', 
     expect(w.vm.meta.title_th).toBe('งานที่ยังไม่บันทึก')
   })
 
+  // G-verify 2026-07-27: "สร้างเพลงใหม่" wiped the document synchronously, so the work was
+  // already gone before the picker watcher could ask. And the picker move that a delete /
+  // a fresh start makes must not produce a SECOND question about work that is already handled.
+  it('สร้างเพลงใหม่ with unsaved work asks — ยกเลิก keeps the work', async () => {
+    const w = await dirtyEditor()
+    confirmSpy.mockReturnValue(false)
+    w.vm.fileNew()
+    await nextTick()
+    expect(confirmSpy).toHaveBeenCalledTimes(1)
+    expect(w.vm.meta.title_th).toBe('งานที่ยังไม่บันทึก')
+  })
+
+  it('สร้างเพลงใหม่ + ตกลง clears the form and asks exactly once', async () => {
+    const w = await dirtyEditor()
+    w.vm.pickerId = 'song-2' // land on a real song first (answer OK)
+    confirmSpy.mockReturnValue(true)
+    await nextTick()
+    await flushPromises()
+    confirmSpy.mockClear()
+    w.vm.meta.title_th = 'แก้ต่ออีกรอบ'
+    await nextTick()
+    w.vm.fileNew()
+    await nextTick()
+    await flushPromises()
+    expect(confirmSpy).toHaveBeenCalledTimes(1) // not twice — the picker move is pre-approved
+    expect(w.vm.meta.title_th).toBe('')
+    expect(w.vm.pickerId).toBe('')
+  })
+
   it('rolling back with nothing unsaved keeps the plain question (one dialog, not two)', async () => {
     const w = mountEditor()
     await settle()

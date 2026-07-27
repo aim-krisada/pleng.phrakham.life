@@ -1531,16 +1531,20 @@ const pickerOptions = computed(() => [
 
 // Switching songs from the picker replaces the whole document. Ask first when there is
 // unsaved work — and on "ยกเลิก" bounce the picker back to the song still on screen, so the
-// dropdown can never name one song while the editor holds another. (`bouncing` stops the
-// bounce write from re-entering this watcher and asking a second time.)
-let bouncing = false
+// dropdown can never name one song while the editor holds another.
+//
+// `skipWatch` lets a caller that has ALREADY asked (the bounce write itself, fileNew,
+// deleteSong) move the picker without a second question. It holds the exact value it is
+// allowed to swallow, not a bare boolean: any other change falls through to the guard, so a
+// stale flag can never eat a real switch and make it vanish silently (G, 2026-07-27).
+const NO_SKIP = Symbol('no-skip')
+let skipWatch = NO_SKIP
 watch(pickerId, (id, prev) => {
-  if (bouncing) {
-    bouncing = false
-    return
-  }
+  const skip = skipWatch
+  skipWatch = NO_SKIP
+  if (skip !== NO_SKIP && skip === id) return
   if (!confirmDiscard('เปิดเพลงอื่น')) {
-    bouncing = true
+    skipWatch = prev
     pickerId.value = prev
     return
   }
@@ -1962,6 +1966,7 @@ async function deleteSong() {
   saveMsg.value = error ? '❌ ลบไม่สำเร็จ: ' + error.message : '🗑️ ลบแล้ว'
   if (!error) {
     resetForm()
+    skipWatch = '' // the song is gone; do not ask whether to keep edits to it
     pickerId.value = ''
     loadSongList()
   }
@@ -2336,7 +2341,13 @@ function toggleMenu(m) {
 function fileNew() {
   openMenu.value = null
   viewMode.value = 'edit'
-  pickerId.value = ''
+  // "สร้างเพลงใหม่" wipes the document too. It used to call resetForm() straight away, so the
+  // work was already gone by the time the pickerId watcher could ask (G, 2026-07-27).
+  if (!confirmDiscard('เริ่มเพลงใหม่')) return
+  if (pickerId.value !== '') {
+    skipWatch = '' // asked once, right here — the watcher must not ask again
+    pickerId.value = ''
+  }
   resetForm()
 }
 // B071: "ออกจากเพลงนี้" (fileClose) was removed — P'Aim found it confusing and unneeded.
@@ -3077,7 +3088,7 @@ defineExpose({
   // B100 leave-warning tests: dirty flag + save/load clean checkpoints.
   isDirty, saveDirect,
   // 2026-07-27 unsaved-guard: the in-place replacements the picker/history/import drive.
-  pickerId, loadSong, restore, songList,
+  pickerId, loadSong, restore, songList, fileNew,
   // B108 หมวดหาย: per-field knownness + the two publish paths that gate on it.
   categoryKnown, themeKnown, approve, pickCategory, pickTheme, reviewingDraft,
 })
