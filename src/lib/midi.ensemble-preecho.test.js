@@ -95,13 +95,18 @@ describe('ensembleGuideEvents — which leads the referee polices', () => {
     expect(run(tune)[1].grace).toBeNull()
   })
 
-  it('leaves ไวโอลินนำ out of the default — held for P\'Aim\'s ear test', () => {
-    expect(PREECHO_ENSEMBLE_LEADS.has('violin')).toBe(false)
-    expect(run(tune, { lead: 'violin' })[1].grace).toEqual({ midi: 67 })
+  it('polices ไวโอลินนำ too — a phantom note is a phantom note whoever sings it', () => {
+    expect(PREECHO_ENSEMBLE_LEADS.has('violin')).toBe(true)
+    expect(run(tune, { lead: 'violin' })[1].grace).toBeNull()
   })
 
-  it('polices ไวโอลินนำ on demand, for that A/B', () => {
+  it('still polices ไวโอลินนำ under the explicit preEcho:"all"', () => {
     expect(run(tune, { lead: 'violin', preEcho: 'all' })[1].grace).toBeNull()
+  })
+
+  it('preEcho:"off" is the escape hatch for BOTH leads (the A/B, and the audit\'s BEFORE run)', () => {
+    expect(run(tune, { lead: 'violin', preEcho: 'off' })[1].grace).toEqual({ midi: 67 })
+    expect(run(tune, { lead: 'guitar', preEcho: 'off' })[1].grace).toEqual({ midi: 67 })
   })
 
   it('เปียโนนำ has no grace to police at all', () => {

@@ -819,10 +819,14 @@ export function resolveSections(content, notes) {
 // ornament that survived the referee, or null (either it was never drawn, or it was vetoed).
 // The rng stream lives HERE and is consumed in exactly the original order — the humanize draws must
 // not shift, or silencing one ornament would re-roll the whole song's feel.
-// Which leads the referee polices BY DEFAULT. Only กีตาร์นำ — the hammer-on grace P'Aim judged by
-// ear. ไวโอลินนำ's slide-in is held out of the default on purpose (same stance as the solo path's
-// violin ลูกเล่น: not yet judged); `preEcho: 'all'` turns it on for that A/B.
-export const PREECHO_ENSEMBLE_LEADS = new Set(['guitar'])
+// Which leads the referee polices BY DEFAULT. BOTH leads that draw a grace.
+// main polices only กีตาร์นำ; v1 adds ไวโอลินนำ deliberately (PM 27 ก.ค.). The project rule is that
+// the sound must be HONEST TO THE SHEET — you hear what is printed. A ลูกเล่น that sings the tune's
+// coming pitch is a note nobody wrote, and that is true whichever instrument sings it; the ไวโอลินนำ
+// case measured 1045 of them across 165 songs. main's omission is "not done yet", not a judgement
+// about the violin's tone.
+// ⚠ REVERSIBLE BY DELETING ONE WORD: drop 'violin' below and ไวโอลินนำ goes back to unpoliced.
+export const PREECHO_ENSEMBLE_LEADS = new Set(['guitar', 'violin'])
 export function ensembleGuideEvents(notes, { lead = 'piano', seedBase = 0, pass = 0, secGain = () => 1, accent = () => 1, contour = () => 1, preEcho = 'default', rng: rngIn } = {}) {
   // The caller may hand in ITS rng so the shared humanize stream keeps advancing across the guide
   // layer and the comp/bass layer that draws after it — exactly as when this was one inline loop.
