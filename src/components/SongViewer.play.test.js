@@ -39,7 +39,7 @@ Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function 
 Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function () {}
 
 import SongViewer from './SongViewer.vue'
-import { setEnsembleMode } from '../store.js'
+import { setEnsembleMode, ensembleMode } from '../store.js'
 
 // SongViewer now mounts its own dock (the DockKey engine via <SingTransport>) — no external
 // wiring to reproduce. A thin wrapper just carries the song/tier props.
@@ -184,8 +184,11 @@ describe('SongViewer playback key', () => {
 })
 
 describe('SongViewer เต็มวง (ensemble · B107 §6b.2)', () => {
+  // PIANO-ONLY (P'Aim 2026-07-27) hides เต็มวง from the picker, so setEnsembleMode('ensemble') is
+  // now a deliberate no-op. The ENGINE is untouched and must keep working for the day the flag
+  // flips back — so this test drives the ref directly, past the UI gate, to keep proving it.
   it('เต็มวง → routes to playEnsemble (piano lead), not playSong', async () => {
-    setEnsembleMode('ensemble')
+    ensembleMode.value = 'ensemble'
     const w = mountViewer()
     await nextTick()
     await playBtn(w).trigger('click')
