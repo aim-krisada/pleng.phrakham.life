@@ -7,6 +7,7 @@
 // and passes the groups (value/options/onPick), so ฝึกร้อง and แก้เพลง remember independently.
 import { ref } from 'vue'
 import Icon from './Icon.vue'
+import { PIANO_ONLY } from '../lib/soundOptions.js'
 
 // "ปรับละเอียด" starts collapsed (2-layer UX: simple presets on top, advanced hidden until asked).
 const advOpen = ref(false)
@@ -124,6 +125,11 @@ function pick(g, o) {
         </div>
       </template>
     </div>
+    <!-- Why the เครื่องดนตรี / การบรรเลง groups aren't here. Someone who used to pick กีตาร์ or
+         เต็มวง would otherwise hunt for a control that silently vanished — one line answers it
+         without giving back a picker that can't pick (P'Aim 2026-07-27). Goes away on its own
+         when PIANO_ONLY flips back to false. -->
+    <p v-if="PIANO_ONLY" class="sc-note">ตอนนี้เล่นด้วยเปียโนเดี่ยวอย่างเดียว · เครื่องดนตรีอื่นกำลังปรับเสียงให้เพราะก่อน</p>
   </div>
 </template>
 
@@ -165,6 +171,8 @@ function pick(g, o) {
 .sc-grp { display: flex; flex-direction: column; gap: 5px; }
 .sc-grp + .sc-grp { border-top: 1px solid var(--line); padding-top: 7px; }
 .sc-glabel { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+/* PIANO-ONLY microcopy — quiet, one line, sits under the last group */
+.sc-note { margin: 0; padding-top: 7px; border-top: 1px solid var(--line); font-size: 11px; line-height: 1.45; color: var(--muted); max-width: 24em; }
 .sc-glabel :deep(svg) { color: var(--brand); }
 .sc-opts { display: flex; flex-wrap: wrap; gap: 6px; }
 .sc-opt {
