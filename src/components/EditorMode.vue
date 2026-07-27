@@ -13,7 +13,8 @@ import {
 } from '../lib/editorSerde.js'
 import { THEME_OPTIONS, CATEGORY_OPTIONS } from '../lib/songMeta.js'
 import { songHaystack } from '../lib/songSearch.js'
-import { visibleSongs } from '../lib/bookshelf.js'
+import { visibleSongs, categoryName } from '../lib/bookshelf.js'
+import { findTitleConflicts } from '../lib/songTitleKey.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
@@ -1348,7 +1349,9 @@ const songList = ref([])
 async function loadSongList() {
   const { data } = await supabase
     .from('songs')
-    .select('id, number, title_th, title_en, content, verified')
+    // `category` = the song's เล่ม — needed by the B-DUP check (a duplicate is per เล่ม).
+    // Without it every song reads as "unfiled" and a real duplicate looks like a different book.
+    .select('id, number, title_th, title_en, content, verified, category')
     .order('number', { ascending: true })
   songList.value = data ?? []
 }
@@ -1386,6 +1389,75 @@ watch(pickerId, (id, prev) => {
   }
   loadSong(id)
 })
+
+// ---------- B-DUP: is this song already in the library? ----------
+// The same song has been entered twice with nothing warning anybody (two เด็กเล็ก songs are
+// doubled today). The comparison itself lives in lib/songTitleKey.js — here we only wire it
+// to the name being typed, live, so the person finds out while they can still fix it cheaply
+// instead of after the save (P'Aim: "เตือนทันทีขณะพิมพ์ ไม่ใช่รอกดบันทึกแล้วค่อยด่า").
+// The haystack is the RAW song list (not visibleSongs): a duplicate of a song this account
+// cannot see is still a duplicate.
+//
+// One deliberate softening: when we are editing an EXISTING song whose หมวด we could not
+// establish (B108 knownness), the เล่ม on screen is the 'anuchon' fallback, not data — so a
+// "same เล่ม" verdict would be a guess. In that one case a hard block is demoted to a warning.
+const bookCertain = computed(() => !editingId.value || categoryKnown.value)
+// selfId = the row this edit IS (so a song never clashes with itself). Usually editingId;
+// when an approver publishes a draft the song id can live on the draft instead.
+function conflictsFor(selfId) {
+  const r = findTitleConflicts(
+    { id: selfId, title_th: meta.title_th, category: meta.category },
+    songList.value,
+  )
+  if (!bookCertain.value && r.blocking.length) {
+    return { level: 'warn', blocking: [], warning: [...r.blocking, ...r.warning], info: r.info }
+  }
+  return r
+}
+const titleConflicts = computed(() => conflictsFor(editingId.value))
+// "12. ชื่อเพลง (เล่มใหญ่)" for each clashing song — what the message points the user at.
+const conflictLabel = (s) =>
+  (s.number != null ? s.number + '. ' : '') + (s.title_th || '') +
+  (s.category ? ` (${categoryName(s.category)})` : '')
+// The one message the UI shows, in the user's words. Null when there is nothing to say.
+const titleConflictMsg = computed(() => {
+  const c = titleConflicts.value
+  const names = (list) => list.map(conflictLabel).join(' · ')
+  if (c.level === 'block') return `ชื่อนี้มีอยู่แล้วในเล่มเดียวกัน: ${names(c.blocking)} — เปลี่ยนชื่อ หรือไปแก้เพลงเดิม`
+  if (c.level === 'warn') return `ชื่อคล้ายกับเพลงที่มีอยู่: ${names(c.warning)} — ถ้าเป็นคนละเพลงจริง บันทึกต่อได้เลย`
+  if (c.level === 'info') return `ชื่อนี้มีในเล่มอื่นด้วย: ${names(c.info)} (เพลงเดียวกันอยู่ได้หลายเล่ม — บันทึกได้ตามปกติ)`
+  return ''
+})
+// every clashing song, so the banner can link straight to each one
+const conflictLinks = computed(() => {
+  const c = titleConflicts.value
+  return [...c.blocking, ...c.warning, ...c.info]
+})
+// THE GATE. Returns true when the write may go ahead. An identical name in the same เล่ม is
+// refused; only an approver may force past it, and only through an explicit confirm that
+// names the song being duplicated (never a button you can click through by habit).
+// Set for ONE save when an approver knowingly published a duplicate — it becomes the row's
+// `duplicate_ok` flag, which is what lets db/011's partial index allow that one row through
+// while still refusing everything else (a bulk import never sets it).
+const forcedDuplicate = ref(false)
+function passTitleGate(what, selfId = editingId.value) {
+  forcedDuplicate.value = false
+  const c = conflictsFor(selfId)
+  if (c.level !== 'block') return true
+  const names = c.blocking.map(conflictLabel).join(' · ')
+  if (!isApprover.value) {
+    saveMsg.value = `⛔ ${what}ไม่ได้ — ชื่อนี้มีอยู่แล้วในเล่มเดียวกัน: ${names}. เปลี่ยนชื่อเพลง หรือไปแก้เพลงเดิมแทน`
+    return false
+  }
+  const ok = window.confirm(
+    `เพลงชื่อนี้มีอยู่แล้วในเล่มเดียวกัน:\n\n${names}\n\n` +
+      `การ${what}ต่อจะทำให้มีเพลงซ้ำสองใบในคลัง (ยังไม่มีถังขยะ — ลบผิดแล้วหาย)\n\n` +
+      `กด "ตกลง" เฉพาะเมื่อแน่ใจว่าเป็นคนละเพลงจริงๆ`,
+  )
+  if (!ok) saveMsg.value = `ยกเลิก${what} — ชื่อซ้ำกับ ${names}`
+  forcedDuplicate.value = ok
+  return ok
+}
 
 async function loadSong(id) {
   if (!id) return resetForm()
@@ -1623,6 +1695,10 @@ async function saveDraft(status) {
     saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
     return
   }
+  // B-DUP — a private ร่าง may carry any name (it is not in the library, and the banner is on
+  // screen the whole time). "ส่งตรวจ" is a request to publish, so it is gated like a publish:
+  // sending a known duplicate up only wastes the approver's review.
+  if (status === 'pending' && !passTitleGate('ส่งตรวจ')) return
   emit('save', status === 'pending' ? 'pending' : 'draft')
   row.status = status
   // reuse an existing own draft for this song if we did not start from one
@@ -1704,22 +1780,37 @@ async function saveDirect() {
     saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
     return false
   }
+  // B-DUP — the library write. Same name + same เล่ม never goes in unnoticed.
+  if (!passTitleGate('เผยแพร่')) return false
   emit('save', 'publish')
   // B093: lint the melody → tag review_flags (keep DA flags) + warn, but never block publish
   const { flags, count } = reviewFlagsForPublish()
   lastLintCount.value = count
   row.review_flags = flags
-  let error
-  if (editingId.value) {
-    ;({ error } = await supabase.from('songs').update(row).eq('id', editingId.value))
-  } else {
+  // B-DUP — carry the approver's knowing exception into the row (see db/011 §2). Only on the
+  // save they confirmed; a normal save never sends it, so it can never be sticky.
+  if (forcedDuplicate.value) row.duplicate_ok = true
+  const write = async () => {
+    if (editingId.value) return await supabase.from('songs').update(row).eq('id', editingId.value)
     row.author_id = session.value?.user?.id
-    const res = await supabase.from('songs').insert(row).select('id').single()
-    error = res.error
-    if (res.data) editingId.value = res.data.id
+    return await supabase.from('songs').insert(row).select('id').single()
   }
+  let res = await write()
+  // db/011 may not have been run yet — then the column does not exist and the write is
+  // rejected for a reason that has nothing to do with the song. Drop the flag and save.
+  if (res.error && row.duplicate_ok && /duplicate_ok/.test(res.error.message || '')) {
+    delete row.duplicate_ok
+    res = await write()
+  }
+  let error = res.error
+  if (!editingId.value && res.data) editingId.value = res.data.id
   if (error) {
-    saveMsg.value = '❌ บันทึกไม่สำเร็จ: ' + error.message
+    // B-DUP — db/011 (if P'Aim has run it) refuses a duplicate title at the database, which
+    // is also the last line under the bulk-import door. Say that in the user's words instead
+    // of showing them a Postgres unique-violation string.
+    saveMsg.value = /songs_one_title_per_book/.test(error.message || '')
+      ? '⛔ ฐานข้อมูลไม่ยอมให้มีเพลงชื่อซ้ำในเล่มเดียวกัน — เปลี่ยนชื่อเพลง หรือไปแก้เพลงเดิมแทน'
+      : '❌ บันทึกไม่สำเร็จ: ' + error.message
   } else {
     saveMsg.value =
       count > 0 ? `⚠️ เผยแพร่แล้ว — แต่พบปัญหาโน้ต ${count} จุด (ติดป้ายไว้ให้ตรวจ)` : '✅ เผยแพร่แล้ว'
@@ -1749,6 +1840,9 @@ async function approve() {
   // B108: the draft the approver is reviewing may carry no หมวด/ธีม. Before publishing over an
   // EXISTING song, make sure we hold its real values.
   if (d.song_id && (!categoryKnown.value || !themeKnown.value)) await resolveBook(d.song_id)
+  // B-DUP — publishing a draft is a library write too. The song this draft belongs to is not a
+  // clash with itself, so it is passed as the self id (it may not be in editingId yet).
+  if (!passTitleGate('อนุมัติและเผยแพร่', d.song_id || editingId.value)) return
   // approve_and_publish() coalesces a missing category (safe to omit) but assigns theme
   // outright, so a still-unknown ธีม on an existing song would be WIPED. Refuse rather than
   // destroy it — a transient read failure just means press the button again.
@@ -3185,6 +3279,31 @@ defineExpose({
       </div>
     </div>
 
+    <!-- B-DUP — "เพลงนี้มีในคลังแล้ว". Live while the name is being typed, not at save time, so
+         the fix is still cheap. Three strengths, never colour alone (WCAG 1.4.1 — the ⛔/⚠️/ℹ️
+         glyph and the wording carry it): ⛔ = this save will be refused · ⚠️ = looks like an
+         existing song, confirm and pass · ℹ️ = the same name in another เล่ม, which is normal.
+         Every clashing song is a link, so "ไปดู/ไปแก้เพลงนั้น" is one click (hash router). -->
+    <div
+      v-if="editing && titleConflictMsg"
+      class="card dup-alert no-print"
+      :class="'dup-' + titleConflicts.level"
+      role="status"
+      aria-live="polite"
+    >
+      <strong>{{ titleConflicts.level === 'block' ? '⛔' : titleConflicts.level === 'warn' ? '⚠️' : 'ℹ️' }}</strong>
+      {{ titleConflictMsg }}
+      <span class="dup-links">
+        <a
+          v-for="s in conflictLinks"
+          :key="s.id"
+          :href="'#/song/' + s.id"
+          target="_blank"
+          rel="noopener"
+        >เปิดเพลง {{ (s.number != null ? s.number + '. ' : '') + s.title_th }} ↗</a>
+      </span>
+    </div>
+
     <!-- D4 (US AC-6) — this song has a draft waiting for review that is NOT the one on screen.
          Publishing from here strands it silently, so say so on arrival, not only at the button.
          Inline, not a toast: the fact is a lasting state and a snackbar leaves (HIG Feedback).
@@ -4439,6 +4558,16 @@ defineExpose({
 .pa-actions button { min-height: 44px; }
 .pa-actions .pa-go { background: var(--brand); color: #fff; border-color: var(--brand); }
 .migrate-note { background: #fffbeb; border-color: #f6e05e; }
+/* B-DUP — the "already in the library" banner. Same family as .pending-alert (thick left
+   edge = "this concerns the library, not your typing"); the three strengths differ in colour
+   AND in glyph + wording, never colour alone. */
+.dup-alert { border-left: 4px solid var(--line); }
+.dup-block { background: #fff4ed; border-color: var(--red, #c53030); border-left-color: var(--red, #c53030); }
+.dup-warn { background: #fffbeb; border-color: #f6e05e; border-left-color: #b7791f; }
+.dup-info { background: #f7fafc; border-color: var(--line); border-left-color: #4a5568; }
+.dup-links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+/* 44px row = WCAG 2.5.8 target size on a phone, where these links are the way out of the problem */
+.dup-links a { min-height: 44px; display: inline-flex; align-items: center; color: var(--brand); }
 .rev-row { border-top: 1px solid var(--line); padding: 8px 0; margin-top: 8px; }
 .line-active { border-color: var(--brand); }
 .bar-playing {

@@ -65,6 +65,9 @@ const props = defineProps({
   // …and which lyric SET to open on, already resolved from the link's ?set=<permanent id> by
   // the shell. Same deal as startKey: a STARTING point only — the reader's own tab wins after.
   startSet: { type: Number, default: 0 },
+  // B-DUP — { level, message, links } from the owner (Studio) when this song's name already
+  // exists in the library. Passed straight through to ⚙ ตั้งค่าเพลง, where the name is typed.
+  dupNote: { type: Object, default: null },
 })
 // The reading surface stays a READER: it never mutates props.song. When the pencil is on
 // and a note is retyped, it hands the OWNER (Studio → liveSong, the live v2 SSOT) a new
@@ -2759,6 +2762,7 @@ function onSeek({ li, si, syk }) {
         :open="settingsOpen"
         :number="song.number"
         :title-th="song.title_th || ''"
+        :dup-note="dupNote"
         :title-en="song.title_en || ''"
         :category="song.category || ''"
         :theme="song.theme || ''"
