@@ -3,10 +3,15 @@
 > **สมองอยู่บน disk** → PM ตายเกิดใหม่ได้ · อ่านไฟล์นี้ + `decisions-log.md` = rehydrate ทันที
 > เก็บ **สั้น เฉพาะของสด** · จบแล้วตัดออกทันที (ประวัติ → `decisions-log.md` → `decisions-archive.md`)
 
-## ▶▶ pl pm 49 เริ่มที่นี่ (handoff 2026-07-27 · จาก pm48)
+## ▶▶ PM คนต่อไปเริ่มที่นี่ (handoff 2026-07-27 · จาก pm49 · **P'Aim กำลังย้ายไปใช้ Claude Code account อื่น**)
+
+**สถานะ 1 บรรทัด:** **v1 ปิดจ็อบและปล่อยขึ้นเว็บแล้ว** (`1a55189`) · ไม่มีงานค้างเดินอยู่สักตัว · worker ปิดหมดแล้ว · **รอฟีดแบ็กพี่เปา** โดยเฉพาะเรื่องเสียง
 
 **อ่าน 3 memory ก่อนทำอะไร:** `feedback_follow_exactly_and_guard` · `feedback_definition_of_complete` · `feedback_dispatch_hand_locked_ssot` (ยื่น SSOT ที่ล็อกแล้วให้ worker · อย่าสั่ง "ไปหาวิธีเอง")
-**report-back:** worker เขียน `C:\gl\pm-inbox\pleng\` + ping PM (หา PM จาก title prefix `pl pm` เลขสูงสุด)
+**กฎกลาง PM = `C:\gl\CLAUDE.md` §4.5** (โดยเฉพาะ **ข้อ 8.5 ใหม่ 27 ก.ค.** — N/G/C กลั่นกรองก่อนถึง P'Aim · ตัดสินเองเรื่องมาตรฐาน **แต่ต้องชี้แจง**)
+**report-back:** worker เขียน `C:\gl\pm-inbox\pleng\` + ping PM (หา PM จาก title prefix `pl pm` เลขสูงสุด · ⚠️ `pk pm` = โปรเจกต์พระคำ **คนละบ้าน** — 27 ก.ค. เคยส่งผิดบ้าน 2 ครั้งเพราะชื่อ session สลับกัน ตั้งชื่อให้ตรงเสมอ)
+
+**⚠️ ของที่ยังไม่ push (อยู่แต่เครื่องนี้ — ถ้าย้ายเครื่อง/แอคเคานต์ต้องรู้):** branch งานทั้งหมดที่ยังไม่ merge เป็น **local branch** (`piano-only-v1` · `dup-title-guard-v1` · `v1-preecho-ensemble` · `v1-preecho-violin-discarded` · `claude/*` ของ /v2) · **มีแต่ `v1`, tag `v1-frozen`, `main`, `studio-shell-redesign` ที่ push ขึ้น GitHub แล้ว**
 
 ---
 
