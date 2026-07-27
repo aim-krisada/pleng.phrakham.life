@@ -229,6 +229,9 @@ describe('EditorMode — unsaved work is not replaced in place without asking', 
     expect(w.vm.meta.title_th).toBe('งานที่ยังไม่บันทึก')
   })
 
+  // NOTE (/v2 lane): the v1 suite also covers "สร้างเพลงใหม่" here. On /v2 that button only
+  // emits `new-song` — Studio.createNewSong owns the question — so there is nothing to
+  // assert against EditorMode on this lane.
   it('rolling back with nothing unsaved keeps the plain question (one dialog, not two)', async () => {
     const w = mountEditor()
     await settle()
