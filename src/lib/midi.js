@@ -826,6 +826,10 @@ export const PREECHO_ENSEMBLE_LEADS = new Set(['guitar'])
 export function ensembleGuideEvents(notes, { lead = 'piano', seedBase = 0, pass = 0, secGain = () => 1, accent = () => 1, contour = () => 1, preEcho = 'default', rng: rngIn } = {}) {
   // The caller may hand in ITS rng so the shared humanize stream keeps advancing across the guide
   // layer and the comp/bass layer that draws after it — exactly as when this was one inline loop.
+  // ⚠ Handing one in ADVANCES it: this function is only pure w.r.t. a `seedBase`. Call it twice with
+  // the same live rng and the second answer differs. Every audit/test therefore passes seedBase (or
+  // its own stub) and never a shared generator — playEnsemble is the only caller that hands one in,
+  // because there the advance IS the point.
   const rng = rngIn || mulberry32((seedBase ^ (pass * 0x9e37)) >>> 0)
   const rnd = () => rng() * 2 - 1
   const VJ = 0.06
