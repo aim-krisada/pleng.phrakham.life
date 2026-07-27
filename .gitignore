@@ -5,3 +5,5 @@ dist/
 pleng.phrakham.life.md
 bugs/
 features/
+
+.claude/hooks/__pycache__/
