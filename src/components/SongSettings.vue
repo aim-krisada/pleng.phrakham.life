@@ -31,6 +31,10 @@ const props = defineProps({
   songKey: { type: String, default: 'C' },
   timeSignature: { type: String, default: '4/4' },
   bpm: { type: [Number, String], default: null },
+  // B-DUP — { level: 'block'|'warn'|'info', message, links[] } computed by the owner, or null
+  // when the name is free. Shown under the ชื่อเพลง field, live, because renaming a song onto
+  // an existing name is one of the three ways duplicates got into the library.
+  dupNote: { type: Object, default: null },
 })
 // `meta` = a patch of ROW fields · `music` = a patch of CONTENT fields. Two events because the
 // two halves are stored in two places (songs row vs songs.content jsonb) — the owner (Studio)
@@ -115,6 +119,24 @@ function setBpm(e) {
           @input="emit('meta', { title_th: $event.target.value })"
         />
       </label>
+
+      <!-- B-DUP — "เพลงนี้มีในคลังแล้ว", live under the field that causes it. Never colour
+           alone (WCAG 1.4.1): the glyph and the wording say which of the three it is, and each
+           clashing song is a link so "ไปดูเพลงนั้น" is one tap. -->
+      <div
+        v-if="dupNote"
+        class="ss-dup"
+        :class="'ss-dup-' + dupNote.level"
+        role="status"
+        aria-live="polite"
+      >
+        <span>{{ dupNote.level === 'block' ? '⛔' : dupNote.level === 'warn' ? '⚠️' : 'ℹ️' }} {{ dupNote.message }}</span>
+        <span class="ss-dup-links">
+          <a v-for="s in dupNote.links" :key="s.id" :href="'#/song/' + s.id" target="_blank" rel="noopener">
+            เปิดเพลง {{ (s.number != null ? s.number + '. ' : '') + s.title_th }} ↗
+          </a>
+        </span>
+      </div>
 
       <label class="ss-field">
         <span class="ss-lbl">ชื่อเพลง (อังกฤษ)</span>
@@ -259,6 +281,25 @@ function setBpm(e) {
 }
 .ss-field { display: flex; flex-direction: column; gap: 4px; }
 .ss-lbl { font-size: var(--fs-xs, 0.8rem); color: var(--muted, #64748b); }
+/* B-DUP note — sits directly under the name it is about, with a thick left edge in the same
+   family as the editor's .dup-alert. Three strengths differ by glyph + wording as well as colour. */
+.ss-dup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--line, #e2e8f0);
+  border-left: 4px solid var(--line, #e2e8f0);
+  border-radius: 8px;
+  font-size: var(--fs-xs, 0.8rem);
+  line-height: 1.5;
+}
+.ss-dup-block { background: #fff4ed; border-color: var(--red, #c53030); border-left-color: var(--red, #c53030); }
+.ss-dup-warn { background: #fffbeb; border-color: #f6e05e; border-left-color: #b7791f; }
+.ss-dup-info { background: #f7fafc; border-left-color: #4a5568; }
+.ss-dup-links { display: flex; flex-wrap: wrap; gap: 10px; }
+/* 44px = WCAG 2.5.8 target size — on a phone this link is the way out of the problem */
+.ss-dup-links a { min-height: 44px; display: inline-flex; align-items: center; color: var(--brand, #b45309); }
 .ss-input {
   min-height: 34px;
   padding: 4px 8px;

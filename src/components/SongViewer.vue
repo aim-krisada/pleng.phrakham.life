@@ -51,6 +51,9 @@ const props = defineProps({
   // EPIC H — a shared link may carry the key it was shared at (?key=, lib/share.js). It is a
   // STARTING point only: the listener's own คีย์ pick afterwards wins. '' = use the song's key.
   startKey: { type: String, default: '' },
+  // B-DUP — { level, message, links } from the owner (Studio) when this song's name already
+  // exists in the library. Passed straight through to ⚙ ตั้งค่าเพลง, where the name is typed.
+  dupNote: { type: Object, default: null },
 })
 // The reading surface stays a READER: it never mutates props.song. When the pencil is on
 // and a note is retyped, it hands the OWNER (Studio → liveSong, the live v2 SSOT) a new
@@ -1462,6 +1465,7 @@ function onSeek({ li, si, syk }) {
         :open="settingsOpen"
         :number="song.number"
         :title-th="song.title_th || ''"
+        :dup-note="dupNote"
         :title-en="song.title_en || ''"
         :category="song.category || ''"
         :theme="song.theme || ''"

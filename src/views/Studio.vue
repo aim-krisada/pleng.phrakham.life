@@ -10,7 +10,8 @@ import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent } from '../lib/songModel.js'
 import { withSongKey } from '../lib/songEdit.js'
 import { songHaystack } from '../lib/songSearch.js'
-import { visibleSongs } from '../lib/bookshelf.js'
+import { visibleSongs, categoryName } from '../lib/bookshelf.js'
+import { findTitleConflicts } from '../lib/songTitleKey.js'
 import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
@@ -512,6 +513,32 @@ async function loadSongList() {
     .order('number', { ascending: true })
   songList.value = data ?? []
 }
+// B-DUP — renaming a song in ⚙ ตั้งค่าเพลง is one of the three ways a duplicate got in, so the
+// same "already in the library" note the แก้ไข editor shows appears live here too, while the
+// name is being typed. This surface only ever writes a ร่าง, so it WARNS and never blocks —
+// the library write (เผยแพร่ / อนุมัติ) is where the hard gate sits (EditorMode.passTitleGate).
+// Same softening as there: if we could not establish this song's หมวด (B108 knownness), a
+// "same เล่ม" verdict would be a guess, so it is reported as a resemblance, not a duplicate.
+const inlineDup = computed(() => {
+  const s = liveSong.value
+  if (!s) return null
+  const r = findTitleConflicts({ id: s.id, title_th: s.title_th, category: s.category }, songList.value)
+  const certain = !s.id || metaKnown.category
+  const hard = certain ? r.blocking : []
+  const soft = certain ? r.warning : [...r.blocking, ...r.warning]
+  const label = (x) =>
+    (x.number != null ? x.number + '. ' : '') + (x.title_th || '') +
+    (x.category ? ` (${categoryName(x.category)})` : '')
+  const names = (list) => list.map(label).join(' · ')
+  if (hard.length)
+    return { level: 'block', message: `ชื่อนี้มีอยู่แล้วในเล่มเดียวกัน: ${names(hard)} — เปลี่ยนชื่อ หรือไปแก้เพลงเดิม (เผยแพร่ทับไม่ได้)`, links: hard }
+  if (soft.length)
+    return { level: 'warn', message: `ชื่อคล้ายกับเพลงที่มีอยู่: ${names(soft)} — ถ้าเป็นคนละเพลงจริง ใช้ต่อได้`, links: soft }
+  if (r.info.length)
+    return { level: 'info', message: `ชื่อนี้มีในเล่มอื่นด้วย: ${names(r.info)} (เพลงเดียวกันอยู่ได้หลายเล่ม)`, links: r.info }
+  return null
+})
+
 // searchable options (ชื่อ · เลข · เนื้อร้อง · โน้ต — same haystack as the catalog page).
 // GATE (reuse bookshelf.visibleSongs — same source SongList + EditorMode use): anon sees only
 // verified songs, team sees all. computed on tier so it re-filters on login/logout without
@@ -678,6 +705,7 @@ function printSheet() {
         :save-error="inlineError"
         :recoverable="workCopySafe"
         :start-key="linkKey"
+        :dup-note="inlineDup"
         @update-content="onViewerContent"
         @update-meta="onViewerMeta"
         @update-music="onViewerMusic"
