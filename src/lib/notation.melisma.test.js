@@ -65,6 +65,18 @@ describe('melismaSpans', () => {
     expect(melismaSpans([{ si: 0, note: '1 6 6', syllables: ['a', '“', ''] }])).toEqual([])
   })
 
+  // song 712 "ลูกแกะร้อยตัว ตัวหนึ่งหลงหาย" line 3 bar 2 — พี่เปา flagged the 5→3 เอื้อน
+  // ("ด้วย" held from the third 5 onto the blank 3). The /v2 render DOES draw this arc
+  // (verified on screen, print, and live /v2); this pins the model span so it can't
+  // silently drop. NOTE: the v1 root site has no melisma feature at all, so the arc is
+  // absent there by design — that gap is a v1 decision, not a /v2 engine bug.
+  it('spans the song-712 line3/bar2 เอื้อน (third 5 → blank 3, "ด้วย")', () => {
+    const segments = [{ si: 2, note: '5 5_ 5_ 3_ 1_', syllables: ['หน้า', 'เต็ม', 'ด้วย', '', 'หลุม'] }]
+    expect(melismaSpans(segments)).toEqual([
+      { open: { si: 2, idx: 2 }, close: { si: 2, idx: 3 }, sameSegment: true },
+    ])
+  })
+
   it('still draws a real-word melisma that ends before a later punctuation note', () => {
     // "a" + blank (arc a→blank), then “ starts nothing
     expect(melismaSpans([{ si: 0, note: '1 6 6', syllables: ['a', '', '”'] }])).toEqual([
