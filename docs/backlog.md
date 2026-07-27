@@ -121,3 +121,9 @@ idea ไหนจะทำจริง → ยกขึ้นเป็น user s
 | B125 | improve (validation) | ช่องคอร์ด validate แค่ root → junk ที่ขึ้นต้น A-G (เช่น `Cqx`,`Gzz`) ผ่านเป็น "คอร์ด" | **ที่มา:** Tester verify chord-hotfix 23 ก.ค. · `isValidChord = parseChord!=null` เช็คแค่ `[A-G][#b]?` root · suffix เก็บ verbatim ไม่ตรวจ → junk-มี-root save ได้ (junk ไม่มี-root เช่น `Zqx` โดน reject) · **low · ไม่ใช่ regression** (พี่เปาพิมพ์คอร์ดจริง) · ⚠️ fix ต้องระวังไม่ reject คอร์ดแปลกที่ valid (permissive by design) · optional hardening: validate suffix กับ pattern chord-quality | idea | (Tester · 2026-07-23) |
 | B124 | bug (engine · transpose) | คอร์ด slash: transpose แล้วเบสไม่เลื่อน (`G/B`→`A/B` ควรเป็น `A/C#`) | **ที่มา:** chord-hotfix session 23 ก.ค. (surfaced ตอนเปิดพิมพ์คอร์ด slash ได้) · pre-existing: `transposeChord` เลื่อน root แต่ suffix (รวม `/B`) เก็บ verbatim → bass ไม่ตาม · fix = parse+transpose bass ใน `transposeChord` (`chords.js`) · low (คอร์ด slash ไม่บ่อย) · มี test `KNOWN LIMITATION` ปักไว้แล้ว | idea | (chord session · 2026-07-23) |
 | B123 | bug (shell · responsive) | h-scroll 8px ที่ ≥1200px จากปุ่ม "เข้าสู่ระบบ" ล้น `.sb-right` | **ที่มา:** Tester sweep 23 ก.ค. (verify job #2 · เพลง 141 @1200) · shell bar ปุ่ม login (`.sb-right`) ล้นขอบขวา ~8px → เกิด h-scroll แนวนอนที่จอกว้าง · **ไม่เกี่ยว alignment/แผ่นเพลง** = ของ header เดิม · fix = คุมความกว้าง/overflow ของ `.sb-right` | idea | (Tester · 2026-07-23) |
+
+## B127 · หน้าฝึกร้อง: เริ่มบนสุด + scroll คาราโอเกะ (พี่เปาขอ 2026-07-27)
+1. เข้าหน้าฝึกร้องต้องเริ่มที่บนสุดของหน้าเสมอ (ตอนนี้ค้างตำแหน่งเดิม)
+2. พฤติกรรม scroll สลับกันอยู่ — **ฝึกร้อง = ต้อง scroll ตามอัตโนมัติแบบคาราโอเกะ · แก้เพลง = ต้องไม่ scroll**
+   ตอนนี้เป็นตรงกันข้าม · ทำทั้ง v1 และ /v2
+P'Aim อนุมัติให้ยกเว้นกฎ "เลิกลงแรงกับ v1" เพราะพี่เปาใช้ทุกวันระหว่างรอ v2
