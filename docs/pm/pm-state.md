@@ -11,7 +11,9 @@
 **กฎกลาง PM = `C:\gl\CLAUDE.md` §4.5** (โดยเฉพาะ **ข้อ 8.5 ใหม่ 27 ก.ค.** — N/G/C กลั่นกรองก่อนถึง P'Aim · ตัดสินเองเรื่องมาตรฐาน **แต่ต้องชี้แจง**)
 **report-back:** worker เขียน `C:\gl\pm-inbox\pleng\` + ping PM (หา PM จาก title prefix `pl pm` เลขสูงสุด · ⚠️ `pk pm` = โปรเจกต์พระคำ **คนละบ้าน** — 27 ก.ค. เคยส่งผิดบ้าน 2 ครั้งเพราะชื่อ session สลับกัน ตั้งชื่อให้ตรงเสมอ)
 
-**⚠️ ของที่ยังไม่ push (อยู่แต่เครื่องนี้ — ถ้าย้ายเครื่อง/แอคเคานต์ต้องรู้):** branch งานทั้งหมดที่ยังไม่ merge เป็น **local branch** (`piano-only-v1` · `dup-title-guard-v1` · `v1-preecho-ensemble` · `v1-preecho-violin-discarded` · `claude/*` ของ /v2) · **มีแต่ `v1`, tag `v1-frozen`, `main`, `studio-shell-redesign` ที่ push ขึ้น GitHub แล้ว**
+**✅ งานทั้งหมดอยู่บน GitHub แล้ว (push 27 ก.ค. · ยืนยันด้วย `git ls-remote`)** — ย้ายเครื่อง/แอคเคานต์ได้ ไม่มีอะไรตกค้างแค่ในเครื่องนี้:
+`v1`@1a55189 + tag `v1-frozen` (= live) · `main`@cebf366 · `studio-shell-redesign` (สมอง PM)
+**branch ที่ยังไม่ merge — พร้อมหยิบ:** `unsaved-guard-v1`@b5080f0 · `v1-preecho-port`@cfb95e0 · `piano-only-v1`@d9dfd65 · `claude/import-template-guard`@962c162 (4 ตัวนี้รวมเป็น `v1-release-try`@1a55189 = ที่ปล่อยไปแล้ว) · **/v2 รอ merge:** `claude/priceless-shtern-3ba8a1`@9bd7769 (กันงานหาย) · `claude/quirky-grothendieck-75af84`@5e2d307 (เปียโนเดี่ยว) · `claude/keen-hellman-70be16`@20d221a (ชื่อซ้ำ) · **v1 ชื่อซ้ำ:** `dup-title-guard-v1`@7589cb4 · **สเปกหลายคน:** `claude/pensive-dubinsky-7bec80`@9f1f446 · **ลิ้นชักเต็มวง:** `v1-preecho-ensemble`@f772428 · `v1-preecho-violin-discarded`@c96732c
 
 ---
 
