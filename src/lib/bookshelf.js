@@ -58,6 +58,18 @@ export function verifiedProgress(songs) {
   return { verified, total: list.length }
 }
 
+// The approver's review queue: every song still waiting for a check, oldest catalog number
+// first. Same predicate as showUnverifiedBadge (a song is "ยังไม่ตรวจ" when `verified` is
+// falsy) — kept in ONE place so the chip's count, the queue list and the card badge can never
+// disagree. Callers pass an already-gated list (visibleSongs), so this adds no visibility rule
+// of its own. Sorting mirrors songsInBook: no number sorts last, never throws.
+export function unverifiedSongs(songs) {
+  return (songs || [])
+    .filter((s) => s && !s.verified)
+    .slice()
+    .sort((a, b) => (a.number ?? Infinity) - (b.number ?? Infinity))
+}
+
 // A song's category code, trimmed; null when blank/absent (→ fallback bucket). Kept
 // defensive so a row missing the column doesn't throw.
 function songCategory(song) {
