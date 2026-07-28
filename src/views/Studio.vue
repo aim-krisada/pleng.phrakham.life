@@ -12,7 +12,7 @@ import { withSongKey } from '../lib/songEdit.js'
 import { emptyContent } from '../lib/editorSerde.js'
 import { songHaystack, searchSongs } from '../lib/songSearch.js'
 import { visibleSongs, categoryName } from '../lib/bookshelf.js'
-import { findTitleConflicts } from '../lib/songTitleKey.js'
+import { findTitleConflicts, earlyDupNote } from '../lib/songTitleKey.js'
 import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
@@ -783,7 +783,10 @@ const inlineDup = computed(() => {
     return { level: 'warn', message: `ชื่อคล้ายกับเพลงที่มีอยู่: ${names(soft)} — ถ้าเป็นคนละเพลงจริง ใช้ต่อได้`, links: soft }
   if (r.info.length)
     return { level: 'info', message: `ชื่อนี้มีในเล่มอื่นด้วย: ${names(r.info)} (เพลงเดียวกันอยู่ได้หลายเล่ม)`, links: r.info }
-  return null
+  // B128 — nothing to say about the WHOLE name yet, so ask the earlier question instead: does
+  // the library already have a song whose name starts like this? From 5 typed characters on,
+  // in this same ss-dup box, always on. It never blocks anything (this surface cannot).
+  return earlyDupNote({ id: s.id, title_th: s.title_th, category: s.category }, songList.value, categoryName)
 })
 
 // GATE (reuse bookshelf.visibleSongs — same source SongList + EditorMode use): anon sees only
