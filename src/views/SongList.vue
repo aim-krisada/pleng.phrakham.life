@@ -26,8 +26,15 @@ import {
 } from '../lib/playlists.js'
 import { buildListUrl } from '../lib/share.js'
 import { filterSongs as filterForPicker } from '../lib/songSearch.js'
+import Icon from '../components/Icon.vue'
+import { showInstallBanner, dismissInstallBanner, openInstall } from '../lib/pwaInstall.js'
 
 const router = useRouter()
+
+// ติดตั้งแอพ — mobile home banner (P'Aim: "ต้องเห็น ส่งเสริมให้ใช้"). Reactive state lives in
+// lib/pwaInstall.js: showInstallBanner = install possible & not installed & not dismissed. The
+// banner is CSS-gated to the mobile compact layout (the desktop top-bar button covers desktop).
+async function onInstallBanner() { await openInstall() }
 
 // Browse mode over the (non-search) landing: the default bookshelf, the ★ favorites filter, or
 // the 🎵 playlists manager. Chips switch it; search still overrides everything (US-G1).
@@ -230,6 +237,20 @@ onMounted(async () => {
 
 <template>
   <div>
+    <!-- ติดตั้งแอพ — mobile install BANNER, full-width above the list (P'Aim: "ต้องเห็น ส่งเสริมให้
+         ใช้"). Shown only when install is possible & not installed & not dismissed; CSS gates it to
+         the mobile compact layout (desktop uses the top-bar button). Dismiss ✕ = remembered
+         (localStorage). Tap "ติดตั้ง" = replay the prompt, or open the iOS Share sheet. -->
+    <div v-if="showInstallBanner" class="install-banner no-print">
+      <div class="ib-icon" aria-hidden="true"><Icon name="download" :size="22" /></div>
+      <div class="ib-text">
+        <p class="ib-title">{{ t('install.bannerTitle') }}</p>
+        <p class="ib-sub">{{ t('install.bannerSub') }}</p>
+      </div>
+      <button type="button" class="ib-cta" @click="onInstallBanner">{{ t('install.bannerCta') }}</button>
+      <button type="button" class="ib-x" :aria-label="t('install.dismiss')" @click="dismissInstallBanner"><Icon name="x" :size="18" /></button>
+    </div>
+
     <!-- search: always on top, overrides the drill from any level (US-AC5) -->
     <div class="no-print search-block">
       <input
@@ -491,6 +512,46 @@ onMounted(async () => {
    --touch-min from styles.css). No hard-coded px for rhythm; focusable form
    controls stay >= --fs-base so iOS Safari never zoom-on-focus, and every
    interactive target is >= --touch-min (44px) tall (WCAG 2.5.5 / 2.5.8). */
+
+/* ---- ติดตั้งแอพ — mobile install banner ----
+   Base = hidden; shown ONLY on the mobile compact layout (:root.shell-compact, the same signal the
+   FAB uses). On desktop the top-bar "ติดตั้งแอพ" button covers install, so the banner stays off. */
+.install-banner { display: none; }
+:root.shell-compact .install-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 var(--sp-3);
+  padding: 12px 14px;
+  background: var(--accent-soft, #fdecc8);
+  border: 1px solid var(--brand, #b45309);
+  border-radius: 14px;
+}
+.ib-icon {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 11px;
+  background: var(--brand, #b45309); color: #fff;
+}
+.ib-text { flex: 1 1 auto; min-width: 0; }
+.ib-title { margin: 0; font-size: 1rem; font-weight: 700; color: var(--ink); }
+.ib-sub { margin: 2px 0 0; font-size: var(--fs-sm, 0.9rem); color: var(--muted); line-height: 1.35; }
+.ib-cta {
+  flex: 0 0 auto;
+  background: var(--accent, #f59e0b); color: var(--ink);
+  border: none; border-radius: 999px;
+  padding: 8px 18px; min-height: 48px;
+  font: inherit; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.ib-cta:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.ib-x {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; margin-right: -8px;
+  background: none; border: none; border-radius: 8px;
+  color: var(--muted); cursor: pointer;
+}
+.ib-x:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 .search-block { margin-bottom: var(--sp-5); }
 .db-note { margin: var(--sp-2) 0 0; }

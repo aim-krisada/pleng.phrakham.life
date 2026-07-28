@@ -70,6 +70,44 @@ export const showIosHint = computed(() => {
   return isIOS() && !standalone && !dismissed
 })
 
+// ---- Promoted install affordances (home banner + top-bar button) ----------------------------
+// The ☰-drawer InstallAppTool above is the quiet, always-there entry. These add the PROMOTED
+// placements P'Aim asked for ("ต้องเห็น ส่งเสริมให้ใช้"): a full-width banner on the mobile home
+// and a top-bar button on desktop. They share one predicate and one action so the two surfaces
+// never disagree about whether install is possible.
+
+// Install is POSSIBLE and we are not already installed. Chrome/Android/desktop expose it through
+// beforeinstallprompt (canInstall); iOS Safari has no such event but CAN still install via
+// Share → Add to Home Screen, so it counts too — its tap opens the instruction sheet below.
+export const canShowInstall = computed(() => (canInstall.value || isIOS()) && !isStandalone.value)
+
+// The home banner is dismissible; remember it (separate key from the iOS drawer hint) so it does
+// not reappear every visit. The top-bar button + drawer row stay as the quieter fallbacks.
+const BANNER_KEY = 'pleng:install-banner-dismissed'
+export const installBannerDismissed = ref(readBannerDismissed())
+function readBannerDismissed() {
+  try { return localStorage.getItem(BANNER_KEY) === '1' } catch { return false }
+}
+export function dismissInstallBanner() {
+  installBannerDismissed.value = true
+  try { localStorage.setItem(BANNER_KEY, '1') } catch { /* private mode — hide for this session only */ }
+}
+export const showInstallBanner = computed(() => canShowInstall.value && !installBannerDismissed.value)
+
+// The iOS Share → Add-to-Home-Screen instruction sheet (there is no prompt to replay on iOS, so a
+// tap must still DO something — it opens this). App-wide component InstallSheet.vue reads it.
+export const installSheetOpen = ref(false)
+export function closeInstallSheet() { installSheetOpen.value = false }
+
+// The ONE action every promoted affordance calls. Replays the captured prompt where we have one;
+// on iOS (no prompt) opens the instruction sheet so a tap is never a dead end. Resolves to the
+// prompt outcome ('accepted'|'dismissed'), 'ios-sheet', or null (nothing to offer).
+export async function openInstall() {
+  if (canInstall.value) return await promptInstall()
+  if (isIOS() && !isStandalone.value) { installSheetOpen.value = true; return 'ios-sheet' }
+  return null
+}
+
 // Replay the captured prompt. Resolves to 'accepted' | 'dismissed' | null (nothing to show).
 export async function promptInstall() {
   if (!deferredPrompt) return null

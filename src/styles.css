@@ -503,6 +503,32 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
 }
 @media (hover: hover) { .sb-create:hover { background: var(--accent-hover); } }
 
+/* ติดตั้งแอพ — desktop top-bar button beside ＋สร้างเพลง. Outlined amber (transparent fill), NOT
+   the filled marigold of create: install is a secondary, one-time utility that must be VISIBLE
+   without out-shouting the primary create action. Same visibility model as .sb-create — shown on
+   the full/tight bar, hidden on .shell-compact where the mobile home banner promotes install
+   instead. Switched by WIDTH (.shell-compact), never by hover. */
+.sb-install-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--brand);
+  border: 1.5px solid var(--brand);
+  border-radius: 22px;
+  padding: 6.5px 15px;
+  min-height: var(--touch-min);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+@media (hover: hover) { .sb-install-btn:hover { background: var(--accent-soft); } }
+.sb-install-btn .icn { color: var(--brand); }
+.sb-install-btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
 /* Mobile FAB — thumb-zone, bottom-right, respects the safe-area. Base = hidden (desktop uses
    the pill); the mobile @media shows it. ShellBar only renders it on the home route so it
    never collides with the song page's bottom dock. */
@@ -657,6 +683,8 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
   /* create: swap the desktop pill for the FAB (rendered by ShellBar on the home route only) */
   :root.shell-compact .sb-create { display: none; }
   :root.shell-compact .sb-fab { display: inline-flex; }
+  /* install: the desktop top-bar button gives way to the mobile home banner (SongList) */
+  :root.shell-compact .sb-install-btn { display: none; }
   :root.shell-compact .sb-sep { display: none; }
   :root.shell-compact .sb-mode-label { display: none; }
   :root.shell-compact .sb-title,

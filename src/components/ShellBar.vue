@@ -22,9 +22,10 @@ import { shellMenu } from '../store.js'
 import { t } from '../i18n/index.js'
 import ProfileTool from './ProfileTool.vue'
 import InstallAppTool from './InstallAppTool.vue'
+import InstallSheet from './InstallSheet.vue'
 import SettingsControls from './SettingsControls.vue'
-import VersionSwitch from './VersionSwitch.vue'
 import Icon from './Icon.vue'
+import { canShowInstall, openInstall, installSheetOpen } from '../lib/pwaInstall.js'
 
 defineProps({ title: { type: String, default: '' } })
 const route = useRoute()
@@ -99,6 +100,7 @@ onMounted(() => {
   // a background/automated tab runs NO rendering steps, so the observer alone can never fire).
   syncShellFit()
   window.addEventListener('resize', syncShellFit)
+  window.addEventListener('keydown', onCreateShortcut)   // "C" → open a blank editor (see above)
   if (typeof ResizeObserver === 'function' && barEl.value) {
     fitRo = new ResizeObserver(syncShellFit)
     fitRo.observe(barEl.value)
@@ -126,6 +128,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (drawer) { drawer.destroy(); drawer = null }   // kill scrim/listeners (leak + HMR)
   window.removeEventListener('resize', syncShellFit)
+  window.removeEventListener('keydown', onCreateShortcut)
   fitRo?.disconnect()
   fitTimers.forEach(clearTimeout)
   // no bar on the page → drop the state it owns (a stale class would compact the next page)
@@ -138,6 +141,31 @@ function toggleSettings() {
 function closeMenus() {
   shellMenu.value = null
 }
+
+// ＋สร้างเพลง now lives ONLY on the FAB (mobile) / top-bar pill (desktop) — it was removed from
+// the ☰ drawer (a drawer holds destinations, not actions · M3). So the create action gets a
+// keyboard peer: press "C" anywhere the create affordance is offered (home/list/guide/about —
+// i.e. not on a song/studio route) to open a blank editor. Guarded so it never hijacks typing
+// (inputs, textareas, contenteditable), a modifier chord (Ctrl/⌘+C copy), or a route where
+// create isn't shown. WCAG 2.1.4: single-character shortcut is only active off text fields.
+function isTypingTarget(el) {
+  if (!el) return false
+  const tag = el.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
+}
+function onCreateShortcut(e) {
+  if (e.key !== 'c' && e.key !== 'C') return
+  if (e.ctrlKey || e.metaKey || e.altKey) return          // leave Ctrl/⌘+C (copy) alone
+  if (isTypingTarget(e.target)) return                    // don't steal the letter while typing
+  if (isSong.value) return                                // create isn't offered on song/studio
+  e.preventDefault()
+  closeMenus()
+  router.push('/studio')
+}
+
+// The promoted "ติดตั้งแอพ" affordances (top-bar button here + the mobile home banner) share one
+// action: replay the captured install prompt, or open the iOS Share instruction sheet (openInstall).
+async function onInstall() { closeMenus(); await openInstall() }
 
 // ---- "คู่มือ ▾" desktop dropdown (WAI-ARIA APG menu button · GATE 1) ----
 // A disclosure button that opens a role=menu of 2 links (ใช้งานโปรแกรม /guide · ทำเพลง /notation).
@@ -206,12 +234,6 @@ async function goSearch() {
       <span class="sb-brand-text">{{ t('brand.name') }}</span>
     </router-link>
 
-    <!-- "รุ่นทดลอง v2" state pill + one-tap switch back to the current version. Renders nothing
-         on the root build (docs/deploy-v2.md), so this is inert on today's live site. Sits beside
-         the brand so it is on every page and every width — a version you can be on without
-         noticing is the failure mode of running two deployments at once. -->
-    <VersionSwitch />
-
     <!-- Desktop inline nav (phrakham navbar-nav). Hidden on mobile → moves into the drawer.
          Order (P'Aim 13 ก.ค.): รายการเพลง · คู่มือ · พระคำ.ชีวิต↗ · เกี่ยวกับเรา. -->
     <nav v-if="!isSong" class="sb-nav" aria-label="เมนูหลัก">
@@ -257,6 +279,20 @@ async function goSearch() {
         <Icon name="file-plus" :size="20" /><span>{{ t('action.create') }}</span>
       </router-link>
 
+      <!-- ติดตั้งแอพ — desktop top-bar button beside create (P'Aim: "ต้องเห็น ส่งเสริมให้ใช้").
+           Outlined amber = secondary to the filled create pill. Shown only when install is
+           possible & not already installed (canShowInstall); hidden on the mobile compact layout
+           (the home banner takes over there) and on song/studio routes. Tap = replay the prompt,
+           or open the iOS Share sheet. -->
+      <button
+        v-if="canShowInstall && !isSong"
+        type="button"
+        class="sb-install-btn no-print"
+        @click="onInstall"
+      >
+        <Icon name="download" :size="20" /><span>{{ t('install.button') }}</span>
+      </button>
+
       <!-- 🔍 — go to the song search (home) and focus the search field. Hidden on the home
            route: the search box is already on screen there, so the icon would be a duplicate
            (AC-G4.1). Still shown on every other page as a shortcut back to search. -->
@@ -295,11 +331,10 @@ async function goSearch() {
          visibility off-canvas), NOT v-if'd, so the core keeps a stable node to slide + trap.
          On desktop it stays hidden off-canvas (the ☰ trigger is display:none). -->
     <aside ref="drawerPanel" class="sb-drawer-panel">
-      <!-- ＋ สร้างเพลงใหม่ — filled action at the TOP of the mobile menu (same /studio target as
-           the desktop pill + the FAB · single source of action). -->
-      <router-link to="/studio" class="sb-drawer-create" @click="closeMenus">
-        <Icon name="file-plus" :size="20" /><span>{{ t('action.create') }}</span>
-      </router-link>
+      <!-- LOCKED "after" (P'Aim 2026-07-27): ＋สร้างเพลง is NOT in the drawer — a drawer holds
+           destinations, not actions (M3). Create lives only on the mobile FAB / desktop top-bar
+           pill (one source of action), with "C" as its keyboard peer. The old .sb-drawer-create
+           row was removed. -->
       <!-- Nav links = text only (design-system SSOT docs/ds/menu-drawer-spec.md §2: ไม่มีไอคอนหน้า).
            Desktop .sb-nav is already text-only; this mirrors it in the drawer. ↗ on พระคำ.ชีวิต is a
            text external-link marker (same as desktop .sb-ext), not a leading icon. -->
@@ -334,5 +369,9 @@ async function goSearch() {
     <router-link v-if="route.path === '/'" to="/studio" class="sb-fab no-print" :aria-label="t('action.create')">
       <Icon name="plus" :size="24" /><span>{{ t('action.createShort') }}</span>
     </router-link>
+
+    <!-- iOS Share → Add-to-Home-Screen instruction sheet — mounted app-wide so any install
+         affordance (top-bar button, mobile home banner) can open it on iOS. -->
+    <InstallSheet v-if="installSheetOpen" />
   </header>
 </template>
