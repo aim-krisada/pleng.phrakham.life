@@ -99,12 +99,26 @@ const booksEmptyMsg = computed(() =>
 )
 
 // ---- search results (existing flat list, narrowed by the review facets) ----
+// Scope-by-book (พี่เปา): while a เล่ม is open, search stays INSIDE it — the base list is that
+// book's songs, not the whole catalog, so typing a title that also exists in another book no
+// longer surfaces the other book's copy. On the landing (no book open) the base is the whole
+// catalog, so an un-drilled search is unchanged; leaving a book (backToBooks nulls activeBook)
+// restores the full-catalog scope automatically. `inBook` is already songsInBook(shown, active).
+const searchBase = computed(() => (activeBook.value ? inBook.value : shownSongs.value))
 const results = computed(() => {
-  let list = filterSongs(shownSongs.value, query.value)
+  let list = filterSongs(searchBase.value, query.value)
   if (onlyUnverified.value) list = list.filter((s) => !s.verified)
   if (theme.value) list = list.filter((s) => s.theme === theme.value)
   return list
 })
+
+// The search box announces its scope: inside the open เล่ม (so a reader is not puzzled when a
+// song from another book does not come up), or the whole catalog on the landing.
+const searchPlaceholder = computed(() =>
+  activeBook.value && activeBookMeta.value
+    ? `ค้นในเล่ม ${activeBookMeta.value.name}…`
+    : 'ค้นหา: ชื่อเพลง หมายเลข เนื้อร้อง คีย์ หรือโน้ตตัวเลข (เช่น 5 5 6 1)',
+)
 
 // 717 — the preview line, and WHICH set of words it was taken from.
 //
@@ -167,8 +181,8 @@ onMounted(async () => {
         v-model="query"
         type="search"
         class="song-search"
-        aria-label="ค้นหาเพลง"
-        placeholder="ค้นหา: ชื่อเพลง หมายเลข เนื้อร้อง คีย์ หรือโน้ตตัวเลข (เช่น 5 5 6 1)"
+        :aria-label="searchPlaceholder"
+        :placeholder="searchPlaceholder"
       />
       <p v-if="dbError" class="muted db-note">
         ยังเชื่อมต่อฐานข้อมูลไม่ได้ — แสดงเพลงตัวอย่างไปก่อน
