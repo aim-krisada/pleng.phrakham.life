@@ -415,11 +415,12 @@ onMounted(async () => {
   background: rgba(255, 255, 255, 0.24);
   font-variant-numeric: tabular-nums;
 }
-/* narrow phones: drop the word rather than let it clip to "ยังไม่ต…" — the 🔎 + count still
-   reads as "there are N to check", and the accessible name (sr-only) stays complete. */
-@media (max-width: 390px) {
-  .review-chip .rc-label { display: none; }
-}
+/* The word stays at EVERY width. The /v2 mockup had to collapse its tab to 🔎 + count because
+   four tabs shared one row and the label clipped to "ยังไม่ต…"; this chip owns its whole row, so
+   the full label fits even at 320px (measured: ~215px of 320) and there is nothing to clip. An
+   icon-only brown pill with a bare number would cost พี่เปา the meaning for no gain. Never
+   wraps mid-word, so the row can't break in half. */
+.review-chip .rc-label { white-space: nowrap; }
 .sr-only {
   position: absolute;
   width: 1px;
