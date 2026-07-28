@@ -15,7 +15,7 @@ import {
   verifiedProgress,
   FALLBACK_KEY,
 } from '../lib/bookshelf.js'
-import { session } from '../store.js'
+import { session, canApprove } from '../store.js'
 import { favorites, isFavorite } from '../lib/favorites.js'
 import FavStar from '../components/FavStar.vue'
 import ShareSheet from '../components/ShareSheet.vue'
@@ -31,8 +31,23 @@ const router = useRouter()
 
 // Browse mode over the (non-search) landing: the default bookshelf, the ★ favorites filter, or
 // the 🎵 playlists manager. Chips switch it; search still overrides everything (US-G1).
-const browseMode = ref('shelf') // 'shelf' | 'fav' | 'playlists'
+const browseMode = ref('shelf') // 'shelf' | 'fav' | 'playlists' | 'review'
 const favOnly = computed(() => browseMode.value === 'fav')
+
+// MOCKUP-ONLY: force the approver tab so P'Aim can see it without a team login
+// (?mockapprover=1). Real gate is `canApprove` (store.js). Remove before build.
+const mockApprover = new URLSearchParams(location.search).has('mockapprover')
+const isApprover = computed(() => canApprove.value || mockApprover)
+// unverified review queue (approver only) — reuse the same verified flag the card
+// badge + progress already use. Live count feeds the tab badge.
+const unverifiedSongs = computed(() => {
+  const real = (songs.value || []).filter((s) => s && !s.verified)
+  // MOCKUP-ONLY: RLS hides real unverified rows from the anon key, so synthesize a queue
+  // from the loaded songs to show P'Aim what a populated tab looks like. Remove before build.
+  if (mockApprover && real.length === 0) return (songs.value || []).slice(0, 14)
+  return real
+})
+const unverifiedCount = computed(() => unverifiedSongs.value.length)
 // A radio-style selector (เล่ม · ★ · 🎵) — exactly one active. "เล่ม" is always present so
 // returning to the bookshelf is one tap (P'Aim: มาจากโปรด/เพลย์ลิสต์แล้วต้องเลือกเล่มได้).
 // Picking เล่ม also resets the drill to the book grid so it always means "choose a book".
@@ -277,6 +292,22 @@ onMounted(async () => {
         <span class="chip-star" aria-hidden="true">🎵</span><span class="chip-label">{{ t('playlist.chip') }}</span>
         <span v-if="playlists.length" class="chip-count">{{ playlists.length }}</span>
       </button>
+      <!-- 4th tab = approver review queue. Only approvers see it (real gate: canApprove).
+           M3 large badge with the live unverified count; hidden entirely when 0 (M3: badge
+           shows only when count > 0). Warn-coloured so it reads as "needs attention". -->
+      <button
+        v-if="isApprover"
+        type="button"
+        class="facet-chip review-chip"
+        role="tab"
+        :class="{ on: browseMode === 'review' }"
+        :aria-selected="browseMode === 'review'"
+        :aria-label="t('list.reviewChip') + ' (' + unverifiedCount + ')'"
+        @click="selectMode('review')"
+      >
+        <span class="chip-star" aria-hidden="true">🔎</span><span class="chip-label">{{ t('list.reviewChip') }}</span>
+        <span v-if="unverifiedCount" class="chip-count review-count">{{ unverifiedCount > 99 ? '99+' : unverifiedCount }}</span>
+      </button>
     </div>
 
     <p v-if="loading" class="muted">{{ t('list.loading') }}</p>
@@ -424,6 +455,25 @@ onMounted(async () => {
         </router-link>
       </div>
       <p v-if="!favSongs.length" class="muted empty" aria-live="polite">{{ t('list.favEmpty') }}</p>
+    </section>
+
+    <!-- ===== APPROVER REVIEW QUEUE — songs still to verify (approver only) ===== -->
+    <section v-else-if="browseMode === 'review'">
+      <div class="level-head">
+        <h2>{{ t('list.reviewTitle') }}</h2>
+        <span class="count muted" aria-live="polite">{{ t('list.countSongs', { n: unverifiedCount }) }}</span>
+      </div>
+      <p v-if="unverifiedCount" class="muted review-hint">{{ t('list.reviewHint') }}</p>
+      <div class="song-list">
+        <router-link v-for="s in unverifiedSongs" :key="s.id" :to="`/song/${s.id}`" class="song-row">
+          <span class="no">{{ s.number != null ? s.number : '–' }}</span>
+          <span class="ttl">{{ s.title_th }}</span>
+          <span class="badge pending row-status" :title="t('list.pending')">{{ t('list.pending') }}</span>
+          <span v-if="s.content && s.content.key" class="key">{{ t('list.key', { k: s.content.key }) }}</span>
+          <FavStar :id="s.id" />
+        </router-link>
+      </div>
+      <p v-if="!unverifiedCount" class="muted empty" aria-live="polite">{{ t('list.reviewEmpty') }}</p>
     </section>
 
     <!-- ===== LEVEL 2 · songs in the selected book, ordered by in-book number ===== -->
@@ -803,6 +853,21 @@ onMounted(async () => {
 @media (max-width: 360px) {
   .browse-chips .facet-chip { gap: 3px; padding: 0 var(--sp-1); font-size: var(--fs-xs); }
 }
+/* With the 4th (approver) tab present the segmented bar gets tight on phones. Drop the
+   leading emoji so all four Thai labels stay whole (icons are decorative — aria-hidden). */
+@media (max-width: 560px) {
+  .browse-chips .facet-chip .chip-star { display: none; }
+  .browse-chips .facet-chip { gap: 4px; padding: 0 var(--sp-1); }
+}
+/* review queue count = M3 large badge: numeric, warn-coloured, always visible (it is an
+   attention signal, not a neutral tally) — overrides the ≥480 gate the other chips use. */
+.browse-chips .review-count {
+  display: inline; font-size: var(--fs-xs); font-weight: 800; line-height: 1.6;
+  min-width: 1.3em; text-align: center;
+  background: #c2410c; color: #fff; border-radius: 10px; padding: 0 6px;
+}
+.browse-chips .facet-chip.review-chip.on .review-count { background: #7c2d12; }
+.review-hint { margin: 0 0 var(--sp-3); }
 
 /* the star holds the first line when a long title wraps (matches .no/.key) */
 .song-row .fav-star { align-self: flex-start; }
