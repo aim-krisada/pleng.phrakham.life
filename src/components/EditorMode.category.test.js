@@ -123,8 +123,9 @@ describe('B108 — opening a draft resolves the song’s REAL หมวด', () 
     expect(w.vm.themeKnown).toBe(false)
     expect(w.vm.meta.category).toBe('anuchon') // the dropdown still has to show something
     // and it must NOT have gone looking for a song row that does not exist
-    // (the shell's own song-list select is unrelated — match the book lookup specifically)
-    expect(calls.some((c) => c.table === 'songs' && c.verb === 'select' && /category/.test(c.args[0] ?? ''))).toBe(false)
+    // (the shell's own song-list select carries `category` too since B-DUP — so match
+    // resolveBook's select EXACTLY, not just "mentions category")
+    expect(calls.some((c) => c.table === 'songs' && c.verb === 'select' && (c.args[0] ?? '') === 'category, theme')).toBe(false)
     w.unmount()
   })
 
