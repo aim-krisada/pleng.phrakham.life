@@ -19,6 +19,7 @@ vi.mock('../supabase.js', () => ({
     from: () => {
       const q = {}
       q.select = () => q
+      q.is = () => q // db/012: SongList filters out trashed songs
       q.order = () => Promise.resolve({ data: h.rows, error: null })
       return q
     },
