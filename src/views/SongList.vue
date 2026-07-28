@@ -13,9 +13,10 @@ import {
   showVerifiedBadge,
   showUnverifiedBadge,
   verifiedProgress,
+  unverifiedSongs,
   FALLBACK_KEY,
 } from '../lib/bookshelf.js'
-import { session } from '../store.js'
+import { session, canApprove } from '../store.js'
 import { favorites, isFavorite } from '../lib/favorites.js'
 import FavStar from '../components/FavStar.vue'
 import ShareSheet from '../components/ShareSheet.vue'
@@ -31,7 +32,7 @@ const router = useRouter()
 
 // Browse mode over the (non-search) landing: the default bookshelf, the ★ favorites filter, or
 // the 🎵 playlists manager. Chips switch it; search still overrides everything (US-G1).
-const browseMode = ref('shelf') // 'shelf' | 'fav' | 'playlists'
+const browseMode = ref('shelf') // 'shelf' | 'fav' | 'playlists' | 'review'
 const favOnly = computed(() => browseMode.value === 'fav')
 // A radio-style selector (เล่ม · ★ · 🎵) — exactly one active. "เล่ม" is always present so
 // returning to the bookshelf is one tap (P'Aim: มาจากโปรด/เพลย์ลิสต์แล้วต้องเลือกเล่มได้).
@@ -40,6 +41,14 @@ function selectMode(m) {
   browseMode.value = m
   if (m === 'shelf') { level.value = 'books'; activeBook.value = null; window.scrollTo(0, 0) }
 }
+
+// ---- 🔎 approver review queue (พี่เปา) — the 4th browse tab ----
+// Same intent and same logic as the v1 chip (src/lib/bookshelf.js · unverifiedSongs), on the
+// surface /v2 actually has: a tab after เพลย์ลิสต์. APPROVER ONLY, bound to `canApprove`
+// (store.js — the permission SSOT, never a name and never merely "logged in"), and the whole
+// tab disappears when the queue is empty rather than showing "(0)".
+const reviewQueue = computed(() => unverifiedSongs(shownSongs.value))
+const showReviewTab = computed(() => canApprove.value && reviewQueue.value.length > 0)
 
 // ★ favorites (localStorage · no account · lib/favorites.js) — sits alongside the bookshelf.
 const favSongs = computed(() => {
@@ -277,6 +286,21 @@ onMounted(async () => {
         <span class="chip-star" aria-hidden="true">🎵</span><span class="chip-label">{{ t('playlist.chip') }}</span>
         <span v-if="playlists.length" class="chip-count">{{ playlists.length }}</span>
       </button>
+      <!-- 4th tab · approver only (hidden entirely for anon/editors and when the queue is
+           empty), so for everyone else this bar is exactly the 3 tabs it was. -->
+      <button
+        v-if="showReviewTab"
+        type="button"
+        class="facet-chip review-chip"
+        role="tab"
+        :class="{ on: browseMode === 'review' }"
+        :aria-selected="browseMode === 'review'"
+        @click="selectMode('review')"
+      >
+        <span class="chip-star" aria-hidden="true">🔎</span><span class="chip-label">{{ t('list.reviewChip') }}</span>
+        <span class="chip-count">{{ reviewQueue.length }}</span>
+        <span class="sr-only">{{ t('list.reviewA11y', { n: reviewQueue.length }) }}</span>
+      </button>
     </div>
 
     <p v-if="loading" class="muted">{{ t('list.loading') }}</p>
@@ -407,6 +431,26 @@ onMounted(async () => {
           </div>
         </div>
       </template>
+    </section>
+
+    <!-- ===== 🔎 REVIEW QUEUE (approver only) · every song still waiting for a check =====
+         `canApprove` is re-asserted here, not just on the tab, so the view cannot survive a
+         logout — it simply falls through to the bookshelf below. Same row treatment as an open
+         เล่ม, each row carrying the ยังไม่ตรวจ badge it already carries elsewhere. -->
+    <section v-else-if="browseMode === 'review' && canApprove">
+      <div class="level-head">
+        <h2>{{ t('list.reviewTitle') }}</h2>
+        <span class="count muted" aria-live="polite">{{ t('list.countSongs', { n: reviewQueue.length }) }}</span>
+      </div>
+      <div class="song-list">
+        <router-link v-for="s in reviewQueue" :key="s.id" :to="`/song/${s.id}`" class="song-row">
+          <span class="no">{{ s.number != null ? s.number : '–' }}</span>
+          <span class="ttl">{{ s.title_th }}</span>
+          <span class="badge pending row-status" :title="t('list.pending')">{{ t('list.pending') }}</span>
+          <span v-if="s.content && s.content.key" class="key">{{ t('list.key', { k: s.content.key }) }}</span>
+        </router-link>
+      </div>
+      <p v-if="!reviewQueue.length" class="muted empty" aria-live="polite">{{ t('list.reviewEmpty') }}</p>
     </section>
 
     <!-- ===== ★ FAVORITES · flat list of starred songs (overrides the book drill) ===== -->
@@ -802,6 +846,32 @@ onMounted(async () => {
 /* very narrow phones (≤360): trim the gap/padding + a hair smaller so 3 labels never clip */
 @media (max-width: 360px) {
   .browse-chips .facet-chip { gap: 3px; padding: 0 var(--sp-1); font-size: var(--fs-xs); }
+}
+
+/* ---- 🔎 review tab (approver only) ---- */
+/* Its COUNT is the point of the tab ("how many are left"), so unlike ★/🎵 it shows at every
+   width, not only ≥480px. */
+.browse-chips .review-chip .chip-count {
+  display: inline; font-size: var(--fs-xs);
+  background: rgba(0, 0, 0, 0.12); border-radius: 10px; padding: 0 var(--sp-2);
+}
+/* ≤390px this bar carries FOUR tabs, so ~90px each is not enough for "ยังไม่ตรวจ" — the
+   approved mockup clipped it to "ยังไม่ต…14". Drop this tab's word instead: 🔎 + the number
+   still reads as "N left to check", the other three keep their labels, and the accessible
+   name (.sr-only) stays complete either way. Above 390px the full label fits and is shown. */
+@media (max-width: 390px) {
+  .browse-chips .review-chip .chip-label { display: none; }
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* the star holds the first line when a long title wraps (matches .no/.key) */
