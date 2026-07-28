@@ -76,14 +76,22 @@ onMounted(async () => {
 watch(
   () => route.params.id,
   async (id) => {
-    if (id) await loadSong(id)
+    if (!id) return
+    await loadSong(id)
+    // picking another song while already in ฝึกร้อง must land at its top too (same rule as
+    // a mode switch above); a route change also fires the router's scrollBehavior, so this is
+    // just the belt-and-braces for the async-load timing.
+    if (mode.value === 'view') nextTick(() => window.scrollTo({ top: 0 }))
   },
 )
 
 // Each mode may play audio (ดู listen-along · แก้ preview). The mode components stay
 // mounted (v-show), so their own onUnmounted stop never fires on a switch — the shell
 // stops any sound when you leave a mode. midi is a single global player, so one call does it.
-watch(mode, () => stopPlayback())
+// Entering ฝึกร้อง always opens at the very top of the song, never wherever the previous
+// mode/song was scrolled to (พี่เปา, 2026-07-27). Mode-switch isn't a route change, so the
+// router's scrollBehavior({top:0}) can't cover it — reset here on every switch INTO view.
+watch(mode, (m) => { stopPlayback(); if (m === 'view') nextTick(() => window.scrollTo({ top: 0 })) })
 
 // Name the browser tab after the open song, so ANY print path (our button OR Ctrl+P)
 // gets the right PDF filename — the print dialog suggests document.title. Restore the
