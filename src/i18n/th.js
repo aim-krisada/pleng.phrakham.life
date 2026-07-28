@@ -57,6 +57,8 @@ export default {
   },
   list: {
     searchPlaceholder: 'ค้นหาเพลง',
+    // scope-by-book (พี่เปา): when a เล่ม is open, the search box says which one it is searching
+    searchInBook: 'ค้นในเล่ม {book}…',
     booksChip: 'เล่ม',
     favChip: 'รายการโปรด',
     favTitle: '★ รายการโปรด',

@@ -175,12 +175,32 @@ const booksEmptyMsg = computed(() =>
 )
 
 // ---- search results (existing flat list, narrowed by the review facets) ----
+// Scope-by-book (พี่เปา): while a เล่ม is open, search stays INSIDE it — the base list is that
+// book's songs, not the whole catalog, so typing a title that also exists in another book no
+// longer surfaces the other book's copy. On the landing (no book open) the base is the whole
+// catalog, so an un-drilled search is unchanged; leaving a book (backToBooks / selectMode('shelf')
+// nulls activeBook) restores the full-catalog scope. `inBook` is already songsInBook(shown, active).
+const searchBase = computed(() => (activeBook.value ? inBook.value : shownSongs.value))
 const results = computed(() => {
-  let list = filterSongs(shownSongs.value, query.value)
+  let list = filterSongs(searchBase.value, query.value)
   if (onlyUnverified.value) list = list.filter((s) => !s.verified)
   if (theme.value) list = list.filter((s) => s.theme === theme.value)
   return list
 })
+
+// The search box announces its scope: inside the open เล่ม (so a reader is not puzzled when a
+// song from another book does not come up), or the whole catalog on the landing. i18n via t().
+const searchPlaceholder = computed(() =>
+  activeBook.value && activeBookMeta.value
+    ? t('list.searchInBook', { book: activeBookMeta.value.name })
+    : t('list.searchPlaceholder'),
+)
+// a11y label: the rich descriptive label on the landing, or the book-scope label when a เล่ม is open.
+const searchAriaLabel = computed(() =>
+  activeBook.value && activeBookMeta.value
+    ? t('list.searchInBook', { book: activeBookMeta.value.name })
+    : t('a11y.searchFull'),
+)
 
 // 717 — the preview line, and WHICH set of words it was taken from.
 //
@@ -257,8 +277,8 @@ onMounted(async () => {
         v-model="query"
         type="search"
         class="song-search"
-        :aria-label="t('a11y.searchFull')"
-        :placeholder="t('list.searchPlaceholder')"
+        :aria-label="searchAriaLabel"
+        :placeholder="searchPlaceholder"
       />
       <p v-if="dbError" class="muted db-note">{{ t('list.dbNote') }}</p>
     </div>
