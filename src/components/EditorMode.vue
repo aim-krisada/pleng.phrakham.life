@@ -9,7 +9,7 @@ import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, setCaption } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs, categoryName } from '../lib/bookshelf.js'
-import { findTitleConflicts } from '../lib/songTitleKey.js'
+import { findTitleConflicts, earlyDupNote } from '../lib/songTitleKey.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
@@ -1593,6 +1593,21 @@ const conflictLinks = computed(() => {
   const c = titleConflicts.value
   return [...c.blocking, ...c.warning, ...c.info]
 })
+// B128 — the early hint (name STARTS like a song we already have). It only ever fills the
+// SILENCE: whenever the whole-title verdict above has something to say, that wins, because it
+// is the one that decides whether the save goes through. Always on — no setting to find.
+const earlyNote = computed(() => {
+  if (!editing.value || titleConflicts.value.level !== 'ok') return null
+  return earlyDupNote(
+    { id: editingId.value, title_th: meta.title_th, category: meta.category },
+    songList.value,
+    categoryName,
+  )
+})
+// What the ONE warning box shows — the verdict when there is one, otherwise the early hint.
+const dupLevel = computed(() => (earlyNote.value ? earlyNote.value.level : titleConflicts.value.level))
+const dupMsg = computed(() => titleConflictMsg.value || (earlyNote.value ? earlyNote.value.message : ''))
+const dupLinks = computed(() => (earlyNote.value ? earlyNote.value.links : conflictLinks.value))
 // THE GATE. Returns true when the write may go ahead. An identical name in the same เล่ม is
 // refused; only an approver may force past it, and only through an explicit confirm that
 // names the song being duplicated (never a button you can click through by habit).
@@ -3435,19 +3450,21 @@ defineExpose({
     <!-- B-DUP — the live duplicate-title warning. ⛔ = same name, same เล่ม (the save is
          refused) · ⚠️ = a similar name in the same เล่ม, which might really be a different
          song, confirm and pass · ℹ️ = the same name in another เล่ม, which is normal.
-         Every clashing song is a link, so "ไปดู/ไปแก้เพลงนั้น" is one click (hash router). -->
+         Every clashing song is a link, so "ไปดู/ไปแก้เพลงนั้น" is one click (hash router).
+         B128: when there is no verdict yet, the same box carries the early ℹ️ hint from
+         5 typed characters on ("มีเพลงชื่อขึ้นต้นแบบนี้แล้ว …"). -->
     <div
-      v-if="editing && titleConflictMsg"
+      v-if="editing && dupMsg"
       class="card dup-alert no-print"
-      :class="'dup-' + titleConflicts.level"
+      :class="'dup-' + dupLevel"
       role="status"
       aria-live="polite"
     >
-      <strong>{{ titleConflicts.level === 'block' ? '⛔' : titleConflicts.level === 'warn' ? '⚠️' : 'ℹ️' }}</strong>
-      {{ titleConflictMsg }}
+      <strong>{{ dupLevel === 'block' ? '⛔' : dupLevel === 'warn' ? '⚠️' : 'ℹ️' }}</strong>
+      {{ dupMsg }}
       <span class="dup-links">
         <a
-          v-for="s in conflictLinks"
+          v-for="s in dupLinks"
           :key="s.id"
           :href="'#/song/' + s.id"
           target="_blank"
