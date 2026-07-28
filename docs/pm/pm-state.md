@@ -1,95 +1,78 @@
 # PM state — เพลง.พระคำ.ชีวิต
 
 > **สมองอยู่บน disk** → PM ตายเกิดใหม่ได้ · อ่านไฟล์นี้ + `decisions-log.md` = rehydrate ทันที
-> เก็บ **สั้น เฉพาะของสด** · จบแล้วตัดออกทันที (ประวัติ → `decisions-log.md` → `decisions-archive.md`)
+> เก็บ **สั้น เฉพาะของสด** · จบแล้วตัดออกทันที (ประวัติ → `decisions-log.md`)
 
-## ▶▶ PM คนต่อไปเริ่มที่นี่ (handoff 2026-07-27 ปลายวัน · จาก pm49 · **P'Aim ย้ายไป Claude Code account อื่น · quota เต็ม**)
+## ▶▶ PM คนต่อไปเริ่มที่นี่ (handoff 2026-07-29 · จาก pm50 · P'Aim ย้าย session ใหม่)
 
-**สถานะ 1 บรรทัด:** **งานทุกข้อของวันปิดครบ** — v1 + /v2 ปล่อยขึ้นเว็บแล้ว · เพลงซ้ำเคลียร์ + ล็อกกันซ้ำถาวรแล้ว · เสียงผ่านหูP'Aim แล้ว · **ไม่มี worker เดินอยู่สักตัว ไม่มีอะไรค้างกลางทาง** · **งานถัดไปคือ "รื้อ v2" รอ P'Aim เปิดเรื่องเอง**
-
-**อ่าน 3 memory ก่อนทำอะไร:** `feedback_follow_exactly_and_guard` · `feedback_definition_of_complete` · `feedback_dispatch_hand_locked_ssot` (ยื่น SSOT ที่ล็อกแล้วให้ worker · อย่าสั่ง "ไปหาวิธีเอง")
-**กฎกลาง PM = `C:\gl\CLAUDE.md` §4.5** (โดยเฉพาะ **ข้อ 8.5 ใหม่ 27 ก.ค.** — N/G/C กลั่นกรองก่อนถึง P'Aim · ตัดสินเองเรื่องมาตรฐาน **แต่ต้องชี้แจง**)
-**report-back:** worker เขียน `C:\gl\pm-inbox\pleng\` + ping PM (หา PM จาก title prefix `pl pm` เลขสูงสุด · ⚠️ `pk pm` = โปรเจกต์พระคำ **คนละบ้าน** — 27 ก.ค. เคยส่งผิดบ้าน 2 ครั้งเพราะชื่อ session สลับกัน ตั้งชื่อให้ตรงเสมอ)
-
-**✅ งานทั้งหมดอยู่บน GitHub แล้ว (push 27 ก.ค. · ยืนยันด้วย `git ls-remote`)** — ย้ายเครื่อง/แอคเคานต์ได้ ไม่มีอะไรตกค้างแค่ในเครื่องนี้:
-`v1`@1a55189 + tag `v1-frozen` (= live) · `main`@cebf366 · `studio-shell-redesign` (สมอง PM)
-**branch ที่ยังไม่ merge — พร้อมหยิบ:** `unsaved-guard-v1`@b5080f0 · `v1-preecho-port`@cfb95e0 · `piano-only-v1`@d9dfd65 · `claude/import-template-guard`@962c162 (4 ตัวนี้รวมเป็น `v1-release-try`@1a55189 = ที่ปล่อยไปแล้ว) · **/v2 รอ merge:** `claude/priceless-shtern-3ba8a1`@9bd7769 (กันงานหาย) · `claude/quirky-grothendieck-75af84`@5e2d307 (เปียโนเดี่ยว) · `claude/keen-hellman-70be16`@20d221a (ชื่อซ้ำ) · **v1 ชื่อซ้ำ:** `dup-title-guard-v1`@7589cb4 · **สเปกหลายคน:** `claude/pensive-dubinsky-7bec80`@9f1f446 · **ลิ้นชักเต็มวง:** `v1-preecho-ensemble`@f772428 · `v1-preecho-violin-discarded`@c96732c
+**สถานะ 1 บรรทัด:** v1 ปล่อยแล้วพี่เปาใช้จริงทุกวัน · **/v2 พักทั้งชุด** (P'Aim สั่ง — พี่เปางง) · ตอนนี้ = **ทำ feature เก็บไว้ ไม่ขัดเงา** · ค้างที่ **P'Aim 2 คำตอบ**
 
 ---
 
-## 🌐 สถานะ LIVE ตอนนี้ (ยืนยันจาก bundle จริง 27 ก.ค.)
+## 🔴 ค้างที่ P'Aim (บล็อกทุกอย่าง — ถามก่อนเดินต่อ)
+1. **"media library คืออะไร"** — เขาบอกว่าเป็น *หัวใจหลัก* แต่ **ไม่มีบันทึกที่ไหนเลย** · PM ตอบตรงแล้วว่าไม่รู้ · ⛔ **ห้ามออกแบบหน้าฟังเพลง/หน้าแก้ต่อจนกว่าจะได้คำตอบ** (จะหลุดทิศ)
+2. **"go" deploy v1 รอบถัดไป** = B128 (เตือนชื่อซ้ำที่ 5 ตัวอักษร) + ชิป "ยังไม่ตรวจ" — **build เสร็จ gate ผ่าน รอคำเดียว**
+
+---
+
+## 🟡 พร้อมส่ง/รอเคาะ (ของเสร็จแล้ว จอดอยู่บน branch)
+| งาน | branch @sha | สถานะ |
+|---|---|---|
+| **B128** เตือนชื่อซ้ำ 5 ตัวอักษร | `b128-early-warn-v1@d8d041ab` (off `origin/v1@297a7b65`) · `b128-early-warn-v2@c241fcb9` (off `origin/main`) | เสร็จ · **default ตลอด ไม่มี toggle** (P'Aim สั่ง) · รอ go deploy |
+| **ชิป/แท็บ "ยังไม่ตรวจ (N)"** approver-only | `unverified-chip-v1@45cd0123` · `unverified-tab-v2@358b8faa` | เสร็จ · v2 PM commit ให้เอง (worker ตายก่อนเขียน inbox) |
+| **หน้าฟังเพลง ⋮ redesign** (mockup) | `songpage-redesign-mockup@b51424d7` (off `origin/main`) | **P'Aim ยังไม่ได้ดู** · preview ตายแล้วตามการปิด session → รันใหม่จาก worktree `unruffled-satoshi-48ec8a` (`npm run dev -- --host --port 5487`) |
+| **/v2 release รวม** | `v2-release@f30767ca` | gate ผ่านแล้ว **แต่ P'Aim สั่งพัก** ⛔ ห้าม merge |
+| หน้าแรก v2 ใหม่ | `home-refresh-v2@79a67b1d` | P'Aim อนุมัติ look แล้ว · อยู่ใน v2-release ที่พัก |
+
+## 🔵 หน้าฟังเพลง — ผลปรึกษา N/G/C (ยังไม่ relay ครบ · รอ P'Aim ลอง)
+- **ข้อ 1 "จัดเมนูตามบทบาท" = โจทย์ไม่ยืน** — anon กดได้ถูกต้องทั้ง 6 รายการอยู่แล้วตามโมเดลสิทธิ์ ⇒ **ไม่มีอะไรให้ซ่อน** · สิ่งที่ต่างตามบทบาท = *ความหมายของการกด* → SA ใส่ประโยคไทยอธิบายต่อบทบาทแทน · **role-gating จริงอยู่ที่ปุ่มจบงาน** `docs/ds/edit-completion-flow.md` ← น่าจะเป็นก้าวถัดไป
+- **ข้อ 2 เมนูโดนตัด = แก้แล้ว** core เดียว `src/lib/anchoredPanel.js` (flip→shift→clamp) · ต้นตอ: `.sb-dropdown{left:0}` ใต้ ⋮ ที่อยู่ขวาสุด · เดิมก๊อปมือ 5 ที่ (DockKey/EditorMode/FontTool/ExportTool/SingTransport) — **ยังไม่ย้ายทั้ง 5 มาใช้ core = งานถัดไป**
+- **ข้อ 3 ปุ่ม `<`** เก็บไว้ + ป้ายบอกปลายทาง ≥761px · มือถือ icon เปล่า (PWA ไม่มี back)
+- **ข้อ 4** เพิ่ม "ลบเพลงนี้" ให้ approver (เดิมไม่มีทางเข้าบนหน้านี้ทั้งที่มีสิทธิ์) · **ยังเป็น confirm เปล่า ไม่ต่อ RPC**
+- **ยังไม่พิสูจน์:** role มาจากสวิตช์จำลอง (ไม่เคย login จริง) · touch target วัด headless · ยังไม่เทียบกับ `PKDrawer`
+
+## 🟢 อื่น ๆ ที่ค้าง (ไม่เร่ง)
+- **B129** สร้างเพลงใหม่หายาก = **ตัวบล็อกจริงของ v2** (พี่เปางงตรงนี้) — ต้องแก้ก่อน v2 จะพร้อม
+- **B130** ย้อนเวอร์ชัน = future ไม่เน้น · ของมีบางส่วน (`RevisionHistory.vue` + `db/004`) แต่ปุ่ม ⏪ ยังไม่มีกันชน
+- สเปกทำงานหลายคน `docs/ds/multi-editor-safety.md` (+ mockup `claude/pensive-dubinsky-7bec80@9f1f446`) — build ตอนรื้อ v2
+
+---
+
+## 🌐 LIVE ตอนนี้
 | เว็บ | commit | สร้างจาก |
 |---|---|---|
-| `/` (v1) | **`47e4287`** | tag **`v1-frozen`** (branch `v1`) · ไฟล์ demo ลบแล้ว (404 ยืนยัน) |
-| `/v2/` | **`be159a3b`** | branch **`main`** ← **ปล่อย 27 ก.ค. รอบบ่าย: กันงานหาย + เปียโนเดี่ยว + กันชื่อซ้ำ** |
+| `/` (v1) | `297a7b65` | tag `v1-frozen` — **พี่เปาใช้จริงทุกวัน** |
+| `/v2/` | `4fa4f186` | branch `main` (tree = `be159a3b`) |
 
-**ยืนยัน deploy ที่ชั้นจริง:** bundle live ของ `/` มีข้อความใหม่ `"ตอนนี้เล่นด้วยเปียโนเดี่ยวอย่างเดียว · เครื่องดนตรีอื่นกำลังปรับเสียงให้เพราะก่อน"` = **1** · bundle ของ `/v2` = **0** (ยังไม่เปลี่ยนตามเจตนา)
-
-**วิธี deploy (ยืนยันแล้ว):**
-- **v1:** `git tag -f -a v1-frozen <sha>` + `push -f` → **ย้าย tag ไม่ trigger เอง** ต้องดันต่อ: empty commit บน `origin/main` ผ่าน `commit-tree` (⛔ อย่า push local main — ล้าสมัยกว่า origin) · `gh workflow run` **ใช้ไม่ได้ (PAT ไม่มีสิทธิ์ Actions)**
-- **v2:** push branch เข้า `main` ตรงๆ = trigger
-- **verify เสมอ:** curl bundle จริงหา build stamp — ห้ามเชื่อว่า push แล้วขึ้น
-
----
-
-## ✅ งานรอบ 27 ก.ค. ปิดครบทุกข้อ (ประวัติเต็ม → `decisions-log.md`)
-- **v1** ปล่อยแล้ว 4 ชิ้น (`47e4287`) · **/v2** ปล่อยแล้ว 3 ชิ้น (`be159a3b`) · **เสียง** P'Aim ฟังแล้วเพราะ ปิด · **เพลงซ้ำ** ลบ 4 แถว + `db/011` ลงแล้ว ปิด
-- **v1 กำลังจะ obsolete** (P'Aim: *"ลืมไปได้เลย"*) ⇒ ⛔ **เลิกลงแรงกับ v1 ทุกกรณีแม้งานเล็ก** · แรงทั้งหมด → /v2 + งานรื้อ
-- **ทิศทางเสียง:** เปียโนเดี่ยวอย่างเดียว · อนาคต cello + piano · **เต็มวงพักลิ้นชัก** (`v1-preecho-ensemble`@f772428 · `v1-preecho-violin-discarded`@c96732c) · เปิดกลับ = flip `PIANO_ONLY=false` ใน `src/lib/soundOptions.js`
-
-## ▶ งานถัดไปที่ชัดเจนที่สุด (สำหรับ PM คนต่อไป / account ใหม่)
-### 🔴 งานแรกที่ต้องทำเมื่อเปิด account ใหม่ — พี่เปาขอ 2 ข้อ (P'Aim รับมา 27 ก.ค. ปลายวัน)
-> **ข้อยกเว้นกฎ "เลิกลงแรงกับ v1"** — P'Aim อนุมัติเอง เหตุ: *"พี่เปาขอปรับ v1 เพื่อความสะดวกระหว่างรอ v2"* · เป็นงานเล็กและเขาใช้ทุกวัน
-> ⚠️ **ยังไม่มีใครเปิดโค้ดดูเลย** (quota หมดพอดี) — ใบสั่งต่อไปต้องให้ worker สืบเองว่าโค้ด scroll อยู่ตรงไหน
-
-1. **เข้าหน้าฝึกร้องแล้วต้องเริ่มที่บนสุดของหน้าเสมอ** — ตอนนี้ไม่ใช่ (ค้างตำแหน่งเดิมจากหน้าก่อน)
-2. **🔀 พฤติกรรม scroll สลับกันอยู่ — ต้องสลับกลับ:**
-   - **หน้าฝึกร้อง** กดเล่น → **ต้อง scroll ตามแบบคาราโอเกะอัตโนมัติ** (ตอนนี้ไม่ scroll)
-   - **หน้าแก้เพลง** กดเล่น → **ต้องไม่ scroll อัตโนมัติ** (ตอนนี้ scroll ตาม = แย่งการควบคุมจากคนแก้)
-   - เดาว่าโค้ด scroll ตัวเดียวกันถูกต่อสลับหน้ากัน · **ทำทั้ง v1 และ /v2** (ของ /v2 จะติดไปกับงานรื้อด้วย)
-
-**🚀 งานถัดไป: รื้อ v2** — P'Aim สั่งว่า *"รอ 1-5 เสร็จก่อน"* และตอนนี้ **เสร็จหมดแล้วทุกข้อ** ⇒ พร้อมเริ่ม **แต่ให้เขาเปิดเรื่องเอง**
-- ยังไม่มีแผนสักบรรทัด: **ยังไม่รู้ว่ารื้อแค่หน้าจอ หรือรื้อโครงข้างในด้วย** ← คำถามแรกที่ต้องเคลียร์
-- ของที่มีอยู่แล้วพร้อมใช้: สเปกระบบทำงานหลายคน `docs/ds/multi-editor-safety.md` + mockup (`claude/pensive-dubinsky-7bec80`@9f1f446) · ดีไซน์ล็อก `work/ปรับ pl edit ui/ux-groundup-design.md` · จัดหน้าแรก (ออกแบบ+3AI ครบ รอ build)
-5. **🚀 รื้อ v2 = งานหลักถัดไป** — P'Aim: *"รอ 1-5 เสร็จก่อน"* · ตอนนี้เหลือแค่ข้อ 4 (รอพี่เปา) → **เกือบพร้อมเริ่มแล้ว** · ยังไม่มีแผนสักบรรทัด: ยังไม่รู้ว่ารื้อแค่หน้าจอหรือรื้อโครงข้างใน · สเปกระบบหลายคน (`claude/pensive-dubinsky-7bec80`@9f1f446) = ของที่ build ตอนนี้
-
-## 🟢 งานอื่นที่ยังค้าง (ไม่ใช่ v1 · อย่าเพิ่งลงแรง)
-- **กันชื่อเพลงซ้ำ** — เสร็จแล้วทั้ง 2 สาย ยังไม่ merge: `/v2` `claude/keen-hellman-70be16`@20d221a · v1 `dup-title-guard-v1`@7589cb4 · `db/011` ยังไม่เคยรันจริง (ต้องเคลียร์ 2 คู่ที่ซ้ำก่อน)
-- **สเปกระบบทำงานหลายคน** — `docs/ds/multi-editor-safety.md` + mockup @`9f1f446` (branch `claude/pensive-dubinsky-7bec80`) · **build ตอนรื้อ v2**
-
-## 🔴 รอ P'Aim (ไม่บล็อก v1)
-2. **จัดหน้าแรก** (ออกแบบ+3AI ครบ) · **การ์ดผลค้นหา snippet ไม่ตรงคำค้น** — ยกไป /v2 · ⛔ ป้าย Key F **ตัดทิ้งแล้ว** (v1 obsolete)
-3. **เนื้อ 2 ชุดของ 717 ยาวไม่เท่ากัน** = ข้อมูลต้นฉบับ → งานพี่เปา ไม่ใช่โค้ด
-
-## 🐛 หนี้/ความเสี่ยงที่รู้แล้ว (ยังไม่แก้)
-- **`saveDraftRow` / ทางเขียนทั้ง 6 เส้น ไม่มีตัวกันเซฟทับ** · **/v2 autosave ทุก 2.5 วิ** (`Studio.vue:291-299`) → **ยกไปสเปก task_8106f416 แล้ว** · SQL ตรวจพร้อมใช้ `backup/lost-update-audit.sql` (ทดสอบกับ Postgres จริงแล้ว)
-- **ปุ่ม "⏪ ย้อนเวอร์ชัน" เขียนทับด้วยสำเนาเก่า ไม่มีกันชน ไม่มี undo** (v1:1989 · main:1855)
-- 🐛 **`/v2` autosave (2.5 วิ) ทำให้แค่เปิดดูเพลงก็เปลี่ยน `updated_at`** → ใช้เป็นหลักฐาน "ใครแก้อะไร" ไม่ได้ · แก้ตอนรื้อ v2
-- **ยังไม่มีปุ่มลบเพลงในระบบเลย** (grep ทั้ง `src/` ไม่เจอ) · ลบต้องรัน SQL เท่านั้น · `songs_deleted_backup` = ถังขยะชั่วคราว
-- **ลบห้องที่มีเครื่องหมายบน v1 → flow ชี้ id ที่ไม่มีแล้ว (orphan)** — เท่าเดิม · ควรจบที่ lint ฝั่ง /v2 (`findOrphanFlows`)
-- **เพลง 33 คอร์ด `E7`→`E`** · `tools/restore-song33-chord-E.sql` — **รันเมื่อย้ายคนไป /v2**
-- 🔴 **คีย์สาธารณะเห็นแถวไม่ครบ (RLS)** — เคสจริง 27 ก.ค.: `songs` มี 4 แถวชื่อเดียวกัน anon เห็นแค่ 2 ⇒ **PM ห้ามสรุปว่า "ไม่มี/ถูกลบ" จาก anon** ให้พูดว่า "มองไม่เห็น" แล้วขอ P'Aim รัน SQL · การกวาดตรวจเก่า ๆ ทั้งหมดที่ใช้ anon = **ตัวเลขต่ำกว่าจริง**
+**วิธี deploy (ยืนยันแล้ว):** v1 = `git tag -f -a v1-frozen <sha>` + push -f → **ย้าย tag ไม่ trigger** ต้องดัน empty commit บน `origin/main` ผ่าน `commit-tree` (⛔ อย่า push local main) · `gh workflow run` ใช้ไม่ได้ (PAT ไม่มีสิทธิ์ Actions) · v2 = push เข้า `main` ตรง ๆ · **verify เสมอ: curl bundle จริงหา build stamp**
 
 ---
 
 ## 🔴 กฎถาวร
-- **FIX ต้องครอบทั้ง v1 + v2** (memory `pleng-fixes-cover-v1-and-v2`) · โค้ดเดียวกัน = แก้ครั้งเดียว deploy 2 ที่
+- **FIX ครอบทั้ง v1 + v2** (`pleng-fixes-cover-v1-and-v2`) — โค้ดเดียวกัน แก้ครั้งเดียว deploy 2 ที่
 - ⛔ **merge = PM เท่านั้น** · ⛔ **deploy/SQL = P'Aim สั่ง go** · ⛔ re-import/bulk-write 120 เพลง
-- ⛔ SQL ต้อง guard + rollback + **จบด้วย `ROLLBACK;`** ให้ P'Aim เปลี่ยนเป็น `COMMIT;` เอง
-- ⛔ ไม่แตะ browser/server ของ P'Aim (`:9222`, ai-bridge `:9335`) · ⛔ ไม่ใช้พอร์ต 5393 (มี vite ผี) · ⛔ ไม่กั้น UI ด้วย `@media(hover)`
-- **PM = จ่ายงาน + อ่านสรุป + gate** (§4.5) · เปิดไฟล์เองได้เพื่อตอบ P'Aim/ตรวจรายงาน · ⛔ ไม่ code เอง ไม่ run Agent tool
-- **ก่อน code ทุกก้าว: 3AI (C→N→G) + P'Aim ดู mockup ก่อน build** · **G-VERIFY = ตรวจซ้ำที่ source เอง ไม่ใช่ G อนุมัติ** · ไม่มี transcript = ไม่นับ
-- **worker บอก "ขอ handoff" ≠ หยุดจริง** — ยืนยันก่อนจ่ายทับ (เคยจ่ายซ้ำ)
-- **baseline เทส:** ยึด **ก่อน/หลังของเครื่องตัวเอง** ไม่ยึดเลขดิบจากใบสั่งเก่า (diag-ensemble 10 เทส gate ด้วย env)
+- ⛔ SQL ต้อง guard + จบด้วย `ROLLBACK;` ให้ P'Aim เปลี่ยนเป็น `COMMIT;` เอง · **รัน SQL prod ก่อน merge client เสมอ** (บทเรียน db/010)
+- ⛔ ไม่แตะ browser/server ของ P'Aim (`:9222`, ai-bridge `:9335`) · ⛔ ไม่ใช้พอร์ต 5393 (vite ผี) · ⛔ ไม่กั้น UI ด้วย `@media(hover)`
+- **PM = จ่ายงาน + อ่านสรุป + gate** (`C:\gl\CLAUDE.md` §4.5) · เปิดไฟล์เองได้เพื่อตอบ P'Aim/ตรวจรายงาน · ⛔ ไม่ code เอง ⛔ ไม่ run Agent tool
+- **ก่อน code ทุกก้าว: N/G/C ครบ 3 เสา + P'Aim ดู mockup ก่อน build** · G-VERIFY = PM ตรวจซ้ำที่ source เอง · **ไม่มี transcript = ไม่นับ**
+- 🔴 **ผู้ใช้จริง 1 คนสับสน > 3 เสาเห็นตรงกัน** — ความเห็นที่ถอยเพราะถูกดัน ≠ ความเห็นที่ผิด (บทเรียน B129) · เรื่อง discoverability ต้องทดสอบกับคนจริงก่อนตัด
+- 🔴 **คีย์ anon เห็นแถวไม่ครบ (RLS)** — ห้ามสรุป "ไม่มี/ถูกลบ" จาก anon ให้พูดว่า "มองไม่เห็น" แล้วขอ P'Aim รัน SQL
+- **PM ห้าม relay สิ่งที่ยังไม่เปิดดูเอง** (บทเรียน 712 melisma: "0 overlays" = hidden-tab ไม่ paint ไม่ใช่บั๊ก)
 
 ## ⭐ ลำดับความสำคัญ (P'Aim)
-- **UI + engine ทำเพลง สำคัญสุด** · **เมโลดี้/MusicScore = SSOT ต้อง 100% · เสียง(timbre) ไม่ต้อง** (piano พอ)
-- **ship-fast, fix-faster** · ⛔ ยกเว้นกลุ่มเดียว = **ข้อมูลหายเงียบ กู้ไม่ได้** (เกทเสมอ)
-- **v2 จะถูกรื้อ** → อย่าลงแรงปะ v1/v2 ในเรื่องที่จะรื้ออยู่แล้ว (เช่น editor 360px — P'Aim สั่งข้าม)
+- **UI + engine ทำเพลง สำคัญสุด** · เมโลดี้/MusicScore = SSOT ต้อง 100% · เสียง = เปียโนเดี่ยวพอ
+- **ship-fast, fix-faster** · ⛔ ยกเว้นเดียว = **ข้อมูลหายเงียบกู้ไม่ได้** (เกทเสมอ)
+
+## 🐛 หนี้ที่รู้แล้ว
+- **/v2 ยังลบเพลงถาวร** (soft-delete จอดใน `v2-release`) — เสี่ยงต่ำเพราะไม่มีใครใช้ /v2 ทำงานจริง
+- **/v2 autosave 2.5 วิ** (`Studio.vue:291-299`) → แค่เปิดดูก็เปลี่ยน `updated_at` ⇒ ใช้เป็นหลักฐาน "ใครแก้อะไร" ไม่ได้
+- ทางเขียนทั้ง 6 เส้นไม่มีตัวกันเซฟทับ · ปุ่ม ⏪ ย้อนเวอร์ชันไม่มีกันชน/undo
+- เพลง 33 คอร์ด `E7`→`E` (`tools/restore-song33-chord-E.sql`) — รันเมื่อย้ายคนไป /v2
 
 ## 📌 SSOT pointers
-- **PM brain:** ไฟล์นี้ + `docs/pm/decisions-log.md` · เก่า → `decisions-archive.md`
-- **รายงาน worker:** `C:\gl\pm-inbox\pleng\` · **ป้ายเรียก P'Aim:** `C:\gl\pm-inbox\_ขอความช่วยเหลือ\`
-- **ดีไซน์ล็อก:** `work/ปรับ pl edit ui/ux-groundup-design.md`
-- **G/N:** ai-bridge `C:\gl\krisada\ceo\tools\aibridge` (`bridge.py ask G/N`) · **inline ใช้ได้ · `--file` เคยพังแล้วหายเอง** · runtime `C:\gl\.aibridge\`
-- **กับดักที่เสียเวลาไปแล้ว:** อย่าแก้ไฟล์ด้วย python `open(...,'w')` (CRLF ทำ diff บวมหมื่นบรรทัด) · worktree v2 ต้อง junction `node_modules` (main dir ไม่มี `qrcode-generator`) · headless ต้อง `Network.setBypassServiceWorker` ก่อน navigate · headless รายงาน `pointer:coarse` เสมอ (ยืนยัน 44px บน desktop ไม่ได้)
+- **PM brain:** ไฟล์นี้ + `docs/pm/decisions-log.md`
+- **รายงาน worker:** `C:\gl\pm-inbox\pleng\` · **เรียก P'Aim:** `C:\gl\pm-inbox\_ขอความช่วยเหลือ\`
+- **N/G/C:** `bridge.py ask N/G` จาก `C:\gl\krisada\ceo\tools\aibridge` (venv `C:\gl\.aibridge\venv`) · **N ของเพลง = โน้ตบุ๊ก "Pleng resource 1/2/3"** ⛔ ไม่ใช่ "แสวงหา" (=พระคำ) · transcript auto `C:\gl\.aibridge\transcripts\`
+- **ping PM:** title prefix `pl pm` เลขสูงสุด · ⚠️ `pk pm` = โปรเจกต์พระคำ **คนละบ้าน**
+- **กับดักที่เสียเวลาไปแล้ว:** ⛔ แก้ไฟล์ด้วย python `open(...,'w')` (CRLF ทำ diff บวมหมื่นบรรทัด) · worktree v2 ต้อง junction `node_modules` · headless ต้อง `Network.setBypassServiceWorker` ก่อน navigate · headless รายงาน `pointer:coarse` เสมอ
+- **อ่าน 3 memory ก่อนทำอะไร:** `feedback_follow_exactly_and_guard` · `feedback_definition_of_complete` · `feedback_dispatch_hand_locked_ssot`
