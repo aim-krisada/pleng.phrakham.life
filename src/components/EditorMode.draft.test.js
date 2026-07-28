@@ -12,7 +12,7 @@ const calls = vi.hoisted(() => [])
 vi.mock('../supabase.js', () => {
   const makeQuery = (table) => {
     const q = {}
-    for (const m of ['select', 'order', 'eq', 'in', 'insert', 'update', 'delete', 'limit']) {
+    for (const m of ['select', 'order', 'is', 'not', 'eq', 'in', 'insert', 'update', 'delete', 'limit']) {
       q[m] = (...args) => { calls.push({ table, verb: m, args }); return q }
     }
     // insert(...).select('id').single() → a fresh draft id, so currentDraftId gets set

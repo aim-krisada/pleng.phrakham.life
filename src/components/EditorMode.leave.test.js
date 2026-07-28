@@ -10,7 +10,7 @@ import { nextTick } from 'vue'
 vi.mock('../supabase.js', () => {
   const makeQuery = () => {
     const q = {}
-    for (const m of ['select', 'order', 'eq', 'in', 'insert', 'update', 'delete', 'limit']) q[m] = () => q
+    for (const m of ['select', 'order', 'is', 'not', 'eq', 'in', 'insert', 'update', 'delete', 'limit']) q[m] = () => q
     // a full row (not a bare id): loadSong() feeds this straight into applyRow(), and the
     // 2026-07-27 picker-guard tests below drive that path. Saves only read `.id`.
     q.single = () =>

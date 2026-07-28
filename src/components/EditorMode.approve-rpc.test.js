@@ -10,7 +10,7 @@ const H = vi.hoisted(() => ({ rpc: null, updates: [] }))
 vi.mock('../supabase.js', () => {
   const makeQuery = () => {
     const q = {}
-    for (const m of ['select', 'order', 'eq', 'in', 'insert', 'delete', 'limit']) q[m] = () => q
+    for (const m of ['select', 'order', 'is', 'not', 'eq', 'in', 'insert', 'delete', 'limit']) q[m] = () => q
     q.update = (row) => {
       H.updates.push(row)
       return q
