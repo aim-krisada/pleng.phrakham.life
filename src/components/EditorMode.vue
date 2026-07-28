@@ -1514,6 +1514,7 @@ async function loadSongList() {
   const { data } = await supabase
     .from('songs')
     .select('id, number, title_th, title_en, content, verified, category')
+    .is('deleted_at', null) // db/012: trashed songs never appear in the picker/list
     .order('number', { ascending: true })
   songList.value = data ?? []
 }
@@ -1610,7 +1611,7 @@ function passTitleGate(what, selfId = editingId.value) {
   }
   const ok = window.confirm(
     `เพลงชื่อนี้มีอยู่แล้วในเล่มเดียวกัน:\n\n${names}\n\n` +
-      `การ${what}ต่อจะทำให้มีเพลงซ้ำสองใบในคลัง (ยังไม่มีถังขยะ — ลบผิดแล้วหาย)\n\n` +
+      `การ${what}ต่อจะทำให้มีเพลงซ้ำสองใบในคลัง (ลบใบซ้ำทีหลังได้ที่ จัดการ ▸ ถังขยะ)\n\n` +
       `กด "ตกลง" เฉพาะเมื่อแน่ใจว่าเป็นคนละเพลงจริงๆ`,
   )
   if (!ok) saveMsg.value = `ยกเลิก${what} — ชื่อซ้ำกับ ${names}`
@@ -2048,17 +2049,72 @@ async function deleteDraft(d) {
   loadDrafts()
 }
 
-async function deleteSong() {
+// ── Soft-delete (db/012). "ลบเพลง" no longer destroys the row: it moves the song to the
+// trash (songs.deleted_at) through the soft_delete_song RPC, so it is recoverable from the
+// undo snackbar or ถังขยะ. Approver-only — enforced by the RPC AND the RLS write policy, so
+// the client cannot bypass it. deleted_at is NEVER written by a normal content update (a DB
+// guard trigger rejects that); this RPC is the only door. ──
+const confirmDelSong = ref(false)  // styled confirm dialog open?
+const undoDeleted = ref(null)      // { id, title } shown in the undo snackbar (null = hidden)
+let undoTimer = null
+
+function askDeleteSong() {
+  openMenu.value = null
   if (!editingId.value) return
-  if (!window.confirm(`ลบเพลง "${meta.title_th}" ออกจากรายการเพลงถาวร?`)) return
-  const { error } = await supabase.from('songs').delete().eq('id', editingId.value)
-  saveMsg.value = error ? '❌ ลบไม่สำเร็จ: ' + error.message : '🗑️ ลบแล้ว'
-  if (!error) {
-    resetForm()
-    skipWatch = '' // the song is gone; do not ask whether to keep edits to it
-    pickerId.value = ''
-    loadSongList()
+  confirmDelSong.value = true
+}
+function cancelDeleteSong() {
+  confirmDelSong.value = false
+}
+async function doDeleteSong() {
+  confirmDelSong.value = false
+  const id = editingId.value
+  if (!id) return
+  const title = meta.title_th
+  const { error } = await supabase.rpc('soft_delete_song', { p_song_id: id })
+  if (error) {
+    saveMsg.value = '❌ ลบไม่สำเร็จ: ' + error.message
+    return
   }
+  resetForm()
+  skipWatch = '' // the song left the editor; do not ask whether to keep edits to it
+  pickerId.value = ''
+  loadSongList()
+  saveMsg.value = '🗑️ ย้ายไปถังขยะแล้ว'
+  if (undoTimer) clearTimeout(undoTimer)
+  undoDeleted.value = { id, title } // undo snackbar; ถังขยะ is the always-available fallback
+  undoTimer = setTimeout(() => { undoDeleted.value = null }, 8000)
+}
+async function undoDelete() {
+  const d = undoDeleted.value
+  undoDeleted.value = null
+  if (undoTimer) clearTimeout(undoTimer)
+  if (!d) return
+  const { error } = await supabase.rpc('restore_song', { p_song_id: d.id })
+  saveMsg.value = error ? '❌ กู้คืนไม่สำเร็จ: ' + error.message : '↩ กู้คืนแล้ว'
+  if (!error) loadSongList()
+}
+
+// ── ถังขยะ (trash): songs with deleted_at set. Team-visible (RLS lets authenticated read
+// trashed rows); each can be restored with restore_song. ──
+const trashSongs = ref([])
+async function loadTrash() {
+  const { data } = await supabase
+    .from('songs')
+    .select('id, number, title_th, deleted_at')
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false })
+  trashSongs.value = data ?? []
+}
+async function restoreFromTrash(s) {
+  const { error } = await supabase.rpc('restore_song', { p_song_id: s.id })
+  if (error) {
+    saveMsg.value = '❌ กู้คืนไม่สำเร็จ: ' + error.message
+    return
+  }
+  saveMsg.value = '↩ กู้คืน “' + s.title_th + '” แล้ว'
+  loadTrash()
+  loadSongList()
 }
 
 function save() {
@@ -3075,6 +3131,7 @@ function openPanel(p) {
   openMenu.value = null
   viewMode.value = 'edit'
   if (p === 'open') pendingPick.value = pickerId.value
+  if (p === 'trash') loadTrash()
   activePanel.value = p
 }
 function closePanel() {
@@ -3116,8 +3173,7 @@ function manageUpload() {
   inp.click()
 }
 function manageDelete() {
-  openMenu.value = null
-  deleteSong()
+  askDeleteSong()
 }
 // NOTE: the editor strip itself is the read+edit surface (note boxes + a lyric box under
 // each note, aligned). We tried a separate per-line sheet preview above it (US-D05) but it
@@ -3125,7 +3181,7 @@ function manageDelete() {
 // sheet is still the 🎼 mode button.
 const panelTitle = computed(
   () =>
-    ({ open: 'เลือกเพลงเพื่อแก้', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ' })[
+    ({ open: 'เลือกเพลงเพื่อแก้', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ', trash: 'ถังขยะ' })[
       activePanel.value
     ] || '',
 )
@@ -3234,8 +3290,9 @@ defineExpose({
             <div class="sep"></div>
             <button class="sb-item" role="menuitem" @click="openPanel('drafts')"><Icon name="file-text" /> งานร่าง / รอตรวจ</button>
             <button v-if="editingId" class="sb-item" role="menuitem" @click="openPanel('history')"><Icon name="undo-2" /> ประวัติการแก้ไข</button>
+            <button v-if="isApprover" class="sb-item" role="menuitem" @click="openPanel('trash')"><Icon name="trash-2" /> ถังขยะ</button>
           </template>
-          <button v-if="isApprover && loggedIn && editingId && !reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="manageDelete"><Icon name="x" /> ลบเพลง</button>
+          <button v-if="isApprover && loggedIn && editingId && !reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="manageDelete"><Icon name="trash-2" /> ลบเพลง</button>
         </div>
       </div>
     </Teleport>
@@ -4084,7 +4141,39 @@ defineExpose({
           </template>
           <div class="panel-foot"><button class="secondary" @click="closePanel">ปิด</button></div>
         </div>
+
+        <!-- ถังขยะ (db/012): songs moved to the trash. Restore brings one back to the library;
+             it is auto-purged after 30 days. Approver only. -->
+        <div v-else-if="activePanel === 'trash'">
+          <p v-if="!trashSongs.length" class="muted">ถังขยะว่าง — ยังไม่มีเพลงที่ลบ</p>
+          <template v-else>
+            <p class="muted" style="margin: 0 0 8px">เพลงในถังขยะจะถูกลบถาวรอัตโนมัติหลัง 30 วัน · กด “กู้คืน” เพื่อนำกลับ</p>
+            <div v-for="s in trashSongs" :key="s.id" class="draft-row">
+              <span class="trash-name">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</span>
+              <button class="secondary tiny trash-restore" @click="restoreFromTrash(s)"><Icon name="undo-2" :size="14" /> กู้คืน</button>
+            </div>
+          </template>
+          <div class="panel-foot"><button class="secondary" @click="closePanel">ปิด</button></div>
+        </div>
       </div>
+    </div>
+
+    <!-- styled confirm for deleting a whole song (destructive, but recoverable) -->
+    <div v-if="confirmDelSong" class="del-song-overlay no-print" role="alertdialog" aria-modal="true" aria-labelledby="del-song-t" @click.self="cancelDeleteSong" @keydown.esc="cancelDeleteSong">
+      <div class="del-song-box">
+        <p id="del-song-t" class="eset-confirm-t">ลบเพลง “{{ meta.title_th }}” ?</p>
+        <p class="eset-confirm-d">เพลงจะย้ายไปถังขยะ · <b>กู้คืนได้</b> ที่ จัดการ ▸ ถังขยะ (ลบถาวรอัตโนมัติหลัง 30 วัน)</p>
+        <div class="eset-confirm-btns">
+          <button class="secondary" @click="cancelDeleteSong">ยกเลิก</button>
+          <button class="eset-confirm-del" v-focus @click="doDeleteSong"><Icon name="trash-2" :size="14" /> ลบเพลง</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- undo snackbar after a soft-delete -->
+    <div v-if="undoDeleted" class="undo-snack no-print" role="status" aria-live="polite">
+      <span>🗑️ ลบ “{{ undoDeleted.title }}” แล้ว</span>
+      <button class="undo-btn" @click="undoDelete"><Icon name="undo-2" :size="15" /> เลิกทำ</button>
     </div>
   </div>
 </template>
@@ -4583,6 +4672,29 @@ defineExpose({
   appearance: none; display: inline-flex; align-items: center; gap: 4px; min-height: 38px; padding: 0 16px;
   border: 0; border-radius: 8px; background: var(--red, #c0392b); color: #fff; font: inherit; font-weight: 600; cursor: pointer;
 }
+/* delete-a-song confirm — a centered modal (the set-confirm above is inline in the rail) */
+.del-song-overlay {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.32); padding: 16px;
+}
+.del-song-box {
+  max-width: 380px; width: 100%; padding: 18px 20px; border: 1px solid var(--red, #c0392b);
+  border-radius: 14px; background: #fff; box-shadow: 0 10px 34px rgba(0,0,0,.2); text-align: center;
+}
+/* undo snackbar — bottom-center toast with an action, over everything */
+.undo-snack {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 70;
+  display: flex; align-items: center; gap: 14px; max-width: 92vw;
+  padding: 10px 12px 10px 16px; border-radius: 10px;
+  background: #2b2b2b; color: #fff; font-size: 0.95rem; box-shadow: 0 6px 24px rgba(0,0,0,.28);
+}
+.undo-btn {
+  appearance: none; display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 14px;
+  border: 0; border-radius: 8px; background: #ffd27a; color: #2b2b2b; font: inherit; font-weight: 700; cursor: pointer;
+}
+.undo-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.trash-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trash-restore { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; }
 /* small buttons still meet the 24x24 target size (WCAG 2.2 2.5.8) */
 .tiny { padding: 4px 10px; font-size: 13px; min-height: 28px; min-width: 28px; }
 .role-badge {

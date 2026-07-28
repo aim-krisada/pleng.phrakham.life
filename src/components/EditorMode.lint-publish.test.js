@@ -11,7 +11,7 @@ const H = vi.hoisted(() => ({ captured: null }))
 vi.mock('../supabase.js', () => {
   const makeQuery = (table) => {
     const q = {}
-    for (const m of ['select', 'order', 'eq', 'in', 'delete', 'limit']) q[m] = () => q
+    for (const m of ['select', 'order', 'is', 'not', 'eq', 'in', 'delete', 'limit']) q[m] = () => q
     q.update = (row) => {
       if (table === 'songs') H.captured = row
       return q

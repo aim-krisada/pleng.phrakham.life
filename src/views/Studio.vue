@@ -44,7 +44,14 @@ const liveSong = ref(null)
 
 async function loadSong(id) {
   const { data } = await supabase.from('songs').select('*').eq('id', id).single()
-  if (!data) return
+  // db/012: a trashed song is "gone" — do not render it as a live song. Anon never even
+  // receives the row (RLS); this also covers a team member following a stale link. The
+  // song is recoverable from จัดการ ▸ ถังขยะ, not from its public URL.
+  if (!data || data.deleted_at) {
+    loadedSong.value = null
+    liveSong.value = null
+    return
+  }
   loadedSong.value = data
   const { content } = migrateToV2(data.content)
   liveSong.value = {
@@ -232,6 +239,7 @@ async function loadSongList() {
   const { data } = await supabase
     .from('songs')
     .select('id, number, title_th, title_en, content, verified')
+    .is('deleted_at', null) // db/012: trashed songs never appear in the picker
     .order('number', { ascending: true })
   songList.value = data ?? []
 }

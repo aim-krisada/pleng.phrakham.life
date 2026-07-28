@@ -162,6 +162,7 @@ onMounted(async () => {
   const { data, error } = await supabase
     .from('songs')
     .select('id, number, title_th, title_en, content, category, theme, verified, book_refs, scripture, review_flags')
+    .is('deleted_at', null) // db/012: trashed songs never show in the catalog
     .order('number', { ascending: true })
   if (error || !data || data.length === 0) {
     dbError.value = !!error

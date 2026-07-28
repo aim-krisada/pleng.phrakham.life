@@ -22,6 +22,7 @@ vi.mock('../supabase.js', () => ({
     from: () => {
       const q = {}
       q.select = () => q
+      q.is = () => q
       q.order = () => Promise.resolve({ data: h.rows, error: null })
       return q
     },
