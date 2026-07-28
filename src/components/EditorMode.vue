@@ -2010,12 +2010,9 @@ function followBar(liOffset) {
     const key = `${n.li + liOffset}-${n.bi}`
     if (playingBar.value === key) return
     playingBar.value = key
-    const el = document.querySelector(`[data-bar="${key}"]`)
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    if (r.top < 90 || r.bottom > window.innerHeight - 110) {
-      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    }
+    // แก้ไข plays back WITHOUT moving the page (พี่เปา, 2026-07-27): only the bar highlight
+    // advances so the person editing keeps full control of the scroll position. Karaoke
+    // follow-scroll belongs to ฝึกร้อง (SongViewer.scrollToPlaying), not the editor.
   }
 }
 
