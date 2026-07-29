@@ -98,6 +98,38 @@ describe('songsInBook', () => {
     expect(songsInBook(SONGS, 'dek-lek')).toEqual([])
     expect(songsInBook([], 'anuchon')).toEqual([])
   })
+
+  // B131 — the in-book list is the screen พี่เปา uses (SongList.vue reads songsInBook). Ordering
+  // now comes from songSort.js; these cases prove the number-less bug is fixed THROUGH this
+  // entry point, not just in the sort module. เด็กเล็ก = 52 of 53 songs with no number.
+  describe('a book whose songs have no catalog number (เด็กเล็ก)', () => {
+    const t = (id, number, title_th) => ({ id, number, title_th, category: 'dek-lek' })
+    const BOOK = [
+      t('a', null, 'ขอบพระคุณ'),
+      t('b', null, 'กราบพระบาท'),
+      t('c', null, 'ฮาเลลูยา'),
+      t('d', 1, 'สรรเสริญ'), // the one song that does have a number
+    ]
+    const expected = ['d', 'b', 'a', 'c'] // numbered first, then ก-ฮ
+
+    it('orders them ก-ฮ after the numbered song', () => {
+      expect(songsInBook(BOOK, 'dek-lek').map((x) => x.id)).toEqual(expected)
+    })
+
+    it('gives the same order whatever order the DB returned them in', () => {
+      for (let i = 0; i < BOOK.length; i++) {
+        const arrival = [...BOOK.slice(i), ...BOOK.slice(0, i)]
+        expect(songsInBook(arrival, 'dek-lek').map((x) => x.id)).toEqual(expected)
+      }
+      expect(songsInBook([...BOOK].reverse(), 'dek-lek').map((x) => x.id)).toEqual(expected)
+    })
+
+    it('does not mutate the songs array it was given', () => {
+      const input = [...BOOK]
+      songsInBook(input, 'dek-lek')
+      expect(input.map((x) => x.id)).toEqual(['a', 'b', 'c', 'd'])
+    })
+  })
 })
 
 describe('visibleSongs (public verified-only gate)', () => {

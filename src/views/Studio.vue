@@ -12,6 +12,7 @@ import { withSongKey } from '../lib/songEdit.js'
 import { emptyContent } from '../lib/editorSerde.js'
 import { songHaystack, searchSongs } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
+import { sortSongs } from '../lib/songSort.js'
 import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
@@ -687,7 +688,9 @@ async function loadSongList() {
     .from('songs')
     .select('id, number, title_th, title_en, content, verified')
     .order('number', { ascending: true })
-  songList.value = data ?? []
+  // B131: the DB `.order` leaves the blank-number rows unordered, so the picker could list the
+  // same songs differently on two loads. sortSongs (songSort.js) is the app's one ordering rule.
+  songList.value = sortSongs(data ?? [])
 }
 // GATE (reuse bookshelf.visibleSongs — same source SongList + EditorMode use): anon sees only
 // verified songs, team sees all. computed on tier so it re-filters on login/logout without

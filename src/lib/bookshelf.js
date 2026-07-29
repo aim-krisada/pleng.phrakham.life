@@ -8,6 +8,9 @@
 // `book_refs` (ล/ย/ยอ/ม/ส/…) are demoted to reference TAGS shown on the song ("อยู่ใน
 // เล่มเล็ก 282") — handled in the component via bookCodes.js, not here.
 
+// The app's ONE song-ordering rule (B131) — this file used to carry its own comparator.
+import { sortSongs } from './songSort.js'
+
 // The real books, in shelf order, with their display names. Data-driven: any category
 // code the data actually carries appears even if it's not in this map (raw code shown),
 // so a newly-imported book needs no code change here. THREE canonical books only (P'Aim
@@ -109,14 +112,15 @@ export function orderedBooks(songs) {
   return shelf
 }
 
-// Songs in one book (category), ordered by catalog number ascending (the "ข้อ" number).
-// The fallback bucket returns the unclassified songs, also by number. Songs without a
-// number sort last (Infinity) but never throw.
+// Songs in one book (category), in the app's standard song order (see songSort.js). The
+// fallback bucket returns the unclassified songs in that same order.
+//
+// B131: the ordering used to live HERE as `(a.number ?? Infinity) - (b.number ?? Infinity)`,
+// which is `NaN` for two number-less songs → `sort` called them equal → เด็กเล็ก (52 of 53
+// songs have no number) had no defined order. Sorting now lives in exactly ONE place.
+// ⛔ Do not put a comparator back in this file — extend songSort.js instead.
 export function songsInBook(songs, code) {
   const match =
     code === FALLBACK_KEY ? (s) => !songCategory(s) : (s) => songCategory(s) === code
-  return (songs || [])
-    .filter(match)
-    .slice()
-    .sort((a, b) => (a.number ?? Infinity) - (b.number ?? Infinity))
+  return sortSongs((songs || []).filter(match))
 }
