@@ -8,6 +8,7 @@ import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { session } from '../store.js'
 import { visibleSongs } from '../lib/bookshelf.js'
+import { sortSongs } from '../lib/songSort.js'
 import { decodeList, saveSharedList } from '../lib/playlists.js'
 import { t } from '../i18n/index.js'
 
@@ -43,7 +44,11 @@ onMounted(async () => {
     .from('songs')
     .select('id, number, title_th, content, verified, category')
     .order('number', { ascending: true })
-  songs.value = error || !data || !data.length ? SAMPLE_SONGS : data
+  // B131: the DB `.order` is only a starting order — it leaves the blank-number rows
+  // unordered. sortSongs is the app's one ordering rule (songSort.js). NOTE this orders the
+  // SOURCE rows only; what the reader sees stays `decoded.songIds` order = the arrangement the
+  // sharer made for their service, which must never be re-sorted.
+  songs.value = sortSongs(error || !data || !data.length ? SAMPLE_SONGS : data)
   loading.value = false
 })
 </script>

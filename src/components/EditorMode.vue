@@ -14,6 +14,7 @@ import {
 import { THEME_OPTIONS, CATEGORY_OPTIONS } from '../lib/songMeta.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
+import { sortSongs } from '../lib/songSort.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
@@ -1341,7 +1342,9 @@ async function loadSongList() {
     .from('songs')
     .select('id, number, title_th, title_en, content, verified')
     .order('number', { ascending: true })
-  songList.value = data ?? []
+  // B131: the DB `.order` leaves the blank-number rows unordered, so the picker could list the
+  // same songs differently on two loads. sortSongs (songSort.js) is the app's one ordering rule.
+  songList.value = sortSongs(data ?? [])
 }
 
 const pickerOptions = computed(() => [

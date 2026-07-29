@@ -16,6 +16,7 @@ import {
 } from '../lib/bookshelf.js'
 import { session } from '../store.js'
 import { favorites, isFavorite } from '../lib/favorites.js'
+import { sortSongs } from '../lib/songSort.js'
 import FavStar from '../components/FavStar.vue'
 import ShareSheet from '../components/ShareSheet.vue'
 import { t } from '../i18n/index.js'
@@ -41,9 +42,14 @@ function selectMode(m) {
 }
 
 // ★ favorites (localStorage · no account · lib/favorites.js) — sits alongside the bookshelf.
+// B131 follow-up: `shownSongs` is the raw DB order, which gives songs with NO catalog number
+// no defined order at all — the same bug พี่เปา hit in the book list. So this list goes
+// through sortSongs (songSort.js), the app's ONE ordering rule, exactly like songsInBook does
+// for the in-book screen: number ascending · number-less songs last, ก-ฮ by title · id as the
+// final tiebreak, so the same starred songs always come out in the same order.
 const favSongs = computed(() => {
   favorites.value // reactive dep — recompute when a star toggles
-  return shownSongs.value.filter((s) => isFavorite(s.id))
+  return sortSongs(shownSongs.value.filter((s) => isFavorite(s.id)))
 })
 
 // ---- 🎵 playlists manager (localStorage · no account · lib/playlists.js) ----
