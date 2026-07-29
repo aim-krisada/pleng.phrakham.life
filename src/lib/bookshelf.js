@@ -8,6 +8,10 @@
 // `book_refs` (ล/ย/ยอ/ม/ส/…) are demoted to reference TAGS shown on the song ("อยู่ใน
 // เล่มเล็ก 282") — handled in the component via bookCodes.js, not here.
 
+// Ordering is NOT this file's job (B131) — it comes from the shared lib/songSort.js so the
+// bookshelf, the pickers and the shared lists all order songs by the same rules.
+import { sortSongs, DEFAULT_SORT } from './songSort.js'
+
 // The real books, in shelf order, with their display names. Data-driven: any category
 // code the data actually carries appears even if it's not in this map (raw code shown),
 // so a newly-imported book needs no code change here. THREE canonical books only (P'Aim
@@ -109,14 +113,17 @@ export function orderedBooks(songs) {
   return shelf
 }
 
-// Songs in one book (category), ordered by catalog number ascending (the "ข้อ" number).
-// The fallback bucket returns the unclassified songs, also by number. Songs without a
-// number sort last (Infinity) but never throw.
-export function songsInBook(songs, code) {
+// Songs in one book (category), in the order the caller asks for — default 'number' (the "ข้อ"
+// number ascending), which is what every current screen shows. The fallback bucket returns the
+// unclassified songs the same way.
+//
+// B131: the ordering itself now lives in ONE shared place (lib/songSort.js) — this file used to
+// carry its own comparator, `(a.number ?? Infinity) - (b.number ?? Infinity)`, which made two
+// number-less songs compare as NaN → "equal" → their order was whatever the DB returned, i.e. not
+// guaranteed (เล่มเด็กเล็ก has no numbers at all → พี่เปา could not find a song twice in a row).
+// Do NOT re-add a comparator here: sortSongs is the single source, so a fix lands everywhere.
+export function songsInBook(songs, code, sortBy = DEFAULT_SORT) {
   const match =
     code === FALLBACK_KEY ? (s) => !songCategory(s) : (s) => songCategory(s) === code
-  return (songs || [])
-    .filter(match)
-    .slice()
-    .sort((a, b) => (a.number ?? Infinity) - (b.number ?? Infinity))
+  return sortSongs((songs || []).filter(match), sortBy)
 }

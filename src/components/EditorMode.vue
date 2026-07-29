@@ -15,6 +15,7 @@ import { THEME_OPTIONS, CATEGORY_OPTIONS } from '../lib/songMeta.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs, categoryName } from '../lib/bookshelf.js'
 import { findTitleConflicts } from '../lib/songTitleKey.js'
+import { sortSongs, DEFAULT_SORT } from '../lib/songSort.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
@@ -1353,7 +1354,11 @@ async function loadSongList() {
     // Without it every song reads as "unfiled" and a real duplicate looks like a different book.
     .select('id, number, title_th, title_en, content, verified, category')
     .order('number', { ascending: true })
-  songList.value = data ?? []
+  // ORDER (B131 · 4th copy of the same query): `.order` is only the DB's starting order — rows
+  // with a blank `number` come back in no guaranteed order, so this picker could list the same
+  // songs differently on two loads. The shared sorter (lib/songSort.js) gives it one defined
+  // order (number, then ก-ฮ for the number-less songs).
+  songList.value = sortSongs(data ?? [], DEFAULT_SORT)
 }
 
 const pickerOptions = computed(() => [
