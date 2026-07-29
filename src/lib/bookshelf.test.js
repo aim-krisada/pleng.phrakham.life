@@ -99,6 +99,38 @@ describe('songsInBook', () => {
     expect(songsInBook(SONGS, 'dek-lek')).toEqual([])
     expect(songsInBook([], 'anuchon')).toEqual([])
   })
+
+  // B131 — the in-book list is the screen พี่เปา uses (SongList.vue reads songsInBook). Ordering
+  // now comes from songSort.js; these cases prove the number-less bug is fixed THROUGH this
+  // entry point, not just in the sort module. เด็กเล็ก = 52 of 53 songs with no number.
+  describe('a book whose songs have no catalog number (เด็กเล็ก)', () => {
+    const t = (id, number, title_th) => ({ id, number, title_th, category: 'dek-lek' })
+    const BOOK = [
+      t('a', null, 'ขอบพระคุณ'),
+      t('b', null, 'กราบพระบาท'),
+      t('c', null, 'ฮาเลลูยา'),
+      t('d', 1, 'สรรเสริญ'), // the one song that does have a number
+    ]
+    const expected = ['d', 'b', 'a', 'c'] // numbered first, then ก-ฮ
+
+    it('orders them ก-ฮ after the numbered song', () => {
+      expect(songsInBook(BOOK, 'dek-lek').map((x) => x.id)).toEqual(expected)
+    })
+
+    it('gives the same order whatever order the DB returned them in', () => {
+      for (let i = 0; i < BOOK.length; i++) {
+        const arrival = [...BOOK.slice(i), ...BOOK.slice(0, i)]
+        expect(songsInBook(arrival, 'dek-lek').map((x) => x.id)).toEqual(expected)
+      }
+      expect(songsInBook([...BOOK].reverse(), 'dek-lek').map((x) => x.id)).toEqual(expected)
+    })
+
+    it('does not mutate the songs array it was given', () => {
+      const input = [...BOOK]
+      songsInBook(input, 'dek-lek')
+      expect(input.map((x) => x.id)).toEqual(['a', 'b', 'c', 'd'])
+    })
+  })
 })
 
 describe('visibleSongs (public verified-only gate)', () => {
@@ -189,5 +221,24 @@ describe('unverifiedSongs (approver review queue)', () => {
     const list = [{ id: 'b', number: 2 }, { id: 'a', number: 1 }]
     unverifiedSongs(list)
     expect(list.map((x) => x.id)).toEqual(['b', 'a'])
+  })
+  // B131 integration: the queue used to carry its own `(a.number ?? Infinity) - (b.number ??
+  // Infinity)`, which is NaN for two number-less songs, so the approver could open the chip
+  // twice and see two different orders. Same rotation proof songSort.test.js uses: whatever
+  // order the rows arrive in, ONE order comes out — the เด็กเล็ก case (no numbers at all).
+  it('is deterministic for number-less songs whatever order they arrive in', () => {
+    const rows = [
+      { id: 'i3', title_th: 'ขอบพระคุณ' },
+      { id: 'i1', title_th: 'กราบพระบาท' },
+      { id: 'i2', title_th: 'ครูของเรา' },
+    ]
+    // ก-ฮ by title_th: กราบพระบาท (ก) → ขอบพระคุณ (ข) → ครูของเรา (ค). Ids deliberately do
+    // NOT follow that order, so the assertion can only pass on the title collation.
+    const expected = ['i1', 'i3', 'i2']
+    for (let r = 0; r < rows.length; r++) {
+      const rotated = [...rows.slice(r), ...rows.slice(0, r)]
+      expect(unverifiedSongs(rotated).map((x) => x.id)).toEqual(expected)
+      expect(unverifiedSongs([...rotated].reverse()).map((x) => x.id)).toEqual(expected)
+    }
   })
 })

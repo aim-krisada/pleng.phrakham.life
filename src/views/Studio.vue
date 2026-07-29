@@ -10,6 +10,7 @@ import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent, lyricSetName, inLyricSet } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
+import { sortSongs } from '../lib/songSort.js'
 import { songBasename } from '../lib/songName.js'
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
@@ -241,7 +242,9 @@ async function loadSongList() {
     .select('id, number, title_th, title_en, content, verified')
     .is('deleted_at', null) // db/012: trashed songs never appear in the picker
     .order('number', { ascending: true })
-  songList.value = data ?? []
+  // B131: the DB `.order` leaves the blank-number rows unordered, so the picker could list the
+  // same songs differently on two loads. sortSongs (songSort.js) is the app's one ordering rule.
+  songList.value = sortSongs(data ?? [])
 }
 // searchable options (ชื่อ · เลข · เนื้อร้อง · โน้ต — same haystack as the catalog page).
 // GATE (reuse bookshelf.visibleSongs — same source SongList + EditorMode use): anon sees only

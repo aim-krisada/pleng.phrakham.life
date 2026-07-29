@@ -9,6 +9,7 @@ import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, setCaption } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs, categoryName } from '../lib/bookshelf.js'
+import { sortSongs } from '../lib/songSort.js'
 import { findTitleConflicts, earlyDupNote } from '../lib/songTitleKey.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
@@ -1516,7 +1517,9 @@ async function loadSongList() {
     .select('id, number, title_th, title_en, content, verified, category')
     .is('deleted_at', null) // db/012: trashed songs never appear in the picker/list
     .order('number', { ascending: true })
-  songList.value = data ?? []
+  // B131: the DB `.order` leaves the blank-number rows unordered, so the picker could list the
+  // same songs differently on two loads. sortSongs (songSort.js) is the app's one ordering rule.
+  songList.value = sortSongs(data ?? [])
 }
 
 const pickerOptions = computed(() => [

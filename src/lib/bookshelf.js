@@ -8,6 +8,9 @@
 // `book_refs` (ล/ย/ยอ/ม/ส/…) are demoted to reference TAGS shown on the song ("อยู่ใน
 // เล่มเล็ก 282") — handled in the component via bookCodes.js, not here.
 
+// The app's ONE song-ordering rule (B131) — this file used to carry its own comparator.
+import { sortSongs } from './songSort.js'
+
 // The real books, in shelf order, with their display names. Data-driven: any category
 // code the data actually carries appears even if it's not in this map (raw code shown),
 // so a newly-imported book needs no code change here. THREE canonical books only (P'Aim
@@ -62,12 +65,15 @@ export function verifiedProgress(songs) {
 // first. Same predicate as showUnverifiedBadge (a song is "ยังไม่ตรวจ" when `verified` is
 // falsy) — kept in ONE place so the chip's count, the queue list and the card badge can never
 // disagree. Callers pass an already-gated list (visibleSongs), so this adds no visibility rule
-// of its own. Sorting mirrors songsInBook: no number sorts last, never throws.
+// of its own.
+//
+// Sorting mirrors songsInBook — and since B131 that means delegating to sortSongs (songSort.js)
+// rather than repeating a comparator. This queue carried the identical defect B131 fixed: its
+// own `(a.number ?? Infinity) - (b.number ?? Infinity)` is `NaN` for two number-less songs, so
+// the review queue could list the same pending songs in a different order on each visit — worst
+// exactly where it matters most, เด็กเล็ก (52 of 53 songs have no number).
 export function unverifiedSongs(songs) {
-  return (songs || [])
-    .filter((s) => s && !s.verified)
-    .slice()
-    .sort((a, b) => (a.number ?? Infinity) - (b.number ?? Infinity))
+  return sortSongs((songs || []).filter((s) => s && !s.verified))
 }
 
 // A song's category code, trimmed; null when blank/absent (→ fallback bucket). Kept
@@ -121,14 +127,15 @@ export function orderedBooks(songs) {
   return shelf
 }
 
-// Songs in one book (category), ordered by catalog number ascending (the "ข้อ" number).
-// The fallback bucket returns the unclassified songs, also by number. Songs without a
-// number sort last (Infinity) but never throw.
+// Songs in one book (category), in the app's standard song order (see songSort.js). The
+// fallback bucket returns the unclassified songs in that same order.
+//
+// B131: the ordering used to live HERE as `(a.number ?? Infinity) - (b.number ?? Infinity)`,
+// which is `NaN` for two number-less songs → `sort` called them equal → เด็กเล็ก (52 of 53
+// songs have no number) had no defined order. Sorting now lives in exactly ONE place.
+// ⛔ Do not put a comparator back in this file — extend songSort.js instead.
 export function songsInBook(songs, code) {
   const match =
     code === FALLBACK_KEY ? (s) => !songCategory(s) : (s) => songCategory(s) === code
-  return (songs || [])
-    .filter(match)
-    .slice()
-    .sort((a, b) => (a.number ?? Infinity) - (b.number ?? Infinity))
+  return sortSongs((songs || []).filter(match))
 }
