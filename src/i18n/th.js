@@ -55,6 +55,12 @@ export default {
     results: 'ผลการค้นหา',
     countSongs: '{n} เพลง',
     onlyUnverified: '⚠️ เฉพาะที่ยังไม่ตรวจ',
+    // approver-only review queue (พี่เปา) — the 4th browse tab + its own view
+    // (the row badge reuses `pending` — same words, one source)
+    reviewChip: 'ยังไม่ตรวจ',
+    reviewTitle: 'ยังไม่ตรวจ',
+    reviewA11y: 'เพลงที่ยังไม่ตรวจ {n} เพลง',
+    reviewEmpty: 'ตรวจครบทุกเพลงแล้ว 🎉',
     allThemes: 'ทุกธีม',
     filterByTheme: 'กรองตามธีม',
     noResults: 'ไม่พบเพลงที่ค้นหา',

@@ -14,6 +14,7 @@ import {
   showVerifiedBadge,
   showUnverifiedBadge,
   verifiedProgress,
+  unverifiedSongs,
 } from './bookshelf.js'
 
 // Minimal song fixtures — only the fields the bookshelf reads (number + category).
@@ -161,5 +162,32 @@ describe('verifiedProgress', () => {
     expect(verifiedProgress([])).toEqual({ verified: 0, total: 0 })
     expect(verifiedProgress(undefined)).toEqual({ verified: 0, total: 0 })
     expect(verifiedProgress([null, undefined])).toEqual({ verified: 0, total: 2 })
+  })
+})
+
+describe('unverifiedSongs (approver review queue)', () => {
+  it('keeps only the songs still waiting for a check, by catalog number', () => {
+    const list = [
+      { id: 'c', number: 30, verified: false },
+      { id: 'a', number: 10, verified: true },
+      { id: 'b', number: 20 }, // verified undefined -> still pending
+    ]
+    expect(unverifiedSongs(list).map((x) => x.id)).toEqual(['b', 'c'])
+  })
+  it('agrees with showUnverifiedBadge on every song (one predicate, one truth)', () => {
+    const list = [{ verified: true }, { verified: false }, {}]
+    expect(unverifiedSongs(list).length).toBe(
+      list.filter((x) => showUnverifiedBadge(x, true)).length,
+    )
+  })
+  it('songs with no number sort last and nothing throws on garbage input', () => {
+    expect(unverifiedSongs([{ id: 'x' }, { id: 'y', number: 5 }]).map((s2) => s2.id)).toEqual(['y', 'x'])
+    expect(unverifiedSongs(undefined)).toEqual([])
+    expect(unverifiedSongs([null, undefined])).toEqual([])
+  })
+  it('does not mutate or reorder the caller list', () => {
+    const list = [{ id: 'b', number: 2 }, { id: 'a', number: 1 }]
+    unverifiedSongs(list)
+    expect(list.map((x) => x.id)).toEqual(['b', 'a'])
   })
 })
