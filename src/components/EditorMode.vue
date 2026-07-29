@@ -1,6 +1,6 @@
 <script setup>
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions, parseChord } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, HOLD_STEP, HOLD_MIN, snapHalf, slurSpans } from '../lib/notation.js'
@@ -10,6 +10,7 @@ import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetNam
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs, categoryName } from '../lib/bookshelf.js'
 import { sortSongs } from '../lib/songSort.js'
+import { pendingReview } from '../lib/reviewQueue.js'
 import { findTitleConflicts, earlyDupNote } from '../lib/songTitleKey.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
@@ -62,10 +63,20 @@ const loggedIn = computed(() => props.tier !== 'anon')
 // the teleported chrome (title input + เพลง/จัดการ menus) renders only while this mode is on
 const editing = computed(() => props.active)
 
+// Deep link into a panel. The landing page's "📨 รอตรวจ" chip has to send พี่เปา to a list of
+// the drafts waiting for him, and that list already exists here (จัดการ ▸ งานร่าง / รอตรวจ) —
+// copying it onto the landing page would mean two lists to keep in step, and only this one can
+// open / send back / approve a draft. So the chip navigates to /studio?panel=drafts and we open
+// the same panel the menu item opens. loadDrafts() above fills it in as the query returns.
+// `route` is undefined when the editor is mounted on its own (the component tests mount it
+// without a router), so read it defensively — a deep link is a nice-to-have, never a reason
+// for the editor to fail to mount.
+const route = useRoute()
 onMounted(() => {
   loadSongList()
   loadDrafts()
   loadProfilesMap()
+  if (route?.query?.panel === 'drafts' && loggedIn.value) openPanel('drafts')
 })
 onUnmounted(stopPlayback)
 
@@ -1767,7 +1778,9 @@ async function loadDrafts() {
   }
   const uid = session.value.user.id
   myDrafts.value = (data ?? []).filter((d) => d.author_id === uid && d.status !== 'approved')
-  pendingDrafts.value = (data ?? []).filter((d) => d.status === 'pending')
+  // through the shared predicate (lib/reviewQueue.js) — the landing chip counts with the same
+  // one, so the number on the chip and the rows in this panel cannot drift apart.
+  pendingDrafts.value = pendingReview(data)
 }
 
 // B108 — read the หมวด/ธีม that are actually stored for a published song and put them in the

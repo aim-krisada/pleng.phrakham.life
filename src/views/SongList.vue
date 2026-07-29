@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
@@ -13,9 +13,9 @@ import {
   showVerifiedBadge,
   showUnverifiedBadge,
   verifiedProgress,
-  unverifiedSongs,
   FALLBACK_KEY,
 } from '../lib/bookshelf.js'
+import { pendingReview } from '../lib/reviewQueue.js'
 import { session, canApprove } from '../store.js'
 
 const router = useRouter()
@@ -35,7 +35,7 @@ const dbError = ref(false)
 // results across every book (US-AC5), so the search path (songSearch.js) is untouched.
 // `level` tracks which drill state we're in when NOT searching; `activeBook` is the
 // selected category code (or the fallback sentinel).
-const level = ref('books') // 'books' | 'songs' | 'review'
+const level = ref('books') // 'books' | 'songs'
 const activeBook = ref(null)
 
 // searching = query has content → search view overrides the drill (mockup behaviour).
@@ -84,23 +84,43 @@ const shownSongs = computed(() => visibleSongs(songs.value, loggedIn.value))
 const progress = computed(() => verifiedProgress(shownSongs.value))
 const bookProgress = computed(() => verifiedProgress(inBook.value))
 
-// ---- approver review queue (พี่เปา) — "เพลงไหนยังไม่ตรวจ" straight from the landing ----
-// พี่เปา has to check every song before it goes public, and until now the only way in was to
-// open each เล่ม and look. This lifts the fact that ALREADY exists on the page (the ยังไม่ตรวจ
-// badge, the ตรวจแล้ว X / Y tally) into one chip that goes straight to the queue.
+// ---- approver review queue (พี่เปา) — "มีอะไรเข้ามารอให้ฉันอนุมัติ" from the landing ----
+// The question this chip answers is a WORK question: someone pressed "ส่งตรวจ" and is waiting
+// for an answer. That inbox is `song_drafts` with status `pending` — not `songs.verified`, which
+// answers the unrelated "which songs in the library has nobody ticked yet" and cannot even
+// shrink when a draft is approved (see lib/reviewQueue.js). So the chip reads the drafts table.
 //
 // APPROVER ONLY — bound to `canApprove` (store.js, the permission SSOT), never to a name or to
 // "logged in": publishing is the approver's gate, so the queue that feeds it is too. An editor
-// or an anon visitor sees nothing at all. The count is live (derives from `shownSongs`), and
-// when it reaches 0 the chip disappears entirely rather than sitting there saying "(0)".
-const reviewQueue = computed(() => unverifiedSongs(shownSongs.value))
+// or an anon visitor sees nothing at all, and RLS (db/002:58) would not hand them the rows
+// anyway. When the queue reaches 0 the chip disappears entirely rather than saying "(0)".
+const reviewQueue = ref([])
 const showReviewChip = computed(() => canApprove.value && reviewQueue.value.length > 0)
 
+// Fetched, not derived: drafts live in their own table, so this is a second query — run only
+// for an approver (nobody else may see the chip) and re-run on login/logout so the count is
+// right for whoever is actually signed in.
+async function loadReviewQueue() {
+  if (!canApprove.value) {
+    reviewQueue.value = []
+    return
+  }
+  const { data, error } = await supabase
+    .from('song_drafts')
+    .select('id, title_th, number, status, updated_at, author_id')
+    .order('updated_at', { ascending: false })
+  // a missing drafts table (a bare Supabase) or any error must leave the landing page alone —
+  // no chip is the honest answer when we cannot read the queue.
+  reviewQueue.value = error ? [] : pendingReview(data)
+}
+watch(canApprove, loadReviewQueue)
+
+// The chip hands พี่เปา over to the ONE screen that already lists these drafts and can open
+// them: the editor's "งานร่าง / รอตรวจ" panel (EditorMode). It is not copied here — the panel
+// owns loading a draft, sending it back and approving it, so a second list on the landing
+// would be a second place to keep in step. `?panel=drafts` is the shell's way in.
 function openReview() {
-  onlyUnverified.value = true // the existing facet — the queue is the same filter, surfaced
-  activeBook.value = null
-  level.value = 'review'
-  window.scrollTo(0, 0)
+  router.push('/studio?panel=drafts')
 }
 
 // ---- bookshelf derivations (pure logic in lib/bookshelf.js, unit-tested there) ----
@@ -192,6 +212,7 @@ onMounted(async () => {
     songs.value = data
   }
   loading.value = false
+  loadReviewQueue()
 })
 </script>
 
@@ -211,18 +232,18 @@ onMounted(async () => {
       </p>
       <!-- approver-only review shortcut. v1 has no tab bar to hang a 4th tab on, so the same
            intent rides the surface v1 does have: one prominent chip under the search box, above
-           the shelf. Hidden entirely for anon/editors and when the queue is empty. On a narrow
-           phone the word collapses to 🔎 + the number so it can never be cut mid-word. -->
-      <button
-        v-if="showReviewChip && !searching && level !== 'review'"
-        type="button"
-        class="review-chip"
-        @click="openReview"
-      >
-        <span aria-hidden="true">🔎</span>
-        <span class="rc-label">ยังไม่ตรวจ</span>
+           the shelf. Hidden entirely for anon/editors and when the queue is empty. The word
+           stays at every width (see .rc-label) — it never collapses to icon + bare number.
+           ICON: 📨 (something arrived), the same one the destination panel heads its รออนุมัติ
+           list with — not a magnifier, which reads as "go and search" rather than "you have mail".
+           WORDING: "รอตรวจ" — the same word the editor's status list uses for `pending`
+           (EditorMode STATUS_TH), and the unit is รายการ (drafts), not เพลง: a draft may be a
+           new song that is not in the library yet, or a re-edit of one that already is. -->
+      <button v-if="showReviewChip && !searching" type="button" class="review-chip" @click="openReview">
+        <span aria-hidden="true">📨</span>
+        <span class="rc-label">รอตรวจ</span>
         <span class="rc-count">{{ reviewQueue.length }}</span>
-        <span class="sr-only">เพลงที่ยังไม่ตรวจ {{ reviewQueue.length }} เพลง</span>
+        <span class="sr-only">รอตรวจ {{ reviewQueue.length }} รายการ — เปิดรายการงานร่างที่รอตรวจ</span>
       </button>
     </div>
 
@@ -282,28 +303,12 @@ onMounted(async () => {
       <p v-if="results.length === 0" class="muted empty" aria-live="polite">ไม่พบเพลงที่ค้นหา</p>
     </section>
 
-    <!-- ===== REVIEW QUEUE (approver only) · every song still waiting for a check =====
-         Same row treatment as an open เล่ม — one flat list across all books, by number, each
-         row carrying the ยังไม่ตรวจ badge it already carries elsewhere. `canApprove` is re-
-         asserted here (not just on the chip) so the queue cannot survive a logout. -->
-    <section v-else-if="level === 'review' && canApprove">
-      <button type="button" class="crumb" @click="backToBooks">← เล่มทั้งหมด</button>
-      <div class="level-head">
-        <h2>ยังไม่ตรวจ</h2>
-        <span class="count muted" aria-live="polite">{{ reviewQueue.length }} เพลง</span>
-      </div>
-      <div class="song-list">
-        <router-link v-for="s in reviewQueue" :key="s.id" :to="`/song/${s.id}`" class="song-row">
-          <span class="no">{{ s.number != null ? s.number : '–' }}</span>
-          <span class="ttl">{{ s.title_th }}</span>
-          <span class="badge pending row-status" title="ยังไม่ตรวจ">ยังไม่ตรวจ</span>
-          <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
-        </router-link>
-      </div>
-      <p v-if="reviewQueue.length === 0" class="muted empty" aria-live="polite">
-        ตรวจครบทุกเพลงแล้ว 🎉
-      </p>
-    </section>
+    <!-- The old in-catalog "ยังไม่ตรวจ" queue section lived here. It listed published songs
+         whose `verified` flag was falsy — the wrong pile for an approver's inbox, and it is now
+         unreachable: the chip goes to the editor's งานร่าง / รอตรวจ panel, which lists the
+         actual pending drafts and can open them. The `verified` flag itself still shows as a
+         per-row badge and as the "เฉพาะที่ยังไม่ตรวจ" search facet, which is where a
+         library-completeness filter belongs. -->
 
     <!-- ===== LEVEL 2 · songs in the selected book, ordered by in-book number ===== -->
     <section v-else-if="level === 'songs'">
@@ -415,11 +420,11 @@ onMounted(async () => {
   background: rgba(255, 255, 255, 0.24);
   font-variant-numeric: tabular-nums;
 }
-/* The word stays at EVERY width. The /v2 mockup had to collapse its tab to 🔎 + count because
-   four tabs shared one row and the label clipped to "ยังไม่ต…"; this chip owns its whole row, so
-   the full label fits even at 320px (measured: ~215px of 320) and there is nothing to clip. An
-   icon-only brown pill with a bare number would cost พี่เปา the meaning for no gain. Never
-   wraps mid-word, so the row can't break in half. */
+/* The word stays at EVERY width. The /v2 mockup had to collapse its tab to icon + count because
+   four tabs shared one row and the label clipped; this chip owns its whole row, so the full
+   label fits even at 320px (it is shorter still now — "รอตรวจ", 6 characters) and there is
+   nothing to clip. An icon-only brown pill with a bare number would cost พี่เปา the meaning for
+   no gain. Never wraps mid-word, so the row can't break in half. */
 .review-chip .rc-label { white-space: nowrap; }
 .sr-only {
   position: absolute;
