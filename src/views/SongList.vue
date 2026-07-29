@@ -13,9 +13,10 @@ import {
   showVerifiedBadge,
   showUnverifiedBadge,
   verifiedProgress,
+  unverifiedSongs,
   FALLBACK_KEY,
 } from '../lib/bookshelf.js'
-import { session } from '../store.js'
+import { session, canApprove } from '../store.js'
 
 const router = useRouter()
 
@@ -34,7 +35,7 @@ const dbError = ref(false)
 // results across every book (US-AC5), so the search path (songSearch.js) is untouched.
 // `level` tracks which drill state we're in when NOT searching; `activeBook` is the
 // selected category code (or the fallback sentinel).
-const level = ref('books') // 'books' | 'songs'
+const level = ref('books') // 'books' | 'songs' | 'review'
 const activeBook = ref(null)
 
 // searching = query has content → search view overrides the drill (mockup behaviour).
@@ -82,6 +83,25 @@ const shownSongs = computed(() => visibleSongs(songs.value, loggedIn.value))
 // so the templates gate the display on loggedIn.
 const progress = computed(() => verifiedProgress(shownSongs.value))
 const bookProgress = computed(() => verifiedProgress(inBook.value))
+
+// ---- approver review queue (พี่เปา) — "เพลงไหนยังไม่ตรวจ" straight from the landing ----
+// พี่เปา has to check every song before it goes public, and until now the only way in was to
+// open each เล่ม and look. This lifts the fact that ALREADY exists on the page (the ยังไม่ตรวจ
+// badge, the ตรวจแล้ว X / Y tally) into one chip that goes straight to the queue.
+//
+// APPROVER ONLY — bound to `canApprove` (store.js, the permission SSOT), never to a name or to
+// "logged in": publishing is the approver's gate, so the queue that feeds it is too. An editor
+// or an anon visitor sees nothing at all. The count is live (derives from `shownSongs`), and
+// when it reaches 0 the chip disappears entirely rather than sitting there saying "(0)".
+const reviewQueue = computed(() => unverifiedSongs(shownSongs.value))
+const showReviewChip = computed(() => canApprove.value && reviewQueue.value.length > 0)
+
+function openReview() {
+  onlyUnverified.value = true // the existing facet — the queue is the same filter, surfaced
+  activeBook.value = null
+  level.value = 'review'
+  window.scrollTo(0, 0)
+}
 
 // ---- bookshelf derivations (pure logic in lib/bookshelf.js, unit-tested there) ----
 // grouped by `category` (real books); each entry = { code, name, count, fallback }.
@@ -155,6 +175,7 @@ function openBook(code) {
 function backToBooks() {
   level.value = 'books'
   activeBook.value = null
+  onlyUnverified.value = false // leaving the queue drops its filter (else a later search stays narrowed)
   window.scrollTo(0, 0)
 }
 
@@ -188,6 +209,21 @@ onMounted(async () => {
       <p v-if="dbError" class="muted db-note">
         ยังเชื่อมต่อฐานข้อมูลไม่ได้ — แสดงเพลงตัวอย่างไปก่อน
       </p>
+      <!-- approver-only review shortcut. v1 has no tab bar to hang a 4th tab on, so the same
+           intent rides the surface v1 does have: one prominent chip under the search box, above
+           the shelf. Hidden entirely for anon/editors and when the queue is empty. On a narrow
+           phone the word collapses to 🔎 + the number so it can never be cut mid-word. -->
+      <button
+        v-if="showReviewChip && !searching && level !== 'review'"
+        type="button"
+        class="review-chip"
+        @click="openReview"
+      >
+        <span aria-hidden="true">🔎</span>
+        <span class="rc-label">ยังไม่ตรวจ</span>
+        <span class="rc-count">{{ reviewQueue.length }}</span>
+        <span class="sr-only">เพลงที่ยังไม่ตรวจ {{ reviewQueue.length }} เพลง</span>
+      </button>
     </div>
 
     <p v-if="loading" class="muted">กำลังโหลด…</p>
@@ -244,6 +280,29 @@ onMounted(async () => {
         </router-link>
       </div>
       <p v-if="results.length === 0" class="muted empty" aria-live="polite">ไม่พบเพลงที่ค้นหา</p>
+    </section>
+
+    <!-- ===== REVIEW QUEUE (approver only) · every song still waiting for a check =====
+         Same row treatment as an open เล่ม — one flat list across all books, by number, each
+         row carrying the ยังไม่ตรวจ badge it already carries elsewhere. `canApprove` is re-
+         asserted here (not just on the chip) so the queue cannot survive a logout. -->
+    <section v-else-if="level === 'review' && canApprove">
+      <button type="button" class="crumb" @click="backToBooks">← เล่มทั้งหมด</button>
+      <div class="level-head">
+        <h2>ยังไม่ตรวจ</h2>
+        <span class="count muted" aria-live="polite">{{ reviewQueue.length }} เพลง</span>
+      </div>
+      <div class="song-list">
+        <router-link v-for="s in reviewQueue" :key="s.id" :to="`/song/${s.id}`" class="song-row">
+          <span class="no">{{ s.number != null ? s.number : '–' }}</span>
+          <span class="ttl">{{ s.title_th }}</span>
+          <span class="badge pending row-status" title="ยังไม่ตรวจ">ยังไม่ตรวจ</span>
+          <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
+        </router-link>
+      </div>
+      <p v-if="reviewQueue.length === 0" class="muted empty" aria-live="polite">
+        ตรวจครบทุกเพลงแล้ว 🎉
+      </p>
     </section>
 
     <!-- ===== LEVEL 2 · songs in the selected book, ordered by in-book number ===== -->
@@ -324,6 +383,54 @@ onMounted(async () => {
   background: var(--cream);
   color: var(--ink);
   font-family: inherit;
+}
+
+/* ---- approver review chip (พี่เปา) — prominent but inside the site's quiet palette:
+   the brand fill it already uses for an active facet chip, not a new "work mode" colour.
+   ≥44px tall (WCAG 2.5.5) and self-contained so it never depends on the shelf below. ---- */
+.review-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  min-height: var(--touch-min);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: 22px;
+  border: 1px solid var(--brand);
+  background: var(--brand);
+  color: #fff;
+  font: inherit;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+.review-chip:hover { filter: brightness(1.08); }
+.review-chip .rc-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6em;
+  padding: 0 var(--sp-1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.24);
+  font-variant-numeric: tabular-nums;
+}
+/* The word stays at EVERY width. The /v2 mockup had to collapse its tab to 🔎 + count because
+   four tabs shared one row and the label clipped to "ยังไม่ต…"; this chip owns its whole row, so
+   the full label fits even at 320px (measured: ~215px of 320) and there is nothing to clip. An
+   icon-only brown pill with a bare number would cost พี่เปา the meaning for no gain. Never
+   wraps mid-word, so the row can't break in half. */
+.review-chip .rc-label { white-space: nowrap; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* level heading + result/book count + breadcrumb */
