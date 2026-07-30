@@ -28,7 +28,7 @@ import {
 import { applyVoicing } from './voicing.js'
 import { embellishChord } from './embellish.js'
 import { answerFills, applySusCadence } from './fills.js'
-import { refereeNoClash, balanceFloor, legatoBass, leftHandCeiling } from './referee.js'
+import { refereeNoClash, balanceFloor, legatoBass, leftHandCeiling, leftHandNoUnison } from './referee.js'
 import { keyboard } from './instruments/keyboard.js'
 import { meterOf, barOffsetFor } from './meter.js'
 
@@ -175,10 +175,6 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   // so the shaping layer only touches survivors. INTRINSIC (P'Aim 15 ก.ค.: เปิดตลอด · ซ่อนปุ่ม) — it's
   // a discipline rule, not a taste, so it always runs; it's what lets the "เปิดหมด" default not turn
   // to mud. The melody + comp + bass are untouched — only the optional ลูกเล่น are policed.
-  // REFEREE §3 (เพดานมือซ้าย · พี่เปา 30 ก.ค.) — the LEFT HAND stays under middle C and under the tune.
-  // BEFORE the conductor, so the pre-echo test judges the pitches that will actually sound.
-  if (on && cfg.leftHandCeiling !== false) events = leftHandCeiling(events, cfg)
-
   if (on) events = refereeNoClash(events, cfg)
 
   // LAYER 2 dynamics — only when the arranger is ON. When OFF ("ลูกเล่นปิด"): notes play exactly
@@ -193,6 +189,15 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
     if (dyn.contour !== false) melodicContour(events)
     if (dyn.cresc) crescendo(events, dyn.cresc)
     if (dyn.rubato !== false) rubato(events, meta.sections) // ท่อน-end breathe (§R2.8)
+    // REFEREE §3 + §4 (พี่เปา 30 ก.ค. rules ② and ③) — the LEFT HAND stays under middle C and under
+    // the tune, and never sounds a pitch the tune is still ringing.
+    // ORDER MATTERS: these run AFTER rubato, because rubato LENGTHENS a ท่อน's last melody note by 12%
+    // — so a tune note that looked finished a moment ago is in fact still sounding when the left hand
+    // plays. Checking before the stretch missed exactly the case พี่เปา singled out ("จังหวะที่ถูกทิ้ง").
+    // Safe to sit here: refereeNoClash above only ever filters 'emb', and these two only ever touch
+    // 'inner'/'bass', so neither pass can change the other's decisions.
+    if (cfg.leftHandCeiling !== false) leftHandCeiling(events, cfg)
+    if (cfg.leftHandNoUnison !== false) leftHandNoUnison(events, voicedChords, cfg)
     // humanize: cfg.humanize === false turns BOTH nudges off (jitter 0) so the menu can A/B it.
     const humOff = cfg.humanize === false
     humanizeVel(events, rng, humOff ? 0 : (cfg.humanizeVel ?? mod.humanizeFeel.velJitter))
