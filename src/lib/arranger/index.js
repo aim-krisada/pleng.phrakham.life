@@ -188,7 +188,7 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
     if (dyn.accent !== false) metricAccent(events, bpb, meter, barOffset)
     if (dyn.contour !== false) melodicContour(events)
     if (dyn.cresc) crescendo(events, dyn.cresc)
-    if (dyn.rubato !== false) rubato(events, meta.sections) // ท่อน-end breathe (§R2.8)
+    if (dyn.rubato !== false) rubato(events, meta.sections, cfg) // ท่อน-end breathe (§R2.8)
     // REFEREE §3 + §4 (พี่เปา 30 ก.ค. rules ② and ③) — the LEFT HAND stays under middle C and under
     // the tune, and never sounds a pitch the tune is still ringing.
     // ORDER MATTERS: these run AFTER rubato, because rubato LENGTHENS a ท่อน's last melody note by 12%

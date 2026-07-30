@@ -215,7 +215,7 @@ function breatheAt(events, beat, amount) {
   }
 }
 
-export function rubato(events, sections = []) {
+export function rubato(events, sections = [], cfg = {}) {
   const mel = events.filter((e) => e.role === 'melody').sort((a, b) => a.startBeat - b.startBeat)
   if (!mel.length) return events
   // boundary beats = where a NEW ท่อน starts (skip the first section's start = song start)
@@ -227,7 +227,14 @@ export function rubato(events, sections = []) {
     const crosses = bounds.some((b) => b > cur.startBeat && (!next || b <= next.startBeat))
     if (!next || crosses) {
       cur.beats *= RUBATO_STRETCH // the ท่อน's last note rings longer (the "ยืด")
-      if (next) breatheAt(events, next.startBeat, RUBATO_BREATH) // breath into the new ท่อน, both hands
+      // breath into the new ท่อน. Both hands by default; cfg.breathBothHands === false restores the
+      // old melody-only behaviour, which is how the before/after comparison renders the "before" side.
+      if (next) {
+        if (cfg.breathBothHands === false) {
+          next.timeShift = (next.timeShift || 0) + RUBATO_BREATH
+          next.breath = RUBATO_BREATH
+        } else breatheAt(events, next.startBeat, RUBATO_BREATH)
+      }
     }
   }
   return events

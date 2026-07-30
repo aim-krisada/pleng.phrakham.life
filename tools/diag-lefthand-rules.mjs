@@ -29,7 +29,10 @@ const meterMod = await import(pathToFileURL(`${dir}/src/lib/arranger/meter.js`).
 const presets = await import(pathToFileURL(`${dir}/src/lib/arranger/presets.js`).href)
 
 // what a listener actually hears: the shipped default preset
-const CFG = presets.presetCfg(presets.DEFAULT_PRESET)
+let CFG = presets.presetCfg(presets.DEFAULT_PRESET)
+// --before = turn the three new rules OFF, which must reproduce the pre-fix arranger exactly. Used to
+// PROVE the before/after audio really is old-vs-new and not new-vs-new.
+if (args.includes('--before')) CFG = { ...CFG, lockDownbeats: false, leftHandCeiling: false, leftHandNoUnison: false, breathBothHands: false }
 const LH = new Set(['inner', 'bass', 'emb']) // everything the LEFT hand plays
 const EPS = 1e-6
 
@@ -57,6 +60,7 @@ const T = { // library totals
   r3Held: 0, r3Together: 0, r3HeldComp: 0, r3TogetherComp: 0, r3Emb: 0, r3Songs: new Set(),
   lhSpreadSum: 0, lhSpreadN: 0, lhDistinctSum: 0,
   r5Joins: 0, r5Bad: 0, r5MaxMs: 0, r5SumMs: 0, r5Songs: new Set(),
+  r5Breath: 0, r5WithLh: 0, r5Apart: 0, r5ApartMaxMs: 0,
   r5TiedJoins: 0, r5TiedBad: 0, // the subset where the previous line ended on a LONG (held) note
   skipped: 0,
 }
@@ -74,6 +78,7 @@ for (const s of songs) {
     r1Downbeats: 0, r1Bad: 0, r1MaxMs: 0, r2a: 0, r2aComp: 0, r2b: 0, r2bComp: 0,
     r3Held: 0, r3Together: 0, r3HeldComp: 0, r3TogetherComp: 0, r3Emb: 0,
     r5Joins: 0, r5Bad: 0, r5MaxMs: 0, r5TiedJoins: 0, r5TiedBad: 0, lh: 0,
+    r5Breath: 0, r5WithLh: 0, r5Apart: 0, r5ApartMaxMs: 0,
     lhLo: null, lhHi: null, lhSpread: null, lhDistinct: null }
 
   // ---- the melody note(s) RINGING at an instant (may be more than one at a seam) ----
@@ -137,9 +142,20 @@ for (const s of songs) {
       row.r5Joins++
       const tied = (sounding[i - 1].beats || 0) >= 2 // previous line ended on a long / held note
       if (tied) row.r5TiedJoins++
-      const ms = Math.abs((mel[i].timeShift || 0) * 1000)
+      const ev = mel[i]
+      const ms = Math.abs((ev.timeShift || 0) * 1000)
       if (ms > 5) { row.r5Bad++; if (tied) row.r5TiedBad++; T.r5SumMs += ms }
       if (ms > row.r5MaxMs) row.r5MaxMs = ms
+      // WHAT KIND of off-grid is it? Two very different things get lumped together by |shift| alone:
+      //  · a deliberate phrase BREATH (rubato at a ท่อน boundary) — musical, and now moves both hands
+      //  · the two hands actually landing APART — the "เหลื่อม" พี่เปา is complaining about
+      if (ev.breath) row.r5Breath++
+      const lhHere = events.filter((x) => LH.has(x.role) && Math.abs(x.startBeat - ev.startBeat) < 1e-3)
+      if (lhHere.length) {
+        row.r5WithLh++
+        const apart = Math.max(...lhHere.map((x) => Math.abs((x.timeShift || 0) - (ev.timeShift || 0)) * 1000))
+        if (apart > 1) { row.r5Apart++; if (apart > row.r5ApartMaxMs) row.r5ApartMaxMs = apart }
+      }
     }
   }
 
@@ -155,6 +171,8 @@ for (const s of songs) {
   if (row.lhSpread != null) { T.lhSpreadSum += row.lhSpread; T.lhSpreadN++; T.lhDistinctSum += row.lhDistinct }
   T.r5Joins += row.r5Joins; T.r5Bad += row.r5Bad
   T.r5TiedJoins += row.r5TiedJoins; T.r5TiedBad += row.r5TiedBad
+  T.r5Breath += row.r5Breath; T.r5WithLh += row.r5WithLh; T.r5Apart += row.r5Apart
+  if (row.r5ApartMaxMs > T.r5ApartMaxMs) T.r5ApartMaxMs = row.r5ApartMaxMs
   if (row.r5MaxMs > T.r5MaxMs) T.r5MaxMs = row.r5MaxMs
   if (row.r5Bad) T.r5Songs.add(s.number)
   perSong.push(row)
@@ -180,6 +198,9 @@ console.log(`R5  line joins                : ${T.r5Joins}   (of which previous l
 console.log(`R5  first note off-grid >5ms  : ${T.r5Bad}  (${pct(T.r5Bad, T.r5Joins)})  songs ${T.r5Songs.size}`)
 console.log(`R5     of those, after a long : ${T.r5TiedBad}  (${pct(T.r5TiedBad, T.r5TiedJoins)})`)
 console.log(`R5  worst |shift|             : ${T.r5MaxMs.toFixed(1)} ms   mean(bad) ${(T.r5Bad ? T.r5SumMs / T.r5Bad : 0).toFixed(1)} ms`)
+console.log(`R5  of the off-grid: deliberate phrase breath: ${T.r5Breath}`)
+console.log(`R5  line joins where the LEFT HAND also strikes: ${T.r5WithLh}`)
+console.log(`R5     ... and the two hands land APART (>1ms) : ${T.r5Apart}  (${pct(T.r5Apart, T.r5WithLh)})  worst ${T.r5ApartMaxMs.toFixed(1)} ms`)
 
 if (jsonOut) {
   writeFileSync(jsonOut, JSON.stringify({
