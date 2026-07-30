@@ -23,7 +23,7 @@
 import { rngFor } from './rng.js'
 import {
   humanizeVel, humanizeTime, metricAccent, melodicContour,
-  sectionDynamics, crescendo, rubato, clampAll, easeUnderHold,
+  sectionDynamics, crescendo, rubato, clampAll, easeUnderHold, lockDownbeats,
 } from './dynamics.js'
 import { applyVoicing } from './voicing.js'
 import { embellishChord } from './embellish.js'
@@ -177,6 +177,10 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
     const humOff = cfg.humanize === false
     humanizeVel(events, rng, humOff ? 0 : (cfg.humanizeVel ?? mod.humanizeFeel.velJitter))
     humanizeTime(events, rng, humOff ? 0 : (cfg.humanizeTime ?? mod.humanizeFeel.timing.sigma))
+    // DOWNBEAT LOCK (พี่เปา 30 ก.ค. rule ①) — LAST timing pass, after humanize and rubato have both
+    // had their say, so nothing downstream can pull the two hands apart again at beat 1 of a bar.
+    // Timing only: every hand's WEIGHT is still shaped independently below (พี่เปา: "น้ำหนักต้องไม่เท่ากัน").
+    if (cfg.lockDownbeats !== false) lockDownbeats(events, bpb, barOffset)
     clampAll(events) // velocity-in-layer safety net (§7b)
     // REFEREE §2 (ยาม · golden-piano) — the FINAL word on balance: after every gain is settled, pin
     // each non-melody voice ≤ the melody actually sounding over it × 0.8 (right hand leads ≥20%) and
