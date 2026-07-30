@@ -29,6 +29,7 @@ import { applyVoicing } from './voicing.js'
 import { embellishChord } from './embellish.js'
 import { answerFills, applySusCadence } from './fills.js'
 import { refereeNoClash, balanceFloor, legatoBass } from './referee.js'
+import { lowerLeftHandBelowMelody, thickenIntoClimax } from './teacher.js'
 import { keyboard } from './instruments/keyboard.js'
 
 /** @typedef {Object} PerfEvent
@@ -183,6 +184,12 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
     // lift any voice the dynamics chain drove toward inaudible back to a soft floor. Last so nothing
     // downstream can reopen the balance. INTRINSIC (P'Aim 15 ก.ค.) — always runs when the arranger is on.
     balanceFloor(events, cfg)
+    // กฎครูวีรศักดิ์ (opt-in · teacher.js) — ทำงานหลัง balance เพื่อไม่ให้ balance ดันกลับ:
+    //   lhCeiling = มือซ้ายห้ามล้ำทับช่วงเสียงทำนอง (ย้ายลงเป็นอ็อกเทฟ → ยังเป็นโน้ตในคอร์ดเดิม)
+    //   thicken   = ไต่เข้าไคลแมกซ์ด้วย "ความหนา" (เติมอ็อกเทฟล่างของเบส) แทนการเพิ่มความดัง
+    // ⛔ ทั้งคู่ปิดโดยค่าเริ่มต้น — พรีเซ็ตเดิมไม่เปลี่ยนพฤติกรรมเลย
+    if (cfg.lhCeiling) lowerLeftHandBelowMelody(events, cfg.lhCeiling === true ? {} : cfg.lhCeiling)
+    if (cfg.thicken && cfg.thicken.plan) thickenIntoClimax(events, cfg.thicken.plan, cfg.thicken)
     // REFEREE §1 LEGATO (golden-piano) — close the "ฟันหลอ" seam in the LEFT hand: stretch each bass
     // note to connect into the next so ลากอุ้ม/ลากเชื่อม rings continuously. Last, after humanize has
     // locked the bass onset on-grid (dynamics.humanizeTime skips role 'bass'). Beat-space, pure.
