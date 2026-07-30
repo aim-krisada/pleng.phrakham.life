@@ -218,6 +218,73 @@ export function leftHandCeiling(events, cfg = {}) {
   return events
 }
 
+// §4 NO UNISON WITH THE TUNE (พี่เปา 30 ก.ค. · rule ③). "ไม่ให้เล่นซ้ำ โดยเฉพาะโน้ตตัวสุดท้ายของมือซ้าย
+// ... มาชนกับมือขวาในจังหวะที่ถูกทิ้ง หรือกดทำให้สับสน เพราะเสียงมันเป็นเสียงเดียวกัน".
+//
+// The test is NOT "struck at the same moment". It is: at the instant the left hand plays, is the right
+// hand still RINGING that very pitch? A tune note left hanging over a bar is the case he singles out —
+// the left hand walks into it and the two fuse into one confused sound. So we check every melody note
+// SOUNDING at the left-hand onset, not just the ones that start there.
+//
+// The escape is his own: 'CG ... มือซ้ายเล่น G แล้วก็ไปตรงกับ G มือขวา อันเนี้ยไม่ได้ ต้องหลบกัน' — the
+// left hand moves to a DIFFERENT tone OF THE SAME CHORD (C or E under a held G), so the harmony is
+// unchanged and only the doubling disappears. Preference order:
+//   1. another chord tone, nearest to where the voice already was (smallest possible move)
+//   2. failing that, the same tone an octave away (no longer the same pitch, still legal)
+//   3. failing that, leave it — never drop the note, which would punch a hole in the comp.
+// The BASS may only take option 2: moving it to a different chord tone would change the foundation the
+// whole bar is built on, which is a harmony decision, not a collision fix.
+export function leftHandNoUnison(events, voicedChords = [], cfg = {}) {
+  const ceil = cfg.leftHandCeiling ?? LH_CEILING
+  const floor = cfg.leftHandFloor ?? LH_FLOOR
+  const mel = events.filter((e) => e.role === 'melody' && e.midi != null).sort((a, b) => a.startBeat - b.startBeat)
+  if (!mel.length) return events
+  // every melody pitch RINGING at beat b (a note still sounding counts, which is พี่เปา's whole point)
+  const ringing = (b) => {
+    const out = []
+    for (const m of mel) {
+      if (m.startBeat > b + 1e-9) break
+      if (b < m.startBeat + m.beats - 1e-9) out.push(m.midi)
+    }
+    return out
+  }
+  const chordAt = (b) => voicedChords.find((c) => b >= c.startBeat - 1e-9 && b < c.startBeat + c.beats - 1e-9)
+  const taken = (p, ring) => ring.some((m) => m === p)
+
+  for (const e of events) {
+    if (!isLeftHand(e) || e.midi == null) continue
+    const ring = ringing(e.startBeat)
+    if (!taken(e.midi, ring)) continue
+    const melHi = ring.length ? Math.max(...ring) : null
+    const limit = melHi == null ? ceil : Math.min(ceil, melHi - 1)
+    const legal = (p) => p >= floor && p <= limit && !taken(p, ring)
+
+    let moved = null
+    if (e.role === 'inner') {
+      const chord = chordAt(e.startBeat)
+      const classes = new Set()
+      if (chord) {
+        for (const u of chord.up || []) classes.add(((u % 12) + 12) % 12)
+        if (chord.bass != null) classes.add(((chord.bass % 12) + 12) % 12)
+      }
+      classes.delete(((e.midi % 12) + 12) % 12) // option 1 = a DIFFERENT tone of the same chord
+      let best = null
+      for (const pc of classes) {
+        for (let p = floor + (((pc - floor) % 12) + 12) % 12; p <= limit; p += 12) {
+          if (!legal(p)) continue
+          if (best == null || Math.abs(p - e.midi) < Math.abs(best - e.midi)) best = p
+        }
+      }
+      moved = best
+    }
+    if (moved == null) { // option 2 — the same tone an octave away (the only move the bass may make)
+      for (const p of [e.midi - 12, e.midi + 12]) if (legal(p)) { moved = p; break }
+    }
+    if (moved != null) e.midi = moved // option 3 = leave it; never delete a note
+  }
+  return events
+}
+
 // §1 LEGATO — close the vacuum between consecutive LEFT-HAND (bass) notes (G's "ล็อก Note-Off · ปิด
 // ช่องว่างสูญญากาศ"). A held/pedal or walking bass should CONNECT, but every note is released a hair
 // early by the scheduler (and humanize used to jitter its onset), leaving a silent seam = "ฟันหลอ".
