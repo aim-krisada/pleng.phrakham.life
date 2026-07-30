@@ -8,10 +8,18 @@ name: Deploy to GitHub Pages
 # GitHub Pages has no partial deploy: `deploy-pages` REPLACES the whole site with the uploaded
 # artifact every run. So a workflow that built only one branch would delete the other version on
 # every push. This one always builds BOTH and uploads them together — whichever branch triggered
-# it — which is why the trigger lists both branches and why the file must be IDENTICAL on both.
+# it, so both versions survive every deploy.
+#
+# TRIGGER = `main` ONLY (fixed 30 Jul 2026). The GitHub `github-pages` environment allows
+# deployment from `main` alone, so listing this branch here never once deployed anything — it only
+# started a run that the environment rule then rejected 3 seconds later. Every push to the base
+# branch produced a red ✗ that looked like a broken deploy and was not one (run #174 and the four
+# before it). Worse: a real deploy failure would have been indistinguishable from that noise.
+# The old comment here claimed the file "must be IDENTICAL on both" branches — it already was not,
+# and that claim is what put this branch in the trigger list in the first place.
 on:
   push:
-    branches: [main, studio-shell-redesign]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
