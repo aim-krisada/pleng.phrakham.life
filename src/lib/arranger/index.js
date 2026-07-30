@@ -189,7 +189,11 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
     // DOWNBEAT LOCK (พี่เปา 30 ก.ค. rule ①) — LAST timing pass, after humanize and rubato have both
     // had their say, so nothing downstream can pull the two hands apart again at beat 1 of a bar.
     // Timing only: every hand's WEIGHT is still shaped independently below (พี่เปา: "น้ำหนักต้องไม่เท่ากัน").
-    if (cfg.lockDownbeats !== false) lockDownbeats(events, bpb, barOffset)
+    // NOTE (การย้ายมาสาย v1): สาย v3 ส่ง barOffset มาด้วย เพราะที่นั่นมี meter.js ที่รู้จัก "ห้องนำ" (pickup)
+    // สาย v1 ไม่มี meter.js และไม่มีแนวคิดห้องนำเลย — ทุกชั้นที่ล็อกกับห้องบนสายนี้นับห้องจากบีต 0 หมด
+    // (ดู metricAccent(events, bpb) กับ easeUnderHold ข้างบน) จึงปล่อยให้ barOffset เป็นค่าเริ่มต้น 0
+    // ให้ตรงกับเพื่อนบ้านบนสายเดียวกัน ⛔ ไม่ยกระบบห้องนำข้ามมา เพราะนั่นเป็นงานคนละใบ
+    if (cfg.lockDownbeats !== false) lockDownbeats(events, bpb)
     clampAll(events) // velocity-in-layer safety net (§7b)
     // REFEREE §2 (ยาม · golden-piano) — the FINAL word on balance: after every gain is settled, pin
     // each non-melody voice ≤ the melody actually sounding over it × 0.8 (right hand leads ≥20%) and
