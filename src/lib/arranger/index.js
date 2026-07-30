@@ -23,12 +23,12 @@
 import { rngFor } from './rng.js'
 import {
   humanizeVel, humanizeTime, metricAccent, melodicContour,
-  sectionDynamics, crescendo, rubato, clampAll, easeUnderHold,
+  sectionDynamics, crescendo, rubato, clampAll, easeUnderHold, lockDownbeats,
 } from './dynamics.js'
 import { applyVoicing } from './voicing.js'
 import { embellishChord } from './embellish.js'
 import { answerFills, applySusCadence } from './fills.js'
-import { refereeNoClash, balanceFloor, legatoBass } from './referee.js'
+import { refereeNoClash, balanceFloor, legatoBass, leftHandCeiling, leftHandNoUnison } from './referee.js'
 import { keyboard } from './instruments/keyboard.js'
 
 /** @typedef {Object} PerfEvent
@@ -173,10 +173,27 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
     if (dyn.contour !== false) melodicContour(events)
     if (dyn.cresc) crescendo(events, dyn.cresc)
     if (dyn.rubato !== false) rubato(events, meta.sections) // ท่อน-end breathe (§R2.8)
+    // REFEREE §3 + §4 (พี่เปา 30 ก.ค. rules ② and ③) — the LEFT HAND stays under middle C and under
+    // the tune, and never sounds a pitch the tune is still ringing.
+    // ORDER MATTERS: these run AFTER rubato, because rubato LENGTHENS a ท่อน's last melody note by 12%
+    // — so a tune note that looked finished a moment ago is in fact still sounding when the left hand
+    // plays. Checking before the stretch missed exactly the case พี่เปา singled out ("จังหวะที่ถูกทิ้ง").
+    // Safe to sit here: refereeNoClash above only ever filters 'emb', and these two only ever touch
+    // 'inner'/'bass', so neither pass can change the other's decisions.
+    if (cfg.leftHandCeiling !== false) leftHandCeiling(events, cfg)
+    if (cfg.leftHandNoUnison !== false) leftHandNoUnison(events, voicedChords, cfg)
     // humanize: cfg.humanize === false turns BOTH nudges off (jitter 0) so the menu can A/B it.
     const humOff = cfg.humanize === false
     humanizeVel(events, rng, humOff ? 0 : (cfg.humanizeVel ?? mod.humanizeFeel.velJitter))
     humanizeTime(events, rng, humOff ? 0 : (cfg.humanizeTime ?? mod.humanizeFeel.timing.sigma))
+    // DOWNBEAT LOCK (พี่เปา 30 ก.ค. rule ①) — LAST timing pass, after humanize and rubato have both
+    // had their say, so nothing downstream can pull the two hands apart again at beat 1 of a bar.
+    // Timing only: every hand's WEIGHT is still shaped independently below (พี่เปา: "น้ำหนักต้องไม่เท่ากัน").
+    // NOTE (การย้ายมาสาย v1): สาย v3 ส่ง barOffset มาด้วย เพราะที่นั่นมี meter.js ที่รู้จัก "ห้องนำ" (pickup)
+    // สาย v1 ไม่มี meter.js และไม่มีแนวคิดห้องนำเลย — ทุกชั้นที่ล็อกกับห้องบนสายนี้นับห้องจากบีต 0 หมด
+    // (ดู metricAccent(events, bpb) กับ easeUnderHold ข้างบน) จึงปล่อยให้ barOffset เป็นค่าเริ่มต้น 0
+    // ให้ตรงกับเพื่อนบ้านบนสายเดียวกัน ⛔ ไม่ยกระบบห้องนำข้ามมา เพราะนั่นเป็นงานคนละใบ
+    if (cfg.lockDownbeats !== false) lockDownbeats(events, bpb)
     clampAll(events) // velocity-in-layer safety net (§7b)
     // REFEREE §2 (ยาม · golden-piano) — the FINAL word on balance: after every gain is settled, pin
     // each non-melody voice ≤ the melody actually sounding over it × 0.8 (right hand leads ≥20%) and
