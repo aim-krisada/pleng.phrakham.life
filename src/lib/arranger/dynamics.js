@@ -37,7 +37,44 @@ export function humanizeTime(events, rng, sigma = 0.012) {
     // never gets a jittered onset that opens a seam ("ฟันหลอ"). Only melody + inner voices breathe.
     if (e.role === 'bass') { e.timeShift = e.timeShift || 0; continue }
     const s = e.role === 'melody' ? sigma : sigma * CHORD_TIME_RATIO
-    e.timeShift = (e.timeShift || 0) + (rng() * 2 - 1) * s
+    const jitter = (rng() * 2 - 1) * s
+    e.timeShift = (e.timeShift || 0) + jitter
+    // Remember how much of this onset is RANDOM, so lockDownbeats can take back exactly that much
+    // at beat 1 without disturbing an offset some other layer put there on purpose.
+    e.humanizeShift = (e.humanizeShift || 0) + jitter
+  }
+  return events
+}
+
+// R2.10 — DOWNBEAT LOCK (พี่เปา 30 ก.ค. · rule ①). "เห็นด้วยว่าคนลงจังหวะเดียวกัน … เพื่อให้ไม่รู้สึกว่า
+// เล่นแล้วมันกระตุก หรือเพลงมันเหลื่อมในจังหวะแรก". At beat 1 of a bar the tune, the chord and the bass
+// must strike at the SAME instant; the ear hears any spread there as แฉลบ / เหลื่อม / กระตุก, not as a
+// human touch. humanizeTime gives melody ±12 ms and chord ±4.2 ms INDEPENDENTLY, so the two hands are
+// pulled apart at exactly the moment they should be tightest (measured: 97.1% of downbeats, worst 75 ms).
+//
+// TWO THINGS THIS DELIBERATELY DOES NOT DO:
+//   · it never touches `gain` — พี่เปา in the same breath: "แต่น้ำหนักต้องไม่เท่ากันนะ". Only the CLOCK
+//     is unified; humanizeVel, metricAccent and the melody-lead balance all still shape each hand's
+//     weight separately, so the downbeat is together but not flat.
+//   · it only locks beat 1. Beats 2/3/4 and the subdivisions keep their natural spread (พี่เปา: "ส่วน
+//     จังหวะย่อยกลางห้อง … ปล่อยให้มีความเหลื่อมธรรมชาติตามปกติ").
+//
+// WHAT IT REMOVES is exactly the RANDOM part of the onset (`humanizeShift`) and nothing else. It does
+// not flatten the downbeat to zero, because not every offset there is noise:
+//   · the rubato BREATH — a phrase that starts a hair late is musical. rubato() now gives that one
+//     shift to every voice struck at that instant, so the whole texture arrives late TOGETHER; that is
+//     also the direct answer to พี่เปา's line-join note (a new ท่อน/บรรทัด breathes with both hands).
+//   · an instrument's own idiom — a guitar DOWN-STRUM rakes its strings low→high with a deliberate
+//     per-string offset. That is ONE hand's signature, not two hands drifting apart, and flattening it
+//     would turn a strum into a block chord. พี่เปา's rule is about the piano's two hands.
+export function lockDownbeats(events, barBeats = 4, barOffset = 0) {
+  if (!(barBeats > 0)) return events
+  for (const e of events) {
+    const x = (e.startBeat - barOffset) / barBeats
+    if (Math.abs(x - Math.round(x)) > 1e-4) continue // not beat 1 of a bar
+    if (!e.humanizeShift) continue
+    e.timeShift = (e.timeShift || 0) - e.humanizeShift
+    e.humanizeShift = 0
   }
   return events
 }
@@ -165,6 +202,19 @@ export function crescendo(events, hairpins) {
 // the song ritards. Fires only at ท่อน ends — NOT every long note (that was the old proxy).
 const RUBATO_STRETCH = 1.12 // last-note lengthening (P'Aim: 10–15%)
 const RUBATO_BREATH = 0.06 // seconds of "breath" before the next ท่อน
+// A breath is a WHOLE-BODY gesture, not a melody-only one (พี่เปา 30 ก.ค. item 5: "ช่วงที่ต่อบรรทัด
+// บางทีโน้ตมันลากไว้ แล้วเวลาขึ้นมันขึ้นเหลื่อม ๆ ขึ้นไม่ตรงจังหวะ"). The breath used to be added to the
+// melody note ALONE, so the tune came in ~60 ms after a left hand that had stayed on the grid — the two
+// hands pulled apart at exactly a phrase/line start, which is the seam he can hear. Give the same shift
+// to every voice struck at that instant so the whole texture breathes together and still arrives as one.
+function breatheAt(events, beat, amount) {
+  for (const e of events) {
+    if (Math.abs(e.startBeat - beat) > 1e-6) continue
+    e.timeShift = (e.timeShift || 0) + amount
+    e.breath = amount // tag: lockDownbeats keeps a deliberate shift, discards plain humanize jitter
+  }
+}
+
 export function rubato(events, sections = []) {
   const mel = events.filter((e) => e.role === 'melody').sort((a, b) => a.startBeat - b.startBeat)
   if (!mel.length) return events
@@ -177,7 +227,7 @@ export function rubato(events, sections = []) {
     const crosses = bounds.some((b) => b > cur.startBeat && (!next || b <= next.startBeat))
     if (!next || crosses) {
       cur.beats *= RUBATO_STRETCH // the ท่อน's last note rings longer (the "ยืด")
-      if (next) next.timeShift = (next.timeShift || 0) + RUBATO_BREATH // breath into the new ท่อน
+      if (next) breatheAt(events, next.startBeat, RUBATO_BREATH) // breath into the new ท่อน, both hands
     }
   }
   return events
