@@ -28,7 +28,7 @@ import {
 import { applyVoicing } from './voicing.js'
 import { embellishChord } from './embellish.js'
 import { answerFills, applySusCadence } from './fills.js'
-import { refereeNoClash, balanceFloor, legatoBass } from './referee.js'
+import { refereeNoClash, balanceFloor, legatoBass, leftHandCeiling } from './referee.js'
 import { keyboard } from './instruments/keyboard.js'
 import { meterOf, barOffsetFor } from './meter.js'
 
@@ -175,6 +175,10 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   // so the shaping layer only touches survivors. INTRINSIC (P'Aim 15 ก.ค.: เปิดตลอด · ซ่อนปุ่ม) — it's
   // a discipline rule, not a taste, so it always runs; it's what lets the "เปิดหมด" default not turn
   // to mud. The melody + comp + bass are untouched — only the optional ลูกเล่น are policed.
+  // REFEREE §3 (เพดานมือซ้าย · พี่เปา 30 ก.ค.) — the LEFT HAND stays under middle C and under the tune.
+  // BEFORE the conductor, so the pre-echo test judges the pitches that will actually sound.
+  if (on && cfg.leftHandCeiling !== false) events = leftHandCeiling(events, cfg)
+
   if (on) events = refereeNoClash(events, cfg)
 
   // LAYER 2 dynamics — only when the arranger is ON. When OFF ("ลูกเล่นปิด"): notes play exactly
