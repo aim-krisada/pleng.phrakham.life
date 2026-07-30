@@ -32,13 +32,14 @@ window.abRender = async function abRender(song, side, filename) {
     songId: song.id,
     kbps: 192,
   })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = filename; document.body.appendChild(a); a.click()
-  await new Promise((r) => setTimeout(r, 400))
-  URL.revokeObjectURL(url); a.remove()
+  // ส่งไฟล์กลับไปให้ node เขียนลงดิสก์เอง ⛔ ไม่ใช้ระบบ "ดาวน์โหลด" ของเบราว์เซอร์
+  // (ลองแล้วเบราว์เซอร์กลืนไฟล์หายเงียบ ๆ ทั้งที่ตั้ง Browser.setDownloadBehavior ไว้แล้ว — เสียเวลาไป 2 รอบ
+  //  จึงเลิกใช้ทางนั้น แล้วส่งเป็น POST ธรรมดาแทน ซึ่งตรวจได้ว่าเขียนสำเร็จจริงจากรหัสตอบกลับ)
+  const res = await fetch(`${window.AB_SINK}/save?name=${encodeURIComponent(filename)}`, { method: 'POST', body: blob })
+  if (!res.ok) throw new Error(`เขียนไฟล์ไม่สำเร็จ: ${res.status}`)
+  const saved = await res.json()
   log(`done ${filename} · ${blob.size} bytes · ${seconds.toFixed(1)}s`)
-  return { filename, side, seconds, bytes: blob.size }
+  return { filename, side, seconds, bytes: blob.size, savedBytes: saved.bytes }
 }
 window.abReady = true
 log('พร้อม (abRender)')

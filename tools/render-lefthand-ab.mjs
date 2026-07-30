@@ -7,6 +7,7 @@
 //   node tools/render-lefthand-ab.mjs 5761 <outDir>
 import { WebSocket } from 'ws'
 import fs from 'node:fs'
+import http from 'node:http'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import os from 'node:os'
@@ -37,6 +38,28 @@ console.log(`✓ dev server ${VITE_PORT} เปิดอยู่`)
 const songs = JSON.parse(fs.readFileSync(SONGS, 'utf8'))
 fs.mkdirSync(OUT, { recursive: true }); fs.mkdirSync(PROFILE, { recursive: true })
 
+// จุดรับไฟล์เสียง — หน้าเว็บ POST ไฟล์มาที่นี่ แล้ว node เขียนลงดิสก์
+// ⛔ ไม่พึ่งระบบ "ดาวน์โหลด" ของเบราว์เซอร์ เพราะทดลองแล้วมันกลืนไฟล์หายเงียบ ๆ ตรวจไม่ได้ว่าพลาด
+const SINK_PORT = 5799
+const sink = http.createServer((req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Headers', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS')
+  if (req.method === 'OPTIONS') { res.writeHead(204).end(); return }
+  const name = decodeURIComponent((req.url.split('name=')[1] || '').split('&')[0])
+  if (req.method !== 'POST' || !name) { res.writeHead(400).end('bad'); return }
+  const chunks = []
+  req.on('data', (c) => chunks.push(c))
+  req.on('end', () => {
+    const buf = Buffer.concat(chunks)
+    fs.writeFileSync(path.join(OUT, path.basename(name)), buf)
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ bytes: buf.length }))
+  })
+})
+await new Promise((r) => sink.listen(SINK_PORT, '127.0.0.1', r))
+console.log(`✓ จุดรับไฟล์เสียงพร้อมที่พอร์ต ${SINK_PORT}`)
+
 const child = spawn(CHROMIUM, ['--headless=new', `--remote-debugging-port=${CDP_PORT}`,
   '--remote-allow-origins=*', `--user-data-dir=${PROFILE}`, '--no-first-run', '--no-default-browser-check',
   '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', 'about:blank'], { stdio: 'ignore' })
@@ -56,7 +79,6 @@ ws.onmessage = (e) => {
   const m = JSON.parse(e.data)
   if (m.id && pending.has(m.id)) { const { res, rej } = pending.get(m.id); pending.delete(m.id); m.error ? rej(new Error(JSON.stringify(m.error))) : res(m.result) }
 }
-await send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: OUT, eventsEnabled: true })
 const { targetId } = await send('Target.createTarget', { url: 'about:blank' })
 const { sessionId: S } = await send('Target.attachToTarget', { targetId, flatten: true })
 await send('Page.enable', {}, S); await send('Runtime.enable', {}, S)
@@ -68,6 +90,7 @@ for (let i = 0; i < 120; i++) {
   try { const r = await send('Runtime.evaluate', { expression: 'window.abReady === true', returnByValue: true }, S); if (r.result?.value === true) { ready = true; break } } catch { /* still loading */ }
 }
 if (!ready) { try { child.kill() } catch { /* already gone */ } ; die('หน้า render-ab ไม่พร้อม') }
+await send('Runtime.evaluate', { expression: `window.AB_SINK = 'http://127.0.0.1:${SINK_PORT}'`, returnByValue: true }, S)
 
 const results = []
 for (const clip of CLIPS) {
@@ -82,8 +105,12 @@ for (const clip of CLIPS) {
     results.push({ ...r.result.value, number: clip.number, title: song.title_th, why: clip.why })
   }
 }
-await sleep(2000)
 try { child.kill() } catch { /* already gone */ }
+sink.close()
 fs.writeFileSync(path.join(OUT, 'ผลการอัด.json'), JSON.stringify(results, null, 2), 'utf8')
-console.log(`\n✓ อัดเสียงแล้ว ${results.length} ไฟล์ → ${OUT}`)
+// ตรวจของจริงบนดิสก์ ไม่ใช่เชื่อว่า "สั่งเขียนแล้ว" — จบเงียบโดยไม่มีไฟล์คือความล้มเหลวที่มองไม่เห็น
+const onDisk = fs.readdirSync(OUT).filter((f) => f.endsWith('.mp3'))
+console.log(`\n✓ อัดเสียงแล้ว ${results.length} ไฟล์ · บนดิสก์จริง ${onDisk.length} ไฟล์ → ${OUT}`)
+for (const f of onDisk) console.log(`   ${(fs.statSync(path.join(OUT, f)).size / 1048576).toFixed(2)} MB  ${f}`)
+if (onDisk.length !== results.length) { console.error('⛔ จำนวนไฟล์บนดิสก์ไม่ตรงกับที่อัด'); process.exit(1) }
 process.exit(0)
