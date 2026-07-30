@@ -162,6 +162,62 @@ export function balanceFloor(events, cfg = {}) {
   return events
 }
 
+// §3 LEFT-HAND CEILING (พี่เปา 30 ก.ค. · rule ②). "มือซ้ายไม่ให้เกิน middle C ขึ้นมา" — he confirmed
+// that the "C3" in the first round meant MIDDLE C, MIDI 60 — plus the rule from the first round: the
+// left hand may never sound HIGHER than the tune it is accompanying, so the melody always floats on
+// top and the ear can always tell which line is the tune.
+//
+// WHY A POST-PASS AND NOT A NARROWER VOICE-LEADING WINDOW: the second half of the rule needs to know
+// what the MELODY is doing, and buildChordVoice/voicing() never see the melody — they only see chord
+// symbols. Squeezing midi.js's UP_LO..UP_HI window down to 48..60 instead would leave most pitch
+// classes exactly ONE legal octave, which freezes the voicing into one shape per chord — the "มือซ้าย
+// แบนระดับเดียว" that raising the chords was meant to cure. So the ceiling is enforced here, where both
+// hands are visible, by dropping an offending voice a whole octave (its pitch CLASS never changes, so
+// the chord the sheet prints is still the chord that sounds — golden rule §1a).
+//
+// ⛔ NOT IMPLEMENTED ON PURPOSE: a limit on how WIDE the left-hand chord may be. G guessed the garbled
+// line "เสียงต้องไม่เกินอ๊อกเตะ" meant a 1-octave voicing span; พี่เปา corrected that himself — "ข้อ 4
+// จริงๆ ก็คือความหมายเดียวกันกับข้อ 2 ไม่ได้จำกัดว่าให้เล่นความกว้างอยู่แค่ 1 ออคเต็ป ไม่ใช่นะ".
+export const LH_CEILING = 60 // middle C
+// how far down a voice may be pushed chasing the ceiling. Below C2 a stacked chord turns to mud, so a
+// voice that cannot be made legal without going under this is left where it is (and stays counted as a
+// violation) rather than being buried.
+export const LH_FLOOR = 36
+// roles that ARE the left hand: the comp and the bass. 'emb' (ประกาย / ลูกเล่น) is a deliberate high
+// shimmer policed by the conductor's pre-echo rule above, and พี่เปา's rule names คอร์ด and เบส.
+const isLeftHand = (e) => e.role === 'inner' || e.role === 'bass'
+
+// The melody pitch the left hand has to stay under at beat `b`: the highest tune note actually RINGING
+// there, else the most recent one (during a rest the tune we just heard is still the reference).
+function melodyCeilingFn(events) {
+  const mel = events.filter((e) => e.role === 'melody' && e.midi != null).sort((a, b) => a.startBeat - b.startBeat)
+  if (!mel.length) return () => null
+  return (b) => {
+    let hi = null
+    let prev = null
+    for (const m of mel) {
+      if (m.startBeat > b + 1e-9) break
+      prev = m
+      if (b < m.startBeat + m.beats - 1e-9) hi = hi == null ? m.midi : Math.max(hi, m.midi)
+    }
+    return hi != null ? hi : (prev ? prev.midi : null)
+  }
+}
+
+export function leftHandCeiling(events, cfg = {}) {
+  const ceil = cfg.leftHandCeiling ?? LH_CEILING
+  const floor = cfg.leftHandFloor ?? LH_FLOOR
+  const melAt = melodyCeilingFn(events)
+  for (const e of events) {
+    if (!isLeftHand(e) || e.midi == null) continue
+    const mel = melAt(e.startBeat)
+    // strictly BELOW the tune (equal pitch is rule ③'s business, and is handled there)
+    const limit = mel == null ? ceil : Math.min(ceil, mel - 1)
+    while (e.midi > limit && e.midi - 12 >= floor) e.midi -= 12
+  }
+  return events
+}
+
 // §1 LEGATO — close the vacuum between consecutive LEFT-HAND (bass) notes (G's "ล็อก Note-Off · ปิด
 // ช่องว่างสูญญากาศ"). A held/pedal or walking bass should CONNECT, but every note is released a hair
 // early by the scheduler (and humanize used to jitter its onset), leaving a silent seam = "ฟันหลอ".
