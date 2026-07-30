@@ -43,12 +43,41 @@ const activeBook = ref(null)
 // searching = query has content → search view overrides the drill (mockup behaviour).
 const searching = computed(() => normalize(query.value) !== '')
 
+
 // review facets (B053/B054) narrow the flat search results; they only make sense over a
 // list, so they ride ALONG with the search view (the clean landing has no facets — the
 // approved mockup shows search + book grid only). `onlyUnverified` powers "ยังไม่ตรวจ";
 // `theme` filters by the imported อนุชน theme.
 const onlyUnverified = ref(false)
 const theme = ref('')
+
+// ⭐ พี่เปาขอเพิ่มเอง 30 ก.ค. ("กด 'ยังทำไม่เสร็จ' แล้วคัดมาให้ด้วย แค่นั้น"):
+// รายการแบนราบข้ามเล่มของ v1 เปิดได้เฉพาะตอน "พิมพ์" ค้นหา ⇒ สวิตช์คัดกรอง `onlyUnverified`
+// ที่ v1 มีอยู่แล้วจึงเอื้อมไม่ถึงเลยถ้าไม่พิมพ์อะไร · เปิดประตูที่สองให้มันแค่บานเดียว คือ
+// เปิดรายการเมื่อ "พิมพ์ค้นหา" *หรือ* "สวิตช์คัดกรองถูกเปิด"
+// ⛔ ไม่ได้เขียนตัวคัดกรองใหม่ ⛔ ไม่ได้สร้างหน้าใหม่ — ทั้งตัวคัดกรอง (`results`) และการ
+// จำกัดขอบเขตตามเล่ม (`searchBase`) เป็นของ v1 เดิม ไม่แตะแม้บรรทัดเดียว · และ `filterSongs`
+// คืนรายการทั้งหมดเมื่อคำค้นว่างอยู่แล้ว (`src/lib/songSearch.js` → `if (!q) return songs`)
+// ⇒ ได้ "เฉพาะที่ยังทำไม่เสร็จ" ฟรี ๆ โดยไม่ต้องเพิ่มตรรกะการคัดใด ๆ
+const showList = computed(() => searching.value || onlyUnverified.value)
+
+// กดเลข "ยังทำไม่เสร็จ" แล้วคัดมาให้ — code = null คือทุกเล่ม · code = รหัสเล่ม คือเฉพาะเล่มนั้น
+// เคลียร์คำค้นทิ้งด้วย เพราะถ้ามีคำค้นค้างอยู่ รายการจะถูกคัดสองชั้นแล้วเลขไม่ตรงกับที่กด
+function showUnfinished(code) {
+  query.value = ''
+  theme.value = ''            // ธีมที่ค้างอยู่ก็คัดซ้อนได้เหมือนกัน
+  activeBook.value = code || null
+  // ตั้งชั้นไว้ให้ "ปิดสวิตช์แล้วกลับไปที่ที่ควรกลับ": เฉพาะเล่ม → กลับเข้าเล่มนั้น · ทุกเล่ม → กลับหน้าแรก
+  level.value = code ? 'songs' : 'books'
+  onlyUnverified.value = true
+  window.scrollTo(0, 0)
+}
+
+// ปิดการคัดกรอง แล้วกลับไปที่ชั้นที่ showUnfinished ตั้งไว้ (เข้าเล่มนั้น หรือหน้าแรก)
+function clearUnfinished() {
+  onlyUnverified.value = false
+  window.scrollTo(0, 0)
+}
 
 const themes = computed(() =>
   [...new Set(songs.value.map((s) => s.theme).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th')),
@@ -326,24 +355,40 @@ onMounted(async () => {
           </span>
         </button>
         <!-- กองที่ 2 · ยังทำไม่เสร็จ — เพลงของเราเองที่ยังไม่เสร็จ (songs verified=false)
-             เป็นตัวเลขอ่านอย่างเดียว ⛔ ไม่ใช่ปุ่ม จึงไม่มีขอบ ไม่มีพื้น ไม่มีมือชี้
-             หน่วยเป็น "เพลง" ⛔ ไม่ใช่ "รายการ" เหมือนกองบน — พี่เปายืนยันเองว่าคนละกองกัน -->
-        <span class="wb-stat" aria-live="polite">
+             หน่วยเป็น "เพลง" ⛔ ไม่ใช่ "รายการ" เหมือนกองบน — พี่เปายืนยันเองว่าคนละกองกัน
+             ⭐ กดได้แล้ว (พี่เปาขอเพิ่ม) → คัดเฉพาะเพลงที่ยังทำไม่เสร็จ ทุกเล่ม
+             ใช้ชิป `.facet-chip` ของ v1 เอง ซึ่งเป็นชิปที่ v1 ใช้กับสวิตช์คัดกรองตัวนี้อยู่แล้ว
+             ⛔ ไม่สร้างหน้าตาใหม่ · กดอยู่ = คลาส `on` ของ v1 ทำให้เป็นสีแบรนด์เหมือนเดิม -->
+        <button
+          type="button"
+          class="facet-chip wb-stat"
+          :class="{ on: onlyUnverified && !searching }"
+          :aria-pressed="onlyUnverified && !searching"
+          @click="onlyUnverified && !searching ? clearUnfinished() : showUnfinished(null)"
+        >
           <span aria-hidden="true">✏️</span>
           <span class="wb-lbl">{{ W.unfinished }}</span>
           <span class="wb-count">{{ unfinishedTotal }}</span>
-          <span class="sr-only">{{ W.unfinished }} {{ unfinishedTotal }} เพลง (เพลงของเราเองที่ยังทำไม่เสร็จ)</span>
-        </span>
+          <span class="sr-only">เพลง — กดเพื่อดูเฉพาะเพลงที่ยังทำไม่เสร็จ ทุกเล่ม</span>
+        </button>
       </div>
     </div>
 
     <p v-if="loading" class="muted">กำลังโหลด…</p>
 
-    <!-- ===== SEARCH · flat results across every book (overrides levels) ===== -->
-    <section v-else-if="searching">
+    <!-- ===== SEARCH · flat results across every book (overrides levels) =====
+         เปิดได้ 2 ทางแล้ว: พิมพ์ค้นหา (เหมือนเดิม) หรือกดเลข "ยังทำไม่เสร็จ" (พี่เปาขอเพิ่ม) -->
+    <section v-else-if="showList">
       <div class="level-head">
-        <h2>ผลการค้นหา</h2>
+        <!-- หัวข้อบอกตรง ๆ ว่ากำลังดูอะไรอยู่: ค้นหา / เฉพาะที่ยังทำไม่เสร็จ (+ ชื่อเล่มถ้าจำกัดเล่ม)
+             ⛔ ห้ามค้างคำว่า "ผลการค้นหา" ตอนที่ไม่มีใครค้นอะไร — คนจะไม่รู้ว่าทำไมได้รายการนี้มา -->
+        <h2 v-if="searching">ผลการค้นหา</h2>
+        <h2 v-else>{{ W.unfinished }}{{ activeBookMeta ? ' · ' + activeBookMeta.name : ' · ทุกเล่ม' }}</h2>
         <span class="count muted" aria-live="polite">{{ results.length }} เพลง</span>
+        <!-- ทางออก: กลับไปหน้าแรก/เข้าเล่ม โดยไม่ต้องไปงมปิดสวิตช์เอง (ปิดสวิตช์ก็ยังทำได้อยู่) -->
+        <button v-if="!searching" type="button" class="crumb" @click="clearUnfinished">
+          ← {{ activeBookMeta ? 'ดูทั้งเล่ม' : 'เล่มทั้งหมด' }}
+        </button>
       </div>
       <!-- review facets = team QA tools → logged-in only (public sees only verified songs,
            so an "unverified" filter would be meaningless for them) -->
@@ -448,29 +493,39 @@ onMounted(async () => {
 
     <!-- ===== LEVEL 1 · bookshelf (landing) — one vertical list, same as the songs ===== -->
     <section v-else>
+      <!-- แถวเล่ม = การ์ด 1 ใบที่มีปุ่ม 2 ปุ่มอยู่ข้างใน "เป็นพี่น้องกัน"
+           ⛔ ไม่ใช่ปุ่มซ้อนปุ่ม (ผิดกติกา + แป้นพิมพ์กดปุ่มข้างในไม่ได้เลย)
+           หน้าตาไม่เปลี่ยน: ย้าย กรอบ/สันสีน้ำตาล/ความโค้ง/พื้น ไปไว้ที่ตัวการ์ด `.book-row-wrap`
+           แล้วให้ปุ่มทั้งสองใสไม่มีพื้นของตัวเอง ⇒ ตายังเห็นแถวเดียวแบบ v1 เดิมทุกประการ -->
       <div class="book-list">
-        <button
+        <div
           v-for="b in shelf"
           :key="b.code"
-          type="button"
-          class="book-row"
+          class="book-row-wrap"
           :class="{ fallback: b.fallback }"
-          @click="openBook(b.code)"
         >
-          <span class="bk-name">{{ b.name }}</span>
-          <span class="bk-count">{{ b.count }} เพลง</span>
+          <button type="button" class="book-row" @click="openBook(b.code)">
+            <span class="bk-name">{{ b.name }}</span>
+            <span class="bk-count">{{ b.count }} เพลง</span>
+            <span class="chev" aria-hidden="true">›</span>
+          </button>
           <!-- ③ "ในแต่ละเล่มอ่ะ มีที่ยังไม่เสร็จอ่ะ ... เท่าไหร่" (พี่เปา บรรทัด 227).
                โชว์เสมอเมื่อล็อกอิน รวมทั้งเลข 0 — เล่มที่เสร็จครบต้องอ่านออกว่า "เสร็จครบแล้ว"
                ⛔ ไม่ใช่ปล่อยว่างจนแยกไม่ออกจาก "ยังไม่ได้นับ" (มาตรฐาน ก-01 · ก-08).
                คลาส .done เปลี่ยนแค่สี ⛔ ข้อมูลยังอยู่ในตัวหนังสือ ไม่ได้อยู่ในสีอย่างเดียว
-               (WCAG 2.2 · 1.4.1 Use of Color) -->
-          <span
+               (WCAG 2.2 · 1.4.1 Use of Color)
+               ⭐ กดได้แล้ว (พี่เปาขอเพิ่ม) → คัดเฉพาะเพลงที่ยังทำไม่เสร็จ *ของเล่มนี้*
+               เล่มที่เสร็จครบ (0) ปิดปุ่มไว้ เพราะกดแล้วจะได้รายการว่าง = ทางตัน -->
+          <button
             v-if="loggedIn"
+            type="button"
             class="bk-todo"
             :class="{ done: b.unfinished === 0 }"
-          >{{ W.unfinished }} {{ b.unfinished }}</span>
-          <span class="chev" aria-hidden="true">›</span>
-        </button>
+            :disabled="b.unfinished === 0"
+            :aria-label="`ดูเฉพาะเพลงที่${W.unfinished}ในเล่ม ${b.name} · ${b.unfinished} เพลง`"
+            @click="showUnfinished(b.code)"
+          >{{ W.unfinished }} {{ b.unfinished }}</button>
+        </div>
       </div>
       <p v-if="shelf.length === 0" class="muted empty">{{ booksEmptyMsg }}</p>
     </section>
@@ -547,25 +602,26 @@ onMounted(async () => {
    ⛔ ไม่ยุบเหลือไอคอน+เลขเปล่า ซึ่งจะทำให้พี่เปาเสียความหมายไปฟรี ๆ · ไม่หักคำกลางคำ */
 .review-chip .rc-label { white-space: nowrap; }
 
-/* ตัวเลขกองที่ 2 = ข้อความอ่านอย่างเดียว ⛔ ไม่ใช่ปุ่ม: ไม่มีขอบ ไม่มีพื้น ไม่มีมือชี้
-   เพราะเลขที่หน้าตาเหมือนปุ่มจะถูกกดแล้วไม่เกิดอะไร (Web Bloopers เรื่องปุ่มลวง).
-   ใช้ตัวอักษรและสีชุดเดิมของหน้านี้ (--fs-sm · --muted · --brand) ⛔ ไม่เพิ่มค่าใหม่ */
+/* ตัวเลขกองที่ 2 — เป็นปุ่มแล้ว (กดเพื่อคัดเฉพาะเพลงที่ยังทำไม่เสร็จ ทุกเล่ม)
+   ตัวชิปเองใช้ `.facet-chip` ของ v1 ทั้งดุ้น (สวิตช์คัดกรองตัวนี้ v1 ใช้ชิปนี้อยู่แล้ว)
+   ที่นี่จึงเติมเฉพาะการจัดวางภายใน ⛔ ไม่ทับค่าหน้าตาของ `.facet-chip` */
 .wb-stat {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
-  margin-top: var(--sp-3);   /* ตรงกับ margin-top ของชิป เพื่อให้อยู่แนวเดียวกัน */
-  font-size: var(--fs-sm);
-  color: var(--ink);
+  margin-top: var(--sp-3);   /* ตรงกับ margin-top ของชิปรอตรวจ เพื่อให้อยู่แนวเดียวกัน */
   white-space: nowrap;
 }
 .wb-stat .wb-lbl { color: var(--muted); }
 .wb-stat .wb-count {
   font-weight: 700;
-  font-size: var(--fs-base);
   color: var(--brand);
   font-variant-numeric: tabular-nums;   /* เลขไม่ขยับเวลาค่าเปลี่ยน */
 }
+/* ตอนกดค้างอยู่ ชิปเป็นสีแบรนด์ (คลาส `on` ของ v1) ⇒ ตัวหนังสือข้างในต้องกลับเป็นสีขาวด้วย
+   ไม่งั้นน้ำตาลบนน้ำตาลจะอ่านไม่ออก */
+.wb-stat.on .wb-lbl,
+.wb-stat.on .wb-count { color: #fff; }
 .sr-only {
   position: absolute;
   width: 1px;
@@ -645,45 +701,66 @@ onMounted(async () => {
    marks the book category (P'Aim: keep). ---- */
 /* full-width rows, aligned to the search box above (P'Aim: กล่องยาวเท่าช่อง search) */
 .book-list { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; }
-.book-row {
+/* การ์ดของแถวเล่ม — ค่าทั้งหมด (กรอบ · สันสีน้ำตาล 5px · ความโค้ง · พื้น · ระยะขอบใน · ความสูงต่ำสุด)
+   ยกมาจาก `.book-row` ของ v1 เดิมทุกค่า เพียงย้ายที่อยู่จากตัวปุ่มมาไว้ที่ตัวการ์ด
+   เพื่อให้ข้างในมีปุ่มได้ 2 ปุ่มโดยไม่ต้องซ้อนปุ่มในปุ่ม ⇒ หน้าตาเหมือนเดิม โครงถูกกติกา */
+.book-row-wrap {
   display: flex;
   align-items: center;
   flex-wrap: wrap;   /* 360px: "ยังทำไม่เสร็จ N" ตกลงบรรทัดใหม่ ⛔ ไม่ดันแถวจนล้นขอบจอ */
-  gap: var(--sp-3);
+  gap: var(--sp-2) var(--sp-3);
   background: var(--bg);
   border: 1px solid var(--line);
   border-left: 5px solid var(--brand);
   border-radius: 10px;
   padding: var(--sp-3) var(--sp-4);
+  min-height: var(--touch-min);
+  width: 100%;
+}
+.book-row-wrap:hover { background: var(--cream-hover); }
+/* ปุ่มเปิดเล่ม = ใส ไม่มีพื้นไม่มีกรอบของตัวเอง (การ์ดข้างบนเป็นคนวาดให้) */
+.book-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1 1 auto;
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: 0;
   cursor: pointer;
   text-align: left;
   color: var(--ink);
   font: inherit;
   min-height: var(--touch-min);
-  width: 100%;
 }
-.book-row:hover { background: var(--cream-hover); }
 .book-row .bk-name { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--brand); }
 .book-row .bk-count { flex: 0 0 auto; color: var(--muted); font-size: var(--fs-sm); }
-/* "ยังทำไม่เสร็จ N" ต่อเล่ม (ล็อกอินแล้วเท่านั้น) — ป้ายเล็กสีเดียวกับป้าย .badge.pending
+/* "ยังทำไม่เสร็จ N" ต่อเล่ม (ล็อกอินแล้วเท่านั้น) — สีชุดเดียวกับป้าย .badge.pending
    ที่ใช้บอกสถานะเดียวกันในแถวเพลง จึงเป็นคำเดียว "และ" สีเดียวกันทั้งเว็บ (มาตรฐาน ก-04).
-   ที่ 360px แถวจะห่อบรรทัดแทนการดันให้ล้นจอ (.book-row flex-wrap ข้างล่าง) */
-.book-row .bk-todo {
+   เป็นปุ่มจริง (กดแล้วคัดเฉพาะเพลงที่ยังทำไม่เสร็จของเล่มนี้) จึงมีมือชี้ + สีตอบตอนชี้
+   เพื่อไม่ให้เป็นปุ่มที่ซ่อนตัวว่ากดได้ · สูงอย่างน้อย 24px ตามขั้นบังคับ WCAG 2.2 · 2.5.8 (AA) */
+.bk-todo {
   flex: 0 0 auto;
   border-radius: 12px;
   padding: 1px var(--sp-2);
+  min-height: 24px;
+  font: inherit;
   font-size: var(--fs-xs);
   white-space: nowrap;
+  cursor: pointer;
   background: #eef0f2;
   color: #4a4f57;
   border: 1px solid #cfd4da;
 }
-/* เล่มที่เสร็จครบ = เขียวแบบเดียวกับป้าย ✓ ตรวจแล้ว. ข้อมูลอยู่ที่ตัวเลข "0" ไม่ได้อยู่ที่สี
-   ⇒ คนตาบอดสีก็ยังอ่านออก (WCAG 2.2 · 1.4.1) */
-.book-row .bk-todo.done { background: #e7f4e9; color: #2e6b3b; border-color: #b7ddbf; }
+.bk-todo:hover:not(:disabled) { border-color: var(--brand); }
+/* เล่มที่เสร็จครบ = เขียวแบบเดียวกับป้าย ✓ ตรวจแล้ว · ปิดปุ่มเพราะกดแล้วได้รายการว่าง = ทางตัน
+   ข้อมูลอยู่ที่ตัวเลข "0" ไม่ได้อยู่ที่สี ⇒ คนตาบอดสีก็ยังอ่านออก (WCAG 2.2 · 1.4.1) */
+.bk-todo.done { background: #e7f4e9; color: #2e6b3b; border-color: #b7ddbf; }
+.bk-todo:disabled { cursor: default; }
 .book-row .chev { flex: 0 0 auto; color: var(--muted); font-size: var(--fs-lg); }
-.book-row.fallback { border-left-color: var(--line); }
-.book-row.fallback .bk-name { color: var(--muted); }
+.book-row-wrap.fallback { border-left-color: var(--line); }
+.book-row-wrap.fallback .bk-name { color: var(--muted); }
 
 /* ---- LEVEL 2 · one row per song: number (tabular, right) + title (wraps) + key ---- */
 /* Width = fit-content, capped at 100%. The list is exactly as wide as its longest row
