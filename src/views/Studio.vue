@@ -69,7 +69,13 @@ onMounted(async () => {
   loadSongList()
   if (route.params.id) {
     await loadSong(route.params.id)
-    mode.value = 'view' // a routed song opens in a reading view (US-01 AC1)
+    // A routed song opens in a reading view (US-01 AC1) — UNLESS the link asked for the editor.
+    // `?mode=edit` is the ONE way in: it lets the landing page's ✏️ open a song straight in แก้ไข
+    // (พี่เปา 30 ก.ค. บรรทัด 307 — "ล็อกอินแล้วมันก็ควรจะขึ้นให้มันเข้าไปได้เลยจากหน้าแรก ...
+    // รวมไปถึงกดแก้ไขได้ด้วย"), instead of landing in ฝึกร้อง and making him press แก้ไข again.
+    // Nothing else changes: a plain /song/:id link is byte-for-byte the old behaviour, and the
+    // editor's own login/permission gates are untouched — this only picks which tab is showing.
+    mode.value = route.query.mode === 'edit' ? 'edit' : 'view'
   } else {
     // a bare /studio is a brand-new song → straight to the editor
     loadedSong.value = null

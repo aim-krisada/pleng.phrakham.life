@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
@@ -13,9 +13,11 @@ import {
   showVerifiedBadge,
   showUnverifiedBadge,
   verifiedProgress,
+  unfinishedCount,
   FALLBACK_KEY,
 } from '../lib/bookshelf.js'
 import { pendingReview } from '../lib/reviewQueue.js'
+import { WORK_WORDS } from '../i18n/workWords.js'
 import { session, canApprove } from '../store.js'
 
 const router = useRouter()
@@ -95,7 +97,75 @@ const bookProgress = computed(() => verifiedProgress(inBook.value))
 // or an anon visitor sees nothing at all, and RLS (db/002:58) would not hand them the rows
 // anyway. When the queue reaches 0 the chip disappears entirely rather than saying "(0)".
 const reviewQueue = ref([])
-const showReviewChip = computed(() => canApprove.value && reviewQueue.value.length > 0)
+
+// ---- แถบ "งานของฉัน" (พี่เปา 30 ก.ค. บรรทัด 227) — เห็นเฉพาะเมื่อล็อกอินแล้ว ----
+//
+// เขาขอไว้ 3 อย่างพอดี: พิมพ์ค้นหาได้ทันที · เข้าหลังบ้านได้เลยจากหน้าแรก · และ "ควรจะโชว์ว่า
+// มันมีงานรอตรวจอยู่เท่าไหร่ แล้วก็ในแต่ละเล่มอ่ะ มีที่ยังไม่เสร็จอ่ะ ... เท่าไหร่".
+//
+// ⚠️ สองเลขนี้เป็นคนละกอง เขายืนยันเอง (บรรทัด 198-211) ⛔ ห้ามบวกรวมกัน:
+//   รอตรวจ        = งานที่คนอื่นส่งมาให้เขาอนุมัติ → ตาราง song_drafts แถวที่ status='pending'
+//   ยังทำไม่เสร็จ  = เพลงของเขาเองที่ยังไม่เสร็จ    → ตาราง songs แถวที่ verified=false
+// คำที่ใช้มาจากรายการคำกลางไฟล์เดียว `src/i18n/workWords.js` (มาตรฐาน ฌ-04 · ก-04).
+//
+// ⛔ อ่านอย่างเดียวทั้งแถบ — ไม่มีปุ่มไหนในนี้แตะธง verified (ธงนั้นคือประตูเปิดสู่สาธารณะ
+// `lib/bookshelf.js` visibleSongs ⇒ ติ๊กให้อัตโนมัติ = ปล่อยเพลงที่ยังไม่เสร็จออกสาธารณะ)
+const W = WORK_WORDS
+const unfinishedTotal = computed(() => unfinishedCount(shownSongs.value))
+
+// เลข "รอตรวจ" ยังผูกกับ canApprove เหมือนเดิม (คิวของผู้อนุมัติ · RLS db/002 ก็ไม่ส่งแถวให้คนอื่นอยู่แล้ว)
+// เลข "ยังทำไม่เสร็จ" นับจากรายการเพลงที่ผู้ใช้คนนี้มองเห็นจริง ๆ (shownSongs) จึงตรงกับสิ่งที่เขาเห็นเสมอ
+const showWorkBar = computed(() => loggedIn.value)
+
+// เดิมชิปหายไปเลยเมื่อคิวเป็น 0 ⇒ แยกไม่ออกว่า "ไม่มีงานค้าง" หรือ "โหลดไม่ขึ้น".
+// ตอนนี้โชว์เลขเสมอรวมทั้งเลข 0 ตามมาตรฐาน ก-01 (ทุกช่องต้องแสดงจำนวนเป็นเลข เห็นได้ไม่ต้องกดเข้าไปนับ)
+// + ก-08 (ช่องที่ว่างต้องบอกว่าว่าง ⛔ ห้ามปล่อยเป็นที่โล่ง)
+const reviewCount = computed(() => reviewQueue.value.length)
+
+// ทางเข้าหลังบ้าน 1 คลิกจากหน้าแรก — ปลายทางเดียวกับชิปเดิม (แผง "งานร่าง / รอตรวจ" ในหน้าแก้ไข)
+// ⛔ ไม่ทำรายการงานร่างซ้ำอีกชุดที่หน้านี้ เพราะแผงนั้นเป็นเจ้าของการเปิด/ส่งกลับ/อนุมัติอยู่แล้ว
+function openManage() {
+  router.push('/studio?panel=drafts')
+}
+
+// ✏️ ที่ท้ายแถวเพลง → เปิดเพลงนั้นในหน้าแก้ไขทันที (ไม่ต้องแวะหน้าฝึกร้องแล้วกดแก้ไขอีกที)
+function openEdit(id) {
+  router.push(`/song/${id}?mode=edit`)
+}
+
+// ---- ① ช่องค้นหาพร้อมพิมพ์ทันที (พี่เปา บรรทัด 227: "กดเว็บปุ๊บ ถ้ามันไปลอยอยู่ตรง search ก็ดี") ----
+//
+// จำกัดขอบเขตไว้ 2 ชั้น เพราะการย้ายโฟกัสเองมีราคาที่ต้องจ่าย:
+//   ก) เฉพาะจอกว้าง ≥768px — บนมือถือคีย์บอร์ดจะเด้งขึ้นมาบังครึ่งจอทันทีที่เปิดเว็บ
+//      คนที่เข้ามาแค่จะ "เปิดดูเพลง" ต้องกดปิดคีย์บอร์ดก่อนทุกครั้ง
+//   ข) เฉพาะคนที่ล็อกอินแล้ว — คนทั่วไปที่เข้ามาอ่านเพลงไม่ได้มาพิมพ์ค้นหาเสมอไป
+//      และหน้าของคนที่ยังไม่ล็อกอินต้องเหมือนเดิมทุกตัวอักษร
+// preventScroll: true = ไม่ให้หน้าเลื่อนตามโฟกัส · ทำครั้งเดียวต่อการเปิดหน้า (autoFocused)
+// และทำเฉพาะตอนที่ยังไม่มีอะไรถูกโฟกัส (ผู้ใช้อาจกดช่องอื่นไปแล้วระหว่างรอ session โหลด)
+const searchEl = ref(null)
+const FOCUS_MIN_WIDTH = 768
+let autoFocused = false
+// ⚠️ วัดจริงแล้วเจอ: การสั่งโฟกัสด้วยโค้ด "ไม่" ทำให้กรอบโฟกัสของเบราว์เซอร์ขึ้น
+// (:focus-visible เป็นเท็จ · outline-style = none) ⇒ ช่องถูกโฟกัสอยู่แต่ไม่มีอะไรบอกสายตาเลย
+// พี่เปาจะไม่รู้ว่าพิมพ์ได้แล้ว และเป็นข้อบังคับ WCAG 2.2 · 2.4.7 (ต้องเห็นว่าโฟกัสอยู่ตรงไหน)
+// จึงติดคลาสเองเพื่อวาดกรอบชุดเดียวกับที่ทั้งเว็บใช้ (styles.css:117) แล้วเอาออกเมื่อ
+// ผู้ใช้เริ่มพิมพ์หรือย้ายไปที่อื่น — กรอบมีหน้าที่บอกว่า "เราย้ายโฟกัสมาให้" เท่านั้น
+const autoRing = ref(false)
+function dropRing() { autoRing.value = false }
+function focusSearchOnce() {
+  if (autoFocused || !loggedIn.value) return
+  if (typeof window === 'undefined' || window.innerWidth < FOCUS_MIN_WIDTH) return
+  const el = searchEl.value
+  if (!el) return
+  const active = document.activeElement
+  if (active && active !== document.body && active !== el) return
+  autoFocused = true
+  el.focus({ preventScroll: true })
+  autoRing.value = document.activeElement === el
+}
+// session ถูกโหลดแบบไม่พร้อมกัน (App.vue เรียก initAuth()) ⇒ ตอนหน้านี้ mount อาจยังไม่รู้ว่าล็อกอินอยู่
+// จึงต้องรอค่าเปลี่ยนด้วย ไม่ใช่เช็คแค่ตอน mount
+watch(loggedIn, () => nextTick(focusSearchOnce))
 
 // Fetched, not derived: drafts live in their own table, so this is a second query — run only
 // for an approver (nobody else may see the chip) and re-run on login/logout so the count is
@@ -115,13 +185,8 @@ async function loadReviewQueue() {
 }
 watch(canApprove, loadReviewQueue)
 
-// The chip hands พี่เปา over to the ONE screen that already lists these drafts and can open
-// them: the editor's "งานร่าง / รอตรวจ" panel (EditorMode). It is not copied here — the panel
-// owns loading a draft, sending it back and approving it, so a second list on the landing
-// would be a second place to keep in step. `?panel=drafts` is the shell's way in.
-function openReview() {
-  router.push('/studio?panel=drafts')
-}
+// (ทางเข้าแผง "งานร่าง / รอตรวจ" ย้ายไปอยู่ที่ openManage() ข้างบน — ปุ่ม ⚙ จัดการงาน
+//  ในแถบ "งานของฉัน" ใช้ปลายทางเดียวกันกับที่ชิปเดิมใช้ `?panel=drafts` จึงมีฟังก์ชันเดียว)
 
 // ---- bookshelf derivations (pure logic in lib/bookshelf.js, unit-tested there) ----
 // grouped by `category` (real books); each entry = { code, name, count, fallback }.
@@ -213,6 +278,7 @@ onMounted(async () => {
   }
   loading.value = false
   loadReviewQueue()
+  focusSearchOnce() // session อาจพร้อมอยู่แล้วตอนนี้ (เข้าหน้าซ้ำ) — watch ข้างบนคุมกรณีที่ยังไม่พร้อม
 })
 </script>
 
@@ -221,30 +287,54 @@ onMounted(async () => {
     <!-- search: always on top, overrides the drill from any level (US-AC5) -->
     <div class="no-print search-block">
       <input
+        ref="searchEl"
         v-model="query"
         type="search"
         class="song-search"
+        :class="{ 'auto-ring': autoRing }"
         :aria-label="searchPlaceholder"
         :placeholder="searchPlaceholder"
+        @input="dropRing"
+        @blur="dropRing"
       />
       <p v-if="dbError" class="muted db-note">
         ยังเชื่อมต่อฐานข้อมูลไม่ได้ — แสดงเพลงตัวอย่างไปก่อน
       </p>
-      <!-- approver-only review shortcut. v1 has no tab bar to hang a 4th tab on, so the same
-           intent rides the surface v1 does have: one prominent chip under the search box, above
-           the shelf. Hidden entirely for anon/editors and when the queue is empty. The word
-           stays at every width (see .rc-label) — it never collapses to icon + bare number.
-           ICON: 📨 (something arrived), the same one the destination panel heads its รออนุมัติ
-           list with — not a magnifier, which reads as "go and search" rather than "you have mail".
-           WORDING: "รอตรวจ" — the same word the editor's status list uses for `pending`
-           (EditorMode STATUS_TH), and the unit is รายการ (drafts), not เพลง: a draft may be a
-           new song that is not in the library yet, or a re-edit of one that already is. -->
-      <button v-if="showReviewChip && !searching" type="button" class="review-chip" @click="openReview">
-        <span aria-hidden="true">📨</span>
-        <span class="rc-label">รอตรวจ</span>
-        <span class="rc-count">{{ reviewQueue.length }}</span>
-        <span class="sr-only">รอตรวจ {{ reviewQueue.length }} รายการ — เปิดรายการงานร่างที่รอตรวจ</span>
-      </button>
+      <!-- ===== แถบ "งานของฉัน" — เห็นเฉพาะเมื่อล็อกอินแล้ว (พี่เปา 30 ก.ค. บรรทัด 227) =====
+           หน้าของคนที่ยังไม่ล็อกอินไม่เปลี่ยนแม้แต่ตัวอักษรเดียว: ทั้งบล็อกนี้ v-if="showWorkBar".
+           ซ่อนตอนกำลังค้นหา เพราะตอนนั้นสายตาอยู่ที่ผลการค้นหา ไม่ใช่ยอดงานค้าง.
+
+           แยกเป็น 2 ชั้นตามที่ G ท้วงไว้รอบก่อน (ใบส่งงาน 2026-07-30-home-loggedin-mockup.md):
+             ชั้นบน = ตัวเลข (ข้อมูล อ่านอย่างเดียว ⛔ ไม่ใช่ปุ่ม)
+             ชั้นล่าง = ปุ่ม (การกระทำ)
+           เหตุ: เลขที่กดได้กับเลขที่กดไม่ได้หน้าตาเหมือนกัน = คนกดแล้วไม่เกิดอะไร (Web Bloopers) -->
+      <div v-if="showWorkBar && !searching" class="work-bar">
+        <div class="wb-nums">
+          <!-- กองที่ 1 · รอตรวจ — งานที่คนอื่นส่งมาให้อนุมัติ (song_drafts status='pending')
+               เฉพาะผู้อนุมัติ: คิวนี้เป็นของเขา และ RLS (db/002) ก็ไม่ส่งแถวให้คนอื่นอยู่แล้ว.
+               โชว์เลขเสมอรวมทั้ง 0 (ก-01 · ก-08) — เดิมชิปหายไปเลยตอน 0 ⇒ แยกไม่ออกว่า
+               "ไม่มีงานค้าง" หรือ "โหลดไม่ขึ้น" -->
+          <span v-if="canApprove" class="wb-stat" aria-live="polite">
+            <span aria-hidden="true">📨</span>
+            <span class="wb-lbl">{{ W.awaitingReview }}</span>
+            <span class="wb-count">{{ reviewCount }}</span>
+            <span class="sr-only">{{ W.awaitingReview }} {{ reviewCount }} รายการ (งานที่คนอื่นส่งมาให้อนุมัติ)</span>
+          </span>
+          <!-- กองที่ 2 · ยังทำไม่เสร็จ — เพลงของเราเองที่ยังไม่เสร็จ (songs verified=false)
+               หน่วยเป็น "เพลง" ⛔ ไม่ใช่ "รายการ" เหมือนกองบน — คนละของกันจริง ๆ -->
+          <span class="wb-stat" aria-live="polite">
+            <span aria-hidden="true">✏️</span>
+            <span class="wb-lbl">{{ W.unfinished }}</span>
+            <span class="wb-count">{{ unfinishedTotal }}</span>
+            <span class="sr-only">{{ W.unfinished }} {{ unfinishedTotal }} เพลง (เพลงของเราเองที่ยังทำไม่เสร็จ)</span>
+          </span>
+        </div>
+        <!-- ทางเข้าหลังบ้าน = 1 คลิกจากหน้าแรก (เดิม 3: เลือกเล่ม → เลือกเพลง → กดแก้ไข)
+             ปลายทาง = แผง "งานร่าง / รอตรวจ" ในหน้าแก้ไข ซึ่งเปิด/ส่งกลับ/อนุมัติงานร่างได้อยู่แล้ว -->
+        <button type="button" class="wb-go" @click="openManage">
+          <span aria-hidden="true">⚙</span> จัดการงาน
+        </button>
+      </div>
     </div>
 
     <p v-if="loading" class="muted">กำลังโหลด…</p>
@@ -265,7 +355,7 @@ onMounted(async () => {
           :aria-pressed="onlyUnverified"
           @click="onlyUnverified = !onlyUnverified"
         >
-          ⚠️ เฉพาะที่ยังไม่ตรวจ
+          ⚠️ เฉพาะที่{{ W.unfinished }}
         </button>
         <select v-model="theme" class="facet-select" aria-label="กรองตามธีม">
           <option value="">ทุกธีม</option>
@@ -279,8 +369,8 @@ onMounted(async () => {
             <strong class="song-title">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</strong>
             <span class="head-tags">
               <span v-if="loggedIn && flagCount(s)" class="badge warn" :title="flagTitle(s)">⚠️ ต้องตรวจ</span>
-              <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok" title="ตรวจแล้ว">✓ ตรวจแล้ว</span>
-              <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending" title="ยังไม่ตรวจ">ยังไม่ตรวจ</span>
+              <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok" :title="W.done">✓ {{ W.done }}</span>
+              <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending" :title="W.unfinished">{{ W.unfinished }}</span>
               <span class="key-chip">Key {{ s.content.key }}</span>
             </span>
           </div>
@@ -317,30 +407,41 @@ onMounted(async () => {
         <h2>{{ activeBookMeta ? activeBookMeta.name : '' }}</h2>
         <span class="count muted">{{ inBook.length }} เพลง</span>
         <span v-if="loggedIn" class="count progress" aria-live="polite">
-          ✓ ตรวจแล้ว {{ bookProgress.verified }} / {{ bookProgress.total }}
+          ✓ {{ W.done }} {{ bookProgress.verified }} / {{ bookProgress.total }}
         </span>
       </div>
       <div class="song-list">
-        <router-link
-          v-for="s in inBook"
-          :key="s.id"
-          :to="`/song/${s.id}`"
-          class="song-row"
-        >
-          <span class="no">{{ s.number != null ? s.number : '–' }}</span>
-          <span class="ttl">{{ s.title_th }}</span>
-          <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok row-status" title="ตรวจแล้ว">✓ ตรวจแล้ว</span>
-          <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending row-status" title="ยังไม่ตรวจ">ยังไม่ตรวจ</span>
-          <!-- book_refs = reference tag ("เล่มเล็ก 282"). Kept title-first: shown only where
-               the row is wide enough (≥640px) so it never crushes the title into a sliver on
-               a phone. Full list also lives on the search card + the song page. -->
-          <span
-            v-if="bookRefLabels(s.book_refs).length"
-            class="ref"
-            :title="'อ้างอิง: ' + bookRefLabels(s.book_refs).join(' · ')"
-          >{{ bookRefLabels(s.book_refs).join(' · ') }}</span>
-          <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
-        </router-link>
+        <!-- ② ปุ่ม ✏️ ต้องอยู่ "ข้างนอก" ลิงก์ ไม่ใช่ข้างใน — ปุ่มซ้อนในลิงก์เป็นโครงที่ผิดกติกา
+             (ตัวช่วยอ่านจอจะประกาศซ้อนกัน และการกดจะไปโดนลิงก์ด้วย) · G ท้วงข้อนี้ไว้รอบก่อน
+             จึงห่อทั้งคู่ด้วย .song-row-wrap แล้ววางลิงก์กับปุ่มเป็นพี่น้องกัน -->
+        <div v-for="s in inBook" :key="s.id" class="song-row-wrap">
+          <router-link :to="`/song/${s.id}`" class="song-row">
+            <span class="no">{{ s.number != null ? s.number : '–' }}</span>
+            <span class="ttl">{{ s.title_th }}</span>
+            <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok row-status" :title="W.done">✓ {{ W.done }}</span>
+            <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending row-status" :title="W.unfinished">{{ W.unfinished }}</span>
+            <!-- book_refs = reference tag ("เล่มเล็ก 282"). Kept title-first: shown only where
+                 the row is wide enough (≥640px) so it never crushes the title into a sliver on
+                 a phone. Full list also lives on the search card + the song page. -->
+            <span
+              v-if="bookRefLabels(s.book_refs).length"
+              class="ref"
+              :title="'อ้างอิง: ' + bookRefLabels(s.book_refs).join(' · ')"
+            >{{ bookRefLabels(s.book_refs).join(' · ') }}</span>
+            <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
+          </router-link>
+          <!-- เห็นเฉพาะเมื่อล็อกอิน · เปิดเพลงนี้ในหน้าแก้ไขทันที (ไม่ต้องแวะหน้าฝึกร้อง)
+               ป้ายชื่อบอกชื่อเพลงด้วย เพราะในรายการมีปุ่มนี้เป็นสิบ ๆ ปุ่มที่หน้าตาเหมือนกัน
+               ⛔ ไม่ซ่อนด้วย @media (hover) — เครื่องพี่เอมเป็นจอสัมผัสที่ต่อเมาส์ ปุ่มจะหายไป -->
+          <button
+            v-if="loggedIn"
+            type="button"
+            class="row-edit"
+            :aria-label="`แก้ไข ${s.title_th}`"
+            :title="`แก้ไข ${s.title_th}`"
+            @click="openEdit(s.id)"
+          ><span aria-hidden="true">✏️</span></button>
+        </div>
       </div>
       <p v-if="inBook.length === 0" class="muted empty">ยังไม่มีเพลงในเล่มนี้</p>
     </section>
@@ -358,6 +459,16 @@ onMounted(async () => {
         >
           <span class="bk-name">{{ b.name }}</span>
           <span class="bk-count">{{ b.count }} เพลง</span>
+          <!-- ③ "ในแต่ละเล่มอ่ะ มีที่ยังไม่เสร็จอ่ะ ... เท่าไหร่" (พี่เปา บรรทัด 227).
+               โชว์เสมอเมื่อล็อกอิน รวมทั้งเลข 0 — เล่มที่เสร็จครบต้องอ่านออกว่า "เสร็จครบแล้ว"
+               ⛔ ไม่ใช่ปล่อยว่างจนแยกไม่ออกจาก "ยังไม่ได้นับ" (มาตรฐาน ก-01 · ก-08).
+               คลาส .done เปลี่ยนแค่สี ⛔ ข้อมูลยังอยู่ในตัวหนังสือ ไม่ได้อยู่ในสีอย่างเดียว
+               (WCAG 2.2 · 1.4.1 Use of Color) -->
+          <span
+            v-if="loggedIn"
+            class="bk-todo"
+            :class="{ done: b.unfinished === 0 }"
+          >{{ W.unfinished }} {{ b.unfinished }}</span>
           <span class="chev" aria-hidden="true">›</span>
         </button>
       </div>
@@ -389,15 +500,58 @@ onMounted(async () => {
   color: var(--ink);
   font-family: inherit;
 }
+/* กรอบตอนที่ "เราย้ายโฟกัสมาให้เอง" — ชุดเดียวกับกรอบโฟกัสของทั้งเว็บเป๊ะ ๆ
+   (src/styles.css:117 · outline 2px solid var(--brand) · offset 2px) ⛔ ไม่สร้างหน้าตาใหม่ */
+.song-search.auto-ring { outline: 2px solid var(--brand); outline-offset: 2px; }
 
-/* ---- approver review chip (พี่เปา) — prominent but inside the site's quiet palette:
-   the brand fill it already uses for an active facet chip, not a new "work mode" colour.
-   ≥44px tall (WCAG 2.5.5) and self-contained so it never depends on the shelf below. ---- */
-.review-chip {
+/* ---- แถบ "งานของฉัน" (ล็อกอินแล้วเท่านั้น) — ตัวเลขชั้นบน · ปุ่มชั้นล่าง ----
+   สองชั้นแยกกันจริง ๆ เพราะเลขกับปุ่มคนละหน้าที่: เลขคือ "อ่าน" ปุ่มคือ "กด".
+   ทำให้หน้าตาเหมือนกันเมื่อไหร่ คนจะกดที่เลขแล้วไม่เกิดอะไร (Web Bloopers เรื่องปุ่มลวง).
+   ทั้งแถบใช้สีชุดเดิมของหน้านี้ (--cream / --line / --brand) ⛔ ไม่เพิ่มสีใหม่เข้าระบบ. */
+.work-bar {
+  display: flex;
+  flex-wrap: wrap;              /* จอแคบ: ปุ่มตกลงมาบรรทัดใหม่เอง ⛔ ไม่ล้นขอบจอ */
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-3);
+  margin-top: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--brand);   /* สันสีน้ำตาลแบบเดียวกับแถวเล่ม = "ของทีม" */
+  border-radius: 10px;
+  background: var(--cream);
+}
+.wb-nums {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  min-width: 0;
+}
+/* ตัวเลข = ข้อความ ⛔ ไม่ใช่ปุ่ม: ไม่มีขอบ ไม่มีพื้น ไม่มี cursor:pointer */
+.wb-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.wb-stat .wb-lbl { color: var(--muted); }
+.wb-stat .wb-count {
+  font-weight: 700;
+  font-size: var(--fs-base);
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;   /* เลขไม่ขยับเวลาค่าเปลี่ยน */
+}
+/* ปุ่ม = การกระทำ. สูงอย่างน้อย 44px (WCAG 2.2 · 2.5.8 ขั้น AA บังคับ 24px — เราให้เกิน)
+   และไม่ยืดสูงตามแถบ (align-self) ตามที่ G ท้วงไว้รอบก่อน */
+.wb-go {
+  align-self: center;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  margin-top: var(--sp-3);
   min-height: var(--touch-min);
   padding: var(--sp-2) var(--sp-4);
   border-radius: 22px;
@@ -407,25 +561,10 @@ onMounted(async () => {
   font: inherit;
   font-size: var(--fs-base);
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
-.review-chip:hover { filter: brightness(1.08); }
-.review-chip .rc-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.6em;
-  padding: 0 var(--sp-1);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.24);
-  font-variant-numeric: tabular-nums;
-}
-/* The word stays at EVERY width. The /v2 mockup had to collapse its tab to icon + count because
-   four tabs shared one row and the label clipped; this chip owns its whole row, so the full
-   label fits even at 320px (it is shorter still now — "รอตรวจ", 6 characters) and there is
-   nothing to clip. An icon-only brown pill with a bare number would cost พี่เปา the meaning for
-   no gain. Never wraps mid-word, so the row can't break in half. */
-.review-chip .rc-label { white-space: nowrap; }
+.wb-go:hover { filter: brightness(1.08); }
 .sr-only {
   position: absolute;
   width: 1px;
@@ -508,6 +647,7 @@ onMounted(async () => {
 .book-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;   /* 360px: "ยังทำไม่เสร็จ N" ตกลงบรรทัดใหม่ ⛔ ไม่ดันแถวจนล้นขอบจอ */
   gap: var(--sp-3);
   background: var(--bg);
   border: 1px solid var(--line);
@@ -524,6 +664,22 @@ onMounted(async () => {
 .book-row:hover { background: var(--cream-hover); }
 .book-row .bk-name { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--brand); }
 .book-row .bk-count { flex: 0 0 auto; color: var(--muted); font-size: var(--fs-sm); }
+/* "ยังทำไม่เสร็จ N" ต่อเล่ม (ล็อกอินแล้วเท่านั้น) — ป้ายเล็กสีเดียวกับป้าย .badge.pending
+   ที่ใช้บอกสถานะเดียวกันในแถวเพลง จึงเป็นคำเดียว "และ" สีเดียวกันทั้งเว็บ (มาตรฐาน ก-04).
+   ที่ 360px แถวจะห่อบรรทัดแทนการดันให้ล้นจอ (.book-row flex-wrap ข้างล่าง) */
+.book-row .bk-todo {
+  flex: 0 0 auto;
+  border-radius: 12px;
+  padding: 1px var(--sp-2);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  background: #eef0f2;
+  color: #4a4f57;
+  border: 1px solid #cfd4da;
+}
+/* เล่มที่เสร็จครบ = เขียวแบบเดียวกับป้าย ✓ ตรวจแล้ว. ข้อมูลอยู่ที่ตัวเลข "0" ไม่ได้อยู่ที่สี
+   ⇒ คนตาบอดสีก็ยังอ่านออก (WCAG 2.2 · 1.4.1) */
+.book-row .bk-todo.done { background: #e7f4e9; color: #2e6b3b; border-color: #b7ddbf; }
 .book-row .chev { flex: 0 0 auto; color: var(--muted); font-size: var(--fs-lg); }
 .book-row.fallback { border-left-color: var(--line); }
 .book-row.fallback .bk-name { color: var(--muted); }
@@ -541,10 +697,15 @@ onMounted(async () => {
    fixed-width centred column (P'Aim). Was fit-content, which shrank the list to its longest
    title and left it out of line with the search box. */
 .song-list { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; }
+/* ห่อ "ลิงก์แถว + ปุ่มแก้ไข" ให้เป็นพี่น้องกัน ⛔ ไม่ใช่ปุ่มซ้อนในลิงก์ (โครงที่ผิดกติกา).
+   ตัวห่อไม่มีหน้าตาของตัวเอง — กรอบและพื้นยังเป็นของ .song-row เหมือนเดิมทุกประการ */
+.song-row-wrap { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-width: 0; }
 .song-row {
   display: flex;
   align-items: flex-start;
   gap: var(--sp-3);
+  flex: 1 1 auto;
+  min-width: 0;
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -555,6 +716,29 @@ onMounted(async () => {
   min-height: var(--touch-min);
 }
 .song-row:hover { background: var(--cream-hover); }
+/* ✏️ เปิดเพลงนี้ในหน้าแก้ไขทันที (ล็อกอินแล้วเท่านั้น).
+   กว้าง 44px สูงเท่าแถว — เกินขั้นบังคับ WCAG 2.2 · 2.5.8 (AA = 24px · 44px คือขั้น AAA).
+   ⛔ ไม่ซ่อนด้วย @media (hover: hover) — เครื่องพี่เอมเป็นจอสัมผัสที่ต่อเมาส์แล้วรายงานว่า
+   hover:none ⇒ ปุ่มจะหายไปทั้งที่มีเมาส์อยู่ (บทเรียนเดิมของโปรเจกต์นี้) */
+.row-edit {
+  flex: 0 0 auto;
+  width: var(--touch-min);
+  /* ความสูงคงที่ ⛔ ไม่ยืดตามความสูงแถว — แถวที่ชื่อยาวจะสูงถึง 400px ที่จอ 360px และปุ่มดินสอ
+     ที่สูง 400px อ่านไม่ออกว่าเป็นปุ่ม (G ท้วงข้อเดียวกันนี้ไว้รอบก่อน) · วัดจริงแล้วที่ 360px:
+     ยืดได้ = สูง 84-400px · ล็อกไว้ = 44px ทุกแถว */
+  height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-base);
+  cursor: pointer;
+}
+.row-edit:hover { background: var(--cream-hover); border-color: var(--brand); }
 /* number/key/status hold the FIRST line when a long title wraps (2c) */
 .song-row .no,
 .song-row .ref,
@@ -600,9 +784,19 @@ onMounted(async () => {
   white-space: nowrap;
   flex: 0 0 auto;
 }
-/* verified/pending marker on an in-book row — never shrinks, so it stays whole at 360px
-   while the title (flex 1, wraps) takes the extra height. Team-only (v-if loggedIn). */
-.song-row .row-status { flex: 0 0 auto; }
+/* ป้ายสถานะในแถวเพลง (ทีมเท่านั้น · v-if loggedIn) — ซ่อนบนจอแคบ แสดงตั้งแต่ 640px ขึ้นไป
+   ตามแบบเดียวกับป้ายอ้างอิง .ref ข้างบน ("แสดงเฉพาะที่แถวกว้างพอ").
+   ⭐ ทำไมต้องซ่อน — วัดจริงที่จอ 360px เล่มใหญ่ 152 เพลง (ความสูงรวมของรายการ):
+      ของเดิมวันนี้ (มีป้าย ไม่มีปุ่ม ✏️)      = 17,744px
+      ใส่ปุ่ม ✏️ เข้าไปโดยยังคงป้ายไว้           = 33,381px  (ยาวขึ้นเกือบเท่าตัว ⛔)
+      ใส่ปุ่ม ✏️ แล้วซ่อนป้ายบนจอแคบ (แบบนี้)  = 14,922px  (สั้นกว่าของเดิม)
+   เหตุ: ปุ่มกินความกว้างแถวไป 52px จาก 336 เหลือ 284 ⇒ ชื่อเพลงตัดบรรทัดถี่ขึ้นมาก.
+   ข้อมูลที่หายไปบนจอแคบยังหาได้: เลข "ยังทำไม่เสร็จ N" ต่อเล่มที่หน้าแรก ซึ่งเป็นสิ่งที่
+   พี่เปาขอไว้ตรง ๆ (บรรทัด 227) และป้ายกลับมาเองตั้งแต่ 640px ขึ้นไป. */
+.song-row .row-status { display: none; }
+@media (min-width: 640px) {
+  .song-row .row-status { display: inline; flex: 0 0 auto; }
+}
 
 /* ---- SEARCH results: reuse the existing card treatment (refine, not rewrite) ---- */
 .song-grid {

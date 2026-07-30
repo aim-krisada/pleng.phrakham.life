@@ -11,6 +11,7 @@ import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs, categoryName } from '../lib/bookshelf.js'
 import { sortSongs } from '../lib/songSort.js'
 import { pendingReview } from '../lib/reviewQueue.js'
+import { WORK_WORDS } from '../i18n/workWords.js'
 import { findTitleConflicts, earlyDupNote } from '../lib/songTitleKey.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
@@ -2497,7 +2498,9 @@ const editItems = computed(() => [
   { id: 'preview', kind: 'toggle', name: 'ดูผลทั้งเพลง', icon: 'maximize', default: 'inSetting', pinnable: true, control: { value: sheetWinOpen.value, onToggle: () => (sheetWinOpen.value = !sheetWinOpen.value) } },
 ])
 
-const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', rejected: 'ถูกส่งกลับ', approved: 'อนุมัติแล้ว' }
+// คำสถานะงานร่าง. คำของกอง pending มาจากรายการคำกลาง `src/i18n/workWords.js` (มาตรฐาน ฌ-04)
+// ⛔ ไม่พิมพ์ซ้ำที่นี่ — หน้าแรกกับแผงนี้ต้องเรียกกองเดียวกันด้วยคำเดียวกัน (ก-04)
+const STATUS_TH = { draft: 'ร่าง', pending: WORK_WORDS.awaitingReview, rejected: 'ถูกส่งกลับ', approved: 'อนุมัติแล้ว' }
 
 // ---------- studio shell (phase 1: header chrome + edit/sheet mode) ----------
 // The redesign wraps the EXISTING editor in a Google-Docs-style shell. Phase 1 = the
@@ -4150,7 +4153,9 @@ defineExpose({
         <div v-else-if="activePanel === 'drafts'">
           <p v-if="!pendingDrafts.length && !myDrafts.length" class="muted">ยังไม่มีงานร่างหรือรายการรอตรวจ</p>
           <template v-if="isApprover && pendingDrafts.length">
-            <strong>📨 รออนุมัติ ({{ pendingDrafts.length }})</strong>
+            <!-- ก-04: กองนี้คือกองเดียวกับเลข "รอตรวจ" บนหน้าแรก — เดิมหัวข้อนี้เขียนว่า
+                 "รออนุมัติ" ⇒ คนกดจากหน้าแรกมาเจอคำใหม่ แล้วไม่แน่ใจว่ามาถูกที่ไหม -->
+            <strong>📨 {{ WORK_WORDS.awaitingReview }} ({{ pendingDrafts.length }})</strong>
             <div v-for="d in pendingDrafts" :key="d.id" class="draft-row">
               <a href="#" @click.prevent="loadDraft(d); closePanel()">{{ d.number != null ? d.number + '. ' : '' }}{{ d.title_th }}</a>
               <span class="muted"> — โดย {{ profilesMap[d.author_id] || '?' }}</span>

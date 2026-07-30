@@ -76,6 +76,21 @@ export function unverifiedSongs(songs) {
   return sortSongs((songs || []).filter((s) => s && !s.verified))
 }
 
+// "ยังทำไม่เสร็จ" over a song list → a plain count of rows whose `verified` is falsy.
+//
+// Same predicate as showUnverifiedBadge, so the number on the landing can never disagree with
+// the badge on the row. This is the pile พี่เปา calls กองที่ 2 — เพลงของเขาเองที่ยังทำไม่เสร็จ —
+// which he confirmed is a DIFFERENT pile from รอตรวจ (drafts other people sent him); see
+// reviewQueue.js for that one. Wording lives in src/i18n/workWords.js, not here.
+//
+// ⛔ READ ONLY. Nothing in this file writes `verified`: that flag is the public-release gate
+// (visibleSongs above), not a progress label, so counting must never touch it.
+export function unfinishedCount(songs) {
+  let n = 0
+  for (const s of songs || []) if (s && !s.verified) n++
+  return n
+}
+
 // A song's category code, trimmed; null when blank/absent (→ fallback bucket). Kept
 // defensive so a row missing the column doesn't throw.
 function songCategory(song) {
@@ -90,27 +105,41 @@ export function categoryName(code) {
 }
 
 // Tally songs per category + count the unclassified ones. Returns { counts: Map<code,n>,
-// none: n }. Each song counts once (one category per song); no-category songs add to `none`.
+// none: n, unfinished: Map<code,n>, noneUnfinished: n }. Each song counts once (one category
+// per song); no-category songs add to `none`.
+//
+// `unfinished` is the same tally narrowed to rows whose `verified` is falsy — so พี่เปา can see
+// "how much is still unfinished IN THIS เล่ม" without opening it (มาตรฐาน ก-01: ทุกช่องต้องแสดง
+// จำนวนเป็นเลข เห็นได้โดยไม่ต้องกดเข้าไปนับ). Counted in the SAME pass as the totals so the two
+// numbers on a row are always read off one list and can never drift apart.
 export function tallyCategories(songs) {
   const counts = new Map()
+  const unfinished = new Map()
   let none = 0
+  let noneUnfinished = 0
   for (const s of songs || []) {
     const c = songCategory(s)
+    const undone = !!s && !s.verified
     if (!c) {
       none++
+      if (undone) noneUnfinished++
       continue
     }
     counts.set(c, (counts.get(c) || 0) + 1)
+    if (undone) unfinished.set(c, (unfinished.get(c) || 0) + 1)
   }
-  return { counts, none }
+  return { counts, none, unfinished, noneUnfinished }
 }
 
 // The ordered shelf to render: known books first (CATEGORY_ORDER), then any unknown/new
 // category present in the data, then the fallback bucket. Books with 0 songs are hidden
 // (P'Aim: don't show empty เล่ม — e.g. เด็กเล็ก stays hidden until it has songs); the fallback
 // shows only when non-empty. Each entry = { code, name, count, fallback }.
+// `unfinished` rides on every entry (0 when the เล่ม is complete) so the landing row can print
+// it without a second pass over the songs. Additive — nothing that already reads
+// { code, name, count, fallback } changes.
 export function orderedBooks(songs) {
-  const { counts, none } = tallyCategories(songs)
+  const { counts, none, unfinished, noneUnfinished } = tallyCategories(songs)
   const known = CATEGORY_ORDER.filter((c) => (counts.get(c) || 0) > 0)
   const extra = [...counts.keys()]
     .filter((c) => !CATEGORY_NAMES[c] && (counts.get(c) || 0) > 0)
@@ -119,10 +148,17 @@ export function orderedBooks(songs) {
     code: c,
     name: categoryName(c),
     count: counts.get(c),
+    unfinished: unfinished.get(c) || 0,
     fallback: false,
   }))
   if (none > 0) {
-    shelf.push({ code: FALLBACK_KEY, name: 'อื่นๆ / ยังไม่จัดเล่ม', count: none, fallback: true })
+    shelf.push({
+      code: FALLBACK_KEY,
+      name: 'อื่นๆ / ยังไม่จัดเล่ม',
+      count: none,
+      unfinished: noneUnfinished,
+      fallback: true,
+    })
   }
   return shelf
 }
