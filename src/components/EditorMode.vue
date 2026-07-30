@@ -73,11 +73,21 @@ const editing = computed(() => props.active)
 // without a router), so read it defensively — a deep link is a nice-to-have, never a reason
 // for the editor to fail to mount.
 const route = useRoute()
-onMounted(() => {
+onMounted(async () => {
   loadSongList()
-  loadDrafts()
+  const draftsReady = loadDrafts()
   loadProfilesMap()
   if (route?.query?.panel === 'drafts' && loggedIn.value) openPanel('drafts')
+  // `?draft=<id>` — เปิดงานร่างใบที่ระบุมาตรง ๆ. หน้าแรกส่งมาเมื่อพี่เปากดแถวในรายการ "รอตรวจ"
+  // ที่ตอนนี้อยู่ในหน้าแรกแล้ว: เขาเลือกใบที่จะทำจากหน้าแรก แล้วมาถึงที่นี่พร้อมใบนั้นเปิดรออยู่
+  // ⛔ ไม่ต้องเปิดแผงแล้วให้เขาไล่หาซ้ำอีกรอบ · ใช้ loadDraft ตัวเดียวกับที่แผงใช้ ⛔ ไม่เขียนใหม่
+  // ต้องรอ loadDrafts() ให้เสร็จก่อน เพราะรายการยังว่างอยู่ตอนที่ onMounted เริ่มทำงาน
+  const wantId = route?.query?.draft
+  if (wantId && loggedIn.value) {
+    await draftsReady
+    const d = [...pendingDrafts.value, ...myDrafts.value].find((x) => x && x.id === wantId)
+    if (d) loadDraft(d)
+  }
 })
 onUnmounted(stopPlayback)
 

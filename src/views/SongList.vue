@@ -66,6 +66,7 @@ const showList = computed(() => searching.value || onlyUnverified.value)
 function showUnfinished(code) {
   query.value = ''
   theme.value = ''            // ธีมที่ค้างอยู่ก็คัดซ้อนได้เหมือนกัน
+  showDrafts.value = false    // อีกกองหนึ่งต้องปิด ไม่ให้ 2 มุมมองทับกัน
   activeBook.value = code || null
   // ตั้งชั้นไว้ให้ "ปิดสวิตช์แล้วกลับไปที่ที่ควรกลับ": เฉพาะเล่ม → กลับเข้าเล่มนั้น · ทุกเล่ม → กลับหน้าแรก
   level.value = code ? 'songs' : 'books'
@@ -214,8 +215,46 @@ async function loadReviewQueue() {
 }
 watch(canApprove, loadReviewQueue)
 
-// (ทางเข้าแผง "งานร่าง / รอตรวจ" ย้ายไปอยู่ที่ openManage() ข้างบน — ปุ่ม ⚙ จัดการงาน
-//  ในแถบ "งานของฉัน" ใช้ปลายทางเดียวกันกับที่ชิปเดิมใช้ `?panel=drafts` จึงมีฟังก์ชันเดียว)
+// ---- รายการ "รอตรวจ" อยู่ในหน้าแรกแล้ว (PM สั่ง 30 ก.ค. รอบที่ 4) ----
+//
+// เดิมกดชิป "รอตรวจ" แล้ว *กระเด็นออก* จากหน้าแรกไปหน้าแก้ไข ขณะที่ชิป "ยังทำไม่เสร็จ" ที่วาง
+// ติดกันและหน้าตาเหมือนกันเป๊ะ กดแล้ว *คัดรายการในหน้าเดิม* ⇒ ปุ่มหน้าตาเดียวกันทำงานคนละแบบ
+// ซึ่งเป็นความสับสนที่ "เราสร้างขึ้นเองวันนี้" (เดิมเลขกองสองเป็นข้อความเฉย ๆ ไม่ใช่ปุ่ม)
+// ตอนนี้ทั้งสองชิปทำงานเหมือนกัน: กด → รายการโผล่ในหน้าเดิม → เลือกจากรายการ → ค่อยเข้าไปทำงาน
+//
+// ⛔ ไม่ได้ยิงคิวรีใหม่ — ใช้ `reviewQueue` ที่หน้านี้โหลดไว้อยู่แล้วเพื่อนับเลขบนชิป
+// (`loadReviewQueue()` ข้างบน) ⇒ เลขบนชิปกับจำนวนแถวในรายการมาจากก้อนเดียวกัน เพี้ยนกันไม่ได้
+const showDrafts = ref(false)
+
+function toggleDrafts() {
+  // คนที่ล็อกอินแต่ไม่ใช่ผู้อนุมัติไม่มีคิวของตัวเอง (RLS db/002 ไม่ส่งแถวให้) — ชิปของเขาอ่านว่า
+  // "จัดการงาน" และยังพาไปที่แผงงานร่างเหมือนเดิม เพราะไม่มีรายการจะกางให้ดูในหน้าแรก
+  if (!canApprove.value) {
+    router.push('/studio?panel=drafts')
+    return
+  }
+  showDrafts.value = !showDrafts.value
+  if (showDrafts.value) {
+    query.value = ''          // เคลียร์ของอีกกองทิ้ง ไม่ให้ 2 มุมมองทับกัน
+    onlyUnverified.value = false
+  }
+  window.scrollTo(0, 0)
+}
+
+// เลือกงานร่าง 1 ใบจากรายการ → เข้าหน้าแก้ไขพร้อมใบนั้นเปิดรออยู่ (EditorMode รับ `?draft=`)
+function openDraft(id) {
+  router.push(`/studio?draft=${encodeURIComponent(id)}`)
+}
+
+// วันที่แบบไทยสั้น ๆ สำหรับแถวงานร่าง ("ส่งมาเมื่อไหร่") — ใช้ตัวจัดรูปแบบของเบราว์เซอร์
+// ⛔ ไม่เพิ่มไลบรารี · ไม่มีวันที่ = เว้นไว้ ⛔ ไม่เดา
+function draftDate(d) {
+  const raw = d && d.updated_at
+  if (!raw) return ''
+  const t = new Date(raw)
+  if (Number.isNaN(t.getTime())) return ''
+  return t.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
+}
 
 // ---- bookshelf derivations (pure logic in lib/bookshelf.js, unit-tested there) ----
 // grouped by `category` (real books); each entry = { code, name, count, fallback }.
@@ -346,12 +385,17 @@ onMounted(async () => {
              และพี่เปาก็จะไม่มีทางเข้าหลังบ้านเลยในวันที่ไม่มีงานค้าง · ตอนนี้อยู่เสมอเมื่อล็อกอิน
              พร้อมเลข 0 (มาตรฐาน ก-01 · ก-08) · คนที่ล็อกอินแต่ไม่ใช่ผู้อนุมัติไม่มีคิวเป็นของตัวเอง
              (RLS db/002 ไม่ส่งแถวให้) ชิปจึงอ่านว่า "จัดการงาน" แทน แต่เป็นชิปใบเดียวกันและไปที่เดียวกัน -->
-        <button type="button" class="review-chip" @click="openManage">
+        <button
+          type="button"
+          class="review-chip"
+          :aria-pressed="canApprove ? showDrafts : undefined"
+          @click="toggleDrafts"
+        >
           <span aria-hidden="true">{{ canApprove ? '📨' : '⚙' }}</span>
           <span class="rc-label">{{ canApprove ? W.awaitingReview : 'จัดการงาน' }}</span>
           <span v-if="canApprove" class="rc-count">{{ reviewCount }}</span>
           <span class="sr-only">
-            {{ canApprove ? `${W.awaitingReview} ${reviewCount} รายการ (งานที่คนอื่นส่งมาให้อนุมัติ) — ` : '' }}เปิดรายการงานร่างที่รอตรวจ
+            {{ canApprove ? `${W.awaitingReview} ${reviewCount} รายการ (งานที่คนอื่นส่งมาให้อนุมัติ) — กดเพื่อดูรายการ` : 'เปิดรายการงานร่างที่รอตรวจ' }}
           </span>
         </button>
         <!-- กองที่ 2 · ยังทำไม่เสร็จ — เพลงของเราเองที่ยังไม่เสร็จ (songs verified=false)
@@ -375,6 +419,34 @@ onMounted(async () => {
     </div>
 
     <p v-if="loading" class="muted">กำลังโหลด…</p>
+
+    <!-- ===== รอตรวจ · รายการงานร่างที่คนอื่นส่งมา — อยู่ในหน้าแรกแล้ว ไม่กระเด็นออกไป =====
+         เรียบง่ายที่สุดตามที่สั่ง: เลข + ชื่อ + วันที่ส่ง · กดแถวแล้วเข้าไปทำงานต่อในหน้าแก้ไข
+         ใช้แถว `.song-row` ชุดเดียวกับรายการเพลงในเล่ม ⛔ ไม่สร้างหน้าตาแถวแบบใหม่ -->
+    <section v-else-if="showDrafts">
+      <button type="button" class="crumb" @click="toggleDrafts">← เล่มทั้งหมด</button>
+      <div class="level-head">
+        <h2>{{ W.awaitingReview }}</h2>
+        <span class="count muted" aria-live="polite">{{ reviewQueue.length }} รายการ</span>
+      </div>
+      <div class="song-list">
+        <button
+          v-for="d in reviewQueue"
+          :key="d.id"
+          type="button"
+          class="song-row draft-pick"
+          @click="openDraft(d.id)"
+        >
+          <span class="no">{{ d.number != null ? d.number : '–' }}</span>
+          <span class="ttl">{{ d.title_th }}</span>
+          <span v-if="draftDate(d)" class="key">ส่งมา {{ draftDate(d) }}</span>
+        </button>
+      </div>
+      <!-- ช่องว่างต้องบอกว่าว่างและทำอะไรต่อ ⛔ ห้ามปล่อยเป็นที่โล่ง (มาตรฐาน ก-08) -->
+      <p v-if="reviewQueue.length === 0" class="muted empty" aria-live="polite">
+        ยังไม่มีงานที่คนอื่นส่งมาให้ตรวจ — กด “← เล่มทั้งหมด” เพื่อกลับไปเลือกเล่ม
+      </p>
+    </section>
 
     <!-- ===== SEARCH · flat results across every book (overrides levels) =====
          เปิดได้ 2 ทางแล้ว: พิมพ์ค้นหา (เหมือนเดิม) หรือกดเลข "ยังทำไม่เสร็จ" (พี่เปาขอเพิ่ม) -->
@@ -408,8 +480,13 @@ onMounted(async () => {
         </select>
       </div>
 
+      <!-- ✏️ ในการ์ดด้วย (PM สั่ง 30 ก.ค. รอบที่ 4): พี่เปากดคัด "ยังทำไม่เสร็จ" มาเพื่อจะไปแก้
+           ถ้าการ์ดไม่มีดินสอ เขาต้องกดเข้าเพลงก่อนแล้วกดแก้ไขอีกที = ทางตันกลางทาง
+           ปุ่มเดียวกับที่ใช้ในแถวเพลงในเล่ม (`.row-edit`) ⛔ ไม่สร้างปุ่มแบบใหม่
+           และวางเป็น "พี่น้อง" ของลิงก์การ์ดเหมือนกัน ⛔ ไม่ใช่ปุ่มซ้อนในลิงก์ -->
       <div class="song-grid">
-        <router-link v-for="s in results" :key="s.id" :to="`/song/${s.id}`" class="card song-card">
+        <div v-for="s in results" :key="s.id" class="song-card-wrap">
+        <router-link :to="`/song/${s.id}`" class="card song-card">
           <div class="song-card-head">
             <strong class="song-title">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</strong>
             <span class="head-tags">
@@ -434,6 +511,15 @@ onMounted(async () => {
           </div>
           <div v-if="s.scripture" class="scripture-tag muted">📖 {{ s.scripture }}</div>
         </router-link>
+        <button
+          v-if="loggedIn"
+          type="button"
+          class="row-edit"
+          :aria-label="`แก้ไข ${s.title_th}`"
+          :title="`แก้ไข ${s.title_th}`"
+          @click="openEdit(s.id)"
+        ><span aria-hidden="true">✏️</span></button>
+        </div>
       </div>
       <p v-if="results.length === 0" class="muted empty" aria-live="polite">ไม่พบเพลงที่ค้นหา</p>
     </section>
@@ -794,6 +880,14 @@ onMounted(async () => {
   min-height: var(--touch-min);
 }
 .song-row:hover { background: var(--cream-hover); }
+/* แถวงานร่างในรายการ "รอตรวจ" — ใช้ `.song-row` ชุดเดียวกับรายการเพลง แต่เป็น <button>
+   (ปลายทางไม่ใช่หน้าเพลง แต่เป็นการเปิดงานร่างใบนั้น) จึงต้องรีเซ็ตค่าที่ปุ่มมีมาเองเท่านั้น */
+.draft-pick {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 /* ✏️ เปิดเพลงนี้ในหน้าแก้ไขทันที (ล็อกอินแล้วเท่านั้น).
    กว้าง 44px สูงเท่าแถว — เกินขั้นบังคับ WCAG 2.2 · 2.5.8 (AA = 24px · 44px คือขั้น AAA).
    ⛔ ไม่ซ่อนด้วย @media (hover: hover) — เครื่องพี่เอมเป็นจอสัมผัสที่ต่อเมาส์แล้วรายงานว่า
@@ -883,15 +977,30 @@ onMounted(async () => {
   gap: var(--sp-3);
 }
 @media (min-width: 640px) { .song-grid { grid-template-columns: repeat(2, 1fr); } }
+/* ห่อ "การ์ด + ปุ่มดินสอ" ให้เป็นพี่น้องกัน (แบบเดียวกับ .song-row-wrap)
+   ตัวห่อไม่มีหน้าตาของตัวเอง — กรอบและพื้นยังเป็นของ .card/.song-card เหมือนเดิม
+   ดินสอเกาะขอบบนของการ์ด (align-items: flex-start) เพราะการ์ดสูงไม่เท่ากันในตารางสองคอลัมน์
+   ⇒ ดินสอทุกใบอยู่แนวเดียวกับชื่อเพลง ไม่ลอยอยู่กลางการ์ดสูง ๆ */
+.song-card-wrap { display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; }
 .song-card {
   display: block;
   text-decoration: none;
   color: var(--ink);
   margin-bottom: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .song-card:hover { background: var(--cream-hover); }
+/* หัวการ์ด = ชื่อเพลง + ป้ายสถานะ/คีย์. ให้ป้ายตกลงบรรทัดใหม่เมื่อที่ไม่พอ
+   ⭐ วัดจริงที่จอ 360px (การ์ดใบแรกของรายการที่คัดแล้ว):
+      ของเดิม v1 (ไม่มีดินสอ)      → การ์ด 336px · ชื่อเพลงแตก 4 บรรทัด · ป้าย Key ขวาสุด 331 จากขอบใน 332 = **เกือบล้นอยู่แล้ว**
+      ใส่ดินสอโดยไม่แก้อะไร        → การ์ด 284px · ชื่อแตก 5 บรรทัด · **ป้าย Key ล้นออกนอกการ์ดจริง (323 จาก 280)**
+      ใส่ดินสอ + ให้ป้ายตกบรรทัด   → ชื่อเพลงเหลือ **1 บรรทัด** · ไม่มีอะไรล้น · การ์ดเตี้ยลงจาก 262px เหลือ 191px
+   ⇒ ที่แคบจริง ๆ คือหัวการ์ดของ v1 เองซึ่งบีบชื่อเพลงอยู่ก่อนแล้ว ดินสอเป็นแค่ฟางเส้นสุดท้าย
+   การให้ป้ายตกบรรทัดจึงแก้ทั้งของเดิมและของใหม่พร้อมกัน ⛔ ไม่ต้องซ่อนดินสอบนมือถือ */
 .song-card-head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
   gap: var(--sp-2);
