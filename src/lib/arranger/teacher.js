@@ -176,14 +176,20 @@ export function thickenIntoClimax(events, plan, { fromBeat, gain = 0.55 } = {}) 
  * @param {Object} content  song content (ต้อง resolve v2 → lines แล้ว หรือดิบก็ได้ ใช้แค่ bpm/timeSignature)
  * @param {Array}  notes    songToNotes/buildPlayNotes ของเพลงนั้น
  * @param {Array}  sections resolveSections(...) — ต้องมี isRefrain
- * @param {Object} opt      { mode: 'loud' | 'thick' }  loud = ไต่ด้วยความดัง (ค่าเริ่มต้น) · thick = ไต่ด้วยความหนา
+ * @param {Object} opt      { mode: 'loud' | 'thick', refrainDensity: 'normal' | 'dense' }
+ *                          mode: loud = ไต่ด้วยความดัง (ค่าเริ่มต้น) · thick = ไต่ด้วยความหนา
+ *                          refrainDensity: normal = ท่อนรับถี่ ~1.4 เท่าของท่อนร้อง (ค่าเริ่มต้น) ·
+ *                            dense = ~2.8 เท่า (ตัวเลือกที่ครูจะฟังเทียบว่าสีสันพอไหม)
  * @returns {{cfg:Object, plan:Object|null, band:Object, hairpins:Array, notes:string[]}}
  */
 export function teacherCfg(content, notes, sections = [], opt = {}) {
   const mode = opt.mode === 'thick' ? 'thick' : 'loud'
+  const dense = opt.refrainDensity === 'dense'
   const bpm = Number(content?.bpm) || 92
   const band = tempoBand(bpm)
   const style = BAND_STYLE[band.id]
+  // ท่อนรับ "ถี่เต็มที่" — ตัวเลือกให้ครูฟังเทียบว่าสีสันพอไหม (วัดกับเพลง 089: 1.4 เท่า → 2.8 เท่า)
+  const refrainPattern = dense ? 'arpeggioDense' : style.refrainPattern
   const ts = content?.timeSignature
   const bpb = typeof ts === 'string' ? (parseInt(ts.split('/')[0], 10) || 4) : (Number(ts) || 4)
   const plan = climaxPlan(notes, sections, bpb)
@@ -199,7 +205,7 @@ export function teacherCfg(content, notes, sections = [], opt = {}) {
 
   const cfg = {
     chordGain: 0.09,
-    pattern: style.pattern, refrainPattern: style.refrainPattern,
+    pattern: style.pattern, refrainPattern,
     bass: style.bass, voicing: style.voicing,
     embellish: style.embellish, fills: style.fills, fillLevel: style.fillLevel,
     susCadence: style.susCadence,
@@ -213,5 +219,5 @@ export function teacherCfg(content, notes, sections = [], opt = {}) {
     lhCeiling: true,
     thicken: mode === 'thick' && plan ? { plan } : null,
   }
-  return { cfg, plan, band, hairpins, mode }
+  return { cfg, plan, band, hairpins, mode, refrainDensity: dense ? 'dense' : 'normal' }
 }
