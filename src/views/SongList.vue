@@ -309,31 +309,31 @@ onMounted(async () => {
              ชั้นล่าง = ปุ่ม (การกระทำ)
            เหตุ: เลขที่กดได้กับเลขที่กดไม่ได้หน้าตาเหมือนกัน = คนกดแล้วไม่เกิดอะไร (Web Bloopers) -->
       <div v-if="showWorkBar && !searching" class="work-bar">
-        <div class="wb-nums">
-          <!-- กองที่ 1 · รอตรวจ — งานที่คนอื่นส่งมาให้อนุมัติ (song_drafts status='pending')
-               เฉพาะผู้อนุมัติ: คิวนี้เป็นของเขา และ RLS (db/002) ก็ไม่ส่งแถวให้คนอื่นอยู่แล้ว.
-               โชว์เลขเสมอรวมทั้ง 0 (ก-01 · ก-08) — เดิมชิปหายไปเลยตอน 0 ⇒ แยกไม่ออกว่า
-               "ไม่มีงานค้าง" หรือ "โหลดไม่ขึ้น" -->
-          <span v-if="canApprove" class="wb-stat" aria-live="polite">
-            <span aria-hidden="true">📨</span>
-            <span class="wb-lbl">{{ W.awaitingReview }}</span>
-            <span class="wb-count">{{ reviewCount }}</span>
-            <span class="sr-only">{{ W.awaitingReview }} {{ reviewCount }} รายการ (งานที่คนอื่นส่งมาให้อนุมัติ)</span>
+        <!-- กองที่ 1 · รอตรวจ — งานที่คนอื่นส่งมาให้อนุมัติ (song_drafts status='pending')
+             ⭐ ใช้ชิป .review-chip ของ v1 เดิม "ตัวเดียวกัน" ⛔ ไม่สร้างหน้าตาใหม่ — v1 วางชิปนี้
+             ลอยใต้ช่องค้นหาอยู่แล้ว และชิปนี้เองคือทางเข้าหลังบ้าน 1 คลิก (กดแล้วไปแผงงานร่าง)
+             ⇒ เลข "รอตรวจ" กับปุ่มเข้าหลังบ้าน เป็นของชิ้นเดียวกันแบบที่ v1 เป็นอยู่.
+             เดิมชิปหายไปทั้งใบเมื่อคิวเป็น 0 ⇒ แยกไม่ออกว่า "ไม่มีงานค้าง" หรือ "โหลดไม่ขึ้น"
+             และพี่เปาก็จะไม่มีทางเข้าหลังบ้านเลยในวันที่ไม่มีงานค้าง · ตอนนี้อยู่เสมอเมื่อล็อกอิน
+             พร้อมเลข 0 (มาตรฐาน ก-01 · ก-08) · คนที่ล็อกอินแต่ไม่ใช่ผู้อนุมัติไม่มีคิวเป็นของตัวเอง
+             (RLS db/002 ไม่ส่งแถวให้) ชิปจึงอ่านว่า "จัดการงาน" แทน แต่เป็นชิปใบเดียวกันและไปที่เดียวกัน -->
+        <button type="button" class="review-chip" @click="openManage">
+          <span aria-hidden="true">{{ canApprove ? '📨' : '⚙' }}</span>
+          <span class="rc-label">{{ canApprove ? W.awaitingReview : 'จัดการงาน' }}</span>
+          <span v-if="canApprove" class="rc-count">{{ reviewCount }}</span>
+          <span class="sr-only">
+            {{ canApprove ? `${W.awaitingReview} ${reviewCount} รายการ (งานที่คนอื่นส่งมาให้อนุมัติ) — ` : '' }}เปิดรายการงานร่างที่รอตรวจ
           </span>
-          <!-- กองที่ 2 · ยังทำไม่เสร็จ — เพลงของเราเองที่ยังไม่เสร็จ (songs verified=false)
-               หน่วยเป็น "เพลง" ⛔ ไม่ใช่ "รายการ" เหมือนกองบน — คนละของกันจริง ๆ -->
-          <span class="wb-stat" aria-live="polite">
-            <span aria-hidden="true">✏️</span>
-            <span class="wb-lbl">{{ W.unfinished }}</span>
-            <span class="wb-count">{{ unfinishedTotal }}</span>
-            <span class="sr-only">{{ W.unfinished }} {{ unfinishedTotal }} เพลง (เพลงของเราเองที่ยังทำไม่เสร็จ)</span>
-          </span>
-        </div>
-        <!-- ทางเข้าหลังบ้าน = 1 คลิกจากหน้าแรก (เดิม 3: เลือกเล่ม → เลือกเพลง → กดแก้ไข)
-             ปลายทาง = แผง "งานร่าง / รอตรวจ" ในหน้าแก้ไข ซึ่งเปิด/ส่งกลับ/อนุมัติงานร่างได้อยู่แล้ว -->
-        <button type="button" class="wb-go" @click="openManage">
-          <span aria-hidden="true">⚙</span> จัดการงาน
         </button>
+        <!-- กองที่ 2 · ยังทำไม่เสร็จ — เพลงของเราเองที่ยังไม่เสร็จ (songs verified=false)
+             เป็นตัวเลขอ่านอย่างเดียว ⛔ ไม่ใช่ปุ่ม จึงไม่มีขอบ ไม่มีพื้น ไม่มีมือชี้
+             หน่วยเป็น "เพลง" ⛔ ไม่ใช่ "รายการ" เหมือนกองบน — พี่เปายืนยันเองว่าคนละกองกัน -->
+        <span class="wb-stat" aria-live="polite">
+          <span aria-hidden="true">✏️</span>
+          <span class="wb-lbl">{{ W.unfinished }}</span>
+          <span class="wb-count">{{ unfinishedTotal }}</span>
+          <span class="sr-only">{{ W.unfinished }} {{ unfinishedTotal }} เพลง (เพลงของเราเองที่ยังทำไม่เสร็จ)</span>
+        </span>
       </div>
     </div>
 
@@ -504,35 +504,57 @@ onMounted(async () => {
    (src/styles.css:117 · outline 2px solid var(--brand) · offset 2px) ⛔ ไม่สร้างหน้าตาใหม่ */
 .song-search.auto-ring { outline: 2px solid var(--brand); outline-offset: 2px; }
 
-/* ---- แถบ "งานของฉัน" (ล็อกอินแล้วเท่านั้น) — ตัวเลขชั้นบน · ปุ่มชั้นล่าง ----
-   สองชั้นแยกกันจริง ๆ เพราะเลขกับปุ่มคนละหน้าที่: เลขคือ "อ่าน" ปุ่มคือ "กด".
-   ทำให้หน้าตาเหมือนกันเมื่อไหร่ คนจะกดที่เลขแล้วไม่เกิดอะไร (Web Bloopers เรื่องปุ่มลวง).
-   ทั้งแถบใช้สีชุดเดิมของหน้านี้ (--cream / --line / --brand) ⛔ ไม่เพิ่มสีใหม่เข้าระบบ. */
+/* ---- แถบงานของทีม (ล็อกอินแล้วเท่านั้น) — ชิปของ v1 เดิม + ตัวเลขอีกกองหนึ่ง ----
+   ⛔ ไม่มีกล่อง ไม่มีกรอบ ไม่มีพื้นหลัง: v1 วางชิปนี้ "ลอย" ใต้ช่องค้นหาอยู่แล้ว
+   ตัวแถบจึงเป็นแค่แถวจัดเรียง ⛔ ไม่ใช่การ์ดใบใหม่. */
 .work-bar {
   display: flex;
-  flex-wrap: wrap;              /* จอแคบ: ปุ่มตกลงมาบรรทัดใหม่เอง ⛔ ไม่ล้นขอบจอ */
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-2) var(--sp-3);
-  margin-top: var(--sp-3);
-  padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--line);
-  border-left: 5px solid var(--brand);   /* สันสีน้ำตาลแบบเดียวกับแถวเล่ม = "ของทีม" */
-  border-radius: 10px;
-  background: var(--cream);
-}
-.wb-nums {
-  display: flex;
-  flex-wrap: wrap;
+  flex-wrap: wrap;   /* จอแคบ: ตัวเลขตกลงบรรทัดใหม่เอง ⛔ ไม่ล้นขอบจอ */
   align-items: center;
   gap: var(--sp-2) var(--sp-4);
-  min-width: 0;
 }
-/* ตัวเลข = ข้อความ ⛔ ไม่ใช่ปุ่ม: ไม่มีขอบ ไม่มีพื้น ไม่มี cursor:pointer */
+
+/* ---- ชิปของผู้อนุมัติ (พี่เปา) — ของ v1 เดิม คงไว้ทุกค่า: สีแบรนด์ที่หน้านี้ใช้กับชิปตัวกรอง
+   ที่กำลังเปิดอยู่ ⛔ ไม่ใช่สีใหม่ · สูง ≥44px · ยืนได้ด้วยตัวเองไม่พึ่งรายการเล่มข้างล่าง ---- */
+.review-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  min-height: var(--touch-min);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: 22px;
+  border: 1px solid var(--brand);
+  background: var(--brand);
+  color: #fff;
+  font: inherit;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+.review-chip:hover { filter: brightness(1.08); }
+.review-chip .rc-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6em;
+  padding: 0 var(--sp-1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.24);
+  font-variant-numeric: tabular-nums;
+}
+/* คำอยู่ครบทุกความกว้าง — ชิปนี้ครองแถวของตัวเอง คำเต็มจึงพอแม้ที่ 320px และไม่มีอะไรถูกตัด
+   ⛔ ไม่ยุบเหลือไอคอน+เลขเปล่า ซึ่งจะทำให้พี่เปาเสียความหมายไปฟรี ๆ · ไม่หักคำกลางคำ */
+.review-chip .rc-label { white-space: nowrap; }
+
+/* ตัวเลขกองที่ 2 = ข้อความอ่านอย่างเดียว ⛔ ไม่ใช่ปุ่ม: ไม่มีขอบ ไม่มีพื้น ไม่มีมือชี้
+   เพราะเลขที่หน้าตาเหมือนปุ่มจะถูกกดแล้วไม่เกิดอะไร (Web Bloopers เรื่องปุ่มลวง).
+   ใช้ตัวอักษรและสีชุดเดิมของหน้านี้ (--fs-sm · --muted · --brand) ⛔ ไม่เพิ่มค่าใหม่ */
 .wb-stat {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
+  margin-top: var(--sp-3);   /* ตรงกับ margin-top ของชิป เพื่อให้อยู่แนวเดียวกัน */
   font-size: var(--fs-sm);
   color: var(--ink);
   white-space: nowrap;
@@ -544,27 +566,6 @@ onMounted(async () => {
   color: var(--brand);
   font-variant-numeric: tabular-nums;   /* เลขไม่ขยับเวลาค่าเปลี่ยน */
 }
-/* ปุ่ม = การกระทำ. สูงอย่างน้อย 44px (WCAG 2.2 · 2.5.8 ขั้น AA บังคับ 24px — เราให้เกิน)
-   และไม่ยืดสูงตามแถบ (align-self) ตามที่ G ท้วงไว้รอบก่อน */
-.wb-go {
-  align-self: center;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  min-height: var(--touch-min);
-  padding: var(--sp-2) var(--sp-4);
-  border-radius: 22px;
-  border: 1px solid var(--brand);
-  background: var(--brand);
-  color: #fff;
-  font: inherit;
-  font-size: var(--fs-base);
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.wb-go:hover { filter: brightness(1.08); }
 .sr-only {
   position: absolute;
   width: 1px;
