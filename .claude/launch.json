@@ -8,6 +8,18 @@
       "port": 5173
     },
     {
+      "name": "b092",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "C:/gl/krisada/pleng-b092", "--host", "--port", "5421", "--strictPort"],
+      "port": 5421
+    },
+    {
+      "name": "b091",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "C:/gl/krisada/pleng-b091", "--host", "--port", "5422", "--strictPort"],
+      "port": 5422
+    },
+    {
       "name": "wt0",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "5301"],
