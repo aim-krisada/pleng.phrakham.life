@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UI จริง — ปุ่มดาวน์โหลด MP3</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg, #faf9f7); }
+    .demo-note { max-width: 640px; margin: 1.5rem auto 0; padding: 0 1rem; color: #555; font-size: 14px; }
+    /* a mock top bar so the tool button + its dropdown sit exactly like in the app */
+    .mock-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      max-width: 640px; margin: 1rem auto; padding: .6rem 1rem;
+      background: #fff; border: 1px solid #e5e3df; border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06); position: relative;
+    }
+    .mock-title { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <p class="demo-note">นี่คือ <b>ปุ่มตัวจริง</b> (คอมโพเนนต์ <code>DownloadTool.vue</code>) ที่ผู้ใช้จะเห็น — กดไอคอนดาวน์โหลดมุมขวา → เลือก "⬇️ ดาวน์โหลดเสียง (MP3)" แล้วดูแถบสถานะ</p>
+  <div class="mock-bar">
+    <span class="mock-title">100. ขอสรรเสริญพระเจ้าโดยไม่หยุดยั้ง</span>
+    <div id="tool"></div>
+  </div>
+
+  <script type="module">
+    import { createApp, h } from 'vue'
+    import DownloadTool from '/src/components/DownloadTool.vue'
+    import { currentSong } from '/src/store.js'
+    import '/src/styles.css'
+
+    const song = await (await fetch('/docs/samples/song-100.json')).json()
+    currentSong.value = song
+    createApp({ render: () => h(DownloadTool) }).mount('#tool')
+  </script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>verify MP3 export — B072</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    #log { white-space: pre-wrap; font-family: monospace; font-size: 13px; background:#f4f4f4; padding:1rem; border-radius:8px; }
+    .ok { color: #178a3a; } .bad { color: #c0392b; } .info { color:#333; }
+    button { font-size: 1rem; padding: .6rem 1rem; margin-right:.5rem; }
+    audio { display:block; margin-top:1rem; width:100%; }
+  </style>
+</head>
+<body>
+  <h1>B072 — verify MP3 export (song 100)</h1>
+  <button id="run">▶ Run render + encode + pitch-check</button>
+  <button id="dl" disabled>⬇️ Download the MP3</button>
+  <audio id="player" controls></audio>
+  <div id="log">…</div>
+
+  <script type="module">
+    import { songToMp3Blob, renderSongToBuffer, playableContent, estimateMp3 } from '/src/lib/audioExport.js'
+    import { buildPlayNotes } from '/src/lib/midi.js'
+
+    const logEl = document.getElementById('log')
+    let lines = []
+    const log = (msg, cls = 'info') => { lines.push(`<span class="${cls}">${msg}</span>`); logEl.innerHTML = lines.join('\n') }
+
+    // Detect the fundamental frequency of a mono Float32 window by autocorrelation.
+    function detectFreq(buf, start, len, sampleRate) {
+      const slice = buf.subarray(start, start + len)
+      // remove DC
+      let mean = 0; for (let i = 0; i < slice.length; i++) mean += slice[i]; mean /= slice.length
+      let bestLag = -1, best = 0
+      const minLag = Math.floor(sampleRate / 1200) // up to ~1200 Hz
+      const maxLag = Math.floor(sampleRate / 80)   // down to ~80 Hz
+      for (let lag = minLag; lag <= maxLag; lag++) {
+        let sum = 0
+        for (let i = 0; i + lag < slice.length; i++) sum += (slice[i] - mean) * (slice[i + lag] - mean)
+        if (sum > best) { best = sum; bestLag = lag }
+      }
+      return bestLag > 0 ? sampleRate / bestLag : 0
+    }
+    const freqToMidi = (f) => Math.round(69 + 12 * Math.log2(f / 440))
+
+    async function run() {
+      lines = []; log('loading song-100.json …')
+      const song = await (await fetch('/docs/samples/song-100.json')).json()
+      log(`song: ${song.title_th} (no.${song.number}) · key ${song.content.key} · bpm ${song.content.bpm || 92} (default)`)
+
+      const sampleRate = 44100
+      const bpm = song.content.bpm || 92
+      const notes = buildPlayNotes(playableContent(song.content))
+      const pitched = notes.filter((n) => n.midi != null)
+      log(`buildPlayNotes → ${notes.length} events, ${pitched.length} pitched, ${notes.length - pitched.length} rests`)
+
+      log('rendering offline (OfflineAudioContext) …')
+      const t0 = performance.now()
+      const buffer = await renderSongToBuffer(song.content, { bpm, sampleRate })
+      log(`rendered: ${buffer.duration.toFixed(2)}s, ${buffer.length} frames @ ${sampleRate}Hz (${(performance.now()-t0|0)}ms)`)
+
+      // Walk notes on the timeline exactly as the render did; pitch-check pitched notes.
+      const data = buffer.getChannelData(0)
+      const spb = 60 / bpm
+      let t = 0, checked = 0, matched = 0, mism = []
+      for (const n of notes) {
+        const dur = n.beats * spb
+        if (n.midi != null && dur > 0.12) {
+          // sample a window well inside the note's steady middle
+          const center = t + dur * 0.5
+          const winLen = Math.min(Math.floor(sampleRate * 0.06), Math.floor(dur * sampleRate * 0.5))
+          const start = Math.floor(center * sampleRate) - (winLen >> 1)
+          if (start > 0 && start + winLen < data.length) {
+            const f = detectFreq(data, start, winLen, sampleRate)
+            const detMidi = freqToMidi(f)
+            checked++
+            if (detMidi === n.midi) matched++
+            else if (mism.length < 8) mism.push(`exp ${n.midi} got ${detMidi} (${f.toFixed(1)}Hz) @${center.toFixed(2)}s`)
+          }
+        }
+        t += dur
+      }
+      const rate = checked ? (100 * matched / checked) : 0
+      log(`pitch-check: ${matched}/${checked} notes match expected MIDI (${rate.toFixed(1)}%)`, rate > 95 ? 'ok' : 'bad')
+      if (mism.length) log('mismatches: ' + mism.join(' · '), 'bad')
+
+      // up-front estimate (no render) — what the UI shows before the slow work
+      const est = estimateMp3(song.content, { bpm, kbps: 128 })
+      log(`estimate (pre-flight): ≈ ${est.seconds.toFixed(1)}s · ~${(est.bytes/1024/1024).toFixed(2)} MB`, 'info')
+
+      log('encoding MP3 (lamejs, 128kbps mono) with staged progress …')
+      const stages = []
+      let lastPct = -1, encStart = 0
+      const { blob, seconds } = await songToMp3Blob(song.content, {
+        bpm, sampleRate, kbps: 128,
+        onProgress: ({ stage, fraction }) => {
+          if (!stages.includes(stage)) { stages.push(stage); log(`  → stage: ${stage}`) }
+          if (stage === 'encode') {
+            if (!encStart) encStart = performance.now()
+            const pct = Math.round(fraction * 100)
+            if (pct >= lastPct + 20) { // sample the stream so the log stays readable
+              lastPct = pct
+              const el = (performance.now() - encStart) / 1000
+              const eta = fraction > 0.02 ? el * (1 - fraction) / fraction : null
+              log(`     encode ${pct}%${eta != null ? ` · ETA ~${eta.toFixed(1)}s` : ''}`)
+            }
+          }
+        },
+      })
+      log(`progress stages seen: ${stages.join(' → ')}`, stages.join()==='render,encode,done' ? 'ok' : 'bad')
+      const sizeErr = Math.abs(blob.size - est.bytes) / est.bytes
+      log(`MP3 blob: ${(blob.size/1024).toFixed(1)} KB · ${blob.type} · source ${seconds.toFixed(2)}s · est-error ${(sizeErr*100).toFixed(1)}%`, 'ok')
+
+      // decode the MP3 back to prove it is a playable file
+      log('decoding the MP3 back (AudioContext.decodeAudioData) …')
+      const ac = new (window.AudioContext || window.webkitAudioContext)()
+      const decoded = await ac.decodeAudioData(await blob.arrayBuffer())
+      log(`decoded MP3: ${decoded.duration.toFixed(2)}s, ${decoded.numberOfChannels}ch @ ${decoded.sampleRate}Hz — PLAYABLE`, 'ok')
+      const drift = Math.abs(decoded.duration - buffer.duration)
+      log(`duration drift render↔mp3: ${drift.toFixed(3)}s`, drift < 0.15 ? 'ok' : 'bad')
+
+      const url = URL.createObjectURL(blob)
+      document.getElementById('player').src = url
+      const dl = document.getElementById('dl')
+      dl.disabled = false
+      dl.onclick = () => { const a = document.createElement('a'); a.href = url; a.download = `${song.title_th}.mp3`; a.click() }
+
+      const stagesOk = stages.join() === 'render,encode,done'
+      const pass = rate > 95 && drift < 0.15 && stagesOk && sizeErr < 0.1
+      window.__verify = { rate, matched, checked, size: blob.size, estBytes: est.bytes, sizeErr, seconds, decoded: decoded.duration, stages, pass }
+      log(`DONE. VERDICT: ${pass ? 'PASS ✅' : 'CHECK ❌'}`, pass ? 'ok' : 'bad')
+    }
+
+    document.getElementById('run').onclick = run
+    run()
+  </script>
+</body>
+</html>
