@@ -25,7 +25,11 @@ const midi = await import(pathToFileURL(`${dir}/src/lib/midi.js`).href)
 const model = await import(pathToFileURL(`${dir}/src/lib/songModel.js`).href)
 const arr = await import(pathToFileURL(`${dir}/src/lib/arranger/index.js`).href)
 const mods = await import(pathToFileURL(`${dir}/src/lib/arranger/instruments/index.js`).href)
-const meterMod = await import(pathToFileURL(`${dir}/src/lib/arranger/meter.js`).href)
+// meter.js exists on the v3 line but NOT on the v1 line (v1 has no pickup-bar handling at all).
+// Fall back to "bars counted from beat 0, length = the time signature's numerator", which is exactly
+// what the v1 arranger itself does — so the diagnostic measures each branch on its own terms.
+let meterMod = null
+try { meterMod = await import(pathToFileURL(`${dir}/src/lib/arranger/meter.js`).href) } catch { meterMod = null }
 const presets = await import(pathToFileURL(`${dir}/src/lib/arranger/presets.js`).href)
 
 // what a listener actually hears: the shipped default preset
@@ -46,8 +50,9 @@ function perform(content, songId) {
   const sections = midi.resolveSections(res, notes)
   const meta = { songId, pass: 0, timeSignature: content.timeSignature, keyRoot: midi.KEY_MIDI?.[content.key] ?? 60, sections }
   const events = arr.arrange(notes, chords, { ...CFG, arranger: true, voices: 'both', module: mods.moduleForInstrument('grand') }, meta)
-  const meter = typeof content.timeSignature === 'number' ? null : meterMod.meterOf(content.timeSignature)
-  const barBeats = meter ? meter.barBeats : (Number(content.timeSignature) || 4)
+  const meter = meterMod && typeof content.timeSignature !== 'number' ? meterMod.meterOf(content.timeSignature) : null
+  const tsNum = parseInt(String(content.timeSignature || '4').split('/')[0], 10) || 4
+  const barBeats = meter ? meter.barBeats : tsNum
   const barOffset = meter ? meterMod.barOffsetFor(notes, meter) : 0
   return { events, notes, barBeats, barOffset }
 }
