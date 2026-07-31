@@ -2,6 +2,32 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "lslv1",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "C:/gl/krisada/pleng-lsl-v1",
+        "--host",
+        "--port",
+        "5481",
+        "--strictPort"
+      ],
+      "port": 5481
+    },
+    {
+      "name": "lslmain",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "C:/gl/krisada/pleng-lsl-main",
+        "--host",
+        "--port",
+        "5482",
+        "--strictPort"
+      ],
+      "port": 5482
+    },
+    {
       "name": "b060",
       "runtimeExecutable": "npx",
       "runtimeArgs": [
