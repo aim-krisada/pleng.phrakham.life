@@ -71,6 +71,18 @@ describe('timeline (col 1-3)', () => {
     expect(w.emitted('seek')[0][0]).toBeCloseTo(0.5, 2)
   })
 
+  it('drag maps 1:1 to the INSET visible track (edges = 0 and 1, not poking past)', async () => {
+    const w = mountT()
+    const seek = w.find('.st-seek')
+    // seek cell 0..100; knob+track are inset 8px each end → visible track = [8, 92]
+    seek.element.getBoundingClientRect = () => ({ left: 0, width: 100, top: 0, height: 26, right: 100, bottom: 26 })
+    await seek.trigger('pointerdown', { clientX: 8, pointerId: 1 }) // left edge of visible track
+    await seek.trigger('pointermove', { clientX: 92, pointerId: 1 }) // right edge of visible track
+    const seeks = w.emitted('seek')
+    expect(seeks[0][0]).toBeCloseTo(0, 3) // finger at inset-left → start
+    expect(seeks[1][0]).toBeCloseTo(1, 3) // finger at inset-right → end
+  })
+
   it('section bars reflect the selection (picked = brand · current = taller)', () => {
     const w = mountT({ selected: new Set(['ร้อง 1']) })
     const segs = w.findAll('.st-seg')

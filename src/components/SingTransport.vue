@@ -46,7 +46,12 @@ const alpha = ref(0.96)
 const two = (n) => String(n).padStart(2, '0')
 const fmt = (s) => `${Math.floor(Math.max(0, s) / 60)}:${two(Math.round(Math.max(0, s) % 60))}`
 const totalLabel = computed(() => fmt(props.totalSec)) // DS: show total time only
-const pct = computed(() => (Math.max(0, Math.min(1, props.frac)) * 100).toFixed(2) + '%')
+// Inset-aware CSS positions (see TL_INSET below): a fraction f maps to the point
+// `TL_INSET + f*(100% - 2*TL_INSET)` along the seek cell, so the round knob's edges stay
+// inside the cell instead of poking past it. Segments/dividers share the same scale.
+const insetLeft = (f) => `calc(8px + ${f} * (100% - 16px))`
+const insetWidth = (w) => `calc(${w} * (100% - 16px) - 4px)`
+const knobLeft = computed(() => insetLeft(Math.max(0, Math.min(1, props.frac))))
 
 // ---------- selection summary ----------
 const selCountLabel = computed(() => {
@@ -71,11 +76,18 @@ const segments = computed(() => {
 const dividers = computed(() => segments.value.slice(1).map((s) => s.left))
 
 // ---------- scrub (tap/drag the bar = วิ่งไปทันที) ----------
+// The knob + track are inset TL_INSET px from each end of the seek cell so the round knob
+// never pokes past the cell edge (it would otherwise hug the dock's left edge at frac=0).
+// The visible track therefore spans [left+TL_INSET, right-TL_INSET]; the pointer→frac map
+// must use that same inset so a tap/drag lands 1:1 under the finger (AC #4).
+const TL_INSET = 8 // px — must match the 8px/16px used in the CSS + knob/segment/divider styles
 const seekEl = ref(null)
 let scrubbing = false
 function fracAt(e) {
   const r = seekEl.value.getBoundingClientRect()
-  return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
+  const usable = r.width - TL_INSET * 2
+  if (usable <= 0) return 0
+  return Math.max(0, Math.min(1, (e.clientX - r.left - TL_INSET) / usable))
 }
 function onSeekDown(e) {
   scrubbing = true
@@ -146,10 +158,10 @@ const items = computed(() => {
             :key="i"
             class="st-seg"
             :class="{ on: s.picked, cur: s.active }"
-            :style="{ left: s.left * 100 + '%', width: `calc(${s.width * 100}% - 4px)` }"
+            :style="{ left: insetLeft(s.left), width: insetWidth(s.width) }"
           ></span>
-          <span v-for="(d, i) in dividers" :key="'d' + i" class="st-div" :style="{ left: d * 100 + '%' }"></span>
-          <span class="st-kn" :style="{ left: pct }"></span>
+          <span v-for="(d, i) in dividers" :key="'d' + i" class="st-div" :style="{ left: insetLeft(d) }"></span>
+          <span class="st-kn" :style="{ left: knobLeft }"></span>
         </span>
         <span class="st-time">{{ totalLabel }}</span>
       </span>
@@ -238,7 +250,9 @@ const items = computed(() => {
 .st-seek { position: relative; flex: 0 0 200px; width: 200px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
 @media (max-width: 760px) { .st-seek { flex-basis: 150px; width: 150px; } }
 .st-time { flex: 0 0 auto; }
-.st-trk { position: absolute; left: 0; right: 0; height: 4px; background: #ece5d9; border-radius: 3px; top: 50%; transform: translateY(-50%); }
+/* track is inset 8px each end (matches TL_INSET) so the 16px knob's edges never poke past
+   the seek cell — at frac=0/1 the knob sits flush with the cell edge, not over the dock rim */
+.st-trk { position: absolute; left: 8px; right: 8px; height: 4px; background: #ece5d9; border-radius: 3px; top: 50%; transform: translateY(-50%); }
 /* B2: NO progress fill (it masqueraded as selection). Selection = the section bars only:
    skipped = a visible mid-grey (distinct from the track) · selected = brand · current = taller. */
 .st-seg { position: absolute; height: 6px; top: 50%; transform: translateY(-50%); border-radius: 3px; background: #c7bba6; pointer-events: none; transition: height 0.1s; }
