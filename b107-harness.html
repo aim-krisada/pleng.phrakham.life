@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>B107 tester harness</title>
+  <style>
+    body { font: 15px system-ui; margin: 16px; }
+    button { font-size: 16px; padding: 8px 14px; margin: 4px; }
+    #log { white-space: pre-wrap; font: 12px monospace; background: #111; color: #0f0; padding: 10px; height: 40vh; overflow: auto; }
+    .pill { display:inline-block; background:#222; color:#eee; border-radius:999px; padding:4px 12px; }
+  </style>
+</head>
+<body>
+  <h3>B107 grand-piano tester harness</h3>
+  <div>
+    <button id="play">▶ เล่น (grand)</button>
+    <button id="playChords">▶ chords only</button>
+    <button id="playBoth">▶ both</button>
+    <button id="stop">⏸ พัก / cancel</button>
+    <button id="clearCache">🗑 clear sample cache</button>
+  </div>
+  <p>loading pill: <span id="pill" class="pill">idle</span></p>
+  <div id="log"></div>
+
+  <script type="module">
+    import { playSong, stopPlayback } from '/src/lib/midi.js'
+    import { getReadyInstrument, isSampledInstrument } from '/src/lib/sampler.js'
+
+    const log = (...a) => {
+      const el = document.getElementById('log')
+      el.textContent += a.join(' ') + '\n'
+      el.scrollTop = el.scrollHeight
+      console.log('[HARNESS]', ...a)
+    }
+    window.__H = { oscCount: 0, bufCount: 0, pending: [], errors: [] }
+    window.addEventListener('error', (e) => { window.__H.errors.push(String(e.message)); log('ERROR', e.message) })
+
+    // Instrument AudioContext: our SYNTH uses createOscillator (triangle); the smplr
+    // PIANO plays sample buffers via createBufferSource. Counting each tells us which
+    // sounded — decisively separating "piano played" from "synth heard".
+    for (const C of [window.AudioContext, window.webkitAudioContext].filter(Boolean)) {
+      const oOsc = C.prototype.createOscillator
+      C.prototype.createOscillator = function (...a) { window.__H.oscCount++; return oOsc.apply(this, a) }
+      const oBuf = C.prototype.createBufferSource
+      C.prototype.createBufferSource = function (...a) { window.__H.bufCount++; return oBuf.apply(this, a) }
+    }
+
+    // A short test song: melody with a couple of chords, one section, in C.
+    const song = {
+      key: 'C', bpm: 96,
+      lines: [
+        [ { type:'section', name:'ท่อน1' },
+          { type:'segment', chord:'C', note:'1 2 3', lyric:'ลา' },
+          { type:'segment', chord:'G', note:'5 4 3', lyric:'ลี' },
+          { type:'bar' },
+          { type:'segment', chord:'F', note:'4 3 2', lyric:'โด' },
+          { type:'segment', chord:'C', note:'1 - -', lyric:'มี' },
+        ],
+      ],
+    }
+
+    function reset() { window.__H.oscCount = 0; window.__H.bufCount = 0; window.__H.pending = [] }
+
+    async function go(voices) {
+      reset()
+      log(`--- play voices=${voices} · isSampled(grand)=${isSampledInstrument('grand')} ---`)
+      const t0 = performance.now()
+      window.__H.playDone = false
+      await playSong(song, {
+        bpm: 96, voices, instrument: 'grand',
+        onInstrumentPending: ({ loading, progress }) => {
+          window.__H.pending.push({ loading, progress, t: Math.round(performance.now() - t0) })
+          document.getElementById('pill').textContent = loading ? `loading ${Math.round((progress||0)*100)}%` : 'ready/playing'
+          log(`pending loading=${loading} progress=${Math.round((progress||0)*100)}% osc=${window.__H.oscCount} buf=${window.__H.bufCount}`)
+        },
+        onNote: (n, idx) => { /* highlight */ },
+      })
+      window.__H.playDone = true
+      document.getElementById('pill').textContent = 'done'
+      log(`DONE voices=${voices} osc(synth)=${window.__H.oscCount} buf(piano)=${window.__H.bufCount} dt=${Math.round(performance.now()-t0)}ms`)
+    }
+
+    document.getElementById('play').onclick = () => go('melody')
+    document.getElementById('playChords').onclick = () => go('chords')
+    document.getElementById('playBoth').onclick = () => go('both')
+    document.getElementById('stop').onclick = () => { stopPlayback(); log('STOP pressed'); document.getElementById('pill').textContent='stopped' }
+    document.getElementById('clearCache').onclick = async () => {
+      if (window.caches) { const ok = await caches.delete('pleng-samples-v1'); log('cache deleted=' + ok) }
+      else log('no Cache API in this context')
+    }
+
+    // expose for automation
+    window.__playMelody = () => go('melody')
+    window.__playBoth = () => go('both')
+    window.__stop = () => stopPlayback()
+    window.__cacheKeys = async () => {
+      if (!window.caches) return 'NO_CACHE_API'
+      const c = await caches.open('pleng-samples-v1')
+      const keys = await c.keys()
+      return keys.length
+    }
+    log('harness ready · secure context=' + window.isSecureContext + ' · Cache API=' + (!!window.caches))
+  </script>
+</body>
+</html>
