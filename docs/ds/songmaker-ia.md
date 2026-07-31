@@ -62,11 +62,11 @@
 | **S2** | **Nav drawer ซ้าย (off-canvas + scrim, `PKDrawer`)** — นำทางเว็บ (เพลง/คู่มือ/เกี่ยวกับ) + เครื่องมืออ่าน/แสดงผล | Material navigation drawer | global-occasional · นำทางระดับเว็บ (ไม่ใช่แก้โครงเพลง) | ทุกคน |
 | **S3** | **ปุ่มดินสอ ✏️ (FAB) — โหมดดูเท่านั้น** — เข้าโหมดแก้จากแผ่น (action เดี่ยวที่ใช้บ่อยสุดของหน้าดู · pattern Google Docs edit-FAB) · **หายไป/morph ตอนเข้าโหมดแก้** (dock ถือ primary แทน — กัน focus-warring · G 2a) | Material FAB · HIG primary action | primary entry | canEdit (รวม anon) |
 | **S4** | **DockKey (แถบล่าง) — LOCKED กลไก** — คำสั่ง **global ของโหมด**: แป้นโน้ต · ย้อน/ทำซ้ำ · ฟังท่อน↔หยุด · Aa · ⚙ · ปุ่มหลัก "บันทึก/ส่งตรวจ" (label ตาม role) | Material bottom app bar · HIG toolbar | contextual-frequent (per-mode) | canEdit (anon เห็น minimal) |
-| **S5** | **แผ่นเพลง inline (direct manipulation)** — พิมพ์โน้ต+เนื้อ · caret · คลิก→แก้ตรงจุด · แทรก/ทับ/ลบ · **ปุ่มโครงสร้าง contextual ต่อห้อง/บรรทัด** (เพิ่มห้อง/บรรทัด · pickup · repeat/volta ตรงนั้น · ลบห้อง) | HIG direct manipulation · inline text edit | **continuous / object-level (บ่อยสุด)** | canEdit |
+| **S5** | **แผ่นเพลง inline (direct manipulation)** — พิมพ์โน้ต+เนื้อ · caret · คลิก→แก้ตรงจุด · แทรก/ทับ/ลบ · **ปุ่มโครงสร้าง contextual ต่อห้อง/บรรทัด** (เพิ่มห้อง/บรรทัด · pickup · repeat/volta ตรงนั้น · ลบห้อง) · **บังคับใช้ล็อกทำนอง** (US-M5.6 — โน้ตในท่อนล็อก = แก้ไม่ได้/ปุ่มหรี่ · แตะแล้วเด้ง snackbar · **เนื้อร้องแก้ได้ปกติ**) | HIG direct manipulation · inline text edit | **continuous / object-level (บ่อยสุด)** | canEdit |
 | **S6** | **Popup เกาะ cursor (desktop) / keyboard-accessory·bottom-sheet (mobile)** — บนโน้ตที่เลือก: คอร์ด · octave · accidental #/b/n · tie/slur · **"สัญลักษณ์เพิ่ม" (ขั้นสูง)** | HIG context menu · Material bottom sheet · NN/g progressive disclosure | selection-contextual | canEdit |
-| **S7** | **Structure Drawer / side sheet — บล็อกการ์ดท่อน** — ตั้งชื่อ/ลาก-เรียงท่อน · เพิ่มข้อ · duplicate/Make-Unique · D.C./D.S./Segno/Coda/Fine · ป้ายคำสั่งการร้อง · ลบท่อน · **(มือถือ compact 360–412 = bottom-sheet / full-screen · side-sheet เฉพาะ tablet/desktop)** 🆕 | Material side sheet (tablet/desktop) + **bottom sheet / full-screen (compact)** + lists | macro-edit · deep-occasional (เปิดตามต้องการ) | canEdit |
+| **S7** | **Structure Drawer / side sheet — บล็อกการ์ดท่อน** — ตั้งชื่อ/ลาก-เรียงท่อน · เพิ่มข้อ · duplicate/Make-Unique · **toggle 🔒 ล็อก/ปลดล็อกทำนอง ต่อ stanza** (US-M5.6) · D.C./D.S./Segno/Coda/Fine · ป้ายคำสั่งการร้อง · ลบท่อน · **(มือถือ compact 360–412 = bottom-sheet / full-screen · side-sheet เฉพาะ tablet/desktop)** 🆕 | Material side sheet (tablet/desktop) + **bottom sheet / full-screen (compact)** + lists | macro-edit · deep-occasional (เปิดตามต้องการ) | canEdit |
 | **S8** | **Overflow ⚙ (ใน S4/S1) — menu** — ตั้งค่าเพลง (ชื่อ/คีย์/อัตราจังหวะ/ความเร็ว/เลขเล่ม) · modulation · transpose ทั้งเพลง · พิมพ์/export · JSON · ลบเพลง · เพิ่มภาษา · toggle พรีวิว · ฟังทั้งเพลง | Material menus · HIG menus | rare / setup | canEdit; publish→approver |
-| **S9** | **สัญญาณ ambient (ไม่ใช่ control)** — lint จังหวะไม่ครบ · โครงขัดเงื่อนไข · สถานะบันทึก · ไฮไลต์วิ่งตามโน้ต · badge/เรืองแสง "ทำนองใช้ร่วม" | HIG feedback · Material inline validation | system-driven | ทุกคนที่เกี่ยว |
+| **S9** | **สัญญาณ ambient (ไม่ใช่ control)** — lint จังหวะไม่ครบ · โครงขัดเงื่อนไข · สถานะบันทึก · ไฮไลต์วิ่งตามโน้ต · badge/เรืองแสง "ทำนองใช้ร่วม" · **badge 🔒 "ทำนองล็อก" + โน้ตหรี่ (muted onSurfaceVariant, ปิด touch) ส่วนเนื้อ contrast เต็ม** (US-M5.6 dimensional-lock cue) · snackbar "ทำนองล็อกอยู่" ตอน enforce | HIG feedback · Material inline validation | system-driven | ทุกคนที่เกี่ยว |
 | **S10** | **Import & Verify workspace — โหมด/หน้าแยกสำหรับงานเป็นชุด** — คิวรอตรวจ · provenance · dedup/merge · เทียบต้นฉบับ · ธงจุดเสี่ยง+กระโดด · mark-verified+ความคืบหน้า · skip/resume · guardrail mass-approve (ใช้ S5/S6/S7 ซ้ำตอนแก้รายเพลง) | HIG "modes for distinct tasks" · Material lists | batch task context | editor/approver |
 
 **การแยกที่สำคัญ 2 คู่ (กันสับสน):**
@@ -135,6 +135,9 @@
 | พิมพ์ทับ (overtype) + แทรก/ripple | M5.3 | F1 | S5 | canEdit | B |
 | toggle เครื่องหมายสมมาตรครบทุกตัว | M5.4 🆕 | F2 | S6 | canEdit | B/A |
 | undo / redo | M5.5 | F2 | **S4** (row1) | canEdit | B |
+| **ล็อก/ปลดล็อกทำนอง (per-stanza) — toggle 🔒** | M5.6 AC1 🆕 | F3 | **S7** (การ์ดท่อน/ทำนอง) | canEdit | **A** |
+| **บ่งชี้ทำนองล็อก** (badge 🔒 + โน้ตหรี่/ปิด touch · เนื้อยัง contrast+แก้ได้) | M5.6 AC3 🆕 | F5 | **S9** (+ S7 การ์ด) | ทุกคนที่เกี่ยว | A |
+| **บังคับใช้ล็อก** — แตะโน้ตล็อก → snackbar "ทำนองล็อกอยู่" + [ปลดล็อก] / [แยกทำนองข้อนี้] (ถ้าใช้ร่วม) · ปุ่มแก้โน้ตหรี่ | M5.6 AC6 🆕 | F5→dialog | **S5** (enforce) → S9 snackbar | canEdit | A |
 
 ### M6 — โครงสร้าง + การวนร้อง (ผูกโมเดล)
 | Function | src | Freq | Surface | Role | PD |
@@ -206,7 +209,7 @@
 | skip เพลงยาก + วนกลับ | M11.6 AC3 🆕 | F6 | S10 | editor | B |
 | guardrail mass-approve (เตือนถ้ายังมีเพลงเสี่ยง) | M11.6 AC4 🆕 | F6 | **S9**→S10 | editor/approver | B |
 
-> **นับได้ ~65 function** ครอบ M1–M11 + import/verify ครบ (สืบจาก story ทุกตัว · ไม่ตกหล่น · + N-review fold: repeat-count · measure-repeat % · multi-select→contextual-action-bar · caesura/breath เข้าชุดสัญลักษณ์ขั้นสูงเดิม). ตัวที่ ⚠️ ยืนยันสถานะจริงตอน build (issue21/lint/Make-Unique ฯลฯ) = ไม่กระทบการจัดชั้น IA.
+> **นับได้ ~68 function** ครอบ M1–M11 + import/verify ครบ (สืบจาก story ทุกตัว · ไม่ตกหล่น · + N-review fold: repeat-count · measure-repeat % · multi-select→contextual-action-bar · caesura/breath เข้าชุดสัญลักษณ์ขั้นสูงเดิม · + melody-lock fold M5.6: toggle 🔒 (S7) · badge (S9) · enforce (S5)). ตัวที่ ⚠️ ยืนยันสถานะจริงตอน build (issue21/lint/Make-Unique ฯลฯ) = ไม่กระทบการจัดชั้น IA.
 
 ---
 

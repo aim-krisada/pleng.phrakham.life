@@ -183,7 +183,7 @@
 
 **US-M3.3 — หลายข้อบนทำนองเดียว + กันแก้กระทบข้ออื่น.** *…I want ทำหลายข้อบนทำนองเดียวโดยพิมพ์แค่เนื้อที่ต่าง และไม่แก้ข้ออื่นพังโดยไม่ตั้งใจ, so that reuse ทำนองได้อย่างปลอดภัย.*
 - AC1 เพิ่มข้อใหม่ = เนื้อใหม่บนทำนองเดิม (share) ♻️ (v2 arrangement)
-- AC2 **ก่อนแก้ทำนองที่หลายข้อใช้ร่วม → เตือนให้เห็นว่า "กระทบข้อ 1,2,3" + ให้เลือก "แก้ร่วม" หรือ "แยกข้อนี้ออก (make unique)"** 🆕 (G edge 3.2 — shared-stanza trap)
+- AC2 **ก่อนแก้ทำนองที่หลายข้อใช้ร่วม → เตือนให้เห็นว่า "กระทบข้อ 1,2,3" + ให้เลือก "แก้ร่วม" หรือ "แยกข้อนี้ออก (make unique)"** 🆕 (G edge 3.2 — shared-stanza trap) · เชื่อม **US-M5.6 (ล็อกทำนอง)** = กันชั้นถาวรเมื่อทำนองนิ่งแล้ว (warn = กันตอนแก้ครั้งเดียว · lock = แช่แข็งจนกว่าจะปลด)
 - AC3 แก้ทำนองร่วมแล้ว undo คืนได้ทันที (กู้เมื่อพลาด)
 
 ### EPIC M4 — คอร์ด + คีย์
@@ -222,6 +222,15 @@
 
 **US-M5.5 — ย้อน/ทำซ้ำ (undo/redo) ทุกการแก้.** *…I want undo/redo ได้ทุกการกระทำ, so that กล้าลองและกู้เมื่อพลาด.*
 - AC1 undo/redo ครอบคลุมโน้ต/เนื้อ/คอร์ด/สัญลักษณ์/โครงสร้าง ⚠️ (ยืนยัน coverage)
+
+**US-M5.6 — ล็อกทำนองเมื่อนิ่งแล้ว (กันแก้โน้ตโดยไม่ตั้งใจ).** *…I want ล็อกทำนอง (โน้ต/จังหวะ) ของท่อนที่เรียบเรียงเสร็จแล้ว โดยที่เนื้อร้องยังพิมพ์/แก้ได้ปกติ, so that ตอนไล่แก้เนื้อร้องข้ออื่น ทำนองที่นิ่งแล้วจะไม่เปลี่ยนไปโดยไม่ตั้งใจ.* 🆕 (ผู้ใช้จริง = **พี่เปา** — "พอทำนองนิ่งแล้วน่าจะ lock ได้ · พอไปแก้เนื้อร้อง 2 บางทีทำนองเปลี่ยนตาม ซึ่งไม่ควรเป็นแบบนั้น" · P'Aim เคาะยุบเข้า song-maker 2026-07-25)
+- AC1 ล็อกได้ที่ระดับ **ทำนอง (stanza) ต่อท่อน** — ท่อนที่ล็อก: **pitch / ความยาว / octave / accidental / เครื่องหมายบนโน้ต / โครงห้องของทำนองนั้น แก้ไม่ได้** จนกว่าจะปลดล็อก 🆕 *(granularity = per-stanza · ไม่ใช่ per-note ที่จุกจิกบนมือถือ และไม่ใช่ทั้งเพลงที่หยาบเกิน เพราะแต่ละท่อน "นิ่ง" คนละเวลา — G-confirmed)*
+- AC2 **เนื้อร้องของทุกข้อที่ผูกทำนองนี้ ยังพิมพ์/แก้/ลบ ได้ปกติ** แม้ทำนองล็อก (partial/dimensional lock — โน้ตแช่แข็ง เนื้อไม่แช่) 🆕 · **นี่คือหัวใจของฟีเจอร์:** แยกชั้นโน้ต↔เนื้อชัด (สอดคล้อง model guarantee §4.1 — การแก้เนื้อล้วน**ไม่**แตะทำนองอยู่แล้ว · ล็อกเพิ่มการกันชั้นโน้ตจากการ **แก้โน้ต** โดยพลาด)
+- AC3 **สื่อสถานะล็อกไม่ให้สับสน** ว่าทำไมแก้โน้ตไม่ได้แต่แก้เนื้อได้ — ป้ายบ่งชี้ 🔒 บนการ์ดท่อน/บนแผ่น + โน้ตที่ล็อกแสดงแบบ **หรี่ (muted, ปิด touch target)** ส่วนเนื้ออยู่ contrast เต็ม+แก้ได้ 🆕 (ดู IA S9/S7)
+- AC4 **default = ปลดล็อก** (ท่อนใหม่/เพิ่ง import อยู่ช่วง drafting · ล็อกเป็นการกระทำโดยตั้งใจเมื่อ "เรียบเรียงเสร็จ") 🆕
+- AC5 **ทำนองใช้ร่วมหลายข้อ:** ล็อกทำนองร่วม = **กันแก้โน้ตให้ทุกข้อที่ใช้ทำนองนั้นพร้อมกัน** (ล็อก object ทำนอง ไม่ใช่ข้อ) 🆕 · ทางออกเมื่ออยากให้ข้อใดข้อหนึ่งทำนองต่าง = **แยกทำนองข้อนี้ (Make Unique · US-M6.7 AC2)** → ได้ทำนองใหม่ที่ **เริ่มแบบปลดล็อก** (แก้ได้ทันที ไม่ต้องปลดสองรอบ) 🆕
+- AC6 **บังคับใช้แบบไม่เงียบ:** พยายามแก้โน้ตที่ล็อก → ปุ่มแก้โน้ต inline หรี่/ปิด + ถ้าแตะโน้ตล็อก = snackbar "ทำนองล็อกอยู่" พร้อมปุ่ม [ปลดล็อก] (และถ้าทำนองใช้ร่วม = [แยกทำนองข้อนี้]) — ⛔ ไม่ใช่ no-op เงียบ ๆ 🆕 (มาตรฐาน Figma locked layer / DAW locked track / Docs suggesting-mode)
+- AC7 ล็อก/ปลดล็อก undo ได้ (US-M5.5) · สถานะล็อกเซฟติดกับเพลง (คงข้ามการเปิด-ปิด)
 
 ### EPIC M6 — จัดโครงสร้าง + การวนร้อง ⭐ *ผูกโมเดล*
 
@@ -265,7 +274,7 @@
 
 **US-M6.7 — reuse ทำนอง vs แยกอิสระ.** *…I want ทำท่อนซ้ำที่ใช้ทำนองเดิม และแยกทำนองเป็นอิสระเมื่ออยากให้ต่าง, so that เลือกได้ว่าจะ share หรือแยก.*
 - AC1 Duplicate ท่อน = เนื้อใหม่บนทำนองเดิม (default share) ♻️
-- AC2 "แยกทำนองเป็นอิสระ (Make Unique)" — clone stanza แยก ⚠️ (ยืนยันมี/net-new) · เชื่อม US-M3.3 AC2
+- AC2 "แยกทำนองเป็นอิสระ (Make Unique)" — clone stanza แยก ⚠️ (ยืนยันมี/net-new) · เชื่อม US-M3.3 AC2 · **clone เริ่มแบบปลดล็อก** เสมอ (US-M5.6 AC5 — divergence = ตั้งใจแก้ · ไม่สืบทอด lock ของต้นฉบับ)
 
 **US-M6.8 — คำสั่งการร้อง / ป้ายข้อความ (ไม่ผูกทำนอง).** *…I want แทรกคำสั่ง/หมายเหตุการร้อง (เดี่ยว/พร้อมกัน/ดนตรีรับ/[ดนตรีส่ง]/สร้อย), so that ไม่ต้องยัดคำสั่งลงบรรทัดเนื้อจนพังพยางค์.*
 - AC1 แทรกป้ายข้อความ/คำสั่งที่ตำแหน่งใด ๆ โดย **ไม่กินพยางค์/ไม่พังจังหวะ** 🆕 (G missing 1.3 — ป้องกัน BI-005 ซ้ำ)
@@ -385,6 +394,9 @@
 7. **display compact สากล + preview** (M10.1) — ยังไม่มีแบบ `:‖` กล่องสากล
 8. **import + verify infrastructure** (M11.2–6) — คิวรอตรวจ · provenance · reject · dedup/merge · ธง/confidence จุดเสี่ยง · bulk resume/skip/guardrail · version-lock กัน re-import ทับ ([[pleng-no-song-reimport]]) — ส่วนใหญ่ยังไม่มี 🆕
 9. **MusicXML export** — นอกโฟกัส persona นี้ (บันทึกไว้)
+10. **melody lock (US-M5.6)** 🆕 — โมเดลยังไม่มี field ล็อกทำนอง · เติม flag ระดับ stanza (เช่น `stanza.melodyLocked: true`) · **enforcement = ให้ note-op ทุกตัวใน `songEdit.js` (withNotePitch / withInsertedNote / withInsertedBox / withDeletedNote / withRestAt / withOctaveShift / withAccidental / withNoteMark / withBarAfter) เช็ก lock ของ stanza เป้าหมายก่อนแก้ (หรือ gate ที่ชั้น UI ใน `SongViewer.vue`)** · **lyric-op (`withSetSyllable`/`withClearedSyllable`) ไม่ต้องแตะ — แก้ arrangement ล้วน จึงไม่กระทบทำนองอยู่แล้ว** (ดู correctness note ล่าง) · Make-Unique (`songStructure.js`) ต้อง set clone เป็น unlocked
+
+**✅ Correctness note — model guarantee (verified 2026-07-25 · Part A investigate):** เรื่องที่ผู้ใช้กังวล ("แก้เนื้อร้อง 2 แล้วทำนองเปลี่ยน") **ไม่ใช่บั๊กในโมเดล v2** — พิสูจน์ที่ชั้น engine + UI-wiring + resolver: การแก้เนื้อล้วนผ่าน `withSetSyllable`/`withClearedSyllable` แตะ **`arrangement[ei].syllables` เท่านั้น** · stanzas (ทำนอง) คง **reference-identical (`===`)** ก่อน/หลัง (repro: `work/lock-melody/repro-lock-melody.mjs`). ทำนองเปลี่ยนได้เฉพาะจากการ **แก้โน้ต** ซึ่งบน **ทำนองใช้ร่วม (shared stanza · v2-authored หลายข้อ/ทำนองเดียว)** จะ ripple ทุกข้อ **โดยตั้งใจ** (edit-once-updates-everywhere) — นี่คือสิ่งที่ผู้ใช้เจอ = *working-as-designed shared-stanza* ไม่ใช่ silent corruption. **US-M5.6 (lock) + US-M3.3 AC2 (warn) + US-M6.7 (make-unique) = ชุดกันชนของพฤติกรรมนี้.** *(หมายเหตุ: เพลง v1 ที่ migrate จะรวมทุกข้อเป็น stanza เดียว 1 arrangement entry → ไม่ share → ไม่มี ripple; shared-stanza เกิดเฉพาะเพลงที่ author เป็น v2 หลายข้อบนทำนองเดียว.)*
 
 **⚠️ ต้องยืนยันสถานะจริงตอน build (อย่าเดา):** issue21 (2 คอร์ด/ห้อง) · lint นับจังหวะ (`notation` มีแค่ไหน) · Make Unique มี/net-new · copy/paste ครบทุก scope · undo/redo coverage · `marker` type ใช้กับ directives ได้ไหม · สัญลักษณ์ jianpu ตัวไหนมี/ยัง (M2.4 · รวม caesura/breath/measure-repeat ที่เพิ่งเติม) · **after-jump replay semantics** (M6.4 · `resolvePlayOrder` รอบสุดท้ายหลัง al Fine · N-review B2) · **parser ให้ confidence score ไหม + ต้นฉบับมีไฟล์เสียงไหม** (M11.4/M11.5).
 
@@ -432,6 +444,8 @@ G review (transcript ใน EVIDENCE) ชี้ 5 กลุ่ม. **Claude ต�
 **รอบ 3 — G adversarial เจาะ import+verify journey (2026-07-25 · transcript `...114724`+`...import`):** Claude รับ (ตรวจแล้วเป็นเคสจริงของ OCR/jianpu + batch · ไม่ hallucinate) → เติม: reject-ทั้งเพลง (M11.2) · provenance (M11.2) · dedup/merge คลังเดิม (M11.3) · จุดเสี่ยง OCR jianpu เจาะจง + confidence jump (M11.4) · ฟังตรวจด้วยหู (M11.5) · bulk resume/skip/mass-approve guardrail/version-lock (M11.6). ⚠️ confidence/audio ขึ้นกับ parser จริง — ธงให้ dev ยืนยัน.
 
 **รอบ 4 — N-review เทียบ standards corpus (2026-07-25 · gap analysis `pm-inbox/pleng/2026-07-25-n-review-songmaker-gap-analysis.md` · transcript `pleng-nreview-songmaker-*`):** N ตรวจ US+IA เทียบ MusicXML 4.0 / SMuFL 1.4 / MEI 5.0 / Material 3 / HIG (citation verify จริงทุกตัวกับ source ในเครื่อง). reviewer รับ (Tier 1 — โดนโดเมนเพลงนมัสการ/มือถือจริง) → เติมใน US: **repeat-count** (M6.3 AC4) · **caesura / breath / measure-repeat %** (M2.4 checklist ขั้นสูง). Tier 2 (model/build note ไม่ใช่ surface ใหม่): **Segno/Coda หลายจุดต้องมี id** (§4.1 ข้อ 1) · **after-jump replay** (M6.4 · resolvePlayOrder) · **open ending** (M6.3 AC5). *(A5 multi-select+contextual action bar · A6 S7 mobile bottom-sheet · Tier-3 IA nuance = เติมใน `docs/ds/songmaker-ia.md` — เป็น IA ไม่ใช่ story).*
+
+**รอบ 5 — melody-lock fold (2026-07-25 · ผู้ใช้จริงพี่เปา → P'Aim เคาะยุบเข้า song-maker · transcript `C:\gl\.aibridge\transcripts\pleng-lockmelody-2026-07-25-G-20260725-154044.md`):** Part A investigate พิสูจน์ "แก้เนื้อ→ทำนองเปลี่ยน" = **ไม่ใช่บั๊ก** (lyric-op แตะ arrangement ล้วน · §4.1 correctness note) → เป็น shared-stanza ripple by-design. G consult (5 คำถาม: granularity/partial-lock comm/default/shared/enforcement) → Claude รับทั้งหมด (standards-grounded · ตรวจแล้วไม่ hallucinate): **per-stanza lock · default unlocked · dim-notes+editable-lyrics · lock=object ทำนอง · make-unique clone เริ่ม unlocked · enforce แบบ snackbar+[ปลดล็อก] ไม่ใช่ no-op เงียบ** → + US-M5.6 + §4.1 ข้อ 10 + IA S5/S7/S9.
 
 **Considered & rejected (N-review · บันทึกกัน reviewer อนาคตยกซ้ำ):** **chord-diagram / fretboard grid** (MusicXML `<frame>`) → **backlog** ไม่ใช่ gap ของ editor step นี้ (แอปแสดง**ชื่อคอร์ด**ตามจารีต jianpu+chord ไม่ใช่ grid) · **fingering numbers** → **reject** (ชน jianpu — เลข = degree อยู่แล้ว · เลข fingering ทับ = สับสน) · **articulation (accent/staccato)** → S6 ขั้นสูงอนาคต ไม่ block mockup · **lyric extender / elision** → **covered** โดย slur/melisma + `-` ที่มีแล้ว (render detail) · **SATB / MusicXML export** → **de-scope แล้ว** ([[pleng-ssot-scope-musicxml-not-staff]]).
 
