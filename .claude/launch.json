@@ -250,6 +250,19 @@
       "port": 5342
     },
     {
+      "name": "mbp",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "C:/gl/krisada/pleng.phrakham.life/.claude/worktrees/intelligent-cerf-a9e45f",
+        "--host",
+        "--port",
+        "5424",
+        "--strictPort"
+      ],
+      "port": 5424
+    },
+    {
       "name": "wireframe",
       "runtimeExecutable": "py",
       "runtimeArgs": [
