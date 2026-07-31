@@ -33,7 +33,8 @@ main === base (`studio-shell-redesign`) · **371 test + build เขียว** 
 - **B092 responsive-split = live แล้ว** (มือถือเก็บ สำเนา/ลบ ใน ⋯) — ถ้าพี่เปายังว่าหนักบนมือถือ ค่อยปรับ
 
 ## 📥 inbox → PM (dev handoff · รอ gate/merge)
-- _(ว่าง — B095 handoff เดิม (`book-taxonomy-3`, flexible) ถูก tester gate FAIL แล้ว · สถานะจริงรวมอยู่ใน §🚧 B095 ข้างบน · รอ spawn dev fix ใหม่)_
+- **[Q&A] เอื้อน "6 1 6" 1 พยางค์ — พิมพ์ยังไง + เส้นใต้ต่อกันไหม** (read-only analysis · ไม่แตะ src) → คำตอบ `docs/reports/answer-melisma-underline.md` · **สรุป:** พิมพ์ `6_ 1_ 6_` + ใส่คำที่ช่องแรก เว้น 2 ช่องหลัง (ตัวนับขึ้น `1/3 ⚠` ไม่บล็อก) · **แต่ขีดใต้เรนเดอร์แยก 3 เส้น ไม่ต่อเป็นบีมเดียวแบบเล่มพิมพ์** (ตั้งใจ NoteRow.vue:229–232) · **2 gap ให้พิจารณา:** (1) บีมต่อกัน=render lane, (2) โมเดลเอื้อน pitch ต่างกัน held ไม่ได้=data lane · ยังไม่ deploy ไม่กระทบ public
+- _(B095 handoff เดิม (`book-taxonomy-3`, flexible) ถูก tester gate FAIL แล้ว · สถานะจริงรวมอยู่ใน §🚧 B095 ข้างบน · รอ spawn dev fix ใหม่)_
 
 ## 🎯 รอ P'Aim ตัดสิน (ไม่บล็อก)
 - **SA interlinear ≥3 ภาษา** (`task_aea51f3c` · mockup รอเคาะ · ชน SongSheet → จัดคิว dev) · **B080 expert standards** (ต่อยอด ui-standards)
