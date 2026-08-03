@@ -98,6 +98,41 @@ describe('songsInBook', () => {
     expect(songsInBook(SONGS, 'dek-lek')).toEqual([])
     expect(songsInBook([], 'anuchon')).toEqual([])
   })
+
+  // B131 — the order now comes from the shared lib/songSort.js (no comparator lives in
+  // bookshelf.js any more): the caller can ask for another method, and a book whose songs have
+  // NO number (เล่มเด็กเล็ก) comes out ก-ฮ instead of in whatever order the DB returned.
+  const NO_NUMBERS = [
+    { id: 3, number: null, title_th: 'พระเจ้ารักฉัน', category: 'dek-lek' },
+    { id: 1, number: null, title_th: 'กอดพระเยซู', category: 'dek-lek' },
+    { id: 2, number: null, title_th: 'ขอบคุณพระเจ้า', category: 'dek-lek' },
+  ]
+  it('a book with no numbers at all comes out ก-ฮ (was: undefined order)', () => {
+    expect(songsInBook(NO_NUMBERS, 'dek-lek').map((x) => x.id)).toEqual([1, 2, 3])
+  })
+  it('same result whatever order the rows arrive in', () => {
+    const rotate = (l, i) => [...l.slice(i), ...l.slice(0, i)]
+    for (let i = 0; i < NO_NUMBERS.length; i++) {
+      const list = songsInBook(rotate(NO_NUMBERS, i), 'dek-lek')
+      expect(list.map((x) => x.id)).toEqual([1, 2, 3])
+    }
+  })
+  it('accepts another sort method (ชื่อเพลง) without changing the default', () => {
+    // titles deliberately run against the numbers, so each method gives a different answer
+    const rows = [
+      { id: 1, number: 200, title_th: 'กอดพระเยซู', category: 'anuchon' },
+      { id: 2, number: 5, title_th: 'สรรเสริญพระเจ้า', category: 'anuchon' },
+      { id: 3, number: 50, title_th: 'ขอบคุณพระเจ้า', category: 'anuchon' },
+    ]
+    expect(songsInBook(rows, 'anuchon').map((x) => x.id)).toEqual([2, 3, 1]) // default = เลขข้อ
+    expect(songsInBook(rows, 'anuchon', 'title').map((x) => x.id)).toEqual([1, 3, 2]) // ก-ฮ
+    expect(songsInBook(rows, 'anuchon', 'manual').map((x) => x.id)).toEqual([1, 2, 3]) // as given
+  })
+  it('does not mutate the caller’s list', () => {
+    const rows = SONGS.slice()
+    songsInBook(rows, 'anuchon')
+    expect(rows.map((x) => x.id)).toEqual(SONGS.map((x) => x.id))
+  })
 })
 
 describe('visibleSongs (public verified-only gate)', () => {

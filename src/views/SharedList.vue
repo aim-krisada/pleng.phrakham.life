@@ -8,6 +8,7 @@ import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { session } from '../store.js'
 import { visibleSongs } from '../lib/bookshelf.js'
+import { sortSongs, DEFAULT_SORT, PLAYLIST_SORT } from '../lib/songSort.js'
 import { decodeList, saveSharedList } from '../lib/playlists.js'
 import { t } from '../i18n/index.js'
 
@@ -25,10 +26,16 @@ const byId = computed(() => {
   for (const s of visibleSongs(songs.value, loggedIn.value)) m.set(String(s.id), s)
   return m
 })
-// resolve the shared ids → song rows (in the shared order); unknown ids kept as placeholders
+// resolve the shared ids → song rows; unknown ids kept as placeholders.
+// ORDER (B131): the displayed order goes through sortSongs like every other list in the app —
+// with PLAYLIST_SORT ('manual'), i.e. the order the sharer arranged. That is a decision, not an
+// oversight: a playlist is arranged for a service, so re-sorting it ก-ฮ would destroy the intent.
+// The rows themselves are put in a defined order at load (see onMounted) so nothing downstream
+// depends on what the database happened to return.
 const items = computed(() => {
   if (!decoded.value) return []
-  return decoded.value.songIds.map((id) => ({ id, song: byId.value.get(String(id)) || null }))
+  const rows = decoded.value.songIds.map((id) => ({ id, song: byId.value.get(String(id)) || null }))
+  return sortSongs(rows, PLAYLIST_SORT)
 })
 const foundCount = computed(() => items.value.filter((i) => i.song).length)
 
@@ -43,7 +50,10 @@ onMounted(async () => {
     .from('songs')
     .select('id, number, title_th, content, verified, category')
     .order('number', { ascending: true })
-  songs.value = error || !data || !data.length ? SAMPLE_SONGS : data
+  // `.order` is only the starting order the DB gives us — songs with a blank `number` come back
+  // in no guaranteed order (B131). Run the shared sorter over the rows so this list is identical
+  // on every load and on every device, whatever the DB returns.
+  songs.value = sortSongs(error || !data || !data.length ? SAMPLE_SONGS : data, DEFAULT_SORT)
   loading.value = false
 })
 </script>

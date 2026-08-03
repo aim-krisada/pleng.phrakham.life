@@ -71,6 +71,20 @@ export default {
     srcSongs: 'แหล่งเพลง: {list}',
     refTitle: 'อ้างอิง: {list}',
     scripture: '📖 {ref}',
+    // sort methods (B131 · labelKey in lib/songSort.js SORT_OPTIONS — keep the two in step)
+    sortLabel: 'เรียงตาม',
+    sortNumber: 'เลขข้อ',
+    sortTitle: 'ชื่อเพลง',
+    sortManual: 'ลำดับที่จัดไว้',
+    sortRelevance: 'ตรงกับที่ค้นหา',
+    // which way round — worded for the field being sorted (ascKey/descKey in songSort.js)
+    dirNumberAsc: 'น้อยไปมาก',
+    dirNumberDesc: 'มากไปน้อย',
+    dirTitleAsc: 'ก ไป ฮ',
+    dirTitleDesc: 'ฮ ไป ก',
+    // spoken labels for the sort buttons (the arrow on the chip is decoration only)
+    sortBtnOn: 'เรียงตาม {name} {dir} — กดเพื่อสลับเป็น {other}',
+    sortBtnOff: 'เรียงตาม {name}',
     emptyPublic: 'เพลงกำลังอยู่ระหว่างตรวจทาน จะเปิดให้ชมเร็วๆ นี้',
     emptyNone: 'ยังไม่มีเพลงในระบบ',
     // shared-playlist view (/#/list?d=…)

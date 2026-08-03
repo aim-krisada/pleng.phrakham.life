@@ -15,6 +15,8 @@ import {
   verifiedProgress,
   FALLBACK_KEY,
 } from '../lib/bookshelf.js'
+import { PICKABLE_SORTS, DESC, dirLabelKey, flipDir } from '../lib/songSort.js'
+import { bookSortState, chooseSort } from '../lib/sortPref.js'
 import { session } from '../store.js'
 import { favorites, isFavorite } from '../lib/favorites.js'
 import FavStar from '../components/FavStar.vue'
@@ -157,7 +159,45 @@ const bookProgress = computed(() => verifiedProgress(inBook.value))
 // ---- bookshelf derivations (pure logic in lib/bookshelf.js, unit-tested there) ----
 // grouped by `category` (real books); each entry = { code, name, count, fallback }.
 const shelf = computed(() => orderedBooks(shownSongs.value)) // ordered เล่ม, empties hidden
-const inBook = computed(() => (activeBook.value ? songsInBook(shownSongs.value, activeBook.value) : []))
+// m1.wpa.24.us01 — the open book's own sort AND direction, read from the per-book memory
+// (lib/sortPref.js). Switching books flips the list back to whatever THAT book was left on;
+// a book never visited falls back to เลขข้อ น้อยไปมาก. The ordering itself is still
+// songSort.js's job — this only passes the chosen pair through.
+const sortState = computed(() => bookSortState(activeBook.value))
+const inBook = computed(() =>
+  activeBook.value
+    ? songsInBook(shownSongs.value, activeBook.value, sortState.value.by, sortState.value.dir)
+    : [],
+)
+
+// Tapping is instant and stays on the page: it writes the memory, the computed above re-runs,
+// the list re-renders. No reload, no navigation (AC: "สลับแล้วเปลี่ยนทันทีในหน้าเดิม").
+// The two-state rule (tap the active one to flip, tap the other one to switch) lives in
+// sortPref.chooseSort so it is not re-invented per screen.
+function pickSort(id) {
+  chooseSort(activeBook.value, id)
+}
+
+// ▲/▼ on the ACTIVE chip only, so the arrow unambiguously belongs to the sort in force.
+// Decoration: the direction is also in the button's spoken label, never colour/shape alone.
+function sortArrow(id) {
+  return sortState.value.by === id && sortState.value.dir === DESC ? '▼' : '▲'
+}
+
+// "เรียงตาม เลขข้อ น้อยไปมาก — กดเพื่อสลับเป็น มากไปน้อย" for the chip in force; plain
+// "เรียงตาม ชื่อเพลง" for the other one (tapping it starts fresh at น้อยไปมาก, so promising a
+// flip would be a lie). Direction wording comes from songSort.js per sort — "น้อยไปมาก" suits
+// numbers, "ก ไป ฮ" suits titles.
+function sortAria(o) {
+  const name = t(o.labelKey)
+  if (sortState.value.by !== o.id) return t('list.sortBtnOff', { name })
+  const dir = sortState.value.dir
+  return t('list.sortBtnOn', {
+    name,
+    dir: t(dirLabelKey(o.id, dir)),
+    other: t(dirLabelKey(o.id, flipDir(dir))),
+  })
+}
 const activeBookMeta = computed(() => shelf.value.find((b) => b.code === activeBook.value) || null)
 
 // empty landing message: distinguish "no songs at all" from "songs exist but the public
@@ -428,13 +468,41 @@ onMounted(async () => {
 
     <!-- ===== LEVEL 2 · songs in the selected book, ordered by in-book number ===== -->
     <section v-else-if="level === 'songs'">
-      <button type="button" class="crumb" @click="backToBooks">{{ t('list.allBooks') }}</button>
-      <div class="level-head">
+      <!-- ONE bar: back · book name · tally · sort (P'Aim 3 ส.ค. — the crumb, the heading and
+           the sort row used to stack into THREE lines above the list and ate the screen).
+           Still three separate things semantically (the h2 stays an h2 so the page outline is
+           unchanged); only the layout is joined. It wraps, so a narrow phone drops the sort
+           chips to a second line instead of squeezing them under --touch-min.
+
+           m1.wpa.24.us01 — the sort choice is ON the page (AC: "เห็นตัวเลือก 2 แบบตั้งแต่แรก
+           โดยไม่ต้องกดหาในเมนู"), never behind an overflow menu. The buttons are BUILT FROM
+           PICKABLE_SORTS — the screen must not hard-code the list of sort methods
+           (songSort.js is the single source). "เรียงตาม" names the group for a screen reader,
+           aria-pressed says which one is on (WCAG 2.2 · 4.1.2 name/role/value). -->
+      <div class="book-bar">
+        <button type="button" class="crumb" @click="backToBooks">{{ t('list.allBooks') }}</button>
         <h2>{{ activeBookMeta ? activeBookMeta.name : '' }}</h2>
         <span class="count muted">{{ t('list.countSongs', { n: inBook.length }) }}</span>
         <span v-if="loggedIn" class="count progress" aria-live="polite">
           {{ t('list.reviewed', { v: bookProgress.verified, t: bookProgress.total }) }}
         </span>
+        <div class="sort-row">
+          <span :id="`sort-label-${activeBook}`" class="sort-label muted">{{ t('list.sortLabel') }}</span>
+          <div class="sort-btns" role="group" :aria-labelledby="`sort-label-${activeBook}`">
+            <button
+              v-for="o in PICKABLE_SORTS"
+              :key="o.id"
+              type="button"
+              class="facet-chip"
+              :class="{ on: sortState.by === o.id }"
+              :aria-pressed="sortState.by === o.id"
+              :aria-label="sortAria(o)"
+              :title="sortAria(o)"
+              @click="pickSort(o.id)"
+            >{{ t(o.labelKey)
+              }}<span v-if="sortState.by === o.id" class="sort-arrow" aria-hidden="true">{{ sortArrow(o.id) }}</span></button>
+          </div>
+        </div>
       </div>
       <div class="song-list">
         <router-link
@@ -536,6 +604,42 @@ onMounted(async () => {
   min-height: var(--touch-min);
 }
 .crumb:hover { text-decoration: underline; }
+
+/* ONE bar above an open book: back · name · tally · sort. Replaces the old
+   crumb + .level-head + .sort-row stack (three lines of chrome before the first song).
+   `align-items: center` so the h2 and the chips share a centre line; the sort group is
+   pushed to the far end with margin-left:auto, and the whole bar wraps rather than
+   shrinking anything below --touch-min. */
+.book-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  flex-wrap: wrap;
+  margin: 0 0 var(--sp-4);
+}
+/* margin:0 matters — the browser's default h2 margin (18.6px top AND bottom here) is not
+   collapsed on a flex item, so it was padding the bar out to 69px for a 45px row. */
+.book-bar h2 { margin: 0; font-size: var(--fs-xl); color: var(--brand); line-height: var(--lh-snug); }
+.book-bar .count { font-size: var(--fs-sm); }
+/* review-progress tally (team only) — green to echo the ✓ ตรวจแล้ว badge */
+.book-bar .progress { color: #2e6b3b; font-weight: 600; }
+
+/* m1.wpa.24.us01 — the sort control. Same chip look as the facet row (one visual language
+   for "pick one of these"). Sits at the far end of the bar, and is itself a wrapping flex
+   box so the label + the two chips stay together when the bar breaks. */
+.sort-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.sort-label { font-size: var(--fs-sm); }
+.sort-btns { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+/* ▲/▼ rides inside the active chip. Smaller than the label and pushed off it by a hair so it
+   reads as a marker on the word, not a second word. Decoration only — the direction is spoken
+   through the button's aria-label, so nothing depends on seeing this glyph. */
+.sort-arrow { margin-left: var(--sp-1); font-size: var(--fs-sm); }
 
 /* facet row (search view only): unverified toggle + theme picker */
 .facet-row {
