@@ -10,7 +10,7 @@
 
 // Ordering is NOT this file's job (B131) — it comes from the shared lib/songSort.js so the
 // bookshelf, the pickers and the shared lists all order songs by the same rules.
-import { sortSongs, DEFAULT_SORT } from './songSort.js'
+import { sortSongs, DEFAULT_SORT, DEFAULT_DIR } from './songSort.js'
 
 // The real books, in shelf order, with their display names. Data-driven: any category
 // code the data actually carries appears even if it's not in this map (raw code shown),
@@ -122,8 +122,8 @@ export function orderedBooks(songs) {
 // number-less songs compare as NaN → "equal" → their order was whatever the DB returned, i.e. not
 // guaranteed (เล่มเด็กเล็ก has no numbers at all → พี่เปา could not find a song twice in a row).
 // Do NOT re-add a comparator here: sortSongs is the single source, so a fix lands everywhere.
-export function songsInBook(songs, code, sortBy = DEFAULT_SORT) {
+export function songsInBook(songs, code, sortBy = DEFAULT_SORT, dir = DEFAULT_DIR) {
   const match =
     code === FALLBACK_KEY ? (s) => !songCategory(s) : (s) => songCategory(s) === code
-  return sortSongs((songs || []).filter(match), sortBy)
+  return sortSongs((songs || []).filter(match), sortBy, dir)
 }
