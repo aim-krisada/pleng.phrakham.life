@@ -1,9 +1,9 @@
 // 717 multi-lyric — the แผ่นเพลง (print) surface must print the set the reader chose.
 //
-// แผ่นเพลง has no set switcher of its own, so it follows the set the reader last picked in the
-// reading view (SongViewer emits it, the shell holds it). Before this, the shell handed
-// SongSheet the RAW song: resolveContent fell back to the FIRST set, so a reader on set 2 was
-// quietly given set 1's paper — same heading, different words.
+// แผ่นเพลง has no set switcher of its own, so it follows the set the reader last picked in ดู
+// (SongViewer emits it, the shell holds it). Before this, the shell handed SongSheet the RAW
+// song: on this line nothing filtered it, so both sets ran together as ข้อ 1..13 and the
+// singer got a sheet of words nobody sings in that order.
 //
 // Studio is tested in isolation, as the rest of this folder does — the mode components are
 // stubbed, so what is exercised is the shell's own job: pick the set, feed each surface.
@@ -11,11 +11,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
-vi.mock('vue-router', () => ({ useRoute: () => ({ params: {}, query: {} }), useRouter: () => ({ push() {} }), onBeforeRouteLeave: () => {} }))
+vi.mock('vue-router', () => ({ useRoute: () => ({ params: {} }), useRouter: () => ({ push() {} }) }))
 vi.mock('../supabase.js', () => {
   const makeQuery = () => {
     const q = {}
-    for (const m of ['select', 'order', 'eq', 'in', 'insert', 'update', 'delete', 'limit']) q[m] = () => q
+    for (const m of ['select', 'order', 'is', 'not', 'eq', 'in', 'insert', 'update', 'delete', 'limit']) q[m] = () => q
     q.single = () => Promise.resolve({ data: null, error: null })
     q.then = (res) => Promise.resolve({ data: [], error: null }).then(res)
     return q
@@ -38,7 +38,7 @@ import EditorMode from '../components/EditorMode.vue'
 const stubs = {
   SongViewer: { name: 'SongViewer', props: ['song'], emits: ['set'], template: '<div class="stub-viewer" />' },
   SongSheet: { name: 'SongSheet', props: ['content', 'songTitle'], template: '<div class="stub-sheet" />' },
-  EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active'], emits: ['change', 'save', 'new-song'], template: '<div class="stub-editor" />' },
+  EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active', 'initialSet'], emits: ['change', 'save'], template: '<div class="stub-editor" />' },
   ExportTool: { name: 'ExportTool', props: ['content', 'filenameBase'], template: '<div class="stub-export" />' },
   Icon: true,
 }
@@ -49,7 +49,7 @@ beforeEach(() => {
 
 const line = (n) => [{ type: 'segment', note: n, chord: 'C' }]
 const entry = (set, label) => ({ stanza: label === 'รับ' ? 'B' : 'A', set, label, syllables: [] })
-// set 0 = 2 blocks · set 1 = 3 blocks, so a wrong set shows up as a wrong line count
+// set 0 = 2 blocks · set 1 = 3 blocks, so a wrong set is visible as a wrong line count
 const song717 = {
   id: 's717', number: 717, title_th: 'สองชุดเนื้อ', title_en: '',
   content: {
@@ -65,32 +65,26 @@ const song717 = {
     ],
   },
 }
+const modeButtons = () => [...document.querySelectorAll('#shell-menus .sb-mode-btn')]
 
-// the mode tab-strip lives in the ⋮ overflow on this line
-async function modeButtons() {
-  const more = document.querySelector('#shell-menus .sb-more-btn')
-  if (more && more.getAttribute('aria-expanded') !== 'true') { more.click(); await nextTick() }
-  return [...document.querySelectorAll('#shell-menus .sb-mode-btn')]
-}
-
+// load a song into the shell, switch to แผ่นเพลง, optionally after the reader picked a set
 async function openSheet(song, readerSet) {
   const w = mount(Studio, { global: { stubs } })
   await nextTick()
   w.findComponent(EditorMode).vm.$emit('change', song)
   await nextTick()
+  const [view, sheet] = modeButtons()
+  view.click()
+  await nextTick()
   if (readerSet != null) {
     w.findComponent({ name: 'SongViewer' }).vm.$emit('set', readerSet)
     await nextTick()
   }
-  const btns = await modeButtons()
-  const sheetBtn = btns.find((b) => /แผ่น/.test(b.textContent))
-  expect(sheetBtn, 'แผ่นเพลง switch not found').toBeTruthy()
-  sheetBtn.click()
+  sheet.click()
   await nextTick()
   return w
 }
-// which set each printed line came from, read back through its provenance tag. On this line
-// `_entryIndex` stays the ORIGINAL arrangement index, so it indexes the raw arrangement.
+// which set each printed line came from, read back through its provenance tag
 const printedSets = (w) => {
   const c = w.findComponent(SongSheet).props('content')
   return (c.lines || [])
@@ -107,13 +101,19 @@ describe('Studio แผ่นเพลง — prints the selected lyric set (717
   })
 
   it('the two sets produce DIFFERENT papers (2 blocks vs 3)', async () => {
-    const lines = (w) => w.findComponent(SongSheet).props('content').lines.length
-    expect(lines(await openSheet(song717, 0))).toBe(4) // 2 blocks × 2 melody lines
-    expect(lines(await openSheet(song717, 1))).toBe(6) // 3 blocks × 2
+    const a = w0 => w0.findComponent(SongSheet).props('content').lines.length
+    expect(a(await openSheet(song717, 0))).toBe(4) // 2 blocks × 2 melody lines
+    expect(a(await openSheet(song717, 1))).toBe(6) // 3 blocks × 2
   })
 
-  it('going straight to แผ่นเพลง without picking a set prints the FIRST set', async () => {
-    const w = await openSheet(song717)
+  it('never runs the sets together as ข้อ 1..N — the bug this fixes', async () => {
+    const w = await openSheet(song717, 0)
+    // all 5 entries resolved would be 10 lines; one set is 4
+    expect(w.findComponent(SongSheet).props('content').lines).toHaveLength(4)
+  })
+
+  it('going straight to แผ่นเพลง without visiting ดู prints the FIRST set', async () => {
+    const w = await openSheet(song717) // no reader pick
     expect(printedSets(w).every((s) => s === 0)).toBe(true)
   })
 
@@ -133,7 +133,6 @@ describe('Studio แผ่นเพลง — prints the selected lyric set (717
     const exported = w.findComponent({ name: 'ExportTool' }).props('content')
     expect(exported.arrangement).toHaveLength(3)
     expect(exported.arrangement.every((e) => e.set === 1)).toBe(true)
-    expect(exported.lyricSets).toHaveLength(1) // reads as an ordinary song → no second filter
   })
 
   it('back-compat — an ordinary song prints unchanged, heading unstamped', async () => {

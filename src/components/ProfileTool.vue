@@ -4,7 +4,6 @@ import {
   session, profile, legacy, recovering, inviteMode, emailChanged,
   login, logout, updatePassword, requestPasswordReset, updateDisplayName, updateEmail, changePassword,
 } from '../store.js'
-import { useDismiss } from '../composables/useDismiss.js'
 import Icon from './Icon.vue'
 
 // Top-right account control, GitHub/Supabase style:
@@ -12,7 +11,6 @@ import Icon from './Icon.vue'
 // logged in  -> letter avatar opens name + role + edit profile + logout
 // recovering -> a reset/invite link opened the app; show "set password"
 const open = ref(false)
-const wrapEl = ref(null) // the whole tool (button + menu) — clicks inside are not "outside"
 const forgot = ref(false) // login panel showing the "forgot password" email form
 const editing = ref(false) // logged-in panel showing the edit-profile form
 const email = ref('')
@@ -32,19 +30,6 @@ const pwOk = ref('')
 
 // A reset/invite/email-change link should pop the panel open automatically.
 watch([recovering, emailChanged], ([r, e]) => { if (r || e) open.value = true }, { immediate: true })
-
-// Dismiss (BI-016): Esc always closes and returns focus; a click OUTSIDE closes too — but NOT
-// while the form has unsaved input (G / GitHub: don't lose a half-typed login to a stray click).
-// A recovering/invite flow is likewise protected (the panel was opened for a reason).
-const isDirty = computed(() =>
-  busy.value || recovering.value || inviteMode.value ||
-  [email, password, newPassword, currentPassword, nameInput, emailInput].some((r) => r.value.trim()),
-)
-useDismiss(open, {
-  inside: wrapEl,
-  onDismiss: () => { open.value = false },
-  enabled: () => !isDirty.value, // gates the OUTSIDE-click only; Esc ignores this
-})
 
 // New-password strength rules — every rule must pass before saving.
 const pwRules = computed(() => {
@@ -197,7 +182,7 @@ async function submitChangePassword() {
 </script>
 
 <template>
-  <div ref="wrapEl" class="pk-tool no-print">
+  <div class="pk-tool no-print" @keydown.esc="open = false">
     <!-- logged in: letter avatar -->
     <button
       v-if="session"

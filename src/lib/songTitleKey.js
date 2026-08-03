@@ -148,3 +148,80 @@ export function findTitleConflicts(candidate, songs) {
   out.level = out.blocking.length ? 'block' : out.warning.length ? 'warn' : out.info.length ? 'info' : 'ok'
   return out
 }
+
+// ---------- B128 — the EARLY hint, while the name is still being typed ----------
+// findTitleConflicts above compares WHOLE titles, so it stays silent until the last
+// character is in — by which time the whole song has often been typed already. This pair
+// answers the earlier question: "does the library already have a song whose name STARTS
+// like this?" It never blocks and never overrides the verdict above; it only fills the
+// silence before it (see the wiring in EditorMode / Studio).
+
+// Fewer typed characters than this and the hint stays quiet. Measured on the real library
+// (221 titles): at 3 characters a prefix query returns avg 6.6 / max 31 songs and 29% of
+// queries return more than 5 — noise. At 5 it is avg 1.25 / max 10 whole-library, and
+// avg 0.54 / max 6 within the same เล่ม. 5 is where the signal wins.
+export const MIN_EARLY_CHARS = 5
+
+// At most this many songs are listed; the rest are counted. THREE, not five: the warning box
+// gives every listed song its own full-width "เปิดเพลง …" link, so five entries turn a hint
+// into a wall taller than the form it is helping (the library's noisiest 5-char prefix,
+// "พระอง", has 8 songs). It costs almost nothing: a cap of 3 truncates 11% of queries vs 9%
+// for a cap of 5. Apple HIG and Material both sanction 3-5; Hick's law says take the low end
+// when the list is not the task.
+export const MAX_EARLY_LISTED = 3
+
+// PREFIX on the LOOSE key — not substring, not edit-distance inside the typed part: both were
+// measured on the real library and roughly TRIPLE the result count without catching a single
+// extra real duplicate (substring 3.67 avg vs 1.25 at 5 chars; +1 edit 2.39 vs 1.25). The
+// loose key already absorbs exactly the drift that matters in Thai: tone marks, long/short
+// vowel pairs, and the spaces Thai does not put between words.
+// Returns { q, level: 'ok'|'early', sameBook[], otherBook[], truncated }.
+export function findEarlyTitleMatches(candidate, songs, { minChars = MIN_EARLY_CHARS } = {}) {
+  const typed = String((candidate && candidate.title_th) || '')
+  const q = titleKeyLoose(typed)
+  const out = { q, level: 'ok', sameBook: [], otherBook: [], truncated: 0 }
+  // Counted on the characters the user actually TYPED, not on the normalized key: the key
+  // drops tone marks and spaces, so gating on it would silently demand 7-8 keystrokes on a
+  // tone-heavy name ("หากใกล้" = 7 typed -> 5 key characters) — more than the 5 asked for,
+  // and not what the noise measurement above was taken at.
+  if ([...typed.trim()].length < minChars || !q) return out
+  const myBook = bookKey(candidate)
+  for (const s of songs || []) {
+    if (!s || (candidate.id && s.id === candidate.id)) continue
+    const k = titleKeyLoose(s.title_th)
+    if (!k || !k.startsWith(q)) continue
+    ;(bookKey(s) === myBook ? out.sameBook : out.otherBook).push(s)
+  }
+  // Closest first = shortest title first: the song whose name is nearly what was typed is the
+  // likeliest duplicate; a long title that merely starts the same is the likeliest false alarm.
+  const byCloseness = (a, b) => titleKeyLoose(a.title_th).length - titleKeyLoose(b.title_th).length
+  out.sameBook.sort(byCloseness)
+  out.otherBook.sort(byCloseness)
+  const total = out.sameBook.length + out.otherBook.length
+  out.truncated = Math.max(0, total - MAX_EARLY_LISTED)
+  out.level = total ? 'early' : 'ok'
+  return out
+}
+
+// The note the existing warning box renders: { level:'info', message, links[] }, or null when
+// there is nothing to say. Worded as a question, not a verdict: at 5 characters we know the
+// name STARTS the same and nothing more.
+export function earlyDupNote(candidate, songs, categoryName = (c) => c) {
+  const r = findEarlyTitleMatches(candidate, songs)
+  if (r.level === 'ok') return null
+  const list = [...r.sameBook, ...r.otherBook].slice(0, MAX_EARLY_LISTED)
+  const label = (x) =>
+    (x.number != null ? x.number + '. ' : '') + (x.title_th || '') +
+    (x.category ? ` (${categoryName(x.category)})` : '')
+  const n = r.sameBook.length + r.otherBook.length
+  // Say the TOTAL and say that the list is cut, so somebody who does not see their own song in
+  // these 3 lines knows there are more rather than concluding it is not in the library.
+  const head = r.truncated
+    ? `มีเพลงชื่อขึ้นต้นแบบนี้แล้ว ${n} เพลง (แสดง ${MAX_EARLY_LISTED} แรก)`
+    : `มีเพลงชื่อขึ้นต้นแบบนี้แล้ว ${n} เพลง`
+  return {
+    level: 'info',
+    message: `${head}: ${list.map(label).join(' · ')} — ถ้าเป็นเพลงเดียวกัน ไปแก้เพลงเดิมได้เลย`,
+    links: list,
+  }
+}

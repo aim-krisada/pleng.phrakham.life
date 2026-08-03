@@ -101,15 +101,9 @@ describe('isSampledInstrument — synth is always the instant default', () => {
 })
 
 describe('SAMPLE_HOSTS — the one host knob, now same-origin (offline PWA)', () => {
-  // Same-origin mirror, rooted at the DEPLOYMENT base — '/samples/' at the site root and
-  // '/v2/samples/' for the side-by-side build, never a runtime CDN (docs/deploy-v2.md).
-  const root = (import.meta.env.BASE_URL || '/').replace(/^\.\//, '/')
-  it('serves from the same-origin mirror <base>samples/ (no runtime CDN)', () => {
-    expect(SAMPLE_HOSTS.base).toBe(root + 'samples/')
+  it('serves from the same-origin mirror /samples/ (no runtime CDN)', () => {
+    expect(SAMPLE_HOSTS.base).toBe('/samples/')
     expect(SAMPLE_HOSTS).toHaveProperty('grand')
-    expect(SAMPLE_HOSTS.grand.startsWith(root + 'samples/')).toBe(true)
-  })
-  it('is same-origin absolute (leading slash), never a bare relative path', () => {
-    expect(SAMPLE_HOSTS.base.startsWith('/')).toBe(true)
+    expect(SAMPLE_HOSTS.grand.startsWith('/samples/')).toBe(true)
   })
 })

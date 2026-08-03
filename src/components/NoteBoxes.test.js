@@ -78,6 +78,34 @@ describe('NoteBoxes — Space splits/ripples at the caret (B084 + ripple follow-
   })
 })
 
+describe('NoteBoxes — glanceable fermata hold badge (editor-only, .no-print)', () => {
+  const mountH = (modelValue, holdLabels) =>
+    mount(NoteBoxes, { props: { modelValue, holdLabels, 'onUpdate:modelValue': () => {} } })
+
+  it('shows a 𝄐N badge on the box index given a hold label', () => {
+    const w = mountH('5^ 3', { 0: '3' })
+    const badges = w.findAll('.note-hold')
+    expect(badges).toHaveLength(1)
+    expect(badges[0].text()).toBe('𝄐3')
+    w.unmount()
+  })
+
+  it('marks the badge .no-print so it can never reach the printed sheet', () => {
+    const w = mountH('5^', { 0: '2.5' })
+    const badge = w.find('.note-hold')
+    expect(badge.exists()).toBe(true)
+    expect(badge.classes()).toContain('no-print')
+    expect(badge.text()).toBe('𝄐2.5')
+    w.unmount()
+  })
+
+  it('shows no badge when no hold labels are supplied (non-fermata notes)', () => {
+    const w = mountH('1 2 3', {})
+    expect(w.findAll('.note-hold')).toHaveLength(0)
+    w.unmount()
+  })
+})
+
 describe('NoteBoxes — unchanged behaviours still hold', () => {
   it('pasted spaces still split into boxes', async () => {
     const w = mountT('')

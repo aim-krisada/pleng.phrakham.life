@@ -46,128 +46,30 @@ export function lyricSetName(set, i) {
   return setCaption(i)
 }
 
-// ---------- 717 — a lyric set's PERMANENT id (what a shared link points at) ----------
+// Read an arrangement entry's `set` as an index. Anything that isn't a whole number —
+// absent, blank, junk — reads as null = SHARED by every set.
 //
-// A share link is a public promise: someone puts it in a group chat and it has to still mean
-// the same words next year. A positional `?set=1` cannot promise that — delete the first set
-// and every link already out there silently starts pointing at different words, with nobody
-// to notice. So a set carries its own `id`, minted once and never reused.
-//
-// Sets saved before this carry no id. They get one on the next save (mintLyricSetIds), and
-// until then a link simply falls back to the first set — reading old data must never throw.
-
-// A short, URL-safe, collision-resistant id. crypto.randomUUID where it exists (browsers and
-// modern node); otherwise random bytes, so this stays usable in a plain test runner.
-function newSetId() {
-  const uuid =
-    typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID().replace(/-/g, '')
-      : Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
-  return 's' + uuid.slice(0, 10)
-}
-
-// The id of set `i`, or '' when that set has none yet (old data) — never invented on the fly:
-// an id that changes between reads would be worse than no id at all.
-export function lyricSetIdAt(content, i) {
-  const ls = content?.lyricSets
-  return (Array.isArray(ls) && typeof ls[i]?.id === 'string' && ls[i].id) || ''
-}
-
-// Resolve a shared link's `?set=<id>` back to an index. Anything unresolvable — an unknown id,
-// a deleted set, junk, nothing at all — falls back to the FIRST set rather than erroring or
-// showing an empty sheet: a link that opens the wrong words is recoverable, one that opens
-// nothing is not.
-export function lyricSetIndexById(content, id) {
-  if (!lyricSetCount(content) || !id) return 0
-  const i = content.lyricSets.findIndex((s) => s?.id === id)
-  return i >= 0 ? i : 0
-}
-
-// Give every set an id, minting only for those without one — so ids already handed out in
-// links are never rewritten. Returns the content UNTOUCHED (same object) when there is
-// nothing to do, which is every ordinary song and every already-minted one, so callers on
-// the save path can apply it unconditionally.
-export function mintLyricSetIds(content) {
-  if (!lyricSetCount(content)) return content
-  const seen = new Set()
-  let changed = false
-  const lyricSets = content.lyricSets.map((s) => {
-    const id = typeof s?.id === 'string' ? s.id : ''
-    // a duplicated id would make two sets indistinguishable to a link — re-mint the later one
-    if (id && !seen.has(id)) { seen.add(id); return s }
-    changed = true
-    let next = newSetId()
-    while (seen.has(next)) next = newSetId()
-    seen.add(next)
-    return { ...s, id: next }
-  })
-  return changed ? { ...content, lyricSets } : content
-}
-
-// How many lyric SETS a song declares — 0 for every ordinary song (incl. all ~120 in the
-// library today), so every set-aware branch below is dead code unless a song opts in.
-export function lyricSetCount(content) {
-  const ls = content?.lyricSets
-  return Array.isArray(ls) && ls.length > 1 ? ls.length : 0
-}
-
-// 717 multi-lyric — several sets of WORDS under ONE melody, which you SWITCH between (not
-// stack). `content.lyricSets = [{name}]`; each arrangement entry tags its set with `set`
-// (index), and an entry with NO `set` is SHARED by every set (a common refrain).
-//
-// Returns the predicate that keeps one set's entries, or null when the song has no sets
-// (→ nothing is filtered, byte-identical to before). An out-of-range/absent `set` option
-// falls back to the FIRST set — never to the concatenation, which would render the two
-// sets as "ข้อ 1 / ข้อ 2" and mean a different song than either.
-// Read a `set` value as an index. Anything that isn't a whole number — absent, blank, junk —
-// reads as null = SHARED. Numeric strings count ("1" is what a tool that stringifies its JSON
-// writes): under `===` a string set would match no set at all and the sheet would come out
-// EMPTY, which is a worse failure than any wrong-words case this feature is meant to prevent.
-// Only a number or a numeric string is a set. Coercing anything else would invent one:
-// Number([]) is 0 and Number(true) is 1, so an empty array or a stray boolean would quietly
-// claim membership of a real set instead of reading as shared.
+// Numeric STRINGS count. "1" is what any tool that stringifies its JSON writes (an import
+// script, a hand-edited row, a SQL cast). Compared with `===` against a number a string set
+// would match NO set at all, so that entry would vanish from every tab — an EMPTY or
+// half-missing sheet, which is a worse failure than any wrong-words case the feature exists
+// to prevent. The library is safe today only because the merge SQL happened to write ints;
+// this makes the CODE safe instead of relying on that.
 export function lyricSetIndex(v) {
+  // Only a number or a numeric string is a set. Coercing anything else would invent one:
+  // Number([]) is 0 and Number(true) is 1, so an empty array or a stray boolean would quietly
+  // claim membership of a real set instead of reading as shared.
   if (typeof v !== 'number' && typeof v !== 'string') return null
   if (v === '') return null
   const n = Number(v)
   return Number.isInteger(n) ? n : null
 }
-const setIndex = lyricSetIndex
 
-export function lyricSetFilter(content, opts) {
-  const n = lyricSetCount(content)
-  if (!n) return null
-  const want = setIndex(opts?.set)
-  const use = want != null && want >= 0 && want < n ? want : 0
-  const f = (entry) => {
-    const s = setIndex(entry?.set)
-    return s == null || s === use
-  }
-  f.set = use
-  return f
-}
-
-// The song narrowed to ONE lyric set, as a standalone song.
-//
-// For the sheet, the set rides along as an option (resolveContent(content, {set})) so every
-// surviving line can keep its ORIGINAL `_entryIndex` and the inline editor still writes back
-// to the right entry. The export path deliberately takes no options — audioExport derives the
-// sheet AND the play order from `content` alone, so no caller can forget one of them — so it
-// needs the choice baked into the content instead. Hence this: filter the arrangement, and
-// leave a single-element `lyricSets` behind so lyricSetCount() reads 0 and nothing filters a
-// second time (which would silently snap the export back to set 0).
-//
-// `_entryIndex` on the result indexes the NARROWED arrangement, so this is for read-only
-// consumers (export, estimate). Never feed it to anything that writes back.
-// Returns the content untouched when the song declares no sets.
-export function scopeToLyricSet(content, set) {
-  if (!lyricSetCount(content)) return content
-  const inSet = lyricSetFilter(content, { set })
-  return {
-    ...content,
-    lyricSets: [content.lyricSets[inSet.set]],
-    arrangement: (content.arrangement || []).filter(inSet),
-  }
+// Does this arrangement entry belong on the sheet for lyric set `active`?
+// An entry with no `set` is SHARED (e.g. a common refrain) and appears on every set's sheet.
+export function inLyricSet(entry, active) {
+  const s = lyricSetIndex(entry?.set)
+  return s == null || s === active
 }
 
 // Split a v1 lyric string into syllable tokens the v2 way: spaces = word breaks,
@@ -270,13 +172,8 @@ export function melodyLineSignature(line, expBeats) {
   return groups.map((b) => b.join(' ')).join(' | ')
 }
 
-// `opts.set` (717 multi-lyric) picks WHICH lyric set is written out — see lyricSetFilter.
-// Filtered-out entries are skipped, but a surviving entry keeps its ORIGINAL arrangement
-// index in `_entryIndex`, so click-to-edit / withSetSyllable still write to the right
-// entry of the unfiltered content.
-export function resolveContent(content, opts) {
+export function resolveContent(content) {
   if (!content || !Array.isArray(content.stanzas)) return content?.lines || []
-  const inSet = lyricSetFilter(content, opts)
   const byId = {}
   for (const s of content.stanzas) byId[s.id] = s
   const out = []
@@ -290,22 +187,9 @@ export function resolveContent(content, opts) {
   //       whose 1st and 3rd lines share a tune (not adjacent) is never collapsed → its words
   //       stay in reading order.
   const seenStanza = new Set()
-  // The entries THIS sheet writes out (all of them when the song has no lyric sets). The
-  // "ข้อ N" default below counts within this list, not the raw arrangement: on a song with
-  // two lyric sets, each set is its own reading of the song — its first unlabelled verse is
-  // ข้อ 1, and a set holding a single lyric block stays heading-free like any other song.
-  // Original arrangement index → its position on THIS sheet. With no lyric sets nothing is
-  // filtered, so seq === ei and seqOf.size === arrangement.length — the numbering every
-  // existing song already gets, unchanged down to an entry naming a stanza that isn't there.
-  const seqOf = new Map()
-  ;(content.arrangement || []).forEach((e, i) => {
-    if (!inSet || inSet(e)) seqOf.set(i, seqOf.size)
-  })
   ;(content.arrangement || []).forEach((entry, ei) => {
-    if (inSet && !inSet(entry)) return // 717 — a different set's words: not on THIS sheet
     const stanza = byId[entry.stanza]
     if (!stanza) return
-    const seq = seqOf.get(ei) ?? ei // position within THIS sheet (= ei when there are no sets)
     const stanzaFirst = !seenStanza.has(entry.stanza)
     seenStanza.add(entry.stanza)
     const syls = entry.syllables || []
@@ -323,7 +207,7 @@ export function resolveContent(content, opts) {
       // arrangement entry is unlabelled) stays heading-free as before.
       if (li === 0) {
         const label = (entry.label || '').trim()
-        const name = label || (seqOf.size > 1 ? `ข้อ ${seq + 1}` : '')
+        const name = label || ((content.arrangement || []).length > 1 ? `ข้อ ${ei + 1}` : '')
         if (name) {
           const marker = { type: 'section', name }
           if (entry.afterEachVerse) marker.rubric = 'ร้องรับทุกข้อ'
@@ -353,8 +237,6 @@ export function resolveContent(content, opts) {
       outLine._stanza = entry.stanza
       outLine._melodyFirst = melodyFirst
       outLine._entryIndex = ei // B102 — which arrangement entry this display line belongs to
-      outLine._stanzaLine = li // click-to-edit: source line index within its stanza, so a click
-                               // on the preview traces back to the exact editable line/bar
       out.push(outLine)
     })
   })
@@ -370,13 +252,9 @@ export function resolveContent(content, opts) {
 // Returns null when the song has no directive → the caller plays the whole song in display
 // order (byte-identical to today). This is the dispatch seam for Phase 2 jump symbols
 // (D.C./D.S./Coda): they add more cases here; the display pass never changes.
-// `opts.set` rides through to resolveContent so the returned display-line ranges line up
-// 1:1 with the sheet the reader is actually looking at (717 multi-lyric).
-export function resolvePlayOrder(content, opts) {
+export function resolvePlayOrder(content) {
   if (!isV2(content)) return null
-  const strophic = resolveStrophicOrder(content, opts)
-  const jumped = resolveJumpOrder(content, strophic, opts)
-  return jumped ?? strophic
+  return resolveStrophicOrder(content)
 }
 
 // Strophic "ร้องรับทุกข้อ" (afterEachVerse): the refrain is sung after EVERY verse, but the
@@ -384,14 +262,11 @@ export function resolvePlayOrder(content, opts) {
 // the arrangement already places it there next). Returns null when no section carries the
 // directive. Each arrangement entry expands to a contiguous run of display lines, so an entry
 // maps to one {fromLi,toLi} range.
-function resolveStrophicOrder(content, opts) {
+function resolveStrophicOrder(content) {
   const arr = content.arrangement || []
-  const inSet = lyricSetFilter(content, opts)
-  // the refrain of THIS lyric set — another set's refrain is not on this sheet, so it can
-  // never be the one inserted after these verses
-  const chorusIdx = arr.findIndex((e) => e && e.afterEachVerse && (!inSet || inSet(e)))
+  const chorusIdx = arr.findIndex((e) => e && e.afterEachVerse)
   if (chorusIdx < 0) return null
-  const lines = resolveContent(content, opts)
+  const lines = resolveContent(content)
   const ranges = [] // ranges[entryIndex] = {fromLi,toLi}
   lines.forEach((line, li) => {
     const e = line._entryIndex
@@ -401,165 +276,13 @@ function resolveStrophicOrder(content, opts) {
   })
   const chorus = ranges[chorusIdx]
   if (!chorus) return null
-  const chorusStanza = arr[chorusIdx].stanza
-  // The entry that comes next ON THIS SHEET. With no lyric sets that is simply i+1; with sets,
-  // the entries between can belong to another set and are not written out here, so a raw i+1
-  // would miss the "the arrangement already writes the refrain next" case and sing the refrain
-  // twice in a row.
-  const nextShown = (i) => {
-    for (let k = i + 1; k < arr.length; k++) if (ranges[k]) return k
-    return -1
-  }
   const order = []
   arr.forEach((entry, i) => {
     const r = ranges[i]
     if (!r) return
     order.push(r)
     if (i === chorusIdx) return // the refrain itself — never append the refrain after itself
-    if (nextShown(i) === chorusIdx) return // the arrangement already writes the refrain next
-    // §4.1 "กางก่อน แล้วค่อยตัด": afterEachVerse expands the full sequence first; then a verse's
-    // flow.skipSections trims. A verse that skips the refrain's stanza gets no trailing refrain.
-    if (entry.flow && Array.isArray(entry.flow.skipSections) && entry.flow.skipSections.includes(chorusStanza)) return
-    order.push(chorus) // after a verse → sing the refrain
+    if (i + 1 !== chorusIdx) order.push(chorus) // after a verse → sing the refrain (unless already next)
   })
   return order
-}
-
-// ---------- Phase 2 (mid-bar): D.C./D.S./Segno/Coda/Fine jump resolver ----------
-// See docs/ds/repeat-jumps-midbar.md. CANONICAL MARKER SHAPE (§7): every navigation symbol is
-// a LINE ITEM {type:'jump', kind, al?, id} — kind: segno|coda|to-coda|dc|ds|fine — the same
-// shape the glyph-render lane (SongSheet.vue) draws. Legacy per-type items ({type:'segno'},
-// {type:'marker',kind:'fine'}) normalise in. A dc/ds item IS the jump command and fires at ITS
-// OWN (li,si), so the jump can land MID-BAR (not just at a line boundary). Segno/Coda/Fine/
-// To-Coda are position markers. al ('fine'|'coda') rides on the dc/ds item = the explicit exit
-// target (repeat-jumps §2.2: al-Fine vs al-Coda is chosen, not inferred).
-//
-// Play order is expressed as display-line ranges with (li,si) ENDPOINTS
-// [{fromLi,fromSi?,toLi,toSi?}] so buildPlayNotes concatenates them exactly like the strophic +
-// bar-level (‖: :‖) mechanisms; a range with fromSi/toSi absent spans the WHOLE line (the
-// line-level / strophic order — byte-identical, regression 0). Returns null when there is no
-// (resolvable) jump → the caller uses the strophic/natural order.
-
-// Normalise a line item to its jump kind, or null. Mirrors SongSheet.vue's render contract so
-// engine + render read one shape. A plain {type:'marker', label} (no kind) is NOT a jump.
-function jumpKindOf(it) {
-  if (!it || !it.type) return null
-  const norm = (k) => {
-    const s = String(k || '').toLowerCase().replace(/[\s._-]/g, '')
-    if (s === 'segno' || s === 'dalsegnomark') return 'segno'
-    if (s === 'coda' || s === 'codamark') return 'coda'
-    if (s === 'tocoda') return 'to-coda'
-    if (s === 'dc' || s === 'dacapo') return 'dc'
-    if (s === 'ds' || s === 'dalsegno') return 'ds'
-    if (s === 'fine') return 'fine'
-    return null
-  }
-  let kind = norm(it.type)
-  if (!kind && (it.type === 'jump' || it.type === 'marker')) kind = norm(it.kind)
-  return kind
-}
-function normAl(al) {
-  const s = String(al || '').toLowerCase()
-  return s === 'fine' || s === 'coda' ? s : null
-}
-// Cheap pre-check: is there a dc/ds jump command anywhere? Avoids a resolveContent pass for the
-// ~100% of songs that have no jump.
-function hasJumpCommand(content) {
-  for (const s of content?.stanzas || [])
-    for (const line of s.lines || [])
-      for (const it of line || []) {
-        const k = jumpKindOf(it)
-        if (k === 'dc' || k === 'ds') return true
-      }
-  return false
-}
-function cmpPos(a, b) {
-  if (!a || !b) return 0
-  if (a.li !== b.li) return a.li - b.li
-  return (a.si == null ? -Infinity : a.si) - (b.si == null ? -Infinity : b.si)
-}
-
-// Scan the resolved display lines for every jump marker, recording each as (li,si). si is the
-// SEGMENT index songToNotes assigns (segments advance si; bars/markers/repeat do not) — so the
-// anchor lands on a real note. Return-target markers (segno, coda) anchor to the FIRST segment
-// AT/AFTER the item (si = segments before it). Exit markers + jump commands (fine, to-coda, dc,
-// ds) anchor to the LAST segment BEFORE the item (si = segments before it − 1). Records the
-// FIRST occurrence of each in play order (nested jumps are a v1 known-limit).
-function scanFlowMarkers(lines) {
-  let segno = null, fine = null, dc = null, ds = null
-  const codas = [], toCodas = []
-  lines.forEach((line, li) => {
-    let seg = -1 // si of the last segment seen so far (matches songToNotes)
-    for (const it of line || []) {
-      if (it && it.type === 'segment') { seg++; continue }
-      const kind = jumpKindOf(it)
-      if (!kind) continue
-      const before = seg // last note before the marker
-      const atAfter = seg + 1 // first note at/after the marker
-      if (kind === 'segno') { if (!segno) segno = { li, si: atAfter } }
-      else if (kind === 'coda') codas.push({ li, si: atAfter })
-      else if (kind === 'to-coda') toCodas.push({ li, si: before })
-      else if (kind === 'fine') { if (!fine) fine = { li, si: before } }
-      else if (kind === 'dc') { if (!dc) dc = { li, si: before, al: normAl(it.al) } }
-      else if (kind === 'ds') { if (!ds) ds = { li, si: before, al: normAl(it.al) } }
-    }
-  })
-  return { segno, fine, dc, ds, coda: codas[0] || null, toCoda: toCodas[0] || null }
-}
-
-// The return-pass ranges for a resolved jump. `from` = {li,si} of the return target (segno, or
-// {li:0,si:null} for capo). al ('fine'|'coda'|null) is the explicit exit; when null it is
-// inferred from the markers present (Coda wins over Fine — the play flow reaches To-Coda first).
-function returnRanges(from, marks, al, lastLi) {
-  const codaPair = !!(marks.toCoda && marks.coda)
-  const codaRanges = () => [
-    // al Coda: play to the To-Coda, jump to the Coda, play to the end
-    { fromLi: from.li, fromSi: from.si, toLi: marks.toCoda.li, toSi: marks.toCoda.si },
-    { fromLi: marks.coda.li, fromSi: marks.coda.si, toLi: lastLi, toSi: null },
-  ]
-  const fineRange = () => [{ fromLi: from.li, fromSi: from.si, toLi: marks.fine.li, toSi: marks.fine.si }]
-  // Explicit al chooses the exit (repeat-jumps §2.2); al=null infers, Coda winning over Fine
-  // (the play flow reaches To-Coda before Fine). When the requested exit's marker is MISSING the
-  // jump degrades gracefully — try the other exit, else plain replay — never a broken route.
-  if (al === 'coda' && codaPair) return codaRanges()
-  if (al === 'fine' && marks.fine) return fineRange()
-  if (al == null && codaPair) return codaRanges() // inferred al Coda
-  if (marks.fine) return fineRange() // al Fine, or graceful fallback when the Coda is missing
-  if (codaPair) return codaRanges() // last resort (al='fine' asked but no Fine; a Coda exists)
-  return [{ fromLi: from.li, fromSi: from.si, toLi: lastLi, toSi: null }] // plain D.C./D.S.
-}
-
-// Build the full play order when a jump is present; null when there is none (or it is orphan).
-// `base` = the strophic order if any, else the natural whole-song order. First pass plays up to
-// the jump command's own note; then the return pass. Post-jump material is unreachable (the
-// movement ends at Fine/Coda/end) and dropped.
-function resolveJumpOrder(content, base, opts) {
-  if (!isV2(content) || !hasJumpCommand(content)) return null
-  const lines = resolveContent(content, opts)
-  if (!lines.length) return null
-  const lastLi = lines.length - 1
-  const marks = scanFlowMarkers(lines)
-  // which command fires (nested unsupported): the earliest in play order
-  let cmd = null
-  if (marks.dc && marks.ds) cmd = cmpPos(marks.dc, marks.ds) <= 0
-    ? { ...marks.dc, jump: 'capo' } : { ...marks.ds, jump: 'segno' }
-  else if (marks.dc) cmd = { ...marks.dc, jump: 'capo' }
-  else if (marks.ds) cmd = { ...marks.ds, jump: 'segno' }
-  if (!cmd) return null
-  let from
-  if (cmd.jump === 'capo') from = { li: 0, si: null } // D.C. → song start
-  else {
-    if (!marks.segno) return null // orphan D.S. — no segno marker; play as written (never guess)
-    from = marks.segno // D.S. → the segno (may be mid-bar)
-  }
-  const baseOrder = base && base.length ? base : [{ fromLi: 0, toLi: lastLi }]
-  // keep base ranges up to the jump command's position, cutting the range that spans it
-  const kept = []
-  for (const r of baseOrder) {
-    if (r.fromLi > cmd.li) break // range entirely after the jump line → unreachable first pass
-    if (r.toLi < cmd.li) { kept.push(r); continue } // range entirely before → keep whole
-    kept.push({ fromLi: r.fromLi, fromSi: r.fromSi ?? null, toLi: cmd.li, toSi: cmd.si })
-    break
-  }
-  return kept.concat(returnRanges(from, marks, cmd.al, lastLi))
 }

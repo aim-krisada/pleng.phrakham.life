@@ -11,54 +11,14 @@ feedback_verify_layer_report). The hook is the enforcement layer memory can't be
 """
 import sys, json, re, io
 
-# --- identity (P'Aim 2026-07-25: named + versioned · universal across all projects) ---
-HOOK_NAME = "hook ตรวจการทำงาน (work-verification gate)"
-HOOK_VERSION = "1.1.0"   # 1.1.0 = narrow GATE to verdict-language + scrub code/quotes (cut false-fire on discussing the gate itself)
-
 CLAIM = re.compile(
     r'(ขึ้นเว็บ|published|deployed|deploy\s*เสร็จ|go\s*live|จบงาน|'
-    r'ผ่านหมด|เสร็จสมบูรณ์|verified\s*live|พร้อม\s*publish|ส่งขึ้น\s*production|live\s*แล้ว|'
-    # + คำ relay-done-on-proxy ที่ทำ P'Aim จับได้ 4 ครั้ง (dc/ds "ขึ้นแล้ว ใช้ได้", "BI-011 PASS merge-ready")
-    r'\bPASS\b|merge[\s-]*ready|ใช้งานได้|ใช้ได้จริง|ทำงานได้(แล้ว)?|ย้อนได้จริง|'
-    r'\bworks\b|LIVE\s*แล้ว|พิสูจน์แล้ว|verified\b|merge-ready)',
+    r'ผ่านหมด|เสร็จสมบูรณ์|verified\s*live|พร้อม\s*publish|ส่งขึ้น\s*production|live\s*แล้ว)',
     re.I)
 
 EVIDENCE = re.compile(
     r'(หลักฐาน:|evidence:|proof:|ยังไม่พิสูจน์:|not\s*proven:|raw\s*output|verified:)',
     re.I)
-
-# --- G-verify gate (P'Aim 2026-07-25 · universal way-of-working) ------------------------
-# A claim that a DESIGN/BUILD deliverable is complete/correct must carry BOTH an evidence
-# block AND a `G-VERIFY:` marker. G-VERIFY ≠ "G approved" — it means: G was used
-# adversarially ("what is missing / what is wrong"), every standard claim was re-checked
-# at its REAL source (URL + element name), and the seat/PM made the final call (G raises
-# the floor of completeness/correctness, it does NOT replace judgment; G has hallucinated
-# standards before). Infra/deploy facts (curl / HTTP 200 / git push) are NOT covered here —
-# they need only the evidence block; G does not adjudicate an HTTP 200.
-# v1.1.0: only VERDICT-language (a worker/PM handing a deliverable off as done+correct).
-# Goal/topic words ("ครบตามมาตรฐาน", "Definition of Complete") and infra gate words
-# ("ปิด gate", "gate ผ่าน") were removed — they appear constantly in normal PM discussion
-# and caused false-fires. Matched against SCRUBBED text (code spans / quotes stripped) so
-# QUOTING a trigger (e.g. listing `PASS`/`merge-ready`) does not fire.
-GATE_CLAIM = re.compile(
-    r'(\bPASS\b|merge[\s-]*ready|ถูกต้องครบ|verified\s*correct|\bDoC\b\s*(ผ่าน|verified))',
-    re.I)
-
-def scrub(text):
-    text = re.sub(r'```.*?```', ' ', text, flags=re.S)   # fenced code blocks
-    text = re.sub(r'`[^`]*`', ' ', text)                 # inline `code`
-    text = re.sub(r'(?m)^\s*>.*$', ' ', text)            # > blockquotes (past-mistake recounts)
-    return text
-GVERIFY = re.compile(r'G-VERIFY', re.I)
-GATE_REMINDER = (
-    "G-VERIFY GATE — you claim a design/build deliverable is complete/correct but are "
-    "missing the G-verify evidence. Do NOT end the turn. A completeness/correctness claim "
-    "needs BOTH:\n"
-    "  1) an evidence block (หลักฐาน: + ยังไม่พิสูจน์:)\n"
-    "  2) a `G-VERIFY: <path>` line — G used adversarially ('what is missing/wrong'), every "
-    "standard claim re-checked at its real source (URL/element), seat/PM made the final "
-    "call. G-VERIFY is NOT 'G approved'.\n"
-    "If G was not consulted, or you cannot cite it, say so plainly instead of claiming complete.")
 
 REMINDER = (
     "PRE-FLIGHT GATE — your message claims the deliverable is shipped/done but has "
@@ -102,9 +62,6 @@ def last_assistant_text(path):
 
 
 def main():
-    if '--version' in sys.argv or '-v' in sys.argv:
-        print(f"{HOOK_NAME} v{HOOK_VERSION}")
-        sys.exit(0)
     try:
         data = json.load(sys.stdin)
     except Exception:
@@ -114,14 +71,8 @@ def main():
     text = last_assistant_text(data.get('transcript_path', ''))
     if not text:
         sys.exit(0)
-    tag = f"[{HOOK_NAME} v{HOOK_VERSION}]\n"
-    scr = scrub(text)   # match claims on scrubbed text; find evidence/G-VERIFY on original
-    # G-verify gate first (design/build completeness/correctness needs evidence + G-VERIFY)
-    if GATE_CLAIM.search(scr) and not (EVIDENCE.search(text) and GVERIFY.search(text)):
-        print(tag + GATE_REMINDER, file=sys.stderr)
-        sys.exit(2)
-    if CLAIM.search(scr) and not EVIDENCE.search(text):
-        print(tag + REMINDER, file=sys.stderr)
+    if CLAIM.search(text) and not EVIDENCE.search(text):
+        print(REMINDER, file=sys.stderr)
         sys.exit(2)                      # block the stop, feed reason to model
     sys.exit(0)
 

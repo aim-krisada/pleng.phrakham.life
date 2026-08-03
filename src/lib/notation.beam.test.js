@@ -36,84 +36,9 @@ describe('beamGroups — syllable-based beaming (issue8)', () => {
     expect(runs('(6_ 5_)', ['ดี', ''])).toEqual([[0, 1]])
   })
 
-  it('every-note-its-own-word never beams, however many notes', () => {
+  it('a เอื้อน run that crosses a beat edge breaks at the edge, not into one long beam', () => {
     // 3(quarter) fills beat 1; "- 3_ 4_" ... every note its own word → all split
     expect(runs('3 - 3_ 4_ 5_ 6_', ['a', '', 'b', 'c', 'd', 'e'])).toEqual([])
-  })
-
-  // --- B120 (พี่เปา, 23 ก.ค.): a เอื้อน beam is NOT cut by the beat edge ------------------
-  // "เกิน 2 ช่อง เส้นไม่ลากติดกัน … ไม่ว่ากี่ช่อง ถ้าร้องเอื้อนหรือเว้นช่องเนื้อ ต้องลากเส้นให้ต่อกัน".
-  // Reference songbook #698 line 2 is the golden case: `5 4 3` under ONE line ACROSS the beat
-  // edge, then a SEPARATE line under `2` — because `2` is where the next word (พระ) starts.
-  it('รูป698: 5 4 3 beam as one across the beat edge; 2 (new word) breaks it', () => {
-    expect(runs('5_ 4_ 3_ 2_', ['วิต', '', '', 'พระ'])).toEqual([[0, 2]])
-  })
-
-  it('a เอื้อน run is unbroken at ANY length (3 · 4 · 6 slots)', () => {
-    expect(runs('5_ 4_ 3_', ['คำ', '', ''])).toEqual([[0, 2]])
-    expect(runs('5_ 4_ 3_ 2_', ['คำ', '', '', ''])).toEqual([[0, 3]])
-    expect(runs('5_ 4_ 3_ 2_ 1_ 6_', ['คำ', '', '', '', '', ''])).toEqual([[0, 5]])
-  })
-
-  it('blank word slots mid-run do not cut the beam (the pink empty boxes)', () => {
-    expect(runs('5_ 4_ 3_ 2_ 1_', ['วิต', '', '', '', 'พระ'])).toEqual([[0, 3]])
-  })
-
-  it('a beam never crosses a bar line', () => {
-    // `|` is dropped by parseNotes, so the barrier is explicit (barBreakIdx)
-    expect(runs('1_ 2_ | 3_ 4_', ['ก', '', '', ''])).toEqual([
-      [0, 1],
-      [2, 3],
-    ])
-    expect(runs('1_ 2_ 3_ | 4_ 5_ 6_', ['ก', '', '', '', '', ''])).toEqual([
-      [0, 2],
-      [3, 5],
-    ])
-  })
-
-  it('a rest / extension still cuts a long เอื้อน run', () => {
-    expect(runs('1_ 2_ 0 3_ 4_', ['ก', '', '', '', ''])).toEqual([
-      [0, 1],
-      [3, 4],
-    ])
-  })
-
-  // --- B110 levels: one bar per beam LEVEL (matters far more now runs are long) ----------
-  const lv = (note, syl) =>
-    beamGroups(note, syl).beams.map((b) =>
-      b.levels.map((l) => `${l.level}:${l.start}-${l.end}${l.partial ? '/' + l.partial : ''}`),
-    )
-
-  it('a run of eighths is ONE level-1 bar over the whole run', () => {
-    expect(lv('5_ 4_ 3_ 2_', ['คำ', '', '', ''])).toEqual([['1:0-3']])
-  })
-
-  it('sixteenths add a level-2 bar spanning only the sixteenths', () => {
-    // 1__ 2__ are sixteenths, 3_ is an eighth, 4__ 5__ sixteenths again
-    expect(lv('1__ 2__ 3_ 4__ 5__', ['คำ', '', '', '', ''])).toEqual([
-      ['1:0-4', '2:0-1', '2:3-4'],
-    ])
-  })
-
-  it('a lone sixteenth in a run gets a PARTIAL level-2 stub, not a full second bar', () => {
-    expect(lv('.7_. 1__ 2_', ['ก', '', ''])).toEqual([['1:0-2', '2:1-1/left']])
-  })
-
-  // Where the two bugs MEET (PM, 23 ก.ค.): a run that MIXES เขบ็ต 1/2 ชั้น *and* spans
-  // several beats. B120 is what makes the run long enough to mix, and B110 is what keeps
-  // level 2 off the notes that do not own it — a regression in either shows up here.
-  it('a mixed-level run spanning 2+ beats: level 1 unbroken, level 2 only on the sixteenths', () => {
-    // 4 sixteenths (beat 0) + 2 eighths (beat 1) + 2 sixteenths (beat 2) = 2.5 beats, so the
-    // old beat-edge rule chopped this into three separate runs.
-    expect(lv("1__ 2__ 3__ 4__ 5_ 6_ 7__ 1'__", ['คำ', '', '', '', '', '', '', ''])).toEqual([
-      ['1:0-7', '2:0-3', '2:6-7'],
-    ])
-  })
-
-  it('a mixed-level run ending in a lone sixteenth past the beat edge keeps a partial stub', () => {
-    expect(lv('1__ 2__ 3_ 4_ 5__', ['คำ', '', '', '', ''])).toEqual([
-      ['1:0-4', '2:0-1', '2:4-4/left'],
-    ])
   })
 
   it('a เอื้อน run of three within one beat beams all three', () => {
@@ -141,5 +66,63 @@ describe('beamGroups — syllable-based beaming (issue8)', () => {
 
   it('triplets are not swept into beam runs', () => {
     expect(runs('{1_ 2_ 3_}', ['a', 'b', 'c'])).toEqual([])
+  })
+})
+
+// --- B110 — GOLDEN tests: one beam bar PER LEVEL ---------------------------------------
+// พี่เปา: "พิมพ์ขเบ็ด 1 ชั้น แต่โชว์เป็น 2 ชั้น". The old code collapsed a run to a single
+// `u2` flag, so ONE sixteenth in a run thickened the whole run. beamGroups now returns a
+// `levels` structure: level 1 spans the whole run, each higher level spans only the notes
+// that really own it, and a lone note at a level gets a PARTIAL beam (ขีดหัก) pointing at
+// the note it is beamed to. These cases are B110's acceptance criteria.
+const levels = (note, syl) =>
+  beamGroups(note, syl).beams.map((b) =>
+    b.levels.map((l) => `L${l.level}:${l.start}-${l.end}${l.partial ? '/' + l.partial : ''}`),
+  )
+
+describe('beamGroups — beam levels (B110)', () => {
+  // เพลง 751 ข้อ 1 ห้อง "7. 1" — dotted eighth (1 underline) beamed to a sixteenth (2).
+  // Level 1 must still span BOTH; level 2 must touch only the sixteenth, as a stub.
+  it('.7_. 1__ — level 1 over the whole run, level 2 a LEFT stub on the sixteenth only', () => {
+    expect(levels('.7_. 1__', null)).toEqual([['L1:0-1', 'L2:1-1/left']])
+  })
+
+  // mirrored: the sixteenth leads, so its stub must point RIGHT (into the beam)
+  it('1__ .7_. — the stub flips to RIGHT when the sixteenth starts the run', () => {
+    expect(levels('1__ .7_.', null)).toEqual([['L1:0-1', 'L2:0-0/right']])
+  })
+
+  // a lone sixteenth in the MIDDLE has a note before it in the run → points left
+  it('5_ 6__ 7_ — a sixteenth between two eighths gets a LEFT stub', () => {
+    expect(levels('5_ 6__ 7_', null)).toEqual([['L1:0-2', 'L2:1-1/left']])
+  })
+
+  // A4 — no regression: a uniform run keeps exactly the shape it had before B110
+  it('all eighths → level 1 only (unchanged)', () => {
+    expect(levels('5_ 6_', null)).toEqual([['L1:0-1']])
+  })
+
+  it('all sixteenths → level 1 and level 2 both span the whole run (unchanged double beam)', () => {
+    expect(levels('1__ 2__ 3__ 4__', null)).toEqual([['L1:0-3', 'L2:0-3']])
+  })
+
+  // two ADJACENT sixteenths are a real span, never two stubs
+  it('1_ 2__ 3__ — adjacent sixteenths give one FULL level-2 span, not partials', () => {
+    expect(levels('1_ 2__ 3__', null)).toEqual([['L1:0-2', 'L2:1-2']])
+  })
+
+  // The level walk is written for ANY depth, but parseNotes hard-caps underlines at 2
+  // (notation.js:46 `while (s[j] === '_' && underlines < 2)`), so 3 underlines is not
+  // reachable from a note string today. Pin that cap here: if it is ever raised, this test
+  // fails and whoever raises it must also check the level-3 geometry in NoteRow.
+  it('parseNotes caps underlines at 2, so no level 3 can be produced today', () => {
+    expect(levels('1_ 2___', null)).toEqual([['L1:0-1', 'L2:1-1/left']])
+  })
+
+  // the legacy flag is still exported (callers/tests that only ask "any sixteenth?")
+  it('u2 stays available for legacy callers but no longer drives drawing', () => {
+    const b = beamGroups('.7_. 1__', null).beams[0]
+    expect(b.u2).toBe(true)
+    expect(b.levels.length).toBe(2)
   })
 })

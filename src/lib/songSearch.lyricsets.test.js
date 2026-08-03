@@ -4,7 +4,7 @@
 // tests use the real names from that song so a regression reads as the actual failure.
 import { describe, it, expect } from 'vitest'
 import { lyricSetNames, lyricSetsText, songHaystack, scoreSong, filterSongs, lyricsText } from './songSearch.js'
-import live717 from './__fixtures__/717-live.json'
+import live717 from '../components/__fixtures__/717-live.json'
 
 const SET1 = 'บรรดาคนบาป เชิญท่านเข้ามา'
 const SET2 = 'ผู้ที่ถูกบาปทำร้ายจงมา'

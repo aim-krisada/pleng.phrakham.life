@@ -9,7 +9,7 @@ import { nextTick } from 'vue'
 vi.mock('../supabase.js', () => {
   const makeQuery = () => {
     const q = {}
-    for (const m of ['select', 'order', 'eq', 'in', 'insert', 'update', 'delete', 'limit']) q[m] = () => q
+    for (const m of ['select', 'order', 'is', 'not', 'eq', 'in', 'insert', 'update', 'delete', 'limit']) q[m] = () => q
     q.single = () => Promise.resolve({ data: null, error: null })
     q.then = (res) => Promise.resolve({ data: [], error: null }).then(res)
     return q
@@ -58,36 +58,24 @@ const segCount = (w, bi) => w.findAll('.seg-strip')[bi].findAll('.seg-col').leng
 const barCount = (w) => w.findAll('.seg-strip').length
 
 describe('B098 — note vs bar copy/delete: 4 distinct actions at two scopes', () => {
-  // dock-space §10: the note copy/delete are now ON-SELECTION in the hoisted toolbox — they
-  // appear for the focused note's seg-col (one at a time), not always-visible for every note.
-  const focusNote = async (w, i = 0) => { w.findAll('.note-box')[i].element.focus(); await nextTick() }
-
   it('all four actions are present and labelled clearly', async () => {
     const w = mountEd()
     await nextTick()
-    // note level: on-selection → focus a note → its seg's toolbox shows exactly one copy + one delete
-    await focusNote(w, 0)
-    expect(byAria(w, 'คัดลอกโน้ตนี้').length).toBe(1)
-    expect(byAria(w, 'ลบโน้ตนี้').length).toBe(1)
-    // bar level: one คัดลอกห้อง + one ลบห้อง per bar (surfaced in the foot, always) → 2 each
+    // note level: one คัดลอกโน้ต + one ลบโน้ต per segment → 2 bars × 1 seg = 2 each
+    expect(byAria(w, 'คัดลอกโน้ตนี้').length).toBe(2)
+    expect(byAria(w, 'ลบโน้ตนี้').length).toBe(2)
+    // bar level: one คัดลอกห้อง + one ลบห้อง per bar (surfaced in the foot) → 2 each
     expect(byAria(w, 'ทำซ้ำห้องนี้').length).toBe(2)
     expect(byAria(w, 'ลบห้องนี้').length).toBe(2)
   })
 
-  // P'Aim 21 ก.ค.: the note tools moved OUT of the seg-col into the ONE bar toolbar (foot), in a
-  // distinct "note" group (.ed-note-acts) next to the "bar" group (.ed-bar-acts) — so a click shows
-  // a single toolbar, and the two ⧉/✕ read as different scopes by their group, not two toolbars.
-  it('scopes are separated: note tools in the note group, bar tools in the bar group — one toolbar', async () => {
+  it('scopes are visually separated: note tools sit in the seg-col, bar tools do NOT', async () => {
     const w = mountEd()
     await nextTick()
-    await focusNote(w, 0)
-    expect(byAria(w, 'คัดลอกโน้ตนี้').every((b) => b.element.closest('.ed-note-acts'))).toBe(true)
-    expect(byAria(w, 'ลบโน้ตนี้').every((b) => b.element.closest('.ed-note-acts'))).toBe(true)
-    expect(byAria(w, 'ทำซ้ำห้องนี้').every((b) => b.element.closest('.ed-bar-acts') && !b.element.closest('.ed-note-acts'))).toBe(true)
-    expect(byAria(w, 'ลบห้องนี้').every((b) => b.element.closest('.ed-bar-acts'))).toBe(true)
-    // both groups live in the SAME one bar toolbar (foot) — not two separate toolbars
-    expect(byAria(w, 'คัดลอกโน้ตนี้').every((b) => b.element.closest('.ed-bar-foot'))).toBe(true)
-    expect(byAria(w, 'ลบห้องนี้').every((b) => b.element.closest('.ed-bar-foot'))).toBe(true)
+    expect(byAria(w, 'คัดลอกโน้ตนี้').every((b) => b.element.closest('.seg-col'))).toBe(true)
+    expect(byAria(w, 'ลบโน้ตนี้').every((b) => b.element.closest('.seg-col'))).toBe(true)
+    expect(byAria(w, 'ทำซ้ำห้องนี้').every((b) => !b.element.closest('.seg-col'))).toBe(true)
+    expect(byAria(w, 'ลบห้องนี้').every((b) => !b.element.closest('.seg-col'))).toBe(true)
   })
 
   it('COPY note: duplicates ONE segment in place — the bar stays, no bar added', async () => {
@@ -95,7 +83,6 @@ describe('B098 — note vs bar copy/delete: 4 distinct actions at two scopes', (
     await nextTick()
     expect(segCount(w, 0)).toBe(1)
     expect(barCount(w)).toBe(2)
-    await focusNote(w, 0)
     await byAria(w, 'คัดลอกโน้ตนี้')[0].trigger('click')
     await nextTick()
     expect(segCount(w, 0)).toBe(2) // note duplicated within bar 0
@@ -106,11 +93,10 @@ describe('B098 — note vs bar copy/delete: 4 distinct actions at two scopes', (
   it('DELETE note: removes ONE segment but leaves the bar intact', async () => {
     const w = mountEd()
     await nextTick()
-    await focusNote(w, 0)
     await byAria(w, 'คัดลอกโน้ตนี้')[0].trigger('click') // bar 0 → 2 segments
     await nextTick()
     expect(segCount(w, 0)).toBe(2)
-    await byAria(w, 'ลบโน้ตนี้')[0].trigger('click') // toolbox stays on the focused seg (sticky)
+    await byAria(w, 'ลบโน้ตนี้')[0].trigger('click')
     await nextTick()
     expect(segCount(w, 0)).toBe(1) // one note removed
     expect(barCount(w)).toBe(2) // bar still there
@@ -120,7 +106,6 @@ describe('B098 — note vs bar copy/delete: 4 distinct actions at two scopes', (
     const w = mountEd()
     await nextTick()
     expect(segCount(w, 0)).toBe(1)
-    await focusNote(w, 0)
     await byAria(w, 'ลบโน้ตนี้')[0].trigger('click')
     await nextTick()
     expect(barCount(w)).toBe(2) // the ห้อง survives (reset to an empty note slot)

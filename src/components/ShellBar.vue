@@ -16,24 +16,16 @@
 // all a11y baked once). This component only owns the CONTENT of the panel (Vue nav +
 // เครื่องมือ); the core owns the off-canvas SHELL. The core re-queries focusables on
 // every open, so the Vue-rendered links are trapped correctly.
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { shellMenu } from '../store.js'
-import { t } from '../i18n/index.js'
+import { shellMenu, siteFont, setSiteFont } from '../store.js'
 import ProfileTool from './ProfileTool.vue'
 import InstallAppTool from './InstallAppTool.vue'
-import SettingsControls from './SettingsControls.vue'
-import VersionSwitch from './VersionSwitch.vue'
 import Icon from './Icon.vue'
 
 defineProps({ title: { type: String, default: '' } })
 const route = useRoute()
 const router = useRouter()
-
-// บริบท B (context-B, ux-groundup): on a song / studio route the top bar is the CONTEXTUAL
-// song bar (‹ ชื่อ · ↗ · ⋮), not the home shell. The inline home nav + "สร้างเพลงใหม่" pill
-// step aside so the song page reads as one clean bar; they stay reachable in ☰ (and create on home).
-const isSong = computed(() => route.path === '/studio' || route.path.startsWith('/song/'))
 // App icon shown as the whole brand on mobile (phrakham-style top-left app mark). P'Aim's
 // 192px glowing-book icon; BASE_URL keeps it resolving on both hosts.
 const appIcon = import.meta.env.BASE_URL + 'android-chrome-192x192.png'
@@ -46,67 +38,10 @@ const appIcon = import.meta.env.BASE_URL + 'android-chrome-192x192.png'
 const burgerBtn = ref(null)
 const drawerPanel = ref(null)
 let drawer = null
-
-// ---- B123 (ชั่วคราว · รอแถบบนออกแบบใหม่) — collapse when the bar does not FIT -------------
-// The compact layout (☰ drawer + FAB) is the app's own, unchanged; only its trigger moved here.
-// It used to fire at a guessed 992px, but the full bar needs a fixed ~1394px no matter how
-// narrow the window is — every flex child is `flex: 0 1 auto` with `min-width: auto`, so
-// nothing can shrink — which left a horizontal scrollbar on every laptop under ~1395px of
-// viewport: 1366 (the most common one) by 43px, 1280 by 129px, 1200 by 209px, 1024 by 308px.
-// So: measure. The decision is always taken against the FULL bar's requirement (the class is
-// lifted for the measurement and put back in the same frame, before any paint), which is what
-// makes it stable — the answer never depends on the state we are currently in, so it cannot
-// oscillate. No width constant is left anywhere; add a button to the bar and the collapse point
-// moves by itself.
-// Two steps, cheapest first, so a desktop keeps looking like a desktop for as long as it fits:
-//   0 full        → everything inline
-//   1 .shell-tight → brand becomes the app icon (the wordmark costs ~164px and is the only
-//                    thing on the row that repeats information the icon already carries).
-//                    The nav links, mode switch and tools all stay inline — this is what saves
-//                    1280 and 1366, the two widths the team actually works on.
-//   2 .shell-compact → the app's existing ☰ layout (nav + ⚙ in the drawer, ＋ as the FAB).
-const LEVELS = ['', 'shell-tight', 'shell-compact']
-const barEl = ref(null)
-function syncShellFit() {
-  const bar = barEl.value
-  if (!bar || typeof document === 'undefined') return
-  const root = document.documentElement
-  const wasCompact = root.classList.contains('shell-compact')
-  // walk up the levels until it fits; each level is MEASURED, never assumed from a width
-  let level = 0
-  for (; level < LEVELS.length; level++) {
-    root.classList.remove('shell-tight', 'shell-compact')
-    if (LEVELS[level]) root.classList.add(LEVELS[level])
-    if (bar.scrollWidth <= bar.clientWidth + 1) break // +1 = sub-pixel rounding
-  }
-  if (level >= LEVELS.length) level = LEVELS.length - 1 // still short → the smallest we have
-  root.classList.remove('shell-tight', 'shell-compact')
-  if (LEVELS[level]) root.classList.add(LEVELS[level])
-  const compact = LEVELS[level] === 'shell-compact'
-  // leaving compact takes the ☰ away with it — an open off-canvas would be left with no
-  // trigger and no way back (this replaces the old fixed 992px media-query listener, which
-  // now fires at a width that has nothing to do with whether the ☰ is on screen).
-  if (wasCompact && !compact && drawer && drawer.isOpen()) drawer.close()
-}
-let fitRo = null
-let fitTimers = []
+const desktopMq = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+  ? window.matchMedia('(min-width: 992px)') : null
 
 onMounted(() => {
-  // Runs before the browser paints, so the first frame is already measured — no flash of a
-  // too-wide bar on a phone. Then keep it live: window resize covers rotate/fold, the
-  // ResizeObserver covers layout-driven width changes (a Studio menu teleported into the bar),
-  // fonts.ready + two settle timers cover the cold load (the first measure lands pre-font, and
-  // a background/automated tab runs NO rendering steps, so the observer alone can never fire).
-  syncShellFit()
-  window.addEventListener('resize', syncShellFit)
-  if (typeof ResizeObserver === 'function' && barEl.value) {
-    fitRo = new ResizeObserver(syncShellFit)
-    fitRo.observe(barEl.value)
-    fitRo.observe(document.documentElement)
-  }
-  document.fonts?.ready?.then(syncShellFit).catch(() => {})
-  fitTimers = [setTimeout(syncShellFit, 300), setTimeout(syncShellFit, 1200)]
-
   if (!window.PKDrawer || !burgerBtn.value || !drawerPanel.value) return
   drawer = window.PKDrawer.create({
     side: 'left',
@@ -119,17 +54,15 @@ onMounted(() => {
   })
   // Another menu (settings popover / Studio menu) taking the shared channel closes the drawer.
   watch(shellMenu, (v) => { if (v !== 'site' && drawer && drawer.isOpen()) drawer.close() })
-  // (closing the drawer when the ☰ goes away is handled by syncShellFit — it knows when the
-  //  bar actually leaves compact, which a fixed-width media query no longer tracks.)
+  // Crossing to desktop while open (rotate/resize): the ☰ is gone, so close the off-canvas.
+  if (desktopMq) desktopMq.addEventListener('change', onDesktop)
 })
 
+function onDesktop(e) { if (e.matches && drawer && drawer.isOpen()) drawer.close() }
+
 onUnmounted(() => {
+  if (desktopMq) desktopMq.removeEventListener('change', onDesktop)
   if (drawer) { drawer.destroy(); drawer = null }   // kill scrim/listeners (leak + HMR)
-  window.removeEventListener('resize', syncShellFit)
-  fitRo?.disconnect()
-  fitTimers.forEach(clearTimeout)
-  // no bar on the page → drop the state it owns (a stale class would compact the next page)
-  document.documentElement.classList.remove('shell-compact')
 })
 
 function toggleSettings() {
@@ -196,26 +129,20 @@ async function goSearch() {
 </script>
 
 <template>
-  <header ref="barEl" class="shell-bar no-print" :class="{ 'sb-song': isSong }">
+  <header class="shell-bar no-print">
     <div id="shell-left" class="shell-slot"></div>
 
     <!-- Brand: mobile shows the app icon only (มุมซ้ายบน · ไม่มีชื่อ); desktop shows the name
          only (เพลง.พระคำ.ชีวิต · ไม่มี icon) — phrakham-style. One link; CSS swaps per width. -->
-    <router-link to="/" class="sb-brand" :aria-label="t('brand.home')">
+    <router-link to="/" class="sb-brand" aria-label="หน้าแรก · เพลง.พระคำ.ชีวิต">
       <img class="sb-app-ico" :src="appIcon" alt="" width="40" height="40" />
-      <span class="sb-brand-text">{{ t('brand.name') }}</span>
+      <span class="sb-brand-text">เพลง.พระคำ.ชีวิต</span>
     </router-link>
-
-    <!-- "รุ่นทดลอง v2" state pill + one-tap switch back to the current version. Renders nothing
-         on the root build (docs/deploy-v2.md), so this is inert on today's live site. Sits beside
-         the brand so it is on every page and every width — a version you can be on without
-         noticing is the failure mode of running two deployments at once. -->
-    <VersionSwitch />
 
     <!-- Desktop inline nav (phrakham navbar-nav). Hidden on mobile → moves into the drawer.
          Order (P'Aim 13 ก.ค.): รายการเพลง · คู่มือ · พระคำ.ชีวิต↗ · เกี่ยวกับเรา. -->
-    <nav v-if="!isSong" class="sb-nav" aria-label="เมนูหลัก">
-      <router-link to="/" :class="{ here: route.path === '/' }">{{ t('nav.songs') }}</router-link>
+    <nav class="sb-nav" aria-label="เมนูหลัก">
+      <router-link to="/" :class="{ here: route.path === '/' }">รายการเพลง</router-link>
       <!-- คู่มือ ▾ — APG menu button opening 2 sub-guides (GATE 1). Shown to every tier. -->
       <div class="sb-menu sb-guide">
         <button
@@ -226,22 +153,22 @@ async function goSearch() {
           aria-haspopup="true"
           @click.stop="toggleGuide"
           @keydown="onGuideBtnKey"
-        >{{ t('nav.guide') }}<span class="sb-chev" aria-hidden="true">▾</span></button>
+        >คู่มือ<span class="sb-chev" aria-hidden="true">▾</span></button>
         <div
           v-if="shellMenu === 'guide'"
           ref="guideMenu"
           class="sb-dropdown sb-guide-menu"
           role="menu"
-          :aria-label="t('nav.guide')"
+          aria-label="คู่มือ"
           @keydown="onGuideMenuKey"
           @click.stop
         >
-          <router-link to="/guide" role="menuitem" :class="{ here: route.path === '/guide' }" @click="closeGuide(false)">{{ t('nav.guideUse') }}</router-link>
-          <router-link to="/notation" role="menuitem" :class="{ here: route.path === '/notation' }" @click="closeGuide(false)">{{ t('nav.guideMake') }}</router-link>
+          <router-link to="/guide" role="menuitem" :class="{ here: route.path === '/guide' }" @click="closeGuide(false)">คู่มือใช้งานโปรแกรม</router-link>
+          <router-link to="/notation" role="menuitem" :class="{ here: route.path === '/notation' }" @click="closeGuide(false)">คู่มือทำเพลง</router-link>
         </div>
       </div>
-      <a href="https://phrakham.life" class="sb-nav-ext">{{ t('nav.phrakham') }}<span class="sb-ext" aria-hidden="true">↗</span></a>
-      <router-link to="/about" :class="{ here: route.path === '/about' }">{{ t('nav.about') }}</router-link>
+      <a href="https://phrakham.life" class="sb-nav-ext">พระคำ.ชีวิต<span class="sb-ext" aria-hidden="true">↗</span></a>
+      <router-link to="/about" :class="{ here: route.path === '/about' }">เกี่ยวกับเรา</router-link>
     </nav>
 
     <div id="shell-title" class="shell-title-wrap">
@@ -250,38 +177,39 @@ async function goSearch() {
     <div id="shell-menus" class="shell-menus"></div>
 
     <div class="sb-right">
-      <!-- ＋ สร้างเพลงใหม่ — the app's one primary CREATE action (single source of action).
-           Desktop = this filled pill; mobile hides it (the FAB + drawer row take over via CSS).
-           Bare /studio = a blank editor, no previous song state (AC-G2.2). -->
-      <router-link v-if="!isSong" to="/studio" class="sb-create no-print">
-        <Icon name="file-plus" :size="20" /><span>{{ t('action.create') }}</span>
-      </router-link>
+      <!-- 🔍 — go to the song search (home) and focus the search field -->
+      <button class="sb-icon-btn" aria-label="ค้นหาเพลง" @click="goSearch"><Icon name="search" :size="24" /></button>
 
-      <!-- 🔍 — go to the song search (home) and focus the search field. Hidden on the home
-           route: the search box is already on screen there, so the icon would be a duplicate
-           (AC-G4.1). Still shown on every other page as a shortcut back to search. -->
-      <button v-if="route.path !== '/' && !isSong" class="sb-icon-btn" :aria-label="t('action.search')" @click="goSearch"><Icon name="search" :size="24" /></button>
-
-      <!-- ⚙ site settings (ตัวอักษรไทย) — desktop only; on mobile it lives in the drawer.
-           Esc closes it from anywhere inside (button or the segmented controls) — the .sb-backdrop
-           already handles click-outside; this adds the keyboard half (WAI-ARIA APG · BI-016). -->
-      <div class="sb-menu sb-settings" @keydown.esc="closeMenus">
+      <!-- ⚙ site settings (ตัวอักษรไทย) — desktop only; on mobile it lives in the drawer -->
+      <div class="sb-menu sb-settings">
         <button
           class="sb-icon-btn"
           :aria-expanded="shellMenu === 'settings'"
           aria-haspopup="true"
-          :aria-label="t('action.settings')"
+          aria-label="ตั้งค่า"
           @click.stop="toggleSettings"
         >
           <Icon name="settings" :size="24" />
         </button>
         <div v-if="shellMenu === 'settings'" class="sb-dropdown sb-mode-menu" role="menu" @click.stop>
-          <SettingsControls />
+          <div class="sb-font">
+            <div class="sb-font-lbl">ตัวอักษรไทย</div>
+            <div class="sb-font-opts" role="radiogroup" aria-label="ตัวอักษรไทย">
+              <button type="button" role="radio" :aria-checked="siteFont === 'default'" :class="{ on: siteFont === 'default' }" @click="setSiteFont('default')">
+                <span class="sb-font-eg">ก&nbsp;ข&nbsp;ค</span>
+                ไม่มีหัว
+              </button>
+              <button type="button" role="radio" :aria-checked="siteFont === 'looped'" :class="{ on: siteFont === 'looped' }" @click="setSiteFont('looped')">
+                <span class="sb-font-eg looped">ก&nbsp;ข&nbsp;ค</span>
+                มีหัว
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- ☰ hamburger — mobile only; the PKDrawer core wires its click + syncs aria-expanded. -->
-      <button ref="burgerBtn" class="sb-icon-btn sb-burger" :aria-label="t('action.menu')">
+      <button ref="burgerBtn" class="sb-icon-btn sb-burger" aria-label="เมนู">
         <Icon name="menu" :size="24" />
       </button>
 
@@ -295,31 +223,37 @@ async function goSearch() {
          visibility off-canvas), NOT v-if'd, so the core keeps a stable node to slide + trap.
          On desktop it stays hidden off-canvas (the ☰ trigger is display:none). -->
     <aside ref="drawerPanel" class="sb-drawer-panel">
-      <!-- ＋ สร้างเพลงใหม่ — filled action at the TOP of the mobile menu (same /studio target as
-           the desktop pill + the FAB · single source of action). -->
-      <router-link to="/studio" class="sb-drawer-create" @click="closeMenus">
-        <Icon name="file-plus" :size="20" /><span>{{ t('action.create') }}</span>
-      </router-link>
       <!-- Nav links = text only (design-system SSOT docs/ds/menu-drawer-spec.md §2: ไม่มีไอคอนหน้า).
            Desktop .sb-nav is already text-only; this mirrors it in the drawer. ↗ on พระคำ.ชีวิต is a
            text external-link marker (same as desktop .sb-ext), not a leading icon. -->
       <nav class="sb-drawer-nav" @click="closeMenus">
-        <router-link to="/" :class="{ here: route.path === '/' }">{{ t('nav.songs') }}</router-link>
+        <router-link to="/" :class="{ here: route.path === '/' }">รายการเพลง</router-link>
         <!-- คู่มือ = 2 sub-guides (GATE 1). Flattened as two rows in the drawer (a menu-button
              popover isn't the mobile idiom); same 2 destinations, shown to every tier. -->
-        <router-link to="/guide" :class="{ here: route.path === '/guide' }">{{ t('nav.guideUse') }}</router-link>
-        <router-link to="/notation" :class="{ here: route.path === '/notation' }">{{ t('nav.guideMake') }}</router-link>
-        <a href="https://phrakham.life">{{ t('nav.phrakham') }} <span class="sb-k">↗</span></a>
-        <router-link to="/about" :class="{ here: route.path === '/about' }">{{ t('nav.about') }}</router-link>
+        <router-link to="/guide" :class="{ here: route.path === '/guide' }">คู่มือใช้งานโปรแกรม</router-link>
+        <router-link to="/notation" :class="{ here: route.path === '/notation' }">คู่มือทำเพลง</router-link>
+        <a href="https://phrakham.life">พระคำ.ชีวิต <span class="sb-k">↗</span></a>
+        <router-link to="/about" :class="{ here: route.path === '/about' }">เกี่ยวกับเรา</router-link>
       </nav>
       <div class="sb-drawer-sep" role="separator"></div>
       <div class="sb-drawer-tools">
-        <div class="sb-drawer-lbl">{{ t('action.tools') }}</div>
+        <div class="sb-drawer-lbl">เครื่องมือ</div>
         <!-- "ติดตั้งแอพ" affordance — self-contained (lib/pwaInstall.js). An action row per
              docs/ds/menu-drawer-spec.md §3. Renders nothing when already installed. -->
         <InstallAppTool />
-        <!-- ภาษา + ตัวอักษรไทย — same shared control as the desktop ⚙ (SettingsControls) -->
-        <SettingsControls @click.stop />
+        <div class="sb-font" @click.stop>
+          <div class="sb-font-lbl">ตัวอักษรไทย</div>
+          <div class="sb-font-opts" role="radiogroup" aria-label="ตัวอักษรไทย">
+            <button type="button" role="radio" :aria-checked="siteFont === 'default'" :class="{ on: siteFont === 'default' }" @click="setSiteFont('default')">
+              <span class="sb-font-eg">ก&nbsp;ข&nbsp;ค</span>
+              ไม่มีหัว
+            </button>
+            <button type="button" role="radio" :aria-checked="siteFont === 'looped'" :class="{ on: siteFont === 'looped' }" @click="setSiteFont('looped')">
+              <span class="sb-font-eg looped">ก&nbsp;ข&nbsp;ค</span>
+              มีหัว
+            </button>
+          </div>
+        </div>
       </div>
     </aside>
 
@@ -328,11 +262,5 @@ async function goSearch() {
          close on an outside click. The 'site' drawer is excluded — PKDrawer supplies its own
          scrim (and would double-dim behind it otherwise). -->
     <div v-if="shellMenu && shellMenu !== 'site'" class="sb-backdrop" aria-hidden="true" @click="closeMenus"></div>
-
-    <!-- Mobile create FAB — home route only (never over the song page's bottom dock). CSS shows
-         it only < 992px by WIDTH; on desktop it stays display:none even when rendered. -->
-    <router-link v-if="route.path === '/'" to="/studio" class="sb-fab no-print" :aria-label="t('action.create')">
-      <Icon name="plus" :size="24" /><span>{{ t('action.createShort') }}</span>
-    </router-link>
   </header>
 </template>
