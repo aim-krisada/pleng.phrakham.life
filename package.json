@@ -8,6 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:db": "vitest run --dir db",
+    "test:all": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
