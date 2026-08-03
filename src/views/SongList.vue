@@ -15,6 +15,8 @@ import {
   verifiedProgress,
   FALLBACK_KEY,
 } from '../lib/bookshelf.js'
+import { PICKABLE_SORTS } from '../lib/songSort.js'
+import { bookSort, setBookSort } from '../lib/sortPref.js'
 import { session } from '../store.js'
 import { favorites, isFavorite } from '../lib/favorites.js'
 import FavStar from '../components/FavStar.vue'
@@ -157,7 +159,19 @@ const bookProgress = computed(() => verifiedProgress(inBook.value))
 // ---- bookshelf derivations (pure logic in lib/bookshelf.js, unit-tested there) ----
 // grouped by `category` (real books); each entry = { code, name, count, fallback }.
 const shelf = computed(() => orderedBooks(shownSongs.value)) // ordered เล่ม, empties hidden
-const inBook = computed(() => (activeBook.value ? songsInBook(shownSongs.value, activeBook.value) : []))
+// m1.wpa.24.us01 — the open book's own sort. `bookSort()` reads the per-book memory
+// (lib/sortPref.js), so switching books changes the order back to whatever THAT book was
+// left on; a book never visited falls back to DEFAULT_SORT ('number'). The order itself is
+// still songSort.js's job — this only passes the chosen id through.
+const activeSort = computed(() => bookSort(activeBook.value))
+const inBook = computed(() =>
+  activeBook.value ? songsInBook(shownSongs.value, activeBook.value, activeSort.value) : [],
+)
+// Picking is instant and stays on the page: it writes the memory, the computed above
+// re-runs, the list re-renders. No reload, no navigation (US AC: "สลับแล้วเปลี่ยนทันทีในหน้าเดิม").
+function pickSort(id) {
+  setBookSort(activeBook.value, id)
+}
 const activeBookMeta = computed(() => shelf.value.find((b) => b.code === activeBook.value) || null)
 
 // empty landing message: distinguish "no songs at all" from "songs exist but the public
@@ -436,6 +450,26 @@ onMounted(async () => {
           {{ t('list.reviewed', { v: bookProgress.verified, t: bookProgress.total }) }}
         </span>
       </div>
+      <!-- m1.wpa.24.us01 — sort choice, ON the page above the list (AC: "เห็นตัวเลือก 2 แบบ
+           ตั้งแต่แรกโดยไม่ต้องกดหาในเมนู"), so it is never hidden behind an overflow menu.
+           The buttons are BUILT FROM PICKABLE_SORTS — the screen must not hard-code the list
+           of sort methods (songSort.js is the single source). A labelled group of pressed/
+           unpressed buttons: the visible "เรียงตาม" names the group for a screen reader, and
+           aria-pressed says which one is on (WCAG 2.2 · 4.1.2 name/role/value). -->
+      <div class="sort-row">
+        <span :id="`sort-label-${activeBook}`" class="sort-label muted">{{ t('list.sortLabel') }}</span>
+        <div class="sort-btns" role="group" :aria-labelledby="`sort-label-${activeBook}`">
+          <button
+            v-for="o in PICKABLE_SORTS"
+            :key="o.id"
+            type="button"
+            class="facet-chip"
+            :class="{ on: activeSort === o.id }"
+            :aria-pressed="activeSort === o.id"
+            @click="pickSort(o.id)"
+          >{{ t(o.labelKey) }}</button>
+        </div>
+      </div>
       <div class="song-list">
         <router-link
           v-for="s in inBook"
@@ -536,6 +570,19 @@ onMounted(async () => {
   min-height: var(--touch-min);
 }
 .crumb:hover { text-decoration: underline; }
+
+/* m1.wpa.24.us01 — sort row above an open book's song list. Same chip look as the facet
+   row (one visual language for "pick one of these"); wraps on a phone so the two buttons
+   drop under the label instead of squeezing below --touch-min. */
+.sort-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  flex-wrap: wrap;
+  margin: 0 0 var(--sp-4);
+}
+.sort-label { font-size: var(--fs-sm); }
+.sort-btns { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 
 /* facet row (search view only): unverified toggle + theme picker */
 .facet-row {
