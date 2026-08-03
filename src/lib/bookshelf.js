@@ -9,7 +9,7 @@
 // เล่มเล็ก 282") — handled in the component via bookCodes.js, not here.
 
 // The app's ONE song-ordering rule (B131) — this file used to carry its own comparator.
-import { sortSongs } from './songSort.js'
+import { sortSongs, DEFAULT_SORT, DEFAULT_DIR } from './songSort.js'
 
 // The real books, in shelf order, with their display names. Data-driven: any category
 // code the data actually carries appears even if it's not in this map (raw code shown),
@@ -170,8 +170,8 @@ export function orderedBooks(songs) {
 // which is `NaN` for two number-less songs → `sort` called them equal → เด็กเล็ก (52 of 53
 // songs have no number) had no defined order. Sorting now lives in exactly ONE place.
 // ⛔ Do not put a comparator back in this file — extend songSort.js instead.
-export function songsInBook(songs, code) {
+export function songsInBook(songs, code, sortBy = DEFAULT_SORT, dir = DEFAULT_DIR) {
   const match =
     code === FALLBACK_KEY ? (s) => !songCategory(s) : (s) => songCategory(s) === code
-  return sortSongs((songs || []).filter(match))
+  return sortSongs((songs || []).filter(match), sortBy, dir)
 }
