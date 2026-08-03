@@ -111,10 +111,24 @@ describe('songsInBook', () => {
       t('c', null, 'ฮาเลลูยา'),
       t('d', 1, 'สรรเสริญ'), // the one song that does have a number
     ]
-    const expected = ['d', 'b', 'a', 'c'] // numbered first, then ก-ฮ
+    // พี่เอม 3 ส.ค. 2569 — เพลงไม่มีเลขนับเป็น 0 จึงมาก่อน (เดิมถูกดันไปท้าย)
+    // "ถ้าไม่มีเลขแล้วท้ายเสมอ โอกาสหลุดสูง"
+    const expected = ['b', 'a', 'c', 'd'] // กลุ่มไม่มีเลข (=0) เรียง ก-ฮ ก่อน แล้วค่อยเลข 1
 
-    it('orders them ก-ฮ after the numbered song', () => {
+    it('เรียงกลุ่มไม่มีเลข ก-ฮ ไว้ก่อนเพลงที่มีเลข', () => {
       expect(songsInBook(BOOK, 'dek-lek').map((x) => x.id)).toEqual(expected)
+    })
+
+    it('เพลงไม่หายและจำนวนคงเดิม ไม่ว่าเรียงทิศไหน', () => {
+      for (const dir of ['asc', 'desc']) {
+        const out = songsInBook(BOOK, 'dek-lek', 'number', dir)
+        expect(out).toHaveLength(4)
+        expect(out.map((x) => x.id).sort()).toEqual(['a', 'b', 'c', 'd'])
+      }
+    })
+
+    it('เรียงตามชื่อเพลงได้ด้วย (วิธีที่สองที่หน้าจอมีปุ่มให้กด)', () => {
+      expect(songsInBook(BOOK, 'dek-lek', 'title').map((x) => x.id)).toEqual(['b', 'a', 'd', 'c'])
     })
 
     it('gives the same order whatever order the DB returned them in', () => {
@@ -212,8 +226,10 @@ describe('unverifiedSongs (approver review queue)', () => {
       list.filter((x) => showUnverifiedBadge(x, true)).length,
     )
   })
-  it('songs with no number sort last and nothing throws on garbage input', () => {
-    expect(unverifiedSongs([{ id: 'x' }, { id: 'y', number: 5 }]).map((s2) => s2.id)).toEqual(['y', 'x'])
+  // เพลงไม่มีเลขนับเป็น 0 (พี่เอม 3 ส.ค.) ⇒ ในคิวรอตรวจก็มาก่อนเช่นกัน — เจตนาเดียวกัน คือ
+  // ของที่ยังไม่มีเลขต้องอยู่ตรงที่มองเห็น ไม่ใช่ก้นรายการ
+  it('เพลงไม่มีเลขมาก่อน (=0) และข้อมูลขยะไม่ทำให้พัง', () => {
+    expect(unverifiedSongs([{ id: 'x' }, { id: 'y', number: 5 }]).map((s2) => s2.id)).toEqual(['x', 'y'])
     expect(unverifiedSongs(undefined)).toEqual([])
     expect(unverifiedSongs([null, undefined])).toEqual([])
   })

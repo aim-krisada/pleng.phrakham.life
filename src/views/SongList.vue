@@ -17,6 +17,8 @@ import {
   FALLBACK_KEY,
 } from '../lib/bookshelf.js'
 import { pendingReview } from '../lib/reviewQueue.js'
+import { PICKABLE_SORTS, DESC, dirLabel, flipDir } from '../lib/songSort.js'
+import { bookSortState, chooseSort } from '../lib/sortPref.js'
 import { WORK_WORDS } from '../i18n/workWords.js'
 import { session, canApprove } from '../store.js'
 
@@ -259,7 +261,39 @@ function draftDate(d) {
 // ---- bookshelf derivations (pure logic in lib/bookshelf.js, unit-tested there) ----
 // grouped by `category` (real books); each entry = { code, name, count, fallback }.
 const shelf = computed(() => orderedBooks(shownSongs.value)) // ordered เล่ม, empties hidden
-const inBook = computed(() => (activeBook.value ? songsInBook(shownSongs.value, activeBook.value) : []))
+// m1.wpa.24.us01 — วิธีเรียงและทิศทางของ "เล่มที่เปิดอยู่" อ่านจากค่าที่จำแยกทีละเล่ม
+// (lib/sortPref.js) ⇒ สลับเล่มแล้วลำดับกลับไปเป็นแบบที่เล่มนั้นถูกทิ้งไว้ · เล่มที่ยังไม่เคยแตะ
+// ตกไปใช้ เลขข้อ น้อยไปมาก · การเรียงจริงยังเป็นหน้าที่ของ songSort.js ที่นี่แค่ส่งค่าที่เลือกต่อไป
+const sortState = computed(() => bookSortState(activeBook.value))
+const inBook = computed(() =>
+  activeBook.value
+    ? songsInBook(shownSongs.value, activeBook.value, sortState.value.by, sortState.value.dir)
+    : [],
+)
+
+// กดแล้วเปลี่ยนทันทีในหน้าเดิม: เขียนค่าที่จำ → computed ข้างบนคำนวณใหม่ → รายการวาดใหม่
+// ⛔ ไม่โหลดหน้าใหม่ ⛔ ไม่กระโดดออกจากเล่ม
+// กฎ 2 สถานะ (กดตัวที่ใช้อยู่ = กลับทิศ · กดตัวอื่น = ย้ายไปวิธีนั้น) อยู่ที่ sortPref.chooseSort
+// ที่เดียว หน้าจอจะได้ไม่คิดกฎเอง
+function pickSort(id) {
+  chooseSort(activeBook.value, id)
+}
+
+// ▲/▼ ขึ้นบนปุ่มที่ "ใช้อยู่" เท่านั้น ลูกศรจึงชี้ชัดว่าเป็นทิศของวิธีเรียงไหน
+// เป็นแค่ของประดับ — ทิศทางพูดไว้ในป้ายชื่อปุ่มด้วย ⛔ ไม่ผูกความเข้าใจไว้กับรูปลูกศรอย่างเดียว
+function sortArrow(id) {
+  return sortState.value.by === id && sortState.value.dir === DESC ? '▼' : '▲'
+}
+
+// ป้ายชื่อที่ตัวช่วยอ่านจอจะอ่าน และที่ขึ้นตอนเอาเมาส์ชี้
+// ปุ่มที่ใช้อยู่ → "เรียงตาม เลขข้อ น้อยไปมาก — กดเพื่อสลับเป็น มากไปน้อย"
+// ปุ่มอีกอัน   → "เรียงตาม ชื่อเพลง" เฉย ๆ (กดแล้วเริ่มที่น้อยไปมาก ไม่ใช่กลับทิศ จะสัญญาว่ากลับทิศไม่ได้)
+// คำบอกทิศมาจาก songSort.js แยกตามวิธีเรียง — "น้อยไปมาก" ใช้กับเลข "ก ไป ฮ" ใช้กับชื่อ
+function sortAria(o) {
+  if (sortState.value.by !== o.id) return `เรียงตาม ${o.label}`
+  const dir = sortState.value.dir
+  return `เรียงตาม ${o.label} ${dirLabel(o.id, dir)} — กดเพื่อสลับเป็น ${dirLabel(o.id, flipDir(dir))}`
+}
 const activeBookMeta = computed(() => shelf.value.find((b) => b.code === activeBook.value) || null)
 
 // empty landing message: distinguish "no songs at all" from "songs exist but the public
@@ -561,13 +595,39 @@ onMounted(async () => {
 
     <!-- ===== LEVEL 2 · songs in the selected book, ordered by in-book number ===== -->
     <section v-else-if="level === 'songs'">
-      <button type="button" class="crumb" @click="backToBooks">← เล่มทั้งหมด</button>
-      <div class="level-head">
+      <!-- แถบเดียว: ย้อนกลับ · ชื่อเล่ม · จำนวน · ปุ่มเรียง (พี่เอม 3 ส.ค. — เดิมทั้งสามอย่างนี้
+           ซ้อนกันเป็น 3 บรรทัด กินที่เหนือรายการเพลงไปเปล่า ๆ) · ยังเป็นสามเรื่องแยกกันในทางความหมาย
+           (h2 ยังเป็น h2 โครงหัวข้อของหน้าไม่เปลี่ยน) เปลี่ยนแค่การจัดวาง · แถบตกบรรทัดได้ จอแคบ
+           ปุ่มเรียงจะลงไปบรรทัดสองแทนที่จะถูกบีบให้เล็กกว่าขนาดนิ้วกด
+
+           m1.wpa.24.us01 — ปุ่มเรียงอยู่บนหน้า "เห็นตั้งแต่แรกโดยไม่ต้องกดหาในเมนู" ตามเกณฑ์
+           ⛔ ไม่ซ่อนในเมนู · ปุ่มสร้างจากการวนลูป PICKABLE_SORTS ⛔ ห้าม hard-code รายการวิธีเรียง
+           (songSort.js เป็นตัวจริงที่เดียว) · "เรียงตาม" เป็นชื่อกลุ่มให้ตัวช่วยอ่านจอ และ
+           aria-pressed บอกว่าอันไหนกำลังใช้ -->
+      <div class="book-bar">
+        <button type="button" class="crumb" @click="backToBooks">← เล่มทั้งหมด</button>
         <h2>{{ activeBookMeta ? activeBookMeta.name : '' }}</h2>
         <span class="count muted">{{ inBook.length }} เพลง</span>
         <span v-if="loggedIn" class="count progress" aria-live="polite">
           ✓ {{ W.done }} {{ bookProgress.verified }} / {{ bookProgress.total }}
         </span>
+        <div class="sort-row">
+          <span :id="`sort-label-${activeBook}`" class="sort-label muted">เรียงตาม</span>
+          <div class="sort-btns" role="group" :aria-labelledby="`sort-label-${activeBook}`">
+            <button
+              v-for="o in PICKABLE_SORTS"
+              :key="o.id"
+              type="button"
+              class="facet-chip"
+              :class="{ on: sortState.by === o.id }"
+              :aria-pressed="sortState.by === o.id"
+              :aria-label="sortAria(o)"
+              :title="sortAria(o)"
+              @click="pickSort(o.id)"
+            >{{ o.label
+              }}<span v-if="sortState.by === o.id" class="sort-arrow" aria-hidden="true">{{ sortArrow(o.id) }}</span></button>
+          </div>
+        </div>
       </div>
       <div class="song-list">
         <!-- ② ปุ่ม ✏️ ต้องอยู่ "ข้างนอก" ลิงก์ ไม่ใช่ข้างใน — ปุ่มซ้อนในลิงก์เป็นโครงที่ผิดกติกา
@@ -747,6 +807,39 @@ onMounted(async () => {
   white-space: nowrap;
   border: 0;
 }
+
+/* แถบเดียวเหนือรายการเพลงในเล่ม: ย้อนกลับ · ชื่อเล่ม · จำนวน · ปุ่มเรียง
+   แทนของเดิมที่เป็น .crumb + .level-head + แถวปุ่ม ซ้อนกันสามบรรทัด
+   align-items:center ให้หัวข้อกับปุ่มอยู่กลางเส้นเดียวกัน · กลุ่มปุ่มเรียงถูกผลักไปสุดขวาด้วย
+   margin-left:auto · ทั้งแถบตกบรรทัดได้ ⛔ ไม่ย่อปุ่มให้เล็กกว่า --touch-min */
+.book-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  flex-wrap: wrap;
+  margin: 0 0 var(--sp-4);
+}
+/* margin:0 สำคัญ — ระยะห่างค่าเริ่มต้นของ h2 ที่เบราว์เซอร์ใส่มาให้ ไม่ถูกยุบเมื่ออยู่ใน flex
+   จึงดันแถบให้สูงเกินความจำเป็น (วัดได้ 18.6px ทั้งบนและล่าง) */
+.book-bar h2 { margin: 0; font-size: var(--fs-xl); color: var(--brand); line-height: var(--lh-snug); }
+.book-bar .count { font-size: var(--fs-sm); }
+.book-bar .progress { color: #2e6b3b; font-weight: 600; }
+
+/* m1.wpa.24.us01 — ตัวเลือกวิธีเรียง ใช้หน้าตาชิปเดียวกับ .facet-chip ของหน้านี้ (ภาษาเดียวกัน
+   สำหรับ "เลือกอันใดอันหนึ่ง") · อยู่สุดปลายแถบ และตัวมันเองก็ตกบรรทัดได้ ป้าย "เรียงตาม" กับปุ่ม
+   จะได้ไปด้วยกันเวลาแถบหัก */
+.sort-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.sort-label { font-size: var(--fs-sm); }
+.sort-btns { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+/* ▲/▼ อยู่ในชิปที่ใช้อยู่ ตัวเล็กกว่าคำและเว้นห่างเล็กน้อย ให้อ่านเป็นเครื่องหมายกำกับคำ
+   ไม่ใช่คำที่สอง — เป็นของประดับ ทิศทางพูดผ่าน aria-label อยู่แล้ว */
+.sort-arrow { margin-left: var(--sp-1); font-size: var(--fs-sm); }
 
 /* level heading + result/book count + breadcrumb */
 .level-head {
