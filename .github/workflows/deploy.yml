@@ -1,19 +1,19 @@
 name: Deploy to GitHub Pages
 
-# TWO VERSIONS, ONE SITE — single branch (docs/deploy-v2.md)
-#   /      = tag `v1-frozen` — the frozen live version พี่เปา uses every day (never changes)
-#   /v2/   = `main`          — the new one (v2 codebase), same Supabase database, tried for real
-#                             before it replaces the current app
+# THREE VERSIONS, ONE SITE — root is what people use, and it is built from `main`.
+#   /      = `main`             — the live version (v1 codebase). Merged into main == on the site.
+#   /v2/   = tag `v2-frozen`    — frozen reference only. Never changes again. Read-only history.
+#   /v3/   = branch `v3`        — the redesign, work in progress. May not exist yet; may be broken.
 #
-# History: main used to carry v1 and a separate `studio-shell-redesign` branch carried v2, so the
-# workflow had to trigger on BOTH branches and stay byte-identical on each — every /v2 redeploy
-# needed an empty commit on main. Now main carries v2 and v1 is pinned at tag `v1-frozen`, so this
-# workflow triggers on main ALONE: one push, one green run, no cross-branch duplicate, no empty
-# commit. GitHub Pages still has no partial deploy (deploy-pages REPLACES the whole site), so we
-# always build BOTH and upload them together.
+# WHY THIS SHAPE (พี่เอมสั่ง 3 ส.ค. 2569 — เขียนไว้กันลืมและกันคนอ่านผิดซ้ำ):
+# ก่อนหน้านี้รากสร้างจากแท็ก (`v1-frozen`) ไม่ใช่จาก `main` ⇒ "รวมงานเข้า main" กับ "ขึ้นเว็บ"
+# เป็น 2 เรื่องคนละเรื่อง ต้องย้ายแท็กมือทุกรอบ · ลืมย้าย = งานที่รวมแล้วไม่โผล่บนเว็บ และ
+# ทุกด่านยังขึ้นเขียวหมด (เกิดจริง 3 ส.ค. 2569: ปุ่มเรียงลำดับของพี่เปารวมแล้วแต่ไปโผล่ที่ /v2
+# เสียเวลาตามหาสาเหตุ 1 วัน) ⇒ ตอนนี้รากสร้างจาก `main` ⛔ ห้ามเปลี่ยนกลับไปสร้างจากแท็กอีก
+# ของแช่แข็งใช้แท็กได้ แต่ห้ามเป็นราก
 on:
   push:
-    branches: [main]
+    branches: [main, v3]
   workflow_dispatch:
 
 permissions:
@@ -35,31 +35,30 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # ---- the live version (root) — always from the frozen tag, never from main ----------------
-      # v1-frozen is a fixed, known-good snapshot (the current live v1). Its build is deterministic,
-      # so root always ships. base is './' (v1's vite.config.js), which serves correctly at root.
+      # ---- the live version (root) — from `main` ------------------------------------------------
+      # NO continue-on-error here on purpose: if the live version does not build, the run must go
+      # red and nothing ships. Shipping a site whose root is missing is worse than not shipping.
+      # base is './' (main's vite.config.js), which serves correctly at root.
       - uses: actions/checkout@v4
         with:
-          ref: v1-frozen
-          path: v1
+          ref: main
+          path: live
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: v1/package-lock.json
+          cache-dependency-path: live/package-lock.json
       - run: npm ci
-        working-directory: v1
+        working-directory: live
       - run: npm run build
-        working-directory: v1
+        working-directory: live
 
-      # ---- the new version (/v2/) — from main --------------------------------------------------
-      # continue-on-error on BOTH steps is deliberate and is the whole safety story: v2 (main) is a
-      # work in progress, and a broken build here must never stop the live version (root, from the
-      # frozen tag) from deploying. If either step fails the run carries on and simply ships the
-      # site without /v2 — visitors at the root are unaffected.
+      # ---- frozen reference (/v2/) — from tag `v2-frozen` --------------------------------------
+      # A tag, so this build is deterministic and will not change again. continue-on-error keeps a
+      # reference build from ever blocking the live version.
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: v2-frozen
           path: v2
       - id: v2install
         continue-on-error: true
@@ -71,22 +70,50 @@ jobs:
         run: npm run build
         working-directory: v2
         env:
-          PLENG_V2: '1' # → vite base '/v2/' + the in-app "รุ่นทดลอง v2" switcher
+          PLENG_V2: '1' # → vite base '/v2/' (v2 codebase reads this)
 
-      # ---- combine: root = v1's dist, plus v1/dist/v2 = v2's dist ------------------------------
-      - name: Nest the v2 build under the site root
-        if: steps.v2build.outcome == 'success'
+      # ---- work in progress (/v3/) — from branch `v3` ------------------------------------------
+      # continue-on-error on the CHECKOUT too: branch `v3` may not exist yet, and a missing branch
+      # must not fail the run. Every step below is guarded by the previous one's outcome, so the
+      # whole /v3 section simply does not happen until the branch exists and builds.
+      - id: v3checkout
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: v3
+          path: v3
+      - id: v3install
+        if: steps.v3checkout.outcome == 'success'
+        continue-on-error: true
+        run: npm ci
+        working-directory: v3
+      - id: v3build
+        if: steps.v3install.outcome == 'success'
+        continue-on-error: true
+        run: npm run build
+        working-directory: v3
+        env:
+          PLENG_V3: '1' # → vite base '/v3/' (the v3 codebase must read this; see note below)
+
+      # ---- combine: root = live's dist, plus /v2 and /v3 nested under it -----------------------
+      - name: Nest the reference and work-in-progress builds under the site root
         run: |
-          rm -rf v1/dist/v2
-          cp -r v2/dist v1/dist/v2
+          if [ "${{ steps.v2build.outcome }}" = "success" ]; then rm -rf live/dist/v2; cp -r v2/dist live/dist/v2; fi
+          if [ "${{ steps.v3build.outcome }}" = "success" ]; then rm -rf live/dist/v3; cp -r v3/dist live/dist/v3; fi
+
+      # ---- say out loud which commit the root actually carries ---------------------------------
+      # This is the line that would have caught the 3 Aug 2026 mix-up in seconds instead of a day.
       - name: Report what is being deployed
         run: |
-          echo "root : $(ls v1/dist | tr '\n' ' ')"
-          if [ -d v1/dist/v2 ]; then echo "/v2/ : included"; else echo "/v2/ : NOT included (v2 build failed or skipped)"; fi
+          echo "root  <- main @ $(git -C live rev-parse --short HEAD)"
+          echo "root  : $(ls live/dist | tr '\n' ' ')"
+          for d in v2 v3; do
+            if [ -d "live/dist/$d" ]; then echo "/$d/  : included"; else echo "/$d/  : NOT included"; fi
+          done
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: v1/dist
+          path: live/dist
       - id: deployment
         uses: actions/deploy-pages@v4
