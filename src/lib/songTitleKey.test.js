@@ -8,6 +8,8 @@ import {
   bookKey,
   findTitleConflicts,
   editDistance,
+  findEarlyTitleMatches,
+  earlyDupNote,
 } from './songTitleKey.js'
 
 const song = (o) => ({
@@ -139,5 +141,86 @@ describe('negative control — the pairs already in the library', () => {
   it('a third copy of either cannot be saved', () => {
     expect(findTitleConflicts({ title_th: 'พระเยซูทรงรักเด็กๆ ', category: 'dek-lek' }, dekLek).level).toBe('block')
     expect(findTitleConflicts({ title_th: 'พระดํารัสชิมหวานสักปานใด', category: 'dek-lek' }, dekLek).level).toBe('block')
+  })
+})
+
+// ---------- B128 — the EARLY hint (prefix, from 5 typed characters) ----------
+// The behaviour P'Aim signed off on: quiet under 5 typed characters, prefix-only matching,
+// at most 3 listed, and it never touches the block verdict above.
+describe('B128 early hint — "does a song already start like this?"', () => {
+  const EARLY = [
+    song({ id: 'e1', number: 3, t: 'หากใกล้ชิดพระองค์', b: 'dek-lek' }),
+    song({ id: 'e2', number: 4, t: 'หากใกล้ชิดพระองค์ทุกวัน', b: 'dek-lek' }),
+    song({ id: 'e3', number: 5, t: 'หากใกล้ชิดพระองค์เสมอไป', b: 'anuchon' }),
+    song({ id: 'e4', number: 6, t: 'หากใกล้ชิดพระองค์ยิ่งขึ้น', b: 'anuchon' }),
+    song({ id: 'e5', number: 7, t: 'พระองค์ทรงเป็นที่พึ่ง', b: 'anuchon' }),
+  ]
+
+  it('is silent at 3 and 4 typed characters', () => {
+    for (const typed of ['หาก', 'หากใ']) {
+      expect(findEarlyTitleMatches({ title_th: typed, category: 'dek-lek' }, EARLY).level).toBe('ok')
+      expect(earlyDupNote({ title_th: typed, category: 'dek-lek' }, EARLY)).toBe(null)
+    }
+  })
+
+  it('fires at exactly 5 typed characters', () => {
+    const r = findEarlyTitleMatches({ title_th: 'หากใก', category: 'dek-lek' }, EARLY)
+    expect(r.level).toBe('early')
+    expect(r.sameBook.map((s) => s.id)).toEqual(['e1', 'e2'])
+    expect(r.otherBook.map((s) => s.id).sort()).toEqual(['e3', 'e4'])
+  })
+
+  it('counts TYPED characters, not normalised-key characters', () => {
+    // 'หากใกล้' is 7 typed characters but only 5 in the loose key (tone mark dropped). Gating
+    // on the key would silently demand more keystrokes than the 5 that were asked for.
+    expect([...'หากใกล้'].length).toBe(7)
+    expect(titleKeyLoose('หากใกล้').length).toBeLessThan(7)
+    expect(findEarlyTitleMatches({ title_th: 'หากใกล้', category: 'dek-lek' }, EARLY).level).toBe('early')
+  })
+
+  it('matches on a PREFIX only — a name that merely contains the text does not count', () => {
+    // 'พระอง' is inside every หากใกล้ชิด… title but starts only e5.
+    const r = findEarlyTitleMatches({ title_th: 'พระอง', category: 'anuchon' }, EARLY)
+    expect([...r.sameBook, ...r.otherBook].map((s) => s.id)).toEqual(['e5'])
+  })
+
+  it('lists at most 3 and says how many there are in total', () => {
+    const note = earlyDupNote({ title_th: 'หากใก', category: 'dek-lek' }, EARLY)
+    expect(note.level).toBe('info')
+    expect(note.links).toHaveLength(3)
+    expect(note.message).toContain('4 เพลง')
+    expect(note.message).toContain('แสดง 3 แรก')
+  })
+
+  it('puts the same เล่ม first and the closest name first inside each group', () => {
+    const note = earlyDupNote({ title_th: 'หากใก', category: 'dek-lek' }, EARLY)
+    // เด็กเล็ก (the book being edited) first, shortest — i.e. closest to what was typed — first
+    // inside the group. The third slot is whichever of the two other-book songs has the
+    // shorter loose key, so assert the RULE rather than a hand-guessed id.
+    expect(note.links.slice(0, 2).map((s) => s.id)).toEqual(['e1', 'e2'])
+    const others = [EARLY[2], EARLY[3]].sort(
+      (a, b) => titleKeyLoose(a.title_th).length - titleKeyLoose(b.title_th).length,
+    )
+    expect(note.links[2].id).toBe(others[0].id)
+  })
+
+  it('does not list the song being edited itself', () => {
+    const r = findEarlyTitleMatches({ id: 'e1', title_th: 'หากใกล้ชิดพระองค์', category: 'dek-lek' }, EARLY)
+    expect(r.sameBook.map((s) => s.id)).toEqual(['e2'])
+  })
+
+  it('stays quiet when nothing in the library starts that way', () => {
+    expect(earlyDupNote({ title_th: 'เพลงที่ยังไม่มีใครใส่', category: 'anuchon' }, EARLY)).toBe(null)
+  })
+
+  it('survives blank input and junk rows', () => {
+    expect(earlyDupNote({ title_th: '        ', category: 'anuchon' }, EARLY)).toBe(null)
+    expect(earlyDupNote({ title_th: '12. ', category: 'anuchon' }, EARLY)).toBe(null)
+    expect(() => earlyDupNote({ title_th: 'หากใก' }, [null, {}, { id: 'z', title_th: null }])).not.toThrow()
+  })
+
+  it('does NOT weaken the block verdict — the full name in the same เล่ม still blocks', () => {
+    // The two must be able to coexist: the early hint is only ever read when the verdict is 'ok'.
+    expect(findTitleConflicts({ title_th: 'หากใกล้ชิดพระองค์', category: 'dek-lek' }, EARLY).level).toBe('block')
   })
 })

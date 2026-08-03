@@ -324,21 +324,6 @@ export async function saveDraftRow(row, existingId) {
   return { id: data?.id ?? null, error }
 }
 
-// ---- publish (approver · BI-007) ----
-// The inline editor's approver-publish path writes straight to the public `songs` table (RLS:
-// team/approver write — the same gate EditorMode.saveDirect uses). Kept beside saveDraftRow so
-// every inline write lives in one place (DS-D01). With a songId it UPDATEs that song in place;
-// without one it INSERTs a new published song (author_id set by the caller). RLS refuses a
-// non-approver even if the UI ever slipped, so the two agree.
-export async function publishSongRow(row, songId) {
-  if (songId) {
-    const { error } = await supabase.from('songs').update(row).eq('id', songId)
-    return { id: songId, error }
-  }
-  const { data, error } = await supabase.from('songs').insert(row).select('id').single()
-  return { id: data?.id ?? null, error }
-}
-
 // Change own password while logged in. updateUser() alone would let anyone on an
 // open session reset the password, so we re-authenticate with the current one
 // first (OWASP: verify current password before change). Returns 'wrong-current'

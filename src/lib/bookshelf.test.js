@@ -14,6 +14,7 @@ import {
   showVerifiedBadge,
   showUnverifiedBadge,
   verifiedProgress,
+  unverifiedSongs,
 } from './bookshelf.js'
 
 // Minimal song fixtures — only the fields the bookshelf reads (number + category).
@@ -99,39 +100,36 @@ describe('songsInBook', () => {
     expect(songsInBook([], 'anuchon')).toEqual([])
   })
 
-  // B131 — the order now comes from the shared lib/songSort.js (no comparator lives in
-  // bookshelf.js any more): the caller can ask for another method, and a book whose songs have
-  // NO number (เล่มเด็กเล็ก) comes out ก-ฮ instead of in whatever order the DB returned.
-  const NO_NUMBERS = [
-    { id: 3, number: null, title_th: 'พระเจ้ารักฉัน', category: 'dek-lek' },
-    { id: 1, number: null, title_th: 'กอดพระเยซู', category: 'dek-lek' },
-    { id: 2, number: null, title_th: 'ขอบคุณพระเจ้า', category: 'dek-lek' },
-  ]
-  it('a book with no numbers at all comes out ก-ฮ (was: undefined order)', () => {
-    expect(songsInBook(NO_NUMBERS, 'dek-lek').map((x) => x.id)).toEqual([1, 2, 3])
-  })
-  it('same result whatever order the rows arrive in', () => {
-    const rotate = (l, i) => [...l.slice(i), ...l.slice(0, i)]
-    for (let i = 0; i < NO_NUMBERS.length; i++) {
-      const list = songsInBook(rotate(NO_NUMBERS, i), 'dek-lek')
-      expect(list.map((x) => x.id)).toEqual([1, 2, 3])
-    }
-  })
-  it('accepts another sort method (ชื่อเพลง) without changing the default', () => {
-    // titles deliberately run against the numbers, so each method gives a different answer
-    const rows = [
-      { id: 1, number: 200, title_th: 'กอดพระเยซู', category: 'anuchon' },
-      { id: 2, number: 5, title_th: 'สรรเสริญพระเจ้า', category: 'anuchon' },
-      { id: 3, number: 50, title_th: 'ขอบคุณพระเจ้า', category: 'anuchon' },
+  // B131 — the in-book list is the screen พี่เปา uses (SongList.vue reads songsInBook). Ordering
+  // now comes from songSort.js; these cases prove the number-less bug is fixed THROUGH this
+  // entry point, not just in the sort module. เด็กเล็ก = 52 of 53 songs with no number.
+  describe('a book whose songs have no catalog number (เด็กเล็ก)', () => {
+    const t = (id, number, title_th) => ({ id, number, title_th, category: 'dek-lek' })
+    const BOOK = [
+      t('a', null, 'ขอบพระคุณ'),
+      t('b', null, 'กราบพระบาท'),
+      t('c', null, 'ฮาเลลูยา'),
+      t('d', 1, 'สรรเสริญ'), // the one song that does have a number
     ]
-    expect(songsInBook(rows, 'anuchon').map((x) => x.id)).toEqual([2, 3, 1]) // default = เลขข้อ
-    expect(songsInBook(rows, 'anuchon', 'title').map((x) => x.id)).toEqual([1, 3, 2]) // ก-ฮ
-    expect(songsInBook(rows, 'anuchon', 'manual').map((x) => x.id)).toEqual([1, 2, 3]) // as given
-  })
-  it('does not mutate the caller’s list', () => {
-    const rows = SONGS.slice()
-    songsInBook(rows, 'anuchon')
-    expect(rows.map((x) => x.id)).toEqual(SONGS.map((x) => x.id))
+    const expected = ['d', 'b', 'a', 'c'] // numbered first, then ก-ฮ
+
+    it('orders them ก-ฮ after the numbered song', () => {
+      expect(songsInBook(BOOK, 'dek-lek').map((x) => x.id)).toEqual(expected)
+    })
+
+    it('gives the same order whatever order the DB returned them in', () => {
+      for (let i = 0; i < BOOK.length; i++) {
+        const arrival = [...BOOK.slice(i), ...BOOK.slice(0, i)]
+        expect(songsInBook(arrival, 'dek-lek').map((x) => x.id)).toEqual(expected)
+      }
+      expect(songsInBook([...BOOK].reverse(), 'dek-lek').map((x) => x.id)).toEqual(expected)
+    })
+
+    it('does not mutate the songs array it was given', () => {
+      const input = [...BOOK]
+      songsInBook(input, 'dek-lek')
+      expect(input.map((x) => x.id)).toEqual(['a', 'b', 'c', 'd'])
+    })
   })
 })
 
@@ -196,5 +194,51 @@ describe('verifiedProgress', () => {
     expect(verifiedProgress([])).toEqual({ verified: 0, total: 0 })
     expect(verifiedProgress(undefined)).toEqual({ verified: 0, total: 0 })
     expect(verifiedProgress([null, undefined])).toEqual({ verified: 0, total: 2 })
+  })
+})
+
+describe('unverifiedSongs (approver review queue)', () => {
+  it('keeps only the songs still waiting for a check, by catalog number', () => {
+    const list = [
+      { id: 'c', number: 30, verified: false },
+      { id: 'a', number: 10, verified: true },
+      { id: 'b', number: 20 }, // verified undefined -> still pending
+    ]
+    expect(unverifiedSongs(list).map((x) => x.id)).toEqual(['b', 'c'])
+  })
+  it('agrees with showUnverifiedBadge on every song (one predicate, one truth)', () => {
+    const list = [{ verified: true }, { verified: false }, {}]
+    expect(unverifiedSongs(list).length).toBe(
+      list.filter((x) => showUnverifiedBadge(x, true)).length,
+    )
+  })
+  it('songs with no number sort last and nothing throws on garbage input', () => {
+    expect(unverifiedSongs([{ id: 'x' }, { id: 'y', number: 5 }]).map((s2) => s2.id)).toEqual(['y', 'x'])
+    expect(unverifiedSongs(undefined)).toEqual([])
+    expect(unverifiedSongs([null, undefined])).toEqual([])
+  })
+  it('does not mutate or reorder the caller list', () => {
+    const list = [{ id: 'b', number: 2 }, { id: 'a', number: 1 }]
+    unverifiedSongs(list)
+    expect(list.map((x) => x.id)).toEqual(['b', 'a'])
+  })
+  // B131 integration: the queue used to carry its own `(a.number ?? Infinity) - (b.number ??
+  // Infinity)`, which is NaN for two number-less songs, so the approver could open the chip
+  // twice and see two different orders. Same rotation proof songSort.test.js uses: whatever
+  // order the rows arrive in, ONE order comes out — the เด็กเล็ก case (no numbers at all).
+  it('is deterministic for number-less songs whatever order they arrive in', () => {
+    const rows = [
+      { id: 'i3', title_th: 'ขอบพระคุณ' },
+      { id: 'i1', title_th: 'กราบพระบาท' },
+      { id: 'i2', title_th: 'ครูของเรา' },
+    ]
+    // ก-ฮ by title_th: กราบพระบาท (ก) → ขอบพระคุณ (ข) → ครูของเรา (ค). Ids deliberately do
+    // NOT follow that order, so the assertion can only pass on the title collation.
+    const expected = ['i1', 'i3', 'i2']
+    for (let r = 0; r < rows.length; r++) {
+      const rotated = [...rows.slice(r), ...rows.slice(0, r)]
+      expect(unverifiedSongs(rotated).map((x) => x.id)).toEqual(expected)
+      expect(unverifiedSongs([...rotated].reverse()).map((x) => x.id)).toEqual(expected)
+    }
   })
 })

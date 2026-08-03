@@ -11,109 +11,12 @@
 //   ( )  = slur/tie around a group  ·  { } = triplet around a group
 // Old data like "5. .5 2 1 3" parses unchanged.
 
-// ── Order-free modifiers (G1) ────────────────────────────────────────────────
-// Writers can't be expected to remember which modifier goes where: five of the
-// seven broken spots in the real library were nothing but a swapped order
-// ("5^." for "5.^", ".#4" for "#.4") and they failed SILENTLY — raw text printed
-// on the sheet, note skipped on playback. So a note box accepts its modifiers in
-// ANY order and we sort them back into the canonical form before parsing:
-//
-//   [~] [# | b | n] [.]* digit [']* [_]{0,2} [.]{0,2} [~] [^]
-//   tie-end accidental low-oct       high-oct beam  aug-dot tie-start fermata
-//
-// Two of them keep their side, because on this keyboard the same character means
-// two different things depending on it: '.' before the digit is a low-octave dot
-// and after it an augmentation dot; '~' before is a tie-END and after a tie-START.
-// Everything else (#/b/n, ' , _ , ^) has exactly one legal home, so wherever it was
-// typed we move it there. Reordering never adds or drops a character.
-const HIGH_OCTAVE_CHARS = "'‘’′" // straight + iOS smart quotes + prime
-const PRE_RANK = { '~': 0, '#': 1, b: 1, n: 1, '.': 2 }
-const POST_RANK = { '_': 1, '.': 2, '~': 3, '^': 4 } // high-octave marks = 0, below
-
-function isPitchDigit(c) {
-  return c >= '0' && c <= '7'
-}
-
-// Canonical order for ONE note box. Returns the string unchanged whenever we are
-// not certain it is a single note — no digit, more than one digit ("5..5", "123"),
-// an unknown character, or a modifier count the parser doesn't support (3 beams,
-// 3 aug dots, 2 accidentals). Staying loud beats guessing.
-export function canonicalizeNote(box) {
-  const s = String(box ?? '')
-  if (!s) return s
-  // group brackets ride along with the note in real data: "(5^", "4^)", "1_}"
-  let a = 0
-  let b = s.length
-  while (a < b && (s[a] === '(' || s[a] === '{')) a++
-  while (b > a && (s[b - 1] === ')' || s[b - 1] === '}')) b--
-  const core = s.slice(a, b)
-  let di = -1
-  for (let k = 0; k < core.length; k++) {
-    if (!isPitchDigit(core[k])) continue
-    if (di !== -1) return s // two digits in one box → not a single note
-    di = k
-  }
-  if (di === -1) return s
-  const pre = []
-  const post = []
-  let acc = 0
-  let beams = 0
-  let augDots = 0
-  for (let k = 0; k < core.length; k++) {
-    if (k === di) continue
-    const c = core[k]
-    const before = k < di
-    if (c === '#' || c === 'b' || c === 'n') {
-      if (++acc > 1) return s
-      pre.push([PRE_RANK[c], c])
-    } else if (c === '.') {
-      if (before) pre.push([PRE_RANK[c], c])
-      else if (++augDots > 2) return s
-      else post.push([POST_RANK[c], c])
-    } else if (c === '~') {
-      ;(before ? pre : post).push([(before ? PRE_RANK : POST_RANK)[c], c])
-    } else if (c === '_') {
-      if (++beams > 2) return s
-      post.push([POST_RANK[c], c])
-    } else if (c === '^') {
-      post.push([POST_RANK[c], c])
-    } else if (HIGH_OCTAVE_CHARS.includes(c)) {
-      post.push([0, c])
-    } else {
-      return s // unknown character → leave it alone so it still reads as an error
-    }
-  }
-  const join = (parts) =>
-    parts
-      .map((p, idx) => [p[0], idx, p[1]])
-      .sort((x, y) => x[0] - y[0] || x[1] - y[1]) // stable: keeps ".." / "''" order
-      .map((p) => p[2])
-      .join('')
-  return s.slice(0, a) + join(pre) + core[di] + join(post) + s.slice(b)
-}
-
-// Apply the canonical order to every space-separated box of a note string.
-// Boxes holding more than one note (the legacy spaceless "5..5" / "123" forms)
-// are handed to the lexer untouched, so their ambiguity rules are unaffected.
-export function canonicalizeNoteString(str) {
-  return String(str ?? '').replace(/\S+/g, canonicalizeNote)
-}
-
-// The written "degree" of a note token = pitch digit + octave. Two tokens with the same key
-// are THE SAME NOTE for accidental purposes: an accidental carries to a later note only when
-// both the scale degree and the octave match (变音记号: 同音名且同音高（同一个八度）).
-// This lived in notationLint.js, which has warned users by this rule all along; it moved here
-// so the lint and the PLAYBACK share one definition instead of drifting apart (G20).
-export function degreeKey(t) {
-  return t.pitch + '@' + (t.high - t.low)
-}
-
 // Character-level lexer — spaces between notes are OPTIONAL ("123" = "1 2 3").
 // A '.' directly before a digit is that digit's low-octave dot; a '.' at the
 // end of a note (not followed by a digit) is an augmentation dot.
 export function parseNotes(str) {
   if (!str) return []
-  const s = canonicalizeNoteString(str)
+  const s = str
   const tokens = []
   let i = 0
   while (i < s.length) {
@@ -215,9 +118,6 @@ export function expectedBeats(timeSignature) {
 // (midi.js adds it to the note's duration) and, indirectly, the editor chip. It is NEVER counted
 // by beatCount — bars always sum their WRITTEN beats, so a hold can't drift the bar (the fix for
 // "next bar comes in off"). These pure helpers are the single source of the default + the grid.
-// (Ported from `main`, which has run this model live; the base branch was still on the old
-// "multiply the written value by 1.75" rule, which lands notes on 1.75 / 2.625 / 3.5 beats and
-// pushes everything after them off the beat grid.)
 export const HOLD_STEP = 0.5 // edit granularity (half a beat)
 export const HOLD_MIN = 0.5 // a fermata note holds at least half a beat
 export const HOLD_DEFAULT = 2 // default hold for a fresh fermata (P'Aim: a predictable 2 beats, always)
@@ -238,8 +138,6 @@ export function suggestHoldForBar(/* flatBoxes, fermIdx, timeSignature */) {
 
 // Box index (whitespace token index) of each NOTE token of a segment, in source order. Lets a
 // char-level parse (midi.js) map a fermata note back to the `holds` key the editor wrote.
-// G1 note: parseNotes canonicalises each box's modifier ORDER before lexing, which never adds or
-// drops a token — so the note-per-box counting this relies on is unchanged by order-free input.
 export function noteBoxIndices(noteString) {
   const t = (noteString || '').trim()
   const boxes = t ? t.split(/\s+/) : []
@@ -337,21 +235,10 @@ export function attackSlots(noteString) {
 //            `levels` (B110) = one bar per beam level with its OWN span — see beamLevels().
 //            NoteRow draws one <i class="beam"> per level entry.
 //
-// A beam breaks at a non-underlined token · rest 0 · '-' extension · triplet · bar line, AND
-// (issue8) before any note that STARTS a new syllable.
-//
-// --- B120: a melisma beam is NOT cut by the beat edge ----------------------------------
-// It used to also break at every integer beat edge, which capped a beam at 2 eighths (one
-// beat) — พี่เปา: "เกิน 2 ช่อง เส้นไม่ลากติดกัน … ไม่ว่ากี่ช่อง ถ้าร้องเอื้อนหรือเว้นช่องเนื้อ
-// ต้องลากเส้นให้ต่อกัน". The reference songbook agrees: #698 line 2 beams `5 4 3` under ONE
-// line ACROSS the beat edge, and breaks only at `2`, where the next word starts. That is the
-// traditional VOCAL rule (beam = one sung syllable) the project already chose in issue8 —
-// the beat edge was a leftover of the older instrumental rule, and the two disagree past 2
-// notes. So the beat edge is dropped whenever we actually know the words.
-//
-// syllables == null (v1 / not supplied) → we do NOT know where words start, so no note is an
-// attack and a syllable-only rule would beam a whole bar together. There we keep the beat
-// edge: v1 rendering is unchanged, exactly as before (the graceful fallback).
+// A beam breaks at every OLD boundary (integer beat edge · non-underlined token · rest 0 ·
+// '-' extension · triplet) AND, new for issue8, before any note that STARTS a new syllable.
+// syllables == null (v1 / not supplied) → no note is ever an attack → identical to the prior
+// beat-only behaviour (the graceful fallback).
 // --- B110: one bar PER BEAM LEVEL, not one flag per run --------------------------------
 // เขบ็ต 1 ชั้น = ขีดเดียว · 2 ชั้น = สองขีด. A run may MIX them (`.7_. 1__` — a dotted eighth
 // beamed to a sixteenth), and the old `u2: run.some(...)` collapsed the whole run to one
@@ -363,8 +250,6 @@ export function attackSlots(noteString) {
 //   beamed to: 'left' when it has a neighbour before it in the run, else 'right'.
 // Returns [{ level, start, end, partial }] with start/end = token idx (start === end for a
 // partial). Generalised to any depth, so a 32nd (3 underlines) works the same way.
-// (Ported from `main` — B120 makes runs longer, so a run is now far more likely to mix
-// levels and the single-flag drawing would over-paint much more widely than before.)
 function beamLevels(run) {
   const maxLevel = run.reduce((m, t) => Math.max(m, t.underlines || 0), 0)
   const levels = []
@@ -386,30 +271,8 @@ function beamLevels(run) {
   return levels
 }
 
-// --- B120: bar lines are beam barriers -------------------------------------------------
-// A beam never crosses a bar line (standard engraving, jianpu included). `parseNotes` treats
-// `|` as whitespace and DROPS it, so beamGroups never sees a bar at all — it used to be
-// masked entirely by the beat-edge break (a bar edge is always a beat edge, so the beam was
-// already cut there for the wrong reason). With the beat edge gone for sung melismas, the
-// barrier has to be explicit or a เอื้อน would beam straight through `|`.
-// Because `|` tokenises exactly like a space, the tokens of the parts either side of it are
-// the same tokens the whole string yields, in the same order — so counting the tokens of each
-// part gives the running idx at which each bar falls. Returns that set of idxs (the FIRST
-// token after each bar line).
-function barBreakIdx(noteString) {
-  const parts = String(noteString || '').split('|')
-  const breaks = new Set()
-  let n = 0
-  for (let i = 0; i < parts.length - 1; i++) {
-    for (const g of groupNotes(parseNotes(parts[i]))) n += g.tokens.length
-    breaks.add(n)
-  }
-  return breaks
-}
-
 export function beamGroups(noteString, syllables = null) {
   const gs = groupNotes(parseNotes(noteString))
-  const barBreaks = barBreakIdx(noteString)
   let idx = -1
   for (const g of gs) for (const t of g.tokens) t.idx = ++idx
 
@@ -417,10 +280,7 @@ export function beamGroups(noteString, syllables = null) {
   // with note + extension tokens in order (brackets & unreadable tokens bear no slot — the
   // same set syllableSlots()/noteBoxKinds() counts), so we walk with a running slot counter.
   const attacks = new Set()
-  // We only know where words START when a syllable array was supplied; that is what lets a
-  // beam follow the sung syllable instead of the beat (B120 note above).
-  const syllabic = Array.isArray(syllables)
-  if (syllabic) {
+  if (Array.isArray(syllables)) {
     let slot = -1
     for (const g of gs) {
       for (const t of g.tokens) {
@@ -457,16 +317,14 @@ export function beamGroups(noteString, syllables = null) {
   for (const g of gs) {
     const isTrip = g.group === 'triplet'
     for (const t of g.tokens) {
-      if (barBreaks.has(t.idx)) flush() // a beam never crosses a bar line (B120)
       if (t.type === 'note') {
         let dur = (1 / 2 ** t.underlines) * (DOT_FACTOR[t.dots] ?? 1)
         if (isTrip) dur = (dur * 2) / 3
         const startBeat = Math.floor(beat + 1e-9)
         const beamable = !isTrip && t.underlines > 0 && t.pitch !== '0'
-        // Continue the current beam for a เอื้อน note (no new word). A new-word note — or a
-        // kind boundary (rest / '-' / triplet / bar) — flushes and starts fresh. The beat
-        // edge only matters in the v1 fallback, where we have no words to beam by (B120).
-        if (beamable && run.length > 0 && (syllabic || startBeat === runBeat) && !attacks.has(t.idx)) {
+        // continue the current beam only for a เอื้อน note (no new word) that stays in the
+        // same beat; a new-word note (or a beat/kind boundary) flushes and starts fresh.
+        if (beamable && run.length > 0 && startBeat === runBeat && !attacks.has(t.idx)) {
           run.push(t)
         } else {
           flush()
@@ -532,57 +390,6 @@ export function slurSpans(noteStrings) {
       // triplet { } brackets advance nothing — they bear no note idx (dropped by groupNotes)
     }
   })
-  return spans
-}
-
-// Derive melisma slur spans from the v2 syllable slots — WITHOUT needing an explicit ( ) in
-// the data. Jianpu vocal convention: a note that sounds a NEW pitch but carries no new word
-// (kind 'attack' with a blank syllable) is sung as a continuation of the previous syllable —
-// a melisma (เอื้อน). So a worded note followed by one or more blank 'attack' notes is ONE
-// melisma; we return an arc span from the worded note to the LAST such blank note, in the same
-// { open, close, sameSegment } shape as slurSpans, so SongSheet draws the same engraved arc it
-// draws for ( ). ONLY 'attack'+blank notes extend a melisma — a rest (0), a '-' extension, or a
-// tie (~) are NOT swept in (they are silence, or shown by their own dash / tie), which is what
-// keeps this from over-drawing a slur where none belongs.
-//   input  — segments of ONE rendered line, left→right: [{ si, note, syllables }]
-//            (syllables = v2 per-slot tokens; blank = held/no-word). idx = the slot index k,
-//            which equals the NoteRow token idx (data-idx) for that note.
-//   output — [{ open:{si,idx}, close:{si,idx}, sameSegment }], one per derived melisma.
-// A melisma is not tracked across a rendered-line boundary (each line resolves on its own).
-// A syllable that is punctuation ONLY — a stray quote/period that rode onto a note slot, with
-// no Thai/Latin letter or digit (e.g. the “ ” around a quoted line in song 109) — is NOT a sung
-// word: it must not ANCHOR a melisma (that drew a bogus arc). It also stays a run barrier (a
-// non-blank slot already stops a continuation), so a real word's melisma is not swept across it
-// either — the punctuation note simply carries no arc. `carriesWord` = has a letter or number.
-const HAS_LYRIC_CHAR = /[\p{L}\p{N}]/u
-function carriesWord(syl) {
-  return HAS_LYRIC_CHAR.test(syl || '')
-}
-export function melismaSpans(segments) {
-  const flat = []
-  for (const seg of segments || []) {
-    const kinds = noteBoxKinds(seg.note || '').filter((k) => k !== 'struct')
-    const syls = seg.syllables || []
-    for (let k = 0; k < kinds.length; k++) {
-      flat.push({ si: seg.si, idx: k, kind: kinds[k], syl: (syls[k] || '').trim() })
-    }
-  }
-  const spans = []
-  let i = 0
-  while (i < flat.length) {
-    const a = flat[i]
-    if (carriesWord(a.syl) && a.kind === 'attack') {
-      let j = i + 1
-      while (j < flat.length && !flat[j].syl && flat[j].kind === 'attack') j++
-      if (j > i + 1) {
-        const last = flat[j - 1]
-        spans.push({ open: { si: a.si, idx: a.idx }, close: { si: last.si, idx: last.idx }, sameSegment: a.si === last.si })
-      }
-      i = j
-    } else {
-      i++
-    }
-  }
   return spans
 }
 

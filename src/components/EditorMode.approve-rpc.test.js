@@ -10,7 +10,7 @@ const H = vi.hoisted(() => ({ rpc: null, updates: [] }))
 vi.mock('../supabase.js', () => {
   const makeQuery = () => {
     const q = {}
-    for (const m of ['select', 'order', 'eq', 'in', 'insert', 'delete', 'limit']) q[m] = () => q
+    for (const m of ['select', 'order', 'is', 'not', 'eq', 'in', 'insert', 'delete', 'limit']) q[m] = () => q
     q.update = (row) => {
       H.updates.push(row)
       return q
@@ -65,8 +65,7 @@ describe('B028 — approve() publishes via the RPC (one op_group)', () => {
   it('calls approve_and_publish with the draft id + prepared song, and NOT a raw draft update', async () => {
     const w = mountEd()
     await nextTick()
-    // D3: reviewingDraft is derived, not assignable — open the draft, the identity follows
-    w.vm.openDraft = { id: 'draft-9', author_id: 'editor-1', status: 'pending' }
+    w.vm.reviewingDraft = { id: 'draft-9', author_id: 'editor-1', status: 'pending' }
     w.vm.reviewComment = 'ดีแล้ว'
     await nextTick()
 
@@ -86,7 +85,7 @@ describe('B028 — approve() publishes via the RPC (one op_group)', () => {
   it('on success sets editingId to the returned song id and reports approved+published', async () => {
     const w = mountEd()
     await nextTick()
-    w.vm.openDraft = { id: 'draft-9', author_id: 'editor-1', status: 'pending' }
+    w.vm.reviewingDraft = { id: 'draft-9', author_id: 'editor-1', status: 'pending' }
     await nextTick()
 
     await w.vm.approve()

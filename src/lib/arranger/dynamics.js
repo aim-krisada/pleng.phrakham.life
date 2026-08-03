@@ -8,7 +8,6 @@
 // performance is reproducible (MP3 == live) and two loop passes differ but repeat.
 
 import { clampGainToLayer } from '../sampler.js'
-import { stressAt } from './meter.js'
 
 // R2.4 — Humanize velocity: nudge each attack's gain by ±`amount` (P'Aim locked ±6%).
 // GUARD (velocity-in-layer, §7b · P1 lesson): after the nudge, clamp gain into the sampler's
@@ -37,7 +36,44 @@ export function humanizeTime(events, rng, sigma = 0.012) {
     // never gets a jittered onset that opens a seam ("ฟันหลอ"). Only melody + inner voices breathe.
     if (e.role === 'bass') { e.timeShift = e.timeShift || 0; continue }
     const s = e.role === 'melody' ? sigma : sigma * CHORD_TIME_RATIO
-    e.timeShift = (e.timeShift || 0) + (rng() * 2 - 1) * s
+    const jitter = (rng() * 2 - 1) * s
+    e.timeShift = (e.timeShift || 0) + jitter
+    // Remember how much of this onset is RANDOM, so lockDownbeats can take back exactly that much
+    // at beat 1 without disturbing an offset some other layer put there on purpose.
+    e.humanizeShift = (e.humanizeShift || 0) + jitter
+  }
+  return events
+}
+
+// R2.10 — DOWNBEAT LOCK (พี่เปา 30 ก.ค. · rule ①). "เห็นด้วยว่าคนลงจังหวะเดียวกัน … เพื่อให้ไม่รู้สึกว่า
+// เล่นแล้วมันกระตุก หรือเพลงมันเหลื่อมในจังหวะแรก". At beat 1 of a bar the tune, the chord and the bass
+// must strike at the SAME instant; the ear hears any spread there as แฉลบ / เหลื่อม / กระตุก, not as a
+// human touch. humanizeTime gives melody ±12 ms and chord ±4.2 ms INDEPENDENTLY, so the two hands are
+// pulled apart at exactly the moment they should be tightest (measured: 97.1% of downbeats, worst 75 ms).
+//
+// TWO THINGS THIS DELIBERATELY DOES NOT DO:
+//   · it never touches `gain` — พี่เปา in the same breath: "แต่น้ำหนักต้องไม่เท่ากันนะ". Only the CLOCK
+//     is unified; humanizeVel, metricAccent and the melody-lead balance all still shape each hand's
+//     weight separately, so the downbeat is together but not flat.
+//   · it only locks beat 1. Beats 2/3/4 and the subdivisions keep their natural spread (พี่เปา: "ส่วน
+//     จังหวะย่อยกลางห้อง … ปล่อยให้มีความเหลื่อมธรรมชาติตามปกติ").
+//
+// WHAT IT REMOVES is exactly the RANDOM part of the onset (`humanizeShift`) and nothing else. It does
+// not flatten the downbeat to zero, because not every offset there is noise:
+//   · the rubato BREATH — a phrase that starts a hair late is musical. rubato() now gives that one
+//     shift to every voice struck at that instant, so the whole texture arrives late TOGETHER; that is
+//     also the direct answer to พี่เปา's line-join note (a new ท่อน/บรรทัด breathes with both hands).
+//   · an instrument's own idiom — a guitar DOWN-STRUM rakes its strings low→high with a deliberate
+//     per-string offset. That is ONE hand's signature, not two hands drifting apart, and flattening it
+//     would turn a strum into a block chord. พี่เปา's rule is about the piano's two hands.
+export function lockDownbeats(events, barBeats = 4, barOffset = 0) {
+  if (!(barBeats > 0)) return events
+  for (const e of events) {
+    const x = (e.startBeat - barOffset) / barBeats
+    if (Math.abs(x - Math.round(x)) > 1e-4) continue // not beat 1 of a bar
+    if (!e.humanizeShift) continue
+    e.timeShift = (e.timeShift || 0) - e.humanizeShift
+    e.humanizeShift = 0
   }
   return events
 }
@@ -58,15 +94,10 @@ const isOffBeat = (b) => Math.abs(b - Math.round(b)) > 0.05
 // is a gentle HALF-NOTE PULSE: keep the bar downbeat AND the mid-bar beat, so a long held note still
 // has a soft pulse under it (fills the hole) while staying far calmer than full per-beat comp. `pulse`
 // (default on) is round 2's knob — set false to fall back to the old downbeat-only "ผ่อนสุด" feel.
-// `meter` (optional) = meterOf(timeSignature). The mid-bar pulse must land on the meter's real
-// secondary stress, not at Math.floor(beatsPerBar / 2) — see metricAccent below for why that was
-// wrong everywhere except 4/4. A meter with no secondary stress (3/4, 6/8 …) keeps only the
-// downbeat pulse, which is what a waltz or a 6/8 lilt actually does.
-export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = true, meter = null, barOffset = 0) {
+export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = true) {
   const onsets = events.filter((e) => e.role === 'melody').map((e) => e.startBeat).sort((a, b) => a - b)
   if (!onsets.length) return events
-  const m = meter || { barBeats: beatsPerBar, pulseBeats: 1, mediumAt: beatsPerBar >= 4 && beatsPerBar % 2 === 0 ? beatsPerBar / 2 : null }
-  const mid = m.mediumAt // the meter's own secondary stress, or null when it has none
+  const mid = Math.floor(beatsPerBar / 2) // mid-bar pulse point (beat 3 in 4/4, beat 2 in 3/4)
   const beatsHeld = (b) => {
     let last = -Infinity
     for (const o of onsets) { if (o <= b + 1e-6) last = o; else break }
@@ -75,39 +106,28 @@ export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = tr
   return events.filter((e) => {
     if (e.role !== 'inner') return true // bass / melody / embellishment untouched
     if (beatsHeld(e.startBeat) < holdBeats) return true // melody moving / just moved → full comp
-    // Quantise onto the METER's pulse grid before comparing, which is what the old
-    // `Math.round(startBeat)` did for x/4 meters — an event sitting just off the pulse still
-    // counts as that pulse. Generalising it to pulseBeats keeps 4/4 and 3/4 bit-identical while
-    // making it correct for a compound meter, whose pulses are 1.5 quarter-notes apart and would
-    // never survive whole-number rounding.
-    const pb = m.pulseBeats || 1
-    const b = Math.round((e.startBeat - barOffset) / pb) * pb
-    const inBar = ((b % m.barBeats) + m.barBeats) % m.barBeats
-    // deep in a held note → keep the bar downbeat, plus (pulse on) the meter's secondary stress so
-    // it doesn't go hollow. A meter without one (3/4, 6/8 …) keeps the downbeat alone.
-    return Math.abs(inBar) < 1e-6 || (pulse && mid != null && Math.abs(inBar - mid) < 1e-6)
+    const inBar = ((Math.round(e.startBeat) % beatsPerBar) + beatsPerBar) % beatsPerBar
+    // deep in a held note → keep the bar downbeat, plus (pulse on) the mid-bar beat so it doesn't
+    // go hollow. mid>0 guards 1- and 2-beat bars where mid would collide with / precede the downbeat.
+    return inBar === 0 || (pulse && mid > 0 && inBar === mid)
   })
 }
 
 // R2.2 — Metric accent: emphasise the downbeat of each bar, ease off the weak beats and the
 // off-beats, so the pulse breathes instead of every note hitting equally hard. Multiplies gain by
 // a position factor in [0.72, 1.0]. Reads beats-per-bar from the caller (time signature).
-// `meter` (optional) = meterOf(timeSignature). The secondary ("medium") stress used to be placed
-// at Math.floor(beatsPerBar / 2), which is the right beat for 4/4 and the wrong one for almost
-// everything else — a 3/4 bar came out strong-MEDIUM-weak, i.e. a waltz accented on beat 2, when
-// the standard is strong-weak-weak with no secondary stress at all. That is what พี่เปา heard as
-// "เสียงหนัก-เบาไปตกผิดที่", and it is why 4/4 was the one meter that sounded fine. stressAt()
-// reads the meter properly, and only gives a bar a secondary stress when the meter has one.
-export function metricAccent(events, beatsPerBar = 4, meter = null, barOffset = 0) {
-  const m = meter || { barBeats: beatsPerBar, pulseBeats: 1, mediumAt: beatsPerBar >= 4 && beatsPerBar % 2 === 0 ? beatsPerBar / 2 : null }
+export function metricAccent(events, beatsPerBar = 4) {
+  const mid = Math.floor(beatsPerBar / 2)
   for (const e of events) {
+    let f
     // Gentler spread than before (P'Aim 14 ก.ค. "กระแทกหนักไป"): the downbeat still leads the pulse
     // but no longer THUMPS — range narrowed to [0.8, 0.92] so beat 1 isn't a hard stab.
-    // What counts as "between the beats" is the METER's business, not a fixed whole-number test:
-    // in 6/8 the second beat falls 1.5 quarter-notes in, and an isOffBeat()-style check ahead of
-    // the meter would demote that real beat to an off-beat. stressAt decides all four levels.
-    const s = stressAt(m, Math.round(e.startBeat * 4) / 4, barOffset)
-    e.gain *= s === 'strong' ? 0.92 : s === 'medium' ? 0.86 : s === 'weak' ? 0.82 : 0.8
+    if (isOffBeat(e.startBeat)) f = 0.8
+    else {
+      const p = ((Math.round(e.startBeat) % beatsPerBar) + beatsPerBar) % beatsPerBar
+      f = p === 0 ? 0.92 : p === mid ? 0.86 : 0.82
+    }
+    e.gain *= f
   }
   return events
 }
@@ -165,6 +185,19 @@ export function crescendo(events, hairpins) {
 // the song ritards. Fires only at ท่อน ends — NOT every long note (that was the old proxy).
 const RUBATO_STRETCH = 1.12 // last-note lengthening (P'Aim: 10–15%)
 const RUBATO_BREATH = 0.06 // seconds of "breath" before the next ท่อน
+// A breath is a WHOLE-BODY gesture, not a melody-only one (พี่เปา 30 ก.ค. item 5: "ช่วงที่ต่อบรรทัด
+// บางทีโน้ตมันลากไว้ แล้วเวลาขึ้นมันขึ้นเหลื่อม ๆ ขึ้นไม่ตรงจังหวะ"). The breath used to be added to the
+// melody note ALONE, so the tune came in ~60 ms after a left hand that had stayed on the grid — the two
+// hands pulled apart at exactly a phrase/line start, which is the seam he can hear. Give the same shift
+// to every voice struck at that instant so the whole texture breathes together and still arrives as one.
+function breatheAt(events, beat, amount) {
+  for (const e of events) {
+    if (Math.abs(e.startBeat - beat) > 1e-6) continue
+    e.timeShift = (e.timeShift || 0) + amount
+    e.breath = amount // tag: lockDownbeats keeps a deliberate shift, discards plain humanize jitter
+  }
+}
+
 export function rubato(events, sections = []) {
   const mel = events.filter((e) => e.role === 'melody').sort((a, b) => a.startBeat - b.startBeat)
   if (!mel.length) return events
@@ -177,7 +210,7 @@ export function rubato(events, sections = []) {
     const crosses = bounds.some((b) => b > cur.startBeat && (!next || b <= next.startBeat))
     if (!next || crosses) {
       cur.beats *= RUBATO_STRETCH // the ท่อน's last note rings longer (the "ยืด")
-      if (next) next.timeShift = (next.timeShift || 0) + RUBATO_BREATH // breath into the new ท่อน
+      if (next) breatheAt(events, next.startBeat, RUBATO_BREATH) // breath into the new ท่อน, both hands
     }
   }
   return events

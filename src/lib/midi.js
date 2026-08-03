@@ -1,15 +1,13 @@
 // Melody playback with the Web Audio API — no external library.
 // Converts notation tokens (movable do) + key + BPM into scheduled oscillator notes.
 
-import { parseNotes, groupNotes, DOT_FACTOR, noteBoxIndices, storedHold, suggestHoldForBar, degreeKey } from './notation.js'
+import { parseNotes, groupNotes, DOT_FACTOR, noteBoxIndices, storedHold, suggestHoldForBar } from './notation.js'
 import { parseChord, chordToIntervals } from './chords.js'
 import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
 import { arrange } from './arranger/index.js'
-import { preEchoesMelody, PREECHO_MIN_GAIN_RATIO } from './arranger/referee.js'
 import { moduleForInstrument } from './arranger/instruments/index.js'
 import { mulberry32, seedFor } from './arranger/rng.js'
 import { resolveContent } from './songModel.js'
-import { voltaNums, repeatPasses, forcedEnding, allMarkerIds } from './songFlow.js'
 
 // Playback root MIDI per key. Every tonic is kept inside ONE comfortable window (G3..F#4 = 55..66)
 // so no key plays an octave higher than another (พี่เปา 14 ก.ค.: "คีย์ A สูงเกินไป · ขอโซน A4"). The
@@ -120,29 +118,7 @@ function holdFor(seg, boxIdx, suggested) {
 // repeat-start '‖:' (or the song start), and play again — twice by default. With voltas,
 // the 1st ending (volta 1) is played only on the 1st pass; on the 2nd pass its bars are
 // skipped and the 2nd ending (volta 2) is played instead. Returns the bars in play order.
-//
-// R3 — per-verse flow override: a bar carries `entryIndex` (which arrangement row it belongs
-// to). `flowByEntry[entryIndex]` (+ `knownIds`) lets ONE row diverge without copying the
-// melody: flow.skip → play a repeat once, flow.times → loop it a different count, flow.ending
-// → land on a different alternate ending. A row with no flow behaves byte-identically to
-// before (repeatPasses returns the melody default = repeat-end.times || 2).
-function expandRepeats(bars, { flowByEntry = null, knownIds = null } = {}) {
-  // How many passes each repeated section plays, keyed by its repeat-start bar index. Needed
-  // up front because a forced ending is chosen on the section's LAST pass, and the pass count
-  // lives on the repeat-END (seen later than the volta bars). Flat, non-nested repeats.
-  const passesByStart = {}
-  {
-    const stack = []
-    bars.forEach((bar, idx) => {
-      if (bar.repeatStart) stack.push(idx)
-      if (bar.repeatEnd) {
-        const s = stack.length ? stack.pop() : -1
-        const flow = flowByEntry ? flowByEntry[bar.entryIndex] : null
-        const p = repeatPasses(flow, bar.repeatEndId, bar.repeatTimes ?? 2, knownIds)
-        if (s >= 0) passesByStart[s] = p
-      }
-    })
-  }
+function expandRepeats(bars) {
   const out = []
   let i = 0
   let repStart = -1
@@ -150,28 +126,19 @@ function expandRepeats(bars, { flowByEntry = null, knownIds = null } = {}) {
   let guard = 0
   while (i < bars.length && guard++ < 100000) {
     const bar = bars[i]
-    const flow = flowByEntry ? flowByEntry[bar.entryIndex] : null
     if (bar.repeatStart && i !== repStart) {
       repStart = i // entering a new repeated section from the front
       pass = 1
     }
-    const nums = bar.voltaNums // this bar's alternate-ending number(s), [] = not an ending
-    if (nums && nums.length) {
-      const sectionPasses = passesByStart[repStart] ?? 1
-      const forced = forcedEnding(flow) // flow.ending: re-target the ending on the last pass
-      const take = forced != null && pass >= sectionPasses
-        ? nums.includes(forced) // last pass of this verse → take the forced ending
-        : nums.includes(pass) // otherwise the ending whose number matches this pass
-      if (!take) { i++; continue } // this ending belongs to a different pass — skip it
+    if (bar.volta && bar.volta !== pass) {
+      i++ // this ending belongs to a different pass — skip it
+      continue
     }
     out.push(bar)
-    if (bar.repeatEnd) {
-      const passes = repeatPasses(flow, bar.repeatEndId, bar.repeatTimes ?? 2, knownIds)
-      if (pass < passes) {
-        pass++
-        i = repStart >= 0 ? repStart : 0
-        continue
-      }
+    if (bar.repeatEnd && pass < 2) {
+      pass++
+      i = repStart >= 0 ? repStart : 0
+      continue
     }
     i++
   }
@@ -196,47 +163,21 @@ export function songToNotes(content) {
   // with it. Done HERE, before expandRepeats, so a repeated section replays with its chords
   // intact. Attached now → buildChordVoice can sound "exactly the chords the sheet shows".
   let curChord = ''
-  // R3 — per-verse flow: which arrangement row each display line belongs to (resolveContent
-  // tags `_entryIndex`), and that row's flow directive + the set of real marker ids (so a flow
-  // pointing at a deleted marker is ignored, never guessed — §2.1.1). v1 songs have neither →
-  // flowByEntry stays null and playback is unchanged.
-  const arrangement = content.arrangement || []
-  const flowByEntry = arrangement.length ? arrangement.map((e) => (e && e.flow) || null) : null
-  const knownIds = flowByEntry ? allMarkerIds(content) : null
   // 1. group each line's notes into bars, tagging repeat/volta flags per bar
   const bars = []
-  const newBar = (entryIndex) => ({ notes: [], repeatStart: false, repeatEnd: false, repeatEndId: null, repeatTimes: 2, voltaNums: [], entryIndex })
   ;(content.lines || []).forEach((line, li) => {
-    const entryIndex = line._entryIndex // v2: which ข้อ this line came from (undefined for v1)
     let bi = 0
     let si = -1
-    let bar = newBar(entryIndex)
-    // G20 — an accidental holds for the REST OF ITS BAR (变音记号: 同小节、同音名且同音高).
-    // Written once on the first note, every later note of the same degree AND octave in that
-    // bar sounds altered too; ♮ cancels it; the next bar starts clean. Until now playback read
-    // each token on its own, so the second note sounded a semitone low — while the lint has
-    // been telling users this rule exists (notationLint naturalMisuse). Resolved HERE, at
-    // pitch-calculation time only: nothing is written back to the song (the standard says the
-    // mark is not repeated, so adding it would be editing the user's work).
-    //   barAlt : degreeKey → '#' | 'b' in force for the current bar
-    //   tieCarry: R5 — a note tied ACROSS a barline keeps the pitch it was tied from, even
-    //             though the new bar itself starts clean for every other note.
-    let barAlt = new Map()
-    let tieCarry = null
-    const flushBar = () => { bars.push(bar); barAlt = new Map() }
+    let bar = { notes: [], repeatStart: false, repeatEnd: false, volta: 0 }
+    const flushBar = () => bars.push(bar)
     for (const item of line) {
       if (item.type === 'repeat-start') { bar.repeatStart = true; continue }
-      if (item.type === 'repeat-end') {
-        bar.repeatEnd = true
-        bar.repeatEndId = item.id ?? null // R1 id: flow.skip/times reference the repeat by this
-        if (item.times != null) bar.repeatTimes = Math.max(1, Math.floor(Number(item.times) || 2)) // R2 default rounds
-        continue
-      }
-      if (item.type === 'volta') { bar.voltaNums = voltaNums(item); continue } // R2 num may be a list
+      if (item.type === 'repeat-end') { bar.repeatEnd = true; continue }
+      if (item.type === 'volta') { bar.volta = item.num || 0; continue }
       if (item.type === 'bar') {
         flushBar()
         bi++
-        bar = newBar(entryIndex)
+        bar = { notes: [], repeatStart: false, repeatEnd: false, volta: 0 }
         continue
       }
       if (item.type !== 'segment') continue
@@ -281,18 +222,9 @@ export function songToNotes(content) {
               prevMidi = null
             } else {
               let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
-              // resolve the accidental IN FORCE for this note (G20 · R1-R5). degreeKey is the
-              // lint's own "same note" test (pitch + octave), shared so the two cannot disagree.
-              const dkey = degreeKey(t)
-              let acc = t.accidental
-              if (acc === '#' || acc === 'b') barAlt.set(dkey, acc) // written here → holds on
-              else if (acc === 'n') barAlt.delete(dkey) // ♮ cancels for the rest of the bar
-              else acc = barAlt.get(dkey) || (t.tieEnd && tieCarry && tieCarry.key === dkey ? tieCarry.acc : '')
-              if (acc === '#') midi += 1
-              else if (acc === 'b') midi -= 1
+              if (t.accidental === '#') midi += 1
+              if (t.accidental === 'b') midi -= 1
               // natural (n) = no shift — the digit's diatonic pitch
-              // carry an alteration only over a tie (R5); any other note in the next bar starts clean
-              tieCarry = t.tieStart && (acc === '#' || acc === 'b') ? { key: dkey, acc } : null
               const last = bn[bn.length - 1]
               // A slur arc over two notes of the SAME pitch is a tie: hold the note,
               // do NOT re-attack the later one, but keep counting its beats. A slur
@@ -310,11 +242,9 @@ export function songToNotes(content) {
             }
           } else if (t.type === 'ext') {
             slot++ // a '-' box holds the previous syllable — its own (blank) slot
-            // A '-' is part of the SAME note, so it just adds its written beat. The fermata's
-            // hold was already added ONCE at the note (an absolute number of beats), so it must
-            // NOT be re-applied per extension box — that is what the old ×1.75-per-box rule did,
-            // and it is why a held note landed on 1.75 / 2.625 / 3.5 beats and pushed everything
-            // after it off the beat grid.
+            // A '-' is part of the SAME note: it just adds its own written beat. The fermata
+            // hold is added ONCE at the note (above), not scaled per box — so `1^ -` = written 2
+            // + hold, and the hold no longer weakens as the note runs longer.
             const last = bn[bn.length - 1]
             if (last) last.beats += 1 * f
           }
@@ -324,14 +254,8 @@ export function songToNotes(content) {
     flushBar()
   })
   // 2. expand repeats into play order, 3. flatten to a note list, 4. merge ties
-  // G20 · R6/R7 — accidentals were resolved above, per bar, BEFORE this expansion, so every
-  // repeat round and every unrolled copy of a bar carries that bar's own resolution and none
-  // of its neighbours': a repeated bar "starts counting again" each time through.
-  // ⚠️ SA notes R6/R7 are an INFERENCE from R3 (the scope is the bar, not the play order) —
-  // the sources do not state them outright. If that reading turns out to be wrong, this is the
-  // line to revisit: resolution would have to move after expandRepeats instead.
   const notes = []
-  for (const bar of expandRepeats(bars, { flowByEntry, knownIds })) for (const n of bar.notes) notes.push(n)
+  for (const bar of expandRepeats(bars)) for (const n of bar.notes) notes.push(n)
   return mergeTies(notes)
 }
 
@@ -584,25 +508,13 @@ export function effectiveOrder(sections, selectedNames) {
 
 // The exact note list a play will use — the SSOT the viewer shares with playSong so the
 // progress dot, markers, scrub and ⏮/⏭ all measure against the same sequence.
-//   order : [{fromLi,toLi,fromSi?,toSi?}, …] — concatenate each range's notes in order (B043)
-//   range : {fromLi,toLi,fromSi?,toSi?}      — a single section (legacy play-by-section)
+//   order : [{fromLi,toLi}, …] — concatenate each range's notes in order (B043 selection)
+//   range : {fromLi,toLi}      — a single section (legacy play-by-section)
 //   neither → the whole song
-// Ranges carry OPTIONAL (li,si) endpoints (docs/ds/repeat-jumps-midbar.md): a mid-bar jump
-// target/exit is expressed as a fromSi/toSi on the boundary line so a range can start or end
-// PART-WAY through a bar. si is the segment index songToNotes stamps on every note. When fromSi/
-// toSi are absent the range spans the WHOLE line — byte-identical to the old line-level behaviour
-// (strophic order, section select), so nothing regresses.
-function inPlayRange(n, r) {
-  if (n.li < r.fromLi) return false
-  if (n.li === r.fromLi && r.fromSi != null && n.si < r.fromSi) return false
-  if (n.li > r.toLi) return false
-  if (n.li === r.toLi && r.toSi != null && n.si > r.toSi) return false
-  return true
-}
 export function buildPlayNotes(content, { order, range } = {}) {
   const all = songToNotes(content)
-  if (order && order.length) return order.flatMap((r) => all.filter((n) => inPlayRange(n, r)))
-  if (range) return all.filter((n) => inPlayRange(n, range))
+  if (order && order.length) return order.flatMap((r) => all.filter((n) => n.li >= r.fromLi && n.li <= r.toLi))
+  if (range) return all.filter((n) => n.li >= range.fromLi && n.li <= range.toLi)
   return all
 }
 
@@ -872,18 +784,9 @@ export function phraseSectionsFromMelody(notes, holdBeats = 3) {
   }
   const ds = secs.map(density).filter((d) => d > 0).sort((a, b) => a - b)
   const median = ds.length ? ds[Math.floor(ds.length / 2)] : 0
-  // `isRefrain` (strict, 1.5×) and `level` (the loud/soft tier) answer DIFFERENT questions, so they
-  // are tagged separately. isRefrain = "is this the hook?" — only the arranger reads it, and only a
-  // genuinely busier phrase should swap in a fuller refrain comp. level = "how full does โหมดรวมวง
-  // play here?" — the ensemble is its ONLY reader (midi.js levelAt). Split level at the MEDIAN, not
-  // at 1.5×: in most songs no phrase clears the strict bar, so a shared tag would mark every phrase
-  // 'verse' and leave the whole song pinned at the sparse level — เต็มวง จืด, the opposite of the
-  // flat-at-full it replaced. At the median there is always at least one fuller phrase, and a song
-  // of a single phrase stays 'chorus' = exactly what the ensemble played before it had sections.
   return secs.map((s, i) => {
-    const d = density(s)
-    const active = median > 0 && d >= median * 1.5
-    return { name: `วรรค ${i + 1}`, fromBeat: s.fromBeat, toBeat: s.toBeat, level: median > 0 && d < median ? 'verse' : 'chorus', isRefrain: active }
+    const active = median > 0 && density(s) >= median * 1.5
+    return { name: `วรรค ${i + 1}`, fromBeat: s.fromBeat, toBeat: s.toBeat, level: active ? 'chorus' : 'verse', isRefrain: active }
   })
 }
 
@@ -903,25 +806,7 @@ export function resolveSections(content, notes) {
   return phrases.length > labelled.length ? phrases : labelled
 }
 
-// Which leads the shared PRE-ECHO rule polices in โหมดรวมวง today. GUITAR only, on purpose (PM 24 ก.ค.):
-// its hammer-on grace was measured at 0.69–0.86 of the tune's own loudness — the same band as the
-// sparkle P'Pao actually HEARD as a phantom note in เพลง 33 (0.80) — so the class is ear-confirmed
-// and closing it needs no further evidence. เปียโนนำ (the default) measured ZERO points, so it is
-// untouched by construction: the piano lead has no grace at all. ไวโอลินนำ measured 145 points but
-// that is a NUMBER, not an ear — silencing them changes the character of a whole mode, so it waits
-// for P'Aim's A/B judgement. `preEcho: 'all'` turns the violin on for rendering that A/B; 'off'
-// renders the "before" side. Do not flip the default without the ear test.
-// Evidence: docs/reports/ensemble-preecho.md
-// Dry level of each role's mix bus (§6b.2 roleBus). Needed to compare an ornament's loudness with
-// the tune's when the two sit on DIFFERENT buses.
-export const ENS_BUS = { grand: 1.0, cello: 0.16, violin: 0.62, nylon: 0.9 }
-
-export const PREECHO_ENSEMBLE_LEADS = new Set(['guitar'])
-
-export async function playEnsemble(content, { bpm = 72, loop = false, onNote, onProgress, order, range, transpose = 0, startIndex = 0, lead = 'piano', onInstrumentPending, songId, preEcho = 'default' } = {}) {
-  // 'default' = the ear-confirmed scope only · 'all' = every lead's grace · 'off' = pre-fix behaviour
-  const policePreEcho = preEcho === 'all' || (preEcho !== 'off' && PREECHO_ENSEMBLE_LEADS.has(lead))
-  const policeViolin = preEcho === 'all'   // ไวโอลินนำ / violin ลูกเล่น — held for the ear test
+export async function playEnsemble(content, { bpm = 72, loop = false, onNote, onProgress, order, range, transpose = 0, startIndex = 0, lead = 'piano', onInstrumentPending, songId } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   try { const b = ctx.createBuffer(1, 1, 22050); const s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0) } catch { /* not fatal */ }
   await ctx.resume()
@@ -1019,15 +904,9 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     const notes = from > 0 ? fullNotes.slice(from) : fullNotes
     const chordEvents = buildChordVoice(notes)
     const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
-    // §6b.2 REAL sections (verse โปร่ง → chorus เต็ม) — a beat→level lookup from the sheet's ท่อน.
-    // resolveSections = the SAME function the solo path (playSong) and the MP3 export call: the
-    // label path PLUS the melody-phrase fallback (golden-piano §3b). Calling sectionBeatRanges
-    // directly here left 56/170 songs — the ones whose labels yield < 2 sections — with NO
-    // sections at all, so levelAt() answered 'chorus' everywhere: the verse→chorus dynamics went
-    // flat and the violin countermelody (gated on 'chorus') played the whole song through.
-    // Songs that already had ≥2 labelled ท่อน are untouched — resolveSections returns those labels
-    // unchanged. Still never empty, so the `|| 'chorus'` default below only guards the impossible.
-    const sections = resolveSections(content, notes)
+    // §6b.2 REAL sections (verse โปร่ง → chorus เต็ม) — a beat→level lookup from the sheet's labels.
+    // No sections → whole song = chorus (never breaks).
+    const sections = sectionBeatRanges(content, notes)
     const levelAt = (beat) => { const s = sections.find((x) => beat >= x.fromBeat && beat < x.toBeat); return s ? s.level : 'chorus' }
     const secGain = (beat) => ENS.sectionGain[levelAt(beat)]
     // §6b.2 Option 1 — phrase-end GAPS (a long held/rest melody note ≥2.5 beats) where the violin
@@ -1049,37 +928,6 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     const tEnd = t0 + totalBeats * spb
     const TJ = 0.012, VJ = 0.06
 
-    // The tune's attacks in beat-space — what the shared PITCH rule checks an ornament against.
-    // Built from THIS pass's notes so a seek/loop pass can't compare against the wrong list.
-    const attacks = []
-    { let ab = 0; for (const n of notes) { if (n.midi != null) attacks.push({ beat: ab, midi: n.midi }); ab += n.beats } }
-    // A grace that sings the pitch the tune is about to sing is not heard as decoration, it's heard
-    // as an extra melody note ("3 ตัวกลายเป็น 4 ตัว"). Same rule, same function as the solo path's
-    // conductor — NOT a copy (referee.js § preEchoesMelody). Its loudness is compared as a RATIO of
-    // the melody note it leans on: both go through the same instrument and the same bus, so the
-    // ratio IS the perceptual comparison, no mix maths needed. Vetoing a grace never touches the
-    // tune, the comp or the bass — only the ornament disappears.
-    const graceVetoed = (midi, atBeat, relGain) =>
-      policePreEcho && preEchoesMelody({ midi, startBeat: atBeat, gain: relGain }, attacks, { minGain: PREECHO_MIN_GAIN_RATIO })
-
-    // The violin's ลูกเล่น sit on a DIFFERENT bus from the lead, so (unlike a grace) their loudness
-    // can only be compared to the tune after the mix. We record what the GUIDE layer actually fired
-    // (below) and compare effective levels = fire gain × that role's dry bus level.
-    // ⚠ Off by default — this is the ไวโอลินนำ case P'Aim has not judged by ear yet (`preEcho:'all'`).
-    const melodyEff = []
-    const melBusLevel = lead === 'guitar' ? ENS_BUS.nylon : lead === 'violin' ? ENS_BUS.violin : ENS_BUS.grand
-    const melEffAt = (b) => {
-      let prev = null
-      for (const m of melodyEff) { if (m.beat <= b + 1e-9) prev = m; else break }
-      return (prev || melodyEff[0])?.eff || 0
-    }
-    const violinVetoed = (midi, atBeat, gain) => {
-      if (!policeViolin) return false
-      const ref = melEffAt(atBeat)
-      if (!ref) return false
-      return preEchoesMelody({ midi, startBeat: atBeat, gain: (gain * ENS_BUS.violin) / ref }, attacks, { minGain: PREECHO_MIN_GAIN_RATIO })
-    }
-
     // GUIDE layer (ONE melody line) on the LEAD instrument, × section gain (verse quieter → chorus
     // full). piano swells long notes · violin sings long + slide-in · guitar fingerpicks + a
     // hammer-on grace. Only the lead plays the tune; the violin NEVER doubles it.
@@ -1091,20 +939,13 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
         const t = t0 + beat * spb + TJ * rnd()
         const d = n.beats * spb
         if (lead === 'guitar') {
-          // NB the rng() draw happens exactly as before whether or not the grace is vetoed — the
-          // humanize stream must not shift, or silencing one ornament would re-roll the whole song.
-          const wantGrace = n.beats >= 1 && rng() < 0.18
-          if (wantGrace && !graceVetoed(n.midi - 2, beat, 0.42 / 0.56)) melInst.fire(n.midi - 2 + T, t - 0.05, 0.12, 0.42 * gd) // hammer/slide
+          if (n.beats >= 1 && rng() < 0.18) melInst.fire(n.midi - 2 + T, t - 0.05, 0.12, 0.42 * gd) // hammer/slide
           melInst.fire(n.midi + T, t, Math.max(0.6, d + 0.4), 0.56 * gd) // plucked, rings
-          melodyEff.push({ beat, eff: (0.56 * gd) * melBusLevel })
         } else if (lead === 'violin') {
-          const wantGrace = n.beats >= 1 && rng() < 0.2
-          if (wantGrace && !graceVetoed(n.midi - 2, beat, 0.28 / 0.42)) melInst.fire(n.midi - 2 + T, t - 0.06, 0.2, 0.28 * gd) // slide-in grace
+          if (n.beats >= 1 && rng() < 0.2) melInst.fire(n.midi - 2 + T, t - 0.06, 0.2, 0.28 * gd) // slide-in grace
           melInst.fire(n.midi + T, t, Math.max(0.9, d + 0.6), 0.42 * gd) // violin sings long
-          melodyEff.push({ beat, eff: (0.42 * gd) * melBusLevel })
         } else {
           melInst.fire(n.midi + T, t, n.beats >= 3 ? d + 0.5 : Math.max(0.5, d + 0.3), 0.52 * gd)
-          melodyEff.push({ beat, eff: (0.52 * gd) * melBusLevel })
         }
       }
       beat += n.beats
@@ -1140,11 +981,7 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
           ? [{ p: tones[tones.length - 1], d: 0.5 }, { p: tones[tones.length - 2], d: 0.5 }, { p: tones[Math.max(0, tones.length - 3)], d: 1.0 }]
           : [{ p: tones[Math.max(0, tones.length - 3)], d: 0.5 }, { p: tones[Math.max(0, tones.length - 2)], d: 0.5 }, { p: tones[tones.length - 1], d: 1.0 }]
         let b = startBeat
-        for (const s of seq) {
-          const vg = ENS.fill * secGain(g.beat) * (s.d >= 1 ? 1 : 0.9)
-          if (!violinVetoed(s.p, b, vg)) vi.fire(s.p + T, t0 + b * spb, s.d * spb + 0.25, vg)
-          b += s.d
-        }
+        for (const s of seq) { vi.fire(s.p + T, t0 + b * spb, s.d * spb + 0.25, ENS.fill * secGain(g.beat) * (s.d >= 1 ? 1 : 0.9)); b += s.d }
       })
       for (const e of chordEvents) {
         if (levelAt(e.startBeat) !== 'chorus') continue
@@ -1157,11 +994,11 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
         if (room < 0.6) continue
         const pick = tones[Math.min(tones.length - 1, 1)]
         if (e.beats >= 3 && tones.length >= 2) {
-          if (!violinVetoed(pick, enter, ENS.counter)) vi.fire(pick + T, t0 + enter * spb, 1.1 * spb + 0.2, ENS.counter)
+          vi.fire(pick + T, t0 + enter * spb, 1.1 * spb + 0.2, ENS.counter)
           const nxt = tones[Math.min(tones.length - 1, 2)]
-          if (!violinVetoed(nxt, enter + 1.3, ENS.counter)) vi.fire(nxt + T, t0 + (enter + 1.3) * spb, Math.min(room - 1.3, 1.4) * spb + 0.3, ENS.counter)
+          vi.fire(nxt + T, t0 + (enter + 1.3) * spb, Math.min(room - 1.3, 1.4) * spb + 0.3, ENS.counter)
         } else {
-          if (!violinVetoed(pick, enter, ENS.counter)) vi.fire(pick + T, t0 + enter * spb, Math.min(room, 1.6) * spb + 0.3, ENS.counter)
+          vi.fire(pick + T, t0 + enter * spb, Math.min(room, 1.6) * spb + 0.3, ENS.counter)
         }
       }
     }

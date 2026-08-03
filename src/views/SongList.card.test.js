@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
-import live717 from '../lib/__fixtures__/717-live.json'
+import live717 from '../components/__fixtures__/717-live.json'
 
 const h = vi.hoisted(() => ({ rows: [] }))
 
@@ -22,6 +22,7 @@ vi.mock('../supabase.js', () => ({
     from: () => {
       const q = {}
       q.select = () => q
+      q.is = () => q
       q.order = () => Promise.resolve({ data: h.rows, error: null })
       return q
     },

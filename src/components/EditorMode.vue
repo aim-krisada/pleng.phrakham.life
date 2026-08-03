@@ -1,21 +1,18 @@
 <script setup>
-import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
+import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { KEYS, TIME_SIGNATURES, chordOptions, isValidChord } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, canonicalizeNote } from '../lib/notation.js'
+import { KEYS, TIME_SIGNATURES, chordOptions, parseChord } from '../lib/chords.js'
+import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, HOLD_STEP, HOLD_MIN, snapHalf, slurSpans } from '../lib/notation.js'
+import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
-import { mintMarkerIds, stripEditorMarkerIds, findOrphanFlows, allMarkerIds, voltaNums, isNonEmptyFlow } from '../lib/songFlow.js'
-import { migrateToV2, splitSyllables, joinSyllables, resolveContent } from '../lib/songModel.js'
-import {
-  newSegment, barShell, newBar, newLine, deserializeLine, serializeLine,
-  rest, CONTENT_KEYS, STANZA_KEYS, ARRANGEMENT_KEYS,
-} from '../lib/editorSerde.js'
-import { THEME_OPTIONS, CATEGORY_OPTIONS } from '../lib/songMeta.js'
+import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, setCaption } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs, categoryName } from '../lib/bookshelf.js'
-import { findTitleConflicts } from '../lib/songTitleKey.js'
-import { sortSongs, DEFAULT_SORT } from '../lib/songSort.js'
+import { sortSongs } from '../lib/songSort.js'
+import { pendingReview } from '../lib/reviewQueue.js'
+import { WORK_WORDS } from '../i18n/workWords.js'
+import { findTitleConflicts, earlyDupNote } from '../lib/songTitleKey.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
@@ -43,8 +40,12 @@ const props = defineProps({
   song: { type: Object, default: null },
   tier: { type: String, default: 'anon' },
   active: { type: Boolean, default: false },
+  // 717 — which lyric set the reader was on in ดู. Coming into แก้ไข on the set you were just
+  // looking at is the whole point of the tabs; landing on set 1 every time means the first
+  // thing you do is re-pick the set you already picked. 0 for every ordinary song.
+  initialSet: { type: Number, default: 0 },
 })
-const emit = defineEmits(['change', 'save', 'dock', 'new-song'])
+const emit = defineEmits(['change', 'save', 'dock'])
 
 // help-in-context (notation-standard · ทางเสริม ข): the song-maker's standard opens in a NEW
 // tab so in-progress keying is never lost (Tier 0 has no autosave). BASE_URL keeps the hash
@@ -63,10 +64,30 @@ const loggedIn = computed(() => props.tier !== 'anon')
 // the teleported chrome (title input + เพลง/จัดการ menus) renders only while this mode is on
 const editing = computed(() => props.active)
 
-onMounted(() => {
+// Deep link into a panel. The landing page's "📨 รอตรวจ" chip has to send พี่เปา to a list of
+// the drafts waiting for him, and that list already exists here (จัดการ ▸ งานร่าง / รอตรวจ) —
+// copying it onto the landing page would mean two lists to keep in step, and only this one can
+// open / send back / approve a draft. So the chip navigates to /studio?panel=drafts and we open
+// the same panel the menu item opens. loadDrafts() above fills it in as the query returns.
+// `route` is undefined when the editor is mounted on its own (the component tests mount it
+// without a router), so read it defensively — a deep link is a nice-to-have, never a reason
+// for the editor to fail to mount.
+const route = useRoute()
+onMounted(async () => {
   loadSongList()
-  loadDrafts()
+  const draftsReady = loadDrafts()
   loadProfilesMap()
+  if (route?.query?.panel === 'drafts' && loggedIn.value) openPanel('drafts')
+  // `?draft=<id>` — เปิดงานร่างใบที่ระบุมาตรง ๆ. หน้าแรกส่งมาเมื่อพี่เปากดแถวในรายการ "รอตรวจ"
+  // ที่ตอนนี้อยู่ในหน้าแรกแล้ว: เขาเลือกใบที่จะทำจากหน้าแรก แล้วมาถึงที่นี่พร้อมใบนั้นเปิดรออยู่
+  // ⛔ ไม่ต้องเปิดแผงแล้วให้เขาไล่หาซ้ำอีกรอบ · ใช้ loadDraft ตัวเดียวกับที่แผงใช้ ⛔ ไม่เขียนใหม่
+  // ต้องรอ loadDrafts() ให้เสร็จก่อน เพราะรายการยังว่างอยู่ตอนที่ onMounted เริ่มทำงาน
+  const wantId = route?.query?.draft
+  if (wantId && loggedIn.value) {
+    await draftsReady
+    const d = [...pendingDrafts.value, ...myDrafts.value].find((x) => x && x.id === wantId)
+    if (d) loadDraft(d)
+  }
 })
 onUnmounted(stopPlayback)
 
@@ -82,20 +103,205 @@ watch(session, () => {
 // ---------- editing model (song model v2) ----------
 // A song is a set of MELODIES (stanzas, entered once, no lyrics) plus an
 // ARRANGEMENT (play order — each row links a stanza and supplies only its words).
-// The bar/segment editor below edits the ACTIVE stanza's lines via the `lines` computed,
-// so all the existing line/bar/segment code keeps working. The line <-> stored-items
-// bridge (newSegment/newBar/newLine, deserializeLine, serializeLine) lives in
-// lib/editorSerde.js — it is LOSSLESS: anything the editor doesn't model (a segment's
-// `holds`, an imported symbol, a future field) round-trips untouched instead of being
-// dropped on save. The R1 marker ids (repeatStartId/repeatEndId/voltaId/markerId) + R2
-// times/voltaRaw are modelled THERE too, so they survive a structural rebuild. See its header.
+// The bar/segment editor below is unchanged: it edits the ACTIVE stanza's lines via
+// the `lines` computed, so all the existing line/bar/segment code keeps working.
+function newSegment() {
+  return { chord: '', note: '', lyric: '' }
+}
+// A bar can carry repeat marks: repeatStart '‖:' (loop back to here), repeatEnd ':‖'
+// (jump back to the last repeatStart), and volta 1/2 (this bar is the 1st / 2nd ending).
+// `pickup` (ห้องยก / anacrusis) marks a bar that is intentionally short because its
+// beats are completed by another partial bar — a stanza-opening pickup paired with the
+// short final bar, or a bar split across a line. Flagged bars are validated as a GROUP
+// (their beats must sum to a whole number of bars), never red individually (B055).
+function barShell() {
+  // The id/times/volta-list fields below are DATA-SAFETY CARRIERS, not editable state: v1 has no
+  // UI that writes them (the marker toolbar lives in the /v2 editor), so only the line serde
+  // reads and re-emits them. They exist so a load → save round-trip on `/` cannot strip the flow
+  // anchors (`id`) and round counts (`times`) a newer editor wrote to the SAME database — an `id`
+  // dropped while `arrangement[].flow` survives leaves a directive pointing at nothing, which
+  // songFlow treats as an orphan and silently ignores (→ the wrong number of repeats is sung).
+  return { segments: [], repeatStart: false, repeatEnd: false, volta: 0, pickup: false,
+    repeatStartId: '', repeatEndId: '', voltaId: '', repeatTimes: null }
+}
+function newBar() {
+  return { ...barShell(), segments: [newSegment()] }
+}
+function newLine() {
+  return { marker: '', markerId: '', cont: false, label: '', section: '', end: false, bars: [newBar()] }
+}
+// A bar carries play-order meaning even with no note of its own when it holds a repeat boundary,
+// a volta ending or a pickup. Used by the empty-bar filter so a note-less ‖: / :‖ / 1./2. ending
+// survives a load → save round-trip instead of being deleted together with its (empty) bar.
+function barHasMarker(b) {
+  return !!(b && (b.repeatStart || b.repeatEnd || b.volta || b.pickup ||
+    b.repeatStartId || b.repeatEndId || b.voltaId))
+}
+
+const clone = (x) => JSON.parse(JSON.stringify(x))
+
+// An id identifies ONE marker, so a COPY must never inherit it: two items sharing an id make a
+// verse's `flow` ambiguous (the directive would silently apply to a copy nobody asked for). v1 has
+// no UI that mints ids, so a copy simply gets none — the /v2 editor does the same on every clone
+// path (stripEditorMarkerIds, "R1 rule 2: fresh ids"). Covers `_unknown` items too, because an
+// imported jump/segno carries its id in the same namespace (songFlow scans every item's `id`).
+function stripMarkerIds(node) {
+  if (!node || typeof node !== 'object') return node
+  if ('markerId' in node) node.markerId = ''
+  for (const u of node._unknown || []) if (u.item && typeof u.item === 'object') delete u.item.id
+  // accepts either a line (has `bars`) or a single bar (has `segments`) — both are copied shapes
+  const bars = Array.isArray(node.bars) ? node.bars : Array.isArray(node.segments) ? [node] : []
+  for (const b of bars) {
+    b.repeatStartId = ''
+    b.repeatEndId = ''
+    b.voltaId = ''
+  }
+  return node
+}
+
+function deserializeLine(items) {
+  const src = Array.isArray(items) ? items : []
+  const line = { marker: '', markerId: '', cont: false, label: '', section: '', end: false, bars: [] }
+  let bar = barShell()
+  // item types this editor has no branch for (an imported symbol, a {type:'jump'} D.S./Coda, a
+  // future token): kept whole and anchored to the note they followed, so a save never deletes
+  // them. Anchoring matters — a mid-line D.S. moved to the line end silently reroutes playback.
+  const unknown = []
+  let segCount = 0
+  for (const it of src) {
+    if (it?.type === 'continue') line.cont = true
+    else if (it?.type === 'section') line.section = it.name || ''
+    else if (it?.type === 'label') line.label = it.text || ''
+    else if (it?.type === 'end') line.end = true
+    else if (it?.type === 'marker') { line.marker = it.label || '***'; line.markerId = it.id || '' }
+    else if (it?.type === 'repeat-start') { bar.repeatStart = true; bar.repeatStartId = it.id || '' }
+    else if (it?.type === 'repeat-end') {
+      bar.repeatEnd = true
+      bar.repeatEndId = it.id || ''
+      bar.repeatTimes = it.times ?? null
+    } else if (it?.type === 'pickup') bar.pickup = true
+    else if (it?.type === 'volta') { bar.volta = it.num || 0; bar.voltaId = it.id || '' }
+    else if (it?.type === 'bar') {
+      line.bars.push(bar)
+      bar = barShell()
+    } else if (it?.type === 'segment') {
+      // `_raw` = the whole original item, so a per-segment key this version does not model
+      // (today's `holds` was one; tomorrow's will be another) rides through untouched. The
+      // editor still reads/writes only chord/note/lyric on the segment itself.
+      const seg = { chord: it.chord || '', note: it.note || '', lyric: it.lyric || '', _raw: clone(it) }
+      // fermata hold values (absolute beats per note-box) — carried through unchanged; pruned
+      // to boxes that still hold a fermata on save so stale keys can't linger.
+      if (it.holds && typeof it.holds === 'object') seg.holds = { ...it.holds }
+      bar.segments.push(seg)
+      segCount++
+    } else unknown.push({ after: segCount, item: clone(it) })
+  }
+  line.bars.push(bar)
+  // Drop only TRULY empty bars — a segment-less bar that still carries a repeat/volta/pickup is
+  // play-order data, and losing it changes how many times a phrase is sung.
+  line.bars = line.bars.filter((b) => b.segments.length || barHasMarker(b))
+  if (!line.bars.length) line.bars = [newBar()]
+  if (unknown.length) line._unknown = unknown
+  return line
+}
+
+// ---- data-safety: never destroy what this editor does not model -------------------------
+// This editor rebuilds `content` from its own state on every save, so any key it does not
+// itself know about used to vanish the first time someone pressed บันทึก. The permanent
+// lyric-set `id` a shared link points at is the first such key (migration 2026-07-26) and
+// will not be the last, so the rule is general, NOT a whitelist of one more field: capture
+// every unknown key on load, spread it back on save. (Same pass-through the /v2 editor uses
+// — src/lib/editorSerde.js there; kept local here to keep the frozen v1 line's diff small.)
+// The key lists below must stay in step with what previewContent actually emits, or a key
+// the editor DOES model would be stashed twice.
+const CONTENT_KEYS = ['version', 'key', 'timeSignature', 'bpm', 'stanzas', 'arrangement', 'lyricSets', 'lines']
+const STANZA_KEYS = ['id', 'lines']
+const ARRANGEMENT_KEYS = ['stanza', 'label', 'syllables', 'key', 'set', 'afterEachVerse']
+const LYRIC_SET_KEYS = ['name', 'label']
+// Every key of `obj` the editor does not model, deep-cloned so the captured copy can never
+// alias (and be mutated through) the loaded row.
+function rest(obj, known) {
+  const out = {}
+  if (!obj || typeof obj !== 'object') return out
+  const set = new Set(known)
+  for (const k of Object.keys(obj)) {
+    if (!set.has(k)) out[k] = JSON.parse(JSON.stringify(obj[k]))
+  }
+  return out
+}
+
+// Keep only the holds whose note-box still carries a fermata (`^`) and are on the 0.5 grid — so a
+// value orphaned by editing/deleting the note (box indices shift) never persists. Returns null when
+// nothing is left, so a clean segment stays free of a `holds` key.
+function pruneHolds(note, holds) {
+  if (!holds || typeof holds !== 'object') return null
+  const boxes = (note || '').trim() ? note.trim().split(/\s+/) : []
+  const out = {}
+  for (const [k, v] of Object.entries(holds)) {
+    const bi = Number(k)
+    const box = boxes[bi]
+    if (box == null || !Number.isFinite(Number(v))) continue
+    if (parseNotes(box).some((t) => t.type === 'note' && t.fermata)) out[bi] = Math.max(HOLD_MIN, snapHalf(v))
+  }
+  return Object.keys(out).length ? out : null
+}
+
+// A stanza is a melody — segments carry no lyric (the arrangement supplies words),
+// so an empty lyric is dropped from the serialized item to keep the v2 JSON clean.
+function serializeLine(line) {
+  const items = []
+  // Re-emit each `_unknown` item at the segment it was anchored to on load (`after` = how many
+  // notes preceded it), never lumped at the line end: for a {type:'jump'} D.S./Coda the POSITION
+  // is the whole meaning. Trailing anchors (at/after the last note) keep the end placement.
+  const totalSegs = line.bars.reduce((n, b) => n + (b.segments?.length || 0), 0)
+  const unknowns = (line._unknown || []).map((u) => ({ after: u.after || 0, item: u.item, done: false }))
+  const flushUnknownsAt = (segCount) => {
+    if (segCount >= totalSegs) return
+    for (const u of unknowns) if (!u.done && u.after === segCount) { items.push(clone(u.item)); u.done = true }
+  }
+  if (line.section?.trim()) items.push({ type: 'section', name: line.section.trim() })
+  if (line.cont) items.push({ type: 'continue' })
+  if (line.marker) items.push({ type: 'marker', label: line.marker, ...(line.markerId ? { id: line.markerId } : {}) })
+  flushUnknownsAt(0) // an unknown anchored before the first note
+  let segSeen = 0
+  line.bars.forEach((b, i) => {
+    // a repeat-start IS the left barline; otherwise a plain barline between bars
+    if (b.repeatStart) items.push({ type: 'repeat-start', ...(b.repeatStartId ? { id: b.repeatStartId } : {}) })
+    else if (i > 0) items.push({ type: 'bar' })
+    if (b.pickup) items.push({ type: 'pickup' })
+    if (b.volta) items.push({ type: 'volta', num: b.volta, ...(b.voltaId ? { id: b.voltaId } : {}) })
+    for (const s of b.segments) {
+      // start from the ORIGINAL item so unknown segment keys survive, then refresh only what this
+      // editor owns. A brand-new segment (no `_raw`) yields the classic { type, chord, note[, …] }.
+      const seg = s._raw ? clone(s._raw) : {}
+      seg.type = 'segment'
+      seg.chord = s.chord
+      seg.note = s.note
+      if (s.lyric) seg.lyric = s.lyric
+      else delete seg.lyric
+      const holds = pruneHolds(s.note, s.holds)
+      if (holds) seg.holds = holds
+      else delete seg.holds
+      delete seg._raw // a nested carrier can never reach the database
+      items.push(seg)
+      flushUnknownsAt(++segSeen) // an unknown anchored right after this note
+    }
+    // the round count (`times`) and the flow anchor (`id`) ride back out with the repeat they
+    // belong to, so a verse's `flow` keeps pointing at a repeat that still exists
+    if (b.repeatEnd) {
+      items.push({ type: 'repeat-end', ...(b.repeatEndId ? { id: b.repeatEndId } : {}),
+        ...(b.repeatTimes != null ? { times: b.repeatTimes } : {}) })
+    }
+  })
+  if (line.label?.trim()) items.push({ type: 'label', text: line.label.trim() })
+  if (line.end) items.push({ type: 'end' })
+  for (const u of unknowns) if (!u.done) items.push(clone(u.item)) // trailing, in load order
+  return items
+}
 
 const editingId = ref(null)
 const currentDraftId = ref(null)
-// The draft row actually open in the editor (null = editing the published song). This is
-// the only navigation-set part of the identity; everything else about "whose version is
-// this" is derived from it + the loaded drafts (see openPendingDraft / reviewingDraft).
-const openDraft = ref(null)
+const reviewingDraft = ref(null)
 const reviewComment = ref('')
 const pickerId = ref('')
 const meta = reactive({ number: null, title_th: '', title_en: '', category: 'anuchon', theme: '' })
@@ -128,9 +334,26 @@ const isKnown = (row, key) => row != null && row[key] != null
 // library uses (from the songs.theme column); หมวด = the book/collection code (anuchon =
 // ไทยอนุชน 120 · docs/pm/book-codes.md). Both are set-and-forget dropdowns so พี่เปา can
 // fill them without fear of leaving the page.
-// The two lists now live in lib/songMeta.js — the inline editor (SongViewer's ✏️) offers the
-// SAME settings, and a taxonomy copied per editor is exactly how B108 wiped themes.
-const themeOptions = THEME_OPTIONS
+const THEMES = [
+  'กิตติคุณ',
+  'ความสุขแห่งความรอด',
+  'คริสตจักร',
+  'ประสบการณ์',
+  'พระคัมภีร์',
+  'มอบถวาย',
+  'รักปรารถนา',
+  'อาณาจักร',
+]
+const themeOptions = [{ value: '', label: '— ไม่ระบุธีม —' }, ...THEMES.map((t) => ({ value: t, label: t }))]
+// The 3 canonical books (P'Aim 12 ก.ค. — see docs/ds/home-redesign.md §Taxonomy) are the ONLY
+// choices in the "หมวด" ComboSelect. Hard lock: no allow-custom — a value not in this list must
+// not stick, so an editor can only pick one of the 3 books. Extending the taxonomy (rename or a
+// 4th book) is an admin job (B096, deferred), not a free-text field. 1 song = 1 book (single-select).
+const CATEGORY_OPTIONS = [
+  { value: 'lem-yai', label: 'เล่มใหญ่' },
+  { value: 'anuchon', label: 'อนุชน' },
+  { value: 'dek-lek', label: 'เด็กเล็ก' },
+]
 
 // melodies + play order (v2). An arrangement row stores its words as a `syllables`
 // array (one token per syllable-bearing note) so the per-note lyric boxes under the
@@ -139,10 +362,109 @@ const stanzas = ref([{ id: 'A', lines: [newLine()] }])
 const activeStanza = ref(0)
 const arrangement = ref([{ stanza: 'A', label: '', syllables: [], key: '' }])
 const migrateWarnings = ref([]) // set when a v1 song is auto-split on load (author reviews)
-// Data-safety: unknown keys the editor doesn't model, captured on load and spread back on save
-// so nothing is dropped (mirror of the segment/line pass-through in lib/editorSerde.js). Held at
-// the content top-level, per stanza (`_extra`), and per arrangement row (`_extra`).
-const contentExtras = ref({})
+
+// ---------- 717 multi-lyric: lyric SETS (แบบ — one melody, several word sets you SWITCH) ----
+// A set groups arrangement rows via `row.set`; a row with set==null is shared across all sets.
+// `lyricSets` empty = an ordinary song (no set tabs, everything is one set). This is the AUTHOR
+// side of the same model the reader (SongViewer) already switches on: content.lyricSets[] +
+// arrangement[].set → maps to MusicXML <lyric number>. Notes/chords (the stanza) stay shared.
+const lyricSets = ref([]) // [{ name, label }] — >0 shows the set tabs in the editor
+const activeSet = ref(0)
+// the tabs to render: a song with no declared sets still shows "เนื้อร้องที่ 1" so ＋ เพิ่มชุด can
+// bootstrap the second set (matches the reader: tabs only actually appear once >1 set exists).
+// `display` = the caption the author sees everywhere (tab, hint, delete confirm) — resolved by
+// the shared lyricSetName(), so editor and reader can never caption a set differently.
+const setTabs = computed(() =>
+  (lyricSets.value.length ? lyricSets.value : [{}]).map((s, i) => ({
+    ...s,
+    display: lyricSetName(s, i),
+  })),
+)
+function selectSet(i) {
+  activeSet.value = i
+  const gi = arrangement.value.findIndex((r) => (r.set ?? 0) === i)
+  if (gi >= 0) focusRow(gi) // jump the lens to a row of this set so editing targets it
+}
+// 717 — adopt the reader's tab on the way IN to แก้ไข (not on every render), so ดู → แก้ไข
+// lands on the set that was on screen. Clamped, because the set could have been deleted in
+// this editor since. Only for a song that actually declares sets — everything else is set 0
+// already and must not have its row lens moved.
+watch(
+  () => props.active,
+  (on) => {
+    if (!on || lyricSets.value.length <= 1) return
+    const i = Math.min(Math.max(0, props.initialSet | 0), lyricSets.value.length - 1)
+    if (i !== activeSet.value) selectSet(i)
+  },
+)
+
+// ---- progressive disclosure (P'Aim, 26 ก.ค.) --------------------------------------------
+// ONE set — which is nearly the whole library — shows no tabs at all, only a light
+// "＋ เพิ่มชุดเนื้อร้อง" way in, so an ordinary song pays nothing for a feature it doesn't use.
+//
+// MORE THAN ONE shows the strip OPEN, never folded. The reader folds its switcher because you
+// choose a set once and then sing; in here the active set is the thing you are typing into, so
+// hiding it behind a fold would make "which words am I editing?" a click away at all times
+// (P'Aim, 26 ก.ค.: "โหมดแก้ไข ต้องสลับชุดได้ง่าย").
+const hasManySets = computed(() => lyricSets.value.length > 1)
+// ＋ เพิ่มชุด — a new WORD set over the SAME melody. First press bootstraps: the existing rows
+// become set 0, then a fresh empty row (linked to the shared stanza) is added as the new set.
+// A new set carries NO caption in its data (26 ก.ค.). The caption is derived from the set's
+// POSITION at render time, so writing it into the row would only bake in a number that goes stale
+// the moment a middle set is deleted — and the stale copy would then leak into search. An empty
+// set object is enough for the reader: >1 set shows the tabs, lyricSetName supplies the text.
+function addLyricSet() {
+  if (!lyricSets.value.length) {
+    lyricSets.value = [{}]
+    arrangement.value.forEach((r) => { if (r.set == null) r.set = 0 })
+  }
+  const idx = lyricSets.value.length
+  lyricSets.value.push({})
+  const stanza = arrangement.value.find((r) => (r.set ?? 0) === 0)?.stanza || stanzas.value[0]?.id || 'A'
+  arrangement.value.push({ stanza, set: idx, label: '', syllables: [], key: '' })
+  selectSet(idx)
+  // The new set is now the one your typing goes into, and on a small screen the tab strip may be
+  // off-screen — so say which set that is (the same aria-live channel the delete uses).
+  removeSetMsg.value = `เพิ่มชุดเนื้อร้องแล้ว · กำลังพิมพ์ที่ ${setCaption(idx)}`
+}
+// ลบชุดเนื้อ — destructive, so a styled confirm (naming the set) gates it. Deletes ONLY that
+// set's words (rows tagged r.set === i); the shared melody (stanzas) and any shared entry
+// (no `set`) survive. The last set can never be deleted (a song needs ≥1 set of words). When
+// one set is left the song COLLAPSES back to an ordinary song — lyricSets cleared and every
+// `set` key stripped — so it round-trips byte-identical to a never-717 song.
+const confirmDelSet = ref(-1) // set index pending delete (-1 = no dialog)
+const removeSetMsg = ref('') // aria-live announcement after a delete
+function askRemoveLyricSet(i) {
+  if (lyricSets.value.length <= 1) return // guard (button is also disabled)
+  confirmDelSet.value = i
+}
+function cancelRemoveLyricSet() {
+  confirmDelSet.value = -1
+}
+function doRemoveLyricSet() {
+  const i = confirmDelSet.value
+  confirmDelSet.value = -1
+  if (i < 0 || lyricSets.value.length <= 1) return
+  const label = setTabs.value[i]?.display || setCaption(i)
+  // drop this set's rows (explicit r.set === i); shared rows (set == null) are untouched
+  arrangement.value = arrangement.value.filter((r) => r.set !== i)
+  // reindex sets after i down by one so the remaining sets stay contiguous — which is also what
+  // RENUMBERS the captions: delete the middle of three and the last one now reads "เนื้อร้องที่ 2"
+  // because the caption comes from its position, with nothing stored to go stale.
+  arrangement.value.forEach((r) => { if (r.set != null && r.set > i) r.set -= 1 })
+  lyricSets.value.splice(i, 1)
+  // one set left → back to an ordinary song: no lyricSets, no `set` keys (byte-identical)
+  if (lyricSets.value.length <= 1) {
+    lyricSets.value = []
+    arrangement.value.forEach((r) => { delete r.set })
+  }
+  if (!arrangement.value.length) {
+    arrangement.value.push({ stanza: stanzas.value[0]?.id || 'A', label: '', syllables: [], key: '' })
+  }
+  activeSet.value = Math.min(Math.max(0, i - 1), Math.max(0, (lyricSets.value.length || 1) - 1))
+  nextTick(() => selectSet(activeSet.value))
+  removeSetMsg.value = `ลบ “${label}” แล้ว`
+}
 
 // verse lens: which arrangement row's words to show under the active stanza's notes
 // (-1 = hidden). Lets the author type each syllable right under its note — the old
@@ -157,10 +479,15 @@ const editingLabelId = ref(-1) // arrangement index whose label is being renamed
 const editingLabelWhere = ref('') // 'rail' | 'canvas' — which surface opened the input
 const labelSnapshot = ref('') // pre-edit label, restored on Esc
 const melodyOpen = ref(false) // "ทำนอง (โน้ต)" secondary group — collapsed by default
+const mainOpen = ref(true) // "โครงเพลง" primary group — OPEN by default (used often; collapsible to save space)
 const dragFromRow = ref(-1) // drag reorder: source index (mouse DnD + touch pointer)
 const dragOverRow = ref(-1) // current drop-target index (drop indicator)
 const reorderMsg = ref('') // aria-live text announcing the new order (WCAG 2.5.7 fallback)
 const vFocus = { mounted: (el) => { el.focus(); el.select?.() } } // autofocus an inline input
+
+// unknown content top-level keys captured on load (see rest() above); the per-stanza,
+// per-arrangement-row and per-lyric-set ones ride on each item's own `_extra`.
+const contentExtras = ref({})
 
 const saveMsg = ref('')
 const playing = ref(false)
@@ -179,78 +506,68 @@ const lines = computed({
 })
 const activeStanzaId = computed(() => stanzas.value[activeStanza.value]?.id ?? '')
 
-const previewContent = computed(() => mintMarkerIds({
+const previewContent = computed(() => ({
   version: 2,
   key: opts.key,
   timeSignature: opts.timeSignature,
   bpm: opts.bpm || undefined,
-  // spread the captured unknown top-level keys back (excludes version/key/… so no collision)
+  // unknown top-level keys captured on load, spread back untouched (CONTENT_KEYS excludes
+  // everything emitted here, so this can never collide with a field the editor owns)
   ...contentExtras.value,
-  stanzas: stanzas.value.map((s) => ({ id: s.id, lines: s.lines.map(serializeLine), ...(s._extra || {}) })),
+  stanzas: stanzas.value.map((s) => ({
+    id: s.id,
+    lines: s.lines.map(serializeLine),
+    ...(s._extra || {}), // unknown per-stanza keys
+  })),
+  // 717: only emit lyricSets when the author actually made >1 set, so ordinary songs stay
+  // byte-identical (no lyricSets key, no `set` on rows).
+  // Emit only the keys a set actually carries. A set made here now carries NO caption at all
+  // (`{}` — the caption is positional, see addLyricSet), while a set that was SAVED with a
+  // `name`/`label` keeps it byte-identical: the editor no longer authors those fields but it must
+  // never be the thing that deletes them, because they are still what makes the wording a church
+  // remembers findable in search. Every key this editor does not model likewise rides back out of
+  // `_extra` untouched (the `id` behind a shared ?set= link is one, and will not be the last).
+  ...(lyricSets.value.length > 1
+    ? {
+        lyricSets: lyricSets.value.map((s) => ({
+          ...(s.name?.trim() ? { name: s.name.trim() } : {}),
+          ...(s.label?.trim() ? { label: s.label.trim() } : {}),
+          ...(s._extra || {}),
+        })),
+      }
+    : {}),
   arrangement: arrangement.value.map((r) => ({
     stanza: r.stanza,
     label: r.label?.trim() || '',
     syllables: r.syllables.map((t) => (t || '').trim()),
     ...(r.key ? { key: r.key } : {}),
+    // 717 — which lyric set this row belongs to (omitted when there are no sets, so the
+    // entry stays clean; a row with no `set` is shared across every set).
+    ...(lyricSets.value.length > 1 && r.set != null ? { set: r.set } : {}),
     // B102 — "ร้องรับทุกข้อ": the refrain is sung after every verse. Stored on the entry
     // (SSOT, visible in the downloaded JSON); playback (resolvePlayOrder) expands it.
     ...(r.afterEachVerse ? { afterEachVerse: true } : {}),
-    // R3 — per-verse repeat override (skip/times/ending/skipSections/jump/path). A first-class
-    // key ('flow' is in ARRANGEMENT_KEYS so rest() never also stashes it in _extra); only
-    // emitted when non-empty so the ~80% common verse stays clean in the saved JSON.
-    ...(isNonEmptyFlow(r.flow) ? { flow: normalizeFlow(r.flow) } : {}),
-    // any OTHER unknown per-row key (a future per-verse directive) rides through untouched
-    ...(r._extra || {}),
+    ...(r._extra || {}), // unknown per-row keys (a future per-verse directive)
   })),
-  // R1 safety net — fill any marker id a UI toggle missed. Idempotent, preserves existing ids,
-  // so the saved content always round-trips id-stable even if a handler was bypassed.
-}).content)
+}))
 
-// Drop empty sub-fields from a flow so a directive the user cleared doesn't linger in the JSON.
-function normalizeFlow(flow) {
-  const out = {}
-  if (Array.isArray(flow.skip) && flow.skip.length) out.skip = [...flow.skip]
-  if (flow.times && Object.keys(flow.times).length) {
-    const t = {}
-    for (const [k, v] of Object.entries(flow.times)) if (v != null) t[k] = Number(v)
-    if (Object.keys(t).length) out.times = t
-  }
-  if (flow.ending != null) out.ending = Number(flow.ending)
-  if (flow.jump != null && flow.jump !== '') out.jump = flow.jump
-  if (Array.isArray(flow.skipSections) && flow.skipSections.length) out.skipSections = [...flow.skipSections]
-  if (Array.isArray(flow.path) && flow.path.length) out.path = [...flow.path]
-  return out
-}
-
-// 717 multi-lyric — a song may carry several lyric SETS under one melody (`content.lyricSets`
-// + a per-row `set`, both pass-through keys this editor preserves but doesn't model yet). The
-// preview must show ONE set — the set of the row under the lens — because two sets stacked
-// read as "ข้อ 1 / ข้อ 2", which is a different song than either of them. No lyric sets → the
-// option is inert and the preview is byte-identical to before.
-const previewSet = computed(() => {
-  const s = arrangement.value[lensChoice.value]?._extra?.set
-  return Number.isInteger(s) ? s : 0
-})
 // The sheet + playback read v1-shaped `lines`, so resolve the arrangement first.
 const resolvedPreview = computed(() => ({
   ...previewContent.value,
-  lines: resolveContent(previewContent.value, { set: previewSet.value }),
+  lines: resolveContent(previewContent.value),
 }))
-
-// R4 — flow directives that point at a repeat/section no longer in the song. Playback already
-// ignores them (never guesses); this drives the visible "กำพร้า" notice + the publish lint flag.
-const flowOrphans = computed(() => findOrphanFlows(previewContent.value))
-// marker ids currently in the song, for the flow editor's "which repeat" picker (R5).
-const markerIds = computed(() => [...allMarkerIds(previewContent.value)])
 
 // valid chords only, diatonic chords of the current key listed first. chordOptions
 // already leads with a "— ไม่มีคอร์ด —" entry (value ''), so the picker reuses it —
 // picking that clears/merges a chord at a note (no duplicate "no chord" row).
 const chordOpts = computed(() => chordOptions(opts.key))
 const chordPickOpts = chordOpts
-// The chord cell is free-text (allow-custom) so the vocabulary is never capped by the
-// quick-pick; `isValidChord` (lib/chords.js — shared with the inline editor's chord box)
-// is what keeps junk out. Don't re-implement the gate here.
+
+// The quick-pick lists common chords, but worship music also uses maj7, m7b5, sus2/4, add9,
+// slash bass (G/B), °/+ etc. — anything the notation supports. So the chord field is free-text
+// (allow-custom): any string parseChord() accepts (a valid root [+ verbatim quality/extension]
+// [+ /bass]) is committed and transposes correctly; genuine junk (no valid root) is rejected.
+const isValidChord = (text) => parseChord(text) != null
 
 // ---------- verse lens (words under the notes) ----------
 // arrangement rows that link the stanza currently being edited
@@ -320,103 +637,6 @@ function setSyl(row, i, val) {
 // A missing/extra syllable in the middle shifts every later word off its note. These
 // insert/remove one slot and RIPPLE the rest across the whole ข้อ (past bars & lines).
 const focusedSlot = ref(-1) // global slot index whose ◀ ▶ tools are shown
-// dock-space joint-pass: the NOTE ("li-bi-si") whose contextual toolbox is open. Set on any
-// focus inside its .seg-col (note box OR syllable box — focusin bubbles), so the ONE merged
-// toolbox shows in every mode. SA §7 continuity: this is STICKY — it is NOT cleared on blur, so
-// folding/rotating/closing the keyboard (which blurs the input) keeps the toolbox + selection.
-// It is replaced when another note is focused, and cleared by an explicit pointer-down outside.
-const focusedSeg = ref('')
-// The STICKY syllable selection for the toolbox's ◀▶ (SA §7 continuity). Unlike `focusedSlot`
-// (live · blur-cleared · still drives the overflow strip), `selSlot` is NOT cleared on blur, so
-// folding/rotating/closing the keyboard keeps the ◀▶ on the selected syllable. -1 = a note box
-// (not a syllable) is the selection → the toolbox shows octave ▼▲ instead of ◀▶. No refocus is
-// ever forced, so this can't loop with the keyboard-aware hide (the loop PM flagged).
-const selSlot = ref(-1)
-// dock-space anchoring (tester GATE2 concern A): center the toolbox on the FOCUSED note/syllable's
-// x, not the whole segment (a wide melody segment put it up to 335px off). `tbxLeft` = the focused
-// element's centre x relative to its .seg-col (the toolbox's offset parent); `tbxShift` nudges it
-// back on-screen so it never runs off the edge. UX owns the vertical anchor + button CSS; this is
-// only the horizontal x + clamp (inline style overrides just left/transform, not `bottom`).
-const tbxLeft = ref(null)
-const tbxShift = ref(0)
-const tbxStyle = computed(() =>
-  tbxLeft.value == null ? null : { left: `${tbxLeft.value}px`, transform: `translateX(calc(-50% + ${tbxShift.value}px))` },
-)
-function anchorToolbox(el) {
-  const seg = el?.closest?.('.seg-col')
-  if (!el || !seg) return
-  const er = el.getBoundingClientRect(), sr = seg.getBoundingClientRect()
-  tbxLeft.value = er.left + er.width / 2 - sr.left // centre x within the seg-col
-  tbxShift.value = 0
-  nextTick(clampTbx)
-}
-function clampTbx() {
-  const tb = document.querySelector('.slot-tools')
-  if (!tb || tbxLeft.value == null) return
-  const r = tb.getBoundingClientRect(), m = 8
-  let dx = 0
-  if (r.left < m) dx = m - r.left
-  else if (r.right > window.innerWidth - m) dx = window.innerWidth - m - r.right
-  tbxShift.value = Math.round(dx)
-}
-function onSegFocus(e, li, bi, si) {
-  focusedSeg.value = `${li}-${bi}-${si}`
-  // focus landed on a note box (not a syllable) → note-entry selection, no ◀▶
-  if (e.target.classList?.contains('note-box')) selSlot.value = -1
-  toolLevel.value = 'note' // clicking/typing a note (or its lyric) selects the เนื้อ/โน้ต level
-  anchorToolbox(e.target) // centre the toolbox on the actually-focused element
-}
-function onSegOutside(e) {
-  // keep the selection (and its toolbar) alive while interacting with the note/syllable boxes
-  // OR the one bar toolbar (foot) — the note tools now live there, so clicking them must not
-  // clear focus. Clicking anywhere else closes it.
-  if (!e.target.closest?.('.seg-col') && !e.target.closest?.('.ed-bar-foot')) {
-    focusedSeg.value = ''
-    selSlot.value = -1
-  }
-}
-
-// ===== unified contextual toolbar — step 1 (P'Aim 21 ก.ค.) =====
-// The per-bar action buttons used to repeat under EVERY ห้อง (เปลืองที่). Show them only on the
-// ห้อง the user clicked into — i.e. the bar that holds the focused note. barToolsOn(li,bi) is the
-// gate; every other bar keeps only its ✓/❌ beat status. (Next steps fold note/บรรทัด/ข้อ tools
-// into this same one-place toolbar.)
-const toolCtx = computed(() => {
-  if (!focusedSeg.value) return null
-  const [li, bi, si] = focusedSeg.value.split('-').map(Number)
-  return { li, bi, si }
-})
-function barToolsOn(li, bi) {
-  const c = toolCtx.value
-  return !!c && c.li === li && c.bi === bi
-}
-// which level the one toolbar is editing — set by clicking a note/ห้อง/บรรทัด/ข้อ, or by the
-// quick-switch tabs. Default 'note' (the smallest unit you click). The toolbar shows ONLY this
-// level's tools (P'Aim 21 ก.ค.: no more note+bar mixed in one view).
-const toolLevel = ref('note') // 'note' | 'bar' | 'line' | 'verse'
-const TOOL_LEVELS = [
-  { id: 'note', label: 'เนื้อ/โน้ต' },
-  { id: 'bar', label: 'ห้อง' },
-  { id: 'line', label: 'บรรทัด' },
-  { id: 'verse', label: 'ข้อ' },
-]
-// click the ห้อง area (not a note box) → select that bar + show ห้อง tools. Focusing the bar's
-// first note keeps toolCtx/barToolsOn pointed here (so the one toolbar renders on this bar).
-function pickBar(li, bi, e) {
-  if (e && e.target.closest('.note-box, .syl-box, .chord-cell, button, input, select, .ed-bar-foot')) return
-  focusedSeg.value = `${li}-${bi}-0`
-  toolLevel.value = 'bar'
-}
-watch(focusedSeg, (v) => {
-  if (v) setTimeout(() => document.addEventListener('mousedown', onSegOutside), 0)
-  else document.removeEventListener('mousedown', onSegOutside)
-})
-// keep the open toolbox on-screen across rotate/resize (relative x is stable; re-clamp to viewport)
-onMounted(() => window.addEventListener('resize', clampTbx))
-onUnmounted(() => {
-  document.removeEventListener('mousedown', onSegOutside)
-  window.removeEventListener('resize', clampTbx)
-})
 function slotIdx(li, bi, si, k) {
   return (slotStarts.value[`${li}-${bi}-${si}`] ?? 0) + k - 1
 }
@@ -726,7 +946,11 @@ function addRow() {
   // type words immediately (SX5/P8: no "เลือกทำนอง" step to understand first).
   const prev = arrangement.value[arrangement.value.length - 1]
   const stanza = prev?.stanza || activeStanzaId.value || stanzas.value[0].id
-  arrangement.value.push({ stanza, label: '', syllables: [], key: '' })
+  // 717 — a ท่อน added while a set is active belongs to that set (so it stays with the set's
+  // words when the tabs filter). Ordinary songs (no sets) leave `set` undefined.
+  const row = { stanza, label: '', syllables: [], key: '' }
+  if (lyricSets.value.length) row.set = activeSet.value
+  arrangement.value.push(row)
   focusRow(arrangement.value.length - 1)
 }
 function removeRow(i) {
@@ -747,32 +971,6 @@ function focusRow(i) {
   } else {
     lensChoice.value = i
   }
-}
-
-// click-to-edit (issue6/7): click a bar on the whole-song preview → jump the cursor to that
-// exact bar in the EXISTING editor. Uses the provenance resolveContent already stamps
-// (_stanza / _stanzaLine / _entryIndex) — no new surface, no schema change. `si` is the
-// segment index within the resolved line (SongSheet's seg.si), mapped back to the source bar.
-function jumpToSource({ li, si }) {
-  const rLine = resolvedPreview.value.lines?.[li]
-  if (!rLine) return
-  const st = stanzas.value.find((s) => s.id === rLine._stanza)
-  const srcLine = st?.lines?.[rLine._stanzaLine]
-  if (!srcLine) return
-  // find which bar the si-th segment sits in
-  let count = -1
-  let targetBar = 0
-  for (let b = 0; b < srcLine.bars.length; b++) {
-    let hit = false
-    for (let s = 0; s < srcLine.bars[b].segments.length; s++) {
-      if (++count === si) { targetBar = b; hit = true; break }
-    }
-    if (hit) break
-  }
-  // focusRow points activeStanza + lens at the clicked verse; then focus the bar once its
-  // note boxes have re-rendered for the (possibly newly) active stanza.
-  if (rLine._entryIndex != null && rLine._entryIndex >= 0) focusRow(rLine._entryIndex)
-  nextTick(() => nextTick(() => focusBar(rLine._stanzaLine, targetBar, false)))
 }
 // reorder a ท่อน from → to (shared by ▲▼ and drag) — the moved row stays selected.
 function moveRowTo(from, to) {
@@ -805,103 +1003,6 @@ function toggleAfterEachVerse(i, on) {
   if (on) arrangement.value.forEach((r, k) => { r.afterEachVerse = k === i })
   else row.afterEachVerse = false
 }
-
-// ---- R3/R5 — per-verse repeat flow (patterns 2,3,4,6). Human-language controls that write
-// `arrangement[i].flow`; the melody is never copied. "มีค่า = ใช้ค่านั้น" precedence: an empty
-// flow is deleted so the ~80% common verse stays clean. See docs/ds/repeat-flow-override.md. ----
-const flowPanelOpen = ref(false) // "การวนของข้อนี้" section expanded on the current verse
-const flowAdvancedOpen = ref(false) // progressive disclosure — raw flow JSON (path / power edits)
-const flowJsonError = ref('')
-// the repeats (with ids) that belong to a verse's melody — drives the "เล่นกี่รอบ" controls
-function stanzaRepeats(stanzaId) {
-  const s = (previewContent.value.stanzas || []).find((x) => x.id === stanzaId)
-  const out = []
-  for (const line of s?.lines || []) for (const it of line) {
-    if (it.type === 'repeat-end' && it.id) out.push({ id: it.id, times: it.times ?? 2 })
-  }
-  return out
-}
-// the refrain (afterEachVerse) row, if any — its stanza is what skipSections drops after a verse
-const refrainStanza = computed(() => {
-  const r = arrangement.value.find((x) => x.afterEachVerse)
-  return r ? r.stanza : null
-})
-function ensureFlow(row) { if (!row.flow) row.flow = {}; return row.flow }
-// prune empties so a cleared control removes the whole flow (keeps saved JSON minimal)
-function tidyFlow(row) {
-  const f = row.flow
-  if (f && !isNonEmptyFlow(f)) row.flow = null
-}
-// pattern 2 — "ข้อนี้ไม่วนซ้ำ": skip every repeat for this verse (skip:["*"])
-function verseSkipAll(row) { return !!(row.flow && Array.isArray(row.flow.skip) && row.flow.skip.includes('*')) }
-function setVerseSkipAll(row, on) {
-  const f = ensureFlow(row)
-  f.skip = on ? ['*'] : (f.skip || []).filter((x) => x !== '*')
-  if (!f.skip.length) delete f.skip
-  tidyFlow(row)
-}
-// pattern 4 — "เล่นกี่รอบ" per repeat (times override; blank = melody default)
-function verseTimes(row, id) { return row.flow && row.flow.times ? (row.flow.times[id] ?? '') : '' }
-function setVerseTimes(row, id, val) {
-  const n = Number(val)
-  const f = ensureFlow(row)
-  if (!f.times) f.times = {}
-  if (val === '' || !Number.isFinite(n) || n < 1) delete f.times[id]
-  else f.times[id] = Math.floor(n)
-  if (!Object.keys(f.times).length) delete f.times
-  tidyFlow(row)
-}
-// pattern 3 — "เข้าห้องจบชุดที่ N" (forced ending; blank = melody default)
-function verseEnding(row) { return row.flow && row.flow.ending != null ? row.flow.ending : '' }
-function setVerseEnding(row, val) {
-  const n = Number(val)
-  const f = ensureFlow(row)
-  if (val === '' || !Number.isFinite(n) || n < 1) delete f.ending
-  else f.ending = Math.floor(n)
-  tidyFlow(row)
-}
-// pattern 6 — "ไม่ต้องร้องรับหลังข้อนี้": drop the refrain after this verse (skipSections)
-function verseSkipRefrain(row) {
-  const rs = refrainStanza.value
-  return !!(rs && row.flow && Array.isArray(row.flow.skipSections) && row.flow.skipSections.includes(rs))
-}
-function setVerseSkipRefrain(row, on) {
-  const rs = refrainStanza.value
-  if (!rs) return
-  const f = ensureFlow(row)
-  const set = new Set(f.skipSections || [])
-  if (on) set.add(rs); else set.delete(rs)
-  f.skipSections = [...set]
-  if (!f.skipSections.length) delete f.skipSections
-  tidyFlow(row)
-}
-// R4 — strip every orphan reference (skip/times/skipSections/path pointing at a deleted id or
-// section) from the flows, then tidy. Undo (docState) restores both the marker and the flow.
-function clearOrphanFlows() {
-  const ids = new Set(markerIds.value)
-  const stanzaIds = new Set(previewContent.value.stanzas.map((s) => s.id))
-  for (const row of arrangement.value) {
-    const f = row.flow
-    if (!isNonEmptyFlow(f)) continue
-    if (Array.isArray(f.skip)) f.skip = f.skip.filter((x) => x === '*' || ids.has(x))
-    if (f.times) for (const k of Object.keys(f.times)) if (!ids.has(k)) delete f.times[k]
-    if (Array.isArray(f.skipSections)) f.skipSections = f.skipSections.filter((x) => stanzaIds.has(x))
-    if (Array.isArray(f.path)) f.path = f.path.filter((x) => ids.has(x) || stanzaIds.has(x))
-    tidyFlow(row)
-  }
-}
-// advanced (progressive disclosure) — raw flow JSON, for `path` (pattern 8) + power edits
-function verseFlowJson(row) { return row.flow ? JSON.stringify(row.flow, null, 0) : '' }
-function setVerseFlowJson(row, text) {
-  const t = (text || '').trim()
-  if (!t) { row.flow = null; flowJsonError.value = ''; return }
-  try {
-    const parsed = JSON.parse(t)
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) { row.flow = parsed; tidyFlow(row); flowJsonError.value = '' }
-    else flowJsonError.value = 'ต้องเป็นอ็อบเจกต์ เช่น {"skip":["*"]}'
-  } catch { flowJsonError.value = 'JSON ไม่ถูกต้อง' }
-}
-
 // ---- inline rename (rail row + canvas header edit the same row.label — P1/P5) ----
 function startRename(i, where) {
   labelSnapshot.value = arrangement.value[i]?.label ?? ''
@@ -1080,27 +1181,6 @@ function barStatus(li, bi) {
   const short = !joined && got > 0.01 && got < expBeats.value - 0.01
   return { text: `${pre}${fmt(got)}/${fmt(expBeats.value)} จังหวะ`, ok, short }
 }
-// G1 — a bar holding a note whose modifiers were written out of canonical order. Since
-// the parser now reads any order, such a bar counts its beats correctly and its ❌ goes
-// away — which would make the swap INVISIBLE, the very thing that let these five spots
-// sit unnoticed in the library. So the bar carries its own warning chip instead: what is
-// stored, what it is read as. The data is NOT touched; a person compares with the printed
-// original and decides (docs/ds/note-symbol-set.md §1.2.1 · lint rule R10).
-function barOrderWarn(li, bi) {
-  const bar = lines.value[li]?.bars[bi]
-  if (!bar) return []
-  return bar.segments
-    .flatMap((s) => String(s.note || '').split(/\s+/))
-    .filter(Boolean)
-    .filter((box) => canonicalizeNote(box) !== box)
-    .map((box) => ({ box, suggestion: canonicalizeNote(box) }))
-}
-function barOrderWarnLabel(li, bi) {
-  const w = barOrderWarn(li, bi)
-  if (!w.length) return ''
-  return `⚠ เขียนสลับลำดับ: ${w.map((x) => `${x.box} → อ่านเป็น ${x.suggestion}`).join(' · ')}`
-}
-
 function fmt(n) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
 }
@@ -1128,19 +1208,130 @@ function insertSym(sym) {
   activeInput.dispatchEvent(new Event('input', { bubbles: true }))
   activeInput.focus()
 }
-// dock-space note toolbox: shift the focused NOTE box one octave. jianpu (notation.js): a leading
-// '.' per octave below (".5"), a trailing "'" per octave above ("5'"). dir +1 up / -1 down, one
-// step on the focused note box (activeInput) — same activeInput pattern as insertSym (PM: keep it,
-// do NOT move to NoteBoxes). @mousedown.prevent on the buttons keeps that note box focused.
-function octaveShift(dir) {
-  if (!activeInput || !activeInput.isConnected) return
-  let v = activeInput.value
-  if (dir > 0) v = v.startsWith('.') ? v.slice(1) : v + "'"
-  else v = v.endsWith("'") ? v.slice(0, -1) : '.' + v
-  activeInput.value = v
-  activeInput.dispatchEvent(new Event('input', { bubbles: true }))
-  activeInput.focus()
+
+// ---------- เฟอร์มาต้า "ค้าง" chip (per-note hold control) ----------
+// HOST (round-30): a minimalist floating bar UNDER the focused fermata note — teleported to
+// <body> (position:fixed) so it clears transformed ancestors, floats above the grid, and can be
+// clamped to the viewport. It shows only when a focused note-box carries a fermata (`^`).
+//   layout:  𝄐  [ – ]  N  [ + ]
+// The number reads/writes the real `holds[boxIdx]` on the segment (absolute beats). When the note
+// has no stored hold yet (old song / freshly-added ^) it shows the SUGGESTED default (bar-fill /
+// ~2× mid-bar); the first +/- persists it. midi.js reads the same value → playback matches; the
+// sheet shows only the 𝄐 symbol (holds live out of the note string, so the sheet is unchanged).
+const fermataChip = ref(null) // { li, bi, si, tokenIdx, el } | null — which fermata note is focused
+const chipEl = ref(null)
+const chipPos = reactive({ left: 0, top: 0 })
+const fermataSuggested = ref(HOLD_MIN) // suggested default for the focused note (recomputed on focus)
+
+function noteHasFermata(v) {
+  return typeof v === 'string' && v.includes('^')
 }
+// the segment object the chip is bound to (the same object NoteBoxes v-models)
+const fermataSeg = computed(() => {
+  const c = fermataChip.value
+  if (!c) return null
+  return lines.value[c.li]?.bars[c.bi]?.segments[c.si] || null
+})
+// the value shown: the stored hold if the user has set one, else the suggested default
+const fcHold = computed(() => {
+  const c = fermataChip.value
+  const seg = fermataSeg.value
+  if (!c || !seg) return HOLD_MIN
+  const stored = storedHold(seg, c.tokenIdx)
+  return stored != null ? stored : fermataSuggested.value
+})
+// soft ceiling ~2 bars (no hard max, per spec — the stepper just stops climbing past it)
+const fcMax = computed(() => 2 * (expectedBeats(opts.timeSignature) || 4))
+// suggested default (SA: fill to end of the bar, else ~2× mid-bar) for the focused fermata note
+function editorSuggestHold(li, bi, si, tokenIdx) {
+  const bar = lines.value[li]?.bars[bi]
+  if (!bar) return HOLD_MIN
+  const flatBoxes = []
+  let fermIdx = -1
+  bar.segments.forEach((seg, sIdx) => {
+    const boxes = (seg.note || '').trim() ? seg.note.trim().split(/\s+/) : []
+    boxes.forEach((str, bx) => {
+      if (sIdx === si && bx === tokenIdx) fermIdx = flatBoxes.length
+      flatBoxes.push(str)
+    })
+  })
+  if (fermIdx < 0) return HOLD_MIN
+  return suggestHoldForBar(flatBoxes, fermIdx, opts.timeSignature)
+}
+// Glanceable EDITOR-ONLY hold labels for one segment's note boxes: { boxIdx: 'N' } for every box
+// that carries a fermata — the stored hold, or the suggested default when none is set yet. Read by
+// NoteBoxes to draw the tiny .no-print 𝄐N badge (never printed — the sheet uses NoteRow). Reactive
+// on seg.note + seg.holds, so it updates the instant the chip's +/- changes the value.
+function noteHoldLabels(li, bi, si) {
+  const seg = lines.value[li]?.bars[bi]?.segments[si]
+  if (!seg) return {}
+  const boxes = (seg.note || '').trim() ? seg.note.trim().split(/\s+/) : []
+  const out = {}
+  boxes.forEach((str, bx) => {
+    if (!parseNotes(str).some((t) => t.type === 'note' && t.fermata)) return
+    const stored = storedHold(seg, bx)
+    const v = stored != null ? stored : editorSuggestHold(li, bi, si, bx)
+    out[bx] = Number.isInteger(v) ? String(v) : v.toFixed(1)
+  })
+  return out
+}
+function onNoteActive(li, bi, si, { index, value, el }) {
+  if (noteHasFermata(value)) {
+    fermataChip.value = { li, bi, si, tokenIdx: index, el }
+    fermataSuggested.value = editorSuggestHold(li, bi, si, index)
+    nextTick(placeChip)
+  } else if (fermataChip.value && fermataChip.value.el === el) {
+    fermataChip.value = null // `^` was removed from the focused box → drop the chip
+  }
+}
+function onNoteInactive() {
+  // Chip buttons use @mousedown.prevent, so tapping them never blurs the note-box; a real
+  // blur therefore means focus truly left the note area → hide the chip.
+  fermataChip.value = null
+}
+// Place the fixed chip under (or, if no room, above) the focused note-box, clamped to the
+// viewport horizontally. Flipping above handles the mobile keyboard covering the lower edge.
+function placeChip() {
+  const chip = fermataChip.value
+  if (!chip || !chip.el || !chip.el.isConnected) return
+  const r = chip.el.getBoundingClientRect()
+  const cw = chipEl.value?.offsetWidth || 320
+  const ch = chipEl.value?.offsetHeight || 52
+  const vw = window.innerWidth
+  const vh = window.visualViewport?.height || window.innerHeight
+  const gap = 6
+  let left = r.left + r.width / 2 - cw / 2
+  left = Math.max(8, Math.min(left, vw - cw - 8))
+  let top = r.bottom + gap
+  if (top + ch > vh - 8) top = Math.max(8, r.top - ch - gap) // flip above (keyboard-aware)
+  chipPos.left = Math.round(left)
+  chipPos.top = Math.round(top)
+}
+function onChipReflow() {
+  if (fermataChip.value) placeChip()
+}
+onMounted(() => {
+  window.addEventListener('scroll', onChipReflow, true)
+  window.addEventListener('resize', onChipReflow)
+  window.visualViewport?.addEventListener('resize', onChipReflow)
+})
+onUnmounted(() => {
+  window.removeEventListener('scroll', onChipReflow, true)
+  window.removeEventListener('resize', onChipReflow)
+  window.visualViewport?.removeEventListener('resize', onChipReflow)
+})
+const fcHoldLabel = computed(() => (Number.isInteger(fcHold.value) ? String(fcHold.value) : fcHold.value.toFixed(1)))
+// write the hold to the segment's holds map (materialise on the first edit), keeping undo/dirty in
+// sync via the same reactive arrangement every other edit uses.
+function setHold(v) {
+  const c = fermataChip.value
+  const seg = fermataSeg.value
+  if (!c || !seg) return
+  if (!seg.holds) seg.holds = {}
+  seg.holds[c.tokenIdx] = Math.max(HOLD_MIN, snapHalf(v))
+}
+function fcInc() { setHold(Math.min(fcMax.value, fcHold.value + HOLD_STEP)); nextTick(placeChip) }
+function fcDec() { setHold(Math.max(HOLD_MIN, fcHold.value - HOLD_STEP)); nextTick(placeChip) }
 
 // ---------- line/bar/segment operations (act on the active stanza) ----------
 // B098: add a ห้อง and drop the cursor straight into its (empty) note box, so the user
@@ -1193,9 +1384,8 @@ function moveBar(li, bi, dir) {
 // Duplicate bar bi: drop an exact copy (chords + notes) right after it. Faster than
 // re-keying a repeated bar; tweak the copy afterwards.
 function duplicateBar(line, bi) {
-  const copy = stripEditorMarkerIds(JSON.parse(JSON.stringify(line.bars[bi]))) // R1 rule 2: fresh ids
+  const copy = stripMarkerIds(JSON.parse(JSON.stringify(line.bars[bi]))) // one id = one marker
   line.bars.splice(bi + 1, 0, copy)
-  ensureEditorMarkerIds()
 }
 function removeSegment(bar, si) {
   bar.segments.splice(si, 1)
@@ -1219,9 +1409,8 @@ function copyLine(li) {
   const ls = s ? s.lines : lines.value
   const start = lineSlotStart(ls, li)
   const len = lineSlotLen(ls[li])
-  const copy = stripEditorMarkerIds(JSON.parse(JSON.stringify(ls[li]))) // R1 rule 2: fresh ids on the copy
+  const copy = stripMarkerIds(JSON.parse(JSON.stringify(ls[li]))) // one id = one marker
   ls.splice(li + 1, 0, copy)
-  ensureEditorMarkerIds()
   if (s && len > 0)
     resliceRows(s.id, (p) => {
       while (p.length < start + len) p.push('')
@@ -1324,24 +1513,21 @@ function pasteBarAt(li) {
   if (clip.value?.kind !== 'bar') return
   const line = lines.value[li]
   if (!line) return
-  line.bars.push(stripEditorMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))) // R1: fresh ids
-  ensureEditorMarkerIds()
+  line.bars.push(stripMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))) // one id = one marker
 }
 // paste the copied บรรทัด at the end of the ACTIVE ท่อน (melody only)
 function pasteLineHere() {
   if (clip.value?.kind !== 'line') return
-  lines.value.push(stripEditorMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))) // R1: fresh ids
+  lines.value.push(stripMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))) // one id = one marker
   activeLine.value = lines.value.length - 1
-  ensureEditorMarkerIds()
 }
 // วางเป็นท่อนใหม่ — the headline: a fresh ท่อน (stanza) whose only บรรทัด is the copy, then
 // jump to it. Mirrors addStanza's shape (a new melody with no ข้อ yet — words added later).
 function pasteLineAsStanza() {
   if (clip.value?.kind !== 'line') return
-  stanzas.value.push({ id: nextStanzaId(), lines: [stripEditorMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))] }) // R1: fresh ids
+  stanzas.value.push({ id: nextStanzaId(), lines: [stripMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))] }) // one id = one marker
   activeStanza.value = stanzas.value.length - 1
   activeLine.value = 0
-  ensureEditorMarkerIds()
 }
 
 // ---------- song list / picker ----------
@@ -1350,15 +1536,12 @@ const songList = ref([])
 async function loadSongList() {
   const { data } = await supabase
     .from('songs')
-    // `category` = the song's เล่ม — needed by the B-DUP check (a duplicate is per เล่ม).
-    // Without it every song reads as "unfiled" and a real duplicate looks like a different book.
     .select('id, number, title_th, title_en, content, verified, category')
+    .is('deleted_at', null) // db/012: trashed songs never appear in the picker/list
     .order('number', { ascending: true })
-  // ORDER (B131 · 4th copy of the same query): `.order` is only the DB's starting order — rows
-  // with a blank `number` come back in no guaranteed order, so this picker could list the same
-  // songs differently on two loads. The shared sorter (lib/songSort.js) gives it one defined
-  // order (number, then ก-ฮ for the number-less songs).
-  songList.value = sortSongs(data ?? [], DEFAULT_SORT)
+  // B131: the DB `.order` leaves the blank-number rows unordered, so the picker could list the
+  // same songs differently on two loads. sortSongs (songSort.js) is the app's one ordering rule.
+  songList.value = sortSongs(data ?? [])
 }
 
 const pickerOptions = computed(() => [
@@ -1377,10 +1560,10 @@ const pickerOptions = computed(() => [
 // unsaved work — and on "ยกเลิก" bounce the picker back to the song still on screen, so the
 // dropdown can never name one song while the editor holds another.
 //
-// `skipWatch` lets a caller that has ALREADY asked (the bounce write itself, deleteSong) move
-// the picker without a second question. It holds the exact value it is allowed to swallow,
-// not a bare boolean: any other change falls through to the guard, so a stale flag can never
-// eat a real switch and make it vanish silently (G, 2026-07-27).
+// `skipWatch` lets a caller that has ALREADY asked (the bounce write itself, fileNew,
+// deleteSong) move the picker without a second question. It holds the exact value it is
+// allowed to swallow, not a bare boolean: any other change falls through to the guard, so a
+// stale flag can never eat a real switch and make it vanish silently (G, 2026-07-27).
 const NO_SKIP = Symbol('no-skip')
 let skipWatch = NO_SKIP
 watch(pickerId, (id, prev) => {
@@ -1395,13 +1578,10 @@ watch(pickerId, (id, prev) => {
   loadSong(id)
 })
 
-// ---------- B-DUP: is this song already in the library? ----------
-// The same song has been entered twice with nothing warning anybody (two เด็กเล็ก songs are
-// doubled today). The comparison itself lives in lib/songTitleKey.js — here we only wire it
-// to the name being typed, live, so the person finds out while they can still fix it cheaply
-// instead of after the save (P'Aim: "เตือนทันทีขณะพิมพ์ ไม่ใช่รอกดบันทึกแล้วค่อยด่า").
-// The haystack is the RAW song list (not visibleSongs): a duplicate of a song this account
-// cannot see is still a duplicate.
+// ---------- B-DUP — duplicate title guard (ported from v2) ----------
+// The library comparison lives in lib/songTitleKey.js; here it is wired to the live title
+// input (so the banner warns as the name is typed) and to the write paths (so a same-name,
+// same-เล่ม save is actually refused, not just warned about).
 //
 // One deliberate softening: when we are editing an EXISTING song whose หมวด we could not
 // establish (B108 knownness), the เล่ม on screen is the 'anuchon' fallback, not data — so a
@@ -1438,6 +1618,21 @@ const conflictLinks = computed(() => {
   const c = titleConflicts.value
   return [...c.blocking, ...c.warning, ...c.info]
 })
+// B128 — the early hint (name STARTS like a song we already have). It only ever fills the
+// SILENCE: whenever the whole-title verdict above has something to say, that wins, because it
+// is the one that decides whether the save goes through. Always on — no setting to find.
+const earlyNote = computed(() => {
+  if (!editing.value || titleConflicts.value.level !== 'ok') return null
+  return earlyDupNote(
+    { id: editingId.value, title_th: meta.title_th, category: meta.category },
+    songList.value,
+    categoryName,
+  )
+})
+// What the ONE warning box shows — the verdict when there is one, otherwise the early hint.
+const dupLevel = computed(() => (earlyNote.value ? earlyNote.value.level : titleConflicts.value.level))
+const dupMsg = computed(() => titleConflictMsg.value || (earlyNote.value ? earlyNote.value.message : ''))
+const dupLinks = computed(() => (earlyNote.value ? earlyNote.value.links : conflictLinks.value))
 // THE GATE. Returns true when the write may go ahead. An identical name in the same เล่ม is
 // refused; only an approver may force past it, and only through an explicit confirm that
 // names the song being duplicated (never a button you can click through by habit).
@@ -1456,7 +1651,7 @@ function passTitleGate(what, selfId = editingId.value) {
   }
   const ok = window.confirm(
     `เพลงชื่อนี้มีอยู่แล้วในเล่มเดียวกัน:\n\n${names}\n\n` +
-      `การ${what}ต่อจะทำให้มีเพลงซ้ำสองใบในคลัง (ยังไม่มีถังขยะ — ลบผิดแล้วหาย)\n\n` +
+      `การ${what}ต่อจะทำให้มีเพลงซ้ำสองใบในคลัง (ลบใบซ้ำทีหลังได้ที่ จัดการ ▸ ถังขยะ)\n\n` +
       `กด "ตกลง" เฉพาะเมื่อแน่ใจว่าเป็นคนละเพลงจริงๆ`,
   )
   if (!ok) saveMsg.value = `ยกเลิก${what} — ชื่อซ้ำกับ ${names}`
@@ -1471,7 +1666,7 @@ async function loadSong(id) {
   applyRow(data)
   editingId.value = data.id
   currentDraftId.value = null
-  openDraft.value = null
+  reviewingDraft.value = null
   saveMsg.value = ''
   nextTick(resetHistory)
 }
@@ -1492,23 +1687,18 @@ function applyRow(data) {
   meta.theme = data.theme ?? ''
   verified.value = data.verified ?? false
   loadedFlags.value = Array.isArray(data.review_flags) ? data.review_flags : [] // B093: keep on publish
-  const { content: migrated, warnings } = migrateToV2(data.content)
-  // R1 — mint permanent ids for any structural marker that lacks one, ON LOAD (existing ids are
-  // preserved, so a re-open is stable). The song on the server is untouched; the ids are written
-  // back only when the user saves (§6 — no bulk-write to the library). Minting BEFORE deserialize
-  // means the lossless `_source` snapshot captures the ids too, so an untouched marker line still
-  // round-trips them.
-  const content = mintMarkerIds(migrated).content
-  // Data-safety: capture unknown top-level keys from the RAW content (before migrate, so v1
-  // extras survive too); they are spread back in previewContent so a save can't drop them.
-  contentExtras.value = rest(data.content, CONTENT_KEYS)
+  const { content, warnings } = migrateToV2(data.content)
   opts.key = content.key || 'C'
   opts.timeSignature = content.timeSignature || '4/4'
   opts.bpm = content.bpm ?? null
+  // Data-safety (see rest() at the top): stash every key this editor does not model so save
+  // spreads it back instead of deleting it. Read off the RAW row, not the migrated copy — a v1
+  // song's own keys are already in CONTENT_KEYS (`lines`), so nothing v1-shaped leaks into v2.
+  contentExtras.value = rest(data.content, CONTENT_KEYS)
   stanzas.value = (content.stanzas || []).map((s) => ({
     id: s.id,
     lines: (s.lines || []).map(deserializeLine),
-    _extra: rest(s, STANZA_KEYS), // unknown per-stanza keys ride through untouched
+    _extra: rest(s, STANZA_KEYS),
   }))
   if (!stanzas.value.length) stanzas.value = [{ id: 'A', lines: [newLine()] }]
   arrangement.value = (content.arrangement || []).map((r) => ({
@@ -1516,13 +1706,31 @@ function applyRow(data) {
     label: r.label || '',
     syllables: [...(r.syllables || [])],
     key: r.key || '',
+    // 717 — which lyric set (round-trips). Normalised to a NUMBER at this boundary so every
+    // comparison below (selectSet · the row filter · delete/renumber · the save payload) can
+    // stay a plain `===`. A stringified "1" from an import/SQL cast would otherwise match no
+    // set at all and its row would be invisible in every tab.
+    ...(lyricSetIndex(r.set) != null ? { set: lyricSetIndex(r.set) } : {}),
     afterEachVerse: !!r.afterEachVerse, // B102 — strophic "ร้องรับทุกข้อ" directive (round-trips)
-    flow: r.flow ? JSON.parse(JSON.stringify(r.flow)) : null, // R3 — per-verse repeat override
-    _extra: rest(r, ARRANGEMENT_KEYS), // OTHER unknown per-row keys ride through untouched
+    _extra: rest(r, ARRANGEMENT_KEYS),
   }))
   if (!arrangement.value.length) {
     arrangement.value = [{ stanza: stanzas.value[0].id, label: '', syllables: [], key: '' }]
   }
+  // 717 — load the lyric sets (empty for ordinary songs) and start on the first set.
+  // Data-safety: this editor only MODELS name + label, so every OTHER key a set carries is
+  // stashed in `_extra` and spread back on save. Rebuilding a set as {name,label} silently
+  // destroyed anything this version doesn't know about — e.g. the permanent `id` a shared
+  // ?set= link points at, which the migration writes and this editor would have erased on
+  // the first save, breaking every link already handed out.
+  lyricSets.value = Array.isArray(content.lyricSets)
+    ? content.lyricSets.map((s) => ({
+        name: s?.name || '',
+        label: s?.label || '',
+        _extra: rest(s, LYRIC_SET_KEYS),
+      }))
+    : []
+  activeSet.value = 0
   activeStanza.value = 0
   activeLine.value = 0
   migrateWarnings.value = warnings
@@ -1532,7 +1740,7 @@ function applyRow(data) {
 function resetForm() {
   editingId.value = null
   currentDraftId.value = null
-  openDraft.value = null
+  reviewingDraft.value = null
   meta.number = null
   meta.title_th = ''
   meta.title_en = ''
@@ -1545,7 +1753,7 @@ function resetForm() {
   opts.key = 'C'
   opts.timeSignature = '4/4'
   opts.bpm = null
-  contentExtras.value = {} // brand-new song carries no inherited unknown keys
+  contentExtras.value = {} // a brand-new song inherits no unknown keys from the last one
   stanzas.value = [{ id: 'A', lines: [newLine()] }]
   arrangement.value = [{ stanza: 'A', label: '', syllables: [], key: '' }]
   activeStanza.value = 0
@@ -1581,50 +1789,9 @@ async function loadDrafts() {
   }
   const uid = session.value.user.id
   myDrafts.value = (data ?? []).filter((d) => d.author_id === uid && d.status !== 'approved')
-  pendingDrafts.value = (data ?? []).filter((d) => d.status === 'pending')
-}
-
-// ---------- identity: derived from DATA, never from which door you walked in through ----------
-// (DS editor-orientation §1/D3) Before this, "am I reviewing a draft?" was a ref that only
-// loadDraft() ever set — so opening the very same draft-backed song from the picker, a URL
-// or a refresh produced a screen that said nothing. These computeds answer the question from
-// what is loaded, so every route into the song gives the identical answer.
-const uid = computed(() => session.value?.user?.id ?? null)
-const draftAuthor = (d) => (d ? profilesMap.value[d.author_id] || 'ผู้เขียน' : '')
-
-// A pending draft open in the editor, own or not. An approver publishing either goes through
-// approve_and_publish (B028: publish + close the draft in ONE audited transaction), so this
-// — not reviewingDraft — is what the primary action keys on.
-const openPendingDraft = computed(() =>
-  isApprover.value && openDraft.value?.status === 'pending' ? openDraft.value : null,
-)
-// "I am reviewing someone ELSE's work" — drives the banner + whose-work labels. The author
-// check is what stops an approver's own pending draft from announcing "กำลังตรวจฉบับร่างของ
-// [ตัวเอง]" (US §9 edge bug #5).
-const reviewingDraft = computed(() =>
-  openPendingDraft.value && openPendingDraft.value.author_id !== uid.value ? openPendingDraft.value : null,
-)
-// A draft is waiting for review on the song currently open, and it is NOT the one on screen
-// → publishing from here strands it silently. This is the fact the editor already had in hand
-// (pendingDrafts loads on login) but never once asked for.
-const pendingForThisSong = computed(() => {
-  if (!editingId.value) return null
-  return pendingDrafts.value.find((d) => d.song_id === editingId.value && d.id !== openDraft.value?.id) || null
-})
-
-// The D4 banner is dismissible ("แก้ฉบับเผยแพร่ต่อ" = I know, I'm working on the live song).
-// DS §2 asked it to stay put because the fact hasn't changed — but a button that visibly does
-// nothing is the same lie as a row you can't press (editor-friction §2), and the fact does NOT
-// get lost: it still rides the primary button's label and the confirm before the overwrite.
-// Keyed by draft id, so a different/new pending draft re-announces itself.
-const alertDismissedFor = ref(null)
-const pendingAlert = computed(() =>
-  pendingForThisSong.value && pendingForThisSong.value.id !== alertDismissedFor.value
-    ? pendingForThisSong.value
-    : null,
-)
-function dismissPendingAlert() {
-  alertDismissedFor.value = pendingForThisSong.value?.id ?? null
+  // through the shared predicate (lib/reviewQueue.js) — the landing chip counts with the same
+  // one, so the number on the chip and the rows in this panel cannot drift apart.
+  pendingDrafts.value = pendingReview(data)
 }
 
 // B108 — read the หมวด/ธีม that are actually stored for a published song and put them in the
@@ -1670,7 +1837,7 @@ async function loadDraft(d) {
   applyRow(d)
   editingId.value = d.song_id
   currentDraftId.value = d.id
-  openDraft.value = d
+  reviewingDraft.value = isApprover.value && d.status === 'pending' ? d : null
   reviewComment.value = d.review_comment || ''
   saveMsg.value = d.status === 'rejected' && d.review_comment ? '↩ ถูกส่งกลับ: ' + d.review_comment : ''
   nextTick(resetHistory)
@@ -1751,9 +1918,6 @@ function lintSong() {
       }
     }
   }
-  // R4 — a flow directive pointing at a repeat/section that was deleted is ORPHAN. Playback
-  // already ignores it (never guesses); surface it here as a real issue so it is not silent.
-  for (const _ of flowOrphans.value) { count++; codes.add('flow-orphan') }
   return { count, codes: [...codes] }
 }
 // review_flags to write on publish: keep the song's non-lint flags (DA repeat marks etc.),
@@ -1807,7 +1971,7 @@ async function saveDirect() {
     delete row.duplicate_ok
     res = await write()
   }
-  let error = res.error
+  const error = res.error
   if (!editingId.value && res.data) editingId.value = res.data.id
   if (error) {
     // B-DUP — db/011 (if P'Aim has run it) refuses a duplicate title at the database, which
@@ -1836,13 +2000,13 @@ async function saveDirect() {
 }
 
 async function approve() {
-  const d = openPendingDraft.value
+  const d = reviewingDraft.value
   emit('save', 'publish')
   if (!meta.title_th) {
     saveMsg.value = '⚠️ กรุณาใส่ชื่อเพลงภาษาไทย'
     return
   }
-  // B108: the draft the approver is reviewing may carry no หมวด/ธีม. Before publishing over an
+  // B108: the draft the approver is reviewing carries no หมวด/ธีม. Before publishing over an
   // EXISTING song, make sure we hold its real values.
   if (d.song_id && (!categoryKnown.value || !themeKnown.value)) await resolveBook(d.song_id)
   // B-DUP — publishing a draft is a library write too. The song this draft belongs to is not a
@@ -1888,20 +2052,20 @@ async function approve() {
     count > 0
       ? `✅ อนุมัติและเผยแพร่แล้ว — แต่พบปัญหาโน้ต ${count} จุด (ติดป้ายไว้ให้ตรวจ)`
       : '✅ อนุมัติและเผยแพร่แล้ว'
-  openDraft.value = null
+  reviewingDraft.value = null
   currentDraftId.value = null
   loadDrafts()
   loadSongList()
 }
 
 async function reject() {
-  const d = openPendingDraft.value
+  const d = reviewingDraft.value
   const { error } = await supabase
     .from('song_drafts')
     .update({ status: 'rejected', review_comment: reviewComment.value || null })
     .eq('id', d.id)
   saveMsg.value = error ? '❌ ' + error.message : '↩ ส่งกลับให้ผู้เขียนแก้แล้ว'
-  openDraft.value = null
+  reviewingDraft.value = null
   currentDraftId.value = null
   loadDrafts()
 }
@@ -1922,24 +2086,82 @@ async function deleteDraft(d) {
   // if the open editor is holding the draft we just deleted, let go of the dead id so the next
   // บันทึกร่าง starts a fresh row instead of updating a row that no longer exists
   if (currentDraftId.value === d.id) currentDraftId.value = null
-  // D3: reviewingDraft is derived from openDraft now — drop the source, and the review banner
-  // / labels recompute to null on their own (this also covers deleting one's own open draft).
-  if (openDraft.value?.id === d.id) openDraft.value = null
+  if (reviewingDraft.value?.id === d.id) reviewingDraft.value = null
   saveMsg.value = '🗑️ ลบร่างแล้ว'
   loadDrafts()
 }
 
-async function deleteSong() {
+// ── Soft-delete (db/012). "ลบเพลง" no longer destroys the row: it moves the song to the
+// trash (songs.deleted_at) through the soft_delete_song RPC, so it is recoverable from the
+// undo snackbar or ถังขยะ. Approver-only — enforced by the RPC AND the RLS write policy, so
+// the client cannot bypass it. deleted_at is NEVER written by a normal content update (a DB
+// guard trigger rejects that); this RPC is the only door. ──
+const confirmDelSong = ref(false)  // styled confirm dialog open?
+const undoDeleted = ref(null)      // { id, title } shown in the undo snackbar (null = hidden)
+let undoTimer = null
+
+function askDeleteSong() {
+  openMenu.value = null
   if (!editingId.value) return
-  if (!window.confirm(`ลบเพลง "${meta.title_th}" ออกจากรายการเพลงถาวร?`)) return
-  const { error } = await supabase.from('songs').delete().eq('id', editingId.value)
-  saveMsg.value = error ? '❌ ลบไม่สำเร็จ: ' + error.message : '🗑️ ลบแล้ว'
-  if (!error) {
-    resetForm()
-    skipWatch = '' // the song is gone; do not ask whether to keep edits to it
-    pickerId.value = ''
-    loadSongList()
+  confirmDelSong.value = true
+}
+function cancelDeleteSong() {
+  confirmDelSong.value = false
+}
+async function doDeleteSong() {
+  confirmDelSong.value = false
+  const id = editingId.value
+  if (!id) return
+  const title = meta.title_th
+  const { error } = await supabase.rpc('soft_delete_song', { p_song_id: id })
+  if (error) {
+    saveMsg.value = '❌ ลบไม่สำเร็จ: ' + error.message
+    return
   }
+  resetForm()
+  skipWatch = '' // the song left the editor; do not ask whether to keep edits to it
+  pickerId.value = ''
+  loadSongList()
+  saveMsg.value = '🗑️ ย้ายไปถังขยะแล้ว'
+  if (undoTimer) clearTimeout(undoTimer)
+  undoDeleted.value = { id, title } // undo snackbar; ถังขยะ is the always-available fallback
+  undoTimer = setTimeout(() => { undoDeleted.value = null }, 8000)
+}
+async function undoDelete() {
+  const d = undoDeleted.value
+  undoDeleted.value = null
+  if (undoTimer) clearTimeout(undoTimer)
+  if (!d) return
+  const { error } = await supabase.rpc('restore_song', { p_song_id: d.id })
+  saveMsg.value = error ? '❌ กู้คืนไม่สำเร็จ: ' + error.message : '↩ กู้คืนแล้ว'
+  if (!error) loadSongList()
+}
+
+// ── ถังขยะ (trash): songs with deleted_at set. Team-visible (RLS lets authenticated read
+// trashed rows); each can be restored with restore_song. ──
+const trashSongs = ref([])
+async function loadTrash() {
+  const { data } = await supabase
+    .from('songs')
+    .select('id, number, title_th, deleted_at')
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false })
+  trashSongs.value = data ?? []
+}
+async function restoreFromTrash(s) {
+  const { error } = await supabase.rpc('restore_song', { p_song_id: s.id })
+  if (error) {
+    saveMsg.value = '❌ กู้คืนไม่สำเร็จ: ' + error.message
+    return
+  }
+  saveMsg.value = '↩ กู้คืน “' + s.title_th + '” แล้ว'
+  loadTrash()
+  loadSongList()
+}
+
+function save() {
+  if (legacy.value || (isApprover.value && !reviewingDraft.value)) return saveDirect()
+  return saveDraft(reviewingDraft.value ? 'pending' : 'draft')
 }
 
 // "✓ ตรวจแล้ว": mark this song as human-checked (songs.verified). The catalog reads this
@@ -2015,12 +2237,9 @@ function followBar(liOffset) {
     const key = `${n.li + liOffset}-${n.bi}`
     if (playingBar.value === key) return
     playingBar.value = key
-    const el = document.querySelector(`[data-bar="${key}"]`)
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    if (r.top < 90 || r.bottom > window.innerHeight - 110) {
-      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    }
+    // แก้ไข plays back WITHOUT moving the page (พี่เปา, 2026-07-27): only the bar highlight
+    // advances so the person editing keeps full control of the scroll position. Karaoke
+    // follow-scroll belongs to ฝึกร้อง (SongViewer.scrollToPlaying), not the editor.
   }
 }
 
@@ -2194,90 +2413,6 @@ onMounted(() => {
 })
 onUnmounted(() => window.removeEventListener('keydown', onUndoKeys))
 
-// ---------- B109: keyboard navigation (bar / line / note jumps · all-device) ----------
-// พี่เปา asked to hop across bars (ห้อง) and lines (บรรทัด) from the keyboard. One model, two
-// triggers: desktop = physical keys here; mobile = on-screen buttons (UX) call the SAME jump*
-// functions. All reuses existing plumbing (slotStarts · focusSlot · [data-bar] · lines) — no new
-// data model. Every nav key preventDefaults so the page never scrolls (which would flicker the
-// dock's hide-on-scroll · SA flag). Scheme (US §2, MuseScore/Flat.io + ARIA-grid): Ctrl+←/→ = bar,
-// Ctrl+↑/↓ = line, Home/End = first/last of bar, Ctrl+Home/End = song, Tab/Shift+Tab = note/syllable.
-function currentPos() {
-  const el = document.activeElement
-  const bar = el?.closest?.('[data-bar]')
-  if (!bar) return null
-  const [li, bi] = bar.getAttribute('data-bar').split('-').map(Number)
-  return { li, bi, onSyllable: !!el.classList?.contains('syl-box') }
-}
-// focus the FIRST note/syllable of bar (li,bi), keeping the caller's mode (note vs lyric)
-function focusBar(li, bi, onSyllable) {
-  if (onSyllable) {
-    const slot = slotStarts.value[`${li}-${bi}-0`]
-    if (slot != null) return focusSlot(slot)
-  }
-  nextTick(() => document.querySelector(`[data-bar="${li}-${bi}"] .note-box:not(.add)`)?.focus())
-}
-function jumpBar(dir) {
-  const p = currentPos()
-  if (!p) return
-  const ls = lines.value
-  let { li, bi } = p
-  bi += dir
-  if (bi < 0) { li -= 1; if (li < 0) return; bi = ls[li].bars.length - 1 } // wrap to prev line's last bar
-  else if (bi >= ls[li].bars.length) { li += 1; if (li >= ls.length) return; bi = 0 } // next line's first bar
-  focusBar(li, bi, p.onSyllable)
-}
-function jumpLine(dir) {
-  const p = currentPos()
-  if (!p) return
-  const ls = lines.value
-  const li = p.li + dir
-  if (li < 0 || li >= ls.length) return
-  focusBar(li, 0, p.onSyllable)
-}
-// Tab: next/prev note (or syllable). Syllable slots are a continuous global index, so +1 crosses
-// bars/lines by itself; note boxes move in DOM order. Returns true if focus moved (so the caller
-// only preventDefaults then — at the very edge, native Tab still escapes the editor · no focus trap).
-function jumpNote(dir) {
-  const el = document.activeElement
-  if (el?.classList?.contains('syl-box') && focusedSlot.value >= 0) {
-    const next = document.querySelector(`[data-slot="${focusedSlot.value + dir}"]`)
-    if (next) { focusSlot(focusedSlot.value + dir); return true }
-    return false
-  }
-  const boxes = [...document.querySelectorAll('.ed-strip .note-box:not(.add)')]
-  const next = boxes[boxes.indexOf(el) + dir]
-  if (next) { next.focus(); return true }
-  return false
-}
-// Home/End = first/last of the CURRENT bar; Ctrl+Home/End = first/last of the whole song
-function focusEdge(dir, songWide) {
-  const p = currentPos()
-  const kind = p?.onSyllable ? '.syl-box' : '.note-box:not(.add)'
-  const scope = songWide || !p ? '.ed-strip' : `[data-bar="${p.li}-${p.bi}"]`
-  const boxes = [...document.querySelectorAll(`${scope} ${kind}`)]
-  ;(dir < 0 ? boxes[0] : boxes[boxes.length - 1])?.focus()
-}
-function editorHasFocus() {
-  const el = document.activeElement
-  if (!el?.closest?.('.ed-strip')) return false
-  if (el.closest?.('.chord-pick')) return false // editing a chord → the picker owns its keys
-  return true
-}
-function onNavKeys(e) {
-  if (!editorHasFocus()) return
-  const ctrl = e.ctrlKey || e.metaKey
-  if (ctrl && e.altKey) return // leave OS/other combos alone
-  if (ctrl && e.key === 'ArrowRight') { e.preventDefault(); jumpBar(1) }
-  else if (ctrl && e.key === 'ArrowLeft') { e.preventDefault(); jumpBar(-1) }
-  else if (ctrl && e.key === 'ArrowDown') { e.preventDefault(); jumpLine(1) }
-  else if (ctrl && e.key === 'ArrowUp') { e.preventDefault(); jumpLine(-1) }
-  else if (ctrl && e.key === 'Home') { e.preventDefault(); focusEdge(-1, true) } // song start (Ctrl only)
-  else if (ctrl && e.key === 'End') { e.preventDefault(); focusEdge(1, true) } // song end · plain Home/End = native caret (world-class · P'Aim/UX)
-  else if (e.key === 'Tab') { if (jumpNote(e.shiftKey ? -1 : 1)) e.preventDefault() } // no focus trap at edges
-}
-onMounted(() => window.addEventListener('keydown', onNavKeys))
-onUnmounted(() => window.removeEventListener('keydown', onNavKeys))
-
 // ---------- B100: warn before leaving with unsaved edits ----------
 // "ยังไม่บันทึก" (dirty) = the DOCUMENT (meta + opts + stanzas + arrangement — the same
 // docState() the undo history tracks) differs from the last CLEAN checkpoint. A checkpoint
@@ -2315,25 +2450,13 @@ function confirmDiscard(what) {
 
 // ---------- floating toolbar + sheet overlay ----------
 const showSheet = ref(false)
-// D2/D4 — the primary action states what it will DO and to WHOSE work, and it refuses to
-// overwrite a song that has a draft waiting for review without saying so first.
-// `save()` and `primaryLabel` used to live here too, disagreeing with this function about the
-// same state; both were dead code (nothing called them — the dock runs primaryAction and
-// renders saveLabel), so they are gone rather than kept in sync. One source of truth.
+const primaryLabel = computed(() =>
+  reviewingDraft.value ? '✅ อนุมัติ' : isApprover.value ? '✅ เผยแพร่' : '📨 ส่งตรวจ'
+)
 function primaryAction() {
-  if (openPendingDraft.value) return approve()
-  if (!isApprover.value) return saveDraft('pending')
-  const waiting = pendingForThisSong.value
-  // HIG Alerts: alert only for an uncommon destructive action that can't be undone — this is
-  // one. M3 Dialogs: no ambiguous "Are you sure?" — say what actually happens (US AC-6).
-  if (
-    waiting &&
-    !window.confirm(
-      `เผยแพร่ทับฉบับปัจจุบัน — ร่างของ${draftAuthor(waiting)}ที่รอตรวจอยู่จะยังไม่ถูกอนุมัติ\n\nเผยแพร่ทับ?`,
-    )
-  )
-    return
-  return saveDirect()
+  if (reviewingDraft.value) return approve()
+  if (isApprover.value) return saveDirect()
+  return saveDraft('pending')
 }
 
 // ---------- edit dock = DockKey fed ITEMS_EDIT (DS dockkey-print-edit §2) ----------
@@ -2342,32 +2465,7 @@ function primaryAction() {
 // ฟังท่อน↔หยุด), the prime บันทึก + ฟังทั้งเพลง on row 2, and export/draft/preview in ⚙.
 // The structural per-bar tools stay INLINE in the table (contextual — not dock commands).
 const editAlpha = ref(0.96)
-// D2 (WCAG 3.2.4 · 2.4.6 · 3.3.2) — one label per meaning. "เผยแพร่" alone was the same word
-// for "publish my own edit", "overwrite the live song" and "overwrite while โม's draft waits":
-// three functions wearing one label. saveLabel is the compact BUTTON FACE; saveName is the
-// full accessible name (aria-label + title) with no width limit.
-//
-// Divergence from DS §3 (recorded in the report): DS put the owner's name ON the button face
-// ("อนุมัติร่างของโม"). At 360px that face rides row 2 next to ฟังทั้งเพลง, and a real latin
-// author name ("k.pituck"/"yeahwong") pushed the row past the viewport (measured: 393px > 360)
-// — which US AC-9 forbids as a hard gate. The owner is not lost: it sits in the banner
-// directly above the button (review-banner / pending-alert) AND in saveName (the accessible
-// name). So the face stays compact + consistent, and WHOSE-work is always on screen beside it.
-const saveLabel = computed(() => {
-  if (reviewingDraft.value) return 'อนุมัติร่าง'
-  if (!isApprover.value) return 'ส่งตรวจ'
-  if (openPendingDraft.value) return 'เผยแพร่ร่างฉัน'
-  if (pendingForThisSong.value) return '⚠️ เผยแพร่ทับ'
-  return editingId.value ? 'เผยแพร่ทับ' : 'เผยแพร่'
-})
-const saveName = computed(() => {
-  if (reviewingDraft.value) return 'อนุมัติและเผยแพร่ร่างของ' + draftAuthor(reviewingDraft.value)
-  if (!isApprover.value) return 'ส่งตรวจ'
-  if (openPendingDraft.value) return 'เผยแพร่ร่างของฉัน (อนุมัติเอง)'
-  if (pendingForThisSong.value)
-    return `เผยแพร่ทับฉบับปัจจุบัน — มีร่างของ${draftAuthor(pendingForThisSong.value)}รอตรวจอยู่`
-  return editingId.value ? 'เผยแพร่ทับฉบับปัจจุบัน' : 'เผยแพร่'
-})
+const saveLabel = computed(() => (reviewingDraft.value ? 'อนุมัติ' : isApprover.value ? 'เผยแพร่' : 'ส่งตรวจ'))
 
 // B107 step 9 — the editor's "เสียงดนตรี" popover (same SoundControl as ฝึกร้อง, its own state).
 // 'plain' → arranger OFF (notes as printed · ตรวจโน้ต); calm/arrangement → the matching preset.
@@ -2396,31 +2494,23 @@ const editItems = computed(() => [
   { id: 'stop', kind: 'btn', name: 'หยุด', label: 'หยุด', icon: 'square', danger: true, place: { anchor: 'rightOf:redo', row: 1 }, run: stopAll, hidden: !playing.value },
   // B107 step 9 — the single "เสียงดนตรี" button (audio-lines) → popover with all 4 sound axes,
   // so พี่เปา can switch instrument/style right here (default = ตรงโน้ต for raw note-checking).
-  // dock-space slim: เสียงดนตรี = สลับเครื่อง/สไตล์นาน ๆ ครั้ง → เข้า ⚙ (slot render ใน ⚙ · dev 1cd032c) · ปักกลับได้.
-  { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', default: 'inSetting', pinnable: true },
+  { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', place: { anchor: 'leftOf:setting', row: 1 } },
   { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
-  { id: 'save', kind: 'btn', name: saveName.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
-  // dock-space slim (UX presentation · P'Aim: dock กินพื้นที่): ฟังทั้งเพลง = ใช้นาน ๆ ครั้ง →
-  // ย้ายเข้า ⚙ (ยังกดได้ · ปักกลับขึ้นแถบได้) เพื่อลด footprint row 2 · kind:btn → ⚙ render run ปุ่มได้จริง.
-  { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', default: 'inSetting', pinnable: true, run: playFull, hidden: playing.value },
-  // dock-space slim: ดาวน์โหลด = นาน ๆ ครั้ง → เข้า ⚙ (slot render ใน ⚙ · dev 1cd032c) · ปักกลับได้ · row 2 เหลือ save+draft.
-  { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', default: 'inSetting', pinnable: true },
+  { id: 'save', kind: 'btn', name: saveLabel.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
+  { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', place: { row: 2, col: 3 }, run: playFull, hidden: playing.value },
+  { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { row: 2, col: 4 } },
   // issues9 (พี่เปา): บันทึกร่าง used to live in ⚙ (default:'inSetting'), where a `btn` renders no
   // control at all — so pinning it was the ONLY way to get a button that runs ("ทำไมต้องกดปักหมุด
   // ก่อนถึงจะเซฟร่างได้"). It is the most-used command for someone typing in 124 songs, so it has a
   // permanent home on the bar. No `pinnable`: an item with a `place` is already on the bar, and
   // pinning it too would render it twice (single source of action · ui-standards §2).
-  { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', label: 'บันทึกร่าง', icon: 'save', place: { row: 2, col: 3 }, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value },
+  { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', label: 'บันทึกร่าง', icon: 'save', place: { row: 2, col: 5 }, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value },
   { id: 'preview', kind: 'toggle', name: 'ดูผลทั้งเพลง', icon: 'maximize', default: 'inSetting', pinnable: true, control: { value: sheetWinOpen.value, onToggle: () => (sheetWinOpen.value = !sheetWinOpen.value) } },
-  // B109 เฟส A — ปุ่มนำทางบนจอ (◀▶ โน้ต · ⏮⏭ ห้อง · ▲▼ บรรทัด). editor-side slot (markup อยู่
-  // #cell-nav ด้านล่าง · ไม่ใช่ DockKey-shared) เรียก jumpNote/jumpBar/jumpLine(±1) ของ dev =
-  // navigation model เดียวกับคีย์ desktop (1 model 2 trigger · US §3). row 2 = ใต้แป้นสัญลักษณ์
-  // เหนือ core row · ปุ่ม flex-wrap ใน cell → self-fit ทุกจอ (344 = 3×2 ไม่ล้น). ขี่ dock
-  // keyboard-aware → โผล่เหนือแป้นพิมพ์ตอนป้อนเนื้อ. ไม่ pinnable = utility ถาวร ไม่ tuck เข้า ⚙.
-  { id: 'nav', kind: 'slot', name: 'นำทาง', place: { row: 2, col: 0 } },
 ])
 
-const STATUS_TH = { draft: 'ร่าง', pending: 'รอตรวจ', rejected: 'ถูกส่งกลับ', approved: 'อนุมัติแล้ว' }
+// คำสถานะงานร่าง. คำของกอง pending มาจากรายการคำกลาง `src/i18n/workWords.js` (มาตรฐาน ฌ-04)
+// ⛔ ไม่พิมพ์ซ้ำที่นี่ — หน้าแรกกับแผงนี้ต้องเรียกกองเดียวกันด้วยคำเดียวกัน (ก-04)
+const STATUS_TH = { draft: 'ร่าง', pending: WORK_WORDS.awaitingReview, rejected: 'ถูกส่งกลับ', approved: 'อนุมัติแล้ว' }
 
 // ---------- studio shell (phase 1: header chrome + edit/sheet mode) ----------
 // The redesign wraps the EXISTING editor in a Google-Docs-style shell. Phase 1 = the
@@ -2434,15 +2524,17 @@ const viewMode = ref('edit')
 function toggleMenu(m) {
   openMenu.value = openMenu.value === m ? null : m
 }
-// BI-017 — "สร้างเพลงใหม่" inside the legacy full editor must land in the SAME place as every
-// other create action: the inline ＋เพลงใหม่ flow (a blank editable song on the reading surface,
-// pencil on). So it asks the shell (Studio.createNewSong) instead of resetting the old grid in
-// place — one create flow everywhere, per P'Aim's single-source-of-create. (This already
-// discarded the current grid work without asking; leaving for the inline editor is no more lossy
-// and the shell guards the truly-unrecoverable case.)
 function fileNew() {
   openMenu.value = null
-  emit('new-song')
+  viewMode.value = 'edit'
+  // "สร้างเพลงใหม่" wipes the document too. It used to call resetForm() straight away, so the
+  // work was already gone by the time the pickerId watcher could ask (G, 2026-07-27).
+  if (!confirmDiscard('เริ่มเพลงใหม่')) return
+  if (pickerId.value !== '') {
+    skipWatch = '' // asked once, right here — the watcher must not ask again
+    pickerId.value = ''
+  }
+  resetForm()
 }
 // B071: "ออกจากเพลงนี้" (fileClose) was removed — P'Aim found it confusing and unneeded.
 function scrollToCard(id) {
@@ -2475,7 +2567,9 @@ watch(barMenuOpen, (v) => {
 })
 onUnmounted(() => document.removeEventListener('mousedown', onBarMenuOutside))
 function isMobileView() {
-  return window.matchMedia('(max-width: 760px)').matches
+  // ≤900px = "drawer" band: phones AND portrait tablets (768/834) use the slide-in rail.
+  // Wide tablets / desktop (≥901, e.g. 1024 landscape) keep the sticky side rail.
+  return window.matchMedia('(max-width: 900px)').matches
 }
 function toggleCatalog() {
   if (isMobileView()) drawerOpen.value = !drawerOpen.value
@@ -2563,43 +2657,9 @@ const crumbLabel = computed(() => {
 function curLine() {
   return lines.value[activeLine.value] || null
 }
-
-// R1 — assign a permanent id to every structural marker that lacks one, IN PLACE on the
-// editor model, filling only the gaps (existing ids are never reassigned → load→save→reload
-// is id-stable, the feature's #1 risk). repeat-start↔repeat-end are stack-paired and share
-// one `r` id; a marker gets `m`, a volta `v`. Returns true if anything was assigned.
-function ensureEditorMarkerIds() {
-  const taken = new Set()
-  for (const s of stanzas.value) for (const line of s.lines) {
-    if (line.markerId) taken.add(line.markerId)
-    for (const b of line.bars) { for (const k of ['repeatStartId', 'repeatEndId', 'voltaId']) if (b[k]) taken.add(b[k]) }
-  }
-  const free = (p) => { let n = 1; while (taken.has(p + n)) n++; const id = p + n; taken.add(id); return id }
-  let changed = false
-  for (const s of stanzas.value) {
-    const open = [] // open repeat-start bars awaiting their :‖ (flat, non-nested)
-    for (const line of s.lines) {
-      if (line.marker && !line.markerId) { line.markerId = free('m'); changed = true }
-      for (const b of line.bars) {
-        if (b.repeatStart) {
-          if (!b.repeatStartId) { b.repeatStartId = free('r'); changed = true }
-          open.push(b)
-        }
-        if (b.repeatEnd) {
-          const startBar = open.pop()
-          if (!b.repeatEndId) { b.repeatEndId = startBar ? startBar.repeatStartId : free('r'); changed = true }
-          else if (startBar && !startBar.repeatStartId) { startBar.repeatStartId = b.repeatEndId; changed = true }
-        }
-        if (b.volta && !b.voltaId) { b.voltaId = free('v'); changed = true }
-      }
-    }
-  }
-  return changed
-}
-
 function qHook() {
   const l = curLine()
-  if (l) { l.marker = l.marker ? '' : '***'; ensureEditorMarkerIds() }
+  if (l) l.marker = l.marker ? '' : '***'
 }
 // "ซ้ำ" wraps the whole active line in repeat marks — the model keeps them per bar (‖: on
 // the first bar, :‖ on the last), toggling off if the line is already wrapped.
@@ -2611,22 +2671,6 @@ function qRepeat() {
   const on = first.repeatStart && last.repeatEnd
   first.repeatStart = !on
   last.repeatEnd = !on
-  if (!on) ensureEditorMarkerIds()
-}
-// "จบรอบ" (volta) — the endings that differ between passes: เที่ยวแรกเล่นห้อง 1. · เที่ยวซ้ำ
-// ข้าม 1. ไปเล่น 2. The model keeps the mark PER BAR (midi.expandRepeats skips a bar whose
-// volta ≠ the current pass), so a line that IS the ending has EVERY one of its bars tagged —
-// otherwise only the first bar of the ending would be skipped on the 2nd pass. The sheet
-// prints the number once at the head of the run (SongSheet collapses the repeats), which is
-// how a volta bracket is drawn. Mixed lines (1. and 2. inside one line) are set per bar in
-// the ⋯ ห้อง menu; here a mixed line reads as "no line-level volta" and the next click
-// makes the whole line จบรอบ 1 (undoable like any other edit).
-function qVolta() {
-  const l = curLine()
-  if (!l || !l.bars.length) return
-  const next = (curLineVolta.value + 1) % 3 // none → 1 → 2 → none
-  l.bars.forEach((b) => { b.volta = next; b.voltaRaw = null }) // a UI edit collapses any loaded list
-  if (next) ensureEditorMarkerIds()
 }
 function qCopyLine() {
   copyLine(activeLine.value)
@@ -2662,19 +2706,6 @@ const curLineRepeat = computed(() => {
   const l = curLine()
   return !!(l && l.bars.length && l.bars[0].repeatStart && l.bars[l.bars.length - 1].repeatEnd)
 })
-// the line's volta, only when the WHOLE line carries the same one (a mixed line = 0, so the
-// header button never silently claims a state the line doesn't have)
-const curLineVolta = computed(() => {
-  const l = curLine()
-  if (!l || !l.bars.length) return 0
-  const v = l.bars[0].volta || 0
-  return v && l.bars.every((b) => (b.volta || 0) === v) ? v : 0
-})
-const voltaTitle = computed(() =>
-  curLineVolta.value
-    ? `บรรทัดนี้ = ห้องจบรอบ ${curLineVolta.value} — แตะเพื่อเปลี่ยนเป็น ${curLineVolta.value === 1 ? 'จบรอบ 2' : 'ไม่ใช่ห้องจบ'}`
-    : 'ทำให้บรรทัดที่กำลังแก้เป็นห้องจบรอบ (1. / 2.) — เที่ยวแรกเล่น 1. เที่ยวซ้ำเล่น 2.'
-)
 function toggleLineMore() {
   lineMoreOpen.value = !lineMoreOpen.value
 }
@@ -2990,6 +3021,150 @@ watch([activeStanza, lines], () => {
   shownBars.value = {}
 })
 
+// ---------- B118: cross-ห้อง tie / slur arcs over the live preview ----------
+// Each ห้อง renders as its OWN mini-SongSheet (barContent), so a tie or slur that runs from
+// one ห้อง into the next has no component that can span the barline: NoteRow drew a dangling
+// ~15px stub on each side and the curve read as broken in two
+// (พี่เปา, 20 ก.ค. — "เส้น slur โค้งไม่ต่อเนื่องกัน"; the แผ่นเพลง sheet gets this right
+// because there the whole line lives in ONE SongSheet).
+//
+// Fix: measure the real note positions across the whole .ed-strip and draw the pair as ONE
+// arc in a strip-level overlay, reusing the SAME geometry the sheet uses (lib/slurArcs.js).
+// Arcs that live INSIDE a single ห้อง are deliberately not touched — that bar's own
+// SongSheet already draws them correctly (B062/B076/B099), so there is nothing to regress.
+const edArcs = ref({})
+const edHalves = makeHalfHider()
+const edRoot = ref(null)
+
+// every note element of one line, in reading order, tagged with the ห้อง it sits in
+function stripNotes(strip) {
+  const out = []
+  strip.querySelectorAll('.ed-bar').forEach((barEl) => {
+    const bi = barEl.dataset.bar
+    barEl.querySelectorAll('.ed-bar-live .note-row .nt').forEach((nt) => out.push({ nt, bi, barEl }))
+  })
+  return out
+}
+
+// the flat note strings of one line's ห้อง, left→right, plus a map back to the DOM: entry i
+// is the i-th segment of the line, and lives in ห้อง `bi` as that bar's LOCAL segment `si`
+// (each mini-sheet numbers its own segments from 0, so data-seg is always "0-<local si>").
+function stripSegments(li) {
+  const line = lines.value[li]
+  const notes = []
+  const where = []
+  if (!line) return { notes, where }
+  line.bars.forEach((bar, bi) => {
+    bar.segments.forEach((seg, si) => {
+      notes.push(seg.note || '')
+      where.push({ bi, si })
+    })
+  })
+  return { notes, where }
+}
+
+function measureEdArcs() {
+  edHalves.restore()
+  const root = edRoot.value
+  if (!root) { edArcs.value = {}; return }
+  const byLine = {}
+  root.querySelectorAll('.ed-strip[data-li]').forEach((strip) => {
+    const li = strip.dataset.li
+    const sr = strip.getBoundingClientRect()
+    if (!sr.width) return // no layout yet (hidden tab / preview off) — keep the fallback
+    const nts = stripNotes(strip)
+    if (!nts.length) return
+    const rowRects = nts.map((r) => r.nt.getBoundingClientRect())
+    const arcs = []
+    // claim the two stubs only once a replacement arc actually exists, so anything we
+    // cannot measure keeps NoteRow's own halves as a visible fallback (same rule as sheet)
+    const draw = (openNt, closeNt, claim) => {
+      const produced = planArcs(openNt.getBoundingClientRect(), closeNt.getBoundingClientRect(), sr, rowRects)
+      if (!produced.length) return
+      claim()
+      arcs.push(...produced)
+    }
+    // --- cross-ห้อง TIES ---
+    // Walk back over the '-' extension dashes so the arc starts at the real source DIGIT,
+    // not at the last dash of a held run ("2 - - - | ~2") — the same skip the sheet does.
+    nts.forEach((rec, i) => {
+      if (!rec.nt.classList.contains('tie-end')) return
+      let pi = i - 1
+      while (pi >= 0 && nts[pi].nt.classList.contains('nt-ext')) pi--
+      const src = nts[pi]
+      if (!src || src.bi === rec.bi) return // same ห้อง → its own mini-sheet already drew it
+      draw(src.nt, rec.nt, () => {
+        // we know the exact source note here, so hide ITS start-hook precisely (a segment
+        // can hold several tie-starts — grabbing the segment's first would miss this one)
+        edHalves.hide(src.nt.querySelector('.tie-start-arc'))
+        edHalves.hide(rec.nt.querySelector('.tie-end-arc'))
+      })
+    })
+    // --- cross-ห้อง SLURS ---
+    // slurSpans pairs a '(' with its ')' across segment boundaries; keep only the pairs whose
+    // two ends land in DIFFERENT ห้อง (anything inside one ห้อง is that mini-sheet's job).
+    const { notes: segNotes, where } = stripSegments(Number(li))
+    for (const sp of slurSpans(segNotes)) {
+      const o = where[sp.open.si]
+      const c = where[sp.close.si]
+      if (!o || !c || o.bi === c.bi) continue
+      const sel = (w, idx) => strip.querySelector(
+        `.ed-bar[data-bar="${li}-${w.bi}"] .ed-bar-live .segment[data-seg="0-${w.si}"] .nt[data-idx="${idx}"]`,
+      )
+      const openNt = sel(o, sp.open.idx)
+      const closeNt = sel(c, sp.close.idx)
+      if (!openNt || !closeNt) continue
+      draw(openNt, closeNt, () => {
+        // NoteRow's stray one-note arc sits on the .note-group that holds the dangling '('
+        const grp = openNt.closest('.note-group')
+        edHalves.hide(grp && grp.querySelector('.slur-arc'))
+      })
+    }
+    if (arcs.length) byLine[li] = { paths: arcs, w: sr.width, h: sr.height }
+  })
+  edArcs.value = byLine
+}
+
+// Debounce on a timer, NOT requestAnimationFrame: rAF is paused in a non-painting tab, and
+// the sheet hit exactly this bug (B111/B114) — arcs stayed unpainted until a manual resize.
+let edArcTimer = 0
+function scheduleEdArcs() {
+  clearTimeout(edArcTimer)
+  edArcTimer = setTimeout(measureEdArcs, 16)
+}
+let edArcRO = null
+onMounted(() => {
+  nextTick(scheduleEdArcs)
+  // web fonts swap in after first paint and move every note — re-measure once they settle,
+  // otherwise the first measure runs on pre-font (often zero) widths and draws nothing
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(scheduleEdArcs).catch(() => {})
+  }
+  if (typeof ResizeObserver !== 'undefined' && edRoot.value) {
+    edArcRO = new ResizeObserver(scheduleEdArcs)
+    edArcRO.observe(edRoot.value)
+  }
+  if (typeof window !== 'undefined') window.addEventListener('resize', scheduleEdArcs)
+})
+onBeforeUnmount(() => {
+  if (edArcRO) edArcRO.disconnect()
+  if (typeof window !== 'undefined') window.removeEventListener('resize', scheduleEdArcs)
+  clearTimeout(edArcTimer)
+  edHalves.restore()
+})
+// any edit reflows the notes (and the ตัวอย่างสด toggle adds/removes the previews entirely)
+watch(
+  [lines, livePreview, barLayout, activeStanza, lensRow, () => opts.key],
+  () => nextTick(scheduleEdArcs),
+  { deep: true },
+)
+// Studio keeps the editor MOUNTED and only v-shows it, so onMounted runs while the editor is
+// still display:none — every rect is 0 there and the first measure can draw nothing. Re-measure
+// the moment แก้ไข actually becomes visible. This is an explicit signal on purpose: relying on
+// the ResizeObserver alone repeats B111/B114, where arcs stayed unpainted until a manual resize
+// because the observer never fired in a non-painting tab.
+watch(() => props.active, (on) => { if (on) nextTick(scheduleEdArcs) })
+
 // ---------- studio shell (phase 4: menus/panels) ----------
 // Set-once / occasional things live in menus now (เพลง = New/Open/Properties,
 // จัดการ = drafts/history/download/delete) opened as panels, so the editor page
@@ -3000,6 +3175,7 @@ function openPanel(p) {
   openMenu.value = null
   viewMode.value = 'edit'
   if (p === 'open') pendingPick.value = pickerId.value
+  if (p === 'trash') loadTrash()
   activePanel.value = p
 }
 function closePanel() {
@@ -3041,8 +3217,7 @@ function manageUpload() {
   inp.click()
 }
 function manageDelete() {
-  openMenu.value = null
-  deleteSong()
+  askDeleteSong()
 }
 // NOTE: the editor strip itself is the read+edit surface (note boxes + a lyric box under
 // each note, aligned). We tried a separate per-line sheet preview above it (US-D05) but it
@@ -3050,7 +3225,7 @@ function manageDelete() {
 // sheet is still the 🎼 mode button.
 const panelTitle = computed(
   () =>
-    ({ open: 'เลือกเพลงเพื่อแก้', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ' })[
+    ({ open: 'เลือกเพลงเพื่อแก้', history: 'ประวัติการแก้ไข', drafts: 'งานร่าง / รอตรวจ', trash: 'ถังขยะ' })[
       activePanel.value
     ] || '',
 )
@@ -3066,7 +3241,7 @@ watch(
     applyRow(s)
     editingId.value = s.id ?? null
     currentDraftId.value = null
-    openDraft.value = null
+    reviewingDraft.value = null
     saveMsg.value = ''
     nextTick(resetHistory)
   },
@@ -3091,32 +3266,43 @@ defineExpose({
   saveDraft, loadDraft, meta, editingId, currentDraftId, previewContent,
   // issues9/issues10: บันทึกร่าง's seat on the bar + throwing away one's own draft.
   deleteDraft, editItems,
-  // D3/D2/D4 identity tests: the derived facts + the one label/action the dock actually uses.
-  openDraft, pendingDrafts, reviewingDraft, openPendingDraft, pendingForThisSong, pendingAlert,
-  saveLabel, saveName, primaryAction, loadSong, loadDrafts,
   // B097 undo/redo tests: drive the same doc/view state + navigation the UI drives.
   opts, stanzas, arrangement, activeStanza, lensChoice,
   undo, redo, selectStanza, focusRow, addStanza, setSyl, applyChordAt,
   toggleAfterEachVerse, // B102 — "ร้องรับทุกข้อ" refrain directive helper (AC-5 tests)
-  // R3/R5 — per-verse repeat flow (patterns 2,3,4,6) + orphan/id derived state (R1/R4 tests)
-  setVerseSkipAll, verseSkipAll, setVerseTimes, verseTimes, setVerseEnding, verseEnding,
-  setVerseSkipRefrain, verseSkipRefrain, setVerseFlowJson, verseFlowJson, stanzaRepeats,
-  flowOrphans, markerIds, ensureEditorMarkerIds,
   history, histPos,
   // B100 leave-warning tests: dirty flag + save/load clean checkpoints.
   isDirty, saveDirect,
   // 2026-07-27 unsaved-guard: the in-place replacements the picker/history/import drive.
-  pickerId, restore, songList,
+  pickerId, loadSong, restore, songList, fileNew,
   // B108 หมวดหาย: per-field knownness + the two publish paths that gate on it.
   categoryKnown, themeKnown, approve, pickCategory, pickTheme, reviewingDraft,
 })
 </script>
 
 <template>
-  <!-- reserve the dock's REAL height (DockKey publishes --dock-h): the fixed dock is 214px
-       tall on a 360px phone, so the old flat 150px left the last note/lyric/chord controls
-       under it, untappable (🔴4). +24px keeps a finger-sized gap above the dock. -->
-  <div :style="{ paddingBottom: 'calc(var(--dock-h, 150px) + 24px)' }">
+  <!-- edRoot: the measuring root for the B118 cross-ห้อง arc overlay (a ResizeObserver here
+       re-measures every line's arcs whenever the editor reflows) -->
+  <div ref="edRoot" style="padding-bottom: 150px">
+    <!-- เฟอร์มาต้า "ค้าง" chip — floating host UNDER the focused fermata note (teleported to
+         <body> so position:fixed clears transformed ancestors and clamps to the viewport).
+         M1 = presentation: value is a stub, ▶ฟัง/↺แนะนำ inert. Every control is always
+         visible (NO @media(hover)/pointer gating — Surface reports hover:none with a mouse). -->
+    <Teleport to="body">
+      <div
+        v-if="fermataChip"
+        ref="chipEl"
+        class="fermata-chip no-print"
+        :style="{ left: chipPos.left + 'px', top: chipPos.top + 'px' }"
+        role="group"
+        aria-label="ตั้งค่าการค้างเสียงของเฟอร์มาต้า"
+      >
+        <span class="fc-sym" aria-hidden="true">𝄐</span>
+        <button class="fc-step" aria-label="ค้างสั้นลง" @mousedown.prevent @click="fcDec">–</button>
+        <span class="fc-value" aria-live="polite" :aria-label="`ค้าง ${fcHoldLabel} จังหวะ`">{{ fcHoldLabel }}</span>
+        <button class="fc-step" aria-label="ค้างยาวขึ้น" @mousedown.prevent @click="fcInc">+</button>
+      </div>
+    </Teleport>
     <!-- editor chrome teleported into the app-wide ShellBar — only while this mode is on
          (the shell owns the mode toggle + the static title for view/sheet) -->
     <Teleport to="#shell-title">
@@ -3148,8 +3334,9 @@ defineExpose({
             <div class="sep"></div>
             <button class="sb-item" role="menuitem" @click="openPanel('drafts')"><Icon name="file-text" /> งานร่าง / รอตรวจ</button>
             <button v-if="editingId" class="sb-item" role="menuitem" @click="openPanel('history')"><Icon name="undo-2" /> ประวัติการแก้ไข</button>
+            <button v-if="isApprover" class="sb-item" role="menuitem" @click="openPanel('trash')"><Icon name="trash-2" /> ถังขยะ</button>
           </template>
-          <button v-if="isApprover && loggedIn && editingId && !reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="manageDelete"><Icon name="x" /> ลบเพลง</button>
+          <button v-if="isApprover && loggedIn && editingId && !reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="manageDelete"><Icon name="trash-2" /> ลบเพลง</button>
         </div>
       </div>
     </Teleport>
@@ -3164,10 +3351,14 @@ defineExpose({
         <!-- ===== โครงเพลง — the one list of ท่อน (arrangement rows), in singing order.
              Drag ⠿ or ▲▼ to reorder · click a name to rename · ♪ picks its melody. Replaces
              the old 3 groups (ทำนอง / เนื้อร้อง / ขั้นสูง→ลำดับเพลง) and the bottom block. ===== -->
-        <div class="rail-group rg-main">โครงเพลง</div>
+        <button class="rail-group rg-toggle rg-main" :aria-expanded="mainOpen" @click="mainOpen = !mainOpen">
+          <Icon name="chevron-down" :size="14" class="rg-chev" :class="{ 'rg-chev-open': mainOpen }" /> โครงเพลง
+        </button>
+        <template v-if="mainOpen">
         <p class="rail-hint no-print">ลากจัดลำดับ · คลิกชื่อเพื่อแก้</p>
         <div
           v-for="(row, ri) in arrangement"
+          v-show="!lyricSets.length || (row.set ?? 0) === activeSet"
           :key="ri"
           class="srow"
           :class="{ sel: ri === lensChoice, drag: ri === dragFromRow, over: ri === dragOverRow && ri !== dragFromRow }"
@@ -3217,6 +3408,7 @@ defineExpose({
           <button v-if="arrangement.length > 1" class="srow-del" title="ลบท่อนนี้" aria-label="ลบท่อนนี้" @click.stop="removeRow(ri)"><Icon name="trash-2" :size="14" /></button>
         </div>
         <button class="addsec" @click="addRow(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มท่อน</button>
+        </template>
 
         <div class="rail-sep"></div>
         <!-- ทำนอง (โน้ต): secondary group, collapsed — for editing notes / reusing a melody.
@@ -3284,23 +3476,24 @@ defineExpose({
       </div>
     </div>
 
-    <!-- B-DUP — "เพลงนี้มีในคลังแล้ว". Live while the name is being typed, not at save time, so
-         the fix is still cheap. Three strengths, never colour alone (WCAG 1.4.1 — the ⛔/⚠️/ℹ️
-         glyph and the wording carry it): ⛔ = this save will be refused · ⚠️ = looks like an
-         existing song, confirm and pass · ℹ️ = the same name in another เล่ม, which is normal.
-         Every clashing song is a link, so "ไปดู/ไปแก้เพลงนั้น" is one click (hash router). -->
+    <!-- B-DUP — the live duplicate-title warning. ⛔ = same name, same เล่ม (the save is
+         refused) · ⚠️ = a similar name in the same เล่ม, which might really be a different
+         song, confirm and pass · ℹ️ = the same name in another เล่ม, which is normal.
+         Every clashing song is a link, so "ไปดู/ไปแก้เพลงนั้น" is one click (hash router).
+         B128: when there is no verdict yet, the same box carries the early ℹ️ hint from
+         5 typed characters on ("มีเพลงชื่อขึ้นต้นแบบนี้แล้ว …"). -->
     <div
-      v-if="editing && titleConflictMsg"
+      v-if="editing && dupMsg"
       class="card dup-alert no-print"
-      :class="'dup-' + titleConflicts.level"
+      :class="'dup-' + dupLevel"
       role="status"
       aria-live="polite"
     >
-      <strong>{{ titleConflicts.level === 'block' ? '⛔' : titleConflicts.level === 'warn' ? '⚠️' : 'ℹ️' }}</strong>
-      {{ titleConflictMsg }}
+      <strong>{{ dupLevel === 'block' ? '⛔' : dupLevel === 'warn' ? '⚠️' : 'ℹ️' }}</strong>
+      {{ dupMsg }}
       <span class="dup-links">
         <a
-          v-for="s in conflictLinks"
+          v-for="s in dupLinks"
           :key="s.id"
           :href="'#/song/' + s.id"
           target="_blank"
@@ -3309,26 +3502,9 @@ defineExpose({
       </span>
     </div>
 
-    <!-- D4 (US AC-6) — this song has a draft waiting for review that is NOT the one on screen.
-         Publishing from here strands it silently, so say so on arrival, not only at the button.
-         Inline, not a toast: the fact is a lasting state and a snackbar leaves (HIG Feedback).
-         aria-live announces it when it appears mid-session (loadDrafts resolves after loadSong). -->
-    <div v-if="pendingAlert" class="card pending-alert no-print" role="status" aria-live="polite">
-      <!-- ⚠️ as text, matching .migrate-note below: Icon.vue renders `ICONS[name] || ''`, so a
-           glyph it doesn't carry (it has no warning triangle) would vanish without an error -->
-      <strong>⚠️ {{ draftAuthor(pendingAlert) }}ส่งร่างของเพลงนี้มารอตรวจ</strong>
-      <span class="muted"> — เผยแพร่ทับตอนนี้ ร่างนั้นจะยังค้างรอตรวจอยู่</span>
-      <div class="pa-actions">
-        <button class="pa-go" @click="loadDraft(pendingAlert)">
-          ดูร่างของ{{ draftAuthor(pendingAlert) }}
-        </button>
-        <button @click="dismissPendingAlert">แก้ฉบับเผยแพร่ต่อ</button>
-      </div>
-    </div>
-
-    <!-- review banner (contextual — while an approver is reviewing SOMEONE ELSE's draft) -->
-    <div v-if="reviewingDraft" class="card review-banner no-print" role="status" aria-live="polite">
-      <strong>🔍 กำลังตรวจฉบับร่างของ {{ draftAuthor(reviewingDraft) }}</strong>
+    <!-- review banner (contextual — while an approver is reviewing a draft) -->
+    <div v-if="reviewingDraft" class="card review-banner no-print">
+      <strong>🔍 กำลังตรวจฉบับร่างของ {{ profilesMap[reviewingDraft.author_id] || '?' }}</strong>
       <span class="muted"> — แก้ไขในฟอร์มด้านล่างได้ก่อนอนุมัติ</span>
       <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center">
         <button @click="approve">✅ อนุมัติและเผยแพร่</button>
@@ -3381,15 +3557,6 @@ defineExpose({
       <span class="ed-quick" aria-label="โครงเพลงด่วน (บรรทัดที่กำลังแก้)">
         <button class="ed-ico" :class="{ on: curLineHook }" title="ทำเครื่องหมายท่อนฮุกให้บรรทัดที่กำลังแก้" aria-label="ท่อนฮุก" @click="qHook"><Icon name="fishing-hook" :size="16" /></button>
         <button class="ed-ico" :class="{ on: curLineRepeat }" title="เล่นซ้ำบรรทัดที่กำลังแก้ ‖: :‖" aria-label="เล่นซ้ำบรรทัด" @click="qRepeat"><Icon name="repeat" :size="16" /></button>
-        <!-- จบรอบ (volta) — the sibling of ‖: :‖ above: repeat says "play it twice", this says
-             "but end it differently the 2nd time". Cycles ไม่ใช่ → จบรอบ 1 → จบรอบ 2. -->
-        <button
-          class="ed-ico ed-volta"
-          :class="{ on: curLineVolta }"
-          :title="voltaTitle"
-          :aria-label="curLineVolta ? `ห้องจบรอบ ${curLineVolta} (แตะเพื่อเปลี่ยน)` : 'ทำเป็นห้องจบรอบ 1. / 2.'"
-          @click="qVolta"
-        ><Icon name="volta" :size="16" /><span v-if="curLineVolta" class="ed-volta-n" aria-hidden="true">{{ curLineVolta }}</span></button>
         <!-- B086: move the active line up/down; each verse's words follow the melody line -->
         <button class="ed-ico ed-mvline" title="ย้ายบรรทัดที่กำลังแก้ขึ้น (เนื้อทุกข้อตามไปด้วย)" aria-label="ย้ายบรรทัดขึ้น" :disabled="activeLine === 0" @click="moveLine(-1)"><span aria-hidden="true">▲</span></button>
         <button class="ed-ico ed-mvline" title="ย้ายบรรทัดที่กำลังแก้ลง (เนื้อทุกข้อตามไปด้วย)" aria-label="ย้ายบรรทัดลง" :disabled="activeLine === lines.length - 1" @click="moveLine(1)"><span aria-hidden="true">▼</span></button>
@@ -3428,6 +3595,63 @@ defineExpose({
     </p>
     <!-- aria-live: announce the new order after a drag/▲▼ move (WCAG 2.5.7 · screen readers) -->
     <div class="sr-only" aria-live="polite">{{ reorderMsg }}</div>
+
+    <!-- ===== 717 multi-lyric — lyric-SET tabs (one melody, several word sets you SWITCH).
+         Picking a tab targets that set's ท่อน for editing; ＋ เพิ่มชุด makes a new set on the
+         SAME melody (words empty). Ordinary songs still show "ทำนอง ๑" + ＋ so a 2nd set is
+         one tap away. The shared-melody contract is stated right under the tabs. ===== -->
+    <div class="eset-bar no-print">
+      <!-- ONE SET (≈ the whole library): no tabs, no accordion, nothing to read past — just a
+           light way in, so making a second set stays one tap away without charging every
+           ordinary song for the feature (P'Aim, 26 ก.ค.). -->
+      <button
+        v-if="!hasManySets"
+        class="eset-add-lone"
+        title="เพิ่มเนื้อร้องชุดใหม่บนทำนองเดิม (โน้ตใช้ร่วมกัน)"
+        @click="addLyricSet"
+      >＋ เพิ่มชุดเนื้อร้อง</button>
+
+      <!-- MORE THAN ONE SET: the strip stands OPEN. The reader folds its switcher because you
+           choose a set once and then sing; here the active set is what your typing goes into, so
+           it must be readable and switchable without a click (P'Aim, 26 ก.ค.). v-if, not v-show,
+           on the one-set case: that song must not carry a hidden tablist a screen reader could
+           still meet — the feature simply is not there for it yet. -->
+      <div v-if="hasManySets" id="eset-tabs" class="eset-tabs" role="tablist" aria-label="เลือกชุดเนื้อร้อง">
+        <!-- No rename affordance (26 ก.ค.): a tab reads "เนื้อร้องที่ N" from its POSITION, so a
+             name the author types would be stored and never shown — an invitation to work that
+             visibly does nothing. The `name` field itself is untouched in the data; it is simply
+             no longer authored here. -->
+        <button
+          v-for="(ls, i) in setTabs"
+          :key="i"
+          class="eset-tab"
+          :class="{ active: activeSet === i }"
+          role="tab"
+          :aria-selected="activeSet === i ? 'true' : 'false'"
+          @click="selectSet(i)"
+        >{{ ls.display }}</button>
+        <button class="eset-add" title="เพิ่มเนื้อร้องชุดใหม่บนทำนองเดิม" aria-label="เพิ่มชุดเนื้อร้อง" @click="addLyricSet">＋ เพิ่มชุด</button>
+        <button
+          class="eset-del"
+          title="ลบชุดเนื้อที่เลือกอยู่ (เนื้อชุดนี้จะหาย · ทำนองยังอยู่)"
+          :aria-label="'ลบชุด ' + (setTabs[activeSet]?.display || '')"
+          @click="askRemoveLyricSet(activeSet)"
+        ><Icon name="trash-2" :size="14" /> ลบชุดนี้</button>
+        <!-- the shared-melody contract belongs WITH the choice, so it costs nothing while the
+             panel is folded and is right there the moment you pick a set to type into -->
+        <p class="eset-hint">♪ โน้ต/คอร์ด = ทำนองเดียว ใช้ร่วม<b>ทุกชุด</b> · พิมพ์เนื้อ = เฉพาะ “{{ setTabs[activeSet]?.display }}”</p>
+      </div>
+      <!-- destructive confirm — names the set, gives a keyboard path (Enter=ลบ · Esc=ยกเลิก) -->
+      <div v-if="confirmDelSet >= 0" class="eset-confirm" role="alertdialog" aria-modal="true" aria-labelledby="eset-confirm-t" @keydown.esc="cancelRemoveLyricSet" @keydown.enter.prevent="doRemoveLyricSet">
+        <p id="eset-confirm-t" class="eset-confirm-t">ลบ “{{ setTabs[confirmDelSet]?.display }}” ?</p>
+        <p class="eset-confirm-d">เนื้อร้องชุดนี้จะหายทั้งหมด (กู้ไม่ได้ในหน้านี้) · <b>ทำนองยังอยู่</b></p>
+        <div class="eset-confirm-btns">
+          <button class="secondary" @click="cancelRemoveLyricSet">ยกเลิก</button>
+          <button class="eset-confirm-del" v-focus @click="doRemoveLyricSet"><Icon name="trash-2" :size="14" /> ลบชุดนี้</button>
+        </div>
+      </div>
+      <span class="sr-only" aria-live="polite">{{ removeSetMsg }}</span>
+    </div>
 
     <!-- ===== canvas section header for the selected ท่อน — rename + melody + reorder right
          where you edit (SX2/SX3/SX5). The note/word/beat editor below is unchanged (SX7). ===== -->
@@ -3486,69 +3710,6 @@ defineExpose({
         <button aria-label="ย้ายท่อนลง" :disabled="lensChoice === arrangement.length - 1" @click="moveRow(lensChoice, 1)">▼</button>
       </span>
       <button v-if="arrangement.length > 1" class="cs-del" title="ลบท่อนนี้" aria-label="ลบท่อนนี้" @click="removeRow(lensChoice)"><Icon name="trash-2" :size="15" /></button>
-    </div>
-
-    <!-- R5 — per-verse repeat flow (patterns 2,3,4,6). Progressive disclosure: the toggle only
-         appears when this verse's melody actually HAS a repeat, or there is a refrain to drop —
-         so the ~80% ordinary verse stays uncluttered. Hidden by complexity, never by tier
-         (memory pleng-edit-open-all-tiers): everyone who can edit sees it. -->
-    <div v-if="lensRow && (stanzaRepeats(lensRow.stanza).length || (refrainStanza && lensRow.stanza !== refrainStanza))" class="ed-flow no-print">
-      <button class="ed-flow-toggle" :aria-expanded="flowPanelOpen" @click="flowPanelOpen = !flowPanelOpen">
-        <Icon name="repeat" :size="14" /> การวนซ้ำของข้อนี้
-        <span v-if="isNonEmptyFlow(lensRow.flow)" class="ed-flow-dot" title="ข้อนี้วนต่างจากทำนอง">●</span>
-        <Icon name="chevron-down" :size="13" class="ed-flow-chev" :class="{ open: flowPanelOpen }" />
-      </button>
-      <div v-if="flowPanelOpen" class="ed-flow-body">
-        <p class="ed-flow-hint muted">ปกติทุกข้อวนซ้ำเหมือนทำนอง — ตั้งค่าที่นี่เฉพาะเมื่อข้อนี้ต้องวนต่างออกไป</p>
-        <!-- pattern 2 -->
-        <label v-if="stanzaRepeats(lensRow.stanza).length" class="ed-flow-row">
-          <input type="checkbox" :checked="verseSkipAll(lensRow)" @change="setVerseSkipAll(lensRow, $event.target.checked)" />
-          ข้อนี้ไม่วนซ้ำ (ร้องผ่านครั้งเดียว)
-        </label>
-        <!-- pattern 4 — per repeat, how many rounds this verse plays it -->
-        <template v-if="!verseSkipAll(lensRow)">
-          <label v-for="(rep, ri) in stanzaRepeats(lensRow.stanza)" :key="rep.id" class="ed-flow-row">
-            <span>เล่นซ้ำจุดที่ {{ ri + 1 }} จำนวน</span>
-            <input class="ed-flow-num" type="number" min="1" max="9" inputmode="numeric"
-              :placeholder="String(rep.times)" :value="verseTimes(lensRow, rep.id)"
-              :aria-label="'จำนวนรอบของจุดวนที่ ' + (ri + 1) + ' (ว่าง = ตามทำนอง ' + rep.times + ' รอบ)'"
-              @input="setVerseTimes(lensRow, rep.id, $event.target.value)" />
-            <span>รอบ <small class="muted">(ว่าง = ตามทำนอง {{ rep.times }})</small></span>
-          </label>
-        </template>
-        <!-- pattern 3 -->
-        <label class="ed-flow-row">
-          <span>เข้าห้องจบชุดที่</span>
-          <input class="ed-flow-num" type="number" min="1" max="9" inputmode="numeric"
-            placeholder="—" :value="verseEnding(lensRow)" aria-label="บังคับห้องจบชุดที่ (ว่าง = ตามทำนอง)"
-            @input="setVerseEnding(lensRow, $event.target.value)" />
-          <small class="muted">(ว่าง = ตามทำนอง)</small>
-        </label>
-        <!-- pattern 6 — only when a refrain follows every verse -->
-        <label v-if="refrainStanza && lensRow.stanza !== refrainStanza" class="ed-flow-row">
-          <input type="checkbox" :checked="verseSkipRefrain(lensRow)" @change="setVerseSkipRefrain(lensRow, $event.target.checked)" />
-          ไม่ต้องร้องรับหลังข้อนี้
-        </label>
-        <!-- advanced (path / power edits) — progressive disclosure -->
-        <button class="ed-flow-adv-toggle" :aria-expanded="flowAdvancedOpen" @click="flowAdvancedOpen = !flowAdvancedOpen">
-          <Icon name="chevron-down" :size="12" class="ed-flow-chev" :class="{ open: flowAdvancedOpen }" /> ตั้งค่าขั้นสูง (JSON)
-        </button>
-        <div v-if="flowAdvancedOpen" class="ed-flow-adv">
-          <textarea class="ed-flow-json" rows="2" spellcheck="false"
-            :value="verseFlowJson(lensRow)" aria-label="flow ของข้อนี้ (JSON)"
-            placeholder='เช่น {"path":["r1","v2"]}'
-            @change="setVerseFlowJson(lensRow, $event.target.value)"></textarea>
-          <p v-if="flowJsonError" class="ed-flow-err" role="alert">{{ flowJsonError }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- R4 — a flow directive pointing at a deleted repeat/section is ORPHAN. Playback ignores
-         it (never guesses); this names it and lets the author clear it, so data never dies silently. -->
-    <div v-if="flowOrphans.length" class="ed-flow-orphan no-print" role="alert">
-      <Icon name="triangle-alert" :size="15" />
-      <span>ข้อ {{ flowOrphans.map((o) => o.entryIndex + 1).join(', ') }} สั่งวน/ข้ามเครื่องหมายที่ถูกลบไปแล้ว — ระบบจะร้องตามทำนองแทน</span>
-      <button class="ed-flow-orphan-fix" @click="clearOrphanFlows">ลบคำสั่งที่ค้าง</button>
     </div>
 
     <p v-if="lensActive" class="muted no-print" style="margin: 0 0 8px">
@@ -3612,14 +3773,30 @@ defineExpose({
            read+edit surface — note boxes (ripple) with a lyric box under each note (ripple),
            aligned in one column, chords on top. No separate sheet preview (would duplicate
            this and overflow the screen). -->
-      <div class="ed-strip" :class="'lay-' + barLayout">
+      <div class="ed-strip" :class="'lay-' + barLayout" :data-li="li">
+        <!-- B118: a tie/slur that runs from one ห้อง into the next is drawn HERE, at strip
+             level, because each ห้อง renders as its own mini-SongSheet and none of them can
+             span a barline on its own — without this the curve broke into two stubs
+             (พี่เปา: "เส้น slur โค้งไม่ต่อเนื่องกัน"). Arcs INSIDE one ห้อง are untouched:
+             that bar's own SongSheet still draws them (B062/B076). -->
+        <svg
+          v-if="edArcs[li]"
+          class="ed-arc-layer no-print"
+          :viewBox="`0 0 ${edArcs[li].w} ${edArcs[li].h}`"
+          :width="edArcs[li].w"
+          :height="edArcs[li].h"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path v-for="a in edArcs[li].paths" :key="a.key" :d="a.d" />
+        </svg>
         <template v-for="(bar, bi) in line.bars" :key="bi">
           <span v-if="bi > 0" class="ed-barline" aria-hidden="true"></span>
           <div
             class="ed-bar"
             :class="{ 'bar-playing': playingBar === `${li}-${bi}` }"
             :data-bar="`${li}-${bi}`"
-            @click="pickBar(li, bi, $event)"
           >
             <!-- A (editor-preview-refine): live jianpu preview of THIS ห้อง, in place right above
                  its edit boxes — the same render the sheet draws, updating as you type. Read-only;
@@ -3632,25 +3809,19 @@ defineExpose({
             <!-- one column per note: chord on top, note box, then the syllable box
                  directly under its note (edit everything here — no duplicate preview) -->
             <div v-if="!barShown(li, bi)" class="seg-strip">
-              <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col" @focusin="onSegFocus($event, li, bi, si)">
-                <!-- P'Aim 21 ก.ค.: the floating per-note toolbox used to pop up SEPARATELY from the
-                     bar toolbar (two toolbars at once = ซ้ำซ้อน). The note tools now live in the ONE
-                     bar foot toolbar below (.ed-note-acts), so a click shows a single toolbar. -->
+              <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col">
                 <div class="chord-row">
-                  <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell" @keydown.esc="editingChord = null">
-                    <!-- B109: Enter=ยืนยันคอร์ด via allow-custom (accept the typed value, not just a
-                         list pick — root cause Enter did nothing) · Esc=ยกเลิก at the wrapper (closes
-                         editingChord · mirrors the rename pattern · NOT emitted into shared ComboSelect). -->
+                  <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell">
                     <ComboSelect
                       v-if="chordEditing(li, bi, si, p - 1)"
                       :model-value="p - 1 === 0 ? seg.chord : ''"
                       :options="p - 1 === 0 ? chordPickOpts : chordOpts"
+                      allow-custom
                       :validate="isValidChord"
                       placeholder="คอร์ด (พิมพ์เองได้ เช่น F#m7b5, G/B)"
                       aria-label="เลือกหรือพิมพ์คอร์ด"
                       width="120px"
                       class="chord-pick"
-                      allow-custom
                       autofocus
                       @update:model-value="applyChordAt(bar, si, p - 1, $event)"
                     />
@@ -3663,10 +3834,19 @@ defineExpose({
                     >{{ p - 1 === 0 && seg.chord ? seg.chord : '+' }}</button>
                   </span>
                 </div>
-                <NoteBoxes v-model="seg.note" />
+                <NoteBoxes
+                  v-model="seg.note"
+                  :hold-labels="noteHoldLabels(li, bi, si)"
+                  @note-active="onNoteActive(li, bi, si, $event)"
+                  @note-inactive="onNoteInactive"
+                />
                 <span v-if="lensActive" class="syl-boxes">
                   <span v-for="(cell, bx) in sylCells(li, bi, si, seg.note)" :key="bx" class="syl-slot">
                     <template v-if="cell.slot !== null">
+                      <span v-if="focusedSlot === cell.slot" class="slot-tools">
+                        <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(cell.slot)">◀</button>
+                        <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(cell.slot)">▶</button>
+                      </span>
                       <input
                         class="syl-box"
                         :class="{ 'syl-empty': !cell.held && !sylAt(lensRow, cell.slot), 'syl-held': cell.held }"
@@ -3674,7 +3854,7 @@ defineExpose({
                         :data-slot="cell.slot"
                         :placeholder="cell.held ? '-' : ''"
                         :aria-label="cell.held ? `โน้ตลากเสียง ช่องที่ ${cell.slot + 1} (เว้นว่างได้)` : `พยางค์ที่ ${cell.slot + 1}`"
-                        @focus="focusedSlot = cell.slot; selSlot = cell.slot"
+                        @focus="focusedSlot = cell.slot"
                         @blur="focusedSlot = -1"
                         @keydown="onSylKey($event, cell.slot)"
                         @input="setSyl(lensRow, cell.slot, $event.target.value)"
@@ -3683,7 +3863,13 @@ defineExpose({
                     <span v-else class="syl-spacer" aria-hidden="true"></span>
                   </span>
                 </span>
-                <!-- note copy/delete moved UP into the hoisted merged toolbox (dock-space §10) -->
+                <!-- B098: NOTE-level tools (this ตัวโน้ต only) — คัดลอกโน้ต + ลบโน้ต. The bar-
+                     level twins (คัดลอกห้อง/ลบห้อง) live in the bar foot below, so it is clear
+                     which control acts on one note vs the whole ห้อง. -->
+                <span class="seg-tools">
+                  <button class="secondary tiny seg-copy" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" aria-label="คัดลอกโน้ตนี้" @click="duplicateSegment(bar, si)"><Icon name="copy" :size="13" /></button>
+                  <button class="secondary tiny seg-del" title="ลบโน้ตนี้ (ห้องยังอยู่)" aria-label="ลบโน้ตนี้" @click="removeSegment(bar, si)">✕</button>
+                </span>
               </div>
             </div>
             <!-- ดูผล: the same bar drawn clean (jianpu render) — REPLACES the edit grid, not
@@ -3697,13 +3883,6 @@ defineExpose({
                 <template v-if="barStatus(li, bi).text">{{ barStatus(li, bi).text }} {{ barStatus(li, bi).ok ? '✓' : '❌' }}</template>
                 <template v-else>ห้อง {{ bi + 1 }}</template>
               </span>
-              <!-- G1: the swapped-order warning. The bar now READS fine, so without this
-                   chip nothing on screen would say the note was written out of order. -->
-              <span
-                v-if="barOrderWarn(li, bi).length"
-                class="ed-bar-order"
-                :title="`ตัวโน้ตเท่าเดิม สลับที่เท่านั้น — ระบบอ่านให้ถูกแล้ว แต่ไม่ได้แก้ข้อมูลให้ ถ้าไม่ตรงกับที่ตั้งใจ ให้เทียบกับหนังสือต้นฉบับก่อนแก้`"
-              >{{ barOrderWarnLabel(li, bi) }}</span>
               <!-- B055: a short bar can be a ห้องยก (pickup) whose beats finish in another
                    partial bar — offer the one-tap toggle right where the ❌ shows -->
               <button
@@ -3723,36 +3902,7 @@ defineExpose({
               <span v-if="bar.repeatStart" class="ed-bar-mark" title="เริ่มเล่นซ้ำ">‖:</span>
               <span v-if="bar.repeatEnd" class="ed-bar-mark" title="วนกลับ">:‖</span>
               <span v-if="bar.volta" class="ed-bar-mark" :title="bar.volta === 1 ? 'ห้องจบรอบแรก' : 'ห้องจบรอบสอง'">{{ bar.volta }}.</span>
-              <!-- P'Aim 21 ก.ค.: ONE toolbar that shows tools for the level you clicked, ONE at a
-                   time (no more note+ห้อง mixed). Quick-switch tabs flip the level; clicking a note
-                   → เนื้อ/โน้ต, clicking the ห้อง area → ห้อง. (บรรทัด/ข้อ come next.) -->
-              <span v-if="barToolsOn(li, bi)" class="ed-lvl-tabs" role="group" aria-label="เลือกระดับที่จะแก้">
-                <button
-                  v-for="lv in TOOL_LEVELS.filter(l => l.id === 'note' || l.id === 'bar')"
-                  :key="lv.id"
-                  class="ed-lvl-tab"
-                  :class="{ on: toolLevel === lv.id }"
-                  :aria-pressed="toolLevel === lv.id"
-                  @mousedown.prevent
-                  @click="toolLevel = lv.id"
-                >{{ lv.label }}</button>
-              </span>
-              <!-- เนื้อ/โน้ต tools: ▼▲ octave (or ◀▶ when a syllable box is picked) + copy/delete note -->
-              <span v-if="barToolsOn(li, bi) && toolLevel === 'note'" class="ed-note-acts">
-                <template v-if="selSlot >= 0">
-                  <button class="ed-mini" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(selSlot)">◀</button>
-                  <button class="ed-mini" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(selSlot)">▶</button>
-                </template>
-                <template v-else>
-                  <button class="ed-mini" aria-label="ลดเสียงลงหนึ่งช่วงเสียง" title="ลดเสียงลงหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(-1)">▼</button>
-                  <button class="ed-mini" aria-label="เพิ่มเสียงขึ้นหนึ่งช่วงเสียง" title="เพิ่มเสียงขึ้นหนึ่งช่วง (โน้ตที่เลือก)" @mousedown.prevent @click="octaveShift(1)">▲</button>
-                </template>
-                <button class="ed-mini" aria-label="คัดลอกโน้ตนี้" title="คัดลอกโน้ตนี้ (เพิ่มถัดจากนี้)" @mousedown.prevent @click="duplicateSegment(bar, toolCtx?.si)"><Icon name="copy" :size="14" /></button>
-                <button class="ed-mini danger-ic" aria-label="ลบโน้ตนี้" title="ลบโน้ตนี้ (ห้องยังอยู่)" @mousedown.prevent @click="removeSegment(bar, toolCtx?.si)">✕</button>
-              </span>
-              <!-- ห้อง tools + the ⋯ menu. Kept in the DOM (CSS-hidden off-level) so keyboard/AT
-                   reach them only when ห้อง is the active level. -->
-              <span class="ed-bar-acts" :class="{ 'bar-tools-off': !(barToolsOn(li, bi) && toolLevel === 'bar') }">
+              <span class="ed-bar-acts">
                 <button class="ed-mini" title="ฟังห้องนี้" aria-label="ฟังห้องนี้" @click="playBar(li, bi)"><Icon name="play" :size="14" /></button>
                 <button class="ed-mini" :class="{ on: barShown(li, bi) }" :aria-pressed="barShown(li, bi)" title="ดูผล — สลับ แก้ ⇄ แผ่นเพลง (ห้องนี้)" aria-label="ดูผลห้องนี้" @click="toggleBarShown(li, bi)"><Icon name="music" :size="14" /></button>
                 <!-- B092: bar move/copy/delete surfaced out of the ⋯ popover — one tap, no menu.
@@ -3764,7 +3914,7 @@ defineExpose({
                 <button class="ed-mini bar-act-wide" title="ทำซ้ำทั้งห้องนี้ (วางเป็นห้องถัดไปทันที) — ถ้าอยากวางที่ท่อนอื่น ใช้ ⋯ › คัดลอกห้อง" aria-label="ทำซ้ำห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)"><Icon name="copy" :size="14" /></button>
                 <button class="ed-mini danger-ic bar-act-wide" title="ลบทั้งห้องนี้ (ทุกโน้ตในห้อง)" aria-label="ลบห้องนี้" @click="removeBar(line, bi)"><Icon name="trash-2" :size="14" /></button>
               </span>
-              <span class="ed-bar-more-wrap" :class="{ 'bar-tools-off': !barToolsOn(li, bi) }">
+              <span class="ed-bar-more-wrap">
                 <button
                   class="ed-mini"
                   :class="{ on: barMenuOpen === `${li}-${bi}` }"
@@ -3878,8 +4028,7 @@ defineExpose({
 
     <!-- edit dock — the DockKey engine fed ITEMS_EDIT (แป้นโน้ต band · ย้อน/ทำซ้ำ/ฟัง ·
          บันทึก prime · export/draft/preview in ⚙). Same engine as ฝึกร้อง/แผ่นเพลง. -->
-    <!-- dock-space: auto-hide = เปิด engine hide-on-scroll ที่ dev ทำใน DockKey (คืนพื้นที่ตอนอ่าน/เลื่อน · a11y ปิดเองเมื่อ screen reader) -->
-    <DockKey :items="editItems" store-key="edit" v-model:alpha="editAlpha" :message="saveMsg" :auto-hide="true" :resizable="true">
+    <DockKey :items="editItems" store-key="edit" v-model:alpha="editAlpha" :message="saveMsg">
       <template #cell-export="{ open, toggle, close }">
         <ExportTool
           :content="previewContent"
@@ -3893,20 +4042,6 @@ defineExpose({
       <!-- เสียงดนตรี — one button → popover with all 4 sound axes (B107 step 9) -->
       <template #cell-soundctl="{ open, toggle, close }">
         <SoundControl :open="open" :groups="soundGroups" :icon="soundIcon" @toggle="toggle" @close="close" />
-      </template>
-      <!-- B109 เฟส A — ปุ่มนำทางบนจอ (touch/mobile) → เรียก jump* ของ dev = คีย์ desktop ตัวเดียวกัน.
-           @mousedown.prevent = ห้ามปุ่มแย่งโฟกัสจากช่องโน้ต (jump* อ่าน document.activeElement). -->
-      <template #cell-nav>
-        <span class="ed-nav" role="group" aria-label="นำทางในเพลง">
-          <button type="button" class="ed-nav-btn" aria-label="โน้ตก่อนหน้า" title="โน้ตก่อนหน้า" @mousedown.prevent @click="jumpNote(-1)">◀</button>
-          <button type="button" class="ed-nav-btn" aria-label="โน้ตถัดไป" title="โน้ตถัดไป" @mousedown.prevent @click="jumpNote(1)">▶</button>
-          <span class="ed-nav-div" aria-hidden="true"></span>
-          <button type="button" class="ed-nav-btn" aria-label="ห้องก่อนหน้า" title="ห้องก่อนหน้า" @mousedown.prevent @click="jumpBar(-1)">⏮</button>
-          <button type="button" class="ed-nav-btn" aria-label="ห้องถัดไป" title="ห้องถัดไป" @mousedown.prevent @click="jumpBar(1)">⏭</button>
-          <span class="ed-nav-div" aria-hidden="true"></span>
-          <button type="button" class="ed-nav-btn" aria-label="บรรทัดก่อนหน้า" title="บรรทัดก่อนหน้า" @mousedown.prevent @click="jumpLine(-1)">▲</button>
-          <button type="button" class="ed-nav-btn" aria-label="บรรทัดถัดไป" title="บรรทัดถัดไป" @mousedown.prevent @click="jumpLine(1)">▼</button>
-        </span>
       </template>
     </DockKey>
 
@@ -3964,8 +4099,7 @@ defineExpose({
              (font-size, not transform → keeps SongSheet's tie overlay measuring real px),
              so there is no horizontal scroll and no clipped column. -->
         <div class="ed-float-page" :style="previewPageStyle">
-          <!-- click-to-edit (issue6/7): tap a bar here → cursor jumps to it in the editor -->
-          <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" interactive @seek="jumpToSource" />
+          <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
         </div>
       </div>
       <!-- resize by dragging this bottom-right corner (desktop only; mobile is full-screen) -->
@@ -4029,7 +4163,9 @@ defineExpose({
         <div v-else-if="activePanel === 'drafts'">
           <p v-if="!pendingDrafts.length && !myDrafts.length" class="muted">ยังไม่มีงานร่างหรือรายการรอตรวจ</p>
           <template v-if="isApprover && pendingDrafts.length">
-            <strong>📨 รออนุมัติ ({{ pendingDrafts.length }})</strong>
+            <!-- ก-04: กองนี้คือกองเดียวกับเลข "รอตรวจ" บนหน้าแรก — เดิมหัวข้อนี้เขียนว่า
+                 "รออนุมัติ" ⇒ คนกดจากหน้าแรกมาเจอคำใหม่ แล้วไม่แน่ใจว่ามาถูกที่ไหม -->
+            <strong>📨 {{ WORK_WORDS.awaitingReview }} ({{ pendingDrafts.length }})</strong>
             <div v-for="d in pendingDrafts" :key="d.id" class="draft-row">
               <a href="#" @click.prevent="loadDraft(d); closePanel()">{{ d.number != null ? d.number + '. ' : '' }}{{ d.title_th }}</a>
               <span class="muted"> — โดย {{ profilesMap[d.author_id] || '?' }}</span>
@@ -4053,7 +4189,39 @@ defineExpose({
           </template>
           <div class="panel-foot"><button class="secondary" @click="closePanel">ปิด</button></div>
         </div>
+
+        <!-- ถังขยะ (db/012): songs moved to the trash. Restore brings one back to the library;
+             it is auto-purged after 30 days. Approver only. -->
+        <div v-else-if="activePanel === 'trash'">
+          <p v-if="!trashSongs.length" class="muted">ถังขยะว่าง — ยังไม่มีเพลงที่ลบ</p>
+          <template v-else>
+            <p class="muted" style="margin: 0 0 8px">เพลงในถังขยะจะถูกลบถาวรอัตโนมัติหลัง 30 วัน · กด “กู้คืน” เพื่อนำกลับ</p>
+            <div v-for="s in trashSongs" :key="s.id" class="draft-row">
+              <span class="trash-name">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</span>
+              <button class="secondary tiny trash-restore" @click="restoreFromTrash(s)"><Icon name="undo-2" :size="14" /> กู้คืน</button>
+            </div>
+          </template>
+          <div class="panel-foot"><button class="secondary" @click="closePanel">ปิด</button></div>
+        </div>
       </div>
+    </div>
+
+    <!-- styled confirm for deleting a whole song (destructive, but recoverable) -->
+    <div v-if="confirmDelSong" class="del-song-overlay no-print" role="alertdialog" aria-modal="true" aria-labelledby="del-song-t" @click.self="cancelDeleteSong" @keydown.esc="cancelDeleteSong">
+      <div class="del-song-box">
+        <p id="del-song-t" class="eset-confirm-t">ลบเพลง “{{ meta.title_th }}” ?</p>
+        <p class="eset-confirm-d">เพลงจะย้ายไปถังขยะ · <b>กู้คืนได้</b> ที่ จัดการ ▸ ถังขยะ (ลบถาวรอัตโนมัติหลัง 30 วัน)</p>
+        <div class="eset-confirm-btns">
+          <button class="secondary" @click="cancelDeleteSong">ยกเลิก</button>
+          <button class="eset-confirm-del" v-focus @click="doDeleteSong"><Icon name="trash-2" :size="14" /> ลบเพลง</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- undo snackbar after a soft-delete -->
+    <div v-if="undoDeleted" class="undo-snack no-print" role="status" aria-live="polite">
+      <span>🗑️ ลบ “{{ undoDeleted.title }}” แล้ว</span>
+      <button class="undo-btn" @click="undoDelete"><Icon name="undo-2" :size="15" /> เลิกทำ</button>
     </div>
   </div>
 </template>
@@ -4126,9 +4294,7 @@ defineExpose({
 /* one bar = a strip of note-columns (chord / notes / syllable) that reads left to
    right; segments wrap only if the bar is very long */
 .seg-strip { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
-/* position:relative so the hoisted merged toolbox (.slot-tools, absolute bottom:100%) anchors
-   above THIS note column (dock-space §10) */
-.seg-col { position: relative; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.seg-col { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .seg-col :deep(.combo input) { color: var(--chord-red); font-weight: 700; }
 .seg-col :deep(.note-boxes) { flex-wrap: nowrap; }
 /* chord row: one cell above each note box (same 46px + 3px gap so it lines up) */
@@ -4144,7 +4310,7 @@ defineExpose({
   border-radius: 5px;
   font-weight: 700;
 }
-.chord-btn.chord-set { color: var(--chord-red); background: var(--cream); border: 1px solid var(--line); z-index: var(--z-raised); }
+.chord-btn.chord-set { color: var(--chord-red); background: var(--cream); border: 1px solid var(--line); z-index: 2; }
 .chord-btn.chord-add {
   color: var(--muted);
   background: transparent;
@@ -4153,9 +4319,12 @@ defineExpose({
   opacity: 0.5;
 }
 .chord-btn.chord-add:hover { opacity: 1; }
-.chord-pick { position: absolute; left: 0; top: 0; z-index: var(--z-popover); }
+.chord-pick { position: absolute; left: 0; top: 0; z-index: 20; }
 /* B098: note-level tools (คัดลอกโน้ต + ลบโน้ต) sit together under each note column */
-/* .seg-tools removed — note copy/delete merged into the hoisted .slot-tools toolbox (dock-space §10) */
+.seg-tools { display: inline-flex; gap: 4px; align-self: flex-start; }
+.seg-copy { color: var(--muted); padding: 2px 6px; }
+.seg-del { color: var(--muted); padding: 2px 8px; }
+.seg-del:hover { color: var(--red); }
 /* plain-language "how to" overview card */
 .how-to { background: var(--cream); border-color: var(--brand); }
 .how-to ol { line-height: 1.5; }
@@ -4183,12 +4352,7 @@ defineExpose({
 /* ◀ ▶ align tools float above the focused syllable box, no layout shift */
 .slot-tools {
   position: absolute;
-  /* dock-space positioning (UX · P'Aim: toolbox ห่างจากตัวที่เลือก) — anchor เหนือ "โน้ต" (NoteBoxes)
-     ไม่ใช่ยอด .seg-col: .chord-row (min-height 28px + gap 4 = ~32px) อยู่บนสุดดันกล่องลอยสูง.
-     วัดจริง (dispatched focusin): เดิม gapToNote=35 · gapToSyllable=83. ดึงลง 32px → กล่องเกาะเหนือโน้ต
-     (gap ~3-5) + ใกล้พยางค์ขึ้น. 32 = chord-row min-height(28)+gap(4) · ถ้า chord-row สูงขึ้น กล่องยังอยู่
-     เหนือโน้ตเสมอ (32 ≤ chord-row จริง) ไม่ทับ. */
-  bottom: calc(100% - 32px);
+  bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -4199,31 +4363,44 @@ defineExpose({
   border: 1px solid var(--line);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: var(--z-popover);
-  /* dock-space §5 / DS note 1 — contextual toolbox ห้ามล้มจอแคบสุด (Fold ~344): clamp
-     ความกว้างไว้กับ viewport แล้วปุ่มที่เกินเลื่อนแนวนอนในตัว toolbox (icon-only + overflow).
-     รองรับตอนเติม note tools (จุดบน/ล่าง · เขบ็ต · ลบ) เข้ามาโดยไม่ยื่นเลยจอ. */
-  max-width: calc(100vw - 24px);
-  overflow-x: auto;
-  scrollbar-width: none;
+  z-index: 5;
+  white-space: nowrap;
 }
-.slot-tools::-webkit-scrollbar { display: none; }
-/* dock-space GATE2 (tester CONCERN B): the contextual toolbox holds a DESTRUCTIVE ✕ลบ +
-   octave/copy — a mis-tap deletes a note. Lift from 30×26 (WCAG 2.5.8 minimum, +2px only) to
-   44×44 = the dock's own floor (WCAG 2.5.5 Enhanced / project --touch-min), ✕ลบ included.
-   ≤5 buttons × 44 + gaps ≈ 228px < the 344 clamp (max-width: 100vw-24); more buttons overflow
-   in-toolbox (overflow-x). dev's clampTbx re-measures after render → the wider box re-clamps. */
-.slot-btn { min-width: 44px; min-height: 44px; padding: 4px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
-/* B109 เฟส A — ปุ่มนำทางบนจอ (◀▶ โน้ต · ⏮⏭ ห้อง · ▲▼ บรรทัด) ในแถบ dock (editor-side · #cell-nav).
-   44px touch floor (WCAG 2.5.5 / parity dock · = เกณฑ์เดียวกับ .slot-btn) · flex-wrap → บนจอแคบสุด
-   (Fold 344) ยุบเป็น 3×2 ไม่ยื่นเลยจอ (cellFlex = 0 0 auto · cell กว้างเท่าเนื้อหา) · icon-only + aria-label. */
-.ed-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
-.ed-nav-btn { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; padding: 4px; }
-.ed-nav-div { width: 1px; align-self: stretch; margin: 4px 2px; background: var(--line); flex: 0 0 auto; }
-/* divider ระหว่าง 2 กลุ่มใน contextual toolbox: [◀▶ พยางค์] ┊ [คัดลอก/ลบ โน้ต] */
-.slot-div { width: 1px; align-self: stretch; margin: 2px 2px; background: var(--line); flex: 0 0 auto; }
-.slot-del { color: var(--muted); }
-.slot-del:hover { color: var(--red); }
+.slot-btn { min-width: 30px; min-height: 26px; padding: 2px 6px; font-size: 12px; }
+/* ===== เฟอร์มาต้า "ค้าง" chip — floating per-note hold control (host under the note) ===== */
+/* Teleported to <body>; Vue scoped-style attr still applies to teleported nodes. Position is
+   set inline (fixed left/top, clamped in JS). Everything always visible — no hover/pointer gate. */
+/* Minimalist (P'Aim): just  𝄐  [ – ]  N  [ + ]  — no label / meter / ฟัง / แนะนำ. */
+.fermata-chip {
+  position: fixed;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100vw - 16px);
+  padding: 4px 6px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  font-size: 14px;
+}
+.fc-sym { font-size: 20px; line-height: 1; color: var(--brand); padding: 0 2px; }
+/* size family with the bar-foot .ed-mini tools (30x30, P'Aim "just right") */
+.fc-step {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 30px; min-height: 30px; padding: 4px;
+  font-size: 18px; font-weight: 700; line-height: 1;
+  color: var(--brand); background: #fff;
+  border: 1px solid var(--line); border-radius: 7px; cursor: pointer;
+  flex: 0 0 auto;
+}
+.fc-step:active { background: #eef2f7; }
+.fc-value {
+  min-width: 28px; text-align: center;
+  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 16px;
+  color: var(--ink, #222);
+}
 /* ===== editor-section-ux: "โครงเพลง" rail rows + canvas section header ===== */
 /* screen-reader-only live region (reorder announcements) */
 .sr-only {
@@ -4408,7 +4585,7 @@ defineExpose({
   margin-bottom: 10px;
   position: sticky;
   top: 58px;
-  z-index: var(--z-raised);
+  z-index: 4;
   box-shadow: 0 3px 8px rgba(45, 42, 38, 0.08);
 }
 /* B086: ▲▼ move-line buttons — plain glyphs sized to sit in the .ed-ico square */
@@ -4442,56 +4619,6 @@ defineExpose({
 .cs-refrain { display: inline-flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
 .cs-refrain input { width: 16px; height: 16px; cursor: pointer; }
 .cs-grow { flex: 1; }
-
-/* R5 — per-verse repeat flow panel (patterns 2,3,4,6). Sits under the ท่อน header, collapsed
-   by default (progressive disclosure). Controls match the editor's sibling mini controls
-   (WCAG 2.5.8 AA: targets ≥24px tall, in the ~30px family — not pushed to 44px). */
-.ed-flow { margin: 0 0 8px; }
-.ed-flow-toggle, .ed-flow-adv-toggle {
-  display: inline-flex; align-items: center; gap: 6px;
-  min-height: 30px; padding: 4px 10px;
-  background: var(--cream); border: 1px solid var(--brand); border-radius: 8px;
-  color: var(--brand); font-size: 0.85rem; font-weight: 600; cursor: pointer;
-}
-.ed-flow-adv-toggle { background: transparent; border-color: transparent; font-weight: 500; padding-left: 2px; }
-.ed-flow-dot { color: #b45309; font-size: 0.7rem; }
-.ed-flow-chev { transition: transform 0.15s; }
-.ed-flow-chev.open { transform: rotate(180deg); }
-.ed-flow-body {
-  margin-top: 6px; padding: 10px 12px;
-  border: 1px solid var(--line, #e5d9c8); border-radius: 10px; background: #fff;
-  display: flex; flex-direction: column; gap: 8px;
-}
-.ed-flow-hint { margin: 0 0 2px; font-size: 0.8rem; }
-.ed-flow-row {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  min-height: 30px; font-size: 0.9rem; color: var(--ink, #3a2f28); cursor: pointer;
-}
-.ed-flow-row input[type='checkbox'] { width: 18px; height: 18px; cursor: pointer; }
-.ed-flow-num {
-  width: 58px; min-height: 30px; padding: 3px 8px; text-align: center;
-  border: 1px solid var(--line, #cbb89a); border-radius: 6px; font-size: 0.9rem;
-}
-.ed-flow-json {
-  width: 100%; box-sizing: border-box; padding: 6px 8px; font-family: ui-monospace, monospace;
-  font-size: 0.8rem; border: 1px solid var(--line, #cbb89a); border-radius: 6px; resize: vertical;
-}
-.ed-flow-err { margin: 4px 0 0; color: #b91c1c; font-size: 0.8rem; }
-/* R4 — orphan-flow notice: a real, actionable warning, never a silent data loss. */
-.ed-flow-orphan {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  margin: 0 0 8px; padding: 8px 12px;
-  background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px;
-  color: #92400e; font-size: 0.86rem;
-}
-/* same 30px family as the panel's other controls (.ed-flow-toggle / .ed-flow-num) — inline-flex
-   so min-height is the real height, not a floor the button overshoots on its own line box. */
-.ed-flow-orphan-fix {
-  display: inline-flex; align-items: center;
-  min-height: 30px; padding: 3px 10px; margin-left: auto;
-  background: #fff; border: 1px solid #f59e0b; border-radius: 6px;
-  color: #92400e; font-size: 0.85rem; font-weight: 600; cursor: pointer;
-}
 .cs-del {
   display: inline-flex;
   align-items: center;
@@ -4513,6 +4640,109 @@ defineExpose({
   font-size: 1rem;
   resize: vertical;
 }
+/* ---- 717 multi-lyric: lyric-SET tabs in the editor (matches the reader's segmented tabs) ----
+   Progressive disclosure (P'Aim, 26 ก.ค.): one set → only .eset-add-lone, a text link's weight
+   of chrome. More than one → the strip itself, standing OPEN — the reader may fold its switcher
+   away, an editor may not fold away the thing you are typing into. Same shapes and the same
+   38/44px targets as the reader's switcher, so the two read as one control. */
+.eset-bar { display: flex; flex-direction: column; align-items: center; margin: 2px 0 10px; max-width: 100%; }
+/* the ONE-set entry point: quiet on purpose — nearly every song in the library renders this and
+   only this, so it must not look like a feature the author has to deal with */
+.eset-add-lone {
+  appearance: none;
+  min-height: 38px;
+  padding: 4px 12px;
+  border: 1px dashed var(--line, #e0d6c8);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted, #757575);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.eset-add-lone:hover {
+  border-color: var(--brand, #8b4513);
+  color: var(--brand, #8b4513);
+  background: color-mix(in srgb, var(--brand, #8b4513) 8%, transparent);
+}
+.eset-add-lone:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
+@media (pointer: coarse) {
+  .eset-add-lone { min-height: 44px; }
+}
+.eset-tabs {
+  display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 100%;
+  padding: 3px; border: 1px solid var(--line, #e0d6c8); border-radius: 21px; background: var(--cream, #faf6f0);
+}
+.eset-tab {
+  appearance: none; border: 0; min-height: 38px; padding: 7px 16px; border-radius: 999px;
+  background: transparent; color: var(--muted, #757575); font: inherit; font-weight: 600; cursor: pointer;
+  transition: background .15s, color .15s;
+  /* the caption is short now ("เนื้อร้องที่ 2"), but keep the wrap rules: they cost nothing and
+     hold the strip inside the editor at 360px whatever the count reaches */
+  max-width: 100%; min-width: 0; overflow-wrap: anywhere; line-height: 1.35; text-align: center;
+}
+.eset-tab:hover:not(.active) { background: color-mix(in srgb, var(--brand, #8b4513) 10%, transparent); }
+/* same focus ring + coarse-pointer target as the reader's tabs (consistent identification) */
+.eset-tab:focus-visible { outline: 2px solid var(--brand, #8b4513); outline-offset: 2px; }
+@media (pointer: coarse) {
+  .eset-tab { min-height: 44px; }
+}
+.eset-tab.active { background: var(--brand, #8b4513); color: #fff; }
+.eset-add {
+  appearance: none; min-height: 38px; margin-left: 4px; padding: 0 14px; border: 1px dashed var(--brand, #8b4513);
+  border-radius: 999px; background: transparent; color: var(--brand, #8b4513); font: inherit; font-weight: 600; cursor: pointer;
+}
+.eset-add:hover { background: color-mix(in srgb, var(--brand, #8b4513) 12%, transparent); }
+/* the hint now lives INSIDE the wrapping strip — its own full-width row under the controls,
+   never squeezed in beside a pill */
+.eset-hint {
+  flex: 1 0 100%; text-align: center;
+  margin: 4px 0 0; padding: 3px 12px; border-radius: 8px; background: var(--cream, #faf6f0);
+  color: var(--muted, #757575); font-size: 0.82rem;
+}
+/* ลบชุด — destructive: red, set apart from the ＋ add affordance */
+.eset-del {
+  appearance: none; display: inline-flex; align-items: center; gap: 4px;
+  min-height: 38px; margin-left: 8px; padding: 0 14px; border: 1px solid var(--red, #c0392b);
+  border-radius: 999px; background: transparent; color: var(--red, #c0392b); font: inherit; font-weight: 600; cursor: pointer;
+}
+.eset-del:hover:not(:disabled) { background: color-mix(in srgb, var(--red, #c0392b) 10%, transparent); }
+.eset-del:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--line, #e0d6c8); color: var(--muted, #757575); }
+.eset-confirm {
+  margin: 10px auto 0; max-width: 360px; padding: 14px 16px; border: 1px solid var(--red, #c0392b);
+  border-radius: 12px; background: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.14); text-align: center;
+}
+.eset-confirm-t { margin: 0 0 4px; font-weight: 700; color: var(--ink, #2b2b2b); }
+.eset-confirm-d { margin: 0 0 12px; font-size: 0.85rem; color: var(--muted, #757575); }
+.eset-confirm-btns { display: flex; gap: 8px; justify-content: center; }
+.eset-confirm-del {
+  appearance: none; display: inline-flex; align-items: center; gap: 4px; min-height: 38px; padding: 0 16px;
+  border: 0; border-radius: 8px; background: var(--red, #c0392b); color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+}
+/* delete-a-song confirm — a centered modal (the set-confirm above is inline in the rail) */
+.del-song-overlay {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.32); padding: 16px;
+}
+.del-song-box {
+  max-width: 380px; width: 100%; padding: 18px 20px; border: 1px solid var(--red, #c0392b);
+  border-radius: 14px; background: #fff; box-shadow: 0 10px 34px rgba(0,0,0,.2); text-align: center;
+}
+/* undo snackbar — bottom-center toast with an action, over everything */
+.undo-snack {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 70;
+  display: flex; align-items: center; gap: 14px; max-width: 92vw;
+  padding: 10px 12px 10px 16px; border-radius: 10px;
+  background: #2b2b2b; color: #fff; font-size: 0.95rem; box-shadow: 0 6px 24px rgba(0,0,0,.28);
+}
+.undo-btn {
+  appearance: none; display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 14px;
+  border: 0; border-radius: 8px; background: #ffd27a; color: #2b2b2b; font: inherit; font-weight: 700; cursor: pointer;
+}
+.undo-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.trash-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trash-restore { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; }
 /* small buttons still meet the 24x24 target size (WCAG 2.2 2.5.8) */
 .tiny { padding: 4px 10px; font-size: 13px; min-height: 28px; min-width: 28px; }
 .role-badge {
@@ -4550,22 +4780,7 @@ defineExpose({
 .s-pending { background: #fefcbf; }
 .s-rejected { background: #fed7d7; }
 .review-banner { background: #fffbeb; border-color: #f6e05e; }
-/* D4 — "someone's draft is waiting on this song". Warmer + heavier than .review-banner on
-   purpose: that one says "you are somewhere safe", this one says "you can destroy work here".
-   Never colour alone (WCAG 1.4.1) — the icon and the author's name carry it too. */
-.pending-alert {
-  background: #fff4ed;
-  border-color: var(--red, #c53030);
-  border-left: 4px solid var(--red, #c53030);
-}
-.pa-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
-/* min-height 44 = WCAG 2.5.8 target size with room to spare, matching the draft-row buttons */
-.pa-actions button { min-height: 44px; }
-.pa-actions .pa-go { background: var(--brand); color: #fff; border-color: var(--brand); }
 .migrate-note { background: #fffbeb; border-color: #f6e05e; }
-/* B-DUP — the "already in the library" banner. Same family as .pending-alert (thick left
-   edge = "this concerns the library, not your typing"); the three strengths differ in colour
-   AND in glyph + wording, never colour alone. */
 .dup-alert { border-left: 4px solid var(--line); }
 .dup-block { background: #fff4ed; border-color: var(--red, #c53030); border-left-color: var(--red, #c53030); }
 .dup-warn { background: #fffbeb; border-color: #f6e05e; border-left-color: #b7791f; }
@@ -4586,7 +4801,7 @@ defineExpose({
   position: fixed;
   top: 72px;
   right: 16px;
-  z-index: var(--z-popover);
+  z-index: 95;
   /* The sheet SCALES TO THE WINDOW (.ed-float-page), so this width sets the reading size: at the
      old 720px the song rendered at ~9px and พี่เปา could not read it (issues7). P'Aim then asked
      for "ใช้พื้นที่เต็ม" and reminded us not to bake fixed numbers in — so this tracks the screen
@@ -4688,7 +4903,7 @@ defineExpose({
   height: 18px;
   cursor: nwse-resize;
   touch-action: none;
-  z-index: var(--z-raised);
+  z-index: 2;
   background: linear-gradient(
     135deg,
     transparent 0 46%,
@@ -4714,7 +4929,7 @@ defineExpose({
   position: fixed;
   inset: 0;
   background: rgba(45, 42, 38, 0.55);
-  z-index: var(--z-modal);
+  z-index: 100;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -4735,7 +4950,7 @@ defineExpose({
 .studio-bar {
   position: sticky;
   top: 0;
-  z-index: var(--z-nav);
+  z-index: 50;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -4819,7 +5034,7 @@ defineExpose({
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
   padding: 6px;
-  z-index: var(--z-in-nav-menu);
+  z-index: 60;
   display: flex;
   flex-direction: column;
 }
@@ -4854,7 +5069,7 @@ defineExpose({
 .sb-mode-item .mt { display: flex; flex-direction: column; line-height: 1.25; }
 .sb-mode-item .mt small { color: var(--muted); font-size: 0.8rem; }
 .sb-chk { margin-left: auto; color: var(--brand); font-weight: 700; }
-.sb-backdrop { position: fixed; inset: 0; z-index: var(--z-in-nav-scrim); }
+.sb-backdrop { position: fixed; inset: 0; z-index: 40; }
 .sb-cat {
   background: transparent;
   border: none;
@@ -4946,7 +5161,12 @@ defineExpose({
 .rail-sep { border-top: 1px solid var(--line); margin: 6px 4px; }
 .rail-backdrop { display: none; }
 
-@media (max-width: 760px) {
+/* ≤900px = tablet + phone "drawer" band: the 288px side rail becomes a slide-in
+   drawer so portrait tablets (768/834) get the full width for writing notes.
+   Phones (≤760) are a subset — their rules are unchanged. Wide tablet / desktop
+   (≥901, e.g. 1024 landscape) keep the sticky side rail. Paired with isMobileView()
+   at 900px so the breadcrumb trigger opens the drawer (not collapse) in this band. */
+@media (max-width: 900px) {
   .studio-app { display: block; }
   .rail {
     position: fixed;
@@ -4955,7 +5175,7 @@ defineExpose({
     height: 100dvh;
     width: 90%;
     max-width: 340px;
-    z-index: var(--z-drawer);
+    z-index: 80;
     border-radius: 0;
     max-height: none;
     transform: translateX(-102%);
@@ -4988,7 +5208,7 @@ defineExpose({
     position: fixed;
     inset: 0;
     background: rgba(30, 20, 5, 0.4);
-    z-index: var(--z-scrim);
+    z-index: 75;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -5016,7 +5236,7 @@ defineExpose({
 @media (min-width: 761px) {
   .edhead {
     position: sticky;
-    z-index: var(--z-sticky);
+    z-index: 20;
   }
 }
 /* breadcrumb button — opens the rail, shows "ท่อน A · ข้อ 1" (position only, not a menu) */
@@ -5053,10 +5273,6 @@ defineExpose({
 }
 .ed-ico.on { background: var(--cream); border-color: var(--brand); color: var(--brand); }
 .ed-ico.danger-ic { color: var(--red); }
-/* จบรอบ: the bracket glyph carries the round number so the button reads "1." / "2." at a
-   glance without a second control. gap 1px keeps the pair inside the 32px target. */
-.ed-volta { gap: 1px; }
-.ed-volta-n { font-size: 0.78rem; font-weight: 700; line-height: 1; }
 /* layout segmented control: 1 ห้อง/แถว ⇄ ต่อกัน */
 .ed-lay { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .ed-lay button {
@@ -5095,7 +5311,7 @@ defineExpose({
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  z-index: var(--z-popover);
+  z-index: 30;
   min-width: 240px;
   background: #fff;
   border: 1px solid var(--line);
@@ -5205,7 +5421,7 @@ defineExpose({
   position: fixed;
   inset: 0;
   background: rgba(45, 42, 38, 0.5);
-  z-index: var(--z-popover);
+  z-index: 95;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -5367,12 +5583,21 @@ defineExpose({
 /* the strip: bars laid out per the layout toggle (B035).
    lay-stack = 1 ห้อง/แถว (each bar its own full-width row) · lay-flow = ห้องต่อกัน (side by
    side, wrapping only when very long). stack is the default (matches the prototype). */
-.ed-strip { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.ed-strip { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; position: relative; }
+/* B118: cross-ห้อง tie/slur overlay. Absolute so it never becomes a flex item of the strip,
+   and pointer-events:none so it can't steal a tap from the note/lyric boxes underneath.
+   Screen-only (.no-print): printing goes through the แผ่นเพลง sheet, which draws its own. */
+.ed-arc-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 2;
+}
+/* same ink as the sheet's .tie-overlay so an arc looks identical on both surfaces */
+.ed-arc-layer path { fill: var(--note-blue); stroke: none; }
 .ed-strip.lay-flow { flex-direction: row; }
-/* NOTE: the "equal-width ห้อง via shrinking boxes" trial was reverted — it misaligned syllables
-   from their notes (looked like ripple broken). The real fix is P'Aim's world-class direction:
-   render notes as compact text by default, and only the ห้อง you click turns into edit boxes
-   (edit-in-place per bar). That gives equal/compact bars WITHOUT shrinking input boxes. */
 .ed-strip.lay-stack { flex-direction: column; align-items: stretch; gap: 8px; }
 .ed-strip.lay-stack .ed-barline { display: none; } /* 1 bar/row — no vertical barline needed */
 .ed-strip.lay-stack .ed-bar { width: 100%; }
@@ -5381,37 +5606,10 @@ defineExpose({
 .ed-bar { display: flex; flex-direction: column; gap: 6px; border-radius: 8px; padding: 4px 2px 2px; }
 .ed-bar .seg-strip { gap: 10px; flex-wrap: nowrap; }
 .ed-bar.bar-playing { background: var(--cream); box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.15); }
-.ed-bar-foot { display: flex; align-items: center; gap: 6px; font-size: 12px; flex-wrap: wrap; }
-/* the ONE bar toolbar (P'Aim): note group + bar group, clearly separated so the two ⧉/✕ read
-   as different scopes. Responsive: wraps on a narrow screen (world-class + responsive-ready). */
-/* quick-switch tabs: flip which level the one toolbar edits (P'Aim: สลับเร็ว, ไม่เกะกะ) */
-.ed-lvl-tabs { display: inline-flex; gap: 2px; margin-left: auto; }
-.ed-lvl-tab {
-  border: 1px solid var(--line); background: #fff; color: var(--muted);
-  border-radius: 6px; padding: 3px 9px; font-size: 11px; font-weight: 700; cursor: pointer;
-  min-height: 26px;
-}
-.ed-lvl-tab.on { background: var(--brand); color: #fff; border-color: var(--brand); }
-.ed-lvl-tab:not(.on):hover { background: var(--cream); border-color: var(--brand); color: var(--brand); }
-.ed-note-acts { display: inline-flex; align-items: center; gap: 4px; }
-.ed-note-acts + .ed-bar-acts { margin-left: 0; } /* the note group already pushed to the right */
-.ed-grp-label { font-size: 11px; color: var(--muted); font-weight: 700; padding: 0 2px; }
-.ed-grp-div { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; }
+.ed-bar-foot { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .ed-bar-status { color: var(--muted); }
 .ed-bar-status.bad { color: var(--red); font-weight: 700; }
 .ed-bar-mark { font-family: 'Courier New', monospace; font-weight: 700; color: var(--brand); font-size: 12px; }
-/* G1: swapped-modifier-order chip. Amber, not the ❌ red — the bar is readable and its
-   beats are right; what needs a human is whether the ORDER matches the printed original. */
-.ed-bar-order {
-  font-size: 11px;
-  line-height: 1.3;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  color: #7a4a00;
-  background: #fff7ed;
-  border: 1px solid #e0a800;
-}
 /* B055: ห้องยก (pickup) quick toggle — a small chip beside the beat status */
 .ed-bar-pickup {
   font-size: 11px;
@@ -5428,11 +5626,6 @@ defineExpose({
 .ed-bar-pickup.on { background: var(--brand); color: #fff; }
 .ed-bar-acts { display: inline-flex; gap: 4px; margin-left: auto; }
 .ed-bar-more-wrap { position: relative; }
-/* P'Aim: bar tools only take space on the ห้อง you clicked into — hide on every other bar */
-.ed-bar-acts.bar-tools-off,
-.ed-bar-more-wrap.bar-tools-off { display: none; }
-/* push the ✓/❌ status to the right when the action row is hidden, so the foot stays tidy */
-.ed-bar-acts.bar-tools-off + * { margin-left: auto; }
 /* ดูผล render: the clean bar drawn in place of the edit grid (tap to go back to editing) */
 .ed-bar-render {
   border: 1px dashed var(--brand);
@@ -5449,7 +5642,7 @@ defineExpose({
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  z-index: var(--z-popover);
+  z-index: 30;
   min-width: 210px;
   background: #fff;
   border: 1px solid var(--line);
@@ -5463,18 +5656,6 @@ defineExpose({
 .ed-bar-menu-row { display: flex; gap: 6px; }
 .ed-bar-menu-row .tiny { flex: 1; }
 .ed-bar-menu-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
-/* the per-bar จบรอบ picker — a bare native select renders ~20px tall, under the WCAG 2.2 AA
-   24px target floor and out of scale with the checkbox rows around it */
-.ed-bar-menu-check select {
-  font: inherit;
-  font-size: 13px;
-  color: var(--ink);
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 2px 6px;
-  min-height: 28px;
-}
 .ed-addbar,
 .ed-addline {
   display: inline-flex;
@@ -5515,7 +5696,7 @@ defineExpose({
 .ed-clip {
   position: sticky;
   top: 6px;
-  z-index: var(--z-raised);
+  z-index: 5;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -5561,7 +5742,13 @@ defineExpose({
 @media (hover: hover) {
   .ed-clip-x:hover { border-color: var(--brand); color: var(--brand); }
 }
-/* (.seg-tools reveal CSS removed — the merged toolbox now reveals via focusedSeg on-selection) */
+/* the note-level tools (คัดลอก/ลบ โน้ต) are quiet until you hover / focus the column */
+.seg-col .seg-tools { opacity: 0; transition: opacity 0.12s; }
+.seg-col:hover .seg-tools,
+.seg-col:focus-within .seg-tools { opacity: 1; }
+@media (hover: none) {
+  .seg-col .seg-tools { opacity: 1; }
+}
 .sheet-head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
 .only-print { display: none; }
 @media print {
@@ -5585,7 +5772,8 @@ defineExpose({
 
   /* header + inline action buttons → full 44px hit targets */
   .ed-ico,
-  .ed-mini { min-width: var(--touch-min); min-height: var(--touch-min); }
+  .ed-mini,
+  .fc-step { min-width: var(--touch-min); min-height: var(--touch-min); }
   .ed-crumb,
   .ed-verify,
   .ed-settings-toggle,

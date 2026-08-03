@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest'
 import { matchedLyricSet, searchSnippet, lyricSetText, snippet, filterSongs } from './songSearch.js'
 import { lyricSetName } from './songModel.js'
-import live717 from './__fixtures__/717-live.json'
+import live717 from '../components/__fixtures__/717-live.json'
 
 const live = JSON.parse(JSON.stringify(live717))
 const SET_1_FIRST_LINE = live.content.lyricSets[0].name

@@ -268,11 +268,7 @@ describe('SongViewer play / stop / resume (US-A01)', () => {
     })
     expect(w.props('tier')).toBe('editor')
     expect(w.emitted('save')).toBeUndefined()
-    // No save affordance while READING. Asserted on rendered controls, not raw html():
-    // the save bar (A-fix) carries the word "บันทึก" in its source comment, and a comment
-    // is not an affordance. It renders only once ✏️ is on — see SongViewer.save.test.js.
-    expect(w.find('.sv-save-bar').exists()).toBe(false)
-    expect(w.findAll('button').some((b) => b.text().includes('บันทึก'))).toBe(false)
+    expect(w.html()).not.toContain('บันทึก')
   })
 })
 
@@ -521,15 +517,15 @@ describe('SongViewer edit-then-sing re-sync (B064)', () => {
 // ---------------------------------------------------------------------------------------
 // 717 multi-lyric — playback must follow the SELECTED lyric set.
 //
-// On this line the set is chosen INSIDE resolveContent (opts.set), so `content.arrangement`
-// stays whole and `content.lines` is the filtered sheet — surviving lines keep their ORIGINAL
-// `_entryIndex` so the inline editor still writes to the right entry. resolvePlayOrder takes
-// the same opts, so its {fromLi,toLi} ranges index that same filtered sheet. These tests pin
-// that agreement: give the two sides different sets and a range means a different verse.
+// The sheet already filtered to the chosen set; the play ORDER is the second input, and it is
+// a list of {fromLi,toLi} ranges INTO a resolved sheet. Resolve it from the unfiltered song
+// while the notes come from the filtered sheet and "line 7" means two different things — which
+// is exactly what happened: on song 717 the refrain (a set-0 entry flagged ร้องรับทุกข้อ) got
+// replayed once per entry of EVERY set, and set 1 played its verses out of order.
 //
 // midi is stubbed here as everywhere else in this file, but resolveContent / resolvePlayOrder
-// come from songModel.js and are NOT stubbed — so `content` and `order` are the real values
-// the real component computed.
+// come from songModel.js and are NOT stubbed — so `content` and `order` below are the real
+// values the real component computed.
 const setLine = (n) => [{ type: 'segment', note: n, chord: 'C' }]
 const setEntry = (set, label, extra = {}) => ({
   stanza: label === 'รับ' ? 'B' : 'A',
@@ -538,9 +534,9 @@ const setEntry = (set, label, extra = {}) => ({
   syllables: [],
   ...extra,
 })
-// 717's shape: ONE melody, two sets of words, the sets spelling the refrain differently —
+// 717's shape: ONE melody, two sets of words, and the sets spell the refrain differently —
 // set 0 writes it once and flags ร้องรับทุกข้อ, set 1 writes it out after each verse and flags
-// nothing.
+// nothing. That asymmetry is what the old wiring tripped on.
 const twoSetSong = {
   number: 717,
   title_th: 'สองชุดเนื้อ',
@@ -573,22 +569,19 @@ async function playSet(w, i) {
   await playBtn(w).trigger('click')
   return { content: lastPlay()[0], order: lastOpts().order }
 }
-// which lyric set each rendered line belongs to, read back through its provenance tag
-const lineSets = (content) =>
-  (content.lines || [])
-    .map((l) => (l._entryIndex == null ? null : content.arrangement[l._entryIndex]?.set))
-    .filter((s) => s != null)
 
 describe('SongViewer — 717 multi-lyric playback', () => {
-  it.each([0, 1])('set %i: only that set’s words are on the sheet handed to the engine', async (set) => {
+  it.each([0, 1])('set %i: only that set’s words reach the engine', async (set) => {
     const w = mountViewer(twoSetSong)
     await nextTick()
     const { content } = await playSet(w, set)
-    expect(content.lines).toHaveLength(8) // 4 blocks × 2 melody lines
-    expect(lineSets(content).every((s) => s === set), `set ${set} leaked: ${lineSets(content).join(',')}`).toBe(true)
+    expect(content.arrangement).toHaveLength(4)
+    expect(content.arrangement.every((e) => e.set === set)).toBe(true)
   })
 
   it.each([0, 1])('set %i: every play-order range lands inside the sheet being played', async (set) => {
+    // the invariant the bug violated — ranges indexed a 16-line sheet while the notes came
+    // from an 8-line one, so they pointed at the other set's verses and past the end.
     const w = mountViewer(twoSetSong)
     await nextTick()
     const { content, order } = await playSet(w, set)
@@ -609,7 +602,8 @@ describe('SongViewer — 717 multi-lyric playback', () => {
   it('set 1 carries no strophic directive, so it plays in written order', async () => {
     const w = mountViewer(twoSetSong)
     await nextTick()
-    expect((await playSet(w, 1)).order).toBeUndefined()
+    const { order } = await playSet(w, 1)
+    expect(order).toBeUndefined()
   })
 
   it('switching tabs re-resolves the order for the newly selected set', async () => {
@@ -638,24 +632,22 @@ describe('SongViewer — 717 multi-lyric playback', () => {
     await nextTick()
     expect(w.findAll('.lset-tab')).toHaveLength(0)
     const { content, order } = await playSet(w, 0)
-    expect(content.lines).toHaveLength(6) // all 3 blocks, nothing filtered out
+    expect(content.arrangement).toHaveLength(3) // nothing filtered out
     expect(order).toHaveLength(4) // ข้อ1·รับ ข้อ2·รับ — unchanged from before 717
   })
 
   it.each([0, 1])('set %i: the MP3 export gets the SAME set the reader is on', async (set) => {
-    // MP3 renders from ExportTool's `content` prop, and audioExport derives both the sheet and
-    // the play order from it alone (no options) — so the choice has to be baked in, which is
-    // what scopeToLyricSet does. Handed the raw song, the export silently defaulted to set 0
-    // no matter which tab was showing.
+    // MP3 renders from ExportTool's `content` prop — audioExport derives both the sheet and
+    // the play order from it alone. Hand it the raw song and the export ignores the tab: on
+    // the real 717 that was 696 notes (both sets back to back, set 0's refrain spliced through
+    // set 1's verses) instead of 232.
     const w = mountViewer(twoSetSong)
     await nextTick()
     await w.findAll('.lset-tab')[set].trigger('click')
     await nextTick()
-    await openSettings(w) // on this line the export cell lives in the ⚙ page (default: inSetting)
     const exported = w.findComponent({ name: 'ExportTool' }).props('content')
     expect(exported.arrangement).toHaveLength(4)
     expect(exported.arrangement.every((e) => e.set === set)).toBe(true)
-    expect(exported.lyricSets).toHaveLength(1) // reads as an ordinary song → no second filter
   })
 
   it('the MP3 export of an ordinary song is handed the song unchanged', async () => {
@@ -666,9 +658,6 @@ describe('SongViewer — 717 multi-lyric playback', () => {
     }
     const w = mountViewer(plain)
     await nextTick()
-    await openSettings(w)
-    // toEqual, not toBe: the component sees a reactive proxy of the song. Object identity
-    // (scopeToLyricSet returns the very same object) is pinned in songModel.setscope.
     expect(w.findComponent({ name: 'ExportTool' }).props('content')).toEqual(plain.content)
   })
 })

@@ -163,11 +163,7 @@ const items = computed(() => {
     { id: 'back', kind: 'btn', name: 'ท่อนก่อน', icon: 'skip-back', place: { anchor: 'rightOf:grip', row: 1 }, hidden: !props.hasSections, run: () => emit('prev') },
     { id: 'play', kind: 'play', name: 'เล่น/หยุด', place: { anchor: 'rightOf:back', row: 1 }, control: { value: props.playing }, run: () => emit('toggle-play') },
     { id: 'forward', kind: 'btn', name: 'ท่อนถัดไป', icon: 'skip-forward', place: { anchor: 'rightOf:play', row: 1 }, hidden: !props.hasSections, run: () => emit('next') },
-    // SB2 (progressive disclosure): the rarely-used ดาวน์โหลด moves behind the ⚙ Setting (pinnable)
-    // so ▶ Play + transport read as the primary row. คีย์ · เสียงดนตรี · Aa stay ON THE BAR by
-    // design — they are core sing-along controls (quick transpose / sound / readability), and the
-    // SingTransport tests enforce คีย์-on-bar. Only the genuinely secondary export is tucked away.
-    { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', default: 'inSetting', pinnable: true },
+    { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { anchor: 'rightOf:forward', row: 1 } },
     { id: 'scale', kind: 'aa', name: 'ขนาดตัวอักษร', place: { anchor: 'leftOf:setting', row: 1 }, permanent: true },
     { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
     { id: 'timeslide', kind: 'timeline', name: 'ไทม์ไลน์', place: { row: 2, col: 1, span: 3 } },
@@ -334,15 +330,15 @@ const items = computed(() => {
 .st-seg.on { background: var(--brand); }
 .st-seg.cur { height: 10px; }
 /* D5: a clear tick at every section boundary so 2 ท่อน read as 2 parts, not one bar */
-.st-div { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 2px; height: 16px; background: #fff; border-radius: 1px; z-index: var(--z-raised); pointer-events: none; }
-.st-kn { position: absolute; width: 16px; height: 16px; background: var(--brand); border: 3px solid #fff; border-radius: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); pointer-events: none; z-index: var(--z-sticky); }
+.st-div { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 2px; height: 16px; background: #fff; border-radius: 1px; z-index: 2; pointer-events: none; }
+.st-kn { position: absolute; width: 16px; height: 16px; background: var(--brand); border: 3px solid #fff; border-radius: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); pointer-events: none; z-index: 3; }
 
 /* ===== popovers (slot-rendered · anchor to the DOCK right edge = same spot as every popup · §A) ===== */
 .st-selpanel, .st-fontpop {
   pointer-events: auto;
   position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: var(--z-popover);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: 30;
 }
 
 /* ===== เลือกท่อน trigger + panel ===== */

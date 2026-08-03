@@ -23,14 +23,13 @@
 import { rngFor } from './rng.js'
 import {
   humanizeVel, humanizeTime, metricAccent, melodicContour,
-  sectionDynamics, crescendo, rubato, clampAll, easeUnderHold,
+  sectionDynamics, crescendo, rubato, clampAll, easeUnderHold, lockDownbeats,
 } from './dynamics.js'
 import { applyVoicing } from './voicing.js'
 import { embellishChord } from './embellish.js'
 import { answerFills, applySusCadence } from './fills.js'
-import { refereeNoClash, balanceFloor, legatoBass } from './referee.js'
+import { refereeNoClash, balanceFloor, legatoBass, leftHandCeiling, leftHandNoUnison } from './referee.js'
 import { keyboard } from './instruments/keyboard.js'
-import { meterOf, barOffsetFor } from './meter.js'
 
 /** @typedef {Object} PerfEvent
  *  role     : 'melody' | 'bass' | 'inner' | 'emb'
@@ -51,16 +50,12 @@ function inRefrain(beat, sections) {
   return sections.some((s) => s.isRefrain && beat >= s.fromBeat && beat < s.toBeat)
 }
 
-// The length of ONE bar in quarter-note beats — the unit every startBeat is counted in.
-// This used to be the time signature's NUMERATOR, which is only the same number for x/4
-// meters: a 6/8 bar is 3 quarter-notes, not 6, so everything that locks to the bar (metric
-// accent, hold pulse, comping patterns, walking bass, answer fills) was treating two bars
-// as one and putting its strong beat on the wrong note. meterOf() derives it properly for
-// simple AND compound meters. A bare number keeps meaning "quarter-beats per bar".
+// Parse "4/4" → beats-per-bar 4 (default 4). Only patterns that lock to the bar need it.
 function beatsPerBar(meta) {
   const ts = meta && meta.timeSignature
+  if (typeof ts === 'string') { const n = parseInt(ts.split('/')[0], 10); if (n > 0) return n }
   if (typeof ts === 'number' && ts > 0) return ts
-  return meterOf(ts).barBeats
+  return 4
 }
 
 // Melody = the printed notes, one PerfEvent per sounding note (rests advance the beat clock but
@@ -105,19 +100,8 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   const wantMelody = voices !== 'chords'
   const wantChords = voices === 'chords' || voices === 'both'
   const bpb = beatsPerBar(meta)
-  // the meter itself (bar length + where its stress falls), so the dynamics layers stress the
-  // beat the meter actually stresses instead of guessing it from the bar length alone.
-  const meter = typeof meta.timeSignature === 'number' ? null : meterOf(meta.timeSignature)
-  // Where the accompaniment's bar lines fall. A song opening with a pickup starts its first FULL
-  // bar later than played beat 0, and the bar-locked layers must follow the melody's bars, not the
-  // clock. 0 for a song that opens on a downbeat, so those songs are untouched.
-  const barOffset = meter ? barOffsetFor(notes, meter) : 0
   const rng = rngFor(meta.songId, meta.pass || 0)
   const dyn = cfg.dynamics || {}
-  // Patterns / bass / fills each decide "is this a downbeat" from their own `% beatsPerBar`, so
-  // they need the same grid the dynamics layers use. Carried on cfg because that is the one
-  // object already threaded to every one of them; 0 leaves their arithmetic exactly as it was.
-  const bcfg = barOffset ? { ...cfg, barOffset } : cfg
 
   let events = []
   const voicedChords = [] // {startBeat,beats,up,bass} per chord — the chord tones ลูกรับส่ง draws on
@@ -149,7 +133,7 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
       prevUp = voiced.up
       voicedChords.push({ startBeat: evc.startBeat, beats: evc.beats, up: voiced.up, bass: voiced.bass })
       const useComp = inRefrain(evc.startBeat, meta.sections) ? refrainComp : comp
-      const compEvts = useComp(evc, voiced.up, bpb, rng, bcfg)
+      const compEvts = useComp(evc, voiced.up, bpb, rng, cfg)
       // sus → คลี่คลาย at a cadence chord (harmony-aware; uses melody already in `events` for the
       // clash guard). Edits compEvts in place before they join the stream.
       if (on && cfg.susCadence) applySusCadence(compEvts, evc.chord, evc.startBeat, evc.beats, events, cfg)
@@ -157,9 +141,9 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
       events.push(...bassMode(evc, voiced.bass, {
         nextBass: list[i + 1] ? list[i + 1].bass : null,
         slashBass: evc.slashBass, // slash chord: root first, then move to this (P'Aim)
-        keyRoot: meta.keyRoot ?? 40, beatsPerBar: bpb, rng, cfg: bcfg,
+        keyRoot: meta.keyRoot ?? 40, beatsPerBar: bpb, rng, cfg,
       }))
-      if (on) events.push(...embellishChord(evc, voiced, bpb, rng, bcfg))
+      if (on) events.push(...embellishChord(evc, voiced, bpb, rng, cfg))
     }
   }
 
@@ -167,7 +151,7 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   // that moment's chord tones (voicedChords). Needs BOTH hands present (melody + chords), the
   // arranger ON, and cfg.fills. Added before dynamics so accent/humanize shade the answer too.
   if (on && cfg.fills && wantMelody && wantChords) {
-    events.push(...answerFills(events, voicedChords, bpb, bcfg))
+    events.push(...answerFills(events, voicedChords, bpb, cfg))
   }
 
   // REFEREE §1 (วาทยกร · golden-piano) — no ลูกเล่น (embellishment / fill, all role 'emb') may sound
@@ -183,16 +167,33 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   if (on) {
     // thin the comp under a held melody note first (fewer notes = real space), then shape gains.
     // cfg.holdPulse (default on) = the mid-bar pulse that keeps a long hold from going hollow.
-    if (cfg.easeUnderHold !== false) events = easeUnderHold(events, bpb, 2, cfg.holdPulse !== false, meter, barOffset)
+    if (cfg.easeUnderHold !== false) events = easeUnderHold(events, bpb, 2, cfg.holdPulse !== false)
     if (dyn.section !== false) sectionDynamics(events, meta.sections, dyn.sectionMap)
-    if (dyn.accent !== false) metricAccent(events, bpb, meter, barOffset)
+    if (dyn.accent !== false) metricAccent(events, bpb)
     if (dyn.contour !== false) melodicContour(events)
     if (dyn.cresc) crescendo(events, dyn.cresc)
     if (dyn.rubato !== false) rubato(events, meta.sections) // ท่อน-end breathe (§R2.8)
+    // REFEREE §3 + §4 (พี่เปา 30 ก.ค. rules ② and ③) — the LEFT HAND stays under middle C and under
+    // the tune, and never sounds a pitch the tune is still ringing.
+    // ORDER MATTERS: these run AFTER rubato, because rubato LENGTHENS a ท่อน's last melody note by 12%
+    // — so a tune note that looked finished a moment ago is in fact still sounding when the left hand
+    // plays. Checking before the stretch missed exactly the case พี่เปา singled out ("จังหวะที่ถูกทิ้ง").
+    // Safe to sit here: refereeNoClash above only ever filters 'emb', and these two only ever touch
+    // 'inner'/'bass', so neither pass can change the other's decisions.
+    if (cfg.leftHandCeiling !== false) leftHandCeiling(events, cfg)
+    if (cfg.leftHandNoUnison !== false) leftHandNoUnison(events, voicedChords, cfg)
     // humanize: cfg.humanize === false turns BOTH nudges off (jitter 0) so the menu can A/B it.
     const humOff = cfg.humanize === false
     humanizeVel(events, rng, humOff ? 0 : (cfg.humanizeVel ?? mod.humanizeFeel.velJitter))
     humanizeTime(events, rng, humOff ? 0 : (cfg.humanizeTime ?? mod.humanizeFeel.timing.sigma))
+    // DOWNBEAT LOCK (พี่เปา 30 ก.ค. rule ①) — LAST timing pass, after humanize and rubato have both
+    // had their say, so nothing downstream can pull the two hands apart again at beat 1 of a bar.
+    // Timing only: every hand's WEIGHT is still shaped independently below (พี่เปา: "น้ำหนักต้องไม่เท่ากัน").
+    // NOTE (การย้ายมาสาย v1): สาย v3 ส่ง barOffset มาด้วย เพราะที่นั่นมี meter.js ที่รู้จัก "ห้องนำ" (pickup)
+    // สาย v1 ไม่มี meter.js และไม่มีแนวคิดห้องนำเลย — ทุกชั้นที่ล็อกกับห้องบนสายนี้นับห้องจากบีต 0 หมด
+    // (ดู metricAccent(events, bpb) กับ easeUnderHold ข้างบน) จึงปล่อยให้ barOffset เป็นค่าเริ่มต้น 0
+    // ให้ตรงกับเพื่อนบ้านบนสายเดียวกัน ⛔ ไม่ยกระบบห้องนำข้ามมา เพราะนั่นเป็นงานคนละใบ
+    if (cfg.lockDownbeats !== false) lockDownbeats(events, bpb)
     clampAll(events) // velocity-in-layer safety net (§7b)
     // REFEREE §2 (ยาม · golden-piano) — the FINAL word on balance: after every gain is settled, pin
     // each non-melody voice ≤ the melody actually sounding over it × 0.8 (right hand leads ≥20%) and
