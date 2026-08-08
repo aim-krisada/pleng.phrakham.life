@@ -3,7 +3,15 @@ name: Deploy to GitHub Pages
 # THREE VERSIONS, ONE SITE — root is what people use, and it is built from `main`.
 #   /      = `main`             — the live version (v1 codebase). Merged into main == on the site.
 #   /v2/   = tag `v2-frozen`    — frozen reference only. Never changes again. Read-only history.
-#   /v3/   = branch `v3`        — the redesign, work in progress. May not exist yet; may be broken.
+#   /v3/   = branch `v3-dist`   — the redesign. ⚠️ NOT source: it holds the ALREADY-BUILT site.
+#                                 May not exist yet; that is fine and must not fail the run.
+#
+# WHY /v3/ IS DIFFERENT FROM /v2/ (8 Aug 2026): v3 is a Nuxt app and it lives on aimgit, not here.
+# It is built THERE (v3/pleng, job `publish-v3`, which is manual — someone has to press it) and the
+# finished files are pushed to `v3-dist`. This repo only serves them, because a custom domain can be
+# attached to exactly one repository and this is that repository.
+# ⇒ so there is no `npm ci`/`npm run build` for v3 here. Building it here would mean copying both
+#   v3's source AND its database key into this repo; delivering the built files does not.
 #
 # WHY THIS SHAPE (พี่เอมสั่ง 3 ส.ค. 2569 — เขียนไว้กันลืมและกันคนอ่านผิดซ้ำ):
 # ก่อนหน้านี้รากสร้างจากแท็ก (`v1-frozen`) ไม่ใช่จาก `main` ⇒ "รวมงานเข้า main" กับ "ขึ้นเว็บ"
@@ -13,7 +21,9 @@ name: Deploy to GitHub Pages
 # ของแช่แข็งใช้แท็กได้ แต่ห้ามเป็นราก
 on:
   push:
-    branches: [main, v3]
+    # A push to `v3-dist` means "a new v3 has been delivered". Pages has no partial deploy, so the
+    # whole site (root + /v2/ + /v3/) is rebuilt and replaced either way.
+    branches: [main, v3-dist]
   workflow_dispatch:
 
 permissions:
@@ -72,34 +82,34 @@ jobs:
         env:
           PLENG_V2: '1' # → vite base '/v2/' (v2 codebase reads this)
 
-      # ---- work in progress (/v3/) — from branch `v3` ------------------------------------------
-      # continue-on-error on the CHECKOUT too: branch `v3` may not exist yet, and a missing branch
-      # must not fail the run. Every step below is guarded by the previous one's outcome, so the
-      # whole /v3 section simply does not happen until the branch exists and builds.
+      # ---- the redesign (/v3/) — already built, delivered on branch `v3-dist` -------------------
+      # continue-on-error on the CHECKOUT: `v3-dist` may not exist yet, and a missing branch must
+      # not fail the run. No install and no build — the files arrive finished (see header).
       - id: v3checkout
         continue-on-error: true
         uses: actions/checkout@v4
         with:
-          ref: v3
+          ref: v3-dist
           path: v3
-      - id: v3install
+
+      # A delivered site must be able to say which commit it came from, the same way root does.
+      # v3's own CI writes version.json; if it is missing, the delivery is not what we expect, so
+      # treat it as "no v3 this run" rather than shipping something unidentifiable.
+      - id: v3check
         if: steps.v3checkout.outcome == 'success'
         continue-on-error: true
-        run: npm ci
-        working-directory: v3
-      - id: v3build
-        if: steps.v3install.outcome == 'success'
-        continue-on-error: true
-        run: npm run build
-        working-directory: v3
-        env:
-          PLENG_V3: '1' # → vite base '/v3/' (the v3 codebase must read this; see note below)
+        run: |
+          test -f v3/index.html
+          test -f v3/version.json
+          echo "delivered v3: $(cat v3/version.json)"
 
       # ---- combine: root = live's dist, plus /v2 and /v3 nested under it -----------------------
       - name: Nest the reference and work-in-progress builds under the site root
         run: |
           if [ "${{ steps.v2build.outcome }}" = "success" ]; then rm -rf live/dist/v2; cp -r v2/dist live/dist/v2; fi
-          if [ "${{ steps.v3build.outcome }}" = "success" ]; then rm -rf live/dist/v3; cp -r v3/dist live/dist/v3; fi
+          # v3 arrives built, so the checkout itself IS the site. Drop the .git that checkout adds —
+          # publishing it would put the delivery branch's history on a public web server.
+          if [ "${{ steps.v3check.outcome }}" = "success" ]; then rm -rf live/dist/v3; cp -r v3 live/dist/v3; rm -rf live/dist/v3/.git; fi
 
       # ---- say out loud which commit the root actually carries ---------------------------------
       # This is the line that would have caught the 3 Aug 2026 mix-up in seconds instead of a day.
