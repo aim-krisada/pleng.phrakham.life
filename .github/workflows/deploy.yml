@@ -5,6 +5,8 @@ name: Deploy to GitHub Pages
 #   /v2/   = tag `v2-frozen`    — frozen reference only. Never changes again. Read-only history.
 #   /v3/   = branch `v3-dist`   — the redesign. ⚠️ NOT source: it holds the ALREADY-BUILT site.
 #                                 May not exist yet; that is fine and must not fail the run.
+#                                 Delivered by aimgit, which then fires `repository_dispatch` —
+#                                 see the `on:` block for why a push to that branch cannot do it.
 #
 # WHY /v3/ IS DIFFERENT FROM /v2/ (8 Aug 2026): v3 is a Nuxt app and it lives on aimgit, not here.
 # It is built THERE (v3/pleng, job `publish-v3`, which is manual — someone has to press it) and the
@@ -21,9 +23,15 @@ name: Deploy to GitHub Pages
 # ของแช่แข็งใช้แท็กได้ แต่ห้ามเป็นราก
 on:
   push:
-    # A push to `v3-dist` means "a new v3 has been delivered". Pages has no partial deploy, so the
-    # whole site (root + /v2/ + /v3/) is rebuilt and replaced either way.
-    branches: [main, v3-dist]
+    branches: [main]
+  # A delivery of v3 arrives as a push to `v3-dist` — but that CANNOT trigger this file, because
+  # GitHub reads the workflow from the ref that was pushed, and `v3-dist` holds the built site only:
+  # no .github/ at all. Listing it under `push.branches` would therefore be a lie that reads as
+  # working, and the delivery would silently show up on the next unrelated push to main instead.
+  # ⇒ aimgit calls the repository_dispatch API right after pushing. That always runs the workflow
+  #   file on the DEFAULT branch, which is the copy we can actually see and review.
+  repository_dispatch:
+    types: [v3-delivered]
   workflow_dispatch:
 
 permissions:
