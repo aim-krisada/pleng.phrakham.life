@@ -103,12 +103,25 @@ jobs:
       # A delivered site must be able to say which commit it came from, the same way root does.
       # v3's own CI writes version.json; if it is missing, the delivery is not what we expect, so
       # treat it as "no v3 this run" rather than shipping something unidentifiable.
+      # ⚠️ Presence of a file is not proof the site works. The reviewer deleted favicon.png,
+      # logo.png and the whole _nuxt/ directory from a real build — 11 of 30 files left, index.html
+      # untouched — and an earlier version of this check still passed, so a site with no JS and no
+      # CSS would have shipped to /v3/ with nothing red on either side.
+      # aimgit's tools/build-v3.sh now refuses to push such a build; this is the second line, because
+      # this repo must not depend on the sender being correct.
       - id: v3check
         if: steps.v3checkout.outcome == 'success'
         continue-on-error: true
         run: |
           test -f v3/index.html
           test -f v3/version.json
+          test -n "$(find v3/_nuxt -name '*.js' -print -quit 2>/dev/null)" \
+            || { echo "::error::delivered v3 has no JS in _nuxt — refusing to publish an empty page"; exit 1; }
+          # Everything index.html points at must actually be in the delivery.
+          for p in $(grep -oE '"/v3/[^"]+"' v3/index.html | tr -d '"' | sort -u); do
+            p=${p%%\?*}; case "${p##*/}" in *.*) ;; *) continue ;; esac
+            test -f "v3${p#/v3}" || { echo "::error::delivered v3 references $p but the file is missing"; exit 1; }
+          done
           echo "delivered v3: $(cat v3/version.json)"
 
       # ---- combine: root = live's dist, plus /v2 and /v3 nested under it -----------------------
