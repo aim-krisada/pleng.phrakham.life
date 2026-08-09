@@ -148,3 +148,18 @@ jobs:
           path: live/dist
       - id: deployment
         uses: actions/deploy-pages@v4
+
+      # ---- a delivery that arrived but did not ship must be LOUD -------------------------------
+      # Pages replaces the WHOLE site every run. So if `v3-dist` was delivered but failed its check,
+      # the upload above simply has no /v3/ in it — and a /v3/ that was working five minutes ago
+      # becomes a 404, with every check mark still green because v3check is continue-on-error.
+      # (Found by the reviewer on aimgit MR !28, 9 Aug 2026.)
+      #
+      # This runs AFTER the deployment on purpose: the live root has already shipped, which is the
+      # property we must never trade away. All this does is refuse to call the run a success.
+      - name: Fail if a v3 delivery arrived but did not make it onto the site
+        if: steps.v3checkout.outcome == 'success' && steps.v3check.outcome != 'success'
+        run: |
+          echo "::error::v3-dist was delivered but failed its check, so /v3/ is NOT on the site."
+          echo "The root shipped normally. Fix the delivery on aimgit and press publish-v3 again."
+          exit 1
