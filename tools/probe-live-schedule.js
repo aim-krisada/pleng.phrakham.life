@@ -11,6 +11,7 @@
  *   3) พิมพ์ `__probe.report()` ⇒ ได้ระยะเผื่อ (lead) เป็นมิลลิวินาที
  *      lead เป็นบวก = นัดล่วงหน้าได้ทัน · lead ติดลบ = โน้ตนั้น "สายไปแล้ว" ตอนถูกสั่ง = หูได้ยินว่าเพี้ยน
  *   4) อยากพิสูจน์กลไก: `__probe.stall(1500)` ระหว่างเพลงกำลังเล่น แล้วดู report ซ้ำ
+ *   5) `__probe.outputPath()` ⇒ เสียงกำลังออกทางไหน (สำคัญมากเมื่อใช้หูฟัง Bluetooth · ดูใต้ฟังก์ชัน)
  *
  * ⛔ ตัวเฝ้านี้ไม่แก้อะไร — อ่านอย่างเดียว · `__probe.stop()` เพื่อถอนคืน
  */
@@ -46,6 +47,34 @@
     reset() { starts.length = 0; longtasks.length = 0 },
     // ทำให้สายหลักติดพันจริง ๆ เพื่อพิสูจน์ว่าอาการเกิดจากอะไร
     stall(ms = 1000) { const t = performance.now(); while (performance.now() - t < ms); return `บล็อกสายหลัก ${ms}ms แล้ว` },
+    /* เสียงกำลังออกทางไหน — ใช้ตอนสงสัยหูฟัง Bluetooth (12 ส.ค. 2569 พี่เอมพบว่าไฟล์ MP3
+     * เดียวกัน "ยืด" ทางหูฟัง Bluetooth แต่ปกติทางลำโพงเครื่อง)
+     *   sampleRate 44100/48000 = ปกติ (A2DP) · **16000 หรือ 8000 = หูฟังสลับไปโหมดโทรศัพท์
+     *   (HFP) เพราะมีอะไรเปิดไมค์** ⇒ เสียงจะทึบและวูบวาบ = "เหมือนเทปยืด"
+     *   outputLatency > ~0.15 วินาที = ทาง Bluetooth (ลำโพงเครื่องมักต่ำกว่า 0.03)
+     * ⚠️ `AudioContext` ถูกสร้างครั้งเดียวตอนกดฟังครั้งแรก (midi.js `ctx = ctx || new AudioContext()`)
+     *    แล้ว ⛔ ไม่ถูกสร้างใหม่อีกเลย ⇒ ถ้าสลับหูฟังหลังจากนั้น ค่าพวกนี้จะค้างของเดิม
+     *    ⇒ เทียบค่าก่อน/หลังสลับหูฟัง แล้วโหลดหน้าใหม่เทียบอีกครั้ง */
+    async outputPath() {
+      const c = new AudioContext()
+      await c.resume()
+      // ต้องมีเสียงไหลออกจริงก่อน `outputLatency` ถึงจะมีค่า (ก่อนหน้านั้นได้ 0 เสมอ)
+      // ⇒ ปล่อยบัฟเฟอร์เงียบ 200ms แล้วค่อยอ่าน
+      const b = c.createBuffer(1, Math.round(c.sampleRate * 0.2), c.sampleRate)
+      const s = c.createBufferSource()
+      s.buffer = b
+      s.connect(c.destination)
+      s.start()
+      await new Promise((r) => setTimeout(r, 250))
+      const info = { sampleRate: c.sampleRate, baseLatency: c.baseLatency, outputLatency: c.outputLatency }
+      c.close()
+      try {
+        const devs = await navigator.mediaDevices.enumerateDevices()
+        info.ทางออกเสียง = devs.filter((d) => d.kind === 'audiooutput').map((d) => d.label || '(ต้องอนุญาตไมค์ก่อนจึงเห็นชื่อ)')
+      } catch { /* ไม่มีสิทธิ์ก็ข้าม */ }
+      console.table(info)
+      return info
+    },
     report() {
       const by = (k) => starts.filter((s) => s.kind === k).map((s) => s.lead).sort((a, b) => a - b)
       const q = (a, p) => (a.length ? +a[Math.floor(p * (a.length - 1))].toFixed(1) : null)
