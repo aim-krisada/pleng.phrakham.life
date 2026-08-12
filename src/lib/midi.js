@@ -538,6 +538,54 @@ export function setTranspose(semitones) {
   }
 }
 
+// ---------- karaoke follow-along: ONE clock, the sound's own (issue #10) ----------
+// Every note is scheduled against the audio clock (ctx.currentTime), so the highlight reads that
+// SAME clock — never the wall clock. Two clocks means two answers to "where are we now", and the
+// listener hears one of them; a wall-clock walker therefore lights a word the sound isn't on.
+// Reading ctx.currentTime also removes the hand-copied lead-in offset: we measure from `t0`, the
+// very variable each note's start time is built from, so the lead-in cancels itself out.
+//   notes  : this pass's note list (also the SSOT for the viewer's dot/scrub)
+//   t0     : context-time of beat 0 · tEnd: context-time this pass ends · spb: seconds per beat
+//   onTick : called with the note index that is sounding, only when it changes
+//   → true = stopped early (the caller silences its voices) · false = the pass played out
+async function followNotes(notes, { t0, tEnd, spb, shouldStop, onTick, onProgress }) {
+  let cum = 0
+  const noteEnds = notes.map((n) => (cum += n.beats * spb)) // seconds after t0, per note
+  const total = Math.max(0, tEnd - t0)
+  let noteIdx = -1
+  while (ctx.currentTime < tEnd) {
+    if (shouldStop()) return true
+    const elapsed = ctx.currentTime - t0
+    // A play is scheduled a moment AHEAD of now, so the first tick happens before beat 0. Nothing
+    // is sounding yet, so nothing is lit yet — light the first word when it is actually sung.
+    if (elapsed >= 0) {
+      let idx = noteIdx < 0 ? 0 : noteIdx
+      while (idx < notes.length - 1 && elapsed >= noteEnds[idx]) idx++
+      if (idx !== noteIdx) {
+        noteIdx = idx
+        onTick(idx)
+      }
+    }
+    onProgress?.(Math.min(Math.max(0, elapsed), total) * 1000, total * 1000)
+    await nextHighlightStep()
+  }
+  return false
+}
+
+// One step of the follow-along: the next animation frame, or 100 ms — whichever lands first.
+// The frame gives per-syllable precision while the page is on screen; the timer is the safety
+// net for a hidden tab, where the browser stops delivering frames altogether and the pass would
+// otherwise never reach its end (วนซ้ำ would stall). A late step is harmless now: followNotes
+// re-reads the audio clock, so it resumes at the note that is sounding, not the next one in line.
+function nextHighlightStep() {
+  return new Promise((resolve) => {
+    let done = false
+    const fire = () => { if (!done) { done = true; resolve() } }
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(fire)
+    setTimeout(fire, 100)
+  })
+}
+
 // Play the melody; resolves when done or stopped. Returns false when the device
 // blocks audio (e.g. iOS with the silent switch on / autoplay policy).
 export async function playSong(content, { bpm = 80, loop = false, onProgress, onNote, range, order, transpose = 0, startIndex = 0, voices = 'melody', chordGain = 0.055, instrument = 'synth', onInstrumentPending, arranger = true, songId, arrangeCfg = {} } = {}) {
@@ -665,32 +713,24 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
       }
     }
     pass++
-    // wait until the scheduled end, checking the stop flag and reporting the
-    // note currently sounding (for follow-along highlight)
-    const totalMs = (t - ctx.currentTime) * 1000
-    const start = Date.now()
-    let noteIdx = -1
-    let cumMs = 0
-    const noteEndsMs = notes.map((n) => (cumMs += n.beats * spb * 1000))
-    while (Date.now() - start < totalMs) {
-      if (myFlag.stopped || myToken !== playToken) {
-        endTimes.forEach((o) => { try { o.stop() } catch {} })
-        // release the sampler ONLY if we're being stopped as the CURRENT pass — a newer pass now
-        // owns the shared instrument, so a stale loop must NOT silence it (that would cut the new sound).
-        if (sampler && myToken === playToken) sampler.releaseAll()
-        return true
-      }
-      const elapsed = Date.now() - start - 80
-      let idx = noteIdx < 0 ? 0 : noteIdx
-      while (idx < notes.length - 1 && elapsed >= noteEndsMs[idx]) idx++
-      if (idx !== noteIdx) {
-        noteIdx = idx
-        // second arg = absolute index in the ordered list, so the viewer can remember where a
-        // pause/seek happened and resume via startIndex. `from` = this pass's start offset.
-        onNote?.(notes[idx], from + idx)
-      }
-      onProgress?.(Date.now() - start, totalMs)
-      await new Promise((r) => setTimeout(r, 100))
+    // wait until the scheduled end, checking the stop flag and reporting the note currently
+    // sounding (for follow-along highlight) — on the audio clock, the one the notes ride on.
+    // second arg of onNote = absolute index in the ordered list, so the viewer can remember where
+    // a pause/seek happened and resume via startIndex. `from` = this pass's start offset.
+    const stoppedEarly = await followNotes(notes, {
+      t0,
+      tEnd: t,
+      spb,
+      shouldStop: () => myFlag.stopped || myToken !== playToken,
+      onTick: (idx) => onNote?.(notes[idx], from + idx),
+      onProgress,
+    })
+    if (stoppedEarly) {
+      endTimes.forEach((o) => { try { o.stop() } catch {} })
+      // release the sampler ONLY if we're being stopped as the CURRENT pass — a newer pass now
+      // owns the shared instrument, so a stale loop must NOT silence it (that would cut the new sound).
+      if (sampler && myToken === playToken) sampler.releaseAll()
+      return true
     }
   } while (loop && !myFlag.stopped)
   if (activeSampler === sampler) activeSampler = null // natural end: drop our handle (voices ring out)
@@ -1004,23 +1044,20 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     }
     pass++
 
-    // wait loop — same machinery as playSong (stop flag + follow-along onNote)
-    const totalMs = (tEnd - ctx.currentTime) * 1000
-    const start = Date.now()
-    let noteIdx = -1, cumMs = 0
-    const noteEndsMs = notes.map((n) => (cumMs += n.beats * spb * 1000))
-    while (Date.now() - start < totalMs) {
-      if (myFlag.stopped || myToken !== playToken) {
-        // release only as the CURRENT pass — a newer pass now owns the shared instruments.
-        if (myToken === playToken) activeEnsemble.forEach((w) => { try { w.releaseAll() } catch { /* stopped */ } })
-        return true
-      }
-      const elapsed = Date.now() - start - 80
-      let idx = noteIdx < 0 ? 0 : noteIdx
-      while (idx < notes.length - 1 && elapsed >= noteEndsMs[idx]) idx++
-      if (idx !== noteIdx) { noteIdx = idx; onNote?.(notes[idx], from + idx) }
-      onProgress?.(Date.now() - start, totalMs)
-      await new Promise((r) => setTimeout(r, 100))
+    // wait loop — the SAME follow-along walker as playSong (audio clock · stop flag · onNote),
+    // so the band's highlight can't drift where the solo's doesn't.
+    const stoppedEarly = await followNotes(notes, {
+      t0,
+      tEnd,
+      spb,
+      shouldStop: () => myFlag.stopped || myToken !== playToken,
+      onTick: (idx) => onNote?.(notes[idx], from + idx),
+      onProgress,
+    })
+    if (stoppedEarly) {
+      // release only as the CURRENT pass — a newer pass now owns the shared instruments.
+      if (myToken === playToken) activeEnsemble.forEach((w) => { try { w.releaseAll() } catch { /* stopped */ } })
+      return true
     }
   } while (loop && !myFlag.stopped)
   activeEnsemble = []

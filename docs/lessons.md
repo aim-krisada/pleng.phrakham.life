@@ -45,3 +45,15 @@ this happens — the CLI build is what breaks first.
 ## 7. Avoid ambiguous English UI jargon with พี่เอม
 e.g. "chrome" (the UI frame/shell) was read as the Chrome browser. Use Thai or
 expand the term on first use.
+
+## 8. Anything timed against sound reads the SOUND's clock
+Notes are scheduled on `ctx.currentTime` (the audio-hardware clock). Anything
+that must line up with them — the karaoke highlight, a progress bar, a dot —
+reads that same clock. Never `Date.now()` + `setTimeout`: two clocks give two
+answers to "where are we now", the listener hears one of them, and the screen
+shows the other. Measure elapsed time from the same `t0` the notes were built
+on, so the scheduling lead-in cancels out instead of being hand-copied as a
+second constant. (issue #10 — `playSong`/`playEnsemble` walked a wall clock 10
+times a second: every note up to 100 ms out, and any clock disagreement — a
+background tab, a time sync — put the lit word where the sound was not.)
+**When this feature is ported to v3, port the audio clock with it.**

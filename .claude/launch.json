@@ -54,6 +54,19 @@
       "port": 5401
     },
     {
+      "name": "k10",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        ".",
+        "--host",
+        "--port",
+        "5310",
+        "--strictPort"
+      ],
+      "port": 5310
+    },
+    {
       "name": "dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
