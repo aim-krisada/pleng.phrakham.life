@@ -250,6 +250,12 @@
       "port": 5342
     },
     {
+      "name": "audio",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", ".", "--host", "--port", "5320", "--strictPort"],
+      "port": 5320
+    },
+    {
       "name": "wireframe",
       "runtimeExecutable": "py",
       "runtimeArgs": [

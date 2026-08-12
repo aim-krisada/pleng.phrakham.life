@@ -1,0 +1,91 @@
+// ใบ #12 — เทียบ "ภาระงาน" ของสองเพลงด้วยตัวเลข (ทำไม 141 เพี้ยน แต่ 1 ไม่เพี้ยน)
+//
+// เปิดของจริงจาก Supabase แล้วเดินผ่าน seam เดียวกับที่ SongViewer ใช้ตอนกดฟัง:
+//   buildPlayNotes → buildChordVoice → arrange()   (คีย์/preset/ลูกเล่น = ค่าเริ่มต้นของหน้าฝึกร้อง)
+// จึงได้ตัวเลขที่ตรงกับสิ่งที่คนฟังได้ยินจริง ⛔ ไม่ใช่ตัวเลขจากแผ่นโน้ตดิบ
+//
+//   run:  node tools/audit-song-load.mjs 1 141
+//
+// อ่านอย่างเดียว ใช้กุญแจสาธารณะที่เว็บใช้อยู่แล้ว ⛔ ไม่เขียนฐานข้อมูล
+import { buildPlayNotes, buildChordVoice, resolveSections, KEY_MIDI } from '../src/lib/midi.js'
+import { resolveContent, resolvePlayOrder } from '../src/lib/songModel.js'
+import { arrange } from '../src/lib/arranger/index.js'
+import { moduleForInstrument } from '../src/lib/arranger/instruments/index.js'
+import { presetCfg, recommendRecipe, songFeatures } from '../src/lib/arranger/presets.js'
+import { buildArrangeCfg } from '../src/lib/arranger/techniques.js'
+
+const KEY = 'sb_publishable_iRpQjoext0BgPQXifwwgnw_kCnjFonX'
+const nums = (process.argv.slice(2).length ? process.argv.slice(2) : ['1', '141']).map(Number)
+const url = `https://vlpuvaofbzdawgjjpgfu.supabase.co/rest/v1/songs?select=id,number,title_th,content&number=in.(${nums.join(',')})`
+const res = await fetch(url, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } })
+if (!res.ok) throw new Error(`supabase ${res.status}: ${await res.text()}`)
+const songs = (await res.json()).sort((a, b) => a.number - b.number)
+
+const rows = []
+for (const s of songs) {
+  const c = s.content
+  if (!c) continue
+  const playable = { ...c, lines: resolveContent(c) }
+  const order = resolvePlayOrder(c) ?? undefined
+  const notes = buildPlayNotes(playable, { order })
+  const bpm = Number(c.bpm) || 92
+  const spb = 60 / bpm
+  const sec = notes.reduce((t, n) => t + n.beats, 0) * spb
+  const chords = buildChordVoice(notes)
+  // ค่าเริ่มต้นของหน้าฝึกร้อง: เปียโน Grand · เดี่ยว · รวม(ทำนอง+คอร์ด) · สไตล์ตามจังหวะเพลง (styleAuto)
+  const recipe = recommendRecipe(songFeatures(c))
+  const cfg = { ...buildArrangeCfg(presetCfg(recipe), {}), sparkleLevel: 0.7 }
+  const perf = arrange(notes, chords, { arranger: true, voices: 'both', chordGain: 0.09, ...cfg, module: moduleForInstrument('grand') },
+    { songId: s.id, pass: 0, timeSignature: c.timeSignature, keyRoot: KEY_MIDI[c.key] ?? 60, sections: resolveSections(playable, notes) })
+
+  // จังหวะที่ถูกนัด: humanize ขยับหัวโน้ตไปเท่าไร และมีช่วงไหนห่างผิดกริดเกิน 10% บ้าง
+  const mel = perf.filter((e) => e.role === 'melody')
+    .map((e) => ({ grid: e.startBeat * spb, real: e.startBeat * spb + (e.timeShift || 0), shift: (e.timeShift || 0) * 1000 }))
+    .sort((a, b) => a.grid - b.grid)
+  const shifts = mel.map((m) => m.shift)
+  const sd = Math.sqrt(shifts.reduce((a, b) => a + b * b, 0) / shifts.length)
+  let offGrid = 0
+  for (let i = 1; i < mel.length; i++) {
+    const want = mel[i].grid - mel[i - 1].grid
+    if (want > 0 && Math.abs(((mel[i].real - mel[i - 1].real) - want) / want) > 0.1) offGrid++
+  }
+
+  // เสียงที่ดังพร้อมกัน (ห่าง <30ms) ที่ห่างกันครึ่งเสียง = คู่ที่ฟังแล้ว "กัด" · และ polyphony สูงสุด
+  const ev = perf.map((e) => ({ t: e.startBeat * spb + (e.timeShift || 0), m: e.midi })).sort((a, b) => a.t - b.t)
+  let semitoneClash = 0
+  for (let i = 0; i < ev.length; i++) {
+    for (let j = i + 1; j < ev.length && ev[j].t - ev[i].t < 0.03; j++) if (Math.abs(ev[j].m - ev[i].m) === 1) semitoneClash++
+  }
+  let maxPoly = 0
+  const act = []
+  for (const e of perf.slice().sort((a, b) => a.startBeat - b.startBeat)) {
+    const st = e.startBeat * spb + (e.timeShift || 0)
+    while (act.length && act[0] < st) act.shift()
+    act.push(st + e.beats * spb)
+    act.sort((a, b) => a - b)
+    if (act.length > maxPoly) maxPoly = act.length
+  }
+
+  const roles = {}
+  for (const e of perf) roles[e.role] = (roles[e.role] || 0) + 1
+  rows.push({ num: s.number, title: s.title_th, ts: c.timeSignature, key: c.key, bpm, recipe,
+    strophic: !!order, notes: notes.length, chords: chords.length, sec: +sec.toFixed(1),
+    perf: perf.length, perSec: +(perf.length / sec).toFixed(2), roles, sdMs: +sd.toFixed(1),
+    offGrid, semitoneClash, maxPoly })
+}
+
+for (const r of rows) {
+  console.log(`\n=== เพลง ${r.num} — ${r.title} ===`)
+  console.log(`  ${r.ts} · คีย์ ${r.key} · bpm ${r.bpm} · สไตล์ที่เว็บเลือกให้ ${r.recipe} · ร้องซ้ำทุกข้อ ${r.strophic}`)
+  console.log(`  โน้ต ${r.notes} · คอร์ด ${r.chords} · ความยาว ${r.sec}s`)
+  console.log(`  เหตุการณ์เสียงจริง ${r.perf} (${JSON.stringify(r.roles)}) ⇒ ${r.perSec}/วินาที · เสียงค้างพร้อมกันสูงสุด ${r.maxPoly}`)
+  console.log(`  จังหวะ: humanize sd ${r.sdMs}ms · ช่วงที่ห่างผิดกริดเกิน 10% = ${r.offGrid} · คู่เสียงห่างครึ่งเสียง = ${r.semitoneClash}`)
+}
+
+if (rows.length === 2) {
+  const [b, a] = rows
+  const f = (x, y) => `${x} vs ${y} (×${(x / y).toFixed(2)})`
+  console.log(`\n=== เพลง ${a.num} เทียบเพลง ${b.num} ===`)
+  console.log(`  โน้ต ${f(a.notes, b.notes)} · คอร์ด ${f(a.chords, b.chords)} · ความยาว ${f(a.sec, b.sec)}`)
+  console.log(`  เหตุการณ์ทั้งเพลง ${f(a.perf, b.perf)} · ต่อวินาที ${f(a.perSec, b.perSec)}`)
+}
