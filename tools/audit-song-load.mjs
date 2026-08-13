@@ -1,0 +1,190 @@
+// ใบ #12 — เทียบ "ภาระงาน" ของสองเพลงด้วยตัวเลข (ทำไม 141 เพี้ยน แต่ 1 ไม่เพี้ยน)
+//
+// เปิดของจริงจาก Supabase แล้วเดินผ่าน seam เดียวกับที่ SongViewer ใช้ตอนกดฟัง:
+//   buildPlayNotes → buildChordVoice → arrange()   (คีย์/preset/ลูกเล่น = ค่าเริ่มต้นของหน้าฝึกร้อง)
+// จึงได้ตัวเลขที่ตรงกับสิ่งที่คนฟังได้ยินจริง ⛔ ไม่ใช่ตัวเลขจากแผ่นโน้ตดิบ
+//
+//   run:  node tools/audit-song-load.mjs 1 141      เทียบเฉพาะเพลงที่ระบุ (ละเอียด)
+//         node tools/audit-song-load.mjs --ทั้งหมด   ทั้งคลัง เรียงจากหนักสุด (ตารางสรุป)
+//
+// อ่านอย่างเดียว ใช้กุญแจสาธารณะที่เว็บใช้อยู่แล้ว ⛔ ไม่เขียนฐานข้อมูล
+import { buildPlayNotes, buildChordVoice, resolveSections, KEY_MIDI } from '../src/lib/midi.js'
+import { resolveContent, resolvePlayOrder } from '../src/lib/songModel.js'
+import { arrange } from '../src/lib/arranger/index.js'
+import { moduleForInstrument } from '../src/lib/arranger/instruments/index.js'
+import { presetCfg, recommendRecipe, songFeatures } from '../src/lib/arranger/presets.js'
+import { buildArrangeCfg } from '../src/lib/arranger/techniques.js'
+
+const KEY = 'sb_publishable_iRpQjoext0BgPQXifwwgnw_kCnjFonX'
+const args = process.argv.slice(2)
+const ทั้งหมด = args.includes('--ทั้งหมด') || args.includes('--all')
+const nums = args.filter((a) => !a.startsWith('--')).map(Number)
+const เลือก = nums.length ? nums : [1, 141]
+const base = 'https://vlpuvaofbzdawgjjpgfu.supabase.co/rest/v1/songs?select=id,number,title_th,category,content&order=number'
+const url = ทั้งหมด ? base : `${base}&number=in.(${เลือก.join(',')})`
+const res = await fetch(url, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } })
+if (!res.ok) {
+  // ⛔ ห้าม `throw` ที่ระดับบนสุดของ ESM — node บน Windows โยน assertion `UV_HANDLE_CLOSING`
+  // ทับข้อความจริง แล้วคืน exit code ขยะ (-1073740791) ⇒ สคริปต์ที่เรียกต่ออ่านผลไม่ได้
+  console.error(`⛔ ดึงเพลงจาก Supabase ไม่สำเร็จ — ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  process.exitCode = 1
+}
+const ดิบ = res.ok ? await res.json() : []
+
+// ⭐ ป้อนของว่าง ต้องดัง ⛔ ไม่ใช่เงียบแล้วจบแบบสำเร็จ
+// เครื่องมือนี้มีไว้ตอบว่า "ของเราผิด หรือเครื่องของผู้ใช้ผิด" ⇒ ถ้ามันวัดอะไรไม่ได้เลยแล้วยัง
+// จบด้วย exit 0 คนอ่านจะแปลว่า "ปกติดี" ⇒ **แย่กว่าไม่มีเครื่องมือ** เพราะพาไปผิดทางอย่างมั่นใจ
+// (ค่าเรียนจ่ายไปแล้วที่ v3/pleng#33 — เครื่องมือคืนเลขสวยทั้งที่หน้าเว็บเป็นหน้าเปล่า)
+const ไม่มีเนื้อ = ดิบ.filter((s) => !s.content).map((s) => `${s.number}/${s.category || '?'}`)
+const songs = ดิบ.filter((s) => s.content).sort((a, b) => a.number - b.number)
+
+if (!songs.length) {
+  console.error(ทั้งหมด
+    ? '⛔ อ่านคลังเพลงได้ 0 เพลงที่มีเนื้อ — ยังไม่ได้วัดอะไรเลย ⛔ อย่าอ่านว่าปกติดี'
+    : `⛔ หาเพลงที่มีเนื้อไม่เจอเลย จากที่ขอมา: ${เลือก.join(', ')} — ยังไม่ได้วัดอะไรเลย ⛔ อย่าอ่านว่าปกติดี`)
+  // ⚠️ `process.exitCode` ⛔ ไม่ใช่ `process.exit()` — ท่าหลังตัดจบทั้งที่ handle ของ fetch ยังปิดไม่เสร็จ
+  // ⇒ node บน Windows โยน assertion `UV_HANDLE_CLOSING` แล้วคืน exit code ขยะ (ท่าเดียวกับ audit-mp3-order.mjs)
+  process.exitCode = 1
+}
+if (ไม่มีเนื้อ.length) console.error(`⚠️ ข้ามเพลงที่ไม่มีเนื้อ ${ไม่มีเนื้อ.length} เพลง: ${ไม่มีเนื้อ.join(' ')}`)
+if (!ทั้งหมด) {
+  // เลขเพลงซ้ำข้ามเล่มได้ ⇒ นับว่า "เลขไหนหาไม่เจอ" ⛔ ไม่ใช่เทียบจำนวนแถวกับจำนวนเลขที่ขอ
+  const เจอ = new Set(songs.map((s) => s.number))
+  const ขาด = เลือก.filter((n) => !เจอ.has(n))
+  if (ขาด.length) console.error(`⚠️ ขอ ${เลือก.length} เลข ได้ ${เจอ.size} เลข — หาไม่เจอ: ${ขาด.join(', ')}`)
+}
+
+const rows = []
+for (const s of songs) {
+  const c = s.content
+  if (!c) continue
+  const playable = { ...c, lines: resolveContent(c) }
+  const order = resolvePlayOrder(c) ?? undefined
+  const notes = buildPlayNotes(playable, { order })
+  const bpm = Number(c.bpm) || 92
+  const spb = 60 / bpm
+  const sec = notes.reduce((t, n) => t + n.beats, 0) * spb
+  const chords = buildChordVoice(notes)
+  // ⚠️ ค่าเริ่มต้นของหน้าฝึกร้อง — ⭐ นี่คือ "สำเนา" ⛔ เจ้าของความจริงอยู่ที่อื่น
+  //   voices 'both' · sparkle 0.7 · overrides {}  ⇒ เจ้าของคือ `src/store.js` (soundMode · sparkleLevel · arrangeOverrides)
+  //   recipe จาก styleAuto · instrument 'grand'   ⇒ เจ้าของคือ `src/components/SongViewer.vue` (styleArrange · leadInstrument)
+  //   chordGain 0.055                             ⇒ เจ้าของคือ `src/lib/midi.js` playSong (ค่าตั้งต้นของพารามิเตอร์)
+  // **วิธีดูของจริง** — เปิด 3 ไฟล์นั้นแล้วเทียบทีละค่า ⇒ ตรวจเองได้ ⛔ ไม่ต้องเชื่อบรรทัดนี้
+  // ⚠️ วันที่ใครเปลี่ยนค่าตั้งต้นในไฟล์พวกนั้น เครื่องมือนี้จะยังพิมพ์ตัวเลขของค่าที่เว็บเลิกใช้แล้ว
+  //    ⛔ ไม่มีอะไรพัง ⛔ ไม่มีเทสข้อไหนเตือน (vitest ไม่เก็บ `tools/` ไปรัน) ⇒ ต้องตามมาแก้ที่นี่ด้วยมือ
+  const recipe = recommendRecipe(songFeatures(c))
+  const cfg = { ...buildArrangeCfg(presetCfg(recipe), {}), sparkleLevel: 0.7 }
+  // chordGain 0.055 = ค่าตั้งต้นของ playSong เป๊ะ ๆ · `...cfg` ทับทีหลังเสมอเพราะ preset เป็นเจ้าของค่านี้
+  // (piano-arrangement ใส่ 0.09) ⇒ วางลำดับแบบเดียวกับ playSong เพื่อให้เห็นการทับด้วยตา
+  const perf = arrange(notes, chords, { arranger: true, voices: 'both', chordGain: 0.055, ...cfg, module: moduleForInstrument('grand') },
+    { songId: s.id, pass: 0, timeSignature: c.timeSignature, keyRoot: KEY_MIDI[c.key] ?? 60, sections: resolveSections(playable, notes) })
+
+  // จังหวะที่ถูกนัด: humanize ขยับหัวโน้ตไปเท่าไร และมีช่วงไหนห่างผิดกริดเกิน 10% บ้าง
+  const mel = perf.filter((e) => e.role === 'melody')
+    .map((e) => ({ grid: e.startBeat * spb, real: e.startBeat * spb + (e.timeShift || 0), shift: (e.timeShift || 0) * 1000 }))
+    .sort((a, b) => a.grid - b.grid)
+  const shifts = mel.map((m) => m.shift)
+  const sd = Math.sqrt(shifts.reduce((a, b) => a + b * b, 0) / shifts.length)
+  let offGrid = 0
+  for (let i = 1; i < mel.length; i++) {
+    const want = mel[i].grid - mel[i - 1].grid
+    if (want > 0 && Math.abs(((mel[i].real - mel[i - 1].real) - want) / want) > 0.1) offGrid++
+  }
+
+  // เสียงที่ดังพร้อมกัน (ห่าง <30ms) ที่ห่างกันครึ่งเสียง = คู่ที่ฟังแล้ว "กัด" · และ polyphony สูงสุด
+  const ev = perf.map((e) => ({ t: e.startBeat * spb + (e.timeShift || 0), m: e.midi })).sort((a, b) => a.t - b.t)
+  let semitoneClash = 0
+  for (let i = 0; i < ev.length; i++) {
+    for (let j = i + 1; j < ev.length && ev[j].t - ev[i].t < 0.03; j++) if (Math.abs(ev[j].m - ev[i].m) === 1) semitoneClash++
+  }
+  let maxPoly = 0
+  const act = []
+  for (const e of perf.slice().sort((a, b) => a.startBeat - b.startBeat)) {
+    const st = e.startBeat * spb + (e.timeShift || 0)
+    while (act.length && act[0] < st) act.shift()
+    act.push(st + e.beats * spb)
+    act.sort((a, b) => a - b)
+    if (act.length > maxPoly) maxPoly = act.length
+  }
+
+  const roles = {}
+  for (const e of perf) roles[e.role] = (roles[e.role] || 0) + 1
+  // ⚠️ เลขเพลงซ้ำข้ามเล่มได้ (เลข 8 มีทั้งใน lem-yai และ anuchon) ⇒ ต้องพิมพ์เล่มคู่กับเลขเสมอ
+  // ไม่งั้นตารางจะอ่านเหมือนเป็นเพลงเดียวกัน · ตารางเพลงมีคอลัมน์ duplicate_ok รองรับเรื่องนี้อยู่แล้ว
+  rows.push({ num: s.number, เล่ม: s.category || '?', title: s.title_th, ts: c.timeSignature, key: c.key, bpm, recipe,
+    strophic: !!order, notes: notes.length, chords: chords.length, sec: +sec.toFixed(1),
+    perf: perf.length, perSec: +(perf.length / sec).toFixed(2), roles, sdMs: +sd.toFixed(1),
+    offGrid, semitoneClash, maxPoly })
+}
+
+// โหมดทั้งคลัง — ตารางสรุปเรียงจากหนักสุด ⇒ ตอบว่า "เพลงไหนกดดันเครื่องมากที่สุด"
+// เกณฑ์เรียง = เหตุการณ์เสียงต่อวินาที เพราะนั่นคือของที่ต้องนัดทันภายในระยะเผื่อของตัวจัดคิว
+// (ความยาวไม่ทำให้แน่นขึ้น มันแค่เพิ่มโอกาสไปเจอจังหวะที่เครื่องสะดุด — จึงพิมพ์ทั้ง 2 ค่า)
+if (ทั้งหมด) {
+  const เรียง = [...rows].sort((a, b) => b.perSec - a.perSec)
+  console.log(`ตรวจ ${rows.length} เพลงที่เผยแพร่แล้ว · เรียงจากเหตุการณ์เสียงต่อวินาทีมากไปน้อย\n`)
+  console.log('  เพลง | เล่ม     | ต่อวิ | เหตุ | ยาว(s) | โน้ต | คอร์ด | พร้อมกัน | กัด |')
+  console.log('-------|----------|-------|------|--------|------|-------|----------|-----|-------------------')
+  for (const r of เรียง) {
+    console.log(
+      `  ${String(r.num).padStart(4)} | ${String(r.เล่ม).padEnd(8)} | ${String(r.perSec).padStart(5)} | ${String(r.perf).padStart(4)} | ` +
+      `${String(r.sec).padStart(6)} | ${String(r.notes).padStart(4)} | ${String(r.chords).padStart(5)} | ` +
+      `${String(r.maxPoly).padStart(8)} | ${String(r.semitoneClash).padStart(3)} | ${r.title}`)
+  }
+  const p = (k) => [...rows].map((r) => r[k]).sort((a, b) => a - b)
+  const q = (a, f) => a[Math.floor(f * (a.length - 1))]
+  const ps = p('perSec'), sc = p('sec')
+  console.log(`\nเหตุการณ์ต่อวินาที: กลาง ${q(ps, 0.5)} · บนสุด 10% ${q(ps, 0.9)} · สูงสุด ${q(ps, 1)}`)
+  console.log(`ความยาว(s):        กลาง ${q(sc, 0.5)} · บนสุด 10% ${q(sc, 0.9)} · สูงสุด ${q(sc, 1)}`)
+  const กัด = rows.filter((r) => r.semitoneClash > 0)
+  // ⚠️ ตัวเลขนี้เป็น "จุดให้ไปฟัง" ⛔ ไม่ใช่คำตัดสินว่าเพราะหรือไม่เพราะ — โน้ตผ่านที่ห่างครึ่งเสียง
+  // จากคอร์ดที่ค้างอยู่ เป็นของปกติในดนตรีจริง · ต้องเปิดฟังเองก่อนถึงจะบอกได้ว่าอันไหนกัดจริง
+  const หนักสุด = [...กัด].sort((a, b) => b.semitoneClash - a.semitoneClash).slice(0, 10)
+  console.log(`เพลงที่มีคู่เสียงดังพร้อมกันแล้วห่างครึ่งเสียง: ${กัด.length}/${rows.length} เพลง` +
+    (กัด.length ? ` · 10 อันดับแรก ⇒ ${หนักสุด.map((r) => `${r.num}/${r.เล่ม}(${r.semitoneClash})`).join(' ')}` : ' ⇒ ไม่มี'))
+}
+
+// ⭐ ป้ายบอกเพลงต้องเป็น เลข/เล่ม เสมอ — เลขอย่างเดียวชี้เพลงไม่ได้จริง (เลข 8 มี 2 เพลงคนละเล่ม)
+// ตัวเลขที่วัดได้ไม่เคยผิด สิ่งที่ผิดได้คือป้ายที่บอกว่าตัวเลขนั้นเป็นของเพลงไหน
+const ป้าย = (r) => `${r.num}/${r.เล่ม}`
+
+if (!ทั้งหมด) for (const r of rows) {
+  console.log(`\n=== เพลง ${ป้าย(r)} — ${r.title} ===`)
+  console.log(`  ${r.ts} · คีย์ ${r.key} · bpm ${r.bpm} · สไตล์ที่เว็บเลือกให้ ${r.recipe} · ร้องซ้ำทุกข้อ ${r.strophic}`)
+  console.log(`  โน้ต ${r.notes} · คอร์ด ${r.chords} · ความยาว ${r.sec}s`)
+  console.log(`  เหตุการณ์เสียงจริง ${r.perf} (${JSON.stringify(r.roles)}) ⇒ ${r.perSec}/วินาที · เสียงค้างพร้อมกันสูงสุด ${r.maxPoly}`)
+  console.log(`  จังหวะ: humanize sd ${r.sdMs}ms · ช่วงที่ห่างผิดกริดเกิน 10% = ${r.offGrid} · คู่เสียงห่างครึ่งเสียง = ${r.semitoneClash}`)
+}
+
+// เลขที่ขอมาแล้วได้เพลงมากกว่า 1 เพลง = เลขนั้นซ้ำข้ามเล่ม ⇒ ⭐ ต้องบอก ⛔ ไม่ใช่เงียบ
+// คนสั่ง `... 8` คาดว่าจะได้เพลงเดียว ถ้าไม่บอก เขาจะอ่าน 2 รายงานนั้นเป็นเพลงเดียวกัน
+if (!ทั้งหมด) {
+  const กลุ่ม = new Map()
+  for (const r of rows) กลุ่ม.set(r.num, [...(กลุ่ม.get(r.num) || []), r])
+  for (const [num, ก] of กลุ่ม) {
+    if (ก.length > 1) console.error(`\n⚠️ เลข ${num} ซ้ำข้ามเล่ม — ได้ ${ก.length} เพลง: ${ก.map((r) => `${ป้าย(r)} ${r.title}`).join(' · ')}`)
+  }
+}
+
+// ตารางเทียบขึ้นเฉพาะตอนได้ 2 เพลงจาก 2 เลขที่**ต่างกัน** — ⭐ ถ้าไม่ได้ต้อง**บอกว่าทำไมไม่มีตาราง**
+// ⛔ ไม่ใช่พิมพ์รายงานสวย ๆ แล้วกลืนตารางหายไปเงียบ ๆ (คนสั่งเทียบจะไม่รู้ว่ามันหาย)
+// ⚠️ นับ `rows.length === 2` อย่างเดียวไม่พอ — ขอเลขเดียวที่ซ้ำข้ามเล่มก็ได้ 2 แถว แล้วจะได้
+//    ตาราง "เพลง 8 เทียบเพลง 8" ที่ ⛔ ไม่มีใครขอ พร้อม exit 0 เหมือนสำเร็จปกติ
+const เลขต่างกัน = rows.length === 2 && rows[0].num !== rows[1].num
+if (ทั้งหมด) { /* โหมดทั้งคลังจบที่ตารางสรุปข้างบน — ไม่มีตารางเทียบ 2 เพลง */ } else if (เลขต่างกัน) {
+  const [b, a] = rows
+  const f = (x, y) => `${x} vs ${y} (×${(x / y).toFixed(2)})`
+  console.log(`\n=== เพลง ${ป้าย(a)} เทียบเพลง ${ป้าย(b)} ===`)
+  console.log(`  โน้ต ${f(a.notes, b.notes)} · คอร์ด ${f(a.chords, b.chords)} · ความยาว ${f(a.sec, b.sec)}`)
+  console.log(`  เหตุการณ์ทั้งเพลง ${f(a.perf, b.perf)} · ต่อวินาที ${f(a.perSec, b.perSec)}`)
+} else if (เลือก.length >= 2) {
+  // ⚠️ ต้องบอก**เหตุผลจริง**ว่าทำไมไม่มีตาราง — ไม่ครบเพราะหาเลขไม่เจอ กับไม่ครบเพราะเลขซ้ำข้ามเล่ม
+  // เป็นคนละเรื่องกัน · เขียนรวมเป็น "ได้ไม่ครบ" เมื่อไร จะได้ข้อความที่ขัดกันเอง เช่น
+  // "ขอ 2 เลข แต่วัดได้ 2 เลข" แล้วปฏิเสธ ⇒ คนอ่านหาสาเหตุไม่เจอ
+  const ซ้ำ = [...new Set(rows.filter((r, _, a) => a.filter((x) => x.num === r.num).length > 1).map((r) => r.num))]
+  const เหตุ = ซ้ำ.length
+    ? `เลข ${ซ้ำ.join(', ')} ซ้ำข้ามเล่ม ⇒ วัดได้ ${rows.length} เพลงจาก ${new Set(rows.map((r) => r.num)).size} เลข — ⛔ ไม่รู้ว่าจะเทียบเล่มไหน`
+    : `วัดได้ ${new Set(rows.map((r) => r.num)).size} เลข`
+  console.error(`\n⛔ ไม่มีตารางเทียบ — ขอเทียบ ${เลือก.length} เลข · ${เหตุ} (ตารางเทียบต้องได้ 2 เพลงจาก 2 เลขที่ต่างกัน)`)
+  process.exitCode = 1
+}
