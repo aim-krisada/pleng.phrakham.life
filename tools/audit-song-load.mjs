@@ -4,7 +4,8 @@
 //   buildPlayNotes → buildChordVoice → arrange()   (คีย์/preset/ลูกเล่น = ค่าเริ่มต้นของหน้าฝึกร้อง)
 // จึงได้ตัวเลขที่ตรงกับสิ่งที่คนฟังได้ยินจริง ⛔ ไม่ใช่ตัวเลขจากแผ่นโน้ตดิบ
 //
-//   run:  node tools/audit-song-load.mjs 1 141
+//   run:  node tools/audit-song-load.mjs 1 141      เทียบเฉพาะเพลงที่ระบุ (ละเอียด)
+//         node tools/audit-song-load.mjs --ทั้งหมด   ทั้งคลัง เรียงจากหนักสุด (ตารางสรุป)
 //
 // อ่านอย่างเดียว ใช้กุญแจสาธารณะที่เว็บใช้อยู่แล้ว ⛔ ไม่เขียนฐานข้อมูล
 import { buildPlayNotes, buildChordVoice, resolveSections, KEY_MIDI } from '../src/lib/midi.js'
@@ -15,11 +16,15 @@ import { presetCfg, recommendRecipe, songFeatures } from '../src/lib/arranger/pr
 import { buildArrangeCfg } from '../src/lib/arranger/techniques.js'
 
 const KEY = 'sb_publishable_iRpQjoext0BgPQXifwwgnw_kCnjFonX'
-const nums = (process.argv.slice(2).length ? process.argv.slice(2) : ['1', '141']).map(Number)
-const url = `https://vlpuvaofbzdawgjjpgfu.supabase.co/rest/v1/songs?select=id,number,title_th,content&number=in.(${nums.join(',')})`
+const args = process.argv.slice(2)
+const ทั้งหมด = args.includes('--ทั้งหมด') || args.includes('--all')
+const nums = args.filter((a) => !a.startsWith('--')).map(Number)
+const เลือก = nums.length ? nums : [1, 141]
+const base = 'https://vlpuvaofbzdawgjjpgfu.supabase.co/rest/v1/songs?select=id,number,title_th,category,content&order=number'
+const url = ทั้งหมด ? base : `${base}&number=in.(${เลือก.join(',')})`
 const res = await fetch(url, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } })
 if (!res.ok) throw new Error(`supabase ${res.status}: ${await res.text()}`)
-const songs = (await res.json()).sort((a, b) => a.number - b.number)
+const songs = (await res.json()).filter((s) => s.content).sort((a, b) => a.number - b.number)
 
 const rows = []
 for (const s of songs) {
@@ -68,10 +73,40 @@ for (const s of songs) {
 
   const roles = {}
   for (const e of perf) roles[e.role] = (roles[e.role] || 0) + 1
-  rows.push({ num: s.number, title: s.title_th, ts: c.timeSignature, key: c.key, bpm, recipe,
+  // ⚠️ เลขเพลงซ้ำข้ามเล่มได้ (เลข 8 มีทั้งใน lem-yai และ anuchon) ⇒ ต้องพิมพ์เล่มคู่กับเลขเสมอ
+  // ไม่งั้นตารางจะอ่านเหมือนเป็นเพลงเดียวกัน · ตารางเพลงมีคอลัมน์ duplicate_ok รองรับเรื่องนี้อยู่แล้ว
+  rows.push({ num: s.number, เล่ม: s.category || '?', title: s.title_th, ts: c.timeSignature, key: c.key, bpm, recipe,
     strophic: !!order, notes: notes.length, chords: chords.length, sec: +sec.toFixed(1),
     perf: perf.length, perSec: +(perf.length / sec).toFixed(2), roles, sdMs: +sd.toFixed(1),
     offGrid, semitoneClash, maxPoly })
+}
+
+// โหมดทั้งคลัง — ตารางสรุปเรียงจากหนักสุด ⇒ ตอบว่า "เพลงไหนกดดันเครื่องมากที่สุด"
+// เกณฑ์เรียง = เหตุการณ์เสียงต่อวินาที เพราะนั่นคือของที่ต้องนัดทันภายในระยะเผื่อของตัวจัดคิว
+// (ความยาวไม่ทำให้แน่นขึ้น มันแค่เพิ่มโอกาสไปเจอจังหวะที่เครื่องสะดุด — จึงพิมพ์ทั้ง 2 ค่า)
+if (ทั้งหมด) {
+  const เรียง = [...rows].sort((a, b) => b.perSec - a.perSec)
+  console.log(`ตรวจ ${rows.length} เพลงที่เผยแพร่แล้ว · เรียงจากเหตุการณ์เสียงต่อวินาทีมากไปน้อย\n`)
+  console.log('  เพลง | เล่ม     | ต่อวิ | เหตุ | ยาว(s) | โน้ต | คอร์ด | พร้อมกัน | กัด |')
+  console.log('-------|----------|-------|------|--------|------|-------|----------|-----|-------------------')
+  for (const r of เรียง) {
+    console.log(
+      `  ${String(r.num).padStart(4)} | ${String(r.เล่ม).padEnd(8)} | ${String(r.perSec).padStart(5)} | ${String(r.perf).padStart(4)} | ` +
+      `${String(r.sec).padStart(6)} | ${String(r.notes).padStart(4)} | ${String(r.chords).padStart(5)} | ` +
+      `${String(r.maxPoly).padStart(8)} | ${String(r.semitoneClash).padStart(3)} | ${r.title}`)
+  }
+  const p = (k) => [...rows].map((r) => r[k]).sort((a, b) => a - b)
+  const q = (a, f) => a[Math.floor(f * (a.length - 1))]
+  const ps = p('perSec'), sc = p('sec')
+  console.log(`\nเหตุการณ์ต่อวินาที: กลาง ${q(ps, 0.5)} · บนสุด 10% ${q(ps, 0.9)} · สูงสุด ${q(ps, 1)}`)
+  console.log(`ความยาว(s):        กลาง ${q(sc, 0.5)} · บนสุด 10% ${q(sc, 0.9)} · สูงสุด ${q(sc, 1)}`)
+  const กัด = rows.filter((r) => r.semitoneClash > 0)
+  // ⚠️ ตัวเลขนี้เป็น "จุดให้ไปฟัง" ⛔ ไม่ใช่คำตัดสินว่าเพราะหรือไม่เพราะ — โน้ตผ่านที่ห่างครึ่งเสียง
+  // จากคอร์ดที่ค้างอยู่ เป็นของปกติในดนตรีจริง · ต้องเปิดฟังเองก่อนถึงจะบอกได้ว่าอันไหนกัดจริง
+  const หนักสุด = [...กัด].sort((a, b) => b.semitoneClash - a.semitoneClash).slice(0, 10)
+  console.log(`เพลงที่มีคู่เสียงดังพร้อมกันแล้วห่างครึ่งเสียง: ${กัด.length}/${rows.length} เพลง` +
+    (กัด.length ? ` · 10 อันดับแรก ⇒ ${หนักสุด.map((r) => `${r.num}/${r.เล่ม}(${r.semitoneClash})`).join(' ')}` : ' ⇒ ไม่มี'))
+  process.exit(0)
 }
 
 for (const r of rows) {
