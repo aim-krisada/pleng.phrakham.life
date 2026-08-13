@@ -23,8 +23,36 @@ const เลือก = nums.length ? nums : [1, 141]
 const base = 'https://vlpuvaofbzdawgjjpgfu.supabase.co/rest/v1/songs?select=id,number,title_th,category,content&order=number'
 const url = ทั้งหมด ? base : `${base}&number=in.(${เลือก.join(',')})`
 const res = await fetch(url, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } })
-if (!res.ok) throw new Error(`supabase ${res.status}: ${await res.text()}`)
-const songs = (await res.json()).filter((s) => s.content).sort((a, b) => a.number - b.number)
+if (!res.ok) {
+  // ⛔ ห้าม `throw` ที่ระดับบนสุดของ ESM — node บน Windows โยน assertion `UV_HANDLE_CLOSING`
+  // ทับข้อความจริง แล้วคืน exit code ขยะ (-1073740791) ⇒ สคริปต์ที่เรียกต่ออ่านผลไม่ได้
+  console.error(`⛔ ดึงเพลงจาก Supabase ไม่สำเร็จ — ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  process.exitCode = 1
+}
+const ดิบ = res.ok ? await res.json() : []
+
+// ⭐ ป้อนของว่าง ต้องดัง ⛔ ไม่ใช่เงียบแล้วจบแบบสำเร็จ
+// เครื่องมือนี้มีไว้ตอบว่า "ของเราผิด หรือเครื่องของผู้ใช้ผิด" ⇒ ถ้ามันวัดอะไรไม่ได้เลยแล้วยัง
+// จบด้วย exit 0 คนอ่านจะแปลว่า "ปกติดี" ⇒ **แย่กว่าไม่มีเครื่องมือ** เพราะพาไปผิดทางอย่างมั่นใจ
+// (ค่าเรียนจ่ายไปแล้วที่ v3/pleng#33 — เครื่องมือคืนเลขสวยทั้งที่หน้าเว็บเป็นหน้าเปล่า)
+const ไม่มีเนื้อ = ดิบ.filter((s) => !s.content).map((s) => `${s.number}/${s.category || '?'}`)
+const songs = ดิบ.filter((s) => s.content).sort((a, b) => a.number - b.number)
+
+if (!songs.length) {
+  console.error(ทั้งหมด
+    ? '⛔ อ่านคลังเพลงได้ 0 เพลงที่มีเนื้อ — ยังไม่ได้วัดอะไรเลย ⛔ อย่าอ่านว่าปกติดี'
+    : `⛔ หาเพลงที่มีเนื้อไม่เจอเลย จากที่ขอมา: ${เลือก.join(', ')} — ยังไม่ได้วัดอะไรเลย ⛔ อย่าอ่านว่าปกติดี`)
+  // ⚠️ `process.exitCode` ⛔ ไม่ใช่ `process.exit()` — ท่าหลังตัดจบทั้งที่ handle ของ fetch ยังปิดไม่เสร็จ
+  // ⇒ node บน Windows โยน assertion `UV_HANDLE_CLOSING` แล้วคืน exit code ขยะ (ท่าเดียวกับ audit-mp3-order.mjs)
+  process.exitCode = 1
+}
+if (ไม่มีเนื้อ.length) console.error(`⚠️ ข้ามเพลงที่ไม่มีเนื้อ ${ไม่มีเนื้อ.length} เพลง: ${ไม่มีเนื้อ.join(' ')}`)
+if (!ทั้งหมด) {
+  // เลขเพลงซ้ำข้ามเล่มได้ ⇒ นับว่า "เลขไหนหาไม่เจอ" ⛔ ไม่ใช่เทียบจำนวนแถวกับจำนวนเลขที่ขอ
+  const เจอ = new Set(songs.map((s) => s.number))
+  const ขาด = เลือก.filter((n) => !เจอ.has(n))
+  if (ขาด.length) console.error(`⚠️ ขอ ${เลือก.length} เลข ได้ ${เจอ.size} เลข — หาไม่เจอ: ${ขาด.join(', ')}`)
+}
 
 const rows = []
 for (const s of songs) {
@@ -37,10 +65,18 @@ for (const s of songs) {
   const spb = 60 / bpm
   const sec = notes.reduce((t, n) => t + n.beats, 0) * spb
   const chords = buildChordVoice(notes)
-  // ค่าเริ่มต้นของหน้าฝึกร้อง: เปียโน Grand · เดี่ยว · รวม(ทำนอง+คอร์ด) · สไตล์ตามจังหวะเพลง (styleAuto)
+  // ⚠️ ค่าเริ่มต้นของหน้าฝึกร้อง — ⭐ นี่คือ "สำเนา" ⛔ เจ้าของความจริงอยู่ที่อื่น
+  //   voices 'both' · sparkle 0.7 · overrides {}  ⇒ เจ้าของคือ `src/store.js` (soundMode · sparkleLevel · arrangeOverrides)
+  //   recipe จาก styleAuto · instrument 'grand'   ⇒ เจ้าของคือ `src/components/SongViewer.vue` (styleArrange · leadInstrument)
+  //   chordGain 0.055                             ⇒ เจ้าของคือ `src/lib/midi.js` playSong (ค่าตั้งต้นของพารามิเตอร์)
+  // **วิธีดูของจริง** — เปิด 3 ไฟล์นั้นแล้วเทียบทีละค่า ⇒ ตรวจเองได้ ⛔ ไม่ต้องเชื่อบรรทัดนี้
+  // ⚠️ วันที่ใครเปลี่ยนค่าตั้งต้นในไฟล์พวกนั้น เครื่องมือนี้จะยังพิมพ์ตัวเลขของค่าที่เว็บเลิกใช้แล้ว
+  //    ⛔ ไม่มีอะไรพัง ⛔ ไม่มีเทสข้อไหนเตือน (vitest ไม่เก็บ `tools/` ไปรัน) ⇒ ต้องตามมาแก้ที่นี่ด้วยมือ
   const recipe = recommendRecipe(songFeatures(c))
   const cfg = { ...buildArrangeCfg(presetCfg(recipe), {}), sparkleLevel: 0.7 }
-  const perf = arrange(notes, chords, { arranger: true, voices: 'both', chordGain: 0.09, ...cfg, module: moduleForInstrument('grand') },
+  // chordGain 0.055 = ค่าตั้งต้นของ playSong เป๊ะ ๆ · `...cfg` ทับทีหลังเสมอเพราะ preset เป็นเจ้าของค่านี้
+  // (piano-arrangement ใส่ 0.09) ⇒ วางลำดับแบบเดียวกับ playSong เพื่อให้เห็นการทับด้วยตา
+  const perf = arrange(notes, chords, { arranger: true, voices: 'both', chordGain: 0.055, ...cfg, module: moduleForInstrument('grand') },
     { songId: s.id, pass: 0, timeSignature: c.timeSignature, keyRoot: KEY_MIDI[c.key] ?? 60, sections: resolveSections(playable, notes) })
 
   // จังหวะที่ถูกนัด: humanize ขยับหัวโน้ตไปเท่าไร และมีช่วงไหนห่างผิดกริดเกิน 10% บ้าง
@@ -106,10 +142,9 @@ if (ทั้งหมด) {
   const หนักสุด = [...กัด].sort((a, b) => b.semitoneClash - a.semitoneClash).slice(0, 10)
   console.log(`เพลงที่มีคู่เสียงดังพร้อมกันแล้วห่างครึ่งเสียง: ${กัด.length}/${rows.length} เพลง` +
     (กัด.length ? ` · 10 อันดับแรก ⇒ ${หนักสุด.map((r) => `${r.num}/${r.เล่ม}(${r.semitoneClash})`).join(' ')}` : ' ⇒ ไม่มี'))
-  process.exit(0)
 }
 
-for (const r of rows) {
+if (!ทั้งหมด) for (const r of rows) {
   console.log(`\n=== เพลง ${r.num} — ${r.title} ===`)
   console.log(`  ${r.ts} · คีย์ ${r.key} · bpm ${r.bpm} · สไตล์ที่เว็บเลือกให้ ${r.recipe} · ร้องซ้ำทุกข้อ ${r.strophic}`)
   console.log(`  โน้ต ${r.notes} · คอร์ด ${r.chords} · ความยาว ${r.sec}s`)
@@ -117,10 +152,15 @@ for (const r of rows) {
   console.log(`  จังหวะ: humanize sd ${r.sdMs}ms · ช่วงที่ห่างผิดกริดเกิน 10% = ${r.offGrid} · คู่เสียงห่างครึ่งเสียง = ${r.semitoneClash}`)
 }
 
-if (rows.length === 2) {
+// ตารางเทียบขึ้นเฉพาะตอนได้ครบ 2 เพลง — ⭐ ถ้าไม่ครบต้อง**บอกว่าทำไมไม่มีตาราง**
+// ⛔ ไม่ใช่พิมพ์รายงานเพลงเดียวสวย ๆ แล้วกลืนตารางหายไปเงียบ ๆ (คนสั่งเทียบจะไม่รู้ว่ามันหาย)
+if (ทั้งหมด) { /* โหมดทั้งคลังจบที่ตารางสรุปข้างบน — ไม่มีตารางเทียบ 2 เพลง */ } else if (rows.length === 2) {
   const [b, a] = rows
   const f = (x, y) => `${x} vs ${y} (×${(x / y).toFixed(2)})`
   console.log(`\n=== เพลง ${a.num} เทียบเพลง ${b.num} ===`)
   console.log(`  โน้ต ${f(a.notes, b.notes)} · คอร์ด ${f(a.chords, b.chords)} · ความยาว ${f(a.sec, b.sec)}`)
   console.log(`  เหตุการณ์ทั้งเพลง ${f(a.perf, b.perf)} · ต่อวินาที ${f(a.perSec, b.perSec)}`)
+} else if (เลือก.length >= 2) {
+  console.error(`\n⛔ ไม่มีตารางเทียบ — ขอเทียบ ${เลือก.length} เลข แต่วัดได้ ${rows.length} เพลง (ตารางเทียบต้องได้ครบ 2 เพลงพอดี)`)
+  process.exitCode = 1
 }

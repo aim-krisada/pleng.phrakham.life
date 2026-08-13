@@ -11,13 +11,15 @@
  *   3) พิมพ์ `__probe.report()` ⇒ ได้ระยะเผื่อ (lead) เป็นมิลลิวินาที
  *      lead เป็นบวก = นัดล่วงหน้าได้ทัน · lead ติดลบ = โน้ตนั้น "สายไปแล้ว" ตอนถูกสั่ง = หูได้ยินว่าเพี้ยน
  *   4) อยากพิสูจน์กลไก: `__probe.stall(1500)` ระหว่างเพลงกำลังเล่น แล้วดู report ซ้ำ
- *   5) `__probe.outputPath()` ⇒ เสียงกำลังออกทางไหน (สำคัญมากเมื่อใช้หูฟัง Bluetooth · ดูใต้ฟังก์ชัน)
+ *   5) `await __probe.outputPath()` ⇒ เสียงกำลังออกทางไหน (สำคัญมากเมื่อใช้หูฟัง Bluetooth)
+ *      ⚠️ ต้อง**กดฟังก่อน** — มันอ่านจากบริบทที่เพลงใช้จริง ⛔ ไม่ได้สร้างบริบทใหม่มาวัด (ดูใต้ฟังก์ชัน)
  *
  * ⛔ ตัวเฝ้านี้ไม่แก้อะไร — อ่านอย่างเดียว · `__probe.stop()` เพื่อถอนคืน
  */
 ;(() => {
   if (window.__probe) return console.log('มีตัวเฝ้าอยู่แล้ว — ใช้ __probe.report()')
   const starts = []
+  let live = null // บริบทเสียงที่เพลงใช้จริง — ตั้งค่าโดย hook ข้างล่างตอนมีโน้ตตัวแรกถูกนัด
   const origBuf = AudioBufferSourceNode.prototype.start
   const origOsc = OscillatorNode.prototype.start
   const hook = (proto, orig, kind) => {
@@ -27,7 +29,12 @@
         // เฉพาะบริบทเวลาจริง — OfflineAudioContext (ไฟล์ MP3) ไม่เกี่ยว
         // ⛔ ข้าม start(0)/start() = "ดังเดี๋ยวนี้" (เช่นบัฟเฟอร์เงียบที่ใช้ปลดล็อกเสียงบน iOS)
         // ไม่ใช่โน้ตที่นัดเวลาไว้ ⇒ นับรวมแล้วค่าจะเพี้ยนเป็นหมื่นมิลลิวินาที
-        if (c && typeof c.startRendering !== 'function' && when > 0) starts.push({ kind, lead: (when - c.currentTime) * 1000 })
+        if (c && typeof c.startRendering !== 'function') {
+          // จำบริบทที่เพลง**ใช้จริง** ไว้ให้ outputPath() วัด — midi.js สร้าง AudioContext ครั้งเดียว
+          // แล้วเก็บไว้ในตัวแปรของมอดูล (ไม่ export) ⇒ ทางเดียวที่แตะได้จากข้างนอกคือ node ที่มันสร้าง
+          live = c
+          if (when > 0) starts.push({ kind, lead: (when - c.currentTime) * 1000 })
+        }
       } catch { /* ไม่ให้ตัวเฝ้าทำเพลงพัง */ }
       return orig.call(this, when, ...rest)
     }
@@ -52,22 +59,28 @@
      *   sampleRate 44100/48000 = ปกติ (A2DP) · **16000 หรือ 8000 = หูฟังสลับไปโหมดโทรศัพท์
      *   (HFP) เพราะมีอะไรเปิดไมค์** ⇒ เสียงจะทึบและวูบวาบ = "เหมือนเทปยืด"
      *   outputLatency > ~0.15 วินาที = ทาง Bluetooth (ลำโพงเครื่องมักต่ำกว่า 0.03)
-     * ⚠️ `AudioContext` ถูกสร้างครั้งเดียวตอนกดฟังครั้งแรก (midi.js `ctx = ctx || new AudioContext()`)
-     *    แล้ว ⛔ ไม่ถูกสร้างใหม่อีกเลย ⇒ ถ้าสลับหูฟังหลังจากนั้น ค่าพวกนี้จะค้างของเดิม
-     *    ⇒ เทียบค่าก่อน/หลังสลับหูฟัง แล้วโหลดหน้าใหม่เทียบอีกครั้ง */
+     *
+     * ⭐ วัด**บริบทที่เพลงใช้จริง** — `midi.js` สร้าง `AudioContext` ครั้งเดียว (`ctx = ctx || new
+     * AudioContext()`) แล้ว ⛔ ไม่สร้างใหม่อีกเลย ⇒ สลับหูฟังกลางทาง **เพลงยังวิ่งบนบริบทของ
+     * อุปกรณ์เดิม** · ถ้าฟังก์ชันนี้ไปสร้างบริบทใหม่มาวัด มันจะรายงานหูฟัง**ตัวใหม่** (ปกติดี)
+     * ⇒ ⭐ **บอกว่า "ปกติ" ในสถานการณ์เดียวที่มันถูกสร้างมาเพื่อจับ** ⇒ จึงอ่านจาก `live` ที่
+     * hook เก็บไว้จากโน้ตที่ถูกนัดจริง · `แหล่ง` ในผลลัพธ์บอกว่าอ่านจากก้อนไหน */
     async outputPath() {
-      const c = new AudioContext()
-      await c.resume()
-      // ต้องมีเสียงไหลออกจริงก่อน `outputLatency` ถึงจะมีค่า (ก่อนหน้านั้นได้ 0 เสมอ)
-      // ⇒ ปล่อยบัฟเฟอร์เงียบ 200ms แล้วค่อยอ่าน
-      const b = c.createBuffer(1, Math.round(c.sampleRate * 0.2), c.sampleRate)
-      const s = c.createBufferSource()
-      s.buffer = b
-      s.connect(c.destination)
-      s.start()
-      await new Promise((r) => setTimeout(r, 250))
-      const info = { sampleRate: c.sampleRate, baseLatency: c.baseLatency, outputLatency: c.outputLatency }
-      c.close()
+      if (!live) {
+        // ⛔ ยังไม่มีเพลงเล่น = ยังไม่รู้ว่าบริบทของเพลงเป็นอะไร ⇒ ต้องบอกว่าไม่รู้ ⛔ ไม่ใช่เดา
+        const out = { แหล่ง: '⛔ ยังไม่มีเพลงเล่น — กดฟังก่อนแล้วเรียกใหม่ (ค่าที่ได้จากบริบทใหม่ ⛔ ไม่ใช่ตัวที่เพลงใช้)' }
+        console.table(out)
+        return out
+      }
+      const info = {
+        แหล่ง: 'บริบทที่เพลงใช้จริง',
+        sampleRate: live.sampleRate,
+        baseLatency: live.baseLatency,
+        outputLatency: live.outputLatency,
+        state: live.state,
+      }
+      // `outputLatency` มีค่าเมื่อบริบทเดินอยู่จริง — ถ้าเพลงหยุดไปแล้วมันอาจกลับเป็น 0
+      if (!info.outputLatency) info.หมายเหตุ = 'outputLatency = 0 ⇒ อ่านตอนเพลงกำลังเล่นอยู่จึงจะได้ค่าจริง'
       try {
         const devs = await navigator.mediaDevices.enumerateDevices()
         info.ทางออกเสียง = devs.filter((d) => d.kind === 'audiooutput').map((d) => d.label || '(ต้องอนุญาตไมค์ก่อนจึงเห็นชื่อ)')
@@ -83,6 +96,13 @@
         const a = by(k)
         if (!a.length) continue
         out[k] = { จำนวน: a.length, ต่ำสุด: q(a, 0), p50: q(a, 0.5), สูงสุด: q(a, 1), สายเกินเวลา: a.filter((x) => x < 0).length }
+      }
+      // ⭐ ยังไม่มีโน้ตถูกวัด ⇒ ต้องบอกว่ายังไม่มี ⛔ ไม่ใช่คืน "งานยาว 0" เฉย ๆ ให้อ่านเหมือนเขียวสวย
+      // (ของว่างต้องบอกว่าว่าง — บทเรียนจาก v3/pleng#33 ที่เครื่องมือคืนเลขสวยบนหน้าเปล่า)
+      if (!starts.length) {
+        out['⛔ ยังไม่มีโน้ตถูกวัด'] = { อ่านว่า: 'ตัวเฝ้ายังไม่เห็นโน้ตสักตัว ⇒ ⛔ อย่าอ่านว่าปกติดี · กดฟังก่อน แล้วเรียก report() ใหม่' }
+        console.table(out)
+        return out
       }
       out.งานยาวบนสายหลัก = { จำนวน: longtasks.length, นานสุดms: longtasks.length ? Math.max(...longtasks) : 0 }
       console.table(out)
