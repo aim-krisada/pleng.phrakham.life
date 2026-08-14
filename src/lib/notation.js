@@ -182,6 +182,13 @@ export function groupNotes(tokens) {
 //   'struct' — a ( ) { } bracket: pure structure, no lyric box (an aligned spacer)
 // Assumes the editor convention of one note per box; a box with several notes is
 // classified by its first note.
+// The sounding identity of a note — two notes with the same key are the SAME pitch (so a
+// curve between them is a hold, not a step). Shared so "same pitch" means one thing:
+// noteBoxKinds' เอื้อน rule and slurBeamOnly's arc rule must never disagree.
+export function pitchKey(note) {
+  return (note.accidental || '') + note.pitch + (note.high - note.low)
+}
+
 export function noteBoxKinds(noteString) {
   const t = (noteString || '').trim()
   const boxes = t ? t.split(/\s+/) : ['']
@@ -196,7 +203,7 @@ export function noteBoxKinds(noteString) {
     const note = parseNotes(b).find((x) => x.type === 'note')
     if (!note) { out.push('struct'); prevKey = null; continue } // unreadable → spacer
     if (note.pitch === '0') { out.push('held'); prevKey = null; continue } // rest: box, no word
-    const key = (note.accidental || '') + note.pitch + (note.high - note.low)
+    const key = pitchKey(note)
     const held = (note.tieEnd && prevKey === key) || (slur && prevKey === key)
     out.push(held ? 'held' : 'attack')
     prevKey = key
@@ -344,6 +351,26 @@ export function beamGroups(noteString, syllables = null) {
   }
   flush()
   return { groups: gs, beams }
+}
+
+// --- Is this slur group drawn as its BEAM ALONE (arc dropped)? -------------------------
+// issues2 (พี่เปา): a short เอื้อน inside ONE beat — `(6_ 5_)` — is engraved in the reference
+// songbook as the connected underline, with no curve above it. For two DIFFERENT digits the
+// beam already carries the whole message: one syllable, two notes.
+//
+// v3/pleng#48 (พี่เปา, 13 ส.ค. 2569 — เพลง 454 เล่มใหญ่): `(.6__ .6__)` came out with NO curve
+// at all, because that rule looked only at "is every note beamed". Two notes on the SAME digit
+// are exactly what a beam CANNOT say: the singer reads 6 6 as two attacks, and only the curve
+// says "hold it". noteBoxKinds already calls that note 'held' (a same-pitch note under a slur =
+// เอื้อน) and a tie draws its arc for the same reason — so here the arc stays and the beam is
+// drawn under it. Different-pitch groups are untouched (issues2 stands).
+//
+// `tokens` = one group's tokens from beamGroups (each note stamped `.beamed`).
+export function slurBeamOnly(tokens) {
+  const ts = tokens || []
+  if (ts.length < 2 || !ts.every((t) => t.type === 'note' && t.beamed)) return false
+  for (let i = 1; i < ts.length; i++) if (pitchKey(ts[i]) === pitchKey(ts[i - 1])) return false
+  return true
 }
 
 // --- issues5: slur pairs at LINE level (so a slur can cross a bar / segment) ------------
