@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { beamGroups } from '../lib/notation.js'
+import { beamGroups, slurBeamOnly } from '../lib/notation.js'
 
 const props = defineProps({
   notes: { type: String, default: '' },
@@ -23,13 +23,13 @@ const model = computed(() => {
   // note that starts a new sung syllable (from `syllables`), so two words sharing a beat are
   // NOT joined. Logic lives in lib/notation.js so it is unit-tested without layout.
   const { groups: gs, beams } = beamGroups(props.notes, props.syllables)
-  // A slur group that is entirely ONE within-beat beam (a short เอื้อน like "(6_ 5_)") is
-  // drawn as that beam, so its arc is dropped — the arc form is reserved for phrase melismas
-  // that span beats / hold notes (e.g. "(3 - 3_)"), which keep it.
+  // A slur group that is entirely a beam of DIFFERENT digits (a short เอื้อน like "(6_ 5_)")
+  // is drawn as that beam, so its arc is dropped — the arc form is reserved for phrase melismas
+  // that span beats / hold notes (e.g. "(3 - 3_)"), and for a repeated digit ("(.6__ .6__)"),
+  // where only the curve says "hold, do not attack twice". The rule is in lib/notation.js
+  // (slurBeamOnly) so it is testable without layout and can't drift from noteBoxKinds.
   for (const g of gs) {
-    if (g.group === 'slur') {
-      g.beamOnly = g.tokens.length >= 2 && g.tokens.every((t) => t.type === 'note' && t.beamed)
-    }
+    if (g.group === 'slur') g.beamOnly = slurBeamOnly(g.tokens)
   }
   return { groups: gs, beams }
 })

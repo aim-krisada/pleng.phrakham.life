@@ -112,6 +112,19 @@ describe('NoteRow beaming (issues2)', () => {
     expect(w.findAll('.nt.beamed').length).toBe(2)
   })
 
+  // v3/pleng#48 (พี่เปา, 13 ส.ค. 2569 — เพลง 454 เล่มใหญ่ บรรทัด 1-2): the same-pitch case.
+  // issues2 drops the arc when a slur IS just one beam, because for two DIFFERENT pitches the
+  // connected underline already says "one syllable, two notes". Two notes on the SAME digit are
+  // the case the beam cannot say: without a curve the singer reads two attacks on 6, not one
+  // held 6. That is the same thing noteBoxKinds already calls 'held' (a same-pitch note under a
+  // slur = เอื้อน) and the same thing a tie draws — so the curve must stay.
+  it('a within-beat "(.6__ .6__)" on the SAME pitch keeps its arc AND its beam', () => {
+    const w = mount(NoteRow, { props: { notes: '(.6__ .6__)' } })
+    expect(w.findAll('.slur-arc').length).toBe(1)
+    expect(w.findAll('.beam').length).toBe(2) // เขบ็ต 2 ชั้น → one bar per beam level (B110)
+    expect(w.findAll('.nt.beamed').length).toBe(2)
+  })
+
   it('a run crossing a beat is TWO beams, not one long beam', () => {
     // 3(quarter) - 3_ 4_ 5_ 6_  →  3_4_ (beat 3) and 5_6_ (beat 4) beam separately
     const w = mount(NoteRow, { props: { notes: '(3 - 3_) 4_ 5_ 6_' } })

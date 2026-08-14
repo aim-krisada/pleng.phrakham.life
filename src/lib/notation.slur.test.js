@@ -5,7 +5,7 @@
 // arcPlan() decides single-arc (same visual row) vs split-arc (a line wrap fell between) from
 // the measured rects — the only layout-dependent decision, isolated here so it is testable.
 import { describe, it, expect } from 'vitest'
-import { slurSpans, arcPlan } from './notation.js'
+import { slurSpans, arcPlan, slurBeamOnly, beamGroups } from './notation.js'
 
 describe('slurSpans — cross-segment slur pairing (issues5)', () => {
   it('a slur opening at a bar end and closing at the next bar start pairs across segments', () => {
@@ -51,6 +51,53 @@ describe('slurSpans — cross-segment slur pairing (issues5)', () => {
     const spans = slurSpans(['{1 2 3} (4\'', '5) 6'])
     expect(spans.length).toBe(1)
     expect(spans[0]).toMatchObject({ open: { si: 0, idx: 3 }, close: { si: 1, idx: 0 }, sameSegment: false })
+  })
+})
+
+// v3/pleng#48 — WHICH slur groups give up their arc and are drawn as the beam alone.
+// issues2 says a short เอื้อน inside one beat is engraved as the connected underline; #48 is the
+// case that rule swallowed by mistake — a REPEATED digit, where the beam cannot say "hold".
+describe('slurBeamOnly — arc dropped only for a beam of different digits (#48)', () => {
+  // the real token stream NoteRow works from (notes stamped .beamed), so the test can't drift
+  const slurTokens = (notes, syllables = null) =>
+    beamGroups(notes, syllables).groups.filter((g) => g.group === 'slur').map((g) => g.tokens)
+
+  it('เพลง 454 เล่มใหญ่: "(.6__ .6__)" repeats one digit → KEEPS its arc', () => {
+    expect(slurBeamOnly(slurTokens('(.6__ .6__)')[0])).toBe(false)
+  })
+
+  it('the whole ห้อง from เพลง 454 บรรทัด 1 behaves the same in context', () => {
+    // ".6_. #.5__ .7_ .6 (.6__ .6__)" = 3 จังหวะ พอดี — the bar พี่เปา typed
+    expect(slurBeamOnly(slurTokens('.6_. #.5__ .7_ .6 (.6__ .6__)')[0])).toBe(false)
+  })
+
+  it('issues2 unchanged: "(6_ 5_)" — two different digits in one beat → beam only, no arc', () => {
+    expect(slurBeamOnly(slurTokens('(6_ 5_)')[0])).toBe(true)
+  })
+
+  it('a repeat anywhere in a longer beamed group is enough to keep the arc', () => {
+    // sixteenths so all three still sit inside ONE beat (one beam run)
+    expect(slurBeamOnly(slurTokens('(6__ 5__ 5__)')[0])).toBe(false)
+    expect(slurBeamOnly(slurTokens('(6__ 5__ 4__)')[0])).toBe(true)
+  })
+
+  it('same digit but a different OCTAVE is not a repeat — still beam only', () => {
+    expect(slurBeamOnly(slurTokens("(6_ 6'_)")[0])).toBe(true)
+  })
+
+  it('same digit with a different accidental is not a repeat either', () => {
+    expect(slurBeamOnly(slurTokens('(6_ #6_)')[0])).toBe(true)
+  })
+
+  it('a group holding a quarter / an extension was never beam-only (B062 phrase melisma)', () => {
+    expect(slurBeamOnly(slurTokens('(3 - 3_)')[0])).toBe(false)
+    expect(slurBeamOnly(slurTokens('(1 2 3 4)')[0])).toBe(false)
+  })
+
+  it('a single-note group is never beam-only', () => {
+    expect(slurBeamOnly(slurTokens('(6_)')[0])).toBe(false)
+    expect(slurBeamOnly([])).toBe(false)
+    expect(slurBeamOnly(undefined)).toBe(false)
   })
 })
 
