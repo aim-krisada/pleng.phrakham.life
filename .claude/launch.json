@@ -73,6 +73,12 @@
       "port": 5348
     },
     {
+      "name": "v148dist",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "preview", "--port", "5349", "--strictPort"],
+      "port": 5349
+    },
+    {
       "name": "dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
