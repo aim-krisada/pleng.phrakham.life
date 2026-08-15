@@ -81,12 +81,11 @@ describe('slurBeamOnly — arc dropped only for a beam of different digits (#48)
     expect(slurBeamOnly(slurTokens('(6__ 5__ 4__)')[0])).toBe(true)
   })
 
-  // v3/pleng#53: the rule the songbook actually follows is about the UNDERLINE, not the
-  // note count — a เอื้อน carried by ONE connected underline needs no curve, but the moment
-  // the underline breaks (a beat boundary, a new word) nothing is left saying "one syllable",
-  // so the curve comes back. Evidence: the book page in `git show
-  // c675cd8:docs/reports/assets/eaun-book-innalok.png` draws a curve over "3 - 3 4" (two
-  // beats) while "6 5" (one beat) carries only its beam.
+  // v3/pleng#53: the guard is the UNDERLINE, not the note count — a เอื้อน carried by ONE
+  // connected underline needs no curve, but the moment the underline breaks (a beat boundary,
+  // a new word) nothing is left saying "one syllable", so the curve comes back. What that
+  // rests on — which part the songbook page shows and which part is a ruling — is spelled
+  // out at slurBeamOnly in notation.js.
   it('a group whose notes fall in TWO beam runs keeps its arc (#53)', () => {
     // 4 eighths = 2 beats → beams [[0,1],[2,3]]: two underlines, so the beam alone can't
     // say "one syllable"

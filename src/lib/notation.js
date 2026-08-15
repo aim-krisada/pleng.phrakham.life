@@ -358,26 +358,30 @@ export function beamGroups(noteString, syllables = null) {
 }
 
 // --- Is this slur group drawn as its BEAM ALONE (arc dropped)? -------------------------
-// The reference songbook draws the curve of a เอื้อน exactly when the group's notes are NOT
-// carried by ONE connected underline. On the page kept at
-// `git show c675cd8:docs/reports/assets/eaun-book-innalok.png` both halves are visible in one
-// line: `6 5` inside a beat carries only its beam, while `3 - 3 4` across two beats gets a
-// curve — one whose right end lands mid-beam, so a beam never forbids a curve there.
-// So three conditions have to hold together before the arc may be dropped:
+// The arc may be dropped only while ONE connected underline is already saying "these notes
+// are one syllable". Three conditions, one per case that broke:
 //
 //   · every note is beamed          — issues2 (พี่เปา): for two DIFFERENT digits inside one
 //                                     beat the connected underline already says it all:
 //                                     one syllable, two notes.
 //   · all in the SAME beam run      — v3/pleng#53: `(6_ 5_ 4_ 3_)` is two beats = two separate
 //                                     underlines, and two underlines say "two groups", not
-//                                     "one syllable" — so the curve has to come back. (The
-//                                     ruling behind issues2 said this from the start:
-//                                     "เอื้อนยาวข้ามบีทคง arc" — docs/pm/board.md.)
+//                                     "one syllable" — so the curve has to come back.
 //   · no two adjacent notes repeat  — v3/pleng#48 (พี่เปา, เพลง 454 เล่มใหญ่): `(.6__ .6__)`
 //                                     is what a beam CANNOT say — the singer reads 6 6 as two
 //                                     attacks, only the curve says "hold it". noteBoxKinds
 //                                     already calls that note 'held', and a tie draws its arc
 //                                     for the same reason.
+//
+// Where each comes from — the reference songbook page kept at
+// `git show c675cd8:docs/reports/assets/eaun-book-innalok.png` settles the FIRST: the only
+// joined underline on that line (`6 5`, inside one beat) carries no curve, while every curve
+// on the page covers a group no single underline joins — e.g. `3 - 3`, whose closing eighth
+// keeps an underline of its own (the `4` after it is NOT joined to it), so an underline never
+// forbids a curve. The SECOND is not readable there: that page has no all-beamed group
+// crossing a beat at all. It comes from the ruling behind issues2 — the `( )` marked for
+// cleanup were "คู่เขบ็ตในบีท" only, "เอื้อนยาวข้ามบีทคง arc" (docs/pm/board.md) — plus
+// พี่เอม's decision on #53 (14 ส.ค. 2569).
 //
 // `tokens` = one group's tokens from beamGroups (each note stamped `.beamed` + `.beamRun`).
 export function slurBeamOnly(tokens) {
