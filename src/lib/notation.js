@@ -309,7 +309,11 @@ export function beamGroups(noteString, syllables = null) {
   const beams = []
   const flush = () => {
     if (run.length >= 2) {
-      run.forEach((t) => { t.beamed = true })
+      // `beamRun` = WHICH underline this note ended up under. Two notes with the same
+      // beamRun are joined by one connected underline; different values mean the beam
+      // broke between them (a beat boundary, a new word). slurBeamOnly reads it.
+      const runId = beams.length
+      run.forEach((t) => { t.beamed = true; t.beamRun = runId })
       beams.push({
         start: run[0].idx,
         end: run[run.length - 1].idx,
@@ -354,21 +358,32 @@ export function beamGroups(noteString, syllables = null) {
 }
 
 // --- Is this slur group drawn as its BEAM ALONE (arc dropped)? -------------------------
-// issues2 (พี่เปา): a short เอื้อน inside ONE beat — `(6_ 5_)` — is engraved in the reference
-// songbook as the connected underline, with no curve above it. For two DIFFERENT digits the
-// beam already carries the whole message: one syllable, two notes.
+// The reference songbook draws the curve of a เอื้อน exactly when the group's notes are NOT
+// carried by ONE connected underline. On the page kept at
+// `git show c675cd8:docs/reports/assets/eaun-book-innalok.png` both halves are visible in one
+// line: `6 5` inside a beat carries only its beam, while `3 - 3 4` across two beats gets a
+// curve — one whose right end lands mid-beam, so a beam never forbids a curve there.
+// So three conditions have to hold together before the arc may be dropped:
 //
-// v3/pleng#48 (พี่เปา, 13 ส.ค. 2569 — เพลง 454 เล่มใหญ่): `(.6__ .6__)` came out with NO curve
-// at all, because that rule looked only at "is every note beamed". Two notes on the SAME digit
-// are exactly what a beam CANNOT say: the singer reads 6 6 as two attacks, and only the curve
-// says "hold it". noteBoxKinds already calls that note 'held' (a same-pitch note under a slur =
-// เอื้อน) and a tie draws its arc for the same reason — so here the arc stays and the beam is
-// drawn under it. Different-pitch groups are untouched (issues2 stands).
+//   · every note is beamed          — issues2 (พี่เปา): for two DIFFERENT digits inside one
+//                                     beat the connected underline already says it all:
+//                                     one syllable, two notes.
+//   · all in the SAME beam run      — v3/pleng#53: `(6_ 5_ 4_ 3_)` is two beats = two separate
+//                                     underlines, and two underlines say "two groups", not
+//                                     "one syllable" — so the curve has to come back. (The
+//                                     ruling behind issues2 said this from the start:
+//                                     "เอื้อนยาวข้ามบีทคง arc" — docs/pm/board.md.)
+//   · no two adjacent notes repeat  — v3/pleng#48 (พี่เปา, เพลง 454 เล่มใหญ่): `(.6__ .6__)`
+//                                     is what a beam CANNOT say — the singer reads 6 6 as two
+//                                     attacks, only the curve says "hold it". noteBoxKinds
+//                                     already calls that note 'held', and a tie draws its arc
+//                                     for the same reason.
 //
-// `tokens` = one group's tokens from beamGroups (each note stamped `.beamed`).
+// `tokens` = one group's tokens from beamGroups (each note stamped `.beamed` + `.beamRun`).
 export function slurBeamOnly(tokens) {
   const ts = tokens || []
   if (ts.length < 2 || !ts.every((t) => t.type === 'note' && t.beamed)) return false
+  if (!ts.every((t) => t.beamRun === ts[0].beamRun)) return false
   for (let i = 1; i < ts.length; i++) if (pitchKey(ts[i]) === pitchKey(ts[i - 1])) return false
   return true
 }

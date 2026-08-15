@@ -133,6 +133,17 @@ describe('NoteRow beaming (issues2)', () => {
     expect(w.findAll('.slur-arc').length).toBe(1)
   })
 
+  // v3/pleng#53: the same case one level up — 4 eighths under one slur cross a beat, so they
+  // are drawn as TWO beams. Two separate underlines say "two groups", not "one syllable", so
+  // the curve has to come back over the lot (the songbook draws it that way — see
+  // slurBeamOnly's comment for the page).
+  it('a slur spanning TWO beams keeps its arc drawn over both (#53)', () => {
+    const w = mount(NoteRow, { props: { notes: '(6_ 5_ 4_ 3_)' } })
+    expect(w.findAll('.beam').length).toBe(2)
+    expect(w.findAll('.nt.beamed').length).toBe(4)
+    expect(w.findAll('.slur-arc').length).toBe(1)
+  })
+
   it('a lone eighth is not beamed; an eighth+quarter pair has no beam', () => {
     expect(mount(NoteRow, { props: { notes: '1_ 2' } }).findAll('.beam').length).toBe(0)
     expect(mount(NoteRow, { props: { notes: '5' } }).findAll('.beam').length).toBe(0)
