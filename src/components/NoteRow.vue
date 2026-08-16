@@ -23,11 +23,10 @@ const model = computed(() => {
   // note that starts a new sung syllable (from `syllables`), so two words sharing a beat are
   // NOT joined. Logic lives in lib/notation.js so it is unit-tested without layout.
   const { groups: gs, beams } = beamGroups(props.notes, props.syllables)
-  // A slur group that is entirely a beam of DIFFERENT digits (a short เอื้อน like "(6_ 5_)")
-  // is drawn as that beam, so its arc is dropped — the arc form is reserved for phrase melismas
-  // that span beats / hold notes (e.g. "(3 - 3_)"), and for a repeated digit ("(.6__ .6__)"),
-  // where only the curve says "hold, do not attack twice". The rule is in lib/notation.js
-  // (slurBeamOnly) so it is testable without layout and can't drift from noteBoxKinds.
+  // Some slur groups are engraved as their beam alone, with no arc above it. WHICH ones is
+  // decided by slurBeamOnly in lib/notation.js — the rule, the songbook page behind it and
+  // its tests all live there, so it is testable without layout and can't drift from
+  // noteBoxKinds. Here we only stamp the answer onto the group for the template's v-if.
   for (const g of gs) {
     if (g.group === 'slur') g.beamOnly = slurBeamOnly(g.tokens)
   }

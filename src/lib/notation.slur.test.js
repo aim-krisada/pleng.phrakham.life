@@ -81,6 +81,30 @@ describe('slurBeamOnly — arc dropped only for a beam of different digits (#48)
     expect(slurBeamOnly(slurTokens('(6__ 5__ 4__)')[0])).toBe(true)
   })
 
+  // v3/pleng#53: the guard is the UNDERLINE, not the note count — a เอื้อน carried by ONE
+  // connected underline needs no curve, but the moment the underline breaks (a beat boundary,
+  // a new word) nothing is left saying "one syllable", so the curve comes back. What that
+  // rests on — which part the songbook page shows and which part is a ruling — is spelled
+  // out at slurBeamOnly in notation.js.
+  it('a group whose notes fall in TWO beam runs keeps its arc (#53)', () => {
+    // 4 eighths = 2 beats → beams [[0,1],[2,3]]: two underlines, so the beam alone can't
+    // say "one syllable"
+    expect(slurBeamOnly(slurTokens('(6_ 5_ 4_ 3_)')[0])).toBe(false)
+    expect(slurBeamOnly(slurTokens('(6_ 5_ 4_ 3_ 2_ 1_ 7_ 6_)')[0])).toBe(false)
+  })
+
+  it('four SIXTEENTHS are one beat = one beam run → still beam only (#53)', () => {
+    // the guard is the underline, not the digit count: these four fit in one beat
+    expect(slurBeamOnly(slurTokens('(6__ 5__ 4__ 3__)')[0])).toBe(true)
+  })
+
+  it('a new word inside the group breaks the underline → arc stays (#53)', () => {
+    // issue8 cuts the beam before a note that starts a new syllable, so these two eighths
+    // sit in one beat but in two runs of one → not beamed at all → arc
+    expect(slurBeamOnly(slurTokens('(6_ 5_)', ['ดี', 'ใจ'])[0])).toBe(false)
+    expect(slurBeamOnly(slurTokens('(6_ 5_)', ['ดี', ''])[0])).toBe(true)
+  })
+
   it('same digit but a different OCTAVE is not a repeat — still beam only', () => {
     expect(slurBeamOnly(slurTokens("(6_ 6'_)")[0])).toBe(true)
   })
