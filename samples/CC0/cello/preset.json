@@ -1,0 +1,151 @@
+{
+ "name": "cello",
+ "samples": {
+  "baseUrl": "",
+  "formats": [
+   "ogg"
+  ]
+ },
+ "groups": [
+  {
+   "regions": [
+    {
+     "sample": "24",
+     "keyRange": [
+      17,
+      25
+     ],
+     "pitch": 24
+    },
+    {
+     "sample": "27",
+     "keyRange": [
+      26,
+      28
+     ],
+     "pitch": 27
+    },
+    {
+     "sample": "30",
+     "keyRange": [
+      29,
+      31
+     ],
+     "pitch": 30
+    },
+    {
+     "sample": "33",
+     "keyRange": [
+      32,
+      34
+     ],
+     "pitch": 33
+    },
+    {
+     "sample": "36",
+     "keyRange": [
+      35,
+      37
+     ],
+     "pitch": 36
+    },
+    {
+     "sample": "39",
+     "keyRange": [
+      38,
+      40
+     ],
+     "pitch": 39
+    },
+    {
+     "sample": "42",
+     "keyRange": [
+      41,
+      43
+     ],
+     "pitch": 42
+    },
+    {
+     "sample": "45",
+     "keyRange": [
+      44,
+      46
+     ],
+     "pitch": 45
+    },
+    {
+     "sample": "48",
+     "keyRange": [
+      47,
+      49
+     ],
+     "pitch": 48
+    },
+    {
+     "sample": "51",
+     "keyRange": [
+      50,
+      52
+     ],
+     "pitch": 51
+    },
+    {
+     "sample": "54",
+     "keyRange": [
+      53,
+      55
+     ],
+     "pitch": 54
+    },
+    {
+     "sample": "57",
+     "keyRange": [
+      56,
+      58
+     ],
+     "pitch": 57
+    },
+    {
+     "sample": "60",
+     "keyRange": [
+      59,
+      61
+     ],
+     "pitch": 60
+    },
+    {
+     "sample": "63",
+     "keyRange": [
+      62,
+      64
+     ],
+     "pitch": 63
+    },
+    {
+     "sample": "66",
+     "keyRange": [
+      65,
+      67
+     ],
+     "pitch": 66
+    },
+    {
+     "sample": "69",
+     "keyRange": [
+      68,
+      70
+     ],
+     "pitch": 69
+    },
+    {
+     "sample": "72",
+     "keyRange": [
+      71,
+      79
+     ],
+     "pitch": 72
+    }
+   ]
+  }
+ ]
+}
