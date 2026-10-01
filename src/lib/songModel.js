@@ -237,6 +237,10 @@ export function resolveContent(content) {
       outLine._stanza = entry.stanza
       outLine._melodyFirst = melodyFirst
       outLine._entryIndex = ei // B102 — which arrangement entry this display line belongs to
+      // ใบ v3/pleng#95 — a ท่อน may set its own key (arrangement[].key, e.g. รับ 2 = A in a C
+      // song). Tagged per ENTRY, not per stanza: two ท่อน sharing one melody can sit in different
+      // keys. songToNotes roots this line's digits at it; unset = the song key (no tag at all).
+      if (entry.key) outLine._key = entry.key
       out.push(outLine)
     })
   })

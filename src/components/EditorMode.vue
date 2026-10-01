@@ -2424,21 +2424,25 @@ async function runPlay(content, liOffset, follow = true) {
   }
 }
 
+// ใบ v3/pleng#95 — ฟังท่อน / ฟังบรรทัด / ฟังห้อง play a MELODY, which several ท่อน may share in
+// different keys (รับ 1 in C · รับ 2 in A on one melody). So the key comes from the ท่อน the header
+// has selected (lensRow), not from the melody; no ท่อน selected / คีย์เดิม → the song key as before.
+const playKey = computed(() => (lensActive.value && lensRow.value?.key) || opts.key)
 function playStanza() {
   const s = stanzas.value[activeStanza.value]
-  return runPlay({ key: opts.key, timeSignature: opts.timeSignature, lines: s.lines.map(serializeLine) }, 0, true)
+  return runPlay({ key: playKey.value, timeSignature: opts.timeSignature, lines: s.lines.map(serializeLine) }, 0, true)
 }
 function playFull() {
   return runPlay(resolvedPreview.value, 0, false)
 }
 function playLine(li) {
-  return runPlay({ key: opts.key, lines: [serializeLine(lines.value[li])] }, li, true)
+  return runPlay({ key: playKey.value, lines: [serializeLine(lines.value[li])] }, li, true)
 }
 function playBar(li, bi) {
   const line = lines.value[li]
   if (!line || !line.bars[bi]) return
   const one = { ...line, bars: [line.bars[bi]], cont: false }
-  return runPlay({ key: opts.key, timeSignature: opts.timeSignature, lines: [serializeLine(one)] }, li, false)
+  return runPlay({ key: playKey.value, timeSignature: opts.timeSignature, lines: [serializeLine(one)] }, li, false)
 }
 
 // ---------- undo / redo ----------
