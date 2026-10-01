@@ -1582,6 +1582,7 @@ function copySectionToClip(kind, i) {
     kind,
     from: `ท่อน ${i + 1} · ${rowLabel(row, i)}`,
     srcRow: row, // identity — hides วาง on the source row itself
+    srcSig: rowSig(row), // …and its content, which survives undo/redo (they rebuild every row)
     data: {
       stanzaId: st.id,
       stanza: clone(st),
@@ -1593,7 +1594,24 @@ function copySectionToClip(kind, i) {
     },
   }
 }
-const canPasteSection = (kind, row) => clip.value?.kind === kind && !!row && clip.value.srcRow !== row
+// ใบ#94 รอบตรวจ: undo/redo rebuild every row from JSON, so after an undo the source row is a NEW
+// object and identity alone no longer finds it (วาง came back on the source row; pasting there
+// unlinked minted a duplicate melody). Also match it by content — name · melody · words · set. A
+// different row that is identical in all four is hidden too; a paste there would change nothing.
+function rowSig(row) {
+  return JSON.stringify([row.label || '', row.stanza, row.syllables || [], row.set ?? 0])
+}
+const canPasteSection = (kind, row) =>
+  clip.value?.kind === kind && !!row && clip.value.srcRow !== row && rowSig(row) !== clip.value.srcSig
+// ใบ#94 รอบตรวจ: a ท่อน clip names a melody/ท่อน of THIS song (`stanzaId`, "ท่อน 1 · …"). Opening
+// another song kept it, so ผูก pasted the other song's melody of the same letter under these words
+// (and the confirm still said "จาก ท่อน 1"). Copying across songs is out of scope (ใบ#94 ไม่อยู่ใน
+// งานนี้ 1), so every document swap drops a ท่อน clip. B101's บรรทัด/ห้อง clip is melody-only data
+// with no reference into the song, so it keeps working across songs exactly as before.
+function dropSectionClip() {
+  if (['words', 'melody', 'section'].includes(clip.value?.kind)) clip.value = null
+  pasteAsk.value = null
+}
 // the confirm: { kind, ri, link } — link = ผูก. Default ไม่ผูก (พี่เอม 1 ต.ค. 2569): the real
 // job is "วางแล้วแก้นิดหน่อย", and a linked copy would silently change the source ท่อน too.
 const pasteAsk = ref(null)
@@ -1806,6 +1824,7 @@ async function loadSong(id) {
 // to v2 on the way in (Claude seeds the syllable split, the author fixes) — any
 // segment whose words don't line up with its notes is flagged for manual review.
 function applyRow(data) {
+  dropSectionClip() // a ท่อน clip points into the song being replaced (ใบ#94 รอบตรวจ)
   meta.number = data.number
   meta.title_th = data.title_th
   meta.title_en = data.title_en
@@ -1869,6 +1888,7 @@ function applyRow(data) {
 }
 
 function resetForm() {
+  dropSectionClip() // ใบ#94 รอบตรวจ — same reason as applyRow
   editingId.value = null
   currentDraftId.value = null
   reviewingDraft.value = null

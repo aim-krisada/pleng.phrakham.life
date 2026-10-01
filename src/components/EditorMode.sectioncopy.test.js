@@ -333,3 +333,118 @@ describe('ใบ#94 ข้อ 7 — every paste and แยก undoes like any ed
     expect(w.vm.stanzas.length).toBe(3)
   })
 })
+
+// ใบ#94 รอบตรวจ (เธรด 1): a ท่อน clip points INTO its song (melody letter · "ท่อน 1"), so opening
+// another song must drop it — otherwise ผูก pasted the other song's melody A under these words.
+// B101's บรรทัด/ห้อง clip carries no reference into the song and keeps working across songs.
+const OTHER = {
+  id: 's-94-other',
+  number: 95,
+  title_th: 'อีกเพลง',
+  title_en: '',
+  content: {
+    version: 2,
+    key: 'G',
+    timeSignature: '4/4',
+    stanzas: [{ id: 'A', lines: [[{ type: 'segment', chord: 'G', note: '7 7 7' }]] }, { id: 'B', lines: [[{ type: 'segment', chord: 'D', note: '6 6 6' }]] }],
+    arrangement: [
+      { stanza: 'A', label: 'ร้องอีกเพลง', syllables: ['ซ', 'ฌ', 'ญ'] },
+      { stanza: 'B', label: 'รับอีกเพลง', syllables: [] },
+    ],
+  },
+}
+
+describe('ใบ#94 รอบตรวจ — opening another song drops a ท่อน clip', () => {
+  for (const kind of ['words', 'melody', 'section']) {
+    it(`${kind}: after opening another song there is nothing to paste, and a stray paste changes nothing`, async () => {
+      const w = await mountEd()
+      w.vm.copySectionToClip(kind, 0)
+      await nextTick()
+      expect(w.vm.clip.kind).toBe(kind)
+
+      await w.setProps({ song: OTHER })
+      await nextTick()
+      await nextTick()
+      expect(w.vm.arrangement[0].label).toBe('ร้องอีกเพลง') // the other song is in the editor
+      expect(w.vm.clip).toBe(null)
+      expect(w.find('.ed-clip').exists()).toBe(false)
+      expect(byAria(w, 'วางทั้งท่อนจาก').length).toBe(0)
+
+      w.vm.askPaste(kind, 1)
+      await nextTick()
+      expect(w.vm.pasteAsk).toBe(null) // no confirm opens
+      w.vm.doPaste()
+      await nextTick()
+      expect(rowOut(w, 1)).toMatchObject({ stanza: 'B', syllables: [] })
+      expect(notesOf(stanzaOut(w, 'A'))).toEqual(['7 7 7'])
+    })
+  }
+
+  it('an open paste confirm closes when the song is swapped', async () => {
+    const w = await mountEd()
+    w.vm.copySectionToClip('section', 0)
+    w.vm.askPaste('section', 1)
+    await nextTick()
+    expect(w.find('.paste-box').exists()).toBe(true)
+    await w.setProps({ song: OTHER })
+    await nextTick()
+    expect(w.find('.paste-box').exists()).toBe(false)
+  })
+
+  it('สร้างเพลงใหม่ drops it too', async () => {
+    const w = await mountEd()
+    w.vm.copySectionToClip('melody', 0)
+    w.vm.fileNew()
+    await nextTick()
+    expect(w.vm.clip).toBe(null)
+  })
+
+  it('B101 บรรทัด clip still crosses songs (unchanged)', async () => {
+    const w = await mountEd()
+    await w.find('button[aria-label="เพิ่มเติม"]').trigger('click') // the line ⋯ menu
+    await nextTick()
+    await byAria(w, 'คัดลอกบรรทัดนี้ไปวางที่ท่อนอื่น')[0].trigger('click')
+    await nextTick()
+    expect(w.vm.clip.kind).toBe('line')
+    await w.setProps({ song: OTHER })
+    await nextTick()
+    expect(w.vm.clip?.kind).toBe('line')
+  })
+})
+
+// ใบ#94 รอบตรวจ (เธรด 2): undo rebuilds every row, so the source row must still be found
+describe('ใบ#94 รอบตรวจ — the source row has no วาง even after undo/redo', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+  async function settle() {
+    vi.advanceTimersByTime(500)
+    await nextTick()
+    await nextTick()
+  }
+  const pasteRows = (w) => w.findAll('.srow').map((r) => r.find('.srow-paste').exists())
+
+  it('copy ท่อน 1 → paste into ท่อน 3 → undo → วาง still only on ท่อน 2–4', async () => {
+    const w = await mountEd()
+    await settle()
+    w.vm.copySectionToClip('section', 0)
+    await nextTick()
+    expect(pasteRows(w)).toEqual([false, true, true, true])
+
+    await paste(w, 'section', 2)
+    await settle()
+    w.vm.undo()
+    await nextTick()
+    await nextTick()
+    expect(w.vm.arrangement[2].syllables).toEqual([]) // the undo really happened
+    expect(pasteRows(w)).toEqual([false, true, true, true])
+    w.vm.askPaste('section', 0)
+    await nextTick()
+    expect(w.vm.pasteAsk).toBe(null) // nor via the function
+
+    w.vm.redo()
+    await nextTick()
+    await nextTick()
+    // after redo ท่อน 3 holds a copy of ท่อน 1 under its own name → it is NOT the source
+    expect(pasteRows(w)).toEqual([false, true, true, true])
+  })
+})
