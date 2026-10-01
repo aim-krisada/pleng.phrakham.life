@@ -166,6 +166,15 @@ export function songToNotes(content) {
   // 1. group each line's notes into bars, tagging repeat/volta flags per bar
   const bars = []
   ;(content.lines || []).forEach((line, li) => {
+    // ใบ v3/pleng#95 — a ท่อน with its own key (resolveContent tags its lines `_key`) roots its
+    // digits there: "1" of รับ 2 (A) sounds A while the rest of the C song keeps C. Its notes carry
+    // `keyRoot` so the arranger's walking bass steps in THAT key too. Only a key that DIFFERS
+    // from the song key is tagged: song 693 sets its ท่อน to A inside an A song, and tagging it
+    // split (= re-struck) the chord at that ท่อน — an audible change for a key that changes
+    // nothing. Untagged → no field at all → exactly the notes and chords it always produced.
+    const ownRoot = line._key ? KEY_MIDI[line._key] : undefined
+    const lineRoot = ownRoot ?? root
+    const kr = ownRoot != null && ownRoot !== root ? { keyRoot: ownRoot } : null
     let bi = 0
     let si = -1
     let bar = { notes: [], repeatStart: false, repeatEnd: false, volta: 0 }
@@ -195,7 +204,7 @@ export function songToNotes(content) {
         if (words) {
           // pace ≈ syllable count when known (≈1 beat/syllable), else estimate from text length.
           const units = syls.length || Math.round((words.match(/[฀-๿a-zA-Z0-9]/g) || []).length / 3)
-          bar.notes.push({ midi: null, beats: Math.max(2, Math.min(24, units || 2)), li, bi, si, chord: curChord })
+          bar.notes.push({ midi: null, beats: Math.max(2, Math.min(24, units || 2)), li, bi, si, chord: curChord, ...kr })
         }
         continue
       }
@@ -218,10 +227,10 @@ export function songToNotes(content) {
             // fermata hold (absolute beats), added ONCE to this note's duration (not per box)
             const hold = t.fermata ? holdFor(item, boxIdxByNote[noteOrd], holdResolve) : 0
             if (t.pitch === '0') {
-              bn.push({ midi: null, beats: tokenBeats(t, f) + hold, fermata: !!t.fermata, li, bi, si, chord: curChord }) // rest: no syllable, chord rings on
+              bn.push({ midi: null, beats: tokenBeats(t, f) + hold, fermata: !!t.fermata, li, bi, si, chord: curChord, ...kr }) // rest: no syllable, chord rings on
               prevMidi = null
             } else {
-              let midi = root + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
+              let midi = lineRoot + MAJOR_SCALE[Number(t.pitch) - 1] + (t.high - t.low) * 12
               if (t.accidental === '#') midi += 1
               if (t.accidental === 'b') midi -= 1
               // natural (n) = no shift — the digit's diatonic pitch
@@ -236,7 +245,7 @@ export function songToNotes(content) {
                 last.beats += tokenBeats(t, f) + hold // melisma: this slot holds no new word
               } else {
                 // an attack: carry its slot so the highlight lands on this syllable
-                bn.push({ midi, beats: tokenBeats(t, f) + hold, fermata: !!t.fermata, tieOpen: !!t.tieStart, tieEnd: !!t.tieEnd, li, bi, si, syk: slot, chord: curChord })
+                bn.push({ midi, beats: tokenBeats(t, f) + hold, fermata: !!t.fermata, tieOpen: !!t.tieStart, tieEnd: !!t.tieEnd, li, bi, si, syk: slot, chord: curChord, ...kr })
               }
               prevMidi = midi
             }
@@ -389,9 +398,13 @@ export function buildChordVoice(notes) {
   let cur = null // { chord, startBeat, beats } — the chord currently sounding
   for (const n of notes || []) {
     const c = n.chord || ''
-    if (c && (!cur || cur.chord !== c)) {
+    // ใบ v3/pleng#95 — a ท่อน in its own key starts a fresh chord event even when the symbol
+    // carries over, so the walking bass switches key exactly at the ท่อน. Songs with no ท่อน key
+    // have no `keyRoot` anywhere (undefined === undefined) → events split exactly as before.
+    if (c && (!cur || cur.chord !== c || cur.keyRoot !== n.keyRoot)) {
       if (cur) events.push(cur)
       cur = { chord: c, startBeat: beat, beats: 0 } // a new chord starts here
+      if (n.keyRoot != null) cur.keyRoot = n.keyRoot
     }
     if (cur) cur.beats += n.beats // extend the held chord across this note (incl. blank-chord notes)
     beat += n.beats
@@ -408,7 +421,9 @@ export function buildChordVoice(notes) {
     prevUp = v.up
     // carry the chord SYMBOL too (root/quality) so the arranger's harmony-aware passes (sus resolve,
     // richer fills) can reason about it — the voiced pitches alone don't say "this is a plain triad".
-    out.push({ chord: e.chord, bass: v.bass, up: v.up, slashBass: v.slashBass, midiSet: [v.bass, ...v.up], startBeat: e.startBeat, beats: e.beats })
+    const ev = { chord: e.chord, bass: v.bass, up: v.up, slashBass: v.slashBass, midiSet: [v.bass, ...v.up], startBeat: e.startBeat, beats: e.beats }
+    if (e.keyRoot != null) ev.keyRoot = e.keyRoot // ใบ#95 — this ท่อน's own key, for the walking bass
+    out.push(ev)
   }
   return out
 }

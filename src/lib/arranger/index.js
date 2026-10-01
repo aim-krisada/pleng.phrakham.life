@@ -141,7 +141,8 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
       events.push(...bassMode(evc, voiced.bass, {
         nextBass: list[i + 1] ? list[i + 1].bass : null,
         slashBass: evc.slashBass, // slash chord: root first, then move to this (P'Aim)
-        keyRoot: meta.keyRoot ?? 40, beatsPerBar: bpb, rng, cfg,
+        // ใบ v3/pleng#95 — a chord inside a ท่อน that sets its own key walks in that key
+        keyRoot: evc.keyRoot ?? meta.keyRoot ?? 40, beatsPerBar: bpb, rng, cfg,
       }))
       if (on) events.push(...embellishChord(evc, voiced, bpb, rng, cfg))
     }
