@@ -66,7 +66,7 @@ npm run dev -- --host --port <port> --strictPort   # --host = บังคับ
 กติกาขณะทำ (git best practice ให้ขนานไม่ชน):
 - แก้ **เฉพาะไฟล์ที่ worktree ตัวเองเป็นเจ้าของ** (ดู DS ของงาน) — ห้ามแตะไฟล์ของ worktree อื่น
 - commit ในสาขาตัวเอง · ข้อความคอมมิตอ้างเลขใบ `(ใบ v3/pleng#<n>)` · **ห้าม push/merge เข้า `main` เอง · ห้าม deploy**
-- ถ้า `main` ขยับระหว่างทาง → `git fetch origin && git merge origin/main` ในสาขาตัวเอง (ไฟล์ไม่ทับกัน จึงแทบไม่มี conflict)
+- **ปกติไม่ต้องตาม `main`** — แตกสายจาก `main` ล่าสุดแล้วทำจนเปิด PR ได้เลย · ทำเฉพาะเมื่อ PR ขึ้นว่าชนกับ `main` (conflict) หรือต้องใช้ของที่เพิ่งรวมเข้า `main` → `git fetch origin && git merge origin/main` · **ห้าม rebase / force-push**
 - เสร็จแล้ว: commit + push + **เปิด GitHub PR เข้า `main`** + รายงานว่าแก้ไฟล์ไหนบ้าง → **พี่เอมตรวจและรวมเอง** (อย่า merge เอง)
 - ก่อน commit เช็ก `git branch --show-current` เสมอ (dir หลักใช้ร่วมหลาย session)
 - **อย่าปิด dev server ตอนจบงาน** — ค้างรันที่พอร์ตประจำงาน (ตามตาราง) ให้พี่เอม/tester เปิดตรวจได้ทันที · ปิดเฉพาะตอน merge เสร็จ/เปลี่ยนงาน
