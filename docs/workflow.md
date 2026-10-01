@@ -3,8 +3,8 @@
 เอกสาร "วิธีทำงานรวม" — ใช้กับทุกงาน ทุก worktree ในอนาคต (เขียนครั้งเดียว งานใหม่แค่อ้างอิงที่นี่)
 
 ## ใครทำอะไร (บทบาท)
-- **พี่เอม (เจ้าของ/ลูกค้า)** — ส่ง **user story ภาษาคน** เข้ามา · กลับมาอีกทีตอน **ทดสอบ** · เป็นคนสั่งว่าจะขึ้น `main`/deploy เมื่อไหร่
-- **SA (Claude ใน session ที่คุยกับพี่เอม)** — รับ user story → **แปลงเป็น DS + prompt สั่ง dev** · ประสาน dev sessions เอง · เป็นคนตัดสิน **merge กลับฐาน** · คุยกับพี่เอมภาษาคนล้วน · **ไม่เขียนโค้ดเอง**
+- **พี่เอม (เจ้าของ/ลูกค้า)** — ส่ง **user story ภาษาคน** เข้ามา · กลับมาอีกทีตอน **ทดสอบ** · เป็นคน**ตรวจและรวม PR เข้า `main` เอง** (รวม = deploy อัตโนมัติ)
+- **SA (Claude ใน session ที่คุยกับพี่เอม)** — รับ user story → **แปลงเป็น DS + prompt สั่ง dev** · ประสาน dev sessions เอง · ตรวจ PR ก่อนส่งพี่เอม (**ไม่ merge เอง**) · คุยกับพี่เอมภาษาคนล้วน · **ไม่เขียนโค้ดเอง**
 - **Dev (Claude Code session อื่น)** — อ่าน US/DS/prompt → เขียนโค้ด **+ unit test** ใน 1 worktree → รายงานกลับ SA
 - **Testers (พี่เปา และคนอื่น)** — ลองใช้จริงผ่านเว็บพรีวิว (port ของงานนั้น) → บอกว่าตรงตาม story ไหม
 
@@ -37,9 +37,9 @@
 ## วงจรงาน (lifecycle)
 ```
 idea (backlog) → user story ภาษาคน (พี่เอม) → DS ออกแบบ (SA) → prompt สั่งงาน (SA)
-   → dev สร้าง + unit test ใน worktree → SA review + merge กลับฐาน studio-shell-redesign
-   → testers (พี่เปา ฯลฯ) ลองใช้ผ่าน port → ผ่าน
-   → (พี่เอมสั่งค่อยขึ้น main = เว็บจริง)
+   → dev สร้าง + unit test ใน worktree (สาย v1-<เลขใบ>-<ชื่อสั้น> จาก main) → เปิด GitHub PR เข้า main
+   → SA review PR · testers (พี่เปา ฯลฯ) ลองใช้ผ่าน port → ผ่าน
+   → พี่เอมรวม PR เข้า main เอง (= ขึ้นเว็บจริงอัตโนมัติ)
 ```
 พี่เอมแตะแค่ 2 จุด: **ต้นทาง** (ส่ง user story) กับ **ปลายทาง** (ทดสอบ) — ระหว่างกลาง SA + dev จัดการเอง
 
@@ -54,9 +54,10 @@ idea (backlog) → user story ภาษาคน (พี่เอม) → DS อ
 
 ## สำหรับ dev session (พี่เอมข้ามส่วนนี้ได้)
 
-เริ่มงาน 1 worktree (แทน `<ชื่อ>` `<branch>` `<port>` ตามตารางด้านบน):
+เริ่มงาน 1 worktree (แทน `<ชื่อ>` `<port>` ตามตารางด้านบน · ชื่อสายตามใบงานบนอัมกิต):
 ```sh
-git worktree add ../pleng-<ชื่อ> -b <branch> studio-shell-redesign
+git fetch origin
+git worktree add ../pleng-<ชื่อ> -b v1-<เลขใบ>-<ชื่อสั้น> origin/main
 cd ../pleng-<ชื่อ>
 npm install
 npm run dev -- --host --port <port> --strictPort   # --host = บังคับ (เปิดให้มือถือ/พี่เปา ต่อผ่าน WiFi)
@@ -64,9 +65,9 @@ npm run dev -- --host --port <port> --strictPort   # --host = บังคับ
 
 กติกาขณะทำ (git best practice ให้ขนานไม่ชน):
 - แก้ **เฉพาะไฟล์ที่ worktree ตัวเองเป็นเจ้าของ** (ดู DS ของงาน) — ห้ามแตะไฟล์ของ worktree อื่น
-- commit ในสาขาตัวเอง · **ห้าม merge `main` · ห้าม deploy**
-- ถ้าฐาน (`studio-shell-redesign`) ขยับระหว่างทาง → `git rebase studio-shell-redesign` ในสาขาตัวเอง (ไฟล์ไม่ทับกัน จึงแทบไม่มี conflict)
-- เสร็จแล้ว: commit + รายงานว่าแก้ไฟล์ไหนบ้าง → **รอพี่เอมสั่ง merge กลับฐาน** (SA เป็นคนรวม)
+- commit ในสาขาตัวเอง · ข้อความคอมมิตอ้างเลขใบ `(ใบ v3/pleng#<n>)` · **ห้าม push/merge เข้า `main` เอง · ห้าม deploy**
+- ถ้า `main` ขยับระหว่างทาง → `git fetch origin && git merge origin/main` ในสาขาตัวเอง (ไฟล์ไม่ทับกัน จึงแทบไม่มี conflict)
+- เสร็จแล้ว: commit + push + **เปิด GitHub PR เข้า `main`** + รายงานว่าแก้ไฟล์ไหนบ้าง → **พี่เอมตรวจและรวมเอง** (อย่า merge เอง)
 - ก่อน commit เช็ก `git branch --show-current` เสมอ (dir หลักใช้ร่วมหลาย session)
 - **อย่าปิด dev server ตอนจบงาน** — ค้างรันที่พอร์ตประจำงาน (ตามตาราง) ให้พี่เอม/tester เปิดตรวจได้ทันที · ปิดเฉพาะตอน merge เสร็จ/เปลี่ยนงาน
 - **ท้ายรายงาน (`docs/reports/<branch>.md`) ใส่ URL ตรวจงานเสมอ ทั้ง `localhost` และ Network** — ก๊อป URL แบบ `http://<IP-เครื่อง>:<port>` ที่ vite พิมพ์ตอน `--host` มาด้วย ให้พี่เอม/พี่เปาเปิดบนมือถือได้ทันที

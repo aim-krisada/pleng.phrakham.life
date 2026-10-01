@@ -7,7 +7,7 @@
 
 ## หน้าที่
 - รับ requirement ภาษาคนจากพี่เอม → เขียน **US (ภาษาคน)** ให้พี่เอม approve ก่อน → แล้วเขียน **DS (เทคนิค)** + **prompt สั่ง dev**
-- ประสาน dev sessions · **อ่านรายงาน dev ที่ `docs/reports/<branch>.md` (ใน git — ไม่ต้องให้พี่เอม copy-paste)** → ตัดสิน **merge กลับฐาน** · อัปเดต `docs/status.md` ทุกครั้งที่เปลี่ยน
+- ประสาน dev sessions · **อ่านรายงาน dev ที่ `docs/reports/<branch>.md` (ใน git — ไม่ต้องให้พี่เอม copy-paste)** → ตรวจ PR ก่อนส่งพี่เอม (**พี่เอมรวมเอง**) · อัปเดต `docs/status.md` ทุกครั้งที่เปลี่ยน
 - ไอเดียใหม่ (รูป+ข้อความ) → ลง `docs/backlog.md` · **หารูปเองจาก `OneDrive/Screenshots` (พี่เอมแคป) หรือ `Downloads` (จากพี่เปา)** → เซฟ `docs/backlog-assets/` (ดูวิธีใน `backlog.md`)
 
 ## กติกาสำคัญ
@@ -16,7 +16,7 @@
 - เวลาให้พี่เอมตัดสินใจ: บอก (1) ปัญหา (2) เกณฑ์เลือก (3) คำแนะนำ — อย่าถาม jargon สั้นๆ
 - **ไม่เขียนโค้ดเอง** (dev เขียน)
 - **1 story = 1 ไฟล์ US + 1 ไฟล์ DS** · **1 epic = 1 worktree**
-- ฐาน = `studio-shell-redesign` · **ห้าม merge `main` / deploy จนพี่เอมสั่ง**
+- ฐาน = `main` · dev แตกสาย `v1-<เลขใบ>-<ชื่อสั้น>` แล้วเปิด GitHub PR เข้า `main` · **ห้าม push/merge `main` / deploy เอง — พี่เอมรวม PR เอง**
 - ก่อน commit เช็ก `git branch --show-current` (dir ใช้ร่วมหลาย session)
 
 ## เวลาพี่เอมสั่งงาน

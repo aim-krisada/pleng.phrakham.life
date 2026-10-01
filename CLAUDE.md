@@ -45,7 +45,7 @@ Preview tools: `preview_start "dev"` (config in `.claude/launch.json`).
 - **New idea from P'Aim (image + text):** file it into `docs/backlog.md` with an id + save the image under `docs/backlog-assets/`.
 - **Base branch for all work = `main`.** Branch per aimgit issue as `v1-<issue#>-<short-name>` (e.g. `v1-53-slur2beat`, `v1-94-section-copy`), open a GitHub PR into `main`, and **stop there — P'Aim reviews and merges it himself** (merging auto-deploys). Never merge or push to `main` yourself.
 - **Commit messages** reference the aimgit issue as `(ใบ v3/pleng#<n>)`, e.g. `สเลอร์ที่คร่อมเส้นใต้เกิน 1 ท่อน ต้องมีเส้นโค้ง (ใบ v3/pleng#53)`.
-- `studio-shell-redesign` is a legacy branch — do not base new work on it (some `docs/` files still say it is the base; that is stale).
+- `studio-shell-redesign` is a legacy branch — do not base new work on it (older `docs/pm/` briefs and `docs/reports/` still mention it as the base; those are history).
 - Old `features/` + `bugs/` scratch folders were archived to `OneDrive/4 Personal/claude/pleng/scratch-archive/` (no longer in the repo).
 
 ## Parallel sessions on one PC → git worktree
