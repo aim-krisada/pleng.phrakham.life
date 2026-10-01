@@ -94,10 +94,14 @@ const isOffBeat = (b) => Math.abs(b - Math.round(b)) > 0.05
 // is a gentle HALF-NOTE PULSE: keep the bar downbeat AND the mid-bar beat, so a long held note still
 // has a soft pulse under it (fills the hole) while staying far calmer than full per-beat comp. `pulse`
 // (default on) is round 2's knob — set false to fall back to the old downbeat-only "ผ่อนสุด" feel.
-export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = true) {
+// `medium` (ใบ v3/pleng#98): the secondary-stress position; undefined = the old floor(bar/2) rule (x/4
+// meters), null = the meter has none (6/8, 2/2). A bar that is not a whole number of beats (9/8 = 4.5) is
+// measured unrounded, else its downbeats at x.5 would never read as 0.
+export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = true, medium) {
   const onsets = events.filter((e) => e.role === 'melody').map((e) => e.startBeat).sort((a, b) => a - b)
   if (!onsets.length) return events
-  const mid = Math.floor(beatsPerBar / 2) // mid-bar pulse point (beat 3 in 4/4, beat 2 in 3/4)
+  const mid = medium === undefined ? Math.floor(beatsPerBar / 2) : medium // mid-bar pulse point (beat 3 in 4/4, beat 2 in 3/4)
+  const whole = Number.isInteger(beatsPerBar)
   const beatsHeld = (b) => {
     let last = -Infinity
     for (const o of onsets) { if (o <= b + 1e-6) last = o; else break }
@@ -106,25 +110,31 @@ export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = tr
   return events.filter((e) => {
     if (e.role !== 'inner') return true // bass / melody / embellishment untouched
     if (beatsHeld(e.startBeat) < holdBeats) return true // melody moving / just moved → full comp
-    const inBar = ((Math.round(e.startBeat) % beatsPerBar) + beatsPerBar) % beatsPerBar
+    const pos = whole ? Math.round(e.startBeat) : Math.round(e.startBeat * 2) / 2
+    const inBar = ((pos % beatsPerBar) + beatsPerBar) % beatsPerBar
     // deep in a held note → keep the bar downbeat, plus (pulse on) the mid-bar beat so it doesn't
     // go hollow. mid>0 guards 1- and 2-beat bars where mid would collide with / precede the downbeat.
-    return inBar === 0 || (pulse && mid > 0 && inBar === mid)
+    return inBar === 0 || (pulse && mid != null && mid > 0 && inBar === mid)
   })
 }
 
 // R2.2 — Metric accent: emphasise the downbeat of each bar, ease off the weak beats and the
 // off-beats, so the pulse breathes instead of every note hitting equally hard. Multiplies gain by
 // a position factor in [0.72, 1.0]. Reads beats-per-bar from the caller (time signature).
-export function metricAccent(events, beatsPerBar = 4) {
-  const mid = Math.floor(beatsPerBar / 2)
+export function metricAccent(events, beatsPerBar = 4, medium) {
+  const mid = medium === undefined ? Math.floor(beatsPerBar / 2) : medium // see easeUnderHold (ใบ#98)
+  const whole = Number.isInteger(beatsPerBar)
   for (const e of events) {
     let f
     // Gentler spread than before (P'Aim 14 ก.ค. "กระแทกหนักไป"): the downbeat still leads the pulse
     // but no longer THUMPS — range narrowed to [0.8, 0.92] so beat 1 isn't a hard stab.
-    if (isOffBeat(e.startBeat)) f = 0.8
+    // a bar of x.5 beats (9/8) puts every other downbeat on a half beat: test that first (whole bars keep
+    // the original order exactly)
+    if (!whole && Math.abs(((e.startBeat % beatsPerBar) + beatsPerBar) % beatsPerBar) < 1e-6) f = 0.92
+    else if (isOffBeat(e.startBeat)) f = 0.8
     else {
-      const p = ((Math.round(e.startBeat) % beatsPerBar) + beatsPerBar) % beatsPerBar
+      const pos = whole ? Math.round(e.startBeat) : Math.round(e.startBeat * 2) / 2
+      const p = ((pos % beatsPerBar) + beatsPerBar) % beatsPerBar
       f = p === 0 ? 0.92 : p === mid ? 0.86 : 0.82
     }
     e.gain *= f

@@ -30,7 +30,8 @@ import { embellishChord } from './embellish.js'
 import { answerFills, applySusCadence } from './fills.js'
 import { refereeNoClash, balanceFloor, legatoBass, leftHandCeiling, leftHandNoUnison } from './referee.js'
 import { keyboard } from './instruments/keyboard.js'
-import { meterRegions, regionAt, origin } from '../meterRegions.js'
+import { meterRuns, runAt, shiftOf, mediumOf } from '../meterRegions.js'
+import { expectedBeats } from '../notation.js'
 
 /** @typedef {Object} PerfEvent
  *  role     : 'melody' | 'bass' | 'inner' | 'emb'
@@ -51,12 +52,14 @@ function inRefrain(beat, sections) {
   return sections.some((s) => s.isRefrain && beat >= s.fromBeat && beat < s.toBeat)
 }
 
-// Parse "4/4" → beats-per-bar 4 (default 4). Only patterns that lock to the bar need it.
+// One bar in QUARTER-NOTE beats — the unit every startBeat is counted in (ใบ v3/pleng#98). It used to be
+// the time signature's NUMERATOR, which is the same number only for x/4: a 6/8 bar is 3 quarter beats,
+// not 6, so every bar-locked layer treated two bars as one (v3 found and fixed the same thing in its
+// arranger/meter.js). x/4 meters get exactly the number they always did. A bare number = quarter beats.
 function beatsPerBar(meta) {
   const ts = meta && meta.timeSignature
-  if (typeof ts === 'string') { const n = parseInt(ts.split('/')[0], 10); if (n > 0) return n }
   if (typeof ts === 'number' && ts > 0) return ts
-  return 4
+  return expectedBeats(ts) || 4
 }
 
 // Melody = the printed notes, one PerfEvent per sounding note (rests advance the beat clock but
@@ -101,36 +104,32 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   const wantMelody = voices !== 'chords'
   const wantChords = voices === 'chords' || voices === 'both'
   const bpb = beatsPerBar(meta)
-  // ใบ v3/pleng#96 — melodies with their own meter (notes stamped `ts`). [] for a song with none → every
-  // bar-locked step below runs exactly as before. Inside a region the bars are that meter's, counted
-  // from its first full bar: the step sees beats shifted to that origin, and its output is shifted back.
-  const regions = meterRegions(notes)
-  const barAt = (beat) => {
-    const r = regions.length ? regionAt(regions, beat) : null
-    if (!r) return { bpb, off: 0 }
-    const b = beatsPerBar({ timeSignature: r.ts })
-    return { bpb: b, off: origin(r, b) }
-  }
+  // ใบ v3/pleng#98 (+#96) — the song's OWN bar grid, read off its bar lines (meterRuns): a pickup, a bar
+  // stretched by a hold, a melody in its own meter each start a new run. Every bar-locked step sees beats
+  // shifted onto its run's grid, and its output is shifted back. A song whose bars all sit on the beat-0
+  // grid is ONE run with shift 0 and its own bar length → every step runs exactly as before.
+  const songMid = mediumOf(meta.timeSignature, bpb)
+  const runs = meterRuns(notes, meta.timeSignature)
+  const plain = runs.length <= 1 && !shiftOf(runs[0]) && (!runs[0] || runs[0].barBeats === bpb) && !(runs[0] && runs[0].ts)
+  const barOf = (r) => (r ? { bpb: r.barBeats, off: shiftOf(r), mid: mediumOf(r.ts || meta.timeSignature, r.barBeats) } : { bpb, off: 0, mid: songMid })
+  const barAt = (beat) => (plain ? { bpb, off: 0, mid: songMid } : barOf(runAt(runs, beat)))
   const back = (off, evts) => { if (off) for (const e of evts) e.startBeat += off; return evts }
-  // a whole-list pass (accent / ease / downbeat lock) run per meter region; song-meter beats stay one group
+  // a whole-list pass (accent / ease / downbeat lock) run per bar-grid run
   const perBar = (evts, fn) => {
-    if (!regions.length) return fn(evts, bpb)
+    if (plain) return fn(evts, bpb, songMid)
     const order = new Map(evts.map((e, i) => [e, i]))
     const groups = new Map()
     for (const e of evts) {
-      const r = regionAt(regions, e.startBeat)
-      const k = r ? regions.indexOf(r) : -1
-      if (!groups.has(k)) groups.set(k, [])
-      groups.get(k).push(e)
+      const r = runAt(runs, e.startBeat)
+      if (!groups.has(r)) groups.set(r, [])
+      groups.get(r).push(e)
     }
     const out = []
-    for (const [k, list] of groups) {
-      if (k < 0) { out.push(...fn(list, bpb)); continue }
-      const b = beatsPerBar({ timeSignature: regions[k].ts })
-      const off = origin(regions[k], b)
-      for (const e of list) e.startBeat -= off
-      const res = fn(list, b)
-      for (const e of list) e.startBeat += off
+    for (const [r, list] of groups) {
+      const b = barOf(r)
+      for (const e of list) e.startBeat -= b.off
+      const res = fn(list, b.bpb, b.mid)
+      for (const e of list) e.startBeat += b.off
       out.push(...res)
     }
     return out.sort((a, c) => order.get(a) - order.get(c))
@@ -206,9 +205,9 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   if (on) {
     // thin the comp under a held melody note first (fewer notes = real space), then shape gains.
     // cfg.holdPulse (default on) = the mid-bar pulse that keeps a long hold from going hollow.
-    if (cfg.easeUnderHold !== false) events = perBar(events, (l, b) => easeUnderHold(l, b, 2, cfg.holdPulse !== false))
+    if (cfg.easeUnderHold !== false) events = perBar(events, (l, b, mid) => easeUnderHold(l, b, 2, cfg.holdPulse !== false, mid))
     if (dyn.section !== false) sectionDynamics(events, meta.sections, dyn.sectionMap)
-    if (dyn.accent !== false) perBar(events, (l, b) => metricAccent(l, b) || l)
+    if (dyn.accent !== false) perBar(events, (l, b, mid) => metricAccent(l, b, mid) || l)
     if (dyn.contour !== false) melodicContour(events)
     if (dyn.cresc) crescendo(events, dyn.cresc)
     if (dyn.rubato !== false) rubato(events, meta.sections) // ท่อน-end breathe (§R2.8)
