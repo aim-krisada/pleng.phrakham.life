@@ -1530,18 +1530,16 @@ function pasteLineAsStanza() {
   activeLine.value = 0
 }
 
-// ---------- ใบ v3/pleng#94: คัดลอก→วาง ระดับท่อน (เนื้อ · ทำนอง · ทั้งท่อน) ----------
-// พี่เปา types every repeated ท่อน out in full (the repeat sign doesn't work yet), so a ท่อน sung
-// twice used to be typed twice. Each copy button sits in the area it copies — the ท่อน row in
-// โครงเพลง = ทั้งท่อน · the เนื้อ card = words · the ท่อน header beside the melody picker = melody —
-// so the button itself says what it takes. Same `clip` slot as B101 (view state, not undoable).
-// Every paste goes through ONE confirm (what · from which ท่อน · into which) and is a plain doc
-// edit, so undo/redo and save capture it. No new song field: a paste only rewrites a row's
-// `stanza` / `syllables` / `key` or adds a stanza — data v3 already reads (ใบ#94 Suggestion 6.1).
-const CLIP_WHAT = { line: 'บรรทัด', bar: 'ห้อง', words: 'เนื้อ', melody: 'ทำนอง', section: 'ทั้งท่อน' }
+// ---------- ใบ v3/pleng#94: ทำซ้ำ ระดับท่อน (ทำซ้ำเนื้อ · ทำซ้ำท่อน) ----------
+// พี่เปา types every repeated ท่อน out in full (the repeat sign doesn't work yet). The first cut was
+// คัดลอก→วาง (#16/#18); พี่เปา tried it and could not find where to paste (พี่เอม 1 ต.ค. 2569: "ไม่รู้จะ
+// วางยังไง … เอา duplicate แล้ว insert ต่อท้าย และเลื่อนได้"). So it is ONE tap now, like B098's ทำซ้ำ for
+// a บรรทัด/ห้อง: the new ท่อน lands right after its source (พี่เอม's pick — a ท่อน sung again usually
+// sits next to it) and ▲▼/drag move it from there.
+//   ทำซ้ำเนื้อ (เนื้อ card)  → same words on the SAME melody (ผูก — edit a note, both change)
+//   ทำซ้ำท่อน (ท่อน row)     → words + key + its OWN copy of the melody (แก้แยกกันได้)
+// Plain doc edits → undo/redo and save capture them. No new song field (ใบ#94 Suggestion 6.1).
 const sameSet = (a, b) => !lyricSets.value.length || (a.set ?? 0) === (b.set ?? 0)
-const kindsKey = (stanzaId) => stanzaKindList(stanzaId).join(',')
-const attackCount = (stanzaId) => stanzaKindList(stanzaId).filter((k) => k === 'attack').length
 // other ท่อน (same lyric set) that use row i's melody — a lyric set shares its melody with the
 // other sets BY DESIGN, so only same-set rows count as "ผูก" (that is what แยกทำนอง undoes)
 function linkedRows(i) {
@@ -1562,113 +1560,24 @@ function pushStanzaCopy(src) {
   stanzas.value.push(s)
   return s.id
 }
-// point a row at another melody. Identical note-box layout → words stay slot-for-slot; a
-// different layout → the SUNG words (attack slots) re-land on the new melody's attack notes,
-// so a word never sits on a held box just because the boxes moved.
-function moveRowToStanza(row, id) {
-  if (kindsKey(row.stanza) === kindsKey(id)) {
-    row.stanza = id
-    return
-  }
-  const words = syllablesToWords(row.syllables, row.stanza)
-  row.stanza = id
-  row.syllables = wordsToSyllables(words, id)
-}
-function copySectionToClip(kind, i) {
+const sectionMsg = ref('') // aria-live result of the last ทำซ้ำ / แยกทำนอง
+// the copy of row i, inserted right after it and selected. `ownMelody` = ทำซ้ำท่อน.
+function duplicateRow(i, ownMelody) {
   const row = arrangement.value[i]
   const st = row && stanzas.value.find((s) => s.id === row.stanza)
   if (!st) return
-  clip.value = {
-    kind,
-    from: `ท่อน ${i + 1} · ${rowLabel(row, i)}`,
-    srcRow: row, // identity — hides วาง on the source row itself
-    srcSig: rowSig(row), // …and its content, which survives undo/redo (they rebuild every row)
-    data: {
-      stanzaId: st.id,
-      stanza: clone(st),
-      syllables: clone(row.syllables || []),
-      words: syllablesToWords(row.syllables || [], row.stanza),
-      kinds: kindsKey(row.stanza),
-      need: attackCount(row.stanza),
-      key: row.key || '',
-    },
-  }
+  const copy = clone(row)
+  // one refrain per song (B102): the "ร้องรับทุกข้อ" directive stays on the original only
+  delete copy.afterEachVerse
+  if (ownMelody) copy.stanza = pushStanzaCopy(st)
+  arrangement.value.splice(i + 1, 0, copy)
+  focusRow(i + 1)
+  sectionMsg.value = ownMelody
+    ? `ทำซ้ำท่อน ${i + 1} แล้ว — ท่อนใหม่คือท่อน ${i + 2} ใช้ทำนอง ${copy.stanza} ของตัวเอง แก้โน้ตแยกกันได้`
+    : `ทำซ้ำเนื้อท่อน ${i + 1} แล้ว — ท่อนใหม่คือท่อน ${i + 2} ใช้ทำนอง ${copy.stanza} ร่วมกัน`
 }
-// ใบ#94 รอบตรวจ: undo/redo rebuild every row from JSON, so after an undo the source row is a NEW
-// object and identity alone no longer finds it (วาง came back on the source row; pasting there
-// unlinked minted a duplicate melody). Also match it by content — name · melody · words · set. A
-// different row that is identical in all four is hidden too; a paste there would change nothing.
-function rowSig(row) {
-  return JSON.stringify([row.label || '', row.stanza, row.syllables || [], row.set ?? 0])
-}
-const canPasteSection = (kind, row) =>
-  clip.value?.kind === kind && !!row && clip.value.srcRow !== row && rowSig(row) !== clip.value.srcSig
-// ใบ#94 รอบตรวจ: a ท่อน clip names a melody/ท่อน of THIS song (`stanzaId`, "ท่อน 1 · …"). Opening
-// another song kept it, so ผูก pasted the other song's melody of the same letter under these words
-// (and the confirm still said "จาก ท่อน 1"). Copying across songs is out of scope (ใบ#94 ไม่อยู่ใน
-// งานนี้ 1), so every document swap drops a ท่อน clip. B101's บรรทัด/ห้อง clip is melody-only data
-// with no reference into the song, so it keeps working across songs exactly as before.
-function dropSectionClip() {
-  if (['words', 'melody', 'section'].includes(clip.value?.kind)) clip.value = null
-  pasteAsk.value = null
-}
-// the confirm: { kind, ri, link } — link = ผูก. Default ไม่ผูก (พี่เอม 1 ต.ค. 2569): the real
-// job is "วางแล้วแก้นิดหน่อย", and a linked copy would silently change the source ท่อน too.
-const pasteAsk = ref(null)
-const pasteMsg = ref('') // aria-live result of the last paste / แยกทำนอง
-function askPaste(kind, i) {
-  if (!canPasteSection(kind, arrangement.value[i])) return
-  pasteAsk.value = { kind, ri: i, link: false }
-}
-function cancelPaste() {
-  pasteAsk.value = null
-}
-// the source melody still in the song? (it may have been deleted after คัดลอก) — ผูก needs it
-const pasteSrcAlive = computed(() => {
-  const c = clip.value
-  return !!c?.data?.stanzaId && stanzas.value.some((s) => s.id === c.data.stanzaId)
-})
-// the warning the confirm shows BEFORE the paste: the words and the melody they will sit on
-// have different syllable counts → some words end up missing or extra (ใบ#94 เสร็จเมื่อ 3.1)
-const pasteWarn = computed(() => {
-  const a = pasteAsk.value
-  const c = clip.value
-  const row = a && arrangement.value[a.ri]
-  if (!a || !c || !row) return ''
-  let got, need, whose
-  if (a.kind === 'words') {
-    got = c.data.words.filter((t) => (t || '').trim()).length
-    need = attackCount(row.stanza)
-    whose = `เนื้อที่คัดลอกมี ${got} พยางค์ แต่ทำนองของท่อนนี้มี ${need} พยางค์`
-  } else if (a.kind === 'melody') {
-    got = syllablesToWords(row.syllables || [], row.stanza).filter((t) => (t || '').trim()).length
-    need = c.data.need
-    whose = `เนื้อเดิมของท่อนนี้มี ${got} พยางค์ แต่ทำนองที่จะวางมี ${need} พยางค์`
-  } else return ''
-  if (got === need) return ''
-  return `จำนวนพยางค์ไม่เท่ากัน — ${whose} ⇒ วางแล้วเนื้อจะ${got > need ? 'เกิน' : 'ขาด'} ${Math.abs(got - need)} พยางค์ ต้องปรับเอง`
-})
-function doPaste() {
-  const a = pasteAsk.value
-  const c = clip.value
-  pasteAsk.value = null
-  const row = a && arrangement.value[a.ri]
-  if (!c || !row || !canPasteSection(a.kind, row)) return
-  const link = a.link && pasteSrcAlive.value
-  const melodyId = () => (link ? c.data.stanzaId : pushStanzaCopy(c.data.stanza))
-  if (a.kind === 'words') {
-    row.syllables = kindsKey(row.stanza) === c.data.kinds ? clone(c.data.syllables) : wordsToSyllables(c.data.words, row.stanza)
-  } else if (a.kind === 'melody') {
-    moveRowToStanza(row, melodyId())
-  } else {
-    // ทั้งท่อน: melody + its own words (same melody → slot-for-slot) + the ท่อน's key; the name stays
-    row.stanza = melodyId()
-    row.syllables = clone(c.data.syllables)
-    row.key = c.data.key
-  }
-  focusRow(a.ri)
-  pasteMsg.value = `วาง${CLIP_WHAT[a.kind]}จาก ${c.from} ลงท่อน ${a.ri + 1} แล้ว${a.kind === 'words' ? '' : link ? ' (ผูกทำนอง)' : ' (ไม่ผูกทำนอง)'}`
-}
+const duplicateWords = (i) => duplicateRow(i, false)
+const duplicateSection = (i) => duplicateRow(i, true)
 // แยกทำนอง: a linked ท่อน gets its own exact copy of the melody — same notes, words untouched
 function unlinkRow(i) {
   const row = arrangement.value[i]
@@ -1676,7 +1585,7 @@ function unlinkRow(i) {
   if (!st || !linkedRows(i).length) return
   row.stanza = pushStanzaCopy(st)
   focusRow(i)
-  pasteMsg.value = `แยกทำนองของท่อน ${i + 1} แล้ว — เป็นทำนอง ${row.stanza} แก้โน้ตได้โดยท่อนอื่นไม่เปลี่ยน`
+  sectionMsg.value = `แยกทำนองของท่อน ${i + 1} แล้ว — เป็นทำนอง ${row.stanza} แก้โน้ตได้โดยท่อนอื่นไม่เปลี่ยน`
 }
 
 // ---------- song list / picker ----------
@@ -1824,7 +1733,6 @@ async function loadSong(id) {
 // to v2 on the way in (Claude seeds the syllable split, the author fixes) — any
 // segment whose words don't line up with its notes is flagged for manual review.
 function applyRow(data) {
-  dropSectionClip() // a ท่อน clip points into the song being replaced (ใบ#94 รอบตรวจ)
   meta.number = data.number
   meta.title_th = data.title_th
   meta.title_en = data.title_en
@@ -1888,7 +1796,6 @@ function applyRow(data) {
 }
 
 function resetForm() {
-  dropSectionClip() // ใบ#94 รอบตรวจ — same reason as applyRow
   editingId.value = null
   currentDraftId.value = null
   reviewingDraft.value = null
@@ -3428,8 +3335,8 @@ defineExpose({
   pickerId, loadSong, restore, songList, fileNew,
   // B108 หมวดหาย: per-field knownness + the two publish paths that gate on it.
   categoryKnown, themeKnown, approve, pickCategory, pickTheme, reviewingDraft,
-  // ใบ v3/pleng#94: section-level คัดลอก/วาง (เนื้อ · ทำนอง · ทั้งท่อน) + แยกทำนอง
-  clip, pasteAsk, pasteWarn, linkedRows, copySectionToClip, askPaste, doPaste, cancelPaste, unlinkRow,
+  // ใบ v3/pleng#94: ทำซ้ำเนื้อ (ผูกทำนอง) · ทำซ้ำท่อน (ทำนองของตัวเอง) + แยกทำนอง
+  linkedRows, duplicateWords, duplicateSection, unlinkRow,
 })
 </script>
 
@@ -3567,15 +3474,8 @@ defineExpose({
             <button aria-label="ย้ายท่อนขึ้น" :disabled="ri === 0" @click="moveRow(ri, -1)">▲</button>
             <button aria-label="ย้ายท่อนลง" :disabled="ri === arrangement.length - 1" @click="moveRow(ri, 1)">▼</button>
           </span>
-          <!-- ใบ#94: คัดลอกทั้งท่อน (เนื้อ + ทำนอง) · วาง sits right before ถังขยะ, only while a ท่อน is held -->
-          <button class="srow-act" title="คัดลอกทั้งท่อน (เนื้อ + ทำนอง) ไปวางท่อนอื่น" :aria-label="'คัดลอกทั้งท่อน ' + (ri + 1)" @click.stop="copySectionToClip('section', ri)"><Icon name="copy" :size="14" /></button>
-          <button
-            v-if="canPasteSection('section', row)"
-            class="srow-act srow-paste"
-            :title="'วางทั้งท่อนจาก ' + clip.from + ' ลงท่อนนี้'"
-            :aria-label="'วางทั้งท่อนจาก ' + clip.from + ' ลงท่อน ' + (ri + 1)"
-            @click.stop="askPaste('section', ri)"
-          ><Icon name="clipboard-paste" :size="14" /></button>
+          <!-- ใบ#94: ทำซ้ำท่อน — one tap: a copy (words + key + its own melody) right below this ท่อน -->
+          <button class="srow-act" title="ทำซ้ำท่อนนี้ — ได้ท่อนใหม่ต่อท้าย เนื้อเหมือนกัน ทำนองแก้แยกกันได้" :aria-label="'ทำซ้ำท่อน ' + (ri + 1)" @click.stop="duplicateSection(ri)"><Icon name="copy" :size="14" /> ทำซ้ำ</button>
           <button v-if="arrangement.length > 1" class="srow-del" title="ลบท่อนนี้" aria-label="ลบท่อนนี้" @click.stop="removeRow(ri)"><Icon name="trash-2" :size="14" /></button>
           </span>
         </div>
@@ -3857,16 +3757,8 @@ defineExpose({
         width="150px"
         @update:model-value="setRowStanza($event)"
       />
-      <!-- ใบ#94: the melody's own copy / paste / แยก sit beside the melody picker they belong to -->
+      <!-- ใบ#94: which ท่อน share this melody (ผูก) + แยกทำนอง, beside the melody picker -->
       <span class="cs-mel-acts">
-        <button class="cs-act" title="คัดลอกทำนอง (โน้ต·คอร์ด) ของท่อนนี้ ไปวางท่อนอื่น" aria-label="คัดลอกทำนองของท่อนนี้" @click="copySectionToClip('melody', lensChoice)"><Icon name="copy" :size="14" /> คัดลอกทำนอง</button>
-        <button
-          v-if="canPasteSection('melody', lensRow)"
-          class="cs-act cs-paste"
-          :title="'วางทำนองจาก ' + clip.from + ' ลงท่อนนี้'"
-          :aria-label="'วางทำนองจาก ' + clip.from"
-          @click="askPaste('melody', lensChoice)"
-        ><Icon name="clipboard-paste" :size="14" /> วางทำนอง</button>
         <span v-if="linkedRows(lensChoice).length" class="cs-linked"><Icon name="link" :size="12" /> ผูกกับท่อน {{ linkedText(lensChoice) }}</span>
         <button
           v-if="linkedRows(lensChoice).length"
@@ -3913,13 +3805,10 @@ defineExpose({
     <div v-if="clip" class="ed-clip no-print" role="status" aria-live="polite">
       <span class="ed-clip-what">
         <Icon name="clipboard-copy" :size="15" />
-        คัดลอกไว้: <b>{{ CLIP_WHAT[clip.kind] }}</b>
+        คัดลอกไว้: <b>{{ clip.kind === 'line' ? 'บรรทัด' : 'ห้อง' }}</b>
         <span class="muted">({{ clip.from }})</span>
       </span>
-      <span v-if="clip.kind === 'line' || clip.kind === 'bar'" class="ed-clip-hint">— เปิดท่อนที่ต้องการ แล้วกด “วาง{{ CLIP_WHAT[clip.kind] }}” (โน้ต·คอร์ด ไม่รวมเนื้อ)</span>
-      <span v-else-if="clip.kind === 'words'" class="ed-clip-hint">— เลือกท่อนปลายทาง แล้วกด “วางเนื้อ” ในกล่องแก้เนื้อ</span>
-      <span v-else-if="clip.kind === 'melody'" class="ed-clip-hint">— เลือกท่อนปลายทาง แล้วกด “วางทำนอง” บนหัวท่อน</span>
-      <span v-else class="ed-clip-hint">— กดปุ่มวางที่แถวท่อนปลายทาง ในแผงโครงเพลง</span>
+      <span class="ed-clip-hint">— เปิดท่อนที่ต้องการ แล้วกด “วาง{{ clip.kind === 'line' ? 'บรรทัด' : 'ห้อง' }}” (โน้ต·คอร์ด ไม่รวมเนื้อ)</span>
       <button v-if="clip.kind === 'line'" class="ed-clip-new" title="สร้างท่อน (ทำนอง) ใหม่ แล้ววางบรรทัดนี้เป็นบรรทัดแรก" @click="pasteLineAsStanza">
         <Icon name="plus" :size="13" /> วางเป็นท่อนใหม่
       </button>
@@ -4191,15 +4080,8 @@ defineExpose({
         <button class="secondary" @click="paraOpen = !paraOpen">
           📝 แก้เนื้อแบบย่อหน้า (ข้อที่เลือก) {{ paraOpen ? '▲' : '▼' }}
         </button>
-        <!-- ใบ#94: the words' own copy / paste — right on the เนื้อ card, usable while it is folded -->
-        <button class="secondary para-act" title="คัดลอกเนื้อของท่อนนี้ ไปวางท่อนอื่น" aria-label="คัดลอกเนื้อของท่อนนี้" @click="copySectionToClip('words', lensChoice)"><Icon name="copy" :size="14" /> คัดลอกเนื้อ</button>
-        <button
-          v-if="canPasteSection('words', lensRow)"
-          class="secondary para-act para-paste"
-          :title="'วางเนื้อจาก ' + clip.from + ' ลงท่อนนี้'"
-          :aria-label="'วางเนื้อจาก ' + clip.from"
-          @click="askPaste('words', lensChoice)"
-        ><Icon name="clipboard-paste" :size="14" /> วางเนื้อ</button>
+        <!-- ใบ#94: ทำซ้ำเนื้อ — one tap: a new ท่อน right below with these words on the SAME melody -->
+        <button class="secondary para-act" title="ทำซ้ำเนื้อท่อนนี้ — ได้ท่อนใหม่ต่อท้าย เนื้อเหมือนกัน ใช้ทำนองร่วมกัน" aria-label="ทำซ้ำเนื้อท่อนนี้" @click="duplicateWords(lensChoice)"><Icon name="copy" :size="14" /> ทำซ้ำเนื้อ</button>
       </div>
       <div v-if="paraOpen" style="margin-top: 8px">
         <p class="muted" style="margin: 0 0 6px">เว้นวรรค = พยางค์ใหม่ · "-" = ต่อคำเดิม · แก้ตรงนี้แล้วกล่องใต้โน้ตขยับตาม</p>
@@ -4423,37 +4305,7 @@ defineExpose({
       </div>
     </div>
 
-    <!-- ใบ#94: the paste confirm — what · from which ท่อน · into which, the syllable warning, and
-         (melody / ทั้งท่อน) the ผูก / ไม่ผูก choice in plain words. Default = ไม่ผูก. -->
-    <div v-if="pasteAsk && clip" class="del-song-overlay paste-overlay no-print" role="dialog" aria-modal="true" aria-labelledby="paste-ask-t" @click.self="cancelPaste" @keydown.esc="cancelPaste">
-      <div class="paste-box">
-        <p id="paste-ask-t" class="eset-confirm-t">วาง{{ CLIP_WHAT[pasteAsk.kind] }} ลงท่อน {{ pasteAsk.ri + 1 }} · {{ rowLabel(arrangement[pasteAsk.ri], pasteAsk.ri) }} ?</p>
-        <p class="eset-confirm-d">
-          จาก <b>{{ clip.from }}</b> ⇒
-          <template v-if="pasteAsk.kind === 'words'">เนื้อเดิมของท่อนนี้จะถูกแทนที่ · ทำนองไม่เปลี่ยน</template>
-          <template v-else-if="pasteAsk.kind === 'melody'">ทำนองเดิมของท่อนนี้จะถูกแทนที่ · เนื้อยังอยู่ · ท่อนอื่นไม่เปลี่ยน</template>
-          <template v-else>ทั้งเนื้อ ทำนอง และคีย์ของท่อนนี้จะถูกแทนที่ · ชื่อท่อนคงเดิม · ท่อนอื่นไม่เปลี่ยน</template>
-          · กดย้อนได้
-        </p>
-        <p v-if="pasteWarn" class="paste-warn" role="alert">⚠ {{ pasteWarn }}</p>
-        <fieldset v-if="pasteAsk.kind !== 'words'" class="paste-link">
-          <legend>ทำนองที่วาง</legend>
-          <label class="paste-opt">
-            <input v-model="pasteAsk.link" type="radio" :value="false" name="paste-link" />
-            <span><b>ไม่ผูก</b> — ได้โน้ตชุดใหม่ที่เหมือนกัน แก้โน้ตท่อนนี้ได้ ท่อนต้นทางไม่เปลี่ยน</span>
-          </label>
-          <label class="paste-opt" :class="{ off: !pasteSrcAlive }">
-            <input v-model="pasteAsk.link" type="radio" :value="true" name="paste-link" :disabled="!pasteSrcAlive" />
-            <span><b>ผูก</b> — ใช้โน้ตชุดเดียวกับต้นทาง แก้โน้ตที่ท่อนไหน อีกท่อนเปลี่ยนตาม<template v-if="!pasteSrcAlive"> (ทำนองต้นทางถูกลบไปแล้ว)</template></span>
-          </label>
-        </fieldset>
-        <div class="eset-confirm-btns">
-          <button class="secondary" @click="cancelPaste">ยกเลิก</button>
-          <button class="paste-go" v-focus @click="doPaste"><Icon name="clipboard-paste" :size="14" /> วาง{{ CLIP_WHAT[pasteAsk.kind] }}</button>
-        </div>
-      </div>
-    </div>
-    <span class="sr-only" aria-live="polite">{{ pasteMsg }}</span>
+    <span class="sr-only" aria-live="polite">{{ sectionMsg }}</span>
 
     <!-- undo snackbar after a soft-delete -->
     <div v-if="undoDeleted" class="undo-snack no-print" role="status" aria-live="polite">
@@ -4787,13 +4639,16 @@ defineExpose({
 }
 .srow-del:hover { color: var(--red); background: #fff0ef; }
 .srow-tools { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
-/* ใบ#94: คัดลอก / วาง ทั้งท่อน — same quiet square as ถังขยะ; วาง is filled brand so it reads as
-   the destination (like B101's .ed-paste). */
+/* ใบ#94: ทำซ้ำท่อน — quiet like ถังขยะ, but WORDED ("ทำซ้ำ"): an icon-only copy button is what
+   พี่เปา could not read in the คัดลอก/วาง round. It sits on the row's 2nd line, so the text fits. */
 .srow-act {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 3px;
+  font: inherit;
+  font-size: 0.8rem;
   background: transparent;
   border: none;
   color: var(--muted);
@@ -4804,7 +4659,6 @@ defineExpose({
   cursor: pointer;
 }
 .srow-act:hover { color: var(--brand); background: var(--cream); }
-.srow-paste { color: var(--brand); background: var(--cream); border: 1px solid var(--brand); }
 .mchip.linked { border-color: var(--brand); }
 .mchip-link { display: inline-flex; vertical-align: -1px; margin-left: 2px; }
 /* "+ เพิ่มท่อน" and "+ เพิ่มทำนอง" primary add row */
@@ -4891,7 +4745,6 @@ defineExpose({
   white-space: nowrap;
 }
 .cs-act:hover { border-color: var(--brand); }
-.cs-paste { border-color: var(--brand); background: var(--brand); color: #fff; }
 .cs-linked { display: inline-flex; align-items: center; gap: 3px; font-size: 0.82rem; color: var(--brand); white-space: nowrap; }
 .cs-key { display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--muted); }
 /* B102 — "ร้องรับทุกข้อ" refrain toggle in the ท่อน header */
@@ -5008,29 +4861,8 @@ defineExpose({
   max-width: 380px; width: 100%; padding: 18px 20px; border: 1px solid var(--red, #c0392b);
   border-radius: 14px; background: #fff; box-shadow: 0 10px 34px rgba(0,0,0,.2); text-align: center;
 }
-/* ใบ#94 paste confirm — same overlay as the delete-song confirm, brand (not red) framed. On a
-   phone the ท่อน วาง is pressed INSIDE the parts drawer (#studioRail z 80), so sit above it. */
-.paste-overlay { z-index: 90; }
-.paste-box {
-  max-width: 420px; width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; padding: 18px 20px;
-  border: 1px solid var(--brand); border-radius: 14px; background: #fff; box-shadow: 0 10px 34px rgba(0,0,0,.2);
-}
-.paste-warn {
-  margin: 0 0 12px; padding: 8px 10px; border-radius: 8px; font-size: 0.88rem; font-weight: 600;
-  color: var(--red, #c0392b); background: #fff0ef; border: 1px solid var(--red, #c0392b);
-}
-.paste-link { margin: 0 0 14px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
-.paste-link legend { padding: 0 4px; font-size: 0.85rem; font-weight: 700; color: var(--brand); }
-.paste-opt { display: flex; align-items: flex-start; gap: 8px; min-height: 44px; padding: 6px 2px; font-size: 0.9rem; cursor: pointer; }
-.paste-opt input { width: 18px; height: 18px; margin-top: 2px; flex: 0 0 auto; cursor: pointer; }
-.paste-opt.off { opacity: 0.5; cursor: not-allowed; }
-.paste-go {
-  appearance: none; display: inline-flex; align-items: center; gap: 4px; min-height: 38px; padding: 0 16px;
-  border: 0; border-radius: 8px; background: var(--brand); color: #fff; font: inherit; font-weight: 600; cursor: pointer;
-}
 .para-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .para-act { display: inline-flex; align-items: center; gap: 4px; }
-.para-paste { border-color: var(--brand); color: var(--brand); }
 /* undo snackbar — bottom-center toast with an action, over everything */
 .undo-snack {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 70;
