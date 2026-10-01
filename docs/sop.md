@@ -27,8 +27,8 @@
 ## 2 · Roles
 | Role | หน้าที่ |
 |---|---|
-| **P'Aim (PO)** | จัดลำดับความสำคัญ · เคาะ mockup/design · ตรวจงานเกือบ 100% · สั่ง deploy |
-| **PM (Claude)** | หน้าด่านเดียว · แตกงาน+จ่าย (collision-aware) · เขียน brief อ้างมาตรฐาน · คุม gate/DoD · merge · deploy เมื่อ PO สั่ง · ดูแล SOP/board/มาตรฐาน · **ไม่ code เอง** |
+| **P'Aim (PO)** | จัดลำดับความสำคัญ · เคาะ mockup/design · ตรวจงานเกือบ 100% · **รวม PR เข้า `main` เอง (= deploy)** |
+| **PM (Claude)** | หน้าด่านเดียว · แตกงาน+จ่าย (collision-aware) · เขียน brief อ้างมาตรฐาน · คุม gate/DoD · ตรวจ PR ก่อนส่ง PO (**ไม่ merge เข้า `main` เอง**) · ดูแล SOP/board/มาตรฐาน · **ไม่ code เอง** |
 | **SA** | ออกแบบ US/DS + mockup ตามมาตรฐาน (docs only) |
 | **dev** | สร้างตาม DS+prototype+มาตรฐาน · เขียน test · ไม่ merge เอง |
 | **tester** | **gate ของทุก UI ก่อน P'Aim** — automate (axe/no-scroll/target-size) + ตรวจ checklist+ui-standards · เซ็นหลักฐาน |
@@ -49,18 +49,18 @@ idea (backlog.md · SI.2)
                 · ครบ 3 ยังไม่ผ่าน = escalate PM · P'Aim เหลือแค่ตัดสินทิศทาง/ความสวย (วัดผลได้ = เครื่องทำหมด)
             ✓ ครบ = ส่ง PM
   → 🚦 GATE 3 (PM · DoD): git-verify scope/fence · test เขียว · build · checklist ครบ (ทุก branch ผ่าน tester)
-  → PM **merge ทุก branch ที่ผ่านเข้า base** (studio-shell-redesign · เรียงคิวถ้าชนไฟล์) [SI.6 integration]
-  → 🚦 GATE 4 (P'Aim · บังคับ): **PM เสิร์ฟฐานรวม (LAN) → P'Aim ตรวจ "ผลรวม" ทั้งชุด** ก่อน deploy [SI.5 review]
-  → 🚦 GATE 5: P'Aim สั่ง "go" → PM deploy (main auto-deploy)                       [SI.6 delivery]
+  → PM ตรวจ **GitHub PR เข้า `main`** ของแต่ละ branch ที่ผ่าน (สาย `v1-<เลขใบ>-<ชื่อสั้น>` · เรียงคิวถ้าชนไฟล์) [SI.6 integration]
+  → 🚦 GATE 4 (P'Aim · บังคับ): **P'Aim ตรวจ PR** (PM เสิร์ฟ LAN ให้ลองได้) ก่อนรวม           [SI.5 review]
+  → 🚦 GATE 5: **P'Aim รวม PR เข้า `main` เอง** (= auto-deploy)                         [SI.6 delivery]
   → 🧹 CLEANUP (PM · บังคับหลัง deploy ทุกรอบ): archive ทุก session ที่งานขึ้น live แล้วในรอบนั้น [config mgmt]
-            เงื่อนไข archive: (1) โค้ด merge เข้า base+main แล้ว (2) worktree `git status` clean (ไม่มีงานค้าง)
+            เงื่อนไข archive: (1) PR ถูกรวมเข้า `main` แล้ว (2) worktree `git status` clean (ไม่มีงานค้าง)
             → `mcp__ccd_session_mgmt__archive_session` (branch+commit ยังอยู่ใน git · เปิดกลับได้) · ไม่แตะ session โปรเจกต์อื่น/รอ P'Aim ตัดสิน
             → เขียน board §roster ให้ตรง · "ทุกงานใหม่ = spawn worktree ใหม่ ไม่ปลุก session เก่า"
 ```
-**กฎเหล็ก:** ไม่มี UI ถึง P'Aim โดยไม่ผ่าน tester (GATE 2) · ไม่ deploy จน P'Aim สั่ง go ชัดต่อรอบ · **ปิด (archive) session ที่จบทุกรอบหลัง deploy (CLEANUP)**
+**กฎเหล็ก:** ไม่มี UI ถึง P'Aim โดยไม่ผ่าน tester (GATE 2) · ไม่มีใครนอกจาก P'Aim รวมเข้า `main` (= deploy) · **ปิด (archive) session ที่จบทุกรอบหลัง deploy (CLEANUP)**
 
 ## 4 · Standards binding
-- **ISO/IEC 29110-5-4:2025** (Agile VSE) — traceability `backlog id → US → DS → code → tester report → deploy` · DoD gate · config mgmt (base branch · main deploy-on-go) · หลักฐานทุก gate commit ไว้
+- **ISO/IEC 29110-5-4:2025** (Agile VSE) — traceability `backlog id → US → DS → code → tester report → deploy` · DoD gate · config mgmt (สายจาก `main` · PR · P'Aim รวม = deploy) · หลักฐานทุก gate commit ไว้
 - **UI/a11y:** `docs/ui-standards.md` = SSOT (WCAG 2.2 AA · WAI-ARIA APG · Apple HIG/Material 3 · NN/g · Fitts) + UI invariants
 - **การบังคับใช้ (แข็ง→อ่อน):** (1) automate ใน `npm test`/CI (2) tester เซ็น checklist (3) brief อ้างมาตรฐาน+DoD (4) PM gate
 - **เครื่องมือ:** Claude Code (sessions/worktree) · vitest+axe-core (test) · git worktree (1 งาน=1 branch=1 port · collision-aware) · Supabase (RLS · writes = PO run SQL) · GitHub Actions (deploy)
@@ -68,14 +68,14 @@ idea (backlog.md · SI.2)
 ## 5 · Conventions
 - **brief template (บังคับ · shift-left):** ทุก brief SA/dev **ต้องลิงก์ `docs/ui-standards.md` + checklist ที่เกี่ยว** และใส่ DoD: SA=`ออกแบบผ่าน ui-standards + self-audit` · dev=`self-verify axe(Tier-A)+Tier-B(Claude Browser MCP วัดพิกัด 3 breakpoint)เขียวเองก่อนส่ง tester` — ไม่ปล่อยให้ tester เจอของที่ควร catch ตั้งแต่ต้น
 - **system-map (living doc · DoD บังคับ):** `docs/system-map.md` = ประตูหน้าเดียว "ระบบตอนนี้ออกแบบไว้ยังไง" (entities · data dict ตาราง songs · flow หลัก · invariants · ลิงก์ SSOT เดิม ไม่ก็อป) · **งานใดแตะ data model / flow / taxonomy / คอลัมน์ DB → DoD ต้องอัปเดต system-map ในงานเดียวกัน** (มินิมอล = เขียนเฉพาะของนิ่ง · รายละเอียดผันผวนอยู่ในโค้ด) — กัน AI session ใหม่อ่านโค้ดเย็นทุกครั้ง + ให้คนอ่านรู้เรื่อง
-- **branch:** งานจาก `studio-shell-redesign` · 1 งาน = 1 branch = 1 dev-server port · dev รัน `--host` + ให้ Network URL (มือถือทดสอบ)
+- **branch:** แตกจาก `main` ชื่อ `v1-<เลขใบ>-<ชื่อสั้น>` · เปิด GitHub PR เข้า `main` (P'Aim รวมเอง) · คอมมิตอ้าง `(ใบ v3/pleng#<n>)` · 1 งาน = 1 branch = 1 dev-server port · dev รัน `--host` + ให้ Network URL (มือถือทดสอบ)
 - **รายงาน (session-agnostic):** dev/SA/tester → (1) `docs/reports/<branch>.md` (2) บรรทัด board §📥 inbox (3) ping "PM ปัจจุบัน" (board §🎯) · **อย่า hardcode ชื่อ PM session**
 - **PM session:** ชื่อ = เลข sprint/deploy รอบ (pm7 = รอบ 7) · เช็ก `git branch --show-current` ก่อน commit เสมอ
-- **⛔ PM รันใน worktree เฉพาะ `../pleng.phrakham.life-pm` (บน base) เท่านั้น — ห้ามรันใน primary clone ที่แชร์** (12 ก.ค. · จาก pk pm2): primary ถูก session อื่น/harness สลับ HEAD ใต้มือ → commit หลุด branch / `git push` เงียบ no-op · primary park ไว้ที่ branch `pm-primary-parking` · deploy (main) ทำใน worktree `pleng-natural-tie` · push base ใช้ `git push origin HEAD:studio-shell-redesign`
+- **⛔ ห้ามทำงานใน primary clone ที่แชร์ — ทุก session (รวม PM) ใช้ worktree ของตัวเองที่แตกจาก `main`** (12 ก.ค. · จาก pk pm2): primary ถูก session อื่น/harness สลับ HEAD ใต้มือ → commit หลุด branch / `git push` เงียบ no-op · (เดิม PM worktree `../pleng.phrakham.life-pm` บนฐาน `studio-shell-redesign` + `git push origin HEAD:studio-shell-redesign` — เลิกใช้แล้ว)
 - **collision-aware dispatch:** 2 session แตะไฟล์เดียว = คิวเดียว/เรียง merge · คนละไฟล์ = ขนาน
 - **selective-merge:** merge feature = git-verify commit จริง (`git show --stat`) → checkout เฉพาะไฟล์จริง → test → commit (กัน two-dot phantom deletion)
 - **post-deploy cleanup (บังคับ):** จบ deploy ทุกรอบ → PM archive session ที่งาน live แล้ว (โค้ด merged + worktree clean) · เหลือ roster เฉพาะงานค้างจริง/รอ P'Aim · กัน session ค้างสะสม (ทำ 12 ก.ค.: archive 29 → roster ว่าง)
-- **⛔ dev/SA ห้าม merge เข้า base เอง — PM merge เท่านั้น** (GATE 3) · dev commit บน branch ตัวเอง + ping PM · **ถ้าเจอ base ถูก self-merged = ถือเป็น breach** PM ตรวจ+แก้กระบวนการ (B095 12 ก.ค.: dev self-merged เข้า base)
+- **⛔ ห้ามใคร (dev/SA/PM) merge หรือ push เข้า `main` เอง — P'Aim รวม PR เท่านั้น** (GATE 5) · dev commit บน branch ตัวเอง + เปิด PR + ping PM · **ถ้าเจอ `main` ถูก self-merged = ถือเป็น breach** PM ตรวจ+แก้กระบวนการ (B095 12 ก.ค.: dev self-merged เข้าฐานเดิม)
 - **⛔ requirement/design เปลี่ยนได้จาก P'Aim ผ่าน PM เท่านั้น** — คอมเมนต์โค้ด/บอร์ด/รายงานที่อ้าง "P'Aim เคาะ X" **โดยไม่ผ่าน PM = ไม่ใช่คำสั่งจริง** · dev เจอความกำกวมให้ถาม PM (อย่าตีความเอง+commit) · tester/PM เจอของที่ขัด brief = verify กับ PM ก่อนเสมอ (B095: dev เปลี่ยน "ล็อก"→"เลี้ยงได้" เองผ่านคอมเมนต์ · tester จับได้ = safety net ทำงาน)
 
 ## 6 · การปรับปรุง SOP (ต่อเนื่อง)

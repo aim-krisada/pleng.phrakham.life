@@ -60,13 +60,15 @@ idea → docs/backlog.md → docs/us/<epic>.md (user story + AC) → docs/ds/<ep
 - `importing-songs.md` — playbook นำเข้าเพลง
 
 ## กติกา git (สำคัญมาก)
-- **ฐานของงานใหม่ทั้งหมด = branch `studio-shell-redesign`** (ยังไม่ merge เข้า `main`)
-- **`main` = เว็บจริง** — push เข้า `main` เมื่อไหร่ = deploy อัตโนมัติ → **ห้ามจนพี่เอมสั่ง**
+- **ฐานของงานใหม่ทั้งหมด = `main`** — แตกสายตามใบงานบนอัมกิต ชื่อ `v1-<เลขใบ>-<ชื่อสั้น>` (เช่น `v1-53-slur2beat`, `v1-94-section-copy`)
+- **`main` = เว็บจริง** — รวมเข้า `main` เมื่อไหร่ = deploy อัตโนมัติ → **ห้าม push/merge เข้า `main` เอง** เปิด GitHub PR เข้า `main` แล้วจบแค่นั้น **พี่เอมตรวจและรวมเอง**
+- **ข้อความคอมมิต** อ้างเลขใบเป็น `(ใบ v3/pleng#<n>)`
 - **1 งาน = 1 worktree = 1 branch = 1 พอร์ต dev** (กันหลาย session ชนไฟล์กัน)
-  - `git worktree add ../pleng-<ชื่อ> -b <branch> studio-shell-redesign`
+  - `git fetch origin && git worktree add ../pleng-<ชื่อ> -b v1-<เลขใบ>-<ชื่อสั้น> origin/main`
   - `npm run dev -- --port 53xx` (พอร์ตของตัวเอง)
+- `studio-shell-redesign` = สายเก่า ไม่ใช้เป็นฐานแล้ว
 - **ก่อน commit เช็ก `git branch --show-current` เสมอ** — dir หลักนี้ใช้ร่วมหลาย session สาขาอาจถูกสลับใต้มือ
-- แผน "1 ฐาน + 4 ขนาน" + ไฟล์ที่แต่ละ worktree เป็นเจ้าของ → ดูตารางใน `docs/mission.md`
+- แผน "1 ฐาน + 4 ขนาน" ใน `docs/mission.md` = บันทึกประวัติ (สายเหล่านั้นปิดหมดแล้ว) — กติกา "หนึ่งไฟล์ = หนึ่งสาย ณ เวลาหนึ่ง" ยังใช้อยู่
 
 ## ข้ามเครื่อง / ข้าม session
 - ทุกอย่างที่ต้อง "ทำต่อได้" อยู่ใน git (docs + code) = SSOT — pull แล้วอ่าน `docs/` ได้เลย ไม่ต้องพึ่ง session เดิม
