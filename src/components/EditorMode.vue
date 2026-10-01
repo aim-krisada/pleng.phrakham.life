@@ -3539,6 +3539,10 @@ defineExpose({
           >♪{{ row.stanza }}<span v-if="linkedRows(ri).length" class="mchip-link" role="img" :aria-label="'ผูกกับท่อน ' + linkedText(ri)"><Icon name="link" :size="10" /></span></span>
           <!-- MP4: melody↔lyric pairing status (spots an import that swapped tune/words) -->
           <span class="pair-badge" :class="pairInfos[ri].ok ? 'good' : 'bad'" :title="pairInfos[ri].label" :aria-label="pairInfos[ri].label">{{ pairInfos[ri].text }}</span>
+          <!-- ใบ#94: the row's buttons are ONE group that drops to a second line when the row is too
+               narrow (375px phone: 383px of controls in a 319px row) — so the name gets the whole
+               first line instead of being squeezed to 3 letters (ใบ#94 เสร็จเมื่อ 8.2) -->
+          <span class="srow-tools">
           <span class="updown" @click.stop>
             <button aria-label="ย้ายท่อนขึ้น" :disabled="ri === 0" @click="moveRow(ri, -1)">▲</button>
             <button aria-label="ย้ายท่อนลง" :disabled="ri === arrangement.length - 1" @click="moveRow(ri, 1)">▼</button>
@@ -3553,6 +3557,7 @@ defineExpose({
             @click.stop="askPaste('section', ri)"
           ><Icon name="clipboard-paste" :size="14" /></button>
           <button v-if="arrangement.length > 1" class="srow-del" title="ลบท่อนนี้" aria-label="ลบท่อนนี้" @click.stop="removeRow(ri)"><Icon name="trash-2" :size="14" /></button>
+          </span>
         </div>
         <button class="addsec" @click="addRow(); closeDrawer()"><Icon name="plus" :size="16" /> เพิ่มท่อน</button>
         </template>
@@ -4400,7 +4405,7 @@ defineExpose({
 
     <!-- ใบ#94: the paste confirm — what · from which ท่อน · into which, the syllable warning, and
          (melody / ทั้งท่อน) the ผูก / ไม่ผูก choice in plain words. Default = ไม่ผูก. -->
-    <div v-if="pasteAsk && clip" class="del-song-overlay no-print" role="dialog" aria-modal="true" aria-labelledby="paste-ask-t" @click.self="cancelPaste" @keydown.esc="cancelPaste">
+    <div v-if="pasteAsk && clip" class="del-song-overlay paste-overlay no-print" role="dialog" aria-modal="true" aria-labelledby="paste-ask-t" @click.self="cancelPaste" @keydown.esc="cancelPaste">
       <div class="paste-box">
         <p id="paste-ask-t" class="eset-confirm-t">วาง{{ CLIP_WHAT[pasteAsk.kind] }} ลงท่อน {{ pasteAsk.ri + 1 }} · {{ rowLabel(arrangement[pasteAsk.ri], pasteAsk.ri) }} ?</p>
         <p class="eset-confirm-d">
@@ -4647,6 +4652,7 @@ defineExpose({
    never stacked) · delete. Row height is a single control tall, not two. */
 .srow {
   display: flex;
+  flex-wrap: wrap; /* ใบ#94: .srow-tools wraps under the name rather than squeezing it */
   align-items: center;
   gap: 4px;
   border: 1px solid var(--line);
@@ -4760,6 +4766,7 @@ defineExpose({
   cursor: pointer;
 }
 .srow-del:hover { color: var(--red); background: #fff0ef; }
+.srow-tools { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
 /* ใบ#94: คัดลอก / วาง ทั้งท่อน — same quiet square as ถังขยะ; วาง is filled brand so it reads as
    the destination (like B101's .ed-paste). */
 .srow-act {
@@ -4981,7 +4988,9 @@ defineExpose({
   max-width: 380px; width: 100%; padding: 18px 20px; border: 1px solid var(--red, #c0392b);
   border-radius: 14px; background: #fff; box-shadow: 0 10px 34px rgba(0,0,0,.2); text-align: center;
 }
-/* ใบ#94 paste confirm — same overlay as the delete-song confirm, brand (not red) framed */
+/* ใบ#94 paste confirm — same overlay as the delete-song confirm, brand (not red) framed. On a
+   phone the ท่อน วาง is pressed INSIDE the parts drawer (#studioRail z 80), so sit above it. */
+.paste-overlay { z-index: 90; }
 .paste-box {
   max-width: 420px; width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; padding: 18px 20px;
   border: 1px solid var(--brand); border-radius: 14px; background: #fff; box-shadow: 0 10px 34px rgba(0,0,0,.2);
