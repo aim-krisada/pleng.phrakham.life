@@ -14,7 +14,7 @@ No `ค้าง` label / no `▶ฟัง` / no meter / no `↺แนะนำ`
   by the editor. Additive/optional; v1 and old v2 songs without it are unaffected — no library migration.
 - **Default** (`suggestHoldForBar` → `HOLD_DEFAULT`, `notation.js`): when a fermata note has no stored hold, the
   default is a **constant 2 beats, always** (P'Aim's decision after trying it live — predictable, NOT a bar-fill,
-  regardless of bar position). Still per-note editable: step 0.5, min 0.5, soft ceiling ~2 bars. If a bar needs
+  regardless of bar position). Still per-note editable: step 0.5, min 0 (ใบ v3/pleng#97 — was 0.5), soft ceiling ~2 bars. If a bar needs
   the next note on the downbeat the user just adjusts.
 - **Playback** (`midi.js`): the old `d *= 1.75` is gone. A fermata note now sounds `written + holdFor(seg, box)`
   (`holdFor` = stored value, else the suggested default). The hold is added ONCE to the note's duration.
@@ -59,7 +59,7 @@ No `ค้าง` label / no `▶ฟัง` / no meter / no `↺แนะนำ`
 
 ## Tester checklist
 1. **Default value:** a fresh fermata (`5^`, anywhere in any bar) defaults to **2** in the chip and the `𝄐2`
-   badge — a flat constant, NOT a bar-fill. Then `+/-` still adjust by 0.5 (min 0.5).
+   badge — a flat constant, NOT a bar-fill. Then `+/-` still adjust by 0.5 (min 0 = no extra hold · ใบ v3/pleng#97).
 2. **Edit + persist:** `+/-` change the number by 0.5; reopen the song → the value is retained (holds saved).
 3. **Playback timing:** a fermata note sounds `written + hold` (default `written + 2`); bars still count
    correctly (beat status ✓ unchanged by the hold — no drift). MP3 export matches live.
