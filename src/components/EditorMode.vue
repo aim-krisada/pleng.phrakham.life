@@ -215,7 +215,8 @@ function deserializeLine(items) {
 // The key lists below must stay in step with what previewContent actually emits, or a key
 // the editor DOES model would be stashed twice.
 const CONTENT_KEYS = ['version', 'key', 'timeSignature', 'bpm', 'stanzas', 'arrangement', 'lyricSets', 'lines']
-const STANZA_KEYS = ['id', 'lines']
+// ใบ v3/pleng#96 — `timeSignature` = this melody's own meter (optional; unset = the song's)
+const STANZA_KEYS = ['id', 'lines', 'timeSignature']
 const ARRANGEMENT_KEYS = ['stanza', 'label', 'syllables', 'key', 'set', 'afterEachVerse']
 const LYRIC_SET_KEYS = ['name', 'label']
 // Every key of `obj` the editor does not model, deep-cloned so the captured copy can never
@@ -517,6 +518,7 @@ const previewContent = computed(() => ({
   stanzas: stanzas.value.map((s) => ({
     id: s.id,
     lines: s.lines.map(serializeLine),
+    ...(s.timeSignature ? { timeSignature: s.timeSignature } : {}), // ใบ#96 — only when the melody sets one
     ...(s._extra || {}), // unknown per-stanza keys
   })),
   // 717: only emit lyricSets when the author actually made >1 set, so ordinary songs stay
@@ -842,7 +844,7 @@ function stanzaPreview(id) {
   const notes = stanzaFirstNotes(id)
   const s = stanzas.value.find((x) => x.id === id)
   const lines = s ? s.lines.length : 0
-  return `${notes ? notes + ' · ' : ''}${lines} บรรทัด · ${stanzaSlots(id)} พยางค์`
+  return `${notes ? notes + ' · ' : ''}${lines} บรรทัด · ${stanzaSlots(id)} พยางค์${s?.timeSignature ? ' · ' + s.timeSignature : ''}`
 }
 // live word-count check per arrangement row (like barStatus). Every note box has a
 // lyric slot, but only ATTACK notes require a word — held/rest boxes may stay blank.
@@ -1095,7 +1097,24 @@ const rowKeyOptions = computed(() => [{ value: '', label: 'คีย์เดิ
 // beats per bar vs. time signature — honest: unreadable input is an error, never a pass.
 // A line marked "cont" continues the previous line's last bar: those two bars are
 // counted as ONE bar (the sheet just broke it at the line end).
-const expBeats = computed(() => expectedBeats(opts.timeSignature))
+// ใบ v3/pleng#96 — the meter of the melody being edited: its own, else the song's. The live bar check,
+// the ห้องยก grouping, the fermata ceiling and ฟังท่อน/บรรทัด/ห้อง all measure against THIS, so a 4/4
+// refrain in a 6/8 song is checked as 4/4.
+const activeTs = computed(() => stanzas.value[activeStanza.value]?.timeSignature || opts.timeSignature)
+const expBeats = computed(() => expectedBeats(activeTs.value))
+const stanzaTsOptions = computed(() => [
+  { value: '', label: `ตามเพลง (${opts.timeSignature})` },
+  ...TIME_SIGNATURES.map((t) => ({ value: t, label: t })),
+])
+// set / clear the meter of the melody on the canvas header ('' = follow the song). It is the MELODY's,
+// so every ท่อน linked to it follows — the header already says which ท่อน share it (ผูกกับท่อน …).
+function setStanzaTs(v) {
+  const s = stanzas.value[activeStanza.value]
+  if (!s) return
+  const t = String(v || '').trim()
+  if (t) s.timeSignature = t
+  else delete s.timeSignature
+}
 function barTokensAt(li, bi) {
   return lines.value[li]?.bars[bi]?.segments.flatMap((s) => parseNotes(s.note)) ?? []
 }
@@ -1241,7 +1260,7 @@ const fcHold = computed(() => {
   return stored != null ? stored : fermataSuggested.value
 })
 // soft ceiling ~2 bars (no hard max, per spec — the stepper just stops climbing past it)
-const fcMax = computed(() => 2 * (expectedBeats(opts.timeSignature) || 4))
+const fcMax = computed(() => 2 * (expectedBeats(activeTs.value) || 4))
 // suggested default (SA: fill to end of the bar, else ~2× mid-bar) for the focused fermata note
 function editorSuggestHold(li, bi, si, tokenIdx) {
   const bar = lines.value[li]?.bars[bi]
@@ -1256,7 +1275,7 @@ function editorSuggestHold(li, bi, si, tokenIdx) {
     })
   })
   if (fermIdx < 0) return HOLD_MIN
-  return suggestHoldForBar(flatBoxes, fermIdx, opts.timeSignature)
+  return suggestHoldForBar(flatBoxes, fermIdx, activeTs.value)
 }
 // Glanceable EDITOR-ONLY hold labels for one segment's note boxes: { boxIdx: 'N' } for every box
 // that carries a fermata — the stored hold, or the suggested default when none is set yet. Read by
@@ -1756,6 +1775,7 @@ function applyRow(data) {
   stanzas.value = (content.stanzas || []).map((s) => ({
     id: s.id,
     lines: (s.lines || []).map(deserializeLine),
+    ...(s.timeSignature ? { timeSignature: String(s.timeSignature) } : {}), // ใบ#96
     _extra: rest(s, STANZA_KEYS),
   }))
   if (!stanzas.value.length) stanzas.value = [{ id: 'A', lines: [newLine()] }]
@@ -1960,10 +1980,10 @@ async function saveDraft(status) {
 // is to catch the beats/symbol problems, so a real issue = severity ERROR **or** WARNING
 // (HINT = advisory, ignored). Returns the distinct rule codes + a total issue count.
 function lintSong() {
-  const ts = opts.timeSignature
   const codes = new Set()
   let count = 0
   for (const s of stanzas.value) {
+    const ts = s.timeSignature || opts.timeSignature // ใบ#96 — each melody's bars against its own meter
     for (const line of s.lines) {
       for (const bar of line.bars) {
         const noteStr = bar.segments.map((seg) => seg.note || '').join(' ').trim()
@@ -2337,19 +2357,21 @@ async function runPlay(content, liOffset, follow = true) {
 const playKey = computed(() => (lensActive.value && lensRow.value?.key) || opts.key)
 function playStanza() {
   const s = stanzas.value[activeStanza.value]
-  return runPlay({ key: playKey.value, timeSignature: opts.timeSignature, lines: s.lines.map(serializeLine) }, 0, true)
+  return runPlay({ key: playKey.value, timeSignature: activeTs.value, lines: s.lines.map(serializeLine) }, 0, true)
 }
 function playFull() {
   return runPlay(resolvedPreview.value, 0, false)
 }
 function playLine(li) {
-  return runPlay({ key: playKey.value, lines: [serializeLine(lines.value[li])] }, li, true)
+  // (ใบ#96: this one never passed a meter — the arranger's default 4 — so only a melody's OWN meter is added)
+  const own = stanzas.value[activeStanza.value]?.timeSignature
+  return runPlay({ key: playKey.value, ...(own ? { timeSignature: own } : {}), lines: [serializeLine(lines.value[li])] }, li, true)
 }
 function playBar(li, bi) {
   const line = lines.value[li]
   if (!line || !line.bars[bi]) return
   const one = { ...line, bars: [line.bars[bi]], cont: false }
-  return runPlay({ key: playKey.value, timeSignature: opts.timeSignature, lines: [serializeLine(one)] }, li, false)
+  return runPlay({ key: playKey.value, timeSignature: activeTs.value, lines: [serializeLine(one)] }, li, false)
 }
 
 // ---------- undo / redo ----------
@@ -3056,7 +3078,7 @@ function barContent(li, bi) {
       }
     }
   }
-  return { version: 2, key: opts.key, timeSignature: opts.timeSignature, lines: [serial] }
+  return { version: 2, key: opts.key, timeSignature: activeTs.value, lines: [serial] }
 }
 // B061 (A): the live inline preview above each line's edit strip — the SAME jianpu the sheet
 // draws (octave dots · held dashes · ties), rendered from the current line as you type, no
@@ -3341,6 +3363,8 @@ defineExpose({
   categoryKnown, themeKnown, approve, pickCategory, pickTheme, reviewingDraft,
   // ใบ v3/pleng#94: ทำซ้ำเนื้อ (ผูกทำนอง) · ทำซ้ำท่อน (ทำนองของตัวเอง) + แยกทำนอง
   linkedRows, duplicateWords, duplicateSection, unlinkRow,
+  // ใบ v3/pleng#96: the publish lint — each melody's bars against its own meter
+  lintSong,
 })
 </script>
 
@@ -3772,6 +3796,17 @@ defineExpose({
           @click="unlinkRow(lensChoice)"
         ><Icon name="unlink" :size="14" /> แยกทำนอง</button>
       </span>
+      <!-- ใบ v3/pleng#96 — this MELODY's own meter (shared by every ท่อน on it); ตามเพลง = the song's -->
+      <label class="cs-key" :title="'จังหวะของทำนอง ' + lensRow.stanza + ' — ทุกท่อนที่ใช้ทำนองนี้ใช้จังหวะเดียวกัน'">จังหวะ
+        <ComboSelect
+          :model-value="stanzas[activeStanza]?.timeSignature || ''"
+          :options="stanzaTsOptions"
+          allow-custom
+          aria-label="จังหวะของทำนองนี้"
+          width="120px"
+          @update:model-value="setStanzaTs($event)"
+        />
+      </label>
       <label class="cs-key">คีย์
         <ComboSelect
           :model-value="lensRow.key"

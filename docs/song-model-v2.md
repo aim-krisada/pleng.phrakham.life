@@ -46,6 +46,11 @@ guessing.
   "stanzas": [
     {
       "id": "A",
+      // optional · ใบ v3/pleng#96 — this melody's OWN meter (e.g. song 306: ข้อ 6/8, รับ "4/4").
+      // Unset = the song's "timeSignature". It belongs to the melody, so every arrangement entry
+      // on it shares it. Used by the bar check, the publish lint, playback (the arranger counts this
+      // melody's bars from its first full bar) and the sheet (shows the new meter where it changes).
+      "timeSignature": "4/4",
       "lines": [                     // visual lines (wrap/layout, like v1)
         [
           { "type": "segment", "chord": "C", "note": "5 5 4 3" },

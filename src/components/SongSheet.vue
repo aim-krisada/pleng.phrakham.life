@@ -88,7 +88,8 @@ const renderLines = computed(() =>
         flush()
         // B102 — `rubric` (e.g. "ร้องรับทุกข้อ") rides the section marker when the refrain
         // carries the strophic directive; shown once next to the label, refrain still once.
-        parts.push({ type: 'section', name: item.name, rubric: item.rubric })
+        // ใบ#96 — `meter` rides it where the melody's meter changes (the book prints 4/4 before รับ)
+        parts.push({ type: 'section', name: item.name, rubric: item.rubric, meter: item.meter })
       } else if (item.type === 'end') {
         flush()
         parts.push({ type: 'end' })
@@ -118,7 +119,7 @@ const renderLines = computed(() =>
     // barline (Fine ‖ / :‖) isn't a plain bar here, so it's skipped (no double line).
     const tail = parts.length ? parts[parts.length - 1] : null
     if (tail && tail.type === 'bar' && tail.segments.length) {
-      const exp = expectedBeats(props.content.timeSignature)
+      const exp = expectedBeats(line._ts || props.content.timeSignature) // ใบ#96 — this line's own meter
       const got = tail.segments.reduce((n, seg) => n + beatCount(parseNotes(seg.note || '')), 0)
       if (exp && Math.abs(got - exp) < 1e-9) tail.closeRight = true
     }
@@ -354,7 +355,7 @@ watch(
         <path v-for="a in lineArcs[row.li].paths" :key="a.key" :d="a.d" />
       </svg>
       <template v-for="(part, pi) in row.parts" :key="pi">
-        <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}<span v-if="part.rubric" class="section-rubric">({{ part.rubric }})</span></span>
+        <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}<span v-if="part.rubric" class="section-rubric">({{ part.rubric }})</span><span v-if="part.meter" class="section-meter" :aria-label="'จังหวะ ' + part.meter">{{ part.meter }}</span></span>
         <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
         <span v-else-if="part.type === 'label'" class="line-label">{{ part.text }}</span>
         <span v-else-if="part.type === 'end'" v-show="noteOn(row.first)" class="bar-final" aria-hidden="true"><i class="bf-thin" /><i class="bf-thick" /></span>

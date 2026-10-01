@@ -30,6 +30,7 @@ import { embellishChord } from './embellish.js'
 import { answerFills, applySusCadence } from './fills.js'
 import { refereeNoClash, balanceFloor, legatoBass, leftHandCeiling, leftHandNoUnison } from './referee.js'
 import { keyboard } from './instruments/keyboard.js'
+import { meterRegions, regionAt, origin } from '../meterRegions.js'
 
 /** @typedef {Object} PerfEvent
  *  role     : 'melody' | 'bass' | 'inner' | 'emb'
@@ -100,6 +101,40 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   const wantMelody = voices !== 'chords'
   const wantChords = voices === 'chords' || voices === 'both'
   const bpb = beatsPerBar(meta)
+  // ใบ v3/pleng#96 — melodies with their own meter (notes stamped `ts`). [] for a song with none → every
+  // bar-locked step below runs exactly as before. Inside a region the bars are that meter's, counted
+  // from its first full bar: the step sees beats shifted to that origin, and its output is shifted back.
+  const regions = meterRegions(notes)
+  const barAt = (beat) => {
+    const r = regions.length ? regionAt(regions, beat) : null
+    if (!r) return { bpb, off: 0 }
+    const b = beatsPerBar({ timeSignature: r.ts })
+    return { bpb: b, off: origin(r, b) }
+  }
+  const back = (off, evts) => { if (off) for (const e of evts) e.startBeat += off; return evts }
+  // a whole-list pass (accent / ease / downbeat lock) run per meter region; song-meter beats stay one group
+  const perBar = (evts, fn) => {
+    if (!regions.length) return fn(evts, bpb)
+    const order = new Map(evts.map((e, i) => [e, i]))
+    const groups = new Map()
+    for (const e of evts) {
+      const r = regionAt(regions, e.startBeat)
+      const k = r ? regions.indexOf(r) : -1
+      if (!groups.has(k)) groups.set(k, [])
+      groups.get(k).push(e)
+    }
+    const out = []
+    for (const [k, list] of groups) {
+      if (k < 0) { out.push(...fn(list, bpb)); continue }
+      const b = beatsPerBar({ timeSignature: regions[k].ts })
+      const off = origin(regions[k], b)
+      for (const e of list) e.startBeat -= off
+      const res = fn(list, b)
+      for (const e of list) e.startBeat += off
+      out.push(...res)
+    }
+    return out.sort((a, c) => order.get(a) - order.get(c))
+  }
   const rng = rngFor(meta.songId, meta.pass || 0)
   const dyn = cfg.dynamics || {}
 
@@ -133,18 +168,21 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
       prevUp = voiced.up
       voicedChords.push({ startBeat: evc.startBeat, beats: evc.beats, up: voiced.up, bass: voiced.bass })
       const useComp = inRefrain(evc.startBeat, meta.sections) ? refrainComp : comp
-      const compEvts = useComp(evc, voiced.up, bpb, rng, cfg)
+      // ใบ#96 — the bar this chord sits in: its melody's own meter, or the song's (off 0 = as before)
+      const bar = barAt(evc.startBeat)
+      const ev = bar.off ? { ...evc, startBeat: evc.startBeat - bar.off } : evc
+      const compEvts = back(bar.off, useComp(ev, voiced.up, bar.bpb, rng, cfg))
       // sus → คลี่คลาย at a cadence chord (harmony-aware; uses melody already in `events` for the
       // clash guard). Edits compEvts in place before they join the stream.
       if (on && cfg.susCadence) applySusCadence(compEvts, evc.chord, evc.startBeat, evc.beats, events, cfg)
       events.push(...compEvts)
-      events.push(...bassMode(evc, voiced.bass, {
+      events.push(...back(bar.off, bassMode(ev, voiced.bass, {
         nextBass: list[i + 1] ? list[i + 1].bass : null,
         slashBass: evc.slashBass, // slash chord: root first, then move to this (P'Aim)
         // ใบ v3/pleng#95 — a chord inside a ท่อน that sets its own key walks in that key
-        keyRoot: evc.keyRoot ?? meta.keyRoot ?? 40, beatsPerBar: bpb, rng, cfg,
-      }))
-      if (on) events.push(...embellishChord(evc, voiced, bpb, rng, cfg))
+        keyRoot: evc.keyRoot ?? meta.keyRoot ?? 40, beatsPerBar: bar.bpb, rng, cfg,
+      })))
+      if (on) events.push(...back(bar.off, embellishChord(ev, voiced, bar.bpb, rng, cfg)))
     }
   }
 
@@ -168,9 +206,9 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   if (on) {
     // thin the comp under a held melody note first (fewer notes = real space), then shape gains.
     // cfg.holdPulse (default on) = the mid-bar pulse that keeps a long hold from going hollow.
-    if (cfg.easeUnderHold !== false) events = easeUnderHold(events, bpb, 2, cfg.holdPulse !== false)
+    if (cfg.easeUnderHold !== false) events = perBar(events, (l, b) => easeUnderHold(l, b, 2, cfg.holdPulse !== false))
     if (dyn.section !== false) sectionDynamics(events, meta.sections, dyn.sectionMap)
-    if (dyn.accent !== false) metricAccent(events, bpb)
+    if (dyn.accent !== false) perBar(events, (l, b) => metricAccent(l, b) || l)
     if (dyn.contour !== false) melodicContour(events)
     if (dyn.cresc) crescendo(events, dyn.cresc)
     if (dyn.rubato !== false) rubato(events, meta.sections) // ท่อน-end breathe (§R2.8)
@@ -194,7 +232,7 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
     // สาย v1 ไม่มี meter.js และไม่มีแนวคิดห้องนำเลย — ทุกชั้นที่ล็อกกับห้องบนสายนี้นับห้องจากบีต 0 หมด
     // (ดู metricAccent(events, bpb) กับ easeUnderHold ข้างบน) จึงปล่อยให้ barOffset เป็นค่าเริ่มต้น 0
     // ให้ตรงกับเพื่อนบ้านบนสายเดียวกัน ⛔ ไม่ยกระบบห้องนำข้ามมา เพราะนั่นเป็นงานคนละใบ
-    if (cfg.lockDownbeats !== false) lockDownbeats(events, bpb)
+    if (cfg.lockDownbeats !== false) perBar(events, (l, b) => lockDownbeats(l, b) || l)
     clampAll(events) // velocity-in-layer safety net (§7b)
     // REFEREE §2 (ยาม · golden-piano) — the FINAL word on balance: after every gain is settled, pin
     // each non-melody voice ≤ the melody actually sounding over it × 0.8 (right hand leads ≥20%) and
