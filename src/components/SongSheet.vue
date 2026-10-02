@@ -3,6 +3,7 @@ import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { displayChord } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, slurSpans, segmentBeamLink } from '../lib/notation.js'
 import { buildArc, planArcs, makeHalfHider } from '../lib/slurArcs.js'
+import { pixelRatio, levelTop, lineThickness } from '../lib/pixelSnap.js'
 import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
@@ -189,10 +190,17 @@ const lineArcs = ref({})
 const halves = makeHalfHider()
 const restoreHalves = halves.restore
 const hideHalf = halves.hide
+// ใบ#99 — digits whose own underline a bridge stands in for (data-ul="bridge"); given back on every re-measure
+let bridged = []
+function restoreBridged() {
+  for (const n of bridged) if (n.getAttribute('data-ul') === 'bridge') n.removeAttribute('data-ul')
+  bridged = []
+}
 
 function measureTies() {
   const root = rootEl.value
   restoreHalves()
+  restoreBridged()
   if (!root) { lineArcs.value = {}; return }
   if (!root.getBoundingClientRect().width) { lineArcs.value = {}; return } // no layout (unit tests / hidden)
   const byLine = {}
@@ -283,6 +291,8 @@ function measureTies() {
       // on the very baseline NoteRow's beam bars use (digit bottom minus its own underline border,
       // 1.5px thick, 1px apart). Bar lines break it: only segments of ONE bar part are paired.
       if (line.hasText) {
+        const dpr = pixelRatio()
+        const th = lineThickness(dpr)
         for (const p of line.parts) {
           if (!p.segments || p.segments.length < 2) continue
           for (let k = 0; k + 1 < p.segments.length; k++) {
@@ -297,15 +307,23 @@ function measureTies() {
             const b = bEl.getBoundingClientRect()
             if (!a.width || !b.width) continue
             if (Math.abs(a.top - b.top) > Math.max(a.height, b.height) * 0.6) continue // wrapped apart
-            const x1 = a.right - lr.left
-            const x2 = b.left - lr.left
+            // ใบ#99 (พี่เปา: ขนาดปกติเส้นดูขีดซ้อน) — a digit NOT under a beam bar of its own has only its
+            // CSS border for an underline, which the browser lays on whole pixels; the bridge would meet it
+            // a pixel row off. So the bridge runs ACROSS that digit and its border is hidden (`data-ul`) —
+            // when the bridge carries every level the digit has. Bars and bridges share one snapped y.
+            const overA = !link.fromBeamed && link.fromLevels <= link.levels
+            const overB = !link.toBeamed && link.toLevels <= link.levels
+            const x1 = (overA ? a.left : a.right) - lr.left
+            const x2 = (overB ? b.right : b.left) - lr.left
             if (x2 - x1 <= 0) continue
             const border = parseFloat(getComputedStyle(aEl).borderBottomWidth) || 0
-            const base = a.bottom - border - lr.top
+            const baseline = a.bottom - border // viewport px, the digit's content bottom
             for (let lv = 1; lv <= link.levels; lv++) {
-              const y = base + (lv - 1) * 2.5
-              arcs.push({ key: `bb-${s1.si}-${lv}`, d: `M${x1} ${y}h${x2 - x1}v1.5h${x1 - x2}Z` })
+              const y = levelTop(baseline, lv, dpr) - lr.top
+              arcs.push({ key: `bb-${s1.si}-${lv}`, d: `M${x1} ${y}h${x2 - x1}v${th}h${x1 - x2}Z` })
             }
+            if (overA) { aEl.setAttribute('data-ul', 'bridge'); bridged.push(aEl) }
+            if (overB) { bEl.setAttribute('data-ul', 'bridge'); bridged.push(bEl) }
           }
         }
       }

@@ -308,7 +308,25 @@ describe('NoteRow beams re-measure when their tab becomes visible (B114)', () =>
     // level 2 is the stub on the sixteenth: digit1 (20..30) + ext = min(10, gap 10 / 2) = 5
     expect(bars[1].element.style.width).toBe('15px')
     expect(bars[1].element.style.left).toBe('15px')
-    expect(bars[1].element.style.top).toBe('32.5px')
+    // ใบ#99 — on whole device pixels: at 1× a 1px line, then one level down = 3px (line + a 2px gap)
+    expect(bars[1].element.style.top).toBe('33px')
+    w.unmount()
+  })
+
+  it('ใบ#99 — while a level-1 bar is drawn, its digits hide their own underline; hidden bar → they show again', async () => {
+    const w = mount(NoteRow, { props: { notes: '1_ 2_ 3' }, attachTo: document.body })
+    await settle()
+    const nums = () => w.findAll('.num').map((n) => n.element.getAttribute('data-ul'))
+    expect(nums()).toEqual([null, null, null]) // no layout yet → the bar is hidden, the borders are the fallback
+    LAYOUT.on = true
+    ioInstances[0].cb([{ isIntersecting: true }])
+    await settle()
+    expect(w.find('.beam').element.style.display).toBe('')
+    expect(nums()).toEqual(['beam', 'beam', null]) // the quarter note `3` is not under the bar
+    LAYOUT.on = false
+    window.dispatchEvent(new Event('resize'))
+    await settle()
+    expect(nums()).toEqual([null, null, null])
     w.unmount()
   })
 
