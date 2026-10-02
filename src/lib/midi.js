@@ -2,7 +2,7 @@
 // Converts notation tokens (movable do) + key + BPM into scheduled oscillator notes.
 
 import { parseNotes, groupNotes, DOT_FACTOR, noteBoxIndices, storedHold, suggestHoldForBar } from './notation.js'
-import { meterRegions, regionAt, origin } from './meterRegions.js'
+import { meterRuns, runAt, shiftOf, mediumOf } from './meterRegions.js'
 import { parseChord, chordToIntervals } from './chords.js'
 import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
 import { arrange } from './arranger/index.js'
@@ -541,6 +541,24 @@ export function buildPlayNotes(content, { order, range } = {}) {
   return all
 }
 
+// ใบ v3/pleng#98 (+#96) — the ensemble's metric accent on the song's OWN bars: its meter (it used to
+// assume a 4-beat bar for every song, 3/4 included) and its own bar lines (a pickup or a stretched bar no
+// longer shifts every later bar). `plain` is the old fixed-4 accent: a 4/4 song whose bars all sit on the
+// beat-0 grid gets exactly it. Returns beat → gain factor (1 downbeat · 0.9 secondary · 0.8 beat · 0.72 off).
+export function ensembleAccent(notes, songTs, plain) {
+  const runs = meterRuns(notes, songTs)
+  return (pb) => {
+    const r = runAt(runs, pb)
+    if (!r || (r.barBeats === 4 && !shiftOf(r) && !r.ts)) return plain(pb)
+    const L = r.barBeats
+    const mid = mediumOf(r.ts || songTs, L)
+    const p = (((pb - shiftOf(r)) % L) + L) % L
+    if (p < 0.01 || L - p < 0.01) return 1
+    if (mid != null && Math.abs(p - mid) < 0.01) return 0.9
+    return Math.abs(p - Math.round(p)) < 0.01 ? 0.8 : 0.72
+  }
+}
+
 // Change the transpose live — e.g. when the user picks a new key while the melody
 // is playing. Notes already sounding finish in the old key; every note not yet
 // started is re-tuned to the new key exactly at its onset, so the switch is
@@ -966,19 +984,10 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     const from = pass === 0 ? seekFrom : 0
     const notes = from > 0 ? fullNotes.slice(from) : fullNotes
     const chordEvents = buildChordVoice(notes)
-    // ใบ v3/pleng#96 — a melody with its own meter accents ITS bars, from its first full bar. The
-    // ensemble's own metric accent is a fixed 4-beat bar (it never read the song meter); a beat in no
-    // own-meter region keeps exactly that, so a song with no melody meter sounds as before.
-    const ownMeter = meterRegions(notes)
-    const accentAt = (pb) => {
-      const r = regionAt(ownMeter, pb)
-      if (!r) return accent(pb)
-      const L = r.barBeats
-      const p = (((pb - origin(r, L)) % L) + L) % L
-      if (p < 0.01 || L - p < 0.01) return 1
-      if (Math.abs(p - L / 2) < 0.01) return 0.9
-      return Math.abs(p - Math.round(p)) < 0.01 ? 0.8 : 0.72
-    }
+    // ใบ v3/pleng#98 (+#96) — the ensemble accents the song's OWN bars: its meter (it used to assume a
+    // 4-beat bar for every song, 3/4 included) and its own bar lines (a pickup no longer shifts every
+    // later bar). A 4/4 song whose bars all sit on the beat-0 grid takes the old accent() untouched.
+    const accentAt = ensembleAccent(notes, content.timeSignature, accent)
     const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
     // §6b.2 REAL sections (verse โปร่ง → chorus เต็ม) — a beat→level lookup from the sheet's labels.
     // No sections → whole song = chorus (never breaks).

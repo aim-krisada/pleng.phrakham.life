@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest'
 import { resolveContent } from './songModel.js'
 import { songToNotes, buildChordVoice } from './midi.js'
 import { arrange } from './arranger/index.js'
-import { meterRegions, regionAt, origin } from './meterRegions.js'
+import { meterRuns, runAt, shiftOf } from './meterRegions.js'
 import { exportPlayNotes } from './audioExport.js'
 
 const seg = (note, chord = 'C') => ({ type: 'segment', chord, note })
@@ -58,24 +58,29 @@ describe('ใบ#96 — notes and chords carry it', () => {
   })
 })
 
-describe('ใบ#96 — meterRegions finds the real downbeat', () => {
-  it('รับ starts at beat 6 with a 1-beat pickup → its first full bar (the downbeat) is beat 7', () => {
-    const r = meterRegions(songToNotes(playable(SONG)))
-    expect(r.length).toBe(1)
-    expect(r[0]).toMatchObject({ ts: '4/4', from: 6, to: 15, downbeat: 7, barBeats: 4 })
-    expect(origin(r[0], 4)).toBe(3) // moved back by whole bars to ≤ 6 → (beat − 3) is never negative
-    expect(regionAt(r, 5)).toBeNull()
-    expect(regionAt(r, 7)).toBe(r[0])
+describe('ใบ#96/#98 — meterRuns finds the real downbeat', () => {
+  it('รับ (own 4/4) starts at beat 6 with a 1-beat pickup → its grid is the full bar at beat 7', () => {
+    const r = meterRuns(songToNotes(playable(SONG)), SONG.timeSignature)
+    expect(r.map((x) => [x.from, x.to, x.ts, x.barBeats, x.phase])).toEqual([
+      [0, 6, undefined, 3, 0], // ข้อ 1 in the song's 3/4
+      [6, 15, '4/4', 4, 3], // รับ: pickup at 6, full bars at 7 and 11 → phase 3
+      [15, 21, undefined, 3, 0], // ข้อ 2 back on the song grid
+    ])
+    expect(shiftOf(r[1])).toBe(-1) // (beat − shift) is a multiple of 4 exactly at 7, 11 — and never < 0
+    expect(runAt(r, 5)).toBe(r[0])
+    expect(runAt(r, 7)).toBe(r[1])
   })
-  it('a seek into the middle of รับ still anchors on a full bar, not on the cut', () => {
+  it('a seek into the middle of รับ still lands on its grid (the cut bar is treated as a pickup)', () => {
     const all = songToNotes(playable(SONG))
-    const sliced = all.slice(all.findIndex((n) => n.ts) + 2) // start inside รับ's first full bar
-    const r = meterRegions(sliced)
-    // first full bar left in the slice is รับ bar 2: beats from the slice start 0..2 are bar-1 leftovers (3 notes)
-    expect(r[0].downbeat).toBe(3)
+    const sliced = all.slice(all.findIndex((n) => n.ts) + 2) // start on รับ's 2nd note
+    const r = meterRuns(sliced, SONG.timeSignature)
+    expect(r[0]).toMatchObject({ ts: '4/4', from: 0, phase: 3 }) // its next full bar starts 3 beats in
   })
-  it('a song with no melody meter has no region at all', () => {
-    expect(meterRegions(songToNotes(playable(noMeter(SONG))))).toEqual([])
+  it('a song whose bars all sit on the beat-0 grid is ONE run with no shift', () => {
+    const c = { ...noMeter(SONG), arrangement: [SONG.arrangement[0], SONG.arrangement[2]] }
+    const r = meterRuns(songToNotes(playable(c)), c.timeSignature)
+    expect(r.length).toBe(1)
+    expect(shiftOf(r[0])).toBe(0)
   })
 })
 
