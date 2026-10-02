@@ -189,8 +189,8 @@ export function crescendo(events, hairpins) {
 // boundary) and at the song's end. The last melody note of a ท่อน RINGS LONGER (beats × STRETCH,
 // ~12% within the 10–15% ask) and the first note of the next ท่อน comes in a hair late (BREATH) —
 // a held breath before the new phrase, กินใจ. The sheet grid (startBeat) is NEVER moved, so timing
-// can't drift: only that one note's LENGTH and one onset nudge change; every other note still lands
-// on its own grid position. `sections` = [{fromBeat,toBeat,…}] (from sectionBeatRanges); a new
+// can't drift: only that one note's LENGTH and the onsets of the next 2 beats (eased back to the grid,
+// see breatheAt) change; every other note still lands on its own grid position. `sections` = [{fromBeat,toBeat,…}] (from sectionBeatRanges); a new
 // section's fromBeat (after the first) is a boundary. With NO sections, only the very last note of
 // the song ritards. Fires only at ท่อน ends — NOT every long note (that was the old proxy).
 const RUBATO_STRETCH = 1.12 // last-note lengthening (P'Aim: 10–15%)
@@ -200,11 +200,31 @@ const RUBATO_BREATH = 0.06 // seconds of "breath" before the next ท่อน
 // melody note ALONE, so the tune came in ~60 ms after a left hand that had stayed on the grid — the two
 // hands pulled apart at exactly a phrase/line start, which is the seam he can hear. Give the same shift
 // to every voice struck at that instant so the whole texture breathes together and still arrives as one.
-function breatheAt(events, beat, amount) {
+//
+// ใบ v3/pleng#98 thread 28402 (พี่เปา: เพลง 50 บรรทัด 3–4 "เวลาลงหัวห้องมันฟังดูหน้าทิ่ม", เพลง 18 ก็เป็น) — the breath
+// used to delay ONLY the notes struck at the boundary. The very next note stayed on the grid, so the gap
+// to it shrank by the whole 60 ms (an eighth at 112 bpm: 268 → 208 ms, 22% short): a phrase that starts
+// on beat 1 lands late and then trips forward, and a pickup that starts the phrase lands late and beat 1
+// tumbles in early. Now the breath EASES OUT: full at the boundary, then less and less over the next
+// BREATH_EASE beats, back to the grid — every gap inside shrinks by the same small amount, none by all 60
+// ms. Two boundaries close together take the larger breath, never the sum. The grid itself never moves.
+const BREATH_EASE = 2 // beats over which a breath returns to the grid
+function breathFor(beat, bounds, amount) {
+  let s = 0
+  for (const b of bounds) {
+    const d = beat - b
+    if (d < -1e-6 || d >= BREATH_EASE - 1e-6) continue
+    s = Math.max(s, amount * (1 - Math.max(0, d) / BREATH_EASE))
+  }
+  return s
+}
+function breatheAt(events, bounds, amount) {
+  if (!bounds.length) return
   for (const e of events) {
-    if (Math.abs(e.startBeat - beat) > 1e-6) continue
-    e.timeShift = (e.timeShift || 0) + amount
-    e.breath = amount // tag: lockDownbeats keeps a deliberate shift, discards plain humanize jitter
+    const s = breathFor(e.startBeat, bounds, amount)
+    if (!(s > 0)) continue
+    e.timeShift = (e.timeShift || 0) + s
+    e.breath = s // tag: lockDownbeats keeps a deliberate shift, discards plain humanize jitter
   }
 }
 
@@ -213,6 +233,7 @@ export function rubato(events, sections = []) {
   if (!mel.length) return events
   // boundary beats = where a NEW ท่อน starts (skip the first section's start = song start)
   const bounds = (sections || []).map((s) => s.fromBeat).filter((b, i) => i > 0 && b != null)
+  const breaths = [] // the onsets each new ท่อน breathes into (applied once below, eased)
   for (let i = 0; i < mel.length; i++) {
     const cur = mel[i]
     const next = mel[i + 1]
@@ -220,9 +241,10 @@ export function rubato(events, sections = []) {
     const crosses = bounds.some((b) => b > cur.startBeat && (!next || b <= next.startBeat))
     if (!next || crosses) {
       cur.beats *= RUBATO_STRETCH // the ท่อน's last note rings longer (the "ยืด")
-      if (next) breatheAt(events, next.startBeat, RUBATO_BREATH) // breath into the new ท่อน, both hands
+      if (next) breaths.push(next.startBeat) // breath into the new ท่อน, both hands
     }
   }
+  breatheAt(events, breaths, RUBATO_BREATH)
   return events
 }
 
