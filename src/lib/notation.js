@@ -119,7 +119,10 @@ export function expectedBeats(timeSignature) {
 // by beatCount — bars always sum their WRITTEN beats, so a hold can't drift the bar (the fix for
 // "next bar comes in off"). These pure helpers are the single source of the default + the grid.
 export const HOLD_STEP = 0.5 // edit granularity (half a beat)
-export const HOLD_MIN = 0.5 // a fermata note holds at least half a beat
+// ใบ v3/pleng#97 — the floor is 0 = "no extra hold": the note sounds exactly its written value. Some
+// songs print 𝄐 only as a cue for the singers (พี่เปา 1 ต.ค. 2569); it used to be locked at 0.5.
+// 0 is a real STORED value, distinct from "not set" (null → the HOLD_DEFAULT 2 below).
+export const HOLD_MIN = 0
 export const HOLD_DEFAULT = 2 // default hold for a fresh fermata (P'Aim: a predictable 2 beats, always)
 
 // snap to the 0.5-beat grid
@@ -129,7 +132,7 @@ export function snapHalf(x) {
 
 // The default hold (beats to ADD) for a fermata note with no stored value. P'Aim's decision
 // (tried live): a constant, predictable 2 beats REGARDLESS of bar position — not a computed
-// bar-fill. It stays per-note editable (– / +, 0.5 step, min 0.5), so if a bar needs the next
+// bar-fill. It stays per-note editable (– / +, 0.5 step, min 0), so if a bar needs the next
 // note on the downbeat the user just adjusts. Signature kept (flatBoxes/fermIdx/timeSignature)
 // so callers are unchanged; the bar context is intentionally ignored now.
 export function suggestHoldForBar(/* flatBoxes, fermIdx, timeSignature */) {
@@ -148,10 +151,20 @@ export function noteBoxIndices(noteString) {
   return out
 }
 
-// The stored hold (beats to add), clamped to the minimum, or null when the box has none.
+// A stored hold value as a number, or null when it is "not set". Only a real number (or a numeric
+// string) counts: null, a blank string, a boolean... are "not set" — `Number(null)` and `Number('')` are
+// 0, and a 0 there would silently mean "no hold" instead of the default (ใบ v3/pleng#97 thread 28344).
+export function holdValue(v) {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  if (typeof v === 'string' && v.trim() !== '') { const n = Number(v); return Number.isFinite(n) ? n : null }
+  return null
+}
+
+// The stored hold (beats to add), clamped to the minimum, or null when the box has none. A stored 0
+// comes back as 0 (ใบ#97) — only a missing/blank/non-numeric value is null, so 0 never falls to the default.
 export function storedHold(seg, boxIdx) {
-  const v = seg && seg.holds && seg.holds[boxIdx]
-  return v != null && Number.isFinite(Number(v)) ? Math.max(HOLD_MIN, Number(v)) : null
+  const v = holdValue(seg?.holds?.[boxIdx])
+  return v != null ? Math.max(HOLD_MIN, v) : null
 }
 
 // Group slur/triplet spans: returns [{ group: null|'slur'|'triplet', tokens: [...] }]
