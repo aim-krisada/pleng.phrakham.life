@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { displayChord } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, slurSpans } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, slurSpans, segmentBeamLink } from '../lib/notation.js'
 import { buildArc, planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import NoteRow from './NoteRow.vue'
 
@@ -275,6 +275,39 @@ function measureTies() {
           arcs.push(...produced)
         }
       }
+      // --- ใบ v3/pleng#99 แบบ ก: an underline that runs on into the NEXT chord segment ----------
+      // Each segment is its own NoteRow, so a เอื้อน note sitting in the next segment of the same
+      // bar (เพลง 424: `1_.` ใจ | `2__`) could not join the underline. segmentBeamLink applies the
+      // same rule at the seam; here we bridge the gap between the two digits at each shared level,
+      // on the very baseline NoteRow's beam bars use (digit bottom minus its own underline border,
+      // 1.5px thick, 1px apart). Bar lines break it: only segments of ONE bar part are paired.
+      if (line.hasText) {
+        for (const p of line.parts) {
+          if (!p.segments || p.segments.length < 2) continue
+          for (let k = 0; k + 1 < p.segments.length; k++) {
+            const s1 = p.segments[k]
+            const s2 = p.segments[k + 1]
+            const link = segmentBeamLink(s1, s2, true)
+            if (!link) continue
+            const aEl = lineEl.querySelector(`.segment[data-seg="${li}-${s1.si}"] .nt[data-idx="${link.from}"] .num`)
+            const bEl = lineEl.querySelector(`.segment[data-seg="${li}-${s2.si}"] .nt[data-idx="${link.to}"] .num`)
+            if (!aEl || !bEl) continue
+            const a = aEl.getBoundingClientRect()
+            const b = bEl.getBoundingClientRect()
+            if (!a.width || !b.width) continue
+            if (Math.abs(a.top - b.top) > Math.max(a.height, b.height) * 0.6) continue // wrapped apart
+            const x1 = a.right - lr.left
+            const x2 = b.left - lr.left
+            if (x2 - x1 <= 0) continue
+            const border = parseFloat(getComputedStyle(aEl).borderBottomWidth) || 0
+            const base = a.bottom - border - lr.top
+            for (let lv = 1; lv <= link.levels; lv++) {
+              const y = base + (lv - 1) * 2.5
+              arcs.push({ key: `bb-${s1.si}-${lv}`, d: `M${x1} ${y}h${x2 - x1}v1.5h${x1 - x2}Z` })
+            }
+          }
+        }
+      }
     }
     if (arcs.length) byLine[li] = { paths: arcs, w: lr.width, h: lr.height }
   })
@@ -372,7 +405,7 @@ watch(
             @click="seek(row.li, seg.si)"
           >
             <span v-if="chordOn(row.first)" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
-            <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :syllables="seg.syllables || null" :active="activeNote(row.li, seg.si)" />&nbsp;</span>
+            <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :syllables="seg.syllables || null" :lyrics="row.hasText" :active="activeNote(row.li, seg.si)" />&nbsp;</span>
             <!-- v2: one span per syllable-bearing note -> highlight walks note by note (B006). -->
             <template v-if="sl">
               <!-- FULL display: syllable spans spread UNDER the notes (flex, karaoke alignment). -->
