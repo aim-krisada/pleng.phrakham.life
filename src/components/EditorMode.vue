@@ -3,7 +3,7 @@ import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBef
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions, parseChord } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, HOLD_STEP, HOLD_MIN, snapHalf, slurSpans } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, holdValue, HOLD_STEP, HOLD_MIN, HOLD_DEFAULT, snapHalf, slurSpans } from '../lib/notation.js'
 import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, setCaption } from '../lib/songModel.js'
@@ -232,8 +232,9 @@ function rest(obj, known) {
 }
 
 // Keep only the holds whose note-box still carries a fermata (`^`) and are on the 0.5 grid — so a
-// value orphaned by editing/deleting the note (box indices shift) never persists. Returns null when
-// nothing is left, so a clean segment stays free of a `holds` key.
+// value orphaned by editing/deleting the note (box indices shift) never persists. A blank value is
+// "not set" and is dropped (ใบ#97), never written as 0. Returns null when nothing is left, so a clean
+// segment stays free of a `holds` key.
 function pruneHolds(note, holds) {
   if (!holds || typeof holds !== 'object') return null
   const boxes = (note || '').trim() ? note.trim().split(/\s+/) : []
@@ -241,8 +242,9 @@ function pruneHolds(note, holds) {
   for (const [k, v] of Object.entries(holds)) {
     const bi = Number(k)
     const box = boxes[bi]
-    if (box == null || !Number.isFinite(Number(v))) continue
-    if (parseNotes(box).some((t) => t.type === 'note' && t.fermata)) out[bi] = Math.max(HOLD_MIN, snapHalf(v))
+    const n = holdValue(v)
+    if (box == null || n == null) continue
+    if (parseNotes(box).some((t) => t.type === 'note' && t.fermata)) out[bi] = Math.max(HOLD_MIN, snapHalf(n))
   }
   return Object.keys(out).length ? out : null
 }
@@ -1250,7 +1252,7 @@ function insertSym(sym) {
 const fermataChip = ref(null) // { li, bi, si, tokenIdx, el } | null — which fermata note is focused
 const chipEl = ref(null)
 const chipPos = reactive({ left: 0, top: 0 })
-const fermataSuggested = ref(HOLD_MIN) // suggested default for the focused note (recomputed on focus)
+const fermataSuggested = ref(HOLD_DEFAULT) // suggested default for the focused note (recomputed on focus)
 
 function noteHasFermata(v) {
   return typeof v === 'string' && v.includes('^')
@@ -1265,7 +1267,7 @@ const fermataSeg = computed(() => {
 const fcHold = computed(() => {
   const c = fermataChip.value
   const seg = fermataSeg.value
-  if (!c || !seg) return HOLD_MIN
+  if (!c || !seg) return HOLD_DEFAULT
   const stored = storedHold(seg, c.tokenIdx)
   return stored != null ? stored : fermataSuggested.value
 })
@@ -1274,7 +1276,7 @@ const fcMax = computed(() => 2 * (expectedBeats(activeTs.value) || 4))
 // suggested default (SA: fill to end of the bar, else ~2× mid-bar) for the focused fermata note
 function editorSuggestHold(li, bi, si, tokenIdx) {
   const bar = lines.value[li]?.bars[bi]
-  if (!bar) return HOLD_MIN
+  if (!bar) return HOLD_DEFAULT // ใบ#97: not found → the default, never the floor (which is 0 now)
   const flatBoxes = []
   let fermIdx = -1
   bar.segments.forEach((seg, sIdx) => {
@@ -1284,7 +1286,7 @@ function editorSuggestHold(li, bi, si, tokenIdx) {
       flatBoxes.push(str)
     })
   })
-  if (fermIdx < 0) return HOLD_MIN
+  if (fermIdx < 0) return HOLD_DEFAULT
   return suggestHoldForBar(flatBoxes, fermIdx, activeTs.value)
 }
 // Glanceable EDITOR-ONLY hold labels for one segment's note boxes: { boxIdx: 'N' } for every box
@@ -3408,7 +3410,7 @@ defineExpose({
         aria-label="ตั้งค่าการค้างเสียงของเฟอร์มาต้า"
       >
         <span class="fc-sym" aria-hidden="true">𝄐</span>
-        <button class="fc-step" aria-label="ค้างสั้นลง" @mousedown.prevent @click="fcDec">–</button>
+        <button class="fc-step" aria-label="ค้างสั้นลง" :disabled="fcHold <= HOLD_MIN" @mousedown.prevent @click="fcDec">–</button>
         <span class="fc-value" aria-live="polite" :aria-label="`ค้าง ${fcHoldLabel} จังหวะ`">{{ fcHoldLabel }}</span>
         <button class="fc-step" aria-label="ค้างยาวขึ้น" @mousedown.prevent @click="fcInc">+</button>
       </div>
@@ -4546,6 +4548,7 @@ defineExpose({
   flex: 0 0 auto;
 }
 .fc-step:active { background: #eef2f7; }
+.fc-step:disabled { opacity: 0.35; cursor: default; } /* ใบ#97: – stops at 0 = no extra hold */
 .fc-value {
   min-width: 28px; text-align: center;
   font-variant-numeric: tabular-nums; font-weight: 700; font-size: 16px;

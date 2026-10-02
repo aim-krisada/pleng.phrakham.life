@@ -12,6 +12,10 @@ const props = defineProps({
   // beaming (issue8): a beam breaks before a note that starts a NEW word. null (v1 / not
   // supplied) → beat-only beaming, unchanged.
   syllables: { type: Array, default: null },
+  // ใบ v3/pleng#99 — is this LINE sung (any word on it)? Then a เอื้อน note (no word of its own)
+  // keeps the underline going into the next beat too. null → decided from this segment's own
+  // syllables (a segment holding only เอื้อน notes would otherwise look wordless).
+  lyrics: { type: Boolean, default: null },
 })
 // flatten groups but stamp each rendered token with its running slot index so the
 // template can match `active` without re-counting across the nested v-for.
@@ -22,7 +26,7 @@ const model = computed(() => {
   // like the reference songbook — NOT a slur arc. issue8: a beam now also breaks before any
   // note that starts a new sung syllable (from `syllables`), so two words sharing a beat are
   // NOT joined. Logic lives in lib/notation.js so it is unit-tested without layout.
-  const { groups: gs, beams } = beamGroups(props.notes, props.syllables)
+  const { groups: gs, beams } = beamGroups(props.notes, props.syllables, props.lyrics == null ? {} : { lyrics: props.lyrics })
   // Some slur groups are engraved as their beam alone, with no arc above it. WHICH ones is
   // decided by slurBeamOnly in lib/notation.js — the rule, the songbook page behind it and
   // its tests all live there, so it is testable without layout and can't drift from

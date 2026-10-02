@@ -119,7 +119,10 @@ export function expectedBeats(timeSignature) {
 // by beatCount — bars always sum their WRITTEN beats, so a hold can't drift the bar (the fix for
 // "next bar comes in off"). These pure helpers are the single source of the default + the grid.
 export const HOLD_STEP = 0.5 // edit granularity (half a beat)
-export const HOLD_MIN = 0.5 // a fermata note holds at least half a beat
+// ใบ v3/pleng#97 — the floor is 0 = "no extra hold": the note sounds exactly its written value. Some
+// songs print 𝄐 only as a cue for the singers (พี่เปา 1 ต.ค. 2569); it used to be locked at 0.5.
+// 0 is a real STORED value, distinct from "not set" (null → the HOLD_DEFAULT 2 below).
+export const HOLD_MIN = 0
 export const HOLD_DEFAULT = 2 // default hold for a fresh fermata (P'Aim: a predictable 2 beats, always)
 
 // snap to the 0.5-beat grid
@@ -129,7 +132,7 @@ export function snapHalf(x) {
 
 // The default hold (beats to ADD) for a fermata note with no stored value. P'Aim's decision
 // (tried live): a constant, predictable 2 beats REGARDLESS of bar position — not a computed
-// bar-fill. It stays per-note editable (– / +, 0.5 step, min 0.5), so if a bar needs the next
+// bar-fill. It stays per-note editable (– / +, 0.5 step, min 0), so if a bar needs the next
 // note on the downbeat the user just adjusts. Signature kept (flatBoxes/fermIdx/timeSignature)
 // so callers are unchanged; the bar context is intentionally ignored now.
 export function suggestHoldForBar(/* flatBoxes, fermIdx, timeSignature */) {
@@ -148,10 +151,20 @@ export function noteBoxIndices(noteString) {
   return out
 }
 
-// The stored hold (beats to add), clamped to the minimum, or null when the box has none.
+// A stored hold value as a number, or null when it is "not set". Only a real number (or a numeric
+// string) counts: null, a blank string, a boolean... are "not set" — `Number(null)` and `Number('')` are
+// 0, and a 0 there would silently mean "no hold" instead of the default (ใบ v3/pleng#97 thread 28344).
+export function holdValue(v) {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  if (typeof v === 'string' && v.trim() !== '') { const n = Number(v); return Number.isFinite(n) ? n : null }
+  return null
+}
+
+// The stored hold (beats to add), clamped to the minimum, or null when the box has none. A stored 0
+// comes back as 0 (ใบ#97) — only a missing/blank/non-numeric value is null, so 0 never falls to the default.
 export function storedHold(seg, boxIdx) {
-  const v = seg && seg.holds && seg.holds[boxIdx]
-  return v != null && Number.isFinite(Number(v)) ? Math.max(HOLD_MIN, Number(v)) : null
+  const v = holdValue(seg?.holds?.[boxIdx])
+  return v != null ? Math.max(HOLD_MIN, v) : null
 }
 
 // Group slur/triplet spans: returns [{ group: null|'slur'|'triplet', tokens: [...] }]
@@ -278,7 +291,12 @@ function beamLevels(run) {
   return levels
 }
 
-export function beamGroups(noteString, syllables = null) {
+// `opts.lyrics` (ใบ v3/pleng#99) — whether this note string is SUNG with words. Then a เอื้อน note (no
+// syllable of its own) keeps the underline going even into the next beat: พี่เปา's rule "ช่องข้าง ๆ
+// ไม่มีเนื้อ เส้นต้องต่อกัน", and พี่เอม's call (1 ต.ค. 2569) to join across beats too. Unknown words
+// (no syllables, or a line with no word at all) keep the old beat rule — otherwise every note would
+// read as a เอื้อน and a whole wordless bar would become one beam. Default: a non-empty syllable exists.
+export function beamGroups(noteString, syllables = null, opts = {}) {
   const gs = groupNotes(parseNotes(noteString))
   let idx = -1
   for (const g of gs) for (const t of g.tokens) t.idx = ++idx
@@ -303,6 +321,15 @@ export function beamGroups(noteString, syllables = null) {
     }
   }
 
+  const lyrics = opts.lyrics != null ? !!opts.lyrics : Array.isArray(syllables) && syllables.some((s) => (typeof s === 'string' ? s.trim() !== '' : s != null && s !== ''))
+  // The PER-BEAT grouping the arc rule of v3/pleng#48/#53 (slurBeamOnly) was decided on — kept
+  // exactly as it was, so a slur over two beats keeps its arc even now that its underline joins.
+  let brun = []
+  let beatRuns = 0
+  const flushBeat = () => {
+    if (brun.length >= 2) { const id = beatRuns++; brun.forEach((t) => { t.beatBeamed = true; t.beatRun = id }) }
+    brun = []
+  }
   let beat = 0
   let run = []
   let runBeat = -1
@@ -333,28 +360,58 @@ export function beamGroups(noteString, syllables = null) {
         if (isTrip) dur = (dur * 2) / 3
         const startBeat = Math.floor(beat + 1e-9)
         const beamable = !isTrip && t.underlines > 0 && t.pitch !== '0'
-        // continue the current beam only for a เอื้อน note (no new word) that stays in the
-        // same beat; a new-word note (or a beat/kind boundary) flushes and starts fresh.
-        if (beamable && run.length > 0 && startBeat === runBeat && !attacks.has(t.idx)) {
+        // continue the current beam only for a เอื้อน note (no new word) — within the same beat,
+        // or (ใบ#99, words known) into the next beat too; a new-word note (or a kind boundary)
+        // flushes and starts fresh.
+        const enun = !attacks.has(t.idx)
+        if (beamable && brun.length > 0 && startBeat === runBeat && enun) brun.push(t)
+        else { flushBeat(); if (beamable) brun = [t] }
+        if (beamable && run.length > 0 && enun && (startBeat === runBeat || lyrics)) {
           run.push(t)
         } else {
           flush()
-          if (beamable) {
-            run = [t]
-            runBeat = startBeat
-          }
+          if (beamable) run = [t]
         }
+        if (beamable) runBeat = startBeat
         beat += dur
       } else if (t.type === 'ext') {
         flush()
+        flushBeat()
         beat += 1
       } else {
         flush()
+        flushBeat()
       }
     }
   }
   flush()
+  flushBeat()
   return { groups: gs, beams }
+}
+
+// --- ใบ v3/pleng#99 แบบ ก — the underline across two chord segments of ONE bar ------------------
+// Each chord segment is its own NoteRow, so beamGroups can never join a note to the next segment's
+// (เพลง 424: `1_.` ใจ | `2__` (no word) sat in two segments and the underline broke). This applies the
+// SAME rule at the seam: the last note of `a` and the first of `b` are both underlined notes (not a
+// rest, not in a triplet, nothing — no '-' — between them) and `b`'s note bears no word of its own,
+// on a line that is sung (`lyrics`). Bar lines are the caller's to respect: pass only two segments
+// of the same bar. → { from, to, levels } (token idx in each segment's NoteRow · underline levels
+// both notes share) or null. SongSheet draws it as a bridge in the line's overlay.
+export function segmentBeamLink(a, b, lyrics) {
+  if (!lyrics || !a || !b) return null
+  const ta = beamGroups(a.note || '', a.syllables || null, { lyrics }).groups
+  const tb = beamGroups(b.note || '', b.syllables || null, { lyrics }).groups
+  const lastG = ta[ta.length - 1]
+  const firstG = tb[0]
+  if (!lastG || !firstG) return null
+  const x = lastG.tokens[lastG.tokens.length - 1]
+  const y = firstG.tokens[0]
+  const ok = (t, g) => t && t.type === 'note' && t.underlines > 0 && t.pitch !== '0' && g.group !== 'triplet'
+  if (!ok(x, lastG) || !ok(y, firstG)) return null
+  const syl = Array.isArray(b.syllables) ? b.syllables[0] : null // y is b's first slot
+  const hasWord = typeof syl === 'string' ? syl.trim() !== '' : syl != null && syl !== ''
+  if (hasWord) return null
+  return { from: x.idx, to: y.idx, levels: Math.min(x.underlines, y.underlines) }
 }
 
 // --- Is this slur group drawn as its BEAM ALONE (arc dropped)? -------------------------
@@ -386,8 +443,10 @@ export function beamGroups(noteString, syllables = null) {
 // `tokens` = one group's tokens from beamGroups (each note stamped `.beamed` + `.beamRun`).
 export function slurBeamOnly(tokens) {
   const ts = tokens || []
-  if (ts.length < 2 || !ts.every((t) => t.type === 'note' && t.beamed)) return false
-  if (!ts.every((t) => t.beamRun === ts[0].beamRun)) return false
+  // read the PER-BEAT grouping (beatBeamed/beatRun), not the drawn underline: since ใบ#99 an
+  // underline may join across beats, but the arc decision of #48/#53 is about one beat
+  if (ts.length < 2 || !ts.every((t) => t.type === 'note' && t.beatBeamed)) return false
+  if (!ts.every((t) => t.beatRun === ts[0].beatRun)) return false
   for (let i = 1; i < ts.length; i++) if (pitchKey(ts[i]) === pitchKey(ts[i - 1])) return false
   return true
 }
