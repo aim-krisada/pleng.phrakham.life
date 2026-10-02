@@ -12,7 +12,13 @@
 //     fixes the grid's phase;
 //   * a SHORTER/LONGER bar does not: it continues the current grid when it starts on it (the first
 //     half of a bar split across a line, a bar stretched by a hold), otherwise it is a pickup and
-//     takes the grid of the next full bar.
+//     takes the grid of the next full bar;
+//   * a SHORT bar that OPENS its line and is followed by a full bar is a pickup even when it happens
+//     to start on the old grid — a refrain that starts on an upbeat (ใบ#98 thread 28351). A short bar
+//     that CLOSES its line is the end of a phrase and keeps the grid, as before;
+//   * the bar right after a bar stretched by a hold (longer than its meter AND carrying a 𝄐) starts a
+//     new grid at its own start — after the fermata the song comes back in on a downbeat (ใบ#98 thread
+//     28353). A bar that is simply WRITTEN too long (no 𝄐) is not a hold and keeps the old rule.
 // A run = consecutive bars on one grid (same bar length, same melody meter, same phase).
 //
 // Everything is in QUARTER-NOTE beats, the unit the whole engine counts in (6/8 bar = 3, 2/2 = 4).
@@ -37,26 +43,35 @@ export function meterRuns(notes, songTs) {
     const key = `${n.li}:${n.bi}`
     const last = bars[bars.length - 1]
     if (!last || last.key !== key || last.ts !== n.ts) {
-      bars.push({ key, ts: n.ts, start: beat, beats: 0, L: expectedBeats(n.ts || songTs) || 4 })
+      bars.push({ key, li: n.li, ts: n.ts, start: beat, beats: 0, L: expectedBeats(n.ts || songTs) || 4 })
     }
     bars[bars.length - 1].beats += n.beats
+    if (n.fermata) bars[bars.length - 1].held = true
     beat += n.beats
   }
   if (!bars.length) return []
   for (const b of bars) b.full = near(b.beats, b.L)
   // forward: full bars fix the phase; a non-full bar that starts on the current grid continues it
   let cur = null // { L, ts, phase }
-  for (const b of bars) {
+  const meterOf = (a, b) => a && b && a.L === b.L && a.ts === b.ts
+  bars.forEach((b, i) => {
     const sameMeter = cur && cur.L === b.L && cur.ts === b.ts
+    const pv = bars[i - 1]
+    const nx = bars[i + 1]
     if (b.full) {
       cur = { L: b.L, ts: b.ts, phase: mod(b.start, b.L) }
+      b.phase = cur.phase
+    } else if (b.beats < b.L - EPS && (!pv || pv.li !== b.li) && nx && nx.full && nx.li === b.li && meterOf(b, nx)) {
+      b.phase = null // a line-opening pickup into the full bar after it (thread 28351)
+    } else if (pv && meterOf(pv, b) && pv.held && pv.beats > pv.L + EPS) {
+      cur = { L: b.L, ts: b.ts, phase: mod(b.start, b.L) } // after a stretched bar: a new downbeat (thread 28353)
       b.phase = cur.phase
     } else if (sameMeter && samePhase(b.start, cur.phase, b.L)) {
       b.phase = cur.phase
     } else {
       b.phase = null // a pickup (or no grid yet) — resolved backwards from the next full bar
     }
-  }
+  })
   // backward: a pickup takes the grid of the next full bar of the same meter
   let next = null
   for (let i = bars.length - 1; i >= 0; i--) {

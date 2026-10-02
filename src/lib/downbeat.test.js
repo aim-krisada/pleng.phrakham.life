@@ -45,6 +45,16 @@ describe('ใบ#98 — a pickup no longer shifts every bar', () => {
     // song A = 13 beats (1 + 4 + 4 + 4) → B's pickup at 13–14, its full bars at 15 and 19
     const { strong } = gains(c2)
     expect([15, 19].every(strong)).toBe(true)
+    // thread 28351: 13 sits on A's old grid (13 = 1 + 4·3), but `5 5` opens B's line and leads into a
+    // full bar — it is B's pickup, not a downbeat
+    expect(strong(13)).toBe(false)
+    expect([1, 5, 9].every(strong)).toBe(true)
+  })
+  it('a short bar that CLOSES its line is still a bar of the old grid (the end of a phrase)', () => {
+    // 4/4 pickup `5` · full bars · closing `5 4 3` at the line end · next line opens on a full bar
+    const c3 = { ...c, stanzas: [{ id: 'A', lines: [[seg('5'), { type: 'bar' }, seg('1 2 3 4'), { type: 'bar' }, seg('5 4 3')], [seg('1 2 3 4'), { type: 'bar' }, seg('5 - - -')]] }] }
+    const { strong } = gains(c3)
+    expect(strong(1) && strong(5)).toBe(true) // the closing `5 4 3` keeps its downbeat at 5
   })
 })
 
@@ -56,6 +66,13 @@ describe('ใบ#98 — a bar stretched by a fermata hold does not shift the nex
     expect(strong(0) && strong(4)).toBe(true)
     expect(strong(10) && strong(14)).toBe(true) // bars 3 and 4, after the +2 hold
     expect(strong(8)).toBe(false) // the old grid's beat 8 is mid-bar now
+  })
+  it('thread 28353: a stretched bar with NO full bar after it — the next bar still gets its downbeat', () => {
+    // bar 3 ends on 5^ (+2) → bar 4 `1 - - 1^` starts at 14 and is itself stretched (6 beats, not full)
+    const c = song('4/4', '1 2 3 4', '5 4 3 2', '1 2 3 5^', '1 - - 1^')
+    const { strong } = gains(c)
+    expect([0, 4, 8, 14].every(strong)).toBe(true)
+    expect(strong(12)).toBe(false) // the old grid's beat 12 is inside bar 3's hold
   })
 })
 
