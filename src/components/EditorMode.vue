@@ -3,7 +3,7 @@ import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBef
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions, parseChord } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, HOLD_STEP, HOLD_MIN, HOLD_DEFAULT, snapHalf, slurSpans } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, holdValue, HOLD_STEP, HOLD_MIN, HOLD_DEFAULT, snapHalf, slurSpans } from '../lib/notation.js'
 import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, setCaption } from '../lib/songModel.js'
@@ -231,8 +231,9 @@ function rest(obj, known) {
 }
 
 // Keep only the holds whose note-box still carries a fermata (`^`) and are on the 0.5 grid — so a
-// value orphaned by editing/deleting the note (box indices shift) never persists. Returns null when
-// nothing is left, so a clean segment stays free of a `holds` key.
+// value orphaned by editing/deleting the note (box indices shift) never persists. A blank value is
+// "not set" and is dropped (ใบ#97), never written as 0. Returns null when nothing is left, so a clean
+// segment stays free of a `holds` key.
 function pruneHolds(note, holds) {
   if (!holds || typeof holds !== 'object') return null
   const boxes = (note || '').trim() ? note.trim().split(/\s+/) : []
@@ -240,8 +241,9 @@ function pruneHolds(note, holds) {
   for (const [k, v] of Object.entries(holds)) {
     const bi = Number(k)
     const box = boxes[bi]
-    if (box == null || !Number.isFinite(Number(v))) continue
-    if (parseNotes(box).some((t) => t.type === 'note' && t.fermata)) out[bi] = Math.max(HOLD_MIN, snapHalf(v))
+    const n = holdValue(v)
+    if (box == null || n == null) continue
+    if (parseNotes(box).some((t) => t.type === 'note' && t.fermata)) out[bi] = Math.max(HOLD_MIN, snapHalf(n))
   }
   return Object.keys(out).length ? out : null
 }

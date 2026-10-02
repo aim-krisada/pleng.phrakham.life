@@ -25,6 +25,11 @@ describe('ใบ#97 — storedHold keeps 0 apart from "not set"', () => {
     expect(storedHold({ holds: { 0: 0.5 } }, 0)).toBe(0.5)
     expect(storedHold({ holds: { 0: 3 } }, 0)).toBe(3)
   })
+  it('thread 28344: a BLANK value (null · "" · spaces · true) is "not set", never 0', () => {
+    for (const v of [null, undefined, '', '  ', true, false, NaN, 'abc', [], {}]) expect(storedHold({ holds: { 0: v } }, 0)).toBeNull()
+    expect(beats('5^', { 0: null })).toBeCloseTo(1 + HOLD_DEFAULT, 6) // plays the default 2, not 0
+    expect(beats('5^', { 0: '' })).toBeCloseTo(1 + HOLD_DEFAULT, 6)
+  })
 })
 
 describe('ใบ#97 เสร็จเมื่อ 2 + 4 — what plays', () => {

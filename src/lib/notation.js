@@ -151,11 +151,20 @@ export function noteBoxIndices(noteString) {
   return out
 }
 
+// A stored hold value as a number, or null when it is "not set". Only a real number (or a numeric
+// string) counts: null, a blank string, a boolean... are "not set" — `Number(null)` and `Number('')` are
+// 0, and a 0 there would silently mean "no hold" instead of the default (ใบ v3/pleng#97 thread 28344).
+export function holdValue(v) {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  if (typeof v === 'string' && v.trim() !== '') { const n = Number(v); return Number.isFinite(n) ? n : null }
+  return null
+}
+
 // The stored hold (beats to add), clamped to the minimum, or null when the box has none. A stored 0
-// comes back as 0 (ใบ#97) — only a missing/non-numeric value is null, so 0 never falls to the default.
+// comes back as 0 (ใบ#97) — only a missing/blank/non-numeric value is null, so 0 never falls to the default.
 export function storedHold(seg, boxIdx) {
-  const v = seg?.holds?.[boxIdx]
-  return v != null && Number.isFinite(Number(v)) ? Math.max(HOLD_MIN, Number(v)) : null
+  const v = holdValue(seg?.holds?.[boxIdx])
+  return v != null ? Math.max(HOLD_MIN, v) : null
 }
 
 // Group slur/triplet spans: returns [{ group: null|'slur'|'triplet', tokens: [...] }]

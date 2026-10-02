@@ -104,6 +104,15 @@ describe('ใบ#97 เสร็จเมื่อ 3 — a saved 0 reopens as 0'
   })
 })
 
+describe('ใบ#97 thread 28344 — a blank stored value is "not set"', () => {
+  it('{0: null} shows the default 2, and saving drops it (never writes 0)', async () => {
+    const w = mountEditor(songWith({ type: 'segment', note: '5^ 3^', holds: { 0: null, 1: '' } }))
+    await nextTick()
+    expect(w.findAll('.note-boxes .note-hold').map((b) => b.text())).toEqual(['𝄐2', '𝄐2'])
+    expect(firstSeg(w).holds).toBeUndefined()
+  })
+})
+
 describe('ใบ#97 เสร็จเมื่อ 4 — nothing else changes', () => {
   it('a stored 1.5 stays 1.5 · a fresh 𝄐 still shows the default 2', async () => {
     const w = mountEditor(songWith({ type: 'segment', note: '5^ 3^', holds: { 0: 1.5 } }))
