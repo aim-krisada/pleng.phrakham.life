@@ -545,6 +545,34 @@ export function buildPlayNotes(content, { order, range } = {}) {
 // assume a 4-beat bar for every song, 3/4 included) and its own bar lines (a pickup or a stretched bar no
 // longer shifts every later bar). `plain` is the old fixed-4 accent: a 4/4 song whose bars all sit on the
 // beat-0 grid gets exactly it. Returns beat → gain factor (1 downbeat · 0.9 secondary · 0.8 beat · 0.72 off).
+// ใบ v3/pleng#98 (thread 28393 · พี่เปา "ฟังเหลื่อม · ให้ลงจังหวะแบบเพลง 700") — where the ensemble's cello
+// bows a chord: at the chord's start, then again at every beat 1 of the song's OWN bars inside it (and at
+// the bar's secondary stress when the bar is longer than 4 beats — 6/4, 12/8 — so one bow never lasts a
+// whole long bar). It used to re-bow every 3 beats counted from the chord's start: right only when the
+// bar is 3 beats long (เพลง 700, 3/4); in 4/4 it struck beat 4, then beat 3 of the next bar… — 98% of
+// 4/4 re-bows missed beat 1 (measured 2 ต.ค. 2569). Returns beats, ascending, inside [start, start+beats).
+export function rebowBeats(chord, runs, songTs) {
+  const start = chord.startBeat
+  const end = start + chord.beats
+  const out = [start]
+  for (let t = start, guard = 0; t < end - 1e-6 && guard < 4096; guard++) {
+    const r = runAt(runs, t + 1e-9)
+    const L = r ? r.barBeats : 4
+    const off = r ? shiftOf(r) : 0
+    const mid = mediumOf((r && r.ts) || songTs, L)
+    // the first bar start at or after t on this run's grid, and its secondary stress
+    const bar = Math.ceil((t - off - 1e-9) / L) * L + off
+    // past this run's end the next run's grid rules (a pickup, a stretched bar, another meter) — go there
+    if (r && bar >= r.to - 1e-6 && r.to > t + 1e-6) { t = r.to; continue }
+    const pts = [bar]
+    if (L > 4 && mid != null) pts.push(bar + mid, bar - L + mid) // the stress of the bar t is already in
+    const inRun = (b) => !r || (b >= r.from - 1e-6 && b < r.to - 1e-6) // a point of THIS run's grid only
+    for (const b of pts) if (inRun(b) && b > start + 1e-6 && b < end - 1e-6 && !out.some((x) => Math.abs(x - b) < 1e-6)) out.push(b)
+    t = bar + 1e-3 // move past this bar start to find the next one
+  }
+  return out.sort((a, b) => a - b)
+}
+
 export function ensembleAccent(notes, songTs, plain) {
   const runs = meterRuns(notes, songTs)
   return (pb) => {
@@ -988,6 +1016,7 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     // 4-beat bar for every song, 3/4 included) and its own bar lines (a pickup no longer shifts every
     // later bar). A 4/4 song whose bars all sit on the beat-0 grid takes the old accent() untouched.
     const accentAt = ensembleAccent(notes, content.timeSignature, accent)
+    const runs = meterRuns(notes, content.timeSignature) // the song's own bars, for the cello's bows
     const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
     // §6b.2 REAL sections (verse โปร่ง → chorus เต็ม) — a beat→level lookup from the sheet's labels.
     // No sections → whole song = chorus (never breaks).
@@ -1036,15 +1065,20 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
       beat += n.beats
     }
 
-    // COMP + BASS — grand arpeggio (front · movement) + cello bass (re-bow ~3 beats · one-shot §6b.1).
+    // COMP + BASS — grand arpeggio (front · movement) + cello bass (re-bowed on each beat 1 · one-shot §6b.1).
     // NO sustained string pad (§6b.2 Option 1). Both × section gain.
     for (const e of chordEvents) {
       if (e.bass == null) continue
       const up = e.up || []
       const bT = t0 + e.startBeat * spb
       const nb = Math.max(1, Math.round(e.beats))
-      const sg = secGain(e.startBeat), a = accentAt(e.startBeat)
-      if (ce) { const bg = 0.32 * sg; for (let b = 0; b < nb; b += 3) { const seg = Math.min(3, nb - b); ce.fire(e.bass + T, bT + b * spb, seg * spb + 0.4, bg * a) } }
+      const sg = secGain(e.startBeat)
+      if (ce) {
+        // ใบ#98 thread 28393 — bow on the song's own beat 1 (rebowBeats), not every 3 beats from the chord
+        const bg = 0.32 * sg
+        const bows = rebowBeats(e, runs, content.timeSignature)
+        bows.forEach((b, i) => { const seg = (bows[i + 1] ?? e.startBeat + e.beats) - b; ce.fire(e.bass + T, t0 + b * spb, seg * spb + 0.4, bg * accentAt(b)) })
+      }
       if (gr) {
         const ag = 0.13 * sg
         const seq = [up[0], up[1] ?? up[0], up[2] ?? up[0], up[1] ?? up[0]].filter((m) => m != null)

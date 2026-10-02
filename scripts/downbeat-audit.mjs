@@ -12,13 +12,18 @@
 //   mid-song pickups    — a short bar that opens a line and leads into a full bar: must NOT be beat 1
 //   after a stretched   — the bar right after a bar stretched by a 𝄐 hold (longer than its meter and
 //                         carrying a 𝄐): must be beat 1
+//   full-band cello     — เต็มวง re-bows a held chord: every bow after the chord's first must land on a
+//                         beat 1 (or the secondary stress of a bar longer than 4 beats) — thread 28393.
+//                         A checkout without rebowBeats is measured with its old rule (every 3 beats)
 //   line-closing bars   — a short bar at a line end (a phrase's last bar, half of a split bar): beat 1.
 //                         Known non-misses (2 ต.ค. 2569: 23, all เพลง 118): a note tied over the bar
 //                         line is ONE played note counted in the bar before, so the next bar seems to
 //                         start half a beat late — its real beat 1 sits inside that held note
 // Melody only, every other gain shaper off — so a note's gain is its bar-position stress alone.
 import fs from 'node:fs'
-import { songToNotes } from '../src/lib/midi.js'
+import * as midi from '../src/lib/midi.js'
+import { meterRuns, runAt, shiftOf, mediumOf } from '../src/lib/meterRegions.js'
+const { songToNotes, buildChordVoice } = midi
 import { resolveContent } from '../src/lib/songModel.js'
 import { arrange } from '../src/lib/arranger/index.js'
 import { expectedBeats } from '../src/lib/notation.js'
@@ -37,7 +42,9 @@ const near = (a, b) => Math.abs(a - b) < 1e-6
 // the gain a downbeat gets: beat 0 of a plain 4/4 bar (every shaper but the bar accent is off above)
 const probe = songToNotes({ key: 'C', timeSignature: '4/4', lines: [[{ type: 'segment', chord: 'C', note: '1 2 3 4' }, { type: 'bar' }, { type: 'segment', chord: 'C', note: '5 4 3 2' }]] })
 const DOWN = arrange(probe, [], CFG, { songId: 'probe', timeSignature: '4/4' }).find((e) => e.role === 'melody' && e.startBeat === 0).gain
-const t = { full: [0, 0, 0], pick: [0, 0, new Set()], after: [0, 0, new Set()], close: [0, 0] }
+const oldBows = (e) => { const out = []; const nb = Math.max(1, Math.round(e.beats)); for (let b = 0; b < nb; b += 3) out.push(e.startBeat + b); return out }
+const bowsOf = (e, runs, ts) => (midi.rebowBeats ? midi.rebowBeats(e, runs, ts) : oldBows(e))
+const t = { cello: [0, 0, new Set()], full: [0, 0, 0], pick: [0, 0, new Set()], after: [0, 0, new Set()], close: [0, 0] }
 
 for (const s of songs) {
   const c = s.content
@@ -51,6 +58,18 @@ for (const s of songs) {
     bars[bars.length - 1].beats += n.beats
     if (n.fermata) bars[bars.length - 1].held = true
     beat += n.beats
+  }
+  const runs = meterRuns(notes, c.timeSignature)
+  for (const e of buildChordVoice(notes)) {
+    if (e.bass == null) continue
+    for (const b of bowsOf(e, runs, c.timeSignature).slice(1)) {
+      const r = runAt(runs, b + 1e-9)
+      const p = (((b - shiftOf(r)) % r.barBeats) + r.barBeats) % r.barBeats
+      const mid = mediumOf(r.ts || c.timeSignature, r.barBeats)
+      const ok = p < 1e-6 || r.barBeats - p < 1e-6 || (r.barBeats > 4 && mid != null && Math.abs(p - mid) < 1e-6)
+      t.cello[0]++
+      if (!ok) { t.cello[1]++; t.cello[2].add(s.number) }
+    }
   }
   const ev = arrange(notes, [], CFG, { songId: s.id, timeSignature: c.timeSignature }).filter((e) => e.role === 'melody')
   const gain = new Map(ev.map((e) => [e.startBeat, e.gain]))
@@ -79,4 +98,5 @@ console.log(`songs ${songs.length}`)
 console.log(`full bars             beat 1 gets the downbeat stress ${t.full[1]}/${t.full[0]} ${pct(t.full[1], t.full[0])} · beat 1 loudest in its bar ${t.full[2]}/${t.full[0]} ${pct(t.full[2], t.full[0])}`)
 console.log(`mid-song pickups      stressed as beat 1 (wrong) ${t.pick[1]}/${t.pick[0]} in ${t.pick[2].size} songs${list(t.pick[2])}`)
 console.log(`after a stretched bar NOT stressed (wrong) ${t.after[1]}/${t.after[0]} in ${t.after[2].size} songs${list(t.after[2])}`)
+console.log(`full-band cello bows  off beat 1 (wrong) ${t.cello[1]}/${t.cello[0]} ${pct(t.cello[1], t.cello[0])} in ${t.cello[2].size} songs`)
 console.log(`line-closing bars     beat 1 ${t.close[1]}/${t.close[0]} ${pct(t.close[1], t.close[0])}`)
