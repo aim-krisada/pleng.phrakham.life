@@ -41,7 +41,7 @@ describe('ใบ#99 — what still breaks the underline', () => {
 
 describe('ใบ#99 แบบ ก — across two chord segments of one bar', () => {
   it('เพลง 424: `1_.` (ใจ) then `2__` (no word) in the next segment → bridged at level 1', () => {
-    expect(segmentBeamLink({ note: '1_.', syllables: ['ใจ'] }, { note: '2__', syllables: [''] }, true)).toEqual({ from: 0, to: 0, levels: 1 })
+    expect(segmentBeamLink({ note: '1_.', syllables: ['ใจ'] }, { note: '2__', syllables: [''] }, true)).toMatchObject({ from: 0, to: 0, levels: 1 })
   })
   it('two sixteenths share both levels', () => {
     expect(segmentBeamLink({ note: '1__', syllables: ['ก'] }, { note: '2__', syllables: [''] }, true).levels).toBe(2)

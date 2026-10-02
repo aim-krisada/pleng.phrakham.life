@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { beamGroups, slurBeamOnly } from '../lib/notation.js'
+import { pixelRatio, levelTop, lineThickness } from '../lib/pixelSnap.js'
 
 const props = defineProps({
   notes: { type: String, default: '' },
@@ -165,8 +166,6 @@ const vArc = {
 // From that baseline every level sits where the old `4px double` border drew it:
 //   level 1 → baseline .. +1.5   ·   level 2 → +2.5 .. +4   ·   level 3 → +5 .. +6.5
 // so an all-eighths run and an all-sixteenths run come out pixel-identical to before (A4).
-const BEAM_TH = 1.5 // bar thickness — matches `.num.u1`'s border-bottom
-const BEAM_GAP = 1 // white space between two beam levels — matches the `double` border
 const BEAM_STUB_MIN = 3 // a fractional beam never shrinks below this, however tight the gap
 const liveBeams = new Set()
 // The digit a partial beam points AT — the note it shares the beam with, one slot before
@@ -178,17 +177,36 @@ function neighbourRect(row, b) {
   const r = el.getBoundingClientRect()
   return r.width ? r : null
 }
+// ใบ v3/pleng#99 (พี่เปา: ขนาดปกติเส้นใต้ดูขีดซ้อน) — while a level-1 bar is drawn over its digits, their own
+// underline border turns transparent (`data-ul`), so the beam is painted ONCE, by the bar. The border keeps
+// its width (no reflow), and comes back whenever the bar is hidden — the fallback when there is no layout.
+function uncover(el) {
+  for (const n of el.__covered || []) n.removeAttribute('data-ul')
+  el.__covered = []
+}
+function cover(el, row, b) {
+  uncover(el)
+  if ((b.level || 1) !== 1 || b.partial) return
+  for (let i = b.start; i <= b.end; i++) {
+    const n = row.querySelector(`.nt[data-idx="${i}"] .num`)
+    if (n) { n.setAttribute('data-ul', 'beam'); el.__covered.push(n) }
+  }
+}
+function hideBeam(el) {
+  el.style.display = 'none'
+  uncover(el)
+}
 function applyBeam(el) {
   const b = el.__beam
   const row = el.parentElement
   if (!row || !b) return
   const first = row.querySelector(`.nt[data-idx="${b.start}"] .num`)
   const last = row.querySelector(`.nt[data-idx="${b.end}"] .num`)
-  if (!first || !last) { el.style.display = 'none'; return }
+  if (!first || !last) { hideBeam(el); return }
   const rr = row.getBoundingClientRect()
   const a = first.getBoundingClientRect()
   const c = last.getBoundingClientRect()
-  if (!a.width || !rr.width) { el.style.display = 'none'; return }
+  if (!a.width || !rr.width) { hideBeam(el); return }
   // strip the measured digit's own underline border so every level shares one baseline
   let border = 0
   if (typeof getComputedStyle === 'function') {
@@ -215,11 +233,15 @@ function applyBeam(el) {
     width = a.width + ext
     if (b.partial === 'left') left -= ext
   }
+  // ใบ#99 — on whole device pixels, one shared thickness (lib/pixelSnap.js), drawn as a BORDER so it
+  // prints even with the browser's "background graphics" off
+  const dpr = pixelRatio()
   el.style.display = ''
   el.style.left = left + 'px'
   el.style.width = width + 'px'
-  el.style.height = BEAM_TH + 'px'
-  el.style.top = baseline - rr.top + (level - 1) * (BEAM_TH + BEAM_GAP) + 'px'
+  el.style.borderTopWidth = lineThickness(dpr) + 'px'
+  el.style.top = levelTop(baseline, level, dpr) - rr.top + 'px'
+  cover(el, row, b)
 }
 function applyAllBeams() { for (const el of liveBeams) applyBeam(el) }
 if (typeof window !== 'undefined') {
@@ -284,6 +306,7 @@ const vBeam = {
   },
   unmounted(el) {
     liveBeams.delete(el)
+    uncover(el)
     if (el.__beamRO) {
       el.__beamRO.disconnect()
       delete el.__beamRO
@@ -428,9 +451,13 @@ const vBeam = {
    so a mixed run no longer shows two lines under a one-underline note. */
 .beam {
   position: absolute;
-  background: currentColor;
+  height: 0;
+  border-top: 1.5px solid currentColor; /* width set per screen by applyBeam (whole device pixels) */
   pointer-events: none;
 }
+/* ใบ#99 — a digit whose underline is being drawn by a beam bar / bridge over it: hide its own border
+   (keep the width, so nothing moves) — one painter per line, never two a pixel row apart */
+.num[data-ul] { border-bottom-color: transparent; }
 /* accidental: smaller than the digit, floating at its upper-left WITHOUT
    widening the digit column — so octave dots stay exactly under the digit */
 .acc {

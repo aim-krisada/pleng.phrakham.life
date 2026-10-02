@@ -411,7 +411,10 @@ export function segmentBeamLink(a, b, lyrics) {
   const syl = Array.isArray(b.syllables) ? b.syllables[0] : null // y is b's first slot
   const hasWord = typeof syl === 'string' ? syl.trim() !== '' : syl != null && syl !== ''
   if (hasWord) return null
-  return { from: x.idx, to: y.idx, levels: Math.min(x.underlines, y.underlines) }
+  // fromBeamed/toBeamed: is that digit already under a beam bar of its own NoteRow? (ใบ#99 — the bridge
+  // then stops at the digit's edge; otherwise it runs across the digit and stands in for its underline)
+  return { from: x.idx, to: y.idx, levels: Math.min(x.underlines, y.underlines),
+    fromBeamed: !!x.beamed, toBeamed: !!y.beamed, fromLevels: x.underlines, toLevels: y.underlines }
 }
 
 // --- Is this slur group drawn as its BEAM ALONE (arc dropped)? -------------------------
