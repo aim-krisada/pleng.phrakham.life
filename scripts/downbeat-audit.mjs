@@ -5,9 +5,10 @@
 //   node scripts/downbeat-audit.mjs songs.json # or a saved copy: [{ id, number, content }, ...]
 //
 // Ground truth = the song's own bar lines. Each line printed is one shape of bar:
-//   full bars           — a bar whose notes fill its meter: its first note must be the loudest
-//                         (strict = louder than every other note in that bar, so a secondary stress
-//                         as loud as beat 1 does not count as a hit)
+//   full bars           — a bar whose notes fill its meter: its first note must get the DOWNBEAT
+//                         stress level (also printed: "loudest in its bar", a weaker test — a song
+//                         whose real beat 1 only ever gets the secondary stress, like เพลง 34 on
+//                         main, passes it; thread 28354)
 //   mid-song pickups    — a short bar that opens a line and leads into a full bar: must NOT be beat 1
 //   after a stretched   — the bar right after a bar stretched by a 𝄐 hold (longer than its meter and
 //                         carrying a 𝄐): must be beat 1
@@ -33,6 +34,9 @@ const songs = all.filter((s) => Array.isArray(s.content?.stanzas))
 const CFG = { arranger: true, voices: 'melody', humanize: false, easeUnderHold: false, lockDownbeats: false,
   dynamics: { section: false, contour: false, rubato: false, cresc: false } }
 const near = (a, b) => Math.abs(a - b) < 1e-6
+// the gain a downbeat gets: beat 0 of a plain 4/4 bar (every shaper but the bar accent is off above)
+const probe = songToNotes({ key: 'C', timeSignature: '4/4', lines: [[{ type: 'segment', chord: 'C', note: '1 2 3 4' }, { type: 'bar' }, { type: 'segment', chord: 'C', note: '5 4 3 2' }]] })
+const DOWN = arrange(probe, [], CFG, { songId: 'probe', timeSignature: '4/4' }).find((e) => e.role === 'melody' && e.startBeat === 0).gain
 const t = { full: [0, 0, 0], pick: [0, 0, new Set()], after: [0, 0, new Set()], close: [0, 0] }
 
 for (const s of songs) {
@@ -51,8 +55,7 @@ for (const s of songs) {
   const ev = arrange(notes, [], CFG, { songId: s.id, timeSignature: c.timeSignature }).filter((e) => e.role === 'melody')
   const gain = new Map(ev.map((e) => [e.startBeat, e.gain]))
   if (!gain.size) continue
-  const top = Math.max(...gain.values())
-  const loudest = (b) => gain.has(b) && near(gain.get(b), top)
+  const loudest = (b) => gain.has(b) && near(gain.get(b), DOWN)
   bars.forEach((b, i) => {
     if (!gain.has(b.start)) return // the bar opens on a rest or a held note
     const pv = bars[i - 1]
@@ -63,7 +66,7 @@ for (const s of songs) {
       t.full[0]++
       if (loudest(b.start)) t.full[1]++
       const rest = ev.filter((e) => e.startBeat > b.start + 1e-6 && e.startBeat < b.start + b.beats - 1e-6)
-      if (rest.every((e) => e.gain < gain.get(b.start) - 1e-9)) t.full[2]++
+      if (rest.every((e) => e.gain < gain.get(b.start) - 1e-9)) t.full[2]++ // loudest in its bar
     }
     if (pickup) { t.pick[0]++; if (loudest(b.start)) { t.pick[1]++; t.pick[2].add(s.number) } }
     if (pv && pv.held && pv.beats > pv.L + 1e-6 && !pickup) { t.after[0]++; if (!loudest(b.start)) { t.after[1]++; t.after[2].add(s.number) } }
@@ -73,7 +76,7 @@ for (const s of songs) {
 const pct = (a, b) => (b ? `${Math.round((1000 * a) / b) / 10}%` : '-')
 const list = (set) => (set.size ? ` (เพลง ${[...set].slice(0, 20).join(' ')}${set.size > 20 ? ' …' : ''})` : '')
 console.log(`songs ${songs.length}`)
-console.log(`full bars             beat 1 loudest ${t.full[1]}/${t.full[0]} ${pct(t.full[1], t.full[0])} · strict ${t.full[2]}/${t.full[0]} ${pct(t.full[2], t.full[0])}`)
+console.log(`full bars             beat 1 gets the downbeat stress ${t.full[1]}/${t.full[0]} ${pct(t.full[1], t.full[0])} · beat 1 loudest in its bar ${t.full[2]}/${t.full[0]} ${pct(t.full[2], t.full[0])}`)
 console.log(`mid-song pickups      stressed as beat 1 (wrong) ${t.pick[1]}/${t.pick[0]} in ${t.pick[2].size} songs${list(t.pick[2])}`)
 console.log(`after a stretched bar NOT stressed (wrong) ${t.after[1]}/${t.after[0]} in ${t.after[2].size} songs${list(t.after[2])}`)
 console.log(`line-closing bars     beat 1 ${t.close[1]}/${t.close[0]} ${pct(t.close[1], t.close[0])}`)
