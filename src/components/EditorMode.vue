@@ -1115,8 +1115,8 @@ function setStanzaTs(v) {
   if (t) s.timeSignature = t
   else delete s.timeSignature
 }
-function barTokensAt(li, bi) {
-  return lines.value[li]?.bars[bi]?.segments.flatMap((s) => parseNotes(s.note)) ?? []
+function barTokensAt(li, bi, lns = lines.value) {
+  return lns[li]?.bars[bi]?.segments.flatMap((s) => parseNotes(s.note)) ?? []
 }
 // Validate the ห้องต่อกัน (pickup) bars of the ACTIVE stanza — each in its OWN group, so
 // two unrelated partial-bar pairs never contaminate each other. Two group shapes coexist:
@@ -1128,14 +1128,15 @@ function barTokensAt(li, bi) {
 //     together (their total must be whole bars) as the classic first↔last pair (B055).
 // Returns per-bar { ok, sum } keyed by bar identity. Grouping locally (not one stanza-wide
 // sum) fixes the 11/4 bug where an unrelated pickup dragged a complete pair red.
-const pickupCheck = computed(() => {
-  const exp = expBeats.value
+// ใบ v3/pleng#96 thread 28348 — a pure function of ONE melody's lines + its bar length, so the publish
+// lint (lintSong) groups ห้องยก exactly like this live check, for every melody — not just the open one.
+function pickupGroupsOf(lns, exp) {
   const map = new Map() // bar object -> { ok, sum }
   if (exp == null) return map
   const beatsOf = (b) => beatCount(b.segments.flatMap((s) => parseNotes(s.note)))
   const whole = (sum) => sum > 0.01 && Math.abs(sum / exp - Math.round(sum / exp)) < 0.01
   const flat = []
-  for (const ln of lines.value) for (const b of ln.bars) flat.push(b)
+  for (const ln of lns) for (const b of ln.bars) flat.push(b)
   const isolated = []
   let i = 0
   while (i < flat.length) {
@@ -1158,24 +1159,33 @@ const pickupCheck = computed(() => {
     for (const b of isolated) map.set(b, { ok, sum })
   }
   return map
-})
-function barStatus(li, bi) {
-  const line = lines.value[li]
+}
+const pickupCheck = computed(() => pickupGroupsOf(lines.value, expBeats.value))
+// The notes one bar is judged on: its own, or — for a bar the sheet split at a line end (the next
+// line is "cont") — both halves together. An explicit pickup bar is counted with its group, not
+// joined to a neighbour. Shared by barStatus (live) and lintSong (publish).
+function barTokensJoined(lns, li, bi) {
+  const line = lns[li]
   const bar = line.bars[bi]
   let tokens = bar.segments.flatMap((s) => parseNotes(s.note))
-  let hasText = bar.segments.some((s) => s.note.trim())
   let joined = false
-  // an explicit pickup bar is counted with its group, not joined to a neighbour
   if (!bar.pickup) {
     if (bi === 0 && line.cont && li > 0) {
-      const prev = lines.value[li - 1]
-      tokens = [...barTokensAt(li - 1, prev.bars.length - 1), ...tokens]
+      const prev = lns[li - 1]
+      tokens = [...barTokensAt(li - 1, prev.bars.length - 1, lns), ...tokens]
       joined = true
-    } else if (bi === line.bars.length - 1 && lines.value[li + 1]?.cont && !lines.value[li + 1].bars[0]?.pickup) {
-      tokens = [...tokens, ...barTokensAt(li + 1, 0)]
+    } else if (bi === line.bars.length - 1 && lns[li + 1]?.cont && !lns[li + 1].bars[0]?.pickup) {
+      tokens = [...tokens, ...barTokensAt(li + 1, 0, lns)]
       joined = true
     }
   }
+  return { tokens, joined }
+}
+function barStatus(li, bi) {
+  const line = lines.value[li]
+  const bar = line.bars[bi]
+  const { tokens, joined } = barTokensJoined(lines.value, li, bi)
+  let hasText = bar.segments.some((s) => s.note.trim())
   if (joined) hasText = tokens.length > 0
   const pre = joined ? '⤷ ' : ''
   if (!hasText) return { text: 'ว่าง', ok: true }
@@ -1984,12 +1994,24 @@ function lintSong() {
   let count = 0
   for (const s of stanzas.value) {
     const ts = s.timeSignature || opts.timeSignature // ใบ#96 — each melody's bars against its own meter
-    for (const line of s.lines) {
-      for (const bar of line.bars) {
+    const exp = expectedBeats(ts)
+    const groups = pickupGroupsOf(s.lines, exp)
+    // ใบ#96 thread 28348 — a short bar the editor accepts (a ห้องยก whose group fills whole bars, or a
+    // bar split across two lines that is whole once joined) is not a beats error here either, so the
+    // song isn't published with a "จังหวะไม่ครบ" flag the editor never showed.
+    const beatsOk = (li, bi, bar) => {
+      if (exp == null) return false
+      if (bar.pickup) return !!groups.get(bar)?.ok
+      const { tokens, joined } = barTokensJoined(s.lines, li, bi)
+      return joined && Math.abs(beatCount(tokens) - exp) < 0.01
+    }
+    for (const [li, line] of s.lines.entries()) {
+      for (const [bi, bar] of line.bars.entries()) {
         const noteStr = bar.segments.map((seg) => seg.note || '').join(' ').trim()
         if (!noteStr) continue
         for (const f of lintBar(noteStr, { timeSignature: ts })) {
           if (f.severity === SEVERITY.HINT) continue
+          if (f.code === 'beats' && beatsOk(li, bi, bar)) continue
           count++
           codes.add(f.code)
         }

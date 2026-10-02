@@ -91,6 +91,35 @@ describe('ใบ#96 เสร็จเมื่อ 2 — the publish lint uses e
   })
 })
 
+// thread 28348 — the publish lint reads ห้องยก and a bar split across lines like the editor's own badge
+const seg = (note) => ({ type: 'segment', chord: 'C', note })
+const songOf = (stanzaR) => ({
+  id: 's-96p', number: 306, title_th: 'ห้องยก (ทดสอบ)', title_en: '',
+  content: {
+    version: 2, key: 'C', timeSignature: '6/8',
+    stanzas: [SONG.content.stanzas[0], { id: 'R', timeSignature: '4/4', ...stanzaR }],
+    arrangement: SONG.content.arrangement,
+  },
+})
+describe('ใบ#96 thread 28348 — the publish lint knows ห้องยก, on every melody', () => {
+  it('306-like รับ in 4/4: pickup `5` + full bars + closing `5 4 3` → clean (the editor says ห้องต่อกัน ✓)', async () => {
+    const w = await mountEd(songOf({ lines: [[{ type: 'pickup' }, seg('5'), { type: 'bar' }, seg('1 2 3 4'), { type: 'bar' }, { type: 'pickup' }, seg('5 4 3')]] }))
+    expect(w.vm.lintSong()).toEqual({ count: 0, codes: [] }) // รับ is NOT the open melody — still grouped
+    await select(w, 1)
+    expect(barTexts(w).filter((t) => t.includes('ห้องต่อกัน')).every((t) => t.includes('✓'))).toBe(true)
+  })
+  it('a bar split across two lines (the 2nd line is "cont") is whole once joined → clean', async () => {
+    const w = await mountEd(songOf({ lines: [[seg('1 2 3 4'), { type: 'bar' }, seg('5 4')], [{ type: 'continue' }, seg('3 2'), { type: 'bar' }, seg('1 - - -')]] }))
+    expect(w.vm.lintSong()).toEqual({ count: 0, codes: [] })
+  })
+  it('still caught: a short bar with no ห้องยก mark · a pickup pair that does not add up to a bar', async () => {
+    const short = await mountEd(songOf({ lines: [[seg('1 2 3 4'), { type: 'bar' }, seg('5 4 3')]] }))
+    expect(short.vm.lintSong()).toEqual({ count: 1, codes: ['beats'] })
+    const bad = await mountEd(songOf({ lines: [[{ type: 'pickup' }, seg('5'), { type: 'bar' }, seg('1 2 3 4'), { type: 'bar' }, { type: 'pickup' }, seg('5 4')]] }))
+    expect(bad.vm.lintSong()).toEqual({ count: 2, codes: ['beats'] })
+  })
+})
+
 describe('ใบ#96 เสร็จเมื่อ 3 — ฟังท่อน plays in the melody’s meter', () => {
   it('ฟังท่อนนี้ on รับ passes 4/4; on ข้อ passes the song meter', async () => {
     const w = await mountEd(withRMeter())
