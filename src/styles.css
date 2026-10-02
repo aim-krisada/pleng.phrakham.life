@@ -716,6 +716,17 @@ input, select, textarea {
   font-size: 0.85em;
   font-style: italic;
 }
+/* ใบ v3/pleng#96 — the new meter where a melody's time signature changes (book: "4/4" before รับ).
+   Bold like a printed time signature, boxed lightly so it reads as notation, not part of the name. */
+.section-meter {
+  margin-left: 8px;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-weight: 800;
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+}
 .font-ctl { display: inline-flex; gap: 3px; }
 .font-ctl button { min-width: 42px; min-height: 40px; padding: 6px 10px; }
 /* section chips — play the whole song or just one verse/refrain (feature 003) */

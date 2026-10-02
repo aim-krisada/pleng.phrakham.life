@@ -177,7 +177,12 @@ export function resolveContent(content) {
   const byId = {}
   for (const s of content.stanzas) byId[s.id] = s
   const out = []
-  const expBeats = expectedBeats(content.timeSignature)
+  // ใบ v3/pleng#96 — a MELODY may set its own meter (stanzas[].timeSignature, e.g. song 306: ข้อ 6/8 ·
+  // รับ 4/4). Unset = the song's. It belongs to the stanza (พี่เอม: "เปลี่ยนจังหวะของทำนอง"), so every
+  // ท่อน on that melody shares it. `songTs` is the fallback; a song with no stanza meter gets exactly
+  // the old single-meter behaviour (no `_ts` tag, no meter on any section marker).
+  const songTs = content.timeSignature
+  const tsOf = (stanza) => (stanza && stanza.timeSignature) || songTs
   // The songbook prints each melody line's notes ONCE; a later line renders as lyrics only
   // (stacked in place) when it repeats a melody. Two rules, both tagged here where the melody
   // is expanded (the sing view ignores the flag → notes on every line):
@@ -187,6 +192,7 @@ export function resolveContent(content) {
   //       whose 1st and 3rd lines share a tune (not adjacent) is never collapsed → its words
   //       stay in reading order.
   const seenStanza = new Set()
+  let prevEntryTs = songTs
   ;(content.arrangement || []).forEach((entry, ei) => {
     const stanza = byId[entry.stanza]
     if (!stanza) return
@@ -195,6 +201,12 @@ export function resolveContent(content) {
     const syls = entry.syllables || []
     let si = 0
     let prevSig = null // previous line's melody signature, within this entry only
+    const entryTs = tsOf(stanza)
+    const expBeats = expectedBeats(entryTs) // per melody — the pickup rule of melodyLineSignature
+    // show the meter on the sheet where it CHANGES (the book prints 4/4 before the refrain): vs the
+    // previous ท่อน's, and for the first ท่อน vs the song's own meter (which the song already states)
+    const meterChange = entryTs !== prevEntryTs ? entryTs : null
+    prevEntryTs = entryTs
     ;(stanza.lines || []).forEach((line, li) => {
       const outLine = []
       // B102 — a section carrying the strophic "รับทุกข้อ" directive shows a one-time rubric
@@ -208,9 +220,11 @@ export function resolveContent(content) {
       if (li === 0) {
         const label = (entry.label || '').trim()
         const name = label || ((content.arrangement || []).length > 1 ? `ข้อ ${ei + 1}` : '')
+        // (a lone unnamed ท่อน gets no marker, as before: its meter IS the song's — set it there)
         if (name) {
           const marker = { type: 'section', name }
           if (entry.afterEachVerse) marker.rubric = 'ร้องรับทุกข้อ'
+          if (meterChange) marker.meter = meterChange // ใบ#96 — "♦ รับ · 4/4"
           outLine.push(marker)
         }
       }
@@ -241,6 +255,9 @@ export function resolveContent(content) {
       // song). Tagged per ENTRY, not per stanza: two ท่อน sharing one melody can sit in different
       // keys. songToNotes roots this line's digits at it; unset = the song key (no tag at all).
       if (entry.key) outLine._key = entry.key
+      // ใบ v3/pleng#96 — this line's meter, only when its melody sets one of its own (else no tag:
+      // every consumer falls back to content.timeSignature exactly as before)
+      if (stanza.timeSignature) outLine._ts = stanza.timeSignature
       out.push(outLine)
     })
   })

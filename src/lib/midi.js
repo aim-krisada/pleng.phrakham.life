@@ -2,6 +2,7 @@
 // Converts notation tokens (movable do) + key + BPM into scheduled oscillator notes.
 
 import { parseNotes, groupNotes, DOT_FACTOR, noteBoxIndices, storedHold, suggestHoldForBar } from './notation.js'
+import { meterRegions, regionAt, origin } from './meterRegions.js'
 import { parseChord, chordToIntervals } from './chords.js'
 import { getReadyInstrument, loadInstrument, isSampledInstrument } from './sampler.js'
 import { arrange } from './arranger/index.js'
@@ -174,7 +175,10 @@ export function songToNotes(content) {
     // nothing. Untagged → no field at all → exactly the notes and chords it always produced.
     const ownRoot = line._key ? KEY_MIDI[line._key] : undefined
     const lineRoot = ownRoot ?? root
-    const kr = ownRoot != null && ownRoot !== root ? { keyRoot: ownRoot } : null
+    const kr0 = ownRoot != null && ownRoot !== root ? { keyRoot: ownRoot } : null
+    // ใบ v3/pleng#96 — a melody with its own meter (resolveContent tags `_ts`) stamps it on its notes
+    // (`ts`), so the arranger can count ITS bars from where it starts. Untagged → no field at all.
+    const kr = line._ts ? { ...kr0, ts: line._ts } : kr0
     let bi = 0
     let si = -1
     let bar = { notes: [], repeatStart: false, repeatEnd: false, volta: 0 }
@@ -401,10 +405,13 @@ export function buildChordVoice(notes) {
     // ใบ v3/pleng#95 — a ท่อน in its own key starts a fresh chord event even when the symbol
     // carries over, so the walking bass switches key exactly at the ท่อน. Songs with no ท่อน key
     // have no `keyRoot` anywhere (undefined === undefined) → events split exactly as before.
-    if (c && (!cur || cur.chord !== c || cur.keyRoot !== n.keyRoot)) {
+    // ใบ#96 — likewise a change of melody meter (`ts`) starts a fresh event, so a chord never straddles
+    // two meters (each event is phased in its own bars by the arranger)
+    if (c && (!cur || cur.chord !== c || cur.keyRoot !== n.keyRoot || cur.ts !== n.ts)) {
       if (cur) events.push(cur)
       cur = { chord: c, startBeat: beat, beats: 0 } // a new chord starts here
       if (n.keyRoot != null) cur.keyRoot = n.keyRoot
+      if (n.ts) cur.ts = n.ts
     }
     if (cur) cur.beats += n.beats // extend the held chord across this note (incl. blank-chord notes)
     beat += n.beats
@@ -423,6 +430,7 @@ export function buildChordVoice(notes) {
     // richer fills) can reason about it — the voiced pitches alone don't say "this is a plain triad".
     const ev = { chord: e.chord, bass: v.bass, up: v.up, slashBass: v.slashBass, midiSet: [v.bass, ...v.up], startBeat: e.startBeat, beats: e.beats }
     if (e.keyRoot != null) ev.keyRoot = e.keyRoot // ใบ#95 — this ท่อน's own key, for the walking bass
+    if (e.ts) ev.ts = e.ts // ใบ#96 — this melody's own meter, for the bar-locked comp/bass
     out.push(ev)
   }
   return out
@@ -958,6 +966,19 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     const from = pass === 0 ? seekFrom : 0
     const notes = from > 0 ? fullNotes.slice(from) : fullNotes
     const chordEvents = buildChordVoice(notes)
+    // ใบ v3/pleng#96 — a melody with its own meter accents ITS bars, from its first full bar. The
+    // ensemble's own metric accent is a fixed 4-beat bar (it never read the song meter); a beat in no
+    // own-meter region keeps exactly that, so a song with no melody meter sounds as before.
+    const ownMeter = meterRegions(notes)
+    const accentAt = (pb) => {
+      const r = regionAt(ownMeter, pb)
+      if (!r) return accent(pb)
+      const L = r.barBeats
+      const p = (((pb - origin(r, L)) % L) + L) % L
+      if (p < 0.01 || L - p < 0.01) return 1
+      if (Math.abs(p - L / 2) < 0.01) return 0.9
+      return Math.abs(p - Math.round(p)) < 0.01 ? 0.8 : 0.72
+    }
     const totalBeats = notes.reduce((s, n) => s + n.beats, 0)
     // §6b.2 REAL sections (verse โปร่ง → chorus เต็ม) — a beat→level lookup from the sheet's labels.
     // No sections → whole song = chorus (never breaks).
@@ -990,7 +1011,7 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
     for (let i = 0; i < notes.length; i++) {
       const n = notes[i]
       if (n.midi != null && melInst) {
-        const gd = accent(beat) * contour(i) * (1 + VJ * rnd()) * secGain(beat)
+        const gd = accentAt(beat) * contour(i) * (1 + VJ * rnd()) * secGain(beat)
         const t = t0 + beat * spb + TJ * rnd()
         const d = n.beats * spb
         if (lead === 'guitar') {
@@ -1013,12 +1034,12 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
       const up = e.up || []
       const bT = t0 + e.startBeat * spb
       const nb = Math.max(1, Math.round(e.beats))
-      const sg = secGain(e.startBeat), a = accent(e.startBeat)
+      const sg = secGain(e.startBeat), a = accentAt(e.startBeat)
       if (ce) { const bg = 0.32 * sg; for (let b = 0; b < nb; b += 3) { const seg = Math.min(3, nb - b); ce.fire(e.bass + T, bT + b * spb, seg * spb + 0.4, bg * a) } }
       if (gr) {
         const ag = 0.13 * sg
         const seq = [up[0], up[1] ?? up[0], up[2] ?? up[0], up[1] ?? up[0]].filter((m) => m != null)
-        for (let k = 0; k < nb && seq.length; k++) gr.fire(seq[k % seq.length] + T, bT + k * spb + TJ * rnd(), spb * 1.5, ag * accent(e.startBeat + k))
+        for (let k = 0; k < nb && seq.length; k++) gr.fire(seq[k % seq.length] + T, bT + k * spb + TJ * rnd(), spb * 1.5, ag * accentAt(e.startBeat + k))
       }
     }
 
