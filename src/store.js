@@ -27,6 +27,25 @@ export function resetFontScale() { readingFontScale.value = 1 }
 // Absolute set (clamped) — for a slider control that supplies the whole value (B045 dock Aa).
 export function setFontScale(v) { readingFontScale.value = clampFs(v) }
 
+// ---- ฝึกร้อง: what the sheet shows + how เนื้อล้วน is written (ใบ v3/pleng#100) ----
+// พี่เอม 4 ต.ค. 2569: "เปิดเพลงใหม่ต้อง set ทุกครั้ง" — the แสดงผล choice (ครบ · เนื้อ+คอร์ด · เนื้อ+โน้ต · เนื้อล้วน ·
+// โน้ตล้วน) and the เนื้อล้วน writing (split = แยกพยางค์ · join = ติดกันเป็นวรรค) are remembered on this device, no
+// login, like the text size. An unknown stored value falls back to the default.
+const DISPLAY_KEY = 'pleng.sheetDisplay'
+export const SHEET_DISPLAYS = ['all', 'chord', 'note', 'lyric', 'noteonly']
+export const sheetDisplay = ref((() => {
+  try { const v = localStorage.getItem(DISPLAY_KEY); if (SHEET_DISPLAYS.includes(v)) return v } catch { /* ignore */ }
+  return 'all'
+})())
+watch(sheetDisplay, (v) => { try { localStorage.setItem(DISPLAY_KEY, v) } catch { /* ignore */ } })
+const LYRIC_JOIN_KEY = 'pleng.lyricJoin'
+export const LYRIC_JOINS = ['split', 'join']
+export const lyricJoin = ref((() => {
+  try { const v = localStorage.getItem(LYRIC_JOIN_KEY); if (LYRIC_JOINS.includes(v)) return v } catch { /* ignore */ }
+  return 'split'
+})())
+watch(lyricJoin, (v) => { try { localStorage.setItem(LYRIC_JOIN_KEY, v) } catch { /* ignore */ } })
+
 // ---- reader Thai typeface (per-user · site-wide · localStorage) ----
 // A whole-site Thai typeface preference. 'default' = the loopless Noto Sans Thai the app
 // ships with; 'looped' = Noto Sans Thai Looped (มีหัว). Per-user like readingFontScale —

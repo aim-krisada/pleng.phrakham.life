@@ -124,4 +124,21 @@ describe('SongSheet — per-syllable render, highlight and tap-to-jump', () => {
     expect(lit[0].text()).toBe('ข') // the sounding syllable, not the whole line
     expect(w.find('.segment').classes()).not.toContain('seg-playing') // v2 → syllable-level, not segment
   })
+  // ใบ v3/pleng#100 — "ติดกันเป็นวรรค": the same per-syllable spans (the karaoke still walks syllable by syllable),
+  // but no space between them unless the tune breathes there; split mode keeps a space after every syllable.
+  it('ใบ#100 — lyricJoin writes the line joined, keeps the per-syllable highlight; off = one space per syllable', () => {
+    const joined = mount(SongSheet, { props: { content, showChord: false, showNote: false, showLyric: true, lyricJoin: true, playingSyl: { li: 0, si: 0, syk: 1 } } })
+    expect(joined.find('.song-line').classes()).toContain('song-line-join')
+    expect(joined.findAll('.syl').length).toBe(3)
+    expect(joined.find('.syl-playing').text()).toBe('ข')
+    expect(joined.find('.lyric-words').element.textContent).toBe('กขค')
+    const split = mount(SongSheet, { props: { content, showChord: false, showNote: false, showLyric: true } })
+    expect(split.find('.song-line').classes()).not.toContain('song-line-join')
+    expect(split.find('.lyric-words').element.textContent).toBe('ก ข ค ')
+  })
+  it('ใบ#100 — lyricJoin does nothing outside เนื้อล้วน (the notes still show)', () => {
+    const w = mount(SongSheet, { props: { content, showChord: true, showNote: true, showLyric: true, lyricJoin: true } })
+    expect(w.find('.song-line-join').exists()).toBe(false)
+    expect(w.findAll('.nt').length).toBe(3)
+  })
 })

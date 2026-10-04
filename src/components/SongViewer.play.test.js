@@ -39,7 +39,7 @@ Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function 
 Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function () {}
 
 import SongViewer from './SongViewer.vue'
-import { setEnsembleMode, ensembleMode } from '../store.js'
+import { setEnsembleMode, ensembleMode, sheetDisplay, lyricJoin } from '../store.js'
 
 // SongViewer now mounts its own dock (the DockKey engine via <SingTransport>) — no external
 // wiring to reproduce. A thin wrapper just carries the song/tier props.
@@ -94,7 +94,7 @@ const twoSecSong = {
 
 const SongSheetStub = {
   name: 'SongSheet',
-  props: ['content', 'mode', 'chordSystem', 'displayKey', 'playingSeg', 'playingSyl', 'interactive', 'showChord', 'showNote', 'showLyric', 'songTitle'],
+  props: ['content', 'mode', 'chordSystem', 'displayKey', 'playingSeg', 'playingSyl', 'interactive', 'showChord', 'showNote', 'showLyric', 'lyricJoin', 'songTitle'],
   emits: ['seek'],
   template:
     '<div class="sheet" :data-seg="playingSeg ? playingSeg.li + \'-\' + playingSeg.si : \'\'"' +
@@ -152,6 +152,9 @@ beforeEach(() => {
   // these tests assert the SOLO path (playSong args: transpose/voices/instrument). The viewer's
   // default is now เต็มวง (playEnsemble), so force solo here; a dedicated test covers ensemble.
   setEnsembleMode('solo')
+  // ใบ#100 — แสดงผล + เนื้อล้วน writing are remembered now (store), so a pick in one test would carry into the next
+  sheetDisplay.value = 'all'
+  lyricJoin.value = 'split'
 })
 afterEach(() => {
   while (mountedViewers.length) { try { mountedViewers.pop().unmount() } catch { /* already gone */ } }
@@ -380,6 +383,27 @@ describe('SongViewer key / tempo / loop / readability (US-A02, US-A03)', () => {
     expect(sheet(w).props('showNote')).toBe(false)
     expect(sheet(w).props('showChord')).toBe(false)
     expect(sheet(w).props('mode')).toBe('lyrics')
+  })
+
+  it('ใบ#100 — the เนื้อร้อง menu appears only with เนื้อล้วน; ติดกันเป็นวรรค reaches the sheet and is remembered', async () => {
+    const w = mountViewer()
+    await nextTick()
+    await openSettings(w)
+    expect(w.find('.dk-panel [data-setting="lyricjoin"]').exists()).toBe(false) // ครบ: no such choice
+    await pickSelect(w, 'display', 'lyric')
+    expect(w.find('.dk-panel [data-setting="lyricjoin"]').exists()).toBe(true)
+    expect(sheet(w).props('lyricJoin')).toBe(false) // default แยกพยางค์, as before
+    await pickSelect(w, 'lyricjoin', 'join')
+    expect(sheet(w).props('lyricJoin')).toBe(true)
+    expect(sheet(w).props('showNote')).toBe(false) // notes + chords stay hidden
+    expect(sheet(w).props('showChord')).toBe(false)
+    expect(localStorage.getItem('pleng.lyricJoin')).toBe('join')
+    expect(localStorage.getItem('pleng.sheetDisplay')).toBe('lyric')
+    // another song opened afterwards starts the same way
+    const w2 = mountViewer()
+    await nextTick()
+    expect(sheet(w2).props('showNote')).toBe(false)
+    expect(sheet(w2).props('lyricJoin')).toBe(true)
   })
 
   it('คอร์ด → ซ่อนคอร์ด hides the chord layer even in a full display (B024)', async () => {

@@ -177,6 +177,9 @@ const items = computed(() => {
     { id: 'chord', kind: 'menu', name: 'คอร์ด', icon: 'guitar', default: 'inSetting', pinnable: true, control: menuControl('chord') },
     { id: 'speed', kind: 'menu', name: 'ความเร็ว', icon: 'gauge', default: 'inSetting', pinnable: true, control: menuControl('tempo') },
     { id: 'layer', kind: 'menu', name: 'แสดงผล', icon: 'layers', default: 'inSetting', pinnable: true, control: menuControl('display') },
+    // ใบ v3/pleng#100 — เนื้อล้วน: แยกพยางค์ or ติดกันเป็นวรรค. The page supplies it only while แสดงผล = เนื้อล้วน,
+    // so the filter below drops this row in every other display.
+    { id: 'lyricjoin', kind: 'menu', name: 'เนื้อร้อง', icon: 'file-text', default: 'inSetting', pinnable: true, control: menuControl('lyricjoin') },
     // B107 step 9 — เสียงที่เล่น · การบรรเลง · เครื่องดนตรี · อารมณ์/สไตล์ moved into the single
     // "เสียงดนตรี" bar button + popover (soundctl above), so they're no longer separate ⚙ items.
     { id: 'alpha', kind: 'slider', name: 'โปร่งใส', icon: 'blend', default: 'inSetting', pinnable: true, control: { min: 40, max: 100, value: Math.round(alpha.value * 100), onInput: (v) => (alpha.value = v / 100) } },
