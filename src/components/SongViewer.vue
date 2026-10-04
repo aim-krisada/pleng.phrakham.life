@@ -17,7 +17,7 @@ import { resolveContent, resolvePlayOrder, lyricSetName, inLyricSet } from '../l
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
-  ensembleMode, setEnsembleMode, leadInstrument, setLeadInstrument } from '../store.js'
+  ensembleMode, setEnsembleMode, leadInstrument, setLeadInstrument, sheetDisplay, lyricJoin } from '../store.js'
 import { presetCfg, recommendRecipe, songFeatures } from '../lib/arranger/presets.js'
 import { buildArrangeCfg, readTechniques } from '../lib/arranger/techniques.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
@@ -43,7 +43,14 @@ const DISPLAY_OPTS = [
   { value: 'lyric', label: 'เนื้อล้วน', short: 'เนื้อ', chord: false, note: false, lyric: true },
   { value: 'noteonly', label: 'โน้ตล้วน', short: 'โน้ตล้วน', chord: false, note: true, lyric: false },
 ]
-const display = ref('all')
+// ใบ v3/pleng#100 — remembered on this device (store.js), so the next song opens the same way
+const display = sheetDisplay
+// how เนื้อล้วน is written: แยกพยางค์ (as before) or ติดกันเป็นวรรค like the songbook (also remembered)
+const LYRIC_JOIN_OPTS = [
+  { value: 'split', label: 'แยกพยางค์', short: 'แยก' },
+  { value: 'join', label: 'ติดกันเป็นวรรค', short: 'ติด' },
+]
+const lyricJoinDef = computed(() => LYRIC_JOIN_OPTS.find((o) => o.value === lyricJoin.value) || LYRIC_JOIN_OPTS[0])
 const displayDef = computed(() => DISPLAY_OPTS.find((o) => o.value === display.value) || DISPLAY_OPTS[0])
 const CHORD_OPTS = [
   { value: 'letter', label: 'คอร์ดตัวอักษร (A B C)' },
@@ -618,6 +625,11 @@ const settingDescs = computed(() => [
     id: 'display', icon: 'layers', label: 'แสดงผล', kind: 'menu', value: display.value, badge: displayDef.value.short,
     options: DISPLAY_OPTS.map((o) => ({ value: o.value, label: o.label })), onPick: (v) => (display.value = v),
   },
+  // ใบ#100 — only meaningful when just the words show
+  ...(display.value === 'lyric' ? [{
+    id: 'lyricjoin', icon: 'file-text', label: 'เนื้อร้อง', kind: 'menu', value: lyricJoin.value, badge: lyricJoinDef.value.short,
+    options: LYRIC_JOIN_OPTS.map((o) => ({ value: o.value, label: o.label })), onPick: (v) => (lyricJoin.value = v),
+  }] : []),
   {
     id: 'sound', icon: 'volume-2', label: 'เสียงที่เล่น', kind: 'menu', value: soundMode.value, badge: soundDef.value.short,
     options: SOUND_OPTS.map((o) => ({ value: o.value, label: o.label, short: o.short })), onPick: (v) => setSoundMode(v),
@@ -763,6 +775,7 @@ function onSeek({ li, si, syk }) {
         :show-chord="showChord"
         :show-note="showNote"
         :show-lyric="showLyric"
+        :lyric-join="lyricJoin === 'join'"
         :display-key="displayKey"
         :playing-seg="playingSeg"
         :playing-syl="playingSyl"

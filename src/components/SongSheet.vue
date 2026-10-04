@@ -4,6 +4,7 @@ import { displayChord } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, slurSpans, segmentBeamLink } from '../lib/notation.js'
 import { buildArc, planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { pixelRatio, levelTop, lineThickness } from '../lib/pixelSnap.js'
+import { phraseBreaks, songBreathBeats } from '../lib/lyricPhrase.js'
 import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
@@ -21,6 +22,8 @@ const props = defineProps({
   showChord: { type: Boolean, default: null },
   showNote: { type: Boolean, default: null },
   showLyric: { type: Boolean, default: null },
+  // ใบ v3/pleng#100 — เนื้อล้วน written "ติดกันเป็นวรรค" (songbook style) instead of one space per syllable
+  lyricJoin: { type: Boolean, default: false },
   // Songbook layout (B059): print each melody (stanza) once. The first verse that uses a
   // stanza shows note+chord+lyric; later verses that reuse the same stanza show lyrics only
   // (verse number + words), like a printed hymn book. Off = every line keeps its own layers
@@ -43,6 +46,25 @@ const lyricsOnly = computed(() => sl.value && !sn.value && !sc.value)
 function noteOn(first) { return sn.value && (!props.songbook || first) }
 function chordOn(first) { return sc.value && (!props.songbook || first) }
 function lineLyricsOnly(first) { return sl.value && !noteOn(first) && !chordOn(first) }
+// ใบ#100 — per line, the syllables a space follows when เนื้อล้วน is written joined (lib/lyricPhrase.js):
+// where the tune breathes, never inside a word. Split mode = a space after every syllable, as before.
+const joinBreaks = computed(() => {
+  const out = {}
+  if (!props.lyricJoin) return out
+  const lines = renderLines.value.map(({ parts }) => {
+    const segs = []
+    for (const p of parts) for (const seg of p.segments || []) if (Array.isArray(seg.syllables)) segs.push({ si: seg.si, note: seg.note, syllables: seg.syllables })
+    return segs
+  })
+  const breathBeats = songBreathBeats(lines) // "long" is measured against this song's own syllables
+  lines.forEach((segs, li) => { out[li] = phraseBreaks(segs, { breathBeats }) })
+  return out
+})
+function spaceAfter(li, si, k) {
+  if (!props.lyricJoin) return true
+  const b = joinBreaks.value[li]
+  return !!(b && b.has(`${si}-${k}`))
+}
 // A reused verse's melody-only line (no words) prints as an empty gap — hide it, unless it
 // carries a section heading. Only ever hides lines that are lyrics-only to begin with.
 function isEmptyLyricLine(row) {
@@ -390,7 +412,7 @@ watch(
          that renders the sheet (ดู or แผ่น), which is why P'Aim's ดู-mode print had none. -->
     <h1 v-if="songTitle" class="sheet-print-title">{{ songTitle }}</h1>
     <div v-for="(grp, gi) in renderGroups" :key="gi" class="song-section">
-    <div v-for="row in grp.lines" :key="row.li" v-show="!isEmptyLyricLine(row)" :data-li="row.li" class="song-line" :class="{ 'song-line-lyrics': lineLyricsOnly(row.first) }">
+    <div v-for="row in grp.lines" :key="row.li" v-show="!isEmptyLyricLine(row)" :data-li="row.li" class="song-line" :class="{ 'song-line-lyrics': lineLyricsOnly(row.first), 'song-line-join': lyricJoin && lineLyricsOnly(row.first) }">
       <!-- B069: cross-bar ties as ONE continuous arc, drawn in this line's own overlay so
            NoteRow's per-segment halves (hidden in JS) are replaced by a curve that spans the
            bar line. Per-line (not sheet-wide) so it prints on whatever page the line lands. -->
@@ -447,7 +469,7 @@ watch(
                   :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
                   :data-syl="`${row.li}-${seg.si}-${k}`"
                   @click.stop="seek(row.li, seg.si, k)"
-                >{{ w }}</span>{{ w ? ' ' : '' }}</template>
+                >{{ w }}</span>{{ w && spaceAfter(row.li, seg.si, k) ? ' ' : '' }}</template>
               </span>
               <!-- v1 (no syllables array): the whole lyric as before (seg-playing highlight). -->
               <span v-else class="lyric">{{ seg.lyric }}&nbsp;</span>
@@ -516,6 +538,17 @@ watch(
   width: 100%;
   justify-content: space-around;
 }
+/* ใบ v3/pleng#100 — เนื้อล้วน "ติดกันเป็นวรรค": the line flows as ONE run of text, so the chord segments (normally
+   side-by-side boxes with a gap) and the per-syllable padding must not add space — the only spaces are the
+   breath spaces lyricPhrase.js puts in. Split mode (no .song-line-join) is untouched. */
+.song-line-join { display: block; } /* not the bar-wrapping flex row — the browser wraps Thai words itself */
+.song-line-join .section-label,
+.song-line-join .section-marker,
+.song-line-join .line-label { display: block; }
+.song-line-join .bar-group,
+.song-line-join .segment { display: inline; margin: 0; padding: 0; }
+.song-line-join .segment .lyric { display: inline; }
+.song-line-join .syl { padding: 0; }
 /* เนื้อล้วน display: per-syllable spans read as natural inline words (a space text-node sits after
    each), so the karaoke walks syllable-by-syllable while the line still reads like a plain verse. */
 .lyric-words { display: inline; }
