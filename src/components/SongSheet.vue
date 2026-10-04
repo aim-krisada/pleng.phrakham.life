@@ -542,9 +542,11 @@ watch(
    side-by-side boxes with a gap) and the per-syllable padding must not add space — the only spaces are the
    breath spaces lyricPhrase.js puts in. Split mode (no .song-line-join) is untouched. */
 .song-line-join { display: block; } /* not the bar-wrapping flex row — the browser wraps Thai words itself */
-.song-line-join .section-label,
+/* the ♦ heading sits on its own line above, as in split mode; a *** marker / line label stays inline with
+   the words (ใบ#101: as a block it added a row to every refrain and pushed a printed sheet onto a 2nd page) */
+.song-line-join .section-label { display: block; }
 .song-line-join .section-marker,
-.song-line-join .line-label { display: block; }
+.song-line-join .line-label { margin-right: 0.4em; }
 .song-line-join .bar-group,
 .song-line-join .segment { display: inline; margin: 0; padding: 0; }
 .song-line-join .segment .lyric { display: inline; }
