@@ -1,6 +1,6 @@
 // ใบ v3/pleng#101 — แผ่นเพลง gets the same "แยกพยางค์ / ติดกันเป็นวรรค" choice as ฝึกร้อง (ใบ#100). The menu shows only
 // while the sheet has lyrics-only lines to write that way (สมุดเพลง, or แสดงผล = เนื้อล้วน); the pick reaches
-// SongSheet and is the one remembered value both pages share (store.lyricJoin).
+// SongSheet and is remembered for แผ่นเพลง alone (store.sheetLyricJoin) — พี่เอม 5 ต.ค. 2569: each page keeps its own.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
@@ -20,7 +20,7 @@ vi.mock('../supabase.js', () => {
 import Studio from './Studio.vue'
 import SongSheet from '../components/SongSheet.vue'
 import EditorMode from '../components/EditorMode.vue'
-import { lyricJoin } from '../store.js'
+import { lyricJoin, sheetLyricJoin } from '../store.js'
 
 const stubs = {
   SongViewer: { name: 'SongViewer', props: ['song'], template: '<div class="stub-viewer" />' },
@@ -32,6 +32,7 @@ const stubs = {
 beforeEach(() => {
   document.body.innerHTML = '<div id="shell-title"></div><div id="shell-menus"></div>'
   lyricJoin.value = 'split'
+  sheetLyricJoin.value = 'split'
 })
 
 async function openSheet() {
@@ -59,7 +60,8 @@ describe('ใบ#101 — แผ่นเพลง: แยกพยางค์ /
     await sel.setValue('join')
     await nextTick()
     expect(w.findComponent(SongSheet).props('lyricJoin')).toBe(true)
-    expect(lyricJoin.value).toBe('join') // the one value ฝึกร้อง reads too
+    expect(sheetLyricJoin.value).toBe('join') // remembered for แผ่นเพลง
+    expect(lyricJoin.value).toBe('split') // ฝึกร้อง's own choice is untouched
   })
   it('แบบเต็ม with notes shown: no lyrics-only lines → no เนื้อร้อง menu', async () => {
     const w = await openSheet()
@@ -68,8 +70,13 @@ describe('ใบ#101 — แผ่นเพลง: แยกพยางค์ /
     await nextTick()
     expect(w.findAll('.dk-panel [data-setting]').map((r) => r.attributes('data-setting'))).not.toContain('lyricjoin')
   })
-  it('a choice made on ฝึกร้อง is already in place on แผ่นเพลง', async () => {
+  it('a choice made on ฝึกร้อง does NOT change แผ่นเพลง (each page keeps its own)', async () => {
     lyricJoin.value = 'join'
+    const w = await openSheet()
+    expect(w.findComponent(SongSheet).props('lyricJoin')).toBe(false)
+  })
+  it('แผ่นเพลง opens with its own remembered choice', async () => {
+    sheetLyricJoin.value = 'join'
     const w = await openSheet()
     expect(w.findComponent(SongSheet).props('lyricJoin')).toBe(true)
   })

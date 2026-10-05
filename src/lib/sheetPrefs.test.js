@@ -30,6 +30,19 @@ describe('ใบ#100 — the sheet display + lyric writing are remembered', () =
     expect(st.sheetDisplay.value).toBe('lyric')
     expect(st.lyricJoin.value).toBe('join')
   })
+  it('ใบ#101 — แผ่นเพลง has its own remembered แยก/ติด, separate from ฝึกร้อง; a ฝึกร้อง pick from ใบ#100 is kept', async () => {
+    let st = await storeWith({ 'pleng.lyricJoin': 'join' }) // someone who already chose on ฝึกร้อง
+    expect(st.lyricJoin.value).toBe('join')
+    expect(st.sheetLyricJoin.value).toBe('split') // แผ่นเพลง starts at its own default
+    st.sheetLyricJoin.value = 'join'
+    st.lyricJoin.value = 'split'
+    await nextTick()
+    expect(localStorage.getItem('pleng.sheetLyricJoin')).toBe('join')
+    expect(localStorage.getItem('pleng.lyricJoin')).toBe('split')
+    vi.resetModules()
+    st = await import('../store.js')
+    expect([st.lyricJoin.value, st.sheetLyricJoin.value]).toEqual(['split', 'join'])
+  })
   it('a stale or broken stored value falls back to the default', async () => {
     const st = await storeWith({ 'pleng.sheetDisplay': 'karaoke', 'pleng.lyricJoin': 'yes' })
     expect(st.sheetDisplay.value).toBe('all')
