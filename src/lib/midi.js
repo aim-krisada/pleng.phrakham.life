@@ -40,6 +40,20 @@ export const TEMPO_MARKS = [
   { value: 180, label: 'Presto ♩=180 (เร็วมาก)' },
 ]
 
+// ใบ v3/pleng#102 — the tempo is a FREE number now, not only the nine marks above. TEMPO_MARKS stays
+// as the quick-pick list (every value it ever offered is still one tap away), but the ฝึกร้อง dock
+// also lets the listener land on 84, 86, 107… anywhere in this window. The window is the usable
+// singing/metronome range, widened so EVERY bpm already stored in the library stays reachable
+// (checked 2026-10-10: the 610 songs that carry a bpm span 47…220 — a narrower clamp would have
+// made a stored value impossible to return to, breaking "ของเดิมเหมือนเดิม"). Playback itself has no
+// limit — this is the UI's clamp, kept here so the dock, the tap-tempo pad and any future แก้ไข
+// field share ONE definition.
+export const TEMPO_MIN = 40
+export const TEMPO_MAX = 240
+// one tap of −/+ moves this many bpm (small enough to fine-tune by ear, big enough to feel)
+export const TEMPO_STEP = 2
+export const clampTempo = (n) => Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, Math.round(Number(n) || 0)))
+
 let ctx = null
 let stopFlag = { stopped: false }
 // B107 step 9 — a monotonic play token. Every playSong/playEnsemble call takes the next token at

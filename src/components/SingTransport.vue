@@ -15,6 +15,7 @@ import Icon from './Icon.vue'
 import DockKey from './DockKey.vue'
 import ExportTool from './ExportTool.vue'
 import SoundControl from './SoundControl.vue'
+import TempoControl from './TempoControl.vue'
 import { readingFontScale, setFontScale } from '../store.js'
 
 const props = defineProps({
@@ -155,6 +156,15 @@ const soundIcon = computed(() => {
 })
 const hasSound = computed(() => soundGroups.value.length > 0)
 
+// ---------- ความเร็ว (ใบ v3/pleng#102) — fed by the page's `tempo` setting ----------
+// The descriptor carries the bpm sounding now (`value`), the song's own stored bpm (`songBpm`, for
+// the "ตามเพลง" chip) and `onPick` to set a new one. Any bpm in the allowed window is valid now, so
+// the cell no longer uses the setting's `options` list — those became quick-pick chips inside it.
+const tempoSetting = computed(() => findSetting('tempo'))
+const tempoBpm = computed(() => Number(tempoSetting.value?.value) || 92)
+const tempoSongBpm = computed(() => Number(tempoSetting.value?.songBpm) || 0)
+function setTempo(v) { tempoSetting.value?.onPick?.(v) }
+
 // ---------- ITEMS_SING — the descriptor list handed to the engine ----------
 const items = computed(() => {
   const keyCtl = menuControl('key')
@@ -166,16 +176,21 @@ const items = computed(() => {
     { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { anchor: 'rightOf:forward', row: 1 } },
     { id: 'scale', kind: 'aa', name: 'ขนาดตัวอักษร', place: { anchor: 'leftOf:setting', row: 1 }, permanent: true },
     { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
-    { id: 'timeslide', kind: 'timeline', name: 'ไทม์ไลน์', place: { row: 2, col: 1, span: 3 } },
+    // `flex` = the ONE row-2 cell allowed to shrink: the rail gives up pixels on a narrow phone so
+    // the row (now carrying ความเร็ว too, ใบ#102) can never overflow the dock.
+    { id: 'timeslide', kind: 'timeline', name: 'ไทม์ไลน์', place: { row: 2, col: 1, span: 3 }, flex: '1 1 auto' },
     { id: 'key', kind: 'menu', name: 'คีย์', icon: 'key-round', place: { row: 2, col: 4, span: 1 }, control: keyCtl },
-    { id: 'tuan', kind: 'sel', name: 'เลือกท่อน', icon: 'list-music', place: { row: 2, col: 5, span: 1 }, hidden: !props.hasSections },
+    // ใบ v3/pleng#102 — ความเร็ว is a BAR cell now, not a ⚙ menu: the number must be readable at all
+    // times (ข้อ 4) and a new speed must be ≤3 taps away from the song page (ข้อ 3 — here it is 2:
+    // tap the button, tap +). TempoControl draws the button and its popover.
+    { id: 'speed', kind: 'slot', name: 'ความเร็ว', icon: 'gauge', place: { row: 2, col: 5, span: 1 }, permanent: true, hidden: !tempoSetting.value },
+    { id: 'tuan', kind: 'sel', name: 'เลือกท่อน', icon: 'list-music', place: { row: 2, col: 6, span: 1 }, hidden: !props.hasSections },
     // B107 step 9 — the ONE "เสียงดนตรี" button (audio-lines) → popover with all 4 sound axes.
     // On row 2 (with the collapsed ท่อน) so row 1's transport never overflows a narrow phone.
     { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', place: { row: 2, col: 7 }, hidden: !hasSound.value },
     // optional — home is the ⚙ Setting page · ปักขึ้นแถบได้
     { id: 'repeat', kind: 'toggle', name: 'วนซ้ำ', icon: 'repeat', default: 'inSetting', pinnable: true, control: { value: props.loop, onToggle: () => emit('toggle-loop') } },
     { id: 'chord', kind: 'menu', name: 'คอร์ด', icon: 'guitar', default: 'inSetting', pinnable: true, control: menuControl('chord') },
-    { id: 'speed', kind: 'menu', name: 'ความเร็ว', icon: 'gauge', default: 'inSetting', pinnable: true, control: menuControl('tempo') },
     { id: 'layer', kind: 'menu', name: 'แสดงผล', icon: 'layers', default: 'inSetting', pinnable: true, control: menuControl('display') },
     // ใบ v3/pleng#100 — เนื้อล้วน: แยกพยางค์ or ติดกันเป็นวรรค. The page supplies it only while แสดงผล = เนื้อล้วน,
     // so the filter below drops this row in every other display.
@@ -225,7 +240,12 @@ const items = computed(() => {
 
     <!-- ===== คีย์ (col 4) drawn by the engine (kind menu) ===== -->
 
-    <!-- ===== เลือกท่อน (col 5-6) — trigger + selector panel (one-at-a-time via engine) ===== -->
+    <!-- ===== ความเร็ว (col 5) — ตัวเลขเห็นตลอด · แตะเพื่อปรับ/เคาะจังหวะ (ใบ v3/pleng#102) ===== -->
+    <template #cell-speed="{ open, toggle }">
+      <TempoControl :open="open" :value="tempoBpm" :song-bpm="tempoSongBpm" @toggle="toggle" @set="setTempo" />
+    </template>
+
+    <!-- ===== เลือกท่อน (col 6) — trigger + selector panel (one-at-a-time via engine) ===== -->
     <template #cell-tuan="{ open, toggle, close }">
       <!-- ICON-ONLY (P'Aim 13 ก.ค. · มือถือแคบ): the "ทั้งหมด" text is dropped to save width. The
            count badge shows ONLY when a SUBSET is picked (ท่อนเดียว/วนซ้ำ) — then the button is also
@@ -313,11 +333,14 @@ const items = computed(() => {
 
 <style scoped>
 /* ===== ไทม์ไลน์ ===== */
-/* natural-width timeline cell (no stretch) so it can't be squeezed and overflow into คีย์ (B1) */
-.st-seekwrap { display: inline-flex; align-items: center; gap: 8px; padding-right: 4px; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-/* fixed, usable timeline width; the fit-content dock hugs it + the คีย์/ท่อน cells.
-   Narrower on a phone so row 2 (timeline·คีย์·ท่อน) fits the viewport-capped dock (no overflow). */
-.st-seek { position: relative; flex: 0 0 158px; width: 158px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+/* The timeline cell asks for its natural width (so it never overflows into คีย์ · B1) but the RAIL
+   inside it may shrink when the dock hits the viewport cap — the clock + "รอบ N" keep their size. */
+.st-seekwrap { display: flex; align-items: center; gap: 8px; padding-right: 4px; min-width: 0; max-width: 100%; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Preferred timeline width; the fit-content dock hugs it + the คีย์/ความเร็ว/ท่อน cells.
+   Narrower on a phone so row 2 fits the viewport-capped dock (no overflow). ใบ#102: the rail may now
+   SHRINK (flex-shrink 1, floor 72px) — row 2 gained the ความเร็ว cell, and on a narrow phone the rail
+   giving up a few pixels is far better than the whole row spilling out of the dock. */
+.st-seek { position: relative; flex: 0 1 158px; width: 158px; min-width: 72px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
 @media (max-width: 760px) { .st-seek { flex-basis: 112px; width: 112px; } }
 .st-time { flex: 0 0 auto; }
 /* B102 — "รอบ N" now-playing badge: the current ท่อน + refrain pass, in the brand colour so it

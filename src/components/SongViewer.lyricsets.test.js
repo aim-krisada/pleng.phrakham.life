@@ -16,6 +16,10 @@ vi.mock('../lib/midi.js', () => ({
   buildPlayNotes: () => [],
   effectiveOrder: () => undefined,
   TEMPO_MARKS: [{ value: 92, label: 'Andante ♩=92' }],
+  TEMPO_MIN: 40,
+  TEMPO_MAX: 240,
+  TEMPO_STEP: 2,
+  clampTempo: (n) => Math.min(240, Math.max(40, Math.round(Number(n) || 0))),
 }))
 window.matchMedia = window.matchMedia || (() => ({ matches: false }))
 Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function () {}

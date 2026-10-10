@@ -30,6 +30,11 @@ vi.mock('../lib/midi.js', () => {
     effectiveOrder: (secs, sel) =>
       !sel || !sel.size ? undefined : (secs || []).filter((s) => sel.has(s.name)).map((s) => ({ name: s.name, fromLi: s.fromLi, toLi: s.toLi })),
     TEMPO_MARKS: [{ value: 92, label: 'Andante ♩=92' }, { value: 120, label: 'Allegro ♩=120' }],
+    // ใบ v3/pleng#102 — the tempo window + clamp the ความเร็ว control uses
+    TEMPO_MIN: 40,
+    TEMPO_MAX: 240,
+    TEMPO_STEP: 2,
+    clampTempo: (n) => Math.min(240, Math.max(40, Math.round(Number(n) || 0))),
   }
 })
 
@@ -127,8 +132,20 @@ async function toggleLoop(w) {
   await nextTick()
 }
 // the page's setting ids → the adapter's descriptor ids in the Setting page
-const SROW = { display: 'layer', tempo: 'speed', chord: 'chord' }
+const SROW = { display: 'layer', chord: 'chord' }
+// ใบ v3/pleng#102 — ความเร็ว left the ⚙ Setting page for dock row 2 and became a FREE number
+// (−/+ · slider · เคาะตามจังหวะ), so these helpers drive the slider instead of a <select>.
+const tempoBadge = (w) => w.find('[data-cell="speed"] .tc-num')
+async function openTempo(w) {
+  if (!w.find('.tc-pop').exists()) { await w.find('[data-cell="speed"] .tc-trig').trigger('click'); await nextTick() }
+}
+async function setTempo(w, value) {
+  await openTempo(w)
+  await w.find('.tc-pop .tc-slider').setValue(String(value))
+  await nextTick()
+}
 async function pickSelect(w, id, value) {
+  if (id === 'tempo') return setTempo(w, value)
   if (id === 'key') { // คีย์ is a bar dropdown (row 2), not a Setting-page select
     await w.find('[data-cell="key"] .dk-pbtn').trigger('click')
     await nextTick()
@@ -489,6 +506,71 @@ describe('SongViewer follow-along scroll pause (B016 / B038)', () => {
     expect(w.find('.sheet').attributes('data-syl')).toBe('0-0-1')
     expect(scrollSpy).toHaveBeenCalled()
     scrollSpy.mockRestore()
+  })
+})
+
+// ใบ v3/pleng#102 — ความเร็ว เป็นเลขอิสระ ตั้งจากการเคาะได้ และกลับเป็นของเพลงเองเมื่อเปิดเพลงใหม่
+describe('ใบ#102 — ความเร็วอิสระ + เคาะจังหวะ (ฝึกร้อง)', () => {
+  const bpmSong = { number: 7, title_th: 'จับเวลา', content: { ...song.content, bpm: 108 } }
+
+  it('ข้อ 4 — the bar always shows the bpm that will play, with no panel open', async () => {
+    const w = mountViewer(bpmSong)
+    await nextTick()
+    expect(tempoBadge(w).text()).toBe('108')
+    expect(w.find('.dk-panel').exists()).toBe(false) // nothing had to be opened to read it
+  })
+
+  it('ข้อ 2 — a number OFF the old nine-mark list reaches playback (84 → 86)', async () => {
+    const w = mountViewer(bpmSong)
+    await nextTick()
+    await setTempo(w, 84)
+    await playBtn(w).trigger('click')
+    expect(lastOpts().bpm).toBe(84)
+    await playBtn(w).trigger('click') // pause
+    await w.find('.tc-pop .tc-step:last-of-type').trigger('click') // one tap of +
+    await nextTick()
+    expect(tempoBadge(w).text()).toBe('86')
+    await playBtn(w).trigger('click')
+    expect(lastOpts().bpm).toBe(86)
+  })
+
+  it('ข้อ 1 — เคาะตามจังหวะ ขณะเพลงกำลังเล่น → re-schedules from the current note at the tapped bpm', async () => {
+    const w = mountViewer(bpmSong)
+    await nextTick()
+    await playBtn(w).trigger('click')
+    lastOpts().onNote({ li: 1, si: 0 }, 2)
+    playSongSpy.mockClear()
+    await openTempo(w)
+    const pad = w.find('.tc-tap')
+    // ⚠ restore THIS spy only — vi.restoreAllMocks() would also wipe playSongSpy's recorded calls
+    const nowSpy = vi.spyOn(performance, 'now')
+    for (let i = 0; i < 8; i++) { // 8 even taps at ♩=80
+      nowSpy.mockReturnValue(1000 + i * 750)
+      await pad.trigger('click')
+      await nextTick()
+    }
+    nowSpy.mockRestore()
+    expect(Math.abs(lastOpts().bpm - 80)).toBeLessThanOrEqual(2)
+    expect(lastOpts().startIndex).toBe(2) // continues from where it was — no restart, no ซ้อน
+  })
+
+  it('ข้อ 6 — ไฟล์เสียงที่ดาวน์โหลด ใช้ความเร็วเดียวกับที่ฟัง', async () => {
+    const w = mountViewer(bpmSong)
+    await nextTick()
+    await setTempo(w, 93)
+    expect(w.findComponent({ name: 'ExportTool' }).props('bpm')).toBe(93)
+  })
+
+  it('ข้อ 5 — เปิดเพลงถัดไป ความเร็วกลับเป็นของเพลงนั้น (ไม่จำข้ามเพลง)', async () => {
+    const w = mountViewer(bpmSong)
+    await nextTick()
+    await setTempo(w, 86)
+    expect(tempoBadge(w).text()).toBe('86')
+    await w.setProps({ song: { number: 8, title_th: 'เพลงถัดไป', content: { ...song.content, bpm: 120 } } })
+    await nextTick()
+    expect(tempoBadge(w).text()).toBe('120')
+    await playBtn(w).trigger('click')
+    expect(lastOpts().bpm).toBe(120)
   })
 })
 

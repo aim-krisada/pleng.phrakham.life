@@ -249,11 +249,13 @@ onUnmounted(() => {
 // ---------- menu (native dropdown) ----------
 function pickMenu(it, value) { it.control?.onPick?.(value); close() }
 
-// column flex weight for a row-2 cell — the stretchy cells (timeline/selector) fill the
-// slack so the row uses the full width; fixed controls (คีย์) keep their natural size.
-// Every slot cell keeps its NATURAL width so the dock hugs its content and no cell can be
-// squeezed under its min-content (which made the timeline's total-time overflow into คีย์ · B1).
-function cellFlex() { return '0 0 auto' }
+// column flex weight for a row-2 cell. DEFAULT = natural width, so the dock hugs its content and no
+// cell is squeezed under its min-content (which made the timeline's total-time overflow into
+// คีย์ · B1). A page can opt ONE cell in to shrinking by giving its descriptor a `flex` string
+// (ใบ v3/pleng#102: ฝึกร้อง gives the timeline `1 1 auto` + its own min-width, so when the new
+// ความเร็ว control joins row 2 the rail gives up pixels on a narrow phone instead of the row
+// overflowing the dock).
+function cellFlex(it) { return it?.flex || '0 0 auto' }
 </script>
 
 <template>
