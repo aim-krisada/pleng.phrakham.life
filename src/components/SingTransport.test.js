@@ -158,11 +158,14 @@ describe('คีย์ on the bar (col 4)', () => {
 })
 
 describe('⚙ Setting page', () => {
-  it('holds วนซ้ำ · คอร์ด · ความเร็ว · แสดงผล · โปร่งใส (not คีย์ — that is on the bar)', async () => {
+  it('holds วนซ้ำ · คอร์ด · แสดงผล · โปร่งใส (not คีย์/ความเร็ว — those live on the bar)', async () => {
     const w = mountT()
     await openSetting(w)
-    for (const id of ['repeat', 'chord', 'speed', 'layer', 'alpha']) expect(panel(w, id).exists()).toBe(true)
+    for (const id of ['repeat', 'chord', 'layer', 'alpha']) expect(panel(w, id).exists()).toBe(true)
     expect(panel(w, 'key').exists()).toBe(false)
+    // ใบ v3/pleng#102 — ความเร็ว became a bar cell (its number must be readable at all times), so it
+    // must NOT also sit in ⚙: one control, one place (ui-standards §2 single source of action).
+    expect(panel(w, 'speed').exists()).toBe(false)
   })
 
   it('the วนซ้ำ toggle emits toggle-loop', async () => {

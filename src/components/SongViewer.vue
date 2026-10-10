@@ -10,7 +10,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { KEYS } from '../lib/chords.js'
 import {
   playSong, playEnsemble, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
-  effectiveOrder, buildPlayNotes,
+  effectiveOrder, buildPlayNotes, clampTempo,
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
 import { resolveContent, resolvePlayOrder, lyricSetName, inLyricSet } from '../lib/songModel.js'
@@ -667,9 +667,14 @@ const settingDescs = computed(() => [
     id: 'key', icon: 'key-round', label: 'คีย์', kind: 'menu', value: displayKey.value, badge: displayKey.value,
     options: keyOptions.value, onPick: (v) => (displayKey.value = v),
   },
+  // ใบ v3/pleng#102 — ความเร็ว accepts ANY bpm in TEMPO_MIN..TEMPO_MAX, not only the nine marks, so
+  // `onPick` clamps instead of snapping to a list. `songBpm` lets the dock offer "ตามเพลง" (one tap
+  // back to the stored speed). `options` stays for any consumer that still wants a plain menu —
+  // TempoControl draws its quick-pick chips from TEMPO_MARKS itself (the same SSOT tempoOptions uses).
   {
     id: 'tempo', icon: 'gauge', label: 'ความเร็ว', kind: 'menu', value: tempo.value, badge: String(tempo.value),
-    options: tempoOptions.value, onPick: (v) => (tempo.value = Number(v)),
+    options: tempoOptions.value, songBpm: Number(props.song?.content?.bpm) || 0,
+    onPick: (v) => (tempo.value = clampTempo(v)),
   },
   // ขนาดตัวอักษร (font) = top-nav Aa · download/พิมพ์/MP3 = the dock ExportTool (below).
 ])
