@@ -99,7 +99,7 @@ const twoSecSong = {
 
 const SongSheetStub = {
   name: 'SongSheet',
-  props: ['content', 'mode', 'chordSystem', 'displayKey', 'playingSeg', 'playingSyl', 'interactive', 'showChord', 'showNote', 'showLyric', 'lyricJoin', 'songTitle'],
+  props: ['content', 'mode', 'chordSystem', 'displayKey', 'playingSeg', 'playingSyl', 'interactive', 'showChord', 'showNote', 'showLyric', 'lyricJoin', 'bookPhrases', 'songTitle'],
   emits: ['seek'],
   template:
     '<div class="sheet" :data-seg="playingSeg ? playingSeg.li + \'-\' + playingSeg.si : \'\'"' +
@@ -429,6 +429,23 @@ describe('SongViewer key / tempo / loop / readability (US-A02, US-A03)', () => {
     const w2 = mountViewer()
     await nextTick()
     expect(sheet(w2).props('showNote')).toBe(false)
+    expect(sheet(w2).props('lyricJoin')).toBe(true)
+  })
+
+  it('ใบ#105 — เนื้อร้อง offers a third way, ตามต้นฉบับ; a song the book has nothing for still reads fine', async () => {
+    const w = mountViewer()
+    await nextTick()
+    await pickSelect(w, 'display', 'lyric')
+    const opts = w.findAll('.dk-panel [data-setting="lyricjoin"] option').map((o) => o.text())
+    expect(opts).toEqual(['แยกพยางค์', 'ติดกันเป็นวรรคตามทำนอง', 'ตามต้นฉบับ (วรรคในหนังสือ)'])
+    expect(w.find('.book-note').exists()).toBe(false) // nothing is said until ตามต้นฉบับ is picked
+    await pickSelect(w, 'lyricjoin', 'book')
+    expect(sheet(w).props('lyricJoin')).toBe(true) // the words still run together, not one-per-syllable
+    expect(sheet(w).props('bookPhrases')).toBe(null) // this song has none → the tune decides
+    expect(w.find('.book-note').text()).toContain('เว้นวรรคตามทำนองให้ก่อน') // said plainly, not broken
+    expect(localStorage.getItem('pleng.lyricJoin')).toBe('book') // remembered like the other two
+    const w2 = mountViewer()
+    await nextTick()
     expect(sheet(w2).props('lyricJoin')).toBe(true)
   })
 

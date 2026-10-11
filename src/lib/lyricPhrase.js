@@ -79,11 +79,39 @@ export function songBreathBeats(lines) {
   return Math.max(BREATH_BEATS, 2 * held[Math.floor(held.length / 2)])
 }
 
+// ---- ใบ v3/pleng#105 — the THIRD way: the breaks the printed songbook itself drew ----------------
+// The two ways above are read off the TUNE. A reader may instead want the book's own phrasing, which
+// sometimes differs ("แม้เล็กน้อย | แต่เป็นสิ่งที่ข้ามี" in the book, "แม้เล็กน้อยแต่ | เป็นสิ่งที่ข้ามี" by the tune).
+// The book cannot be read in the browser, so tools/bookPhrases/ reads it once and leaves a small data
+// file: for each line, WHICH syllable a space follows — the words themselves always stay the
+// library's. A line the book has nothing for returns null, and the caller falls back to the tune.
+
+// A sheet line's own words, with nothing between them — the key the data file is written under.
+export function bookLineKey(segments) {
+  let s = ''
+  for (const seg of segments || []) for (const w of seg.syllables || []) { const t = (w || '').trim(); if (t) s += t }
+  return s
+}
+
+// map = one song's entry from the data file ({ line words: [syllable number, …] }).
+// → the same Set of `${si}-${k}` keys phraseBreaks returns, or null when the book has no such line.
+export function bookPhraseBreaks(segments, map) {
+  const key = bookLineKey(segments)
+  if (!key || !map || !Object.prototype.hasOwnProperty.call(map, key)) return null
+  const keys = []
+  for (const seg of segments || []) (seg.syllables || []).forEach((w, k) => { if ((w || '').trim()) keys.push(`${seg.si}-${k}`) })
+  const out = new Set()
+  for (const i of map[key] || []) if (i >= 0 && i < keys.length - 1) out.add(keys[i])
+  return out
+}
+
 // segments = one sheet line's segments in order: [{ si, note, syllables }] (syllables = v2 slot array).
 // → Set of `${si}-${k}` keys: put a space after syllable k of segment si. The line's last syllable is never in
 // it (a new line is already a break). opts.breathBeats = songBreathBeats(…) of the song (default the floor);
-// opts.segmenter (null = no word guard) for tests.
+// opts.segmenter (null = no word guard) for tests; opts.book = this song's book phrases (ใบ#105), which win
+// over the tune wherever the book has the line.
 export function phraseBreaks(segments, opts = {}) {
+  if (opts.book) { const fromBook = bookPhraseBreaks(segments, opts.book); if (fromBook) return fromBook }
   const breathBeats = opts.breathBeats ?? BREATH_BEATS
   const seg = opts.segmenter === undefined ? segmenter() : opts.segmenter
   const units = lineUnits(segments)

@@ -24,7 +24,7 @@ import { lyricJoin } from '../store.js'
 
 const stubs = {
   SongViewer: { name: 'SongViewer', props: ['song'], template: '<div class="stub-viewer" />' },
-  SongSheet: { name: 'SongSheet', props: ['content', 'songTitle', 'songbook', 'lyricJoin', 'showLyric', 'showNote', 'showChord', 'mode'], template: '<div class="stub-sheet" />' },
+  SongSheet: { name: 'SongSheet', props: ['content', 'songTitle', 'songbook', 'lyricJoin', 'bookPhrases', 'showLyric', 'showNote', 'showChord', 'mode'], template: '<div class="stub-sheet" />' },
   EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active'], emits: ['change', 'save'], template: '<div class="stub-editor" />' },
   Icon: true,
 }
@@ -68,6 +68,19 @@ describe('ใบ#101 — แผ่นเพลง: แยกพยางค์ /
     await nextTick()
     expect(w.findAll('.dk-panel [data-setting]').map((r) => r.attributes('data-setting'))).not.toContain('lyricjoin')
   })
+  it('ใบ#105 — the same menu offers ตามต้นฉบับ, and a song with no book phrasing still prints', async () => {
+    const w = await openSheet()
+    await settingRows(w)
+    const opts = w.findAll('.dk-panel [data-setting="lyricjoin"] option').map((o) => o.text())
+    expect(opts).toEqual(['แยกพยางค์', 'ติดกันเป็นวรรคตามทำนอง', 'ตามต้นฉบับ (วรรคในหนังสือ)'])
+    await w.find('.dk-panel [data-setting="lyricjoin"] select').setValue('book')
+    await nextTick()
+    expect(w.findComponent(SongSheet).props('lyricJoin')).toBe(true)
+    expect(w.findComponent(SongSheet).props('bookPhrases')).toBe(null) // none for this song
+    expect(w.find('.book-note').text()).toContain('เว้นวรรคตามทำนองให้ก่อน')
+    expect(w.find('.book-note').classes()).toContain('no-print') // the notice never reaches the paper
+  })
+
   it('a choice made on ฝึกร้อง is already in place on แผ่นเพลง', async () => {
     lyricJoin.value = 'join'
     const w = await openSheet()

@@ -39,7 +39,9 @@ export const sheetDisplay = ref((() => {
 })())
 watch(sheetDisplay, (v) => { try { localStorage.setItem(DISPLAY_KEY, v) } catch { /* ignore */ } })
 const LYRIC_JOIN_KEY = 'pleng.lyricJoin'
-export const LYRIC_JOINS = ['split', 'join']
+// split = แยกพยางค์ (the default, unchanged) · join = ติดกันเป็นวรรคตามทำนอง (ใบ#100)
+// · book = ตามต้นฉบับ, the breaks the printed songbook drew (ใบ#105)
+export const LYRIC_JOINS = ['split', 'join', 'book']
 export const lyricJoin = ref((() => {
   try { const v = localStorage.getItem(LYRIC_JOIN_KEY); if (LYRIC_JOINS.includes(v)) return v } catch { /* ignore */ }
   return 'split'
