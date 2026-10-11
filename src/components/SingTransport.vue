@@ -163,7 +163,11 @@ const hasSound = computed(() => soundGroups.value.length > 0)
 const tempoSetting = computed(() => findSetting('tempo'))
 const tempoBpm = computed(() => Number(tempoSetting.value?.value) || 92)
 const tempoSongBpm = computed(() => Number(tempoSetting.value?.songBpm) || 0)
-function setTempo(v) { tempoSetting.value?.onPick?.(v) }
+// ใบ v3/pleng#103 — อัตราจังหวะของเพลง ('3/4' …) so the tap pad knows a tap may be a whole bar
+const tempoTimeSig = computed(() => String(tempoSetting.value?.timeSignature || ''))
+// `src` ('tap' | 'ui') travels with the new speed: the page waits out a whole tap run before
+// it re-schedules the sound, instead of restarting on every single tap (ใบ v3/pleng#103 ข้อ 2).
+function setTempo(v, src) { tempoSetting.value?.onPick?.(v, src) }
 
 // ---------- ITEMS_SING — the descriptor list handed to the engine ----------
 const items = computed(() => {
@@ -242,7 +246,7 @@ const items = computed(() => {
 
     <!-- ===== ความเร็ว (col 5) — ตัวเลขเห็นตลอด · แตะเพื่อปรับ/เคาะจังหวะ (ใบ v3/pleng#102) ===== -->
     <template #cell-speed="{ open, toggle }">
-      <TempoControl :open="open" :value="tempoBpm" :song-bpm="tempoSongBpm" @toggle="toggle" @set="setTempo" />
+      <TempoControl :open="open" :value="tempoBpm" :song-bpm="tempoSongBpm" :time-signature="tempoTimeSig" @toggle="toggle" @set="setTempo" />
     </template>
 
     <!-- ===== เลือกท่อน (col 6) — trigger + selector panel (one-at-a-time via engine) ===== -->
