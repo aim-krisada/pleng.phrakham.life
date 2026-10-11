@@ -30,7 +30,9 @@ const pcOf = (m) => (((m % 12) + 12) % 12)
 // compEvents in place; returns how many notes were suspended (0 = didn't fire).
 // GUARD (P'Aim): plain major/minor only, long chords (≥3 beats = a resting point), and SKIP if the
 // melody sitting on this chord IS the 3rd (a 4th over a sung 3rd = a semitone clash). Chord-tone → safe.
-export function applySusCadence(compEvents, chordSym, startBeat, beats, melodyEvents, cfg) {
+// ใบ v3/pleng#106 — `grid` = { pulseBeats, off } in a compound bar: the resolution lands on a PULSE (eighth 4
+// of a one-bar 6/8 chord) instead of 2 quarter beats in (eighth 5 of a 6/8 bar). null = as before.
+export function applySusCadence(compEvents, chordSym, startBeat, beats, melodyEvents, cfg, grid) {
   if (!cfg || !cfg.susCadence) return 0
   const level = cfg.susLevel ?? 0.5
   if (level <= 0 || beats < 3 || !compEvents || !compEvents.length) return 0
@@ -39,7 +41,12 @@ export function applySusCadence(compEvents, chordSym, startBeat, beats, melodyEv
   const minor = p.suffix === 'm'
   const thirdPc = pcOf(p.rootIndex + (minor ? 3 : 4))
   const fourthPc = pcOf(p.rootIndex + 5)
-  const susUntil = startBeat + Math.min(2, beats / 2) // sus the first ~half (≤2 beats), then resolve
+  let susUntil = startBeat + Math.min(2, beats / 2) // sus the first ~half (≤2 beats), then resolve
+  if (grid) {
+    const p = grid.pulseBeats
+    const snapped = grid.off + Math.floor((susUntil - grid.off) / p + 1e-6) * p // last pulse at or before it
+    if (snapped > startBeat + 1e-6) susUntil = snapped
+  }
   const delta = (((fourthPc - thirdPc) % 12) + 12) % 12 // +1 (major) or +2 (minor) semitones
 
   // clash guard: if the tune over this chord is the 3rd, a sus 4th would sit a semitone away → skip
