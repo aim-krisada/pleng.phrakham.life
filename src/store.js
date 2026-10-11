@@ -47,6 +47,19 @@ export const lyricJoin = ref((() => {
   return 'split'
 })())
 watch(lyricJoin, (v) => { try { localStorage.setItem(LYRIC_JOIN_KEY, v) } catch { /* ignore */ } })
+// ใบ v3/pleng#101 — แผ่นเพลง remembers its OWN way of writing the lyrics (พี่เอม 5 ต.ค. 2569: "แต่ละหน้าจำค่าของตัวเอง"):
+// a pick on one page never changes the other. ฝึกร้อง keeps `lyricJoin` above (its key from ใบ#100, so what readers
+// set there stays). The first time the sheet has no value of its own it starts from `lyricJoin` — what the sheet
+// showed the reader while the two pages shared one value — and writes it down at once, so from then on the two
+// live apart and a later pick on ฝึกร้อง no longer reaches the sheet.
+const SHEET_LYRIC_JOIN_KEY = 'pleng.sheetLyricJoin'
+export const sheetLyricJoin = ref((() => {
+  try { const v = localStorage.getItem(SHEET_LYRIC_JOIN_KEY); if (LYRIC_JOINS.includes(v)) return v } catch { /* ignore */ }
+  const seed = lyricJoin.value
+  try { localStorage.setItem(SHEET_LYRIC_JOIN_KEY, seed) } catch { /* ignore */ }
+  return seed
+})())
+watch(sheetLyricJoin, (v) => { try { localStorage.setItem(SHEET_LYRIC_JOIN_KEY, v) } catch { /* ignore */ } })
 
 // ---- reader Thai typeface (per-user · site-wide · localStorage) ----
 // A whole-site Thai typeface preference. 'default' = the loopless Noto Sans Thai the app
