@@ -1,11 +1,12 @@
 // ใบ v3/pleng#109 — the phone bar (≤760px, ฝึกร้อง · แผ่นเพลง) is laid out like a media player:
-//   1. the seek bar has the top row to itself; EVERY button sits in ONE centred row below it,
+//   1. the seek bar has the top row to itself; every button sits in ONE centred group below it,
 //      each at least 48×48px;
 //   2. from 600px up the group is not stretched — the spacing stays 8px, as on a phone;
-//   3. on a narrow phone, buttons that don't fit move into ⚙ from the end of the row
-//      (never ⚙ · เล่น · Aa · ความเร็ว), and nothing runs off the screen.
+//   3. on a narrow phone, when the buttons don't fit one row they split into TWO centred rows
+//      (เล่น on the first, ⚙ ending the last) — every button stays on the bar, none goes into ⚙,
+//      nothing runs off the screen.
 // jsdom has no layout: the viewport is faked through matchMedia (the same switch DockKey reads)
-// and, for item 3, the widths are faked on the row and its buttons.
+// and, for item 3, the widths are faked on the rows and their buttons.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
@@ -13,7 +14,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import DockKey from './DockKey.vue'
 import SingTransport from './SingTransport.vue'
-import { planFold, canFold } from '../lib/dockFold.js'
 
 Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function () {}
 Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function () {}
@@ -57,6 +57,7 @@ const mountBar = (its = singItems(), storeKey = 'b109') => mount(Host, {
   attachTo: document.body,
 })
 const rowIds = (row) => row.findAll(':scope > [data-cell]').map((e) => e.attributes('data-cell'))
+const btnIds = (w) => w.findAll('.dk-btnrow').flatMap(rowIds)
 const BAR_ORDER = ['back', 'play', 'forward', 'export', 'scale', 'key', 'speed', 'tuan', 'soundctl', 'setting']
 
 // ---- fake layout for item 3: the row is `avail` px wide and every button has a width ----
@@ -99,12 +100,11 @@ describe('ใบ#109 ข้อ 1 — seek bar on top, ONE button group below', (
       await flush()
       expect(w.find('.dk-host').classes()).toContain('dk-bar')
       const rows = w.findAll('.dk-dock > .dk-row')
-      expect(rows).toHaveLength(2)
       expect(rows[0].classes()).toContain('dk-seekrow')
       expect(rowIds(rows[0])).toEqual(['timeslide'])
-      expect(rows[1].classes()).toContain('dk-btnrow')
+      expect(w.findAll('.dk-seekrow')).toHaveLength(1)
       // the dock's own order: row 1 up to ⚙, then row 2's buttons, then ⚙ last
-      expect(rowIds(rows[1])).toEqual(BAR_ORDER)
+      expect(btnIds(w)).toEqual(BAR_ORDER)
     })
   }
 
@@ -113,9 +113,8 @@ describe('ใบ#109 ข้อ 1 — seek bar on top, ONE button group below', (
     localStorage.setItem('pleng.dockkey.b109.pins', JSON.stringify(['repeat']))
     const w = mountBar()
     await flush()
-    const rows = w.findAll('.dk-dock > .dk-row')
-    expect(rows).toHaveLength(2)
-    expect(rowIds(rows[1]).slice(-2)).toEqual(['repeat', 'setting'])
+    expect(btnIds(w).slice(-2)).toEqual(['repeat', 'setting'])
+    expect(w.findAll('.dk-dock > .dk-row').filter((r) => !r.classes().includes('dk-btnrow') && !r.classes().includes('dk-seekrow'))).toHaveLength(0)
   })
 
   it('a page with no seek bar (แผ่นเพลง) has just the one button row', async () => {
@@ -147,9 +146,8 @@ describe('ใบ#109 ข้อ 1 — seek bar on top, ONE button group below', (
     })
     await flush()
     const rows = w.findAll('.dk-dock > .dk-row')
-    expect(rows).toHaveLength(2)
     expect(rowIds(rows[0])).toEqual(['timeslide'])
-    expect(rowIds(rows[1])).toEqual(['back', 'play', 'forward', 'export', 'scale', 'key', 'tuan', 'setting'])
+    expect(btnIds(w)).toEqual(['back', 'play', 'forward', 'export', 'scale', 'key', 'tuan', 'setting'])
   })
 
   it('wide screen (>760px) keeps its old rows — no seek row / button row split', async () => {
@@ -175,71 +173,67 @@ describe('ใบ#109 ข้อ 1–2 — 48px targets, same 8px spacing at every
     expect(block).toMatch(/min-width: var\(--touch-min\); min-height: var\(--touch-min\)/)
   })
   it('the gap is 8px, centred, no wrap, and nothing re-spaces it on a wider bar', () => {
-    expect(block).toMatch(/\.dk-bar \.dk-row \{ gap: 8px; flex-wrap: nowrap; \}/)
-    expect(block).toMatch(/\.dk-bar \.dk-btnrow \{ justify-content: safe center; \}/)
+    expect(block).toMatch(/\.dk-bar \.dk-row \{ gap: 8px; \}/)
+    expect(block).toMatch(/\.dk-bar \.dk-btnrow \{ justify-content: safe center; flex-wrap: wrap; \}/)
+    expect(block).toMatch(/\.dk-bar \.dk-btnrow \+ \.dk-btnrow \{ margin-top: 8px; \}/)
     expect(block).not.toMatch(/@media/)
     expect(block).not.toMatch(/space-(between|around|evenly)/)
   })
 })
 
-describe('ใบ#109 ข้อ 3 — what does not fit goes into ⚙, tail first', () => {
-  it('planFold: a row that fits folds nothing', () => {
-    const its = BAR_ORDER.map((id) => singItems().find((i) => i.id === id))
-    expect(planFold(its, (it) => WIDTH[it.id] || 48, rowWidth(BAR_ORDER), 8)).toEqual([])
-  })
-
-  it('planFold: folds from the end, skipping ⚙ · เล่น · Aa · ความเร็ว', () => {
-    const its = BAR_ORDER.map((id) => singItems().find((i) => i.id === id))
-    const out = planFold(its, (it) => WIDTH[it.id] || 48, 344, 8) // 360px phone
-    expect(out).toEqual(['soundctl', 'tuan', 'key', 'export'])
-    for (const id of ['setting', 'play', 'scale', 'speed']) expect(canFold(its.find((i) => i.id === id))).toBe(false)
-  })
-
+describe('ใบ#109 ข้อ 3 — too narrow for one row: two centred rows, every button on the bar', () => {
+  const ROW1 = ['back', 'play', 'forward', 'export', 'scale']
+  const ROW2 = ['key', 'speed', 'tuan', 'soundctl', 'setting']
   for (const [px, avail] of [[360, 344], [375, 359], [390, 374]]) {
-    it(`${px}px: the row fits, the rest is in ⚙ in the dock's order, and opens from there`, async () => {
+    it(`${px}px: [ท่อนก่อน เล่น ท่อนถัดไป ดาวน์โหลด Aa] over [คีย์ ความเร็ว ท่อน เสียง ⚙], none in ⚙`, async () => {
       setWidth(px)
       fakeLayout(avail)
       const w = mountBar()
       await flush()
       window.dispatchEvent(new Event('resize'))
       await flush()
-      const row = w.find('.dk-btnrow')
-      const shown = rowIds(row)
-      // fits the bar: nothing runs off the screen
-      expect(rowWidth(shown)).toBeLessThanOrEqual(avail)
-      // the ones that must stay
-      for (const id of ['play', 'scale', 'speed', 'setting']) expect(shown).toContain(id)
-      // still in the dock's order
-      expect(shown).toEqual(BAR_ORDER.filter((id) => shown.includes(id)))
-      // what left the row is exactly the tail of the foldable buttons
-      const gone = BAR_ORDER.filter((id) => !shown.includes(id))
-      expect(gone.length).toBeGreaterThan(0)
-      const foldable = BAR_ORDER.filter((id) => !['play', 'scale', 'speed', 'setting'].includes(id))
-      expect(gone).toEqual(foldable.slice(foldable.length - gone.length))
-
-      // every folded button has a row in ⚙, in the dock's own order, with no pin (it has a home)
+      const rows = w.findAll('.dk-btnrow')
+      expect(rows).toHaveLength(2)
+      expect(rowIds(rows[0])).toEqual(ROW1)
+      expect(rowIds(rows[1])).toEqual(ROW2)
+      // every button is on the bar and each row fits the bar's width (nothing off-screen)
+      expect(btnIds(w).sort()).toEqual([...BAR_ORDER].sort())
+      for (const r of rows) expect(rowWidth(rowIds(r))).toBeLessThanOrEqual(avail)
+      // ⚙ holds only its own settings — no bar button moved into it
       await w.find('.dk-gear').trigger('click')
       await flush()
       const settingIds = w.findAll('.dk-panel [data-setting]').map((e) => e.attributes('data-setting'))
-      expect(settingIds.slice(0, gone.length)).toEqual(gone)
-      for (const id of gone) expect(w.find(`.dk-panel [data-setting="${id}"] .dk-pin`).exists()).toBe(false)
-      // คีย์ is adjusted right in ⚙; a page-drawn one opens its own popover from there
-      expect(w.find('.dk-panel [data-setting="key"] select').exists()).toBe(true)
-      await w.find('.dk-panel [data-setting="soundctl"] .dk-prun').trigger('click')
-      await flush()
-      expect(w.find('.dk-panel').exists()).toBe(false)
-      expect(w.find('.dk-fold .p-soundctl').exists()).toBe(true)
+      for (const id of BAR_ORDER) expect(settingIds).not.toContain(id)
+      expect(settingIds).toEqual(['repeat'])
     })
   }
 
-  it('at 600px and wider every button stays on the row (nothing folded)', async () => {
+  it('back to one row when the screen is wide enough again (600px)', async () => {
+    setWidth(390)
+    fakeLayout(374)
+    const w = mountBar()
+    await flush()
+    window.dispatchEvent(new Event('resize'))
+    await flush()
+    expect(w.findAll('.dk-btnrow')).toHaveLength(2)
+    setWidth(600)
+    fakeLayout(584)
+    window.dispatchEvent(new Event('resize'))
+    await flush()
+    const rows = w.findAll('.dk-btnrow')
+    expect(rows).toHaveLength(1)
+    expect(rowIds(rows[0])).toEqual(BAR_ORDER)
+  })
+
+  it('at 600px and wider every button stays on one row', async () => {
     setWidth(600)
     fakeLayout(584)
     const w = mountBar()
     await flush()
     window.dispatchEvent(new Event('resize'))
     await flush()
-    expect(rowIds(w.find('.dk-btnrow'))).toEqual(BAR_ORDER)
-    expect(w.find('.dk-fold').exists()).toBe(false)
+    const rows = w.findAll('.dk-btnrow')
+    expect(rows).toHaveLength(1)
+    expect(rowIds(rows[0])).toEqual(BAR_ORDER)
   })
 })
