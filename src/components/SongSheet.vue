@@ -110,6 +110,9 @@ const joinRuns = computed(() => {
           if (!phrase) { phrase = { items: [], space: false }; run.pieces.push(phrase) }
           const key = `${seg.si}-${k}`
           const item = { key, si: seg.si, k, w, glue: '' }
+          // a slot that holds several words with spaces ("(เปลี่ยนเป็นคีย์ A Major)") may still wrap at its own
+          // spaces — only the words themselves are kept whole
+          if (/\S\s+\S/.test(w)) item.parts = w.split(/(\s+)/)
           phrase.items.push(item)
           if (!w) return // an empty slot (เอื้อน) stays a span with nothing in it, as before
           if (spaceAfter(li, seg.si, k)) { phrase.space = true; phrase = null; return }
@@ -534,10 +537,10 @@ watch(
           @click="seek(row.li, pc.seg.si)"
         >{{ pc.seg.lyric }}&nbsp;</span><span v-else class="phrase" :class="{ 'seg-tap': interactive }"><template v-for="it in pc.items" :key="it.key"><span
           class="syl"
-          :class="{ 'syl-playing': isSyl(row.li, it.si, it.k) }"
+          :class="{ 'syl-playing': isSyl(row.li, it.si, it.k), 'syl-spaced': it.parts }"
           :data-syl="`${row.li}-${it.si}-${it.k}`"
           @click.stop="seek(row.li, it.si, it.k)"
-        >{{ it.w }}</span><wbr v-if="it.glue === 'wbr'" />{{ it.glue === 'wj' ? WORD_JOINER : '' }}</template></span>{{ pc.space ? ' ' : '' }}</template></span></template>
+        ><template v-if="it.parts"><template v-for="(p, pk) in it.parts" :key="pk"><span v-if="p.trim()" class="syl-word">{{ p }}</span><template v-else>{{ p }}</template></template></template><template v-else>{{ it.w }}</template></span><wbr v-if="it.glue === 'wbr'" />{{ it.glue === 'wj' ? WORD_JOINER : '' }}</template></span>{{ pc.space ? ' ' : '' }}</template></span></template>
         <span v-else class="bar-group">
           <span v-if="part.barLine && noteOn(row.first)" class="bar-line" aria-hidden="true"></span>
           <span
@@ -651,6 +654,9 @@ watch(
    `overflow-wrap: anywhere` last resort is gone, because that is what cut "ประจัก|ษ์" on a phone. */
 .song-line-join .phrase { display: inline-block; max-width: 100%; }
 .song-line-join .lyric-words .syl { white-space: nowrap; padding: 0; }
+/* …except a slot that holds several words with spaces: it may wrap at those spaces, each word kept whole */
+.song-line-join .lyric-words .syl.syl-spaced { white-space: normal; }
+.song-line-join .lyric-words .syl-word { white-space: nowrap; }
 /* the ♦ heading sits on its own line above, as in split mode; a *** marker / line label stays inline with
    the words (ใบ#101: as a block it added a row to every refrain and pushed a printed sheet onto a 2nd page) */
 .song-line-join .section-label { display: block; }

@@ -111,6 +111,20 @@ describe('ใบ#110 — a วรรค wider than the line wraps only between t
     for (const r of joinRules) expect(r).not.toMatch(/overflow-wrap|word-break|line-break/)
   })
 
+  // A slot can hold a whole note with spaces in it ("(เปลี่ยนเป็นคีย์ A Major)", อนุชน 85). Kept on one row it ran past
+  // the edge of a phone at the biggest text size, so it may wrap at its OWN spaces — each word still whole.
+  it('a slot with spaces inside may wrap at those spaces, never inside one of its words', () => {
+    const c = { key: 'C', timeSignature: '4/4', lines: [[seg('1 2 3', ['อ', 'รุณ', '(เปลี่ยนเป็นคีย์ A Major)'])]] }
+    const w = mount(SongSheet, { props: { content: c, showChord: false, showNote: false, showLyric: true, lyricJoin: true } })
+    const syl = w.find('[data-syl="0-0-2"]')
+    expect(syl.classes()).toContain('syl-spaced')
+    expect(syl.findAll('.syl-word').map((x) => x.text())).toEqual(['(เปลี่ยนเป็นคีย์', 'A', 'Major)'])
+    expect(syl.text()).toBe('(เปลี่ยนเป็นคีย์ A Major)') // the same words and spaces as before
+    const rules = songSheetSource.split('<style')[1] || ''
+    expect(rules).toMatch(/\.syl\.syl-spaced\s*\{[^}]*white-space:\s*normal/)
+    expect(rules).toMatch(/\.syl-word\s*\{[^}]*white-space:\s*nowrap/)
+  })
+
   it('the karaoke still walks syllable by syllable: one span per syllable, with its own address', () => {
     const w = mountLong({ playingSyl: { li: 0, si: 2, syk: 2 } })
     expect(w.find('[data-syl="0-2-2"]').text()).toBe('จักษ์')
