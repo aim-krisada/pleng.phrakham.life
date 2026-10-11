@@ -460,6 +460,10 @@ async function scrollToPlaying() {
   const barEl = sheetWrap.value.closest('.sv-root')?.querySelector('.dk-host.dk-bar > .dk-dock')
   const barTop = barEl?.getBoundingClientRect().top
   if (barTop > 0) lowest = Math.min(lowest, barTop - 16)
+  // …and the round scroll buttons lifted to sit just above that bar (styles.css) — the sung
+  // line is kept above them too, so they never cover it
+  const navTop = barTop > 0 ? document.querySelector('.pk-scrollnav')?.getBoundingClientRect().top : 0
+  if (navTop > 0) lowest = Math.min(lowest, navTop - 8)
   const r = el.getBoundingClientRect(); if (r.top < 96 || r.bottom > lowest) el.scrollIntoView({ block: 'center', inline: 'center', behavior: smooth ? 'smooth' : 'auto' })
 }
 watch(playingSyl, scrollToPlaying)

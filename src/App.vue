@@ -3,6 +3,7 @@ import { computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { initAuth, recovering, emailChanged } from './store.js'
 import { initPrintChrome } from './lib/printChrome.js'
+import { measureDockClear } from './lib/dockClear.js'
 import SiteFooter from './components/SiteFooter.vue'
 import ShellBar from './components/ShellBar.vue'
 
@@ -37,33 +38,21 @@ watch(
 // and the footer sits on the true viewport bottom.
 let dockRO = null
 let dockMO = null
-let measuredEl = null
+let observed = []
 let flushPending = false
 function applyDockClear() {
   flushPending = false
-  // ใบ v3/pleng#108 — on a phone the ฝึกร้อง / แผ่นเพลง dock is a bar glued to the bottom
-  // (.dk-bar). Studio keeps all three modes mounted, so pick the bar that is actually showing.
-  const bar = [...document.querySelectorAll('.dk-host.dk-bar > .dk-dock')]
-    .find((el) => el.getBoundingClientRect().height > 0)
-  const dock = document.querySelector('.sd-wrap') || bar || null
-  let h = 0
-  if (dock) {
-    const cs = getComputedStyle(dock)
-    const r = dock.getBoundingClientRect()
-    // count it only while it's a real, visible bar anchored to the bottom edge
-    if (cs.display !== 'none' && r.height > 0 && r.bottom >= window.innerHeight - 4) {
-      h = r.height
-      // the bar's own bottom padding already holds the iPhone home-bar inset, which the footer
-      // rule adds again — take it out here so the footer sits flush on the bar, not a gap above
-      if (dock === bar) h -= Math.max(0, (parseFloat(cs.paddingBottom) || 0) - (parseFloat(cs.paddingTop) || 0))
-    }
-  }
-  document.documentElement.style.setProperty('--dock-clear', Math.round(h) + 'px')
-  // keep the ResizeObserver bound to whichever .sd-wrap is currently mounted
-  if (dock !== measuredEl) {
-    if (dockRO) dockRO.disconnect()
-    measuredEl = dock
-    if (dock && dockRO) dockRO.observe(dock)
+  // measuring + publishing lives in lib/dockClear.js (ใบ#108 also lifts the scroll buttons there)
+  measureDockClear()
+  // keep the ResizeObserver on every dock that can be measured. ใบ#108: Studio shows/hides its
+  // modes with v-show (a style change, not a DOM change), so watch EVERY phone bar — a bar
+  // appearing or hiding changes its size, which re-measures. Re-bind only when the set changes
+  // (observe() fires once on its own, so re-binding every time would loop).
+  const els = [...document.querySelectorAll('.sd-wrap, .dk-host.dk-bar > .dk-dock')]
+  if (dockRO && (els.length !== observed.length || els.some((el, i) => el !== observed[i]))) {
+    dockRO.disconnect()
+    els.forEach((el) => dockRO.observe(el))
+    observed = els
   }
 }
 function scheduleDockClear() {
