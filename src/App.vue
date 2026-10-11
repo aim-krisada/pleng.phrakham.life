@@ -41,7 +41,11 @@ let measuredEl = null
 let flushPending = false
 function applyDockClear() {
   flushPending = false
-  const dock = document.querySelector('.sd-wrap')
+  // ใบ v3/pleng#108 — on a phone the ฝึกร้อง / แผ่นเพลง dock is a bar glued to the bottom
+  // (.dk-bar). Studio keeps all three modes mounted, so pick the bar that is actually showing.
+  const bar = [...document.querySelectorAll('.dk-host.dk-bar > .dk-dock')]
+    .find((el) => el.getBoundingClientRect().height > 0)
+  const dock = document.querySelector('.sd-wrap') || bar || null
   let h = 0
   if (dock) {
     const cs = getComputedStyle(dock)
@@ -49,6 +53,9 @@ function applyDockClear() {
     // count it only while it's a real, visible bar anchored to the bottom edge
     if (cs.display !== 'none' && r.height > 0 && r.bottom >= window.innerHeight - 4) {
       h = r.height
+      // the bar's own bottom padding already holds the iPhone home-bar inset, which the footer
+      // rule adds again — take it out here so the footer sits flush on the bar, not a gap above
+      if (dock === bar) h -= Math.max(0, (parseFloat(cs.paddingBottom) || 0) - (parseFloat(cs.paddingTop) || 0))
     }
   }
   document.documentElement.style.setProperty('--dock-clear', Math.round(h) + 'px')

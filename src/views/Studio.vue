@@ -441,7 +441,8 @@ function printSheet() {
       </div>
 
       <!-- แผ่นเพลง dock — DockKey engine fed ITEMS_PRINT (grip · พิมพ์ · export · Aa · ⚙) -->
-      <DockKey :items="printItems" store-key="print" v-model:alpha="printAlpha">
+      <!-- ใบ#108 — bar-on-mobile: on a phone this dock is a fixed full-width bar at the bottom -->
+      <DockKey :items="printItems" store-key="print" v-model:alpha="printAlpha" bar-on-mobile>
         <template #cell-export="{ open, toggle, close }">
           <ExportTool
             :content="sheetSetContent"
@@ -607,6 +608,11 @@ function printSheet() {
    fixed dock never covers the last staff line. */
 .sheet-workspace {
   padding-bottom: 88px;
+}
+/* ใบ v3/pleng#108 — on a phone the dock is a bar glued to the bottom and the footer sits right
+   on top of it (App.vue measures the bar), so only a small gap is needed below the sheet. */
+@media (max-width: 760px) {
+  .sheet-workspace { padding-bottom: 24px; }
 }
 /* Aa scales the sheet on screen; print keeps the fixed A4 size (protect pagination) */
 .sheet-read-scale { font-size: inherit; }

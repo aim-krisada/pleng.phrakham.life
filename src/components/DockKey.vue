@@ -27,6 +27,11 @@ const props = defineProps({
   storeKey: { type: String, default: 'dock' },
   alpha: { type: Number, default: 0.96 }, // v-model:alpha (transparency of the dock)
   message: { type: String, default: '' }, // transient status line floated above the dock
+  // ใบ v3/pleng#108 — on a phone (≤760px, the same line as `mobile` below) the dock stops
+  // floating and becomes a BAR glued to the bottom edge, full width: no drag, no collapse grip,
+  // no transparency (items flagged `hideOnBar`), and it keeps clear of the iPhone home bar.
+  // Opt-in per page: ฝึกร้อง and แผ่นเพลง turn it on; แก้ไข leaves it off and stays as it was.
+  barOnMobile: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:alpha'])
 
@@ -38,7 +43,10 @@ const keysBands = computed(() => visible.value.filter((i) => i.kind === 'keys'))
 
 // ---------- registry helpers ----------
 const byId = (id) => props.items.find((i) => i.id === id)
-const visible = computed(() => props.items.filter((i) => !i.hidden))
+// bar mode (ใบ#108) drops the grip (nothing to drag or collapse) and anything the page marked
+// `hideOnBar` (the โปร่งใส slider — a bar glued to the edge has nothing behind it to see through).
+const offBar = (i) => bar.value && (i.kind === 'grip' || i.hideOnBar)
+const visible = computed(() => props.items.filter((i) => !i.hidden && !offBar(i)))
 // items with a home in the ⚙ Setting page: everything not on the bar by default, plus
 // anything pinnable (so it can be un-pinned back into its home) — DS I4.
 const settingItems = computed(() => visible.value.filter((i) => i.default === 'inSetting' || i.pinnable))
@@ -76,6 +84,15 @@ const mobile = ref(false)
 let mq = null
 function syncMobile() { mobile.value = mq ? mq.matches : false }
 const cap = computed(() => (mobile.value ? 7 : 14))
+// ใบ#108 — the fixed bottom bar: only on a phone AND only where the page asked for it
+const bar = computed(() => props.barOnMobile && mobile.value)
+// the bar never shows the collapsed mini dock. The saved choice is left alone, so the wide
+// screen still opens the way the user last left it.
+const isCollapsed = computed(() => collapsed.value && !bar.value)
+// the bar is always solid — a remembered see-through value from the wide screen doesn't apply
+const shownAlpha = computed(() => (bar.value ? 1 : props.alpha))
+// a dragged spot only applies to the floating dock, never to the bar
+const dockStyle = computed(() => (pos.value && !bar.value ? { transform: `translate(${pos.value.x}px, ${pos.value.y}px)` } : {}))
 
 // ---------- one popover at a time (menu · setting · a slot cell) ----------
 const openId = ref(null) // item id | 'setting' | null
@@ -111,7 +128,7 @@ const row2 = computed(() =>
 // already rendered by row1/row2, so honouring a stale pin for it would draw the same button twice
 // (ui-standards §2 single source of action). This also self-heals a saved pin from before an item
 // was promoted to the bar — e.g. พี่เปา's pinned 'draft' (issues9) — with no storage migration.
-const pinnedItems = computed(() => pins.value.map(byId).filter((i) => i && !i.place))
+const pinnedItems = computed(() => pins.value.map(byId).filter((i) => i && !i.place && !offBar(i)))
 // a "plain button row" = no wide/special cells (timeline · selector · key band). Only these
 // can be merged with a neighbour (a timeline/selector must keep its own row).
 const isPackable = (row) => row.length > 0 && !row.some((it) => ['timeline', 'sel', 'keys'].includes(it.kind))
@@ -216,8 +233,19 @@ function clampPops() {
   const host = hostEl.value
   if (!host) return
   const fr = { left: 8, right: window.innerWidth - 8, top: 8, bottom: window.innerHeight - 8 }
+  // ใบ#108 — on the bar a popover opens above it, so the room it has is from the screen top down
+  // to the bar's top edge. A panel taller than that scrolls inside itself instead of running
+  // off the top of the screen.
+  const barTop = bar.value ? dockEl()?.getBoundingClientRect().top : null
   host.querySelectorAll('.dk-pop').forEach((el) => {
     el.style.transform = ''
+    if (barTop) {
+      el.style.maxHeight = Math.max(120, Math.floor(barTop - 16)) + 'px'
+      el.style.overflowY = 'auto'
+    } else if (el.style.maxHeight) {
+      el.style.maxHeight = ''
+      el.style.overflowY = ''
+    }
     const r = el.getBoundingClientRect()
     let dx = 0, dy = 0
     if (r.right > fr.right) dx = fr.right - r.right
@@ -259,11 +287,11 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 </script>
 
 <template>
-  <div ref="hostEl" class="dk-host no-print" :style="{ '--a': alpha }">
+  <div ref="hostEl" class="dk-host no-print" :class="{ 'dk-bar': bar }" :style="{ '--a': shownAlpha }">
     <p v-if="message" class="dk-msg" role="status">{{ message }}</p>
 
     <!-- collapsed → mini [grip][⚙] in place (DS I7). grip tap = expand · drag = move -->
-    <div v-if="collapsed" class="dk-dock dk-mini" :style="pos ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : {}">
+    <div v-if="isCollapsed" class="dk-dock dk-mini" :style="dockStyle">
       <button
         class="dk-btn dk-grip"
         data-grip
@@ -278,7 +306,7 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
     </div>
 
     <!-- expanded → the full dock: keys band(s) · pinned rows · row 2 · row 1 (core) -->
-    <div v-else class="dk-dock" :class="{ 'dk-m': mobile }" :style="pos ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : {}">
+    <div v-else class="dk-dock" :class="{ 'dk-m': mobile }" :style="dockStyle">
       <!-- E1: full-width note-key band(s) (edit palette) — above every row, no overflow -->
       <div v-for="band in keysBands" :key="band.id" class="dk-keys" role="toolbar" :aria-label="band.name || 'แป้นสัญลักษณ์'">
         <div v-for="(krow, kri) in band.rows" :key="kri" class="dk-keyrow">
@@ -627,5 +655,22 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
   .dk-dock { --touch-min: 40px; padding: 5px; }
   .dk-row { gap: 3px; }
   .dk-play { width: 40px; height: 40px; }
+}
+
+/* ---------- ใบ v3/pleng#108: the phone BAR (only when the page opted in · `.dk-bar`) ----------
+   Glued to the bottom edge, edge to edge, square bottom corners. Its own bottom padding grows by
+   the iPhone home-indicator inset, so the buttons sit above that strip while the bar's background
+   still reaches the very edge. Rows centre their buttons across the full width. */
+.dk-host.dk-bar { padding: 0; align-items: stretch; gap: 0; }
+.dk-bar .dk-msg { align-self: center; margin-bottom: 6px; }
+.dk-bar .dk-dock {
+  width: 100%; max-width: none; box-sizing: border-box;
+  border-width: 1px 0 0; border-radius: 0;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+  padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+}
+.dk-bar .dk-row { justify-content: center; }
+@media (max-width: 380px) {
+  .dk-bar .dk-dock { padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px)); }
 }
 </style>

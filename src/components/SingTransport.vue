@@ -201,7 +201,7 @@ const items = computed(() => {
     { id: 'lyricjoin', kind: 'menu', name: 'เนื้อร้อง', icon: 'file-text', default: 'inSetting', pinnable: true, control: menuControl('lyricjoin') },
     // B107 step 9 — เสียงที่เล่น · การบรรเลง · เครื่องดนตรี · อารมณ์/สไตล์ moved into the single
     // "เสียงดนตรี" bar button + popover (soundctl above), so they're no longer separate ⚙ items.
-    { id: 'alpha', kind: 'slider', name: 'โปร่งใส', icon: 'blend', default: 'inSetting', pinnable: true, control: { min: 40, max: 100, value: Math.round(alpha.value * 100), onInput: (v) => (alpha.value = v / 100) } },
+    { id: 'alpha', kind: 'slider', name: 'โปร่งใส', icon: 'blend', default: 'inSetting', pinnable: true, hideOnBar: true, control: { min: 40, max: 100, value: Math.round(alpha.value * 100), onInput: (v) => (alpha.value = v / 100) } },
   ]
   // drop menu items whose control the page didn't supply (keeps the engine fed with valid data)
   return list.filter((it) => it.kind !== 'menu' || it.control)
@@ -209,7 +209,8 @@ const items = computed(() => {
 </script>
 
 <template>
-  <DockKey :items="items" store-key="sing" v-model:alpha="alpha">
+  <!-- ใบ#108 — bar-on-mobile: on a phone this dock is a fixed full-width bar at the bottom -->
+  <DockKey :items="items" store-key="sing" v-model:alpha="alpha" bar-on-mobile>
     <!-- ===== ไทม์ไลน์ (col 1-3) — tap/drag = seek · เส้นท่อนเชื่อม selection · เวลารวม ===== -->
     <template #cell-timeslide>
       <span class="st-seekwrap">
