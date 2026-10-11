@@ -7,6 +7,8 @@
 // Contract: each returns PerfEvent[] (possibly empty). embellishChord() runs the enabled set for
 // one chord and concatenates. Probabilities are the demo-proven values (§4).
 
+import { gridOnsets } from '../meterRegions.js'
+
 function emev(midi, startBeat, beats, gain, attack, decayTo, timeShift = 0) {
   return { role: 'emb', inst: 'chord', midi, startBeat, beats, gain, attack, decayTo, timeShift }
 }
@@ -39,10 +41,17 @@ export function chromaticApproach(chordEvent, voiced, bpb, rng, cfg) {
 
 // gapFill — fill the last beat of a long-held chord with a soft upper chord tone. Frequency halved
 // (P'Aim 14 ก.ค. "มีที่เพราะ แต่อย่าเยอะเกิน"): ~0.18 so it garnishes a held note now and then, not most.
-export function gapFill(chordEvent, voiced, bpb, rng, cfg) {
+// ใบ v3/pleng#106 — in a compound bar (meter = pulseOf(ts)) the "last beat" is the chord's last PULSE
+// (eighth 4 of a one-bar 6/8 chord), not 1 quarter beat before its end (that was eighth 5).
+export function gapFill(chordEvent, voiced, bpb, rng, cfg, meter) {
   const up = voiced.up || []
   if (chordEvent.beats < 3 || !up.length || rng() > 0.18) return []
   const m = up[Math.floor(rng() * up.length)]
+  if (meter) {
+    const on = gridOnsets(chordEvent.startBeat, chordEvent.beats, meter.pulseBeats)
+    const at = on[on.length - 1]
+    return [emev(m, at, chordEvent.startBeat + chordEvent.beats - at, G(cfg) * 0.75, 0.02, null)]
+  }
   return [emev(m, chordEvent.startBeat + chordEvent.beats - 1, 1, G(cfg) * 0.75, 0.02, null)]
 }
 
@@ -59,10 +68,10 @@ const ALL = { sparkle, chromaticApproach, gapFill, octaveSwell }
 
 // Run the enabled embellishments (cfg.embellish = true → the default rich set, or an array of
 // names) for one chord. Returns [] when off — the plain presets get exactly zero extra notes.
-export function embellishChord(chordEvent, voiced, bpb, rng, cfg) {
+export function embellishChord(chordEvent, voiced, bpb, rng, cfg, meter) {
   if (!cfg.embellish) return []
   const names = Array.isArray(cfg.embellish) ? cfg.embellish : ['sparkle', 'chromaticApproach', 'gapFill']
   const out = []
-  for (const n of names) if (ALL[n]) out.push(...ALL[n](chordEvent, voiced, bpb, rng, cfg))
+  for (const n of names) if (ALL[n]) out.push(...ALL[n](chordEvent, voiced, bpb, rng, cfg, meter))
   return out
 }

@@ -8,6 +8,7 @@
 // performance is reproducible (MP3 == live) and two loop passes differ but repeat.
 
 import { clampGainToLayer } from '../sampler.js'
+import { eighthOf } from '../meterRegions.js'
 
 // R2.4 — Humanize velocity: nudge each attack's gain by ±`amount` (P'Aim locked ±6%).
 // GUARD (velocity-in-layer, §7b · P1 lesson): after the nudge, clamp gain into the sampler's
@@ -97,9 +98,28 @@ const isOffBeat = (b) => Math.abs(b - Math.round(b)) > 0.05
 // `medium` (ใบ v3/pleng#98): the secondary-stress position; undefined = the old floor(bar/2) rule (x/4
 // meters), null = the meter has none (6/8, 2/2). A bar that is not a whole number of beats (9/8 = 4.5) is
 // measured unrounded, else its downbeats at x.5 would never read as 0.
-export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = true, medium) {
+// `meter` (ใบ v3/pleng#106) = pulseOf(ts) in a compound bar: positions are read as EIGHTHS, and the mid-bar
+// pulse is a dotted-quarter pulse (eighth 4 in 6/8 and 9/8, eighth 7 in 12/8) — the same "half the bar,
+// rounded down" rule as x/4, counted in pulses. Before, a 6/8 bar kept only beat 1 (its medium is null),
+// and eighth 6 rounded up onto the next downbeat and was kept too. null = the old code, unchanged.
+export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = true, medium, meter) {
   const onsets = events.filter((e) => e.role === 'melody').map((e) => e.startBeat).sort((a, b) => a - b)
   if (!onsets.length) return events
+  if (meter) {
+    const pulses = Math.round(beatsPerBar / meter.pulseBeats)
+    const midE = Math.round(2 * (medium ?? meter.pulseBeats * Math.floor(pulses / 2)))
+    const held = (b) => {
+      let last = -Infinity
+      for (const o of onsets) { if (o <= b + 1e-6) last = o; else break }
+      return b - last
+    }
+    return events.filter((e) => {
+      if (e.role !== 'inner') return true
+      if (held(e.startBeat) < holdBeats) return true
+      const ei = eighthOf(Math.round(e.startBeat * 2) / 2, beatsPerBar)
+      return ei === 0 || (pulse && midE > 0 && ei === midE)
+    })
+  }
   const mid = medium === undefined ? Math.floor(beatsPerBar / 2) : medium // mid-bar pulse point (beat 3 in 4/4, beat 2 in 3/4)
   const whole = Number.isInteger(beatsPerBar)
   const beatsHeld = (b) => {
@@ -121,7 +141,19 @@ export function easeUnderHold(events, beatsPerBar = 4, holdBeats = 2, pulse = tr
 // R2.2 — Metric accent: emphasise the downbeat of each bar, ease off the weak beats and the
 // off-beats, so the pulse breathes instead of every note hitting equally hard. Multiplies gain by
 // a position factor in [0.72, 1.0]. Reads beats-per-bar from the caller (time signature).
-export function metricAccent(events, beatsPerBar = 4, medium) {
+// `meter` (ใบ v3/pleng#106) = pulseOf(ts) in a compound bar: eighth 1 is the downbeat (0.92), the start of
+// every other pulse is next (0.86 — eighth 4 in 6/8), the remaining eighths 0.82, anything finer 0.8.
+// Before, eighth 4 of a 6/8 bar sat on a half beat and got the WEAKEST factor (0.8), under eighths 3 and 5.
+export function metricAccent(events, beatsPerBar = 4, medium, meter) {
+  if (meter) {
+    const per = Math.round(meter.pulseBeats * 2)
+    for (const e of events) {
+      const x = e.startBeat * 2
+      const ei = Math.abs(x - Math.round(x)) > 0.1 ? null : eighthOf(Math.round(x) / 2, beatsPerBar)
+      e.gain *= ei == null ? 0.8 : ei === 0 ? 0.92 : ei % per === 0 ? 0.86 : 0.82
+    }
+    return events
+  }
   const mid = medium === undefined ? Math.floor(beatsPerBar / 2) : medium // see easeUnderHold (ใบ#98)
   const whole = Number.isInteger(beatsPerBar)
   for (const e of events) {

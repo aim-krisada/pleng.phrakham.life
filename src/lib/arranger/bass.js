@@ -8,7 +8,12 @@
 //             with a chromatic approach (§R1.8). Life/continuity for rhythmic songs.
 // All bass notes stay in the low register (MIDI 36–51). Contract:
 //   bassMode(chordEvent, bass, ctx) → PerfEvent[] (role 'bass')
-//   ctx = { nextBass, keyRoot, beatsPerBar, rng, cfg }
+//   ctx = { nextBass, keyRoot, beatsPerBar, rng, cfg, meter }
+//   meter = pulseOf(ts) in a compound bar (6/8 9/8 12/8, ใบ v3/pleng#106), else null. A compound bar
+//   moves the bass by its PULSE (a dotted quarter = eighths 1 and 4 in 6/8), not by the quarter beat —
+//   by the quarter beat a 6/8 bar walked on eighths 1 3 5 like 3/4. null = the old code, unchanged.
+
+import { gridOnsets } from '../meterRegions.js'
 
 const BASS_LO = 36
 const BASS_HI = 51
@@ -34,7 +39,17 @@ export function root(chordEvent, bass, ctx) {
 export function pedal(chordEvent, bass, ctx) {
   if (bass == null) return []
   const slash = ctx.slashBass
-  if (slash != null && slash !== bass && chordEvent.beats >= 2) {
+  if (ctx.meter && slash != null && slash !== bass) {
+    // compound: root on the chord's first pulse, the slash bass from the next pulse (eighth 4 in 6/8)
+    const on = gridOnsets(chordEvent.startBeat, chordEvent.beats, ctx.meter.pulseBeats)
+    if (on.length >= 2) {
+      const end = chordEvent.startBeat + chordEvent.beats
+      return [
+        bev(bass, on[0], on[1] - on[0], bassGain(ctx.cfg, 0.9), 0.08, 0.9),
+        bev(slash, on[1], end - on[1], bassGain(ctx.cfg, 0.9), 0.06, 0.9),
+      ]
+    }
+  } else if (slash != null && slash !== bass && chordEvent.beats >= 2) {
     return [
       bev(bass, chordEvent.startBeat, 1, bassGain(ctx.cfg, 0.9), 0.08, 0.9), // root first
       bev(slash, chordEvent.startBeat + 1, chordEvent.beats - 1, bassGain(ctx.cfg, 0.9), 0.06, 0.9), // → slash bass
@@ -53,6 +68,20 @@ export function pedalWalk(chordEvent, bass, ctx) {
   if (bass == null) return []
   // a slash chord's own bass move (root → slash) takes priority over walking into the next chord
   if (ctx.slashBass != null && ctx.slashBass !== bass) return pedal(chordEvent, bass, ctx)
+  if (ctx.meter) {
+    // compound: carry the root to the chord's LAST pulse, step into the next root there (eighth 4 of a
+    // one-bar 6/8 chord — it used to fall on eighth 5)
+    const on = gridOnsets(chordEvent.startBeat, chordEvent.beats, ctx.meter.pulseBeats)
+    const next = ctx.nextBass
+    if (on.length < 2 || next == null || next === bass) return pedal(chordEvent, bass, ctx)
+    const last = on[on.length - 1]
+    const end = chordEvent.startBeat + chordEvent.beats
+    const approach = clampBass(next - (next > bass ? 1 : -1))
+    return [
+      bev(bass, on[0], last - on[0], bassGain(ctx.cfg, 0.9), 0.08, 0.9),
+      bev(approach, last, end - last, bassGain(ctx.cfg, 0.82), 0.04, 0.4),
+    ]
+  }
   const nb = Math.max(1, Math.round(chordEvent.beats))
   const next = ctx.nextBass
   const connect = nb >= 2 && next != null && next !== bass
@@ -79,6 +108,22 @@ function nextDiatonic(from, dir, keyRoot) {
 // chromatic step (±1) below/above the next root so it "leads" into it. ≥2 beats or falls back to
 // root (short chords don't walk). Diatonic in the song key except the final approach note.
 export function walking(chordEvent, bass, ctx) {
+  if (ctx.meter) {
+    // compound: one bass note per PULSE (eighths 1 and 4 in 6/8), same walk toward the next root
+    const on = gridOnsets(chordEvent.startBeat, chordEvent.beats, ctx.meter.pulseBeats)
+    if (bass == null || on.length < 2) return root(chordEvent, bass, ctx)
+    const end = chordEvent.startBeat + chordEvent.beats
+    const keyRoot = ctx.keyRoot ?? 40
+    const target = ctx.nextBass != null ? ctx.nextBass : bass
+    let cur = bass
+    return on.map((at, b) => {
+      const note = b === 0 ? bass
+        : b === on.length - 1 ? clampBass(target + (target >= cur ? -1 : 1))
+          : nextDiatonic(cur, target >= cur ? 1 : -1, keyRoot)
+      cur = note
+      return bev(note, at, (on[b + 1] ?? end) - at, bassGain(ctx.cfg, 0.95), 0.03, 0.5)
+    })
+  }
   const nb = Math.max(1, Math.round(chordEvent.beats))
   if (bass == null || nb < 2) return root(chordEvent, bass, ctx)
   const keyRoot = ctx.keyRoot ?? 40

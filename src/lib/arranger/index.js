@@ -30,7 +30,7 @@ import { embellishChord } from './embellish.js'
 import { answerFills, applySusCadence } from './fills.js'
 import { refereeNoClash, balanceFloor, legatoBass, leftHandCeiling, leftHandNoUnison } from './referee.js'
 import { keyboard } from './instruments/keyboard.js'
-import { meterRuns, runAt, shiftOf, mediumOf } from '../meterRegions.js'
+import { meterRuns, runAt, shiftOf, mediumOf, pulseOf } from '../meterRegions.js'
 import { expectedBeats } from '../notation.js'
 
 /** @typedef {Object} PerfEvent
@@ -56,6 +56,35 @@ function inRefrain(beat, sections) {
 // the time signature's NUMERATOR, which is the same number only for x/4: a 6/8 bar is 3 quarter beats,
 // not 6, so every bar-locked layer treated two bars as one (v3 found and fixed the same thing in its
 // arranger/meter.js). x/4 meters get exactly the number they always did. A bare number = quarter beats.
+// ใบ v3/pleng#106 — cut a chord that is held across a change between a COMPOUND meter (6/8 9/8 12/8) and
+// another meter, so each part is played in its own bar's grouping and the switch lands exactly on the bar
+// where the meter changes. buildChordVoice already starts a new chord at a melody-meter change, but a note
+// with no chord symbol of its own carries the previous chord across it. Only called for songs that have a
+// compound meter somewhere, so every other song keeps exactly its old chord list.
+function cutAtCompoundChange(list, runs, songTs) {
+  const tsOf = (r) => r.ts || songTs
+  const cuts = []
+  for (let i = 1; i < runs.length; i++) {
+    const a = tsOf(runs[i - 1])
+    const b = tsOf(runs[i])
+    if (a !== b && (pulseOf(a) || pulseOf(b))) cuts.push(runs[i].from)
+  }
+  if (!cuts.length) return list
+  const out = []
+  for (const c of list) {
+    let start = c.startBeat
+    const end = c.startBeat + c.beats
+    for (const x of cuts) {
+      if (x > start + 1e-6 && x < end - 1e-6) {
+        out.push({ ...c, startBeat: start, beats: x - start })
+        start = x
+      }
+    }
+    out.push(start === c.startBeat ? c : { ...c, startBeat: start, beats: end - start })
+  }
+  return out
+}
+
 function beatsPerBar(meta) {
   const ts = meta && meta.timeSignature
   if (typeof ts === 'number' && ts > 0) return ts
@@ -109,14 +138,19 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   // shifted onto its run's grid, and its output is shifted back. A song whose bars all sit on the beat-0
   // grid is ONE run with shift 0 and its own bar length → every step runs exactly as before.
   const songMid = mediumOf(meta.timeSignature, bpb)
+  // ใบ v3/pleng#106 — how the bar is grouped: pulses of 3 eighths in 6/8 9/8 12/8 (null for every other
+  // meter, and then every bar-locked step below runs exactly its old code)
+  const songPulse = pulseOf(meta.timeSignature)
   const runs = meterRuns(notes, meta.timeSignature)
   const plain = runs.length <= 1 && !shiftOf(runs[0]) && (!runs[0] || runs[0].barBeats === bpb) && !(runs[0] && runs[0].ts)
-  const barOf = (r) => (r ? { bpb: r.barBeats, off: shiftOf(r), mid: mediumOf(r.ts || meta.timeSignature, r.barBeats) } : { bpb, off: 0, mid: songMid })
-  const barAt = (beat) => (plain ? { bpb, off: 0, mid: songMid } : barOf(runAt(runs, beat)))
+  const barOf = (r) => (r
+    ? { bpb: r.barBeats, off: shiftOf(r), mid: mediumOf(r.ts || meta.timeSignature, r.barBeats), pulse: pulseOf(r.ts || meta.timeSignature) }
+    : { bpb, off: 0, mid: songMid, pulse: songPulse })
+  const barAt = (beat) => (plain ? { bpb, off: 0, mid: songMid, pulse: songPulse } : barOf(runAt(runs, beat)))
   const back = (off, evts) => { if (off) for (const e of evts) e.startBeat += off; return evts }
   // a whole-list pass (accent / ease / downbeat lock) run per bar-grid run
   const perBar = (evts, fn) => {
-    if (plain) return fn(evts, bpb, songMid)
+    if (plain) return fn(evts, bpb, songMid, songPulse)
     const order = new Map(evts.map((e, i) => [e, i]))
     const groups = new Map()
     for (const e of evts) {
@@ -128,7 +162,7 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
     for (const [r, list] of groups) {
       const b = barOf(r)
       for (const e of list) e.startBeat -= b.off
-      const res = fn(list, b.bpb, b.mid)
+      const res = fn(list, b.bpb, b.mid, b.pulse)
       for (const e of list) e.startBeat += b.off
       out.push(...res)
     }
@@ -158,7 +192,8 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
     const bassName = on ? (cfg.bass || mod.defaultBass) : 'root'
     const bassMode = (mod.bassModes && mod.bassModes[bassName]) || mod.bassModes.root
     let prevUp = null
-    const list = chordEvents || []
+    let list = chordEvents || []
+    if (!plain && runs.some((r) => pulseOf(r.ts || meta.timeSignature))) list = cutAtCompoundChange(list, runs, meta.timeSignature)
     for (let i = 0; i < list.length; i++) {
       const evc = list[i]
       // OFF → the raw voice-led chord (full up[]), no module reduction; ON → the module's voicing.
@@ -170,18 +205,19 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
       // ใบ#96 — the bar this chord sits in: its melody's own meter, or the song's (off 0 = as before)
       const bar = barAt(evc.startBeat)
       const ev = bar.off ? { ...evc, startBeat: evc.startBeat - bar.off } : evc
-      const compEvts = back(bar.off, useComp(ev, voiced.up, bar.bpb, rng, cfg))
+      // ใบ#106 — bar.pulse: the grouping of a compound bar (null otherwise = the pattern's old code)
+      const compEvts = back(bar.off, useComp(ev, voiced.up, bar.bpb, rng, cfg, bar.pulse))
       // sus → คลี่คลาย at a cadence chord (harmony-aware; uses melody already in `events` for the
       // clash guard). Edits compEvts in place before they join the stream.
-      if (on && cfg.susCadence) applySusCadence(compEvts, evc.chord, evc.startBeat, evc.beats, events, cfg)
+      if (on && cfg.susCadence) applySusCadence(compEvts, evc.chord, evc.startBeat, evc.beats, events, cfg, bar.pulse ? { pulseBeats: bar.pulse.pulseBeats, off: bar.off } : null)
       events.push(...compEvts)
       events.push(...back(bar.off, bassMode(ev, voiced.bass, {
         nextBass: list[i + 1] ? list[i + 1].bass : null,
         slashBass: evc.slashBass, // slash chord: root first, then move to this (P'Aim)
         // ใบ v3/pleng#95 — a chord inside a ท่อน that sets its own key walks in that key
-        keyRoot: evc.keyRoot ?? meta.keyRoot ?? 40, beatsPerBar: bar.bpb, rng, cfg,
+        keyRoot: evc.keyRoot ?? meta.keyRoot ?? 40, beatsPerBar: bar.bpb, rng, cfg, meter: bar.pulse,
       })))
-      if (on) events.push(...back(bar.off, embellishChord(ev, voiced, bar.bpb, rng, cfg)))
+      if (on) events.push(...back(bar.off, embellishChord(ev, voiced, bar.bpb, rng, cfg, bar.pulse)))
     }
   }
 
@@ -205,9 +241,9 @@ export function arrange(notes, chordEvents = [], cfg = {}, meta = {}) {
   if (on) {
     // thin the comp under a held melody note first (fewer notes = real space), then shape gains.
     // cfg.holdPulse (default on) = the mid-bar pulse that keeps a long hold from going hollow.
-    if (cfg.easeUnderHold !== false) events = perBar(events, (l, b, mid) => easeUnderHold(l, b, 2, cfg.holdPulse !== false, mid))
+    if (cfg.easeUnderHold !== false) events = perBar(events, (l, b, mid, pulse) => easeUnderHold(l, b, 2, cfg.holdPulse !== false, mid, pulse))
     if (dyn.section !== false) sectionDynamics(events, meta.sections, dyn.sectionMap)
-    if (dyn.accent !== false) perBar(events, (l, b, mid) => metricAccent(l, b, mid) || l)
+    if (dyn.accent !== false) perBar(events, (l, b, mid, pulse) => metricAccent(l, b, mid, pulse) || l)
     if (dyn.contour !== false) melodicContour(events)
     if (dyn.cresc) crescendo(events, dyn.cresc)
     if (dyn.rubato !== false) rubato(events, meta.sections) // ท่อน-end breathe (§R2.8)

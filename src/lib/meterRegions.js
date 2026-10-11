@@ -117,6 +117,48 @@ export function mediumOf(ts, barBeats) {
   return pulses >= 4 && pulses % 2 === 0 ? (pulses / 2) * pulseBeats : null
 }
 
+// ใบ v3/pleng#106 — how a COMPOUND bar is grouped. 6/8, 9/8 and 12/8 are 2, 3 and 4 pulses of three
+// eighths (a dotted quarter = 1.5 quarter beats), counted 1 2 3 4 5 6 in 6/8 — not three quarter beats
+// like 3/4, which has the same bar length. Same rule tapTempo.js already uses for the tap pad.
+//   → { pulseBeats: 1.5, pulses } for x/8 with x a multiple of 3 above 3, else null. A null is the signal
+//     every bar-locked layer uses to run exactly its old code, so every other meter sounds as before.
+export function pulseOf(ts) {
+  const m = /^(\d+)\s*\/\s*(\d+)$/.exec(String(ts || '').trim())
+  if (!m) return null
+  const n = Number(m[1])
+  if (Number(m[2]) !== 8 || n % 3 !== 0 || n <= 3) return null
+  return { pulseBeats: 1.5, pulses: n / 3 }
+}
+
+// Onsets on a grid of `step` beats inside [start, start + beats): the start itself (a chord sounds where
+// it begins, even off the grid), then every multiple of `step` after it. Beats are on the bar grid
+// (downbeats at multiples of the bar), so multiples of 1.5 are exactly the compound pulses.
+export function gridOnsets(start, beats, step) {
+  const out = [start]
+  const end = start + beats
+  for (let k = Math.floor(start / step + EPS) + 1; k * step < end - EPS; k++) out.push(k * step)
+  return out
+}
+
+// Which eighth of its bar a beat falls on (0 = the downbeat), or null when it is not on the eighth grid.
+// barBeats × 2 is a whole number for every meter here (9/8 = 4.5 beats = 9 eighths).
+export function eighthOf(beat, barBeats) {
+  const x = beat * 2
+  const r = Math.round(x)
+  if (Math.abs(x - r) > EPS) return null
+  const n = Math.round(barBeats * 2)
+  return ((r % n) + n) % n
+}
+
+// The stress of a beat inside a compound bar: 2 = the downbeat (eighth 1), 1 = the start of another pulse
+// (eighth 4 in 6/8; 4, 7 in 9/8; 4, 7, 10 in 12/8), 0 = any other eighth or off the eighth grid.
+export function compoundStress(beat, barBeats, meter) {
+  const e = eighthOf(beat, barBeats)
+  if (e == null) return 0
+  if (e === 0) return 2
+  return e % Math.round(meter.pulseBeats * 2) === 0 ? 1 : 0
+}
+
 // The shift that puts a run's bar grid at 0: (beat - shiftOf(r)) is a multiple of barBeats exactly on
 // the run's downbeats. It is ≤ 0, so a shifted beat inside the song is never negative (patterns.js
 // takes a plain `%`). 0 for a run already on the beat-0 grid — those callers' arithmetic is unchanged.
