@@ -19,6 +19,7 @@
 //           its one-at-a-time popover, and clamps any .dk-pop the slot renders.
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
+import { planFold } from '../lib/dockFold.js'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
@@ -49,7 +50,11 @@ const offBar = (i) => bar.value && (i.kind === 'grip' || i.hideOnBar)
 const visible = computed(() => props.items.filter((i) => !i.hidden && !offBar(i)))
 // items with a home in the ⚙ Setting page: everything not on the bar by default, plus
 // anything pinnable (so it can be un-pinned back into its home) — DS I4.
-const settingItems = computed(() => visible.value.filter((i) => i.default === 'inSetting' || i.pinnable))
+// ใบ#109 — on the bar, a button that didn't fit the one button row also lives here for now.
+const settingItems = computed(() => visible.value.filter((i) => i.default === 'inSetting' || i.pinnable || foldedSet.value.has(i.id)))
+// a row in ⚙ that is only there because its button didn't fit the bar: it has a home on the bar,
+// so there is nothing to pin.
+const onlyFolded = (it) => foldedSet.value.has(it.id) && !it.pinnable && it.default !== 'inSetting'
 
 // ---------- persisted layout ----------
 const LS_PINS = computed(() => `pleng.dockkey.${props.storeKey}.pins`)
@@ -149,6 +154,62 @@ const rows = computed(() => {
   }
   return [...top, r2, r1].filter((r) => r.length)
 })
+
+// ---------- ใบ v3/pleng#109 — the bar: seek row on top, ONE centred button row below ----------
+// Material 3 media-player layout: the seek bar takes the full width of its own row; every
+// button (transport, คีย์, ความเร็ว, ท่อน, เสียง, download, Aa, ⚙, anything pinned) sits together
+// in one group under it, at a 48px touch target with the same 8px spacing at every width — the
+// extra room on a wider screen (Fold 6 unfolded ≈ 700px) is left at the sides, not spread between
+// buttons. Order = the dock's own merge rule (§D2 above): row 1 up to ⚙, then row 2, then the
+// pinned buttons, then ⚙. A button that doesn't fit moves into ⚙ (lib/dockFold.js).
+const barOrder = computed(() => {
+  if (!bar.value) return []
+  const r1 = row1.value
+  const extra = [...row2.value.filter((i) => i.kind !== 'timeline'), ...pinnedItems.value]
+  const gi = r1.findIndex((it) => it.kind === 'gear')
+  return gi >= 0 ? [...r1.slice(0, gi), ...extra, ...r1.slice(gi)] : [...r1, ...extra]
+})
+const folded = ref([]) // ids that didn't fit the button row (tail first)
+const foldedSet = computed(() => new Set(bar.value ? folded.value : []))
+// the folded page-drawn cells (download · ท่อน · เสียงดนตรี …) still mount — out of sight — so
+// that picking one from ⚙ opens its own popover at the usual spot above the bar.
+const foldedCells = computed(() => barOrder.value.filter((it) => foldedSet.value.has(it.id) && SLOT_KINDS.includes(it.kind)))
+const barRows = computed(() => {
+  const seek = row2.value.filter((i) => i.kind === 'timeline')
+  const btns = barOrder.value.filter((it) => !foldedSet.value.has(it.id))
+  return [
+    ...(seek.length ? [{ key: 'seek', cls: 'dk-seekrow', items: seek }] : []),
+    { key: 'btns', cls: 'dk-btnrow', items: btns },
+  ]
+})
+const shownRows = computed(() => (bar.value
+  ? barRows.value
+  : rows.value.map((r, i) => ({ key: i, cls: { spread: rowIsChrome(r) }, items: r }))))
+
+// measure the buttons and fold what doesn't fit. Widths are remembered per button, so one that
+// is folded (not on the row) is still counted right when the screen gets wider again.
+const widthCache = new Map()
+const GUESS = 48
+function sameIds(a, b) { return a.length === b.length && a.every((x, i) => x === b[i]) }
+async function refit() {
+  if (!bar.value) { if (folded.value.length) folded.value = []; return }
+  await nextTick()
+  const host = hostEl.value
+  const row = host?.querySelector('.dk-btnrow')
+  if (!row) return
+  host.querySelectorAll('.dk-btnrow > [data-cell], .dk-fold > [data-cell]').forEach((el) => {
+    const w = el.getBoundingClientRect().width
+    if (w > 0) widthCache.set(el.dataset.cell, w)
+  })
+  const avail = row.clientWidth
+  if (!(avail > 0)) return // not laid out (hidden page · test DOM)
+  const gap = parseFloat(window.getComputedStyle(row).columnGap) || 0
+  const next = planFold(barOrder.value, (it) => widthCache.get(it.id) ?? GUESS, avail, gap)
+  if (!sameIds(next, folded.value)) folded.value = next
+}
+watch(() => [bar.value, barOrder.value.map((i) => i.id).join()], refit, { flush: 'post' })
+// a button's width can change with what it shows (ความเร็ว 92 → 120 · คีย์ C → F#)
+watch(() => props.items, refit, { flush: 'post' })
 const rowIsChrome = (row) => row.some((it) => it.id === 'setting') // the core bottom row → spread
 
 // ---------- pin / reorder (the Setting page · DS §3) ----------
@@ -264,11 +325,20 @@ onMounted(() => {
   syncMobile()
   mq?.addEventListener?.('change', syncMobile)
   window.addEventListener('resize', syncMobile)
+  window.addEventListener('resize', refit)
   window.addEventListener('keydown', onEsc)
+  // the bar's width follows the window; the page around it can also hide/show it (Studio keeps
+  // all three modes mounted) — re-fit whenever the dock's box changes size
+  if (typeof ResizeObserver === 'function' && hostEl.value) {
+    ro = new ResizeObserver(() => refit())
+    ro.observe(hostEl.value)
+  }
+  refit()
 })
 onUnmounted(() => {
   mq?.removeEventListener?.('change', syncMobile)
   window.removeEventListener('resize', syncMobile)
+  window.removeEventListener('resize', refit)
   window.removeEventListener('keydown', onEsc)
   document.removeEventListener('mousedown', onOutside)
   ro?.disconnect()
@@ -315,12 +385,12 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
       </div>
 
       <div
-        v-for="(row, ri) in rows"
-        :key="ri"
+        v-for="row in shownRows"
+        :key="row.key"
         class="dk-row"
-        :class="{ spread: rowIsChrome(row) }"
+        :class="row.cls"
       >
-        <template v-for="it in row" :key="it.id">
+        <template v-for="it in row.items" :key="it.id">
           <!-- page-drawn cell (timeline · selector · Aa) — engine lays it out + clamps -->
           <span v-if="SLOT_KINDS.includes(it.kind)" class="dk-cell" :style="{ flex: cellFlex(it) }" :data-cell="it.id">
             <slot :name="`cell-${it.id}`" :item="it" :open="openId === it.id" :toggle="() => toggleOpen(it.id)" :close="close" />
@@ -429,6 +499,14 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
         </template>
       </div>
 
+      <!-- ใบ#109 — page-drawn buttons folded into ⚙ stay mounted here, out of sight, so that
+           choosing one in ⚙ opens its popover at the usual spot (anchored to the bar) -->
+      <div v-if="foldedCells.length" class="dk-fold">
+        <span v-for="it in foldedCells" :key="it.id" class="dk-cell" :data-cell="it.id">
+          <slot :name="`cell-${it.id}`" :item="it" :open="openId === it.id" :toggle="() => toggleOpen(it.id)" :close="close" />
+        </span>
+      </div>
+
       <!-- ===== ⚙ Setting page — every item's home · adjust inline · ▲▼ · 📌 (DS §3) ===== -->
       <!-- a settings FORM, not a menu — its rows are controls, not menuitems (a11y 4.1.2) -->
       <div v-if="openId === 'setting'" class="dk-pop dk-panel" role="group" aria-label="ตั้งค่า" @click.stop>
@@ -462,6 +540,13 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
               :aria-label="it.name"
               @click="it.control?.onToggle?.()"
             ><span class="dk-switch-k"></span></button>
+            <!-- ใบ#109 — a page-drawn button folded off the bar: open its own popover -->
+            <button
+              v-else-if="SLOT_KINDS.includes(it.kind)"
+              class="dk-prun"
+              :aria-label="it.name"
+              @click.stop="toggleOpen(it.id)"
+            >เปิด</button>
             <template v-else-if="it.kind === 'slider'">
               <input
                 class="dk-prange"
@@ -480,6 +565,7 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
           <button v-if="isPinned(it.id)" class="dk-mv" :disabled="pinIndex(it.id) === 0" aria-label="เลื่อนขึ้น" @click.stop="movePin(it.id, -1)">▲</button>
           <button v-if="isPinned(it.id)" class="dk-mv" :disabled="pinIndex(it.id) === pins.length - 1" aria-label="เลื่อนลง" @click.stop="movePin(it.id, 1)">▼</button>
           <button
+            v-if="!onlyFolded(it)"
             class="dk-pin"
             :class="{ on: isPinned(it.id) }"
             :aria-pressed="isPinned(it.id)"
@@ -673,4 +759,25 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 @media (max-width: 380px) {
   .dk-bar .dk-dock { padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ---------- ใบ v3/pleng#109: the bar = seek row on top + ONE centred button row ----------
+   Material 3 touch target: every button on the bar is at least 48×48 with 8px between buttons,
+   the same at 360px and on a 700px Fold. The phone shrink above (42/40px) is for the floating
+   dock only. The button row never wraps and never spreads: buttons that don't fit move into ⚙
+   (refit() in the script), and the group stays centred with the spare room at both sides. */
+.dk-bar .dk-dock { --touch-min: 48px; padding: 4px 8px; padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); }
+.dk-bar .dk-row { gap: 8px; flex-wrap: nowrap; }
+.dk-bar .dk-row + .dk-row { margin-top: 2px; }
+.dk-bar .dk-btnrow { justify-content: safe center; }
+.dk-bar .dk-seekrow > .dk-cell { min-width: 0; }
+.dk-bar .dk-play { width: 48px; height: 48px; }
+.dk-bar .dk-pbtn { min-width: var(--touch-min); justify-content: center; }
+/* page-drawn buttons (ท่อน · เสียงดนตรี · download · Aa · ความเร็ว) get the same 48px floor —
+   only the button on the bar, never the buttons inside its popover */
+.dk-bar .dk-btnrow > .dk-cell > :deep(button),
+.dk-bar .dk-btnrow > .dk-cell > :deep(:not(.dk-pop) > button) { min-width: var(--touch-min); min-height: var(--touch-min); }
+/* folded page-drawn cells: laid out (so their width is known) but invisible and untouchable —
+   only their popover shows when opened from ⚙. Static, so the popover anchors to the bar. */
+.dk-fold { display: flex; gap: 8px; height: 0; overflow: visible; visibility: hidden; pointer-events: none; }
+.dk-fold :deep(.dk-pop) { visibility: visible; pointer-events: auto; }
 </style>
