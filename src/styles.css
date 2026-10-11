@@ -75,6 +75,13 @@
    In pleng the editor dock is z-index 90, so pin the scroll buttons below it — on the
    mobile editor the full-width dock then covers them instead of the two fighting. */
 .pk-scrollnav { z-index: 30 !important; }
+/* ใบ v3/pleng#108 — on a phone the ฝึกร้อง / แผ่นเพลง dock is a bar fixed to the bottom edge.
+   Lift the scroll buttons so they sit fully ABOVE it (8px gap), never half-hidden behind it.
+   --dock-bar-h is the bar's full height incl. the iPhone home-bar inset, and `has-dock-bar` is
+   only set while such a bar is showing (lib/dockClear.js) — wide screens and แก้ไข untouched. */
+@media (max-width: 760px) {
+  html.has-dock-bar .pk-scrollnav { bottom: calc(var(--dock-bar-h, 0px) + 8px) !important; }
+}
 
 /* text-size-adjust: 100% — DISABLE Chrome-mobile "font boosting" (auto-inflation). Without it,
    Chrome on Android enlarges text a moment after load to "improve readability", which widened the

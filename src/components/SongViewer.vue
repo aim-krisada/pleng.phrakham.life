@@ -454,7 +454,17 @@ async function scrollToPlaying() {
   const el = sheetWrap.value.querySelector(sel)
   if (!el) return
   const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  const r = el.getBoundingClientRect(); if (r.top < 96 || r.bottom > window.innerHeight - 240) el.scrollIntoView({ block: 'center', inline: 'center', behavior: smooth ? 'smooth' : 'auto' })
+  // ใบ v3/pleng#108 — on a phone the dock is a bar glued to the bottom; a line that reaches
+  // within 16px of the bar's top edge counts as "behind the dock" too, so it is never left under it.
+  let lowest = window.innerHeight - 240
+  const barEl = sheetWrap.value.closest('.sv-root')?.querySelector('.dk-host.dk-bar > .dk-dock')
+  const barTop = barEl?.getBoundingClientRect().top
+  if (barTop > 0) lowest = Math.min(lowest, barTop - 16)
+  // …and the round scroll buttons lifted to sit just above that bar (styles.css) — the sung
+  // line is kept above them too, so they never cover it
+  const navTop = barTop > 0 ? document.querySelector('.pk-scrollnav')?.getBoundingClientRect().top : 0
+  if (navTop > 0) lowest = Math.min(lowest, navTop - 8)
+  const r = el.getBoundingClientRect(); if (r.top < 96 || r.bottom > lowest) el.scrollIntoView({ block: 'center', inline: 'center', behavior: smooth ? 'smooth' : 'auto' })
 }
 watch(playingSyl, scrollToPlaying)
 watch(playingSeg, (seg) => { if (!playingSyl.value) scrollToPlaying(seg) })
@@ -743,7 +753,7 @@ function onSeek({ li, si, syk }) {
 </script>
 
 <template>
-  <div>
+  <div class="sv-root">
     <!-- B053: แหล่งเพลง (source books) + scripture reference — small captions above the
          sheet, mirroring the catalog card. Only render when the song actually has them. -->
     <div v-if="refLabels.length || song.scripture" class="song-refs">
@@ -1012,6 +1022,12 @@ function onSeek({ li, si, syk }) {
 @media print { .book-note { display: none; } }
 @media (max-width: 480px) {
   .sheet-scale { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
+}
+/* ใบ v3/pleng#108 — on a phone the dock is a bar glued to the bottom and the page footer is
+   lifted to sit right on top of it (App.vue measures the bar), so the song only needs a small
+   gap below its last line, not room for a floating dock. */
+@media (max-width: 760px) {
+  .sheet-scale { padding-bottom: 24px; }
 }
 
 /* B107 — "loading real piano" hint, a small pill sitting just above the fixed dock. Purely
