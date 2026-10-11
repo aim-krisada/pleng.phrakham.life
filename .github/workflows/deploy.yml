@@ -68,6 +68,8 @@ jobs:
           cache-dependency-path: live/package-lock.json
       - run: npm ci
         working-directory: live
+      - run: npm run test:all
+        working-directory: live
       - run: npm run build
         working-directory: live
 
