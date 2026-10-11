@@ -16,7 +16,7 @@ import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhr
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
 import { downloadSong } from '../lib/jsonIO.js'
-import { tier, initAuth, shellMenu, currentSong, readingFontScale, setFontScale, lyricJoin } from '../store.js'
+import { tier, initAuth, shellMenu, currentSong, readingFontScale, setFontScale, sheetLyricJoin } from '../store.js'
 import Icon from '../components/Icon.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 import SongViewer from '../components/SongViewer.vue'
@@ -217,8 +217,8 @@ const keyOptions = computed(() =>
 // ใบ v3/pleng#101 — the lyrics-only lines of the sheet (เนื้อล้วน, and in สมุดเพลง every verse after the first that
 // reuses the melody) can be written "ติดกันเป็นวรรค" like the songbook, the same way and with the same breaks
 // as ฝึกร้อง (ใบ#100 · lib/lyricPhrase.js). Lines with notes above stay split — each syllable under its note.
-// One remembered choice for both pages (store.lyricJoin): a reader who likes the joined text gets it on
-// both, and a new song opens the same way.
+// Remembered on this device for แผ่นเพลง alone (store.sheetLyricJoin — พี่เอม 5 ต.ค. 2569: each page keeps its own),
+// so a new song opens the same way and a pick here never changes ฝึกร้อง.
 // ใบ v3/pleng#105 — a third way: ตามต้นฉบับ, the breaks the printed songbook itself drew
 // (lib/bookPhrases.js). Where the book has nothing for a line, that line keeps the tune's breaks
 // and the page says so above the sheet.
@@ -233,11 +233,11 @@ const sheetHasLyricLines = computed(() => printShowLyric.value && (sheetDisplay.
 const bookSong = computed(() => (liveSong.value
   ? { number: liveSong.value.number, category: liveSong.value.category ?? loadedSong.value?.category }
   : null))
-const sheetBookMap = computed(() => (lyricJoin.value === 'book' ? bookPhraseMap(bookSong.value) : null))
-const sheetBookNote = computed(() => (lyricJoin.value === 'book' && sheetHasLyricLines.value
+const sheetBookMap = computed(() => (sheetLyricJoin.value === 'book' ? bookPhraseMap(bookSong.value) : null))
+const sheetBookNote = computed(() => (sheetLyricJoin.value === 'book' && sheetHasLyricLines.value
   ? bookPhraseNotice(bookSong.value, sheetBookMap.value, sheetContent.value.lines)
   : ''))
-watchEffect(() => { if (lyricJoin.value === 'book' && bookSong.value) loadBookPhrases(bookSong.value) })
+watchEffect(() => { if (sheetLyricJoin.value === 'book' && bookSong.value) loadBookPhrases(bookSong.value) })
 const printBasename = computed(() => (liveSong.value ? songBasename(liveSong.value) : 'song'))
 
 const printItems = computed(() => [
@@ -249,7 +249,7 @@ const printItems = computed(() => [
   { id: 'display', kind: 'menu', name: 'แสดงผล', icon: 'layers', default: 'inSetting', pinnable: true, control: { options: DISPLAY_OPTS.map((o) => ({ value: o.value, label: o.label })), value: sheetDisplay.value, onPick: (v) => (sheetDisplay.value = v) } },
   { id: 'book', kind: 'menu', name: 'แบบแผ่น', icon: 'book-open', default: 'inSetting', pinnable: true, control: { options: [{ value: 'songbook', label: 'สมุดเพลง (ทำนองครั้งเดียว)' }, { value: 'full', label: 'เต็ม (โน้ตทุกเที่ยว)' }], value: sheetBook.value, onPick: (v) => (sheetBook.value = v) } },
   // ใบ#101 — only while the sheet has lyrics-only lines to write that way
-  ...(sheetHasLyricLines.value ? [{ id: 'lyricjoin', kind: 'menu', name: 'เนื้อร้อง', icon: 'file-text', default: 'inSetting', pinnable: true, control: { options: LYRIC_JOIN_OPTS, value: lyricJoin.value, onPick: (v) => (lyricJoin.value = v) } }] : []),
+  ...(sheetHasLyricLines.value ? [{ id: 'lyricjoin', kind: 'menu', name: 'เนื้อร้อง', icon: 'file-text', default: 'inSetting', pinnable: true, control: { options: LYRIC_JOIN_OPTS, value: sheetLyricJoin.value, onPick: (v) => (sheetLyricJoin.value = v) } }] : []),
   { id: 'chord', kind: 'menu', name: 'คอร์ด', icon: 'guitar', default: 'inSetting', pinnable: true, control: { options: CHORD_OPTS, value: sheetChord.value, onPick: (v) => (sheetChord.value = v) } },
   { id: 'key', kind: 'menu', name: 'คีย์', icon: 'key-round', default: 'inSetting', pinnable: true, control: { options: keyOptions.value, value: sheetKey.value, badge: sheetKey.value, onPick: (v) => (sheetKey.value = v) } },
   { id: 'download', kind: 'btn', name: 'ดาวน์โหลด JSON', icon: 'download', default: 'inSetting', pinnable: true, run: () => downloadSong(liveSong.value) },
@@ -434,7 +434,7 @@ function printSheet() {
             :display-key="sheetKey"
             :song-title="sheetPrintTitle"
             :songbook="sheetBook === 'songbook'"
-            :lyric-join="lyricJoin !== 'split'"
+            :lyric-join="sheetLyricJoin !== 'split'"
             :book-phrases="sheetBookMap"
           />
         </div>
