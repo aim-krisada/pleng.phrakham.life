@@ -80,6 +80,25 @@ function joinGlue(li, si, k) {
   if (spaceAfter(li, si, k)) return ' '
   return props.lyricJoin ? WORD_JOINER : ''
 }
+// ใบ v3/pleng#107 — the joiner is for the screen only. A reader who copies the words and pastes them into a
+// chat or a document must get plain Thai: left in, the invisible marks ride along, and searching that pasted
+// text for a word that spans one of them finds nothing. So whenever a selection touches this sheet, the copy
+// carries the same text with every joiner taken out (plain text only — the sheet's own boxes, hidden rows
+// and drawn arcs are not something to paste anyway). Find-in-page needs nothing: the browser already looks
+// straight past a joiner when it matches.
+function stripJoiners(s) { return s.split(WORD_JOINER).join('') }
+function onCopy(e) {
+  if (e.defaultPrevented || !e.clipboardData || !rootEl.value) return // another sheet on the page already did it
+  const sel = typeof window !== 'undefined' && window.getSelection ? window.getSelection() : null
+  if (!sel || sel.isCollapsed) return
+  let touches = false
+  for (let i = 0; i < sel.rangeCount; i++) if (sel.getRangeAt(i).intersectsNode(rootEl.value)) touches = true
+  if (!touches) return // a copy somewhere else on the page is none of this sheet's business
+  const text = sel.toString()
+  if (!text.includes(WORD_JOINER)) return // nothing to clean: let the browser copy as it always has
+  e.clipboardData.setData('text/plain', stripJoiners(text))
+  e.preventDefault()
+}
 // A reused verse's melody-only line (no words) prints as an empty gap — hide it, unless it
 // carries a section heading. Only ever hides lines that are lyrics-only to begin with.
 function isEmptyLyricLine(row) {
@@ -402,6 +421,8 @@ onMounted(() => {
     window.addEventListener('resize', scheduleMeasure)
     window.addEventListener('beforeprint', measureTies)
   }
+  // on the document, not the sheet: a selection that starts above the sheet fires copy there, not here
+  if (typeof document !== 'undefined') document.addEventListener('copy', onCopy)
 })
 onBeforeUnmount(() => {
   if (ro) ro.disconnect()
@@ -409,6 +430,7 @@ onBeforeUnmount(() => {
     window.removeEventListener('resize', scheduleMeasure)
     window.removeEventListener('beforeprint', measureTies)
   }
+  if (typeof document !== 'undefined') document.removeEventListener('copy', onCopy)
   clearTimeout(timer)
   restoreHalves()
 })
