@@ -131,7 +131,9 @@ describe('SongSheet — per-syllable render, highlight and tap-to-jump', () => {
     expect(joined.find('.song-line').classes()).toContain('song-line-join')
     expect(joined.findAll('.syl').length).toBe(3)
     expect(joined.find('.syl-playing').text()).toBe('ข')
-    expect(joined.find('.lyric-words').element.textContent).toBe('กขค')
+    // ใบ#104 — the joints inside a วรรค carry a zero-width WORD JOINER (do not wrap here); strip it and the
+    // words are unchanged.
+    expect(joined.find('.lyric-words').element.textContent.replace(/\u2060/g, '')).toBe('กขค')
     const split = mount(SongSheet, { props: { content, showChord: false, showNote: false, showLyric: true } })
     expect(split.find('.song-line').classes()).not.toContain('song-line-join')
     expect(split.find('.lyric-words').element.textContent).toBe('ก ข ค ')

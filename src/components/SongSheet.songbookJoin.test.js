@@ -27,7 +27,9 @@ describe('ใบ#101 — สมุดเพลง: reused verses join, the verse
     expect(v1.findAll('.lyric-syl .syl').map((s) => s.text()).filter(Boolean)).toEqual(['ข้า', 'เดิน', 'ทาง', 'ไกล', 'ไป'])
     expect(v2.classes()).toContain('song-line-join')
     expect(v2.findAll('.nt').length).toBe(0)
-    expect(v2.findAll('.lyric-words').map((x) => x.element.textContent).join('')).toBe('ข้าเชื่อพระองค์เจ้า')
+    // ใบ#104 — every joint inside a วรรค now carries a zero-width WORD JOINER so the wrap cannot tear the
+    // วรรค in half; take it out and the printed words are exactly what they were.
+    expect(v2.findAll('.lyric-words').map((x) => x.element.textContent).join('').replace(/\u2060/g, '')).toBe('ข้าเชื่อพระองค์เจ้า')
   })
   it('lyricJoin off (แยกพยางค์): verse 2 is split exactly as before', () => {
     const w = mountSheet({ lyricJoin: false })
