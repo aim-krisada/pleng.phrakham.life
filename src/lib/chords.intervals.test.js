@@ -56,7 +56,12 @@ describe('parseChord — slash chords expose the bass note', () => {
     expect(p.bass).toBeNull()
     expect(p.bassIndex).toBe(-1)
   })
-  it('ignores a garbage bass note (no crash)', () => {
-    expect(parseChord('C/X').bassIndex).toBe(-1)
+  // "C/X" has no bass note and no chord quality after the slash, so it is not a chord at all.
+  // It used to parse with bassIndex -1 (silently keeping a typo); the field now refuses it and
+  // says why. "C6/9" and "A/F#m" — a real chord and a real entry in the song bank — still parse.
+  it('refuses a garbage bass note instead of silently keeping it (no crash)', () => {
+    expect(parseChord('C/X')).toBeNull()
+    expect(parseChord('C6/9')).toMatchObject({ root: 'C', suffix: '6/9', bass: null })
+    expect(parseChord('A/F#m')).toMatchObject({ root: 'A', suffix: '/F#m', bass: null })
   })
 })

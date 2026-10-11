@@ -4,7 +4,7 @@
 // field snaps back. (The category field, which has NO allow-custom, is covered separately.)
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { parseChord } from '../lib/chords.js'
+import { parseChord, normalizeChord, chordError } from '../lib/chords.js'
 import ComboSelect from './ComboSelect.vue'
 
 const OPTIONS = [
@@ -144,6 +144,96 @@ describe('ComboSelect allow-custom + validate', () => {
     await input.trigger('blur')
     vi.runAllTimers()
     expect((w.emitted('update:modelValue') || []).flat()).toContain('7/16')
+    w.unmount()
+    vi.useRealTimers()
+  })
+})
+
+// P'Aim 11 Oct 2026 — the desktop keyboard does not auto-capitalise, so "g/a" must commit just
+// like "G/A"; what is SAVED is the tidy form; and a refusal has to say why out loud.
+describe('ComboSelect — tidies what it saves and explains what it refuses', () => {
+  const mountChord = (modelValue = '') =>
+    mount(ComboSelect, {
+      props: {
+        modelValue,
+        options: OPTIONS,
+        allowCustom: true,
+        validate: isValidChord,
+        normalize: (t) => normalizeChord(t) ?? t,
+        errorFor: chordError,
+      },
+      attachTo: document.body,
+    })
+
+  it.each(['g/a', 'G/a', 'G / A', 'gm7'])('commits "%s" in its tidy form', async (typed) => {
+    const w = mountChord()
+    const input = w.find('input')
+    await input.trigger('focus')
+    await input.setValue(typed)
+    await input.trigger('keydown', { key: 'Enter' })
+    const emitted = (w.emitted('update:modelValue') || []).flat()
+    expect(emitted[emitted.length - 1]).toBe(normalizeChord(typed))
+    w.unmount()
+  })
+
+  it('shows the reason when a typed chord is refused on Enter', async () => {
+    const w = mountChord('C')
+    const input = w.find('input')
+    await input.trigger('focus')
+    await input.setValue('Gฝ')
+    await input.trigger('keydown', { key: 'Enter' })
+    await w.vm.$nextTick()
+    const err = w.find('.combo-err')
+    expect(err.exists()).toBe(true)
+    expect(err.text()).toMatch(/ภาษาไทย/)
+    expect(err.attributes('role')).toBe('alert')
+    expect((w.emitted('update:modelValue') || []).flat()).not.toContain('Gฝ')
+    w.unmount()
+  })
+
+  it('shows the reason when a typed chord is refused on blur (no silent snap-back)', async () => {
+    vi.useFakeTimers()
+    const w = mountChord('C')
+    const input = w.find('input')
+    await input.trigger('focus')
+    await input.setValue('Zqx')
+    await input.trigger('blur')
+    vi.runAllTimers()
+    await w.vm.$nextTick()
+    expect(w.find('.combo-err').exists()).toBe(true)
+    expect(input.element.value).toBe('C')
+    w.unmount()
+    vi.useRealTimers()
+  })
+
+  it('the message clears as soon as the user types again', async () => {
+    const w = mountChord('C')
+    const input = w.find('input')
+    await input.trigger('focus')
+    await input.setValue('Zqx')
+    await input.trigger('keydown', { key: 'Enter' })
+    await w.vm.$nextTick()
+    expect(w.find('.combo-err').exists()).toBe(true)
+    await input.setValue('G/A')
+    await input.trigger('input')
+    await w.vm.$nextTick()
+    expect(w.find('.combo-err').exists()).toBe(false)
+    w.unmount()
+  })
+
+  it('a field with no errorFor never shows a message (time-signature style)', async () => {
+    vi.useFakeTimers()
+    const w = mount(ComboSelect, {
+      props: { modelValue: '4/4', options: ['4/4', '3/4'], allowCustom: true },
+      attachTo: document.body,
+    })
+    const input = w.find('input')
+    await input.trigger('focus')
+    await input.setValue('7/16')
+    await input.trigger('blur')
+    vi.runAllTimers()
+    await w.vm.$nextTick()
+    expect(w.find('.combo-err').exists()).toBe(false)
     w.unmount()
     vi.useRealTimers()
   })
