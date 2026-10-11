@@ -144,6 +144,13 @@ async function setTempo(w, value) {
   await w.find('.tc-pop .tc-slider').setValue(String(value))
   await nextTick()
 }
+// ใบ v3/pleng#103 ข้อ 2 — the page now WAITS for the number to stop moving before it re-schedules
+// the sound: a tap run must not restart the song on every tap (and a slider drag must not restart
+// it on every pixel). A test that wants the restart has to let that wait go by.
+const TEMPO_SETTLE = 400 // −/+ · slider · chip
+const TAP_SETTLE = 2100 // เคาะตามจังหวะ
+const settle = (ms) => new Promise((r) => setTimeout(r, ms))
+
 async function pickSelect(w, id, value) {
   if (id === 'tempo') return setTempo(w, value)
   if (id === 'key') { // คีย์ is a bar dropdown (row 2), not a Setting-page select
@@ -300,6 +307,8 @@ describe('SongViewer live tempo (US-A04)', () => {
     lastOpts().onNote({ li: 1, si: 0 }, 2)
     playSongSpy.mockClear()
     await pickSelect(w, 'tempo', '120')
+    expect(playSongSpy).not.toHaveBeenCalled() // ใบ#103 — not on the spot: the drag may not be over
+    await settle(TEMPO_SETTLE)
     expect(playSongSpy).toHaveBeenCalledTimes(1)
     expect(lastOpts().startIndex).toBe(2)
     expect(lastOpts().bpm).toBe(120)
@@ -550,6 +559,12 @@ describe('ใบ#102 — ความเร็วอิสระ + เคาะ�
       await nextTick()
     }
     nowSpy.mockRestore()
+    // ใบ#103 ข้อ 2 — the song must NOT be re-started once per tap: while the person is still
+    // tapping, what they hear has to stay steady, otherwise they are tapping along with a song
+    // that keeps jumping because of their own taps.
+    expect(playSongSpy).not.toHaveBeenCalled()
+    await settle(TAP_SETTLE) // they stop tapping → ONE re-schedule, at the tapped speed
+    expect(playSongSpy).toHaveBeenCalledTimes(1)
     expect(Math.abs(lastOpts().bpm - 80)).toBeLessThanOrEqual(2)
     expect(lastOpts().startIndex).toBe(2) // continues from where it was — no restart, no ซ้อน
   })
@@ -571,6 +586,29 @@ describe('ใบ#102 — ความเร็วอิสระ + เคาะ�
     expect(tempoBadge(w).text()).toBe('120')
     await playBtn(w).trigger('click')
     expect(lastOpts().bpm).toBe(120)
+  })
+})
+
+// ใบ v3/pleng#103 — แป้นเคาะต้องรู้ว่าเพลงที่เปิดอยู่เป็นเพลงกี่จังหวะ
+describe('ใบ#103 — เคาะเพลง 3 จังหวะ (ฝึกร้อง)', () => {
+  // อนุชน 33 ทรงนี้: 3/4 ตั้งไว้ ♩=108 → 36 ห้องต่อนาที
+  const waltz = { number: 33, title_th: 'เพลงสามจังหวะ', content: { ...song.content, timeSignature: '3/4', bpm: 108 } }
+
+  it('เคาะตามห้อง 36 ครั้งต่อนาที → ความเร็วที่เล่นคือ 108 ไม่ใช่ 36', async () => {
+    const w = mountViewer(waltz)
+    await nextTick()
+    await setTempo(w, 60) // ขยับออกจาก 108 ก่อน จะได้เห็นว่าการเคาะดึงกลับมาเอง
+    const pad = w.find('.tc-tap')
+    const nowSpy = vi.spyOn(performance, 'now')
+    for (let i = 0; i < 8; i++) {
+      nowSpy.mockReturnValue(1000 + (i * 60000) / 36)
+      await pad.trigger('click')
+      await nextTick()
+    }
+    nowSpy.mockRestore()
+    expect(tempoBadge(w).text()).toBe('108')
+    await playBtn(w).trigger('click')
+    expect(lastOpts().bpm).toBe(108)
   })
 })
 

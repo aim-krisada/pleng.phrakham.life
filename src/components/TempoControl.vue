@@ -24,7 +24,12 @@ const props = defineProps({
   open: { type: Boolean, default: false }, // engine-provided popover state for this cell
   value: { type: Number, default: 92 }, // the bpm sounding now
   songBpm: { type: Number, default: 0 }, // the song's own stored bpm (0 = none) → "ตามเพลง" chip
+  // ใบ v3/pleng#103 ข้อ 1 — อัตราจังหวะของเพลง ('3/4', '6/8', …). The tap pad needs it: in a waltz
+  // or a 6/8 people tap the BAR, and one bar is 3 ♩, not 1. Without it a 3/4 song read 3× too slow.
+  timeSignature: { type: String, default: '' },
 })
+// `set` carries WHERE the change came from ('tap' | 'ui') so the page can tell a tap run apart
+// from a slider drag (ใบ#103 ข้อ 2 — a tap must not restart the song on every tap).
 const emit = defineEmits(['toggle', 'set'])
 
 const bpm = computed(() => clampTempo(props.value))
@@ -32,9 +37,9 @@ const atMin = computed(() => bpm.value <= TEMPO_MIN)
 const atMax = computed(() => bpm.value >= TEMPO_MAX)
 const isSongBpm = computed(() => !!props.songBpm && bpm.value === clampTempo(props.songBpm))
 
-function set(n) {
+function set(n, src = 'ui') {
   const v = clampTempo(n)
-  if (v !== bpm.value) emit('set', v)
+  if (v !== bpm.value) emit('set', v, src)
 }
 function step(d) { set(bpm.value + d * TEMPO_STEP) }
 
@@ -58,7 +63,9 @@ let flashTimer = null
 
 function onTap() {
   const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
-  const r = tapper.tap(now)
+  // the song's อัตราจังหวะ + its stored speed go in with every tap: together they say whether one
+  // tap means one beat or one whole bar (ใบ#103 ข้อ 1)
+  const r = tapper.tap(now, { timeSignature: props.timeSignature, nearBpm: props.songBpm })
   tapState.value = r
   // the pad blinks on every tap so you can see your own beat land (useful while the song plays)
   tapFlash.value = true
@@ -66,7 +73,7 @@ function onTap() {
   flashTimer = setTimeout(() => { tapFlash.value = false }, 110)
   // ⚠ A bad run must NOT quietly move the number. Only a confident reading is applied; เคาะมั่ว /
   // เคาะไม่ครบ leaves the bpm alone and the line below says what to do.
-  if (r.ok && r.bpm != null) set(r.bpm)
+  if (r.ok && r.bpm != null) set(r.bpm, 'tap')
 }
 function resetTaps() {
   tapper.reset()
@@ -77,7 +84,9 @@ watch(() => props.open, (o) => { if (!o) resetTaps() })
 
 const tapHint = computed(() => {
   const s = tapState.value
-  if (s.ok) return `ได้ ♩=${s.bpm} แล้ว — เคาะต่อได้เพื่อให้แม่นขึ้น`
+  // when a tap was read as a whole BAR we say so, so the singer can see the web understood
+  // the waltz/6-8 the way they are counting it
+  if (s.ok) return `ได้ ♩=${s.bpm} แล้ว${s.perBar ? ' (นับ 1 เคาะ = 1 ห้อง)' : ''} — เคาะต่อได้เพื่อให้แม่นขึ้น`
   if (s.reason === 'uneven') return 'เคาะไม่สม่ำเสมอ — เริ่มเคาะใหม่อีกครั้ง'
   if (s.reason === 'range') return 'เร็วหรือช้าเกินกว่าจะร้องตามได้ — เริ่มเคาะใหม่'
   const left = Math.max(1, TAP_MIN - s.taps)

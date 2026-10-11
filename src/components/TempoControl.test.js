@@ -126,6 +126,37 @@ describe('ข้อ 1 — เคาะตามจังหวะ', () => {
     expect(w.find('.tc-taphint').text()).toMatch(/ไม่สม่ำเสมอ|เริ่มเคาะใหม่/)
   })
 
+  // ใบ v3/pleng#103 ข้อ 1 — อนุชน 33 เป็น 3/4 ตั้งไว้ ♩=108 = 36 ห้องต่อนาที. พี่เอมเคาะตามห้อง
+  // แล้วเคยได้ 36 ⇒ เพลงช้าลง 3 เท่า. แป้นเคาะต้องรู้อัตราจังหวะของเพลงที่เปิดอยู่
+  it('3/4 — เคาะตามห้อง 36 ครั้งต่อนาที ได้ ♩=108 และบอกด้วยว่านับเป็นห้อง', async () => {
+    const w = mountTC({ value: 92, songBpm: 108, timeSignature: '3/4', open: true })
+    await tapAt(w, evenTaps(36, 8))
+    expect(lastSet(w)).toBe(108)
+    expect(w.find('.tc-taphint').text()).toContain('1 ห้อง')
+  })
+
+  it('6/8 — เคาะตามห้อง 40 ครั้งต่อนาที ได้ ♩=120', async () => {
+    const w = mountTC({ value: 92, songBpm: 120, timeSignature: '6/8', open: true })
+    await tapAt(w, evenTaps(40, 8))
+    expect(lastSet(w)).toBe(120)
+  })
+
+  it('4/4 — ของเดิมเหมือนเดิม: เคาะ 80 ครั้งต่อนาที ได้ 80 ไม่ใช่เลขคูณ', async () => {
+    const w = mountTC({ value: 108, songBpm: 92, timeSignature: '4/4', open: true })
+    await tapAt(w, evenTaps(80, 8))
+    expect(lastSet(w)).toBe(80)
+    expect(w.find('.tc-taphint').text()).not.toContain('ห้อง')
+  })
+
+  // ใบ#103 ข้อ 2 — หน้าเพลงต้องแยกออกว่าเลขนี้มาจากการเคาะ จะได้ไม่สั่งเพลงเล่นใหม่ทุกครั้งที่เคาะ
+  it('บอกที่มาของเลขไปด้วย — เคาะ = tap, ปุ่ม/แถบเลื่อน = ui', async () => {
+    const w = mountTC({ value: 108, songBpm: 108, open: true })
+    await w.find('.tc-slider').setValue('120')
+    expect(w.emitted('set').at(-1)[1]).toBe('ui')
+    await tapAt(w, evenTaps(80, 8))
+    expect(w.emitted('set').at(-1)[1]).toBe('tap')
+  })
+
   it('closing the pad forgets the run, so the next session starts clean', async () => {
     const w = mountTC({ value: 108, open: true })
     await tapAt(w, evenTaps(80, 3))

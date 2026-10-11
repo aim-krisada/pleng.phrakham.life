@@ -460,6 +460,7 @@ function stopPlay() {
 // Play the current order (selection, or the whole song) from a note index. All playback
 // paths route through here so `order` stays the single source of what plays.
 async function startPlay(startIndex = 0) {
+  cancelTempoSettle() // a restart now already uses the newest bpm — drop any pending one (ใบ#103)
   stopPlayback()
   const gen = ++playGen
   playing.value = true
@@ -573,9 +574,27 @@ watch(displayKey, (k) => {
   if (ensembleMode.value === 'ensemble' || isSampledInstrument(leadInstrument.value)) startPlay(playedIndex.value)
   else setTranspose(keyTranspose(props.song.content.key, k || props.song.content.key))
 })
-// live tempo change: re-schedule the notes ahead at the new bpm, continuing from here
+// ใบ v3/pleng#103 ข้อ 2 — live tempo change: re-schedule the notes ahead at the new bpm,
+// continuing from here — but WAIT until the number stops moving first.
+//   Before this, every single change re-started the sound. Tapping along with the song therefore
+//   re-started the song on every tap, so the singer was tapping along with a song that kept
+//   jumping because of their own tapping (and a slider drag re-started it on every pixel).
+//   Now the restart is held until the person is done: a short pause after a −/+/slider change,
+//   and a long one (longer than the slowest sensible tap-to-tap gap) while they are tapping.
+const TEMPO_SETTLE_MS = 350 // −/+ · slider · chip — long enough to ride out one drag
+const TAP_SETTLE_MS = 2000 // เคาะตามจังหวะ — longer than one tap-to-tap gap even at 30 ครั้ง/นาที
+let tempoSrc = 'ui'
+let tempoSettleTimer = null
+function cancelTempoSettle() { clearTimeout(tempoSettleTimer); tempoSettleTimer = null }
 watch(tempo, () => {
-  if (playing.value) startPlay(playedIndex.value)
+  if (!playing.value) return
+  cancelTempoSettle()
+  const wait = tempoSrc === 'tap' ? TAP_SETTLE_MS : TEMPO_SETTLE_MS
+  tempoSrc = 'ui' // one-shot: the next change says for itself where it came from
+  tempoSettleTimer = setTimeout(() => {
+    tempoSettleTimer = null
+    if (playing.value) startPlay(playedIndex.value)
+  }, wait)
 })
 // B105 — live sound-mode change (ทำนอง / คอร์ด / รวม): takes effect immediately, no manual
 // stop+restart. A live KEY change only re-tunes the oscillators already scheduled (detune),
@@ -674,7 +693,10 @@ const settingDescs = computed(() => [
   {
     id: 'tempo', icon: 'gauge', label: 'ความเร็ว', kind: 'menu', value: tempo.value, badge: String(tempo.value),
     options: tempoOptions.value, songBpm: Number(props.song?.content?.bpm) || 0,
-    onPick: (v) => (tempo.value = clampTempo(v)),
+    // ใบ v3/pleng#103 — the meter goes with it so the tap pad can read a tap as a whole bar
+    // (3/4 · 6/8), and `src` says whether this change came from tapping or from a knob.
+    timeSignature: String(props.song?.content?.timeSignature || ''),
+    onPick: (v, src) => { tempoSrc = src === 'tap' ? 'tap' : 'ui'; tempo.value = clampTempo(v) },
   },
   // ขนาดตัวอักษร (font) = top-nav Aa · download/พิมพ์/MP3 = the dock ExportTool (below).
 ])
@@ -692,6 +714,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('wheel', onUserScroll)
   window.removeEventListener('touchmove', onUserScroll)
+  cancelTempoSettle()
   stopPlayback()
 })
 
