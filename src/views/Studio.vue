@@ -4,7 +4,7 @@
 // All editing lives in EditorMode; reading lives in SongViewer / SongSheet. A/B/C/D can
 // evolve their own mode file without touching this shell (that is the whole point of
 // DS-04's contract: every mode takes { song, tier } and emits change / save).
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent, lyricSetName, inLyricSet } from '../lib/songModel.js'
@@ -12,6 +12,7 @@ import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
 import { sortSongs } from '../lib/songSort.js'
 import { songBasename } from '../lib/songName.js'
+import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
 import { downloadSong } from '../lib/jsonIO.js'
@@ -60,6 +61,7 @@ async function loadSong(id) {
     number: data.number,
     title_th: data.title_th,
     title_en: data.title_en,
+    category: data.category, // ใบ#105 — which printed book the ตามต้นฉบับ phrasing comes from
     content,
   }
 }
@@ -144,6 +146,7 @@ const viewerSong = computed(() =>
         number: liveSong.value.number,
         title_th: liveSong.value.title_th,
         content: liveSong.value.content,
+        category: liveSong.value.category ?? loadedSong.value?.category, // ใบ#105 — which printed book this is
         book_refs: loadedSong.value?.book_refs,
         scripture: loadedSong.value?.scripture,
       }
@@ -216,11 +219,25 @@ const keyOptions = computed(() =>
 // as ฝึกร้อง (ใบ#100 · lib/lyricPhrase.js). Lines with notes above stay split — each syllable under its note.
 // One remembered choice for both pages (store.lyricJoin): a reader who likes the joined text gets it on
 // both, and a new song opens the same way.
+// ใบ v3/pleng#105 — a third way: ตามต้นฉบับ, the breaks the printed songbook itself drew
+// (lib/bookPhrases.js). Where the book has nothing for a line, that line keeps the tune's breaks
+// and the page says so above the sheet.
 const LYRIC_JOIN_OPTS = [
   { value: 'split', label: 'แยกพยางค์' },
-  { value: 'join', label: 'ติดกันเป็นวรรค' },
+  { value: 'join', label: 'ติดกันเป็นวรรคตามทำนอง' },
+  { value: 'book', label: 'ตามต้นฉบับ (วรรคในหนังสือ)' },
 ]
 const sheetHasLyricLines = computed(() => printShowLyric.value && (sheetDisplay.value === 'lyric' || sheetBook.value === 'songbook'))
+// ใบ#105 — an unsaved edit replaces liveSong with the editor's own object, which carries no
+// category, so read the book off the loaded row as well: the sheet keeps its phrasing while editing.
+const bookSong = computed(() => (liveSong.value
+  ? { number: liveSong.value.number, category: liveSong.value.category ?? loadedSong.value?.category }
+  : null))
+const sheetBookMap = computed(() => (lyricJoin.value === 'book' ? bookPhraseMap(bookSong.value) : null))
+const sheetBookNote = computed(() => (lyricJoin.value === 'book' && sheetHasLyricLines.value
+  ? bookPhraseNotice(bookSong.value, sheetBookMap.value, sheetContent.value.lines)
+  : ''))
+watchEffect(() => { if (lyricJoin.value === 'book' && bookSong.value) loadBookPhrases(bookSong.value) })
 const printBasename = computed(() => (liveSong.value ? songBasename(liveSong.value) : 'song'))
 
 const printItems = computed(() => [
@@ -402,7 +419,10 @@ function printSheet() {
              too (B043 · was only wired in ฝึกร้อง). Reset to 1rem for print so the A4 sheet
              keeps its fixed layout regardless of the on-screen reading size. -->
         <div class="sheet-read-scale" :style="{ fontSize: readingFontScale + 'rem' }">
-          <!-- B059: แผ่นเพลง prints like a hymn book — each melody once, reused verses as
+          <!-- ใบ v3/pleng#105 — ตามต้นฉบับ: say plainly when the book has no phrasing for this
+               song, so the reader knows the spacing fell back to the tune. Never printed. -->
+          <p v-if="sheetBookNote" class="book-note no-print" role="status">{{ sheetBookNote }}</p>
+                    <!-- B059: แผ่นเพลง prints like a hymn book — each melody once, reused verses as
                lyrics only (songbook). The DockKey ITEMS_PRINT controls tune what prints. -->
           <SongSheet
             :content="sheetContent"
@@ -414,7 +434,8 @@ function printSheet() {
             :display-key="sheetKey"
             :song-title="sheetPrintTitle"
             :songbook="sheetBook === 'songbook'"
-            :lyric-join="lyricJoin === 'join'"
+            :lyric-join="lyricJoin !== 'split'"
+            :book-phrases="sheetBookMap"
           />
         </div>
       </div>
@@ -589,6 +610,12 @@ function printSheet() {
 }
 /* Aa scales the sheet on screen; print keeps the fixed A4 size (protect pagination) */
 .sheet-read-scale { font-size: inherit; }
+/* ใบ#105 — the "the book has no phrasing for this song" notice above the sheet (screen only) */
+.book-note {
+  margin: 0 auto 0.6rem; max-width: 42rem; padding: 0.4rem 0.7rem; border-radius: 8px;
+  font-size: 0.8rem; line-height: 1.5; text-align: center;
+  color: var(--muted, #6b7280); background: var(--surface-2, rgba(127, 127, 127, 0.08));
+}
 @media print {
   .sheet-read-scale { font-size: 1rem !important; }
 }

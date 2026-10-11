@@ -24,6 +24,9 @@ const props = defineProps({
   showLyric: { type: Boolean, default: null },
   // ใบ v3/pleng#100 — เนื้อล้วน written "ติดกันเป็นวรรค" (songbook style) instead of one space per syllable
   lyricJoin: { type: Boolean, default: false },
+  // ใบ v3/pleng#105 — this song's phrases as the PRINTED book drew them (lib/bookPhrases.js).
+  // null = none asked for / none known, and the breaks come off the tune exactly as before.
+  bookPhrases: { type: Object, default: null },
   // Songbook layout (B059): print each melody (stanza) once. The first verse that uses a
   // stanza shows note+chord+lyric; later verses that reuse the same stanza show lyrics only
   // (verse number + words), like a printed hymn book. Off = every line keeps its own layers
@@ -57,7 +60,7 @@ const joinBreaks = computed(() => {
     return segs
   })
   const breathBeats = songBreathBeats(lines) // "long" is measured against this song's own syllables
-  lines.forEach((segs, li) => { out[li] = phraseBreaks(segs, { breathBeats }) })
+  lines.forEach((segs, li) => { out[li] = phraseBreaks(segs, { breathBeats, book: props.bookPhrases }) })
   return out
 })
 function spaceAfter(li, si, k) {

@@ -6,7 +6,7 @@
 // SingTransport turns it into the DockKey descriptor list (ITEMS_SING) and the engine draws
 // the 2-row dock (ไทม์ไลน์ · คีย์ · เลือกท่อน · transport · Aa · ⚙ + pin). Mounted directly
 // here; แผ่นเพลง and แก้ไข mount their own DockKey the same way.
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, watchEffect, nextTick } from 'vue'
 import { KEYS } from '../lib/chords.js'
 import {
   playSong, playEnsemble, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
@@ -22,6 +22,7 @@ import { presetCfg, recommendRecipe, songFeatures } from '../lib/arranger/preset
 import { buildArrangeCfg, readTechniques } from '../lib/arranger/techniques.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
+import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
 
@@ -45,10 +46,12 @@ const DISPLAY_OPTS = [
 ]
 // ใบ v3/pleng#100 — remembered on this device (store.js), so the next song opens the same way
 const display = sheetDisplay
-// how เนื้อล้วน is written: แยกพยางค์ (as before) or ติดกันเป็นวรรค like the songbook (also remembered)
+// how เนื้อล้วน is written: แยกพยางค์ (as before), ติดกันเป็นวรรค by where the tune breathes (ใบ#100),
+// or ตามต้นฉบับ — the breaks the printed book itself drew (ใบ#105). All three are remembered.
 const LYRIC_JOIN_OPTS = [
   { value: 'split', label: 'แยกพยางค์', short: 'แยก' },
-  { value: 'join', label: 'ติดกันเป็นวรรค', short: 'ติด' },
+  { value: 'join', label: 'ติดกันเป็นวรรคตามทำนอง', short: 'ตามทำนอง' },
+  { value: 'book', label: 'ตามต้นฉบับ (วรรคในหนังสือ)', short: 'ต้นฉบับ' },
 ]
 const lyricJoinDef = computed(() => LYRIC_JOIN_OPTS.find((o) => o.value === lyricJoin.value) || LYRIC_JOIN_OPTS[0])
 const displayDef = computed(() => DISPLAY_OPTS.find((o) => o.value === display.value) || DISPLAY_OPTS[0])
@@ -233,6 +236,14 @@ const resolved = computed(() => {
   if (!content) return null
   return { ...content, lines: resolveContent(content) }
 })
+// ใบ v3/pleng#105 — "ตามต้นฉบับ": fetch this book's phrases the moment the reader asks for them
+// (never otherwise), and say plainly when the book has nothing for this song, so the words still
+// show — spaced by the tune — instead of looking broken.
+const bookMap = computed(() => (lyricJoin.value === 'book' ? bookPhraseMap(props.song) : null))
+const bookNote = computed(() => (lyricJoin.value === 'book' && showLyric.value && !showNote.value && !showChord.value
+  ? bookPhraseNotice(props.song, bookMap.value, resolved.value && resolved.value.lines)
+  : ''))
+watchEffect(() => { if (lyricJoin.value === 'book') loadBookPhrases(props.song) })
 const printTitle = computed(() => {
   const s = props.song
   if (!s) return ''
@@ -773,6 +784,9 @@ function onSeek({ li, si, syk }) {
       :role="setTabsVisible ? 'tabpanel' : null"
       :aria-labelledby="setTabsVisible ? `lset-tab-${activeSet}` : null"
     >
+      <!-- ใบ v3/pleng#105 — ตามต้นฉบับ: say it plainly when the book has no phrasing for this
+           song (or only part of it), so the reader knows why the spacing came from the tune. -->
+      <p v-if="bookNote" class="book-note" role="status">{{ bookNote }}</p>
       <SongSheet
         :content="resolved"
         :mode="sheetMode"
@@ -780,7 +794,8 @@ function onSeek({ li, si, syk }) {
         :show-chord="showChord"
         :show-note="showNote"
         :show-lyric="showLyric"
-        :lyric-join="lyricJoin === 'join'"
+        :lyric-join="lyricJoin !== 'split'"
+        :book-phrases="bookMap"
         :display-key="displayKey"
         :playing-seg="playingSeg"
         :playing-syl="playingSyl"
@@ -965,6 +980,13 @@ function onSeek({ li, si, syk }) {
    once its controls wrap at ≤480px; add the iOS home-indicator inset on top so the last
    line clears on notched phones too. (Clearance tracks the dock height, which S4 owns.) */
 .sheet-scale { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
+/* ใบ#105 — the one-line "the book has no phrasing for this song" notice above the sheet */
+.book-note {
+  margin: 0 auto 0.6rem; max-width: 42rem; padding: 0.4rem 0.7rem; border-radius: 8px;
+  font-size: 0.8rem; line-height: 1.5; text-align: center;
+  color: var(--muted, #6b7280); background: var(--surface-2, rgba(127, 127, 127, 0.08));
+}
+@media print { .book-note { display: none; } }
 @media (max-width: 480px) {
   .sheet-scale { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)); }
 }
