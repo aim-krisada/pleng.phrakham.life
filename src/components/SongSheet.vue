@@ -4,7 +4,7 @@ import { displayChord } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, slurSpans, segmentBeamLink } from '../lib/notation.js'
 import { buildArc, planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { pixelRatio, levelTop, lineThickness } from '../lib/pixelSnap.js'
-import { phraseBreaks, songBreathBeats } from '../lib/lyricPhrase.js'
+import { phraseBreaks, songBreathBeats, wordEnds } from '../lib/lyricPhrase.js'
 import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
@@ -73,19 +73,69 @@ function spaceAfter(li, si, k) {
 // them, so half a วรรค ended up on the next row (พี่เอม 11 ต.ค. 2569: "ถ้าตกบรรทัดใหม่ ให้ไปทั้งวรรค").
 // WORD JOINER (U+2060) is Unicode's own "do not break here": zero width, invisible, no glyph, so it adds
 // NOTHING to the printed line — the sheet keeps exactly the same words in exactly the same boxes, which is
-// why the printed page count cannot grow (ใบ#101). The spaces at the วรรค ends stay the only places that
-// may wrap; a วรรค wider than the whole line still breaks, via overflow-wrap below.
+// why the printed page count cannot grow (ใบ#101).
+//
+// ใบ v3/pleng#110 — but a วรรค WIDER than the whole line then had nowhere to wrap, and the old last resort
+// (overflow-wrap: anywhere) cut it at any letter: "ประจัก|ษ์", "ทั้งม|วล", "ครบถ้ว|น" (เพลง 141 on a phone).
+// Now each วรรค is its own box (.phrase, an inline-block no wider than the line):
+//   * a วรรค that fits the line is ONE box, so it moves to the next line whole (ใบ#104 unchanged);
+//   * a วรรค that does not fit wraps INSIDE its box, and only where one word ends and the next begins
+//     (an invisible <wbr> there, from the browser's own Thai word breaker — lyricPhrase.wordEnds);
+//   * the joints inside a word keep the WORD JOINER, and a syllable itself never wraps (white-space: nowrap),
+//     so the browser has no other place to cut.
+// The spaces at the วรรค ends are still the only real spaces (where they go is ใบ#100/#105, not this).
 const WORD_JOINER = '\u2060'
-function joinGlue(li, si, k) {
-  if (spaceAfter(li, si, k)) return ' '
-  return props.lyricJoin ? WORD_JOINER : ''
+// li → { pi → the words of the run of bars that starts at part pi | null for the later bars of that run }.
+// A run = { pieces: [{ items: [{ key, si, k, w, glue: 'wj'|'wbr'|'' }], space }, …] } — one piece per วรรค;
+// a v1 segment (no syllable array) is a piece of its own: { v1: true, seg }.
+const joinRuns = computed(() => {
+  const out = {}
+  if (!props.lyricJoin) return out
+  renderLines.value.forEach(({ parts }, li) => {
+    const segs = []
+    for (const p of parts) for (const seg of p.segments || []) if (Array.isArray(seg.syllables)) segs.push(seg)
+    const ends = wordEnds(segs) // null = no word breaker in this browser: leave the joints to the browser
+    let lastKey = ''
+    for (const s of segs) s.syllables.forEach((w, k) => { if (w) lastKey = `${s.si}-${k}` })
+    const runs = {}
+    let run = null
+    let phrase = null
+    parts.forEach((part, pi) => {
+      if (part.type !== 'bar') { run = null; phrase = null; return } // a marker / label closes the run
+      if (run) runs[pi] = null
+      else { run = { pieces: [] }; runs[pi] = run }
+      for (const seg of part.segments) {
+        if (!Array.isArray(seg.syllables)) { phrase = null; run.pieces.push({ v1: true, seg }); continue }
+        seg.syllables.forEach((w, k) => {
+          if (!phrase) { phrase = { items: [], space: false }; run.pieces.push(phrase) }
+          const key = `${seg.si}-${k}`
+          const item = { key, si: seg.si, k, w, glue: '' }
+          // a slot that holds several words with spaces ("(เปลี่ยนเป็นคีย์ A Major)") may still wrap at its own
+          // spaces — only the words themselves are kept whole
+          if (/\S\s+\S/.test(w)) item.parts = w.split(/(\s+)/)
+          phrase.items.push(item)
+          if (!w) return // an empty slot (เอื้อน) stays a span with nothing in it, as before
+          if (spaceAfter(li, seg.si, k)) { phrase.space = true; phrase = null; return }
+          if (key === lastKey || !ends) return
+          item.glue = ends.has(key) ? 'wbr' : 'wj'
+        })
+      }
+    })
+    out[li] = runs
+  })
+  return out
+})
+function joinRun(li, pi) {
+  const r = joinRuns.value[li]
+  return r ? r[pi] : null
 }
 // ใบ v3/pleng#107 — the joiner is for the screen only. A reader who copies the words and pastes them into a
 // chat or a document must get plain Thai: left in, the invisible marks ride along, and searching that pasted
 // text for a word that spans one of them finds nothing. So whenever a selection touches this sheet, the copy
 // carries the same text with every joiner taken out (plain text only — the sheet's own boxes, hidden rows
 // and drawn arcs are not something to paste anyway). Find-in-page needs nothing: the browser already looks
-// straight past a joiner when it matches.
+// straight past a joiner when it matches. (ใบ#110's word-end wrap points are <wbr> elements, not characters,
+// so they never reach the clipboard and need no cleaning.)
 function stripJoiners(s) { return s.split(WORD_JOINER).join('') }
 function onCopy(e) {
   if (e.defaultPrevented || !e.clipboardData || !rootEl.value) return // another sheet on the page already did it
@@ -472,6 +522,25 @@ watch(
         <span v-else-if="part.type === 'repeat-start'" v-show="noteOn(row.first)" class="repeat-mark rep-start" aria-label="เริ่มเล่นซ้ำ"><i class="rep-bar" /><i class="rep-thin" /><i class="rep-dots" /></span>
         <span v-else-if="part.type === 'repeat-end'" v-show="noteOn(row.first)" class="repeat-mark rep-end" aria-label="วนกลับไปเล่นซ้ำ"><i class="rep-dots" /><i class="rep-thin" /><i class="rep-bar" /></span>
         <span v-else-if="part.type === 'volta'" v-show="noteOn(row.first)" class="volta-tag">{{ part.num }}.</span>
+        <!-- ใบ#100/#104/#110 — เนื้อล้วน written joined: the bars of the line flow as ONE run of words, each วรรค
+             in its own box (.phrase) so it moves to the next line whole, or — wider than the line — wraps
+             only between two words (<wbr>). Same per-syllable spans, so the karaoke still walks syllable by
+             syllable. The run is drawn once, at its first bar; the bars after it draw nothing. -->
+        <template v-else-if="lyricJoin && lineLyricsOnly(row.first)"><span
+          v-if="sl && joinRun(row.li, pi)"
+          class="lyric lyric-words"
+        ><template v-for="(pc, ci) in joinRun(row.li, pi).pieces" :key="ci"><span
+          v-if="pc.v1"
+          class="lyric"
+          :class="{ 'seg-playing': isPlaying(row.li, pc.seg.si) }"
+          :data-seg="`${row.li}-${pc.seg.si}`"
+          @click="seek(row.li, pc.seg.si)"
+        >{{ pc.seg.lyric }}&nbsp;</span><span v-else class="phrase" :class="{ 'seg-tap': interactive }"><template v-for="it in pc.items" :key="it.key"><span
+          class="syl"
+          :class="{ 'syl-playing': isSyl(row.li, it.si, it.k), 'syl-spaced': it.parts }"
+          :data-syl="`${row.li}-${it.si}-${it.k}`"
+          @click.stop="seek(row.li, it.si, it.k)"
+        ><template v-if="it.parts"><template v-for="(p, pk) in it.parts" :key="pk"><span v-if="p.trim()" class="syl-word">{{ p }}</span><template v-else>{{ p }}</template></template></template><template v-else>{{ it.w }}</template></span><wbr v-if="it.glue === 'wbr'" />{{ it.glue === 'wj' ? WORD_JOINER : '' }}</template></span>{{ pc.space ? ' ' : '' }}</template></span></template>
         <span v-else class="bar-group">
           <span v-if="part.barLine && noteOn(row.first)" class="bar-line" aria-hidden="true"></span>
           <span
@@ -506,7 +575,7 @@ watch(
                   :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
                   :data-syl="`${row.li}-${seg.si}-${k}`"
                   @click.stop="seek(row.li, seg.si, k)"
-                >{{ w }}</span>{{ w ? joinGlue(row.li, seg.si, k) : '' }}</template>
+                >{{ w }}</span>{{ w ? ' ' : '' }}</template>
               </span>
               <!-- v1 (no syllables array): the whole lyric as before (seg-playing highlight). -->
               <span v-else class="lyric">{{ seg.lyric }}&nbsp;</span>
@@ -575,25 +644,24 @@ watch(
   width: 100%;
   justify-content: space-around;
 }
-/* ใบ v3/pleng#100 — เนื้อล้วน "ติดกันเป็นวรรค": the line flows as ONE run of text, so the chord segments (normally
-   side-by-side boxes with a gap) and the per-syllable padding must not add space — the only spaces are the
-   breath spaces lyricPhrase.js puts in. Split mode (no .song-line-join) is untouched. */
-.song-line-join { display: block; } /* not the bar-wrapping flex row — the browser wraps Thai words itself */
-/* ใบ#104 — the only wrap points left inside the line are the spaces between วรรค (every other joint carries a
-   WORD JOINER). A single วรรค that is WIDER than the whole line would then have nowhere to wrap and would run
-   off the screen, so allow the last-resort break for that case only: overflow-wrap kicks in exactly when a run
-   does not fit on a line of its own. `anywhere` also keeps the line's min-content width small, so a narrow
-   phone can never be forced to scroll sideways; `break-word` first for browsers without `anywhere`. */
-.song-line-join { overflow-wrap: break-word; overflow-wrap: anywhere; }
+/* ใบ v3/pleng#100 — เนื้อล้วน "ติดกันเป็นวรรค": the line flows as ONE run of text, with no chord-segment boxes and
+   no per-syllable padding — the only spaces are the breath spaces lyricPhrase.js puts in. Split mode (no
+   .song-line-join) is untouched. */
+.song-line-join { display: block; } /* not the bar-wrapping flex row */
+/* ใบ#104 + ใบ#110 — each วรรค is one box no wider than the line. A วรรค that fits moves to the next line whole;
+   one that is wider than the line wraps inside its box, and only at a <wbr> — the end of a word (inside a
+   word every joint carries a WORD JOINER, and a syllable never wraps). Nothing here may cut a word: the old
+   `overflow-wrap: anywhere` last resort is gone, because that is what cut "ประจัก|ษ์" on a phone. */
+.song-line-join .phrase { display: inline-block; max-width: 100%; }
+.song-line-join .lyric-words .syl { white-space: nowrap; padding: 0; }
+/* …except a slot that holds several words with spaces: it may wrap at those spaces, each word kept whole */
+.song-line-join .lyric-words .syl.syl-spaced { white-space: normal; }
+.song-line-join .lyric-words .syl-word { white-space: nowrap; }
 /* the ♦ heading sits on its own line above, as in split mode; a *** marker / line label stays inline with
    the words (ใบ#101: as a block it added a row to every refrain and pushed a printed sheet onto a 2nd page) */
 .song-line-join .section-label { display: block; }
 .song-line-join .section-marker,
 .song-line-join .line-label { margin-right: 0.4em; }
-.song-line-join .bar-group,
-.song-line-join .segment { display: inline; margin: 0; padding: 0; }
-.song-line-join .segment .lyric { display: inline; }
-.song-line-join .syl { padding: 0; }
 /* เนื้อล้วน display: per-syllable spans read as natural inline words (a space text-node sits after
    each), so the karaoke walks syllable-by-syllable while the line still reads like a plain verse. */
 .lyric-words { display: inline; }

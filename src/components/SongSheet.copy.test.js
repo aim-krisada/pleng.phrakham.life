@@ -65,6 +65,22 @@ describe('ใบ#107 — copying the joined words gives plain text', () => {
     expect(put['text/plain']).toBeUndefined()
   })
 
+  // ใบ v3/pleng#110 — a long วรรค now also carries <wbr> at each word end (where it may wrap). <wbr> is an empty
+  // element, not a character, so nothing new can reach the clipboard: the copy is still plain Thai and spaces.
+  it('a long วรรค with its word-end wrap points still copies as plain text — no invisible character at all', () => {
+    const long = { key: 'C', timeSignature: '4/4', lines: [[
+      seg('1 1 1 1', ['เฝ้า', 'หวัง', 'ถูก', 'รับ']), seg('1 1 1 1', ['ถึง', 'เบื้อง', 'พระ', 'พักตร์']),
+      seg('0 1 1 1', ['', 'ประ', 'จักษ์', 'ข้าง']), seg('1 1 1 -', ['กาย', 'ที่', 'รัก', '']),
+    ]] }
+    w = mount(SongSheet, { props: { content: long, showChord: false, showNote: false, showLyric: true, lyricJoin: true }, attachTo: document.body })
+    const line = w.find('.song-line-join').element
+    expect(line.querySelector('wbr')).not.toBeNull()
+    select(line)
+    const { put } = copyNow(line)
+    expect(put['text/plain'].trim()).toBe('เฝ้าหวังถูกรับถึงเบื้องพระพักตร์ ประจักษ์ข้างกายที่รัก')
+    expect(put['text/plain']).not.toMatch(/\p{Cf}/u) // no joiner, no zero-width space, no format mark of any kind
+  })
+
   it('a copy elsewhere on the page, away from the sheet, is left alone', () => {
     const other = document.createElement('p')
     other.textContent = `ก${WJ}ข`
