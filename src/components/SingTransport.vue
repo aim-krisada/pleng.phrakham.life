@@ -347,6 +347,12 @@ const items = computed(() => {
    giving up a few pixels is far better than the whole row spilling out of the dock. */
 .st-seek { position: relative; flex: 0 1 158px; width: 158px; min-width: 72px; height: 26px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
 @media (max-width: 760px) { .st-seek { flex-basis: 112px; width: 112px; } }
+/* ใบ v3/pleng#109 — on the phone bar the seek bar has the whole top row to itself: the rail takes
+   every pixel left after the section name and the time, which sit at its end. 40px tall so the
+   whole strip is easy to hit with a thumb. */
+.dk-bar .st-seekwrap { flex: 1 1 auto; width: 100%; padding: 0 4px; font-size: 12px; }
+.dk-bar .st-seek { flex: 1 1 auto; width: auto; height: 40px; }
+.dk-bar .st-now { max-width: 45%; }
 .st-time { flex: 0 0 auto; }
 /* B102 — "รอบ N" now-playing badge: the current ท่อน + refrain pass, in the brand colour so it
    reads as the live playhead label (not muted chrome). Ellipsis so a long ท่อน name never pushes

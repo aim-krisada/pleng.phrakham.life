@@ -149,6 +149,59 @@ const rows = computed(() => {
   }
   return [...top, r2, r1].filter((r) => r.length)
 })
+
+// ---------- ใบ v3/pleng#109 — the bar: seek row on top, the buttons centred below ----------
+// Material 3 media-player layout: the seek bar takes the full width of its own row; every
+// button (transport, คีย์, ความเร็ว, ท่อน, เสียง, download, Aa, ⚙, anything pinned) sits together
+// in one centred group under it, at a 48px touch target with the same 8px spacing at every width —
+// the extra room on a wider screen (Fold 6 unfolded ≈ 700px) is left at the sides, not spread
+// between buttons. Order = the dock's own merge rule (§D2 above): row 1 up to ⚙, then row 2, then
+// the pinned buttons, then ⚙.
+// When that one row is wider than the bar (a phone), the group splits into TWO centred rows at the
+// dock's own seam — [ท่อนก่อน เล่น ท่อนถัดไป ดาวน์โหลด Aa] over [คีย์ ความเร็ว ท่อน เสียง … ⚙] —
+// so every button stays on the bar (none is hidden in ⚙). เล่น stays on the first row, ⚙ ends the
+// last. A row that is still too wide (many pinned buttons) wraps inside itself, never off-screen.
+const barHead = computed(() => {
+  const r1 = row1.value
+  const gi = r1.findIndex((it) => it.kind === 'gear')
+  return gi >= 0 ? r1.slice(0, gi) : r1
+})
+const barTail = computed(() => {
+  const r1 = row1.value
+  const gi = r1.findIndex((it) => it.kind === 'gear')
+  const extra = [...row2.value.filter((i) => i.kind !== 'timeline'), ...pinnedItems.value]
+  return gi >= 0 ? [...extra, ...r1.slice(gi)] : extra
+})
+const twoRows = ref(false) // the one button row didn't fit the bar → split in two
+const barRows = computed(() => {
+  const seek = row2.value.filter((i) => i.kind === 'timeline')
+  const btns = twoRows.value && barHead.value.length && barTail.value.length
+    ? [{ key: 'btns1', cls: 'dk-btnrow', items: barHead.value }, { key: 'btns2', cls: 'dk-btnrow', items: barTail.value }]
+    : [{ key: 'btns', cls: 'dk-btnrow', items: [...barHead.value, ...barTail.value] }]
+  return [...(seek.length ? [{ key: 'seek', cls: 'dk-seekrow', items: seek }] : []), ...btns]
+})
+const shownRows = computed(() => (bar.value
+  ? barRows.value
+  : rows.value.map((r, i) => ({ key: i, cls: { spread: rowIsChrome(r) }, items: r }))))
+
+// measure the buttons: one row if they all fit side by side, otherwise two. Widths are measured
+// on whichever row(s) are showing, so the check also works when the screen gets wider again.
+async function refit() {
+  if (!bar.value) { twoRows.value = false; return }
+  await nextTick()
+  const rows = [...(hostEl.value?.querySelectorAll('.dk-btnrow') || [])]
+  if (!rows.length) return
+  const avail = rows[0].clientWidth
+  if (!(avail > 0)) return // not laid out (hidden page · test DOM)
+  const gap = parseFloat(window.getComputedStyle(rows[0]).columnGap) || 0
+  const cells = rows.flatMap((r) => [...r.querySelectorAll(':scope > [data-cell]')])
+  const total = cells.reduce((s, el) => s + el.getBoundingClientRect().width, 0) + gap * Math.max(0, cells.length - 1)
+  const next = total > avail + 0.5
+  if (next !== twoRows.value) twoRows.value = next
+}
+watch(() => [bar.value, barHead.value.map((i) => i.id).join(), barTail.value.map((i) => i.id).join()], refit, { flush: 'post' })
+// a button's width can change with what it shows (ความเร็ว 92 → 120 · คีย์ C → F#)
+watch(() => props.items, refit, { flush: 'post' })
 const rowIsChrome = (row) => row.some((it) => it.id === 'setting') // the core bottom row → spread
 
 // ---------- pin / reorder (the Setting page · DS §3) ----------
@@ -264,11 +317,20 @@ onMounted(() => {
   syncMobile()
   mq?.addEventListener?.('change', syncMobile)
   window.addEventListener('resize', syncMobile)
+  window.addEventListener('resize', refit)
   window.addEventListener('keydown', onEsc)
+  // the bar's width follows the window; the page around it can also hide/show it (Studio keeps
+  // all three modes mounted) — re-fit whenever the dock's box changes size
+  if (typeof ResizeObserver === 'function' && hostEl.value) {
+    ro = new ResizeObserver(() => refit())
+    ro.observe(hostEl.value)
+  }
+  refit()
 })
 onUnmounted(() => {
   mq?.removeEventListener?.('change', syncMobile)
   window.removeEventListener('resize', syncMobile)
+  window.removeEventListener('resize', refit)
   window.removeEventListener('keydown', onEsc)
   document.removeEventListener('mousedown', onOutside)
   ro?.disconnect()
@@ -315,12 +377,12 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
       </div>
 
       <div
-        v-for="(row, ri) in rows"
-        :key="ri"
+        v-for="row in shownRows"
+        :key="row.key"
         class="dk-row"
-        :class="{ spread: rowIsChrome(row) }"
+        :class="row.cls"
       >
-        <template v-for="it in row" :key="it.id">
+        <template v-for="it in row.items" :key="it.id">
           <!-- page-drawn cell (timeline · selector · Aa) — engine lays it out + clamps -->
           <span v-if="SLOT_KINDS.includes(it.kind)" class="dk-cell" :style="{ flex: cellFlex(it) }" :data-cell="it.id">
             <slot :name="`cell-${it.id}`" :item="it" :open="openId === it.id" :toggle="() => toggleOpen(it.id)" :close="close" />
@@ -673,4 +735,23 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 @media (max-width: 380px) {
   .dk-bar .dk-dock { padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ---------- ใบ v3/pleng#109: the bar = seek row on top + the buttons centred below ----------
+   Material 3 touch target: every button on the bar is at least 48×48 with 8px between buttons,
+   the same at 360px and on a 700px Fold. The phone shrink above (42/40px) is for the floating
+   dock only. The buttons never spread: the group stays centred with the spare room at both sides.
+   On a phone the group splits into two centred rows (refit() in the script); a row that is still
+   too wide wraps inside itself rather than running off the screen. */
+.dk-bar .dk-dock { --touch-min: 48px; padding: 4px 8px; padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); }
+.dk-bar .dk-row { gap: 8px; }
+.dk-bar .dk-row + .dk-row { margin-top: 2px; }
+.dk-bar .dk-btnrow { justify-content: safe center; flex-wrap: wrap; }
+.dk-bar .dk-btnrow + .dk-btnrow { margin-top: 8px; }
+.dk-bar .dk-seekrow > .dk-cell { min-width: 0; }
+.dk-bar .dk-play { width: 48px; height: 48px; }
+.dk-bar .dk-pbtn { min-width: var(--touch-min); justify-content: center; }
+/* page-drawn buttons (ท่อน · เสียงดนตรี · download · Aa · ความเร็ว) get the same 48px floor —
+   only the button on the bar, never the buttons inside its popover */
+.dk-bar .dk-btnrow > .dk-cell > :deep(button),
+.dk-bar .dk-btnrow > .dk-cell > :deep(:not(.dk-pop) > button) { min-width: var(--touch-min); min-height: var(--touch-min); }
 </style>
