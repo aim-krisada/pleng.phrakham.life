@@ -11,8 +11,8 @@ const row = [seg('2 2 2', ['แม้', 'เล็ก', 'น้อย']), seg('6
 const other = [seg('1 2 3 4', ['ข้า', 'เดิน', 'ทาง', 'ไกล'])]
 const content = { key: 'C', timeSignature: '4/4', lines: [row, other] }
 
-// ใบ v3/pleng#107 — since ใบ#104 the joined text also carries an invisible WORD JOINER (U+2060) at every joint
-// INSIDE a วรรค, so the browser cannot wrap a วรรค in half. It has no width and no glyph, so what a reader SEES
+// ใบ v3/pleng#107 — since ใบ#104 the joined text also carries an invisible WORD JOINER (U+2060) at joints inside
+// a วรรค (since ใบ#110: inside a word), so the browser cannot cut there. It has no width and no glyph, so what a reader SEES
 // is the text with it taken out — that is what `words` compares. `raw` keeps it, to check the วรรค hold together.
 const WJ = '⁠'
 const raw = (w, i = 0) => w.findAll('.song-line')[i].findAll('.lyric-words').map((x) => x.element.textContent).join('').trim()
@@ -39,10 +39,13 @@ describe('ใบ#105 เสร็จเมื่อ 1 — ตามต้นฉ�
   })
 
   // ใบ#104 and ใบ#105 together: the book decides WHERE the spaces go, and every วรรค between two spaces is
-  // still one piece the wrap cannot tear. The only places left to wrap are the book's own spaces.
-  it('with the book, each วรรค is still held together — the only wrap points are the spaces the book prints', () => {
+  // still one piece the wrap cannot tear (ใบ#110: one box per วรรค, which moves to the next line whole).
+  it('with the book, each วรรค is still held together — one box per วรรค the book prints, a space between', () => {
     const w = mountSheet({ lyricJoin: true, bookPhrases: bookMap })
-    expect(raw(w)).toBe(`แม้${WJ}เล็ก${WJ}น้อย แต่${WJ}เป็น${WJ}สิ่ง${WJ}ที่${WJ}ข้า${WJ}มี${WJ}`)
+    const boxes = w.findAll('.song-line')[0].findAll('.phrase')
+    expect(boxes.map((b) => b.element.textContent.split(WJ).join(''))).toEqual(['แม้เล็กน้อย', 'แต่เป็นสิ่งที่ข้ามี'])
+    for (const b of boxes) expect(b.element.textContent).not.toMatch(/\s/)
+    expect(words(w)).toBe('แม้เล็กน้อย แต่เป็นสิ่งที่ข้ามี')
   })
 
   it('แยกพยางค์ ignores the book entirely — a space after every syllable, as always', () => {

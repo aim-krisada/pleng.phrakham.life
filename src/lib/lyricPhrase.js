@@ -105,6 +105,34 @@ export function bookPhraseBreaks(segments, map) {
   return out
 }
 
+// ---- ใบ v3/pleng#110 — where a วรรค too long for the line may wrap ----------------------------------
+// A วรรค is kept on one row (ใบ#104), but a วรรค wider than the whole row must still wrap somewhere — and that
+// somewhere must be between two WORDS, never inside one ("ประจัก|ษ์", "ทั้งม|วล" on a phone, เพลง 141).
+// segments = one sheet line's segments (as phraseBreaks takes them). → Set of `${si}-${k}` keys: syllable k of
+// segment si ends a word (the browser's own Thai word breaker says so, read on the whole line's words). The
+// line's last syllable is never in it. null = this browser has no word breaker, so nothing can be said.
+export function wordEnds(segments, opts = {}) {
+  const seg = opts.segmenter === undefined ? segmenter() : opts.segmenter
+  if (!seg) return null
+  const syls = []
+  for (const s of segments || []) {
+    (Array.isArray(s.syllables) ? s.syllables : []).forEach((w, k) => {
+      const t = typeof w === 'string' ? w.trim() : ''
+      if (t) syls.push({ key: `${s.si}-${k}`, text: t })
+    })
+  }
+  const out = new Set()
+  if (syls.length < 2) return out
+  const bounds = new Set()
+  for (const part of seg.segment(syls.map((u) => u.text).join(''))) bounds.add(part.index)
+  let off = 0
+  syls.forEach((u, i) => {
+    off += u.text.length
+    if (i < syls.length - 1 && bounds.has(off)) out.add(u.key)
+  })
+  return out
+}
+
 // segments = one sheet line's segments in order: [{ si, note, syllables }] (syllables = v2 slot array).
 // → Set of `${si}-${k}` keys: put a space after syllable k of segment si. The line's last syllable is never in
 // it (a new line is already a break). opts.breathBeats = songBreathBeats(…) of the song (default the floor);
