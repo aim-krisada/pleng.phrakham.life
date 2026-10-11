@@ -65,6 +65,18 @@ function spaceAfter(li, si, k) {
   const b = joinBreaks.value[li]
   return !!(b && b.has(`${si}-${k}`))
 }
+// ใบ v3/pleng#104 — a วรรค must never be torn in half by the wrap. The syllables of one วรรค are separate
+// <span>s with nothing between them, and the browser's Thai word breaker happily wraps between any two of
+// them, so half a วรรค ended up on the next row (พี่เอม 11 ต.ค. 2569: "ถ้าตกบรรทัดใหม่ ให้ไปทั้งวรรค").
+// WORD JOINER (U+2060) is Unicode's own "do not break here": zero width, invisible, no glyph, so it adds
+// NOTHING to the printed line — the sheet keeps exactly the same words in exactly the same boxes, which is
+// why the printed page count cannot grow (ใบ#101). The spaces at the วรรค ends stay the only places that
+// may wrap; a วรรค wider than the whole line still breaks, via overflow-wrap below.
+const WORD_JOINER = '\u2060'
+function joinGlue(li, si, k) {
+  if (spaceAfter(li, si, k)) return ' '
+  return props.lyricJoin ? WORD_JOINER : ''
+}
 // A reused verse's melody-only line (no words) prints as an empty gap — hide it, unless it
 // carries a section heading. Only ever hides lines that are lyrics-only to begin with.
 function isEmptyLyricLine(row) {
@@ -469,7 +481,7 @@ watch(
                   :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
                   :data-syl="`${row.li}-${seg.si}-${k}`"
                   @click.stop="seek(row.li, seg.si, k)"
-                >{{ w }}</span>{{ w && spaceAfter(row.li, seg.si, k) ? ' ' : '' }}</template>
+                >{{ w }}</span>{{ w ? joinGlue(row.li, seg.si, k) : '' }}</template>
               </span>
               <!-- v1 (no syllables array): the whole lyric as before (seg-playing highlight). -->
               <span v-else class="lyric">{{ seg.lyric }}&nbsp;</span>
@@ -542,6 +554,12 @@ watch(
    side-by-side boxes with a gap) and the per-syllable padding must not add space — the only spaces are the
    breath spaces lyricPhrase.js puts in. Split mode (no .song-line-join) is untouched. */
 .song-line-join { display: block; } /* not the bar-wrapping flex row — the browser wraps Thai words itself */
+/* ใบ#104 — the only wrap points left inside the line are the spaces between วรรค (every other joint carries a
+   WORD JOINER). A single วรรค that is WIDER than the whole line would then have nowhere to wrap and would run
+   off the screen, so allow the last-resort break for that case only: overflow-wrap kicks in exactly when a run
+   does not fit on a line of its own. `anywhere` also keeps the line's min-content width small, so a narrow
+   phone can never be forced to scroll sideways; `break-word` first for browsers without `anywhere`. */
+.song-line-join { overflow-wrap: break-word; overflow-wrap: anywhere; }
 /* the ♦ heading sits on its own line above, as in split mode; a *** marker / line label stays inline with
    the words (ใบ#101: as a block it added a row to every refrain and pushed a printed sheet onto a 2nd page) */
 .song-line-join .section-label { display: block; }
