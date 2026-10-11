@@ -136,3 +136,46 @@ describe('current editor accepts every standard chord (free-text chord cell)', (
     w.unmount()
   })
 })
+
+// P'Aim 11 Oct 2026 — the real editor, the real chord cell: a desktop keyboard does not
+// auto-capitalise the way the iPad does, so "g/a" has to land as "G/A"; and a mistake has to
+// say why instead of snapping back without a word.
+describe('the real chord cell copes with how people actually type', () => {
+  it.each([
+    ['g/a', 'G/A'],
+    ['G/a', 'G/A'],
+    ['G / A', 'G/A'],
+    ['gm7', 'Gm7'],
+    ['bb', 'Bb'],
+  ])('typing "%s" saves the chord as "%s"', async (typed, saved) => {
+    vi.useFakeTimers()
+    const w = mountEd()
+    await nextTick()
+    await typeChord(w, typed)
+    expect(openChordCombo(w)).toBeFalsy()
+    expect(w.findAll('.chord-btn')[0].text()).toBe(saved)
+    w.unmount()
+    vi.useRealTimers()
+  })
+
+  it('a chord typed on the Thai keyboard is refused WITH a reason on screen', async () => {
+    vi.useFakeTimers()
+    const w = mountEd()
+    await nextTick()
+    await w.findAll('.chord-btn')[0].trigger('click')
+    await nextTick()
+    const combo = openChordCombo(w)
+    const input = combo.find('input')
+    await input.trigger('focus')
+    await input.setValue('Gฝ')
+    await input.trigger('blur')
+    vi.runAllTimers()
+    await nextTick()
+    const err = combo.find('.combo-err')
+    expect(err.exists()).toBe(true)
+    expect(err.text()).toMatch(/ภาษาไทย/)
+    expect(combo.props('modelValue')).toBe('C') // the chord that was there is untouched
+    w.unmount()
+    vi.useRealTimers()
+  })
+})

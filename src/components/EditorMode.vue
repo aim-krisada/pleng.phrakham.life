@@ -2,7 +2,7 @@
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { KEYS, TIME_SIGNATURES, chordOptions, parseChord } from '../lib/chords.js'
+import { KEYS, TIME_SIGNATURES, chordOptions, parseChord, normalizeChord, chordError } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, holdValue, HOLD_STEP, HOLD_MIN, HOLD_DEFAULT, snapHalf, slurSpans } from '../lib/notation.js'
 import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
@@ -572,6 +572,11 @@ const chordPickOpts = chordOpts
 // (allow-custom): any string parseChord() accepts (a valid root [+ verbatim quality/extension]
 // [+ /bass]) is committed and transposes correctly; genuine junk (no valid root) is rejected.
 const isValidChord = (text) => parseChord(text) != null
+// A desktop keyboard does not auto-capitalise the way the iPad does, so "g/a" has to work
+// just as well as "G/A"; what gets SAVED is always the tidy form. And when the text really
+// is not a chord, the field says why instead of snapping back without a word.
+const normalizeChordText = (text) => normalizeChord(text) ?? text
+const chordErrorText = (text) => chordError(text)
 
 // ---------- verse lens (words under the notes) ----------
 // arrangement rows that link the stanza currently being edited
@@ -3964,6 +3969,8 @@ defineExpose({
                       :options="p - 1 === 0 ? chordPickOpts : chordOpts"
                       allow-custom
                       :validate="isValidChord"
+                      :normalize="normalizeChordText"
+                      :error-for="chordErrorText"
                       placeholder="คอร์ด (พิมพ์เองได้ เช่น F#m7b5, G/B)"
                       aria-label="เลือกหรือพิมพ์คอร์ด"
                       width="120px"

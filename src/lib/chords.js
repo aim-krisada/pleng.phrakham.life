@@ -12,32 +12,135 @@ function noteIndex(note) {
   return i
 }
 
-// "C#m7" -> { root: "C#", rootIndex, suffix: "m7", bass:null, bassIndex:-1 }
-// "G/B"  -> { root: "G",  rootIndex, suffix: "/B", bass:"B", bassIndex:11 }  (slash bass parsed)
-// `suffix` is kept VERBATIM (incl. any "/X") so transposeChord/chordToRoman are unchanged; the
-// slash bass is exposed as extra fields for the audio voicing to honour. Returns null if not a chord.
-export function parseChord(chord) {
-  const m = /^([A-G][#b]?)(.*)$/.exec(chord.trim())
-  if (!m) return null
-  const idx = noteIndex(m[1])
-  if (idx === -1) return null
-  const suffix = m[2]
-  let bass = null, bassIndex = -1
-  const slash = suffix.indexOf('/')
-  if (slash !== -1) {
-    const bi = noteIndex(suffix.slice(slash + 1).trim())
-    if (bi !== -1) { bass = suffix.slice(slash + 1).trim(); bassIndex = bi }
-  }
-  return { root: m[1], rootIndex: idx, suffix, bass, bassIndex }
+// ---------------------------------------------------------------------------
+// Typing robustness (P'Aim, 11 Oct 2026 — "G/A works on the iPad but not on the
+// desktop", "the bass note turns into a different chord").
+//
+// The iPad auto-capitalises the first letter of a field, a desktop keyboard does
+// not — so the very same keystrokes produced "G/A" on one device and "g/a" on the
+// other, and the old parser only accepted A-G in UPPER case. Normalising the text
+// before parsing makes both devices behave the same, and also soaks up the slash
+// characters a Thai/full-width IME emits (／ ∕ ⁄ ⧸ ＼ \) plus any spaces around it.
+//
+// Rules that must NOT be broken by the normalisation:
+//   · "b" after a note letter is a FLAT, so "bb" → "Bb" (never "BB").
+//   · the quality is left exactly as typed, so "Gm" stays "Gm" (never "GM").
+// ---------------------------------------------------------------------------
+const SLASH_CHARS = /[\\/／∕⁄⧸＼╱]/g // \ / ／ ∕ ⁄ ⧸ ＼ ╱
+const ACCIDENTAL_SHARP = /[♯＃]/g // ♯ ＃
+const ACCIDENTAL_FLAT = /♭/g // ♭
+
+// Raw typed text → the canonical shape parseChord works on (case is fixed later,
+// per part, because "b" means flat and the quality must keep its own case).
+function normalizeChordText(raw) {
+  if (typeof raw !== 'string') return ''
+  return raw
+    .replace(SLASH_CHARS, '/')
+    .replace(ACCIDENTAL_SHARP, '#')
+    .replace(ACCIDENTAL_FLAT, 'b')
+    .replace(/\s+/g, '') // "G / A" → "G/A"; a chord symbol never contains a space
 }
 
-// Transpose a chord by semitones, spelling for the target key
+// One quality/extension token. Anything a real chord symbol is built from:
+// word qualities (maj, min, sus, add, aug, dim, alt, no, m), the symbol qualities
+// (° ø Δ + -), accidentals, digits, and the brackets/commas of "F#(+5)" or "C7(b9)".
+// Matched case-insensitively so "SUS4" is accepted; the text itself is kept as typed.
+const QUALITY_TOKEN = /^(?:maj|min|sus|add|aug|dim|alt|no|m|Δ|°|ø|\+|-|#|b|\(|\)|,|\d+)/i
+
+// true when every character of `s` belongs to a quality token (empty string is fine)
+function isQualityText(s) {
+  let rest = s
+  while (rest) {
+    const t = QUALITY_TOKEN.exec(rest)
+    if (!t) return false
+    rest = rest.slice(t[0].length)
+  }
+  return true
+}
+
+const NOTE_HEAD = /^([A-Ga-g])([#b]?)/
+
+// The part after the slash. Usually a plain bass note ("G/B"), but the song bank also
+// holds "A/F#m" (note + quality) and "C6/9" (no note at all — a "six-nine" chord), and
+// both have to keep working exactly as before.
+function splitSlashTail(tail) {
+  const n = NOTE_HEAD.exec(tail)
+  if (n) {
+    const rest = tail.slice(n[0].length)
+    if (isQualityText(rest)) {
+      const note = n[1].toUpperCase() + n[2]
+      return { ok: true, text: note + rest, note: rest === '' ? note : null }
+    }
+    return { ok: false }
+  }
+  return isQualityText(tail) ? { ok: true, text: tail, note: null } : { ok: false }
+}
+
+// "C#m7" -> { root: "C#", rootIndex, quality:"m7", suffix: "m7", bass:null, bassIndex:-1 }
+// "G/B"  -> { root: "G",  rootIndex, quality:"",   suffix: "/B", bass:"B", bassIndex:11 }
+// `suffix` is the quality PLUS any "/x" (so chordToRoman/chordToIntervals keep working on it);
+// `quality` is the part before the slash only, which is what transposeChord rebuilds around.
+// Case and odd slash characters are normalised first, so "g / a" parses the same as "G/A".
+// Returns null when the text is not a chord (junk, Thai letters, a bad bass note…).
+export function parseChord(chord) {
+  const text = normalizeChordText(chord)
+  const m = NOTE_HEAD.exec(text)
+  if (!m) return null
+  const root = m[1].toUpperCase() + m[2]
+  const idx = noteIndex(root)
+  if (idx === -1) return null
+  const rest = text.slice(m[0].length)
+  const slash = rest.indexOf('/')
+  const quality = slash === -1 ? rest : rest.slice(0, slash)
+  if (!isQualityText(quality)) return null
+  if (slash === -1) {
+    return { root, rootIndex: idx, quality, suffix: quality, bass: null, bassIndex: -1 }
+  }
+  const tail = splitSlashTail(rest.slice(slash + 1))
+  if (!tail.ok) return null
+  const bassIndex = tail.note ? noteIndex(tail.note) : -1
+  return {
+    root,
+    rootIndex: idx,
+    quality,
+    suffix: quality + '/' + tail.text,
+    bass: bassIndex === -1 ? null : tail.note,
+    bassIndex,
+  }
+}
+
+// Raw typed text → the chord exactly as it should be stored ("g / a" → "G/A"), or
+// null when it is not a chord. Used by the editor so what is saved is always canonical.
+export function normalizeChord(chord) {
+  const p = parseChord(chord)
+  return p ? p.root + p.suffix : null
+}
+
+// Why a typed chord was refused, in plain Thai — the field used to just snap back with
+// no explanation, which is exactly how the "G/A does not work" report started. Returns
+// null when the text is fine (or empty, which simply means "no chord").
+export function chordError(chord) {
+  if (typeof chord !== 'string' || chord.trim() === '') return null
+  if (parseChord(chord) != null) return null
+  const text = normalizeChordText(chord)
+  if (/[\u0E00-\u0E7F]/.test(text)) return 'ตอนนี้แป้นพิมพ์เป็นภาษาไทย กดสลับเป็นภาษาอังกฤษก่อน แล้วพิมพ์ใหม่'
+  if (!NOTE_HEAD.test(text)) return 'คอร์ดต้องขึ้นต้นด้วยตัว A ถึง G เช่น G หรือ Am7 หรือ G/A'
+  if (text.includes('/')) return 'ตัวหลังขีดทับต้องเป็นโน้ต A ถึง G เช่น G/A หรือ C/E'
+  return 'ยังไม่รู้จักคอร์ดนี้ ลองแบบ G, Am7, Fmaj7, Gsus4 หรือ G/A'
+}
+
+// Transpose a chord by semitones, spelling for the target key.
+// A slash bass moves with the chord (G/B up a whole step into D = A/C#); before this it
+// stayed behind, so changing key quietly rewrote the bass note into the wrong one.
+// A chord with no slash is rebuilt exactly as before.
 export function transposeChord(chord, semitones, targetKey) {
   const p = parseChord(chord)
   if (!p) return chord
   const scale = FLAT_KEYS.has(targetKey) ? FLAT_SCALE : SHARP_SCALE
-  const newRoot = scale[(p.rootIndex + semitones + 120) % 12]
-  return newRoot + p.suffix
+  const shift = (i) => scale[(i + semitones + 120) % 12]
+  const newRoot = shift(p.rootIndex)
+  if (p.bassIndex === -1) return newRoot + p.suffix
+  return newRoot + p.quality + '/' + shift(p.bassIndex)
 }
 
 export function semitonesBetween(fromKey, toKey) {

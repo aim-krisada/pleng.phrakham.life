@@ -65,11 +65,11 @@ describe('transposeChord keeps quality/extension while moving the root', () => {
     expect(transposeChord('Xyz', 2, 'D')).toBe('Xyz')
   })
 
-  // KNOWN LIMITATION (flagged to PM, not fixed in this input-side hotfix): the slash bass is kept
-  // verbatim in the suffix, so only the ROOT transposes — G/B up a whole step yields A/B, not the
-  // musically-correct A/C#. Pinned here so the day the engine is fixed, this test flips and forces
-  // a conscious update. The root DOES transpose correctly.
-  it('transposes a slash chord root but currently NOT its bass (documented gap)', () => {
-    expect(transposeChord('G/B', semitonesBetween('C', 'D'), 'D')).toBe('A/B')
+  // FIXED (P'Aim, 11 Oct 2026 — "the bass chord turns into a different one"): the slash bass now
+  // moves with the chord and is spelt for the target key, so G/B up a whole step into D is A/C#.
+  // It used to come out A/B — the bass stayed behind and the chord changed meaning on every key
+  // change. The full set of slash cases lives in chords.robust.test.js.
+  it('transposes a slash chord root AND its bass', () => {
+    expect(transposeChord('G/B', semitonesBetween('C', 'D'), 'D')).toBe('A/C#')
   })
 })
