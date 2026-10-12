@@ -158,10 +158,11 @@ describe('คีย์ on the bar (col 4)', () => {
 })
 
 describe('⚙ Setting page', () => {
-  it('holds วนซ้ำ · คอร์ด · แสดงผล · โปร่งใส (not คีย์/ความเร็ว — those live on the bar)', async () => {
+  it('holds วนซ้ำ · คอร์ด · แสดงผล (not คีย์/ความเร็ว — those live on the bar · no โปร่งใส, ใบ#111)', async () => {
     const w = mountT()
     await openSetting(w)
-    for (const id of ['repeat', 'chord', 'layer', 'alpha']) expect(panel(w, id).exists()).toBe(true)
+    for (const id of ['repeat', 'chord', 'layer']) expect(panel(w, id).exists()).toBe(true)
+    expect(panel(w, 'alpha').exists()).toBe(false)
     expect(panel(w, 'key').exists()).toBe(false)
     // ใบ v3/pleng#102 — ความเร็ว became a bar cell (its number must be readable at all times), so it
     // must NOT also sit in ⚙: one control, one place (ui-standards §2 single source of action).
@@ -194,12 +195,11 @@ describe('⚙ Setting page', () => {
     expect(JSON.parse(localStorage.getItem('pleng.dockkey.sing.pins'))).toContain('chord')
   })
 
-  it('the โปร่งใส slider drives the dock transparency', async () => {
+  it('ใบ#111 — no โปร่งใส anywhere: the bar is always solid', async () => {
     const w = mountT()
     await openSetting(w)
-    await panel(w, 'alpha').find('input[type="range"]').setValue(60)
-    await nextTick()
-    expect(w.find('.dk-host').attributes('style')).toContain('0.6')
+    expect(w.find('[data-cell="alpha"]').exists()).toBe(false)
+    expect(w.find('.dk-host').attributes('style') || '').not.toContain('--a')
   })
 
   // B107 step 9 — the four sound axes collapse into ONE "เสียงดนตรี" bar button (P'Aim 13 ก.ค.).

@@ -2,14 +2,15 @@
 // SingTransport — the ฝึกร้อง page's DockKey ADAPTER (reference #1 of the library).
 // It no longer draws chrome itself: it turns the page's song state (props) into the DockKey
 // descriptor list `ITEMS_SING` and hands it to <DockKey>, plus fills the three page-drawn
-// cells (ไทม์ไลน์ · เลือกท่อน · Aa) via #cell-<id> slots. The engine owns layout / collapse /
-// drag / Setting+pin / clamp. So ฝึกร้อง = data + custom cells; แผ่นเพลง/แก้ไข add their own
+// cells (ไทม์ไลน์ · เลือกท่อน · Aa) via #cell-<id> slots. The engine owns the bar layout /
+// Setting+pin / clamp (ใบ v3/pleng#111: a fixed bottom bar at every width — no drag, no fold,
+// no see-through). So ฝึกร้อง = data + custom cells; แผ่นเพลง/แก้ไข add their own
 // ITEMS_* to the SAME engine later. Design SSOT: docs/ds/dockkey-library.md +
 // docs/design/dockkey-sing-prototype.html.
 //
-//   Row 2: [ ไทม์ไลน์ col1-3 ][ คีย์ col4 ][ เลือกท่อน col5-6 ]
-//   Row 1: [ Grip ][ Back ][ Play ][ Fwd ][ Aa ][ ⚙ ]
-//   ⚙ Setting: วนซ้ำ · คอร์ด · ความเร็ว · แสดงผล · โปร่งใส  (each: ปรับ inline · ▲▼ · 📌)
+//   Seek row: [ ไทม์ไลน์ ]
+//   Buttons:  [ Back ][ Play ][ Fwd ][ ดาวน์โหลด ][ Aa ][ คีย์ ][ ความเร็ว ][ ท่อน ][ เสียง ][ ⚙ ]
+//   ⚙ Setting: วนซ้ำ · คอร์ด · แสดงผล · เนื้อร้อง  (each: ปรับ inline · ▲▼ · 📌)
 import { ref, computed } from 'vue'
 import Icon from './Icon.vue'
 import DockKey from './DockKey.vue'
@@ -48,9 +49,6 @@ const props = defineProps({
   mp3SongId: { type: [String, Number], default: undefined },
 })
 const emit = defineEmits(['toggle-play', 'prev', 'next', 'toggle-loop', 'seek', 'jump', 'toggle-section', 'set-all'])
-
-// transparency of the dock — v-model into the engine (persisted there under 'sing')
-const alpha = ref(0.96)
 
 // ---------- clock ----------
 const two = (n) => String(n).padStart(2, '0')
@@ -173,8 +171,7 @@ function setTempo(v, src) { tempoSetting.value?.onPick?.(v, src) }
 const items = computed(() => {
   const keyCtl = menuControl('key')
   const list = [
-    { id: 'grip', kind: 'grip', name: 'ย้าย/ย่อ', place: { anchor: 'left', row: 1 } },
-    { id: 'back', kind: 'btn', name: 'ท่อนก่อน', icon: 'skip-back', place: { anchor: 'rightOf:grip', row: 1 }, hidden: !props.hasSections, run: () => emit('prev') },
+    { id: 'back', kind: 'btn', name: 'ท่อนก่อน', icon: 'skip-back', place: { anchor: 'left', row: 1 }, hidden: !props.hasSections, run: () => emit('prev') },
     { id: 'play', kind: 'play', name: 'เล่น/หยุด', place: { anchor: 'rightOf:back', row: 1 }, control: { value: props.playing }, run: () => emit('toggle-play') },
     { id: 'forward', kind: 'btn', name: 'ท่อนถัดไป', icon: 'skip-forward', place: { anchor: 'rightOf:play', row: 1 }, hidden: !props.hasSections, run: () => emit('next') },
     { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { anchor: 'rightOf:forward', row: 1 } },
@@ -201,7 +198,7 @@ const items = computed(() => {
     { id: 'lyricjoin', kind: 'menu', name: 'เนื้อร้อง', icon: 'file-text', default: 'inSetting', pinnable: true, control: menuControl('lyricjoin') },
     // B107 step 9 — เสียงที่เล่น · การบรรเลง · เครื่องดนตรี · อารมณ์/สไตล์ moved into the single
     // "เสียงดนตรี" bar button + popover (soundctl above), so they're no longer separate ⚙ items.
-    { id: 'alpha', kind: 'slider', name: 'โปร่งใส', icon: 'blend', default: 'inSetting', pinnable: true, hideOnBar: true, control: { min: 40, max: 100, value: Math.round(alpha.value * 100), onInput: (v) => (alpha.value = v / 100) } },
+    // ใบ#111 — โปร่งใส is gone: the bar is always solid.
   ]
   // drop menu items whose control the page didn't supply (keeps the engine fed with valid data)
   return list.filter((it) => it.kind !== 'menu' || it.control)
@@ -209,8 +206,8 @@ const items = computed(() => {
 </script>
 
 <template>
-  <!-- ใบ#108 — bar-on-mobile: on a phone this dock is a fixed full-width bar at the bottom -->
-  <DockKey :items="items" store-key="sing" v-model:alpha="alpha" bar-on-mobile>
+  <!-- ใบ#111 — a fixed full-width bar at the bottom at every width -->
+  <DockKey :items="items" store-key="sing" label="แถบเล่นเพลง">
     <!-- ===== ไทม์ไลน์ (col 1-3) — tap/drag = seek · เส้นท่อนเชื่อม selection · เวลารวม ===== -->
     <template #cell-timeslide>
       <span class="st-seekwrap">

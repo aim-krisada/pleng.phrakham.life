@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { initAuth, recovering, emailChanged } from './store.js'
 import { initPrintChrome } from './lib/printChrome.js'
 import { measureDockClear } from './lib/dockClear.js'
+import { installFocusClear } from './lib/focusClear.js'
 import SiteFooter from './components/SiteFooter.vue'
 import ShellBar from './components/ShellBar.vue'
 
@@ -62,7 +63,11 @@ function scheduleDockClear() {
   flushPending = true
   setTimeout(applyDockClear, 0)
 }
+// ใบ v3/pleng#111 — a focused field (or the caret line of a multi-line field) is never left
+// under the bottom bar (WCAG 2.4.11) — lib/focusClear.js
+let uninstallFocusClear = null
 onMounted(() => {
+  uninstallFocusClear = installFocusClear()
   dockRO = new ResizeObserver(scheduleDockClear)
   // the dock is v-if, so it mounts after the song loads (later than the route change) and
   // can toggle; watch the tree so we re-measure whenever it appears/disappears. Cheap +
@@ -73,6 +78,7 @@ onMounted(() => {
   scheduleDockClear()
 })
 onBeforeUnmount(() => {
+  uninstallFocusClear?.()
   if (dockRO) dockRO.disconnect()
   if (dockMO) dockMO.disconnect()
   window.removeEventListener('resize', scheduleDockClear)

@@ -1,4 +1,5 @@
-// ใบ v3/pleng#109 — the phone bar (≤760px, ฝึกร้อง · แผ่นเพลง) is laid out like a media player:
+// ใบ v3/pleng#109 — the phone bar (≤760px, ฝึกร้อง · แผ่นเพลง) is laid out like a media player
+// (ใบ#111: and now the bar at every width, on every page):
 //   1. the seek bar has the top row to itself; every button sits in ONE centred group below it,
 //      each at least 48×48px;
 //   2. from 600px up the group is not stretched — the spacing stays 8px, as on a phone;
@@ -49,7 +50,7 @@ const SLOTS = ['timeslide', 'export', 'scale', 'speed', 'tuan', 'soundctl']
 const Host = {
   components: { DockKey },
   props: ['items', 'storeKey'],
-  template: `<DockKey :items="items" :store-key="storeKey" bar-on-mobile>${SLOTS.map(cell).join('')}</DockKey>`,
+  template: `<DockKey :items="items" :store-key="storeKey">${SLOTS.map(cell).join('')}</DockKey>`,
 }
 const mountBar = (its = singItems(), storeKey = 'b109') => mount(Host, {
   props: { items: its, storeKey },
@@ -93,13 +94,14 @@ beforeEach(() => { localStorage.clear(); document.body.innerHTML = '' })
 afterEach(() => { window.matchMedia = realMM; realLayout() })
 
 describe('ใบ#109 ข้อ 1 — seek bar on top, ONE button group below', () => {
-  for (const px of [360, 375, 390, 600, 712, 760]) {
+  // ใบ#111 — the same layout at every width, not only on a phone
+  for (const px of [360, 375, 390, 600, 712, 760, 1024, 1280, 1920]) {
     it(`${px}px: exactly two rows — the seek row (timeline only), then every button in one row`, async () => {
       setWidth(px)
       const w = mountBar()
       await flush()
       expect(w.find('.dk-host').classes()).toContain('dk-bar')
-      const rows = w.findAll('.dk-dock > .dk-row')
+      const rows = w.findAll('.dk-inner > .dk-row')
       expect(rows[0].classes()).toContain('dk-seekrow')
       expect(rowIds(rows[0])).toEqual(['timeslide'])
       expect(w.findAll('.dk-seekrow')).toHaveLength(1)
@@ -114,7 +116,7 @@ describe('ใบ#109 ข้อ 1 — seek bar on top, ONE button group below', (
     const w = mountBar()
     await flush()
     expect(btnIds(w).slice(-2)).toEqual(['repeat', 'setting'])
-    expect(w.findAll('.dk-dock > .dk-row').filter((r) => !r.classes().includes('dk-btnrow') && !r.classes().includes('dk-seekrow'))).toHaveLength(0)
+    expect(w.findAll('.dk-inner > .dk-row').filter((r) => !r.classes().includes('dk-btnrow') && !r.classes().includes('dk-seekrow'))).toHaveLength(0)
   })
 
   it('a page with no seek bar (แผ่นเพลง) has just the one button row', async () => {
@@ -129,7 +131,7 @@ describe('ใบ#109 ข้อ 1 — seek bar on top, ONE button group below', (
     ]
     const w = mountBar(its, 'p109')
     await flush()
-    const rows = w.findAll('.dk-dock > .dk-row')
+    const rows = w.findAll('.dk-inner > .dk-row')
     expect(rows).toHaveLength(1)
     expect(rowIds(rows[0])).toEqual(['print', 'export', 'scale', 'setting'])
   })
@@ -145,19 +147,19 @@ describe('ใบ#109 ข้อ 1 — seek bar on top, ONE button group below', (
       attachTo: document.body,
     })
     await flush()
-    const rows = w.findAll('.dk-dock > .dk-row')
+    const rows = w.findAll('.dk-inner > .dk-row')
     expect(rowIds(rows[0])).toEqual(['timeslide'])
     expect(btnIds(w)).toEqual(['back', 'play', 'forward', 'export', 'scale', 'key', 'tuan', 'setting'])
   })
 
-  it('wide screen (>760px) keeps its old rows — no seek row / button row split', async () => {
-    setWidth(1024)
+  it('ใบ#111 — a wide screen gets the same bar: seek row on top, one button row, no grip', async () => {
+    setWidth(1920)
     const w = mountBar()
     await flush()
-    expect(w.find('.dk-host').classes()).not.toContain('dk-bar')
-    expect(w.find('.dk-seekrow').exists()).toBe(false)
-    expect(w.find('.dk-btnrow').exists()).toBe(false)
-    expect(w.find('[data-grip]').exists()).toBe(true)
+    expect(w.find('.dk-host').classes()).toContain('dk-bar')
+    expect(w.findAll('.dk-seekrow')).toHaveLength(1)
+    expect(w.findAll('.dk-btnrow')).toHaveLength(1)
+    expect(w.find('[data-grip]').exists()).toBe(false)
   })
 })
 

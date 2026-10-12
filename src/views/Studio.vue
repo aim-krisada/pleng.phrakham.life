@@ -202,7 +202,6 @@ const sheetDisplay = ref('all')
 const sheetChord = ref('letter')
 const sheetBook = ref('songbook') // 'songbook' = ทำนองครั้งเดียว · 'full' = โน้ตทุกเที่ยว
 const sheetKey = ref('C')
-const printAlpha = ref(0.96)
 watch(() => liveSong.value?.content?.key, (k) => { if (k) sheetKey.value = k }, { immediate: true })
 
 const printDisplayDef = computed(() => DISPLAY_OPTS.find((o) => o.value === sheetDisplay.value) || DISPLAY_OPTS[0])
@@ -241,8 +240,7 @@ watchEffect(() => { if (sheetLyricJoin.value === 'book' && bookSong.value) loadB
 const printBasename = computed(() => (liveSong.value ? songBasename(liveSong.value) : 'song'))
 
 const printItems = computed(() => [
-  { id: 'grip', kind: 'grip', name: 'ย้าย/ย่อ', place: { anchor: 'left', row: 1 } },
-  { id: 'print', kind: 'btn', name: 'พิมพ์ / บันทึก PDF', icon: 'printer', prime: true, place: { anchor: 'rightOf:grip', row: 1 }, run: printSheet },
+  { id: 'print', kind: 'btn', name: 'พิมพ์ / บันทึก PDF', icon: 'printer', prime: true, place: { anchor: 'left', row: 1 }, run: printSheet },
   { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { anchor: 'rightOf:print', row: 1 } },
   { id: 'scale', kind: 'aa', name: 'ขนาดตัวอักษร', place: { anchor: 'leftOf:setting', row: 1 }, permanent: true },
   { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
@@ -339,8 +337,8 @@ function printSheet() {
 // ---------- the ONE shared dock (dock-core / N1) ----------
 // Each of the three modes mounts its OWN DockKey — ฝึกร้อง in SongViewer, แผ่นเพลง here
 // (ITEMS_PRINT), แก้ไข in EditorMode (ITEMS_EDIT). They share the DockKey ENGINE (one file),
-// so collapse/drag/Setting feel identical across modes while each keeps its own descriptor
-// list. The old single shared <StudioDock> has been removed.
+// so the bar and its Setting page feel identical across modes while each keeps its own
+// descriptor list. The old single shared <StudioDock> has been removed.
 </script>
 
 <template>
@@ -440,9 +438,9 @@ function printSheet() {
         </div>
       </div>
 
-      <!-- แผ่นเพลง dock — DockKey engine fed ITEMS_PRINT (grip · พิมพ์ · export · Aa · ⚙) -->
-      <!-- ใบ#108 — bar-on-mobile: on a phone this dock is a fixed full-width bar at the bottom -->
-      <DockKey :items="printItems" store-key="print" v-model:alpha="printAlpha" bar-on-mobile>
+      <!-- แผ่นเพลง dock — DockKey engine fed ITEMS_PRINT (พิมพ์ · export · Aa · ⚙) -->
+      <!-- ใบ#111 — a fixed full-width bar at the bottom at every width -->
+      <DockKey :items="printItems" store-key="print" label="แถบแผ่นเพลง">
         <template #cell-export="{ open, toggle, close }">
           <ExportTool
             :content="sheetSetContent"
@@ -610,8 +608,14 @@ function printSheet() {
   padding-bottom: 88px;
 }
 /* ใบ v3/pleng#108 — on a phone the dock is a bar glued to the bottom and the footer sits right
-   on top of it (App.vue measures the bar), so only a small gap is needed below the sheet. */
+   on top of it (App.vue measures the bar), so only a small gap is needed below the sheet.
+   (Kept as it was: printing reads these rules too, so the printed page count stays the same.) */
 @media (max-width: 760px) {
+  .sheet-workspace { padding-bottom: 24px; }
+}
+/* ใบ v3/pleng#111 — on screen the bar is glued to the bottom at EVERY width, so the same small
+   gap applies everywhere. Screen only: print keeps the rules above, page count unchanged. */
+@media screen {
   .sheet-workspace { padding-bottom: 24px; }
 }
 /* Aa scales the sheet on screen; print keeps the fixed A4 size (protect pagination) */

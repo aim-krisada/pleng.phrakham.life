@@ -75,13 +75,16 @@
    In pleng the editor dock is z-index 90, so pin the scroll buttons below it — on the
    mobile editor the full-width dock then covers them instead of the two fighting. */
 .pk-scrollnav { z-index: 30 !important; }
-/* ใบ v3/pleng#108 — on a phone the ฝึกร้อง / แผ่นเพลง dock is a bar fixed to the bottom edge.
-   Lift the scroll buttons so they sit fully ABOVE it (8px gap), never half-hidden behind it.
-   --dock-bar-h is the bar's full height incl. the iPhone home-bar inset, and `has-dock-bar` is
-   only set while such a bar is showing (lib/dockClear.js) — wide screens and แก้ไข untouched. */
-@media (max-width: 760px) {
-  html.has-dock-bar .pk-scrollnav { bottom: calc(var(--dock-bar-h, 0px) + 8px) !important; }
-}
+/* ใบ v3/pleng#108 → #111 — the ฝึกร้อง / แผ่นเพลง / แก้ไข dock is a bar fixed to the bottom edge
+   at every width. Lift the scroll buttons so they sit fully ABOVE it (8px gap), never half-hidden
+   behind it. --dock-bar-h is the bar's full height incl. the iPhone home-bar inset, and
+   `has-dock-bar` is only set while a fixed bar is showing (lib/dockClear.js).
+   The same height + 16px is the page's scroll-padding-bottom (WCAG 2.4.11 Focus Not Obscured,
+   technique C43): whenever the browser scrolls something into view — a field reached with Tab,
+   the sung line — it stops above the bar instead of leaving it underneath. lib/focusClear.js
+   tops this up for browsers that skip it and for the caret moving inside a multi-line field. */
+html.has-dock-bar .pk-scrollnav { bottom: calc(var(--dock-bar-h, 0px) + 8px) !important; }
+html.has-dock-bar { scroll-padding-bottom: calc(var(--dock-bar-h, 0px) + 16px); }
 
 /* text-size-adjust: 100% — DISABLE Chrome-mobile "font boosting" (auto-inflation). Without it,
    Chrome on Android enlarges text a moment after load to "improve readability", which widened the

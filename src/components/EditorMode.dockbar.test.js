@@ -1,5 +1,5 @@
-// ใบ v3/pleng#108 — the phone bottom BAR is for ฝึกร้อง and แผ่นเพลง only. The แก้ไข dock must
-// stay exactly as it was at every width: floating, with its grip (drag + collapse) and โปร่งใส.
+// ใบ v3/pleng#108 made the phone bottom BAR for ฝึกร้อง and แผ่นเพลง only; ใบ#111 gives the แก้ไข
+// dock the same bar at every width (no grip, no fold, no โปร่งใส).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
@@ -53,17 +53,81 @@ const mountEd = () => mount(EditorMode, {
   global: { stubs: { Icon: true, 'router-link': true, ExportTool: true, ComboSelect: true } },
 })
 
-describe('แก้ไข dock is not a bar at any width (ใบ#108)', () => {
-  for (const [label, px] of [['phone 375', 375], ['desktop 1280', 1280]]) {
-    it(`${label}: floating dock, grip kept`, async () => {
+// ใบ v3/pleng#111 — the แก้ไข dock is now the same fixed bottom bar as the other two pages, at
+// every width: no grip (no drag, no fold), no โปร่งใส, a named toolbar, the key band on top.
+describe('แก้ไข dock is the bottom bar at every width (ใบ#111)', () => {
+  for (const [label, px] of [['phone 375', 375], ['tablet 712', 712], ['desktop 1280', 1280], ['wide 1920', 1920]]) {
+    it(`${label}: bar, no grip, named toolbar, key band + buttons`, async () => {
       setWidth(px)
       const w = mountEd()
       await nextTick()
       const host = w.find('.dk-host')
       expect(host.exists()).toBe(true)
-      expect(host.classes()).not.toContain('dk-bar')
-      expect(w.find('.dk-host [data-grip]').exists()).toBe(true)
+      expect(host.classes()).toContain('dk-bar')
+      expect(w.find('.dk-host [data-grip]').exists()).toBe(false)
+      expect(w.find('.dk-mini').exists()).toBe(false)
+      const dock = w.find('.dk-host .dk-dock')
+      expect(dock.attributes('role')).toBe('toolbar')
+      expect(dock.attributes('aria-label')).toBe('แถบแก้ไข')
+      expect(w.find('.dk-host .dk-keys .dk-key').exists()).toBe(true)
+      // the first button is ย้อน (it used to sit right of the grip)
+      expect(w.find('.dk-host .dk-btnrow [data-cell]').attributes('data-cell')).toBe('undo')
       w.unmount()
     })
   }
+
+  it('an old remembered fold / see-through for the editor is ignored and cleared', async () => {
+    setWidth(1280)
+    localStorage.setItem('pleng.dockkey.edit.collapsed', '1')
+    localStorage.setItem('pleng.dockkey.edit.alpha', '0.4')
+    const w = mountEd()
+    await nextTick()
+    expect(w.find('.dk-mini').exists()).toBe(false)
+    expect(w.find('.dk-host .dk-keys').exists()).toBe(true)
+    expect(localStorage.getItem('pleng.dockkey.edit.collapsed')).toBeNull()
+    expect(localStorage.getItem('pleng.dockkey.edit.alpha')).toBeNull()
+    w.unmount()
+  })
+})
+
+// ใบ#111 ข้อ 3 — on a touch screen the on-screen keyboard comes up for a text field; the bar
+// steps aside while a field in the editor has focus, and comes back when it loses focus.
+describe('แก้ไข bar steps aside for the on-screen keyboard (ใบ#111)', () => {
+  const touch = (on) => {
+    window.matchMedia = (q) => ({
+      matches: /pointer: coarse/.test(q) ? on : false,
+      media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
+    })
+  }
+  const field = (w) => w.findAll('input').find((i) => ['text', 'search', null, undefined, ''].includes(i.attributes('type')) && !i.element.closest('.dk-host'))
+
+  it('touch: focusing a field hides the bar; leaving it brings the bar back', async () => {
+    touch(true)
+    const w = mountEd()
+    await nextTick()
+    const f = field(w)
+    expect(f).toBeTruthy()
+    f.element.focus()
+    f.element.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    await nextTick()
+    expect(w.find('.dk-host').classes()).toContain('dk-kbd')
+    f.element.blur()
+    f.element.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+    await new Promise((r) => setTimeout(r, 5))
+    await nextTick()
+    expect(w.find('.dk-host').classes()).not.toContain('dk-kbd')
+    w.unmount()
+  })
+
+  it('mouse + keyboard (no touch): the bar stays while typing', async () => {
+    touch(false)
+    const w = mountEd()
+    await nextTick()
+    const f = field(w)
+    f.element.focus()
+    f.element.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    await nextTick()
+    expect(w.find('.dk-host').classes()).not.toContain('dk-kbd')
+    w.unmount()
+  })
 })
