@@ -1,19 +1,22 @@
-// Footer ↔ dock clearance + the phone bar (ใบ v3/pleng#108).
+// Footer ↔ dock clearance + the bottom bar (ใบ v3/pleng#108 → #111).
 //
-// The music/edit dock is position:fixed at the viewport bottom. measureDockClear() publishes
-// on <html>:
-//   --dock-clear  the band the sticky footer must reserve so it sits flush on top of the dock
+// The music/edit dock is a bar fixed to the viewport bottom on every page and at every width
+// (ใบ#111). measureDockClear() publishes on <html>:
+//   --dock-clear  the band the sticky footer must reserve so it sits flush on top of the bar
 //                 (footer.footer-dock-clear in styles.css adds the iPhone home-bar inset itself)
-//   --dock-bar-h  the FULL height of the phone bar (home-bar inset included), only while a
-//                 phone bar (.dk-host.dk-bar — ฝึกร้อง / แผ่นเพลง at ≤760px) is showing,
-//                 together with the class `has-dock-bar`. styles.css uses it to lift the round
-//                 scroll-to-top/bottom buttons (pk-scrollnav) so they sit fully above the bar.
-// Nothing is published for the floating dock (wide screens, the แก้ไข page), so those stay as
-// they were. Studio keeps all three modes mounted, so the bar that is actually showing is picked.
+//   --dock-bar-h  the FULL height of the bar (home-bar inset included), only while a fixed bar
+//                 is showing, together with the class `has-dock-bar`. styles.css uses it to lift
+//                 the round scroll-to-top/bottom buttons (pk-scrollnav) above the bar, and as
+//                 `scroll-padding-bottom` so a field scrolled into view lands above the bar
+//                 (WCAG 2.4.11 · technique C43 — lib/focusClear.js is the script half).
+// Nothing is published while the bar is out of the way: in the page flow in a short window
+// (`.dk-flow`), or stepped aside for the on-screen keyboard (its box is then 0 tall).
+// Studio keeps all three modes mounted, so the bar that is actually showing is picked.
 // Returns the element it measured (App.vue keeps a ResizeObserver on it), or null.
+export const DOCK_BAR_SEL = '.dk-host.dk-bar:not(.dk-flow) > .dk-dock'
 export function measureDockClear(doc = document, win = window) {
   const root = doc.documentElement
-  const bar = [...doc.querySelectorAll('.dk-host.dk-bar > .dk-dock')]
+  const bar = [...doc.querySelectorAll(DOCK_BAR_SEL)]
     .find((el) => el.getBoundingClientRect().height > 0)
   const dock = doc.querySelector('.sd-wrap') || bar || null
   let h = 0

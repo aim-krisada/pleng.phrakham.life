@@ -1,7 +1,8 @@
 // DockKey — the reusable dock core engine. These tests exercise the ENGINE contract with a
 // synthetic descriptor list (no page): row ordering by anchor/column, the ⚙ Setting page
-// (default:inSetting || pinnable), 📌 pin → a new row above, collapse-in-place → [grip][⚙]
-// mini, and menu dropdowns. Page-drawn cells (timeline/aa) are provided as empty slots.
+// (default:inSetting || pinnable), 📌 pin → onto the button row, and menu dropdowns. ใบ#111: the
+// dock is always the bottom bar — no grip, no collapse. Page-drawn cells (timeline/aa) are
+// provided as empty slots.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
@@ -30,20 +31,16 @@ const mountDK = (props = {}) => mount(DockKey, {
 beforeEach(() => { localStorage.clear(); onPick.mockClear(); onToggle.mockClear(); run.mockClear(); onInsert.mockClear() })
 
 describe('DockKey layout engine', () => {
-  it('lays out two default rows: row 2 (timeline·key) above row 1 (core, spread)', () => {
+  it('lays out the bar: the timeline alone on top, every button in one centred row below', () => {
     const w = mountDK()
     const rows = w.findAll('.dk-row')
     expect(rows).toHaveLength(2)
-    // the core bottom row (with ⚙) spreads full width; it is the LAST row in DOM
-    expect(rows[1].classes()).toContain('spread')
-    const cells = rows[1].findAll('[data-cell]').map((e) => e.attributes('data-cell'))
-    // grip left-most, setting right-most, scale (Aa) just left of setting
-    expect(cells[0]).toBe('grip')
-    expect(cells.at(-1)).toBe('setting')
-    expect(cells.at(-2)).toBe('scale')
-    // row 2 carries the timeline + key
-    const r2 = rows[0].findAll('[data-cell]').map((e) => e.attributes('data-cell'))
-    expect(r2).toEqual(['timeslide', 'key'])
+    expect(rows[0].classes()).toContain('dk-seekrow')
+    expect(rows[0].findAll('[data-cell]').map((e) => e.attributes('data-cell'))).toEqual(['timeslide'])
+    // row 1 up to ⚙ (the grip a page still hands over is dropped), then row 2's buttons, ⚙ last
+    expect(rows[1].classes()).toContain('dk-btnrow')
+    expect(rows[1].classes()).not.toContain('spread')
+    expect(rows[1].findAll('[data-cell]').map((e) => e.attributes('data-cell'))).toEqual(['play', 'scale', 'key', 'setting'])
   })
 
   it('hidden items drop out of the layout', () => {
@@ -85,7 +82,7 @@ describe('DockKey ⚙ Setting page', () => {
     localStorage.setItem('pleng.dockkey.test.pins', JSON.stringify(['key']))
     const w = mountDK()
     expect(w.findAll('.dk-row')).toHaveLength(2) // no extra pinned row
-    expect(w.findAll('[data-cell="key"]')).toHaveLength(1) // drawn once, by row 2
+    expect(w.findAll('[data-cell="key"]')).toHaveLength(1) // drawn once, on the button row
   })
 
   it('a toggle in the Setting page calls its onToggle', async () => {
@@ -96,16 +93,17 @@ describe('DockKey ⚙ Setting page', () => {
     expect(onToggle).toHaveBeenCalledTimes(1)
   })
 
-  it('📌 pin promotes an item to a NEW row above row 2 + persists', async () => {
+  it('📌 pin puts an item on the button row (just before ⚙) + persists', async () => {
     const w = mountDK()
     expect(w.findAll('.dk-row')).toHaveLength(2)
     await w.find('.dk-gear').trigger('click')
     await nextTick()
     await w.find('.dk-panel [data-setting="chord"] .dk-pin').trigger('click')
     await nextTick()
-    // a pinned row is added on top → 3 rows now, and chord is a bar chip
-    expect(w.findAll('.dk-row')).toHaveLength(3)
-    expect(w.find('.dk-row [data-cell="chord"].dk-pinwrap').exists()).toBe(true)
+    // no extra row: chord joins the one button group as a bar chip, ⚙ still ends it
+    expect(w.findAll('.dk-row')).toHaveLength(2)
+    expect(w.find('.dk-btnrow [data-cell="chord"].dk-pinwrap').exists()).toBe(true)
+    expect(w.findAll('.dk-btnrow [data-cell]').map((e) => e.attributes('data-cell')).slice(-2)).toEqual(['chord', 'setting'])
     expect(JSON.parse(localStorage.getItem('pleng.dockkey.test.pins'))).toEqual(['chord'])
   })
 
@@ -113,7 +111,7 @@ describe('DockKey ⚙ Setting page', () => {
     localStorage.setItem('pleng.dockkey.test.pins', JSON.stringify(['repeat']))
     const w = mountDK()
     expect(w.find('.dk-row [data-cell="repeat"]').exists()).toBe(true)
-    expect(w.findAll('.dk-row')).toHaveLength(3)
+    expect(w.findAll('.dk-row')).toHaveLength(2)
   })
 })
 
@@ -157,10 +155,10 @@ describe('DockKey phase-2 schema (E1 keys band · E2 prime/label)', () => {
     expect(onInsert).toHaveBeenCalledWith('1')
   })
 
-  it('E1: the key band is hidden when collapsed', async () => {
+  it('E1: an old remembered "folded" value no longer hides the key band (ใบ#111)', async () => {
     localStorage.setItem('pleng.dockkey.test.collapsed', '1')
     const w = mountDK({ items: withExtras() })
-    expect(w.find('.dk-keys').exists()).toBe(false)
+    expect(w.find('.dk-keys').exists()).toBe(true)
   })
 
   it('E2: prime buttons get the brand class; a label renders + widens', () => {
@@ -179,27 +177,20 @@ describe('DockKey phase-2 schema (E1 keys band · E2 prime/label)', () => {
   })
 })
 
-describe('DockKey collapse-in-place', () => {
-  it('a grip tap collapses to the [grip][⚙] mini (DS I7)', async () => {
+// ใบ#111 — the bar cannot be dragged or folded any more
+describe('DockKey has no grip / no collapse (ใบ#111)', () => {
+  it('a grip item from a page is not drawn, and nothing folds the bar', async () => {
     const w = mountDK()
-    const grip = w.find('[data-grip]')
-    await grip.trigger('pointerdown', { clientX: 10, clientY: 10, pointerId: 1 })
-    await grip.trigger('pointerup', { clientX: 10, clientY: 10, pointerId: 1 })
-    await nextTick()
-    expect(w.find('.dk-mini').exists()).toBe(true)
-    // mini = exactly grip + gear
-    expect(w.find('.dk-mini .dk-grip').exists()).toBe(true)
-    expect(w.find('.dk-mini .dk-gear').exists()).toBe(true)
-    expect(w.find('.dk-mini [data-cell="play"]').exists()).toBe(false)
-    expect(localStorage.getItem('pleng.dockkey.test.collapsed')).toBe('1')
+    expect(w.find('[data-grip]').exists()).toBe(false)
+    expect(w.find('.dk-grip').exists()).toBe(false)
+    expect(w.find('.dk-mini').exists()).toBe(false)
+    expect(w.find('[data-cell="play"]').exists()).toBe(true)
   })
 
-  it('the ⚙ in the mini expands again', async () => {
+  it('an old remembered "folded" value still shows the full bar', () => {
     localStorage.setItem('pleng.dockkey.test.collapsed', '1')
     const w = mountDK()
-    expect(w.find('.dk-mini').exists()).toBe(true)
-    await w.find('.dk-mini .dk-gear').trigger('click')
-    await nextTick()
     expect(w.find('.dk-mini').exists()).toBe(false)
+    expect(w.find('[data-cell="play"]').exists()).toBe(true)
   })
 })

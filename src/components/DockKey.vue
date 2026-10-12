@@ -1,104 +1,110 @@
 <script setup>
 // DockKey — the ONE reusable dock "core engine" (library กลาง). Every studio page
 // (ฝึกร้อง · แผ่นเพลง · แก้ไข) hands it ONLY a list of button descriptors (`items`); the
-// engine owns everything else: the row/col layout + cap-fill, collapse-in-place, drag,
-// one-popover-at-a-time + clamp, the ⚙ Setting page with pin/reorder, and transparency.
-// So the three pages share ONE engine and differ only in DATA, not code.
-// Ported 1:1 from the P'Aim-approved prototype docs/design/dockkey-sing-prototype.html
-// (core = itemHtml/buildRows/render/drag/transitionInPlace/gear-panel) per the DS
-// docs/ds/dockkey-library.md. This round wires the ฝึกร้อง page; print/edit plug in later
-// with their own ITEMS_* — no engine change.
+// engine owns everything else: the bar layout, one-popover-at-a-time + clamp, and the ⚙ Setting
+// page with pin/reorder. So the three pages share ONE engine and differ only in DATA, not code.
+// Ported from the P'Aim-approved prototype docs/design/dockkey-sing-prototype.html per the DS
+// docs/ds/dockkey-library.md.
+//
+// ใบ v3/pleng#111 — the dock is a BAR fixed to the bottom edge at EVERY width, on all three
+// pages: full width, solid background, no drag, no collapse, no transparency (ใบ#108/#109 did
+// this for phones only). Its contents sit in a centred column no wider than 1200px. Two
+// exceptions keep it from getting in the way:
+//   • a short window (< 500px tall — a phone on its side, or the page zoomed to 400%): the bar
+//     stops being fixed and sits at the end of the page instead (`dk-flow`), so it never takes
+//     a big slice of a small screen (WCAG 1.4.10). Every button is still there.
+//   • a touch screen while a text field has focus (the on-screen keyboard is up): the bar steps
+//     aside (`dk-kbd`) so it never floats over the keyboard or the field being typed in.
 //
 // Descriptor (DS §2):
 //   { id, name, icon(Lucide), kind, place:{anchor,row,col,span}, default, pinnable,
 //     permanent, hidden, run, control:{options,value,onPick,badge | onToggle | min,max,onInput} }
 //   anchor: 'left' | 'right' | 'rightOf:<id>' | 'leftOf:<id>'  (row 1 chrome/transport)
-//   kind:   'grip'|'gear'|'play'|'btn'|'toggle'|'menu'|'slider'  → drawn by the engine
-//           'timeline'|'sel'|'aa'|'slot'                          → drawn by the PAGE via a
+//   kind:   'gear'|'play'|'btn'|'toggle'|'menu'|'slider'|'keys' → drawn by the engine
+//           'timeline'|'sel'|'aa'|'slot'                        → drawn by the PAGE via a
 //           #cell-<id> slot ({ open, toggle, close }); the engine still lays it out, tracks
 //           its one-at-a-time popover, and clamps any .dk-pop the slot renders.
+//   A leftover 'grip' item, or one flagged `hideOnBar`, is ignored (there is nothing to drag,
+//   fold or see through any more).
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
+import { isTextField } from '../lib/focusClear.js'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
-  // namespaces the remembered layout (pins · collapsed · transparency) so pages don't
-  // collide in localStorage — like StudioDock's per-mode keys.
+  // namespaces the remembered pins so pages don't collide in localStorage
   storeKey: { type: String, default: 'dock' },
-  alpha: { type: Number, default: 0.96 }, // v-model:alpha (transparency of the dock)
   message: { type: String, default: '' }, // transient status line floated above the dock
-  // ใบ v3/pleng#108 — on a phone (≤760px, the same line as `mobile` below) the dock stops
-  // floating and becomes a BAR glued to the bottom edge, full width: no drag, no collapse grip,
-  // no transparency (items flagged `hideOnBar`), and it keeps clear of the iPhone home bar.
-  // Opt-in per page: ฝึกร้อง and แผ่นเพลง turn it on; แก้ไข leaves it off and stays as it was.
-  barOnMobile: { type: Boolean, default: false },
+  // the bar's accessible name (role="toolbar") — each page names its own
+  label: { type: String, default: 'แถบเครื่องมือ' },
 })
-const emit = defineEmits(['update:alpha'])
 
 const SLOT_KINDS = ['timeline', 'sel', 'aa', 'slot'] // drawn by the page via #cell-<id>
 
-// E1: full-width keyboard band(s) (e.g. the edit jianpu palette) — laid out above every
-// row, exempt from the cap/overflow machinery, hidden when collapsed.
+// E1: full-width keyboard band(s) (e.g. the edit jianpu palette) — laid out above every row.
 const keysBands = computed(() => visible.value.filter((i) => i.kind === 'keys'))
 
 // ---------- registry helpers ----------
 const byId = (id) => props.items.find((i) => i.id === id)
-// bar mode (ใบ#108) drops the grip (nothing to drag or collapse) and anything the page marked
-// `hideOnBar` (the โปร่งใส slider — a bar glued to the edge has nothing behind it to see through).
-const offBar = (i) => bar.value && (i.kind === 'grip' || i.hideOnBar)
-const visible = computed(() => props.items.filter((i) => !i.hidden && !offBar(i)))
+const retired = (i) => i.kind === 'grip' || i.hideOnBar
+const visible = computed(() => props.items.filter((i) => !i.hidden && !retired(i)))
 // items with a home in the ⚙ Setting page: everything not on the bar by default, plus
 // anything pinnable (so it can be un-pinned back into its home) — DS I4.
 const settingItems = computed(() => visible.value.filter((i) => i.default === 'inSetting' || i.pinnable))
 
-// ---------- persisted layout ----------
+// ---------- persisted pins ----------
 const LS_PINS = computed(() => `pleng.dockkey.${props.storeKey}.pins`)
-const LS_COLLAPSED = computed(() => `pleng.dockkey.${props.storeKey}.collapsed`)
-const LS_ALPHA = computed(() => `pleng.dockkey.${props.storeKey}.alpha`)
-
 function loadPins() {
   try {
     const raw = JSON.parse(localStorage.getItem(LS_PINS.value) || 'null')
-    if (Array.isArray(raw)) return raw.filter((id) => byId(id))
+    if (Array.isArray(raw)) return raw.filter((id) => typeof id === 'string' && byId(id))
   } catch { /* ignore bad storage */ }
   return []
 }
 const pins = ref(loadPins())
 watch(pins, (v) => { try { localStorage.setItem(LS_PINS.value, JSON.stringify(v)) } catch { /* ignore */ } }, { deep: true })
-
-const collapsed = ref(localStorage.getItem(LS_COLLAPSED.value) === '1')
-watch(collapsed, (v) => { try { localStorage.setItem(LS_COLLAPSED.value, v ? '1' : '0') } catch { /* ignore */ } })
-
-// transparency: DockKey owns the persisted value and keeps the parent's v-model in sync,
-// so a page can also read/pin it via an `alpha` slider item.
-onMounted(() => {
+// ใบ#111 — the floating dock remembered whether it was folded and how see-through it was. Neither
+// exists any more: the values are never read, and are cleared once so they can't come back to
+// life. (The dragged spot was never saved.)
+function forgetOldDock() {
   try {
-    const a = parseFloat(localStorage.getItem(LS_ALPHA.value) || '')
-    if (a >= 0.4 && a <= 1 && a !== props.alpha) emit('update:alpha', a)
-  } catch { /* ignore */ }
-})
-watch(() => props.alpha, (v) => { try { localStorage.setItem(LS_ALPHA.value, String(v)) } catch { /* ignore */ } })
+    localStorage.removeItem(`pleng.dockkey.${props.storeKey}.collapsed`)
+    localStorage.removeItem(`pleng.dockkey.${props.storeKey}.alpha`)
+  } catch { /* storage blocked — nothing to clear */ }
+}
 
-// ---------- viewport (cap = fill the width at 44px · WCAG 2.2 AA · DS I6) ----------
-const mobile = ref(false)
-let mq = null
-function syncMobile() { mobile.value = mq ? mq.matches : false }
-const cap = computed(() => (mobile.value ? 7 : 14))
-// ใบ#108 — the fixed bottom bar: only on a phone AND only where the page asked for it
-const bar = computed(() => props.barOnMobile && mobile.value)
-// the bar never shows the collapsed mini dock. The saved choice is left alone, so the wide
-// screen still opens the way the user last left it.
-const isCollapsed = computed(() => collapsed.value && !bar.value)
-// the bar is always solid — a remembered see-through value from the wide screen doesn't apply
-const shownAlpha = computed(() => (bar.value ? 1 : props.alpha))
-// a dragged spot only applies to the floating dock, never to the bar
-const dockStyle = computed(() => (pos.value && !bar.value ? { transform: `translate(${pos.value.x}px, ${pos.value.y}px)` } : {}))
+// ---------- the two times the bar steps out of the way ----------
+// short window → in the page flow, not fixed (WCAG 1.4.10: at 400% zoom a fixed bar would cover
+// most of the screen).
+const SHORT_Q = '(max-height: 499px)'
+// a touch screen (no mouse) — the one place an on-screen keyboard comes up for a text field
+const TOUCH_Q = '(hover: none) and (pointer: coarse)'
+const short = ref(false)
+const typing = ref(false) // a text field outside the bar has focus on a touch screen
+let mqShort = null
+const matches = (q) => typeof window.matchMedia === 'function' && !!window.matchMedia(q)?.matches
+function syncShort() { short.value = matches(SHORT_Q) }
+const typingIn = (el) => matches(TOUCH_Q) && isTextField(el) && !el.closest?.('.dk-host')
+// a field inside the bar's own popover (e.g. a number box) must not hide the bar under itself
+function onFocusIn(e) { typing.value = typingIn(e.target) }
+function onFocusOut() {
+  // wait for the next focus to land: moving from one field to the next keeps the bar hidden
+  setTimeout(() => { typing.value = typingIn(document.activeElement) }, 0)
+}
 
 // ---------- one popover at a time (menu · setting · a slot cell) ----------
 const openId = ref(null) // item id | 'setting' | null
 function toggleOpen(id) { openId.value = openId.value === id ? null : id }
 function close() { openId.value = null }
-function onEsc(e) { if (e.key === 'Escape') close() }
+function onEsc(e) {
+  if (e.key !== 'Escape' || !openId.value) return
+  // Esc closes the popover and, if focus was inside it, hands focus back to its button
+  const host = hostEl.value
+  const inside = !!host && host.contains(document.activeElement)
+  const trigger = host?.querySelector('[aria-expanded="true"]')
+  close()
+  if (inside && trigger) nextTick(() => trigger.focus?.())
+}
 function onOutside(e) {
   // click outside the whole dock closes; clicks inside are handled by the triggers
   if (!e.target.closest?.('.dk-host')) close()
@@ -108,8 +114,7 @@ watch(openId, (v) => {
   else document.removeEventListener('mousedown', onOutside)
 })
 
-// ---------- ENGINE: order row 1 by anchor, row 2 by column, pinned → rows on top ----------
-// rank a row-1 item from its anchor so [grip … leftOf:setting][setting] lays out in order.
+// ---------- ENGINE: order row 1 by anchor, row 2 by column ----------
 function rankOf(it) {
   const a = it.place?.anchor
   if (a === 'left') return 0
@@ -124,39 +129,18 @@ const row1 = computed(() =>
 const row2 = computed(() =>
   visible.value.filter((i) => i.place?.row === 2).slice().sort((a, b) => (a.place.col || 0) - (b.place.col || 0)),
 )
-// Only items WITHOUT a home on the bar can occupy a pinned row. An item that has a `place` is
-// already rendered by row1/row2, so honouring a stale pin for it would draw the same button twice
+// Only items WITHOUT a home on the bar can be pinned onto it. An item that has a `place` is
+// already drawn by row1/row2, so honouring a stale pin for it would draw the same button twice
 // (ui-standards §2 single source of action). This also self-heals a saved pin from before an item
 // was promoted to the bar — e.g. พี่เปา's pinned 'draft' (issues9) — with no storage migration.
-const pinnedItems = computed(() => pins.value.map(byId).filter((i) => i && !i.place && !offBar(i)))
-// a "plain button row" = no wide/special cells (timeline · selector · key band). Only these
-// can be merged with a neighbour (a timeline/selector must keep its own row).
-const isPackable = (row) => row.length > 0 && !row.some((it) => ['timeline', 'sel', 'keys'].includes(it.kind))
-// bottom → top: [row1][row2][pinned rows]; rendered top → bottom (reverse) so the pinned
-// rows sit ABOVE row 2 (DS §3) and fill `cap` per row before wrapping.
-const rows = computed(() => {
-  const top = []
-  for (let i = 0; i < pinnedItems.value.length; i += cap.value) top.push(pinnedItems.value.slice(i, i + cap.value))
-  let r2 = row2.value, r1 = row1.value
-  // §D2 smart row-pack: on a WIDE (desktop/tablet) dock, if row 2 and row 1 are BOTH plain
-  // button rows and fit within the cap together, merge them into ONE row (no half-empty row
-  // · e.g. แก้ไข). row 2's items slot in just before the ⚙ so grip stays left-most and ⚙
-  // right-most. Skipped on mobile — a merged labeled row would overflow the narrow viewport.
-  if (!mobile.value && isPackable(r2) && isPackable(r1) && r2.length + r1.length <= cap.value) {
-    const gi = r1.findIndex((it) => it.kind === 'gear')
-    r1 = gi >= 0 ? [...r1.slice(0, gi), ...r2, ...r1.slice(gi)] : [...r1, ...r2]
-    r2 = []
-  }
-  return [...top, r2, r1].filter((r) => r.length)
-})
+const pinnedItems = computed(() => pins.value.map(byId).filter((i) => i && !i.place && !retired(i)))
 
-// ---------- ใบ v3/pleng#109 — the bar: seek row on top, the buttons centred below ----------
+// ---------- ใบ v3/pleng#109 → #111 — the bar: seek row on top, the buttons centred below ----------
 // Material 3 media-player layout: the seek bar takes the full width of its own row; every
 // button (transport, คีย์, ความเร็ว, ท่อน, เสียง, download, Aa, ⚙, anything pinned) sits together
 // in one centred group under it, at a 48px touch target with the same 8px spacing at every width —
-// the extra room on a wider screen (Fold 6 unfolded ≈ 700px) is left at the sides, not spread
-// between buttons. Order = the dock's own merge rule (§D2 above): row 1 up to ⚙, then row 2, then
-// the pinned buttons, then ⚙.
+// the extra room on a wider screen is left at the sides, not spread between buttons. Order = row 1
+// up to ⚙, then row 2, then the pinned buttons, then ⚙.
 // When that one row is wider than the bar (a phone), the group splits into TWO centred rows at the
 // dock's own seam — [ท่อนก่อน เล่น ท่อนถัดไป ดาวน์โหลด Aa] over [คีย์ ความเร็ว ท่อน เสียง … ⚙] —
 // so every button stays on the bar (none is hidden in ⚙). เล่น stays on the first row, ⚙ ends the
@@ -173,21 +157,17 @@ const barTail = computed(() => {
   return gi >= 0 ? [...extra, ...r1.slice(gi)] : extra
 })
 const twoRows = ref(false) // the one button row didn't fit the bar → split in two
-const barRows = computed(() => {
+const shownRows = computed(() => {
   const seek = row2.value.filter((i) => i.kind === 'timeline')
   const btns = twoRows.value && barHead.value.length && barTail.value.length
     ? [{ key: 'btns1', cls: 'dk-btnrow', items: barHead.value }, { key: 'btns2', cls: 'dk-btnrow', items: barTail.value }]
     : [{ key: 'btns', cls: 'dk-btnrow', items: [...barHead.value, ...barTail.value] }]
   return [...(seek.length ? [{ key: 'seek', cls: 'dk-seekrow', items: seek }] : []), ...btns]
 })
-const shownRows = computed(() => (bar.value
-  ? barRows.value
-  : rows.value.map((r, i) => ({ key: i, cls: { spread: rowIsChrome(r) }, items: r }))))
 
 // measure the buttons: one row if they all fit side by side, otherwise two. Widths are measured
 // on whichever row(s) are showing, so the check also works when the screen gets wider again.
 async function refit() {
-  if (!bar.value) { twoRows.value = false; return }
   await nextTick()
   const rows = [...(hostEl.value?.querySelectorAll('.dk-btnrow') || [])]
   if (!rows.length) return
@@ -199,10 +179,9 @@ async function refit() {
   const next = total > avail + 0.5
   if (next !== twoRows.value) twoRows.value = next
 }
-watch(() => [bar.value, barHead.value.map((i) => i.id).join(), barTail.value.map((i) => i.id).join()], refit, { flush: 'post' })
+watch(() => [barHead.value.map((i) => i.id).join(), barTail.value.map((i) => i.id).join()], refit, { flush: 'post' })
 // a button's width can change with what it shows (ความเร็ว 92 → 120 · คีย์ C → F#)
 watch(() => props.items, refit, { flush: 'post' })
-const rowIsChrome = (row) => row.some((it) => it.id === 'setting') // the core bottom row → spread
 
 // ---------- pin / reorder (the Setting page · DS §3) ----------
 function togglePin(id) {
@@ -218,93 +197,35 @@ function movePin(id, delta) {
 const isPinned = (id) => pins.value.includes(id)
 const pinIndex = (id) => pins.value.indexOf(id)
 
-// ---------- collapse-in-place + drag (DS I7 · grip stays put, dock never jumps) ----------
-const hostEl = ref(null)
-const pos = ref(null) // {x,y} transform offset, null = natural centered spot
-function gripEl() { return hostEl.value?.querySelector('[data-grip]') }
-function dockEl() { return hostEl.value?.querySelector('.dk-dock') }
-
-async function transition(toCollapsed) {
-  const g = gripEl()
-  const og = g ? g.getBoundingClientRect() : null
-  collapsed.value = toCollapsed
-  openId.value = null
-  pos.value = null
-  await nextTick()
-  if (!og) return
-  const d = dockEl(), ng = gripEl()?.getBoundingClientRect()
-  if (!d || !ng) return
-  pos.value = { x: og.left - ng.left, y: og.top - ng.top } // keep the new grip over the old
-  d.style.transform = `translate(${pos.value.x}px, ${pos.value.y}px)`
-  clampDock()
-  clampPops()
-}
-function clampDock() {
-  const d = dockEl()
-  if (!d) return
-  const r = d.getBoundingClientRect(), m = 6
-  let dx = 0, dy = 0
-  if (r.left < m) dx = m - r.left
-  if (r.right > window.innerWidth - m) dx = window.innerWidth - m - r.right
-  if (r.top < m) dy = m - r.top
-  if (r.bottom > window.innerHeight - m) dy = window.innerHeight - m - r.bottom
-  if (dx || dy) { pos.value = { x: (pos.value?.x || 0) + dx, y: (pos.value?.y || 0) + dy }; d.style.transform = `translate(${pos.value.x}px, ${pos.value.y}px)` }
-}
-
-// drag the whole dock by the grip (tap = collapse/expand in place · drag = move · both states)
-let gp = null
-function gripDown(e) {
-  const d = dockEl()
-  if (!d) return
-  const r = d.getBoundingClientRect()
-  gp = { sx: e.clientX, sy: e.clientY, moved: false, bx: pos.value?.x || 0, by: pos.value?.y || 0, natL: r.left - (pos.value?.x || 0), natT: r.top - (pos.value?.y || 0), w: r.width, h: r.height }
-  try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* pointer still tracks */ }
-  e.preventDefault()
-}
-function gripMove(e) {
-  if (!gp) return
-  const dx = e.clientX - gp.sx, dy = e.clientY - gp.sy
-  if (!gp.moved && dx * dx + dy * dy > 25) gp.moved = true
-  if (gp.moved) {
-    const m = 6
-    const nx = Math.max(m - gp.natL, Math.min(window.innerWidth - m - gp.w - gp.natL, gp.bx + dx))
-    const ny = Math.max(m - gp.natT, Math.min(window.innerHeight - m - gp.h - gp.natT, gp.by + dy))
-    pos.value = { x: nx, y: ny }
-    const d = dockEl(); if (d) d.style.transform = `translate(${nx}px, ${ny}px)`
-    e.preventDefault()
-  }
-}
-function gripUp() {
-  if (!gp) return
-  const moved = gp.moved
-  gp = null
-  if (!moved) transition(!collapsed.value) // a clean tap → collapse/expand in place
-}
-
 // ---------- keep every popover on-screen (+8px · DS I5, no exceptions) ----------
+const hostEl = ref(null)
+function dockEl() { return hostEl.value?.querySelector('.dk-dock') }
+// Every popover opens ABOVE the bar, its right edge lined up with the right end of the button
+// group (the same spot every time, §A) — on a wide screen that is next to the buttons, not out at
+// the screen edge. It may be no taller than the room between the screen top and the bar; a panel
+// taller than that scrolls inside itself. Then it is nudged to stay 8px inside the screen.
 function clampPops() {
   const host = hostEl.value
-  if (!host) return
+  const dock = dockEl()
+  if (!host || !dock) return
   const fr = { left: 8, right: window.innerWidth - 8, top: 8, bottom: window.innerHeight - 8 }
-  // ใบ#108 — on the bar a popover opens above it, so the room it has is from the screen top down
-  // to the bar's top edge. A panel taller than that scrolls inside itself instead of running
-  // off the top of the screen.
-  const barTop = bar.value ? dockEl()?.getBoundingClientRect().top : null
+  const dr = dock.getBoundingClientRect()
+  const groupRight = Math.max(0, ...[...host.querySelectorAll('.dk-btnrow > [data-cell]')].map((c) => c.getBoundingClientRect().right))
+  // fixed bar: the room is above it. In-flow bar (short window): the whole screen height.
+  const room = short.value ? window.innerHeight - 16 : dr.top - 16
   host.querySelectorAll('.dk-pop').forEach((el) => {
     el.style.transform = ''
-    if (barTop) {
-      el.style.maxHeight = Math.max(120, Math.floor(barTop - 16)) + 'px'
+    if (groupRight > 0 && dr.width > 0) el.style.right = Math.max(8, Math.round(dr.right - groupRight)) + 'px'
+    if (dr.height > 0) {
+      el.style.maxHeight = Math.max(120, Math.floor(room)) + 'px'
       el.style.overflowY = 'auto'
-    } else if (el.style.maxHeight) {
-      el.style.maxHeight = ''
-      el.style.overflowY = ''
     }
     const r = el.getBoundingClientRect()
     let dx = 0, dy = 0
     if (r.right > fr.right) dx = fr.right - r.right
     if (r.left + dx < fr.left) dx = fr.left - (r.left + dx)
-    if (r.top + dy < fr.top) dy = fr.top - (r.top + dy)
-    if (r.bottom + dy > fr.bottom) dy = fr.bottom - r.bottom
+    if (r.top < fr.top) dy = fr.top - r.top
+    else if (r.bottom > fr.bottom) dy = fr.bottom - r.bottom
     if (dx || dy) el.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`
   })
 }
@@ -312,13 +233,16 @@ watch(openId, async () => { await nextTick(); clampPops() })
 
 // ---------- lifecycle ----------
 let ro = null
+function onResize() { syncShort(); refit(); if (openId.value) nextTick(clampPops) }
 onMounted(() => {
-  mq = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 760px)') : null
-  syncMobile()
-  mq?.addEventListener?.('change', syncMobile)
-  window.addEventListener('resize', syncMobile)
-  window.addEventListener('resize', refit)
+  forgetOldDock()
+  mqShort = typeof window.matchMedia === 'function' ? window.matchMedia(SHORT_Q) : null
+  syncShort()
+  mqShort?.addEventListener?.('change', syncShort)
+  window.addEventListener('resize', onResize)
   window.addEventListener('keydown', onEsc)
+  document.addEventListener('focusin', onFocusIn)
+  document.addEventListener('focusout', onFocusOut)
   // the bar's width follows the window; the page around it can also hide/show it (Studio keeps
   // all three modes mounted) — re-fit whenever the dock's box changes size
   if (typeof ResizeObserver === 'function' && hostEl.value) {
@@ -328,10 +252,11 @@ onMounted(() => {
   refit()
 })
 onUnmounted(() => {
-  mq?.removeEventListener?.('change', syncMobile)
-  window.removeEventListener('resize', syncMobile)
-  window.removeEventListener('resize', refit)
+  mqShort?.removeEventListener?.('change', syncShort)
+  window.removeEventListener('resize', onResize)
   window.removeEventListener('keydown', onEsc)
+  document.removeEventListener('focusin', onFocusIn)
+  document.removeEventListener('focusout', onFocusOut)
   document.removeEventListener('mousedown', onOutside)
   ro?.disconnect()
 })
@@ -339,156 +264,124 @@ onUnmounted(() => {
 // ---------- menu (native dropdown) ----------
 function pickMenu(it, value) { it.control?.onPick?.(value); close() }
 
-// column flex weight for a row-2 cell. DEFAULT = natural width, so the dock hugs its content and no
-// cell is squeezed under its min-content (which made the timeline's total-time overflow into
-// คีย์ · B1). A page can opt ONE cell in to shrinking by giving its descriptor a `flex` string
-// (ใบ v3/pleng#102: ฝึกร้อง gives the timeline `1 1 auto` + its own min-width, so when the new
-// ความเร็ว control joins row 2 the rail gives up pixels on a narrow phone instead of the row
-// overflowing the dock).
+// column flex weight for a cell. DEFAULT = natural width. A page can opt ONE cell in to shrinking
+// by giving its descriptor a `flex` string (ฝึกร้อง gives the timeline `1 1 auto`).
 function cellFlex(it) { return it?.flex || '0 0 auto' }
 </script>
 
 <template>
-  <div ref="hostEl" class="dk-host no-print" :class="{ 'dk-bar': bar }" :style="{ '--a': shownAlpha }">
+  <div ref="hostEl" class="dk-host dk-bar no-print" :class="{ 'dk-flow': short, 'dk-kbd': typing }">
     <p v-if="message" class="dk-msg" role="status">{{ message }}</p>
 
-    <!-- collapsed → mini [grip][⚙] in place (DS I7). grip tap = expand · drag = move -->
-    <div v-if="isCollapsed" class="dk-dock dk-mini" :style="dockStyle">
-      <button
-        class="dk-btn dk-grip"
-        data-grip
-        aria-label="กางแถบ · ลากเพื่อย้าย"
-        title="แตะเพื่อกาง · ลากเพื่อย้าย"
-        @pointerdown="gripDown"
-        @pointermove="gripMove"
-        @pointerup="gripUp"
-        @pointercancel="gripUp"
-      ><Icon name="grip-vertical" :size="22" /></button>
-      <button class="dk-btn dk-gear" aria-label="กางเพื่อตั้งค่า" title="กางเพื่อตั้งค่า" @click="transition(false)"><Icon name="settings" :size="20" /></button>
-    </div>
-
-    <!-- expanded → the full dock: keys band(s) · pinned rows · row 2 · row 1 (core) -->
-    <div v-else class="dk-dock" :class="{ 'dk-m': mobile }" :style="dockStyle">
-      <!-- E1: full-width note-key band(s) (edit palette) — above every row, no overflow -->
-      <div v-for="band in keysBands" :key="band.id" class="dk-keys" role="toolbar" :aria-label="band.name || 'แป้นสัญลักษณ์'">
-        <div v-for="(krow, kri) in band.rows" :key="kri" class="dk-keyrow">
-          <button v-for="k in krow" :key="k" class="dk-key" @mousedown.prevent="band.onInsert?.(k)">{{ k }}</button>
+    <div class="dk-dock" role="toolbar" :aria-label="label">
+      <div class="dk-inner">
+        <!-- E1: full-width note-key band(s) (edit palette) — above every row -->
+        <div v-for="band in keysBands" :key="band.id" class="dk-keys" role="group" :aria-label="band.name || 'แป้นสัญลักษณ์'">
+          <div v-for="(krow, kri) in band.rows" :key="kri" class="dk-keyrow">
+            <button v-for="k in krow" :key="k" class="dk-key" @mousedown.prevent="band.onInsert?.(k)">{{ k }}</button>
+          </div>
         </div>
-      </div>
 
-      <div
-        v-for="row in shownRows"
-        :key="row.key"
-        class="dk-row"
-        :class="row.cls"
-      >
-        <template v-for="it in row.items" :key="it.id">
-          <!-- page-drawn cell (timeline · selector · Aa) — engine lays it out + clamps -->
-          <span v-if="SLOT_KINDS.includes(it.kind)" class="dk-cell" :style="{ flex: cellFlex(it) }" :data-cell="it.id">
-            <slot :name="`cell-${it.id}`" :item="it" :open="openId === it.id" :toggle="() => toggleOpen(it.id)" :close="close" />
-          </span>
+        <div
+          v-for="row in shownRows"
+          :key="row.key"
+          class="dk-row"
+          :class="row.cls"
+        >
+          <template v-for="it in row.items" :key="it.id">
+            <!-- page-drawn cell (timeline · selector · Aa) — engine lays it out + clamps -->
+            <span v-if="SLOT_KINDS.includes(it.kind)" class="dk-cell" :style="{ flex: cellFlex(it) }" :data-cell="it.id">
+              <slot :name="`cell-${it.id}`" :item="it" :open="openId === it.id" :toggle="() => toggleOpen(it.id)" :close="close" />
+            </span>
 
-          <!-- grip -->
-          <button
-            v-else-if="it.kind === 'grip'"
-            class="dk-btn dk-grip"
-            data-grip
-            :data-cell="it.id"
-            aria-label="ย้าย/ย่อแถบ"
-            title="แตะเพื่อย่อ · ลากเพื่อย้าย"
-            @pointerdown="gripDown"
-            @pointermove="gripMove"
-            @pointerup="gripUp"
-            @pointercancel="gripUp"
-          ><Icon name="grip-vertical" :size="22" /></button>
-
-          <!-- ⚙ setting -->
-          <button
-            v-else-if="it.kind === 'gear'"
-            class="dk-btn dk-gear"
-            :class="{ on: openId === 'setting' }"
-            :data-cell="it.id"
-            :aria-expanded="openId === 'setting'"
-            aria-label="ตั้งค่า"
-            title="ตั้งค่า"
-            @click.stop="toggleOpen('setting')"
-          ><Icon name="settings" :size="20" /></button>
-
-          <!-- play / pause (icon-only) -->
-          <button
-            v-else-if="it.kind === 'play'"
-            class="dk-play"
-            :data-cell="it.id"
-            :aria-label="it.control?.value ? 'พัก' : 'เล่น'"
-            :title="it.control?.value ? 'พัก' : 'เล่น'"
-            @click="it.run?.()"
-          ><Icon :name="it.control?.value ? 'pause' : 'play'" :size="28" /></button>
-
-          <!-- plain action button — E2 prime (brand fill) · danger (red) · optional label -->
-          <button
-            v-else-if="it.kind === 'btn'"
-            class="dk-btn"
-            :class="{ prime: it.prime, danger: it.danger, wide: it.label }"
-            :data-cell="it.id"
-            :disabled="it.disabled"
-            :aria-label="it.name"
-            :title="it.name"
-            @click="it.run?.()"
-          ><Icon :name="it.icon" :size="20" /><span v-if="it.label" class="dk-btn-lbl">{{ it.label }}</span></button>
-
-          <!-- toggle (e.g. วนซ้ำ) — bar style: on = brand -->
-          <button
-            v-else-if="it.kind === 'toggle'"
-            class="dk-btn dk-tgl"
-            :class="{ on: it.control?.value }"
-            :data-cell="it.id"
-            role="switch"
-            :aria-checked="!!it.control?.value"
-            :aria-label="it.name"
-            :title="it.name + (it.control?.value ? ' (เปิด)' : ' (ปิด)')"
-            @click="it.control?.onToggle?.()"
-          ><Icon :name="it.icon" :size="19" /></button>
-
-          <!-- menu (dropdown of options + optional badge) -->
-          <span v-else-if="it.kind === 'menu'" class="dk-pinwrap" :data-cell="it.id">
+            <!-- ⚙ setting -->
             <button
-              class="dk-pbtn"
-              :class="{ on: openId === it.id }"
-              :aria-expanded="openId === it.id"
+              v-else-if="it.kind === 'gear'"
+              class="dk-btn dk-gear"
+              :class="{ on: openId === 'setting' }"
+              :data-cell="it.id"
+              :aria-expanded="openId === 'setting'"
+              aria-label="ตั้งค่า"
+              title="ตั้งค่า"
+              @click.stop="toggleOpen('setting')"
+            ><Icon name="settings" :size="20" /></button>
+
+            <!-- play / pause (icon-only) -->
+            <button
+              v-else-if="it.kind === 'play'"
+              class="dk-play"
+              :data-cell="it.id"
+              :aria-label="it.control?.value ? 'พัก' : 'เล่น'"
+              :title="it.control?.value ? 'พัก' : 'เล่น'"
+              @click="it.run?.()"
+            ><Icon :name="it.control?.value ? 'pause' : 'play'" :size="28" /></button>
+
+            <!-- plain action button — E2 prime (brand fill) · danger (red) · optional label -->
+            <button
+              v-else-if="it.kind === 'btn'"
+              class="dk-btn"
+              :class="{ prime: it.prime, danger: it.danger, wide: it.label }"
+              :data-cell="it.id"
+              :disabled="it.disabled"
               :aria-label="it.name"
               :title="it.name"
-              @click.stop="toggleOpen(it.id)"
-            >
-              <Icon :name="it.icon" :size="17" />
-              <b v-if="it.control?.badge" class="dk-badge">{{ it.control.badge }}</b>
-            </button>
-            <div v-if="openId === it.id" class="dk-pop dk-dd" role="menu" @click.stop>
-              <button
-                v-for="o in it.control.options"
-                :key="o.value"
-                class="dk-ddrow"
-                role="menuitemradio"
-                :aria-checked="o.value === it.control.value"
-                :disabled="o.disabled"
-                @click="pickMenu(it, o.value)"
-              ><span class="dk-ddck">{{ o.value === it.control.value ? '●' : '' }}</span>{{ o.label }}</button>
-            </div>
-          </span>
+              @click="it.run?.()"
+            ><Icon :name="it.icon" :size="20" /><span v-if="it.label" class="dk-btn-lbl">{{ it.label }}</span></button>
 
-          <!-- slider (e.g. โปร่งใส) — inline compact -->
-          <span v-else-if="it.kind === 'slider'" class="dk-pinwrap dk-slidewrap" :data-cell="it.id" :title="it.name">
-            <Icon :name="it.icon" :size="16" />
-            <input
-              class="dk-slider"
-              type="range"
-              :min="it.control?.min ?? 40"
-              :max="it.control?.max ?? 100"
-              :value="it.control?.value"
+            <!-- toggle (e.g. วนซ้ำ) — bar style: on = brand -->
+            <button
+              v-else-if="it.kind === 'toggle'"
+              class="dk-btn dk-tgl"
+              :class="{ on: it.control?.value }"
+              :data-cell="it.id"
+              role="switch"
+              :aria-checked="!!it.control?.value"
               :aria-label="it.name"
-              @input="it.control?.onInput?.(+$event.target.value)"
-            />
-          </span>
-        </template>
+              :title="it.name + (it.control?.value ? ' (เปิด)' : ' (ปิด)')"
+              @click="it.control?.onToggle?.()"
+            ><Icon :name="it.icon" :size="19" /></button>
+
+            <!-- menu (dropdown of options + optional badge) -->
+            <span v-else-if="it.kind === 'menu'" class="dk-pinwrap" :data-cell="it.id">
+              <button
+                class="dk-pbtn"
+                :class="{ on: openId === it.id }"
+                :aria-expanded="openId === it.id"
+                :aria-label="it.name"
+                :title="it.name"
+                @click.stop="toggleOpen(it.id)"
+              >
+                <Icon :name="it.icon" :size="17" />
+                <b v-if="it.control?.badge" class="dk-badge">{{ it.control.badge }}</b>
+              </button>
+              <div v-if="openId === it.id" class="dk-pop dk-dd" role="menu" @click.stop>
+                <button
+                  v-for="o in it.control.options"
+                  :key="o.value"
+                  class="dk-ddrow"
+                  role="menuitemradio"
+                  :aria-checked="o.value === it.control.value"
+                  :disabled="o.disabled"
+                  @click="pickMenu(it, o.value)"
+                ><span class="dk-ddck">{{ o.value === it.control.value ? '●' : '' }}</span>{{ o.label }}</button>
+              </div>
+            </span>
+
+            <!-- slider — inline compact -->
+            <span v-else-if="it.kind === 'slider'" class="dk-pinwrap dk-slidewrap" :data-cell="it.id" :title="it.name">
+              <Icon :name="it.icon" :size="16" />
+              <input
+                class="dk-slider"
+                type="range"
+                :min="it.control?.min ?? 40"
+                :max="it.control?.max ?? 100"
+                :value="it.control?.value"
+                :aria-label="it.name"
+                @input="it.control?.onInput?.(+$event.target.value)"
+              />
+            </span>
+          </template>
+        </div>
       </div>
 
       <!-- ===== ⚙ Setting page — every item's home · adjust inline · ▲▼ · 📌 (DS §3) ===== -->
@@ -498,9 +391,7 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
           <span class="dk-mi"><Icon :name="it.icon" :size="16" /></span>
           <span class="dk-pl">{{ it.name }}</span>
           <span class="dk-pc">
-            <!-- issues9: a `btn` row used to render an EMPTY control cell — icon, name, pin, and
-                 nothing to press — so the only way to run the command was to pin it onto the bar
-                 first. Give it a real run button so every row in this panel does what it says. -->
+            <!-- issues9: a `btn` row gets a real run button so every row in this panel does what it says -->
             <button
               v-if="it.kind === 'btn'"
               class="dk-prun"
@@ -556,7 +447,12 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 </template>
 
 <style scoped>
-/* fixed bottom-center; the host lets clicks pass through the gutter, the dock catches them */
+/* ---------- ใบ v3/pleng#111: ONE bar at every width, on every page ----------
+   Fixed to the bottom edge, edge to edge, solid white. The host lets clicks pass through the
+   space around the status line; the bar itself catches them. Its own bottom padding grows by the
+   iPhone home-indicator inset, so the buttons sit above that strip while the background still
+   reaches the very edge. The contents sit in a centred column at most 1200px wide, so on a big
+   screen the buttons stay together in the middle instead of running out to the screen edges. */
 .dk-host {
   position: fixed;
   left: 0;
@@ -565,14 +461,13 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
   z-index: 90;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 0 10px 12px;
+  align-items: stretch;
   pointer-events: none;
 }
 .dk-msg {
   pointer-events: auto;
-  margin: 0;
+  align-self: center;
+  margin: 0 0 6px;
   background: var(--ink);
   color: #fff;
   padding: 8px 16px;
@@ -583,27 +478,26 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 .dk-dock {
   pointer-events: auto;
   position: relative;
-  background: rgba(255, 255, 255, var(--a, 0.96));
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.14);
-  backdrop-filter: blur(max(0px, calc((var(--a, 0.96) - 0.4) / 0.6 * 6px)));
-  -webkit-backdrop-filter: blur(max(0px, calc((var(--a, 0.96) - 0.4) / 0.6 * 6px)));
-  padding: 10px; /* D1: comfortable breathing room around the button rows */
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
 }
-/* The dock is a FLOATING TOOLBOX (P'Aim): it hugs its content on EVERY side — width = the
-   widest row's natural button width, never the screen, and NO min-width padding it out (D3
-   · แผ่นเพลง had trailing space after ⚙). Shrinks to the viewport only on very narrow phones. */
-.dk-dock { width: fit-content; max-width: min(700px, calc(100vw - 16px)); }
-.dk-dock.dk-mini { width: auto; min-width: 0; max-width: none; display: inline-flex; gap: 8px; padding: 7px 9px; }
+.dk-inner { max-width: 1200px; margin: 0 auto; }
 
-/* rows pack left-to-right at each button's natural size (grip first · ⚙ at the end of the
-   cluster). No justify/space-between — the buttons stay grouped, not pinned to both edges. */
-.dk-row { display: flex; align-items: center; gap: 7px; }
-.dk-row + .dk-row { margin-top: 9px; }
+/* short window (< 500px tall · a phone on its side · 400% zoom): the bar is part of the page,
+   at its end, instead of covering a big slice of the screen (WCAG 1.4.10 Reflow) */
+.dk-host.dk-flow { position: static; pointer-events: auto; margin-top: 16px; }
+.dk-host.dk-flow .dk-dock { box-shadow: none; border-bottom: 1px solid var(--line); }
+/* touch screen + a text field has focus (on-screen keyboard up): the bar steps aside so it never
+   floats over the keyboard or the field. The status line (บันทึกแล้ว …) still shows. */
+.dk-host.dk-kbd .dk-dock { display: none; }
+
+.dk-row { display: flex; align-items: center; }
 .dk-cell { display: inline-flex; align-items: center; min-width: 0; }
 
-/* buttons (44px tap target · WCAG 2.2 AA) */
+/* buttons */
 .dk-btn {
   width: var(--touch-min); height: var(--touch-min); min-width: var(--touch-min); min-height: 0;
   padding: 0; border: 0; background: transparent; color: var(--ink);
@@ -611,19 +505,17 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 }
 @media (hover: hover) { .dk-btn:hover { background: var(--cream); } }
 .dk-btn.on { color: var(--brand); background: var(--cream); }
-.dk-grip { color: var(--muted); cursor: grab; touch-action: none; }
-.dk-grip:active { cursor: grabbing; }
 .dk-gear { color: var(--muted); }
 .dk-gear.on { color: var(--brand); background: var(--cream); }
 .dk-tgl:not(.on) { color: var(--muted); }
 .dk-tgl.on { color: var(--brand); background: var(--cream); }
 .dk-play {
-  width: 50px; height: 50px; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--brand);
+  min-height: 0; padding: 0; border: 0; background: transparent; color: var(--brand);
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 auto;
 }
 .dk-play:hover { filter: brightness(1.1); }
 .dk-btn:disabled { opacity: 0.4; cursor: default; }
-/* E2: a labeled action button (row-2 บันทึก / ฟังทั้งเพลง) — icon + text pill */
+/* E2: a labeled action button (บันทึก / ฟังทั้งเพลง) — icon + text pill */
 .dk-btn.wide { width: auto; min-width: var(--touch-min); padding: 0 12px; gap: 6px; border: 1px solid var(--line); }
 .dk-btn-lbl { font-size: 13px; font-weight: 600; white-space: nowrap; }
 /* prime = the page's main action (พิมพ์ · บันทึก), brand-filled */
@@ -632,17 +524,16 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 .dk-btn.danger { color: var(--red); }
 
 /* E1: full-width jianpu key band(s) — rows share their line (keys stretch, never wrap) */
-.dk-keys { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
+.dk-keys { display: flex; flex-direction: column; gap: 4px; padding: 4px 0 8px; margin-bottom: 6px; border-bottom: 1px solid var(--line); }
 .dk-keyrow { display: flex; flex-wrap: nowrap; gap: 4px; justify-content: center; }
 .dk-key {
-  flex: 1 1 0; min-width: 30px; max-width: 56px; height: var(--touch-min); min-height: 0; padding: 0;
+  flex: 1 1 0; min-width: 28px; max-width: 56px; height: 44px; min-height: 0; padding: 0;
   border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink);
   font-family: 'Courier New', monospace; font-weight: 700; font-size: 16px; cursor: pointer;
 }
 @media (hover: hover) { .dk-key:hover { background: var(--cream); } }
 
-/* menu / slider chips — no position:relative so every popover anchors to the DOCK (all
-   popups open at the SAME spot: right edge, from the dock's top · §A) */
+/* menu / slider chips — no position:relative so every popover anchors to the DOCK */
 .dk-pinwrap { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
 .dk-pbtn {
   display: inline-flex; align-items: center; gap: 4px;
@@ -655,8 +546,8 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 .dk-slidewrap { padding: 0 8px; border: 1px solid var(--line); border-radius: 10px; height: var(--touch-min); color: var(--muted); }
 .dk-slider { width: 74px; accent-color: var(--brand); }
 
-/* popovers open ABOVE the dock, RIGHT-aligned to it, at the same spot every time (§A).
-   They FIT their content — no v/h scroll (clampPops keeps them on-screen +8px · DS I5). */
+/* popovers open ABOVE the bar; clampPops() lines their right edge up with the button group and
+   keeps them on-screen +8px (DS I5), scrolling inside when taller than the room above the bar */
 .dk-pop {
   pointer-events: auto;
   position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
@@ -674,7 +565,7 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 .dk-ddrow:disabled { opacity: 0.42; cursor: default; }
 .dk-ddck { flex: 0 0 14px; text-align: center; color: var(--brand); }
 
-/* ⚙ Setting page — fits content, no scroll, even 8px rhythm (§A / B10-B12) */
+/* ⚙ Setting page — fits content, even 8px rhythm (§A / B10-B12) */
 .dk-panel { min-width: 260px; padding: 8px; }
 .dk-prow { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-radius: 8px; }
 .dk-prow + .dk-prow { border-top: 1px solid var(--line); }
@@ -688,8 +579,7 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 .dk-switch.on { background: var(--brand); }
 .dk-switch-k { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: left 0.15s; }
 .dk-switch.on .dk-switch-k { left: 20px; }
-/* run button for a `btn` row — same treatment as .dk-select (a secondary control in the panel,
-   not a primary: ui-standards §2 button hierarchy). 34px matches the other panel controls. */
+/* run button for a `btn` row — a secondary control in the panel (ui-standards §2) */
 .dk-prun { font: inherit; font-size: 12.5px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); cursor: pointer; min-height: 34px; white-space: nowrap; }
 .dk-prun:disabled { opacity: 0.4; cursor: default; }
 @media (hover: hover) { .dk-prun:not(:disabled):hover { border-color: var(--brand); color: var(--brand); } }
@@ -701,47 +591,12 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 .dk-pin { border: 0; background: transparent; font-size: 14px; filter: grayscale(1); opacity: 0.4; cursor: pointer; padding: 2px 4px; flex: 0 0 auto; }
 .dk-pin.on { filter: none; opacity: 1; }
 
-/* ---------- mobile: full-width bottom bar ---------- */
-@media (max-width: 760px) {
-  .dk-host { padding: 0 5px calc(8px + env(safe-area-inset-bottom, 0px)); }
-  /* A real ~360px Android must fit ALL 7 buttons of the transport row + the top row (P'Aim: ปุ่มขวา
-     หลุดขอบ). Shrinking --touch-min cascades to EVERY dock button (incl. the slotted ท่อน / เสียงดนตรี
-     / Aa cells, since CSS vars ignore scoped-style boundaries), and tighter gap/padding buys the rest.
-     42px is still a comfortable tap target; the row now hugs ~318px so it fits a 360px viewport. */
-  .dk-dock { --touch-min: 42px; padding: 6px; }
-  .dk-row { gap: 4px; }
-  .dk-play { width: 42px; height: 42px; }
-}
-/* narrowest phones (~≤360px) — trim one more notch so nothing clips */
-@media (max-width: 380px) {
-  .dk-dock { --touch-min: 40px; padding: 5px; }
-  .dk-row { gap: 3px; }
-  .dk-play { width: 40px; height: 40px; }
-}
-
-/* ---------- ใบ v3/pleng#108: the phone BAR (only when the page opted in · `.dk-bar`) ----------
-   Glued to the bottom edge, edge to edge, square bottom corners. Its own bottom padding grows by
-   the iPhone home-indicator inset, so the buttons sit above that strip while the bar's background
-   still reaches the very edge. Rows centre their buttons across the full width. */
-.dk-host.dk-bar { padding: 0; align-items: stretch; gap: 0; }
-.dk-bar .dk-msg { align-self: center; margin-bottom: 6px; }
-.dk-bar .dk-dock {
-  width: 100%; max-width: none; box-sizing: border-box;
-  border-width: 1px 0 0; border-radius: 0;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
-  padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
-}
-.dk-bar .dk-row { justify-content: center; }
-@media (max-width: 380px) {
-  .dk-bar .dk-dock { padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px)); }
-}
-
 /* ---------- ใบ v3/pleng#109: the bar = seek row on top + the buttons centred below ----------
    Material 3 touch target: every button on the bar is at least 48×48 with 8px between buttons,
-   the same at 360px and on a 700px Fold. The phone shrink above (42/40px) is for the floating
-   dock only. The buttons never spread: the group stays centred with the spare room at both sides.
-   On a phone the group splits into two centred rows (refit() in the script); a row that is still
-   too wide wraps inside itself rather than running off the screen. */
+   the same at 360px, on a 700px Fold and on a 1920px desktop. The buttons never spread: the group
+   stays centred with the spare room at both sides. When one row does not fit, the group splits
+   into two centred rows (refit() in the script); a row that is still too wide wraps inside itself
+   rather than running off the screen. */
 .dk-bar .dk-dock { --touch-min: 48px; padding: 4px 8px; padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); }
 .dk-bar .dk-row { gap: 8px; }
 .dk-bar .dk-row + .dk-row { margin-top: 2px; }
@@ -754,4 +609,7 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
    only the button on the bar, never the buttons inside its popover */
 .dk-bar .dk-btnrow > .dk-cell > :deep(button),
 .dk-bar .dk-btnrow > .dk-cell > :deep(:not(.dk-pop) > button) { min-width: var(--touch-min); min-height: var(--touch-min); }
+/* the editor's key band: on the narrowest phones the gap tightens (to 2px at 360px) so all 11
+   keys of the longer row fit without running off the screen */
+.dk-bar .dk-keyrow { gap: clamp(2px, calc((100vw - 344px) / 10), 4px); }
 </style>

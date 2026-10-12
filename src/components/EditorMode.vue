@@ -2577,7 +2577,6 @@ function primaryAction() {
 // engine a descriptor list: the full-width note-key band (E1), the row-1 chrome (ย้อน/ทำซ้ำ/
 // ฟังท่อน↔หยุด), the prime บันทึก + ฟังทั้งเพลง on row 2, and export/draft/preview in ⚙.
 // The structural per-bar tools stay INLINE in the table (contextual — not dock commands).
-const editAlpha = ref(0.96)
 const saveLabel = computed(() => (reviewingDraft.value ? 'อนุมัติ' : isApprover.value ? 'เผยแพร่' : 'ส่งตรวจ'))
 
 // B107 step 9 — the editor's "เสียงดนตรี" popover (same SoundControl as ฝึกร้อง, its own state).
@@ -2598,8 +2597,7 @@ const soundIcon = computed(() => (editorEnsemble.value === 'ensemble' ? 'users' 
 
 const editItems = computed(() => [
   { id: 'keys', kind: 'keys', name: 'แป้นสัญลักษณ์', rows: PALETTE, onInsert: insertSym },
-  { id: 'grip', kind: 'grip', name: 'ย้าย/ย่อ', place: { anchor: 'left', row: 1 } },
-  { id: 'undo', kind: 'btn', name: 'ย้อน', icon: 'undo-2', place: { anchor: 'rightOf:grip', row: 1 }, run: undo, disabled: !canUndo.value },
+  { id: 'undo', kind: 'btn', name: 'ย้อน', icon: 'undo-2', place: { anchor: 'left', row: 1 }, run: undo, disabled: !canUndo.value },
   { id: 'redo', kind: 'btn', name: 'ทำซ้ำ', icon: 'redo-2', place: { anchor: 'rightOf:undo', row: 1 }, run: redo, disabled: !canRedo.value },
   // D4: the two "listen" controls sit side-by-side, so each carries a distinct label +
   // icon — ▶ ฟังท่อน (the stanza being edited) vs ◉ ฟังทั้งเพลง (the whole arrangement).
@@ -4184,8 +4182,9 @@ defineExpose({
     <!-- ===== end edit workspace ===== -->
 
     <!-- edit dock — the DockKey engine fed ITEMS_EDIT (แป้นโน้ต band · ย้อน/ทำซ้ำ/ฟัง ·
-         บันทึก prime · export/draft/preview in ⚙). Same engine as ฝึกร้อง/แผ่นเพลง. -->
-    <DockKey :items="editItems" store-key="edit" v-model:alpha="editAlpha" :message="saveMsg">
+         บันทึก prime · export/draft/preview in ⚙). Same engine as ฝึกร้อง/แผ่นเพลง.
+         ใบ#111 — a fixed full-width bar at the bottom at every width, like the other two pages. -->
+    <DockKey :items="editItems" store-key="edit" label="แถบแก้ไข" :message="saveMsg">
       <template #cell-export="{ open, toggle, close }">
         <ExportTool
           :content="previewContent"

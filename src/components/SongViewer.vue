@@ -22,6 +22,7 @@ import { presetCfg, recommendRecipe, songFeatures } from '../lib/arranger/preset
 import { buildArrangeCfg, readTechniques } from '../lib/arranger/techniques.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import { bookRefLabels } from '../lib/bookCodes.js'
+import { ownsSpaceKey } from '../lib/focusClear.js'
 import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
 import SongSheet from './SongSheet.vue'
 import SingTransport from './SingTransport.vue'
@@ -454,10 +455,10 @@ async function scrollToPlaying() {
   const el = sheetWrap.value.querySelector(sel)
   if (!el) return
   const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  // ใบ v3/pleng#108 — on a phone the dock is a bar glued to the bottom; a line that reaches
+  // ใบ v3/pleng#108/#111 — the dock is a bar glued to the bottom (every width); a line that reaches
   // within 16px of the bar's top edge counts as "behind the dock" too, so it is never left under it.
   let lowest = window.innerHeight - 240
-  const barEl = sheetWrap.value.closest('.sv-root')?.querySelector('.dk-host.dk-bar > .dk-dock')
+  const barEl = sheetWrap.value.closest('.sv-root')?.querySelector('.dk-host.dk-bar:not(.dk-flow) > .dk-dock')
   const barTop = barEl?.getBoundingClientRect().top
   if (barTop > 0) lowest = Math.min(lowest, barTop - 16)
   // …and the round scroll buttons lifted to sit just above that bar (styles.css) — the sung
@@ -724,17 +725,42 @@ const settingDescs = computed(() => [
 
 // ---------- the sing dock = the DockKey engine, fed by <SingTransport> (ITEMS_SING) ----------
 // Mounted directly by this page (below); SingTransport builds the descriptor list and the
-// engine owns layout / collapse / drag / Setting+pin / clamp.
+// engine owns the bar layout / Setting+pin / clamp.
 const hasSections = computed(() => sections.value.length > 0)
+
+// ---------- ใบ v3/pleng#111 — Space = เล่น / พัก on the ฝึกร้อง page ----------
+// Only while this page is the one showing (Studio keeps แผ่นเพลง / แก้ไข mounted beside it and
+// hides the others with display:none), and only when Space isn't already doing something: typing
+// in a text field, or pressing the button / box / slider that has focus (ownsSpaceKey). Held-down
+// Space (key repeat) and Space with Ctrl/Alt/⌘ are left alone too.
+const svRoot = ref(null)
+function shownOnScreen(el) {
+  if (!el?.isConnected) return false
+  for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+    if (n.hidden || n.style?.display === 'none') return false
+  }
+  return true
+}
+function onSpaceKey(e) {
+  if (e.key !== ' ' && e.code !== 'Space') return
+  if (e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey) return
+  if (ownsSpaceKey(e.target) || ownsSpaceKey(document.activeElement)) return
+  if (!shownOnScreen(svRoot.value)) return
+  e.preventDefault() // no page scroll — Space means play/pause here
+  if (e.repeat) return
+  togglePlay()
+}
 
 onMounted(() => {
   selectAllSecs() // B105: first-load default = every ท่อน ticked (the identity watcher isn't immediate)
   window.addEventListener('wheel', onUserScroll, { passive: true })
   window.addEventListener('touchmove', onUserScroll, { passive: true })
+  window.addEventListener('keydown', onSpaceKey)
 })
 onUnmounted(() => {
   window.removeEventListener('wheel', onUserScroll)
   window.removeEventListener('touchmove', onUserScroll)
+  window.removeEventListener('keydown', onSpaceKey)
   cancelTempoSettle()
   stopPlayback()
 })
@@ -753,7 +779,7 @@ function onSeek({ li, si, syk }) {
 </script>
 
 <template>
-  <div class="sv-root">
+  <div ref="svRoot" class="sv-root">
     <!-- B053: แหล่งเพลง (source books) + scripture reference — small captions above the
          sheet, mirroring the catalog card. Only render when the song actually has them. -->
     <div v-if="refLabels.length || song.scripture" class="song-refs">
@@ -1025,8 +1051,14 @@ function onSeek({ li, si, syk }) {
 }
 /* ใบ v3/pleng#108 — on a phone the dock is a bar glued to the bottom and the page footer is
    lifted to sit right on top of it (App.vue measures the bar), so the song only needs a small
-   gap below its last line, not room for a floating dock. */
+   gap below its last line, not room for a floating dock. (Kept as it was: printing reads these
+   rules too, so the printed page count stays the same.) */
 @media (max-width: 760px) {
+  .sheet-scale { padding-bottom: 24px; }
+}
+/* ใบ v3/pleng#111 — on screen the bar is glued to the bottom at EVERY width, so the same small
+   gap applies everywhere. Screen only: print keeps the rules above, page count unchanged. */
+@media screen {
   .sheet-scale { padding-bottom: 24px; }
 }
 
