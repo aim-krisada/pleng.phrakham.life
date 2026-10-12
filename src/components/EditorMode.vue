@@ -2725,10 +2725,18 @@ const shellH = ref(56)
 // .cshead straight back on top of the edhead.
 const edheadH = ref(0)
 let edheadRO = null
+let shellRO = null
 function measureShell() {
   if (typeof document === 'undefined') return
   const bar = document.querySelector('.shell-bar')
   if (bar) shellH.value = Math.round(bar.getBoundingClientRect().height)
+  // ใบ#112: the header also grows AFTER mount, when the song's controls are put into it (measured
+  // as 64px at mount, really 83px at 1280 · 105px at 1024), with no window resize — so track it.
+  // Without this the edhead pinned 19–22px under the header (the rail now pins at the same line).
+  if (bar && !shellRO && typeof ResizeObserver !== 'undefined') {
+    shellRO = new ResizeObserver(() => { shellH.value = Math.round(bar.getBoundingClientRect().height) })
+    shellRO.observe(bar)
+  }
   const eh = document.querySelector('.edhead')
   if (!eh) return
   edheadH.value = Math.round(eh.getBoundingClientRect().height)
@@ -3059,6 +3067,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', onFloatResize)
   edheadRO?.disconnect()
+  shellRO?.disconnect()
 })
 // measure fresh each time the preview opens (the reading column may have changed while it was
 // closed), and re-clamp the remembered box — a size saved on a wide monitor must not strand the
@@ -3458,7 +3467,7 @@ defineExpose({
 
     <!-- ===== edit workspace: parts rail + the existing editor (unchanged) ===== -->
     <div v-show="viewMode === 'edit'" class="studio-app" :class="{ 'rail-hidden': railHidden }">
-      <nav id="studioRail" class="rail" :class="{ open: drawerOpen }" aria-label="ส่วนของเพลง">
+      <nav id="studioRail" class="rail" :class="{ open: drawerOpen }" :style="{ '--rail-top': shellH + 'px' }" aria-label="ส่วนของเพลง">
         <div class="rail-mhead">
           <span><Icon name="list-music" :size="18" /> ส่วนของเพลง</span>
           <button class="rail-x" aria-label="ปิด" @click="closeDrawer"><Icon name="x" :size="16" /></button>
@@ -4933,9 +4942,11 @@ defineExpose({
 }
 .para-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .para-act { display: inline-flex; align-items: center; gap: 4px; }
-/* undo snackbar — bottom-center toast with an action, over everything */
+/* undo snackbar — bottom-center toast with an action. ใบ#112: it sits above the bottom bar (it was
+   24px above the screen edge, i.e. hidden behind the bar together with its เลิกทำ button), and
+   high enough to clear the bar's own status line (ย้ายไปถังขยะแล้ว) that shows at the same time */
 .undo-snack {
-  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 70;
+  position: fixed; left: 50%; bottom: calc(var(--dock-bar-h, 0px) + 56px); transform: translateX(-50%); z-index: 70;
   display: flex; align-items: center; gap: 14px; max-width: 92vw;
   padding: 10px 12px 10px 16px; border-radius: 10px;
   background: #2b2b2b; color: #fff; font-size: 0.95rem; box-shadow: 0 6px 24px rgba(0,0,0,.28);
@@ -5012,7 +5023,9 @@ defineExpose({
      (65% of it) instead of a magic pixel count, floored so a small laptop still gets a usable
      window and capped by the viewport. Whatever P'Aim drags it to is remembered from then on. */
   width: clamp(min(680px, calc(100vw - 32px)), 65vw, calc(100vw - 32px));
-  max-height: min(80vh, calc(100vh - 96px));
+  /* ใบ#112: its default height also ends above the bottom bar, so the window does not cover the
+     note keys you type with while watching the result (a size the user drags is kept as is) */
+  max-height: min(80vh, calc(100vh - 96px - var(--dock-bar-h, 0px)));
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -5292,14 +5305,22 @@ defineExpose({
 /* ===== parts rail (phase 2) ===== */
 .studio-app { display: flex; gap: 16px; align-items: flex-start; }
 .content { flex: 1; min-width: 0; }
+/* ใบ v3/pleng#112 — the rail is the song's table of contents and must be readable to its last row
+   ("เพิ่มทำนอง"). It sticks right under the site header (--rail-top = the header's measured
+   height, set on the element — the old hard-coded 58px left 6–47px of its top under a header
+   that is 64–105px tall) and ends 16px above the bottom bar (--dock-bar-h: the bar's full
+   height incl. the note keypad, published by lib/dockClear.js only while a fixed bar shows —
+   so a short window, where the bar sits in the page flow, gets the full height back).
+   scroll-padding keeps a row reached with Tab off the rail's own edges (WCAG 2.4.11). */
 .rail {
   flex: 0 0 288px;
   width: 288px;
   position: sticky;
-  top: 58px;
+  top: var(--rail-top, 58px);
   align-self: flex-start;
-  max-height: calc(100dvh - 74px);
+  max-height: calc(100dvh - var(--rail-top, 58px) - 16px - var(--dock-bar-h, 0px));
   overflow: auto;
+  scroll-padding-block: 8px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -5372,11 +5393,15 @@ defineExpose({
    at 900px so the breadcrumb trigger opens the drawer (not collapse) in this band. */
 @media (max-width: 900px) {
   .studio-app { display: block; }
+  /* ใบ#112: the drawer stops at the bottom bar's top edge instead of running under it. The bar
+     stays above the dimmed backdrop as before, so neither ever hides the other: a row reached
+     with Tab in the drawer, or a bar button reached after it, is always fully in view
+     (WCAG 2.4.11). No fixed bar (short window / on-screen keyboard) → full height. */
   .rail {
     position: fixed;
     top: 0;
     left: 0;
-    height: 100dvh;
+    height: calc(100dvh - var(--dock-bar-h, 0px));
     width: 90%;
     max-width: 340px;
     z-index: 80;
