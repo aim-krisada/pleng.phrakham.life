@@ -1455,19 +1455,32 @@ function removeBar(line, bi) {
 // of the next line, the first bar moving left lands at the end of the previous line — so a
 // bar keyed in the wrong line can be walked over without cut/paste. Undo is handled by the
 // debounced snapshot watcher, so no explicit history call is needed.
+// ใบ v3/pleng#117 — the words go WITH the ห้อง (MuseScore/Sibelius/Dorico: lyrics belong to
+// their notes), exactly like ▲▼ on a บรรทัด: a swap with the neighbour swaps the two ห้อง' word
+// slices in EVERY row on this melody — every ท่อน linked to it and every lyric set, shown or not.
+// Same document change → one undo brings notes and words back together.
 function moveBar(li, bi, dir) {
   const line = lines.value[li]
   if (!line) return
   const to = bi + dir
   if (to >= 0 && to < line.bars.length) {
+    const s = stanzas.value[activeStanza.value]
+    const i = Math.min(bi, to) // adjacent ห้อง → the other is i + 1
+    const start = lineSlotStart(lines.value, li) + barsSlotLen(line.bars.slice(0, i))
+    const lenI = barsSlotLen([line.bars[i]])
+    const lenJ = barsSlotLen([line.bars[i + 1]])
     const [b] = line.bars.splice(bi, 1)
     line.bars.splice(to, 0, b)
+    if (s) swapRowSlices(s.id, start, lenI, lenJ)
     focusMovedBar(li, to, dir)
     return
   }
   // past the edge → hop to the neighbouring line. Leaving a line empty would break the
   // "every line has ≥1 bar" invariant, so drop a fresh empty bar in its place (like
   // removeBar). The ⋯ popover is keyed by "li-bi", now stale, so close it.
+  // Words need no shuffle here (#117): the last ห้อง of a line and the first of the next are
+  // already neighbours in the word order, so the hop keeps every word under its note; the
+  // fresh empty ห้อง has no note, so it takes no word slot.
   if (dir > 0 && bi === line.bars.length - 1) {
     const next = lines.value[li + 1]
     if (!next) return
@@ -1550,8 +1563,12 @@ function removeLine(li) {
 // B086: slot span (flat syllable indices) a line occupies — advances by syllableSlots per
 // segment, matching slotStarts. Needed to carry each verse's words when a line moves.
 function lineSlotLen(line) {
+  return barsSlotLen(line.bars)
+}
+// #117: the same count for a run of ห้อง (a bar move swaps two neighbours' word slices)
+function barsSlotLen(bars) {
   let n = 0
-  for (const bar of line.bars) for (const seg of bar.segments) n += syllableSlots(seg.note || '')
+  for (const bar of bars) for (const seg of bar.segments) n += syllableSlots(seg.note || '')
   return n
 }
 // B086/B088: flat-slot index where line `li` starts, and a helper to mutate every verse's
@@ -1586,23 +1603,29 @@ function moveLine(dir) {
   const start = lineSlotStart(ls, i)
   const lenI = lineSlotLen(ls[i])
   const lenJ = lineSlotLen(ls[i + 1])
-  const end = start + lenI + lenJ
   ;[ls[i], ls[i + 1]] = [ls[i + 1], ls[i]] // swap the melody lines
+  swapRowSlices(s.id, start, lenI, lenJ)
+  activeLine.value = lj // keep the moved line active/selected
+  followLine(lj, dir)
+}
+// B086 / #117: two neighbouring spans [start, start+lenI) and [start+lenI, start+lenI+lenJ) of
+// the flat word list trade places in EVERY row on this melody (all linked ท่อน, all lyric sets).
+// Pad first so empty slots (held / tie / เอื้อน) are explicit before slicing, then re-trim.
+function swapRowSlices(stanzaId, start, lenI, lenJ) {
+  const end = start + lenI + lenJ
   for (const row of arrangement.value) {
-    if (row.stanza !== s.id) continue
+    if (row.stanza !== stanzaId) continue
     const p = row.syllables.slice()
     while (p.length < end) p.push('')
     const next = [
       ...p.slice(0, start),
-      ...p.slice(start + lenI, end), // line j's words move up
-      ...p.slice(start, start + lenI), // line i's words move down
-      ...p.slice(end), // later lines untouched
+      ...p.slice(start + lenI, end), // the later span's words move up/left
+      ...p.slice(start, start + lenI), // the earlier span's words move down/right
+      ...p.slice(end), // everything after is untouched
     ]
     while (next.length && !((next[next.length - 1] || '').trim())) next.pop()
     row.syllables = next
   }
-  activeLine.value = lj // keep the moved line active/selected
-  followLine(lj, dir)
 }
 // ใบ v3/pleng#115 — after ▲▼ the moved บรรทัด left the screen (a phone line is ~1,500px tall, so
 // "line 1 down" put it 3,000px below) and the top/bottom button just pressed went disabled and
