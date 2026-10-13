@@ -185,19 +185,35 @@ export function keepClear(el, doc = document, win = window) {
  * Runs a tick after the event so the browser's own focus scroll (which honours
  * scroll-padding) happens first — the script only tops up what is still missing.
  */
+/** ms after a finger / mouse press during which a control that takes focus is left where it is */
+export const POINTER_FOCUS_MS = 1000
+
 export function installFocusClear(doc = document, win = window) {
   let t = null
+  let pressedAt = -Infinity
   const later = (el) => {
     clearTimeout(t)
     t = setTimeout(() => keepClear(el, doc, win), 0)
   }
-  const onFocus = (e) => later(e.target)
+  // ใบ v3/pleng#120 — a control that takes focus because it was just TAPPED (or clicked) is where
+  // the finger is: it is in view by definition. Scrolling it "into the clear" moved it out from
+  // under the finger between the press and the release (measured: up to 38px on a 360px phone),
+  // so the tap could miss (WCAG 3.2.1 On Focus). Only a text field still gets the check after a
+  // tap — the keyboard / note keypad comes up after the tap and may cover it. Keyboard focus (Tab)
+  // is checked as before.
+  const onPress = () => { pressedAt = Date.now() }
+  const onFocus = (e) => {
+    if (Date.now() - pressedAt < POINTER_FOCUS_MS && !isTextField(e.target)) return
+    later(e.target)
+  }
   // inside a multi-line field the caret can move to a new line without a new focus event
   const onCaret = (e) => { if (e.target?.tagName === 'TEXTAREA' && e.target === doc.activeElement) later(e.target) }
+  for (const ev of ['pointerdown', 'mousedown']) doc.addEventListener(ev, onPress, true)
   doc.addEventListener('focusin', onFocus)
   for (const ev of ['input', 'keyup', 'click']) doc.addEventListener(ev, onCaret)
   return () => {
     clearTimeout(t)
+    for (const ev of ['pointerdown', 'mousedown']) doc.removeEventListener(ev, onPress, true)
     doc.removeEventListener('focusin', onFocus)
     for (const ev of ['input', 'keyup', 'click']) doc.removeEventListener(ev, onCaret)
   }

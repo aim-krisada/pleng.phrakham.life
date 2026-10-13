@@ -108,7 +108,9 @@ describe('ข้อ 3 — sticky offsets follow the phone header', () => {
     headerHidden.value = true
     await flush()
     expect(w.find('.cshead').attributes('style')).toContain('top: 0px')
-    expect(w.find('.edhead').attributes('style')).toContain('top: 0px')
+    // ใบ#120: the edit header is not pinned on a phone, so it carries no `top` at all (a `top` on
+    // its position: relative pushed it over the ท่อน header and jumped as the site header slid)
+    expect(w.find('.edhead').attributes('style') || '').not.toContain('top')
     expect(w.find('#studioRail').attributes('style')).toContain('--rail-top: 0px')
     headerHidden.value = false
     await flush()
