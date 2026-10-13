@@ -24,6 +24,7 @@ import RevisionHistory from './RevisionHistory.vue'
 import DockKey from './DockKey.vue'
 import ExportTool from './ExportTool.vue'
 import SoundControl from './SoundControl.vue'
+import FontScaleControl from './FontScaleControl.vue'
 import { headerHidden, markProgrammaticScroll, PHONE_Q } from '../lib/headerHide.js'
 
 // ---------- mode contract (DS-04) ----------
@@ -54,7 +55,7 @@ const emit = defineEmits(['change', 'save', 'dock'])
 const notationHelpUrl = import.meta.env.BASE_URL + '#/notation'
 
 // ---------- auth + role (gating comes from the store via props.tier · DS-02) ----------
-import { session, legacy, shellMenu, saveDraftRow, readingFontScale,
+import { session, legacy, shellMenu, saveDraftRow, editorFontScale, setEditorFontScale,
   editorSound, editorEnsemble, editorInstrument, editorStyle,
   setEditorSound, setEditorEnsemble, setEditorInstrument, setEditorStyle } from '../store.js'
 
@@ -2725,6 +2726,10 @@ const editItems = computed(() => [
   // B107 step 9 — the single "เสียงดนตรี" button (audio-lines) → popover with all 4 sound axes,
   // so พี่เปา can switch instrument/style right here (default = ตรงโน้ต for raw note-checking).
   { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', place: { anchor: 'leftOf:setting', row: 1 } },
+  // ใบ v3/pleng#119 — the same Aa as ฝึกร้อง (FontScaleControl), at the end of the first group like
+  // there. It sizes the notes / chords / words (edit cells + previews), never the keypad or the bar;
+  // the editor remembers its own value (store.editorFontScale).
+  { id: 'scale', kind: 'aa', name: 'ขนาดตัวอักษร', place: { anchor: 'rightOf:soundctl', row: 1 }, permanent: true },
   { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
   { id: 'save', kind: 'btn', name: saveLabel.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
   { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', place: { row: 2, col: 3 }, run: playFull, hidden: playing.value, phoneIcon: true },
@@ -3121,14 +3126,14 @@ const floatStyle = computed(() => {
 })
 // issues3 (พี่เปา): the preview must wrap EXACTLY like the แผ่นเพลง SCREEN page, not the A4
 // print page. The sheet page renders SongSheet inside the studio-wide reading column
-// (.container.studio-wide → .card → .sheet-read-scale at readingFontScale·1rem), which on a
+// (.container.studio-wide → .card → .sheet-read-scale at the reader's Aa·1rem), which on a
 // wide desktop is ~68em/line — but the old preview locked to the A4 print ratio (42.05em),
 // so it dropped bars to new lines the sheet page keeps together ("บรรทัดตก"). Fix: measure the
 // live reading column and render the preview at the SAME em-width, so both break identically.
 // The .ed-float-page still scales that em-width to fill the window via font-size (B081), which
 // keeps SongSheet's B069 tie overlay measuring real px (no transform/zoom).
 const CARD_BOX = 34 // .card chrome between the reading column and the sheet: border(1+1) + padding(16+16)
-const sheetColW = ref(0) // px width of the sheet page's SongSheet column at 1rem (readingFontScale·1rem basis)
+const sheetColW = ref(0) // px width of the sheet page's SongSheet column at 1rem (100% basis)
 function measureSheetCol() {
   if (typeof document === 'undefined') return
   const c = document.querySelector('main.container')
@@ -3180,11 +3185,13 @@ const previewZoomPct = computed(() => Math.round(previewZoom.value * 100))
 // and + did nothing — measured at 412px). Guard the measurement, then let the zoom through, with
 // its own much lower floor so a bar can still fit on a line (no sideways scroll · ui-standards §2).
 const PREVIEW_MIN_EM = 8
+// ใบ v3/pleng#119: the size is the editor's own Aa (store.editorFontScale) × this window's zoom. The
+// 20em floor guards the measurement at 100% only, then the Aa goes through like the zoom — applied
+// after the division it would cap the Aa on a phone exactly as it once capped the zoom.
 const previewEmWidth = computed(() => {
-  const fs = 16 * (readingFontScale.value || 1)
-  const raw = sheetColW.value > 0 ? sheetColW.value / fs : 42.05 // fall back to A4 ratio before first measure
+  const raw = sheetColW.value > 0 ? sheetColW.value / 16 : 42.05 // fall back to A4 ratio before first measure
   const measured = Math.max(20, raw)
-  return Math.max(PREVIEW_MIN_EM, measured / previewZoom.value)
+  return Math.max(PREVIEW_MIN_EM, measured / ((editorFontScale.value || 1) * previewZoom.value))
 })
 const previewPageStyle = computed(() => ({ fontSize: `calc(100cqw / ${previewEmWidth.value.toFixed(2)})` }))
 // keep the window on-screen (and sized within it) when the viewport shrinks; refresh mobile flag
@@ -3712,11 +3719,12 @@ defineExpose({
         </template>
       </nav>
       <div class="rail-backdrop" :class="{ open: drawerOpen }" aria-hidden="true" @click="closeDrawer"></div>
-      <!-- B070: the top-nav "Aa" reader size (store.readingFontScale) scales the edit page too.
+      <!-- ใบ v3/pleng#119 — the editor's own Aa (store.editorFontScale, was the reader's B070 size).
            font-size is set in rem here, so the em-based jianpu previews (SongSheet) and any
-           inherited text grow/shrink, while the note keypad + edit boxes (fixed px/rem) keep
-           their grid — the Aa button never distorts the editing controls. -->
-      <div class="content ed-read-scale" :style="{ fontSize: readingFontScale + 'rem' }">
+           inherited text grow/shrink; --ed-fs carries the same number to the note / chord / word
+           cells (px sizes × --ed-fs), so all three columns grow together and stay lined up. The
+           toolbars, tools and the bar keep their own px/rem sizes (48px targets). -->
+      <div class="content ed-read-scale" :style="{ fontSize: editorFontScale + 'rem', '--ed-fs': editorFontScale }">
     <!-- B060: song settings inline. These used to hide in the "เพลง ▾ ▸ ตั้งค่า" menu, which
          พี่เปา avoided (afraid a menu would switch the page). Now every field sits right on
          the sheet being edited. "✓ ตรวจแล้ว" marks the song human-checked (catalog reads it). -->
@@ -4126,64 +4134,69 @@ defineExpose({
               <SongSheet :content="barContent(li, bi)" mode="full" chord-system="letter" :display-key="opts.key" />
             </div>
             <!-- one column per note: chord on top, note box, then the syllable box
-                 directly under its note (edit everything here — no duplicate preview) -->
+                 directly under its note (edit everything here — no duplicate preview).
+                 ใบ v3/pleng#119: NoteBoxes draws the columns; the chord goes in its #above slot and
+                 the word in #below, so a long ท่อน that wraps (big Aa · narrow phone) keeps each
+                 chord · note · word together and lined up instead of scrolling sideways. -->
             <div v-if="!barShown(li, bi)" class="seg-strip">
               <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col">
-                <div class="chord-row">
-                  <span v-for="p in noteBoxCount(seg.note)" :key="'c' + (p - 1)" class="chord-cell">
-                    <ComboSelect
-                      v-if="chordEditing(li, bi, si, p - 1)"
-                      :model-value="p - 1 === 0 ? seg.chord : ''"
-                      :options="p - 1 === 0 ? chordPickOpts : chordOpts"
-                      allow-custom
-                      :validate="isValidChord"
-                      :normalize="normalizeChordText"
-                      :error-for="chordErrorText"
-                      placeholder="คอร์ด (พิมพ์เองได้ เช่น F#m7b5, G/B)"
-                      aria-label="เลือกหรือพิมพ์คอร์ด"
-                      width="120px"
-                      class="chord-pick"
-                      autofocus
-                      @update:model-value="applyChordAt(bar, si, p - 1, $event)"
-                    />
-                    <button
-                      v-else
-                      class="chord-btn"
-                      :class="p - 1 === 0 && seg.chord ? 'chord-set' : 'chord-add'"
-                      :aria-label="p - 1 === 0 ? 'คอร์ดของช่วงนี้' : 'ใส่คอร์ดที่โน้ตนี้'"
-                      @click="openChord(li, bi, si, p - 1)"
-                    >{{ p - 1 === 0 && seg.chord ? seg.chord : '+' }}</button>
-                  </span>
-                </div>
                 <NoteBoxes
                   v-model="seg.note"
                   :hold-labels="noteHoldLabels(li, bi, si)"
                   @note-active="onNoteActive(li, bi, si, $event)"
                   @note-inactive="onNoteInactive"
-                />
-                <span v-if="lensActive" class="syl-boxes">
-                  <span v-for="(cell, bx) in sylCells(li, bi, si, seg.note)" :key="bx" class="syl-slot">
-                    <template v-if="cell.slot !== null">
-                      <span v-if="focusedSlot === cell.slot" class="slot-tools">
-                        <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(cell.slot)">◀</button>
-                        <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(cell.slot)">▶</button>
-                      </span>
-                      <input
-                        class="syl-box"
-                        :class="{ 'syl-empty': !cell.held && !sylAt(lensRow, cell.slot), 'syl-held': cell.held }"
-                        :value="sylAt(lensRow, cell.slot)"
-                        :data-slot="cell.slot"
-                        :placeholder="cell.held ? '-' : ''"
-                        :aria-label="cell.held ? `โน้ตลากเสียง ช่องที่ ${cell.slot + 1} (เว้นว่างได้)` : `พยางค์ที่ ${cell.slot + 1}`"
-                        @focus="focusedSlot = cell.slot"
-                        @blur="focusedSlot = -1"
-                        @keydown="onSylKey($event, cell.slot)"
-                        @input="setSyl(lensRow, cell.slot, $event.target.value)"
+                >
+                  <template #above="{ index, add }">
+                    <span v-if="!add && index < noteBoxCount(seg.note)" class="chord-cell">
+                      <ComboSelect
+                        v-if="chordEditing(li, bi, si, index)"
+                        :model-value="index === 0 ? seg.chord : ''"
+                        :options="index === 0 ? chordPickOpts : chordOpts"
+                        allow-custom
+                        :validate="isValidChord"
+                        :normalize="normalizeChordText"
+                        :error-for="chordErrorText"
+                        placeholder="คอร์ด (พิมพ์เองได้ เช่น F#m7b5, G/B)"
+                        aria-label="เลือกหรือพิมพ์คอร์ด"
+                        width="120px"
+                        class="chord-pick"
+                        autofocus
+                        @update:model-value="applyChordAt(bar, si, index, $event)"
                       />
-                    </template>
-                    <span v-else class="syl-spacer" aria-hidden="true"></span>
-                  </span>
-                </span>
+                      <button
+                        v-else
+                        class="chord-btn"
+                        :class="index === 0 && seg.chord ? 'chord-set' : 'chord-add'"
+                        :aria-label="index === 0 ? 'คอร์ดของช่วงนี้' : 'ใส่คอร์ดที่โน้ตนี้'"
+                        @click="openChord(li, bi, si, index)"
+                      >{{ index === 0 && seg.chord ? seg.chord : '+' }}</button>
+                    </span>
+                    <span v-else class="chord-cell chord-gap" aria-hidden="true"></span>
+                  </template>
+                  <template v-if="lensActive" #below="{ index }">
+                    <span v-for="cell in [sylCells(li, bi, si, seg.note)[index]]" :key="index" class="syl-slot">
+                      <template v-if="cell && cell.slot !== null">
+                        <span v-if="focusedSlot === cell.slot" class="slot-tools">
+                          <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(cell.slot)">◀</button>
+                          <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(cell.slot)">▶</button>
+                        </span>
+                        <input
+                          class="syl-box"
+                          :class="{ 'syl-empty': !cell.held && !sylAt(lensRow, cell.slot), 'syl-held': cell.held }"
+                          :value="sylAt(lensRow, cell.slot)"
+                          :data-slot="cell.slot"
+                          :placeholder="cell.held ? '-' : ''"
+                          :aria-label="cell.held ? `โน้ตลากเสียง ช่องที่ ${cell.slot + 1} (เว้นว่างได้)` : `พยางค์ที่ ${cell.slot + 1}`"
+                          @focus="focusedSlot = cell.slot"
+                          @blur="focusedSlot = -1"
+                          @keydown="onSylKey($event, cell.slot)"
+                          @input="setSyl(lensRow, cell.slot, $event.target.value)"
+                        />
+                      </template>
+                      <span v-else class="syl-spacer" aria-hidden="true"></span>
+                    </span>
+                  </template>
+                </NoteBoxes>
                 <!-- B098: NOTE-level tools (this ตัวโน้ต only) — คัดลอกโน้ต + ลบโน้ต. The bar-
                      level twins (คัดลอกห้อง/ลบห้อง) live in the bar foot below, so it is clear
                      which control acts on one note vs the whole ห้อง. -->
@@ -4368,6 +4381,10 @@ defineExpose({
       <!-- เสียงดนตรี — one button → popover with all 4 sound axes (B107 step 9) -->
       <template #cell-soundctl="{ open, toggle, close }">
         <SoundControl :open="open" :groups="soundGroups" :icon="soundIcon" @toggle="toggle" @close="close" />
+      </template>
+      <!-- ใบ#119 — Aa: the same button + popover as ฝึกร้อง, the editor's own remembered size -->
+      <template #cell-scale="{ open, toggle }">
+        <FontScaleControl :open="open" :value="editorFontScale" @toggle="toggle" @set="setEditorFontScale" />
       </template>
     </DockKey>
 
@@ -4624,19 +4641,24 @@ defineExpose({
 .seg-strip { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
 .seg-col { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .seg-col :deep(.combo input) { color: var(--chord-red); font-weight: 700; }
-.seg-col :deep(.note-boxes) { flex-wrap: nowrap; }
-/* chord row: one cell above each note box (same 46px + 3px gap so it lines up) */
-.chord-row { display: flex; gap: 3px; flex-wrap: nowrap; min-height: 28px; }
-.chord-cell { position: relative; width: 46px; }
+/* ใบ v3/pleng#119 — the note columns of a ท่อน wrap onto a new row when they don't fit (big Aa, a
+   narrow phone, a long ท่อน) instead of pushing the page sideways (WCAG 1.4.10). Each column carries
+   its own chord + word, so wrapping never breaks the note ↔ word line-up. */
+.seg-col { min-width: 0; max-width: 100%; }
+.seg-col :deep(.note-boxes) { flex-wrap: wrap; row-gap: 10px; }
+/* chord cell: one above each note box (same 46px × Aa as the note box, so it lines up). It is the
+   height of the old chord row so a note with no chord change keeps its place. */
+.chord-cell { position: relative; display: block; width: calc(46px * var(--ed-fs, 1)); min-height: calc(28px * var(--ed-fs, 1)); }
 .chord-btn {
   position: absolute;
   left: 0;
   top: 0;
   white-space: nowrap;
-  min-height: 26px;
+  min-height: calc(26px * var(--ed-fs, 1));
   padding: 2px 6px;
   border-radius: 5px;
   font-weight: 700;
+  font-size: calc(var(--fs-base) * var(--ed-fs, 1)); /* ใบ#119: the chord grows with the Aa */
 }
 .chord-btn.chord-set { color: var(--chord-red); background: var(--cream); border: 1px solid var(--line); z-index: 2; }
 .chord-btn.chord-add {
@@ -4657,16 +4679,17 @@ defineExpose({
 .how-to { background: var(--cream); border-color: var(--brand); }
 .how-to ol { line-height: 1.5; }
 .lens-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }
-/* syllable boxes sit in the row under the note boxes — same 46px width + 3px gap as
-   NoteBoxes so each word lines up under its note. nowrap keeps the columns aligned. */
+/* a word box sits under its own note box, inside that note's column (NoteBoxes #below · ใบ#119).
+   .syl-boxes is now only the row of extra words past the last note (overflow strip). */
 .syl-boxes { display: inline-flex; gap: 3px; flex-wrap: nowrap; align-items: center; }
 .syl-slot { position: relative; display: inline-flex; }
-.syl-spacer { display: inline-block; width: 46px; }
+.syl-spacer { display: inline-block; width: calc(46px * var(--ed-fs, 1)); }
+/* ใบ#119: the word cell grows with the Aa exactly like the note cell above it (46px × --ed-fs) */
 .syl-box {
-  width: 46px;
+  width: calc(46px * var(--ed-fs, 1));
   padding: 6px 2px;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--ed-fs, 1));
   border: 1px solid var(--line);
   border-radius: 5px;
   min-height: 30px;
@@ -5859,7 +5882,13 @@ defineExpose({
   padding: 3px 6px;
   overflow-x: auto;
   min-width: 0;
+  /* ใบ v3/pleng#119: the preview takes the width of its ห้อง and never sets it — at a big Aa on a
+     phone the note columns below wrap, while one bar of notation cannot, so the bar scrolls
+     inside this box instead of making the page scroll sideways. */
+  contain: inline-size;
 }
+/* …and the bar inside keeps its own natural width (no squeezing the words onto two lines) */
+.ed-bar-live :deep(.sheet-root) { width: max-content; min-width: 100%; }
 /* B060: inline song-settings card */
 .ed-settings { padding: 10px 12px; margin-bottom: 12px; }
 /* flex-wrap so the ⚙ + song-action buttons + ✓ตรวจแล้ว stack onto a second row when the
@@ -5997,7 +6026,10 @@ defineExpose({
 .ed-strip.lay-stack .ed-addbar { align-self: flex-start; }
 .ed-barline { align-self: stretch; width: 0; border-left: 2px solid var(--muted); margin: 4px 0; min-height: 44px; }
 .ed-bar { display: flex; flex-direction: column; gap: 6px; border-radius: 8px; padding: 4px 2px 2px; }
-.ed-bar .seg-strip { gap: 10px; flex-wrap: nowrap; }
+/* ใบ v3/pleng#119: wrap here too (was nowrap) — only kicks in when a ห้อง is wider than the column
+   (a big Aa): a whole ท่อน moves to the next row first, and only a ท่อน wider than the column wraps
+   inside itself, so the notes still read in order and nothing scrolls sideways. */
+.ed-bar .seg-strip { gap: 10px; flex-wrap: wrap; }
 .ed-bar.bar-playing { background: var(--cream); box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.15); }
 .ed-bar-foot { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .ed-bar-status { color: var(--muted); }

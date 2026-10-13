@@ -22,7 +22,7 @@ vi.mock('../supabase.js', () => {
 })
 
 import EditorMode from './EditorMode.vue'
-import { readingFontScale } from '../store.js'
+import { readingFontScale, editorFontScale } from '../store.js'
 
 // one stanza, one line, TWO bars (bar token splits them) · two verses so delete is offered
 const SONG = {
@@ -51,6 +51,7 @@ beforeEach(() => {
   document.body.innerHTML = '<div id="shell-title"></div><div id="shell-menus"></div>'
   localStorage.clear() // a remembered zoom / window box must not leak between tests
   readingFontScale.value = 1
+  editorFontScale.value = 1
 })
 
 function mountEd() {
@@ -159,8 +160,10 @@ describe('edhead — prototype-aligned edit header', () => {
     await nextTick()
     await findChip(w, 'ดูผลทั้งเพลง').trigger('click')
     const before = readingFontScale.value
+    const beforeEd = editorFontScale.value // ใบ#119: nor the editor's own Aa
     await w.find('.ed-float-zb[aria-label="ตัวอักษรใหญ่ขึ้น"]').trigger('click')
     expect(readingFontScale.value).toBe(before)
+    expect(editorFontScale.value).toBe(beforeEd)
   })
 
   // The 20em floor guards a BAD MEASUREMENT, not the user's zoom. Applying it after the division

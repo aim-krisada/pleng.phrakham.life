@@ -18,6 +18,7 @@ import DockKey from './DockKey.vue'
 import ExportTool from './ExportTool.vue'
 import SoundControl from './SoundControl.vue'
 import TempoControl from './TempoControl.vue'
+import FontScaleControl from './FontScaleControl.vue'
 import { readingFontScale, setFontScale } from '../store.js'
 
 const props = defineProps({
@@ -129,8 +130,7 @@ function onSeekKey(e) {
   emit('seek', Math.max(0, Math.min(1, f)))
 }
 
-// ---------- Aa reader font size (global store) ----------
-const fontPct = computed(() => Math.round(readingFontScale.value * 100))
+// ---------- Aa reader font size (global store) — drawn by FontScaleControl.vue ----------
 
 // ---------- map the page's `settings` into ITEMS_SING controls ----------
 const findSetting = (id) => props.settings.find((s) => s.id === id)
@@ -332,26 +332,7 @@ const items = computed(() => {
 
     <!-- ===== Aa reader font size — permanent, 1-tap · slider popover (store-driven) ===== -->
     <template #cell-scale="{ open, toggle }">
-      <button
-        class="st-aa"
-        :class="{ on: open }"
-        :aria-expanded="open"
-        :title="'ขนาดตัวอักษร ' + fontPct + '%'"
-        aria-label="ขนาดตัวอักษร"
-        @click.stop="toggle"
-      ><b class="st-aa-lbl">Aa</b></button>
-      <div v-if="open" class="dk-pop st-fontpop" role="menu" aria-label="ขนาดตัวอักษร" @click.stop>
-        <div class="st-fonttitle">ขนาดตัวอักษร</div>
-        <div class="st-fontrow">
-          <span class="st-fonta st-fonta-sm" aria-hidden="true">A</span>
-          <input class="st-fontslider" type="range" min="80" max="220" step="10" :value="fontPct" aria-label="ปรับขนาดตัวอักษร" @input="setFontScale(+$event.target.value / 100)" />
-          <span class="st-fonta st-fonta-lg" aria-hidden="true">A</span>
-        </div>
-        <div class="st-fontfoot">
-          <span class="st-fontval">{{ fontPct }}%</span>
-          <button class="st-fontreset" :disabled="fontPct === 100" @click="setFontScale(1)">↺ 100%</button>
-        </div>
-      </div>
+      <FontScaleControl :open="open" :value="readingFontScale" @toggle="toggle" @set="setFontScale" />
     </template>
   </DockKey>
 </template>
@@ -391,7 +372,7 @@ const items = computed(() => {
 .st-kn { position: absolute; width: 16px; height: 16px; background: var(--brand); border: 3px solid #fff; border-radius: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); pointer-events: none; z-index: 3; }
 
 /* ===== popovers (slot-rendered · anchor to the DOCK right edge = same spot as every popup · §A) ===== */
-.st-selpanel, .st-fontpop {
+.st-selpanel {
   pointer-events: auto;
   position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
@@ -425,25 +406,5 @@ const items = computed(() => {
 .st-ssname { flex: 1; }
 .st-hk { font-size: 10px; color: var(--brand); border: 1px dashed var(--brand); border-radius: 10px; padding: 0 7px; }
 
-/* ===== Aa ===== */
-.st-aa {
-  display: inline-flex; align-items: center; justify-content: center;
-  border: 1px solid var(--line); background: transparent; color: var(--ink);
-  border-radius: 10px; padding: 0 8px; height: var(--touch-min); min-height: 0; min-width: var(--touch-min); cursor: pointer;
-}
-@media (hover: hover) { .st-aa:hover { border-color: var(--brand); } }
-.st-aa.on { border-color: var(--brand); color: var(--brand); }
-.st-aa-lbl { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
-.st-fontpop { width: max-content; min-width: 220px; max-width: calc(100vw - 24px); padding: 12px; }
-.st-fonttitle { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-.st-fontrow { display: flex; align-items: center; gap: 10px; }
-.st-fonta { color: var(--ink); flex: 0 0 auto; line-height: 1; }
-.st-fonta-sm { font-size: 13px; }
-.st-fonta-lg { font-size: 22px; font-weight: 700; }
-.st-fontslider { flex: 1; min-width: 0; accent-color: var(--brand); height: var(--touch-min); }
-.st-fontfoot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
-.st-fontval { font-size: 11px; color: var(--muted); }
-.st-fontreset { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; min-height: 32px; }
-.st-fontreset:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); }
-.st-fontreset:disabled { opacity: 0.4; cursor: default; }
+/* ===== Aa ===== → FontScaleControl.vue (one component for ฝึกร้อง + แก้ไข · ใบ v3/pleng#119) */
 </style>
