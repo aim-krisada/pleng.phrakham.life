@@ -24,6 +24,7 @@ import RevisionHistory from './RevisionHistory.vue'
 import DockKey from './DockKey.vue'
 import ExportTool from './ExportTool.vue'
 import SoundControl from './SoundControl.vue'
+import { headerHidden, markProgrammaticScroll, PHONE_Q } from '../lib/headerHide.js'
 
 // ---------- mode contract (DS-04) ----------
 // EditorMode is the "แก้ไข" surface, extracted whole from Studio.vue. The shell owns
@@ -2710,26 +2711,30 @@ const INSTR_ICON = { grand: 'piano', nylon: 'guitar', felt: 'music', violin: 'mu
 const soundIcon = computed(() => (editorEnsemble.value === 'ensemble' ? 'users' : (INSTR_ICON[editorInstrument.value] || 'audio-lines')))
 
 const editItems = computed(() => [
-  { id: 'keys', kind: 'keys', name: 'แป้นสัญลักษณ์', rows: PALETTE, onInsert: insertSym },
+  // ใบ#114: on a phone the keypad shows only while a note cell is being edited (like the phone's
+  // own keyboard) — DockKey `showFor`. Wider screens keep it on the bar all the time.
+  { id: 'keys', kind: 'keys', name: 'แป้นสัญลักษณ์', rows: PALETTE, onInsert: insertSym, showFor: 'input.note-box' },
   { id: 'undo', kind: 'btn', name: 'ย้อน', icon: 'undo-2', place: { anchor: 'left', row: 1 }, run: undo, disabled: !canUndo.value },
   { id: 'redo', kind: 'btn', name: 'ทำซ้ำ', icon: 'redo-2', place: { anchor: 'rightOf:undo', row: 1 }, run: redo, disabled: !canRedo.value },
   // D4: the two "listen" controls sit side-by-side, so each carries a distinct label +
   // icon — ▶ ฟังท่อน (the stanza being edited) vs ◉ ฟังทั้งเพลง (the whole arrangement).
-  { id: 'play', kind: 'btn', name: 'ฟังท่อน ' + activeStanzaId.value, label: 'ฟังท่อน', icon: 'play', place: { anchor: 'rightOf:redo', row: 1 }, run: playStanza, hidden: playing.value },
-  { id: 'stop', kind: 'btn', name: 'หยุด', label: 'หยุด', icon: 'square', danger: true, place: { anchor: 'rightOf:redo', row: 1 }, run: stopAll, hidden: !playing.value },
+  // ใบ#114 `phoneIcon`: on a phone these show their icon only (name = aria-label + tooltip) so all
+  // the buttons fit in two rows. The main action (save) keeps its words.
+  { id: 'play', kind: 'btn', name: 'ฟังท่อน ' + activeStanzaId.value, label: 'ฟังท่อน', icon: 'play', place: { anchor: 'rightOf:redo', row: 1 }, run: playStanza, hidden: playing.value, phoneIcon: true },
+  { id: 'stop', kind: 'btn', name: 'หยุด', label: 'หยุด', icon: 'square', danger: true, place: { anchor: 'rightOf:redo', row: 1 }, run: stopAll, hidden: !playing.value, phoneIcon: true },
   // B107 step 9 — the single "เสียงดนตรี" button (audio-lines) → popover with all 4 sound axes,
   // so พี่เปา can switch instrument/style right here (default = ตรงโน้ต for raw note-checking).
   { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', place: { anchor: 'leftOf:setting', row: 1 } },
   { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
   { id: 'save', kind: 'btn', name: saveLabel.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
-  { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', place: { row: 2, col: 3 }, run: playFull, hidden: playing.value },
+  { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', place: { row: 2, col: 3 }, run: playFull, hidden: playing.value, phoneIcon: true },
   { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { row: 2, col: 4 } },
   // issues9 (พี่เปา): บันทึกร่าง used to live in ⚙ (default:'inSetting'), where a `btn` renders no
   // control at all — so pinning it was the ONLY way to get a button that runs ("ทำไมต้องกดปักหมุด
   // ก่อนถึงจะเซฟร่างได้"). It is the most-used command for someone typing in 124 songs, so it has a
   // permanent home on the bar. No `pinnable`: an item with a `place` is already on the bar, and
   // pinning it too would render it twice (single source of action · ui-standards §2).
-  { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', label: 'บันทึกร่าง', icon: 'save', place: { row: 2, col: 5 }, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value },
+  { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', label: 'บันทึกร่าง', icon: 'save', place: { row: 2, col: 5 }, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value, phoneIcon: true },
   { id: 'preview', kind: 'toggle', name: 'ดูผลทั้งเพลง', icon: 'maximize', default: 'inSetting', pinnable: true, control: { value: sheetWinOpen.value, onToggle: () => (sheetWinOpen.value = !sheetWinOpen.value) } },
 ])
 
@@ -2867,8 +2872,30 @@ function measureShell() {
 // and its buttons failed a hit test, i.e. we would have traded one unreachable toolbar for
 // another. So .cshead pins below whatever the edhead actually occupies. The edhead wraps at
 // narrow widths, so its height is observed, not assumed.
-// mobile keeps .cshead's own CSS top (the edhead is not sticky there — see the media query)
-const csheadStyle = computed(() => (narrow.value ? {} : { top: shellH.value + edheadH.value + 'px' }))
+// ใบ v3/pleng#114 — on a phone the site header slides away while scrolling down (lib/headerHide.js).
+// Everything that pins under it pins under what is VISIBLE of it: 0 while it is away, its height
+// while it is back — no gap, and nothing tucked under it.
+const shellVisH = computed(() => (headerHidden.value ? 0 : shellH.value))
+// On a phone the edhead is not sticky (see the media query), so .cshead pins straight under the
+// header. (It used to keep the stylesheet's hard-coded top:58px there — under a 2-row phone header
+// of ~120px, which hid the ท่อน name row behind the header.) 600–760px keeps that CSS top, as before
+// (this ticket changes phones only).
+const csheadStyle = computed(() => {
+  if (phoneW.value) return { top: shellVisH.value + 'px' }
+  return narrow.value ? {} : { top: shellVisH.value + edheadH.value + 'px' }
+})
+// ใบ#114 — phone: the ท่อน header is ONE row (name · ▲▼ · this toggle); the rest of its settings
+// (ทำนอง · ผูกกับท่อน · แยกทำนอง · จังหวะ · คีย์ · ร้องรับทุกข้อ · ลบ) open under it on demand.
+// Wider screens show everything as before (the toggle is not shown there).
+const csOpen = ref(false)
+watch(lensChoice, () => { csOpen.value = false })
+function toggleCsMore() {
+  // opening/closing changes the page's height above what you are looking at; the browser then
+  // nudges the scroll position to keep your place — that nudge is not you scrolling up, so it
+  // must not bring the site header back
+  markProgrammaticScroll(400)
+  csOpen.value = !csOpen.value
+}
 
 // ---------- edit header (edhead — prototype ps2 §③) ----------
 // The header is a BREADCRUMB that opens the rail (the rail is the only navigation — no
@@ -2990,6 +3017,11 @@ function isNarrow() {
   return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches
 }
 const narrow = ref(isNarrow())
+// ใบ#114 — a phone: narrower than 600px (the same line as the bar and the sliding header)
+function isPhoneW() {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(PHONE_Q).matches
+}
+const phoneW = ref(isPhoneW())
 function toggleSheetWin() { sheetWinOpen.value = !sheetWinOpen.value }
 
 const floatEl = ref(null)
@@ -3158,6 +3190,7 @@ const previewPageStyle = computed(() => ({ fontSize: `calc(100cqw / ${previewEmW
 // keep the window on-screen (and sized within it) when the viewport shrinks; refresh mobile flag
 function onFloatResize() {
   narrow.value = isNarrow()
+  phoneW.value = isPhoneW()
   measureShell() // the shell bar's height changes with the breakpoint → keep the edhead's sticky top true
   measureSheetCol() // the reading column tracks the viewport → re-measure so the preview keeps parity
   if (narrow.value || !floatEl.value) return
@@ -3581,7 +3614,7 @@ defineExpose({
 
     <!-- ===== edit workspace: parts rail + the existing editor (unchanged) ===== -->
     <div v-show="viewMode === 'edit'" class="studio-app" :class="{ 'rail-hidden': railHidden }">
-      <nav id="studioRail" class="rail" :class="{ open: drawerOpen }" :style="{ '--rail-top': shellH + 'px' }" aria-label="ส่วนของเพลง">
+      <nav id="studioRail" class="rail" :class="{ open: drawerOpen }" :style="{ '--rail-top': shellVisH + 'px' }" aria-label="ส่วนของเพลง">
         <div class="rail-mhead">
           <span><Icon name="list-music" :size="18" /> ส่วนของเพลง</span>
           <button class="rail-x" aria-label="ปิด" @click="closeDrawer"><Icon name="x" :size="16" /></button>
@@ -3778,7 +3811,7 @@ defineExpose({
     <!-- ===== edit header (edhead) — ps2 prototype §③: breadcrumb OPENS the rail (the rail
          is the only navigation, no duplicate ท่อน/ข้อ dropdowns · B031/B003/E1) · in-context
          help · layout / whole-song-preview toggles · line-level quick structure ===== -->
-    <div id="pk-editor" class="edhead no-print" :style="{ top: shellH + 'px' }">
+    <div id="pk-editor" class="edhead no-print" :style="{ top: shellVisH + 'px' }">
       <button
         class="ed-crumb"
         aria-label="เปิดแถบองค์ประกอบเพลง (ทำนอง·เนื้อ·ลำดับ)"
@@ -3905,7 +3938,7 @@ defineExpose({
 
     <!-- ===== canvas section header for the selected ท่อน — rename + melody + reorder right
          where you edit (SX2/SX3/SX5). The note/word/beat editor below is unchanged (SX7). ===== -->
-    <div v-if="lensActive" class="cshead no-print" :style="csheadStyle">
+    <div v-if="lensActive" class="cshead no-print" :class="{ 'cs-open': csOpen }" :style="csheadStyle">
       <span class="grip" aria-hidden="true"><Icon name="grip-vertical" :size="16" /></span>
       <span class="cs-num">{{ lensChoice + 1 }}</span>
       <input
@@ -3927,6 +3960,19 @@ defineExpose({
         @click="startRename(lensChoice, 'canvas')"
         @keydown.enter.prevent="startRename(lensChoice, 'canvas')"
       >{{ rowLabel(lensRow, lensChoice) }}</span>
+      <!-- ใบ#114 — phone only (hidden from 600px up): opens the rest of this ท่อน's settings -->
+      <button
+        type="button"
+        class="cs-moretgl"
+        :class="{ on: csOpen }"
+        :aria-expanded="csOpen"
+        aria-controls="cs-more"
+        aria-label="ตั้งค่าท่อนนี้"
+        :title="csOpen ? 'ซ่อนตั้งค่าท่อนนี้' : 'ตั้งค่าท่อนนี้ — ทำนอง จังหวะ คีย์ ร้องรับทุกข้อ ลบท่อน'"
+        @click="toggleCsMore"
+      ><Icon name="sliders-horizontal" :size="16" /><Icon name="chevron-down" :size="14" class="cs-chev" /></button>
+      <!-- the ท่อน's settings: in the row on a wide screen (display: contents), behind the toggle on a phone -->
+      <div id="cs-more" class="cs-more">
       <ComboSelect
         class="cs-mel"
         :model-value="lensRow.stanza"
@@ -3976,6 +4022,7 @@ defineExpose({
           @change="toggleAfterEachVerse(lensChoice, $event.target.checked)"
         /> ร้องรับทุกข้อ
       </label>
+      </div>
       <span class="cs-grow"></span>
       <span class="updown">
         <button aria-label="ย้ายท่อนขึ้น" :disabled="!canMoveRow(lensChoice, -1)" @click="moveRow(lensChoice, -1)">▲</button>
@@ -4944,6 +4991,9 @@ defineExpose({
 .cs-refrain { display: inline-flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
 .cs-refrain input { width: 16px; height: 16px; cursor: pointer; }
 .cs-grow { flex: 1; }
+/* ใบ#114 — the phone toggle for the ท่อน settings; on a wide screen the settings sit in the row */
+.cs-moretgl { display: none; }
+.cs-more { display: contents; }
 .cs-del {
   display: inline-flex;
   align-items: center;
@@ -6150,5 +6200,33 @@ defineExpose({
   .cs-act { min-height: var(--touch-min); }
   .updown button { width: 34px; height: 40px; font-size: 11px; }
   .addsec { min-height: var(--touch-min); }
+}
+/* ใบ v3/pleng#114 — phone (< 600px): the pinned ท่อน header is ONE row — ชื่อท่อน · ⚙▾ · ▲▼.
+   The rest (ทำนอง · ผูกกับท่อน · แยกทำนอง · จังหวะ · คีย์ · ร้องรับทุกข้อ · 🗑) opens under it with
+   the toggle (aria-expanded). Its `top` follows the site header sliding away / back. */
+@media (max-width: 599px) {
+  .cshead { gap: 6px; padding: 2px 8px; margin-bottom: 8px; transition: top 0.2s ease; }
+  .cshead .grip { display: none; }
+  .cshead .cs-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cs-moretgl {
+    display: inline-flex; align-items: center; justify-content: center; gap: 2px; flex: 0 0 auto;
+    min-width: var(--touch-min); min-height: var(--touch-min); padding: 0 8px;
+    border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--brand); cursor: pointer;
+  }
+  .cs-moretgl.on { border-color: var(--brand); }
+  .cs-chev { transition: transform 0.2s ease; }
+  .cs-moretgl.on .cs-chev { transform: rotate(180deg); }
+  .cshead:not(.cs-open) .cs-more,
+  .cshead:not(.cs-open) .cs-del { display: none; }
+  .cshead.cs-open .cs-more {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    order: 10; flex: 1 1 calc(100% - 56px); padding: 8px 0 6px; border-top: 1px solid var(--line);
+  }
+  /* 🗑 sits at the end of the opened settings, on their last line */
+  .cshead.cs-open .cs-del { order: 11; align-self: flex-end; margin: 0 0 6px auto; }
+}
+@media (max-width: 599px) and (prefers-reduced-motion: reduce) {
+  .cshead,
+  .cs-chev { transition: none; }
 }
 </style>

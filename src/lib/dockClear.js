@@ -24,8 +24,10 @@ export function measureDockClear(doc = document, win = window) {
   if (dock) {
     const cs = win.getComputedStyle(dock)
     const r = dock.getBoundingClientRect()
-    // count it only while it's a real, visible bar anchored to the bottom edge
-    if (cs.display !== 'none' && r.height > 0 && r.bottom >= win.innerHeight - 4) {
+    // count it only while it's a real, visible bar anchored to the bottom edge — or lifted to sit on
+    // top of a phone's on-screen keyboard (ใบ#114 · DockKey `dk-lift`): it still covers the page
+    const lifted = !!dock.closest?.('.dk-lift')
+    if (cs.display !== 'none' && r.height > 0 && (lifted || r.bottom >= win.innerHeight - 4)) {
       h = r.height
       if (dock === bar) {
         barH = r.height

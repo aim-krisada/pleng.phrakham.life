@@ -221,6 +221,13 @@ main.container { flex: 1 0 auto; min-width: 0; width: 100%; }
      desktop + mobile). pleng had a 1px #e0d6c8 rule that master doesn't; dropped for parity. */
   padding: var(--sp-2) var(--sp-4);
 }
+/* ใบ v3/pleng#114 — phone song pages: the header slides up out of the way while scrolling down and
+   back while scrolling up (lib/headerHide.js sets html.hdr-hidden; only < 600px, only song pages).
+   The transform is there ONLY while hidden, so the header never becomes the containing block of its
+   own fixed menus while they can be open (an open menu keeps the header shown). */
+.shell-bar { transition: transform 0.2s ease; }
+html.hdr-hidden .shell-bar { transform: translateY(-100%); }
+@media (prefers-reduced-motion: reduce) { .shell-bar { transition: none; } }
 .shell-slot { display: inline-flex; align-items: center; }
 .shell-title-wrap { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
 .shell-menus { display: inline-flex; align-items: center; gap: 8px; }

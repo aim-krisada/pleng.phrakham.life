@@ -16,6 +16,8 @@
 // while the on-screen keyboard is up) and the ฝึกร้อง Space shortcut (Space never toggles play
 // while typing).
 
+import { markProgrammaticScroll } from './headerHide.js'
+
 /** The bar that can cover the page: fixed (not the short-window in-flow version), showing. */
 export const BAR_SEL = '.dk-host.dk-bar:not(.dk-flow) > .dk-dock'
 /** px kept free between the focused thing and the bar's top edge */
@@ -59,11 +61,49 @@ export function visibleBarTop(doc = document) {
   return null
 }
 
-/** bottom edge of the sticky site header — scrolling up must not push the field under it */
+/** bottom edge of the sticky site header — scrolling up must not push the field under it.
+ *  0 while it is slid away on a phone (ใบ#114 · lib/headerHide.js). */
 export function headerBottom(doc = document) {
+  if (doc.documentElement.classList.contains('hdr-hidden')) return 0
   const h = doc.querySelector('.shell-bar')
   const b = h ? h.getBoundingClientRect().bottom : 0
   return b > 0 ? b : 0
+}
+
+// ใบ v3/pleng#114 — the same rule at the TOP of the screen: a field reached with Tab (Shift+Tab
+// going up) must not stop under the site header or the editor's pinned ท่อน header (.cshead) /
+// edit header (.edhead). These are the things that pin to the top edge while you scroll.
+export const TOP_STICKY_SEL = '.cshead, .edhead'
+/** px kept free between a pinned top header and the focused thing */
+export const TOP_GAP = 8
+
+/**
+ * Bottom edge (viewport px) of everything pinned at the top that could cover `el`: the site
+ * header (unless slid away) and any pinned TOP_STICKY_SEL element that `el` is not inside.
+ * "Pinned" = sticky/fixed and sitting at its own `top` (not somewhere lower in the page flow).
+ */
+export function topCover(el, doc = document, win = window) {
+  let b = el && doc.querySelector('.shell-bar')?.contains(el) ? 0 : headerBottom(doc)
+  for (const s of doc.querySelectorAll(TOP_STICKY_SEL)) {
+    if (el && s.contains(el)) continue
+    const cs = win.getComputedStyle(s)
+    if (cs.position !== 'sticky' && cs.position !== 'fixed') continue
+    const r = s.getBoundingClientRect()
+    if (!(r.height > 0) || r.bottom <= 0) continue
+    const pinAt = parseFloat(cs.top)
+    if (Number.isFinite(pinAt) && r.top > pinAt + 1) continue // still in the flow, not pinned
+    if (r.bottom > b) b = r.bottom
+  }
+  return b
+}
+
+/** inside something fixed to the screen (a popover, a floating window, a drawer)? Scrolling the
+ *  page cannot move it, so there is nothing to do for it. */
+function inFixedLayer(el, win) {
+  for (let p = el; p && p.nodeType === 1; p = p.parentElement) {
+    if (win.getComputedStyle(p).position === 'fixed') return true
+  }
+  return false
 }
 
 /**
@@ -122,12 +162,21 @@ export function focusRect(el, doc = document, win = window) {
  */
 export function keepClear(el, doc = document, win = window) {
   if (!el || el.nodeType !== 1 || el === doc.body || el.closest?.('.dk-host')) return 0
+  if (inFixedLayer(el, win)) return 0
+  const rect = focusRect(el, doc, win)
+  const cover = topCover(el, doc, win)
   const top = visibleBarTop(doc)
-  if (top == null) return 0
-  const dy = obscuredBy(focusRect(el, doc, win), top, { minTop: headerBottom(doc) })
+  let dy = top == null ? 0 : obscuredBy(rect, top, { minTop: cover })
+  // ใบ#114 — nothing to lift above the bar: is its top under a pinned header? scroll DOWN the page
+  // content (= scrollBy a negative amount) just enough to show it under the header
+  if (!dy && cover > 0 && rect.top < cover) dy = Math.floor(rect.top - cover - TOP_GAP)
   // instant, not the page's smooth scrolling: the field must be in view now, and a check that
-  // runs again mid-animation (the next keystroke) would otherwise scroll a second time
-  if (dy > 0) win.scrollBy({ top: dy, left: 0, behavior: 'instant' })
+  // runs again mid-animation (the next keystroke) would otherwise scroll a second time.
+  // Marked as the page's own scroll so the phone header does not take it for a scroll by the user.
+  if (dy) {
+    markProgrammaticScroll()
+    win.scrollBy({ top: dy, left: 0, behavior: 'instant' })
+  }
   return dy
 }
 
