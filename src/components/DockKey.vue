@@ -26,10 +26,19 @@
 //           its one-at-a-time popover, and clamps any .dk-pop the slot renders.
 //   A leftover 'grip' item, or one flagged `hideOnBar`, is ignored (there is nothing to drag,
 //   fold or see through any more).
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+//
+// ใบ v3/pleng#114 — on a phone (narrower than 600px) the bar gives the page more room:
+//   • a 'keys' band with `showFor: '<selector>'` shows ONLY while focus is in a matching field
+//     (the editor's note keypad: only while a note cell is being edited — like the phone's own
+//     keyboard). On a touch screen, where the phone's keyboard is up too, the bar then shows just
+//     that band, lifted to sit right on top of the phone's keyboard (`dk-keysonly`).
+//   • a `btn` with `phoneIcon: true` drops its text label and shows its icon only (its name stays
+//     as the accessible name and tooltip), so every button fits in two rows.
+import { ref, shallowRef, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
 import { isTextField } from '../lib/focusClear.js'
 import { barLayout } from '../lib/dockLayout.js'
+import { PHONE_Q } from '../lib/headerHide.js'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
@@ -43,7 +52,10 @@ const props = defineProps({
 const SLOT_KINDS = ['timeline', 'sel', 'aa', 'slot'] // drawn by the page via #cell-<id>
 
 // E1: full-width keyboard band(s) (e.g. the edit jianpu palette) — laid out above every row.
-const keysBands = computed(() => visible.value.filter((i) => i.kind === 'keys'))
+// ใบ#114: on a phone a band with `showFor` shows only while focus is in a matching field — or on
+// the band itself (a key that took focus must not make its own keypad disappear).
+const keyShown = (band) => !phone.value || !band.showFor || !!focusEl.value?.closest?.(`${band.showFor}, .dk-keys`)
+const keysBands = computed(() => visible.value.filter((i) => i.kind === 'keys' && keyShown(i)))
 
 // ---------- registry helpers ----------
 const byId = (id) => props.items.find((i) => i.id === id)
@@ -82,16 +94,36 @@ const SHORT_Q = '(max-height: 499px)'
 const TOUCH_Q = '(hover: none) and (pointer: coarse)'
 const short = ref(false)
 const typing = ref(false) // a text field outside the bar has focus on a touch screen
+const phone = ref(false) // ใบ#114: narrower than 600px
+const focusEl = shallowRef(null) // what has focus now (the keypad follows it on a phone)
 let mqShort = null
 const matches = (q) => typeof window.matchMedia === 'function' && !!window.matchMedia(q)?.matches
-function syncShort() { short.value = matches(SHORT_Q) }
+function syncShort() { short.value = matches(SHORT_Q); phone.value = matches(PHONE_Q) }
 const typingIn = (el) => matches(TOUCH_Q) && isTextField(el) && !el.closest?.('.dk-host')
 // a field inside the bar's own popover (e.g. a number box) must not hide the bar under itself
-function onFocusIn(e) { typing.value = typingIn(e.target) }
+function onFocusIn(e) { typing.value = typingIn(e.target); focusEl.value = e.target }
 function onFocusOut() {
   // wait for the next focus to land: moving from one field to the next keeps the bar hidden
-  setTimeout(() => { typing.value = typingIn(document.activeElement) }, 0)
+  setTimeout(() => { typing.value = typingIn(document.activeElement); focusEl.value = document.activeElement }, 0)
 }
+// ใบ#114 — phone + touch + a note cell being typed in: the phone's keyboard is up, so the bar shows
+// only the note keypad, sitting right on top of that keyboard (like the row of extra keys a phone
+// keyboard offers). Any other text field: the whole bar steps aside, as before (ใบ#111).
+const keysOnly = computed(() => typing.value && phone.value && keysBands.value.length > 0)
+// How high the phone's keyboard reaches into the screen. Most phone browsers now shrink only the
+// VISIBLE part of the page for the keyboard and leave the page's own box (where a fixed bar sits)
+// as it was, so a bar at the bottom would sit behind the keyboard. The visible part's bottom edge
+// (visualViewport) says where the keyboard starts. A browser that shrinks the whole page instead
+// gives 0 here, and the bar is already above the keyboard.
+const kbLift = ref(0)
+function syncLift() {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null
+  if (!keysOnly.value || !vv) { kbLift.value = 0; return }
+  const pageH = document.documentElement.clientHeight || window.innerHeight
+  const lift = Math.round(pageH - (vv.offsetTop + vv.height))
+  kbLift.value = lift > 0 ? Math.min(lift, Math.round(pageH * 0.7)) : 0
+}
+watch(keysOnly, syncLift)
 
 // ---------- one popover at a time (menu · setting · a slot cell) ----------
 const openId = ref(null) // item id | 'setting' | null
@@ -265,6 +297,9 @@ onMounted(() => {
   forgetOldDock()
   mqShort = typeof window.matchMedia === 'function' ? window.matchMedia(SHORT_Q) : null
   syncShort()
+  focusEl.value = document.activeElement
+  window.visualViewport?.addEventListener?.('resize', syncLift)
+  window.visualViewport?.addEventListener?.('scroll', syncLift)
   mqShort?.addEventListener?.('change', syncShort)
   window.addEventListener('resize', onResize)
   window.addEventListener('keydown', onEsc)
@@ -285,6 +320,8 @@ onUnmounted(() => {
   document.removeEventListener('focusin', onFocusIn)
   document.removeEventListener('focusout', onFocusOut)
   document.removeEventListener('mousedown', onOutside)
+  window.visualViewport?.removeEventListener?.('resize', syncLift)
+  window.visualViewport?.removeEventListener?.('scroll', syncLift)
   ro?.disconnect()
 })
 
@@ -297,7 +334,12 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 </script>
 
 <template>
-  <div ref="hostEl" class="dk-host dk-bar no-print" :class="{ 'dk-flow': short, 'dk-kbd': typing, 'dk-one': oneRow }">
+  <div
+    ref="hostEl"
+    class="dk-host dk-bar no-print"
+    :class="{ 'dk-flow': short, 'dk-kbd': typing && !keysOnly, 'dk-keysonly': keysOnly, 'dk-lift': kbLift > 0, 'dk-one': oneRow }"
+    :style="kbLift > 0 ? { bottom: kbLift + 'px' } : null"
+  >
     <p v-if="message" class="dk-msg" role="status">{{ message }}</p>
 
     <div class="dk-dock" role="toolbar" :aria-label="label">
@@ -347,7 +389,7 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
             <button
               v-else-if="it.kind === 'btn'"
               class="dk-btn"
-              :class="{ prime: it.prime, danger: it.danger, wide: it.label }"
+              :class="{ prime: it.prime, danger: it.danger, wide: it.label, 'dk-phoneicon': it.phoneIcon && it.label }"
               :data-cell="it.id"
               :disabled="it.disabled"
               :aria-label="it.name"
@@ -520,6 +562,10 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 /* touch screen + a text field has focus (on-screen keyboard up): the bar steps aside so it never
    floats over the keyboard or the field. The status line (บันทึกแล้ว …) still shows. */
 .dk-host.dk-kbd .dk-dock { display: none; }
+/* ใบ#114 — phone + touch + typing in a note cell: just the note keypad, on top of the phone's
+   keyboard (its `bottom` is lifted by the keyboard's height in the script) */
+.dk-host.dk-keysonly .dk-row { display: none; }
+.dk-host.dk-keysonly .dk-keys { margin-bottom: 0; border-bottom: 0; }
 
 .dk-row { display: flex; align-items: center; }
 .dk-cell { display: inline-flex; align-items: center; min-width: 0; }
@@ -545,6 +591,14 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 /* E2: a labeled action button (บันทึก / ฟังทั้งเพลง) — icon + text pill */
 .dk-btn.wide { width: auto; min-width: var(--touch-min); padding: 0 12px; gap: 6px; border: 1px solid var(--line); }
 .dk-btn-lbl { font-size: 13px; font-weight: 600; white-space: nowrap; }
+/* ใบ v3/pleng#114 — phone (< 600px): a button marked phoneIcon shows its icon only, a plain 48×48
+   square like ย้อน / ทำซ้ำ, so every button of the editor fits in two rows. Its name is still its
+   aria-label and tooltip. The main action (เผยแพร่ · ส่งตรวจ · อนุมัติ) is not marked: it keeps
+   its words. */
+@media (max-width: 599px) {
+  .dk-bar .dk-btn.wide.dk-phoneicon { width: var(--touch-min); padding: 0; border-color: transparent; }
+  .dk-bar .dk-phoneicon .dk-btn-lbl { display: none; }
+}
 /* prime = the page's main action (พิมพ์ · บันทึก), brand-filled */
 .dk-btn.prime { background: var(--brand); color: #fff; border: 1px solid var(--brand); }
 .dk-btn.prime:hover { filter: brightness(1.06); background: var(--brand); }

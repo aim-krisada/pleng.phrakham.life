@@ -69,6 +69,14 @@ describe('แก้ไข dock is the bottom bar at every width (ใบ#111)', (
       const dock = w.find('.dk-host .dk-dock')
       expect(dock.attributes('role')).toBe('toolbar')
       expect(dock.attributes('aria-label')).toBe('แถบแก้ไข')
+      if (px < 600) {
+        // ใบ#114 — on a phone the note keypad shows only while a note cell is being edited
+        expect(w.find('.dk-host .dk-keys').exists()).toBe(false)
+        const note = w.find('input.note-box').element
+        note.focus()
+        note.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+        await nextTick()
+      }
       expect(w.find('.dk-host .dk-keys .dk-key').exists()).toBe(true)
       // the first button is ย้อน (it used to sit right of the grip)
       expect(w.find('.dk-host .dk-btnrow [data-cell]').attributes('data-cell')).toBe('undo')
