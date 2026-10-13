@@ -1446,9 +1446,15 @@ async function addBar(line, li) {
   await nextTick()
   document.querySelector(`[data-bar="${li}-${bi}"] .note-box:not(.add)`)?.focus()
 }
+// ใบ v3/pleng#121 — ลบห้อง drops the ห้อง's words too, in EVERY row on this melody (all linked
+// ท่อน, every lyric set, shown or not) — the bar twin of removeLine. Before, only the notes went,
+// so every later word slid one ห้อง to the left onto the wrong notes.
 function removeBar(line, bi) {
+  const s = stanzas.value[activeStanza.value]
+  const at = barSlotSpan(line, bi)
   line.bars.splice(bi, 1)
   if (!line.bars.length) line.bars.push(newBar())
+  if (s && at && at.len > 0) resliceRows(s.id, (p) => p.splice(at.start, at.len))
 }
 // Reorder bars (dir -1 = left, +1 = right). Within a line it swaps neighbours; at a line
 // edge it HOPS to the adjacent line (B063): the last bar moving right lands at the start
@@ -1517,9 +1523,27 @@ function focusMovedBar(li, bi, dir) {
 }
 // Duplicate bar bi: drop an exact copy (chords + notes) right after it. Faster than
 // re-keying a repeated bar; tweak the copy afterwards.
+// ใบ v3/pleng#121 — the copy also gets the same words, in EVERY row on this melody (the bar
+// twin of copyLine). Before, only the notes were copied, so every later word slid onto the copy.
 function duplicateBar(line, bi) {
+  const s = stanzas.value[activeStanza.value]
+  const at = barSlotSpan(line, bi)
   const copy = stripMarkerIds(JSON.parse(JSON.stringify(line.bars[bi]))) // one id = one marker
   line.bars.splice(bi + 1, 0, copy)
+  if (s && at && at.len > 0)
+    resliceRows(s.id, (p) => {
+      const end = at.start + at.len
+      while (p.length < end) p.push('')
+      p.splice(end, 0, ...p.slice(at.start, end)) // duplicate this ห้อง's words right after it
+    })
+}
+// #121: where ห้อง bi of `line` (a บรรทัด of the active melody) sits in the flat word list —
+// { start, len } in slots, or null when the line is not on the active melody
+function barSlotSpan(line, bi) {
+  const ls = lines.value
+  const li = ls.indexOf(line)
+  if (li < 0 || !line.bars[bi]) return null
+  return { start: lineSlotStart(ls, li) + barsSlotLen(line.bars.slice(0, bi)), len: barsSlotLen([line.bars[bi]]) }
 }
 function removeSegment(bar, si) {
   bar.segments.splice(si, 1)
@@ -1578,11 +1602,13 @@ function lineSlotStart(ls, li) {
   for (let k = 0; k < li && k < ls.length; k++) start += lineSlotLen(ls[k])
   return start
 }
+// `mutate(p, k)` — k = this row's place among the rows on the melody (0, 1, 2 … in play order)
 function resliceRows(stanzaId, mutate) {
+  let k = 0
   for (const row of arrangement.value) {
     if (row.stanza !== stanzaId) continue
     const p = row.syllables.slice()
-    mutate(p)
+    mutate(p, k++)
     while (p.length && !((p[p.length - 1] || '').trim())) p.pop()
     row.syllables = p
   }
@@ -1660,16 +1686,39 @@ function followLine(lj, dir) {
 // ---------- B101: คัดลอก→วาง a whole บรรทัด / ห้อง anywhere (incl. a new ท่อน) ----------
 // The "ย้ายไปที่อื่น" twin of B098's ทำซ้ำ-in-place (duplicateBar / copyLine). ทำซ้ำ drops a
 // copy right next to the original (fast repeat, same spot); คัดลอก loads ONE in-memory slot
-// and วาง places it wherever you are — after switching to another (or a brand-new) ท่อน. Paste
-// is MELODY-ONLY (notes + chords + a ห้อง's repeat/volta/pickup flags, or a บรรทัด's structure):
-// words live per-ข้อ and can't follow across ท่อน, so paste never carries lyrics (ทำซ้ำ stays
-// the with-words path for the same ท่อน). `clip` is VIEW state (not the document) → it is NOT
-// snapshotted into undo history; the paste itself mutates the doc and is undoable like any edit.
-const clip = ref(null) // { kind: 'line' | 'bar', data: <deep copy>, from: string }
+// and วาง places it wherever you are — after switching to another (or a brand-new) ท่อน. A
+// บรรทัด paste is MELODY-ONLY (notes + chords + its structure): words live per-ข้อ and can't follow
+// across ท่อน (ทำซ้ำ stays the with-words path for the same ท่อน). `clip` is VIEW state (not the
+// document) → it is NOT snapshotted into undo history; the paste itself mutates the doc and is
+// undoable like any edit.
+// ใบ v3/pleng#121 — a ห้อง paste keeps every word under its note (MuseScore/Sibelius/Dorico copy
+// the lyrics with the notes). The ห้อง lands in the middle of the word list whenever it is not
+// pasted on the last บรรทัด, so it MUST take word slots or every later word slides onto it:
+//   • same song + same melody → each row gets the words it had under the copied ห้อง (row k on the
+//     melody → row k, the way MuseScore maps verse 1 → verse 1; lyric sets included)
+//   • another melody or another song → empty slots (red boxes = words to type). Those rows sing
+//     other words, so the copied words would be wrong there; the later words still stay in place.
+let docGen = 0 // bumped when a song is loaded or the form is reset — "same song" for a paste
+const clip = ref(null) // { kind: 'line' | 'bar', data: <deep copy>, from: string, gen?, stanza?, words? }
 function copyBarToClip(li, bi) {
-  const bar = lines.value[li]?.bars[bi]
+  const line = lines.value[li]
+  const bar = line?.bars[bi]
   if (!bar) return
-  clip.value = { kind: 'bar', data: JSON.parse(JSON.stringify(bar)), from: `ห้อง ${bi + 1} · บรรทัด ${li + 1}` }
+  const s = stanzas.value[activeStanza.value]
+  const at = barSlotSpan(line, bi)
+  const words = [] // per row on this melody, in play order: its words under the ห้อง ('' = none)
+  if (s && at)
+    for (const row of arrangement.value)
+      if (row.stanza === s.id)
+        words.push(Array.from({ length: at.len }, (_, k) => row.syllables[at.start + k] || ''))
+  clip.value = {
+    kind: 'bar',
+    data: JSON.parse(JSON.stringify(bar)),
+    from: `ห้อง ${bi + 1} · บรรทัด ${li + 1}`,
+    gen: docGen,
+    stanza: s?.id ?? '',
+    words,
+  }
   barMenuOpen.value = ''
 }
 function copyLineToClip(li) {
@@ -1681,13 +1730,25 @@ function copyLineToClip(li) {
 function clearClip() {
   clip.value = null
 }
-// paste the copied ห้อง at the end of บรรทัด li (melody only). The button sits on every line,
+// paste the copied ห้อง at the end of บรรทัด li (its words: see #121 above). The button sits on every line,
 // so "ที่นี่" = whichever ท่อน/บรรทัด you are on — switch ท่อน first to paste across melodies.
 function pasteBarAt(li) {
-  if (clip.value?.kind !== 'bar') return
+  const c = clip.value
+  if (c?.kind !== 'bar') return
   const line = lines.value[li]
   if (!line) return
-  line.bars.push(stripMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))) // one id = one marker
+  const s = stanzas.value[activeStanza.value]
+  const start = lineSlotStart(lines.value, li) + lineSlotLen(line) // the end of บรรทัด li
+  const copy = stripMarkerIds(JSON.parse(JSON.stringify(c.data))) // one id = one marker
+  const len = barsSlotLen([copy])
+  line.bars.push(copy)
+  if (!s || len <= 0) return
+  const same = c.gen === docGen && c.stanza === s.id // #121: same song, same melody → words come along
+  resliceRows(s.id, (p, k) => {
+    const w = same && c.words?.[k]?.length === len ? c.words[k] : new Array(len).fill('')
+    while (p.length < start) p.push('')
+    p.splice(start, 0, ...w)
+  })
 }
 // paste the copied บรรทัด at the end of the ACTIVE ท่อน (melody only)
 function pasteLineHere() {
@@ -1907,6 +1968,7 @@ async function loadSong(id) {
 // to v2 on the way in (Claude seeds the syllable split, the author fixes) — any
 // segment whose words don't line up with its notes is flagged for manual review.
 function applyRow(data) {
+  docGen++ // #121: a ห้อง copied from the song before must not paste its words into this one
   meta.number = data.number
   meta.title_th = data.title_th
   meta.title_en = data.title_en
@@ -1971,6 +2033,7 @@ function applyRow(data) {
 }
 
 function resetForm() {
+  docGen++
   editingId.value = null
   currentDraftId.value = null
   reviewingDraft.value = null
@@ -4067,7 +4130,7 @@ defineExpose({
         คัดลอกไว้: <b>{{ clip.kind === 'line' ? 'บรรทัด' : 'ห้อง' }}</b>
         <span class="muted">({{ clip.from }})</span>
       </span>
-      <span class="ed-clip-hint">— เปิดท่อนที่ต้องการ แล้วกด “วาง{{ clip.kind === 'line' ? 'บรรทัด' : 'ห้อง' }}” (โน้ต·คอร์ด ไม่รวมเนื้อ)</span>
+      <span class="ed-clip-hint">— เปิดท่อนที่ต้องการ แล้วกด “วาง{{ clip.kind === 'line' ? 'บรรทัด' : 'ห้อง' }}” {{ clip.kind === 'line' ? '(โน้ต·คอร์ด ไม่รวมเนื้อ)' : '(วางในทำนองเดิม เนื้อมาด้วย · ทำนองอื่น ช่องเนื้อว่างไว้)' }}</span>
       <button v-if="clip.kind === 'line'" class="ed-clip-new" title="สร้างท่อน (ทำนอง) ใหม่ แล้ววางบรรทัดนี้เป็นบรรทัดแรก" @click="pasteLineAsStanza">
         <Icon name="plus" :size="13" /> วางเป็นท่อนใหม่
       </button>

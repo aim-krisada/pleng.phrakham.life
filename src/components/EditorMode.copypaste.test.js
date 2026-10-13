@@ -1,8 +1,9 @@
 // B101 — คัดลอก→วาง a whole บรรทัด / ห้อง anywhere, including into a NEW ท่อน. This is the
 // "ย้ายไปที่อื่น" twin of B098's ทำซ้ำ-in-place: คัดลอก loads one in-memory slot, วาง places a
-// deep copy wherever you are. Paste is MELODY-ONLY (notes + chords + bar/line structure) — the
-// per-ข้อ words never follow across ท่อน, so these tests assert the arrangement syllables are
-// UNCHANGED by a paste (that is what separates it from ทำซ้ำ/copyLine, which reslices words).
+// deep copy wherever you are. A บรรทัด paste is MELODY-ONLY (notes + chords + line structure) —
+// the per-ข้อ words never follow across ท่อน, so these tests assert the arrangement syllables are
+// UNCHANGED by a line paste. A ห้อง paste keeps every word under its note (ใบ v3/pleng#121:
+// same melody → the copied words, other melody → empty slots) — see EditorMode.bartools121.test.js.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
