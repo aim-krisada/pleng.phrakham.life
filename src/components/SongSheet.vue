@@ -5,6 +5,7 @@ import { parseNotes, beatCount, expectedBeats, slurSpans, segmentBeamLink } from
 import { buildArc, planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { pixelRatio, levelTop, lineThickness } from '../lib/pixelSnap.js'
 import { phraseBreaks, songBreathBeats, wordEnds } from '../lib/lyricPhrase.js'
+import { lyricLineSplits } from '../lib/lyricLineSplit.js'
 import NoteRow from './NoteRow.vue'
 
 const props = defineProps({
@@ -49,20 +50,38 @@ const lyricsOnly = computed(() => sl.value && !sn.value && !sc.value)
 function noteOn(first) { return sn.value && (!props.songbook || first) }
 function chordOn(first) { return sc.value && (!props.songbook || first) }
 function lineLyricsOnly(first) { return sl.value && !noteOn(first) && !chordOn(first) }
+// each sheet line's syllable-bearing segments, as phraseBreaks takes them
+const phraseLines = computed(() => renderLines.value.map(({ parts }) => {
+  const segs = []
+  for (const p of parts) for (const seg of p.segments || []) if (Array.isArray(seg.syllables)) segs.push({ si: seg.si, note: seg.note, syllables: seg.syllables })
+  return segs
+}))
+// "long" is measured against this song's own syllables
+const breathBeats = computed(() => songBreathBeats(phraseLines.value))
 // ใบ#100 — per line, the syllables a space follows when เนื้อล้วน is written joined (lib/lyricPhrase.js):
 // where the tune breathes, never inside a word. Split mode = a space after every syllable, as before.
 const joinBreaks = computed(() => {
   const out = {}
   if (!props.lyricJoin) return out
-  const lines = renderLines.value.map(({ parts }) => {
-    const segs = []
-    for (const p of parts) for (const seg of p.segments || []) if (Array.isArray(seg.syllables)) segs.push({ si: seg.si, note: seg.note, syllables: seg.syllables })
-    return segs
-  })
-  const breathBeats = songBreathBeats(lines) // "long" is measured against this song's own syllables
-  lines.forEach((segs, li) => { out[li] = phraseBreaks(segs, { breathBeats, book: props.bookPhrases }) })
+  phraseLines.value.forEach((segs, li) => { out[li] = phraseBreaks(segs, { breathBeats: breathBeats.value, book: props.bookPhrases }) })
   return out
 })
+// ใบ v3/pleng#116 — เนื้อล้วน only: a sheet line clearly longer than the song's normal line (เพลง 627: 8 bars among
+// 4-bar lines) is written as two lyric lines, cut where the วรรค the reader sees ends on a bar line
+// (lib/lyricLineSplit.js). li → Set of si: a new lyric line starts at the bar that opens with segment si.
+// Only when the WHOLE sheet is words alone — a notation sheet (and its songbook verses below the notes) keeps
+// its lines exactly as typed. แยกพยางค์ has a space after every syllable, so it cuts at the tune's วรรค.
+const lineCuts = computed(() => {
+  if (!lyricsOnly.value) return {}
+  const breaks = props.lyricJoin
+    ? joinBreaks.value
+    : phraseLines.value.map((segs) => phraseBreaks(segs, { breathBeats: breathBeats.value }))
+  return lyricLineSplits(props.content.lines || [], { timeSignature: props.content.timeSignature, breaks })
+})
+function cutBefore(li, part) {
+  const c = lineCuts.value[li]
+  return !!(c && part.type === 'bar' && part.segments.length && c.has(part.segments[0].si))
+}
 function spaceAfter(li, si, k) {
   if (!props.lyricJoin) return true
   const b = joinBreaks.value[li]
@@ -102,6 +121,7 @@ const joinRuns = computed(() => {
     let phrase = null
     parts.forEach((part, pi) => {
       if (part.type !== 'bar') { run = null; phrase = null; return } // a marker / label closes the run
+      if (cutBefore(li, part)) { run = null; phrase = null } // ใบ#116 — a new lyric line starts here
       if (run) runs[pi] = null
       else { run = { pieces: [] }; runs[pi] = run }
       for (const seg of part.segments) {
@@ -515,6 +535,8 @@ watch(
         <path v-for="a in lineArcs[row.li].paths" :key="a.key" :d="a.d" />
       </svg>
       <template v-for="(part, pi) in row.parts" :key="pi">
+        <!-- ใบ#116 — a long line written as two lyric lines: an empty full-width box that ends the row -->
+        <span v-if="cutBefore(row.li, part)" class="lyric-cut" aria-hidden="true" />
         <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}<span v-if="part.rubric" class="section-rubric">({{ part.rubric }})</span><span v-if="part.meter" class="section-meter" :aria-label="'จังหวะ ' + part.meter">{{ part.meter }}</span></span>
         <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
         <span v-else-if="part.type === 'label'" class="line-label">{{ part.text }}</span>
@@ -662,6 +684,9 @@ watch(
 .song-line-join .section-label { display: block; }
 .song-line-join .section-marker,
 .song-line-join .line-label { margin-right: 0.4em; }
+/* ใบ v3/pleng#116 — where a long sheet line is cut into two lyric lines: a box as wide as the line and no height,
+   so what follows starts a new row — in แยกพยางค์ (the bar-wrapping flex row) and in the joined block alike */
+.lyric-cut { display: block; flex-basis: 100%; width: 100%; height: 0; }
 /* เนื้อล้วน display: per-syllable spans read as natural inline words (a space text-node sits after
    each), so the karaoke walks syllable-by-syllable while the line still reads like a plain verse. */
 .lyric-words { display: inline; }
