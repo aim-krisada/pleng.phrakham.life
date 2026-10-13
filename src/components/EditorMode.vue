@@ -981,17 +981,82 @@ function focusRow(i) {
     lensChoice.value = i
   }
 }
+// ใบ v3/pleng#115 — "กดลงแล้วไม่ลง": the move DID happen, but nothing on screen said so.
+//  · the canvas follows the moved ท่อน, so the same notes + words stay on screen (by design);
+//  · a ท่อน with no name of its own is shown as "ข้อ <its place>", so moving ข้อ 1 down renamed
+//    it "ข้อ 2" (next to the real ข้อ2) — it read as "now looking at verse 2", the sheet printed
+//    verse 1's words as ข้อ 2, and the announcement named the wrong ท่อน;
+//  · the only message was for screen readers;
+//  · rail rows are keyed by place, so after a keyboard ▲▼ the focus stayed on the SAME place —
+//    now the other ท่อน — and the next Enter moved that one back (ping-pong = "ไม่ลง").
+// moveFeedback: one visible line above the bottom bar (the dock's status line) + the polite
+// screen-reader line; the visible one clears itself after a few seconds.
+let moveMsgTimer = null
+function moveFeedback(text) {
+  reorderMsg.value = text
+  const shown = text + ' · ย้อนกลับได้ที่ปุ่ม ↶'
+  saveMsg.value = shown
+  clearTimeout(moveMsgTimer)
+  moveMsgTimer = setTimeout(() => {
+    if (saveMsg.value === shown) saveMsg.value = ''
+  }, 6000)
+}
+// keep the names the author SAW before the move: an unnamed ท่อน between from and to gets its
+// pre-move "ข้อ N" written in (rowLabel's own default — the sheet uses the same one), so a move
+// never renames anything. Part of the same document change → one undo step brings it all back.
+function keepShownNames(from, to) {
+  const lo = Math.min(from, to)
+  const hi = Math.max(from, to)
+  for (let k = lo; k <= hi; k++) {
+    const r = arrangement.value[k]
+    if (r && !r.label?.trim()) r.label = rowLabel(r, k)
+  }
+}
+// the ท่อน next to row i in the list the author SEES: with lyric sets the rail shows only the
+// active set's rows, so a plain i±1 could swap with a hidden row and nothing visible would move.
+function rowNeighbour(i, dir) {
+  const row = arrangement.value[i]
+  if (!row) return -1
+  for (let k = i + dir; k >= 0 && k < arrangement.value.length; k += dir) {
+    if (sameSet(arrangement.value[k], row)) return k
+  }
+  return -1
+}
+const canMoveRow = (i, dir) => rowNeighbour(i, dir) >= 0
 // reorder a ท่อน from → to (shared by ▲▼ and drag) — the moved row stays selected.
 function moveRowTo(from, to) {
   if (from < 0 || to < 0 || from === to) return
   if (from >= arrangement.value.length || to >= arrangement.value.length) return
+  keepShownNames(from, to)
   const [r] = arrangement.value.splice(from, 1)
   arrangement.value.splice(to, 0, r)
   focusRow(to)
-  reorderMsg.value = `ย้าย “${rowLabel(r, to)}” เป็นลำดับที่ ${to + 1} จาก ${arrangement.value.length}`
+  moveFeedback(`ย้าย “${rowLabel(r, to)}” ${to > from ? 'ลง' : 'ขึ้น'}ไปเป็นท่อนที่ ${to + 1} แล้ว`)
 }
+// ▲▼ (rail row or the canvas header). Keyboard focus follows the moved ท่อน: in the rail it goes
+// to the same button on the row's NEW place (that also scrolls the rail to it); a button that
+// just became disabled (top/bottom) hands focus to its twin instead of dropping it to <body>.
 function moveRow(i, dir) {
-  moveRowTo(i, i + dir)
+  const to = rowNeighbour(i, dir)
+  if (to < 0) return
+  const btn = typeof document !== 'undefined' ? document.activeElement : null
+  const inRail = !!btn?.closest?.('#studioRail')
+  const inHead = !!btn?.closest?.('.cshead')
+  moveRowTo(i, to)
+  if (!inRail && !inHead) return
+  nextTick(() => {
+    const scope = inRail ? document.querySelectorAll('#studioRail .srow')[to] : document.querySelector('.cshead')
+    focusMoveButton(scope, dir > 0 ? 'ย้ายท่อนลง' : 'ย้ายท่อนขึ้น', dir > 0 ? 'ย้ายท่อนขึ้น' : 'ย้ายท่อนลง')
+  })
+}
+// focus the move button whose aria-label starts with `same` inside scope — or its twin when that
+// one just became disabled (first/last place), so keyboard focus is never dropped to <body>
+function focusMoveButton(scope, same, twin) {
+  if (!scope) return
+  const a = scope.querySelector(`button[aria-label^="${same}"]`)
+  const b = scope.querySelector(`button[aria-label^="${twin}"]`)
+  const pick = a && !a.disabled ? a : b && !b.disabled ? b : null
+  pick?.focus()
 }
 // MP1 (B083): change the selected ท่อน's melody from the canvas header. Point activeStanza
 // at the new melody too (via focusRow) so lensActive stays true — otherwise cshead + the
@@ -1396,6 +1461,7 @@ function moveBar(li, bi, dir) {
   if (to >= 0 && to < line.bars.length) {
     const [b] = line.bars.splice(bi, 1)
     line.bars.splice(to, 0, b)
+    focusMovedBar(li, to, dir)
     return
   }
   // past the edge → hop to the neighbouring line. Leaving a line empty would break the
@@ -1408,6 +1474,7 @@ function moveBar(li, bi, dir) {
     next.bars.unshift(b)
     if (!line.bars.length) line.bars.push(newBar())
     barMenuOpen.value = ''
+    focusMovedBar(li + 1, 0, dir)
   } else if (dir < 0 && bi === 0) {
     const prev = lines.value[li - 1]
     if (!prev) return
@@ -1415,7 +1482,24 @@ function moveBar(li, bi, dir) {
     prev.bars.push(b)
     if (!line.bars.length) line.bars.push(newBar())
     barMenuOpen.value = ''
+    focusMovedBar(li - 1, prev.bars.length - 1, dir)
   }
+}
+// ใบ v3/pleng#115 — bars are keyed by place, so after ← → the focused button stayed on the SAME
+// place (now the neighbour bar) and a second Enter moved that bar back: ping-pong, "ไม่ไป".
+// Send focus after the moved ห้อง to its new place instead (focus also scrolls it into view);
+// at the very first/last place the button that just became disabled hands focus to its twin.
+function focusMovedBar(li, bi, dir) {
+  const btn = typeof document !== 'undefined' ? document.activeElement : null
+  if (!btn?.matches?.('.ed-bar-mv')) return
+  nextTick(() => {
+    const here = document.querySelectorAll(`.ed-bar-mv[data-mvbar="${li}-${bi}"]`)
+    const [left, right] = [...here]
+    const same = dir > 0 ? right : left
+    const twin = dir > 0 ? left : right
+    const pick = same && !same.disabled ? same : twin && !twin.disabled ? twin : null
+    pick?.focus()
+  })
 }
 // Duplicate bar bi: drop an exact copy (chords + notes) right after it. Faster than
 // re-keying a repeated bar; tweak the copy afterwards.
@@ -1517,6 +1601,36 @@ function moveLine(dir) {
     row.syllables = next
   }
   activeLine.value = lj // keep the moved line active/selected
+  followLine(lj, dir)
+}
+// ใบ v3/pleng#115 — after ▲▼ the moved บรรทัด left the screen (a phone line is ~1,500px tall, so
+// "line 1 down" put it 3,000px below) and the top/bottom button just pressed went disabled and
+// dropped focus to <body>. Say what moved, hand focus to the twin, and bring the line's head
+// into view below whatever is pinned at the top (site header · edit header · ท่อน header).
+function followLine(lj, dir) {
+  moveFeedback(`ย้ายบรรทัด ${lj - dir + 1} ${dir > 0 ? 'ลง' : 'ขึ้น'}ไปเป็นบรรทัดที่ ${lj + 1} แล้ว`)
+  if (typeof document === 'undefined') return
+  const btn = document.activeElement
+  const fromHead = !!btn?.matches?.('.ed-mvline')
+  nextTick(() => {
+    if (fromHead && btn.disabled) {
+      const twin = document.querySelector(`.ed-mvline[aria-label="${dir > 0 ? 'ย้ายบรรทัดขึ้น' : 'ย้ายบรรทัดลง'}"]`)
+      twin?.focus({ preventScroll: true })
+    }
+    const head = document.querySelectorAll('.ed-line')[lj]?.querySelector('.ed-line-head')
+    if (!head) return
+    let cover = 0 // how far down the pinned bars reach once the page scrolls
+    for (const el of document.querySelectorAll('.shell-bar, .edhead, .cshead')) {
+      const cs = getComputedStyle(el)
+      if (cs.position !== 'sticky' && cs.position !== 'fixed') continue
+      const top = el.classList.contains('shell-bar') ? el.getBoundingClientRect().top : parseFloat(cs.top) || 0
+      cover = Math.max(cover, top + el.getBoundingClientRect().height)
+    }
+    const dock = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dock-bar-h')) || 0
+    const r = head.getBoundingClientRect()
+    if (r.top >= cover && r.bottom <= window.innerHeight - dock) return // already in view
+    window.scrollTo({ top: window.scrollY + r.top - cover - 8, behavior: 'smooth' })
+  })
 }
 
 // ---------- B101: คัดลอก→วาง a whole บรรทัด / ห้อง anywhere (incl. a new ท่อน) ----------
@@ -3535,8 +3649,8 @@ defineExpose({
                first line instead of being squeezed to 3 letters (ใบ#94 เสร็จเมื่อ 8.2) -->
           <span class="srow-tools">
           <span class="updown" @click.stop>
-            <button aria-label="ย้ายท่อนขึ้น" :disabled="ri === 0" @click="moveRow(ri, -1)">▲</button>
-            <button aria-label="ย้ายท่อนลง" :disabled="ri === arrangement.length - 1" @click="moveRow(ri, 1)">▼</button>
+            <button aria-label="ย้ายท่อนขึ้น" :disabled="!canMoveRow(ri, -1)" @click="moveRow(ri, -1)">▲</button>
+            <button aria-label="ย้ายท่อนลง" :disabled="!canMoveRow(ri, 1)" @click="moveRow(ri, 1)">▼</button>
           </span>
           <!-- ใบ#94: ทำซ้ำท่อน — one tap: a copy (words + key + its own melody) right below this ท่อน -->
           <button class="srow-act" title="ทำซ้ำท่อนนี้ — ได้ท่อนใหม่ต่อท้าย เนื้อเหมือนกัน ทำนองแก้แยกกันได้" :aria-label="'ทำซ้ำท่อน ' + (ri + 1)" @click.stop="duplicateSection(ri)"><Icon name="copy" :size="14" /> ทำซ้ำ</button>
@@ -3864,8 +3978,8 @@ defineExpose({
       </label>
       <span class="cs-grow"></span>
       <span class="updown">
-        <button aria-label="ย้ายท่อนขึ้น" :disabled="lensChoice === 0" @click="moveRow(lensChoice, -1)">▲</button>
-        <button aria-label="ย้ายท่อนลง" :disabled="lensChoice === arrangement.length - 1" @click="moveRow(lensChoice, 1)">▼</button>
+        <button aria-label="ย้ายท่อนขึ้น" :disabled="!canMoveRow(lensChoice, -1)" @click="moveRow(lensChoice, -1)">▲</button>
+        <button aria-label="ย้ายท่อนลง" :disabled="!canMoveRow(lensChoice, 1)" @click="moveRow(lensChoice, 1)">▼</button>
       </span>
       <button v-if="arrangement.length > 1" class="cs-del" title="ลบท่อนนี้" aria-label="ลบท่อนนี้" @click="removeRow(lensChoice)"><Icon name="trash-2" :size="15" /></button>
     </div>
@@ -4069,8 +4183,8 @@ defineExpose({
                      Icon-only + compact. Responsive-split: ← → stay surfaced on every screen;
                      ⧉สำเนา/✕ลบ are surfaced on tablet/desktop but fold back into ⋯ on a phone
                      (≤480) so the bar foot stays one row (ui-standards no-crowd). -->
-                <button class="ed-mini ed-bar-mv" title="ย้ายห้องไปทางซ้าย" aria-label="ย้ายห้องไปทางซ้าย (สุดขอบ = ไปบรรทัดก่อน)" :disabled="bi === 0 && li === 0" @click="moveBar(li, bi, -1)"><span aria-hidden="true">←</span></button>
-                <button class="ed-mini ed-bar-mv" title="ย้ายห้องไปทางขวา" aria-label="ย้ายห้องไปทางขวา (สุดขอบ = ไปบรรทัดถัดไป)" :disabled="bi === line.bars.length - 1 && li === lines.length - 1" @click="moveBar(li, bi, 1)"><span aria-hidden="true">→</span></button>
+                <button class="ed-mini ed-bar-mv" title="ย้ายห้องไปทางซ้าย" aria-label="ย้ายห้องไปทางซ้าย (สุดขอบ = ไปบรรทัดก่อน)" :data-mvbar="li + '-' + bi" :disabled="bi === 0 && li === 0" @click="moveBar(li, bi, -1)"><span aria-hidden="true">←</span></button>
+                <button class="ed-mini ed-bar-mv" title="ย้ายห้องไปทางขวา" aria-label="ย้ายห้องไปทางขวา (สุดขอบ = ไปบรรทัดถัดไป)" :data-mvbar="li + '-' + bi" :disabled="bi === line.bars.length - 1 && li === lines.length - 1" @click="moveBar(li, bi, 1)"><span aria-hidden="true">→</span></button>
                 <button class="ed-mini bar-act-wide" title="ทำซ้ำทั้งห้องนี้ (วางเป็นห้องถัดไปทันที) — ถ้าอยากวางที่ท่อนอื่น ใช้ ⋯ › คัดลอกห้อง" aria-label="ทำซ้ำห้องนี้เป็นห้องถัดไป" @click="duplicateBar(line, bi)"><Icon name="copy" :size="14" /></button>
                 <button class="ed-mini danger-ic bar-act-wide" title="ลบทั้งห้องนี้ (ทุกโน้ตในห้อง)" aria-label="ลบห้องนี้" @click="removeBar(line, bi)"><Icon name="trash-2" :size="14" /></button>
               </span>
