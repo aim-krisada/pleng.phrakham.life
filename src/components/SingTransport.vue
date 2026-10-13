@@ -10,6 +10,7 @@
 //
 //   Seek row: [ ไทม์ไลน์ ]
 //   Buttons:  [ Back ][ Play ][ Fwd ][ ดาวน์โหลด ][ Aa ][ คีย์ ][ ความเร็ว ][ ท่อน ][ เสียง ][ ⚙ ]
+//   (ใบ#113: on a wide enough screen the two share ONE row — ไทม์ไลน์ left, the buttons right)
 //   ⚙ Setting: วนซ้ำ · คอร์ด · แสดงผล · เนื้อร้อง  (each: ปรับ inline · ▲▼ · 📌)
 import { ref, computed } from 'vue'
 import Icon from './Icon.vue'
@@ -111,6 +112,22 @@ function onSeekDown(e) {
 }
 function onSeekMove(e) { if (scrubbing) emit('seek', fracAt(e)) }
 function onSeekUp() { scrubbing = false }
+// ใบ v3/pleng#113 — the seek bar works from the keyboard too (WAI-ARIA slider pattern): Tab reaches
+// it, ← → (and ↓ ↑) move 5 seconds, Page Up/Down 10% of the song, Home/End the start/end.
+function onSeekKey(e) {
+  const step = props.totalSec > 0 ? Math.min(0.1, 5 / props.totalSec) : 0.02
+  const k = e.key
+  let f = null
+  if (k === 'ArrowRight' || k === 'ArrowUp') f = props.frac + step
+  else if (k === 'ArrowLeft' || k === 'ArrowDown') f = props.frac - step
+  else if (k === 'PageUp') f = props.frac + 0.1
+  else if (k === 'PageDown') f = props.frac - 0.1
+  else if (k === 'Home') f = 0
+  else if (k === 'End') f = 1
+  if (f === null) return
+  e.preventDefault() // the page must not scroll while the seek bar moves
+  emit('seek', Math.max(0, Math.min(1, f)))
+}
 
 // ---------- Aa reader font size (global store) ----------
 const fontPct = computed(() => Math.round(readingFontScale.value * 100))
@@ -216,9 +233,12 @@ const items = computed(() => {
           class="st-seek"
           role="slider"
           aria-label="ตำแหน่งการเล่น — แตะเพื่อไป"
+          tabindex="0"
           :aria-valuenow="Math.round(frac * 100)"
           aria-valuemin="0"
           aria-valuemax="100"
+          :aria-valuetext="fmt(frac * totalSec) + ' จาก ' + totalLabel"
+          @keydown="onSeekKey"
           @pointerdown="onSeekDown"
           @pointermove="onSeekMove"
           @pointerup="onSeekUp"
@@ -235,7 +255,10 @@ const items = computed(() => {
           <span v-for="(d, i) in dividers" :key="'d' + i" class="st-div" :style="{ left: posOf(d) }"></span>
           <span class="st-kn" :style="{ left: posOf(frac) }"></span>
         </span>
-        <span v-if="nowLabel" class="st-now" aria-live="polite">{{ nowLabel }}</span>
+        <!-- always in the page (empty while stopped): a live region that is already there is read out
+             reliably, and its place beside the slider stays the same, so the bar's one-row/two-row
+             choice does not change when the song starts or stops (ใบ#113) -->
+        <span class="st-now" data-dk-shrink aria-live="polite">{{ nowLabel }}</span>
         <span class="st-time">{{ totalLabel }}</span>
       </span>
     </template>

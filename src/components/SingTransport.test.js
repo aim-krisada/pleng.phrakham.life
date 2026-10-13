@@ -41,7 +41,9 @@ beforeEach(() => { localStorage.clear() })
 describe('B102 — "รอบ N" now-playing badge', () => {
   it('shows nothing when idle', () => {
     const w = mountT({ nowPlaying: null })
-    expect(w.find('.st-now').exists()).toBe(false)
+    // ใบ#113 — the live region stays in the page (so it is read out reliably and the bar's layout
+    // does not change on play/stop) but says nothing
+    expect(w.find('.st-now').text()).toBe('')
   })
 
   it('shows "รอบ n/total" while a repeated ท่อน (refrain) plays', () => {

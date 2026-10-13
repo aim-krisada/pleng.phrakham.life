@@ -29,6 +29,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
 import { isTextField } from '../lib/focusClear.js'
+import { barLayout } from '../lib/dockLayout.js'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
@@ -156,7 +157,15 @@ const barTail = computed(() => {
   const extra = [...row2.value.filter((i) => i.kind !== 'timeline'), ...pinnedItems.value]
   return gi >= 0 ? [...extra, ...r1.slice(gi)] : extra
 })
-const twoRows = ref(false) // the one button row didn't fit the bar → split in two
+// ใบ v3/pleng#113 — and where there is room, the seek bar and the buttons share ONE row: the seek
+// bar + time on the left, the whole button group on the right (still inside the centred column).
+// Only when the seek bar keeps at least 240px (lib/dockLayout.js · Apple HIG sliders) without any
+// button or gap getting smaller; otherwise the bar stays as above. The decision is measured on the
+// real bar, so it works for every page whatever its buttons.
+const layout = ref('stack') // 'one' | 'stack' | 'stack2' — see lib/dockLayout.js
+const twoRows = computed(() => layout.value === 'stack2') // the one button row didn't fit → split in two
+const seekItems = computed(() => (keysBands.value.length ? [] : row2.value.filter((i) => i.kind === 'timeline')))
+const oneRow = computed(() => layout.value === 'one' && seekItems.value.length > 0)
 const shownRows = computed(() => {
   const seek = row2.value.filter((i) => i.kind === 'timeline')
   const btns = twoRows.value && barHead.value.length && barTail.value.length
@@ -165,19 +174,37 @@ const shownRows = computed(() => {
   return [...(seek.length ? [{ key: 'seek', cls: 'dk-seekrow', items: seek }] : []), ...btns]
 })
 
-// measure the buttons: one row if they all fit side by side, otherwise two. Widths are measured
-// on whichever row(s) are showing, so the check also works when the screen gets wider again.
+// Measure, then pick the layout. Every width used here is the same in every layout (a button's
+// width, the time label), so the choice never flips back and forth.
+//   buttons   = every button cell side by side + the 8px gaps between them
+//   seekFixed = what sits beside the slider in its row (time label, the gaps, padding) — counted
+//               from those pieces, not from the cell, whose box may be squeezed. A label marked
+//               `data-dk-shrink` (ท่อนที่เล่นอยู่) gives up its width when room is short, so only its
+//               gap counts.
+function seekFixedWidth(slider) {
+  const box = slider.parentElement
+  if (!box) return 0
+  const cs = window.getComputedStyle(box)
+  const px = (v) => parseFloat(v) || 0
+  const kids = [...box.children].filter((el) => window.getComputedStyle(el).display !== 'none')
+  const fixed = kids
+    .filter((el) => el !== slider && !el.hasAttribute('data-dk-shrink'))
+    .reduce((sum, el) => sum + el.getBoundingClientRect().width, 0)
+  return px(cs.paddingLeft) + px(cs.paddingRight) + px(cs.borderLeftWidth) + px(cs.borderRightWidth) +
+    fixed + px(cs.columnGap) * Math.max(0, kids.length - 1)
+}
 async function refit() {
   await nextTick()
+  const inner = hostEl.value?.querySelector('.dk-inner')
   const rows = [...(hostEl.value?.querySelectorAll('.dk-btnrow') || [])]
-  if (!rows.length) return
-  const avail = rows[0].clientWidth
-  if (!(avail > 0)) return // not laid out (hidden page · test DOM)
+  if (!inner || !rows.length) return
+  const avail = inner.clientWidth
   const gap = parseFloat(window.getComputedStyle(rows[0]).columnGap) || 0
   const cells = rows.flatMap((r) => [...r.querySelectorAll(':scope > [data-cell]')])
-  const total = cells.reduce((s, el) => s + el.getBoundingClientRect().width, 0) + gap * Math.max(0, cells.length - 1)
-  const next = total > avail + 0.5
-  if (next !== twoRows.value) twoRows.value = next
+  const buttons = cells.reduce((s, el) => s + el.getBoundingClientRect().width, 0) + gap * Math.max(0, cells.length - 1)
+  const slider = seekItems.value.length ? hostEl.value.querySelector('.dk-seekrow [role="slider"]') : null
+  const next = barLayout({ avail, buttons, hasSeek: !!slider, seekFixed: slider ? seekFixedWidth(slider) : 0 })
+  if (next && next !== layout.value) layout.value = next
 }
 watch(() => [barHead.value.map((i) => i.id).join(), barTail.value.map((i) => i.id).join()], refit, { flush: 'post' })
 // a button's width can change with what it shows (ความเร็ว 92 → 120 · คีย์ C → F#)
@@ -270,7 +297,7 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 </script>
 
 <template>
-  <div ref="hostEl" class="dk-host dk-bar no-print" :class="{ 'dk-flow': short, 'dk-kbd': typing }">
+  <div ref="hostEl" class="dk-host dk-bar no-print" :class="{ 'dk-flow': short, 'dk-kbd': typing, 'dk-one': oneRow }">
     <p v-if="message" class="dk-msg" role="status">{{ message }}</p>
 
     <div class="dk-dock" role="toolbar" :aria-label="label">
@@ -605,6 +632,14 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 .dk-bar .dk-seekrow > .dk-cell { min-width: 0; }
 .dk-bar .dk-play { width: 48px; height: 48px; }
 .dk-bar .dk-pbtn { min-width: var(--touch-min); justify-content: center; }
+/* ใบ v3/pleng#113 — ONE row where there is room (refit() + lib/dockLayout.js decide): the seek bar
+   and time take the left and grow with the screen, the button group keeps its natural width on the
+   right, 16px between the two. The seek slider never gets shorter than 240px here (Apple HIG). */
+.dk-bar.dk-one .dk-inner { display: flex; align-items: center; gap: 16px; }
+.dk-bar.dk-one .dk-seekrow { flex: 1 1 0; min-width: 0; }
+.dk-bar.dk-one .dk-btnrow { flex: 0 0 auto; flex-wrap: nowrap; }
+.dk-bar.dk-one .dk-row + .dk-row { margin-top: 0; }
+.dk-bar.dk-one .dk-seekrow :deep([role="slider"]) { min-width: 240px; }
 /* page-drawn buttons (ท่อน · เสียงดนตรี · download · Aa · ความเร็ว) get the same 48px floor —
    only the button on the bar, never the buttons inside its popover */
 .dk-bar .dk-btnrow > .dk-cell > :deep(button),

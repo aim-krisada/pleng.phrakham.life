@@ -74,7 +74,8 @@ function fakeLayout(avail) {
   }
   Object.defineProperty(Element.prototype, 'clientWidth', {
     configurable: true,
-    get() { return this.classList?.contains('dk-btnrow') ? avail : 0 },
+    // ใบ#113 — the room is read off the bar's column (.dk-inner); the stacked rows are as wide
+    get() { return this.classList?.contains('dk-btnrow') || this.classList?.contains('dk-inner') ? avail : 0 },
   })
   window.getComputedStyle = (el, p) => {
     const cs = realGCS(el, p)
