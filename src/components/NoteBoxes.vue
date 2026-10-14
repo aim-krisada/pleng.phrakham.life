@@ -46,7 +46,8 @@ function sync() {
 }
 
 function inputEls() {
-  return root.value ? [...root.value.querySelectorAll('input')] : []
+  // only the note boxes — the #above / #below slots may hold other fields (chord picker, word box)
+  return root.value ? [...root.value.querySelectorAll('input.note-box')] : []
 }
 
 function focusBox(i, caret) {
@@ -152,31 +153,43 @@ function onBoxBlur() {
 </script>
 
 <template>
+  <!-- ใบ v3/pleng#119: one COLUMN per note — what the page puts #above (its chord) and #below (its
+       word) travels with the note, so when a long ท่อน wraps to a new row (big text, narrow phone)
+       the chord · note · word of each note stay stacked together and lined up. -->
   <span ref="root" class="note-boxes">
-    <span v-for="(b, i) in boxes" :key="i" class="note-box-cell">
-      <input
-        class="note-box"
-        :value="b"
-        autocomplete="off"
-        autocapitalize="off"
-        @focus="onBoxFocus(i, $event)"
-        @blur="onBoxBlur"
-        @input="onInput(i, $event); reportActive(i, $event.target)"
-        @keydown="onKey(i, $event)"
-      />
-      <!-- editor-only glanceable fermata hold (𝄐 N) — .no-print, never on the sheet -->
-      <sup
-        v-if="holdLabels[i] != null"
-        class="note-hold no-print"
-        :aria-label="`ค้าง ${holdLabels[i]} จังหวะ`"
-      >𝄐{{ holdLabels[i] }}</sup>
+    <span v-for="(b, i) in boxes" :key="i" class="note-col">
+      <slot name="above" :index="i" />
+      <span class="note-box-cell">
+        <input
+          class="note-box"
+          :value="b"
+          autocomplete="off"
+          autocapitalize="off"
+          @focus="onBoxFocus(i, $event)"
+          @blur="onBoxBlur"
+          @input="onInput(i, $event); reportActive(i, $event.target)"
+          @keydown="onKey(i, $event)"
+        />
+        <!-- editor-only glanceable fermata hold (𝄐 N) — .no-print, never on the sheet -->
+        <sup
+          v-if="holdLabels[i] != null"
+          class="note-hold no-print"
+          :aria-label="`ค้าง ${holdLabels[i]} จังหวะ`"
+        >𝄐{{ holdLabels[i] }}</sup>
+      </span>
+      <slot name="below" :index="i" />
     </span>
-    <button type="button" class="note-box add" tabindex="-1" @click="addBox">+</button>
+    <span class="note-col note-col-add">
+      <slot name="above" :index="boxes.length" :add="true" />
+      <button type="button" class="note-box add" tabindex="-1" @click="addBox">+</button>
+    </span>
   </span>
 </template>
 
 <style scoped>
-.note-boxes { display: inline-flex; gap: 3px; flex-wrap: wrap; align-items: center; }
+.note-boxes { display: inline-flex; gap: 3px; flex-wrap: wrap; align-items: flex-start; }
+/* one note = one column: [#above] · the note cell · [#below] (ใบ#119) */
+.note-col { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 /* one note = one cell (input + its glanceable hold badge, positioned at the top-right corner) */
 .note-box-cell { position: relative; display: inline-flex; }
 .note-hold {
@@ -198,11 +211,13 @@ function onBoxBlur() {
   white-space: nowrap;
 }
 .note-box {
-  width: 46px;
+  /* ใบ#119: the editor's Aa (--ed-fs, set by EditorMode) grows the cell with its text, so the chord
+     and word cells (same 46px × --ed-fs) stay lined up over / under it. The "+" keeps its width. */
+  width: calc(46px * var(--ed-fs, 1));
   text-align: center;
   font-family: 'Courier New', monospace;
   font-weight: 700;
-  font-size: 15px;
+  font-size: calc(15px * var(--ed-fs, 1));
   color: var(--note-blue);
   background: #f7fafc;
   border: 1px solid var(--line);
