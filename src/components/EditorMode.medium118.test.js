@@ -150,6 +150,17 @@ describe('ข้อ 3 — the stylesheet', () => {
     expect(s).toMatch(/@media \(min-width: 761px\) and \(max-width: 1023px\) \{\n  \.edhead \{ transition: top 0\.2s ease; \}\n\}/)
     expect(s).toMatch(/@media \(max-width: 1023px\) and \(prefers-reduced-motion: reduce\) \{\n  \.cshead,\n  \.edhead,\n  \.cs-chev \{ transition: none; \}/)
   })
+  it('touch screens under 1024px: the ท่อน header ▲▼ are 44px squares; a mouse and 1024px+ keep the small ones', () => {
+    const s = css()
+    const i = s.indexOf('@media (max-width: 1023px) and (pointer: coarse) {')
+    expect(i).toBeGreaterThan(0)
+    const block = s.slice(i, s.indexOf('\n}\n', i))
+    expect(block).toMatch(/\.cshead \.updown button \{ width: var\(--touch-min\); height: var\(--touch-min\); min-height: var\(--touch-min\);/)
+    // the base (mouse / desktop) size is untouched
+    expect(s).toMatch(/\n\.updown button \{\n[^}]*width: 26px;\n\s+height: 26px;/)
+    // no other rule sizes the ท่อน ▲▼ for touch from 1024px up
+    expect(s).not.toMatch(/@media \([^)]*min-width: 1024px[^{]*\{[^@]*\.cshead \.updown button/)
+  })
   it('the edit header is still pinned only from 761px (unchanged)', () => {
     expect(css()).toMatch(/@media \(min-width: 761px\) \{\n  \.edhead \{\n\s+position: sticky;/)
   })

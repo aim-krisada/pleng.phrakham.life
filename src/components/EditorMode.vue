@@ -6421,4 +6421,12 @@ defineExpose({
   .edhead,
   .cs-chev { transition: none; }
 }
+/* ใบ#118 — a touch screen under 1024px: the ท่อน header's ▲▼ get the app's 44px touch size
+   (WCAG 2.5.8; SOP ≥44px). They were 26×26 at 761–1023px and 34×40 up to 760px — now that the
+   one-row ท่อน header reaches tablets, a finger needs the full square. A mouse keeps the small
+   ones; from 1024px nothing changes. */
+@media (max-width: 1023px) and (pointer: coarse) {
+  .cshead .updown { gap: 4px; }
+  .cshead .updown button { width: var(--touch-min); height: var(--touch-min); min-height: var(--touch-min); font-size: 11px; }
+}
 </style>
