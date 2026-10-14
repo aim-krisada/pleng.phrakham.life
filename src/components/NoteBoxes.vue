@@ -18,7 +18,7 @@ const props = defineProps({
 // (the เฟอร์มาต้า "ค้าง" chip) under the focused box. v-model contract is unchanged;
 // these are purely additive. Payload carries the box index (= token index within the
 // segment), the current value, and the input element so the parent can position off it.
-const emit = defineEmits(['update:modelValue', 'note-active', 'note-inactive'])
+const emit = defineEmits(['update:modelValue', 'note-active', 'note-inactive', 'note-edit'])
 
 function toBoxes(s) {
   const t = (s || '').trim()
@@ -40,8 +40,13 @@ watch(
   }
 )
 
-function sync() {
+// ใบ v3/pleng#122: just before the new value, `note-edit` says which box the edit started at
+// (counted among the non-empty boxes — the ones the saved string keeps), so the page can tell
+// WHICH of two equal notes ("5 5 5") was removed and drop that note's word. Additive: the
+// v-model value is unchanged.
+function sync(from) {
   internalUpdate = true
+  if (from != null) emit('note-edit', boxes.value.slice(0, Math.max(0, from)).filter((b) => b.trim()).length)
   emit('update:modelValue', boxes.value.map((b) => b.trim()).filter(Boolean).join(' '))
 }
 
@@ -81,11 +86,11 @@ function onInput(i, e) {
     // pasted text with spaces -> split into boxes
     const parts = v.split(/\s+/).filter(Boolean).map(fixAccidental)
     boxes.value.splice(i, 1, ...(parts.length ? parts : ['']))
-    sync()
+    sync(i)
     focusBox(i + Math.max(parts.length - 1, 0))
   } else {
     boxes.value[i] = fixAccidental(v)
-    sync()
+    sync(i)
   }
 }
 
@@ -101,7 +106,7 @@ function onKey(i, e) {
     const c = el.selectionStart ?? el.value.length
     boxes.value[i] = fixAccidental(el.value.slice(0, c))
     boxes.value.splice(i + 1, 0, fixAccidental(el.value.slice(c)))
-    sync()
+    sync(i)
     focusBox(i + 1, 0)
   } else if (e.key === 'Enter') {
     e.preventDefault()
@@ -120,7 +125,7 @@ function onKey(i, e) {
     const prevLen = (boxes.value[i - 1] ?? '').length
     boxes.value[i - 1] = (boxes.value[i - 1] ?? '') + el.value
     boxes.value.splice(i, 1)
-    sync()
+    sync(i - 1)
     focusBox(i - 1, prevLen)
   } else if (e.key === 'Delete' && el.selectionStart === el.value.length && el.selectionEnd === el.value.length && i < boxes.value.length - 1) {
     // At the very end, Delete pulls the next box in (like the lyric box).
@@ -128,7 +133,7 @@ function onKey(i, e) {
     const curLen = el.value.length
     boxes.value[i] = el.value + (boxes.value[i + 1] ?? '')
     boxes.value.splice(i + 1, 1)
-    sync()
+    sync(i)
     focusBox(i, curLen)
   }
 }

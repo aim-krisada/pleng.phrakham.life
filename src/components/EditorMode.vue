@@ -1,10 +1,11 @@
 <script setup>
-import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount, toRaw } from 'vue'
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { KEYS, TIME_SIGNATURES, chordOptions, parseChord, normalizeChord, chordError } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, holdValue, HOLD_STEP, HOLD_MIN, HOLD_DEFAULT, snapHalf, slurSpans } from '../lib/notation.js'
 import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
+import { noteSlotEdit } from '../lib/noteSlotEdit.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
 import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, setCaption } from '../lib/songModel.js'
 import { songHaystack } from '../lib/songSearch.js'
@@ -1546,16 +1547,90 @@ function barSlotSpan(line, bi) {
   if (li < 0 || !line.bars[bi]) return null
   return { start: lineSlotStart(ls, li) + barsSlotLen(line.bars.slice(0, bi)), len: barsSlotLen([line.bars[bi]]) }
 }
+// ใบ v3/pleng#122: where note cell si of `bar` (a ห้อง of the active melody) sits in the flat word
+// list — { start, len } in slots, or null when the ห้อง is not on the active melody
+function segSlotSpan(bar, si) {
+  let start = 0
+  for (const line of lines.value)
+    for (const b of line.bars) {
+      if (b === bar) {
+        if (!b.segments[si]) return null
+        for (let k = 0; k < si; k++) start += syllableSlots(b.segments[k].note || '')
+        return { start, len: syllableSlots(b.segments[si].note || '') }
+      }
+      start += barsSlotLen([b])
+    }
+  return null
+}
+// ใบ v3/pleng#122 — ลบโน้ต drops the note's words too, in EVERY row on this melody (all linked
+// ท่อน, every lyric set, shown or not) — the note twin of removeBar. Before, only the notes went,
+// so every later word slid onto the wrong note.
 function removeSegment(bar, si) {
+  const s = stanzas.value[activeStanza.value]
+  const at = segSlotSpan(bar, si)
   bar.segments.splice(si, 1)
   if (!bar.segments.length) bar.segments.push(newSegment())
+  if (s && at && at.len > 0) resliceRows(s.id, (p) => p.splice(at.start, at.len))
 }
-// B098 — NOTE-level copy: duplicate ONE segment (chord + note + lyric) right after it,
-// leaving the rest of the ห้อง untouched. The bar-level twin is duplicateBar (whole ห้อง).
-// Mirrors duplicateBar's deep-copy so tweaks to the copy don't mutate the original.
+// B098 — NOTE-level copy: duplicate ONE segment (chord + note) right after it, leaving the rest
+// of the ห้อง untouched. The bar-level twin is duplicateBar (whole ห้อง). Mirrors duplicateBar's
+// deep-copy so tweaks to the copy don't mutate the original.
+// ใบ v3/pleng#122 — the copy also gets the same words, in EVERY row on this melody: MuseScore's
+// "repeat selection" (R) is copy + paste right after the selection, and a copy carries the lyrics
+// (handbook.musescore.org/basics/copy-and-paste); duplicateBar / copyLine do the same here.
 function duplicateSegment(bar, si) {
+  const s = stanzas.value[activeStanza.value]
+  const at = segSlotSpan(bar, si)
   const copy = JSON.parse(JSON.stringify(bar.segments[si]))
   bar.segments.splice(si + 1, 0, copy)
+  if (s && at && at.len > 0)
+    resliceRows(s.id, (p) => {
+      const end = at.start + at.len
+      while (p.length < end) p.push('')
+      p.splice(end, 0, ...p.slice(at.start, end)) // duplicate this note's words right after it
+    })
+}
+// ใบ v3/pleng#122 — typing in a note cell can add or remove notes (two notes typed in one box,
+// Space splitting a box, a box cleared, two boxes joined …). The words of every OTHER note stay
+// under their note: a new note gets an empty word slot, a removed note takes its word with it, in
+// EVERY row on this melody. When a note is cleared and a new one typed in its place (the usual way
+// to change a note), its words come back — a pitch change keeps the words, as in MuseScore.
+let noteEditFrom // the box the edit started at — NoteBoxes says it just before the new value
+let noteStash = null // the words of the note just cleared: { seg, at, rows, words[row] }
+function onNoteEdit(from) {
+  noteEditFrom = from
+}
+function setSegNote(bar, si, val) {
+  const from = noteEditFrom
+  noteEditFrom = undefined
+  const seg = bar.segments[si]
+  if (!seg) return
+  const old = seg.note || ''
+  const s = stanzas.value[activeStanza.value]
+  const span = segSlotSpan(bar, si)
+  seg.note = val
+  const e = noteSlotEdit(old, val, from)
+  if (!e || !s || !span) return
+  const at = span.start + e.at
+  const rows = arrangement.value.filter((r) => r.stanza === s.id).map((r) => toRaw(r))
+  const st = noteStash
+  noteStash = null
+  if (e.del) {
+    const words = []
+    resliceRows(s.id, (p, k) => {
+      words[k] = Array.from({ length: e.del }, (_, j) => p[at + j] || '')
+      p.splice(at, e.del)
+    })
+    if (words.some((ws) => ws.some(Boolean))) noteStash = { seg: toRaw(seg), at: e.at, rows, words }
+    return
+  }
+  const back =
+    st && st.seg === toRaw(seg) && st.at === e.at && st.words[0]?.length === e.ins &&
+    st.rows.length === rows.length && st.rows.every((r, k) => r === rows[k])
+  resliceRows(s.id, (p, k) => {
+    while (p.length < at) p.push('')
+    p.splice(at, 0, ...(back ? st.words[k] : new Array(e.ins).fill('')))
+  })
 }
 function addLine() {
   lines.value.push(newLine())
@@ -1745,31 +1820,54 @@ function followLine(lj, dir, anchor = null) {
 //     other words, so the copied words would be wrong there; the later words still stay in place.
 let docGen = 0 // bumped when a song is loaded or the form is reset — "same song" for a paste
 const clip = ref(null) // { kind: 'line' | 'bar', data: <deep copy>, from: string, gen?, stanza?, words? }
+// per row on the active melody, in play order: its words in slots [start, start + len) ('' = none)
+function clipWords(s, start, len) {
+  const words = []
+  if (s)
+    for (const row of arrangement.value)
+      if (row.stanza === s.id) words.push(Array.from({ length: len }, (_, k) => row.syllables[start + k] || ''))
+  return words
+}
+// open `len` word slots at `start` in every row on the active melody, filled with the copied words
+// when the clip comes from this song and this melody (#121 · #122), else empty
+function pasteClipWords(c, start, len) {
+  const s = stanzas.value[activeStanza.value]
+  if (!s || len <= 0) return
+  const same = c.gen === docGen && c.stanza === s.id
+  resliceRows(s.id, (p, k) => {
+    const w = same && c.words?.[k]?.length === len ? c.words[k] : new Array(len).fill('')
+    while (p.length < start) p.push('')
+    p.splice(start, 0, ...w)
+  })
+}
 function copyBarToClip(li, bi) {
   const line = lines.value[li]
   const bar = line?.bars[bi]
   if (!bar) return
   const s = stanzas.value[activeStanza.value]
   const at = barSlotSpan(line, bi)
-  const words = [] // per row on this melody, in play order: its words under the ห้อง ('' = none)
-  if (s && at)
-    for (const row of arrangement.value)
-      if (row.stanza === s.id)
-        words.push(Array.from({ length: at.len }, (_, k) => row.syllables[at.start + k] || ''))
   clip.value = {
     kind: 'bar',
     data: JSON.parse(JSON.stringify(bar)),
     from: `ห้อง ${bi + 1} · บรรทัด ${li + 1}`,
     gen: docGen,
     stanza: s?.id ?? '',
-    words,
+    words: at ? clipWords(s, at.start, at.len) : [],
   }
   barMenuOpen.value = ''
 }
 function copyLineToClip(li) {
   const line = lines.value[li]
   if (!line) return
-  clip.value = { kind: 'line', data: JSON.parse(JSON.stringify(line)), from: `บรรทัด ${li + 1}` }
+  const s = stanzas.value[activeStanza.value]
+  clip.value = {
+    kind: 'line',
+    data: JSON.parse(JSON.stringify(line)),
+    from: `บรรทัด ${li + 1}`,
+    gen: docGen,
+    stanza: s?.id ?? '',
+    words: clipWords(s, lineSlotStart(lines.value, li), lineSlotLen(line)), // ใบ#122
+  }
   lineMoreOpen.value = false
 }
 function clearClip() {
@@ -1782,24 +1880,23 @@ function pasteBarAt(li) {
   if (c?.kind !== 'bar') return
   const line = lines.value[li]
   if (!line) return
-  const s = stanzas.value[activeStanza.value]
   const start = lineSlotStart(lines.value, li) + lineSlotLen(line) // the end of บรรทัด li
   const copy = stripMarkerIds(JSON.parse(JSON.stringify(c.data))) // one id = one marker
-  const len = barsSlotLen([copy])
   line.bars.push(copy)
-  if (!s || len <= 0) return
-  const same = c.gen === docGen && c.stanza === s.id // #121: same song, same melody → words come along
-  resliceRows(s.id, (p, k) => {
-    const w = same && c.words?.[k]?.length === len ? c.words[k] : new Array(len).fill('')
-    while (p.length < start) p.push('')
-    p.splice(start, 0, ...w)
-  })
+  pasteClipWords(c, start, barsSlotLen([copy])) // #121: same song, same melody → words come along
 }
-// paste the copied บรรทัด at the end of the ACTIVE ท่อน (melody only)
+// paste the copied บรรทัด at the end of the ACTIVE ท่อน. ใบ v3/pleng#122 — its words come the same
+// way a ห้อง's do: same song + same melody → each row gets the words it had under the copied
+// บรรทัด; another melody / song → empty slots. Any word typed past the end of the melody stays
+// after the pasted บรรทัด.
 function pasteLineHere() {
-  if (clip.value?.kind !== 'line') return
-  lines.value.push(stripMarkerIds(JSON.parse(JSON.stringify(clip.value.data)))) // one id = one marker
+  const c = clip.value
+  if (c?.kind !== 'line') return
+  const start = lineSlotStart(lines.value, lines.value.length) // the end of the ท่อน
+  const copy = stripMarkerIds(JSON.parse(JSON.stringify(c.data))) // one id = one marker
+  lines.value.push(copy)
   activeLine.value = lines.value.length - 1
+  pasteClipWords(c, start, lineSlotLen(copy))
 }
 // วางเป็นท่อนใหม่ — the headline: a fresh ท่อน (stanza) whose only บรรทัด is the copy, then
 // jump to it. Mirrors addStanza's shape (a new melody with no ข้อ yet — words added later).
@@ -4179,7 +4276,7 @@ defineExpose({
         คัดลอกไว้: <b>{{ clip.kind === 'line' ? 'บรรทัด' : 'ห้อง' }}</b>
         <span class="muted">({{ clip.from }})</span>
       </span>
-      <span class="ed-clip-hint">— เปิดท่อนที่ต้องการ แล้วกด “วาง{{ clip.kind === 'line' ? 'บรรทัด' : 'ห้อง' }}” {{ clip.kind === 'line' ? '(โน้ต·คอร์ด ไม่รวมเนื้อ)' : '(วางในทำนองเดิม เนื้อมาด้วย · ทำนองอื่น ช่องเนื้อว่างไว้)' }}</span>
+      <span class="ed-clip-hint">— เปิดท่อนที่ต้องการ แล้วกด “วาง{{ clip.kind === 'line' ? 'บรรทัด' : 'ห้อง' }}” (วางในทำนองเดิม เนื้อมาด้วย · ทำนองอื่น ช่องเนื้อว่างไว้)</span>
       <button v-if="clip.kind === 'line'" class="ed-clip-new" title="สร้างท่อน (ทำนอง) ใหม่ แล้ววางบรรทัดนี้เป็นบรรทัดแรก" @click="pasteLineAsStanza">
         <Icon name="plus" :size="13" /> วางเป็นท่อนใหม่
       </button>
@@ -4288,8 +4385,10 @@ defineExpose({
             <div v-if="!barShown(li, bi)" class="seg-strip">
               <div v-for="(seg, si) in bar.segments" :key="si" class="seg-col">
                 <NoteBoxes
-                  v-model="seg.note"
+                  :model-value="seg.note"
                   :hold-labels="noteHoldLabels(li, bi, si)"
+                  @note-edit="onNoteEdit"
+                  @update:model-value="setSegNote(bar, si, $event)"
                   @note-active="onNoteActive(li, bi, si, $event)"
                   @note-inactive="onNoteInactive"
                 >

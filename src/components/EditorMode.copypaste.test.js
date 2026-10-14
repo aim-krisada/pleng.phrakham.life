@@ -1,9 +1,9 @@
 // B101 — คัดลอก→วาง a whole บรรทัด / ห้อง anywhere, including into a NEW ท่อน. This is the
 // "ย้ายไปที่อื่น" twin of B098's ทำซ้ำ-in-place: คัดลอก loads one in-memory slot, วาง places a
-// deep copy wherever you are. A บรรทัด paste is MELODY-ONLY (notes + chords + line structure) —
-// the per-ข้อ words never follow across ท่อน, so these tests assert the arrangement syllables are
-// UNCHANGED by a line paste. A ห้อง paste keeps every word under its note (ใบ v3/pleng#121:
-// same melody → the copied words, other melody → empty slots) — see EditorMode.bartools121.test.js.
+// deep copy wherever you are. วางเป็นท่อนใหม่ is MELODY-ONLY (a new melody has no ข้อ yet), so that
+// test asserts the arrangement syllables are UNCHANGED. A ห้อง or บรรทัด paste keeps every word
+// under its note (ใบ v3/pleng#121 · #122: same melody → the copied words, other melody → empty
+// slots) — see EditorMode.bartools121.test.js and EditorMode.notetools122.test.js.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
@@ -106,7 +106,7 @@ describe('B101 — คัดลอก→วาง บรรทัด / ห้อ
     expect(c.arrangement[0].syllables).toEqual(['a', 'b', 'c', 'd', 'e'])
   })
 
-  it('คัดลอกบรรทัด → วางบรรทัด: appended to the active ท่อน, words unshifted (melody-only)', async () => {
+  it('คัดลอกบรรทัด → วางบรรทัด: appended to the active ท่อน, its words come along (ใบ#122)', async () => {
     const w = mountEd()
     await nextTick()
     await copyActiveLine(w)
@@ -115,8 +115,8 @@ describe('B101 — คัดลอก→วาง บรรทัด / ห้อ
 
     const c = contentOf(w)
     expect(c.stanzas[0].lines.map((l) => lineNotes(l)[0])).toEqual(['1 2 3', '4 5', '1 2 3'])
-    // unlike ทำซ้ำ (copyLine), paste does NOT reslice the verse — words stay put
-    expect(c.arrangement[0].syllables).toEqual(['a', 'b', 'c', 'd', 'e'])
+    // same melody → the pasted บรรทัด brings its words (ใบ#122); the words before stay put
+    expect(c.arrangement[0].syllables).toEqual(['a', 'b', 'c', 'd', 'e', 'a', 'b', 'c'])
   })
 
   it('คัดลอกห้อง → วางห้อง: the copied ห้อง lands at the end of the chosen บรรทัด', async () => {
