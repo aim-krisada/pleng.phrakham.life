@@ -431,6 +431,7 @@ function printSheet() {
             :show-lyric="printShowLyric"
             :display-key="sheetKey"
             :song-title="sheetPrintTitle"
+            song-head
             :songbook="sheetBook === 'songbook'"
             :lyric-join="sheetLyricJoin !== 'split'"
             :book-phrases="sheetBookMap"

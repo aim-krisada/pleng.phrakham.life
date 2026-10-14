@@ -733,6 +733,17 @@ input, select, textarea {
   font-size: 0.85em;
   font-style: italic;
 }
+/* ใบ v3/pleng#123 — the new key where a ท่อน changes key (ใบ#95), in the same light box as the meter
+   beside it; the key comes first, as a key signature comes before a time signature. */
+.section-key {
+  margin-left: 8px;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-weight: 800;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
 /* ใบ v3/pleng#96 — the new meter where a melody's time signature changes (book: "4/4" before รับ).
    Bold like a printed time signature, boxed lightly so it reads as notation, not part of the name. */
 .section-meter {

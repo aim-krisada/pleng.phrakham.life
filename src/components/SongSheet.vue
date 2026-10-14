@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
-import { displayChord } from '../lib/chords.js'
+import { displayChord, transposeKey } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, slurSpans, segmentBeamLink } from '../lib/notation.js'
 import { buildArc, planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { pixelRatio, levelTop, lineThickness } from '../lib/pixelSnap.js'
@@ -33,6 +33,9 @@ const props = defineProps({
   // (verse number + words), like a printed hymn book. Off = every line keeps its own layers
   // (the ฝึกร้อง/sing view + editor preview never set this, so notes stay on every verse).
   songbook: { type: Boolean, default: false },
+  // ใบ v3/pleng#123 — แผ่นเพลง states the song's key and meter once at the very top, before the first
+  // note, like any printed score. Off by default so ฝึกร้อง and the editor preview stay as they are.
+  songHead: { type: Boolean, default: false },
 })
 const emit = defineEmits(['seek'])
 
@@ -179,6 +182,21 @@ function isEmptyLyricLine(row) {
 // lib/printChrome.js (injected on print) so all three items share one size + baseline.
 // This component only owns the sheet BODY + the printed title heading above it.
 
+// ใบ v3/pleng#123 — the key and meter the song OPENS in (the first line's own, when its ท่อน sets one —
+// ใบ#95/#96 — else the song's). The key follows the key the sheet is shown in (displayKey), exactly
+// like the chords, so a sheet printed in D says คีย์ D. The notes themselves never change (โด = the key).
+const songKeyOf = () => props.content.key
+const shownKey = (k) => transposeKey(k, songKeyOf(), props.displayKey || songKeyOf())
+const openKey = computed(() => {
+  const first = (props.content.lines || [])[0]
+  return (first && first._key) || songKeyOf() || ''
+})
+const openMeter = computed(() => {
+  const first = (props.content.lines || [])[0]
+  return (first && first._ts) || props.content.timeSignature || ''
+})
+const head = computed(() => ({ key: openKey.value ? shownKey(openKey.value) : '', meter: openMeter.value }))
+
 function chordText(chord) {
   return displayChord(chord, {
     system: props.chordSystem,
@@ -191,7 +209,7 @@ function chordText(chord) {
 // horizontal scroll) instead of overflowing — a bar never splits across rows.
 // Segments carry si (index within the line) for playback highlight + auto-scroll.
 const renderLines = computed(() =>
-  (props.content.lines || []).map((line) => {
+  (props.content.lines || []).map((line, li) => {
     // `_melodyFirst` is set by resolveContent (v2): false = this line repeats a melody (a
     // reused stanza, or the line just above it), so the songbook shows its words only. v1 /
     // undefined = treat as first so notes always show — only genuine repeats are collapsed.
@@ -216,7 +234,16 @@ const renderLines = computed(() =>
         // B102 — `rubric` (e.g. "ร้องรับทุกข้อ") rides the section marker when the refrain
         // carries the strophic directive; shown once next to the label, refrain still once.
         // ใบ#96 — `meter` rides it where the melody's meter changes (the book prints 4/4 before รับ)
-        parts.push({ type: 'section', name: item.name, rubric: item.rubric, meter: item.meter })
+        // ใบ#123 — `key` rides it where a ท่อน's key changes (ใบ#95). The very first heading drops a key or
+        // meter the head at the top already states, so the opening is never said twice.
+        const opening = props.songHead && li === 0
+        parts.push({
+          type: 'section',
+          name: item.name,
+          rubric: item.rubric,
+          key: item.key && !(opening && item.key === openKey.value) ? shownKey(item.key) : '',
+          meter: item.meter && !(opening && item.meter === openMeter.value) ? item.meter : '',
+        })
       } else if (item.type === 'end') {
         flush()
         parts.push({ type: 'end' })
@@ -517,7 +544,12 @@ watch(
     <!-- Printed title — centered, above the song, on paper only (on screen the shell
          bar / Studio heading already show it). Owned here so it prints from ANY mode
          that renders the sheet (ดู or แผ่น), which is why P'Aim's ดู-mode print had none. -->
-    <h1 v-if="songTitle" class="sheet-print-title">{{ songTitle }}</h1>
+    <h1 v-if="songTitle" class="sheet-print-title" :class="{ 'has-head': songHead && (head.key || head.meter) }">{{ songTitle }}</h1>
+    <!-- ใบ v3/pleng#123 — the song's key and meter, once, at the top left above the first line of music
+         (where a printed score and a โน้ตตัวเลข book put them). On screen and on paper. -->
+    <p v-if="songHead && (head.key || head.meter)" class="sheet-head">
+      <span v-if="head.key" class="sheet-head-item">คีย์ <b>{{ head.key }}</b></span>{{ head.key && head.meter ? ' ' : '' }}<span v-if="head.meter" class="sheet-head-item">จังหวะ <b>{{ head.meter }}</b></span>
+    </p>
     <div v-for="(grp, gi) in renderGroups" :key="gi" class="song-section">
     <div v-for="row in grp.lines" :key="row.li" v-show="!isEmptyLyricLine(row)" :data-li="row.li" class="song-line" :class="{ 'song-line-lyrics': lineLyricsOnly(row.first), 'song-line-join': lyricJoin && lineLyricsOnly(row.first) }">
       <!-- B069: cross-bar ties as ONE continuous arc, drawn in this line's own overlay so
@@ -537,7 +569,7 @@ watch(
       <template v-for="(part, pi) in row.parts" :key="pi">
         <!-- ใบ#116 — a long line written as two lyric lines: an empty full-width box that ends the row -->
         <span v-if="cutBefore(row.li, part)" class="lyric-cut" aria-hidden="true" />
-        <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}<span v-if="part.rubric" class="section-rubric">({{ part.rubric }})</span><span v-if="part.meter" class="section-meter" :aria-label="'จังหวะ ' + part.meter">{{ part.meter }}</span></span>
+        <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}<span v-if="part.rubric" class="section-rubric">({{ part.rubric }})</span><span v-if="part.key" class="section-key">คีย์ {{ part.key }}</span><span v-if="part.meter" class="section-meter" :aria-label="'จังหวะ ' + part.meter">{{ part.meter }}</span></span>
         <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
         <span v-else-if="part.type === 'label'" class="line-label">{{ part.text }}</span>
         <span v-else-if="part.type === 'end'" v-show="noteOn(row.first)" class="bar-final" aria-hidden="true"><i class="bf-thin" /><i class="bf-thick" /></span>
@@ -749,6 +781,32 @@ watch(
     break-inside: avoid;
   }
 }
+/* ใบ v3/pleng#123 — the key + meter head. Left, above the first line, plain text that wraps (never runs off a
+   narrow screen or a 200% reading size); the values bold like the printed signs. */
+.sheet-head {
+  margin: 0 0 0.8em;
+  font-size: 0.95em;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.sheet-head-item { display: inline-block; white-space: nowrap; margin-right: 1em; }
+.sheet-head b {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+/* On paper the head lives INSIDE the gap the title always left above the music (6mm): 0.5mm + a 4mm line +
+   1.5mm = the same 6mm, so nothing below it moves and no song gets a page more (ใบ#101). Measured on all 653
+   published songs: a head on a line of its own pushed 29 one-page songs onto a second page. */
+@media print {
+  .sheet-head {
+    font-size: 10pt;
+    line-height: 4mm;
+    height: 4mm;
+    white-space: nowrap;
+    color: #000;
+    margin: 0 0 1.5mm;
+  }
+}
 /* Printed title heading — hidden on screen (the shell bar shows the title there),
    shown centered above the song on paper only. */
 .sheet-print-title {
@@ -763,5 +821,7 @@ watch(
     color: #000;
     margin: 0 0 6mm;
   }
+  /* ใบ#123 — the key + meter head sits in this gap (see .sheet-head): 0.5mm here + 4mm + 1.5mm = 6mm */
+  .sheet-print-title.has-head { margin-bottom: 0.5mm; }
 }
 </style>
