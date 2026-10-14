@@ -117,13 +117,8 @@ describe('ข้อ 3 — sticky offsets follow the phone header', () => {
     expect(w.find('.cshead').attributes('style')).toContain('top: 122px')
     w.unmount()
   })
-  it('712px (between phone and desktop): unchanged — the stylesheet top, no inline offset', async () => {
-    setWidth(712)
-    const w = mountEd()
-    await flush()
-    expect(w.find('.cshead').attributes('style') || '').not.toContain('top')
-    w.unmount()
-  })
+  // (712px — between phone and desktop — kept the stylesheet's top: 58px here; ใบ#118 changed it:
+  // see EditorMode.medium118.test.js)
   it('desktop: unchanged — under the header AND the sticky edit header', async () => {
     setWidth(1280)
     const w = mountEd()
@@ -183,7 +178,8 @@ describe('ข้อ 4 — the ท่อน header: one row on a phone, the rest 
     expect(css).toMatch(/\n\.cs-moretgl \{ display: none; \}\n\.cs-more \{ display: contents; \}/)
     const i = css.indexOf('ใบ v3/pleng#114 — phone')
     const block = css.slice(i, css.indexOf('</style>', i) > 0 ? css.indexOf('</style>', i) : undefined)
-    expect(block).toMatch(/@media \(max-width: 599px\) \{/)
+    // ใบ#118: the one-row ท่อน header now reaches up to 1023px
+    expect(block).toMatch(/@media \(max-width: 1023px\) \{/)
     expect(block).toMatch(/\.cshead:not\(\.cs-open\) \.cs-more,\n\s+\.cshead:not\(\.cs-open\) \.cs-del \{ display: none; \}/)
     expect(block).toMatch(/\.cs-moretgl \{\n\s+display: inline-flex;[^}]*min-width: var\(--touch-min\); min-height: var\(--touch-min\)/)
     expect(block).toMatch(/prefers-reduced-motion: reduce/)

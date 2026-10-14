@@ -5,6 +5,7 @@
 //          of that keyboard; any other text field still hides the whole bar (ใบ#111).
 //   ข้อ 2  a `phoneIcon` button shows its icon only, keeps its name (aria-label + tooltip).
 // From 600px up nothing changes. jsdom has no layout: media queries go through a fake matchMedia.
+// ใบ v3/pleng#118: ข้อ 1 now reaches up to 1023px (DockKey.medium118.test.js); ข้อ 2 stays phone-only.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
@@ -118,8 +119,9 @@ describe('ข้อ 1 — phone: the note keypad shows only while a note cell is
     w.unmount()
   })
 
-  for (const width of [600, 712, 1280]) {
-    it(`${width}px (not a phone): the keypad is always on the bar, as before`, async () => {
+  // ใบ#118: 600–1023px follow the phone rule now (DockKey.medium118.test.js)
+  for (const width of [1024, 1280]) {
+    it(`${width}px (desktop width): the keypad is always on the bar, as before`, async () => {
       setView({ width })
       const w = mountBar()
       await flush()
@@ -153,8 +155,8 @@ describe('ข้อ 1 — phone + touch: while a note cell is typed in, the bar 
     expect(host.classes()).not.toContain('dk-keysonly')
     w.unmount()
   })
-  it('touch tablet (712px): unchanged — any field hides the whole bar', async () => {
-    setView({ width: 712, touch: true })
+  it('touch tablet (1024px · ใบ#118: from 1024px): unchanged — any field hides the whole bar', async () => {
+    setView({ width: 1024, touch: true })
     const w = mountBar()
     await flush()
     await focus(w.find('input.note-box').element)

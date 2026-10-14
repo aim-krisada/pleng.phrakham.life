@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import {
-  scrollStep, installHeaderHide, markProgrammaticScroll, headerHidden, HIDDEN_CLASS, HIDE_AFTER, SHOW_AFTER, PHONE_Q,
+  scrollStep, installHeaderHide, markProgrammaticScroll, headerHidden, HIDDEN_CLASS, HIDE_AFTER, SHOW_AFTER, PHONE_Q, COMPACT_Q,
 } from './headerHide.js'
 
 describe('scrollStep — the hide / show rule', () => {
@@ -121,6 +121,9 @@ describe('phone only, and the look (stylesheet)', () => {
   it('the rule is for screens narrower than 600px', () => {
     expect(PHONE_Q).toBe('(max-width: 599px)')
   })
+  it('ใบ#118: the sliding header covers every screen narrower than 1024px (from 1024 nothing changes)', () => {
+    expect(COMPACT_Q).toBe('(max-width: 1023px)')
+  })
   it('hidden = slid up by its own height; no slide when reduced motion is asked for', () => {
     const css = fs.readFileSync(path.resolve(__dirname, '../styles.css'), 'utf8')
     expect(css).toMatch(/html\.hdr-hidden \.shell-bar \{ transform: translateY\(-100%\); \}/)
@@ -128,8 +131,9 @@ describe('phone only, and the look (stylesheet)', () => {
     // the transform exists ONLY while hidden (a transformed header would trap its fixed menus)
     expect(css).not.toMatch(/\.shell-bar \{[^}]*transform: translateY\(0/)
   })
-  it('App.vue turns it on for the song pages on a phone, and keeps it while a menu is open', () => {
+  it('App.vue turns it on for the song pages on a phone (ใบ#118: or a medium screen), and keeps it while a menu is open', () => {
     const app = fs.readFileSync(path.resolve(__dirname, '../App.vue'), 'utf8')
-    expect(app).toMatch(/installHeaderHide\(\{ active: \(\) => isStudio\.value && isPhone\(\), pinned: \(\) => shellMenu\.value != null \}\)/)
+    expect(app).toMatch(/installHeaderHide\(\{ active: \(\) => isStudio\.value && isCompact\(\), pinned: \(\) => shellMenu\.value != null \}\)/)
+    expect(app).toMatch(/const isCompact = \(\) => [^\n]*matchMedia\(COMPACT_Q\)/)
   })
 })
