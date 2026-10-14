@@ -1593,11 +1593,11 @@ function resliceRows(stanzaId, mutate) {
 // (line→bar→seg). Swapping two adjacent lines' melody must swap the matching slice in EVERY
 // row on this stanza, or the words drift onto the wrong notes. Pad first so empty slots are
 // explicit before slicing (trailing empties are trimmed), then re-trim.
-function moveLine(dir) {
+function moveLine(dir, from = activeLine.value, anchor = null) {
   const s = stanzas.value[activeStanza.value]
   if (!s) return
   const ls = s.lines
-  const li = activeLine.value
+  const li = from
   const lj = li + dir
   if (lj < 0 || lj >= ls.length) return
   const i = Math.min(li, lj) // adjacent lines → the other is i + 1
@@ -1607,7 +1607,25 @@ function moveLine(dir) {
   ;[ls[i], ls[i + 1]] = [ls[i + 1], ls[i]] // swap the melody lines
   swapRowSlices(s.id, start, lenI, lenJ)
   activeLine.value = lj // keep the moved line active/selected
-  followLine(lj, dir)
+  followLine(lj, dir, anchor)
+}
+// ใบ v3/pleng#120 — ▲▼ on a บรรทัด's own head: move THAT line, and keep its head where it was on
+// the screen (the page shifts by exactly the distance the line moved), so the button stays under
+// the finger and a second tap moves the same line again (WCAG 3.2.1/3.2.2: using a control must
+// not move the page out from under it).
+function moveLineHere(li, dir, e) {
+  const head = e?.currentTarget?.closest?.('.ed-line-head')
+  moveLine(dir, li, head ? { headTop: head.getBoundingClientRect().top } : null)
+}
+// The edit header's ▲▼ (they act on the line being edited). Wide screen: the header is pinned, so
+// it stays put while the page follows the moved line (ใบ#115). Phone / small tablet (≤ 760px): the
+// header is NOT pinned — following the line (~1,500px away) took ▲ off the screen and the next tap
+// at the same spot hit whatever slid under the finger (measured: the chord "+", a note "+").
+// There the page stays where it is, so ▲ stays under the finger and every tap moves the line one
+// more place (the message above the bar says where it went). To watch the line itself move, its
+// own ▲▼ on the line's head keep the line under the finger instead (ใบ#120).
+function moveLineFromHeader(dir) {
+  moveLine(dir, activeLine.value, narrow.value ? { stay: true } : null)
 }
 // B086 / #117: two neighbouring spans [start, start+lenI) and [start+lenI, start+lenI+lenJ) of
 // the flat word list trade places in EVERY row on this melody (all linked ท่อน, all lyric sets).
@@ -1632,9 +1650,40 @@ function swapRowSlices(stanzaId, start, lenI, lenJ) {
 // "line 1 down" put it 3,000px below) and the top/bottom button just pressed went disabled and
 // dropped focus to <body>. Say what moved, hand focus to the twin, and bring the line's head
 // into view below whatever is pinned at the top (site header · edit header · ท่อน header).
-function followLine(lj, dir) {
+// how far down the pinned bars (site header · edit header · ท่อน header) reach once the page scrolls
+function pinnedCover() {
+  let cover = 0
+  for (const el of document.querySelectorAll('.shell-bar, .edhead, .cshead')) {
+    const cs = getComputedStyle(el)
+    if (cs.position !== 'sticky' && cs.position !== 'fixed') continue
+    const top = el.classList.contains('shell-bar') ? el.getBoundingClientRect().top : parseFloat(cs.top) || 0
+    cover = Math.max(cover, top + el.getBoundingClientRect().height)
+  }
+  return cover
+}
+function followLine(lj, dir, anchor = null) {
   moveFeedback(`ย้ายบรรทัด ${lj - dir + 1} ${dir > 0 ? 'ลง' : 'ขึ้น'}ไปเป็นบรรทัดที่ ${lj + 1} แล้ว`)
   if (typeof document === 'undefined') return
+  if (anchor?.headTop != null) {
+    // ใบ#120 — from a line head: the moved line's head goes back to the same spot on the screen —
+    // at once, not animated (a page moving under the finger turns the next tap into a mis-tap) —
+    // and focus goes to the same button on the moved line (or its twin at the first/last line)
+    nextTick(() => {
+      const line = document.querySelectorAll('.ed-line')[lj]
+      const head = line?.querySelector('.ed-line-head')
+      if (!head) return
+      const same = line.querySelector(`.ed-line-mv[data-mvdir="${dir}"]`)
+      const twin = line.querySelector(`.ed-line-mv[data-mvdir="${-dir}"]`)
+      const dy = Math.round(head.getBoundingClientRect().top - anchor.headTop)
+      if (dy) {
+        markProgrammaticScroll(400) // the page's own move: the phone header stays as it is
+        window.scrollBy({ top: dy, left: 0, behavior: 'instant' })
+      }
+      const pick = same && !same.disabled ? same : twin && !twin.disabled ? twin : null
+      pick?.focus({ preventScroll: true })
+    })
+    return
+  }
   const btn = document.activeElement
   const fromHead = !!btn?.matches?.('.ed-mvline')
   nextTick(() => {
@@ -1642,15 +1691,10 @@ function followLine(lj, dir) {
       const twin = document.querySelector(`.ed-mvline[aria-label="${dir > 0 ? 'ย้ายบรรทัดขึ้น' : 'ย้ายบรรทัดลง'}"]`)
       twin?.focus({ preventScroll: true })
     }
+    if (anchor?.stay) return // ใบ#120 — phone: the page stays, ▲ stays under the finger
     const head = document.querySelectorAll('.ed-line')[lj]?.querySelector('.ed-line-head')
     if (!head) return
-    let cover = 0 // how far down the pinned bars reach once the page scrolls
-    for (const el of document.querySelectorAll('.shell-bar, .edhead, .cshead')) {
-      const cs = getComputedStyle(el)
-      if (cs.position !== 'sticky' && cs.position !== 'fixed') continue
-      const top = el.classList.contains('shell-bar') ? el.getBoundingClientRect().top : parseFloat(cs.top) || 0
-      cover = Math.max(cover, top + el.getBoundingClientRect().height)
-    }
+    const cover = pinnedCover()
     const dock = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dock-bar-h')) || 0
     const r = head.getBoundingClientRect()
     if (r.top >= cover && r.bottom <= window.innerHeight - dock) return // already in view
@@ -3842,7 +3886,11 @@ defineExpose({
     <!-- ===== edit header (edhead) — ps2 prototype §③: breadcrumb OPENS the rail (the rail
          is the only navigation, no duplicate ท่อน/ข้อ dropdowns · B031/B003/E1) · in-context
          help · layout / whole-song-preview toggles · line-level quick structure ===== -->
-    <div id="pk-editor" class="edhead no-print" :style="{ top: shellVisH + 'px' }">
+    <!-- ใบ v3/pleng#120: `top` is only for the pinned (sticky) header on a wide screen. On a phone /
+         small tablet (≤ 760px) the header is NOT pinned (position: relative there), so a `top`
+         just pushed it down over the content below by the site header's height — and since
+         ใบ#114 that height flips 114px ↔ 0 as the site header slides, so ▲▼ jumped under the finger. -->
+    <div id="pk-editor" class="edhead no-print" :style="narrow ? null : { top: shellVisH + 'px' }">
       <button
         class="ed-crumb"
         aria-label="เปิดแถบองค์ประกอบเพลง (ทำนอง·เนื้อ·ลำดับ)"
@@ -3872,8 +3920,8 @@ defineExpose({
         <button class="ed-ico" :class="{ on: curLineHook }" title="ทำเครื่องหมายท่อนฮุกให้บรรทัดที่กำลังแก้" aria-label="ท่อนฮุก" @click="qHook"><Icon name="fishing-hook" :size="16" /></button>
         <button class="ed-ico" :class="{ on: curLineRepeat }" title="เล่นซ้ำบรรทัดที่กำลังแก้ ‖: :‖" aria-label="เล่นซ้ำบรรทัด" @click="qRepeat"><Icon name="repeat" :size="16" /></button>
         <!-- B086: move the active line up/down; each verse's words follow the melody line -->
-        <button class="ed-ico ed-mvline" title="ย้ายบรรทัดที่กำลังแก้ขึ้น (เนื้อทุกข้อตามไปด้วย)" aria-label="ย้ายบรรทัดขึ้น" :disabled="activeLine === 0" @click="moveLine(-1)"><span aria-hidden="true">▲</span></button>
-        <button class="ed-ico ed-mvline" title="ย้ายบรรทัดที่กำลังแก้ลง (เนื้อทุกข้อตามไปด้วย)" aria-label="ย้ายบรรทัดลง" :disabled="activeLine === lines.length - 1" @click="moveLine(1)"><span aria-hidden="true">▼</span></button>
+        <button class="ed-ico ed-mvline" title="ย้ายบรรทัดที่กำลังแก้ขึ้น (เนื้อทุกข้อตามไปด้วย)" aria-label="ย้ายบรรทัดขึ้น" :disabled="activeLine === 0" @click="moveLineFromHeader(-1)"><span aria-hidden="true">▲</span></button>
+        <button class="ed-ico ed-mvline" title="ย้ายบรรทัดที่กำลังแก้ลง (เนื้อทุกข้อตามไปด้วย)" aria-label="ย้ายบรรทัดลง" :disabled="activeLine === lines.length - 1" @click="moveLineFromHeader(1)"><span aria-hidden="true">▼</span></button>
         <button class="ed-ico" title="ทำซ้ำบรรทัดที่กำลังแก้ (วางถัดไปทันที · เนื้อทุกข้อตามไปด้วย) — ถ้าอยากวางที่ท่อนอื่น ใช้ ⋯ › คัดลอกบรรทัด" aria-label="ทำซ้ำบรรทัด" @click="qCopyLine"><Icon name="copy" :size="16" /></button>
         <button class="ed-ico danger-ic" title="ลบบรรทัดที่กำลังแก้" aria-label="ลบบรรทัด" @click="qDeleteLine"><Icon name="trash-2" :size="16" /></button>
       </span>
@@ -4110,6 +4158,26 @@ defineExpose({
             @click="line.end = !line.end"
           >‖ จบเพลง</button>
           <button class="ed-mini" title="ฟังบรรทัดนี้" aria-label="ฟังบรรทัดนี้" @click="playLine(li)"><Icon name="play" :size="14" /></button>
+          <!-- ใบ v3/pleng#120 — phone / small tablet only (CSS, ≤ 760px): ▲▼ for THIS บรรทัด, right on
+               its head. There the edit header (with its ▲▼) is not pinned and a บรรทัด is ~1,500px
+               tall, so after one move the page went to the moved line and the header's ▲ was far
+               off-screen. Here the line stays under the finger: tap ▲ again to keep moving it. -->
+          <button
+            class="ed-mini ed-line-mv"
+            :data-mvdir="-1"
+            title="ย้ายบรรทัดนี้ขึ้น (เนื้อทุกข้อตามไปด้วย)"
+            :aria-label="`ย้ายบรรทัด ${li + 1} ขึ้น`"
+            :disabled="li === 0"
+            @click="moveLineHere(li, -1, $event)"
+          ><span aria-hidden="true">▲</span></button>
+          <button
+            class="ed-mini ed-line-mv"
+            :data-mvdir="1"
+            title="ย้ายบรรทัดนี้ลง (เนื้อทุกข้อตามไปด้วย)"
+            :aria-label="`ย้ายบรรทัด ${li + 1} ลง`"
+            :disabled="li === lines.length - 1"
+            @click="moveLineHere(li, 1, $event)"
+          ><span aria-hidden="true">▼</span></button>
         </span>
       </div>
       <!-- A (editor-preview-refine): the live jianpu preview now sits IN PLACE — a small
@@ -5991,6 +6059,11 @@ defineExpose({
   padding: 1px 7px;
 }
 .ed-line-actions { margin-left: auto; display: inline-flex; gap: 4px; align-items: center; }
+/* ใบ v3/pleng#120 — the line's own ▲▼: only where the edit header is not pinned (≤ 760px) */
+.ed-line-mv { display: none; }
+@media (max-width: 760px) {
+  .ed-line-mv { display: inline-flex; align-items: center; justify-content: center; min-width: var(--touch-min); min-height: var(--touch-min); font-size: 11px; font-weight: 700; line-height: 1; }
+}
 /* B056: จบเพลง per-line toggle — ghost when off, filled when the line ends the song */
 .ed-line-end {
   font-size: 0.72rem;
