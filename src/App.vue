@@ -5,7 +5,7 @@ import { initAuth, recovering, emailChanged, shellMenu } from './store.js'
 import { initPrintChrome } from './lib/printChrome.js'
 import { measureDockClear } from './lib/dockClear.js'
 import { installFocusClear } from './lib/focusClear.js'
-import { installHeaderHide, PHONE_Q } from './lib/headerHide.js'
+import { installHeaderHide, COMPACT_Q } from './lib/headerHide.js'
 import SiteFooter from './components/SiteFooter.vue'
 import ShellBar from './components/ShellBar.vue'
 
@@ -70,12 +70,13 @@ let uninstallFocusClear = null
 // ใบ v3/pleng#114 — on a phone (< 600px) the header slides away while you scroll down a song and
 // comes back when you scroll up (lib/headerHide.js). Song pages only (ฝึกร้อง · แผ่นเพลง · แก้ไข —
 // all three are long pages read or typed on a small screen); it stays put while a menu is open.
-const isPhone = () => typeof window.matchMedia === 'function' && !!window.matchMedia(PHONE_Q)?.matches
+// ใบ v3/pleng#118 — and on every screen narrower than 1024px (a Fold, a tablet held upright).
+const isCompact = () => typeof window.matchMedia === 'function' && !!window.matchMedia(COMPACT_Q)?.matches
 let headerHide = null
 watch([() => route.path, shellMenu], () => headerHide?.update())
 onMounted(() => {
   uninstallFocusClear = installFocusClear()
-  headerHide = installHeaderHide({ active: () => isStudio.value && isPhone(), pinned: () => shellMenu.value != null })
+  headerHide = installHeaderHide({ active: () => isStudio.value && isCompact(), pinned: () => shellMenu.value != null })
   dockRO = new ResizeObserver(scheduleDockClear)
   // the dock is v-if, so it mounts after the song loads (later than the route change) and
   // can toggle; watch the tree so we re-measure whenever it appears/disappears. Cheap +

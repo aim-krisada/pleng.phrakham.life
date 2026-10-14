@@ -62,7 +62,7 @@ export function visibleBarTop(doc = document) {
 }
 
 /** bottom edge of the sticky site header — scrolling up must not push the field under it.
- *  0 while it is slid away on a phone (ใบ#114 · lib/headerHide.js). */
+ *  0 while it is slid away on a phone or medium screen (ใบ#114 · ใบ#118 · lib/headerHide.js). */
 export function headerBottom(doc = document) {
   if (doc.documentElement.classList.contains('hdr-hidden')) return 0
   const h = doc.querySelector('.shell-bar')

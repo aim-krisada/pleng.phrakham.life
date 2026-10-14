@@ -3,23 +3,36 @@
 // Group, sticky headers; Material 3 top app bar, scroll behaviour). It gives the page back the
 // header's 2 rows (~120px) while you read or type, and is one flick away when you need it.
 //
-// Only below PHONE_Q (narrower than 600px) and only on the song pages (App.vue decides where).
-// Wider screens keep the header where it is.
+// Only below COMPACT_Q (narrower than 1024px) and only on the song pages (App.vue decides where).
+// From 1024px the header stays where it is.
+// ใบ v3/pleng#118 — this used to be phones only (< 600px). Measured in the editor with its headers
+// pinned, the room left to work in was 54% of the screen on a Fold 6 opened (712×884), 46% at
+// 768×1024, 50% at 840 and 900 wide, and 30% on the Fold turned sideways (884×712) — the header,
+// the edit header, the ท่อน header and the bar cost ~500px at every width under 1024. So every
+// width under 1024 now gets the phone's treatment (Android's compact + medium window sizes, plus
+// the short "expanded" ones: a Fold turned sideways, a small tablet or browser window).
 //
 // The header always comes back when
 //   • the page is near its top (less than the header's own height scrolled),
 //   • focus moves into it (Tab, or a screen reader) — nothing focused may sit hidden,
 //   • one of its menus / the ☰ drawer is open,
-//   • the screen grows to 600px or wider, or the page changes.
+//   • the screen grows to 1024px or wider, or the page changes.
 // A scroll made by the page itself to keep a field in view (lib/focusClear.js) is not a "scroll
 // up" by the user: it is marked with markProgrammaticScroll() and does not change anything.
 //
 // The look lives in styles.css (`html.hdr-hidden .shell-bar` slides up; no slide when the user
 // asks for reduced motion). Sticky things under the header read `headerHidden` to pin at 0
-// instead of under it (EditorMode's ท่อน header), so no gap opens and nothing hides under it.
+// instead of under it (EditorMode's ท่อน header and, from 761px, its edit header), so no gap opens
+// and nothing hides under it.
 import { ref } from 'vue'
 
+/** a phone: narrower than 600px (Android "compact" window size) */
 export const PHONE_Q = '(max-width: 599px)'
+/** anything narrower than 1024px: a phone, a Fold (opened or turned sideways), a tablet held
+ *  upright, a small window. The header hides, the ท่อน header is one row and the note keypad comes
+ *  up only for a note cell below this width (ใบ v3/pleng#118). From 1024px nothing changes. Keep in
+ *  step with the `@media (max-width: 1023px)` blocks in EditorMode.vue. */
+export const COMPACT_Q = '(max-width: 1023px)'
 /** px of scrolling in one direction before the header changes (stops jitter on tiny moves) */
 export const HIDE_AFTER = 12
 export const SHOW_AFTER = 12

@@ -34,11 +34,17 @@
 //     that band, lifted to sit right on top of the phone's keyboard (`dk-keysonly`).
 //   • a `btn` with `phoneIcon: true` drops its text label and shows its icon only (its name stays
 //     as the accessible name and tooltip), so every button fits in two rows.
+// ใบ v3/pleng#118 — the keypad rule (showFor · dk-keysonly) now covers every screen narrower than
+// 1024px (a Fold, a tablet held upright). Measured there, a keypad that stayed up
+// all the time took 111px of an 884px-tall screen while no note cell was being edited, and on a touch
+// screen the whole bar — keypad included — stepped aside for the keyboard while a note WAS being
+// typed, so the keypad was never there when it was needed. Icon-only buttons stay phone-only:
+// the medium bar already fits its words in two rows.
 import { ref, shallowRef, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Icon from './Icon.vue'
 import { isTextField } from '../lib/focusClear.js'
 import { barLayout } from '../lib/dockLayout.js'
-import { PHONE_Q } from '../lib/headerHide.js'
+import { COMPACT_Q } from '../lib/headerHide.js'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
@@ -52,9 +58,9 @@ const props = defineProps({
 const SLOT_KINDS = ['timeline', 'sel', 'aa', 'slot'] // drawn by the page via #cell-<id>
 
 // E1: full-width keyboard band(s) (e.g. the edit jianpu palette) — laid out above every row.
-// ใบ#114: on a phone a band with `showFor` shows only while focus is in a matching field — or on
+// ใบ#114: on a phone (ใบ#118: any screen narrower than 1024px) a band with `showFor` shows only while focus is in a matching field — or on
 // the band itself (a key that took focus must not make its own keypad disappear).
-const keyShown = (band) => !phone.value || !band.showFor || !!focusEl.value?.closest?.(`${band.showFor}, .dk-keys`)
+const keyShown = (band) => !compact.value || !band.showFor || !!focusEl.value?.closest?.(`${band.showFor}, .dk-keys`)
 const keysBands = computed(() => visible.value.filter((i) => i.kind === 'keys' && keyShown(i)))
 
 // ---------- registry helpers ----------
@@ -94,11 +100,11 @@ const SHORT_Q = '(max-height: 499px)'
 const TOUCH_Q = '(hover: none) and (pointer: coarse)'
 const short = ref(false)
 const typing = ref(false) // a text field outside the bar has focus on a touch screen
-const phone = ref(false) // ใบ#114: narrower than 600px
+const compact = ref(false) // ใบ#114 · ใบ#118: narrower than 1024px (COMPACT_Q)
 const focusEl = shallowRef(null) // what has focus now (the keypad follows it on a phone)
 let mqShort = null
 const matches = (q) => typeof window.matchMedia === 'function' && !!window.matchMedia(q)?.matches
-function syncShort() { short.value = matches(SHORT_Q); phone.value = matches(PHONE_Q) }
+function syncShort() { short.value = matches(SHORT_Q); compact.value = matches(COMPACT_Q) }
 const typingIn = (el) => matches(TOUCH_Q) && isTextField(el) && !el.closest?.('.dk-host')
 // a field inside the bar's own popover (e.g. a number box) must not hide the bar under itself
 function onFocusIn(e) { typing.value = typingIn(e.target); focusEl.value = e.target }
@@ -109,7 +115,7 @@ function onFocusOut() {
 // ใบ#114 — phone + touch + a note cell being typed in: the phone's keyboard is up, so the bar shows
 // only the note keypad, sitting right on top of that keyboard (like the row of extra keys a phone
 // keyboard offers). Any other text field: the whole bar steps aside, as before (ใบ#111).
-const keysOnly = computed(() => typing.value && phone.value && keysBands.value.length > 0)
+const keysOnly = computed(() => typing.value && compact.value && keysBands.value.length > 0)
 // How high the phone's keyboard reaches into the screen. Most phone browsers now shrink only the
 // VISIBLE part of the page for the keyboard and leave the page's own box (where a fixed bar sits)
 // as it was, so a bar at the bottom would sit behind the keyboard. The visible part's bottom edge

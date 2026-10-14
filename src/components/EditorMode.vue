@@ -25,7 +25,7 @@ import DockKey from './DockKey.vue'
 import ExportTool from './ExportTool.vue'
 import SoundControl from './SoundControl.vue'
 import FontScaleControl from './FontScaleControl.vue'
-import { headerHidden, markProgrammaticScroll, PHONE_Q } from '../lib/headerHide.js'
+import { headerHidden, markProgrammaticScroll } from '../lib/headerHide.js'
 
 // ---------- mode contract (DS-04) ----------
 // EditorMode is the "แก้ไข" surface, extracted whole from Studio.vue. The shell owns
@@ -2843,7 +2843,8 @@ const soundIcon = computed(() => (editorEnsemble.value === 'ensemble' ? 'users' 
 
 const editItems = computed(() => [
   // ใบ#114: on a phone the keypad shows only while a note cell is being edited (like the phone's
-  // own keyboard) — DockKey `showFor`. Wider screens keep it on the bar all the time.
+  // own keyboard) — DockKey `showFor`. ใบ#118: every screen narrower than 1024px. From 1024px it stays
+  // on the bar all the time.
   { id: 'keys', kind: 'keys', name: 'แป้นสัญลักษณ์', rows: PALETTE, onInsert: insertSym, showFor: 'input.note-box' },
   { id: 'undo', kind: 'btn', name: 'ย้อน', icon: 'undo-2', place: { anchor: 'left', row: 1 }, run: undo, disabled: !canUndo.value },
   { id: 'redo', kind: 'btn', name: 'ทำซ้ำ', icon: 'redo-2', place: { anchor: 'rightOf:undo', row: 1 }, run: redo, disabled: !canRedo.value },
@@ -3011,17 +3012,15 @@ function measureShell() {
 // Everything that pins under it pins under what is VISIBLE of it: 0 while it is away, its height
 // while it is back — no gap, and nothing tucked under it.
 const shellVisH = computed(() => (headerHidden.value ? 0 : shellH.value))
-// On a phone the edhead is not sticky (see the media query), so .cshead pins straight under the
-// header. (It used to keep the stylesheet's hard-coded top:58px there — under a 2-row phone header
-// of ~120px, which hid the ท่อน name row behind the header.) 600–760px keeps that CSS top, as before
-// (this ticket changes phones only).
-const csheadStyle = computed(() => {
-  if (phoneW.value) return { top: shellVisH.value + 'px' }
-  return narrow.value ? {} : { top: shellVisH.value + edheadH.value + 'px' }
-})
+// Up to 760px the edhead is not sticky (see the media query), so .cshead pins straight under the
+// header; from 761px it pins under the header AND the pinned edhead.
+// ใบ v3/pleng#118 — 600–760px used to keep the stylesheet's hard-coded top:58px: under that
+// width's 122px header it hid 64px of the ท่อน header — the number and name row (measured on a
+// Fold opened, 712×884, and at 600). Every width now uses the measured line.
+const csheadStyle = computed(() => ({ top: shellVisH.value + (narrow.value ? 0 : edheadH.value) + 'px' }))
 // ใบ#114 — phone: the ท่อน header is ONE row (name · ▲▼ · this toggle); the rest of its settings
 // (ทำนอง · ผูกกับท่อน · แยกทำนอง · จังหวะ · คีย์ · ร้องรับทุกข้อ · ลบ) open under it on demand.
-// Wider screens show everything as before (the toggle is not shown there).
+// ใบ#118: every screen narrower than 1024px. From 1024px everything shows as before (no toggle there).
 const csOpen = ref(false)
 watch(lensChoice, () => { csOpen.value = false })
 function toggleCsMore() {
@@ -3152,11 +3151,6 @@ function isNarrow() {
   return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches
 }
 const narrow = ref(isNarrow())
-// ใบ#114 — a phone: narrower than 600px (the same line as the bar and the sliding header)
-function isPhoneW() {
-  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(PHONE_Q).matches
-}
-const phoneW = ref(isPhoneW())
 function toggleSheetWin() { sheetWinOpen.value = !sheetWinOpen.value }
 
 const floatEl = ref(null)
@@ -3327,7 +3321,6 @@ const previewPageStyle = computed(() => ({ fontSize: `calc(100cqw / ${previewEmW
 // keep the window on-screen (and sized within it) when the viewport shrinks; refresh mobile flag
 function onFloatResize() {
   narrow.value = isNarrow()
-  phoneW.value = isPhoneW()
   measureShell() // the shell bar's height changes with the breakpoint → keep the edhead's sticky top true
   measureSheetCol() // the reading column tracks the viewport → re-measure so the preview keeps parity
   if (narrow.value || !floatEl.value) return
@@ -4102,7 +4095,7 @@ defineExpose({
         @click="startRename(lensChoice, 'canvas')"
         @keydown.enter.prevent="startRename(lensChoice, 'canvas')"
       >{{ rowLabel(lensRow, lensChoice) }}</span>
-      <!-- ใบ#114 — phone only (hidden from 600px up): opens the rest of this ท่อน's settings -->
+      <!-- ใบ#114 — phone only (ใบ#118: every screen under 1024px; hidden from 1024px up): opens the rest of this ท่อน's settings -->
       <button
         type="button"
         class="cs-moretgl"
@@ -5168,7 +5161,7 @@ defineExpose({
 .cs-refrain { display: inline-flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
 .cs-refrain input { width: 16px; height: 16px; cursor: pointer; }
 .cs-grow { flex: 1; }
-/* ใบ#114 — the phone toggle for the ท่อน settings; on a wide screen the settings sit in the row */
+/* ใบ#114 — the phone toggle for the ท่อน settings (ใบ#118: < 1024px); on a wide screen the settings sit in the row */
 .cs-moretgl { display: none; }
 .cs-more { display: contents; }
 .cs-del {
@@ -6394,8 +6387,10 @@ defineExpose({
 }
 /* ใบ v3/pleng#114 — phone (< 600px): the pinned ท่อน header is ONE row — ชื่อท่อน · ⚙▾ · ▲▼.
    The rest (ทำนอง · ผูกกับท่อน · แยกทำนอง · จังหวะ · คีย์ · ร้องรับทุกข้อ · 🗑) opens under it with
-   the toggle (aria-expanded). Its `top` follows the site header sliding away / back. */
-@media (max-width: 599px) {
+   the toggle (aria-expanded). Its `top` follows the site header sliding away / back.
+   ใบ v3/pleng#118 — every screen narrower than 1024px too (COMPACT_Q in lib/headerHide.js): from
+   600px the ท่อน header wrapped to 120px; one row is 50px (measured at 600, 712, 768, 884, 900). */
+@media (max-width: 1023px) {
   .cshead { gap: 6px; padding: 2px 8px; margin-bottom: 8px; transition: top 0.2s ease; }
   .cshead .grip { display: none; }
   .cshead .cs-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -6416,8 +6411,22 @@ defineExpose({
   /* 🗑 sits at the end of the opened settings, on their last line */
   .cshead.cs-open .cs-del { order: 11; align-self: flex-end; margin: 0 0 6px auto; }
 }
-@media (max-width: 599px) and (prefers-reduced-motion: reduce) {
+/* ใบ#118 — 761–1023px: the edit header is pinned too, under the site header; it follows the header
+   sliding away / back at the same pace as the ท่อน header under it */
+@media (min-width: 761px) and (max-width: 1023px) {
+  .edhead { transition: top 0.2s ease; }
+}
+@media (max-width: 1023px) and (prefers-reduced-motion: reduce) {
   .cshead,
+  .edhead,
   .cs-chev { transition: none; }
+}
+/* ใบ#118 — a touch screen under 1024px: the ท่อน header's ▲▼ get the app's 44px touch size
+   (WCAG 2.5.8; SOP ≥44px). They were 26×26 at 761–1023px and 34×40 up to 760px — now that the
+   one-row ท่อน header reaches tablets, a finger needs the full square. A mouse keeps the small
+   ones; from 1024px nothing changes. */
+@media (max-width: 1023px) and (pointer: coarse) {
+  .cshead .updown { gap: 4px; }
+  .cshead .updown button { width: var(--touch-min); height: var(--touch-min); min-height: var(--touch-min); font-size: 11px; }
 }
 </style>
