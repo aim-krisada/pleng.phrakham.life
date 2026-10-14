@@ -193,6 +193,11 @@ export function resolveContent(content) {
   //       stay in reading order.
   const seenStanza = new Set()
   let prevEntryTs = songTs
+  // ใบ v3/pleng#123 — the same for the KEY (ใบ#95's arrangement[].key): the sheet names the new key on the
+  // heading of the ท่อน where it changes, and again where the song comes back to its own key — the way a
+  // printed score writes a new key signature at that point. The song's own key is stated once at the top.
+  const songKey = content.key
+  let prevEntryKey = songKey
   ;(content.arrangement || []).forEach((entry, ei) => {
     const stanza = byId[entry.stanza]
     if (!stanza) return
@@ -207,6 +212,9 @@ export function resolveContent(content) {
     // previous ท่อน's, and for the first ท่อน vs the song's own meter (which the song already states)
     const meterChange = entryTs !== prevEntryTs ? entryTs : null
     prevEntryTs = entryTs
+    const entryKey = entry.key || songKey
+    const keyChange = entryKey && entryKey !== prevEntryKey ? entryKey : null
+    prevEntryKey = entryKey
     ;(stanza.lines || []).forEach((line, li) => {
       const outLine = []
       // B102 — a section carrying the strophic "รับทุกข้อ" directive shows a one-time rubric
@@ -224,6 +232,7 @@ export function resolveContent(content) {
         if (name) {
           const marker = { type: 'section', name }
           if (entry.afterEachVerse) marker.rubric = 'ร้องรับทุกข้อ'
+          if (keyChange) marker.key = keyChange // ใบ#123 — "♦ รับ 2 · คีย์ A"
           if (meterChange) marker.meter = meterChange // ใบ#96 — "♦ รับ · 4/4"
           outLine.push(marker)
         }

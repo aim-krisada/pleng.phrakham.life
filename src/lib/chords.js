@@ -200,6 +200,16 @@ export function chordToIntervals(suffix) {
   return CHORD_INTERVALS[s] || CHORD_INTERVALS['']
 }
 
+// ใบ v3/pleng#123 — a KEY NAME moved by the same distance as the song (originalKey → displayKey), spelled the
+// way the key menus spell it (KEYS: flats for the black keys). A ท่อน in A of a C song, read in D, is in B.
+// Unknown names come back as they were.
+export function transposeKey(key, originalKey, displayKey) {
+  const i = key ? noteIndex(key) : -1
+  const semis = semitonesBetween(originalKey, displayKey || originalKey)
+  if (i === -1 || semis === 0) return key
+  return KEYS[(i + semis) % 12]
+}
+
 // Display a chord under the chosen system, transposed from originalKey to displayKey
 export function displayChord(chord, { system, originalKey, displayKey }) {
   if (!chord) return ''
