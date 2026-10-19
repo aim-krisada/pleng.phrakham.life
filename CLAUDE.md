@@ -45,6 +45,21 @@ Preview tools: `preview_start "dev"` (config in `.claude/launch.json`).
 - **New idea from P'Aim (image + text):** file it into `docs/backlog.md` with an id + save the image under `docs/backlog-assets/`.
 - **Base branch for all work = `main`.** Branch per aimgit issue as `v1-<issue#>-<short-name>` (e.g. `v1-53-slur2beat`, `v1-94-section-copy`), open a GitHub PR into `main`, and **stop there — P'Aim reviews and merges it himself** (merging auto-deploys). Never merge or push to `main` yourself.
 - **Commit messages** reference the aimgit issue as `(ใบ v3/pleng#<n>)`, e.g. `สเลอร์ที่คร่อมเส้นใต้เกิน 1 ท่อน ต้องมีเส้นโค้ง (ใบ v3/pleng#53)`.
+- 🔴 **AI acts as the company AI account (`ai_company`), NEVER as P'Aim** — on GitHub and on aimgit
+  alike. That covers every outward write: opening or updating a PR, commenting, reviewing,
+  opening or editing an issue. Commits already use `Claude <noreply@anthropic.com>`; the
+  identity that matters here is the **token the write goes out with**.
+  - **Check before the first outward write of a session:** `mcp__github__get_me` (GitHub) must
+    not come back as P'Aim's own login. On aimgit use `GITLAB_TOKEN_AI_COMPANY`, never
+    `GITLAB_TOKEN_COMPANY`.
+  - ⛔ **It comes back as P'Aim → do NOT open the PR / post the comment.** Say so, hand over the
+    ready-made title and body, and let P'Aim post it — or ask for the `ai_company` token.
+  - A **Claude Code cloud session mints its GitHub credential from P'Aim's own connected
+    account**, so there it is P'Aim by default and there is no way to switch from inside the
+    session. The fix is an `ai_company` token in the environment settings (cloud environment
+    menu in the title bar → Edit → Network secrets / environment variable), read from
+    `GH_TOKEN_AI_COMPANY`; a new session picks it up. (Learned 19 ต.ค. 2569 — PR 55 went out
+    under P'Aim's name.)
 - `studio-shell-redesign` is a legacy branch — do not base new work on it (older `docs/pm/` briefs and `docs/reports/` still mention it as the base; those are history).
 - Old `features/` + `bugs/` scratch folders were archived to `OneDrive/4 Personal/claude/pleng/scratch-archive/` (no longer in the repo).
 
