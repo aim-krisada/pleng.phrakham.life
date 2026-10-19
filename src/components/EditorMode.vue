@@ -879,11 +879,19 @@ function rowStatus(row) {
   return { need, got, ok: got === need }
 }
 // ---------- bulk lyric textarea <-> per-note slots (melody-aware) ----------
-// The textarea is the "type the words" view: one word per ATTACK note. The per-note
-// boxes above expose every slot (incl. held). These map between the two: words land on
-// attack slots, held slots stay blank; reading back shows only the attack words. Keeps
-// the paste-a-verse workflow 1:1 with the sung syllables even though held notes now
-// have their own boxes.
+// The textarea is the "type the words" view of ONE ข้อ. The per-note boxes above expose
+// every slot (attack · held/rest · overflow); this pair maps between the two.
+//
+// "เนื้อหาย" (พี่เปา, 19 ต.ค. 2569) — the first version read back ONLY the words on attack
+// slots and wrote back only onto attack slots. A word that sits on a held/rest box is
+// ordinary data: the per-note boxes offer one, the sheet and ฝึกร้อง print it, and words
+// land there by themselves — ◀▶ ripple across every slot, and a melody edit that turns an
+// attack into a hold (a tie, a rest, or wrapping notes in a ( ) สเลอร์ for เอื้อน) leaves
+// the slot count unchanged, so the word stays put while its box becomes 'held'. Those words
+// were missing from this box (that IS the "เนื้อหาย" on screen), and the next keystroke here
+// rewrote the whole ข้อ from what the box showed, deleting them for good. ✂ แยกพยางค์
+// อัตโนมัติ, which round-trips through the same pair, deleted them in one tap.
+// So: READ every word, whatever kind of box it is on, and WRITE every word back.
 function stanzaKindList(stanzaId) {
   const s = stanzas.value.find((x) => x.id === stanzaId)
   const out = []
@@ -896,28 +904,44 @@ function stanzaKindList(stanzaId) {
         }
   return out
 }
-function wordsToSyllables(words, stanzaId) {
+// slot index of every word this ข้อ bears right now, in singing order
+function wordSlots(syllables) {
+  const at = []
+  ;(syllables || []).forEach((t, i) => {
+    if (String(t ?? '').trim()) at.push(i)
+  })
+  return at
+}
+// words → slots. A word the author did NOT touch keeps the slot it is on (so fixing a typo,
+// or adding one word at the end, never re-aligns the rest of the ข้อ — and a word parked on a
+// held/rest box is not swept off it). From the first word that changed, the rest flow on the
+// usual way: one word per ATTACK note, held/rest boxes blank, extras become overflow slots.
+function wordsToSyllables(words, stanzaId, prev = []) {
   const kinds = stanzaKindList(stanzaId)
-  const out = []
-  let w = 0
-  for (const k of kinds) out.push(k === 'attack' ? (words[w++] ?? '') : '')
-  while (w < words.length) out.push(words[w++]) // extra words → overflow slots
-  while (out.length && out[out.length - 1] === '') out.pop()
+  const at = wordSlots(prev)
+  let keep = 0
+  while (keep < words.length && keep < at.length && words[keep] === String(prev[at[keep]] ?? '').trim()) keep++
+  // same number of words = the author only re-worded: every word stays on its own slot
+  if (words.length === at.length) keep = at.length
+  const out = keep ? prev.slice(0, at[keep - 1] + 1).map((t) => String(t ?? '')) : []
+  for (let k = 0; k < keep; k++) out[at[k]] = words[k]
+  let w = keep
+  for (let i = out.length; w < words.length && i < kinds.length; i++) {
+    out[i] = kinds[i] === 'attack' ? (words[w++] ?? '') : ''
+  }
+  while (w < words.length) out.push(words[w++]) // more words than notes → overflow slots
+  while (out.length && !out[out.length - 1].trim()) out.pop()
   return out
 }
-function syllablesToWords(syllables, stanzaId) {
-  const kinds = stanzaKindList(stanzaId)
-  const out = []
-  syllables.forEach((t, i) => {
-    if (kinds[i] === undefined || kinds[i] === 'attack') out.push(t)
-  })
-  return out
+// every word of the ข้อ, in singing order — a word on a held/rest box is shown like any other
+function syllablesToWords(syllables) {
+  return (syllables || []).map((t) => String(t ?? '').trim()).filter(Boolean)
 }
 function rowLyricText(row) {
-  return joinSyllables(syllablesToWords(row.syllables, row.stanza))
+  return joinSyllables(syllablesToWords(row.syllables))
 }
 function setRowLyricText(row, text) {
-  row.syllables = wordsToSyllables(splitSyllables(text), row.stanza)
+  row.syllables = wordsToSyllables(splitSyllables(text), row.stanza, row.syllables)
 }
 // MP3 (B083): imported lyrics often arrive as one blob per verse (comma between วรรค). Split
 // it into Thai word tokens with Intl.Segmenter (ships with the browser · ICU dict · no lib —

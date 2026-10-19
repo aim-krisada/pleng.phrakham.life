@@ -42,6 +42,11 @@ guessing.
   "version": 2,
   "key": "C", "timeSignature": "4/4", "bpm": 92,
 
+  // optional · the same song's number in other paper books, typed in the editor's
+  // "อ้างอิง (เล่มอื่น)" box. Same shape as the songs.book_refs column; read both through
+  // songBookRefs() in src/lib/bookCodes.js. Absent on a song that has never had refs.
+  "bookRefs": [{ "book": "ล", "no": 305 }],
+
   // Melodies, entered once. A stanza has NO lyrics.
   "stanzas": [
     {
@@ -126,6 +131,16 @@ YS 2014 book already does (e.g. "อ - รุณ"):
 Tokenizing a verse's lyric line on spaces AND hyphens gives the syllable slots; the
 count must equal `syllableSlots(stanza)` or the song is flagged for manual review
 (never guess). Edge cases beyond this (clusters, special finals) deferred.
+
+**A held slot SHOULD be blank, but a word on one is still that ข้อ's word.** The rule above
+is how words are *placed*; it is not a licence to throw one away. `syllables[]` has one entry
+per note box, held ones included, and a word reaches a held box by ordinary means — ◀▶ ripple
+across every slot, and a melody edit that turns an attack into a hold (a tie, a rest, a ( )
+สเลอร์ for เอื้อน) keeps the slot count unchanged, so the word stays while its box changes
+kind. Every surface must therefore READ every non-empty slot and WRITE every word back:
+the 📝 แก้เนื้อแบบย่อหน้า box once filtered to attack slots on both sides, which hid those
+words and then deleted them on the next keystroke ("เนื้อหาย", พี่เปา 19 ต.ค. 2569 —
+`EditorMode.lyriclost.test.js`). `rowStatus` flags the mismatch; nothing silently drops it.
 
 ## Hand-off status (6-Jul-2026)
 
