@@ -52,9 +52,13 @@ function mountEd() {
   })
 }
 
-// the OPEN chord picker is the ComboSelect that has a validate fn (allow-custom + validate) —
-// distinct from key/timeSignature (no validate) and หมวด (no allow-custom).
-const openChordCombo = (w) => w.findAllComponents(ComboSelect).find((c) => typeof c.props('validate') === 'function')
+// the OPEN chord picker is the ComboSelect the chord cell renders — it carries `.chord-pick`.
+// (It used to be found as "the one with a validate fn", but ธีม is free-text with a validate fn
+// of its own now, and it comes first in the DOM, so that no longer names the chord cell.)
+const openChordCombo = (w) => {
+  const c = w.findAllComponents(ComboSelect).find((x) => x.classes().includes('chord-pick'))
+  return c && c.exists() ? c : undefined
+}
 
 // commit a chord through the real UI: open the first chord cell, type, blur, let the timer fire.
 async function typeChord(w, value) {

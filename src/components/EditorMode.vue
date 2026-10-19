@@ -360,7 +360,35 @@ const THEMES = [
   'รักปรารถนา',
   'อาณาจักร',
 ]
-const themeOptions = [{ value: '', label: '— ไม่ระบุธีม —' }, ...THEMES.map((t) => ({ value: t, label: t }))]
+// P'Pao 19 ต.ค. 2569: "ธีมให้เพิ่มได้เองด้วย ตอนนี้มันเพิ่มไม่ได้ มีแค่ให้เลือกเท่าที่มีอยู่". ธีม is a
+// free label, not a taxonomy the database enforces (unlike หมวด, which is LOCKED to the 3 books —
+// see CATEGORY_OPTIONS), so the field takes any text. The list then grows by itself: a ธีม already
+// on a song in the library is offered to the next song, so a new one is typed once, not every time.
+const libraryThemes = computed(() => {
+  const seen = new Set(THEMES)
+  const extra = []
+  for (const s of songList.value) {
+    const t = (s?.theme || '').trim()
+    if (t && !seen.has(t)) {
+      seen.add(t)
+      extra.push(t)
+    }
+  }
+  // the ธีม on screen may be newer than the library copy (just typed, not saved yet)
+  const mine = (meta.theme || '').trim()
+  if (mine && !seen.has(mine)) extra.push(mine)
+  return extra.sort((a, b) => a.localeCompare(b, 'th'))
+})
+const themeOptions = computed(() => [
+  { value: '', label: '— ไม่ระบุธีม —' },
+  ...THEMES.map((t) => ({ value: t, label: t })),
+  ...libraryThemes.value.map((t) => ({ value: t, label: t })),
+])
+const themeText = (t) => String(t ?? '').trim()
+// anything with real text is a ธีม; only whitespace is refused (the "— ไม่ระบุธีม —" item clears it)
+const themeOk = (t) => themeText(t).length > 0 && themeText(t).length <= 60
+const themeErr = (t) =>
+  themeText(t).length > 60 ? 'ชื่อธีมยาวเกินไป (ไม่เกิน 60 ตัวอักษร)' : 'พิมพ์ชื่อธีม หรือเลือก "— ไม่ระบุธีม —"'
 // The 3 canonical books (P'Aim 12 ก.ค. — see docs/ds/home-redesign.md §Taxonomy) are the ONLY
 // choices in the "หมวด" ComboSelect. Hard lock: no allow-custom — a value not in this list must
 // not stick, so an editor can only pick one of the 3 books. Extending the taxonomy (rename or a
@@ -2011,7 +2039,7 @@ const songList = ref([])
 async function loadSongList() {
   const { data } = await supabase
     .from('songs')
-    .select('id, number, title_th, title_en, content, verified, category')
+    .select('id, number, title_th, title_en, content, verified, category, theme')
     .is('deleted_at', null) // db/012: trashed songs never appear in the picker/list
     .order('number', { ascending: true })
   // B131: the DB `.order` leaves the blank-number rows unordered, so the picker could list the
@@ -4028,8 +4056,19 @@ defineExpose({
         <label>คีย์<ComboSelect v-model="opts.key" :options="KEYS" width="100%" /></label>
         <label>จังหวะ<ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom width="100%" /></label>
         <label>ความเร็ว (BPM)<input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" /></label>
-        <!-- B108: a value the user actually picks IS genuine — mark that FIELD so publish may write it -->
-        <label>ธีม<ComboSelect :model-value="meta.theme" :options="themeOptions" width="100%" @update:model-value="pickTheme" /></label>
+        <!-- B108: a value the user actually picks IS genuine — mark that FIELD so publish may write it.
+             ธีม takes free text (allow-custom): a new ธีม is typed straight in and joins the list
+             for every song after it. หมวด below stays LOCKED to the 3 books on purpose. -->
+        <label>ธีม<ComboSelect
+          :model-value="meta.theme"
+          :options="themeOptions"
+          allow-custom
+          :validate="themeOk"
+          :normalize="themeText"
+          :error-for="themeErr"
+          width="100%"
+          @update:model-value="pickTheme"
+        /></label>
         <label>หมวด<ComboSelect :model-value="meta.category" :options="CATEGORY_OPTIONS" width="100%" @update:model-value="pickCategory" /></label>
         <!-- อ้างอิง — the same song's number in other books ("ล.305"). Free text: more than one
              ref per song, and any abbreviation, not just the 9 in lib/bookCodes.js. -->
