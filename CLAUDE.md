@@ -45,30 +45,30 @@ Preview tools: `preview_start "dev"` (config in `.claude/launch.json`).
 - **New idea from P'Aim (image + text):** file it into `docs/backlog.md` with an id + save the image under `docs/backlog-assets/`.
 - **Base branch for all work = `main`.** Branch per aimgit issue as `v1-<issue#>-<short-name>` (e.g. `v1-53-slur2beat`, `v1-94-section-copy`), open a GitHub PR into `main`, and **stop there — P'Aim reviews and merges it himself** (merging auto-deploys). Never merge or push to `main` yourself.
 - **Commit messages** reference the aimgit issue as `(ใบ v3/pleng#<n>)`, e.g. `สเลอร์ที่คร่อมเส้นใต้เกิน 1 ท่อน ต้องมีเส้นโค้ง (ใบ v3/pleng#53)`.
-- 🔴 **AI acts as the company AI account (`ai_company`), NEVER as P'Aim** — on GitHub and on aimgit
-  alike. That covers every outward write: opening or updating a PR, commenting, reviewing,
+- 🔴 **AI writes out as the company AI account `aim-agent`, NEVER as P'Aim** — on GitHub and on
+  aimgit alike. That covers every outward write: opening or updating a PR, commenting, reviewing,
   opening or editing an issue. Commits already use `Claude <noreply@anthropic.com>`; the
   identity that matters here is the **token the write goes out with**.
-  - **Check before the first outward write of a session:** `mcp__github__get_me` (GitHub) must
-    not come back as P'Aim's own login. On aimgit use `GITLAB_TOKEN_AI_COMPANY`, never
-    `GITLAB_TOKEN_COMPANY`.
+  - **Tokens live in** `C:\Users\aimkr\OneDrive\4 Personal\claude\.env` — load with Python and
+    `.strip()` (the file is CRLF; `set -a; . .env` in bash gives you a 401).
+    **Verified 19 ต.ค. 2569 on P'Aim's PC — both come back as `aim-agent`:**
+    - GitHub (`api.github.com`) → `GITHUB_TOKEN_AI`, sent as `Authorization: Bearer …`.
+    - aimgit (`aimgit.aimagin.com`, the พระคำ GitLab, project `v3/pleng` = id 59) → `GITLAB_TOKEN_AI`,
+      sent as `PRIVATE-TOKEN`. ⛔ **`GITLAB_TOKEN_AI_COMPANY` returns 401 here** — it belongs to the
+      company GitLab `git.aimagin.com`, which is a different machine.
+  - **Check before the first outward write of a session** (`GET /user` on either host) and stop if
+    the login is not `aim-agent`. `gh` is NOT installed on this PC — use the REST API directly.
   - ⛔ **It comes back as P'Aim → do NOT open the PR / post the comment.** Say so, hand over the
-    ready-made title and body, and let P'Aim post it — or ask for the `ai_company` token.
-  - A **Claude Code cloud session mints its GitHub credential from P'Aim's own connected
-    account**, so there it is P'Aim by default and there is no way to switch from inside the
-    session. The fix is an `ai_company` token in the environment settings (cloud environment
-    menu in the title bar → Edit → Network secrets / environment variable), read from
-    `GH_TOKEN_AI_COMPANY`; a new session picks it up. (Learned 19 ต.ค. 2569 — PR 55 went out
-    under P'Aim's name.)
-  - ⛔ **A token alone does NOT fix GitHub in a cloud session.** The session's agent proxy
+    ready-made title and body, and let P'Aim post it — or ask for the `aim-agent` token.
+  - ⛔ **In a Claude Code cloud session a token does NOT fix GitHub.** The session's agent proxy
     REWRITES the `Authorization` header on every request to `api.github.com` with P'Aim's
     connected credential — a request sent with a bogus token, or none at all, still comes back
     as `aim-krisada` (tested 19 ต.ค. 2569). So an outward GitHub write as `aim-agent` has to be
     made from **outside this proxy**: P'Aim's own machine, or P'Aim posting it. aimgit is not
-    affected — the proxy holds no GitLab credential — it only needs `git.aimagin.com` added to
-    the environment's Allowed domains plus `GITLAB_TOKEN_AI_COMPANY`.
-  - The company AI account on GitHub is **`aim-agent`** (already a `write` collaborator on this
-    repo, so no invite needed).
+    affected — the proxy holds no GitLab credential — but a cloud session still needs
+    `aimgit.aimagin.com` added to the environment's Allowed domains plus `GITLAB_TOKEN_AI`.
+  - `aim-agent` already has `write` on this repo and is a member of aimgit `v3/pleng`, so no invite
+    is needed. (Learned 19 ต.ค. 2569 — PR 55 went out under P'Aim's name and was closed.)
 - `studio-shell-redesign` is a legacy branch — do not base new work on it (older `docs/pm/` briefs and `docs/reports/` still mention it as the base; those are history).
 - Old `features/` + `bugs/` scratch folders were archived to `OneDrive/4 Personal/claude/pleng/scratch-archive/` (no longer in the repo).
 
