@@ -52,3 +52,72 @@ export function parseBookRefQuery(q) {
   if (NAME_TO_CODE[head]) return { book: NAME_TO_CODE[head], no }
   return null
 }
+
+// --- ใบเพลงอ้างอิงที่พิมพ์เอง (P'Pao: "ช่องอ้างอิงเพลง เช่น (ล.305) … เขียนได้เองเลย") ------
+//
+// WHERE THEY LIVE. The DA import wrote a song's cross-references to the `songs.book_refs`
+// COLUMN. What an author types in the editor goes into `content.bookRefs` instead: content is
+// jsonb the editor already round-trips end to end (draft row → approve_and_publish → songs), so
+// the field works today with no migration and no RPC change. A song an author has edited
+// therefore carries the content list, and that list is the newer intent — it wins, including
+// when it is empty (clearing the field really clears the refs).
+export function songBookRefs(song) {
+  const typed = song?.content?.bookRefs
+  if (Array.isArray(typed)) return typed
+  return Array.isArray(song?.book_refs) ? song.book_refs : []
+}
+
+// A song's references as display labels — the form every reading surface shows.
+export function songRefLabels(song) {
+  return bookRefLabels(songBookRefs(song))
+}
+
+// One reference back to the short form the author types: { book: 'ล', no: 305 } -> "ล.305".
+// (bookRefLabel gives the long reading form, "เล่มเล็ก 305" — that one is for display.)
+export function bookRefCode(ref) {
+  if (!ref || !ref.book) return ''
+  return ref.no != null && ref.no !== '' ? `${ref.book}.${ref.no}` : String(ref.book)
+}
+
+// The whole list as one line of text for the editor's อ้างอิง box: "ล.305 · ย.274".
+export function bookRefsCodeText(refs) {
+  return (Array.isArray(refs) ? refs : []).map(bookRefCode).filter(Boolean).join(' · ')
+}
+
+// One typed token -> a reference. The code part is FREE TEXT on purpose: พี่เปา has more
+// abbreviations than the 9 in BOOK_NAMES, and bookName() already falls back to the raw code,
+// so an unknown one still displays and still searches. Brackets are stripped, so pasting
+// "(ล.305)" straight off a songbook page works.
+export function parseBookRef(token) {
+  const s = String(token ?? '')
+    .normalize('NFC')
+    .trim()
+    .replace(/^[([{（［【]+/, '')
+    .replace(/[)\]}）］】]+$/, '')
+    .trim()
+  if (!s) return null
+  // a full book NAME is stored as its code, so "เล่มเล็ก 305" and "ล.305" are the same reference
+  const code = (head) => NAME_TO_CODE[head] || head
+  const m = s.match(/^(.*?)[.\s]*(\d{1,5})$/)
+  if (m && m[1].trim()) {
+    return { book: code(m[1].trim().replace(/[.\s]+$/, '')), no: parseInt(m[2], 10) }
+  }
+  return { book: code(s) } // a reference with no number ("เล่มไว้อาลัย") — bookRefLabel handles it
+}
+
+// A whole อ้างอิง line -> the stored list. Separators first (comma · semicolon · "·" · newline),
+// because a code may legitimately carry a space ("เล่มเล็ก 305"); only a chunk that is clearly
+// more than one reference is split on spaces as well ("ล.305 ย.274").
+export function parseBookRefs(text) {
+  const out = []
+  for (const chunk of String(text ?? '').split(/[,;·|•\n\r]+/)) {
+    const c = chunk.trim()
+    if (!c) continue
+    const parts = /^\D+[.\s]*\d*$/.test(c) ? [c] : c.split(/\s+/)
+    for (const p of parts) {
+      const ref = parseBookRef(p)
+      if (ref) out.push(ref)
+    }
+  }
+  return out
+}

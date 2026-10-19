@@ -11,6 +11,7 @@ import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetNam
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs, categoryName } from '../lib/bookshelf.js'
 import { sortSongs } from '../lib/songSort.js'
+import { songBookRefs, parseBookRefs, bookRefsCodeText, bookRefLabels } from '../lib/bookCodes.js'
 import { pendingReview } from '../lib/reviewQueue.js'
 import { WORK_WORDS } from '../i18n/workWords.js'
 import { findTitleConflicts, earlyDupNote } from '../lib/songTitleKey.js'
@@ -217,7 +218,7 @@ function deserializeLine(items) {
 // — src/lib/editorSerde.js there; kept local here to keep the frozen v1 line's diff small.)
 // The key lists below must stay in step with what previewContent actually emits, or a key
 // the editor DOES model would be stashed twice.
-const CONTENT_KEYS = ['version', 'key', 'timeSignature', 'bpm', 'stanzas', 'arrangement', 'lyricSets', 'lines']
+const CONTENT_KEYS = ['version', 'key', 'timeSignature', 'bpm', 'stanzas', 'arrangement', 'lyricSets', 'lines', 'bookRefs']
 // ใบ v3/pleng#96 — `timeSignature` = this melody's own meter (optional; unset = the song's)
 const STANZA_KEYS = ['id', 'lines', 'timeSignature']
 const ARRANGEMENT_KEYS = ['stanza', 'label', 'syllables', 'key', 'set', 'afterEachVerse']
@@ -311,6 +312,15 @@ const reviewingDraft = ref(null)
 const reviewComment = ref('')
 const pickerId = ref('')
 const meta = reactive({ number: null, title_th: '', title_en: '', category: 'anuchon', theme: '' })
+// อ้างอิง (P'Pao 19 ต.ค. 2569: "เพิ่มช่องอ้างอิงเพลง เช่น (ล.305) … เขียนได้เองเลย เพราะจะมีตัวย่อ
+// หลายตัว บางเพลงอ้างอิงหลายอัน"). One free-text line; the parse into [{book,no}] and the store
+// it writes to (content.bookRefs) live in lib/bookCodes.js — see songBookRefs() for why.
+const refsText = ref('')
+// true once this song HAS a stored list (typed here, or imported into songs.book_refs). Then
+// content.bookRefs is written even when empty, so clearing the box really clears the refs.
+// Songs that never had any keep no key at all, so their content stays byte-identical.
+const refsStored = ref(false)
+const refsPreview = computed(() => bookRefLabels(parseBookRefs(refsText.value)))
 const opts = reactive({ key: 'C', timeSignature: '4/4', bpm: null })
 
 // verified flag of the loaded song (songs.verified) — surfaced as the "✓ ตรวจแล้ว" toggle
@@ -520,6 +530,12 @@ const previewContent = computed(() => ({
   // unknown top-level keys captured on load, spread back untouched (CONTENT_KEYS excludes
   // everything emitted here, so this can never collide with a field the editor owns)
   ...contentExtras.value,
+  // อ้างอิง — the paper-book numbers the author typed. Emitted only once this song has a list
+  // (so a song that never had one keeps no key), and then even when empty, because an empty
+  // list is how "I removed the refs" is stored over an imported songs.book_refs column.
+  ...(refsStored.value || parseBookRefs(refsText.value).length
+    ? { bookRefs: parseBookRefs(refsText.value) }
+    : {}),
   stanzas: stanzas.value.map((s) => ({
     id: s.id,
     lines: s.lines.map(serializeLine),
@@ -2145,6 +2161,11 @@ function applyRow(data) {
   themeKnown.value = isKnown(data, 'theme')
   meta.category = data.category ?? 'anuchon'
   meta.theme = data.theme ?? ''
+  // อ้างอิง: content.bookRefs if this song carries one, else the imported songs.book_refs
+  // column (a draft row has no such column, only content) — see songBookRefs().
+  const refs = songBookRefs(data)
+  refsText.value = bookRefsCodeText(refs)
+  refsStored.value = Array.isArray(data?.content?.bookRefs) || refs.length > 0
   verified.value = data.verified ?? false
   loadedFlags.value = Array.isArray(data.review_flags) ? data.review_flags : [] // B093: keep on publish
   const { content, warnings } = migrateToV2(data.content)
@@ -2208,6 +2229,8 @@ function resetForm() {
   meta.title_en = ''
   meta.category = 'anuchon'
   meta.theme = ''
+  refsText.value = ''
+  refsStored.value = false
   // a brand-new blank song: the defaults ARE the value (nothing stored to lose)
   categoryKnown.value = true
   themeKnown.value = true
@@ -4008,6 +4031,19 @@ defineExpose({
         <!-- B108: a value the user actually picks IS genuine — mark that FIELD so publish may write it -->
         <label>ธีม<ComboSelect :model-value="meta.theme" :options="themeOptions" width="100%" @update:model-value="pickTheme" /></label>
         <label>หมวด<ComboSelect :model-value="meta.category" :options="CATEGORY_OPTIONS" width="100%" @update:model-value="pickCategory" /></label>
+        <!-- อ้างอิง — the same song's number in other books ("ล.305"). Free text: more than one
+             ref per song, and any abbreviation, not just the 9 in lib/bookCodes.js. -->
+        <label class="ed-refs">อ้างอิง (เล่มอื่น)
+          <input
+            v-model="refsText"
+            placeholder="เช่น ล.305 · ย.274"
+            aria-label="อ้างอิงเล่มอื่น"
+            aria-describedby="edRefsHint"
+          />
+          <span id="edRefsHint" class="muted ed-refs-hint">
+            {{ refsPreview.length ? refsPreview.join(' · ') : 'คั่นหลายเล่มด้วยเว้นวรรคหรือ , — ตัวย่อพิมพ์เองได้' }}
+          </span>
+        </label>
       </div>
     </div>
 
@@ -6209,6 +6245,13 @@ defineExpose({
   border: 1px solid var(--line);
   border-radius: 8px;
 }
+/* อ้างอิง — a free-text line, so give it the width of two ordinary fields where there is
+   room, and keep the live reading ("เล่มเล็ก 305") under it instead of beside it. */
+.ed-settings-grid label.ed-refs { grid-column: span 2; }
+@media (max-width: 520px) {
+  .ed-settings-grid label.ed-refs { grid-column: auto; }
+}
+.ed-refs-hint { font-size: 0.78rem; line-height: 1.3; }
 /* "✓ ตรวจแล้ว" toggle — ghost until ticked, then green (checked/verified) */
 .ed-verify {
   display: inline-flex;

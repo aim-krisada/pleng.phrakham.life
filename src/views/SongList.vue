@@ -5,7 +5,7 @@ import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { filterSongs, searchSnippet, normalize } from '../lib/songSearch.js'
 import { lyricSetName } from '../lib/songModel.js'
-import { bookRefLabels } from '../lib/bookCodes.js'
+import { songRefLabels } from '../lib/bookCodes.js'
 import {
   orderedBooks,
   songsInBook,
@@ -568,8 +568,8 @@ onMounted(async () => {
           <div v-if="snip(s).set" class="found-in">{{ foundInLabel(s) }}</div>
           <div v-if="snip(s).text" class="muted">{{ snip(s).text }}…</div>
           <div v-if="s.theme" class="theme-tag muted">{{ s.theme }}</div>
-          <div v-if="bookRefLabels(s.book_refs).length" class="src-tag muted">
-            แหล่งเพลง: {{ bookRefLabels(s.book_refs).join(' · ') }}
+          <div v-if="songRefLabels(s).length" class="src-tag muted">
+            แหล่งเพลง: {{ songRefLabels(s).join(' · ') }}
           </div>
           <div v-if="s.scripture" class="scripture-tag muted">📖 {{ s.scripture }}</div>
         </router-link>
@@ -643,10 +643,10 @@ onMounted(async () => {
                  the row is wide enough (≥640px) so it never crushes the title into a sliver on
                  a phone. Full list also lives on the search card + the song page. -->
             <span
-              v-if="bookRefLabels(s.book_refs).length"
+              v-if="songRefLabels(s).length"
               class="ref"
-              :title="'อ้างอิง: ' + bookRefLabels(s.book_refs).join(' · ')"
-            >{{ bookRefLabels(s.book_refs).join(' · ') }}</span>
+              :title="'อ้างอิง: ' + songRefLabels(s).join(' · ')"
+            >{{ songRefLabels(s).join(' · ') }}</span>
             <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
           </router-link>
           <!-- เห็นเฉพาะเมื่อล็อกอิน · เปิดเพลงนี้ในหน้าแก้ไขทันที (ไม่ต้องแวะหน้าฝึกร้อง)
