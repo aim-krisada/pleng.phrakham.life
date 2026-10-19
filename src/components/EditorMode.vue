@@ -11,6 +11,7 @@ import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetNam
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs, categoryName } from '../lib/bookshelf.js'
 import { sortSongs } from '../lib/songSort.js'
+import { songBookRefs, parseBookRefs, bookRefsCodeText, bookRefLabels } from '../lib/bookCodes.js'
 import { pendingReview } from '../lib/reviewQueue.js'
 import { WORK_WORDS } from '../i18n/workWords.js'
 import { findTitleConflicts, earlyDupNote } from '../lib/songTitleKey.js'
@@ -217,7 +218,7 @@ function deserializeLine(items) {
 // — src/lib/editorSerde.js there; kept local here to keep the frozen v1 line's diff small.)
 // The key lists below must stay in step with what previewContent actually emits, or a key
 // the editor DOES model would be stashed twice.
-const CONTENT_KEYS = ['version', 'key', 'timeSignature', 'bpm', 'stanzas', 'arrangement', 'lyricSets', 'lines']
+const CONTENT_KEYS = ['version', 'key', 'timeSignature', 'bpm', 'stanzas', 'arrangement', 'lyricSets', 'lines', 'bookRefs']
 // ใบ v3/pleng#96 — `timeSignature` = this melody's own meter (optional; unset = the song's)
 const STANZA_KEYS = ['id', 'lines', 'timeSignature']
 const ARRANGEMENT_KEYS = ['stanza', 'label', 'syllables', 'key', 'set', 'afterEachVerse']
@@ -311,6 +312,15 @@ const reviewingDraft = ref(null)
 const reviewComment = ref('')
 const pickerId = ref('')
 const meta = reactive({ number: null, title_th: '', title_en: '', category: 'anuchon', theme: '' })
+// อ้างอิง (P'Pao 19 ต.ค. 2569: "เพิ่มช่องอ้างอิงเพลง เช่น (ล.305) … เขียนได้เองเลย เพราะจะมีตัวย่อ
+// หลายตัว บางเพลงอ้างอิงหลายอัน"). One free-text line; the parse into [{book,no}] and the store
+// it writes to (content.bookRefs) live in lib/bookCodes.js — see songBookRefs() for why.
+const refsText = ref('')
+// true once this song HAS a stored list (typed here, or imported into songs.book_refs). Then
+// content.bookRefs is written even when empty, so clearing the box really clears the refs.
+// Songs that never had any keep no key at all, so their content stays byte-identical.
+const refsStored = ref(false)
+const refsPreview = computed(() => bookRefLabels(parseBookRefs(refsText.value)))
 const opts = reactive({ key: 'C', timeSignature: '4/4', bpm: null })
 
 // verified flag of the loaded song (songs.verified) — surfaced as the "✓ ตรวจแล้ว" toggle
@@ -350,7 +360,35 @@ const THEMES = [
   'รักปรารถนา',
   'อาณาจักร',
 ]
-const themeOptions = [{ value: '', label: '— ไม่ระบุธีม —' }, ...THEMES.map((t) => ({ value: t, label: t }))]
+// P'Pao 19 ต.ค. 2569: "ธีมให้เพิ่มได้เองด้วย ตอนนี้มันเพิ่มไม่ได้ มีแค่ให้เลือกเท่าที่มีอยู่". ธีม is a
+// free label, not a taxonomy the database enforces (unlike หมวด, which is LOCKED to the 3 books —
+// see CATEGORY_OPTIONS), so the field takes any text. The list then grows by itself: a ธีม already
+// on a song in the library is offered to the next song, so a new one is typed once, not every time.
+const libraryThemes = computed(() => {
+  const seen = new Set(THEMES)
+  const extra = []
+  for (const s of songList.value) {
+    const t = (s?.theme || '').trim()
+    if (t && !seen.has(t)) {
+      seen.add(t)
+      extra.push(t)
+    }
+  }
+  // the ธีม on screen may be newer than the library copy (just typed, not saved yet)
+  const mine = (meta.theme || '').trim()
+  if (mine && !seen.has(mine)) extra.push(mine)
+  return extra.sort((a, b) => a.localeCompare(b, 'th'))
+})
+const themeOptions = computed(() => [
+  { value: '', label: '— ไม่ระบุธีม —' },
+  ...THEMES.map((t) => ({ value: t, label: t })),
+  ...libraryThemes.value.map((t) => ({ value: t, label: t })),
+])
+const themeText = (t) => String(t ?? '').trim()
+// anything with real text is a ธีม; only whitespace is refused (the "— ไม่ระบุธีม —" item clears it)
+const themeOk = (t) => themeText(t).length > 0 && themeText(t).length <= 60
+const themeErr = (t) =>
+  themeText(t).length > 60 ? 'ชื่อธีมยาวเกินไป (ไม่เกิน 60 ตัวอักษร)' : 'พิมพ์ชื่อธีม หรือเลือก "— ไม่ระบุธีม —"'
 // The 3 canonical books (P'Aim 12 ก.ค. — see docs/ds/home-redesign.md §Taxonomy) are the ONLY
 // choices in the "หมวด" ComboSelect. Hard lock: no allow-custom — a value not in this list must
 // not stick, so an editor can only pick one of the 3 books. Extending the taxonomy (rename or a
@@ -520,6 +558,12 @@ const previewContent = computed(() => ({
   // unknown top-level keys captured on load, spread back untouched (CONTENT_KEYS excludes
   // everything emitted here, so this can never collide with a field the editor owns)
   ...contentExtras.value,
+  // อ้างอิง — the paper-book numbers the author typed. Emitted only once this song has a list
+  // (so a song that never had one keeps no key), and then even when empty, because an empty
+  // list is how "I removed the refs" is stored over an imported songs.book_refs column.
+  ...(refsStored.value || parseBookRefs(refsText.value).length
+    ? { bookRefs: parseBookRefs(refsText.value) }
+    : {}),
   stanzas: stanzas.value.map((s) => ({
     id: s.id,
     lines: s.lines.map(serializeLine),
@@ -879,11 +923,19 @@ function rowStatus(row) {
   return { need, got, ok: got === need }
 }
 // ---------- bulk lyric textarea <-> per-note slots (melody-aware) ----------
-// The textarea is the "type the words" view: one word per ATTACK note. The per-note
-// boxes above expose every slot (incl. held). These map between the two: words land on
-// attack slots, held slots stay blank; reading back shows only the attack words. Keeps
-// the paste-a-verse workflow 1:1 with the sung syllables even though held notes now
-// have their own boxes.
+// The textarea is the "type the words" view of ONE ข้อ. The per-note boxes above expose
+// every slot (attack · held/rest · overflow); this pair maps between the two.
+//
+// "เนื้อหาย" (พี่เปา, 19 ต.ค. 2569) — the first version read back ONLY the words on attack
+// slots and wrote back only onto attack slots. A word that sits on a held/rest box is
+// ordinary data: the per-note boxes offer one, the sheet and ฝึกร้อง print it, and words
+// land there by themselves — ◀▶ ripple across every slot, and a melody edit that turns an
+// attack into a hold (a tie, a rest, or wrapping notes in a ( ) สเลอร์ for เอื้อน) leaves
+// the slot count unchanged, so the word stays put while its box becomes 'held'. Those words
+// were missing from this box (that IS the "เนื้อหาย" on screen), and the next keystroke here
+// rewrote the whole ข้อ from what the box showed, deleting them for good. ✂ แยกพยางค์
+// อัตโนมัติ, which round-trips through the same pair, deleted them in one tap.
+// So: READ every word, whatever kind of box it is on, and WRITE every word back.
 function stanzaKindList(stanzaId) {
   const s = stanzas.value.find((x) => x.id === stanzaId)
   const out = []
@@ -896,28 +948,44 @@ function stanzaKindList(stanzaId) {
         }
   return out
 }
-function wordsToSyllables(words, stanzaId) {
+// slot index of every word this ข้อ bears right now, in singing order
+function wordSlots(syllables) {
+  const at = []
+  ;(syllables || []).forEach((t, i) => {
+    if (String(t ?? '').trim()) at.push(i)
+  })
+  return at
+}
+// words → slots. A word the author did NOT touch keeps the slot it is on (so fixing a typo,
+// or adding one word at the end, never re-aligns the rest of the ข้อ — and a word parked on a
+// held/rest box is not swept off it). From the first word that changed, the rest flow on the
+// usual way: one word per ATTACK note, held/rest boxes blank, extras become overflow slots.
+function wordsToSyllables(words, stanzaId, prev = []) {
   const kinds = stanzaKindList(stanzaId)
-  const out = []
-  let w = 0
-  for (const k of kinds) out.push(k === 'attack' ? (words[w++] ?? '') : '')
-  while (w < words.length) out.push(words[w++]) // extra words → overflow slots
-  while (out.length && out[out.length - 1] === '') out.pop()
+  const at = wordSlots(prev)
+  let keep = 0
+  while (keep < words.length && keep < at.length && words[keep] === String(prev[at[keep]] ?? '').trim()) keep++
+  // same number of words = the author only re-worded: every word stays on its own slot
+  if (words.length === at.length) keep = at.length
+  const out = keep ? prev.slice(0, at[keep - 1] + 1).map((t) => String(t ?? '')) : []
+  for (let k = 0; k < keep; k++) out[at[k]] = words[k]
+  let w = keep
+  for (let i = out.length; w < words.length && i < kinds.length; i++) {
+    out[i] = kinds[i] === 'attack' ? (words[w++] ?? '') : ''
+  }
+  while (w < words.length) out.push(words[w++]) // more words than notes → overflow slots
+  while (out.length && !out[out.length - 1].trim()) out.pop()
   return out
 }
-function syllablesToWords(syllables, stanzaId) {
-  const kinds = stanzaKindList(stanzaId)
-  const out = []
-  syllables.forEach((t, i) => {
-    if (kinds[i] === undefined || kinds[i] === 'attack') out.push(t)
-  })
-  return out
+// every word of the ข้อ, in singing order — a word on a held/rest box is shown like any other
+function syllablesToWords(syllables) {
+  return (syllables || []).map((t) => String(t ?? '').trim()).filter(Boolean)
 }
 function rowLyricText(row) {
-  return joinSyllables(syllablesToWords(row.syllables, row.stanza))
+  return joinSyllables(syllablesToWords(row.syllables))
 }
 function setRowLyricText(row, text) {
-  row.syllables = wordsToSyllables(splitSyllables(text), row.stanza)
+  row.syllables = wordsToSyllables(splitSyllables(text), row.stanza, row.syllables)
 }
 // MP3 (B083): imported lyrics often arrive as one blob per verse (comma between วรรค). Split
 // it into Thai word tokens with Intl.Segmenter (ships with the browser · ICU dict · no lib —
@@ -1971,7 +2039,7 @@ const songList = ref([])
 async function loadSongList() {
   const { data } = await supabase
     .from('songs')
-    .select('id, number, title_th, title_en, content, verified, category')
+    .select('id, number, title_th, title_en, content, verified, category, theme')
     .is('deleted_at', null) // db/012: trashed songs never appear in the picker/list
     .order('number', { ascending: true })
   // B131: the DB `.order` leaves the blank-number rows unordered, so the picker could list the
@@ -2121,6 +2189,11 @@ function applyRow(data) {
   themeKnown.value = isKnown(data, 'theme')
   meta.category = data.category ?? 'anuchon'
   meta.theme = data.theme ?? ''
+  // อ้างอิง: content.bookRefs if this song carries one, else the imported songs.book_refs
+  // column (a draft row has no such column, only content) — see songBookRefs().
+  const refs = songBookRefs(data)
+  refsText.value = bookRefsCodeText(refs)
+  refsStored.value = Array.isArray(data?.content?.bookRefs) || refs.length > 0
   verified.value = data.verified ?? false
   loadedFlags.value = Array.isArray(data.review_flags) ? data.review_flags : [] // B093: keep on publish
   const { content, warnings } = migrateToV2(data.content)
@@ -2184,6 +2257,8 @@ function resetForm() {
   meta.title_en = ''
   meta.category = 'anuchon'
   meta.theme = ''
+  refsText.value = ''
+  refsStored.value = false
   // a brand-new blank song: the defaults ARE the value (nothing stored to lose)
   categoryKnown.value = true
   themeKnown.value = true
@@ -3981,9 +4056,33 @@ defineExpose({
         <label>คีย์<ComboSelect v-model="opts.key" :options="KEYS" width="100%" /></label>
         <label>จังหวะ<ComboSelect v-model="opts.timeSignature" :options="TIME_SIGNATURES" allow-custom width="100%" /></label>
         <label>ความเร็ว (BPM)<input v-model.number="opts.bpm" type="number" min="30" max="240" placeholder="BPM" /></label>
-        <!-- B108: a value the user actually picks IS genuine — mark that FIELD so publish may write it -->
-        <label>ธีม<ComboSelect :model-value="meta.theme" :options="themeOptions" width="100%" @update:model-value="pickTheme" /></label>
+        <!-- B108: a value the user actually picks IS genuine — mark that FIELD so publish may write it.
+             ธีม takes free text (allow-custom): a new ธีม is typed straight in and joins the list
+             for every song after it. หมวด below stays LOCKED to the 3 books on purpose. -->
+        <label>ธีม<ComboSelect
+          :model-value="meta.theme"
+          :options="themeOptions"
+          allow-custom
+          :validate="themeOk"
+          :normalize="themeText"
+          :error-for="themeErr"
+          width="100%"
+          @update:model-value="pickTheme"
+        /></label>
         <label>หมวด<ComboSelect :model-value="meta.category" :options="CATEGORY_OPTIONS" width="100%" @update:model-value="pickCategory" /></label>
+        <!-- อ้างอิง — the same song's number in other books ("ล.305"). Free text: more than one
+             ref per song, and any abbreviation, not just the 9 in lib/bookCodes.js. -->
+        <label class="ed-refs">อ้างอิง (เล่มอื่น)
+          <input
+            v-model="refsText"
+            placeholder="เช่น ล.305 · ย.274"
+            aria-label="อ้างอิงเล่มอื่น"
+            aria-describedby="edRefsHint"
+          />
+          <span id="edRefsHint" class="muted ed-refs-hint">
+            {{ refsPreview.length ? refsPreview.join(' · ') : 'คั่นหลายเล่มด้วยเว้นวรรคหรือ , — ตัวย่อพิมพ์เองได้' }}
+          </span>
+        </label>
       </div>
     </div>
 
@@ -6185,6 +6284,13 @@ defineExpose({
   border: 1px solid var(--line);
   border-radius: 8px;
 }
+/* อ้างอิง — a free-text line, so give it the width of two ordinary fields where there is
+   room, and keep the live reading ("เล่มเล็ก 305") under it instead of beside it. */
+.ed-settings-grid label.ed-refs { grid-column: span 2; }
+@media (max-width: 520px) {
+  .ed-settings-grid label.ed-refs { grid-column: auto; }
+}
+.ed-refs-hint { font-size: 0.78rem; line-height: 1.3; }
 /* "✓ ตรวจแล้ว" toggle — ghost until ticked, then green (checked/verified) */
 .ed-verify {
   display: inline-flex;

@@ -6,7 +6,7 @@
 // normalises Thai/whitespace and falls back to fuzzy (edit-distance) matching so a
 // half-remembered line with a typo or two still finds the song.
 
-import { bookName, parseBookRefQuery } from './bookCodes.js'
+import { bookName, parseBookRefQuery, songBookRefs } from './bookCodes.js'
 import { isSetCaption, lyricSetIndex } from './songModel.js'
 
 // A melody-sequence hit is exact (contiguous substring, no fuzzing) but ranks just after
@@ -258,7 +258,7 @@ export function songHaystack(song) {
       song.content?.key ?? '',
       lyricsText(song.content ?? {}),
       notesText(song.content ?? {}),
-      bookRefsText(song.book_refs),
+      bookRefsText(songBookRefs(song)),
       song.scripture ?? '',
     ].join(' '),
   )
@@ -319,7 +319,7 @@ export function scoreSong(song, query) {
   // bypass the fuzzy path — a one-edit budget would otherwise drag in ล.281/ล.262 neighbours.
   const bref = parseBookRefQuery(query)
   if (bref) {
-    const refs = Array.isArray(song.book_refs) ? song.book_refs : []
+    const refs = songBookRefs(song)
     return refs.some((r) => r && r.book === bref.book && r.no === bref.no) ? 0 : null
   }
   const hay = songHaystack(song)
