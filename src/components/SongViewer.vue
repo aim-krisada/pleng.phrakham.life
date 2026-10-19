@@ -21,7 +21,7 @@ import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setP
 import { presetCfg, recommendRecipe, songFeatures } from '../lib/arranger/presets.js'
 import { buildArrangeCfg, readTechniques } from '../lib/arranger/techniques.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
-import { bookRefLabels } from '../lib/bookCodes.js'
+import { songRefLabels } from '../lib/bookCodes.js'
 import { ownsSpaceKey } from '../lib/focusClear.js'
 import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
 import SongSheet from './SongSheet.vue'
@@ -257,7 +257,7 @@ const printTitle = computed(() => {
 // B053 — source book(s) + scripture caption, same data + label helper as the catalog card
 // (SongList). Shown once at the top of the reading surface so a singer sees where the song
 // comes from without leaving ฝึกร้อง. book_refs → human labels via lib/bookCodes.
-const refLabels = computed(() => bookRefLabels(props.song?.book_refs))
+const refLabels = computed(() => songRefLabels(props.song))
 // section OCCURRENCES (one per {type:'section'} marker) → the timeline markers
 const sections = computed(() => {
   const lines = resolved.value?.lines || []
