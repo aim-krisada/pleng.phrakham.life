@@ -69,6 +69,17 @@ Preview tools: `preview_start "dev"` (config in `.claude/launch.json`).
     `aimgit.aimagin.com` added to the environment's Allowed domains plus `GITLAB_TOKEN_AI`.
   - `aim-agent` already has `write` on this repo and is a member of aimgit `v3/pleng`, so no invite
     is needed. (Learned 19 ต.ค. 2569 — PR 55 went out under P'Aim's name and was closed.)
+- 🔴 **This repo holds production code only — no work history.** P'Aim, 19 ต.ค. 2569: *"ใน production
+  เก็บแต่ production code ไม่มีประวัติงาน"*. Where each thing goes:
+  - **Status of a task** → the ใบ on aimgit (`aimagin-status` skill: edit the issue DESCRIPTION, not a
+    comment). ⛔ Never a `status.md` in this repo.
+  - **Hand-off to the next session** → `docs/v1-ledger/handoff.md` in the aimgit repo `v3/pleng`
+    (https://aimgit.aimagin.com/v3/pleng/-/blob/main/docs/v1-ledger/handoff.md) — one file, overwritten each time, never appended.
+  - **Why the code is the way it is** → stays here beside the code: `docs/ds/`, `docs/us/`,
+    `song-model-v2.md`, `system-map.md`, `ui-standards.md`, `lessons.md`. Source comments point at
+    these ~30 times, so they are load-bearing.
+  - `docs/status.md` and `docs/handoff.md` were moved out 19 ต.ค. 2569 (ใบ v3/pleng#127). They are
+    still in this repo's git history; only the current tree lost them.
 - `studio-shell-redesign` is a legacy branch — do not base new work on it (older `docs/pm/` briefs and `docs/reports/` still mention it as the base; those are history).
 - Old `features/` + `bugs/` scratch folders were archived to `OneDrive/4 Personal/claude/pleng/scratch-archive/` (no longer in the repo).
 

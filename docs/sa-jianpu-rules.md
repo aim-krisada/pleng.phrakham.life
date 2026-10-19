@@ -31,5 +31,5 @@ B009 IA เมนู · B012 controls โครงเพลง · B005 แก้
 
 ## กติกากันชน (สำคัญ)
 1. แต่ละ session แก้เฉพาะ **ไฟล์ US/DS ของ item ที่ตัวเองรับ** — คนละ item = คนละไฟล์ = ไม่ชน
-2. ไฟล์ shared (`backlog.md` · `status.md` · ไฟล์นี้) → **targeted edit เฉพาะแถว/บรรทัดของตัวเอง** (ห้าม rewrite ทั้งไฟล์) · เช็ก git ก่อนแก้ · `git add <file>` เจาะจง (ไม่ใช่ `-A`) · commit บ่อย
+2. ไฟล์ shared (`backlog.md` · ไฟล์นี้) → **targeted edit เฉพาะแถว/บรรทัดของตัวเอง** (ห้าม rewrite ทั้งไฟล์) · เช็ก git ก่อนแก้ · `git add <file>` เจาะจง (ไม่ใช่ `-A`) · commit บ่อย
 3. ฐาน = `studio-shell-redesign` · **ยังไม่ dev / ไม่ merge main** · เช็ก `git branch --show-current` ก่อน commit

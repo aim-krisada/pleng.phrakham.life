@@ -9,7 +9,7 @@
 1. `docs/mission.md` — เรากำลังสร้างอะไร เพื่อใคร (พันธกิจ + สิทธิ์ 3 tier + แผนที่ worktree)
 2. `docs/README.md` (ไฟล์นี้) — โครงโฟลเดอร์ + ไฟล์สำคัญ + กติกา git
 3. `docs/workflow.md` — วิธีทำงานรวม (บทบาท SA/dev/tester · worktree ขนาน · port ประจำแต่ละงาน · prompt เริ่ม SA ใหม่)
-4. `docs/status.md` — ตอนนี้ถึงไหนแล้ว (กระดานงาน 5 worktree + ถัดไป)
+4. **สถานะว่าตอนนี้ถึงไหนแล้ว ไม่ได้อยู่ในที่เก็บนี้** — อยู่ในใบงานของแต่ละเรื่องบนอัมกิต https://aimgit.aimagin.com/v3/pleng/-/issues · กระดานสปรินต์เก่ากับไฟล์ส่งต่อรอบ ย้ายไป https://aimgit.aimagin.com/v3/pleng/-/tree/main/docs/v1-ledger แล้ว (ใบ v3/pleng#127)
 5. งานที่จะทำ: `docs/backlog.md` (idea ดิบ) หรือ `docs/us/<epic>.md` + `docs/ds/<epic>.md` (งานที่มี spec แล้ว)
 
 ## สายการทำงาน (ISO 29110-5-4 แบบเบา)
@@ -28,6 +28,7 @@ idea → docs/backlog.md → docs/us/<epic>.md (user story + AC) → docs/ds/<ep
 | `docs/design/` | wireframe อ้างอิง (`studio-wireframe.html`) |
 | `.github/workflows/` | `deploy.yml` (push `main` = ขึ้นเว็บจริง) · `keepalive.yml` |
 | scratch เก่า (`features/` `bugs/`) | **ย้ายออกแล้ว** ไป `OneDrive/4 Personal/claude/pleng/scratch-archive/` — ไม่อยู่ใน repo |
+| ประวัติงาน (`status.md` `handoff.md`) | **ย้ายออกแล้ว 19 ต.ค. 2569** ไป https://aimgit.aimagin.com/v3/pleng/-/tree/main/docs/v1-ledger บนอัมกิต (ใบ v3/pleng#127) — ที่เก็บนี้เก็บแต่โค้ดที่ขึ้นเว็บจริง กับเอกสารที่โค้ดอ้างถึง |
 
 ## ไฟล์สำคัญใน src/
 **เปลือกร่วม (shell) — ทุกหน้าใช้**

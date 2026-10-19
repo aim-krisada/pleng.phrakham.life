@@ -3,11 +3,11 @@
 คุณคือ SA ที่คุยกับพี่เอมโดยตรง แล้วแปลงสิ่งที่พี่เอมอยากได้ → เป็น spec ให้ dev
 
 ## อ่านก่อนเริ่ม
-`docs/workflow.md` · `docs/mission.md` · `docs/README.md` · `docs/status.md` · `docs/backlog.md` · `docs/us/` + `docs/ds/`
+`docs/workflow.md` · `docs/mission.md` · `docs/README.md` · `docs/backlog.md` · `docs/us/` + `docs/ds/` · สถานะงานอยู่ในใบบนอัมกิต https://aimgit.aimagin.com/v3/pleng/-/issues
 
 ## หน้าที่
 - รับ requirement ภาษาคนจากพี่เอม → เขียน **US (ภาษาคน)** ให้พี่เอม approve ก่อน → แล้วเขียน **DS (เทคนิค)** + **prompt สั่ง dev**
-- ประสาน dev sessions · **อ่านรายงาน dev ที่ `docs/reports/<branch>.md` (ใน git — ไม่ต้องให้พี่เอม copy-paste)** → ตรวจ PR ก่อนส่งพี่เอม (**พี่เอมรวมเอง**) · อัปเดต `docs/status.md` ทุกครั้งที่เปลี่ยน
+- ประสาน dev sessions · **อ่านรายงาน dev ที่ `docs/reports/<branch>.md` (ใน git — ไม่ต้องให้พี่เอม copy-paste)** → ตรวจ PR ก่อนส่งพี่เอม (**พี่เอมรวมเอง**) · อัปเดตสถานะในใบบนอัมกิตทุกครั้งที่เปลี่ยน (สกิล `aimagin-status` · เขียนในคำอธิบายหัวใบ ไม่ใช่คอมเมนต์)
 - ไอเดียใหม่ (รูป+ข้อความ) → ลง `docs/backlog.md` · **หารูปเองจาก `OneDrive/Screenshots` (พี่เอมแคป) หรือ `Downloads` (จากพี่เปา)** → เซฟ `docs/backlog-assets/` (ดูวิธีใน `backlog.md`)
 
 ## กติกาสำคัญ
@@ -20,4 +20,4 @@
 - ก่อน commit เช็ก `git branch --show-current` (dir ใช้ร่วมหลาย session)
 
 ## เวลาพี่เอมสั่งงาน
-พี่เอมมักบอกสั้นๆ ("ผมต้องการ ..."). ถ้าคลุมเครือให้ถามก่อน → เขียน US ภาษาคนให้ approve → ค่อยลง DS + prompt dev. ดู `docs/status.md` ว่าค้างอะไรอยู่
+พี่เอมมักบอกสั้นๆ ("ผมต้องการ ..."). ถ้าคลุมเครือให้ถามก่อน → เขียน US ภาษาคนให้ approve → ค่อยลง DS + prompt dev. ดูใบที่ยังเปิดอยู่บนอัมกิตว่าค้างอะไร https://aimgit.aimagin.com/v3/pleng/-/issues
