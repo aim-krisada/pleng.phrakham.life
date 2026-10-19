@@ -17,6 +17,7 @@ import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { tier, initAuth, shellMenu, currentSong, readingFontScale, setFontScale, sheetLyricJoin } from '../store.js'
+import { songBookRefs } from '../lib/bookCodes.js'
 import Icon from '../components/Icon.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 import SongViewer from '../components/SongViewer.vue'
@@ -237,6 +238,15 @@ const sheetBookNote = computed(() => (sheetLyricJoin.value === 'book' && sheetHa
   ? bookPhraseNotice(bookSong.value, sheetBookMap.value, sheetContent.value.lines)
   : ''))
 watchEffect(() => { if (sheetLyricJoin.value === 'book' && bookSong.value) loadBookPhrases(bookSong.value) })
+// ใบ#128 — อ้างอิงเล่มอื่น on the printed head. ONE read point for every surface (lib/bookCodes
+// songBookRefs), so the paper can never disagree with the catalog card or ฝึกร้อง.
+// The `book_refs` fallback is load-bearing, not defensive: liveSong is built field by field above
+// (and again by the editor on every keystroke), and `book_refs` is not one of those fields — so the
+// refs DA imported live only on the loaded row. Drop the fallback and an imported song prints no
+// อ้างอิง at all. Refs an author typed travel inside `content`, so those come through liveSong.
+const sheetBookRefs = computed(() => (liveSong.value
+  ? songBookRefs({ ...liveSong.value, book_refs: liveSong.value.book_refs ?? loadedSong.value?.book_refs })
+  : []))
 const printBasename = computed(() => (liveSong.value ? songBasename(liveSong.value) : 'song'))
 
 const printItems = computed(() => [
@@ -432,6 +442,7 @@ function printSheet() {
             :display-key="sheetKey"
             :song-title="sheetPrintTitle"
             song-head
+            :book-refs="sheetBookRefs"
             :songbook="sheetBook === 'songbook'"
             :lyric-join="sheetLyricJoin !== 'split'"
             :book-phrases="sheetBookMap"
