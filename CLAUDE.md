@@ -60,6 +60,15 @@ Preview tools: `preview_start "dev"` (config in `.claude/launch.json`).
     menu in the title bar → Edit → Network secrets / environment variable), read from
     `GH_TOKEN_AI_COMPANY`; a new session picks it up. (Learned 19 ต.ค. 2569 — PR 55 went out
     under P'Aim's name.)
+  - ⛔ **A token alone does NOT fix GitHub in a cloud session.** The session's agent proxy
+    REWRITES the `Authorization` header on every request to `api.github.com` with P'Aim's
+    connected credential — a request sent with a bogus token, or none at all, still comes back
+    as `aim-krisada` (tested 19 ต.ค. 2569). So an outward GitHub write as `aim-agent` has to be
+    made from **outside this proxy**: P'Aim's own machine, or P'Aim posting it. aimgit is not
+    affected — the proxy holds no GitLab credential — it only needs `git.aimagin.com` added to
+    the environment's Allowed domains plus `GITLAB_TOKEN_AI_COMPANY`.
+  - The company AI account on GitHub is **`aim-agent`** (already a `write` collaborator on this
+    repo, so no invite needed).
 - `studio-shell-redesign` is a legacy branch — do not base new work on it (older `docs/pm/` briefs and `docs/reports/` still mention it as the base; those are history).
 - Old `features/` + `bugs/` scratch folders were archived to `OneDrive/4 Personal/claude/pleng/scratch-archive/` (no longer in the repo).
 
