@@ -758,7 +758,7 @@ watch(
 .bar-final {
   display: inline-flex;
   align-items: stretch;
-  gap: 2px;
+  gap: 0.125em; /* ใบ#130 — em, so the sheet wraps like paper at any reading size */
   width: auto;
   height: 3.25em;
   margin: 1em 0.6em 0;
@@ -766,8 +766,8 @@ watch(
   vertical-align: top;
 }
 /* ใบ#129 — border, not background, or the closing double bar never reaches paper (see .odot) */
-.bar-final .bf-thin { width: 2px; border-left: 2px solid #8a7a62; }
-.bar-final .bf-thick { width: 4px; border-left: 4px solid #8a7a62; }
+.bar-final .bf-thin { width: 0.125em; border-left: 0.125em solid #8a7a62; }
+.bar-final .bf-thick { width: 0.25em; border-left: 0.25em solid #8a7a62; }
 /* B065 — with a chord row above, the barline/repeat marks carry margin-top:1em to drop
    past that row onto the note line. When the chord layer is hidden (เนื้อ+โน้ต / โน้ตล้วน)
    there is no chord row, so that 1em pushed the barline BELOW the notes and the digits
