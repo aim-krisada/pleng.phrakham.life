@@ -672,18 +672,20 @@ input, select, textarea {
   height: 3.25em;
   margin: 1em 0.5em 0;
 }
+/* ใบ#129 — every stroke and dot of a repeat mark is a BORDER, never a background: a printer
+   drops background colour by default, and these vanished from every printed sheet. */
 .repeat-mark .rep-bar {
   display: inline-block;
   width: 4px;
   align-self: stretch;
-  background: #8a7a62;
+  border-left: 4px solid #8a7a62;
 }
 /* the thin partner line of the repeat barline (thick + thin = two strokes ‖) */
 .repeat-mark .rep-thin {
   display: inline-block;
   width: 2px;
   align-self: stretch;
-  background: #8a7a62;
+  border-left: 2px solid #8a7a62;
 }
 .repeat-mark .rep-dots {
   display: inline-block;
@@ -699,7 +701,7 @@ input, select, textarea {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #8a7a62;
+  border: 2.5px solid #8a7a62;
 }
 .repeat-mark .rep-dots::before { top: 38%; }
 .repeat-mark .rep-dots::after { top: 55%; }

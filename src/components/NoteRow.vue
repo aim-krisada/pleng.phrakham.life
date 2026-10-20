@@ -420,13 +420,18 @@ const vBeam = {
    every note (0, 1 or 2 dots) keeps the same height and the digits stay aligned */
 .dots-hi, .dots-lo { display: block; height: 0.46em; position: relative; }
 /* CSS-drawn octave dots, stacked vertically away from the digit. A 2nd dot fits
-   inside the reserved height, so a two-octave note never shifts the row. */
+   inside the reserved height, so a two-octave note never shifts the row.
+   ⛔ ใบ#129 — drawn as a BORDER, never a background. A browser drops background colour when
+   it prints unless the reader ticks "Background graphics", so these dots simply vanished from
+   every printed sheet — and an octave dot is not decoration, it IS the pitch. Same reason ใบ#99
+   gave the beam a border. box-sizing is border-box, so the border fills the declared size and
+   the dot keeps the exact position and diameter it had. */
 .odot {
   position: absolute; left: 50%;
   width: 0.16em; height: 0.16em;
   margin-left: -0.08em;
   border-radius: 50%;
-  background: currentColor;
+  border: 0.08em solid currentColor;
 }
 .dots-hi .odot { bottom: 0.08em; }
 .dots-hi .odot:nth-child(2) { bottom: 0.30em; }
@@ -479,6 +484,7 @@ const vBeam = {
   border-bottom: none;
   border-radius: 0.75em 0.75em 0 0 / 0.5em 0.5em 0 0;
 }
+/* ใบ#129 — border, not background, so it prints (see .odot) */
 .fermata::after {
   content: '';
   position: absolute;
@@ -487,7 +493,7 @@ const vBeam = {
   transform: translateX(-50%);
   width: 3px;
   height: 3px;
-  background: currentColor;
+  border: 1.5px solid currentColor;
   border-radius: 50%;
 }
 /* augmentation dot: same size as the octave dots, sitting on the digit's
