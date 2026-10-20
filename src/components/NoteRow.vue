@@ -439,7 +439,8 @@ const vBeam = {
 .dots-lo .odot { top: 0.08em; }
 .dots-lo .odot:nth-child(2) { top: 0.30em; }
 .dots-lo .odot:nth-child(3) { top: 0.52em; }
-.num { display: block; padding: 0 1px; position: relative; }
+/* ใบ#130 — 1px at the print size (16px), written in em so the screen wraps exactly like paper */
+.num { display: block; padding: 0 0.0625em; position: relative; }
 .num.u1 { border-bottom: 1.5px solid currentColor; }
 .num.u2 { border-bottom: 4px double currentColor; }
 /* Every eighth/sixteenth note keeps its OWN separate underline so each note reads

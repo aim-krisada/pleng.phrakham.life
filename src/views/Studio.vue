@@ -424,9 +424,10 @@ function printSheet() {
       <div class="card">
         <h2 class="sheet-title no-print">{{ titleText }}</h2>
         <!-- the top-nav "Aa" reader size (store.readingFontScale) scales แผ่นเพลง on screen
-             too (B043 · was only wired in ฝึกร้อง). Reset to 1rem for print so the A4 sheet
-             keeps its fixed layout regardless of the on-screen reading size. -->
-        <div class="sheet-read-scale" :style="{ fontSize: readingFontScale + 'rem' }">
+             too (B043 · was only wired in ฝึกร้อง). It now rides on a custom property because
+             ใบ#130 gives the sheet itself a paper-sized font (see .sheet-read-scale in <style>);
+             print still pins everything to 1rem so the A4 layout never follows the reading size. -->
+        <div class="sheet-read-scale" :style="{ '--sheet-aa': readingFontScale }">
           <!-- ใบ v3/pleng#105 — ตามต้นฉบับ: say plainly when the book has no phrasing for this
                song, so the reader knows the spacing fell back to the tune. Never printed. -->
           <p v-if="sheetBookNote" class="book-note no-print" role="status">{{ sheetBookNote }}</p>
@@ -631,7 +632,36 @@ function printSheet() {
   .sheet-workspace { padding-bottom: 24px; }
 }
 /* Aa scales the sheet on screen; print keeps the fixed A4 size (protect pagination) */
+/* ใบ v3/pleng#130 — แผ่นเพลง on screen IS the page, not a web page.
+   พี่เปา 20 ต.ค. 2569: "บางเพลงแสดงหน้าจอไม่ตกแต่ปริ้นแล้วตก".
+   Where the lines break depends on one number: how many font-sizes wide the text box is.
+   On paper that number is fixed — A4 (210mm) minus the 16mm margins @page gives each side
+   leaves 178mm, and print pins the sheet's font to 1rem (16px), so the page is exactly
+   178mm / 16px = 42.0472 font-sizes wide, every time. On screen the box was the window
+   instead, so a wide window fitted more per line and the paper broke somewhere else.
+   Give the sheet that same 42.0472em and the two agree at any reading size: both the width
+   and the font scale together, so the ratio — the only thing wrapping cares about — holds.
+   A window narrower than that shrinks the font to fit rather than re-wrapping, down to a
+   floor of 11px; below that the sheet scrolls sideways instead of becoming unreadable
+   (ฝึกร้อง stays the mode built for reading on a phone). */
 .sheet-read-scale { font-size: inherit; }
+@media screen {
+  .sheet-read-scale {
+    --paper-em: 42.0472; /* 178mm ÷ 16px — the A4 text box, in font-sizes */
+    font-size: calc(var(--sheet-aa, 1) * 1rem);
+    container-type: inline-size; /* so the sheet below can size itself from THIS box */
+    overflow-x: auto;
+  }
+  .sheet-read-scale :deep(.sheet-root) {
+    width: calc(var(--paper-em) * 1em);
+    margin-inline: auto;
+    font-size: clamp(
+      0.6875rem,
+      calc(100cqw / var(--paper-em)),
+      calc(var(--sheet-aa, 1) * 1rem)
+    );
+  }
+}
 /* ใบ#105 — the "the book has no phrasing for this song" notice above the sheet (screen only) */
 .book-note {
   margin: 0 auto 0.6rem; max-width: 42rem; padding: 0.4rem 0.7rem; border-radius: 8px;
