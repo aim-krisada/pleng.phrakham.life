@@ -443,6 +443,7 @@ function printSheet() {
             :display-key="sheetKey"
             :song-title="sheetPrintTitle"
             song-head
+            fit-lines
             :book-refs="sheetBookRefs"
             :songbook="sheetBook === 'songbook'"
             :lyric-join="sheetLyricJoin !== 'split'"

@@ -6,6 +6,7 @@ import { buildArc, planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { pixelRatio, levelTop, lineThickness } from '../lib/pixelSnap.js'
 import { phraseBreaks, songBreathBeats, wordEnds } from '../lib/lyricPhrase.js'
 import { lyricLineSplits } from '../lib/lyricLineSplit.js'
+import { fitScale } from '../lib/fitLine.js'
 import { bookRefsCodeText } from '../lib/bookCodes.js'
 import NoteRow from './NoteRow.vue'
 
@@ -43,6 +44,11 @@ const props = defineProps({
   // The caller passes them because this component takes `content`, not the whole song row, and an
   // imported song keeps its refs in a column outside content (see lib/bookCodes songBookRefs).
   bookRefs: { type: Array, default: () => [] },
+  // ใบ v3/pleng#132 — พี่เปา: "ขอให้หน้าแผ่นเพลงทำให้ซ้าย-ขวาขยายเต็ม A4 สวยๆ … ตามบรรทัดที่ที่เราใส่ไว้".
+  // ONE entered line = ONE printed row, filling the page: the bars of a line spread to both
+  // margins, and a line too long to fit is scaled down rather than spilling onto a second row.
+  // แผ่นเพลง only — ฝึกร้อง and the editor preview read on screen and keep their free wrapping.
+  fitLines: { type: Boolean, default: false },
 })
 const emit = defineEmits(['seek'])
 
@@ -500,13 +506,59 @@ function measureTies() {
   lineArcs.value = byLine
 }
 
+// ใบ#132 — fit each entered line onto one row of the page.
+// A line is a no-wrap flex row (the .sheet-fit-lines rules below), so a line that is too long
+// OVERFLOWS instead of wrapping; shrinking its type until it fits is what keeps the author's
+// line breaks. The whole sheet is measured in `em` since ใบ#130, so one font-size on the line
+// scales its notes, its bar lines and its words together — the layout stays proportional.
+// Text does not scale perfectly linearly (hinting rounds glyph widths), so this converges in
+// up to three passes instead of trusting the first ratio.
+function fitLineWidths() {
+  const root = rootEl.value
+  if (!root) return
+  for (const line of root.querySelectorAll('.song-line')) {
+    line.style.fontSize = '' // always measure from the page's own size, never from last time
+    if (!props.fitLines || line.classList.contains('song-line-lyrics')) continue
+    const apply = (scale) => {
+      line.style.fontSize = scale === 1 ? '' : scale * 100 + '%'
+    }
+    // What has to fit on one row is the BARS. The line box is not the measure: the tie overlay is
+    // absolutely positioned, and a ท่อน heading sometimes takes a full-width row of its own above
+    // the bars (♦ รับ 1) and sometimes sits beside them on the same row (the *** marker). Count the
+    // heading only in the second case — reading its CURRENT row tells us which it is — or a headed
+    // line measures twice too wide and gets shrunk to a quarter size (song 77, 20 ต.ค. 2569).
+    // Summing the bars' own widths reads the same whether they have already wrapped or not.
+    const groups = [...line.querySelectorAll(':scope > .bar-group')]
+    const label = line.querySelector(':scope > .section-label')
+    const naturalWidth = () => {
+      if (!groups.length) return line.scrollWidth
+      let w = groups.reduce((sum, g) => sum + g.getBoundingClientRect().width, 0)
+      if (label) {
+        const lr = label.getBoundingClientRect()
+        const gr = groups[0].getBoundingClientRect()
+        if (Math.abs(lr.top - gr.top) < 2) w += lr.width // the heading shares the bars' row
+      }
+      return w
+    }
+    // the last step of fitScale may end without a confirming measure, so apply its answer here
+    apply(fitScale(line.clientWidth, (scale) => {
+      apply(scale)
+      return naturalWidth()
+    }))
+  }
+}
+
 // Debounce with a short timer (fires reliably in every context, unlike rAF which is
 // paused in non-painting/headless tabs) — coalesces resize/print storms into one measure
 // after layout settles.
+function measureSheet() {
+  fitLineWidths()
+  measureTies()
+}
 let timer = 0
 function scheduleMeasure() {
   clearTimeout(timer)
-  timer = setTimeout(measureTies, 16)
+  timer = setTimeout(measureSheet, 16)
 }
 
 let ro = null
@@ -530,7 +582,7 @@ onMounted(() => {
   }
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', scheduleMeasure)
-    window.addEventListener('beforeprint', measureTies)
+    window.addEventListener('beforeprint', measureSheet)
   }
   // on the document, not the sheet: a selection that starts above the sheet fires copy there, not here
   if (typeof document !== 'undefined') document.addEventListener('copy', onCopy)
@@ -539,7 +591,7 @@ onBeforeUnmount(() => {
   if (ro) ro.disconnect()
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', scheduleMeasure)
-    window.removeEventListener('beforeprint', measureTies)
+    window.removeEventListener('beforeprint', measureSheet)
   }
   if (typeof document !== 'undefined') document.removeEventListener('copy', onCopy)
   clearTimeout(timer)
@@ -554,7 +606,7 @@ watch(
 </script>
 
 <template>
-  <div ref="rootEl" class="sheet-root" :class="[lyricsOnly ? 'sheet-mode-lyrics' : '', sn && !sc ? 'sheet-no-chord' : '']">
+  <div ref="rootEl" class="sheet-root" :class="[lyricsOnly ? 'sheet-mode-lyrics' : '', sn && !sc ? 'sheet-no-chord' : '', fitLines ? 'sheet-fit-lines' : '']">
     <!-- Printed title — centered, above the song, on paper only (on screen the shell
          bar / Studio heading already show it). Owned here so it prints from ANY mode
          that renders the sheet (ดู or แผ่น), which is why P'Aim's ดู-mode print had none. -->
@@ -671,6 +723,25 @@ watch(
 /* • between-block: lift note-bearing lines apart (songbook lyrics-only lines keep their own
      tight 2px spacing below, so they are excluded). */
 .sheet-root .song-line:not(.song-line-lyrics) { margin-bottom: 16px; }
+/* ใบ v3/pleng#132 — on แผ่นเพลง a music line is ONE row that reaches both margins: the bars
+   spread into the slack (space-between), and the row never wraps. A line that does not fit is
+   scaled down by fitLines() instead — the author's line breaks are the layout, so the page must
+   not invent new ones. Reused-verse lines (lyrics only, stacked under a melody printed above)
+   keep their ordinary text flow: spreading words to the margins would only pull them apart. */
+.sheet-fit-lines .song-line:not(.song-line-lyrics) {
+  justify-content: space-between;
+}
+/* Only the BARS are held to their natural size. A flex item gives way before it overflows, and a
+   squeezed bar quietly breaks its words onto a second line inside their own cell — the same ugly
+   result as wrapping, just harder to see. fitLineWidths() answers an over-long line by scaling it
+   down instead, which keeps notes, bars and words in proportion.
+   ⛔ The row still WRAPS on purpose: a ท่อน heading (.section-label) is a full-width item that has
+   to sit on its own row above the bars. Forcing nowrap put the heading and the bars on one row and
+   made every headed line measure ~2x too wide — so the fit chased a number that could not be met
+   and shrank a line to a quarter size (song 77, 20 ต.ค. 2569). */
+.sheet-fit-lines .song-line:not(.song-line-lyrics) > .bar-group {
+  flex-shrink: 0;
+}
 /* B069 — cross-bar tie overlay. One small SVG per line, absolutely positioned over that
    line so its arcs can span across bar lines / segments; it never affects layout
    (pointer-events: none) so measuring it can't feed back into a resize loop. The line is
