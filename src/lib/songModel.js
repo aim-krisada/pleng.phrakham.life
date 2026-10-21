@@ -150,10 +150,22 @@ export function migrateToV2(content) {
 // Syllables map 1:1 to the syllable-bearing notes of the stanza, consumed in order.
 // Melody signature of a source stanza line, for the songbook's "print each melody once"
 // (B059-refine). It is the note tokens split into bars (chords + segmentation ignored, so a
-// phrase notated with a different chord-split still matches), with a LEADING PICKUP BAR
-// dropped — an anacrusis (a first bar shorter than a full measure) is how the same refrain
-// phrase enters differently on its first vs later rounds, so we normalise it away before
+// phrase notated with a different chord-split still matches), with a leading pickup bar of
+// RESTS dropped — an anacrusis that is only silence is how the same refrain phrase can be
+// entered differently on its first vs later rounds, so we normalise that away before
 // comparing. `expBeats` = expectedBeats(timeSignature); null skips pickup normalisation.
+//
+// ⛔ ใบ v3/pleng#131 — a pickup that is SUNG is not normalised away, and this reverses what
+// B059-refine did. It dropped every short first bar, so song 77's รับ — line 1 on the downbeat,
+// lines 2 and 3 entering on a "0 1" pickup — read as one melody sung three times. It is not:
+// that pickup carries a word, so those lines have one syllable MORE than the line whose notes
+// get printed, and the stacked words land under the wrong notes. พี่เปา 20 ต.ค. 2569:
+// "รับโน้ตไม่ได้ร้องเหมือนกัน แต่โชว์ว่าเนื้อทั้ง 3 บรรทัดใช้โน้ตชุดเดียวกัน".
+// Measured over all 692 published songs: this changes 2 songs, 4 lines (songs 5 and 77).
+// A token a voice actually sings: a scale degree. `0` is a rest and `-` / `~` hold or tie the
+// note before them, so none of those adds a syllable.
+const isSungNote = (token) => /[1-7]/.test(token)
+
 export function melodyLineSignature(line, expBeats) {
   const bars = []
   let cur = []
@@ -163,9 +175,11 @@ export function melodyLineSignature(line, expBeats) {
   }
   bars.push(cur)
   let groups = bars.filter((b) => b.length)
-  // drop a single leading pickup bar (shorter than a full measure) so "0 1 | 1 1 1 1 1 2 …"
-  // matches the same phrase entered on the downbeat as "1 1 1 1 1 2 | …"
-  if (groups.length > 1 && expBeats) {
+  // Drop a single leading pickup bar (shorter than a full measure) so "0 0 | 1 1 1 1 …" matches
+  // the same phrase entered on the downbeat — but ONLY while that bar is silent. A pickup that
+  // holds a real note is a note the singer sings, so the two lines are different melodies and
+  // carry a different number of syllables (ใบ#131).
+  if (groups.length > 1 && expBeats && !groups[0].some(isSungNote)) {
     const firstBeats = beatCount(parseNotes(groups[0].join(' ')))
     if (firstBeats > 0 && firstBeats < expBeats - 1e-6) groups = groups.slice(1)
   }

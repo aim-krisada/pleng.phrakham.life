@@ -46,10 +46,13 @@ describe('resolveContent — melody-first tags (B059)', () => {
   })
 })
 
-describe('resolveContent — adjacent-repeat dedup (B059-refine)', () => {
-  // A refrain that sings the same phrase on lines 0,1,2 (line 0 on the downbeat, lines 1,2
-  // with a "0 1" pickup) then a different ending on line 3 — the song 77 shape. All three
-  // must collapse to ONE printed melody; the ending stays.
+describe('resolveContent — adjacent-repeat dedup (B059-refine, narrowed by ใบ#131)', () => {
+  // The song 77 shape: a refrain whose line 0 enters on the downbeat and whose lines 1 and 2
+  // enter on a "0 1" pickup, then a different ending on line 3.
+  // B059-refine collapsed all three into ONE printed melody. ใบ#131 takes that back: the "1" in
+  // that pickup is a note somebody SINGS, so lines 1 and 2 carry one syllable more than line 0
+  // and their words cannot sit under line 0's notes. พี่เปา reported exactly this on 20 ต.ค. 2569.
+  // Lines 1 and 2 are identical to each other, so the second of them still collapses.
   const refrain = {
     version: 2, key: 'C', timeSignature: '4/4',
     stanzas: [{ id: 'R', lines: [
@@ -61,12 +64,25 @@ describe('resolveContent — adjacent-repeat dedup (B059-refine)', () => {
     arrangement: [{ stanza: 'R', label: 'รับ', syllables: Array(16).fill('x') }],
   }
 
-  it('collapses adjacent repeats of the same phrase (pickup-normalised) to one melody', () => {
+  it('a SUNG pickup makes its own melody — only a true repeat of it collapses (ใบ#131)', () => {
     const lines = resolveContent(refrain)
     expect(lines[0]._melodyFirst).toBe(true)  // downbeat statement — notes shown
-    expect(lines[1]._melodyFirst).toBe(false) // same phrase, "0 1" pickup → words only
-    expect(lines[2]._melodyFirst).toBe(false) // same again → words only
+    expect(lines[1]._melodyFirst).toBe(true)  // enters a syllable earlier → its own notes
+    expect(lines[2]._melodyFirst).toBe(false) // identical to line 1, pickup and all → words only
     expect(lines[3]._melodyFirst).toBe(true)  // different ending → notes shown
+  })
+
+  it('a pickup of SILENCE is still normalised away — that was the point of B059-refine', () => {
+    const rested = {
+      ...refrain,
+      stanzas: [{ id: 'R', lines: [
+        [{ type: 'segment', note: '1 1 1 1' }, { type: 'bar' }, { type: 'segment', note: '7 6 5 4' }],
+        [{ type: 'segment', note: '0 0' }, { type: 'bar' }, { type: 'segment', note: '1 1 1 1' }, { type: 'bar' }, { type: 'segment', note: '7 6 5 4' }],
+      ] }],
+    }
+    const lines = resolveContent(rested)
+    expect(lines[0]._melodyFirst).toBe(true)
+    expect(lines[1]._melodyFirst).toBe(false) // same notes, same syllables → words only
   })
 
   it('an AABA verse (same tune on lines 0 and 2, NOT adjacent) keeps every melody', () => {
@@ -84,9 +100,22 @@ describe('resolveContent — adjacent-repeat dedup (B059-refine)', () => {
     expect(lines.map((l) => l._melodyFirst)).toEqual([true, true, true, true])
   })
 
-  it('melodyLineSignature drops a leading pickup bar but keeps a full first bar', () => {
-    const withPickup = [{ type: 'segment', note: '0 1' }, { type: 'bar' }, { type: 'segment', note: '1 1 1 1' }]
+  it('melodyLineSignature drops a SILENT pickup bar but keeps a full first bar', () => {
+    const restPickup = [{ type: 'segment', note: '0 0' }, { type: 'bar' }, { type: 'segment', note: '1 1 1 1' }]
     const onDownbeat = [{ type: 'segment', note: '1 1 1 1' }]
-    expect(melodyLineSignature(withPickup, 4)).toBe(melodyLineSignature(onDownbeat, 4))
+    expect(melodyLineSignature(restPickup, 4)).toBe(melodyLineSignature(onDownbeat, 4))
+  })
+
+  it('melodyLineSignature KEEPS a pickup that is sung — it is a syllable (ใบ#131)', () => {
+    const sungPickup = [{ type: 'segment', note: '0 1' }, { type: 'bar' }, { type: 'segment', note: '1 1 1 1' }]
+    const onDownbeat = [{ type: 'segment', note: '1 1 1 1' }]
+    expect(melodyLineSignature(sungPickup, 4)).not.toBe(melodyLineSignature(onDownbeat, 4))
+    expect(melodyLineSignature(sungPickup, 4)).toContain('0 1')
+  })
+
+  it('a held or tied pickup is silence for this purpose — no new syllable', () => {
+    const held = [{ type: 'segment', note: '- -' }, { type: 'bar' }, { type: 'segment', note: '1 1 1 1' }]
+    const onDownbeat = [{ type: 'segment', note: '1 1 1 1' }]
+    expect(melodyLineSignature(held, 4)).toBe(melodyLineSignature(onDownbeat, 4))
   })
 })
