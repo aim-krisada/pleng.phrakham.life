@@ -5,13 +5,19 @@
 // come from the write-time snapshot (actor_name), so they never vanish if a user is removed.
 import { ref, watch, computed } from 'vue'
 import Icon from './Icon.vue'
+import SongSheet from './SongSheet.vue'
 import { loadSongHistory, eventMeta, actorLabel, rowDiff } from '../lib/auditLog.js'
+import { migrateToV2, resolveContent } from '../lib/songModel.js'
 
 const props = defineProps({
   songId: { type: String, default: null },
   draftId: { type: String, default: null },
   canRestore: { type: Boolean, default: false }, // approvers may roll a published song back
   profilesMap: { type: Object, default: () => ({}) }, // fallback names for pre-004 rows only
+  // ใบ v3/pleng#133 — what just happened, shown INSIDE the panel. The editor's own status line
+  // sits behind this panel, so a message left there after pressing ย้อน is invisible: พี่เปา
+  // pressed it, the song really was rolled back, and she saw nothing at all (21 ต.ค. 2569).
+  notice: { type: String, default: '' },
 })
 const emit = defineEmits(['restore'])
 
@@ -32,6 +38,54 @@ defineExpose({ reload })
 
 const isEmpty = computed(() => !loading.value && entries.value.length === 0)
 
+// ใบ v3/pleng#134 — พี่เปา: "ควรมีปุ่ม preview ว่าถ้าเอาจะได้อะไร".
+// Someone recovering a song saved over by mistake has to find WHICH version still has the whole
+// song, and the one-line summary beside each row cannot tell them: it was written for the old
+// song shape and reads `content.lines`, which a v2 song does not have — so for today's songs it
+// says nothing but the title, number, key and meter. She pressed ย้อน once, got a version with
+// the same short content back, and lost the trip. Every row already carries the full snapshot,
+// so showing it costs no extra query and writes nothing.
+const previewId = ref(null)
+function togglePreview(e) {
+  previewId.value = previewId.value === e.id ? null : e.id
+}
+
+// The snapshot of a row, read for display only. v1 rows are migrated first so one renderer
+// covers both shapes; anything unreadable returns null and the row simply offers no preview.
+function previewOf(e) {
+  const row = e.after ?? e.new_row
+  if (!row || !row.content) return null
+  try {
+    const { content: raw } = migrateToV2(row.content)
+    // An old snapshot can carry a blank slot as `null`, which the expander chokes on
+    // (`null.startsWith`). Preview is read-only and is wanted precisely on the messy versions,
+    // so normalise a missing word to an empty one rather than losing the whole preview.
+    const content = {
+      ...raw,
+      arrangement: (raw.arrangement || []).map((a) => ({
+        ...a,
+        syllables: (a.syllables || []).map((x) => String(x ?? '')),
+      })),
+    }
+    const stanzas = content.stanzas || []
+    const arrangement = content.arrangement || []
+    return {
+      title: (row.number != null ? row.number + '. ' : '') + (row.title_th || 'เพลง'),
+      parts: arrangement.length,
+      melodyLines: stanzas.reduce((n, st) => n + ((st.lines || []).length), 0),
+      words: arrangement.reduce((n, a) => n + a.syllables.filter((x) => x.trim()).length, 0),
+      content: { ...content, lines: resolveContent(content) },
+    }
+  } catch {
+    return null
+  }
+}
+const previews = computed(() => {
+  const out = {}
+  for (const e of entries.value) out[e.id] = previewOf(e)
+  return out
+})
+
 function fmtTime(ts) {
   if (!ts) return ''
   try {
@@ -47,6 +101,7 @@ function fmtTime(ts) {
 
 <template>
   <div class="rev-hist">
+    <p v-if="notice" class="rev-notice" role="status">{{ notice }}</p>
     <p v-if="loading" class="rev-muted">กำลังโหลดประวัติ…</p>
     <p v-else-if="isEmpty" class="rev-muted">ยังไม่มีประวัติการแก้ไขสำหรับเพลงนี้</p>
 
@@ -61,6 +116,16 @@ function fmtTime(ts) {
             <span class="rev-by">โดย {{ actorLabel(e, profilesMap) }}</span>
             <span class="rev-time">{{ fmtTime(e.created_at) }}</span>
             <button
+              v-if="previews[e.id]"
+              type="button"
+              class="rev-peek"
+              :aria-expanded="previewId === e.id"
+              @click="togglePreview(e)"
+            >
+              <Icon name="eye" :size="13" />
+              {{ previewId === e.id ? 'ปิดตัวอย่าง' : 'ดูก่อน' }}
+            </button>
+            <button
               v-if="canRestore && (e.after || e.new_row)"
               type="button"
               class="rev-restore"
@@ -73,6 +138,19 @@ function fmtTime(ts) {
           <ul v-if="rowDiff(e).length" class="rev-diff">
             <li v-for="(d, i) in rowDiff(e)" :key="i">{{ d }}</li>
           </ul>
+          <!-- ใบ#134 — the numbers first: someone comparing several versions reads those faster
+               than a picture. The sheet below is the proof behind them. -->
+          <div v-if="previewId === e.id && previews[e.id]" class="rev-preview">
+            <p class="rev-preview-sum">
+              <b>{{ previews[e.id].title }}</b>
+              · {{ previews[e.id].parts }} ท่อน
+              · ทำนอง {{ previews[e.id].melodyLines }} บรรทัด
+              · {{ previews[e.id].words }} คำ
+            </p>
+            <div class="rev-preview-sheet">
+              <SongSheet :content="previews[e.id].content" mode="full" />
+            </div>
+          </div>
         </div>
       </li>
     </ol>
@@ -157,6 +235,46 @@ function fmtTime(ts) {
   margin: 4px 0 0 18px;
   padding: 0;
   color: var(--muted);
+}
+/* ใบ#133 — what just happened, at the top of the panel where the reader is already looking */
+.rev-notice {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--cream, #faf7f2);
+  font-size: 0.9em;
+}
+/* ใบ#134 — "ดูก่อน" sits beside ย้อนมาเวอร์ชันนี้ and reads as the quieter of the two */
+.rev-peek {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85em;
+  cursor: pointer;
+}
+.rev-peek:hover { color: var(--ink); }
+.rev-peek[aria-expanded='true'] { color: var(--ink); border-color: var(--ink); }
+/* when both buttons are there, only the FIRST one takes the leftover space */
+.rev-peek + .rev-restore { margin-left: 6px; }
+.rev-preview {
+  margin: 6px 0 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.rev-preview-sum { margin: 0 0 6px; font-size: 0.9em; }
+/* the sheet is a LOOK, not a workspace: let a wide song scroll rather than reflow the panel */
+.rev-preview-sheet {
+  overflow-x: auto;
+  font-size: 0.85em;
 }
 .rev-restore {
   margin-left: auto;
