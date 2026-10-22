@@ -270,6 +270,10 @@ export function resolveContent(content) {
       // above it (b). Line-level metadata carried as non-index array props so every existing
       // consumer (v1 render, midi, print) still iterates the items untouched.
       const melodyFirst = stanzaFirst && sig !== prevSig
+      // ใบ v3/pleng#131 (2) — rule (b) alone: the same tune as the line just above, in a ท่อน that
+      // prints its notes. The songbook stacks these words under that line's notes, word by word,
+      // instead of printing them as a paragraph below (a whole reused stanza (a) still does that).
+      if (stanzaFirst && sig === prevSig) outLine._sameTuneAbove = true
       prevSig = sig
       outLine._stanza = entry.stanza
       outLine._melodyFirst = melodyFirst
