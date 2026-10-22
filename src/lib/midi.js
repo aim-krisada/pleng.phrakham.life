@@ -9,6 +9,7 @@ import { arrange } from './arranger/index.js'
 import { moduleForInstrument } from './arranger/instruments/index.js'
 import { mulberry32, seedFor } from './arranger/rng.js'
 import { resolveContent } from './songModel.js'
+import { onLevels } from './volume.js'
 
 // Playback root MIDI per key. Every tonic is kept inside ONE comfortable window (G3..F#4 = 55..66)
 // so no key plays an octave higher than another (พี่เปา 14 ก.ค.: "คีย์ A สูงเกินไป · ขอโซน A4"). The
@@ -473,6 +474,81 @@ export function makeChordBus(context, destination, level = 1) {
   return g
 }
 
+// ---------- ใบ v3/pleng#135: the listener's two volume knobs + a limiter at the very end ----------
+// Every voice of playSong now reaches the speaker through one of TWO gains — the melody's or the
+// chords' — that the volume panel moves while the song plays (lib/volume.js: 100% = today's level).
+// They sit BEFORE the reverb, so the room's tail grows and shrinks with the voice that feeds it.
+// After everything, one limiter guards the output: before this change the melody went straight to the
+// speaker with nothing in the way (the chord bus above already had its own compressor), and a louder
+// melody with chords on top would clip.
+// `mixLevels` is the current setting (gain multipliers); `mixNodes` the gains of the play now sounding.
+let mixLevels = { melody: 1, chord: 1 }
+let mixNodes = null
+// The limiter is three steps, each measured on an OfflineAudioContext with a dense chord + melody hit:
+//   1. a compressor that only works above -1.5 dBFS, hard (ratio 20) and fast (2 ms) — the loudness;
+//   2. a trim that cancels the compressor's AUTOMATIC makeup gain. Web Audio adds (1/fullRangeGain)^0.6 to
+//      everything (spec; measured 1.1034 = +0.86 dB here), which on its own made today's 100% louder;
+//   3. a soft clipper for what the compressor's attack lets through: straight up to 0.9, then a smooth
+//      bend that never passes 1.0 — a rounded top instead of the hard flat cut that sounds like แตก.
+// Measured peaks: 100% = 0.915 before → 0.866 (only peaks above ~0.84 are touched); 200% = 1.83 with
+// nothing (hard clipping) → 1.11 with the compressor alone → 0.976 with all three.
+const LIMIT_THRESHOLD_DB = -1.5
+const LIMIT_RATIO = 20
+const CLIP_KNEE = 0.9
+let clipCurve = null
+function softClipCurve() {
+  if (clipCurve) return clipCurve
+  const n = 4097
+  clipCurve = new Float32Array(n)
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1
+    const a = Math.abs(x)
+    clipCurve[i] = a <= CLIP_KNEE ? x : Math.sign(x) * (CLIP_KNEE + (1 - CLIP_KNEE) * Math.tanh((a - CLIP_KNEE) / (1 - CLIP_KNEE)))
+  }
+  return clipCurve
+}
+// returns the limiter's INPUT node; its output is connected to `destination`
+export function makeOutputLimiter(context, destination) {
+  const lim = context.createDynamicsCompressor()
+  lim.threshold.value = LIMIT_THRESHOLD_DB
+  lim.knee.value = 0
+  lim.ratio.value = LIMIT_RATIO
+  lim.attack.value = 0.002
+  lim.release.value = 0.12
+  const fullRangeDb = LIMIT_THRESHOLD_DB - LIMIT_THRESHOLD_DB / LIMIT_RATIO // what a full-scale input comes out at
+  const trim = context.createGain()
+  trim.gain.value = Math.pow(Math.pow(10, fullRangeDb / 20), 0.6) // = 1 / the compressor's makeup gain
+  const clip = context.createWaveShaper()
+  clip.curve = softClipCurve()
+  clip.oversample = '4x'
+  lim.connect(trim)
+  trim.connect(clip)
+  clip.connect(destination)
+  return lim
+}
+function makeMixNodes(context, destination) {
+  const melody = context.createGain()
+  const chord = context.createGain()
+  melody.gain.value = mixLevels.melody
+  chord.gain.value = mixLevels.chord
+  melody.connect(destination)
+  chord.connect(destination)
+  return { melody, chord }
+}
+// Set the two levels (gain multipliers, 1 = today). Takes effect at once on a song that is playing —
+// a short glide, not a jump, so a slider being dragged never clicks — and on every later play.
+export function setMixLevels({ melody, chord } = {}) {
+  if (Number.isFinite(melody)) mixLevels = { ...mixLevels, melody }
+  if (Number.isFinite(chord)) mixLevels = { ...mixLevels, chord }
+  if (!mixNodes || !ctx) return
+  const t = ctx.currentTime
+  mixNodes.melody.gain.setTargetAtTime(mixLevels.melody, t, 0.03)
+  mixNodes.chord.gain.setTargetAtTime(mixLevels.chord, t, 0.03)
+}
+export const getMixLevels = () => ({ ...mixLevels })
+// follow the volume panel (lib/volume.js publishes whatever setting wins: the listener's, else the site's)
+onLevels(setMixLevels)
+
 // ---------- B107 P2 · LAYER 4: reverb (church space) ----------
 // Reverb presets — the "how much room" knob P'Aim tunes by ear (§11.3). seconds = tail length,
 // decay = how fast it fades, wet = how much reverb vs dry. Worship wants "in the room", not blur.
@@ -705,15 +781,22 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
   // is the reverb input, or context.destination when reverb is off/none. Both the synth and the
   // sampler route through it, so live playback (and later the MP3) share the same room. Built
   // once per play; the sampler is re-pointed at it via setDestination.
+  // ใบ#135 — the reverb now feeds the output limiter instead of the speaker directly, and each voice
+  // enters through its own volume gain (melVol / chordVol) ahead of the reverb.
   const reverbCfg = REVERB[arrangeCfg.reverb]
-  const fx = reverbCfg ? makeReverbBus(ctx, ctx.destination, reverbCfg) : null
-  const busIn = fx ? fx.input : ctx.destination
+  const out = makeOutputLimiter(ctx, ctx.destination)
+  const fx = reverbCfg ? makeReverbBus(ctx, out, reverbCfg) : null
+  const busIn = fx ? fx.input : out
+  mixNodes = makeMixNodes(ctx, busIn)
+  const { melody: melVol, chord: chordVol } = mixNodes
   const wantPan = !!arrangeCfg.pan
-  if (sampler) sampler.setDestination(busIn) // route the real instrument through reverb
+  // route the real instrument through reverb — its melody voice and its chord voice each through their own
+  // volume (sampler.js plays the chords on a twin of the instrument so the two can be set apart)
+  if (sampler) sampler.setDestinations(melVol, chordVol)
   // B107 §1: one bus (gain → low-pass → compressor) for all SYNTH chord voices so the pad sits
   // under the melody instead of masking it. Not needed for the sampler (recorded piano isn't
   // harsh, and per-note velocity already sets the balance). Built once; reused across passes.
-  const chordBus = (wantChords && !sampler) ? makeChordBus(ctx, busIn) : null
+  const chordBus = (wantChords && !sampler) ? makeChordBus(ctx, chordVol) : null
 
   let pass = 0 // loop pass index → humanize seed, so pass 0/1 differ but repeat (§R2.5)
   do {
@@ -749,13 +832,13 @@ export async function playSong(content, { bpm = 80, loop = false, onProgress, on
       if (sampler) {
         // Real instrument: transpose = play a different MIDI note (the sampler pitch-shifts).
         // A live key change reschedules (the viewer restarts) — sampler voices can't detune.
-        sampler.fire(e.midi + liveTranspose, startT, soundDur, e.gain)
+        sampler.fire(e.midi + liveTranspose, startT, soundDur, e.gain, isMel ? 'melody' : 'chord')
       } else {
         // Synth: base pitch is the ORIGINAL key; transpose rides on detune so it can be changed
         // live (100 cents = 1 semitone) without rescheduling. Melody hits the reverb bus centre;
         // chord voices route through the low-pass/compressor bus, optionally panned per-voice
         // (higher voices lean a touch right = a wider pad) before the bus (§5 stereo spread).
-        let dest = isMel ? busIn : chordBus
+        let dest = isMel ? melVol : chordBus
         if (!isMel && wantPan && e.role !== 'bass') {
           const pan = ctx.createStereoPanner()
           pan.pan.value = Math.max(-0.4, Math.min(0.4, (e.midi - 58) / 28))
@@ -901,6 +984,9 @@ export function resolveSections(content, notes) {
   return phrases.length > labelled.length ? phrases : labelled
 }
 
+// ใบ v3/pleng#135 — the volume panel does not reach this player yet: it mixes three instruments through
+// its own role buses, and เต็มวง is hidden while PIANO_ONLY is on (soundOptions.js). Wire melody → the lead's
+// guide line and chords → the other roles when เต็มวง comes back.
 export async function playEnsemble(content, { bpm = 72, loop = false, onNote, onProgress, order, range, transpose = 0, startIndex = 0, lead = 'piano', onInstrumentPending, songId } = {}) {
   ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
   try { const b = ctx.createBuffer(1, 1, 22050); const s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0) } catch { /* not fatal */ }
