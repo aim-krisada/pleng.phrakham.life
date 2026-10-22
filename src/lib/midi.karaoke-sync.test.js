@@ -38,6 +38,7 @@ function makeFakeCtx() {
     createBiquadFilter: () => node({ type: '', frequency: param(), Q: param() }),
     createDynamicsCompressor: () => node({ threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() }),
     createConvolver: () => node({ buffer: null }),
+    createWaveShaper: () => node({ curve: null, oversample: 'none' }), // ใบ#135 output limiter
   }
 }
 

@@ -1,6 +1,7 @@
 import { ref, computed, watch } from 'vue'
 import { supabase } from './supabase.js'
 import { ENABLED_ENSEMBLES, ENABLED_INSTRUMENTS } from './lib/soundOptions.js'
+import { normalizeVolume, effectiveVolume, publishLevels } from './lib/volume.js'
 
 // Song currently open in the viewer — drives the navbar download tool.
 export const currentSong = ref(null)
@@ -226,6 +227,61 @@ export const leadInstrument = ref((() => {
 watch(leadInstrument, (v) => { try { localStorage.setItem(INSTR_KEY, v) } catch { /* ignore */ } })
 export function setEnsembleMode(v) { if (ENSEMBLE_MODES.includes(v)) ensembleMode.value = v }
 export function setLeadInstrument(v) { if (READY_INSTRUMENTS.includes(v)) leadInstrument.value = v }
+
+// ---- ใบ v3/pleng#135: how loud the melody and the chords play (lib/volume.js) ----
+// Two sources, and the listener's own always wins (พี่เอม 22 ต.ค. 2569):
+//   listenerVolume — this person's own setting, kept in THIS browser (no login needed). null = never set
+//                    (or reset): they follow the site default, and keep following it when it changes.
+//   siteVolume     — the default an approver sets for everyone, read from the server (site_settings,
+//                    db/013). null = none saved, or the table is not installed yet: today's sound.
+// playVolume is what actually plays; every change is published to the audio engine at once.
+const VOLUME_KEY = 'pleng.volume.v1'
+export const listenerVolume = ref((() => {
+  try { return normalizeVolume(JSON.parse(localStorage.getItem(VOLUME_KEY))) } catch { /* ignore */ }
+  return null
+})())
+watch(listenerVolume, (v) => {
+  try { if (v) localStorage.setItem(VOLUME_KEY, JSON.stringify(v)); else localStorage.removeItem(VOLUME_KEY) } catch { /* ignore */ }
+}, { deep: true })
+export const siteVolume = ref(null)
+export const playVolume = computed(() => effectiveVolume(listenerVolume.value, siteVolume.value))
+watch(playVolume, (v) => publishLevels(v), { immediate: true })
+export function setListenerVolume(v) { listenerVolume.value = normalizeVolume(v) }
+// "คืนค่าเริ่มต้น" on the listener's panel: drop their own, follow the site again
+export function resetListenerVolume() { listenerVolume.value = null }
+
+const SITE_VOLUME_KEY = 'playback_volume'
+let siteVolumeLoad = null
+// Read the site default once per page load (the panel and the docks call this when they mount). Any
+// failure — offline, or the table not installed yet — leaves siteVolume null, so the page plays today's
+// sound and nothing breaks. `force` re-reads (after an approver saves).
+export function loadSiteVolume({ force = false } = {}) {
+  if (siteVolumeLoad && !force) return siteVolumeLoad
+  siteVolumeLoad = (async () => {
+    try {
+      const { data, error } = await supabase.from('site_settings').select('value').eq('key', SITE_VOLUME_KEY).limit(1)
+      if (!error && Array.isArray(data) && data[0]) siteVolume.value = normalizeVolume(data[0].value)
+    } catch { /* offline / no table → keep today's sound */ }
+  })()
+  return siteVolumeLoad
+}
+// Approver only (the table's RLS refuses anyone else). Shows the new level locally at once, then stores
+// it. Returns null on success, or 'no-table' when db/013 has not been run yet, or the error message.
+export function previewSiteVolume(v) { siteVolume.value = normalizeVolume(v) }
+export async function saveSiteVolume(v) {
+  const value = normalizeVolume(v)
+  if (!value) return 'invalid'
+  siteVolume.value = value
+  try {
+    const { error } = await supabase.from('site_settings').upsert({ key: SITE_VOLUME_KEY, value })
+    if (!error) return null
+    // 42P01 = Postgres "no such table"; PGRST205 = the API cannot find it in its schema cache
+    if (error.code === '42P01' || error.code === 'PGRST205') return 'no-table'
+    return error.message || 'error'
+  } catch (e) {
+    return e?.message || 'error'
+  }
+}
 
 // ---- แก้เพลง (editor) page's OWN sound state (B107 step 9 · P'Aim 13 ก.ค.) ----
 // The editor remembers its sound choices SEPARATELY from ฝึกร้อง (own localStorage keys), with a

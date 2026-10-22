@@ -5,9 +5,18 @@
 // Used by BOTH docks (ฝึกร้อง = SingTransport, แก้เพลง = EditorMode) via a DockKey #cell-<id> slot,
 // so the engine lays it out + clamps the .dk-pop. Presentational only — each page owns the state
 // and passes the groups (value/options/onPick), so ฝึกร้อง and แก้เพลง remember independently.
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import Icon from './Icon.vue'
+import VolumePanel from './VolumePanel.vue'
 import { PIANO_ONLY } from '../lib/soundOptions.js'
+import { listenerVolume, playVolume, setListenerVolume, resetListenerVolume, loadSiteVolume } from '../store.js'
+
+// ใบ v3/pleng#135 — ระดับเสียง sits at the top of this popover on BOTH pages (ฝึกร้อง and แก้เพลง): it is one
+// setting per listener, not per page, so it lives here rather than in each page's groups. Moving a slider
+// makes it this listener's own setting (kept in this browser) and is heard at once; คืนค่าเริ่มต้น drops
+// it, and they follow the site's default again. The site default is read when the dock first appears.
+onMounted(() => { loadSiteVolume() })
+const volumeNote = computed(() => (listenerVolume.value ? 'ตั้งเองแล้ว · ใช้กับทุกเพลงในเครื่องนี้' : 'ตามค่าเริ่มต้นของเว็บ'))
 
 // "ปรับละเอียด" starts collapsed (2-layer UX: simple presets on top, advanced hidden until asked).
 const advOpen = ref(false)
@@ -57,6 +66,17 @@ function pick(g, o) {
 
   <div v-if="open" class="dk-pop sc-pop" role="group" aria-label="เสียงดนตรี" @click.stop>
     <div class="sc-head">เสียงดนตรี</div>
+    <!-- its own classes: .sc-grp / .sc-glabel are the PAGE's choice groups (and what their tests count) -->
+    <div class="sc-vol">
+      <div class="sc-vlabel"><Icon name="volume-2" :size="14" /> ระดับเสียง</div>
+      <VolumePanel
+        :value="playVolume"
+        :note="volumeNote"
+        :can-reset="!!listenerVolume"
+        @update="setListenerVolume"
+        @reset="resetListenerVolume"
+      />
+    </div>
     <div v-for="g in groups.filter(shown)" :key="g.key" class="sc-grp">
       <!-- ปรับละเอียด (ROUND 2): a collapsible panel of per-technique controls (toggle/slider/choice)
            so the listener switches each on/off to find what's the problem (P'Aim 14 ก.ค.) -->
@@ -174,6 +194,11 @@ function pick(g, o) {
 /* PIANO-ONLY microcopy — quiet, one line, sits under the last group */
 .sc-note { margin: 0; padding-top: 7px; border-top: 1px solid var(--line); font-size: 11px; line-height: 1.45; color: var(--muted); max-width: 24em; }
 .sc-glabel :deep(svg) { color: var(--brand); }
+/* ใบ#135 — the ระดับเสียง block, laid out like a group and ruled off from the groups below it */
+.sc-vol { display: flex; flex-direction: column; gap: 5px; }
+.sc-vol + .sc-grp { border-top: 1px solid var(--line); padding-top: 7px; }
+.sc-vlabel { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.sc-vlabel :deep(svg) { color: var(--brand); }
 .sc-opts { display: flex; flex-wrap: wrap; gap: 6px; }
 .sc-opt {
   border: 1px solid var(--line); background: transparent; color: var(--ink);

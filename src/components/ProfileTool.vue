@@ -3,8 +3,11 @@ import { ref, computed, watch } from 'vue'
 import {
   session, profile, legacy, recovering, inviteMode, emailChanged,
   login, logout, updatePassword, requestPasswordReset, updateDisplayName, updateEmail, changePassword,
+  canApprove, siteVolume, loadSiteVolume, previewSiteVolume, saveSiteVolume,
 } from '../store.js'
 import Icon from './Icon.vue'
+import VolumePanel from './VolumePanel.vue'
+import { VOL_DEFAULT, normalizeVolume } from '../lib/volume.js'
 
 // Top-right account control, GitHub/Supabase style:
 // logged out -> "เข้าสู่ระบบ" opens a small dropdown form (works from any page)
@@ -27,6 +30,34 @@ const editErr = ref('')
 const editOk = ref('')
 const pwErr = ref('')
 const pwOk = ref('')
+
+// ใบ v3/pleng#135 — the approver sets the SITE's default volume here, with the very same panel a listener
+// sees in เสียงดนตรี. Dragging is heard at once (it applies locally while the approver has no level of
+// their own); letting go saves it for everyone. Listeners who set their own keep theirs.
+const siteVolOpen = ref(false)
+const siteVolMsg = ref('')
+const siteVolErr = ref(false)
+const siteVolValue = computed(() => siteVolume.value || { ...VOL_DEFAULT })
+const siteVolIsDefault = computed(() => {
+  const v = siteVolValue.value
+  return v.melody === VOL_DEFAULT.melody && v.chord === VOL_DEFAULT.chord && v.linked === VOL_DEFAULT.linked
+})
+function toggleSiteVol() {
+  siteVolOpen.value = !siteVolOpen.value
+  siteVolMsg.value = ''
+  if (siteVolOpen.value) loadSiteVolume({ force: true })
+}
+async function commitSiteVol(v) {
+  siteVolMsg.value = 'กำลังบันทึก…'
+  siteVolErr.value = false
+  const err = await saveSiteVolume(normalizeVolume(v))
+  siteVolErr.value = !!err
+  siteVolMsg.value = !err
+    ? 'บันทึกแล้ว · คนที่ไม่ได้ตั้งเองจะได้ค่านี้'
+    : err === 'no-table'
+      ? 'ยังบันทึกไม่ได้ · ที่เก็บค่าบนเซิร์ฟเวอร์ยังไม่ได้ติดตั้ง'
+      : 'บันทึกไม่สำเร็จ · ลองอีกครั้ง'
+}
 
 // A reset/invite/email-change link should pop the panel open automatically.
 watch([recovering, emailChanged], ([r, e]) => { if (r || e) open.value = true }, { immediate: true })
@@ -286,6 +317,21 @@ async function submitChangePassword() {
           <button type="button" class="linkish" @click="editing = false">← กลับ</button>
         </template>
         <div v-else class="menu-actions">
+          <!-- ใบ#135 — approver only: the site's default volume, same panel as the listener's -->
+          <template v-if="canApprove">
+            <button :aria-expanded="siteVolOpen" @click="toggleSiteVol">ระดับเสียงเริ่มต้นของเว็บ</button>
+            <div v-if="siteVolOpen" class="site-vol">
+              <VolumePanel
+                :value="siteVolValue"
+                :can-reset="!siteVolIsDefault"
+                note="ค่านี้ใช้กับทุกคนที่ยังไม่ได้ตั้งเอง"
+                @update="previewSiteVolume"
+                @commit="commitSiteVol"
+                @reset="commitSiteVol(VOL_DEFAULT)"
+              />
+              <p v-if="siteVolMsg" :class="siteVolErr ? 'err' : 'ok'">{{ siteVolMsg }}</p>
+            </div>
+          </template>
           <button @click="openEdit">แก้ไขโปรไฟล์</button>
           <button @click="doLogout">ออกจากระบบ</button>
         </div>
@@ -368,7 +414,10 @@ async function submitChangePassword() {
 }
 .profile-menu > button { width: 100%; text-align: center; }
 .menu-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
-.menu-actions button { width: 100%; text-align: center; }
+.menu-actions > button { width: 100%; text-align: center; }
+/* ใบ#135 — the site-volume panel opens in place under its button */
+.site-vol { border: 1px solid var(--line); border-radius: 10px; padding: var(--sp-2) var(--sp-3); }
+.site-vol p { margin: 4px 0 0; font-size: 12px; }
 .login-form { display: flex; flex-direction: column; gap: var(--sp-2); }
 .login-form label { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-sm); color: var(--muted); }
 .login-form .submit { width: 100%; }

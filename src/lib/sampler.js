@@ -183,7 +183,7 @@ async function createInstrument(name, context, onProgress) {
   const entry = REGISTRY[name]
   if (!entry) return null
   const smplr = await import('smplr')
-  const { SplendidGrandPiano, Soundfont, Sampler, CacheStorage, Scheduler } = smplr
+  const { SplendidGrandPiano, Soundfont, Sampler, CacheStorage, Scheduler, SampleLoader } = smplr
   const storage = makeStorage(CacheStorage)
   const base = SAMPLE_HOSTS.base
   const onLoadProgress = ({ loaded, total }) => { if (total) onProgress?.(loaded / total) }
@@ -197,65 +197,94 @@ async function createInstrument(name, context, onProgress) {
   const isOffline = typeof context.startRendering === 'function'
   const offlineScheduler = isOffline && Scheduler ? Scheduler(context, { lookaheadMs: 1e7 }) : null
 
+  // ใบ v3/pleng#135 — one sample cache for this instrument. Everything built below shares it, so the
+  // TWIN (see makeTwin) reuses every sample already fetched and decoded: no second download, no second
+  // copy in memory. smplr caches by sample URL inside the loader.
+  const loader = SampleLoader ? SampleLoader(context, { storage }) : undefined
+
   // makeup gain: lift the instrument to a usable level (see REGISTRY.makeup). One gain for all
   // voices → the melody/chord balance (set by velocity) is preserved. Routed as the instrument's
   // destination → context.destination (the scheduler re-points it at the reverb bus, §5).
-  const makeup = context.createGain()
-  makeup.gain.value = entry.makeup ?? 1
+  // build(onLoadProgress) makes ONE instance with its own makeup output; the main instrument and its
+  // twin are two calls of it.
+  let build = null
+  let velMap = null
 
   if (entry.kind === 'grand') {
     // makeup is always the single re-routable output → context.destination. felt = Grand + a
     // low-pass placed BEFORE the makeup (instrument → lpf → makeup), so the makeup node still is
     // the one output the scheduler re-points at the reverb bus.
-    makeup.connect(context.destination)
-    let dest = makeup
-    if (entry.lpfCutoffHz) {
-      const lpf = context.createBiquadFilter()
-      lpf.type = 'lowpass'
-      lpf.frequency.value = entry.lpfCutoffHz
-      lpf.connect(makeup)
-      dest = lpf
+    velMap = gainToVelocity
+    build = (progress) => {
+      const makeup = context.createGain()
+      makeup.gain.value = entry.makeup ?? 1
+      makeup.connect(context.destination)
+      let dest = makeup
+      if (entry.lpfCutoffHz) {
+        const lpf = context.createBiquadFilter()
+        lpf.type = 'lowpass'
+        lpf.frequency.value = entry.lpfCutoffHz
+        lpf.connect(makeup)
+        dest = lpf
+      }
+      const opts = {
+        baseUrl: SAMPLE_HOSTS.grand, // self-hosted (offline PWA) — same-origin mirror
+        formats: ['ogg'],
+        notesToLoad: { notes: midiRange(GRAND_LO, GRAND_HI), velocityRange: GRAND_VEL_RANGE },
+        destination: dest,
+        onLoadProgress: progress,
+      }
+      if (storage) opts.storage = storage
+      if (loader) opts.loader = loader
+      if (offlineScheduler) opts.scheduler = offlineScheduler // MP3: schedule the whole song up front
+      return { instrument: new SplendidGrandPiano(context, opts), output: makeup }
     }
-    const opts = {
-      baseUrl: SAMPLE_HOSTS.grand, // self-hosted (offline PWA) — same-origin mirror
-      formats: ['ogg'],
-      notesToLoad: { notes: midiRange(GRAND_LO, GRAND_HI), velocityRange: GRAND_VEL_RANGE },
-      destination: dest,
-      onLoadProgress,
+  } else if (entry.kind === 'soundfont') {
+    velMap = gainToVelocityFull
+    build = (progress) => {
+      const makeup = context.createGain()
+      makeup.gain.value = entry.makeup ?? 1
+      makeup.connect(context.destination)
+      const opts = { instrumentUrl: base + entry.instrumentUrl, destination: makeup, onLoadProgress: progress }
+      if (storage) opts.storage = storage
+      if (offlineScheduler) opts.scheduler = offlineScheduler
+      return { instrument: new Soundfont(context, opts), output: makeup }
     }
-    if (storage) opts.storage = storage
-    if (offlineScheduler) opts.scheduler = offlineScheduler // MP3: schedule the whole song up front
-    return { instrument: new SplendidGrandPiano(context, opts), output: makeup, velMap: gainToVelocity }
-  }
-
-  makeup.connect(context.destination)
-
-  if (entry.kind === 'soundfont') {
-    const opts = { instrumentUrl: base + entry.instrumentUrl, destination: makeup, onLoadProgress }
-    if (storage) opts.storage = storage
-    if (offlineScheduler) opts.scheduler = offlineScheduler
-    return { instrument: new Soundfont(context, opts), output: makeup, velMap: gainToVelocityFull }
-  }
-
-  if (entry.kind === 'sampler') {
+  } else if (entry.kind === 'sampler') {
     // Fetch the hosted SmplrPreset (per-note ogg map) and point it at the mirror. smplr then loads
     // each region's ogg from `${base}${baseUrl}/<midi>.ogg` (same-origin → SW-precacheable).
     const preset = await (await fetch(base + entry.preset)).json()
     preset.samples = preset.samples || {}
     preset.samples.baseUrl = base + entry.baseUrl
-    const opts = { preset, destination: makeup, onLoadProgress }
-    if (storage) opts.storage = storage
-    if (offlineScheduler) opts.scheduler = offlineScheduler
-    return { instrument: new Sampler(context, opts), output: makeup, velMap: gainToVelocityFull }
+    velMap = gainToVelocityFull
+    build = (progress) => {
+      const makeup = context.createGain()
+      makeup.gain.value = entry.makeup ?? 1
+      makeup.connect(context.destination)
+      const opts = { preset, destination: makeup, onLoadProgress: progress }
+      if (storage) opts.storage = storage
+      if (loader) opts.loader = loader
+      if (offlineScheduler) opts.scheduler = offlineScheduler
+      return { instrument: new Sampler(context, opts), output: makeup }
+    }
   }
+  if (!build) return null
 
-  return null
+  const main = build(onLoadProgress)
+  // ใบ#135 — the chords' own copy of the instrument, so the melody and the chords can each have their
+  // own volume while a song plays (one instrument has one output; a per-note velocity is not a volume —
+  // it changes the piano's tone and clamps at the loaded layer). Built only AFTER the main instrument has
+  // loaded, so every sample is already in the shared loader. Not for the MP3 export (offline renders the
+  // file at the standard level, through one output, exactly as before), and not for the soundfont kind,
+  // whose loader is not shared (a twin there would decode every sample a second time).
+  const makeTwin = !isOffline && loader && entry.kind !== 'soundfont' ? () => build(undefined) : null
+  return { instrument: main.instrument, output: main.output, velMap, makeTwin }
 }
 
 // Wrap a loaded smplr instrument in the uniform interface midi.js schedules against.
 //   fire(midi, startT, dur, gain) — schedule ONE note (sampler pitch-shifts for transpose)
 //   releaseAll()                  — stop every sounding/scheduled voice (playback stop)
-function wrap(name, inst, output, velMap) {
+function wrap(name, inst, output, velMap, twin = null) {
   const toVel = velMap || gainToVelocity
   // Every smplr start() returns a per-VOICE StopFn. We keep them because inst.stop() on a smplr
   // `Sampler` (nylon/cello/violin) does NOT cancel notes scheduled in the FUTURE — so a mid-play
@@ -268,17 +297,31 @@ function wrap(name, inst, output, velMap) {
   return {
     name,
     output, // the makeup gain — the instrument's single output node (for the LAYER-4 mix)
-    fire(midi, startT, dur, gain) {
-      const stop = inst.start({ note: Math.round(midi), time: startT, duration: Math.max(0.12, dur), velocity: toVel(gain) })
+    // `role` (ใบ#135): 'chord' plays on the twin when there is one, so it reaches the chords' volume;
+    // anything else — the melody, or a caller that does not say (ensemble · MP3) — plays on the main one.
+    fire(midi, startT, dur, gain, role) {
+      const voice = role === 'chord' && twin ? twin.instrument : inst
+      const stop = voice.start({ note: Math.round(midi), time: startT, duration: Math.max(0.12, dur), velocity: toVel(gain) })
       if (typeof stop === 'function') stoppers.push(stop)
     },
     releaseAll() {
       stoppers.splice(0).forEach((s) => { try { s() } catch { /* voice already gone */ } })
       try { inst.stop() } catch { /* already stopped */ }
+      if (twin) { try { twin.instrument.stop() } catch { /* already stopped */ } }
     },
     // Re-route the whole instrument into `node` (reverb/pan bus) instead of context.destination.
     // Idempotent per play: disconnect any prior wiring first so repeated plays don't stack sends.
-    setDestination(node) { try { output.disconnect() } catch { /* not connected */ } output.connect(node) },
+    setDestination(node) { this.setDestinations(node, node) },
+    // ใบ#135 — the melody into one node, the chords (the twin) into another. Without a twin the chords
+    // come out of the main instrument, so they follow the melody's node.
+    setDestinations(melodyNode, chordNode) {
+      try { output.disconnect() } catch { /* not connected */ }
+      output.connect(melodyNode)
+      if (twin) {
+        try { twin.output.disconnect() } catch { /* not connected */ }
+        twin.output.connect(chordNode)
+      }
+    },
   }
 }
 
@@ -305,11 +348,22 @@ export async function loadInstrument(name, context, { onProgress } = {}) {
       // smplr instruments expose a `load` promise (Soundfont/Sampler also `.loaded`); await
       // whichever is present so we only mark ready once the samples have actually decoded.
       const loaded = res.instrument.load ?? res.instrument.loaded ?? Promise.resolve()
-      return Promise.resolve(loaded).then(() => {
-        e.ready = true
-        e.wrapper = wrap(name, res.instrument, res.output, res.velMap)
-        return e.wrapper
-      })
+      return Promise.resolve(loaded)
+        .then(() => {
+          // ใบ#135 — the chords' twin, from samples the loader already holds. If it cannot be made, the
+          // instrument still plays: the chords then share the melody's output (one volume for both).
+          if (!res.makeTwin) return null
+          try {
+            const twin = res.makeTwin()
+            const twinLoaded = twin.instrument.load ?? twin.instrument.loaded ?? Promise.resolve()
+            return Promise.resolve(twinLoaded).then(() => twin, () => null)
+          } catch { return null }
+        })
+        .then((twin) => {
+          e.ready = true
+          e.wrapper = wrap(name, res.instrument, res.output, res.velMap, twin)
+          return e.wrapper
+        })
     })
     .catch((err) => { cache.delete(key); throw err }) // failed load → drop so a retry can re-load
   // swallow the rejection on the stored promise so an un-awaited preload can't crash the app;
