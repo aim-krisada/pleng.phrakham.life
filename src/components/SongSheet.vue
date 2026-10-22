@@ -307,13 +307,65 @@ const renderLines = computed(() =>
   }),
 )
 
+// ใบ v3/pleng#131 (2) — พี่เปา 22 ต.ค. 2569: "บรรทัดที่ 7 ตัวอักษรทำแยกให้ตรงกับโน้ตในบรรทัดที่ 6 ด้วยได้มั้ย".
+// A line sung to the same tune as the line just above it (resolveContent's `_sameTuneAbove`, rule (b))
+// printed as one run of text under the music, so the reader could not tell which word goes on which note.
+// Now its words are a second row of syllables INSIDE the line above — one more row under that line's
+// words, slot for slot, the way a hymn book stacks verses under one melody.
+// Slot for slot, not segment for segment: the two lines may split their chords differently, and the
+// melody signature ignores chords. Same notes means the same number of syllable slots, so each slot of
+// the stacked line maps to the host's slot at the same position. If the counts differ (a silent pickup
+// the signature drops), or the line carries anything but bars, it keeps the old paragraph — never
+// words under the wrong notes. Only while the notes AND the words are shown: without notes there is
+// nothing to stack under.
+// host li → [{ li, slots: { 'si-k': { si, k, w } } }], and the set of lines that went under a host.
+const stacks = computed(() => {
+  const under = {}
+  const stacked = new Set()
+  if (!props.songbook || !sn.value || !sl.value) return { under, stacked }
+  const lines = props.content.lines || []
+  const rows = renderLines.value
+  const slotsOf = (row) => {
+    const out = []
+    for (const p of row.parts) {
+      if (p.type !== 'bar') return null
+      for (const seg of p.segments) {
+        if (!Array.isArray(seg.syllables)) return null
+        seg.syllables.forEach((w, k) => out.push({ si: seg.si, k, w }))
+      }
+    }
+    return out
+  }
+  let host = -1
+  rows.forEach((row, li) => {
+    if (!lines[li]._sameTuneAbove) { host = row.first ? li : -1; return }
+    if (host < 0 || !row.hasText) return
+    const hs = []
+    for (const p of rows[host].parts) for (const seg of p.segments || []) (seg.syllables || []).forEach((w, k) => hs.push(`${seg.si}-${k}`))
+    const ms = slotsOf(row)
+    if (!ms || ms.length !== hs.length) { host = -1; return }
+    const slots = {}
+    hs.forEach((key, i) => { slots[key] = ms[i] })
+    ;(under[host] ||= []).push({ li, slots })
+    stacked.add(li)
+  })
+  return { under, stacked }
+})
+function stacksUnder(li) { return stacks.value.under[li] || [] }
+// the stacked line's syllable for each slot of one host segment
+function stackRow(st, seg) {
+  return seg.syllables.map((_, k) => st.slots[`${seg.si}-${k}`])
+}
+
 // Group consecutive lines into ท่อน (a new group starts at each section label) so a
 // whole ท่อน can be kept together across page breaks when printing (US-B02: "ไม่ตัด
 // กลางท่อน"). Keeps each line's original index (li) for playback highlight / data-seg.
+// A line stacked under the line above (ใบ#131) is drawn inside that line, so it has no row of its own.
 const renderGroups = computed(() => {
   const groups = []
   let cur = null
   renderLines.value.forEach(({ parts, first, hasText }, li) => {
+    if (stacks.value.stacked.has(li)) return
     const startsSection = parts.length && parts[0].type === 'section'
     if (startsSection || !cur) {
       cur = { lines: [] }
@@ -617,7 +669,7 @@ watch(
       <span v-if="head.key" class="sheet-head-item">คีย์ <b>{{ head.key }}</b></span>{{ head.key && head.meter ? ' ' : '' }}<span v-if="head.meter" class="sheet-head-item">จังหวะ <b>{{ head.meter }}</b></span>{{ (head.key || head.meter) && head.refs ? ' ' : '' }}<span v-if="head.refs" class="sheet-head-item sheet-head-refs">อ้างอิง <b>{{ head.refs }}</b></span>
     </p>
     <div v-for="(grp, gi) in renderGroups" :key="gi" class="song-section">
-    <div v-for="row in grp.lines" :key="row.li" v-show="!isEmptyLyricLine(row)" :data-li="row.li" class="song-line" :class="{ 'song-line-lyrics': lineLyricsOnly(row.first), 'song-line-join': lyricJoin && lineLyricsOnly(row.first) }">
+    <div v-for="row in grp.lines" :key="row.li" v-show="!isEmptyLyricLine(row)" :data-li="row.li" class="song-line" :class="{ 'song-line-lyrics': lineLyricsOnly(row.first), 'song-line-join': lyricJoin && lineLyricsOnly(row.first), 'song-line-stacked': stacksUnder(row.li).length }" :style="stacksUnder(row.li).length ? { '--stack-rows': stacksUnder(row.li).length } : null">
       <!-- B069: cross-bar ties as ONE continuous arc, drawn in this line's own overlay so
            NoteRow's per-segment halves (hidden in JS) are replaced by a curve that spans the
            bar line. Per-line (not sheet-wide) so it prints on whatever page the line lands. -->
@@ -676,7 +728,15 @@ watch(
             <!-- v2: one span per syllable-bearing note -> highlight walks note by note (B006). -->
             <template v-if="sl">
               <!-- FULL display: syllable spans spread UNDER the notes (flex, karaoke alignment). -->
-              <span v-if="seg.syllables && !lineLyricsOnly(row.first)" class="lyric lyric-syl">
+              <!-- ใบ#131 — with lines stacked under this one, the rows share ONE grid: a column per slot, as
+                   wide as its widest word, so a stacked word sits exactly under the word above it (two
+                   separate flex rows each spread their own words and drifted up to 21px apart). -->
+              <span
+                v-if="seg.syllables && !lineLyricsOnly(row.first)"
+                class="lyric lyric-syl"
+                :class="{ 'lyric-grid': stacksUnder(row.li).length && seg.syllables.length }"
+                :style="stacksUnder(row.li).length && seg.syllables.length ? { gridTemplateColumns: `repeat(${seg.syllables.length}, auto)` } : null"
+              >
                 <span
                   v-for="(w, k) in seg.syllables"
                   :key="k"
@@ -685,6 +745,18 @@ watch(
                   :data-syl="`${row.li}-${seg.si}-${k}`"
                   @click.stop="seek(row.li, seg.si, k)"
                 >{{ w || ' ' }}</span>
+                <!-- the words of each line sung to this same tune, one more grid row each, slot for slot.
+                     Each syllable keeps its OWN line's address, so the karaoke and tap-to-seek reach it. -->
+                <template v-for="st in stacksUnder(row.li)" :key="'st' + st.li">
+                  <span
+                    v-for="(m, k) in stackRow(st, seg)"
+                    :key="'st' + st.li + '-' + k"
+                    class="syl syl-stacked"
+                    :class="{ 'syl-playing': isSyl(st.li, m.si, m.k) }"
+                    :data-syl="`${st.li}-${m.si}-${m.k}`"
+                    @click.stop="seek(st.li, m.si, m.k)"
+                  >{{ m.w || ' ' }}</span>
+                </template>
               </span>
               <!-- เนื้อล้วน display: same per-syllable spans but INLINE (natural reading, a space after
                    each word) so the karaoke still walks SYLLABLE-by-syllable, not whole-segment
@@ -782,6 +854,19 @@ watch(
   display: flex;
   width: 100%;
   justify-content: space-around;
+}
+/* ใบ v3/pleng#131 — a line with words of later lines stacked under its own: each stacked row is one more
+   lyric row (1.06em type × 1.4 line-height = 1.484em of the line's own size), so the bar lines and repeat
+   marks grow by that much per row and still reach the last row of words. Heights stay in em (ใบ#130). */
+.song-line-stacked :deep(.bar-line),
+.song-line-stacked :deep(.bar-final),
+.song-line-stacked :deep(.repeat-mark) {
+  height: calc(3.25em + var(--stack-rows) * 1.484em);
+}
+.lyric-syl.lyric-grid {
+  display: grid;
+  justify-content: space-around;
+  justify-items: center;
 }
 /* ใบ v3/pleng#100 — เนื้อล้วน "ติดกันเป็นวรรค": the line flows as ONE run of text, with no chord-segment boxes and
    no per-syllable padding — the only spaces are the breath spaces lyricPhrase.js puts in. Split mode (no
