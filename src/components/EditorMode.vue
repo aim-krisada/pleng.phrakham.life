@@ -2713,6 +2713,19 @@ async function markVerified() {
 // The timeline UI lives in RevisionHistory.vue (reads via lib/auditLog.js). Here we only
 // keep restore(), which an approver may use to roll a published song back to an older
 // snapshot from that history panel.
+// ใบ#133 — the one line the panel shows about the last attempt. Cleared whenever the panel
+// opens again, so an old failure never greets the next visit.
+const restoreNotice = ref('')
+// the same wording the timeline uses, so "ย้อนมาเป็นรุ่นของ …" names a row the reader can see
+function revTime(ts) {
+  if (!ts) return ''
+  try {
+    return new Date(ts).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
+  } catch {
+    return String(ts)
+  }
+}
+
 async function restore(rev) {
   // B028: history entries carry a full "after" snapshot; fall back to legacy new_row
   const r = rev.after ?? rev.new_row
@@ -2730,8 +2743,19 @@ async function restore(rev) {
     .from('songs')
     .update({ number: r.number, title_th: r.title_th, title_en: r.title_en, content: r.content })
     .eq('id', editingId.value)
-  saveMsg.value = error ? '❌ ' + error.message : '⏪ ย้อนเวอร์ชันแล้ว'
-  if (!error) loadSong(editingId.value)
+  if (error) {
+    // stay in the panel: the reader is mid-hunt through the versions and wants to try the next
+    restoreNotice.value = '❌ ย้อนไม่สำเร็จ — ' + error.message
+    saveMsg.value = '❌ ' + error.message
+    return
+  }
+  // ใบ#133 — close the panel FIRST. It covers the editor's status line, so leaving it open is
+  // why a successful rollback looked like nothing had happened at all.
+  restoreNotice.value = ''
+  closePanel()
+  const when = revTime(rev.created_at)
+  saveMsg.value = when ? `⏪ ย้อนมาเป็นรุ่นของ ${when} แล้ว` : '⏪ ย้อนเวอร์ชันแล้ว'
+  loadSong(editingId.value)
 }
 
 // ---------- misc ----------
@@ -3743,6 +3767,7 @@ const pendingPick = ref('') // Open dialog: the song chosen, applied only on "�
 function openPanel(p) {
   openMenu.value = null
   viewMode.value = 'edit'
+  if (p === 'history') restoreNotice.value = '' // ใบ#133 — never greet a visit with an old failure
   if (p === 'open') pendingPick.value = pickerId.value
   if (p === 'trash') loadTrash()
   activePanel.value = p
@@ -4842,6 +4867,7 @@ defineExpose({
             :draft-id="currentDraftId"
             :can-restore="isApprover"
             :profiles-map="profilesMap"
+            :notice="restoreNotice"
             @restore="restore"
           />
           <div class="panel-foot"><button class="secondary" @click="closePanel">ปิด</button></div>
