@@ -27,21 +27,31 @@ function rule(css, selector) {
 }
 
 describe('ใบ#132 — one entered line, one row, filling the page', () => {
-  it('the bars of a music line reach both margins', () => {
-    const body = rule(SRC, '.sheet-fit-lines .song-line:not(.song-line-lyrics)')
-    expect(body).toMatch(/justify-content:\s*space-between/)
+  // พี่เปา 22 ต.ค. 2569: "ถ้าสั้นเกินก็ขยายช่องไฟออก แทน" — the slack goes INSIDE the bars, not between them
+  it('a short line reaches both margins by widening the spacing inside its bars, not by holes between them', () => {
+    expect(SRC).not.toMatch(/justify-content:\s*space-between/)
+    expect(rule(SRC, '.sheet-fit-lines .song-line:not(.song-line-lyrics) > .bar-group')).toMatch(/flex:\s*1 0 auto/)
+    // the chord segments grow with their bar, so the notes and words inside spread out
+    expect(rule(SRC, '.sheet-fit-lines .song-line:not(.song-line-lyrics) > .bar-group > .segment')).toMatch(/flex:\s*1 0 auto/)
   })
 
-  it('a bar keeps its natural size — squeezing one breaks its words inside their own cell', () => {
-    const body = rule(SRC, '.sheet-fit-lines .song-line:not(.song-line-lyrics) > .bar-group')
-    expect(body).toMatch(/flex-shrink:\s*0/)
+  it('nothing shrinks — squeezing a bar breaks its words inside their own cell', () => {
+    expect(rule(SRC, '.sheet-fit-lines .song-line:not(.song-line-lyrics) > .bar-group')).toMatch(/1 0 auto/) // flex-shrink 0
+  })
+
+  it('the fit measures the NATURAL width — growth is switched off while it measures', () => {
+    const fn = SRC.slice(SRC.indexOf('function fitLineWidths()'), SRC.indexOf('function measureSheet()'))
+    expect(fn.indexOf("classList.add('fit-measure')")).toBeGreaterThan(-1)
+    expect(fn.indexOf("classList.add('fit-measure')")).toBeLessThan(fn.indexOf('fitScale('))
+    expect(fn.indexOf("classList.remove('fit-measure')")).toBeGreaterThan(fn.indexOf('fitScale('))
+    expect(SRC).toMatch(/\.song-line\.fit-measure > \.bar-group,[\s\S]*?flex-grow:\s*0/)
   })
 
   it('the row still wraps, because a ท่อน heading needs a row of its own above the bars', () => {
     // forcing nowrap put the heading beside the bars; a headed line then measured about twice
     // too wide and the fit chased an impossible number down to a quarter size (song 77).
-    const body = rule(SRC, '.sheet-fit-lines .song-line:not(.song-line-lyrics)')
-    expect(body).not.toMatch(/flex-wrap:\s*nowrap/)
+    // no sheet-fit-lines rule may turn wrapping off
+    expect(SRC).not.toMatch(/\.sheet-fit-lines[^{]*\{[^}]*flex-wrap:\s*nowrap/)
   })
 
   it('so the fit measures the BARS, and counts the heading only when it shares their row', () => {

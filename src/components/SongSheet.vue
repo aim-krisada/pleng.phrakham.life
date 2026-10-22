@@ -592,11 +592,15 @@ function fitLineWidths() {
       }
       return w
     }
-    // the last step of fitScale may end without a confirming measure, so apply its answer here
+    // the last step of fitScale may end without a confirming measure, so apply its answer here.
+    // `fit-measure` holds the bars at their natural width while measuring: once they grow into the
+    // slack (the CSS below), every line would measure exactly full and never shrink.
+    line.classList.add('fit-measure')
     apply(fitScale(line.clientWidth, (scale) => {
       apply(scale)
       return naturalWidth()
     }))
+    line.classList.remove('fit-measure')
   }
 }
 
@@ -795,24 +799,32 @@ watch(
 /* • between-block: lift note-bearing lines apart (songbook lyrics-only lines keep their own
      tight 2px spacing below, so they are excluded). */
 .sheet-root .song-line:not(.song-line-lyrics) { margin-bottom: 16px; }
-/* ใบ v3/pleng#132 — on แผ่นเพลง a music line is ONE row that reaches both margins: the bars
-   spread into the slack (space-between), and the row never wraps. A line that does not fit is
-   scaled down by fitLines() instead — the author's line breaks are the layout, so the page must
-   not invent new ones. Reused-verse lines (lyrics only, stacked under a melody printed above)
-   keep their ordinary text flow: spreading words to the margins would only pull them apart. */
-.sheet-fit-lines .song-line:not(.song-line-lyrics) {
-  justify-content: space-between;
-}
-/* Only the BARS are held to their natural size. A flex item gives way before it overflows, and a
-   squeezed bar quietly breaks its words onto a second line inside their own cell — the same ugly
-   result as wrapping, just harder to see. fitLineWidths() answers an over-long line by scaling it
-   down instead, which keeps notes, bars and words in proportion.
-   ⛔ The row still WRAPS on purpose: a ท่อน heading (.section-label) is a full-width item that has
-   to sit on its own row above the bars. Forcing nowrap put the heading and the bars on one row and
-   made every headed line measure ~2x too wide — so the fit chased a number that could not be met
-   and shrank a line to a quarter size (song 77, 20 ต.ค. 2569). */
+/* ใบ v3/pleng#132 — on แผ่นเพลง a music line is ONE row that reaches both margins, and the row never
+   wraps. A line that does not fit is scaled down by fitLineWidths() instead — the author's line breaks
+   are the layout, so the page must not invent new ones. Reused-verse lines (lyrics only, under a melody
+   printed above) keep their ordinary text flow: spreading words to the margins would only pull them apart.
+   HOW a short line reaches the margins — พี่เปา 22 ต.ค. 2569: "ถ้าสั้นเกินก็ขยายช่องไฟออก แทน". The first
+   version spread the BARS apart (space-between on the row): each bar kept its notes packed at its left
+   and the slack piled up as one big hole before the next bar line — "ตอนนี้หน้าตามันไม่ได้เลย" (song 114).
+   Now the slack goes INSIDE the bars: every bar grows by the same share, and every chord segment inside a bar
+   grows with it, so the notes (.note-row) and the words (.lyric-syl), which already spread across their
+   segment with space-around, simply get more room between them — wider ช่องไฟ, no holes.
+   ⛔ Nothing SHRINKS. A flex item gives way before it overflows, and a squeezed bar quietly breaks its words
+   onto a second line inside their own cell — the same ugly result as wrapping, just harder to see.
+   ⛔ The row still WRAPS on purpose: a ท่อน heading (.section-label) is a full-width item that has to sit on
+   its own row above the bars. Forcing nowrap put the heading and the bars on one row and made every headed
+   line measure ~2x too wide — so the fit chased a number that could not be met and shrank a line to a
+   quarter size (song 77, 20 ต.ค. 2569). */
 .sheet-fit-lines .song-line:not(.song-line-lyrics) > .bar-group {
-  flex-shrink: 0;
+  flex: 1 0 auto;
+}
+.sheet-fit-lines .song-line:not(.song-line-lyrics) > .bar-group > .segment {
+  flex: 1 0 auto;
+}
+/* while fitLineWidths() measures a line, nothing grows — it needs the bars' NATURAL width */
+.sheet-fit-lines .song-line.fit-measure > .bar-group,
+.sheet-fit-lines .song-line.fit-measure > .bar-group > .segment {
+  flex-grow: 0;
 }
 /* B069 — cross-bar tie overlay. One small SVG per line, absolutely positioned over that
    line so its arcs can span across bar lines / segments; it never affects layout
