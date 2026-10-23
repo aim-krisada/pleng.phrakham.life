@@ -35,6 +35,11 @@ const APP_SHELL = [
   'site.webmanifest',
   'favicon-16x16.png', 'favicon-32x32.png', 'apple-touch-icon.png',
   'android-chrome-192x192.png', 'android-chrome-512x512.png',
+  // Self-hosted fonts (index.html @font-face). Precached so the first offline launch has them
+  // even if a weight — or the looped Thai cut a reader opts into later — was never fetched online.
+  'fonts/NotoSans-Regular.woff2', 'fonts/NotoSans-Bold.woff2',
+  'fonts/NotoSansThai-Regular.woff2', 'fonts/NotoSansThai-Bold.woff2',
+  'fonts/NotoSansThaiLooped-Regular.woff2', 'fonts/NotoSansThaiLooped-Bold.woff2',
 ].map((p) => (p === ROOT ? p : ROOT + p))
 
 self.addEventListener('install', (event) => {
@@ -67,10 +72,23 @@ self.addEventListener('install', (event) => {
         const r = await fetch(ROOT + 'asset-manifest.json', { cache: 'no-cache' })
         if (r.ok) assets = await r.json()
       } catch { /* no manifest (dev) → shell only */ }
-      const shell = [...APP_SHELL, ...(Array.isArray(assets) ? assets : [])]
+      // The manifest lists site-root paths ('/assets/…'); rebase onto this scope like the samples.
+      assets = (Array.isArray(assets) ? assets : []).map((u) => (ROOT === '/' ? u : String(u).replace(/^\//, ROOT)))
+      const shell = [...APP_SHELL, ...assets]
       await Promise.allSettled(shell.map(async (u) => {
         try { const res = await fetch(u, { cache: 'no-cache' }); if (res.ok) await cache.put(u, res.clone()) } catch { /* skip */ }
       }))
+      // Drop the PREVIOUS builds' hashed files. Each deploy installs this worker again (main.js
+      // registers 'sw.js?v=<build>'), so without this the cache keeps every old bundle forever.
+      // Only when this build's list arrived — a failed fetch must not empty a working cache.
+      if (assets.length) {
+        const current = new Set(assets.map((u) => new URL(u, self.location.origin).pathname))
+        const stale = (await cache.keys()).filter((r) => {
+          const p = new URL(r.url).pathname
+          return p.startsWith(ROOT + 'assets/') && !current.has(p)
+        })
+        await Promise.allSettled(stale.map((r) => cache.delete(r)))
+      }
     } catch { /* ignore */ }
     await self.skipWaiting()
   })())

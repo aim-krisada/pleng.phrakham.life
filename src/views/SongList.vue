@@ -21,6 +21,7 @@ import { PICKABLE_SORTS, DESC, dirLabel, flipDir } from '../lib/songSort.js'
 import { bookSortState, chooseSort } from '../lib/sortPref.js'
 import { WORK_WORDS } from '../i18n/workWords.js'
 import { session, canApprove } from '../store.js'
+import { CATALOG_COLUMNS, readCatalog, saveCatalog, offlineSince, savedDateLabel } from '../lib/offlineSongs.js'
 
 const router = useRouter()
 
@@ -385,17 +386,38 @@ function backToBooks() {
 //     มีสิทธิ์อยู่แล้ว และ watch ไม่ทำงานเพราะค่าไม่เปลี่ยน = 1 ครั้ง
 //   · กรณีบั๊กเท่านั้น (เท็จ→จริง หลังหน้าโหลดเสร็จ) ที่ยิงครั้งที่ 2 ซึ่งเป็นการยิงที่จำเป็น
 async function loadSongs() {
-  const { data, error } = await supabase
+  // Offline (installed app in a church with no signal): the songs saved on this device the last
+  // time the library loaded (lib/offlineSongs.js). Shown AT ONCE when there is a copy, so the
+  // page never waits on the network; the live list then replaces it if the database answers.
+  const cached = await readCatalog()
+  if (cached && !songs.value.length) {
+    songs.value = cached.rows
+    loading.value = false
+  }
+  if (cached && navigator.onLine === false) {
+    offlineSince.value = cached.at
+    return
+  }
+  let q = supabase
     .from('songs')
-    .select('id, number, title_th, title_en, content, category, theme, verified, book_refs, scripture, review_flags')
+    .select(CATALOG_COLUMNS)
     .is('deleted_at', null) // db/012: trashed songs never show in the catalog
     .order('number', { ascending: true })
-  if (error || !data || data.length === 0) {
+  // A copy is already on screen → give up at the first failure instead of retrying ~7 s.
+  if (cached) q = q.retry(false)
+  const { data, error } = await q
+  if (!error && data && data.length) {
+    dbError.value = false
+    offlineSince.value = 0
+    songs.value = data
+    saveCatalog(data)
+  } else if (error && cached) {
+    dbError.value = false
+    offlineSince.value = cached.at
+    songs.value = cached.rows
+  } else {
     dbError.value = !!error
     songs.value = SAMPLE_SONGS
-  } else {
-    dbError.value = false
-    songs.value = data
   }
 }
 
@@ -429,6 +451,9 @@ onMounted(async () => {
       />
       <p v-if="dbError" class="muted db-note">
         ยังเชื่อมต่อฐานข้อมูลไม่ได้ — แสดงเพลงตัวอย่างไปก่อน
+      </p>
+      <p v-else-if="offlineSince" class="muted db-note" data-test="offline-note">
+        ไม่มีอินเทอร์เน็ต — แสดงเพลงที่เก็บไว้ในเครื่อง (ล่าสุด {{ savedDateLabel(offlineSince) }})
       </p>
       <!-- ===== แถบ "งานของฉัน" — เห็นเฉพาะเมื่อล็อกอินแล้ว (พี่เปา 30 ก.ค. บรรทัด 227) =====
            หน้าของคนที่ยังไม่ล็อกอินไม่เปลี่ยนแม้แต่ตัวอักษรเดียว: ทั้งบล็อกนี้ v-if="showWorkBar".

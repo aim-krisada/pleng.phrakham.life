@@ -30,6 +30,11 @@ createApp(App).use(router).mount('#app')
 // real build (`vite build` + `vite preview`). base is './', deployed at the domain root → /sw.js.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => { /* SW optional — app still works online */ })
+    // ?v=<build>: a new script URL on every deploy, so the browser installs the worker again and
+    // it precaches THIS build's files. sw.js itself rarely changes, so with a fixed URL the worker
+    // was never reinstalled after a deploy and the new hashed chunks (the sound engine, the MP3
+    // exporter, the songbook phrasing) were only saved if someone happened to open them online —
+    // offline they were missing. The query never changes the scope (scope comes from the path).
+    navigator.serviceWorker.register('sw.js?v=' + encodeURIComponent(__BUILD_COMMIT__ + '-' + __BUILD_TIME__)).catch(() => { /* SW optional — app still works online */ })
   })
 }
