@@ -107,15 +107,61 @@ const matches = (q) => typeof window.matchMedia === 'function' && !!window.match
 function syncShort() { short.value = matches(SHORT_Q); compact.value = matches(COMPACT_Q) }
 const typingIn = (el) => matches(TOUCH_Q) && isTextField(el) && !el.closest?.('.dk-host')
 // a field inside the bar's own popover (e.g. a number box) must not hide the bar under itself
-function onFocusIn(e) { typing.value = typingIn(e.target); focusEl.value = e.target }
+function onFocusIn(e) {
+  typing.value = typingIn(e.target)
+  focusEl.value = e.target
+  if (typing.value) expectKeyboard()
+}
 function onFocusOut() {
   // wait for the next focus to land: moving from one field to the next keeps the bar hidden
   setTimeout(() => { typing.value = typingIn(document.activeElement); focusEl.value = document.activeElement }, 0)
 }
+
+// The bar steps aside for the on-screen KEYBOARD, not for focus alone (iPad, installed app — พี่เอม
+// 23 ต.ค. 2569: the edit page's bar "ขึ้นบ้างไม่ขึ้นบ้าง"). On an iPad a field keeps its focus after
+// the keyboard is put away — tapping a part of the page that is not a field does not take it away —
+// and with a hardware keyboard no on-screen keyboard comes up at all. Keyed on focus alone, the whole
+// bar stayed gone in both cases, depending only on what had been tapped last.
+// So: a tap into a field still hides the bar at once (the keyboard is on its way, as before), but if
+// after KB_WAIT the visible part of the page shows no keyboard — or the keyboard later goes away while
+// the field keeps focus — the bar comes back. The visible part (visualViewport) is measured against
+// the tallest the page has been at this width, so it works whether a browser shrinks only the visible
+// part for the keyboard or the whole page. No visualViewport, or a pinch-zoomed page (its visible part
+// is small for another reason): it cannot tell, so focus alone decides, as before.
+const KB_MIN = 120 // px hidden at the bottom before it counts as a keyboard (a collapsing URL bar is ~60)
+const KB_WAIT = 800 // ms a keyboard gets to come up after a tap into a field
+const kbUp = ref(true)
+let fullW = 0
+let fullH = 0
+let assumeUntil = 0
+let kbTimer = 0
+function keyboardShowing() {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null
+  if (!vv || (vv.scale && vv.scale > 1.05)) return null
+  if (window.innerWidth !== fullW) { fullW = window.innerWidth; fullH = 0 } // turned: a new full height
+  fullH = Math.max(fullH, window.innerHeight || 0, document.documentElement.clientHeight || 0)
+  return fullH - (vv.offsetTop + vv.height) > KB_MIN
+}
+function syncKeyboard() {
+  const k = keyboardShowing()
+  if (k === null) return
+  if (!k && Date.now() < assumeUntil) return // still coming up — do not flash the bar back meanwhile
+  kbUp.value = k
+}
+function expectKeyboard() {
+  kbUp.value = true
+  assumeUntil = Date.now() + KB_WAIT
+  clearTimeout(kbTimer)
+  kbTimer = setTimeout(syncKeyboard, KB_WAIT + 20)
+}
+// a text field is being typed into with the on-screen keyboard up
+const keyboardTyping = computed(() => typing.value && kbUp.value)
+// the visible part of the page changed size: is the keyboard there, and how high does it reach
+function onViewport() { syncKeyboard(); syncLift() }
 // ใบ#114 — phone + touch + a note cell being typed in: the phone's keyboard is up, so the bar shows
 // only the note keypad, sitting right on top of that keyboard (like the row of extra keys a phone
 // keyboard offers). Any other text field: the whole bar steps aside, as before (ใบ#111).
-const keysOnly = computed(() => typing.value && compact.value && keysBands.value.length > 0)
+const keysOnly = computed(() => keyboardTyping.value && compact.value && keysBands.value.length > 0)
 // How high the phone's keyboard reaches into the screen. Most phone browsers now shrink only the
 // VISIBLE part of the page for the keyboard and leave the page's own box (where a fixed bar sits)
 // as it was, so a bar at the bottom would sit behind the keyboard. The visible part's bottom edge
@@ -304,8 +350,9 @@ onMounted(() => {
   mqShort = typeof window.matchMedia === 'function' ? window.matchMedia(SHORT_Q) : null
   syncShort()
   focusEl.value = document.activeElement
-  window.visualViewport?.addEventListener?.('resize', syncLift)
+  window.visualViewport?.addEventListener?.('resize', onViewport)
   window.visualViewport?.addEventListener?.('scroll', syncLift)
+  keyboardShowing() // note the page's full height before any keyboard comes up
   mqShort?.addEventListener?.('change', syncShort)
   window.addEventListener('resize', onResize)
   window.addEventListener('keydown', onEsc)
@@ -326,8 +373,9 @@ onUnmounted(() => {
   document.removeEventListener('focusin', onFocusIn)
   document.removeEventListener('focusout', onFocusOut)
   document.removeEventListener('mousedown', onOutside)
-  window.visualViewport?.removeEventListener?.('resize', syncLift)
+  window.visualViewport?.removeEventListener?.('resize', onViewport)
   window.visualViewport?.removeEventListener?.('scroll', syncLift)
+  clearTimeout(kbTimer)
   ro?.disconnect()
 })
 
@@ -343,7 +391,7 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
   <div
     ref="hostEl"
     class="dk-host dk-bar no-print"
-    :class="{ 'dk-flow': short, 'dk-kbd': typing && !keysOnly, 'dk-keysonly': keysOnly, 'dk-lift': kbLift > 0, 'dk-one': oneRow }"
+    :class="{ 'dk-flow': short, 'dk-kbd': keyboardTyping && !keysOnly, 'dk-keysonly': keysOnly, 'dk-lift': kbLift > 0, 'dk-one': oneRow }"
     :style="kbLift > 0 ? { bottom: kbLift + 'px' } : null"
   >
     <p v-if="message" class="dk-msg" role="status">{{ message }}</p>
