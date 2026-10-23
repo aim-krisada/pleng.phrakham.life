@@ -11,6 +11,7 @@ import { migrateToV2, resolveContent, lyricSetName, inLyricSet } from '../lib/so
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs } from '../lib/bookshelf.js'
 import { sortSongs } from '../lib/songSort.js'
+import { CATALOG_COLUMNS, readCatalog, readSong, saveCatalog, isNetworkFailure } from '../lib/offlineSongs.js'
 import { songBasename } from '../lib/songName.js'
 import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
 import { stopPlayback } from '../lib/midi.js'
@@ -46,7 +47,20 @@ const loadedSong = ref(null)
 const liveSong = ref(null)
 
 async function loadSong(id) {
-  const { data } = await supabase.from('songs').select('*').eq('id', id).single()
+  // Offline (lib/offlineSongs.js): the copy saved on this device stands in ONLY when the database
+  // could not be reached at all — never when it answered "no such song", so a song deleted or
+  // hidden since the copy was saved does not come back from it.
+  const saved = await readSong(id)
+  let data = null
+  if (saved && navigator.onLine === false) {
+    data = saved
+  } else {
+    let q = supabase.from('songs').select('*').eq('id', id)
+    if (saved) q = q.retry(false) // a copy is on hand → no ~7 s of retries before using it
+    const res = await q.single()
+    data = res.data
+    if (!data && saved && isNetworkFailure(res)) data = saved
+  }
   // db/012: a trashed song is "gone" — do not render it as a live song. Anon never even
   // receives the row (RLS); this also covers a team member following a stale link. The
   // song is recoverable from จัดการ ▸ ถังขยะ, not from its public URL.
@@ -280,11 +294,19 @@ const MODES = [
 // navigates to /song/:id — the route watcher above loads it while KEEPING the current mode.
 const songList = ref([])
 async function loadSongList() {
-  const { data } = await supabase
-    .from('songs')
-    .select('id, number, title_th, title_en, content, verified')
-    .is('deleted_at', null) // db/012: trashed songs never appear in the picker
-    .order('number', { ascending: true })
+  const cached = await readCatalog()
+  let data = null
+  if (!(cached && navigator.onLine === false)) {
+    let q = supabase
+      .from('songs')
+      .select(CATALOG_COLUMNS) // the same columns as the home page, so this fetch fills the offline copy too
+      .is('deleted_at', null) // db/012: trashed songs never appear in the picker
+      .order('number', { ascending: true })
+    if (cached) q = q.retry(false)
+    ;({ data } = await q)
+    if (data && data.length) saveCatalog(data)
+  }
+  if (!data && cached) data = cached.rows // offline: pick from the songs saved on this device
   // B131: the DB `.order` leaves the blank-number rows unordered, so the picker could list the
   // same songs differently on two loads. sortSongs (songSort.js) is the app's one ordering rule.
   songList.value = sortSongs(data ?? [])

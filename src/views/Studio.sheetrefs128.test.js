@@ -2,7 +2,7 @@
 // paper from BOTH places a song can keep them: the column DA imported (on the loaded row) and the
 // box an author types into (inside content). ใบ#125 settled that the typed list wins, empty included.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
 let ROUTE = { params: {}, query: {} }
@@ -42,9 +42,7 @@ beforeEach(() => {
 // mount + let onMounted's await loadSong() settle
 async function open() {
   const w = mount(Studio, { global: { stubs } })
-  await nextTick()
-  await Promise.resolve()
-  await nextTick()
+  await flushPromises() // loadSong first looks for a copy saved on the device (offline), then asks the database
   return w
 }
 const refsOn = (w) => w.findComponent(SongSheet).props('bookRefs')
