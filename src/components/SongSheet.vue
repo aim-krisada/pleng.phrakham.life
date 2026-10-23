@@ -608,8 +608,77 @@ function fitLineWidths() {
 // paused in non-painting/headless tabs) — coalesces resize/print storms into one measure
 // after layout settles.
 function measureSheet() {
+  widenNoteSlots()
   fitLineWidths()
+  pinWords()
   measureTies()
+}
+
+// Each word sits exactly under its note. The note row and the word row are two separate rows, and
+// they spread across a bar in different ways: the notes in beamed groups, the words one by one (and a
+// general page rule made the word row a plain block, so its words were packed at the left). Once
+// ใบ#132 let a short line's bars grow to the margins the notes moved apart and the words did not —
+// song 114 measured words up to 81 px away from their own note.
+// So the words follow the notes, in two steps around the line fit:
+//  1. before the fit, every note slot is made at least as wide as the widest word sung on it (all rows,
+//     ใบ#131's stacked lines included) plus a small gap, in `em`, so the fit's scaling keeps it — this is
+//     what stops two long words on two close notes from running into each other;
+//  2. after the fit, each word is placed with its centre on its note's centre.
+// A bar with a word that has no note to sit under, or a page with no layout (tests), keeps the plain row.
+function wordSlotSets() {
+  const root = rootEl.value
+  if (!root) return []
+  const sets = []
+  for (const box of root.querySelectorAll('.lyric-syl')) {
+    const seg = box.closest('.segment')
+    const nts = seg ? [...seg.querySelectorAll('.note-row .nt[data-idx]')] : []
+    const syls = [...box.querySelectorAll(':scope > .syl[data-slot]')]
+    const slots = new Map(nts.map((n) => [n.dataset.idx, n]))
+    const main = syls.filter((s) => !s.dataset.row)
+    // one word slot per note box, held notes included (song-model-v2.md) — so slot k is note k; a bar
+    // may end with notes that have no word yet, never with a word that has no note
+    const ok = nts.length && main.length <= nts.length && syls.every((s) => slots.has(s.dataset.slot)) &&
+      nts.some((n) => n.getBoundingClientRect().width > 0)
+    sets.push({ box, nts, syls, slots, ok })
+  }
+  return sets
+}
+function unpinWords({ box, nts, syls }) {
+  box.removeAttribute('data-pin')
+  box.style.height = ''
+  for (const s of syls) { s.style.left = ''; s.style.top = '' }
+  for (const n of nts) n.style.minWidth = ''
+}
+function widenNoteSlots() {
+  for (const set of wordSlotSets()) {
+    if (!set.ok) { unpinWords(set); continue }
+    const widest = new Map()
+    for (const s of set.syls) {
+      const w = s.getBoundingClientRect().width
+      widest.set(s.dataset.slot, Math.max(widest.get(s.dataset.slot) || 0, w))
+    }
+    const gap = 0.3 * (parseFloat(getComputedStyle(set.box).fontSize) || 16)
+    for (const [k, n] of set.slots) {
+      const px = parseFloat(getComputedStyle(n).fontSize) || 16
+      n.style.minWidth = widest.get(k) ? `max(1.05em, ${((widest.get(k) + gap) / px).toFixed(3)}em)` : ''
+    }
+  }
+}
+function pinWords() {
+  for (const set of wordSlotSets()) {
+    if (!set.ok) { unpinWords(set); continue }
+    const { box, syls, slots } = set
+    box.setAttribute('data-pin', '')
+    const rows = 1 + Math.max(0, ...syls.map((s) => Number(s.dataset.row) || 0))
+    box.style.height = `calc(${rows} * 1em * var(--lh-snug))`
+    const left = box.getBoundingClientRect().left
+    for (const s of syls) {
+      const r = slots.get(s.dataset.slot).getBoundingClientRect()
+      const w = s.getBoundingClientRect().width
+      s.style.left = (r.left + r.width / 2 - left - w / 2).toFixed(2) + 'px'
+      s.style.top = s.dataset.row ? `calc(${s.dataset.row} * 1em * var(--lh-snug))` : ''
+    }
+  }
 }
 let timer = 0
 function scheduleMeasure() {
@@ -747,17 +816,20 @@ watch(
                   class="syl"
                   :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
                   :data-syl="`${row.li}-${seg.si}-${k}`"
+                  :data-slot="k"
                   @click.stop="seek(row.li, seg.si, k)"
                 >{{ w || ' ' }}</span>
                 <!-- the words of each line sung to this same tune, one more grid row each, slot for slot.
                      Each syllable keeps its OWN line's address, so the karaoke and tap-to-seek reach it. -->
-                <template v-for="st in stacksUnder(row.li)" :key="'st' + st.li">
+                <template v-for="(st, ri) in stacksUnder(row.li)" :key="'st' + st.li">
                   <span
                     v-for="(m, k) in stackRow(st, seg)"
                     :key="'st' + st.li + '-' + k"
                     class="syl syl-stacked"
                     :class="{ 'syl-playing': isSyl(st.li, m.si, m.k) }"
                     :data-syl="`${st.li}-${m.si}-${m.k}`"
+                    :data-slot="k"
+                    :data-row="ri + 1"
                     @click.stop="seek(st.li, m.si, m.k)"
                   >{{ m.w || ' ' }}</span>
                 </template>
@@ -879,6 +951,16 @@ watch(
   display: grid;
   justify-content: space-around;
   justify-items: center;
+}
+/* each word pinned under its own note (pinWords): the row keeps its height — one line per row of words —
+   and every word is placed by its note's centre. Comes after the grid rule so it wins over it. */
+.lyric-syl[data-pin] {
+  display: block;
+  position: relative;
+}
+.lyric-syl[data-pin] > .syl {
+  position: absolute;
+  top: 0;
 }
 /* ใบ v3/pleng#100 — เนื้อล้วน "ติดกันเป็นวรรค": the line flows as ONE run of text, with no chord-segment boxes and
    no per-syllable padding — the only spaces are the breath spaces lyricPhrase.js puts in. Split mode (no
