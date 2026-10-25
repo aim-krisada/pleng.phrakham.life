@@ -276,6 +276,7 @@ export function resolveContent(content) {
       if (stanzaFirst && sig === prevSig) outLine._sameTuneAbove = true
       prevSig = sig
       outLine._stanza = entry.stanza
+      outLine._stanzaLine = li // which line of its melody this is — a reused ท่อน finds the line that printed its notes
       outLine._melodyFirst = melodyFirst
       outLine._entryIndex = ei // B102 — which arrangement entry this display line belongs to
       // ใบ v3/pleng#95 — a ท่อน may set its own key (arrangement[].key, e.g. รับ 2 = A in a C

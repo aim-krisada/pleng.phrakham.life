@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { displayChord, transposeKey } from '../lib/chords.js'
-import { parseNotes, beatCount, expectedBeats, slurSpans, segmentBeamLink } from '../lib/notation.js'
+import { parseNotes, beatCount, expectedBeats, slurSpans, segmentBeamLink, syllableSlots } from '../lib/notation.js'
 import { buildArc, planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { pixelRatio, levelTop, lineThickness } from '../lib/pixelSnap.js'
 import { phraseBreaks, songBreathBeats, wordEnds } from '../lib/lyricPhrase.js'
@@ -315,46 +315,143 @@ const renderLines = computed(() =>
 // Slot for slot, not segment for segment: the two lines may split their chords differently, and the
 // melody signature ignores chords. Same notes means the same number of syllable slots, so each slot of
 // the stacked line maps to the host's slot at the same position. If the counts differ (a silent pickup
-// the signature drops), or the line carries anything but bars, it keeps the old paragraph — never
+// the signature drops), or a bar of the line is not plain notes, it keeps the old paragraph — never
 // words under the wrong notes. Only while the notes AND the words are shown: without notes there is
 // nothing to stack under.
-// host li → [{ li, slots: { 'si-k': { si, k, w } } }], and the set of lines that went under a host.
+// ใบ v3/pleng#139 — พี่เอม 25 ต.ค. 2569 ("do as her request"), the rest of what พี่เปา was offered in ใบ#131:
+// a WHOLE ท่อน sung again to a melody already printed (rule (a): ร้อง 2, ร้อง 3, รับ 2 …) also stacks its
+// words under that melody's notes, line by line, the way a hymn book prints every verse under one tune —
+// instead of a paragraph of text below the music. Each of its lines goes under the line that printed the
+// same melody line (`_stanzaLine`), or under that line's own host when it was itself stacked (rule (b)).
+// The same guards as rule (b): slot counts must match, and a ท่อน in another key or meter keeps its
+// paragraph (its chords or bars would not be the host's). Only while the words are written แยกพยางค์.
+// A ท่อน sung again WORD FOR WORD (a second รับ 1) adds nothing under the notes, so it shrinks to its
+// heading with "(ร้องซ้ำ)". Where a host carries rows from more than one ท่อน, each ท่อน's first row
+// is named at the start of the row (`label`) so the reader knows which words belong together.
+// host li → [{ li, slots: { 'si-k': { si, k, w } }, label }], the set of lines drawn inside a host (or
+// folded into a "(ร้องซ้ำ)" heading), host li → its own row's name, and the heading-only lines.
 const stacks = computed(() => {
   const under = {}
   const stacked = new Set()
-  if (!props.songbook || !sn.value || !sl.value) return { under, stacked }
+  const hostLabel = {}
+  const heads = new Set()
+  if (!props.songbook || !sn.value || !sl.value) return { under, stacked, hostLabel, heads }
   const lines = props.content.lines || []
   const rows = renderLines.value
+  // A ท่อน heading, a closing bar or a repeat sign on the stacked line belongs to the melody the host already
+  // prints (the heading becomes the row's name), so only its bars count. And slots are counted by the NOTE
+  // boxes, not by the words typed: one verse may leave the last held box of a line empty and the next fill it
+  // (song 77: ร้อง 1 has 2 words on its closing "~1 - - 0", ร้อง 2 and 3 have 3). ใบ#131 counted words, so
+  // such a line kept its paragraph (เล่มใหญ่ 736) — and every later verse of that line with it. The same tune
+  // has the same note boxes, so counting boxes never pairs a word with the wrong note; a pickup the melody
+  // signature ignores still changes the box count, and that line still keeps its paragraph.
+  const slotCount = (seg) => syllableSlots(seg.note || '')
   const slotsOf = (row) => {
     const out = []
     for (const p of row.parts) {
-      if (p.type !== 'bar') return null
+      if (p.type !== 'bar') { if (!p.segments) continue; return null }
       for (const seg of p.segments) {
         if (!Array.isArray(seg.syllables)) return null
-        seg.syllables.forEach((w, k) => out.push({ si: seg.si, k, w }))
+        for (let k = 0; k < slotCount(seg); k++) out.push({ si: seg.si, k, w: seg.syllables[k] || '' })
       }
     }
     return out
   }
-  let host = -1
-  rows.forEach((row, li) => {
-    if (!lines[li]._sameTuneAbove) { host = row.first ? li : -1; return }
-    if (host < 0 || !row.hasText) return
+  const hostKeys = (h) => {
     const hs = []
-    for (const p of rows[host].parts) for (const seg of p.segments || []) (seg.syllables || []).forEach((w, k) => hs.push(`${seg.si}-${k}`))
+    for (const p of rows[h].parts) for (const seg of p.segments || []) for (let k = 0; k < slotCount(seg); k++) hs.push(`${seg.si}-${k}`)
+    return hs
+  }
+  // each ท่อน (arrangement entry): its name, its melody, its words — to spot one sung again word for word
+  const entryName = {}
+  const entryWords = {}
+  lines.forEach((l) => {
+    const ei = l._entryIndex
+    if (ei == null) return
+    const sec = l.find((x) => x && x.type === 'section')
+    if (sec && !(ei in entryName)) entryName[ei] = sec.name
+    entryWords[ei] = (entryWords[ei] || '') + '|' + l.filter((x) => x.type === 'segment').map((x) => (x.syllables || []).join(' ')).join(' ')
+  })
+  const repeatOf = {}
+  lines.forEach((l) => {
+    const ei = l._entryIndex
+    if (ei == null || ei in repeatOf) return
+    repeatOf[ei] = null
+    for (let e = 0; e < ei; e++) {
+      const first = lines.find((x) => x._entryIndex === e)
+      if (first && first._stanza === l._stanza && entryWords[e] === entryWords[ei] && entryWords[ei].trim().replace(/\|/g, '')) { repeatOf[ei] = e; break }
+    }
+  })
+  const firstSung = {} // 'stanza:line' → li of the first time that melody line is sung
+  const hostOf = {} // li → the li whose notes its words sit under (itself for a line that prints notes)
+  let run = -1 // the host rule (b) stacks under: the last line that printed notes, while lines keep repeating it
+  const stack = (host, li, row) => {
+    const hs = hostKeys(host)
     const ms = slotsOf(row)
-    if (!ms || ms.length !== hs.length) { host = -1; return }
+    if (!ms || ms.length !== hs.length) return false
     const slots = {}
     hs.forEach((key, i) => { slots[key] = ms[i] })
-    ;(under[host] ||= []).push({ li, slots })
+    ;(under[host] ||= []).push({ li, slots, label: '' })
     stacked.add(li)
+    hostOf[li] = host
+    return true
+  }
+  rows.forEach((row, li) => {
+    const l = lines[li]
+    const key = `${l._stanza}:${l._stanzaLine}`
+    if (l._melodyFirst) {
+      if (!(key in firstSung)) firstSung[key] = li
+      run = row.first ? li : -1
+      if (row.first) hostOf[li] = li
+      return
+    }
+    if (l._sameTuneAbove) { // rule (b) — ใบ#131
+      if (!(key in firstSung)) firstSung[key] = li
+      if (run < 0 || !row.hasText) return
+      if (!stack(run, li, row)) run = -1
+      return
+    }
+    // rule (a) — a ท่อน sung again to a melody printed above. Only in แยกพยางค์: the other two ways of writing
+    // the words (ติดกันเป็นวรรค · ตามต้นฉบับ, ใบ#100/#105) exist for exactly these paragraphs, so they keep them.
+    if (props.lyricJoin || l._stanza == null || l._stanzaLine == null || l._entryIndex == null) return
+    if (repeatOf[l._entryIndex] != null) {
+      if (row.parts[0] && row.parts[0].type === 'section') heads.add(li)
+      else stacked.add(li)
+      return
+    }
+    const host = hostOf[firstSung[key]]
+    if (host == null || !row.hasText) return
+    if ((l._key || '') !== (lines[host]._key || '') || (l._ts || '') !== (lines[host]._ts || '')) return
+    stack(host, li, row)
   })
-  return { under, stacked }
+  // name the rows of a host that carries more than one ท่อน: each ท่อน's first row there
+  for (const [h, items] of Object.entries(under)) {
+    const hostEntry = lines[h]._entryIndex
+    if (items.every((it) => lines[it.li]._entryIndex === hostEntry)) continue
+    hostLabel[h] = entryName[hostEntry] || ''
+    let prev = hostEntry
+    for (const it of items) {
+      const ei = lines[it.li]._entryIndex
+      it.label = ei !== prev ? entryName[ei] || '' : ''
+      prev = ei
+    }
+  }
+  return { under, stacked, hostLabel, heads }
 })
 function stacksUnder(li) { return stacks.value.under[li] || [] }
-// the stacked line's syllable for each slot of one host segment
+// ใบ#139 — the names at the start of a host's rows (its own first), or null when it needs none
+function rowLabels(li) {
+  const h = stacks.value.hostLabel[li]
+  return h == null ? null : [h, ...stacksUnder(li).map((it) => it.label)]
+}
+const firstBar = (row) => row.parts.findIndex((p) => p.type === 'bar')
+// the stacked line's syllable for each slot of one host segment, with that slot's number (a stacked ท่อน may
+// fill a held box the host left empty, so this walks the segment's note boxes, not the host's words)
 function stackRow(st, seg) {
-  return seg.syllables.map((_, k) => st.slots[`${seg.si}-${k}`])
+  const n = Math.max(seg.syllables.length, syllableSlots(seg.note || ''))
+  const out = []
+  for (let k = 0; k < n; k++) { const m = st.slots[`${seg.si}-${k}`]; if (m) out.push({ ...m, slot: k }) }
+  return out
 }
 
 // Group consecutive lines into ท่อน (a new group starts at each section label) so a
@@ -366,6 +463,11 @@ const renderGroups = computed(() => {
   let cur = null
   renderLines.value.forEach(({ parts, first, hasText }, li) => {
     if (stacks.value.stacked.has(li)) return
+    // ใบ#139 — a ท่อน sung again word for word: just its heading, "(ร้องซ้ำ)"
+    if (stacks.value.heads.has(li)) {
+      parts = parts.filter((p) => p.type === 'section').map((p) => ({ ...p, rubric: p.rubric || 'ร้องซ้ำ' }))
+      hasText = false
+    }
     const startsSection = parts.length && parts[0].type === 'section'
     if (startsSection || !cur) {
       cur = { lines: [] }
@@ -580,7 +682,8 @@ function fitLineWidths() {
     // heading only in the second case — reading its CURRENT row tells us which it is — or a headed
     // line measures twice too wide and gets shrunk to a quarter size (song 77, 20 ต.ค. 2569).
     // Summing the bars' own widths reads the same whether they have already wrapped or not.
-    const groups = [...line.querySelectorAll(':scope > .bar-group')]
+    // ใบ#139: the ท่อน names beside stacked rows take room on the row too
+    const groups = [...line.querySelectorAll(':scope > .bar-group, :scope > .stack-labels')]
     const label = line.querySelector(':scope > .section-label')
     const naturalWidth = () => {
       if (!groups.length) return line.scrollWidth
@@ -679,6 +782,14 @@ function pinWords() {
       s.style.top = s.dataset.row ? `calc(${s.dataset.row} * 1em * var(--lh-snug))` : ''
     }
   }
+  // ใบ#139 — the ท่อน names start level with the first row of words of their line
+  for (const col of rootEl.value?.querySelectorAll('.stack-labels') || []) {
+    col.style.paddingTop = ''
+    const box = col.closest('.song-line')?.querySelector('.lyric-syl[data-pin]')
+    if (!box) continue
+    const d = box.getBoundingClientRect().top - col.getBoundingClientRect().top
+    if (d > 0) col.style.paddingTop = d.toFixed(2) + 'px'
+  }
 }
 let timer = 0
 function scheduleMeasure() {
@@ -758,6 +869,8 @@ watch(
         <path v-for="a in lineArcs[row.li].paths" :key="a.key" :d="a.d" />
       </svg>
       <template v-for="(part, pi) in row.parts" :key="pi">
+        <!-- ใบ#139 — which ท่อน each row of words under these notes belongs to, at the start of the row -->
+        <span v-if="pi === firstBar(row) && rowLabels(row.li)" class="stack-labels" aria-hidden="true"><span v-for="(lb, ri) in rowLabels(row.li)" :key="ri" class="stack-label">{{ lb }}</span></span>
         <!-- ใบ#116 — a long line written as two lyric lines: an empty full-width box that ends the row -->
         <span v-if="cutBefore(row.li, part)" class="lyric-cut" aria-hidden="true" />
         <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}<span v-if="part.rubric" class="section-rubric">({{ part.rubric }})</span><span v-if="part.key" class="section-key">คีย์ {{ part.key }}</span><span v-if="part.meter" class="section-meter" :aria-label="'จังหวะ ' + part.meter">{{ part.meter }}</span></span>
@@ -823,12 +936,12 @@ watch(
                      Each syllable keeps its OWN line's address, so the karaoke and tap-to-seek reach it. -->
                 <template v-for="(st, ri) in stacksUnder(row.li)" :key="'st' + st.li">
                   <span
-                    v-for="(m, k) in stackRow(st, seg)"
-                    :key="'st' + st.li + '-' + k"
+                    v-for="m in stackRow(st, seg)"
+                    :key="'st' + st.li + '-' + m.slot"
                     class="syl syl-stacked"
                     :class="{ 'syl-playing': isSyl(st.li, m.si, m.k) }"
                     :data-syl="`${st.li}-${m.si}-${m.k}`"
-                    :data-slot="k"
+                    :data-slot="m.slot"
                     :data-row="ri + 1"
                     @click.stop="seek(st.li, m.si, m.k)"
                   >{{ m.w || ' ' }}</span>
@@ -961,6 +1074,23 @@ watch(
 .lyric-syl[data-pin] > .syl {
   position: absolute;
   top: 0;
+}
+/* ใบ#139 — the ท่อน names beside a host's rows of words: one box per row, as tall as a row of words
+   (the words' 1.06em type × the 1.4 snug line height = 1.484em of the line), lined up with those rows by
+   pinWords(). Set smaller than the words (0.8em), so the column takes less of the row: 1.484 / 0.8 = 1.855em. */
+.stack-labels {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  padding-right: 0.4em; /* padding, not margin: the line fit measures the box (fitLineWidths) */
+  color: var(--brand, #8b4513);
+  font-weight: 700;
+}
+.stack-label {
+  font-size: 0.8em;
+  line-height: 1.855em;
+  height: 1.855em;
+  white-space: nowrap;
 }
 /* ใบ v3/pleng#100 — เนื้อล้วน "ติดกันเป็นวรรค": the line flows as ONE run of text, with no chord-segment boxes and
    no per-syllable padding — the only spaces are the breath spaces lyricPhrase.js puts in. Split mode (no
