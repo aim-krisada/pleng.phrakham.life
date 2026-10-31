@@ -38,3 +38,17 @@ export function fitScale(avail, naturalAt, passes = 3) {
   // the caller — not this function — has to apply the answer before giving up on it.
   return scale
 }
+
+// ใบ v3/pleng#140 — how much of a short line's row must stay EMPTY.
+//
+// A short line reaches the margins by widening its ช่องไฟ, but past a point the notes drift so far
+// apart that the line stops reading as music: song 139's three-bar last line came out at twice its
+// own width — "บางบรรทัดที่เนื้อและโน้ตมีน้อยกว่า ช่องไฟก็จะประหลาด" (พี่เปา 31 ต.ค. 2569). So a line
+// stretches to at most MAX_SPREAD times its natural width, and the rest of the row is left empty,
+// the way a printed songbook leaves a short last line. Returns that empty part in px (0 = fill).
+export const MAX_SPREAD = 1.5
+
+export function spreadPadding(avail, natural, max = MAX_SPREAD) {
+  if (!(avail > 0) || !(natural > 0)) return 0
+  return Math.max(0, avail - natural * max)
+}
