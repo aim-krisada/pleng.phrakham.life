@@ -54,16 +54,17 @@ describe('ใบ#132 — one entered line, one row, filling the page', () => {
     expect(SRC).not.toMatch(/\.sheet-fit-lines[^{]*\{[^}]*flex-wrap:\s*nowrap/)
   })
 
-  it('so the fit measures the BARS, and counts the heading only when it shares their row', () => {
-    const fn = SRC.slice(SRC.indexOf('function fitLineWidths()'), SRC.indexOf('function measureSheet()'))
-    expect(fn).toMatch(/:scope > \.bar-group/)
-    expect(fn).toMatch(/section-label/)
-    expect(fn).toMatch(/Math\.abs\(lr\.top - gr\.top\)/) // "is it on the same row?"
+  it('so the fit measures what shares the row with the bars, and counts the heading only when it does too', () => {
+    const fn = SRC.slice(SRC.indexOf('function naturalWidth('), SRC.indexOf('function spreadBars('))
+    expect(fn).toMatch(/line\.children/) // every item on the row — since ใบ#140 the end mark too
+    expect(fn).toMatch(/\.tie-overlay, \.section-label/) // neither is measured as a row item
+    expect(fn).toMatch(/Math\.abs\(label\.getBoundingClientRect\(\)\.top - first\.getBoundingClientRect\(\)\.top\)/) // "is it on the same row?"
   })
 
   it('reused-verse lines are left out — spreading stacked words would only pull them apart', () => {
     expect(SRC).toContain('.sheet-fit-lines .song-line:not(.song-line-lyrics)')
-    // and the measure pass skips them too, so they are never scaled either
+    // and the measure pass skips them too, so they are never fitted or spread (ใบ#140 still gives
+    // them the song's one size, so their words match the words under the notes)
     expect(SRC).toMatch(/classList\.contains\('song-line-lyrics'\)/)
   })
 

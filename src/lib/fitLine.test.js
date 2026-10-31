@@ -1,6 +1,6 @@
 // ใบ v3/pleng#132 — the arithmetic that keeps one entered line on one printed row.
 import { describe, it, expect } from 'vitest'
-import { fitScale } from './fitLine.js'
+import { fitScale, spreadPadding, MAX_SPREAD } from './fitLine.js'
 
 // A line whose width scales exactly with the type size — the ideal case.
 const linear = (naturalAtFullSize) => (scale) => naturalAtFullSize * scale
@@ -69,5 +69,26 @@ describe('ใบ#132 — fitScale', () => {
     const scale = fitScale(673, rounded(5000, 50))
     expect(scale).toBeLessThan(1)
     expect(Number.isFinite(scale)).toBe(true)
+  })
+})
+
+describe('ใบ#140 — spreadPadding', () => {
+  it('fills the row when the line needs less than one and a half times its own width', () => {
+    expect(spreadPadding(673, 600)).toBe(0)
+    expect(spreadPadding(673, 673)).toBe(0)
+    expect(spreadPadding(673, 673 / MAX_SPREAD)).toBe(0) // exactly at the limit still fills
+  })
+
+  it('leaves the rest of the row empty when filling it would pull the notes far apart', () => {
+    // song 139: a three-bar last line, natural ~328px on a 673px row, came out at 2.05x
+    const pad = spreadPadding(673, 328)
+    expect(pad).toBeCloseTo(673 - 328 * 1.5)
+    expect(673 - pad).toBeCloseTo(328 * MAX_SPREAD) // the line itself grows by exactly the limit
+  })
+
+  it('never asks for room it cannot measure — a hidden line or no layout yet', () => {
+    expect(spreadPadding(0, 300)).toBe(0)
+    expect(spreadPadding(673, 0)).toBe(0)
+    expect(spreadPadding(NaN, 300)).toBe(0)
   })
 })

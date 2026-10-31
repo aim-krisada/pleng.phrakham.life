@@ -6,7 +6,7 @@ import { buildArc, planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { pixelRatio, levelTop, lineThickness } from '../lib/pixelSnap.js'
 import { phraseBreaks, songBreathBeats, wordEnds } from '../lib/lyricPhrase.js'
 import { lyricLineSplits } from '../lib/lyricLineSplit.js'
-import { fitScale } from '../lib/fitLine.js'
+import { fitScale, spreadPadding } from '../lib/fitLine.js'
 import { bookRefsCodeText } from '../lib/bookCodes.js'
 import NoteRow from './NoteRow.vue'
 
@@ -667,44 +667,91 @@ function measureTies() {
 // scales its notes, its bar lines and its words together — the layout stays proportional.
 // Text does not scale perfectly linearly (hinting rounds glyph widths), so this converges in
 // up to three passes instead of trusting the first ratio.
+//
+// ใบ#140 — ONE size for the whole song. Each line used to get its own size, so a long line printed
+// smaller than the short one above it — พี่เปา 31 ต.ค. 2569: "ทั้งเพลงเดี๋ยวตัวเล็กตัวใหญ่ ดูแล้วไม่เป็น
+// ระเบียบ … เลือกทั้งเพลงให้ฟ้อนเท่ากัน … ใช้ช่องไฟช่วยแทน". Every line is still fitted on its own
+// first; then the whole song takes the SMALLEST of those sizes, and the shorter lines reach the
+// margins through wider ช่องไฟ (spreadBars) instead of bigger type.
 function fitLineWidths() {
   const root = rootEl.value
   if (!root) return
-  for (const line of root.querySelectorAll('.song-line')) {
+  const lines = [...root.querySelectorAll('.song-line')]
+  for (const line of lines) {
     line.style.fontSize = '' // always measure from the page's own size, never from last time
-    if (!props.fitLines || line.classList.contains('song-line-lyrics')) continue
-    const apply = (scale) => {
-      line.style.fontSize = scale === 1 ? '' : scale * 100 + '%'
-    }
-    // What has to fit on one row is the BARS. The line box is not the measure: the tie overlay is
-    // absolutely positioned, and a ท่อน heading sometimes takes a full-width row of its own above
-    // the bars (♦ รับ 1) and sometimes sits beside them on the same row (the *** marker). Count the
-    // heading only in the second case — reading its CURRENT row tells us which it is — or a headed
-    // line measures twice too wide and gets shrunk to a quarter size (song 77, 20 ต.ค. 2569).
-    // Summing the bars' own widths reads the same whether they have already wrapped or not.
-    // ใบ#139: the ท่อน names beside stacked rows take room on the row too
-    const groups = [...line.querySelectorAll(':scope > .bar-group, :scope > .stack-labels')]
-    const label = line.querySelector(':scope > .section-label')
-    const naturalWidth = () => {
-      if (!groups.length) return line.scrollWidth
-      let w = groups.reduce((sum, g) => sum + g.getBoundingClientRect().width, 0)
-      if (label) {
-        const lr = label.getBoundingClientRect()
-        const gr = groups[0].getBoundingClientRect()
-        if (Math.abs(lr.top - gr.top) < 2) w += lr.width // the heading shares the bars' row
-      }
-      return w
-    }
-    // the last step of fitScale may end without a confirming measure, so apply its answer here.
-    // `fit-measure` holds the bars at their natural width while measuring: once they grow into the
-    // slack (the CSS below), every line would measure exactly full and never shrink.
+    line.style.paddingRight = ''
+    for (const el of line.querySelectorAll(':scope > .bar-group, :scope > .bar-group > .segment')) el.style.flexGrow = ''
+  }
+  if (!props.fitLines) return
+  const music = lines.filter((line) => !line.classList.contains('song-line-lyrics'))
+  const apply = (line, scale) => {
+    line.style.fontSize = scale === 1 ? '' : scale * 100 + '%'
+  }
+  // `fit-measure` holds the bars at their natural width while measuring: once they grow into the
+  // slack (the CSS below), every line would measure exactly full and never shrink.
+  let songScale = 1
+  for (const line of music) {
     line.classList.add('fit-measure')
-    apply(fitScale(line.clientWidth, (scale) => {
-      apply(scale)
-      return naturalWidth()
+    songScale = Math.min(songScale, fitScale(line.clientWidth, (scale) => {
+      apply(line, scale)
+      return naturalWidth(line)
     }))
+  }
+  // the words-only lines take the song's size too, so their words match the words under the notes
+  for (const line of lines) apply(line, songScale)
+  for (const line of music) {
+    spreadBars(line)
     line.classList.remove('fit-measure')
   }
+}
+
+// What has to fit on one row is everything that SHARES the row: the bars, the end mark ‖ and the
+// repeat marks, the *** marker, and (ใบ#139) the ท่อน names beside stacked rows. Not the tie overlay
+// (absolutely positioned) and not a ท่อน heading on a row of its own above the bars (♦ รับ 1) — a
+// headed line measured with its heading came out twice too wide and was shrunk to a quarter size
+// (song 77, 20 ต.ค. 2569). Reading the heading's CURRENT row tells whether it sits beside the bars.
+// ใบ#140: only the bars were counted, so a line fitted to the bars left no room for the end mark ‖,
+// and it dropped onto a row of its own ("เครื่องหมายจบเพลงชอบตกไปอีกบรรทัด").
+// A .lyric-cut (ใบ#116) ends a row on purpose, so the widest of its rows is what must fit.
+// Summing the items' own widths reads the same whether they have already wrapped or not.
+function naturalWidth(line) {
+  let row = 0
+  let widest = 0
+  let first = null
+  for (const el of line.children) {
+    if (el.matches('.tie-overlay, .section-label')) continue
+    if (el.classList.contains('lyric-cut')) {
+      widest = Math.max(widest, row)
+      row = 0
+      continue
+    }
+    const cs = getComputedStyle(el)
+    if (cs.display === 'none' || cs.position === 'absolute') continue
+    first = first || el
+    row += el.getBoundingClientRect().width + parseFloat(cs.marginLeft) + parseFloat(cs.marginRight)
+  }
+  widest = Math.max(widest, row)
+  if (!first) return line.scrollWidth
+  const label = line.querySelector(':scope > .section-label')
+  if (label && Math.abs(label.getBoundingClientRect().top - first.getBoundingClientRect().top) < 2) {
+    widest += label.getBoundingClientRect().width // the heading shares the bars' row
+  }
+  return widest
+}
+
+// ใบ#140 — share a short line's slack out in proportion to how wide each bar already is, so every
+// bar is stretched by the SAME ratio and the gap between two notes stays the same along the line.
+// An equal share per bar (flex-grow: 1) gave a one-note bar as much extra room as an eight-note
+// bar: one note floated alone in a wide box while its neighbour stayed packed ("ช่องไฟก็จะประหลาด").
+// Measured at the song's size, under `fit-measure`, so these are the natural widths.
+// A line too short to fill the page without pulling its notes far apart stops at MAX_SPREAD
+// (lib/fitLine.js); padding-right takes the part of the row it must not fill.
+function spreadBars(line) {
+  const items = [...line.querySelectorAll(':scope > .bar-group, :scope > .bar-group > .segment')]
+  const widths = items.map((el) => el.getBoundingClientRect().width)
+  const pad = spreadPadding(line.clientWidth, naturalWidth(line)) // before flex-grow goes inline: it outranks fit-measure's 0
+  items.forEach((el, i) => { el.style.flexGrow = String(Math.max(widths[i], 1)) })
+  if (pad) line.style.paddingRight = pad + 'px'
 }
 
 // Debounce with a short timer (fires reliably in every context, unlike rAF which is
@@ -991,8 +1038,8 @@ watch(
    HOW a short line reaches the margins — พี่เปา 22 ต.ค. 2569: "ถ้าสั้นเกินก็ขยายช่องไฟออก แทน". The first
    version spread the BARS apart (space-between on the row): each bar kept its notes packed at its left
    and the slack piled up as one big hole before the next bar line — "ตอนนี้หน้าตามันไม่ได้เลย" (song 114).
-   Now the slack goes INSIDE the bars: every bar grows by the same share, and every chord segment inside a bar
-   grows with it, so the notes (.note-row) and the words (.lyric-syl), which already spread across their
+   Now the slack goes INSIDE the bars: every bar grows, and every chord segment inside a bar grows with it
+   (in proportion to its own width since ใบ#140 — spreadBars() sets flex-grow inline), so the notes (.note-row) and the words (.lyric-syl), which already spread across their
    segment with space-around, simply get more room between them — wider ช่องไฟ, no holes.
    ⛔ Nothing SHRINKS. A flex item gives way before it overflows, and a squeezed bar quietly breaks its words
    onto a second line inside their own cell — the same ugly result as wrapping, just harder to see.
