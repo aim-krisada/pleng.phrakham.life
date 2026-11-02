@@ -247,3 +247,25 @@ describe('ใบ#142 — no Aa on the ฝึกร้อง bar', () => {
     expect(w.find('input[type="range"][aria-label="ปรับขนาดตัวอักษร"]').exists()).toBe(false)
   })
 })
+
+// ใบ v3/pleng#145 — ✎ แก้เพลงนี้ took Aa's seat on the ฝึกร้อง bar; everyone sees it (no login needed)
+describe('ใบ#145 — ✎ on the ฝึกร้อง bar', () => {
+  it('AC1 — a pencil button sits on the bar, named for what it does, and pressing it asks the page to edit', async () => {
+    const w = mountT()
+    await nextTick()
+    const btn = w.find('button[data-cell="edit"]')
+    expect(btn.exists()).toBe(true)
+    expect(btn.attributes('aria-label')).toBe('แก้เพลงนี้')
+    await btn.trigger('click')
+    expect(w.emitted('edit')).toHaveLength(1)
+  })
+
+  it('AC1 — it is on the bar itself (not tucked into ⚙), right where Aa used to be: just left of the ⚙ group', async () => {
+    const w = mountT()
+    await nextTick()
+    expect(w.find('.dk-panel [data-setting="edit"]').exists()).toBe(false)
+    const ids = w.findAll('.dk-btnrow [data-cell]').map((c) => c.attributes('data-cell'))
+    expect(ids).toContain('edit')
+    expect(ids.indexOf('edit')).toBe(ids.indexOf('export') + 1)
+  })
+})

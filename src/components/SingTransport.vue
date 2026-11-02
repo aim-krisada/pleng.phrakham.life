@@ -49,7 +49,7 @@ const props = defineProps({
   mp3Instrument: { type: String, default: 'synth' },
   mp3SongId: { type: [String, Number], default: undefined },
 })
-const emit = defineEmits(['toggle-play', 'prev', 'next', 'toggle-loop', 'seek', 'jump', 'toggle-section', 'set-all'])
+const emit = defineEmits(['toggle-play', 'prev', 'next', 'toggle-loop', 'seek', 'jump', 'toggle-section', 'set-all', 'edit'])
 
 // ---------- clock ----------
 const two = (n) => String(n).padStart(2, '0')
@@ -189,6 +189,9 @@ const items = computed(() => {
     { id: 'play', kind: 'play', name: 'เล่น/หยุด', place: { anchor: 'rightOf:back', row: 1 }, control: { value: props.playing }, run: () => emit('toggle-play') },
     { id: 'forward', kind: 'btn', name: 'ท่อนถัดไป', icon: 'skip-forward', place: { anchor: 'rightOf:play', row: 1 }, hidden: !props.hasSections, run: () => emit('next') },
     { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { anchor: 'rightOf:forward', row: 1 } },
+    // ใบ v3/pleng#145 — ✎ แก้เพลงนี้: the way into แก้ไข, where Aa used to sit (Aa moved to the top bar, ใบ#142).
+    // Everyone sees it — the mission says anyone may edit; only where the work is kept differs (login).
+    { id: 'edit', kind: 'btn', name: 'แก้เพลงนี้', icon: 'pencil', place: { anchor: 'leftOf:setting', row: 1 }, permanent: true, run: () => emit('edit') },
     { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
     // `flex` = the ONE row-2 cell allowed to shrink: the rail gives up pixels on a narrow phone so
     // the row (now carrying ความเร็ว too, ใบ#102) can never overflow the dock.
