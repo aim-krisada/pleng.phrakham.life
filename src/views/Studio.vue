@@ -70,8 +70,12 @@ async function loadSong(id) {
     return
   }
   loadedSong.value = data
+  liveSong.value = liveFromRow(data)
+}
+// the song as ดู/แผ่น read it, straight from a DB row (no unsaved edits)
+function liveFromRow(data) {
   const { content } = migrateToV2(data.content)
-  liveSong.value = {
+  return {
     id: data.id,
     number: data.number,
     title_th: data.title_th,
@@ -79,6 +83,39 @@ async function loadSong(id) {
     category: data.category, // ใบ#105 — which printed book the ตามต้นฉบับ phrasing comes from
     content,
   }
+}
+
+// ---------- ใบ v3/pleng#145 — in and out of แก้ไข: ✎ on the ฝึกร้อง bar · ← กลับไปฝึกร้อง ----------
+// In: the ✎ on the ฝึกร้อง bar opens the SAME song in แก้ไข. Out: the "← กลับไปฝึกร้อง" row at the top
+// left of แก้ไข (พี่เอม picked ข้อเสนอ ก, 2 พ.ย. 2569 — the same corner as ใบ#146's "← ก่อนพิมพ์").
+// Leaving with unsaved work never drops it silently: a dialog asks first, "แก้ต่อ" being the safe,
+// default answer. "ทิ้งแล้วกลับ" really throws the edits away — the editor is rebuilt from the saved
+// song and ฝึกร้อง shows the saved version, not half-finished work. Nothing changed → straight back.
+const editorRef = ref(null)
+const backBtn = ref(null)
+const keepBtn = ref(null)
+const leaveAsk = ref(false)
+function openEditor() {
+  mode.value = 'edit'
+  nextTick(() => window.scrollTo({ top: 0 }))
+}
+function backToSing() {
+  if (editorRef.value?.isDirty) {
+    leaveAsk.value = true
+    nextTick(() => keepBtn.value?.focus())
+    return
+  }
+  mode.value = 'view'
+}
+function keepEditing() {
+  leaveAsk.value = false
+  nextTick(() => backBtn.value?.focus())
+}
+function discardAndBack() {
+  leaveAsk.value = false
+  if (loadedSong.value) liveSong.value = liveFromRow(loadedSong.value)
+  editorNonce.value++ // a fresh editor from the saved song — the unsaved edits are gone
+  mode.value = 'view'
 }
 
 onMounted(async () => {
@@ -428,7 +465,7 @@ function printSheet() {
 
     <!-- ===== ดู — reading / sing-along view (WT-A owns SongViewer) ===== -->
     <div v-show="mode === 'view'">
-      <SongViewer v-if="viewerSong" :song="viewerSong" @dock="viewDock = $event" @set="viewSet = $event" />
+      <SongViewer v-if="viewerSong" :song="viewerSong" @dock="viewDock = $event" @set="viewSet = $event" @edit="openEditor" />
       <p v-else class="muted" style="padding: 16px">ยังไม่มีเพลงให้แสดง — ไปที่ “แก้” เพื่อเริ่มสร้างเพลง</p>
     </div>
 
@@ -483,7 +520,25 @@ function printSheet() {
 
     <!-- ===== แก้ — the editor (WT-D owns EditorMode). v-show keeps it mounted so its
          in-progress state survives every mode switch. -->
+    <!-- ใบ v3/pleng#145 — ← กลับไปฝึกร้อง, top left of แก้ไข (ข้อเสนอ ก). Only when there IS a song to go back
+         to: a brand-new song (/studio) has no ฝึกร้อง page yet. -->
+    <div v-if="mode === 'edit' && loadedSong" class="ed-back no-print">
+      <button ref="backBtn" type="button" class="ed-back-btn" @click="backToSing">
+        <Icon name="arrow-left" :size="20" /> กลับไปฝึกร้อง
+      </button>
+    </div>
+    <div v-if="leaveAsk" class="ed-leave-scrim no-print" @click.self="keepEditing" @keydown.esc="keepEditing">
+      <div class="ed-leave" role="alertdialog" aria-modal="true" aria-labelledby="ed-leave-t" aria-describedby="ed-leave-d">
+        <b id="ed-leave-t" class="ed-leave-t">ยังไม่ได้บันทึก</b>
+        <p id="ed-leave-d" class="ed-leave-d">ถ้ากลับไปฝึกร้องตอนนี้ ที่แก้ไว้จะหาย</p>
+        <div class="ed-leave-btns">
+          <button type="button" class="ed-leave-b" @click="discardAndBack">ทิ้งแล้วกลับ</button>
+          <button ref="keepBtn" type="button" class="ed-leave-b primary" @click="keepEditing">แก้ต่อ</button>
+        </div>
+      </div>
+    </div>
     <EditorMode
+      ref="editorRef"
       v-show="mode === 'edit'"
       :key="editorNonce"
       :song="loadedSong"
@@ -534,6 +589,30 @@ function printSheet() {
     color: var(--ink);
   }
 }
+/* ใบ#145 — ← กลับไปฝึกร้อง: a plain text button at the top left, like ใบ#146's "← ก่อนพิมพ์" */
+.ed-back { margin: 0 0 var(--sp-2); }
+.ed-back-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: var(--touch-min); padding: 0 12px 0 6px;
+  border: 1px solid transparent; border-radius: 10px; background: transparent;
+  color: var(--brand); font: inherit; font-weight: 700; font-size: var(--fs-md); cursor: pointer;
+}
+@media (hover: hover) { .ed-back-btn:hover { border-color: var(--line); background: var(--cream); } }
+/* the "ยังไม่ได้บันทึก" question — a small centered card over a dimmed page */
+.ed-leave-scrim {
+  position: fixed; inset: 0; z-index: 200; background: rgba(0, 0, 0, 0.42);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.ed-leave { width: 100%; max-width: 340px; background: #fff; border-radius: 14px; padding: 18px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25); }
+.ed-leave-t { font-size: var(--fs-md); }
+.ed-leave-d { margin: 6px 0 0; color: var(--ink); line-height: 1.5; }
+.ed-leave-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.ed-leave-b {
+  min-height: var(--touch-min); padding: 0 16px; border-radius: 10px; font: inherit; font-weight: 700; cursor: pointer;
+  border: 1px solid var(--line); background: #fff; color: var(--ink);
+}
+.ed-leave-b.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+
 /* "เพลง ▾" panel (S2) — teleported into the shared ShellBar */
 .sb-open-btn {
   display: inline-flex;
