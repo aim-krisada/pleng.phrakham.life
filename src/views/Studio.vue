@@ -17,7 +17,7 @@ import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhr
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
 import { downloadSong } from '../lib/jsonIO.js'
-import { tier, initAuth, shellMenu, currentSong, readingFontScale, setFontScale, sheetLyricJoin } from '../store.js'
+import { tier, initAuth, shellMenu, currentSong, readingFontScale, sheetLyricJoin } from '../store.js'
 import { songBookRefs } from '../lib/bookCodes.js'
 import Icon from '../components/Icon.vue'
 import ComboSelect from '../components/ComboSelect.vue'
@@ -266,7 +266,6 @@ const printBasename = computed(() => (liveSong.value ? songBasename(liveSong.val
 const printItems = computed(() => [
   { id: 'print', kind: 'btn', name: 'พิมพ์ / บันทึก PDF', icon: 'printer', prime: true, place: { anchor: 'left', row: 1 }, run: printSheet },
   { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { anchor: 'rightOf:print', row: 1 } },
-  { id: 'scale', kind: 'aa', name: 'ขนาดตัวอักษร', place: { anchor: 'leftOf:setting', row: 1 }, permanent: true },
   { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
   { id: 'display', kind: 'menu', name: 'แสดงผล', icon: 'layers', default: 'inSetting', pinnable: true, control: { options: DISPLAY_OPTS.map((o) => ({ value: o.value, label: o.label })), value: sheetDisplay.value, onPick: (v) => (sheetDisplay.value = v) } },
   { id: 'book', kind: 'menu', name: 'แบบแผ่น', icon: 'book-open', default: 'inSetting', pinnable: true, control: { options: [{ value: 'songbook', label: 'สมุดเพลง (ทำนองครั้งเดียว)' }, { value: 'full', label: 'เต็ม (โน้ตทุกเที่ยว)' }], value: sheetBook.value, onPick: (v) => (sheetBook.value = v) } },
@@ -276,9 +275,6 @@ const printItems = computed(() => [
   { id: 'key', kind: 'menu', name: 'คีย์', icon: 'key-round', default: 'inSetting', pinnable: true, control: { options: keyOptions.value, value: sheetKey.value, badge: sheetKey.value, onPick: (v) => (sheetKey.value = v) } },
   { id: 'download', kind: 'btn', name: 'ดาวน์โหลด JSON', icon: 'download', default: 'inSetting', pinnable: true, run: () => downloadSong(liveSong.value) },
 ])
-
-// Aa font popover state for the print dock (mirrors the sing dock's Aa)
-const printFontPct = computed(() => Math.round(readingFontScale.value * 100))
 
 // B002 (P'Aim-approved names): ฝึกร้อง · แผ่นเพลง · แก้ไข (ids stay view/sheet/edit)
 // S1 icons (Lucide): ฝึกร้อง=mic · แผ่นเพลง=music · แก้ไข=pencil
@@ -445,7 +441,7 @@ function printSheet() {
     <div v-show="mode === 'sheet'" class="sheet-workspace">
       <div class="card">
         <h2 class="sheet-title no-print">{{ titleText }}</h2>
-        <!-- the top-nav "Aa" reader size (store.readingFontScale) scales แผ่นเพลง on screen
+        <!-- the top-bar "Aa" size (store.readingFontScale · ใบ#142) scales แผ่นเพลง on screen
              too (B043 · was only wired in ฝึกร้อง). It now rides on a custom property because
              ใบ#130 gives the sheet itself a paper-sized font (see .sheet-read-scale in <style>);
              print still pins everything to 1rem so the A4 layout never follows the reading size. -->
@@ -474,7 +470,7 @@ function printSheet() {
         </div>
       </div>
 
-      <!-- แผ่นเพลง dock — DockKey engine fed ITEMS_PRINT (พิมพ์ · export · Aa · ⚙) -->
+      <!-- แผ่นเพลง dock — DockKey engine fed ITEMS_PRINT (พิมพ์ · export · ⚙) · Aa is on the top bar (ใบ#142) -->
       <!-- ใบ#111 — a fixed full-width bar at the bottom at every width -->
       <DockKey :items="printItems" store-key="print" label="แถบแผ่นเพลง">
         <template #cell-export="{ open, toggle, close }">
@@ -486,28 +482,6 @@ function printSheet() {
             @toggle="toggle"
             @close="close"
           />
-        </template>
-        <template #cell-scale="{ open, toggle }">
-          <button
-            class="st-aa-btn"
-            :class="{ on: open }"
-            :aria-expanded="open"
-            :title="'ขนาดตัวอักษร ' + printFontPct + '%'"
-            aria-label="ขนาดตัวอักษร"
-            @click.stop="toggle"
-          ><b>Aa</b></button>
-          <div v-if="open" class="dk-pop st-fontpop" role="menu" aria-label="ขนาดตัวอักษร" @click.stop>
-            <div class="st-fonttitle">ขนาดตัวอักษร</div>
-            <div class="st-fontrow">
-              <span class="st-fonta-sm" aria-hidden="true">A</span>
-              <input class="st-fontslider" type="range" min="80" max="220" step="10" :value="printFontPct" aria-label="ปรับขนาดตัวอักษร" @input="setFontScale(+$event.target.value / 100)" />
-              <span class="st-fonta-lg" aria-hidden="true">A</span>
-            </div>
-            <div class="st-fontfoot">
-              <span class="st-fontval">{{ printFontPct }}%</span>
-              <button class="st-fontreset" :disabled="printFontPct === 100" @click="setFontScale(1)">↺ 100%</button>
-            </div>
-          </div>
         </template>
       </DockKey>
     </div>
@@ -721,30 +695,4 @@ function printSheet() {
   }
 }
 
-/* ---------- แผ่นเพลง dock: Aa font-size slot (mirrors the sing dock) ---------- */
-.st-aa-btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  border: 1px solid var(--line); background: transparent; color: var(--ink);
-  border-radius: 10px; padding: 0 8px; height: var(--touch-min); min-height: 0; min-width: var(--touch-min); cursor: pointer;
-}
-.st-aa-btn b { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
-.st-aa-btn.on { border-color: var(--brand); color: var(--brand); }
-/* slot popovers carry their own position; DockKey clamps them by the .dk-pop class */
-.st-fontpop {
-  pointer-events: auto;
-  position: absolute; bottom: calc(100% + 8px); right: 8px; left: auto;
-  background: #fff; border: 1px solid var(--line); border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); z-index: 30;
-  width: max-content; min-width: 230px; max-width: calc(100vw - 24px); padding: 12px;
-}
-.st-fonttitle { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-.st-fontrow { display: flex; align-items: center; gap: 10px; }
-.st-fonta-sm { font-size: 13px; flex: 0 0 auto; }
-.st-fonta-lg { font-size: 22px; font-weight: 700; flex: 0 0 auto; }
-.st-fontslider { flex: 1; min-width: 0; accent-color: var(--brand); height: var(--touch-min); }
-.st-fontfoot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
-.st-fontval { font-size: 11px; color: var(--muted); }
-.st-fontreset { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; min-height: 32px; }
-.st-fontreset:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); }
-.st-fontreset:disabled { opacity: 0.4; cursor: default; }
 </style>

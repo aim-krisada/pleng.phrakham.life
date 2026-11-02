@@ -2,15 +2,16 @@
 // SingTransport — the ฝึกร้อง page's DockKey ADAPTER (reference #1 of the library).
 // It no longer draws chrome itself: it turns the page's song state (props) into the DockKey
 // descriptor list `ITEMS_SING` and hands it to <DockKey>, plus fills the three page-drawn
-// cells (ไทม์ไลน์ · เลือกท่อน · Aa) via #cell-<id> slots. The engine owns the bar layout /
+// cells (ไทม์ไลน์ · เลือกท่อน …) via #cell-<id> slots. The engine owns the bar layout /
 // Setting+pin / clamp (ใบ v3/pleng#111: a fixed bottom bar at every width — no drag, no fold,
 // no see-through). So ฝึกร้อง = data + custom cells; แผ่นเพลง/แก้ไข add their own
 // ITEMS_* to the SAME engine later. Design SSOT: docs/ds/dockkey-library.md +
 // docs/design/dockkey-sing-prototype.html.
 //
 //   Seek row: [ ไทม์ไลน์ ]
-//   Buttons:  [ Back ][ Play ][ Fwd ][ ดาวน์โหลด ][ Aa ][ คีย์ ][ ความเร็ว ][ ท่อน ][ เสียง ][ ⚙ ]
+//   Buttons:  [ Back ][ Play ][ Fwd ][ ดาวน์โหลด ][ คีย์ ][ ความเร็ว ][ ท่อน ][ เสียง ][ ⚙ ]
 //   (ใบ#113: on a wide enough screen the two share ONE row — ไทม์ไลน์ left, the buttons right)
+//   (Aa left the bar for the shared top bar — ใบ v3/pleng#142)
 //   ⚙ Setting: วนซ้ำ · คอร์ด · แสดงผล · เนื้อร้อง  (each: ปรับ inline · ▲▼ · 📌)
 import { ref, computed } from 'vue'
 import Icon from './Icon.vue'
@@ -18,8 +19,6 @@ import DockKey from './DockKey.vue'
 import ExportTool from './ExportTool.vue'
 import SoundControl from './SoundControl.vue'
 import TempoControl from './TempoControl.vue'
-import FontScaleControl from './FontScaleControl.vue'
-import { readingFontScale, setFontScale } from '../store.js'
 
 const props = defineProps({
   playing: { type: Boolean, default: false },
@@ -130,8 +129,6 @@ function onSeekKey(e) {
   emit('seek', Math.max(0, Math.min(1, f)))
 }
 
-// ---------- Aa reader font size (global store) — drawn by FontScaleControl.vue ----------
-
 // ---------- map the page's `settings` into ITEMS_SING controls ----------
 const findSetting = (id) => props.settings.find((s) => s.id === id)
 function menuControl(id) {
@@ -192,7 +189,6 @@ const items = computed(() => {
     { id: 'play', kind: 'play', name: 'เล่น/หยุด', place: { anchor: 'rightOf:back', row: 1 }, control: { value: props.playing }, run: () => emit('toggle-play') },
     { id: 'forward', kind: 'btn', name: 'ท่อนถัดไป', icon: 'skip-forward', place: { anchor: 'rightOf:play', row: 1 }, hidden: !props.hasSections, run: () => emit('next') },
     { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { anchor: 'rightOf:forward', row: 1 } },
-    { id: 'scale', kind: 'aa', name: 'ขนาดตัวอักษร', place: { anchor: 'leftOf:setting', row: 1 }, permanent: true },
     { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
     // `flex` = the ONE row-2 cell allowed to shrink: the rail gives up pixels on a narrow phone so
     // the row (now carrying ความเร็ว too, ใบ#102) can never overflow the dock.
@@ -329,11 +325,6 @@ const items = computed(() => {
     <template #cell-soundctl="{ open, toggle, close }">
       <SoundControl :open="open" :groups="soundGroups" :icon="soundIcon" @toggle="toggle" @close="close" />
     </template>
-
-    <!-- ===== Aa reader font size — permanent, 1-tap · slider popover (store-driven) ===== -->
-    <template #cell-scale="{ open, toggle }">
-      <FontScaleControl :open="open" :value="readingFontScale" @toggle="toggle" @set="setFontScale" />
-    </template>
   </DockKey>
 </template>
 
@@ -406,5 +397,4 @@ const items = computed(() => {
 .st-ssname { flex: 1; }
 .st-hk { font-size: 10px; color: var(--brand); border: 1px dashed var(--brand); border-radius: 10px; padding: 0 7px; }
 
-/* ===== Aa ===== → FontScaleControl.vue (one component for ฝึกร้อง + แก้ไข · ใบ v3/pleng#119) */
 </style>

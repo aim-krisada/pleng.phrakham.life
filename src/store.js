@@ -6,11 +6,12 @@ import { normalizeVolume, effectiveVolume, publishLevels } from './lib/volume.js
 // Song currently open in the viewer — drives the navbar download tool.
 export const currentSong = ref(null)
 
-// ---- reader text size (B043 · shared with phrakham.life's Aa control) ----
-// A global reading-font scale for the song surfaces. One shared value so the reader
-// controls text size from one place, wherever the "Aa" control is surfaced — the studio
-// dock (ฝึกร้อง/แก้ไข · B045 moved it here from the top bar) and any future host.
-// Steps 0.8–2.2 (80%–220%), persisted so the choice survives reloads.
+// ---- text size — ONE value for the whole site (ใบ v3/pleng#142) ----
+// Set from the one Aa button on the shared top bar (components/FontTool.vue), on every page.
+// พี่เอม 2 พ.ย. 2569: one value everywhere — ฝึกร้อง, แผ่นเพลง, แก้ไข and the plain pages
+// (รายการเพลง · คู่มือ · เกี่ยวกับเรา, scaled in App.vue) all follow it. This retires ใบ#101/#119's
+// separate editor size: its stored key is cleared once below, and the ฝึกร้อง value (the page a
+// song opens on) is the one that stays. Steps 0.8–2.2 (80%–220%), persisted across reloads.
 const FS_KEY = 'pleng.readingFontScale'
 const clampFs = (v) => Math.min(2.2, Math.max(0.8, Math.round(v * 10) / 10))
 export const readingFontScale = ref((() => {
@@ -23,31 +24,10 @@ export const readingFontScale = ref((() => {
 watch(readingFontScale, (v) => {
   try { localStorage.setItem(FS_KEY, String(v)) } catch { /* ignore */ }
 })
+try { localStorage.removeItem('pleng.editorFontScale') } catch { /* storage blocked — nothing to clear */ }
 export function bumpFontScale(d) { readingFontScale.value = clampFs(readingFontScale.value + d) }
 export function resetFontScale() { readingFontScale.value = 1 }
-// Absolute set (clamped) — for a slider control that supplies the whole value (B045 dock Aa).
 export function setFontScale(v) { readingFontScale.value = clampFs(v) }
-
-// ---- แก้ไข: its OWN text size (ใบ v3/pleng#119) ----
-// พี่เอม 13 ต.ค. 2569: "น่าจะมีการปรับขนาด fonts ได้ เหมือนหน้าร้อง" — the editor gets the same Aa button as
-// ฝึกร้อง, and (ใบ#101: "แต่ละหน้าจำค่าของตัวเอง") remembers its own value. Until now the editor followed
-// `readingFontScale`, so the first time it has no value of its own it starts from that one (nothing the
-// reader sees changes the day this ships) and writes it down at once — from then on the two live apart.
-// Same range and steps as ฝึกร้อง (80%–220%).
-const EDITOR_FS_KEY = 'pleng.editorFontScale'
-export const editorFontScale = ref((() => {
-  try {
-    const v = parseFloat(localStorage.getItem(EDITOR_FS_KEY))
-    if (v >= 0.8 && v <= 2.2) return v
-  } catch { /* ignore */ }
-  const seed = readingFontScale.value
-  try { localStorage.setItem(EDITOR_FS_KEY, String(seed)) } catch { /* ignore */ }
-  return seed
-})())
-watch(editorFontScale, (v) => {
-  try { localStorage.setItem(EDITOR_FS_KEY, String(v)) } catch { /* ignore */ }
-})
-export function setEditorFontScale(v) { editorFontScale.value = clampFs(v) }
 
 // ---- ฝึกร้อง: what the sheet shows + how เนื้อล้วน is written (ใบ v3/pleng#100) ----
 // พี่เอม 4 ต.ค. 2569: "เปิดเพลงใหม่ต้อง set ทุกครั้ง" — the แสดงผล choice (ครบ · เนื้อ+คอร์ด · เนื้อ+โน้ต · เนื้อล้วน ·
