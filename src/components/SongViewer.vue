@@ -21,10 +21,12 @@ import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setP
 import { presetCfg, recommendRecipe, songFeatures } from '../lib/arranger/presets.js'
 import { buildArrangeCfg, readTechniques } from '../lib/arranger/techniques.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
-import { songRefLabels } from '../lib/bookCodes.js'
+import { songBookRefs } from '../lib/bookCodes.js'
+import { songHeadInfo } from '../lib/songHead.js'
 import { ownsSpaceKey } from '../lib/focusClear.js'
 import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
 import SongSheet from './SongSheet.vue'
+import SongHead from './SongHead.vue'
 import SingTransport from './SingTransport.vue'
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
@@ -254,10 +256,11 @@ const printTitle = computed(() => {
   const set = lyricSets.value ? lyricSetLabels.value[activeSet.value] : ''
   return set ? base + ' — ' + set : base
 })
-// B053 — source book(s) + scripture caption, same data + label helper as the catalog card
-// (SongList). Shown once at the top of the reading surface so a singer sees where the song
-// comes from without leaving ฝึกร้อง. book_refs → human labels via lib/bookCodes.
-const refLabels = computed(() => songRefLabels(props.song))
+// ใบ v3/pleng#144 — the page opens with the song's full title and its head (คีย์ · จังหวะ · อ้างอิง), the
+// SAME head แผ่นเพลง shows (SongHead + lib/songHead.js), so the top bar no longer has to carry the name.
+// The key follows the key chosen on the bar (displayKey). อ้างอิง replaced B053's "แหล่งเพลง:" caption —
+// same data (lib/bookCodes songBookRefs), and one line saying it twice was noise.
+const headInfo = computed(() => songHeadInfo(resolved.value, displayKey.value, songBookRefs(props.song)))
 // section OCCURRENCES (one per {type:'section'} marker) → the timeline markers
 const sections = computed(() => {
   const lines = resolved.value?.lines || []
@@ -780,12 +783,15 @@ function onSeek({ li, si, syk }) {
 
 <template>
   <div ref="svRoot" class="sv-root">
-    <!-- B053: แหล่งเพลง (source books) + scripture reference — small captions above the
-         sheet, mirroring the catalog card. Only render when the song actually has them. -->
-    <div v-if="refLabels.length || song.scripture" class="song-refs">
-      <div v-if="refLabels.length" class="src-tag muted">แหล่งเพลง: {{ refLabels.join(' · ') }}</div>
-      <div v-if="song.scripture" class="scripture-tag muted">📖 {{ song.scripture }}</div>
-    </div>
+    <!-- ใบ v3/pleng#144 — the first thing on the page: the full title, then คีย์ · จังหวะ · อ้างอิง (SongHead,
+         the head แผ่นเพลง uses). Sized with the Aa text size like the sheet below it. On screen only: paper
+         gets SongSheet's own printed title. B053's scripture caption stays, under the head. -->
+    <header class="sv-head no-print" :style="{ fontSize: readingFontScale + 'rem' }">
+      <SongHead :title="printTitle" :info="headInfo" screen-title />
+      <div v-if="song.scripture" class="song-refs">
+        <div class="scripture-tag muted">📖 {{ song.scripture }}</div>
+      </div>
+    </header>
 
     <!-- 717 multi-lyric — the words under the SAME melody, switched by segmented tabs that
          live inside a COLLAPSED disclosure (you choose a set once, then sing). The summary
@@ -1101,15 +1107,16 @@ function onSeek({ li, si, syk }) {
   .inst-loading { bottom: calc(220px + env(safe-area-inset-bottom, 0px)); }
 }
 
-/* B053 — source/scripture captions: muted small text (matches SongList's caption weight),
-   each on its own line so long ref lists wrap cleanly on a phone. Uses S0 tokens only. */
+/* ใบ#144 — the page head (title + คีย์ · จังหวะ · อ้างอิง) sits where the sheet's would, above the music */
+.sv-head { margin-bottom: var(--sp-3); }
+/* B053 — the scripture caption: muted small text (matches SongList's caption weight), on its own
+   line so a long reference wraps cleanly on a phone. Uses S0 tokens only. */
 .song-refs {
   margin-bottom: var(--sp-3);
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
 }
-.song-refs .src-tag,
 .song-refs .scripture-tag {
   font-size: var(--fs-sm);
 }

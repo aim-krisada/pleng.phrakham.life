@@ -7,8 +7,9 @@ import { pixelRatio, levelTop, lineThickness } from '../lib/pixelSnap.js'
 import { phraseBreaks, songBreathBeats, wordEnds } from '../lib/lyricPhrase.js'
 import { lyricLineSplits } from '../lib/lyricLineSplit.js'
 import { fitScale, spreadPadding } from '../lib/fitLine.js'
-import { bookRefsCodeText } from '../lib/bookCodes.js'
+import { openingKey, openingMeter, songHeadInfo } from '../lib/songHead.js'
 import NoteRow from './NoteRow.vue'
+import SongHead from './SongHead.vue'
 
 const props = defineProps({
   content: { type: Object, required: true }, // { key, timeSignature, lines }
@@ -38,6 +39,9 @@ const props = defineProps({
   // ใบ v3/pleng#123 — แผ่นเพลง states the song's key and meter once at the very top, before the first
   // note, like any printed score. Off by default so ฝึกร้อง and the editor preview stay as they are.
   songHead: { type: Boolean, default: false },
+  // ใบ v3/pleng#144 — show the title on SCREEN too (แผ่นเพลง), not only on paper. The top bar no longer
+  // carries the song's name, so the page's own heading is where a reader finds it.
+  screenTitle: { type: Boolean, default: false },
   // ใบ v3/pleng#128 — the song's cross-references to other books, shown next to key + meter in the
   // head (so they print). SHORT form here ("ล.305 · ย.274") — พี่เปา asked for the abbreviations on
   // paper, while the catalog card and ฝึกร้อง keep the long reading form ("เล่มเล็ก 305").
@@ -200,22 +204,10 @@ function isEmptyLyricLine(row) {
 // like the chords, so a sheet printed in D says คีย์ D. The notes themselves never change (โด = the key).
 const songKeyOf = () => props.content.key
 const shownKey = (k) => transposeKey(k, songKeyOf(), props.displayKey || songKeyOf())
-const openKey = computed(() => {
-  const first = (props.content.lines || [])[0]
-  return (first && first._key) || songKeyOf() || ''
-})
-const openMeter = computed(() => {
-  const first = (props.content.lines || [])[0]
-  return (first && first._ts) || props.content.timeSignature || ''
-})
-const head = computed(() => ({
-  key: openKey.value ? shownKey(openKey.value) : '',
-  meter: openMeter.value,
-  refs: bookRefsCodeText(props.bookRefs),
-}))
-// Any head item at all — a song with no key, meter or refs must print exactly as it did before
-// (no empty line, no gap), which is why the <p> and the title's `has-head` both hang off this.
-const hasHead = computed(() => !!(head.value.key || head.value.meter || head.value.refs))
+const openKey = computed(() => openingKey(props.content))
+const openMeter = computed(() => openingMeter(props.content))
+// the head line itself (key · meter · อ้างอิง) — lib/songHead.js, shared with ฝึกร้อง (ใบ#144)
+const head = computed(() => songHeadInfo(props.content, props.displayKey, props.bookRefs))
 
 function chordText(chord) {
   return displayChord(chord, {
@@ -890,15 +882,10 @@ watch(
 
 <template>
   <div ref="rootEl" class="sheet-root" :class="[lyricsOnly ? 'sheet-mode-lyrics' : '', sn && !sc ? 'sheet-no-chord' : '', fitLines ? 'sheet-fit-lines' : '']">
-    <!-- Printed title — centered, above the song, on paper only (on screen the shell
-         bar / Studio heading already show it). Owned here so it prints from ANY mode
-         that renders the sheet (ดู or แผ่น), which is why P'Aim's ดู-mode print had none. -->
-    <h1 v-if="songTitle" class="sheet-print-title" :class="{ 'has-head': songHead && hasHead }">{{ songTitle }}</h1>
-    <!-- ใบ v3/pleng#123 — the song's key and meter, once, at the top left above the first line of music
-         (where a printed score and a โน้ตตัวเลข book put them). On screen and on paper. -->
-    <p v-if="songHead && hasHead" class="sheet-head">
-      <span v-if="head.key" class="sheet-head-item">คีย์ <b>{{ head.key }}</b></span>{{ head.key && head.meter ? ' ' : '' }}<span v-if="head.meter" class="sheet-head-item">จังหวะ <b>{{ head.meter }}</b></span>{{ (head.key || head.meter) && head.refs ? ' ' : '' }}<span v-if="head.refs" class="sheet-head-item sheet-head-refs">อ้างอิง <b>{{ head.refs }}</b></span>
-    </p>
+    <!-- Title + head (key · meter · อ้างอิง) — SongHead, the ONE head shared with ฝึกร้อง (ใบ#144). The title
+         prints centered above the song (ใบ#123 · #128); `screen-title` shows it on screen too. Owned here so it
+         prints from ANY mode that renders the sheet (ดู or แผ่น). -->
+    <SongHead :title="songTitle" :info="head" :head="songHead" :screen-title="screenTitle" />
     <div v-for="(grp, gi) in renderGroups" :key="gi" class="song-section">
     <div v-for="row in grp.lines" :key="row.li" v-show="!isEmptyLyricLine(row)" :data-li="row.li" class="song-line" :class="{ 'song-line-lyrics': lineLyricsOnly(row.first), 'song-line-join': lyricJoin && lineLyricsOnly(row.first), 'song-line-stacked': stacksUnder(row.li).length }" :style="stacksUnder(row.li).length ? { '--stack-rows': stacksUnder(row.li).length } : null">
       <!-- B069: cross-bar ties as ONE continuous arc, drawn in this line's own overlay so
@@ -1222,58 +1209,5 @@ watch(
     display: block;
     break-inside: avoid;
   }
-}
-/* ใบ v3/pleng#123 — the key + meter head. Left, above the first line, plain text that wraps (never runs off a
-   narrow screen or a 200% reading size); the values bold like the printed signs. */
-.sheet-head {
-  margin: 0 0 0.8em;
-  font-size: 0.95em;
-  line-height: 1.4;
-  color: var(--ink);
-}
-.sheet-head-item { display: inline-block; white-space: nowrap; margin-right: 1em; }
-.sheet-head b {
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-/* On paper the head lives INSIDE the gap the title always left above the music (6mm): 0.5mm + a 4mm line +
-   1.5mm = the same 6mm, so nothing below it moves and no song gets a page more (ใบ#101). Measured on all 653
-   published songs: a head on a line of its own pushed 29 one-page songs onto a second page. */
-@media print {
-  .sheet-head {
-    font-size: 10pt;
-    line-height: 4mm;
-    height: 4mm;
-    white-space: nowrap;
-    color: #000;
-    margin: 0 0 1.5mm;
-  }
-  /* ใบ#128 — อ้างอิง shares that one fixed-height, no-wrap line. A song with an unusually long
-     list would otherwise run off the right edge and be clipped by the page with nothing to show
-     for it, so the refs are the item that gives: they shrink and end in an ellipsis, which at
-     least says there is more. Key and meter never shrink — they are the ones a singer needs. */
-  .sheet-head-refs {
-    max-width: 55%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    vertical-align: bottom;
-  }
-}
-/* Printed title heading — hidden on screen (the shell bar shows the title there),
-   shown centered above the song on paper only. */
-.sheet-print-title {
-  display: none;
-}
-@media print {
-  .sheet-print-title {
-    display: block;
-    text-align: center;
-    font-size: 16pt;
-    font-weight: 700;
-    color: #000;
-    margin: 0 0 6mm;
-  }
-  /* ใบ#123 — the key + meter head sits in this gap (see .sheet-head): 0.5mm here + 4mm + 1.5mm = 6mm */
-  .sheet-print-title.has-head { margin-bottom: 0.5mm; }
 }
 </style>
