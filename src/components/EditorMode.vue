@@ -4050,9 +4050,9 @@ defineExpose({
           <Icon name="chevron-down" :size="15" :class="{ 'ed-chev-open': settingsOpen }" />
         </button>
         <span class="ed-grow"></span>
-        <!-- B071: song file actions moved here from the removed "เพลง ▾" top-bar menu -->
+        <!-- B071: song file actions moved here from the removed "เพลง ▾" top-bar menu. ใบ v3/pleng#147:
+             สร้างเพลงใหม่ left for the shared top bar / ☰ — one place per screen (fileNew stays for its callers). -->
         <div class="ed-song-acts">
-          <button class="ed-song-act" @click="fileNew"><Icon name="file-plus" :size="15" /> สร้างเพลงใหม่</button>
           <button class="ed-song-act" @click="openPanel('open')"><Icon name="folder-open" :size="15" /> เลือกเพลง</button>
         </div>
         <!-- "✓ ตรวจแล้ว" writes songs.verified — RLS lets ONLY approvers (พี่เปา) do that,

@@ -6,9 +6,11 @@
 //
 // phrakham parity (P'Aim 13 ก.ค.):
 //   Desktop = brand NAME only (no icon) + inline nav (รายการเพลง · คู่มือ · เกี่ยวกับเรา ·
-//             พระคำ↗) + tools on the right (🔍 · Aa · เข้าสู่ระบบ).
+//             พระคำ↗) + tools on the right (🔍 · Aa · สร้างเพลงใหม่ · เข้าสู่ระบบ).
 //   Mobile  = app ICON only (มุมซ้าย · no name) + 🔍 + Aa + ☰ on the right; ☰ opens a drawer
-//             holding the nav links + a "เครื่องมือ" section.
+//             holding the nav links + a "เครื่องมือ" section (สร้างเพลงใหม่ · ติดตั้งแอพ).
+//   สร้างเพลงใหม่ (ใบ v3/pleng#147) = ONE place per screen: top right on desktop, ☰ on a phone (never
+//   both, never ☰ on desktop — NN/g utility navigation / hamburger menus).
 //   Aa (FontTool · ใบ v3/pleng#142) is the ONE place for text size + ตัวอักษรไทย มีหัว/ไม่มีหัว, on
 //   every page and width — it replaced the desktop ⚙ popover and the drawer's ตัวอักษรไทย row.
 //
@@ -18,11 +20,10 @@
 // all a11y baked once). This component only owns the CONTENT of the panel (Vue nav +
 // เครื่องมือ); the core owns the off-canvas SHELL. The core re-queries focusables on
 // every open, so the Vue-rendered links are trapped correctly.
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { shellMenu } from '../store.js'
+import { shellMenu, newSongRequest } from '../store.js'
 import FontTool from './FontTool.vue'
-import { canInstall, isStandalone, showIosHint } from '../lib/pwaInstall.js'
 import ProfileTool from './ProfileTool.vue'
 import InstallAppTool from './InstallAppTool.vue'
 import Icon from './Icon.vue'
@@ -69,9 +70,15 @@ onUnmounted(() => {
   if (drawer) { drawer.destroy(); drawer = null }   // kill scrim/listeners (leak + HMR)
 })
 
-// The drawer's เครื่องมือ section now holds only "ติดตั้งแอพ" (ตัวอักษรไทย moved to Aa · ใบ#142), so it
-// shows only while InstallAppTool has something to offer — same test it uses — never as a bare heading.
-const hasDrawerTools = computed(() => (canInstall.value && !isStandalone.value) || showIosHint.value)
+// ใบ v3/pleng#147 — สร้างเพลงใหม่. On the song surface the bar asks Studio to start one (it owns the
+// editor, so it can ask about unsaved work first); from any other page it opens a blank editor.
+const STUDIO_PATH = (p) => p === '/studio' || p.startsWith('/song/')
+function newSong() {
+  closeMenus()
+  if (drawer && drawer.isOpen()) drawer.close()
+  if (STUDIO_PATH(route.path)) newSongRequest.value++
+  else router.push('/studio')
+}
 
 function closeMenus() {
   shellMenu.value = null
@@ -188,6 +195,10 @@ async function goSearch() {
       <!-- Aa — text size + ตัวอักษรไทย, every page and width (ใบ v3/pleng#142) -->
       <FontTool />
 
+      <!-- สร้างเพลงใหม่ — desktop only, icon + name, between Aa and login (ใบ v3/pleng#147). On a phone
+           the same action is a row in ☰ เครื่องมือ (CSS hides this one under 992px). -->
+      <button type="button" class="sb-new" @click="newSong"><Icon name="file-plus" :size="20" /><span>สร้างเพลงใหม่</span></button>
+
       <!-- ☰ hamburger — mobile only; the PKDrawer core wires its click + syncs aria-expanded. -->
       <button ref="burgerBtn" class="sb-icon-btn sb-burger" aria-label="เมนู">
         <Icon name="menu" :size="24" />
@@ -215,9 +226,11 @@ async function goSearch() {
         <a href="https://phrakham.life">พระคำ.ชีวิต <span class="sb-k">↗</span></a>
         <router-link to="/about" :class="{ here: route.path === '/about' }">เกี่ยวกับเรา</router-link>
       </nav>
-      <div v-if="hasDrawerTools" class="sb-drawer-sep" role="separator"></div>
-      <div v-if="hasDrawerTools" class="sb-drawer-tools">
+      <div class="sb-drawer-sep" role="separator"></div>
+      <div class="sb-drawer-tools">
         <div class="sb-drawer-lbl">เครื่องมือ</div>
+        <!-- สร้างเพลงใหม่ — same name and icon as the desktop top-right button (ใบ v3/pleng#147) -->
+        <button type="button" class="sb-drawer-act sb-drawer-new" @click="newSong"><Icon name="file-plus" :size="20" /><span>สร้างเพลงใหม่</span></button>
         <!-- "ติดตั้งแอพ" affordance — self-contained (lib/pwaInstall.js). An action row per
              docs/ds/menu-drawer-spec.md §3. Renders nothing when already installed. -->
         <InstallAppTool />
