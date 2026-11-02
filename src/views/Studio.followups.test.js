@@ -1,8 +1,8 @@
 // US-05 / DS-05 — "เปิด/เลือกเพลง" lives on the shell (works in every mode, no jump to แก้).
-// US-06 / DS-06 — a 🖨 print button in the แผ่น toolbar triggers window.print().
+// US-06 / DS-06 — a print button on the แผ่น page triggers window.print() (ใบ#146: in the ก่อนพิมพ์ panel).
 // Studio is mounted in isolation; the three mode components + ComboSelect are stubbed, so
 // this exercises the shell's own job: expose the picker everywhere, open a song while
-// KEEPING the current mode, and trigger print from the sheet toolbar.
+// KEEPING the current mode, and trigger print from the sheet page.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { reactive, nextTick } from 'vue'
@@ -98,13 +98,13 @@ describe('Studio shell — "เพลง ▾" panel on the shell (US-05 / S2)', 
 })
 
 describe('Studio shell — print in โหมดแผ่น (US-06)', () => {
-  it('the shared dock exposes a print tool that calls window.print() (N1)', async () => {
+  it('the ก่อนพิมพ์ panel has a พิมพ์ button that calls window.print() (N1 · ใบ#146)', async () => {
     const spy = vi.spyOn(window, 'print').mockImplementation(() => {})
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
     modeBtns()[1].click(); await nextTick() // switch to แผ่น
-    // print is the prime button on the แผ่นเพลง DockKey (ITEMS_PRINT), no separate toolbar
-    const btn = w.find('.dk-dock [data-cell="print"]')
+    // ใบ#146 — the bottom bar is gone; พิมพ์ ends the settings panel beside the paper
+    const btn = w.find('.pv-set .pv-print')
     expect(btn.exists()).toBe(true)
     await btn.trigger('click')
     expect(spy).toHaveBeenCalled()

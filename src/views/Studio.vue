@@ -767,6 +767,8 @@ function printSheet() {
 }
 @media print {
   .pv-body, .pv-frame { display: block; }
+  /* the paper's font is 1rem whatever the screen did (ใบ#130 · ใบ#140), so the page count never moves */
+  .pv-paper { font-size: 1rem !important; }
 }
 
 @media (max-width: 760px) {
