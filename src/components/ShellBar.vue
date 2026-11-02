@@ -6,9 +6,11 @@
 //
 // phrakham parity (P'Aim 13 ก.ค.):
 //   Desktop = brand NAME only (no icon) + inline nav (รายการเพลง · คู่มือ · เกี่ยวกับเรา ·
-//             พระคำ↗) + tools on the right (🔍 · ⚙ ตัวอักษรไทย · เข้าสู่ระบบ).
-//   Mobile  = app ICON only (มุมซ้าย · no name) + 🔍 + ☰ on the right; ☰ opens a drawer
-//             holding the nav links + a "เครื่องมือ" section (ตัวอักษรไทย + เข้าสู่ระบบ).
+//             พระคำ↗) + tools on the right (🔍 · Aa · เข้าสู่ระบบ).
+//   Mobile  = app ICON only (มุมซ้าย · no name) + 🔍 + Aa + ☰ on the right; ☰ opens a drawer
+//             holding the nav links + a "เครื่องมือ" section.
+//   Aa (FontTool · ใบ v3/pleng#142) is the ONE place for text size + ตัวอักษรไทย มีหัว/ไม่มีหัว, on
+//   every page and width — it replaced the desktop ⚙ popover and the drawer's ตัวอักษรไทย row.
 //
 // The mobile drawer is NOT hand-rolled here: it is the ONE shared vanilla core
 // window.PKDrawer (src/lib/pk-drawer.js, verbatim from phrakham.life) — so pleng's ☰
@@ -16,9 +18,11 @@
 // all a11y baked once). This component only owns the CONTENT of the panel (Vue nav +
 // เครื่องมือ); the core owns the off-canvas SHELL. The core re-queries focusables on
 // every open, so the Vue-rendered links are trapped correctly.
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { shellMenu, siteFont, setSiteFont } from '../store.js'
+import { shellMenu } from '../store.js'
+import FontTool from './FontTool.vue'
+import { canInstall, isStandalone, showIosHint } from '../lib/pwaInstall.js'
 import ProfileTool from './ProfileTool.vue'
 import InstallAppTool from './InstallAppTool.vue'
 import Icon from './Icon.vue'
@@ -34,7 +38,7 @@ const appIcon = import.meta.env.BASE_URL + 'android-chrome-192x192.png'
 // The ☰ button and the always-rendered panel are handed to PKDrawer.create() on mount;
 // the core wires the trigger click, scrim, Esc and × itself. We only bridge its open
 // state onto the shared one-open-at-a-time `shellMenu` channel (key 'site') so opening
-// the drawer coexists with the desktop ⚙ popover ('settings') and Studio's own menus.
+// the drawer coexists with the Aa popover ('aa') and Studio's own menus.
 const burgerBtn = ref(null)
 const drawerPanel = ref(null)
 let drawer = null
@@ -52,7 +56,7 @@ onMounted(() => {
     onOpen() { shellMenu.value = 'site' },
     onClose() { if (shellMenu.value === 'site') shellMenu.value = null },
   })
-  // Another menu (settings popover / Studio menu) taking the shared channel closes the drawer.
+  // Another menu (Aa popover / Studio menu) taking the shared channel closes the drawer.
   watch(shellMenu, (v) => { if (v !== 'site' && drawer && drawer.isOpen()) drawer.close() })
   // Crossing to desktop while open (rotate/resize): the ☰ is gone, so close the off-canvas.
   if (desktopMq) desktopMq.addEventListener('change', onDesktop)
@@ -65,16 +69,17 @@ onUnmounted(() => {
   if (drawer) { drawer.destroy(); drawer = null }   // kill scrim/listeners (leak + HMR)
 })
 
-function toggleSettings() {
-  shellMenu.value = shellMenu.value === 'settings' ? null : 'settings'
-}
+// The drawer's เครื่องมือ section now holds only "ติดตั้งแอพ" (ตัวอักษรไทย moved to Aa · ใบ#142), so it
+// shows only while InstallAppTool has something to offer — same test it uses — never as a bare heading.
+const hasDrawerTools = computed(() => (canInstall.value && !isStandalone.value) || showIosHint.value)
+
 function closeMenus() {
   shellMenu.value = null
 }
 
 // ---- "คู่มือ ▾" desktop dropdown (WAI-ARIA APG menu button · GATE 1) ----
 // A disclosure button that opens a role=menu of 2 links (ใช้งานโปรแกรม /guide · ทำเพลง /notation).
-// Shares the one-open-at-a-time `shellMenu` channel (key 'guide') so it coexists with ⚙ + the
+// Shares the one-open-at-a-time `shellMenu` channel (key 'guide') so it coexists with Aa + the
 // drawer, and the existing .sb-backdrop closes it on an outside click. Keyboard: ↑↓ move, Home/
 // End jump, Enter/Space/↓ on the button open+focus first item, Esc closes + returns focus, Tab
 // closes. Not gated on session — the same menu shows to every tier (song-making is open to all).
@@ -180,33 +185,8 @@ async function goSearch() {
       <!-- 🔍 — go to the song search (home) and focus the search field -->
       <button class="sb-icon-btn" aria-label="ค้นหาเพลง" @click="goSearch"><Icon name="search" :size="24" /></button>
 
-      <!-- ⚙ site settings (ตัวอักษรไทย) — desktop only; on mobile it lives in the drawer -->
-      <div class="sb-menu sb-settings">
-        <button
-          class="sb-icon-btn"
-          :aria-expanded="shellMenu === 'settings'"
-          aria-haspopup="true"
-          aria-label="ตั้งค่า"
-          @click.stop="toggleSettings"
-        >
-          <Icon name="settings" :size="24" />
-        </button>
-        <div v-if="shellMenu === 'settings'" class="sb-dropdown sb-mode-menu" role="menu" @click.stop>
-          <div class="sb-font">
-            <div class="sb-font-lbl">ตัวอักษรไทย</div>
-            <div class="sb-font-opts" role="radiogroup" aria-label="ตัวอักษรไทย">
-              <button type="button" role="radio" :aria-checked="siteFont === 'default'" :class="{ on: siteFont === 'default' }" @click="setSiteFont('default')">
-                <span class="sb-font-eg">ก&nbsp;ข&nbsp;ค</span>
-                ไม่มีหัว
-              </button>
-              <button type="button" role="radio" :aria-checked="siteFont === 'looped'" :class="{ on: siteFont === 'looped' }" @click="setSiteFont('looped')">
-                <span class="sb-font-eg looped">ก&nbsp;ข&nbsp;ค</span>
-                มีหัว
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Aa — text size + ตัวอักษรไทย, every page and width (ใบ v3/pleng#142) -->
+      <FontTool />
 
       <!-- ☰ hamburger — mobile only; the PKDrawer core wires its click + syncs aria-expanded. -->
       <button ref="burgerBtn" class="sb-icon-btn sb-burger" aria-label="เมนู">
@@ -235,30 +215,17 @@ async function goSearch() {
         <a href="https://phrakham.life">พระคำ.ชีวิต <span class="sb-k">↗</span></a>
         <router-link to="/about" :class="{ here: route.path === '/about' }">เกี่ยวกับเรา</router-link>
       </nav>
-      <div class="sb-drawer-sep" role="separator"></div>
-      <div class="sb-drawer-tools">
+      <div v-if="hasDrawerTools" class="sb-drawer-sep" role="separator"></div>
+      <div v-if="hasDrawerTools" class="sb-drawer-tools">
         <div class="sb-drawer-lbl">เครื่องมือ</div>
         <!-- "ติดตั้งแอพ" affordance — self-contained (lib/pwaInstall.js). An action row per
              docs/ds/menu-drawer-spec.md §3. Renders nothing when already installed. -->
         <InstallAppTool />
-        <div class="sb-font" @click.stop>
-          <div class="sb-font-lbl">ตัวอักษรไทย</div>
-          <div class="sb-font-opts" role="radiogroup" aria-label="ตัวอักษรไทย">
-            <button type="button" role="radio" :aria-checked="siteFont === 'default'" :class="{ on: siteFont === 'default' }" @click="setSiteFont('default')">
-              <span class="sb-font-eg">ก&nbsp;ข&nbsp;ค</span>
-              ไม่มีหัว
-            </button>
-            <button type="button" role="radio" :aria-checked="siteFont === 'looped'" :class="{ on: siteFont === 'looped' }" @click="setSiteFont('looped')">
-              <span class="sb-font-eg looped">ก&nbsp;ข&nbsp;ค</span>
-              มีหัว
-            </button>
-          </div>
-        </div>
       </div>
     </aside>
 
-    <!-- Click-away backdrop for every shell popover EXCEPT the mobile drawer: the ⚙ font
-         popover ('settings') and Studio's teleported menus ('song' etc.) all rely on it to
+    <!-- Click-away backdrop for every shell popover EXCEPT the mobile drawer: the Aa
+         popover ('aa') and Studio's teleported menus ('song' etc.) all rely on it to
          close on an outside click. The 'site' drawer is excluded — PKDrawer supplies its own
          scrim (and would double-dim behind it otherwise). -->
     <div v-if="shellMenu && shellMenu !== 'site'" class="sb-backdrop" aria-hidden="true" @click="closeMenus"></div>

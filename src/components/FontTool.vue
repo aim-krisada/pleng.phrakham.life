@@ -1,16 +1,26 @@
 <script setup>
-// Top-nav "Aa" reader-text-size tool (B043) — mirrors phrakham.life's Aa control
-// (assets/pk-navbar.js): one button opens a small popup with A− [%] A+ and a
-// "คืนค่าปกติ (100%)" reset. The size itself is the global store.readingFontScale, so the
-// reader owns text size from the shared top bar, not the studio dock. Shown only while a
-// song is open (like DownloadTool). The popup is clamped to stay fully on-screen.
-import { ref, computed, nextTick, watch } from 'vue'
-import { currentSong, readingFontScale, bumpFontScale, resetFontScale } from '../store.js'
+// THE "Aa" button — the one place to set how text reads (ใบ v3/pleng#142). It sits on the shared top
+// bar (ShellBar) on every page and every width, in the same spot, so a reader never has to learn two
+// places (NN/g utility navigation · WCAG 3.2.3/3.2.4). Its popup holds:
+//   - A− [%] A+ and "คืนค่าปกติ (100%)" — store.readingFontScale, one value for the whole site, 10%
+//     a step from 80% to 220%. Buttons, not a slider (พี่เอม 1 พ.ย. 2569: "ปุ่มกด บวก ลบ ง่ายกว่า").
+//   - ตัวอักษรไทย ไม่มีหัว / มีหัว — store.siteFont (was in the ⚙ popover and the ☰ drawer).
+// It rides the shared one-open-at-a-time `shellMenu` channel (key 'aa'), so ShellBar's backdrop closes
+// it on an outside click and opening another menu closes it. The popup is clamped to stay on-screen.
+import { computed, nextTick, ref, watch } from 'vue'
+import { readingFontScale, bumpFontScale, resetFontScale, siteFont, setSiteFont, shellMenu } from '../store.js'
 import Icon from './Icon.vue'
 
-const open = ref(false)
+const open = computed(() => shellMenu.value === 'aa')
+const btnEl = ref(null)
 const popEl = ref(null)
 const pct = computed(() => Math.round(readingFontScale.value * 100))
+
+function toggle() { shellMenu.value = open.value ? null : 'aa' }
+function close(returnFocus) {
+  if (open.value) shellMenu.value = null
+  if (returnFocus) btnEl.value?.focus()
+}
 
 function clampPopup() {
   const el = popEl.value
@@ -31,27 +41,43 @@ watch(open, async (v) => {
 </script>
 
 <template>
-  <div v-if="currentSong" class="ft-tool no-print">
+  <div class="ft-tool" @keydown.esc="close(true)">
     <button
+      ref="btnEl"
       class="ft-btn"
+      :class="{ on: open }"
       :aria-expanded="open"
+      aria-haspopup="true"
       aria-label="ขนาดตัวอักษร"
-      title="ขนาดตัวอักษร"
-      @click="open = !open"
-      @keydown.esc="open = false"
+      :title="'ขนาดตัวอักษร ' + pct + '%'"
+      @click.stop="toggle"
     >Aa</button>
-    <div v-if="open" ref="popEl" class="ft-menu" role="menu">
+    <div v-if="open" ref="popEl" class="ft-menu" role="dialog" aria-label="ตัวอักษร" @click.stop>
       <div class="ft-lbl">ขนาดตัวอักษร</div>
       <div class="ft-row">
         <button class="ft-step" aria-label="ตัวเล็กลง" :disabled="pct <= 80" @click="bumpFontScale(-0.1)">
           <Icon name="a-arrow-down" :size="18" />
         </button>
-        <b class="ft-pct">{{ pct }}%</b>
+        <b class="ft-pct" aria-live="polite">{{ pct }}%</b>
         <button class="ft-step" aria-label="ตัวใหญ่ขึ้น" :disabled="pct >= 220" @click="bumpFontScale(0.1)">
           <Icon name="a-arrow-up" :size="18" />
         </button>
       </div>
-      <button class="ft-reset" @click="resetFontScale">คืนค่าปกติ (100%)</button>
+      <button class="ft-reset" :disabled="pct === 100" @click="resetFontScale">คืนค่าปกติ (100%)</button>
+      <div class="ft-sep" role="separator"></div>
+      <div class="sb-font">
+        <div class="sb-font-lbl">ตัวอักษรไทย</div>
+        <div class="sb-font-opts" role="radiogroup" aria-label="ตัวอักษรไทย">
+          <button type="button" role="radio" :aria-checked="siteFont === 'default'" :class="{ on: siteFont === 'default' }" @click="setSiteFont('default')">
+            <span class="sb-font-eg">ก&nbsp;ข&nbsp;ค</span>
+            ไม่มีหัว
+          </button>
+          <button type="button" role="radio" :aria-checked="siteFont === 'looped'" :class="{ on: siteFont === 'looped' }" @click="setSiteFont('looped')">
+            <span class="sb-font-eg looped">ก&nbsp;ข&nbsp;ค</span>
+            มีหัว
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -62,15 +88,16 @@ watch(open, async (v) => {
   /* full 44×44 touch target — matches the other shell-bar controls (WCAG 2.5.5) */
   width: var(--touch-min); height: var(--touch-min); min-height: 0; padding: 0;
   border: 1px solid var(--line); background: transparent; color: var(--ink);
-  border-radius: 8px; font-weight: 700; font-size: var(--fs-md); cursor: pointer;
+  border-radius: 8px; font-weight: 700; font-size: var(--fs-md); letter-spacing: -0.3px; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
 }
+.ft-btn.on { border-color: var(--brand); color: var(--brand); }
 @media (hover: hover) { .ft-btn:hover { border-color: var(--brand); color: var(--brand); } }
 .ft-menu {
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 60;
   background: #fff; border: 1px solid var(--line); border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); padding: var(--sp-3);
-  min-width: 190px; max-width: calc(100vw - var(--sp-4));
+  width: max-content; min-width: 220px; max-width: calc(100vw - var(--sp-4));
 }
 .ft-lbl { font-size: var(--fs-xs); color: var(--muted); padding: 0 2px var(--sp-2); }
 .ft-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
@@ -87,5 +114,9 @@ watch(open, async (v) => {
   font: inherit; font-size: var(--fs-xs); cursor: pointer; padding: var(--sp-2) var(--sp-1);
   border-radius: 6px; text-align: center; min-height: var(--touch-min);
 }
-@media (hover: hover) { .ft-reset:hover { background: var(--cream); } }
+.ft-reset:disabled { color: var(--muted); opacity: 0.6; cursor: default; }
+@media (hover: hover) { .ft-reset:not(:disabled):hover { background: var(--cream); } }
+.ft-sep { height: 1px; background: var(--line); margin: var(--sp-2) 0; }
+/* the ตัวอักษรไทย radios reuse the shared .sb-font* rules in styles.css; no side padding in here */
+.ft-menu .sb-font { padding: 0; }
 </style>
