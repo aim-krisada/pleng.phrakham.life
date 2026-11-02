@@ -25,6 +25,9 @@ const props = defineProps({
   arrangeCfg: { type: Object, default: () => ({}) },
   instrument: { type: String, default: 'synth' },
   songId: { type: [String, Number], default: undefined },
+  // ใบ v3/pleng#146 — when set, "พิมพ์" opens the page's ก่อนพิมพ์ preview instead of printing straight
+  // away, so the reader sees the A4 sheet (and sets it up) before any paper is used.
+  onPrint: { type: Function, default: null },
 })
 const emit = defineEmits(['toggle', 'close'])
 
@@ -47,6 +50,7 @@ function fmtSize(b) {
 
 function printPdf() {
   emit('close')
+  if (props.onPrint) return props.onPrint()
   const prev = document.title
   document.title = props.filenameBase
   const restore = () => { document.title = prev; window.removeEventListener('afterprint', restore) }

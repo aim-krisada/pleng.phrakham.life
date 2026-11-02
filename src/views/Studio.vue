@@ -5,6 +5,7 @@
 // evolve their own mode file without touching this shell (that is the whole point of
 // DS-04's contract: every mode takes { song, tier } and emits change / save).
 import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick } from 'vue'
+import { pageBreaks } from '../lib/printPages.js'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent, lyricSetName, inLyricSet } from '../lib/songModel.js'
@@ -16,16 +17,13 @@ import { songBasename } from '../lib/songName.js'
 import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
-import { downloadSong } from '../lib/jsonIO.js'
-import { tier, initAuth, shellMenu, currentSong, readingFontScale, sheetLyricJoin } from '../store.js'
+import { tier, initAuth, shellMenu, currentSong, sheetLyricJoin } from '../store.js'
 import { songBookRefs } from '../lib/bookCodes.js'
 import Icon from '../components/Icon.vue'
 import ComboSelect from '../components/ComboSelect.vue'
 import SongViewer from '../components/SongViewer.vue'
 import SongSheet from '../components/SongSheet.vue'
 import EditorMode from '../components/EditorMode.vue'
-import DockKey from '../components/DockKey.vue'
-import ExportTool from '../components/ExportTool.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -235,7 +233,7 @@ const sheetPrintTitle = computed(() =>
   sheetSetName.value ? titleText.value + ' — ' + sheetSetName.value : titleText.value,
 )
 
-// ---------- แผ่นเพลง (print) dock — DockKey fed ITEMS_PRINT (DS dockkey-print-edit §1) ----------
+// ---------- ก่อนพิมพ์ — the sheet's settings (ใบ v3/pleng#146; were the แผ่นเพลง dock, DS dockkey-print-edit §1) ----------
 // The sheet used to be locked to ครบ · สมุดเพลง · ตัวอักษร · คีย์เดิม. These controls let the
 // user tune what the paper prints; defaults keep the old locked behavior.
 const DISPLAY_OPTS = [
@@ -298,20 +296,52 @@ watchEffect(() => { if (sheetLyricJoin.value === 'book' && bookSong.value) loadB
 const sheetBookRefs = computed(() => (liveSong.value
   ? songBookRefs({ ...liveSong.value, book_refs: liveSong.value.book_refs ?? loadedSong.value?.book_refs })
   : []))
-const printBasename = computed(() => (liveSong.value ? songBasename(liveSong.value) : 'song'))
 
-const printItems = computed(() => [
-  { id: 'print', kind: 'btn', name: 'พิมพ์ / บันทึก PDF', icon: 'printer', prime: true, place: { anchor: 'left', row: 1 }, run: printSheet },
-  { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { anchor: 'rightOf:print', row: 1 } },
-  { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
-  { id: 'display', kind: 'menu', name: 'แสดงผล', icon: 'layers', default: 'inSetting', pinnable: true, control: { options: DISPLAY_OPTS.map((o) => ({ value: o.value, label: o.label })), value: sheetDisplay.value, onPick: (v) => (sheetDisplay.value = v) } },
-  { id: 'book', kind: 'menu', name: 'แบบแผ่น', icon: 'book-open', default: 'inSetting', pinnable: true, control: { options: [{ value: 'songbook', label: 'สมุดเพลง (ทำนองครั้งเดียว)' }, { value: 'full', label: 'เต็ม (โน้ตทุกเที่ยว)' }], value: sheetBook.value, onPick: (v) => (sheetBook.value = v) } },
+// ใบ v3/pleng#146 — every setting the แผ่นเพลง dock had, now a row in the ก่อนพิมพ์ panel (nothing taken away).
+// ดาวน์โหลด (JSON · MP3) stays in ฝึกร้อง's ดาวน์โหลด button (ใบ#146 Notes 2).
+const printSettings = computed(() => [
+  { id: 'book', name: 'แบบแผ่น', value: sheetBook.value, set: (v) => (sheetBook.value = v), options: [{ value: 'songbook', label: 'สมุดเพลง (ทำนองครั้งเดียว)' }, { value: 'full', label: 'เต็ม (โน้ตทุกเที่ยว)' }] },
+  { id: 'key', name: 'คีย์', value: sheetKey.value, set: (v) => (sheetKey.value = v), options: keyOptions.value },
   // ใบ#101 — only while the sheet has lyrics-only lines to write that way
-  ...(sheetHasLyricLines.value ? [{ id: 'lyricjoin', kind: 'menu', name: 'เนื้อร้อง', icon: 'file-text', default: 'inSetting', pinnable: true, control: { options: LYRIC_JOIN_OPTS, value: sheetLyricJoin.value, onPick: (v) => (sheetLyricJoin.value = v) } }] : []),
-  { id: 'chord', kind: 'menu', name: 'คอร์ด', icon: 'guitar', default: 'inSetting', pinnable: true, control: { options: CHORD_OPTS, value: sheetChord.value, onPick: (v) => (sheetChord.value = v) } },
-  { id: 'key', kind: 'menu', name: 'คีย์', icon: 'key-round', default: 'inSetting', pinnable: true, control: { options: keyOptions.value, value: sheetKey.value, badge: sheetKey.value, onPick: (v) => (sheetKey.value = v) } },
-  { id: 'download', kind: 'btn', name: 'ดาวน์โหลด JSON', icon: 'download', default: 'inSetting', pinnable: true, run: () => downloadSong(liveSong.value) },
+  ...(sheetHasLyricLines.value ? [{ id: 'lyricjoin', name: 'เนื้อร้อง', value: sheetLyricJoin.value, set: (v) => (sheetLyricJoin.value = v), options: LYRIC_JOIN_OPTS }] : []),
+  { id: 'display', name: 'แสดงผล', value: sheetDisplay.value, set: (v) => (sheetDisplay.value = v), options: DISPLAY_OPTS.map((o) => ({ value: o.value, label: o.label })) },
+  { id: 'chord', name: 'คอร์ด', value: sheetChord.value, set: (v) => (sheetChord.value = v), options: CHORD_OPTS },
 ])
+
+// ---------- ใบ v3/pleng#146 — where page 2 (3, …) starts, drawn on the preview ----------
+// The preview paper is A4 to scale (see .pv-paper), so the printable height is known: 297mm minus the
+// @page margins 15 + 16mm. lib/printPages.js walks the sheet's lines the way the printer does (a ท่อน is
+// kept whole when it fits on a page, else it breaks between lines) and returns where each new page
+// begins; the preview draws a "หน้า 2" line there, so a long song never gets its end cut off unseen.
+const paperEl = ref(null)
+const breaks = ref([])
+function measurePages() {
+  const paper = paperEl.value
+  const root = paper?.querySelector('.sheet-root')
+  if (!root || mode.value !== 'sheet') return
+  breaks.value = pageBreaks(paper, root)
+}
+let pagesRO = null
+let pagesTimer = null
+function schedulePages() {
+  clearTimeout(pagesTimer)
+  pagesTimer = setTimeout(measurePages, 60) // after the sheet's own fit-lines pass has settled
+}
+onMounted(() => {
+  if (typeof ResizeObserver === 'function') {
+    pagesRO = new ResizeObserver(schedulePages)
+    watch(paperEl, (el) => { pagesRO.disconnect(); if (el) pagesRO.observe(el) }, { immediate: true })
+  }
+  document.fonts?.ready?.then(schedulePages)
+})
+onUnmounted(() => { pagesRO?.disconnect(); clearTimeout(pagesTimer) })
+watch([mode, sheetContent, sheetBook, sheetKey, sheetDisplay, sheetChord, sheetLyricJoin], () => nextTick(schedulePages))
+const pageCount = computed(() => breaks.value.length + 1)
+// ← back from ก่อนพิมพ์ = the same song in ฝึกร้อง (ใบ#146 ข้อ 5)
+function openPreview() {
+  mode.value = 'sheet'
+  nextTick(() => window.scrollTo({ top: 0 }))
+}
 
 // B002 (P'Aim-approved names): ฝึกร้อง · แผ่นเพลง · แก้ไข (ids stay view/sheet/edit)
 // S1 icons (Lucide): ฝึกร้อง=mic · แผ่นเพลง=music · แก้ไข=pencil
@@ -396,12 +426,13 @@ function openSong(id) {
 // on load, above); the page layout — centered title + running footer — is owned by
 // SongSheet + lib/printChrome.js. Tell users to switch off the browser's own headers.
 function printSheet() {
+  // the browser suggests document.title as the PDF's name — the song's (see the liveSong watcher)
   window.print()
 }
 
 // ---------- the ONE shared dock (dock-core / N1) ----------
-// Each of the three modes mounts its OWN DockKey — ฝึกร้อง in SongViewer, แผ่นเพลง here
-// (ITEMS_PRINT), แก้ไข in EditorMode (ITEMS_EDIT). They share the DockKey ENGINE (one file),
+// ฝึกร้อง (SongViewer) and แก้ไข (EditorMode) each mount their OWN DockKey (ITEMS_SING · ITEMS_EDIT);
+// ก่อนพิมพ์ has a settings panel instead of a bar (ใบ v3/pleng#146). They share the DockKey ENGINE (one file),
 // so the bar and its Setting page feel identical across modes while each keeps its own
 // descriptor list. The old single shared <StudioDock> has been removed.
 </script>
@@ -465,57 +496,63 @@ function printSheet() {
 
     <!-- ===== ดู — reading / sing-along view (WT-A owns SongViewer) ===== -->
     <div v-show="mode === 'view'">
-      <SongViewer v-if="viewerSong" :song="viewerSong" @dock="viewDock = $event" @set="viewSet = $event" @edit="openEditor" />
+      <SongViewer v-if="viewerSong" :song="viewerSong" @dock="viewDock = $event" @set="viewSet = $event" @edit="openEditor" @print="openPreview" />
       <p v-else class="muted" style="padding: 16px">ยังไม่มีเพลงให้แสดง — ไปที่ “แก้” เพื่อเริ่มสร้างเพลง</p>
     </div>
 
-    <!-- ===== แผ่น — print sheet (WT-B owns SongSheet) · พิมพ์ = the shared dock (N1) ===== -->
+    <!-- ===== ก่อนพิมพ์ (ใบ v3/pleng#146) — the A4 sheet as it will print + its settings. Opened from ฝึกร้อง's
+         ดาวน์โหลด › พิมพ์. Desktop: paper left, settings right · phone: paper on top, settings below. ===== -->
     <div v-show="mode === 'sheet'" class="sheet-workspace">
-      <div class="card">
-        <!-- the top-bar "Aa" size (store.readingFontScale · ใบ#142) scales แผ่นเพลง on screen
-             too (B043 · was only wired in ฝึกร้อง). It now rides on a custom property because
-             ใบ#130 gives the sheet itself a paper-sized font (see .sheet-read-scale in <style>);
-             print still pins everything to 1rem so the A4 layout never follows the reading size. -->
-        <div class="sheet-read-scale" :style="{ '--sheet-aa': readingFontScale }">
-          <!-- ใบ v3/pleng#105 — ตามต้นฉบับ: say plainly when the book has no phrasing for this
-               song, so the reader knows the spacing fell back to the tune. Never printed. -->
-          <p v-if="sheetBookNote" class="book-note no-print" role="status">{{ sheetBookNote }}</p>
-                    <!-- B059: แผ่นเพลง prints like a hymn book — each melody once, reused verses as
-               lyrics only (songbook). The DockKey ITEMS_PRINT controls tune what prints. -->
-          <SongSheet
-            :content="sheetContent"
-            :mode="sheetPrintMode"
-            :chord-system="sheetPrintChordSystem"
-            :show-chord="printShowChord"
-            :show-note="printShowNote"
-            :show-lyric="printShowLyric"
-            :display-key="sheetKey"
-            :song-title="sheetPrintTitle"
-            song-head
-            screen-title
-            fit-lines
-            :book-refs="sheetBookRefs"
-            :songbook="sheetBook === 'songbook'"
-            :lyric-join="sheetLyricJoin !== 'split'"
-            :book-phrases="sheetBookMap"
-          />
-        </div>
+      <div class="pv-top no-print">
+        <button type="button" class="ed-back-btn pv-back" aria-label="กลับไปฝึกร้อง" @click="mode = 'view'">
+          <Icon name="arrow-left" :size="20" /> ก่อนพิมพ์
+        </button>
       </div>
-
-      <!-- แผ่นเพลง dock — DockKey engine fed ITEMS_PRINT (พิมพ์ · export · ⚙) · Aa is on the top bar (ใบ#142) -->
-      <!-- ใบ#111 — a fixed full-width bar at the bottom at every width -->
-      <DockKey :items="printItems" store-key="print" label="แถบแผ่นเพลง">
-        <template #cell-export="{ open, toggle, close }">
-          <ExportTool
-            :content="sheetSetContent"
-            :filename-base="printBasename"
-            :on-json="() => downloadSong(liveSong)"
-            :open="open"
-            @toggle="toggle"
-            @close="close"
-          />
-        </template>
-      </DockKey>
+      <div class="pv-body">
+        <!-- the paper: A4 to scale on screen; on paper the same rules as ever (print pins the sheet to 1rem) -->
+        <div class="pv-frame">
+          <div ref="paperEl" class="card pv-paper">
+            <!-- ใบ v3/pleng#105 — ตามต้นฉบับ: say plainly when the book has no phrasing for this
+                 song, so the reader knows the spacing fell back to the tune. Never printed. -->
+            <p v-if="sheetBookNote" class="book-note no-print" role="status">{{ sheetBookNote }}</p>
+            <!-- B059: แผ่นเพลง prints like a hymn book — each melody once, reused verses as
+                 lyrics only (songbook). The settings beside it tune what prints. -->
+            <SongSheet
+              :content="sheetContent"
+              :mode="sheetPrintMode"
+              :chord-system="sheetPrintChordSystem"
+              :show-chord="printShowChord"
+              :show-note="printShowNote"
+              :show-lyric="printShowLyric"
+              :display-key="sheetKey"
+              :song-title="sheetPrintTitle"
+              song-head
+              screen-title
+              fit-lines
+              :book-refs="sheetBookRefs"
+              :songbook="sheetBook === 'songbook'"
+              :lyric-join="sheetLyricJoin !== 'split'"
+              :book-phrases="sheetBookMap"
+            />
+            <!-- ใบ#146 ข้อ 6 — where each new page starts (screen only) -->
+            <div v-for="(y, i) in breaks" :key="i" class="pv-break no-print" :style="{ top: y + 'px' }" aria-hidden="true">
+              <span>หน้า {{ i + 2 }}</span>
+            </div>
+          </div>
+        </div>
+        <aside class="pv-set no-print" aria-label="ตั้งค่าแผ่นเพลง">
+          <label v-for="s in printSettings" :key="s.id" class="pv-row" :data-setting="s.id">
+            <span class="pv-lbl">{{ s.name }}</span>
+            <select class="pv-sel" :value="s.value" @change="s.set($event.target.value)">
+              <option v-for="o in s.options" :key="o.value" :value="o.value">{{ o.label }}</option>
+            </select>
+          </label>
+          <p class="pv-pages" role="status">ทั้งหมด {{ pageCount }} หน้า A4</p>
+          <button type="button" class="pv-print" @click="printSheet">
+            <Icon name="printer" :size="20" /> พิมพ์ / บันทึก PDF
+          </button>
+        </aside>
+      </div>
     </div>
 
     <!-- ===== แก้ — the editor (WT-D owns EditorMode). v-show keeps it mounted so its
@@ -548,8 +585,8 @@ function printSheet() {
       @change="onChange"
       @save="onSave"
     />
-    <!-- each mode now mounts its OWN DockKey (ฝึกร้อง=SongViewer · แผ่นเพลง=above · แก้ไข=EditorMode);
-         the shared StudioDock is retired. -->
+    <!-- ฝึกร้อง (SongViewer) and แก้ไข (EditorMode) mount their OWN DockKey; ก่อนพิมพ์ has its settings
+         panel (ใบ#146). The shared StudioDock is retired. -->
   </div>
 </template>
 
@@ -678,35 +715,73 @@ function printSheet() {
 @media screen {
   .sheet-workspace { padding-bottom: 24px; }
 }
-/* Aa scales the sheet on screen; print keeps the fixed A4 size (protect pagination) */
-/* ใบ v3/pleng#130 — แผ่นเพลง on screen IS the page, not a web page.
-   พี่เปา 20 ต.ค. 2569: "บางเพลงแสดงหน้าจอไม่ตกแต่ปริ้นแล้วตก".
-   Where the lines break depends on one number: how many font-sizes wide the text box is.
-   On paper that number is fixed — A4 (210mm) minus the 16mm margins @page gives each side
-   leaves 178mm, and print pins the sheet's font to 1rem (16px), so the page is exactly
-   178mm / 16px = 42.0472 font-sizes wide, every time. On screen the box was the window
-   instead, so a wide window fitted more per line and the paper broke somewhere else.
-   Give the sheet that same 42.0472em and the two agree at any reading size: both the width
-   and the font scale together, so the ratio — the only thing wrapping cares about — holds.
-   A window narrower than that shrinks the font to fit rather than re-wrapping, down to a
-   floor of 11px; below that the sheet scrolls sideways instead of becoming unreadable
-   (ฝึกร้อง stays the mode built for reading on a phone). */
-.sheet-read-scale { font-size: inherit; }
+/* ใบ v3/pleng#146 — ก่อนพิมพ์: the sheet drawn as the A4 page it will print on, to scale.
+   ใบ#130 found that where lines break depends only on how many font-sizes wide the text box is: on paper
+   that is 178mm (A4 210mm − 16mm margins each side) at the print size 1rem = 16px = 4.2333mm. So the
+   preview is a 210mm-wide page scaled to the column: .pv-frame is the container, and inside it 1mm =
+   100cqw / 210. The sheet gets the paper's margins and the paper's font size in those mm, so it wraps,
+   and its head and title sit, exactly as on paper — whatever the window. The top-bar Aa does not enlarge
+   it: this page shows the paper, and the paper's size is fixed (ใบ#140). Print ignores all of this
+   (@media screen) and keeps the rules it always had, so the printed page count does not change. */
+.pv-top { display: flex; align-items: center; margin: 0 0 var(--sp-2); }
+.pv-body { display: flex; gap: var(--sp-4); align-items: flex-start; }
+.pv-frame { flex: 1 1 auto; min-width: 0; }
+.pv-set {
+  flex: 0 0 300px; position: sticky; top: calc(var(--sp-4) + 64px);
+  display: flex; flex-direction: column; gap: 10px;
+  border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 14px;
+}
+.pv-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: var(--touch-min); border-bottom: 1px solid var(--line); }
+.pv-lbl { font-size: var(--fs-sm); color: var(--ink); flex: 0 0 auto; }
+.pv-sel {
+  min-width: 0; max-width: 62%; min-height: 36px; border: 1px solid var(--line); border-radius: 8px;
+  background: #fff; color: var(--brand); font: inherit; font-size: var(--fs-sm); font-weight: 700; padding: 0 6px;
+}
+.pv-pages { margin: 2px 0 0; font-size: var(--fs-xs); color: var(--muted); text-align: center; }
+.pv-print {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; border: 0; border-radius: 12px; background: var(--brand); color: #fff;
+  font: inherit; font-weight: 700; font-size: var(--fs-md); cursor: pointer;
+}
+@media (hover: hover) { .pv-print:hover { filter: brightness(1.06); } }
+/* phone (ใบ#146 ข้อ 4): paper on top, settings below */
+@media (max-width: 760px) {
+  .pv-body { flex-direction: column; gap: var(--sp-3); }
+  .pv-frame { width: 100%; }
+  .pv-set { flex: 0 0 auto; width: 100%; position: static; }
+}
 @media screen {
-  .sheet-read-scale {
-    --paper-em: 42.0472; /* 178mm ÷ 16px — the A4 text box, in font-sizes */
-    font-size: calc(var(--sheet-aa, 1) * 1rem);
-    container-type: inline-size; /* so the sheet below can size itself from THIS box */
-    overflow-x: auto;
+  .pv-frame { container-type: inline-size; max-width: 210mm; }
+  .pv-paper {
+    --mm: calc(100cqw / 210);
+    position: relative;
+    margin: 0;
+    padding: calc(15 * var(--mm)) calc(16 * var(--mm)) calc(16 * var(--mm));
+    min-height: calc(297 * var(--mm));
+    background: #fff; border: 1px solid var(--line); border-radius: 2px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+    font-size: calc(4.2333 * var(--mm)); /* the print size, 1rem = 16px = 4.2333mm */
   }
-  .sheet-read-scale :deep(.sheet-root) {
-    width: calc(var(--paper-em) * 1em);
-    margin-inline: auto;
-    font-size: clamp(
-      0.6875rem,
-      calc(100cqw / var(--paper-em)),
-      calc(var(--sheet-aa, 1) * 1rem)
-    );
+  .pv-paper :deep(.sheet-root) { width: 100%; font-size: inherit; }
+  /* title and head exactly as print draws them (SongHead's @media print), in paper mm */
+  .pv-paper :deep(.sheet-print-title.on-screen) {
+    display: block; text-align: center; color: #000; line-height: normal;
+    font-size: calc(5.6444 * var(--mm)); /* 16pt */
+    font-weight: 700; margin: 0 0 calc(6 * var(--mm));
+  }
+  .pv-paper :deep(.sheet-print-title.on-screen.has-head) { margin-bottom: calc(0.5 * var(--mm)); }
+  .pv-paper :deep(.sheet-head) {
+    font-size: calc(3.5278 * var(--mm)); /* 10pt */
+    line-height: calc(4 * var(--mm)); height: calc(4 * var(--mm));
+    white-space: nowrap; color: #000; margin: 0 0 calc(1.5 * var(--mm));
+  }
+  .pv-break {
+    position: absolute; left: 0; right: 0; height: 0;
+    border-top: 2px dashed var(--red, #c0392b); pointer-events: none;
+  }
+  .pv-break span {
+    position: absolute; right: 6px; top: -1.4em; font-size: 12px; font-weight: 700;
+    color: var(--red, #c0392b); background: #fff; padding: 0 6px; border-radius: 6px;
   }
 }
 /* ใบ#105 — the "the book has no phrasing for this song" notice above the sheet (screen only) */
@@ -716,7 +791,7 @@ function printSheet() {
   color: var(--muted, #6b7280); background: var(--surface-2, rgba(127, 127, 127, 0.08));
 }
 @media print {
-  .sheet-read-scale { font-size: 1rem !important; }
+  .pv-body, .pv-frame { display: block; }
 }
 
 @media (max-width: 760px) {
