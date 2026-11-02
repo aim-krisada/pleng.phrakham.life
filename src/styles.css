@@ -526,10 +526,9 @@ html.hdr-hidden .shell-bar { transform: translateY(-100%); }
      match the bar HEIGHT (what reads side-by-side) rather than phrakham's 48px brand box —
      the 40px icon itself is identical. 44px = the WCAG touch-target floor, still met. */
   .sb-brand { padding: 2px; }
-  /* desktop-only chrome hidden on mobile → the nav links + ตัวอักษรไทย live in the drawer.
-     Login stays in the bar (P'Aim 13 ก.ค.: icon outside the drawer, far right). */
-  .sb-nav,
-  .sb-settings { display: none; }
+  /* desktop-only chrome hidden on mobile → the nav links live in the drawer. Aa and login stay
+     in the bar (P'Aim 13 ก.ค.: login icon outside the drawer, far right · ใบ#142: Aa on every width). */
+  .sb-nav { display: none; }
   /* mobile-only hamburger */
   .sb-burger { display: inline-flex; }
   .sb-sep { display: none; }

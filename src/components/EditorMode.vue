@@ -26,7 +26,6 @@ import RevisionHistory from './RevisionHistory.vue'
 import DockKey from './DockKey.vue'
 import ExportTool from './ExportTool.vue'
 import SoundControl from './SoundControl.vue'
-import FontScaleControl from './FontScaleControl.vue'
 import { headerHidden, markProgrammaticScroll } from '../lib/headerHide.js'
 
 // ---------- mode contract (DS-04) ----------
@@ -57,7 +56,7 @@ const emit = defineEmits(['change', 'save', 'dock'])
 const notationHelpUrl = import.meta.env.BASE_URL + '#/notation'
 
 // ---------- auth + role (gating comes from the store via props.tier · DS-02) ----------
-import { session, legacy, shellMenu, saveDraftRow, editorFontScale, setEditorFontScale,
+import { session, legacy, shellMenu, saveDraftRow, readingFontScale,
   editorSound, editorEnsemble, editorInstrument, editorStyle,
   setEditorSound, setEditorEnsemble, setEditorInstrument, setEditorStyle } from '../store.js'
 
@@ -3053,10 +3052,6 @@ const editItems = computed(() => [
   // B107 step 9 — the single "เสียงดนตรี" button (audio-lines) → popover with all 4 sound axes,
   // so พี่เปา can switch instrument/style right here (default = ตรงโน้ต for raw note-checking).
   { id: 'soundctl', kind: 'slot', name: 'เสียงดนตรี', icon: 'audio-lines', place: { anchor: 'leftOf:setting', row: 1 } },
-  // ใบ v3/pleng#119 — the same Aa as ฝึกร้อง (FontScaleControl), at the end of the first group like
-  // there. It sizes the notes / chords / words (edit cells + previews), never the keypad or the bar;
-  // the editor remembers its own value (store.editorFontScale).
-  { id: 'scale', kind: 'aa', name: 'ขนาดตัวอักษร', place: { anchor: 'rightOf:soundctl', row: 1 }, permanent: true },
   { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
   { id: 'save', kind: 'btn', name: saveLabel.value, label: saveLabel.value, icon: isApprover.value ? 'badge-check' : 'send', prime: true, place: { row: 2, col: 1, span: 2 }, run: primaryAction, hidden: !loggedIn.value },
   { id: 'playAll', kind: 'btn', name: 'ฟังทั้งเพลง', label: 'ฟังทั้งเพลง', icon: 'circle-play', place: { row: 2, col: 3 }, run: playFull, hidden: playing.value, phoneIcon: true },
@@ -3505,13 +3500,13 @@ const previewZoomPct = computed(() => Math.round(previewZoom.value * 100))
 // and + did nothing — measured at 412px). Guard the measurement, then let the zoom through, with
 // its own much lower floor so a bar can still fit on a line (no sideways scroll · ui-standards §2).
 const PREVIEW_MIN_EM = 8
-// ใบ v3/pleng#119: the size is the editor's own Aa (store.editorFontScale) × this window's zoom. The
+// ใบ v3/pleng#119/#142: the size is the top-bar Aa (store.readingFontScale) × this window's zoom. The
 // 20em floor guards the measurement at 100% only, then the Aa goes through like the zoom — applied
 // after the division it would cap the Aa on a phone exactly as it once capped the zoom.
 const previewEmWidth = computed(() => {
   const raw = sheetColW.value > 0 ? sheetColW.value / 16 : 42.05 // fall back to A4 ratio before first measure
   const measured = Math.max(20, raw)
-  return Math.max(PREVIEW_MIN_EM, measured / ((editorFontScale.value || 1) * previewZoom.value))
+  return Math.max(PREVIEW_MIN_EM, measured / ((readingFontScale.value || 1) * previewZoom.value))
 })
 const previewPageStyle = computed(() => ({ fontSize: `calc(100cqw / ${previewEmWidth.value.toFixed(2)})` }))
 // keep the window on-screen (and sized within it) when the viewport shrinks; refresh mobile flag
@@ -4039,12 +4034,12 @@ defineExpose({
         </template>
       </nav>
       <div class="rail-backdrop" :class="{ open: drawerOpen }" aria-hidden="true" @click="closeDrawer"></div>
-      <!-- ใบ v3/pleng#119 — the editor's own Aa (store.editorFontScale, was the reader's B070 size).
+      <!-- ใบ v3/pleng#119/#142 — the top-bar Aa (store.readingFontScale, one size for the whole site).
            font-size is set in rem here, so the em-based jianpu previews (SongSheet) and any
            inherited text grow/shrink; --ed-fs carries the same number to the note / chord / word
            cells (px sizes × --ed-fs), so all three columns grow together and stay lined up. The
            toolbars, tools and the bar keep their own px/rem sizes (48px targets). -->
-      <div class="content ed-read-scale" :style="{ fontSize: editorFontScale + 'rem', '--ed-fs': editorFontScale }">
+      <div class="content ed-read-scale" :style="{ fontSize: readingFontScale + 'rem', '--ed-fs': readingFontScale }">
     <!-- B060: song settings inline. These used to hide in the "เพลง ▾ ▸ ตั้งค่า" menu, which
          พี่เปา avoided (afraid a menu would switch the page). Now every field sits right on
          the sheet being edited. "✓ ตรวจแล้ว" marks the song human-checked (catalog reads it). -->
@@ -4753,9 +4748,6 @@ defineExpose({
         <SoundControl :open="open" :groups="soundGroups" :icon="soundIcon" @toggle="toggle" @close="close" />
       </template>
       <!-- ใบ#119 — Aa: the same button + popover as ฝึกร้อง, the editor's own remembered size -->
-      <template #cell-scale="{ open, toggle }">
-        <FontScaleControl :open="open" :value="editorFontScale" @toggle="toggle" @set="setEditorFontScale" />
-      </template>
     </DockKey>
 
     <!-- B: NON-MODAL floating whole-song preview (ดูผลทั้งเพลง). No backdrop → the editor

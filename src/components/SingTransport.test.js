@@ -1,12 +1,11 @@
 // SingTransport — the ฝึกร้อง DockKey adapter. It turns the page's song state into the
-// ITEMS_SING descriptor list and fills the three page-drawn cells (ไทม์ไลน์ · เลือกท่อน · Aa).
+// ITEMS_SING descriptor list and fills the page-drawn cells (ไทม์ไลน์ · เลือกท่อน …).
 // The engine (DockKey) draws the 2-row dock; these tests drive the adapter's own behavior:
 // transport emits, timeline scrub, the selector, and the ⚙ Setting page (repeat/คอร์ด/…, pin).
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import SingTransport from './SingTransport.vue'
-import { readingFontScale } from '../store.js'
 
 Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function () {}
 
@@ -239,19 +238,12 @@ describe('⚙ Setting page', () => {
   })
 })
 
-describe('Aa reader font size', () => {
-  beforeEach(() => { readingFontScale.value = 1 })
-
-  it('is a permanent 1-tap control; its popover slider resizes the reader live', async () => {
+describe('ใบ#142 — no Aa on the ฝึกร้อง bar', () => {
+  it('text size lives on the shared top bar now, so the dock has no Aa cell and no slider', async () => {
     const w = mountT()
-    expect(w.find('.st-aa').exists()).toBe(true)
-    expect(w.find('.st-fontslider').exists()).toBe(false) // closed until tapped
-    await w.find('.st-aa').trigger('click')
     await nextTick()
-    const slider = w.find('.st-fontslider')
-    expect(slider.exists()).toBe(true)
-    await slider.setValue(140)
-    expect(readingFontScale.value).toBeCloseTo(1.4, 5)
-    expect(w.find('.st-fontval').text()).toContain('140%')
+    expect(w.find('[data-cell="scale"]').exists()).toBe(false)
+    expect(w.find('.st-aa').exists()).toBe(false)
+    expect(w.find('input[type="range"][aria-label="ปรับขนาดตัวอักษร"]').exists()).toBe(false)
   })
 })

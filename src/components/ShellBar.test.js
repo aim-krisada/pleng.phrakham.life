@@ -1,6 +1,7 @@
 // ShellBar — the one app-wide header. phrakham parity (P'Aim 13 ก.ค.): desktop = inline nav
 // (รายการเพลง · คู่มือ · พระคำ↗ · เกี่ยวกับเรา); mobile = ☰ opens a drawer with the same links
-// + a "เครื่องมือ" section. Song creation lives on Studio's "เพลง ▾" panel, never the site menu.
+// + a "เครื่องมือ" section (only while there is an app to install · ใบ#142 moved ตัวอักษรไทย to Aa).
+// Song creation lives on Studio's "เพลง ▾" panel, never the site menu.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
@@ -15,6 +16,7 @@ vi.mock('vue-router', () => ({
 import './../lib/pk-drawer.js'
 import ShellBar from './ShellBar.vue'
 import { shellMenu, session } from '../store.js'
+import { canInstall } from '../lib/pwaInstall.js'
 
 const stubs = {
   ProfileTool: true,
@@ -26,7 +28,7 @@ const stubs = {
 }
 
 let wrapper = null
-beforeEach(() => { shellMenu.value = null })
+beforeEach(() => { shellMenu.value = null; canInstall.value = false })
 afterEach(() => {
   if (wrapper) { wrapper.unmount(); wrapper = null }
   // PKDrawer lifts the panel + scrim onto <body>; purge any residue between tests.
@@ -45,6 +47,7 @@ describe('ShellBar — site nav (phrakham parity)', () => {
   })
 
   it('the ☰ hamburger opens the shared PKDrawer with the same links + a เครื่องมือ section', async () => {
+    canInstall.value = true // the browser offered an install, so เครื่องมือ has ติดตั้งแอพ to show
     wrapper = mount(ShellBar, { attachTo: document.body, global: { stubs } })
     // Panel is always rendered (the core toggles it off-canvas) but starts closed.
     expect(document.querySelector('.sb-drawer-panel.is-open')).toBeNull()
@@ -54,10 +57,23 @@ describe('ShellBar — site nav (phrakham parity)', () => {
     expect(panel).not.toBeNull()
     expect(panel.querySelector('.sb-drawer-nav').textContent).toContain('รายการเพลง')
     expect(panel.textContent).toContain('เครื่องมือ')
-    expect(panel.textContent).toContain('ตัวอักษรไทย')
+    // ใบ#142 — ตัวอักษรไทย lives in the top-bar Aa now, never in the drawer
+    expect(panel.textContent).not.toContain('ตัวอักษรไทย')
     // The core syncs the trigger's aria-expanded, and the shared channel reflects 'site'.
     expect(wrapper.find('.sb-burger').attributes('aria-expanded')).toBe('true')
     expect(shellMenu.value).toBe('site')
+  })
+
+  it('ใบ#142 — nothing to install → no bare "เครื่องมือ" heading in the drawer', async () => {
+    wrapper = mount(ShellBar, { attachTo: document.body, global: { stubs } })
+    // the core lifts each panel onto <body>; earlier tests leave theirs behind, so take this one's (the last)
+    const panel = [...document.querySelectorAll('.sb-drawer-panel')].at(-1)
+    expect(panel.querySelector('.sb-drawer-nav').textContent).toContain('รายการเพลง')
+    expect(panel.querySelector('.sb-drawer-tools')).toBeNull()
+    expect(panel.querySelector('.sb-drawer-sep')).toBeNull()
+    canInstall.value = true
+    await nextTick()
+    expect(panel.querySelector('.sb-drawer-tools')).not.toBeNull()
   })
 
   it('exposes the teleport targets every mode shares (#shell-title / #shell-menus)', () => {

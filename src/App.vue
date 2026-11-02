@@ -1,7 +1,7 @@
 <script setup>
 import { computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { initAuth, recovering, emailChanged, shellMenu } from './store.js'
+import { initAuth, recovering, emailChanged, shellMenu, readingFontScale } from './store.js'
 import { initPrintChrome } from './lib/printChrome.js'
 import { measureDockClear } from './lib/dockClear.js'
 import { installFocusClear } from './lib/focusClear.js'
@@ -100,7 +100,14 @@ watch(() => route.path, () => nextTick(scheduleDockClear))
 <template>
   <ShellBar />
   <main class="container" :class="{ 'studio-wide': isStudio }">
-    <router-view />
+    <!-- ใบ v3/pleng#142 — the top-bar Aa scales the plain pages too (รายการเพลง · คู่มือ · เกี่ยวกับเรา),
+         so the one button does the same thing everywhere. CSS zoom reflows the page at the bigger size
+         (no sideways scroll), and sits INSIDE <main> so the bar and the footer keep their size and the
+         Aa button never moves. The song pages scale only the song itself — they do it on their own. -->
+    <router-view v-if="isStudio" />
+    <div v-else class="page-zoom" :style="readingFontScale !== 1 ? { zoom: readingFontScale } : null">
+      <router-view />
+    </div>
   </main>
   <SiteFooter :class="{ 'footer-dock-clear': isStudio }" />
 </template>
