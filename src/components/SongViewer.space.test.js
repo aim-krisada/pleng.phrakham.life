@@ -27,7 +27,7 @@ vi.mock('../lib/midi.js', () => {
     TEMPO_MARKS: [{ value: 92, label: 'Andante ♩=92' }],
     TEMPO_MIN: 40,
     TEMPO_MAX: 240,
-    TEMPO_STEP: 2,
+    TEMPO_STEP: 1,
     clampTempo: (n) => Math.min(240, Math.max(40, Math.round(Number(n) || 0))),
   }
 })

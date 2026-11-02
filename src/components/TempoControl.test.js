@@ -3,6 +3,7 @@
 //   ข้อ 3 แตะไม่เกิน 3 ครั้งจากหน้าเพลง ก็ได้ความเร็วใหม่ · ไม่ต้องพิมพ์ตัวเลข
 //   ข้อ 4 เห็นตลอดว่าตอนนี้ความเร็วเท่าไร
 //   ข้อ 6 ค่าที่เคยเลือกได้ (TEMPO_MARKS) ยังเลือกได้ครบ
+// ใบ v3/pleng#143 — −/+ ทีละ 1 · ไม่มีแถบเลื่อน · กดค้างแล้วเลขวิ่งเองและเร็วขึ้น (ดู describe ใบ#143 ท้ายไฟล์)
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
@@ -46,28 +47,18 @@ describe('ข้อ 3 — a new speed in ≤3 taps, no typing', () => {
     expect(lastSet(w)).toBe(86 - TEMPO_STEP)
   })
 
-  it('every control is a button or a slider — nothing to type', () => {
+  it('every control is a button — nothing to type', () => {
     const w = mountTC({ open: true })
     expect(w.findAll('input[type="text"]').length + w.findAll('input[type="number"]').length).toBe(0)
   })
 })
 
 describe('ข้อ 2 — any number in the usable window', () => {
-  it('84 then + gives 86 (the old menu could only jump 84 → 92)', async () => {
+  it('84 then + gives 85 (the old menu could only jump 84 → 92)', async () => {
     const w = mountTC({ value: 84, open: true })
     await stepBtns(w)[1].trigger('click')
-    expect(lastSet(w)).toBe(86)
-    expect(TEMPO_MARKS.some((m) => m.value === 86)).toBe(false) // 86 was unreachable before
-  })
-
-  it('the slider covers the whole window and sets odd numbers too', async () => {
-    const w = mountTC({ value: 100, open: true })
-    const sl = w.find('.tc-slider')
-    expect(sl.attributes('min')).toBe(String(TEMPO_MIN))
-    expect(sl.attributes('max')).toBe(String(TEMPO_MAX))
-    expect(sl.attributes('step')).toBe('1')
-    await sl.setValue('107')
-    expect(lastSet(w)).toBe(107)
+    expect(lastSet(w)).toBe(85)
+    expect(TEMPO_MARKS.some((m) => m.value === 85)).toBe(false) // 85 was unreachable before
   })
 
   it('never leaves the window — the ends simply stop', async () => {
@@ -149,9 +140,9 @@ describe('ข้อ 1 — เคาะตามจังหวะ', () => {
   })
 
   // ใบ#103 ข้อ 2 — หน้าเพลงต้องแยกออกว่าเลขนี้มาจากการเคาะ จะได้ไม่สั่งเพลงเล่นใหม่ทุกครั้งที่เคาะ
-  it('บอกที่มาของเลขไปด้วย — เคาะ = tap, ปุ่ม/แถบเลื่อน = ui', async () => {
+  it('บอกที่มาของเลขไปด้วย — เคาะ = tap, ปุ่ม = ui', async () => {
     const w = mountTC({ value: 108, songBpm: 108, open: true })
-    await w.find('.tc-slider').setValue('120')
+    await stepBtns(w)[1].trigger('click')
     expect(w.emitted('set').at(-1)[1]).toBe('ui')
     await tapAt(w, evenTaps(80, 8))
     expect(w.emitted('set').at(-1)[1]).toBe('tap')
@@ -163,5 +154,144 @@ describe('ข้อ 1 — เคาะตามจังหวะ', () => {
     await w.setProps({ open: false })
     await w.setProps({ open: true })
     expect(w.find('.tc-taphint').text()).toMatch(/อย่างน้อย/)
+  })
+})
+
+// ใบ v3/pleng#143 — ปรับความเร็วทีละ 1 (พี่เอม 1 พ.ย. 2569) และกดค้างแล้วเลขวิ่งเอง (พี่เอมเคาะ 2 พ.ย. 2569)
+describe('ใบ#143 — one bpm a press, no slider, hold to run', () => {
+  // a parent that feeds every emitted number straight back in, like the real page does
+  const mountLive = (value) => {
+    const w = mount(TempoControl, {
+      props: { open: true, value, songBpm: 108, onSet: (v) => w.setProps({ value: v }) },
+      global: { stubs: { Icon: true } },
+    })
+    return w
+  }
+  const shown = (w) => Number(w.find('.tc-big').text())
+
+  it('AC1 — 120, + once → 121; − once → back to 120', async () => {
+    const w = mountTC({ value: 120, open: true })
+    await stepBtns(w)[1].trigger('click')
+    expect(lastSet(w)).toBe(121)
+    await w.setProps({ value: 121 })
+    await stepBtns(w)[0].trigger('click')
+    expect(lastSet(w)).toBe(120)
+    expect(TEMPO_STEP).toBe(1)
+  })
+
+  it('AC2 — the number on the bar button follows at once', async () => {
+    const w = mountTC({ value: 120, open: true })
+    await w.setProps({ value: 121 })
+    expect(w.find('.tc-num').text()).toBe('121')
+  })
+
+  it('AC3 — the popup holds −, the number, +, the tap pad and the quick chips — and no slider', () => {
+    const w = mountTC({ value: 120, open: true })
+    expect(w.find('.tc-step[aria-label="ช้าลง"]').exists()).toBe(true)
+    expect(w.find('.tc-big').text()).toBe('120')
+    expect(w.find('.tc-step[aria-label="เร็วขึ้น"]').exists()).toBe(true)
+    expect(w.find('.tc-tap').exists()).toBe(true)
+    expect(w.findAll('.tc-chip').length).toBeGreaterThan(0)
+    expect(w.find('input[type="range"]').exists()).toBe(false)
+    expect(w.find('.tc-slider').exists()).toBe(false)
+  })
+
+  it('AC4 sad path — at 40 − is dimmed, at 240 + is dimmed, and pressing them sets nothing', async () => {
+    const lo = mountTC({ value: TEMPO_MIN, open: true })
+    expect(TEMPO_MIN).toBe(40)
+    expect(stepBtns(lo)[0].attributes('disabled')).toBeDefined()
+    expect(stepBtns(lo)[1].attributes('disabled')).toBeUndefined()
+    const hi = mountTC({ value: TEMPO_MAX, open: true })
+    expect(TEMPO_MAX).toBe(240)
+    expect(stepBtns(hi)[1].attributes('disabled')).toBeDefined()
+    await stepBtns(hi)[1].trigger('click')
+    expect(hi.emitted('set')).toBeUndefined()
+  })
+
+  it('a finger tap (press, release, click) is exactly ONE step, not two', async () => {
+    const w = mountTC({ value: 120, open: true })
+    const plus = stepBtns(w)[1]
+    await plus.trigger('pointerdown', { button: 0 })
+    await plus.trigger('pointerup')
+    await plus.trigger('click')
+    expect(w.emitted('set').map((e) => e[0])).toEqual([121])
+  })
+
+  it('the keyboard (Enter / Space = a click with no press before it) still steps once each time', async () => {
+    const w = mountTC({ value: 120, open: true })
+    await stepBtns(w)[0].trigger('click')
+    await stepBtns(w)[0].trigger('click')
+    expect(w.emitted('set').map((e) => e[0])).toEqual([119, 119]) // value is not fed back here
+  })
+
+  it('holding + keeps walking by 1 and speeds up; letting go stops it — 92 to 140 in a hold under 3.5 s', async () => {
+    vi.useFakeTimers()
+    try {
+      const w = mountLive(92)
+      const plus = stepBtns(w)[1]
+      await plus.trigger('pointerdown', { button: 0 })
+      expect(shown(w)).toBe(93) // the first step lands at once
+      await vi.advanceTimersByTimeAsync(399)
+      expect(shown(w)).toBe(93) // nothing more until the hold delay
+      await vi.advanceTimersByTimeAsync(1)
+      expect(shown(w)).toBe(94)
+      const seen = new Set([93, 94])
+      let ms = 400
+      while (shown(w) < 140 && ms < 6000) { await vi.advanceTimersByTimeAsync(5); ms += 5; seen.add(shown(w)) }
+      expect(shown(w)).toBe(140)
+      expect(ms).toBeLessThan(3500)
+      for (let n = 93; n <= 140; n++) expect(seen.has(n)).toBe(true) // walks by 1, never jumps
+      await plus.trigger('pointerup')
+      const at = shown(w)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(shown(w)).toBe(at) // released: it stops
+    } finally { vi.useRealTimers() }
+  })
+
+  it('the hold also stops when the finger slides off, or the touch is cancelled', async () => {
+    vi.useFakeTimers()
+    try {
+      for (const ev of ['pointerleave', 'pointercancel']) {
+        const w = mountLive(100)
+        const minus = stepBtns(w)[0]
+        await minus.trigger('pointerdown', { button: 0 })
+        await vi.advanceTimersByTimeAsync(700)
+        await minus.trigger(ev)
+        const at = shown(w)
+        expect(at).toBeLessThan(99)
+        await vi.advanceTimersByTimeAsync(2000)
+        expect(shown(w)).toBe(at)
+      }
+    } finally { vi.useRealTimers() }
+  })
+
+  it('a hold stops by itself at the end of the window (40) and never goes past it', async () => {
+    vi.useFakeTimers()
+    try {
+      const w = mountLive(45)
+      await stepBtns(w)[0].trigger('pointerdown', { button: 0 })
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(shown(w)).toBe(40)
+      expect(Math.min(...w.emitted('set').map((e) => e[0]))).toBe(40)
+      const n = w.emitted('set').length
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(w.emitted('set').length).toBe(n) // stopped: no more emits
+    } finally { vi.useRealTimers() }
+  })
+
+  it('closing the popup mid-hold stops it; a right-click is not a press', async () => {
+    vi.useFakeTimers()
+    try {
+      const w = mountLive(100)
+      await stepBtns(w)[1].trigger('pointerdown', { button: 0 })
+      await w.setProps({ open: false })
+      const n = w.emitted('set').length
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(w.emitted('set').length).toBe(n)
+      const r = mountTC({ value: 100, open: true })
+      await stepBtns(r)[1].trigger('pointerdown', { button: 2 })
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(r.emitted('set')).toBeUndefined()
+    } finally { vi.useRealTimers() }
   })
 })

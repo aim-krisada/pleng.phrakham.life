@@ -33,7 +33,7 @@ vi.mock('../lib/midi.js', () => {
     // ใบ v3/pleng#102 — the tempo window + clamp the ความเร็ว control uses
     TEMPO_MIN: 40,
     TEMPO_MAX: 240,
-    TEMPO_STEP: 2,
+    TEMPO_STEP: 1,
     clampTempo: (n) => Math.min(240, Math.max(40, Math.round(Number(n) || 0))),
   }
 })
@@ -134,20 +134,27 @@ async function toggleLoop(w) {
 // the page's setting ids → the adapter's descriptor ids in the Setting page
 const SROW = { display: 'layer', chord: 'chord' }
 // ใบ v3/pleng#102 — ความเร็ว left the ⚙ Setting page for dock row 2 and became a FREE number
-// (−/+ · slider · เคาะตามจังหวะ), so these helpers drive the slider instead of a <select>.
+// (−/+ · เคาะตามจังหวะ). ใบ#143 took the slider away, so the helper walks there with − / + — one
+// click (as from the keyboard) is exactly one bpm.
 const tempoBadge = (w) => w.find('[data-cell="speed"] .tc-num')
 async function openTempo(w) {
   if (!w.find('.tc-pop').exists()) { await w.find('[data-cell="speed"] .tc-trig').trigger('click'); await nextTick() }
 }
 async function setTempo(w, value) {
+  value = Number(value)
   await openTempo(w)
-  await w.find('.tc-pop .tc-slider').setValue(String(value))
-  await nextTick()
+  for (let i = 0; i < 300; i++) {
+    const now = Number(w.find('.tc-pop .tc-big').text())
+    if (now === value) break
+    await w.find(`.tc-pop .tc-step[aria-label="${now < value ? 'เร็วขึ้น' : 'ช้าลง'}"]`).trigger('click')
+    await flushPromises() // the new number travels page → dock → cell: let every render land before reading it
+  }
+  expect(Number(w.find('.tc-pop .tc-big').text())).toBe(value)
 }
 // ใบ v3/pleng#103 ข้อ 2 — the page now WAITS for the number to stop moving before it re-schedules
 // the sound: a tap run must not restart the song on every tap (and a slider drag must not restart
 // it on every pixel). A test that wants the restart has to let that wait go by.
-const TEMPO_SETTLE = 400 // −/+ · slider · chip
+const TEMPO_SETTLE = 400 // −/+ · chip
 const TAP_SETTLE = 2100 // เคาะตามจังหวะ
 const settle = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -546,7 +553,7 @@ describe('ใบ#102 — ความเร็วอิสระ + เคาะ�
     expect(w.find('.dk-panel').exists()).toBe(false) // nothing had to be opened to read it
   })
 
-  it('ข้อ 2 — a number OFF the old nine-mark list reaches playback (84 → 86)', async () => {
+  it('ข้อ 2 — a number OFF the old nine-mark list reaches playback (84 → 85, one bpm a tap · ใบ#143)', async () => {
     const w = mountViewer(bpmSong)
     await nextTick()
     await setTempo(w, 84)
@@ -555,9 +562,9 @@ describe('ใบ#102 — ความเร็วอิสระ + เคาะ�
     await playBtn(w).trigger('click') // pause
     await w.find('.tc-pop .tc-step:last-of-type').trigger('click') // one tap of +
     await nextTick()
-    expect(tempoBadge(w).text()).toBe('86')
+    expect(tempoBadge(w).text()).toBe('85')
     await playBtn(w).trigger('click')
-    expect(lastOpts().bpm).toBe(86)
+    expect(lastOpts().bpm).toBe(85)
   })
 
   it('ข้อ 1 — เคาะตามจังหวะ ขณะเพลงกำลังเล่น → re-schedules from the current note at the tapped bpm', async () => {

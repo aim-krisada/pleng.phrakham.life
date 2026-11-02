@@ -3,9 +3,12 @@
 //
 // Replaces the old 9-item dropdown. What changed and WHY:
 //   ① ตั้งได้ทุกเลข — the old menu could only land on the nine TEMPO_MARKS, so a singer who wanted
-//      84 had to accept 92. Now −/+ walks the number by TEMPO_STEP and a slider covers the whole
-//      TEMPO_MIN..TEMPO_MAX window. The nine marks are still one tap away as quick-pick chips, so
-//      nothing a listener could reach before got taken away.
+//      84 had to accept 92. Now −/+ walks the number by TEMPO_STEP (1 · ใบ v3/pleng#143) anywhere in
+//      TEMPO_MIN..TEMPO_MAX. The nine marks are still one tap away as quick-pick chips, so nothing a
+//      listener could reach before got taken away.
+//      ใบ#143 — no slider any more (พี่เอม: "ผมไม่ชอบแถบเลื่อน ใช้ยาก ปุ่มกด บวก ลบ ง่ายกว่า" · NN/g: a
+//      slider is poor for an exact value · WCAG 2.5.7). For a big move HOLD − or +: one step at once,
+//      then the number keeps walking by 1 and speeds up until you let go (พี่เอมเคาะ 2 พ.ย. 2569).
 //   ② เคาะเอาจังหวะ — "เคาะตามที่ร้อง" pad: tap along with how YOU sing and the number follows.
 //      The math lives in lib/tapTempo.js (pure + unit-tested). Tapping works while the song plays,
 //      because every tap just sets the bpm and the page reschedules from the current note.
@@ -15,7 +18,7 @@
 //      control here is a full 44px target and the popover needs no typing and no two-finger gesture.
 //
 // Presentational: the page owns `tempo` and passes value + onSet, exactly like the other dock cells.
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import Icon from './Icon.vue'
 import { TEMPO_MARKS, TEMPO_MIN, TEMPO_MAX, TEMPO_STEP, clampTempo } from '../lib/midi.js'
 import { createTapper, TAP_MIN } from '../lib/tapTempo.js'
@@ -42,6 +45,48 @@ function set(n, src = 'ui') {
   if (v !== bpm.value) emit('set', v, src)
 }
 function step(d) { set(bpm.value + d * TEMPO_STEP) }
+
+// ---------- กดค้าง = เลขวิ่งเอง และเร็วขึ้นเรื่อย ๆ (ใบ#143 Notes ข้อ 2) ----------
+// pointerdown steps once right away (a plain tap = exactly one step), then after HOLD_DELAY the number
+// keeps walking by 1; each tick comes sooner (HOLD_TICKS), so 92 → 140 is a ~3 s hold, not 48 taps.
+// It stops on release, on leaving the button, on a cancelled touch, or at the end of the window.
+// The click that follows a pointer press is swallowed (it already stepped); a keyboard Enter/Space
+// arrives as a click with no pointer before it, so it still steps once.
+const HOLD_DELAY = 400
+const HOLD_TICKS = [150, 150, 150, 100, 100, 100, 100, 70, 70, 70, 70, 45] // then 45 ms each
+let holdTimer = null
+let holdDir = 0
+let holdN = 0
+let fromPointer = false
+function stopHold() {
+  clearTimeout(holdTimer)
+  holdTimer = null
+  holdDir = 0
+}
+function tick() {
+  if (!holdDir) return
+  const next = clampTempo(bpm.value + holdDir * TEMPO_STEP)
+  if (next === bpm.value) return stopHold()
+  set(next)
+  // reached the end of the window: stop here — the button turns disabled and may never see pointerup
+  if (next <= TEMPO_MIN || next >= TEMPO_MAX) return stopHold()
+  holdTimer = setTimeout(tick, HOLD_TICKS[Math.min(holdN++, HOLD_TICKS.length - 1)])
+}
+function holdStart(d, e) {
+  if (e && e.button != null && e.button !== 0) return // right / middle button: not a press
+  fromPointer = true
+  stopHold()
+  step(d)
+  holdDir = d
+  holdN = 0
+  holdTimer = setTimeout(tick, HOLD_DELAY)
+}
+function onStepClick(d) {
+  if (fromPointer) { fromPointer = false; return }
+  step(d)
+}
+watch(() => props.open, (o) => { if (!o) stopHold() })
+onBeforeUnmount(stopHold)
 
 // ---------- quick-pick chips: ตามเพลง + the classic marks (every old menu value survives) ----------
 const MARK_SHORT = { 40: 'Grave', 50: 'Largo', 60: 'Larghetto', 70: 'Adagio', 92: 'Andante', 110: 'Moderato', 130: 'Allegro', 150: 'Vivace', 180: 'Presto' }
@@ -111,27 +156,23 @@ const tapBad = computed(() => !tapState.value.ok && (tapState.value.reason === '
   <div v-if="open" class="dk-pop tc-pop" role="group" aria-label="ความเร็ว" @click.stop>
     <div class="tc-head">ความเร็ว</div>
 
-    <!-- ① ลด / เพิ่ม — one tap each, 44px targets, reachable with a thumb -->
+    <!-- ① ลด / เพิ่ม — one tap = 1, hold = keeps walking faster · 44px targets, reachable with a thumb -->
     <div class="tc-main">
-      <button class="tc-step" :disabled="atMin" aria-label="ช้าลง" @click="step(-1)"><Icon name="minus" :size="22" /></button>
+      <button
+        class="tc-step" :disabled="atMin" aria-label="ช้าลง"
+        @pointerdown="holdStart(-1, $event)" @pointerup="stopHold" @pointerleave="stopHold" @pointercancel="stopHold"
+        @click="onStepClick(-1)" @contextmenu.prevent
+      ><Icon name="minus" :size="22" /></button>
       <div class="tc-read" aria-live="polite">
         <b class="tc-big">{{ bpm }}</b>
         <span class="tc-unit">ครั้ง/นาที</span>
       </div>
-      <button class="tc-step" :disabled="atMax" aria-label="เร็วขึ้น" @click="step(1)"><Icon name="plus" :size="22" /></button>
+      <button
+        class="tc-step" :disabled="atMax" aria-label="เร็วขึ้น"
+        @pointerdown="holdStart(1, $event)" @pointerup="stopHold" @pointerleave="stopHold" @pointercancel="stopHold"
+        @click="onStepClick(1)" @contextmenu.prevent
+      ><Icon name="plus" :size="22" /></button>
     </div>
-
-    <!-- slider = จับลากทีเดียวถึงเลขไหนก็ได้ ในช่วงที่ร้องกันจริง -->
-    <input
-      class="tc-slider"
-      type="range"
-      :min="TEMPO_MIN"
-      :max="TEMPO_MAX"
-      step="1"
-      :value="bpm"
-      aria-label="เลื่อนปรับความเร็ว"
-      @input="set(+$event.target.value)"
-    />
 
     <!-- ② เคาะตามจังหวะที่ร้องจริง -->
     <button
@@ -186,6 +227,8 @@ const tapBad = computed(() => !tapState.value.ok && (tapState.value.reason === '
   flex: 0 0 auto; width: 52px; height: 48px; min-height: 0; padding: 0;
   border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--ink);
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  /* a long press must hold the number, not select text or pop the phone's press menu */
+  touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 @media (hover: hover) { .tc-step:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); } }
 .tc-step:disabled { opacity: 0.35; cursor: default; }
@@ -193,7 +236,6 @@ const tapBad = computed(() => !tapState.value.ok && (tapState.value.reason === '
 .tc-big { font-size: 28px; font-weight: 800; color: var(--brand); font-variant-numeric: tabular-nums; }
 .tc-unit { display: block; font-size: 11px; color: var(--muted); }
 
-.tc-slider { width: 100%; margin: 10px 0 2px; accent-color: var(--brand); height: var(--touch-min); }
 
 /* ----- tap pad ----- */
 .tc-tap {

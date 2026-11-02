@@ -51,8 +51,9 @@ export const TEMPO_MARKS = [
 // field share ONE definition.
 export const TEMPO_MIN = 40
 export const TEMPO_MAX = 240
-// one tap of −/+ moves this many bpm (small enough to fine-tune by ear, big enough to feel)
-export const TEMPO_STEP = 2
+// one tap of −/+ moves this many bpm — 1, so any number can be hit exactly (ใบ v3/pleng#143, พี่เอม 1 พ.ย.
+// 2569: "ให้การปรับความเร็วที่ละ 1 step ได้ ตอนนี้เหมือนขึ้นทีละ 2"). Big jumps: hold −/+, a chip, or the tap pad.
+export const TEMPO_STEP = 1
 export const clampTempo = (n) => Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, Math.round(Number(n) || 0)))
 
 let ctx = null
