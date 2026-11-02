@@ -35,7 +35,7 @@ import EditorMode from '../components/EditorMode.vue'
 
 const stubs = {
   SongViewer: { name: 'SongViewer', props: ['song'], template: '<div class="stub-viewer" />' },
-  SongSheet: { name: 'SongSheet', props: ['content', 'songTitle'], template: '<div class="stub-sheet" />' },
+  SongSheet: { name: 'SongSheet', props: { content: null, songTitle: null, screenTitle: Boolean }, template: '<div class="stub-sheet" />' },
   EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active'], emits: ['change', 'save'], template: '<div class="stub-editor" />' },
   Icon: true,
 }
@@ -105,8 +105,11 @@ describe('Studio shell — three modes on one surface (US-01)', () => {
     await nextTick()
     modeButtons()[1].click() // แผ่น
     await nextTick()
-    // title prints in the sheet body (<h2>), NOT passed into SongSheet's footer
-    expect(wrapper.find('.sheet-title').text()).toBe('7. เพลงทดสอบ')
+    // title heads the sheet on screen (SongHead · ใบ#144), NOT passed into SongSheet's footer
+    const sheetEl = wrapper.findAllComponents(SongSheet).find((c) => c.element.closest('.sheet-workspace'))
+    expect(sheetEl.props('songTitle')).toBe('7. เพลงทดสอบ')
+    expect(sheetEl.props('screenTitle')).toBe(true)
+    expect(wrapper.find('.sheet-workspace h2').exists()).toBe(false) // the old separate heading is gone
   })
 
   it('gating flows from the store into every mode via the tier prop (DS-02/DS-04)', async () => {

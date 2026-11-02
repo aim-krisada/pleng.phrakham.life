@@ -184,7 +184,7 @@ const sheetContent = computed(() => {
 })
 // The name of the set on the paper. Two printouts of the same song number otherwise carry
 // different words under an identical heading — same reason ฝึกร้อง stamps it (SongViewer).
-// Screen chrome (the app-bar title) keeps plain `titleText`.
+// `titleText` is the plain name (number + title) the set name is added to.
 const sheetSetName = computed(() => {
   const ls = liveSong.value?.content?.lyricSets
   return Array.isArray(ls) && ls.length > 1 ? lyricSetName(ls[viewSet.value], viewSet.value) : ''
@@ -375,15 +375,10 @@ function printSheet() {
 
 <template>
   <div>
-    <!-- shell chrome teleported into the app-wide ShellBar: static title (ดู/แผ่น) + the
-         3-way mode switch (always visible). The editor teleports its own title input +
-         เพลง/จัดการ menus while it is the active mode. -->
-    <Teleport to="#shell-title">
-      <template v-if="mode !== 'edit'">
-        <span class="sb-sep" aria-hidden="true"></span>
-        <span class="sb-title-static">{{ titleText }}</span>
-      </template>
-    </Teleport>
+    <!-- shell chrome teleported into the app-wide ShellBar: the 3-way mode switch (always visible). The
+         editor teleports its own title input + เพลง/จัดการ menus while it is the active mode.
+         ใบ v3/pleng#144 — no song title in the top bar any more: ฝึกร้อง and แผ่นเพลง open with the full
+         title + คีย์ · จังหวะ · อ้างอิง at the top of the page (SongHead), never cut to fit the bar. -->
     <Teleport to="#shell-menus">
       <!-- "เพลง ▾" (S2) — one panel: สร้างเพลงใหม่ (top) + ค้นหา/เปิด. Shown in อ่าน/แผ่น
            modes; in แก้ไข the editor teleports its own richer "เพลง"/"จัดการ" menus, so this
@@ -444,7 +439,6 @@ function printSheet() {
     <!-- ===== แผ่น — print sheet (WT-B owns SongSheet) · พิมพ์ = the shared dock (N1) ===== -->
     <div v-show="mode === 'sheet'" class="sheet-workspace">
       <div class="card">
-        <h2 class="sheet-title no-print">{{ titleText }}</h2>
         <!-- the top-nav "Aa" reader size (store.readingFontScale) scales แผ่นเพลง on screen
              too (B043 · was only wired in ฝึกร้อง). It now rides on a custom property because
              ใบ#130 gives the sheet itself a paper-sized font (see .sheet-read-scale in <style>);
@@ -465,6 +459,7 @@ function printSheet() {
             :display-key="sheetKey"
             :song-title="sheetPrintTitle"
             song-head
+            screen-title
             fit-lines
             :book-refs="sheetBookRefs"
             :songbook="sheetBook === 'songbook'"
@@ -532,23 +527,6 @@ function printSheet() {
 <style scoped>
 /* teleported into #shell-title / #shell-menus — scoped styles still apply to elements
    this component renders, even when they live in the shared ShellBar */
-.sb-sep {
-  width: 1px;
-  align-self: stretch;
-  background: var(--line);
-  min-height: 22px;
-}
-.sb-title-static {
-  flex: 1;
-  min-width: 0;
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--ink);
-  padding: 4px 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .sb-modes {
   display: inline-flex;
   gap: 2px;
@@ -582,13 +560,6 @@ function printSheet() {
     color: var(--ink);
   }
 }
-.sheet-title {
-  margin: 0 0 var(--sp-3);
-  color: var(--brand);
-  text-align: center;
-  font-size: var(--fs-xl);
-}
-
 /* "เพลง ▾" panel (S2) — teleported into the shared ShellBar */
 .sb-open-btn {
   display: inline-flex;
@@ -699,9 +670,6 @@ function printSheet() {
   .sb-mode-label,
   .sb-open-label {
     display: none;
-  }
-  .sb-title-static {
-    font-size: var(--fs-base);
   }
   /* the mode switch (ฝึกร้อง·แผ่นเพลง·แก้ไข) goes icon-only on a phone — give each
      a full 44px touch target so the three are comfortably tappable */

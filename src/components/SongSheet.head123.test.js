@@ -152,7 +152,7 @@ describe('ใบ#123 — the printed page count does not go up (ใบ#101)', ()
   // moves. Measured on all 653 published songs (A4, default แผ่นเพลง): 0 songs gained a page; a head on a
   // line of its own (an earlier try) pushed 29 one-page songs onto a second page.
   it('title gap + head line + head gap = the old 6mm title gap', () => {
-    const src = fs.readFileSync(path.resolve(__dirname, 'SongSheet.vue'), 'utf8')
+    const src = fs.readFileSync(path.resolve(__dirname, 'SongHead.vue'), 'utf8') // ใบ#144: the head's CSS lives with SongHead
     const print = src.slice(src.indexOf('<style'))
     const mm = (re) => Number((print.match(re) || [])[1])
     const oldGap = mm(/\.sheet-print-title \{[^}]*margin: 0 0 ([\d.]+)mm/)
