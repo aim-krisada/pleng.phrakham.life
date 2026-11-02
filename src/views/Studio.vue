@@ -17,7 +17,7 @@ import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhr
 import { stopPlayback } from '../lib/midi.js'
 import { KEYS } from '../lib/chords.js'
 import { downloadSong } from '../lib/jsonIO.js'
-import { tier, initAuth, shellMenu, currentSong, readingFontScale, sheetLyricJoin } from '../store.js'
+import { tier, initAuth, shellMenu, currentSong, readingFontScale, sheetLyricJoin, newSongRequest } from '../store.js'
 import { songBookRefs } from '../lib/bookCodes.js'
 import Icon from '../components/Icon.vue'
 import ComboSelect from '../components/ComboSelect.vue'
@@ -94,29 +94,44 @@ function liveFromRow(data) {
 const editorRef = ref(null)
 const backBtn = ref(null)
 const keepBtn = ref(null)
-const leaveAsk = ref(false)
+// what the "ยังไม่ได้บันทึก" question is about: null (closed) · 'back' (← กลับไปฝึกร้อง) · 'new' (สร้างเพลงใหม่)
+const leaveAsk = ref(null)
+const LEAVE_TEXT = {
+  back: { what: 'ถ้ากลับไปฝึกร้องตอนนี้ ที่แก้ไว้จะหาย', go: 'ทิ้งแล้วกลับ' },
+  new: { what: 'ถ้าเริ่มเพลงใหม่ตอนนี้ ที่แก้ไว้จะหาย', go: 'ทิ้งแล้วเริ่มใหม่' },
+}
 function openEditor() {
   mode.value = 'edit'
   nextTick(() => window.scrollTo({ top: 0 }))
 }
 function backToSing() {
-  if (editorRef.value?.isDirty) {
-    leaveAsk.value = true
-    nextTick(() => keepBtn.value?.focus())
-    return
-  }
+  if (editorRef.value?.isDirty) return ask('back')
   mode.value = 'view'
 }
-function keepEditing() {
-  leaveAsk.value = false
-  nextTick(() => backBtn.value?.focus())
+function ask(what) {
+  leaveAsk.value = what
+  nextTick(() => keepBtn.value?.focus())
 }
-function discardAndBack() {
-  leaveAsk.value = false
+function keepEditing() {
+  const was = leaveAsk.value
+  leaveAsk.value = null
+  if (was === 'back') nextTick(() => backBtn.value?.focus())
+}
+function discardAndGo() {
+  const what = leaveAsk.value
+  leaveAsk.value = null
+  if (what === 'new') return startNew()
   if (loadedSong.value) liveSong.value = liveFromRow(loadedSong.value)
   editorNonce.value++ // a fresh editor from the saved song — the unsaved edits are gone
   mode.value = 'view'
 }
+
+// ใบ v3/pleng#147 — สร้างเพลงใหม่ from the top bar / ☰ while this surface is open. Unsaved work in the editor
+// (whichever mode is showing — the editor stays mounted) is never dropped silently: same question as ←.
+watch(newSongRequest, () => {
+  if (editorRef.value?.isDirty) return ask('new')
+  startNew()
+})
 
 onMounted(async () => {
   initAuth()
@@ -372,16 +387,18 @@ function toggleSongMenu() {
     })
   }
 }
-// S2: create-new from the panel → a blank editor. Remount EditorMode (nonce) so it
-// resets cleanly, drop the loaded song, and switch to แก้ไข. Navigate to a bare /studio
-// when we were on /song/:id so the URL matches "no song open".
-function createNew() {
+// A blank editor: remount EditorMode (nonce) so it resets cleanly, drop the loaded song, switch to แก้ไข.
+// Go to a bare /studio when the URL still names a song or a draft, so it matches "no song open" — AFTER the
+// old editor is gone, so its own leave-guard cannot ask a second time about work already settled.
+async function startNew() {
   openMenu.value = null
   loadedSong.value = null
   liveSong.value = null
   editorNonce.value++
   mode.value = 'edit'
-  if (route.params.id) router.push('/studio')
+  await nextTick()
+  if (route.fullPath !== '/studio') router.push('/studio')
+  window.scrollTo({ top: 0 })
 }
 // S2: จิ้มเพลง = เปิดเลย (no OK button). ComboSelect emits the id on click/Enter; we open
 // it right away, keeping the current mode (US-05). Same-song pick just closes the panel.
@@ -413,7 +430,7 @@ function printSheet() {
          ใบ v3/pleng#144 — no song title in the top bar any more: ฝึกร้อง and แผ่นเพลง open with the full
          title + คีย์ · จังหวะ · อ้างอิง at the top of the page (SongHead), never cut to fit the bar. -->
     <Teleport to="#shell-menus">
-      <!-- "เพลง ▾" (S2) — one panel: สร้างเพลงใหม่ (top) + ค้นหา/เปิด. Shown in อ่าน/แผ่น
+      <!-- "เพลง ▾" (S2) — one panel: ค้นหา/เปิด (สร้างเพลงใหม่ moved to the top bar / ☰ · ใบ#147). Shown in อ่าน/แผ่น
            modes; in แก้ไข the editor teleports its own richer "เพลง"/"จัดการ" menus, so this
            button steps aside (no duplicate — moves toward B003). -->
       <div v-if="mode !== 'edit'" class="sb-menu">
@@ -433,10 +450,6 @@ function printSheet() {
           @click.stop
           @keydown.esc="openMenu = null"
         >
-          <button class="sb-song-new" @click="createNew">
-            <Icon name="file-plus" :size="18" /> สร้างเพลงใหม่
-          </button>
-          <div class="sb-song-sep"><span>หรือเปิดเพลงที่มีอยู่</span></div>
           <ComboSelect
             :model-value="''"
             :options="pickerOptions"
@@ -530,9 +543,9 @@ function printSheet() {
     <div v-if="leaveAsk" class="ed-leave-scrim no-print" @click.self="keepEditing" @keydown.esc="keepEditing">
       <div class="ed-leave" role="alertdialog" aria-modal="true" aria-labelledby="ed-leave-t" aria-describedby="ed-leave-d">
         <b id="ed-leave-t" class="ed-leave-t">ยังไม่ได้บันทึก</b>
-        <p id="ed-leave-d" class="ed-leave-d">ถ้ากลับไปฝึกร้องตอนนี้ ที่แก้ไว้จะหาย</p>
+        <p id="ed-leave-d" class="ed-leave-d">{{ LEAVE_TEXT[leaveAsk].what }}</p>
         <div class="ed-leave-btns">
-          <button type="button" class="ed-leave-b" @click="discardAndBack">ทิ้งแล้วกลับ</button>
+          <button type="button" class="ed-leave-b" @click="discardAndGo">{{ LEAVE_TEXT[leaveAsk].go }}</button>
           <button ref="keepBtn" type="button" class="ed-leave-b primary" @click="keepEditing">แก้ต่อ</button>
         </div>
       </div>
@@ -623,44 +636,6 @@ function printSheet() {
   min-width: 300px;
   gap: 8px;
 }
-/* ＋สร้างเพลงใหม่ — the prominent primary action at the top of the panel */
-.sb-song-new {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  background: var(--brand);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 12px;
-  font: inherit;
-  font-weight: 700;
-  min-height: 40px;
-  cursor: pointer;
-}
-.sb-song-new:hover {
-  filter: brightness(1.05);
-}
-.sb-song-new .icn {
-  color: #fff;
-}
-/* "หรือเปิดเพลงที่มีอยู่" divider */
-.sb-song-sep {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 0.85rem;
-  margin: 2px 0;
-}
-.sb-song-sep::before,
-.sb-song-sep::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--line);
-}
 
 /* โหมดแผ่น (US-06): พิมพ์ is now the shared dock's print tool (N1). Leave room so the
    fixed dock never covers the last staff line. */
@@ -727,8 +702,6 @@ function printSheet() {
   /* the mode switch (ฝึกร้อง·แผ่นเพลง·แก้ไข) goes icon-only on a phone — give each
      a full 44px touch target so the three are comfortably tappable */
   .sb-mode-btn { min-height: var(--touch-min); min-width: var(--touch-min); justify-content: center; }
-  /* ＋สร้างเพลงใหม่ is the panel's primary action — 44px on touch */
-  .sb-song-new { min-height: var(--touch-min); }
   /* B008/B018: on a phone the panel is a viewport-inset sheet under the bar — full-width,
      can't run off either edge, whatever the button's x position. */
   .sb-song-panel {
