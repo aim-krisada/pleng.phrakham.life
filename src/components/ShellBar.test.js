@@ -64,16 +64,16 @@ describe('ShellBar — site nav (phrakham parity)', () => {
     expect(shellMenu.value).toBe('site')
   })
 
-  it('ใบ#142 — nothing to install → no bare "เครื่องมือ" heading in the drawer', async () => {
+  it('ใบ#147 — เครื่องมือ always holds สร้างเพลงใหม่; ติดตั้งแอพ joins it only when the browser offers an install', async () => {
     wrapper = mount(ShellBar, { attachTo: document.body, global: { stubs } })
     // the core lifts each panel onto <body>; earlier tests leave theirs behind, so take this one's (the last)
     const panel = [...document.querySelectorAll('.sb-drawer-panel')].at(-1)
     expect(panel.querySelector('.sb-drawer-nav').textContent).toContain('รายการเพลง')
-    expect(panel.querySelector('.sb-drawer-tools')).toBeNull()
-    expect(panel.querySelector('.sb-drawer-sep')).toBeNull()
+    expect(panel.querySelector('.sb-drawer-tools .sb-drawer-new').textContent).toContain('สร้างเพลงใหม่')
+    expect(panel.querySelector('.ia-btn')).toBeNull()
     canInstall.value = true
     await nextTick()
-    expect(panel.querySelector('.sb-drawer-tools')).not.toBeNull()
+    expect(panel.querySelector('.ia-btn')).not.toBeNull()
   })
 
   it('exposes the teleport targets every mode shares (#shell-title / #shell-menus)', () => {

@@ -6,6 +6,11 @@ import { normalizeVolume, effectiveVolume, publishLevels } from './lib/volume.js
 // Song currently open in the viewer — drives the navbar download tool.
 export const currentSong = ref(null)
 
+// ใบ v3/pleng#147 — "สร้างเพลงใหม่" lives in the shared top bar (desktop) / ☰ (phone). When the song surface
+// (Studio) is already on screen, the bar does not navigate: it bumps this and Studio starts the new song
+// itself — asking first if the editor holds unsaved work. Anywhere else the bar just opens /studio.
+export const newSongRequest = ref(0)
+
 // ---- text size — ONE value for the whole site (ใบ v3/pleng#142) ----
 // Set from the one Aa button on the shared top bar (components/FontTool.vue), on every page.
 // พี่เอม 2 พ.ย. 2569: one value everywhere — ฝึกร้อง, แผ่นเพลง, แก้ไข and the plain pages

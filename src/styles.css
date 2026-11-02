@@ -467,6 +467,23 @@ html.hdr-hidden .shell-bar { transform: translateY(-100%); }
    root doesn't shrink it below phrakham's on its 17px root). Was grey 12.5px, left pad 2px. */
 .sb-drawer-lbl { font-size: 13.26px; color: var(--brand); font-weight: 700; padding: 6.8px 17px 2.55px; }
 .sb-drawer-tools { display: flex; flex-direction: column; gap: var(--sp-3); }
+/* ใบ#147 — an action row in เครื่องมือ (สร้างเพลงใหม่): same metrics as the ติดตั้งแอพ row (InstallAppTool .ia-btn) */
+.sb-drawer-act {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: var(--touch-min); padding: 10.2px 21.25px;
+  background: none; border: none; border-radius: 10px;
+  color: var(--brand); font: inherit; font-size: 17.34px; font-weight: 700; text-align: start; cursor: pointer;
+}
+.sb-drawer-act:hover { background: rgba(139, 69, 19, 0.08); }
+.sb-drawer-act:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+/* ใบ#147 — สร้างเพลงใหม่ on the desktop bar: icon + name, a quiet outlined pill like the other bar tools */
+.sb-new {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: var(--touch-min); min-height: 0; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: transparent;
+  color: var(--brand); font: inherit; font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; cursor: pointer;
+}
+@media (hover: hover) { .sb-new:hover { border-color: var(--brand); background: var(--cream); } }
 .sb-mode-item { align-items: flex-start; }
 .sb-mode-item .mt { display: flex; flex-direction: column; line-height: 1.25; }
 .sb-mode-item .mt small { color: var(--muted); font-size: 0.8rem; }
@@ -528,7 +545,8 @@ html.hdr-hidden .shell-bar { transform: translateY(-100%); }
   .sb-brand { padding: 2px; }
   /* desktop-only chrome hidden on mobile → the nav links live in the drawer. Aa and login stay
      in the bar (P'Aim 13 ก.ค.: login icon outside the drawer, far right · ใบ#142: Aa on every width). */
-  .sb-nav { display: none; }
+  .sb-nav,
+  .sb-new { display: none; } /* ใบ#147 — on a phone สร้างเพลงใหม่ is in ☰, never both */
   /* mobile-only hamburger */
   .sb-burger { display: inline-flex; }
   .sb-sep { display: none; }
