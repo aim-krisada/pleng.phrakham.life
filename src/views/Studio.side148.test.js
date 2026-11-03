@@ -1,7 +1,8 @@
 // ใบ v3/pleng#148 — แก้เพลงกับดูแผ่นเพลงคู่กันบนคอม
 //   AC1 a screen 1280 wide or more: แก้ไข shows the sheet on the right (the ก่อนพิมพ์ paper)
 //   AC2 an edit the editor pushes up redraws that sheet at once, no save needed
-//   AC4 ซ่อน / แสดงแผ่นข้างขวา, remembered on this device
+//   AC4 ดูแผ่นเพลง opens and closes the sheet beside (พี่เอม 3 พ.ย. 2569), remembered on this device;
+//       ก่อนพิมพ์ is then a button on the sheet itself
 //   AC5 a narrower screen has no sheet beside the editor; ดูแผ่นเพลง stays
 //   Notes 3 (พี่เอม 3 พ.ย. 2569) — with the sheet beside it the editor drops its floating ดูผลทั้งเพลง window
 // AC3 (same look and line breaks as ก่อนพิมพ์) holds by construction: both draw one SongSheet from the same
@@ -73,7 +74,7 @@ async function toEdit() {
 }
 const editor = () => w.findComponent({ name: 'EditorMode' })
 const sideSheet = () => w.find('.ed-side').findComponent({ name: 'SongSheet' })
-const sideBtn = () => w.findAll('.ed-back button').find((b) => b.text().includes('แผ่นข้างขวา'))
+const sideBtn = () => w.findAll('.ed-back button').find((b) => b.attributes('aria-pressed') !== undefined)
 
 describe('ใบ#148 — แผ่นเพลงข้างหน้าแก้ไข', () => {
   it('AC1 — a wide screen shows the sheet beside the editor, with the song on it', async () => {
@@ -96,17 +97,27 @@ describe('ใบ#148 — แผ่นเพลงข้างหน้าแก�
     expect(sideSheet().props('songTitle')).toContain('ชื่อใหม่')
   })
 
-  it('AC4 — ซ่อน puts the sheet away, แสดง brings it back, and the choice is remembered', async () => {
+  it('AC4 — ดูแผ่นเพลง closes the sheet beside and opens it again, and the choice is remembered', async () => {
     await toEdit()
+    expect(sideBtn().text()).toContain('ดูแผ่นเพลง')
+    expect(sideBtn().attributes('aria-pressed')).toBe('true')
     await sideBtn().trigger('click')
     expect(w.find('.ed-side').exists()).toBe(false)
-    expect(sideBtn().text()).toContain('แสดงแผ่นข้างขวา')
+    expect(sideBtn().attributes('aria-pressed')).toBe('false')
     expect(localStorage.getItem('pleng.editor.sidePaper')).toBe('0')
     expect(editor().props('sidePaper')).toBe(true) // still no floating window: the button brings the sheet back
     w.unmount()
     await toEdit()
     expect(w.find('.ed-side').exists()).toBe(false)
     await sideBtn().trigger('click')
+    expect(w.find('.ed-side').exists()).toBe(true)
+  })
+
+  it('AC4 — ก่อนพิมพ์ on the sheet opens the print page, and ← comes back to แก้ไข', async () => {
+    await toEdit()
+    await w.find('.ed-side .ed-side-print').trigger('click')
+    expect(w.find('.sheet-workspace').element.style.display).not.toBe('none')
+    await w.find('.pv-back').trigger('click')
     expect(w.find('.ed-side').exists()).toBe(true)
   })
 

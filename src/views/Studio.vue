@@ -600,11 +600,12 @@ function printSheet() {
       <button v-if="hasSingPage" ref="backBtn" type="button" class="ed-back-btn" @click="backToSing">
         <Icon name="arrow-left" :size="20" /> กลับไปฝึกร้อง
       </button>
-      <!-- ใบ#148 ข้อ 4 — the sheet beside the editor can be put away and brought back (remembered) -->
-      <button v-if="sideReady" type="button" class="ed-side-btn" :aria-pressed="sideOpen ? 'true' : 'false'" @click="sideOpen = !sideOpen">
-        <Icon :name="sideOpen ? 'panel-right-close' : 'panel-right-open'" :size="18" /> {{ sideOpen ? 'ซ่อนแผ่นข้างขวา' : 'แสดงแผ่นข้างขวา' }}
+      <!-- ใบ#148 ข้อ 4 — on a wide screen ดูแผ่นเพลง opens and closes the sheet beside the editor (remembered),
+           พี่เอม 3 พ.ย. 2569; ก่อนพิมพ์ is then the พิมพ์ button on the sheet. Narrower: it opens ก่อนพิมพ์ as before. -->
+      <button v-if="sideReady" type="button" class="ed-sheet-btn" :class="{ on: sideOpen }" :aria-pressed="sideOpen ? 'true' : 'false'" @click="sideOpen = !sideOpen">
+        <Icon :name="sideOpen ? 'panel-right-close' : 'panel-right-open'" :size="18" /> ดูแผ่นเพลง
       </button>
-      <button type="button" class="ed-sheet-btn" :class="{ 'ed-sheet-btn-side': sideReady }" @click="openPreview">
+      <button v-else type="button" class="ed-sheet-btn" @click="openPreview">
         <Icon name="file-text" :size="18" /> ดูแผ่นเพลง
       </button>
     </div>
@@ -634,6 +635,11 @@ function printSheet() {
       />
       <!-- ใบ v3/pleng#148 — the sheet beside แก้ไข on a wide screen: the ก่อนพิมพ์ paper, following every edit -->
       <aside v-if="showSide" ref="sideScrollEl" class="ed-side no-print" aria-label="แผ่นเพลง (เปลี่ยนตามที่แก้)">
+        <div class="ed-side-top">
+          <button type="button" class="ed-side-print" @click="openPreview">
+            <Icon name="printer" :size="16" /> ก่อนพิมพ์
+          </button>
+        </div>
         <div ref="sideFrameEl" class="pv-frame ed-side-frame">
           <div class="pv-sizer" :style="{ width: PAPER_PX * sideScale + 'px', height: sidePaperH * sideScale + 'px' }">
             <div ref="sidePaperEl" class="card pv-paper" data-layout-scale :style="{ transform: `scale(${sideScale})`, '--k': sideScale }">
@@ -666,15 +672,19 @@ function printSheet() {
   color: var(--brand); font: inherit; font-weight: 700; font-size: var(--fs-md); cursor: pointer;
 }
 @media (hover: hover) { .ed-back-btn:hover { border-color: var(--line); background: var(--cream); } }
-/* ใบ#148 — ซ่อน/แสดงแผ่นข้างขวา sits before ดูแผ่นเพลง, both at the right end */
-.ed-side-btn {
-  display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
-  min-height: var(--touch-min); padding: 0 14px;
-  border: 1px solid var(--line); border-radius: 10px; background: #fff;
-  color: var(--ink); font: inherit; font-size: var(--fs-sm); cursor: pointer;
+/* ใบ#148 — ดูแผ่นเพลง as an on/off switch for the sheet beside the editor: lit while it is open */
+.ed-sheet-btn.on { background: var(--cream); border-color: var(--brand); }
+/* ใบ#148 — ก่อนพิมพ์ on the sheet's own top edge, stays put while the sheet scrolls */
+.ed-side-top {
+  position: sticky; top: -10px; z-index: 1; display: flex; justify-content: flex-end;
+  margin: -10px -10px 8px; padding: 6px 10px; background: var(--cream, #faf7f2); border-bottom: 1px solid var(--line);
 }
-@media (hover: hover) { .ed-side-btn:hover { background: var(--cream); } }
-.ed-sheet-btn-side { margin-left: 0; }
+.ed-side-print {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: #fff;
+  color: var(--brand); font: inherit; font-weight: 700; font-size: var(--fs-sm); cursor: pointer;
+}
+@media (hover: hover) { .ed-side-print:hover { background: var(--cream); } }
 /* ใบ#148 — editor left, sheet right. The page widens to the window for it (the studio column caps at
    1160px, which would leave the editor too narrow beside the paper). The sheet stays in view while the
    editor scrolls: sticky under the top bar, ending above the editor's bar at the bottom (--dock-clear). */
