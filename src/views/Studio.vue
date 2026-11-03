@@ -389,6 +389,22 @@ onMounted(() => {
 onUnmounted(() => { pagesRO?.disconnect(); clearTimeout(pagesTimer) })
 watch([mode, sheetContent, sheetBook, sheetKey, sheetDisplay, sheetChord, sheetLyricJoin], () => nextTick(schedulePages))
 const pageCount = computed(() => breaks.value.length + 1)
+// the one set of SongSheet settings the paper is drawn with — ก่อนพิมพ์ and the sheet beside แก้ไข (ใบ#148).
+// The fixed switches (song-head · screen-title · fit-lines) stay written on each SongSheet tag.
+const paperSheetProps = computed(() => ({
+  content: sheetContent.value,
+  mode: sheetPrintMode.value,
+  chordSystem: sheetPrintChordSystem.value,
+  showChord: printShowChord.value,
+  showNote: printShowNote.value,
+  showLyric: printShowLyric.value,
+  displayKey: sheetKey.value,
+  songTitle: sheetPrintTitle.value,
+  bookRefs: sheetBookRefs.value,
+  songbook: sheetBook.value === 'songbook',
+  lyricJoin: sheetLyricJoin.value !== 'split',
+  bookPhrases: sheetBookMap.value,
+}))
 // ← back from ก่อนพิมพ์ = the page it was opened from: ฝึกร้อง (ใบ#146 ข้อ 5), or แก้ไข with every unsaved
 // edit still there — พี่เปา checks how an edit will print and goes straight back to editing (พี่เอม 3 พ.ย. 2569).
 // The editor stays mounted (v-show), and the paper is drawn from liveSong, which the editor keeps current.
@@ -400,6 +416,76 @@ function openPreview() {
   zoom.value = null // always opens เต็มแผ่น
   nextTick(() => { measureFrame(); window.scrollTo({ top: 0 }) })
 }
+
+// ---------- ใบ v3/pleng#148 — แผ่นเพลงข้างหน้าแก้ไข บนจอคอม ----------
+// On a wide screen the sheet sits on the right of แก้ไข: the same paper as ก่อนพิมพ์ (same settings,
+// real A4 laid out, only the picture shrunk to the column), drawn from liveSong, which the editor
+// pushes on every edit — so it follows the typing without a save. It replaces the editor's floating
+// ดูผลทั้งเพลง window there, which covered the very rows being edited (พี่เอม 3 พ.ย. 2569).
+// Narrower screens keep ดูแผ่นเพลง (ก่อนพิมพ์) as before.
+const SIDE_MIN_W = 1280
+const SIDE_KEY = 'pleng.editor.sidePaper'
+const sideWide = ref(false)
+let sideMQ = null
+const syncSideWide = () => { sideWide.value = !!sideMQ?.matches }
+const sideOpen = ref((() => {
+  try { return localStorage.getItem(SIDE_KEY) !== '0' } catch { return true }
+})())
+watch(sideOpen, (v) => {
+  try { localStorage.setItem(SIDE_KEY, v ? '1' : '0') } catch { /* ignore */ }
+})
+const sideReady = computed(() => mode.value === 'edit' && sideWide.value) // the editor drops its floating window
+const showSide = computed(() => sideReady.value && sideOpen.value)
+const sideFrameEl = ref(null)
+const sidePaperEl = ref(null)
+const sideScrollEl = ref(null)
+const sideW = ref(0)
+const sidePaperH = ref(0)
+const sideScale = computed(() => (sideW.value > 0 ? Math.min(1, sideW.value / PAPER_PX) : 0.5))
+function measureSide() {
+  sideW.value = sideFrameEl.value?.clientWidth || 0
+  sidePaperH.value = sidePaperEl.value?.offsetHeight || 0
+}
+// ใบ#148 ข้อ 6 — keep the line being edited in view on the sheet. A resolved sheet line knows which
+// ท่อน (melody) and which of its lines it came from; the first one actually drawn is where its notes are
+// (a reused ท่อน's words sit under the line that printed them).
+function scrollSideToLine() {
+  const box = sideScrollEl.value
+  const id = editorRef.value?.activeStanzaId
+  const li = editorRef.value?.activeLine
+  if (!showSide.value || !box || !id) return
+  const lines = sheetContent.value.lines
+  let el = null
+  for (let i = 0; i < lines.length && !el; i++) {
+    if (lines[i]._stanza !== id || lines[i]._stanzaLine !== li) continue
+    const e = box.querySelector(`.song-line[data-li="${i}"]`)
+    if (e && e.getClientRects().length) el = e
+  }
+  if (!el) return
+  const br = box.getBoundingClientRect()
+  const er = el.getBoundingClientRect()
+  if (er.top >= br.top && er.bottom <= br.bottom) return // already in view
+  box.scrollTo({ top: box.scrollTop + er.top - br.top - box.clientHeight / 3, behavior: 'smooth' })
+}
+watch(() => [editorRef.value?.activeStanzaId, editorRef.value?.activeLine], () => nextTick(scrollSideToLine))
+let sideRO = null
+onMounted(() => {
+  if (typeof window.matchMedia === 'function') {
+    sideMQ = window.matchMedia(`(min-width: ${SIDE_MIN_W}px)`)
+    syncSideWide()
+    sideMQ.addEventListener?.('change', syncSideWide)
+  }
+  if (typeof ResizeObserver === 'function') {
+    sideRO = new ResizeObserver(measureSide)
+    watch([sideFrameEl, sidePaperEl], ([fr, el]) => {
+      sideRO.disconnect()
+      if (fr) sideRO.observe(fr)
+      if (el) sideRO.observe(el)
+    }, { immediate: true })
+  }
+})
+onUnmounted(() => { sideMQ?.removeEventListener?.('change', syncSideWide); sideRO?.disconnect() })
+watch([showSide, sheetContent], () => nextTick(measureSide))
 
 // ใบ v3/pleng#141 — the second row of the song page (เพลง ▾ + ฝึกร้อง · แผ่นเพลง · แก้ไข) is gone. A song opens
 // in ฝึกร้อง; ✎ goes to แก้ไข (ใบ#145) and ← comes back; ก่อนพิมพ์ opens from ดาวน์โหลด › พิมพ์ in ฝึกร้อง
@@ -481,24 +567,7 @@ function printSheet() {
             <p v-if="sheetBookNote" class="book-note no-print" role="status">{{ sheetBookNote }}</p>
             <!-- B059: แผ่นเพลง prints like a hymn book — each melody once, reused verses as
                  lyrics only (songbook). The settings beside it tune what prints. -->
-            <SongSheet
-              :content="sheetContent"
-              :mode="sheetPrintMode"
-              :chord-system="sheetPrintChordSystem"
-              :show-chord="printShowChord"
-              :show-note="printShowNote"
-              :show-lyric="printShowLyric"
-              :display-key="sheetKey"
-              :song-title="sheetPrintTitle"
-              song-head
-              screen-title
-              fit-lines
-              :book-refs="sheetBookRefs"
-              :songbook="sheetBook === 'songbook'"
-              :lyric-join="sheetLyricJoin !== 'split'"
-              :book-phrases="sheetBookMap"
-              @measured="schedulePages"
-            />
+            <SongSheet v-bind="paperSheetProps" song-head screen-title fit-lines @measured="schedulePages" />
             <!-- ใบ#146 ข้อ 6 — where each new page starts (screen only) -->
             <div v-for="(y, i) in breaks" :key="i" class="pv-break no-print" :style="{ top: y + 'px' }" aria-hidden="true">
               <span>หน้า {{ i + 2 }}</span>
@@ -531,7 +600,11 @@ function printSheet() {
       <button v-if="hasSingPage" ref="backBtn" type="button" class="ed-back-btn" @click="backToSing">
         <Icon name="arrow-left" :size="20" /> กลับไปฝึกร้อง
       </button>
-      <button type="button" class="ed-sheet-btn" @click="openPreview">
+      <!-- ใบ#148 ข้อ 4 — the sheet beside the editor can be put away and brought back (remembered) -->
+      <button v-if="sideReady" type="button" class="ed-side-btn" :aria-pressed="sideOpen ? 'true' : 'false'" @click="sideOpen = !sideOpen">
+        <Icon :name="sideOpen ? 'panel-right-close' : 'panel-right-open'" :size="18" /> {{ sideOpen ? 'ซ่อนแผ่นข้างขวา' : 'แสดงแผ่นข้างขวา' }}
+      </button>
+      <button type="button" class="ed-sheet-btn" :class="{ 'ed-sheet-btn-side': sideReady }" @click="openPreview">
         <Icon name="file-text" :size="18" /> ดูแผ่นเพลง
       </button>
     </div>
@@ -545,17 +618,31 @@ function printSheet() {
         </div>
       </div>
     </div>
-    <EditorMode
-      ref="editorRef"
-      v-show="mode === 'edit'"
-      :key="editorNonce"
-      :song="loadedSong"
-      :tier="tier"
-      :active="mode === 'edit'"
-      :initial-set="viewSet"
-      @change="onChange"
-      @save="onSave"
-    />
+    <div class="ed-split" :class="{ on: showSide }">
+      <EditorMode
+        ref="editorRef"
+        v-show="mode === 'edit'"
+        :key="editorNonce"
+        class="ed-split-main"
+        :song="loadedSong"
+        :tier="tier"
+        :active="mode === 'edit'"
+        :initial-set="viewSet"
+        :side-paper="sideReady"
+        @change="onChange"
+        @save="onSave"
+      />
+      <!-- ใบ v3/pleng#148 — the sheet beside แก้ไข on a wide screen: the ก่อนพิมพ์ paper, following every edit -->
+      <aside v-if="showSide" ref="sideScrollEl" class="ed-side no-print" aria-label="แผ่นเพลง (เปลี่ยนตามที่แก้)">
+        <div ref="sideFrameEl" class="pv-frame ed-side-frame">
+          <div class="pv-sizer" :style="{ width: PAPER_PX * sideScale + 'px', height: sidePaperH * sideScale + 'px' }">
+            <div ref="sidePaperEl" class="card pv-paper" data-layout-scale :style="{ transform: `scale(${sideScale})`, '--k': sideScale }">
+              <SongSheet v-bind="paperSheetProps" song-head screen-title fit-lines @measured="measureSide" />
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
     <!-- ฝึกร้อง (SongViewer) and แก้ไข (EditorMode) mount their OWN DockKey; ก่อนพิมพ์ has its settings
          panel (ใบ#146). The shared StudioDock is retired. -->
   </div>
@@ -579,6 +666,30 @@ function printSheet() {
   color: var(--brand); font: inherit; font-weight: 700; font-size: var(--fs-md); cursor: pointer;
 }
 @media (hover: hover) { .ed-back-btn:hover { border-color: var(--line); background: var(--cream); } }
+/* ใบ#148 — ซ่อน/แสดงแผ่นข้างขวา sits before ดูแผ่นเพลง, both at the right end */
+.ed-side-btn {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
+  min-height: var(--touch-min); padding: 0 14px;
+  border: 1px solid var(--line); border-radius: 10px; background: #fff;
+  color: var(--ink); font: inherit; font-size: var(--fs-sm); cursor: pointer;
+}
+@media (hover: hover) { .ed-side-btn:hover { background: var(--cream); } }
+.ed-sheet-btn-side { margin-left: 0; }
+/* ใบ#148 — editor left, sheet right. The page widens to the window for it (the studio column caps at
+   1160px, which would leave the editor too narrow beside the paper). The sheet stays in view while the
+   editor scrolls: sticky under the top bar, ending above the editor's bar at the bottom (--dock-clear). */
+.ed-split.on { display: flex; align-items: flex-start; gap: var(--sp-4); }
+.ed-split.on > .ed-split-main { flex: 1 1 0; min-width: 0; }
+.ed-side {
+  flex: 0 0 38%; max-width: 640px; min-width: 0;
+  position: sticky; top: 72px;
+  max-height: calc(100vh - 72px - var(--dock-clear, 160px) - 8px);
+  overflow-y: auto; overflow-x: hidden;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--cream, #faf7f2); padding: 10px;
+}
+.ed-side-frame { overflow: visible; }
+:global(main.container.studio-wide:has(.ed-split.on)) { max-width: 100%; }
+
 /* the "ยังไม่ได้บันทึก" question — a small centered card over a dimmed page */
 .ed-leave-scrim {
   position: fixed; inset: 0; z-index: 200; background: rgba(0, 0, 0, 0.42);
