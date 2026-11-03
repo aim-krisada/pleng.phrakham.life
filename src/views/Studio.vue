@@ -9,9 +9,6 @@ import { pageBreaks } from '../lib/printPages.js'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { migrateToV2, resolveContent, lyricSetName, inLyricSet } from '../lib/songModel.js'
-import { songHaystack } from '../lib/songSearch.js'
-import { visibleSongs } from '../lib/bookshelf.js'
-import { sortSongs } from '../lib/songSort.js'
 import { CATALOG_COLUMNS, readCatalog, readSong, saveCatalog, isNetworkFailure } from '../lib/offlineSongs.js'
 import { songBasename } from '../lib/songName.js'
 import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
@@ -20,7 +17,6 @@ import { KEYS } from '../lib/chords.js'
 import { tier, initAuth, shellMenu, currentSong, sheetLyricJoin, newSongRequest } from '../store.js'
 import { songBookRefs } from '../lib/bookCodes.js'
 import Icon from '../components/Icon.vue'
-import ComboSelect from '../components/ComboSelect.vue'
 import SongViewer from '../components/SongViewer.vue'
 import SongSheet from '../components/SongSheet.vue'
 import EditorMode from '../components/EditorMode.vue'
@@ -133,7 +129,7 @@ watch(newSongRequest, () => {
 
 onMounted(async () => {
   initAuth()
-  loadSongList()
+  refreshCatalog()
   if (route.params.id) {
     await loadSong(route.params.id)
     // A routed song opens in a reading view (US-01 AC1) — UNLESS the link asked for the editor.
@@ -386,77 +382,41 @@ onMounted(() => {
 onUnmounted(() => { pagesRO?.disconnect(); clearTimeout(pagesTimer) })
 watch([mode, sheetContent, sheetBook, sheetKey, sheetDisplay, sheetChord, sheetLyricJoin], () => nextTick(schedulePages))
 const pageCount = computed(() => breaks.value.length + 1)
-// ← back from ก่อนพิมพ์ = the same song in ฝึกร้อง (ใบ#146 ข้อ 5)
+// ← back from ก่อนพิมพ์ = the page it was opened from: ฝึกร้อง (ใบ#146 ข้อ 5), or แก้ไข with every unsaved
+// edit still there — พี่เปา checks how an edit will print and goes straight back to editing (พี่เอม 3 พ.ย. 2569).
+// The editor stays mounted (v-show), and the paper is drawn from liveSong, which the editor keeps current.
+const previewFrom = ref('view')
+const previewBackLabel = computed(() => (previewFrom.value === 'edit' ? 'กลับไปแก้ไข' : 'กลับไปฝึกร้อง'))
 function openPreview() {
+  previewFrom.value = mode.value === 'edit' ? 'edit' : 'view'
   mode.value = 'sheet'
   zoom.value = null // always opens เต็มแผ่น
   nextTick(() => { measureFrame(); window.scrollTo({ top: 0 }) })
 }
 
-// B002 (P'Aim-approved names): ฝึกร้อง · แผ่นเพลง · แก้ไข (ids stay view/sheet/edit)
-// S1 icons (Lucide): ฝึกร้อง=mic · แผ่นเพลง=music · แก้ไข=pencil
-const MODES = [
-  { id: 'view', label: 'ฝึกร้อง', icon: 'mic', title: 'ฝึกร้อง (ร้องตาม)' },
-  { id: 'sheet', label: 'แผ่นเพลง', icon: 'music', title: 'แผ่นเพลง (ไว้พิมพ์)' },
-  { id: 'edit', label: 'แก้ไข', icon: 'pencil', title: 'แก้ไข' },
-]
+// ใบ v3/pleng#141 — the second row of the song page (เพลง ▾ + ฝึกร้อง · แผ่นเพลง · แก้ไข) is gone. A song opens
+// in ฝึกร้อง; ✎ goes to แก้ไข (ใบ#145) and ← comes back; ก่อนพิมพ์ opens from ดาวน์โหลด › พิมพ์ in ฝึกร้อง
+// (ใบ#146) and from "ดูแผ่นเพลง" in แก้ไข; finding another song is the top bar's ค้นหา.
 
-// ---------- shell song picker (US-05) ----------
-// "เปิด/เลือกเพลง" lives on the shell (not inside the editor) so it works in EVERY mode:
-// a reader in ดู/แผ่น can jump to another song without first entering แก้. Picking a song
-// navigates to /song/:id — the route watcher above loads it while KEEPING the current mode.
-const songList = ref([])
-async function loadSongList() {
+// The เพลง ▾ picker's song-list fetch also kept this device's offline copy of the catalog fresh
+// (ใบ#136) for someone who only ever opens songs from links. The picker is gone; the refresh stays.
+async function refreshCatalog() {
   const cached = await readCatalog()
-  let data = null
-  if (!(cached && navigator.onLine === false)) {
-    let q = supabase
-      .from('songs')
-      .select(CATALOG_COLUMNS) // the same columns as the home page, so this fetch fills the offline copy too
-      .is('deleted_at', null) // db/012: trashed songs never appear in the picker
-      .order('number', { ascending: true })
-    if (cached) q = q.retry(false)
-    ;({ data } = await q)
-    if (data && data.length) saveCatalog(data)
-  }
-  if (!data && cached) data = cached.rows // offline: pick from the songs saved on this device
-  // B131: the DB `.order` leaves the blank-number rows unordered, so the picker could list the
-  // same songs differently on two loads. sortSongs (songSort.js) is the app's one ordering rule.
-  songList.value = sortSongs(data ?? [])
-}
-// searchable options (ชื่อ · เลข · เนื้อร้อง · โน้ต — same haystack as the catalog page).
-// GATE (reuse bookshelf.visibleSongs — same source SongList + EditorMode use): anon sees only
-// verified songs, team sees all. computed on tier so it re-filters on login/logout without
-// reloading the list. Without this the shell's "เปิดเพลงที่มีอยู่" picker leaks unverified
-// songs to the public — a separate code path from EditorMode's own picker (round-24 leak #2).
-const pickerOptions = computed(() =>
-  visibleSongs(songList.value, tier.value !== 'anon').map((s) => ({
-    value: s.id,
-    label: (s.number != null ? s.number + '. ' : '') + s.title_th,
-    search: songHaystack(s),
-  })),
-)
-
-// the "เพลง ▾" menu shares the app-wide one-menu-at-a-time state (shellMenu)
-const openMenu = shellMenu
-// B018: on a phone the panel is a viewport-inset sheet (see CSS) anchored just under
-// the shell bar. The bar height varies (2-row on mobile · login wraps), so we read its
-// real bottom on open instead of hard-coding a value that would overlap or gap.
-const panelTop = ref(56)
-function toggleSongMenu() {
-  openMenu.value = openMenu.value === 'song' ? null : 'song'
-  if (openMenu.value === 'song') {
-    nextTick(() => {
-      const bar = document.querySelector('.shell-bar')
-      if (bar) panelTop.value = Math.round(bar.getBoundingClientRect().bottom)
-    })
-  }
+  if (cached && navigator.onLine === false) return
+  let q = supabase
+    .from('songs')
+    .select(CATALOG_COLUMNS) // the same columns as the home page, so this fills the same offline copy
+    .is('deleted_at', null) // db/012: trashed songs are never saved
+    .order('number', { ascending: true })
+  if (cached) q = q.retry(false)
+  const { data } = await q
+  if (data && data.length) saveCatalog(data)
 }
 // A blank editor: remount EditorMode (nonce) so it resets cleanly, drop the loaded song, switch to แก้ไข.
 // Go to a bare /studio when the URL still names a song or a draft, so it matches "no song open" — AFTER the
 // old editor is gone, so its own leave-guard cannot ask a second time about work already settled.
 async function startNew() {
-  openMenu.value = null
+  shellMenu.value = null
   loadedSong.value = null
   liveSong.value = null
   editorNonce.value++
@@ -465,14 +425,6 @@ async function startNew() {
   if (route.fullPath !== '/studio') router.push('/studio')
   window.scrollTo({ top: 0 })
 }
-// S2: จิ้มเพลง = เปิดเลย (no OK button). ComboSelect emits the id on click/Enter; we open
-// it right away, keeping the current mode (US-05). Same-song pick just closes the panel.
-function openSong(id) {
-  openMenu.value = null
-  if (!id || id === liveSong.value?.id) return
-  router.push('/song/' + id)
-}
-
 // ---------- print (US-06 / US-I3) ----------
 // Just open the print dialog. The filename comes from document.title (set to the song
 // on load, above); the page layout — centered title + running footer — is owned by
@@ -491,57 +443,6 @@ function printSheet() {
 
 <template>
   <div>
-    <!-- shell chrome teleported into the app-wide ShellBar: the 3-way mode switch (always visible). The
-         editor teleports its own title input + เพลง/จัดการ menus while it is the active mode.
-         ใบ v3/pleng#144 — no song title in the top bar any more: ฝึกร้อง and แผ่นเพลง open with the full
-         title + คีย์ · จังหวะ · อ้างอิง at the top of the page (SongHead), never cut to fit the bar. -->
-    <Teleport to="#shell-menus">
-      <!-- "เพลง ▾" (S2) — one panel: ค้นหา/เปิด (สร้างเพลงใหม่ moved to the top bar / ☰ · ใบ#147). Shown in อ่าน/แผ่น
-           modes; in แก้ไข the editor teleports its own richer "เพลง"/"จัดการ" menus, so this
-           button steps aside (no duplicate — moves toward B003). -->
-      <div v-if="mode !== 'edit'" class="sb-menu">
-        <button
-          class="sb-text sb-open-btn"
-          :aria-expanded="openMenu === 'song'"
-          aria-haspopup="true"
-          @click.stop="toggleSongMenu"
-        >
-          <Icon name="file-music" :size="16" /><span class="sb-open-label">เพลง</span><Icon name="chevron-down" :size="14" class="chev" />
-        </button>
-        <div
-          v-if="openMenu === 'song'"
-          class="sb-dropdown sb-song-panel"
-          :style="{ '--sb-panel-top': panelTop + 'px' }"
-          role="menu"
-          @click.stop
-          @keydown.esc="openMenu = null"
-        >
-          <ComboSelect
-            :model-value="''"
-            :options="pickerOptions"
-            placeholder="พิมพ์ค้นหา: ชื่อ เลข เนื้อร้อง โน้ต…"
-            aria-label="ค้นหาเพลงเพื่อเปิด — จิ้มเพลงเพื่อเปิดทันที"
-            width="100%"
-            autofocus
-            @update:model-value="openSong"
-          />
-        </div>
-      </div>
-      <span class="sb-modes" role="group" aria-label="เลือกมุมมอง">
-        <button
-          v-for="m in MODES"
-          :key="m.id"
-          class="sb-mode-btn"
-          :class="{ on: mode === m.id }"
-          :aria-pressed="mode === m.id"
-          :title="m.title"
-          @click="mode = m.id"
-        >
-          <Icon :name="m.icon" :size="16" /><span class="sb-mode-label">{{ m.label }}</span>
-        </button>
-      </span>
-    </Teleport>
-
     <!-- ===== ดู — reading / sing-along view (WT-A owns SongViewer) ===== -->
     <div v-show="mode === 'view'">
       <SongViewer v-if="viewerSong" :song="viewerSong" @dock="viewDock = $event" @set="viewSet = $event" @edit="openEditor" @print="openPreview" />
@@ -552,7 +453,7 @@ function printSheet() {
          ดาวน์โหลด › พิมพ์. Desktop: paper left, settings right · phone: paper on top, settings below. ===== -->
     <div v-show="mode === 'sheet'" class="sheet-workspace">
       <div class="pv-top no-print">
-        <button type="button" class="ed-back-btn pv-back" aria-label="กลับไปฝึกร้อง" @click="mode = 'view'">
+        <button type="button" class="ed-back-btn pv-back" :aria-label="previewBackLabel" :title="previewBackLabel" @click="mode = previewFrom">
           <Icon name="arrow-left" :size="20" /> ก่อนพิมพ์
         </button>
         <div class="pv-zoom" role="group" aria-label="ซูมแผ่นเพลง">
@@ -616,10 +517,15 @@ function printSheet() {
     <!-- ===== แก้ — the editor (WT-D owns EditorMode). v-show keeps it mounted so its
          in-progress state survives every mode switch. -->
     <!-- ใบ v3/pleng#145 — ← กลับไปฝึกร้อง, top left of แก้ไข (ข้อเสนอ ก). Only when there IS a song to go back
-         to: a brand-new song (/studio) has no ฝึกร้อง page yet. -->
-    <div v-if="mode === 'edit' && loadedSong" class="ed-back no-print">
-      <button ref="backBtn" type="button" class="ed-back-btn" @click="backToSing">
+         to: a brand-new song (/studio) has no ฝึกร้อง page yet.
+         ใบ v3/pleng#141 — ดูแผ่นเพลง, top right: one tap to see the edit as it will print, unsaved work included,
+         and ← there comes back here. Shown for a new song too. -->
+    <div v-if="mode === 'edit'" class="ed-back no-print">
+      <button v-if="loadedSong" ref="backBtn" type="button" class="ed-back-btn" @click="backToSing">
         <Icon name="arrow-left" :size="20" /> กลับไปฝึกร้อง
+      </button>
+      <button type="button" class="ed-sheet-btn" @click="openPreview">
+        <Icon name="file-text" :size="18" /> ดูแผ่นเพลง
       </button>
     </div>
     <div v-if="leaveAsk" class="ed-leave-scrim no-print" @click.self="keepEditing" @keydown.esc="keepEditing">
@@ -649,43 +555,16 @@ function printSheet() {
 </template>
 
 <style scoped>
-/* teleported into #shell-menus — scoped styles still apply to elements
-   this component renders, even when they live in the shared ShellBar */
-.sb-modes {
-  display: inline-flex;
-  gap: 2px;
-  background: var(--cream);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 2px;
-}
-.sb-mode-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.95rem;
-  padding: 6px 10px;
-  border-radius: 8px;
-  min-height: 34px;
-  cursor: pointer;
-}
-.sb-mode-btn.on {
-  background: #fff;
-  color: var(--brand);
-  font-weight: 700;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-}
-@media (hover: hover) {
-  .sb-mode-btn:not(.on):hover {
-    color: var(--ink);
-  }
-}
 /* ใบ#145 — ← กลับไปฝึกร้อง: a plain text button at the top left, like ใบ#146's "← ก่อนพิมพ์" */
-.ed-back { margin: 0 0 var(--sp-2); }
+.ed-back { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2); }
+/* ใบ#141 — ดูแผ่นเพลง sits at the right end of the same row */
+.ed-sheet-btn {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
+  min-height: var(--touch-min); padding: 0 14px;
+  border: 1px solid var(--line); border-radius: 10px; background: #fff;
+  color: var(--brand); font: inherit; font-weight: 700; font-size: var(--fs-sm); cursor: pointer;
+}
+@media (hover: hover) { .ed-sheet-btn:hover { background: var(--cream); } }
 .ed-back-btn {
   display: inline-flex; align-items: center; gap: 8px;
   min-height: var(--touch-min); padding: 0 12px 0 6px;
@@ -707,17 +586,6 @@ function printSheet() {
   border: 1px solid var(--line); background: #fff; color: var(--ink);
 }
 .ed-leave-b.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
-
-/* "เพลง ▾" panel (S2) — teleported into the shared ShellBar */
-.sb-open-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.sb-song-panel {
-  min-width: 300px;
-  gap: 8px;
-}
 
 /* โหมดแผ่น (US-06): พิมพ์ is now the shared dock's print tool (N1). Leave room so the
    fixed dock never covers the last staff line. */
@@ -830,25 +698,5 @@ function printSheet() {
   .pv-paper { font-size: 1rem !important; }
 }
 
-@media (max-width: 760px) {
-  .sb-mode-label,
-  .sb-open-label {
-    display: none;
-  }
-  /* the mode switch (ฝึกร้อง·แผ่นเพลง·แก้ไข) goes icon-only on a phone — give each
-     a full 44px touch target so the three are comfortably tappable */
-  .sb-mode-btn { min-height: var(--touch-min); min-width: var(--touch-min); justify-content: center; }
-  /* B008/B018: on a phone the panel is a viewport-inset sheet under the bar — full-width,
-     can't run off either edge, whatever the button's x position. */
-  .sb-song-panel {
-    position: fixed;
-    top: var(--sb-panel-top, 56px);
-    left: var(--sp-2);
-    right: var(--sp-2);
-    min-width: 0;
-    max-width: none;
-    width: auto;
-  }
-}
 
 </style>

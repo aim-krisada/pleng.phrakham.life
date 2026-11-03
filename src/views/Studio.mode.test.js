@@ -44,70 +44,55 @@ beforeEach(() => {
   document.body.innerHTML = '<div id="shell-title"></div><div id="shell-menus"></div>'
 })
 
-function modeButtons() {
-  return [...document.querySelectorAll('#shell-menus .sb-mode-btn')]
-}
+const SONG = { id: null, number: 7, title_th: 'เพลงทดสอบ', title_en: '', content: { version: 2, key: 'C', timeSignature: '4/4', stanzas: [], arrangement: [] } }
+const shown = (w, sel) => w.find(sel).element.style.display !== 'none'
 
-describe('Studio shell — three modes on one surface (US-01)', () => {
+// ใบ v3/pleng#141 — no mode switch any more: the pages are reached by what is on them.
+describe('Studio shell — three pages on one surface (US-01 · ใบ#141)', () => {
   it('a bare /studio opens in the editor mode', async () => {
     const wrapper = mount(Studio, { global: { stubs } })
     await nextTick()
     expect(wrapper.findComponent(EditorMode).props('active')).toBe(true)
   })
 
-  it('renders one component per mode (ดู→Viewer · แผ่น→Sheet · แก้→Editor)', async () => {
+  it('แก้ไข › ดูแผ่นเพลง opens ก่อนพิมพ์, and its ← comes back to แก้ไข', async () => {
     const wrapper = mount(Studio, { global: { stubs } })
     await nextTick()
-    const [view, sheet, edit] = modeButtons()
-    expect(modeButtons().length).toBe(3)
-
-    // give the shell a song so the reading surfaces have something to show
-    wrapper.findComponent(EditorMode).vm.$emit('change', {
-      id: null, number: null, title_th: 'x', title_en: '',
-      content: { version: 2, key: 'C', timeSignature: '4/4', stanzas: [], arrangement: [] },
-    })
+    wrapper.findComponent(EditorMode).vm.$emit('change', SONG)
     await nextTick()
-
-    // the editor is always mounted (v-show) so its state persists; assert via `active`
-    view.click(); await nextTick()
+    const btn = wrapper.find('.ed-back .ed-sheet-btn')
+    expect(btn.text()).toContain('ดูแผ่นเพลง')
+    await btn.trigger('click')
     expect(wrapper.findComponent(EditorMode).props('active')).toBe(false)
-    expect(wrapper.findComponent(SongViewer).exists()).toBe(true)
-
-    sheet.click(); await nextTick()
-    expect(wrapper.findComponent(SongSheet).exists()).toBe(true)
-
-    edit.click(); await nextTick()
+    expect(shown(wrapper, '.sheet-workspace')).toBe(true)
+    const back = wrapper.find('.pv-back')
+    expect(back.attributes('aria-label')).toBe('กลับไปแก้ไข')
+    await back.trigger('click')
     expect(wrapper.findComponent(EditorMode).props('active')).toBe(true)
+    expect(shown(wrapper, '.sheet-workspace')).toBe(false)
   })
 
-  it('an edit is not lost on switch: change() → shell keeps it → the reading view gets it', async () => {
+  it('an unsaved edit reaches ก่อนพิมพ์ and ฝึกร้อง: change() → shell keeps it → every page gets it', async () => {
     const wrapper = mount(Studio, { global: { stubs } })
     await nextTick()
-    const edited = { id: null, number: 7, title_th: 'เพลงทดสอบ', title_en: '', content: { version: 2, key: 'C', timeSignature: '4/4', stanzas: [], arrangement: [] } }
-
-    // the editor reports an edit …
-    wrapper.findComponent(EditorMode).vm.$emit('change', edited)
+    // the editor reports an edit, nothing saved …
+    wrapper.findComponent(EditorMode).vm.$emit('change', SONG)
     await nextTick()
-
-    // … switch to ดู and the reading view receives that same song (work survived)
-    modeButtons()[0].click()
-    await nextTick()
+    await wrapper.find('.ed-sheet-btn').trigger('click')
+    // … and the paper and the reading view both draw that same song
+    const sheetEl = wrapper.findAllComponents(SongSheet).find((c) => c.element.closest('.sheet-workspace'))
+    expect(sheetEl.props('songTitle')).toBe('7. เพลงทดสอบ')
     expect(wrapper.findComponent(SongViewer).props('song')).toMatchObject({ number: 7, title_th: 'เพลงทดสอบ' })
   })
 
-  it('แผ่น mode shows the song title centered at the top of the sheet (US-I3)', async () => {
+  it('ก่อนพิมพ์ shows the song title centered at the top of the sheet (US-I3)', async () => {
     const wrapper = mount(Studio, { global: { stubs } })
     await nextTick()
-    wrapper.findComponent(EditorMode).vm.$emit('change', {
-      id: null, number: 7, title_th: 'เพลงทดสอบ', title_en: '',
-      content: { version: 2, key: 'C', timeSignature: '4/4', stanzas: [], arrangement: [] },
-    })
+    wrapper.findComponent(EditorMode).vm.$emit('change', SONG)
     await nextTick()
-    modeButtons()[1].click() // แผ่น
-    await nextTick()
+    await wrapper.find('.ed-sheet-btn').trigger('click')
     // title heads the sheet on screen (SongHead · ใบ#144), NOT passed into SongSheet's footer
     const sheetEl = wrapper.findAllComponents(SongSheet).find((c) => c.element.closest('.sheet-workspace'))
-    expect(sheetEl.props('songTitle')).toBe('7. เพลงทดสอบ')
     expect(sheetEl.props('screenTitle')).toBe(true)
     expect(wrapper.find('.sheet-workspace h2').exists()).toBe(false) // the old separate heading is gone
   })

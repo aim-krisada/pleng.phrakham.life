@@ -4,7 +4,7 @@
 // this exercises the shell's own job: expose the picker everywhere, open a song while
 // KEEPING the current mode, and trigger print from the sheet page.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { reactive, nextTick } from 'vue'
 
 // a mutable, reactive route + a router.push that navigates it (so the shell's route
@@ -44,7 +44,6 @@ const stubs = {
   SongViewer: { name: 'SongViewer', props: ['song'], template: '<div class="stub-viewer" />' },
   SongSheet: { name: 'SongSheet', props: ['content'], template: '<div class="stub-sheet" />' },
   EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active'], emits: ['change', 'save'], template: '<div class="stub-editor" />' },
-  ComboSelect: { name: 'ComboSelect', props: ['modelValue', 'options'], emits: ['update:modelValue'], template: '<input class="stub-combo" />' },
   Icon: true,
 }
 
@@ -58,42 +57,31 @@ beforeEach(() => {
   document.body.innerHTML = '<div id="shell-title"></div><div id="shell-menus"></div>'
 })
 
-const openBtn = () => document.querySelector('#shell-menus .sb-open-btn')
-const modeBtns = () => [...document.querySelectorAll('#shell-menus .sb-mode-btn')]
 const isEditActive = (w) => w.findComponent(EditorMode).props('active')
 
-describe('Studio shell — "เพลง ▾" panel on the shell (US-05 / S2)', () => {
-  it('the "เพลง ▾" button shows in อ่าน/แผ่น; in แก้ไข the editor owns the menu (no dup, B003)', async () => {
+// ใบ v3/pleng#141 — the song page's second row (เพลง ▾ + ฝึกร้อง · แผ่นเพลง · แก้ไข) is gone: another song is
+// found with the top bar's ค้นหา, แก้ไข is ✎ (ใบ#145) and ก่อนพิมพ์ is ดาวน์โหลด › พิมพ์ (ใบ#146) or ดูแผ่นเพลง.
+describe('Studio shell — no second row (ใบ#141)', () => {
+  it('Studio puts nothing of its own on the shell bar, on any page', async () => {
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
-    const [view, sheet, edit] = modeBtns()
-    view.click(); await nextTick(); expect(openBtn()).toBeTruthy()
-    sheet.click(); await nextTick(); expect(openBtn()).toBeTruthy()
-    edit.click(); await nextTick(); expect(openBtn()).toBeFalsy()
-  })
-
-  it('จิ้มเพลง = เปิดเลย — picking a song navigates to /song/:id immediately (no OK button)', async () => {
-    const w = mount(Studio, { global: { stubs } })
-    await nextTick()
-    modeBtns()[0].click(); await nextTick() // ดู (so the "เพลง ▾" button is present)
-    openBtn().click(); await nextTick() // open the panel
-    expect(document.querySelector('.sb-open-go')).toBeFalsy() // there is no OK button anymore
-    w.findComponent({ name: 'ComboSelect' }).vm.$emit('update:modelValue', 'song-42')
-    await nextTick()
-    expect(h.push).toHaveBeenCalledWith('/song/song-42') // opened on pick, no extra click
-  })
-
-  it('opening a song from ดู stays in ดู — never jumps into แก้', async () => {
-    const w = mount(Studio, { global: { stubs } })
-    await nextTick()
-    modeBtns()[0].click(); await nextTick() // switch to ดู
+    const own = () => document.querySelectorAll('#shell-menus .sb-mode-btn, #shell-menus .sb-modes, #shell-menus .sb-open-btn')
+    expect(own().length).toBe(0) // แก้ไข (a bare /studio)
+    await w.find('.ed-sheet-btn').trigger('click')
+    expect(own().length).toBe(0) // ก่อนพิมพ์
+    h.route.params.id = 'song-7'
+    await nextTick(); await nextTick()
     expect(isEditActive(w)).toBe(false)
+    expect(own().length).toBe(0) // ฝึกร้อง
+  })
 
-    openBtn().click(); await nextTick()
-    w.findComponent({ name: 'ComboSelect' }).vm.$emit('update:modelValue', 'song-7')
-    await nextTick(); await nextTick() // let the route watcher run
-    expect(h.route.params.id).toBe('song-7') // the song did switch
-    expect(isEditActive(w)).toBe(false) // …and the mode was preserved (still ดู)
+  // the top-bar ค้นหา goes to the home list (ShellBar goSearch); a song picked there mounts this page anew
+  it('a song opened from the list or a link lands in ฝึกร้อง, never in แก้ไข', async () => {
+    h.route.params.id = 'song-7'
+    const w = mount(Studio, { global: { stubs } })
+    await flushPromises()
+    expect(isEditActive(w)).toBe(false)
+    expect(w.find('.sheet-workspace').element.style.display).toBe('none')
   })
 })
 
@@ -102,7 +90,7 @@ describe('Studio shell — print in โหมดแผ่น (US-06)', () => {
     const spy = vi.spyOn(window, 'print').mockImplementation(() => {})
     const w = mount(Studio, { global: { stubs } })
     await nextTick()
-    modeBtns()[1].click(); await nextTick() // switch to แผ่น
+    await w.find('.ed-sheet-btn').trigger('click') // ดูแผ่นเพลง (ใบ#141)
     // ใบ#146 — the bottom bar is gone; พิมพ์ ends the settings panel beside the paper
     const btn = w.find('.pv-set .pv-print')
     expect(btn.exists()).toBe(true)
