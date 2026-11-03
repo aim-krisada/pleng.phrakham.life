@@ -94,6 +94,11 @@ const LEAVE_TEXT = {
   back: { what: 'ถ้ากลับไปฝึกร้องตอนนี้ ที่แก้ไว้จะหาย', go: 'ทิ้งแล้วกลับ' },
   new: { what: 'ถ้าเริ่มเพลงใหม่ตอนนี้ ที่แก้ไว้จะหาย', go: 'ทิ้งแล้วเริ่มใหม่' },
 }
+// ใบ v3/pleng#145 — a ฝึกร้อง page to go back to: the saved song, OR a draft the editor has open. รอตรวจ on the
+// home page opens a draft straight in แก้ไข (/studio?draft=…), with no saved song behind it, so "← กลับไปฝึกร้อง"
+// used to be missing there — พี่เอม 3 พ.ย. 2569: entering from รอตรวจ must look like entering with ✎, with a way
+// back to hear the whole song. ฝึกร้อง plays what the editor holds, so it plays the draft.
+const hasSingPage = computed(() => !!(loadedSong.value || editorRef.value?.currentDraftId))
 function openEditor() {
   mode.value = 'edit'
   nextTick(() => window.scrollTo({ top: 0 }))
@@ -116,7 +121,9 @@ function discardAndGo() {
   leaveAsk.value = null
   if (what === 'new') return startNew()
   if (loadedSong.value) liveSong.value = liveFromRow(loadedSong.value)
-  editorNonce.value++ // a fresh editor from the saved song — the unsaved edits are gone
+  // a fresh editor from the saved song — the unsaved edits are gone. Opened from รอตรวจ, the URL still names the
+  // draft (?draft=…), so the fresh editor opens that draft again, as it was sent.
+  editorNonce.value++
   mode.value = 'view'
 }
 
@@ -517,11 +524,11 @@ function printSheet() {
     <!-- ===== แก้ — the editor (WT-D owns EditorMode). v-show keeps it mounted so its
          in-progress state survives every mode switch. -->
     <!-- ใบ v3/pleng#145 — ← กลับไปฝึกร้อง, top left of แก้ไข (ข้อเสนอ ก). Only when there IS a song to go back
-         to: a brand-new song (/studio) has no ฝึกร้อง page yet.
+         to — a saved song, or a draft opened from รอตรวจ: a brand-new song (/studio) has no ฝึกร้อง page yet.
          ใบ v3/pleng#141 — ดูแผ่นเพลง, top right: one tap to see the edit as it will print, unsaved work included,
          and ← there comes back here. Shown for a new song too. -->
     <div v-if="mode === 'edit'" class="ed-back no-print">
-      <button v-if="loadedSong" ref="backBtn" type="button" class="ed-back-btn" @click="backToSing">
+      <button v-if="hasSingPage" ref="backBtn" type="button" class="ed-back-btn" @click="backToSing">
         <Icon name="arrow-left" :size="20" /> กลับไปฝึกร้อง
       </button>
       <button type="button" class="ed-sheet-btn" @click="openPreview">
