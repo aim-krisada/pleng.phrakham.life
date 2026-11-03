@@ -47,6 +47,9 @@ const props = defineProps({
   // looking at is the whole point of the tabs; landing on set 1 every time means the first
   // thing you do is re-pick the set you already picked. 0 for every ordinary song.
   initialSet: { type: Number, default: 0 },
+  // ใบ v3/pleng#148 — the page shows the sheet beside the editor (a wide screen). The floating
+  // ดูผลทั้งเพลง window would only cover the editor then, so it goes away (พี่เอม 3 พ.ย. 2569).
+  sidePaper: { type: Boolean, default: false },
 })
 const emit = defineEmits(['change', 'save', 'dock'])
 
@@ -3062,7 +3065,7 @@ const editItems = computed(() => [
   // permanent home on the bar. No `pinnable`: an item with a `place` is already on the bar, and
   // pinning it too would render it twice (single source of action · ui-standards §2).
   { id: 'draft', kind: 'btn', name: 'บันทึกร่าง', label: 'บันทึกร่าง', icon: 'save', place: { row: 2, col: 5 }, run: () => saveDraft('draft'), hidden: !loggedIn.value || legacy.value, phoneIcon: true },
-  { id: 'preview', kind: 'toggle', name: 'ดูผลทั้งเพลง', icon: 'maximize', default: 'inSetting', pinnable: true, control: { value: sheetWinOpen.value, onToggle: () => (sheetWinOpen.value = !sheetWinOpen.value) } },
+  { id: 'preview', kind: 'toggle', name: 'ดูผลทั้งเพลง', icon: 'maximize', default: 'inSetting', pinnable: true, hidden: props.sidePaper, control: { value: sheetWinOpen.value, onToggle: () => (sheetWinOpen.value = !sheetWinOpen.value) } },
 ])
 
 // คำสถานะงานร่าง. คำของกอง pending มาจากรายการคำกลาง `src/i18n/workWords.js` (มาตรฐาน ฌ-04)
@@ -3857,6 +3860,8 @@ defineExpose({
   deleteDraft, editItems,
   // B097 undo/redo tests: drive the same doc/view state + navigation the UI drives.
   opts, stanzas, arrangement, activeStanza, lensChoice,
+  // ใบ v3/pleng#148 — the sheet beside the editor scrolls to the line being edited
+  activeStanzaId, activeLine,
   undo, redo, selectStanza, focusRow, addStanza, setSyl, applyChordAt,
   toggleAfterEachVerse, // B102 — "ร้องรับทุกข้อ" refrain directive helper (AC-5 tests)
   history, histPos,
@@ -4183,7 +4188,7 @@ defineExpose({
         <button class="ed-chip" :class="{ act: livePreview }" :aria-pressed="livePreview" title="ตัวอย่างสด — เห็นผลแต่ละห้องระหว่างพิมพ์ (เหนือบรรทัด)" @click="livePreview = !livePreview">
           <Icon name="eye" :size="15" /> ตัวอย่างสด
         </button>
-        <button class="ed-chip" :class="{ act: sheetWinOpen }" :aria-pressed="sheetWinOpen" title="ดูผลทั้งเพลง — เปิดหน้าต่างลอยแผ่นเพลง แก้ไปดูไป (ลากได้ · ปิดได้)" @click="toggleSheetWin">
+        <button v-if="!sidePaper" class="ed-chip" :class="{ act: sheetWinOpen }" :aria-pressed="sheetWinOpen" title="ดูผลทั้งเพลง — เปิดหน้าต่างลอยแผ่นเพลง แก้ไปดูไป (ลากได้ · ปิดได้)" @click="toggleSheetWin">
           <Icon name="picture-in-picture-2" :size="15" /> ดูผลทั้งเพลง
         </button>
       </span>
@@ -4755,7 +4760,7 @@ defineExpose({
          live-syncs while you type. Drag by the title bar (dock-core clamp keeps it on-screen);
          ✕ closes. Mobile (≤760px): opens full-screen with the same ✕, no drag. -->
     <div
-      v-if="sheetWinOpen"
+      v-if="sheetWinOpen && !sidePaper"
       ref="floatEl"
       class="ed-float no-print"
       :style="floatStyle"
