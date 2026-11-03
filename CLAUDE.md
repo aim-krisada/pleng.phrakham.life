@@ -43,7 +43,7 @@ Preview tools: `preview_start "dev"` (config in `.claude/launch.json`).
 - **Orientation, every session:** `docs/README.md` = project map (folders + key files). `docs/mission.md` = purpose + 3-tier permission model + worktree plan.
 - **Flow (ISO 29110-5-4, light):** `docs/backlog.md` (single idea inbox) → `docs/us/<epic>.md` (user story + AC) → `docs/ds/<epic>.md` (design spec) → code. Everything traces back to the mission.
 - **New idea from P'Aim (image + text):** file it into `docs/backlog.md` with an id + save the image under `docs/backlog-assets/`.
-- **Base branch for all work = `main`.** Branch per aimgit issue as `v1-<issue#>-<short-name>` (e.g. `v1-53-slur2beat`, `v1-94-section-copy`), open a GitHub PR into `main`, and **stop there — P'Aim reviews and merges it himself** (merging auto-deploys). Never merge or push to `main` yourself.
+- **Base branch for all work = `main`.** Branch per aimgit issue as `v1-<issue#>-<short-name>` (e.g. `v1-53-slur2beat`, `v1-94-section-copy`), open a GitHub PR into `main`, and **merge it yourself as `aim-agent`** once the full test suite + build pass and the `Test` check is green (merging auto-deploys — then confirm the live bundle carries the merge commit). Never push to `main` directly — always through a PR. (P'Aim, 3 พ.ย. 2569: *"ให้คุณรวมเองได้เลย ... ผิดค่อยแก้"* — he never reviewed the PRs, so waiting on him only added delay.)
 - **Commit messages** reference the aimgit issue as `(ใบ v3/pleng#<n>)`, e.g. `สเลอร์ที่คร่อมเส้นใต้เกิน 1 ท่อน ต้องมีเส้นโค้ง (ใบ v3/pleng#53)`.
 - 🔴 **AI writes out as the company AI account `aim-agent`, NEVER as P'Aim** — on GitHub and on
   aimgit alike. That covers every outward write: opening or updating a PR, commenting, reviewing,
@@ -99,10 +99,10 @@ One task = one worktree = one branch (no live file clashes; meet via PR). Branch
 git fetch origin
 git worktree add ../pleng-v1-94 -b v1-94-section-copy origin/main
 npm run dev -- --port 5394               # give each worktree its own port
-git push -u origin v1-94-section-copy    # then open a GitHub PR into main — do NOT merge it
-git worktree remove ../pleng-v1-94       # after P'Aim has merged
+git push -u origin v1-94-section-copy    # then open a GitHub PR into main and merge it (as aim-agent) once tests pass
+git worktree remove ../pleng-v1-94       # after the PR is merged
 ```
-Open a separate Claude Code window per worktree. The PR into `main` is the hand-off; P'Aim merges it (= deploy).
+Open a separate Claude Code window per worktree. The PR into `main` is the hand-off; merging it = deploy.
 
 **Previewing a worktree in the browser pane:** `preview_start` reads `.claude/launch.json`
 from the *primary* working dir, and a plain `npm run dev` entry serves the primary dir — but
@@ -124,7 +124,7 @@ Other ways to verify from a worktree:
 1. `node` tests importing `src/lib/*` (e.g. `parseNotes`, `songToNotes`) for pure logic.
 2. `curl http://localhost:<port>/src/....vue` against the worktree's own `npm run dev` —
    a `200` with your text present = it compiles and the change is in.
-3. after P'Aim merges/deploys, poll the live JS bundle for the commit hash (build stamps `__BUILD_COMMIT__`).
+3. after the merge/deploy, poll the live JS bundle for the commit hash (build stamps `__BUILD_COMMIT__`).
 
 `preview_screenshot` is flaky (often times out); prefer `preview_inspect` / DOM queries via
 `preview_eval` for precise checks (colours, positions, alignment) even when it does work.
