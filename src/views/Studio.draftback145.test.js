@@ -40,7 +40,7 @@ const stubs = {
   // the real editor opens ?draft= itself and exposes which draft it holds (currentDraftId)
   EditorMode: {
     name: 'EditorMode', props: ['song', 'tier', 'active', 'initialSet'], emits: ['change', 'save'],
-    data: () => ({ isDirty: false, currentDraftId: draftId }),
+    data: () => ({ isDirty: false, currentDraftId: draftId, editingId: null }),
     // the draft arrives after a fetch, i.e. after the page has set itself up (as in the real editor)
     mounted() { editorMounts++; Promise.resolve().then(() => this.$emit('change', DRAFT)) },
     template: '<div class="stub-editor" />',
@@ -86,18 +86,25 @@ describe('ใบ#145 — a draft from รอตรวจ has the same way back a
     expect(editorMounts).toBe(1) // the same editor, the draft still open
   })
 
-  it('unsaved edits on the draft: ← asks first; ทิ้งแล้วกลับ reopens the draft as it was sent', async () => {
+  it('ใบ#148 — unsaved edits on the draft: ← takes them to ฝึกร้อง, no question, the same editor stays', async () => {
     await open()
     editor().vm.isDirty = true
     await backBtn().trigger('click')
     await nextTick()
-    const dlg = w.find('[role="alertdialog"]')
-    expect(dlg.exists()).toBe(true)
-    await dlg.findAll('button').find((b) => b.text() === 'ทิ้งแล้วกลับ').trigger('click')
-    await flushPromises()
+    expect(w.find('[role="alertdialog"]').exists()).toBe(false)
     expect(editor().props('active')).toBe(false)
-    expect(editorMounts).toBe(2) // a fresh editor — it opens ?draft= again on its own
+    expect(editorMounts).toBe(1)
     expect(viewer().props('song')).toMatchObject({ title_th: 'เพลงในร่าง' })
+  })
+
+  it('ใบ#148 (พี่เปา) — after อนุมัติและเผยแพร่ the ← is still there: the editor now holds the published song', async () => {
+    await open()
+    editor().vm.currentDraftId = null // approved: the draft is gone …
+    editor().vm.editingId = 's9' // … and the editor holds the song it became
+    await nextTick()
+    expect(backBtn().exists()).toBe(true)
+    await backBtn().trigger('click')
+    expect(editor().props('active')).toBe(false)
   })
 
   it('a brand-new song (no draft open) still has no ← — there is no ฝึกร้อง page yet', async () => {

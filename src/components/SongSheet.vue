@@ -877,9 +877,12 @@ onBeforeUnmount(() => {
   restoreHalves()
 })
 // Layer/content/transpose changes re-flow the notes → re-measure after the DOM settles.
+// ใบ v3/pleng#148 — measured right after Vue's DOM update, before the browser paints: waiting for the timer
+// let one frame show the new notes with the OLD fit (sizes, ช่องไฟ, word places), and then jump — the sheet
+// beside the editor redraws on every edit, so it flickered ("กระพริบ"). The timer still runs once more after.
 watch(
   () => [props.content, sc.value, sn.value, props.songbook, props.displayKey, props.mode],
-  () => nextTick(scheduleMeasure),
+  () => nextTick(() => { if (rootEl.value) measureSheet(); scheduleMeasure() }),
   { deep: true },
 )
 </script>

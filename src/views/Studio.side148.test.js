@@ -1,6 +1,6 @@
 // ใบ v3/pleng#148 — แก้เพลงกับดูแผ่นเพลงคู่กันบนคอม
 //   AC1 a screen 1280 wide or more: แก้ไข shows the sheet on the right (the ก่อนพิมพ์ paper)
-//   AC2 an edit the editor pushes up redraws that sheet at once, no save needed
+//   AC2 an edit the editor pushes up redraws that sheet within a moment (once the typing pauses), no save needed
 //   AC4 ดูแผ่นเพลง opens and closes the sheet beside (พี่เอม 3 พ.ย. 2569), remembered on this device;
 //       ก่อนพิมพ์ is then a button on the sheet itself
 //   AC5 a narrower screen has no sheet beside the editor; ดูแผ่นเพลง stays
@@ -93,6 +93,7 @@ describe('ใบ#148 — แผ่นเพลงข้างหน้าแก�
     await toEdit()
     expect(sideSheet().props('songTitle')).toContain('เพลงทดสอบ')
     editor().vm.$emit('change', { ...ROW, title_th: 'ชื่อใหม่' })
+    await new Promise((r) => setTimeout(r, 300)) // it waits for the typing to pause (no flicker per key)
     await nextTick()
     expect(sideSheet().props('songTitle')).toContain('ชื่อใหม่')
   })
