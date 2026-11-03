@@ -153,3 +153,53 @@ describe('ใบ#146 — ก่อนพิมพ์', () => {
     expect(w.findAll('.pv-break').length).toBe(0)
   })
 })
+
+// พี่เอม 3 พ.ย. 2569: "แสดงเป็น full ก่อน แล้วก็ zoom in zoom out ได้". jsdom has no layout, so the column
+// measures 0 and เต็มแผ่น is real size (100%); in a browser it is the column ÷ the A4 width, at most 100%.
+describe('ใบ#146 — เต็มแผ่น first, then − / +', () => {
+  const val = () => w.find('.pv-zoom .pv-zval').text()
+  const fit = () => w.find('.pv-zoom .pv-zfit')
+  const btn = (label) => w.find(`.pv-zoom [aria-label="${label}"]`)
+  const paperStyle = () => w.find('.pv-paper').attributes('style')
+
+  it('opens เต็มแผ่น, and the paper is the scaled picture of a real-size page', async () => {
+    await toPreview()
+    expect(val()).toBe('100%')
+    expect(fit().attributes('aria-pressed')).toBe('true')
+    expect(w.find('.pv-paper').attributes()).toHaveProperty('data-layout-scale')
+    expect(paperStyle()).toContain('scale(1)')
+  })
+
+  it('+ and − step the zoom, and เต็มแผ่น brings the whole page back', async () => {
+    await toPreview()
+    await btn('ขยาย').trigger('click')
+    expect(val()).toBe('150%')
+    expect(paperStyle()).toContain('scale(1.5)')
+    expect(fit().attributes('aria-pressed')).toBe('false')
+    await btn('ย่อ').trigger('click')
+    await btn('ย่อ').trigger('click')
+    expect(val()).toBe('75%')
+    await fit().trigger('click')
+    expect(val()).toBe('100%')
+    expect(fit().attributes('aria-pressed')).toBe('true')
+  })
+
+  it('the steps stop at 25% and 200%', async () => {
+    await toPreview()
+    for (let i = 0; i < 6; i++) await btn('ขยาย').trigger('click')
+    expect(val()).toBe('200%')
+    expect(btn('ขยาย').attributes()).toHaveProperty('disabled')
+    for (let i = 0; i < 8; i++) await btn('ย่อ').trigger('click')
+    expect(val()).toBe('25%')
+    expect(btn('ย่อ').attributes()).toHaveProperty('disabled')
+  })
+
+  it('coming back from ฝึกร้อง opens เต็มแผ่น again', async () => {
+    await toPreview()
+    await btn('ขยาย').trigger('click')
+    await w.find('.pv-back').trigger('click')
+    viewer().vm.$emit('print')
+    await nextTick()
+    expect(val()).toBe('100%')
+  })
+})

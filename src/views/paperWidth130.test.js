@@ -6,9 +6,9 @@
 // (16px), so the page is 178mm / 16px font-sizes wide. Give the sheet that same width in `em`
 // and the ratio holds at every reading size, because width and font scale together.
 //
-// ใบ v3/pleng#146 turned แผ่นเพลง into ก่อนพิมพ์: the sheet is drawn as the A4 page itself, to
-// scale — 210 paper-mm across the column, the @page margins and the print font in those same mm.
-// The ratio is unchanged: (210 − 2·16)mm over 4.2333mm (= 16px) is still 42.0472 font-sizes.
+// ใบ v3/pleng#146 turned แผ่นเพลง into ก่อนพิมพ์: the sheet is laid out ON the A4 page itself, at real
+// size — 210mm wide, the @page margins as padding, the print font — and only the picture is scaled
+// to the window or the zoom. So the ratio is not just kept, it is the paper's own.
 //
 // That only works while everything ON the line scales with the font too. A width left in `px`
 // would stay put as the type grew, the line would hold more than the paper does, and the bug
@@ -53,41 +53,37 @@ function rule(css, selector, prop) {
   return hit
 }
 
-// 16px at 96 dpi, in mm — the font print pins the sheet to
-const PRINT_FONT_MM = (PRINT_FONT_PX / 96) * 25.4
-
 describe('ใบ#130 · ใบ#146 — the sheet on screen is the page', () => {
-  const paper = () => rule(STUDIO, '.pv-paper', '--mm')
+  const paper = () => rule(STUDIO, '.pv-paper', 'transform-origin')
 
   it('the page is 42.0472 font-sizes wide — the number the margins and the print font give', () => {
     expect(paperEm).toBeCloseTo(42.0472, 4)
-    expect(PRINT_FONT_MM).toBeCloseTo(4.2333, 4)
-    // the preview's own numbers give the same ratio
-    const font = Number(paper().match(/font-size:\s*calc\(([\d.]+) \* var\(--mm\)\)/)[1])
-    expect((A4_WIDTH_MM - 2 * PAGE_MARGIN_MM) / font).toBeCloseTo(paperEm, 3)
+    // the preview paper is that page: real A4 width, the text box inside the padding, the print font
+    expect(paper()).toMatch(/width:\s*210mm/)
+    expect(paper()).toMatch(/box-sizing:\s*border-box/)
+    expect(paper()).toMatch(/font-size:\s*1rem/)
   })
 
   it('the margins and the print font this number is built from are still what the CSS says', () => {
     expect(STYLES).toMatch(/@page \{ margin: 15mm 16mm 16mm; \}/)
-    // the preview paper has the same margins, in paper mm
-    expect(paper()).toMatch(/padding:\s*calc\(15 \* var\(--mm\)\) calc\(16 \* var\(--mm\)\) calc\(16 \* var\(--mm\)\)/)
+    expect(paper()).toMatch(/padding:\s*15mm 16mm 16mm/)
+    // a border would eat into the text box — the edge is drawn as a shadow
+    expect(paper()).toMatch(/border:\s*0/)
     // and print pins the sheet to 1rem whatever the screen did
     expect(STUDIO).toMatch(/\.pv-paper \{ font-size: 1rem !important; \}/)
   })
 
-  it('1 paper-mm is the column width over 210, so the whole page scales as one', () => {
-    expect(paper()).toMatch(/--mm:\s*calc\(100cqw \/ 210\)/)
-    expect(paper()).toMatch(/min-height:\s*calc\(297 \* var\(--mm\)\)/)
-    // the sheet fills the paper's text box and takes the paper's font, never its own
+  it('the sheet fills the paper\'s text box and takes the paper\'s font, never its own', () => {
     const root = rule(STUDIO, '.pv-paper :deep(.sheet-root)')
     expect(root).toMatch(/width:\s*100%/)
     expect(root).toMatch(/font-size:\s*inherit/)
   })
 
-  it('the box that cqw measures is the frame around the paper, no wider than A4', () => {
-    const frame = rules(STUDIO, '.pv-frame').join('\n')
-    expect(frame).toMatch(/container-type:\s*inline-size/)
-    expect(frame).toMatch(/max-width:\s*210mm/)
+  it('only the picture is scaled: a transform the sheet\'s measuring knows about, gone in print', () => {
+    expect(STUDIO).toMatch(/data-layout-scale :style="\{ transform: `scale\(\$\{scale\}\)`/)
+    expect(SONG_SHEET).not.toMatch(/getBoundingClientRect/) // every box goes through lib/layoutRect.js
+    expect(NOTE_ROW).toMatch(/layoutRect\(/)
+    expect(STUDIO).toMatch(/\.pv-paper \{ transform: none !important; \}/)
   })
 
   it('the top-bar Aa does not enlarge the paper (ใบ#140 locks its size · พี่เอม 2 พ.ย. 2569: no size setting)', () => {

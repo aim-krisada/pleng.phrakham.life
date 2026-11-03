@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { beamGroups, slurBeamOnly } from '../lib/notation.js'
 import { pixelRatio, levelTop, lineThickness } from '../lib/pixelSnap.js'
+import { layoutRect } from '../lib/layoutRect.js'
 
 const props = defineProps({
   notes: { type: String, default: '' },
@@ -104,7 +105,7 @@ function applyArc(el, kind) {
   if (!build) return
   // clientWidth = the SVG's own rendered box; setting viewBox width to it makes the x-axis
   // 1:1, so preserveAspectRatio="none" no longer distorts horizontally.
-  const w = el.clientWidth || (el.getBoundingClientRect && el.getBoundingClientRect().width) || 0
+  const w = el.clientWidth || (el.getBoundingClientRect && layoutRect(el).width) || 0
   const { viewBox, d } = build(w)
   el.setAttribute('viewBox', viewBox)
   const path = el.querySelector('path')
@@ -174,7 +175,7 @@ function neighbourRect(row, b) {
   const idx = b.partial === 'left' ? b.start - 1 : b.end + 1
   const el = row.querySelector(`.nt[data-idx="${idx}"] .num`)
   if (!el) return null
-  const r = el.getBoundingClientRect()
+  const r = layoutRect(el)
   return r.width ? r : null
 }
 // ใบ v3/pleng#99 (พี่เปา: ขนาดปกติเส้นใต้ดูขีดซ้อน) — while a level-1 bar is drawn over its digits, their own
@@ -203,9 +204,9 @@ function applyBeam(el) {
   const first = row.querySelector(`.nt[data-idx="${b.start}"] .num`)
   const last = row.querySelector(`.nt[data-idx="${b.end}"] .num`)
   if (!first || !last) { hideBeam(el); return }
-  const rr = row.getBoundingClientRect()
-  const a = first.getBoundingClientRect()
-  const c = last.getBoundingClientRect()
+  const rr = layoutRect(row)
+  const a = layoutRect(first)
+  const c = layoutRect(last)
   if (!a.width || !rr.width) { hideBeam(el); return }
   // strip the measured digit's own underline border so every level shares one baseline
   let border = 0

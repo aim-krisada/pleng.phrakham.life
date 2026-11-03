@@ -4,19 +4,21 @@
 // styles.css) = 266mm of sheet. The printer keeps each ท่อน (.song-section, `break-inside: avoid` in print)
 // whole when it fits on a page, and otherwise breaks between its lines (.song-line, also kept whole).
 // Returns the y (px, from the top of `paper`) of each page start after the first.
+import { layoutRect } from './layoutRect.js'
+
 export const PAGE_MM = 297 - 15 - 16
 
 export function pageBreaks(paper, root) {
   const fontPx = parseFloat(getComputedStyle(root).fontSize) || 16
   const mmPx = fontPx / 4.2333 // the sheet's font is the print size, 4.2333mm
   const pageH = PAGE_MM * mmPx
-  const top0 = paper.getBoundingClientRect().top
+  const top0 = layoutRect(paper).top
   const box = (el) => {
-    const r = el.getBoundingClientRect()
+    const r = layoutRect(el)
     return { top: r.top - top0, bottom: r.bottom - top0, h: r.height }
   }
   // the content starts at the paper's top padding (the 15mm margin) — measure from the first box
-  const lines = [...root.querySelectorAll('.song-line')].filter((el) => el.getBoundingClientRect().height > 0)
+  const lines = [...root.querySelectorAll('.song-line')].filter((el) => layoutRect(el).height > 0)
   if (!lines.length) return []
   const first = root.querySelector('.sheet-print-title, .sheet-head') || lines[0]
   let pageTop = box(first).top

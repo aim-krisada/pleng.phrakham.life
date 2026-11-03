@@ -323,8 +323,37 @@ const printSettings = computed(() => [
   { id: 'chord', name: 'คอร์ด', value: sheetChord.value, set: (v) => (sheetChord.value = v), options: CHORD_OPTS },
 ])
 
+// ---------- ใบ v3/pleng#146 — the paper at its real size, the picture shrunk to fit · ซูม ----------
+// The paper is laid out at real A4 size on every screen (210mm wide, the print font) and only its
+// picture is scaled (transform) — so the lines break, the sheet fits them, and the pages count exactly
+// as on paper, whatever the window or the zoom (lib/layoutRect.js says why it cannot be laid out small).
+// It opens เต็มแผ่น — the whole width of the page in the column, never bigger than real size — and
+// − / + step through ZOOMS (พี่เอม 3 พ.ย. 2569: "แสดงเป็น full ก่อน แล้วก็ zoom in zoom out ได้").
+const PAPER_PX = (210 / 25.4) * 96
+const ZOOMS = [0.25, 0.5, 0.75, 1, 1.5, 2]
+const frameEl = ref(null)
+const frameW = ref(0)
+const paperH = ref(0)
+const zoom = ref(null) // null = เต็มแผ่น
+const fitZoom = computed(() => (frameW.value > 0 ? Math.min(1, frameW.value / PAPER_PX) : 1))
+const scale = computed(() => zoom.value ?? fitZoom.value)
+const canZoomIn = computed(() => scale.value < ZOOMS.at(-1) - 1e-3)
+const canZoomOut = computed(() => scale.value > ZOOMS[0] + 1e-3)
+function zoomIn() {
+  const z = ZOOMS.find((v) => v > scale.value + 1e-3)
+  if (z) zoom.value = z
+}
+function zoomOut() {
+  const z = [...ZOOMS].reverse().find((v) => v < scale.value - 1e-3)
+  if (z) zoom.value = z
+}
+function measureFrame() {
+  frameW.value = frameEl.value?.clientWidth || 0
+  paperH.value = paperEl.value?.offsetHeight || 0
+}
+
 // ---------- ใบ v3/pleng#146 — where page 2 (3, …) starts, drawn on the preview ----------
-// The preview paper is A4 to scale (see .pv-paper), so the printable height is known: 297mm minus the
+// The paper is A4 at its real size (see above), so the printable height is known: 297mm minus the
 // @page margins 15 + 16mm. lib/printPages.js walks the sheet's lines the way the printer does (a ท่อน is
 // kept whole when it fits on a page, else it breaks between lines) and returns where each new page
 // begins; the preview draws a "หน้า 2" line there, so a long song never gets its end cut off unseen.
@@ -339,13 +368,18 @@ function measurePages() {
 let pagesRO = null
 let pagesTimer = null
 function schedulePages() {
+  measureFrame()
   clearTimeout(pagesTimer)
   pagesTimer = setTimeout(measurePages, 60) // after the sheet's own fit-lines pass has settled
 }
 onMounted(() => {
   if (typeof ResizeObserver === 'function') {
     pagesRO = new ResizeObserver(schedulePages)
-    watch(paperEl, (el) => { pagesRO.disconnect(); if (el) pagesRO.observe(el) }, { immediate: true })
+    watch([paperEl, frameEl], ([el, fr]) => {
+      pagesRO.disconnect()
+      if (el) pagesRO.observe(el)
+      if (fr) pagesRO.observe(fr)
+    }, { immediate: true })
   }
   document.fonts?.ready?.then(schedulePages)
 })
@@ -355,7 +389,8 @@ const pageCount = computed(() => breaks.value.length + 1)
 // ← back from ก่อนพิมพ์ = the same song in ฝึกร้อง (ใบ#146 ข้อ 5)
 function openPreview() {
   mode.value = 'sheet'
-  nextTick(() => window.scrollTo({ top: 0 }))
+  zoom.value = null // always opens เต็มแผ่น
+  nextTick(() => { measureFrame(); window.scrollTo({ top: 0 }) })
 }
 
 // B002 (P'Aim-approved names): ฝึกร้อง · แผ่นเพลง · แก้ไข (ids stay view/sheet/edit)
@@ -520,11 +555,19 @@ function printSheet() {
         <button type="button" class="ed-back-btn pv-back" aria-label="กลับไปฝึกร้อง" @click="mode = 'view'">
           <Icon name="arrow-left" :size="20" /> ก่อนพิมพ์
         </button>
+        <div class="pv-zoom" role="group" aria-label="ซูมแผ่นเพลง">
+          <button type="button" class="pv-zbtn" aria-label="ย่อ" :disabled="!canZoomOut" @click="zoomOut"><Icon name="minus" :size="18" /></button>
+          <span class="pv-zval" aria-live="polite">{{ Math.round(scale * 100) }}%</span>
+          <button type="button" class="pv-zbtn" aria-label="ขยาย" :disabled="!canZoomIn" @click="zoomIn"><Icon name="plus" :size="18" /></button>
+          <button type="button" class="pv-zfit" :aria-pressed="zoom === null ? 'true' : 'false'" @click="zoom = null">เต็มแผ่น</button>
+        </div>
       </div>
       <div class="pv-body">
         <!-- the paper: A4 to scale on screen; on paper the same rules as ever (print pins the sheet to 1rem) -->
-        <div class="pv-frame">
-          <div ref="paperEl" class="card pv-paper">
+        <div ref="frameEl" class="pv-frame">
+          <!-- the sizer takes the room the SHRUNK picture needs; the paper inside is real size -->
+          <div class="pv-sizer" :style="{ width: PAPER_PX * scale + 'px', height: paperH * scale + 'px' }">
+          <div ref="paperEl" class="card pv-paper" data-layout-scale :style="{ transform: `scale(${scale})`, '--k': scale }">
             <!-- ใบ v3/pleng#105 — ตามต้นฉบับ: say plainly when the book has no phrasing for this
                  song, so the reader knows the spacing fell back to the tune. Never printed. -->
             <p v-if="sheetBookNote" class="book-note no-print" role="status">{{ sheetBookNote }}</p>
@@ -546,11 +589,13 @@ function printSheet() {
               :songbook="sheetBook === 'songbook'"
               :lyric-join="sheetLyricJoin !== 'split'"
               :book-phrases="sheetBookMap"
+              @measured="schedulePages"
             />
             <!-- ใบ#146 ข้อ 6 — where each new page starts (screen only) -->
             <div v-for="(y, i) in breaks" :key="i" class="pv-break no-print" :style="{ top: y + 'px' }" aria-hidden="true">
               <span>หน้า {{ i + 2 }}</span>
             </div>
+          </div>
           </div>
         </div>
         <aside class="pv-set no-print" aria-label="ตั้งค่าแผ่นเพลง">
@@ -690,15 +735,24 @@ function printSheet() {
 @media screen {
   .sheet-workspace { padding-bottom: 24px; }
 }
-/* ใบ v3/pleng#146 — ก่อนพิมพ์: the sheet drawn as the A4 page it will print on, to scale.
+/* ใบ v3/pleng#146 — ก่อนพิมพ์: the sheet on the A4 page it will print on.
    ใบ#130 found that where lines break depends only on how many font-sizes wide the text box is: on paper
-   that is 178mm (A4 210mm − 16mm margins each side) at the print size 1rem = 16px = 4.2333mm. So the
-   preview is a 210mm-wide page scaled to the column: .pv-frame is the container, and inside it 1mm =
-   100cqw / 210. The sheet gets the paper's margins and the paper's font size in those mm, so it wraps,
-   and its head and title sit, exactly as on paper — whatever the window. The top-bar Aa does not enlarge
-   it: this page shows the paper, and the paper's size is fixed (ใบ#140). Print ignores all of this
-   (@media screen) and keeps the rules it always had, so the printed page count does not change. */
-.pv-top { display: flex; align-items: center; margin: 0 0 var(--sp-2); }
+   that is 178mm (A4 210mm − 16mm margins each side) at the print size 1rem. So the paper here IS that
+   page — 210mm wide, the @page margins as padding, 1rem type — laid out at real size on every screen, and
+   only its picture is scaled (the inline transform, worked out in the script) to เต็มแผ่น or the zoom.
+   The sizer around it takes the room the scaled picture needs. The top-bar Aa does not enlarge it: this
+   page shows the paper, and the paper's size is fixed (ใบ#140). Print ignores the picture (see below). */
+.pv-top { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin: 0 0 var(--sp-2); }
+.pv-zoom { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+.pv-zbtn, .pv-zfit {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: var(--touch-min); min-height: var(--touch-min); padding: 0 10px;
+  border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink);
+  font: inherit; font-size: var(--fs-sm); cursor: pointer;
+}
+.pv-zbtn:disabled { opacity: 0.4; cursor: default; }
+.pv-zfit[aria-pressed='true'] { border-color: var(--brand); color: var(--brand); font-weight: 700; }
+.pv-zval { min-width: 3.2em; text-align: center; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--muted); }
 .pv-body { display: flex; gap: var(--sp-4); align-items: flex-start; }
 .pv-frame { flex: 1 1 auto; min-width: 0; }
 .pv-set {
@@ -726,36 +780,38 @@ function printSheet() {
   .pv-set { flex: 0 0 auto; width: 100%; position: static; }
 }
 @media screen {
-  .pv-frame { container-type: inline-size; max-width: 210mm; }
+  .pv-frame { overflow-x: auto; }
+  .pv-sizer { position: relative; margin: 0 auto; }
   .pv-paper {
-    --mm: calc(100cqw / 210);
-    position: relative;
-    margin: 0;
-    padding: calc(15 * var(--mm)) calc(16 * var(--mm)) calc(16 * var(--mm));
-    min-height: calc(297 * var(--mm));
-    background: #fff; border: 1px solid var(--line); border-radius: 2px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
-    font-size: calc(4.2333 * var(--mm)); /* the print size, 1rem = 16px = 4.2333mm */
+    position: absolute; top: 0; left: 0;
+    box-sizing: border-box; width: 210mm; min-height: 297mm;
+    margin: 0; padding: 15mm 16mm 16mm; /* the @page margins, 15mm 16mm 16mm */
+    transform-origin: 0 0;
+    background: #fff; border: 0; border-radius: 2px;
+    /* the paper's edge is a shadow, not a border: a border would take width from the text box */
+    box-shadow: 0 0 0 calc(1px / var(--k, 1)) var(--line), 0 2px 10px rgba(0, 0, 0, 0.12);
+    font-size: 1rem; /* the print size */
   }
   .pv-paper :deep(.sheet-root) { width: 100%; font-size: inherit; }
-  /* title and head exactly as print draws them (SongHead's @media print), in paper mm */
+  /* title and head exactly as print draws them (SongHead's @media print) */
   .pv-paper :deep(.sheet-print-title.on-screen) {
     display: block; text-align: center; color: #000; line-height: normal;
-    font-size: calc(5.6444 * var(--mm)); /* 16pt */
-    font-weight: 700; margin: 0 0 calc(6 * var(--mm));
+    font-size: 16pt; font-weight: 700; margin: 0 0 6mm;
   }
-  .pv-paper :deep(.sheet-print-title.on-screen.has-head) { margin-bottom: calc(0.5 * var(--mm)); }
+  .pv-paper :deep(.sheet-print-title.on-screen.has-head) { margin-bottom: 0.5mm; }
   .pv-paper :deep(.sheet-head) {
-    font-size: calc(3.5278 * var(--mm)); /* 10pt */
-    line-height: calc(4 * var(--mm)); height: calc(4 * var(--mm));
-    white-space: nowrap; color: #000; margin: 0 0 calc(1.5 * var(--mm));
+    font-size: 10pt; line-height: 4mm; height: 4mm;
+    white-space: nowrap; color: #000; margin: 0 0 1.5mm;
   }
+  /* the page-start line and its label keep their on-screen size whatever the picture's scale */
   .pv-break {
     position: absolute; left: 0; right: 0; height: 0;
-    border-top: 2px dashed var(--red, #c0392b); pointer-events: none;
+    border-top: calc(2px / var(--k, 1)) dashed var(--red, #c0392b); pointer-events: none;
   }
   .pv-break span {
-    position: absolute; right: 6px; top: -1.4em; font-size: 12px; font-weight: 700;
+    position: absolute; right: calc(6px / var(--k, 1)); bottom: 0;
+    transform: scale(calc(1 / var(--k, 1))); transform-origin: right bottom;
+    font-size: 12px; font-weight: 700; white-space: nowrap;
     color: var(--red, #c0392b); background: #fff; padding: 0 6px; border-radius: 6px;
   }
 }
@@ -766,7 +822,10 @@ function printSheet() {
   color: var(--muted, #6b7280); background: var(--surface-2, rgba(127, 127, 127, 0.08));
 }
 @media print {
-  .pv-body, .pv-frame { display: block; }
+  .pv-body, .pv-frame, .pv-sizer { display: block; }
+  /* the picture's size and scale are screen-only (inline styles, hence !important) */
+  .pv-sizer { width: auto !important; height: auto !important; }
+  .pv-paper { transform: none !important; }
   /* the paper's font is 1rem whatever the screen did (ใบ#130 · ใบ#140), so the page count never moves */
   .pv-paper { font-size: 1rem !important; }
 }

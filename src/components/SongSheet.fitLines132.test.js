@@ -58,7 +58,8 @@ describe('ใบ#132 — one entered line, one row, filling the page', () => {
     const fn = SRC.slice(SRC.indexOf('function naturalWidth('), SRC.indexOf('function spreadBars('))
     expect(fn).toMatch(/line\.children/) // every item on the row — since ใบ#140 the end mark too
     expect(fn).toMatch(/\.tie-overlay, \.section-label/) // neither is measured as a row item
-    expect(fn).toMatch(/Math\.abs\(label\.getBoundingClientRect\(\)\.top - first\.getBoundingClientRect\(\)\.top\)/) // "is it on the same row?"
+    // "is it on the same row?" — measured through layoutRect since ใบ#146 (ก่อนพิมพ์ scales the picture)
+    expect(fn).toMatch(/Math\.abs\(layoutRect\(label\)\.top - layoutRect\(first\)\.top\)/)
   })
 
   it('reused-verse lines are left out — spreading stacked words would only pull them apart', () => {
