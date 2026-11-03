@@ -64,7 +64,6 @@ describe('song page offline', () => {
     h.list = OFFLINE
     const w = await open()
     expect(w.vm.liveSong && w.vm.liveSong.title_th).toBe('เพลงที่เก็บไว้')
-    expect(w.vm.songList.map((s) => s.id)).toEqual(['a']) // the song picker works offline too
   })
 
   it('the database says the song is gone: the saved copy does NOT bring it back', async () => {
@@ -79,6 +78,6 @@ describe('song page offline', () => {
     h.list = { data: [{ ...SAVED, title_th: 'ชื่อใหม่' }], error: null, status: 200 }
     const w = await open()
     expect(w.vm.liveSong.title_th).toBe('ชื่อใหม่')
-    expect(store.get('catalog').rows[0].title_th).toBe('ชื่อใหม่') // the picker's fetch refreshed the copy
+    expect(store.get('catalog').rows[0].title_th).toBe('ชื่อใหม่') // opening a song still refreshed the copy (ใบ#141 kept the fetch when the picker went)
   })
 })

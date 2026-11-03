@@ -65,22 +65,18 @@ const song717 = {
     ],
   },
 }
-const modeButtons = () => [...document.querySelectorAll('#shell-menus .sb-mode-btn')]
-
-// load a song into the shell, switch to แผ่นเพลง, optionally after the reader picked a set
+// load a song into the shell, open ก่อนพิมพ์ from ฝึกร้อง (ดาวน์โหลด › พิมพ์ · ใบ#146), optionally after the
+// reader picked a set
 async function openSheet(song, readerSet) {
   const w = mount(Studio, { global: { stubs } })
   await nextTick()
   w.findComponent(EditorMode).vm.$emit('change', song)
   await nextTick()
-  const [view, sheet] = modeButtons()
-  view.click()
-  await nextTick()
   if (readerSet != null) {
     w.findComponent({ name: 'SongViewer' }).vm.$emit('set', readerSet)
     await nextTick()
   }
-  sheet.click()
+  w.findComponent({ name: 'SongViewer' }).vm.$emit('print')
   await nextTick()
   return w
 }

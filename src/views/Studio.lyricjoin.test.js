@@ -40,8 +40,7 @@ async function openSheet() {
   await nextTick()
   w.findComponent(EditorMode).vm.$emit('change', { id: null, number: null, title_th: 'x', title_en: '', content: { version: 2, key: 'C', timeSignature: '4/4', stanzas: [], arrangement: [] } })
   await nextTick()
-  document.querySelectorAll('#shell-menus .sb-mode-btn')[1].click()
-  await nextTick()
+  await w.find('.ed-sheet-btn').trigger('click') // ดูแผ่นเพลง in แก้ไข (ใบ#141)
   return w
 }
 // ใบ#146 — the sheet settings are rows of the ก่อนพิมพ์ panel, always open beside the paper
