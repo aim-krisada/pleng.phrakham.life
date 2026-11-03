@@ -77,7 +77,7 @@ describe('Studio shell — no second row (ใบ#141)', () => {
 
   // the top-bar ค้นหา goes to the home list (ShellBar goSearch); a song picked there mounts this page anew
   it('a song opened from the list or a link lands in ฝึกร้อง, never in แก้ไข', async () => {
-    h.route.params.id = 'song-7'
+    h.route = reactive({ params: { id: 'song-7' }, query: {} }) // a real route always has a query
     const w = mount(Studio, { global: { stubs } })
     await flushPromises()
     expect(isEditActive(w)).toBe(false)
