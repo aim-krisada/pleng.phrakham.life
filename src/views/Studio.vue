@@ -82,29 +82,36 @@ function liveFromRow(data) {
 // ---------- ใบ v3/pleng#145 — in and out of แก้ไข: ✎ on the ฝึกร้อง bar · ← กลับไปฝึกร้อง ----------
 // In: the ✎ on the ฝึกร้อง bar opens the SAME song in แก้ไข. Out: the "← กลับไปฝึกร้อง" row at the top
 // left of แก้ไข (พี่เอม picked ข้อเสนอ ก, 2 พ.ย. 2569 — the same corner as ใบ#146's "← ก่อนพิมพ์").
-// Leaving with unsaved work never drops it silently: a dialog asks first, "แก้ต่อ" being the safe,
-// default answer. "ทิ้งแล้วกลับ" really throws the edits away — the editor is rebuilt from the saved
-// song and ฝึกร้อง shows the saved version, not half-finished work. Nothing changed → straight back.
+// ใบ v3/pleng#148 (พี่เปา 3 พ.ย. 2569) — ← goes back to ฝึกร้อง WITH the unsaved edits, to hear them, and ✎ comes
+// back to them right where the editing was: "ควรกลับไปฟังได้แล้วกลับมาแก้ต่อได้เหมือนเมื่อก่อน". Nothing is
+// thrown away, so there is nothing to ask — the editor stays mounted (v-show) and ฝึกร้อง plays liveSong,
+// which the editor keeps current. (ใบ#145 asked first and offered only "ทิ้งแล้วกลับ" or staying.)
+// สร้างเพลงใหม่ does replace the work, so that one still asks first, "แก้ต่อ" being the safe default.
 const editorRef = ref(null)
 const backBtn = ref(null)
 const keepBtn = ref(null)
-// what the "ยังไม่ได้บันทึก" question is about: null (closed) · 'back' (← กลับไปฝึกร้อง) · 'new' (สร้างเพลงใหม่)
+// what the "ยังไม่ได้บันทึก" question is about: null (closed) · 'new' (สร้างเพลงใหม่)
 const leaveAsk = ref(null)
 const LEAVE_TEXT = {
-  back: { what: 'ถ้ากลับไปฝึกร้องตอนนี้ ที่แก้ไว้จะหาย', go: 'ทิ้งแล้วกลับ' },
   new: { what: 'ถ้าเริ่มเพลงใหม่ตอนนี้ ที่แก้ไว้จะหาย', go: 'ทิ้งแล้วเริ่มใหม่' },
 }
 // ใบ v3/pleng#145 — a ฝึกร้อง page to go back to: the saved song, OR a draft the editor has open. รอตรวจ on the
 // home page opens a draft straight in แก้ไข (/studio?draft=…), with no saved song behind it, so "← กลับไปฝึกร้อง"
 // used to be missing there — พี่เอม 3 พ.ย. 2569: entering from รอตรวจ must look like entering with ✎, with a way
 // back to hear the whole song. ฝึกร้อง plays what the editor holds, so it plays the draft.
-const hasSingPage = computed(() => !!(loadedSong.value || editorRef.value?.currentDraftId))
+// ใบ#148 (พี่เปา) — after อนุมัติและเผยแพร่ the draft is gone and the editor holds the published song (editingId),
+// so that counts too: the ← no longer vanishes the moment a draft is approved.
+const hasSingPage = computed(() => !!(loadedSong.value || editorRef.value?.currentDraftId || editorRef.value?.editingId))
+// where the editing was, so ✎ after ← lands back on it instead of at the top (null = never left: open at the top)
+let editScrollY = null
 function openEditor() {
   mode.value = 'edit'
-  nextTick(() => window.scrollTo({ top: 0 }))
+  const y = editScrollY ?? 0
+  editScrollY = null
+  nextTick(() => window.scrollTo({ top: y }))
 }
 function backToSing() {
-  if (editorRef.value?.isDirty) return ask('back')
+  editScrollY = window.scrollY
   mode.value = 'view'
 }
 function ask(what) {
@@ -112,19 +119,11 @@ function ask(what) {
   nextTick(() => keepBtn.value?.focus())
 }
 function keepEditing() {
-  const was = leaveAsk.value
   leaveAsk.value = null
-  if (was === 'back') nextTick(() => backBtn.value?.focus())
 }
 function discardAndGo() {
-  const what = leaveAsk.value
   leaveAsk.value = null
-  if (what === 'new') return startNew()
-  if (loadedSong.value) liveSong.value = liveFromRow(loadedSong.value)
-  // a fresh editor from the saved song — the unsaved edits are gone. Opened from รอตรวจ, the URL still names the
-  // draft (?draft=…), so the fresh editor opens that draft again, as it was sent.
-  editorNonce.value++
-  mode.value = 'view'
+  startNew()
 }
 
 // ใบ v3/pleng#147 — สร้างเพลงใหม่ from the top bar / ☰ while this surface is open. Unsaved work in the editor
@@ -449,10 +448,10 @@ function measureSide() {
 // ใบ#148 ข้อ 6 — keep the line being edited in view on the sheet. A resolved sheet line knows which
 // ท่อน (melody) and which of its lines it came from; the first one actually drawn is where its notes are
 // (a reused ท่อน's words sit under the line that printed them).
-function scrollSideToLine() {
+function scrollSideToLine(atLine, always = false) {
   const box = sideScrollEl.value
   const id = editorRef.value?.activeStanzaId
-  const li = editorRef.value?.activeLine
+  const li = typeof atLine === 'number' ? atLine : editorRef.value?.activeLine
   if (!showSide.value || !box || !id) return
   const lines = sheetContent.value.lines
   let el = null
@@ -464,10 +463,36 @@ function scrollSideToLine() {
   if (!el) return
   const br = box.getBoundingClientRect()
   const er = el.getBoundingClientRect()
-  if (er.top >= br.top && er.bottom <= br.bottom) return // already in view
+  if (!always && er.top >= br.top && er.bottom <= br.bottom) return // already in view
   box.scrollTo({ top: box.scrollTop + er.top - br.top - box.clientHeight / 3, behavior: 'smooth' })
 }
 watch(() => [editorRef.value?.activeStanzaId, editorRef.value?.activeLine], () => nextTick(scrollSideToLine))
+// ใบ#148 (พี่เปา 3 พ.ย. 2569) — the sheet also follows the editor's own scrolling: the line sitting a third of the
+// way down the screen in the editor is brought to the same height on the sheet. The editor shows one melody's
+// lines (.ed-line, in order), so a line's place among them is its line number in that melody.
+let followKey = ''
+let followTimer = 0
+function followEditorScroll() {
+  followTimer = 0
+  const box = sideScrollEl.value
+  const id = editorRef.value?.activeStanzaId
+  if (!showSide.value || !box || !id) return
+  const mark = window.innerHeight / 3
+  const rows = [...document.querySelectorAll('.ed-split-main .ed-line')]
+  let li = -1
+  rows.forEach((r, i) => { if (r.getBoundingClientRect().top <= mark) li = i })
+  const key = id + ':' + li
+  if (key === followKey) return
+  followKey = key
+  if (li < 0) return box.scrollTo({ top: 0 }) // above the first line (the song's settings): the sheet's top
+  scrollSideToLine(li, true)
+}
+// a short timer, not requestAnimationFrame: rAF stops in a page that is not being painted (SongSheet says the same)
+function onEditScroll() {
+  if (!followTimer && showSide.value) followTimer = setTimeout(followEditorScroll, 60)
+}
+onMounted(() => window.addEventListener('scroll', onEditScroll, { passive: true }))
+onUnmounted(() => { window.removeEventListener('scroll', onEditScroll); clearTimeout(followTimer) })
 let sideRO = null
 onMounted(() => {
   if (typeof window.matchMedia === 'function') {
@@ -486,6 +511,26 @@ onMounted(() => {
 })
 onUnmounted(() => { sideMQ?.removeEventListener?.('change', syncSideWide); sideRO?.disconnect() })
 watch([showSide, sheetContent], () => nextTick(measureSide))
+// ใบ#148 (พี่เปา: "หน้าจอหลายครั้งก็กระพริบ ๆ เฉพาะแผ่นเพลง") — the editor pushes a new song object on every
+// change, and each one made the sheet beside it redraw and re-fit. The sheet takes the paper's settings only
+// once the typing pauses, and not at all when nothing on the paper changed.
+const sideSheetProps = ref(null)
+let sideSheetJson = ''
+let sideSheetTimer = 0
+function takeSideSheet() {
+  const p = paperSheetProps.value
+  const j = JSON.stringify(p)
+  if (j === sideSheetJson) return
+  sideSheetJson = j
+  sideSheetProps.value = p
+}
+watch(paperSheetProps, () => {
+  clearTimeout(sideSheetTimer)
+  // nothing on screen to flicker yet (sheet closed, or the song still loading): take it straight away
+  if (!showSide.value || !sideSheetProps.value?.content?.lines?.length) return takeSideSheet()
+  sideSheetTimer = setTimeout(takeSideSheet, 250)
+}, { immediate: true })
+onUnmounted(() => clearTimeout(sideSheetTimer))
 
 // ใบ v3/pleng#141 — the second row of the song page (เพลง ▾ + ฝึกร้อง · แผ่นเพลง · แก้ไข) is gone. A song opens
 // in ฝึกร้อง; ✎ goes to แก้ไข (ใบ#145) and ← comes back; ก่อนพิมพ์ opens from ดาวน์โหลด › พิมพ์ in ฝึกร้อง
@@ -643,7 +688,7 @@ function printSheet() {
         <div ref="sideFrameEl" class="pv-frame ed-side-frame">
           <div class="pv-sizer" :style="{ width: PAPER_PX * sideScale + 'px', height: sidePaperH * sideScale + 'px' }">
             <div ref="sidePaperEl" class="card pv-paper" data-layout-scale :style="{ transform: `scale(${sideScale})`, '--k': sideScale }">
-              <SongSheet v-bind="paperSheetProps" song-head screen-title fit-lines @measured="measureSide" />
+              <SongSheet v-bind="sideSheetProps" song-head screen-title fit-lines @measured="measureSide" />
             </div>
           </div>
         </div>
