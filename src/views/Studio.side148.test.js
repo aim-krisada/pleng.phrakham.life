@@ -47,7 +47,7 @@ import Studio from './Studio.vue'
 const stubs = {
   SongViewer: { name: 'SongViewer', props: ['song'], emits: ['edit', 'set', 'dock', 'print'], template: '<div class="stub-viewer" />' },
   SongSheet: { name: 'SongSheet', props: ['content', 'displayKey', 'songbook', 'showChord', 'songTitle'], template: '<div class="stub-sheet" />' },
-  EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active', 'initialSet', 'sidePaper'], data: () => ({ isDirty: false }), template: '<div class="stub-editor" />' },
+  EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active', 'initialSet', 'sidePaper'], data: () => ({ isDirty: false, activeStanzaId: 'A', activeLine: 0 }), template: '<div class="stub-editor" />' },
   DockKey: true,
   Icon: true,
 }
@@ -129,6 +129,34 @@ describe('ใบ#148 — แผ่นเพลงข้างหน้าแก�
     expect(sideBtn()).toBeUndefined()
     expect(editor().props('sidePaper')).toBe(false)
     expect(w.find('.ed-back').text()).toContain('ดูแผ่นเพลง')
+  })
+
+  it('พี่เปา "scroll ไม่ลงล็อก" — a burst of page scrolling moves the sheet ONCE, after it stops', async () => {
+    await toEdit()
+    const box = w.find('.ed-side').element
+    const moves = []
+    box.scrollTo = (o) => moves.push(o)
+    vi.useFakeTimers()
+    try {
+      for (let i = 0; i < 10; i++) { window.dispatchEvent(new Event('scroll')); vi.advanceTimersByTime(50) }
+      expect(moves.length).toBe(0) // still scrolling: the sheet waits
+      vi.advanceTimersByTime(300)
+      expect(moves.length).toBe(1)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('while the sheet itself is being scrolled, the page scrolling does not pull it back', async () => {
+    await toEdit()
+    const box = w.find('.ed-side').element
+    const moves = []
+    box.scrollTo = (o) => moves.push(o)
+    vi.useFakeTimers()
+    try {
+      await w.find('.ed-side').trigger('wheel')
+      window.dispatchEvent(new Event('scroll'))
+      vi.advanceTimersByTime(400)
+      expect(moves.length).toBe(0)
+    } finally { vi.useRealTimers() }
   })
 
   it('the sheet beside is only for แก้ไข — ฝึกร้อง never shows it', async () => {

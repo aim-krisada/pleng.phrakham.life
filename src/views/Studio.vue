@@ -468,12 +468,21 @@ function scrollSideToLine(atLine, always = false) {
 }
 watch(() => [editorRef.value?.activeStanzaId, editorRef.value?.activeLine], () => nextTick(scrollSideToLine))
 // ใบ#148 (พี่เปา 3 พ.ย. 2569) — the sheet also follows the editor's own scrolling: the line sitting a third of the
-// way down the screen in the editor is brought to the same height on the sheet. The editor shows one melody's
+// way down the screen in the editor is brought into view on the sheet. The editor shows one melody's
 // lines (.ed-line, in order), so a line's place among them is its line number in that melody.
+// It moves ONCE, after the scrolling stops, and only when that line is off the sheet's view: following every
+// scroll step restarted the sheet's own smooth scroll over and over, so it shook and never settled
+// (พี่เปา, the same day: "ยังกระพริบอยู่เหมือน scroll ไม่ลงล็อก"). And while someone is scrolling the sheet
+// itself it is left alone — their wheel reaching the sheet's end used to roll the page, which pulled the
+// sheet back (CSS overscroll-behavior on .ed-side now keeps the wheel in the sheet as well).
 let followKey = ''
 let followTimer = 0
+let sideTouchedAt = 0
+const SIDE_HANDS_OFF_MS = 1500
+function onSideTouched() { sideTouchedAt = Date.now() }
 function followEditorScroll() {
   followTimer = 0
+  if (Date.now() - sideTouchedAt < SIDE_HANDS_OFF_MS) return
   const box = sideScrollEl.value
   const id = editorRef.value?.activeStanzaId
   if (!showSide.value || !box || !id) return
@@ -484,12 +493,16 @@ function followEditorScroll() {
   const key = id + ':' + li
   if (key === followKey) return
   followKey = key
-  if (li < 0) return box.scrollTo({ top: 0 }) // above the first line (the song's settings): the sheet's top
-  scrollSideToLine(li, true)
+  if (li < 0) return box.scrollTo({ top: 0, behavior: 'smooth' }) // above the first line (the song's settings): the sheet's top
+  scrollSideToLine(li)
 }
-// a short timer, not requestAnimationFrame: rAF stops in a page that is not being painted (SongSheet says the same)
+// waits for the page to stop scrolling (a timer, not requestAnimationFrame: rAF stops in a page that is not
+// being painted — SongSheet says the same)
+const FOLLOW_SETTLE_MS = 180
 function onEditScroll() {
-  if (!followTimer && showSide.value) followTimer = setTimeout(followEditorScroll, 60)
+  if (!showSide.value) return
+  clearTimeout(followTimer)
+  followTimer = setTimeout(followEditorScroll, FOLLOW_SETTLE_MS)
 }
 onMounted(() => window.addEventListener('scroll', onEditScroll, { passive: true }))
 onUnmounted(() => { window.removeEventListener('scroll', onEditScroll); clearTimeout(followTimer) })
@@ -679,7 +692,15 @@ function printSheet() {
         @save="onSave"
       />
       <!-- ใบ v3/pleng#148 — the sheet beside แก้ไข on a wide screen: the ก่อนพิมพ์ paper, following every edit -->
-      <aside v-if="showSide" ref="sideScrollEl" class="ed-side no-print" aria-label="แผ่นเพลง (เปลี่ยนตามที่แก้)">
+      <aside
+        v-if="showSide"
+        ref="sideScrollEl"
+        class="ed-side no-print"
+        aria-label="แผ่นเพลง (เปลี่ยนตามที่แก้)"
+        @wheel.passive="onSideTouched"
+        @touchstart.passive="onSideTouched"
+        @pointerdown="onSideTouched"
+      >
         <div class="ed-side-top">
           <button type="button" class="ed-side-print" @click="openPreview">
             <Icon name="printer" :size="16" /> ก่อนพิมพ์
@@ -740,6 +761,7 @@ function printSheet() {
   position: sticky; top: 72px;
   max-height: calc(100vh - 72px - var(--dock-clear, 160px) - 8px);
   overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; /* the wheel at the sheet's end stays in the sheet, never rolls the page under it */
   border: 1px solid var(--line); border-radius: 12px; background: var(--cream, #faf7f2); padding: 10px;
 }
 .ed-side-frame { overflow: visible; }
