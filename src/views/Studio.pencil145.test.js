@@ -72,7 +72,7 @@ async function open() {
 }
 const viewer = () => w.findComponent({ name: 'SongViewer' })
 const editor = () => w.findComponent({ name: 'EditorMode' })
-const backBtn = () => w.find('.ed-back-btn')
+const backBtn = () => w.find('.ed-back .ed-back-btn') // ใบ#146's ก่อนพิมพ์ has a back button too
 
 describe('ใบ#145 — ✎ in, ← out', () => {
   it('a song opens in ฝึกร้อง, with no back row there', async () => {

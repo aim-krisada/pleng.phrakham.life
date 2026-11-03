@@ -1,6 +1,6 @@
 // ใบ v3/pleng#108 → #111 — the dock is a BAR fixed to the bottom edge: full width, no drag, no
 // collapse grip, no โปร่งใส, solid. ใบ#108 did this on a phone for ฝึกร้อง and แผ่นเพลง;
-// ใบ#111 makes it the ONLY dock — every width, all three pages (ฝึกร้อง · แผ่นเพลง · แก้ไข).
+// ใบ#111 makes it the ONLY dock — every width, on ฝึกร้อง and แก้ไข (แผ่นเพลง lost its bar in ใบ#146).
 // jsdom has no layout, so the viewport is faked through window.matchMedia.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
@@ -95,7 +95,7 @@ describe('ฝึกร้อง dock (SingTransport)', () => {
   }
 })
 
-// แผ่นเพลง lives in Studio; mount it with the other modes stubbed (as Studio.followups does)
+// ก่อนพิมพ์ lives in Studio; mount it with the other modes stubbed (as Studio.followups does)
 const h = vi.hoisted(() => ({ route: null }))
 vi.mock('vue-router', () => ({ useRoute: () => h.route, useRouter: () => ({ push: () => {} }) }))
 vi.mock('../supabase.js', () => {
@@ -131,18 +131,17 @@ const mountStudio = () => {
   return mount(Studio, { global: { stubs: studioStubs }, attachTo: document.body })
 }
 
-describe('แผ่นเพลง dock (Studio print)', () => {
+// ใบ v3/pleng#146 — แผ่นเพลง became ก่อนพิมพ์: no bottom bar any more. Its settings sit in a panel
+// beside (desktop) or under (phone) the paper, and พิมพ์ is a button at the end of that panel.
+describe('ก่อนพิมพ์ (Studio, ใบ#146) — no dock bar', () => {
   for (const px of [375, 1280]) {
-    it(`${px}px: bar, no grip, named toolbar, พิมพ์ first`, async () => {
+    it(`${px}px: no bar, the settings panel and its พิมพ์ button instead`, async () => {
       setWidth(px)
       const w = mountStudio()
       await nextTick()
-      const host = w.find('.sheet-workspace .dk-host')
-      expect(host.exists()).toBe(true)
-      expect(host.classes()).toContain('dk-bar')
-      expect(w.find('.sheet-workspace [data-grip]').exists()).toBe(false)
-      expect(w.find('.sheet-workspace .dk-dock').attributes('aria-label')).toBe('แถบแผ่นเพลง')
-      expect(w.find('.sheet-workspace .dk-btnrow [data-cell]').attributes('data-cell')).toBe('print')
+      expect(w.find('.sheet-workspace .dk-host').exists()).toBe(false)
+      expect(w.find('.sheet-workspace .pv-set').attributes('aria-label')).toBe('ตั้งค่าแผ่นเพลง')
+      expect(w.find('.sheet-workspace .pv-set .pv-print').exists()).toBe(true)
     })
   }
 })

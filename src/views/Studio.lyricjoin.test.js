@@ -44,10 +44,9 @@ async function openSheet() {
   await nextTick()
   return w
 }
-const gear = (w) => w.find('.sheet-workspace ~ * .dk-gear, .dk-gear')
+// ใบ#146 — the sheet settings are rows of the ก่อนพิมพ์ panel, always open beside the paper
 async function settingRows(w) {
-  if (!w.find('.dk-panel').exists()) { await gear(w).trigger('click'); await nextTick() }
-  return w.findAll('.dk-panel [data-setting]').map((r) => r.attributes('data-setting'))
+  return w.findAll('.pv-set [data-setting]').map((r) => r.attributes('data-setting'))
 }
 
 describe('ใบ#101 — แผ่นเพลง: แยกพยางค์ / ติดกันเป็นวรรค', () => {
@@ -56,7 +55,7 @@ describe('ใบ#101 — แผ่นเพลง: แยกพยางค์ /
     expect(w.findComponent(SongSheet).props('songbook')).toBe(true)
     expect(w.findComponent(SongSheet).props('lyricJoin')).toBe(false)
     expect(await settingRows(w)).toContain('lyricjoin')
-    const sel = w.find('.dk-panel [data-setting="lyricjoin"] select')
+    const sel = w.find('.pv-set [data-setting="lyricjoin"] select')
     await sel.setValue('join')
     await nextTick()
     expect(w.findComponent(SongSheet).props('lyricJoin')).toBe(true)
@@ -66,16 +65,16 @@ describe('ใบ#101 — แผ่นเพลง: แยกพยางค์ /
   it('แบบเต็ม with notes shown: no lyrics-only lines → no เนื้อร้อง menu', async () => {
     const w = await openSheet()
     await settingRows(w)
-    await w.find('.dk-panel [data-setting="book"] select').setValue('full')
+    await w.find('.pv-set [data-setting="book"] select').setValue('full')
     await nextTick()
-    expect(w.findAll('.dk-panel [data-setting]').map((r) => r.attributes('data-setting'))).not.toContain('lyricjoin')
+    expect(w.findAll('.pv-set [data-setting]').map((r) => r.attributes('data-setting'))).not.toContain('lyricjoin')
   })
   it('ใบ#105 — the same menu offers ตามต้นฉบับ, and a song with no book phrasing still prints', async () => {
     const w = await openSheet()
     await settingRows(w)
-    const opts = w.findAll('.dk-panel [data-setting="lyricjoin"] option').map((o) => o.text())
+    const opts = w.findAll('.pv-set [data-setting="lyricjoin"] option').map((o) => o.text())
     expect(opts).toEqual(['แยกพยางค์', 'ติดกันเป็นวรรคตามทำนอง', 'ตามต้นฉบับ (วรรคในหนังสือ)'])
-    await w.find('.dk-panel [data-setting="lyricjoin"] select').setValue('book')
+    await w.find('.pv-set [data-setting="lyricjoin"] select').setValue('book')
     await nextTick()
     expect(w.findComponent(SongSheet).props('lyricJoin')).toBe(true)
     expect(w.findComponent(SongSheet).props('bookPhrases')).toBe(null) // none for this song

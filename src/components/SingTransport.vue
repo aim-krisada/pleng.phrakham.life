@@ -49,7 +49,7 @@ const props = defineProps({
   mp3Instrument: { type: String, default: 'synth' },
   mp3SongId: { type: [String, Number], default: undefined },
 })
-const emit = defineEmits(['toggle-play', 'prev', 'next', 'toggle-loop', 'seek', 'jump', 'toggle-section', 'set-all', 'edit'])
+const emit = defineEmits(['toggle-play', 'prev', 'next', 'toggle-loop', 'seek', 'jump', 'toggle-section', 'set-all', 'edit', 'print'])
 
 // ---------- clock ----------
 const two = (n) => String(n).padStart(2, '0')
@@ -318,6 +318,7 @@ const items = computed(() => {
         :arrange-cfg="mp3ArrangeCfg"
         :instrument="mp3Instrument"
         :song-id="mp3SongId"
+        :on-print="() => emit('print')"
         :open="open"
         @toggle="toggle"
         @close="close"

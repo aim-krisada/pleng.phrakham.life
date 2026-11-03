@@ -7,6 +7,7 @@ import { pixelRatio, levelTop, lineThickness } from '../lib/pixelSnap.js'
 import { phraseBreaks, songBreathBeats, wordEnds } from '../lib/lyricPhrase.js'
 import { lyricLineSplits } from '../lib/lyricLineSplit.js'
 import { fitScale, spreadPadding } from '../lib/fitLine.js'
+import { layoutRect } from '../lib/layoutRect.js'
 import { openingKey, openingMeter, songHeadInfo } from '../lib/songHead.js'
 import NoteRow from './NoteRow.vue'
 import SongHead from './SongHead.vue'
@@ -54,7 +55,9 @@ const props = defineProps({
   // แผ่นเพลง only — ฝึกร้อง and the editor preview read on screen and keep their free wrapping.
   fitLines: { type: Boolean, default: false },
 })
-const emit = defineEmits(['seek'])
+// measured — ใบ v3/pleng#146: the sheet has finished laying itself out (fitted lines, words, ties), so
+// ก่อนพิมพ์ can count the pages from the final layout instead of guessing when that is.
+const emit = defineEmits(['seek', 'measured'])
 
 // Resolve each layer: an explicit flag wins; otherwise derive from the coarse `mode`
 // (full = chord+note+lyric · lyrics = lyric only) — the pre-B024 contract.
@@ -521,12 +524,12 @@ function measureTies() {
   restoreHalves()
   restoreBridged()
   if (!root) { lineArcs.value = {}; return }
-  if (!root.getBoundingClientRect().width) { lineArcs.value = {}; return } // no layout (unit tests / hidden)
+  if (!layoutRect(root).width) { lineArcs.value = {}; return } // no layout (unit tests / hidden)
   const byLine = {}
   root.querySelectorAll('.song-line').forEach((lineEl) => {
     const li = lineEl.dataset.li
     // measure relative to THIS line so the arcs live in the line's own SVG (prints per page)
-    const lr = lineEl.getBoundingClientRect()
+    const lr = layoutRect(lineEl)
     const nts = Array.from(lineEl.querySelectorAll('.note-row .nt'))
     const arcs = []
     nts.forEach((nt, i) => {
@@ -548,8 +551,8 @@ function measureTies() {
       // single lens, so it repairs both cases the same way.
       const srcSeg = prev.closest('.segment')
       const sameSeg = srcSeg === nt.closest('.segment')
-      const a = prev.getBoundingClientRect()
-      const b = nt.getBoundingClientRect()
+      const a = layoutRect(prev)
+      const b = layoutRect(nt)
       if (!b.width) return
       const h = Math.max(a.height, b.height)
       // the bar-group wrapped and the two notes fell onto different visual rows —
@@ -590,10 +593,10 @@ function measureTies() {
         // standard two-half engraving when a line wrap fell between them — shared with the
         // editor's overlay so both surfaces split a wrapped slur identically (B118).
         const produced = planArcs(
-          openNt.getBoundingClientRect(),
-          closeNt.getBoundingClientRect(),
+          layoutRect(openNt),
+          layoutRect(closeNt),
           lr,
-          nts.map((el) => el.getBoundingClientRect()),
+          nts.map((el) => layoutRect(el)),
         )
         // only claim (hide) the stray NoteRow arc once we actually drew a replacement — a
         // wrap we couldn't measure keeps NoteRow's own arc as a fallback (like ties above).
@@ -622,8 +625,8 @@ function measureTies() {
             const aEl = lineEl.querySelector(`.segment[data-seg="${li}-${s1.si}"] .nt[data-idx="${link.from}"] .num`)
             const bEl = lineEl.querySelector(`.segment[data-seg="${li}-${s2.si}"] .nt[data-idx="${link.to}"] .num`)
             if (!aEl || !bEl) continue
-            const a = aEl.getBoundingClientRect()
-            const b = bEl.getBoundingClientRect()
+            const a = layoutRect(aEl)
+            const b = layoutRect(bEl)
             if (!a.width || !b.width) continue
             if (Math.abs(a.top - b.top) > Math.max(a.height, b.height) * 0.6) continue // wrapped apart
             // ใบ#99 (พี่เปา: ขนาดปกติเส้นดูขีดซ้อน) — a digit NOT under a beam bar of its own has only its
@@ -720,13 +723,13 @@ function naturalWidth(line) {
     const cs = getComputedStyle(el)
     if (cs.display === 'none' || cs.position === 'absolute') continue
     first = first || el
-    row += el.getBoundingClientRect().width + parseFloat(cs.marginLeft) + parseFloat(cs.marginRight)
+    row += layoutRect(el).width + parseFloat(cs.marginLeft) + parseFloat(cs.marginRight)
   }
   widest = Math.max(widest, row)
   if (!first) return line.scrollWidth
   const label = line.querySelector(':scope > .section-label')
-  if (label && Math.abs(label.getBoundingClientRect().top - first.getBoundingClientRect().top) < 2) {
-    widest += label.getBoundingClientRect().width // the heading shares the bars' row
+  if (label && Math.abs(layoutRect(label).top - layoutRect(first).top) < 2) {
+    widest += layoutRect(label).width // the heading shares the bars' row
   }
   return widest
 }
@@ -740,7 +743,7 @@ function naturalWidth(line) {
 // (lib/fitLine.js); padding-right takes the part of the row it must not fill.
 function spreadBars(line) {
   const items = [...line.querySelectorAll(':scope > .bar-group, :scope > .bar-group > .segment')]
-  const widths = items.map((el) => el.getBoundingClientRect().width)
+  const widths = items.map((el) => layoutRect(el).width)
   const pad = spreadPadding(line.clientWidth, naturalWidth(line)) // before flex-grow goes inline: it outranks fit-measure's 0
   items.forEach((el, i) => { el.style.flexGrow = String(Math.max(widths[i], 1)) })
   if (pad) line.style.paddingRight = pad + 'px'
@@ -754,6 +757,7 @@ function measureSheet() {
   fitLineWidths()
   pinWords()
   measureTies()
+  emit('measured')
 }
 
 // Each word sits exactly under its note. The note row and the word row are two separate rows, and
@@ -780,7 +784,7 @@ function wordSlotSets() {
     // one word slot per note box, held notes included (song-model-v2.md) — so slot k is note k; a bar
     // may end with notes that have no word yet, never with a word that has no note
     const ok = nts.length && main.length <= nts.length && syls.every((s) => slots.has(s.dataset.slot)) &&
-      nts.some((n) => n.getBoundingClientRect().width > 0)
+      nts.some((n) => layoutRect(n).width > 0)
     sets.push({ box, nts, syls, slots, ok })
   }
   return sets
@@ -796,7 +800,7 @@ function widenNoteSlots() {
     if (!set.ok) { unpinWords(set); continue }
     const widest = new Map()
     for (const s of set.syls) {
-      const w = s.getBoundingClientRect().width
+      const w = layoutRect(s).width
       widest.set(s.dataset.slot, Math.max(widest.get(s.dataset.slot) || 0, w))
     }
     const gap = 0.3 * (parseFloat(getComputedStyle(set.box).fontSize) || 16)
@@ -813,10 +817,10 @@ function pinWords() {
     box.setAttribute('data-pin', '')
     const rows = 1 + Math.max(0, ...syls.map((s) => Number(s.dataset.row) || 0))
     box.style.height = `calc(${rows} * 1em * var(--lh-snug))`
-    const left = box.getBoundingClientRect().left
+    const left = layoutRect(box).left
     for (const s of syls) {
-      const r = slots.get(s.dataset.slot).getBoundingClientRect()
-      const w = s.getBoundingClientRect().width
+      const r = layoutRect(slots.get(s.dataset.slot))
+      const w = layoutRect(s).width
       s.style.left = (r.left + r.width / 2 - left - w / 2).toFixed(2) + 'px'
       s.style.top = s.dataset.row ? `calc(${s.dataset.row} * 1em * var(--lh-snug))` : ''
     }
@@ -826,7 +830,7 @@ function pinWords() {
     col.style.paddingTop = ''
     const box = col.closest('.song-line')?.querySelector('.lyric-syl[data-pin]')
     if (!box) continue
-    const d = box.getBoundingClientRect().top - col.getBoundingClientRect().top
+    const d = layoutRect(box).top - layoutRect(col).top
     if (d > 0) col.style.paddingTop = d.toFixed(2) + 'px'
   }
 }

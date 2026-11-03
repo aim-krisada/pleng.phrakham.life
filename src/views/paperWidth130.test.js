@@ -6,9 +6,13 @@
 // (16px), so the page is 178mm / 16px font-sizes wide. Give the sheet that same width in `em`
 // and the ratio holds at every reading size, because width and font scale together.
 //
+// ใบ v3/pleng#146 turned แผ่นเพลง into ก่อนพิมพ์: the sheet is laid out ON the A4 page itself, at real
+// size — 210mm wide, the @page margins as padding, the print font — and only the picture is scaled
+// to the window or the zoom. So the ratio is not just kept, it is the paper's own.
+//
 // That only works while everything ON the line scales with the font too. A width left in `px`
 // would stay put as the type grew, the line would hold more than the paper does, and the bug
-// would come back quietly at any reading size other than 100%. So the second half of this test
+// would come back quietly at any size other than the paper's. So the second half of this test
 // walks the sheet's own layout rules and refuses a fixed px width among them.
 //
 // jsdom lays nothing out and never prints, so the source is the only place this can be held.
@@ -49,43 +53,42 @@ function rule(css, selector, prop) {
   return hit
 }
 
-describe('ใบ#130 — the sheet on screen is the page', () => {
+describe('ใบ#130 · ใบ#146 — the sheet on screen is the page', () => {
+  const paper = () => rule(STUDIO, '.pv-paper', 'transform-origin')
+
   it('the page is 42.0472 font-sizes wide — the number the margins and the print font give', () => {
     expect(paperEm).toBeCloseTo(42.0472, 4)
-    expect(Number(STUDIO.match(/--paper-em:\s*([\d.]+)/)[1])).toBeCloseTo(paperEm, 3)
+    // the preview paper is that page: real A4 width, the text box inside the padding, the print font
+    expect(paper()).toMatch(/width:\s*210mm/)
+    expect(paper()).toMatch(/box-sizing:\s*border-box/)
+    expect(paper()).toMatch(/font-size:\s*1rem/)
   })
 
   it('the margins and the print font this number is built from are still what the CSS says', () => {
     expect(STYLES).toMatch(/@page \{ margin: 15mm 16mm 16mm; \}/)
-    expect(STUDIO).toMatch(/\.sheet-read-scale \{ font-size: 1rem !important; \}/)
+    expect(paper()).toMatch(/padding:\s*15mm 16mm 16mm/)
+    // a border would eat into the text box — the edge is drawn as a shadow
+    expect(paper()).toMatch(/border:\s*0/)
+    // and print pins the sheet to 1rem whatever the screen did
+    expect(STUDIO).toMatch(/\.pv-paper \{ font-size: 1rem !important; \}/)
   })
 
-  it('the sheet takes that width in em, so width and font scale together', () => {
-    const body = rule(STUDIO, '.sheet-read-scale :deep(.sheet-root)')
-    expect(body).toMatch(/width:\s*calc\(var\(--paper-em\) \* 1em\)/)
-    expect(body).toMatch(/font-size:\s*clamp\(/)
-    // the fit term and the width term must use the SAME constant, or they disagree at the edge
-    expect(body).toMatch(/100cqw \/ var\(--paper-em\)/)
-    // the reading size is the ceiling, never the driver of the width
-    expect(body).toMatch(/var\(--sheet-aa, 1\) \* 1rem/)
+  it('the sheet fills the paper\'s text box and takes the paper\'s font, never its own', () => {
+    const root = rule(STUDIO, '.pv-paper :deep(.sheet-root)')
+    expect(root).toMatch(/width:\s*100%/)
+    expect(root).toMatch(/font-size:\s*inherit/)
   })
 
-  it('a window narrower than the page shrinks the type instead of re-wrapping, with a floor', () => {
-    const body = rule(STUDIO, '.sheet-read-scale :deep(.sheet-root)')
-    const floor = Number(body.match(/clamp\(\s*([\d.]+)rem/)[1]) * 16
-    expect(floor).toBeGreaterThanOrEqual(11) // readable-ish, not hairline
-    expect(floor).toBeLessThan(16) // and it does have to give on a phone
-    // below the floor the sheet scrolls sideways rather than silently re-wrapping
-    expect(rules(STUDIO, '.sheet-read-scale').join('\n')).toMatch(/overflow-x:\s*auto/)
+  it('only the picture is scaled: a transform the sheet\'s measuring knows about, gone in print', () => {
+    expect(STUDIO).toMatch(/data-layout-scale :style="\{ transform: `scale\(\$\{scale\}\)`/)
+    expect(SONG_SHEET).not.toMatch(/getBoundingClientRect/) // every box goes through lib/layoutRect.js
+    expect(NOTE_ROW).toMatch(/layoutRect\(/)
+    expect(STUDIO).toMatch(/\.pv-paper \{ transform: none !important; \}/)
   })
 
-  it('the Aa reading size rides on a property, so it can be the ceiling and not the width', () => {
-    expect(STUDIO).toMatch(/'--sheet-aa': readingFontScale/)
-    expect(STUDIO).not.toMatch(/fontSize: readingFontScale/)
-  })
-
-  it('the box that cqw measures is the sheet area itself', () => {
-    expect(rules(STUDIO, '.sheet-read-scale').join('\n')).toMatch(/container-type:\s*inline-size/)
+  it('the top-bar Aa does not enlarge the paper (ใบ#140 locks its size · พี่เอม 2 พ.ย. 2569: no size setting)', () => {
+    expect(STUDIO).not.toMatch(/readingFontScale/)
+    expect(STUDIO).not.toMatch(/--sheet-aa/)
   })
 })
 

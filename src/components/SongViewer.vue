@@ -37,7 +37,7 @@ const props = defineProps({
   tier: { type: String, default: 'guest' },
 })
 // 717 — which lyric set the reader switched to, so the shell can open แก้ไข on that same set.
-const emit = defineEmits(['set', 'edit'])
+const emit = defineEmits(['set', 'edit', 'print'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -911,6 +911,7 @@ function onSeek({ li, si, syk }) {
       @toggle-section="toggleSection"
       @set-all="setAll"
       @edit="emit('edit')"
+      @print="emit('print')"
     />
   </div>
 </template>

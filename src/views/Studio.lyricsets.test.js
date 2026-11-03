@@ -128,11 +128,11 @@ describe('Studio แผ่นเพลง — prints the selected lyric set (717
     expect(t0).not.toBe(t1)
   })
 
-  it('the sheet’s MP3/PDF export gets the same set as the paper', async () => {
+  // ใบ#146 Notes 2 — the song and sound files are downloaded from ฝึกร้อง's ดาวน์โหลด button, which
+  // already follows the set the singer picked; ก่อนพิมพ์ carries no second export of its own.
+  it('ก่อนพิมพ์ has no export of its own — downloads stay in ฝึกร้อง', async () => {
     const w = await openSheet(song717, 1)
-    const exported = w.findComponent({ name: 'ExportTool' }).props('content')
-    expect(exported.arrangement).toHaveLength(3)
-    expect(exported.arrangement.every((e) => e.set === 1)).toBe(true)
+    expect(w.find('.sheet-workspace').findComponent({ name: 'ExportTool' }).exists()).toBe(false)
   })
 
   it('back-compat — an ordinary song prints unchanged, heading unstamped', async () => {
