@@ -5,6 +5,8 @@
 //       ก่อนพิมพ์ is then a button on the sheet itself
 //   AC5 a narrower screen has no sheet beside the editor; ดูแผ่นเพลง stays
 //   Notes 3 (พี่เอม 3 พ.ย. 2569) — with the sheet beside it the editor drops its floating ดูผลทั้งเพลง window
+//   karaoke (พี่เปา 4 พ.ย. 2569) — ฟังทั้งเพลง plays what the sheet shows, lights the word sung on it, and the
+//       sheet scrolls to that word (not when it was just scrolled by hand)
 // AC3 (same look and line breaks as ก่อนพิมพ์) holds by construction: both draw one SongSheet from the same
 // settings (paperSheetProps). AC6 (scroll to the line being edited) needs real layout — checked in the browser.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -46,8 +48,8 @@ import Studio from './Studio.vue'
 
 const stubs = {
   SongViewer: { name: 'SongViewer', props: ['song'], emits: ['edit', 'set', 'dock', 'print'], template: '<div class="stub-viewer" />' },
-  SongSheet: { name: 'SongSheet', props: ['content', 'displayKey', 'songbook', 'showChord', 'songTitle'], template: '<div class="stub-sheet" />' },
-  EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active', 'initialSet', 'sidePaper'], data: () => ({ isDirty: false, activeStanzaId: 'A', activeLine: 0 }), template: '<div class="stub-editor" />' },
+  SongSheet: { name: 'SongSheet', props: ['content', 'displayKey', 'songbook', 'showChord', 'songTitle', 'playingSeg', 'playingSyl'], template: '<div class="stub-sheet" />' },
+  EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active', 'initialSet', 'sidePaper', 'playContent'], data: () => ({ isDirty: false, activeStanzaId: 'A', activeLine: 0, sungSeg: null, sungSyl: null }), template: '<div class="stub-editor" />' },
   DockKey: true,
   Icon: true,
 }
@@ -157,6 +159,36 @@ describe('ใบ#148 — แผ่นเพลงข้างหน้าแก�
       vi.advanceTimersByTime(400)
       expect(moves.length).toBe(0)
     } finally { vi.useRealTimers() }
+  })
+
+  it('karaoke — the editor plays what the sheet shows, and the sheet lights the word being sung', async () => {
+    await toEdit()
+    expect(editor().props('playContent')).toStrictEqual(sideSheet().props('content'))
+    editor().vm.sungSeg = { li: 0, si: 0 }
+    editor().vm.sungSyl = { li: 0, si: 0, syk: 0 }
+    await nextTick()
+    expect(sideSheet().props('playingSyl')).toEqual({ li: 0, si: 0, syk: 0 })
+    expect(sideSheet().props('playingSeg')).toEqual({ li: 0, si: 0 })
+  })
+
+  it('karaoke — the sheet scrolls to a sung word that is out of its view, but not right after a hand scroll', async () => {
+    await toEdit()
+    const box = w.find('.ed-side').element
+    const moves = []
+    box.scrollTo = (o) => moves.push(o)
+    box.getBoundingClientRect = () => ({ top: 0, bottom: 500, left: 0, right: 300, width: 300, height: 500 })
+    const word = document.createElement('span')
+    word.dataset.syl = '0-0-1'
+    word.getBoundingClientRect = () => ({ top: 900, bottom: 920, left: 0, right: 10, width: 10, height: 20 })
+    box.appendChild(word)
+    editor().vm.sungSeg = { li: 0, si: 0 }
+    editor().vm.sungSyl = { li: 0, si: 0, syk: 1 }
+    await flushPromises()
+    expect(moves.length).toBe(1)
+    await w.find('.ed-side').trigger('wheel') // the singer is reading elsewhere
+    editor().vm.sungSyl = { li: 0, si: 0, syk: 1, again: true }
+    await flushPromises()
+    expect(moves.length).toBe(1)
   })
 
   it('the sheet beside is only for แก้ไข — ฝึกร้อง never shows it', async () => {

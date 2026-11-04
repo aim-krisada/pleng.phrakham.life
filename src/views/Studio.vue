@@ -13,6 +13,7 @@ import { CATALOG_COLUMNS, readCatalog, readSong, saveCatalog, isNetworkFailure }
 import { songBasename } from '../lib/songName.js'
 import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
 import { stopPlayback } from '../lib/midi.js'
+import { singTarget, keepInBox, SING_HANDS_OFF_MS } from '../lib/singFollow.js'
 import { KEYS } from '../lib/chords.js'
 import { tier, initAuth, shellMenu, currentSong, sheetLyricJoin, newSongRequest } from '../store.js'
 import { songBookRefs } from '../lib/bookCodes.js'
@@ -504,6 +505,14 @@ function onEditScroll() {
   clearTimeout(followTimer)
   followTimer = setTimeout(followEditorScroll, FOLLOW_SETTLE_MS)
 }
+// ใบ#148 (พี่เปา 4 พ.ย. 2569) — karaoke on the sheet: ฟังทั้งเพลง plays the set this sheet shows and lights
+// the word being sung on it, and the sheet (not the editor) scrolls to keep that word in view — unless it
+// was just scrolled by hand (lib/singFollow.js)
+watch(() => [editorRef.value?.sungSeg, editorRef.value?.sungSyl], async ([seg, syl]) => {
+  if (!showSide.value || Date.now() - sideTouchedAt < SING_HANDS_OFF_MS) return
+  await nextTick()
+  keepInBox(sideScrollEl.value, singTarget(sideScrollEl.value, seg, syl))
+})
 onMounted(() => window.addEventListener('scroll', onEditScroll, { passive: true }))
 onUnmounted(() => { window.removeEventListener('scroll', onEditScroll); clearTimeout(followTimer) })
 let sideRO = null
@@ -688,6 +697,7 @@ function printSheet() {
         :active="mode === 'edit'"
         :initial-set="viewSet"
         :side-paper="sideReady"
+        :play-content="showSide ? sideSheetProps?.content : null"
         @change="onChange"
         @save="onSave"
       />
@@ -709,7 +719,7 @@ function printSheet() {
         <div ref="sideFrameEl" class="pv-frame ed-side-frame">
           <div class="pv-sizer" :style="{ width: PAPER_PX * sideScale + 'px', height: sidePaperH * sideScale + 'px' }">
             <div ref="sidePaperEl" class="card pv-paper" data-layout-scale :style="{ transform: `scale(${sideScale})`, '--k': sideScale }">
-              <SongSheet v-bind="sideSheetProps" song-head screen-title fit-lines @measured="measureSide" />
+              <SongSheet v-bind="sideSheetProps" song-head screen-title fit-lines :playing-seg="editorRef?.sungSeg" :playing-syl="editorRef?.sungSyl" @measured="measureSide" />
             </div>
           </div>
         </div>
