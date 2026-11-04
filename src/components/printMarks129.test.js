@@ -50,7 +50,7 @@ describe('ใบ#129 — marks that must survive printing are drawn with a borde
     const i = STYLES.indexOf('.repeat-mark .rep-dots::before,')
     expect(i).toBeGreaterThan(-1)
     const body = STYLES.slice(i, STYLES.indexOf('}', i) + 1)
-    expect(body).toMatch(/border:\s*[\d.]+px solid/)
+    expect(body).toMatch(/border:\s*[\d.]+(px|em) solid/) // ใบ#149 — em, like the rest of the line
     expect(body).not.toMatch(/(^|[\s;{])background(-color|-image)?:/)
   })
 

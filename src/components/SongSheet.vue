@@ -264,7 +264,10 @@ const renderLines = computed(() =>
         parts.push({ type: 'end' })
       } else if (item.type === 'repeat-start') {
         flush()
-        parts.push({ type: 'repeat-start' })
+        // ใบ#149 — a :‖ straight followed by a ‖: is one shared sign :‖:, drawn as one mark
+        const prev = parts[parts.length - 1]
+        if (prev && prev.type === 'repeat-end') prev.type = 'repeat-both'
+        else parts.push({ type: 'repeat-start' })
       } else if (item.type === 'repeat-end') {
         flush()
         parts.push({ type: 'repeat-end' })
@@ -920,6 +923,7 @@ watch(
         <span v-else-if="part.type === 'end'" v-show="noteOn(row.first)" class="bar-final" aria-hidden="true"><i class="bf-thin" /><i class="bf-thick" /></span>
         <span v-else-if="part.type === 'repeat-start'" v-show="noteOn(row.first)" class="repeat-mark rep-start" aria-label="เริ่มเล่นซ้ำ"><i class="rep-bar" /><i class="rep-thin" /><i class="rep-dots" /></span>
         <span v-else-if="part.type === 'repeat-end'" v-show="noteOn(row.first)" class="repeat-mark rep-end" aria-label="วนกลับไปเล่นซ้ำ"><i class="rep-dots" /><i class="rep-thin" /><i class="rep-bar" /></span>
+        <span v-else-if="part.type === 'repeat-both'" v-show="noteOn(row.first)" class="repeat-mark rep-both" aria-label="วนกลับไปเล่นซ้ำ แล้วเริ่มเล่นซ้ำท่อนต่อไป"><i class="rep-dots" /><i class="rep-thin" /><i class="rep-bar" /><i class="rep-thin" /><i class="rep-dots" /></span>
         <span v-else-if="part.type === 'volta'" v-show="noteOn(row.first)" class="volta-tag">{{ part.num }}.</span>
         <!-- ใบ#100/#104/#110 — เนื้อล้วน written joined: the bars of the line flow as ONE run of words, each วรรค
              in its own box (.phrase) so it moves to the next line whole, or — wider than the line — wraps
