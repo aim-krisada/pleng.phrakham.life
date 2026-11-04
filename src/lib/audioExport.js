@@ -5,7 +5,7 @@
 // encodePcmToMp3 are pure; only renderSongToBuffer needs a browser (OfflineAudioContext).
 import lamejs from '@breezystack/lamejs'
 import { buildPlayNotes, scheduleNote, buildChordVoice, voiceFlags, makeChordBus,
-  makeReverbBus, REVERB, resolveSections, KEY_MIDI } from './midi.js'
+  makeReverbBus, REVERB, resolveSections, KEY_MIDI, makeOutputLimiter, CHORD_LIFT } from './midi.js'
 import { arrange } from './arranger/index.js'
 import { moduleForInstrument } from './arranger/instruments/index.js'
 import { loadInstrument, isSampledInstrument } from './sampler.js'
@@ -99,10 +99,12 @@ export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRa
     for (const e of perf) endBeat = Math.max(endBeat, e.startBeat + e.beats + (e.timeShift || 0) / spb)
     const frames = Math.max(1, Math.ceil((endBeat * spb + 0.6) * sampleRate)) // +tail for release + reverb
     const ctx = new OfflineCtx(1, frames, sampleRate)
-    // mirror playSong's reverb room (the sampler routes straight through it, like live)
+    // mirror playSong's reverb room (the sampler routes straight through it, like live), and its
+    // output stage (ใบ#150: the same +6 dB lift + limiter, so the file is as loud as ฟัง)
     const reverbCfg = REVERB[arrangeCfg.reverb]
-    const fx = reverbCfg ? makeReverbBus(ctx, ctx.destination, reverbCfg) : null
-    const busIn = fx ? fx.input : ctx.destination
+    const out = makeOutputLimiter(ctx, ctx.destination)
+    const fx = reverbCfg ? makeReverbBus(ctx, out, reverbCfg) : null
+    const busIn = fx ? fx.input : out
     const perNoteDur = (e) => {
       const rawDur = e.beats * spb
       return e.role === 'melody' ? Math.max(0.08, rawDur - 0.07) : Math.max(0.1, rawDur - 0.05)
@@ -126,7 +128,7 @@ export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRa
 
     // SYNTH fallback — mirror playSong's synth graph: reverb room + one chord bus (pad under the tune)
     const hasChordVoice = perf.some((e) => e.role !== 'melody')
-    const chordBus = (wantChords && hasChordVoice) ? makeChordBus(ctx, busIn) : null
+    const chordBus = (wantChords && hasChordVoice) ? makeChordBus(ctx, busIn, CHORD_LIFT) : null
     for (const e of perf) {
       const isMel = e.role === 'melody'
       const dest = isMel ? busIn : (chordBus || busIn)
@@ -139,17 +141,18 @@ export async function renderSongToBuffer(content, { bpm, transpose = 0, sampleRa
   const seconds = notesDurationSec(notes, useBpm) + 0.25
   const frames = Math.max(1, Math.ceil(seconds * sampleRate))
   const ctx = new OfflineCtx(1, frames, sampleRate)
+  const out = makeOutputLimiter(ctx, ctx.destination) // ใบ#150 — as loud as ฟัง
   let t = 0
   for (const n of notes) {
     const dur = n.beats * spb
     if (wantMelody && n.midi != null) {
       const soundDur = Math.max(0.08, dur - 0.07) // match playSong's early stop
-      scheduleNote(ctx, ctx.destination, n.midi, t, soundDur, transpose * 100)
+      scheduleNote(ctx, out, n.midi, t, soundDur, transpose * 100)
     }
     t += dur
   }
   if (wantChords) {
-    const chordBus = makeChordBus(ctx, ctx.destination)
+    const chordBus = makeChordBus(ctx, out, CHORD_LIFT)
     for (const ev of buildChordVoice(notes)) {
       const startT = ev.startBeat * spb
       const soundDur = Math.max(0.1, ev.beats * spb - 0.05)

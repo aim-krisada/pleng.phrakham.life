@@ -2,7 +2,7 @@
 // playing, and the whole output goes through a limiter. A fake AudioContext records every node and every
 // connection, so the test can walk the graph from a scheduled note to the speaker.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { playSong, stopPlayback, getMixLevels } from './midi.js'
+import { playSong, stopPlayback, getMixLevels, OUTPUT_LIFT, CHORD_LIFT } from './midi.js'
 import { publishLevels } from './volume.js'
 
 function makeFakeCtx() {
@@ -107,5 +107,34 @@ describe('ใบ#135 — volume in the sound path', () => {
     expect(paths.some((p) => p.includes(chordKnob))).toBe(true)
     const melodyKnob = ctx.gains.find((g) => g.gain.value === 1.2)
     expect(paths.some((p) => p.includes(melodyKnob))).toBe(false)
+  })
+})
+
+describe('ใบ#150 — louder overall, left hand a touch louder but still under the melody', () => {
+  it('every voice passes one fixed +6 dB lift before the limiter', async () => {
+    await start('both')
+    const lim = ctx.comps.find((c) => c.ratio.value === 20)
+    for (const osc of ctx.oscs) {
+      const path = pathFrom(osc)
+      const lift = path.find((n) => n.kind === 'gain' && n.gain.value === OUTPUT_LIFT && n.outs.includes(lim))
+      expect(lift, 'the lift sits right in front of the limiter').toBeTruthy()
+    }
+    expect(OUTPUT_LIFT).toBe(2)
+  })
+  it('the chords get their own +3 dB on top of the chord knob; the melody does not', async () => {
+    await start('both')
+    const paths = ctx.oscs.map((o) => pathFrom(o))
+    const chordLift = ctx.gains.find((g) => g.gain.value === CHORD_LIFT)
+    expect(paths.some((p) => p.includes(chordLift))).toBe(true)
+    // the melody's first note never passes it
+    expect(pathFrom(ctx.oscs[0]).includes(chordLift)).toBe(false)
+    // the panel's numbers still mean the same: 100% chords = a knob at 1
+    expect(ctx.gains.some((g) => g.gain.value === 1 && g.outs.includes(chordLift))).toBe(true)
+  })
+  it('the lift stays well inside the measured gap, so the chords stay under the melody', () => {
+    // measured before ใบ#150: chords 9–10 dB under the melody (see CHORD_LIFT in midi.js)
+    const liftDb = 20 * Math.log10(CHORD_LIFT)
+    expect(liftDb).toBeGreaterThan(2)
+    expect(liftDb).toBeLessThanOrEqual(4)
   })
 })
