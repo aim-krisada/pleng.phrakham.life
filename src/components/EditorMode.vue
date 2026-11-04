@@ -16,6 +16,7 @@ import { pendingReview } from '../lib/reviewQueue.js'
 import { WORK_WORDS } from '../i18n/workWords.js'
 import { findTitleConflicts, earlyDupNote } from '../lib/songTitleKey.js'
 import { playSong, playEnsemble, stopPlayback } from '../lib/midi.js'
+import { singTarget, keepInBox, SING_HANDS_OFF_MS } from '../lib/singFollow.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import SongSheet from './SongSheet.vue'
@@ -50,6 +51,9 @@ const props = defineProps({
   // ใบ v3/pleng#148 — the page shows the sheet beside the editor (a wide screen). The floating
   // ดูผลทั้งเพลง window would only cover the editor then, so it goes away (พี่เอม 3 พ.ย. 2569).
   sidePaper: { type: Boolean, default: false },
+  // …and that sheet shows one lyric set, so ฟังทั้งเพลง plays exactly what it shows — the lit word
+  // then always sits on the sheet (null = the whole song, as the floating window shows it)
+  playContent: { type: Object, default: null },
 })
 const emit = defineEmits(['change', 'save', 'dock'])
 
@@ -2776,11 +2780,22 @@ const AUDIO_BLOCKED_MSG = '🔇 อุปกรณ์ปิดเสียงอ
 const playingBar = ref(null) // "li-bi" of the bar currently sounding
 let playSeq = 0 // invalidates stale playbacks so `playing` can't flip out of sync
 
+// ใบ#148 — the word ฟังทั้งเพลง is singing now, on the resolved song's lines: the sheet windows light it
+// (karaoke, lib/singFollow.js). Only full-song play sets them — a ท่อน/บรรทัด/ห้อง plays one melody,
+// whose line numbers are not the sheet's.
+const sungSeg = ref(null) // { li, si }
+const sungSyl = ref(null) // { li, si, syk }
+function clearSung() {
+  sungSeg.value = null
+  sungSyl.value = null
+}
+
 function stopAll() {
   stopPlayback()
   playSeq++
   playing.value = false
   playingBar.value = null
+  clearSung()
 }
 
 function followBar(liOffset) {
@@ -2796,12 +2811,16 @@ function followBar(liOffset) {
 
 // follow = highlight editor bars (only valid when the played lines ARE the editor's
 // active-stanza lines). Full-song play walks the resolved arrangement, whose line
-// indices don't map to editor bars, so it plays without highlight.
-async function runPlay(content, liOffset, follow = true) {
+// indices don't map to editor bars, so it plays without highlight — it lights the sheet instead (sing).
+function singAlong(n) {
+  sungSeg.value = { li: n.li, si: n.si }
+  if (n.syk != null) sungSyl.value = { li: n.li, si: n.si, syk: n.syk }
+}
+async function runPlay(content, liOffset, follow = true, sing = false) {
   if (playing.value) return stopAll()
   const id = ++playSeq
   playing.value = true
-  const onNote = follow ? followBar(liOffset) : undefined
+  const onNote = follow ? followBar(liOffset) : sing ? singAlong : undefined
   // B107 step 9: the editor has its OWN "เสียงดนตรี" popover — default Grand · เดี่ยว · ทำนอง ·
   // ตรงโน้ต so พี่เปา checks the raw printed notes on load, but can switch to any instrument/style.
   // ตรงโน้ต = arranger OFF (notes exactly as printed). Choices persist per-page (editor* store refs).
@@ -2821,6 +2840,7 @@ async function runPlay(content, liOffset, follow = true) {
   if (id === playSeq) {
     playing.value = false
     playingBar.value = null
+    clearSung()
   }
 }
 
@@ -2833,7 +2853,7 @@ function playStanza() {
   return runPlay({ key: playKey.value, timeSignature: activeTs.value, lines: s.lines.map(serializeLine) }, 0, true)
 }
 function playFull() {
-  return runPlay(resolvedPreview.value, 0, false)
+  return runPlay(props.playContent || resolvedPreview.value, 0, false, true)
 }
 function playLine(li) {
   // (ใบ#96: this one never passed a meter — the arranger's default 4 — so only a melody's OWN meter is added)
@@ -3348,6 +3368,16 @@ const narrow = ref(isNarrow())
 function toggleSheetWin() { sheetWinOpen.value = !sheetWinOpen.value }
 
 const floatEl = ref(null)
+// ใบ#148 — karaoke in this window: it scrolls to the word ฟังทั้งเพลง is singing, unless it was just
+// scrolled by hand (lib/singFollow.js)
+const floatBodyEl = ref(null)
+let floatTouchedAt = 0
+function onFloatTouched() { floatTouchedAt = Date.now() }
+watch([sungSyl, sungSeg], async ([syl, seg]) => {
+  if (!sheetWinOpen.value || props.sidePaper || Date.now() - floatTouchedAt < SING_HANDS_OFF_MS) return
+  await nextTick()
+  keepInBox(floatBodyEl.value, singTarget(floatBodyEl.value, seg, syl))
+})
 function clampWin(pos, w, h) {
   return {
     left: Math.max(4, Math.min(window.innerWidth - w - 4, pos.left)),
@@ -3862,6 +3892,8 @@ defineExpose({
   opts, stanzas, arrangement, activeStanza, lensChoice,
   // ใบ v3/pleng#148 — the sheet beside the editor scrolls to the line being edited
   activeStanzaId, activeLine,
+  // …and lights the word ฟังทั้งเพลง is singing (karaoke)
+  sungSeg, sungSyl,
   undo, redo, selectStanza, focusRow, addStanza, setSyl, applyChordAt,
   toggleAfterEachVerse, // B102 — "ร้องรับทุกข้อ" refrain directive helper (AC-5 tests)
   history, histPos,
@@ -4777,6 +4809,16 @@ defineExpose({
         <Icon name="grip-horizontal" :size="16" class="ed-float-grip" />
         <span class="ed-float-title">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || 'แผ่นเพลง' }}</span>
         <span class="ed-float-key muted">Key {{ opts.key }}</span>
+        <!-- ใบ#148 karaoke — on a phone this window covers the whole screen, ฟังทั้งเพลง included, so the
+             window carries its own play/stop -->
+        <button
+          class="ed-float-zb ed-float-play"
+          :class="{ on: playing }"
+          :aria-label="playing ? 'หยุด' : 'ฟังทั้งเพลง'"
+          :title="playing ? 'หยุด' : 'ฟังทั้งเพลง'"
+          @pointerdown.stop
+          @click="playing ? stopAll() : playFull()"
+        ><Icon :name="playing ? 'square' : 'circle-play'" :size="16" /></button>
         <!-- P'Aim: "ควรมีปุ่มขยาย font ในหน้านั้นเอง — ดูตรงไหนแก้ตรงนั้น". pointerdown.stop so a
              press on the buttons never starts the title bar's drag. -->
         <span class="ed-float-zoom" role="group" aria-label="ขนาดตัวอักษรในหน้าต่างนี้" @pointerdown.stop>
@@ -4803,13 +4845,19 @@ defineExpose({
         </span>
         <button class="ed-float-x" aria-label="ปิดหน้าต่างแผ่นเพลง" title="ปิด" @click="sheetWinOpen = false"><Icon name="x" :size="16" /></button>
       </div>
-      <div class="ed-float-body">
+      <div
+        ref="floatBodyEl"
+        class="ed-float-body"
+        @wheel.passive="onFloatTouched"
+        @touchstart.passive="onFloatTouched"
+        @pointerdown="onFloatTouched"
+      >
         <!-- B081: render at the REAL A4 printable width (178mm : 1rem ratio) so bars wrap
              exactly like the printed page. The .ed-float-page is scaled to fit the window
              (font-size, not transform → keeps SongSheet's tie overlay measuring real px),
              so there is no horizontal scroll and no clipped column. -->
         <div class="ed-float-page" :style="previewPageStyle">
-          <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
+          <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" :playing-seg="sungSeg" :playing-syl="sungSyl" />
         </div>
       </div>
       <!-- resize by dragging this bottom-right corner (desktop only; mobile is full-screen) -->
@@ -5626,6 +5674,8 @@ defineExpose({
 .ed-float-zb { width: 32px; }
 .ed-float-zpct { min-width: 48px; padding: 0 6px; font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .ed-float-zb:disabled { opacity: 0.4; cursor: default; }
+.ed-float-play { flex: 0 0 auto; color: var(--brand); }
+.ed-float-play.on { color: var(--red); }
 @media (hover: hover) {
   .ed-float-zb:not(:disabled):hover,
   .ed-float-zpct:hover { background: var(--cream); border-color: var(--brand); color: var(--brand); }
