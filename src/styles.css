@@ -680,22 +680,27 @@ input, select, textarea {
   border-right: 0.25em solid #8a7a62;
 }
 /* repeat marks: a thick barline + two dots (dots on the right = start ‖:, on the
-   left = end :‖). volta tag = a small "1." / "2." above the ending bars. */
+   left = end :‖). volta tag = a small "1." / "2." above the ending bars.
+   ใบ v3/pleng#149 — drawn the way a music book draws เส้นย้อน (พี่เปา): a THICK line, a thin line, then
+   two SOLID dots on the inner side. The thick line is 3× the thin one (the thin one is a plain bar line)
+   so the two never read as the same weight. The whole mark keeps the width it always had (1.9375em —
+   the 1/16em taken by the heavier line comes off the side margins), so no bar on the line moves and
+   every line still breaks where it did. */
 .repeat-mark {
   display: inline-flex;
   align-items: center;
   gap: 0.125em;
   vertical-align: top;
   height: 3.25em;
-  margin: 1em 0.5em 0;
+  margin: 1em 0.4375em 0;
 }
 /* ใบ#129 — every stroke and dot of a repeat mark is a BORDER, never a background: a printer
    drops background colour by default, and these vanished from every printed sheet. */
 .repeat-mark .rep-bar {
   display: inline-block;
-  width: 0.25em;
+  width: 0.375em;
   align-self: stretch;
-  border-left: 0.25em solid #8a7a62;
+  border-left: 0.375em solid #8a7a62;
 }
 /* the thin partner line of the repeat barline (thick + thin = two strokes ‖) */
 .repeat-mark .rep-thin {
@@ -710,18 +715,27 @@ input, select, textarea {
   align-self: stretch;
   position: relative;
 }
+/* ใบ#149 — each dot is a box with NO inside, only border, so it is solid all the way through. It used
+   to be a 5px box with a 2.5px border, but `* { box-sizing: border-box }` does not reach ::before/::after:
+   the border wrapped AROUND a 5px hole, printed a ring, and the two rings overlapped into an "8". A zero
+   box can never have a hole, however the screen rounds the border. The dots sit either side of the
+   digits' middle (1.5em down the mark — in em, so a stacked line's taller mark keeps them by the notes). */
 .repeat-mark .rep-dots::before,
 .repeat-mark .rep-dots::after {
   content: '';
   position: absolute;
   left: 0;
-  width: 5px;
-  height: 5px;
+  width: 0;
+  height: 0;
   border-radius: 50%;
-  border: 2.5px solid #8a7a62;
+  border: 0.15625em solid #8a7a62;
 }
-.repeat-mark .rep-dots::before { top: 38%; }
-.repeat-mark .rep-dots::after { top: 55%; }
+.repeat-mark .rep-dots::before { top: 1.03125em; }
+.repeat-mark .rep-dots::after { top: 1.65625em; }
+/* a shared repeat :‖: (one section ends and the next starts at the same bar line) is ONE mark —
+   dots · thin · thick · thin · dots — not two marks side by side. Its margins make it exactly as
+   wide as the two marks it replaces (2 × 1.9375em), so the line still breaks where it did. */
+.repeat-mark.rep-both { margin: 1em 1.0625em 0; }
 .volta-tag {
   align-self: flex-start;
   color: var(--brand);
