@@ -493,6 +493,15 @@ let mixNodes = null
 //      bend that never passes 1.0 — a rounded top instead of the hard flat cut that sounds like แตก.
 // Measured peaks: 100% = 0.915 before → 0.866 (only peaks above ~0.84 are touched); 200% = 1.83 with
 // nothing (hard clipping) → 1.11 with the compressor alone → 0.976 with all three.
+// ใบ v3/pleng#150 — louder. พี่เปา 4 พ.ย. 2569: with the speaker at the same volume this site played
+// quieter than other websites. Measured on an OfflineAudioContext (3 published songs, piano บรรเลง,
+// melody + chords, the graph below): peaks only 0.34–0.45 (−9 to −7 dBFS) and a gated RMS of −24 to −23
+// dBFS, ~8 dB under what web music usually plays at. OUTPUT_LIFT is one fixed gain AHEAD of the limiter,
+// so every voice and every play path through here (ฝึกร้อง · the editor · เดี่ยว · เต็มวง · each
+// instrument) gets the same +6 dB; the limiter then catches the few peaks the lift pushes near full scale.
+// After (with CHORD_LIFT): peaks 0.68–0.86, RMS −18 to −17 dBFS; both panel sliders at 200% still peak
+// ≤ 0.97 — nothing past 1.0. The volume panel's 100% is this new level.
+export const OUTPUT_LIFT = 2
 const LIMIT_THRESHOLD_DB = -1.5
 const LIMIT_RATIO = 20
 const CLIP_KNEE = 0.9
@@ -508,8 +517,10 @@ function softClipCurve() {
   }
   return clipCurve
 }
-// returns the limiter's INPUT node; its output is connected to `destination`
+// returns the stage's INPUT node (the lift); its output is connected to `destination`
 export function makeOutputLimiter(context, destination) {
+  const lift = context.createGain()
+  lift.gain.value = OUTPUT_LIFT
   const lim = context.createDynamicsCompressor()
   lim.threshold.value = LIMIT_THRESHOLD_DB
   lim.knee.value = 0
@@ -522,18 +533,27 @@ export function makeOutputLimiter(context, destination) {
   const clip = context.createWaveShaper()
   clip.curve = softClipCurve()
   clip.oversample = '4x'
+  lift.connect(lim)
   lim.connect(trim)
   trim.connect(clip)
   clip.connect(destination)
-  return lim
+  return lift
 }
+// ใบ#150 — the left hand (chords + bass) a touch louder: +3 dB, on top of the chord knob so the panel's
+// numbers keep their meaning. Measured the same way as OUTPUT_LIFT, the chords sat 9–10 dB under the
+// melody (RMS −33 vs −24 dBFS; peaks 0.13–0.16 vs 0.30–0.38); after the lift they measure 5.5–6.5 dB under, so the
+// tune always leads. Keep CHORD_LIFT well under that gap (a test holds it to ≤ +4 dB).
+export const CHORD_LIFT = Math.SQRT2
 function makeMixNodes(context, destination) {
   const melody = context.createGain()
   const chord = context.createGain()
+  const chordLift = context.createGain()
   melody.gain.value = mixLevels.melody
   chord.gain.value = mixLevels.chord
+  chordLift.gain.value = CHORD_LIFT
   melody.connect(destination)
-  chord.connect(destination)
+  chord.connect(chordLift)
+  chordLift.connect(destination)
   return { melody, chord }
 }
 // Set the two levels (gain multipliers, 1 = today). Takes effect at once on a song that is playing —
@@ -1021,10 +1041,10 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
   activeEnsemble = [gr, ce, vi, ny].filter(Boolean)
 
   // ---- LAYER-4 mix (§6b.2): dry role buses + near/far reverb depth (piano front · strings back) ----
+  // ใบ#150 — the band now ends in the same lift + limiter as the solo player (it had its own gentler
+  // compressor, which the +6 dB lift would have driven into a squash), so เต็มวง is as loud as เดี่ยว
   const master = ctx.createGain(); master.gain.value = 0.85
-  const lim = ctx.createDynamicsCompressor()
-  lim.threshold.value = -2; lim.knee.value = 8; lim.ratio.value = 4; lim.attack.value = 0.006; lim.release.value = 0.18
-  master.connect(lim); lim.connect(ctx.destination)
+  master.connect(makeOutputLimiter(ctx, ctx.destination))
   const near = ctx.createConvolver(); near.buffer = synthIR(ctx, 1.1, 3.0)
   const nearG = ctx.createGain(); nearG.gain.value = 0.24; near.connect(nearG); nearG.connect(master)
   const far = ctx.createConvolver(); far.buffer = synthIR(ctx, 3.2, 1.9)
@@ -1145,9 +1165,10 @@ export async function playEnsemble(content, { bpm = 72, loop = false, onNote, on
       const bT = t0 + e.startBeat * spb
       const nb = Math.max(1, Math.round(e.beats))
       const sg = secGain(e.startBeat), a = accentAt(e.startBeat)
-      if (ce) { const bg = 0.32 * sg; for (let b = 0; b < nb; b += 3) { const seg = Math.min(3, nb - b); ce.fire(e.bass + T, bT + b * spb, seg * spb + 0.4, bg * a) } }
+      // ใบ#150 — the left hand (cello bass + piano arpeggio) +3 dB, like the solo player's CHORD_LIFT
+      if (ce) { const bg = 0.32 * CHORD_LIFT * sg; for (let b = 0; b < nb; b += 3) { const seg = Math.min(3, nb - b); ce.fire(e.bass + T, bT + b * spb, seg * spb + 0.4, bg * a) } }
       if (gr) {
-        const ag = 0.13 * sg
+        const ag = 0.13 * CHORD_LIFT * sg
         const seq = [up[0], up[1] ?? up[0], up[2] ?? up[0], up[1] ?? up[0]].filter((m) => m != null)
         for (let k = 0; k < nb && seq.length; k++) gr.fire(seq[k % seq.length] + T, bT + k * spb + TJ * rnd(), spb * 1.5, ag * accentAt(e.startBeat + k))
       }
