@@ -20,9 +20,10 @@
 // all a11y baked once). This component only owns the CONTENT of the panel (Vue nav +
 // เครื่องมือ); the core owns the off-canvas SHELL. The core re-queries focusables on
 // every open, so the Vue-rendered links are trapped correctly.
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { shellMenu, newSongRequest } from '../store.js'
+import { shellMenu, newSongRequest, currentSong } from '../store.js'
+import { shareTarget, isApple, shareLink } from '../lib/share.js'
 import FontTool from './FontTool.vue'
 import ProfileTool from './ProfileTool.vue'
 import InstallAppTool from './InstallAppTool.vue'
@@ -138,6 +139,29 @@ async function goSearch() {
   if (el) el.focus()
   window.scrollTo(0, 0)
 }
+
+// ใบ v3/pleng#151 — แชร์, beside 🔍 on every page (rules + standards in lib/share.js). The glyph
+// follows the device; the word แชร์ is always shown. No share sheet → the link is copied and the
+// bar says so for 2 s; copying blocked too → a small box shows the link to copy by hand.
+const shareIcon = typeof navigator !== 'undefined' && isApple(navigator) ? 'share' : 'share-2'
+const siteRoot = () => window.location.origin + import.meta.env.BASE_URL
+const share = computed(() => shareTarget(route.path, currentSong.value, siteRoot()))
+const shareNote = ref('')        // '' · 'copied' · 'manual'
+const shareUrl = ref('')
+let shareTimer = null
+async function doShare() {
+  closeMenus()
+  const t = share.value
+  if (!t) return
+  const r = await shareLink(t, navigator)
+  clearTimeout(shareTimer)
+  shareUrl.value = t.url
+  shareNote.value = r === 'copied' || r === 'manual' ? r : ''
+  if (r === 'copied') shareTimer = setTimeout(() => { shareNote.value = '' }, 2000)
+}
+function selectAll(e) { e.target.select() }
+watch(() => route.fullPath, () => { shareNote.value = '' })
+onUnmounted(() => clearTimeout(shareTimer))
 </script>
 
 <template>
@@ -191,6 +215,16 @@ async function goSearch() {
     <div class="sb-right">
       <!-- 🔍 — go to the song search (home) and focus the search field -->
       <button class="sb-icon-btn" aria-label="ค้นหาเพลง" @click="goSearch"><Icon name="search" :size="24" /></button>
+
+      <!-- แชร์ (ใบ v3/pleng#151) — glyph + word, hidden on an unsaved new song / draft -->
+      <div v-if="share" class="sb-share-wrap">
+        <button type="button" class="sb-share" @click="doShare"><Icon :name="shareIcon" :size="20" /><span>แชร์</span></button>
+        <div v-if="shareNote === 'copied'" class="sb-share-note" role="status">คัดลอกลิงก์แล้ว</div>
+        <div v-else-if="shareNote === 'manual'" class="sb-share-note sb-share-manual" role="status">
+          <label>คัดลอกลิงก์นี้<input :value="shareUrl" readonly @focus="selectAll" /></label>
+          <button type="button" class="sb-share-x" aria-label="ปิด" @click="shareNote = ''"><Icon name="x" :size="18" /></button>
+        </div>
+      </div>
 
       <!-- Aa — text size + ตัวอักษรไทย, every page and width (ใบ v3/pleng#142) -->
       <FontTool />

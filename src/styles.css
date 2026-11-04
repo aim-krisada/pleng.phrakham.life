@@ -484,6 +484,26 @@ html.hdr-hidden .shell-bar { transform: translateY(-100%); }
   color: var(--brand); font: inherit; font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; cursor: pointer;
 }
 @media (hover: hover) { .sb-new:hover { border-color: var(--brand); background: var(--cream); } }
+/* ใบ#151 — แชร์ beside 🔍: glyph + word always (NN/g: the share glyph needs its label). Desktop = a
+   pill like สร้างเพลงใหม่; a phone stacks the word under the glyph so it fits in one 44px slot. */
+.sb-share-wrap { position: relative; display: inline-flex; }
+.sb-share {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: var(--touch-min); min-width: var(--touch-min); padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: transparent;
+  color: #545555; font: inherit; font-size: var(--fs-sm); white-space: nowrap; cursor: pointer;
+}
+@media (hover: hover) { .sb-share:hover { border-color: var(--brand); background: var(--cream); } }
+.sb-share:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.sb-share-note {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 90;
+  background: var(--ink, #2d2a26); color: #fff; border-radius: 8px; padding: 8px 12px;
+  font-size: var(--fs-sm); white-space: nowrap; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+.sb-share-manual { display: flex; align-items: center; gap: 6px; background: var(--paper, #fff); color: var(--ink, #2d2a26); border: 1px solid var(--line); }
+.sb-share-manual label { display: flex; flex-direction: column; gap: 4px; }
+.sb-share-manual input { width: min(70vw, 300px); font: inherit; font-size: 0.9rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; }
+.sb-share-x { background: transparent; border: none; color: inherit; cursor: pointer; min-width: var(--touch-min); min-height: var(--touch-min); display: inline-flex; align-items: center; justify-content: center; }
 .sb-mode-item { align-items: flex-start; }
 .sb-mode-item .mt { display: flex; flex-direction: column; line-height: 1.25; }
 .sb-mode-item .mt small { color: var(--muted); font-size: 0.8rem; }
@@ -547,6 +567,7 @@ html.hdr-hidden .shell-bar { transform: translateY(-100%); }
      in the bar (P'Aim 13 ก.ค.: login icon outside the drawer, far right · ใบ#142: Aa on every width). */
   .sb-nav,
   .sb-new { display: none; } /* ใบ#147 — on a phone สร้างเพลงใหม่ is in ☰, never both */
+  .sb-share { flex-direction: column; justify-content: center; gap: 1px; padding: 0 4px; border-color: transparent; font-size: 0.72rem; line-height: 1; }
   /* mobile-only hamburger */
   .sb-burger { display: inline-flex; }
   .sb-sep { display: none; }
