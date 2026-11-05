@@ -60,7 +60,7 @@ async function mountList() {
 
 // open a เล่ม by clicking its bookshelf row (index into the ordered shelf)
 async function openBook(w, i) {
-  await w.findAll('.book-row')[i].trigger('click')
+  await w.findAll('.book-row-wrap:not(.fav-shelf) .book-row')[i].trigger('click') // ★ เพลงที่ชอบ (ใบ#152) sits first on the shelf
   await nextTick()
 }
 async function search(w, q) {
