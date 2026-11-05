@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { filterSongs, searchSnippet, normalize } from '../lib/songSearch.js'
@@ -22,8 +22,11 @@ import { bookSortState, chooseSort } from '../lib/sortPref.js'
 import { WORK_WORDS } from '../i18n/workWords.js'
 import { session, canApprove } from '../store.js'
 import { CATALOG_COLUMNS, readCatalog, saveCatalog, offlineSince, savedDateLabel } from '../lib/offlineSongs.js'
+import { favorites, favoriteSongs, storageOk } from '../lib/favorites.js'
+import FavStar from '../components/FavStar.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 // public (anon) vs logged-in team. Drives the verified-only gate + the QA badge visibility.
 const loggedIn = computed(() => !!session.value)
@@ -40,7 +43,26 @@ const dbError = ref(false)
 // results across every book (US-AC5), so the search path (songSearch.js) is untouched.
 // `level` tracks which drill state we're in when NOT searching; `activeBook` is the
 // selected category code (or the fallback sentinel).
-const level = ref('books') // 'books' | 'songs'
+const level = ref(route.query?.v === 'fav' ? 'fav' : 'books') // 'books' | 'songs' | 'fav'
+
+// ★ เพลงที่ชอบ (ใบ v3/pleng#152) — a third view beside the shelf: only the songs this device starred.
+// Kept in the URL (`#/?v=fav`) so ← from a song comes back HERE, not to the shelf.
+const favList = computed(() => favoriteSongs(shownSongs.value, favorites.value))
+const favCount = computed(() => favList.value.length)
+// the address can change under a mounted page (← / → in the browser) — follow it
+watch(() => route.query?.v, (v) => {
+  if (v === 'fav') level.value = 'fav'
+  else if (level.value === 'fav') level.value = 'books'
+})
+function openFav() {
+  query.value = ''
+  onlyUnverified.value = false
+  showDrafts.value = false
+  activeBook.value = null
+  level.value = 'fav'
+  router.replace({ path: '/', query: { v: 'fav' } })
+  window.scrollTo(0, 0)
+}
 const activeBook = ref(null)
 
 // searching = query has content → search view overrides the drill (mockup behaviour).
@@ -361,6 +383,7 @@ function openBook(code) {
   window.scrollTo(0, 0)
 }
 function backToBooks() {
+  if (level.value === 'fav') router.replace({ path: '/', query: {} })
   level.value = 'books'
   activeBook.value = null
   onlyUnverified.value = false // leaving the queue drops its filter (else a later search stays narrowed)
@@ -598,6 +621,7 @@ onMounted(async () => {
           </div>
           <div v-if="s.scripture" class="scripture-tag muted">📖 {{ s.scripture }}</div>
         </router-link>
+        <FavStar :id="s.id" :title="s.title_th" />
         <button
           v-if="loggedIn"
           type="button"
@@ -674,6 +698,7 @@ onMounted(async () => {
             >{{ songRefLabels(s).join(' · ') }}</span>
             <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
           </router-link>
+          <FavStar :id="s.id" :title="s.title_th" />
           <!-- เห็นเฉพาะเมื่อล็อกอิน · เปิดเพลงนี้ในหน้าแก้ไขทันที (ไม่ต้องแวะหน้าฝึกร้อง)
                ป้ายชื่อบอกชื่อเพลงด้วย เพราะในรายการมีปุ่มนี้เป็นสิบ ๆ ปุ่มที่หน้าตาเหมือนกัน
                ⛔ ไม่ซ่อนด้วย @media (hover) — เครื่องพี่เอมเป็นจอสัมผัสที่ต่อเมาส์ ปุ่มจะหายไป -->
@@ -690,6 +715,32 @@ onMounted(async () => {
       <p v-if="inBook.length === 0" class="muted empty">ยังไม่มีเพลงในเล่มนี้</p>
     </section>
 
+    <!-- ===== ★ เพลงที่ชอบ (ใบ v3/pleng#152) — the same .song-row list as a book, but only starred songs.
+         Un-starring here takes the row away at once (AC 2). Empty → say what to do (AC 6, มาตรฐาน ก-08). -->
+    <section v-else-if="level === 'fav'" data-test="fav-view">
+      <div class="book-bar">
+        <button type="button" class="crumb" @click="backToBooks">← เล่มทั้งหมด</button>
+        <h2>เพลงที่ชอบ</h2>
+        <span class="count muted" aria-live="polite">{{ favCount }} เพลง</span>
+      </div>
+      <p v-if="!storageOk" class="muted db-note" data-test="fav-nostore">
+        เครื่องนี้จำเพลงที่ชอบไว้ไม่ได้ — ดาวที่กดจะหายเมื่อปิดเว็บ
+      </p>
+      <div class="song-list">
+        <div v-for="s in favList" :key="s.id" class="song-row-wrap">
+          <router-link :to="`/song/${s.id}`" class="song-row">
+            <span class="no">{{ s.number != null ? s.number : '–' }}</span>
+            <span class="ttl">{{ s.title_th }}</span>
+            <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
+          </router-link>
+          <FavStar :id="s.id" :title="s.title_th" />
+        </div>
+      </div>
+      <p v-if="favCount === 0" class="muted empty" data-test="fav-empty">
+        ยังไม่มีเพลงที่ชอบ กดดาว ☆ ที่เพลงเพื่อเก็บไว้ที่นี่
+      </p>
+    </section>
+
     <!-- ===== LEVEL 1 · bookshelf (landing) — one vertical list, same as the songs ===== -->
     <section v-else>
       <!-- แถวเล่ม = การ์ด 1 ใบที่มีปุ่ม 2 ปุ่มอยู่ข้างใน "เป็นพี่น้องกัน"
@@ -697,6 +748,15 @@ onMounted(async () => {
            หน้าตาไม่เปลี่ยน: ย้าย กรอบ/สันสีน้ำตาล/ความโค้ง/พื้น ไปไว้ที่ตัวการ์ด `.book-row-wrap`
            แล้วให้ปุ่มทั้งสองใสไม่มีพื้นของตัวเอง ⇒ ตายังเห็นแถวเดียวแบบ v1 เดิมทุกประการ -->
       <div class="book-list">
+        <!-- ★ เพลงที่ชอบ — first on the shelf, styled as a book (one card language), always there so
+             people find it before they have starred anything (the list itself explains how). -->
+        <div v-if="shelf.length" class="book-row-wrap fav-shelf">
+          <button type="button" class="book-row" data-test="fav-open" @click="openFav">
+            <span class="bk-name"><span class="fav-glyph" aria-hidden="true">★</span> เพลงที่ชอบ</span>
+            <span class="bk-count">{{ favCount }} เพลง</span>
+            <span class="chev" aria-hidden="true">›</span>
+          </button>
+        </div>
         <div
           v-for="b in shelf"
           :key="b.code"
@@ -992,6 +1052,9 @@ onMounted(async () => {
 .bk-todo:disabled { cursor: default; }
 .book-row .chev { flex: 0 0 auto; color: var(--muted); font-size: var(--fs-lg); }
 .book-row-wrap.fallback { border-left-color: var(--line); }
+/* ★ เพลงที่ชอบ shelf row — a book card with an amber spine, the star in the same yellow as FavStar */
+.book-row-wrap.fav-shelf { border-left-color: #a16207; }
+.fav-glyph { color: #facc15; -webkit-text-stroke: 1px #a16207; }
 .book-row-wrap.fallback .bk-name { color: var(--muted); }
 
 /* ---- LEVEL 2 · one row per song: number (tabular, right) + title (wraps) + key ---- */

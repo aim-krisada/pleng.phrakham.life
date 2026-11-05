@@ -27,6 +27,7 @@ import { ownsSpaceKey } from '../lib/focusClear.js'
 import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
 import SongSheet from './SongSheet.vue'
 import SongHead from './SongHead.vue'
+import FavStar from './FavStar.vue'
 import SingTransport from './SingTransport.vue'
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
@@ -34,6 +35,9 @@ import SingTransport from './SingTransport.vue'
 // no save/edit affordances here regardless of tier (US-A01 AC3).
 const props = defineProps({
   song: { type: Object, required: true },
+  // ★ ใบ v3/pleng#152 — the saved song's id (from /song/:id). Empty for a new song or an unsaved draft:
+  // nothing to bookmark yet, so no star.
+  favId: { type: [String, Number], default: '' },
   tier: { type: String, default: 'guest' },
 })
 // 717 — which lyric set the reader switched to, so the shell can open แก้ไข on that same set.
@@ -786,7 +790,9 @@ function onSeek({ li, si, syk }) {
     <!-- ใบ v3/pleng#144 — the first thing on the page: the full title, then คีย์ · จังหวะ · อ้างอิง (SongHead,
          the head แผ่นเพลง uses). Sized with the Aa text size like the sheet below it. On screen only: paper
          gets SongSheet's own printed title. B053's scripture caption stays, under the head. -->
-    <header class="sv-head no-print" :style="{ fontSize: readingFontScale + 'rem' }">
+    <header class="sv-head no-print" :style="{ fontSize: readingFontScale + 'rem' }" :class="{ 'has-fav': favId }">
+      <!-- ★ top-right of the title, like a bookmark on the page (ใบ v3/pleng#152) -->
+      <FavStar v-if="favId" class="sv-fav" :id="favId" :title="song.title_th || ''" />
       <SongHead :title="printTitle" :info="headInfo" screen-title />
       <div v-if="song.scripture" class="song-refs">
         <div class="scripture-tag muted">📖 {{ song.scripture }}</div>
@@ -1110,7 +1116,11 @@ function onSeek({ li, si, syk }) {
 }
 
 /* ใบ#144 — the page head (title + คีย์ · จังหวะ · อ้างอิง) sits where the sheet's would, above the music */
-.sv-head { margin-bottom: var(--sp-3); }
+.sv-head { margin-bottom: var(--sp-3); position: relative; }
+/* ★ sits in the title's top-right corner; the centred title keeps a star-wide margin on BOTH sides so it
+   stays centred and never runs under the star, at any Aa size */
+.sv-fav { position: absolute; top: 0; right: 0; }
+.sv-head.has-fav :deep(.sheet-print-title.on-screen) { padding-inline: var(--touch-min); }
 /* B053 — the scripture caption: muted small text (matches SongList's caption weight), on its own
    line so a long reference wraps cleanly on a phone. Uses S0 tokens only. */
 .song-refs {
