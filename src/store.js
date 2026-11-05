@@ -6,6 +6,11 @@ import { normalizeVolume, effectiveVolume, publishLevels } from './lib/volume.js
 // Song currently open in the viewer — drives the navbar download tool.
 export const currentSong = ref(null)
 
+// พี่เอม 5 พ.ย. 2569 — แชร์ ส่ง "หน้าที่อยู่" เสมอ. The home page (/) holds several views (shelf · a เล่ม ·
+// เพลงที่ชอบ · a list someone sent) that the route path alone cannot tell apart, so SongList puts the
+// view it is showing here as { url, title } and the top bar's แชร์ sends that. null = use the path.
+export const pageShare = ref(null)
+
 // ใบ v3/pleng#147 — "สร้างเพลงใหม่" lives in the shared top bar (desktop) / ☰ (phone). When the song surface
 // (Studio) is already on screen, the bar does not navigate: it bumps this and Studio starts the new song
 // itself — asking first if the editor holds unsaved work. Anywhere else the bar just opens /studio.

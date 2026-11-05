@@ -22,7 +22,7 @@
 // every open, so the Vue-rendered links are trapped correctly.
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { shellMenu, newSongRequest, currentSong } from '../store.js'
+import { shellMenu, newSongRequest, currentSong, pageShare } from '../store.js'
 import { shareTarget, isApple, shareLink } from '../lib/share.js'
 import FontTool from './FontTool.vue'
 import ProfileTool from './ProfileTool.vue'
@@ -145,7 +145,8 @@ async function goSearch() {
 // bar says so for 2 s; copying blocked too → a small box shows the link to copy by hand.
 const shareIcon = typeof navigator !== 'undefined' && isApple(navigator) ? 'share' : 'share-2'
 const siteRoot = () => window.location.origin + import.meta.env.BASE_URL
-const share = computed(() => shareTarget(route.path, currentSong.value, siteRoot()))
+const share = computed(() =>
+  (route.path === '/' && pageShare.value) || shareTarget(route.path, currentSong.value, siteRoot()))
 const shareNote = ref('')        // '' · 'copied' · 'manual'
 const shareUrl = ref('')
 let shareTimer = null

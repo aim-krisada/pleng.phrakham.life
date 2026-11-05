@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
@@ -20,11 +20,10 @@ import { pendingReview } from '../lib/reviewQueue.js'
 import { PICKABLE_SORTS, DESC, dirLabel, flipDir } from '../lib/songSort.js'
 import { bookSortState, chooseSort } from '../lib/sortPref.js'
 import { WORK_WORDS } from '../i18n/workWords.js'
-import { session, canApprove } from '../store.js'
+import { session, canApprove, pageShare } from '../store.js'
 import { CATALOG_COLUMNS, readCatalog, saveCatalog, offlineSince, savedDateLabel } from '../lib/offlineSongs.js'
 import { favorites, favoriteSongs, storageOk, addFavorites } from '../lib/favorites.js'
 import { favListLink, parseFavParam } from '../lib/favLink.js'
-import { shareLink } from '../lib/share.js'
 import { SITE_NAME } from '../lib/songName.js'
 import FavStar from '../components/FavStar.vue'
 
@@ -46,34 +45,26 @@ const dbError = ref(false)
 // results across every book (US-AC5), so the search path (songSearch.js) is untouched.
 // `level` tracks which drill state we're in when NOT searching; `activeBook` is the
 // selected category code (or the fallback sentinel).
-const level = ref(route.query?.fav != null ? 'import' : route.query?.v === 'fav' ? 'fav' : 'books') // 'books' | 'songs' | 'fav' | 'import'
+const level = ref(route.query?.fav != null ? 'import' : route.query?.v === 'fav' ? 'fav' : route.query?.book ? 'songs' : 'books') // 'books' | 'songs' | 'fav' | 'import'
 
 // ★ เพลงที่ชอบ (ใบ v3/pleng#152) — a third view beside the shelf: only the songs this device starred.
 // Kept in the URL (`#/?v=fav`) so ← from a song comes back HERE, not to the shelf.
 const favList = computed(() => favoriteSongs(shownSongs.value, favorites.value))
 const favCount = computed(() => favList.value.length)
 // the address can change under a mounted page (← / → in the browser, or a link opened in this tab) — follow it
-watch(() => [route.query?.v, route.query?.fav], ([v, fav]) => {
+// A เล่ม is in the URL too (`#/?book=<code>`), so แชร์ inside a เล่ม sends THAT เล่ม and ← from a song
+// comes back into it (พี่เอม 5 พ.ย. 2569 — อยู่หน้าไหนส่งหน้านั้น).
+watch(() => [route.query?.v, route.query?.fav, route.query?.book], ([v, fav, book]) => {
   if (fav != null) { level.value = 'import'; importDone.value = null }
   else if (v === 'fav') level.value = 'fav'
-  else if (level.value === 'fav' || level.value === 'import') level.value = 'books'
+  else if (book) { activeBook.value = String(book); level.value = 'songs' }
+  else if (level.value === 'fav' || level.value === 'import' || (level.value === 'songs' && !onlyUnverified.value)) {
+    level.value = 'books'
+    activeBook.value = null
+  }
 })
 
 // ===== ส่งรายการ / รับรายการ — m1.wpa.24.fav.02 (ใบ v3/pleng#153) =====
-// SEND: the starred songs as ONE link (lib/favLink.js), through the same share sheet as the top bar's
-// แชร์ (LINE, e-mail …). No sheet → the link is copied; cannot copy → the link is shown to copy by hand.
-const sendNote = ref('') // '' · 'copied' · 'manual'
-const sendUrl = ref('')
-let sendTimer = null
-async function sendFav() {
-  const url = favListLink(favList.value.map((s) => s.id), window.location.origin + import.meta.env.BASE_URL)
-  sendUrl.value = url
-  const r = await shareLink({ title: `เพลงที่ชอบ ${favCount.value} เพลง · ${SITE_NAME}`, url }, navigator)
-  clearTimeout(sendTimer)
-  sendNote.value = r === 'copied' || r === 'manual' ? r : ''
-  if (r === 'copied') sendTimer = setTimeout(() => { sendNote.value = '' }, 2500)
-}
-
 // RECEIVE: `#/?fav=…` opens a list someone sent. It is shown first; nothing is stored until the
 // person presses เก็บเข้าเพลงที่ชอบ, and then it is ADDED to what they have (never replaces it).
 const incoming = computed(() => parseFavParam(route.query?.fav))
@@ -98,7 +89,7 @@ function openFav() {
   router.replace({ path: '/', query: { v: 'fav' } })
   window.scrollTo(0, 0)
 }
-const activeBook = ref(null)
+const activeBook = ref(route.query?.book ? String(route.query.book) : null)
 
 // searching = query has content → search view overrides the drill (mockup behaviour).
 const searching = computed(() => normalize(query.value) !== '')
@@ -415,15 +406,50 @@ function foundInLabel(s) {
 function openBook(code) {
   activeBook.value = code
   level.value = 'songs'
+  router.replace({ path: '/', query: { book: code } })
   window.scrollTo(0, 0)
 }
 function backToBooks() {
-  if (level.value === 'fav' || level.value === 'import') router.replace({ path: '/', query: {} })
+  const q = route.query || {}
+  if (q.v != null || q.fav != null || q.book != null) router.replace({ path: '/', query: {} })
   level.value = 'books'
   activeBook.value = null
   onlyUnverified.value = false // leaving the queue drops its filter (else a later search stays narrowed)
   window.scrollTo(0, 0)
 }
+
+// แชร์ (top bar) — อยู่หน้าไหนส่งหน้านั้น (พี่เอม 5 พ.ย. 2569). Replaces the old ส่งรายการนี้ button:
+//   เพลงที่ชอบ → ONE link with the starred songs (lib/favLink.js), opened as รายการที่ส่งมา elsewhere ·
+//   none starred → the site · a เล่ม → that เล่ม · a list someone sent → the same list · else → the site.
+const pageRoot = () => window.location.origin + import.meta.env.BASE_URL
+watch(
+  () => [level.value, activeBook.value, favList.value, route.query?.fav, searching.value, showList.value],
+  () => {
+    const root = pageRoot()
+    let t = null
+    if (searching.value || showList.value) t = null
+    else if (level.value === 'fav' && favCount.value) {
+      t = { url: favListLink(favList.value.map((s) => s.id), root), title: `เพลงที่ชอบ ${favCount.value} เพลง · ${SITE_NAME}` }
+    } else if (level.value === 'import' && incoming.value.ok) {
+      t = { url: favListLink(incoming.value.ids, root), title: `รายการเพลง ${incoming.value.ids.length} เพลง · ${SITE_NAME}` }
+    } else if (level.value === 'songs' && activeBook.value) {
+      const name = activeBookMeta.value?.name
+      t = { url: `${root.endsWith('/') ? root : root + '/'}#/?book=${encodeURIComponent(activeBook.value)}`, title: name ? `${name} · ${SITE_NAME}` : SITE_NAME }
+    }
+    pageShare.value = t
+  },
+  { immediate: true, flush: 'post' },
+)
+onUnmounted(() => { pageShare.value = null })
+// a เล่ม link whose เล่ม is not on this site (renamed, emptied, or not open to this reader) → the shelf,
+// never an empty page titled with nothing. Only judged once the catalog has loaded.
+watch(
+  () => [loading.value, level.value, activeBook.value, activeBookMeta.value],
+  () => {
+    if (!loading.value && level.value === 'songs' && activeBook.value && !activeBookMeta.value && !onlyUnverified.value) backToBooks()
+  },
+  { immediate: true },
+)
 
 // ---- โหลดรายการเพลง ----
 //
@@ -799,17 +825,6 @@ onMounted(async () => {
         <button type="button" class="crumb" @click="backToBooks">← เล่มทั้งหมด</button>
         <h2>เพลงที่ชอบ</h2>
         <span class="count muted" aria-live="polite">{{ favCount }} เพลง</span>
-        <!-- ใบ#153 — send the whole list as one link (to a new phone, or to the worship team).
-             Nothing to send → no button (AC 8). -->
-        <button v-if="favCount" type="button" class="facet-chip fav-send" data-test="fav-send" @click="sendFav">
-          ส่งรายการนี้
-        </button>
-      </div>
-      <p v-if="sendNote === 'copied'" class="fav-note" role="status" data-test="fav-copied">คัดลอกลิงก์แล้ว — วางในแชตหรืออีเมลได้เลย</p>
-      <div v-else-if="sendNote === 'manual'" class="fav-note fav-manual" role="status">
-        <label>คัดลอกลิงก์นี้ไปส่ง
-          <input type="text" readonly :value="sendUrl" @focus="$event.target.select()" />
-        </label>
       </div>
       <p v-if="!storageOk" class="muted db-note" data-test="fav-nostore">
         เครื่องนี้จำเพลงที่ชอบไว้ไม่ได้ — ดาวที่กดจะหายเมื่อปิดเว็บ
@@ -1144,7 +1159,6 @@ onMounted(async () => {
 .book-row-wrap.fav-shelf { border-left-color: #a16207; }
 .fav-glyph { color: #facc15; -webkit-text-stroke: 1px #a16207; }
 /* ใบ#153 — send / receive a list */
-.fav-send { margin-left: auto; }
 .fav-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin: 0 0 var(--sp-3); }
 .fav-take {
   min-height: var(--touch-min);
@@ -1159,8 +1173,6 @@ onMounted(async () => {
 }
 .fav-take:disabled { opacity: 0.5; cursor: default; }
 .fav-note { margin: 0 0 var(--sp-3); font-weight: 600; color: var(--ink); }
-.fav-manual label { display: flex; flex-direction: column; gap: var(--sp-1); font-weight: 400; }
-.fav-manual input { width: 100%; font: inherit; font-size: var(--fs-sm); padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; }
 .book-row-wrap.fallback .bk-name { color: var(--muted); }
 
 /* ---- LEVEL 2 · one row per song: number (tabular, right) + title (wraps) + key ---- */
