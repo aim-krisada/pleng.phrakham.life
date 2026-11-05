@@ -64,6 +64,23 @@ export function toggleFavorite(id) {
   return nowOn
 }
 
+// ใบ v3/pleng#153 — take in a list sent as a link: ADD to what this device already has, never replace
+// (a wrong link must not wipe anyone's stars). Returns how many were new.
+export function addFavorites(ids) {
+  const next = new Set(favorites.value)
+  let added = 0
+  for (const id of ids || []) {
+    if (id == null || id === '') continue
+    const key = String(id)
+    if (!next.has(key)) { next.add(key); added++ }
+  }
+  if (added) {
+    favorites.value = next
+    persist()
+  }
+  return added
+}
+
 // The favorite songs that still exist in `songs` (the catalog this reader can see), sorted by Thai
 // title so a long list is easy to scan. A song that was removed from the site — or that this reader
 // may not see — simply isn't listed (AC 7): no blank row, no "unknown song".
