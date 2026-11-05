@@ -107,4 +107,13 @@ describe('home — ★ เพลงที่ชอบ', () => {
     expect(w.find('.song-row [data-test="fav-star"]').exists()).toBe(false)
     expect(w.find('.song-row-wrap > [data-test="fav-star"]').exists()).toBe(true)
   })
+
+  it('the star comes before the title, inside the card frame (พี่เอม 5 พ.ย. 2569)', async () => {
+    const w = await mountList()
+    await w.findAll('.book-row-wrap')[1].find('.book-row').trigger('click')
+    const wrap = w.find('.song-row-wrap')
+    expect(wrap.classes()).toContain('has-star')
+    expect(wrap.element.firstElementChild.getAttribute('data-test')).toBe('fav-star')
+    expect(wrap.element.firstElementChild.classList.contains('in-card')).toBe(true)
+  })
 })

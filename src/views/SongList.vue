@@ -630,7 +630,8 @@ onMounted(async () => {
            ปุ่มเดียวกับที่ใช้ในแถวเพลงในเล่ม (`.row-edit`) ⛔ ไม่สร้างปุ่มแบบใหม่
            และวางเป็น "พี่น้อง" ของลิงก์การ์ดเหมือนกัน ⛔ ไม่ใช่ปุ่มซ้อนในลิงก์ -->
       <div class="song-grid">
-        <div v-for="s in results" :key="s.id" class="song-card-wrap">
+        <div v-for="s in results" :key="s.id" class="song-card-wrap has-star">
+        <FavStar :id="s.id" :title="s.title_th" class="in-card" />
         <router-link :to="`/song/${s.id}`" class="card song-card">
           <div class="song-card-head">
             <strong class="song-title">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</strong>
@@ -656,7 +657,6 @@ onMounted(async () => {
           </div>
           <div v-if="s.scripture" class="scripture-tag muted">📖 {{ s.scripture }}</div>
         </router-link>
-        <FavStar :id="s.id" :title="s.title_th" />
         <button
           v-if="loggedIn"
           type="button"
@@ -717,7 +717,8 @@ onMounted(async () => {
         <!-- ② ปุ่ม ✏️ ต้องอยู่ "ข้างนอก" ลิงก์ ไม่ใช่ข้างใน — ปุ่มซ้อนในลิงก์เป็นโครงที่ผิดกติกา
              (ตัวช่วยอ่านจอจะประกาศซ้อนกัน และการกดจะไปโดนลิงก์ด้วย) · G ท้วงข้อนี้ไว้รอบก่อน
              จึงห่อทั้งคู่ด้วย .song-row-wrap แล้ววางลิงก์กับปุ่มเป็นพี่น้องกัน -->
-        <div v-for="s in inBook" :key="s.id" class="song-row-wrap">
+        <div v-for="s in inBook" :key="s.id" class="song-row-wrap has-star">
+          <FavStar :id="s.id" :title="s.title_th" class="in-card" />
           <router-link :to="`/song/${s.id}`" class="song-row">
             <span class="no">{{ s.number != null ? s.number : '–' }}</span>
             <span class="ttl">{{ s.title_th }}</span>
@@ -733,7 +734,6 @@ onMounted(async () => {
             >{{ songRefLabels(s).join(' · ') }}</span>
             <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
           </router-link>
-          <FavStar :id="s.id" :title="s.title_th" />
           <!-- เห็นเฉพาะเมื่อล็อกอิน · เปิดเพลงนี้ในหน้าแก้ไขทันที (ไม่ต้องแวะหน้าฝึกร้อง)
                ป้ายชื่อบอกชื่อเพลงด้วย เพราะในรายการมีปุ่มนี้เป็นสิบ ๆ ปุ่มที่หน้าตาเหมือนกัน
                ⛔ ไม่ซ่อนด้วย @media (hover) — เครื่องพี่เอมเป็นจอสัมผัสที่ต่อเมาส์ ปุ่มจะหายไป -->
@@ -780,13 +780,13 @@ onMounted(async () => {
           </template>
         </div>
         <div class="song-list">
-          <div v-for="s in incomingSongs" :key="s.id" class="song-row-wrap">
+          <div v-for="s in incomingSongs" :key="s.id" class="song-row-wrap has-star">
+            <FavStar :id="s.id" :title="s.title_th" class="in-card" />
             <router-link :to="`/song/${s.id}`" class="song-row">
               <span class="no">{{ s.number != null ? s.number : '–' }}</span>
               <span class="ttl">{{ s.title_th }}</span>
               <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
             </router-link>
-            <FavStar :id="s.id" :title="s.title_th" />
           </div>
         </div>
       </template>
@@ -815,13 +815,13 @@ onMounted(async () => {
         เครื่องนี้จำเพลงที่ชอบไว้ไม่ได้ — ดาวที่กดจะหายเมื่อปิดเว็บ
       </p>
       <div class="song-list">
-        <div v-for="s in favList" :key="s.id" class="song-row-wrap">
+        <div v-for="s in favList" :key="s.id" class="song-row-wrap has-star">
+          <FavStar :id="s.id" :title="s.title_th" class="in-card" />
           <router-link :to="`/song/${s.id}`" class="song-row">
             <span class="no">{{ s.number != null ? s.number : '–' }}</span>
             <span class="ttl">{{ s.title_th }}</span>
             <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
           </router-link>
-          <FavStar :id="s.id" :title="s.title_th" />
         </div>
       </div>
       <p v-if="favCount === 0" class="muted empty" data-test="fav-empty">
@@ -1179,6 +1179,14 @@ onMounted(async () => {
 /* ห่อ "ลิงก์แถว + ปุ่มแก้ไข" ให้เป็นพี่น้องกัน ⛔ ไม่ใช่ปุ่มซ้อนในลิงก์ (โครงที่ผิดกติกา).
    ตัวห่อไม่มีหน้าตาของตัวเอง — กรอบและพื้นยังเป็นของ .song-row เหมือนเดิมทุกประการ */
 .song-row-wrap { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-width: 0; }
+/* ★ หน้าชื่อเพลง ในกรอบการ์ด (พี่เอม 5 พ.ย. 2569 — ดาวนอกการ์ดทำให้การ์ดแหว่ง).
+   ดาวยังเป็น "พี่น้อง" ของลิงก์ ⛔ ไม่ซ้อนในลิงก์ — แค่วางทับขอบซ้ายของการ์ด แล้วดันเนื้อในการ์ดหลบ
+   ⇒ การ์ดกว้างเต็มแถว · กดดาวไม่เปิดเพลง · ปุ่มยัง 44×44 */
+.has-star { position: relative; }
+.has-star > .in-card { position: absolute; left: 2px; top: 5px; z-index: 1; }
+.has-star > .song-row { padding-left: calc(var(--touch-min) + 2px); }
+.has-star > .song-card { padding-left: calc(var(--touch-min) + 4px); }
+.song-card-wrap.has-star > .in-card { top: 8px; }
 .song-row {
   display: flex;
   align-items: flex-start;
