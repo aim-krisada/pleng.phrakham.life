@@ -38,6 +38,9 @@ describe('ใบ#151 — แชร์ in the top bar', () => {
     const search = kids.findIndex((el) => el.getAttribute('aria-label') === 'ค้นหาเพลง')
     expect(kids[search + 1].classList.contains('sb-share-wrap')).toBe(true)
     expect(w.find('.sb-share').text()).toBe('แชร์')
+    // phone hides the word (CSS) — the button keeps its name for screen readers
+    expect(w.find('.sb-share').attributes('aria-label')).toBe('แชร์')
+    expect(w.find('.sb-share-label').exists()).toBe(true)
   })
 
   it('AC2 — a non-Apple device (jsdom) gets the three-circle glyph', () => {

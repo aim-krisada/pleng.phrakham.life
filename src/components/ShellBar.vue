@@ -218,7 +218,7 @@ onUnmounted(() => clearTimeout(shareTimer))
 
       <!-- แชร์ (ใบ v3/pleng#151) — glyph + word, hidden on an unsaved new song / draft -->
       <div v-if="share" class="sb-share-wrap">
-        <button type="button" class="sb-share" @click="doShare"><Icon :name="shareIcon" :size="20" /><span>แชร์</span></button>
+        <button type="button" class="sb-share" aria-label="แชร์" @click="doShare"><Icon :name="shareIcon" :size="20" /><span class="sb-share-label">แชร์</span></button>
         <div v-if="shareNote === 'copied'" class="sb-share-note" role="status">คัดลอกลิงก์แล้ว</div>
         <div v-else-if="shareNote === 'manual'" class="sb-share-note sb-share-manual" role="status">
           <label>คัดลอกลิงก์นี้<input :value="shareUrl" readonly @focus="selectAll" /></label>

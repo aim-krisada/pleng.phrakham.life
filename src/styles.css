@@ -484,8 +484,9 @@ html.hdr-hidden .shell-bar { transform: translateY(-100%); }
   color: var(--brand); font: inherit; font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; cursor: pointer;
 }
 @media (hover: hover) { .sb-new:hover { border-color: var(--brand); background: var(--cream); } }
-/* ใบ#151 — แชร์ beside 🔍: glyph + word always (NN/g: the share glyph needs its label). Desktop = a
-   pill like สร้างเพลงใหม่; a phone stacks the word under the glyph so it fits in one 44px slot. */
+/* ใบ#151 — แชร์ beside 🔍. Desktop = glyph + word, a pill like สร้างเพลงใหม่ (NN/g: the share glyph
+   reads better with its label). Phone = glyph only, like 🔍 and Aa beside it (P'Aim 5 พ.ย. 2569:
+   no other phone button carries a word); the button keeps aria-label แชร์ for screen readers. */
 .sb-share-wrap { position: relative; display: inline-flex; }
 .sb-share {
   display: inline-flex; align-items: center; gap: 6px;
@@ -567,7 +568,8 @@ html.hdr-hidden .shell-bar { transform: translateY(-100%); }
      in the bar (P'Aim 13 ก.ค.: login icon outside the drawer, far right · ใบ#142: Aa on every width). */
   .sb-nav,
   .sb-new { display: none; } /* ใบ#147 — on a phone สร้างเพลงใหม่ is in ☰, never both */
-  .sb-share { flex-direction: column; justify-content: center; gap: 1px; padding: 0 4px; border-color: transparent; font-size: 0.72rem; line-height: 1; }
+  .sb-share { justify-content: center; padding: 0; border-color: transparent; }
+  .sb-share-label { display: none; }
   /* mobile-only hamburger */
   .sb-burger { display: inline-flex; }
   .sb-sep { display: none; }
