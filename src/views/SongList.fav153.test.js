@@ -27,6 +27,7 @@ vi.mock('../supabase.js', () => ({
 
 import SongList from './SongList.vue'
 import { _reloadFavorites, toggleFavorite, favorites } from '../lib/favorites.js'
+import { pageShare } from '../store.js'
 
 const RouterLink = { name: 'RouterLink', props: ['to'], template: '<a :href="to"><slot /></a>' }
 const song = (id, number, title) => ({
@@ -57,39 +58,54 @@ afterEach(() => {
   Object.defineProperty(globalThis, 'navigator', { value: realNav, configurable: true })
 })
 
-describe('send — ส่งรายการนี้', () => {
-  it('AC 8 — no starred song → no send button', async () => {
+describe('send — the top bar แชร์ sends the page you are on (พี่เอม 5 พ.ย. 2569)', () => {
+  it('no ส่งรายการนี้ button any more — แชร์ in the top bar does it', async () => {
+    toggleFavorite('s1')
     h.query = { v: 'fav' }
     const w = await mountList()
     expect(w.find('[data-test="fav-view"]').exists()).toBe(true)
     expect(w.find('[data-test="fav-send"]').exists()).toBe(false)
+    expect(w.text()).not.toContain('ส่งรายการนี้')
   })
 
-  it('AC 1-2 — opens the device share sheet with ONE link holding only the starred ids', async () => {
+  it('เพลงที่ชอบ → ONE link holding only the starred ids, in the listed order', async () => {
     toggleFavorite('s3')
     toggleFavorite('s1')
-    const share = vi.fn(() => Promise.resolve())
-    fakeNav({ share })
+    toggleFavorite('gone-song') // no longer on the site → not sent
     h.query = { v: 'fav' }
-    const w = await mountList()
-    await w.find('[data-test="fav-send"]').trigger('click')
-    await flushPromises()
-    expect(share).toHaveBeenCalledTimes(1)
-    const data = share.mock.calls[0][0]
-    expect(data.url).toMatch(/#\/\?fav=s1,s3$/) // listed order = Thai title order
-    expect(data.title).toContain('เพลงที่ชอบ 2 เพลง')
+    await mountList()
+    expect(pageShare.value.url).toMatch(/#\/\?fav=s1,s3$/) // listed order = Thai title order
+    expect(pageShare.value.title).toContain('เพลงที่ชอบ 2 เพลง')
   })
 
-  it('no share sheet → the link is copied and the page says so', async () => {
-    toggleFavorite('s1')
-    const writeText = vi.fn(() => Promise.resolve())
-    fakeNav({ share: undefined, clipboard: { writeText } })
+  it('เพลงที่ชอบ with nothing starred → the plain page (the bar shares the site)', async () => {
     h.query = { v: 'fav' }
+    await mountList()
+    expect(pageShare.value).toBeNull()
+  })
+
+  it('inside a เล่ม → that เล่ม, and opening that link lands in it', async () => {
+    h.query = { book: 'ก' }
     const w = await mountList()
-    await w.find('[data-test="fav-send"]').trigger('click')
-    await flushPromises()
-    expect(writeText.mock.calls[0][0]).toMatch(/fav=s1$/)
-    expect(w.find('[data-test="fav-copied"]').text()).toContain('คัดลอกลิงก์แล้ว')
+    expect(pageShare.value.url).toMatch(/#\/\?book=%E0%B8%81$/)
+    expect(w.findAll('.song-row-wrap').length).toBe(3)
+  })
+
+  it('opening a เล่ม puts it in the address (so ← from a song comes back into it)', async () => {
+    const w = await mountList()
+    await w.findAll('.book-row-wrap:not(.fav-shelf) .book-row')[0].trigger('click')
+    expect(h.replaced.at(-1)).toEqual({ path: '/', query: { book: 'ก' } })
+  })
+
+  it('a list someone sent → the same list', async () => {
+    h.query = { fav: 's2,s3' }
+    await mountList()
+    expect(pageShare.value.url).toMatch(/#\/\?fav=s2,s3$/)
+  })
+
+  it('the shelf → nothing special (the bar shares the site)', async () => {
+    await mountList()
+    expect(pageShare.value).toBeNull()
   })
 })
 
@@ -125,5 +141,14 @@ describe('receive — a link opened on another device', () => {
     expect(w.find('[data-test="fav-bad-link"]').text()).toContain('ลิงก์นี้เปิดรายการไม่ได้')
     expect(w.find('[data-test="fav-take"]').exists()).toBe(false)
     expect([...favorites.value]).toEqual(['s2'])
+  })
+})
+
+describe('a เล่ม link to a เล่ม that is not here', () => {
+  it('lands on the shelf, not an empty page', async () => {
+    h.query = { book: 'nope' }
+    const w = await mountList()
+    expect(w.findAll('.book-row-wrap').length).toBeGreaterThan(0)
+    expect(h.replaced.at(-1)).toEqual({ path: '/', query: {} })
   })
 })

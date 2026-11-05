@@ -10,7 +10,7 @@ vi.mock('vue-router', () => ({
 
 import './../lib/pk-drawer.js'
 import ShellBar from './ShellBar.vue'
-import { shellMenu, currentSong } from '../store.js'
+import { shellMenu, currentSong, pageShare } from '../store.js'
 
 const stubs = {
   ProfileTool: { template: '<div class="sb-login" />' },
@@ -20,7 +20,7 @@ const stubs = {
 let w = null
 const realShare = navigator.share
 const realClip = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
-beforeEach(() => { shellMenu.value = null; nav.path = '/'; currentSong.value = null })
+beforeEach(() => { shellMenu.value = null; nav.path = '/'; currentSong.value = null; pageShare.value = null })
 afterEach(() => {
   w?.unmount(); w = null
   document.querySelectorAll('.pk-drawer,.pk-drawer-scrim').forEach((n) => n.remove())
@@ -74,6 +74,25 @@ describe('ใบ#151 — แชร์ in the top bar', () => {
     expect(arg.url).toBe(window.location.origin + '/#/song/9')
     expect(arg.text).toContain('สรรเสริญ')
     expect(w.find('.sb-share-note').exists()).toBe(false)
+  })
+
+  it('home page view (a เล่ม · เพลงที่ชอบ) → sends what the page says it is (พี่เอม 5 พ.ย. 2569)', async () => {
+    pageShare.value = { url: 'https://x.test/#/?fav=a,b', title: 'เพลงที่ชอบ 2 เพลง' }
+    navigator.share = vi.fn().mockResolvedValue()
+    mountBar()
+    await w.find('.sb-share').trigger('click')
+    await flushPromises()
+    expect(navigator.share.mock.calls[0][0].url).toBe('https://x.test/#/?fav=a,b')
+  })
+
+  it('a song page ignores a stale home-page view', async () => {
+    pageShare.value = { url: 'https://x.test/#/?book=x', title: 'x' }
+    nav.path = '/song/9'
+    navigator.share = vi.fn().mockResolvedValue()
+    mountBar()
+    await w.find('.sb-share').trigger('click')
+    await flushPromises()
+    expect(navigator.share.mock.calls[0][0].url).toBe(window.location.origin + '/#/song/9')
   })
 
   it('AC5 — no share sheet: copies the link and says คัดลอกลิงก์แล้ว', async () => {

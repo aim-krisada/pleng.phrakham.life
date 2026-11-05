@@ -11,7 +11,7 @@ import { nextTick } from 'vue'
 const h = vi.hoisted(() => ({ rows: [] }))
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push() {} }),
+  useRouter: () => ({ push() {}, replace() {} }),
   useRoute: () => ({ params: {}, query: {} }),
 }))
 vi.mock('../supabase.js', () => ({

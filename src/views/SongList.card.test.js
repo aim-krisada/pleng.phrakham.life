@@ -14,7 +14,7 @@ import live717 from '../components/__fixtures__/717-live.json'
 const h = vi.hoisted(() => ({ rows: [] }))
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push() {} }),
+  useRouter: () => ({ push() {}, replace() {} }),
   useRoute: () => ({ params: {}, query: {} }),
 }))
 vi.mock('../supabase.js', () => ({

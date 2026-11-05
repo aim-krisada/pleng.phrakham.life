@@ -6,7 +6,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 const h = vi.hoisted(() => ({ res: null, retried: [] }))
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push() {} }),
+  useRouter: () => ({ push() {}, replace() {} }),
   useRoute: () => ({ params: {}, query: {} }),
 }))
 vi.mock('../supabase.js', () => ({
