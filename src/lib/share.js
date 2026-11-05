@@ -32,6 +32,15 @@ export function shareTarget(path, song, base) {
   return { url: `${root}#${path}`, title: SITE_NAME }
 }
 
+// The site root as the reader's browser sees it, e.g. "https://pleng.phrakham.life/".
+// ⛔ NOT origin + import.meta.env.BASE_URL: the build uses base './', which made every shared link
+// "https://pleng.phrakham.life./#/…" (a stray dot after the domain) on the live site. The page's own
+// folder is the root: works on the custom domain, on a GitHub Pages project path, and on localhost.
+export function siteRoot(loc) {
+  const l = loc || window.location
+  return l.origin + l.pathname.replace(/[^/]*$/, '')
+}
+
 // iPhone · iPad · Mac show Apple's share glyph (box + up-arrow); every other device the
 // three joined circles (web.dev: respect the platform's own share icon). iPadOS reports
 // itself as "Macintosh", so the Mac test covers it.

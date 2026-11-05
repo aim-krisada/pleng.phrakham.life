@@ -1,6 +1,6 @@
 // ใบ v3/pleng#151 — what each page shares, which glyph, and what happens on share / cancel / copy.
 import { describe, it, expect, vi } from 'vitest'
-import { shareTarget, isApple, shareLink } from './share.js'
+import { shareTarget, isApple, shareLink, siteRoot } from './share.js'
 
 const ROOT = 'https://pleng.phrakham.life/'
 const song = { title_th: 'พระคุณพระเจ้า' }
@@ -64,5 +64,15 @@ describe('shareLink — AC4 · AC5 · AC9', () => {
   it('AC9 sad path — copying blocked too → manual (the bar shows the link)', async () => {
     expect(await shareLink(t, {})).toBe('manual')
     expect(await shareLink(t, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('no')) } })).toBe('manual')
+  })
+})
+
+describe('siteRoot — the root a shared link starts with', () => {
+  it('live site: no stray dot after the domain (base ./ bug)', () => {
+    expect(siteRoot({ origin: 'https://pleng.phrakham.life', pathname: '/' })).toBe('https://pleng.phrakham.life/')
+    expect(siteRoot({ origin: 'https://pleng.phrakham.life', pathname: '/index.html' })).toBe('https://pleng.phrakham.life/')
+  })
+  it('GitHub Pages project path keeps its folder', () => {
+    expect(siteRoot({ origin: 'https://x.github.io', pathname: '/pleng/' })).toBe('https://x.github.io/pleng/')
   })
 })
