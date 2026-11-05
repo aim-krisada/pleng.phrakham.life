@@ -22,7 +22,10 @@ import { bookSortState, chooseSort } from '../lib/sortPref.js'
 import { WORK_WORDS } from '../i18n/workWords.js'
 import { session, canApprove } from '../store.js'
 import { CATALOG_COLUMNS, readCatalog, saveCatalog, offlineSince, savedDateLabel } from '../lib/offlineSongs.js'
-import { favorites, favoriteSongs, storageOk } from '../lib/favorites.js'
+import { favorites, favoriteSongs, storageOk, addFavorites } from '../lib/favorites.js'
+import { favListLink, parseFavParam } from '../lib/favLink.js'
+import { shareLink } from '../lib/share.js'
+import { SITE_NAME } from '../lib/songName.js'
 import FavStar from '../components/FavStar.vue'
 
 const router = useRouter()
@@ -43,17 +46,49 @@ const dbError = ref(false)
 // results across every book (US-AC5), so the search path (songSearch.js) is untouched.
 // `level` tracks which drill state we're in when NOT searching; `activeBook` is the
 // selected category code (or the fallback sentinel).
-const level = ref(route.query?.v === 'fav' ? 'fav' : 'books') // 'books' | 'songs' | 'fav'
+const level = ref(route.query?.fav != null ? 'import' : route.query?.v === 'fav' ? 'fav' : 'books') // 'books' | 'songs' | 'fav' | 'import'
 
 // ★ เพลงที่ชอบ (ใบ v3/pleng#152) — a third view beside the shelf: only the songs this device starred.
 // Kept in the URL (`#/?v=fav`) so ← from a song comes back HERE, not to the shelf.
 const favList = computed(() => favoriteSongs(shownSongs.value, favorites.value))
 const favCount = computed(() => favList.value.length)
-// the address can change under a mounted page (← / → in the browser) — follow it
-watch(() => route.query?.v, (v) => {
-  if (v === 'fav') level.value = 'fav'
-  else if (level.value === 'fav') level.value = 'books'
+// the address can change under a mounted page (← / → in the browser, or a link opened in this tab) — follow it
+watch(() => [route.query?.v, route.query?.fav], ([v, fav]) => {
+  if (fav != null) { level.value = 'import'; importDone.value = null }
+  else if (v === 'fav') level.value = 'fav'
+  else if (level.value === 'fav' || level.value === 'import') level.value = 'books'
 })
+
+// ===== ส่งรายการ / รับรายการ — m1.wpa.24.fav.02 (ใบ v3/pleng#153) =====
+// SEND: the starred songs as ONE link (lib/favLink.js), through the same share sheet as the top bar's
+// แชร์ (LINE, e-mail …). No sheet → the link is copied; cannot copy → the link is shown to copy by hand.
+const sendNote = ref('') // '' · 'copied' · 'manual'
+const sendUrl = ref('')
+let sendTimer = null
+async function sendFav() {
+  const url = favListLink(favList.value.map((s) => s.id), window.location.origin + import.meta.env.BASE_URL)
+  sendUrl.value = url
+  const r = await shareLink({ title: `เพลงที่ชอบ ${favCount.value} เพลง · ${SITE_NAME}`, url }, navigator)
+  clearTimeout(sendTimer)
+  sendNote.value = r === 'copied' || r === 'manual' ? r : ''
+  if (r === 'copied') sendTimer = setTimeout(() => { sendNote.value = '' }, 2500)
+}
+
+// RECEIVE: `#/?fav=…` opens a list someone sent. It is shown first; nothing is stored until the
+// person presses เก็บเข้าเพลงที่ชอบ, and then it is ADDED to what they have (never replaces it).
+const incoming = computed(() => parseFavParam(route.query?.fav))
+const incomingSongs = computed(() => {
+  const byId = new Map(shownSongs.value.map((s) => [String(s.id), s]))
+  return incoming.value.ids.map((id) => byId.get(id)).filter(Boolean)
+})
+// ids in the link that are not on the site (removed, or not open to this reader) — skipped and
+// COUNTED, never swapped for a guess (AC 6). Only known once the catalog has loaded.
+const incomingMissing = computed(() => (loading.value ? 0 : incoming.value.ids.length - incomingSongs.value.length))
+const importDone = ref(null) // null · how many songs the press put in เพลงที่ชอบ
+function takeIn() {
+  addFavorites(incomingSongs.value.map((s) => s.id))
+  importDone.value = incomingSongs.value.length
+}
 function openFav() {
   query.value = ''
   onlyUnverified.value = false
@@ -383,7 +418,7 @@ function openBook(code) {
   window.scrollTo(0, 0)
 }
 function backToBooks() {
-  if (level.value === 'fav') router.replace({ path: '/', query: {} })
+  if (level.value === 'fav' || level.value === 'import') router.replace({ path: '/', query: {} })
   level.value = 'books'
   activeBook.value = null
   onlyUnverified.value = false // leaving the queue drops its filter (else a later search stays narrowed)
@@ -715,6 +750,48 @@ onMounted(async () => {
       <p v-if="inBook.length === 0" class="muted empty">ยังไม่มีเพลงในเล่มนี้</p>
     </section>
 
+    <!-- ===== รายการที่ส่งมา (ใบ v3/pleng#153) — a link opened on this device. Shown first, stored only on
+         เก็บเข้าเพลงที่ชอบ. Broken link → say so and touch nothing (AC 7). ===== -->
+    <section v-else-if="level === 'import'" data-test="fav-import">
+      <div class="book-bar">
+        <button type="button" class="crumb" @click="backToBooks">← เล่มทั้งหมด</button>
+        <h2>รายการเพลงที่ส่งมา</h2>
+        <span v-if="incoming.ok" class="count muted">{{ incomingSongs.length }} เพลง</span>
+      </div>
+      <p v-if="!incoming.ok" class="muted empty" role="alert" data-test="fav-bad-link">
+        ลิงก์นี้เปิดรายการไม่ได้ — ลองขอลิงก์ใหม่จากคนที่ส่งมา เพลงที่ชอบในเครื่องนี้ยังอยู่ครบ
+      </p>
+      <template v-else>
+        <p v-if="incomingMissing > 0" class="muted db-note" data-test="fav-missing">
+          ไม่พบ {{ incomingMissing }} เพลงในเว็บแล้ว — ข้ามเพลงนั้นไป
+        </p>
+        <div class="fav-actions">
+          <button
+            v-if="importDone === null"
+            type="button"
+            class="fav-take"
+            data-test="fav-take"
+            :disabled="!incomingSongs.length"
+            @click="takeIn"
+          >★ เก็บเข้าเพลงที่ชอบ</button>
+          <template v-else>
+            <p class="fav-note" role="status" data-test="fav-taken">เก็บแล้ว {{ importDone }} เพลง</p>
+            <button type="button" class="facet-chip" data-test="fav-go" @click="openFav">ไปที่เพลงที่ชอบ ›</button>
+          </template>
+        </div>
+        <div class="song-list">
+          <div v-for="s in incomingSongs" :key="s.id" class="song-row-wrap">
+            <router-link :to="`/song/${s.id}`" class="song-row">
+              <span class="no">{{ s.number != null ? s.number : '–' }}</span>
+              <span class="ttl">{{ s.title_th }}</span>
+              <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
+            </router-link>
+            <FavStar :id="s.id" :title="s.title_th" />
+          </div>
+        </div>
+      </template>
+    </section>
+
     <!-- ===== ★ เพลงที่ชอบ (ใบ v3/pleng#152) — the same .song-row list as a book, but only starred songs.
          Un-starring here takes the row away at once (AC 2). Empty → say what to do (AC 6, มาตรฐาน ก-08). -->
     <section v-else-if="level === 'fav'" data-test="fav-view">
@@ -722,6 +799,17 @@ onMounted(async () => {
         <button type="button" class="crumb" @click="backToBooks">← เล่มทั้งหมด</button>
         <h2>เพลงที่ชอบ</h2>
         <span class="count muted" aria-live="polite">{{ favCount }} เพลง</span>
+        <!-- ใบ#153 — send the whole list as one link (to a new phone, or to the worship team).
+             Nothing to send → no button (AC 8). -->
+        <button v-if="favCount" type="button" class="facet-chip fav-send" data-test="fav-send" @click="sendFav">
+          ส่งรายการนี้
+        </button>
+      </div>
+      <p v-if="sendNote === 'copied'" class="fav-note" role="status" data-test="fav-copied">คัดลอกลิงก์แล้ว — วางในแชตหรืออีเมลได้เลย</p>
+      <div v-else-if="sendNote === 'manual'" class="fav-note fav-manual" role="status">
+        <label>คัดลอกลิงก์นี้ไปส่ง
+          <input type="text" readonly :value="sendUrl" @focus="$event.target.select()" />
+        </label>
       </div>
       <p v-if="!storageOk" class="muted db-note" data-test="fav-nostore">
         เครื่องนี้จำเพลงที่ชอบไว้ไม่ได้ — ดาวที่กดจะหายเมื่อปิดเว็บ
@@ -1055,6 +1143,24 @@ onMounted(async () => {
 /* ★ เพลงที่ชอบ shelf row — a book card with an amber spine, the star in the same yellow as FavStar */
 .book-row-wrap.fav-shelf { border-left-color: #a16207; }
 .fav-glyph { color: #facc15; -webkit-text-stroke: 1px #a16207; }
+/* ใบ#153 — send / receive a list */
+.fav-send { margin-left: auto; }
+.fav-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin: 0 0 var(--sp-3); }
+.fav-take {
+  min-height: var(--touch-min);
+  padding: 0 var(--sp-4);
+  border-radius: 999px;
+  border: none;
+  background: var(--brand);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.fav-take:disabled { opacity: 0.5; cursor: default; }
+.fav-note { margin: 0 0 var(--sp-3); font-weight: 600; color: var(--ink); }
+.fav-manual label { display: flex; flex-direction: column; gap: var(--sp-1); font-weight: 400; }
+.fav-manual input { width: 100%; font: inherit; font-size: var(--fs-sm); padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; }
 .book-row-wrap.fallback .bk-name { color: var(--muted); }
 
 /* ---- LEVEL 2 · one row per song: number (tabular, right) + title (wraps) + key ---- */
