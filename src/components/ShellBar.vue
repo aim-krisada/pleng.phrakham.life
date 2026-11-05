@@ -23,7 +23,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { shellMenu, newSongRequest, currentSong, pageShare } from '../store.js'
-import { shareTarget, isApple, shareLink } from '../lib/share.js'
+import { shareTarget, isApple, shareLink, siteRoot } from '../lib/share.js'
 import FontTool from './FontTool.vue'
 import ProfileTool from './ProfileTool.vue'
 import InstallAppTool from './InstallAppTool.vue'
@@ -144,7 +144,6 @@ async function goSearch() {
 // follows the device; the word แชร์ is always shown. No share sheet → the link is copied and the
 // bar says so for 2 s; copying blocked too → a small box shows the link to copy by hand.
 const shareIcon = typeof navigator !== 'undefined' && isApple(navigator) ? 'share' : 'share-2'
-const siteRoot = () => window.location.origin + import.meta.env.BASE_URL
 const share = computed(() =>
   (route.path === '/' && pageShare.value) || shareTarget(route.path, currentSong.value, siteRoot()))
 const shareNote = ref('')        // '' · 'copied' · 'manual'

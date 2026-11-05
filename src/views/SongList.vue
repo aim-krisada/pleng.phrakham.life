@@ -24,6 +24,7 @@ import { session, canApprove, pageShare } from '../store.js'
 import { CATALOG_COLUMNS, readCatalog, saveCatalog, offlineSince, savedDateLabel } from '../lib/offlineSongs.js'
 import { favorites, favoriteSongs, storageOk, addFavorites } from '../lib/favorites.js'
 import { favListLink, parseFavParam } from '../lib/favLink.js'
+import { siteRoot } from '../lib/share.js'
 import { SITE_NAME } from '../lib/songName.js'
 import FavStar from '../components/FavStar.vue'
 
@@ -421,11 +422,10 @@ function backToBooks() {
 // แชร์ (top bar) — อยู่หน้าไหนส่งหน้านั้น (พี่เอม 5 พ.ย. 2569). Replaces the old ส่งรายการนี้ button:
 //   เพลงที่ชอบ → ONE link with the starred songs (lib/favLink.js), opened as รายการที่ส่งมา elsewhere ·
 //   none starred → the site · a เล่ม → that เล่ม · a list someone sent → the same list · else → the site.
-const pageRoot = () => window.location.origin + import.meta.env.BASE_URL
 watch(
   () => [level.value, activeBook.value, favList.value, route.query?.fav, searching.value, showList.value],
   () => {
-    const root = pageRoot()
+    const root = siteRoot()
     let t = null
     if (searching.value || showList.value) t = null
     else if (level.value === 'fav' && favCount.value) {
