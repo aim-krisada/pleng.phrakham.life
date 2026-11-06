@@ -43,7 +43,7 @@ describe('NotationStandard — content contract', () => {
     }
   })
 
-  it('§7 flagship table maps every input row (input · sheet · play · ref)', () => {
+  it('§7 flagship table maps every input row (input · sheet · play)', () => {
     const w = mountPage()
     const rows = w.findAll('#write-to-result .map-table tbody tr')
     expect(rows.length).toBe(12)
