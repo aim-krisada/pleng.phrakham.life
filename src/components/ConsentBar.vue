@@ -48,7 +48,7 @@ onBeforeUnmount(() => {
 <template>
   <section v-if="askConsent" ref="bar" class="consent-bar no-print" aria-label="นับการเปิดเพลง">
     <p class="cb-text">
-      เราขอนับว่าแต่ละเพลงมีคนเปิดดูกี่ครั้ง โดยไม่รู้ว่าคุณเป็นใคร
+      เราขอใช้ Google Analytics นับว่าแต่ละเพลงมีคนเปิดกี่ครั้ง ไม่มีชื่อหรืออีเมลของคุณ
       <router-link to="/about#stats" class="cb-more">อ่านเพิ่ม</router-link>
     </p>
     <div class="cb-btns">

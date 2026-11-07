@@ -69,6 +69,9 @@ describe('awake, not answered yet', () => {
     // same look: same class, nothing else that sets one apart
     expect(btns[0].attributes('class')).toBe(btns[1].attributes('class'))
     expect(w.find('.consent-bar').classes()).toContain('no-print')
+    // informed: says WHO gets it (Google Analytics) and that no name or email goes
+    expect(w.find('.cb-text').text()).toContain('Google Analytics')
+    expect(w.find('.cb-text').text()).toContain('ไม่มีชื่อหรืออีเมลของคุณ')
     trackPage('/', 'รายการเพลง')
     expect(gaScripts()).toHaveLength(0)
     expect(window.dataLayer).toBeUndefined()
@@ -154,6 +157,8 @@ describe('changing your mind on เกี่ยวกับเรา', () => {
     const w = mount(About, { global: { stubs }, attachTo: document.body })
     expect(w.find('#stats').exists()).toBe(true)
     expect(w.find('.stats-now').text()).toContain('ยอมให้นับ')
+    expect(w.find('#stats').text()).toContain('เลขสุ่ม')
+    expect(w.find('#stats').text()).toContain('ประเทศ')
     await expectNoAxeViolations(w.find('#stats'))
 
     await w.findAll('.stats-btns button')[1].trigger('click')
