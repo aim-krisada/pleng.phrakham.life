@@ -85,6 +85,11 @@
    tops this up for browsers that skip it and for the caret moving inside a multi-line field. */
 html.has-dock-bar .pk-scrollnav { bottom: calc(var(--dock-bar-h, 0px) + 8px) !important; }
 html.has-dock-bar { scroll-padding-bottom: calc(var(--dock-bar-h, 0px) + 16px); }
+/* ใบ v3/pleng#154 — while the "may we count?" bar (ConsentBar.vue) is up, make room for it: the page can
+   scroll its last line above the bar, a focused field lands above it, and the scroll buttons step up. */
+@media screen { html.has-consent-bar body { padding-bottom: var(--consent-h, 0px); } }
+html.has-consent-bar { scroll-padding-bottom: calc(var(--dock-bar-h, 0px) + var(--consent-h, 0px) + 16px); }
+html.has-consent-bar .pk-scrollnav { bottom: calc(var(--dock-bar-h, 0px) + var(--consent-h, 0px) + 8px) !important; }
 
 /* text-size-adjust: 100% — DISABLE Chrome-mobile "font boosting" (auto-inflation). Without it,
    Chrome on Android enlarges text a moment after load to "improve readability", which widened the

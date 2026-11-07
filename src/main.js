@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router.js'
+import { installPageTracking } from './lib/analytics.js'
 import './styles.css'
 // B001 — floating scroll ↑/↓ buttons. The SAME vanilla file phrakham.life uses
 // (self-mounts to <body>, portable by design). It listens on window scroll/resize.
@@ -21,6 +22,10 @@ import './lib/pwaInstall.js'
 router.afterEach(() => {
   requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
 })
+
+// ใบ v3/pleng#154 — page counting (Google Analytics). Asleep until lib/analytics.js has a GA_ID, and
+// even then nothing goes to Google before the visitor says yes on the bar.
+installPageTracking(router)
 
 createApp(App).use(router).mount('#app')
 

@@ -1,5 +1,12 @@
 <script setup>
+import { computed } from 'vue'
 import Icon from '../components/Icon.vue'
+import { analyticsOn, consent, setConsent } from '../lib/analytics.js'
+
+// ใบ v3/pleng#154 — what the visitor chose on the counting bar, and a way to change it
+const choiceText = computed(() =>
+  consent.value === 'granted' ? 'ยอมให้นับ' : consent.value === 'denied' ? 'ไม่ให้นับ' : 'ยังไม่ได้เลือก',
+)
 </script>
 
 <template>
@@ -76,6 +83,21 @@ import Icon from '../components/Icon.vue'
       </p>
     </div>
 
+    <!-- ใบ v3/pleng#154 — shown only when page counting is switched on (lib/analytics.js GA_ID) -->
+    <div v-if="analyticsOn" class="card" id="stats">
+      <h3 style="margin-top: 0">การนับคนเปิดเพลง</h3>
+      <p>
+        ถ้าคุณยอม เว็บจะใช้ Google Analytics นับว่าแต่ละเพลงมีคนเปิดกี่ครั้ง และกี่คน
+        เพื่อให้ทีมงานรู้ว่าเพลงไหนมีคนใช้มาก เราไม่ส่งชื่อ อีเมล หรือเนื้อเพลงของคุณไป
+        และเปลี่ยนใจได้ทุกเมื่อที่นี่
+      </p>
+      <p class="stats-now" aria-live="polite">ตอนนี้: <strong>{{ choiceText }}</strong></p>
+      <div class="stats-btns" role="group" aria-label="ยอมให้นับการเปิดเพลงไหม">
+        <button type="button" class="secondary" :aria-pressed="consent === 'granted'" @click="setConsent('granted')">ยอมรับ</button>
+        <button type="button" class="secondary" :aria-pressed="consent === 'denied'" @click="setConsent('denied')">ไม่ยอมรับ</button>
+      </div>
+    </div>
+
     <div class="card">
       <h3 style="margin-top: 0">อยากช่วยทำได้อย่างไร</h3>
       <ul>
@@ -94,4 +116,7 @@ import Icon from '../components/Icon.vue'
    via currentColor and is decorative (aria-hidden baked into <Icon>). */
 .about-h { display: flex; align-items: center; gap: 8px; }
 .about-ico { flex: 0 0 auto; }
+.stats-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 360px; }
+/* the chosen answer gets a brown edge — both buttons stay the same size and colour */
+.stats-btns button[aria-pressed='true'] { border: 2px solid var(--brand); font-weight: 700; }
 </style>

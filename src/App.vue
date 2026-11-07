@@ -8,6 +8,7 @@ import { installFocusClear } from './lib/focusClear.js'
 import { installHeaderHide, COMPACT_Q } from './lib/headerHide.js'
 import SiteFooter from './components/SiteFooter.vue'
 import ShellBar from './components/ShellBar.vue'
+import ConsentBar from './components/ConsentBar.vue'
 
 initAuth()
 // Running print footer (site · page X of Y · date) injected on every print — one place
@@ -110,4 +111,6 @@ watch(() => route.path, () => nextTick(scheduleDockClear))
     </div>
   </main>
   <SiteFooter :class="{ 'footer-dock-clear': isStudio }" />
+  <!-- ใบ v3/pleng#154 — "may we count?" bar; renders nothing until lib/analytics.js has a GA_ID -->
+  <ConsentBar />
 </template>

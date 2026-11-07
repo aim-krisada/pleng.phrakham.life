@@ -6,6 +6,7 @@
 // moved to the song-makers' page "มาตรฐานการเขียนโน้ต" (/#/notation) — a bridge box links there.
 import NoteRow from '../components/NoteRow.vue'
 import Icon from '../components/Icon.vue'
+import { analyticsOn } from '../lib/analytics.js'
 </script>
 
 <template>
@@ -62,6 +63,11 @@ import Icon from '../components/Icon.vue'
       </ul>
       <p class="muted">
         ในเมนู ☰ บนมือถือ มีปุ่ม<strong>ติดตั้งแอพ</strong>ด้วย ติดตั้งแล้วเปิดเพลงได้แม้ไม่มีเน็ต
+      </p>
+      <!-- ใบ v3/pleng#154 — only while page counting is switched on -->
+      <p v-if="analyticsOn" class="muted">
+        ครั้งแรกที่เปิดเว็บ จะมีแถบด้านล่างถามว่ายอมให้นับการเปิดเพลงไหม
+        เปลี่ยนใจได้ที่หน้า<strong>เกี่ยวกับเรา</strong>
       </p>
 
       <h3 id="howto-list" class="howto-h"><Icon name="list-music" :size="22" class="howto-ico" />หาเพลง</h3>

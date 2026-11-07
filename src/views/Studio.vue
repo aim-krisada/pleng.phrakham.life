@@ -16,6 +16,7 @@ import { stopPlayback } from '../lib/midi.js'
 import { singTarget, keepInBox, SING_HANDS_OFF_MS } from '../lib/singFollow.js'
 import { KEYS } from '../lib/chords.js'
 import { tier, initAuth, shellMenu, currentSong, sheetLyricJoin, newSongRequest } from '../store.js'
+import { trackPage, songPageTitle } from '../lib/analytics.js'
 import { songBookRefs } from '../lib/bookCodes.js'
 import Icon from '../components/Icon.vue'
 import SongViewer from '../components/SongViewer.vue'
@@ -139,6 +140,7 @@ onMounted(async () => {
   refreshCatalog()
   if (route.params.id) {
     await loadSong(route.params.id)
+    trackPage(route.path, songPageTitle(loadedSong.value)) // ใบ#154 — counted once the song (and its book) is known
     // A routed song opens in a reading view (US-01 AC1) — UNLESS the link asked for the editor.
     // `?mode=edit` is the ONE way in: it lets the landing page's ✏️ open a song straight in แก้ไข
     // (พี่เปา 30 ก.ค. บรรทัด 307 — "ล็อกอินแล้วมันก็ควรจะขึ้นให้มันเข้าไปได้เลยจากหน้าแรก ...
@@ -162,6 +164,7 @@ watch(
   async (id) => {
     if (!id) return
     await loadSong(id)
+    trackPage(route.path, songPageTitle(loadedSong.value)) // ใบ#154
     // picking another song while already in ฝึกร้อง must land at its top too (same rule as
     // a mode switch above); a route change also fires the router's scrollBehavior, so this is
     // just the belt-and-braces for the async-load timing.
