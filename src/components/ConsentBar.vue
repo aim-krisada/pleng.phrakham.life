@@ -81,6 +81,8 @@ onBeforeUnmount(() => {
 .cb-more { white-space: nowrap; }
 .cb-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: 0 0 auto; }
 .cb-btns button { min-width: 7.5em; }
+/* a fixed music/edit bar is showing → sit exactly on its top edge (its full height, home-bar inset included) */
+:global(html.has-dock-bar .consent-bar) { bottom: var(--dock-bar-h, 0px); }
 @media (max-width: 599px) {
   .cb-btns { flex: 1 1 100%; }
 }
