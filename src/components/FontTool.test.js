@@ -1,5 +1,5 @@
 // FontTool — THE Aa button on the shared top bar (ใบ v3/pleng#142): on every page (no song needed),
-// A− [%] A+ buttons (no slider), คืนค่าปกติ, and ตัวอักษรไทย ไม่มีหัว / มีหัว in the same popup.
+// ก− [%] ก+ buttons (no slider), คืนค่าปกติ, and ตัวอักษรไทย ไม่มีหัว / มีหัว in the same popup.
 // It rides the shared one-open-at-a-time shellMenu channel (key 'aa').
 import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
@@ -46,6 +46,19 @@ describe('ใบ#142 — the top-bar Aa', () => {
     expect(w.find('[aria-label="ตัวใหญ่ขึ้น"]').exists()).toBe(true)
     expect(w.find('.ft-reset').text()).toContain('คืนค่าปกติ')
     expect(w.find('input[type="range"]').exists()).toBe(false)
+  })
+
+  it('ใบ#159 — the steps read ก− / ก+ (bold text, not arrow icons), hidden from screen readers behind the aria-label', async () => {
+    mountT()
+    await openPop()
+    const dn = w.find('[aria-label="ตัวเล็กลง"]')
+    const up = w.find('[aria-label="ตัวใหญ่ขึ้น"]')
+    expect(dn.text()).toBe('ก−')
+    expect(up.text()).toBe('ก+')
+    expect(dn.find('.ft-step-txt').attributes('aria-hidden')).toBe('true')
+    expect(up.find('.ft-step-txt').attributes('aria-hidden')).toBe('true')
+    expect(w.find('[name="a-arrow-down"]').exists()).toBe(false)
+    expect(w.find('[name="a-arrow-up"]').exists()).toBe(false)
   })
 
   it('AC3 — each press moves 10%', async () => {
