@@ -9,9 +9,10 @@
  *     1. in-app browsers (LINE · Facebook · Messenger · Instagram) cannot install at all →
  *        a sheet that sends the page to the real browser (LINE: ?openExternalBrowser=1 ·
  *        Android Meta apps: a Chrome intent:// link · iOS Meta apps: text steps only).
+ *        Samsung Internet on Android gets the same Chrome hand-off (ใบ #157 — see samsungSheet).
  *     2. the browser gave us beforeinstallprompt → its own install dialog, at once.
  *     3. no such event → a sheet of numbered steps (max 3) for THIS browser:
- *        iOS Safari · iOS Chrome/Edge/Firefox · Android (Samsung, Firefox, Chrome before its
+ *        iOS Safari · iOS Chrome/Edge/Firefox · Android (Firefox, Chrome before its
  *        engagement check) · anything else (generic).
  *   When beforeinstallprompt arrives later, the same button turns into step 2 by itself,
  *   because the decision is made at tap time, never cached.
@@ -175,17 +176,24 @@ function iosOtherSheet(b) {
   }
 }
 
-function androidSheet(b) {
-  if (b.browser === 'samsung') {
-    return {
-      id: 'android-samsung',
-      title: 'ติดตั้งบน Android · 2 ขั้น',
-      steps: [
-        [T('แตะเมนู '), K('≡'), T(' มุมล่างขวา')],
-        [T('แตะ '), K('เพิ่มหน้าไปยัง'), T(' แล้วแตะ '), K('หน้าจอหลัก')],
-      ],
-    }
+// Samsung Internet (ใบ v3/pleng#157): installing from it makes Google Play Protect warn
+// "Unsafe app blocked — built for an older version of Android", because Samsung builds its own
+// WebAPK with an old targetSdk. Nothing in our manifest can fix that
+// (github.com/SamsungInternet/support/issues/123); Chrome's WebAPK has no such warning.
+// So the button hands the page to Chrome, where ติดตั้งแอพ is the normal install.
+function samsungSheet(href) {
+  return {
+    id: 'android-samsung-chrome',
+    title: 'ติดตั้งผ่าน Chrome',
+    intro: 'ถ้าติดตั้งจาก Samsung Internet เครื่องจะขึ้นเตือนว่าแอพไม่ปลอดภัย ทั้งที่ไม่มีอันตราย'
+      + ' ให้เปิดใน Chrome แล้วกด ติดตั้งแอพ อีกครั้ง',
+    action: { label: 'เปิดใน Chrome เพื่อติดตั้ง', href: chromeIntentUrl(href) },
+    note: 'ถ้าเครื่องยังไม่มี Chrome ให้ลง Chrome จาก Play Store ก่อน',
+    steps: [],
   }
+}
+
+function androidSheet(b) {
   if (b.browser === 'firefox') {
     return {
       id: 'android-firefox',
@@ -218,13 +226,15 @@ function genericSheet() {
 }
 
 // THE decision — what one tap on "ติดตั้งแอพ" does. Pure, so its order is unit-tested:
-//   installed → nothing · in-app → leave-the-app sheet · captured prompt → native dialog ·
+//   installed → nothing · in-app → leave-the-app sheet · Samsung Internet on Android → go to
+//   Chrome (never Samsung's own prompt — see samsungSheet) · captured prompt → native dialog ·
 //   iOS Safari → iOS Safari steps · iOS Chrome/Edge/Firefox → their steps · Android → Android
 //   steps · anything else → generic steps.
 export function installPlan({ ua = '', nav = {}, hasPrompt = false, standalone = false, href = '' } = {}) {
   if (standalone) return { kind: 'installed' }
   const b = browserInfo(ua, nav)
   if (b.inApp) return { kind: 'sheet', sheet: inAppSheet(b, href) }
+  if (b.android && b.browser === 'samsung') return { kind: 'sheet', sheet: samsungSheet(href) }
   if (hasPrompt) return { kind: 'native' }
   if (b.ios && b.browser === 'safari') return { kind: 'sheet', sheet: iosSafariSheet(b) }
   if (b.ios && IOS_NAMES[b.browser]) return { kind: 'sheet', sheet: iosOtherSheet(b) }

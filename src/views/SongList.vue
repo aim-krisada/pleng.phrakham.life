@@ -521,7 +521,7 @@ onMounted(async () => {
 
 <template>
   <div>
-    <!-- ใบ v3/pleng#156 · #155 — install card (or, once installed, the "พร้อมใช้แบบไม่มีเน็ต" line):
+    <!-- ใบ v3/pleng#156 · #155 — install card (or, once closed/installed, the offline line when it has news · #157):
          the very top of the home page, above the search and the books (owner-approved). Only on the
          bookshelf itself, not inside a เล่ม / a list / the review queue. -->
     <InstallCard v-if="level === 'books' && !showDrafts" />

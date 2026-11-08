@@ -57,6 +57,18 @@ describe('InstallAppTool — the drawer row', () => {
     expect(installSheet.value.id).toBe('ios-safari')
   })
 
+  it('Samsung Internet → the open-in-Chrome sheet, never Samsung’s own dialog (ใบ #157)', async () => {
+    setUA('Mozilla/5.0 (Linux; Android 14; SAMSUNG SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0.0.0 Mobile Safari/537.36')
+    const prompt = vi.fn()
+    _setDeferredPrompt({ prompt, userChoice: Promise.resolve({ outcome: 'accepted' }) })
+    wrapper = mount(InstallAppTool, { global: { stubs } })
+    await wrapper.find('.ia-btn').trigger('click')
+    await nextTick()
+    expect(prompt).not.toHaveBeenCalled()
+    expect(installSheet.value.id).toBe('android-samsung-chrome')
+    expect(installSheet.value.action.href.startsWith('intent://')).toBe(true)
+  })
+
   it('captured prompt → the browser’s own dialog, no sheet', async () => {
     const evt = { prompt: vi.fn(), userChoice: Promise.resolve({ outcome: 'accepted' }) }
     _setDeferredPrompt(evt)

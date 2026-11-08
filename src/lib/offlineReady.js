@@ -75,6 +75,16 @@ export function statusText(s) {
   }
 }
 
+// What the home page shows OUTSIDE the install card (card closed with ✕, or app installed) —
+// ใบ v3/pleng#157. Amber lines always show: they tell the reader to wait or to do something.
+// The green line shows only as a short "just finished" message (`flash`, see readyFlash below);
+// on a visit where it was ready from the start there is nothing new to say, so nothing shows.
+export function standaloneLine(text, flash = false) {
+  if (!text) return null
+  if (text.tone === 'wait') return text
+  return flash ? text : null
+}
+
 // ---- reading the device (browser only) -----------------------------------------------------------
 const MATCH = { ignoreVary: true }
 
@@ -151,6 +161,31 @@ export async function probeDevice() {
 // ---- the live status (one checker for the whole page) -------------------------------------------
 export const offlineStatus = ref({ state: 'none' })
 export const RETRIES = [3000, 8000, 20000, 45000]
+
+// The green "just finished" flash (ใบ v3/pleng#157): true only when THIS visit saw the line be
+// something other than ready (e.g. filling) and then turn ready; it goes false by itself after
+// READY_FLASH_MS. 'none' (not checked yet / no service worker) does not count as "not ready".
+export const READY_FLASH_MS = 8000
+export const readyFlash = ref(false)
+let seenNotReady = false
+let flashTimer = null
+
+export function noteOfflineState(state) {
+  if (!state || state === 'none') return
+  if (state === 'ready') {
+    if (!seenNotReady) return
+    seenNotReady = false
+    readyFlash.value = true
+    clearTimeout(flashTimer)
+    flashTimer = setTimeout(() => { flashTimer = null; readyFlash.value = false }, READY_FLASH_MS)
+    return
+  }
+  seenNotReady = true
+  clearTimeout(flashTimer)
+  flashTimer = null
+  readyFlash.value = false
+}
+watch(offlineStatus, (s) => noteOfflineState(s && s.state), { flush: 'sync' })
 
 let started = false
 let retryIdx = 0
@@ -232,4 +267,8 @@ export function _resetOfflineStatus(probeFn) {
   persistDenied = false
   probe = probeFn || probeDevice
   offlineStatus.value = { state: 'none' }
+  clearTimeout(flashTimer)
+  flashTimer = null
+  seenNotReady = false
+  readyFlash.value = false
 }

@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   offlineState, statusText, cacheNames, offlineStatus, refreshOfflineStatus, watchOfflineStatus,
-  _resetOfflineStatus, RETRIES,
+  _resetOfflineStatus, RETRIES, standaloneLine, readyFlash, READY_FLASH_MS,
 } from './offlineReady.js'
 import { isStandalone } from './pwaInstall.js'
 
@@ -118,5 +118,54 @@ describe('the live checker', () => {
     expect(offlineStatus.value.state).toBe('filling')
     await refreshOfflineStatus()
     expect(offlineStatus.value.state).toBe('ready')
+  })
+})
+
+// ใบ v3/pleng#157 — outside the install card the green line is news only on the visit it turns ready.
+describe('the line outside the card', () => {
+  const READY = { state: 'ready', count: 884, at: Date.UTC(2026, 10, 8, 3) }
+
+  it('standaloneLine: amber always · green only while flashing · nothing → nothing', () => {
+    const amber = statusText({ state: 'filling', percent: 40 })
+    const green = statusText(READY)
+    expect(standaloneLine(amber, false)).toBe(amber)
+    expect(standaloneLine(statusText({ state: 'failed', reason: 'full' }), false).tone).toBe('wait')
+    expect(standaloneLine(statusText({ state: 'offline-empty' }), false).tone).toBe('wait')
+    expect(standaloneLine(green, false)).toBe(null)
+    expect(standaloneLine(green, true)).toBe(green)
+    expect(standaloneLine(null, true)).toBe(null)
+  })
+
+  it('ready from the start of the visit → no flash', async () => {
+    _resetOfflineStatus(async () => FULL)
+    Object.defineProperty(navigator, 'storage', { configurable: true, value: undefined })
+    await refreshOfflineStatus()
+    expect(offlineStatus.value.state).toBe('ready')
+    expect(readyFlash.value).toBe(false)
+  })
+
+  it('filling → ready flashes, and the flash ends by itself after 8 s', async () => {
+    vi.useFakeTimers()
+    try {
+      _resetOfflineStatus()
+      offlineStatus.value = { state: 'filling', percent: 70 }
+      expect(readyFlash.value).toBe(false)
+      offlineStatus.value = READY
+      expect(readyFlash.value).toBe(true)
+      vi.advanceTimersByTime(READY_FLASH_MS - 1)
+      expect(readyFlash.value).toBe(true)
+      vi.advanceTimersByTime(1)
+      expect(readyFlash.value).toBe(false)
+      // a later re-check that is still ready does not flash again
+      offlineStatus.value = { ...READY }
+      expect(readyFlash.value).toBe(false)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('the first "not checked yet" (none) does not count as not ready', () => {
+    _resetOfflineStatus()
+    offlineStatus.value = { state: 'none' }
+    offlineStatus.value = READY
+    expect(readyFlash.value).toBe(false)
   })
 })

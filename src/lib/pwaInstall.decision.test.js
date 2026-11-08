@@ -48,7 +48,6 @@ describe('installPlan — decision order', () => {
   it('2. a captured beforeinstallprompt → the browser’s own dialog', () => {
     expect(plan(UA.chromeAndroid, { hasPrompt: true }).kind).toBe('native')
     expect(plan(UA.chromeDesktop, { hasPrompt: true }).kind).toBe('native')
-    expect(plan(UA.samsung, { hasPrompt: true }).kind).toBe('native')
   })
 
   it('3. iOS Safari → 3 steps; iOS 26 goes through ⋯, older through the share button', () => {
@@ -75,10 +74,22 @@ describe('installPlan — decision order', () => {
     expect(plan(UA.chromeIOS).sheet.steps).toHaveLength(2)
   })
 
-  it('5. Android with no install event (Chrome before 30 s, Samsung, Firefox) → menu steps', () => {
+  it('5. Android with no install event (Chrome before 30 s, Firefox) → menu steps', () => {
     expect(sheetId(UA.chromeAndroid)).toBe('android')
-    expect(sheetId(UA.samsung)).toBe('android-samsung')
     expect(sheetId(UA.firefoxAndroid)).toBe('android-firefox')
+  })
+
+  it('Samsung Internet → open in Chrome, never Samsung’s own install (Play Protect warns · ใบ #157)', () => {
+    for (const hasPrompt of [false, true]) {
+      const p = plan(UA.samsung, { hasPrompt })
+      expect(p.kind).toBe('sheet')
+      expect(p.sheet.id).toBe('android-samsung-chrome')
+      expect(p.sheet.title).toBe('ติดตั้งผ่าน Chrome')
+      expect(p.sheet.intro).toContain('ไม่ปลอดภัย')
+      expect(p.sheet.action).toEqual({ label: 'เปิดใน Chrome เพื่อติดตั้ง', href: chromeIntentUrl(HREF) })
+    }
+    // installed already → still nothing to do
+    expect(plan(UA.samsung, { standalone: true }).kind).toBe('installed')
   })
 
   it('6. anything else → generic steps', () => {
