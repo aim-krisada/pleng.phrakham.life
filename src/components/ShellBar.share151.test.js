@@ -71,7 +71,7 @@ describe('ใบ#151 — แชร์ in the top bar', () => {
     await w.find('.sb-share').trigger('click')
     await flushPromises()
     const arg = navigator.share.mock.calls[0][0]
-    expect(arg.url).toBe(window.location.origin + '/#/song/9')
+    expect(arg.url).toBe(window.location.origin + '/?openExternalBrowser=1#/song/9')
     expect(arg.text).toContain('สรรเสริญ')
     expect(w.find('.sb-share-note').exists()).toBe(false)
   })
@@ -82,7 +82,7 @@ describe('ใบ#151 — แชร์ in the top bar', () => {
     mountBar()
     await w.find('.sb-share').trigger('click')
     await flushPromises()
-    expect(navigator.share.mock.calls[0][0].url).toBe('https://x.test/#/?fav=a,b')
+    expect(navigator.share.mock.calls[0][0].url).toBe('https://x.test/?openExternalBrowser=1#/?fav=a,b')
   })
 
   it('a song page ignores a stale home-page view', async () => {
@@ -92,7 +92,7 @@ describe('ใบ#151 — แชร์ in the top bar', () => {
     mountBar()
     await w.find('.sb-share').trigger('click')
     await flushPromises()
-    expect(navigator.share.mock.calls[0][0].url).toBe(window.location.origin + '/#/song/9')
+    expect(navigator.share.mock.calls[0][0].url).toBe(window.location.origin + '/?openExternalBrowser=1#/song/9')
   })
 
   it('AC5 — no share sheet: copies the link and says คัดลอกลิงก์แล้ว', async () => {
@@ -102,7 +102,7 @@ describe('ใบ#151 — แชร์ in the top bar', () => {
     mountBar()
     await w.find('.sb-share').trigger('click')
     await flushPromises()
-    expect(writeText).toHaveBeenCalledWith(window.location.origin + '/')
+    expect(writeText).toHaveBeenCalledWith(window.location.origin + '/?openExternalBrowser=1')
     expect(w.find('.sb-share-note').text()).toBe('คัดลอกลิงก์แล้ว')
   })
 
@@ -113,7 +113,7 @@ describe('ใบ#151 — แชร์ in the top bar', () => {
     mountBar()
     await w.find('.sb-share').trigger('click')
     await flushPromises()
-    expect(w.find('.sb-share-manual input').element.value).toBe(window.location.origin + '/#/guide')
+    expect(w.find('.sb-share-manual input').element.value).toBe(window.location.origin + '/?openExternalBrowser=1#/guide')
     await w.find('.sb-share-x').trigger('click')
     expect(w.find('.sb-share-note').exists()).toBe(false)
   })

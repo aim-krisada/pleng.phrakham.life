@@ -1,3 +1,5 @@
+// ใบ v3/pleng#156 — FIRST: drop LINE's ?openExternalBrowser=1 before the router reads the address.
+import './lib/cleanUrl.js'
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router.js'

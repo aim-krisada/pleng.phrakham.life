@@ -16,7 +16,7 @@ vi.mock('vue-router', () => ({
 import './../lib/pk-drawer.js'
 import ShellBar from './ShellBar.vue'
 import { shellMenu, session } from '../store.js'
-import { canInstall } from '../lib/pwaInstall.js'
+import { canInstall, isStandalone } from '../lib/pwaInstall.js'
 
 const stubs = {
   ProfileTool: true,
@@ -64,16 +64,18 @@ describe('ShellBar — site nav (phrakham parity)', () => {
     expect(shellMenu.value).toBe('site')
   })
 
-  it('ใบ#147 — เครื่องมือ always holds สร้างเพลงใหม่; ติดตั้งแอพ joins it only when the browser offers an install', async () => {
+  it('ใบ#147 · ใบ#156 — เครื่องมือ always holds สร้างเพลงใหม่ and ติดตั้งแอพ; ติดตั้งแอพ leaves once installed', async () => {
     wrapper = mount(ShellBar, { attachTo: document.body, global: { stubs } })
     // the core lifts each panel onto <body>; earlier tests leave theirs behind, so take this one's (the last)
     const panel = [...document.querySelectorAll('.sb-drawer-panel')].at(-1)
     expect(panel.querySelector('.sb-drawer-nav').textContent).toContain('รายการเพลง')
     expect(panel.querySelector('.sb-drawer-tools .sb-drawer-new').textContent).toContain('สร้างเพลงใหม่')
-    expect(panel.querySelector('.ia-btn')).toBeNull()
-    canInstall.value = true
-    await nextTick()
+    // ใบ#156 — the row is there before the browser offers anything (it opens the steps sheet)
     expect(panel.querySelector('.ia-btn')).not.toBeNull()
+    isStandalone.value = true
+    await nextTick()
+    expect(panel.querySelector('.ia-btn')).toBeNull()
+    isStandalone.value = false
   })
 
   it('exposes the teleport targets every mode shares (#shell-title / #shell-menus)', () => {
