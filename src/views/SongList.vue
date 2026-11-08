@@ -25,6 +25,7 @@ import { CATALOG_COLUMNS, readCatalog, saveCatalog, offlineSince, savedDateLabel
 import { favorites, favoriteSongs, storageOk, addFavorites } from '../lib/favorites.js'
 import { favListLink, parseFavParam } from '../lib/favLink.js'
 import { siteRoot } from '../lib/share.js'
+import InstallCard from '../components/InstallCard.vue'
 import { SITE_NAME } from '../lib/songName.js'
 import FavStar from '../components/FavStar.vue'
 
@@ -520,6 +521,10 @@ onMounted(async () => {
 
 <template>
   <div>
+    <!-- ใบ v3/pleng#156 · #155 — install card (or, once installed, the "พร้อมใช้แบบไม่มีเน็ต" line):
+         the very top of the home page, above the search and the books (owner-approved). Only on the
+         bookshelf itself, not inside a เล่ม / a list / the review queue. -->
+    <InstallCard v-if="level === 'books' && !showDrafts" />
     <!-- search: always on top, overrides the drill from any level (US-AC5) -->
     <div class="no-print search-block">
       <input

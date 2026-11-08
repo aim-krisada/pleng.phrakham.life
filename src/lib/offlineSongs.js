@@ -66,13 +66,24 @@ export function publicRows(rows) {
   return (Array.isArray(rows) ? rows : []).filter((r) => r && r.verified && !r.deleted_at)
 }
 
+// The last save's outcome, for the home page's "พร้อมใช้แบบไม่มีเน็ต" line (lib/offlineReady.js,
+// ใบ v3/pleng#155): when a save lands it re-checks at once; a failed save (storage full) shows.
+export const catalogSavedAt = ref(0)
+export const catalogSaveFailed = ref(false)
+
 export async function saveCatalog(rows) {
   const keep = publicRows(rows)
   if (!keep.length) return false
   try {
-    await backend.put(KEY, { at: Date.now(), rows: keep })
+    const at = Date.now()
+    await backend.put(KEY, { at, rows: keep })
+    catalogSaveFailed.value = false
+    catalogSavedAt.value = at
     return true
-  } catch { return false } // private mode / storage full — the app still works online
+  } catch { // private mode / storage full — the app still works online
+    catalogSaveFailed.value = true
+    return false
+  }
 }
 
 export async function readCatalog() {

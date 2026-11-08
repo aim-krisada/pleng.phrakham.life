@@ -42,6 +42,18 @@ const APP_SHELL = [
   'fonts/NotoSansThaiLooped-Regular.woff2', 'fonts/NotoSansThaiLooped-Bold.woff2',
 ].map((p) => (p === ROOT ? p : ROOT + p))
 
+// ใบ v3/pleng#155 — tell the open pages how far the saving has got, so the home page's
+// "กำลังเก็บเพลงไว้ในเครื่อง… N%" line moves and turns into "พร้อมใช้แบบไม่มีเน็ตแล้ว" the moment it is
+// done — without the page polling. Pages not yet controlled by this worker are included.
+async function tell(msg) {
+  try {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    all.forEach((c) => c.postMessage({ type: 'pleng-cache', ...msg }))
+  } catch { /* no pages open */ }
+}
+let saved = 0
+function savedOne() { saved++; if (saved % 20 === 0) tell({ saved }) }
+
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     // Precache the samples from the manifest so offline playback works on the first offline launch.
@@ -58,7 +70,7 @@ self.addEventListener('install', (event) => {
         // Individually (not addAll) so one missing file can't abort the whole precache.
         await Promise.allSettled(urls.map(async (u) => {
           const r = await fetch(u, { cache: 'no-cache' })
-          if (r.ok) await cache.put(u, r.clone())
+          if (r.ok) { await cache.put(u, r.clone()); savedOne() }
         }))
       }
     } catch { /* offline at install time → runtime caching still fills in on later online visits */ }
@@ -70,13 +82,14 @@ self.addEventListener('install', (event) => {
       let assets = []
       try {
         const r = await fetch(ROOT + 'asset-manifest.json', { cache: 'no-cache' })
-        if (r.ok) assets = await r.json()
+        // kept too: the home page reads it offline to check every file is here (ใบ#155)
+        if (r.ok) { await cache.put(ROOT + 'asset-manifest.json', r.clone()); assets = await r.json() }
       } catch { /* no manifest (dev) → shell only */ }
       // The manifest lists site-root paths ('/assets/…'); rebase onto this scope like the samples.
       assets = (Array.isArray(assets) ? assets : []).map((u) => (ROOT === '/' ? u : String(u).replace(/^\//, ROOT)))
       const shell = [...APP_SHELL, ...assets]
       await Promise.allSettled(shell.map(async (u) => {
-        try { const res = await fetch(u, { cache: 'no-cache' }); if (res.ok) await cache.put(u, res.clone()) } catch { /* skip */ }
+        try { const res = await fetch(u, { cache: 'no-cache' }); if (res.ok) { await cache.put(u, res.clone()); savedOne() } } catch { /* skip */ }
       }))
       // Drop the PREVIOUS builds' hashed files. Each deploy installs this worker again (main.js
       // registers 'sw.js?v=<build>'), so without this the cache keeps every old bundle forever.
@@ -90,6 +103,7 @@ self.addEventListener('install', (event) => {
         await Promise.allSettled(stale.map((r) => cache.delete(r)))
       }
     } catch { /* ignore */ }
+    tell({ saved, done: true })
     await self.skipWaiting()
   })())
 })
@@ -105,6 +119,7 @@ self.addEventListener('activate', (event) => {
     const names = await caches.keys()
     await Promise.all(names.map((n) => (!mine(n) || keep.has(n) ? null : caches.delete(n))))
     await self.clients.claim()
+    tell({ active: true })
   })())
 })
 

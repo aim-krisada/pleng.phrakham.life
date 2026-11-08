@@ -13,5 +13,9 @@
     { "src": "android-chrome-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
     { "src": "maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "screenshots/song-narrow.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "หน้าเพลง เนื้อร้อง คอร์ด และโน้ตตัวเลข" },
+    { "src": "screenshots/home-wide.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "รายการเพลง แยกตามเล่ม" }
   ]
 }

@@ -24,6 +24,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { shellMenu, newSongRequest, currentSong, pageShare } from '../store.js'
 import { shareTarget, isApple, shareLink, siteRoot } from '../lib/share.js'
+import { lineExternalUrl } from '../lib/pwaInstall.js'
 import FontTool from './FontTool.vue'
 import ProfileTool from './ProfileTool.vue'
 import InstallAppTool from './InstallAppTool.vue'
@@ -151,8 +152,11 @@ const shareUrl = ref('')
 let shareTimer = null
 async function doShare() {
   closeMenus()
-  const t = share.value
-  if (!t) return
+  const page = share.value
+  if (!page) return
+  // ใบ v3/pleng#156 — every shared link carries ?openExternalBrowser=1 (before the '#'), so a link
+  // tapped inside a LINE group opens in Chrome / Safari, where the reader can install the app.
+  const t = { ...page, url: lineExternalUrl(page.url) }
   const r = await shareLink(t, navigator)
   clearTimeout(shareTimer)
   shareUrl.value = t.url

@@ -61,14 +61,26 @@ import { analyticsOn } from '../lib/analytics.js'
           และเลือกตัวหนังสือแบบ<strong>มีหัว</strong>หรือ<strong>ไม่มีหัว</strong>ได้ ใช้ได้ทุกหน้า</li>
         <li><strong>สร้างเพลงใหม่</strong> = เริ่มเขียนเพลงใหม่ (บนมือถืออยู่ในเมนู ☰)</li>
       </ul>
-      <p class="muted">
-        ในเมนู ☰ บนมือถือ มีปุ่ม<strong>ติดตั้งแอพ</strong>ด้วย ติดตั้งแล้วเปิดเพลงได้แม้ไม่มีเน็ต
-      </p>
       <!-- ใบ v3/pleng#154 — only while page counting is switched on -->
       <p v-if="analyticsOn" class="muted">
         ครั้งแรกที่เปิดเว็บ จะมีแถบด้านล่างถามว่ายอมให้นับการเปิดเพลงไหม
         เปลี่ยนใจได้ที่หน้า<strong>เกี่ยวกับเรา</strong>
       </p>
+
+      <!-- ใบ v3/pleng#156 · #155 — the new install way (home card · one button · steps sheet) -->
+      <h3 id="howto-app" class="howto-h"><Icon name="smartphone" :size="22" class="howto-ico" />ติดตั้งเป็นแอพ ใช้ได้แม้ไม่มีเน็ต</h3>
+      <ul>
+        <li>บนสุดของหน้าแรก มีกล่อง <strong>ติดตั้งเป็นแอพ</strong> กดปุ่ม <strong>ติดตั้งแอพ</strong></li>
+        <li>ถ้าเครื่องติดตั้งให้เองได้ จะขึ้นหน้าต่างของเครื่อง กด <strong>ติดตั้ง</strong> ก็เสร็จ</li>
+        <li>ถ้าเครื่องติดตั้งเองไม่ได้ เช่น iPhone จะขึ้นวิธีทำทีละขั้น ไม่เกิน 3 ขั้น ทำตามได้เลย</li>
+        <li>ถ้าเปิดเว็บจาก LINE หรือ Facebook ต้องเปิดใน Chrome หรือ Safari ก่อน
+          กดปุ่ม <strong>เปิดใน Chrome / Safari</strong> แล้วกด <strong>ติดตั้งแอพ</strong> อีกครั้ง</li>
+        <li>ติดตั้งแล้ว จะมีไอคอนบนหน้าจอ กดเปิดได้เหมือนแอพอื่น</li>
+        <li>บนหน้าแรกจะมีบรรทัดสีเขียว <strong>✓ พร้อมใช้แบบไม่มีเน็ตแล้ว</strong>
+          แปลว่าเปิดเพลงได้แม้ไม่มีเน็ต เช่น ในโบสถ์ที่ไม่มีสัญญาณ
+          ถ้ายังเป็นสีเหลือง แปลว่ายังเก็บเพลงไม่ครบ ให้เปิดเว็บตอนมีเน็ตอีกครั้ง</li>
+        <li>ไม่อยากเห็นกล่องนี้ กด <strong>✕</strong> ได้ ติดตั้งทีหลังได้จากเมนู <strong>☰</strong> บนมือถือ</li>
+      </ul>
 
       <h3 id="howto-list" class="howto-h"><Icon name="list-music" :size="22" class="howto-ico" />หาเพลง</h3>
       <ul>
