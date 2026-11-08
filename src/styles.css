@@ -875,6 +875,14 @@ footer.site-footer {
 /* footer links are inline within a sentence — WCAG 2.2 §2.5.8 inline exception,
    so no 44px min; just a comfortable tap padding without breaking the text line */
 footer.site-footer a { padding: 2px 1px; }
+/* Installed app on Android draws edge to edge: the system gesture bar sits ON the page, so the
+   build line fell under it (พี่เอม 9 พ.ย. 2569, screenshot). Add the bottom safe-area inset; in a
+   normal browser tab it is 0, so nothing moves there. In the installed app keep at least 16px
+   even when a browser reports 0 for the inset. */
+footer.site-footer:not(.footer-dock-clear) { padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom, 0px)); }
+@media (display-mode: standalone) {
+  footer.site-footer:not(.footer-dock-clear) { padding-bottom: calc(var(--sp-4) + max(env(safe-area-inset-bottom, 0px), 16px)); }
+}
 footer.site-footer a { color: var(--footer-ink); }
 .pk-build { font-size: 0.85em; color: var(--stamp-ink); white-space: nowrap; }
 /* On the Studio surface a music/edit dock floats fixed at the bottom. Reserve exactly its
