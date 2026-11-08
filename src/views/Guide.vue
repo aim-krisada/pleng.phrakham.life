@@ -57,7 +57,7 @@ import { analyticsOn } from '../lib/analytics.js'
         <li><strong>แว่นขยาย</strong> = หาเพลง</li>
         <li><strong>แชร์</strong> = ส่งหน้าที่เปิดอยู่ให้เพื่อน อยู่หน้าเพลงก็ส่งเพลงนั้น
           อยู่ในเล่มก็ส่งเล่มนั้น</li>
-        <li><strong>Aa</strong> = ทำตัวหนังสือให้ใหญ่หรือเล็ก กด <strong>−</strong> หรือ <strong>+</strong>
+        <li><strong>Aa</strong> = ทำตัวหนังสือให้ใหญ่หรือเล็ก กด <strong>ก−</strong> หรือ <strong>ก+</strong>
           และเลือกตัวหนังสือแบบ<strong>มีหัว</strong>หรือ<strong>ไม่มีหัว</strong>ได้ ใช้ได้ทุกหน้า</li>
         <li><strong>สร้างเพลงใหม่</strong> = เริ่มเขียนเพลงใหม่ (บนมือถืออยู่ในเมนู ☰)</li>
       </ul>

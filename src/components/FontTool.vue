@@ -2,19 +2,21 @@
 // THE "Aa" button — the one place to set how text reads (ใบ v3/pleng#142). It sits on the shared top
 // bar (ShellBar) on every page and every width, in the same spot, so a reader never has to learn two
 // places (NN/g utility navigation · WCAG 3.2.3/3.2.4). Its popup holds:
-//   - A− [%] A+ and "คืนค่าปกติ (100%)" — store.readingFontScale, one value for the whole site, 10%
+//   - ก− [%] ก+ (A− / A+ on an English interface, ใบ#159) and "คืนค่าปกติ (100%)" — store.readingFontScale, one value for the whole site, 10%
 //     a step from 80% to 220%. Buttons, not a slider (พี่เอม 1 พ.ย. 2569: "ปุ่มกด บวก ลบ ง่ายกว่า").
 //   - ตัวอักษรไทย ไม่มีหัว / มีหัว — store.siteFont (was in the ⚙ popover and the ☰ drawer).
 // It rides the shared one-open-at-a-time `shellMenu` channel (key 'aa'), so ShellBar's backdrop closes
 // it on an outside click and opening another menu closes it. The popup is clamped to stay on-screen.
 import { computed, nextTick, ref, watch } from 'vue'
 import { readingFontScale, bumpFontScale, resetFontScale, siteFont, setSiteFont, shellMenu } from '../store.js'
-import Icon from './Icon.vue'
+import { fontStepLabels } from '../lib/fontStepLabels.js'
 
 const open = computed(() => shellMenu.value === 'aa')
 const btnEl = ref(null)
 const popEl = ref(null)
 const pct = computed(() => Math.round(readingFontScale.value * 100))
+// ก− / ก+ on a Thai interface, A− / A+ on English (ใบ#159) — read once from <html lang>
+const step = fontStepLabels(typeof document !== 'undefined' ? document.documentElement.lang : '')
 
 function toggle() { shellMenu.value = open.value ? null : 'aa' }
 function close(returnFocus) {
@@ -56,11 +58,11 @@ watch(open, async (v) => {
       <div class="ft-lbl">ขนาดตัวอักษร</div>
       <div class="ft-row">
         <button class="ft-step" aria-label="ตัวเล็กลง" :disabled="pct <= 80" @click="bumpFontScale(-0.1)">
-          <Icon name="a-arrow-down" :size="18" />
+          <span class="ft-step-txt" aria-hidden="true">{{ step.smaller }}</span>
         </button>
         <b class="ft-pct" aria-live="polite">{{ pct }}%</b>
         <button class="ft-step" aria-label="ตัวใหญ่ขึ้น" :disabled="pct >= 220" @click="bumpFontScale(0.1)">
-          <Icon name="a-arrow-up" :size="18" />
+          <span class="ft-step-txt" aria-hidden="true">{{ step.bigger }}</span>
         </button>
       </div>
       <button class="ft-reset" :disabled="pct === 100" @click="resetFontScale">คืนค่าปกติ (100%)</button>
@@ -106,6 +108,7 @@ watch(open, async (v) => {
   border: 1px solid var(--line); background: transparent; color: var(--ink);
   border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
 }
+.ft-step-txt { font-weight: 700; font-size: var(--fs-md); line-height: 1; white-space: nowrap; }
 .ft-step:disabled { opacity: 0.4; cursor: default; }
 @media (hover: hover) { .ft-step:not(:disabled):hover { border-color: var(--brand); color: var(--brand); } }
 .ft-pct { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; min-width: 46px; text-align: center; }
