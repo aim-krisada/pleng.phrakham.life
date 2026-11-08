@@ -2,7 +2,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   offlineState, statusText, cacheNames, offlineStatus, refreshOfflineStatus, watchOfflineStatus,
-  _resetOfflineStatus, RETRIES, standaloneLine, readyFlash, READY_FLASH_MS,
+  _resetOfflineStatus, RETRIES, standaloneLine, songPrints, diffPrints, readyNews, dismissReadyLine,
+  savedPrints, READY_ACK_KEY,
 } from './offlineReady.js'
 import { isStandalone } from './pwaInstall.js'
 
@@ -121,51 +122,102 @@ describe('the live checker', () => {
   })
 })
 
-// ใบ v3/pleng#157 — outside the install card the green line is news only on the visit it turns ready.
-describe('the line outside the card', () => {
-  const READY = { state: 'ready', count: 884, at: Date.UTC(2026, 10, 8, 3) }
+// ใบ v3/pleng#157 · #158 — outside the install card: amber always; green with ✕ until closed,
+// then only when the saved song list changed since.
+const ROWS = [
+  { id: 1, number: 1, title_th: 'พระคุณ', content: 'ก', category: 'A' },
+  { id: 2, number: 2, title_th: 'สรรเสริญ', content: 'ข', category: 'A' },
+]
+const READY = { state: 'ready', count: 884, at: Date.UTC(2026, 10, 8, 3) }
+const probeWith = (rows) => async () => ({ ...FULL, catalog: { count: rows.length, at: 1, prints: songPrints(rows) } })
 
-  it('standaloneLine: amber always · green only while flashing · nothing → nothing', () => {
+describe('song fingerprints', () => {
+  it('same fields → same print; a field a reader sees changes it; other fields do not', () => {
+    const a = songPrints(ROWS)
+    expect(songPrints(ROWS.map((r) => ({ ...r })))).toEqual(a)
+    expect(songPrints([{ ...ROWS[0], content: 'ค' }, ROWS[1]])['1']).not.toBe(a['1'])
+    expect(songPrints([{ ...ROWS[0], review_flags: ['x'], verified: true }, ROWS[1]])).toEqual(a)
+  })
+  it('diffPrints counts added · edited · removed', () => {
+    const a = songPrints(ROWS)
+    expect(diffPrints(a, a)).toEqual({ added: 0, edited: 0, removed: 0 })
+    expect(diffPrints(a, songPrints([...ROWS, { id: 3, title_th: 'ใหม่' }]))).toEqual({ added: 1, edited: 0, removed: 0 })
+    expect(diffPrints(a, songPrints([{ ...ROWS[0], title_th: 'แก้' }, ROWS[1]]))).toEqual({ added: 0, edited: 1, removed: 0 })
+    expect(diffPrints(a, songPrints([ROWS[0]]))).toEqual({ added: 0, edited: 0, removed: 1 })
+  })
+  it('the "updated" wording leaves out a part whose count is 0', () => {
+    const t = statusText(READY, { closed: true, changed: true, added: 3, edited: 2, removed: 0 })
+    expect(t.tone).toBe('ok')
+    expect(t.text).toMatch(/^✓ อัปเดตเพลงให้แล้วอัตโนมัติ · เพิ่ม 3 เพลง · แก้ 2 เพลง · พร้อมใช้แบบไม่มีเน็ต 884 เพลง · 8 /)
+    expect(t.text).not.toContain('ลบ')
+    expect(statusText(READY, { closed: true, changed: true, added: 0, edited: 0, removed: 1 }).text)
+      .toMatch(/^✓ อัปเดตเพลงให้แล้วอัตโนมัติ · ลบ 1 เพลง · พร้อมใช้/)
+  })
+})
+
+describe('the line outside the card', () => {
+  beforeEach(() => {
+    try { localStorage.clear() } catch { /* jsdom */ }
+    Object.defineProperty(navigator, 'storage', { configurable: true, value: undefined })
+  })
+
+  it('standaloneLine: amber always with no ✕ · green with ✕ until closed · closed + nothing new → nothing', () => {
     const amber = statusText({ state: 'filling', percent: 40 })
     const green = statusText(READY)
-    expect(standaloneLine(amber, false)).toBe(amber)
-    expect(standaloneLine(statusText({ state: 'failed', reason: 'full' }), false).tone).toBe('wait')
-    expect(standaloneLine(statusText({ state: 'offline-empty' }), false).tone).toBe('wait')
-    expect(standaloneLine(green, false)).toBe(null)
-    expect(standaloneLine(green, true)).toBe(green)
-    expect(standaloneLine(null, true)).toBe(null)
+    for (const t of [amber, statusText({ state: 'failed', reason: 'full' }), statusText({ state: 'offline-empty' }), statusText({ state: 'at-risk', count: 1 })]) {
+      expect(standaloneLine(t, { closed: true, changed: false })).toMatchObject({ tone: 'wait', closable: false })
+    }
+    expect(standaloneLine(green, { closed: false })).toMatchObject({ tone: 'ok', closable: true })
+    expect(standaloneLine(green, { closed: true, changed: false })).toBe(null)
+    expect(standaloneLine(green, { closed: true, changed: true })).toMatchObject({ closable: true })
+    expect(standaloneLine(null, { closed: false })).toBe(null)
   })
 
-  it('ready from the start of the visit → no flash', async () => {
-    _resetOfflineStatus(async () => FULL)
-    Object.defineProperty(navigator, 'storage', { configurable: true, value: undefined })
+  it('first ready → shows; ✕ hides it and saves what it was closed on', async () => {
+    _resetOfflineStatus(probeWith(ROWS))
     await refreshOfflineStatus()
-    expect(offlineStatus.value.state).toBe('ready')
-    expect(readyFlash.value).toBe(false)
+    expect(readyNews.value.closed).toBe(false)
+    dismissReadyLine()
+    expect(readyNews.value).toMatchObject({ closed: true, changed: false })
+    expect(JSON.parse(localStorage.getItem(READY_ACK_KEY))).toEqual(songPrints(ROWS))
   })
 
-  it('filling → ready flashes, and the flash ends by itself after 8 s', async () => {
-    vi.useFakeTimers()
+  it('a new song · a fixed song · a removed song → news with the counts', async () => {
+    _resetOfflineStatus(probeWith(ROWS))
+    await refreshOfflineStatus()
+    dismissReadyLine()
+    savedPrints.value = songPrints([...ROWS, { id: 3, title_th: 'ใหม่' }])
+    expect(readyNews.value).toMatchObject({ closed: true, changed: true, added: 1, edited: 0, removed: 0 })
+    savedPrints.value = songPrints([{ ...ROWS[0], content: 'แก้แล้ว' }, ROWS[1]])
+    expect(readyNews.value).toMatchObject({ changed: true, added: 0, edited: 1, removed: 0 })
+    savedPrints.value = songPrints([ROWS[0]])
+    expect(readyNews.value).toMatchObject({ changed: true, added: 0, edited: 0, removed: 1 })
+  })
+
+  it('✕ stays closed after a reload (fresh module, same storage)', async () => {
+    _resetOfflineStatus(probeWith(ROWS))
+    await refreshOfflineStatus()
+    dismissReadyLine()
+    vi.resetModules()
+    const fresh = await import('./offlineReady.js')
+    fresh._resetOfflineStatus(probeWith(ROWS))
+    await fresh.refreshOfflineStatus()
+    expect(fresh.readyNews.value).toMatchObject({ closed: true, changed: false })
+    expect(fresh.standaloneLine(fresh.statusText(fresh.offlineStatus.value, fresh.readyNews.value), fresh.readyNews.value)).toBe(null)
+  })
+
+  it('storage that throws → the line still shows, and ✕ hides it for this visit', async () => {
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
     try {
-      _resetOfflineStatus()
-      offlineStatus.value = { state: 'filling', percent: 70 }
-      expect(readyFlash.value).toBe(false)
-      offlineStatus.value = READY
-      expect(readyFlash.value).toBe(true)
-      vi.advanceTimersByTime(READY_FLASH_MS - 1)
-      expect(readyFlash.value).toBe(true)
-      vi.advanceTimersByTime(1)
-      expect(readyFlash.value).toBe(false)
-      // a later re-check that is still ready does not flash again
-      offlineStatus.value = { ...READY }
-      expect(readyFlash.value).toBe(false)
-    } finally { vi.useRealTimers() }
-  })
-
-  it('the first "not checked yet" (none) does not count as not ready', () => {
-    _resetOfflineStatus()
-    offlineStatus.value = { state: 'none' }
-    offlineStatus.value = READY
-    expect(readyFlash.value).toBe(false)
+      vi.resetModules()
+      const fresh = await import('./offlineReady.js')
+      fresh._resetOfflineStatus(probeWith(ROWS))
+      await fresh.refreshOfflineStatus()
+      const line = () => fresh.standaloneLine(fresh.statusText(fresh.offlineStatus.value, fresh.readyNews.value), fresh.readyNews.value)
+      expect(line()).toMatchObject({ tone: 'ok', closable: true })
+      fresh.dismissReadyLine()
+      expect(line()).toBe(null)
+    } finally { get.mockRestore(); set.mockRestore() }
   })
 })

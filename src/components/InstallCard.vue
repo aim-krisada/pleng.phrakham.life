@@ -1,25 +1,30 @@
 <script setup>
-// Top of the home page (ใบ v3/pleng#156 · #155 · install-design.html figures 1, 7, 8).
+// Top of the home page (ใบ v3/pleng#156 · #155 · #157 · #158 · install-design.html figures 1, 7, 8).
 //   Not installed → the card "ติดตั้งเป็นแอพ ใช้ได้แม้ไม่มีเน็ต" + ONE ติดตั้งแอพ button + ✕.
 //     The same card on every device; what the button does is decided in lib/pwaInstall.js.
-//     The offline status rides inside the card as a small line.
-//   Card closed with ✕ (remembered on this device) or app installed → no card, and the status
-//     line only when it has news (ใบ v3/pleng#157 · lib/offlineReady.js standaloneLine):
-//     amber lines (saving %, not ready, at risk) always show; the green "ready" line shows only
-//     on the visit it turns ready, then hides by itself after 8 s. Ready from the start → nothing.
+//     The offline status rides inside the card as a small line (no ✕ of its own there).
+//   Installed, seen from a normal browser tab (lib/pwaInstall.js appInstalled) → no card; a small
+//     line "ติดตั้งแอพในเครื่องนี้แล้ว…" in its place, with a ✕ that is remembered for good.
+//   Card closed with ✕, or app installed → no card, and the status line by these rules
+//     (lib/offlineReady.js standaloneLine):
+//     amber lines (saving %, not ready, at risk) always show, no ✕. The green "ready" line shows
+//     with a ✕ until the reader closes it (remembered on this device); after that it comes back
+//     by itself only when the saved song list changed (songs added, fixed or removed), saying so.
 // Install from the ☰ menu still works after ✕ (design rule 5).
 import { computed, onMounted } from 'vue'
 import Icon from './Icon.vue'
 import {
   isStandalone, installCardDismissed, dismissInstallCard, startInstall,
+  appInstalled, installedNoteDismissed, dismissInstalledNote,
 } from '../lib/pwaInstall.js'
 import {
-  offlineStatus, statusText, watchOfflineStatus, standaloneLine, readyFlash,
+  offlineStatus, statusText, watchOfflineStatus, standaloneLine, readyNews, dismissReadyLine,
 } from '../lib/offlineReady.js'
 
-const showCard = computed(() => !isStandalone.value && !installCardDismissed.value)
-const status = computed(() => statusText(offlineStatus.value))
-const line = computed(() => standaloneLine(status.value, readyFlash.value))
+const showCard = computed(() => !isStandalone.value && !appInstalled.value && !installCardDismissed.value)
+const showInstalledNote = computed(() => !isStandalone.value && appInstalled.value && !installedNoteDismissed.value)
+const status = computed(() => statusText(offlineStatus.value, readyNews.value))
+const line = computed(() => standaloneLine(status.value, readyNews.value))
 
 function onInstall(e) { startInstall(e.currentTarget) }
 
@@ -45,15 +50,27 @@ onMounted(() => watchOfflineStatus())
       <span>ติดตั้งแอพ</span>
     </button>
   </section>
-  <Transition v-else name="ic-fade">
-    <p
-      v-if="line"
-      class="ic-line no-print"
-      :class="'ic-' + line.tone"
-      role="status"
-      data-test="offline-status"
-    >{{ line.text }}</p>
-  </Transition>
+  <template v-else>
+    <div v-if="showInstalledNote" class="ic-line ic-note no-print" data-test="installed-note">
+      <p class="ic-line-text">ติดตั้งแอพในเครื่องนี้แล้ว · เปิดจากไอคอน เพลง.พระคำ บนหน้าจอ ใช้ได้แม้ไม่มีเน็ต</p>
+      <button type="button" class="ic-x ic-line-x" aria-label="ปิดข้อความติดตั้งแล้ว" @click="dismissInstalledNote">
+        <Icon name="x" :size="20" />
+      </button>
+    </div>
+    <div v-if="line" class="ic-line no-print" :class="'ic-' + line.tone" data-test="offline-line">
+      <p class="ic-line-text" role="status" data-test="offline-status">{{ line.text }}</p>
+      <button
+        v-if="line.closable"
+        type="button"
+        class="ic-x ic-line-x"
+        aria-label="ปิดข้อความพร้อมใช้"
+        data-test="ready-close"
+        @click="dismissReadyLine"
+      >
+        <Icon name="x" :size="20" />
+      </button>
+    </div>
+  </template>
 </template>
 
 <style scoped>
@@ -118,12 +135,22 @@ onMounted(() => watchOfflineStatus())
   font-weight: 600;
   line-height: var(--lh-snug);
 }
-.ic-line { margin-bottom: var(--sp-3); }
-.ic-fade-leave-active { transition: opacity 0.4s ease; }
-.ic-fade-leave-to { opacity: 0; }
-@media (prefers-reduced-motion: reduce) {
-  .ic-fade-leave-active { transition: none; }
+.ic-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: var(--sp-3);
+  padding-right: 0;
 }
+.ic-line-text { margin: 0; flex: 1 1 auto; min-width: 0; }
+/* the line's ✕ — same 44px target as the card's, sitting at the end of the line (ใบ #158) */
+.ic-line-x {
+  position: static;
+  flex: 0 0 auto;
+  margin: -6px 0;
+  color: inherit;
+}
+.ic-note { background: var(--cream); color: var(--ink); border: 1px solid var(--line); }
 .ic-ok { background: #e8f4ec; color: #22663e; }
 .ic-wait { background: #fff6e5; color: #7a4f00; }
 </style>

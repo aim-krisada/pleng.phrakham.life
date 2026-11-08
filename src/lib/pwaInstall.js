@@ -230,8 +230,8 @@ function genericSheet() {
 //   Chrome (never Samsung's own prompt — see samsungSheet) · captured prompt → native dialog ·
 //   iOS Safari → iOS Safari steps · iOS Chrome/Edge/Firefox → their steps · Android → Android
 //   steps · anything else → generic steps.
-export function installPlan({ ua = '', nav = {}, hasPrompt = false, standalone = false, href = '' } = {}) {
-  if (standalone) return { kind: 'installed' }
+export function installPlan({ ua = '', nav = {}, hasPrompt = false, standalone = false, installed = false, href = '' } = {}) {
+  if (standalone || installed) return { kind: 'installed' }
   const b = browserInfo(ua, nav)
   if (b.inApp) return { kind: 'sheet', sheet: inAppSheet(b, href) }
   if (b.android && b.browser === 'samsung') return { kind: 'sheet', sheet: samsungSheet(href) }
@@ -255,6 +255,7 @@ export async function startInstall(trigger) {
     nav,
     hasPrompt: !!deferredPrompt,
     standalone: isStandalone.value,
+    installed: appInstalled.value,
     href: typeof location !== 'undefined' ? location.href : '',
   })
   if (plan.kind === 'installed') return 'installed'
@@ -288,6 +289,41 @@ export function dismissInstallCard() {
   try { localStorage.setItem(CARD_KEY, '1') } catch { /* private mode — hidden for this visit only */ }
 }
 
+// ---- "the app is installed on this device" — seen from a normal browser tab (ใบ v3/pleng#158) --
+// After installing on Android, the reader often goes back to the same Chrome tab. That tab is not
+// standalone, so without this it would still offer ติดตั้งแอพ. Three sources, any one is enough:
+//   • window 'appinstalled' (this page installed it) · the native dialog answered 'accepted';
+//   • navigator.getInstalledRelatedApps() (Chrome on Android; site.webmanifest lists itself as a
+//     "webapp" related application) — non-empty = installed, empty = uninstalled → forget;
+//   • the flag remembered on this device, for browsers without that API.
+const APP_KEY = 'pleng.appInstalled'
+export const appInstalled = ref(readFlag(APP_KEY))
+export function markAppInstalled() {
+  appInstalled.value = true
+  try { localStorage.setItem(APP_KEY, '1') } catch { /* private mode — this visit only */ }
+}
+function forgetAppInstalled() {
+  appInstalled.value = false
+  try { localStorage.removeItem(APP_KEY) } catch { /* private mode */ }
+}
+export async function checkInstalledRelatedApps(nav = typeof navigator !== 'undefined' ? navigator : null) {
+  if (!nav || typeof nav.getInstalledRelatedApps !== 'function') return null // trust the flag
+  try {
+    const apps = await nav.getInstalledRelatedApps()
+    if (Array.isArray(apps) && apps.length) markAppInstalled()
+    else forgetAppInstalled()
+    return appInstalled.value
+  } catch { return null }
+}
+
+// The small "already installed" line that takes the card's place — its ✕ is remembered for good.
+const NOTE_KEY = 'pleng:installed-note-dismissed'
+export const installedNoteDismissed = ref(readFlag(NOTE_KEY))
+export function dismissInstalledNote() {
+  installedNoteDismissed.value = true
+  try { localStorage.setItem(NOTE_KEY, '1') } catch { /* private mode — hidden for this visit only */ }
+}
+
 // Replay the captured prompt. Resolves to 'accepted' | 'dismissed' | null (nothing to show).
 export async function promptInstall() {
   if (!deferredPrompt) return null
@@ -299,6 +335,7 @@ export async function promptInstall() {
     await evt.prompt()
     outcome = (await evt.userChoice)?.outcome ?? null
   } catch { /* user closed the dialog / prompt refused */ }
+  if (outcome === 'accepted') markAppInstalled()
   return outcome
 }
 
@@ -314,8 +351,9 @@ if (typeof window !== 'undefined') {
     canInstall.value = !isStandalone.value
   })
   // The user installed (via our button OR the browser's own menu) — retire the affordance.
+  // This tab itself is still a normal browser tab (not standalone); appInstalled says the rest.
   window.addEventListener('appinstalled', () => {
-    isStandalone.value = true
+    markAppInstalled()
     canInstall.value = false
     deferredPrompt = null
     installSheet.value = null
@@ -327,4 +365,11 @@ if (typeof window !== 'undefined') {
     if (mq && typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange)
     else if (mq && typeof mq.addListener === 'function') mq.addListener(onChange) // older Safari
   }
+  checkInstalledRelatedApps()
+}
+
+// tests only
+export function _resetAppInstalled() {
+  appInstalled.value = readFlag(APP_KEY)
+  installedNoteDismissed.value = readFlag(NOTE_KEY)
 }

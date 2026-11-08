@@ -7,9 +7,23 @@ import axe from 'axe-core'
 import InstallCard from './InstallCard.vue'
 import InstallSheet from './InstallSheet.vue'
 import {
-  isStandalone, installCardDismissed, installSheet, _setDeferredPrompt,
+  isStandalone, installCardDismissed, installSheet, _setDeferredPrompt, appInstalled,
+  checkInstalledRelatedApps, _resetAppInstalled,
 } from '../lib/pwaInstall.js'
-import { offlineStatus, _resetOfflineStatus, READY_FLASH_MS } from '../lib/offlineReady.js'
+import {
+  offlineStatus, _resetOfflineStatus, refreshOfflineStatus, songPrints, READY_ACK_KEY,
+} from '../lib/offlineReady.js'
+
+const ROWS = [
+  { id: 1, number: 1, title_th: 'พระคุณ', content: 'ก', category: 'A' },
+  { id: 2, number: 2, title_th: 'สรรเสริญ', content: 'ข', category: 'A' },
+]
+const AT = Date.UTC(2026, 10, 8, 3)
+const readyProbe = (rows) => async () => ({
+  supported: true, online: true, swActive: true,
+  samples: { expected: 1, have: 1 }, shell: { expected: 1, have: 1 },
+  catalog: { count: rows.length, at: AT, prints: songPrints(rows) },
+})
 
 const ANDROID = 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36'
 const LINE = 'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0 Mobile Safari/537.36 Line/14.16.1/IAB'
@@ -25,6 +39,8 @@ beforeEach(() => {
   installCardDismissed.value = false
   installSheet.value = null
   try { localStorage.clear() } catch { /* jsdom */ }
+  _resetAppInstalled()
+  Object.defineProperty(navigator, 'storage', { configurable: true, value: undefined })
   setUA(ANDROID)
 })
 afterEach(() => { wrappers.forEach((w) => w.unmount()); wrappers = [] })
@@ -37,44 +53,88 @@ describe('InstallCard', () => {
     expect(w.findAll('.ic-btn')).toHaveLength(1)
   })
 
-  it('is hidden when running installed (standalone) — ready from the start shows nothing', async () => {
+  it('installed (standalone): no card · first ready shows the green line with ✕ (ใบ #158)', async () => {
     isStandalone.value = true
+    _resetOfflineStatus(readyProbe(ROWS))
     const w = mountIt(InstallCard)
-    offlineStatus.value = { state: 'ready', count: 884, at: Date.UTC(2026, 10, 8, 3) }
+    await refreshOfflineStatus()
     await nextTick()
     expect(w.find('[data-test="install-card"]').exists()).toBe(false)
+    const line = w.find('[data-test="offline-status"]')
+    expect(line.text()).toContain('✓ พร้อมใช้แบบไม่มีเน็ตแล้ว · 2 เพลง')
+    expect(line.attributes('role')).toBe('status')
+    const x = w.find('[data-test="ready-close"]')
+    expect(x.element.tagName).toBe('BUTTON')
+    expect(x.attributes('aria-label')).toBe('ปิดข้อความพร้อมใช้')
+  })
+
+  it('✕ on the green line hides it, and it stays hidden after a reload', async () => {
+    installCardDismissed.value = true
+    _resetOfflineStatus(readyProbe(ROWS))
+    const w = mountIt(InstallCard)
+    await refreshOfflineStatus()
+    await nextTick()
+    await w.find('[data-test="ready-close"]').trigger('click')
     expect(w.find('[data-test="offline-status"]').exists()).toBe(false)
+    expect(localStorage.getItem(READY_ACK_KEY)).toBeTruthy()
+    // reload: the module state starts again from what this device remembers
+    w.unmount(); wrappers = []
+    _resetOfflineStatus(readyProbe(ROWS))
+    const w2 = mountIt(InstallCard)
+    await refreshOfflineStatus()
+    await nextTick()
+    expect(w2.find('[data-test="offline-status"]').exists()).toBe(false)
   })
 
-  it('installed or ✕: filling → ready shows the green line, then it hides by itself after 8 s (ใบ #157)', async () => {
-    vi.useFakeTimers()
-    try {
-      installCardDismissed.value = true
+  for (const [name, rows, words] of [
+    ['a new song', [...ROWS, { id: 3, number: 3, title_th: 'ใหม่', content: 'ค', category: 'A' }], 'เพิ่ม 1 เพลง'],
+    ['a fixed song', [{ ...ROWS[0], content: 'แก้แล้ว' }, ROWS[1]], 'แก้ 1 เพลง'],
+    ['a removed song', [ROWS[0]], 'ลบ 1 เพลง'],
+  ]) {
+    it('closed, then the saved list has ' + name + ' → the line is back: ' + words, async () => {
+      isStandalone.value = true
+      _resetOfflineStatus(readyProbe(ROWS))
       const w = mountIt(InstallCard)
-      offlineStatus.value = { state: 'filling', percent: 80 }
+      await refreshOfflineStatus()
       await nextTick()
-      const line = w.find('[data-test="offline-status"]')
-      expect(line.text()).toContain('กำลังเก็บเพลงไว้ในเครื่อง… 80%')
-      expect(line.attributes('role')).toBe('status')
-      offlineStatus.value = { state: 'ready', count: 884, at: Date.UTC(2026, 10, 8, 3) }
-      await nextTick()
-      expect(w.find('[data-test="offline-status"]').text()).toContain('พร้อมใช้แบบไม่มีเน็ตแล้ว · 884 เพลง')
-      vi.advanceTimersByTime(READY_FLASH_MS)
-      await nextTick()
-      vi.runAllTimers() // let the fade-out finish
-      await nextTick()
+      await w.find('[data-test="ready-close"]').trigger('click')
       expect(w.find('[data-test="offline-status"]').exists()).toBe(false)
-    } finally { vi.useRealTimers() }
-  })
+      _resetOfflineStatus(readyProbe(rows)) // next online visit: the list was saved again by itself
+      await refreshOfflineStatus()
+      await nextTick()
+      const t = w.find('[data-test="offline-status"]').text()
+      expect(t).toContain('✓ อัปเดตเพลงให้แล้วอัตโนมัติ')
+      expect(t).toContain(words)
+      expect(t).toContain('พร้อมใช้แบบไม่มีเน็ต ' + rows.length + ' เพลง')
+      expect(w.find('[data-test="ready-close"]').exists()).toBe(true)
+    })
+  }
 
-  it('installed or ✕: amber lines still show on their own', async () => {
+  it('installed or ✕: amber lines show on their own, with no ✕', async () => {
     isStandalone.value = true
     const w = mountIt(InstallCard)
-    for (const s of [{ state: 'failed', reason: 'full' }, { state: 'offline-empty' }, { state: 'at-risk', count: 884 }]) {
+    for (const s of [{ state: 'filling', percent: 80 }, { state: 'failed', reason: 'full' }, { state: 'offline-empty' }, { state: 'at-risk', count: 884 }]) {
       offlineStatus.value = s
       await nextTick()
-      expect(w.find('[data-test="offline-status"]').classes()).toContain('ic-wait')
+      expect(w.find('[data-test="offline-line"]').classes()).toContain('ic-wait')
+      expect(w.find('[data-test="offline-status"]').attributes('role')).toBe('status')
+      expect(w.find('[data-test="ready-close"]').exists()).toBe(false)
     }
+  })
+
+  it('storage that throws: the green line still shows, and ✕ hides it for this visit', async () => {
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    try {
+      installCardDismissed.value = true
+      _resetOfflineStatus(readyProbe(ROWS))
+      const w = mountIt(InstallCard)
+      await refreshOfflineStatus()
+      await nextTick()
+      expect(w.find('[data-test="offline-status"]').exists()).toBe(true)
+      await w.find('[data-test="ready-close"]').trigger('click')
+      expect(w.find('[data-test="offline-status"]').exists()).toBe(false)
+    } finally { get.mockRestore(); set.mockRestore() }
   })
 
   it('inside the card the green line shows even when ready from the start', async () => {
@@ -82,6 +142,13 @@ describe('InstallCard', () => {
     offlineStatus.value = { state: 'ready', count: 884, at: Date.UTC(2026, 10, 8, 3) }
     await nextTick()
     expect(w.find('[data-test="install-card"] [data-test="offline-status"]').text()).toContain('พร้อมใช้แบบไม่มีเน็ตแล้ว')
+  })
+
+  it('the card has no ✕ on its own green line', async () => {
+    const w = mountIt(InstallCard)
+    offlineStatus.value = { state: 'ready', count: 884, at: AT }
+    await nextTick()
+    expect(w.find('[data-test="ready-close"]').exists()).toBe(false)
   })
 
   it('✕ hides it and is remembered on this device', async () => {
@@ -105,6 +172,62 @@ describe('InstallCard', () => {
     await flushPromises()
     expect(installSheet.value).toBe(null)
     expect(w.find('[data-test="install-card"]').exists()).toBe(true)
+  })
+})
+
+// ใบ v3/pleng#158 — installed, but this is the normal browser tab (not standalone)
+describe('InstallCard — app already installed, seen from the browser tab', () => {
+  it('the appinstalled event hides the card and shows the "already installed" line', async () => {
+    const w = mountIt(InstallCard)
+    expect(w.find('[data-test="install-card"]').exists()).toBe(true)
+    window.dispatchEvent(new Event('appinstalled'))
+    await nextTick()
+    expect(appInstalled.value).toBe(true)
+    expect(localStorage.getItem('pleng.appInstalled')).toBe('1')
+    expect(w.find('[data-test="install-card"]').exists()).toBe(false)
+    expect(w.find('[data-test="installed-note"]').text()).toContain('ติดตั้งแอพในเครื่องนี้แล้ว')
+  })
+
+  it('getInstalledRelatedApps non-empty → hidden; empty → the flag is cleared and the card is back', async () => {
+    const w = mountIt(InstallCard)
+    await checkInstalledRelatedApps({ getInstalledRelatedApps: async () => [{ platform: 'webapp' }] })
+    await nextTick()
+    expect(w.find('[data-test="install-card"]').exists()).toBe(false)
+    expect(localStorage.getItem('pleng.appInstalled')).toBe('1')
+    await checkInstalledRelatedApps({ getInstalledRelatedApps: async () => [] })
+    await nextTick()
+    expect(appInstalled.value).toBe(false)
+    expect(localStorage.getItem('pleng.appInstalled')).toBe(null)
+    expect(w.find('[data-test="install-card"]').exists()).toBe(true)
+  })
+
+  it('no such API + the remembered flag → hidden', async () => {
+    localStorage.setItem('pleng.appInstalled', '1')
+    _resetAppInstalled()
+    expect(await checkInstalledRelatedApps({})).toBe(null)
+    const w = mountIt(InstallCard)
+    expect(w.find('[data-test="install-card"]').exists()).toBe(false)
+    expect(w.find('[data-test="installed-note"]').exists()).toBe(true)
+  })
+
+  it('✕ on the "already installed" line is remembered for good', async () => {
+    localStorage.setItem('pleng.appInstalled', '1')
+    _resetAppInstalled()
+    const w = mountIt(InstallCard)
+    await w.find('[data-test="installed-note"] button').trigger('click')
+    expect(w.find('[data-test="installed-note"]').exists()).toBe(false)
+    _resetAppInstalled()
+    const w2 = mountIt(InstallCard)
+    expect(w2.find('[data-test="installed-note"]').exists()).toBe(false)
+  })
+
+  it('accepting the native install dialog counts as installed', async () => {
+    _setDeferredPrompt({ prompt: vi.fn(), userChoice: Promise.resolve({ outcome: 'accepted' }) })
+    const w = mountIt(InstallCard)
+    await w.find('.ic-btn').trigger('click')
+    await flushPromises()
+    expect(appInstalled.value).toBe(true)
+    expect(w.find('[data-test="install-card"]').exists()).toBe(false)
   })
 })
 

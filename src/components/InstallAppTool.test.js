@@ -7,6 +7,7 @@ import { nextTick } from 'vue'
 import InstallAppTool from './InstallAppTool.vue'
 import {
   canInstall, isStandalone, installSheet, promptInstall, _setDeferredPrompt,
+  appInstalled, _resetAppInstalled, installPlan,
 } from '../lib/pwaInstall.js'
 import { shellMenu } from '../store.js'
 
@@ -25,6 +26,8 @@ beforeEach(() => {
   isStandalone.value = false
   installSheet.value = null
   shellMenu.value = null
+  try { localStorage.clear() } catch { /* jsdom */ }
+  _resetAppInstalled()
   setUA(CHROME_ANDROID)
 })
 afterEach(() => { if (wrapper) { wrapper.unmount(); wrapper = null } })
@@ -103,12 +106,25 @@ describe('lib/pwaInstall — event flow', () => {
     expect(await promptInstall()).toBeNull()
   })
 
-  it('appinstalled marks standalone and closes any open sheet', () => {
+  it('appinstalled marks the app installed and closes any open sheet', () => {
     canInstall.value = true
     installSheet.value = { id: 'android', title: 'x', steps: [] }
     window.dispatchEvent(new Event('appinstalled'))
     expect(canInstall.value).toBe(false)
-    expect(isStandalone.value).toBe(true)
+    expect(appInstalled.value).toBe(true)
+    expect(isStandalone.value).toBe(false) // this tab is still a normal browser tab
     expect(installSheet.value).toBe(null)
+  })
+
+  it('installed, seen from a normal browser tab → the drawer row is hidden (ใบ #158)', async () => {
+    wrapper = mount(InstallAppTool, { global: { stubs } })
+    expect(wrapper.find('.ia-btn').exists()).toBe(true)
+    appInstalled.value = true
+    await nextTick()
+    expect(wrapper.find('.ia').exists()).toBe(false)
+  })
+
+  it('installPlan says installed when the app is installed, even outside standalone', () => {
+    expect(installPlan({ ua: CHROME_ANDROID, installed: true })).toEqual({ kind: 'installed' })
   })
 })
