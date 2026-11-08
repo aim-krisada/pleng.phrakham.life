@@ -3,17 +3,23 @@
 //   Not installed → the card "ติดตั้งเป็นแอพ ใช้ได้แม้ไม่มีเน็ต" + ONE ติดตั้งแอพ button + ✕.
 //     The same card on every device; what the button does is decided in lib/pwaInstall.js.
 //     The offline status rides inside the card as a small line.
-//   Card closed with ✕ (remembered on this device) or app installed → only the status line.
+//   Card closed with ✕ (remembered on this device) or app installed → no card, and the status
+//     line only when it has news (ใบ v3/pleng#157 · lib/offlineReady.js standaloneLine):
+//     amber lines (saving %, not ready, at risk) always show; the green "ready" line shows only
+//     on the visit it turns ready, then hides by itself after 8 s. Ready from the start → nothing.
 // Install from the ☰ menu still works after ✕ (design rule 5).
 import { computed, onMounted } from 'vue'
 import Icon from './Icon.vue'
 import {
   isStandalone, installCardDismissed, dismissInstallCard, startInstall,
 } from '../lib/pwaInstall.js'
-import { offlineStatus, statusText, watchOfflineStatus } from '../lib/offlineReady.js'
+import {
+  offlineStatus, statusText, watchOfflineStatus, standaloneLine, readyFlash,
+} from '../lib/offlineReady.js'
 
 const showCard = computed(() => !isStandalone.value && !installCardDismissed.value)
 const status = computed(() => statusText(offlineStatus.value))
+const line = computed(() => standaloneLine(status.value, readyFlash.value))
 
 function onInstall(e) { startInstall(e.currentTarget) }
 
@@ -39,13 +45,15 @@ onMounted(() => watchOfflineStatus())
       <span>ติดตั้งแอพ</span>
     </button>
   </section>
-  <p
-    v-else-if="status"
-    class="ic-line no-print"
-    :class="'ic-' + status.tone"
-    role="status"
-    data-test="offline-status"
-  >{{ status.text }}</p>
+  <Transition v-else name="ic-fade">
+    <p
+      v-if="line"
+      class="ic-line no-print"
+      :class="'ic-' + line.tone"
+      role="status"
+      data-test="offline-status"
+    >{{ line.text }}</p>
+  </Transition>
 </template>
 
 <style scoped>
@@ -111,6 +119,11 @@ onMounted(() => watchOfflineStatus())
   line-height: var(--lh-snug);
 }
 .ic-line { margin-bottom: var(--sp-3); }
+.ic-fade-leave-active { transition: opacity 0.4s ease; }
+.ic-fade-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .ic-fade-leave-active { transition: none; }
+}
 .ic-ok { background: #e8f4ec; color: #22663e; }
 .ic-wait { background: #fff6e5; color: #7a4f00; }
 </style>

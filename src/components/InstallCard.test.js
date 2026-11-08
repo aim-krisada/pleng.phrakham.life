@@ -9,7 +9,7 @@ import InstallSheet from './InstallSheet.vue'
 import {
   isStandalone, installCardDismissed, installSheet, _setDeferredPrompt,
 } from '../lib/pwaInstall.js'
-import { offlineStatus, _resetOfflineStatus } from '../lib/offlineReady.js'
+import { offlineStatus, _resetOfflineStatus, READY_FLASH_MS } from '../lib/offlineReady.js'
 
 const ANDROID = 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36'
 const LINE = 'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0 Mobile Safari/537.36 Line/14.16.1/IAB'
@@ -37,13 +37,51 @@ describe('InstallCard', () => {
     expect(w.findAll('.ic-btn')).toHaveLength(1)
   })
 
-  it('is hidden when running installed (standalone) — only the status line', async () => {
+  it('is hidden when running installed (standalone) — ready from the start shows nothing', async () => {
     isStandalone.value = true
     const w = mountIt(InstallCard)
     offlineStatus.value = { state: 'ready', count: 884, at: Date.UTC(2026, 10, 8, 3) }
     await nextTick()
     expect(w.find('[data-test="install-card"]').exists()).toBe(false)
-    expect(w.find('[data-test="offline-status"]').text()).toContain('พร้อมใช้แบบไม่มีเน็ตแล้ว · 884 เพลง')
+    expect(w.find('[data-test="offline-status"]').exists()).toBe(false)
+  })
+
+  it('installed or ✕: filling → ready shows the green line, then it hides by itself after 8 s (ใบ #157)', async () => {
+    vi.useFakeTimers()
+    try {
+      installCardDismissed.value = true
+      const w = mountIt(InstallCard)
+      offlineStatus.value = { state: 'filling', percent: 80 }
+      await nextTick()
+      const line = w.find('[data-test="offline-status"]')
+      expect(line.text()).toContain('กำลังเก็บเพลงไว้ในเครื่อง… 80%')
+      expect(line.attributes('role')).toBe('status')
+      offlineStatus.value = { state: 'ready', count: 884, at: Date.UTC(2026, 10, 8, 3) }
+      await nextTick()
+      expect(w.find('[data-test="offline-status"]').text()).toContain('พร้อมใช้แบบไม่มีเน็ตแล้ว · 884 เพลง')
+      vi.advanceTimersByTime(READY_FLASH_MS)
+      await nextTick()
+      vi.runAllTimers() // let the fade-out finish
+      await nextTick()
+      expect(w.find('[data-test="offline-status"]').exists()).toBe(false)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('installed or ✕: amber lines still show on their own', async () => {
+    isStandalone.value = true
+    const w = mountIt(InstallCard)
+    for (const s of [{ state: 'failed', reason: 'full' }, { state: 'offline-empty' }, { state: 'at-risk', count: 884 }]) {
+      offlineStatus.value = s
+      await nextTick()
+      expect(w.find('[data-test="offline-status"]').classes()).toContain('ic-wait')
+    }
+  })
+
+  it('inside the card the green line shows even when ready from the start', async () => {
+    const w = mountIt(InstallCard)
+    offlineStatus.value = { state: 'ready', count: 884, at: Date.UTC(2026, 10, 8, 3) }
+    await nextTick()
+    expect(w.find('[data-test="install-card"] [data-test="offline-status"]').text()).toContain('พร้อมใช้แบบไม่มีเน็ตแล้ว')
   })
 
   it('✕ hides it and is remembered on this device', async () => {
