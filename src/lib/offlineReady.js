@@ -12,7 +12,12 @@
 // Light on the battery: the page counts the caches on load, again when the service worker reports
 // progress (sw.js posts `pleng-cache` messages while it fills), when the catalog is saved, when the
 // device comes back online — plus at most RETRIES timed re-checks. No polling loop.
-import { ref, watch } from 'vue'
+//
+// The green line has a ✕ (ใบ v3/pleng#158). Outside the install card it stays until the reader
+// taps ✕; then it stays hidden on this device until the saved song list is DIFFERENT from the one
+// they closed it on (songs added, fixed or removed — the list is re-saved by itself on every online
+// visit, lib/offlineSongs.js). Then it comes back saying what changed. See songPrints / readyNews.
+import { ref, computed, watch } from 'vue'
 import { readCatalog, catalogSavedAt, catalogSaveFailed } from './offlineSongs.js'
 import { isStandalone } from './pwaInstall.js'
 
@@ -56,10 +61,21 @@ export function shortDate(ms) {
 }
 
 // The words on the line. `tone`: 'ok' (green) | 'wait' (amber).
-export function statusText(s) {
+// `news` (readyNews below): when the song list changed since the reader closed the green line, the
+// green line says it was updated by itself and what changed (a part whose count is 0 is left out).
+export function statusText(s, news = null) {
   switch (s && s.state) {
-    case 'ready':
+    case 'ready': {
+      if (news && news.changed) {
+        const parts = ['✓ อัปเดตเพลงให้แล้วอัตโนมัติ']
+        if (news.added) parts.push(`เพิ่ม ${news.added} เพลง`)
+        if (news.edited) parts.push(`แก้ ${news.edited} เพลง`)
+        if (news.removed) parts.push(`ลบ ${news.removed} เพลง`)
+        parts.push(`พร้อมใช้แบบไม่มีเน็ต ${s.count} เพลง`, shortDate(s.at))
+        return { tone: 'ok', text: parts.join(' · ') }
+      }
       return { tone: 'ok', text: `✓ พร้อมใช้แบบไม่มีเน็ตแล้ว · ${s.count} เพลง · ${shortDate(s.at)}` }
+    }
     case 'filling':
       return { tone: 'wait', text: `กำลังเก็บเพลงไว้ในเครื่อง… ${s.percent}%` }
     case 'at-risk':
@@ -76,17 +92,64 @@ export function statusText(s) {
 }
 
 // What the home page shows OUTSIDE the install card (card closed with ✕, or app installed) —
-// ใบ v3/pleng#157. Amber lines always show: they tell the reader to wait or to do something.
-// The green line shows only as a short "just finished" message (`flash`, see readyFlash below);
-// on a visit where it was ready from the start there is nothing new to say, so nothing shows.
-export function standaloneLine(text, flash = false) {
+// ใบ v3/pleng#157 · #158. Amber lines always show, with no ✕: they tell the reader to wait or to
+// do something. The green line shows until the reader closes it with ✕ (`closable`); once closed
+// it shows again only when the song list changed since (`news.changed`).
+export function standaloneLine(text, news = null) {
   if (!text) return null
-  if (text.tone === 'wait') return text
-  return flash ? text : null
+  if (text.tone === 'wait') return { ...text, closable: false }
+  if (!news || !news.closed || news.changed) return { ...text, closable: true }
+  return null
+}
+
+// ---- "is there new song data?" — a short fingerprint per song (ใบ v3/pleng#158) ----------------
+// There is no "last changed" column, so each song gets a short hash of the fields a reader sees.
+// Comparing two { id: hash } maps tells how many songs were added, changed or removed.
+export const PRINT_FIELDS = ['number', 'title_th', 'title_en', 'content', 'category', 'theme', 'book_refs', 'scripture']
+
+function fnv1a(str) { // 32-bit FNV-1a → base 36 (≤ 7 chars)
+  let h = 0x811c9dc5
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return (h >>> 0).toString(36)
+}
+
+export function songPrint(row) {
+  return fnv1a(JSON.stringify(PRINT_FIELDS.map((f) => (row && row[f] !== undefined ? row[f] : null))))
+}
+
+export function songPrints(rows) {
+  const out = {}
+  for (const r of Array.isArray(rows) ? rows : []) if (r && r.id != null) out[String(r.id)] = songPrint(r)
+  return out
+}
+
+// { added, edited, removed } between the list the reader closed the line on and the one saved now.
+export function diffPrints(before, now) {
+  const a = before || {}
+  const b = now || {}
+  let added = 0
+  let edited = 0
+  let removed = 0
+  for (const id in b) {
+    if (!(id in a)) added++
+    else if (a[id] !== b[id]) edited++
+  }
+  for (const id in a) if (!(id in b)) removed++
+  return { added, edited, removed }
 }
 
 // ---- reading the device (browser only) -----------------------------------------------------------
 const MATCH = { ignoreVary: true }
+
+// The fingerprints of the saved list, worked out once per save (the list is ~3.8 MB).
+let printsFor = { at: -1, prints: null }
+function printsOf(cat) {
+  if (printsFor.at !== cat.at) printsFor = { at: cat.at, prints: songPrints(cat.rows) }
+  return printsFor.prints
+}
 
 // Same naming as sw.js: the cache names carry the scope the worker serves ('' at the site root).
 export function cacheNames(scopePath) {
@@ -130,7 +193,7 @@ export async function probeDevice() {
   if (!import.meta.env.PROD) return base // sw.js is registered in production builds only (main.js)
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || typeof caches === 'undefined') return base
   const cat = await readCatalog()
-  const catalog = cat ? { count: cat.rows.length, at: cat.at } : null
+  const catalog = cat ? { count: cat.rows.length, at: cat.at, prints: printsOf(cat) } : null
   let reg = null
   try { reg = await navigator.serviceWorker.getRegistration() } catch { /* blocked */ }
   const scope = reg ? new URL(reg.scope).pathname : new URL('.', location.href).pathname
@@ -162,30 +225,36 @@ export async function probeDevice() {
 export const offlineStatus = ref({ state: 'none' })
 export const RETRIES = [3000, 8000, 20000, 45000]
 
-// The green "just finished" flash (ใบ v3/pleng#157): true only when THIS visit saw the line be
-// something other than ready (e.g. filling) and then turn ready; it goes false by itself after
-// READY_FLASH_MS. 'none' (not checked yet / no service worker) does not count as "not ready".
-export const READY_FLASH_MS = 8000
-export const readyFlash = ref(false)
-let seenNotReady = false
-let flashTimer = null
-
-export function noteOfflineState(state) {
-  if (!state || state === 'none') return
-  if (state === 'ready') {
-    if (!seenNotReady) return
-    seenNotReady = false
-    readyFlash.value = true
-    clearTimeout(flashTimer)
-    flashTimer = setTimeout(() => { flashTimer = null; readyFlash.value = false }, READY_FLASH_MS)
-    return
-  }
-  seenNotReady = true
-  clearTimeout(flashTimer)
-  flashTimer = null
-  readyFlash.value = false
+// ---- the green line's ✕ — remembered on this device (ใบ v3/pleng#158) ---------------------------
+// On ✕ the fingerprints of the saved list are kept as "closed on". The line comes back when the
+// saved list differs from them. localStorage may throw (private mode) → hidden for this visit only.
+export const READY_ACK_KEY = 'pleng:ready-line-closed-on'
+export const savedPrints = ref(null) // fingerprints of the list saved on this device now
+function readAck() {
+  try {
+    const v = JSON.parse(localStorage.getItem(READY_ACK_KEY) || 'null')
+    return v && typeof v === 'object' ? v : null
+  } catch { return null }
 }
-watch(offlineStatus, (s) => noteOfflineState(s && s.state), { flush: 'sync' })
+const closedOn = ref(readAck())
+const closedThisVisit = ref(false) // ✕ before the list's fingerprints were known
+
+export function dismissReadyLine() {
+  const now = savedPrints.value
+  if (!now) { closedThisVisit.value = true; return }
+  closedOn.value = now
+  try { localStorage.setItem(READY_ACK_KEY, JSON.stringify(now)) } catch { /* private mode — this visit only */ }
+}
+
+// { closed, changed, added, edited, removed } — never closed → closed: false.
+export const readyNews = computed(() => {
+  if (closedOn.value && savedPrints.value) {
+    const d = diffPrints(closedOn.value, savedPrints.value)
+    return { closed: true, changed: d.added + d.edited + d.removed > 0, ...d }
+  }
+  const closed = !!closedOn.value || closedThisVisit.value
+  return { closed, changed: false, added: 0, edited: 0, removed: 0 }
+})
 
 let started = false
 let retryIdx = 0
@@ -221,6 +290,7 @@ export async function refreshOfflineStatus() {
         await askPersist()
         s = offlineState({ ...d, settled, persistDenied, standalone: isStandalone.value })
       }
+      savedPrints.value = (d.catalog && d.catalog.prints) || null
       offlineStatus.value = s
       scheduleRetry(s)
     } while (again)
@@ -267,8 +337,7 @@ export function _resetOfflineStatus(probeFn) {
   persistDenied = false
   probe = probeFn || probeDevice
   offlineStatus.value = { state: 'none' }
-  clearTimeout(flashTimer)
-  flashTimer = null
-  seenNotReady = false
-  readyFlash.value = false
+  savedPrints.value = null
+  closedOn.value = readAck()
+  closedThisVisit.value = false
 }

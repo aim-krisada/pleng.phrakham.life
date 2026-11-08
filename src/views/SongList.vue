@@ -521,7 +521,9 @@ onMounted(async () => {
 
 <template>
   <div>
-    <!-- ใบ v3/pleng#156 · #155 — install card (or, once closed/installed, the offline line when it has news · #157):
+    <!-- ใบ v3/pleng#156 · #155 — install card (or, once closed/installed, the offline line: amber always,
+         green with a ✕ until closed, then again only when the saved song list changed · #157 #158;
+         the list itself is re-saved by itself below on every online visit — saveCatalog):
          the very top of the home page, above the search and the books (owner-approved). Only on the
          bookshelf itself, not inside a เล่ม / a list / the review queue. -->
     <InstallCard v-if="level === 'books' && !showDrafts" />
