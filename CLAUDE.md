@@ -49,7 +49,7 @@ Preview tools: `preview_start "dev"` (config in `.claude/launch.json`).
   aimgit alike. That covers every outward write: opening or updating a PR, commenting, reviewing,
   opening or editing an issue. Commits already use `Claude <noreply@anthropic.com>`; the
   identity that matters here is the **token the write goes out with**.
-  - **Tokens live in** `C:\Users\aimkr\OneDrive\4 Personal\claude\.env` — load with Python and
+  - **Tokens live in** `D:\OneDrive\4 Personal\claude\.env` — load with Python and
     `.strip()` (the file is CRLF; `set -a; . .env` in bash gives you a 401).
     **Verified 19 ต.ค. 2569 on P'Aim's PC — both come back as `aim-agent`:**
     - GitHub (`api.github.com`) → `GITHUB_TOKEN_AI`, sent as `Authorization: Bearer …`.
