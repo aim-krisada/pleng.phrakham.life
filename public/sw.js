@@ -54,47 +54,82 @@ async function tell(msg) {
 let saved = 0
 function savedOne() { saved++; if (saved % 20 === 0) tell({ saved }) }
 
-self.addEventListener('install', (event) => {
-  event.waitUntil((async () => {
-    // Precache the samples from the manifest so offline playback works on the first offline launch.
+// ใบ v3/pleng#164 — a fetch that never answers (a stalled connection) must not hold the install
+// open for ever: the browser then kills the worker with no message to the page, and the home page
+// sat at "กำลังเก็บ… 98%". Each file gets FETCH_TIMEOUT_MS; a slow file is simply skipped (the
+// top-up below fetches it next time).
+const FETCH_TIMEOUT_MS = 30000
+async function fetchT(u) {
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null
+  const timer = ctl ? setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS) : null
+  try { return await fetch(u, ctl ? { cache: 'no-cache', signal: ctl.signal } : { cache: 'no-cache' }) } finally { clearTimeout(timer) }
+}
+
+async function readCachedJson(cache, url) {
+  try { const hit = await cache.match(url, { ignoreVary: true }); return hit ? await hit.json() : null } catch { return null }
+}
+
+// Save one file. `topUp`: only when it is not in the cache yet (cheap — the page asked for the
+// missing ones); otherwise always fetch again (a new install refreshes everything).
+async function saveFile(cache, u, topUp) {
+  try {
+    if (topUp && await cache.match(u, { ignoreVary: true })) return
+    const r = await fetchT(u)
+    if (r.ok) { await cache.put(u, r.clone()); savedOne() }
+  } catch { /* skip — offline, timed out, or blocked */ }
+}
+
+// Fill both caches: the instrument samples from samples/manifest.json `precache`, and the app
+// (shell + every built file in asset-manifest.json). Used by INSTALL (topUp false) and by the
+// home page's 'pleng-fill' message (topUp true — ใบ#164: after a deploy or a failed file, the
+// active worker would otherwise never fetch what is still missing, and the page waited for ever).
+async function fill(topUp) {
+  // Precache the samples from the manifest so offline playback works on the first offline launch.
+  try {
+    const cache = await caches.open(SAMPLES_CACHE)
+    let manifest = null
     try {
-      const res = await fetch(MANIFEST_URL, { cache: 'no-cache' })
-      if (res.ok) {
-        const manifest = await res.json()
-        // The manifest ships site-root paths ('/samples/…'), so rebase them onto THIS scope —
-        // otherwise the /v2 SW would fill its cache with the root deployment's 205 sample files
-        // (measured: 205 root paths inside pleng-samples-v1--v2 before this line existed).
-        const rebase = (u) => (ROOT === '/' ? u : String(u).replace(/^\/samples\//, SAMPLES_PATH))
-        const urls = [MANIFEST_URL, ...(Array.isArray(manifest.precache) ? manifest.precache.map(rebase) : [])]
-        const cache = await caches.open(SAMPLES_CACHE)
-        // Individually (not addAll) so one missing file can't abort the whole precache.
-        await Promise.allSettled(urls.map(async (u) => {
-          const r = await fetch(u, { cache: 'no-cache' })
-          if (r.ok) { await cache.put(u, r.clone()); savedOne() }
-        }))
-      }
-    } catch { /* offline at install time → runtime caching still fills in on later online visits */ }
-    // Precache the app shell + every built asset (hashed JS/CSS chunks, incl. the smplr audio
-    // engine) from the build-time asset-manifest.json, so the first OFFLINE launch boots and can
-    // play — not just serve samples. Best-effort: a missing file can't abort the install.
+      const res = await fetchT(MANIFEST_URL)
+      if (res.ok) { await cache.put(MANIFEST_URL, res.clone()); savedOne(); manifest = await res.json() }
+    } catch { /* offline */ }
+    if (!manifest) manifest = await readCachedJson(cache, MANIFEST_URL)
+    if (manifest) {
+      // The manifest ships site-root paths ('/samples/…'), so rebase them onto THIS scope —
+      // otherwise the /v2 SW would fill its cache with the root deployment's 205 sample files
+      // (measured: 205 root paths inside pleng-samples-v1--v2 before this line existed).
+      const rebase = (u) => (ROOT === '/' ? u : String(u).replace(/^\/samples\//, SAMPLES_PATH))
+      const urls = Array.isArray(manifest.precache) ? manifest.precache.map(rebase) : []
+      // Individually (not addAll) so one missing file can't abort the whole precache.
+      await Promise.allSettled(urls.map((u) => saveFile(cache, u, topUp)))
+    }
+  } catch { /* offline at install time → runtime caching still fills in on later online visits */ }
+  // Precache the app shell + every built asset (hashed JS/CSS chunks, incl. the smplr audio
+  // engine) from the build-time asset-manifest.json, so the first OFFLINE launch boots and can
+  // play — not just serve samples. Best-effort: a missing file can't abort the install.
+  try {
+    const cache = await caches.open(APP_CACHE)
+    const AM = ROOT + 'asset-manifest.json'
+    let assets = null
+    let fresh = false
     try {
-      const cache = await caches.open(APP_CACHE)
-      let assets = []
-      try {
-        const r = await fetch(ROOT + 'asset-manifest.json', { cache: 'no-cache' })
-        // kept too: the home page reads it offline to check every file is here (ใบ#155)
-        if (r.ok) { await cache.put(ROOT + 'asset-manifest.json', r.clone()); assets = await r.json() }
-      } catch { /* no manifest (dev) → shell only */ }
-      // The manifest lists site-root paths ('/assets/…'); rebase onto this scope like the samples.
-      assets = (Array.isArray(assets) ? assets : []).map((u) => (ROOT === '/' ? u : String(u).replace(/^\//, ROOT)))
-      const shell = [...APP_SHELL, ...assets]
-      await Promise.allSettled(shell.map(async (u) => {
-        try { const res = await fetch(u, { cache: 'no-cache' }); if (res.ok) { await cache.put(u, res.clone()); savedOne() } } catch { /* skip */ }
-      }))
-      // Drop the PREVIOUS builds' hashed files. Each deploy installs this worker again (main.js
-      // registers 'sw.js?v=<build>'), so without this the cache keeps every old bundle forever.
-      // Only when this build's list arrived — a failed fetch must not empty a working cache.
-      if (assets.length) {
+      const r = await fetchT(AM)
+      // kept too: the home page reads it offline to check every file is here (ใบ#155)
+      if (r.ok) { const list = await r.clone().json(); await cache.put(AM, r); assets = list; fresh = true }
+    } catch { /* no manifest (dev) or offline → the one kept from last time */ }
+    if (!assets) assets = await readCachedJson(cache, AM)
+    // The manifest lists site-root paths ('/assets/…'); rebase onto this scope like the samples.
+    assets = (Array.isArray(assets) ? assets : []).map((u) => (ROOT === '/' ? u : String(u).replace(/^\//, ROOT)))
+    const shell = [...APP_SHELL, ...assets]
+    await Promise.allSettled(shell.map((u) => saveFile(cache, u, topUp)))
+    // Drop the PREVIOUS builds' hashed files. Each deploy installs this worker again (main.js
+    // registers 'sw.js?v=<build>'), so without this the cache keeps every old bundle forever.
+    // Only when this build's list arrived — a failed fetch must not empty a working cache — and
+    // only while the kept list is still ours: two installs close together (many deploys in an
+    // hour) must not delete each other's files (ใบ#164).
+    if (fresh && assets.length) {
+      const kept = await readCachedJson(cache, AM)
+      const keptPaths = (Array.isArray(kept) ? kept : []).map((u) => (ROOT === '/' ? u : String(u).replace(/^\//, ROOT)))
+      if (JSON.stringify(keptPaths) === JSON.stringify(assets)) {
         const current = new Set(assets.map((u) => new URL(u, self.location.origin).pathname))
         const stale = (await cache.keys()).filter((r) => {
           const p = new URL(r.url).pathname
@@ -102,10 +137,34 @@ self.addEventListener('install', (event) => {
         })
         await Promise.allSettled(stale.map((r) => cache.delete(r)))
       }
-    } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+}
+
+// One fill at a time (a page may ask again while one is running).
+let filling = null
+function fillOnce(topUp) {
+  if (!filling) filling = fill(topUp).finally(() => { filling = null })
+  return filling
+}
+
+self.addEventListener('install', (event) => {
+  event.waitUntil((async () => {
+    await fill(false)
     tell({ saved, done: true })
+    // Take over at once (no "waiting" until every tab closes) — the page then re-checks on
+    // controllerchange. Safe here: each build's files are all cached by the time this runs.
     await self.skipWaiting()
   })())
+})
+
+// ใบ v3/pleng#164 — the home page asks the ACTIVE worker to fetch whatever is still missing
+// (its timed re-checks ran out while it still said "กำลังเก็บ…"). Always answers `done` + `fill`,
+// so the page can stop waiting and show either green or the amber "ยังไม่พร้อม…" line.
+self.addEventListener('message', (event) => {
+  if (!event.data || event.data.type !== 'pleng-fill') return
+  const job = fillOnce(true).then(() => tell({ saved, done: true, fill: true }))
+  if (event.waitUntil) event.waitUntil(job)
 })
 
 self.addEventListener('activate', (event) => {
