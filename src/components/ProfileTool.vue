@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import {
   session, profile, legacy, recovering, inviteMode, emailChanged,
   login, logout, updatePassword, requestPasswordReset, updateDisplayName, updateEmail, changePassword,
-  canApprove, siteVolume, loadSiteVolume, previewSiteVolume, saveSiteVolume,
+  canApprove, siteVolume, loadSiteVolume, previewSiteVolume, saveSiteVolume, shellMenu,
 } from '../store.js'
 import Icon from './Icon.vue'
 import VolumePanel from './VolumePanel.vue'
@@ -13,7 +13,22 @@ import { VOL_DEFAULT, normalizeVolume } from '../lib/volume.js'
 // logged out -> "เข้าสู่ระบบ" opens a small dropdown form (works from any page)
 // logged in  -> letter avatar opens name + role + edit profile + logout
 // recovering -> a reset/invite link opened the app; show "set password"
-const open = ref(false)
+// ใบ v3/pleng#162 — the popup rides the shared one-open-at-a-time `shellMenu` channel (key 'profile'),
+// like Aa (FontTool): ShellBar's backdrop closes it on a tap anywhere outside, and opening Aa / คู่มือ /
+// the drawer closes it (and the other way round). Taps and typing inside the popup never close it.
+const open = computed({
+  get: () => shellMenu.value === 'profile',
+  set: (v) => {
+    if (v) shellMenu.value = 'profile'
+    else if (shellMenu.value === 'profile') shellMenu.value = null
+  },
+})
+const btnEl = ref(null)
+function toggle() { open.value = !open.value }
+function close(returnFocus) {
+  open.value = false
+  if (returnFocus) btnEl.value?.focus()
+}
 const forgot = ref(false) // login panel showing the "forgot password" email form
 const editing = ref(false) // logged-in panel showing the edit-profile form
 const email = ref('')
@@ -213,23 +228,24 @@ async function submitChangePassword() {
 </script>
 
 <template>
-  <div class="pk-tool no-print" @keydown.esc="open = false">
+  <div class="pk-tool no-print" @keydown.esc="close(true)">
     <!-- logged in: letter avatar -->
     <button
       v-if="session"
+      ref="btnEl"
       class="pk-tool-btn avatar-btn"
       :aria-expanded="open"
       :aria-label="`บัญชีของ ${displayName}`"
-      @click="open = !open"
+      @click.stop="toggle"
     >
       <span class="avatar">{{ initial }}</span>
     </button>
     <!-- logged out: sign-in button — icon + label on desktop, icon-only on mobile (S4) -->
-    <button v-else class="secondary signin-btn" :aria-expanded="open" aria-label="เข้าสู่ระบบ" @click="open = !open">
+    <button v-else ref="btnEl" class="secondary signin-btn" :aria-expanded="open" aria-label="เข้าสู่ระบบ" @click.stop="toggle">
       <Icon name="circle-user" :size="18" /><span class="signin-label">เข้าสู่ระบบ</span>
     </button>
 
-    <div v-if="open" class="pk-tool-menu profile-menu">
+    <div v-if="open" class="pk-tool-menu profile-menu" @click.stop>
       <p v-if="emailChanged" class="ok" style="margin: 0 0 8px">
         ยืนยันอีเมลเรียบร้อยแล้ว ✓
       </p>

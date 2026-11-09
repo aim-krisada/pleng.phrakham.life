@@ -15,7 +15,7 @@ vi.mock('../supabase.js', () => {
 })
 
 import ProfileTool from './ProfileTool.vue'
-import { session, profile, siteVolume, playVolume, resetListenerVolume } from '../store.js'
+import { session, profile, siteVolume, playVolume, resetListenerVolume, shellMenu } from '../store.js'
 
 async function openMenu(role) {
   session.value = { user: { email: 'pow@example.com' } }
@@ -27,6 +27,7 @@ async function openMenu(role) {
 const siteVolButton = (w) => w.findAll('.menu-actions > button').find((b) => b.text() === 'ระดับเสียงเริ่มต้นของเว็บ')
 
 beforeEach(() => {
+  shellMenu.value = null
   writes.length = 0
   upsertError = null
   siteVolume.value = null
