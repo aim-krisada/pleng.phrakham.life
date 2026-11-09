@@ -295,12 +295,27 @@ export function dismissInstallCard() {
 //   • window 'appinstalled' (this page installed it) · the native dialog answered 'accepted';
 //   • navigator.getInstalledRelatedApps() (Chrome on Android; site.webmanifest lists itself as a
 //     "webapp" related application) — non-empty = installed, empty = uninstalled → forget;
-//   • the flag remembered on this device, for browsers without that API.
+//   • the flag remembered on this device, for browsers without that API;
+//   • the app window itself (ใบ v3/pleng#165): whenever this page runs standalone it IS the
+//     installed app, so it sets the flag and stamps APP_SEEN_KEY. The app window and the browser
+//     tabs share localStorage (same origin), so the next normal tab sees it.
 const APP_KEY = 'pleng.appInstalled'
+const APP_SEEN_KEY = 'pleng.appSeenAt'
+export const APP_SEEN_FRESH_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 export const appInstalled = ref(readFlag(APP_KEY))
 export function markAppInstalled() {
   appInstalled.value = true
   try { localStorage.setItem(APP_KEY, '1') } catch { /* private mode — this visit only */ }
+}
+// Called at load and when display-mode flips to standalone.
+export function markAppSeenStandalone(now = Date.now()) {
+  markAppInstalled()
+  try { localStorage.setItem(APP_SEEN_KEY, String(now)) } catch { /* private mode */ }
+}
+function appSeenRecently(now = Date.now()) {
+  let at = 0
+  try { at = Number(localStorage.getItem(APP_SEEN_KEY)) || 0 } catch { /* private mode */ }
+  return at > 0 && now - at < APP_SEEN_FRESH_MS
 }
 function forgetAppInstalled() {
   appInstalled.value = false
@@ -311,7 +326,12 @@ export async function checkInstalledRelatedApps(nav = typeof navigator !== 'unde
   try {
     const apps = await nav.getInstalledRelatedApps()
     if (Array.isArray(apps) && apps.length) markAppInstalled()
-    else forgetAppInstalled()
+    // Empty is NOT proof of uninstall: Chrome matches against the installed app's STORED
+    // manifest, which updates lazily. An app installed before site.webmanifest listed
+    // related_applications keeps an old copy, so the API answers [] even though the app is
+    // there (seen on Windows Chrome, ใบ #165). Forget only if the app window has not been
+    // opened on this device in the last 30 days.
+    else if (!appSeenRecently()) forgetAppInstalled()
     return appInstalled.value
   } catch { return null }
 }
@@ -361,10 +381,15 @@ if (typeof window !== 'undefined') {
   // Launched-into-standalone can flip after install without a reload — keep state in sync.
   if (typeof window.matchMedia === 'function') {
     const mq = window.matchMedia('(display-mode: standalone)')
-    const onChange = (e) => { isStandalone.value = e.matches; if (e.matches) canInstall.value = false }
+    const onChange = (e) => {
+      isStandalone.value = e.matches
+      if (e.matches) { canInstall.value = false; markAppSeenStandalone() }
+    }
     if (mq && typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange)
     else if (mq && typeof mq.addListener === 'function') mq.addListener(onChange) // older Safari
   }
+  // This page IS the installed app — tell the browser tabs (shared localStorage).
+  if (isStandalone.value) markAppSeenStandalone()
   checkInstalledRelatedApps()
 }
 
