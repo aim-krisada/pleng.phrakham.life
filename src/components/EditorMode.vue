@@ -1038,9 +1038,9 @@ function wordSlots(syllables) {
 // or adding one word at the end, never re-aligns the rest of the ข้อ — and a word parked on a
 // held/rest box is not swept off it). From the first word that changed, the rest flow on the
 // usual way: one word per ATTACK note, held/rest boxes blank, extras become overflow slots.
-function wordsToSyllables(words, stanzaId, prev = []) {
+function wordsToSyllables(words, stanzaId, prev = [], slotsOf = wordSlots) {
   const kinds = stanzaKindList(stanzaId)
-  const at = wordSlots(prev)
+  const at = slotsOf(prev, kinds)
   let keep = 0
   while (keep < words.length && keep < at.length && words[keep] === String(prev[at[keep]] ?? '').trim()) keep++
   // same number of words = the author only re-worded: every word stays on its own slot
@@ -1055,12 +1055,68 @@ function wordsToSyllables(words, stanzaId, prev = []) {
   while (out.length && !out[out.length - 1].trim()) out.pop()
   return out
 }
+// ใบ v1#158 (ต่อ) — English/中文 often hold one syllable over two notes, so an ATTACK box can stay
+// blank mid-verse. In the paste box a word that is exactly "_" = leave this attack box blank (the
+// syllable before is held on). A word starting with "-" still continues the word before it across
+// the "_": "trea- _ -sure" → ['trea', '', '-sure'] (the "-" after "trea" is only for reading).
+// Thai keeps the old rules untouched.
+// the slots the paste box shows: every word (whatever box it is on) + every blank ATTACK box
+// between the first and the last word. Held/rest boxes that are blank never show.
+function heldSlots(syllables, kinds) {
+  const words = wordSlots(syllables)
+  if (!words.length) return words
+  const first = words[0]
+  const last = words[words.length - 1]
+  const at = []
+  for (let i = first; i <= last; i++) {
+    if (String(syllables[i] ?? '').trim() || kinds[i] === 'attack') at.push(i)
+  }
+  return at
+}
+// text → tokens: '' for each "_", '-x' for a syllable that continues the word before
+function splitHeldText(text) {
+  const out = []
+  for (const word of (text || '').split(/\s+/).filter(Boolean)) {
+    if (word === '_') {
+      out.push('')
+      continue
+    }
+    const cont = word.startsWith('-')
+    word
+      .split('-')
+      .filter(Boolean)
+      .forEach((p, i) => out.push(i === 0 && !cont ? p : '-' + p))
+  }
+  return out
+}
+// tokens → text: '' shows as "_"; a "-x" right after a word is glued ("trea-sure"); a "-x" after
+// one or more "_" stands alone and the word before the "_" gets a trailing "-" ("trea- _ -sure")
+function joinHeldText(tokens) {
+  const parts = []
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]
+    if (!t) {
+      parts.push('_')
+      continue
+    }
+    const prev = i > 0 ? tokens[i - 1] : null
+    if (t.startsWith('-') && prev) parts[parts.length - 1] += t
+    else parts.push(t)
+    let j = i + 1
+    while (j < tokens.length && !tokens[j]) j++
+    if (j > i + 1 && j < tokens.length && tokens[j].startsWith('-')) parts[parts.length - 1] += '-'
+  }
+  return parts.join(' ')
+}
 // every word of the ข้อ, in singing order — a word on a held/rest box is shown like any other
 function syllablesToWords(syllables) {
   return (syllables || []).map((t) => String(t ?? '').trim()).filter(Boolean)
 }
 function rowLyricText(row, lang = 'th') {
-  return joinSyllables(syllablesToWords(langArr(row, lang) || []))
+  if (!lang || lang === 'th') return joinSyllables(syllablesToWords(langArr(row, lang) || []))
+  const arr = langArr(row, lang) || []
+  const kinds = stanzaKindList(row.stanza)
+  return joinHeldText(heldSlots(arr, kinds).map((i) => String(arr[i] ?? '').trim()))
 }
 // ใบ v1#158 — the same paste box for every language: spaces = a new word, "-" = the next syllable of the same
 // word. Writing one language never touches another (Thai stays exactly as it was).
@@ -1069,7 +1125,7 @@ function setRowLyricText(row, text, lang = 'th') {
     row.syllables = wordsToSyllables(splitSyllables(text), row.stanza, row.syllables)
     return
   }
-  const next = wordsToSyllables(splitSyllables(text), row.stanza, langArr(row, lang) || [])
+  const next = wordsToSyllables(splitHeldText(text), row.stanza, langArr(row, lang) || [], heldSlots)
   row.lyrics = { ...(row.lyrics || {}), [lang]: next }
 }
 // MP3 (B083): imported lyrics often arrive as one blob per verse (comma between วรรค). Split
