@@ -99,6 +99,89 @@ export function joinSyllables(syls) {
   return s
 }
 
+// ---------- ใบ v1#158 — one melody, words in more than one language ----------
+// An arrangement row keeps its Thai words in `syllables` (unchanged — every song and test
+// depends on it). Other languages ride beside it in `lyrics: { en: [...], zh: [...] }`, with
+// the SAME slot rules: one entry per note box, '' for a blank/held box, and a token starting
+// with '-' continues the word before it ("trea-sure" = ['trea', '-sure']).
+// `content.langVerified = { en: true }` is the per-language "ตรวจแล้ว" (Thai keeps `verified`).
+// Order on screen is always th → en → zh, whatever order the reader tapped them in.
+export const LANGS = ['th', 'en', 'zh']
+export const LANG_LABEL = { th: 'ไทย', en: 'English', zh: '中文' }
+export const EXTRA_LANGS = LANGS.filter((l) => l !== 'th')
+
+// the words of one row in one language (never null)
+export function rowLyrics(row, lang) {
+  if (!row) return []
+  if (lang === 'th') return Array.isArray(row.syllables) ? row.syllables : []
+  const arr = row.lyrics && row.lyrics[lang]
+  return Array.isArray(arr) ? arr : []
+}
+const hasWord = (arr) => arr.some((t) => String(t ?? '').trim())
+
+// put a list of language codes in the fixed order, dropping unknown and repeated ones
+export function orderLangs(list) {
+  const set = new Set(list || [])
+  return LANGS.filter((l) => set.has(l))
+}
+
+// The languages a song HAS: Thai when any row carries a Thai word, plus every other language
+// with at least one non-empty slot. A song with no words at all reads as Thai (as today).
+export function songLangs(content) {
+  const rows = (content && Array.isArray(content.arrangement)) ? content.arrangement : []
+  if (!rows.length) return ['th']
+  const out = []
+  for (const l of LANGS) if (rows.some((r) => hasWord(rowLyrics(r, l)))) out.push(l)
+  return out.length ? out : ['th']
+}
+
+// Which languages to draw for a song, given what the reader chose (a list kept across songs):
+// the chosen ones the song has, in fixed order. If the song has none of them, its own
+// languages (Thai first). `missing` = chosen languages this song does not have yet.
+export function shownLangs(chosen, has) {
+  const h = orderLangs(has)
+  const c = orderLangs(chosen)
+  const both = c.filter((l) => h.includes(l))
+  return { shown: both.length ? both : (h.length ? h : ['th']), missing: c.filter((l) => !h.includes(l)) }
+}
+
+// Tap one language button. Returns the new choice. Turning a language off can never leave the
+// song with nothing shown (the last shown one stays on). Languages chosen for OTHER songs that
+// this one lacks are kept, so the choice carries on to the next song.
+export function toggleLangChoice(chosen, has, lang) {
+  const { shown } = shownLangs(chosen, has)
+  const all = new Set([...orderLangs(chosen), ...shown])
+  if (shown.includes(lang)) {
+    if (shown.length <= 1) return orderLangs(chosen.length ? chosen : shown) // the last one stays on
+    all.delete(lang)
+  } else {
+    all.add(lang)
+  }
+  return orderLangs([...all])
+}
+
+// The short line under the buttons when the reader asked for a language this song lacks:
+// "เพลงนี้ยังไม่มี 中文 · มี ไทย · English". '' when nothing is missing.
+export function missingLangText(chosen, has) {
+  const { missing } = shownLangs(chosen, has)
+  if (!missing.length) return ''
+  return 'เพลงนี้ยังไม่มี ' + missing.map((l) => LANG_LABEL[l]).join(' · ') + ' · มี ' + orderLangs(has).map((l) => LANG_LABEL[l]).join(' · ')
+}
+
+// A non-Thai line as it is shown under the notes: "trea" + "-sure" reads "trea-" · "sure",
+// the way a hymnal hyphenates a word sung over two notes. Blanks stay blank.
+export function displayLangTokens(tokens) {
+  const arr = (tokens || []).map((t) => String(t ?? '').trim())
+  return arr.map((t, i) => {
+    if (!t) return ''
+    let w = t.startsWith('-') ? t.slice(1) : t
+    let j = i + 1
+    while (j < arr.length && !arr[j]) j++
+    if (j < arr.length && arr[j].startsWith('-')) w += '-'
+    return w
+  })
+}
+
 // Convert a v1 song (content.lines) into the v2 shape: all lines become one stanza
 // 'A', and one arrangement entry carries the lyrics as syllables. Returns
 // { content, warnings } — warnings flag segments whose syllable count != the number
@@ -212,12 +295,18 @@ export function resolveContent(content) {
   // printed score writes a new key signature at that point. The song's own key is stated once at the top.
   const songKey = content.key
   let prevEntryKey = songKey
+  // ใบ v1#158 — languages other than Thai that this song has. Only then does a segment carry
+  // `lyrics`, so a Thai-only song resolves exactly as before.
+  const altLangs = songLangs(content).filter((l) => l !== 'th')
   ;(content.arrangement || []).forEach((entry, ei) => {
     const stanza = byId[entry.stanza]
     if (!stanza) return
     const stanzaFirst = !seenStanza.has(entry.stanza)
     seenStanza.add(entry.stanza)
     const syls = entry.syllables || []
+    // ใบ v1#158 — the other languages of this ท่อน, slot for slot with the Thai (display form)
+    const alt = {}
+    for (const l of altLangs) alt[l] = displayLangTokens(rowLyrics(entry, l))
     let si = 0
     let prevSig = null // previous line's melody signature, within this entry only
     const entryTs = tsOf(stanza)
@@ -260,7 +349,16 @@ export function resolveContent(content) {
           // (the raw per-slot tokens, blanks kept) lets SongSheet render one span per
           // syllable-bearing note for the B006 per-syllable highlight. si stays aligned
           // 1:1 with midi.js's per-segment slot count (both count every non-bracket box).
-          outLine.push({ ...item, lyric: joinSyllables(slots), syllables: slots })
+          const seg = { ...item, lyric: joinSyllables(slots), syllables: slots }
+          if (altLangs.length) {
+            seg.lyrics = {}
+            for (const l of altLangs) {
+              const a = alt[l].slice(si, si + n)
+              while (a.length < n) a.push('')
+              seg.lyrics[l] = a
+            }
+          }
+          outLine.push(seg)
           si += n
         } else {
           outLine.push({ ...item })

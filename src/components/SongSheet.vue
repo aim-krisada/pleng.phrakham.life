@@ -54,6 +54,9 @@ const props = defineProps({
   // margins, and a line too long to fit is scaled down rather than spilling onto a second row.
   // แผ่นเพลง only — ฝึกร้อง and the editor preview read on screen and keep their free wrapping.
   fitLines: { type: Boolean, default: false },
+  // ใบ v1#158 — the languages of the words to draw, already in order (th → en → zh), e.g. ['th', 'en'].
+  // null = Thai only, exactly as before. Each language is one more line of words under the same notes.
+  langs: { type: Array, default: null },
 })
 // measured — ใบ v3/pleng#146: the sheet has finished laying itself out (fitted lines, words, ties), so
 // ก่อนพิมพ์ can count the pages from the final layout instead of guessing when that is.
@@ -70,8 +73,23 @@ const lyricsOnly = computed(() => sl.value && !sn.value && !sc.value)
 // Per-line layer gates. In songbook mode a line that reuses an already-printed stanza
 // (resolveContent tags it `_stanzaFirst === false`) drops its note + chord rows and prints
 // as lyrics only. Everywhere else the global layer flags apply to every line unchanged.
-function noteOn(first) { return sn.value && (!props.songbook || first) }
-function chordOn(first) { return sc.value && (!props.songbook || first) }
+// ใบ v1#158 — Thai on/off and the other languages drawn under it
+const showTh = computed(() => !props.langs || props.langs.includes('th'))
+const altLangs = computed(() => (props.langs || []).filter((l) => l !== 'th'))
+// With another language on, every line keeps its own notes (no songbook folding or stacking), so each
+// language's words always sit under the notes they are sung to.
+const songbookOn = computed(() => props.songbook && !altLangs.value.length)
+function noteOn(first) { return sn.value && (!songbookOn.value || first) }
+function chordOn(first) { return sc.value && (!songbookOn.value || first) }
+// the words of one language on one sheet line, slot by slot, for a line drawn without notes
+function altLineItems(row, l) {
+  const out = []
+  for (const p of row.parts) for (const seg of p.segments || []) {
+    const ws = (seg.lyrics && seg.lyrics[l]) || []
+    ws.forEach((w, k) => { if (w) out.push({ si: seg.si, k, w: w.endsWith('-') ? w.slice(0, -1) : w, join: w.endsWith('-') }) })
+  }
+  return out
+}
 function lineLyricsOnly(first) { return sl.value && !noteOn(first) && !chordOn(first) }
 // each sheet line's syllable-bearing segments, as phraseBreaks takes them
 const phraseLines = computed(() => renderLines.value.map(({ parts }) => {
@@ -299,7 +317,8 @@ const renderLines = computed(() =>
     // blank syllables) has none — in the songbook it prints as an empty gap, so we drop it
     // from reused (lyrics-only) verses. First-use lines keep it (they still show the notes).
     const hasText = parts.some(
-      (p) => p.segments && p.segments.some((s) => (s.lyric || '').trim() || (s.syllables || []).some((w) => (w || '').trim())),
+      (p) => p.segments && p.segments.some((s) => (s.lyric || '').trim() || (s.syllables || []).some((w) => (w || '').trim())
+        || (s.lyrics && Object.values(s.lyrics).some((ws) => ws.some((w) => (w || '').trim())))),
     )
     return { parts, first, hasText }
   }),
@@ -333,7 +352,7 @@ const stacks = computed(() => {
   const stacked = new Set()
   const hostLabel = {}
   const heads = new Set()
-  if (!props.songbook || !sn.value || !sl.value) return { under, stacked, hostLabel, heads }
+  if (!songbookOn.value || !sn.value || !sl.value) return { under, stacked, hostLabel, heads }
   const lines = props.content.lines || []
   const rows = renderLines.value
   // A ท่อน heading, a closing bar or a repeat sign on the stacked line belongs to the melody the host already
@@ -799,18 +818,23 @@ function unpinWords({ box, nts, syls }) {
   for (const n of nts) n.style.minWidth = ''
 }
 function widenNoteSlots() {
+  // ใบ v1#158 — a note can have a word in more than one row (Thai + English …): it is made as wide as the
+  // widest word in ANY row, so the widths are gathered over every row first and set once at the end.
+  const need = new Map() // note element → { w: widest word (px), gap }
   for (const set of wordSlotSets()) {
     if (!set.ok) { unpinWords(set); continue }
-    const widest = new Map()
-    for (const s of set.syls) {
-      const w = layoutRect(s).width
-      widest.set(s.dataset.slot, Math.max(widest.get(s.dataset.slot) || 0, w))
-    }
     const gap = 0.3 * (parseFloat(getComputedStyle(set.box).fontSize) || 16)
-    for (const [k, n] of set.slots) {
-      const px = parseFloat(getComputedStyle(n).fontSize) || 16
-      n.style.minWidth = widest.get(k) ? `max(1.05em, ${((widest.get(k) + gap) / px).toFixed(3)}em)` : ''
+    for (const n of set.slots.values()) if (!need.has(n)) need.set(n, { w: 0, gap: 0 })
+    for (const s of set.syls) {
+      const n = set.slots.get(s.dataset.slot)
+      const cur = need.get(n)
+      const w = layoutRect(s).width
+      if (w > cur.w) need.set(n, { w, gap: Math.max(cur.gap, gap) })
     }
+  }
+  for (const [n, { w, gap }] of need) {
+    const px = parseFloat(getComputedStyle(n).fontSize) || 16
+    n.style.minWidth = w ? `max(1.05em, ${((w + gap) / px).toFixed(3)}em)` : ''
   }
 }
 function pinWords() {
@@ -884,14 +908,14 @@ onBeforeUnmount(() => {
 // let one frame show the new notes with the OLD fit (sizes, ช่องไฟ, word places), and then jump — the sheet
 // beside the editor redraws on every edit, so it flickered ("กระพริบ"). The timer still runs once more after.
 watch(
-  () => [props.content, sc.value, sn.value, props.songbook, props.displayKey, props.mode],
+  () => [props.content, sc.value, sn.value, songbookOn.value, props.displayKey, props.mode, props.langs],
   () => nextTick(() => { if (rootEl.value) measureSheet(); scheduleMeasure() }),
   { deep: true },
 )
 </script>
 
 <template>
-  <div ref="rootEl" class="sheet-root" :class="[lyricsOnly ? 'sheet-mode-lyrics' : '', sn && !sc ? 'sheet-no-chord' : '', fitLines ? 'sheet-fit-lines' : '']">
+  <div ref="rootEl" class="sheet-root" :class="[lyricsOnly ? 'sheet-mode-lyrics' : '', sn && !sc ? 'sheet-no-chord' : '', fitLines ? 'sheet-fit-lines' : '', altLangs.length ? 'sheet-alt-langs' : '']" :style="altLangs.length ? { '--alt-rows': altLangs.length } : null">
     <!-- Title + head (key · meter · อ้างอิง) — SongHead, the ONE head shared with ฝึกร้อง (ใบ#144). The title
          prints centered above the song (ใบ#123 · #128); `screen-title` shows it on screen too. Owned here so it
          prints from ANY mode that renders the sheet (ดู or แผ่น). -->
@@ -930,7 +954,7 @@ watch(
              only between two words (<wbr>). Same per-syllable spans, so the karaoke still walks syllable by
              syllable. The run is drawn once, at its first bar; the bars after it draw nothing. -->
         <template v-else-if="lyricJoin && lineLyricsOnly(row.first)"><span
-          v-if="sl && joinRun(row.li, pi)"
+          v-if="sl && showTh && joinRun(row.li, pi)"
           class="lyric lyric-words"
         ><template v-for="(pc, ci) in joinRun(row.li, pi).pieces" :key="ci"><span
           v-if="pc.v1"
@@ -957,7 +981,7 @@ watch(
             <span v-if="chordOn(row.first)" class="chord">{{ chordText(seg.chord) }}&nbsp;</span>
             <span v-if="noteOn(row.first)" class="note"><NoteRow :notes="seg.note" :syllables="seg.syllables || null" :lyrics="row.hasText" :active="activeNote(row.li, seg.si)" />&nbsp;</span>
             <!-- v2: one span per syllable-bearing note -> highlight walks note by note (B006). -->
-            <template v-if="sl">
+            <template v-if="sl && showTh">
               <!-- FULL display: syllable spans spread UNDER the notes (flex, karaoke alignment). -->
               <!-- ใบ#131 — with lines stacked under this one, the rows share ONE grid: a column per slot, as
                    wide as its widest word, so a stacked word sits exactly under the word above it (two
@@ -1006,10 +1030,40 @@ watch(
               <!-- v1 (no syllables array): the whole lyric as before (seg-playing highlight). -->
               <span v-else class="lyric">{{ seg.lyric }}&nbsp;</span>
             </template>
+            <!-- ใบ v1#158 — one more row of words per other language, slot for slot under the same notes.
+                 The karaoke lights the same slot in every row at once (same li-si-k address as the Thai). -->
+            <template v-if="sl && !lineLyricsOnly(row.first)">
+              <span
+                v-for="l in altLangs"
+                :key="'alt-' + l"
+                class="lyric lyric-syl lyric-alt"
+                :class="'lyric-alt-' + l"
+                :lang="l"
+                :data-lang="l"
+              ><span
+                v-for="(w, k) in (seg.lyrics && seg.lyrics[l]) || []"
+                :key="k"
+                class="syl"
+                :class="{ 'syl-playing': isSyl(row.li, seg.si, k) }"
+                :data-alt-syl="`${row.li}-${seg.si}-${k}`"
+                :data-slot="k"
+                @click.stop="seek(row.li, seg.si, k)"
+              >{{ w || ' ' }}</span></span>
+            </template>
           </span>
           <!-- B082: close the last bar of the line (only when it is a full measure). -->
           <span v-if="part.closeRight && noteOn(row.first)" class="bar-line bar-close" aria-hidden="true"></span>
         </span>
+      </template>
+      <!-- ใบ v1#158 — a line drawn as words only: each other language is its own line of words below the Thai -->
+      <template v-if="sl && lineLyricsOnly(row.first)">
+        <span v-for="l in altLangs" :key="'altline-' + l" class="lyric lyric-alt-line" :class="'lyric-alt-' + l" :lang="l" :data-lang="l"><template
+          v-for="it in altLineItems(row, l)" :key="it.si + '-' + it.k"><span
+          class="syl"
+          :class="{ 'syl-playing': isSyl(row.li, it.si, it.k) }"
+          :data-alt-syl="`${row.li}-${it.si}-${it.k}`"
+          @click.stop="seek(row.li, it.si, it.k)"
+        >{{ it.w }}</span>{{ it.join ? '-' : ' ' }}</template></span>
       </template>
     </div>
     </div>
@@ -1097,6 +1151,34 @@ watch(
   width: 100%;
   justify-content: space-around;
 }
+/* ใบ v1#158 — another language's row of words under the same notes: the same spread as the Thai row, a little
+   smaller and in the note colour family so the eye can tell the languages apart. Sizes stay in em, so the Aa
+   text size scales every language together; line-height is the lyric's own so rows never overlap. */
+.lyric-alt {
+  margin-top: 0.1em;
+  font-size: 0.92em;
+  line-height: 1.35;
+  color: #3d5a80;
+}
+.lyric-alt-zh { font-size: 0.95em; }
+/* the bar lines and repeat marks reach down past every extra row of words (one row ≈ 1.34em of the line) */
+.sheet-alt-langs :deep(.bar-line),
+.sheet-alt-langs :deep(.bar-final),
+.sheet-alt-langs :deep(.repeat-mark) {
+  height: calc(3.25em + var(--alt-rows) * 1.34em);
+}
+.lyric-alt .syl { white-space: pre; }
+.lyric-alt-line {
+  display: block;
+  flex-basis: 100%;
+  width: 100%;
+  font-size: 0.92em;
+  line-height: 1.4;
+  color: #3d5a80;
+}
+.lyric-alt-line .syl { white-space: normal; padding: 0; }
+.lyric-alt .syl-playing,
+.lyric-alt-line .syl-playing { color: #fff; }
 /* ใบ v3/pleng#131 — a line with words of later lines stacked under its own: each stacked row is one more
    lyric row (1.06em type × 1.4 line-height = 1.484em of the line's own size), so the bar lines and repeat
    marks grow by that much per row and still reach the last row of words. Heights stay in em (ใบ#130). */

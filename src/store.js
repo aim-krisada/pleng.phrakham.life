@@ -2,6 +2,7 @@ import { ref, computed, watch } from 'vue'
 import { supabase } from './supabase.js'
 import { ENABLED_ENSEMBLES, ENABLED_INSTRUMENTS } from './lib/soundOptions.js'
 import { normalizeVolume, effectiveVolume, publishLevels } from './lib/volume.js'
+import { orderLangs } from './lib/songModel.js'
 
 // Song currently open in the viewer — drives the navbar download tool.
 export const currentSong = ref(null)
@@ -50,6 +51,25 @@ export const sheetDisplay = ref((() => {
   return 'all'
 })())
 watch(sheetDisplay, (v) => { try { localStorage.setItem(DISPLAY_KEY, v) } catch { /* ignore */ } })
+// ใบ v1#158 — which LANGUAGES of a song's words to show (ไทย · English · 中文, several at once). ONE choice for
+// แผ่นเพลง, ฝึกร้อง and แก้ไข, kept across songs on this device. Stored as a JSON list; anything unreadable or
+// empty falls back to Thai. What each song actually shows is worked out from this (songModel.shownLangs).
+const SONG_LANGS_KEY = 'pleng.songLangs'
+export function readSongLangs(raw) {
+  try {
+    const v = orderLangs(JSON.parse(raw))
+    if (v.length) return v
+  } catch { /* not a list — use the default */ }
+  return ['th']
+}
+export const songLangChoice = ref((() => {
+  try { return readSongLangs(localStorage.getItem(SONG_LANGS_KEY)) } catch { return ['th'] }
+})())
+watch(songLangChoice, (v) => { try { localStorage.setItem(SONG_LANGS_KEY, JSON.stringify(v)) } catch { /* ignore */ } })
+export function setSongLangChoice(list) {
+  const v = orderLangs(list)
+  songLangChoice.value = v.length ? v : ['th']
+}
 const LYRIC_JOIN_KEY = 'pleng.lyricJoin'
 // split = แยกพยางค์ · join = ติดกันเป็นวรรคตามทำนอง (ใบ#100) · book = ตามต้นฉบับ, the breaks the printed
 // songbook drew (ใบ#105). ใบ v3/pleng#161 — the default (never picked, or an unknown stored value) is now 'join'

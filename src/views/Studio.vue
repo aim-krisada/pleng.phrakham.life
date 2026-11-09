@@ -8,19 +8,20 @@ import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick } f
 import { pageBreaks } from '../lib/printPages.js'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { migrateToV2, resolveContent, lyricSetName, inLyricSet } from '../lib/songModel.js'
+import { migrateToV2, resolveContent, lyricSetName, inLyricSet, songLangs, shownLangs } from '../lib/songModel.js'
 import { CATALOG_COLUMNS, readCatalog, readSong, saveCatalog, isNetworkFailure } from '../lib/offlineSongs.js'
 import { songBasename } from '../lib/songName.js'
 import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
 import { stopPlayback } from '../lib/midi.js'
 import { singTarget, keepInBox, SING_HANDS_OFF_MS } from '../lib/singFollow.js'
 import { KEYS } from '../lib/chords.js'
-import { tier, initAuth, shellMenu, currentSong, sheetLyricJoin, newSongRequest } from '../store.js'
+import { tier, initAuth, shellMenu, currentSong, sheetLyricJoin, newSongRequest, songLangChoice } from '../store.js'
 import { trackPage, songPageTitle } from '../lib/analytics.js'
 import { songBookRefs } from '../lib/bookCodes.js'
 import Icon from '../components/Icon.vue'
 import SongViewer from '../components/SongViewer.vue'
 import SongSheet from '../components/SongSheet.vue'
+import LangToggle from '../components/LangToggle.vue'
 import EditorMode from '../components/EditorMode.vue'
 
 const route = useRoute()
@@ -233,6 +234,9 @@ const sheetSetContent = computed(() => {
   if (!sets || !Array.isArray(c.arrangement)) return c
   return { ...c, arrangement: c.arrangement.filter((e) => inLyricSet(e, viewSet.value)) }
 })
+// ใบ v1#158 — the languages of the words on the paper: the same one choice as ฝึกร้อง and แก้ไข
+const sheetLangList = computed(() => songLangs(sheetSetContent.value))
+const sheetLangs = computed(() => shownLangs(songLangChoice.value, sheetLangList.value).shown)
 const sheetContent = computed(() => {
   const c = sheetSetContent.value
   if (!c) return { key: 'C', timeSignature: '4/4', lines: [] }
@@ -390,7 +394,7 @@ onMounted(() => {
   document.fonts?.ready?.then(schedulePages)
 })
 onUnmounted(() => { pagesRO?.disconnect(); clearTimeout(pagesTimer) })
-watch([mode, sheetContent, sheetBook, sheetKey, sheetDisplay, sheetChord, sheetLyricJoin], () => nextTick(schedulePages))
+watch([mode, sheetContent, sheetBook, sheetKey, sheetDisplay, sheetChord, sheetLyricJoin, sheetLangs], () => nextTick(schedulePages))
 const pageCount = computed(() => breaks.value.length + 1)
 // the one set of SongSheet settings the paper is drawn with — ก่อนพิมพ์ and the sheet beside แก้ไข (ใบ#148).
 // The fixed switches (song-head · screen-title · fit-lines) stay written on each SongSheet tag.
@@ -407,6 +411,7 @@ const paperSheetProps = computed(() => ({
   songbook: sheetBook.value === 'songbook',
   lyricJoin: sheetLyricJoin.value !== 'split',
   bookPhrases: sheetBookMap.value,
+  langs: sheetLangs.value,
 }))
 // ← back from ก่อนพิมพ์ = the page it was opened from: ฝึกร้อง (ใบ#146 ข้อ 5), or แก้ไข with every unsaved
 // edit still there — พี่เปา checks how an edit will print and goes straight back to editing (พี่เอม 3 พ.ย. 2569).
@@ -626,6 +631,8 @@ function printSheet() {
           <button type="button" class="pv-zfit" :aria-pressed="zoom === null ? 'true' : 'false'" @click="zoom = null">เต็มแผ่น</button>
         </div>
       </div>
+      <!-- ใบ v1#158 — ไทย · English · 中文 (only for a song with words in more than one language) -->
+      <LangToggle :has="sheetLangList" />
       <div class="pv-body">
         <!-- the paper: A4 to scale on screen; on paper the same rules as ever (print pins the sheet to 1rem) -->
         <div ref="frameEl" class="pv-frame">

@@ -80,6 +80,20 @@ guessing.
 - `syllables[]` aligns 1:1 to the stanza's syllable-bearing notes, in order across
   all bars. `""` = intentionally blank slot (rare).
 - `key` on an arrangement entry = transpose that section (mid-song key change, 2b).
+- **ใบ v1#158 — words in more than one language on the same melody.** `syllables` stays the
+  Thai line (never renamed). An entry may add `"lyrics": { "en": [...], "zh": [...] }` with the
+  SAME slot rules as `syllables` (one entry per note box, `""` = blank/held, a token starting with
+  `-` continues the word before it: `trea-sure` = `["trea", "-sure"]`). `content.langVerified`
+  (`{ "en": true }`) is the per-language "ตรวจแล้ว"; Thai keeps the song-level `verified`.
+  A song HAS Thai when any entry carries a Thai word, and another language when any entry has
+  at least one non-empty slot in it (`songLangs`). Helpers in `src/lib/songModel.js`:
+  `rowLyrics` · `songLangs` · `shownLangs` · `toggleLangChoice` · `missingLangText`.
+  `resolveContent` hands each segment `lyrics: { en: [...] }` (display form, padded to the
+  segment's note boxes) only when the song has another language, so a Thai-only song resolves
+  exactly as before. The reader's choice of languages is one setting (`store.songLangChoice`,
+  localStorage `pleng.songLangs`) shared by แผ่นเพลง, ฝึกร้อง and แก้ไข; with any non-Thai
+  language on, the sheet does not fold reused verses (songbook) so every language sits under
+  its own notes.
 - Optional later: `endingOverride` on an entry to change its final bar(s) without a
   new stanza (covers song-84 voltas if we ever want in-place endings).
 
