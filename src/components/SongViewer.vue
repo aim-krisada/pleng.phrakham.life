@@ -13,11 +13,11 @@ import {
   effectiveOrder, buildPlayNotes, clampTempo,
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
-import { resolveContent, resolvePlayOrder, lyricSetName, inLyricSet } from '../lib/songModel.js'
+import { resolveContent, resolvePlayOrder, lyricSetName, inLyricSet, songLangs, shownLangs } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
-  ensembleMode, setEnsembleMode, leadInstrument, setLeadInstrument, sheetDisplay, lyricJoin, LYRIC_JOIN_DEFAULT } from '../store.js'
+  ensembleMode, setEnsembleMode, leadInstrument, setLeadInstrument, sheetDisplay, lyricJoin, LYRIC_JOIN_DEFAULT, songLangChoice } from '../store.js'
 import { presetCfg, recommendRecipe, songFeatures } from '../lib/arranger/presets.js'
 import { buildArrangeCfg, readTechniques } from '../lib/arranger/techniques.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
@@ -29,6 +29,7 @@ import SongSheet from './SongSheet.vue'
 import SongHead from './SongHead.vue'
 import FavStar from './FavStar.vue'
 import SingTransport from './SingTransport.vue'
+import LangToggle from './LangToggle.vue'
 
 // `tier` is part of the WT-0 mode contract ({ song, tier }). The reading surface is
 // view-only for everyone, so it is accepted but not used to gate anything — there are
@@ -239,6 +240,9 @@ const setContent = computed(() => {
   const arrangement = content.arrangement.filter((e) => inLyricSet(e, activeSet.value))
   return { ...content, arrangement }
 })
+// ใบ v1#158 — the languages this song has, and which of them to draw (the one shared choice)
+const songLangList = computed(() => songLangs(setContent.value))
+const sheetLangs = computed(() => shownLangs(songLangChoice.value, songLangList.value).shown)
 const resolved = computed(() => {
   const content = setContent.value
   if (!content) return null
@@ -460,7 +464,9 @@ async function scrollToPlaying() {
       ? `[data-seg="${seg.li}-${seg.si}"]`
       : null
   if (!sel) return
-  const el = sheetWrap.value.querySelector(sel)
+  // ใบ v1#158 — with Thai switched off the syllable is in another language's row (data-alt-syl)
+  const el = sheetWrap.value.querySelector(sel) ||
+    (syl ? sheetWrap.value.querySelector(`[data-alt-syl="${syl.li}-${syl.si}-${syl.syk}"]`) : null)
   if (!el) return
   const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
   // ใบ v3/pleng#108/#111 — the dock is a bar glued to the bottom (every width); a line that reaches
@@ -848,6 +854,9 @@ function onSeek({ li, si, syk }) {
       <p class="sv-sr-only" aria-live="polite">กำลังแสดงเนื้อร้อง: {{ activeSetName }}</p>
     </div>
 
+    <!-- ใบ v1#158 — ไทย · English · 中文: only for a song with words in more than one language -->
+    <LangToggle :has="songLangList" />
+
     <div
       ref="sheetWrap"
       class="sheet-scale"
@@ -871,6 +880,7 @@ function onSeek({ li, si, syk }) {
         :display-key="displayKey"
         :playing-seg="playingSeg"
         :playing-syl="playingSyl"
+        :langs="sheetLangs"
         interactive
         :song-title="printTitle"
         @seek="onSeek"

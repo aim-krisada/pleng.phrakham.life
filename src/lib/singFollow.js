@@ -16,7 +16,9 @@ export function singTarget(box, seg, syl) {
       ? `[data-seg="${seg.li}-${seg.si}"]`
       : null
   if (!sel) return null
-  return box.querySelector(sel) || (syl && seg ? box.querySelector(`[data-seg="${seg.li}-${seg.si}"]`) : null)
+  return box.querySelector(sel) ||
+    (syl ? box.querySelector(`[data-alt-syl="${syl.li}-${syl.si}-${syl.syk}"]`) : null) || // ใบ v1#158 — Thai off
+    (syl && seg ? box.querySelector(`[data-seg="${seg.li}-${seg.si}"]`) : null)
 }
 
 // bring el into the scrolling box when it is outside it: a third of the way down, so the lines coming

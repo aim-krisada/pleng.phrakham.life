@@ -7,7 +7,8 @@ import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, sugg
 import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { noteSlotEdit } from '../lib/noteSlotEdit.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
-import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, setCaption } from '../lib/songModel.js'
+import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, setCaption, songLangs, shownLangs, orderLangs, LANG_LABEL } from '../lib/songModel.js'
+import { songLangChoice } from '../store.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs, categoryName } from '../lib/bookshelf.js'
 import { sortSongs } from '../lib/songSort.js'
@@ -20,6 +21,7 @@ import { singTarget, keepInBox, SING_HANDS_OFF_MS } from '../lib/singFollow.js'
 import { presetCfg } from '../lib/arranger/presets.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
 import SongSheet from './SongSheet.vue'
+import LangToggle from './LangToggle.vue'
 import NoteBoxes from './NoteBoxes.vue'
 import ComboSelect from './ComboSelect.vue'
 import Icon from './Icon.vue'
@@ -224,10 +226,10 @@ function deserializeLine(items) {
 // — src/lib/editorSerde.js there; kept local here to keep the frozen v1 line's diff small.)
 // The key lists below must stay in step with what previewContent actually emits, or a key
 // the editor DOES model would be stashed twice.
-const CONTENT_KEYS = ['version', 'key', 'timeSignature', 'bpm', 'stanzas', 'arrangement', 'lyricSets', 'lines', 'bookRefs']
+const CONTENT_KEYS = ['version', 'key', 'timeSignature', 'bpm', 'stanzas', 'arrangement', 'lyricSets', 'lines', 'bookRefs', 'langVerified']
 // ใบ v3/pleng#96 — `timeSignature` = this melody's own meter (optional; unset = the song's)
 const STANZA_KEYS = ['id', 'lines', 'timeSignature']
-const ARRANGEMENT_KEYS = ['stanza', 'label', 'syllables', 'key', 'set', 'afterEachVerse']
+const ARRANGEMENT_KEYS = ['stanza', 'label', 'syllables', 'key', 'set', 'afterEachVerse', 'lyrics']
 const LYRIC_SET_KEYS = ['name', 'label']
 // Every key of `obj` the editor does not model, deep-cloned so the captured copy can never
 // alias (and be mutated through) the loaded row.
@@ -331,6 +333,8 @@ const opts = reactive({ key: 'C', timeSignature: '4/4', bpm: null })
 
 // verified flag of the loaded song (songs.verified) — surfaced as the "✓ ตรวจแล้ว" toggle
 const verified = ref(false)
+// ใบ v1#158 — "ตรวจแล้ว" per language other than Thai (content.langVerified = { en: true }); Thai keeps `verified`
+const langVerified = ref({})
 
 // B108 (หมวดหาย) — `category`/`theme` used to be columns on `songs` ONLY, so after loading a
 // DRAFT row meta.category/meta.theme were a GUESS ('anuchon' fallback), not data — and
@@ -556,6 +560,41 @@ const lines = computed({
 })
 const activeStanzaId = computed(() => stanzas.value[activeStanza.value]?.id ?? '')
 
+// ใบ v1#158 — a row's other-language words as saved: each slot trimmed, trailing blanks dropped, a language
+// with no word at all left out (and `lyrics` itself left out when nothing is left).
+function lyricsOut(r) {
+  if (!r.lyrics || typeof r.lyrics !== 'object') return {}
+  const out = {}
+  for (const [l, arr] of Object.entries(r.lyrics)) {
+    if (!Array.isArray(arr)) { out[l] = arr; continue }
+    const a = arr.map((t) => String(t ?? '').trim())
+    while (a.length && !a[a.length - 1]) a.pop()
+    if (a.length) out[l] = a
+  }
+  return Object.keys(out).length ? { lyrics: out } : {}
+}
+// the words of `row` in language `lang` as an editable list (Thai = row.syllables). `make` creates
+// the list for a language the row has not got yet.
+function langArr(row, lang, make = false) {
+  if (!row) return null
+  if (!lang || lang === 'th') return row.syllables
+  if (!row.lyrics || !Array.isArray(row.lyrics[lang])) {
+    if (!make) return null
+    row.lyrics = { ...(row.lyrics || {}), [lang]: [] }
+  }
+  return row.lyrics[lang]
+}
+// the other languages a row carries (whatever keys it has, so a language this page does not show still
+// moves with its notes)
+function rowLangKeys(row) {
+  return row.lyrics && typeof row.lyrics === 'object' ? Object.keys(row.lyrics).filter((l) => Array.isArray(row.lyrics[l])) : []
+}
+// languages started in this editing session but with no word typed yet (so their boxes stay on screen)
+const addedLangs = ref([])
+function addLang(l) {
+  if (!addedLangs.value.includes(l)) addedLangs.value = [...addedLangs.value, l]
+}
+
 const previewContent = computed(() => ({
   version: 2,
   key: opts.key,
@@ -569,6 +608,10 @@ const previewContent = computed(() => ({
   // list is how "I removed the refs" is stored over an imported songs.book_refs column.
   ...(refsStored.value || parseBookRefs(refsText.value).length
     ? { bookRefs: parseBookRefs(refsText.value) }
+    : {}),
+  // ใบ v1#158 — only the languages actually ticked ตรวจแล้ว; no key at all when none is
+  ...(Object.values(langVerified.value).some(Boolean)
+    ? { langVerified: Object.fromEntries(Object.entries(langVerified.value).filter(([, v]) => v).map(([k]) => [k, true])) }
     : {}),
   stanzas: stanzas.value.map((s) => ({
     id: s.id,
@@ -601,12 +644,24 @@ const previewContent = computed(() => ({
     // 717 — which lyric set this row belongs to (omitted when there are no sets, so the
     // entry stays clean; a row with no `set` is shared across every set).
     ...(lyricSets.value.length > 1 && r.set != null ? { set: r.set } : {}),
+    // ใบ v1#158 — the other languages' words (omitted when there are none, so a Thai-only row stays as it was)
+    ...lyricsOut(r),
     // B102 — "ร้องรับทุกข้อ": the refrain is sung after every verse. Stored on the entry
     // (SSOT, visible in the downloaded JSON); playback (resolvePlayOrder) expands it.
     ...(r.afterEachVerse ? { afterEachVerse: true } : {}),
     ...(r._extra || {}), // unknown per-row keys (a future per-verse directive)
   })),
 }))
+
+// ใบ v1#158 — the languages this song has (plus any just added), and the ones whose box rows are shown
+const edLangHas = computed(() => orderLangs([...songLangs(previewContent.value), ...addedLangs.value]))
+const edLangs = computed(() => shownLangs(songLangChoice.value, edLangHas.value).shown)
+const edShowTh = computed(() => edLangs.value.includes('th'))
+const edAltLangs = computed(() => edLangs.value.filter((l) => l !== 'th'))
+const langName = (l) => LANG_LABEL[l] || l
+function setLangVerified(l, on) {
+  langVerified.value = { ...langVerified.value, [l]: !!on }
+}
 
 // The sheet + playback read v1-shaped `lines`, so resolve the arrangement first.
 const resolvedPreview = computed(() => ({
@@ -684,12 +739,25 @@ const overflowSlots = computed(() => {
   for (let i = activeSlotTotal.value; i < lensRow.value.syllables.length; i++) out.push(i)
   return out
 })
-function sylAt(row, i) {
-  return row?.syllables[i] || ''
+// ใบ v1#158 — the same for each other language shown
+const altOverflow = computed(() => {
+  const out = {}
+  if (!lensActive.value) return out
+  for (const l of edAltLangs.value) {
+    const arr = langArr(lensRow.value, l) || []
+    const xs = []
+    for (let i = activeSlotTotal.value; i < arr.length; i++) xs.push(i)
+    if (xs.length) out[l] = xs
+  }
+  return out
+})
+function sylAt(row, i, lang = 'th') {
+  const arr = langArr(row, lang)
+  return (arr && arr[i]) || ''
 }
 // write one syllable slot; pad gaps with '' and trim trailing blanks to stay tidy
-function setSyl(row, i, val) {
-  const arr = row.syllables
+function setSyl(row, i, val, lang = 'th') {
+  const arr = langArr(row, lang, true)
   while (arr.length <= i) arr.push('')
   arr[i] = val.trim()
   while (arr.length && arr[arr.length - 1] === '') arr.pop()
@@ -699,59 +767,63 @@ function setSyl(row, i, val) {
 // A missing/extra syllable in the middle shifts every later word off its note. These
 // insert/remove one slot and RIPPLE the rest across the whole ข้อ (past bars & lines).
 const focusedSlot = ref(-1) // global slot index whose ◀ ▶ tools are shown
+const focusedLang = ref('th') // ใบ v1#158 — which language's box that is; ◀ ▶ shift that language only
 function slotIdx(li, bi, si, k) {
   return (slotStarts.value[`${li}-${bi}-${si}`] ?? 0) + k - 1
 }
-// ▶ push: open a blank at slot i, everything from i shifts right
-function pushSlot(i) {
+// ▶ push: open a blank at slot i, everything from i shifts right — in ONE language (ใบ v1#158)
+function pushSlot(i, lang = 'th') {
   if (!lensRow.value) return
-  const arr = lensRow.value.syllables
+  const arr = langArr(lensRow.value, lang, true)
   while (arr.length < i) arr.push('')
   arr.splice(i, 0, '')
 }
-// ◀ pull: drop slot i, everything after it shifts left
-function pullSlot(i) {
+// ◀ pull: drop slot i, everything after it shifts left — in ONE language
+function pullSlot(i, lang = 'th') {
   if (!lensRow.value) return
-  const arr = lensRow.value.syllables
-  if (i < arr.length) arr.splice(i, 1)
+  const arr = langArr(lensRow.value, lang)
+  if (arr && i < arr.length) arr.splice(i, 1)
 }
+// a word box's selector: Thai keeps its plain data-slot; another language's box is data-lslot + data-lang
+const slotSel = (target, lang) => (!lang || lang === 'th' ? `[data-slot="${target}"]` : `[data-lslot="${target}"][data-lang="${lang}"]`)
 // Space/Enter inside a syllable box: split a multi-syllable box (e.g. "พระเจ้า" typed
 // as one) into one syllable per box — the first stays here, the rest ripple into the
 // following notes — then move focus on. Space splits at the caret; Enter splits on any
 // space already in the box, else just advances. Feels like the note-box entry.
-async function focusSlot(target, caret) {
+async function focusSlot(target, caret, lang = 'th') {
   focusedSlot.value = target
+  focusedLang.value = lang
   await nextTick()
-  const el = document.querySelector(`[data-slot="${target}"]`)
+  const el = document.querySelector(slotSel(target, lang))
   if (el) {
     el.focus()
     const n = caret == null ? el.value.length : Math.min(caret, el.value.length)
     el.setSelectionRange?.(n, n)
   }
 }
-function distribute(i, val) {
+function distribute(i, val, lang = 'th') {
   if (!lensRow.value) return
-  const arr = lensRow.value.syllables
+  const arr = langArr(lensRow.value, lang, true)
   const tokens = val.split(/\s+/).filter(Boolean)
   while (arr.length <= i) arr.push('')
   if (tokens.length <= 1) {
     arr[i] = tokens[0] ?? ''
-    return focusSlot(i + 1) // nothing to split — just advance
+    return focusSlot(i + 1, undefined, lang) // nothing to split — just advance
   }
   arr[i] = tokens[0]
   for (let j = tokens.length - 1; j >= 1; j--) arr.splice(i + 1, 0, tokens[j])
-  return focusSlot(i + tokens.length) // continue past the words we just placed
+  return focusSlot(i + tokens.length, undefined, lang) // continue past the words we just placed
 }
 // Make a syllable box feel like a text field: Space (or Enter) splits at the caret,
 // Backspace at the very start merges into the previous box, Delete at the very end
 // pulls the next box in — all rippling the whole verse, nothing dropped.
-function onSylKey(e, i) {
+function onSylKey(e, i, lang = 'th') {
   const el = e.target
-  const arr = lensRow.value?.syllables
+  const arr = lensRow.value ? langArr(lensRow.value, lang, true) : null
   if (!arr) return
   if (e.key === 'Enter') {
     e.preventDefault()
-    distribute(i, el.value)
+    distribute(i, el.value, lang)
   } else if (e.key === ' ') {
     // Space inserts a syllable break at the caret: text before stays here, text after
     // (even empty) moves to a new box and everything ripples right — so a space at the
@@ -760,14 +832,14 @@ function onSylKey(e, i) {
     const c = el.selectionStart ?? el.value.length
     arr[i] = el.value.slice(0, c)
     arr.splice(i + 1, 0, el.value.slice(c))
-    focusSlot(i + 1, 0)
+    focusSlot(i + 1, 0, lang)
   } else if (e.key === 'Backspace') {
     if (i > 0 && (el.selectionStart ?? 0) === 0 && (el.selectionEnd ?? 0) === 0) {
       e.preventDefault()
       const prevLen = (arr[i - 1] ?? '').length
       arr[i - 1] = (arr[i - 1] ?? '') + (arr[i] ?? '')
       arr.splice(i, 1)
-      focusSlot(i - 1, prevLen)
+      focusSlot(i - 1, prevLen, lang)
     }
   } else if (e.key === 'Delete') {
     if (i + 1 < arr.length && (el.selectionStart ?? 0) === el.value.length && (el.selectionEnd ?? 0) === el.value.length) {
@@ -775,7 +847,7 @@ function onSylKey(e, i) {
       const curLen = el.value.length
       arr[i] = (arr[i] ?? '') + (arr[i + 1] ?? '')
       arr.splice(i + 1, 1)
-      focusSlot(i, curLen)
+      focusSlot(i, curLen, lang)
     }
   }
 }
@@ -987,11 +1059,18 @@ function wordsToSyllables(words, stanzaId, prev = []) {
 function syllablesToWords(syllables) {
   return (syllables || []).map((t) => String(t ?? '').trim()).filter(Boolean)
 }
-function rowLyricText(row) {
-  return joinSyllables(syllablesToWords(row.syllables))
+function rowLyricText(row, lang = 'th') {
+  return joinSyllables(syllablesToWords(langArr(row, lang) || []))
 }
-function setRowLyricText(row, text) {
-  row.syllables = wordsToSyllables(splitSyllables(text), row.stanza, row.syllables)
+// ใบ v1#158 — the same paste box for every language: spaces = a new word, "-" = the next syllable of the same
+// word. Writing one language never touches another (Thai stays exactly as it was).
+function setRowLyricText(row, text, lang = 'th') {
+  if (!lang || lang === 'th') {
+    row.syllables = wordsToSyllables(splitSyllables(text), row.stanza, row.syllables)
+    return
+  }
+  const next = wordsToSyllables(splitSyllables(text), row.stanza, langArr(row, lang) || [])
+  row.lyrics = { ...(row.lyrics || {}), [lang]: next }
 }
 // MP3 (B083): imported lyrics often arrive as one blob per verse (comma between วรรค). Split
 // it into Thai word tokens with Intl.Segmenter (ships with the browser · ICU dict · no lib —
@@ -1669,6 +1748,8 @@ function duplicateSegment(bar, si) {
 // under their note: a new note gets an empty word slot, a removed note takes its word with it, in
 // EVERY row on this melody. When a note is cleared and a new one typed in its place (the usual way
 // to change a note), its words come back — a pitch change keeps the words, as in MuseScore.
+// ใบ v1#158 — stashed words per row AND language: Thai keeps the plain row number, other languages "k:lang"
+const wordKey = (k, l) => (!l || l === 'th' ? k : `${k}:${l}`)
 let noteEditFrom // the box the edit started at — NoteBoxes says it just before the new value
 let noteStash = null // the words of the note just cleared: { seg, at, rows, words[row] }
 function onNoteEdit(from) {
@@ -1691,8 +1772,8 @@ function setSegNote(bar, si, val) {
   noteStash = null
   if (e.del) {
     const words = []
-    resliceRows(s.id, (p, k) => {
-      words[k] = Array.from({ length: e.del }, (_, j) => p[at + j] || '')
+    resliceRows(s.id, (p, k, l) => {
+      words[wordKey(k, l)] = Array.from({ length: e.del }, (_, j) => p[at + j] || '')
       p.splice(at, e.del)
     })
     if (words.some((ws) => ws.some(Boolean))) noteStash = { seg: toRaw(seg), at: e.at, rows, words }
@@ -1701,9 +1782,10 @@ function setSegNote(bar, si, val) {
   const back =
     st && st.seg === toRaw(seg) && st.at === e.at && st.words[0]?.length === e.ins &&
     st.rows.length === rows.length && st.rows.every((r, k) => r === rows[k])
-  resliceRows(s.id, (p, k) => {
+  resliceRows(s.id, (p, k, l) => {
     while (p.length < at) p.push('')
-    p.splice(at, 0, ...(back ? st.words[k] : new Array(e.ins).fill('')))
+    const w = back ? st.words[wordKey(k, l)] : null
+    p.splice(at, 0, ...(w && w.length === e.ins ? w : new Array(e.ins).fill('')))
   })
 }
 function addLine() {
@@ -1753,14 +1835,28 @@ function lineSlotStart(ls, li) {
   return start
 }
 // `mutate(p, k)` — k = this row's place among the rows on the melody (0, 1, 2 … in play order)
+// ใบ v1#158 — every other language on the row gets the SAME change (a 3rd arg says which language), so its
+// words stay under their notes too when notes are added, removed, copied or moved.
 function resliceRows(stanzaId, mutate) {
   let k = 0
   for (const row of arrangement.value) {
     if (row.stanza !== stanzaId) continue
     const p = row.syllables.slice()
-    mutate(p, k++)
+    mutate(p, k, 'th')
     while (p.length && !((p[p.length - 1] || '').trim())) p.pop()
     row.syllables = p
+    const langs = rowLangKeys(row)
+    if (langs.length) {
+      const next = { ...row.lyrics }
+      for (const l of langs) {
+        const q = row.lyrics[l].slice()
+        mutate(q, k, l)
+        while (q.length && !((q[q.length - 1] || '').trim())) q.pop()
+        next[l] = q
+      }
+      row.lyrics = next
+    }
+    k++
   }
 }
 // B086: move the active line up/down within the stanza AND carry every verse's words with
@@ -1807,9 +1903,8 @@ function moveLineFromHeader(dir) {
 // Pad first so empty slots (held / tie / เอื้อน) are explicit before slicing, then re-trim.
 function swapRowSlices(stanzaId, start, lenI, lenJ) {
   const end = start + lenI + lenJ
-  for (const row of arrangement.value) {
-    if (row.stanza !== stanzaId) continue
-    const p = row.syllables.slice()
+  // ใบ v1#158 — the same swap for every language on the row (resliceRows runs it per language)
+  resliceRows(stanzaId, (p) => {
     while (p.length < end) p.push('')
     const next = [
       ...p.slice(0, start),
@@ -1817,9 +1912,8 @@ function swapRowSlices(stanzaId, start, lenI, lenJ) {
       ...p.slice(start, start + lenI), // the earlier span's words move down/right
       ...p.slice(end), // everything after is untouched
     ]
-    while (next.length && !((next[next.length - 1] || '').trim())) next.pop()
-    row.syllables = next
-  }
+    p.splice(0, p.length, ...next)
+  })
 }
 // ใบ v3/pleng#115 — after ▲▼ the moved บรรทัด left the screen (a phone line is ~1,500px tall, so
 // "line 1 down" put it 3,000px below) and the top/bottom button just pressed went disabled and
@@ -1902,14 +1996,27 @@ function clipWords(s, start, len) {
       if (row.stanza === s.id) words.push(Array.from({ length: len }, (_, k) => row.syllables[start + k] || ''))
   return words
 }
+// ใบ v1#158 — the same for the other languages: per row on the melody, { en: [...], … }
+function clipLangWords(s, start, len) {
+  const out = []
+  if (s)
+    for (const row of arrangement.value)
+      if (row.stanza === s.id) {
+        const m = {}
+        for (const l of rowLangKeys(row)) m[l] = Array.from({ length: len }, (_, k) => row.lyrics[l][start + k] || '')
+        out.push(m)
+      }
+  return out
+}
 // open `len` word slots at `start` in every row on the active melody, filled with the copied words
 // when the clip comes from this song and this melody (#121 · #122), else empty
 function pasteClipWords(c, start, len) {
   const s = stanzas.value[activeStanza.value]
   if (!s || len <= 0) return
   const same = c.gen === docGen && c.stanza === s.id
-  resliceRows(s.id, (p, k) => {
-    const w = same && c.words?.[k]?.length === len ? c.words[k] : new Array(len).fill('')
+  resliceRows(s.id, (p, k, l) => {
+    const src = l === 'th' ? c.words?.[k] : c.langWords?.[k]?.[l]
+    const w = same && src?.length === len ? src : new Array(len).fill('')
     while (p.length < start) p.push('')
     p.splice(start, 0, ...w)
   })
@@ -1927,6 +2034,7 @@ function copyBarToClip(li, bi) {
     gen: docGen,
     stanza: s?.id ?? '',
     words: at ? clipWords(s, at.start, at.len) : [],
+    langWords: at ? clipLangWords(s, at.start, at.len) : [],
   }
   barMenuOpen.value = ''
 }
@@ -1941,6 +2049,7 @@ function copyLineToClip(li) {
     gen: docGen,
     stanza: s?.id ?? '',
     words: clipWords(s, lineSlotStart(lines.value, li), lineSlotLen(line)), // ใบ#122
+    langWords: clipLangWords(s, lineSlotStart(lines.value, li), lineSlotLen(line)), // ใบ v1#158
   }
   lineMoreOpen.value = false
 }
@@ -2210,6 +2319,8 @@ function applyRow(data) {
   // spreads it back instead of deleting it. Read off the RAW row, not the migrated copy — a v1
   // song's own keys are already in CONTENT_KEYS (`lines`), so nothing v1-shaped leaks into v2.
   contentExtras.value = rest(data.content, CONTENT_KEYS)
+  langVerified.value = data.content?.langVerified && typeof data.content.langVerified === 'object' ? clone(data.content.langVerified) : {}
+  addedLangs.value = []
   stanzas.value = (content.stanzas || []).map((s) => ({
     id: s.id,
     lines: (s.lines || []).map(deserializeLine),
@@ -2228,6 +2339,8 @@ function applyRow(data) {
     // set at all and its row would be invisible in every tab.
     ...(lyricSetIndex(r.set) != null ? { set: lyricSetIndex(r.set) } : {}),
     afterEachVerse: !!r.afterEachVerse, // B102 — strophic "ร้องรับทุกข้อ" directive (round-trips)
+    // ใบ v1#158 — the other languages' words (only when the row has them)
+    ...(r.lyrics && typeof r.lyrics === 'object' ? { lyrics: clone(r.lyrics) } : {}),
     _extra: rest(r, ARRANGEMENT_KEYS),
   }))
   if (!arrangement.value.length) {
@@ -2273,6 +2386,8 @@ function resetForm() {
   opts.timeSignature = '4/4'
   opts.bpm = null
   contentExtras.value = {} // a brand-new song inherits no unknown keys from the last one
+  langVerified.value = {}
+  addedLangs.value = []
   stanzas.value = [{ id: 'A', lines: [newLine()] }]
   arrangement.value = [{ stanza: 'A', label: '', syllables: [], key: '' }]
   activeStanza.value = 0
@@ -2887,6 +3002,7 @@ function docState() {
     opts: { ...opts },
     stanzas: stanzas.value,
     arrangement: arrangement.value,
+    langVerified: langVerified.value, // ใบ v1#158
   })
 }
 // the VIEW — remembered inside a step, restored on undo/redo, never a step of its own
@@ -2945,6 +3061,7 @@ function applyState(entry) {
   Object.assign(opts, s.opts)
   stanzas.value = s.stanzas
   arrangement.value = s.arrangement
+  langVerified.value = s.langVerified || {}
   // restore the view, clamped to the restored document (arrangement/stanzas may have shrunk,
   // e.g. undoing an add-ท่อน). The activeStanzaId watcher's resetLens() is suppressed while
   // applyingHistory, so the restored lensChoice is not clobbered back to the first เที่ยว.
@@ -3895,6 +4012,8 @@ defineExpose({
   // …and lights the word ฟังทั้งเพลง is singing (karaoke)
   sungSeg, sungSyl,
   undo, redo, selectStanza, focusRow, addStanza, setSyl, applyChordAt,
+  // ใบ v1#158 — words in more than one language
+  pushSlot, pullSlot, setRowLyricText, rowLyricText, langVerified, setLangVerified, addLang, edLangs, edLangHas,
   toggleAfterEachVerse, // B102 — "ร้องรับทุกข้อ" refrain directive helper (AC-5 tests)
   history, histPos,
   // B100 leave-warning tests: dirty flag + save/load clean checkpoints.
@@ -4419,6 +4538,17 @@ defineExpose({
       <button v-if="arrangement.length > 1" class="cs-del" title="ลบท่อนนี้" aria-label="ลบท่อนนี้" @click="removeRow(lensChoice)"><Icon name="trash-2" :size="15" /></button>
     </div>
 
+    <!-- ใบ v1#158 — ไทย · English · 中文: which languages' word boxes to show (the one choice shared with
+         แผ่นเพลง and ฝึกร้อง) + "+ English" / "+ 中文" to start a language this song does not have yet -->
+    <div v-if="lensActive" class="ed-langs no-print">
+      <LangToggle :has="edLangHas" editor @add="addLang" />
+      <span v-if="edAltLangs.length" class="ed-lang-checks">
+        <label v-for="l in edAltLangs" :key="l" class="ed-lang-check" :data-verify-lang="l">
+          <input type="checkbox" :checked="!!langVerified[l]" @change="setLangVerified(l, $event.target.checked)" />
+          {{ langName(l) }} ตรวจแล้ว
+        </label>
+      </span>
+    </div>
     <p v-if="lensActive" class="muted no-print" style="margin: 0 0 8px">
       พิมพ์คำร้องในช่องใต้โน้ต · ช่องสีแดง = ยังไม่ได้ใส่คำ · ช่องเส้นประ = โน้ตลากเสียง (เว้นว่างได้ หรือใส่ “-”)
     </p>
@@ -4576,9 +4706,10 @@ defineExpose({
                     <span v-else class="chord-cell chord-gap" aria-hidden="true"></span>
                   </template>
                   <template v-if="lensActive" #below="{ index }">
+                    <template v-if="edShowTh">
                     <span v-for="cell in [sylCells(li, bi, si, seg.note)[index]]" :key="index" class="syl-slot">
                       <template v-if="cell && cell.slot !== null">
-                        <span v-if="focusedSlot === cell.slot" class="slot-tools">
+                        <span v-if="focusedSlot === cell.slot && focusedLang === 'th'" class="slot-tools">
                           <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" title="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(cell.slot)">◀</button>
                           <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" title="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(cell.slot)">▶</button>
                         </span>
@@ -4589,7 +4720,7 @@ defineExpose({
                           :data-slot="cell.slot"
                           :placeholder="cell.held ? '-' : ''"
                           :aria-label="cell.held ? `โน้ตลากเสียง ช่องที่ ${cell.slot + 1} (เว้นว่างได้)` : `พยางค์ที่ ${cell.slot + 1}`"
-                          @focus="focusedSlot = cell.slot"
+                          @focus="focusedSlot = cell.slot; focusedLang = 'th'"
                           @blur="focusedSlot = -1"
                           @keydown="onSylKey($event, cell.slot)"
                           @input="setSyl(lensRow, cell.slot, $event.target.value)"
@@ -4597,6 +4728,34 @@ defineExpose({
                       </template>
                       <span v-else class="syl-spacer" aria-hidden="true"></span>
                     </span>
+                    </template>
+                    <!-- ใบ v1#158 — one more word box per other language, under the same note. ◀ ▶ on a box move
+                         THAT language's words only; the Thai and every other language stay where they are. -->
+                    <template v-for="l in edAltLangs" :key="'lang-' + l">
+                      <span v-for="cell in [sylCells(li, bi, si, seg.note)[index]]" :key="l + '-' + index" class="syl-slot syl-slot-lang">
+                        <template v-if="cell && cell.slot !== null">
+                          <span v-if="focusedSlot === cell.slot && focusedLang === l" class="slot-tools">
+                            <button class="secondary slot-btn" :aria-label="`ดึงคำ ${langName(l)} มาซ้าย (ลบช่องนี้)`" :title="`ดึงคำ ${langName(l)} มาซ้าย (ลบช่องนี้)`" @mousedown.prevent @click="pullSlot(cell.slot, l)">◀</button>
+                            <button class="secondary slot-btn" :aria-label="`ดันคำ ${langName(l)} ไปขวา (แทรกช่องว่าง)`" :title="`ดันคำ ${langName(l)} ไปขวา (แทรกช่องว่าง)`" @mousedown.prevent @click="pushSlot(cell.slot, l)">▶</button>
+                          </span>
+                          <input
+                            class="syl-box syl-lang"
+                            :class="{ 'syl-empty': !cell.held && !sylAt(lensRow, cell.slot, l), 'syl-held': cell.held }"
+                            :value="sylAt(lensRow, cell.slot, l)"
+                            :data-lslot="cell.slot"
+                            :data-lang="l"
+                            :lang="l"
+                            :placeholder="cell.held ? '-' : (l === 'zh' ? '中' : 'EN')"
+                            :aria-label="cell.held ? `${langName(l)} โน้ตลากเสียง ช่องที่ ${cell.slot + 1} (เว้นว่างได้)` : `${langName(l)} พยางค์ที่ ${cell.slot + 1}`"
+                            @focus="focusedSlot = cell.slot; focusedLang = l"
+                            @blur="focusedSlot = -1"
+                            @keydown="onSylKey($event, cell.slot, l)"
+                            @input="setSyl(lensRow, cell.slot, $event.target.value, l)"
+                          />
+                        </template>
+                        <span v-else class="syl-spacer" aria-hidden="true"></span>
+                      </span>
+                    </template>
                   </template>
                 </NoteBoxes>
                 <!-- B098: NOTE-level tools (this ตัวโน้ต only) — คัดลอกโน้ต + ลบโน้ต. The bar-
@@ -4705,11 +4864,11 @@ defineExpose({
 
     <!-- overflow: syllables typed past the last note — shown as note-less boxes so an
          over-count is visible and fixable, never silently dropped -->
-    <div v-if="overflowSlots.length" class="card overflow-strip no-print">
+    <div v-if="edShowTh && overflowSlots.length" class="card overflow-strip no-print">
       <strong style="color: var(--red)">⚠ เกินโน้ต {{ overflowSlots.length }} พยางค์ — ไม่มีโน้ตรองรับ (ดึงกลับ ◀ หรือลบทิ้ง)</strong>
       <div class="syl-boxes" style="margin-top: 8px; flex-wrap: wrap">
         <span v-for="i in overflowSlots" :key="i" class="syl-slot">
-          <span v-if="focusedSlot === i" class="slot-tools">
+          <span v-if="focusedSlot === i && focusedLang === 'th'" class="slot-tools">
             <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(i)">◀</button>
             <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(i)">▶</button>
           </span>
@@ -4718,10 +4877,34 @@ defineExpose({
             :data-slot="i"
             :value="sylAt(lensRow, i)"
             :aria-label="`พยางค์เกินที่ ${i + 1}`"
-            @focus="focusedSlot = i"
+            @focus="focusedSlot = i; focusedLang = 'th'"
             @blur="focusedSlot = -1"
             @keydown="onSylKey($event, i)"
             @input="setSyl(lensRow, i, $event.target.value)"
+          />
+        </span>
+      </div>
+    </div>
+    <!-- ใบ v1#158 — the same strip for another language's words past the last note -->
+    <div v-for="(xs, l) in altOverflow" :key="'ovf-' + l" class="card overflow-strip no-print" :data-overflow-lang="l">
+      <strong style="color: var(--red)">⚠ {{ langName(l) }} เกินโน้ต {{ xs.length }} พยางค์ — ไม่มีโน้ตรองรับ (ดึงกลับ ◀ หรือลบทิ้ง)</strong>
+      <div class="syl-boxes" style="margin-top: 8px; flex-wrap: wrap">
+        <span v-for="i in xs" :key="i" class="syl-slot">
+          <span v-if="focusedSlot === i && focusedLang === l" class="slot-tools">
+            <button class="secondary slot-btn" aria-label="ดึงคำมาซ้าย (ลบช่องนี้)" @mousedown.prevent @click="pullSlot(i, l)">◀</button>
+            <button class="secondary slot-btn" aria-label="ดันคำไปขวา (แทรกช่องว่าง)" @mousedown.prevent @click="pushSlot(i, l)">▶</button>
+          </span>
+          <input
+            class="syl-box syl-overflow syl-lang"
+            :data-lslot="i"
+            :data-lang="l"
+            :lang="l"
+            :value="sylAt(lensRow, i, l)"
+            :aria-label="`${langName(l)} พยางค์เกินที่ ${i + 1}`"
+            @focus="focusedSlot = i; focusedLang = l"
+            @blur="focusedSlot = -1"
+            @keydown="onSylKey($event, i, l)"
+            @input="setSyl(lensRow, i, $event.target.value, l)"
           />
         </span>
       </div>
@@ -4738,6 +4921,8 @@ defineExpose({
       </div>
       <div v-if="paraOpen" style="margin-top: 8px">
         <p class="muted" style="margin: 0 0 6px">เว้นวรรค = พยางค์ใหม่ · "-" = ต่อคำเดิม · แก้ตรงนี้แล้วกล่องใต้โน้ตขยับตาม</p>
+        <template v-if="edShowTh">
+        <span v-if="edAltLangs.length" class="para-lang">ไทย</span>
         <textarea
           :value="rowLyricText(lensRow)"
           rows="4"
@@ -4753,6 +4938,20 @@ defineExpose({
           </button>
           <span class="muted para-tools-hint">แตกเนื้อที่วางมาเป็นก้อน → ช่องพยางค์ (คร่าว ๆ · ปรับต่อด้วย ◀▶)</span>
         </div>
+        </template>
+        <!-- ใบ v1#158 — the same box for each other language shown (writing here never changes the Thai) -->
+        <template v-for="l in edAltLangs" :key="'para-' + l">
+          <span class="para-lang" :lang="l">{{ langName(l) }}</span>
+          <textarea
+            :value="rowLyricText(lensRow, l)"
+            rows="4"
+            class="arr-lyric"
+            :lang="l"
+            :data-para-lang="l"
+            :aria-label="`เนื้อร้อง ${langName(l)} แบบย่อหน้า`"
+            @input="setRowLyricText(lensRow, $event.target.value, l)"
+          ></textarea>
+        </template>
         <span class="sr-only" aria-live="polite">{{ syllableMsg }}</span>
       </div>
     </div>
@@ -4857,7 +5056,7 @@ defineExpose({
              (font-size, not transform → keeps SongSheet's tie overlay measuring real px),
              so there is no horizontal scroll and no clipped column. -->
         <div class="ed-float-page" :style="previewPageStyle">
-          <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" :playing-seg="sungSeg" :playing-syl="sungSyl" />
+          <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" :playing-seg="sungSeg" :playing-syl="sungSyl" :langs="edLangs" />
         </div>
       </div>
       <!-- resize by dragging this bottom-right corner (desktop only; mobile is full-screen) -->
@@ -4880,7 +5079,7 @@ defineExpose({
         <button class="secondary" style="float: right" aria-label="ปิดแผ่นเพลง" @click="showSheet = false">✕ ปิด</button>
         <h2 style="margin-top: 0; color: var(--brand)">{{ meta.number != null ? meta.number + '. ' : '' }}{{ meta.title_th || '(ยังไม่มีชื่อเพลง)' }}</h2>
         <p class="muted">Key {{ opts.key }} · {{ opts.timeSignature }}<template v-if="opts.bpm"> · ♩= {{ opts.bpm }}</template></p>
-        <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" />
+        <SongSheet :content="resolvedPreview" mode="full" chord-system="letter" :display-key="opts.key" :langs="edLangs" />
       </div>
     </div>
 
@@ -5115,6 +5314,16 @@ defineExpose({
 .syl-box.syl-held { border-style: dashed; background: #fafafa; color: var(--muted); }
 .syl-box.syl-held::placeholder { color: var(--line); }
 .syl-box.syl-overflow { border-color: var(--red); background: #fff0f0; color: var(--red); }
+/* ใบ v1#158 — another language's word box: same size as the Thai one, a blue tint so the rows read apart;
+   blank = red exactly like Thai (the .syl-empty rule below wins on purpose) */
+.syl-box.syl-lang { background: #f3f7fc; color: #24456e; }
+.syl-box.syl-lang::placeholder { color: #9fb3cc; font-size: 0.8em; }
+.syl-box.syl-lang.syl-empty { border-color: var(--red); background: #fff5f5; }
+.syl-box.syl-lang.syl-held { border-style: dashed; background: #fafafa; }
+.ed-langs { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 12px; margin: 0 0 6px; }
+.ed-lang-checks { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.ed-lang-check { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; font-size: var(--fs-sm, 0.95rem); cursor: pointer; }
+.para-lang { display: block; margin: 8px 0 2px; font-weight: 700; color: var(--brand); font-size: var(--fs-sm, 0.95rem); }
 .overflow-strip { border-color: var(--red); background: #fff7f7; }
 /* ◀ ▶ align tools float above the focused syllable box, no layout shift */
 .slot-tools {
