@@ -16,7 +16,7 @@
 //
 // SIZE: each instrument loads LAZILY (only when first played) + a single velocity layer / trimmed
 // range, so a real session downloads only the 2–4 voices it uses (~2–3 MB each), not the whole
-// ~10.6 MB catalog. If the samples aren't loaded (offline / slow / first press) the caller falls
+// ~21 MB catalog (the SW precaches only the playable ones — piano, ~12.9 MB · ใบ v1#166). If the samples aren't loaded (offline / slow / first press) the caller falls
 // back to the synth INSTANTLY — the sampler is never on the critical path of "press play → hear".
 //
 // `smplr` is imported DYNAMICALLY (inside loadInstrument) so it's a lazy chunk, not in the initial

@@ -2,7 +2,8 @@
 // no signal, so once visited it must load AND play its instruments offline. Two jobs:
 //
 //   1. PRECACHE the self-hosted instrument samples. On install we read /samples/manifest.json and
-//      cache every URL in its `precache[]` list (~115 same-origin files, ~10.6 MB). This is what
+//      cache every URL in its `precache[]` list — only the instruments the site plays (the grand
+//      piano, 120 files, ~12.9 MB, while PIANO_ONLY is on · ใบ v1#166). This is what
 //      lets the FIRST offline launch play a never-before-played instrument — smplr's own
 //      CacheStorage only covers instruments already fetched online.
 //   2. RUNTIME-CACHE the app shell. Vite hashes the JS/CSS filenames at build time (unknown here),
@@ -88,19 +89,39 @@ async function fill(topUp) {
   try {
     const cache = await caches.open(SAMPLES_CACHE)
     let manifest = null
+    let fresh = false
     try {
       const res = await fetchT(MANIFEST_URL)
-      if (res.ok) { await cache.put(MANIFEST_URL, res.clone()); savedOne(); manifest = await res.json() }
+      if (res.ok) { await cache.put(MANIFEST_URL, res.clone()); savedOne(); manifest = await res.json(); fresh = true }
     } catch { /* offline */ }
     if (!manifest) manifest = await readCachedJson(cache, MANIFEST_URL)
     if (manifest) {
       // The manifest ships site-root paths ('/samples/…'), so rebase them onto THIS scope —
-      // otherwise the /v2 SW would fill its cache with the root deployment's 205 sample files
-      // (measured: 205 root paths inside pleng-samples-v1--v2 before this line existed).
+      // otherwise the /v2 SW would fill its cache with the root deployment's sample files
+      // (measured, when the list still had every instrument: 205 root paths inside pleng-samples-v1--v2 before this line existed).
       const rebase = (u) => (ROOT === '/' ? u : String(u).replace(/^\/samples\//, SAMPLES_PATH))
       const urls = Array.isArray(manifest.precache) ? manifest.precache.map(rebase) : []
       // Individually (not addAll) so one missing file can't abort the whole precache.
       await Promise.allSettled(urls.map((u) => saveFile(cache, u, topUp)))
+      // ใบ v1#166 — drop sample files that are no longer in the list (the guitar / violin / cello
+      // files older versions saved but the site never plays), like the old build files below.
+      // Only when this list just came from the network — offline, or a failed fetch, must never
+      // empty a working cache — and only while the kept list is still this one (two installs
+      // close together must not delete each other's files).
+      if (fresh && urls.length) {
+        const kept = await readCachedJson(cache, MANIFEST_URL)
+        const keptUrls = kept && Array.isArray(kept.precache) ? kept.precache.map(rebase) : []
+        if (JSON.stringify(keptUrls) === JSON.stringify(urls)) {
+          const path = (u) => new URL(u, self.location.origin).pathname
+          const current = new Set(urls.map(path))
+          current.add(path(MANIFEST_URL))
+          const stale = (await cache.keys()).filter((r) => {
+            const p = new URL(r.url).pathname
+            return p.startsWith(SAMPLES_PATH) && !current.has(p)
+          })
+          await Promise.allSettled(stale.map((r) => cache.delete(r)))
+        }
+      }
     }
   } catch { /* offline at install time → runtime caching still fills in on later online visits */ }
   // Precache the app shell + every built asset (hashed JS/CSS chunks, incl. the smplr audio

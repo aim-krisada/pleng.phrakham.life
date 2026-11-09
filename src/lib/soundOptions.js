@@ -26,6 +26,13 @@ export const PIANO_ONLY = true
 // (store.js) เพื่อให้คนที่เคยเลือก เต็มวง/กีตาร์ ไว้ ตกกลับมาเป็น เปียโน+เดี่ยว อัตโนมัติ.
 export const ENABLED_ENSEMBLES = PIANO_ONLY ? ['solo'] : ['solo', 'ensemble']
 export const ENABLED_INSTRUMENTS = PIANO_ONLY ? ['grand'] : ['grand', 'nylon']
+// เสียงเครื่องดนตรีที่โหลดเก็บไว้ในเครื่องล่วงหน้า (ใบ v1#166) — เฉพาะที่เว็บเล่นได้จริง.
+// PIANO_ONLY → เปียโนตัวเดียว (120 ไฟล์) · ปิด PIANO_ONLY → null = ทุกเครื่องในคลัง (เต็มวงใช้หลายตัว).
+// ใช้สร้างรายการ samples/manifest.json `precache` ตอน build (vite.config.js · lib/samplePrecache.js).
+export function precacheInstruments(pianoOnly = PIANO_ONLY, enabled = ENABLED_INSTRUMENTS) {
+  return pianoOnly ? enabled : null
+}
+export const PRECACHE_INSTRUMENTS = precacheInstruments()
 // ─────────────────────────────────────────────────────────────────────────────
 
 // การบรรเลง — solo (one instrument) vs ensemble (รวมวง เสียงจริง: เปียโน+เชลโล+ไวโอลิน · §6b.2).

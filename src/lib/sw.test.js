@@ -162,3 +162,45 @@ describe("sw.js 'pleng-fill' — the page asks the active worker to top up", () 
     expect(w.posted).toEqual([])
   })
 })
+
+// ใบ v1#166 — the list now holds only the piano: the guitar / violin / cello files older versions
+// saved are dropped once the new list arrives from the network, never while offline.
+describe('sw.js — sample files no longer in the list', () => {
+  const OLD = ['/samples/a.ogg', '/samples/b.ogg', '/samples/CC0/cello/24.ogg', '/samples/FluidR3_GM/x-mp3.js']
+  const oldSite = (assets) => site(assets, {
+    '/samples/manifest.json': { precache: OLD }, '/samples/CC0/cello/24.ogg': 'C', '/samples/FluidR3_GM/x-mp3.js': 'X',
+  })
+
+  it('a fresh list drops the unused instrument files, keeps the list file and the piano', async () => {
+    const c = makeCaches()
+    await boot(oldSite(['/assets/x.js']), c).run('install')
+    expect(c.paths('pleng-samples-v1')).toContain('/samples/CC0/cello/24.ogg')
+    await boot(site(['/assets/x.js']), c).run('install')
+    expect(c.paths('pleng-samples-v1')).toEqual(['/samples/a.ogg', '/samples/b.ogg', '/samples/manifest.json'])
+  })
+
+  it("the page's top-up ('pleng-fill') with a fresh list drops them too", async () => {
+    const c = makeCaches()
+    await boot(oldSite(['/assets/x.js']), c).run('install')
+    await boot(site(['/assets/x.js']), c).run('message', { type: 'pleng-fill' })
+    expect(c.paths('pleng-samples-v1')).not.toContain('/samples/FluidR3_GM/x-mp3.js')
+  })
+
+  it('offline (list read from the cache): nothing is deleted', async () => {
+    const c = makeCaches()
+    await boot(oldSite(['/assets/x.js']), c).run('install')
+    // the new, shorter list is kept, but this run cannot reach the network
+    const s = await c.api.open('pleng-samples-v1')
+    await s.put('/samples/manifest.json', new Response(JSON.stringify({ precache: SAMPLES })))
+    await boot(null, c).run('message', { type: 'pleng-fill' })
+    expect(c.paths('pleng-samples-v1')).toContain('/samples/CC0/cello/24.ogg')
+    expect(c.paths('pleng-samples-v1')).toContain('/samples/FluidR3_GM/x-mp3.js')
+  })
+
+  it('the list file fails to download (404): nothing is deleted', async () => {
+    const c = makeCaches()
+    await boot(oldSite(['/assets/x.js']), c).run('install')
+    await boot(site(['/assets/x.js'], { '/samples/manifest.json': 404 }), c).run('install')
+    expect(c.paths('pleng-samples-v1')).toContain('/samples/CC0/cello/24.ogg')
+  })
+})
