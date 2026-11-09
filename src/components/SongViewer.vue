@@ -17,7 +17,7 @@ import { resolveContent, resolvePlayOrder, lyricSetName, inLyricSet } from '../l
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
-  ensembleMode, setEnsembleMode, leadInstrument, setLeadInstrument, sheetDisplay, lyricJoin } from '../store.js'
+  ensembleMode, setEnsembleMode, leadInstrument, setLeadInstrument, sheetDisplay, lyricJoin, LYRIC_JOIN_DEFAULT } from '../store.js'
 import { presetCfg, recommendRecipe, songFeatures } from '../lib/arranger/presets.js'
 import { buildArrangeCfg, readTechniques } from '../lib/arranger/techniques.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
@@ -53,14 +53,15 @@ const DISPLAY_OPTS = [
 ]
 // ใบ v3/pleng#100 — remembered on this device (store.js), so the next song opens the same way
 const display = sheetDisplay
-// how เนื้อล้วน is written: แยกพยางค์ (as before), ติดกันเป็นวรรค by where the tune breathes (ใบ#100),
+// how เนื้อล้วน is written: แยกพยางค์, ติดกันเป็นวรรค (the default since ใบ#161) by where the tune breathes (ใบ#100),
 // or ตามต้นฉบับ — the breaks the printed book itself drew (ใบ#105). All three are remembered.
 const LYRIC_JOIN_OPTS = [
   { value: 'split', label: 'แยกพยางค์', short: 'แยก' },
   { value: 'join', label: 'ติดกันเป็นวรรคตามทำนอง', short: 'ตามทำนอง' },
   { value: 'book', label: 'ตามต้นฉบับ (วรรคในหนังสือ)', short: 'ต้นฉบับ' },
 ]
-const lyricJoinDef = computed(() => LYRIC_JOIN_OPTS.find((o) => o.value === lyricJoin.value) || LYRIC_JOIN_OPTS[0])
+// ใบ#161 — an unknown value falls back to ติดกันเป็นวรรคตามทำนอง, the default (store.LYRIC_JOIN_DEFAULT)
+const lyricJoinDef = computed(() => LYRIC_JOIN_OPTS.find((o) => o.value === lyricJoin.value) || LYRIC_JOIN_OPTS.find((o) => o.value === LYRIC_JOIN_DEFAULT))
 const displayDef = computed(() => DISPLAY_OPTS.find((o) => o.value === display.value) || DISPLAY_OPTS[0])
 const CHORD_OPTS = [
   { value: 'letter', label: 'คอร์ดตัวอักษร (A B C)' },

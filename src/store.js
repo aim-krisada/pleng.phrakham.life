@@ -51,12 +51,15 @@ export const sheetDisplay = ref((() => {
 })())
 watch(sheetDisplay, (v) => { try { localStorage.setItem(DISPLAY_KEY, v) } catch { /* ignore */ } })
 const LYRIC_JOIN_KEY = 'pleng.lyricJoin'
-// split = แยกพยางค์ (the default, unchanged) · join = ติดกันเป็นวรรคตามทำนอง (ใบ#100)
-// · book = ตามต้นฉบับ, the breaks the printed songbook drew (ใบ#105)
+// split = แยกพยางค์ · join = ติดกันเป็นวรรคตามทำนอง (ใบ#100) · book = ตามต้นฉบับ, the breaks the printed
+// songbook drew (ใบ#105). ใบ v3/pleng#161 — the default (never picked, or an unknown stored value) is now 'join'
+// (it was 'split'). A value the reader really picked is kept. The watch below writes only on a change, so a
+// stored 'pleng.lyricJoin' always means the reader picked it on ฝึกร้อง.
 export const LYRIC_JOINS = ['split', 'join', 'book']
+export const LYRIC_JOIN_DEFAULT = 'join'
 export const lyricJoin = ref((() => {
   try { const v = localStorage.getItem(LYRIC_JOIN_KEY); if (LYRIC_JOINS.includes(v)) return v } catch { /* ignore */ }
-  return 'split'
+  return LYRIC_JOIN_DEFAULT
 })())
 watch(lyricJoin, (v) => { try { localStorage.setItem(LYRIC_JOIN_KEY, v) } catch { /* ignore */ } })
 // ใบ v3/pleng#101 — แผ่นเพลง remembers its OWN way of writing the lyrics (พี่เอม 5 ต.ค. 2569: "แต่ละหน้าจำค่าของตัวเอง"):
@@ -64,10 +67,23 @@ watch(lyricJoin, (v) => { try { localStorage.setItem(LYRIC_JOIN_KEY, v) } catch 
 // set there stays). The first time the sheet has no value of its own it starts from `lyricJoin` — what the sheet
 // showed the reader while the two pages shared one value — and writes it down at once, so from then on the two
 // live apart and a later pick on ฝึกร้อง no longer reaches the sheet.
+// ใบ v3/pleng#161 — that seed used to write 'split' (the old default) on almost every device without the reader
+// picking anything. So ONCE per device (flag 'pleng.lyricJoinDefaultV2'): a stored sheet 'split' while ฝึกร้อง has
+// no stored pick came from that seed, not from the reader → treat it as unset (→ 'join'). After the flag is set a
+// stored 'split' is a real pick and stays. Seeding still writes at once (keeps the two pages apart), but now it
+// writes either the reader's real ฝึกร้อง pick or the new default 'join' — never a value nobody chose.
 const SHEET_LYRIC_JOIN_KEY = 'pleng.sheetLyricJoin'
+const LYRIC_JOIN_MIGRATED_KEY = 'pleng.lyricJoinDefaultV2'
 export const sheetLyricJoin = ref((() => {
-  try { const v = localStorage.getItem(SHEET_LYRIC_JOIN_KEY); if (LYRIC_JOINS.includes(v)) return v } catch { /* ignore */ }
-  const seed = lyricJoin.value
+  try {
+    let v = localStorage.getItem(SHEET_LYRIC_JOIN_KEY)
+    if (localStorage.getItem(LYRIC_JOIN_MIGRATED_KEY) !== '1') {
+      if (v === 'split' && localStorage.getItem(LYRIC_JOIN_KEY) === null) v = null // the old seed, not a pick
+      localStorage.setItem(LYRIC_JOIN_MIGRATED_KEY, '1')
+    }
+    if (LYRIC_JOINS.includes(v)) return v
+  } catch { /* ignore */ }
+  const seed = lyricJoin.value // the reader's ฝึกร้อง pick, or LYRIC_JOIN_DEFAULT when there is none
   try { localStorage.setItem(SHEET_LYRIC_JOIN_KEY, seed) } catch { /* ignore */ }
   return seed
 })())

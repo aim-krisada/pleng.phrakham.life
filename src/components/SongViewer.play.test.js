@@ -425,7 +425,7 @@ describe('SongViewer key / tempo / loop / readability (US-A02, US-A03)', () => {
     expect(w.find('.dk-panel [data-setting="lyricjoin"]').exists()).toBe(false) // ครบ: no such choice
     await pickSelect(w, 'display', 'lyric')
     expect(w.find('.dk-panel [data-setting="lyricjoin"]').exists()).toBe(true)
-    expect(sheet(w).props('lyricJoin')).toBe(false) // default แยกพยางค์, as before
+    expect(sheet(w).props('lyricJoin')).toBe(false) // แยกพยางค์ (set in beforeEach)
     await pickSelect(w, 'lyricjoin', 'join')
     expect(sheet(w).props('lyricJoin')).toBe(true)
     expect(sheet(w).props('showNote')).toBe(false) // notes + chords stay hidden

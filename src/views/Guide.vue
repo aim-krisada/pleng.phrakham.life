@@ -147,7 +147,7 @@ import { analyticsOn } from '../lib/analytics.js'
       <ul>
         <li><strong>พิมพ์ / บันทึก PDF</strong> — จะเปิด<strong>หน้าก่อนพิมพ์</strong>
           เห็นแผ่น A4 เหมือนที่จะได้จริง และบอกว่ากี่หน้า ·
-          ข้างแผ่นเลือกได้ว่าจะเอา<strong>คีย์</strong>ไหน คำร้อง<strong>แยกพยางค์</strong>หรือ<strong>ติดกัน</strong>
+          ข้างแผ่นเลือกได้ว่าจะเอา<strong>คีย์</strong>ไหน คำร้อง<strong>ติดกันเป็นวรรค</strong>หรือ<strong>แยกพยางค์</strong>
           แสดงอะไรบ้าง และคอร์ดแบบไหน · พอใจแล้วกด <strong>พิมพ์ / บันทึก PDF</strong> ·
           กด <strong>← ก่อนพิมพ์</strong> เพื่อกลับ
           <br /><span class="muted">ในหน้าต่างพิมพ์ให้<strong>ปิด "หัวกระดาษและท้ายกระดาษ"</strong>
