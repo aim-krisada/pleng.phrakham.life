@@ -13,22 +13,22 @@ async function storeWith(seed = {}) {
 
 describe('ใบ#100 — the sheet display + lyric writing are remembered', () => {
   beforeEach(() => { localStorage.clear() })
-  it('defaults: ครบ, แยกพยางค์ (nothing changes for someone who never picks)', async () => {
+  it('defaults: ครบ, ติดกันเป็นวรรคตามทำนอง (ใบ#161 — was แยกพยางค์)', async () => {
     const st = await storeWith()
     expect(st.sheetDisplay.value).toBe('all')
-    expect(st.lyricJoin.value).toBe('split')
+    expect(st.lyricJoin.value).toBe('join')
   })
   it('a pick is written to this device, and a fresh load (another song, a reopened browser) reads it back', async () => {
     let st = await storeWith()
     st.sheetDisplay.value = 'lyric'
-    st.lyricJoin.value = 'join'
+    st.lyricJoin.value = 'split' // ใบ#161 — join is the default now, so pick a different one
     await nextTick()
     expect(localStorage.getItem('pleng.sheetDisplay')).toBe('lyric')
-    expect(localStorage.getItem('pleng.lyricJoin')).toBe('join')
+    expect(localStorage.getItem('pleng.lyricJoin')).toBe('split')
     vi.resetModules()
     st = await import('../store.js')
     expect(st.sheetDisplay.value).toBe('lyric')
-    expect(st.lyricJoin.value).toBe('join')
+    expect(st.lyricJoin.value).toBe('split')
   })
   it('ใบ#101 — แผ่นเพลง has its own remembered value; picking on one page never changes the other, both survive a reload', async () => {
     let st = await storeWith({ 'pleng.lyricJoin': 'join', 'pleng.sheetLyricJoin': 'split' })
@@ -70,14 +70,63 @@ describe('ใบ#100 — the sheet display + lyric writing are remembered', () =
     st = await import('../store.js')
     expect([st.lyricJoin.value, st.sheetLyricJoin.value]).toEqual(['book', 'join'])
   })
-  it('ใบ#101 — a new reader (nothing stored) gets แยกพยางค์ on both pages', async () => {
+  it('ใบ#161 — a new reader (nothing stored) gets ติดกันเป็นวรรคตามทำนอง on both pages', async () => {
     const st = await storeWith()
-    expect([st.lyricJoin.value, st.sheetLyricJoin.value]).toEqual(['split', 'split'])
+    expect([st.lyricJoin.value, st.sheetLyricJoin.value]).toEqual(['join', 'join'])
+    expect(localStorage.getItem('pleng.lyricJoin')).toBe(null) // ฝึกร้อง writes only on a pick
   })
   it('a stale or broken stored value falls back to the default', async () => {
     const st = await storeWith({ 'pleng.sheetDisplay': 'karaoke', 'pleng.lyricJoin': 'yes', 'pleng.sheetLyricJoin': 'yes' })
     expect(st.sheetDisplay.value).toBe('all')
-    expect(st.lyricJoin.value).toBe('split')
+    expect(st.lyricJoin.value).toBe('join')
+    expect(st.sheetLyricJoin.value).toBe('join')
+  })
+})
+
+describe('ใบ#161 — เนื้อล้วน starts as ติดกันเป็นวรรคตามทำนอง; real picks are kept', () => {
+  beforeEach(() => { localStorage.clear() })
+  it('a real ฝึกร้อง pick (split · join · book) is kept on both pages', async () => {
+    for (const v of ['split', 'join', 'book']) {
+      let st = await storeWith({ 'pleng.lyricJoin': v, 'pleng.sheetLyricJoin': v })
+      expect([st.lyricJoin.value, st.sheetLyricJoin.value]).toEqual([v, v])
+      st = await storeWith({ 'pleng.lyricJoin': v }) // sheet unset → starts from the ฝึกร้อง pick
+      expect(st.sheetLyricJoin.value).toBe(v)
+    }
+  })
+  it('a sheet "join" or "book" with no ฝึกร้อง key is kept (only the old seed value split is moved)', async () => {
+    for (const v of ['join', 'book']) {
+      const st = await storeWith({ 'pleng.sheetLyricJoin': v })
+      expect(st.sheetLyricJoin.value).toBe(v)
+    }
+  })
+  it('the old seed — sheet "split" with no ฝึกร้อง key — becomes join, is written, and the flag is set', async () => {
+    const st = await storeWith({ 'pleng.sheetLyricJoin': 'split' })
+    expect(st.sheetLyricJoin.value).toBe('join')
+    expect(localStorage.getItem('pleng.sheetLyricJoin')).toBe('join')
+    expect(localStorage.getItem('pleng.lyricJoinDefaultV2')).toBe('1')
+    expect(localStorage.getItem('pleng.lyricJoin')).toBe(null)
+  })
+  it('the move runs once: a later real pick of split on แผ่นเพลง stays split after a reload', async () => {
+    let st = await storeWith({ 'pleng.sheetLyricJoin': 'split' })
+    expect(st.sheetLyricJoin.value).toBe('join')
+    st.sheetLyricJoin.value = 'split' // the reader picks แยกพยางค์ on แผ่นเพลง
+    await nextTick()
+    vi.resetModules()
+    st = await import('../store.js')
     expect(st.sheetLyricJoin.value).toBe('split')
+    expect(st.lyricJoin.value).toBe('join')
+  })
+  it('flag already set: a stored sheet split with no ฝึกร้อง key stays split', async () => {
+    const st = await storeWith({ 'pleng.sheetLyricJoin': 'split', 'pleng.lyricJoinDefaultV2': '1' })
+    expect(st.sheetLyricJoin.value).toBe('split')
+  })
+  it('a new reader gets the flag too, so a later split pick is never moved', async () => {
+    const st = await storeWith()
+    expect(st.sheetLyricJoin.value).toBe('join')
+    expect(localStorage.getItem('pleng.lyricJoinDefaultV2')).toBe('1')
+  })
+  it('an unknown stored value → join (both pages)', async () => {
+    const st = await storeWith({ 'pleng.lyricJoin': 'weird', 'pleng.sheetLyricJoin': 'weird', 'pleng.lyricJoinDefaultV2': '1' })
+    expect([st.lyricJoin.value, st.sheetLyricJoin.value]).toEqual(['join', 'join'])
   })
 })
