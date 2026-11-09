@@ -11,7 +11,15 @@
 //
 // Light on the battery: the page counts the caches on load, again when the service worker reports
 // progress (sw.js posts `pleng-cache` messages while it fills), when the catalog is saved, when the
-// device comes back online — plus at most RETRIES timed re-checks. No polling loop.
+// device comes back online, when a new service worker appears or changes state (a deploy) — plus
+// at most RETRIES timed re-checks. No polling loop.
+//
+// It always ENDS (ใบ v3/pleng#164 — the owner saw "กำลังเก็บ… 98%" that never moved after a day of
+// deploys): when the timed re-checks run out and it still says "กำลังเก็บ…", the page asks the
+// active worker once to fetch whatever is missing ('pleng-fill'); when the worker answers (or
+// FILL_WAIT passes) the line turns green or amber. If the worker is still installing, the page
+// waits for its state changes, but never longer than GIVE_UP_MS — then amber, which still turns
+// green by itself if the files arrive later.
 //
 // The green line has a ✕ (ใบ v3/pleng#158). Outside the install card it stays until the reader
 // taps ✕; then it stays hidden on this device until the saved song list is DIFFERENT from the one
@@ -224,6 +232,19 @@ export async function probeDevice() {
 // ---- the live status (one checker for the whole page) -------------------------------------------
 export const offlineStatus = ref({ state: 'none' })
 export const RETRIES = [3000, 8000, 20000, 45000]
+export const FILL_WAIT = 60000   // how long to wait for the worker's answer to 'pleng-fill'
+export const GIVE_UP_MS = 120000 // after the last re-check: the longest the percent may stay up
+
+// Ask the active worker to fetch the files still missing (sw.js 'pleng-fill'). true = asked.
+async function askWorkerFill() {
+  try {
+    const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : null
+    const reg = sw ? await sw.getRegistration() : null
+    if (!reg || !reg.active) return false
+    reg.active.postMessage({ type: 'pleng-fill' })
+    return true
+  } catch { return false }
+}
 
 // ---- the green line's ✕ — remembered on this device (ใบ v3/pleng#158) ---------------------------
 // On ✕ the fingerprints of the saved list are kept as "closed on". The line comes back when the
@@ -264,6 +285,12 @@ let again = false
 let persistAsked = false
 let persistDenied = false
 let probe = probeDevice
+let askFill = askWorkerFill
+let fillAsked = false   // 'pleng-fill' sent on this round
+let fillDone = false    // the worker answered it (or FILL_WAIT passed / it could not be asked)
+let gaveUp = false      // GIVE_UP_MS passed after the last re-check
+let fillTimer = null
+let giveUpTimer = null
 
 async function askPersist() {
   if (persistAsked) return
@@ -282,9 +309,9 @@ export async function refreshOfflineStatus() {
     do {
       again = false
       const d = await probe()
-      // The worker finished installing and the timed re-checks are used up → whatever is still
-      // missing will not arrive by itself on this visit.
-      const settled = retryIdx >= RETRIES.length && d.swActive && !d.swInstalling
+      // The timed re-checks are used up and the worker has already tried to fetch what is missing
+      // (or we waited long enough) → whatever is still missing will not arrive on this visit.
+      const settled = retryIdx >= RETRIES.length && (fillDone || gaveUp)
       let s = offlineState({ ...d, settled, persistDenied, standalone: isStandalone.value })
       if (s.state === 'ready' && !persistAsked) {
         await askPersist()
@@ -292,17 +319,64 @@ export async function refreshOfflineStatus() {
       }
       savedPrints.value = (d.catalog && d.catalog.prints) || null
       offlineStatus.value = s
-      scheduleRetry(s)
+      scheduleRetry(s, d)
     } while (again)
   })()
   try { await running } finally { running = null }
 }
 
-function scheduleRetry(s) {
+function scheduleRetry(s, d) {
   clearTimeout(retryTimer)
   retryTimer = null
-  if (s.state !== 'filling' || retryIdx >= RETRIES.length) return
-  retryTimer = setTimeout(() => { retryIdx++; refreshOfflineStatus() }, RETRIES[retryIdx])
+  if (s.state !== 'filling') { clearTimeout(giveUpTimer); giveUpTimer = null; return }
+  if (retryIdx < RETRIES.length) {
+    retryTimer = setTimeout(() => { retryIdx++; refreshOfflineStatus() }, RETRIES[retryIdx])
+    return
+  }
+  // Re-checks used up, still filling. Never leave the percent up for ever:
+  if (!giveUpTimer) giveUpTimer = setTimeout(() => { gaveUp = true; refreshOfflineStatus() }, GIVE_UP_MS)
+  // The worker is idle (not installing) → ask it once to fetch what is missing. While it is still
+  // installing, its state changes (watchOfflineStatus) bring us back here.
+  if (!fillAsked && d && d.swActive && !d.swInstalling) {
+    fillAsked = true
+    Promise.resolve(askFill()).catch(() => false).then((asked) => {
+      if (!asked) { fillDone = true; refreshOfflineStatus(); return }
+      clearTimeout(fillTimer)
+      fillTimer = setTimeout(() => { fillDone = true; refreshOfflineStatus() }, FILL_WAIT)
+    })
+  }
+}
+
+// A fresh round (back online): re-checks, the top-up and the give-up start again.
+function restartRound() {
+  retryIdx = 0
+  fillAsked = false
+  fillDone = false
+  gaveUp = false
+  clearTimeout(fillTimer)
+  clearTimeout(giveUpTimer)
+  fillTimer = null
+  giveUpTimer = null
+}
+
+// sw.js 'pleng-cache' message → look again; its answer to 'pleng-fill' ends the wait.
+export function onWorkerMessage(data) {
+  if (!data || data.type !== 'pleng-cache') return
+  if (data.fill && data.done && fillAsked) { fillDone = true; clearTimeout(fillTimer); fillTimer = null }
+  refreshOfflineStatus()
+}
+
+// A deploy installs a new worker: re-check when it appears and at each step (installed,
+// activated — or redundant, when a newer deploy or a failed install replaced it).
+export function followRegistration(reg) {
+  if (!reg || typeof reg.addEventListener !== 'function' || reg._plengFollowed) return
+  reg._plengFollowed = true
+  const follow = (w) => {
+    if (w && typeof w.addEventListener === 'function') w.addEventListener('statechange', () => refreshOfflineStatus())
+  }
+  follow(reg.installing)
+  follow(reg.waiting)
+  reg.addEventListener('updatefound', () => { follow(reg.installing); refreshOfflineStatus() })
 }
 
 // Start once (the first page that shows the line). Re-checks only on real events.
@@ -313,12 +387,16 @@ export function watchOfflineStatus() {
   if (typeof window === 'undefined') return
   const sw = typeof navigator !== 'undefined' && navigator.serviceWorker
   if (sw && typeof sw.addEventListener === 'function') {
-    sw.addEventListener('message', (e) => {
-      if (e && e.data && e.data.type === 'pleng-cache') refreshOfflineStatus()
-    })
+    sw.addEventListener('message', (e) => onWorkerMessage(e && e.data))
     sw.addEventListener('controllerchange', () => refreshOfflineStatus())
+    // main.js registers on window 'load' — maybe after this runs; `ready` covers a first visit.
+    Promise.resolve()
+      .then(() => (typeof sw.getRegistration === 'function' ? sw.getRegistration() : null))
+      .then((reg) => reg || sw.ready)
+      .then((reg) => followRegistration(reg))
+      .catch(() => { /* blocked */ })
   }
-  window.addEventListener('online', () => { retryIdx = 0; refreshOfflineStatus() })
+  window.addEventListener('online', () => { restartRound(); refreshOfflineStatus() })
   window.addEventListener('offline', () => refreshOfflineStatus())
   window.addEventListener('appinstalled', () => { persistAsked = false; refreshOfflineStatus() })
 }
@@ -326,9 +404,11 @@ export function watchOfflineStatus() {
 watch([catalogSavedAt, catalogSaveFailed], () => { if (started) refreshOfflineStatus() })
 
 // tests only
-export function _resetOfflineStatus(probeFn) {
+export function _resetOfflineStatus(probeFn, fillFn) {
   clearTimeout(retryTimer)
   retryTimer = null
+  restartRound()
+  askFill = fillFn || askWorkerFill
   started = false
   retryIdx = 0
   running = null
