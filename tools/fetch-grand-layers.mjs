@@ -64,6 +64,8 @@ async function download() {
 
 // Rewrite manifest.json to reflect what is now on disk: grand loads all layers ([1,127]); precache +
 // totalMB recomputed by walking public/samples/. Everything else in the manifest is preserved.
+// ⚠️ This writes EVERY file into `precache`; run `npm run samples:precache` afterwards so the list
+// keeps only the playable instruments (ใบ v1#166 · tools/sample-precache.mjs).
 async function rebuildManifest() {
   const manPath = join(SAMPLES_ROOT, 'manifest.json')
   const man = JSON.parse(await readFile(manPath, 'utf8'))

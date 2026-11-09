@@ -54,6 +54,8 @@ function main() {
   copyInto()
   const files = walk(OUT).filter(f => f !== 'manifest.json' && f !== 'README.md' && f !== '.gitattributes')
   // Same-origin absolute precache URLs: /samples/<encoded path> (fed straight to the service worker).
+  // ⚠️ Lists EVERY file; run `npm run samples:precache` afterwards to keep only the playable
+  // instruments (ใบ v1#166 · tools/sample-precache.mjs).
   const precache = files.map(f => SAMPLES_BASE + f.split('/').map(encodeURIComponent).join('/'))
   const totalMB = (files.reduce((s, f) => s + statSync(join(OUT, f)).size, 0) / 1e6).toFixed(2)
 

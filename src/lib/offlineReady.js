@@ -3,7 +3,8 @@
 // The home page tells the reader, in one small line, whether this device can open the songs with
 // no internet. It may say "ready" ONLY when every piece the offline app needs is really here:
 //   1. the service worker (public/sw.js) is active — it is what answers when there is no network;
-//   2. every instrument sample in samples/manifest.json `precache` is in the samples cache;
+//   2. every instrument sample in samples/manifest.json `precache` is in the samples cache
+//      (only the instruments the site plays — the 120 piano files while PIANO_ONLY is on · v1#166);
 //   3. every built file in asset-manifest.json is in the app cache (the app itself);
 //   4. the song catalog is saved in IndexedDB (lib/offlineSongs.js).
 // Anything less is "กำลังเก็บ…" with a percent, or — when it cannot finish — a plain amber message

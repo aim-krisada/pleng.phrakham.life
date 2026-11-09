@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { execSync } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { buildSamplesManifest, manifestText } from './tools/sample-precache.mjs'
 
 // Build stamp: git commit at BUILD time (what is actually deployed, not source
 // HEAD read later) — same principle as phrakham.life2's etl/gen_version.py.
@@ -36,10 +39,27 @@ function assetManifest() {
   }
 }
 
+// ใบ v1#166 — rewrite dist/samples/manifest.json `precache` from the files on disk so it lists only
+// the instruments the site can play (PRECACHE_INSTRUMENTS in soundOptions.js: piano while
+// PIANO_ONLY is on). Runs after Vite copies public/, so the deployed list always follows
+// soundOptions.js. The sample files themselves are all still copied. Build only.
+function samplesPrecache() {
+  let outDir = 'dist'
+  return {
+    name: 'pleng-samples-precache',
+    apply: 'build',
+    configResolved(c) { outDir = join(c.root, c.build.outDir) },
+    async closeBundle() {
+      const m = await buildSamplesManifest()
+      writeFileSync(join(outDir, 'samples', 'manifest.json'), manifestText(m))
+    },
+  }
+}
+
 // base './' works both on GitHub Pages project path and the custom domain
 export default defineConfig({
   base: './',
-  plugins: [vue(), assetManifest()],
+  plugins: [vue(), assetManifest(), samplesPrecache()],
   define: {
     __BUILD_COMMIT__: JSON.stringify(info.commit),
     __BUILD_TIME__: JSON.stringify(info.time),
