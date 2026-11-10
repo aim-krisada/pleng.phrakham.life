@@ -8,14 +8,14 @@ import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick } f
 import { pageBreaks } from '../lib/printPages.js'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { migrateToV2, resolveContent, lyricSetName, inLyricSet, songLangs, shownLangs } from '../lib/songModel.js'
+import { migrateToV2, resolveContent, lyricSetName, inLyricSet, songLangs, shownLangs, readerContent, langMarks } from '../lib/songModel.js'
 import { CATALOG_COLUMNS, readCatalog, readSong, saveCatalog, isNetworkFailure } from '../lib/offlineSongs.js'
 import { songBasename } from '../lib/songName.js'
 import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
 import { stopPlayback } from '../lib/midi.js'
 import { singTarget, keepInBox, SING_HANDS_OFF_MS } from '../lib/singFollow.js'
 import { KEYS } from '../lib/chords.js'
-import { tier, initAuth, shellMenu, currentSong, sheetLyricJoin, newSongRequest, songLangChoice } from '../store.js'
+import { tier, canStore, initAuth, shellMenu, currentSong, sheetLyricJoin, newSongRequest, songLangChoice } from '../store.js'
 import { trackPage, songPageTitle } from '../lib/analytics.js'
 import { songBookRefs } from '../lib/bookCodes.js'
 import Icon from '../components/Icon.vue'
@@ -217,7 +217,8 @@ const viewerSong = computed(() =>
     ? {
         number: liveSong.value.number,
         title_th: liveSong.value.title_th,
-        content: liveSong.value.content,
+        // ใบ v1#158 — the public sees only the languages that are ตรวจแล้ว (the team sees all)
+        content: readerContent(liveSong.value.content, canStore.value),
         category: liveSong.value.category ?? loadedSong.value?.category, // ใบ#105 — which printed book this is
         book_refs: loadedSong.value?.book_refs,
         scripture: loadedSong.value?.scripture,
@@ -228,7 +229,7 @@ const viewerSong = computed(() =>
 // ดู (viewSet · the first set until they pick one). Printing the raw song instead ran the sets
 // together as ข้อ 1..13 — one sheet of words nobody sings in that order.
 const sheetSetContent = computed(() => {
-  const c = liveSong.value?.content
+  const c = readerContent(liveSong.value?.content, canStore.value) // ใบ v1#158 — hidden languages are not on the paper
   if (!c) return null
   const sets = Array.isArray(c.lyricSets) && c.lyricSets.length > 1
   if (!sets || !Array.isArray(c.arrangement)) return c
@@ -237,6 +238,7 @@ const sheetSetContent = computed(() => {
 // ใบ v1#158 — the languages of the words on the paper: the same one choice as ฝึกร้อง and แก้ไข
 const sheetLangList = computed(() => songLangs(sheetSetContent.value))
 const sheetLangs = computed(() => shownLangs(songLangChoice.value, sheetLangList.value).shown)
+const sheetLangMarks = computed(() => langMarks(sheetSetContent.value, canStore.value))
 const sheetContent = computed(() => {
   const c = sheetSetContent.value
   if (!c) return { key: 'C', timeSignature: '4/4', lines: [] }
@@ -632,7 +634,7 @@ function printSheet() {
         </div>
       </div>
       <!-- ใบ v1#158 — ไทย · English · 中文 (only for a song with words in more than one language) -->
-      <LangToggle :has="sheetLangList" />
+      <LangToggle :has="sheetLangList" :marks="sheetLangMarks" />
       <div class="pv-body">
         <!-- the paper: A4 to scale on screen; on paper the same rules as ever (print pins the sheet to 1rem) -->
         <div ref="frameEl" class="pv-frame">

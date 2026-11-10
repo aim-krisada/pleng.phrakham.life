@@ -13,11 +13,11 @@ import {
   effectiveOrder, buildPlayNotes, clampTempo,
 } from '../lib/midi.js'
 import { isSampledInstrument } from '../lib/sampler.js'
-import { resolveContent, resolvePlayOrder, lyricSetName, inLyricSet, songLangs, shownLangs } from '../lib/songModel.js'
+import { resolveContent, resolvePlayOrder, lyricSetName, inLyricSet, songLangs, shownLangs, langMarks } from '../lib/songModel.js'
 import { downloadSong } from '../lib/jsonIO.js'
 import { currentSong, readingFontScale, soundMode, setSoundMode, playStyle, setPlayStyle, styleAuto,
   sparkleLevel, setSparkleLevel, arrangeOverrides, setArrangeOverride, resetArrangeOverrides,
-  ensembleMode, setEnsembleMode, leadInstrument, setLeadInstrument, sheetDisplay, lyricJoin, LYRIC_JOIN_DEFAULT, songLangChoice } from '../store.js'
+  ensembleMode, setEnsembleMode, leadInstrument, setLeadInstrument, sheetDisplay, lyricJoin, LYRIC_JOIN_DEFAULT, songLangChoice, canStore } from '../store.js'
 import { presetCfg, recommendRecipe, songFeatures } from '../lib/arranger/presets.js'
 import { buildArrangeCfg, readTechniques } from '../lib/arranger/techniques.js'
 import { SOUND_OPTS, ENSEMBLE_OPTS, INSTRUMENT_OPTS, STYLE_OPTS } from '../lib/soundOptions.js'
@@ -243,6 +243,8 @@ const setContent = computed(() => {
 // ใบ v1#158 — the languages this song has, and which of them to draw (the one shared choice)
 const songLangList = computed(() => songLangs(setContent.value))
 const sheetLangs = computed(() => shownLangs(songLangChoice.value, songLangList.value).shown)
+// the team's mark on a language button: "ยังไม่ได้ตรวจ" (the public never gets a hidden language here at all)
+const songLangMarks = computed(() => langMarks(setContent.value, canStore.value))
 const resolved = computed(() => {
   const content = setContent.value
   if (!content) return null
@@ -855,7 +857,7 @@ function onSeek({ li, si, syk }) {
     </div>
 
     <!-- ใบ v1#158 — ไทย · English · 中文: only for a song with words in more than one language -->
-    <LangToggle :has="songLangList" />
+    <LangToggle :has="songLangList" :marks="songLangMarks" />
 
     <div
       ref="sheetWrap"

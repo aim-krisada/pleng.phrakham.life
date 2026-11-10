@@ -182,6 +182,50 @@ export function displayLangTokens(tokens) {
   })
 }
 
+// ---------- ใบ v1#158 — ตรวจแล้ว is per language ----------
+// Is a non-Thai language ตรวจแล้ว? Thai is the song's own `verified` and is not asked here.
+export function langApproved(content, lang) {
+  const lv = content && content.langVerified
+  return !!(lv && typeof lv === 'object' && lv[lang] === true)
+}
+
+// The song as a reader sees it. The team (logged in) sees every language. The public sees Thai plus
+// only the languages that are ตรวจแล้ว (content.langVerified[lang] === true). A hidden language is
+// simply not there, so the language buttons, the "เพลงนี้ยังไม่มี …" line and the sheet all treat it as
+// missing. Thai is never hidden here: whether the public sees the SONG is songs.verified (visibleSongs).
+// Returns the same object when nothing is hidden (a Thai-only song stays byte-identical).
+export function readerContent(content, team) {
+  if (team || !content || !Array.isArray(content.arrangement)) return content
+  const rows = content.arrangement
+  let arr = null
+  rows.forEach((row, i) => {
+    if (!row || !row.lyrics || typeof row.lyrics !== 'object') return
+    const keep = {}
+    let changed = false
+    for (const [l, words] of Object.entries(row.lyrics)) {
+      if (langApproved(content, l)) keep[l] = words
+      else changed = true
+    }
+    if (!changed) return
+    if (!arr) arr = rows.slice()
+    const { lyrics, ...rest } = row
+    arr[i] = Object.keys(keep).length ? { ...rest, lyrics: keep } : rest
+  })
+  return arr ? { ...content, arrangement: arr } : content
+}
+
+// The small mark on a language button, for the team only: "ยังไม่ได้ตรวจ" when a non-Thai language is
+// not ตรวจแล้ว. { en: ['ยังไม่ได้ตรวจ'] } — an approved language is left out. {} for the public.
+export const LANG_MARK_UNCHECKED = 'ยังไม่ได้ตรวจ'
+export function langMarks(content, team) {
+  if (!team || !content) return {}
+  const out = {}
+  for (const l of songLangs(content)) {
+    if (l !== 'th' && !langApproved(content, l)) out[l] = [LANG_MARK_UNCHECKED]
+  }
+  return out
+}
+
 // Convert a v1 song (content.lines) into the v2 shape: all lines become one stanza
 // 'A', and one arrangement entry carries the lyrics as syllables. Returns
 // { content, warnings } — warnings flag segments whose syllable count != the number
