@@ -7,7 +7,7 @@ import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, sugg
 import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
 import { noteSlotEdit } from '../lib/noteSlotEdit.js'
 import { lintBar, SEVERITY } from '../lib/notationLint.js'
-import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, setCaption, songLangs, shownLangs, orderLangs, LANG_LABEL } from '../lib/songModel.js'
+import { migrateToV2, splitSyllables, joinSyllables, resolveContent, lyricSetName, lyricSetIndex, setCaption, songLangs, shownLangs, orderLangs, LANG_LABEL, langMarks } from '../lib/songModel.js'
 import { songLangChoice } from '../store.js'
 import { songHaystack } from '../lib/songSearch.js'
 import { visibleSongs, categoryName } from '../lib/bookshelf.js'
@@ -658,6 +658,8 @@ const edLangHas = computed(() => orderLangs([...songLangs(previewContent.value),
 const edLangs = computed(() => shownLangs(songLangChoice.value, edLangHas.value).shown)
 const edShowTh = computed(() => edLangs.value.includes('th'))
 const edAltLangs = computed(() => edLangs.value.filter((l) => l !== 'th'))
+// the "ยังไม่ได้ตรวจ" mark on a language button that is not ticked ตรวจแล้ว — logged-in only
+const edLangMarks = computed(() => langMarks(previewContent.value, loggedIn.value))
 const langName = (l) => LANG_LABEL[l] || l
 function setLangVerified(l, on) {
   langVerified.value = { ...langVerified.value, [l]: !!on }
@@ -4597,7 +4599,7 @@ defineExpose({
     <!-- ใบ v1#158 — ไทย · English · 中文: which languages' word boxes to show (the one choice shared with
          แผ่นเพลง and ฝึกร้อง) + "+ English" / "+ 中文" to start a language this song does not have yet -->
     <div v-if="lensActive" class="ed-langs no-print">
-      <LangToggle :has="edLangHas" editor @add="addLang" />
+      <LangToggle :has="edLangHas" :marks="edLangMarks" editor @add="addLang" />
       <span v-if="edAltLangs.length" class="ed-lang-checks">
         <label v-for="l in edAltLangs" :key="l" class="ed-lang-check" :data-verify-lang="l">
           <input type="checkbox" :checked="!!langVerified[l]" @change="setLangVerified(l, $event.target.checked)" />

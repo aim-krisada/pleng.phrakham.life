@@ -11,6 +11,8 @@ import { LANG_LABEL, EXTRA_LANGS, orderLangs, shownLangs, toggleLangChoice, miss
 const props = defineProps({
   has: { type: Array, default: () => ['th'] }, // the languages this song has (songModel.songLangs)
   editor: { type: Boolean, default: false },
+  // small marks under a language's name, team only (songModel.langMarks): { en: ['ยังไม่ได้ตรวจ'] }
+  marks: { type: Object, default: () => ({}) },
 })
 const emit = defineEmits(['add'])
 
@@ -29,6 +31,7 @@ function add(l) {
   emit('add', l)
 }
 const isLast = (l) => shown.value.length === 1 && shown.value[0] === l
+const markText = (l) => (Array.isArray(props.marks?.[l]) ? props.marks[l].join(' · ') : '')
 </script>
 
 <template>
@@ -47,7 +50,7 @@ const isLast = (l) => shown.value.length === 1 && shown.value[0] === l
           :aria-disabled="isLast(l) ? 'true' : null"
           :title="isLast(l) ? 'ต้องเปิดไว้อย่างน้อย 1 ภาษา' : (shown.includes(l) ? 'ซ่อน' : 'แสดง') + 'เนื้อ ' + LANG_LABEL[l]"
           @click="tap(l)"
-        >{{ LANG_LABEL[l] }}</button>
+        >{{ LANG_LABEL[l] }}<small v-if="markText(l)" class="lang-mark" :data-mark-lang="l" lang="th">{{ markText(l) }}</small></button>
       </template>
       <button
         v-for="l in addable"
@@ -82,6 +85,8 @@ const isLast = (l) => shown.value.length === 1 && shown.value[0] === l
 .lang-btn.on::before { content: '✓ '; }
 .lang-btn[aria-disabled='true'] { cursor: default; }
 .lang-add { border-style: dashed; color: var(--brand); }
+.lang-mark { display: block; margin-top: -2px; font-size: 0.72rem; font-weight: 400; line-height: 1.2; color: var(--warn-ink, #8a5a00); }
+.lang-btn:has(.lang-mark) { padding-top: 3px; padding-bottom: 3px; border-radius: 14px; }
 @media (hover: hover) { .lang-btn:hover { border-color: var(--brand); } }
 @media (pointer: coarse) { .lang-btn { min-height: var(--touch-min, 44px); } }
 .lang-note { margin: 0; font-size: 0.9rem; color: var(--muted); text-align: center; }
