@@ -275,7 +275,13 @@ export function songToNotes(content) {
             // hold is added ONCE at the note (above), not scaled per box — so `1^ -` = written 2
             // + hold, and the hold no longer weakens as the note runs longer.
             const last = bn[bn.length - 1]
-            if (last) last.beats += 1 * f
+            if (last) {
+              // ใบ v3/pleng#157 — a chord written over a '-' (e.g. Em on "2", A7 on "- -") changes the
+              // harmony while the tune note just rings on. The note stays ONE melody attack; it only
+              // remembers WHERE inside itself the chord changes, so buildChordVoice can start A7 there.
+              if (curChord && curChord !== chordAtEnd(last)) addChordStep(last, last.beats, curChord)
+              last.beats += 1 * f
+            }
           }
         }
       }
@@ -288,6 +294,18 @@ export function songToNotes(content) {
   return mergeTies(notes)
 }
 
+// ใบ v3/pleng#157 — chord changes INSIDE one held melody note. `chordSteps` = [{ at, chord }],
+// `at` = beats from the note's start. Only notes that hold across a chord change carry it, so every
+// other song's note list is exactly what it was.
+function chordAtEnd(n) {
+  const st = n.chordSteps
+  return st && st.length ? st[st.length - 1].chord : n.chord
+}
+function addChordStep(n, at, chord) {
+  if (at <= 0) { n.chord = chord; return }
+  ;(n.chordSteps ||= []).push({ at, chord })
+}
+
 // Merge explicit ties (~) in final play order: a note flagged tieEnd whose pitch
 // matches the immediately-preceding note left open (tieOpen) is a HELD continuation —
 // fold its beats into that note and drop it, so the pitch rings on instead of being
@@ -297,6 +315,9 @@ function mergeTies(notes) {
   for (const n of notes) {
     const prev = out[out.length - 1]
     if (n.tieEnd && prev && prev.midi != null && prev.midi === n.midi && prev.tieOpen) {
+      // ใบ#157 — keep the chord changes of the tied-on note (shifted to where it starts inside prev)
+      if (n.chord && n.chord !== chordAtEnd(prev)) addChordStep(prev, prev.beats, n.chord)
+      for (const st of n.chordSteps || []) addChordStep(prev, prev.beats + st.at, st.chord)
       prev.beats += n.beats
       prev.tieOpen = n.tieOpen // let a chain of ties keep extending
     } else {
@@ -417,20 +438,24 @@ export function buildChordVoice(notes) {
   let beat = 0
   let cur = null // { chord, startBeat, beats } — the chord currently sounding
   for (const n of notes || []) {
-    const c = n.chord || ''
-    // ใบ v3/pleng#95 — a ท่อน in its own key starts a fresh chord event even when the symbol
-    // carries over, so the walking bass switches key exactly at the ท่อน. Songs with no ท่อน key
-    // have no `keyRoot` anywhere (undefined === undefined) → events split exactly as before.
-    // ใบ#96 — likewise a change of melody meter (`ts`) starts a fresh event, so a chord never straddles
-    // two meters (each event is phased in its own bars by the arranger)
-    if (c && (!cur || cur.chord !== c || cur.keyRoot !== n.keyRoot || cur.ts !== n.ts)) {
-      if (cur) events.push(cur)
-      cur = { chord: c, startBeat: beat, beats: 0 } // a new chord starts here
-      if (n.keyRoot != null) cur.keyRoot = n.keyRoot
-      if (n.ts) cur.ts = n.ts
+    // ใบ#157 — a held note that crosses a chord change is walked in pieces, one per chord
+    const pieces = n.chordSteps?.length ? splitByChord(n) : [n]
+    for (const p of pieces) {
+      const c = p.chord || ''
+      // ใบ v3/pleng#95 — a ท่อน in its own key starts a fresh chord event even when the symbol
+      // carries over, so the walking bass switches key exactly at the ท่อน. Songs with no ท่อน key
+      // have no `keyRoot` anywhere (undefined === undefined) → events split exactly as before.
+      // ใบ#96 — likewise a change of melody meter (`ts`) starts a fresh event, so a chord never straddles
+      // two meters (each event is phased in its own bars by the arranger)
+      if (c && (!cur || cur.chord !== c || cur.keyRoot !== p.keyRoot || cur.ts !== p.ts)) {
+        if (cur) events.push(cur)
+        cur = { chord: c, startBeat: beat, beats: 0 } // a new chord starts here
+        if (p.keyRoot != null) cur.keyRoot = p.keyRoot
+        if (p.ts) cur.ts = p.ts
+      }
+      if (cur) cur.beats += p.beats // extend the held chord across this note (incl. blank-chord notes)
+      beat += p.beats
     }
-    if (cur) cur.beats += n.beats // extend the held chord across this note (incl. blank-chord notes)
-    beat += n.beats
   }
   if (cur) events.push(cur)
   // Voice-lead across events (B107): carry each chord's upper voices into the next so the pad
@@ -449,6 +474,20 @@ export function buildChordVoice(notes) {
     if (e.ts) ev.ts = e.ts // ใบ#96 — this melody's own meter, for the bar-locked comp/bass
     out.push(ev)
   }
+  return out
+}
+
+// ใบ#157 — cut one held note into { chord, beats, keyRoot, ts } pieces at its chord changes
+function splitByChord(n) {
+  const out = []
+  let chord = n.chord
+  let from = 0
+  for (const st of n.chordSteps) {
+    if (st.at > from) out.push({ chord, beats: st.at - from, keyRoot: n.keyRoot, ts: n.ts })
+    chord = st.chord
+    from = Math.max(from, st.at)
+  }
+  out.push({ chord, beats: n.beats - from, keyRoot: n.keyRoot, ts: n.ts })
   return out
 }
 
