@@ -141,7 +141,7 @@ function newBar() {
   return { ...barShell(), segments: [newSegment()] }
 }
 function newLine() {
-  return { marker: '', markerId: '', cont: false, label: '', section: '', end: false, bars: [newBar()] }
+  return { marker: '', markerId: '', cont: false, label: '', section: '', end: false, meter: '', bars: [newBar()] }
 }
 // A bar carries play-order meaning even with no note of its own when it holds a repeat boundary,
 // a volta ending or a pickup. Used by the empty-bar filter so a note-less ‖: / :‖ / 1./2. ending
@@ -174,7 +174,7 @@ function stripMarkerIds(node) {
 
 function deserializeLine(items) {
   const src = Array.isArray(items) ? items : []
-  const line = { marker: '', markerId: '', cont: false, label: '', section: '', end: false, bars: [] }
+  const line = { marker: '', markerId: '', cont: false, label: '', section: '', end: false, meter: '', bars: [] }
   let bar = barShell()
   // item types this editor has no branch for (an imported symbol, a {type:'jump'} D.S./Coda, a
   // future token): kept whole and anchored to the note they followed, so a save never deletes
@@ -186,6 +186,7 @@ function deserializeLine(items) {
     else if (it?.type === 'section') line.section = it.name || ''
     else if (it?.type === 'label') line.label = it.text || ''
     else if (it?.type === 'end') line.end = true
+    else if (it?.type === 'meter') line.meter = String(it.ts || '').trim() // ใบ#159 — meter change from this line on
     else if (it?.type === 'marker') { line.marker = it.label || '***'; line.markerId = it.id || '' }
     else if (it?.type === 'repeat-start') { bar.repeatStart = true; bar.repeatStartId = it.id || '' }
     else if (it?.type === 'repeat-end') {
@@ -276,6 +277,7 @@ function serializeLine(line) {
     for (const u of unknowns) if (!u.done && u.after === segCount) { items.push(clone(u.item)); u.done = true }
   }
   if (line.section?.trim()) items.push({ type: 'section', name: line.section.trim() })
+  if (line.meter?.trim()) items.push({ type: 'meter', ts: line.meter.trim() }) // ใบ#159
   if (line.cont) items.push({ type: 'continue' })
   if (line.marker) items.push({ type: 'marker', label: line.marker, ...(line.markerId ? { id: line.markerId } : {}) })
   flushUnknownsAt(0) // an unknown anchored before the first note
@@ -1389,6 +1391,27 @@ const rowKeyOptions = computed(() => [{ value: '', label: 'คีย์เดิ
 // refrain in a 6/8 song is checked as 4/4.
 const activeTs = computed(() => stanzas.value[activeStanza.value]?.timeSignature || opts.timeSignature)
 const expBeats = computed(() => expectedBeats(activeTs.value))
+// ใบ v3/pleng#159 — a line may switch the melody to another meter from there on (line.meter, the
+// book's "3/4" at a line start). Each line's meter: the last switch at or above it, else the melody's.
+function tsListOf(lns, base) {
+  let cur = base
+  return (lns || []).map((ln) => { if (ln?.meter) cur = ln.meter; return cur })
+}
+const lineTsList = computed(() => tsListOf(lines.value, activeTs.value))
+const tsAt = (li) => lineTsList.value[li] || activeTs.value
+const expAt = (li) => expectedBeats(tsAt(li))
+// the meter picker on a line head: '' = keep the meter of the line above
+const lineTsOptions = (li) => [
+  { value: '', label: `ตามบรรทัดบน (${li > 0 ? tsAt(li - 1) : activeTs.value})` },
+  ...TIME_SIGNATURES.map((t) => ({ value: t, label: t })),
+]
+function setLineTs(li, v) {
+  const line = lines.value[li]
+  if (!line) return
+  const t = String(v || '').trim()
+  // choosing the meter the line above already has is no change at all, so nothing is stored
+  line.meter = t && t !== (li > 0 ? tsAt(li - 1) : activeTs.value) ? t : ''
+}
 const stanzaTsOptions = computed(() => [
   { value: '', label: `ตามเพลง (${opts.timeSignature})` },
   ...TIME_SIGNATURES.map((t) => ({ value: t, label: t })),
@@ -1417,37 +1440,45 @@ function barTokensAt(li, bi, lns = lines.value) {
 // sum) fixes the 11/4 bug where an unrelated pickup dragged a complete pair red.
 // ใบ v3/pleng#96 thread 28348 — a pure function of ONE melody's lines + its bar length, so the publish
 // lint (lintSong) groups ห้องยก exactly like this live check, for every melody — not just the open one.
-function pickupGroupsOf(lns, exp) {
+function pickupGroupsOf(lns, expIn) {
   const map = new Map() // bar object -> { ok, sum }
-  if (exp == null) return map
+  // ใบ#159 — `expIn` is one bar length for the whole melody, or one per line when the meter changes
+  // part-way. Then each stretch of lines in one meter is grouped on its own: a 4/4 pickup is never
+  // summed with a 3/4 one.
+  const expOf = (li) => (Array.isArray(expIn) ? expIn[li] : expIn)
   const beatsOf = (b) => beatCount(b.segments.flatMap((s) => parseNotes(s.note)))
-  const whole = (sum) => sum > 0.01 && Math.abs(sum / exp - Math.round(sum / exp)) < 0.01
+  const whole = (sum, exp) => sum > 0.01 && Math.abs(sum / exp - Math.round(sum / exp)) < 0.01
   const flat = []
-  for (const ln of lns) for (const b of ln.bars) flat.push(b)
-  const isolated = []
+  let region = 0
+  lns.forEach((ln, li) => {
+    if (li > 0 && expOf(li) !== expOf(li - 1)) region++
+    for (const b of ln.bars) flat.push({ b, exp: expOf(li), region })
+  })
+  const isolated = new Map() // region -> [{ b, exp }]
   let i = 0
   while (i < flat.length) {
-    if (!flat[i].pickup) { i++; continue }
+    if (!flat[i].b.pickup || flat[i].exp == null) { i++; continue }
     let j = i
-    while (j < flat.length && flat[j].pickup) j++
+    while (j < flat.length && flat[j].b.pickup && flat[j].region === flat[i].region) j++
     const run = flat.slice(i, j)
     if (run.length >= 2) {
-      const sum = run.reduce((a, b) => a + beatsOf(b), 0)
-      const ok = whole(sum)
-      for (const b of run) map.set(b, { ok, sum })
+      const sum = run.reduce((a, x) => a + beatsOf(x.b), 0)
+      const ok = whole(sum, run[0].exp)
+      for (const x of run) map.set(x.b, { ok, sum })
     } else {
-      isolated.push(run[0])
+      if (!isolated.has(run[0].region)) isolated.set(run[0].region, [])
+      isolated.get(run[0].region).push(run[0])
     }
     i = j
   }
-  if (isolated.length) {
-    const sum = isolated.reduce((a, b) => a + beatsOf(b), 0)
-    const ok = whole(sum)
-    for (const b of isolated) map.set(b, { ok, sum })
+  for (const group of isolated.values()) {
+    const sum = group.reduce((a, x) => a + beatsOf(x.b), 0)
+    const ok = whole(sum, group[0].exp)
+    for (const x of group) map.set(x.b, { ok, sum })
   }
   return map
 }
-const pickupCheck = computed(() => pickupGroupsOf(lines.value, expBeats.value))
+const pickupCheck = computed(() => pickupGroupsOf(lines.value, lines.value.map((_, li) => expAt(li))))
 // The notes one bar is judged on: its own, or — for a bar the sheet split at a line end (the next
 // line is "cont") — both halves together. An explicit pickup bar is counted with its group, not
 // joined to a neighbour. Shared by barStatus (live) and lintSong (publish).
@@ -1481,21 +1512,22 @@ function barStatus(li, bi) {
     return { text: `${pre}อ่านไม่ได้: ${rawTokens.map((t) => t.text).join(' ')}`, ok: false }
   }
   const got = beatCount(tokens)
-  if (expBeats.value == null) return { text: pre + fmt(got), ok: true }
+  const exp = expAt(li) // ใบ#159 — this line's own meter
+  if (exp == null) return { text: pre + fmt(got), ok: true }
   // ห้องต่อกัน: valid when THIS bar's group (its adjacent run, or the isolated anacrusis
   // pair) fills a whole number of bars — grouped locally so unrelated pickups can't skew it.
   if (bar.pickup) {
     const grp = pickupCheck.value.get(bar) ?? { ok: false, sum: got }
     const text = grp.ok
       ? `⤷ ห้องต่อกัน ${fmt(got)} จังหวะ`
-      : `⤷ ห้องต่อกัน ${fmt(got)} — รวมห้องต่อกัน ${fmt(grp.sum)}/${fmt(expBeats.value)}`
+      : `⤷ ห้องต่อกัน ${fmt(got)} — รวมห้องต่อกัน ${fmt(grp.sum)}/${fmt(exp)}`
     return { text, ok: grp.ok, pickup: true }
   }
-  const ok = Math.abs(got - expBeats.value) < 0.01
+  const ok = Math.abs(got - exp) < 0.01
   // a bar that is merely short (not empty, not full) can be a pickup/continuation —
   // surface the quick ห้องยก toggle right here so the fix is discoverable (B055).
-  const short = !joined && got > 0.01 && got < expBeats.value - 0.01
-  return { text: `${pre}${fmt(got)}/${fmt(expBeats.value)} จังหวะ`, ok, short }
+  const short = !joined && got > 0.01 && got < exp - 0.01
+  return { text: `${pre}${fmt(got)}/${fmt(exp)} จังหวะ`, ok, short }
 }
 function fmt(n) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
@@ -2603,12 +2635,13 @@ function lintSong() {
   let count = 0
   for (const s of stanzas.value) {
     const ts = s.timeSignature || opts.timeSignature // ใบ#96 — each melody's bars against its own meter
-    const exp = expectedBeats(ts)
-    const groups = pickupGroupsOf(s.lines, exp)
+    const lineTs = tsListOf(s.lines, ts) // ใบ#159 — and each line against the meter it switched to
+    const groups = pickupGroupsOf(s.lines, lineTs.map((t) => expectedBeats(t)))
     // ใบ#96 thread 28348 — a short bar the editor accepts (a ห้องยก whose group fills whole bars, or a
     // bar split across two lines that is whole once joined) is not a beats error here either, so the
     // song isn't published with a "จังหวะไม่ครบ" flag the editor never showed.
     const beatsOk = (li, bi, bar) => {
+      const exp = expectedBeats(lineTs[li])
       if (exp == null) return false
       if (bar.pickup) return !!groups.get(bar)?.ok
       const { tokens, joined } = barTokensJoined(s.lines, li, bi)
@@ -2618,7 +2651,7 @@ function lintSong() {
       for (const [bi, bar] of line.bars.entries()) {
         const noteStr = bar.segments.map((seg) => seg.note || '').join(' ').trim()
         if (!noteStr) continue
-        for (const f of lintBar(noteStr, { timeSignature: ts })) {
+        for (const f of lintBar(noteStr, { timeSignature: lineTs[li] })) {
           if (f.severity === SEVERITY.HINT) continue
           if (f.code === 'beats' && beatsOk(li, bi, bar)) continue
           count++
@@ -3035,14 +3068,15 @@ function playFull() {
 }
 function playLine(li) {
   // (ใบ#96: this one never passed a meter — the arranger's default 4 — so only a melody's OWN meter is added)
-  const own = stanzas.value[activeStanza.value]?.timeSignature
-  return runPlay({ key: playKey.value, ...(own ? { timeSignature: own } : {}), lines: [serializeLine(lines.value[li])] }, li, true)
+  // ใบ#159 — the meter this line is in (a switch above it counts); else only the melody's own, as before
+  const own = lineTsList.value[li] !== opts.timeSignature ? lineTsList.value[li] : stanzas.value[activeStanza.value]?.timeSignature
+  return runPlay({ key: playKey.value, ...(own ? { timeSignature: own } : {}), lines: [serializeLine({ ...lines.value[li], meter: '' })] }, li, true)
 }
 function playBar(li, bi) {
   const line = lines.value[li]
   if (!line || !line.bars[bi]) return
   const one = { ...line, bars: [line.bars[bi]], cont: false }
-  return runPlay({ key: playKey.value, timeSignature: activeTs.value, lines: [serializeLine(one)] }, li, false)
+  return runPlay({ key: playKey.value, timeSignature: tsAt(li), lines: [serializeLine({ ...one, meter: '' })] }, li, false)
 }
 
 // ---------- undo / redo ----------
@@ -3778,6 +3812,7 @@ function barContent(li, bi) {
     marker: isFirst ? line.marker : '',
     end: isLast ? line.end : false,
     label: isLast ? line.label : '',
+    meter: '', // ใบ#159 — the bar renders in this line's meter (below); no badge in every box
   }
   const serial = serializeLine(one)
   // Show the selected verse's words under the notes so the preview matches the sung
@@ -3795,7 +3830,7 @@ function barContent(li, bi) {
       }
     }
   }
-  return { version: 2, key: opts.key, timeSignature: activeTs.value, lines: [serial] }
+  return { version: 2, key: opts.key, timeSignature: tsAt(li), lines: [serial] }
 }
 // B061 (A): the live inline preview above each line's edit strip — the SAME jianpu the sheet
 // draws (octave dots · held dashes · ties), rendered from the current line as you type, no
@@ -4649,6 +4684,18 @@ defineExpose({
         <span v-if="line.cont" class="ed-line-tag">⤷ ต่อห้อง</span>
         <span v-if="line.label" class="ed-line-tag">{{ line.label }}</span>
         <span class="ed-line-actions">
+          <!-- ใบ v3/pleng#159 — change the melody's meter from this line on (book: "3/4" at a line start).
+               Line 1 uses the melody's own meter, set on the ท่อน header. -->
+          <label v-if="li > 0" class="ed-line-ts" :class="{ on: !!line.meter }" title="เปลี่ยนจังหวะตั้งแต่บรรทัดนี้ — ทุกท่อนที่ใช้ทำนองนี้เปลี่ยนตาม">จังหวะ
+            <ComboSelect
+              :model-value="line.meter || ''"
+              :options="lineTsOptions(li)"
+              allow-custom
+              :aria-label="`จังหวะตั้งแต่บรรทัด ${li + 1}`"
+              width="112px"
+              @update:model-value="setLineTs(li, $event)"
+            />
+          </label>
           <!-- B056: "จบเพลง" — ปุ่มเห็นชัดต่อบรรทัด (ยกออกจาก ⋯) · เปิด = เส้นจบเพลง (final
                barline) สำหรับเพลงที่ไม่มีย้อนซ้ำ · ไม่ผูก repeat/volta -->
           <button
@@ -6684,6 +6731,9 @@ defineExpose({
 }
 .ed-line-end:hover { border-color: var(--brand); color: var(--brand); }
 .ed-line-end.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+/* ใบ v3/pleng#159 — meter from this line on; brand-coloured once the line switches meter */
+.ed-line-ts { display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
+.ed-line-ts.on { color: var(--brand); font-weight: 700; }
 .ed-mini.on { background: var(--cream); border-color: var(--brand); color: var(--brand); }
 .ed-line-opts {
   display: flex;

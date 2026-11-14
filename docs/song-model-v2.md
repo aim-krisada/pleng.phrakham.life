@@ -94,6 +94,15 @@ guessing.
   localStorage `pleng.songLangs`) shared by แผ่นเพลง, ฝึกร้อง and แก้ไข; with any non-Thai
   language on, the sheet does not fold reused verses (songbook) so every language sits under
   its own notes.
+- **ใบ v3/pleng#159 — a meter change part-way through one melody.** A stanza line may start with
+  `{ "type": "meter", "ts": "3/4" }`: from that line on the melody counts in that meter, until the
+  next such mark in the same stanza (song 515: ข้อ 4/4 · รับ 3/4 · back to 4/4, one melody every verse
+  shares). Line 0 starts in the stanza's own `timeSignature`, else the song's. The mark takes no
+  syllable. `resolveContent` tags each line `_ts` (no tag when it is back to the song meter) and puts
+  one clean `{ type: 'meter' }` at the start of the line where the meter really changes; the sheet
+  draws it as a boxed time signature level with the notes. Playback (`songToNotes`) also reads the
+  raw mark, for the editor's ฟังท่อน. Editor: the line head's **จังหวะ** picker (`line.meter`).
+  Only at a line start — a change inside a line is not supported.
 - Optional later: `endingOverride` on an entry to change its final bar(s) without a
   new stanza (covers song-84 voltas if we ever want in-place endings).
 

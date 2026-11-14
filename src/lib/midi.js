@@ -182,7 +182,12 @@ export function songToNotes(content) {
   let curChord = ''
   // 1. group each line's notes into bars, tagging repeat/volta flags per bar
   const bars = []
+  // ใบ v3/pleng#159 — raw melody lines (the editor's ฟังท่อน plays a stanza's own lines, not the resolved
+  // song) may carry a { type: 'meter' } mark at a line start: from there on the notes count in that meter.
+  // Resolved lines arrive already tagged `_ts` (and without the mark), so this only fills the gap.
+  let markTs = ''
   ;(content.lines || []).forEach((line, li) => {
+    for (const it of line) if (it && it.type === 'meter' && it.ts) markTs = String(it.ts).trim()
     // ใบ v3/pleng#95 — a ท่อน with its own key (resolveContent tags its lines `_key`) roots its
     // digits there: "1" of รับ 2 (A) sounds A while the rest of the C song keeps C. Its notes carry
     // `keyRoot` so the arranger's walking bass steps in THAT key too. Only a key that DIFFERS
@@ -194,7 +199,8 @@ export function songToNotes(content) {
     const kr0 = ownRoot != null && ownRoot !== root ? { keyRoot: ownRoot } : null
     // ใบ v3/pleng#96 — a melody with its own meter (resolveContent tags `_ts`) stamps it on its notes
     // (`ts`), so the arranger can count ITS bars from where it starts. Untagged → no field at all.
-    const kr = line._ts ? { ...kr0, ts: line._ts } : kr0
+    const lineTs = line._ts || (markTs && markTs !== content.timeSignature ? markTs : '')
+    const kr = lineTs ? { ...kr0, ts: lineTs } : kr0
     let bi = 0
     let si = -1
     let bar = { notes: [], repeatStart: false, repeatEnd: false, volta: 0 }
