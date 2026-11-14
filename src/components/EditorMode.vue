@@ -2508,7 +2508,7 @@ async function loadDrafts() {
   myDrafts.value = []
   pendingDrafts.value = []
   if (legacy.value || !session.value) return
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('song_drafts')
     .select('*')
     .order('updated_at', { ascending: false })
@@ -2517,7 +2517,11 @@ async function loadDrafts() {
     return
   }
   const uid = session.value.user.id
-  myDrafts.value = (data ?? []).filter((d) => d.author_id === uid && d.status !== 'approved')
+  // ใบ v3/pleng#162 — a draft in the trash (db/015) shows only in ถังขยะ
+  const all = data ?? []
+  trashDrafts.value = all.filter((d) => d.deleted_at)
+  data = all.filter((d) => !d.deleted_at)
+  myDrafts.value = data.filter((d) => d.author_id === uid && d.status !== 'approved')
   // through the shared predicate (lib/reviewQueue.js) — the landing chip counts with the same
   // one, so the number on the chip and the rows in this panel cannot drift apart.
   pendingDrafts.value = pendingReview(data)
@@ -2821,20 +2825,33 @@ async function reject() {
 // ใบ v3/pleng#162 — the approver may also throw away a draft SOMEONE ELSE sent in (a song the library already
 // has, sent again). The DB already allows it (db/002 "Delete own or as approver"); only the button was missing.
 // The question then names whose work it is, so it is never deleted by mistake for one's own.
+//
+// ใบ v3/pleng#162 (พี่เปา 14 พ.ย.) — ลบ now moves the draft to ถังขยะ first (db/015 trash_draft), "in case
+// the person who made it disagrees". Until db/015 is applied the function does not exist: then it asks
+// once more and deletes for good, as it always did — so the page works before and after the SQL runs.
 async function deleteDraft(d) {
   const mine = d.author_id === session.value?.user?.id
   const whose = mine ? '' : ` ของ ${profilesMap.value[d.author_id] || 'คนอื่น'}`
-  if (!window.confirm(`ลบงาน "${d.title_th}"${whose} ถาวร? (กู้คืนไม่ได้)`)) return
-  const { error } = await supabase.from('song_drafts').delete().eq('id', d.id)
-  if (error) {
-    saveMsg.value = '❌ ลบร่างไม่สำเร็จ: ' + error.message
+  if (!window.confirm(`ลบงาน "${d.title_th}"${whose}? (ย้ายไปถังขยะ กู้คืนได้ที่ จัดการ ▸ ถังขยะ)`)) return
+  const { error: trashErr } = await supabase.rpc('trash_draft', { p_draft_id: d.id })
+  const noTrash = trashErr && (trashErr.code === 'PGRST202' || /trash_draft/.test(trashErr.message || ''))
+  if (trashErr && !noTrash) {
+    saveMsg.value = '❌ ลบร่างไม่สำเร็จ: ' + trashErr.message
     return
+  }
+  if (noTrash) {
+    if (!window.confirm(`ถังขยะของงานร่างยังไม่พร้อม — ลบ "${d.title_th}" ถาวรเลยไหม? (กู้คืนไม่ได้)`)) return
+    const { error } = await supabase.from('song_drafts').delete().eq('id', d.id)
+    if (error) {
+      saveMsg.value = '❌ ลบร่างไม่สำเร็จ: ' + error.message
+      return
+    }
   }
   // if the open editor is holding the draft we just deleted, let go of the dead id so the next
   // บันทึกร่าง starts a fresh row instead of updating a row that no longer exists
   if (currentDraftId.value === d.id) currentDraftId.value = null
   if (reviewingDraft.value?.id === d.id) reviewingDraft.value = null
-  saveMsg.value = '🗑️ ลบร่างแล้ว'
+  saveMsg.value = trashErr ? '🗑️ ลบร่างแล้ว' : '🗑️ ย้ายไปถังขยะแล้ว — กู้คืนได้ที่ จัดการ ▸ ถังขยะ'
   loadDrafts()
 }
 
@@ -2894,6 +2911,17 @@ async function loadTrash() {
     .not('deleted_at', 'is', null)
     .order('deleted_at', { ascending: false })
   trashSongs.value = data ?? []
+}
+// ใบ v3/pleng#162 — drafts in the trash (db/015), filled by loadDrafts
+const trashDrafts = ref([])
+async function restoreDraft(d) {
+  const { error } = await supabase.rpc('restore_draft', { p_draft_id: d.id })
+  if (error) {
+    saveMsg.value = '❌ กู้คืนไม่สำเร็จ: ' + error.message
+    return
+  }
+  saveMsg.value = '↩ กู้คืนงาน “' + d.title_th + '” แล้ว'
+  loadDrafts()
 }
 async function restoreFromTrash(s) {
   const { error } = await supabase.rpc('restore_song', { p_song_id: s.id })
@@ -4017,7 +4045,7 @@ function openPanel(p) {
   viewMode.value = 'edit'
   if (p === 'history') restoreNotice.value = '' // ใบ#133 — never greet a visit with an old failure
   if (p === 'open') pendingPick.value = pickerId.value
-  if (p === 'trash') loadTrash()
+  if (p === 'trash') { loadTrash(); loadDrafts() }
   activePanel.value = p
 }
 function closePanel() {
@@ -4107,7 +4135,7 @@ watch(songOut, (s) => emit('change', s), { immediate: true })
 defineExpose({
   saveDraft, loadDraft, meta, editingId, currentDraftId, previewContent,
   // issues9/issues10: บันทึกร่าง's seat on the bar + throwing away one's own draft.
-  deleteDraft, editItems,
+  deleteDraft, restoreDraft, editItems,
   // B097 undo/redo tests: drive the same doc/view state + navigation the UI drives.
   opts, stanzas, arrangement, activeStanza, lensChoice,
   // ใบ v3/pleng#148 — the sheet beside the editor scrolls to the line being edited
@@ -4189,6 +4217,8 @@ defineExpose({
             <button v-if="isApprover" class="sb-item" role="menuitem" @click="openPanel('trash')"><Icon name="trash-2" /> ถังขยะ</button>
           </template>
           <button v-if="isApprover && loggedIn && editingId && !reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="manageDelete"><Icon name="trash-2" /> ลบเพลง</button>
+          <!-- ใบ v3/pleng#162 (พี่เปา 14 พ.ย.) — throwing away a draft sent in for review sits where ลบเพลง does -->
+          <button v-if="isApprover && loggedIn && reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="deleteDraft(reviewingDraft)"><Icon name="trash-2" /> ลบงานนี้</button>
         </div>
       </div>
     </Teleport>
@@ -4398,8 +4428,6 @@ defineExpose({
       <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center">
         <button @click="approve">✅ อนุมัติและเผยแพร่</button>
         <button class="danger" @click="reject">↩ ส่งกลับให้แก้</button>
-        <!-- ใบ v3/pleng#162 — a song the library already has, sent again: throw this draft away -->
-        <button class="secondary review-del" @click="deleteDraft(reviewingDraft)"><Icon name="trash-2" :size="16" /> ลบงานนี้</button>
         <input v-model="reviewComment" placeholder="ความเห็นถึงผู้เขียน (ถ้ามี)" style="flex: 1; min-width: 200px" />
       </div>
     </div>
@@ -5248,7 +5276,7 @@ defineExpose({
               <button
                 class="draft-del"
                 :aria-label="'ลบงาน ' + d.title_th + ' ของ ' + (profilesMap[d.author_id] || 'คนอื่น')"
-                title="ลบงานนี้ถาวร"
+                title="ลบงานนี้ (ย้ายไปถังขยะ)"
                 @click="deleteDraft(d)"
               ><Icon name="trash-2" :size="16" /></button>
             </div>
@@ -5264,7 +5292,7 @@ defineExpose({
               <button
                 class="draft-del"
                 :aria-label="'ลบร่าง ' + d.title_th"
-                title="ลบร่างนี้ถาวร"
+                title="ลบร่างนี้ (ย้ายไปถังขยะ)"
                 @click="deleteDraft(d)"
               ><Icon name="trash-2" :size="16" /></button>
             </div>
@@ -5275,7 +5303,17 @@ defineExpose({
         <!-- ถังขยะ (db/012): songs moved to the trash. Restore brings one back to the library;
              it is auto-purged after 30 days. Approver only. -->
         <div v-else-if="activePanel === 'trash'">
-          <p v-if="!trashSongs.length" class="muted">ถังขยะว่าง — ยังไม่มีเพลงที่ลบ</p>
+          <p v-if="!trashSongs.length && !trashDrafts.length" class="muted">ถังขยะว่าง — ยังไม่มีเพลงที่ลบ</p>
+          <!-- ใบ v3/pleng#162 — drafts thrown away (db/015): who made it, and กู้คืน -->
+          <template v-if="trashDrafts.length">
+            <strong>งานร่างที่ลบ</strong>
+            <div v-for="d in trashDrafts" :key="'d-' + d.id" class="draft-row">
+              <span class="trash-name">{{ d.number != null ? d.number + '. ' : '' }}{{ d.title_th }}</span>
+              <span class="muted"> — โดย {{ profilesMap[d.author_id] || '?' }}</span>
+              <button class="secondary tiny trash-restore" @click="restoreDraft(d)"><Icon name="undo-2" :size="14" /> กู้คืน</button>
+            </div>
+            <hr v-if="trashSongs.length" style="border: none; border-top: 1px solid var(--line); margin: 10px 0" />
+          </template>
           <template v-else>
             <p class="muted" style="margin: 0 0 8px">เพลงในถังขยะจะถูกลบถาวรอัตโนมัติหลัง 30 วัน · กด “กู้คืน” เพื่อนำกลับ</p>
             <div v-for="s in trashSongs" :key="s.id" class="draft-row">

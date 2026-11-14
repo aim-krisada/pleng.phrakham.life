@@ -8,6 +8,8 @@ import { nextTick } from 'vue'
 
 // records every from(<table>).<verb>(...) so a test can prove WHICH table a write hit
 const calls = vi.hoisted(() => [])
+// ใบ#162 — what rpc('trash_draft') answers: null = the trash exists (db/015 applied), else an error
+const rpcErr = vi.hoisted(() => ({ value: null }))
 
 vi.mock('../supabase.js', () => {
   const makeQuery = (table) => {
@@ -23,6 +25,7 @@ vi.mock('../supabase.js', () => {
   return {
     supabase: {
       from: (table) => makeQuery(table),
+      rpc: (name, args) => { calls.push({ table: 'rpc', verb: name, args: [args] }); return Promise.resolve({ data: null, error: rpcErr.value }) },
       auth: { onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) },
     },
   }
@@ -53,6 +56,7 @@ beforeEach(() => {
   session.value = { user: { id: 'editor-1', email: 'e@x.com' } }
   legacy.value = false
   calls.length = 0
+  rpcErr.value = null
   localStorage.clear()
 })
 
@@ -108,7 +112,7 @@ describe('EditorMode — save draft (US-D01)', () => {
 // issues10 (พี่เปา): "เพลงร่างก็หาที่ลบทั้งเพลงไม่ได้". Scope approved by P'Aim (17 ก.ค.) = own
 // drafts only. RLS ("Delete own or as approver", db/002) is the real guard; these cover the UI.
 describe('EditorMode — delete own draft (issues10)', () => {
-  it('asks to confirm, then deletes that draft row from song_drafts', async () => {
+  it('ใบ#162 — asks once, then moves the draft to the trash (trash_draft) — no hard delete', async () => {
     const wrapper = mountEditor()
     await nextTick()
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
@@ -117,7 +121,24 @@ describe('EditorMode — delete own draft (issues10)', () => {
     await nextTick()
 
     expect(confirm).toHaveBeenCalledTimes(1)
+    expect(confirm.mock.calls[0][0]).toContain('ถังขยะ')
+    expect(calls.some((c) => c.table === 'rpc' && c.verb === 'trash_draft' && c.args[0].p_draft_id === 'draft-7')).toBe(true)
+    expect(calls.some((c) => c.verb === 'delete')).toBe(false)
+    confirm.mockRestore()
+  })
+
+  it('before db/015 is applied: asks once more, then deletes that draft row for good', async () => {
+    rpcErr.value = { code: 'PGRST202', message: 'Could not find the function public.trash_draft' }
+    const wrapper = mountEditor()
+    await nextTick()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    await wrapper.vm.deleteDraft(DRAFT)
+    await nextTick()
+
+    expect(confirm).toHaveBeenCalledTimes(2)
     expect(confirm.mock.calls[0][0]).toContain('ร่างเพลงเก่า') // names the draft being destroyed
+    expect(confirm.mock.calls[1][0]).toContain('ถาวร')
     const del = calls.find((c) => c.table === 'song_drafts' && c.verb === 'delete')
     expect(del).toBeTruthy()
     // scoped to the one draft — never a bare delete()
@@ -138,8 +159,7 @@ describe('EditorMode — delete own draft (issues10)', () => {
 
     expect(confirm.mock.calls[0][0]).toContain('ร่างเพลงเก่า')
     expect(confirm.mock.calls[0][0]).toContain('ของ ') // not mistaken for one's own
-    expect(calls.some((c) => c.table === 'song_drafts' && c.verb === 'delete')).toBe(true)
-    expect(calls.some((c) => c.table === 'song_drafts' && c.verb === 'eq' && c.args[1] === 'draft-9')).toBe(true)
+    expect(calls.some((c) => c.table === 'rpc' && c.verb === 'trash_draft' && c.args[0].p_draft_id === 'draft-9')).toBe(true)
     expect(calls.some((c) => c.table === 'songs' && c.verb === 'delete')).toBe(false)
     confirm.mockRestore()
   })
@@ -152,7 +172,7 @@ describe('EditorMode — delete own draft (issues10)', () => {
     await wrapper.vm.deleteDraft(DRAFT)
 
     expect(confirm).toHaveBeenCalledTimes(1)
-    expect(calls.some((c) => c.verb === 'delete')).toBe(false)
+    expect(calls.some((c) => c.verb === 'delete' || c.table === 'rpc')).toBe(false)
     confirm.mockRestore()
   })
 
