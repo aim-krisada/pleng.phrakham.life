@@ -313,6 +313,26 @@ export function melodyLineSignature(line, expBeats) {
   return groups.map((b) => b.join(' ')).join(' | ')
 }
 
+// ใบ v3/pleng#159 — a melody may CHANGE meter part-way, the way a hymn book prints "3/4" at the
+// start of a line (song 515: ข้อ 4/4 · รับ 3/4 · back to 4/4, all one melody that every verse shares).
+// A line starting with { type: 'meter', ts: '3/4' } switches the melody to that meter from that line
+// on, until the next such mark IN THE SAME MELODY. Line 0 starts at the melody's own meter
+// (stanza.timeSignature, else the song's). Returns one meter per line (undefined = the song meter,
+// exactly what a song without any mark has always had).
+export function lineMeterOf(line) {
+  for (const it of line || []) if (it && it.type === 'meter' && String(it.ts || '').trim()) return String(it.ts).trim()
+  return ''
+}
+export function stanzaLineMeters(stanza, songTs) {
+  let cur = (stanza && stanza.timeSignature) || undefined
+  return ((stanza && stanza.lines) || []).map((line) => {
+    const m = lineMeterOf(line)
+    // back to the song's own meter = no tag at all, the same as a line that never changed
+    if (m) cur = m === songTs ? undefined : m
+    return cur
+  })
+}
+
 export function resolveContent(content) {
   if (!content || !Array.isArray(content.stanzas)) return content?.lines || []
   const byId = {}
@@ -353,12 +373,14 @@ export function resolveContent(content) {
     for (const l of altLangs) alt[l] = displayLangTokens(rowLyrics(entry, l))
     let si = 0
     let prevSig = null // previous line's melody signature, within this entry only
-    const entryTs = tsOf(stanza)
-    const expBeats = expectedBeats(entryTs) // per melody — the pickup rule of melodyLineSignature
+    // ใบ#159 — the meter of every line of this melody (a mark part-way switches it from that line on)
+    const ownLineTs = stanzaLineMeters(stanza, songTs) // undefined = the song's meter (no tag)
+    const lineTs = ownLineTs.map((t) => t || songTs)
+    const entryTs = lineTs.length ? lineTs[0] : tsOf(stanza)
     // show the meter on the sheet where it CHANGES (the book prints 4/4 before the refrain): vs the
     // previous ท่อน's, and for the first ท่อน vs the song's own meter (which the song already states)
     const meterChange = entryTs !== prevEntryTs ? entryTs : null
-    prevEntryTs = entryTs
+    prevEntryTs = lineTs.length ? lineTs[lineTs.length - 1] : entryTs
     const entryKey = entry.key || songKey
     const keyChange = entryKey && entryKey !== prevEntryKey ? entryKey : null
     prevEntryKey = entryKey
@@ -384,8 +406,14 @@ export function resolveContent(content) {
           outLine.push(marker)
         }
       }
-      const sig = melodyLineSignature(line, expBeats)
+      // ใบ#159 — a meter change part-way through the melody: one clean mark at the start of the line
+      // where the meter really differs from the line above (the raw marks in the stanza are not copied)
+      if (li > 0 && lineTs[li] !== lineTs[li - 1]) outLine.push({ type: 'meter', ts: lineTs[li] })
+      const expBeats = expectedBeats(lineTs[li]) // this line's own meter — the pickup rule of melodyLineSignature
+      // a line in another meter is never "the same tune as the line above", even with the same digits
+      const sig = (li > 0 && lineTs[li] !== lineTs[li - 1] ? lineTs[li] + '§' : '') + melodyLineSignature(line, expBeats)
       for (const item of line) {
+        if (item.type === 'meter') continue
         if (item.type === 'segment') {
           const n = syllableSlots(item.note || '')
           const slots = syls.slice(si, si + n)
@@ -427,7 +455,8 @@ export function resolveContent(content) {
       if (entry.key) outLine._key = entry.key
       // ใบ v3/pleng#96 — this line's meter, only when its melody sets one of its own (else no tag:
       // every consumer falls back to content.timeSignature exactly as before)
-      if (stanza.timeSignature) outLine._ts = stanza.timeSignature
+      // ใบ#159 — or when a mark part-way through the melody changed it for this line
+      if (ownLineTs[li]) outLine._ts = ownLineTs[li]
       out.push(outLine)
     })
   })

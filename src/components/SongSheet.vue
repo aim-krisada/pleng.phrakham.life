@@ -277,6 +277,10 @@ const renderLines = computed(() =>
           key: item.key && !(opening && item.key === openKey.value) ? shownKey(item.key) : '',
           meter: item.meter && !(opening && item.meter === openMeter.value) ? item.meter : '',
         })
+      } else if (item.type === 'meter') {
+        // ใบ#159 — the melody changes meter from this line on: the book prints the new meter here
+        flush()
+        parts.push({ type: 'meter', ts: item.ts })
       } else if (item.type === 'end') {
         flush()
         parts.push({ type: 'end' })
@@ -942,6 +946,7 @@ watch(
         <!-- ใบ#116 — a long line written as two lyric lines: an empty full-width box that ends the row -->
         <span v-if="cutBefore(row.li, part)" class="lyric-cut" aria-hidden="true" />
         <span v-if="part.type === 'section'" class="section-label">♦ {{ part.name }}<span v-if="part.rubric" class="section-rubric">({{ part.rubric }})</span><span v-if="part.key" class="section-key">คีย์ {{ part.key }}</span><span v-if="part.meter" class="section-meter" :aria-label="'จังหวะ ' + part.meter">{{ part.meter }}</span></span>
+        <span v-else-if="part.type === 'meter'" v-show="noteOn(row.first)" class="section-meter line-meter" :aria-label="'เปลี่ยนจังหวะเป็น ' + part.ts">{{ part.ts }}</span>
         <span v-else-if="part.type === 'marker'" class="section-marker">{{ part.label }}</span>
         <span v-else-if="part.type === 'label'" class="line-label">{{ part.text }}</span>
         <span v-else-if="part.type === 'end'" v-show="noteOn(row.first)" class="bar-final" aria-hidden="true"><i class="bf-thin" /><i class="bf-thick" /></span>
