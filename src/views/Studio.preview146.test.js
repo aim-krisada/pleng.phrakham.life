@@ -46,7 +46,7 @@ vi.mock('../supabase.js', () => {
 import Studio from './Studio.vue'
 
 const stubs = {
-  SongViewer: { name: 'SongViewer', props: ['song'], emits: ['edit', 'set', 'dock', 'print'], template: '<div class="stub-viewer" />' },
+  SongViewer: { name: 'SongViewer', props: ['song', 'sheet'], emits: ['edit', 'set', 'dock', 'print', 'view-mode', 'key'], template: '<div class="stub-viewer" />' },
   SongSheet: { name: 'SongSheet', props: ['content', 'displayKey', 'songbook', 'showChord'], template: '<div class="stub-sheet" />' },
   EditorMode: { name: 'EditorMode', props: ['song', 'tier', 'active', 'initialSet'], data: () => ({ isDirty: false }), template: '<div class="stub-editor" />' },
   DockKey: true,
@@ -111,14 +111,17 @@ describe('ใบ#146 — ก่อนพิมพ์', () => {
   it('AC2 — every sheet setting is a row here, and there is no font-size row', async () => {
     await toPreview()
     const ids = w.findAll('.pv-set [data-setting]').map((r) => r.attributes('data-setting'))
-    expect(ids).toEqual(['book', 'key', 'lyricjoin', 'display', 'chord'])
+    // ใบ#160 — opened from ฝึกร้อง, คีย์ is the bottom bar's (one place to change it), not a row here
+    expect(ids).toEqual(['book', 'lyricjoin', 'display', 'chord'])
     expect(w.find('.pv-set').text()).not.toContain('ขนาดตัวอักษร')
   })
 
   it('AC2 — a change redraws the sheet at once', async () => {
     await toPreview()
     expect(sheet().props('displayKey')).toBe('C')
-    await w.find('.pv-set [data-setting="key"] select').setValue('D')
+    // ใบ#160 — the key picked on the bottom bar redraws the paper
+    viewer().vm.$emit('key', 'D')
+    await nextTick()
     expect(sheet().props('displayKey')).toBe('D')
     await w.find('.pv-set [data-setting="book"] select').setValue('full')
     expect(sheet().props('songbook')).toBe(false)
@@ -136,11 +139,12 @@ describe('ใบ#146 — ก่อนพิมพ์', () => {
     print.mockRestore()
   })
 
-  it('AC5 — ← goes back to the same song in ฝึกร้อง', async () => {
+  it('AC5 — ใบ#160: the bar ฝึกร้อง goes back to the same song (no ← of its own from ฝึกร้อง)', async () => {
     await toPreview()
-    const back = w.find('.pv-top .pv-back')
-    expect(back.attributes('aria-label')).toBe('กลับไปฝึกร้อง')
-    await back.trigger('click')
+    expect(w.find('.pv-top .pv-back').exists()).toBe(false)
+    expect(viewer().props('sheet')).toBe(true)
+    viewer().vm.$emit('view-mode', 'sing')
+    await nextTick()
     expect(shown('.sheet-workspace')).toBe(false)
     expect(viewer().props('song').title_th).toBe('เพลงทดสอบ')
   })
@@ -197,7 +201,8 @@ describe('ใบ#146 — เต็มแผ่น first, then − / +', () => {
   it('coming back from ฝึกร้อง opens เต็มแผ่น again', async () => {
     await toPreview()
     await btn('ขยาย').trigger('click')
-    await w.find('.pv-back').trigger('click')
+    viewer().vm.$emit('view-mode', 'sing')
+    await nextTick()
     viewer().vm.$emit('print')
     await nextTick()
     expect(val()).toBe('100%')

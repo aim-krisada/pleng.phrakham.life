@@ -151,7 +151,8 @@ describe('ใบ#109 ข้อ 1 — seek bar on top, ONE button group below', (
     const rows = w.findAll('.dk-inner > .dk-row')
     expect(rowIds(rows[0])).toEqual(['timeslide'])
     // ใบ#142 — Aa moved to the shared top bar · ใบ#145 — ✎ แก้เพลงนี้ took its seat (left of ⚙'s group)
-    expect(btnIds(w)).toEqual(['back', 'play', 'forward', 'export', 'edit', 'key', 'tuan', 'setting'])
+    // ใบ#160 — ฝึกร้อง | แผ่นเพลง opens the button row
+    expect(btnIds(w)).toEqual(['viewmode', 'back', 'play', 'forward', 'export', 'key', 'tuan', 'edit', 'setting'])
   })
 
   it('ใบ#111 — a wide screen gets the same bar: seek row on top, one button row, no grip', async () => {

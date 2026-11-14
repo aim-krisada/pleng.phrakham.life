@@ -36,13 +36,18 @@ import LangToggle from './LangToggle.vue'
 // no save/edit affordances here regardless of tier (US-A01 AC3).
 const props = defineProps({
   song: { type: Object, required: true },
+  // ใบ v3/pleng#160 — แผ่นเพลง is showing: this page hides everything but its bottom bar, which stays
+  // with the sheet (the switch, เล่น, คีย์ …)
+  sheet: { type: Boolean, default: false },
   // ★ ใบ v3/pleng#152 — the saved song's id (from /song/:id). Empty for a new song or an unsaved draft:
   // nothing to bookmark yet, so no star.
   favId: { type: [String, Number], default: '' },
   tier: { type: String, default: 'guest' },
 })
 // 717 — which lyric set the reader switched to, so the shell can open แก้ไข on that same set.
-const emit = defineEmits(['set', 'edit', 'print'])
+// ใบ v3/pleng#160 — `view-mode` = the bar's ฝึกร้อง | แผ่นเพลง switch · `key` = the key chosen on the bar, so
+// แผ่นเพลง (drawn by Studio) follows it
+const emit = defineEmits(['set', 'edit', 'print', 'view-mode', 'key'])
 
 // ---------- display layers (B024 "แสดงผล" menu) ----------
 const DISPLAY_OPTS = [
@@ -117,6 +122,8 @@ const sheetChordSystem = computed(() => (chordSystem.value === 'roman' ? 'roman'
 const sheetMode = computed(() => (showLyric.value && !showNote.value && !showChord.value ? 'lyrics' : 'full'))
 
 const displayKey = ref(props.song?.content?.key || 'C')
+// ใบ v3/pleng#160 — แผ่นเพลง draws in the key chosen on this bar
+watch(displayKey, (k) => emit('key', k), { immediate: true })
 const playing = ref(false)
 // B107: which instrument the playback sounds on = the chosen lead (step 9: grand/felt/nylon/
 // violin/cello, all self-hosted). On first play its samples download while a progress pill shows
@@ -795,7 +802,7 @@ function onSeek({ li, si, syk }) {
 </script>
 
 <template>
-  <div ref="svRoot" class="sv-root">
+  <div ref="svRoot" class="sv-root" :class="{ 'is-sheet': sheet }">
     <!-- ใบ v3/pleng#144 — the first thing on the page: the full title, then คีย์ · จังหวะ · อ้างอิง (SongHead,
          the head แผ่นเพลง uses). Sized with the Aa text size like the sheet below it. On screen only: paper
          gets SongSheet's own printed title. B053's scripture caption stays, under the head. -->
@@ -892,7 +899,7 @@ function onSeek({ li, si, syk }) {
     <!-- B107: on first play the chosen instrument's samples download (~2–3 MB, cached after);
          this pill shows the progress, like the MP3 export. Playback starts once it's ready.
          Pressing พัก during the wait cancels (the pill hides via stopPlay). -->
-    <div v-if="instrumentLoading" class="inst-loading" role="status" aria-live="polite">
+    <div v-if="instrumentLoading" class="inst-loading sv-keep" role="status" aria-live="polite">
       🎵 กำลังโหลดเสียง{{ loadingLabel }}… {{ Math.round(instrumentProgress * 100) }}%
       <progress class="inst-bar" :value="Math.round(instrumentProgress * 100)" max="100"
                 :aria-label="`โหลดเสียง${loadingLabel} ${Math.round(instrumentProgress * 100)}%`"></progress>
@@ -901,6 +908,8 @@ function onSeek({ li, si, syk }) {
     <!-- the sing dock — DockKey core engine, fed the ITEMS_SING descriptor list by
          <SingTransport>. Fixed at the bottom; the engine owns collapse/drag/Setting/clamp. -->
     <SingTransport
+      class="sv-keep"
+      :view-mode="sheet ? 'sheet' : 'sing'"
       :playing="playing"
       :loop="loop"
       :frac="frac"
@@ -931,11 +940,14 @@ function onSeek({ li, si, syk }) {
       @set-all="setAll"
       @edit="emit('edit')"
       @print="emit('print')"
+      @view-mode="emit('view-mode', $event)"
     />
   </div>
 </template>
 
 <style scoped>
+/* ใบ v3/pleng#160 — แผ่นเพลง showing: only the bottom bar (and the sound-loading note) stays */
+.sv-root.is-sheet > :not(.sv-keep) { display: none !important; }
 /* ---------- 717 multi-lyric — segmented tabs (Material 3 segmented button) --------------
    One melody, several lyric sets you switch between. Centered above the sheet, brand-tinted
    active segment, WCAG target size (≥38px tall). Reuses the app's --brand token.

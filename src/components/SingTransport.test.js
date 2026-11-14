@@ -266,6 +266,7 @@ describe('ใบ#145 — ✎ on the ฝึกร้อง bar', () => {
     expect(w.find('.dk-panel [data-setting="edit"]').exists()).toBe(false)
     const ids = w.findAll('.dk-btnrow [data-cell]').map((c) => c.attributes('data-cell'))
     expect(ids).toContain('edit')
-    expect(ids.indexOf('edit')).toBe(ids.indexOf('export') + 1)
+    // ใบ#160 — now on the second row, right before ⚙, so ฝึกร้อง | แผ่นเพลง fits beside เล่น on a phone
+    expect(ids.indexOf('edit')).toBe(ids.indexOf('setting') - 1)
   })
 })
