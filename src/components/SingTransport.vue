@@ -21,6 +21,8 @@ import SoundControl from './SoundControl.vue'
 import TempoControl from './TempoControl.vue'
 
 const props = defineProps({
+  // ใบ v3/pleng#160 — which face of the song page is showing: 'sing' (ฝึกร้อง) or 'sheet' (แผ่นเพลง)
+  viewMode: { type: String, default: 'sing' },
   playing: { type: Boolean, default: false },
   loop: { type: Boolean, default: false },
   frac: { type: Number, default: 0 },
@@ -49,7 +51,7 @@ const props = defineProps({
   mp3Instrument: { type: String, default: 'synth' },
   mp3SongId: { type: [String, Number], default: undefined },
 })
-const emit = defineEmits(['toggle-play', 'prev', 'next', 'toggle-loop', 'seek', 'jump', 'toggle-section', 'set-all', 'edit', 'print'])
+const emit = defineEmits(['toggle-play', 'prev', 'next', 'toggle-loop', 'seek', 'jump', 'toggle-section', 'set-all', 'edit', 'print', 'view-mode'])
 
 // ---------- clock ----------
 const two = (n) => String(n).padStart(2, '0')
@@ -185,13 +187,18 @@ function setTempo(v, src) { tempoSetting.value?.onPick?.(v, src) }
 const items = computed(() => {
   const keyCtl = menuControl('key')
   const list = [
-    { id: 'back', kind: 'btn', name: 'ท่อนก่อน', icon: 'skip-back', place: { anchor: 'left', row: 1 }, hidden: !props.hasSections, run: () => emit('prev') },
+    // ใบ v3/pleng#160 — ฝึกร้อง | แผ่นเพลง, first on the bar: written as WORDS, never an icon (แผ่นเพลง hidden
+    // behind the download icon is exactly why พี่เปา could not find it). It shares the row with เล่น, so the
+    // bar is no taller than before.
+    { id: 'viewmode', kind: 'slot', name: 'ฝึกร้อง หรือ แผ่นเพลง', place: { anchor: 'left', row: 1 }, permanent: true },
+    { id: 'back', kind: 'btn', name: 'ท่อนก่อน', icon: 'skip-back', place: { anchor: 'rightOf:viewmode', row: 1 }, hidden: !props.hasSections, run: () => emit('prev') },
     { id: 'play', kind: 'play', name: 'เล่น/หยุด', place: { anchor: 'rightOf:back', row: 1 }, control: { value: props.playing }, run: () => emit('toggle-play') },
     { id: 'forward', kind: 'btn', name: 'ท่อนถัดไป', icon: 'skip-forward', place: { anchor: 'rightOf:play', row: 1 }, hidden: !props.hasSections, run: () => emit('next') },
     { id: 'export', kind: 'slot', name: 'ดาวน์โหลด', place: { anchor: 'rightOf:forward', row: 1 } },
     // ใบ v3/pleng#145 — ✎ แก้เพลงนี้: the way into แก้ไข, where Aa used to sit (Aa moved to the top bar, ใบ#142).
     // Everyone sees it — the mission says anyone may edit; only where the work is kept differs (login).
-    { id: 'edit', kind: 'btn', name: 'แก้เพลงนี้', icon: 'pencil', place: { anchor: 'leftOf:setting', row: 1 }, permanent: true, run: () => emit('edit') },
+    // ใบ v3/pleng#160 — on the second row, just before ⚙, so ฝึกร้อง | แผ่นเพลง fits the first row beside เล่น on a phone
+    { id: 'edit', kind: 'btn', name: 'แก้เพลงนี้', icon: 'pencil', place: { row: 2, col: 8 }, permanent: true, run: () => emit('edit') },
     { id: 'setting', kind: 'gear', name: 'ตั้งค่า', place: { anchor: 'right', row: 1 } },
     // `flex` = the ONE row-2 cell allowed to shrink: the rail gives up pixels on a narrow phone so
     // the row (now carrying ความเร็ว too, ใบ#102) can never overflow the dock.
@@ -305,6 +312,26 @@ const items = computed(() => {
       </div>
     </template>
 
+    <!-- ===== ใบ v3/pleng#160 — ฝึกร้อง | แผ่นเพลง: two words, the one showing is filled ===== -->
+    <template #cell-viewmode>
+      <span class="st-vm" role="group" aria-label="เลือกหน้า ฝึกร้อง หรือ แผ่นเพลง">
+        <button
+          type="button"
+          class="st-vmbtn"
+          :class="{ on: viewMode !== 'sheet' }"
+          :aria-pressed="viewMode !== 'sheet' ? 'true' : 'false'"
+          @click="emit('view-mode', 'sing')"
+        >ฝึกร้อง</button>
+        <button
+          type="button"
+          class="st-vmbtn"
+          :class="{ on: viewMode === 'sheet' }"
+          :aria-pressed="viewMode === 'sheet' ? 'true' : 'false'"
+          @click="emit('view-mode', 'sheet')"
+        >แผ่นเพลง</button>
+      </span>
+    </template>
+
     <!-- ===== export (PDF/JSON/MP3) — MP3 in the chosen key/tempo (matches "ฟัง") ===== -->
     <template #cell-export="{ open, toggle, close }">
       <ExportTool
@@ -333,6 +360,14 @@ const items = computed(() => {
 </template>
 
 <style scoped>
+/* ===== ใบ v3/pleng#160 — ฝึกร้อง | แผ่นเพลง (a two-part pill, the page showing is filled) ===== */
+.st-vm { display: inline-flex; align-items: stretch; height: 40px; border: 1px solid var(--brand); border-radius: 20px; overflow: hidden; }
+.st-vmbtn { min-height: 0; height: 100%; padding: 0 12px; border: 0; border-radius: 0; background: var(--card, #fff); color: var(--brand); font: inherit; font-size: 0.9rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.st-vmbtn + .st-vmbtn { border-left: 1px solid var(--brand); }
+.st-vmbtn.on { background: var(--brand); color: #fff; }
+.st-vmbtn:focus-visible { outline: 2px solid var(--brand); outline-offset: -4px; }
+@media (max-width: 420px) { .st-vmbtn { padding: 0 8px; font-size: 0.82rem; } }
+
 /* ===== ไทม์ไลน์ ===== */
 /* The timeline cell asks for its natural width (so it never overflows into คีย์ · B1) but the RAIL
    inside it may shrink when the dock hits the viewport cap — the clock + "รอบ N" keep their size. */

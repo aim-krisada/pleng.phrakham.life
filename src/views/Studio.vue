@@ -24,6 +24,7 @@ import SongViewer from '../components/SongViewer.vue'
 import SongSheet from '../components/SongSheet.vue'
 import LangToggle from '../components/LangToggle.vue'
 import EditorMode from '../components/EditorMode.vue'
+import { readViewMode, saveViewMode, VIEW_SHEET } from '../lib/viewMode.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -149,7 +150,10 @@ onMounted(async () => {
     // รวมไปถึงกดแก้ไขได้ด้วย"), instead of landing in ฝึกร้อง and making him press แก้ไข again.
     // Nothing else changes: a plain /song/:id link is byte-for-byte the old behaviour, and the
     // editor's own login/permission gates are untouched — this only picks which tab is showing.
-    mode.value = route.query.mode === 'edit' ? 'edit' : 'view'
+    // ใบ v3/pleng#160 — otherwise the face this device used last: ฝึกร้อง, or แผ่นเพลง for a musician
+    if (route.query.mode === 'edit') mode.value = 'edit'
+    else if (readViewMode() === VIEW_SHEET) setViewMode('sheet')
+    else mode.value = 'view'
   } else {
     // a bare /studio is a brand-new song → straight to the editor
     loadedSong.value = null
@@ -180,7 +184,12 @@ watch(
 // Entering ฝึกร้อง always opens at the very top of the song, never wherever the previous
 // mode/song was scrolled to (พี่เปา, 2026-07-27). Mode-switch isn't a route change, so the
 // router's scrollBehavior({top:0}) can't cover it — reset here on every switch INTO view.
-watch(mode, (m) => { stopPlayback(); if (m === 'view') nextTick(() => window.scrollTo({ top: 0 })) })
+// ใบ v3/pleng#160 — ฝึกร้อง ↔ แผ่นเพลง is one page with two faces, sharing one bottom bar and one player:
+// the song keeps playing across that switch. Into or out of แก้ไข still stops it.
+watch(mode, (m, old) => {
+  if (m === 'edit' || old === 'edit') stopPlayback()
+  if (m === 'view') nextTick(() => window.scrollTo({ top: 0 }))
+})
 
 // Name the browser tab after the open song, so ANY print path (our button OR Ctrl+P)
 // gets the right PDF filename — the print dialog suggests document.title. Restore the
@@ -329,7 +338,8 @@ const sheetBookRefs = computed(() => (liveSong.value
 // ดาวน์โหลด (JSON · MP3) stays in ฝึกร้อง's ดาวน์โหลด button (ใบ#146 Notes 2).
 const printSettings = computed(() => [
   { id: 'book', name: 'แบบแผ่น', value: sheetBook.value, set: (v) => (sheetBook.value = v), options: [{ value: 'songbook', label: 'สมุดเพลง (ทำนองครั้งเดียว)' }, { value: 'full', label: 'เต็ม (โน้ตทุกเที่ยว)' }] },
-  { id: 'key', name: 'คีย์', value: sheetKey.value, set: (v) => (sheetKey.value = v), options: keyOptions.value },
+  // ใบ#160 — opened by the ฝึกร้อง | แผ่นเพลง switch, the key is the bottom bar's (one place to change it)
+  ...(previewFrom.value === 'edit' ? [{ id: 'key', name: 'คีย์', value: sheetKey.value, set: (v) => (sheetKey.value = v), options: keyOptions.value }] : []),
   // ใบ#101 — only while the sheet has lyrics-only lines to write that way
   ...(sheetHasLyricLines.value ? [{ id: 'lyricjoin', name: 'เนื้อร้อง', value: sheetLyricJoin.value, set: (v) => (sheetLyricJoin.value = v), options: LYRIC_JOIN_OPTS }] : []),
   { id: 'display', name: 'แสดงผล', value: sheetDisplay.value, set: (v) => (sheetDisplay.value = v), options: DISPLAY_OPTS.map((o) => ({ value: o.value, label: o.label })) },
@@ -423,10 +433,28 @@ const previewFrom = ref('view')
 const previewBackLabel = computed(() => (previewFrom.value === 'edit' ? 'กลับไปแก้ไข' : 'กลับไปฝึกร้อง'))
 function openPreview() {
   previewFrom.value = mode.value === 'edit' ? 'edit' : 'view'
+  if (previewFrom.value === 'view') saveViewMode(VIEW_SHEET) // ใบ#160 — the same as tapping แผ่นเพลง
   mode.value = 'sheet'
   zoom.value = null // always opens เต็มแผ่น
   nextTick(() => { measureFrame(); window.scrollTo({ top: 0 }) })
 }
+
+// ใบ v3/pleng#160 — the bottom bar's ฝึกร้อง | แผ่นเพลง switch. แผ่นเพลง is the same paper as ก่อนพิมพ์, with the
+// bar of ฝึกร้อง still under it (เล่น · คีย์ · the switch back). The device remembers the choice.
+function setViewMode(m) {
+  saveViewMode(m)
+  if (m === 'sheet') {
+    if (mode.value === 'sheet' && previewFrom.value === 'view') return
+    previewFrom.value = 'view'
+    mode.value = 'sheet'
+    zoom.value = null
+    nextTick(() => { measureFrame(); window.scrollTo({ top: 0 }) })
+  } else {
+    mode.value = 'view'
+  }
+}
+// the key chosen on the bar is the key แผ่นเพลง is drawn in
+function onViewKey(k) { if (k) sheetKey.value = k }
 
 // ---------- ใบ v3/pleng#148 — แผ่นเพลงข้างหน้าแก้ไข บนจอคอม ----------
 // On a wide screen the sheet sits on the right of แก้ไข: the same paper as ก่อนพิมพ์ (same settings,
@@ -619,8 +647,20 @@ function printSheet() {
 <template>
   <div>
     <!-- ===== ดู — reading / sing-along view (WT-A owns SongViewer) ===== -->
-    <div v-show="mode === 'view'">
-      <SongViewer v-if="viewerSong" :song="viewerSong" :fav-id="route.params.id || ''" @dock="viewDock = $event" @set="viewSet = $event" @edit="openEditor" @print="openPreview" />
+    <!-- ใบ v3/pleng#160 — also under แผ่นเพลง opened from ฝึกร้อง: the page itself hides (`sheet`), its bottom bar stays -->
+    <div v-show="mode === 'view' || (mode === 'sheet' && previewFrom === 'view')">
+      <SongViewer
+        v-if="viewerSong"
+        :song="viewerSong"
+        :fav-id="route.params.id || ''"
+        :sheet="mode === 'sheet'"
+        @dock="viewDock = $event"
+        @set="viewSet = $event"
+        @edit="openEditor"
+        @print="openPreview"
+        @view-mode="setViewMode"
+        @key="onViewKey"
+      />
       <p v-else class="muted" style="padding: 16px">ยังไม่มีเพลงให้แสดง — ไปที่ “แก้” เพื่อเริ่มสร้างเพลง</p>
     </div>
 
@@ -628,7 +668,8 @@ function printSheet() {
          ดาวน์โหลด › พิมพ์. Desktop: paper left, settings right · phone: paper on top, settings below. ===== -->
     <div v-show="mode === 'sheet'" class="sheet-workspace">
       <div class="pv-top no-print">
-        <button type="button" class="ed-back-btn pv-back" :aria-label="previewBackLabel" :title="previewBackLabel" @click="mode = previewFrom">
+        <!-- ใบ#160 — from ฝึกร้อง the way back is the switch on the bottom bar; ← stays for แก้ไข's ดูแผ่นเพลง -->
+        <button v-if="previewFrom === 'edit'" type="button" class="ed-back-btn pv-back" :aria-label="previewBackLabel" :title="previewBackLabel" @click="mode = previewFrom">
           <Icon name="arrow-left" :size="20" /> ก่อนพิมพ์
         </button>
         <div class="pv-zoom" role="group" aria-label="ซูมแผ่นเพลง">
