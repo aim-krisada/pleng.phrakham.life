@@ -55,3 +55,15 @@ describe('pendingReview (approver review queue)', () => {
     expect(PENDING).toBe('pending')
   })
 })
+
+// ใบ v3/pleng#162 — a draft thrown away (db/015 deleted_at) is in the trash, not waiting for anyone
+import { pendingReview as pendingReview162 } from './reviewQueue.js'
+describe('ใบ#162 — a trashed draft leaves the queue', () => {
+  it('drops a pending draft that is in the trash', () => {
+    const out = pendingReview162([
+      { id: 'a', status: 'pending', updated_at: '2026-11-14' },
+      { id: 'b', status: 'pending', updated_at: '2026-11-14', deleted_at: '2026-11-14T07:30:00Z' },
+    ])
+    expect(out.map((d) => d.id)).toEqual(['a'])
+  })
+})

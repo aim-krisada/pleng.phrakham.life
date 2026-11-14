@@ -32,6 +32,7 @@ function submittedDesc(a, b) {
 
 // Every draft still waiting for an approver's decision. Defensive about the shape: a
 // missing/failed query hands us undefined, and a null row must not throw the landing page.
+// ใบ v3/pleng#162 — a draft in the trash (db/015 song_drafts.deleted_at) is not waiting for anyone.
 export function pendingReview(drafts) {
-  return (drafts || []).filter((d) => d && d.status === PENDING).sort(submittedDesc)
+  return (drafts || []).filter((d) => d && d.status === PENDING && !d.deleted_at).sort(submittedDesc)
 }

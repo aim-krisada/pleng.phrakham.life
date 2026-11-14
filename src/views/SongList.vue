@@ -261,7 +261,8 @@ async function loadReviewQueue() {
   }
   const { data, error } = await supabase
     .from('song_drafts')
-    .select('id, title_th, number, status, updated_at, author_id')
+    // '*' so a trashed draft's deleted_at (db/015, ใบ#162) comes along whether or not that column exists yet
+    .select('*')
     .order('updated_at', { ascending: false })
   // a missing drafts table (a bare Supabase) or any error must leave the landing page alone —
   // no chip is the honest answer when we cannot read the queue.
