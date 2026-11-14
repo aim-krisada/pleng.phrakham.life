@@ -816,18 +816,17 @@ input, select, textarea {
   font-size: 0.9em;
   font-variant-numeric: tabular-nums;
 }
-/* ใบ v3/pleng#159 — a meter change part-way through a melody: the new time signature at the start of
-   the line it applies from, level with the notes (like .section-marker), as a hymn book prints it. */
+/* ใบ v3/pleng#159 — a meter change part-way through a melody: the new time signature in its own row
+   above the line it applies from, in the same box and place as the meter beside a ท่อน heading
+   (พี่เปา 14 พ.ย. 2569: "วางให้ดูเหมือนกับอันอื่น"), so that line's notes stay aligned with the rest. */
 .line-meter {
-  display: inline-block;
-  vertical-align: top;
-  margin: 0 8px 0 0;
-  padding-top: 0;
+  flex-basis: 100%;
   color: var(--brand);
-  position: relative;
-  top: 40px;
+  font-weight: 700;
+  font-size: 0.95em;
+  margin: 2px 0 4px;
 }
-.sheet-mode-lyrics .line-meter { top: 0; }
+.line-meter .section-meter { margin-left: 0; }
 .font-ctl { display: inline-flex; gap: 3px; }
 .font-ctl button { min-width: 42px; min-height: 40px; padding: 6px 10px; }
 /* section chips — play the whole song or just one verse/refrain (feature 003) */
