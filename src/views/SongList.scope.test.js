@@ -20,7 +20,9 @@ vi.mock('../supabase.js', () => ({
       const q = {}
       q.select = () => q
       q.is = () => q // db/012: SongList filters out trashed songs
-      q.order = () => Promise.resolve({ data: h.rows, error: null })
+      q.order = () => q
+      q.range = () => q
+      q.then = (ok, bad) => Promise.resolve({ data: h.rows, error: null }).then(ok, bad)
       return q
     },
     auth: {

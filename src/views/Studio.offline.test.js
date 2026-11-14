@@ -13,7 +13,7 @@ vi.mock('vue-router', () => ({
 vi.mock('../supabase.js', () => {
   const makeQuery = () => {
     const q = {}
-    for (const m of ['select', 'order', 'is', 'not', 'eq', 'in', 'limit', 'retry']) q[m] = () => q
+    for (const m of ['select', 'order', 'is', 'not', 'eq', 'in', 'limit', 'retry', 'range']) q[m] = () => q
     q.single = () => Promise.resolve(h.single)
     q.then = (ok, bad) => Promise.resolve(h.list).then(ok, bad)
     return q

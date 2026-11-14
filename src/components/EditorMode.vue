@@ -2,6 +2,7 @@
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount, toRaw } from 'vue'
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
+import { fetchAllRows } from '../lib/fetchAllRows.js'
 import { KEYS, TIME_SIGNATURES, chordOptions, parseChord, normalizeChord, chordError } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, holdValue, HOLD_STEP, HOLD_MIN, HOLD_DEFAULT, snapHalf, slurSpans } from '../lib/notation.js'
 import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
@@ -2210,11 +2211,15 @@ function unlinkRow(i) {
 const songList = ref([])
 
 async function loadSongList() {
-  const { data } = await supabase
-    .from('songs')
-    .select('id, number, title_th, title_en, content, verified, category, theme')
-    .is('deleted_at', null) // db/012: trashed songs never appear in the picker/list
-    .order('number', { ascending: true })
+  // fetchAllRows: the API stops at 1000 rows; signed in, the team sees more than that.
+  const { data } = await fetchAllRows(() =>
+    supabase
+      .from('songs')
+      .select('id, number, title_th, title_en, content, verified, category, theme')
+      .is('deleted_at', null) // db/012: trashed songs never appear in the picker/list
+      .order('number', { ascending: true })
+      .order('id', { ascending: true }),
+  )
   // B131: the DB `.order` leaves the blank-number rows unordered, so the picker could list the
   // same songs differently on two loads. sortSongs (songSort.js) is the app's one ordering rule.
   songList.value = sortSongs(data ?? [])
