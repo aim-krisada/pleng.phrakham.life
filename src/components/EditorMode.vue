@@ -2818,8 +2818,13 @@ async function reject() {
 // The RLS policy for this already exists (db/002 "Delete own or as approver"), so no DB change:
 // the server refuses a draft that is not yours even if the UI ever slipped. classifyChange()
 // already maps a song_drafts DELETE to null ("discard"), so this writes no audit event by design.
+// ใบ v3/pleng#162 — the approver may also throw away a draft SOMEONE ELSE sent in (a song the library already
+// has, sent again). The DB already allows it (db/002 "Delete own or as approver"); only the button was missing.
+// The question then names whose work it is, so it is never deleted by mistake for one's own.
 async function deleteDraft(d) {
-  if (!window.confirm(`ลบร่าง "${d.title_th}" ถาวร? (กู้คืนไม่ได้)`)) return
+  const mine = d.author_id === session.value?.user?.id
+  const whose = mine ? '' : ` ของ ${profilesMap.value[d.author_id] || 'คนอื่น'}`
+  if (!window.confirm(`ลบงาน "${d.title_th}"${whose} ถาวร? (กู้คืนไม่ได้)`)) return
   const { error } = await supabase.from('song_drafts').delete().eq('id', d.id)
   if (error) {
     saveMsg.value = '❌ ลบร่างไม่สำเร็จ: ' + error.message
@@ -4393,6 +4398,8 @@ defineExpose({
       <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center">
         <button @click="approve">✅ อนุมัติและเผยแพร่</button>
         <button class="danger" @click="reject">↩ ส่งกลับให้แก้</button>
+        <!-- ใบ v3/pleng#162 — a song the library already has, sent again: throw this draft away -->
+        <button class="secondary review-del" @click="deleteDraft(reviewingDraft)"><Icon name="trash-2" :size="16" /> ลบงานนี้</button>
         <input v-model="reviewComment" placeholder="ความเห็นถึงผู้เขียน (ถ้ามี)" style="flex: 1; min-width: 200px" />
       </div>
     </div>
@@ -5237,6 +5244,13 @@ defineExpose({
             <div v-for="d in pendingDrafts" :key="d.id" class="draft-row">
               <a href="#" @click.prevent="loadDraft(d); closePanel()">{{ d.number != null ? d.number + '. ' : '' }}{{ d.title_th }}</a>
               <span class="muted"> — โดย {{ profilesMap[d.author_id] || '?' }}</span>
+              <!-- ใบ v3/pleng#162 — the approver can throw away a draft sent in, right on its row -->
+              <button
+                class="draft-del"
+                :aria-label="'ลบงาน ' + d.title_th + ' ของ ' + (profilesMap[d.author_id] || 'คนอื่น')"
+                title="ลบงานนี้ถาวร"
+                @click="deleteDraft(d)"
+              ><Icon name="trash-2" :size="16" /></button>
             </div>
             <hr v-if="myDrafts.length" style="border: none; border-top: 1px solid var(--line); margin: 10px 0" />
           </template>

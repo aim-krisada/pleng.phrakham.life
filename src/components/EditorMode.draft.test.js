@@ -127,6 +127,23 @@ describe('EditorMode — delete own draft (issues10)', () => {
     confirm.mockRestore()
   })
 
+  // ใบ v3/pleng#162 — the approver throws away a draft someone else sent in (a song already in the library)
+  it('ใบ#162 — a draft by someone else: the question names whose work it is, then deletes that row', async () => {
+    const wrapper = mountEditor()
+    await nextTick()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    await wrapper.vm.deleteDraft({ ...DRAFT, id: 'draft-9', author_id: 'someone-else' })
+    await nextTick()
+
+    expect(confirm.mock.calls[0][0]).toContain('ร่างเพลงเก่า')
+    expect(confirm.mock.calls[0][0]).toContain('ของ ') // not mistaken for one's own
+    expect(calls.some((c) => c.table === 'song_drafts' && c.verb === 'delete')).toBe(true)
+    expect(calls.some((c) => c.table === 'song_drafts' && c.verb === 'eq' && c.args[1] === 'draft-9')).toBe(true)
+    expect(calls.some((c) => c.table === 'songs' && c.verb === 'delete')).toBe(false)
+    confirm.mockRestore()
+  })
+
   it('cancelling the confirm deletes nothing', async () => {
     const wrapper = mountEditor()
     await nextTick()
