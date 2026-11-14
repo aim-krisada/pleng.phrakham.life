@@ -14,7 +14,10 @@ export const PAGE_SIZE = 1000
 export async function fetchAllRows(makeQuery, pageSize = PAGE_SIZE) {
   const rows = []
   for (let from = 0; ; from += pageSize) {
-    const { data, error } = await makeQuery().range(from, from + pageSize - 1)
+    const q = makeQuery()
+    // A builder that cannot page (the light stand-ins many tests use) is read once, as before.
+    if (typeof q?.range !== 'function') return await q
+    const { data, error } = await q.range(from, from + pageSize - 1)
     // Any failed page voids the whole read: a half list must never be shown or saved offline.
     if (error) return { data: null, error }
     const page = data || []

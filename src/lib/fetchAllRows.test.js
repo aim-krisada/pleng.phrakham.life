@@ -55,4 +55,9 @@ describe('fetchAllRows — lists past the 1000-row cap stay whole', () => {
     expect(data).toBeNull()
     expect(error).toEqual({ message: 'x' })
   })
+  it('a builder with no range() is simply awaited once', async () => {
+    const q = { then: (ok) => Promise.resolve({ data: [{ id: 1 }], error: null }).then(ok) }
+    const { data } = await fetchAllRows(() => q)
+    expect(data).toEqual([{ id: 1 }])
+  })
 })
