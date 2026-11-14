@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
+import { fetchAllRows } from '../lib/fetchAllRows.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { filterSongs, searchSnippet, normalize } from '../lib/songSearch.js'
 import { lyricSetName } from '../lib/songModel.js'
@@ -483,14 +484,18 @@ async function loadSongs() {
     offlineSince.value = cached.at
     return
   }
-  let q = supabase
-    .from('songs')
-    .select(CATALOG_COLUMNS)
-    .is('deleted_at', null) // db/012: trashed songs never show in the catalog
-    .order('number', { ascending: true })
-  // A copy is already on screen → give up at the first failure instead of retrying ~7 s.
-  if (cached) q = q.retry(false)
-  const { data, error } = await q
+  // fetchAllRows: the API stops at 1000 rows; signed in, the team sees more than that.
+  const { data, error } = await fetchAllRows(() => {
+    let q = supabase
+      .from('songs')
+      .select(CATALOG_COLUMNS)
+      .is('deleted_at', null) // db/012: trashed songs never show in the catalog
+      .order('number', { ascending: true })
+      .order('id', { ascending: true }) // a total order, so pages never overlap or skip
+    // A copy is already on screen → give up at the first failure instead of retrying ~7 s.
+    if (cached) q = q.retry(false)
+    return q
+  })
   if (!error && data && data.length) {
     dbError.value = false
     offlineSince.value = 0

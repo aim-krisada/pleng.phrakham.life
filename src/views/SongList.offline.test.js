@@ -18,6 +18,7 @@ vi.mock('../supabase.js', () => ({
       q.eq = () => q
       q.retry = (v) => { h.retried.push(v); return q }
       q.order = () => q
+      q.range = () => q
       q.then = (ok, bad) => Promise.resolve(h.res).then(ok, bad)
       return q
     },

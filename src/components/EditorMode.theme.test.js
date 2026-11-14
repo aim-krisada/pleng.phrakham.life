@@ -11,7 +11,7 @@ const songsRows = []
 vi.mock('../supabase.js', () => {
   const makeQuery = (table) => {
     const q = {}
-    for (const m of ['select', 'order', 'is', 'not', 'eq', 'in', 'insert', 'update', 'delete', 'limit']) q[m] = () => q
+    for (const m of ['select', 'order', 'is', 'not', 'eq', 'in', 'insert', 'update', 'delete', 'limit', 'range']) q[m] = () => q
     q.single = () => Promise.resolve({ data: null, error: null })
     q.then = (res) => Promise.resolve({ data: table === 'songs' ? songsRows : [], error: null }).then(res)
     return q
