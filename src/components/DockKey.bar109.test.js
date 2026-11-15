@@ -181,8 +181,15 @@ describe('ใบ#109 ข้อ 1–2 — 48px targets, same 8px spacing at every
     expect(block).toMatch(/\.dk-bar \.dk-row \{ gap: 8px; \}/)
     expect(block).toMatch(/\.dk-bar \.dk-btnrow \{ justify-content: safe center; flex-wrap: wrap; \}/)
     expect(block).toMatch(/\.dk-bar \.dk-btnrow \+ \.dk-btnrow \{ margin-top: 8px; \}/)
-    expect(block).not.toMatch(/@media/)
+    // the one media query: a Fold opened flat (600–767px) steps DOWN to 44px / 4px so its bar fits one row
+    expect(block.replace(/@media \(min-width: 600px\) and \(max-width: 767px\) \{[^}]*\}[^}]*\}[^}]*\}\s*\}/, '')).not.toMatch(/@media/)
     expect(block).not.toMatch(/space-(between|around|evenly)/)
+  })
+  it('a Fold opened flat (600–767px): 44px targets 4px apart — narrower, never wider', () => {
+    const fold = block.slice(block.indexOf('@media (min-width: 600px) and (max-width: 767px)'))
+    expect(fold).toMatch(/--touch-min: 44px/)
+    expect(fold).toMatch(/\.dk-bar \.dk-play \{ width: 44px; height: 44px; \}/)
+    expect(fold).toMatch(/\.dk-bar \.dk-btnrow \{ column-gap: 4px; \}/)
   })
 })
 

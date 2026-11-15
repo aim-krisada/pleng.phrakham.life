@@ -1142,10 +1142,12 @@ function onSeek({ li, si, syk }) {
 
 /* ใบ#144 — the page head (title + คีย์ · จังหวะ · อ้างอิง) sits where the sheet's would, above the music */
 .sv-head { margin-bottom: var(--sp-3); position: relative; }
-/* ★ sits in the title's top-right corner; the centred title keeps a star-wide margin on BOTH sides so it
-   stays centred and never runs under the star, at any Aa size */
+/* ★ sits in the title's top-right corner. ฝึกร้อง's title starts at the left like the words under it
+   (พี่เอม 15 พ.ย. 2569; แผ่นเพลง keeps the centred printed title) and keeps a star-wide margin on the right
+   so it never runs under the star, at any Aa size */
 .sv-fav { position: absolute; top: 0; right: 0; }
-.sv-head.has-fav :deep(.sheet-print-title.on-screen) { padding-inline: var(--touch-min); }
+.sv-head :deep(.sheet-print-title.on-screen) { text-align: left; }
+.sv-head.has-fav :deep(.sheet-print-title.on-screen) { padding-right: var(--touch-min); }
 /* B053 — the scripture caption: muted small text (matches SongList's caption weight), on its own
    line so a long reference wraps cleanly on a phone. Uses S0 tokens only. */
 .song-refs {

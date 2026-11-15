@@ -362,11 +362,14 @@ const items = computed(() => {
 <style scoped>
 /* ===== ใบ v3/pleng#160 — ฝึกร้อง | แผ่นเพลง (a two-part pill, the page showing is filled) ===== */
 .st-vm { display: inline-flex; align-items: stretch; height: 40px; border: 1px solid var(--brand); border-radius: 20px; overflow: hidden; }
-.st-vmbtn { min-height: 0; height: 100%; padding: 0 12px; border: 0; border-radius: 0; background: var(--card, #fff); color: var(--brand); font: inherit; font-size: 0.9rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
+/* flex + line-height 1: the Thai words sit in the middle of the pill (they sat low — พี่เอม 15 พ.ย. 2569) */
+.st-vmbtn { display: inline-flex; align-items: center; justify-content: center; line-height: 1; min-height: 0; height: 100%; padding: 0 12px; border: 0; border-radius: 0; background: var(--card, #fff); color: var(--brand); font: inherit; font-size: 0.9rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .st-vmbtn + .st-vmbtn { border-left: 1px solid var(--brand); }
 .st-vmbtn.on { background: var(--brand); color: #fff; }
 .st-vmbtn:focus-visible { outline: 2px solid var(--brand); outline-offset: -4px; }
 @media (max-width: 420px) { .st-vmbtn { padding: 0 8px; font-size: 0.82rem; } }
+/* a Fold opened flat: slimmer, so the whole bar fits one row (DockKey's 600–767px rule) */
+@media (min-width: 600px) and (max-width: 767px) { .st-vmbtn { padding: 0 9px; } .st-vm { height: 44px; border-radius: 22px; } }
 
 /* ===== ไทม์ไลน์ ===== */
 /* The timeline cell asks for its natural width (so it never overflows into คีย์ · B1) but the RAIL
