@@ -104,6 +104,13 @@ export function categoryName(code) {
   return CATEGORY_NAMES[code] || code || ''
 }
 
+// The เล่ม a song belongs to, for a search card (พี่เอม 15 พ.ย. 2569: "ใน card ต้องแสดงเล่มด้วย ว่ามาจาก
+// เล่มไหน" — a search runs across every book, and "30." alone is in each of them).
+export function songBookName(song) {
+  const c = songCategory(song)
+  return c ? categoryName(c) : 'ยังไม่จัดเล่ม'
+}
+
 // Tally songs per category + count the unclassified ones. Returns { counts: Map<code,n>,
 // none: n, unfinished: Map<code,n>, noneUnfinished: n }. Each song counts once (one category
 // per song); no-category songs add to `none`.

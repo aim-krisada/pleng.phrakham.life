@@ -16,6 +16,7 @@ import {
   verifiedProgress,
   unfinishedCount,
   FALLBACK_KEY,
+  songBookName,
 } from '../lib/bookshelf.js'
 import { pendingReview } from '../lib/reviewQueue.js'
 import { PICKABLE_SORTS, DESC, dirLabel, flipDir } from '../lib/songSort.js'
@@ -678,6 +679,8 @@ onMounted(async () => {
               <span v-if="loggedIn && flagCount(s)" class="badge warn" :title="flagTitle(s)">⚠️ ต้องตรวจ</span>
               <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok" :title="W.done">✓ {{ W.done }}</span>
               <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending" :title="W.unfinished">{{ W.unfinished }}</span>
+              <!-- พี่เอม 15 พ.ย. 2569 — which เล่ม, when the list runs across every book (inside a เล่ม it is the one open) -->
+              <span v-if="!activeBook" class="key-chip book-chip">{{ songBookName(s) }}</span>
               <span class="key-chip">Key {{ s.content.key }}</span>
             </span>
           </div>
@@ -1384,6 +1387,7 @@ onMounted(async () => {
   white-space: nowrap;
   flex: 0 0 auto;
 }
+.book-chip { color: var(--brand); }
 .theme-tag { margin-top: var(--sp-1); font-size: var(--fs-xs); display: inline-block; }
 .src-tag,
 .scripture-tag { margin-top: var(--sp-1); font-size: var(--fs-xs); }
