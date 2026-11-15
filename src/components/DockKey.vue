@@ -755,4 +755,13 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 /* the editor's key band: on the narrowest phones the gap tightens (to 2px at 360px) so all 11
    keys of the longer row fit without running off the screen */
 .dk-bar .dk-keyrow { gap: clamp(2px, calc((100vw - 344px) / 10), 4px); }
+/* A Fold opened flat (600–767px — พี่เอม 15 พ.ย. 2569: "fold 2 screen ให้ toolbar ด้านล่างเหลือ 1 แถว"):
+   the play page's buttons came out ~50px too wide for one row and split in two. Here they step down to
+   44px (Apple HIG's touch minimum) with 4px between them, so they fit one row under the seek bar; the
+   one-row test in refit() still decides, so a bar that still doesn't fit splits as before. */
+@media (min-width: 600px) and (max-width: 767px) {
+  .dk-bar .dk-dock { --touch-min: 44px; }
+  .dk-bar .dk-play { width: 44px; height: 44px; }
+  .dk-bar .dk-btnrow { column-gap: 4px; }
+}
 </style>
