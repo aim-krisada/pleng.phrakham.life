@@ -321,14 +321,14 @@ const items = computed(() => {
           :class="{ on: viewMode !== 'sheet' }"
           :aria-pressed="viewMode !== 'sheet' ? 'true' : 'false'"
           @click="emit('view-mode', 'sing')"
-        >ฝึกร้อง</button>
+        ><span class="st-vmlbl">ฝึกร้อง</span></button>
         <button
           type="button"
           class="st-vmbtn"
           :class="{ on: viewMode === 'sheet' }"
           :aria-pressed="viewMode === 'sheet' ? 'true' : 'false'"
           @click="emit('view-mode', 'sheet')"
-        >แผ่นเพลง</button>
+        ><span class="st-vmlbl">แผ่นเพลง</span></button>
       </span>
     </template>
 
@@ -365,6 +365,10 @@ const items = computed(() => {
 /* flex + line-height 1: the Thai words sit in the middle of the pill (they sat low — พี่เอม 15 พ.ย. 2569) */
 .st-vmbtn { display: inline-flex; align-items: center; justify-content: center; line-height: 1; min-height: 0; height: 100%; padding: 0 12px; border: 0; border-radius: 0; background: var(--card, #fff); color: var(--brand); font: inherit; font-size: 0.9rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .st-vmbtn + .st-vmbtn { border-left: 1px solid var(--brand); }
+/* พี่เอม 15 พ.ย. 2569 (2nd time) — on the phone the words still looked low: a Thai line box keeps room for the
+   vowel marks above (ึ ้), so the letters' body sits under the box's middle. Trim the box to the letters'
+   body (x-height → baseline) so THAT is what gets centred. Browsers without text-box keep the old look. */
+.st-vmlbl { display: block; text-box: trim-both ex alphabetic; }
 .st-vmbtn.on { background: var(--brand); color: #fff; }
 .st-vmbtn:focus-visible { outline: 2px solid var(--brand); outline-offset: -4px; }
 @media (max-width: 420px) { .st-vmbtn { padding: 0 8px; font-size: 0.82rem; } }
