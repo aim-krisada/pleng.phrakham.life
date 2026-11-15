@@ -1348,13 +1348,14 @@ onMounted(async () => {
       ใส่ดินสอโดยไม่แก้อะไร        → การ์ด 284px · ชื่อแตก 5 บรรทัด · **ป้าย Key ล้นออกนอกการ์ดจริง (323 จาก 280)**
       ใส่ดินสอ + ให้ป้ายตกบรรทัด   → ชื่อเพลงเหลือ **1 บรรทัด** · ไม่มีอะไรล้น · การ์ดเตี้ยลงจาก 262px เหลือ 191px
    ⇒ ที่แคบจริง ๆ คือหัวการ์ดของ v1 เองซึ่งบีบชื่อเพลงอยู่ก่อนแล้ว ดินสอเป็นแค่ฟางเส้นสุดท้าย
-   การให้ป้ายตกบรรทัดจึงแก้ทั้งของเดิมและของใหม่พร้อมกัน ⛔ ไม่ต้องซ่อนดินสอบนมือถือ */
+   การให้ป้ายตกบรรทัดจึงแก้ทั้งของเดิมและของใหม่พร้อมกัน ⛔ ไม่ต้องซ่อนดินสอบนมือถือ
+   พี่เอม 15 พ.ย. 2569 — "อยากให้ tag อยู่ตำแหน่งเดียวกันตลอด ไม่ขึ้นกับความยาวของชื่อ": ป้ายขึ้นบรรทัดของ
+   ตัวเองใต้ชื่อเพลง ชิดซ้าย ทุกการ์ด (เดิมอยู่ขวาสุดถ้าชื่อสั้น ตกบรรทัดถ้าชื่อยาว) */
 .song-card-head {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--sp-2);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
 }
 .song-title { color: var(--brand); font-size: var(--fs-lg); line-height: var(--lh-snug); }
 .head-tags {
@@ -1363,7 +1364,7 @@ onMounted(async () => {
   gap: var(--sp-1);
   flex: 0 0 auto;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 .badge {
   border-radius: 12px;
