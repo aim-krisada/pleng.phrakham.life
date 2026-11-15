@@ -387,6 +387,10 @@ const items = computed(() => {
 .dk-bar .st-seekwrap { flex: 1 1 auto; width: 100%; padding: 0 4px; font-size: 12px; }
 .dk-bar .st-seek { flex: 1 1 auto; width: auto; height: 40px; }
 .dk-bar .st-now { max-width: 45%; }
+/* พี่เอม 15 พ.ย. 2569 — seek inside the first button row ('stack2h', แผ่นเพลง on a phone): the rail may be
+   as short as DockKey's HEAD_SEEK_MIN; the ท่อน name steps aside (it is on the sheet itself) */
+.dk-headrow .st-seek { min-width: 56px; }
+.dk-headrow .st-now { display: none; }
 .st-time { flex: 0 0 auto; }
 /* B102 — "รอบ N" now-playing badge: the current ท่อน + refrain pass, in the brand colour so it
    reads as the live playhead label (not muted chrome). Ellipsis so a long ท่อน name never pushes

@@ -40,3 +40,22 @@ describe('barLayout', () => {
     expect(barLayout({ avail: NaN, hasSeek: true, ...SING })).toBe(null)
   })
 })
+
+// พี่เอม 15 พ.ย. 2569 — แผ่นเพลง on a phone: the seek slider joins a short first button row → two rows, not three
+import { HEAD_SEEK_MIN, HEAD_GAP } from './dockLayout.js'
+describe("barLayout 'stack2h'", () => {
+  const SHEET = { buttons: 600, seekFixed: 48 } // too wide for one row
+  it('375px แผ่นเพลง [สลับ 129 · เล่น 48 · ดาวน์โหลด 48 + gaps] = 241 → seek fits in row 1', () => {
+    expect(barLayout({ avail: 359, hasSeek: true, head: 241, ...SHEET })).toBe('stack2h')
+  })
+  it('exactly at the floor, and one pixel short', () => {
+    const avail = 241 + HEAD_GAP + HEAD_SEEK_MIN + 48
+    expect(barLayout({ avail, hasSeek: true, head: 241, ...SHEET })).toBe('stack2h')
+    expect(barLayout({ avail: avail - 1, hasSeek: true, head: 241, ...SHEET })).toBe('stack2')
+  })
+  it('ฝึกร้อง with ท่อนก่อน/ถัดไป (head 337) stays three rows; no seek or no head → stack2', () => {
+    expect(barLayout({ avail: 359, hasSeek: true, head: 337, ...SHEET })).toBe('stack2')
+    expect(barLayout({ avail: 359, hasSeek: false, head: 241, ...SHEET })).toBe('stack2')
+    expect(barLayout({ avail: 359, hasSeek: true, ...SHEET })).toBe('stack2')
+  })
+})

@@ -247,11 +247,23 @@ const barTail = computed(() => {
 // button or gap getting smaller; otherwise the bar stays as above. The decision is measured on the
 // real bar, so it works for every page whatever its buttons.
 const layout = ref('stack') // 'one' | 'stack' | 'stack2' — see lib/dockLayout.js
-const twoRows = computed(() => layout.value === 'stack2') // the one button row didn't fit → split in two
+const twoRows = computed(() => layout.value === 'stack2' || layout.value === 'stack2h') // didn't fit one row → split in two
+// พี่เอม 15 พ.ย. 2569 — 'stack2h': the seek slider moves INTO the first button row, after the buttons pinned
+// to its left (ฝึกร้อง | แผ่นเพลง), so แผ่นเพลง on a phone is two rows: [สลับ · เวลา · เล่น · ดาวน์โหลด] over the rest
+const seekInHead = computed(() => layout.value === 'stack2h')
 const seekItems = computed(() => (keysBands.value.length ? [] : row2.value.filter((i) => i.kind === 'timeline')))
 const oneRow = computed(() => layout.value === 'one' && seekItems.value.length > 0)
 const shownRows = computed(() => {
   const seek = row2.value.filter((i) => i.kind === 'timeline')
+  if (seekInHead.value && seek.length && barHead.value.length && barTail.value.length) {
+    const head = barHead.value
+    let at = 0
+    while (at < head.length && head[at].place?.anchor === 'left') at++
+    return [
+      { key: 'btns1', cls: 'dk-btnrow dk-headrow', items: [...head.slice(0, at), ...seek, ...head.slice(at)] },
+      { key: 'btns2', cls: 'dk-btnrow', items: barTail.value },
+    ]
+  }
   const btns = twoRows.value && barHead.value.length && barTail.value.length
     ? [{ key: 'btns1', cls: 'dk-btnrow', items: barHead.value }, { key: 'btns2', cls: 'dk-btnrow', items: barTail.value }]
     : [{ key: 'btns', cls: 'dk-btnrow', items: [...barHead.value, ...barTail.value] }]
@@ -284,10 +296,15 @@ async function refit() {
   if (!inner || !rows.length) return
   const avail = inner.clientWidth
   const gap = parseFloat(window.getComputedStyle(rows[0]).columnGap) || 0
-  const cells = rows.flatMap((r) => [...r.querySelectorAll(':scope > [data-cell]')])
-  const buttons = cells.reduce((s, el) => s + el.getBoundingClientRect().width, 0) + gap * Math.max(0, cells.length - 1)
-  const slider = seekItems.value.length ? hostEl.value.querySelector('.dk-seekrow [role="slider"]') : null
-  const next = barLayout({ avail, buttons, hasSeek: !!slider, seekFixed: slider ? seekFixedWidth(slider) : 0 })
+  const seekIds = new Set(seekItems.value.map((i) => i.id))
+  const cells = rows.flatMap((r) => [...r.querySelectorAll(':scope > [data-cell]')]).filter((el) => !seekIds.has(el.dataset.cell))
+  const width = (els) => els.reduce((s, el) => s + el.getBoundingClientRect().width, 0) + gap * Math.max(0, els.length - 1)
+  const buttons = width(cells)
+  const headIds = new Set(barHead.value.map((i) => i.id))
+  const head = barTail.value.length ? width(cells.filter((el) => headIds.has(el.dataset.cell))) : 0
+  // the slider wherever it sits now — its own row, or inside the first button row ('stack2h')
+  const slider = seekItems.value.length ? hostEl.value.querySelector(`[data-cell="${seekItems.value[0].id}"] [role="slider"]`) : null
+  const next = barLayout({ avail, buttons, hasSeek: !!slider, seekFixed: slider ? seekFixedWidth(slider) : 0, head })
   if (next && next !== layout.value) layout.value = next
 }
 watch(() => [barHead.value.map((i) => i.id).join(), barTail.value.map((i) => i.id).join()], refit, { flush: 'post' })
@@ -738,6 +755,9 @@ function cellFlex(it) { return it?.flex || '0 0 auto' }
 .dk-bar .dk-btnrow { justify-content: safe center; flex-wrap: wrap; }
 .dk-bar .dk-btnrow + .dk-btnrow { margin-top: 8px; }
 .dk-bar .dk-seekrow > .dk-cell { min-width: 0; }
+/* 'stack2h' — the seek cell inside the first button row takes the room the buttons leave */
+.dk-bar .dk-headrow { flex-wrap: nowrap; }
+.dk-bar .dk-headrow > .dk-cell { min-width: 0; }
 .dk-bar .dk-play { width: 48px; height: 48px; }
 .dk-bar .dk-pbtn { min-width: var(--touch-min); justify-content: center; }
 /* ใบ v3/pleng#113 — ONE row where there is room (refit() + lib/dockLayout.js decide): the seek bar
