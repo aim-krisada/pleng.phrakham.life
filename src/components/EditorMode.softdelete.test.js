@@ -12,6 +12,9 @@ import { nextTick } from 'vue'
 
 const calls = vi.hoisted(() => [])
 const trashRows = vi.hoisted(() => ({ value: [] }))
+const draftRows = vi.hoisted(() => ({ value: [] }))
+// ใบ v3/pleng#175 — what each RPC answers ({ data, error }); unset = { data: null, error: null }
+const rpcAnswer = vi.hoisted(() => ({}))
 
 vi.mock('../supabase.js', () => {
   const makeQuery = (table) => {
@@ -26,7 +29,7 @@ vi.mock('../supabase.js', () => {
     q.single = () => Promise.resolve({ data: null, error: null })
     // awaited list queries resolve here; the trash list gets its rows, everything else []
     q.then = (res) =>
-      Promise.resolve({ data: q._not ? trashRows.value : [], error: null }).then(res)
+      Promise.resolve({ data: q._not ? trashRows.value : table === 'song_drafts' ? draftRows.value : [], error: null }).then(res)
     return q
   }
   return {
@@ -34,7 +37,7 @@ vi.mock('../supabase.js', () => {
       from: (table) => makeQuery(table),
       rpc: (name, args) => {
         calls.push({ table: 'rpc:' + name, verb: 'rpc', args: [args] })
-        return Promise.resolve({ data: null, error: null })
+        return Promise.resolve(rpcAnswer[name] || { data: null, error: null })
       },
       auth: { onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) },
     },
@@ -42,6 +45,7 @@ vi.mock('../supabase.js', () => {
 })
 
 import EditorMode from './EditorMode.vue'
+import { session } from '../store.js'
 
 const SONG = {
   id: 'song-1',
@@ -75,6 +79,9 @@ let wrapper
 beforeEach(async () => {
   calls.length = 0
   trashRows.value = []
+  draftRows.value = []
+  for (const k of Object.keys(rpcAnswer)) delete rpcAnswer[k]
+  session.value = null
   document.body.innerHTML = '<div id="shell-title"></div><div id="shell-menus"></div>'
   wrapper = mount(EditorMode, {
     attachTo: document.body,
@@ -128,6 +135,68 @@ describe('trash panel', () => {
     const rpc = lastRpc('restore_song')
     expect(rpc).toBeTruthy()
     expect(rpc.args[0]).toEqual({ p_song_id: 'song-9' })
+  })
+})
+
+// ใบ v3/pleng#175 — ล้างถังขยะ (db/016 empty_trash)
+describe('empty the trash', () => {
+  const SONG9 = { id: 'song-9', number: 66, title_th: 'เพลงที่ลบ', deleted_at: '2026-11-15T00:00:00Z' }
+  const DRAFT9 = { id: 'd-9', title_th: 'งานร่างที่ลบ', author_id: 'x', status: 'pending', deleted_at: '2026-11-15T00:00:00Z' }
+  const openTrash = async () => {
+    await openManageMenu()
+    await click('[role=menuitem]', (b) => b.textContent.includes('ถังขยะ'))
+  }
+  // loadDrafts only runs with a session; set one the way the editor reads it
+  const withSession = async () => {
+    session.value = { user: { id: 'me' } }
+    await nextTick()
+  }
+
+  it('shows songs AND drafts together (songs used to hide when a draft was in the trash)', async () => {
+    trashRows.value = [SONG9]
+    draftRows.value = [DRAFT9]
+    await withSession()
+    await openTrash()
+    const names = [...document.querySelectorAll('.trash-name')].map((e) => e.textContent)
+    expect(names.some((t) => t.includes('เพลงที่ลบ'))).toBe(true)
+    expect(names.some((t) => t.includes('งานร่างที่ลบ'))).toBe(true)
+  })
+
+  it('asks first with the counts, then empties through empty_trash(true)', async () => {
+    trashRows.value = [SONG9]
+    rpcAnswer.empty_trash = { data: { songs: 1, drafts: 2 }, error: null }
+    await openTrash()
+    await click('.trash-empty')
+    // the first click only counts — nothing deleted yet
+    expect(calls.filter((c) => c.table === 'rpc:empty_trash').every((c) => c.args[0].p_confirm === false)).toBe(true)
+    const q = document.querySelector('#empty-trash-t').parentElement.textContent
+    expect(q).toContain('เพลง 1 เพลง')
+    expect(q).toContain('งานร่าง 2 งาน')
+    expect(q).toContain('กู้คืนไม่ได้')
+    await click('.trash-empty-go')
+    expect(lastRpc('empty_trash').args[0]).toEqual({ p_confirm: true })
+    expect(document.querySelector('#empty-trash-t')).toBeNull()
+  })
+
+  it('cancel deletes nothing', async () => {
+    trashRows.value = [SONG9]
+    rpcAnswer.empty_trash = { data: { songs: 1, drafts: 0 }, error: null }
+    await openTrash()
+    await click('.trash-empty')
+    await click('.del-song-box button.secondary')
+    expect(calls.some((c) => c.table === 'rpc:empty_trash' && c.args[0].p_confirm === true)).toBe(false)
+  })
+
+  it('no button before db/016 is run (the function is missing)', async () => {
+    trashRows.value = [SONG9]
+    rpcAnswer.empty_trash = { data: null, error: { code: 'PGRST202', message: 'Could not find the function public.empty_trash' } }
+    await openTrash()
+    expect(document.querySelector('.trash-empty')).toBeNull()
+  })
+
+  it('no button when the trash is empty', async () => {
+    await openTrash()
+    expect(document.querySelector('.trash-empty')).toBeNull()
   })
 })
 
