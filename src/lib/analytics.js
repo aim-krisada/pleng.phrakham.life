@@ -287,6 +287,7 @@ const PAGE_NAMES = {
   '/notation': 'คู่มือทำเพลง',
   '/about': 'เกี่ยวกับเรา',
   '/studio': 'เพลงใหม่',
+  '/stats': 'สถิติ',
 }
 export function pageTitle(path) {
   return PAGE_NAMES[cleanPath(path)] || 'เพลง.พระคำ.ชีวิต'
