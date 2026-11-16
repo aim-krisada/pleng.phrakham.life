@@ -36,8 +36,12 @@ export function overview(bundle, days, now = new Date()) {
 
   const byDay = {}
   for (const [[date, m], n] of r.daily || []) {
+    // only 'web' / 'app': Google also returns "(not set)" for the same visitor's events that carry no
+    // display_mode (session_start, user_engagement …) — adding those counted one person twice
+    // (16 พ.ย. 2569: 1 คนใน 28 วัน but "เฉลี่ยวันละ 2 คน"). Every visit sends a page_view with the mode.
+    if (m !== 'web' && m !== 'app') continue
     byDay[date] = byDay[date] || { web: 0, app: 0 }
-    byDay[date][m === 'app' ? 'app' : 'web'] += n
+    byDay[date][m] += n
   }
   const bars = dayList(days, now).map((date) => {
     const started = date >= COUNTING_SINCE
