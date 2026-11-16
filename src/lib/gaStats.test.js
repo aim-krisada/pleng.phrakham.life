@@ -68,6 +68,18 @@ describe('ใบ v3/pleng#164 — ภาพรวม', () => {
     expect(o.appShare).toBeNull()
   })
 
+  it('the same visitor under "(not set)" is not counted again (live 16 พ.ย.: 1 คน showed as 2 a day)', () => {
+    const b = {
+      reports: {
+        totals: [[['cur'], 1]],
+        daily: [[['20261116', 'web'], 1], [['20261116', '(not set)'], 1]],
+      },
+    }
+    const o = overview(b, 7, NOW)
+    expect(o.bars[0]).toMatchObject({ web: 1, app: 0 })
+    expect(o.weekdayAvg).toBe(Math.round(1 / 5))
+  })
+
   it('error words: not connected vs failed', () => {
     expect(gaErrorText(503)).toContain('ยังไม่ได้เชื่อม')
     expect(gaErrorText(404)).toContain('ยังไม่ได้เชื่อม')
