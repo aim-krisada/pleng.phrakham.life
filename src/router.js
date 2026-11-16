@@ -4,6 +4,7 @@ import Studio from './views/Studio.vue'
 import Guide from './views/Guide.vue'
 import NotationStandard from './views/NotationStandard.vue'
 import About from './views/About.vue'
+import Stats from './views/Stats.vue'
 
 // Hash history: works on GitHub Pages with zero server config (no 404 fallback needed)
 // A song opens in Studio — the single song surface (view or edit, gated by login).
@@ -16,6 +17,7 @@ export default createRouter({
     { path: '/guide', component: Guide },
     { path: '/notation', component: NotationStandard },
     { path: '/about', component: About },
+    { path: '/stats', component: Stats }, // ใบ v3/pleng#163 — team only, the page itself checks the login
   ],
   scrollBehavior(to) {
     if (to.hash) return { el: to.hash, top: 70 }
