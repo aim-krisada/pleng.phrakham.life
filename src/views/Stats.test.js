@@ -3,11 +3,19 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 
 const answer = vi.hoisted(() => ({ value: { data: [], error: null } }))
+// ga-stats function: not deployed yet by default (404)
+const gaAnswer = vi.hoisted(() => ({ value: { data: null, error: { context: { status: 404 } } } }))
+const invoked = vi.hoisted(() => [])
 vi.mock('../supabase.js', () => {
   const q = {}
   for (const m of ['from', 'select', 'order']) q[m] = () => q
   q.then = (res) => Promise.resolve(answer.value).then(res)
-  return { supabase: { from: () => q } }
+  return {
+    supabase: {
+      from: () => q,
+      functions: { invoke: (name, opts) => (invoked.push([name, opts]), Promise.resolve(gaAnswer.value)) },
+    },
+  }
 })
 
 import Stats from './Stats.vue'
@@ -24,6 +32,56 @@ beforeEach(() => {
   session.value = null
   profile.value = null
   answer.value = { data: [], error: null }
+  gaAnswer.value = { data: null, error: { context: { status: 404 } } }
+  invoked.length = 0
+})
+
+describe('Google numbers (ใบ v3/pleng#164)', () => {
+  it('logged out: the function is never called', async () => {
+    await mountIt()
+    expect(invoked).toHaveLength(0)
+  })
+
+  it('asks ga-stats for the chosen range, again when it changes', async () => {
+    session.value = { user: { id: 'me' } }
+    const w = await mountIt()
+    expect(invoked[0]).toEqual(['ga-stats', { body: { days: 28 } }])
+    await w.findAll('.st-chip')[2].trigger('click')
+    await flushPromises()
+    expect(invoked.at(-1)).toEqual(['ga-stats', { body: { days: 90 } }])
+  })
+
+  it('Google failing says so — never a 0', async () => {
+    session.value = { user: { id: 'me' } }
+    gaAnswer.value = { data: null, error: { context: { status: 502 } } }
+    const w = await mountIt()
+    expect(w.text()).toContain('ดึงตัวเลขจาก Google ไม่ได้ ลองใหม่ภายหลัง')
+    expect(w.find('.st-overview').exists()).toBe(false)
+  })
+
+  it('draws the overview card from the answer', async () => {
+    session.value = { user: { id: 'me' } }
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }).replace(/-/g, '')
+    gaAnswer.value = {
+      data: {
+        fetchedAt: new Date().toISOString(),
+        reports: {
+          totals: [[['cur'], 1234], [['prev'], 0]],
+          totalsByMode: [[['app', 'cur'], 1], [['web', 'cur'], 3]],
+          daily: [[[today, 'web'], 3], [[today, 'app'], 1]],
+          hours: [[['20'], 4]],
+        },
+      },
+      error: null,
+    }
+    const w = await mountIt()
+    const card = w.find('.st-overview')
+    expect(card.exists()).toBe(true)
+    expect(card.find('.st-n').text()).toBe('1,234')
+    expect(card.text()).toContain('เปิดจากแอป 25%')
+    expect(card.findAll('.st-bar')).toHaveLength(28)
+    expect(card.find('.st-parts .top').text()).toContain('เย็น')
+  })
 })
 
 describe('หน้าสถิติ', () => {
