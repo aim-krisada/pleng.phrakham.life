@@ -2934,6 +2934,40 @@ async function restoreFromTrash(s) {
   loadSongList()
 }
 
+// ใบ v3/pleng#175 (พี่เปา 16 พ.ย.) — ล้างถังขยะ: the second way out of the trash, beside the daily 30-day
+// purge. db/016 empty_trash(false) only counts — the panel uses it to know the function exists (no
+// button before the SQL is run) and to word the question; empty_trash(true) deletes it all, logging
+// each song like the daily job. Approver only, checked in the database too.
+const emptyTrashReady = ref(false)
+const confirmEmpty = ref(null) // { songs, drafts } while the question is open
+async function probeEmptyTrash() {
+  if (!isApprover.value) return (emptyTrashReady.value = false)
+  const { error } = await supabase.rpc('empty_trash', { p_confirm: false })
+  emptyTrashReady.value = !error
+}
+async function askEmptyTrash() {
+  const { data, error } = await supabase.rpc('empty_trash', { p_confirm: false })
+  if (error) {
+    saveMsg.value = '❌ ล้างถังขยะไม่สำเร็จ: ' + error.message
+    return
+  }
+  confirmEmpty.value = {
+    songs: data?.songs ?? trashSongs.value.length,
+    drafts: data?.drafts ?? trashDrafts.value.length,
+  }
+}
+async function doEmptyTrash() {
+  confirmEmpty.value = null
+  const { data, error } = await supabase.rpc('empty_trash', { p_confirm: true })
+  if (error) {
+    saveMsg.value = '❌ ล้างถังขยะไม่สำเร็จ: ' + error.message
+    return
+  }
+  saveMsg.value = `🗑️ ล้างถังขยะแล้ว — ลบเพลง ${data?.songs ?? 0} เพลง งานร่าง ${data?.drafts ?? 0} งาน`
+  loadTrash()
+  loadDrafts()
+}
+
 function save() {
   if (legacy.value || (isApprover.value && !reviewingDraft.value)) return saveDirect()
   return saveDraft(reviewingDraft.value ? 'pending' : 'draft')
@@ -4045,7 +4079,7 @@ function openPanel(p) {
   viewMode.value = 'edit'
   if (p === 'history') restoreNotice.value = '' // ใบ#133 — never greet a visit with an old failure
   if (p === 'open') pendingPick.value = pickerId.value
-  if (p === 'trash') { loadTrash(); loadDrafts() }
+  if (p === 'trash') { loadTrash(); loadDrafts(); probeEmptyTrash() }
   activePanel.value = p
 }
 function closePanel() {
@@ -5303,7 +5337,8 @@ defineExpose({
         <!-- ถังขยะ (db/012): songs moved to the trash. Restore brings one back to the library;
              it is auto-purged after 30 days. Approver only. -->
         <div v-else-if="activePanel === 'trash'">
-          <p v-if="!trashSongs.length && !trashDrafts.length" class="muted">ถังขยะว่าง — ยังไม่มีเพลงที่ลบ</p>
+          <p v-if="!trashSongs.length && !trashDrafts.length" class="muted">ถังขยะว่าง — ยังไม่มีเพลงหรืองานที่ลบ</p>
+          <p v-else class="muted" style="margin: 0 0 8px">ของในถังขยะจะถูกลบถาวรอัตโนมัติหลัง 30 วัน · กด “กู้คืน” เพื่อนำกลับ</p>
           <!-- ใบ v3/pleng#162 — drafts thrown away (db/015): who made it, and กู้คืน -->
           <template v-if="trashDrafts.length">
             <strong>งานร่างที่ลบ</strong>
@@ -5314,14 +5349,22 @@ defineExpose({
             </div>
             <hr v-if="trashSongs.length" style="border: none; border-top: 1px solid var(--line); margin: 10px 0" />
           </template>
-          <template v-else>
-            <p class="muted" style="margin: 0 0 8px">เพลงในถังขยะจะถูกลบถาวรอัตโนมัติหลัง 30 วัน · กด “กู้คืน” เพื่อนำกลับ</p>
+          <!-- ใบ v3/pleng#175 — songs show whether or not drafts are in the trash too (they used to hide) -->
+          <template v-if="trashSongs.length">
+            <strong v-if="trashDrafts.length">เพลงที่ลบ</strong>
             <div v-for="s in trashSongs" :key="s.id" class="draft-row">
               <span class="trash-name">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</span>
               <button class="secondary tiny trash-restore" @click="restoreFromTrash(s)"><Icon name="undo-2" :size="14" /> กู้คืน</button>
             </div>
           </template>
-          <div class="panel-foot"><button class="secondary" @click="closePanel">ปิด</button></div>
+          <div class="panel-foot">
+            <button
+              v-if="isApprover && emptyTrashReady && (trashSongs.length || trashDrafts.length)"
+              class="eset-confirm-del trash-empty"
+              @click="askEmptyTrash"
+            ><Icon name="trash-2" :size="14" /> ล้างถังขยะ</button>
+            <button class="secondary" @click="closePanel">ปิด</button>
+          </div>
         </div>
       </div>
     </div>
@@ -5334,6 +5377,18 @@ defineExpose({
         <div class="eset-confirm-btns">
           <button class="secondary" @click="cancelDeleteSong">ยกเลิก</button>
           <button class="eset-confirm-del" v-focus @click="doDeleteSong"><Icon name="trash-2" :size="14" /> ลบเพลง</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ใบ v3/pleng#175 — confirm ล้างถังขยะ: says how many, and that there is no way back -->
+    <div v-if="confirmEmpty" class="del-song-overlay no-print" role="alertdialog" aria-modal="true" aria-labelledby="empty-trash-t" @click.self="confirmEmpty = null" @keydown.esc="confirmEmpty = null">
+      <div class="del-song-box">
+        <p id="empty-trash-t" class="eset-confirm-t">ล้างถังขยะ ?</p>
+        <p class="eset-confirm-d">จะลบเพลง {{ confirmEmpty.songs }} เพลง และงานร่าง {{ confirmEmpty.drafts }} งาน ออกถาวร · <b>กู้คืนไม่ได้</b></p>
+        <div class="eset-confirm-btns">
+          <button class="secondary" v-focus @click="confirmEmpty = null">ยกเลิก</button>
+          <button class="eset-confirm-del trash-empty-go" @click="doEmptyTrash"><Icon name="trash-2" :size="14" /> ล้างถังขยะ</button>
         </div>
       </div>
     </div>
@@ -5932,6 +5987,8 @@ defineExpose({
 .undo-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .trash-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trash-restore { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; }
+/* ใบ v3/pleng#175 — ล้างถังขยะ sits apart from ปิด, at the left of the panel foot */
+.trash-empty { margin-right: auto; }
 /* small buttons still meet the 24x24 target size (WCAG 2.2 2.5.8) */
 .tiny { padding: 4px 10px; font-size: 13px; min-height: 28px; min-width: 28px; }
 .role-badge {
