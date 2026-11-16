@@ -1133,6 +1133,30 @@ function setRowLyricText(row, text, lang = 'th') {
   const next = wordsToSyllables(splitHeldText(text), row.stanza, langArr(row, lang) || [], heldSlots)
   row.lyrics = { ...(row.lyrics || {}), [lang]: next }
 }
+// ใบ v3/pleng#176 (พี่เปา 16 พ.ย.) — the cursor jumped to the end while deleting in the paragraph box.
+// The box showed text REBUILT from the syllables, so any keystroke whose rebuilt text differs from what
+// was typed (a deleted space, a double space, a lone "-") made the browser replace the whole value —
+// and a replaced value puts the cursor at the end. While a box has focus it now shows exactly what was
+// typed; the syllables still update on every key, and the box re-reads them when focus leaves.
+const paraDraft = ref({}) // lang → the text being typed, only while that box has focus
+function paraValue(row, lang = 'th') {
+  return Object.prototype.hasOwnProperty.call(paraDraft.value, lang) ? paraDraft.value[lang] : rowLyricText(row, lang)
+}
+function paraFocus(row, lang = 'th') {
+  paraDraft.value = { ...paraDraft.value, [lang]: rowLyricText(row, lang) }
+}
+function paraInput(row, text, lang = 'th') {
+  paraDraft.value = { ...paraDraft.value, [lang]: text }
+  setRowLyricText(row, text, lang)
+}
+function paraBlur(lang = 'th') {
+  const next = { ...paraDraft.value }
+  delete next[lang]
+  paraDraft.value = next
+}
+watch(lensChoice, () => { paraDraft.value = {} }) // another ข้อ: show its own words
+
+
 // MP3 (B083): imported lyrics often arrive as one blob per verse (comma between วรรค). Split
 // it into Thai word tokens with Intl.Segmenter (ships with the browser · ICU dict · no lib —
 // Q2). Then feed the space-joined tokens back through setRowLyricText so they map onto the
@@ -5105,11 +5129,13 @@ defineExpose({
         <template v-if="edShowTh">
         <span v-if="edAltLangs.length" class="para-lang">ไทย</span>
         <textarea
-          :value="rowLyricText(lensRow)"
+          :value="paraValue(lensRow)"
           rows="4"
           class="arr-lyric"
           aria-label="เนื้อร้องแบบย่อหน้า"
-          @input="setRowLyricText(lensRow, $event.target.value)"
+          @focus="paraFocus(lensRow)"
+          @input="paraInput(lensRow, $event.target.value)"
+          @blur="paraBlur()"
         ></textarea>
         <!-- MP3: split a pasted/imported lyric blob into syllables that land on the melody's
              notes, then fine-tune with the ◀▶ tools under each note -->
@@ -5124,13 +5150,15 @@ defineExpose({
         <template v-for="l in edAltLangs" :key="'para-' + l">
           <span class="para-lang" :lang="l">{{ langName(l) }}</span>
           <textarea
-            :value="rowLyricText(lensRow, l)"
+            :value="paraValue(lensRow, l)"
             rows="4"
             class="arr-lyric"
             :lang="l"
             :data-para-lang="l"
             :aria-label="`เนื้อร้อง ${langName(l)} แบบย่อหน้า`"
-            @input="setRowLyricText(lensRow, $event.target.value, l)"
+            @focus="paraFocus(lensRow, l)"
+            @input="paraInput(lensRow, $event.target.value, l)"
+            @blur="paraBlur(l)"
           ></textarea>
         </template>
         <span class="sr-only" aria-live="polite">{{ syllableMsg }}</span>
