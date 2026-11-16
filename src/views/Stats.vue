@@ -9,6 +9,7 @@ import { ref, computed, watch } from 'vue'
 import { supabase } from '../supabase.js'
 import { session, tier, legacy } from '../store.js'
 import { RANGES, rangeLabel, draftStats } from '../lib/teamStats.js'
+import { overview, gaErrorText } from '../lib/gaStats.js'
 
 const days = ref(28)
 const loggedIn = computed(() => !!session.value)
@@ -26,6 +27,40 @@ async function loadDrafts() {
 watch(loggedIn, (v) => v && loadDrafts(), { immediate: true })
 
 const work = computed(() => (drafts.value ? draftStats(drafts.value, days.value) : null))
+
+// ── Google numbers, through the ga-stats Edge Function (it holds the key and checks the login) ──
+const ga = ref(null) // the bundle, or null while loading / on error
+const gaError = ref('')
+let gaAsk = 0
+async function loadGa() {
+  if (!loggedIn.value) return
+  const ask = ++gaAsk
+  ga.value = null
+  gaError.value = ''
+  let status = 0
+  let data = null
+  try {
+    const res = await supabase.functions.invoke('ga-stats', { body: { days: days.value } })
+    data = res.data
+    status = res.error ? res.error.context?.status || 500 : 200
+  } catch {
+    status = 500
+  }
+  if (ask !== gaAsk) return // the range changed while we waited
+  if (status !== 200 || !data?.reports) gaError.value = gaErrorText(status)
+  else ga.value = data
+}
+watch([loggedIn, days], ([v]) => v && loadGa(), { immediate: true })
+const ov = computed(() => (ga.value ? overview(ga.value, days.value) : null))
+const fetchedAt = computed(() =>
+  ga.value?.fetchedAt
+    ? new Date(ga.value.fetchedAt).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : '',
+)
+const barTitle = (b) => {
+  const d = `${+b.date.slice(6)}/${+b.date.slice(4, 6)}`
+  return b.started ? `${d} · ${b.web + b.app} คน (แอป ${b.app})` : `${d} · ยังไม่ได้เริ่มนับ`
+}
 </script>
 
 <template>
@@ -55,7 +90,43 @@ const work = computed(() => (drafts.value ? draftStats(drafts.value, days.value)
       <section class="st-sec">
         <h3>ภาพรวม</h3>
         <p class="muted st-why">ใช้ดูว่าเว็บมีคนใช้มากขึ้นหรือน้อยลง</p>
-        <div class="card st-card st-wait">ยังไม่ได้เชื่อมตัวเลขจาก Google ⇒ ตัวเลขชุดนี้จะขึ้นเมื่อเชื่อมเสร็จ</div>
+        <div v-if="gaError" class="card st-card st-wait">{{ gaError }}</div>
+        <div v-else-if="!ov" class="card st-card muted">กำลังโหลด…</div>
+        <div v-else class="card st-card st-overview">
+          <h4>คนใช้เว็บ</h4>
+          <div class="st-big">
+            <b class="st-n">{{ ov.users.toLocaleString('th-TH') }}</b>
+            <span>คน ใน {{ days }} วันนี้</span>
+            <span v-if="ov.change != null" class="st-chg" :class="ov.change >= 0 ? 'up' : 'down'">
+              {{ ov.change >= 0 ? '+' : '' }}{{ ov.change }}% จาก {{ days }} วันก่อน
+            </span>
+            <span v-else class="muted st-chg">ยังเทียบกับช่วงก่อนไม่ได้ ⇒ ตอนนั้นยังไม่ได้เริ่มนับ</span>
+          </div>
+          <p v-if="ov.appShare != null" class="st-app">
+            เปิดจากแอป {{ ov.appShare }}%<template v-if="ov.prevAppShare != null"> · {{ days }} วันก่อน {{ ov.prevAppShare }}%</template>
+          </p>
+          <div class="st-bars" role="img" :aria-label="`คนใช้รายวัน ${days} วัน`">
+            <div v-for="b in ov.bars" :key="b.date" class="st-bar" :class="{ off: !b.started, we: b.weekend }" :title="barTitle(b)">
+              <template v-if="b.started">
+                <span class="st-bar-web" :style="{ height: (b.web / ov.max) * 100 + '%' }"></span>
+                <span class="st-bar-app" :style="{ height: (b.app / ov.max) * 100 + '%' }"></span>
+              </template>
+            </div>
+          </div>
+          <p class="st-legend">
+            <span><i class="sw web"></i> เว็บ วันธรรมดา</span>
+            <span><i class="sw web we"></i> เว็บ เสาร์อาทิตย์</span>
+            <span><i class="sw app"></i> แอปที่ติดตั้ง</span>
+          </p>
+          <p v-if="ov.notStartedDays" class="muted st-small">ช่องว่างทางซ้าย {{ ov.notStartedDays }} วัน ⇒ ยังไม่ได้เริ่มนับ</p>
+          <p v-if="ov.weekdayAvg != null">
+            วันธรรมดาเฉลี่ยวันละ {{ ov.weekdayAvg }} คน<template v-if="ov.weekendAvg != null"> · เสาร์อาทิตย์เฉลี่ยวันละ {{ ov.weekendAvg }} คน</template>
+          </p>
+          <div v-if="ov.busiest" class="st-parts">
+            <span v-for="p in ov.dayParts" :key="p.name" :class="{ top: p.name === ov.busiest }">{{ p.name }} {{ p.share }}%</span>
+          </div>
+          <p class="muted st-small">ตัวเลข ณ {{ fetchedAt }}<template v-if="ga.stale"> ⇒ ดึงรอบล่าสุดไม่สำเร็จ นี่คือตัวเลขรอบก่อน</template></p>
+        </div>
       </section>
 
       <section class="st-sec">
@@ -92,7 +163,8 @@ const work = computed(() => (drafts.value ? draftStats(drafts.value, days.value)
       <section class="st-sec">
         <h3>การใช้งานแอป</h3>
         <p class="muted st-why">ใช้ตัดสินว่าควรปรับปุ่มไหน หรือเพิ่มเพลงอะไร</p>
-        <div class="card st-card st-wait">ยังไม่ได้เชื่อมตัวเลขจาก Google ⇒ ตัวเลขชุดนี้จะขึ้นเมื่อเชื่อมเสร็จ</div>
+        <div v-if="gaError" class="card st-card st-wait">{{ gaError }}</div>
+        <div v-else class="card st-card st-wait">การ์ดชุดนี้กำลังทำ ⇒ รอตัวเลขสะสมสักระยะ</div>
       </section>
     </template>
   </div>
@@ -129,4 +201,23 @@ const work = computed(() => (drafts.value ? draftStats(drafts.value, days.value)
 }
 .st-row-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-row-d { flex: 0 0 auto; font-weight: 600; }
+.st-big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.st-chg { font-size: 0.9em; }
+.st-chg.up { color: var(--green, #2f855a); }
+.st-chg.down { color: var(--red, #c0392b); }
+.st-app { margin: 6px 0 10px; }
+.st-bars { display: flex; align-items: flex-end; gap: 2px; height: 120px; border-bottom: 1px solid var(--line); }
+.st-bar { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column-reverse; }
+.st-bar.off { background: repeating-linear-gradient(45deg, transparent 0 3px, var(--line) 3px 4px); opacity: 0.6; }
+.st-bar-web { background: #8fb3d9; }
+.st-bar.we .st-bar-web { background: #d9a35f; }
+.st-bar-app { background: #2b6cb0; }
+.st-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 4px; font-size: 0.85em; }
+.sw { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: middle; background: #8fb3d9; }
+.sw.we { background: #d9a35f; }
+.sw.app { background: #2b6cb0; }
+.st-small { font-size: 0.85em; margin: 4px 0; }
+.st-parts { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.st-parts span { padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 0.9em; }
+.st-parts span.top { background: var(--accent, #2b6cb0); border-color: var(--accent, #2b6cb0); color: #fff; font-weight: 600; }
 </style>
