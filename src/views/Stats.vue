@@ -9,7 +9,15 @@ import { ref, computed, watch } from 'vue'
 import { supabase } from '../supabase.js'
 import { session, tier, legacy } from '../store.js'
 import { RANGES, rangeLabel, draftStats } from '../lib/teamStats.js'
-import { overview, gaErrorText } from '../lib/gaStats.js'
+import {
+  overview, gaErrorText, songIds, topSongs, regions, sources, notFound, foundNoPick, needsFix, keyChanges,
+  features, deadEnds, openFrom, devices,
+} from '../lib/gaStats.js'
+import { readCatalog, CATALOG_COLUMNS } from '../lib/offlineSongs.js'
+import { fetchAllRows } from '../lib/fetchAllRows.js'
+import { filterSongs } from '../lib/songSearch.js'
+import { songParts } from '../lib/analytics.js'
+import { categoryName } from '../lib/bookshelf.js'
 
 const days = ref(28)
 const loggedIn = computed(() => !!session.value)
@@ -61,6 +69,54 @@ const barTitle = (b) => {
   const d = `${+b.date.slice(6)}/${+b.date.slice(4, 6)}`
   return b.started ? `${d} · ${b.web + b.app} คน (แอป ${b.app})` : `${d} · ยังไม่ได้เริ่มนับ`
 }
+
+// ── the songs the numbers point at (ใบ v3/pleng#165–#174) ──
+// Google only knows song ids. Names, books and content come from the catalog this device already keeps
+// for offline use (no extra download when it is there); anything not in it — a song still waiting for
+// ตรวจแล้ว, or one in the trash — is read by id. A song found nowhere was removed for good.
+const songs = ref(new Map())
+const catalog = ref([])
+async function loadSongs(bundle) {
+  let rows = (await readCatalog())?.rows || []
+  if (!rows.length) {
+    const { data } = await fetchAllRows(() =>
+      supabase.from('songs').select(CATALOG_COLUMNS).is('deleted_at', null).order('number', { ascending: true }).order('id', { ascending: true }),
+    )
+    rows = data || []
+  }
+  catalog.value = rows
+  const map = new Map(rows.map((r) => [String(r.id), r]))
+  const missing = songIds(bundle).filter((id) => !map.has(String(id)))
+  if (missing.length) {
+    const { data } = await supabase.from('songs').select('id, number, title_th, category, content, deleted_at').in('id', missing.slice(0, 300))
+    for (const r of data || []) map.set(String(r.id), r)
+  }
+  songs.value = map
+}
+watch(ga, (b) => b && loadSongs(b))
+
+const songLabel = (s) => (s ? `${s.number != null ? s.number + '. ' : ''}${s.title_th || ''}` : 'เพลงที่ลบไปแล้ว')
+const bookOf = (s) => (s ? categoryName(s.category) : '')
+const firstSong = (term) => filterSongs(catalog.value, term)[0] || null
+
+const cards = computed(() => {
+  const b = ga.value
+  if (!b) return null
+  const m = songs.value
+  return {
+    top: topSongs(b, m, { prevComparable: !!ov.value?.prevComparable }),
+    regions: regions(b),
+    sources: sources(b),
+    notFound: notFound(b),
+    noPick: foundNoPick(b, firstSong),
+    fix: needsFix(b, m, songParts),
+    keys: keyChanges(b, m),
+    features: features(b, m),
+    dead: deadEnds(b, m),
+    from: openFrom(b),
+    devices: devices(b),
+  }
+})
 </script>
 
 <template>
@@ -127,11 +183,81 @@ const barTitle = (b) => {
           </div>
           <p class="muted st-small">ตัวเลข ณ {{ fetchedAt }}<template v-if="ga.stale"> ⇒ ดึงรอบล่าสุดไม่สำเร็จ นี่คือตัวเลขรอบก่อน</template></p>
         </div>
+
+        <template v-if="cards">
+          <!-- ใบ v3/pleng#165 stat.04 -->
+          <div class="card st-card st-top">
+            <h4>เพลงที่คนเปิดมากที่สุด</h4>
+            <p v-if="!cards.top.length" class="muted st-none">ยังไม่มีคนเปิดเพลงในช่วงนี้</p>
+            <ol v-else class="st-ol">
+              <li v-for="r in cards.top" :key="r.id" :class="{ gone: r.removed }">
+                <router-link v-if="!r.removed" :to="'/song/' + r.id" class="st-li-t">{{ songLabel(r.song) }}</router-link>
+                <span v-else class="st-li-t">{{ songLabel(r.song) }} <em>ลบแล้ว</em></span>
+                <span v-if="bookOf(r.song)" class="st-book">{{ bookOf(r.song) }}</span>
+                <span v-if="r.isNew" class="st-new">ใหม่</span>
+                <b class="st-li-n">{{ r.opens }} ครั้ง</b>
+              </li>
+            </ol>
+          </div>
+
+          <!-- ใบ v3/pleng#166 stat.05 -->
+          <div class="card st-card st-where">
+            <h4>คนใช้อยู่ที่ไหน</h4>
+            <p v-if="!cards.regions.total" class="muted st-none">ยังไม่มีตัวเลข</p>
+            <div v-for="r in cards.regions.rows" :key="r.name" class="st-li">
+              <span class="st-li-t">{{ r.name }}</span><span class="st-meter"><i :style="{ width: r.pct + '%' }"></i></span><b class="st-li-n">{{ r.pct }}%</b>
+            </div>
+            <p class="muted st-small">จังหวัดเป็นค่าประมาณ ⇒ Google เดาจากเครือข่ายเน็ต คนใช้เน็ตมือถือมักถูกเดาเป็นกรุงเทพ</p>
+            <p class="st-sub">มาถึงเว็บทางไหน</p>
+            <p v-if="!cards.sources.total" class="muted st-none">ยังไม่มีตัวเลข</p>
+            <div v-for="r in cards.sources.rows" :key="r.name" class="st-li">
+              <span class="st-li-t">{{ r.name }}</span><span class="st-meter"><i :style="{ width: r.pct + '%' }"></i></span><b class="st-li-n">{{ r.pct }}%</b>
+            </div>
+          </div>
+        </template>
       </section>
 
       <section class="st-sec">
         <h3>งานเพลง</h3>
         <p class="muted st-why">ใช้ตัดสินว่าสัปดาห์นี้ควรเร่งพิมพ์เพลงใหม่ หรือเคลียร์งานที่รอตรวจก่อน</p>
+        <div v-if="gaError" class="card st-card st-wait">{{ gaError }}</div>
+        <template v-else-if="cards">
+          <!-- ใบ v3/pleng#167 stat.06 -->
+          <div class="card st-card st-notfound">
+            <h4>คำที่คนค้นแล้วไม่เจอเพลง</h4>
+            <p v-if="!cards.notFound.anySearch" class="muted st-none">ยังไม่มีคนค้นในช่วงนี้</p>
+            <p v-else-if="!cards.notFound.rows.length" class="st-none">ทุกคำค้นเจอเพลง</p>
+            <div v-for="r in cards.notFound.rows" :key="r.term" class="st-li">
+              <span class="st-li-t st-term">{{ r.term }}</span><b class="st-li-n">{{ r.notFound }} ครั้ง</b>
+            </div>
+          </div>
+
+          <!-- ใบ v3/pleng#169 stat.08 -->
+          <div class="card st-card st-nopick">
+            <h4>ค้นเจอเพลง แต่ไม่มีใครกดเข้าไป</h4>
+            <p v-if="!cards.noPick.length" class="muted st-none">ยังไม่มีคำแบบนี้ ⇒ นับเฉพาะคำที่ค้น 3 ครั้งขึ้นไป</p>
+            <div v-for="r in cards.noPick" :key="r.term" class="st-li st-li-2">
+              <span class="st-li-t"><span class="st-term">{{ r.term }}</span> <span class="muted">ขึ้นเพลงแรกเป็น {{ r.first ? songLabel(r.first) : '?' }}</span></span>
+              <b class="st-li-n">{{ r.searches }} ครั้ง</b>
+            </div>
+          </div>
+
+          <!-- ใบ v3/pleng#168 stat.07 -->
+          <div class="card st-card st-fix">
+            <h4>เพลงที่คนเปิดบ่อย แต่ยังต้องแก้</h4>
+            <p v-if="!cards.fix.length" class="muted st-none">เพลงที่คนเปิดมีโน้ตและคอร์ดครบ</p>
+            <div v-for="r in cards.fix" :key="r.id" class="st-li st-li-2">
+              <router-link :to="'/song/' + r.id" class="st-li-t">{{ songLabel(r.song) }} <span class="st-miss">ยังไม่มี{{ r.missing.join('และ') }}</span></router-link>
+              <b class="st-li-n">{{ r.opens }} ครั้ง</b>
+            </div>
+            <p class="st-sub">เพลงที่คนเปลี่ยนคีย์บ่อย</p>
+            <p v-if="!cards.keys.length" class="muted st-none">ยังไม่มีใครเปลี่ยนคีย์</p>
+            <div v-for="r in cards.keys" :key="r.id" class="st-li st-li-2">
+              <router-link :to="'/song/' + r.id" class="st-li-t">{{ songLabel(r.song) }} <span class="muted">ตั้งไว้ {{ r.setKey || '?' }} ⇒ คนเปลี่ยนเป็น {{ r.topTo }} บ่อยสุด</span></router-link>
+              <b class="st-li-n">{{ r.n }} ครั้ง</b>
+            </div>
+          </div>
+        </template>
         <div class="card st-card st-drafts">
           <h4>งานที่ค้างอยู่</h4>
           <p v-if="tier !== 'approver'" class="muted st-own">คุณเห็นเฉพาะงานของคุณเอง</p>
@@ -164,7 +290,64 @@ const barTitle = (b) => {
         <h3>การใช้งานแอป</h3>
         <p class="muted st-why">ใช้ตัดสินว่าควรปรับปุ่มไหน หรือเพิ่มเพลงอะไร</p>
         <div v-if="gaError" class="card st-card st-wait">{{ gaError }}</div>
-        <div v-else class="card st-card st-wait">การ์ดชุดนี้กำลังทำ ⇒ รอตัวเลขสะสมสักระยะ</div>
+        <div v-else-if="!cards" class="card st-card muted">กำลังโหลด…</div>
+        <template v-else>
+          <!-- ใบ v3/pleng#171 stat.10 -->
+          <div class="card st-card st-features">
+            <h4>ในทุก 100 ครั้งที่เปิดเพลง ใช้ปุ่มไหนบ้าง</h4>
+            <p v-if="cards.features.every((f) => f.low)" class="muted st-none">ข้อมูลยังน้อย ⇒ เปิดเพลงไม่ถึง 30 ครั้ง</p>
+            <template v-else>
+              <div v-for="f in cards.features" :key="f.key" class="st-li">
+                <span class="st-li-t">{{ f.name }}</span>
+                <span v-if="f.low" class="muted st-li-n">ข้อมูลยังน้อย</span>
+                <template v-else><span class="st-meter"><i :style="{ width: f.pct + '%' }"></i></span><b class="st-li-n">{{ f.pct }}%</b></template>
+              </div>
+              <p class="muted st-small">ข้ามท่อน นับเฉพาะเพลงที่มีหลายท่อน</p>
+            </template>
+          </div>
+
+          <!-- ใบ v3/pleng#172 stat.11 -->
+          <div class="card st-card st-dead">
+            <h4>จุดที่คนเปิดเพลงแล้วติด</h4>
+            <p v-if="!cards.dead.total" class="st-none">ยังไม่มีใครติด</p>
+            <template v-else>
+              <div v-for="k in cards.dead.kinds" :key="k.key" class="st-li">
+                <span class="st-li-t">{{ k.name }}</span><b class="st-li-n">{{ k.n }} ครั้ง</b>
+              </div>
+              <p class="st-sub">เพลงที่เจอบ่อยที่สุด</p>
+              <div v-for="r in cards.dead.songs" :key="r.id" class="st-li st-li-2">
+                <router-link :to="'/song/' + r.id" class="st-li-t">{{ songLabel(r.song) }} <span class="muted">{{ r.kinds.join(' · ') }}</span></router-link>
+                <b class="st-li-n">{{ r.n }} ครั้ง</b>
+              </div>
+            </template>
+          </div>
+
+          <!-- ใบ v3/pleng#173 stat.12 -->
+          <div class="card st-card st-from">
+            <h4>คนหาเพลงด้วยวิธีไหน</h4>
+            <p v-if="cards.from.low" class="muted st-none">ข้อมูลยังน้อย ⇒ เปิดเพลงไม่ถึง 30 ครั้ง</p>
+            <template v-else>
+              <div v-for="r in cards.from.rows" :key="r.key" class="st-li">
+                <span class="st-li-t">{{ r.name }}</span><span class="st-meter"><i :style="{ width: r.pct + '%' }"></i></span><b class="st-li-n">{{ r.pct }}%</b>
+              </div>
+            </template>
+          </div>
+
+          <!-- ใบ v3/pleng#174 stat.13 -->
+          <div class="card st-card st-devices">
+            <h4>คนใช้เครื่องอะไร</h4>
+            <p v-if="cards.devices.low" class="muted st-none">ข้อมูลยังน้อย ⇒ คนใช้ไม่ถึง 30 คน</p>
+            <template v-else>
+              <div v-for="r in cards.devices.devices" :key="r.name" class="st-li">
+                <span class="st-li-t">{{ r.name }} <span class="muted">⇒ จากแอป {{ r.appPct }}%</span></span><span class="st-meter"><i :style="{ width: r.pct + '%' }"></i></span><b class="st-li-n">{{ r.pct }}%</b>
+              </div>
+              <p class="st-sub">ระบบของเครื่อง</p>
+              <div v-for="r in cards.devices.systems" :key="r.name" class="st-li">
+                <span class="st-li-t">{{ r.name }} <span class="muted">⇒ จากแอป {{ r.appPct }}%</span></span><span class="st-meter"><i :style="{ width: r.pct + '%' }"></i></span><b class="st-li-n">{{ r.pct }}%</b>
+              </div>
+            </template>
+          </div>
+        </template>
       </section>
     </template>
   </div>
@@ -219,5 +402,23 @@ const barTitle = (b) => {
 .st-small { font-size: 0.85em; margin: 4px 0; }
 .st-parts { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .st-parts span { padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 0.9em; }
+.st-card + .st-card { margin-top: 12px; }
+.st-ol { margin: 0; padding-left: 1.6em; }
+.st-ol li { padding: 6px 0; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.st-ol li:first-child { border-top: 0; }
+.st-ol li::marker { color: var(--muted, #666); }
+.st-ol li.gone .st-li-t { color: var(--muted, #888); }
+.st-ol li em { font-style: normal; font-size: 0.85em; }
+.st-li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.st-li-2 { align-items: flex-start; }
+.st-li-t { flex: 1 1 auto; min-width: 0; color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+a.st-li-t:hover { text-decoration: underline; }
+.st-li-n { flex: 0 0 auto; min-width: 4.2em; margin-left: auto; text-align: right; font-weight: 600; }
+.st-meter { flex: 0 0 30%; height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.st-meter i { display: block; height: 100%; background: #2b6cb0; }
+.st-book { font-size: 0.85em; color: var(--muted, #666); }
+.st-new { font-size: 0.75em; padding: 1px 8px; border-radius: 999px; background: #2f855a; color: #fff; font-weight: 600; }
+.st-term { font-weight: 600; }
+.st-miss { display: inline-block; font-size: 0.85em; color: var(--red, #c0392b); }
 .st-parts span.top { background: var(--accent, #2b6cb0); border-color: var(--accent, #2b6cb0); color: #fff; font-weight: 600; }
 </style>

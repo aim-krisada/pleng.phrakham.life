@@ -6,13 +6,17 @@ const answer = vi.hoisted(() => ({ value: { data: [], error: null } }))
 // ga-stats function: not deployed yet by default (404)
 const gaAnswer = vi.hoisted(() => ({ value: { data: null, error: { context: { status: 404 } } } }))
 const invoked = vi.hoisted(() => [])
+const songRows = vi.hoisted(() => ({ value: [] }))
 vi.mock('../supabase.js', () => {
-  const q = {}
-  for (const m of ['from', 'select', 'order']) q[m] = () => q
-  q.then = (res) => Promise.resolve(answer.value).then(res)
+  const make = (table) => {
+    const q = {}
+    for (const m of ['select', 'order', 'is', 'in', 'eq', 'not']) q[m] = () => q
+    q.then = (res) => Promise.resolve(table === 'songs' ? { data: songRows.value, error: null } : answer.value).then(res)
+    return q
+  }
   return {
     supabase: {
-      from: () => q,
+      from: (table) => make(table),
       functions: { invoke: (name, opts) => (invoked.push([name, opts]), Promise.resolve(gaAnswer.value)) },
     },
   }
@@ -34,6 +38,7 @@ beforeEach(() => {
   answer.value = { data: [], error: null }
   gaAnswer.value = { data: null, error: { context: { status: 404 } } }
   invoked.length = 0
+  songRows.value = []
 })
 
 describe('Google numbers (ใบ v3/pleng#164)', () => {
@@ -84,6 +89,49 @@ describe('Google numbers (ใบ v3/pleng#164)', () => {
   })
 })
 
+describe('the other cards (ใบ v3/pleng#165–#174)', () => {
+  it('fill from the answer, with song names from the catalog', async () => {
+    session.value = { user: { id: 'me' } }
+    songRows.value = [
+      { id: 's1', number: 12, title_th: 'พระคุณ', category: 'big', content: { key: 'C' } },
+      { id: 's2', number: 66, title_th: 'นามพระเยซู', category: 'big', content: { key: 'D' }, deleted_at: '2026-11-10' },
+    ]
+    gaAnswer.value = {
+      data: {
+        fetchedAt: new Date().toISOString(),
+        reports: {
+          songs: [[['/song/s1', 'cur'], 9], [['/song/s2', 'cur'], 3]],
+          searches: [[['hosanna', 'no'], 4]],
+          deadEnds: [[['sing_no_notes', 's1'], 2]],
+          sources: [[['line', 'referral'], 3]],
+        },
+      },
+      error: null,
+    }
+    const w = await mountIt()
+    await flushPromises()
+    const top = w.find('.st-top')
+    expect(top.text()).toContain('12. พระคุณ')
+    expect(top.text()).toContain('9 ครั้ง')
+    expect(top.find('li.gone').text()).toContain('ลบแล้ว') // in the trash — still ranked, faded
+    expect(w.find('.st-notfound').text()).toContain('hosanna')
+    expect(w.find('.st-dead').text()).toContain('เปิดฝึกร้อง แต่เพลงไม่มีโน้ต')
+    expect(w.find('.st-fix').text()).toContain('ยังไม่มีโน้ตตัวเลขและคอร์ด')
+    expect(w.find('.st-where').text()).toContain('LINE')
+    expect(w.find('.st-features').text()).toContain('ข้อมูลยังน้อย') // 12 opens < 30
+    expect(w.find('.st-from').text()).toContain('ข้อมูลยังน้อย')
+  })
+
+  it('no searches, no dead ends: they say so instead of an empty card', async () => {
+    session.value = { user: { id: 'me' } }
+    gaAnswer.value = { data: { fetchedAt: new Date().toISOString(), reports: {} }, error: null }
+    const w = await mountIt()
+    await flushPromises()
+    expect(w.find('.st-notfound').text()).toContain('ยังไม่มีคนค้น')
+    expect(w.find('.st-dead').text()).toContain('ยังไม่มีใครติด')
+  })
+})
+
 describe('หน้าสถิติ', () => {
   it('logged out: no numbers, no sections', async () => {
     const w = await mountIt()
@@ -108,7 +156,7 @@ describe('หน้าสถิติ', () => {
     session.value = { user: { id: 'me' } }
     const w = await mountIt()
     const wait = w.findAll('.st-wait')
-    expect(wait).toHaveLength(2)
+    expect(wait).toHaveLength(3) // ภาพรวม · งานเพลง · การใช้งานแอป
     for (const c of wait) expect(c.text()).not.toMatch(/\d/)
   })
 
