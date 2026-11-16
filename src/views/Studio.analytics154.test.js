@@ -64,6 +64,7 @@ describe('song page counting', () => {
     expect(pv).toHaveLength(1)
     expect(pv[0].page_title).toBe('อนุชน · 12. พระเจ้าทรงดี')
     expect(pv[0].page_path).toBe('/song/a')
-    expect(Object.keys(pv[0]).sort()).toEqual(['page_location', 'page_path', 'page_title'])
+    // ใบ v3/pleng#164 · #173 — plus web-or-app and how the song was reached; still nothing about the person
+    expect(Object.keys(pv[0]).sort()).toEqual(['display_mode', 'open_from', 'page_location', 'page_path', 'page_title'])
   })
 })

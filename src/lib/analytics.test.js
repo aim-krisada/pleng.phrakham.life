@@ -26,8 +26,8 @@ function fresh(id) {
 }
 
 describe('the id', () => {
-  it('ships empty — the committed code counts nothing', () => {
-    expect(GA_ID).toBe('')
+  it('ships with the main site code (ใบ v3/pleng#164) — on the live host only, see analytics.events.test.js', () => {
+    expect(GA_ID).toBe('G-W3XP4T2FFE')
   })
   it('accepts only G-XXXX', () => {
     expect(validId('G-ABC123')).toBe(true)
@@ -96,6 +96,8 @@ describe('awake, not answered yet', () => {
       page_title: 'เล่มใหญ่ · 12. พระเจ้าทรงดี',
       page_location: location.origin + '/song/abc',
       page_path: '/song/abc',
+      display_mode: 'web',
+      open_from: 'link',
     })
   })
 
