@@ -7,6 +7,7 @@
 // the 2-row dock (ไทม์ไลน์ · คีย์ · เลือกท่อน · transport · Aa · ⚙ + pin). Mounted directly
 // here; แผ่นเพลง and แก้ไข mount their own DockKey the same way.
 import { ref, computed, onMounted, onUnmounted, watch, watchEffect, nextTick } from 'vue'
+import { trackFeature, trackKeyChange } from '../lib/analytics.js'
 import { KEYS } from '../lib/chords.js'
 import {
   playSong, playEnsemble, stopPlayback, setTranspose, keyTranspose, songToNotes, TEMPO_MARKS,
@@ -556,6 +557,7 @@ function togglePlay() {
     pausedIndex.value = playedIndex.value // remember position so the next play continues
     stopPlay()
   } else {
+    trackFeature('play') // ใบ v3/pleng#171 (หน้าสถิติ)
     startPlay(pausedIndex.value) // resume from where we stopped (0 = fresh)
   }
 }
@@ -578,17 +580,19 @@ function markerAtPos() {
   return { ms, cur }
 }
 function prevSection() {
+  trackFeature('section')
   const { ms, cur } = markerAtPos()
   seekFull(cur > 0 ? ms[cur - 1].startIndex : (ms[0]?.startIndex ?? 0))
 }
 function nextSection() {
+  trackFeature('section')
   const { ms, cur } = markerAtPos()
   const nx = ms[cur + 1]
   if (nx) seekFull(nx.startIndex)
 }
 // scrub + tap-marker seek on the full-song axis (§H); seekFull snaps into the selection
 function onSeekBar(f) { seekFull(Math.round(f * Math.max(1, fullTotal.value - 1))) }
-function onJump(startIndex) { seekFull(startIndex) }
+function onJump(startIndex) { trackFeature('section'); seekFull(startIndex) }
 // selection changed → the play set is different; stop so the next ▶ plays the new set
 // from its start (avoids the dot/audio drifting out of sync mid-play).
 function afterSelectionChange() {
@@ -597,6 +601,7 @@ function afterSelectionChange() {
   posIndex.value = 0
 }
 function toggleSection(name) {
+  trackFeature('section')
   const next = new Set(selectedSecs.value)
   if (next.has(name)) next.delete(name)
   else next.add(name)
@@ -725,11 +730,11 @@ const settingDescs = computed(() => [
   }] : []),
   {
     id: 'chord', icon: 'guitar', label: 'คอร์ด', kind: 'menu', value: chordSystem.value, badge: CHORD_BADGE[chordSystem.value],
-    options: CHORD_OPTS, onPick: (v) => (chordSystem.value = v),
+    options: CHORD_OPTS, onPick: (v) => { if (v !== chordSystem.value) trackFeature('chord_system'); chordSystem.value = v },
   },
   {
     id: 'key', icon: 'key-round', label: 'คีย์', kind: 'menu', value: displayKey.value, badge: displayKey.value,
-    options: keyOptions.value, onPick: (v) => (displayKey.value = v),
+    options: keyOptions.value, onPick: (v) => { trackKeyChange(props.song?.content?.key, v); displayKey.value = v },
   },
   // ใบ v3/pleng#102 — ความเร็ว accepts ANY bpm in TEMPO_MIN..TEMPO_MAX, not only the nine marks, so
   // `onPick` clamps instead of snapping to a list. `songBpm` lets the dock offer "ตามเพลง" (one tap
@@ -741,7 +746,7 @@ const settingDescs = computed(() => [
     // ใบ v3/pleng#103 — the meter goes with it so the tap pad can read a tap as a whole bar
     // (3/4 · 6/8), and `src` says whether this change came from tapping or from a knob.
     timeSignature: String(props.song?.content?.timeSignature || ''),
-    onPick: (v, src) => { tempoSrc = src === 'tap' ? 'tap' : 'ui'; tempo.value = clampTempo(v) },
+    onPick: (v, src) => { trackFeature('tempo'); tempoSrc = src === 'tap' ? 'tap' : 'ui'; tempo.value = clampTempo(v) },
   },
   // ขนาดตัวอักษร (font) = top-nav Aa · download/พิมพ์/MP3 = the dock ExportTool (below).
 ])

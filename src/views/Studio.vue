@@ -17,7 +17,7 @@ import { stopPlayback } from '../lib/midi.js'
 import { singTarget, keepInBox, SING_HANDS_OFF_MS } from '../lib/singFollow.js'
 import { KEYS } from '../lib/chords.js'
 import { tier, canStore, initAuth, shellMenu, currentSong, sheetLyricJoin, newSongRequest, songLangChoice } from '../store.js'
-import { trackPage, songPageTitle } from '../lib/analytics.js'
+import { trackPage, songPageTitle, trackFeature, trackDeadEnd, songParts } from '../lib/analytics.js'
 import { songBookRefs } from '../lib/bookCodes.js'
 import Icon from '../components/Icon.vue'
 import SongViewer from '../components/SongViewer.vue'
@@ -144,6 +144,7 @@ onMounted(async () => {
   if (route.params.id) {
     await loadSong(route.params.id)
     trackPage(route.path, songPageTitle(loadedSong.value)) // ใบ#154 — counted once the song (and its book) is known
+    noteFace()
     // A routed song opens in a reading view (US-01 AC1) — UNLESS the link asked for the editor.
     // `?mode=edit` is the ONE way in: it lets the landing page's ✏️ open a song straight in แก้ไข
     // (พี่เปา 30 ก.ค. บรรทัด 307 — "ล็อกอินแล้วมันก็ควรจะขึ้นให้มันเข้าไปได้เลยจากหน้าแรก ...
@@ -171,6 +172,7 @@ watch(
     if (!id) return
     await loadSong(id)
     trackPage(route.path, songPageTitle(loadedSong.value)) // ใบ#154
+    noteFace()
     // picking another song while already in ฝึกร้อง must land at its top too (same rule as
     // a mode switch above); a route change also fires the router's scrollBehavior, so this is
     // just the belt-and-braces for the async-load timing.
@@ -186,7 +188,21 @@ watch(
 // router's scrollBehavior({top:0}) can't cover it — reset here on every switch INTO view.
 // ใบ v3/pleng#160 — ฝึกร้อง ↔ แผ่นเพลง is one page with two faces, sharing one bottom bar and one player:
 // the song keeps playing across that switch. Into or out of แก้ไข still stops it.
+// ใบ v3/pleng#171 · #172 (หน้าสถิติ) — which face a song open used, and whether that face had anything to
+// show: ฝึกร้อง on a song with no melody, แผ่นเพลง on a song with no chords. Called after trackPage, so the
+// count lands on the right song even while the next song is loading.
+function noteFace() {
+  const s = loadedSong.value
+  if (!s || !route.params.id) return
+  const parts = songParts(s.content)
+  if (mode.value === 'view' && !parts.notes) trackDeadEnd('sing_no_notes')
+  if (mode.value === 'sheet' && previewFrom.value === 'view') {
+    trackFeature('sheet')
+    if (!parts.chords) trackDeadEnd('sheet_no_chords')
+  }
+}
 watch(mode, (m, old) => {
+  nextTick(noteFace)
   if (m === 'edit' || old === 'edit') stopPlayback()
   if (m === 'view') nextTick(() => window.scrollTo({ top: 0 }))
 })

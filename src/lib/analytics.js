@@ -1,7 +1,7 @@
 // ใบ v3/pleng#154 — count how often each song is opened, and by how many people (Google Analytics 4).
-//
-// SHIPPED ASLEEP. Until GA_ID below holds a real code, nothing here runs: no bar, no script, no request
-// to Google. Waking it up = change that ONE line.
+// ใบ v3/pleng#164–#174 (หน้าสถิติ) — switched ON with the main site's code, plus the few events the stats
+// page needs: web or installed app on every hit · searches · how a song was reached · buttons used ·
+// dead ends · key changes. The stats page itself reads them back later; this file only sends.
 //
 // Rules (Thai PDPA — consent first):
 //   · nothing is loaded from Google until the visitor presses ยอมรับ on the bar (ConsentBar.vue);
@@ -9,25 +9,32 @@
 //     เกี่ยวกับเรา (About.vue);
 //   · the router is hash mode and GA4 does not count hash changes, so every page view is sent by hand
 //     (trackPage) with ONLY its title, a real-looking address and its path — no name, email, login
-//     state or song content ever goes out;
+//     state or song content ever goes out; a search term is cut to 40 characters;
 //   · offline or with an ad blocker the script simply never arrives — gtag() then only queues into
-//     window.dataLayer, so nothing on screen breaks.
+//     window.dataLayer, so nothing on screen breaks;
+//   · it runs only on the live site (pleng.phrakham.life): the code is shared with phrakham.life, and a
+//     dev server or a preview must never add to the real numbers.
 import { ref, computed } from 'vue'
 import { songName } from './songName.js'
 import { categoryName } from './bookshelf.js'
 
-// ▼▼▼ put the G-XXXX code here (Google Analytics → Admin → Data streams → Measurement ID) ▼▼▼
-export const GA_ID = ''
-// ▲▲▲ leave it '' and the whole feature stays off ▲▲▲
+// The main site's code (phrakham.life) — one shared property, split by hostname on the stats page
+// (พี่เอม 16 พ.ย. 2569). Empty = the whole feature off.
+export const GA_ID = 'G-W3XP4T2FFE'
+export const LIVE_HOST = 'pleng.phrakham.life'
 
 const ID_RE = /^G-[A-Z0-9]+$/
 export function validId(id) {
   return typeof id === 'string' && ID_RE.test(id)
 }
+function onLiveHost() {
+  try { return location.hostname === LIVE_HOST } catch { return false }
+}
 
-// the id in use — a ref only so the tests can switch it; the site reads GA_ID
+// the id in use — refs only so the tests can switch them; the site reads GA_ID on the live host
 const gaId = ref(GA_ID)
-export const analyticsOn = computed(() => validId(gaId.value))
+const anyHost = ref(false)
+export const analyticsOn = computed(() => validId(gaId.value) && (anyHost.value || onLiveHost()))
 
 // ---- the visitor's choice -------------------------------------------------------------------------
 const CONSENT_KEY = 'pleng.analyticsConsent'
@@ -88,6 +95,7 @@ function start() {
       s.onerror = () => { /* blocked or offline — nothing to do, gtag() keeps queueing quietly */ }
       document.head.appendChild(s)
     } catch { /* no DOM — nothing to load */ }
+    watchPrint()
   }
   flush()
 }
@@ -114,11 +122,28 @@ function removeGaCookies() {
   } catch { /* no cookies to clear */ }
 }
 
+const counting = () => analyticsOn.value && consent.value === 'granted' && started
+
+// ---- web or installed app (ใบ v3/pleng#164, พี่เอม 16 พ.ย. 2569) -----------------------------------------
+// An installed app opens full screen, with no address bar. That works on iPhone too, which never sends
+// the browser's "installed" event — so the count is not low on iPhones.
+export function displayMode() {
+  try {
+    if (window.navigator?.standalone === true) return 'app'
+    const mm = window.matchMedia
+    if (mm && (mm('(display-mode: standalone)').matches || mm('(display-mode: fullscreen)').matches)) return 'app'
+  } catch { /* no window — a browser tab */ }
+  return 'web'
+}
+
 // ---- page views ---------------------------------------------------------------------------------------
 // The page on screen, and the last page actually sent — one view per page open: a mode switch on a song
 // (?mode=edit) or a second call for the same page sends nothing more.
 let current = null
 let sentPath = null
+let pagesSeen = 0 // pages opened in this visit — the first one came from outside (a link, a bookmark)
+let openFrom = null // how the next song page is being reached, set by the song list just before it opens
+let doneOnPage = new Set() // feature / dead-end / key events already sent for the page on screen
 
 // '/song/abc?mode=edit' → '/song/abc'
 function cleanPath(path) {
@@ -128,22 +153,131 @@ function cleanPath(path) {
 
 export function trackPage(path, title) {
   const p = cleanPath(path)
-  if (current?.path !== p) sentPath = null
-  current = { path: p, title: String(title || '') }
+  if (current?.path !== p) {
+    sentPath = null
+    doneOnPage = new Set()
+    current = { path: p, title: String(title || ''), from: isSongPath(p) ? songOpenFrom() : null }
+    pagesSeen++ // counted whether or not the visitor has answered yet — "first page" means first page
+  } else {
+    current = { ...current, title: String(title || '') }
+  }
   flush()
 }
 
+// ใบ v3/pleng#173 — how people reach a song: by its number, by name or words, from a book, from their
+// starred songs, or from a link someone sent (the first page of a visit). Anything else = 'other'.
+export const OPEN_FROM = ['number', 'text', 'book', 'fav', 'link', 'other']
+export function noteOpenFrom(src) {
+  if (OPEN_FROM.includes(src)) openFrom = src
+}
+function songOpenFrom() {
+  const src = openFrom || (pagesSeen === 0 ? 'link' : 'other')
+  openFrom = null
+  return src
+}
+
 function flush() {
-  if (!current || !analyticsOn.value || consent.value !== 'granted' || !started) return
+  if (!current || !counting()) return
   if (sentPath === current.path) return
   sentPath = current.path
+  const params = {
+    page_title: current.title,
+    page_location: location.origin + current.path,
+    page_path: current.path,
+    display_mode: displayMode(),
+  }
+  if (current.from) params.open_from = current.from
   try {
-    gtag('event', 'page_view', {
-      page_title: current.title,
-      page_location: location.origin + current.path,
-      page_path: current.path,
+    gtag('event', 'page_view', params)
+  } catch { /* never let counting break a page */ }
+}
+
+// ---- events (ใบ v3/pleng#167 ถึง #172) ----------------------------------------------------------------
+// Every event carries the page it happened on and web-or-app. Nothing is queued before ยอมรับ.
+export function trackEvent(name, params = {}) {
+  if (!counting()) return false
+  try {
+    gtag('event', name, {
+      ...params,
+      page_location: location.origin + (current?.path || '/'),
+      page_path: current?.path || '/',
+      display_mode: displayMode(),
     })
   } catch { /* never let counting break a page */ }
+  return true
+}
+
+const songIdOfPage = () => (current && isSongPath(current.path) ? current.path.slice('/song/'.length) : '')
+
+// once per page open for each kind — the stats page counts "song opens that used X", not clicks
+function oncePerPage(key, send) {
+  if (!counting() || !current || doneOnPage.has(key)) return false
+  doneOnPage.add(key)
+  return send()
+}
+
+// ใบ v3/pleng#171 — which buttons a song open used
+export const FEATURES = ['sheet', 'play', 'tempo', 'section', 'key', 'chord_system', 'print']
+export function trackFeature(feature) {
+  if (!FEATURES.includes(feature)) return false
+  return oncePerPage('f:' + feature, () => trackEvent('feature_use', { feature, song_id: songIdOfPage() }))
+}
+
+// ใบ v3/pleng#172 — opened a face the song cannot fill yet
+export const DEAD_ENDS = ['sing_no_notes', 'sheet_no_chords']
+export function trackDeadEnd(kind) {
+  if (!DEAD_ENDS.includes(kind)) return false
+  return oncePerPage('d:' + kind, () => trackEvent('dead_end', { dead_end: kind, song_id: songIdOfPage() }))
+}
+
+// ใบ v3/pleng#168 — the key a song was moved to (once per key per song open)
+export function trackKeyChange(from, to) {
+  if (!to || from === to) return false
+  trackFeature('key')
+  return oncePerPage('k:' + to, () => trackEvent('key_change', { song_id: songIdOfPage(), key_from: String(from || ''), key_to: String(to) }))
+}
+
+// ใบ v3/pleng#167 · #169 — searches. The term is tidied (spaces, upper/lower case) and cut to 40 characters.
+export function searchTerm(q) {
+  return String(q || '').trim().replace(/\s+/g, ' ').toLowerCase().slice(0, 40)
+}
+let lastSearch = ''
+export function trackSearch(q, found) {
+  const term = searchTerm(q)
+  if (!term || term === lastSearch) return false
+  if (!trackEvent('search', { search_term: term, search_found: found > 0 ? 'yes' : 'no' })) return false
+  lastSearch = term
+  return true
+}
+export function trackSearchSelect(q) {
+  const term = searchTerm(q)
+  if (!term) return false
+  return trackEvent('search_select', { search_term: term })
+}
+
+// Every way of printing (our button, the sheet's button, Ctrl+P) ends in the browser's print.
+let printWatched = false
+function watchPrint() {
+  if (printWatched) return
+  printWatched = true
+  try { window.addEventListener('beforeprint', () => trackFeature('print')) } catch { /* no window */ }
+}
+
+// ---- the song's parts — for the dead ends ------------------------------------------------------------
+// v1 lines and v2 stanzas both keep `note` and `chord` on their segments, so one walk finds both.
+export function songParts(content) {
+  const out = { notes: false, chords: false }
+  const seen = new Set()
+  const walk = (v) => {
+    if (!v || typeof v !== 'object' || seen.has(v) || (out.notes && out.chords)) return
+    seen.add(v)
+    if (Array.isArray(v)) { v.forEach(walk); return }
+    if (typeof v.note === 'string' && /[1-7]/.test(v.note)) out.notes = true
+    if (typeof v.chord === 'string' && v.chord.trim()) out.chords = true
+    for (const k in v) if (v[k] && typeof v[k] === 'object') walk(v[k])
+  }
+  walk(content)
+  return out
 }
 
 // ---- page names ---------------------------------------------------------------------------------------
@@ -179,11 +313,16 @@ export function installPageTracking(router) {
   if (analyticsOn.value && consent.value === 'granted') start()
 }
 
-// tests only
-export function _resetForTest({ id = GA_ID } = {}) {
+// tests only — `anyHost` lets the code run under the test runner's localhost
+export function _resetForTest({ id = GA_ID, host = true } = {}) {
   gaId.value = id
+  anyHost.value = host
   consent.value = readConsent()
   started = false
   current = null
   sentPath = null
+  pagesSeen = 0
+  openFrom = null
+  doneOnPage = new Set()
+  lastSearch = ''
 }

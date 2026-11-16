@@ -30,6 +30,7 @@ import { siteRoot } from '../lib/share.js'
 import InstallCard from '../components/InstallCard.vue'
 import { SITE_NAME } from '../lib/songName.js'
 import FavStar from '../components/FavStar.vue'
+import { trackSearch, trackSearchSelect, noteOpenFrom } from '../lib/analytics.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -97,6 +98,23 @@ const activeBook = ref(route.query?.book ? String(route.query.book) : null)
 
 // searching = query has content → search view overrides the drill (mockup behaviour).
 const searching = computed(() => normalize(query.value) !== '')
+
+// ใบ v3/pleng#167 · #169 · #173 (หน้าสถิติ) — a search is counted once the typing settles, found or not;
+// tapping a result says which term led there and whether it was a number or words.
+const SEARCH_SETTLE_MS = 1500
+let searchTimer = null
+watch(query, (q) => {
+  clearTimeout(searchTimer)
+  if (!normalize(q)) return
+  searchTimer = setTimeout(() => trackSearch(q, results.value.length), SEARCH_SETTLE_MS)
+})
+onUnmounted(() => clearTimeout(searchTimer))
+function pickFromSearch() {
+  clearTimeout(searchTimer)
+  trackSearch(query.value, results.value.length)
+  trackSearchSelect(query.value)
+  noteOpenFrom(/^\s*\d+\s*$/.test(query.value) ? 'number' : 'text')
+}
 
 
 // review facets (B053/B054) narrow the flat search results; they only make sense over a
@@ -672,7 +690,7 @@ onMounted(async () => {
       <div class="song-grid">
         <div v-for="s in results" :key="s.id" class="song-card-wrap has-star">
         <FavStar :id="s.id" :title="s.title_th" class="in-card" />
-        <router-link :to="`/song/${s.id}`" class="card song-card">
+        <router-link :to="`/song/${s.id}`" class="card song-card" @click="pickFromSearch">
           <div class="song-card-head">
             <strong class="song-title">{{ s.number != null ? s.number + '. ' : '' }}{{ s.title_th }}</strong>
             <span class="head-tags">
@@ -761,7 +779,7 @@ onMounted(async () => {
              จึงห่อทั้งคู่ด้วย .song-row-wrap แล้ววางลิงก์กับปุ่มเป็นพี่น้องกัน -->
         <div v-for="s in inBook" :key="s.id" class="song-row-wrap has-star">
           <FavStar :id="s.id" :title="s.title_th" class="in-card" />
-          <router-link :to="`/song/${s.id}`" class="song-row">
+          <router-link :to="`/song/${s.id}`" class="song-row" @click="noteOpenFrom('book')">
             <span class="no">{{ s.number != null ? s.number : '–' }}</span>
             <span class="ttl">{{ s.title_th }}</span>
             <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok row-status" :title="W.done">✓ {{ W.done }}</span>
@@ -824,7 +842,7 @@ onMounted(async () => {
         <div class="song-list">
           <div v-for="s in incomingSongs" :key="s.id" class="song-row-wrap has-star">
             <FavStar :id="s.id" :title="s.title_th" class="in-card" />
-            <router-link :to="`/song/${s.id}`" class="song-row">
+            <router-link :to="`/song/${s.id}`" class="song-row" @click="noteOpenFrom('fav')">
               <span class="no">{{ s.number != null ? s.number : '–' }}</span>
               <span class="ttl">{{ s.title_th }}</span>
               <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
@@ -848,7 +866,7 @@ onMounted(async () => {
       <div class="song-list">
         <div v-for="s in favList" :key="s.id" class="song-row-wrap has-star">
           <FavStar :id="s.id" :title="s.title_th" class="in-card" />
-          <router-link :to="`/song/${s.id}`" class="song-row">
+          <router-link :to="`/song/${s.id}`" class="song-row" @click="noteOpenFrom('fav')">
             <span class="no">{{ s.number != null ? s.number : '–' }}</span>
             <span class="ttl">{{ s.title_th }}</span>
             <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
