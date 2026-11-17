@@ -11,7 +11,7 @@ import { LANG_LABEL, EXTRA_LANGS, orderLangs, shownLangs, toggleLangChoice, miss
 const props = defineProps({
   has: { type: Array, default: () => ['th'] }, // the languages this song has (songModel.songLangs)
   editor: { type: Boolean, default: false },
-  // small marks under a language's name, team only (songModel.langMarks): { en: ['ยังไม่ได้ตรวจ'] }
+  // small marks under a language's name (songModel.langMarks): { en: ['ยังไม่ได้ตรวจ'] }
   marks: { type: Object, default: () => ({}) },
 })
 const emit = defineEmits(['add'])
