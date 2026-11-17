@@ -66,7 +66,7 @@ describe('where people come from', () => {
   it('stat.05 — provinces, then ต่างประเทศ and ไม่ทราบ always shown', () => {
     const r = regions(B)
     expect(r.total).toBe(12)
-    expect(r.rows.map((x) => [x.name, x.pct])).toEqual([['Bangkok', 50], ['Chiang Mai', 25], ['ต่างประเทศ', 8], ['ไม่ทราบ', 17]])
+    expect(r.rows.map((x) => [x.name, x.pct])).toEqual([['กรุงเทพมหานคร', 50], ['เชียงใหม่', 25], ['ต่างประเทศ', 8], ['ไม่ทราบ', 17]])
   })
 
   it('stat.05 — channels; unknown is its own row, never typed-in', () => {

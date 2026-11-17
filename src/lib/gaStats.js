@@ -1,6 +1,8 @@
 // หน้าสถิติ — Google numbers (ใบ v3/pleng#164 stat.03 ภาพรวม). The ga-stats Edge Function hands back
 // compact rows ([[...dims], number]); these pure functions turn them into what a card shows.
 
+import { thaiProvince } from './thaiProvinces.js'
+
 // The day the counter went live on pleng.phrakham.life (PR 124, 16 พ.ย. 2569). Days before it are
 // "ยังไม่ได้เริ่มนับ" — never drawn as 0 people (stat.03 AC 7).
 export const COUNTING_SINCE = '20261116'
@@ -152,7 +154,7 @@ export function topSongs(bundle, songs, { prevComparable = false, limit = 20 } =
 export function regions(bundle, limit = 10) {
   const m = tally(
     (bundle?.reports?.regions || []).map(([[country, region], n]) => [
-      !realValue(country) ? 'ไม่ทราบ' : country !== 'Thailand' ? 'ต่างประเทศ' : !realValue(region) ? 'ไม่ทราบ' : region.replace(/ Province$/, ''),
+      !realValue(country) ? 'ไม่ทราบ' : country !== 'Thailand' ? 'ต่างประเทศ' : !realValue(region) ? 'ไม่ทราบ' : thaiProvince(region),
       n,
     ]),
   )
