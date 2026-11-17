@@ -5,7 +5,7 @@ import { supabase } from '../supabase.js'
 import { fetchAllRows } from '../lib/fetchAllRows.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { filterSongs, searchSnippet, normalize } from '../lib/songSearch.js'
-import { lyricSetName } from '../lib/songModel.js'
+import { lyricSetName, songLangs, LANG_LABEL } from '../lib/songModel.js'
 import { songRefLabels } from '../lib/bookCodes.js'
 import {
   orderedBooks,
@@ -159,6 +159,17 @@ const themes = computed(() =>
 
 // a song is "flagged" when DA's review_flags array has entries (repeat / lint / words).
 const FLAG_LABEL = { repeat: 'ตั้งจุดซ้ำ (repeat)', lint: 'โน้ตอาจผิด (lint)', words: 'เนื้อ≠โน้ต' }
+// พี่เอม 17 พ.ย. 2569 — "ไทย · English · 中文" when a song has more than one language, '' otherwise.
+// Kept per content object so a long list does not re-scan every song on each render.
+const LANG_SHORT = { th: 'ไทย', en: 'EN', zh: '中' }
+const langCache = new WeakMap()
+function langNames(s, short = false) {
+  const c = s && s.content
+  if (!c || typeof c !== 'object') return ''
+  if (!langCache.has(c)) langCache.set(c, songLangs(c))
+  const has = langCache.get(c)
+  return has.length > 1 ? has.map((l) => (short ? LANG_SHORT : LANG_LABEL)[l]).join(' · ') : ''
+}
 function flagCount(s) {
   return Array.isArray(s.review_flags) ? s.review_flags.length : 0
 }
@@ -699,6 +710,9 @@ onMounted(async () => {
               <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending" :title="W.unfinished">{{ W.unfinished }}</span>
               <!-- พี่เอม 15 พ.ย. 2569 — which เล่ม, when the list runs across every book (inside a เล่ม it is the one open) -->
               <span v-if="!activeBook" class="key-chip book-chip">{{ songBookName(s) }}</span>
+              <!-- พี่เอม 17 พ.ย. 2569 — which languages the song has; only when it has more than one
+                   (a Thai-only song shows nothing, like the language buttons on the song page · ใบ 158 AC 2) -->
+              <span v-if="langNames(s)" class="key-chip lang-chip" :aria-label="'ภาษา ' + langNames(s)">{{ langNames(s) }}</span>
               <span class="key-chip">Key {{ s.content.key }}</span>
             </span>
           </div>
@@ -792,6 +806,10 @@ onMounted(async () => {
               class="ref"
               :title="'อ้างอิง: ' + songRefLabels(s).join(' · ')"
             >{{ songRefLabels(s).join(' · ') }}</span>
+            <!-- a phone row is narrow: short names there so the title is not squeezed (ui-standards: list row) -->
+            <span v-if="langNames(s)" class="lang" :aria-label="'ภาษา ' + langNames(s)" :title="langNames(s)"
+              ><span class="lang-full" aria-hidden="true">{{ langNames(s) }}</span
+              ><span class="lang-short" aria-hidden="true">{{ langNames(s, true) }}</span></span>
             <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
           </router-link>
           <!-- เห็นเฉพาะเมื่อล็อกอิน · เปิดเพลงนี้ในหน้าแก้ไขทันที (ไม่ต้องแวะหน้าฝึกร้อง)
@@ -1283,6 +1301,7 @@ onMounted(async () => {
 /* number/key/status hold the FIRST line when a long title wraps (2c) */
 .song-row .no,
 .song-row .ref,
+.song-row .lang,
 .song-row .key,
 .song-row .row-status { align-self: flex-start; }
 .song-row .no {
@@ -1303,6 +1322,11 @@ onMounted(async () => {
    to the title: hidden on phones (would crush the title into a sliver — the ref is on the
    search card + song page there) and shown from 640px up, where the row is wide enough. */
 .song-row .ref { display: none; }
+.song-row .lang-full { display: none; }
+@media (min-width: 640px) {
+  .song-row .lang-full { display: inline; }
+  .song-row .lang-short { display: none; }
+}
 @media (min-width: 640px) {
   .song-row .ref {
     display: inline;
@@ -1316,6 +1340,7 @@ onMounted(async () => {
     font-size: var(--fs-xs);
   }
 }
+.song-row .lang,
 .song-row .key {
   color: var(--muted);
   font-size: var(--fs-xs);
