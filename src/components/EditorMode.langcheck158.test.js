@@ -133,10 +133,11 @@ describe('"ยังไม่ได้ตรวจ" on the language button', () 
     expect(w.find('[data-mark-lang="en"]').exists()).toBe(false)
     w.unmount()
   })
-  it('the editor: no mark when not logged in', async () => {
+  // พี่เอม 17 พ.ย. 2569 (ใบ v3/pleng#177) — everyone sees unchecked languages, so everyone sees the mark
+  it('the editor: the mark shows when not logged in too', async () => {
     const w = mountEd(song(false), 'anon')
     await nextTick()
-    expect(w.find('.lang-mark').exists()).toBe(false)
+    expect(w.find('[data-mark-lang="en"]').text()).toBe('ยังไม่ได้ตรวจ')
     w.unmount()
   })
 })

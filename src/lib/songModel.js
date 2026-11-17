@@ -189,13 +189,14 @@ export function langApproved(content, lang) {
   return !!(lv && typeof lv === 'object' && lv[lang] === true)
 }
 
-// The song as a reader sees it. The team (logged in) sees every language. The public sees Thai plus
-// only the languages that are ตรวจแล้ว (content.langVerified[lang] === true). A hidden language is
-// simply not there, so the language buttons, the "เพลงนี้ยังไม่มี …" line and the sheet all treat it as
-// missing. Thai is never hidden here: whether the public sees the SONG is songs.verified (visibleSongs).
-// Returns the same object when nothing is hidden (a Thai-only song stays byte-identical).
+// The song as a reader sees it. พี่เอม 17 พ.ย. 2569 (ใบ v3/pleng#177): everyone sees every language —
+// a language that is not ตรวจแล้ว yet still shows, with the "ยังไม่ได้ตรวจ" mark on its button
+// (langMarks), because waiting for a reviewer could take indefinitely. So this now returns the content
+// as it is for the public too. HIDE_UNCHECKED_LANGS = true brings back the old rule of ใบ v1#158 AC 10
+// (the public sees Thai plus only the ตรวจแล้ว languages; the team sees all).
+export const HIDE_UNCHECKED_LANGS = false
 export function readerContent(content, team) {
-  if (team || !content || !Array.isArray(content.arrangement)) return content
+  if (!HIDE_UNCHECKED_LANGS || team || !content || !Array.isArray(content.arrangement)) return content
   const rows = content.arrangement
   let arr = null
   rows.forEach((row, i) => {
@@ -214,11 +215,12 @@ export function readerContent(content, team) {
   return arr ? { ...content, arrangement: arr } : content
 }
 
-// The small mark on a language button, for the team only: "ยังไม่ได้ตรวจ" when a non-Thai language is
-// not ตรวจแล้ว. { en: ['ยังไม่ได้ตรวจ'] } — an approved language is left out. {} for the public.
+// The small mark on a language button: "ยังไม่ได้ตรวจ" when a non-Thai language is not ตรวจแล้ว.
+// { en: ['ยังไม่ได้ตรวจ'] } — an approved language is left out. Shown to everyone now that the public
+// sees unchecked languages too (พี่เอม 17 พ.ย. 2569); with HIDE_UNCHECKED_LANGS it is team-only again.
 export const LANG_MARK_UNCHECKED = 'ยังไม่ได้ตรวจ'
 export function langMarks(content, team) {
-  if (!team || !content) return {}
+  if (!content || (HIDE_UNCHECKED_LANGS && !team)) return {}
   const out = {}
   for (const l of songLangs(content)) {
     if (l !== 'th' && !langApproved(content, l)) out[l] = [LANG_MARK_UNCHECKED]

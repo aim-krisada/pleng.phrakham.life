@@ -1,8 +1,8 @@
 // ใบ v1#158 — ตรวจแล้ว is per language. Thai keeps songs.verified; every other language has its own
-// content.langVerified[lang]. The public sees a non-Thai language only once it is ตรวจแล้ว; the team
-// sees every language, with "ยังไม่ได้ตรวจ" on the button of one that is not.
+// content.langVerified[lang]. พี่เอม 17 พ.ย. 2569 (ใบ v3/pleng#177): EVERYONE sees every language; one
+// that is not ตรวจแล้ว carries "ยังไม่ได้ตรวจ" on its button — for the public too.
 import { describe, it, expect } from 'vitest'
-import { readerContent, langMarks, langApproved, songLangs, shownLangs, missingLangText, resolveContent } from './songModel.js'
+import { readerContent, langMarks, langApproved, songLangs, HIDE_UNCHECKED_LANGS } from './songModel.js'
 import live from '../components/__fixtures__/anuchon-2-live.json'
 
 const v2 = (arrangement, extra = {}) => ({
@@ -29,19 +29,16 @@ describe('readerContent — who sees which language', () => {
     expect(readerContent(c, true)).toBe(c)
   })
 
-  it('the public sees no language that is not ตรวจแล้ว — the song looks Thai-only', () => {
+  it('the public ALSO sees a language that is not ตรวจแล้ว yet (same object, nothing hidden)', () => {
+    expect(HIDE_UNCHECKED_LANGS).toBe(false)
     const c = v2([ROW])
-    const pub = readerContent(c, false)
-    expect(pub.arrangement[0]).not.toHaveProperty('lyrics')
-    expect(pub.arrangement[0].syllables).toEqual(ROW.syllables)
-    expect(songLangs(pub)).toEqual(['th'])
-    expect(c.arrangement[0].lyrics.en).toBeDefined() // the stored song is not touched
+    expect(readerContent(c, false)).toBe(c)
+    expect(songLangs(readerContent(c, false))).toEqual(['th', 'en', 'zh'])
   })
 
-  it('the public sees an approved language and not the others', () => {
-    const pub = readerContent(v2([ROW], { langVerified: { en: true } }), false)
-    expect(Object.keys(pub.arrangement[0].lyrics)).toEqual(['en'])
-    expect(songLangs(pub)).toEqual(['th', 'en'])
+  it('approved or not makes no difference to what the public sees', () => {
+    const c = v2([ROW], { langVerified: { en: true } })
+    expect(readerContent(c, false)).toBe(c)
   })
 
   it('a Thai-only song is returned as is (same object) for the public', () => {
@@ -50,19 +47,6 @@ describe('readerContent — who sees which language', () => {
     expect(readerContent(live.content, false)).toBe(live.content)
   })
 
-  it('a hidden language counts as "not there": the missing-language line and fixed order still work', () => {
-    const pub = readerContent(v2([ROW], { langVerified: { zh: true } }), false)
-    const has = songLangs(pub)
-    expect(has).toEqual(['th', 'zh'])
-    expect(shownLangs(['zh', 'en', 'th'], has).shown).toEqual(['th', 'zh'])
-    expect(missingLangText(['th', 'en'], has)).toBe('เพลงนี้ยังไม่มี English · มี ไทย · 中文')
-  })
-
-  it('the public sheet of a song with unapproved English is the Thai-only sheet', () => {
-    const thaiOnly = v2([{ stanza: 'A', syllables: ROW.syllables }])
-    const pub = readerContent(v2([ROW]), false)
-    expect(JSON.stringify(resolveContent(pub))).toBe(JSON.stringify(resolveContent(thaiOnly)))
-  })
 })
 
 describe('langMarks — "ยังไม่ได้ตรวจ" on a language button', () => {
@@ -70,8 +54,12 @@ describe('langMarks — "ยังไม่ได้ตรวจ" on a language 
     expect(langMarks(v2([ROW]), true)).toEqual({ en: ['ยังไม่ได้ตรวจ'], zh: ['ยังไม่ได้ตรวจ'] })
     expect(langMarks(v2([ROW], { langVerified: { en: true } }), true)).toEqual({ zh: ['ยังไม่ได้ตรวจ'] })
   })
-  it('never on Thai, never for the public, nothing for a Thai-only song', () => {
-    expect(langMarks(v2([ROW]), false)).toEqual({})
+  it('the public sees the same mark (they see the language too)', () => {
+    expect(langMarks(v2([ROW]), false)).toEqual({ en: ['ยังไม่ได้ตรวจ'], zh: ['ยังไม่ได้ตรวจ'] })
+    expect(langMarks(v2([ROW], { langVerified: { en: true, zh: true } }), false)).toEqual({})
+  })
+  it('never on Thai, nothing for a Thai-only song', () => {
+    expect(langMarks(v2([{ stanza: 'A', syllables: ['ก'] }]), false)).toEqual({})
     expect(langMarks(v2([{ stanza: 'A', syllables: ['ก'] }]), true)).toEqual({})
     expect(langMarks(live.content, true)).toEqual({})
   })
