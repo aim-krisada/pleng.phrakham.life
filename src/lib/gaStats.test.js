@@ -86,3 +86,25 @@ describe('ใบ v3/pleng#164 — ภาพรวม', () => {
     expect(gaErrorText(502)).toContain('ดึงตัวเลขจาก Google ไม่ได้')
   })
 })
+
+describe('dates under the daily chart', () => {
+  it('7 days: every day, month only on the first and where it turns', async () => {
+    const { dayTicks } = await import('./gaStats.js')
+    const t = dayTicks(['20261027', '20261028', '20261029', '20261030', '20261031', '20261101', '20261102'])
+    expect(t.map((x) => x.label)).toEqual(['27 ต.ค.', '28', '29', '30', '31', '1 พ.ย.', '2'])
+  })
+  it('28 days: every 7th, counted back so today always has its date', async () => {
+    const { dayTicks, dayList } = await import('./gaStats.js')
+    const d = dayList(28, new Date('2026-11-17T05:00:00Z'))
+    const t = dayTicks(d)
+    expect(t.map((x) => x.i)).toEqual([6, 13, 20, 27])
+    expect(t.at(-1).label).toBe('17')
+    expect(t[0].label).toBe('27 ต.ค.')
+  })
+  it('90 days: every 15th, no more than 6 labels', async () => {
+    const { dayTicks, dayList } = await import('./gaStats.js')
+    const t = dayTicks(dayList(90, new Date('2026-11-17T05:00:00Z')))
+    expect(t.length).toBe(6)
+    expect(t.at(-1).i).toBe(89)
+  })
+})
