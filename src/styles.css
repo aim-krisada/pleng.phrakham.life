@@ -482,13 +482,20 @@ html.hdr-hidden .shell-bar { transform: translateY(-100%); }
 .sb-drawer-act:hover { background: rgba(139, 69, 19, 0.08); }
 .sb-drawer-act:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 /* ใบ#147 — สร้างเพลงใหม่ on the desktop bar: icon + name, a quiet outlined pill like the other bar tools */
-.sb-new {
+.sb-new, .sb-stats {
   display: inline-flex; align-items: center; gap: 6px;
   height: var(--touch-min); min-height: 0; padding: 0 12px;
   border: 1px solid var(--line); border-radius: 8px; background: transparent;
   color: var(--brand); font: inherit; font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; cursor: pointer;
 }
-@media (hover: hover) { .sb-new:hover { border-color: var(--brand); background: var(--cream); } }
+@media (hover: hover) { .sb-new:hover, .sb-stats:hover { border-color: var(--brand); background: var(--cream); } }
+/* ใบ#163 — a narrow computer screen (992–1199px) has no room for both names next to the nav: the bar ran
+   past the right edge (21px with สร้างเพลงใหม่ alone, 116px once สถิติ joined at 1000px). There the two
+   pills keep only their icon; the name stays as aria-label + hover title. */
+@media (min-width: 992px) and (max-width: 1199.98px) {
+  .sb-new, .sb-stats { width: var(--touch-min); padding: 0; justify-content: center; }
+  .sb-new span, .sb-stats span { display: none; }
+}
 /* ใบ#151 — แชร์ beside 🔍. Desktop = glyph + word, a pill like สร้างเพลงใหม่ (NN/g: the share glyph
    reads better with its label). Phone = glyph only, like 🔍 and Aa beside it (P'Aim 5 พ.ย. 2569:
    no other phone button carries a word); the button keeps aria-label แชร์ for screen readers. */
@@ -573,6 +580,7 @@ html.hdr-hidden .shell-bar { transform: translateY(-100%); }
      in the bar (P'Aim 13 ก.ค.: login icon outside the drawer, far right · ใบ#142: Aa on every width). */
   .sb-nav,
   .sb-new { display: none; } /* ใบ#147 — on a phone สร้างเพลงใหม่ is in ☰, never both */
+  .sb-stats { display: none; } /* ใบ#163 — same for สถิติ */
   .sb-share { justify-content: center; padding: 0; border-color: transparent; }
   .sb-share-label { display: none; }
   /* mobile-only hamburger */

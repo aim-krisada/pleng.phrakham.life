@@ -22,7 +22,7 @@
 // every open, so the Vue-rendered links are trapped correctly.
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { shellMenu, newSongRequest, currentSong, pageShare } from '../store.js'
+import { shellMenu, newSongRequest, currentSong, pageShare, session } from '../store.js'
 import { shareTarget, isApple, shareLink, siteRoot } from '../lib/share.js'
 import { lineExternalUrl } from '../lib/pwaInstall.js'
 import FontTool from './FontTool.vue'
@@ -80,6 +80,15 @@ function newSong() {
   if (drawer && drawer.isOpen()) drawer.close()
   if (STUDIO_PATH(route.path)) newSongRequest.value++
   else router.push('/studio')
+}
+
+// ใบ v3/pleng#163 (พี่เอม 17 พ.ย. 2569) — สถิติ sits right after สร้างเพลงใหม่ for anyone logged in, so the
+// team reaches it in one press instead of going through แก้ไข ⇒ จัดการ. Hidden from visitors.
+const loggedIn = computed(() => !!session.value)
+function openStats() {
+  closeMenus()
+  if (drawer && drawer.isOpen()) drawer.close()
+  router.push('/stats')
 }
 
 function closeMenus() {
@@ -235,7 +244,9 @@ onUnmounted(() => clearTimeout(shareTimer))
 
       <!-- สร้างเพลงใหม่ — desktop only, icon + name, between Aa and login (ใบ v3/pleng#147). On a phone
            the same action is a row in ☰ เครื่องมือ (CSS hides this one under 992px). -->
-      <button type="button" class="sb-new" @click="newSong"><Icon name="file-plus" :size="20" /><span>สร้างเพลงใหม่</span></button>
+      <button type="button" class="sb-new" aria-label="สร้างเพลงใหม่" title="สร้างเพลงใหม่" @click="newSong"><Icon name="file-plus" :size="20" /><span>สร้างเพลงใหม่</span></button>
+      <!-- สถิติ — logged-in only, right after สร้างเพลงใหม่, desktop (ใบ v3/pleng#163); on a phone it is in ☰ -->
+      <button v-if="loggedIn" type="button" class="sb-stats" aria-label="สถิติ" title="สถิติ" @click="openStats"><Icon name="bar-chart-3" :size="20" /><span>สถิติ</span></button>
 
       <!-- ☰ hamburger — mobile only; the PKDrawer core wires its click + syncs aria-expanded. -->
       <button ref="burgerBtn" class="sb-icon-btn sb-burger" aria-label="เมนู">
@@ -269,6 +280,8 @@ onUnmounted(() => clearTimeout(shareTimer))
         <div class="sb-drawer-lbl">เครื่องมือ</div>
         <!-- สร้างเพลงใหม่ — same name and icon as the desktop top-right button (ใบ v3/pleng#147) -->
         <button type="button" class="sb-drawer-act sb-drawer-new" @click="newSong"><Icon name="file-plus" :size="20" /><span>สร้างเพลงใหม่</span></button>
+        <!-- สถิติ — logged-in only, the row under สร้างเพลงใหม่ (ใบ v3/pleng#163) -->
+        <button v-if="loggedIn" type="button" class="sb-drawer-act sb-drawer-stats" @click="openStats"><Icon name="bar-chart-3" :size="20" /><span>สถิติ</span></button>
         <!-- "ติดตั้งแอพ" affordance — self-contained (lib/pwaInstall.js). An action row per
              docs/ds/menu-drawer-spec.md §3. Renders nothing when already installed. -->
         <InstallAppTool />

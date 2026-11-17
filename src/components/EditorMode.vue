@@ -4273,8 +4273,7 @@ defineExpose({
             <button class="sb-item" role="menuitem" @click="openPanel('drafts')"><Icon name="file-text" /> งานร่าง / รอตรวจ</button>
             <button v-if="editingId" class="sb-item" role="menuitem" @click="openPanel('history')"><Icon name="undo-2" /> ประวัติการแก้ไข</button>
             <button v-if="isApprover" class="sb-item" role="menuitem" @click="openPanel('trash')"><Icon name="trash-2" /> ถังขยะ</button>
-            <!-- ใบ v3/pleng#163 — หน้าสถิติ, for anyone logged in -->
-            <a class="sb-item" role="menuitem" href="#/stats" @click="openMenu = null"><Icon name="bar-chart-3" /> สถิติ</a>
+            <!-- ใบ v3/pleng#163 — สถิติ moved to the shared top bar / ☰ (พี่เอม 17 พ.ย. 2569), one place only -->
           </template>
           <button v-if="isApprover && loggedIn && editingId && !reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="manageDelete"><Icon name="trash-2" /> ลบเพลง</button>
           <!-- ใบ v3/pleng#162 (พี่เปา 14 พ.ย.) — throwing away a draft sent in for review sits where ลบเพลง does -->
