@@ -11,7 +11,7 @@ import { session, tier, legacy } from '../store.js'
 import { RANGES, rangeLabel, draftStats } from '../lib/teamStats.js'
 import {
   overview, gaErrorText, songIds, topSongs, regions, sources, notFound, foundNoPick, needsFix, keyChanges,
-  features, deadEnds, openFrom, devices,
+  features, deadEnds, openFrom, devices, dayTicks,
 } from '../lib/gaStats.js'
 import { readCatalog, CATALOG_COLUMNS } from '../lib/offlineSongs.js'
 import { fetchAllRows } from '../lib/fetchAllRows.js'
@@ -65,6 +65,10 @@ const fetchedAt = computed(() =>
     ? new Date(ga.value.fetchedAt).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
     : '',
 )
+const ticks = computed(() => (ov.value ? dayTicks(ov.value.bars.map((b) => b.date)) : []))
+// an edge label is pinned to the edge instead of centred, so it never sticks out of the card
+const tickStyle = (t) =>
+  t.at > 92 ? { right: '0' } : t.at < 8 ? { left: '0' } : { left: t.at + '%', transform: 'translateX(-50%)' }
 const barTitle = (b) => {
   const d = `${+b.date.slice(6)}/${+b.date.slice(4, 6)}`
   return b.started ? `${d} · ${b.web + b.app} คน (แอป ${b.app})` : `${d} · ยังไม่ได้เริ่มนับ`
@@ -168,6 +172,9 @@ const cards = computed(() => {
                 <span class="st-bar-app" :style="{ height: (b.app / ov.max) * 100 + '%' }"></span>
               </template>
             </div>
+          </div>
+          <div class="st-ticks" aria-hidden="true">
+            <span v-for="t in ticks" :key="t.i" :style="tickStyle(t)">{{ t.label }}</span>
           </div>
           <p class="st-legend">
             <span><i class="sw web"></i> เว็บ วันธรรมดา</span>
@@ -392,6 +399,8 @@ const cards = computed(() => {
 .st-bars { display: flex; align-items: flex-end; gap: 2px; height: 120px; border-bottom: 1px solid var(--line); }
 .st-bar { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column-reverse; }
 .st-bar.off { background: repeating-linear-gradient(45deg, transparent 0 3px, var(--line) 3px 4px); opacity: 0.6; }
+.st-ticks { position: relative; height: 1.5em; font-size: 0.8em; color: var(--muted, #666); }
+.st-ticks span { position: absolute; top: 3px; white-space: nowrap; }
 .st-bar-web { background: #8fb3d9; }
 .st-bar.we .st-bar-web { background: #d9a35f; }
 .st-bar-app { background: #2b6cb0; }

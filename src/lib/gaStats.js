@@ -16,6 +16,24 @@ export function dayList(days, now = new Date()) {
 const weekday = (s) => new Date(Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8))).getUTCDay()
 export const isWeekend = (s) => [0, 6].includes(weekday(s))
 
+// Dates under the daily chart. Every day for 7 days, every 7th for 28, every 15th for 90 — counted back
+// from today so the newest bar always carries its date. The month name goes on the first label and
+// wherever the month turns, so a short label ("16") still says which month it is.
+const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+export function dayTicks(dates) {
+  const n = dates.length
+  const step = n <= 7 ? 1 : n <= 31 ? 7 : 15
+  const idx = []
+  for (let i = n - 1; i >= 0; i -= step) idx.unshift(i)
+  let lastMonth = null
+  return idx.map((i) => {
+    const m = +dates[i].slice(4, 6)
+    const label = m === lastMonth ? String(+dates[i].slice(6)) : `${+dates[i].slice(6)} ${TH_MONTHS[m - 1]}`
+    lastMonth = m
+    return { i, label, at: ((i + 0.5) / n) * 100 }
+  })
+}
+
 const sumWhere = (rows, pred) => (rows || []).reduce((t, [d, n]) => (pred(d) ? t + n : t), 0)
 const pct = (part, whole) => (whole > 0 ? Math.round((part / whole) * 100) : null)
 
