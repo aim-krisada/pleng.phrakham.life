@@ -190,6 +190,7 @@ function flush() {
   try {
     gtag('event', 'page_view', params)
   } catch { /* never let counting break a page */ }
+  noteVisit()
 }
 
 // ---- events (ใบ v3/pleng#167 ถึง #172) ----------------------------------------------------------------
@@ -217,10 +218,37 @@ function oncePerPage(key, send) {
 }
 
 // ใบ v3/pleng#171 — which buttons a song open used
-export const FEATURES = ['sheet', 'play', 'tempo', 'section', 'key', 'chord_system', 'print']
+// lang_en · lang_zh · font_up · font_down added 18 พ.ย. 2569 (พี่เอม: "ทำให้ดีกว่านี้อีกได้ไหม")
+export const FEATURES = ['sheet', 'play', 'tempo', 'section', 'key', 'chord_system', 'print', 'lang_en', 'lang_zh', 'font_up', 'font_down']
 export function trackFeature(feature) {
   if (!FEATURES.includes(feature)) return false
   return oncePerPage('f:' + feature, () => trackEvent('feature_use', { feature, song_id: songIdOfPage() }))
+}
+
+// พี่เอม 18 พ.ย. 2569 — things done OUTSIDE one song open: starring a song, sharing a song, sending or
+// keeping a list of starred songs. Counted each time (per song for a star), not as "% of opens".
+// They ride on the same feature_use event and `feature` field, so หน้าสถิติ reads them with no change
+// to the ga-stats middleman.
+export const ACTIONS = ['star', 'share_song', 'share_site', 'fav_send', 'fav_take']
+export function trackAction(action, songId = '') {
+  if (!ACTIONS.includes(action)) return false
+  const id = String(songId || songIdOfPage())
+  return oncePerPage('a:' + action + ':' + id, () => trackEvent('feature_use', { feature: action, song_id: id }))
+}
+
+// พี่เอม 18 พ.ย. 2569 — new or coming back: once a day per device, 'visit_new' the first time this device
+// is counted, 'visit_back' on any later day. Kept on the device only (a date, nothing about the person).
+export const SEEN_KEY = 'pleng.seen'
+const today = () => new Date().toISOString().slice(0, 10)
+export function noteVisit(store = globalThis.localStorage) {
+  if (!counting()) return false
+  let seen = null
+  try { seen = JSON.parse(store.getItem(SEEN_KEY) || 'null') } catch { seen = null }
+  const d = today()
+  if (seen && seen.last === d) return false
+  const kind = seen && seen.first ? 'visit_back' : 'visit_new'
+  try { store.setItem(SEEN_KEY, JSON.stringify({ first: (seen && seen.first) || d, last: d })) } catch { return false }
+  return trackEvent('feature_use', { feature: kind })
 }
 
 // ใบ v3/pleng#172 — opened a face the song cannot fill yet

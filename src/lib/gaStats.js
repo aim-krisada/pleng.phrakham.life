@@ -2,6 +2,7 @@
 // compact rows ([[...dims], number]); these pure functions turn them into what a card shows.
 
 import { thaiProvince } from './thaiProvinces.js'
+import { songLangs } from './songModel.js'
 
 // The day the counter went live on pleng.phrakham.life (PR 124, 16 พ.ย. 2569). Days before it are
 // "ยังไม่ได้เริ่มนับ" — never drawn as 0 people (stat.03 AC 7).
@@ -254,19 +255,27 @@ export const FEATURE_NAMES = {
   key: 'เปลี่ยนคีย์',
   chord_system: 'สลับคอร์ดกับโน้ตตัวเลข',
   print: 'พิมพ์',
+  lang_en: 'เปิดเนื้ออังกฤษ',
+  lang_zh: 'เปิดเนื้อจีน',
 }
 const hasSections = (s) => Array.isArray(s?.content?.arrangement) && s.content.arrangement.length > 1
+// English / Chinese can only be switched on in a song that has it, so that is the base (พี่เอม 18 พ.ย. 2569)
+const hasLang = (s, l) => !!s?.content && songLangs(s.content).includes(l)
 export function features(bundle, songs) {
   let all = 0
   let sectioned = 0
+  const withLang = { lang_en: 0, lang_zh: 0 }
   for (const [id, n] of opensBySong(bundle)) {
     all += n
-    if (hasSections(songRow(songs, id))) sectioned += n
+    const s = songRow(songs, id)
+    if (hasSections(s)) sectioned += n
+    if (hasLang(s, 'en')) withLang.lang_en += n
+    if (hasLang(s, 'zh')) withLang.lang_zh += n
   }
   const used = tally((bundle?.reports?.features || []).map(([[f], n]) => [f, n]))
   return Object.entries(FEATURE_NAMES)
     .map(([key, name]) => {
-      const base = key === 'section' ? sectioned : all
+      const base = key === 'section' ? sectioned : key in withLang ? withLang[key] : all
       const n = used.get(key) || 0
       return { key, name, n, base, pct: Math.min(100, share(n, base)), low: base < LOW_BASE }
     })
@@ -340,4 +349,103 @@ export function devices(bundle) {
     devices: split((d) => DEVICE_NAMES[d[0]] || 'อื่น ๆ', ['มือถือ', 'แท็บเล็ต', 'คอม', 'อื่น ๆ']),
     systems: split((d) => osName(d[1]), ['ไอโฟน ไอแพด', 'แอนดรอยด์', 'อื่น ๆ']),
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// พี่เอม 18 พ.ย. 2569 — "พี่เปาชอบมาก ... ทำให้ดีกว่านี้อีกได้ไหม". New counts (lib/analytics.js trackAction,
+// noteVisit, lang_* / font_*), the songs behind them, one line of advice per section, and a short summary
+// to send on. All of it reads the reports the page already gets; `featureSongs` (which song a star or an
+// English switch was for) arrives only once the updated ga-stats is pasted into Supabase — until then
+// those lists are simply left out.
+// ════════════════════════════════════════════════════════════════════════════════════════════
+export const ACTION_NAMES = {
+  star: 'กดดาวเก็บเพลงไว้',
+  fav_send: 'ส่งรายการเพลงที่ชอบให้คนอื่น',
+  fav_take: 'กดเก็บรายการที่คนอื่นส่งมา',
+  share_song: 'ส่งลิงก์เพลง',
+  share_site: 'ส่งลิงก์เว็บ',
+  font_up: 'ขยายตัวหนังสือ',
+  font_down: 'ลดตัวหนังสือ',
+}
+const featureCounts = (bundle) => tally((bundle?.reports?.features || []).map(([[f], n]) => [f, n]))
+
+export function actions(bundle) {
+  const m = featureCounts(bundle)
+  const rows = Object.entries(ACTION_NAMES).map(([key, name]) => ({ key, name, n: m.get(key) || 0 }))
+  return { total: rows.reduce((t, r) => t + r.n, 0), rows }
+}
+
+// new or coming back — once a day per device (analytics.noteVisit)
+export function visitors(bundle) {
+  const m = featureCounts(bundle)
+  const fresh = m.get('visit_new') || 0
+  const back = m.get('visit_back') || 0
+  return { fresh, back, total: fresh + back, backPct: share(back, fresh + back), low: fresh + back < LOW_BASE }
+}
+
+// which songs got the most stars / English / Chinese — needs the featureSongs report
+export function featureSongs(bundle, songs, feature, limit = 5) {
+  const rows = bundle?.reports?.featureSongs
+  if (!rows) return null
+  return [...tally(rows.filter(([[f, id]]) => f === feature && realValue(id)).map(([[, id], n]) => [id, n]))]
+    .sort(byCount)
+    .map(([id, n]) => ({ id, n, song: songRow(songs, id) }))
+    .filter((r) => !removed(r.song))
+    .slice(0, limit)
+}
+
+const nameOf = (s) => (s ? `${s.number != null ? s.number + '. ' : ''}${s.title_th || ''}` : '')
+
+// one line per section: what the numbers say and what to do about it. null = nothing worth saying yet.
+export function advice({ ov, cards, work }) {
+  const out = { overview: null, songs: null, app: null, more: null }
+  if (ov) {
+    if (ov.change != null && ov.change >= 10) out.overview = `คนใช้มากขึ้น ${ov.change}% ⇒ ช่องทางที่คนมาถึงเว็บมากที่สุด คือที่ควรส่งลิงก์ต่อ`
+    else if (ov.change != null && ov.change <= -10) out.overview = `คนใช้น้อยลง ${-ov.change}% ⇒ ลองส่งลิงก์เพลงที่ร้องสัปดาห์นี้ในกลุ่มไลน์ของโบสถ์`
+    else if (ov.busiest) out.overview = `คนใช้มากที่สุดช่วง${ov.busiest} ⇒ ถ้าจะลงเพลงใหม่ ลงให้เสร็จก่อนช่วงนี้`
+  }
+  if (!out.songs && work && work.pending > 0 && !cards) out.songs = `มีงานรอตรวจ ${work.pending} เพลง ⇒ ตรวจให้เสร็จก่อนพิมพ์เพลงใหม่`
+  if (cards) {
+    const nf = cards.notFound?.rows?.[0]
+    const fix = cards.fix?.[0]
+    if (nf && nf.notFound >= 2) out.songs = `คนค้น "${nf.term}" แล้วไม่เจอ ${nf.notFound} ครั้ง ⇒ เพิ่มเพลงนี้ หรือใส่ชื่ออื่นของเพลงให้ค้นเจอ`
+    else if (fix) out.songs = `เพลง ${nameOf(fix.song)} คนเปิดบ่อย แต่ยังไม่มี${fix.missing.join('และ')} ⇒ ทำเพลงนี้ก่อน`
+    else if (work && work.pending > 0) out.songs = `มีงานรอตรวจ ${work.pending} เพลง ⇒ ตรวจให้เสร็จก่อนพิมพ์เพลงใหม่`
+
+    const dead = cards.dead?.songs?.[0]
+    const usable = (cards.features || []).filter((f) => !f.low && !['lang_en', 'lang_zh'].includes(f.key))
+    const least = usable.length ? usable[usable.length - 1] : null
+    if (dead && dead.n >= 3) out.app = `เพลง ${nameOf(dead.song)} มีคนเปิดแล้วติด ${dead.n} ครั้ง (${dead.kinds.join(' · ')}) ⇒ เติมเพลงนี้ก่อน`
+    else if (least && least.pct < 5) out.app = `ปุ่ม "${least.name}" แทบไม่มีคนใช้ (${least.pct}%) ⇒ อาจหายาก หรือไม่มีใครต้องการ`
+    else if (cards.from && !cards.from.low) {
+      const top = [...cards.from.rows].sort((a, b) => b.pct - a.pct)[0]
+      if (top) out.app = `คนหาเพลงด้วยวิธี "${top.name}" มากที่สุด (${top.pct}%) ⇒ ทางนี้ต้องใช้ง่ายที่สุด`
+    }
+
+    const v = cards.visitors
+    const en = (cards.features || []).find((f) => f.key === 'lang_en')
+    if (v && !v.low) out.more = `คนที่กลับมาใช้ซ้ำ ${v.backPct}% ⇒ ${v.backPct >= 50 ? 'คนใช้ประจำมีมาก ของใหม่ควรบอกผ่านหน้าเว็บ' : 'คนใหม่ยังมาก ทำให้คนใหม่หาเพลงแรกเจอง่าย ๆ'}`
+    else if (en && !en.low) out.more = `เพลงที่มีเนื้ออังกฤษ คนเปิดอังกฤษ ${en.pct}% ⇒ ${en.pct >= 10 ? 'คุ้มที่จะทำเล่มอื่นเป็นอังกฤษต่อ' : 'ยังไม่ต้องรีบทำเล่มอื่นเป็นอังกฤษ'}`
+  }
+  return out
+}
+
+// a few lines to paste into LINE for พี่เปา — the same numbers as the page, nothing new
+export function summaryText({ days, label, ov, cards, work, tips }) {
+  const lines = [`สรุปการใช้เว็บเพลง ${label || days + ' วัน'}`]
+  if (ov) {
+    const chg = ov.change != null ? ` (${ov.change >= 0 ? '+' : ''}${ov.change}% จากช่วงก่อน)` : ''
+    lines.push(`- คนใช้ ${ov.users.toLocaleString('th-TH')} คน${chg} · เปิดจากแอป ${ov.appShare ?? 0}%`)
+  }
+  if (cards?.top?.length) lines.push(`- เพลงที่เปิดมากสุด: ${cards.top.slice(0, 3).map((r) => nameOf(r.song) || 'เพลงที่ลบแล้ว').join(' · ')}`)
+  if (cards?.notFound?.rows?.length) lines.push(`- คำที่ค้นแล้วไม่เจอ: ${cards.notFound.rows.slice(0, 3).map((r) => `"${r.term}"`).join(' · ')}`)
+  if (cards?.visitors?.total) lines.push(`- เครื่องใหม่ ${cards.visitors.fresh} เครื่อง · กลับมาใช้ซ้ำ ${cards.visitors.back} ครั้ง`)
+  if (cards?.actions?.total) {
+    const a = Object.fromEntries(cards.actions.rows.map((r) => [r.key, r.n]))
+    lines.push(`- กดดาว ${a.star} ครั้ง · ส่งลิงก์เพลง ${a.share_song} ครั้ง · ส่งรายการเพลง ${a.fav_send} ครั้ง`)
+  }
+  if (work) lines.push(`- งานค้าง: ร่าง ${work.draft} · รอตรวจ ${work.pending}`)
+  const t = Object.values(tips || {}).filter(Boolean)
+  if (t.length) lines.push('ควรทำต่อ:', ...t.map((x) => '- ' + x))
+  return lines.join('\n')
 }

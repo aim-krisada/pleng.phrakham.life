@@ -9,7 +9,8 @@ import {
 
 const ID = 'G-TEST000'
 const events = () => (window.dataLayer || []).map((a) => [...a]).filter((a) => a[0] === 'event')
-const named = (n) => events().filter((a) => a[1] === n).map((a) => a[2])
+// the once-a-day new / coming-back count (noteVisit) rides on feature_use too — kept out of the button tests
+const named = (n) => events().filter((a) => a[1] === n).map((a) => a[2]).filter((p) => !/^visit_/.test(p?.feature || ''))
 
 function fresh({ host = true, consent = 'granted' } = {}) {
   localStorage.clear()

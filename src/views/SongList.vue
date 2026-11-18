@@ -32,7 +32,7 @@ import { SITE_NAME } from '../lib/songName.js'
 import FavStar from '../components/FavStar.vue'
 import SongRow from '../components/SongRow.vue'
 import { songLangNames } from '../lib/songLangNames.js'
-import { trackSearch, trackSearchSelect, noteOpenFrom } from '../lib/analytics.js'
+import { trackSearch, trackSearchSelect, noteOpenFrom, trackAction } from '../lib/analytics.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -85,6 +85,7 @@ const incomingMissing = computed(() => (loading.value ? 0 : incoming.value.ids.l
 const importDone = ref(null) // null · how many songs the press put in เพลงที่ชอบ
 function takeIn() {
   addFavorites(incomingSongs.value.map((s) => s.id))
+  trackAction('fav_take') // หน้าสถิติ — someone kept a list that was sent to them
   importDone.value = incomingSongs.value.length
 }
 function openFav() {

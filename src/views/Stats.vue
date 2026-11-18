@@ -11,7 +11,7 @@ import { session, tier, legacy } from '../store.js'
 import { RANGES, rangeLabel, draftStats } from '../lib/teamStats.js'
 import {
   overview, gaErrorText, songIds, topSongs, regions, sources, notFound, foundNoPick, needsFix, keyChanges,
-  features, deadEnds, openFrom, devices, dayTicks,
+  features, deadEnds, openFrom, devices, dayTicks, actions, visitors, featureSongs, advice, summaryText,
 } from '../lib/gaStats.js'
 import { readCatalog, CATALOG_COLUMNS } from '../lib/offlineSongs.js'
 import { fetchAllRows } from '../lib/fetchAllRows.js'
@@ -119,8 +119,41 @@ const cards = computed(() => {
     dead: deadEnds(b, m),
     from: openFrom(b),
     devices: devices(b),
+    actions: actions(b),
+    visitors: visitors(b),
+    starred: featureSongs(b, m, 'star'),
+    english: featureSongs(b, m, 'lang_en'),
   }
 })
+
+// พี่เอม 18 พ.ย. 2569 — one line under each section: what to do about these numbers
+const tips = computed(() => advice({ ov: ov.value, cards: cards.value, work: work.value }))
+
+// a short summary to send on (LINE) — พี่เปา reads it without opening this page
+const summary = computed(() =>
+  ov.value || cards.value
+    ? summaryText({ days: days.value, label: label.value, ov: ov.value, cards: cards.value, work: work.value, tips: tips.value })
+    : '')
+const summaryNote = ref('')
+async function sendSummary() {
+  const text = summary.value
+  if (!text) return
+  try {
+    if (typeof navigator.share === 'function') {
+      await navigator.share({ text })
+      summaryNote.value = ''
+      return
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return
+  }
+  try {
+    await navigator.clipboard.writeText(text)
+    summaryNote.value = 'คัดลอกแล้ว ⇒ ไปวางในไลน์ได้เลย'
+  } catch {
+    summaryNote.value = 'คัดลอกไม่ได้ ⇒ กดค้างที่ข้อความแล้วเลือกคัดลอก'
+  }
+}
 </script>
 
 <template>
@@ -147,9 +180,21 @@ const cards = computed(() => {
         <p class="muted st-note">ตัวเลขการใช้งานนับเฉพาะคนที่กดยอมรับการนับ</p>
       </div>
 
+      <!-- พี่เอม 18 พ.ย. 2569 — สรุปสั้น ๆ ส่งต่อในไลน์ได้ ไม่ต้องเปิดหน้านี้ก็รู้เรื่อง -->
+      <section v-if="summary" class="st-sec" data-test="st-summary">
+        <h3>สรุปสั้น ๆ</h3>
+        <p class="muted st-why">ส่งต่อในไลน์ได้ คนที่ไม่ได้เปิดหน้านี้ก็รู้เรื่อง</p>
+        <div class="card st-card">
+          <pre class="st-summary">{{ summary }}</pre>
+          <button type="button" class="st-send" data-test="st-send" @click="sendSummary">ส่งสรุปนี้</button>
+          <p v-if="summaryNote" class="muted st-small" role="status">{{ summaryNote }}</p>
+        </div>
+      </section>
+
       <section class="st-sec">
         <h3>ภาพรวม</h3>
         <p class="muted st-why">ใช้ดูว่าเว็บมีคนใช้มากขึ้นหรือน้อยลง</p>
+        <p v-if="tips.overview" class="st-tip" data-test="tip-overview">{{ tips.overview }}</p>
         <div v-if="gaError" class="card st-card st-wait">{{ gaError }}</div>
         <div v-else-if="!ov" class="card st-card muted">กำลังโหลด…</div>
         <div v-else class="card st-card st-overview">
@@ -227,6 +272,7 @@ const cards = computed(() => {
       <section class="st-sec">
         <h3>งานเพลง</h3>
         <p class="muted st-why">ใช้ตัดสินว่าสัปดาห์นี้ควรเร่งพิมพ์เพลงใหม่ หรือเคลียร์งานที่รอตรวจก่อน</p>
+        <p v-if="tips.songs" class="st-tip" data-test="tip-songs">{{ tips.songs }}</p>
         <div v-if="gaError" class="card st-card st-wait">{{ gaError }}</div>
         <template v-else-if="cards">
           <!-- ใบ v3/pleng#167 stat.06 -->
@@ -296,6 +342,7 @@ const cards = computed(() => {
       <section class="st-sec">
         <h3>การใช้งานแอป</h3>
         <p class="muted st-why">ใช้ตัดสินว่าควรปรับปุ่มไหน หรือเพิ่มเพลงอะไร</p>
+        <p v-if="tips.app" class="st-tip" data-test="tip-app">{{ tips.app }}</p>
         <div v-if="gaError" class="card st-card st-wait">{{ gaError }}</div>
         <div v-else-if="!cards" class="card st-card muted">กำลังโหลด…</div>
         <template v-else>
@@ -309,7 +356,7 @@ const cards = computed(() => {
                 <span v-if="f.low" class="muted st-li-n">ข้อมูลยังน้อย</span>
                 <template v-else><span class="st-meter"><i :style="{ width: f.pct + '%' }"></i></span><b class="st-li-n">{{ f.pct }}%</b></template>
               </div>
-              <p class="muted st-small">ข้ามท่อน นับเฉพาะเพลงที่มีหลายท่อน</p>
+              <p class="muted st-small">ข้ามท่อน นับเฉพาะเพลงที่มีหลายท่อน · เนื้ออังกฤษ เนื้อจีน นับเฉพาะเพลงที่มีภาษานั้น</p>
             </template>
           </div>
 
@@ -356,6 +403,47 @@ const cards = computed(() => {
           </div>
         </template>
       </section>
+
+      <!-- พี่เอม 18 พ.ย. 2569 — คนใหม่กับคนที่กลับมา · ดาว · การส่งต่อ · ขนาดตัวหนังสือ (เริ่มนับ 18 พ.ย. 2569) -->
+      <section class="st-sec" data-test="st-more">
+        <h3>คนใช้แบบไหน</h3>
+        <p class="muted st-why">ใช้ดูว่าคนกลับมาใช้ซ้ำไหม และของที่เพิ่งเพิ่มมีคนใช้จริงไหม · เริ่มนับ 18 พ.ย. 2569</p>
+        <p v-if="tips.more" class="st-tip" data-test="tip-more">{{ tips.more }}</p>
+        <div v-if="gaError" class="card st-card st-wait">{{ gaError }}</div>
+        <div v-else-if="!cards" class="card st-card muted">กำลังโหลด…</div>
+        <template v-else>
+          <div class="card st-card" data-test="st-visitors">
+            <h4>คนใหม่ กับ คนที่กลับมาใช้ซ้ำ</h4>
+            <p v-if="!cards.visitors.total" class="muted st-none">ยังไม่มีตัวเลข ⇒ เริ่มนับวันนี้ พรุ่งนี้จะเริ่มเห็น</p>
+            <template v-else>
+              <div class="st-li"><span class="st-li-t">เครื่องที่เข้ามาครั้งแรก</span><b class="st-li-n">{{ cards.visitors.fresh }} เครื่อง</b></div>
+              <div class="st-li"><span class="st-li-t">กลับมาใช้ซ้ำ</span><b class="st-li-n">{{ cards.visitors.back }} ครั้ง</b></div>
+              <p class="muted st-small">นับวันละครั้งต่อเครื่อง ⇒ คนเดียวใช้ 2 เครื่อง นับเป็น 2</p>
+            </template>
+          </div>
+          <div class="card st-card" data-test="st-actions">
+            <h4>ดาว การส่งต่อ และขนาดตัวหนังสือ</h4>
+            <p v-if="!cards.actions.total" class="muted st-none">ยังไม่มีตัวเลข ⇒ เริ่มนับวันนี้ พรุ่งนี้จะเริ่มเห็น</p>
+            <template v-else>
+              <div v-for="r in cards.actions.rows" :key="r.key" class="st-li">
+                <span class="st-li-t">{{ r.name }}</span><b class="st-li-n">{{ r.n }} ครั้ง</b>
+              </div>
+            </template>
+            <template v-if="cards.starred && cards.starred.length">
+              <p class="st-sub">เพลงที่คนกดดาวมากที่สุด</p>
+              <div v-for="r in cards.starred" :key="r.id" class="st-li">
+                <router-link :to="'/song/' + r.id" class="st-li-t">{{ songLabel(r.song) }}</router-link><b class="st-li-n">{{ r.n }} ครั้ง</b>
+              </div>
+            </template>
+            <template v-if="cards.english && cards.english.length">
+              <p class="st-sub">เพลงที่คนเปิดเนื้ออังกฤษมากที่สุด</p>
+              <div v-for="r in cards.english" :key="r.id" class="st-li">
+                <router-link :to="'/song/' + r.id" class="st-li-t">{{ songLabel(r.song) }}</router-link><b class="st-li-n">{{ r.n }} ครั้ง</b>
+              </div>
+            </template>
+          </div>
+        </template>
+      </section>
     </template>
   </div>
 </template>
@@ -375,6 +463,10 @@ const cards = computed(() => {
 .st-sec { margin-top: 22px; }
 .st-sec h3 { margin: 0; }
 .st-why { margin: 2px 0 10px; font-size: 0.9em; }
+/* คำแนะนำ 1 บรรทัดต่อหัวข้อ — แถบซ้ายสีเดียวกับปุ่มหลัก ไม่ใช่สีอย่างเดียว (มีลูกศร ⇒ ในข้อความด้วย) */
+.st-tip { margin: 0 0 10px; padding: 8px 12px; border-left: 4px solid var(--brand, #8b4513); background: var(--cream, #faf6ef); border-radius: 6px; font-weight: 600; overflow-wrap: anywhere; }
+.st-summary { margin: 0 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; }
+.st-send { min-height: 44px; padding: 0 18px; border-radius: 8px; border: 1px solid var(--brand, #8b4513); background: var(--brand, #8b4513); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .st-card h4 { margin: 0 0 8px; }
 .st-wait { color: var(--muted, #666); }
 .st-own { margin: 0 0 8px; font-size: 0.9em; }
