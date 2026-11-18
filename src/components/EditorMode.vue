@@ -2,7 +2,7 @@
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount, toRaw } from 'vue'
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { footnoteItems, footnoteMarks, supNum } from '../lib/footnotes.js'
+import { footnoteMarks, supNum, countStars, entrySig, reconcileNotes, moveLineNotesToWords } from '../lib/footnotes.js'
 import { fetchAllRows } from '../lib/fetchAllRows.js'
 import { KEYS, TIME_SIGNATURES, chordOptions, parseChord, normalizeChord, chordError } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, holdValue, HOLD_STEP, HOLD_MIN, HOLD_DEFAULT, snapHalf, slurSpans } from '../lib/notation.js'
@@ -232,7 +232,7 @@ function deserializeLine(items) {
 const CONTENT_KEYS = ['version', 'key', 'timeSignature', 'bpm', 'stanzas', 'arrangement', 'lyricSets', 'lines', 'bookRefs', 'langVerified', 'footnote']
 // ใบ v3/pleng#96 — `timeSignature` = this melody's own meter (optional; unset = the song's)
 const STANZA_KEYS = ['id', 'lines', 'timeSignature']
-const ARRANGEMENT_KEYS = ['stanza', 'label', 'syllables', 'key', 'set', 'afterEachVerse', 'lyrics']
+const ARRANGEMENT_KEYS = ['stanza', 'label', 'syllables', 'key', 'set', 'afterEachVerse', 'lyrics', 'notes']
 const LYRIC_SET_KEYS = ['name', 'label']
 // Every key of `obj` the editor does not model, deep-cloned so the captured copy can never
 // alias (and be mutated through) the loaded row.
@@ -343,21 +343,10 @@ const langVerified = ref({})
 // for a * in the words (พี่เปา via P'Aim 18 พ.ย. 2569: "ใส่ text อิสระได้"). One plain string,
 // line breaks kept. A song without one keeps no key, so its content stays byte-identical.
 const footnote = ref('')
-// ใบ#178 — several footnotes: each * in the words gets the next number ¹ ² ³ on the sheet, and line N of the
-// footnote explains mark N. The editor counts both so a missing or extra line shows up in orange.
-const footnoteCheck = computed(() => {
-  const items = footnoteItems(footnote.value)
-  const marks = footnoteMarks(previewContent.value)
-  const stars = marks.length
-  // ใบ#178 รอบ 3 — one row per mark AND per line: "¹ เชื่อ (ข้อ 1) ⇒ <its line>". A mark with no line yet,
-  // or a line with no mark, is a row of its own in orange, so the writer sees where they fell out of step.
-  const rows = []
-  for (let i = 0; i < Math.max(stars, items.length); i++) {
-    const m = marks[i]
-    rows.push({ n: supNum(i + 1), word: m ? m.word : '', before: m ? m.before : '', after: m ? m.after : '', where: m ? m.where : '', text: items[i] || '', missing: !!m && !items[i], extra: !m })
-  }
-  return { stars, items, rows, mismatch: stars > 0 && stars !== items.length }
-})
+// ใบ#178 รอบ 4 — หมายเหตุของคำ: every * in the words, in number order, with its word and its note. Shown as
+// the list under this box, and in the small box that opens under a starred word (P'Aim: "พอใส่ดาวปุ๊บก็มีช่อง
+// ขึ้นมาให้ใส่เลย"). The note is stored on the word's row (row.notes), so it stays with its word.
+const wordMarks = computed(() => footnoteMarks(previewContent.value).map((m) => ({ ...m, sup: supNum(m.n) })))
 
 // B108 (หมวดหาย) — `category`/`theme` used to be columns on `songs` ONLY, so after loading a
 // DRAFT row meta.category/meta.theme were a GUESS ('anuchon' fallback), not data — and
@@ -618,6 +607,12 @@ function addLang(l) {
   if (!addedLangs.value.includes(l)) addedLangs.value = [...addedLangs.value, l]
 }
 
+function notesOut(r) {
+  const n = (r.syllables || []).reduce((t, w) => t + countStars(w), 0)
+  if (!n) return {}
+  const notes = Array.from({ length: n }, (_, i) => String((r.notes && r.notes[i]) || '').trim())
+  return { notes }
+}
 const previewContent = computed(() => ({
   version: 2,
   key: opts.key,
@@ -670,6 +665,9 @@ const previewContent = computed(() => ({
     ...(lyricSets.value.length > 1 && r.set != null ? { set: r.set } : {}),
     // ใบ v1#158 — the other languages' words (omitted when there are none, so a Thai-only row stays as it was)
     ...lyricsOut(r),
+    // ใบ#178 รอบ 4 — หมายเหตุของคำ: one per * in this row's Thai words, in order. Kept on every row that has a *
+    // (even when still blank) so the song reads as notes-on-words, never as the older footnote lines.
+    ...notesOut(r),
     // B102 — "ร้องรับทุกข้อ": the refrain is sung after every verse. Stored on the entry
     // (SSOT, visible in the downloaded JSON); playback (resolvePlayOrder) expands it.
     ...(r.afterEachVerse ? { afterEachVerse: true } : {}),
@@ -794,6 +792,105 @@ function setSyl(row, i, val, lang = 'th') {
 // insert/remove one slot and RIPPLE the rest across the whole ข้อ (past bars & lines).
 const focusedSlot = ref(-1) // global slot index whose ◀ ▶ tools are shown
 const focusedLang = ref('th') // ใบ v1#158 — which language's box that is; ◀ ▶ shift that language only
+
+// ---------- ใบ#178 รอบ 4 — หมายเหตุของคำ ----------
+// A ท่อน sung again with the very same words shares the notes of the first time it is sung (the sheet
+// numbers it the same), so a note typed on the repeat is written to that first row.
+function ownerRow(row) {
+  const sig = entrySig(row)
+  return arrangement.value.find((r) => entrySig(r) === sig) || row
+}
+function noteOf(row, k) {
+  const o = ownerRow(row)
+  return (o.notes && o.notes[k]) || ''
+}
+function setNote(row, k, val) {
+  const o = ownerRow(row)
+  const a = Array.isArray(o.notes) ? [...o.notes] : []
+  while (a.length <= k) a.push('')
+  a[k] = val
+  o.notes = a
+}
+function starsBefore(row, slot) {
+  return (row.syllables || []).slice(0, slot).reduce((t, w) => t + countStars(w), 0)
+}
+// the marks on one word box: [{ k, sup }] — k = which * of the row, sup = its number on the sheet
+function slotMarks(row, slot) {
+  if (!row) return []
+  const c = countStars(sylAt(row, slot))
+  if (!c) return []
+  const k0 = starsBefore(row, slot)
+  const ei = arrangement.value.indexOf(ownerRow(row))
+  return Array.from({ length: c }, (_, j) => {
+    const m = wordMarks.value.find((x) => x.ei === ei && x.k === k0 + j)
+    return { k: k0 + j, sup: m ? m.sup : '*' }
+  })
+}
+// the word box whose note box is open (-1 = none). It opens when a * is typed or a starred box is
+// focused, and stays open while the writer types in it (the word box's blur does not close it).
+const notePopSlot = ref(-1)
+function onThaiSylInput(slot, val) {
+  const row = lensRow.value
+  const before = countStars(sylAt(row, slot))
+  setSyl(row, slot, val)
+  if (countStars(val) > before) notePopSlot.value = slot
+  else if (!countStars(val)) notePopSlot.value = -1
+}
+function onThaiSylFocus(slot) {
+  focusedSlot.value = slot
+  focusedLang.value = 'th'
+  notePopSlot.value = countStars(sylAt(lensRow.value, slot)) ? slot : -1
+}
+// ลบดาว: the k-th * of the row comes out of its word, and its note goes with it (the watcher below)
+function removeStar(row, slot, k) {
+  const w = sylAt(row, slot)
+  let j = k - starsBefore(row, slot)
+  let at = -1
+  for (let i = 0; i < w.length; i++) if (w[i] === '*' && j-- === 0) { at = i; break }
+  if (at < 0) return
+  setSyl(row, slot, w.slice(0, at) + w.slice(at + 1))
+  if (!countStars(sylAt(row, slot))) notePopSlot.value = -1
+}
+watch(lensChoice, () => (notePopSlot.value = -1))
+// keep the box on screen: a word near the right edge of a phone would push it off the side, so once it
+// opens it slides left (or right) by just enough to stay 16px inside the screen
+const notePopShift = ref(0)
+watch(notePopSlot, async (v) => {
+  notePopShift.value = 0
+  if (v < 0 || typeof window === 'undefined') return
+  await nextTick()
+  const el = document.querySelector('.syl-note-pop')
+  if (!el) return
+  const r = el.getBoundingClientRect()
+  // the width the screen really shows (visualViewport): if the page itself is wider than a phone,
+  // innerWidth reports that wider width and the box would still hang off the side
+  const vw = Math.min(window.visualViewport?.width || Infinity, window.innerWidth || Infinity, document.documentElement.clientWidth || Infinity)
+  const ox = window.visualViewport?.offsetLeft || 0
+  if (!r.width) return
+  let dx = 0
+  if (!isFinite(vw)) return
+  if (r.right > ox + vw - 16) dx = ox + vw - 16 - r.right
+  if (r.left + dx < ox + 16) dx = ox + 16 - r.left
+  notePopShift.value = Math.round(dx)
+})
+// Keep every note on its word whatever changed the words (a word box, the paragraph box, ◀ ▶, split,
+// merge): when a row's marks change, reconcileNotes lines the notes back up. Rows are matched by
+// object, so loading a song or undo/redo (new row objects, notes already right) is never "reconciled".
+const lastSyls = new WeakMap()
+watch(
+  () => arrangement.value.map((r) => [r, (r.syllables || []).join('')]),
+  (pairs) => {
+    for (const [r, key] of pairs) {
+      const prev = lastSyls.get(r)
+      lastSyls.set(r, key)
+      if (prev == null || prev === key || applyingHistory) continue
+      if (!Array.isArray(r.notes) || !r.notes.length) continue
+      r.notes = reconcileNotes(prev.split(''), r.syllables || [], r.notes)
+    }
+  },
+  { flush: 'sync', immediate: true },
+)
+
 function slotIdx(li, bi, si, k) {
   return (slotStarts.value[`${li}-${bi}-${si}`] ?? 0) + k - 1
 }
@@ -2453,6 +2550,10 @@ function applyRow(data) {
   footnote.value = typeof data?.content?.footnote === 'string' ? data.content.footnote : ''
   loadedFlags.value = Array.isArray(data.review_flags) ? data.review_flags : [] // B093: keep on publish
   const { content, warnings } = migrateToV2(data.content)
+  // ใบ#178 รอบ 4 — an older song kept its word notes as footnote lines (line N = mark N): move them onto
+  // the words they explain, and leave only the free text in the footnote box
+  const movedNotes = moveLineNotesToWords({ ...content, footnote: footnote.value })
+  if (movedNotes) footnote.value = movedNotes.footnote
   opts.key = content.key || 'C'
   opts.timeSignature = content.timeSignature || '4/4'
   opts.bpm = content.bpm ?? null
@@ -2469,7 +2570,7 @@ function applyRow(data) {
     _extra: rest(s, STANZA_KEYS),
   }))
   if (!stanzas.value.length) stanzas.value = [{ id: 'A', lines: [newLine()] }]
-  arrangement.value = (content.arrangement || []).map((r) => ({
+  arrangement.value = ((movedNotes ? movedNotes.arrangement : content.arrangement) || []).map((r) => ({
     stanza: r.stanza,
     label: r.label || '',
     syllables: [...(r.syllables || [])],
@@ -2482,6 +2583,7 @@ function applyRow(data) {
     afterEachVerse: !!r.afterEachVerse, // B102 — strophic "ร้องรับทุกข้อ" directive (round-trips)
     // ใบ v1#158 — the other languages' words (only when the row has them)
     ...(r.lyrics && typeof r.lyrics === 'object' ? { lyrics: clone(r.lyrics) } : {}),
+    ...(Array.isArray(r.notes) ? { notes: r.notes.map((t) => String(t ?? '')) } : {}), // ใบ#178 — one per * in the words
     _extra: rest(r, ARRANGEMENT_KEYS),
   }))
   if (!arrangement.value.length) {
@@ -4476,26 +4578,32 @@ defineExpose({
             {{ refsPreview.length ? refsPreview.join(' · ') : 'คั่นหลายเล่มด้วยเว้นวรรคหรือ , — ตัวย่อพิมพ์เองได้' }}
           </span>
         </label>
-        <!-- หมายเหตุท้ายเพลง — free text under the song (content.footnote). Mark the word with * in the
-             words, then explain it here: "(*ความเชื่อ เล็งถึง…)". -->
-        <label class="ed-footnote">หมายเหตุท้ายเพลง
+        <!-- ใบ#178 รอบ 4 — หมายเหตุของคำ: every * in the words with its note, in number order (the same notes
+             as the small box under each starred word — edit either). Then the free text under the song. -->
+        <div v-if="wordMarks.length" class="ed-footnote ed-wordnotes">
+          <span>หมายเหตุของคำ</span>
+          <ol class="ed-footnote-list" aria-label="หมายเหตุของคำ">
+            <li v-for="m in wordMarks" :key="m.n" :class="{ 'ed-footnote-warn': !m.text }">
+              <span class="ed-footnote-label"><b>{{ m.sup }}</b><span v-if="m.before" class="ed-footnote-ctx">{{ m.before }}</span><span class="ed-footnote-word">{{ m.word }}</span><span v-if="m.after" class="ed-footnote-ctx">{{ m.after }}</span><span v-if="m.where" class="ed-footnote-where">({{ m.where }})</span></span>
+              <input
+                class="ed-footnote-input"
+                :value="noteOf(arrangement[m.ei], m.k)"
+                placeholder="(ยังไม่ได้เขียน)"
+                :aria-label="`คำอธิบายของคำ ${m.word}`"
+                @input="setNote(arrangement[m.ei], m.k, $event.target.value)"
+              />
+            </li>
+          </ol>
+        </div>
+        <label class="ed-footnote">หมายเหตุท้ายเพลง (ข้อความอิสระ)
           <textarea
             v-model="footnote"
-            rows="3"
-            placeholder="เช่น ความเชื่อ เล็งถึงยะโฮซูอะและคาเลบเชื่อวางใจในพระเจ้า"
+            rows="2"
+            placeholder="ข้อความอื่นที่จะขึ้นใต้เพลง ไม่ผูกกับคำไหน"
             aria-label="หมายเหตุท้ายเพลง"
             aria-describedby="edFootnoteHint"
           ></textarea>
-          <ol v-if="footnoteCheck.stars" class="ed-footnote-list">
-            <li v-for="f in footnoteCheck.rows" :key="f.n" :class="{ 'ed-footnote-warn': f.missing || f.extra }">
-              <b>{{ f.n }}</b>
-              <template v-if="f.extra"> (ไม่มีดาวในเนื้อ) ⇒ {{ f.text }}</template>
-              <template v-else> <span v-if="f.before" class="ed-footnote-ctx">{{ f.before }} </span><span class="ed-footnote-word">{{ f.word }}</span><span v-if="f.after" class="ed-footnote-ctx"> {{ f.after }}</span><span v-if="f.where" class="ed-footnote-where"> ({{ f.where }})</span> ⇒ {{ f.missing ? '(ยังไม่ได้เขียน)' : f.text }}</template>
-            </li>
-          </ol>
-          <span v-if="footnoteCheck.mismatch" id="edFootnoteHint" class="ed-refs-hint ed-footnote-warn" role="status">ดาวในเนื้อมี {{ footnoteCheck.stars }} ตัว แต่หมายเหตุมี {{ footnoteCheck.items.length }} บรรทัด ⇒ ให้เท่ากัน บรรทัดที่ 1 คู่กับดาวตัวที่ 1</span>
-          <span v-else-if="footnoteCheck.stars" id="edFootnoteHint" class="muted ed-refs-hint">ดาวในเนื้อ {{ footnoteCheck.stars }} ตัว ⇒ ขึ้นเป็นเลข ¹ ² ³ ให้เอง บรรทัดละข้อ เรียงตามดาว</span>
-          <span v-else id="edFootnoteHint" class="muted ed-refs-hint">ขึ้นใต้เพลง ตัวเล็ก ติดไปตอนพิมพ์ด้วย ⇒ ใส่ * ท้ายคำในเนื้อ แล้วเขียนคำอธิบายที่นี่ บรรทัดละข้อ ระบบเปลี่ยนดาวเป็นเลข ¹ ² ³ ให้เอง</span>
+          <span id="edFootnoteHint" class="muted ed-refs-hint">ขึ้นใต้เพลง ตัวเล็ก ติดไปตอนพิมพ์ด้วย ⇒ อยากอธิบายคำไหน ใส่ * ท้ายคำนั้นในเนื้อ แล้วมีกล่องให้พิมพ์ใต้คำเลย ระบบเปลี่ยนดาวเป็นเลข ¹ ² ³ ให้เอง</span>
         </label>
       </div>
     </div>
@@ -4970,11 +5078,36 @@ defineExpose({
                           :data-slot="cell.slot"
                           :placeholder="cell.held ? '-' : ''"
                           :aria-label="cell.held ? `โน้ตลากเสียง ช่องที่ ${cell.slot + 1} (เว้นว่างได้)` : `พยางค์ที่ ${cell.slot + 1}`"
-                          @focus="focusedSlot = cell.slot; focusedLang = 'th'"
+                          @focus="onThaiSylFocus(cell.slot)"
                           @blur="focusedSlot = -1"
                           @keydown="onSylKey($event, cell.slot)"
-                          @input="setSyl(lensRow, cell.slot, $event.target.value)"
+                          @input="onThaiSylInput(cell.slot, $event.target.value)"
                         />
+                        <!-- ใบ#178 รอบ 4 — หมายเหตุของคำ: a * typed in this word opens a small box right here -->
+                        <div
+                          v-if="notePopSlot === cell.slot && slotMarks(lensRow, cell.slot).length"
+                          class="syl-note-pop"
+                          :style="notePopShift ? { transform: `translateX(${notePopShift}px)` } : null"
+                          role="group"
+                          :aria-label="`หมายเหตุของคำ ${sylAt(lensRow, cell.slot).replace(/\*/g, '')}`"
+                          @keydown.esc="notePopSlot = -1"
+                        >
+                          <div v-for="m in slotMarks(lensRow, cell.slot)" :key="m.k" class="syl-note-row">
+                            <span class="syl-note-title"><b>{{ m.sup }}</b> หมายเหตุของคำ “{{ sylAt(lensRow, cell.slot).replace(/\*/g, '') }}”</span>
+                            <textarea
+                              class="syl-note-text"
+                              rows="2"
+                              :value="noteOf(lensRow, m.k)"
+                              placeholder="พิมพ์คำอธิบาย ขึ้นท้ายเพลงพร้อมเลขเดียวกัน"
+                              aria-label="คำอธิบายของคำนี้"
+                              @input="setNote(lensRow, m.k, $event.target.value)"
+                            ></textarea>
+                            <span class="syl-note-acts">
+                              <button type="button" class="secondary tiny" @click="removeStar(lensRow, cell.slot, m.k)">ลบดาวและหมายเหตุ</button>
+                              <button type="button" class="secondary tiny" @click="notePopSlot = -1">ปิด</button>
+                            </span>
+                          </div>
+                        </div>
                       </template>
                       <span v-else class="syl-spacer" aria-hidden="true"></span>
                     </span>
@@ -6867,7 +7000,18 @@ defineExpose({
   .ed-settings-grid label.ed-refs { grid-column: auto; }
 }
 .ed-refs-hint { font-size: 0.78rem; line-height: 1.3; }
-.ed-settings-grid label.ed-footnote { grid-column: 1 / -1; }
+.ed-settings-grid .ed-footnote { grid-column: 1 / -1; }
+.ed-wordnotes { display: flex; flex-direction: column; gap: 4px; }
+.ed-wordnotes .ed-footnote-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin: 3px 0; }
+.ed-footnote-label { white-space: nowrap; }
+.ed-footnote-input { flex: 1 1 14em; min-width: 0; font: inherit; font-size: 0.9rem; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); }
+.ed-footnote-warn .ed-footnote-input { border-color: #d97706; }
+/* ใบ#178 รอบ 4 — the small note box that opens under a starred word box */
+.syl-note-pop { position: absolute; top: 100%; left: 0; z-index: 40; margin-top: 4px; width: 16rem; max-width: calc(100vw - 32px); padding: 8px; background: var(--card, #fff); border: 1px solid var(--accent, #b45309); border-radius: 8px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); text-align: left; white-space: normal; }
+.syl-note-row + .syl-note-row { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.syl-note-title { display: block; font-size: 0.85rem; margin-bottom: 4px; color: var(--ink); }
+.syl-note-text { width: 100%; box-sizing: border-box; font: inherit; font-size: 0.9rem; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; resize: vertical; color: var(--ink); }
+.syl-note-acts { display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; }
 .ed-footnote-list { list-style: none; margin: 2px 0 0; padding: 0; font-size: 0.85rem; color: var(--muted); }
 .ed-footnote-warn { color: #b45309; font-weight: 600; }
 .ed-footnote-list li { margin: 1px 0; }

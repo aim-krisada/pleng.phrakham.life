@@ -1,14 +1,18 @@
-// ใบ v3/pleng#178 — หมายเหตุท้ายเพลงหลายข้อ (P'Aim, 18 พ.ย. 2569):
-// the writer types `*` after any word they want to explain, as many as they like, and one line of
-// content.footnote per `*`. On the sheet every `*` becomes a small number ¹ ² ³ in song order, and the
-// footnote lines print under the song with the same numbers. The writer never types a number, so
-// adding or removing a `*` later can't leave the numbers out of step.
+// ใบ v3/pleng#178 — หมายเหตุของคำ (P'Aim, 18 พ.ย. 2569):
+// the writer types `*` after any word they want to explain, as many as they like. On the sheet every
+// `*` becomes a small number ¹ ² ³ in song order, and the notes print under the song with the same
+// numbers. The writer never types a number.
 //
-// A ท่อน sung again with the very same words (same melody + same syllables) keeps the numbers it had
-// the first time — a repeated refrain must not count on to ⁴ ⁵ ⁶.
+// Where a note lives (รอบ 4, P'Aim: "พอใส่ดาวปุ๊บก็มีช่องขึ้นมาให้ใส่เลย"): ON THE WORD. Each arrangement
+// entry carries `notes: [...]`, one per `*` in that entry's Thai syllables, in order. Adding a `*` earlier
+// in the song shifts the numbers but every note stays with its word (reconcileNotes, used by the editor).
 //
-// A song with a footnote but no `*` anywhere keeps the old behaviour: the footnote is free text,
-// printed as typed with no numbers.
+// Older songs (รอบ 2–3) kept the notes as the lines of content.footnote, line N = mark N. Such a song is
+// still read that way until the editor opens it and moves the lines onto the words. content.footnote
+// itself is free text under the song, not tied to any word.
+//
+// A ท่อน sung again with the very same words (same melody + same syllables) keeps the numbers — and the
+// notes — of the first time it was sung: a repeated refrain must not count on to ⁴ ⁵ ⁶.
 
 const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' }
 
@@ -16,68 +20,128 @@ export function supNum(n) {
   return String(n).split('').map((d) => SUP[d]).join('')
 }
 
-// the footnote's items: one per non-empty line, trimmed
+// a text's items: one per non-empty line, trimmed
 export function footnoteItems(footnote) {
   if (typeof footnote !== 'string') return []
   return footnote.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
 }
 
-const countStars = (s) => (typeof s === 'string' ? (s.match(/\*/g) || []).length : 0)
+export const countStars = (s) => (typeof s === 'string' ? (s.match(/\*/g) || []).length : 0)
+const clean = (s) => (typeof s === 'string' ? s.replace(/\*/g, '').trim() : '')
 
-// how many distinct numbers the song's `*` marks get (a repeated ท่อน's marks are not counted again)
-export function footnoteStarCount(content) {
-  if (!content) return 0
-  if (Array.isArray(content.stanzas)) {
-    const seen = new Set()
-    let n = 0
-    for (const e of content.arrangement || []) {
-      const syls = e.syllables || []
-      const sig = `${e.stanza}\u0000${syls.join('\u0001')}`
-      if (seen.has(sig)) continue
-      seen.add(sig)
-      for (const w of syls) n += countStars(w)
-    }
-    return n
-  }
-  let n = 0
-  for (const it of content.lines || []) if (it && it.type === 'segment') n += countStars(it.lyric)
-  return n
+// two arrangement entries with the same melody and the same words are the same ท่อน sung again
+export function entrySig(e) {
+  return `${e && e.stanza}\u0000${((e && e.syllables) || []).join('\u0001')}`
 }
 
-// ใบ#178 รอบ 3 — the marks in number order, each with the word it sits on and its ท่อน, so the editor can
-// show "¹ เชื่อ (ข้อ 1) ⇒ <line 1>" and the writer sees which explanation belongs to which word.
-// Same counting as numberFootnoteStars (a ท่อน sung again with the same words adds no marks).
+// does this song keep its notes on the words (รอบ 4) rather than as footnote lines (รอบ 2–3)?
+export function hasWordNotes(content) {
+  return !!(content && Array.isArray(content.arrangement) && content.arrangement.some((e) => Array.isArray(e && e.notes)))
+}
+
+// Every mark in number order: { n, word, before, after, where, ei, k, text }.
+//   ei = the entry that owns it (the first time those words are sung) · k = which `*` of that entry
+//   word/before/after = the starred syllable and the ones either side, so "เสริญ" reads "สรร เสริญ พระ"
+//   text = its note ('' when none yet)
 export function footnoteMarks(content) {
   const out = []
   if (!content) return out
-  const clean = (s) => (typeof s === 'string' ? s.replace(/\*/g, '').trim() : '')
-  // before/after = the syllable either side, so a lone syllable like "เสริญ" reads as "สรร เสริญ พระ"
-  const push = (w, where, before = '', after = '') => {
-    const k = countStars(w)
-    for (let i = 0; i < k; i++) out.push({ n: out.length + 1, word: clean(w), where, before: clean(before), after: clean(after) })
-  }
   if (Array.isArray(content.stanzas)) {
+    const onWords = hasWordNotes(content)
+    const lines = onWords ? [] : footnoteItems(content.footnote)
     const seen = new Set()
     const arr = content.arrangement || []
     arr.forEach((e, ei) => {
-      const syls = e.syllables || []
-      const sig = `${e.stanza}\u0000${syls.join('\u0001')}`
+      const sig = entrySig(e)
       if (seen.has(sig)) return
       seen.add(sig)
-      const where = (e.label || '').trim() || (arr.length > 1 ? `ข้อ ${ei + 1}` : '')
+      const where = ((e && e.label) || '').trim() || (arr.length > 1 ? `ข้อ ${ei + 1}` : '')
+      const syls = (e && e.syllables) || []
       const words = syls.filter((w) => clean(w))
-      words.forEach((w, i) => push(w, where, words[i - 1], words[i + 1]))
+      let k = 0
+      words.forEach((w, wi) => {
+        for (let j = 0; j < countStars(w); j++) {
+          const n = out.length + 1
+          const text = onWords ? ((e.notes && e.notes[k]) || '').trim() : lines[n - 1] || ''
+          out.push({ n, word: clean(w), before: clean(words[wi - 1]), after: clean(words[wi + 1]), where, ei, k, text })
+          k++
+        }
+      })
     })
     return out
   }
-  for (const it of content.lines || []) if (it && it.type === 'segment') push(it.lyric, '')
+  const lines = footnoteItems(content.footnote)
+  for (const it of content.lines || []) {
+    if (!it || it.type !== 'segment') continue
+    for (let j = 0; j < countStars(it.lyric); j++) {
+      const n = out.length + 1
+      out.push({ n, word: clean(it.lyric), before: '', after: '', where: '', ei: -1, k: j, text: lines[n - 1] || '' })
+    }
+  }
   return out
 }
 
-// The content with every `*` in the lyrics turned into its number. Untouched (same object) when the
-// song has no footnote lines — then a `*` is just a character the writer typed.
+// how many distinct numbers the song's `*` marks get
+export function footnoteStarCount(content) {
+  return footnoteMarks(content).length
+}
+
+// the free text under the song: content.footnote — minus the lines an older song used as mark notes
+export function footnoteFree(content) {
+  const raw = typeof content?.footnote === 'string' ? content.footnote.trim() : ''
+  if (!raw || hasWordNotes(content)) return raw
+  const used = footnoteMarks(content).length
+  if (!used) return raw
+  return footnoteItems(raw).slice(used).join('\n')
+}
+
+// An older song (notes = footnote lines) moved onto its words: { arrangement, footnote }. Returns null
+// when there is nothing to move. Lines beyond the marks stay as free text.
+export function moveLineNotesToWords(content) {
+  if (!content || !Array.isArray(content.stanzas) || hasWordNotes(content)) return null
+  const marks = footnoteMarks(content)
+  const lines = footnoteItems(content.footnote)
+  if (!marks.length || !lines.length) return null
+  const arrangement = (content.arrangement || []).map((e) => ({ ...e }))
+  for (const m of marks) {
+    if (!m.text) continue
+    const e = arrangement[m.ei]
+    const notes = Array.isArray(e.notes) ? [...e.notes] : []
+    while (notes.length <= m.k) notes.push('')
+    notes[m.k] = m.text
+    e.notes = notes
+  }
+  return { arrangement, footnote: lines.slice(marks.length).join('\n') }
+}
+
+// The words of one entry changed from `oldSyls` to `newSyls`: keep each note on its word. Same number of
+// marks = a word was retyped, the notes stay in place. A mark added or removed: the marks that are the
+// same before it (from the start) and after it (from the end) keep their notes, a new mark gets ''.
+export function reconcileNotes(oldSyls, newSyls, notes) {
+  const marks = (syls) => {
+    const out = []
+    for (const w of syls || []) for (let j = 0; j < countStars(w); j++) out.push(clean(w))
+    return out
+  }
+  const a = marks(oldSyls)
+  const b = marks(newSyls)
+  const old = Array.isArray(notes) ? notes : []
+  if (a.length === b.length) return old.slice(0, b.length)
+  let p = 0
+  while (p < a.length && p < b.length && a[p] === b[p]) p++
+  let s = 0
+  while (s < a.length - p && s < b.length - p && a[a.length - 1 - s] === b[b.length - 1 - s]) s++
+  const tail = a.map((_, i) => old[i] || '').slice(a.length - s)
+  const out = [...a.map((_, i) => old[i] || '').slice(0, p), ...Array.from({ length: b.length - p - s }, () => ''), ...tail]
+  return out.slice(0, b.length)
+}
+
+// The content with every `*` in the lyrics turned into its number — only once at least one mark has a
+// note; before that a `*` is just a character the writer typed. Same object back when nothing changes.
 export function numberFootnoteStars(content) {
-  if (!content || !footnoteItems(content.footnote).length) return content
+  if (!content) return content
+  const marks = footnoteMarks(content)
+  if (!marks.some((m) => m.text)) return content
   let next = 0
   const swap = (s) => (typeof s === 'string' && s.includes('*') ? s.replace(/\*/g, () => supNum(++next)) : s)
   if (Array.isArray(content.stanzas)) {
@@ -85,7 +149,7 @@ export function numberFootnoteStars(content) {
     const arrangement = (content.arrangement || []).map((e) => {
       const syls = e.syllables || []
       if (!syls.some((w) => countStars(w))) return e
-      const sig = `${e.stanza}\u0000${syls.join('\u0001')}`
+      const sig = entrySig(e)
       if (!firstNumbers.has(sig)) firstNumbers.set(sig, syls.map(swap))
       return { ...e, syllables: firstNumbers.get(sig) }
     })

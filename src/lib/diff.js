@@ -12,6 +12,9 @@ export function diffSongRows(oldRow, newRow) {
   if (a.timeSignature !== b.timeSignature) out.push(`จังหวะ: ${a.timeSignature} → ${b.timeSignature}`)
   if ((a.bpm ?? null) !== (b.bpm ?? null)) out.push(`BPM: ${a.bpm ?? '—'} → ${b.bpm ?? '—'}`)
   if ((a.footnote || '') !== (b.footnote || '')) out.push(b.footnote ? `หมายเหตุท้ายเพลง: "${b.footnote}"` : 'ลบหมายเหตุท้ายเพลง')
+  // ใบ#178 รอบ 4 — หมายเหตุของคำ live on the words (arrangement[].notes)
+  const notesOf = (c) => JSON.stringify((c.arrangement || []).map((e) => (e && e.notes) || []))
+  if (notesOf(a) !== notesOf(b)) out.push('แก้หมายเหตุของคำ')
   const la = a.lines ?? []
   const lb = b.lines ?? []
   for (let i = 0; i < Math.max(la.length, lb.length); i++) {

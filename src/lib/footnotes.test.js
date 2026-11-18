@@ -48,6 +48,39 @@ describe('footnoteMarks', () => {
   it('lists each mark with its word and ท่อน, a repeated ท่อน adds none', () => {
     const R = { stanza: 'R', label: 'รับ', syllables: ['รัก*', 'เขา'] }
     const c = S([{ stanza: 'A', label: 'ข้อ 1', syllables: ['เชื่อ*', 'ไว้'] }, R, { ...R }], 'ก\nข')
-    expect(footnoteMarks(c)).toEqual([{ n: 1, word: 'เชื่อ', where: 'ข้อ 1', before: '', after: 'ไว้' }, { n: 2, word: 'รัก', where: 'รับ', before: '', after: 'เขา' }])
+    expect(footnoteMarks(c)).toMatchObject([{ n: 1, word: 'เชื่อ', where: 'ข้อ 1', before: '', after: 'ไว้', ei: 0, k: 0, text: 'ก' }, { n: 2, word: 'รัก', where: 'รับ', before: '', after: 'เขา', ei: 1, k: 0, text: 'ข' }])
+  })
+})
+
+// ใบ#178 รอบ 4 — notes live on the words (arrangement[].notes), one per * in that row
+import { reconcileNotes, moveLineNotesToWords, footnoteFree } from './footnotes.js'
+describe('หมายเหตุของคำ', () => {
+  it('reads each note from its word, and the footnote is all free text', () => {
+    const c = S([{ stanza: 'A', syllables: ['เชื่อ*', 'ไว้*'], notes: ['ก', ''] }], 'อิสระ')
+    expect(footnoteMarks(c).map((m) => m.text)).toEqual(['ก', ''])
+    expect(footnoteFree(c)).toBe('อิสระ')
+    expect(syls(c)).toEqual([['เชื่อ¹', 'ไว้²']])
+  })
+  it('no note written yet → the * stays a *', () => {
+    const c = S([{ stanza: 'A', syllables: ['เชื่อ*', 'ไว้'], notes: [''] }])
+    expect(numberFootnoteStars(c)).toBe(c)
+  })
+  it('a * added before keeps every note on its word', () => {
+    expect(reconcileNotes(['เชื่อ', 'ไว้*'], ['เชื่อ*', 'ไว้*'], ['ข'])).toEqual(['', 'ข'])
+    expect(reconcileNotes(['เชื่อ*', 'ไว้'], ['เชื่อ*', 'ไว้*'], ['ก'])).toEqual(['ก', ''])
+  })
+  it('a * removed takes only its own note away', () => {
+    expect(reconcileNotes(['ก*', 'ข*', 'ค*'], ['ก*', 'ข', 'ค*'], ['1', '2', '3'])).toEqual(['1', '3'])
+  })
+  it('retyping a starred word keeps its note', () => {
+    expect(reconcileNotes(['เชื่อ*'], ['เชือ*'], ['ก'])).toEqual(['ก'])
+  })
+  it('an older song: footnote lines move onto the words, extra lines stay free text', () => {
+    const c = S([{ stanza: 'A', syllables: ['เชื่อ*', 'ไว้'] }, { stanza: 'R', syllables: ['รัก*', 'เขา'] }], 'ก\nข\nอิสระ')
+    expect(footnoteFree(c)).toBe('อิสระ')
+    const m = moveLineNotesToWords(c)
+    expect(m.arrangement.map((e) => e.notes)).toEqual([['ก'], ['ข']])
+    expect(m.footnote).toBe('อิสระ')
+    expect(moveLineNotesToWords({ ...c, arrangement: m.arrangement, footnote: m.footnote })).toBe(null)
   })
 })
