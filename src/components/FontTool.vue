@@ -8,6 +8,7 @@
 // It rides the shared one-open-at-a-time `shellMenu` channel (key 'aa'), so ShellBar's backdrop closes
 // it on an outside click and opening another menu closes it. The popup is clamped to stay on-screen.
 import { computed, nextTick, ref, watch } from 'vue'
+import { trackFeature } from '../lib/analytics.js'
 import { readingFontScale, bumpFontScale, resetFontScale, siteFont, setSiteFont, shellMenu } from '../store.js'
 import { fontStepLabels } from '../lib/fontStepLabels.js'
 
@@ -18,6 +19,11 @@ const pct = computed(() => Math.round(readingFontScale.value * 100))
 // ก− / ก+ on a Thai interface, A− / A+ on English (ใบ#159) — read once from <html lang>
 const step = fontStepLabels(typeof document !== 'undefined' ? document.documentElement.lang : '')
 
+// หน้าสถิติ (พี่เอม 18 พ.ย. 2569) — do people make the words bigger or smaller?
+function bump(d) {
+  trackFeature(d > 0 ? 'font_up' : 'font_down')
+  bumpFontScale(d)
+}
 function toggle() { shellMenu.value = open.value ? null : 'aa' }
 function close(returnFocus) {
   if (open.value) shellMenu.value = null
@@ -57,11 +63,11 @@ watch(open, async (v) => {
     <div v-if="open" ref="popEl" class="ft-menu" role="dialog" aria-label="ตัวอักษร" @click.stop>
       <div class="ft-lbl">ขนาดตัวอักษร</div>
       <div class="ft-row">
-        <button class="ft-step" aria-label="ตัวเล็กลง" :disabled="pct <= 80" @click="bumpFontScale(-0.1)">
+        <button class="ft-step" aria-label="ตัวเล็กลง" :disabled="pct <= 80" @click="bump(-0.1)">
           <span class="ft-step-txt" aria-hidden="true">{{ step.smaller }}</span>
         </button>
         <b class="ft-pct" aria-live="polite">{{ pct }}%</b>
-        <button class="ft-step" aria-label="ตัวใหญ่ขึ้น" :disabled="pct >= 220" @click="bumpFontScale(0.1)">
+        <button class="ft-step" aria-label="ตัวใหญ่ขึ้น" :disabled="pct >= 220" @click="bump(0.1)">
           <span class="ft-step-txt" aria-hidden="true">{{ step.bigger }}</span>
         </button>
       </div>

@@ -25,6 +25,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { shellMenu, newSongRequest, currentSong, pageShare, session } from '../store.js'
 import { shareTarget, isApple, shareLink, siteRoot } from '../lib/share.js'
 import { lineExternalUrl } from '../lib/pwaInstall.js'
+import { trackAction, isSongPath } from '../lib/analytics.js'
 import FontTool from './FontTool.vue'
 import ProfileTool from './ProfileTool.vue'
 import InstallAppTool from './InstallAppTool.vue'
@@ -167,6 +168,8 @@ async function doShare() {
   // tapped inside a LINE group opens in Chrome / Safari, where the reader can install the app.
   const t = { ...page, url: lineExternalUrl(page.url) }
   const r = await shareLink(t, navigator)
+  // หน้าสถิติ (พี่เอม 18 พ.ย. 2569) — what got shared: one song, a list of starred songs, or the site
+  if (r !== 'cancel') trackAction(isSongPath(route.path) ? 'share_song' : /[?&]fav=/.test(t.url) ? 'fav_send' : 'share_site')
   clearTimeout(shareTimer)
   shareUrl.value = t.url
   shareNote.value = r === 'copied' || r === 'manual' ? r : ''

@@ -59,6 +59,7 @@ export function reportList(days) {
     ['keyChanges', r([ce('song_id'), ce('key_to')], 'eventCount', onEvent('key_change'))], // stat.07
     ['openFrom', r([ce('open_from')], 'eventCount', onEvent('page_view'))], // stat.12
     ['devices', r(['deviceCategory', 'operatingSystem', ce('display_mode')], 'activeUsers', onHost)], // stat.13
+    ['featureSongs', r([ce('feature'), ce('song_id')], 'eventCount', onEvent('feature_use'), [cur], 500)], // พี่เอม 18 พ.ย. 2569 — which song a star / English switch was for
   ]
 }
 

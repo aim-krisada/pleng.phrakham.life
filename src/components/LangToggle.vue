@@ -7,6 +7,7 @@
 import { computed } from 'vue'
 import { songLangChoice, setSongLangChoice } from '../store.js'
 import { LANG_LABEL, EXTRA_LANGS, orderLangs, shownLangs, toggleLangChoice, missingLangText } from '../lib/songModel.js'
+import { trackFeature } from '../lib/analytics.js'
 
 const props = defineProps({
   has: { type: Array, default: () => ['th'] }, // the languages this song has (songModel.songLangs)
@@ -23,6 +24,8 @@ const addable = computed(() => (props.editor ? EXTRA_LANGS.filter((l) => !hasLis
 const showRow = computed(() => hasList.value.length > 1 || addable.value.length > 0)
 
 function tap(l) {
+  // หน้าสถิติ (พี่เอม 18 พ.ย. 2569) — a reader switching English / Chinese ON; the editor is not a reader
+  if (!props.editor && l !== 'th' && !shown.value.includes(l)) trackFeature('lang_' + l)
   setSongLangChoice(toggleLangChoice(songLangChoice.value, hasList.value, l))
 }
 function add(l) {

@@ -140,12 +140,12 @@ describe('หน้าสถิติ', () => {
     expect(w.find('.st-range').exists()).toBe(false)
   })
 
-  it('logged in: 3 sections, the range line, and the consent note', async () => {
+  it('logged in: 4 sections, the range line, and the consent note', async () => {
     session.value = { user: { id: 'me' } }
     profile.value = { role: 'approver' }
     const w = await mountIt()
     const heads = w.findAll('.st-sec h3').map((h) => h.text())
-    expect(heads).toEqual(['ภาพรวม', 'งานเพลง', 'การใช้งานแอป'])
+    expect(heads).toEqual(['ภาพรวม', 'งานเพลง', 'การใช้งานแอป', 'คนใช้แบบไหน']) // คนใช้แบบไหน: พี่เอม 18 พ.ย. 2569
     expect(w.find('.st-label').text()).toMatch(/\(28 วัน\)$/)
     expect(w.text()).toContain('นับเฉพาะคนที่กดยอมรับการนับ')
     await w.findAll('.st-chip')[0].trigger('click')
@@ -156,7 +156,8 @@ describe('หน้าสถิติ', () => {
     session.value = { user: { id: 'me' } }
     const w = await mountIt()
     const wait = w.findAll('.st-wait')
-    expect(wait).toHaveLength(3) // ภาพรวม · งานเพลง · การใช้งานแอป
+    expect(wait).toHaveLength(4) // ภาพรวม · งานเพลง · การใช้งานแอป · คนใช้แบบไหน
+    expect(w.find('[data-test="st-summary"]').exists()).toBe(false) // no numbers → no summary to send
     for (const c of wait) expect(c.text()).not.toMatch(/\d/)
   })
 
@@ -197,5 +198,52 @@ describe('หน้าสถิติ', () => {
     const w = await mountIt()
     expect(w.text()).toContain('อ่านงานร่างไม่ได้')
     expect(w.find('.st-nums').exists()).toBe(false)
+  })
+})
+
+// พี่เอม 18 พ.ย. 2569 — "ทำให้ดีกว่านี้อีกได้ไหม": the short summary to send, one line of advice per
+// section, and คนใช้แบบไหน (new / coming back · stars · shares · text size).
+describe('หน้าสถิติ — summary, advice, and คนใช้แบบไหน', () => {
+  it('shows them from the numbers, and the summary can be sent', async () => {
+    session.value = { user: { id: 'me' } }
+    profile.value = { role: 'approver' }
+    songRows.value = [{ id: 's1', number: 12, title_th: 'พระคุณ', category: 'big', content: { key: 'C' } }]
+    gaAnswer.value = {
+      data: {
+        fetchedAt: new Date().toISOString(),
+        reports: {
+          totals: [[['cur'], 40], [['prev'], 0]],
+          songs: [[['/song/s1', 'cur'], 9]],
+          searches: [[['hosanna', 'no'], 4]],
+          features: [[['star'], 6], [['share_song'], 2], [['visit_new'], 10], [['visit_back'], 25]],
+          featureSongs: [[['star', 's1'], 6]],
+        },
+      },
+      error: null,
+    }
+    const w = await mountIt()
+    await flushPromises()
+    const sum = w.find('[data-test="st-summary"]')
+    expect(sum.text()).toContain('คนใช้ 40 คน')
+    expect(sum.text()).toContain('เพลงที่เปิดมากสุด: 12. พระคุณ')
+    expect(sum.text()).toContain('คำที่ค้นแล้วไม่เจอ: "hosanna"')
+    expect(w.find('[data-test="tip-songs"]').text()).toBe('คนค้น "hosanna" แล้วไม่เจอ 4 ครั้ง ⇒ เพิ่มเพลงนี้ หรือใส่ชื่ออื่นของเพลงให้ค้นเจอ')
+    expect(w.find('[data-test="tip-more"]').text()).toContain('กลับมาใช้ซ้ำ 71%')
+    expect(w.find('[data-test="st-visitors"]').text()).toContain('10 เครื่อง')
+    const act = w.find('[data-test="st-actions"]')
+    expect(act.text()).toContain('กดดาวเก็บเพลงไว้6 ครั้ง')
+    expect(act.text()).toContain('เพลงที่คนกดดาวมากที่สุด')
+
+    const written = []
+    const nav = globalThis.navigator
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: { writeText: async (t) => written.push(t) } } })
+    try {
+      await w.find('[data-test="st-send"]').trigger('click')
+      await flushPromises()
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', { configurable: true, value: nav })
+    }
+    expect(written[0]).toContain('สรุปการใช้เว็บเพลง')
+    expect(w.find('[data-test="st-summary"]').text()).toContain('คัดลอกแล้ว')
   })
 })

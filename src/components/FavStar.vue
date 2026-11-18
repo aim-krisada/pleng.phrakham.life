@@ -9,6 +9,7 @@
 // already avoids for ✏️), so a tap never also opens the song.
 import { computed } from 'vue'
 import { isFavorite, toggleFavorite, favorites } from '../lib/favorites.js'
+import { trackAction } from '../lib/analytics.js'
 
 const props = defineProps({
   id: { type: [String, Number], required: true },
@@ -25,7 +26,7 @@ const label = computed(() => {
 function toggle(e) {
   e.preventDefault()
   e.stopPropagation()
-  toggleFavorite(props.id)
+  if (toggleFavorite(props.id)) trackAction('star', props.id) // หน้าสถิติ — a new star, not taking one off
 }
 </script>
 
