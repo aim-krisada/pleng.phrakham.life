@@ -41,3 +41,13 @@ describe('footnotes', () => {
     expect(c.arrangement[0].syllables).toEqual(['เชื่อ*', 'ไว้'])
   })
 })
+
+// ใบ#178 รอบ 3 — the editor names the word each number sits on
+import { footnoteMarks } from './footnotes.js'
+describe('footnoteMarks', () => {
+  it('lists each mark with its word and ท่อน, a repeated ท่อน adds none', () => {
+    const R = { stanza: 'R', label: 'รับ', syllables: ['รัก*', 'เขา'] }
+    const c = S([{ stanza: 'A', label: 'ข้อ 1', syllables: ['เชื่อ*', 'ไว้'] }, R, { ...R }], 'ก\nข')
+    expect(footnoteMarks(c)).toEqual([{ n: 1, word: 'เชื่อ', where: 'ข้อ 1', before: '', after: 'ไว้' }, { n: 2, word: 'รัก', where: 'รับ', before: '', after: 'เขา' }])
+  })
+})

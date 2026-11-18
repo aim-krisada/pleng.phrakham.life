@@ -123,10 +123,28 @@ describe('หมายเหตุหลายข้อ — ดาวในเ�
   it('the editor warns when marks and lines do not match', async () => {
     const w = mountEd(song({ content: { ...C, footnote: 'ความเชื่อ' } }))
     await nextTick()
-    expect(w.find('.ed-footnote-warn').text()).toContain('ดาวในเนื้อมี 2 ตัว แต่หมายเหตุมี 1 บรรทัด')
+    expect(w.find('#edFootnoteHint').text()).toContain('ดาวในเนื้อมี 2 ตัว แต่หมายเหตุมี 1 บรรทัด')
     await box(w).setValue('ความเชื่อ\nการไว้ใจ')
     expect(w.find('.ed-footnote-warn').exists()).toBe(false)
-    expect(w.findAll('.ed-footnote-list li').map((x) => x.text())).toEqual(['¹ ความเชื่อ', '² การไว้ใจ'])
+    w.unmount()
+  })
+  // ใบ#178 รอบ 3 — P'Aim: "จะรู้ได้ไงว่าที่แก้อยู่คือเลขไหน" → each row names the word the mark sits on
+  it('each row says which word the number belongs to', async () => {
+    const w = mountEd(song({ content: { ...C, footnote: 'ความเชื่อ\nการไว้ใจ' } }))
+    await nextTick()
+    expect(w.findAll('.ed-footnote-list li').map((x) => x.text().replace(/\s+/g, ' '))).toEqual(['¹เชื่อไว้ (ข้อ 1) ⇒ ความเชื่อ', '²เชื่อไว้ (ข้อ 1) ⇒ การไว้ใจ'])
+    w.unmount()
+  })
+  it('a mark with no line yet, and a line with no mark, show in orange', async () => {
+    const w = mountEd(song({ content: { ...C, footnote: 'ความเชื่อ' } }))
+    await nextTick()
+    const rows = w.findAll('.ed-footnote-list li')
+    expect(rows[1].text()).toContain('เชื่อไว้ (ข้อ 1) ⇒ (ยังไม่ได้เขียน)')
+    expect(rows[1].classes()).toContain('ed-footnote-warn')
+    await box(w).setValue('ก\nข\nค')
+    const r3 = w.findAll('.ed-footnote-list li')[2]
+    expect(r3.text()).toContain('(ไม่มีดาวในเนื้อ) ⇒ ค')
+    expect(r3.classes()).toContain('ed-footnote-warn')
     w.unmount()
   })
 })
