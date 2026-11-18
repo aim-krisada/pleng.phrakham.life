@@ -2,7 +2,7 @@
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount, toRaw } from 'vue'
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { footnoteItems, footnoteStarCount, supNum } from '../lib/footnotes.js'
+import { footnoteItems, footnoteMarks, supNum } from '../lib/footnotes.js'
 import { fetchAllRows } from '../lib/fetchAllRows.js'
 import { KEYS, TIME_SIGNATURES, chordOptions, parseChord, normalizeChord, chordError } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, holdValue, HOLD_STEP, HOLD_MIN, HOLD_DEFAULT, snapHalf, slurSpans } from '../lib/notation.js'
@@ -347,8 +347,16 @@ const footnote = ref('')
 // footnote explains mark N. The editor counts both so a missing or extra line shows up in orange.
 const footnoteCheck = computed(() => {
   const items = footnoteItems(footnote.value)
-  const stars = footnoteStarCount(previewContent.value)
-  return { stars, items: items.map((t, i) => ({ n: supNum(i + 1), t })), mismatch: stars > 0 && items.length > 0 && stars !== items.length }
+  const marks = footnoteMarks(previewContent.value)
+  const stars = marks.length
+  // ใบ#178 รอบ 3 — one row per mark AND per line: "¹ เชื่อ (ข้อ 1) ⇒ <its line>". A mark with no line yet,
+  // or a line with no mark, is a row of its own in orange, so the writer sees where they fell out of step.
+  const rows = []
+  for (let i = 0; i < Math.max(stars, items.length); i++) {
+    const m = marks[i]
+    rows.push({ n: supNum(i + 1), word: m ? m.word : '', before: m ? m.before : '', after: m ? m.after : '', where: m ? m.where : '', text: items[i] || '', missing: !!m && !items[i], extra: !m })
+  }
+  return { stars, items, rows, mismatch: stars > 0 && stars !== items.length }
 })
 
 // B108 (หมวดหาย) — `category`/`theme` used to be columns on `songs` ONLY, so after loading a
@@ -4478,8 +4486,12 @@ defineExpose({
             aria-label="หมายเหตุท้ายเพลง"
             aria-describedby="edFootnoteHint"
           ></textarea>
-          <ol v-if="footnoteCheck.stars && footnoteCheck.items.length" class="ed-footnote-list">
-            <li v-for="f in footnoteCheck.items" :key="f.n"><b>{{ f.n }}</b> {{ f.t }}</li>
+          <ol v-if="footnoteCheck.stars" class="ed-footnote-list">
+            <li v-for="f in footnoteCheck.rows" :key="f.n" :class="{ 'ed-footnote-warn': f.missing || f.extra }">
+              <b>{{ f.n }}</b>
+              <template v-if="f.extra"> (ไม่มีดาวในเนื้อ) ⇒ {{ f.text }}</template>
+              <template v-else> <span v-if="f.before" class="ed-footnote-ctx">{{ f.before }} </span><span class="ed-footnote-word">{{ f.word }}</span><span v-if="f.after" class="ed-footnote-ctx"> {{ f.after }}</span><span v-if="f.where" class="ed-footnote-where"> ({{ f.where }})</span> ⇒ {{ f.missing ? '(ยังไม่ได้เขียน)' : f.text }}</template>
+            </li>
           </ol>
           <span v-if="footnoteCheck.mismatch" id="edFootnoteHint" class="ed-refs-hint ed-footnote-warn" role="status">ดาวในเนื้อมี {{ footnoteCheck.stars }} ตัว แต่หมายเหตุมี {{ footnoteCheck.items.length }} บรรทัด ⇒ ให้เท่ากัน บรรทัดที่ 1 คู่กับดาวตัวที่ 1</span>
           <span v-else-if="footnoteCheck.stars" id="edFootnoteHint" class="muted ed-refs-hint">ดาวในเนื้อ {{ footnoteCheck.stars }} ตัว ⇒ ขึ้นเป็นเลข ¹ ² ³ ให้เอง บรรทัดละข้อ เรียงตามดาว</span>
@@ -6858,6 +6870,11 @@ defineExpose({
 .ed-settings-grid label.ed-footnote { grid-column: 1 / -1; }
 .ed-footnote-list { list-style: none; margin: 2px 0 0; padding: 0; font-size: 0.85rem; color: var(--muted); }
 .ed-footnote-warn { color: #b45309; font-weight: 600; }
+.ed-footnote-list li { margin: 1px 0; }
+.ed-footnote-list b { margin-right: 4px; }
+.ed-footnote-word { color: var(--ink); font-weight: 600; }
+.ed-footnote-where { font-size: 0.9em; }
+.ed-footnote-ctx { opacity: 0.7; font-weight: 400; margin: 0 0.3em; }
 .ed-footnote textarea {
   color: var(--ink);
   font: inherit;

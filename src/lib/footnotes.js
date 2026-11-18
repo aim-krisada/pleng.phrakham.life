@@ -44,6 +44,36 @@ export function footnoteStarCount(content) {
   return n
 }
 
+// ใบ#178 รอบ 3 — the marks in number order, each with the word it sits on and its ท่อน, so the editor can
+// show "¹ เชื่อ (ข้อ 1) ⇒ <line 1>" and the writer sees which explanation belongs to which word.
+// Same counting as numberFootnoteStars (a ท่อน sung again with the same words adds no marks).
+export function footnoteMarks(content) {
+  const out = []
+  if (!content) return out
+  const clean = (s) => (typeof s === 'string' ? s.replace(/\*/g, '').trim() : '')
+  // before/after = the syllable either side, so a lone syllable like "เสริญ" reads as "สรร เสริญ พระ"
+  const push = (w, where, before = '', after = '') => {
+    const k = countStars(w)
+    for (let i = 0; i < k; i++) out.push({ n: out.length + 1, word: clean(w), where, before: clean(before), after: clean(after) })
+  }
+  if (Array.isArray(content.stanzas)) {
+    const seen = new Set()
+    const arr = content.arrangement || []
+    arr.forEach((e, ei) => {
+      const syls = e.syllables || []
+      const sig = `${e.stanza}\u0000${syls.join('\u0001')}`
+      if (seen.has(sig)) return
+      seen.add(sig)
+      const where = (e.label || '').trim() || (arr.length > 1 ? `ข้อ ${ei + 1}` : '')
+      const words = syls.filter((w) => clean(w))
+      words.forEach((w, i) => push(w, where, words[i - 1], words[i + 1]))
+    })
+    return out
+  }
+  for (const it of content.lines || []) if (it && it.type === 'segment') push(it.lyric, '')
+  return out
+}
+
 // The content with every `*` in the lyrics turned into its number. Untouched (same object) when the
 // song has no footnote lines — then a `*` is just a character the writer typed.
 export function numberFootnoteStars(content) {
