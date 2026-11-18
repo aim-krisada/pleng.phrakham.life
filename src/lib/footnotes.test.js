@@ -1,0 +1,43 @@
+// ใบ v3/pleng#178 — several footnotes: `*` in the words → ¹ ² ³, one footnote line per mark (P'Aim 18 พ.ย. 2569)
+import { describe, it, expect } from 'vitest'
+import { footnoteItems, footnoteStarCount, numberFootnoteStars, supNum } from './footnotes.js'
+import { resolveContent } from './songModel.js'
+
+const S = (arrangement, footnote) => ({
+  version: 2, key: 'C', timeSignature: '4/4',
+  stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 2' }]] }, { id: 'R', lines: [[{ type: 'segment', note: '3 4' }]] }],
+  arrangement, ...(footnote != null ? { footnote } : {}),
+})
+const syls = (c) => resolveContent(c).map((l) => l.filter((x) => x.type === 'segment').flatMap((x) => x.syllables))
+
+describe('footnotes', () => {
+  it('supNum writes small digits, two-digit numbers too', () => {
+    expect(supNum(1)).toBe('¹')
+    expect(supNum(12)).toBe('¹²')
+  })
+  it('one item per non-empty line', () => {
+    expect(footnoteItems(' ก \n\n ข\r\n')).toEqual(['ก', 'ข'])
+    expect(footnoteItems(undefined)).toEqual([])
+  })
+  it('each * becomes the next number in song order', () => {
+    const c = S([{ stanza: 'A', syllables: ['เชื่อ*', 'ไว้*'] }, { stanza: 'R', syllables: ['รัก*', 'เขา'] }], 'ก\nข\nค')
+    expect(syls(c)).toEqual([['เชื่อ¹', 'ไว้²'], ['รัก³', 'เขา']])
+    expect(footnoteStarCount(c)).toBe(3)
+  })
+  it('a ท่อน sung again with the same words keeps its numbers', () => {
+    const R = { stanza: 'R', syllables: ['รัก*', 'เขา'] }
+    const c = S([R, { stanza: 'A', syllables: ['เชื่อ*', 'ไว้'] }, { ...R }], 'ก\nข')
+    expect(syls(c)).toEqual([['รัก¹', 'เขา'], ['เชื่อ²', 'ไว้'], ['รัก¹', 'เขา']])
+    expect(footnoteStarCount(c)).toBe(2)
+  })
+  it('no footnote lines → the * is left as typed', () => {
+    const c = S([{ stanza: 'A', syllables: ['เชื่อ*', 'ไว้'] }])
+    expect(numberFootnoteStars(c)).toBe(c)
+    expect(syls(c)).toEqual([['เชื่อ*', 'ไว้']])
+  })
+  it('the stored song is not changed', () => {
+    const c = S([{ stanza: 'A', syllables: ['เชื่อ*', 'ไว้'] }], 'ก')
+    resolveContent(c)
+    expect(c.arrangement[0].syllables).toEqual(['เชื่อ*', 'ไว้'])
+  })
+})

@@ -1,3 +1,4 @@
+import { numberFootnoteStars } from './footnotes.js'
 import { syllableSlots, attackSlots, noteBoxKinds, parseNotes, beatCount, expectedBeats } from './notation.js'
 
 export function isV2(content) {
@@ -336,6 +337,8 @@ export function stanzaLineMeters(stanza, songTs) {
 }
 
 export function resolveContent(content) {
+  // ใบ v3/pleng#178 — every `*` in the words becomes its footnote number ¹ ² ³ (only when the song has footnote lines)
+  content = numberFootnoteStars(content)
   if (!content || !Array.isArray(content.stanzas)) return content?.lines || []
   const byId = {}
   for (const s of content.stanzas) byId[s.id] = s

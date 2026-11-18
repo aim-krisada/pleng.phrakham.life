@@ -109,3 +109,24 @@ describe('หมายเหตุท้ายเพลง — the sheet and the
     expect(diffSongRows({ ...a, content: { ...BASE, footnote: NOTE } }, a)).toEqual(['ลบหมายเหตุท้ายเพลง'])
   })
 })
+
+// ใบ#178 รอบ 2 — several notes: * marks numbered ¹ ² ³, one footnote line per mark
+describe('หมายเหตุหลายข้อ — ดาวในเนื้อกลายเป็นเลข', () => {
+  const C = { ...BASE, stanzas: [{ id: 'A', lines: [[{ type: 'segment', note: '1 2' }]] }], arrangement: [{ stanza: 'A', label: 'ข้อ 1', syllables: ['เชื่อ*', 'ไว้*'] }] }
+  const sheet = (c) => mount(SongSheet, { props: { content: { ...c, lines: [[{ type: 'segment', note: '1 2', syllables: ['เชื่อ¹', 'ไว้²'] }]] }, mode: 'full' }, global: { stubs: { Icon: true } } })
+  it('the sheet lists the notes with the same numbers', () => {
+    const w = sheet({ ...C, footnote: 'ความเชื่อ\nการไว้ใจ' })
+    const li = w.findAll('.song-footnote-list li').map((x) => x.text())
+    expect(li).toEqual(['¹ ความเชื่อ', '² การไว้ใจ'])
+    w.unmount()
+  })
+  it('the editor warns when marks and lines do not match', async () => {
+    const w = mountEd(song({ content: { ...C, footnote: 'ความเชื่อ' } }))
+    await nextTick()
+    expect(w.find('.ed-footnote-warn').text()).toContain('ดาวในเนื้อมี 2 ตัว แต่หมายเหตุมี 1 บรรทัด')
+    await box(w).setValue('ความเชื่อ\nการไว้ใจ')
+    expect(w.find('.ed-footnote-warn').exists()).toBe(false)
+    expect(w.findAll('.ed-footnote-list li').map((x) => x.text())).toEqual(['¹ ความเชื่อ', '² การไว้ใจ'])
+    w.unmount()
+  })
+})
