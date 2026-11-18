@@ -228,7 +228,7 @@ function deserializeLine(items) {
 // — src/lib/editorSerde.js there; kept local here to keep the frozen v1 line's diff small.)
 // The key lists below must stay in step with what previewContent actually emits, or a key
 // the editor DOES model would be stashed twice.
-const CONTENT_KEYS = ['version', 'key', 'timeSignature', 'bpm', 'stanzas', 'arrangement', 'lyricSets', 'lines', 'bookRefs', 'langVerified']
+const CONTENT_KEYS = ['version', 'key', 'timeSignature', 'bpm', 'stanzas', 'arrangement', 'lyricSets', 'lines', 'bookRefs', 'langVerified', 'footnote']
 // ใบ v3/pleng#96 — `timeSignature` = this melody's own meter (optional; unset = the song's)
 const STANZA_KEYS = ['id', 'lines', 'timeSignature']
 const ARRANGEMENT_KEYS = ['stanza', 'label', 'syllables', 'key', 'set', 'afterEachVerse', 'lyrics']
@@ -338,6 +338,10 @@ const opts = reactive({ key: 'C', timeSignature: '4/4', bpm: null })
 const verified = ref(false)
 // ใบ v1#158 — "ตรวจแล้ว" per language other than Thai (content.langVerified = { en: true }); Thai keeps `verified`
 const langVerified = ref({})
+// หมายเหตุท้ายเพลง (content.footnote) — free text printed under the song, like a book's footnote
+// for a * in the words (พี่เปา via P'Aim 18 พ.ย. 2569: "ใส่ text อิสระได้"). One plain string,
+// line breaks kept. A song without one keeps no key, so its content stays byte-identical.
+const footnote = ref('')
 
 // B108 (หมวดหาย) — `category`/`theme` used to be columns on `songs` ONLY, so after loading a
 // DRAFT row meta.category/meta.theme were a GUESS ('anuchon' fallback), not data — and
@@ -616,6 +620,7 @@ const previewContent = computed(() => ({
   ...(Object.values(langVerified.value).some(Boolean)
     ? { langVerified: Object.fromEntries(Object.entries(langVerified.value).filter(([, v]) => v).map(([k]) => [k, true])) }
     : {}),
+  ...(footnote.value.trim() ? { footnote: footnote.value.replace(/\s+$/, '') } : {}),
   stanzas: stanzas.value.map((s) => ({
     id: s.id,
     lines: s.lines.map(serializeLine),
@@ -2429,6 +2434,7 @@ function applyRow(data) {
   refsText.value = bookRefsCodeText(refs)
   refsStored.value = Array.isArray(data?.content?.bookRefs) || refs.length > 0
   verified.value = data.verified ?? false
+  footnote.value = typeof data?.content?.footnote === 'string' ? data.content.footnote : ''
   loadedFlags.value = Array.isArray(data.review_flags) ? data.review_flags : [] // B093: keep on publish
   const { content, warnings } = migrateToV2(data.content)
   opts.key = content.key || 'C'
@@ -2497,6 +2503,7 @@ function resetForm() {
   meta.theme = ''
   refsText.value = ''
   refsStored.value = false
+  footnote.value = ''
   // a brand-new blank song: the defaults ARE the value (nothing stored to lose)
   categoryKnown.value = true
   themeKnown.value = true
@@ -3191,6 +3198,7 @@ function docState() {
     stanzas: stanzas.value,
     arrangement: arrangement.value,
     langVerified: langVerified.value, // ใบ v1#158
+    footnote: footnote.value,
   })
 }
 // the VIEW — remembered inside a step, restored on undo/redo, never a step of its own
@@ -3250,6 +3258,7 @@ function applyState(entry) {
   stanzas.value = s.stanzas
   arrangement.value = s.arrangement
   langVerified.value = s.langVerified || {}
+  footnote.value = s.footnote || ''
   // restore the view, clamped to the restored document (arrangement/stanzas may have shrunk,
   // e.g. undoing an add-ท่อน). The activeStanzaId watcher's resetLens() is suppressed while
   // applyingHistory, so the restored lensChoice is not clobbered back to the first เที่ยว.
@@ -4450,6 +4459,18 @@ defineExpose({
           <span id="edRefsHint" class="muted ed-refs-hint">
             {{ refsPreview.length ? refsPreview.join(' · ') : 'คั่นหลายเล่มด้วยเว้นวรรคหรือ , — ตัวย่อพิมพ์เองได้' }}
           </span>
+        </label>
+        <!-- หมายเหตุท้ายเพลง — free text under the song (content.footnote). Mark the word with * in the
+             words, then explain it here: "(*ความเชื่อ เล็งถึง…)". -->
+        <label class="ed-footnote">หมายเหตุท้ายเพลง
+          <textarea
+            v-model="footnote"
+            rows="2"
+            placeholder="เช่น (*ความเชื่อ เล็งถึงยะโฮซูอะและคาเลบ)"
+            aria-label="หมายเหตุท้ายเพลง"
+            aria-describedby="edFootnoteHint"
+          ></textarea>
+          <span id="edFootnoteHint" class="muted ed-refs-hint">ขึ้นใต้เพลง ตัวเล็ก ติดไปตอนพิมพ์ด้วย ⇒ ใส่ * ท้ายคำในเนื้อ แล้วอธิบายที่นี่</span>
         </label>
       </div>
     </div>
@@ -6821,6 +6842,18 @@ defineExpose({
   .ed-settings-grid label.ed-refs { grid-column: auto; }
 }
 .ed-refs-hint { font-size: 0.78rem; line-height: 1.3; }
+.ed-settings-grid label.ed-footnote { grid-column: 1 / -1; }
+.ed-footnote textarea {
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  resize: vertical;
+  min-height: 2.6em;
+}
 /* "✓ ตรวจแล้ว" toggle — ghost until ticked, then green (checked/verified) */
 .ed-verify {
   display: inline-flex;

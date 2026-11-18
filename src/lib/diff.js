@@ -11,6 +11,7 @@ export function diffSongRows(oldRow, newRow) {
   if (a.key !== b.key) out.push(`คีย์: ${a.key} → ${b.key}`)
   if (a.timeSignature !== b.timeSignature) out.push(`จังหวะ: ${a.timeSignature} → ${b.timeSignature}`)
   if ((a.bpm ?? null) !== (b.bpm ?? null)) out.push(`BPM: ${a.bpm ?? '—'} → ${b.bpm ?? '—'}`)
+  if ((a.footnote || '') !== (b.footnote || '')) out.push(b.footnote ? `หมายเหตุท้ายเพลง: "${b.footnote}"` : 'ลบหมายเหตุท้ายเพลง')
   const la = a.lines ?? []
   const lb = b.lines ?? []
   for (let i = 0; i < Math.max(la.length, lb.length); i++) {

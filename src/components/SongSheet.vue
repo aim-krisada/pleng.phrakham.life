@@ -229,6 +229,7 @@ const openKey = computed(() => openingKey(props.content))
 const openMeter = computed(() => openingMeter(props.content))
 // the head line itself (key · meter · อ้างอิง) — lib/songHead.js, shared with ฝึกร้อง (ใบ#144)
 const head = computed(() => songHeadInfo(props.content, props.displayKey, props.bookRefs))
+const footnoteText = computed(() => (typeof props.content?.footnote === 'string' ? props.content.footnote.trim() : ''))
 
 function chordText(chord) {
   return displayChord(chord, {
@@ -1075,10 +1076,24 @@ watch(
       </template>
     </div>
     </div>
+    <!-- หมายเหตุท้ายเพลง (content.footnote) — free text under the song, small and muted like a book's
+         footnote, line breaks kept. Prints with the sheet. P'Aim 18 พ.ย. 2569 (relaying พี่เปา). -->
+    <p v-if="footnoteText" class="song-footnote">{{ footnoteText }}</p>
   </div>
 </template>
 
 <style scoped>
+.song-footnote {
+  margin: 1.2em 0 0;
+  padding-top: 0.5em;
+  border-top: 1px solid var(--line, #ddd);
+  max-width: 40em;
+  font-size: 0.82em;
+  line-height: 1.5;
+  color: var(--muted, #666);
+  white-space: pre-line;
+  break-inside: avoid;
+}
 /* B044 — tighten the note↔lyric vertical gap so a note and its word read as ONE block,
    and widen the gap BETWEEN line-blocks so verses/phrases separate clearly (P'Aim, real
    image). Applies wherever the sheet renders — print sheet, sing view, AND the editor
