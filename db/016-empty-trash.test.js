@@ -77,7 +77,11 @@ async function fillTrash() {
   await asUser(APPROVER)
   await db.exec(`select public.soft_delete_song('${gone}')`)
   await db.exec(`select public.trash_draft('${goneDraft}')`)
-  // trashed a moment ago — not 30 days — so only ล้างถังขยะ, never the daily job, takes them now
+  // trashed a moment ago — not 30 days — so only ล้างถังขยะ, never the daily job, takes them now.
+  // The purge takes what was trashed BEFORE the call (deleted_at < now()). On a fast machine the draft
+  // was trashed in the same clock tick as the call and was left behind (CI 18 พ.ย. 2569) — a person
+  // can never press ล้างถังขยะ that fast, so wait a moment like they would.
+  await new Promise((r) => setTimeout(r, 20))
   return { live, gone, liveDraft, goneDraft }
 }
 
