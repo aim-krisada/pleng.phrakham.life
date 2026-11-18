@@ -2,6 +2,7 @@
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUnmount, toRaw } from 'vue'
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
+import { footnoteItems, footnoteStarCount, supNum } from '../lib/footnotes.js'
 import { fetchAllRows } from '../lib/fetchAllRows.js'
 import { KEYS, TIME_SIGNATURES, chordOptions, parseChord, normalizeChord, chordError } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, holdValue, HOLD_STEP, HOLD_MIN, HOLD_DEFAULT, snapHalf, slurSpans } from '../lib/notation.js'
@@ -342,6 +343,13 @@ const langVerified = ref({})
 // for a * in the words (พี่เปา via P'Aim 18 พ.ย. 2569: "ใส่ text อิสระได้"). One plain string,
 // line breaks kept. A song without one keeps no key, so its content stays byte-identical.
 const footnote = ref('')
+// ใบ#178 — several footnotes: each * in the words gets the next number ¹ ² ³ on the sheet, and line N of the
+// footnote explains mark N. The editor counts both so a missing or extra line shows up in orange.
+const footnoteCheck = computed(() => {
+  const items = footnoteItems(footnote.value)
+  const stars = footnoteStarCount(previewContent.value)
+  return { stars, items: items.map((t, i) => ({ n: supNum(i + 1), t })), mismatch: stars > 0 && items.length > 0 && stars !== items.length }
+})
 
 // B108 (หมวดหาย) — `category`/`theme` used to be columns on `songs` ONLY, so after loading a
 // DRAFT row meta.category/meta.theme were a GUESS ('anuchon' fallback), not data — and
@@ -4465,12 +4473,17 @@ defineExpose({
         <label class="ed-footnote">หมายเหตุท้ายเพลง
           <textarea
             v-model="footnote"
-            rows="2"
-            placeholder="เช่น (*ความเชื่อ เล็งถึงยะโฮซูอะและคาเลบ)"
+            rows="3"
+            placeholder="เช่น ความเชื่อ เล็งถึงยะโฮซูอะและคาเลบเชื่อวางใจในพระเจ้า"
             aria-label="หมายเหตุท้ายเพลง"
             aria-describedby="edFootnoteHint"
           ></textarea>
-          <span id="edFootnoteHint" class="muted ed-refs-hint">ขึ้นใต้เพลง ตัวเล็ก ติดไปตอนพิมพ์ด้วย ⇒ ใส่ * ท้ายคำในเนื้อ แล้วอธิบายที่นี่</span>
+          <ol v-if="footnoteCheck.stars && footnoteCheck.items.length" class="ed-footnote-list">
+            <li v-for="f in footnoteCheck.items" :key="f.n"><b>{{ f.n }}</b> {{ f.t }}</li>
+          </ol>
+          <span v-if="footnoteCheck.mismatch" id="edFootnoteHint" class="ed-refs-hint ed-footnote-warn" role="status">ดาวในเนื้อมี {{ footnoteCheck.stars }} ตัว แต่หมายเหตุมี {{ footnoteCheck.items.length }} บรรทัด ⇒ ให้เท่ากัน บรรทัดที่ 1 คู่กับดาวตัวที่ 1</span>
+          <span v-else-if="footnoteCheck.stars" id="edFootnoteHint" class="muted ed-refs-hint">ดาวในเนื้อ {{ footnoteCheck.stars }} ตัว ⇒ ขึ้นเป็นเลข ¹ ² ³ ให้เอง บรรทัดละข้อ เรียงตามดาว</span>
+          <span v-else id="edFootnoteHint" class="muted ed-refs-hint">ขึ้นใต้เพลง ตัวเล็ก ติดไปตอนพิมพ์ด้วย ⇒ ใส่ * ท้ายคำในเนื้อ แล้วเขียนคำอธิบายที่นี่ บรรทัดละข้อ ระบบเปลี่ยนดาวเป็นเลข ¹ ² ³ ให้เอง</span>
         </label>
       </div>
     </div>
@@ -6843,6 +6856,8 @@ defineExpose({
 }
 .ed-refs-hint { font-size: 0.78rem; line-height: 1.3; }
 .ed-settings-grid label.ed-footnote { grid-column: 1 / -1; }
+.ed-footnote-list { list-style: none; margin: 2px 0 0; padding: 0; font-size: 0.85rem; color: var(--muted); }
+.ed-footnote-warn { color: #b45309; font-weight: 600; }
 .ed-footnote textarea {
   color: var(--ink);
   font: inherit;
