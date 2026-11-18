@@ -863,6 +863,9 @@ onMounted(async () => {
             <router-link :to="`/song/${s.id}`" class="song-row" @click="noteOpenFrom('fav')">
               <span class="no">{{ s.number != null ? s.number : '–' }}</span>
               <span class="ttl">{{ s.title_th }}</span>
+              <span v-if="langNames(s)" class="lang" :aria-label="'ภาษา ' + langNames(s)" :title="langNames(s)"
+                ><span class="lang-full" aria-hidden="true">{{ langNames(s) }}</span
+                ><span class="lang-short" aria-hidden="true">{{ langNames(s, true) }}</span></span>
               <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
             </router-link>
           </div>
@@ -887,6 +890,10 @@ onMounted(async () => {
           <router-link :to="`/song/${s.id}`" class="song-row" @click="noteOpenFrom('fav')">
             <span class="no">{{ s.number != null ? s.number : '–' }}</span>
             <span class="ttl">{{ s.title_th }}</span>
+            <!-- พี่เอม 18 พ.ย. 2569 — the same language label as a row in a book (ใบ 158) -->
+            <span v-if="langNames(s)" class="lang" :aria-label="'ภาษา ' + langNames(s)" :title="langNames(s)"
+              ><span class="lang-full" aria-hidden="true">{{ langNames(s) }}</span
+              ><span class="lang-short" aria-hidden="true">{{ langNames(s, true) }}</span></span>
             <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
           </router-link>
         </div>
