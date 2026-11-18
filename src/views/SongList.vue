@@ -5,7 +5,7 @@ import { supabase } from '../supabase.js'
 import { fetchAllRows } from '../lib/fetchAllRows.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { filterSongs, searchSnippet, normalize } from '../lib/songSearch.js'
-import { lyricSetName, songLangs, LANG_LABEL } from '../lib/songModel.js'
+import { lyricSetName } from '../lib/songModel.js'
 import { songRefLabels } from '../lib/bookCodes.js'
 import {
   orderedBooks,
@@ -30,6 +30,8 @@ import { siteRoot } from '../lib/share.js'
 import InstallCard from '../components/InstallCard.vue'
 import { SITE_NAME } from '../lib/songName.js'
 import FavStar from '../components/FavStar.vue'
+import SongRow from '../components/SongRow.vue'
+import { songLangNames } from '../lib/songLangNames.js'
 import { trackSearch, trackSearchSelect, noteOpenFrom } from '../lib/analytics.js'
 
 const router = useRouter()
@@ -159,17 +161,8 @@ const themes = computed(() =>
 
 // a song is "flagged" when DA's review_flags array has entries (repeat / lint / words).
 const FLAG_LABEL = { repeat: 'ตั้งจุดซ้ำ (repeat)', lint: 'โน้ตอาจผิด (lint)', words: 'เนื้อ≠โน้ต' }
-// พี่เอม 17 พ.ย. 2569 — "ไทย · English · 中文" when a song has more than one language, '' otherwise.
-// Kept per content object so a long list does not re-scan every song on each render.
-const LANG_SHORT = { th: 'ไทย', en: 'EN', zh: '中' }
-const langCache = new WeakMap()
-function langNames(s, short = false) {
-  const c = s && s.content
-  if (!c || typeof c !== 'object') return ''
-  if (!langCache.has(c)) langCache.set(c, songLangs(c))
-  const has = langCache.get(c)
-  return has.length > 1 ? has.map((l) => (short ? LANG_SHORT : LANG_LABEL)[l]).join(' · ') : ''
-}
+// the language label lives in ONE place (lib/songLangNames.js) — the card and every row read it
+const langNames = songLangNames
 function flagCount(s) {
   return Array.isArray(s.review_flags) ? s.review_flags.length : 0
 }
@@ -788,42 +781,8 @@ onMounted(async () => {
         </div>
       </div>
       <div class="song-list">
-        <!-- ② ปุ่ม ✏️ ต้องอยู่ "ข้างนอก" ลิงก์ ไม่ใช่ข้างใน — ปุ่มซ้อนในลิงก์เป็นโครงที่ผิดกติกา
-             (ตัวช่วยอ่านจอจะประกาศซ้อนกัน และการกดจะไปโดนลิงก์ด้วย) · G ท้วงข้อนี้ไว้รอบก่อน
-             จึงห่อทั้งคู่ด้วย .song-row-wrap แล้ววางลิงก์กับปุ่มเป็นพี่น้องกัน -->
-        <div v-for="s in inBook" :key="s.id" class="song-row-wrap has-star">
-          <FavStar :id="s.id" :title="s.title_th" class="in-card" />
-          <router-link :to="`/song/${s.id}`" class="song-row" @click="noteOpenFrom('book')">
-            <span class="no">{{ s.number != null ? s.number : '–' }}</span>
-            <span class="ttl">{{ s.title_th }}</span>
-            <span v-if="showVerifiedBadge(s, loggedIn)" class="badge ok row-status" :title="W.done">✓ {{ W.done }}</span>
-            <span v-else-if="showUnverifiedBadge(s, loggedIn)" class="badge pending row-status" :title="W.unfinished">{{ W.unfinished }}</span>
-            <!-- book_refs = reference tag ("เล่มเล็ก 282"). Kept title-first: shown only where
-                 the row is wide enough (≥640px) so it never crushes the title into a sliver on
-                 a phone. Full list also lives on the search card + the song page. -->
-            <span
-              v-if="songRefLabels(s).length"
-              class="ref"
-              :title="'อ้างอิง: ' + songRefLabels(s).join(' · ')"
-            >{{ songRefLabels(s).join(' · ') }}</span>
-            <!-- a phone row is narrow: short names there so the title is not squeezed (ui-standards: list row) -->
-            <span v-if="langNames(s)" class="lang" :aria-label="'ภาษา ' + langNames(s)" :title="langNames(s)"
-              ><span class="lang-full" aria-hidden="true">{{ langNames(s) }}</span
-              ><span class="lang-short" aria-hidden="true">{{ langNames(s, true) }}</span></span>
-            <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
-          </router-link>
-          <!-- เห็นเฉพาะเมื่อล็อกอิน · เปิดเพลงนี้ในหน้าแก้ไขทันที (ไม่ต้องแวะหน้าฝึกร้อง)
-               ป้ายชื่อบอกชื่อเพลงด้วย เพราะในรายการมีปุ่มนี้เป็นสิบ ๆ ปุ่มที่หน้าตาเหมือนกัน
-               ⛔ ไม่ซ่อนด้วย @media (hover) — เครื่องพี่เอมเป็นจอสัมผัสที่ต่อเมาส์ ปุ่มจะหายไป -->
-          <button
-            v-if="loggedIn"
-            type="button"
-            class="row-edit"
-            :aria-label="`แก้ไข ${s.title_th}`"
-            :title="`แก้ไข ${s.title_th}`"
-            @click="openEdit(s.id)"
-          ><span aria-hidden="true">✏️</span></button>
-        </div>
+        <!-- one row piece for every list of songs (SongRow.vue · พี่เอม 18 พ.ย. 2569) -->
+        <SongRow v-for="s in inBook" :key="s.id" :song="s" :logged-in="loggedIn" from="book" />
       </div>
       <p v-if="inBook.length === 0" class="muted empty">ยังไม่มีเพลงในเล่มนี้</p>
     </section>
@@ -858,17 +817,7 @@ onMounted(async () => {
           </template>
         </div>
         <div class="song-list">
-          <div v-for="s in incomingSongs" :key="s.id" class="song-row-wrap has-star">
-            <FavStar :id="s.id" :title="s.title_th" class="in-card" />
-            <router-link :to="`/song/${s.id}`" class="song-row" @click="noteOpenFrom('fav')">
-              <span class="no">{{ s.number != null ? s.number : '–' }}</span>
-              <span class="ttl">{{ s.title_th }}</span>
-              <span v-if="langNames(s)" class="lang" :aria-label="'ภาษา ' + langNames(s)" :title="langNames(s)"
-                ><span class="lang-full" aria-hidden="true">{{ langNames(s) }}</span
-                ><span class="lang-short" aria-hidden="true">{{ langNames(s, true) }}</span></span>
-              <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
-            </router-link>
-          </div>
+          <SongRow v-for="s in incomingSongs" :key="s.id" :song="s" :logged-in="loggedIn" from="fav" />
         </div>
       </template>
     </section>
@@ -885,18 +834,7 @@ onMounted(async () => {
         เครื่องนี้จำเพลงที่ชอบไว้ไม่ได้ — ดาวที่กดจะหายเมื่อปิดเว็บ
       </p>
       <div class="song-list">
-        <div v-for="s in favList" :key="s.id" class="song-row-wrap has-star">
-          <FavStar :id="s.id" :title="s.title_th" class="in-card" />
-          <router-link :to="`/song/${s.id}`" class="song-row" @click="noteOpenFrom('fav')">
-            <span class="no">{{ s.number != null ? s.number : '–' }}</span>
-            <span class="ttl">{{ s.title_th }}</span>
-            <!-- พี่เอม 18 พ.ย. 2569 — the same language label as a row in a book (ใบ 158) -->
-            <span v-if="langNames(s)" class="lang" :aria-label="'ภาษา ' + langNames(s)" :title="langNames(s)"
-              ><span class="lang-full" aria-hidden="true">{{ langNames(s) }}</span
-              ><span class="lang-short" aria-hidden="true">{{ langNames(s, true) }}</span></span>
-            <span v-if="s.content && s.content.key" class="key">คีย์ {{ s.content.key }}</span>
-          </router-link>
-        </div>
+        <SongRow v-for="s in favList" :key="s.id" :song="s" :logged-in="loggedIn" from="fav" />
       </div>
       <p v-if="favCount === 0" class="muted empty" data-test="fav-empty">
         ยังไม่มีเพลงที่ชอบ กดดาว ☆ ที่เพลงเพื่อเก็บไว้ที่นี่
@@ -1247,33 +1185,13 @@ onMounted(async () => {
    fixed-width centred column (P'Aim). Was fit-content, which shrank the list to its longest
    title and left it out of line with the search box. */
 .song-list { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; }
-/* ห่อ "ลิงก์แถว + ปุ่มแก้ไข" ให้เป็นพี่น้องกัน ⛔ ไม่ใช่ปุ่มซ้อนในลิงก์ (โครงที่ผิดกติกา).
-   ตัวห่อไม่มีหน้าตาของตัวเอง — กรอบและพื้นยังเป็นของ .song-row เหมือนเดิมทุกประการ */
-.song-row-wrap { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-width: 0; }
 /* ★ หน้าชื่อเพลง ในกรอบการ์ด (พี่เอม 5 พ.ย. 2569 — ดาวนอกการ์ดทำให้การ์ดแหว่ง).
    ดาวยังเป็น "พี่น้อง" ของลิงก์ ⛔ ไม่ซ้อนในลิงก์ — แค่วางทับขอบซ้ายของการ์ด แล้วดันเนื้อในการ์ดหลบ
    ⇒ การ์ดกว้างเต็มแถว · กดดาวไม่เปิดเพลง · ปุ่มยัง 44×44 */
 .has-star { position: relative; }
 .has-star > .in-card { position: absolute; left: 2px; top: 5px; z-index: 1; }
-.has-star > .song-row { padding-left: calc(var(--touch-min) + 2px); }
 .has-star > .song-card { padding-left: calc(var(--touch-min) + 4px); }
 .song-card-wrap.has-star > .in-card { top: 8px; }
-.song-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-3);
-  flex: 1 1 auto;
-  min-width: 0;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: var(--sp-3) var(--sp-4);
-  cursor: pointer;
-  color: var(--ink);
-  text-decoration: none;
-  min-height: var(--touch-min);
-}
-.song-row:hover { background: var(--cream-hover); }
 /* แถวงานร่างในรายการ "รอตรวจ" — ใช้ `.song-row` ชุดเดียวกับรายการเพลง แต่เป็น <button>
    (ปลายทางไม่ใช่หน้าเพลง แต่เป็นการเปิดงานร่างใบนั้น) จึงต้องรีเซ็ตค่าที่ปุ่มมีมาเองเท่านั้น */
 .draft-pick {
@@ -1282,95 +1200,6 @@ onMounted(async () => {
   text-align: left;
   cursor: pointer;
 }
-/* ✏️ เปิดเพลงนี้ในหน้าแก้ไขทันที (ล็อกอินแล้วเท่านั้น).
-   กว้าง 44px สูงเท่าแถว — เกินขั้นบังคับ WCAG 2.2 · 2.5.8 (AA = 24px · 44px คือขั้น AAA).
-   ⛔ ไม่ซ่อนด้วย @media (hover: hover) — เครื่องพี่เอมเป็นจอสัมผัสที่ต่อเมาส์แล้วรายงานว่า
-   hover:none ⇒ ปุ่มจะหายไปทั้งที่มีเมาส์อยู่ (บทเรียนเดิมของโปรเจกต์นี้) */
-.row-edit {
-  flex: 0 0 auto;
-  width: var(--touch-min);
-  /* ความสูงคงที่ ⛔ ไม่ยืดตามความสูงแถว — แถวที่ชื่อยาวจะสูงถึง 400px ที่จอ 360px และปุ่มดินสอ
-     ที่สูง 400px อ่านไม่ออกว่าเป็นปุ่ม (G ท้วงข้อเดียวกันนี้ไว้รอบก่อน) · วัดจริงแล้วที่ 360px:
-     ยืดได้ = สูง 84-400px · ล็อกไว้ = 44px ทุกแถว */
-  height: var(--touch-min);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--cream);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--ink);
-  font: inherit;
-  font-size: var(--fs-base);
-  cursor: pointer;
-}
-.row-edit:hover { background: var(--cream-hover); border-color: var(--brand); }
-/* number/key/status hold the FIRST line when a long title wraps (2c) */
-.song-row .no,
-.song-row .ref,
-.song-row .lang,
-.song-row .key,
-.song-row .row-status { align-self: flex-start; }
-.song-row .no {
-  min-width: 2.4em;
-  text-align: right;
-  color: var(--brand);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  flex: 0 0 auto;
-}
-.song-row .ttl {
-  flex: 1 1 auto;
-  min-width: 0;
-  white-space: normal;      /* was nowrap — show the whole name, wrap instead of clip (2c) */
-  overflow-wrap: anywhere;  /* an over-long unbroken token wraps rather than pushing width */
-}
-/* book_refs reference tag ("เล่มเล็ก 282") — the paper-book number people know. Secondary
-   to the title: hidden on phones (would crush the title into a sliver — the ref is on the
-   search card + song page there) and shown from 640px up, where the row is wide enough. */
-.song-row .ref { display: none; }
-.song-row .lang-full { display: none; }
-@media (min-width: 640px) {
-  .song-row .lang-full { display: inline; }
-  .song-row .lang-short { display: none; }
-}
-@media (min-width: 640px) {
-  .song-row .ref {
-    display: inline;
-    flex: 0 4 auto;
-    min-width: 0;
-    max-width: 45%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--muted);
-    font-size: var(--fs-xs);
-  }
-}
-.song-row .lang,
-.song-row .key {
-  color: var(--muted);
-  font-size: var(--fs-xs);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 1px var(--sp-2);
-  white-space: nowrap;
-  flex: 0 0 auto;
-}
-/* ป้ายสถานะในแถวเพลง (ทีมเท่านั้น · v-if loggedIn) — ซ่อนบนจอแคบ แสดงตั้งแต่ 640px ขึ้นไป
-   ตามแบบเดียวกับป้ายอ้างอิง .ref ข้างบน ("แสดงเฉพาะที่แถวกว้างพอ").
-   ⭐ ทำไมต้องซ่อน — วัดจริงที่จอ 360px เล่มใหญ่ 152 เพลง (ความสูงรวมของรายการ):
-      ของเดิมวันนี้ (มีป้าย ไม่มีปุ่ม ✏️)      = 17,744px
-      ใส่ปุ่ม ✏️ เข้าไปโดยยังคงป้ายไว้           = 33,381px  (ยาวขึ้นเกือบเท่าตัว ⛔)
-      ใส่ปุ่ม ✏️ แล้วซ่อนป้ายบนจอแคบ (แบบนี้)  = 14,922px  (สั้นกว่าของเดิม)
-   เหตุ: ปุ่มกินความกว้างแถวไป 52px จาก 336 เหลือ 284 ⇒ ชื่อเพลงตัดบรรทัดถี่ขึ้นมาก.
-   ข้อมูลที่หายไปบนจอแคบยังหาได้: เลข "ยังทำไม่เสร็จ N" ต่อเล่มที่หน้าแรก ซึ่งเป็นสิ่งที่
-   พี่เปาขอไว้ตรง ๆ (บรรทัด 227) และป้ายกลับมาเองตั้งแต่ 640px ขึ้นไป. */
-.song-row .row-status { display: none; }
-@media (min-width: 640px) {
-  .song-row .row-status { display: inline; flex: 0 0 auto; }
-}
-
 /* ---- SEARCH results: reuse the existing card treatment (refine, not rewrite) ---- */
 .song-grid {
   display: grid;
