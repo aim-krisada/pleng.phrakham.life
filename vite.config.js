@@ -7,16 +7,16 @@ import { buildSamplesManifest, manifestText } from './tools/sample-precache.mjs'
 
 // Build stamp: git commit at BUILD time (what is actually deployed, not source
 // HEAD read later) — same principle as phrakham.life2's etl/gen_version.py.
+// The commit only — พี่เอม 18 พ.ย. 2569 took the old "*" (files changed at build time) away:
+// the build server always had some, so every release showed it and it told nobody anything.
 function buildInfo() {
   let commit = 'dev'
-  let dirty = ''
   try {
     commit = execSync('git rev-parse --short HEAD').toString().trim()
-    dirty = execSync('git status --porcelain').toString().trim() ? '*' : ''
   } catch {
     /* no git (e.g. tarball build) — keep 'dev' */
   }
-  return { commit: commit + dirty, time: new Date().toISOString() }
+  return { commit, time: new Date().toISOString() }
 }
 
 const info = buildInfo()
