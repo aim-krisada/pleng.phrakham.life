@@ -1,5 +1,5 @@
 <script setup>
-import { footnoteItems, footnoteStarCount, supNum } from '../lib/footnotes.js'
+import { footnoteFree, footnoteMarks, supNum } from '../lib/footnotes.js'
 import { computed, ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { displayChord, transposeKey } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, slurSpans, segmentBeamLink, syllableSlots } from '../lib/notation.js'
@@ -230,12 +230,10 @@ const openKey = computed(() => openingKey(props.content))
 const openMeter = computed(() => openingMeter(props.content))
 // the head line itself (key · meter · อ้างอิง) — lib/songHead.js, shared with ฝึกร้อง (ใบ#144)
 const head = computed(() => songHeadInfo(props.content, props.displayKey, props.bookRefs))
-const footnoteText = computed(() => (typeof props.content?.footnote === 'string' ? props.content.footnote.trim() : ''))
-// ใบ#178 — the words carry `*` marks → the footnote lines print numbered ¹ ² ³ to match them (the marks were
-// already turned into the same numbers by resolveContent). No mark in the song = free text, as typed.
-const footnoteNumbered = computed(() => (footnoteText.value && footnoteStarCount(props.content) > 0
-  ? footnoteItems(props.content.footnote).map((t, i) => ({ n: supNum(i + 1), t }))
-  : null))
+// ใบ#178 — หมายเหตุใต้เพลง: the notes of the `*` marks in the words, numbered ¹ ² ³ to match them (resolveContent
+// already turned each mark into the same number), then the free text (content.footnote) as typed.
+const footnoteNumbered = computed(() => footnoteMarks(props.content).filter((m) => m.text).map((m) => ({ n: supNum(m.n), t: m.text })))
+const footnoteText = computed(() => footnoteFree(props.content))
 
 function chordText(chord) {
   return displayChord(chord, {
@@ -1084,10 +1082,12 @@ watch(
     </div>
     <!-- หมายเหตุท้ายเพลง (content.footnote) — free text under the song, small and muted like a book's
          footnote, line breaks kept. Prints with the sheet. P'Aim 18 พ.ย. 2569 (relaying พี่เปา). -->
-    <ol v-if="footnoteNumbered" class="song-footnote song-footnote-list">
-      <li v-for="f in footnoteNumbered" :key="f.n"><span class="song-footnote-n">{{ f.n }}</span> {{ f.t }}</li>
-    </ol>
-    <p v-else-if="footnoteText" class="song-footnote">{{ footnoteText }}</p>
+    <div v-if="footnoteNumbered.length || footnoteText" class="song-footnote">
+      <ol v-if="footnoteNumbered.length" class="song-footnote-list">
+        <li v-for="f in footnoteNumbered" :key="f.n"><span class="song-footnote-n">{{ f.n }}</span> {{ f.t }}</li>
+      </ol>
+      <p v-if="footnoteText" class="song-footnote-free">{{ footnoteText }}</p>
+    </div>
   </div>
 </template>
 
@@ -1103,7 +1103,9 @@ watch(
   white-space: pre-line;
   break-inside: avoid;
 }
-.song-footnote-list { list-style: none; padding-left: 0; }
+.song-footnote-list { list-style: none; padding-left: 0; margin: 0; }
+.song-footnote-free { margin: 0; }
+.song-footnote-list + .song-footnote-free { margin-top: 0.4em; }
 .song-footnote-list li { margin: 0.1em 0; }
 
 /* B044 — tighten the note↔lyric vertical gap so a note and its word read as ONE block,
