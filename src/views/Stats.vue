@@ -1,6 +1,8 @@
 <script setup>
 // หน้าสถิติ (ใบ v3/pleng#163 stat.02 · #170 stat.09) — the team sees how the site is used without
-// opening Google Analytics. Team only: logged out, the page shows no numbers at all (AC 3).
+// opening Google Analytics. ใบ v3/pleng#180 (พี่เอม 19 พ.ย. 2569): logged out, anyone sees the public
+// part — ภาพรวม, the top 10 songs, where people are and how they came — so they can see the site is used.
+// The function sends a visitor nothing more (ga-stats PUBLIC_REPORTS); the team cards stay team only.
 //
 // Three sections (AC 1). The Google cards (ภาพรวม · การใช้งานแอป) need a server-side middleman that
 // holds the read key (Security 1) and P'Aim's grant in Google — not built yet, so they say so plainly
@@ -40,25 +42,30 @@ const work = computed(() => (drafts.value ? draftStats(drafts.value, days.value)
 const ga = ref(null) // the bundle, or null while loading / on error
 const gaError = ref('')
 let gaAsk = 0
+async function askGa(body) {
+  try {
+    const res = await supabase.functions.invoke('ga-stats', { body })
+    return { data: res.data, status: res.error ? res.error.context?.status || 500 : 200 }
+  } catch {
+    return { data: null, status: 500 }
+  }
+}
 async function loadGa() {
-  if (!loggedIn.value) return
   const ask = ++gaAsk
   ga.value = null
   gaError.value = ''
-  let status = 0
-  let data = null
-  try {
-    const res = await supabase.functions.invoke('ga-stats', { body: { days: days.value } })
-    data = res.data
-    status = res.error ? res.error.context?.status || 500 : 200
-  } catch {
-    status = 500
-  }
-  if (ask !== gaAsk) return // the range changed while we waited
-  if (status !== 200 || !data?.reports) gaError.value = gaErrorText(status)
-  else ga.value = data
+  // logged out ⇒ the public door; logged in but not on the team (403) ⇒ the public door too
+  let r = loggedIn.value ? await askGa({ days: days.value }) : { status: 403 }
+  if (r.status === 403) r = await askGa({ days: days.value, public: true })
+  if (ask !== gaAsk) return // the range or the login changed while we waited
+  if (r.status !== 200 || !r.data?.reports) gaError.value = gaErrorText(r.status)
+  else ga.value = r.data
 }
-watch([loggedIn, days], ([v]) => v && loadGa(), { immediate: true })
+// the team cards only when the function gave the team answer
+const team = computed(() => loggedIn.value && !!ga.value && !ga.value.public)
+// the team sections (they also hold the drafts card, which does not need Google)
+const teamView = computed(() => loggedIn.value && !ga.value?.public)
+watch([loggedIn, days], () => loadGa(), { immediate: true })
 const ov = computed(() => (ga.value ? overview(ga.value, days.value) : null))
 const fetchedAt = computed(() =>
   ga.value?.fetchedAt
@@ -107,6 +114,11 @@ const cards = computed(() => {
   const b = ga.value
   if (!b) return null
   const m = songs.value
+  if (b.public) {
+    // a visitor sees the 10 most opened songs that are still in the library
+    const top = topSongs(b, m, { prevComparable: !!ov.value?.prevComparable }).filter((r) => !r.removed).slice(0, 10)
+    return { top, regions: regions(b), sources: sources(b) }
+  }
   return {
     top: topSongs(b, m, { prevComparable: !!ov.value?.prevComparable }),
     regions: regions(b),
@@ -127,11 +139,11 @@ const cards = computed(() => {
 })
 
 // พี่เอม 18 พ.ย. 2569 — one line under each section: what to do about these numbers
-const tips = computed(() => advice({ ov: ov.value, cards: cards.value, work: work.value }))
+const tips = computed(() => (team.value ? advice({ ov: ov.value, cards: cards.value, work: work.value }) : {}))
 
 // a short summary to send on (LINE) — พี่เปา reads it without opening this page
 const summary = computed(() =>
-  ov.value || cards.value
+  team.value && (ov.value || cards.value)
     ? summaryText({ days: days.value, label: label.value, ov: ov.value, cards: cards.value, work: work.value, tips: tips.value })
     : '')
 const summaryNote = ref('')
@@ -160,13 +172,10 @@ async function sendSummary() {
   <div class="stats-page">
     <h2 class="st-title">สถิติ</h2>
 
-    <div v-if="!loggedIn" class="card">
-      <p style="margin: 0">หน้านี้สำหรับทีมทำเพลง ต้องเข้าระบบก่อน</p>
-    </div>
-
-    <template v-else>
-      <!-- ใบ v3/pleng#179 — who changed which song, and what -->
-      <router-link to="/changes" class="st-changes" data-test="st-changes">ประวัติการแก้เพลง ⇒ ใครแก้เพลงไหน แก้อะไร</router-link>
+    <!-- ใบ v3/pleng#180 — a visitor sees the public numbers only -->
+    <p v-if="!loggedIn" class="muted st-why" data-test="st-public">ตัวเลขว่ามีคนใช้เว็บเพลงแค่ไหน เพลงไหนคนเปิดมาก และคนใช้อยู่ที่ไหน</p>
+    <!-- ใบ v3/pleng#179 — who changed which song, and what -->
+    <router-link v-if="loggedIn" to="/changes" class="st-changes" data-test="st-changes">ประวัติการแก้เพลง ⇒ ใครแก้เพลงไหน แก้อะไร</router-link>
       <div class="st-head">
         <div class="st-range" role="group" aria-label="ช่วงวันที่">
           <button
@@ -271,6 +280,7 @@ async function sendSummary() {
         </template>
       </section>
 
+    <template v-if="teamView">
       <section class="st-sec">
         <h3>งานเพลง</h3>
         <p class="muted st-why">ใช้ตัดสินว่าสัปดาห์นี้ควรเร่งพิมพ์เพลงใหม่ หรือเคลียร์งานที่รอตรวจก่อน</p>

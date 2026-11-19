@@ -5,7 +5,7 @@
 //   * the signature Google checks is a real RS256 signature by the service account key
 //   * a fresh cached answer is used without asking Google; a Google failure falls back to the old one
 import { describe, it, expect } from 'vitest'
-import { handle, reportList, compact, signedAssertion, fresh, dateRanges, HOST, CACHE_HOURS } from './index.ts'
+import { handle, reportList, compact, signedAssertion, fresh, dateRanges, HOST, CACHE_HOURS, PUBLIC_REPORTS, publicBundle } from './index.ts'
 
 const ENV = {
   SUPABASE_URL: 'https://x.supabase.co',
@@ -62,6 +62,49 @@ describe('who may ask', () => {
   it('answers the browser preflight with CORS headers', async () => {
     const r = await handle(new Request('https://fn', { method: 'OPTIONS' }), ENV, net())
     expect(r.headers.get('Access-Control-Allow-Origin')).toBe('*')
+  })
+})
+
+// ใบ v3/pleng#180 — the public door: no login, and only the public numbers ever leave
+describe('the public door', () => {
+  const full = {
+    days: 28,
+    fetchedAt: '2026-11-19T00:00:00Z',
+    reports: Object.fromEntries(reportList(28).map(([name]) => [name, [[['x'], 1]]])),
+  }
+  full.reports.songs = [[['/song/abc', 'cur'], 5], [['/', 'cur'], 9], [['/song/abc?q=x', 'cur'], 1]]
+  const fresh = { data: full, fetched_at: new Date().toISOString() }
+
+  it('needs no login and never looks up the caller', async () => {
+    const n = net({ user: null, cache: fresh })
+    const r = await handle(post({ days: 28, public: true }, ''), ENV, n)
+    expect(r.status).toBe(200)
+    expect(n.seen.some((u) => u.includes('/auth/v1/user') || u.includes('/profiles'))).toBe(false)
+  })
+
+  it('sends only the public reports — no search words, fixes, buttons, devices', async () => {
+    const r = await handle(post({ days: 28, public: true }, ''), ENV, net({ user: null, cache: fresh }))
+    const b = await r.json()
+    expect(b.public).toBe(true)
+    expect(Object.keys(b.reports).sort()).toEqual([...PUBLIC_REPORTS].sort())
+    for (const hidden of ['searches', 'searchPicks', 'features', 'deadEnds', 'keyChanges', 'openFrom', 'devices', 'featureSongs'])
+      expect(b.reports[hidden]).toBeUndefined()
+    expect(b.reports.songs).toEqual([[['/song/abc', 'cur'], 5]]) // song pages only
+  })
+
+  it('the team door still answers in full', async () => {
+    const r = await handle(post({ days: 28 }), ENV, net({ cache: fresh }))
+    expect(Object.keys((await r.json()).reports)).toContain('searches')
+  })
+
+  it('a stale answer stays marked stale on the public door', () => {
+    expect(publicBundle({ ...full, stale: true }).stale).toBe(true)
+    expect(publicBundle(full).stale).toBeUndefined()
+  })
+
+  it('public: "yes" (not true) is the team door', async () => {
+    const r = await handle(post({ days: 28, public: 'yes' }, ''), ENV, net({ user: null }))
+    expect(r.status).toBe(401)
   })
 })
 

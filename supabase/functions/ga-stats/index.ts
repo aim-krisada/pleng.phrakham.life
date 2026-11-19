@@ -8,6 +8,11 @@
 // ONE FILE, NO IMPORTS on purpose: P'Aim pastes it into Supabase ▸ Edge Functions ▸ Deploy a new
 // function ▸ Via Editor. The pure helpers are exported so the repo tests (ga-stats.test.js) run them.
 //
+// PUBLIC NUMBERS (ใบ v3/pleng#180, พี่เอม 19 พ.ย. 2569): a call with { public: true } needs no login and
+// gets only PUBLIC_REPORTS — how many people, the top songs, where they are and how they came. Search
+// words, the songs that need fixing, buttons, devices and the team's work never leave this function on
+// that door: they are cut here, not just hidden on the page.
+//
 // SECRETS (Supabase ▸ Edge Functions ▸ Secrets):
 //   GA_PROPERTY_ID — the numeric property id (Admin ▸ Property details), not the G-… measurement id
 //   GA_SA_KEY      — the whole JSON key file of the service account that has Viewer on the property
@@ -61,6 +66,17 @@ export function reportList(days) {
     ['devices', r(['deviceCategory', 'operatingSystem', ce('display_mode')], 'activeUsers', onHost)], // stat.13
     ['featureSongs', r([ce('feature'), ce('song_id')], 'eventCount', onEvent('feature_use'), [cur], 500)], // พี่เอม 18 พ.ย. 2569 — which song a star / English switch was for
   ]
+}
+
+// the reports anyone may see (ใบ v3/pleng#180); `songs` keeps song pages only
+export const PUBLIC_REPORTS = ['totals', 'totalsByMode', 'daily', 'hours', 'songs', 'regions', 'sources']
+export function publicBundle(bundle) {
+  const reports = {}
+  for (const name of PUBLIC_REPORTS) reports[name] = bundle?.reports?.[name] || []
+  reports.songs = reports.songs.filter(([d]) => /^\/song\/[^/?#]+$/.test(String(d?.[0] || '')))
+  const out = { days: bundle?.days, fetchedAt: bundle?.fetchedAt, public: true, reports }
+  if (bundle?.stale) out.stale = true
+  return out
 }
 
 // Google's rows → [[...dimension values], number]; a multi-range report ends each row with its range name
@@ -118,7 +134,7 @@ export async function fetchBundle(days, { propertyId, key }) {
 
 // ── the HTTP door ─────────────────────────────────────────────────────────────────────────────
 export const CORS = {
-  'Access-Control-Allow-Origin': '*', // the answer is gated by the caller's login, not by origin
+  'Access-Control-Allow-Origin': '*', // the team answer is gated by the caller's login, not by origin
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
@@ -133,21 +149,26 @@ export async function handle(req, env, net = fetch) {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   const { SUPABASE_URL: url, SUPABASE_ANON_KEY: anon, SUPABASE_SERVICE_ROLE_KEY: service } = env
   const auth = req.headers.get('Authorization') || ''
-
-  // 1. who is asking — a real logged-in user (the anon key alone is not a user)
-  const who = await net(`${url}/auth/v1/user`, { headers: { Authorization: auth, apikey: anon } })
-  if (!who.ok) return reply(401, { error: 'login_required' })
-  const uid = (await who.json())?.id
-  if (!uid) return reply(401, { error: 'login_required' })
-
-  // 2. on the team — has a profiles row (db/002)
   const svc = { apikey: service, Authorization: 'Bearer ' + service }
-  const prof = await net(`${url}/rest/v1/profiles?id=eq.${uid}&select=id`, { headers: svc })
-  if (!prof.ok || !(await prof.json()).length) return reply(403, { error: 'team_only' })
+  let ask = {}
+  try { ask = (await req.json()) || {} } catch { /* no body = 28 days, team door */ }
+  const pub = ask.public === true
+
+  if (!pub) {
+    // 1. who is asking — a real logged-in user (the anon key alone is not a user)
+    const who = await net(`${url}/auth/v1/user`, { headers: { Authorization: auth, apikey: anon } })
+    if (!who.ok) return reply(401, { error: 'login_required' })
+    const uid = (await who.json())?.id
+    if (!uid) return reply(401, { error: 'login_required' })
+
+    // 2. on the team — has a profiles row (db/002)
+    const prof = await net(`${url}/rest/v1/profiles?id=eq.${uid}&select=id`, { headers: svc })
+    if (!prof.ok || !(await prof.json()).length) return reply(403, { error: 'team_only' })
+  }
+  const answer = (status, body) => reply(status, pub && status === 200 ? publicBundle(body) : body)
 
   // 3. which range
-  let days = 28
-  try { days = Number((await req.json())?.days) || 28 } catch { /* no body = 28 */ }
+  const days = Number(ask.days) || 28
   if (!RANGES.includes(days)) return reply(400, { error: 'bad_range' })
 
   if (!env.GA_PROPERTY_ID || !env.GA_SA_KEY) return reply(503, { error: 'not_configured' })
@@ -155,7 +176,7 @@ export async function handle(req, env, net = fetch) {
   // 4. cache first
   const cached = await net(`${url}/rest/v1/stats_cache?days=eq.${days}&select=data,fetched_at`, { headers: svc })
   const row = cached.ok ? (await cached.json())[0] : null
-  if (fresh(row)) return reply(200, row.data)
+  if (fresh(row)) return answer(200, row.data)
 
   // 5. ask Google, keep the answer
   let bundle
@@ -163,7 +184,7 @@ export async function handle(req, env, net = fetch) {
     bundle = await fetchBundle(days, { propertyId: env.GA_PROPERTY_ID, key: JSON.parse(env.GA_SA_KEY) })
   } catch (e) {
     console.error(e)
-    if (row) return reply(200, { ...row.data, stale: true }) // an older answer beats none
+    if (row) return answer(200, { ...row.data, stale: true }) // an older answer beats none
     return reply(502, { error: 'google_failed' })
   }
   await net(`${url}/rest/v1/stats_cache`, {
@@ -171,7 +192,7 @@ export async function handle(req, env, net = fetch) {
     headers: { ...svc, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
     body: JSON.stringify({ days, data: bundle, fetched_at: bundle.fetchedAt }),
   })
-  return reply(200, bundle)
+  return answer(200, bundle)
 }
 
 // Deno only — the repo tests import this file under Node and never start a server
