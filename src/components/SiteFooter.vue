@@ -11,7 +11,9 @@ const year = d.getFullYear()
   <footer class="site-footer no-print">
     <div>
       © {{ year }} เพลง.พระคำ.ชีวิต · pleng.phrakham.life ·
-      <router-link to="/about">ซอฟต์แวร์: GNU GPL v3</router-link>
+      <router-link to="/about">ซอฟต์แวร์: GNU GPL v3</router-link> ·
+      <!-- ใบ v3/pleng#180 — anyone can see how much the site is used -->
+      <router-link to="/stats" data-test="footer-stats">สถิติการใช้งาน</router-link>
     </div>
     <div class="pk-build">{{ stamp }}</div>
   </footer>

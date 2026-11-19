@@ -26,13 +26,17 @@ import Stats from './Stats.vue'
 import { session, profile } from '../store.js'
 
 const ago = (n) => new Date(Date.now() - n * 86400000).toISOString()
+let mounted = null // unmounted before each test: a page left mounted would ask again when the login changes
 const mountIt = async () => {
   const w = mount(Stats, { global: { stubs: { RouterLink: RouterLinkStub } } })
+  mounted = w
   await flushPromises()
   return w
 }
 
 beforeEach(() => {
+  if (mounted) mounted.unmount()
+  mounted = null
   session.value = null
   profile.value = null
   answer.value = { data: [], error: null }
@@ -42,9 +46,17 @@ beforeEach(() => {
 })
 
 describe('Google numbers (ใบ v3/pleng#164)', () => {
-  it('logged out: the function is never called', async () => {
+  // ใบ v3/pleng#180 — a visitor asks the public door only
+  it('logged out: asks the public door, never the team one', async () => {
     await mountIt()
-    expect(invoked).toHaveLength(0)
+    expect(invoked).toEqual([['ga-stats', { body: { days: 28, public: true } }]])
+  })
+
+  it('logged in but not on the team (403): falls back to the public door', async () => {
+    session.value = { user: { id: 'me' } }
+    gaAnswer.value = { data: null, error: { context: { status: 403 } } }
+    await mountIt()
+    expect(invoked.map((x) => x[1].body)).toEqual([{ days: 28 }, { days: 28, public: true }])
   })
 
   it('asks ga-stats for the chosen range, again when it changes', async () => {
@@ -133,11 +145,39 @@ describe('the other cards (ใบ v3/pleng#165–#174)', () => {
 })
 
 describe('หน้าสถิติ', () => {
-  it('logged out: no numbers, no sections', async () => {
+  // ใบ v3/pleng#180 — logged out: ภาพรวม only (top songs · where · how they came), no team sections
+  it('logged out: the public part only', async () => {
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }).replace(/-/g, '')
+    songRows.value = Array.from({ length: 12 }, (_, i) => ({ id: 's' + i, number: i + 1, title_th: 'เพลง ' + i }))
+    gaAnswer.value = {
+      data: {
+        public: true,
+        fetchedAt: new Date().toISOString(),
+        reports: {
+          totals: [[['cur'], 40], [['prev'], 0]],
+          totalsByMode: [[['web', 'cur'], 40]],
+          daily: [[[today, 'web'], 40]],
+          hours: [[['20'], 40]],
+          songs: [...Array.from({ length: 12 }, (_, i) => [['/song/s' + i, 'cur'], 50 - i]), [['/song/gone', 'cur'], 99]],
+          regions: [[['Thailand', 'Chiang Mai'], 30]],
+          sources: [[['line', 'referral'], 10]],
+        },
+      },
+      error: null,
+    }
     const w = await mountIt()
-    expect(w.text()).toContain('ต้องเข้าระบบก่อน')
+    expect(w.find('[data-test="st-public"]').exists()).toBe(true)
+    expect(w.find('.st-range').exists()).toBe(true)
+    expect(w.findAll('.st-sec h3').map((h) => h.text())).toEqual(['ภาพรวม'])
+    expect(w.find('.st-overview').exists()).toBe(true)
+    const top = w.findAll('.st-top li')
+    expect(top).toHaveLength(10) // 10, and a removed song is left out
+    expect(w.find('.st-top').text()).not.toContain('ลบแล้ว')
+    expect(w.find('.st-where').text()).toContain('เชียงใหม่')
     expect(w.find('.st-drafts').exists()).toBe(false)
-    expect(w.find('.st-range').exists()).toBe(false)
+    expect(w.find('[data-test="st-summary"]').exists()).toBe(false)
+    expect(w.find('[data-test="st-changes"]').exists()).toBe(false)
+    expect(w.find('[data-test="tip-overview"]').exists()).toBe(false)
   })
 
   it('logged in: 4 sections, the range line, and the consent note', async () => {
