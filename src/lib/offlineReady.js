@@ -29,6 +29,7 @@
 import { ref, computed, watch } from 'vue'
 import { readCatalog, catalogSavedAt, catalogSaveFailed } from './offlineSongs.js'
 import { isStandalone } from './pwaInstall.js'
+import { partsOf, PARTS, GROUPS, editGroup } from './changeLog.js'
 
 // ---- the decision (pure — unit-tested) --------------------------------------------------------
 // state: 'none'          — nothing to say (dev build / browser without service workers)
@@ -76,10 +77,10 @@ export function statusText(s, news = null) {
   switch (s && s.state) {
     case 'ready': {
       if (news && news.changed) {
-        const parts = ['✓ อัปเดตเพลงให้แล้วอัตโนมัติ']
-        if (news.added) parts.push(`เพิ่ม ${news.added} เพลง`)
-        if (news.edited) parts.push(`แก้ ${news.edited} เพลง`)
-        if (news.removed) parts.push(`ลบ ${news.removed} เพลง`)
+        // one count per kind of change, most important first (ใบ #179) — never one lump "แก้ N"
+        const parts = ['✓ อัปเดตเพลงแล้ว']
+        for (const g of GROUPS) if (news[g.key]) parts.push(`${g.label} ${news[g.key]} เพลง`)
+        if (news.removed) parts.push(`ถอนออก ${news.removed} เพลง`)
         parts.push(`พร้อมใช้แบบไม่มีเน็ต ${s.count} เพลง`, shortDate(s.at))
         return { tone: 'ok', text: parts.join(' · ') }
       }
@@ -129,9 +130,33 @@ export function songPrint(row) {
   return fnv1a(JSON.stringify(PRINT_FIELDS.map((f) => (row && row[f] !== undefined ? row[f] : null))))
 }
 
+// The print of one song = its whole-song hash, then ':' and one short hash per part
+// (changeLog.js PARTS), e.g. "1x9k2:a1.b2.c3.d4.e5" — ใบ v3/pleng#179, so the "ดู" list can say
+// WHICH part changed. A device that closed the line before #179 kept the whole-song hash only; the
+// part before ':' is the same hash, so the counts still compare right (the part names then show as
+// "แก้ไข" without a part).
+export function songPrintWithParts(row) {
+  const parts = partsOf(row)
+  return songPrint(row) + ':' + PARTS.map((p) => fnv1a(parts[p.key])).join('.')
+}
+export const printHead = (p) => String(p ?? '').split(':')[0]
+function printParts(p) {
+  const tail = String(p ?? '').split(':')[1]
+  return tail ? tail.split('.') : null
+}
+
 export function songPrints(rows) {
   const out = {}
-  for (const r of Array.isArray(rows) ? rows : []) if (r && r.id != null) out[String(r.id)] = songPrint(r)
+  for (const r of Array.isArray(rows) ? rows : []) if (r && r.id != null) out[String(r.id)] = songPrintWithParts(r)
+  return out
+}
+
+// { id: { number, title } } — what the "ดู" list needs to name a song.
+export function songTitles(rows) {
+  const out = {}
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (r && r.id != null) out[String(r.id)] = { number: r.number ?? null, title: r.title_th || r.title_en || '' }
+  }
   return out
 }
 
@@ -144,19 +169,51 @@ export function diffPrints(before, now) {
   let removed = 0
   for (const id in b) {
     if (!(id in a)) added++
-    else if (a[id] !== b[id]) edited++
+    else if (printHead(a[id]) !== printHead(b[id])) edited++
   }
   for (const id in a) if (!(id in b)) removed++
   return { added, edited, removed }
+}
+
+// The "ดู" list (ใบ v3/pleng#179): the songs behind those counts, by song number.
+// Each item: { id, number, title, kind: "added" | "edited",
+// parts: ['เนื้อร้อง', …] } — parts is [] when the old print had no parts (closed before #179).
+// Removed songs are gone from this device, so only their count is returned.
+export function newsList(before, now, titles) {
+  const a = before || {}
+  const b = now || {}
+  const t = titles || {}
+  const items = []
+  for (const id in b) {
+    let kind = null
+    let parts = []
+    if (!(id in a)) kind = 'added'
+    else if (printHead(a[id]) !== printHead(b[id])) {
+      kind = 'edited'
+      const pa = printParts(a[id])
+      const pb = printParts(b[id])
+      if (pa && pb) parts = PARTS.filter((p, i) => pa[i] !== pb[i]).map((p) => p.label)
+    }
+    if (kind) {
+      const group = kind === 'added' ? 'added' : editGroup(parts)
+      items.push({ id, number: t[id] ? t[id].number : null, title: t[id] ? t[id].title : '', kind, group, parts })
+    }
+  }
+  const rank = (g) => GROUPS.findIndex((x) => x.key === g)
+  items.sort((x, y) => rank(x.group) - rank(y.group)
+    || (x.number ?? 1e9) - (y.number ?? 1e9) || String(x.title).localeCompare(String(y.title), 'th'))
+  let removed = 0
+  for (const id in a) if (!(id in b)) removed++
+  return { items, removed }
 }
 
 // ---- reading the device (browser only) -----------------------------------------------------------
 const MATCH = { ignoreVary: true }
 
 // The fingerprints of the saved list, worked out once per save (the list is ~3.8 MB).
-let printsFor = { at: -1, prints: null }
+let printsFor = { at: -1, prints: null, titles: null }
 function printsOf(cat) {
-  if (printsFor.at !== cat.at) printsFor = { at: cat.at, prints: songPrints(cat.rows) }
+  if (printsFor.at !== cat.at) printsFor = { at: cat.at, prints: songPrints(cat.rows), titles: songTitles(cat.rows) }
   return printsFor.prints
 }
 
@@ -202,7 +259,7 @@ export async function probeDevice() {
   if (!import.meta.env.PROD) return base // sw.js is registered in production builds only (main.js)
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || typeof caches === 'undefined') return base
   const cat = await readCatalog()
-  const catalog = cat ? { count: cat.rows.length, at: cat.at, prints: printsOf(cat) } : null
+  const catalog = cat ? { count: cat.rows.length, at: cat.at, prints: printsOf(cat), titles: printsFor.titles } : null
   let reg = null
   try { reg = await navigator.serviceWorker.getRegistration() } catch { /* blocked */ }
   const scope = reg ? new URL(reg.scope).pathname : new URL('.', location.href).pathname
@@ -252,6 +309,7 @@ async function askWorkerFill() {
 // saved list differs from them. localStorage may throw (private mode) → hidden for this visit only.
 export const READY_ACK_KEY = 'pleng:ready-line-closed-on'
 export const savedPrints = ref(null) // fingerprints of the list saved on this device now
+export const savedTitles = ref(null) // { id: { number, title } } of that list (ใบ #179)
 function readAck() {
   try {
     const v = JSON.parse(localStorage.getItem(READY_ACK_KEY) || 'null')
@@ -269,13 +327,37 @@ export function dismissReadyLine() {
 }
 
 // { closed, changed, added, edited, removed } — never closed → closed: false.
+// + one count per group (changeLog.js GROUPS: added · main · minor · langs) — ใบ #179.
 export const readyNews = computed(() => {
   if (closedOn.value && savedPrints.value) {
     const d = diffPrints(closedOn.value, savedPrints.value)
-    return { closed: true, changed: d.added + d.edited + d.removed > 0, ...d }
+    const g = { main: 0, minor: 0, langs: 0 }
+    if (d.edited) for (const it of newsList(closedOn.value, savedPrints.value).items) if (it.kind === 'edited') g[it.group]++
+    return { closed: true, changed: d.added + d.edited + d.removed > 0, ...d, ...g }
   }
   const closed = !!closedOn.value || closedThisVisit.value
-  return { closed, changed: false, added: 0, edited: 0, removed: 0 }
+  return { closed, changed: false, added: 0, edited: 0, removed: 0, main: 0, minor: 0, langs: 0 }
+})
+
+// A device that closed the line before ใบ #179 kept whole-song prints only, so it cannot tell WHAT
+// changed. Rather than one more unexplained "แก้ 121 เพลง" (พี่เปา 19 พ.ย. 2569), it starts counting
+// afresh from the list saved now: no line this once, and from then on every change says its kind.
+// (P'Aim chose this, the simplest way, 19 พ.ย. 2569.) The team still sees every change on /changes.
+export function isOldAck(ack) {
+  if (!ack || typeof ack !== 'object') return false
+  for (const id in ack) return !String(ack[id]).includes(':')
+  return false
+}
+function upgradeOldAck() {
+  if (!isOldAck(closedOn.value) || !savedPrints.value) return
+  closedOn.value = savedPrints.value
+  try { localStorage.setItem(READY_ACK_KEY, JSON.stringify(savedPrints.value)) } catch { /* private mode */ }
+}
+
+// The songs behind readyNews, for the "ดู" list (ใบ #179). null when there is nothing to list.
+export const readyNewsList = computed(() => {
+  if (!closedOn.value || !savedPrints.value || !readyNews.value.changed) return null
+  return newsList(closedOn.value, savedPrints.value, savedTitles.value)
 })
 
 let started = false
@@ -319,6 +401,8 @@ export async function refreshOfflineStatus() {
         s = offlineState({ ...d, settled, persistDenied, standalone: isStandalone.value })
       }
       savedPrints.value = (d.catalog && d.catalog.prints) || null
+      savedTitles.value = (d.catalog && d.catalog.titles) || null
+      upgradeOldAck()
       offlineStatus.value = s
       scheduleRetry(s, d)
     } while (again)
@@ -419,6 +503,7 @@ export function _resetOfflineStatus(probeFn, fillFn) {
   probe = probeFn || probeDevice
   offlineStatus.value = { state: 'none' }
   savedPrints.value = null
+  savedTitles.value = null
   closedOn.value = readAck()
   closedThisVisit.value = false
 }

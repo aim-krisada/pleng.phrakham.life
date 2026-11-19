@@ -165,6 +165,8 @@ async function sendSummary() {
     </div>
 
     <template v-else>
+      <!-- ใบ v3/pleng#179 — who changed which song, and what -->
+      <router-link to="/changes" class="st-changes" data-test="st-changes">ประวัติการแก้เพลง ⇒ ใครแก้เพลงไหน แก้อะไร</router-link>
       <div class="st-head">
         <div class="st-range" role="group" aria-label="ช่วงวันที่">
           <button
@@ -451,6 +453,7 @@ async function sendSummary() {
 <style scoped>
 .stats-page { max-width: 820px; margin-inline: auto; padding: 0 16px 32px; }
 .st-title { margin: 8px 0 12px; }
+.st-changes { display: inline-block; margin: 0 0 12px; color: var(--brand, #8b4513); font-weight: 600; }
 .st-head { margin-bottom: 8px; }
 .st-range { display: flex; gap: 8px; flex-wrap: wrap; }
 .st-chip {
