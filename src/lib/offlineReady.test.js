@@ -147,12 +147,14 @@ describe('song fingerprints', () => {
     expect(diffPrints(a, songPrints([ROWS[0]]))).toEqual({ added: 0, edited: 0, removed: 1 })
   })
   it('the "updated" wording leaves out a part whose count is 0', () => {
-    const t = statusText(READY, { closed: true, changed: true, added: 3, edited: 2, removed: 0 })
+    // ใบ #179 — one count per kind, most important first; never one lump "แก้ N"
+    const t = statusText(READY, { closed: true, changed: true, added: 3, edited: 122, removed: 0, main: 2, minor: 0, langs: 120 })
     expect(t.tone).toBe('ok')
-    expect(t.text).toMatch(/^✓ อัปเดตเพลงให้แล้วอัตโนมัติ · เพิ่ม 3 เพลง · แก้ 2 เพลง · พร้อมใช้แบบไม่มีเน็ต 884 เพลง · 8 /)
-    expect(t.text).not.toContain('ลบ')
+    expect(t.text).toMatch(/^✓ อัปเดตเพลงแล้ว · เพลงใหม่ 3 เพลง · แก้โน้ตหรือเนื้อร้อง 2 เพลง · ใส่เนื้ออังกฤษ\/จีน 120 เพลง · พร้อมใช้แบบไม่มีเน็ต 884 เพลง · 8 /)
+    expect(t.text).not.toContain('ถอนออก')
+    expect(t.text).not.toContain('แก้ชื่อ')
     expect(statusText(READY, { closed: true, changed: true, added: 0, edited: 0, removed: 1 }).text)
-      .toMatch(/^✓ อัปเดตเพลงให้แล้วอัตโนมัติ · ลบ 1 เพลง · พร้อมใช้/)
+      .toMatch(/^✓ อัปเดตเพลงแล้ว · ถอนออก 1 เพลง · พร้อมใช้/)
   })
 })
 

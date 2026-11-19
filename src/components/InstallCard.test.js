@@ -87,9 +87,9 @@ describe('InstallCard', () => {
   })
 
   for (const [name, rows, words] of [
-    ['a new song', [...ROWS, { id: 3, number: 3, title_th: 'ใหม่', content: 'ค', category: 'A' }], 'เพิ่ม 1 เพลง'],
-    ['a fixed song', [{ ...ROWS[0], content: 'แก้แล้ว' }, ROWS[1]], 'แก้ 1 เพลง'],
-    ['a removed song', [ROWS[0]], 'ลบ 1 เพลง'],
+    ['a new song', [...ROWS, { id: 3, number: 3, title_th: 'ใหม่', content: 'ค', category: 'A' }], 'เพลงใหม่ 1 เพลง'],
+    ['a fixed song', [{ ...ROWS[0], content: 'แก้แล้ว' }, ROWS[1]], 'แก้โน้ตหรือเนื้อร้อง 1 เพลง'],
+    ['a removed song', [ROWS[0]], 'ถอนออก 1 เพลง'],
   ]) {
     it('closed, then the saved list has ' + name + ' → the line is back: ' + words, async () => {
       isStandalone.value = true
@@ -103,7 +103,7 @@ describe('InstallCard', () => {
       await refreshOfflineStatus()
       await nextTick()
       const t = w.find('[data-test="offline-status"]').text()
-      expect(t).toContain('✓ อัปเดตเพลงให้แล้วอัตโนมัติ')
+      expect(t).toContain('✓ อัปเดตเพลงแล้ว')
       expect(t).toContain(words)
       expect(t).toContain('พร้อมใช้แบบไม่มีเน็ต ' + rows.length + ' เพลง')
       expect(w.find('[data-test="ready-close"]').exists()).toBe(true)
