@@ -176,5 +176,17 @@ function openEdit() {
 @media (min-width: 640px) {
   .song-row .row-status { display: inline; flex: 0 0 auto; }
 }
+/* ป้าย "✓ ตรวจแล้ว" สีเขียว · "ยังทำไม่เสร็จ" สีเทา — ต้องอยู่ที่นี่ ⛔ ไม่ใช่ที่หน้าแรกอย่างเดียว:
+   สีของป้ายในหน้าแรกเป็นแบบ scoped จึงไม่ถึงแถวที่ย้ายมาเป็นชิ้นนี้ (ใบ v3/pleng#158, 18 พ.ย. 2569)
+   ⇒ ป้ายในแถวขึ้นเป็นตัวดำไม่มีพื้น พี่เปาทัก 20 พ.ย. 2569 ว่าอยากได้สีเขียวเหมือนเดิม.
+   สีชุดเดียวกับป้ายบนการ์ดค้นหาในหน้าแรก (.badge.ok / .badge.pending) */
+.song-row .badge {
+  border-radius: 12px;
+  padding: 1px var(--sp-2);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.song-row .badge.ok { background: #e7f4e9; color: #2e6b3b; border: 1px solid #b7ddbf; }
+.song-row .badge.pending { background: #eef0f2; color: #4a4f57; border: 1px solid #cfd4da; }
 
 </style>

@@ -40,4 +40,16 @@ describe('one song row for every list', () => {
   it('a Thai-only song has no language label', () => {
     expect(row(song()).find('.lang').exists()).toBe(false)
   })
+
+  // พี่เปา 20 พ.ย. 2569: ป้าย ✓ ตรวจแล้ว ในแถวเพลงกลายเป็นตัวดำ — สีเขียวอยู่ในหน้าแรกแบบ scoped
+  // จึงไม่ถึงแถวที่ย้ายมาเป็นชิ้นนี้. สีของป้ายต้องอยู่กับแถวเอง
+  it('the ✓ ตรวจแล้ว badge in a row is green, styled by the row itself', () => {
+    const w = row(song(), true)
+    expect(w.find('.badge.ok').text()).toContain('ตรวจแล้ว')
+    const ROW = readFileSync(join(HERE, 'SongRow.vue'), 'utf8')
+    const css = ROW.slice(ROW.indexOf('<style'))
+    expect(css).not.toMatch(/<style[^>]*scoped/)
+    expect(css).toMatch(/\.song-row \.badge\.ok \{[^}]*background: #e7f4e9[^}]*color: #2e6b3b/)
+    expect(css).toMatch(/\.song-row \.badge\.pending \{[^}]*background: #eef0f2/)
+  })
 })
