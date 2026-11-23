@@ -33,6 +33,10 @@ on:
   repository_dispatch:
     types: [v3-delivered]
   workflow_dispatch:
+  # Once a day (03:00 Thai time) so catalog.json (below) never drifts far from the database — pages
+  # ask the database only for songs changed after the file was made (src/lib/catalogSource.js).
+  schedule:
+    - cron: '0 20 * * *'
 
 permissions:
   contents: read
@@ -71,6 +75,13 @@ jobs:
       - run: npm run test:all
         working-directory: live
       - run: npm run build
+        working-directory: live
+      # The public song catalog as a file on GitHub Pages, so readers do not pull the whole list
+      # from Supabase on every visit (free plan quota — พี่เอม 23 พ.ย. 2569, src/lib/catalogSource.js).
+      # continue-on-error: without the file the pages read the database as before; never block a deploy.
+      - name: Save the song catalog beside the site
+        continue-on-error: true
+        run: node tools/build-catalog.mjs dist
         working-directory: live
 
       # ---- frozen reference (/v2/) — from tag `v2-frozen` --------------------------------------

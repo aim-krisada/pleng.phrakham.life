@@ -3,7 +3,7 @@ import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, onBef
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
 import { footnoteMarks, supNum, countStars, entrySig, reconcileNotes, moveLineNotesToWords } from '../lib/footnotes.js'
-import { fetchAllRows } from '../lib/fetchAllRows.js'
+import { fetchCatalog } from '../lib/catalogSource.js'
 import { KEYS, TIME_SIGNATURES, chordOptions, parseChord, normalizeChord, chordError } from '../lib/chords.js'
 import { parseNotes, beatCount, expectedBeats, syllableSlots, noteBoxKinds, suggestHoldForBar, storedHold, holdValue, HOLD_STEP, HOLD_MIN, HOLD_DEFAULT, snapHalf, slurSpans } from '../lib/notation.js'
 import { planArcs, makeHalfHider } from '../lib/slurArcs.js'
@@ -2384,16 +2384,14 @@ function unlinkRow(i) {
 // ---------- song list / picker ----------
 const songList = ref([])
 
+// The team's list holds unchecked songs; a reader's does not. Sign-in lands after mount, so re-read then.
+watch(loggedIn, (v) => { if (v) loadSongList() })
+
 async function loadSongList() {
-  // fetchAllRows: the API stops at 1000 rows; signed in, the team sees more than that.
-  const { data } = await fetchAllRows(() =>
-    supabase
-      .from('songs')
-      .select('id, number, title_th, title_en, content, verified, category, theme')
-      .is('deleted_at', null) // db/012: trashed songs never appear in the picker/list
-      .order('number', { ascending: true })
-      .order('id', { ascending: true }),
-  )
+  // Readers: the catalog file on GitHub + only what changed since; the team: the full list from the
+  // database, unchecked songs included (lib/catalogSource.js — Supabase quota, 23 พ.ย. 2569).
+  // Every song page mounts this editor, so this read used to pull the whole list on every visit.
+  const { data } = await fetchCatalog({ signedIn: loggedIn.value })
   // B131: the DB `.order` leaves the blank-number rows unordered, so the picker could list the
   // same songs differently on two loads. sortSongs (songSort.js) is the app's one ordering rule.
   songList.value = sortSongs(data ?? [])

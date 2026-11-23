@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { fetchAllRows } from '../lib/fetchAllRows.js'
+import { fetchCatalog } from '../lib/catalogSource.js'
 import { SAMPLE_SONGS } from '../data/sample-songs.js'
 import { filterSongs, searchSnippet, normalize } from '../lib/songSearch.js'
 import { lyricSetName } from '../lib/songModel.js'
@@ -23,7 +23,7 @@ import { PICKABLE_SORTS, DESC, dirLabel, flipDir } from '../lib/songSort.js'
 import { bookSortState, chooseSort } from '../lib/sortPref.js'
 import { WORK_WORDS } from '../i18n/workWords.js'
 import { session, canApprove, pageShare } from '../store.js'
-import { CATALOG_COLUMNS, readCatalog, saveCatalog, offlineSince, savedDateLabel } from '../lib/offlineSongs.js'
+import { readCatalog, saveCatalog, offlineSince, savedDateLabel } from '../lib/offlineSongs.js'
 import { favorites, favoriteSongs, storageOk, addFavorites } from '../lib/favorites.js'
 import { favListLink, parseFavParam } from '../lib/favLink.js'
 import { siteRoot } from '../lib/share.js'
@@ -509,18 +509,9 @@ async function loadSongs() {
     offlineSince.value = cached.at
     return
   }
-  // fetchAllRows: the API stops at 1000 rows; signed in, the team sees more than that.
-  const { data, error } = await fetchAllRows(() => {
-    let q = supabase
-      .from('songs')
-      .select(CATALOG_COLUMNS)
-      .is('deleted_at', null) // db/012: trashed songs never show in the catalog
-      .order('number', { ascending: true })
-      .order('id', { ascending: true }) // a total order, so pages never overlap or skip
-    // A copy is already on screen → give up at the first failure instead of retrying ~7 s.
-    if (cached) q = q.retry(false)
-    return q
-  })
+  // Readers get the list from the catalog file on GitHub plus only what changed since; the team
+  // reads the full list from the database (lib/catalogSource.js — Supabase quota, 23 พ.ย. 2569).
+  const { data, error } = await fetchCatalog({ signedIn: loggedIn.value, quick: !!cached })
   if (!error && data && data.length) {
     dbError.value = false
     offlineSince.value = 0
