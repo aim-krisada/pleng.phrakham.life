@@ -6,7 +6,7 @@
 // From 23 ธ.ค. 2569 going past the limit gets the site restricted, so the catalog had to move off
 // the database for the people who only read songs.
 //
-// HOW: at every deploy (`npm run build`) tools/build-catalog.mjs saves the catalog as
+// HOW: at every deploy and every night (`npm run build`, deploy.yml) tools/build-catalog.mjs saves the catalog as
 // `catalog.json` beside the site on GitHub Pages, which has no such quota. A reader's page:
 //   1. reads that file from GitHub,
 //   2. asks the database only for songs changed AFTER the file was made, plus a count of songs

@@ -33,6 +33,12 @@ on:
   repository_dispatch:
     types: [v3-delivered]
   workflow_dispatch:
+  # Every night at 03:00 Thai time, so the song catalog file (catalog.json, written by `npm run build`)
+  # stays fresh even on days nothing is merged. Pages ask Supabase only for songs changed after the
+  # file was made (src/lib/catalogSource.js), so a fresh file keeps that question tiny — Supabase
+  # free plan quota, พี่เอม 23 พ.ย. 2569.
+  schedule:
+    - cron: '0 20 * * *'
 
 permissions:
   contents: read
