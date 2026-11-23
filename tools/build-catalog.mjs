@@ -1,8 +1,10 @@
 // Save the public song catalog as dist/catalog.json, so readers get it from GitHub Pages instead of
 // the database (Supabase free plan quota — see src/lib/catalogSource.js for the whole story).
 //
-// Runs in deploy.yml after `npm run build`, at every deploy and once a day. Uses the site's own
-// publishable key, so it sees exactly what a visitor who is not signed in sees: checked songs only.
+// Runs as the last part of `npm run build`, so every deploy (deploy.yml) ships a fresh file. Uses the
+// site's own publishable key, so it sees exactly what a visitor who is not signed in sees: checked
+// songs only. It NEVER fails the build: without the file the pages simply read the database as before.
+// (It is not in deploy.yml itself because the AI account's token may not edit workflow files.)
 //
 //   node tools/build-catalog.mjs [outDir=dist]
 import { writeFileSync, readFileSync } from 'node:fs'
@@ -15,6 +17,7 @@ const URL_ = src.match(/SUPABASE_URL\s*=\s*'([^']+)'/)?.[1]
 const KEY = src.match(/SUPABASE_KEY\s*=\s*'([^']+)'/)?.[1]
 const COLS = readFileSync(new URL('../src/lib/offlineSongs.js', import.meta.url), 'utf8')
   .match(/CATALOG_COLUMNS\s*=\s*\n?\s*'([^']+)'/)?.[1]
+try {
 if (!URL_ || !KEY || !COLS) throw new Error('cannot read the Supabase URL/key or CATALOG_COLUMNS')
 
 const PAGE = 1000
@@ -39,3 +42,6 @@ const out = pub.map(({ updated_at, ...r }) => r)
 const body = JSON.stringify({ v: 1, at, count: out.length, rows: out })
 writeFileSync(join(outDir, 'catalog.json'), body)
 console.log(`catalog.json: ${out.length} songs, newest change ${at}, ${(body.length / 1e6).toFixed(2)} MB`)
+} catch (e) {
+  console.warn('catalog.json NOT written — pages will read the database instead:', e.message)
+}
