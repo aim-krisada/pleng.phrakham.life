@@ -8,9 +8,9 @@ import { ref, computed, watch, watchEffect, onMounted, onUnmounted, nextTick } f
 import { pageBreaks } from '../lib/printPages.js'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase.js'
-import { fetchAllRows } from '../lib/fetchAllRows.js'
+import { fetchCatalog } from '../lib/catalogSource.js'
 import { migrateToV2, resolveContent, lyricSetName, inLyricSet, songLangs, shownLangs, readerContent, langMarks } from '../lib/songModel.js'
-import { CATALOG_COLUMNS, readCatalog, readSong, saveCatalog, isNetworkFailure } from '../lib/offlineSongs.js'
+import { readCatalog, readSong, saveCatalog, isNetworkFailure } from '../lib/offlineSongs.js'
 import { songBasename } from '../lib/songName.js'
 import { loadBookPhrases, bookPhraseMap, bookPhraseNotice } from '../lib/bookPhrases.js'
 import { stopPlayback } from '../lib/midi.js'
@@ -618,17 +618,8 @@ onUnmounted(() => clearTimeout(sideSheetTimer))
 async function refreshCatalog() {
   const cached = await readCatalog()
   if (cached && navigator.onLine === false) return
-  // fetchAllRows: the API stops at 1000 rows; a half catalog must never be saved offline.
-  const { data } = await fetchAllRows(() => {
-    let q = supabase
-      .from('songs')
-      .select(CATALOG_COLUMNS) // the same columns as the home page, so this fills the same offline copy
-      .is('deleted_at', null) // db/012: trashed songs are never saved
-      .order('number', { ascending: true })
-      .order('id', { ascending: true })
-    if (cached) q = q.retry(false)
-    return q
-  })
+  // the catalog file on GitHub + only what changed since (lib/catalogSource.js — Supabase quota)
+  const { data } = await fetchCatalog({ quick: !!cached })
   if (data && data.length) saveCatalog(data)
 }
 // A blank editor: remount EditorMode (nonce) so it resets cleanly, drop the loaded song, switch to แก้ไข.

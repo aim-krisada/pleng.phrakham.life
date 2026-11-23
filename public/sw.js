@@ -223,6 +223,10 @@ self.addEventListener('fetch', (event) => {
   if (!url.pathname.startsWith(ROOT)) return
   if (ROOT === '/' && url.pathname.startsWith('/v2/')) return
 
+  // The song catalog file (lib/catalogSource.js) changes every day: always from the network. Offline,
+  // the pages fall back to their own saved copy (lib/offlineSongs.js), not to this cache.
+  if (url.pathname === ROOT + 'catalog.json') return
+
   if (url.pathname.startsWith(SAMPLES_PATH)) {
     event.respondWith((async () => {
       const cached = await caches.match(req, MATCH)
