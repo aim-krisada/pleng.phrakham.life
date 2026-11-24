@@ -754,6 +754,8 @@ onMounted(async () => {
         <span v-if="loggedIn" class="count progress" aria-live="polite">
           ✓ {{ W.done }} {{ bookProgress.verified }} / {{ bookProgress.total }}
         </span>
+        <!-- ใบ v3/pleng#182 — ผู้อนุมัติใส่เลขเพลงทั้งเล่มในหน้าเดียว (views/BookNumbers.vue) -->
+        <router-link v-if="canApprove" :to="`/numbers/${activeBook}`" class="facet-chip book-numbers" data-test="book-numbers">ใส่เลขเพลง</router-link>
         <div class="sort-row">
           <span :id="`sort-label-${activeBook}`" class="sort-label muted">เรียงตาม</span>
           <div class="sort-btns" role="group" :aria-labelledby="`sort-label-${activeBook}`">
@@ -1288,4 +1290,6 @@ onMounted(async () => {
 }
 
 .empty { padding: var(--sp-4) 0; }
+/* ใบ v3/pleng#182 — the ใส่เลขเพลง link is a router-link: no underline, same finger size as the chips */
+.book-numbers { text-decoration: none; display: inline-flex; align-items: center; min-height: 44px; }
 </style>
