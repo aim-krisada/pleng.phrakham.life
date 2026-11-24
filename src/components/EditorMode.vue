@@ -59,7 +59,7 @@ const props = defineProps({
   // then always sits on the sheet (null = the whole song, as the floating window shows it)
   playContent: { type: Object, default: null },
 })
-const emit = defineEmits(['change', 'save', 'dock'])
+const emit = defineEmits(['change', 'save', 'dock', 'from-melody'])
 
 // help-in-context (notation-standard · ทางเสริม ข): the song-maker's standard opens in a NEW
 // tab so in-progress keying is never lost (Tier 0 has no autosave). BASE_URL keeps the hash
@@ -4272,6 +4272,14 @@ function manageUpload() {
 function manageDelete() {
   askDeleteSong()
 }
+// ใบ v3/pleng#183 — สร้างเพลงใหม่จากทำนองนี้: the same melody as a separate, brand-new song with empty word
+// boxes (lib/copyMelody.js says what is kept). Takes the melody as it is on screen. The shell opens it
+// (Studio.startFromMelody) the same way สร้างเพลงใหม่ opens a blank one.
+function manageFromMelody() {
+  openMenu.value = null
+  if (!confirmDiscard('สร้างเพลงใหม่จากทำนองนี้')) return
+  emit('from-melody', { content: previewContent.value, category: meta.category, theme: meta.theme })
+}
 // NOTE: the editor strip itself is the read+edit surface (note boxes + a lyric box under
 // each note, aligned). We tried a separate per-line sheet preview above it (US-D05) but it
 // duplicated the strip and pushed the boxes off-screen — removed per พี่เอม. Full-song
@@ -4400,6 +4408,8 @@ defineExpose({
             <button v-if="isApprover" class="sb-item" role="menuitem" @click="openPanel('trash')"><Icon name="trash-2" /> ถังขยะ</button>
             <!-- ใบ v3/pleng#163 — สถิติ moved to the shared top bar / ☰ (พี่เอม 17 พ.ย. 2569), one place only -->
           </template>
+          <!-- ใบ v3/pleng#183 — the same melody as a new song, words left empty -->
+          <button v-if="editingId" class="sb-item" role="menuitem" data-test="from-melody" @click="manageFromMelody"><Icon name="copy" /> สร้างเพลงใหม่จากทำนองนี้</button>
           <button v-if="isApprover && loggedIn && editingId && !reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="manageDelete"><Icon name="trash-2" /> ลบเพลง</button>
           <!-- ใบ v3/pleng#162 (พี่เปา 14 พ.ย.) — throwing away a draft sent in for review sits where ลบเพลง does -->
           <button v-if="isApprover && loggedIn && reviewingDraft" class="sb-item sb-danger" role="menuitem" @click="deleteDraft(reviewingDraft)"><Icon name="trash-2" /> ลบงานนี้</button>
