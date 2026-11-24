@@ -6,6 +6,7 @@ import NotationStandard from './views/NotationStandard.vue'
 import About from './views/About.vue'
 import Stats from './views/Stats.vue'
 import Changes from './views/Changes.vue'
+import BookNumbers from './views/BookNumbers.vue'
 import { SITE_NAME } from './lib/songName.js'
 
 // Hash history: works on GitHub Pages with zero server config (no 404 fallback needed)
@@ -21,6 +22,7 @@ const router = createRouter({
     { path: '/about', component: About, meta: { title: 'เกี่ยวกับเรา' } },
     { path: '/stats', component: Stats, meta: { title: 'สถิติ' } }, // ใบ v3/pleng#163 — team only, the page itself checks the login
     { path: '/changes', component: Changes, meta: { title: 'ประวัติการแก้เพลง' } }, // ใบ v3/pleng#179 — team only, same
+    { path: '/numbers/:book', component: BookNumbers, meta: { title: 'ใส่เลขเพลง' } }, // ใบ v3/pleng#182 — approvers only, the page itself checks
   ],
   scrollBehavior(to) {
     if (to.hash) return { el: to.hash, top: 70 }
