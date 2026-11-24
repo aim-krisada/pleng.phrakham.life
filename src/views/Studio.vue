@@ -24,6 +24,7 @@ import SongViewer from '../components/SongViewer.vue'
 import SongSheet from '../components/SongSheet.vue'
 import LangToggle from '../components/LangToggle.vue'
 import EditorMode from '../components/EditorMode.vue'
+import { songFromMelody } from '../lib/copyMelody.js'
 import { readViewMode, saveViewMode, VIEW_SHEET } from '../lib/viewMode.js'
 
 const route = useRoute()
@@ -635,6 +636,18 @@ async function startNew() {
   if (route.fullPath !== '/studio') router.push('/studio')
   window.scrollTo({ top: 0 })
 }
+// ใบ v3/pleng#183 — สร้างเพลงใหม่จากทำนองนี้ (from แก้ไข › จัดการ): like startNew, but the new editor opens on the
+// melody of the song that was open, every word box empty. The editor already asked about unsaved work.
+async function startFromMelody(src) {
+  shellMenu.value = null
+  loadedSong.value = songFromMelody(src)
+  liveSong.value = null
+  editorNonce.value++
+  mode.value = 'edit'
+  await nextTick()
+  if (route.fullPath !== '/studio') router.push('/studio')
+  window.scrollTo({ top: 0 })
+}
 // ---------- print (US-06 / US-I3) ----------
 // Just open the print dialog. The filename comes from document.title (set to the song
 // on load, above); the page layout — centered title + running footer — is owned by
@@ -765,6 +778,7 @@ function printSheet() {
         :play-content="showSide ? sideSheetProps?.content : null"
         @change="onChange"
         @save="onSave"
+        @from-melody="startFromMelody"
       />
       <!-- ใบ v3/pleng#148 — the sheet beside แก้ไข on a wide screen: the ก่อนพิมพ์ paper, following every edit -->
       <aside
